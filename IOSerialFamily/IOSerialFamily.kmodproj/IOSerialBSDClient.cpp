@@ -1774,6 +1774,8 @@ iossdcddelay(void *vThis)
     struct tty *tp = &client->map.ftty;
     int   pd_state;	/* PortDevice state */
 
+    boolean_t funnel_state = thread_funnel_set(kernel_flock, TRUE);
+
     if (client->fIsDCDTimer
     && ISSET(tp->t_state, TS_ISOPEN)) { // Check for race
 	pd_state = ((client->fSession->getState() & PD_RS232_S_CAR) != 0);
@@ -1781,6 +1783,8 @@ iossdcddelay(void *vThis)
 	(void) (*linesw[(int) tp->t_line].l_modem)(tp, pd_state);
     }
     client->fIsDCDTimer = false;
+
+    thread_funnel_set(kernel_flock, funnel_state);
 }
 
 void IOSerialBSDClient::
