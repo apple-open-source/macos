@@ -88,44 +88,47 @@ public:
     virtual IOService* probe(IOService *provider, SInt32*);
 
 	// IOAudioDevice subclass
-    virtual bool initHardware(IOService *provider);
+    virtual bool	initHardware(IOService *provider);
         
 protected:    
-    virtual void checkStatus(bool force);
-    static void timerCallback(OSObject *target, IOAudioDevice *device);
-    void setDeviceDetectionActive();
-    void setDeviceDetectionInActive();      
+    virtual void	checkStatus(bool force);
+    static void		timerCallback(OSObject *target, IOAudioDevice *device);
+    void			setDeviceDetectionActive();
+    void			setDeviceDetectionInActive();      
 
-    void 	sndHWInitialize(IOService *provider);
+    void 			sndHWInitialize(IOService *provider);
 	virtual void	sndHWPostDMAEngineInit (IOService *provider);
 
-    UInt32 	sndHWGetInSenseBits(void);
-    UInt32 	sndHWGetRegister(UInt32 regNum);
-    IOReturn   	sndHWSetRegister(UInt32 regNum, UInt32 value);
+    UInt32 			sndHWGetInSenseBits(void);
+    UInt32 			sndHWGetRegister(UInt32 regNum);
+    IOReturn   		sndHWSetRegister(UInt32 regNum, UInt32 value);
 
 public:
-    UInt32	sndHWGetConnectedDevices(void);
-	virtual IOReturn setModemSound(bool state);
+    UInt32				sndHWGetConnectedDevices(void);
+	virtual IOReturn	setModemSound(bool state);
 protected:    
 
 	// activation functions
-    UInt32	sndHWGetActiveOutputExclusive(void);
+    UInt32		sndHWGetActiveOutputExclusive(void);
     IOReturn   	sndHWSetActiveOutputExclusive(UInt32 outputPort );
-    UInt32 	sndHWGetActiveInputExclusive(void);
+    UInt32 		sndHWGetActiveInputExclusive(void);
     IOReturn   	sndHWSetActiveInputExclusive(UInt32 input );
-    UInt32 	sndHWGetProgOutput();    
+    UInt32 		sndHWGetProgOutput();    
     IOReturn   	sndHWSetProgOutput(UInt32 outputBits);
     
     IOReturn sndHWSetSystemInputGain(UInt32 leftGain, UInt32 rightGain);
 	// control function
-    bool   	sndHWGetSystemMute(void);
+    bool   		sndHWGetSystemMute(void);
     IOReturn  	sndHWSetSystemMute(bool mutestate);
-    bool   	sndHWSetSystemVolume(UInt32 leftVolume, UInt32 rightVolume);
+    bool   		sndHWSetSystemVolume(UInt32 leftVolume, UInt32 rightVolume);
     IOReturn   	sndHWSetSystemVolume(UInt32 value);
     IOReturn	sndHWSetPlayThrough(bool playthroughstate);
     
 	// Power Management
-    IOReturn   	sndHWSetPowerState(IOAudioDevicePowerState theState);
+    IOReturn   			sndHWSetPowerState(IOAudioDevicePowerState theState);
+	virtual IOReturn	performDeviceWake ();
+	virtual IOReturn	performDeviceSleep ();
+	virtual IOReturn	performDeviceIdleSleep ();
 
 	// Identification
     UInt32 	sndHWGetType( void );

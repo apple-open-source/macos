@@ -29,6 +29,16 @@
 
 // public
 #import <IOKit/firewire/IOFireWireNub.h>
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+OSDefineMetaClass( IOFireWireNub, IOService )
+OSDefineAbstractStructors(IOFireWireNub, IOService)
+//OSMetaClassDefineReservedUnused(IOFireWireNub, 0);
+OSMetaClassDefineReservedUnused(IOFireWireNub, 1);
+OSMetaClassDefineReservedUnused(IOFireWireNub, 2);
+OSMetaClassDefineReservedUnused(IOFireWireNub, 3);
+
 #import <IOKit/firewire/IOFireWireController.h>
 #import <IOKit/firewire/IOConfigDirectory.h>
 
@@ -41,15 +51,6 @@
 // system
 #import <IOKit/assert.h>
 #import <IOKit/IOMessage.h>
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-
-OSDefineMetaClass( IOFireWireNub, IOService )
-OSDefineAbstractStructors(IOFireWireNub, IOService)
-//OSMetaClassDefineReservedUnused(IOFireWireNub, 0);
-OSMetaClassDefineReservedUnused(IOFireWireNub, 1);
-OSMetaClassDefineReservedUnused(IOFireWireNub, 2);
-OSMetaClassDefineReservedUnused(IOFireWireNub, 3);
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 

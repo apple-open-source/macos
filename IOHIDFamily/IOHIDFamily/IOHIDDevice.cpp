@@ -26,6 +26,8 @@
 #include "IOHIDElement.h"
 #include "IOHIDParserPriv.h"
 #include "IOHIDPointing.h"
+#include "IOHIDKeyboard.h"
+#include "IOHIDConsumer.h"
 
 //===========================================================================
 // IOHIDDevice class
@@ -63,14 +65,11 @@ struct IOHIDReportHandler
 
 // #define DEBUG 1
 #ifdef  DEBUG
-#define DLOG(fmt, args...)  IOLog(fmt, ## args)
+#define DLOG(fmt, args...)  IOLog(fmt, args)
 #else
 #define DLOG(fmt, args...)
 #endif
-            
-#define GetPointingNub(service) \
-            OSDynamicCast(IOHIDPointing, service)
-
+                        
 // *** GAME DEVICE HACK ***
 static SInt32 g3DGameControllerCount = 0;
 // *** END GAME DEVICE HACK ***
@@ -78,38 +77,116 @@ static SInt32 g3DGameControllerCount = 0;
 //---------------------------------------------------------------------------
 // Static helper function that will return a new IOHIDevice depending
 // on the type of HID device.
-static IOHIDevice * CreateIOHIDeviceNub(IOService * owner, IOService * provider)
+static void CreateIOHIDevices(
+                                IOService * owner, 
+                                IOService * provider, 
+                                OSArray *elements, 
+                                IOHIDPointing ** pointingNub, 
+                                IOHIDKeyboard ** keyboardNub, 
+                                IOHIDConsumer ** consumerNub)
 {
-    IOHIDevice 	*nub = 0;
     OSString 	*defaultBehavior;
-    if (owner == NULL || OSDynamicCast(IOHIPointing, provider))
+    
+    if (owner == NULL || 
+        OSDynamicCast(IOHIPointing, provider) || 
+        OSDynamicCast(IOHIKeyboard, provider))
         return  0;
     
     defaultBehavior = OSDynamicCast(OSString, 
                             owner->getProperty("HIDDefaultBehavior"));
-     
-    // Fixing a bug in IOUSBFamily that adds a space after the key
-    if (!defaultBehavior) {
-        defaultBehavior = OSDynamicCast(OSString, 
-                            owner->getProperty("HIDDefaultBehavior "));
-    }
+         
+    if (defaultBehavior) {
     
-    if (defaultBehavior &&
-        defaultBehavior->isEqualTo("Mouse")) {
-                            
-        nub = new IOHIDPointing;
+        OSNumber *primaryUsage = OSDynamicCast(OSNumber, ((provider) ? owner->getProperty(kIOHIDPrimaryUsageKey) : 0));
+        OSNumber *primaryUsagePage = OSDynamicCast(OSNumber, ((provider) ? owner->getProperty(kIOHIDPrimaryUsagePageKey) : 0));
+        OSNumber *interfaceSubClass = OSDynamicCast(OSNumber, ((provider) ? provider->getProperty("bInterfaceSubClass") : 0));
+        OSNumber *interfaceProtocol = OSDynamicCast(OSNumber, ((provider) ? provider->getProperty("bInterfaceProtocol") : 0));
         
-        if (nub &&
-            (!nub->init() || 
-             !nub->attach(owner) || 
-             !nub->start(owner))) 
+        bool pointing = false;
+        bool keyboard = false;
+        
+        if (!(primaryUsagePage && primaryUsage))
+            return;
+                            
+        switch (primaryUsagePage->unsigned32BitValue())
         {
-            nub->release();
-            nub = 0;
+            case kHIDPage_GenericDesktop:
+                switch (primaryUsage->unsigned32BitValue())
+                {
+                    case kHIDUsage_GD_Pointer:
+                    case kHIDUsage_GD_Mouse:
+                        pointing = true;
+                        break;
+                    
+                    case kHIDUsage_GD_Keyboard:
+                    case kHIDUsage_GD_Keypad:
+                        keyboard = true;
+                        break;
+                        
+                    default:
+                        break;
+                }
+                break;
+            case kHIDPage_Digitizer:
+                pointing = true;
+                break;
+            
+            case kHIDPage_KeyboardOrKeypad:
+                keyboard = true;
+                break;
+                
+            default:
+                break;
+        }
+        
+        if (interfaceSubClass && interfaceProtocol)
+        {
+            keyboard = (keyboard) ? keyboard : 
+                        ((interfaceSubClass->unsigned32BitValue() == 1) && 
+                        (interfaceProtocol->unsigned32BitValue() == 1));
+            
+            pointing = (pointing) ? pointing : 
+                        ((interfaceSubClass->unsigned32BitValue() == 1) && 
+                        (interfaceProtocol->unsigned32BitValue() == 2));
+        }
+         
+        if (pointing)
+        {
+            *pointingNub = IOHIDPointing::Pointing();
+            
+            if (*pointingNub &&
+                (!(*pointingNub)->attach(owner) || 
+                    !(*pointingNub)->start(owner))) 
+            {
+                (*pointingNub)->release();
+                *pointingNub = 0;
+            }
+        }
+        
+        if (keyboard)
+        {
+            *keyboardNub = IOHIDKeyboard::Keyboard(elements);
+                    
+            if (*keyboardNub &&
+                (!(*keyboardNub)->attach(owner) || 
+                    !(*keyboardNub)->start(owner))) 
+            {
+                (*keyboardNub)->release();
+                *keyboardNub = 0;
+            }
+        }
+                
+        *consumerNub = IOHIDConsumer::Consumer(elements);
+        
+        if (*consumerNub &&
+            (!(*consumerNub)->attach(owner) || 
+                !(*consumerNub)->start(owner))) 
+        {
+            (*consumerNub)->release();
+            *consumerNub = 0;
         }
     }
     
-    return nub;
 }
 
 static void ActvityTickle_funct(IOService *displayManager)
@@ -132,7 +209,7 @@ bool IOHIDDevice::_publishNotificationHandler(
         if( !self->_displayManager) {
             self->_displayManager = newService;
             self->_displayManager->retain();
-            
+
             self->_activityTickleCall = thread_call_allocate(ActvityTickle_funct, newService);
         }
     }
@@ -152,10 +229,12 @@ bool IOHIDDevice::init( OSDictionary * dict )
         return false;
         
     _pointingNub = 0;
+    _keyboardNub = 0;
+    _consumerNub = 0;
     _displayManager = 0;
     _publishNotify = 0;
     _activityTickleCall = 0;
-    
+
     // Create an OSSet to store client objects. Initial capacity
     // (which can grow) is set at 2 clients.
 
@@ -216,6 +295,7 @@ void IOHIDDevice::free()
         _displayManager->release();
         _displayManager = 0;
     }
+
     if (_activityTickleCall) 
     {
         thread_call_free(_activityTickleCall);
@@ -287,13 +367,16 @@ bool IOHIDDevice::start( IOService * provider )
     if ( publishProperties(provider) != true )
         return false;
 
-    // Create an IOHIDevice nub
-    // This has to be done after we call publishProperties
-    // becuase we determine the nub to create based on the
-    // device's PrimaryUsage and PrimaryUsagePage
-    _pointingNub = GetPointingNub(CreateIOHIDeviceNub(this, provider));
+    // *** IOHIDSYSTEM DEVICE SUPPORT ***
+    // RY: Create an IOHIDevice nub
+    CreateIOHIDevices(this, 
+                    provider, 
+                    _elementArray,
+                    &_pointingNub,
+                    &_keyboardNub,
+                    &_consumerNub);
 
-    // Add a notification to get an instance of the Display
+    // RY: Add a notification to get an instance of the Display
     // Manager.  This will allow us to tickle it upon receiveing
     // new reports.  Only do this if the device is has a primary
     // usage of generic desktop
@@ -302,6 +385,8 @@ bool IOHIDDevice::start( IOService * provider )
     OSNumber *primaryUsage = OSDynamicCast(OSNumber,
                                     getProperty(kIOHIDPrimaryUsageKey));
     if (!_pointingNub  &&
+        !_keyboardNub  &&
+        !_consumerNub  &&
         !OSDynamicCast(IOHIDevice, provider) &&
         primaryUsagePage && 
         (primaryUsagePage->unsigned32BitValue() == kHIDPage_GenericDesktop)) 
@@ -311,6 +396,8 @@ bool IOHIDDevice::start( IOService * provider )
                             &IOHIDDevice::_publishNotificationHandler,
                             this, 0 );
     }
+    // *** END IOHIDSYSTEM DEVICE SUPPORT ***
+
     
     // *** GAME DEVICE HACK ***
     if ((primaryUsagePage && (primaryUsagePage->unsigned32BitValue() == 0x05)) &&
@@ -360,7 +447,23 @@ void IOHIDDevice::stop(IOService * provider)
         _pointingNub = 0;
     }
     
+    if ( _keyboardNub ) {
+    
+        _keyboardNub->stop(this);
+        _keyboardNub->detach(this);
+        
+        _keyboardNub->release();
+        _keyboardNub = 0;
+    }
 
+    if ( _consumerNub ) {
+    
+        _consumerNub->stop(this);
+        _consumerNub->detach(this);
+        
+        _consumerNub->release();
+        _consumerNub = 0;
+    }
 
     super::stop(provider);
 }
@@ -437,7 +540,7 @@ bool IOHIDDevice::publishProperties(IOService * provider)
 
 #define SET_PROP(func, key)          \
     do {                             \
-        prop = func ## ();           \
+        prop = func ();           \
         if (prop) {                  \
             setProperty(key, prop);  \
             prop->release();         \
@@ -446,6 +549,7 @@ bool IOHIDDevice::publishProperties(IOService * provider)
     
     SET_PROP( newTransportString,        kIOHIDTransportKey );
     SET_PROP( newVendorIDNumber,         kIOHIDVendorIDKey );
+    SET_PROP( newVendorIDSourceNumber,   kIOHIDVendorIDSourceKey );
     SET_PROP( newProductIDNumber,        kIOHIDProductIDKey );
     SET_PROP( newVersionNumber,          kIOHIDVersionNumberKey );
     SET_PROP( newManufacturerString,     kIOHIDManufacturerKey );
@@ -587,11 +691,33 @@ OSNumber * IOHIDDevice::newSerialNumber() const
 
 OSNumber * IOHIDDevice::newPrimaryUsageNumber() const
 {
+    OSArray * 		childArray;
+    IOHIDElement * 	child;
+    IOHIDElement * 	root;
+
+    if ( (root = (IOHIDElement *) _elementArray->getObject(0)) && 
+         (childArray = root->getChildArray()) &&
+         (child = (IOHIDElement *) childArray->getObject(0)) )
+    {
+        return OSNumber::withNumber(child->getUsage(), 32);
+    }
+    
     return 0;
 }
 
 OSNumber * IOHIDDevice::newPrimaryUsagePageNumber() const
 {
+    OSArray * 		childArray;
+    IOHIDElement * 	child;
+    IOHIDElement * 	root;
+
+    if ( (root = (IOHIDElement *) _elementArray->getObject(0)) && 
+         (childArray = root->getChildArray()) &&
+         (child = (IOHIDElement *) childArray->getObject(0)) )
+    {
+        return OSNumber::withNumber(child->getUsagePage(), 32);
+    }
+    
     return 0;
 }
 
@@ -702,6 +828,16 @@ IOReturn IOHIDDevice::handleReport( IOMemoryDescriptor * report,
     if ( _pointingNub )
     {
         _pointingNub->handleReport(report, options );
+    }
+    
+    if ( _keyboardNub )
+    {
+        _keyboardNub->handleReport();
+    }
+    
+    if ( _consumerNub )
+    {
+        _consumerNub->handleReport();
     }
 
     return ret;
@@ -825,6 +961,12 @@ IOHIDDevice::createElementHierarchy( HIDPreparsedDataRef parseData )
         _maxInputReportSize    = caps.inputReportByteLength;
         _maxOutputReportSize   = caps.outputReportByteLength;
         _maxFeatureReportSize  = caps.featureReportByteLength;
+        
+        // RY: These values are useful to the subclasses.  Post them.
+        setProperty(kIOHIDMaxInputReportSizeKey, _maxInputReportSize, 32);
+        setProperty(kIOHIDMaxOutputReportSizeKey, _maxOutputReportSize, 32);
+        setProperty(kIOHIDMaxFeatureReportSizeKey, _maxFeatureReportSize, 32);
+
         
         // Create an OSArray to store all HID elements.
 
@@ -1658,7 +1800,15 @@ IOReturn IOHIDDevice::setReport( IOMemoryDescriptor * report,
     return kIOReturnUnsupported;
 }
 
-OSMetaClassDefineReservedUnused(IOHIDDevice,  6);
+//---------------------------------------------------------------------------
+// Return the vendor id source
+
+OSMetaClassDefineReservedUsed(IOHIDDevice,  6);
+OSNumber * IOHIDDevice::newVendorIDSourceNumber() const
+{
+    return 0;
+}
+
 OSMetaClassDefineReservedUnused(IOHIDDevice,  7);
 OSMetaClassDefineReservedUnused(IOHIDDevice,  8);
 OSMetaClassDefineReservedUnused(IOHIDDevice,  9);

@@ -3712,6 +3712,9 @@ extern void clone_function_decl                 PARAMS ((tree, int));
 extern void adjust_clone_args			PARAMS ((tree));
 
 /* decl.c */
+/* APPLE LOCAL msg send super */
+extern struct binding_level *get_current_binding_level	PARAMS ((void));
+
 /* resume_binding_level */
 extern void cxx_init_decl_processing		PARAMS ((void));
 /* APPLE LOCAL PFE */

@@ -25,6 +25,17 @@ finish_gen_indexing ()
 }
 
 void
+push_cur_index_filename (name)
+     char *name ATTRIBUTE_UNUSED;
+{
+}
+
+void
+pop_cur_index_filename ()
+{
+}
+
+void
 flush_index_buffer ()
 {
 }

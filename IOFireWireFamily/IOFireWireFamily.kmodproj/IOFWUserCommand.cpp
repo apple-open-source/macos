@@ -43,6 +43,8 @@ IOFWUserCommand::free()
 		fMem->complete() ;
 		fMem->release() ;
 	}
+	
+	OSObject::free() ;
 }
 
 void

@@ -43,11 +43,13 @@ class KeyLargoWatchDogTimer : public IOWatchDogTimer
   
 private:
 	KeyLargo *keyLargo;
+    bool	fSleeping;
   
 public:
 	static KeyLargoWatchDogTimer *withKeyLargo(KeyLargo *keyLargo);
 	virtual bool start(IOService *provider);
 	virtual void setWatchDogTimer(UInt32 timeOut);
+    virtual void setSleeping(bool val);
 };
 
 #endif // _IOKIT_KEYLARGOWATCHDOGTIMER_H

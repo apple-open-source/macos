@@ -254,6 +254,7 @@ static struct macosx_vers {
   { "10.0", 1000 },
   { "10.1", 1010 },
   { "10.2", 1020 },
+  { "10.3", 1030 },
   { NULL, 0 }
 };  
 /* APPLE LOCAL end constant cfstrings */
@@ -494,8 +495,11 @@ or with constant text in a single argument.
 	to be generated.
  %y1	Same as %y0, but additional c++ include paths are generated.
  APPLE LOCAL end cpp-precomp
- APPLE LOCAL constant cfstrings
+ APPLE LOCAL begin constant cfstrings
  %yC	Emit '-fconstant-cfstrings' option, if needed.
+ %yV	Emit '-DMAC_OS_X_VERSION_MIN_REQUIRED', based on the value of the
+	MACOSX_DEPLOYMENT_TARGET environment variable.
+ APPLE LOCAL end constant cfstrings
  %s     current argument is the name of a library or startup file of some sort.
         Search for that file in a standard list of directories
 	and substitute the full name found.
@@ -821,6 +825,8 @@ static const char *cpp_unique_options =
  %{MMD:-MMD %W{!o: %b.d}%W{o*:%.d%*}}\
  %{M} %{MM} %W{MF*} %{MG} %{MP} %{MQ*} %{MT*}\
  %{!E:%{!M:%{!MM:%{MD|MMD:%{o*:-MQ %*}}}}}\
+ "/* APPLE LOCAL constant cfstrings */"\
+ %yV\
  %{!no-gcc:-D__GNUC__=%v1 -D__GNUC_MINOR__=%v2 -D__GNUC_PATCHLEVEL__=%v3}\
  "/* APPLE LOCAL Apple version */"\
  %{!no-gcc:-D__APPLE_CC__=%vA}\
@@ -854,10 +860,9 @@ static const char *cc1_options =
 "%{fload=*|fdump=*:-farch=%T}"
 /* APPLE LOCAL constant cfstrings */
 "%yC"
-/* APPLE LOCAL PFE (%{g*} conditioned on -fdump)  ilr */
 "%{pg:%{fomit-frame-pointer:%e-pg and -fomit-frame-pointer are incompatible}}\
  %1 %{!Q:-quiet} -dumpbase %B %{d*} %{m*} %{a*}\
- %{!fdump=*:%{g*}} %{O*} %{W*} %{w} %{pedantic*} %{std*} %{ansi}\
+ %{g*} %{O*} %{W*} %{w} %{pedantic*} %{std*} %{ansi}\
  %{traditional} %{v:-version} %{pg:-p} %{p} %{f*}\
  %{Qn:-fno-ident} %{--help:--help}\
  %{--target-help:--target-help}\
@@ -3873,6 +3878,16 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
       else if (strcmp (argv[i], "-fno-constant-cfstrings") == 0)
 	use_constant_cfstrings = 0;
       /* APPLE LOCAL end constant cfstrings */
+      /* APPLE LOCAL begin framework */
+      else if (strcmp (argv[i], "-framework") == 0)
+        {
+          if (i + 1 == argc)
+            fatal ("argument to `-framework' is missing");
+
+          n_infiles += 2;
+          i++;
+        }
+      /* APPLE LOCAL end framework */
       else if (argv[i][0] == '-' && argv[i][1] != 0)
 	{
 	  const char *p = &argv[i][1];
@@ -4198,14 +4213,6 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
       else
 	add_preprocessor_option ("-D__CONSTANT_CFSTRINGS__", 24);
     }
-  /* Synthesize the deployment target manifest constant.  */
-  if (macosx_version_min_required)
-    {
-      char macro_def[40];
-      
-      sprintf (macro_def, "-DMAC_OS_X_VERSION_MIN_REQUIRED=%d", macosx_version_min_required);
-      add_preprocessor_option (macro_def, strlen (macro_def));
-    }    
   /* APPLE LOCAL end constant cfstrings */
     
   /* Then create the space for the vectors and scan again.  */
@@ -4344,6 +4351,15 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
       else if (strcmp (argv[i], "-fno-constant-cfstrings") == 0)
 	;
       /* APPLE LOCAL end constant cfstrings */
+      /* APPLE LOCAL begin framework */
+      else if (strcmp (argv[i], "-framework") == 0)
+        {
+          infiles[n_infiles].language = "*";
+          infiles[n_infiles++].name = argv[i];
+          infiles[n_infiles].language = "*";
+          infiles[n_infiles++].name = argv[++i];
+        }
+      /* APPLE LOCAL end framework */
       else if (argv[i][0] == '-' && argv[i][1] != 0)
 	{
 	  const char *p = &argv[i][1];
@@ -5234,8 +5250,22 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 	  case 'y':
 	    {
 	      int c1 = *p++;
-		  
-	      if (c1 == 'C')
+
+	      if (c1 == 'V')
+		{
+		  /* Synthesize the deployment target manifest constant.  */
+		  if (macosx_version_min_required)
+		    {
+		      char macro_def[40];
+      
+		      sprintf (macro_def, "-DMAC_OS_X_VERSION_MIN_REQUIRED=%d", 
+			       macosx_version_min_required);
+		      do_spec_1 (" ", 0, NULL);
+		      do_spec_1 (macro_def, 1, NULL);
+		      do_spec_1 (" ", 0, NULL);
+		    }    
+		}
+	      else if (c1 == 'C')
 		{
 		  if (use_constant_cfstrings)
 		    {

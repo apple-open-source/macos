@@ -688,4 +688,9 @@ extern int flag_detailed_statistics;
 /* Nonzero means enable synchronous exceptions for non-call instructions.  */
 extern int flag_non_call_exceptions;
 
+/* APPLE LOCAL gdb only used symbols */
+#ifdef DBX_ONLY_USED_SYMBOLS
+/* Nonzero if generating debugger info for used symbols only.  */
+extern int flag_debug_only_used_symbols;
+#endif
 #endif /* ! GCC_FLAGS_H */

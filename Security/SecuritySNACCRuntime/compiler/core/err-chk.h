@@ -11,7 +11,7 @@
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
  *
- * $Header: /cvs/Darwin/src/live/Security/SecuritySNACCRuntime/compiler/core/err-chk.h,v 1.1 2001/06/20 21:27:56 dmitch Exp $
+ * $Header: /cvs/root/Security/SecuritySNACCRuntime/compiler/core/Attic/err-chk.h,v 1.1 2001/06/20 21:27:56 dmitch Exp $
  * $Log: err-chk.h,v $
  * Revision 1.1  2001/06/20 21:27:56  dmitch
  * Adding missing snacc compiler files.

@@ -163,6 +163,8 @@ bool KeyLargo::start(IOService *provider)
   
 	// Re-tune the clocks
 	AdjustBusSpeeds ( );
+	// Synchronize KeyLargo and CPU time base
+	syncTimeBase();
   
 	enableCells();
 
@@ -997,6 +999,8 @@ IOReturn KeyLargo::setPowerState(unsigned long powerStateOrdinal, IOService* wha
     if ( powerStateOrdinal == 1 ) {
         kprintf("KeyLargo would be powered on here\n");
     }
+	if(watchDogTimer)
+		watchDogTimer->setSleeping(powerStateOrdinal < 2);
     return IOPMAckImplied;
 }
 

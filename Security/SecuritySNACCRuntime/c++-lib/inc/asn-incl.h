@@ -52,7 +52,7 @@
 // 
 // 
 // 
-// $Header: /cvs/Darwin/src/live/Security/SecuritySNACCRuntime/c++-lib/inc/asn-incl.h,v 1.1.1.1 2001/05/18 23:14:06 mb Exp $
+// $Header: /cvs/root/Security/SecuritySNACCRuntime/c++-lib/inc/Attic/asn-incl.h,v 1.1.1.1 2001/05/18 23:14:06 mb Exp $
 // $Log: asn-incl.h,v $
 // Revision 1.1.1.1  2001/05/18 23:14:06  mb
 // Move from private repository to open source repository

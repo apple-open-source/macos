@@ -326,7 +326,7 @@ bool AppleOnboardAudio::initHardware (IOService *provider){
 	workLoop->addEventSource (idleTimer);
 
 	// Set this to a default for desktop machines (portables will get a setAggressiveness call later in the boot sequence).
-	ourPowerState = kIOAudioDeviceActive;
+	ourPowerState = kIOAudioDeviceIdle;
 	idleSleepDelayTime = kNoIdleAudioPowerDown;
 	// [3107909] Turn the hardware off because IOAudioFamily defaults to the off state, so make sure the hardware is off or we get out of synch with the family.
 	setIdleAudioSleepTime (idleSleepDelayTime);
@@ -1254,7 +1254,9 @@ Exit:
 // Have to call super::setAggressiveness to complete the function call
 IOReturn AppleOnboardAudio::setAggressiveness(unsigned long type, unsigned long newLevel) {
 	UInt32					time = 0;
+	IOReturn				result;
 
+	debug3IOLog ( "+ AppleOnboardAudio::setAggressiveness ( %ld, %ld )\n", type, newLevel );
 	if (type == kPMPowerSource) {
 		debugIOLog ("setting power aggressivness state to ");
 		switch (newLevel) {
@@ -1276,11 +1278,14 @@ IOReturn AppleOnboardAudio::setAggressiveness(unsigned long type, unsigned long 
 				}
 				break;
 			default:
+				debug2IOLog ( "UNKOWN STATE %ld\n", newLevel );
 				break;
-	}
+		}
 	}
 
-	return super::setAggressiveness(type, newLevel);
+	result = super::setAggressiveness(type, newLevel);
+	debug3IOLog ( "- AppleOnboardAudio::setAggressiveness ( %ld, %ld )\n", type, newLevel );
+	return result;
 }
 
 IOReturn AppleOnboardAudio::performPowerStateChange(IOAudioDevicePowerState oldPowerState,
@@ -1300,30 +1305,34 @@ IOReturn AppleOnboardAudio::performPowerStateChange(IOAudioDevicePowerState oldP
 	if (NULL != theAudioPowerObject) {
 		switch (newPowerState) {
 			case kIOAudioDeviceSleep:
-				if (kIOAudioDeviceActive == ourPowerState) {
-					outputMuteChange (TRUE);			// Mute before turning off power
+				if (kIOAudioDeviceSleep != ourPowerState) {				//	[3193592]
+					outputMuteChange (TRUE);							// Mute before turning off power
 					theAudioPowerObject->setHardwarePowerOff ();
 					ourPowerState = kIOAudioDeviceSleep;
 				}
 				break;
 			case kIOAudioDeviceIdle:
 				if (kIOAudioDeviceActive == ourPowerState) {
-					outputMuteChange (TRUE);			// Mute before turning off power
-					theAudioPowerObject->setHardwarePowerOff ();
-					ourPowerState = kIOAudioDeviceSleep;
-				} else if (kIOAudioDeviceSleep == ourPowerState && kNoIdleAudioPowerDown == idleSleepDelayTime) {
-					ourPowerState = kIOAudioDeviceActive;
-					theAudioPowerObject->setHardwarePowerOn ();
+					outputMuteChange (TRUE);							// Mute before turning off power
+					theAudioPowerObject->setIdlePowerState ();			//	[3193592]
+					ourPowerState = kIOAudioDeviceIdle;					//	[3193592]
+				} else if (kIOAudioDeviceSleep == ourPowerState) {
+					theAudioPowerObject->setHardwarePowerIdleOn ();		//	[3193592]
+					ourPowerState = kIOAudioDeviceIdle;					//	[3193592]
 					if (NULL != outMute) {
-						outMute->flushValue ();					// Restore hardware to the user's selected state
+						outMute->flushValue ();							// Restore hardware to the user's selected state
 					}
 				}
 				break;
 			case kIOAudioDeviceActive:
-				ourPowerState = kIOAudioDeviceActive;
-				theAudioPowerObject->setHardwarePowerOn ();
-				if (NULL != outMute) {
-					outMute->flushValue ();					// Restore hardware to the user's selected state
+				if (kIOAudioDeviceActive != ourPowerState) {
+					ourPowerState = kIOAudioDeviceActive;
+					theAudioPowerObject->setHardwarePowerOn ();
+					if (NULL != outMute) {
+						outMute->flushValue ();							// Restore hardware to the user's selected state
+					}
+				} else {
+					debugIOLog ("trying to wake, but we're already awake\n");
 				}
 				break;
 			default:

@@ -7,7 +7,7 @@
  * the sendmail distribution.
  *
  *
- *	$Id: mfdef.h,v 1.1.1.1 2002/03/12 18:00:15 zarzycki Exp $
+ *	$Id: mfdef.h,v 1.1.1.2 2003/02/22 09:24:24 zarzycki Exp $
  */
 
 /*
@@ -62,6 +62,9 @@
 # define SMFIR_PROGRESS		'p'	/* progress */
 # define SMFIR_REJECT		'r'	/* reject */
 # define SMFIR_TEMPFAIL		't'	/* tempfail */
+# if _FFR_MILTER_421
+#  define SMFIR_SHUTDOWN	'4'	/* 421: shutdown (internal to MTA) */
+# endif /* _FFR_MILTER_421 */
 # define SMFIR_ADDHEADER	'h'	/* add header */
 # define SMFIR_REPLYCODE	'y'	/* reply code etc */
 # if _FFR_QUARANTINE

@@ -2383,9 +2383,16 @@ IOReturn IONDRVFramebuffer::getAttribute( IOSelect attribute, UInt32 * value )
     {
         case kIOHardwareCursorAttribute:
 
-            *value = ((kIOReturnSuccess ==
-                       _doStatus( this, cscSupportsHardwareCursor, &hwCrsrSupport))
-                      && true && (hwCrsrSupport.csSupportsHardwareCursor));
+	    UInt32 flags;
+
+	    hwCrsrSupport.csReserved1 = 0;
+	    hwCrsrSupport.csReserved2 = 0;
+            flags = ((kIOReturnSuccess == _doStatus( this, cscSupportsHardwareCursor, &hwCrsrSupport))
+                        && true && (hwCrsrSupport.csSupportsHardwareCursor))
+			? kIOFBHWCursorSupported : 0;
+	    if (flags)
+		flags |= (hwCrsrSupport.csReserved1 & ~kIOFBHWCursorSupported);
+	    *value = flags;
             break;
 
         case kIODeferCLUTSetAttribute:
@@ -2669,7 +2676,7 @@ void IONDRVFramebuffer::displayI2CPower( bool enable )
             i2CRecord.csMinReplyDelay	= 50 * 1000;
         }
 
-        _doControl( this, cscDoCommunication, &i2CRecord);
+        _doControl(this, cscDoCommunication, &i2CRecord);
     }
 }
 
@@ -2808,14 +2815,22 @@ IOReturn IONDRVFramebuffer::processConnectChange( UInt32 * value )
 
     do
     {
-        VDScalerInfoRec		scalerRec;
+	VDDisplayTimingRangeRec	rangeRec;
+	VDScalerInfoRec		scalerRec;
+
+        removeProperty( kIOFBTimingRangeKey );
+	bzero( &rangeRec, sizeof( rangeRec));
+	rangeRec.csRangeSize = sizeof( rangeRec);
+	ret = _doStatus( this, cscGetTimingRanges, &rangeRec );
+	if (kIOReturnSuccess == ret)
+	    setProperty( kIOFBTimingRangeKey, &rangeRec, sizeof( rangeRec));
 
         removeProperty( kIOFBScalerInfoKey );
-        bzero( &scalerRec, sizeof( scalerRec));
-        scalerRec.csScalerInfoSize = sizeof( scalerRec);
-        ret = _doStatus( this, cscGetScalerInfo, &scalerRec );
-        if (kIOReturnSuccess == ret)
-            setProperty( kIOFBScalerInfoKey, &scalerRec, sizeof( scalerRec));
+	bzero( &scalerRec, sizeof( scalerRec));
+	scalerRec.csScalerInfoSize = sizeof( scalerRec);
+	ret = _doStatus( this, cscGetScalerInfo, &scalerRec );
+	if (kIOReturnSuccess == ret)
+	    setProperty( kIOFBScalerInfoKey, &scalerRec, sizeof( scalerRec));
     }
     while (false);
 

@@ -16,11 +16,11 @@
 #####
 #####		SENDMAIL CONFIGURATION FILE
 #####
-ifdef(`unix', `dnl
+ifdef(`__win32__', `dnl', `dnl
 ifdef(`TEMPFILE', `dnl', `define(`TEMPFILE', maketemp(/tmp/cfXXXXXX))dnl
 syscmd(sh _CF_DIR_`'sh/makeinfo.sh _CF_DIR_ > TEMPFILE)dnl
 include(TEMPFILE)dnl
-syscmd(rm -f TEMPFILE)dnl')', `dnl')
+syscmd(rm -f TEMPFILE)dnl')')
 #####
 ######################################################################
 #####
@@ -133,6 +133,8 @@ Q`'$1`, '`$2')')
 define(`CF_LEVEL', `10')dnl
 define(`VERSIONID', ``#####  $1  #####'')
 define(`LOCAL_RULE_0', `divert(3)')
+dnl for UUCP...
+define(`LOCAL_UUCP', `divert(4)')
 define(`LOCAL_RULE_1',
 `divert(9)dnl
 #######################################
@@ -303,4 +305,4 @@ define(`confMILTER_MACROS_ENVRCPT', ``{rcpt_mailer}, {rcpt_host}, {rcpt_addr}'')
 
 
 divert(0)dnl
-VERSIONID(`$Id: cfhead.m4,v 1.1.1.5 2002/10/15 02:37:20 zarzycki Exp $')
+VERSIONID(`$Id: cfhead.m4,v 1.2 2003/03/29 20:22:02 zarzycki Exp $')

@@ -136,6 +136,7 @@ static	u_short			outPort;
 static	u_short			inOutPort;
 static	struct in_addr		aliasAddr;
 static 	int			dynamicMode;
+static  int			clampMSS;
 static  int			ifMTU;
 static	int			aliasOverhead;
 static 	int			icmpSock;
@@ -199,9 +200,6 @@ int main (int argc, char** argv)
 	if (aliasAddr.s_addr == INADDR_NONE && ifName == NULL)
 		errx (1, "aliasing address not given");
 
-	if (aliasAddr.s_addr != INADDR_NONE && ifName != NULL)
-		errx (1, "both alias address and interface "
-			 "name are not allowed");
 /*
  * Check that valid port number is known.
  */
@@ -784,6 +782,8 @@ SetAliasAddressFromIfName(const char *ifn)
 			    strncmp(ifn, sdl->sdl_data, sdl->sdl_nlen) == 0) {
 				ifIndex = ifm->ifm_index;
 				ifMTU = ifm->ifm_data.ifi_mtu;
+				if (clampMSS)
+					PacketAliasClampMSS(ifMTU - sizeof(struct tcphdr) - sizeof(struct ip));
 				break;
 			}
 		}
@@ -793,6 +793,7 @@ SetAliasAddressFromIfName(const char *ifn)
 /*
  * Get interface address.
  */
+	if (aliasAddr.s_addr == INADDR_NONE) {
 	sin = NULL;
 	while (next < lim) {
 		ifam = (struct ifa_msghdr *)next;
@@ -828,6 +829,7 @@ SetAliasAddressFromIfName(const char *ifn)
 	PacketAliasSetAddress(sin->sin_addr);
 	syslog(LOG_INFO, "Aliasing to %s, mtu %d bytes",
 	       inet_ntoa(sin->sin_addr), ifMTU);
+	}
 
 	free(buf);
 }
@@ -888,6 +890,7 @@ enum Option {
 	RedirectAddress,
 	ConfigFile,
 	DynamicMode,
+	ClampMSS,
 	ProxyRule,
  	LogDenied,
  	LogFacility,
@@ -995,6 +998,14 @@ static struct OptionInfo optionTable[] = {
 		"[yes|no]",
 		"dynamic mode, automatically detect interface address changes",
 		"dynamic",
+		NULL },
+	
+	{ ClampMSS,
+		0,
+		YesNo,
+		"[yes|no]",
+		"enable TCP MSS clamping",
+		"clamp_mss",
 		NULL },
 	
 	{ InPort,
@@ -1217,6 +1228,10 @@ static void ParseOption (const char* option, const char* parms)
 
 	case DynamicMode:
 		dynamicMode = yesNoValue;
+		break;
+
+	case ClampMSS:
+		clampMSS = yesNoValue;
 		break;
 
 	case InPort:

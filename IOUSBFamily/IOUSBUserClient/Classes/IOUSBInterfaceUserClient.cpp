@@ -486,7 +486,7 @@ ErrorExit:
 IOReturn 
 IOUSBInterfaceUserClient::open(bool seize)
 {
-    IOOptionBits	options = seize ? kIOServiceSeize : 0;
+    IOOptionBits	options = seize ?  (IOOptionBits)kIOServiceSeize : 0;
 
     USBLog(7, "+%s[%p]::open(%p)", getName(), this);
     
@@ -1567,13 +1567,9 @@ IOUSBInterfaceUserClient::LowLatencyPrepareBuffer(LowLatencyUserBufferInfo *buff
             USBLog(1,"%s[%p]::LowLatencyPrepareBuffer  Could not malloc buffer info (size = %d)!", getName(), this, sizeof(LowLatencyUserClientBufferInfo) );
             return kIOReturnNoMemory;
         }
-        
+
         bzero(kernelDataBuffer, sizeof(LowLatencyUserClientBufferInfo));
         
-        // Cool, we have a good buffer, add it to our list
-        //
-        AddDataBufferToList( kernelDataBuffer );
-
         // Set the known fields
         //
         kernelDataBuffer->cookie = bufferData->cookie;
@@ -1632,7 +1628,6 @@ IOUSBInterfaceUserClient::LowLatencyPrepareBuffer(LowLatencyUserBufferInfo *buff
                 ret = kIOReturnNoMemory;
                 goto ErrorExit;
             }
-            
 
             // Map it into the kernel
             //
@@ -1657,9 +1652,13 @@ IOUSBInterfaceUserClient::LowLatencyPrepareBuffer(LowLatencyUserBufferInfo *buff
             kernelDataBuffer->frameListMap = frameListMap;
 
             USBLog(3, "%s[%p]::LowLatencyPrepareBuffer  finished preparing frame list buffer: %p, size %d, desc: %p, map %p, kernel address: %p, cookie: %ld", getName(), this,
-                    kernelDataBuffer->bufferAddress, kernelDataBuffer->bufferSize, kernelDataBuffer->bufferDescriptor, kernelDataBuffer->frameListMap,
+                    kernelDataBuffer->bufferAddress, kernelDataBuffer->bufferSize, kernelDataBuffer->frameListDescriptor, kernelDataBuffer->frameListMap,
                     kernelDataBuffer->frameListKernelAddress,  kernelDataBuffer->cookie);
         }
+
+        // Cool, we have a good buffer, add it to our list
+        //
+        AddDataBufferToList( kernelDataBuffer );
     }
     else
         ret = kIOReturnNotAttached;

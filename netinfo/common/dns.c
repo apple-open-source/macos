@@ -2908,6 +2908,8 @@ dns_fqdn_query_server(dns_handle_t *dns, u_int32_t which, dns_question_t *dnsq)
 					free(q);
 					return NULL;
 				}
+
+				q[i].query_length = qplen;
 				rplen = REPLY_BUF_SIZE;
 				status = dns_send_query_server(dns, q, i, &rp, &rplen, &dt);
 

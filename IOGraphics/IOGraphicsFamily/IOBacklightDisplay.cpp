@@ -153,17 +153,22 @@ void IOBacklightDisplay::initPowerManagement( IOService * provider )
         fMaxBrightness = 255;
         fCurrentBrightness = fMaxBrightness;
     }
-    if (displayParams)
-	displayParams->release();
 
     if (fCurrentBrightness < (fMinBrightness + 2))
         fCurrentBrightness = fMinBrightness + 2;
 
     if ((num = OSDynamicCast(OSNumber,
                              getConnection()->getFramebuffer()->getProperty(kIOBacklightUserBrightnessKey))))
+    {
         fCurrentUserBrightness = num->unsigned32BitValue();
+	if (displayParams)
+	    setParameter(displayParams, gIODisplayBrightnessKey, fCurrentUserBrightness);
+    }
     else
         fCurrentUserBrightness = fCurrentBrightness;
+
+    if (displayParams)
+	displayParams->release();
 
     fMaxBrightnessLevel[0] = 0;
     fMaxBrightnessLevel[1] = fMinBrightness;

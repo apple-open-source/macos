@@ -124,7 +124,7 @@ static IOPMPowerState ourPowerStatesKL[number_of_power_states] = {
 
 
 // this section needs to get moved to the IOPCIFamily
-#define DEBUG_PCI_PWR_MGMT 1
+#define DEBUG_PCI_PWR_MGMT 0
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 // initForPM
@@ -352,7 +352,6 @@ AppleUSBOHCI::setPowerState( unsigned long powerStateOrdinal, IOService* whatDev
                 IOReturn	err = kIOReturnSuccess;
 
                 USBLog(5, "%s[%p]: Re-loading UIM if necessary (%d)", getName(), this, _uimInitialized );
-
                 if ( !_uimInitialized )
                     UIMInitializeForPowerUp();
 

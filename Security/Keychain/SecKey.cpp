@@ -107,11 +107,11 @@ SecKeyGetCredentials(
 OSStatus
 SecKeyImportPair(
 	SecKeychainRef keychainRef,
-	const CssmKey *publicCssmKey,
-	const CssmKey *privateCssmKey,
+	const CSSM_KEY *publicCssmKey,
+	const CSSM_KEY *privateCssmKey,
 	SecAccessRef initialAccess,
-	SecKeyRef* publicKeyRef,
-	SecKeyRef* privateKeyRef)
+	SecKeyRef* publicKey,
+	SecKeyRef* privateKey)
 {
 	BEGIN_SECAPI
 
@@ -127,10 +127,10 @@ SecKeyImportPair(
         privItem);
 
 	// Return the generated keys.
-	if (publicKeyRef)
-		*publicKeyRef = gTypes().keyItem.handle(*pubItem);
-	if (privateKeyRef)
-		*privateKeyRef = gTypes().keyItem.handle(*privItem);
+	if (publicKey)
+		*publicKey = gTypes().keyItem.handle(*pubItem);
+	if (privateKey)
+		*privateKey = gTypes().keyItem.handle(*privItem);
 
 	END_SECAPI
 }

@@ -97,7 +97,7 @@ module that has OBJECT-TYPE macros in it will generate an
 add all the mappings to the hash table(s).
 
 #-------------------------------------------------------------------------------
-# $Header: /cvs/Darwin/src/live/Security/SecuritySNACCRuntime/c-examples/any/README,v 1.1.1.1 2001/05/18 23:14:07 mb Exp $
+# $Header: /cvs/root/Security/SecuritySNACCRuntime/c-examples/any/Attic/README,v 1.1.1.1 2001/05/18 23:14:07 mb Exp $
 # $Log: README,v $
 # Revision 1.1.1.1  2001/05/18 23:14:07  mb
 # Move from private repository to open source repository

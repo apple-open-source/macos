@@ -98,6 +98,11 @@ IOHIDElement::buttonElement( IOHIDDevice *     owner,
     {
         element->_usageMin = button->u.range.usageMin;
         element->_usageMax = button->u.range.usageMax;
+        
+        if (!IsArrayElement(element->_flags))
+        {
+            element->_reportCount = 1;
+        }
     }
     else
     {
@@ -183,6 +188,11 @@ IOHIDElement::valueElement( IOHIDDevice *     owner,
     {
         element->_usageMin = value->u.range.usageMin;
         element->_usageMax = value->u.range.usageMax;
+
+        if (!IsArrayElement(element->_flags))
+        {
+            element->_reportCount = 1;
+        }
     }
     else
     {
@@ -604,7 +614,7 @@ UInt32 IOHIDElement::getElementValueSize() const
 #define UpdateWordOffsetAndShift(bits, offset, shift)  \
     do { offset = bits >> 5; shift = bits & 0x1f; } while (0)
 
-static void getReportBits( const UInt8 * src,
+static void readReportBits( const UInt8 * src,
                            UInt32 *      dst,
                            UInt32        srcStartBit,
                            UInt32        bitsToCopy,
@@ -672,7 +682,7 @@ static void getReportBits( const UInt8 * src,
     }
 }
 
-static void setReportBits( const UInt32 * src,
+static void writeReportBits( const UInt32 * src,
                            UInt8 *        dst,
                            UInt32         dstStartBit,
                            UInt32         bitsToCopy)
@@ -749,7 +759,7 @@ bool IOHIDElement::processReport( UInt8                reportID,
 
         // Get the element value from the report.
 
-        getReportBits( (UInt8 *) reportData,   /* source buffer      */
+        readReportBits( (UInt8 *) reportData,   /* source buffer      */
                        _elementValue->value,   /* destination buffer */
                        _reportStartBit,        /* source start bit   */
                        (_reportBits * _reportCount),            /* bits to copy       */
@@ -867,7 +877,7 @@ bool IOHIDElement::createReport( UInt8           reportID,
         // Set the element value to the report.
         if ( reportData )
         {
-            setReportBits( _elementValue->value,   	/* source buffer      */
+            writeReportBits( _elementValue->value,   	/* source buffer      */
                            (UInt8 *) reportData,  	/* destination buffer */
                            _reportStartBit,       	/* dst start bit      */                           
                            (_reportBits * _reportCount));/* bits to copy       */
@@ -1064,7 +1074,7 @@ void IOHIDElement::createArrayReport(void * reportData)
 
         arraySel = GetArrayItemSel(i);
         
-        setReportBits( &arraySel,   		/* source buffer      */
+        writeReportBits( &arraySel,   		/* source buffer      */
                     (UInt8 *) reportData,  	/* destination buffer */
                     startBit,       		/* dst start bit      */                           
                     _reportBits);		/* bits to copy       */            
@@ -1083,7 +1093,7 @@ void IOHIDElement::createArrayReport(void * reportData)
     arraySel = 0;
     for (i=reportIndex; i<_reportCount; i++)
     {
-        setReportBits( &arraySel,   		/* source buffer      */
+        writeReportBits( &arraySel,   		/* source buffer      */
                     (UInt8 *) reportData,  	/* destination buffer */
                     startBit,       		/* dst start bit      */                           
                     _reportBits);		/* bits to copy       */      
@@ -1093,7 +1103,7 @@ void IOHIDElement::createArrayReport(void * reportData)
     // RY: This is expensive, but let's fill in the elementValue for 
     // this element.  Hopefully, a developer will find this usefull,
     // as this will show exactly what was pushed to the device.
-    getReportBits( (UInt8 *) reportData,	// Src
+    readReportBits( (UInt8 *) reportData,	// Src
                 _elementValue->value,		// Dst
                 _reportStartBit, 		// Src Start Bit
                 _reportBits * _reportCount,	// Bits to copy
@@ -1161,7 +1171,7 @@ void IOHIDElement::processArrayReport(void * reportData)
     
     // RY: We parse the report here to pick of the individual array
     // selector.  Since a arraySel can be as big as UInt32 we should
-    // pick them off one at a time with getReportBits.
+    // pick them off one at a time with readReportBits.
     // As you might notice we are duplicating the efforts of
     // processReport.  This is the desired behavior, just in case
     // we decided to expose the entire array report in the future.
@@ -1172,7 +1182,7 @@ void IOHIDElement::processArrayReport(void * reportData)
     {
         startBit += _reportBits * iNewArray;
         
-        getReportBits( (UInt8 *) reportData,	// Src
+        readReportBits( (UInt8 *) reportData,	// Src
                     &newArray[iNewArray],	// Dst
                     startBit, 			// Src Start Bit
                     _reportBits,		// Bits to copy
@@ -1212,7 +1222,7 @@ void IOHIDElement::processArrayReport(void * reportData)
     for (iNewArray = 0; iNewArray < _reportCount; iNewArray ++)
     {
         arraySel = newArray[iNewArray];
-        
+                
         // If we've seen this value before,
         // we can break out of this loop.
         if ((iNewArray > 0) && (prevArraySel == arraySel))
@@ -1234,7 +1244,7 @@ void IOHIDElement::processArrayReport(void * reportData)
         if (!found)
             setArrayElementValue(GetArrayItemIndex(arraySel), 1);
     }
-        
+            
     // save the new array to _oldArraySelectors for future reference
     for (iOldArray = 0; iOldArray < _reportCount; iOldArray ++)
         _oldArraySelectors[iOldArray] = newArray[iOldArray];

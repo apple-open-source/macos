@@ -31,7 +31,7 @@
 // useful, but WITHOUT ANY WARRANTY; without even the implied warranty
 // of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 //
-// $Header: /cvs/Darwin/src/live/Security/SecuritySNACCRuntime/c++-lib/c++/str-stk.cpp,v 1.2 2002/02/07 04:30:04 mb Exp $
+// $Header: /cvs/root/Security/SecuritySNACCRuntime/c++-lib/c++/Attic/str-stk.cpp,v 1.2 2002/02/07 04:30:04 mb Exp $
 // $Log: str-stk.cpp,v $
 // Revision 1.2  2002/02/07 04:30:04  mb
 // Fixes required to build with gcc3.

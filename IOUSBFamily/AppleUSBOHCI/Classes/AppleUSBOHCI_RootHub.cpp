@@ -191,7 +191,11 @@ IOReturn AppleUSBOHCI::SetRootHubDescriptor(OSData * /*buffer*/)
 
 IOReturn AppleUSBOHCI::GetRootHubStatus(IOUSBHubStatus *status)
 {
+    if ( _ohciBusState == kOHCIBusStateSuspended )
+        return kIOReturnNotResponding;
+
     *(UInt32*)status = _pOHCIRegisters->hcRhStatus;
+
     return(kIOReturnSuccess);
 }
 
@@ -243,7 +247,12 @@ IOReturn AppleUSBOHCI::GetRootHubPortStatus(IOUSBHubPortStatus *status, UInt16 p
 {
     if (port < 1 || port > 15)
         return(kIOReturnBadArgument);  // FIXME change error code
+
+    if ( _ohciBusState == kOHCIBusStateSuspended )
+        return kIOReturnNotResponding;
+
     *(UInt32*)status = _pOHCIRegisters->hcRhPortStatus[port-1];
+
     return(kIOReturnSuccess);
 }
 
@@ -512,7 +521,7 @@ OSMetaClassDefineReservedUsed(IOUSBController,  10);
 void 
 AppleUSBOHCI::UIMRootHubStatusChange(bool abort)
 {
-    UInt32 		hubStatus, portStatus, statusBit;
+    UInt32 		testStatus, hubStatus, portStatus, statusBit;
     UInt16 		statusChangedBitmap;   /* only have 15 ports in OHCI */
     UInt8		numPorts = 0;
     unsigned int      	index, port, move;
@@ -535,8 +544,10 @@ AppleUSBOHCI::UIMRootHubStatusChange(bool abort)
     statusChangedBitmap = 0;
     statusBit = 1;
 
-	if (!abort && GetRootHubStatus((IOUSBHubStatus *)&hubStatus) == kIOReturnSuccess)
+	if (!abort && GetRootHubStatus((IOUSBHubStatus *)&testStatus) == kIOReturnSuccess)
 	{
+            hubStatus = USBToHostLong(testStatus);
+            
 	    if ((hubStatus & kOHCIHcRhStatus_Change ) != 0)
 	    {
 	        statusChangedBitmap |= statusBit; /* Hub status change bit */
@@ -552,7 +563,9 @@ AppleUSBOHCI::UIMRootHubStatusChange(bool abort)
 	    {
 	        statusBit <<= 1;    /* Next bit */
 
-	        GetRootHubPortStatus((IOUSBHubPortStatus *)&portStatus, port);
+	        GetRootHubPortStatus((IOUSBHubPortStatus *)&testStatus, port);
+                portStatus = USBToHostLong(testStatus);
+                
 	       	if ((portStatus & kOHCIHcRhPortStatus_Change) != 0)
 	            statusChangedBitmap |= statusBit; /* Hub status change bit */
 	    }

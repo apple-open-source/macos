@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smbfs_smb.c,v 1.20.34.1 2003/01/08 03:24:39 lindak Exp $
+ * $Id: smbfs_smb.c,v 1.20.34.2 2003/03/14 00:05:54 lindak Exp $
  */
 #include <stdint.h>
 #include <sys/param.h>
@@ -1162,14 +1162,17 @@ smbfs_findnextLM1(struct smbfs_fctx *ctx, int limit)
 	u_int16_t date, time;
 	u_int32_t size;
 	int error;
+	struct timespec ts;
 
 	if (ctx->f_ecnt == 0) {
 		if (ctx->f_flags & SMBFS_RDD_EOF)
 			return ENOENT;
 		ctx->f_left = ctx->f_limit = limit;
+		getnanotime(&ts);
 		error = smbfs_smb_search(ctx);
 		if (error)
 			return error;
+		ctx->f_attr.fa_reqtime = ts;
 	}
 	rqp = ctx->f_rq;
 	smb_rq_getreply(rqp, &mdp);
@@ -1363,14 +1366,17 @@ smbfs_findnextLM2(struct smbfs_fctx *ctx, int limit)
 	u_int32_t size, next, dattr;
 	int64_t lint;
 	int error, svtz, cnt, fxsz, nmlen, recsz;
+	struct timespec ts;
 
 	if (ctx->f_ecnt == 0) {
 		if (ctx->f_flags & SMBFS_RDD_EOF)
 			return ENOENT;
 		ctx->f_left = ctx->f_limit = limit;
+		getnanotime(&ts);
 		error = smbfs_smb_trans2find2(ctx);
 		if (error)
 			return error;
+		ctx->f_attr.fa_reqtime = ts;
 	}
 	t2p = ctx->f_t2;
 	mdp = &t2p->t2_rdata;

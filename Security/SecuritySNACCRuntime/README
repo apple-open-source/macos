@@ -176,7 +176,7 @@ successfully installed on Sun SPARCs, HP700s, IBM RS 6000s, MIPS,
 i486/Linux, Alpha OSF/1 and many other machines.
 
 #-------------------------------------------------------------------------------
-# $Header: /cvs/Darwin/src/live/Security/SecuritySNACCRuntime/README,v 1.1.1.1 2001/05/18 23:14:04 mb Exp $
+# $Header: /cvs/root/Security/SecuritySNACCRuntime/Attic/README,v 1.1.1.1 2001/05/18 23:14:04 mb Exp $
 # $Log: README,v $
 # Revision 1.1.1.1  2001/05/18 23:14:04  mb
 # Move from private repository to open source repository

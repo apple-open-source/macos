@@ -989,87 +989,125 @@ void AppleDACAAudio::setDeviceDetectionInActive(void)
 IOReturn AppleDACAAudio::sndHWSetPowerState(IOAudioDevicePowerState theState)
 {
     IOReturn		myReturn;
-    UInt16			tmpAnalogVolReg;
-    UInt8			tmpConfigReg;
-	IOService		*keyLargo;
-	UInt32			temp;
     
     DEBUG_IOLOG("+ AppleDACAAudio::sndHWSetPowerState\n");
     
     myReturn = kIOReturnSuccess;
-
-	//	[power support]	rbm	10 Oct 2002		added I2S clock management across sleep / wake via KeyLargo
-	keyLargo = NULL;
-	keyLargo = IOService::waitForService ( IOService::serviceMatching ( "KeyLargo" ) );
-
     switch(theState)
     {
-        case kIOAudioDeviceSleep :	// When sleeping
-        case kIOAudioDeviceIdle	:	// When no audio engines running
-			temp = myAudioI2SControl->GetSerialFormatReg();
-			temp = myAudioI2SControl->GetDataWordSizesReg();
-            // mute the part
-            tmpAnalogVolReg = 0x00 ;
-            
-            // set the part to low power mode
-            tmpConfigReg = 0x0 ;
-            
-             if (openI2C()) 
-             {
-                // And sends the data we need:
-                interface->writeI2CBus((UInt8)i2cBusAddrDAC3550A, i2cBusSubAddrAVOL, (UInt8 *)&tmpAnalogVolReg, sizeof(tmpAnalogVolReg));
-                interface->writeI2CBus((UInt8)i2cBusAddrDAC3550A, i2cBusSubaddrGCFG, &tmpConfigReg, sizeof(tmpConfigReg));
-            
-                // Closes the bus so others can access to it:
-                closeI2C();
-            }
-			if ( NULL != keyLargo ) {
-				//	Turn OFF the I2S clocks
-				IODelay ( 100 );
-				keyLargo->callPlatformFunction ( OSSymbol::withCString ( "keyLargo_powerI2S" ), false, (void*)false, (void*)0, 0, 0 );
-			}
-			temp = myAudioI2SControl->GetSerialFormatReg();
-			temp = myAudioI2SControl->GetDataWordSizesReg();
-            break ;
-       
-        case kIOAudioDeviceActive :	// audio engines running
-			temp = myAudioI2SControl->GetSerialFormatReg();
-			temp = myAudioI2SControl->GetDataWordSizesReg();
-			if ( NULL != keyLargo ) {
-				//	Turn ON the I2S clocks
-				keyLargo->callPlatformFunction ( OSSymbol::withCString ( "keyLargo_powerI2S" ), false, (void*)true, (void*)0, 0, 0 );
-				IODelay ( 100 );
-			}
-			//	Restore I2S registers	(rbm 11 Oct 2002)
-			myAudioI2SControl->setSampleParameters(kDACA_FRAME_RATE, 0, &clockSource, &mclkDivisor, &sclkDivisor, kSndIOFormatI2S32x);
-			myAudioI2SControl->setSerialFormatRegister(clockSource, mclkDivisor, sclkDivisor, kSndIOFormatI2S32x, dataFormat);
-			setDACASampleRate(kDACA_FRAME_RATE);
-			
-            // Open the interface and reset all values
-            if (openI2C()) 
-            {
-                // And sends the data we need:
-                interface->writeI2CBus((UInt8)i2cBusAddrDAC3550A, i2cBusSubaddrGCFG, &configurationReg, sizeof(configurationReg));
-                interface->writeI2CBus((UInt8)i2cBusAddrDAC3550A, i2cBusSubAddrSR_REG, &sampleRateReg, sizeof(sampleRateReg));
-                interface->writeI2CBus((UInt8)i2cBusAddrDAC3550A, i2cBusSubAddrAVOL, (UInt8 *)&analogVolumeReg, sizeof(analogVolumeReg));
-            
-                // Closes the bus so others can access to it:
-                closeI2C();
-            }
-			temp = myAudioI2SControl->GetSerialFormatReg();
-			temp = myAudioI2SControl->GetDataWordSizesReg();
-            break ;
+        case kIOAudioDeviceSleep:	myReturn = performDeviceIdleSleep();	break;		//	When sleeping
+        case kIOAudioDeviceIdle:	myReturn = performDeviceSleep();		break;		//	When no audio engines running
+        case kIOAudioDeviceActive:	myReturn = performDeviceWake();			break;		//	audio engines running
         default:
             DEBUG_IOLOG("AppleDACAAudio::sndHWSetPowerState unknown power state\n");
             myReturn = kIOReturnBadArgument ;
             break ;
-        
     }
 
     DEBUG_IOLOG("- AppleDACAAudio::sndHWSetPowerState\n");
     return(myReturn);
 }
     
+// --------------------------------------------------------------------------
+IOReturn	AppleDACAAudio::performDeviceWake () {
+    IOReturn		myReturn;
+	IOService		*keyLargo;
+	UInt32			temp;
+    
+    DEBUG_IOLOG("+ AppleDACAAudio::performDeviceWake\n");
+
+    myReturn = kIOReturnSuccess;
+
+	//	[power support]	rbm	10 Oct 2002		added I2S clock management across sleep / wake via KeyLargo
+	keyLargo = NULL;
+	keyLargo = IOService::waitForService ( IOService::serviceMatching ( "KeyLargo" ) );
+
+	temp = myAudioI2SControl->GetSerialFormatReg();
+	temp = myAudioI2SControl->GetDataWordSizesReg();
+	if ( NULL != keyLargo ) {
+		//	Turn ON the I2S clocks
+		keyLargo->callPlatformFunction ( OSSymbol::withCString ( "keyLargo_powerI2S" ), false, (void*)true, (void*)0, 0, 0 );
+		IODelay ( 100 );
+	}
+	//	Restore I2S registers	(rbm 11 Oct 2002)
+	myAudioI2SControl->setSampleParameters(kDACA_FRAME_RATE, 0, &clockSource, &mclkDivisor, &sclkDivisor, kSndIOFormatI2S32x);
+	myAudioI2SControl->setSerialFormatRegister(clockSource, mclkDivisor, sclkDivisor, kSndIOFormatI2S32x, dataFormat);
+	setDACASampleRate(kDACA_FRAME_RATE);
+	
+	// Open the interface and reset all values
+	if (openI2C()) 
+	{
+		// And sends the data we need:
+		interface->writeI2CBus((UInt8)i2cBusAddrDAC3550A, i2cBusSubaddrGCFG, &configurationReg, sizeof(configurationReg));
+		interface->writeI2CBus((UInt8)i2cBusAddrDAC3550A, i2cBusSubAddrSR_REG, &sampleRateReg, sizeof(sampleRateReg));
+		interface->writeI2CBus((UInt8)i2cBusAddrDAC3550A, i2cBusSubAddrAVOL, (UInt8 *)&analogVolumeReg, sizeof(analogVolumeReg));
+	
+		// Closes the bus so others can access to it:
+		closeI2C();
+	}
+	temp = myAudioI2SControl->GetSerialFormatReg();
+	temp = myAudioI2SControl->GetDataWordSizesReg();
+	
+    DEBUG_IOLOG("- AppleDACAAudio::performDeviceWake\n");
+    return(myReturn);
+}
+
+// --------------------------------------------------------------------------
+IOReturn	AppleDACAAudio::performDeviceSleep () {
+    IOReturn		myReturn;
+    UInt16			tmpAnalogVolReg;
+    UInt8			tmpConfigReg;
+	IOService		*keyLargo;
+	UInt32			temp;
+    
+    DEBUG_IOLOG("+ AppleDACAAudio::performDeviceSleep\n");
+	
+    myReturn = kIOReturnSuccess;
+
+	//	[power support]	rbm	10 Oct 2002		added I2S clock management across sleep / wake via KeyLargo
+	keyLargo = NULL;
+	keyLargo = IOService::waitForService ( IOService::serviceMatching ( "KeyLargo" ) );
+
+	temp = myAudioI2SControl->GetSerialFormatReg();
+	temp = myAudioI2SControl->GetDataWordSizesReg();
+	// mute the part
+	tmpAnalogVolReg = 0x00 ;
+	
+	// set the part to low power mode
+	tmpConfigReg = 0x0 ;
+	
+		if (openI2C()) 
+		{
+		// And sends the data we need:
+		interface->writeI2CBus((UInt8)i2cBusAddrDAC3550A, i2cBusSubAddrAVOL, (UInt8 *)&tmpAnalogVolReg, sizeof(tmpAnalogVolReg));
+		interface->writeI2CBus((UInt8)i2cBusAddrDAC3550A, i2cBusSubaddrGCFG, &tmpConfigReg, sizeof(tmpConfigReg));
+	
+		// Closes the bus so others can access to it:
+		closeI2C();
+	}
+	if ( NULL != keyLargo ) {
+		//	Turn OFF the I2S clocks
+		IODelay ( 100 );
+		keyLargo->callPlatformFunction ( OSSymbol::withCString ( "keyLargo_powerI2S" ), false, (void*)false, (void*)0, 0, 0 );
+	}
+	temp = myAudioI2SControl->GetSerialFormatReg();
+	temp = myAudioI2SControl->GetDataWordSizesReg();
+
+    DEBUG_IOLOG("- AppleDACAAudio::performDeviceSleep\n");
+    return(myReturn);
+}
+
+// --------------------------------------------------------------------------
+IOReturn	AppleDACAAudio::performDeviceIdleSleep () {
+	IOReturn	myReturn;
+	
+    DEBUG_IOLOG("+ AppleDACAAudio::performDeviceIdleSleep\n");
+	myReturn = performDeviceSleep();
+    DEBUG_IOLOG("- AppleDACAAudio::performDeviceIdleSleep\n");
+    return(myReturn);
+}
+
+
 //====================================================================================================
 // ::sndHWGetConnectedDevices
 // TODO: Move to superclass

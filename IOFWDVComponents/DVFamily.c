@@ -315,11 +315,12 @@ OSErr DVCloseDriver( DVDeviceRefNum refNum )
 
 OSErr DVGetDeviceStandard(DVDeviceRefNum refNum, UInt32 * pStandard )
 {
-    AVCCTSFrameStruct      avcFrame;
-    AVCTransactionParams   transactionParams;
-    UInt8                  responseBuffer[ 16 ];
-    OSErr                  theErr = noErr;
-    UInt32                 currentSignal, AVCStatus;
+    AVCCTSFrameStruct		avcFrame;
+    AVCTransactionParams	transactionParams;
+    UInt8					responseBuffer[ 16 ];
+    OSStatus				theErr = noErr;
+    UInt32					currentSignal, AVCStatus;
+    device_info *			dev = &devices[refNum];
 
 //syslog(LOG_INFO, "DVGetDeviceStandard(0x%x)\n", refNum);
     if(!devices[refNum].fDevice->fSupportsFCP) {
@@ -342,9 +343,15 @@ OSErr DVGetDeviceStandard(DVDeviceRefNum refNum, UInt32 * pStandard )
     transactionParams.responseBufferSize    = 4;
     transactionParams.responseHandler       = nil;
     
-    theErr = DVDoAVCTransaction(refNum, &transactionParams );
+	theErr = (*dev->fDevice->fAVCInterface)->AVCCommand(dev->fDevice->fAVCInterface,
+                                    transactionParams.commandBufferPtr, transactionParams.commandLength,
+                                    transactionParams.responseBufferPtr, &transactionParams.responseBufferSize);
     if(theErr) {
         //syslog(LOG_INFO, "DVGetDeviceStandard(), err 0x%x\n", theErr);
+        if(theErr == kIOReturnTimeout) {
+            *pStandard = kNTSCStandard;
+            return noErr;
+        }
         return theErr;
     }
     currentSignal = ((responseBuffer[ 2 ] << 8) | responseBuffer[ 3 ]);
@@ -434,7 +441,7 @@ OSErr DVDisableRead( DVDeviceRefNum refNum )
 OSErr DVReadFrame( DVDeviceRefNum refNum, Ptr *ppReadBuffer, UInt32 * pSize )
 {
     device_info *dev = &devices[refNum];
-    int index, i;
+    int index=0, i;
     
     // wait for writer
      for(i=dev->fReadSharedVars->fReader; i<dev->fReadSharedVars->fWriter; i++) {

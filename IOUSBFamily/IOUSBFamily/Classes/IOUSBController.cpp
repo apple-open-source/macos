@@ -130,6 +130,7 @@ IOUSBController::init(OSDictionary * propTable)
 bool 
 IOUSBController::start( IOService * provider )
 {
+    int		i;
     IOReturn	err = kIOReturnSuccess;
     
     if( !super::start(provider))
@@ -189,10 +190,13 @@ IOUSBController::start( IOService * provider )
             break;
         }
 
-	// allocate 50 (kSizeOfCommandPool) commands of each type
+        for (i = 1; i < kUSBMaxDevices; i++)
+        {
+            _addressPending[i] = false;
+        }
+
+        // allocate 50 (kSizeOfCommandPool) commands of each type
         //
-	int	i;
-        
 	for (i=0; i < kSizeOfCommandPool; i++)
 	{
 	    IOUSBCommand *command = IOUSBCommand::NewCommand();
@@ -285,21 +289,35 @@ IOUSBController::CreateDevice(	IOUSBDevice 		*newDevice,
     do 
     {
         if (!newDevice->init(deviceAddress, powerAvailable, speed, maxPacketSize))
+        {
+            USBLog(3,"%s[%p]::CreateDevice device->init failed", getName(), this);
             break;
+        }
         
         if (!newDevice->attach(this))
+        {
+            USBLog(3,"%s[%p]::CreateDevice device->attach failed", getName(), this);
             break;
+        }
         
         if (!newDevice->start(this))
         {
+            USBLog(3,"%s[%p]::CreateDevice device->start failed", getName(), this);
             newDevice->detach(this);
             newDevice->release();
             break;
         }
-        
+
+        _addressPending[deviceAddress] = false;
+
         return(kIOReturnSuccess);
 
     } while (false);
+
+    // What do we do with the pending address here?  We should clear it and then
+    // make sure that the caller to CreateDevice disables the port
+    //
+    _addressPending[deviceAddress] = false;
 
     return(kIOReturnNoMemory);
 }
@@ -353,13 +371,27 @@ IOUSBController::GetNewAddress(void)
         clients->release();
     }
 
+    // Add check to see if an address is pending attachment to the IOService
+    //
+    for (i = 1; i < kUSBMaxDevices; i++)
+    {
+        if ( _addressPending[i] == true )
+        {
+            USBLog(3,"%s[%p]::GetNewAddress: Address %d is pending",getName(), this, i);
+            assigned[i] = true;
+        }
+    }
+    
     for (i = 1; i < kUSBMaxDevices; i++)
     {
 	if (!assigned[i])
+        {
+            _addressPending[i] = true;
             return i;
+        }
     }
 
-    return(0);	// No free device addresses!
+    return (0);	// No free device addresses!
 }
 
 

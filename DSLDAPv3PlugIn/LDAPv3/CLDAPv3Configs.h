@@ -36,6 +36,8 @@ using namespace std;
 #define kXMLUserDefinedNameKey		"UI Name"
 
 #define kXMLOpenCloseTimeoutSecsKey	"OpenClose Timeout in seconds"
+#define kXMLIdleTimeoutMinsKey		"Idle Timeout in minutes"
+#define kXMLDelayedRebindTrySecsKey	"Delay Rebind Try in seconds"
 #define kXMLPortNumberKey			"Port Number"
 #define kXMLSearchTimeoutSecsKey	"Search Timeout in seconds"
 #define kXMLSecureUseFlagKey		"Secure Use"
@@ -102,6 +104,8 @@ typedef struct sLDAPConfigData {
 	bool				bUseStdMapping;		//flag determining use of standard mappings
 	sMapTuple		   *pRecordMapTuple;	//Pointer to a record map
 	int					fOpenCloseTimeout;	//Open and Close timeout in seconds
+	int					fIdleTimeout;		//Idle timeout in minutes - NOT USED if set to ZERO
+	int					fDelayRebindTry;	//Delay rebind try after bind failure in seconds
 	char			   *fServerPassword;	//LDAP server password
 	int					fSearchTimeout;		//Search timeout in seconds
 	char			   *fServerAccount;		//LDAP server account id
@@ -193,6 +197,8 @@ protected:
 												char *inServerName,
 												bool inUseStd,
 												int inOpenCloseTO,
+												int inIdleTO,
+												int inDelayRebindTry,
 												int inSearchTO,
 												int inPortNum,
 												bool inUseSecure,

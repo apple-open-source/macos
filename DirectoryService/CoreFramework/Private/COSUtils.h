@@ -64,4 +64,7 @@ public:
 	static	const char*	GetStringFromList	( const uInt32 inListID, const sInt32 inIndex );
 };
 
+int dsTouch( const char* path );
+int dsRemove( const char* path );
+
 #endif

@@ -82,6 +82,9 @@ struct alias_link;
     PacketAliasSetFWBase(unsigned int, unsigned int);
 #endif
 
+    extern void
+    PacketAliasClampMSS(u_short mss);
+
 /* Packet Handling */
     extern int
     PacketAliasIn(char *, int maxpacketsize);

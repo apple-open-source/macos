@@ -94,6 +94,7 @@ public:
 	virtual sInt32		Initialize					(	void );
 	virtual sInt32		ProcessRequest				(	void *inData );
 	virtual sInt32		SetPluginState				(	const uInt32 inState );
+	virtual sInt32		PeriodicTask				(	void );
 	static	void		ContextDeallocProc			(	void* inContextData );
 	static	void		ContinueDeallocProc			(	void *inContinueData );
 

@@ -596,7 +596,11 @@ pfe_open_pfe_file (pfe_dir, arch, fdump)
                              pfe_dirname), pfe_basename);
   
   pfe_file = fopen (pathname, fdump ? "w" : "r");
-    
+  if (pfe_file == NULL)
+    fatal_error ("Cannot open %s file: %s (%s)",
+                 fdump ? "dump" : "load",
+                 pathname, xstrerror (errno));   
+
   free (pfe_basename);
   
   pfe_name = pathname;

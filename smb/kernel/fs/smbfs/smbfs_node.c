@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smbfs_node.c,v 1.16 2002/06/07 23:58:22 lindak Exp $
+ * $Id: smbfs_node.c,v 1.16.52.1 2003/03/14 00:05:54 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -320,11 +320,11 @@ smb_vhashrem(struct vnode *vp, struct proc *p)
  * Free smbnode, and give vnode back to system
  */
 int
-smbfs_reclaim(ap)                     
-        struct vop_reclaim_args /* {
+smbfs_reclaim(ap)
+	struct vop_reclaim_args /* {
 		struct vnode *a_vp;
 		struct proc *a_p;
-        } */ *ap;
+	} */ *ap;
 {
 	struct vnode *vp = ap->a_vp;
 	struct proc *p = ap->a_p;
@@ -415,17 +415,20 @@ smbfs_attr_cacheenter(struct vnode *vp, struct smbfattr *fap)
 	if (vp->v_type == VREG) {
 		if (np->n_size != fap->fa_size) {
 #ifdef APPLE
-			off_t old = (off_t)np->n_size;
-			off_t newround = round_page_64((off_t)fap->fa_size);
-
+			off_t old, newround;
+#endif
+			if (timespeccmp(&fap->fa_reqtime, &np->n_sizetime, <))
+				return; /* we lost the race */
+#ifdef APPLE
+			old = (off_t)np->n_size;
+			newround = round_page_64((off_t)fap->fa_size);
 			if (old > newround) {
 				if (!ubc_invalidate(vp, newround,
 						    (size_t)(old - newround)))
 					panic("smbfs_attr_cacheenter: ubc_invalidate");
 			}
 #endif /* APPLE */
-			np->n_size = fap->fa_size;
-			vnode_pager_setsize(vp, np->n_size);
+			smbfs_setsize(vp, fap->fa_size);
 		}
 	} else if (vp->v_type == VDIR) {
 		np->n_size = 16384; 	/* should be a better way ... */
@@ -545,4 +548,31 @@ smbfs_attr_touchdir(struct vnode *dvp)
 		panic("smbfs_attr_touchdir: not SMB directory %d %d",
 		      dvp ? dvp->v_type : -1, dvp ? dvp->v_tag : -1);
 	}
+}
+
+
+/*
+ * XXX TODO
+ * FreeBSD (ifndef APPLE) needs this n_sizetime stuff too.
+ */
+void
+smbfs_setsize(struct vnode *vp, off_t size)
+{
+	struct smbnode *np = VTOSMB(vp);
+
+	/*
+	 * n_size is used by smbfs_pageout so it must be
+	 * changed before we call setsize
+	 */
+	np->n_size = size;
+#ifdef APPLE
+	vnode_pager_setsize(vp, size);
+#else
+	vnode_pager_setsize(vp, (u_long)size);
+#endif
+	/*
+	 * this lets us avoid a race with readdir which resulted in
+	 * a stale n_size, which in the worst case yielded data corruption.
+	 */
+	getnanotime(&np->n_sizetime);
 }

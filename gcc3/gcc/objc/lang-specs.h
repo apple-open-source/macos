@@ -36,11 +36,11 @@ Boston, MA 02111-1307, USA.  */
 	  %{!traditional-cpp:%{!no-cpp-precomp:\
 	    %(cpp_precomp) -lang-objc -D__OBJC__ %{ansi:-std=c89} %(cpp_precomp_options) %y0}}}\
       %{!E:%{!M:%{!MM:\
-	  %{save-temps|no-integrated-cpp:
-             %{no-cpp-precomp|traditional-cpp|fload=*|fdump=*: 
+	  %{save-temps|no-integrated-cpp:\
+             %{no-cpp-precomp|traditional-cpp|fload=*|fdump=*:\
                 %(trad_capable_cpp) -lang-objc -D__OBJC__ %{ansi:-std=c89} %(cpp_options) %{save-temps:%b.mi} %{!save-temps:%g.mi} \n\
 		 cc1obj -fpreprocessed %{save-temps:%b.mi} %{!save-temps:%g.mi} %(cc1_options) %{gen-decls}}\
-             %{cpp-precomp|!no-cpp-precomp:%{!traditional-cpp:%{!fdump=*:%{!fload=*:%{!precomp:
+             %{cpp-precomp|!no-cpp-precomp:%{!traditional-cpp:%{!fdump=*:%{!fload=*:%{!precomp:\
                 %(cpp_precomp) -lang-objc -D__OBJC__ %{ansi:-std=c89} %(cpp_precomp_options) %y0 %{save-temps:%b.mi} %{!save-temps:%g.mi} \n\
 		 cc1obj -cpp-precomp %{save-temps:%b.mi} %{!save-temps:%g.mi} %(cc1_options) %{gen-decls}}}}}}}\
 	    %{precomp:\

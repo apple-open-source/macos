@@ -100,7 +100,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleADBMouse;
-				MODULE_VERSION = 2.0.7d1;
+				MODULE_VERSION = 2.0.8d1;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -135,11 +135,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.0.7</string>
+	<string>2.0.8</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>2.0.7d1</string>
+	<string>2.0.8d1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleADBMouseType1</key>
@@ -185,13 +185,29 @@
 			<key>IOProviderClass</key>
 			<string>IOADBDevice</string>
 			<key>JitterNoClick</key>
-			<integer>1</integer>
+			<integer>0</integer>
 			<key>JitterNoMove</key>
+			<integer>0</integer>
+			<key>OutsidezoneNoAction Permanent</key>
+			<integer>0</integer>
+			<key>OutsidezoneNoAction When Pecking</key>
+			<integer>0</integer>
+			<key>OutsidezoneNoAction When Typing</key>
+			<integer>0</integer>
+			<key>PalmNoAction Permanent</key>
+			<integer>0</integer>
+			<key>PalmNoAction When Typing</key>
 			<integer>0</integer>
 			<key>Trackpad Jitter Max delta</key>
 			<integer>16</integer>
 			<key>Trackpad Jitter Milliseconds</key>
 			<integer>750</integer>
+			<key>TwofingerNoAction</key>
+			<integer>0</integer>
+			<key>W sticky input timeout</key>
+			<integer>500</integer>
+			<key>W threshold</key>
+			<integer>7</integer>
 			<key>acclAAPL</key>
 			<data>
 			AACAAEAyMDAAAgAAAAAAAQABAAAAAQAAAAEAAAAJAABxOwAAYAAA

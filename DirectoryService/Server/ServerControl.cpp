@@ -1177,10 +1177,10 @@ sInt32 ServerControl::SetUpPeriodicTask ( void )
 	void	   *ptInfo		= nil;
 	
 	CFRunLoopTimerContext c = {0, (void*)ptInfo, NULL, NULL, PeriodicTaskCopyStringCallback};
-	
+	//IMPORTANT:LDAPv3 Idle TimeOut requires the 30 second periodic task here set
 	CFRunLoopTimerRef timer = CFRunLoopTimerCreate(	NULL,
 													CFAbsoluteTimeGetCurrent() + 120,
-													120,
+													30,
 													0,
 													0,
 													DoPeriodicTask,

@@ -26,21 +26,24 @@
 #include <IOKit/hidsystem/IOHIKeyboard.h>
 #include <IOKit/adb/IOADBDevice.h>
 
-#define kVolume_up	0x06
-#define kVolume_down	0x07
-#define kMute		0x08
-#define kVolume_up_AV	0x03  //Apple ADB AV monitors have different button codes
-#define kVolume_down_AV	0x02
-#define kMute_AV	0x01
-#define kBrightness_up	0x09
-#define kBrightness_down	0x0a
-#define kEject		0x0b
-#define kVideoMirror	0x0c
+#define kVolume_up				0x06
+#define kVolume_down			0x07
+#define kMute					0x08
+#define kVolume_up_AV			0x03  //Apple ADB AV monitors have different button codes
+#define kVolume_down_AV			0x02
+#define kMute_AV				0x01
+#define kBrightness_up			0x09
+#define kBrightness_down		0x0a
+#define kEject					0x0b
+#define kVideoMirror			0x0c
+#define kIllumination_toggle	0x0d
+#define kIllumination_down		0x0e
+#define kIllumination_up		0x0f
 #define kNum_lock_on_laptops	0x7f
 
-#define kMax_registrations 10
-#define	kMax_keycode	0x0a
-#define kNullKey	0xFF
+#define kMax_registrations 		10
+#define	kMax_keycode			0x0a
+#define kNullKey				0xFF
 
 typedef void (*button_handler)(void * );
 

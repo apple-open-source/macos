@@ -1,4 +1,4 @@
-dnl $Id: Makefile.m4,v 1.1.1.3 2002/10/15 02:38:22 zarzycki Exp $
+dnl $Id: Makefile.m4,v 1.1.1.4 2003/02/22 09:24:40 zarzycki Exp $
 include(confBUILDTOOLSDIR`/M4/switch.m4')
 
 define(`confREQUIRE_LIBSM', `true')
@@ -40,7 +40,6 @@ bldPUSH_TARGET(`statistics')
 divert(bldTARGETS_SECTION)
 statistics:
 	${CP} /dev/null statistics
-	chmod ifdef(`confSTMODE', `confSTMODE', `0600') statistics
 
 ${DESTDIR}/etc/mail/submit.cf:
 	@echo "Please read INSTALL if anything fails while installing the binary."

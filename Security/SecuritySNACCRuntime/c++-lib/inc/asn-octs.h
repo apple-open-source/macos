@@ -57,7 +57,7 @@
 // 
 // 
 // 
-// $Header: /cvs/Darwin/src/live/Security/SecuritySNACCRuntime/c++-lib/inc/asn-octs.h,v 1.2 2002/04/18 18:58:08 dmitch Exp $
+// $Header: /cvs/root/Security/SecuritySNACCRuntime/c++-lib/inc/Attic/asn-octs.h,v 1.2 2002/04/18 18:58:08 dmitch Exp $
 // $Log: asn-octs.h,v $
 // Revision 1.2  2002/04/18 18:58:08  dmitch
 // Radar 2904404 - avoid deprecated iostream.h

@@ -380,7 +380,10 @@ IOReturn IOHIDQueueClass::getNextEvent (
                         UInt32 			timeoutMS)
 {
     IOReturn ret = kIOReturnSuccess;
-    
+
+    if (fOwningDevice->fIsTerminated)
+        return kIOReturnNotAttached;
+
 #if 0
     printf ("IOHIDQueueClass::getNextEvent about to peek\n");
 

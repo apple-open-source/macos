@@ -114,8 +114,9 @@ enum {
 };
 
 typedef enum PWServerErrorType {
-    kPolicyError,
-    kSASLError
+	kPolicyError,
+	kSASLError,
+	kConnectionError
 } PWServerErrorType;
 
 typedef struct PWServerError {
@@ -161,8 +162,10 @@ typedef struct sPSContextData {
 
 typedef struct {
 	uInt32				fAuthPass;
-	unsigned char *		fData;
-	unsigned long 		fDataLen;
+	unsigned char*		fData;
+	unsigned long		fDataLen;
+	sasl_secret_t*		fSASLSecret;
+	char				fUsername[kMaxUserNameLength + 1];
 } sPSContinueData;
 
 
@@ -241,7 +244,8 @@ protected:
 														const char *password,
 														long inPasswordLen,
 														const char *inChallenge,
-														const char *inMechName, 
+														const char *inMechName,
+														sDoDirNodeAuth *inData,
 														char **outStepData );
 	
 	sInt32				DoSASLTwoWayRandAuth		(	sPSContextData *inContext,

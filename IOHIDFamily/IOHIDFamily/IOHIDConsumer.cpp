@@ -403,7 +403,7 @@ const unsigned char * IOHIDConsumer::defaultKeymapOfLength( UInt32 * length )
         
         // The next value is the number of special keys. We use these.
         
-        0x04,
+        0x0a,
         
         // Special Key	  	SCANCODE
         //-----------------------------------------------------------

@@ -2113,10 +2113,15 @@ static int resume_card(client_handle_t handle, client_req_t *req)
     if (CHECK_HANDLE(handle))
 	return CS_BAD_HANDLE;
     i = handle->Socket; s = socket_table[i];
+#ifdef __MACOSX__
+    if ((s->state & SOCKET_PRESENT) && !(s->state & SOCKET_SUSPEND))
+	return CS_IN_USE;
+#else
     if (!(s->state & SOCKET_PRESENT))
 	return CS_NO_CARD;
     if (!(s->state & SOCKET_SUSPEND))
 	return CS_IN_USE;
+#endif
 
     DEBUG(1, "cs: waking up socket %d\n", i);
 #ifdef __MACOSX__

@@ -4813,8 +4813,12 @@ finish_vector_type (t)
 
   {
     tree index = build_int_2 (TYPE_VECTOR_SUBPARTS (t) - 1, 0);
-    tree array = build_array_type (TREE_TYPE (t),
-				   build_index_type (index));
+    /* APPLE LOCAL AltiVec */
+    /* Use unsigned_char_type rather than int_QI_type, etc.
+       so debug info is common with nonvector unsigned char */
+    tree array = build_array_type (type_for_mode (TYPE_MODE (TREE_TYPE (t)),
+						   TREE_UNSIGNED (TREE_TYPE (t))),
+		build_index_type (index));
     tree rt = make_node (RECORD_TYPE);
 
     TYPE_FIELDS (rt) = build_decl (FIELD_DECL, get_identifier ("f"), array);
@@ -4970,7 +4974,7 @@ build_common_tree_nodes_2 (short_double)
 
   /* APPLE LOCAL begin AltiVec */
   unsigned_VPIXEL_type_node 
-    = make_vector (V4HImode, unsigned_intHI_type_node, 1);
+    = make_vector (V8HImode, unsigned_intHI_type_node, 1);
   /* The 'vector bool...' and 'vector unsigned...' types are the
      same as far as the back-end is concerned, but are distinct
      for purposes of C/C++ type resolution.  */  
@@ -5001,7 +5005,7 @@ build_common_tree_nodes_2 (short_double)
    set to V4SImode, irrespective of input param mode.  */
 static tree
 make_vector (mode, innertype, unsignedp)
-     enum machine_mode mode ATTRIBUTE_UNUSED;
+     enum machine_mode mode;
      tree innertype;
      int unsignedp;
 {
@@ -5009,10 +5013,15 @@ make_vector (mode, innertype, unsignedp)
 
   t = make_node (VECTOR_TYPE);
   TREE_TYPE (t) = innertype;
-  /* APPLE LOCAL AltiVec */
-  TYPE_MODE (t) = V4SImode;
   TREE_UNSIGNED (TREE_TYPE (t)) = unsignedp;
+  TYPE_MODE (t) = mode;
   finish_vector_type (t);
-
+  /* APPLE LOCAL AltiVec */
+#ifdef TARGET_POWERPC
+  /* Overwrite the real mode with V4SImode for all vectors.  This is */
+  /* placed below finish_vector_type so the debug array size is right.  */
+  /* This is inappropriate for x86 target. */
+  TYPE_MODE (t) = V4SImode;
+#endif
   return t;
 }

@@ -215,6 +215,7 @@ tDirStatus dsOpenDirServiceProxy (	tDirReference	   *outDirRef,
 	uInt32			messageIndex= 0;
 	uInt32			tableIndex	= 0;
 	tDataBufferPtr	versBuff	= nil;
+	uInt32			serverVersion = 0;
 
 	try
 	{
@@ -369,6 +370,11 @@ tDirStatus dsOpenDirServiceProxy (	tDirReference	   *outDirRef,
 		// Get the return result
 		siStatus = gMessageTable[messageIndex]->Get_Value_FromMsg( (uInt32 *)&outResult, kResult );
 		LogThenThrowIfDSErrorMacro( outResult );
+
+		// Get the server DSProxy version if it exists
+		siStatus = gMessageTable[messageIndex]->Get_Value_FromMsg( (uInt32 *)&serverVersion, kNodeCount );
+		siStatus = eDSNoErr;
+		gMessageTable[messageIndex]->SetServerVersion(serverVersion);
 
 		if ( outDirRef != nil )
 		{
@@ -1624,6 +1630,7 @@ tDirStatus dsGetRecordList (	tDirNodeReference	inNodeRef,				// Node ref
 	tDirStatus		outResult	= eDSNoErr;
 	sInt32			siStatus	= eDSNoErr;
 	uInt32			messageIndex= 0;
+	uInt32			serverVersion = 0;
 
 	try
 	{
@@ -1654,7 +1661,16 @@ tDirStatus dsGetRecordList (	tDirNodeReference	inNodeRef,				// Node ref
 		LogThenThrowThisIfDSErrorMacro( siStatus, eParameterSendError );
 
 		// Add the data buffer
-		siStatus = gMessageTable[messageIndex]->Add_tDataBuff_ToMsg( inOutDataBuff, ktDataBuff );
+		//don't need to send this empty buffer to the server at all ie. do just like dsDoAttributeValueSearch for version 1 or above
+		serverVersion = gMessageTable[messageIndex]->GetServerVersion();
+		if (serverVersion > 0)
+		{
+			siStatus = gMessageTable[messageIndex]->Add_Value_ToMsg( inOutDataBuff->fBufferSize, kOutBuffLen );
+		}
+		else
+		{
+			siStatus = gMessageTable[messageIndex]->Add_tDataBuff_ToMsg( inOutDataBuff, ktDataBuff );
+		}
 		LogThenThrowThisIfDSErrorMacro( siStatus, eParameterSendError - 1 );
 
 		// Add the Record Name list

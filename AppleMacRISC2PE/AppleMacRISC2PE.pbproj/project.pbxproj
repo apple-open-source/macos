@@ -6,46 +6,55 @@
 	objectVersion = 38;
 	objects = {
 		067D03B3FFF08CF111CA2A1B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOPMSlotsMacRISC2.cpp;
 			refType = 4;
 		};
 		067D03B4FFF08CF111CA2A1B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOPMSlotsMacRISC2.h;
 			refType = 4;
 		};
 		067D03B5FFF08CF111CA2A1B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOPMUSBMacRISC2.cpp;
 			refType = 4;
 		};
 		067D03B6FFF08CF111CA2A1B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOPMUSBMacRISC2.h;
 			refType = 4;
 		};
 		067D03B7FFF08CF111CA2A1B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = MacRISC2.cpp;
 			refType = 4;
 		};
 		067D03B8FFF08CF111CA2A1B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = MacRISC2.h;
 			refType = 4;
 		};
 		067D03B9FFF08CF111CA2A1B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = MacRISC2CPU.cpp;
 			refType = 4;
 		};
 		067D03BAFFF08CF111CA2A1B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = MacRISC2CPU.h;
 			refType = 4;
 		};
 		067D03BBFFF08CF111CA2A1B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = MacRISC2PowerTree.cpp;
 			refType = 4;
@@ -209,7 +218,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleMacRISC2PE;
-				MODULE_VERSION = 1.3.1d5;
+				MODULE_VERSION = 1.3.4f1;
 				OTHER_CFLAGS = "-fpermissive -D_BIG_ENDIAN";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -235,7 +244,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleMacRISC2PE</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleMacRISC2PE version 1.3.1, Copyright 2002 Apple Computer, Inc.</string>
+	<string>AppleMacRISC2PE version 1.3.4, Copyright 2002-2003 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -247,11 +256,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.1</string>
+	<string>1.3.4</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3.1d5</string>
+	<string>1.3.4f1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>MacRISC2CPU</key>
@@ -282,6 +291,17 @@
 			<integer>5000</integer>
 			<key>IOProviderClass</key>
 			<string>IOPlatformExpertDevice</string>
+		</dict>
+		<key>PB5_1_PlatformMonitor</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleMacRISC2PE</string>
+			<key>IOClass</key>
+			<string>PB5_1_PlatformMonitor</string>
+			<key>IONameMatch</key>
+			<string>PowerBook5,1_PlatformMonitor</string>
+			<key>IOProviderClass</key>
+			<string>IOPlatformDevice</string>
 		</dict>
 		<key>PB6_1_PlatformMonitor</key>
 		<dict>
@@ -324,7 +344,7 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 1;
+			shouldUseHeadermap = 0;
 		};
 		089C1674FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
@@ -337,6 +357,7 @@
 				B03B6DF402F9DA0605CE0D9E,
 				B0AEE84603732BF305CE0D9E,
 				B0AEE84A037337E705CE0D9E,
+				632003E503D342CB0FCE15D6,
 			);
 			isa = PBXHeadersBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -361,6 +382,7 @@
 				B031E7530327ED1A05CE0D9E,
 				B0AEE848037337D005CE0D9E,
 				B0AEE84E03788C4105CE0D9E,
+				632003E603D342CB0FCE15D6,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -470,6 +492,8 @@
 				B0AEE84D03788C4105CE0D9E,
 				B0AEE849037337E705CE0D9E,
 				B0AEE847037337D005CE0D9E,
+				632003E303D342CB0FCE15D6,
+				632003E403D342CB0FCE15D6,
 			);
 			isa = PBXGroup;
 			name = Source;
@@ -481,12 +505,45 @@
 //242
 //243
 //244
+//630
+//631
+//632
+//633
+//634
+		632003E303D342CB0FCE15D6 = {
+			isa = PBXFileReference;
+			path = PB5_1_PlatformMonitor.h;
+			refType = 4;
+		};
+		632003E403D342CB0FCE15D6 = {
+			isa = PBXFileReference;
+			path = PB5_1_PlatformMonitor.cpp;
+			refType = 4;
+		};
+		632003E503D342CB0FCE15D6 = {
+			fileRef = 632003E303D342CB0FCE15D6;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		632003E603D342CB0FCE15D6 = {
+			fileRef = 632003E403D342CB0FCE15D6;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//630
+//631
+//632
+//633
+//634
 //B00
 //B01
 //B02
 //B03
 //B04
 		B031E7520327ED1A05CE0D9E = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOPlatformFunction.cpp;
 			refType = 4;
@@ -498,11 +555,13 @@
 			};
 		};
 		B03B6DF202F9DA0605CE0D9E = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = UniN.cpp;
 			refType = 4;
 		};
 		B03B6DF302F9DA0605CE0D9E = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = UniN.h;
 			refType = 4;
@@ -520,6 +579,7 @@
 			};
 		};
 		B099E3BF02DFBBE205CE0D9B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOPlatformFunction.h;
 			refType = 4;
@@ -531,6 +591,7 @@
 			};
 		};
 		B0AEE84503732BF305CE0D9E = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOPlatformMonitor.h;
 			refType = 4;
@@ -542,6 +603,7 @@
 			};
 		};
 		B0AEE847037337D005CE0D9E = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = PB6_1_PlatformMonitor.cpp;
 			refType = 4;
@@ -553,6 +615,7 @@
 			};
 		};
 		B0AEE849037337E705CE0D9E = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = PB6_1_PlatformMonitor.h;
 			refType = 4;
@@ -564,6 +627,7 @@
 			};
 		};
 		B0AEE84D03788C4105CE0D9E = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOPlatformMonitor.cpp;
 			refType = 4;

@@ -29,6 +29,7 @@
 
 __BEGIN_DECLS
 #include <ppc/proc_reg.h>
+#include <ppc/machine_routines.h>
 __END_DECLS
 
 #include <IOKit/IODeviceTreeSupport.h>
@@ -152,6 +153,10 @@ bool MacRISC2CPU::start(IOService *provider)
         timebase_enable_offset = 0x73;
     else
         timebase_enable_offset = *(long *)tmpData->getBytesNoCopy();
+  
+    // On macines with a 'vmin' property in the CPU Node we need to make sure to tell the kernel to 
+    // ml_set_processor_voltage on needed processors.
+    needVSetting = (provider->getProperty( "vmin" ) != 0);
   
     // Find out if this is the boot CPU.
     bootCPU = false;
@@ -355,64 +360,67 @@ IOReturn MacRISC2CPU::setAggressiveness(UInt32 selector, UInt32 newLevel)
 			// OK, this is a call from the platform monitor, so adjust it to standard levels and carry on
 			newLevel -= 2;
 			doChange = true;		// Change should always be true under control of ioPMon
-		} else {
-			// do it the old way
-			if (doSleep) {
-				IOSleep (1000);
-				doSleep = false;
-			}
+		}
+
+		/*
+		 * We get here if 1) there is no platform monitor, OR 2) this is a call from the platform
+		 * monitor.
+		 */
+		if (doSleep) {
+			IOSleep (1000);
+			doSleep = false;
+		}
 	
-			// Enable/Disable L2 if needed.
-			if (macRISC2PE->processorSpeedChangeFlags & kDisableL2SpeedChange) {
-				if (!(macRISC2PE->processorSpeedChangeFlags & kClamshellClosedSpeedChange)) {
-					// newLevel == 0 => run fast => cache on => true
-					// newLevel == 1 => run slow => cache off => false
-					if (!newLevel) {
-						// See if cache is disabled
-						if (!(macRISC2PE->processorSpeedChangeFlags & kL2CacheEnabled)) {
-							// Enable it
-							ml_enable_cache_level(2, !newLevel);
-							macRISC2PE->processorSpeedChangeFlags |= kL2CacheEnabled;
-						}
-					} else if (macRISC2PE->processorSpeedChangeFlags & kL2CacheEnabled) {
-						// Disable it
+		// Enable/Disable L2 if needed.
+		if (macRISC2PE->processorSpeedChangeFlags & kDisableL2SpeedChange) {
+			if (!(macRISC2PE->processorSpeedChangeFlags & kClamshellClosedSpeedChange)) {
+				// newLevel == 0 => run fast => cache on => true
+				// newLevel == 1 => run slow => cache off => false
+				if (!newLevel) {
+					// See if cache is disabled
+					if (!(macRISC2PE->processorSpeedChangeFlags & kL2CacheEnabled)) {
+						// Enable it
 						ml_enable_cache_level(2, !newLevel);
-						macRISC2PE->processorSpeedChangeFlags &= ~kL2CacheEnabled;
+						macRISC2PE->processorSpeedChangeFlags |= kL2CacheEnabled;
 					}
+				} else if (macRISC2PE->processorSpeedChangeFlags & kL2CacheEnabled) {
+					// Disable it
+					ml_enable_cache_level(2, !newLevel);
+					macRISC2PE->processorSpeedChangeFlags &= ~kL2CacheEnabled;
 				}
 			}
-	
-			// Enable/Disable L3 if needed.
-			if (macRISC2PE->processorSpeedChangeFlags & kDisableL3SpeedChange) {
-				if (!(macRISC2PE->processorSpeedChangeFlags & kClamshellClosedSpeedChange)) {
-					// newLevel == 0 => run fast => cache on => true
-					// newLevel == 1 => run slow => cache off => false
-					if (!newLevel) {
-						// See if cache is disabled
-						if (!(macRISC2PE->processorSpeedChangeFlags & kL3CacheEnabled)) {
-							// Enable it
-							ml_enable_cache_level(3, !newLevel);
-							macRISC2PE->processorSpeedChangeFlags |= kL3CacheEnabled;
-						}
-					} else if (macRISC2PE->processorSpeedChangeFlags & kL3CacheEnabled) {
-						// Disable it
+		}
+
+		// Enable/Disable L3 if needed.
+		if (macRISC2PE->processorSpeedChangeFlags & kDisableL3SpeedChange) {
+			if (!(macRISC2PE->processorSpeedChangeFlags & kClamshellClosedSpeedChange)) {
+				// newLevel == 0 => run fast => cache on => true
+				// newLevel == 1 => run slow => cache off => false
+				if (!newLevel) {
+					// See if cache is disabled
+					if (!(macRISC2PE->processorSpeedChangeFlags & kL3CacheEnabled)) {
+						// Enable it
 						ml_enable_cache_level(3, !newLevel);
-						macRISC2PE->processorSpeedChangeFlags &= ~kL3CacheEnabled;
+						macRISC2PE->processorSpeedChangeFlags |= kL3CacheEnabled;
 					}
+				} else if (macRISC2PE->processorSpeedChangeFlags & kL3CacheEnabled) {
+					// Disable it
+					ml_enable_cache_level(3, !newLevel);
+					macRISC2PE->processorSpeedChangeFlags &= ~kL3CacheEnabled;
 				}
 			}
-			if (!newLevel) {
-				// See if already running slow
-				if (!(macRISC2PE->processorSpeedChangeFlags & kProcessorFast)) {
-					// Signal to switch
-					doChange = true;
-					macRISC2PE->processorSpeedChangeFlags |= kProcessorFast;
-				}
-			} else if (macRISC2PE->processorSpeedChangeFlags & kProcessorFast) {
+		}
+		if (!newLevel) {
+			// See if already running slow
+			if (!(macRISC2PE->processorSpeedChangeFlags & kProcessorFast)) {
 				// Signal to switch
 				doChange = true;
-				macRISC2PE->processorSpeedChangeFlags &= ~kProcessorFast;
+				macRISC2PE->processorSpeedChangeFlags |= kProcessorFast;
 			}
+		} else if (macRISC2PE->processorSpeedChangeFlags & kProcessorFast) {
+			// Signal to switch
+			doChange = true;
+			macRISC2PE->processorSpeedChangeFlags &= ~kProcessorFast;
 		}
 
 		if (macRISC2PE->processorSpeedChangeFlags & kPMUBasedSpeedChange) {
@@ -422,15 +430,22 @@ IOReturn MacRISC2CPU::setAggressiveness(UInt32 selector, UInt32 newLevel)
 		
 		if (macRISC2PE->processorSpeedChangeFlags & kProcessorBasedSpeedChange && doChange) {
 			IOReturn cpfResult = kIOReturnSuccess;
-			
+                        
 			if (newLevel == 0)
 				cpfResult = keyLargo->callPlatformFunction (keyLargo_setPowerSupply, false,
 					(void *)1, (void *)0, (void *)0, (void *)0);
 			
 			if (cpfResult == kIOReturnSuccess) {  
 				// Set processor to new speed setting.
+                                
+                                if (needVSetting && (newLevel == 0))
+                                         ml_set_processor_voltage(0);	// High
+                                
 				ml_set_processor_speed(newLevel ? 1 : 0);
-				
+                                
+                                if (needVSetting && (newLevel != 0))
+                                     ml_set_processor_voltage(1);	// Low
+                                
 				if (newLevel != 0)
 					cpfResult = keyLargo->callPlatformFunction (keyLargo_setPowerSupply, false,
 						(void *)0, (void *)0, (void *)0, (void *)0);
@@ -443,11 +458,13 @@ IOReturn MacRISC2CPU::setAggressiveness(UInt32 selector, UInt32 newLevel)
 
 void MacRISC2CPU::performPMUSpeedChange (UInt32 newLevel)
 {
+	bool tempRememberNap;
+
 	// Note the current processor speed so quiesceCPU knows what to do
 	currentProcessorSpeed = newLevel;
 	
 	// Disable nap to prevent PMU doing reset too soon.
-	rememberNap = ml_enable_nap(getCPUNumber(), false);
+	tempRememberNap = ml_enable_nap(getCPUNumber(), false);
 	
 	// Set flags for processor speed change.
 	processorSpeedChange = true;
@@ -459,7 +476,7 @@ void MacRISC2CPU::performPMUSpeedChange (UInt32 newLevel)
 	processorSpeedChange = false;
 	
 	// Enable nap as needed.
-	ml_enable_nap(getCPUNumber(), rememberNap);
+	ml_enable_nap(getCPUNumber(), tempRememberNap);
 	
 	return;
 }

@@ -164,6 +164,13 @@ init_c_lex (filename)
 int
 yyparse()
 {
+  /* APPLE LOCAL begin PFE */
+#ifdef PFE
+  /* During a PFE load, we emit the SO stabs entry before we thaw
+     prefix header stabs info.  */
+  if (pfe_operation != PFE_LOAD)
+#endif
+  /* APPLE LOCAL end PFE */
   (*debug_hooks->start_source_file) (lineno, input_filename);
   cpp_finish_options (parse_in);
 
@@ -328,6 +335,10 @@ cb_file_change (pfile, new_map)
       
       (*debug_hooks->end_source_file) (to_line);
     }
+  /* APPLE LOCAL begin indexing dpatel */
+  else if (flag_gen_index && new_map->reason == LC_RENAME)
+    add_dup_header_name (input_filename, new_map->to_file);
+  /* APPLE LOCAL end indexing dpatel */
 
   update_header_times (new_map->to_file);
   in_system_header = new_map->sysp != 0;

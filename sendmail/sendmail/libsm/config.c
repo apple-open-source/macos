@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Sendmail, Inc. and its suppliers.
+ * Copyright (c) 2000-2003 Sendmail, Inc. and its suppliers.
  *	All rights reserved.
  *
  * By using this file, you agree to the terms and conditions set
@@ -9,7 +9,7 @@
  */
 
 #include <sm/gen.h>
-SM_RCSID("@(#)$Id: config.c,v 1.1.1.2 2002/10/15 02:38:04 zarzycki Exp $")
+SM_RCSID("@(#)$Id: config.c,v 1.1.1.3 2003/03/29 19:44:10 zarzycki Exp $")
 
 #include <stdlib.h>
 #include <sm/heap.h>
@@ -197,6 +197,9 @@ char *SmCompileOptions[] =
 #if SM_CONF_SETITIMER
 	"SM_CONF_SETITIMER",
 #endif /* SM_CONF_SETITIMER */
+#if SM_CONF_SIGSETJMP
+	"SM_CONF_SIGSETJMP",
+#endif /* SM_CONF_SIGSETJMP */
 #if SM_CONF_SHM
 	"SM_CONF_SHM",
 #endif /* SM_CONF_SHM */

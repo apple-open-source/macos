@@ -350,7 +350,7 @@ KeyItem::importPair(
 		cssmData = reinterpret_cast<CssmData *>(outData);
 		CssmData &pubKeyHash = *cssmData;
 
-		status = CSSM_CSP_CreateSymmetricContext(csp->handle(), publicWrappedKey.KeyHeader.AlgorithmId, CSSM_ALGMODE_NONE, NULL, NULL, NULL, CSSM_PADDING_NONE, NULL, &ccHandle);
+		status = CSSM_CSP_CreateSymmetricContext(csp->handle(), publicWrappedKey.KeyHeader.WrapAlgorithmId, CSSM_ALGMODE_NONE, NULL, NULL, NULL, CSSM_PADDING_NONE, NULL, &ccHandle);
 		if (status)
 			CssmError::throwMe(status);
 		deleteContext = true;
@@ -363,34 +363,43 @@ KeyItem::importPair(
 			CssmError::throwMe(status);
 	
 		// Unwrap the the keys
+		CSSM_DATA descriptiveData = {0, NULL};
+		
 		status = CSSM_UnwrapKey(
 			ccHandle,
 			NULL,
 			&publicWrappedKey,
 			publicWrappedKey.KeyHeader.KeyUsage,
-			publicWrappedKey.KeyHeader.KeyAttr,
+			publicWrappedKey.KeyHeader.KeyAttr | CSSM_KEYATTR_PERMANENT,
 			&pubKeyHash,
 			&rcc,
 			&publicCssmKey,
-			NULL);
+			&descriptiveData);
+			
 		if (status)
 			CssmError::throwMe(status);
 		freePublicKey = true;
-
+		
+		if (descriptiveData.Data != NULL)
+			free (descriptiveData.Data);
+			
 		status = CSSM_UnwrapKey(
 			ccHandle,
 			NULL,
 			&privateWrappedKey,
 			privateWrappedKey.KeyHeader.KeyUsage,
-			privateWrappedKey.KeyHeader.KeyAttr,
+			privateWrappedKey.KeyHeader.KeyAttr | CSSM_KEYATTR_PERMANENT,
 			&pubKeyHash,
 			&rcc,
 			&privateCssmKey,
-			NULL);
-
+			&descriptiveData);
+			
 		if (status)
 			CssmError::throwMe(status);
 
+		if (descriptiveData.Data != NULL)
+			free (descriptiveData.Data);
+			
 		freePrivateKey = true;
 
 		// Find the keys we just generated in the DL to get SecKeyRef's to them

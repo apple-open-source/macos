@@ -20,7 +20,7 @@
 
 /* these comments must only be a single line each - lex blows it otherwise */
 /* due to this claim, the rcs log is at the end of this file. */
-/* $Header: /cvs/Darwin/src/live/Security/SecuritySNACCRuntime/compiler/core/lex-asn1.l,v 1.1 2001/06/20 21:27:57 dmitch Exp $ */
+/* $Header: /cvs/root/Security/SecuritySNACCRuntime/compiler/core/Attic/lex-asn1.l,v 1.1 2001/06/20 21:27:57 dmitch Exp $ */
 
 /* This lex spec should compile under either lex or flex. */
 

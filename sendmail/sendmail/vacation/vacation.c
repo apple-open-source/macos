@@ -20,7 +20,7 @@ SM_IDSTR(copyright,
 	The Regents of the University of California.  All rights reserved.\n\
      Copyright (c) 1983 Eric P. Allman.  All rights reserved.\n")
 
-SM_IDSTR(id, "@(#)$Id: vacation.c,v 1.1.1.3 2002/10/15 02:38:40 zarzycki Exp $")
+SM_IDSTR(id, "@(#)$Id: vacation.c,v 1.1.1.4 2003/02/22 09:24:56 zarzycki Exp $")
 
 
 #include <ctype.h>
@@ -1095,7 +1095,7 @@ listdb()
 		char *timestamp;
 
 		/* skip magic VIT entry */
-		if ((int)db_key.size - 1 == strlen(VIT) &&
+		if (db_key.size == strlen(VIT) + 1 &&
 		    strncmp((char *)db_key.data, VIT,
 			    (int)db_key.size - 1) == 0)
 			continue;

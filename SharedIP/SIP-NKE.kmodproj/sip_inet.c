@@ -1551,9 +1551,7 @@ process_firewall_out(struct mbuf **m_orig, struct ifnet	*ifp)
     struct ip			*ip;
     int					hlen;
     struct sockaddr_in 	sin, *dst = &sin;
-#if DUMMYNET || IPDIVERT
     struct sockaddr_in  *old = dst;
-#endif
     int					off;
     struct ip_fw_chain	*rule = NULL;
     
@@ -1587,12 +1585,9 @@ process_firewall_out(struct mbuf **m_orig, struct ifnet	*ifp)
       * because we don't support DUMMYNET or IPFIREWALL_FORWARD
       * in the kernel.
       */
-#if DUMMYNET || IPDIVERT
     if (off == 0 && dst == old && *m_orig != NULL)
-#else
-    if (*m_orig != NULL)
-#endif
         return FIREWALL_ACCEPTED;
+	
     /* Firewall rejected (gobbled up) the packet. */
     if (*m_orig == NULL)
         return 1;
@@ -1673,11 +1668,7 @@ process_firewall_in(struct mbuf **m_orig)
       * Since we don't support DUMMYNET or IPFIREWALL_FORWARD
       * We'll just ignore "off"
       */
-#if DUMMYNET || IPFIREWALL_FORWARD || IPDIVERT
     if (off == 0 && ip_fw_fwd_addr == NULL && *m_orig != NULL)
-#else
-    if (*m_orig != NULL)
-#endif
         return 0;
     /* Firewall rejected (gobbled up) the packet. */
     if (*m_orig == NULL)

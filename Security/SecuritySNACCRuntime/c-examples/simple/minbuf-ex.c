@@ -24,7 +24,7 @@
  * AUTHOR: Mike Sample
  * DATE:   Mar 92
  *
- * $Header: /cvs/Darwin/src/live/Security/SecuritySNACCRuntime/c-examples/simple/minbuf-ex.c,v 1.1.1.1 2001/05/18 23:14:07 mb Exp $
+ * $Header: /cvs/root/Security/SecuritySNACCRuntime/c-examples/simple/Attic/minbuf-ex.c,v 1.1.1.1 2001/05/18 23:14:07 mb Exp $
  * $Log: minbuf-ex.c,v $
  * Revision 1.1.1.1  2001/05/18 23:14:07  mb
  * Move from private repository to open source repository

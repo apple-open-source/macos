@@ -38,7 +38,11 @@ enum {
 
 enum invokeInternalFunctionSelectors {
 	kInvokeHeadphoneInterruptHandler,
-	kInvokeSpeakerInterruptHandler
+	kInvokeSpeakerInterruptHandler,
+	kInvokeResetiSubCrossover,
+	kInvokePerformDeviceSleep,
+	kInvokePerformDeviceIdleSleep,
+	kInvokePerformDeviceWake
 };
 		
 #define kBatteryPowerDownDelayTime		30000000000ULL				/* 30 seconds					*/

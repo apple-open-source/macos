@@ -51,7 +51,7 @@
  * useful, but WITHOUT ANY WARRANTY; without even the implied warranty
  * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *
- * $Header: /cvs/Darwin/src/live/Security/SecuritySNACCRuntime/c-lib/inc/str-stk.h,v 1.1.1.1 2001/05/18 23:14:08 mb Exp $
+ * $Header: /cvs/root/Security/SecuritySNACCRuntime/c-lib/inc/Attic/str-stk.h,v 1.1.1.1 2001/05/18 23:14:08 mb Exp $
  * $Log: str-stk.h,v $
  * Revision 1.1.1.1  2001/05/18 23:14:08  mb
  * Move from private repository to open source repository

@@ -32,7 +32,7 @@
 // useful, but WITHOUT ANY WARRANTY; without even the implied warranty
 // of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 //
-// $Header: /cvs/Darwin/src/live/Security/SecuritySNACCRuntime/c++-lib/inc/asn-real.h,v 1.2 2001/06/21 21:57:00 dmitch Exp $
+// $Header: /cvs/root/Security/SecuritySNACCRuntime/c++-lib/inc/Attic/asn-real.h,v 1.2 2001/06/21 21:57:00 dmitch Exp $
 // $Log: asn-real.h,v $
 // Revision 1.2  2001/06/21 21:57:00  dmitch
 // Avoid global const PLUS_INFINITY, MINUS_INFINITY

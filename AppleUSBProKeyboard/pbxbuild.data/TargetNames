@@ -1,5 +1,0 @@
-if [ "${Target}" = "AppleUSBProKeyboard" ]; then
-	Targets='AppleUSBProKeyboard'
-else
-	Targets='AppleUSBProKeyboard'
-fi

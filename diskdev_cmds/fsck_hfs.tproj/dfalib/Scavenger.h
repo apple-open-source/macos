@@ -50,7 +50,6 @@ enum {
 	kNoHint						= 0
 };
 
-
 enum {
 	kHFSRepairCatalogFileID = (kHFSBogusExtentFileID - 1) /* used to repair catalog file */
 };
@@ -689,9 +688,9 @@ enum
 
 /* catalog file status flags (contents of CatStat) */
 
-#define	S_RName			0x8000	//	Unused	/* root CName not equal to volume name */
-#define	S_Valence		0x4000	/* a directory valence is out of sync */
-#define	S_FThd			0x2000	/* dangling file thread records exist */
+#define	S_IllName			0x8000	/* illegal name found */
+#define	S_Valence			0x4000	/* a directory valence is out of sync */
+#define	S_FThd				0x2000	/* dangling file thread records exist */
 #define	S_DFCorruption		0x1000	/* disappearing folder corruption detected */
 #define	S_NoDir			0x0800	/* missing directory record */
 #define S_LockedDirName		0x0400  // locked dir name
@@ -875,8 +874,9 @@ enum {
 	E_InvalidPermissions	=  569,
 
 	E_InvalidUID		=  570,
+	E_IllegalName		=  571,
 
-	E_LastError		=  570
+	E_LastError		=  571
 };
 
 

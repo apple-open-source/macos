@@ -1281,6 +1281,8 @@ IOUSBInterfaceClass::LowLatencyCreateBuffer( void ** buffer, IOByteCount bufferS
     LowLatencyUserBufferInfo *	bufferInfo;
     IOReturn			result = kIOReturnSuccess;
     mach_msg_type_number_t 	outSize = 0;
+    vm_address_t		data;
+    kern_return_t		ret = kIOReturnSuccess;
     
     allChecks();
 
@@ -1301,7 +1303,20 @@ IOUSBInterfaceClass::LowLatencyCreateBuffer( void ** buffer, IOByteCount bufferS
     
     // Now, attempt to allocate the users data
     //
-    *buffer = malloc( bufferSize );
+    ret =  vm_allocate( mach_task_self(),
+                        &data,
+                        bufferSize,
+                        VM_FLAGS_ANYWHERE);
+
+    if ( ret != kIOReturnSuccess )
+    {
+        DEBUGPRINT("IOUSBLib::LowLatencyCreateBuffer:  Could not vm_allocate a buffer of size %ld, type %ld.  Result = 0x%x\n", bufferSize, bufferType, ret);
+        result = kIOReturnNoMemory;
+        goto ErrorExit;
+    }
+
+    *buffer = (void *) data;
+    
     if ( *buffer == NULL )
     {
         DEBUGPRINT("IOUSBLib::LowLatencyCreateBuffer:  Could not allocate a buffer of size %ld, type %ld\n", bufferSize, bufferType);
@@ -1337,7 +1352,7 @@ IOUSBInterfaceClass::LowLatencyCreateBuffer( void ** buffer, IOByteCount bufferS
         // OK, something went wrong, so we need to release anything we allocated
         //
         fNextCookie--;
-        free( *buffer );
+        ret = vm_deallocate( mach_task_self(), (vm_address_t) bufferInfo->bufferAddress, bufferInfo->bufferSize );
         *buffer = NULL;
         free ( bufferInfo );
         
@@ -1359,6 +1374,7 @@ IOUSBInterfaceClass::LowLatencyDestroyBuffer( void * buffer )
     IOReturn			result = kIOReturnSuccess;
     mach_msg_type_number_t 	outSize = 0;
     bool			found;
+    kern_return_t		ret = kIOReturnSuccess;
     
     allChecks();
 
@@ -1395,7 +1411,13 @@ IOUSBInterfaceClass::LowLatencyDestroyBuffer( void * buffer )
     // If there is an error, we still need to free our data
     // Now, free the memory
     //
-    free ( bufferData->bufferAddress );
+    ret = vm_deallocate( mach_task_self(), (vm_address_t) bufferData->bufferAddress, bufferData->bufferSize );
+    if ( ret != kIOReturnSuccess )
+    {
+        DEBUGPRINT("IOUSBLib::LowLatencyDestroyBuffer:  Could not vm_deallocate buffer (%p) from our list (0x%x)\n", buffer, ret);
+        result = kIOReturnBadArgument;
+    }
+
     free ( bufferData );
     
     if ( result != kIOReturnSuccess )

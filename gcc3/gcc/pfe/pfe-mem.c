@@ -449,7 +449,7 @@ pfem_add_block_to_block_list (new_block_info)
     }
   if ((unsigned long) new_block_info->addr < (unsigned long)pfem_block_list->addr)
     {
-      new_block_info->next = pfem_block_list->next;
+      new_block_info->next = pfem_block_list;
       pfem_block_list = new_block_info;
       return;
     } 

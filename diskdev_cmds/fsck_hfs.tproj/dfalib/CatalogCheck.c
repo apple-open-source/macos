@@ -21,6 +21,8 @@
  */
 
 #include "Scavenger.h"
+#include "DecompDataEnums.h"
+#include "DecompData.h"
 
 /*
  * information collected when visiting catalog records
@@ -68,6 +70,13 @@ static int  RecordBadAllocation(UInt32 parID, char * filename, UInt32 forkType, 
 static int  RecordTruncation(UInt32 parID, char * filename, UInt32 forkType, UInt64 oldSize,  UInt64 newSize);
 
 static int  CaptureMissingThread(UInt32 threadID, const HFSPlusCatalogKey *nextKey);
+static 	OSErr	UniqueDotName( 	SGlobPtr GPtr, 
+                                CatalogName * theNewNamePtr, 
+                                UInt32 theParID, 
+                                Boolean isSingleDotName,
+                                Boolean isHFSPlus );
+static Boolean 	FixDecomps(	u_int16_t charCount, const u_int16_t *inFilename, HFSUniStr255 *outFilename );
+static void 	PrintName( int theCount, const UInt8 *theNamePtr, Boolean isUnicodeString );
 
 /*
  * CheckCatalogBTree - Verifies the catalog B-tree structure
@@ -734,51 +743,280 @@ CheckBSDInfo(const HFSPlusCatalogKey * key, const HFSPlusBSDInfo * bsdInfo, int 
 }
 
 /*
- * Validate a Unicode filename 
+ * Validate a Unicode filename for HFS+ volumes
  *
  * check character count
- * check for embedded NULLs and ':'
- * check for precomposed (illegal) characters
+ * check for illegal names
  *
  * if repairable then log the error and create a repair order
  */
 static int
 CheckCatalogName(u_int16_t charCount, const u_int16_t *uniChars, u_int32_t parentID, Boolean thread)
 {
-	int result = 0;
+	OSErr 				result;
+	u_int16_t *			myPtr;
+	RepairOrderPtr 		roPtr;
+	int					myLength;
+    CatalogName			newName;
 
-	/*
-	 * if the count is wrong for a key then lookup the thread
-	 * if the count is wrong for a thread then find the key
-	 */
 	if ((charCount == 0) || (charCount > kHFSPlusMaxFileNameChars))
-		result = E_CName;
+		return( E_CName );
+        
+    // only do the remaining checks for files or directories
+    if ( thread )
+        return( noErr );
+ 
+    // look for objects with illegal names of "." or "..".  We only do this for
+    // file or folder catalog records (the thread records will be taken care of
+    // in the repair routines).
+    if ( charCount < 3 && *uniChars == 0x2E )
+    {
+        if ( charCount == 1 || (charCount == 2 && *(uniChars + 1) == 0x2E) )
+        {
+			PrintError( gScavGlobals, E_IllegalName, 0 );
+            if ( gScavGlobals->logLevel >= kDebugLog ) {
+                printf( "\tillegal name is 0x" );
+                PrintName( charCount, (UInt8 *) uniChars, true );
+           }
+          
+            // get a new name to use when we rename the file system object
+            result = UniqueDotName( gScavGlobals, &newName, parentID, 
+                                    ((charCount == 1) ? true : false), true );
+            if ( result != noErr ) 
+                return( noErr );
 
-	return (result);
+            // we will copy the old and new names to our RepairOrder.  The names will
+            // look like this:
+            // 	 2 byte length of old name
+            //   unicode characters for old name
+            //   2 byte length of new name
+            //   unicode characters for new name 
+            myLength = (charCount + 1) * 2; // bytes needed for old name 
+            myLength += ((newName.ustr.length + 1) * 2); // bytes needed for new name
+
+            roPtr = AllocMinorRepairOrder( gScavGlobals, myLength );
+            if ( roPtr == NULL ) 
+                return( noErr );
+
+            myPtr = (u_int16_t *) &roPtr->name;
+            *myPtr++ = charCount; // copy in length of old name and bump past it
+            CopyMemory( uniChars, myPtr, (charCount * 2) ); // copy in old name
+            myPtr += charCount; // bump past old name
+            *myPtr++ = newName.ustr.length; // copy in length of new name and bump past it
+            CopyMemory( newName.ustr.unicode, myPtr, (newName.ustr.length * 2) ); // copy in new name
+            if ( gScavGlobals->logLevel >= kDebugLog ) {
+                printf( "\treplacement name is 0x" );
+                PrintName( newName.ustr.length, (UInt8 *) &newName.ustr.unicode, true );
+           }
+
+ 			roPtr->type = E_IllegalName;
+            roPtr->parid = parentID;
+            gScavGlobals->CatStat |= S_IllName;
+            return( E_IllegalName );
+        }
+    }
+
+    // look for Unicode decomposition errors in file system object names created before Jaguar (10.2)
+    if ( FixDecomps( charCount, uniChars, &newName.ustr ) )
+    {
+        UInt16				recSize;
+        CatalogKey			catKey;
+        CatalogRecord		record;
+       
+        PrintError( gScavGlobals, E_IllegalName, 0 );
+        if ( gScavGlobals->logLevel >= kDebugLog ) {
+            printf( "\tillegal name is 0x" );
+            PrintName( charCount, (UInt8 *) uniChars, true );
+        }
+
+        // make sure new name isn't already there
+        BuildCatalogKey( parentID, &newName, true, &catKey );
+        result = SearchBTreeRecord( gScavGlobals->calculatedCatalogFCB, &catKey, kNoHint, NULL, 
+                                    &record, &recSize, NULL );
+        if ( result == noErr )
+            return( noErr );
+
+        // we will copy the old and new names to our RepairOrder.  The names will
+        // look like this:
+        // 	 2 byte length of old name
+        //   unicode characters for old name
+        //   2 byte length of new name
+        //   unicode characters for new name 
+        myLength = (charCount + 1) * 2; // bytes needed for old name 
+        myLength += ((newName.ustr.length + 1) * 2); // bytes needed for new name
+
+        roPtr = AllocMinorRepairOrder( gScavGlobals, myLength );
+        if ( roPtr == NULL ) 
+            return( noErr );
+
+        myPtr = (u_int16_t *) &roPtr->name;
+        *myPtr++ = charCount; // copy in length of old name and bump past it
+        CopyMemory( uniChars, myPtr, (charCount * 2) ); // copy in old name
+        myPtr += charCount; // bump past old name
+        *myPtr++ = newName.ustr.length; // copy in length of new name and bump past it
+        CopyMemory( newName.ustr.unicode, myPtr, (newName.ustr.length * 2) ); // copy in new name
+        if ( gScavGlobals->logLevel >= kDebugLog ) {
+            printf( "\treplacement name is 0x" );
+            PrintName( newName.ustr.length, (UInt8 *) &newName.ustr.unicode, true );
+        }
+
+        roPtr->type = E_IllegalName;
+        roPtr->parid = parentID;
+        gScavGlobals->CatStat |= S_IllName;
+        return( E_IllegalName );
+    }
+
+	return( noErr );
 }
+
 
 /*
  * Validate an HFS filename 
  *
  * check character count
- * check for embedded NULLs and ':'
+ * check for illegal names
  *
  * if repairable then log the error and create a repair order
  */
 static int
 CheckCatalogName_HFS(u_int16_t charCount, const u_char *filename, u_int32_t parentID, Boolean thread)
 {
-	int result = 0;
+	u_char *			myPtr;
+	RepairOrderPtr 		roPtr;
+	int					myLength;
+    CatalogName			newName;
 
-	/*
-	 * if the count is wrong for a key then lookup the thread
-	 * if the count is wrong for a thread then find the key
-	 */
 	if ((charCount == 0) || (charCount > kHFSMaxFileNameChars))
-		result = E_CName;
+		return( E_CName );
 
-	return (result);
+     // only do the remaining checks for files or directories
+    if ( thread )
+        return( noErr );
+       
+    // look for objects with illegal names of "." or "..".  We only do this for
+    // file or folder catalog records (the thread records will be taken care of
+    // in the repair routines).
+    if ( charCount < 3 && *filename == 0x2E )
+    {
+        if ( charCount == 1 || (charCount == 2 && *(filename + 1) == 0x2E) )
+        {
+            OSErr 				result;
+			PrintError( gScavGlobals, E_IllegalName, 0 );
+            if ( gScavGlobals->logLevel >= kDebugLog ) {
+                printf( "\tillegal name is 0x" );
+                PrintName( charCount, filename, false );
+            }
+
+            // get a new name to use when we rename the file system object
+            result = UniqueDotName( gScavGlobals, &newName, parentID, 
+                                    ((charCount == 1) ? true : false), false );
+            if ( result != noErr ) 
+                return( noErr );
+            
+            // we will copy the old and new names to our RepairOrder.  The names will
+            // look like this:
+            // 	 1 byte length of old name
+            //   characters for old name
+            //   1 byte length of new name
+            //   characters for new name 
+            myLength = charCount + 1; // bytes needed for old name 
+            myLength += (newName.pstr[0] + 1); // bytes needed for new name
+            roPtr = AllocMinorRepairOrder( gScavGlobals, myLength );
+            if ( roPtr == NULL ) 
+                return( noErr );
+ 
+            myPtr = &roPtr->name[0];
+            *myPtr++ = charCount; // copy in length of old name and bump past it
+            CopyMemory( filename, myPtr, charCount );
+            myPtr += charCount; // bump past old name
+            *myPtr++ = newName.pstr[0]; // copy in length of new name and bump past it
+            CopyMemory( &newName.pstr[1], myPtr, newName.pstr[0] ); // copy in new name
+            if ( gScavGlobals->logLevel >= kDebugLog ) {
+                printf( "\treplacement name is 0x" );
+                PrintName( newName.pstr[0], &newName.pstr[1], false );
+            }
+
+ 			roPtr->type = E_IllegalName;
+            roPtr->parid = parentID;
+            gScavGlobals->CatStat |= S_IllName;
+            return( E_IllegalName );
+        }
+    }
+
+	return( noErr );
 }
+
+
+/*------------------------------------------------------------------------------
+UniqueDotName:  figure out a unique name we can use to rename a file system
+object that has the illegal name of "." or ".."
+------------------------------------------------------------------------------*/
+static OSErr
+UniqueDotName( 	SGlobPtr GPtr, 
+            	CatalogName * theNewNamePtr, 
+            	UInt32 theParID, 
+                Boolean isSingleDotName,
+             	Boolean isHFSPlus )
+{
+    u_char				newChar;
+	OSErr 				result;
+	int					nameLen;
+	UInt16				recSize;
+	SFCB *				fcbPtr;
+    u_char *			myPtr;
+	CatalogRecord		record;
+    CatalogKey			catKey;
+    u_char				dotName[] = {'d', 'o', 't', 'd', 'o', 't', 0x0d, 0x00};
+
+  	fcbPtr = GPtr->calculatedCatalogFCB;
+ 
+    // create key with new name
+    if ( isSingleDotName )
+        myPtr = &dotName[3];
+    else
+        myPtr = &dotName[0];
+    
+	nameLen = strlen( myPtr );
+    if ( isHFSPlus )
+    {
+        int		i;
+        theNewNamePtr->ustr.length = nameLen;
+        for ( i = 0; i < theNewNamePtr->ustr.length; i++ )
+            theNewNamePtr->ustr.unicode[ i ] = (u_int16_t) *(myPtr + i);
+    }
+    else
+    {
+        theNewNamePtr->pstr[0] = nameLen;
+        memcpy( &theNewNamePtr->pstr[1], myPtr, nameLen );
+    }
+    
+    // if the name is already in use we will try appending ascii characters
+    // from '0' (0x30) up to '~' (0x7E) 
+    for ( newChar = 0x30; newChar < 0x7F; newChar++ )
+    {
+        // make sure new name isn't already there
+        BuildCatalogKey( theParID, theNewNamePtr, isHFSPlus, &catKey );
+        result = SearchBTreeRecord( fcbPtr, &catKey, kNoHint, NULL, &record, &recSize, NULL );
+        if ( result != noErr )
+            return( noErr );
+            
+        // new name is already there, try another
+        if ( isHFSPlus )
+        {
+            theNewNamePtr->ustr.unicode[ nameLen ] = (u_int16_t) newChar;
+            theNewNamePtr->ustr.length = nameLen + 1;
+        }
+        else
+        {
+            theNewNamePtr->pstr[ 0 ] = nameLen + 1;
+            theNewNamePtr->pstr[ nameLen + 1 ] = newChar;
+        }
+    }
+
+    return( -1 );
+    
+} /* UniqueDotName */
+
 
 /* 
  * RecordBadAllocation
@@ -904,4 +1142,291 @@ CaptureMissingThread(UInt32 threadID, const HFSPlusCatalogKey *nextKey)
 	gScavGlobals->CatStat |= S_MissingThread;
 	return (noErr);
 }
+
+
+/*
+ FixDecomps.  Originally written by Peter Edberg for use in fsck_hfs.
+
+ If inFilename needs updating and the function was able to do this without
+ overflowing the 255-character limit, it returns 1 (true) and outFIlename
+ contains the update file. If inFilename did not need updating, or an update
+ would overflow the limit, the function returns 0 (false) and the contents of
+ outFilename are undefined.
+ 
+Function implementation:
+
+Characters that don't require any special handling have combining class 0 and do
+not begin a decomposition sequence (of 1-3 characters) that needs updating. For
+these characters, the function just copies them from inFilename to outFilename
+and sets the pointer outNameCombSeqPtr to NULL (when this pointer is not NULL,
+it points to the beginning of a sequence of combining marks that continues up to
+the current character; if the current character is combining, it may need to be
+reordered into that sequence). The copying operation in cheap, and postponing it
+until we know the filename needs modification would make the code much more
+complicated.
+
+This copying operation may be invoked from many places in the code, some deeply
+nested - any time the code determines that the current character needs no
+special handling. For this reason it has a label (CopyBaseChar) and is located
+at the end of the character processing loop; various places in the code use goto
+statements to jump to it (this is a situation where they are justified).
+
+The main function loop has 4 sections.
+
+First, it quickly determines if the high 12 bits of the character indicate that
+it is in a range that has neither nonzero combining class nor any decomposition
+sequences that need updating. If so, the code jumps straight to CopyBaseChar.
+
+Second, the code determines if the character is part of a sequence that needs
+updating. It checks if the current character has a corresponding action in the
+replaceData array. If so, depending on the action, it may need to check for
+additional matching characters in inFilename. If the sequence of 1-3 characters
+is successfully matched, then a replacement sequence of 1-3 characters is
+inserted at the corresponding position in outFilename. While this replacement
+sequence is being inserted, each character must be checked to see if it has
+nonzero combining class and needs reordering (some replacement sequences consist
+entirely of combining characters and may interact with combining characters in
+the filename before the updated sequence).
+
+Third, the code handles characters whose high-order 12 bits indicated that some
+action was required, but were not part of sequences that needed updating (these
+may include characters that were examined in the second part but were part of
+sequences that did not completely match, so there are also goto fallthroughs to
+this code - labeled CheckCombClass - from the second part). These characters
+have to be checked for nonzero combining class; if so, they are reordered as
+necessary. Each time a new nonzero class character is encountered, it is added
+to outFIlename at the correct point in any active combining character sequence
+(with other characters in the sequence moved as necessary), so the sequence
+pointed to by outNameCombSeqPtr is always in correct order up to the current
+character.
+
+Finally, the fourth part has the default handlers to just copy characters to
+outFilename.
+
+ */
+static Boolean 
+FixDecomps(	u_int16_t charCount, const u_int16_t *inFilename, HFSUniStr255 *outFilename ) 
+{
+    // input filename: address of curr input char,
+	const u_int16_t *	inNamePtr		= inFilename;
+    // and of last input char.
+	const u_int16_t *	inNameLastPtr	= &inFilename[charCount - 1];	
+    // output filename buffer: addr of next output char,
+	u_int16_t *	outNamePtr			= outFilename->unicode;	
+    // and of last possible output char.
+	u_int16_t *	outNameLastPtr		= &outFilename->unicode[kHFSPlusMaxFileNameChars - 1];	
+	u_int16_t *	outNameCombSeqPtr	= NULL;	// if non-NULL, start of output combining seq we are processing.
+	u_int32_t	maxClassValueInSeq	= 0;
+	Boolean		didModifyName		= 0;
+
+	while (inNamePtr <= inNameLastPtr) {
+		u_int16_t	shiftUniChar;	// this must be 16 bits for the kShiftUniCharOffset wraparound to work
+		int32_t		rangeIndex;
+		u_int32_t	shiftUniCharLo;
+		u_int32_t	replDataIndex;
+		u_int32_t	currCharClass;
+
+		shiftUniChar = *inNamePtr + kShiftUniCharOffset;
+		if ( shiftUniChar >= kShiftUniCharLimit )
+			goto CopyBaseChar;
+		rangeIndex = classAndReplIndex[shiftUniChar >> kLoFieldBitSize];
+		if ( rangeIndex < 0 )
+			goto CopyBaseChar;
+		shiftUniCharLo = shiftUniChar & kLoFieldMask;
+		replDataIndex = replaceRanges[rangeIndex][shiftUniCharLo];
+
+		if ( replDataIndex > 0 ) {
+			// we have a possible substitution (replDataIndex != 0)
+			const u_int16_t *	replDataPtr;
+			u_int32_t			action;
+			u_int32_t			copyCount	= 0;
+
+			replDataPtr = &replaceData[replDataIndex];
+			action = *replDataPtr++;
+			switch (action) {
+				case kReplaceCurWithTwo:
+				case kReplaceCurWithThree:
+					inNamePtr++;
+					copyCount = (action == kReplaceCurWithTwo)? 2: 3;
+					break;
+				// the next 3 cases can have a first char or replacement char with nonzero combining class
+				case kIfNextOneMatchesReplaceAllWithOne:
+				case kIfNextOneMatchesReplaceAllWithTwo:
+					if (inNamePtr + 1 <= inNameLastPtr && *(inNamePtr + 1) == *replDataPtr++) {
+						inNamePtr += 2;
+						copyCount = (action == kIfNextOneMatchesReplaceAllWithOne)? 1: 2;
+					} else {
+						// No substitution; check for comb class & copy char
+						goto CheckCombClass;
+					}
+					break;
+				case kIfNextTwoMatchReplaceAllWithOne:
+					if ( inNamePtr + 2 <= inNameLastPtr && 
+                         *(inNamePtr + 1) == *replDataPtr++ && 
+                         *(inNamePtr + 2) == *replDataPtr++) 
+                    {
+						inNamePtr += 3;
+						copyCount = 1;
+					} else {
+						// No substitution; check for comb class & copy char
+						goto CheckCombClass;
+					}
+					break;
+			}
+
+			// now copy copyCount chars (1-3) from replDataPtr to output, checking for comb class etc.
+			if (outNamePtr + copyCount - 1 > outNameLastPtr) {
+				didModifyName = 0;
+				break;
+			}
+			while (copyCount-- > 0) {
+				currCharClass = 0;
+				shiftUniChar = *replDataPtr + kShiftUniCharOffset;
+				if ( shiftUniChar < kShiftUniCharLimit ) {
+					rangeIndex = classAndReplIndex[shiftUniChar >> kLoFieldBitSize];
+					if (rangeIndex >= 0) {
+						shiftUniCharLo = shiftUniChar & kLoFieldMask;
+						currCharClass = combClassRanges[rangeIndex][shiftUniCharLo];
+					}
+				}
+				// This part is similar to CheckCombClass below, which has more detailed
+				// comments; see them for info.
+				if ( currCharClass == 0 ) {
+					outNameCombSeqPtr = NULL;
+					*outNamePtr++ = *replDataPtr++;
+				} else if ( outNameCombSeqPtr == NULL ) {
+					outNameCombSeqPtr = outNamePtr;
+					maxClassValueInSeq = currCharClass;
+					*outNamePtr++ = *replDataPtr++;
+				} else if ( currCharClass >= maxClassValueInSeq ) {
+					// Sequence is already in correct order with current char,
+					// just update maxClassValueInSeq
+					maxClassValueInSeq = currCharClass;
+					*outNamePtr++ = *replDataPtr++;
+				} else if ( outNamePtr - outNameCombSeqPtr == 1) {
+					// Here we know we need to reorder.
+					// If the sequence is two chars, just interchange them
+					*outNamePtr++ = *outNameCombSeqPtr;
+					*outNameCombSeqPtr = *replDataPtr++;
+				} else {
+					// General reordering case for three or more chars.
+					u_int16_t *	outNameCombCharPtr;
+					u_int32_t	combCharClass;
+					
+					outNameCombCharPtr = outNamePtr++;
+					while (outNameCombCharPtr > outNameCombSeqPtr) {
+						shiftUniChar = *(outNameCombCharPtr - 1) + kShiftUniCharOffset;
+						rangeIndex = classAndReplIndex[shiftUniChar >> kLoFieldBitSize];
+						shiftUniCharLo = shiftUniChar & kLoFieldMask;
+						combCharClass = combClassRanges[rangeIndex][shiftUniCharLo];
+						if (combCharClass <= currCharClass)
+							break;
+						*outNameCombCharPtr = *(outNameCombCharPtr - 1);
+						outNameCombCharPtr--;
+					}
+					*outNameCombCharPtr = *replDataPtr++;
+				}
+			}
+			didModifyName = 1;
+			continue;
+		} /* end of replDataIndex > 0 */
+
+	CheckCombClass:
+		// check for combining class
+		currCharClass = combClassRanges[rangeIndex][shiftUniCharLo];
+		if ( currCharClass == 0 ) {
+			goto CopyBaseChar;
+		}
+		if ( outNameCombSeqPtr == NULL ) {
+			// The current char is the first of a possible sequence of chars
+			// with nonzero combining class. Initialize sequence stuff, then
+			// just copy char to output.
+			outNameCombSeqPtr = outNamePtr;
+			maxClassValueInSeq = currCharClass;
+			goto CopyChar;
+		}
+		if ( currCharClass >= maxClassValueInSeq ) {
+			// The sequence of chars with nonzero combining class is already
+			// in correct order through the current char; just update the max
+			// class value found in the sequence.
+			maxClassValueInSeq = currCharClass;
+			goto CopyChar;
+		}
+
+		// This char is at least the second in a sequence of chars with
+		// nonzero combining class in the output buffer; outNameCombSeqPtr
+		// points to the first in the sequence. Need to put the current
+		// char into the correct place in the sequence (previous chars in
+		// the sequence are already in correct order, but the current char
+		// is out of place).
+		
+		// First make sure there is room for the new char
+		if (outNamePtr > outNameLastPtr) {
+			didModifyName = 0;
+			break;
+		}
+
+		if (outNamePtr - outNameCombSeqPtr == 1) {
+			// If the sequence is two chars, just interchange them
+			*outNamePtr++ = *outNameCombSeqPtr;
+			*outNameCombSeqPtr = *inNamePtr++;
+		} else {
+			// General case: Starting at previous end of sequence, move chars to
+			// next position in string as long as their class is higher than current
+			// char; insert current char where we stop. We could cache the
+			// combining classes instead of re-determining them, but having multiple
+			// combining marks is rare enough that it wouldn't be worth the overhead.
+			// At least we don't have to recheck shiftUniChar < kShiftUniCharLimit,
+			// rangeIndex != 0, etc.)
+			u_int16_t *	outNameCombCharPtr;
+			u_int32_t	combCharClass;
+
+			outNameCombCharPtr = outNamePtr++;
+			while (outNameCombCharPtr > outNameCombSeqPtr) {
+				shiftUniChar = *(outNameCombCharPtr - 1) + kShiftUniCharOffset;
+				rangeIndex = classAndReplIndex[shiftUniChar >> kLoFieldBitSize];
+				shiftUniCharLo = shiftUniChar & kLoFieldMask;
+				combCharClass = combClassRanges[rangeIndex][shiftUniCharLo];
+				if (combCharClass <= currCharClass)
+					break;
+				*outNameCombCharPtr = *(outNameCombCharPtr - 1);
+				outNameCombCharPtr--;
+			}
+			*outNameCombCharPtr = *inNamePtr++;
+		}
+		didModifyName = 1;
+		continue;
+
+	CopyBaseChar:
+		outNameCombSeqPtr = NULL;
+	CopyChar:
+		// nothing special happens with this char, just copy to output
+		if (outNamePtr <= outNameLastPtr) {
+			*outNamePtr++ = *inNamePtr++;
+		} else {
+			didModifyName = 0;
+			break;
+		}
+	} /* end of while( inNamePtr <= inNameLastPtr ) */
+
+	if (didModifyName) {
+		outFilename->length = outNamePtr - outFilename->unicode;
+	}
+	return didModifyName;
+    
+} /* FixDecomps */
+
+
+static void PrintName( int theCount, const UInt8 *theNamePtr, Boolean isUnicodeString )
+{
+    int			myCount;
+ 	int			i;
+    
+    myCount = (isUnicodeString) ? (theCount * 2) : theCount;
+    for ( i = 0; i < myCount; i++ ) 
+        printf( "%02X ", *(theNamePtr + i) );
+    printf( "\n" );
+
+} /* PrintName */
+
 

@@ -10,7 +10,7 @@
  * the sendmail distribution.
  *
  *
- *	$Id: conf.h,v 1.4 2002/10/15 02:44:58 zarzycki Exp $
+ *	$Id: conf.h,v 1.6 2003/03/29 20:22:05 zarzycki Exp $
  */
 
 /*
@@ -61,6 +61,9 @@ struct rusage;	/* forward declaration to get gcc to shut up in wait.h */
 
 #define MAXLINE		2048		/* max line length */
 #define MAXNAME		256		/* max length of a name */
+#ifndef MAXAUTHINFO
+# define MAXAUTHINFO	100		/* max length of authinfo token */
+#endif /* ! MAXAUTHINFO */
 #define MAXPV		256		/* max # of parms to mailers */
 #define MAXATOM		1000		/* max atoms per address */
 #define MAXRWSETS	200		/* max # of sets of rewriting rules */

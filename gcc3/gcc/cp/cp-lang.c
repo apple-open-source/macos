@@ -53,3 +53,10 @@ lang_init_options ()
 {
   cxx_init_options (clk_cplusplus);
 }
+
+/* APPLE LOCAL begin Objective-C++ */
+void
+objc_clear_super_receiver ()
+{
+}
+/* APPLE LOCAL end Objective-C++ */

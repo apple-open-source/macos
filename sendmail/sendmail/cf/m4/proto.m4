@@ -13,7 +13,7 @@ divert(-1)
 #
 divert(0)
 
-VERSIONID(`$Id: proto.m4,v 1.1.1.5 2002/10/15 02:37:20 zarzycki Exp $')
+VERSIONID(`$Id: proto.m4,v 1.3 2003/03/29 20:22:02 zarzycki Exp $')
 
 # level CF_LEVEL config file format
 V`'CF_LEVEL/ifdef(`VENDOR_NAME', `VENDOR_NAME', `Berkeley')
@@ -205,11 +205,13 @@ ifdef(`_CERT_REGEX_SUBJECT_', `dnl
 KCERTSubject regex _CERT_REGEX_SUBJECT_', `dnl')
 
 ifdef(`LOCAL_RELAY', `dnl
-# who I send unqualified names to (null means deliver locally)
+# who I send unqualified names to if `FEATURE(stickyhost)' is used
+# (null means deliver locally)
 DR`'LOCAL_RELAY')
 
 ifdef(`MAIL_HUB', `dnl
-# who gets all local email traffic ($R has precedence for unqualified names)
+# who gets all local email traffic
+# ($R has precedence for unqualified names if `FEATURE(stickyhost)' is used)
 DH`'MAIL_HUB')
 
 # dequoting map
@@ -422,10 +424,14 @@ _OPTION(Timeout.queuereturn, `confTO_QUEUERETURN', `5d')
 _OPTION(Timeout.queuereturn.normal, `confTO_QUEUERETURN_NORMAL', `5d')
 _OPTION(Timeout.queuereturn.urgent, `confTO_QUEUERETURN_URGENT', `2d')
 _OPTION(Timeout.queuereturn.non-urgent, `confTO_QUEUERETURN_NONURGENT', `7d')
+ifdef(`confTO_QUEUERETURN_DSN', `dnl
+O Timeout.queuereturn.dsn=confTO_QUEUERETURN_DSN')
 _OPTION(Timeout.queuewarn, `confTO_QUEUEWARN', `4h')
 _OPTION(Timeout.queuewarn.normal, `confTO_QUEUEWARN_NORMAL', `4h')
 _OPTION(Timeout.queuewarn.urgent, `confTO_QUEUEWARN_URGENT', `1h')
 _OPTION(Timeout.queuewarn.non-urgent, `confTO_QUEUEWARN_NONURGENT', `12h')
+ifdef(`confTO_QUEUEWARN_DSN', `dnl
+O Timeout.queuewarn.dsn=confTO_QUEUEWARN_DSN')
 _OPTION(Timeout.hoststatus, `confTO_HOSTSTATUS', `30m')
 _OPTION(Timeout.resolver.retrans, `confTO_RESOLVER_RETRANS', `5s')
 _OPTION(Timeout.resolver.retrans.first, `confTO_RESOLVER_RETRANS_FIRST', `5s')
@@ -580,7 +586,7 @@ _OPTION(TrustedUser, `confTRUSTED_USER', `root')
 _OPTION(ControlSocketName, `confCONTROL_SOCKET_NAME', `/var/spool/mqueue/.control')
 
 # Maximum MIME header length to protect MUAs
-_OPTION(MaxMimeHeaderLength, `confMAX_MIME_HEADER_LENGTH', `0/0')
+_OPTION(MaxMimeHeaderLength, `confMAX_MIME_HEADER_LENGTH', `2048/1024')
 
 # Maximum length of the sum of all headers
 _OPTION(MaxHeadersLength, `confMAX_HEADERS_LENGTH', `32768')
@@ -630,9 +636,9 @@ _OPTION(Milter.macros.envfrom, `confMILTER_MACROS_ENVFROM', `')
 _OPTION(Milter.macros.envrcpt, `confMILTER_MACROS_ENVRCPT', `')')
 
 # CA directory
-_OPTION(CACERTPath, `confCACERT_PATH', `')
+_OPTION(CACertPath, `confCACERT_PATH', `')
 # CA file
-_OPTION(CACERTFile, `confCACERT', `')
+_OPTION(CACertFile, `confCACERT', `')
 # Server Cert
 _OPTION(ServerCertFile, `confSERVER_CERT', `')
 # Server private key
@@ -1015,7 +1021,7 @@ ifdef(`_MAILER_smtp_',
 `# handle numeric address spec
 dnl there is no check whether this is really an IP number
 R$* < @ [ $+ ] > $*	$: $>ParseLocal $1 < @ [ $2 ] > $3	numeric internet spec
-R$* < @ [ $+ ] > $*	$1 < @ [ $2 ] : $S > $3		Add smart host to path
+R$* < @ [ $+ ] > $*	$: $1 < @ [ $2 ] : $S > $3	Add smart host to path
 R$* < @ [ $+ ] : > $*		$#_SMTP_ $@ [$2] $: $1 < @ [$2] > $3	no smarthost: send
 R$* < @ [ $+ ] : $- : $*> $*	$#$3 $@ $4 $: $1 < @ [$2] > $5	smarthost with mailer
 R$* < @ [ $+ ] : $+ > $*	$#_SMTP_ $@ $3 $: $1 < @ [$2] > $4	smarthost without mailer',
@@ -1697,6 +1703,9 @@ ifdef(`_ACCESS_TABLE_', `dnl
 dnl workspace: {client_name} $| {client_addr}
 R$+ $| $+		$: $>D < $1 > <?> <+ Connect> < $2 >
 dnl workspace: <result-of-lookup> <{client_addr}>
+dnl OR $| $+ if client_name is empty
+R   $| $+		$: $>A < $1 > <?> <+ Connect> <>	empty client_name
+dnl workspace: <result-of-lookup> <{client_addr}>
 R<?> <$+>		$: $>A < $1 > <?> <+ Connect> <>	no: another lookup
 dnl workspace: <result-of-lookup> (<>|<{client_addr}>)
 R<?> <$*>		$: OK				found nothing
@@ -1841,7 +1850,7 @@ dnl accept unqualified sender: change mark to avoid test
 R$* u $* $| <?> $*	$: <_RES_OK_> $3
 dnl remove daemon_flags
 R$* $| $*		$: $2
-R<?> $*			$: < ? $&{client_name} > $1
+R<?> $*			$: < ? $&{client_addr} > $1
 R<?> $*			$@ <_RES_OK_>			...local unqualed ok
 R<? $+> $*		$#error $@ 5.5.4 $: "_CODE553 Domain name required for sender address " $&f
 							...remote is not')
@@ -1896,7 +1905,7 @@ R$+			$: <?> $1
 R<?> <$+>		$: <@> <$1>
 R<?> $+			$: <@> <$1>
 R<@> < postmaster >	$: postmaster
-R<@> < $* @ $+ . $+ >	$: < $3 @ $4 . $5 >
+R<@> < $* @ $+ . $+ >	$: < $1 @ $2 . $3 >
 dnl prepend daemon_flags
 R<@> $*			$: $&{daemon_flags} $| <@> $1
 dnl workspace: ${daemon_flags} $| <@> <address>
@@ -2098,6 +2107,8 @@ SRelay_ok
 R$*			$: $&{client_addr}
 R$@			$@ RELAY		originated locally
 R0			$@ RELAY		originated locally
+R127.0.0.1		$@ RELAY		originated locally
+RIPv6:::1		$@ RELAY		originated locally
 R$=R $*			$@ RELAY		relayable IP address
 ifdef(`_ACCESS_TABLE_', `dnl
 R$*			$: $>A <$1> <?> <+ Connect> <$1>
@@ -2147,7 +2158,11 @@ R<FAIL>			$#error $@ 5.7.1 $: "550 Relaying denied. IP name lookup failed " $&{c
 dnl ${client_resolve} should be OK, so go ahead
 R$*			$: <@> $&{client_name}
 dnl should not be necessary since it has been done for client_addr already
-R<@>			$@ RELAY
+dnl this rule actually may cause a problem if {client_name} resolves to ""
+dnl however, this should not happen since the forward lookup should fail
+dnl and {client_resolve} should be TEMP or FAIL.
+dnl nevertheless, removing the rule doesn't hurt.
+dnl R<@>			$@ RELAY
 dnl workspace: <@> ${client_name} (not empty)
 # pass to name server to make hostname canonical
 R<@> $* $=P 		$:<?>  $1 $2
@@ -2180,14 +2195,37 @@ R$* <@ $+ . >		$1 <@ $2 >
 R$* <@ $* >		$@ $1 <@ $2 >
 R$+			$@ $1 <@ $j >
 
+SDelay_TLS_Client
+# authenticated?
+dnl code repeated here from Basic_check_mail
+dnl only called from check_rcpt in delay mode if checkrcpt returns $#
+R$*			$: $1 $| $>"tls_client" $&{verify} $| MAIL
+R$* $| $#$+		$#$2
+dnl return result from checkrcpt
+R$*			$# $1
+
+SDelay_TLS_Client2
+# authenticated?
+dnl code repeated here from Basic_check_mail
+dnl only called from check_rcpt in delay mode if stopping due to Friend/Hater
+R$*			$: $1 $| $>"tls_client" $&{verify} $| MAIL
+R$* $| $#$+		$#$2
+dnl return result from friend/hater check
+R$*			$@ $1
+
 # call all necessary rulesets
 Scheck_rcpt
 dnl this test should be in the Basic_check_rcpt ruleset
 dnl which is the correct DSN code?
 # R$@			$#error $@ 5.1.3 $: "553 Recipient address required"
+
 R$+			$: $1 $| $>checkrcpt $1
 dnl now we can simply stop checks by returning "$# xyz" instead of just "ok"
-R$+ $| $#$*		$#$2
+dnl on error (or discard) stop now
+R$+ $| $#error $*	$#error $2
+R$+ $| $#discard $*	$#discard $2
+dnl otherwise call tls_client; see above
+R$+ $| $#$*		$@ $>"Delay_TLS_Client" $2
 R$+ $| $*		$: <?> $>FullAddr $>CanonAddr $1
 ifdef(`_SPAM_FH_',
 `dnl lookup user@ and user@address
@@ -2207,15 +2245,15 @@ dnl', `dnl')
 ifdef(`_SPAM_FRIEND_',
 `# is the recipient a spam friend?
 ifdef(`_SPAM_HATER_',
-	`errprint(`*** ERROR: define either SpamHater or SpamFriend
+	`errprint(`*** ERROR: define either Hater or Friend -- not both.
 ')', `dnl')
-R<FRIEND> $+		$@ SPAMFRIEND
+R<FRIEND> $+		$@ $>"Delay_TLS_Client2" SPAMFRIEND
 R<$*> $+		$: $2',
 `dnl')
 ifdef(`_SPAM_HATER_',
 `# is the recipient no spam hater?
 R<HATER> $+		$: $1			spam hater: continue checks
-R<$*> $+		$@ NOSPAMHATER		everyone else: stop
+R<$*> $+		$@ $>"Delay_TLS_Client2" NOSPAMHATER	everyone else: stop
 dnl',`dnl')
 dnl run further checks: check_mail
 dnl should we "clean up" $&f?
@@ -2685,12 +2723,12 @@ dnl cert subject
 R<CS:$&{cert_subject}> $* $| <$+>	$@ $>"TLS_req" $1 $| <$2>
 dnl CS does not match
 dnl  1   2      3  4
-R<CS:$+> $* $| <$-:$+>	$#error $@ $4 $: $3 " CERT Subject " $&{cert_subject} " does not match " $1
+R<CS:$+> $* $| <$-:$+>	$#error $@ $4 $: $3 " Cert Subject " $&{cert_subject} " does not match " $1
 dnl match, check rest
 R<CI:$&{cert_issuer}> $* $| <$+>	$@ $>"TLS_req" $1 $| <$2>
 dnl CI does not match
 dnl  1   2      3  4
-R<CI:$+> $* $| <$-:$+>	$#error $@ $4 $: $3 " CERT Issuer " $&{cert_issuer} " does not match " $1
+R<CI:$+> $* $| <$-:$+>	$#error $@ $4 $: $3 " Cert Issuer " $&{cert_issuer} " does not match " $1
 dnl return from recursive call
 ROK			$@ OK
 
@@ -2719,7 +2757,7 @@ SRelayTLS
 # authenticated?
 dnl we do not allow relaying for anyone who can present a cert
 dnl signed by a "trusted" CA. For example, even if we put verisigns
-dnl CA in CERTPath so we can authenticate users, we do not allow
+dnl CA in CertPath so we can authenticate users, we do not allow
 dnl them to abuse our server (they might be easier to get hold of,
 dnl but anyway).
 dnl so here is the trick: if the verification succeeded

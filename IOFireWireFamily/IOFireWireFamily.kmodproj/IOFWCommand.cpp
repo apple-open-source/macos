@@ -36,8 +36,11 @@
 
 #include <IOKit/firewire/IOFWCommand.h>
 #include <IOKit/firewire/IOFireWireController.h>
+#include <IOKit/firewire/IOFireWireLink.h>
 #include <IOKit/firewire/IOFireWireNub.h>
 #include <IOKit/firewire/IOLocalConfigDirectory.h>
+
+#include <IOKit/firewire/IOFireLog.h>
 
 #define kDefaultRetries 3
 
@@ -140,6 +143,12 @@ IOReturn IOFWCommand::submit(bool queue)
 			fSyncWakeup = NULL;
 		}
 	}
+	
+	fControl->closeGate();
+
+	fControl->fFWIM->flushWaitingPackets();
+	
+	fControl->openGate();
 	
 	release();
 	
@@ -416,32 +425,60 @@ OSMetaClassDefineReservedUnused(IOFWAsyncCommand, 1);
 OSMetaClassDefineReservedUnused(IOFWAsyncCommand, 2);
 OSMetaClassDefineReservedUnused(IOFWAsyncCommand, 3);
 
+bool IOFWAsyncCommand::initWithController(IOFireWireController *control)
+{
+	bool success = true;
+	
+    success = IOFWCommand::initWithController(control);
+    
+	if( success && fMembers == NULL )
+	{
+		// create member variables
+		
+		success = createMemberVariables();
+	}
+		
+    return success;
+}
+
 bool IOFWAsyncCommand::initAll(IOFireWireNub *device, FWAddress devAddress,
 	IOMemoryDescriptor *hostMem, FWDeviceCallback completion,
 	void *refcon, bool failOnReset)
 {
-    if(!IOFWCommand::initWithController(device->getController()))
-        return false;
-    fMaxRetries = kDefaultRetries;
-    fCurRetries = fMaxRetries;
-    fMemDesc = hostMem;
-    fComplete = completion;
-    fSync = completion == NULL;
-    fRefCon = refcon;
-    fTimeout = 1000*125;	// 1000 frames, 125mSec
-    if(hostMem)
-        fSize = hostMem->getLength();
-    fBytesTransferred = 0;
-
-    fDevice = device;
-    device->getNodeIDGeneration(fGeneration, fNodeID);
-    fAddressHi = devAddress.addressHi;
-    fAddressLo = devAddress.addressLo;
-    fMaxPack = 1 << device->maxPackLog(fWrite, devAddress);
-    fSpeed = fControl->FWSpeed(fNodeID);
-    fFailOnReset = failOnReset;
-
-    return true;
+	bool success = true;
+	
+    success = IOFWCommand::initWithController(device->getController());
+    
+	if( success && fMembers == NULL )
+	{
+		// create member variables
+		
+		success = createMemberVariables();
+	}
+	
+	if( success )
+	{
+		fMaxRetries = kDefaultRetries;
+		fCurRetries = fMaxRetries;
+		fMemDesc = hostMem;
+		fComplete = completion;
+		fSync = completion == NULL;
+		fRefCon = refcon;
+		fTimeout = 1000*125;	// 1000 frames, 125mSec
+		if(hostMem)
+			fSize = hostMem->getLength();
+		fBytesTransferred = 0;
+	
+		fDevice = device;
+		device->getNodeIDGeneration(fGeneration, fNodeID);
+		fAddressHi = devAddress.addressHi;
+		fAddressLo = devAddress.addressLo;
+		fMaxPack = 1 << device->maxPackLog(fWrite, devAddress);
+		fSpeed = fControl->FWSpeed(fNodeID);
+		fFailOnReset = failOnReset;
+	}
+		
+    return success;
 }
 
 bool IOFWAsyncCommand::initAll(IOFireWireController *control,
@@ -449,30 +486,100 @@ bool IOFWAsyncCommand::initAll(IOFireWireController *control,
         IOMemoryDescriptor *hostMem, FWDeviceCallback completion,
         void *refcon)
 {
-    if(!IOFWCommand::initWithController(control))
-        return false;
-    fMaxRetries = kDefaultRetries;
-    fCurRetries = fMaxRetries;
-    fMemDesc = hostMem;
-    fComplete = completion;
-    fSync = completion == NULL;
-    fRefCon = refcon;
-    fTimeout = 1000*125;	// 1000 frames, 125mSec
-    if(hostMem)
-        fSize = hostMem->getLength();
-    fBytesTransferred = 0;
-
-    fDevice = NULL;
-    fGeneration = generation;
-    fNodeID = devAddress.nodeID;
-    fAddressHi = devAddress.addressHi;
-    fAddressLo = devAddress.addressLo;
-    fMaxPack = 1 << fControl->maxPackLog(fWrite, fNodeID);
-    fSpeed = fControl->FWSpeed(fNodeID);
-    fFailOnReset = true;
-    return true;
+	bool success = true;
+	
+    success = IOFWCommand::initWithController(control);
+	
+	if( success && fMembers == NULL )
+	{
+		// create member variables
+		
+		success = createMemberVariables();
+	}
+		
+	if( success )
+	{	
+		fMaxRetries = kDefaultRetries;
+		fCurRetries = fMaxRetries;
+		fMemDesc = hostMem;
+		fComplete = completion;
+		fSync = completion == NULL;
+		fRefCon = refcon;
+		fTimeout = 1000*125;	// 1000 frames, 125mSec
+		if(hostMem)
+			fSize = hostMem->getLength();
+		fBytesTransferred = 0;
+	
+		fDevice = NULL;
+		fGeneration = generation;
+		fNodeID = devAddress.nodeID;
+		fAddressHi = devAddress.addressHi;
+		fAddressLo = devAddress.addressLo;
+		fMaxPack = 1 << fControl->maxPackLog(fWrite, fNodeID);
+		fSpeed = fControl->FWSpeed(fNodeID);
+		fFailOnReset = true;
+	}
+	
+    return success;
 }
 
+// createMemberVariables
+//
+//
+
+bool IOFWAsyncCommand::createMemberVariables( void )
+{
+	bool success = true;
+	
+	if( fMembers == NULL )
+	{
+		// create member variables
+		
+		if( success )
+		{
+			fMembers = (MemberVariables*)IOMalloc( sizeof(MemberVariables) );
+			if( fMembers == NULL )
+				success = false;
+		}
+		
+		// zero member variables
+		
+		if( success )
+		{
+			bzero( fMembers, sizeof(MemberVariables) );
+		}
+		
+		// clean up on failure
+		
+		if( !success )
+		{
+			if( fMembers != NULL )
+			{
+				IOFree( fMembers, sizeof(MemberVariables) );
+				fMembers = NULL;
+			}
+		}
+	}
+	
+	return success;
+}
+
+// free
+//
+//
+
+void IOFWAsyncCommand::free()
+{	
+	if( fMembers != NULL )
+	{		
+		// free member variables
+		
+		IOFree( fMembers, sizeof(MemberVariables) );
+		fMembers = NULL;
+	}
+	
+	IOFWCommand::free();
+}
 
 IOReturn IOFWAsyncCommand::reinit(FWAddress devAddress, IOMemoryDescriptor *hostMem,
 			FWDeviceCallback completion, void *refcon, bool failOnReset)
@@ -734,8 +841,8 @@ IOReturn IOFWReadCommand::execute()
                         fAddressLo, fSpeed, fTrans->fTCode, transfer, this);
     }
     else {
-        IOLog("IOFWReadCommand::execute: Out of tcodes?");
-        result = kIOReturnInternalError;
+       // IOLog("IOFWReadCommand::execute: Out of tLabels?\n");
+        result = kIOFireWireOutOfTLabels;
     }
 
 	// complete could release us so protect fStatus with retain and release
@@ -872,8 +979,8 @@ IOReturn IOFWReadQuadCommand::execute()
                         fAddressLo, fSpeed, fTrans->fTCode, transfer, this);
     }
     else {
-        IOLog("IOFWReadQuadCommand::execute: Out of tcodes?");
-        result = kIOReturnInternalError;
+       // IOLog("IOFWReadQuadCommand::execute: Out of tLabels?\n");
+        result = kIOFireWireOutOfTLabels;
     }
 
 	// complete could release us so protect fStatus with retain and release
@@ -917,22 +1024,125 @@ void IOFWWriteCommand::gotPacket(int rcode, const void* data, int size)
     }
 }
 
+bool IOFWWriteCommand::initWithController(IOFireWireController *control)
+{
+	bool success = true;
+	
+    fWrite = true;
+	
+    success = IOFWAsyncCommand::initWithController(control);
+						  
+	// create member variables
+	
+	if( success && fMembers->fSubclassMembers == NULL )
+	{
+		success = createMemberVariables();
+	}
+	
+	return success;
+}
+
 bool IOFWWriteCommand::initAll(IOFireWireNub *device, FWAddress devAddress,
 	IOMemoryDescriptor *hostMem, FWDeviceCallback completion,
 	void *refcon, bool failOnReset)
 {
+	bool success = true;
+	
     fWrite = true;
-    return IOFWAsyncCommand::initAll(device, devAddress,
-                          hostMem, completion, refcon, failOnReset);
+	
+    success = IOFWAsyncCommand::initAll( device, devAddress, hostMem, 
+										 completion, refcon, failOnReset);
+						  
+	// create member variables
+	
+	if( success && fMembers->fSubclassMembers == NULL )
+	{
+		success = createMemberVariables();
+	}
+	
+	return success;
 }
 
 bool IOFWWriteCommand::initAll(IOFireWireController *control,
                                UInt32 generation, FWAddress devAddress,
         IOMemoryDescriptor *hostMem, FWDeviceCallback completion, void *refcon)
 {
+	bool success = true;
+	
     fWrite = true;
-    return IOFWAsyncCommand::initAll(control, generation, devAddress,
-                          hostMem, completion, refcon);
+
+    success = IOFWAsyncCommand::initAll(control, generation, devAddress,
+										hostMem, completion, refcon);
+						  
+	// create member variables
+	
+	if( success && fMembers->fSubclassMembers == NULL )
+	{
+		success = createMemberVariables();
+	}
+	
+	return success;
+}
+
+// createMemberVariables
+//
+//
+
+bool IOFWWriteCommand::createMemberVariables( void )
+{
+	bool success = true;
+	
+	if( fMembers == NULL )
+	{
+		success = IOFWAsyncCommand::createMemberVariables();
+	}
+	
+	if( fMembers && fMembers->fSubclassMembers == NULL )
+	{
+		if( success )
+		{
+			fMembers->fSubclassMembers = IOMalloc( sizeof(MemberVariables) );
+			if( fMembers->fSubclassMembers == NULL )
+				success = false;
+		}
+		
+		// zero member variables
+		
+		if( success )
+		{
+			bzero( fMembers->fSubclassMembers, sizeof(MemberVariables) );
+		}
+		
+		// clean up on failure
+		
+		if( !success )
+		{
+			if( fMembers->fSubclassMembers != NULL )
+			{
+				IOFree( fMembers->fSubclassMembers, sizeof(MemberVariables) );
+				fMembers->fSubclassMembers = NULL;
+			}
+		}
+	}
+	
+	return success;
+}
+
+// free
+//
+//
+
+void IOFWWriteCommand::free()
+{	
+	if( fMembers->fSubclassMembers != NULL )
+	{		
+		// free member variables
+		
+		IOFree( fMembers->fSubclassMembers, sizeof(MemberVariables) );
+		fMembers->fSubclassMembers = NULL;
+	}
+	
+	IOFWAsyncCommand::free();
 }
 
 IOReturn IOFWWriteCommand::reinit(FWAddress devAddress,
@@ -969,12 +1179,23 @@ IOReturn IOFWWriteCommand::execute()
     // so that Reset handling knows which commands are waiting a response.
     fTrans = fControl->allocTrans(this);
     if(fTrans) {
+		IOFWWriteFlags flags = kIOFWWriteFlagsNone;
+		
+		if( fMembers && 
+			fMembers->fSubclassMembers &&
+			((MemberVariables*)fMembers->fSubclassMembers)->fDeferredNotify )
+		{
+			flags = kIOFWWriteFlagsDeferredNotify;
+		}
+		
+	//	FireLog( "IOFWAsyncCommand::asyncWrite<0x%08lx> - tLabel = %d\n", this, fTrans->fTCode );
+
         result = fControl->asyncWrite(fGeneration, fNodeID, fAddressHi, fAddressLo, fSpeed,
-                    fTrans->fTCode, fMemDesc, fBytesTransferred, fPackSize, this);
+                    fTrans->fTCode, fMemDesc, fBytesTransferred, fPackSize, this, flags);
     }
     else {
-        IOLog("IOFWWriteCommand::execute: Out of tcodes?");
-        result = kIOReturnInternalError;
+       // IOLog("IOFWWriteCommand::execute: Out of tLabels?\n");
+        result = kIOFireWireOutOfTLabels;
     }
 
 	// complete could release us so protect fStatus with retain and release
@@ -1021,42 +1242,156 @@ void IOFWWriteQuadCommand::gotPacket(int rcode, const void* data, int size)
     }
 }
 
+
+bool IOFWWriteQuadCommand::initWithController(IOFireWireController *control)
+{
+	bool success = true;
+	
+    fWrite = true;
+	
+    success = IOFWAsyncCommand::initWithController(control);
+						  
+	// create member variables
+	
+	if( success && fMembers->fSubclassMembers == NULL )
+	{
+		success = createMemberVariables();
+	}
+	
+	return success;
+}
+
 bool IOFWWriteQuadCommand::initAll(IOFireWireNub *device, FWAddress devAddress,
 	UInt32 *quads, int numQuads, FWDeviceCallback completion,
 	void *refcon, bool failOnReset)
 {
-    int i;
-    if(numQuads > kMaxWriteQuads)
-	return false;
-    fWrite = true;
+	bool success = true;
+	int i;
+    
+	if(numQuads > kMaxWriteQuads)
+		return false;
+    
+	fWrite = true;
 
-    if(!IOFWAsyncCommand::initAll(device, devAddress,
-	NULL, completion, refcon, failOnReset))
-	return false;
-    fSize = 4*numQuads;
-    for(i=0; i<numQuads; i++)
-        fQuads[i] = *quads++;
-    fQPtr = fQuads;
-    return true;
+    success = IOFWAsyncCommand::initAll(device, devAddress, NULL, completion, refcon, failOnReset);
+
+	// create member variables
+	
+	if( success && fMembers->fSubclassMembers == NULL )
+	{
+		success = createMemberVariables();
+	}
+	
+	if( success )
+	{
+		((MemberVariables*)fMembers->fSubclassMembers)->fDeferredNotify = false;
+		fSize = 4*numQuads;
+		for(i=0; i<numQuads; i++)
+			fQuads[i] = *quads++;
+		fQPtr = fQuads;
+	}
+	
+	return success;
 }
 
 bool IOFWWriteQuadCommand::initAll(IOFireWireController *control,
                                    UInt32 generation, FWAddress devAddress,
         UInt32 *quads, int numQuads, FWDeviceCallback completion, void *refcon)
 {
+	bool success = true;
+	
     int i;
-    if(numQuads > kMaxWriteQuads)
-        return false;
-    fWrite = true;
+    
+	if(numQuads > kMaxWriteQuads)
+	{
+		success = false;
+	}
+	
+	if( success )
+	{
+		fWrite = true;
+		success = IOFWAsyncCommand::initAll(control, generation, devAddress, NULL, completion, refcon);
+	}
+	
+	// create member variables
+	
+	if( success && fMembers->fSubclassMembers == NULL )
+	{
+		success = createMemberVariables();
+	}
+	
+	if( success )
+	{	
+		((MemberVariables*)fMembers->fSubclassMembers)->fDeferredNotify = false;
+		fSize = 4*numQuads;
+		for(i=0; i<numQuads; i++)
+			fQuads[i] = *quads++;
+		fQPtr = fQuads;
+	}
+	
+	return success;
+}
 
-    if(!IOFWAsyncCommand::initAll(control, generation, devAddress,
-        NULL, completion, refcon))
-        return false;
-    fSize = 4*numQuads;
-    for(i=0; i<numQuads; i++)
-        fQuads[i] = *quads++;
-    fQPtr = fQuads;
-    return true;
+
+// createMemberVariables
+//
+//
+
+bool IOFWWriteQuadCommand::createMemberVariables( void )
+{
+	bool success = true;
+	
+	if( fMembers == NULL )
+	{
+		success = IOFWAsyncCommand::createMemberVariables();
+	}
+	
+	if( fMembers && fMembers->fSubclassMembers == NULL )
+	{
+		if( success )
+		{
+			fMembers->fSubclassMembers = IOMalloc( sizeof(MemberVariables) );
+			if( fMembers->fSubclassMembers == NULL )
+				success = false;
+		}
+		
+		// zero member variables
+		
+		if( success )
+		{
+			bzero( fMembers->fSubclassMembers, sizeof(MemberVariables) );
+		}
+		
+		// clean up on failure
+		
+		if( !success )
+		{
+			if( fMembers->fSubclassMembers != NULL )
+			{
+				IOFree( fMembers->fSubclassMembers, sizeof(MemberVariables) );
+				fMembers->fSubclassMembers = NULL;
+			}
+		}
+	}
+	
+	return success;
+}
+
+// free
+//
+//
+
+void IOFWWriteQuadCommand::free()
+{	
+	if( fMembers->fSubclassMembers != NULL )
+	{		
+		// free member variables
+		
+		IOFree( fMembers->fSubclassMembers, sizeof(MemberVariables) );
+		fMembers->fSubclassMembers = NULL;
+	}
+	
+	IOFWAsyncCommand::free();
 }
 
 IOReturn IOFWWriteQuadCommand::reinit(FWAddress devAddress,
@@ -1117,12 +1452,21 @@ IOReturn IOFWWriteQuadCommand::execute()
     // so that Reset handling knows which commands are waiting a response.
     fTrans = fControl->allocTrans(this);
     if(fTrans) {
+		IOFWWriteFlags flags = kIOFWWriteFlagsNone;
+		
+		if( fMembers && 
+			fMembers->fSubclassMembers &&
+			((MemberVariables*)fMembers->fSubclassMembers)->fDeferredNotify )
+		{
+			flags = kIOFWWriteFlagsDeferredNotify;
+		}
+		
         result = fControl->asyncWrite(fGeneration, fNodeID, fAddressHi, fAddressLo,
-            fSpeed, fTrans->fTCode, fQPtr, fPackSize, this);
+            fSpeed, fTrans->fTCode, fQPtr, fPackSize, this, flags);
     }
     else {
-        IOLog("IOFWWriteQuadCommand::execute: Out of tcodes?");
-        result = kIOReturnInternalError;
+       // IOLog("IOFWWriteQuadCommand::execute: Out of tLabels?\n");
+        result = kIOFireWireOutOfTLabels;
     }
 
 	// complete could release us so protect fStatus with retain and release
@@ -1248,8 +1592,8 @@ IOReturn IOFWCompareAndSwapCommand::execute()
                     fInputVals, fSize, this);
     }
     else {
-        IOLog("IOFWCompareAndSwapCommand::execute: Out of tcodes?");
-        result = kIOReturnInternalError;
+       // IOLog("IOFWCompareAndSwapCommand::execute: Out of tLabels?\n");
+        result = kIOFireWireOutOfTLabels;
     }
 
 	// complete could release us so protect fStatus with retain and release

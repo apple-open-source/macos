@@ -24,10 +24,8 @@ DDEESSCCRRIIPPTTIIOONN
               bbyytteess__ffrroomm  Kbytes from the mailer.
               mmssggssttoo      Number of messages to the mailer.
               bbyytteess__ttoo    Kbytes to the mailer.
-              mmssggssrreejj     Number of messages rejected (by check_*
-                          rulesets).
-              mmssggssddiiss     Number  of   messages   discarded   (by
-                          check_* rulesets).
+              mmssggssrreejj     Number of messages rejected.
+              mmssggssddiiss     Number of messages discarded.
               MMaaiilleerr      The name of the mailer.
 
        After  this display, a line totaling the values for all of
@@ -61,7 +59,9 @@ DDEESSCCRRIIPPTTIIOONN
 
 
 
-                   $Date: 2002/10/15 02:38:20 $                 1
+
+
+                   $Date: 2003/02/22 09:24:39 $                 1
 
 
 
@@ -127,6 +127,6 @@ SSEEEE AALLSSOO
 
 
 
-                   $Date: 2002/10/15 02:38:20 $                 2
+                   $Date: 2003/02/22 09:24:39 $                 2
 
 

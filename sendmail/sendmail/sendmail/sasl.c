@@ -9,7 +9,7 @@
  */
 
 #include <sm/gen.h>
-SM_RCSID("@(#)$Id: sasl.c,v 1.1.1.2 2002/10/15 02:38:32 zarzycki Exp $")
+SM_RCSID("@(#)$Id: sasl.c,v 1.1.1.3 2003/02/22 09:24:49 zarzycki Exp $")
 
 #if SASL
 # include <stdlib.h>
@@ -208,7 +208,7 @@ intersect(s1, s2, rpool)
 # if SASL >= 20000
 /*
 **  IPTOSTRING -- create string for SASL_IP*PORT property
-**		(borrowed from lib/iptostring.c in Cyrus-IMAP)
+**		  (borrowed from lib/iptostring.c in Cyrus-IMAP)
 **
 **	Parameters:
 **		addr -- (pointer to) socket address

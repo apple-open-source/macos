@@ -58,7 +58,8 @@ enum {
   kIOPMRawLowBattery    		= (1<<7),       
   kIOPMForceLowSpeed    		= (1<<8),        
   kIOPMClosedClamshell  		= (1<<9),       
-  kIOPMClamshellStateOnWake 	= (1<<10)   
+  kIOPMClamshellStateOnWake 	= (1<<10),   
+  kIOPMWrongACConnected 		= (1<<11) 
 };
 #endif
 

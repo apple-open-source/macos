@@ -35,6 +35,7 @@ public:
 	virtual Boolean wantsIdleCalls (void) {return FALSE;}
 	virtual void setIdlePowerState (void) {return;}
 	virtual void setFullPowerState (void) {return;}
+	virtual void setHardwarePowerIdleOn ( void ) { setHardwarePowerOn (); }
 	virtual UInt32 GetTimeToChangePowerState (IOAudioDevicePowerState oldPowerState, IOAudioDevicePowerState newPowerState) {return 0;}
 
 protected:    
@@ -61,6 +62,7 @@ public:
     virtual IOReturn setHardwarePowerOff();
 	virtual void setIdlePowerState (void);
 	virtual void setFullPowerState (void);
+	virtual void setHardwarePowerIdleOn ( void );
 
 private:
     bool init(AppleOnboardAudio *pluginRef);
@@ -87,6 +89,7 @@ public:
     virtual IOReturn setHardwarePowerOn();
 	virtual void setIdlePowerState (void);
 	virtual void setFullPowerState (void);
+	virtual void setHardwarePowerIdleOn ( void );
 
     bool init(AppleOnboardAudio *pluginRef);
 
@@ -153,6 +156,7 @@ public:
     virtual IOReturn setHardwarePowerOn();
 	virtual void setIdlePowerState (void);
 	virtual void setFullPowerState (void);
+	virtual void setHardwarePowerIdleOn ( void );
 
 private:
     bool init(AppleOnboardAudio *pluginRef);
@@ -169,6 +173,7 @@ public:
 								
     virtual IOReturn setHardwarePowerOff();	
     virtual IOReturn setHardwarePowerOn();
+	virtual void setHardwarePowerIdleOn ( void );
 
 private:
     bool init(AppleOnboardAudio *pluginRef);
@@ -205,6 +210,7 @@ public:
     virtual IOReturn setHardwarePowerOn();
 	virtual void setIdlePowerState (void);
 	virtual void setFullPowerState (void);
+	virtual void setHardwarePowerIdleOn ( void );
 	virtual UInt32 GetTimeToChangePowerState (IOAudioDevicePowerState oldPowerState, IOAudioDevicePowerState newPowerState);
 
 private:
@@ -224,6 +230,7 @@ public:
 	virtual Boolean wantsIdleCalls (void);
 	virtual void setIdlePowerState (void);
 	virtual void setFullPowerState (void);
+	virtual void setHardwarePowerIdleOn ( void );
 	virtual UInt32 GetTimeToChangePowerState (IOAudioDevicePowerState oldPowerState, IOAudioDevicePowerState newPowerState);
 
 private:

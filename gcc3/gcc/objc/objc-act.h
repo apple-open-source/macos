@@ -51,6 +51,8 @@ tree add_instance_variable			PARAMS ((tree, int, tree, tree, tree));
 tree add_class_method				PARAMS ((tree, tree));
 tree add_instance_method			PARAMS ((tree, tree));
 tree get_super_receiver				PARAMS ((void));
+/* APPLE LOCAL msg send super */
+void objc_clear_super_receiver			PARAMS ((void));
 tree get_class_ivars				PARAMS ((tree));
 tree get_class_reference			PARAMS ((tree));
 tree get_static_reference			PARAMS ((tree, tree));

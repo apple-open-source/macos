@@ -243,7 +243,8 @@ OSStatus HIDGetSpecificButtonCaps(HIDReportType reportType,
 				  }
                                   if ((ptReportItem->dataModes & kHIDDataVariableBit) == kHIDDataVariable)
                                   {
-                                      startBit += (ptReportItem->globals.reportSize * ptReportItem->globals.reportCount);
+                                      //startBit += (ptReportItem->globals.reportSize * ptReportItem->globals.reportCount);
+                                      startBit += ptReportItem->globals.reportSize;
                                   }
 			  }
 		}
@@ -486,7 +487,8 @@ OSStatus HIDGetSpecificButtonCapabilities(HIDReportType reportType,
                                   // For array items, we want the startBit left alone;
                                   if ((ptReportItem->dataModes & kHIDDataVariableBit) == kHIDDataVariable)
                                   {
-                                    startBit += (ptReportItem->globals.reportSize * ptReportItem->globals.reportCount);
+                                    //startBit += (ptReportItem->globals.reportSize * ptReportItem->globals.reportCount);
+                                    startBit += ptReportItem->globals.reportSize;
                                   }
 			  }
 		}

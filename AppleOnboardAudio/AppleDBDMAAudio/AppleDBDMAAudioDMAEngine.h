@@ -81,6 +81,8 @@ protected:
     Boolean							needToSync;
     Boolean							startiSub;
     Boolean							justResetClipPosition;
+
+    Boolean							needToRestartDMA;
     Boolean							restartedDMA;
 	Boolean							iSubOpen;
 
@@ -89,9 +91,8 @@ protected:
     UInt32							numBlocks;
     UInt32							blockSize;
 	
-    UInt32							fBadCmd;
-    UInt32							fBadResult;
     bool							fNeedsPhaseInversion;
+    bool							fNeedsRightChanDelay;   // [3134221] aml
 	bool							fNeedsRightChanMixed;
 
 	// aml 6.17.02
@@ -136,9 +137,13 @@ public:
     virtual IOReturn	performAudioEngineStart();
     virtual IOReturn 	performAudioEngineStop();
     
-    IOReturn     		restartOutputIfFailure();
+    IOReturn     		restartDMA();
 
 	virtual void 		setSampleLatencies (UInt32 outputLatency, UInt32 inputLatency);
+
+	// [3134221] aml
+    inline void  		setRightChanDelay(bool inNeedsRightChanDelay ) { fNeedsRightChanDelay = inNeedsRightChanDelay; }; 
+    inline bool  		getRightChanDelay() { return fNeedsRightChanDelay; };
 
     inline void  		setPhaseInversion(bool needsPhaseInversion ) { fNeedsPhaseInversion = needsPhaseInversion; }; 
     inline bool  		getPhaseInversion() { return fNeedsPhaseInversion; };

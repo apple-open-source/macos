@@ -29,6 +29,12 @@
  */
 /*
 	$Log: IOFireWireLibPriv.cpp,v $
+	Revision 1.40.8.1  2003/03/12 21:26:51  niels
+	skip cycle support for plaid
+	
+	Revision 1.41  2003/02/19 22:33:21  niels
+	add skip cycle DCL
+	
 	Revision 1.40  2003/01/09 22:58:12  niels
 	radar 3061582: change kCFRunLoopDefaultMode to kCFRunLoopCommonModes
 	
@@ -541,15 +547,15 @@ namespace IOFireWireLib {
 	#pragma mark -
 	IOReturn
 	Device::AddCallbackDispatcherToRunLoopForMode(	// v3+
-		CFRunLoopRef 				inRunLoop,
+		CFRunLoopRef 				runLoop,
 		CFStringRef					inRunLoopMode )
 	{
 		// if the client passes 0 as the runloop, that means
 		// we should remove the source instead of adding it.
 	
-		if ( !inRunLoop || !inRunLoopMode )
+		if ( !runLoop || !inRunLoopMode )
 		{
-			IOFireWireLibLog_("IOFireWireLibDeviceInterfaceImp::AddCallbackDispatcherToRunLoopForMode: inRunLoop == 0 || inRunLoopMode == 0\n") ;
+			IOFireWireLibLog_("IOFireWireLibDeviceInterfaceImp::AddCallbackDispatcherToRunLoopForMode: runLoop == 0 || inRunLoopMode == 0\n") ;
 			return kIOReturnBadArgument ;
 		}
 	
@@ -560,10 +566,10 @@ namespace IOFireWireLib {
 	
 		if ( kIOReturnSuccess == result )
 		{
-			CFRetain( inRunLoop ) ;
+			CFRetain( runLoop ) ;
 			CFRetain( inRunLoopMode ) ;
 			
-			mRunLoop 		= inRunLoop ;
+			mRunLoop 		= runLoop ;
 			mRunLoopSource	= CFMachPortCreateRunLoopSource(
 									kCFAllocatorDefault,
 									GetAsyncCFPort(),
@@ -1357,15 +1363,13 @@ namespace IOFireWireLib {
 	// --- isoch related
 	//
 	IOReturn
-	Device::AddIsochCallbackDispatcherToRunLoopForMode( // v3+
-		CFRunLoopRef			inRunLoop,
-		CFStringRef 			inRunLoopMode )
+	Device::AddIsochCallbackDispatcherToRunLoopForMode( CFRunLoopRef runLoop, CFStringRef inRunLoopMode )
 	{
 		IOReturn result = kIOReturnSuccess ;
 		
-		if ( !inRunLoop || !inRunLoopMode )
+		if ( !runLoop || !inRunLoopMode )
 		{
-			IOFireWireLibLog_("Device::AddIsochCallbackDispatcherToRunLoopForMode: inRunLoop==0 || inRunLoopMode==0\n") ;
+			IOFireWireLibLog_("Device::AddIsochCallbackDispatcherToRunLoopForMode: runLoop==0 || inRunLoopMode==0\n") ;
 			return kIOReturnBadArgument ;
 		}
 	
@@ -1374,10 +1378,10 @@ namespace IOFireWireLib {
 	
 		if ( kIOReturnSuccess == result )
 		{
-			CFRetain(inRunLoop) ;
+			CFRetain(runLoop) ;
 			CFRetain(inRunLoopMode) ;
 			
-			mIsochRunLoop 			= inRunLoop ;
+			mIsochRunLoop 			= runLoop ;
 			mIsochRunLoopSource		= CFMachPortCreateRunLoopSource( kCFAllocatorDefault,
 																	GetIsochAsyncCFPort() ,
 																	0) ;
@@ -1583,6 +1587,11 @@ namespace IOFireWireLib {
 				case kDCLPtrTimeStampOp:
 					fprintf(stderr, "(DCLPtrTimeStampStruct) timeStampPtr=%p",
 						((DCLPtrTimeStampStruct*)currentDCL)->timeStampPtr) ;
+					break ;
+					
+				case kDCLSkipCycleOp:
+					fprintf(stderr, "(DCLSkipCycleStruct)") ;
+					break ;
 			}
 			
 			currentDCL = currentDCL->pNextDCLCommand ;
@@ -1841,18 +1850,18 @@ namespace IOFireWireLib {
 	}
 	
 	const IOReturn
-	DeviceCOM::SAddCallbackDispatcherToRunLoop(IOFireWireLibDeviceRef self, CFRunLoopRef inRunLoop)
+	DeviceCOM::SAddCallbackDispatcherToRunLoop(IOFireWireLibDeviceRef self, CFRunLoopRef runLoop)
 	{
-		return IOFireWireIUnknown::InterfaceMap<DeviceCOM>::GetThis(self)->AddCallbackDispatcherToRunLoop(inRunLoop) ;
+		return IOFireWireIUnknown::InterfaceMap<DeviceCOM>::GetThis(self)->AddCallbackDispatcherToRunLoop(runLoop) ;
 	}
 	
 	IOReturn
 	DeviceCOM::SAddCallbackDispatcherToRunLoopForMode(	// v3+
 		IOFireWireLibDeviceRef 		self, 
-		CFRunLoopRef 				inRunLoop,
+		CFRunLoopRef 				runLoop,
 		CFStringRef					inRunLoopMode )
 	{
-		return IOFireWireIUnknown::InterfaceMap<DeviceCOM>::GetThis(self)->AddCallbackDispatcherToRunLoopForMode( inRunLoop, inRunLoopMode ) ;
+		return IOFireWireIUnknown::InterfaceMap<DeviceCOM>::GetThis(self)->AddCallbackDispatcherToRunLoopForMode( runLoop, inRunLoopMode ) ;
 	}
 	
 	const void
@@ -2133,18 +2142,18 @@ namespace IOFireWireLib {
 	IOReturn
 	DeviceCOM::SAddIsochCallbackDispatcherToRunLoop(
 		IOFireWireLibDeviceRef	self,
-		CFRunLoopRef			inRunLoop)
+		CFRunLoopRef			runLoop)
 	{
-		return IOFireWireIUnknown::InterfaceMap<DeviceCOM>::GetThis(self)->AddIsochCallbackDispatcherToRunLoopForMode( inRunLoop, kCFRunLoopCommonModes ) ;
+		return IOFireWireIUnknown::InterfaceMap<DeviceCOM>::GetThis(self)->AddIsochCallbackDispatcherToRunLoopForMode( runLoop, kCFRunLoopCommonModes ) ;
 	}
 	
 	IOReturn
 	DeviceCOM::SAddIsochCallbackDispatcherToRunLoopForMode( // v3+
 		IOFireWireLibDeviceRef 	self, 
-		CFRunLoopRef			inRunLoop,
+		CFRunLoopRef			runLoop,
 		CFStringRef 			inRunLoopMode )
 	{
-		return IOFireWireIUnknown::InterfaceMap<DeviceCOM>::GetThis(self)->AddIsochCallbackDispatcherToRunLoopForMode( inRunLoop, inRunLoopMode ) ;
+		return IOFireWireIUnknown::InterfaceMap<DeviceCOM>::GetThis(self)->AddIsochCallbackDispatcherToRunLoopForMode( runLoop, inRunLoopMode ) ;
 	}
 	
 	void

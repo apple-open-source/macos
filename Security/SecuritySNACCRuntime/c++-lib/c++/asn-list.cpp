@@ -37,7 +37,7 @@
 // useful, but WITHOUT ANY WARRANTY; without even the implied warranty
 // of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 //
-// $Header: /cvs/Darwin/src/live/Security/SecuritySNACCRuntime/c++-lib/c++/asn-list.cpp,v 1.1.1.1 2001/05/18 23:14:06 mb Exp $
+// $Header: /cvs/root/Security/SecuritySNACCRuntime/c++-lib/c++/Attic/asn-list.cpp,v 1.1.1.1 2001/05/18 23:14:06 mb Exp $
 // $Log: asn-list.cpp,v $
 // Revision 1.1.1.1  2001/05/18 23:14:06  mb
 // Move from private repository to open source repository

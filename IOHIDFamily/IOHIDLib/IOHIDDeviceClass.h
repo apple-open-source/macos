@@ -70,14 +70,23 @@ protected:
     static IOCFPlugInInterface	sIOCFPlugInInterfaceV1;
     static IOHIDDeviceInterface	sHIDDeviceInterfaceV1;
 
-    struct InterfaceMap fHIDDevice;
-    io_service_t fService;
-    io_connect_t fConnection;
-    mach_port_t fAsyncPort;
-    CFRunLoopSourceRef fCFSource;
-    bool fIsOpen;
-    bool fIsLUNZero;
+    struct InterfaceMap 	fHIDDevice;
+    io_service_t 		fService;
+    io_connect_t 		fConnection;
+    mach_port_t 		fAsyncPort;
+    CFRunLoopRef 		fRunLoop;
+    IONotificationPortRef 	fNotifyPort;
+    CFRunLoopSourceRef 		fCFSource;
+    bool 			fIsOpen;
+    bool 			fIsLUNZero;
+    bool			fIsTerminated;
     
+    IOHIDCallbackFunction 	fRemovalCallback;
+    void *			fRemovalTarget;
+    void *			fRemovalRefcon;
+    
+    CFMutableSetRef		fQueues;
+
     // ptr to shared memory for current values of elements
     vm_address_t 	fCurrentValuesMappedMemory;
     vm_size_t		fCurrentValuesMappedMemorySize;
@@ -104,7 +113,11 @@ protected:
                         
     // Call back methods
     static void _hidReportCallback(void *refcon, IOReturn result, UInt32 bufferSize);
-                           
+
+    static void _deviceNotification( void *refCon,
+                                    io_service_t service,
+                                    natural_t messageType,
+                                    void *messageArgument );
 public:
     // add/remove a queue 
     HRESULT attachQueue (IOHIDQueueClass * iohidQueue);

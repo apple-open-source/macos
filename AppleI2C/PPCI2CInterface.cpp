@@ -415,6 +415,7 @@ PPCI2CInterface::setAddressAndDirection()
         setSubAddress(currentSubaddress);
         
     // Set the state BEFORE to set the control
+ 	setInterruptStatus(kISRMask);  // clear any pending interrupts 
     currentState = ki2cStateWaitingForIADDR;
     setControl((I2CControl)(getControl() | kXAddrCNTRL));
 

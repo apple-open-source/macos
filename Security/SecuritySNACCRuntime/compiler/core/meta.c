@@ -14,7 +14,7 @@
  * PURPOSE.  See the GNU General Public License and GNU Library General
  * Public License for more details.
  *
- * $Header: /cvs/Darwin/src/live/Security/SecuritySNACCRuntime/compiler/core/meta.c,v 1.1 2001/06/20 21:27:57 dmitch Exp $
+ * $Header: /cvs/root/Security/SecuritySNACCRuntime/compiler/core/Attic/meta.c,v 1.1 2001/06/20 21:27:57 dmitch Exp $
  * $Log: meta.c,v $
  * Revision 1.1  2001/06/20 21:27:57  dmitch
  * Adding missing snacc compiler files.

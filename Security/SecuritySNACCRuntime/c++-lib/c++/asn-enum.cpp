@@ -31,7 +31,7 @@
 // useful, but WITHOUT ANY WARRANTY; without even the implied warranty
 // of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 //
-// $Header: /cvs/Darwin/src/live/Security/SecuritySNACCRuntime/c++-lib/c++/asn-enum.cpp,v 1.3 2002/03/21 05:38:44 dmitch Exp $
+// $Header: /cvs/root/Security/SecuritySNACCRuntime/c++-lib/c++/Attic/asn-enum.cpp,v 1.3 2002/03/21 05:38:44 dmitch Exp $
 // $Log: asn-enum.cpp,v $
 // Revision 1.3  2002/03/21 05:38:44  dmitch
 // Radar 2868524: no more setjmp/longjmp in SNACC-generated code.

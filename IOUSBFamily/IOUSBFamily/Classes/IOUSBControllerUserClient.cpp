@@ -182,7 +182,7 @@ IOUSBControllerUserClient::start( IOService * provider )
 IOReturn 
 IOUSBControllerUserClient::open(bool seize)
 {
-    IOOptionBits	options = seize ? kIOServiceSeize : 0;
+    IOOptionBits	options = seize ?  (IOOptionBits)kIOServiceSeize : 0;
 
     IOLog("+IOUSBControllerUserClient::open\n");
     if (!fOwner)
@@ -305,5 +305,30 @@ IOUSBControllerUserClient::clientClose( void )
     return( kIOReturnSuccess );
 }
 
+/*
+IOReturn
+IOUSBControllerUserClient::clientMemoryForType( UInt32 type, IOOptionBits * options, IOMemoryDescriptor ** memory )
+{
+    IOMemoryMap *    baseAddress;
+    
+    IOLog("IOUSBControllerUserClient::stop\n");
 
+    if (!fOwner)
+        return kIOReturnNotAttached;
 
+    // Get the _deviceBase from the OHCI driver
+    //
+    baseAddress = fOwner->GetBaseAddress();
+
+    if ( baseAddress )
+    {
+        IOLog("Got BaseAddress 0x%x\n",baseAddress->getVirtualAddress());
+        fOHCIRegistersDescriptor = baseAddress->getMemoryDescriptor();
+    }
+    if (fOHCIRegistersDescriptor)
+    {
+        *memory = fOHCIRegistersDescriptor;
+        *options = 0;
+    }
+}
+*/

@@ -751,6 +751,7 @@ void	AppleTexas2Audio::sndHWInitialize(IOService *provider)
 	IOSleep (1);
 	ToggleAnalogPowerDownWake();
 
+	sndHWSetPowerState ( kIOAudioDeviceIdle );			//	initialize to the idle state
 Exit:
 	if (NULL != gpio)
 		gpio->release ();
@@ -766,8 +767,10 @@ void AppleTexas2Audio::sndHWPostDMAEngineInit (IOService *provider) {
 
 	DEBUG_IOLOG("+ AppleTexas2Audio::sndHWPostDMAEngineInit\n");
 
-	if (NULL != driverDMAEngine)
+	if (NULL != driverDMAEngine) {
 		driverDMAEngine->setSampleLatencies (kTexas2OutputSampleLatency, kTexas2InputSampleLatency);
+		driverDMAEngine->setRightChanDelay(TRUE);		// [3134221] aml
+	}
 
 	dallasDriver = NULL;
 	dallasDriverNotifier = addNotification (gIOPublishNotification, serviceMatching ("AppleDallasDriver"), (IOServiceNotificationHandler)&DallasDriverPublished, this);
@@ -1155,12 +1158,29 @@ IOReturn AppleTexas2Audio::sndHWSetSystemVolume(UInt32 value)
 // --------------------------------------------------------------------------
 IOReturn AppleTexas2Audio::sndHWSetPlayThrough(bool playthroughstate)
 {
+	UInt8		leftMixerGain[kTexas2MIXERGAINwidth];
+	UInt8		rightMixerGain[kTexas2MIXERGAINwidth];
+	IOReturn	err;
+	
 	DEBUG_IOLOG("+ AppleTexas2Audio::sndHWSetPlayThrough\n");
+	err = Texas2_ReadRegister ( kTexas2MixerLeftGainReg, leftMixerGain );
+	FailIf ( kIOReturnSuccess != err, Exit );
 
-	IOReturn myReturn = kIOReturnSuccess;
+	err = Texas2_ReadRegister ( kTexas2MixerRightGainReg, rightMixerGain );
+	FailIf ( kIOReturnSuccess != err, Exit );
 
+	if ( playthroughstate ) {
+		leftMixerGain[6] = 0x10;
+		rightMixerGain[6] = 0x10;
+	} else {
+		leftMixerGain[6] = 0x00;
+		rightMixerGain[6] = 0x00;
+	}
+	err = Texas2_WriteRegister ( kTexas2MixerLeftGainReg, leftMixerGain, kUPDATE_ALL );
+	err = Texas2_WriteRegister ( kTexas2MixerRightGainReg, rightMixerGain, kUPDATE_ALL );
+Exit:
 	DEBUG_IOLOG("- AppleTexas2Audio::sndHWSetPlayThrough\n");
-	return(myReturn);
+	return err;
 }
 
 // --------------------------------------------------------------------------
@@ -1386,13 +1406,11 @@ void AppleTexas2Audio::setDeviceDetectionInActive(void)
 	Update AudioProj14PowerObject::setHardwarePowerOn() to set *microsecondsUntilComplete = 2000000
 	when waking from sleep.
 */
-
 IOReturn AppleTexas2Audio::sndHWSetPowerState(IOAudioDevicePowerState theState)
 {
 	IOReturn							result;
 
 	debug2IOLog("+ AppleTexas2Audio::sndHWSetPowerState (%d)\n", theState);
-
 	result = kIOReturnSuccess;
 	switch (theState) {
 		case kIOAudioDeviceActive:
@@ -1400,6 +1418,8 @@ IOReturn AppleTexas2Audio::sndHWSetPowerState(IOAudioDevicePowerState theState)
 			completePowerStateChange ();
 			break;
 		case kIOAudioDeviceIdle:
+			result = performDeviceIdleSleep ();
+			break;
 		case kIOAudioDeviceSleep:
 			result = performDeviceSleep ();
 			break;
@@ -1421,50 +1441,44 @@ IOReturn AppleTexas2Audio::sndHWSetPowerState(IOAudioDevicePowerState theState)
 //	exists with a value of 'true'.  For all other cases, the original
 //	signal manipulation order exists.
 IOReturn AppleTexas2Audio::performDeviceSleep () {
-    IOService *							keyLargo;
+    IOService *	keyLargo;
 
 	debugIOLog ("+ AppleTexas2Audio::performDeviceSleep\n");
 
 	keyLargo = NULL;
 
-	//	Mute all of the amplifiers
-        
-	//	[2855519]	begin {
-    SetAnalogPowerDownMode (kPowerDownAnalog);
-    SetAmplifierMuteState( kHEADPHONE_AMP, 1 == hdpnActiveState ? 1 : 0 );
-    SetAmplifierMuteState( kSPEAKER_AMP, 1 == ampActiveState ? 1 : 0 );
-    SetAmplifierMuteState( kLINEOUT_AMP, 1 == lineOutMuteActiveState ? 1 : 0 );
-    IOSleep (kAmpRecoveryMuteDuration);
-    Texas2_Reset_ASSERT();
-	//	[2855519]	} end
-
-	//	Timing for systems with a master mute [see 2949185] is as follows:
-	//					____________________
-	//	MASTER_MUTE:	                    |__________
-	//					__________
-	//	SPEAKER MUTE:	          |____________________
-	//
-	//					__________
-	//	HEADPHONE MUTE:	          |____________________
-	//
-	//					       -->| 500 MS |<--
-	//
-	if ( NULL != masterMuteGpio ) {			//	[2949185] begin {
-		IOSleep ( 500 );
-		SetAmplifierMuteState (kMASTER_AMP, ASSERT_GPIO (masterMuteActiveState));	//	assert mute
-	}										//	} end [2949185]
-
-    keyLargo = IOService::waitForService (IOService::serviceMatching ("KeyLargo"));
-    
-    if (NULL != keyLargo) {
-		// ...and turn off the i2s clocks...
-		switch ( i2SInterfaceNumber ) {
-			case kUseI2SCell0:	keyLargo->callPlatformFunction (OSSymbol::withCString ("keyLargo_powerI2S"), false, (void *)false, (void *)0, 0, 0);	break;
-			case kUseI2SCell1:	keyLargo->callPlatformFunction (OSSymbol::withCString ("keyLargo_powerI2S"), false, (void *)false, (void *)1, 0, 0);	break;
-		}
+	if ( kIOAudioDeviceIdle == gPowerState ) {
+		//	If the hardware is already idle sleeping then all that need to be done is to 
+		//	assert RESET so that the GPIO is not driving against an input protection
+		//	diode when the power is removed from the TAS3004.
+		Texas2_Reset_ASSERT();
+	} else {
+		Texas2_Quiesce ( kIOAudioDeviceSleep );
 	}
 
+	gPowerState = kIOAudioDeviceSleep;
 	debugIOLog ("- AppleTexas2Audio::performDeviceSleep\n");
+	return kIOReturnSuccess;
+}
+	
+// --------------------------------------------------------------------------
+//	Set the audio hardware to sleep mode by placing the Texas2 into
+//	analog power down mode after muting the amplifiers.  The I2S clocks
+//	must also be stopped after these two tasks in order to achieve
+//	a fully low power state.  Some CPU implemenations implement a
+//	Codec RESET by ANDing the mute states of the internal speaker
+//	amplifier and the headphone amplifier.  The Codec must be put 
+//	into analog power down state prior to asserting the both amplifier
+//	mutes.  This is only invoked when the 'has-anded-reset' property
+//	exists with a value of 'true'.  For all other cases, the original
+//	signal manipulation order exists.
+IOReturn AppleTexas2Audio::performDeviceIdleSleep () {
+	debugIOLog ("+ AppleTexas2Audio::performDeviceIdleSleep\n");
+	
+	Texas2_Quiesce ( kIOAudioDeviceIdle );
+	gPowerState = kIOAudioDeviceIdle;
+	
+	debugIOLog ("- AppleTexas2Audio::performDeviceIdleSleep\n");
 	return kIOReturnSuccess;
 }
 	
@@ -1566,6 +1580,7 @@ IOReturn AppleTexas2Audio::performDeviceWake () {
 		}
 	}
 
+	gPowerState = kIOAudioDeviceActive;
 	debugIOLog ("- AppleTexas2Audio::performDeviceWake\n");
 	return err;
 }
@@ -2409,6 +2424,9 @@ IOReturn	AppleTexas2Audio::invokeInternalFunction ( UInt32 functionSelector, voi
 	switch ( functionSelector ) {
 		case kInvokeHeadphoneInterruptHandler:		RealHeadphoneInterruptHandler ( 0, 0 );			break;
 		case kInvokeSpeakerInterruptHandler:		RealDallasInterruptHandler ( 0, 0 );			break;
+		case kInvokePerformDeviceSleep:				performDeviceSleep ();							break;
+		case kInvokePerformDeviceIdleSleep:			performDeviceIdleSleep ();						break;
+		case kInvokePerformDeviceWake:				performDeviceWake ();							break;
 	}
 	return result;
 }
@@ -2735,6 +2753,63 @@ Boolean AppleTexas2Audio::IsCodecRESET( Boolean logMessage ) {
 	return result;
 }
 
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//	Sets the TAS3004 to either an idle or sleep state.  Both modes 
+//	set the amplifiers and TAS3004 to a sleep state.  Idle leaves the
+//	TAS3004 RESET negated while Sleep leaves the TAS3004 RESET asserted.
+void	AppleTexas2Audio::Texas2_Quiesce ( UInt32 mode ) {
+    IOService *							keyLargo;
+
+	debugIOLog ("+ AppleTexas2Audio::Texas2_Quiesce\n");
+
+	keyLargo = NULL;
+	
+	//	Mute all of the amplifiers
+		
+	//	[2855519]	begin {
+	SetAnalogPowerDownMode (kPowerDownAnalog);
+	SetAmplifierMuteState( kHEADPHONE_AMP, 1 == hdpnActiveState ? 1 : 0 );
+	SetAmplifierMuteState( kSPEAKER_AMP, 1 == ampActiveState ? 1 : 0 );
+	SetAmplifierMuteState( kLINEOUT_AMP, 1 == lineOutMuteActiveState ? 1 : 0 );
+	IOSleep (kAmpRecoveryMuteDuration);
+	if ( kIOAudioDeviceSleep == mode ) {
+		debug2IOLog ( "Texas2_Quiesce ( %d ) asserting RESET\n", (unsigned int)mode );
+		Texas2_Reset_ASSERT();
+	} else {
+		debug2IOLog ( "Texas2_Quiesce ( %d ) negating RESET\n", (unsigned int)mode );
+		Texas2_Reset_NEGATE();
+	}
+	//	[2855519]	} end
+
+	//	Timing for systems with a master mute [see 2949185] is as follows:
+	//					____________________
+	//	MASTER_MUTE:	                    |__________
+	//					__________
+	//	SPEAKER MUTE:	          |____________________
+	//
+	//					__________
+	//	HEADPHONE MUTE:	          |____________________
+	//
+	//					       -->| 500 MS |<--
+	//
+	if ( NULL != masterMuteGpio ) {			//	[2949185] begin {
+		IOSleep ( 500 );
+		SetAmplifierMuteState (kMASTER_AMP, ASSERT_GPIO (masterMuteActiveState));	//	assert mute
+	}										//	} end [2949185]
+
+	keyLargo = IOService::waitForService (IOService::serviceMatching ("KeyLargo"));
+	
+	if (NULL != keyLargo) {
+		// ...and turn off the i2s clocks...
+		switch ( i2SInterfaceNumber ) {
+			case kUseI2SCell0:	keyLargo->callPlatformFunction (OSSymbol::withCString ("keyLargo_powerI2S"), false, (void *)false, (void *)0, 0, 0);	break;
+			case kUseI2SCell1:	keyLargo->callPlatformFunction (OSSymbol::withCString ("keyLargo_powerI2S"), false, (void *)false, (void *)1, 0, 0);	break;
+		}
+	}
+
+	debugIOLog ("- AppleTexas2Audio::Texas2_Quiesce\n");
+	return;
+}
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //	[2855519]	Call down to lower level functions to implement the Codec
@@ -3032,6 +3107,13 @@ IOReturn 	AppleTexas2Audio::Texas2_WriteRegister(UInt8 regAddr, UInt8* registerD
 				if (openI2C()) {
 					success = interface->writeI2CBus (DEQAddress, regAddr, registerData, registerSize);
 					closeI2C();
+					//	[3166905]	begin {
+					if ( !success ) {
+						debug6IOLog ( "%d = interface->writeI2CBus ( %X, %X, %X, %X ) FAILED ><><>< RESETTING & FLUSHING CACHE\n", 
+							(unsigned int)success, (unsigned int)DEQAddress, (unsigned int)regAddr, (unsigned int)registerData, (unsigned int)registerSize );
+						success = Texas2_Initialize();
+					}
+					//	[3166905]	} end
 				} else {
 					debugIOLog ("... Texas2_WriteRegistercouldn't open the I2C bus!\n");
 				}

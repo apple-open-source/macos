@@ -130,18 +130,21 @@ Boston, MA 02111-1307, USA.  */
   { "-dylib_file", "-Zdylib_file" }, \
   { "-dynamic", " " },  \
   { "-dynamiclib", "-Zdynamiclib" },  \
+  { "-exported_symbols_list", "-Zexported_symbols_list" },  \
   { "-seg_addr_table_filename", "-Zseg_addr_table_filename" }, \
   { "-filelist", "-Xlinker -filelist -Xlinker" },  \
   { "-flat_namespace", "-Zflat_namespace" },  \
   { "-force_cpusubtype_ALL", "-Zforce_cpusubtype_ALL" },  \
   { "-force_flat_namespace", "-Zforce_flat_namespace" },  \
-  { "-framework", "-Zframework" },  \
   { "-image_base", "-Zimage_base" },  \
   { "-init", "-Zinit" },  \
   { "-install_name", "-Zinstall_name" },  \
   { "-multiply_defined_unused", "-Zmultiplydefinedunused" },  \
   { "-multiply_defined", "-Zmultiply_defined" },  \
+  { "-multi_module", "-Zmulti_module" },  \
   { "-static", "-static -Wa,-static" },  \
+  { "-single_module", "-Zsingle_module" },  \
+  { "-unexported_symbols_list", "-Zunexported_symbols_list" },  \
   { "-traditional-cpp", "-no-cpp-precomp" }
 /* APPLE LOCAL end flag translation */
 
@@ -150,7 +153,6 @@ Boston, MA 02111-1307, USA.  */
 
 #define FRAMEWORK_HEADERS
 
-/* APPLE LOCAL -framework */
 /* These compiler options take n arguments.  */  
    
 #undef  WORD_SWITCH_TAKES_ARG
@@ -167,7 +169,7 @@ Boston, MA 02111-1307, USA.  */
    !strcmp (STR, "compatibility_version") ? 1 : \
    !strcmp (STR, "current_version") ? 1 :	\
    !strcmp (STR, "Zdylib_file") ? 1 :		\
-   !strcmp (STR, "Zframework") ? 1 :		\
+   !strcmp (STR, "Zexported_symbols_list") ? 1 :	\
    !strcmp (STR, "Zimage_base") ? 1 :		\
    !strcmp (STR, "Zinit") ? 1 :			\
    !strcmp (STR, "Zinstall_name") ? 1 :		\
@@ -193,6 +195,7 @@ Boston, MA 02111-1307, USA.  */
    !strcmp (STR, "sectobjectsymbols") ? 2 :	\
    !strcmp (STR, "segcreate") ? 3 :		\
    !strcmp (STR, "dylinker_install_name") ? 1 :	\
+   !strcmp (STR, "Zunexported_symbols_list") ? 1 :	\
    0)
 /* APPLE LOCAL end -precomp-trustfile */
 /* APPLE LOCAL end -arch */
@@ -222,7 +225,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* APPLE LOCAL begin linker flags */
 /* This is mostly a clone of the standard LINK_COMMAND_SPEC, plus
-   framework, precomp, libtool, and fat build additions.  Also we
+   precomp, libtool, and fat build additions.  Also we
    don't specify a second %G after %L because libSystem is
    self-contained and doesn't need to link against libgcc.a.  */
 /* In general, random Darwin linker flags should go into LINK_SPEC
@@ -286,12 +289,13 @@ Boston, MA 02111-1307, USA.  */
    %{Zallowable_client*:-allowable_client %*} \
    %{Zarch_errors_fatal:-arch_errors_fatal} \
    %{Zdylib_file*:-dylib_file %*} \
+   %{Zexported_symbols_list:-exported_symbols} \
    %{Zflat_namespace:-flat_namespace} \
-   %{Zframework*:-framework %*} \
    %{headerpad_max_install_names*} \
    %{Zimage_base*:-image_base %*} \
    %{Zinit*:-init %*} \
    %{nomultidefs} \
+   %{Zmulti_module:-multi_module} \
    %{Zmultiply_defined*:-multiply_defined %*} \
    %{Zmultiplydefinedunused*:-multiply_defined_unused %*} \
    %{prebind} %{noprebind} %{prebind_all_twolevel_modules} \
@@ -307,7 +311,9 @@ Boston, MA 02111-1307, USA.  */
    %{y*} \
    %{w} \
    %{pagezero_size*} %{segs_read_*} %{seglinkedit} %{noseglinkedit}  \
+   %{Zsingle_module:-single_module} \
    %{sectalign*} %{sectobjectsymbols*} %{segcreate*} %{whyload} \
+   %{Zunexported_symbols_list*:-unexported_symbols %*} \
    %{whatsloaded} %{dylinker_install_name*} \
    %{dylinker} %{Mach} "
 

@@ -872,10 +872,14 @@ do_linemarker (pfile)
 	      strcat (apath, "/");
 	      strcat (apath, new_file);
 	      gen_indexing_header ((char *) apath);
+	      push_cur_index_filename (apath);
 	      free (apath);
 	    }
 	  else 
-	    gen_indexing_header ((char *) new_file);
+	    {
+	      gen_indexing_header ((char *) new_file);
+	      push_cur_index_filename (new_file);
+	    }
 	  flag_gen_index_header = 0;
 	  process_header_indexing ((char *) new_file, PB_INDEX_BEGIN);
 	}

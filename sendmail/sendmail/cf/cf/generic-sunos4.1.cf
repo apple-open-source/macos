@@ -16,8 +16,8 @@
 #####
 #####		SENDMAIL CONFIGURATION FILE
 #####
-##### built by ca@wiz.smi.sendmail.com on Mon Aug 26 18:42:03 PDT 2002
-##### in /extra/home/ca/sm-8.12.6/OpenSource/sendmail-8.12.6/cf/cf
+##### built by ca@wiz.smi.sendmail.com on Sat Mar 29 06:04:51 PST 2003
+##### in /extra/home/ca/sm-8.12.9/OpenSource/sendmail-8.12.9/cf/cf
 ##### using ../ as configuration include directory
 #####
 ######################################################################
@@ -27,22 +27,22 @@
 ######################################################################
 ######################################################################
 
-#####  $Id: generic-sunos4.1.cf,v 1.1.1.5 2002/10/15 02:37:15 zarzycki Exp $  #####
-#####  $Id: generic-sunos4.1.cf,v 1.1.1.5 2002/10/15 02:37:15 zarzycki Exp $  #####
-#####  $Id: generic-sunos4.1.cf,v 1.1.1.5 2002/10/15 02:37:15 zarzycki Exp $  #####
+#####  $Id: generic-sunos4.1.cf,v 1.2 2003/03/29 20:22:00 zarzycki Exp $  #####
+#####  $Id: generic-sunos4.1.cf,v 1.2 2003/03/29 20:22:00 zarzycki Exp $  #####
+#####  $Id: generic-sunos4.1.cf,v 1.2 2003/03/29 20:22:00 zarzycki Exp $  #####
 
-#####  $Id: generic-sunos4.1.cf,v 1.1.1.5 2002/10/15 02:37:15 zarzycki Exp $  #####
-
-
-#####  $Id: generic-sunos4.1.cf,v 1.1.1.5 2002/10/15 02:37:15 zarzycki Exp $  #####
-
-#####  $Id: generic-sunos4.1.cf,v 1.1.1.5 2002/10/15 02:37:15 zarzycki Exp $  #####
-
-#####  $Id: generic-sunos4.1.cf,v 1.1.1.5 2002/10/15 02:37:15 zarzycki Exp $  #####
+#####  $Id: generic-sunos4.1.cf,v 1.2 2003/03/29 20:22:00 zarzycki Exp $  #####
 
 
+#####  $Id: generic-sunos4.1.cf,v 1.2 2003/03/29 20:22:00 zarzycki Exp $  #####
 
-#####  $Id: generic-sunos4.1.cf,v 1.1.1.5 2002/10/15 02:37:15 zarzycki Exp $  #####
+#####  $Id: generic-sunos4.1.cf,v 1.2 2003/03/29 20:22:00 zarzycki Exp $  #####
+
+#####  $Id: generic-sunos4.1.cf,v 1.2 2003/03/29 20:22:00 zarzycki Exp $  #####
+
+
+
+#####  $Id: generic-sunos4.1.cf,v 1.2 2003/03/29 20:22:00 zarzycki Exp $  #####
 
 # level 10 config file format
 V10/Berkeley
@@ -122,7 +122,7 @@ DnMAILER-DAEMON
 CPREDIRECT
 
 # Configuration version number
-DZ8.12.6
+DZ8.12.9
 
 
 ###############
@@ -295,10 +295,12 @@ O Timeout.queuereturn=5d
 #O Timeout.queuereturn.normal=5d
 #O Timeout.queuereturn.urgent=2d
 #O Timeout.queuereturn.non-urgent=7d
+
 O Timeout.queuewarn=4h
 #O Timeout.queuewarn.normal=4h
 #O Timeout.queuewarn.urgent=1h
 #O Timeout.queuewarn.non-urgent=12h
+
 #O Timeout.hoststatus=30m
 #O Timeout.resolver.retrans=5s
 #O Timeout.resolver.retrans.first=5s
@@ -449,7 +451,7 @@ O OperatorChars=.:%@!^/[]+
 #O ControlSocketName=/var/spool/mqueue/.control
 
 # Maximum MIME header length to protect MUAs
-#O MaxMimeHeaderLength=0/0
+#O MaxMimeHeaderLength=2048/1024
 
 # Maximum length of the sum of all headers
 O MaxHeadersLength=32768
@@ -492,9 +494,9 @@ O MaxHeadersLength=32768
 
 
 # CA directory
-#O CACERTPath
+#O CACertPath
 # CA file
-#O CACERTFile
+#O CACertFile
 # Server Cert
 #O ServerCertFile
 # Server private key
@@ -760,7 +762,7 @@ SParse1
 
 # handle numeric address spec
 R$* < @ [ $+ ] > $*	$: $>ParseLocal $1 < @ [ $2 ] > $3	numeric internet spec
-R$* < @ [ $+ ] > $*	$1 < @ [ $2 ] : $S > $3		Add smart host to path
+R$* < @ [ $+ ] > $*	$: $1 < @ [ $2 ] : $S > $3	Add smart host to path
 R$* < @ [ $+ ] : > $*		$#esmtp $@ [$2] $: $1 < @ [$2] > $3	no smarthost: send
 R$* < @ [ $+ ] : $- : $*> $*	$#$3 $@ $4 $: $1 < @ [$2] > $5	smarthost with mailer
 R$* < @ [ $+ ] : $+ > $*	$#esmtp $@ $3 $: $1 < @ [$2] > $4	smarthost without mailer
@@ -1022,7 +1024,7 @@ R<? $* <$->> $* < @ $+ >
 R<?> $*			$: $&{daemon_flags} $| <?> $1
 R$* u $* $| <?> $*	$: <OKR> $3
 R$* $| $*		$: $2
-R<?> $*			$: < ? $&{client_name} > $1
+R<?> $*			$: < ? $&{client_addr} > $1
 R<?> $*			$@ <OKR>			...local unqualed ok
 R<? $+> $*		$#error $@ 5.5.4 $: "553 Domain name required for sender address " $&f
 							...remote is not
@@ -1110,6 +1112,8 @@ SRelay_ok
 R$*			$: $&{client_addr}
 R$@			$@ RELAY		originated locally
 R0			$@ RELAY		originated locally
+R127.0.0.1		$@ RELAY		originated locally
+RIPv6:::1		$@ RELAY		originated locally
 R$=R $*			$@ RELAY		relayable IP address
 R$*			$: [ $1 ]		put brackets around it...
 R$=w			$@ RELAY		... and see if it is local
@@ -1121,7 +1125,6 @@ R<TEMP>			$#TEMP $@ 4.7.1 $: "450 Relaying temporarily denied. Cannot resolve PT
 R<FORGED>		$#error $@ 5.7.1 $: "550 Relaying denied. IP name possibly forged " $&{client_name}
 R<FAIL>			$#error $@ 5.7.1 $: "550 Relaying denied. IP name lookup failed " $&{client_name}
 R$*			$: <@> $&{client_name}
-R<@>			$@ RELAY
 # pass to name server to make hostname canonical
 R<@> $* $=P 		$:<?>  $1 $2
 R<@> $+			$:<?>  $[ $1 $]
@@ -1232,7 +1235,7 @@ Sauthinfo
 ###   Local and Program Mailer specification   ###
 ##################################################
 
-#####  $Id: generic-sunos4.1.cf,v 1.1.1.5 2002/10/15 02:37:15 zarzycki Exp $  #####
+#####  $Id: generic-sunos4.1.cf,v 1.2 2003/03/29 20:22:00 zarzycki Exp $  #####
 
 #
 #  Envelope sender rewriting
@@ -1284,7 +1287,7 @@ Mprog,		P=/bin/sh, F=lsDFMoqeu9, S=EnvFromL/HdrFromL, R=EnvToL/HdrToL, D=$z:/,
 ###   SMTP Mailer specification   ###
 #####################################
 
-#####  $Id: generic-sunos4.1.cf,v 1.1.1.5 2002/10/15 02:37:15 zarzycki Exp $  #####
+#####  $Id: generic-sunos4.1.cf,v 1.2 2003/03/29 20:22:00 zarzycki Exp $  #####
 
 #
 #  common sender and masquerading recipient rewriting

@@ -269,16 +269,19 @@ protected:
     bool		fFailOnReset;
     bool		fWrite;
 
-/*! @struct ExpansionData
-    @discussion This structure will be used to expand the capablilties of the class in the future.
-    */    
-    struct ExpansionData { };
+    typedef struct 
+	{ 
+		// some of our subclasses didn't have room for expansion data, so
+		// we've reserved space for their use here.
+		
+		void *	fSubclassMembers; 
+	} 
+	MemberVariables;
 
-/*! @var reserved
-    Reserved for future use.  (Internal use only)  */
-    ExpansionData *reserved;
+    MemberVariables * fMembers;
 
     virtual IOReturn	complete(IOReturn status);
+	virtual bool	initWithController(IOFireWireController *control);
     virtual bool	initAll(IOFireWireNub *device, FWAddress devAddress,
 				IOMemoryDescriptor *hostMem,
 				FWDeviceCallback completion, void *refcon, bool failOnReset);
@@ -286,11 +289,13 @@ protected:
                                 UInt32 generation, FWAddress devAddress,
                                 IOMemoryDescriptor *hostMem,
                                 FWDeviceCallback completion, void *refcon);
+	virtual void free( void );
     virtual IOReturn	reinit(FWAddress devAddress, IOMemoryDescriptor *hostMem,
 				FWDeviceCallback completion, void *refcon, bool failOnReset);
     virtual IOReturn	reinit(UInt32 generation, FWAddress devAddress, IOMemoryDescriptor *hostMem,
                                 FWDeviceCallback completion, void *refcon);
-
+	bool createMemberVariables( void );
+	
 public:
 	// Utility for setting generation on newly created command
 	virtual void	setGeneration(UInt32 generation)
@@ -423,10 +428,19 @@ class IOFWWriteCommand : public IOFWAsyncCommand
 protected:
 
     int			fPackSize;
-
+	
+	typedef struct 
+	{ 
+		bool 	fDeferredNotify;
+	}
+	MemberVariables;
+	
     virtual void 	gotPacket(int rcode, const void* data, int size);
 
+	bool createMemberVariables( void );
+
 public:
+    virtual bool	initWithController(IOFireWireController *control);
     virtual bool	initAll(IOFireWireNub *device, FWAddress devAddress,
 				IOMemoryDescriptor *hostMem,
 				FWDeviceCallback completion, void *refcon, bool failOnReset);
@@ -434,12 +448,16 @@ public:
                                 UInt32 generation, FWAddress devAddress,
                                 IOMemoryDescriptor *hostMem,
                                 FWDeviceCallback completion, void *refcon);
-    virtual IOReturn	reinit(FWAddress devAddress, IOMemoryDescriptor *hostMem,
+	virtual void free( void );
+	virtual IOReturn	reinit(FWAddress devAddress, IOMemoryDescriptor *hostMem,
 				FWDeviceCallback completion=NULL, void *refcon=NULL,
 				bool failOnReset=false);
     virtual IOReturn	reinit(UInt32 generation, FWAddress devAddress, IOMemoryDescriptor *hostMem,
                                 FWDeviceCallback completion=NULL, void *refcon=NULL);
-    
+
+ 	void setDeferredNotify( bool state ) 
+		{ ((MemberVariables*)fMembers->fSubclassMembers)->fDeferredNotify = state; };
+  
 private:
     OSMetaClassDeclareReservedUnused(IOFWWriteCommand, 0);
     OSMetaClassDeclareReservedUnused(IOFWWriteCommand, 1);
@@ -469,11 +487,20 @@ protected:
     UInt32 *	fQPtr;
     int		fPackSize;
 
+	typedef struct 
+	{ 
+		bool 	fDeferredNotify;
+	} 
+	MemberVariables;
+	
     virtual void 	gotPacket(int rcode, const void* data, int size);
 
     virtual IOReturn	execute();
 
+	bool createMemberVariables( void );
+	
 public:
+    virtual bool	initWithController(IOFireWireController *control);
     virtual bool	initAll(IOFireWireNub *device, FWAddress devAddress,
 				UInt32 *quads, int numQuads,
 				FWDeviceCallback completion, void *refcon, bool failOnReset);
@@ -481,13 +508,15 @@ public:
                                 UInt32 generation, FWAddress devAddress,
                                 UInt32 *quads, int numQuads,
                                 FWDeviceCallback completion, void *refcon);
-
+	virtual void free( void );
     virtual IOReturn	reinit(FWAddress devAddress, UInt32 *quads, int numQuads,
 				FWDeviceCallback completion=NULL, void *refcon=NULL,
 				bool failOnReset=false);
     virtual IOReturn	reinit(UInt32 generation, FWAddress devAddress, UInt32 *quads, int numQuads,
                                 FWDeviceCallback completion=NULL, void *refcon=NULL);
 
+ 	void setDeferredNotify( bool state ) 
+		{ ((MemberVariables*)fMembers->fSubclassMembers)->fDeferredNotify = state; };
     
 private:
     OSMetaClassDeclareReservedUnused(IOFWWriteQuadCommand, 0);

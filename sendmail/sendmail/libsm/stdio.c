@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2002 Sendmail, Inc. and its suppliers.
+ * Copyright (c) 2000-2003 Sendmail, Inc. and its suppliers.
  *      All rights reserved.
  * Copyright (c) 1990, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -13,7 +13,7 @@
  */
 
 #include <sm/gen.h>
-SM_RCSID("@(#)$Id: stdio.c,v 1.1.1.2 2002/10/15 02:38:09 zarzycki Exp $")
+SM_RCSID("@(#)$Id: stdio.c,v 1.2 2003/03/29 20:22:04 zarzycki Exp $")
 #include <unistd.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -24,9 +24,9 @@ SM_RCSID("@(#)$Id: stdio.c,v 1.1.1.2 2002/10/15 02:38:09 zarzycki Exp $")
 #include <sm/assert.h>
 #include <sm/varargs.h>
 #include <sm/io.h>
-#include <sm/fdset.h>
 #include <sm/setjmp.h>
 #include <sm/conf.h>
+#include <sm/fdset.h>
 #include "local.h"
 
 /*
@@ -353,6 +353,11 @@ sm_stdgetinfo(fp, what, valp)
 		  fd_set readfds;
 		  struct timeval timeout;
 
+		  if (SM_FD_SETSIZE > 0 && fp->f_file >= SM_FD_SETSIZE)
+		  {
+			  errno = EINVAL;
+			  return -1;
+		  }
 		  FD_ZERO(&readfds);
 		  SM_FD_SET(fp->f_file, &readfds);
 		  timeout.tv_sec = 0;
@@ -422,7 +427,6 @@ sm_stdfdopen(fp, info, flags, rpool)
 	/* Make sure the mode the user wants is a subset of the actual mode. */
 	if ((fdflags = fcntl(fd, F_GETFL, 0)) < 0)
 		return -1;
-
 	tmp = fdflags & O_ACCMODE;
 	if (tmp != O_RDWR && (tmp != (oflags & O_ACCMODE)))
 	{

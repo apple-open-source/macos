@@ -14,7 +14,7 @@
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
  *
- * $Header: /cvs/Darwin/src/live/Security/SecuritySNACCRuntime/compiler/core/gen-tbls.h,v 1.1 2001/06/20 21:27:57 dmitch Exp $
+ * $Header: /cvs/root/Security/SecuritySNACCRuntime/compiler/core/Attic/gen-tbls.h,v 1.1 2001/06/20 21:27:57 dmitch Exp $
  * $Log: gen-tbls.h,v $
  * Revision 1.1  2001/06/20 21:27:57  dmitch
  * Adding missing snacc compiler files.

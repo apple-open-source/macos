@@ -9,7 +9,7 @@
  */
 
 #include <sm/gen.h>
-SM_RCSID("@(#)$Id: signal.c,v 1.1.1.3 2002/10/15 02:37:59 zarzycki Exp $")
+SM_RCSID("@(#)$Id: signal.c,v 1.1.1.4 2003/02/22 09:24:28 zarzycki Exp $")
 
 #include "libmilter.h"
 
@@ -107,6 +107,9 @@ mi_signal_thread(name)
 		if (sigwait(&set, &sig) != 0)
 #endif /* defined(SOLARIS) || defined(__svr5__) */
 		{
+			/* this can happen on OSF/1 (at least) */
+			if (errno == EINTR)
+				continue;
 			smi_log(SMI_LOG_ERR,
 				"%s: sigwait returned error: %d",
 				(char *)name, errno);

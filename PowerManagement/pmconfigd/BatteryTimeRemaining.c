@@ -216,6 +216,23 @@ static int isACAdapterConnected(int i)
     return (_pluggedIn);
 }
 
+// Is Charging does some magic to decide if the battery is REALLY charging
+// The PowerBook G3 lies to us - even when the battery is fully charged the
+// "isCharging" bit is still true.
+static int isCharging(int i)
+{
+    // Not charging if we're not plugged in
+    if(!isACAdapterConnected(i))
+        return false;
+
+    // We are plugged in, but are we at full capacity?
+    if(_capacity[i] == _charge[i])
+        return false;
+    
+    // Plugged in, but not charging, so we'll fall back on the PMU's reported value
+    return ((_flags[i] & kIOBatteryCharge) ? 1:0);
+}
+
 
 /**** _IOPMCalculateBatteryInfo(CFArrayRef info, CFDictionaryRef *ret)
  Calculates remaining battery time and stuffs lots of battery status into a CFDictionary.
@@ -240,7 +257,7 @@ _IOPMCalculateBatteryInfo(CFArrayRef info, CFDictionaryRef *ret)
     int				ehours = 0;
     int				eminutes = 0;
     int				stillCalc = 0;
-    float			percentRemaining = 0;
+    int			percentRemaining = 0;
         
     if(info) count = CFArrayGetCount(info);
     else return NULL;
@@ -307,6 +324,13 @@ _IOPMCalculateBatteryInfo(CFArrayRef info, CFDictionaryRef *ret)
     if (!((ehours < 10) && (ehours >= 0)) && ((eminutes < 61) && (eminutes >= 0))) {
         stillCalc = 1;
     }
+    
+    // If we're plugged-in but not charging, we're fully charged and there's nothing
+    // to calculate. Set stillCalc to 0.
+    if(isACAdapterConnected(i) && !isCharging(i))
+    {
+        stillCalc = 0;
+    }
 
     // Stuff battery info into CFDictionaries
     for(i=0; i<count; i++) {
@@ -357,13 +381,7 @@ _IOPMCalculateBatteryInfo(CFArrayRef info, CFDictionaryRef *ret)
                 // A battery is installed
                 // Fully charged?
                 percentRemaining = (float)( ((float)_charge[i])/((float)_capacity[i]));
-                if(percentRemaining > 0.95 && isACAdapterConnected(i))
-                {
-                    // Fully charged!
-                    CFDictionarySetValue(mutDict, CFSTR(kIOPSIsChargingKey), kCFBooleanFalse);
-                    CFDictionarySetValue(mutDict, CFSTR(kIOPSTimeToEmptyKey), n0);
-                    CFDictionarySetValue(mutDict, CFSTR(kIOPSTimeToFullChargeKey), n0);
-                } else if(stillCalc) {
+                if(stillCalc) {
                     // If we are still calculating then our time remaining
                     // numbers aren't valid yet. Stuff with -1.
                     CFDictionarySetValue(mutDict, CFSTR(kIOPSIsChargingKey), 
@@ -372,7 +390,7 @@ _IOPMCalculateBatteryInfo(CFArrayRef info, CFDictionaryRef *ret)
                     CFDictionarySetValue(mutDict, CFSTR(kIOPSTimeToEmptyKey), nneg1);
                 } else {   
                     // else there IS a battery installed, and remaining time calculation makes sense
-                    if(_charging) {
+                    if(isCharging(i)) {
                         // Set isCharging to True
                         CFDictionarySetValue(mutDict, CFSTR(kIOPSIsChargingKey), kCFBooleanTrue);
                         n = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &minutes);
@@ -382,14 +400,24 @@ _IOPMCalculateBatteryInfo(CFArrayRef info, CFDictionaryRef *ret)
                         }
                         CFDictionarySetValue(mutDict, CFSTR(kIOPSTimeToEmptyKey), n0);
                     } else {
+                        // Not Charging
                         // Set isCharging to False
                         CFDictionarySetValue(mutDict, CFSTR(kIOPSIsChargingKey), kCFBooleanFalse);
-                        n = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &minutes);
-                        if(n) {
-                            CFDictionarySetValue(mutDict, CFSTR(kIOPSTimeToEmptyKey), n);
-                            CFRelease(n);
+                        // But are we plugged in?
+                        if(isACAdapterConnected(i))
+                        {
+                            // plugged in but not charging == fully charged
+                            CFDictionarySetValue(mutDict, CFSTR(kIOPSTimeToFullChargeKey), n0);
+                            CFDictionarySetValue(mutDict, CFSTR(kIOPSTimeToEmptyKey), n0);
+                        } else {
+                            // not charging, not plugged in == discharging
+                            n = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &minutes);
+                            if(n) {
+                                CFDictionarySetValue(mutDict, CFSTR(kIOPSTimeToEmptyKey), n);
+                                CFRelease(n);
+                            }
+                            CFDictionarySetValue(mutDict, CFSTR(kIOPSTimeToFullChargeKey), n0);
                         }
-                        CFDictionarySetValue(mutDict, CFSTR(kIOPSTimeToFullChargeKey), n0);
                     }
                 }
             }

@@ -44,46 +44,55 @@
 			target = 777E7C360236E66305DD284B;
 		};
 		7733E7110238197D05DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = anonymous_init.c;
 			refType = 4;
 		};
 		7733E7120238197D05DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = crammd5_init.c;
 			refType = 4;
 		};
 		7733E7130238197D05DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = digestmd5_init.c;
 			refType = 4;
 		};
 		7733E7140238197D05DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = gssapiv2_init.c;
 			refType = 4;
 		};
 		7733E7150238197D05DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = login_init.c;
 			refType = 4;
 		};
 		7733E7160238197D05DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = otp_init.c;
 			refType = 4;
 		};
 		7733E7170238197D05DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = plain_init.c;
 			refType = 4;
 		};
 		7733E7180238197D05DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = sasldb_init.c;
 			refType = 4;
 		};
 		7733E7190238197D05DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = srp_init.c;
 			refType = 4;
@@ -131,6 +140,7 @@
 			};
 		};
 		7733E72902381A7F05DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = liblogin.la;
 			refType = 4;
@@ -153,16 +163,19 @@
 			refType = 4;
 		};
 		773841500236DD5105DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = allockey.c;
 			refType = 4;
 		};
 		773841530236DD5105DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = db_ndbm.c;
 			refType = 4;
 		};
 		773841580236DD5105DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = sasldb.h;
 			refType = 4;
@@ -185,41 +198,49 @@
 			refType = 4;
 		};
 		77753A710236D84505DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = gai.h;
 			refType = 4;
 		};
 		77753A720236D84505DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = "hmac-md5.h";
 			refType = 4;
 		};
 		77753A750236D84505DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = makemd5.c;
 			refType = 4;
 		};
 		77753A760236D84505DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = md5.h;
 			refType = 4;
 		};
 		77753A780236D84505DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = prop.h;
 			refType = 4;
 		};
 		77753A790236D84505DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = sasl.h;
 			refType = 4;
 		};
 		77753A7A0236D84505DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = saslplug.h;
 			refType = 4;
 		};
 		77753A7B0236D84505DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = saslutil.h;
 			refType = 4;
@@ -231,6 +252,7 @@
 			};
 		};
 		777745B10236D8FA05DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = md5global.h;
 			refType = 4;
@@ -288,7 +310,6 @@
 			name = include;
 			productName = include;
 			productReference = 777745BE0236DB2A05DD284B;
-			shouldUseHeadermap = 0;
 		};
 		777745BE0236DB2A05DD284B = {
 			isa = PBXExecutableFileReference;
@@ -365,6 +386,7 @@
 			target = 777745BD0236DB2A05DD284B;
 		};
 		777745CC0236DCA805DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = config.h;
 			path = cyrus_sasl/config.h;
@@ -430,7 +452,6 @@
 			productInstallPath = /usr/local/lib;
 			productName = sasldb;
 			productReference = 777A3D82024BAC7C05DD284B;
-			shouldUseHeadermap = 0;
 		};
 		777A3D82024BAC7C05DD284B = {
 			isa = PBXLibraryReference;
@@ -494,71 +515,85 @@
 			refType = 4;
 		};
 		777E7BBE0236DDED05DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = anonymous.c;
 			refType = 4;
 		};
 		777E7BBF0236DDED05DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = cram.c;
 			refType = 4;
 		};
 		777E7BC00236DDED05DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = digestmd5.c;
 			refType = 4;
 		};
 		777E7BC10236DDED05DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = gssapi.c;
 			refType = 4;
 		};
 		777E7BC20236DDED05DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = kerberos4.c;
 			refType = 4;
 		};
 		777E7BC30236DDED05DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = kerberos4_init.c;
 			refType = 4;
 		};
 		777E7BC40236DDED05DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = login.c;
 			refType = 4;
 		};
 		777E7BC80236DDED05DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = otp.c;
 			refType = 4;
 		};
 		777E7BC90236DDED05DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = otp.h;
 			refType = 4;
 		};
 		777E7BCA0236DDED05DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = plain.c;
 			refType = 4;
 		};
 		777E7BCB0236DDED05DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = plugin_common.c;
 			refType = 4;
 		};
 		777E7BCC0236DDED05DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = plugin_common.h;
 			refType = 4;
 		};
 		777E7BCD0236DDED05DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = sasldb.c;
 			refType = 4;
 		};
 		777E7BCE0236DDED05DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = srp.c;
 			refType = 4;
@@ -651,7 +686,6 @@
 			productInstallPath = /usr/lib/sasl2;
 			productName = plugin_anonymous;
 			productReference = 777E7BFE0236E3D505DD284B;
-			shouldUseHeadermap = 0;
 		};
 		777E7BFE0236E3D505DD284B = {
 			isa = PBXLibraryReference;
@@ -746,7 +780,6 @@
 			productInstallPath = /usr/lib/sasl2;
 			productName = plugin_cram;
 			productReference = 777E7C090236E43005DD284B;
-			shouldUseHeadermap = 0;
 		};
 		777E7C090236E43005DD284B = {
 			isa = PBXLibraryReference;
@@ -841,7 +874,6 @@
 			productInstallPath = /usr/lib/sasl2;
 			productName = plugin_digest;
 			productReference = 777E7C140236E47005DD284B;
-			shouldUseHeadermap = 0;
 		};
 		777E7C140236E47005DD284B = {
 			isa = PBXLibraryReference;
@@ -936,7 +968,6 @@
 			productInstallPath = /usr/lib/sasl2;
 			productName = plugin_login;
 			productReference = 777E7C1F0236E56505DD284B;
-			shouldUseHeadermap = 0;
 		};
 		777E7C1F0236E56505DD284B = {
 			isa = PBXLibraryReference;
@@ -1033,7 +1064,6 @@
 			productInstallPath = /usr/lib/sasl2;
 			productName = plugin_otp;
 			productReference = 777E7C2A0236E5AF05DD284B;
-			shouldUseHeadermap = 0;
 		};
 		777E7C2A0236E5AF05DD284B = {
 			isa = PBXLibraryReference;
@@ -1134,7 +1164,6 @@
 			productInstallPath = /usr/lib/sasl2;
 			productName = plugin_plain;
 			productReference = 777E7C370236E66305DD284B;
-			shouldUseHeadermap = 0;
 		};
 		777E7C370236E66305DD284B = {
 			isa = PBXLibraryReference;
@@ -1191,76 +1220,91 @@
 			refType = 4;
 		};
 		777E7C5C0236E73C05DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = auxprop.c;
 			refType = 4;
 		};
 		777E7C5D0236E73C05DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = canonusr.c;
 			refType = 4;
 		};
 		777E7C5E0236E73C05DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = checkpw.c;
 			refType = 4;
 		};
 		777E7C5F0236E73C05DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = client.c;
 			refType = 4;
 		};
 		777E7C600236E73C05DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = common.c;
 			refType = 4;
 		};
 		777E7C610236E73C05DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = config.c;
 			refType = 4;
 		};
 		777E7C620236E73C05DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = dlopen.c;
 			refType = 4;
 		};
 		777E7C630236E73C05DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = external.c;
 			refType = 4;
 		};
 		777E7C660236E73C05DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = getsubopt.c;
 			refType = 4;
 		};
 		777E7C690236E73C05DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = md5.c;
 			refType = 4;
 		};
 		777E7C6A0236E73C05DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = saslint.h;
 			refType = 4;
 		};
 		777E7C6B0236E73C05DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = saslutil.c;
 			refType = 4;
 		};
 		777E7C6C0236E73C05DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = server.c;
 			refType = 4;
 		};
 		777E7C6D0236E73C05DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = seterror.c;
 			refType = 4;
 		};
 		777E7C6E0236E73C05DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = snprintf.c;
 			refType = 4;
@@ -1350,7 +1394,6 @@
 			productInstallPath = /usr/lib;
 			productName = lib;
 			productReference = 777E7C8B0236E74C05DD284B;
-			shouldUseHeadermap = 0;
 		};
 		777E7C8B0236E74C05DD284B = {
 			isa = PBXLibraryReference;
@@ -1478,31 +1521,37 @@
 			refType = 4;
 		};
 		77D234400236F4E905DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = libanonymous.la;
 			refType = 4;
 		};
 		77D234410236F4E905DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = libcrammd5.la;
 			refType = 4;
 		};
 		77D234420236F4E905DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = libdigestmd5.la;
 			refType = 4;
 		};
 		77D234430236F4E905DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = libotp.la;
 			refType = 4;
 		};
 		77D234440236F4E905DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = libplain.la;
 			refType = 4;
 		};
 		77D234450236F4E905DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = libsasldb.la;
 			refType = 4;
@@ -1649,6 +1698,7 @@
 				77F5D69A0236D69405DD284B,
 				77F5D69B0236D69405DD284B,
 			);
+			hasScannedForEncodings = 1;
 			isa = PBXProject;
 			mainGroup = 77F5D6980236D69405DD284B;
 			productRefGroup = 77F5D6A70236D6B705DD284B;
@@ -1695,7 +1745,6 @@
 			isa = PBXAggregateTarget;
 			name = ALL;
 			productName = ALL;
-			shouldUseHeadermap = 0;
 		};
 		77F5D6A10236D6B705DD284B = {
 			buildActionMask = 2147483647;
@@ -1758,7 +1807,6 @@
 			productInstallPath = /usr/lib;
 			productName = dlcompat;
 			productReference = 77F5D6A60236D6B705DD284B;
-			shouldUseHeadermap = 0;
 		};
 		77F5D6A60236D6B705DD284B = {
 			isa = PBXLibraryReference;
@@ -1850,7 +1898,6 @@
 			productInstallPath = /usr/lib/sasl2;
 			productName = plugin_sasldb;
 			productReference = 77F5D6B90236D6E205DD284B;
-			shouldUseHeadermap = 0;
 		};
 		77F5D6B90236D6E205DD284B = {
 			isa = PBXLibraryReference;
@@ -1871,26 +1918,31 @@
 			refType = 4;
 		};
 		77F5D6BE0236D70605DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = APPLE_LICENSE;
 			refType = 4;
 		};
 		77F5D6BF0236D70605DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = ChangeLog;
 			refType = 4;
 		};
 		77F5D6C00236D70605DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = dlfcn.h;
 			refType = 4;
 		};
 		77F5D6C10236D70605DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = dlopen.c;
 			refType = 4;
 		};
 		77F5D6C90236D70605DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = README;
 			refType = 4;
@@ -1954,7 +2006,6 @@
 			productInstallPath = /usr/lib;
 			productName = libdl.dylib;
 			productReference = 77F5D6D20236D75105DD284B;
-			shouldUseHeadermap = 0;
 		};
 		77F5D6D20236D75105DD284B = {
 			isa = PBXLibraryReference;
@@ -1996,11 +2047,13 @@
 //F53
 //F54
 		F56C514A029C0BA301DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = plugin_common.c;
 			refType = 4;
 		};
 		F56C514B029C0BA301DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = plugin_common.h;
 			refType = 4;

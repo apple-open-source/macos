@@ -29,6 +29,12 @@
  */
 /*
 	$Log: IOFireWireFamilyCommon.h,v $
+	Revision 1.39.8.2  2003/03/15 21:11:57  collin
+	optimizations for IP
+	
+	Revision 1.39.8.1  2003/03/12 21:26:48  niels
+	skip cycle support for plaid
+	
 	Revision 1.39  2002/12/05 19:08:37  niels
 	remove trailing commas from enums in IOFireWireFamilyCommon.h
 	
@@ -158,6 +164,9 @@ in the kernel and in user space
 
 // e000800E
 #define kIOFireWireInsufficientPower					iokit_fw_err(14)
+
+// e000800f
+#define kIOFireWireOutOfTLabels							iokit_fw_err(15)
 
 // e00087d0
 #define kIOFWMessageServiceIsRequestingClose 			(UInt32)iokit_fw_err(2000)
@@ -591,7 +600,8 @@ enum
 	kDCLSetTagSyncBitsOp				= 11,
 	kDCLUpdateDCLListOp					= 12,
 	kDCLTimeStampOp						= 13,
-	kDCLPtrTimeStampOp					= 14
+	kDCLPtrTimeStampOp					= 14,
+	kDCLSkipCycleOp						= 15
 };
 
 #ifdef FW_OLD_DCL_DEFS
@@ -772,6 +782,16 @@ enum
     kIOFWDisablePhysicalAccess 		= (1 << 0),
 	kIOFWDisableAllPhysicalAccess 	= (1 << 1),
 	kIOFWEnableRetryOnAckD			= (1 << 2)
+};
+
+//
+// write flags
+//
+
+enum IOFWWriteFlags
+{
+	kIOFWWriteFlagsNone				= 0x00000000,
+	kIOFWWriteFlagsDeferredNotify 	= 0x00000001
 };
 
 //

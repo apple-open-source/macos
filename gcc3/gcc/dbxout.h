@@ -18,6 +18,14 @@ along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
+/* APPLE LOCAL begin PFE */
+#include "debug.h"
+
+extern struct gcc_debug_hooks intercept_debug_hooks;
+extern struct gcc_debug_hooks *actual_debug_hooks;
+extern void dbxout_generate_loaded_stabs  PARAMS ((void));
+/* APPLE LOCAL end PFE */
+
 extern int dbxout_symbol		PARAMS ((tree, int));
 extern void dbxout_parms		PARAMS ((tree));
 extern void dbxout_reg_parms		PARAMS ((tree));

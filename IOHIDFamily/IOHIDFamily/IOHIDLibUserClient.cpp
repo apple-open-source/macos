@@ -192,7 +192,9 @@ initWithTask(task_t owningTask, void * /* security_id */, UInt32 /* type */)
 	return false;
 
     fClient = owningTask;
-    
+    fGate = 0;
+    fNubIsTerminated = false;
+        
     task_reference (fClient);
     
     return true;
@@ -205,15 +207,15 @@ IOReturn IOHIDLibUserClient::clientClose(void)
         fClient = 0;
     }
    
-   if (fNub) {	// Have been started so we better detach
+   if (fNub) {	
+        // Have been started so we better detach
 		
-		// make sure device is closed (especially on crash)
-		// note radar #2729708 for a more comprehensive fix
-		// probably should also subclass clientDied for crash specific code
-		fNub->close(this);
-		
-		detach(fNub);
-        fNub = 0;
+        // make sure device is closed (especially on crash)
+        // note radar #2729708 for a more comprehensive fix
+        // probably should also subclass clientDied for crash specific code
+        fNub->close(this);
+        
+        detach(fNub);
     }
 
     return kIOReturnSuccess;
@@ -221,14 +223,41 @@ IOReturn IOHIDLibUserClient::clientClose(void)
 
 bool IOHIDLibUserClient::start(IOService *provider)
 {
+    IOWorkLoop *wl = 0;
+    
     if (!super::start(provider))
 	return false;
 
     fNub = OSDynamicCast(IOHIDDevice, provider);
     if (!fNub)
 	return false;
+        
+    fNub->retain();
 
+    fGate = 0;
+
+    wl = getWorkLoop();
+    if (!wl)
+        goto ABORT_START;
+
+    fGate = IOCommandGate::commandGate(this);
+    if (!fGate)
+        goto ABORT_START;
+    
+    wl->retain();
+    wl->addEventSource(fGate);
+    
     return true;
+
+ABORT_START:
+    if (fGate) {
+        wl->removeEventSource(fGate);
+        wl->release();
+        fGate->release();
+        fGate = 0;
+    }
+
+    return false;
 }
 
 IOExternalMethod *IOHIDLibUserClient::
@@ -288,31 +317,7 @@ open(void *, void *, void *, void *, void *, void *)
     IOWorkLoop *wl;
 
     if (!fNub->open(this))
-	return kIOReturnExclusiveAccess;
-
-    wl = getWorkLoop();
-    if (!wl) {
-        res = kIOReturnNoResources;
-        goto abortOpen;
-    }
-
-    fGate = IOCommandGate::commandGate(this);
-    if (!fGate) {
-        res = kIOReturnNoMemory;
-        goto abortOpen;
-    }
-    wl->retain();
-    wl->addEventSource(fGate);
-    return kIOReturnSuccess;
-
-abortOpen:
-    if (fGate) {
-        wl->removeEventSource(fGate);
-        wl->release();
-        fGate->release();
-        fGate = 0;
-    }
-    fNub->close(this);
+	res = kIOReturnExclusiveAccess;
         
     return res;
 }
@@ -321,19 +326,7 @@ IOReturn IOHIDLibUserClient::
 close(void *, void *, void *, void *, void *, void *gated)
 {
     if ( ! (bool) gated ) {
-        IOReturn res;
-        IOWorkLoop *wl;
-
-        res = fGate->runAction(closeAction);
-
-        wl = fGate->getWorkLoop();
-        wl->removeEventSource(fGate);
-        wl->release();
-        wl = 0;
-
-        fGate->release();
-        fGate = 0;
-        return res;
+        return fGate->runAction(closeAction);
     }
     else /* gated */ {
     
@@ -352,7 +345,15 @@ IOHIDLibUserClient::didTerminate( IOService * provider, IOOptionBits options, bo
 {
     fNub->close(this);
     
+    fNubIsTerminated = true;
+    
     return super::didTerminate(provider, options, defer);
+}
+
+bool
+IOHIDLibUserClient::requestTerminate( IOService * provider, IOOptionBits options )
+{
+    return false;
 }
 
 void IOHIDLibUserClient::free()
@@ -366,6 +367,13 @@ void IOHIDLibUserClient::free()
             wl->release();
         
         fGate->release();
+        fGate = 0;
+    }
+    
+    if (fNub)
+    {
+        fNub->release();
+        fNub = 0;
     }
     
     super::free();
@@ -391,7 +399,8 @@ clientMemoryForType (	UInt32			type,
     if (type == IOHIDLibUserClientElementValuesType)
     {
         // if we can get an element values ptr
-        memoryToShare = fNub->getMemoryWithCurrentElementValues();
+        if (fNub && !isInactive() && !fNubIsTerminated)
+            memoryToShare = fNub->getMemoryWithCurrentElementValues();
     }
     // otherwise, the type is an object pointer (evil hack alert - see header)
     else
@@ -447,7 +456,8 @@ disposeQueue(void * vInQueue, void *, void *, void *, void *, void * gated)
     IOHIDEventQueue * queue = (IOHIDEventQueue *) vInQueue;
 
     // remove this queue from all elements that use it
-    ret = fNub->stopEventDelivery (queue);
+    if (fNub && !isInactive() && !fNubIsTerminated)
+        ret = fNub->stopEventDelivery (queue);
     
     // release this queue
     queue->release();
@@ -468,8 +478,9 @@ addElementToQueue(void * vInQueue, void * vInElementCookie,
     // UInt32 flags = (UInt32) vInFlags;
     
     // add the queue to the element's queues
-    ret = fNub->startEventDelivery (queue, elementCookie);
-    
+    if (fNub && !isInactive() && !fNubIsTerminated)
+        ret = fNub->startEventDelivery (queue, elementCookie);
+            
     return ret;
 }   
     // remove an element from a queue
@@ -484,7 +495,8 @@ removeElementFromQueue (void * vInQueue, void * vInElementCookie,
     IOHIDElementCookie elementCookie = (IOHIDElementCookie) vInElementCookie;
 
     // remove the queue from the element's queues
-    ret = fNub->stopEventDelivery (queue, elementCookie);
+    if (fNub && !isInactive() && !fNubIsTerminated)
+        ret = fNub->stopEventDelivery (queue, elementCookie);
     
     return ret;
 }    
@@ -502,7 +514,9 @@ queueHasElement (void * vInQueue, void * vInElementCookie,
 
     // check to see if that element is feeding that queue
     bool hasElement = false;
-    ret = fNub->checkEventDelivery (queue, elementCookie, &hasElement);
+    
+    if (fNub && !isInactive() && !fNubIsTerminated)
+        ret = fNub->checkEventDelivery (queue, elementCookie, &hasElement);
     
     // set return
     *outHasElement = hasElement;
@@ -541,7 +555,8 @@ updateElementValue (void * cookie, void *, void *,
 {
     IOReturn			ret = kIOReturnError;
     
-    ret = fNub->updateElementValues(&cookie, 1);
+    if (fNub && !isInactive() && !fNubIsTerminated)
+        ret = fNub->updateElementValues(&cookie, 1);
     
     return ret;
 }
@@ -554,7 +569,8 @@ postElementValue (void * cookies, void * cookiesBytes, void *,
     IOReturn	ret = kIOReturnError;
     UInt32	numCookies = ((UInt32)cookiesBytes) / sizeof(UInt32);
         
-    ret = fNub->postElementValues((IOHIDElementCookie *)cookies, numCookies);
+    if (fNub && !isInactive() && !fNubIsTerminated)
+        ret = fNub->postElementValues((IOHIDElementCookie *)cookies, numCookies);
             
     return ret;
 }
@@ -566,7 +582,7 @@ getReport (IOHIDReportType reportType, UInt32 reportID,
     IOReturn 			ret;
     IOMemoryDescriptor *	mem;
         
-    if (fNub && !isInactive())
+    if (fNub && !isInactive() && !fNubIsTerminated)
     {
         mem = IOMemoryDescriptor::withAddress(reportBuffer, *reportBufferSize, kIODirectionIn);
         if(mem)
@@ -599,7 +615,7 @@ getReportOOL(  IOHIDReportReq *reqIn,
     IOReturn 			ret;
     IOMemoryDescriptor *	mem;
         
-    if (fNub && !isInactive())
+    if (fNub && !isInactive() && !fNubIsTerminated)
     {
         *sizeOut = 0;
         mem = IOMemoryDescriptor::withAddress(reqIn->reportBuffer, reqIn->reportBufferSize, kIODirectionIn, fClient);
@@ -634,7 +650,7 @@ setReport (IOHIDReportType reportType, UInt32 reportID, void *reportBuffer,
     IOReturn 			ret;
     IOMemoryDescriptor *	mem;
 
-    if (fNub && !isInactive())
+    if (fNub && !isInactive() && !fNubIsTerminated)
     {
         mem = IOMemoryDescriptor::withAddress(reportBuffer, reportBufferSize, kIODirectionOut);
         if(mem) 
@@ -661,7 +677,7 @@ setReportOOL (IOHIDReportReq *req, IOByteCount inCount)
     IOReturn 			ret;
     IOMemoryDescriptor *	mem;
 
-    if (fNub && !isInactive())
+    if (fNub && !isInactive() && !fNubIsTerminated)
     {
         mem = IOMemoryDescriptor::withAddress(req->reportBuffer, req->reportBufferSize, kIODirectionOut, fClient);
         if(mem) 
@@ -700,7 +716,7 @@ asyncGetReport (OSAsyncReference asyncRef, IOHIDReportType reportType,
 
     retain();
     
-    if (fNub && !isInactive())
+    if (fNub && !isInactive() && !fNubIsTerminated)
     {
         do {
             mem = IOMemoryDescriptor::withAddress((vm_address_t)reportBuffer, reportBufferSize, kIODirectionIn, fClient);
@@ -761,7 +777,7 @@ asyncSetReport (OSAsyncReference asyncRef, IOHIDReportType reportType,
 
     retain();
 
-    if (fNub && !isInactive())
+    if (fNub && !isInactive() && !fNubIsTerminated)
     {
         do {
             mem = IOMemoryDescriptor::withAddress((vm_address_t)reportBuffer, reportBufferSize, kIODirectionOut, fClient);
@@ -824,7 +840,8 @@ ReqComplete(void *obj, void *param, IOReturn res, UInt32 remaining)
         args[0] = (void *)(pb->fMax - remaining);
         
         // make sure the element values are updated.
-        me->fNub->handleReport(pb->fMem, pb->reportType);
+        if (me->fNub && !me->isInactive() && !me->fNubIsTerminated)
+            me->fNub->handleReport(pb->fMem, pb->reportType);
     }
     else 
     {

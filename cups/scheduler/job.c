@@ -1,5 +1,5 @@
 /*
- * "$Id: job.c,v 1.5.2.2 2002/09/10 05:56:38 jlovell Exp $"
+ * "$Id: job.c,v 1.5.2.3 2003/02/27 23:17:39 jlovell Exp $"
  *
  *   Job management routines for the Common UNIX Printing System (CUPS).
  *
@@ -1081,7 +1081,11 @@ StartJob(int       id,		/* I - Job ID */
 				/* Job title string */
 		copies[255],	/* # copies string */
 		options[16384],	/* Full list of options */
-		*envp[20],	/* Environment variables */
+		*envp[21],	/* Environment variables */
+#ifdef __APPLE__
+		processPath[1050],
+				/* CFProcessPath environment variable */
+#endif	/* __APPLE__ */
 		path[1024],	/* PATH environment variable */
 		language[255],	/* LANG environment variable */
 		charset[255],	/* CHARSET environment variable */
@@ -1092,6 +1096,8 @@ StartJob(int       id,		/* I - Job ID */
 		device_uri[1024],
 				/* DEVICE_URI environment variable */
 		ppd[1024],	/* PPD environment variable */
+		class_name[255],
+				/* CLASS environment variable */
 		printer_name[255],
 				/* PRINTER environment variable */
 		root[1024],	/* CUPS_SERVERROOT environment variable */
@@ -1504,6 +1510,11 @@ StartJob(int       id,		/* I - Job ID */
   snprintf(datadir, sizeof(datadir), "CUPS_DATADIR=%s", DataDir);
   snprintf(fontpath, sizeof(fontpath), "CUPS_FONTPATH=%s", FontPath);
 
+  if (current->dtype & (CUPS_PRINTER_CLASS | CUPS_PRINTER_IMPLICIT))
+    snprintf(class_name, sizeof(class_name), "CLASS=%s", current->dest);
+  else
+    class_name[0] = '\0';
+
   if (Classification[0] && !banner_page)
   {
     if ((attr = ippFindAttribute(current->attrs, "job-sheets",
@@ -1553,15 +1564,21 @@ StartJob(int       id,		/* I - Job ID */
   envp[15] = ldpath;
   envp[16] = nlspath;
   envp[17] = classification;
-  envp[18] = NULL;
+  envp[18] = class_name;
+#ifdef __APPLE__
+  envp[19] = processPath;
+  envp[20] = NULL;
+#else
+  envp[19] = NULL;
+#endif	/* __APPLE__ */
 
   LogMessage(L_DEBUG, "StartJob: envp = \"%s\",\"%s\",\"%s\",\"%s\","
                       "\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\","
-		      "\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\"",
+		      "\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\"",
 	     envp[0], envp[1], envp[2], envp[3], envp[4],
 	     envp[5], envp[6], envp[7], envp[8], envp[9],
 	     envp[10], envp[11], envp[12], envp[13], envp[14],
-	     envp[15], envp[16], envp[17]);
+	     envp[15], envp[16], envp[17], envp[18]);
 
   current->current_file ++;
 
@@ -1618,6 +1635,16 @@ StartJob(int       id,		/* I - Job ID */
     else
       strlcpy(command, filters[i].filter, sizeof(command));
 
+#ifdef __APPLE__
+   /*
+    * Setting CFProcessPath lets OS X's Core Foundation code find
+    * the bundle that may be associated with a filter or backend.
+    */
+
+    snprintf(processPath, sizeof(processPath), "CFProcessPath=%s", command);
+    LogMessage(L_DEBUG, "StartJob: %s\n", processPath);
+#endif	/* __APPLE__ */
+
     if (i < (num_filters - 1) ||
 	strncmp(printer->device_uri, "file:", 5) != 0)
       pipe(filterfds[slot]);
@@ -1671,6 +1698,16 @@ StartJob(int       id,		/* I - Job ID */
   {
     sscanf(printer->device_uri, "%254[^:]", method);
     snprintf(command, sizeof(command), "%s/backend/%s", ServerBin, method);
+
+#ifdef __APPLE__
+   /*
+    * Setting CFProcessPath lets OS X's Core Foundation code find
+    * the bundle that may be associated with a filter or backend.
+    */
+
+    snprintf(processPath, sizeof(processPath), "CFProcessPath=%s", command);
+    LogMessage(L_DEBUG, "StartJob: %s\n", processPath);
+#endif	/* __APPLE__ */
 
     argv[0] = printer->device_uri;
 
@@ -1845,8 +1882,8 @@ UpdateJob(job_t *job)		/* I - Job to check */
     return;
   else
   {
-    lineptr    = job->buffer + job->bufused;
-    lineptr[1] = 0;
+    lineptr  = job->buffer + job->bufused;
+    *lineptr = '\0';
   }
 
   if (job->bufused == 0 && bytes == 0)
@@ -3140,5 +3177,5 @@ start_process(const char *command,	/* I - Full path to command */
 
 
 /*
- * End of "$Id: job.c,v 1.5.2.2 2002/09/10 05:56:38 jlovell Exp $".
+ * End of "$Id: job.c,v 1.5.2.3 2003/02/27 23:17:39 jlovell Exp $".
  */

@@ -97,6 +97,10 @@ sInt32	CLDAPNode::SafeOpen		(	char	   *inNodeName,
 						ldapPort = pConfig->fServerPort;
 						bConfigFound = true;
 						pLDAPNodeStruct->fLDAPConfigTableIndex = iTableIndex;
+						//add the idle connection TO value here based on user defined minutes and 30 sec periodic task
+						pLDAPNodeStruct->fIdleTO = 2 * pConfig->fIdleTimeout;
+						//add in the delay rebind try after failed bind time
+						pLDAPNodeStruct->fDelayRebindTry = pConfig->fDelayRebindTry;
 						//exit the for loop if entry found
 						break;
 					} // if name found
@@ -959,6 +963,15 @@ sInt32	CLDAPNode::CleanLDAPNodeStruct	( sLDAPNodeStruct *inLDAPNodeStruct )
 			free( inLDAPNodeStruct->fAuthType );
 			inLDAPNodeStruct->fAuthType = nil;
 		}
+		inLDAPNodeStruct->fRefCount					= 0;
+		inLDAPNodeStruct->fLDAPConfigTableIndex		= 0;
+		inLDAPNodeStruct->fDirectLDAPPort			= 389;
+		inLDAPNodeStruct->bHasFailed				= false;
+		inLDAPNodeStruct->fDelayedBindTime			= time( nil ) + 120;
+		inLDAPNodeStruct->fConnectionActiveCount	= 0;
+		inLDAPNodeStruct->fIdleTOCount				= 0;
+		inLDAPNodeStruct->fIdleTO					= 4; //based on periodic task of 30 secs and 2 minutes default TO
+		inLDAPNodeStruct->fDelayRebindTry			= 120;
 	}
 
 	return(siResult);
@@ -982,7 +995,6 @@ sInt32 CLDAPNode::BindProc ( sLDAPNodeStruct *inLDAPNodeStruct )
 	LDAP			   *inLDAPHost		= inLDAPNodeStruct->fHost;
 	LDAPMessage		   *result			= nil;
 	int					ldapReturnCode	= 0;
-	int					retryDelayTime	= 0;
 
 	try
 	{
@@ -1078,12 +1090,12 @@ sInt32 CLDAPNode::BindProc ( sLDAPNodeStruct *inLDAPNodeStruct )
 			//heuristic to prevent many consecutive failures with long timeouts
 			//ie. forcing quick failures after first failure during a window of
 			//the same length as the timeout value
-			fLDAPNodeOpenMutex.Wait();
+			//NN fLDAPNodeOpenMutex.Wait();
 			if ( inLDAPNodeStruct->bHasFailed )
 			{
 				if ( time( nil ) < inLDAPNodeStruct->fDelayedBindTime )
 				{
-					fLDAPNodeOpenMutex.Signal();
+					//NN fLDAPNodeOpenMutex.Signal();
 					throw( (sInt32)eDSCannotAccessSession );
 				}
 				else
@@ -1092,7 +1104,7 @@ sInt32 CLDAPNode::BindProc ( sLDAPNodeStruct *inLDAPNodeStruct )
 					//fDelayedBindTime then is unused so no need to reset
 				}
 			}
-			fLDAPNodeOpenMutex.Signal();
+			//NN fLDAPNodeOpenMutex.Signal();
 
 			//this is our and only our LDAP session for now
 			//need to use our timeout so we don't hang indefinitely
@@ -1118,41 +1130,34 @@ sInt32 CLDAPNode::BindProc ( sLDAPNodeStruct *inLDAPNodeStruct )
 			{
 				// timed out, let's forget it
 				ldap_abandon(inLDAPHost, bindMsgId);
-				if ( openTO < 120 )
-				{
-					retryDelayTime = 120; //case where LDAP user has specified low timeout value so defaulting this
-				}
-				else
-				{
-					retryDelayTime	= openTO;
-				}
+
 				//log this timed out connection
 				if (pConfig != nil)
 				{
 					syslog(LOG_INFO,"DSLDAPv3PlugIn: Timed out in attempt to bind to [%s] LDAP server.", pConfig->fServerName);
-					syslog(LOG_INFO,"DSLDAPv3PlugIn: Disabled future attempts to bind to [%s] LDAP server for next %d seconds.", pConfig->fServerName, retryDelayTime);
+					syslog(LOG_INFO,"DSLDAPv3PlugIn: Disabled future attempts to bind to [%s] LDAP server for next %d seconds.", pConfig->fServerName, inLDAPNodeStruct->fDelayRebindTry);
 				}
 				else
 				{
 					syslog(LOG_INFO,"DSLDAPv3PlugIn: Timed out in attempt to bind to [%s] LDAP server.", inLDAPNodeStruct->fServerName);
-					syslog(LOG_INFO,"DSLDAPv3PlugIn: Disabled future attempts to bind to [%s] LDAP server for next %d seconds.", inLDAPNodeStruct->fServerName, retryDelayTime);
+					syslog(LOG_INFO,"DSLDAPv3PlugIn: Disabled future attempts to bind to [%s] LDAP server for next %d seconds.", inLDAPNodeStruct->fServerName, inLDAPNodeStruct->fDelayRebindTry);
 				}
-				fLDAPNodeOpenMutex.Wait();
+				//NN fLDAPNodeOpenMutex.Wait();
 				inLDAPNodeStruct->bHasFailed = true;
-				inLDAPNodeStruct->fDelayedBindTime = time( nil ) + retryDelayTime;
-				fLDAPNodeOpenMutex.Signal();
+				inLDAPNodeStruct->fDelayedBindTime = time( nil ) + inLDAPNodeStruct->fDelayRebindTry;
+				//NN fLDAPNodeOpenMutex.Signal();
 				throw( (sInt32)eDSCannotAccessSession );
 			}
 			else if ( ldap_result2error(inLDAPHost, result, 1) != LDAP_SUCCESS )
 			{
-				fLDAPNodeOpenMutex.Wait();
+				//NN fLDAPNodeOpenMutex.Wait();
 				inLDAPNodeStruct->fHost = inLDAPHost;
-				fLDAPNodeOpenMutex.Signal();
+				//NN fLDAPNodeOpenMutex.Signal();
 				throw( (sInt32)eDSCannotAccessSession );
 			}
-			fLDAPNodeOpenMutex.Wait();
+			//NN fLDAPNodeOpenMutex.Wait();
 			inLDAPNodeStruct->fHost = inLDAPHost;
-			fLDAPNodeOpenMutex.Signal();
+			//NN fLDAPNodeOpenMutex.Signal();
 
 			//result is consumed above within ldap_result2error
 			result = nil;
@@ -1485,7 +1490,7 @@ LDAP* CLDAPNode::LockSession( sLDAPContextData *inContext )
 				pLDAPNodeStruct->fRefCount++;
 			}
 			fLDAPNodeOpenMutex.Signal();
-		
+			
 			if (pLDAPNodeStruct != nil)
 			{
 				if (pLDAPNodeStruct->fLDAPSessionMutex != nil)
@@ -1503,14 +1508,14 @@ LDAP* CLDAPNode::LockSession( sLDAPContextData *inContext )
 //	* UnLock Session
 // ---------------------------------------------------------------------------
 
-void CLDAPNode::UnLockSession( sLDAPContextData *inContext )
+void CLDAPNode::UnLockSession( sLDAPContextData *inContext, bool inNewMutex )
 {
 	sLDAPNodeStruct		   *pLDAPNodeStruct		= nil;
 	LDAPNodeMapI			aLDAPNodeMapI;
 
 	if (inContext != nil)
 	{
-		if (inContext->authCallActive)
+		if ( (inContext->authCallActive) && !inNewMutex )
 		{
 			if (inContext->fLDAPSessionMutex != nil)
 			{
@@ -1545,4 +1550,106 @@ void CLDAPNode::UnLockSession( sLDAPContextData *inContext )
 		}
 	}
 } //UnLockSession
+
+
+// ---------------------------------------------------------------------------
+//	* Check Idles
+// ---------------------------------------------------------------------------
+
+void CLDAPNode::CheckIdles( void )
+{
+	sLDAPNodeStruct		   *pLDAPNodeStruct		= nil;
+	LDAPNodeMapI			aLDAPNodeMapI;
+	
+	fLDAPNodeOpenMutex.Wait();
+	
+	for (aLDAPNodeMapI = fLDAPNodeMap.begin(); aLDAPNodeMapI != fLDAPNodeMap.end(); ++aLDAPNodeMapI)
+	{
+		pLDAPNodeStruct = aLDAPNodeMapI->second;
+		if ( (pLDAPNodeStruct->fConnectionActiveCount == 0) && (pLDAPNodeStruct->fIdleTO != 0) ) //no active connections and IdleTO NOT zero
+		{
+			if (pLDAPNodeStruct->fIdleTOCount >= pLDAPNodeStruct->fIdleTO) //idle timeout has expired
+			{
+				if (pLDAPNodeStruct->fLDAPSessionMutex != nil)
+				{
+					pLDAPNodeStruct->fLDAPSessionMutex->Wait();
+				}
+				if (pLDAPNodeStruct->fHost != nil)
+				{
+					ldap_unbind( pLDAPNodeStruct->fHost ); //unbind the connection and nil out
+					pLDAPNodeStruct->fHost = nil;
+				}
+				if (pLDAPNodeStruct->fLDAPSessionMutex != nil)
+				{
+					pLDAPNodeStruct->fLDAPSessionMutex->Signal();
+				}
+				pLDAPNodeStruct->fIdleTOCount = 0;
+			}
+			else
+			{
+				pLDAPNodeStruct->fIdleTOCount++;
+			}
+		}
+	}
+
+	fLDAPNodeOpenMutex.Signal();
+
+} //CheckIdles
+
+
+// ---------------------------------------------------------------------------
+//	* ActiveConnection
+// ---------------------------------------------------------------------------
+
+void CLDAPNode::ActiveConnection( char *inNodeName )
+{
+	sLDAPNodeStruct		   *pLDAPNodeStruct		= nil;
+	LDAPNodeMapI			aLDAPNodeMapI;
+	
+	if (inNodeName != nil)
+	{
+		fLDAPNodeOpenMutex.Wait();
+		
+		string aNodeName(inNodeName);
+		aLDAPNodeMapI	= fLDAPNodeMap.find(aNodeName);
+		if (aLDAPNodeMapI != fLDAPNodeMap.end())
+		{
+			pLDAPNodeStruct = aLDAPNodeMapI->second;
+			pLDAPNodeStruct->fConnectionActiveCount++;
+			pLDAPNodeStruct->fIdleTOCount = 0;
+		}
+	
+		fLDAPNodeOpenMutex.Signal();
+	}
+
+} //ActiveConnection
+
+// ---------------------------------------------------------------------------
+//	* IdleConnection
+// ---------------------------------------------------------------------------
+
+void CLDAPNode::IdleConnection( char *inNodeName )
+{
+	sLDAPNodeStruct		   *pLDAPNodeStruct		= nil;
+	LDAPNodeMapI			aLDAPNodeMapI;
+	
+	if (inNodeName != nil)
+	{
+		fLDAPNodeOpenMutex.Wait();
+		
+		string aNodeName(inNodeName);
+		aLDAPNodeMapI	= fLDAPNodeMap.find(aNodeName);
+		if (aLDAPNodeMapI != fLDAPNodeMap.end())
+		{
+			pLDAPNodeStruct = aLDAPNodeMapI->second;
+			if (pLDAPNodeStruct->fConnectionActiveCount != 0)
+			{
+				pLDAPNodeStruct->fConnectionActiveCount--;
+			}
+		}
+	
+		fLDAPNodeOpenMutex.Signal();
+	}
+
+} //IdleConnection
 

@@ -35,7 +35,7 @@
 class AppleADBMouse: public IOHIPointing
 {
   OSDeclareDefaultStructors(AppleADBMouse);
-    
+
 protected:
   IOADBDevice * adbDevice;
   IOFixed       _resolution;
@@ -79,8 +79,15 @@ class AppleADBMouseType4 : public AppleADBMouse
 private:
     bool Clicking, Dragging, DragLock, typeTrackpad;
     bool _jitterclick, _jittermove, _ignoreTrackpad;
+    bool _palmnomove, _palmnoaction, _2fingernoaction, _sticky2finger, _zonenomove, 
+	_zonenoaction, _zonepecknomove, _ignorezone, _isWEnhanced, _usePantherSettings;
+    UInt8   _WThreshold;
     UInt16  _jitterdelta;
-    UInt64  _jitterclicktime64;
+    UInt64  _jitterclicktime64, _zonepeckingtime64, _timeoutSticky64, _sticky2fingerTime64,
+	    _fake5min;
+    AbsoluteTime  _jitterclicktimeAB, _zonepeckingtimeAB, _timeoutStickyAB, _sticky2fingerTimeAB,
+	    _fake5minAB, _keyboardTimeAB;
+
     virtual IOReturn setParamProperties( OSDictionary * dict );
     bool enableEnhancedMode();
     IOService *_pADBKeyboard;
@@ -98,6 +105,8 @@ public:
   virtual IOService * probe(IOService * provider, SInt32 * score);
   virtual bool start(IOService * provider);
   virtual void packet(UInt8 adbCommand, IOByteCount length, UInt8 * data);
+  virtual void packetW(UInt8 adbCommand, IOByteCount length, UInt8 * data);
+  virtual void packetWP(UInt8 adbCommand, IOByteCount length, UInt8 * data);
   virtual OSData * copyAccelerationTable();
   virtual void _check_usb_mouse(); 
   virtual void free();

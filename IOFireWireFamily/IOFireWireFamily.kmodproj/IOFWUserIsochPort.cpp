@@ -940,7 +940,10 @@ IOFWUserLocalIsochPortProxy::getDCLSize(
 			break ;
 
 		case kDCLPtrTimeStampOp:
-			result = sizeof(DCLPtrTimeStampStruct) ;
+			result = sizeof(DCLPtrTimeStamp) ;
+		
+		case kDCLSkipCycleOp:
+			result = sizeof(DCLCommand) ;
 	}
 	
 	return result ;
@@ -1026,6 +1029,11 @@ IOFWUserLocalIsochPortProxy::printDCLProgram(
 			case kDCLPtrTimeStampOp:
 				IOLog("(DCLPtrTimeStampStruct) timeStampPtr=0x%08lX",
 					(UInt32)((DCLPtrTimeStampStruct*)currentDCL)->timeStampPtr) ;
+				break ;
+				
+			case kDCLSkipCycleOp:
+				IOLog("(DCLSkipCycleOp)") ;
+				break ;
 		}
 		
 		currentDCL = currentDCL->pNextDCLCommand ;

@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 1999-2002 Sendmail, Inc. and its suppliers.
+ *  Copyright (c) 1999-2003 Sendmail, Inc. and its suppliers.
  *	All rights reserved.
  *
  * By using this file, you agree to the terms and conditions set
@@ -9,7 +9,7 @@
  */
 
 #include <sm/gen.h>
-SM_RCSID("@(#)$Id: listener.c,v 1.1.1.3 2002/10/15 02:37:59 zarzycki Exp $")
+SM_RCSID("@(#)$Id: listener.c,v 1.2 2003/03/29 20:22:03 zarzycki Exp $")
 
 /*
 **  listener.c -- threaded network listener
@@ -73,7 +73,15 @@ mi_opensocket(conn, backlog, dbg, smfi)
 		(void) smutex_unlock(&L_Mutex);
 		return MI_FAILURE;
 	}
-
+#if !_FFR_USE_POLL
+	if (!SM_FD_OK_SELECT(listenfd))
+	{
+		smi_log(SMI_LOG_ERR, "%s: fd %d is larger than FD_SETSIZE %d",
+			smfi->xxfi_name, listenfd, FD_SETSIZE);
+		(void) smutex_unlock(&L_Mutex);
+		return MI_FAILURE;
+	}
+#endif /* !_FFR_USE_POLL */
 	return MI_SUCCESS;
 }
 
@@ -482,7 +490,7 @@ mi_milteropen(conn, backlog, name)
 		{
 			smi_log(SMI_LOG_ERR,
 				"%s: can't malloc(%d) for sockpath: %s",
-				name, len, sm_errstring(errno));
+				name, (int) len, sm_errstring(errno));
 			(void) closesocket(sock);
 			return INVALID_SOCKET;
 		}
@@ -630,9 +638,10 @@ mi_closener()
 			if (rs != 0)					\
 			{						\
 				smi_log(SMI_LOG_ERR,			\
-					"MI_SLEEP(): select() returned non-zero result %d, errno = %d",						\
+					"MI_SLEEP(): select() returned non-zero result %d, errno = %d",	\
 					rs, errno);			\
 			}						\
+			break;						\
 		}							\
 	}								\
 }
@@ -661,23 +670,14 @@ mi_listener(conn, dbg, smfi, timeout, backlog)
 	_SOCK_ADDR cliaddr;
 	SOCKADDR_LEN_T clilen;
 	SMFICTX_PTR ctx;
-	fd_set readset, excset;
+	FD_RD_VAR(rds, excs);
 	struct timeval chktime;
 
 	if (mi_opensocket(conn, backlog, dbg, smfi) == MI_FAILURE)
 		return MI_FAILURE;
 
 	clilen = L_socksize;
-
-	if (listenfd >= FD_SETSIZE)
-	{
-		smi_log(SMI_LOG_ERR, "%s: fd %d is larger than FD_SETSIZE %d",
-			smfi->xxfi_name, listenfd, FD_SETSIZE);
-		(void) smutex_unlock(&L_Mutex);
-		return MI_FAILURE;
-	}
 	(void) smutex_unlock(&L_Mutex);
-
 	while (mi_stop() == MILTER_CONT)
 	{
 		(void) smutex_lock(&L_Mutex);
@@ -688,13 +688,10 @@ mi_listener(conn, dbg, smfi, timeout, backlog)
 		}
 
 		/* select on interface ports */
-		FD_ZERO(&readset);
-		FD_ZERO(&excset);
-		FD_SET((unsigned int) listenfd, &readset);
-		FD_SET((unsigned int) listenfd, &excset);
+		FD_RD_INIT(listenfd, rds, excs);
 		chktime.tv_sec = MI_CHK_TIME;
 		chktime.tv_usec = 0;
-		r = select(listenfd + 1, &readset, NULL, &excset, &chktime);
+		r = FD_RD_READY(listenfd, rds, excs, &chktime);
 		if (r == 0)		/* timeout */
 		{
 			(void) smutex_unlock(&L_Mutex);
@@ -719,14 +716,14 @@ mi_listener(conn, dbg, smfi, timeout, backlog)
 			}
 			continue;
 		}
-		if (!FD_ISSET(listenfd, &readset))
+		if (!FD_IS_RD_RDY(listenfd, rds, excs))
 		{
 			/* some error: just stop for now... */
 			ret = MI_FAILURE;
 			(void) smutex_unlock(&L_Mutex);
 			smi_log(SMI_LOG_ERR,
-				"%s: select() returned exception for socket, abort",
-				smfi->xxfi_name);
+				"%s: %s() returned exception for socket, abort",
+				smfi->xxfi_name, MI_POLLSELECT);
 			break;
 		}
 		scnt = 0;	/* reset error counter for select() */
@@ -754,6 +751,16 @@ mi_listener(conn, dbg, smfi, timeout, backlog)
 			connfd = INVALID_SOCKET;
 			save_errno = EINVAL;
 		}
+
+#if !_FFR_USE_POLL
+		/* check if acceptable for select() */
+		if (ValidSocket(connfd) && !SM_FD_OK_SELECT(connfd))
+		{
+			(void) closesocket(connfd);
+			connfd = INVALID_SOCKET;
+			save_errno = ERANGE;
+		}
+#endif /* !_FFR_USE_POLL */
 
 		if (!ValidSocket(connfd))
 		{

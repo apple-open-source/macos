@@ -163,6 +163,7 @@ protected:
 	UInt32					lastRightVol;
 	Boolean					dallasSpeakersProbed;						// So we only probe the speakers once when they are plugged in
 	Boolean					hasANDedReset;								//	[2855519]
+	UInt32					gPowerState;
 
 	// information specific to the chip
 	Boolean					gModemSoundActive;
@@ -199,8 +200,8 @@ protected:
     virtual UInt32 		sndHWGetType( void );
     virtual UInt32		sndHWGetManufacturer( void );
 
-    virtual void setDeviceDetectionActive (void);
-    virtual void setDeviceDetectionInActive (void);      
+    virtual void		setDeviceDetectionActive (void);
+    virtual void		setDeviceDetectionInActive (void);      
 
 public:
     // Classical Unix driver functions
@@ -233,12 +234,13 @@ private:
 	UInt32				ParseDetectCollection ( void );
 
 public:	
-	void RealLineOutInterruptHandler (IOInterruptEventSource *source, int count);	//	[2878119]
-	void RealHeadphoneInterruptHandler (IOInterruptEventSource *source, int count);
-	void RealDallasInterruptHandler (IOInterruptEventSource *source, int count);
+	void				RealLineOutInterruptHandler (IOInterruptEventSource *source, int count);	//	[2878119]
+	void				RealHeadphoneInterruptHandler (IOInterruptEventSource *source, int count);
+	void				RealDallasInterruptHandler (IOInterruptEventSource *source, int count);
 
-	virtual IOReturn performDeviceWake ();
-	virtual IOReturn performDeviceSleep ();
+	virtual IOReturn	performDeviceWake ();
+	virtual IOReturn	performDeviceSleep ();
+	virtual IOReturn	performDeviceIdleSleep ();
 
 protected:
 	// activation functions
@@ -256,6 +258,7 @@ protected:
 	IOReturn 	AppleTexas2Audio::GetShadowRegisterInfo( UInt8 regAddr, UInt8 ** shadowPtr, UInt8* registerSize );
 	IOReturn	Texas2_Initialize ();
 	Boolean		IsCodecRESET( Boolean logMessage );
+    void		Texas2_Quiesce ( UInt32 mode );
     void		Texas2_Reset ( void );
     void		Texas2_Reset_ASSERT ( void );
     void		Texas2_Reset_NEGATE ( void );

@@ -1022,7 +1022,9 @@ get_static_reference (interface, protocols)
       tree t, m = TYPE_MAIN_VARIANT (type);
 
       t = copy_node (type);
-      TYPE_BINFO (t) = make_tree_vec (2);
+      /* APPLE LOCAL begin mystery binfo */
+      /* The 'TYPE_BINFO (t) = make_tree_vec (2);' is not needed.  */
+      /* APPLE LOCAL end mystery binfo */
 
       /* Add this type to the chain of variants of TYPE.  */
       TYPE_NEXT_VARIANT (t) = TYPE_NEXT_VARIANT (m);
@@ -1073,7 +1075,9 @@ get_object_reference (protocols)
       tree t, m = TYPE_MAIN_VARIANT (type);
 
       t = copy_node (type);
-      TYPE_BINFO (t) = make_tree_vec (2);
+      /* APPLE LOCAL begin mystery binfo */
+      /* The 'TYPE_BINFO (t) = make_tree_vec (2);' is not needed.  */
+      /* APPLE LOCAL end mystery binfo */
 
       /* Add this type to the chain of variants of TYPE.  */
       TYPE_NEXT_VARIANT (t) = TYPE_NEXT_VARIANT (m);
@@ -7913,6 +7917,7 @@ continue_method_def ()
 }
 
 /* APPLE LOCAL msg send super  */
+static void *UOBJC_SUPER_binding_level = 0;
 /* The 'add_objc_decls' routine is no more.  */
 
 /* _n_Method (id self, SEL sel, ...)
@@ -7938,12 +7943,15 @@ get_super_receiver ()
 				       build_tree_list (NULL_TREE,
 				       objc_super_template),
 				       0, NULL_TREE);
-
+	
 	finish_decl (UOBJC_SUPER_decl, NULL_TREE, NULL_TREE);
 
 	/* This prevents `unused variable' warnings when compiling with -Wall.  */
 	TREE_USED (UOBJC_SUPER_decl) = 1;
 	DECL_ARTIFICIAL (UOBJC_SUPER_decl) = 1;
+
+	/* APPLE LOCAL msg send super */
+	UOBJC_SUPER_binding_level = get_current_binding_level ();
 
 	/* APPLE LOCAL indexing dpatel */
 	flag_suppress_builtin_indexing = 0;
@@ -8025,6 +8033,20 @@ get_super_receiver ()
       return error_mark_node;
     }
 }
+
+
+/* APPLE LOCAL begin msg send super */
+void
+objc_clear_super_receiver ()
+{
+  if (objc_method_context 
+      && UOBJC_SUPER_binding_level == get_current_binding_level ()) {
+    UOBJC_SUPER_decl = 0;
+    UOBJC_SUPER_binding_level = 0;
+  }  
+}
+/* APPLE LOCAL end msg send super */
+
 
 /* APPLE LOCAL method encoding */
 /* The encode_method_def routine is no more;

@@ -659,6 +659,14 @@ make_binding_level ()
          PFE_MALLOC (sizeof (struct binding_level), PFE_ALLOC_BINDING_LEVEL);
 }
 
+/* APPLE LOCAL begin msg send super */
+struct binding_level *
+get_current_binding_level ()
+{
+  return current_binding_level;
+}
+/* APPLE LOCAL end msg send super */
+  
 /* Nonzero if we are currently in the global binding level.  */
 
 int
@@ -7961,6 +7969,13 @@ maybe_commonize_var (decl)
 	 inlined.  */
       if (! flag_weak)
 	{
+	  /* APPLE LOCAL begin coalescing  */
+#ifdef MAKE_DECL_COALESCED
+	  if (DECL_INTERFACE_KNOWN (current_function_decl))
+	    DECL_EXTERNAL (decl) = DECL_EXTERNAL (current_function_decl);
+	  TREE_PUBLIC (decl) = 1;
+	  MAKE_DECL_COALESCED (decl);
+#else
 	  if (DECL_INTERFACE_KNOWN (current_function_decl))
 	    {
 	      TREE_PUBLIC (decl) = 1;
@@ -7972,14 +7987,6 @@ maybe_commonize_var (decl)
 	      TREE_PUBLIC (decl) = 1;
 	      DECL_COMMON (decl) = 1;
 	    }
-	  /* APPLE LOCAL  coalescing  */
-#ifdef MAKE_DECL_COALESCED
-	  else
-	    {
-	      /* A coalesced symbol is similar to an ELF weak symbol.  */
-	      MAKE_DECL_COALESCED (decl);
-	    }
-#endif
 	  /* else we lose. We can only do this if we can use common,
 	     which we can't if it has been initialized.  */
 
@@ -7988,6 +7995,8 @@ maybe_commonize_var (decl)
 	      cp_warning_at ("sorry: semantics of inline function static data `%#D' are wrong (you'll wind up with multiple copies)", decl);
 	      cp_warning_at ("  you can work around this by removing the initializer", decl);
 	    }
+#endif
+	  /* APPLE LOCAL end coalescing */
 	}
       else
 	comdat_linkage (decl);

@@ -23,6 +23,31 @@
       / __/ | (_) |
   __ |_____(_)___/ ___________________________________________
               
+  Changes with mod_ssl 2.8.13 (23-Oct-2002 to 18-Mar-2003)
+
+   *) Always enforce RSA blinding on RSA private keys in order to be
+      resistent to timing attacks.
+
+   *) Added timeout also to the "pre-sucking" of the trailing data in
+      POST request handling.
+
+   *) Correctly shutdown shared memory pools on fork+exec situations.
+
+   *) Bugfix SSL client certificate verification: OpenSSL was not
+      informed with SSL_set_verify_result(ssl, X509_V_OK) in case
+      mod_ssl forced the verification to be ok.
+
+   *) Consistently use OPENSSL_free() instead of plain free() to
+      deallocate memory chunks allocated inside OpenSSL.
+
+   *) Fixed various memory leaks related to X509 certificates.
+
+  Changes with mod_ssl 2.8.12 (04-Oct-2002 to 23-Oct-2002)
+
+   *) Fixed potential Cross-Site-Scripting bug.
+
+   *) Allow also 8192 bytes of shared memory data size.
+
   Changes with mod_ssl 2.8.11 (24-Jun-2002 to 04-Oct-2002)
    
    *) Upgraded to Apache 1.3.27.

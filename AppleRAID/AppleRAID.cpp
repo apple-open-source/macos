@@ -604,7 +604,7 @@ IOReturn AppleRAID::degradeSliceMedia(IOMedia *media, AppleRAIDStorageRequest *s
     
     _arController->statusChanged(this);
     
-    // Unpause the raid set and wakeup any sleeping requests.
+    // If not waiting for a syncronizeCache, unpause the raid set and wakeup any sleeping requests.
     _arSetIsDegrading = false;
     if (!_arSetIsSyncing) {
         _arSetIsPaused = false;
@@ -981,12 +981,15 @@ void AppleRAID::completeRAIDRequest(AppleRAIDStorageRequest *storageRequest)
     }
     
     // Return an underrun error if the byte count is not complete.
+    // This can happen if on or more slices reported a smaller byte count.
     if ((status == kIOReturnSuccess) && (byteCount != storageRequest->srByteCount)) {
         status = kIOReturnUnderrun;
         byteCount = 0;
     }
     
-    if ((status != kIOReturnSuccess) && isMirror) {
+    // If an error has been reported, and the set is a mirror, and the error is reported
+    // against an active slice, try to degrate the given slice.
+    if ((status != kIOReturnSuccess) && isMirror && (cnt < arSliceCount)) {
         storageRequest->_srStatus = status;
         storageRequest->_srByteCount = byteCount;
         
@@ -997,8 +1000,8 @@ void AppleRAID::completeRAIDRequest(AppleRAIDStorageRequest *storageRequest)
         
         returnRAIDRequest(storageRequest);
         
-        // If the set is paused and there are no pending request, continue degrading the set.
-        if (_arSetIsPaused && (_arStorageRequestsPending == 0)) {
+        // If the set is paused, degrading and there are no pending request, continue degrading the set.
+        if (_arSetIsPaused && _arSetIsDegrading && (_arStorageRequestsPending == 0)) {
             if (degradeSliceMedia(0, 0, 0) == kIOReturnSuccess) shouldCompleteErrors = true;
         }
         

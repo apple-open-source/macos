@@ -1302,7 +1302,8 @@ sInt32 DSTCPEndpoint::SyncToMessageBody(const Boolean inStripLeadZeroes, uInt32 
 
 sInt32 DSTCPEndpoint::SendClientReply ( void *inMsg )
 {
-	return SendBuffer(inMsg, sizeof(sComData) + ((sComData *)inMsg)->fDataSize);
+	((sComData *)inMsg)->fDataSize = ((sComData *)inMsg)->fDataLength;
+	return SendBuffer(inMsg, sizeof(sComData) + ((sComData *)inMsg)->fDataLength);
 } // SendClientReply
 
 
@@ -1313,7 +1314,8 @@ sInt32 DSTCPEndpoint::SendClientReply ( void *inMsg )
 
 sInt32 DSTCPEndpoint::SendServerMessage ( void *inMsg )
 {
-	return SendBuffer(inMsg, sizeof(sComData) + ((sComData *)inMsg)->fDataSize);
+	((sComData *)inMsg)->fDataSize = ((sComData *)inMsg)->fDataLength;
+	return SendBuffer(inMsg, sizeof(sComData) + ((sComData *)inMsg)->fDataLength);
 } // SendServerMessage
 
 

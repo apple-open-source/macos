@@ -9,7 +9,7 @@
  */
 
 #include <sm/gen.h>
-SM_RCSID("@(#)$Id: sfsasl.c,v 1.1.1.3 2002/10/15 02:38:34 zarzycki Exp $")
+SM_RCSID("@(#)$Id: sfsasl.c,v 1.1.1.4 2003/02/22 09:24:50 zarzycki Exp $")
 #include <stdlib.h>
 #include <sendmail.h>
 #include <errno.h>
@@ -177,7 +177,7 @@ sasl_read(fp, buf, size)
 	int result;
 	ssize_t len;
 # if SASL >= 20000
-	const char *outbuf = NULL;
+	static const char *outbuf = NULL;
 # else /* SASL >= 20000 */
 	static char *outbuf = NULL;
 # endif /* SASL >= 20000 */
@@ -194,7 +194,11 @@ sasl_read(fp, buf, size)
 	**  if necessary.
 	*/
 
+# if SASL >= 20000
+	while (outlen == 0)
+# else /* SASL >= 20000 */
 	while (outbuf == NULL && outlen == 0)
+# endif /* SASL >= 20000 */
 	{
 		len = sm_io_read(so->fp, SM_TIME_DEFAULT, buf, size);
 		if (len <= 0)

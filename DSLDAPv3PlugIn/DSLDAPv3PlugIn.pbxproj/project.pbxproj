@@ -59,7 +59,6 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = LDAPv3;
 				SECTORDER_FLAGS = "";
-				USE_GCC3 = YES;
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = dsplug;
 			};
@@ -97,11 +96,11 @@
 	<key>CFBundlePackageType</key>
 	<string>dspi</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.5.3</string>
+	<string>1.5.4</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.5.3</string>
+	<string>1.5.4</string>
 	<key>CFPlugInDynamicRegistration</key>
 	<string>NO</string>
 	<key>CFPlugInFactories</key>
@@ -173,6 +172,7 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		004E450101B59E1800DD2B59 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = CLDAPv3Configs.cpp;
 			path = LDAPv3/CLDAPv3Configs.cpp;
@@ -181,6 +181,7 @@
 			usesTabs = 1;
 		};
 		004E450201B59E1800DD2B59 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = CLDAPv3PlugIn.cpp;
 			path = LDAPv3/CLDAPv3PlugIn.cpp;
@@ -189,6 +190,7 @@
 			usesTabs = 1;
 		};
 		004E450301B59E1800DD2B59 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = CLDAPv3Configs.h;
 			path = LDAPv3/CLDAPv3Configs.h;
@@ -197,6 +199,7 @@
 			usesTabs = 1;
 		};
 		004E450401B59E1800DD2B59 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = CLDAPv3PlugIn.h;
 			path = LDAPv3/CLDAPv3PlugIn.h;
@@ -285,6 +288,7 @@
 			};
 		};
 		00A5681101B9F0E400000109 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = CLDAPNode.cpp;
 			path = LDAPv3/CLDAPNode.cpp;
@@ -293,6 +297,7 @@
 			usesTabs = 1;
 		};
 		00A5681201B9F0E400000109 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = CLDAPNode.h;
 			path = LDAPv3/CLDAPNode.h;

@@ -16,7 +16,7 @@
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
  *
- * $Header: /cvs/Darwin/src/live/Security/SecuritySNACCRuntime/compiler/core/oid.c,v 1.1 2001/06/20 21:27:58 dmitch Exp $
+ * $Header: /cvs/root/Security/SecuritySNACCRuntime/compiler/core/Attic/oid.c,v 1.1 2001/06/20 21:27:58 dmitch Exp $
  * $Log: oid.c,v $
  * Revision 1.1  2001/06/20 21:27:58  dmitch
  * Adding missing snacc compiler files.

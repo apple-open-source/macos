@@ -149,7 +149,10 @@ namespace IOFireWireLib {
 				break ;
 	
 			case kDCLPtrTimeStampOp:
-				result = sizeof(DCLPtrTimeStampStruct) ;
+				result = sizeof(DCLPtrTimeStamp) ;
+
+			case kDCLSkipCycleOp:
+				result = sizeof(DCLCommand) ;
 		}
 		
 		return result ;
@@ -665,7 +668,8 @@ namespace IOFireWireLib {
 		& LocalIsochPortCOM::SPrintDCLProgram,
 		& LocalIsochPortCOM::SModifyTransferPacketDCLSize,
 		& LocalIsochPortCOM::SModifyTransferPacketDCLBuffer,
-		& LocalIsochPortCOM::SModifyTransferPacketDCL
+		& LocalIsochPortCOM::SModifyTransferPacketDCL,
+		& LocalIsochPortCOM::S_SetFinalizeCallback
 	} ;
 	
 	LocalIsochPort::LocalIsochPort( IUnknownVTbl* interface, Device& userclient, bool talking, DCLCommand* inDCLProgram, 
@@ -677,7 +681,8 @@ namespace IOFireWireLib {
 	  mStartState(inStartState),
 	  mStartMask(inStartMask),
 	  mExpectedStopTokens(0),
-	  mDeferredRelease(false)
+	  mDeferredReleaseCount(0),
+	  mFinalizeCallback(nil)
 	{
 		if ( !inDCLProgram )
 		{
@@ -781,7 +786,7 @@ namespace IOFireWireLib {
 		
 		{
 			mach_msg_type_number_t 	outputSize = 0 ;
-			io_scalar_inband_t		params = { (int)mKernPortRef, (int)& DCLCallProcHandler, (int)this } ;
+			io_scalar_inband_t		params = { (int)mKernPortRef, (int)& S_DCLCallProcHandler, (int)this } ;
 			
 	//		params[0]	= (UInt32) mKernPortRef ;
 	//		params[1]	= (UInt32) & DCLCallProcHandler ;
@@ -810,7 +815,7 @@ namespace IOFireWireLib {
 		if ( mExpectedStopTokens > 0 )
 		{
 			Unlock() ;
-			mDeferredRelease = true ;
+			++mDeferredReleaseCount ;
 			return mRefCount ;
 		}
 	
@@ -824,7 +829,7 @@ namespace IOFireWireLib {
 	{
 		Lock() ;
 		++mExpectedStopTokens ;
-		IOFireWireLibLog_("waiting for %lu stop tokens\n", mExpectedStopTokens) ;
+		IOFireWireLibLog_("now waiting for %lu stop tokens\n", mExpectedStopTokens) ;
 		Unlock() ;
 		
 		return IsochPortCOM::Stop() ;	// call superclass Stop()
@@ -850,31 +855,42 @@ namespace IOFireWireLib {
 	}
 
 	void
-	LocalIsochPort::DCLCallProcHandler(
-		void*				inRefCon,
-		IOReturn			result,
-		LocalIsochPort*		me )
+	LocalIsochPort::DCLCallProcHandler( void* refcon, IOReturn result )
 	{
-		if ( me->mExpectedStopTokens > 0 )
+		if ( mExpectedStopTokens > 0 )
 		{
-			if ( result == kIOFireWireLastDCLToken && inRefCon==(void*)0xFFFFFFFF )
-			{			
-				me->Lock() ;
-				me->mExpectedStopTokens-- ;
-				me->Unlock() ;
-	
-				if ( me->mExpectedStopTokens == 0 && me->mDeferredRelease )
-					me->Release() ;
+			if ( result == kIOFireWireLastDCLToken && refcon==(void*)0xFFFFFFFF )
+			{		
+				Lock() ;
+				mExpectedStopTokens-- ;
+				Unlock() ;
+
+				if ( mExpectedStopTokens == 0 )
+				{
+					if ( mFinalizeCallback )
+						(*mFinalizeCallback)(mRefCon) ;
+					while ( mDeferredReleaseCount > 0 )
+					{
+						Release() ;
+						--mDeferredReleaseCount ;
+					}
+				}
 			}
 			return ;		
 		}
 		
 		if ( result == kIOReturnSuccess )
 		{
-			DCLCallProcStruct*	callProcDCL = (DCLCallProcStruct*)inRefCon ;
+			DCLCallProcStruct*	callProcDCL = (DCLCallProcStruct*)refcon ;
 			
-			(*callProcDCL->proc)((DCLCommand*)inRefCon) ;
+			(*callProcDCL->proc)((DCLCommand*)refcon) ;
 		}
+	}
+	
+	void
+	LocalIsochPort::S_DCLCallProcHandler( void* refcon, IOReturn result, LocalIsochPort* me )
+	{
+		me->DCLCallProcHandler( refcon, result ) ;
 	}
 	
 	void
@@ -954,6 +970,7 @@ namespace IOFireWireLib {
 #if 0
 				|| CFEqual( interfaceID, kIOFireWireLocalIsochPortInterfaceID_v3 )	// don't support this yet...
 #endif
+				|| CFEqual( interfaceID, kIOFireWireLocalIsochPortInterfaceID_v4 )
 			)
 		{
 			*ppv = & GetInterface() ;
@@ -1017,5 +1034,18 @@ namespace IOFireWireLib {
 	LocalIsochPortCOM::SModifyTransferPacketDCL( PortRef self, DCLTransferPacket* dcl, void* newBuffer, IOByteCount newSize )
 	{
 		return kIOReturnUnsupported ;
+	}
+
+	//
+	// v4
+	//
+	
+	IOReturn
+	LocalIsochPortCOM::S_SetFinalizeCallback( IOFireWireLibLocalIsochPortRef self, IOFireWireLibIsochPortFinalizeCallback finalizeCallback )
+	{
+		LocalIsochPortCOM* me = IOFireWireIUnknown::InterfaceMap<LocalIsochPortCOM>::GetThis(self) ;
+		me->mFinalizeCallback = finalizeCallback ;
+		
+		return kIOReturnSuccess ;
 	}
 }

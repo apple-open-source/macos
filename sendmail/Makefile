@@ -22,7 +22,7 @@ build::
 	ln -sf private/etc $(DSTROOT)/etc
 	ln -sf private/var $(DSTROOT)/var
 	$(_v) $(MAKE) -C $(Sources)/$(Project)	\
-		Extra_CC_Flags="$(CFLAGS)"	\
+		Extra_CC_Flags="$(CFLAGS) -DBIND_8_COMPAT"	\
 		Extra_LD_Flags="$(LDFLAGS) -bind_at_load -force_flat_namespace"	\
 		OPTIONS='-O "$(OBJROOT)"'
 

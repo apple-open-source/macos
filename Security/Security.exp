@@ -58,3 +58,4 @@ _SSLInternalServerRandom
 _SSLInternalClientRandom
 _SSLInternal_PRF
 _SSLGetClientCertificateState
+_SecKeyImportPair

@@ -392,6 +392,8 @@ extern int mesg_implicit_function_declaration;
 
 /* In c-decl.c */
 extern void finish_incomplete_decl PARAMS ((tree));
+/* APPLE LOCAL msg send super */
+extern struct binding_level *get_current_binding_level	PARAMS ((void));
 
 extern tree static_ctors;
 extern tree static_dtors;

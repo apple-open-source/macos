@@ -9,7 +9,7 @@
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
  *
- * $Header: /cvs/Darwin/src/live/Security/SecuritySNACCRuntime/compiler/core/lib-types.h,v 1.1 2001/06/20 21:27:57 dmitch Exp $
+ * $Header: /cvs/root/Security/SecuritySNACCRuntime/compiler/core/Attic/lib-types.h,v 1.1 2001/06/20 21:27:57 dmitch Exp $
  * $Log: lib-types.h,v $
  * Revision 1.1  2001/06/20 21:27:57  dmitch
  * Adding missing snacc compiler files.

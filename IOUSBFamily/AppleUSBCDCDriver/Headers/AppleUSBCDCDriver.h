@@ -358,6 +358,7 @@ class AppleUSBCDCDriver : public IOSerialDriverSync
 private:
     UInt8			fSessions;				// Active sessions
     bool			fTerminate;				// Are we being terminated (ie the device was unplugged)
+    bool			fSuspendOK;                             // Ok to suspend the device
     UInt8			fbmAttributes;				// Device attributes
     UInt8			fProductName[productNameLength];	// Product String from the Device
     PortInfo_t 			*fPorts[numberofPorts];			// Port array

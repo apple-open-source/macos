@@ -30,7 +30,7 @@
  *
  * INSERT_VDA_COMMENTS
  *
- * $Header: /cvs/Darwin/src/live/Security/SecuritySNACCRuntime/compiler/back-ends/tag-util.c,v 1.1.1.1 2001/05/18 23:14:08 mb Exp $
+ * $Header: /cvs/root/Security/SecuritySNACCRuntime/compiler/back-ends/Attic/tag-util.c,v 1.1.1.1 2001/05/18 23:14:08 mb Exp $
  * $Log: tag-util.c,v $
  * Revision 1.1.1.1  2001/05/18 23:14:08  mb
  * Move from private repository to open source repository

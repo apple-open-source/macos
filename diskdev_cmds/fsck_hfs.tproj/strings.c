@@ -110,6 +110,7 @@ char * err_msg[] =
 	"Orphaned indirect node %s",
 	"Invalid BSD file type",
 
-	/* 570 - */
-	"Invalid BSD User ID"
+	/* 570 - 571 */
+	"Invalid BSD User ID",
+	"Illegal name"
 };

@@ -14,7 +14,7 @@ BEGIN
 --
 -- MS 92
 --
--- $Header: /cvs/Darwin/src/live/Security/SecurityASN1/asn/asn-useful.asn1,v 1.1.1.1 2001/05/18 23:13:59 mb Exp $
+-- $Header: /cvs/root/Security/SecurityASN1/asn/Attic/asn-useful.asn1,v 1.1.1.1 2001/05/18 23:13:59 mb Exp $
 -- $Log: asn-useful.asn1,v $
 -- Revision 1.1.1.1  2001/05/18 23:13:59  mb
 -- Move from private repository to open source repository

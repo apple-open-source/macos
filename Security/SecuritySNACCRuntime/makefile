@@ -4,7 +4,7 @@
 #
 #  MS 92
 #
-# $Header: /cvs/Darwin/src/live/Security/SecuritySNACCRuntime/makefile,v 1.1.1.1 2001/05/18 23:14:04 mb Exp $
+# $Header: /cvs/root/Security/SecuritySNACCRuntime/Attic/makefile,v 1.1.1.1 2001/05/18 23:14:04 mb Exp $
 # $Log: makefile,v $
 # Revision 1.1.1.1  2001/05/18 23:14:04  mb
 # Move from private repository to open source repository

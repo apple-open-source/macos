@@ -23,6 +23,7 @@
 #ifndef _IOKIT_IOGRAPHICSPRIVATE_H
 #define _IOKIT_IOGRAPHICSPRIVATE_H
 
+#include <mach/vm_param.h>
 #include <IOKit/graphics/IOGraphicsTypesPrivate.h>
 
 #if 0
@@ -63,9 +64,9 @@ do { 					\
 
 #define kIOFBLowPowerAggressiveness	iokit_family_err(sub_iokit_graphics, 1)
 
-#define kIOFBBootGrayValue		0x00bfbfbf
+#define kIOFBBootGrayValue		0x00648cc3
 // blue actual:0x00426bad gamma:0x00648cc3 bootx:0x00bfbfbf
-#define kIOFBGrayValue			0x00000000
+#define kIOFBGrayValue			0x00648cc3
 
 #ifndef kAppleAudioVideoJackStateKey
 #define kAppleAudioVideoJackStateKey	"AppleAudioVideoJackState"
@@ -94,6 +95,14 @@ extern "C" void bzero_nc( void * p, UInt32 l );
 #else
 inline void bcopy_nc( void * from, void * to, UInt32 l)	{ bcopy( from, to, l ); }
 inline void bzero_nc( void * p, UInt32 l )		{ bzero( p, l ); }
+#endif
+
+#ifndef round_page_32
+#define round_page_32(x) round_page(x)
+#endif
+
+#ifndef trunc_page_32(x)
+#define trunc_page_32(x) trunc_page(x)
 #endif
 
 #define thisIndex		_IOFramebuffer_reserved[4]

@@ -268,6 +268,9 @@ void AppleADBButtons::dispatchButtonEvent (unsigned int keycode, bool down )
 	case kBrightness_down:
 	case kNum_lock_on_laptops:
 	case kVideoMirror:
+	case kIllumination_toggle:
+	case kIllumination_down:
+	case kIllumination_up:
 	    dispatchKeyboardEvent(keycode, down, now);
 	    break;
 	case kEject:
@@ -321,7 +324,7 @@ const unsigned char *AppleADBButtons::defaultKeymapOfLength(UInt32 *length)
         0x00,		// no modifier keys
         0x00,		// no defs
         0x00,		// no seqs
-        0x08,		// 8 special keys
+        0x0B,		// 11 special keys
         NX_KEYTYPE_SOUND_UP, kVolume_up,
         NX_KEYTYPE_SOUND_DOWN, kVolume_down,
         NX_KEYTYPE_MUTE, kMute,
@@ -329,7 +332,10 @@ const unsigned char *AppleADBButtons::defaultKeymapOfLength(UInt32 *length)
         NX_KEYTYPE_BRIGHTNESS_DOWN, kBrightness_down,
         NX_KEYTYPE_NUM_LOCK, kNum_lock_on_laptops,
         NX_KEYTYPE_EJECT, kEject,
-	NX_KEYTYPE_VIDMIRROR, kVideoMirror
+        NX_KEYTYPE_VIDMIRROR, kVideoMirror,
+        NX_KEYTYPE_ILLUMINATION_TOGGLE, kIllumination_toggle,
+        NX_KEYTYPE_ILLUMINATION_DOWN, kIllumination_down,
+        NX_KEYTYPE_ILLUMINATION_UP, kIllumination_up,
     };
     
     *length = sizeof(appleADBButtonsKeyMap);

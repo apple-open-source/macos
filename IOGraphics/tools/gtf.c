@@ -15,13 +15,14 @@
 // 7.3
 int main (int argc, char * argv[])
 {
+    char * endstr;
     boolean_t needInterlace = FALSE;
     int hPixels = 1376, vLines = 774;
     float vFrameRateRqd = 60.0;
 
     //
 
-    int charSize = 8; 
+    int charSize = 1; 
     int vSyncRqd = 3;
     float hSyncPct = 8.0/100.0; // %
     float minVSyncBP = 550e-6; // s
@@ -37,15 +38,16 @@ int main (int argc, char * argv[])
 
     //
 
-    float vFieldRateRqd;
-    float interlace = needInterlace ? 0.5 : 0.0;
-    float interlaceFactor = needInterlace ? 2.0 : 1.0;
+    hPixels = strtol(argv[1], 0, 0);
+    vLines = strtol(argv[2], 0, 0);
+    vFrameRateRqd = strtol(argv[3], &endstr, 0);
+    needInterlace = (endstr[0] == 'i') || (endstr[0] == 'I');
 
     //
 
-    hPixels = strtol(argv[1], 0, 0);
-    vLines = strtol(argv[2], 0, 0);
-    vFrameRateRqd = strtol(argv[3], 0, 0);
+    float vFieldRateRqd;
+    float interlace = needInterlace ? 0.5 : 0.0;
+    float interlaceFactor = needInterlace ? 2.0 : 1.0;
 
     //
 

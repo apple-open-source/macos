@@ -271,17 +271,17 @@
 	<key>CFBundleIdentifier</key>
 	<string>com.apple.SystemConfiguration.PowerManagement</string>
 	<key>CFBundleInfoDictionaryVersion</key>
-	<string>6.0</string>
+	<string>6.31</string>
 	<key>CFBundleName</key>
 	<string>PowerManagement configd plugin</string>
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>6.0.31</string>
+	<string>6.31.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>6.0.31</string>
+	<string>6.31.2</string>
 </dict>
 </plist>
 ";

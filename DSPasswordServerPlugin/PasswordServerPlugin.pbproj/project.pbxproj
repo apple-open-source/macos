@@ -44,6 +44,7 @@
 				014CEA3F0018CDD111CA2923,
 				014CEA400018CDD111CA2923,
 			);
+			hasScannedForEncodings = 1;
 			isa = PBXProject;
 			mainGroup = 089C166AFE841209C02AAC07;
 			projectDirPath = "";
@@ -99,7 +100,6 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PasswordServer;
 				SECTORDER_FLAGS = "";
-				USE_GCC3 = YES;
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = dsplug;
 			};
@@ -135,11 +135,11 @@
 	<key>CFBundlePackageType</key>
 	<string>dspi</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1</string>
+	<string>1.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1</string>
+	<string>1.2</string>
 	<key>CFPlugInDynamicRegisterFunction</key>
 	<string></string>
 	<key>CFPlugInDynamicRegistration</key>
@@ -163,7 +163,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 1;
 		};
 		089C1674FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
@@ -331,11 +330,13 @@
 //F53
 //F54
 		F56C1796029431B901DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = CPSPlugIn.cpp;
 			refType = 4;
 		};
 		F56C1797029431B901DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = CPSPlugIn.h;
 			refType = 4;
@@ -507,162 +508,189 @@
 			};
 		};
 		F5E060AC029593D701DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = atomicio.c;
 			path = OpenSSH/atomicio.c;
 			refType = 4;
 		};
 		F5E060AD029593D701DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = "bsd-base64.c";
 			path = "OpenSSH/bsd-base64.c";
 			refType = 4;
 		};
 		F5E060AE029593D701DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = "bsd-base64.h";
 			path = "OpenSSH/bsd-base64.h";
 			refType = 4;
 		};
 		F5E060AF029593D701DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = bufaux.c;
 			path = OpenSSH/bufaux.c;
 			refType = 4;
 		};
 		F5E060B0029593D701DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = bufaux.h;
 			path = OpenSSH/bufaux.h;
 			refType = 4;
 		};
 		F5E060B1029593D701DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = buffer.c;
 			path = OpenSSH/buffer.c;
 			refType = 4;
 		};
 		F5E060B2029593D701DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = buffer.h;
 			path = OpenSSH/buffer.h;
 			refType = 4;
 		};
 		F5E060B3029593D701DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = cipher.c;
 			path = OpenSSH/cipher.c;
 			refType = 4;
 		};
 		F5E060B4029593D701DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = cipher.h;
 			path = OpenSSH/cipher.h;
 			refType = 4;
 		};
 		F5E060B5029593D701DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = compat.h;
 			path = OpenSSH/compat.h;
 			refType = 4;
 		};
 		F5E060B6029593D701DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = dsa.c;
 			path = OpenSSH/dsa.c;
 			refType = 4;
 		};
 		F5E060B7029593D701DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = dsa.h;
 			path = OpenSSH/dsa.h;
 			refType = 4;
 		};
 		F5E060B8029593D701DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = entropy.c;
 			path = OpenSSH/entropy.c;
 			refType = 4;
 		};
 		F5E060B9029593D701DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = entropy.h;
 			path = OpenSSH/entropy.h;
 			refType = 4;
 		};
 		F5E060BA029593D701DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = "fake-socket.h";
 			path = "OpenSSH/fake-socket.h";
 			refType = 4;
 		};
 		F5E060BB029593D701DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = getput.h;
 			path = OpenSSH/getput.h;
 			refType = 4;
 		};
 		F5E060BC029593D701DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = kex.h;
 			path = OpenSSH/kex.h;
 			refType = 4;
 		};
 		F5E060BD029593D701DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = key.c;
 			path = OpenSSH/key.c;
 			refType = 4;
 		};
 		F5E060BE029593D701DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = key.h;
 			path = OpenSSH/key.h;
 			refType = 4;
 		};
 		F5E060BF029593D701DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = readconf.h;
 			path = OpenSSH/readconf.h;
 			refType = 4;
 		};
 		F5E060C0029593D701DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = rsa.c;
 			path = OpenSSH/rsa.c;
 			refType = 4;
 		};
 		F5E060C1029593D701DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = rsa.h;
 			path = OpenSSH/rsa.h;
 			refType = 4;
 		};
 		F5E060C2029593D701DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = ssh.h;
 			path = OpenSSH/ssh.h;
 			refType = 4;
 		};
 		F5E060C3029593D701DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = uuencode.c;
 			path = OpenSSH/uuencode.c;
 			refType = 4;
 		};
 		F5E060C4029593D701DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = uuencode.h;
 			path = OpenSSH/uuencode.h;
 			refType = 4;
 		};
 		F5E060C5029593D701DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = xmalloc.c;
 			path = OpenSSH/xmalloc.c;
 			refType = 4;
 		};
 		F5E060C6029593D701DD284B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = xmalloc.h;
 			path = OpenSSH/xmalloc.h;
