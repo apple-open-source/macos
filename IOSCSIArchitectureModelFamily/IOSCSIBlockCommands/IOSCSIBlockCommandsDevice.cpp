@@ -994,9 +994,9 @@ IOSCSIBlockCommandsDevice::DetermineMediumWriteProtectState( void )
 	{
 		if ( MODE_SENSE_10( 	request,
 								bufferDesc,
-								0,
-								0,
-								0,
+								0x00,
+								0x01,	/* Disable block descriptors */
+								0x00,
 								0x3F,
 								8,
 								0 ) == true )
@@ -1045,7 +1045,7 @@ IOSCSIBlockCommandsDevice::DetermineMediumWriteProtectState( void )
 		// Try the six byte mode sense.	
 		if ( MODE_SENSE_6( 	request, 
 							bufferDesc,
-							0,
+							0x01,	/* Disable block descriptors */
 							0,
 							0x3F,
 							8,

@@ -35,7 +35,7 @@
 
 extern char *__progname;
 
-RCSID("$Id: auth-pam.c,v 1.1.1.7 2001/05/03 16:50:59 zarzycki Exp $");
+RCSID("$Id: auth-pam.c,v 1.1.1.9 2001/12/05 09:07:02 bbraun Exp $");
 
 #define NEW_AUTHTOK_MSG \
 	"Warning: Your password has expired, please change it now"
@@ -87,7 +87,7 @@ int do_pam_authenticate(int flags)
  * messages with into __pam_msg.  This is used during initial
  * authentication to bypass the normal PAM password prompt.
  *
- * OTHER mode handles PAM_PROMPT_ECHO_OFF with read_passphrase(prompt, 1)
+ * OTHER mode handles PAM_PROMPT_ECHO_OFF with read_passphrase()
  * and outputs messages to stderr. This mode is used if pam_chauthtok()
  * is called to update expired passwords.
  */
@@ -146,9 +146,9 @@ static int do_pam_conversation(int num_msg, const struct pam_message **msg,
 				reply[count].resp_retcode = PAM_SUCCESS;
 				break;
 			case PAM_PROMPT_ECHO_OFF:
-				reply[count].resp = xstrdup(
-				    read_passphrase(PAM_MSG_MEMBER(msg, count, 
-				    msg), 1));
+				reply[count].resp = 
+				    read_passphrase(PAM_MSG_MEMBER(msg, count,
+					msg), RP_ALLOW_STDIN);
 				reply[count].resp_retcode = PAM_SUCCESS;
 				break;
 			case PAM_ERROR_MSG:
@@ -217,7 +217,8 @@ int auth_pam_password(struct passwd *pw, const char *password)
 	__pampasswd = password;
 
 	pamstate = INITIAL_LOGIN;
-	pam_retval = do_pam_authenticate(0);
+	pam_retval = do_pam_authenticate(
+	    options.permit_empty_passwd == 0 ? PAM_DISALLOW_NULL_AUTHTOK : 0);
 	if (pam_retval == PAM_SUCCESS) {
 		debug("PAM Password authentication accepted for "
 		    "user \"%.100s\"", pw->pw_name);
@@ -374,7 +375,7 @@ void start_pam(const char *user)
 	 * not even need one (for tty-less connections)
 	 * Kludge: Set a fake PAM_TTY
 	 */
-	pam_retval = pam_set_item(__pamh, PAM_TTY, "ssh");
+	pam_retval = pam_set_item(__pamh, PAM_TTY, "NODEVssh");
 	if (pam_retval != PAM_SUCCESS)
 		fatal("PAM set tty failed[%d]: %.200s",
 		    pam_retval, PAM_STRERROR(__pamh, pam_retval));

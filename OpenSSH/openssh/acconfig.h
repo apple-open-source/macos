@@ -1,4 +1,4 @@
-/* $Id: acconfig.h,v 1.1.1.9 2001/06/26 01:03:15 zarzycki Exp $ */
+/* $Id: acconfig.h,v 1.1.1.11 2001/12/01 00:46:21 bbraun Exp $ */
 
 #ifndef _CONFIG_H
 #define _CONFIG_H
@@ -26,8 +26,11 @@
 /* Define if your password has a pw_class field */
 #undef HAVE_PW_CLASS_IN_PASSWD
 
-/* Define if your system's struct sockaddr_un has a sun_len member */
-#undef HAVE_SUN_LEN_IN_SOCKADDR_UN
+/* Define if your password has a pw_expire field */
+#undef HAVE_PW_EXPIRE_IN_PASSWD
+
+/* Define if your password has a pw_change field */
+#undef HAVE_PW_CHANGE_IN_PASSWD
 
 /* Define if you system's inet_ntoa is busted (e.g. Irix gcc issue) */
 #undef BROKEN_INET_NTOA
@@ -175,9 +178,6 @@
 /* Define if you want to specify the path to your wtmpx file */
 #undef CONF_WTMPX_FILE
 
-/* Define is libutil has login() function */
-#undef HAVE_LIBUTIL_LOGIN
-
 /* Define if you want external askpass support */
 #undef USE_EXTERNAL_ASKPASS
 
@@ -247,7 +247,7 @@
 #undef HAVE_UINTXX_T
 #undef HAVE_INT64_T
 #undef HAVE_U_INT64_T
-#undef HAVE_SOCKLEN_T
+#undef HAVE_U_CHAR
 #undef HAVE_SIZE_T
 #undef HAVE_SSIZE_T
 #undef HAVE_CLOCK_T
@@ -313,6 +313,21 @@
 
 /* Define in your struct dirent expects you to allocate extra space for d_name */
 #undef BROKEN_ONE_BYTE_DIRENT_D_NAME
+
+/* Define if your getopt(3) defines and uses optreset */
+#undef HAVE_GETOPT_OPTRESET
+
+/* Define on *nto-qnx systems */
+#undef MISSING_NFDBITS
+
+/* Define on *nto-qnx systems */
+#undef MISSING_HOWMANY
+
+/* Define on *nto-qnx systems */
+#undef MISSING_FD_MASK
+
+/* Define if you want smartcard support */
+#undef SMARTCARD
 
 @BOTTOM@
 

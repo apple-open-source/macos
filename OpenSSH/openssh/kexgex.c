@@ -24,7 +24,7 @@
  */
 
 #include "includes.h"
-RCSID("$OpenBSD: kexgex.c,v 1.5 2001/04/05 10:42:50 markus Exp $");
+RCSID("$OpenBSD: kexgex.c,v 1.9 2001/09/17 19:27:15 stevesk Exp $");
 
 #include <openssl/bn.h>
 
@@ -39,13 +39,13 @@ RCSID("$OpenBSD: kexgex.c,v 1.5 2001/04/05 10:42:50 markus Exp $");
 #include "ssh2.h"
 #include "compat.h"
 
-u_char *
+static u_char *
 kexgex_hash(
     char *client_version_string,
     char *server_version_string,
     char *ckexinit, int ckexinitlen,
     char *skexinit, int skexinitlen,
-    char *serverhostkeyblob, int sbloblen,
+    u_char *serverhostkeyblob, int sbloblen,
     int min, int wantbits, int max, BIGNUM *prime, BIGNUM *gen,
     BIGNUM *client_dh_pub,
     BIGNUM *server_dh_pub,
@@ -57,8 +57,8 @@ kexgex_hash(
 	EVP_MD_CTX md;
 
 	buffer_init(&b);
-	buffer_put_string(&b, client_version_string, strlen(client_version_string));
-	buffer_put_string(&b, server_version_string, strlen(server_version_string));
+	buffer_put_cstring(&b, client_version_string);
+	buffer_put_cstring(&b, server_version_string);
 
 	/* kexinit messages: fake header: len+SSH2_MSG_KEXINIT */
 	buffer_put_int(&b, ckexinitlen+1);
@@ -99,7 +99,7 @@ kexgex_hash(
 
 /* client */
 
-void
+static void
 kexgex_client(Kex *kex)
 {
 	BIGNUM *dh_server_pub = NULL, *shared_secret = NULL;
@@ -177,9 +177,10 @@ kexgex_client(Kex *kex)
 	if (server_host_key == NULL)
 		fatal("cannot decode server_host_key_blob");
 
-	if (kex->check_host_key == NULL)
-		fatal("cannot check server_host_key");
-	kex->check_host_key(server_host_key);
+	if (kex->verify_host_key == NULL)
+		fatal("cannot verify server_host_key");
+	if (kex->verify_host_key(server_host_key) == -1)
+		fatal("server_host_key verification failed");
 
 	/* DH paramter f, server public DH key */
 	dh_server_pub = BN_new();
@@ -233,7 +234,7 @@ kexgex_client(Kex *kex)
 	xfree(server_host_key_blob);
 	BN_free(dh_server_pub);
 
-	if (key_verify(server_host_key, (u_char *)signature, slen, hash, 20) != 1)
+	if (key_verify(server_host_key, signature, slen, hash, 20) != 1)
 		fatal("key_verify failed for server_host_key");
 	key_free(server_host_key);
 	xfree(signature);
@@ -252,7 +253,7 @@ kexgex_client(Kex *kex)
 
 /* server */
 
-void
+static void
 kexgex_server(Kex *kex)
 {
 	BIGNUM *shared_secret = NULL, *dh_client_pub = NULL;
@@ -357,7 +358,7 @@ kexgex_server(Kex *kex)
 	    kex->server_version_string,
 	    buffer_ptr(&kex->peer), buffer_len(&kex->peer),
 	    buffer_ptr(&kex->my), buffer_len(&kex->my),
-	    (char *)server_host_key_blob, sbloblen,
+	    server_host_key_blob, sbloblen,
 	    min, nbits, max,
 	    dh->p, dh->g,
 	    dh_client_pub,
@@ -383,9 +384,9 @@ kexgex_server(Kex *kex)
 	/* send server hostkey, DH pubkey 'f' and singed H */
 	debug("SSH2_MSG_KEX_DH_GEX_REPLY sent");
 	packet_start(SSH2_MSG_KEX_DH_GEX_REPLY);
-	packet_put_string((char *)server_host_key_blob, sbloblen);
+	packet_put_string(server_host_key_blob, sbloblen);
 	packet_put_bignum2(dh->pub_key);	/* f */
-	packet_put_string((char *)signature, slen);
+	packet_put_string(signature, slen);
 	packet_send();
 	xfree(signature);
 	xfree(server_host_key_blob);

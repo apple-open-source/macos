@@ -771,8 +771,8 @@ IOSCSIReducedBlockCommandsDevice::CheckWriteProtection ( void )
 
 	if ( MODE_SENSE_6 ( request,
 						bufferDesc,
-						0x01,
-						0,
+						0x01,	/* Disable block descriptors */
+						0x00,
 						0x06,
 						17 ) == true )
     {

@@ -434,6 +434,7 @@ void HTTPProtocol::HTTPTransfer::start()
 
 void HTTPProtocol::HTTPTransfer::abort()
 {
+    observe(Observer::aborting);
     setError("aborted");
     connectionAs<HTTPConnection>().abort();
 }

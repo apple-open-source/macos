@@ -1,4 +1,4 @@
-/*	$OpenBSD: misc.h,v 1.4 2001/04/12 20:09:36 stevesk Exp $	*/
+/*	$OpenBSD: misc.h,v 1.10 2001/06/26 17:27:24 markus Exp $	*/
 
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
@@ -11,23 +11,25 @@
  * incompatible with the protocol description in the RFC file, it must be
  * called by a name other than "ssh" or "Secure Shell".
  */
-/* remove newline at end of string */
-char	*chop(char *s);
 
-/* return next token in configuration line */
-char	*strdelim(char **s);
+char	*chop(char *);
+char	*strdelim(char **);
+void	 set_nonblock(int);
+void	 unset_nonblock(int);
+int	 a2port(const char *);
+char	*cleanhostname(char *);
+char	*colon(char *);
+long	 convtime(const char *);
 
-/* set filedescriptor to non-blocking */
-void	set_nonblock(int fd);
+struct passwd *pwcopy(struct passwd *);
 
-struct passwd * pwcopy(struct passwd *pw);
-
-/*
- * Convert ASCII string to TCP/IP port number.
- * Port must be >0 and <=65535.
- * Return 0 if invalid.
- */
-int a2port(const char *s);
+typedef struct arglist arglist;
+struct arglist {
+        char    **list;
+        int     num;
+        int     nalloc;
+};
+void	 addargs(arglist *, char *, ...) __attribute__((format(printf, 2, 3)));
 
 /* wrapper for signal interface */
 typedef void (*mysig_t)(int);

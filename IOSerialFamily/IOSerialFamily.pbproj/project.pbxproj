@@ -23,17 +23,16 @@
 			children = (
 				A0147846011B0EC802CA285C,
 				021C9E33000BD0CF11CA285C,
-				021C9E34000BD0CF11CA285C,
-				021C9E35000BD0CF11CA285C,
 				021C9E37000BD0CF11CA285C,
+				021C9E35000BD0CF11CA285C,
 				021C9E38000BD0CF11CA285C,
 				021C9E39000BD0CF11CA285C,
 				021C9E3A000BD0CF11CA285C,
 				021C9E3B000BD0CF11CA285C,
 				021C9E3C000BD0CF11CA285C,
-				021C9E3D000BD0CF11CA285C,
 				021C9E44000BD0CF11CA285C,
 				04EC4B3D00518F8311CA285C,
+				A081A71801AC905002CA2CD9,
 			);
 			isa = PBXGroup;
 			name = IOSerialFamily;
@@ -43,12 +42,6 @@
 			isa = PBXFileReference;
 			name = IOSerialBSDClient.cpp;
 			path = IOSerialFamily.kmodproj/IOSerialBSDClient.cpp;
-			refType = 4;
-		};
-		021C9E34000BD0CF11CA285C = {
-			isa = PBXFileReference;
-			name = IOSerialSessionSync.cpp;
-			path = IOSerialFamily.kmodproj/IOSerialSessionSync.cpp;
 			refType = 4;
 		};
 		021C9E35000BD0CF11CA285C = {
@@ -93,12 +86,6 @@
 			path = IOSerialFamily.kmodproj/IOModemSerialStreamSync.h;
 			refType = 4;
 		};
-		021C9E3D000BD0CF11CA285C = {
-			isa = PBXFileReference;
-			name = IOSerialSessionSync.h;
-			path = IOSerialFamily.kmodproj/IOSerialSessionSync.h;
-			refType = 4;
-		};
 		021C9E44000BD0CF11CA285C = {
 			children = (
 				021C9E45000BD0CF11CA285C,
@@ -127,8 +114,9 @@
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				KERNEL_EXTENSION = YES;
 				KERNEL_MODULE = YES;
+				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOSerialFamily;
-				MODULE_VERSION = 1.0.7d11;
+				MODULE_VERSION = 5.3.0d14;
 				OPTIMIZATION_CFLAGS = "-O2";
 				OTHER_CFLAGS = "-Wno-format -fpermissive";
 				OTHER_LDFLAGS = "";
@@ -167,11 +155,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.7</string>
+	<string>5.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.0.7d11</string>
+	<string>5.3.0d14</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOSerialBSDClient</key>
@@ -184,6 +172,8 @@
 			<integer>1000</integer>
 			<key>IOProviderClass</key>
 			<string>IOSerialStream</string>
+			<key>IOResourceMatch</key>
+			<string>IOBSD</string>
 		</dict>
 		<key>IOSerialBSDClientSync</key>
 		<dict>
@@ -195,6 +185,8 @@
 			<integer>1000</integer>
 			<key>IOProviderClass</key>
 			<string>IOSerialStreamSync</string>
+			<key>IOResourceMatch</key>
+			<string>IOBSD</string>
 		</dict>
 	</dict>
 	<key>OSBundleCompatibleVersion</key>
@@ -204,9 +196,9 @@
 		<key>com.apple.kernel.bsd</key>
 		<string>1.1</string>
 		<key>com.apple.kernel.iokit</key>
-		<string>1.0.0b1</string>
+		<string>1.1</string>
 		<key>com.apple.kernel.libkern</key>
-		<string>1.0.0b1</string>
+		<string>1.1</string>
 	</dict>
 </dict>
 </plist>
@@ -235,7 +227,6 @@
 				021C9E4C000BD0CF11CA285C,
 				021C9E4D000BD0CF11CA285C,
 				021C9E4E000BD0CF11CA285C,
-				021C9E4F000BD0CF11CA285C,
 				A0147847011B0EC802CA285C,
 			);
 			isa = PBXHeadersBuildPhase;
@@ -288,12 +279,6 @@
 				);
 			};
 		};
-		021C9E4F000BD0CF11CA285C = {
-			fileRef = 021C9E3D000BD0CF11CA285C;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		021C9E50000BD0CF11CA285C = {
 			buildActionMask = 2147483647;
 			files = (
@@ -305,7 +290,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				021C9E52000BD0CF11CA285C,
-				021C9E53000BD0CF11CA285C,
 				021C9E54000BD0CF11CA285C,
 			);
 			isa = PBXSourcesBuildPhase;
@@ -313,14 +297,6 @@
 		};
 		021C9E52000BD0CF11CA285C = {
 			fileRef = 021C9E33000BD0CF11CA285C;
-			isa = PBXBuildFile;
-			settings = {
-				ATTRIBUTES = (
-				);
-			};
-		};
-		021C9E53000BD0CF11CA285C = {
-			fileRef = 021C9E34000BD0CF11CA285C;
 			isa = PBXBuildFile;
 			settings = {
 				ATTRIBUTES = (
@@ -372,6 +348,7 @@
 				021C9E5A000BD1ED11CA285C,
 				021C9E5B000BD1ED11CA285C,
 				021C9E66000BD2B811CA285C,
+				A05A28E401B566E102CA285C,
 				021C9E5C000BD1ED11CA285C,
 				021C9E5D000BD1ED11CA285C,
 				021C9E5E000BD1ED11CA285C,
@@ -554,6 +531,28 @@
 			isa = PBXBuildFile;
 			settings = {
 			};
+		};
+		A05A28E401B566E102CA285C = {
+			buildActionMask = 8;
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/serial";
+			dstSubfolderSpec = 0;
+			files = (
+				A05A28E501B566E102CA285C,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			name = "Copy Files";
+		};
+		A05A28E501B566E102CA285C = {
+			fileRef = A0147846011B0EC802CA285C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A081A71801AC905002CA2CD9 = {
+			isa = PBXFrameworkReference;
+			name = CoreFoundation.framework;
+			path = /System/Library/Frameworks/CoreFoundation.framework;
+			refType = 0;
 		};
 	};
 	rootObject = 021C9E2B000BD0CF11CA285C;

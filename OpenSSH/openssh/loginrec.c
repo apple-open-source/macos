@@ -123,7 +123,7 @@
   symbols for the platform.
 
   Use logintest to check which symbols are defined before modifying
-  configure.in and loginrec.c. (You have to build logintest yourself
+  configure.ac and loginrec.c. (You have to build logintest yourself
   with 'make logintest' as it's not built by default.)
 
   Otherwise, patches to the specific method(s) are very helpful!
@@ -163,7 +163,7 @@
 #include "log.h"
 #include "atomicio.h"
 
-RCSID("$Id: loginrec.c,v 1.1.1.5 2001/06/26 01:03:22 zarzycki Exp $");
+RCSID("$Id: loginrec.c,v 1.1.1.7 2001/12/01 00:46:31 bbraun Exp $");
 
 #ifdef HAVE_UTIL_H
 #  include <util.h>
@@ -448,6 +448,7 @@ int
 login_utmp_only(struct logininfo *li)
 {
 	li->type = LTYPE_LOGIN; 
+	login_set_current_time(li);
 # ifdef USE_UTMP
 	utmp_write_entry(li);
 # endif
@@ -616,9 +617,15 @@ construct_utmp(struct logininfo *li,
 	switch (li->type) {
 	case LTYPE_LOGIN:
 		ut->ut_type = USER_PROCESS;
+#ifdef _CRAY
+		cray_set_tmpdir(ut);
+#endif
 		break;
 	case LTYPE_LOGOUT:
 		ut->ut_type = DEAD_PROCESS;
+#ifdef _CRAY
+		cray_retain_utmp(ut, li->pid);
+#endif
 		break;
 	}
 # endif
@@ -1089,7 +1096,7 @@ wtmp_get_entry(struct logininfo *li)
 	}
 
 	/* Seek to the start of the last struct utmp */
-	if (lseek(fd, (off_t)(0 - sizeof(struct utmp)), SEEK_END) == -1) {
+	if (lseek(fd, -(off_t)sizeof(struct utmp), SEEK_END) == -1) {
 		/* Looks like we've got a fresh wtmp file */
 		close(fd);
 		return 0;
@@ -1122,7 +1129,7 @@ wtmp_get_entry(struct logininfo *li)
 			continue;
 		}
 		/* Seek back 2 x struct utmp */
-		if (lseek(fd, (off_t)(0-2*sizeof(struct utmp)), SEEK_CUR) == -1) {
+		if (lseek(fd, -(off_t)(2 * sizeof(struct utmp)), SEEK_CUR) == -1) {
 			/* We've found the start of the file, so quit */
 			close (fd);
 			return 0;
@@ -1245,7 +1252,7 @@ wtmpx_get_entry(struct logininfo *li)
 	}
 
 	/* Seek to the start of the last struct utmpx */
-	if (lseek(fd, (off_t)(0-sizeof(struct utmpx)), SEEK_END) == -1 ) {
+	if (lseek(fd, -(off_t)sizeof(struct utmpx), SEEK_END) == -1 ) {
 		/* probably a newly rotated wtmpx file */
 		close(fd);
 		return 0;
@@ -1275,7 +1282,7 @@ wtmpx_get_entry(struct logininfo *li)
 # endif
 			continue;
 		}
-		if (lseek(fd, (off_t)(0-2*sizeof(struct utmpx)), SEEK_CUR) == -1) {
+		if (lseek(fd, -(off_t)(2 * sizeof(struct utmpx)), SEEK_CUR) == -1) {
 			close (fd);
 			return 0;
 		}
@@ -1418,7 +1425,7 @@ lastlog_openseek(struct logininfo *li, int *fd, int filemode)
 
 	if (type == LL_FILE) {
 		/* find this uid's offset in the lastlog file */
-		offset = (off_t) ( (long)li->uid * sizeof(struct lastlog));
+		offset = (off_t) ((long)li->uid * sizeof(struct lastlog));
 
 		if ( lseek(*fd, offset, SEEK_SET) != offset ) {
 			log("lastlog_openseek: %s->lseek(): %s",
@@ -1481,17 +1488,20 @@ lastlog_get_entry(struct logininfo *li)
 	struct lastlog last;
 	int fd;
 
-	if (lastlog_openseek(li, &fd, O_RDONLY)) {
-		if (atomicio(read, fd, &last, sizeof(last)) != sizeof(last)) {
-			log("lastlog_get_entry: Error reading from %s: %s",
-			    LASTLOG_FILE, strerror(errno));
-			return 0;
-		} else {
-			lastlog_populate_entry(li, &last);
-			return 1;
-		}
-	} else {
+	if (!lastlog_openseek(li, &fd, O_RDONLY))
+		return 0;
+
+	if (atomicio(read, fd, &last, sizeof(last)) != sizeof(last)) {
+		close(fd);
+		log("lastlog_get_entry: Error reading from %s: %s",
+		    LASTLOG_FILE, strerror(errno));
 		return 0;
 	}
+
+	close(fd);
+
+	lastlog_populate_entry(li, &last);
+
+	return 1;
 }
 #endif /* USE_LASTLOG */

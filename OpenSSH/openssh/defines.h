@@ -1,12 +1,7 @@
 #ifndef _DEFINES_H
 #define _DEFINES_H
 
-/* $Id: defines.h,v 1.1.1.8 2001/06/26 01:03:20 zarzycki Exp $ */
-
-/* Some platforms need this for the _r() functions */
-#if !defined(_REENTRANT) && !defined(SNI)
-# define _REENTRANT 1
-#endif
+/* $Id: defines.h,v 1.1.1.10 2001/12/01 00:46:29 bbraun Exp $ */
 
 /* Necessary headers */
 
@@ -17,7 +12,7 @@
 #include <netinet/in.h> /* For IPv6 macros */
 #include <netinet/ip.h> /* For IPTOS macros */
 #ifdef HAVE_SYS_UN_H
-# include <sys/un.h> /* For SUN_LEN */
+# include <sys/un.h> /* For sockaddr_un */
 #endif
 #ifdef HAVE_SYS_BITYPES_H
 # include <sys/bitypes.h> /* For u_intXX_t */
@@ -50,6 +45,16 @@
 #include <unistd.h> /* For STDIN_FILENO, etc */
 #include <termios.h> /* Struct winsize */
 #include <fcntl.h> /* For O_NONBLOCK */
+#include <openssl/opensslv.h> /* For OPENSSL_VERSION_NUMBER */
+
+/* *-*-nto-qnx needs these headers for strcasecmp and LASTLOG_FILE respectively */
+#ifdef HAVE_STRINGS_H
+# include <strings.h>
+#endif
+#ifdef HAVE_LOGIN_H
+# include <login.h>
+#endif
+
 
 /* Constants */
 
@@ -131,6 +136,11 @@ enum
 # define S_IRWXO			0000007	/* read, write, execute */
 #endif /* S_IXUSR */
 
+/* *-*-nto-qnx doesn't define this constant in the system headers */
+#ifdef MISSING_NFDBITS
+# define	NFDBITS (8 * sizeof(unsigned long))
+#endif
+
 /* Types */
 
 /* If sys/types.h does not supply intXX_t, supply them ourselves */
@@ -199,6 +209,7 @@ typedef unsigned long  u_int32_t;
 #   endif
 #  endif
 # endif
+#define __BIT_TYPES_DEFINED__
 #endif
 
 /* 64-bit types */
@@ -210,7 +221,6 @@ typedef long int int64_t;
 #  if (SIZEOF_LONG_LONG_INT == 8)
 typedef long long int int64_t;
 #   define HAVE_INT64_T 1
-#   define HAVE_LONG_LONG_INT
 #  endif
 # endif
 #endif
@@ -225,11 +235,14 @@ typedef unsigned long long int u_int64_t;
 #  endif
 # endif
 #endif
+#if !defined(HAVE_LONG_LONG_INT) && (SIZEOF_LONG_LONG_INT == 8)
+# define HAVE_LONG_LONG_INT 1
+#endif
 
-#ifndef HAVE_SOCKLEN_T
-typedef unsigned int socklen_t;
-# define HAVE_SOCKLEN_T
-#endif /* HAVE_SOCKLEN_T */
+#ifndef HAVE_U_CHAR
+typedef unsigned char u_char;
+# define HAVE_U_CHAR
+#endif /* HAVE_U_CHAR */
 
 #ifndef HAVE_SIZE_T
 typedef unsigned int size_t;
@@ -280,6 +293,11 @@ struct winsize {
       unsigned short ws_xpixel;       /* horizontal size, pixels */
       unsigned short ws_ypixel;       /* vertical size, pixels */
 };
+#endif
+
+/* *-*-nto-qnx does not define this type in the system headers */
+#ifdef MISSING_FD_MASK
+ typedef unsigned long int	fd_mask;
 #endif
 
 /* Paths */
@@ -334,8 +352,8 @@ struct winsize {
 #endif
 
 /* Define this to be the path of the xauth program. */
-#ifndef XAUTH_PATH
-#define XAUTH_PATH "/usr/X11R6/bin/xauth"
+#ifdef XAUTH_PATH
+#define _PATH_XAUTH XAUTH_PATH
 #endif /* XAUTH_PATH */
 
 #ifndef _PATH_TTY
@@ -383,10 +401,10 @@ struct winsize {
 # define __attribute__(x)
 #endif /* !defined(__GNUC__) || (__GNUC__ < 2) */
 
-#ifndef SUN_LEN
-#define SUN_LEN(su) \
-	(sizeof(*(su)) - sizeof((su)->sun_path) + strlen((su)->sun_path))
-#endif /* SUN_LEN */
+/* *-*-nto-qnx doesn't define this macro in the system headers */
+#ifdef MISSING_HOWMANY
+# define howmany(x,y)	(((x)+((y)-1))/(y))
+#endif
 
 /* Function replacement / compatibility hacks */
 
@@ -418,7 +436,7 @@ struct winsize {
 #endif /* !defined(HAVE_MEMMOVE) && defined(HAVE_BCOPY) */
 
 #if !defined(HAVE_ATEXIT) && defined(HAVE_ON_EXIT)
-# define atexit(a) on_exit(a)
+# define atexit(a, NULL) on_exit(a, NULL)
 #else
 # if defined(HAVE_XATEXIT)
 #  define atexit(a) xatexit(a)
@@ -433,11 +451,16 @@ struct winsize {
 # define getpgrp() getpgrp(0)
 #endif
 
+/* OPENSSL_free() is Free() in versions before OpenSSL 0.9.6 */
+#if !defined(OPENSSL_VERSION_NUMBER) || (OPENSSL_VERSION_NUMBER < 0x0090600f)
+# define OPENSSL_free(x) Free(x)
+#endif
+
 /*
  * Define this to use pipes instead of socketpairs for communicating with the
  * client program.  Socketpairs do not seem to work on all systems.
  *
- * configure.in sets this for a few OS's which are known to have problems
+ * configure.ac sets this for a few OS's which are known to have problems
  * but you may need to set it yourself
  */
 /* #define USE_PIPES 1 */

@@ -17,8 +17,6 @@ class IOFilterInterruptEventSource;
 #define DBDMAAUDIODMAENGINE_DEFAULT_NUM_CHANNELS	2
 #define kMinimumLatency (16) // minimum safety offset
 
-#define kPowerDownDelayTime 30000000000ULL
-
 typedef struct _sPreviousValues {
     float	xl_1;
     float	xr_1;
@@ -50,16 +48,12 @@ protected:
 	UInt32						previousClippedToFrame;
     IOService *					ourProvider;
     IONotifier *				iSubEngineNotifier;
-	IOAudioDevice *				gTheDevice;
     AppleiSubEngine *			iSubEngine;
     float *						lowFreqSamples;
     float *						highFreqSamples;
     PreviousValues				filterState;
 	Boolean						needToSync;
 	Boolean						startiSub;
-	Boolean						idling;
-	IOTimerEventSource *		idleTimer;
-	Boolean						playing;
 
     IOFilterInterruptEventSource *	interruptEventSource;
 
@@ -74,9 +68,6 @@ protected:
     IOAudioStreamDirection	direction;
 
     virtual bool filterInterrupt(int index);
-	static void IdleSleepHandlerTimer (OSObject *owner, IOTimerEventSource *sender);
-	void ScheduleIdle (void);
-	IOReturn performFullPower (void);
 
     static bool interruptFilter(OSObject *owner, IOFilterInterruptEventSource *source);
     static void interruptHandler(OSObject *owner, IOInterruptEventSource *source, int count);
@@ -87,7 +78,6 @@ protected:
 public:
     virtual bool init(OSDictionary 			*properties,
                       IOService 			*theDeviceProvider,
-					  IOAudioDevice			*theDevice,
                       bool					hasInput,
                       UInt32				numBlocks = DBDMAAUDIODMAENGINE_DEFAULT_NUM_BLOCKS,
                       UInt32				blockSize = DBDMAAUDIODMAENGINE_DEFAULT_BLOCK_SIZE,

@@ -1075,7 +1075,7 @@ IOCompactDiscServices::readMCN ( CDMCN mcn )
 // readTOC
 
 IOReturn
-IOCompactDiscServices::readTOC ( IOMemoryDescriptor *buffer )
+IOCompactDiscServices::readTOC ( IOMemoryDescriptor * buffer )
 {
 
 	// Return errors for incoming activity if we have been terminated
@@ -1089,6 +1089,73 @@ IOCompactDiscServices::readTOC ( IOMemoryDescriptor *buffer )
 	return fProvider->ReadTOC ( buffer );
 	
 }
+
+//---------------------------------------------------------------------------
+// readTOC
+
+IOReturn
+IOCompactDiscServices::readTOC ( IOMemoryDescriptor * 		buffer,
+								 CDTOCFormat				format,
+								 UInt8						msf,
+								 UInt8						trackSessionNumber,
+								 UInt16 *					actualByteCount )
+{
+	
+	// Return errors for incoming activity if we have been terminated
+	if ( isInactive ( ) != false )
+	{
+		return kIOReturnNotAttached;
+	}
+	
+	fProvider->CheckPowerState ( );	
+	
+	return fProvider->ReadTOC ( buffer, format, msf, trackSessionNumber, actualByteCount );
+	
+}
+
+//---------------------------------------------------------------------------
+// readDiscInfo
+
+IOReturn
+IOCompactDiscServices::readDiscInfo ( IOMemoryDescriptor * 	buffer,
+									  UInt16 *				actualByteCount )
+{
+	
+	// Return errors for incoming activity if we have been terminated
+	if ( isInactive ( ) != false )
+	{
+		return kIOReturnNotAttached;
+	}
+	
+	fProvider->CheckPowerState ( );	
+	
+	return fProvider->ReadDiscInfo ( buffer, actualByteCount );
+	
+}
+
+
+//---------------------------------------------------------------------------
+// readTrackInfo
+
+IOReturn
+IOCompactDiscServices::readTrackInfo (  IOMemoryDescriptor *	buffer,
+										UInt32					address,
+										CDTrackInfoAddressType	addressType,
+										UInt16 *				actualByteCount )
+{
+	
+	// Return errors for incoming activity if we have been terminated
+	if ( isInactive ( ) != false )
+	{
+		return kIOReturnNotAttached;
+	}
+	
+	fProvider->CheckPowerState ( );	
+	
+	return fProvider->ReadTrackInfo ( buffer, address, addressType, actualByteCount );
+	
+}
+
 
 //---------------------------------------------------------------------------
 // audioPause
@@ -1400,11 +1467,11 @@ IOCompactDiscServices::handleIsOpen ( const IOService * client ) const
 }
 
 // Space reserved for future expansion.
-OSMetaClassDefineReservedUnused( IOCompactDiscServices, 1 );
-OSMetaClassDefineReservedUnused( IOCompactDiscServices, 2 );
-OSMetaClassDefineReservedUnused( IOCompactDiscServices, 3 );
-OSMetaClassDefineReservedUnused( IOCompactDiscServices, 4 );
-OSMetaClassDefineReservedUnused( IOCompactDiscServices, 5 );
-OSMetaClassDefineReservedUnused( IOCompactDiscServices, 6 );
-OSMetaClassDefineReservedUnused( IOCompactDiscServices, 7 );
-OSMetaClassDefineReservedUnused( IOCompactDiscServices, 8 );
+OSMetaClassDefineReservedUnused ( IOCompactDiscServices, 1 );
+OSMetaClassDefineReservedUnused ( IOCompactDiscServices, 2 );
+OSMetaClassDefineReservedUnused ( IOCompactDiscServices, 3 );
+OSMetaClassDefineReservedUnused ( IOCompactDiscServices, 4 );
+OSMetaClassDefineReservedUnused ( IOCompactDiscServices, 5 );
+OSMetaClassDefineReservedUnused ( IOCompactDiscServices, 6 );
+OSMetaClassDefineReservedUnused ( IOCompactDiscServices, 7 );
+OSMetaClassDefineReservedUnused ( IOCompactDiscServices, 8 );

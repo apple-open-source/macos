@@ -64,14 +64,14 @@ public:
     /*-----------------------------------------*/
 
     virtual IOReturn	doAsyncReadCD(IOMemoryDescriptor *buffer,
-                                      UInt32 block,UInt32 nblks,
-                                      CDSectorArea sectorArea,
-                                      CDSectorType sectorType,
-                                      IOStorageCompletion completion) = 0;
+                    	              UInt32 block,UInt32 nblks,
+                    	              CDSectorArea sectorArea,
+                    	              CDSectorType sectorType,
+                    	              IOStorageCompletion completion) = 0;
     virtual UInt32	getMediaType(void)					= 0;
     virtual IOReturn	readISRC(UInt8 track,CDISRC isrc)			= 0;
     virtual IOReturn	readMCN(CDMCN mcn)					= 0;
-    virtual IOReturn	readTOC(IOMemoryDescriptor * buffer)		= 0;
+    virtual IOReturn	readTOC(IOMemoryDescriptor *buffer) = 0;
 
     /*-----------------------------------------*/
     /*  APIs exported by IOCDAudioControl      */
@@ -97,9 +97,23 @@ public:
 
     OSMetaClassDeclareReservedUsed(IOCDBlockStorageDevice, 1); /* 10.1.0 */
 
-    OSMetaClassDeclareReservedUnused(IOCDBlockStorageDevice,  2);
-    OSMetaClassDeclareReservedUnused(IOCDBlockStorageDevice,  3);
-    OSMetaClassDeclareReservedUnused(IOCDBlockStorageDevice,  4);
+    virtual IOReturn	readTOC(IOMemoryDescriptor *buffer,CDTOCFormat format,
+                    	        UInt8 msf,UInt8 trackSessionNumber,
+                    	        UInt16 *actualByteCount);
+
+    OSMetaClassDeclareReservedUsed(IOCDBlockStorageDevice, 2); /* 10.1.3 */
+
+    virtual IOReturn	readDiscInfo(IOMemoryDescriptor *buffer,
+                    	             UInt16 *actualByteCount);
+
+    OSMetaClassDeclareReservedUsed(IOCDBlockStorageDevice, 3); /* 10.1.3 */
+
+    virtual IOReturn	readTrackInfo(IOMemoryDescriptor *buffer,UInt32 address,
+                    	              CDTrackInfoAddressType addressType,
+                    	              UInt16 *actualByteCount);
+
+    OSMetaClassDeclareReservedUsed(IOCDBlockStorageDevice, 4); /* 10.1.3 */
+
     OSMetaClassDeclareReservedUnused(IOCDBlockStorageDevice,  5);
     OSMetaClassDeclareReservedUnused(IOCDBlockStorageDevice,  6);
     OSMetaClassDeclareReservedUnused(IOCDBlockStorageDevice,  7);

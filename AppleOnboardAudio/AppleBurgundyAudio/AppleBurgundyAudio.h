@@ -60,20 +60,26 @@ protected:
     // Register Mirrors:
     UInt32               		soundControlRegister;
     UInt32                		CodecControlRegister[8];
-    UInt32				currentOutputMuteReg;
+    UInt32						currentOutputMuteReg;
     UInt32               		lastStatusRegister;
 
-    UInt8				mirrorVGAReg[4];
-    int    localSettlingTime[5];
+    UInt8						mirrorVGAReg[4];
+    int    						localSettlingTime[5];
 
-    bool mIsMute;
-    bool mVolumeMuteIsActive;
-    UInt32 curInsense;
-    UInt32 mVolRight, mVolLeft;
-    UInt32 mMuxMix;
-    UInt32 mLogicalInput; //keep track of the latest input
-    bool  duringInitialization;
-    bool	gCanPollSatus;
+    bool 						mIsMute;
+	Boolean						mModemActive;
+	Boolean						mInternalSpeakerActive;
+	Boolean						mExternalSpeakerActive;
+	Boolean						mHeadphonesActive;
+	Boolean						mMonoSpeakerActive;
+    bool 						mVolumeMuteIsActive;
+    UInt32 						curInsense;
+    UInt32 						mVolRight;
+	UInt32						mVolLeft;
+    UInt32 						mMuxMix;
+    UInt32 						mLogicalInput; // keep track of the latest input
+    bool  						duringInitialization;
+    bool						gCanPollSatus;
 
 public:
         //Classical Unix function

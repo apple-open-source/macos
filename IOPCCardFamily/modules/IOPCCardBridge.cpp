@@ -926,11 +926,6 @@ IOPCCardBridge::cardEventHandler(cs_event_t event, int priority,
 		break;
 	    } 
 
-	    if (status.CardState & CS_EVENT_XVCARD) {
-		IOLog("IOPCCard: ZoomVideo Cards are not supported at this time\n");
-		break;
-	    }
-
 	    int has_cis = 0;
 	    cisinfo_t cisinfo;
 	    ret = CardServices(ValidateCIS, s->handle, &cisinfo, NULL);
@@ -1446,27 +1441,35 @@ IOPCCardBridge::setBridgePowerState(unsigned long powerState,
 	if ((powerState == kIOPCIDeviceOnState) || (powerState == 1)) {
 	    if (!(s->state & SOCKET_SUSPEND)) return IOPMAckImplied;
 	    s->state &= ~SOCKET_SUSPEND;
-	    
-	    // MACOSXXX - should check here if cards have been inserted or removed
 
-	    if (s->state & SOCKET_CONFIG) {
-		ret = CardServices(ResumeCard, s->configHandle, NULL, NULL);
+	    bridgeDevice->enableInterrupt(0);
+
+	    if (s->state & SOCKET_PRESENT) {
+		ret = CardServices(ResumeCard, s->handle, NULL, NULL);
 		if (ret) cs_error(s->configHandle, ResumeCard, ret);
-		
-		return 1000000;  // max time to power up in usec
+
+		// return the max time to power up in usec
+		// CS can take over to 5 seconds to reset a card in
+		// the worse case, add another second for scheduler delays
+		return 6000000;
 	    }
+
 	} else if (powerState == kIOPCIDeviceOffState) {
 	    if (s->state & SOCKET_SUSPEND) return IOPMAckImplied;
 	    s->state |= SOCKET_SUSPEND;
 	    
 	    if (s->state & SOCKET_CONFIG) {
-
 		ret = CardServices(ReleaseConfiguration, s->configHandle, &s->config, NULL);
 		if (ret) cs_error(s->configHandle, ReleaseConfiguration, ret);
+	    }
 
-		ret = CardServices(SuspendCard, s->configHandle, NULL, NULL);
+	    if (s->state & SOCKET_PRESENT) {
+		ret = CardServices(SuspendCard, s->handle, NULL, NULL);
 		if (ret) cs_error(s->configHandle, SuspendCard, ret);
-	    }	
+	    }
+	    
+	    // disable interrupts over sleep
+	    bridgeDevice->disableInterrupt(0);
 	}
     }
     return IOPMAckImplied;

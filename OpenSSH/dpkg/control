@@ -1,9 +1,9 @@
 Package: openssh
-Maintainer: Wilfredo Sanchez <wsanchez@apple.com>
+Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
 Vendor: OpenSSH Project
-Version: 2.5.2p2
+Version: 3.0.2p1
 URL: http://www.openssh.com/portable.html
-Build-Depends: build-base, openssl, zlib, perl
+Build-Depends: build-base, openssl, zlib, perl, libinfo
 Description: Secure Shell
  Ssh (Secure Shell) is a program to log into another computer over a
  network, to execute commands in a remote machine, and to move files

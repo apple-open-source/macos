@@ -25,6 +25,14 @@
 
 #include <IOKit/IOTypes.h>
 
+#if defined(KERNEL)
+#include <libkern/OSByteOrder.h>
+#else /* !defined(KERNEL) */
+#include <architecture/byte_order.h>
+#endif /* !defined(KERNEL) */
+
+#pragma pack(1)                              /* (enable 8-bit struct packing) */
+
 /*
  * Minutes, Seconds, Frames (M:S:F)
  *
@@ -84,7 +92,7 @@ typedef struct
  * Table Of Contents
  *
  * All CDTOC fields passed across I/O Kit APIs are guaranteed to be
- * binary-encoded numbers (not BCD) and converted to host-endianess.
+ * binary-encoded numbers (no BCD-encoded numbers are ever passed).
  */
 
 typedef struct
@@ -109,6 +117,21 @@ typedef struct
     UInt8           sessionLast;
     CDTOCDescriptor descriptors[0];
 } CDTOC;
+
+/*
+ * Table Of Contents Descriptor Count Convenience Function
+ */
+
+static UInt32 __inline CDTOCGetDescriptorCount(CDTOC * toc)
+{
+#if defined(KERNEL)
+    return ( OSSwapBigToHostInt16(toc->length) - sizeof(UInt16) )
+           / sizeof(CDTOCDescriptor);
+#else /* !defined(KERNEL) */
+    return ( NXSwapBigShortToHost(toc->length) - sizeof(UInt16) )
+           / sizeof(CDTOCDescriptor);
+#endif /* !defined(KERNEL) */
+}
 
 /*
  * M:S:F To LBA Convenience Function
@@ -145,7 +168,7 @@ static CDMSF __inline CDConvertLBAToMSF(UInt32 lba)
 
 static CDMSF __inline CDConvertTrackNumberToMSF(UInt8 track, CDTOC * toc)
 {
-    UInt32 count = (toc->length - sizeof(UInt16)) / sizeof(CDTOCDescriptor);
+    UInt32 count = CDTOCGetDescriptorCount(toc);
     UInt32 i;
     CDMSF  msf   = { 0xFF, 0xFF, 0xFF };
 
@@ -229,5 +252,234 @@ typedef enum
 
 #define kCDSpeedMin 0x00B0
 #define kCDSpeedMax 0xFFFF
+
+/*
+ * MMC Formats
+ */
+
+// Read Table Of Contents Format Types
+typedef UInt8 CDTOCFormat;
+enum
+{
+    kCDTOCFormatTOC  = 0x02, // CDTOC
+    kCDTOCFormatPMA  = 0x03, // CDPMA
+    kCDTOCFormatATIP = 0x04, // CDATIP
+    kCDTOCFormatTEXT = 0x05  // CDTEXT
+};
+
+// Read Table Of Contents Format 0x03
+struct CDPMADescriptor
+{
+    UInt8 reserved;
+#if defined(__LITTLE_ENDIAN__)
+    UInt8 control:4, adr:4;
+#else /* !defined(__LITTLE_ENDIAN__) */
+    UInt8 adr:4, control:4;
+#endif /* !defined(__LITTLE_ENDIAN__) */
+    UInt8 tno;
+    UInt8 point;
+    CDMSF address;
+    UInt8 zero;
+    CDMSF p;
+};
+typedef struct CDPMADescriptor CDPMADescriptor;
+
+struct CDPMA
+{
+    UInt16          dataLength;
+    UInt8           reserved;
+    UInt8           reserved2;
+    CDPMADescriptor descriptors[0];
+};
+typedef struct CDPMA CDPMA;
+
+// Read Table Of Contents Format 0x04
+struct CDATIP
+{
+    UInt16 dataLength;
+    UInt8  reserved[2];
+#if defined(__LITTLE_ENDIAN__)
+    UInt8  referenceSpeed:3;
+    UInt8  reserved3:1;
+    UInt8  indicativeTargetWritingPower:3;
+    UInt8  reserved2:1;
+
+    UInt8  reserved5:6;
+    UInt8  unrestrictedUse:1;
+    UInt8  reserved4:1;
+
+    UInt8  a3Valid:1;
+    UInt8  a2Valid:1;
+    UInt8  a1Valid:1;
+    UInt8  discSubType:3;
+    UInt8  discType:1;
+    UInt8  reserved6:1;
+#else /* !defined(__LITTLE_ENDIAN__) */
+    UInt8  reserved2:1;
+    UInt8  indicativeTargetWritingPower:3;
+    UInt8  reserved3:1;
+    UInt8  referenceSpeed:3;
+
+    UInt8  reserved4:1;
+    UInt8  unrestrictedUse:1;
+    UInt8  reserved5:6;
+
+    UInt8  reserved6:1;
+    UInt8  discType:1;
+    UInt8  discSubType:3;
+    UInt8  a1Valid:1;
+    UInt8  a2Valid:1;
+    UInt8  a3Valid:1;
+#endif /* !defined(__LITTLE_ENDIAN__) */
+    UInt8  reserved7;
+    CDMSF  startTimeOfLeadIn;
+    UInt8  reserved8;
+    CDMSF  lastPossibleStartTimeOfLeadOut;
+    UInt8  reserved9;
+    UInt8  a1[3];
+    UInt8  reserved10;
+    UInt8  a2[3];
+    UInt8  reserved11;
+    UInt8  a3[3];
+    UInt8  reserved12;
+};
+typedef struct CDATIP CDATIP;
+
+// Read Table Of Contents Format 0x05
+struct CDTEXTDescriptor
+{
+    UInt8 packType;
+    UInt8 trackNumber;
+    UInt8 sequenceNumber;
+#if defined(__LITTLE_ENDIAN__)
+    UInt8 characterPosition:4;
+    UInt8 blockNumber:3;
+    UInt8 doubleByteCharacterCode:1;
+#else /* !defined(__LITTLE_ENDIAN__) */
+    UInt8 doubleByteCharacterCode:1;
+    UInt8 blockNumber:3;
+    UInt8 characterPosition:4;
+#endif /* !defined(__LITTLE_ENDIAN__) */
+    UInt8 textData[12];
+    UInt8 reserved[2];
+};
+typedef struct CDTEXTDescriptor CDTEXTDescriptor;
+
+struct CDTEXT
+{
+    UInt16           dataLength;
+    UInt8            reserved;
+    UInt8            reserved2;
+    CDTEXTDescriptor descriptors[0];
+};
+typedef struct CDTEXT CDTEXT;
+
+// Read Disc Information Format
+struct CDDiscInfo
+{
+    UInt16 dataLength;
+#if defined(__LITTLE_ENDIAN__)
+    UInt8  discStatus:2;
+    UInt8  stateOfLastSession:2;
+    UInt8  erasable:1;
+    UInt8  reserved:3;
+#else /* !defined(__LITTLE_ENDIAN__) */
+    UInt8  reserved:3;
+    UInt8  erasable:1;
+    UInt8  stateOfLastSession:2;
+    UInt8  discStatus:2;
+#endif /* !defined(__LITTLE_ENDIAN__) */
+    UInt8  numberOfFirstTrack;
+    UInt8  numberOfSessionsLSB;
+    UInt8  firstTrackNumberInLastSessionLSB;
+    UInt8  lastTrackNumberInLastSessionLSB;
+#if defined(__LITTLE_ENDIAN__)
+    UInt8  reserved3:5;
+    UInt8  unrestrictedUse:1;
+    UInt8  discBarCodeValid:1;
+    UInt8  discIdentificationValid:1;
+#else /* !defined(__LITTLE_ENDIAN__) */
+    UInt8  discIdentificationValid:1;
+    UInt8  discBarCodeValid:1;
+    UInt8  unrestrictedUse:1;
+    UInt8  reserved3:5;
+#endif /* !defined(__LITTLE_ENDIAN__) */
+    UInt8  discType;
+    UInt8  numberOfSessionsMSB;
+    UInt8  firstTrackNumberInLastSessionMSB;
+    UInt8  lastTrackNumberInLastSessionMSB;
+    UInt32 discIdentification;
+    UInt8  reserved7;
+    CDMSF  lastSessionLeadInStartTime;
+    UInt8  reserved8;
+    CDMSF  lastPossibleStartTimeOfLeadOut;
+    UInt8  discBarCode[8];
+    UInt8  reserved9;
+    UInt8  numberOfOPCTableEntries;
+    UInt8  opcTableEntries[0];
+};
+typedef struct CDDiscInfo CDDiscInfo;
+
+// Read Track Information Address Types
+typedef UInt8 CDTrackInfoAddressType;
+enum
+{
+    kCDTrackInfoAddressTypeLBA           = 0x00,
+    kCDTrackInfoAddressTypeTrackNumber   = 0x01,
+    kCDTrackInfoAddressTypeSessionNumber = 0x02,
+};
+
+// Read Track Information Format
+struct CDTrackInfo
+{
+    UInt16 dataLength;
+    UInt8  trackNumberLSB;
+    UInt8  sessionNumberLSB;
+    UInt8  reserved;
+#if defined(__LITTLE_ENDIAN__)
+    UInt8  trackMode:4;
+    UInt8  copy:1;
+    UInt8  damage:1;
+    UInt8  reserved3:2;
+
+    UInt8  dataMode:4;
+    UInt8  fixedPacket:1;
+    UInt8  packet:1;
+    UInt8  blank:1;
+    UInt8  reservedTrack:1;
+
+    UInt8  nextWritableAddressValid:1;
+    UInt8  lastRecordedAddressValid:1;
+    UInt8  reserved5:6;
+#else /* !defined(__LITTLE_ENDIAN__) */
+    UInt8  reserved3:2;
+    UInt8  damage:1;
+    UInt8  copy:1;
+    UInt8  trackMode:4;
+
+    UInt8  reservedTrack:1;
+    UInt8  blank:1;
+    UInt8  packet:1;
+    UInt8  fixedPacket:1;
+    UInt8  dataMode:4;
+
+    UInt8  reserved5:6;
+    UInt8  lastRecordedAddressValid:1;
+    UInt8  nextWritableAddressValid:1;
+#endif /* !defined(__LITTLE_ENDIAN__) */
+    UInt32 trackStartAddress;
+    UInt32 nextWritableAddress;
+    UInt32 freeBlocks;
+    UInt32 fixedPacketSize;
+    UInt32 trackSize;
+    UInt32 lastRecordedAddress;
+    UInt8  trackNumberMSB;
+    UInt8  sessionNumberMSB;
+    UInt8  reserved6;
+    UInt8  reserved7;
+};
+typedef struct CDTrackInfo CDTrackInfo;
+
+#pragma options align=reset              /* (reset to default struct packing) */
 
 #endif /* _IOCDTYPES_H */

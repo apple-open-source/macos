@@ -34,7 +34,7 @@
 .\" (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 .\" THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 .\"
-.\" $OpenBSD: sshd.8,v 1.120 2001/04/22 23:58:36 markus Exp $
+.\" $OpenBSD: sshd.8,v 1.154 2001/11/07 22:12:01 markus Exp $
 .Dd September 25, 1999
 .Dt SSHD 8
 .Os
@@ -43,7 +43,7 @@
 .Nd OpenSSH SSH daemon
 .Sh SYNOPSIS
 .Nm sshd
-.Op Fl deiqD46
+.Op Fl deiqtD46
 .Op Fl b Ar bits
 .Op Fl f Ar config_file
 .Op Fl g Ar login_grace_time
@@ -51,7 +51,6 @@
 .Op Fl k Ar key_gen_time
 .Op Fl p Ar port
 .Op Fl u Ar len
-.Op Fl V Ar client_protocol_id
 .Sh DESCRIPTION
 .Nm
 (SSH Daemon) is the daemon program for
@@ -118,9 +117,8 @@ configuration file if desired.
 System security is not improved unless
 .Xr rshd 8 ,
 .Xr rlogind 8 ,
-.Xr rexecd 8 ,
 and
-.Xr rexd 8
+.Xr rexecd 8
 are disabled (thus completely disabling
 .Xr rlogin 1
 and
@@ -130,7 +128,7 @@ into the machine).
 .Ss SSH protocol version 2
 .Pp
 Version 2 works similarly:
-Each host has a host-specific DSA key used to identify the host.
+Each host has a host-specific key (RSA or DSA) used to identify the host.
 However, when the daemon starts, it does not generate a server key.
 Forward security is provided through a Diffie-Hellman key agreement.
 This key agreement results in a shared session key.
@@ -176,7 +174,7 @@ configuration file.
 .Nm
 rereads its configuration file when it receives a hangup signal,
 .Dv SIGHUP ,
-by executing itself with the name it was started as, ie.
+by executing itself with the name it was started as, i.e.,
 .Pa /usr/sbin/sshd .
 .Pp
 The options are as follows:
@@ -184,7 +182,6 @@ The options are as follows:
 .It Fl b Ar bits
 Specifies the number of bits in the ephemeral protocol version 1
 server key (default 768).
-.Pp
 .It Fl d
 Debug mode.
 The server sends verbose debug output to the system
@@ -248,6 +245,12 @@ Quiet mode.
 Nothing is sent to the system log.
 Normally the beginning,
 authentication, and termination of each connection is logged.
+.It Fl t
+Test mode.
+Only check the validity of the configuration file and sanity of the keys.
+This is useful for updating 
+.Nm
+reliably as configuration options may change.
 .It Fl u Ar len
 This option is used to specify the size of the field
 in the
@@ -264,6 +267,18 @@ indicates that only dotted decimal addresses
 should be put into the
 .Pa utmp
 file.
+.Fl u0
+is also be used to prevent
+.Nm
+from making DNS requests unless the authentication
+mechanism or configuration requires it.
+Authentication mechanisms that may require DNS include
+.Cm RhostsAuthentication ,
+.Cm RhostsRSAAuthentication ,
+.Cm HostbasedAuthentication
+and using a
+.Cm from="pattern-list"
+option in a key file.
 .It Fl D
 When this option is specified
 .Nm
@@ -286,12 +301,14 @@ reads configuration data from
 (or the file specified with
 .Fl f
 on the command line).
-The file contains keyword-value pairs, one per line.
+The file contains keyword-argument pairs, one per line.
 Lines starting with
 .Ql #
 and empty lines are interpreted as comments.
 .Pp
-The following keywords are possible.
+The possible
+keywords and their meanings are as follows (note that
+keywords are case-insensitive and arguments are case-sensitive):
 .Bl -tag -width Ds
 .It Cm AFSTokenPassing
 Specifies whether an AFS token may be forwarded to the server.
@@ -307,7 +324,7 @@ and
 .Ql ?
 can be used as
 wildcards in the patterns.
-Only group names are valid; a numerical group ID isn't recognized.
+Only group names are valid; a numerical group ID is not recognized.
 By default login is allowed regardless of the group list.
 .Pp
 .It Cm AllowTcpForwarding
@@ -328,9 +345,26 @@ and
 .Ql ?
 can be used as
 wildcards in the patterns.
-Only user names are valid; a numerical user ID isn't recognized.
+Only user names are valid; a numerical user ID is not recognized.
 By default login is allowed regardless of the user name.
+If the pattern takes the form USER@HOST then USER and HOST
+are separately checked, restricting logins to particular
+users from particular hosts.
 .Pp
+.It Cm AuthorizedKeysFile
+Specifies the file that contains the public keys that can be used
+for user authentication.
+.Cm AuthorizedKeysFile
+may contain tokens of the form %T which are substituted during connection
+set-up. The following tokens are defined: %% is replaced by a literal '%',
+%h is replaced by the home directory of the user being authenticated and
+%u is replaced by the username of that user.
+After expansion,
+.Cm AuthorizedKeysFile
+is taken to be an absolute path or one relative to the user's home
+directory.
+The default is
+.Dq .ssh/authorized_keys
 .It Cm Banner
 In some jurisdictions, sending a warning message before authentication
 may be relevant for getting legal protection.
@@ -339,12 +373,10 @@ authentication is allowed.
 This option is only available for protocol version 2.
 .Pp
 .It Cm ChallengeResponseAuthentication
-Specifies whether
-challenge response
-authentication is allowed.
-Currently there is only support for
-.Xr skey 1
-authentication.
+Specifies whether challenge response authentication is allowed.
+All authentication styles from
+.Xr login.conf 5
+are supported.
 The default is
 .Dq yes .
 .It Cm Ciphers
@@ -352,15 +384,9 @@ Specifies the ciphers allowed for protocol version 2.
 Multiple ciphers must be comma-separated.
 The default is
 .Dq aes128-cbc,3des-cbc,blowfish-cbc,cast128-cbc,arcfour.
-.It Cm CheckMail
-Specifies whether
-.Nm
-should check for new mail for interactive logins.
-The default is
-.Dq no .
 .It Cm ClientAliveInterval
 Sets a timeout interval in seconds after which if no data has been received
-from the client, 
+from the client,
 .Nm
 will send a message through the encrypted
 channel to request a response from the client.
@@ -372,23 +398,24 @@ Sets the number of client alive messages (see above) which may be
 sent without
 .Nm
 receiving any messages back from the client. If this threshold is
-reached while client alive messages are being sent, 
+reached while client alive messages are being sent,
 .Nm
 will disconnect the client, terminating the session. It is important
-to note that the use of client alive messages is very different from 
-.Cm Keepalive
+to note that the use of client alive messages is very different from
+.Cm KeepAlive
 (below). The client alive messages are sent through the
 encrypted channel and therefore will not be spoofable. The TCP keepalive
 option enabled by
-.Cm Keepalive
-is spoofable. You want to use the client
-alive mechanism when you are basing something important on
-clients having an active connection to the server.
+.Cm KeepAlive
+is spoofable. The client alive mechanism is valuable when the client or
+server depend on knowing when a connection has become inactive.
 .Pp
-The default value is 3. If you set
+The default value is 3. If
 .Cm ClientAliveInterval
-(above) to 15, and leave this value at the default, unresponsive ssh clients
-will be disconnected after approximately 45 seconds. 
+(above) is set to 15, and
+.Cm ClientAliveCountMax
+is left at the default, unresponsive ssh clients
+will be disconnected after approximately 45 seconds.
 .It Cm DenyGroups
 This keyword can be followed by a number of group names, separated
 by spaces.
@@ -399,7 +426,7 @@ and
 .Ql ?
 can be used as
 wildcards in the patterns.
-Only group names are valid; a numerical group ID isn't recognized.
+Only group names are valid; a numerical group ID is not recognized.
 By default login is allowed regardless of the group list.
 .Pp
 .It Cm DenyUsers
@@ -410,11 +437,20 @@ Login is disallowed for user names that match one of the patterns.
 and
 .Ql ?
 can be used as wildcards in the patterns.
-Only user names are valid; a numerical user ID isn't recognized.
+Only user names are valid; a numerical user ID is not recognized.
 By default login is allowed regardless of the user name.
 .It Cm GatewayPorts
 Specifies whether remote hosts are allowed to connect to ports
 forwarded for the client.
+By default,
+.Nm
+binds remote port forwardings to the loopback addresss.  This
+prevents other remote hosts from connecting to forwarded ports.
+.Cm GatewayPorts
+can be used to specify that
+.Nm
+should bind remote port forwardings to the wildcard address,
+thus allowing remote hosts to connect to forwarded ports.
 The argument must be
 .Dq yes
 or
@@ -586,11 +622,7 @@ The MAC algorithm is used in protocol version 2
 for data integrity protection.
 Multiple algorithms must be comma-separated.
 The default is
-.Pp
-.Bd -literal
-  ``hmac-md5,hmac-sha1,hmac-ripemd160,hmac-ripemd160@openssh.com,
-    hmac-sha1-96,hmac-md5-96''
-.Ed
+.Dq hmac-md5,hmac-sha1,hmac-ripemd160,hmac-sha1-96,hmac-md5-96 .
 .It Cm MaxStartups
 Specifies the maximum number of concurrent unauthenticated connections to the
 .Nm
@@ -772,11 +804,18 @@ The default is AUTH.
 Specifies whether
 .Xr login 1
 is used for interactive login sessions.
+The default is
+.Dq no .
 Note that
 .Xr login 1
 is never used for remote command execution.
-The default is
-.Dq no .
+Note also, that if this is enabled,
+.Cm X11Forwarding
+will be disabled because
+.Xr login 1
+does not know how to handle
+.Xr xauth 1
+cookies.
 .It Cm X11DisplayOffset
 Specifies the first display number available for
 .Nm sshd Ns 's
@@ -791,12 +830,57 @@ The default is
 .Dq no .
 Note that disabling X11 forwarding does not improve security in any
 way, as users can always install their own forwarders.
+X11 forwarding is automatically disabled if
+.Cm UseLogin
+is enabled.
 .It Cm XAuthLocation
 Specifies the location of the
 .Xr xauth 1
 program.
 The default is
 .Pa /usr/X11R6/bin/xauth .
+.El
+.Ss Time Formats
+.Pp
+.Nm
+command-line arguments and configuration file options that specify time
+may be expressed using a sequence of the form:
+.Sm off
+.Ar time Oo Ar qualifier Oc ,
+.Sm on
+where
+.Ar time
+is a positive integer value and
+.Ar qualifier
+is one of the following:
+.Pp
+.Bl -tag -width Ds -compact -offset indent
+.It Cm <none>
+seconds
+.It Cm s | Cm S
+seconds
+.It Cm m | Cm M
+minutes
+.It Cm h | Cm H
+hours
+.It Cm d | Cm D
+days
+.It Cm w | Cm W
+weeks
+.El
+.Pp
+Each member of the sequence is added together to calculate
+the total time value.
+.Pp
+Time format examples:
+.Pp
+.Bl -tag -width Ds -compact -offset indent
+.It 600
+600 seconds (10 minutes)
+.It 10m
+10 minutes
+.It 1h30m
+1 hour 30 minutes (90 minutes)
 .El
 .Sh LOGIN PROCESS
 When a user successfully logs in,
@@ -844,15 +928,13 @@ authentication protocol and cookie in standard input.
 Runs user's shell or command.
 .El
 .Sh AUTHORIZED_KEYS FILE FORMAT
-The
 .Pa $HOME/.ssh/authorized_keys
-file lists the RSA keys that are
+is the default file that lists the public keys that are
 permitted for RSA authentication in protocol version 1
-Similarly, the
-.Pa $HOME/.ssh/authorized_keys2
-file lists the DSA and RSA keys that are
-permitted for public key authentication (PubkeyAuthentication)
+and for public key authentication (PubkeyAuthentication)
 in protocol version 2.
+.Cm AuthorizedKeysFile
+may be used to specify an alternative file.
 .Pp
 Each line of the file contains one
 key (empty lines and lines starting with a
@@ -887,7 +969,8 @@ file and edit it.
 The options (if present) consist of comma-separated option
 specifications.
 No spaces are permitted, except within double quotes.
-The following option specifications are supported:
+The following option specifications are supported (note
+that option keywords are case-insensitive):
 .Bl -tag -width Ds
 .It Cm from="pattern-list"
 Specifies that in addition to RSA authentication, the canonical name
@@ -913,10 +996,10 @@ just the key).
 Specifies that the command is executed whenever this key is used for
 authentication.
 The command supplied by the user (if any) is ignored.
-The command is run on a pty if the connection requests a pty;
+The command is run on a pty if the client requests a pty;
 otherwise it is run without a tty.
-Note that if you want a 8-bit clean channel,
-you must not request a pty or should specify
+If a 8-bit clean channel is required,
+one must not request a pty or should specify
 .Cm no-pty .
 A quote may be included in the command by quoting it with a backslash.
 This option might be useful
@@ -924,12 +1007,16 @@ to restrict certain RSA keys to perform just a specific operation.
 An example might be a key that permits remote backups but nothing else.
 Note that the client may specify TCP/IP and/or X11
 forwarding unless they are explicitly prohibited.
+Note that this option applies to shell, command or subsystem execution.
 .It Cm environment="NAME=value"
 Specifies that the string is to be added to the environment when
 logging in using this key.
 Environment variables set this way
 override other default environment values.
 Multiple options of this type are permitted.
+This option is automatically disabled if
+.Cm UseLogin
+is enabled.
 .It Cm no-port-forwarding
 Forbids TCP/IP forwarding when this key is used for authentication.
 Any port forward requests by the client will return an error.
@@ -945,13 +1032,16 @@ authentication.
 .It Cm no-pty
 Prevents tty allocation (a request to allocate a pty will fail).
 .It Cm permitopen="host:port"
-Limit local 
+Limit local
 .Li ``ssh -L''
 port forwarding such that it may only connect to the specified host and
-port. Multiple 
+port.
+IPv6 addresses can be specified with an alternative syntax:
+.Ar host/port .
+Multiple
 .Cm permitopen
-options may be applied separated by commas. No pattern matching is 
-performed on the specified hostnames, they must be literal domains or 
+options may be applied separated by commas. No pattern matching is
+performed on the specified hostnames, they must be literal domains or
 addresses.
 .El
 .Ss Examples
@@ -965,10 +1055,8 @@ permitopen="10.2.1.55:80",permitopen="10.2.1.56:25" 1024 33 23.\|.\|.\|2323
 .Sh SSH_KNOWN_HOSTS FILE FORMAT
 The
 .Pa /etc/ssh_known_hosts ,
-.Pa /etc/ssh_known_hosts2 ,
-.Pa $HOME/.ssh/known_hosts ,
 and
-.Pa $HOME/.ssh/known_hosts2
+.Pa $HOME/.ssh/known_hosts
 files contain host public keys for all known hosts.
 The global file should
 be prepared by the administrator (optional), and the per-user file is
@@ -1044,7 +1132,7 @@ really used for anything; they are provided for the convenience of
 the user so their contents can be copied to known hosts files.
 These files are created using
 .Xr ssh-keygen 1 .
-.It Pa /etc/primes
+.It Pa /etc/moduli
 Contains Diffie-Hellman groups used for the "Diffie-Hellman Group Exchange".
 .It Pa /var/run/sshd.pid
 Contains the process ID of the
@@ -1054,17 +1142,6 @@ concurrently for different ports, this contains the pid of the one
 started last).
 The content of this file is not sensitive; it can be world-readable.
 .It Pa $HOME/.ssh/authorized_keys
-Lists the RSA keys that can be used to log into the user's account.
-This file must be readable by root (which may on some machines imply
-it being world-readable if the user's home directory resides on an NFS
-volume).
-It is recommended that it not be accessible by others.
-The format of this file is described above.
-Users will place the contents of their
-.Pa identity.pub
-files into this file, as described in
-.Xr ssh-keygen 1 .
-.It Pa $HOME/.ssh/authorized_keys2
 Lists the public keys (RSA or DSA) that can be used to log into the user's account.
 This file must be readable by root (which may on some machines imply
 it being world-readable if the user's home directory resides on an NFS
@@ -1072,6 +1149,7 @@ volume).
 It is recommended that it not be accessible by others.
 The format of this file is described above.
 Users will place the contents of their
+.Pa identity.pub ,
 .Pa id_dsa.pub
 and/or
 .Pa id_rsa.pub
@@ -1079,7 +1157,8 @@ files into this file, as described in
 .Xr ssh-keygen 1 .
 .It Pa "/etc/ssh_known_hosts" and "$HOME/.ssh/known_hosts"
 These files are consulted when using rhosts with RSA host
-authentication to check the public key of the host.
+authentication or protocol version 2 hostbased authentication
+to check the public key of the host.
 The key must be listed in one of these files to be accepted.
 The client uses the same files
 to verify that it is connecting to the correct remote host.
@@ -1087,17 +1166,6 @@ These files should be writable only by root/the owner.
 .Pa /etc/ssh_known_hosts
 should be world-readable, and
 .Pa $HOME/.ssh/known_hosts
-can but need not be world-readable.
-.It Pa "/etc/ssh_known_hosts2" and "$HOME/.ssh/known_hosts2"
-These files are consulted when using protocol version 2 hostbased
-authentication to check the public key of the host.
-The key must be listed in one of these files to be accepted.
-The client uses the same files
-to verify that it is connecting to the correct remote host.
-These files should be writable only by root/the owner.
-.Pa /etc/ssh_known_hosts2
-should be world-readable, and
-.Pa $HOME/.ssh/known_hosts2
 can but need not be world-readable.
 .It Pa /etc/nologin
 If this file exists,
@@ -1108,9 +1176,8 @@ are displayed to anyone trying to log in, and non-root connections are
 refused.
 The file should be world-readable.
 .It Pa /etc/hosts.allow, /etc/hosts.deny
-If compiled with
-.Sy LIBWRAP
-support, tcp-wrappers access controls may be defined here as described in
+Access controls that should be enforced by tcp-wrappers are defined here.
+Further details are described in
 .Xr hosts_access 5 .
 .It Pa $HOME/.rhosts
 This file contains host-username pairs, separated by a space, one per
@@ -1229,13 +1296,13 @@ protocol versions 1.5 and 2.0.
 .Sh SEE ALSO
 .Xr scp 1 ,
 .Xr sftp 1 ,
-.Xr sftp-server 8 ,
 .Xr ssh 1 ,
 .Xr ssh-add 1 ,
 .Xr ssh-agent 1 ,
 .Xr ssh-keygen 1 ,
-.Xr rlogin 1 ,
-.Xr rsh 1
+.Xr login.conf 5 ,
+.Xr moduli 5 ,
+.Xr sftp-server 8
 .Rs
 .%A T. Ylonen
 .%A T. Kivinen
@@ -1243,8 +1310,8 @@ protocol versions 1.5 and 2.0.
 .%A T. Rinne
 .%A S. Lehtinen
 .%T "SSH Protocol Architecture"
-.%N draft-ietf-secsh-architecture-07.txt
-.%D January 2001
+.%N draft-ietf-secsh-architecture-09.txt
+.%D July 2001
 .%O work in progress material
 .Re
 .Rs
@@ -1252,7 +1319,7 @@ protocol versions 1.5 and 2.0.
 .%A N. Provos
 .%A W. A. Simpson
 .%T "Diffie-Hellman Group Exchange for the SSH Transport Layer Protocol"
-.%N draft-ietf-secsh-dh-group-exchange-00.txt
-.%D January 2001
+.%N draft-ietf-secsh-dh-group-exchange-01.txt
+.%D April 2001
 .%O work in progress material
 .Re

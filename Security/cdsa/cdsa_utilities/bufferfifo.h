@@ -54,6 +54,7 @@ public:
     
     // Sink implementation
     void consume(const void *data, size_t size);
+    void clearBuffer();
 
 private:
     typedef queue< Buffer *, list<Buffer *> > BufferQueue;

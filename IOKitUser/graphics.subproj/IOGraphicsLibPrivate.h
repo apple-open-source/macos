@@ -96,6 +96,7 @@ struct IOFBConnect {
     IODisplayModeID		defaultMode;
     IOIndex			defaultDepth;
     UInt32			ovrFlags;
+    Boolean			suppressRefresh;
 
     const IOFBMessageCallbacks * clientCallbacks;
     void *			 clientCallbackRef;

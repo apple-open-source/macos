@@ -175,7 +175,7 @@ bool AppleOWScreamerAudio::start(IOService *provider)
     ioBase = (awacsOW_regmap_t *)map->getVirtualAddress();
 
     driverDMAEngine = new AppleDBDMAAudioDMAEngine;
-    if (!driverDMAEngine->init(0, provider, NULL, true)) {
+    if (!driverDMAEngine->init(0, provider, true)) {
         driverDMAEngine->release();
         return false;
     }

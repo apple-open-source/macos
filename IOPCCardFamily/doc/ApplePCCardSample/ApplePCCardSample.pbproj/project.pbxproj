@@ -144,8 +144,27 @@
 	<string>1.0.0d1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
+		<key>Serial Card</key>
+		<dict>
+			<key> comment</key>
+			<string> this is an example of function name matching</string>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.ApplePCCardSample</string>
+			<key>FunctionName</key>
+			<string>Serial Port</string>
+			<key>IOClass</key>
+			<string>ApplePCCardSample</string>
+			<key>IOKitDebug</key>
+			<integer>65535</integer>
+			<key>IOProbeScore</key>
+			<integer>1000</integer>
+			<key>IOProviderClass</key>
+			<string>IOPCCard16Device</string>
+		</dict>
 		<key>WaveLAN</key>
 		<dict>
+			<key> comment</key>
+			<string>this is an example of version one tuple matching</string>
 			<key>CFBundleIdentifier</key>
 			<string>com.apple.iokit.ApplePCCardSample</string>
 			<key>IOClass</key>
@@ -153,7 +172,7 @@
 			<key>IOKitDebug</key>
 			<integer>65535</integer>
 			<key>IOProbeScore</key>
-			<integer>1000</integer>
+			<integer>10000</integer>
 			<key>IOProviderClass</key>
 			<string>IOPCCard16Device</string>
 			<key>VersionOneInfo</key>
@@ -164,6 +183,8 @@
 		</dict>
 		<key>everything else</key>
 		<dict>
+			<key> comment</key>
+			<string>this an example of specific vendor id/model id matching</string>
 			<key>CFBundleIdentifier</key>
 			<string>com.apple.iokit.ApplePCCardSample</string>
 			<key>IOClass</key>
@@ -177,15 +198,13 @@
 				<string>pccard0,0</string>
 				<string>pccard106,0</string>
 				<string>pccard149,c1ab</string>
-				<string>pccard18c,103</string>
 				<string>pccard1fd,0</string>
 				<string>pccard4e01,200</string>
-				<string>pccard4,2e</string>
 				<string>pccard89,8503</string>
 				<string>pccard89,8513</string>
 			</array>
 			<key>IOProbeScore</key>
-			<integer>1000</integer>
+			<integer>10000</integer>
 			<key>IOProviderClass</key>
 			<string>IOPCCard16Device</string>
 		</dict>

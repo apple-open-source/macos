@@ -219,7 +219,7 @@ OSSet * IOCDPartitionScheme::scan(SInt32 * score)
     toc = media->getTOC();
     if ( toc == 0 )  goto scanErr;
 
-    tocCount = (toc->length - sizeof(UInt16)) / sizeof(CDTOCDescriptor);
+    tocCount = CDTOCGetDescriptorCount(toc);
 
     // Allocate a list large enough to hold information about each session.
 
@@ -443,9 +443,46 @@ OSSet * IOCDPartitionScheme::scan(SInt32 * score)
         }
         else                                                 // (hidden tracks?)
         {
+            IOReturn status;
+
             trackBlockNext = tracks[trackMinIndex].block;
             trackBlockSize = kCDSectorSizeMode1;
             trackBlockType = kCDSectorTypeMode1;
+
+            // Read a whole sector from the hidden track into our buffer.
+
+///m:2333367:workaround:commented:start
+//          status = media->read( /* client    */ this,
+///m:2333367:workaround:commented:stop
+///m:2333367:workaround:added:start
+            status = media->IOStorage::read( /* client    */ this,
+///m:2333367:workaround:added:stop
+                                  /* byteStart */ 0,
+                                  /* buffer    */ buffer );
+
+            if ( status == kIOReturnSuccess )
+            {
+                UInt8 * sector = (UInt8 *) buffer->getBytesNoCopy();
+
+                // Determine whether this is an audio track.
+
+                if ( sector[ 0] != 0x00 ||
+                     sector[ 1] != 0xFF ||
+                     sector[ 2] != 0xFF ||
+                     sector[ 3] != 0xFF ||
+                     sector[ 4] != 0xFF ||
+                     sector[ 5] != 0xFF ||
+                     sector[ 6] != 0xFF ||
+                     sector[ 7] != 0xFF ||
+                     sector[ 8] != 0xFF ||
+                     sector[ 9] != 0xFF ||
+                     sector[10] != 0xFF ||
+                     sector[11] != 0x00 )
+                {
+                    trackBlockSize = kCDSectorSizeCDDA;
+                    trackBlockType = kCDSectorTypeCDDA;
+                }
+            }
         }
 
         trackSize = trackBlockNext * trackBlockSize;

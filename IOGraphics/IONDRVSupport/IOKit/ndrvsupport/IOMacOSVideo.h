@@ -351,6 +351,7 @@ enum {
     cscDoCommunication          = 33,                           /* Takes a VDCommunicationPtr */
     cscProbeConnection		= 34,				/* Takes nil pointer */
                                                                 /* (may generate a kFBConnectInterruptServiceType service interrupt) */
+    cscSetScaler		= 36,				/* Takes a VDScalerPtr */
     cscUnusedCall               = 127                           /* This call used to expand the scrn resource.  Its imbedded data contains more control info */
 };
 
@@ -387,7 +388,9 @@ enum {
     cscGetClutBehavior          = 29,                           /* Takes a VDClutBehavior */
     cscGetTimingRanges          = 30,                           /* Takes a VDDisplayTimingRangePtr */
     cscGetDetailedTiming        = 31,                           /* Takes a VDDetailedTimingPtr */
-    cscGetCommunicationInfo     = 32                            /* Takes a VDCommunicationInfoPtr */
+    cscGetCommunicationInfo     = 32,                            /* Takes a VDCommunicationInfoPtr */
+    cscGetScalerInfo		= 35,				/* Takes a VDScalerInfoPtr */
+    cscGetScaler		= 36				/* Takes a VDScalerPtr */
 };
 
 /* Bit definitions for the Get/Set Sync call*/
@@ -749,14 +752,22 @@ enum {
 
 /* VDCommunicationRec.csSendType and VDCommunicationRec.csReplyType values*/
 enum {
-    kVideoNoTransactionType     = 0,                            /* No transaction*/
-    kVideoSimpleI2CType         = 1,                            /* Simple I2C message*/
-    kVideoDDCciReplyType        = 2                             /* DDC/ci message (with imbedded length)*/
+    kVideoNoTransactionType     = 0,	/* No transaction*/
+    kVideoNoTransactionTypeMask = (1 << kVideoNoTransactionType),
+    kVideoSimpleI2CType         = 1,	/* Simple I2C message*/
+    kVideoSimpleI2CTypeMask     = (1 << kVideoSimpleI2CType),
+    kVideoDDCciReplyType        = 2,	/* DDC/ci message (with imbedded length)*/
+    kVideoDDCciReplyTypeMask    = (1 << kVideoDDCciReplyType),
+    kVideoCombinedI2CType       = 3,    /* Combined format I2C R/~W transaction*/
+    kVideoCombinedI2CTypeMask   = (1 << kVideoCombinedI2CType)
 };
 
 // VDCommunicationRec.csCommFlags and VDCommunicationInfoRec.csSupportedCommFlags
 enum {
-    kVideoReplyMicroSecDelayMask	= (1<<0)		/* If set, the driver should delay csMinReplyDelay micro seconds between send and receive*/
+    kVideoReplyMicroSecDelayBit   = 0,    /* If bit set, the driver should delay csMinReplyDelay micro seconds between send and receive*/
+    kVideoReplyMicroSecDelayMask  = (1 << kVideoReplyMicroSecDelayBit),
+    kVideoUsageAddrSubAddrBit     = 1,    /* If bit set, the driver understands to use the lower 16 bits of the address field as two 8 bit values (address/subaddress) for the I2C transaction*/
+    kVideoUsageAddrSubAddrMask    = (1 << kVideoUsageAddrSubAddrBit)
 };
 
 
@@ -1165,13 +1176,25 @@ struct VDDetailedTimingRec {
 typedef struct VDDetailedTimingRec      VDDetailedTimingRec;
 
 typedef VDDetailedTimingRec *           VDDetailedTimingPtr;
-typedef UInt32                          VDClutBehavior;
-typedef VDClutBehavior *                VDClutBehaviorPtr;
+
+/* csScalerFeatures */
+enum {
+    kScaleStretchOnlyMask	  = (1<<0),			/* True means the driver cannot add borders to avoid non-square pixels */
+    kScaleCanUpSamplePixelsMask	  = (1<<1),			/* True means timings with more active clocks than pixels (ie 640x480 pixels on a 1600x1200 timing) */
+    kScaleCanDownSamplePixelsMask = (1<<2)			/* True means timings with fewer active clocks than pixels (ie 1600x1200  pixels on a 640x480 timing) */
+};
+
+/* csScalerFlags */
+enum {
+    kScaleStretchToFitMask	  = (1<<0)			/* True means the driver should avoid borders and allow non-square pixels */
+};
+
+typedef UInt32			VDClutBehavior;
+typedef VDClutBehavior *	VDClutBehaviorPtr;
 enum {
     kSetClutAtSetEntries        = 0,                            /* SetEntries behavior is to update clut during SetEntries call*/
     kSetClutAtVBL               = 1                             /* SetEntries behavior is to upate clut at next vbl*/
 };
-
 
 
 struct VDCommunicationRec {
@@ -1218,6 +1241,50 @@ struct VDCommunicationInfoRec {
 typedef struct VDCommunicationInfoRec   VDCommunicationInfoRec;
 
 typedef VDCommunicationInfoRec *        VDCommunicationInfoPtr;
+
+
+struct VDScalerRec {
+    UInt32                          csScalerSize;		/* Init to sizeof(VDScalerRec) */
+    UInt32                          csScalerVersion;		/* Init to 0 */
+    UInt32                          csReserved1;		/* Init to 0 */
+    UInt32                          csReserved2;		/* Init to 0 */
+    
+    DisplayModeID                   csDisplayModeID;		/* Display Mode ID modified by this call. */
+    UInt32                          csDisplayModeSeed;		/*  */
+    UInt32                          csDisplayModeState;		/* Display Mode state */
+    UInt32                          csReserved3;		/* Init to 0 */
+    
+    UInt32                          csScalerFlags;		/* Init to 0 */
+    UInt32                          csHorizontalPixels;		/* Graphics system addressable pixels */
+    UInt32                          csVerticalPixels;		/* Graphics system addressable lines */
+    UInt32                          csReserved4;		/* Init to 0 */
+
+    UInt32                          csReserved5;		/* Init to 0 */
+    UInt32                          csReserved6;		/* Init to 0 */
+    UInt32                          csReserved7;		/* Init to 0 */
+    UInt32                          csReserved8;		/* Init to 0 */
+};
+typedef struct VDScalerRec   VDScalerRec;
+typedef VDScalerRec  *VDScalerPtr;
+
+struct VDScalerInfoRec {
+    UInt32                          csScalerInfoSize;		/* Init to sizeof(VDScalerInfoRec) */
+    UInt32                          csScalerInfoVersion;	/* Init to 0 */
+    UInt32                          csReserved1;		/* Init to 0 */
+    UInt32                          csReserved2;		/* Init to 0 */
+    
+    UInt32                          csScalerFeatures;		/* Feature flags */
+    UInt32                          csMaxHorizontalPixels;	/* limit to horizontal scaled pixels */
+    UInt32                          csMaxVerticalPixels;	/* limit to vertical scaled pixels */
+    UInt32                          csReserved3;		/* Init to 0 */
+
+    UInt32                          csReserved4;		/* Init to 0 */
+    UInt32                          csReserved5;		/* Init to 0 */
+    UInt32                          csReserved6;		/* Init to 0 */
+    UInt32                          csReserved7;		/* Init to 0 */
+};
+typedef struct VDScalerInfoRec   VDScalerInfoRec;
+typedef VDScalerInfoRec *VDScalerInfoPtr;
 
 #if PRAGMA_STRUCT_ALIGN
     #pragma options align=reset

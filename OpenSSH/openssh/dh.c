@@ -23,7 +23,7 @@
  */
 
 #include "includes.h"
-RCSID("$OpenBSD: dh.c,v 1.14 2001/04/15 08:43:45 markus Exp $");
+RCSID("$OpenBSD: dh.c,v 1.17 2001/06/23 15:12:18 itojun Exp $");
 
 #include "xmalloc.h"
 
@@ -39,7 +39,7 @@ RCSID("$OpenBSD: dh.c,v 1.14 2001/04/15 08:43:45 markus Exp $");
 #include "log.h"
 #include "misc.h"
 
-int
+static int
 parse_prime(int linenum, char *line, struct dhgroup *dhg)
 {
 	char *cp, *arg;
@@ -103,14 +103,14 @@ DH *
 choose_dh(int min, int wantbits, int max)
 {
 	FILE *f;
-	char line[1024];
+	char line[2048];
 	int best, bestcount, which;
 	int linenum;
 	struct dhgroup dhg;
 
-	f = fopen(_PATH_DH_PRIMES, "r");
-	if (!f) {
-		log("WARNING: %s does not exist, using old prime", _PATH_DH_PRIMES);
+	if ((f = fopen(_PATH_DH_MODULI, "r")) == NULL &&
+	    (f = fopen(_PATH_DH_PRIMES, "r")) == NULL) {
+		log("WARNING: %s does not exist, using old modulus", _PATH_DH_MODULI);
 		return (dh_new_group1());
 	}
 
@@ -134,16 +134,12 @@ choose_dh(int min, int wantbits, int max)
 		if (dhg.size == best)
 			bestcount++;
 	}
-	fclose (f);
+	rewind(f);
 
 	if (bestcount == 0) {
+		fclose(f);
 		log("WARNING: no suitable primes in %s", _PATH_DH_PRIMES);
 		return (NULL);
-	}
-
-	f = fopen(_PATH_DH_PRIMES, "r");
-	if (!f) {
-		fatal("WARNING: %s disappeared, giving up", _PATH_DH_PRIMES);
 	}
 
 	linenum = 0;

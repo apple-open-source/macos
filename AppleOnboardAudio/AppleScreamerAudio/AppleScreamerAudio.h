@@ -55,7 +55,14 @@ typedef struct _AwacsInformation {
     bool recalibrateNecessary;
 } AwacsInformation;
 
-
+struct NoisyStateRec {
+	UInt32					gainL;
+	UInt32					gainR;
+	UInt32					attenA;
+	UInt32					attenC;
+	Boolean					validRecord;
+};
+typedef struct NoisyStateRec NoisyStateRec;
 
 class IOAudioLevelControl;
 class AudioDeviceTreeParser;
@@ -69,18 +76,24 @@ class AppleScreamerAudio : public AppleOnboardAudio
 
 protected:
         //Registers
-    volatile awacs_regmap_t *	ioBase;
-    UInt32			soundControlRegister;
-    UInt32			codecControlRegister[8];
-    UInt32			codecStatus;
+    volatile awacs_regmap_t *		ioBase;
+	UInt32							awacsRegs[kMaxSndHWRegisters];	// Shadow awacs registers
+    UInt32							soundControlRegister;
+    UInt32							codecControlRegister[8];
+    UInt32							codecStatus;
+	IOAudioDevicePowerState			powerState;
+	Boolean							recalibrateNecessary;
+	Boolean							deviceIntsEnabled;
 
-    bool	mVolMuteActive;
-    bool	gCanPollSatus;
-    
+    bool							mVolMuteActive;
+    bool							gCanPollStatus;
+	volatile void					*soundConfigSpace;				// address of sound config space
+	
         //information specific to the chip
-    AwacsInformation		chipInformation;
-    bool mIsMute;
-    UInt32 mVolRight, mVolLeft;
+    AwacsInformation				chipInformation;
+    bool							mIsMute;
+    UInt32 							mVolRight;
+	UInt32							mVolLeft;
         //PM info
  //   bool			wakingFromSleep;
     bool			duringInitialization;
@@ -151,6 +164,14 @@ protected:
     void setAWACsPowerState( IOAudioDevicePowerState state );
     void setScreamerPowerState(IOAudioDevicePowerState state);
     void InitializeShadowRegisters(void);
+	
+	void GoRunState( IOAudioDevicePowerState curState );
+	void GoDozeState( IOAudioDevicePowerState curState );
+	void GoIdleState( IOAudioDevicePowerState curState );
+	void GoSleepState( IOAudioDevicePowerState curState );
+
+	IOAudioDevicePowerState SndHWGetPowerState( void );
+	void SetStateBits( UInt32 stateBits, UInt32 delay );
 };
 
 #endif /* _APPLESCREAMERAUDIO_H */

@@ -438,7 +438,6 @@ void AppleBurgundyAudio::sndHWInitialize(IOService *provider){
     Burgundy_writeCodecReg( ioBaseBurgundy, kGAP3RReg , 0xFF);
 
             //Mute everything
-            
     Burgundy_writeCodecReg(ioBaseBurgundy, kOutputMuteReg, 0x00);
     
         //prepare the output amplification
@@ -562,33 +561,44 @@ IOReturn   AppleBurgundyAudio::sndHWSetActiveOutputExclusive(UInt32 outputPort )
 
     tempOutputReg = kBurgundyMuteAll;
     
+	mModemActive = FALSE;
+	mInternalSpeakerActive = FALSE;
+	mExternalSpeakerActive = FALSE;
+	mHeadphonesActive = FALSE;
+	mMonoSpeakerActive = FALSE;
+
     switch(physicalPort) {
         case kBurgundyPhysOutputPortNone:
             DEBUG_IOLOG(" ++ Writing Port None\n");
             break;
         case kBurgundyPhysOutputPort13:
             DEBUG_IOLOG(" ++ Writing Port 13\n");
-            tempOutputReg |= ( kBurgundyMuteOffState<< kBurgundyPort13MonoMute);
+			mModemActive = TRUE;
+            tempOutputReg |= ( kBurgundyMuteOffState << kBurgundyPort13MonoMute);
             break;
         case kBurgundyPhysOutputPort14:
             DEBUG_IOLOG(" ++ Writing Port 14\n");
-            tempOutputReg |= (( kBurgundyMuteOffState<< kBurgundyPort14LMute) | ( kBurgundyMuteOffState<< kBurgundyPort14RMute));
+			mInternalSpeakerActive = TRUE;
+            tempOutputReg |= (( kBurgundyMuteOffState << kBurgundyPort14LMute) | ( kBurgundyMuteOffState << kBurgundyPort14RMute));
             break;
         case kBurgundyPhysOutputPort15:
             DEBUG_IOLOG(" ++ Writing Port 15\n");
-            tempOutputReg |= (( kBurgundyMuteOffState<< kBurgundyPort15LMute) | ( kBurgundyMuteOffState<< kBurgundyPort15RMute));
+			mExternalSpeakerActive = TRUE;
+            tempOutputReg |= (( kBurgundyMuteOffState << kBurgundyPort15LMute) | ( kBurgundyMuteOffState << kBurgundyPort15RMute));
             break;
         case kBurgundyPhysOutputPort16:
             DEBUG_IOLOG(" ++ Writing Port 16\n");
-            tempOutputReg|= (( kBurgundyMuteOffState<< kBurgundyPort16LMute) | ( kBurgundyMuteOffState<< kBurgundyPort16RMute));
+			mHeadphonesActive = TRUE;
+            tempOutputReg |= (( kBurgundyMuteOffState << kBurgundyPort16LMute) | ( kBurgundyMuteOffState << kBurgundyPort16RMute));
             break;
         case kBurgundyPhysOutputPort17:
             DEBUG_IOLOG(" ++ Writing Port 17\n");
+			mMonoSpeakerActive = TRUE;
             tempOutputReg |= ( kBurgundyMuteOffState << kBurgundyPort17MonoMute);
             break;        
     } 
     
-    Burgundy_writeCodecReg(ioBaseBurgundy, kOutputMuteReg, tempOutputReg);
+    Burgundy_writeCodecReg (ioBaseBurgundy, kOutputMuteReg, tempOutputReg);
     return(result);
 }
 
@@ -764,68 +774,123 @@ bool AppleBurgundyAudio::sndHWGetSystemMute(void){
      return (mIsMute);
 }
 
-IOReturn  AppleBurgundyAudio::sndHWSetSystemMute(bool mutestate){
-    IOReturn result= kIOReturnSuccess;
-    if(mutestate != mIsMute) {
-        mIsMute = mutestate;
-        
-        if(mutestate) {
+IOReturn  AppleBurgundyAudio::sndHWSetSystemMute (bool mutestate){
+	IOReturn			result = kIOReturnSuccess;
+	UInt32				mutes;
+
+	if (mutestate != mIsMute) {
+		mIsMute = mutestate;
+		if (mutestate) {
                 //we are muting. We do it by disconnecting the output from the mixer
                 //we let only the OS_E stream for the sound input. Ther may be other
                 //possibilities
-            Burgundy_writeCodecReg( ioBaseBurgundy, kOSReg, kBurgundyOS_E_MXO_1);
+//            Burgundy_writeCodecReg( ioBaseBurgundy, kOSReg, kBurgundyOS_E_MXO_1);
+
+			// Mute all the amps
+			mutestate = kBurgundyMuteAll;
         } else {
                 //we reconnect everything
-            Burgundy_writeCodecReg( ioBaseBurgundy, kOSReg, kBurgundyOS_0_MXO_2| kBurgundyOS_1_MXO_2 | kBurgundyOS_E_MXO_1);
+//            Burgundy_writeCodecReg( ioBaseBurgundy, kOSReg, kBurgundyOS_0_MXO_2| kBurgundyOS_1_MXO_2 | kBurgundyOS_E_MXO_1);
+
+			// Unmute the amp currently in use
+			if (TRUE == mModemActive) {
+				mutes =  kBurgundyMuteOffState << kBurgundyPort13MonoMute;
+			} else if (TRUE == mInternalSpeakerActive) {
+				mutes =  kBurgundyMuteOffState << kBurgundyPort14LMute | kBurgundyMuteOffState << kBurgundyPort14RMute;
+			} else if (TRUE == mExternalSpeakerActive) {
+				mutes =  kBurgundyMuteOffState << kBurgundyPort15LMute | kBurgundyMuteOffState << kBurgundyPort15RMute;
+			} else if (TRUE == mHeadphonesActive) {
+				mutes =  kBurgundyMuteOffState << kBurgundyPort16LMute | kBurgundyMuteOffState << kBurgundyPort16RMute;
+			} else if (TRUE == mMonoSpeakerActive) {
+				mutes =  kBurgundyMuteOffState << kBurgundyPort17MonoMute;
+			}
         } 
+		Burgundy_writeCodecReg (ioBaseBurgundy, kOutputMuteReg, mutes);
     }
-    return(result);
+
+    return (result);
 }
 
 bool AppleBurgundyAudio::sndHWSetSystemVolume(UInt32 leftVolume, UInt32 rightVolume){
     UInt8 leftAttn, rightAttn;
     UInt8 comAttn;
     UInt32 tLeftVolume, tRightVolume;
-    
-    
-        //mVolLeft and leftVolume between 0 and 16
-    if( leftVolume != mVolLeft) 
+
+	// mVolLeft and leftVolume between 0 and 16
+    if (leftVolume != mVolLeft) 
         mVolLeft = leftVolume; 
     tLeftVolume = mVolLeft;
-    if(0 == tLeftVolume) tLeftVolume = 1; //leftVolume between 1 and 16
-    tLeftVolume -=1; 		    //leftVolume between 0 and 15	
-    leftAttn = 15 - (UInt8) tLeftVolume; //leftAttn between 15 and 0	
-    
-    if( rightVolume != mVolRight) 
+    if (0 == tLeftVolume) tLeftVolume = 1; // leftVolume between 1 and 16
+    tLeftVolume -= 1; 		    // leftVolume between 0 and 15	
+    leftAttn = 15 - (UInt8) tLeftVolume; // leftAttn between 15 and 0	
+
+    if (rightVolume != mVolRight) 
         mVolRight = rightVolume;
     tRightVolume = mVolRight;
-    if(0 == tRightVolume) tRightVolume = 1;
-    tRightVolume -=1; 
-    rightAttn = 15 - (UInt8) tRightVolume; //leftAttn between 15 and 0	    
-            
-    if( (mVolLeft == 0) && (mVolRight == 0)) {
+    if (0 == tRightVolume) tRightVolume = 1;
+    tRightVolume -= 1; 
+    rightAttn = 15 - (UInt8) tRightVolume; // rightAttn between 15 and 0	    
+
+	UInt32		muteStates;
+	muteStates = Burgundy_readCodecReg (ioBaseBurgundy, kOutputMuteReg);
+
+	if (mVolLeft == 0) {
+		// Mute headphone and speaker because volume is 0
+		muteStates &= ~(kOutputMuteReg_Port14L | kOutputMuteReg_Port16L);
+	} else {
+		// Mute either the headphone or the speaker, depending on which we're not using
+		if (TRUE == mInternalSpeakerActive) {
+			muteStates |=  kBurgundyMuteOffState << kBurgundyPort14LMute;
+		} else if (TRUE == mHeadphonesActive) {
+			muteStates |=  kBurgundyMuteOffState << kBurgundyPort16LMute;
+		}
+	}
+
+	if (mVolRight == 0) {
+		// Mute headphone and speaker because volume is 0
+		muteStates &= ~(kOutputMuteReg_Port14R | kOutputMuteReg_Port16R);
+	} else {
+		// Mute either the headphone or the speaker, depending on which we're not using
+		if (TRUE == mInternalSpeakerActive) {
+			muteStates |=  kBurgundyMuteOffState << kBurgundyPort14RMute;
+		} else if (TRUE == mHeadphonesActive) {
+			muteStates |=  kBurgundyMuteOffState << kBurgundyPort16RMute;
+		}
+	}
+
+    Burgundy_writeCodecReg (ioBaseBurgundy, kOutputMuteReg, muteStates);
+
+    if ((mVolLeft == 0) && (mVolRight == 0)) {
+        mVolumeMuteIsActive = TRUE;
+	} else {
+		mVolumeMuteIsActive = FALSE;
+	}
+
+#if 0
+    if ((mVolLeft == 0) && (mVolRight == 0)) {
         mVolumeMuteIsActive = true; 
-        Burgundy_writeCodecReg( ioBaseBurgundy, kGAP0LReg , 0x00);  
-        Burgundy_writeCodecReg( ioBaseBurgundy, kGAP0RReg , 0x00);
-        Burgundy_writeCodecReg( ioBaseBurgundy, kGAP1RReg , 0x00);
-        Burgundy_writeCodecReg( ioBaseBurgundy, kGAP1LReg , 0x00);
+        Burgundy_writeCodecReg (ioBaseBurgundy, kGAP0LReg , 0x00);
+        Burgundy_writeCodecReg (ioBaseBurgundy, kGAP0RReg , 0x00);
+        Burgundy_writeCodecReg (ioBaseBurgundy, kGAP1RReg , 0x00);
+        Burgundy_writeCodecReg (ioBaseBurgundy, kGAP1LReg , 0x00);
     } else {
-        //we should o it better to mute one channel only to have a good balance
-        if( mVolumeMuteIsActive) {  // we do it only if we come back from noting
-            mVolumeMuteIsActive = false; 
-            Burgundy_writeCodecReg( ioBaseBurgundy, kGAP0LReg , 0xFF);  
-            Burgundy_writeCodecReg( ioBaseBurgundy, kGAP0RReg , 0xFF);
-            Burgundy_writeCodecReg( ioBaseBurgundy, kGAP1RReg , 0xFF);
-            Burgundy_writeCodecReg( ioBaseBurgundy, kGAP1LReg , 0xFF);
+        // we should do it better to mute one channel only to have a good balance
+        if (mVolumeMuteIsActive) {  // we do it only if we come back from noting
+            mVolumeMuteIsActive = false;
+            Burgundy_writeCodecReg (ioBaseBurgundy, kGAP0LReg , 0xFF);
+            Burgundy_writeCodecReg (ioBaseBurgundy, kGAP0RReg , 0xFF);
+            Burgundy_writeCodecReg (ioBaseBurgundy, kGAP1RReg , 0xFF);
+            Burgundy_writeCodecReg (ioBaseBurgundy, kGAP1LReg , 0xFF);
         }
     }
+#endif
 
     comAttn = rightAttn << 4 | leftAttn;
-    Burgundy_writeCodecReg( ioBaseBurgundy, kOutputLvlPort13Reg, comAttn & 0x0F);
-    Burgundy_writeCodecReg( ioBaseBurgundy, kOutputLvlPort14Reg, comAttn);
-    Burgundy_writeCodecReg( ioBaseBurgundy, kOutputLvlPort15Reg, comAttn);
-    Burgundy_writeCodecReg( ioBaseBurgundy, kOutputLvlPort16Reg, comAttn);
-    Burgundy_writeCodecReg( ioBaseBurgundy, kOutputLvlPort17Reg, comAttn & 0x0F);
+    Burgundy_writeCodecReg (ioBaseBurgundy, kOutputLvlPort13Reg, comAttn & 0x0F);
+    Burgundy_writeCodecReg (ioBaseBurgundy, kOutputLvlPort14Reg, comAttn);
+    Burgundy_writeCodecReg (ioBaseBurgundy, kOutputLvlPort15Reg, comAttn);
+    Burgundy_writeCodecReg (ioBaseBurgundy, kOutputLvlPort16Reg, comAttn);
+    Burgundy_writeCodecReg (ioBaseBurgundy, kOutputLvlPort17Reg, comAttn & 0x0F);
 
     bool result = true;
     return(result);

@@ -389,7 +389,7 @@ PPCI2CInterface::setAddressAndDirection()
     }
 
     // sets the subAddress:
-    if (lastMode == kStandardSubMode)
+    if ((lastMode == kStandardSubMode) || (lastMode == kCombinedMode))
         setSubAddress(currentSubaddress);
 
     // Set the state BEFORE to set the control
@@ -687,13 +687,8 @@ PPCI2CInterface::handleI2CInterrupt()
 
         case kStandardMode:
         case kStandardSubMode:
-            success = i2cStandardSubModeInterrupts(getInterruptStatus());
-            break;
-
         case kCombinedMode:
-#ifdef DEBUGMODE
-            IOLog("PPCI2CInterface::handleI2CInterrupt kCombinedMode is an unsupported mode (for now)\n");
-#endif
+            success = i2cStandardSubModeInterrupts(getInterruptStatus());
             break;
     }
 
@@ -1108,7 +1103,7 @@ PPCI2CInterface::readI2CBus(UInt8 address, UInt8 subAddress, UInt8 *newData, UIn
     }
     
     // pointer to the data to be received
-    dataBuffer = data;
+    dataBuffer = newData;
 
     // and the number of bytes still to receive
     nBytes = len;

@@ -1,4 +1,4 @@
-/*	$OpenBSD: misc.c,v 1.5 2001/04/12 20:09:37 stevesk Exp $	*/
+/*	$OpenBSD: misc.c,v 1.12 2001/06/26 17:27:24 markus Exp $	*/
 
 /*
  * Copyright (c) 2000 Markus Friedl.  All rights reserved.
@@ -25,12 +25,13 @@
  */
 
 #include "includes.h"
-RCSID("$OpenBSD: misc.c,v 1.5 2001/04/12 20:09:37 stevesk Exp $");
+RCSID("$OpenBSD: misc.c,v 1.12 2001/06/26 17:27:24 markus Exp $");
 
 #include "misc.h"
 #include "log.h"
 #include "xmalloc.h"
 
+/* remove newline at end of string */
 char *
 chop(char *s)
 {
@@ -46,17 +47,19 @@ chop(char *s)
 
 }
 
+/* set/unset filedescriptor to non-blocking */
 void
 set_nonblock(int fd)
 {
 	int val;
+
 	val = fcntl(fd, F_GETFL, 0);
 	if (val < 0) {
 		error("fcntl(%d, F_GETFL, 0): %s", fd, strerror(errno));
 		return;
 	}
 	if (val & O_NONBLOCK) {
-		debug("fd %d IS O_NONBLOCK", fd);
+		debug2("fd %d is O_NONBLOCK", fd);
 		return;
 	}
 	debug("fd %d setting O_NONBLOCK", fd);
@@ -67,9 +70,32 @@ set_nonblock(int fd)
 			    fd, strerror(errno));
 }
 
+void
+unset_nonblock(int fd)
+{
+	int val;
+
+	val = fcntl(fd, F_GETFL, 0);
+	if (val < 0) {
+		error("fcntl(%d, F_GETFL, 0): %s", fd, strerror(errno));
+		return;
+	}
+	if (!(val & O_NONBLOCK)) {
+		debug2("fd %d is not O_NONBLOCK", fd);
+		return;
+	}
+	debug("fd %d clearing O_NONBLOCK", fd);
+	val &= ~O_NONBLOCK;
+	if (fcntl(fd, F_SETFL, val) == -1)
+		if (errno != ENODEV)
+			error("fcntl(%d, F_SETFL, O_NONBLOCK): %s",
+			    fd, strerror(errno));
+}
+
 /* Characters considered whitespace in strsep calls. */
 #define WHITESPACE " \t\r\n"
 
+/* return next token in configuration line */
 char *
 strdelim(char **s)
 {
@@ -108,6 +134,12 @@ pwcopy(struct passwd *pw)
 	copy->pw_gecos = xstrdup(pw->pw_gecos);
 	copy->pw_uid = pw->pw_uid;
 	copy->pw_gid = pw->pw_gid;
+#ifdef HAVE_PW_EXPIRE_IN_PASSWD
+	copy->pw_expire = pw->pw_expire;
+#endif
+#ifdef HAVE_PW_CHANGE_IN_PASSWD
+	copy->pw_change = pw->pw_change;
+#endif
 #ifdef HAVE_PW_CLASS_IN_PASSWD
 	copy->pw_class = xstrdup(pw->pw_class);
 #endif
@@ -116,7 +148,13 @@ pwcopy(struct passwd *pw)
 	return copy;
 }
 
-int a2port(const char *s)
+/*
+ * Convert ASCII string to TCP/IP port number.
+ * Port must be >0 and <=65535.
+ * Return 0 if invalid.
+ */
+int
+a2port(const char *s)
 {
 	long port;
 	char *endp;
@@ -129,6 +167,143 @@ int a2port(const char *s)
 		return 0;
 
 	return port;
+}
+
+#define SECONDS		1
+#define MINUTES		(SECONDS * 60)
+#define HOURS		(MINUTES * 60)
+#define DAYS		(HOURS * 24)
+#define WEEKS		(DAYS * 7)
+
+/*
+ * Convert a time string into seconds; format is
+ * a sequence of:
+ *      time[qualifier]
+ *
+ * Valid time qualifiers are:
+ *      <none>  seconds
+ *      s|S     seconds
+ *      m|M     minutes
+ *      h|H     hours
+ *      d|D     days
+ *      w|W     weeks
+ *
+ * Examples:
+ *      90m     90 minutes
+ *      1h30m   90 minutes
+ *      2d      2 days
+ *      1w      1 week
+ *
+ * Return -1 if time string is invalid.
+ */
+long
+convtime(const char *s)
+{
+	long total, secs;
+	const char *p;
+	char *endp;
+
+	errno = 0;
+	total = 0;
+	p = s;
+
+	if (p == NULL || *p == '\0')
+		return -1;
+
+	while (*p) {
+		secs = strtol(p, &endp, 10);
+		if (p == endp ||
+		    (errno == ERANGE && (secs == LONG_MIN || secs == LONG_MAX)) ||
+		    secs < 0)
+			return -1;
+
+		switch (*endp++) {
+		case '\0':
+			endp--;
+		case 's':
+		case 'S':
+			break;
+		case 'm':
+		case 'M':
+			secs *= MINUTES;
+			break;
+		case 'h':
+		case 'H':
+			secs *= HOURS;
+			break;
+		case 'd':
+		case 'D':
+			secs *= DAYS;
+			break;
+		case 'w':
+		case 'W':
+			secs *= WEEKS;
+			break;
+		default:
+			return -1;
+		}
+		total += secs;
+		if (total < 0)
+			return -1;
+		p = endp;
+	}
+
+	return total;
+}
+
+char *
+cleanhostname(char *host)
+{
+	if (*host == '[' && host[strlen(host) - 1] == ']') {
+		host[strlen(host) - 1] = '\0';
+		return (host + 1);
+	} else
+		return host;
+}
+
+char *
+colon(char *cp)
+{
+	int flag = 0;
+
+	if (*cp == ':')		/* Leading colon is part of file name. */
+		return (0);
+	if (*cp == '[')
+		flag = 1;
+
+	for (; *cp; ++cp) {
+		if (*cp == '@' && *(cp+1) == '[')
+			flag = 1;
+		if (*cp == ']' && *(cp+1) == ':' && flag)
+			return (cp+1);
+		if (*cp == ':' && !flag)
+			return (cp);
+		if (*cp == '/')
+			return (0);
+	}
+	return (0);
+}
+
+/* function to assist building execv() arguments */
+void
+addargs(arglist *args, char *fmt, ...)
+{
+	va_list ap;
+	char buf[1024];
+
+	va_start(ap, fmt);
+	vsnprintf(buf, sizeof(buf), fmt, ap);
+	va_end(ap);
+
+	if (args->list == NULL) {
+		args->nalloc = 32;
+		args->num = 0;
+	} else if (args->num+2 >= args->nalloc) 
+		args->nalloc *= 2;
+
+	args->list = xrealloc(args->list, args->nalloc * sizeof(char *));
+	args->list[args->num++] = xstrdup(buf);
+	args->list[args->num] = NULL;
 }
 
 mysig_t

@@ -191,7 +191,9 @@ IOReturn IOCDAudioControlUserClient::getTOC(CDTOC * toc, UInt32 * tocMaxSize)
 
     if (original == 0)  return kIOReturnBadMedia;
 
-    *tocMaxSize = min(original->length + sizeof(UInt16), *tocMaxSize);
+    *tocMaxSize = min(
+              OSSwapBigToHostInt16(original->length) + sizeof(original->length),
+              *tocMaxSize );
     bcopy(original, toc, *tocMaxSize);
 
     return kIOReturnSuccess;

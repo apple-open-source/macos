@@ -23,6 +23,8 @@
 /*
  * IOSerialBSDClient.cpp
  *
+ * 2001-11-30	gvdl	open/close pre-emptible arbitration for termios
+ *			IOSerialStreams.
  * 2001-09-02	gvdl	Fixed hot unplug code now terminate cleanly.
  * 2001-07-20	gvdl	Add new ioctl for DATA_LATENCY control.
  * 2001-05-11	dgl	Update iossparam function to recognize MIDI clock mode.
@@ -56,7 +58,6 @@ __END_DECLS
 #include <IOKit/IOLib.h>
 
 #include "IORS232SerialStreamSync.h"
-#include "IOSerialSessionSync.h"
 
 #include "ioss.h"
 #include "IOSerialKeys.h"
@@ -67,6 +68,8 @@ __END_DECLS
 
 OSDefineMetaClassAndStructors(IOSerialBSDClient, IOService)
 
+#define fProvider ((IOSerialStreamSync *) getProvider())
+
 /* Macros to clear/set/test flags. */
 #define	SET(t, f)	(t) |= (f)
 #define	CLR(t, f)	(t) &= ~(f)
@@ -76,14 +79,16 @@ OSDefineMetaClassAndStructors(IOSerialBSDClient, IOService)
 /*
  * Options and tunable parameters
  */
-#define	TTY_DIALIN_FLAG		(0x01)	/* Device intended for dial in */
+#define	TTY_DIALIN_INDEX	0
+#define	TTY_CALLOUT_INDEX	1
 #define TTY_NUM_FLAGS		1
+#define TTY_NUM_TYPES		(1 << TTY_NUM_FLAGS)
 
 #define TTY_HIGH_HEADROOM	4	/* size error code + 1 */
 #define TTY_HIGHWATER		(TTYHOG - TTY_HIGH_HEADROOM)
 #define TTY_LOWWATER		((TTY_HIGHWATER * 7) / 8)
 
-#define	IS_TTY_OUTWARD(dev)	(~minor(dev) &  TTY_DIALIN_FLAG)
+#define	IS_TTY_OUTWARD(dev)	( minor(dev) &  TTY_CALLOUT_INDEX)
 #define TTY_UNIT(dev)		( minor(dev) >> TTY_NUM_FLAGS)
 
 #define TTY_QUEUESIZE(tp)	(tp->t_rawq.c_cc + tp->t_canq.c_cc)
@@ -105,6 +110,7 @@ OSDefineMetaClassAndStructors(IOSerialBSDClient, IOService)
 #define	MIN_INPUT_LATENCY   10000	/* 10 ms */
 
 #define	DTR_DOWN_DELAY	  2000000	/* DTR down time  2 seconds */
+#define PREEMPT_IDLE	  DTR_DOWN_DELAY /* Same as close delay */
 #define DCD_DELAY 	    10000 	/* Ignore DCD change of < 10ms */
 #define BRK_DELAY 	   250000 	/* Minimum break  .25 sec */
 
@@ -129,13 +135,14 @@ const OSSymbol *gIOTTYBaseNameKey = 0;
 const OSSymbol *gIOTTYSuffixKey = 0;
 const OSSymbol *gIOCalloutDeviceKey = 0;
 const OSSymbol *gIODialinDeviceKey = 0;
+const OSSymbol *gIOTTYWaitForIdleKey = 0;
 
 class IOSerialBSDClientGlobals {
 private:
 
     unsigned int fMajor;
     unsigned int fLastMinor;
-    IOSerialBSDClient **fTTYs;
+    IOSerialBSDClient **fClients;
     OSDictionary *fNames;
 
 public:
@@ -143,9 +150,9 @@ public:
     ~IOSerialBSDClientGlobals();
 
     inline bool isValid();
-    inline IOSerialBSDClient *getTTY(dev_t dev);
+    inline IOSerialBSDClient *getClient(dev_t dev);
 
-    dev_t createDevNode();
+    dev_t assign_dev_t();
     bool registerTTY(dev_t dev, IOSerialBSDClient *tty);
     const OSSymbol *getUniqueTTYSuffix
         (const OSSymbol *inName, const OSSymbol *suffix, dev_t dev);
@@ -194,7 +201,9 @@ struct cdevsw IOSerialBSDClient::devsw =
     /* d_type     */ D_TTY
 };
 
-static const struct timeval dtrDownDelay = MUSEC2TIMEVALDECL(DTR_DOWN_DELAY);
+static const struct timeval kDTRDownDelay = MUSEC2TIMEVALDECL(DTR_DOWN_DELAY);
+static const struct timeval kPreemptIdle  = MUSEC2TIMEVALDECL(PREEMPT_IDLE);
+static const struct timeval kNever        = { 0, 0 };
 
 /*
  * Map from Unix baud rate defines to <PortDevices> baud rate.  NB all
@@ -261,7 +270,7 @@ static inline UInt64 getDebugFlagsTable(OSDictionary *props)
 //
 bool IOSerialBSDClientGlobals::isValid()
 {
-    return (fTTYs && fNames && fMajor != (unsigned int) -1);
+    return (fClients && fNames && fMajor != (unsigned int) -1);
 }
 
 #define OSSYM(str) OSSymbol::withCStringNoCopy(str)
@@ -277,19 +286,22 @@ IOSerialBSDClientGlobals::IOSerialBSDClientGlobals()
     gIOTTYSuffixKey          = OSSYM(kIOTTYSuffixKey);
     gIOCalloutDeviceKey      = OSSYM(kIOCalloutDeviceKey);
     gIODialinDeviceKey       = OSSYM(kIODialinDeviceKey);
+    gIOTTYWaitForIdleKey     = OSSYM(kIOTTYWaitForIdleKey);
 
     fMajor = (unsigned int) -1;
     fNames = OSDictionary::withCapacity(4);
     fLastMinor = 4;
-    fTTYs = (IOSerialBSDClient **) IOMalloc(fLastMinor * sizeof(fTTYs[0]));
-    if (fTTYs && fNames) {
-        bzero(fTTYs, fLastMinor * sizeof(fTTYs[0]));
+    fClients = (IOSerialBSDClient **)
+                        IOMalloc(fLastMinor * sizeof(fClients[0]));
+    if (fClients && fNames) {
+        bzero(fClients, fLastMinor * sizeof(fClients[0]));
         fMajor = cdevsw_add(-1, &IOSerialBSDClient::devsw);
     }
 
     if (!isValid())
         IOLog("IOSerialBSDClient didn't initialize");
 }
+#undef OSSYM
 
 IOSerialBSDClientGlobals::~IOSerialBSDClientGlobals()
 {
@@ -303,46 +315,47 @@ IOSerialBSDClientGlobals::~IOSerialBSDClientGlobals()
     SAFE_RELEASE(gIOTTYSuffixKey);
     SAFE_RELEASE(gIOCalloutDeviceKey);
     SAFE_RELEASE(gIODialinDeviceKey);
+    SAFE_RELEASE(gIOTTYWaitForIdleKey);
     SAFE_RELEASE(fNames);
     if (fMajor != (unsigned int) -1)
         cdevsw_remove(fMajor, &IOSerialBSDClient::devsw);
-    if (fTTYs)
-        IOFree(fTTYs, fLastMinor * sizeof(fTTYs[0]));
+    if (fClients)
+        IOFree(fClients, fLastMinor * sizeof(fClients[0]));
 }
 
-dev_t IOSerialBSDClientGlobals::createDevNode()
+dev_t IOSerialBSDClientGlobals::assign_dev_t()
 {
     AutoKernelFunnel funnel;	// Grab kernel funnel
     unsigned int i;
 
-    for (i = 0; i < fLastMinor && fTTYs[i]; i++)
+    for (i = 0; i < fLastMinor && fClients[i]; i++)
         ;
 
     if (i == fLastMinor)
     {
         unsigned int newLastMinor = fLastMinor + 4;
-        IOSerialBSDClient **newTTYs;
+        IOSerialBSDClient **newClients;
 
-        newTTYs = (IOSerialBSDClient **)
-                    IOMalloc(newLastMinor * sizeof(fTTYs[0]));
-        if (!newTTYs)
+        newClients = (IOSerialBSDClient **)
+                    IOMalloc(newLastMinor * sizeof(fClients[0]));
+        if (!newClients)
             return (dev_t) -1;
 
-        bzero(&newTTYs[fLastMinor], 4 * sizeof(fTTYs[0]));
-        bcopy(fTTYs, newTTYs, fLastMinor * sizeof(fTTYs[0]));
-        IOFree(fTTYs, fLastMinor * sizeof(fTTYs[0]));
+        bzero(&newClients[fLastMinor], 4 * sizeof(fClients[0]));
+        bcopy(fClients, newClients, fLastMinor * sizeof(fClients[0]));
+        IOFree(fClients, fLastMinor * sizeof(fClients[0]));
         fLastMinor = newLastMinor;
-        fTTYs = newTTYs;
+        fClients = newClients;
     }
 
     dev_t dev = makedev(fMajor, i << TTY_NUM_FLAGS);
-    fTTYs[i] = (IOSerialBSDClient *) -1;
+    fClients[i] = (IOSerialBSDClient *) -1;
 
     return dev;
 }
 
 bool IOSerialBSDClientGlobals::
-registerTTY(dev_t dev, IOSerialBSDClient *tty)
+registerTTY(dev_t dev, IOSerialBSDClient *client)
 {
     AutoKernelFunnel funnel;	// Grab kernel funnel
 
@@ -351,9 +364,9 @@ registerTTY(dev_t dev, IOSerialBSDClient *tty)
 
     assert(i < fLastMinor);
     if (i < fLastMinor) {
-        assert(!tty || fTTYs[i] != (IOSerialBSDClient *) -1);
-        if (tty && fTTYs[i] == (IOSerialBSDClient *) -1) {
-            fTTYs[i] = tty;
+        assert(!client || fClients[i] != (IOSerialBSDClient *) -1);
+        if (client && fClients[i] == (IOSerialBSDClient *) -1) {
+            fClients[i] = client;
             ret = true;
         }
     }
@@ -364,9 +377,9 @@ registerTTY(dev_t dev, IOSerialBSDClient *tty)
 // Assumes the caller has grabbed the funnel if necessary.
 // Any call from UNIX is funnelled, I need to funnel any IOKit upcalls
 // explicitly.
-IOSerialBSDClient *IOSerialBSDClientGlobals::getTTY(dev_t dev)
+IOSerialBSDClient *IOSerialBSDClientGlobals::getClient(dev_t dev)
 {
-    return fTTYs[TTY_UNIT(dev)];
+    return fClients[TTY_UNIT(dev)];
 }
 
 const OSSymbol *IOSerialBSDClientGlobals::
@@ -526,10 +539,10 @@ createDevNodes()
             break;
 
         // Create the device nodes
-        calloutNode = devfs_make_node(fBaseDev,
+        calloutNode = devfs_make_node(fBaseDev | TTY_CALLOUT_INDEX,
             DEVFS_CHAR, UID_ROOT, GID_WHEEL, 0666,
             (char *) calloutName->getCStringNoCopy() + sizeof(TTY_DEVFS_PREFIX) - 1);
-        dialinNode = devfs_make_node(fBaseDev | TTY_DIALIN_FLAG,
+        dialinNode = devfs_make_node(fBaseDev | TTY_DIALIN_INDEX,
             DEVFS_CHAR, UID_ROOT, GID_WHEEL, 0666,
             (char *) dialinName->getCStringNoCopy() + sizeof(TTY_DEVFS_PREFIX) - 1);
         if (!calloutNode || !dialinNode)
@@ -541,8 +554,9 @@ createDevNodes()
         ||  !setProperty(gIODialinDeviceKey,  (OSObject *) dialinName))
             break;
 
-        fCdevCalloutNode = calloutNode; calloutNode = 0;
-        fCdevDialinNode  = dialinNode;  dialinNode = 0;
+
+        fSessions[TTY_DIALIN_INDEX].fCDevNode  = dialinNode;  dialinNode = 0;
+        fSessions[TTY_CALLOUT_INDEX].fCDevNode = calloutNode; calloutNode = 0;
         ret = true;
         
     } while(false);
@@ -604,17 +618,30 @@ start(IOService *provider)
     if (!sBSDGlobals.isValid())
         return false;
 
-    fProvider = OSDynamicCast(IOSerialStreamSync, provider);
-    if (!fProvider)
+    if (!OSDynamicCast(IOSerialStreamSync, provider))
         return false;
 
+    /*
+     * First initialise the dial in device.  
+     * We don't use all the flags from <sys/ttydefaults.h> since they are
+     * only relevant for logins.
+     */
+    fSessions[TTY_DIALIN_INDEX].fThis = this;
+    fSessions[TTY_DIALIN_INDEX].fInitTerm.c_iflag = 0;
+    fSessions[TTY_DIALIN_INDEX].fInitTerm.c_oflag = 0;
+    fSessions[TTY_DIALIN_INDEX].fInitTerm.c_cflag = TTYDEF_CFLAG;
+    fSessions[TTY_DIALIN_INDEX].fInitTerm.c_lflag = 0;
+    fSessions[TTY_DIALIN_INDEX].fInitTerm.c_ispeed
+        = fSessions[TTY_DIALIN_INDEX].fInitTerm.c_ospeed = TTYDEF_SPEED;
+    termioschars(&fSessions[TTY_DIALIN_INDEX].fInitTerm);
+
+    // Now initialise the call out device
+    fSessions[TTY_CALLOUT_INDEX].fThis = this;
+    fSessions[TTY_CALLOUT_INDEX].fInitTerm
+        = fSessions[TTY_DIALIN_INDEX].fInitTerm;
+
     do {
-
-        fSession = IOSerialSessionSync::withStreamSync(fProvider);
-        if (!fSession)
-            break;
-
-        fBaseDev = sBSDGlobals.createDevNode();
+        fBaseDev = sBSDGlobals.assign_dev_t();
         if ((dev_t) -1 == fBaseDev)
             break;
 
@@ -623,8 +650,6 @@ start(IOService *provider)
 
         if (!setBaseTypeForDev())
             break;
-
-        initState();
 
         if (!sBSDGlobals.registerTTY(fBaseDev, this))
             break;
@@ -642,8 +667,10 @@ start(IOService *provider)
 
 static inline const char *devName(IORegistryEntry *self)
 {
-    return ((OSString *) self->getProperty(gIOTTYDeviceKey))
-                ->getCStringNoCopy();
+    OSString *devNameStr = ((OSString *) self->getProperty(gIOTTYDeviceKey));
+    assert(devNameStr);
+
+    return devNameStr->getCStringNoCopy();
 }
 
 bool IOSerialBSDClient::
@@ -718,21 +745,25 @@ stop(IOService *provider)
 {
     {
 	AutoKernelFunnel funnel;	// Take kernel funnel
+
+        for (int i = 0; i < TTY_NUM_TYPES; i++) {
+            Session *sp = &fSessions[i];
+            struct tty *tp = &sp->ftty;
     
-	if ((dev_t) -1 != fBaseDev) {
-	    sBSDGlobals.registerTTY(fBaseDev, 0);
-	    sBSDGlobals.releaseUniqueTTYSuffix(
-			    (const OSSymbol *) getProperty(gIOTTYBaseNameKey),
-			    (const OSSymbol *) getProperty(gIOTTYSuffixKey));
-	}
+            // Now kill any stream that may currently be running
+            sp->fErrno = ENXIO;
     
-	if (fCdevCalloutNode)
-	    devfs_remove(fCdevCalloutNode);
-	if (fCdevDialinNode)
-	    devfs_remove(fCdevDialinNode);
-	if (fSession)
-	    fSession->stopPort();
-	fKillThreads = true;
+            // Enforce a zombie and unconnected state on the discipline
+            SET(tp->t_state, TS_ZOMBIE);
+            CLR(tp->t_state, TS_CONNECTED);
+    
+            // Flush out any sleeping threads
+            ttyflush(tp, FREAD | FWRITE);
+        }
+
+        fActiveSession = 0;
+        fKillThreads = true;
+        fProvider->releasePort();
     }
 
     super::stop(provider);
@@ -740,230 +771,127 @@ stop(IOService *provider)
 
 void IOSerialBSDClient::free()
 {
-    SAFE_RELEASE(fSession);
+    {
+	AutoKernelFunnel funnel;	// Take kernel funnel
+
+	if ((dev_t) -1 != fBaseDev) {
+	    sBSDGlobals.registerTTY(fBaseDev, 0);
+	    sBSDGlobals.releaseUniqueTTYSuffix(
+                        (const OSSymbol *) getProperty(gIOTTYBaseNameKey),
+                        (const OSSymbol *) getProperty(gIOTTYSuffixKey));
+	}
+
+	if (fSessions[TTY_CALLOUT_INDEX].fCDevNode)
+	    devfs_remove(fSessions[TTY_CALLOUT_INDEX].fCDevNode);
+	if (fSessions[TTY_DIALIN_INDEX].fCDevNode)
+	    devfs_remove(fSessions[TTY_DIALIN_INDEX].fCDevNode);
+    }
+
     super::free();
 }
 
-void IOSerialBSDClient::
-initState()
+IOReturn IOSerialBSDClient::
+setOneProperty(const OSSymbol *key, OSObject *value)
 {
-    // Set the client pointer for this bsd tty client
-    map.fClient = this;
+    if (key == gIOTTYWaitForIdleKey) {
+        int error = waitForIdle();
+        if (ENXIO == error)
+            return kIOReturnOffline;
+        else if (error)
+            return kIOReturnAborted;
+        else
+            return kIOReturnSuccess;
+    }
+    
+    return kIOReturnUnsupported;
+}
 
-    /*
-     * We don't use all the flags from <sys/ttydefaults.h> since they
-     * are only relevant for logins.  It's includeant to have echo off
-     * initially so that the line doesn't start blathering before the
-     * echo flag can be turned off.
-     */
-    fInitTermIn.c_iflag = 0;
-    fInitTermIn.c_oflag = 0;
-    fInitTermIn.c_cflag = TTYDEF_CFLAG;
-    fInitTermIn.c_lflag = 0;
-    fInitTermIn.c_ispeed = fInitTermIn.c_ospeed = TTYDEF_SPEED;
-    termioschars(&fInitTermIn);
+IOReturn IOSerialBSDClient::
+setProperties(OSObject *properties)
+{
+    IOReturn res = kIOReturnBadArgument;
 
-    fInitTermOut = fInitTermIn;
-    bzero(&fDTRDownTime, sizeof(fDTRDownTime));
+    if (OSDynamicCast(OSString, properties)) {
+        const OSSymbol *propSym =
+            OSSymbol::withString((OSString *) properties);
+        res = setOneProperty(propSym, 0);
+        propSym->release();
+    }
+    else if (OSDynamicCast(OSDictionary, properties)) {
+        const OSDictionary *dict = (const OSDictionary *) properties;
+        OSCollectionIterator *keysIter;
+        const OSSymbol *key;
+
+        keysIter = OSCollectionIterator::withCollection(dict);
+        if (!keysIter) {
+            res = kIOReturnNoMemory;
+            goto bail;
+        }
+
+        while ( (key = (const OSSymbol *) keysIter->getNextObject()) ) {
+            res = setOneProperty(key, dict->getObject(key));
+            if (res)
+                break;
+        }
+        
+        keysIter->release();
+    }
+
+bail:
+    return res;		// Successfull just return now
 }
 
 // Bracket all open attempts with a reference on ourselves. 
 int IOSerialBSDClient::
 iossopen(dev_t dev, int flags, int devtype, struct proc *p)
 {
-    IOSerialBSDClient *client = sBSDGlobals.getTTY(dev);
+    IOSerialBSDClient *me = sBSDGlobals.getClient(dev);
 
-    if (!client)
+    if (!me || me->isInactive())
         return ENXIO;
 
-    if (client->isInactive())
-	return EIO;
-
-    client->retain();
-    int ret = client->open(dev, flags, devtype, p);
-    client->release();
+    me->retain();
+    int ret = me->open(dev, flags, devtype, p);
+    me->release();
 
     return ret;
 }
 
 int IOSerialBSDClient::
-open(dev_t dev, int flags, int devtype, struct proc *p)
-{
-    struct tty *tp = &map.ftty;
-    int error = 0;
-
-    /* Device has been opened exclusive by somebody */
-    if (ISSET(tp->t_state, TS_XCLUDE) && !suser(p->p_ucred, &p->p_acflag)) {
-        error = EBUSY;
-        goto exitOpen;
-    }
-
-    if ( !IS_TTY_OUTWARD(dev) )
-	fInOpensPending++;
-
-checkbusy:
-    error = acquireSession(dev);
-    if (error) {
-	if ( !IS_TTY_OUTWARD(dev) )
-	    fInOpensPending--;
-        goto exitOpen;
-    }
-    
-    /*
-     * Initialize Unix's tty struct,
-     * set device parameters and RS232 state
-     */
-    if ( !ISSET(tp->t_state, TS_ISOPEN) ) {
-        initSession();
-
-        // Initialise the line state
-        iossparam(tp, &tp->t_termios);
-    }
-
-    /*
-     * Handle DCD:
-     * If outgoing or not hw dcd or dcd is asserted, then continue.
-     * Otherwise, block till dcd is asserted or open fPreempt.
-     */
-    if (IS_TTY_OUTWARD(dev)
-    ||  ISSET(fSession->getState(), PD_RS232_S_CAR) ) {
-        (*linesw[tp->t_line].l_modem)(tp, 1);
-    }
-
-    if (IS_TTY_PREEMPT(dev, tp->t_cflag)) {	/* Incoming and !CLOCAL */
-        IOSerialSessionSync *audit = fSession; // Cache current fSession
-
-	error = waitForDCD(flags);
-        if (error == EBUSY) {	/* waitForDCD was fPreempted */
-            if (tp->t_dev == dev) {
-                tp->t_dev = 0;		// Preempted by outside request
-            }
-            else {
-                audit->release();	// Preempted by OUTGOING tty call
-            }
-
-	    goto checkbusy;		// Preempted so try to get lock again.
-	}
-	else if (error == EINTR) {	/* waitForDCD was interrupted */
-	    if (--fInOpensPending == 0)
-		close(dev, flags, devtype, p);	// shutdown
-	    else {
-		//
-		// Interrupted by user request so clear lock and
-		// wakeup the other sleeper before returning.
-		//
-		tp->t_dev = 0;
-		wakeup((caddr_t) tp);
-	    }
-            goto exitOpen;
-	}
-	else {
-	    assert(!error);
-	}
-    }
-
-    // Open line discipline
-    if ( !ISSET(tp->t_state, TS_ISOPEN) )
-	retain();	// Hold a reference until the port is closed
-
-    error = ((*linesw[(int) tp->t_line].l_open)(dev, tp));
-    if (error)
-		release();
-    else
-		// launch the transmit and receive threads, if necessary
-        launchThreads();
-
-    if ( !IS_TTY_OUTWARD(dev) )
-	fInOpensPending--;
-
-    // Allow any following opens to try to acquire fSession
-    wakeup((caddr_t) tp);
-
-exitOpen:
-    return error;
-}
-
-int IOSerialBSDClient::
 iossclose(dev_t dev, int flags, int devtype, struct proc *p)
 {
-    IOSerialBSDClient *client = sBSDGlobals.getTTY(dev);
+    IOSerialBSDClient *me = sBSDGlobals.getClient(dev);
 
-    assert(client);
+    assert(me);
 
-    client->close(dev, flags, devtype, p);
+    me->close(dev, flags, devtype, p);
 
     // Remember this is the last close so we may have to delete ourselves
     // This reference is held just before we opened the line discipline
     // in clientOpen above.
-    client->release();
+    me->release();
 
     return 0;
-}
-
-void IOSerialBSDClient::
-close(dev_t dev, int flags, int devtype, struct proc *p)
-{
-    struct tty *tp = &map.ftty;
-    IOReturn rtn;
-
-    /* Block anybody attempting to get fSession */
-    fIsReleasing = true;
-
-    /* We are closing, it doesn't matter now about holding back ... */
-    CLR(tp->t_state, TS_TTSTOP);
-    (void) fSession->executeEvent(PD_E_FLOW_CONTROL, 0);
-    (void) fSession->setState(-1, PD_S_RX_ENABLE | PD_S_TX_ENABLE);
-
-    // Clear any outstanding line breaks
-    rtn = fSession->enqueueEvent(PD_RS232_E_LINE_BREAK, false, true);
-    assert(!rtn || rtn != kIOReturnOffline || kIOReturnNotOpen == rtn);
-
-    (*linesw[(int) tp->t_line].l_close)(tp, flags);
-
-    if (ISSET(tp->t_cflag, HUPCL) || !ISSET(tp->t_state, TS_ISOPEN)
-    || (IS_TTY_PREEMPT(dev, fInitTermIn.c_cflag)
-        && !ISSET(fSession->getState(), PD_RS232_S_CAR)) ) {
-        /*
-         * XXX we will miss any carrier drop between here and the
-         * next open.  Perhaps we should watch DCD even when the
-         * port is closed; it is not sufficient to check it at
-         * the next open because it might go up and down while
-         * we're not watching.
-         */
-	(void) mctl(RS232_S_OFF, DMSET);
-    }
-
-    ttyclose(tp);
-
-    assert(!tp->t_outq.c_cc);
-
-    // Shut down the port, this will cause the RX && TX threads to terminate
-    // Then wait for threads to terminate, this should be over very quickly.
-    killThreads();
-
-    // Release the fSession's lock
-    fSession->releasePort();
-
-    /* wakeup any sleeping incoming opens */
-    tp->t_dev = 0;		/* Unlock the tty */
-    fIsReleasing = false;
-    wakeup((caddr_t) tp);
 }
 
 int IOSerialBSDClient::
 iossread(dev_t dev, struct uio *uio, int ioflag)
 {
-    IOSerialBSDClient *client = sBSDGlobals.getTTY(dev);
-    struct tty *tp = &client->map.ftty;
-    int error = ENXIO;
+    IOSerialBSDClient *me = sBSDGlobals.getClient(dev);
+    int error;
+    struct tty *tp;
+    Session *sp;
 
-    if (client) {
-	if (client->isInactive())
-	    return EIO;
+    assert(me);
 
+    sp = &me->fSessions[IS_TTY_OUTWARD(dev)];
+    tp = &sp->ftty;
+
+    error = sp->fErrno;
+    if (!error) {
         error = (*linesw[(int) tp->t_line].l_read)(tp, uio, ioflag);
-        if (client->frxBlocked && TTY_QUEUESIZE(tp) < TTY_LOWWATER)
-            client->fSession->setState(PD_S_RX_EVENT, PD_S_RX_EVENT);
+        if (me->frxBlocked && TTY_QUEUESIZE(tp) < TTY_LOWWATER)
+            me->sessionSetState(sp, PD_S_RX_EVENT, PD_S_RX_EVENT);
     }
 
     return error;
@@ -972,16 +900,19 @@ iossread(dev_t dev, struct uio *uio, int ioflag)
 int IOSerialBSDClient::
 iosswrite(dev_t dev, struct uio *uio, int ioflag)
 {
-    IOSerialBSDClient *client = sBSDGlobals.getTTY(dev);
-    struct tty *tp = &client->map.ftty;
-    int error = ENXIO;
+    IOSerialBSDClient *me = sBSDGlobals.getClient(dev);
+    int error;
+    struct tty *tp;
+    Session *sp;
 
-    if (client) {
-	if (client->isInactive())
-	    return EIO;
+    assert(me);
 
+    sp = &me->fSessions[IS_TTY_OUTWARD(dev)];
+    tp = &sp->ftty;
+
+    error = sp->fErrno;
+    if (!error)
         error = (*linesw[(int) tp->t_line].l_write)(tp, uio, ioflag);
-    }
 
     return error;
 }
@@ -989,44 +920,21 @@ iosswrite(dev_t dev, struct uio *uio, int ioflag)
 int IOSerialBSDClient::
 iossselect(dev_t dev, int which, void *wql, struct proc *p)
 {
-    int error = ENXIO;
-    IOSerialBSDClient *client = sBSDGlobals.getTTY(dev);
+    IOSerialBSDClient *me = sBSDGlobals.getClient(dev);
+    int error;
+    struct tty *tp;
+    Session *sp;
 
-    if (client) {
-	if (client->isInactive())
-	    return EIO;
+    assert(me);
 
-        error = ttyselect(&client->map.ftty, which, wql, p);
-    }
+    sp = &me->fSessions[IS_TTY_OUTWARD(dev)];
+    tp = &sp->ftty;
+
+    error = sp->fErrno;
+    if (!error)
+        error = ttyselect(tp, which, wql, p);
 
     return error;
-}
-
-void
-IOSerialBSDClient::convertFlowCtrl(struct termios *t)
-{
-    IOReturn rtn;
-    u_long flowCtrl;
-
-    //
-    // Have to reconstruct the flow control bits
-    //
-    rtn = fSession->requestEvent(PD_E_FLOW_CONTROL, &flowCtrl);
-    assert(!rtn);
-
-    if ( ISSET(flowCtrl, PD_RS232_A_TXO) )
-        SET(t->c_iflag, IXON);
-    if ( ISSET(flowCtrl, PD_RS232_A_XANY) )
-        SET(t->c_iflag, IXANY);
-    if ( ISSET(flowCtrl, PD_RS232_A_RXO) )
-        SET(t->c_iflag, IXOFF);
-
-    if ( ISSET(flowCtrl, PD_RS232_A_RFR) )
-        SET(t->c_cflag, CRTS_IFLOW);
-    if ( ISSET(flowCtrl, PD_RS232_A_CTS) )
-        SET(t->c_cflag, CCTS_OFLOW);
-    if ( ISSET(flowCtrl, PD_RS232_A_DTR) )
-        SET(t->c_cflag, CDTR_IFLOW);
 }
 
 static inline int
@@ -1053,17 +961,18 @@ int IOSerialBSDClient::
 iossioctl(dev_t dev, u_long cmd, caddr_t data, int fflag,
                          struct proc *p)
 {
-    IOSerialBSDClient *client = sBSDGlobals.getTTY(dev);
-    struct tty *tp = &client->map.ftty;
+    IOSerialBSDClient *me = sBSDGlobals.getClient(dev);
     int error = 0;
+    struct tty *tp;
+    Session *sp;
 
-    if (!client) {
-        error = ENXIO;
-        goto exitIoctl;
-    }
+    assert(me);
 
-    if (client->isInactive()) {
-        error = ENXIO;
+    sp = &me->fSessions[IS_TTY_OUTWARD(dev)];
+    tp = &sp->ftty;
+
+    if (sp->fErrno) {
+        error = sp->fErrno;
         goto exitIoctl;
     }
 
@@ -1073,13 +982,19 @@ iossioctl(dev_t dev, u_long cmd, caddr_t data, int fflag,
      */
     error = (*linesw[(int) tp->t_line].l_ioctl)(tp, cmd, data, fflag, p);
     if (error >= 0) {
-        client->optimiseInput(&tp->t_termios);
+        me->optimiseInput(&tp->t_termios);
+        goto exitIoctl;
+    }
+
+    // ...->l_ioctl may block so we need to check out state again
+    if (sp->fErrno) {
+        error = sp->fErrno;
         goto exitIoctl;
     }
 
     if (TIOCGETA == cmd) {
         bcopy(&tp->t_termios, data, sizeof(struct termios));
-        client->convertFlowCtrl((struct termios *) data);
+        me->convertFlowCtrl(sp, (struct termios *) data);
         error = 0;
         goto exitIoctl;
     }
@@ -1101,7 +1016,7 @@ iossioctl(dev_t dev, u_long cmd, caddr_t data, int fflag,
          */
 
         /* Convert the PortSessionSync's flow control setting to termios */
-        client->convertFlowCtrl(&tp->t_termios);
+        me->convertFlowCtrl(sp, &tp->t_termios);
 
         /*
          * Check to see if we are trying to disable either the start or
@@ -1120,17 +1035,30 @@ iossioctl(dev_t dev, u_long cmd, caddr_t data, int fflag,
         break;
     }
 
+    case TIOCEXCL:
+        // Fore the TIOCEXCL ioctl to be atomic!
+        if (ISSET(tp->t_state, TS_XCLUDE)) {
+            error = EBUSY;
+            goto exitIoctl;
+        }
+        break;
+
     default:
         break;
     }
 
     /* See if generic tty understands this. */
     if ((error = ttioctl(tp, cmd, data, fflag, p)) >= 0) {
-        if (error > 0) {
+        if (error > 0)
             iossparam(tp, &tp->t_termios);	/* reestablish old state */
-        }
-        client->optimiseInput(&tp->t_termios);
+        me->optimiseInput(&tp->t_termios);
 	goto exitIoctl;        
+    }
+
+    // ttioctl may block so we need to check out state again
+    if (sp->fErrno) {
+        error = sp->fErrno;
+        goto exitIoctl;
     }
 
     //
@@ -1141,26 +1069,33 @@ iossioctl(dev_t dev, u_long cmd, caddr_t data, int fflag,
     switch (cmd)
     {
     case TIOCSBRK:
-        (void) client->mctl(PD_RS232_S_BRK, DMBIS);  break;
+        (void) me->mctl(PD_RS232_S_BRK, DMBIS);  break;
     case TIOCCBRK:
-        (void) client->mctl(PD_RS232_S_BRK, DMBIC);  break;
+        (void) me->mctl(PD_RS232_S_BRK, DMBIC);  break;
     case TIOCSDTR:
-        (void) client->mctl(PD_RS232_S_DTR, DMBIS);  break;
+        (void) me->mctl(PD_RS232_S_DTR, DMBIS);  break;
     case TIOCCDTR:
-        (void) client->mctl(PD_RS232_S_DTR, DMBIC);  break;
+        (void) me->mctl(PD_RS232_S_DTR, DMBIC);  break;
 
     case TIOCMSET:
-        (void) client->mctl(tiotors232(*(int *)data), DMSET);  break;
+        (void) me->mctl(tiotors232(*(int *)data), DMSET);  break;
     case TIOCMBIS:
-        (void) client->mctl(tiotors232(*(int *)data), DMBIS);  break;
+        (void) me->mctl(tiotors232(*(int *)data), DMBIS);  break;
     case TIOCMBIC:
-        (void) client->mctl(tiotors232(*(int *)data), DMBIC);  break;
+        (void) me->mctl(tiotors232(*(int *)data), DMBIC);  break;
     case TIOCMGET:
-        *(int *)data = rs232totio(client->mctl(0,     DMGET)); break;
+        *(int *)data = rs232totio(me->mctl(0,     DMGET)); break;
 
     case IOSSDATALAT:
-        (void) client->fSession->
-            executeEvent(PD_E_DATA_LATENCY, *(UInt32 *) data);
+        (void) me->sessionExecuteEvent(sp, PD_E_DATA_LATENCY, *(UInt32 *) data);
+        break;
+
+    case IOSSPREEMPT:
+        me->fPreemptAllowed = (bool) (*(int *) data);
+        if (me->fPreemptAllowed)
+            me->fLastUsedTime = kNever;
+        else
+            wakeup(&me->fPreemptAllowed);	// Wakeup any pre-empters
         break;
 
     default:
@@ -1183,45 +1118,47 @@ exitIoctl:
 void IOSerialBSDClient::
 iossstart(struct tty *tp)
 {
-    IOSerialBSDClient *client = ((ttyMap *) tp)->fClient;
+    Session *sp = (Session *) tp;
+    IOSerialBSDClient *me = sp->fThis;
     IOReturn rtn;
 
-    assert(client);
-    if (client->isInactive())
+    assert(me);
+    if (sp->fErrno)
 	return;
 
-    if ( !client->fIstxEnabled && !ISSET(tp->t_state, TS_TTSTOP) ) {
-        client->fIstxEnabled = true;
-        client->fSession->setState(-1, PD_S_TX_ENABLE);
+    if ( !me->fIstxEnabled && !ISSET(tp->t_state, TS_TTSTOP) ) {
+        me->fIstxEnabled = true;
+        me->sessionSetState(sp, -1, PD_S_TX_ENABLE);
     }
 
     if  (tp->t_outq.c_cc) {
         // Notify the transmit thread of action to be performed
-	rtn = client->fSession->setState(PD_S_TX_EVENT, PD_S_TX_EVENT);
-	assert(!rtn || rtn != kIOReturnOffline || kIOReturnNotOpen == rtn);
+	rtn = me->sessionSetState(sp, PD_S_TX_EVENT, PD_S_TX_EVENT);
+	assert(!rtn || rtn != kIOReturnOffline);
     }
 }
 
 int IOSerialBSDClient::
 iossstop(struct tty *tp, int rw)
 {
-    IOSerialBSDClient *client = ((ttyMap *) tp)->fClient;
+    Session *sp = (Session *) tp;
+    IOSerialBSDClient *me = sp->fThis;
 
-    assert(client);
-    if (client->isInactive())
+    assert(me);
+    if (sp->fErrno)
 	return 0;
 
     if ( ISSET(tp->t_state, TS_TTSTOP) ) {
-	client->fIstxEnabled = false;
-	client->fSession->setState(0, PD_S_TX_ENABLE);
+	me->fIstxEnabled = false;
+	me->sessionSetState(sp, 0, PD_S_TX_ENABLE);
     }
 
     if ( ISSET(rw, FWRITE) )
-        client->fSession->executeEvent(PD_E_TXQ_FLUSH, 0);
+        me->sessionExecuteEvent(sp, PD_E_TXQ_FLUSH, 0);
     if ( ISSET(rw, FREAD) ) {
-        client->fSession->executeEvent(PD_E_RXQ_FLUSH, 0);
-        if (client->frxBlocked)	// wake up a blocked reader
-            client->fSession->setState(PD_S_RX_ENABLE, PD_S_RX_ENABLE);
+        me->sessionExecuteEvent(sp, PD_E_RXQ_FLUSH, 0);
+        if (me->frxBlocked)	// wake up a blocked reader
+            me->sessionSetState(sp, PD_S_RX_ENABLE, PD_S_RX_ENABLE);
     }
     return 0;
 }
@@ -1232,40 +1169,39 @@ iossstop(struct tty *tp, int rw)
 int IOSerialBSDClient::
 iossparam(struct tty *tp, struct termios *t)
 {
-    IOSerialBSDClient *client = ((ttyMap *) tp)->fClient;
+    Session *sp = (Session *) tp;
+    IOSerialBSDClient *me = sp->fThis;
     u_long data;
-    int cflag, error = EINVAL;
-    IOReturn rtn;
+    int cflag, error;
+    IOReturn rtn = kIOReturnOffline;
 
-    assert(client);
-    if (client->isInactive()) {
-	error = EIO;
+    assert(me);
+
+    if (sp->fErrno)
 	goto exitParam;
-    }
 
+    rtn = kIOReturnBadArgument;
     if (ISSET(t->c_iflag, (IXOFF|IXON))
-    && (t->c_cc[VSTART]==_POSIX_VDISABLE || t->c_cc[VSTOP]==_POSIX_VDISABLE)) {
+    && (t->c_cc[VSTART]==_POSIX_VDISABLE || t->c_cc[VSTOP]==_POSIX_VDISABLE))
         goto exitParam;
-    }
 
     /* do historical conversions */
     if (t->c_ispeed == 0)
         t->c_ispeed = t->c_ospeed;
 
     /* First check to see if the requested speed is one of our valid ones */
-    rtn = kIOReturnBadArgument;
     data = ttspeedtab(t->c_ospeed, iossspeeds);
+
     if ((int) data != -1 && t->c_ispeed == t->c_ospeed)
-    rtn  = client->fSession->executeEvent(PD_E_DATA_RATE, data);
+	rtn  = me->sessionExecuteEvent(sp, PD_E_DATA_RATE, data);
     else if ( (IOSS_HALFBIT_BRD & t->c_ospeed) ) {
 	/*
 	 * MIDI clock speed multipliers are used for externally clocked MIDI
 	 * devices, and are evident by a 1 in the low bit of c_ospeed/c_ispeed
 	 */
 	data = (u_long) t->c_ospeed >> 1;	// set data to MIDI clock mode 
-	rtn  = client->fSession->executeEvent(PD_E_EXTERNAL_CLOCK_MODE, data);
+	rtn  = me->sessionExecuteEvent(sp, PD_E_EXTERNAL_CLOCK_MODE, data);
     }
-
     if (rtn)
         goto exitParam;
 
@@ -1282,9 +1218,10 @@ iossparam(struct tty *tp, struct termios *t)
     default:	    /* default to 8bit setup */
     case CS8:	    data = 8 << 1; break;
     }
-    rtn  = client->fSession->executeEvent(PD_E_DATA_SIZE, data);
+    rtn  = me->sessionExecuteEvent(sp, PD_E_DATA_SIZE, data);
     if (rtn)
         goto exitParam;
+
 
     data = PD_RS232_PARITY_NONE;
     if ( ISSET(cflag, PARENB) ) {
@@ -1293,7 +1230,7 @@ iossparam(struct tty *tp, struct termios *t)
         else
             data = PD_RS232_PARITY_EVEN;
     }
-    rtn = client->fSession->executeEvent(PD_E_DATA_INTEGRITY, data);
+    rtn = me->sessionExecuteEvent(sp, PD_E_DATA_INTEGRITY, data);
     if (rtn)
         goto exitParam;
 
@@ -1302,7 +1239,7 @@ iossparam(struct tty *tp, struct termios *t)
         data = 4;
     else
         data = 2;
-    rtn = client->fSession->executeEvent(PD_RS232_E_STOP_BITS, data);
+    rtn = me->sessionExecuteEvent(sp, PD_RS232_E_STOP_BITS, data);
     if (rtn)
         goto exitParam;
 
@@ -1325,184 +1262,424 @@ iossparam(struct tty *tp, struct termios *t)
         SET(data, PD_RS232_A_DTR);
     CLR(t->c_iflag, IXON | IXOFF | IXANY);
     CLR(t->c_cflag, CRTS_IFLOW | CCTS_OFLOW);
-
-    rtn = client->fSession->executeEvent(PD_E_FLOW_CONTROL, data);
+    rtn = me->sessionExecuteEvent(sp, PD_E_FLOW_CONTROL, data);
     if (rtn)
         goto exitParam;
-	
+
     //
     // Load the flow control start and stop characters.
     //
-    rtn  = client->fSession->executeEvent(PD_RS232_E_XON_BYTE,  t->c_cc[VSTART]);
-    rtn |= client->fSession->executeEvent(PD_RS232_E_XOFF_BYTE, t->c_cc[VSTOP]);
+    rtn  = me->sessionExecuteEvent(sp, PD_RS232_E_XON_BYTE,  t->c_cc[VSTART]);
+    rtn |= me->sessionExecuteEvent(sp, PD_RS232_E_XOFF_BYTE, t->c_cc[VSTOP]);
     if (rtn)
         goto exitParam;
 
     /* Always enable for transmission */
-    client->fIstxEnabled = true;
-    client->fSession->setState(PD_S_TX_ENABLE, PD_S_TX_ENABLE);
+    me->fIstxEnabled = true;
+    rtn = me->sessionSetState(sp, PD_S_TX_ENABLE, PD_S_TX_ENABLE);
+    if (rtn)
+        goto exitParam;
 
     /* Only enable reception if necessary */
     if ( ISSET(cflag, CREAD) )
-        client->fSession->setState(-1, PD_S_RX_ENABLE);
+        rtn = me->sessionSetState(sp, -1, PD_S_RX_ENABLE);
     else
-        client->fSession->setState( 0, PD_S_RX_ENABLE);
-
-    error = 0;	/* If we got this far, indicate success */
+        rtn = me->sessionSetState(sp,  0, PD_S_RX_ENABLE);
 
 exitParam:
+    if (kIOReturnSuccess == rtn)
+        error = 0;
+    else if (kIOReturnOffline == rtn)
+        error = sp->fErrno;
+    else
+        error = EINVAL;
+
     return error;
 }
 
+
+/*
+ * Decision Tables for open semantic
+ *
+ * The Exact semantic to be used when open serial ports is very complicated.
+ * We have nasty combinations of ports opened exclusively but pre-emptible while
+ * a root user tries to open the port.  Anyway all of the states that are
+ * interesting are listed below with pseudo code that implements the tables.
+ *
+ * The states across the top are for desired state.  Vertical for the current
+ * open port's state, with State prefix:- ' ' true, '!' not true, 'x' dont care
+ *
+ *  Results
+ * 	B => Block   E => Error Busy   S => Success   P => Pre-empt
+ *
+ * OPEN port was open and is not waiting for carrier
+ * EXCL port is open and desires exclusivity
+ * PREM port is open and is pre-emptible
+ *
+ * Callout Decision table
+ *
+ *         CALLOUT | 0 | 0 | 1 | 1 | 1 | 1 |
+ *        NONBLOCK | 0 | 1 | 0 | 0 | 1 | 1 |
+ *            ROOT | x | x | 0 | 1 | 0 | 1 |
+ * -----------------------------------------
+ *      !EXCL      | Bi| E | S | S | S | S |
+ *       EXCL      | Bi| E | E | S | E | S |
+ *
+ * Is Callout Open
+ *     if (wantCallout) {
+ *         if (isExclusive && !wantSuser)
+ *             return BUSY;
+ *         else
+ *             ; // Success;
+ *     }
+ *     else {
+ * checkAndWaitForIdle:
+ *         if (wantNonBlock)
+ *             return BUSY;
+ *         else {
+ *             waitForIdle;
+ *             goto checkBusy;
+ *         }
+ *     }
+ *
+ * Dial out Table
+ *
+ *         CALLOUT | 0 | 0 | 1 | 1 | 1 | 1 |
+ *        NONBLOCK | 0 | 1 | 0 | 0 | 1 | 1 |
+ *            ROOT | x | x | 0 | 1 | 0 | 1 |
+ * ----------------------------------------
+ * !OPENxEXCLxPREM | S | S | P | P | P | P |
+ *  OPEN!EXCL!PREM | S | S | Bi| S | E | S |
+ *  OPEN!EXCL PREM | S | S | P | P | P | P |
+ *  OPEN EXCL!PREM | E | E | Bi| S | E | S |
+ *  OPEN EXCL PREM | E | E | P | P | P | P |
+ *
+ * Is Dialout Waiting for carrier
+ *     if (wantCallout)
+ *         preempt;
+ *     else 
+ *         // Success Wait for carrier later on
+ *
+ * Is Dialout open
+ *     if (wantCallout) {
+ *         if (isPreempt)
+ *             preempt;
+ *         else if (!wantSuser)
+ *             goto checkAndWaitForIdle;
+ *         else
+ *         	; // Success
+ *     }
+ *     else {
+ *         if (isExclusive)
+ *             return BUSY;
+ *         else
+ *         	; // Success
+ *     }
+ *
+ */
+
 int IOSerialBSDClient::
-acquireSession(dev_t dev)
+open(dev_t dev, int flags, int devtype, struct proc *p)
 {
-    struct tty *tp = &map.ftty;
+    Session *sp;
+    struct tty *tp;
     int error = 0;
-    bool goToSleep;
-    IOSerialSessionSync *newSession;
-    IOReturn rtn;
+    bool wantNonBlock = flags & O_NONBLOCK;
+    bool imPreempting = false;
+    bool firstOpen = false;
 
-    //
-    // The do loop below only allows one open through the gate if the device
-    // isn't already opened, with the exception of an outgoing call fPreempting
-    // an fPreemptable and pending open.
-    //
-    // Once the port has been sucessfully opened then EBUSY all further
-    // attempts to open the port with different characteristics as determined
-    // by (tp->t_dev != dev).
-    //
-    do {
-        goToSleep = false;
+checkBusy:
+    if (isInactive()) {
+        error = ENXIO;
+        goto exitOpen;
+    }
 
-        if (IS_TTY_PREEMPT(dev, tp->t_cflag) &&  fHasAuditSleeper) {
-            // Already have a -[acquireAudit] sleeper so just sleep for
-            // some change in the current state.
-            goToSleep = true;
-        }
-        else if (tp->t_dev) {
-            // Check for outstanding open request
-            if (tp->t_dev == dev) {
-                // Opening with exactly the same type.  Only
-                // sleep if device isn't open or is in process of closing.
-                goToSleep = !ISSET(tp->t_state, TS_ISOPEN) || fIsReleasing;
-            }
-            else if (IS_TTY_OUTWARD(tp->t_dev)
-                 &&  IS_TTY_PREEMPT(dev, tp->t_cflag)) {
-                // If open outward and current open is inward and HARDCAR
-                // then go to sleep waiting for outgoing to terminate.
-                goToSleep = true;
-            }
-            else if (IS_TTY_PREEMPT(tp->t_dev, tp->t_cflag)
-                 &&  IS_TTY_OUTWARD(dev)) {
-                // If current open is outward and we have a fPreemptable
-                // request that is open then return BUSY.  If we haven't
-                // already prempted the older request do so now, otherwise
-                // sleep.
-                if ( ISSET(tp->t_state, TS_ISOPEN) )
-                    return EBUSY;
-                else if (fPreempt)
-                    goToSleep = true;
+    // Check to see if the currently active device has been pre-empted.
+    // If the device has been preempted then we have to wait for the
+    // current owner to close the port.  And THAT means we have to return 
+    // from this open otherwise UNIX doesn't deign to inform us when the
+    // other process DOES close the port.  Welcome to UNIX being helpful.
+    sp = &fSessions[IS_TTY_OUTWARD(dev)];
+    if (sp->fErrno == EBUSY) {
+        error = EBUSY;
+        goto exitOpen;
+    }
+
+    // Can't call startConnectTransition as we need to make sure that
+    // the device hasn't been hot unplugged while we were waiting.
+    if (!imPreempting && fConnectTransit) {
+        tsleep((caddr_t) this, TTIPRI, "ttyopn", 0);
+        goto checkBusy;
+    }
+    fConnectTransit = true;
+
+    // Check to see if the device is already open, which means we have an 
+    // active session
+    if (fActiveSession) {
+        tp = &fActiveSession->ftty;
+
+        bool isCallout    = IS_TTY_OUTWARD(tp->t_dev);
+        bool isPreempt    = fPreemptAllowed;
+        bool isExclusive  = ISSET(tp->t_state, TS_XCLUDE);
+        bool isOpen       = ISSET(tp->t_state, TS_ISOPEN);
+        bool wantCallout  = IS_TTY_OUTWARD(dev);
+        bool wantSuser    = !suser(p->p_ucred, &p->p_acflag);
+
+        if (isCallout) {
+            // Is Callout and must be open
+            if (wantCallout) {
+                if (isExclusive && !wantSuser) {
+                    //
+                    // @@@ - UNIX doesn't allow us to block the open
+                    // until the current session idles if they have the
+                    // same dev_t.  The opens are reference counted
+                    // this means that I must return an error and tell
+                    // the users to use IOKit.
+                    //
+                    error = EBUSY;
+                    goto exitOpen;
+                }
                 else
-                    fPreempt = true;
-            }
-            else
-            {
-                // Return BUSY if the bound state is different or can
-                // not be fPreempt
-                return EBUSY;
-            }
-        }
-
-        if (goToSleep)
-            tsleep((caddr_t) tp, TTIPRI, "ttyas", 0);	// Wait for wakeup.
-    } while (goToSleep);
-
-    if (!tp->t_dev) {
-        // Nobody has bound the port yet so bind state then attempt
-        // to acquire the appropriate type of lock.
-        tp->t_dev = dev;
-        if (!IS_TTY_PREEMPT(dev, tp->t_cflag)) {
-            // Attempt to get an non-fPreemptable lock
-            error = (fSession->acquirePort(false) == kIOReturnSuccess)? 0 : EBUSY;
-        }
-        else {
-            //
-            // As this process can sleep and later be fPreempted by an outgoing
-            // call, we have to use a local fSession.  That way if we fail to
-            // get the lock due to interuption or something we don't bugger
-            // the port's new state up.  But if we do get the lock then
-            // we have to release the old fSession and save the new one.
-            //
-            fHasAuditSleeper = true;
-            newSession = IOSerialSessionSync::withStreamSync(fProvider);
-            assert(newSession);
-
-            rtn = newSession->acquireAudit(true);
-            fHasAuditSleeper = false;
-            if (rtn == kIOReturnSuccess) {
-                // Who knows how long we have been asleep so
-                // rebind the port and release the old fSession
-                tp->t_dev = dev;
-                fSession->release();
-                fSession = newSession;
+                    ; // Success - use current session
             }
             else {
-                newSession->release();
-                error = (rtn == kIOReturnIPCError) ? EINTR : ENXIO;
+checkAndWaitForIdle:
+                if (wantNonBlock) {
+                    error = EBUSY;
+                    goto exitOpen;
+                } else {
+                    endConnectTransit();
+                    error = waitForIdle();
+                    if (error)
+                        return error;	// No transition to clean up
+                    goto checkBusy;
+                }
             }
         }
-    }
-    else if (fPreempt) {
-        tp->t_dev = dev;	// Bind state
-
-        newSession = IOSerialSessionSync::withStreamSync(fProvider);
-        assert(newSession);
-
-        rtn = newSession->acquirePort(false);
-        fPreempt = false;
-        if (rtn == kIOReturnSuccess) {
-            //
-            // Can't release old fSession here as it still has to wakeup
-            // at some stage and clean itself up and probably wouldn't
-            // appreciate talking to a released object.
-            //
-            fSession = newSession;	// Record new fSession
+        else if (isOpen) {
+            // Is dial in and open
+            if (wantCallout) {
+                if (isPreempt) {
+                    imPreempting = true;
+                    preemptActive();
+                    goto checkBusy;
+                }
+                else if (!wantSuser)
+                    goto checkAndWaitForIdle;
+                else
+                    ; // Success - use current session (root override)
+            }
+            else {
+                // Want dial in connection
+                if (isExclusive) {
+                    //
+                    // @@@ - UNIX doesn't allow us to block the open
+                    // until the current session idles if they have the
+                    // same dev_t.  The opens are reference counted
+                    // this means that I must return an error and tell
+                    // the users to use IOKit.
+                    //
+                    error = EBUSY;
+                    goto exitOpen;
+                }
+                else
+                    ; // Success - use current session
+            }
         }
         else {
-            // The port was busy or failed for some other reason so
-            // release the new fSession and return with an error.
-            newSession->release();
-            error = EBUSY;
+            // Is dial in and blocking for carrier, i.e. not open
+            if (wantCallout) {
+                imPreempting = true;
+                preemptActive();
+                goto checkBusy;
+            }
+            else
+                ; // Successful, will wait for carrier later
         }
     }
-    else {
-        // Same bound state so go on
+
+    // If we are here then we have successfully run the open gauntlet.
+    tp = &sp->ftty;
+
+    // If there is no active session that means that we have to acquire
+    // the serial port.
+    if (!fActiveSession) {
+        IOReturn rtn = fProvider->acquirePort(/* sleep */ false);
+        bool offline = isInactive();
+        if (offline || kIOReturnSuccess != rtn) {
+            error = (offline)? ENXIO : EBUSY;
+            goto exitOpen;
+        }
+        else
+            fActiveSession = sp;
     }
 
-    if (isInactive())
-	error = EIO;
+    /*
+     * Initialize Unix's tty struct,
+     * set device parameters and RS232 state
+     */
+    if ( !ISSET(tp->t_state, TS_ISOPEN) ) {
+        initSession(sp);
+
+        // Initialise the line state
+        iossparam(tp, &tp->t_termios);
+    }
+
+    /*
+     * Handle DCD:
+     * If outgoing or not hw dcd or dcd is asserted, then continue.
+     * Otherwise, block till dcd is asserted or open fPreempt.
+     */
+    if (IS_TTY_OUTWARD(dev)
+    ||  ISSET(sessionGetState(sp), PD_RS232_S_CAR) ) {
+        (*linesw[tp->t_line].l_modem)(tp, 1);
+    }
+
+    if (!IS_TTY_OUTWARD(dev) && !ISSET(flags, FNONBLOCK)
+    &&  !ISSET(tp->t_state, TS_CARR_ON) && !ISSET(tp->t_cflag, CLOCAL)) {
+        IOReturn rtn;
+        UInt32 pd_state;
+
+        // Clear up the transit while we are waiting for carrier
+        endConnectTransit();
+
+        /* Track DCD Transistion to high */
+        fInOpensPending++;
+        pd_state = PD_RS232_S_CAR;
+        rtn = sessionWatchState(sp, &pd_state, PD_RS232_S_CAR);
+        fInOpensPending--; wakeup(&fInOpensPending);
+
+        if (kIOReturnIPCError == rtn) {
+            fActiveSession = 0;
+            return EINTR;	// No transition to clean up
+        }
+
+        // Wait for the connection (open()/close()) engine to stabilise
+        if (sp->fErrno) {
+            sp->fErrno = 0;	// We have been pre-empted;
+            goto checkBusy;
+        }
+
+        // Re-establish the connection transition state.
+        startConnectTransit();
+        (*linesw[tp->t_line].l_modem)(tp, 1);	// To be here we must have DCD
+    }
+
+    if ( !ISSET(tp->t_state, TS_ISOPEN) ) {
+	clalloc(&tp->t_rawq, TTYCLSIZE, 1);
+	clalloc(&tp->t_canq, TTYCLSIZE, 1);
+	/* output queue doesn't need quoting */
+	clalloc(&tp->t_outq, TTYCLSIZE, 0);
+	retain();	// Hold a reference until the port is closed
+        firstOpen = true;
+    }
+
+    // Open line discipline
+    error = ((*linesw[(int) tp->t_line].l_open)(dev, tp));
+    if (!error && firstOpen)
+        launchThreads(); // launch the transmit and receive threads
 
     if (error) {
-        tp->t_dev = 0;		// Unbind the state and ...
-        wakeup((caddr_t) tp);	// ... Wake up other sleepers
+        release();
+    	clfree(&tp->t_rawq);
+	clfree(&tp->t_canq);
+	clfree(&tp->t_outq);
     }
 
-    return error;	// return error condition.
+exitOpen:
+    endConnectTransit();
+
+    return error;
 }
 
 void IOSerialBSDClient::
-initSession()
+close(dev_t dev, int flags, int devtype, struct proc *p)
 {
-    struct tty *tp = &map.ftty;
+    struct tty *tp;
+    Session *sp;
+    IOReturn rtn;
+
+    startConnectTransit();
+
+    sp = &fSessions[IS_TTY_OUTWARD(dev)];
+    tp = &sp->ftty;
+
+    /* We are closing, it doesn't matter now about holding back ... */
+    CLR(tp->t_state, TS_TTSTOP);
+    
+    if (!sp->fErrno) {
+        (void) sessionExecuteEvent(sp, PD_E_FLOW_CONTROL, 0);
+        (void) sessionSetState(sp, -1, PD_S_RX_ENABLE | PD_S_TX_ENABLE);
+
+        // Clear any outstanding line breaks
+        rtn = sessionEnqueueEvent(sp, PD_RS232_E_LINE_BREAK, false, true);
+        assert(!rtn || rtn != kIOReturnOffline);
+    }
+
+    (*linesw[(int) tp->t_line].l_close)(tp, flags);
+
+    if (!sp->fErrno) {
+        if (ISSET(tp->t_cflag, HUPCL) || !ISSET(tp->t_state, TS_ISOPEN)
+        || (IS_TTY_PREEMPT(dev, sp->fInitTerm.c_cflag)
+            && !ISSET(sessionGetState(sp), PD_RS232_S_CAR)) ) {
+            /*
+            * XXX we will miss any carrier drop between here and the
+            * next open.  Perhaps we should watch DCD even when the
+            * port is closed; it is not sufficient to check it at
+            * the next open because it might go up and down while
+            * we're not watching.
+            */
+            (void) mctl(RS232_S_OFF, DMSET);
+        }
+    }
+
+    ttyclose(tp);
+
+    assert(!tp->t_outq.c_cc);
+
+    // Free the data queues
+    clfree(&tp->t_rawq);
+    clfree(&tp->t_canq);
+    clfree(&tp->t_outq);
+
+    // Shut down the port, this will cause the RX && TX threads to terminate
+    // Then wait for threads to terminate, this should be over very quickly.
+
+    if (!sp->fErrno)
+        killThreads(); // Disable the chip
+
+    if (sp == fActiveSession)
+    {
+        fProvider->releasePort();
+        fPreemptAllowed = false;
+        fActiveSession = 0;
+        wakeup(&fPreemptAllowed);	// Wakeup any pre-empters
+    }
+
+    sp->fErrno = 0;	/* Clear the error condition on last close */
+
+    endConnectTransit();
+}
+
+void IOSerialBSDClient::
+initSession(Session *sp)
+{
+    struct tty *tp = &sp->ftty;
     IOReturn rtn;
 
     tp->t_oproc = iossstart;
     tp->t_param = iossparam;
-    tp->t_termios = IS_TTY_OUTWARD(tp->t_dev)? fInitTermOut : fInitTermIn;
+    tp->t_termios = sp->fInitTerm;
     ttsetwater(tp);
-    fSession->executeEvent(PD_E_TXQ_FLUSH, 0);
-    fSession->executeEvent(PD_E_RXQ_FLUSH, 0);
+
+    /* Activate the session's port */
+    rtn = sessionExecuteEvent(sp, PD_E_ACTIVE, true);
+    if (rtn)
+        IOLog("ttyioss%04x: ACTIVE failed (%x)\n", tp->t_dev, rtn);
+
+    rtn  = sessionExecuteEvent(sp, PD_E_TXQ_FLUSH, 0);
+    rtn |= sessionExecuteEvent(sp, PD_E_RXQ_FLUSH, 0);
+    assert(!rtn || rtn != kIOReturnOffline);
 
     CLR(tp->t_state, TS_CARR_ON | TS_BUSY);
 
@@ -1513,100 +1690,168 @@ initSession()
         fDCDDelayTicks = 1;
 #endif /* DCD_DELAY */
 
-    // Disable all flow control  & data movement initially
-    rtn  = fSession->executeEvent(PD_E_FLOW_CONTROL, 0);
-    rtn |= fSession->setState(0, PD_S_RX_ENABLE | PD_S_TX_ENABLE);
-    assert(!rtn || rtn != kIOReturnOffline || kIOReturnNotOpen == rtn);
-
-    /* Activate the port fSession */
-    rtn = fSession->executeEvent(PD_E_ACTIVE, true);
-    if (rtn)
-        IOLog("ttyioss%04x: ACTIVE failed (%x)\n", tp->t_dev, rtn);
-
-    /*
-     * Cycle the PD_RS232_S_DTR line if necessary 
-     */
-    if ( !ISSET(fSession->getState(), PD_RS232_S_DTR) ) {
-        struct timeval earliestUp;
-
-        earliestUp = fDTRDownTime;
-        timeradd(&earliestUp, &dtrDownDelay, &earliestUp);
-        timersub(&earliestUp, &time, &earliestUp);
-        if ( earliestUp.tv_sec >= 0 && timerisset(&earliestUp) ) {
-
-            /* Convert earliest up time to relative msecs rounded to 10 ms. */
-            earliestUp.tv_sec *= 1000;
-            earliestUp.tv_sec += 10 * ((earliestUp.tv_usec + 5000) / 10000);
-            if (earliestUp.tv_sec)
-                IOSleep(earliestUp.tv_sec);
-        }
-
-	(void) mctl(RS232_S_ON, DMSET);
+    // Cycle the PD_RS232_S_DTR line if necessary 
+    if ( !ISSET(fProvider->getState(), PD_RS232_S_DTR) ) {
+        (void) waitOutDelay(0, &fDTRDownTime, &kDTRDownDelay);
+        (void) mctl(RS232_S_ON, DMSET);
     }
 
+    // Disable all flow control  & data movement initially
+    rtn  = sessionExecuteEvent(sp, PD_E_FLOW_CONTROL, 0);
+    rtn |= sessionSetState(sp, 0, PD_S_RX_ENABLE | PD_S_TX_ENABLE);
+    assert(!rtn || rtn != kIOReturnOffline);
+
     /* Raise RTS */
-    rtn = fSession->setState( PD_RS232_S_RTS, PD_RS232_S_RTS);
-    assert(!rtn || rtn != kIOReturnOffline || kIOReturnNotOpen == rtn);
+    rtn = sessionSetState(sp,  PD_RS232_S_RTS, PD_RS232_S_RTS);
+    assert(!rtn || rtn != kIOReturnOffline);
+}
+
+bool IOSerialBSDClient::
+waitOutDelay(void *event,
+             const struct timeval *start, const struct timeval *duration)
+{
+    struct timeval deltval, *delay = &deltval;
+
+    timeradd(start, duration, delay);	// Delay Till = start + duration
+    timersub(delay, &time, delay);	// Delay Duration = now - Delay Till
+    if ( delay->tv_sec < 0 || !timerisset(delay) )
+        return false;	// Delay expired
+    else if (event) {
+        unsigned int delayTicks;
+
+        delayTicks = MUSEC2TICK(delay->tv_sec * 1000000 + delay->tv_usec);
+        tsleep((caddr_t) event, TTIPRI, "ttydelay", delayTicks);
+    }
+    else {
+        unsigned int delayMS;
+
+        /* Calculate the required delay in milliseconds, rounded up */
+        delayMS =  delay->tv_sec * 1000 + (delay->tv_usec + 999) / 1000;
+
+        IOSleep(delayMS);
+    }
+    return true;	// We did sleep
 }
 
 int IOSerialBSDClient::
-waitForDCD(int flag)
+waitForIdle()
 {
-    struct tty *tp = &map.ftty;
-    u_long pd_state;
-    IOReturn rtn;
+    AutoKernelFunnel funnel;	// Take kernel funnel
 
-    /*
-     * A fPreemptable open has only got an Audit lock on the port fSession
-     * here we wait for either DCD going high, a fPreempt request or an
-     * interrupt.  Once we notice DCD high we upgrade our lock.  Otherwise
-     * we release the current fSession and either return with an interrupt
-     * error or attempt to go through the checkbusy: gate again.
-     */
-    if ( !ISSET(flag, FNONBLOCK)
-    &&   !ISSET(tp->t_state, TS_CARR_ON) && !ISSET(tp->t_cflag, CLOCAL) ) {
+    while (fActiveSession || fConnectTransit) {
+        if (isInactive())
+            return ENXIO;
 
-        /* Track DCD Transistion to high */
-	pd_state = PD_RS232_S_CAR;
-        rtn = fSession->watchState(&pd_state, PD_RS232_S_CAR);
-	if (kIOReturnNotOpen == rtn)
-	    return EBUSY;
-	else if (kIOReturnIPCError == rtn)
-	    return EINTR;
-	else if (kIOReturnOffline == rtn)
-	    return EIO;
-
-	assert(rtn == kIOReturnSuccess);
-	assert(ISSET(pd_state, PD_RS232_S_CAR));
-        (*linesw[tp->t_line].l_modem)(tp, 1);	// To be here we must have DCD
+        int error = tsleep((caddr_t) this, TTIPRI | PCATCH, "ttyidl", 0);
+        if (error)
+            return error;
     }
-
-    /* Upgrade Audit Lock to a full lock */
-    rtn = fSession->acquirePort(false);
-    if (kIOReturnOffline == rtn || kIOReturnNotOpen == rtn)
-	return EIO;
-    assert(!rtn);
 
     return 0;
 }
 
+void IOSerialBSDClient::
+preemptActive()
+{
+    // 
+    // We are not allowed to pre-empt if the current port has been
+    // active recently.  So wait out the delay and if we sleep
+    // then we will need to return to check the open conditions again.
+    //
+    if (waitOutDelay(&fPreemptAllowed, &fLastUsedTime, &kPreemptIdle))
+        return;
+
+    Session *sp = fActiveSession;
+    struct tty *tp = &sp->ftty;
+
+    sp->fErrno = EBUSY;
+    fActiveSession = 0;
+    fKillThreads = true;
+
+    // This flag gets reset once we actually take over the session
+    // this is done by the open code where it acquires the port
+    // obviously we don't need to re-acquire the port as we didn't
+    // release it in this case.
+    fPreemptAllowed = false;
+
+    // Enforce a zombie and unconnected state on the discipline
+    SET(tp->t_state, TS_ZOMBIE);
+    CLR(tp->t_state, TS_CONNECTED);
+
+    // Flush out any sleeping threads
+    ttyflush(tp, FREAD | FWRITE);
+
+    // Shutdown the open connection
+    killThreads();
+
+    while (fInOpensPending)
+        tsleep((caddr_t) &fInOpensPending, TTIPRI, "ttypre", 0);
+
+    fProvider->releasePort();	// Release the old session
+}
+
+void IOSerialBSDClient::
+startConnectTransit()
+{
+    // Wait for the connection (open()/close()) engine to stabilise
+    while (fConnectTransit)
+        tsleep((caddr_t) this, TTIPRI, "ttyctr", 0);
+    fConnectTransit = true;
+}
+
+void IOSerialBSDClient::
+endConnectTransit()
+{
+    // Clear up the transit while we are waiting for carrier
+    fConnectTransit = false;
+    wakeup(this);
+}
+
+void
+IOSerialBSDClient::convertFlowCtrl(Session *sp, struct termios *t)
+{
+    IOReturn rtn;
+    u_long flowCtrl;
+
+    //
+    // Have to reconstruct the flow control bits
+    //
+    rtn = sessionRequestEvent(sp, PD_E_FLOW_CONTROL, &flowCtrl);
+    assert(!rtn);
+
+    if ( ISSET(flowCtrl, PD_RS232_A_TXO) )
+        SET(t->c_iflag, IXON);
+    if ( ISSET(flowCtrl, PD_RS232_A_XANY) )
+        SET(t->c_iflag, IXANY);
+    if ( ISSET(flowCtrl, PD_RS232_A_RXO) )
+        SET(t->c_iflag, IXOFF);
+
+    if ( ISSET(flowCtrl, PD_RS232_A_RFR) )
+        SET(t->c_cflag, CRTS_IFLOW);
+    if ( ISSET(flowCtrl, PD_RS232_A_CTS) )
+        SET(t->c_cflag, CCTS_OFLOW);
+    if ( ISSET(flowCtrl, PD_RS232_A_DTR) )
+        SET(t->c_cflag, CDTR_IFLOW);
+}
+
+// @@@ gvdl: Must only call when session is valid, check isInActive as well
 int IOSerialBSDClient::
 mctl(u_int bits, int how)
 {
     u_long oldBits, mbits;
     IOReturn rtn;
 
-    bits &= RS232_S_OUTPUTS;
-    oldBits = fSession->getState();
-
     if ( ISSET(bits, PD_RS232_S_BRK) && (how == DMBIS || how == DMBIC) ) {
 	oldBits = (how == DMBIS);
-	rtn = fSession->enqueueEvent(PD_RS232_E_LINE_BREAK, oldBits, true);
+	rtn = fProvider->enqueueEvent(PD_RS232_E_LINE_BREAK, oldBits, true);
 	if (!rtn && oldBits)
-	    rtn = fSession->enqueueEvent(PD_E_DELAY, BRK_DELAY, true);
-	assert(!rtn || rtn != kIOReturnOffline || kIOReturnNotOpen == rtn);
+	    rtn = fProvider->enqueueEvent(PD_E_DELAY, BRK_DELAY, true);
+	assert(!rtn || rtn != kIOReturnOffline);
 	return oldBits;
     }
+
+    bits &= RS232_S_OUTPUTS;
+    oldBits = fProvider->getState();
 
     mbits = oldBits;
     switch (how)
@@ -1628,14 +1873,13 @@ mctl(u_int bits, int how)
     }
 
     /* Check for a transition for DTR to low and record the down time */
-    if ( ISSET(oldBits & ~mbits, PD_RS232_S_DTR) ) {
+    if ( ISSET(oldBits & ~mbits, PD_RS232_S_DTR) )
  	fDTRDownTime = *(timeval *) &time;
-    }
 
-    rtn = fSession->setState(mbits, RS232_S_OUTPUTS);
+    rtn = fProvider->setState(mbits, RS232_S_OUTPUTS);
     if (rtn)
-	IOLog("ttyioss%04x: mctl PD_E_FLOW_CONTROL failed %x\n",
-	    map.ftty.t_dev, rtn);
+	IOLog("ttyioss%04x: mctl RS232_S_OUTPUTS failed %x\n",
+	    fBaseDev, rtn);
 
 
     return mbits;
@@ -1651,8 +1895,12 @@ mctl(u_int bits, int how)
 void IOSerialBSDClient::
 optimiseInput(struct termios *t)
 {
-    struct tty *tp = &map.ftty;
-    bool cantByPass =
+    Session *sp = fActiveSession;
+    struct tty *tp = &sp->ftty;
+    bool cantByPass;
+    UInt32 slipEvent, pppEvent;
+
+    cantByPass =
         (ISSET(t->c_iflag, NOBYPASS_IFLAG_MASK)
           || ( ISSET(t->c_iflag, BRKINT) && !ISSET(t->c_iflag, IGNBRK) )
           || ( ISSET(t->c_iflag, PARMRK)
@@ -1670,18 +1918,41 @@ optimiseInput(struct termios *t)
      * disciplines with a end of packet character.
      */
     if (tp->t_line == SLIPDISC) {
-        (void) fSession->executeEvent( PD_E_SPECIAL_BYTE    , 0xc0);
-        (void) fSession->executeEvent( PD_E_VALID_DATA_BYTE , 0x7e);
+        slipEvent = PD_E_SPECIAL_BYTE;
+        pppEvent  = PD_E_VALID_DATA_BYTE;
     }
     else if (tp->t_line == PPPDISC) {
-        (void) fSession->executeEvent(PD_E_SPECIAL_BYTE    , 0x7e);
-        (void) fSession->executeEvent(PD_E_VALID_DATA_BYTE , 0xc0);
+        slipEvent = PD_E_VALID_DATA_BYTE;
+        pppEvent  = PD_E_SPECIAL_BYTE;
     }
     else {
-        (void) fSession->executeEvent(PD_E_VALID_DATA_BYTE, 0x7e);
-        (void) fSession->executeEvent(PD_E_VALID_DATA_BYTE, 0xc0);
+        slipEvent = PD_E_VALID_DATA_BYTE;
+        pppEvent  = PD_E_VALID_DATA_BYTE;
     }
+
+    (void) sessionExecuteEvent(sp, slipEvent, 0xc0);
+    (void) sessionExecuteEvent(sp, pppEvent, 0xc0);
 }
+
+void IOSerialBSDClient::
+iossdcddelay(void *vSession)
+{
+    Session *sp = (Session *) vSession;
+    struct tty *tp = &sp->ftty;
+    IOSerialBSDClient *me = sp->fThis;
+    bool pd_state;	/* PortDevice state */
+
+    AutoKernelFunnel funnel;	// Take kernel funnel
+
+    if (!sp->fErrno && me->fDCDTimerDue
+    && ISSET(tp->t_state, TS_ISOPEN)) { // Check for race
+	pd_state = ISSET(me->sessionGetState(sp), PD_RS232_S_CAR);
+
+	(void) (*linesw[(int) tp->t_line].l_modem)(tp, (int) pd_state);
+    }
+    me->fDCDTimerDue = false;
+}
+
 
 /*
  * The three functions below make up the recieve thread of the
@@ -1695,9 +1966,9 @@ optimiseInput(struct termios *t)
 #define VALID_DATA (PD_E_VALID_DATA_BYTE & PD_E_MASK)
 
 void IOSerialBSDClient::
-getData()
+getData(Session *sp)
 {
-    struct tty *tp = &map.ftty;
+    struct tty *tp = &sp->ftty;
     UInt32 transferCount, bufferSize, minCount;
     UInt8 rx_buf[1024];
     IOReturn rtn;
@@ -1718,9 +1989,9 @@ getData()
     // minCount = (delay_usecs)? bufferSize : 1;
     minCount = 1;
 
-    rtn = fSession->dequeueData(rx_buf, bufferSize, &transferCount, minCount);
+    rtn = sessionDequeueData(sp, rx_buf, bufferSize, &transferCount, minCount);
     if (rtn) {
-	if (kIOReturnOffline == rtn || kIOReturnNotOpen == rtn)
+	if (kIOReturnOffline == rtn)
 	    frxBlocked = true;	// Block ourselves?
 	else if (rtn != kIOReturnIOError)
 	    IOLog("ttyioss%04x: dequeueData ret %x\n", tp->t_dev, rtn);
@@ -1729,6 +2000,10 @@ getData()
 
     if (!transferCount)
         return;
+
+    // Track last in bound data time
+    if (fPreemptAllowed)
+        fLastUsedTime = *(timeval *) &time;
 
     /*
      * Avoid the grotesquely inefficient lineswitch routine
@@ -1756,14 +2031,14 @@ getData()
 }
 
 void IOSerialBSDClient::
-procEvent()
+procEvent(Session *sp)
 {
-    struct tty *tp = &map.ftty;
+    struct tty *tp = &sp->ftty;
     u_long event, data;
     IOReturn rtn;
 
-    rtn = fSession->dequeueEvent(&event, &data, false);
-    if (kIOReturnOffline == rtn || kIOReturnNotOpen == rtn)
+    rtn = sessionDequeueEvent(sp, &event, &data, false);
+    if (kIOReturnOffline == rtn)
 	return;
 
     assert(!rtn && event != PD_E_EOQ && (event & PD_E_MASK) != VALID_DATA);
@@ -1792,13 +2067,19 @@ procEvent()
 	break;
     }
     
-    if (event)
+    if (event) {
+        // Track last in bound event time
+        if (fPreemptAllowed)
+            fLastUsedTime = *(timeval *) &time;
+
 	(*linesw[(int)tp->t_line].l_rint)(data, tp);
+    }
 }
 
 void IOSerialBSDClient::
 rxFunc()
 {
+    Session *sp;
     int event;
     u_long wakeup_with;	// states
     IOReturn rtn;
@@ -1806,27 +2087,35 @@ rxFunc()
     // Mark this thread as part of the BSD infrastructure.
     thread_funnel_set(kernel_flock, TRUE);
 
+    sp = fActiveSession;
+
+    frxThread = IOThreadSelf();
+    frxThreadLaunched = true;
+    wakeup((caddr_t) &frxThread);	// wakeup the thread launcher
+
     frxBlocked = false;
 
     while ( !fKillThreads ) {
         if (frxBlocked) {
             wakeup_with = PD_S_RX_EVENT;
-            rtn = fSession->watchState(&wakeup_with , PD_S_RX_EVENT);
-            fSession->setState(0, PD_S_RX_EVENT);
-            if ( (kIOReturnOffline == rtn || kIOReturnNotOpen == rtn)
+            rtn = sessionWatchState(sp, &wakeup_with , PD_S_RX_EVENT);
+            sessionSetState(sp, 0, PD_S_RX_EVENT);
+            if ( (kIOReturnOffline == rtn)
 	    ||   (kIOReturnIOError == rtn && fKillThreads) )
                 break;	// Terminate thread loop
         }
-	event = (fSession->nextEvent() & PD_E_MASK);
+	event = (sessionNextEvent(sp) & PD_E_MASK);
 	if (event == PD_E_EOQ || event == VALID_DATA)
-	    getData();
+	    getData(sp);
 	else
-	    procEvent();
+	    procEvent(sp);
     }
 
     // commit seppuku cleanly
     frxThread = NULL;
-    wakeup((caddr_t) &frxThread);
+    frxThreadLaunched = false;
+    wakeup((caddr_t) &frxThread);	// wakeup the thread killer
+
     IOExitThread();
 }
 
@@ -1840,9 +2129,9 @@ rxFunc()
  */
 
 void IOSerialBSDClient::
-txload(u_long *wait_mask)
+txload(Session *sp, u_long *wait_mask)
 {
-    struct tty *tp = &map.ftty;
+    struct tty *tp = &sp->ftty;
     IOReturn rtn;
     UInt8 tx_buf[CBSIZE * 8];	// 1/2k buffer
     UInt32 data;
@@ -1858,7 +2147,7 @@ txload(u_long *wait_mask)
     }
 
     while (cc = tp->t_outq.c_cc) {
-        rtn = fSession->requestEvent(PD_E_TXQ_AVAILABLE, &data);
+        rtn = sessionRequestEvent(sp, PD_E_TXQ_AVAILABLE, &data);
 	if (kIOReturnOffline == rtn || kIOReturnNotOpen == rtn)
 	    return;
 
@@ -1876,7 +2165,10 @@ txload(u_long *wait_mask)
 	assert(size);
 
 	/* There was some data left over from the previous load */
-        rtn = fSession->enqueueData(tx_buf, size, &cc, false);
+        rtn = sessionEnqueueData(sp, tx_buf, size, &cc, false);
+        if (fPreemptAllowed)
+            fLastUsedTime = *(timeval *) &time;
+
 	if (kIOReturnSuccess == rtn)
             ttwwakeup(tp);
         else
@@ -1890,35 +2182,23 @@ txload(u_long *wait_mask)
 }
 
 void IOSerialBSDClient::
-iossdcddelay(void *vThis)
-{
-    IOSerialBSDClient *client = (IOSerialBSDClient *) vThis;
-    struct tty *tp = &client->map.ftty;
-    int   pd_state;	/* PortDevice state */
-
-    boolean_t funnel_state = thread_funnel_set(kernel_flock, TRUE);
-
-    if (client->fIsDCDTimer
-    && ISSET(tp->t_state, TS_ISOPEN)) { // Check for race
-	pd_state = ((client->fSession->getState() & PD_RS232_S_CAR) != 0);
-
-	(void) (*linesw[(int) tp->t_line].l_modem)(tp, pd_state);
-    }
-    client->fIsDCDTimer = false;
-
-    thread_funnel_set(kernel_flock, funnel_state);
-}
-
-void IOSerialBSDClient::
 txFunc()
 {
-    struct tty *tp = &map.ftty;
+    Session *sp;
+    struct tty *tp;
     u_long waitfor, waitfor_mask, wakeup_with;	// states
     u_long interesting_bits;
     IOReturn rtn;
 
     // Mark this thread as part of the BSD infrastructure.
     thread_funnel_set(kernel_flock, TRUE);
+
+    sp = fActiveSession;
+    tp = &sp->ftty;
+
+    ftxThread = IOThreadSelf();
+    ftxThreadLaunched = true;
+    wakeup((caddr_t) &ftxThread);	// wakeup the thread launcher
 
     /*
      * Register interest in transitions to high of the
@@ -1929,14 +2209,15 @@ txFunc()
     waitfor      = (PD_S_TX_EVENT | PD_S_TXQ_LOW_WATER | PD_S_TXQ_EMPTY);
 
     // Get the current carrier state and toggle it
-    SET(waitfor, (fSession->getState() & PD_RS232_S_CAR) ^ PD_RS232_S_CAR);
+    SET(waitfor, ISSET(sessionGetState(sp), PD_RS232_S_CAR) ^ PD_RS232_S_CAR);
 
     for ( ;; ) {
 	wakeup_with = waitfor;
-	rtn  = fSession->watchState(&wakeup_with, waitfor_mask);
-	if ( (kIOReturnOffline == rtn || kIOReturnNotOpen == rtn)
-	||   (kIOReturnIOError == rtn && fKillThreads) )
+	rtn  = sessionWatchState(sp, &wakeup_with, waitfor_mask);
+	if ( kIOReturnOffline == rtn || kIOReturnNotOpen == rtn
+	||  (kIOReturnIOError == rtn && fKillThreads) )
 	    break;	// Terminate thread loop
+
 	//
 	// interesting_bits are set to true if the wait_for = wakeup_with
 	// and we expressed an interest in the bit in waitfor_mask.
@@ -1946,9 +2227,9 @@ txFunc()
 	// Has iossstart been trying to get out attention
 	if ( ISSET(PD_S_TX_EVENT, interesting_bits) ) {
 	    /* Clear PD_S_TX_EVENT bit in state register */
-	    rtn = fSession->setState(0, PD_S_TX_EVENT);
-	    assert(!rtn || rtn != kIOReturnOffline || kIOReturnNotOpen == rtn);
-	    txload(&waitfor_mask);
+	    rtn = sessionSetState(sp, 0, PD_S_TX_EVENT);
+	    assert(!rtn || rtn != kIOReturnOffline);
+	    txload(sp, &waitfor_mask);
 	}
 
 	//
@@ -1957,14 +2238,14 @@ txFunc()
 	if ( ISSET(PD_RS232_S_CAR, interesting_bits) ) {
 	    waitfor ^= PD_RS232_S_CAR;		/* toggle value */
 
-	    if (fIsDCDTimer) {
+	    if (fDCDTimerDue) {
 		/* Stop dcd timer interval was too short */
-		fIsDCDTimer = false;
-		untimeout(&IOSerialBSDClient::iossdcddelay, this);
+		fDCDTimerDue = false;
+		untimeout(&IOSerialBSDClient::iossdcddelay, sp);
 	    }
 	    else {
-		fIsDCDTimer = true;
-		timeout(&IOSerialBSDClient::iossdcddelay, this, fDCDDelayTicks);
+		fDCDTimerDue = true;
+		timeout(&IOSerialBSDClient::iossdcddelay, sp, fDCDDelayTicks);
 	    }
 	}
 
@@ -1973,7 +2254,7 @@ txFunc()
 	//
 	if ( ISSET(PD_S_TXQ_LOW_WATER, interesting_bits) ) {
 	    CLR(waitfor_mask, PD_S_TXQ_LOW_WATER); // Not interested any more
-	    txload(&waitfor_mask);
+	    txload(sp, &waitfor_mask);
 	}
 
 	//
@@ -1997,19 +2278,18 @@ txFunc()
 	}
     }
 
-    if (fIsDCDTimer) {
+    if (fDCDTimerDue) {
     	// Clear the DCD timeout
-	fIsDCDTimer = false;
-	untimeout(&IOSerialBSDClient::iossdcddelay, this);
+	fDCDTimerDue = false;
+	untimeout(&IOSerialBSDClient::iossdcddelay, sp);
     }
 
     // Drop the carrier line and clear the BUSY bit
     (void) (*linesw[(int) tp->t_line].l_modem)(tp, false);
-    CLR(tp->t_state,  TS_BUSY|TS_TTSTOP);
-    ttwwakeup(tp);	/* Notify discipline, not busy anymore */
 
     ftxThread = NULL;
-    wakeup((caddr_t) &ftxThread);
+    ftxThreadLaunched = false;
+    wakeup((caddr_t) &ftxThread); 	// wakeup the thread killer
 
     IOExitThread();
 }
@@ -2017,27 +2297,123 @@ txFunc()
 void IOSerialBSDClient::
 launchThreads()
 {
-    if (!frxThread)
-	frxThread = 
-            IOCreateThread((IOThreadFunc) &IOSerialBSDClient::rxFunc, this);
-    if (!ftxThread)
-	ftxThread =
-            IOCreateThread((IOThreadFunc) &IOSerialBSDClient::txFunc, this);
+    // Clear the have launched flags
+    ftxThreadLaunched = frxThreadLaunched = false;
+
+    // Now launch the receive and transmitter threads
+    IOCreateThread((IOThreadFunc) &IOSerialBSDClient::rxFunc, this);
+    IOCreateThread((IOThreadFunc) &IOSerialBSDClient::txFunc, this);
+
+    // Now wait for the threads to actually launch
+    while (!frxThreadLaunched)
+        tsleep((caddr_t) &frxThread, TTOPRI, "ttyrxl", 0);
+    while (!ftxThreadLaunched)
+        tsleep((caddr_t) &ftxThread, TTOPRI, "ttytxl", 0);
 }
 
 void IOSerialBSDClient::
 killThreads()
 {
-    if (ftxThread || frxThread) {
+    if (frxThread || ftxThread) {
         fKillThreads = true;
-        // Disable the chip
-        fSession->executeEvent(PD_E_ACTIVE, false);
+        fProvider->executeEvent(PD_E_ACTIVE, false);
 
-        while (ftxThread)
-            tsleep((caddr_t) &ftxThread, TTOPRI, "ttytxd", 0);
         while (frxThread)
             tsleep((caddr_t) &frxThread, TTIPRI, "ttyrxd", 0);
+        while (ftxThread)
+            tsleep((caddr_t) &ftxThread, TTOPRI, "ttytxd", 0);
     }
 }
 
+// 
+// session based accessors to Serial Stream Sync 
+//
+IOReturn IOSerialBSDClient::
+sessionSetState(Session *sp, UInt32 state, UInt32 mask)
+{
+    if (sp->fErrno)
+        return kIOReturnOffline;
+    else
+        return fProvider->setState(state, mask);
+}
 
+UInt32 IOSerialBSDClient::
+sessionGetState(Session *sp)
+{
+    if (sp->fErrno)
+        return 0;
+    else
+        return fProvider->getState();
+}
+
+IOReturn IOSerialBSDClient::
+sessionWatchState(Session *sp, UInt32 *state, UInt32 mask)
+{
+    if (sp->fErrno)
+        return kIOReturnOffline;
+    else
+        return fProvider->watchState(state, mask);
+}
+
+UInt32 IOSerialBSDClient::
+sessionNextEvent(Session *sp)
+{
+    if (sp->fErrno)
+        return PD_E_EOQ;
+    else
+        return fProvider->nextEvent();
+}
+
+IOReturn IOSerialBSDClient::
+sessionExecuteEvent(Session *sp, UInt32 event, UInt32 data)
+{
+    if (sp->fErrno)
+        return kIOReturnOffline;
+    else
+        return fProvider->executeEvent(event, data);
+}
+
+IOReturn IOSerialBSDClient::
+sessionRequestEvent(Session *sp, UInt32 event, UInt32 *data)
+{
+    if (sp->fErrno)
+        return kIOReturnOffline;
+    else
+        return fProvider->requestEvent(event, data);
+}
+
+IOReturn IOSerialBSDClient::
+sessionEnqueueEvent(Session *sp, UInt32 event, UInt32 data, bool sleep)
+{
+    if (sp->fErrno)
+        return kIOReturnOffline;
+    else
+        return fProvider->enqueueEvent(event, data, sleep);
+}
+
+IOReturn IOSerialBSDClient::
+sessionDequeueEvent(Session *sp, UInt32 *event, UInt32 *data, bool sleep)
+{
+    if (sp->fErrno)
+        return kIOReturnOffline;
+    else
+        return fProvider->dequeueEvent(event, data, sleep);
+}
+
+IOReturn IOSerialBSDClient::
+sessionEnqueueData(Session *sp, UInt8 *buffer, UInt32 size, UInt32 *count, bool sleep)
+{
+    if (sp->fErrno)
+        return kIOReturnOffline;
+    else
+        return fProvider->enqueueData(buffer, size, count, sleep);
+}
+
+IOReturn IOSerialBSDClient::
+sessionDequeueData(Session *sp, UInt8 *buffer, UInt32 size, UInt32 *count, UInt32 min)
+{
+    if (sp->fErrno)
+        return kIOReturnOffline;
+    else
+        return fProvider->dequeueData(buffer, size, count, min);
+}

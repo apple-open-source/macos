@@ -163,6 +163,8 @@ private:
     void displayI2CPower( bool enable );
     IOReturn ndrvSetPowerState( UInt32 newState );
     static IOReturn _probeAction( IONDRVFramebuffer * self, IOOptionBits options );
+    friend class IONDRVI2CInterface;
+    static IOReturn _iicAction( IONDRVFramebuffer * self, VDCommunicationRec * comm );
 
 public:
     virtual IOReturn doControl( UInt32 code, void * params );

@@ -1,4 +1,4 @@
-/* $Id: openbsd-compat.h,v 1.1.1.3 2001/05/03 16:51:29 zarzycki Exp $ */
+/* $Id: openbsd-compat.h,v 1.1.1.4 2001/11/03 18:14:18 bbraun Exp $ */
 
 #ifndef _OPENBSD_H
 #define _OPENBSD_H
@@ -15,18 +15,17 @@
 #include "strmode.h"
 #include "mktemp.h"
 #include "daemon.h"
+#include "dirname.h"
 #include "base64.h"
 #include "sigact.h"
-#include "inet_aton.h"
 #include "inet_ntoa.h"
 #include "inet_ntop.h"
 #include "strsep.h"
-#include "strtok.h"
-#include "vis.h"
 #include "setproctitle.h"
 #include "getgrouplist.h"
 #include "glob.h"
-#include "getusershell.h"
+#include "readpassphrase.h"
+#include "getopt.h"
 
 /* Home grown routines */
 #include "bsd-arc4random.h"
@@ -38,5 +37,8 @@
 #include "fake-getaddrinfo.h"
 #include "fake-getnameinfo.h"
 #include "fake-socket.h"
+
+/* Routines for a single OS platform */
+#include "bsd-cray.h"
 
 #endif /* _OPENBSD_H */

@@ -1,10 +1,5 @@
 // !$*UTF8*$!
 {
-	016FA200FFB1F76211CA2B4D = {
-		uiCtxt = {
-			sepNavWindowFrame = "{{142, 5}, {648, 741}}";
-		};
-	};
 	089C1669FE841209C02AAC07 = {
 		activeBuildStyle = 013905A7FFB1ECE711CA2B4D;
 		activeTarget = 089C1673FE841209C02AAC07;
@@ -18,7 +13,7 @@
 						ActiveTab = 2;
 						Frame = "{{225, 0}, {789, 616}}";
 						Split0 = {
-							Frame = "{{0, 142}, {789, 474}}";
+							Frame = "{{0, 277}, {789, 339}}";
 						};
 						SplitCount = 1;
 						Tab0 = {
@@ -54,12 +49,12 @@
 							};
 						};
 						Tab2 = {
-							BuildMessageFrame = "{{0, 0}, {791, 72}}";
-							BuildTranscriptFrame = "{{0, 81}, {791, 38}}";
-							Frame = "{{0, 0}, {789, 117}}";
+							BuildMessageFrame = "{{0, 0}, {791, 50}}";
+							BuildTranscriptFrame = "{{0, 59}, {791, 195}}";
+							Frame = "{{0, 0}, {789, 252}}";
 						};
 						Tab3 = {
-							Frame = "{{0, 0}, {789, 134}}";
+							Frame = "{{0, 0}, {789, 137}}";
 						};
 						TabCount = 4;
 					};
@@ -91,7 +86,7 @@
 					};
 					TabCount = 5;
 				};
-				WindowLocation = "{26, 23}";
+				WindowLocation = "{30, 40}";
 			};
 		};
 		wantsIndex = 1;

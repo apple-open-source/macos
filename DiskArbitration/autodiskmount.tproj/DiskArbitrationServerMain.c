@@ -1016,11 +1016,8 @@ void FreeDisk( DiskPtr diskPtr )
 			    free( diskPtr->ioMediaNameOrNull);
 				diskPtr->ioMediaNameOrNull = NULL; // Attempt to catch accidental re-use.
 			}
-            if ( diskPtr->ioMediaNameOrNull)
-            {
-                free( diskPtr->ioDeviceTreePath );
-                diskPtr->ioDeviceTreePath = NULL; // Attempt to catch accidental re-use.
-            }
+			free( diskPtr->ioDeviceTreePath );
+			diskPtr->ioDeviceTreePath = NULL; // Attempt to catch accidental re-use.
 
                         if ( diskPtr->mountedFilesystemName)
                         {
@@ -2481,17 +2478,58 @@ void SendCallFailedMessage(ClientPtr clientPtr, DiskPtr diskPtr, int failedType,
 
 //------------------------------------------------------------------------
 
+
+void SendUnmountCommitMsgs( void )
+{
+	ClientPtr clientPtr;
+	DiskPtr diskPtr;
+	kern_return_t r = 0;
+	
+	dwarning(("%s\n", __FUNCTION__));
+	
+	/* For each client, and disk, send a notification if the disk was unmounted/ejected */
+
+	for (clientPtr = g.Clients; clientPtr != NULL; clientPtr = clientPtr->next)
+	{
+		for (diskPtr = g.Disks; diskPtr != NULL; diskPtr = diskPtr->next)
+		{
+			if ( kDiskStateNewlyUnmounted == diskPtr->state || kDiskStateNewlyEjected == diskPtr->state )
+			{
+
+				if ( clientPtr->flags & kDiskArbNotifyUnmount )
+				{
+					dwarning(("DiskArbUnmountCommit($%08x (pid=%d), '%s') ...\n", clientPtr->port, clientPtr->pid, diskPtr->ioBSDName));
+					if ( r == MACH_SEND_INVALID_DEST )
+					{
+						/* The client has died */
+						/* Don't do anything here ... wait for the notification */
+						dwarning(("Dead client! Port = $%08x (pid=%d)\n", clientPtr->port, clientPtr->pid));
+					}
+				}
+
+			}
+
+		} // FOREACH disk
+
+	} // FOREACH client
+	
+} // SendUnmountCommitMsgs
+
+
+//------------------------------------------------------------------------
+
+
 void PrepareToSendPreUnmountMsgs( void )
 {
-    ClientPtr clientPtr;
-    DiskPtr diskPtr;
+	ClientPtr clientPtr;
+	DiskPtr diskPtr;
 
-    dwarning(("%s\n", __FUNCTION__));
+	dwarning(("%s\n", __FUNCTION__));
+	
+	/* For each client and disk */
 
-    /* For each client and disk */
-
-    for (diskPtr = g.Disks; diskPtr != NULL; diskPtr = diskPtr->next)
-    {
+	for (diskPtr = g.Disks; diskPtr != NULL; diskPtr = diskPtr->next)
+	{
                 if ( kDiskStateToBeUnmounted == diskPtr->state || kDiskStateToBeUnmountedAndEjected == diskPtr->state )
                 {
                         // Assert: the <ackValues> field for this disk was allocated/initialized when its state was set.
@@ -2511,7 +2549,7 @@ void PrepareToSendPreUnmountMsgs( void )
                                 } // FOREACH client
                        }
                 }
-    } // FOREACH disk
+	} // FOREACH disk
 
 } // PrepareToSendPreUnmountMsgs
 
@@ -2521,18 +2559,18 @@ void PrepareToSendPreUnmountMsgs( void )
 
 void PrepareToSendPreEjectMsgs( void )
 {
-    ClientPtr clientPtr;
-    DiskPtr diskPtr;
+	ClientPtr clientPtr;
+	DiskPtr diskPtr;
+	
+	dwarning(("%s\n", __FUNCTION__));
+	
+	/* For each client and disk */
 
-    dwarning(("%s\n", __FUNCTION__));
-
-    /* For each client and disk */
-
-    for (diskPtr = g.Disks; diskPtr != NULL; diskPtr = diskPtr->next)
-    {
-        if ( kDiskStateToBeEjected == diskPtr->state )
-        {
-            // Assert: the <ackValues> field for this disk was allocated/initialized when its state was set.
+	for (diskPtr = g.Disks; diskPtr != NULL; diskPtr = diskPtr->next)
+	{
+		if ( kDiskStateToBeEjected == diskPtr->state )
+		{
+			// Assert: the <ackValues> field for this disk was allocated/initialized when its state was set.
                         // only ask for eject notifications for *whole" disks
                         // makes sense *right*?
 
@@ -2548,9 +2586,9 @@ void PrepareToSendPreEjectMsgs( void )
                                 } // FOREACH client
                         }
 
-        }
-
-    } // FOREACH disk
+		}
+		
+	} // FOREACH disk
 
 } // PrepareToSendPreEjectMsgs
 
@@ -2558,106 +2596,117 @@ void PrepareToSendPreEjectMsgs( void )
 //------------------------------------------------------------------------
 
 
-void SendPreUnmountMsgsForDisk( DiskPtr diskPtr )
+void SendPreUnmountMsgs( void )
 {
+        DiskPtr diskPtr;
         int i;
 
         dwarning(("%s\n", __FUNCTION__));
 
         /* For each client and disk */
 
-        if ( kDiskStateToBeUnmounted == diskPtr->state || kDiskStateToBeUnmountedAndEjected == diskPtr->state )
+        for (diskPtr = g.Disks; diskPtr != NULL; diskPtr = diskPtr->next)
         {
-                for (i = 0; i < diskPtr->ackValues->logicalLength; i++)
+                if ( kDiskStateToBeUnmounted == diskPtr->state || kDiskStateToBeUnmountedAndEjected == diskPtr->state )
                 {
-                        ClientPtr clientPtr;
-                        //kern_return_t r;
-
-                        if ( diskPtr->ackValues->ackValues[ i ].state != kSendMsg )
+                        for (i = 0; i < diskPtr->ackValues->logicalLength; i++)
                         {
-                                continue;
-                        }
+                                ClientPtr clientPtr;
+                                //kern_return_t r;
 
-                        clientPtr = LookupClientByPID( diskPtr->ackValues->ackValues[ i ].pid );
-                        if ( ! clientPtr )
-                        {
-                                pwarning(("%s: pid = %d: no known client with this pid.\n", __FUNCTION__, diskPtr->ackValues->ackValues[ i ].pid));
-                        }
+                                if ( diskPtr->ackValues->ackValues[ i ].state != kSendMsg )
+                                {
+                                        continue;
+                                }
 
-                        if ( clientPtr->numAcksRequired > 0 )
-                        {
+                                clientPtr = LookupClientByPID( diskPtr->ackValues->ackValues[ i ].pid );
+                                if ( ! clientPtr )
+                                {
+                                        pwarning(("%s: pid = %d: no known client with this pid.\n", __FUNCTION__, diskPtr->ackValues->ackValues[ i ].pid));
+                                }
+
+                                if ( clientPtr->numAcksRequired > 0 )
+                                {
 //					pwarning(("%s: skipping pid = %d for '%s' since numAcksRequired = %d\n", __FUNCTION__, clientPtr->pid, diskPtr->ioBSDName, clientPtr->numAcksRequired));
-                                continue;
-                        }
+                                        continue;
+                                }
 
-                        {
-                                DiskThreadRecord * record = malloc(sizeof(DiskThreadRecord));
-                                record->port = clientPtr->port;
-                                record->ioBSDName = strdup( diskPtr->ioBSDName );
-                                StartPreUnmountNotifyThread(record);
-                        }
+                                {
+                                        DiskThreadRecord * record = malloc(sizeof(DiskThreadRecord));
+                                        record->port = clientPtr->port;
+                                        record->ioBSDName = strdup( diskPtr->ioBSDName );
+                                        StartPreUnmountNotifyThread(record);
+                                }
 
-                        clientPtr->numAcksRequired++;
+                                clientPtr->numAcksRequired++;
 
-                        diskPtr->ackValues->ackValues[ i ].state = kWaitingForAck;
+                                diskPtr->ackValues->ackValues[ i ].state = kWaitingForAck;
 
-                } // FOREACH ack value
+                        } // FOREACH ack value
 
-        }
+                }
 
-} // SendPreUnmountMsgsForDisk
+        } // FOREACH disk
+
+} // SendPreUnmountMsgs
 
 
 //------------------------------------------------------------------------
 
 
-void SendPreEjectMsgsForDisk( DiskPtr diskPtr )
+void SendPreEjectMsgs( void )
 {
+        DiskPtr diskPtr;
         int i;
 
         dwarning(("%s\n", __FUNCTION__));
 
         /* For each client and disk */
 
-        if ( kDiskStateToBeEjected == diskPtr->state )
+        for (diskPtr = g.Disks; diskPtr != NULL; diskPtr = diskPtr->next)
         {
-                for (i = 0; i < diskPtr->ackValues->logicalLength; i++)
+                if ( kDiskStateToBeEjected == diskPtr->state )
                 {
-                        ClientPtr clientPtr;
-
-                        if ( diskPtr->ackValues->ackValues[ i ].state != kSendMsg )
+                        for (i = 0; i < diskPtr->ackValues->logicalLength; i++)
                         {
-                                continue;
-                        }
+                                ClientPtr clientPtr;
 
-                        clientPtr = LookupClientByPID( diskPtr->ackValues->ackValues[ i ].pid );
-                        if ( ! clientPtr )
-                        {
-                                pwarning(("%s: pid = %d: no known client with this pid.\n", __FUNCTION__, diskPtr->ackValues->ackValues[ i ].pid));
-                        }
+                                if ( diskPtr->ackValues->ackValues[ i ].state != kSendMsg )
+                                {
+                                        continue;
+                                }
 
-                        if ( clientPtr->numAcksRequired > 0 )
-                        {
+                                clientPtr = LookupClientByPID( diskPtr->ackValues->ackValues[ i ].pid );
+                                if ( ! clientPtr )
+                                {
+                                        pwarning(("%s: pid = %d: no known client with this pid.\n", __FUNCTION__, diskPtr->ackValues->ackValues[ i ].pid));
+                                }
+
+                                if ( clientPtr->numAcksRequired > 0 )
+                                {
 //					dwarning(("%s: skipping pid = %d for '%s' since numAcksRequired = %d\n", __FUNCTION__, clientPtr->pid, diskPtr->ioBSDName, clientPtr->numAcksRequired));
-                                continue;
-                        }
+                                        continue;
+                                }
 
-                        {
-                                DiskThreadRecord * record = malloc(sizeof(DiskThreadRecord));
-                                record->port = clientPtr->port;
-                                record->ioBSDName = strdup( diskPtr->ioBSDName );
-                                StartPreEjectNotifyThread(record);
-                        }
+                                {
+                                        DiskThreadRecord * record = malloc(sizeof(DiskThreadRecord));
+                                        record->port = clientPtr->port;
+                                        record->ioBSDName = strdup( diskPtr->ioBSDName );
+                                        StartPreEjectNotifyThread(record);
+                                }
 
-                        clientPtr->numAcksRequired++;
+                                clientPtr->numAcksRequired++;
 
-                        diskPtr->ackValues->ackValues[ i ].state = kWaitingForAck;
+                                diskPtr->ackValues->ackValues[ i ].state = kWaitingForAck;
 
-                } // FOREACH ack value
+                        } // FOREACH ack value
 
-        }
+                }
 
-} // SendPreEjectMsgsForDisk
+        } // FOREACH disk
+
+
+} // SendPreEjectMsgs
 
 
 //------------------------------------------------------------------------
@@ -2859,184 +2908,248 @@ int GetBlueBoxBootVolume( void )
 //------------------------------------------------------------------------
 
 
-void CompleteUnmountForDisk( DiskPtr diskPtr )
+void CompleteUnmount( void )
 {
-    AckValue * avp;
-    int errorCode_out = 0;
-    pid_t pid_out = 0;
-    DiskPtr wholeDiskToEject = LookupWholeDiskForThisPartition(diskPtr);
+	DiskPtr diskPtr;
+	AckValue * avp;
+	int errorCode_out = 0;
+	pid_t pid_out = 0;
+	DiskPtr wholeDiskToBeEjectedOrNULL;
+	
+	dwarning(("%s\n", __FUNCTION__));
 
-    dwarning(("%s\n", __FUNCTION__));
+	// Unmount could be completed for each partition independently.
+	// But it simplifies things to wait them to all complete before proceeding.
+	
+	if ( 0 != NumUnsetAckValuesForAllDisks() )
+	{
+		goto Return;
+	}
+	
+	/* 0 == NumUnsetAckValuesForAllDisks() */
+	
+	/* Initialize this before we start changing their states.  It will be NULL if this is not an unmount-and-eject. */
 
-    // Unmount could be completed for each partition independently.
-    // But it simplifies things to wait them to all complete before proceeding.
+	wholeDiskToBeEjectedOrNULL = LookupWholeDiskToBeEjected();
 
-    if ( 0 != NumUnsetAckValuesForAllDisks() )
-    {
-        goto Return;
-    }
+	for (diskPtr = g.Disks; diskPtr != NULL; diskPtr = diskPtr->next)
+	{
+		/* Skip disks that are not undergoing unmounting. */
 
-    /* 0 == NumUnsetAckValuesForAllDisks() */
+		if ( diskPtr->state != kDiskStateToBeUnmounted && diskPtr->state != kDiskStateToBeUnmountedAndEjected )
+		{
+			continue;
+		}
+		
+		avp = GetDissenterFromAckValues( diskPtr->ackValues );
+		
+		if ( NULL == avp )
+		{
+			int err;
+			
+			dwarning(("%s: there was no dissenter for '%s'\n", __FUNCTION__, diskPtr->ioBSDName));
+	
+			err = UnmountDisk( diskPtr, FALSE ); /* Updates diskPtr->state for this partition. */
+			if ( err )
+			{
+				/* Failure.  The unmount failed.  diskPtr->state == kDiskStateIdle */
+	
+				dwarning(("%s: the unmount failed\n", __FUNCTION__));
+				
+				errorCode_out = err;
+				pid_out = -1;
+			}
+			else
+			{
+				/* Success.  diskPtr->state == kDiskStateNewlyUnmounted */
+	
+				errorCode_out = 0;
+				pid_out = -1;
+	
+			}
+		}
+		else
+		{
+			/* Failure.  There was a dissenter.  Report it. */
+			
+			dwarning(("%s: there was a dissenter for '%s'\n", __FUNCTION__, diskPtr->ioBSDName));
+	
+			errorCode_out = avp->errorCode;
+			pid_out = avp->pid;
 
-    /* Initialize this before we start changing their states.  It will be NULL if this is not an unmount-and-eject. */
+			SetStateForOnePartition( diskPtr, kDiskStateIdle );
+		}
+	
+		/* Send each waiting client a notification with the errorcode and dissenter. */
+	
+		SendUnmountPostNotifyMsgsForOnePartition( diskPtr->ioBSDName, errorCode_out, pid_out );
+	
+	} // FOREACH disk
 
-    if ( !( ( diskPtr->state == kDiskStateToBeUnmountedAndEjected ) || ( diskPtr->state == kDiskStateToBeEjected ) ) )
-    {
-        wholeDiskToEject = NULL;
-    }
+	/* Was this the first phase of an unmount-and-eject? */
+	
+	if ( wholeDiskToBeEjectedOrNULL && ( 0 == NumPartitionsMountedFromThisDisk( wholeDiskToBeEjectedOrNULL ) ) )
+	{
+		/* WARNING: this might rob old-style clients of their synchronous UnmountCommit notifications if the eject fails. */
+		/* Why?  Because we keep no record that an unmount happened.  So if the eject fails, we won't send any UnmountCommit notifications. */
+		/* This can only happen if there is someone holding open a file descriptor on one of the /dev nodes for the disk. */
+	
+		SetStateForAllPartitions( wholeDiskToBeEjectedOrNULL, kDiskStateToBeEjected );
 
+		/* Prepare a list of pre-eject notifications to be sent. */
 
-        /* Skip disks that are not undergoing unmounting. */
+		PrepareToSendPreEjectMsgs();
+		
+		/* Return to the main msg loop to process sending of pre-eject msgs and receiving of acks. */
 
-        if ( diskPtr->state != kDiskStateToBeUnmounted && diskPtr->state != kDiskStateToBeUnmountedAndEjected )
-        {
-                goto Continue;
-        }
-
-        avp = GetDissenterFromAckValues( diskPtr->ackValues );
-
-        if ( NULL == avp )
-        {
-                int err;
-
-                dwarning(("%s: there was no dissenter for '%s'\n", __FUNCTION__, diskPtr->ioBSDName));
-
-                err = UnmountDisk( diskPtr, FALSE ); /* Updates diskPtr->state for this partition. */
-                if ( err )
-                {
-                        /* Failure.  The unmount failed.  diskPtr->state == kDiskStateIdle */
-
-                        dwarning(("%s: the unmount failed\n", __FUNCTION__));
-
-                        errorCode_out = err;
-                        pid_out = -1;
-                }
-                else
-                {
-                        /* Success.  diskPtr->state == kDiskStateNewlyUnmounted */
-
-                        errorCode_out = 0;
-                        pid_out = -1;
-
-                }
-        }
-        else
-        {
-                /* Failure.  There was a dissenter.  Report it. */
-
-                dwarning(("%s: there was a dissenter for '%s'\n", __FUNCTION__, diskPtr->ioBSDName));
-
-                errorCode_out = avp->errorCode;
-                pid_out = avp->pid;
-
-                SetStateForOnePartition( diskPtr, kDiskStateIdle );
-        }
-
-        /* Send each waiting client a notification with the errorcode and dissenter. */
-
-        SendUnmountPostNotifyMsgsForOnePartition( diskPtr->ioBSDName, errorCode_out, pid_out );
-
-    /* Was this the first phase of an unmount-and-eject? */
-Continue:
-
-    if ( wholeDiskToEject && ( 0 == NumPartitionsMountedFromThisDisk( wholeDiskToEject ) ) )
-    {
-        /* WARNING: this might rob old-style clients of their synchronous UnmountCommit notifications if the eject fails. */
-        /* Why?  Because we keep no record that an unmount happened.  So if the eject fails, we won't send any UnmountCommit notifications. */
-        /* This can only happen if there is someone holding open a file descriptor on one of the /dev nodes for the disk. */
-
-        SetStateForAllPartitions( wholeDiskToEject, kDiskStateToBeEjected );
-
-        /* Prepare a list of pre-eject notifications to be sent. */
-
-                PrepareToSendPreEjectMsgs();
-
-        /* Return to the main msg loop to process sending of pre-eject msgs and receiving of acks. */
-
-    }
+	}
 
 Return:
-    return;
+	return;
 
-} // CompleteUnmountForDisk
+} // CompleteUnmount
+
 
 //------------------------------------------------------------------------
 
 
-void CompleteEjectForDisk( DiskPtr partPtr )
+void CompleteEject( void )
 {
-    AckValue * avp;
-    int errorCode_out = 0;
-    pid_t pid_out = 0;
-        DiskPtr diskPtr = LookupWholeDiskForThisPartition(partPtr);
+	DiskPtr diskPtr;
+	AckValue * avp;
+	int errorCode_out = 0;
+	pid_t pid_out = 0;
+	
+	dwarning(("%s\n", __FUNCTION__));
 
-    dwarning(("%s\n", __FUNCTION__));
-        if ( ! diskPtr )
-        {
-                LogErrorMessage("%s(): LookupWholeDiskToBeEjected() => NULL\n", __FUNCTION__);
-                goto Return;
-        }
+	/* Ejection differs from unmounting because it requires acks for all partitions before proceeding. */
+	
+	if ( 0 != NumUnsetAckValuesForAllDisks() )
+	{
+		goto Return;
+	}
+	
+	diskPtr = LookupWholeDiskToBeEjected();
+	if ( ! diskPtr )
+	{
+		LogErrorMessage("%s(): LookupWholeDiskToBeEjected() => NULL\n", __FUNCTION__);
+		goto Return;
+	}
 
-    /* Ejection differs from unmounting because it requires acks for all partitions before proceeding. */
+	/* 0 == NumUnsetAckValuesForAllDisks() */
+		
+	avp = GetDissenterFromAckValuesForAllDisks();
 
-    if ( 0 != NumUnsetAckValues(diskPtr->ackValues) )
-    {
-        goto Return;
-    }
+	if ( NULL == avp )
+	{
+		int err;
 
-    /* 0 == NumUnsetAckValuesForAllDisks() */
+		dwarning(("%s: there was no dissenter\n", __FUNCTION__));
 
-        avp = GetDissenterFromAckValues(diskPtr->ackValues);
+		/* Assume that all the partitions have already been unmounted. */
+	
+		err = EjectDisk( diskPtr ); /* Updates diskPtr->state for each partition on this disk. */
+		if ( err )
+		{
+			/* Failure.  The eject failed.  diskPtr->state == kDiskStateIdle */
 
-    if ( NULL == avp )
-    {
-        int err;
+			dwarning(("%s: the eject failed\n", __FUNCTION__));
+			
+			errorCode_out = err;
+			pid_out = -1;
+		}
+		else
+		{
+			/* Success.  diskPtr->state == kDiskStateNewlyEjected */
 
-        dwarning(("%s: there was no dissenter\n", __FUNCTION__));
+			errorCode_out = 0;
+			pid_out = -1;
+		}
+	}
+	else
+	{
+		/* Failure.  There was a dissenter.  Report it. */
+		
+		dwarning(("%s: there was a dissenter\n", __FUNCTION__));
 
-        /* Assume that all the partitions have already been unmounted. */
+		errorCode_out = avp->errorCode;
+		pid_out = avp->pid;
 
-        err = EjectDisk( diskPtr ); /* Updates diskPtr->state for each partition on this disk. */
-        if ( err )
-        {
-            /* Failure.  The eject failed.  diskPtr->state == kDiskStateIdle */
+		SetStateForAllPartitions( diskPtr, kDiskStateIdle );
+	}
 
-            dwarning(("%s: the eject failed\n", __FUNCTION__));
+	/* Send each waiting client a notification with the errorcode and dissenter. */
 
-            errorCode_out = err;
-            pid_out = -1;
-        }
-        else
-        {
-            /* Success.  diskPtr->state == kDiskStateNewlyEjected */
-
-            errorCode_out = 0;
-            pid_out = -1;
-        }
-    }
-    else
-    {
-        /* Failure.  There was a dissenter.  Report it. */
-
-        dwarning(("%s: there was a dissenter\n", __FUNCTION__));
-
-        errorCode_out = avp->errorCode;
-        pid_out = avp->pid;
-
-        SetStateForAllPartitions( diskPtr, kDiskStateIdle );
-    }
-
-    /* Send each waiting client a notification with the errorcode and dissenter. */
-
-    SendEjectPostNotifyMsgsForAllPartitions( diskPtr, errorCode_out, pid_out );
+	SendEjectPostNotifyMsgsForAllPartitions( diskPtr, errorCode_out, pid_out );
 
 Return:
-    return;
+	return;
 
 } // CompleteEject
 
 
 //------------------------------------------------------------------------
+
+
+DiskState AreWeBusy( void )
+{
+        DiskState result;
+        DiskPtr diskPtr;
+
+        result = kDiskStateIdle;
+
+        for (diskPtr = g.Disks; diskPtr != NULL ; diskPtr = diskPtr->next)
+        {
+                switch ( diskPtr->state )
+                {
+                        case kDiskStateToBeUnmounted:
+                                if ( kDiskStateIdle == result )
+                                {
+                                        result = diskPtr->state;
+                                }
+                                else if ( result != diskPtr->state )
+                                {
+                                        dwarning(("%s: incompatible disk states: %s (%d) vs. %s (%d)\n", __FUNCTION__, DISKSTATE(diskPtr->state), diskPtr->state, DISKSTATE(result), result));
+                                }
+                        break;
+
+                        case kDiskStateToBeEjected:
+                                if ( kDiskStateIdle == result )
+                                {
+                                        result = diskPtr->state;
+                                }
+                                else if ( result != diskPtr->state )
+                                {
+                                        dwarning(("%s: incompatible disk states: %s (%d) vs. %s (%d)\n", __FUNCTION__, DISKSTATE(diskPtr->state), diskPtr->state, DISKSTATE(result), result));
+                                }
+                        break;
+
+                        case kDiskStateToBeUnmountedAndEjected:
+                                if ( kDiskStateIdle == result || kDiskStateToBeEjected == result )
+                                {
+                                        result = diskPtr->state;
+                                }
+                                else if ( result != diskPtr->state )
+                                {
+                                        dwarning(("%s: incompatible disk states: %s (%d) vs. %s (%d)\n", __FUNCTION__, DISKSTATE(diskPtr->state), diskPtr->state, DISKSTATE(result), result));
+                                }
+                        break;
+
+                        case kDiskStateIdle: /* not busy */
+                        case kDiskStateNew: /* not busy */
+                        case kDiskStateNewlyEjected: /* not busy */
+                        case kDiskStateNewlyUnmounted: /* not busy */
+                        default:
+                                /* do nothing - result initialized to zero / kDiskStateIdle */
+                        break;
+                }
+        }
+
+//Return:
+        dwarning(("%s() => %s (%d)\n", __FUNCTION__, DISKSTATE(result), result));
+        return result;
+
+} // AreWeBusy
 
 DiskState AreWeBusyForDisk( DiskPtr diskPtr )
 {
@@ -3541,56 +3654,49 @@ int DiskArbitrationServerMain(int argc, char* argv[])
                 DiskPtr diskPtr;
                 DiskPtr nextDiskPtr;
 		mach_port_t deadPort;
-		DiskState busyState = NULL;
+		DiskState busyState;
                 mach_msg_format_0_trailer_t	*trailer;
 
 		/* Are we (still) busy, i.e., in the midst of processing an async unmount/eject transaction? */
 
-                nextDiskPtr = g.Disks;
+		busyState = AreWeBusy();
 
-                 for (diskPtr = g.Disks; diskPtr != NULL; diskPtr = nextDiskPtr)
-                 {
-         /* Are we (still) busy, i.e., in the midst of processing an async unmount/eject transaction? */
+		if ( kDiskStateToBeUnmounted == busyState || kDiskStateToBeUnmountedAndEjected == busyState )
+		{
+			CompleteUnmount();
+			// Note: Recalculate <busyState> since we may have completed an unmount w/ zero clients.
+                        if (NumUnsetAckValuesForAllDisks() == 0) {
+                                SendCompletedMsgs(kDiskArbCompletedPostUnmount, 0);
+                        }
+			busyState = AreWeBusy();
+		}
 
-                         nextDiskPtr = diskPtr->next;
-                         busyState = AreWeBusyForDisk(diskPtr);
+		if ( kDiskStateToBeEjected == busyState )
+		{
+			CompleteEject();
+			// Note: Recalculate <busyState> since we may have completed an unmount w/ zero clients.
+                        if (NumUnsetAckValuesForAllDisks() == 0) {
+                                SendCompletedMsgs(kDiskArbCompletedPostEject, 0);
+                        }
+			busyState = AreWeBusy();
+		}
 
-                         if ( kDiskStateToBeUnmounted == busyState || kDiskStateToBeUnmountedAndEjected == busyState )
-                         {
-                                 CompleteUnmountForDisk(diskPtr);
-                                 // Note: Recalculate <busyState> since we may have completed an unmount w/ zero clients.
-                                 if (NumUnsetAckValuesForAllDisks() == 0) {
-                                         SendCompletedMsgs(kDiskArbCompletedPostUnmount, 0);
-                                 }
-                                 busyState = AreWeBusyForDisk(diskPtr);
-                         }
+		/* Send out async notifications about to any to-be-unmounted/ejected disks */
 
-                         if ( kDiskStateToBeEjected == busyState )
-                         {
-                                 CompleteEjectForDisk(diskPtr);
-                                 // Note: Recalculate <busyState> since we may have completed an unmount w/ zero clients.
-                                 if (NumUnsetAckValuesForAllDisks() == 0) {
-                                         SendCompletedMsgs(kDiskArbCompletedPostEject, 0);
-                                 }
-                                 busyState = AreWeBusyForDisk(diskPtr);
-                         }
+		if ( kDiskStateToBeUnmounted == busyState || kDiskStateToBeUnmountedAndEjected == busyState )
+		{
+			SendPreUnmountMsgs();
 
-                         /* Send out async notifications about to any to-be-unmounted/ejected disks */
+		}
+		
+		/* Send out async notifications about to any to-be-ejected disks */
 
-                         if ( kDiskStateToBeUnmounted == busyState || kDiskStateToBeUnmountedAndEjected == busyState )
-                         {
-                                 SendPreUnmountMsgsForDisk(diskPtr);
+		if ( kDiskStateToBeEjected == busyState )
+		{
+			SendPreEjectMsgs();
 
-                         }
+		}
 
-                         /* Send out async notifications about to any to-be-ejected disks */
-
-                         if ( kDiskStateToBeEjected == busyState )
-                         {
-                                 SendPreEjectMsgsForDisk(diskPtr);
-
-                         }
-                 }
 
                 nextDiskPtr = g.Disks;
 

@@ -79,6 +79,7 @@ OSStatus AuthorizationExecuteWithPrivileges(AuthorizationRef authorization,
         fclose(mbox);
         return errAuthorizationInternal;
     }
+    fflush(mbox);
     
     // make text representation of the temp-file descriptor
     char mboxFdText[20];

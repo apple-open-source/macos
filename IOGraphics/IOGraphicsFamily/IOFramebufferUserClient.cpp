@@ -140,18 +140,25 @@ IOReturn IOFramebufferUserClient::clientMemoryForType( UInt32 type,
 
 IOReturn IOFramebufferUserClient::setProperties( OSObject * properties )
 {
+    OSDictionary *	props;
     OSDictionary *	dict;
     OSArray *		array;
     IOReturn		kr = kIOReturnUnsupported;
 
-    if( !(dict = OSDynamicCast( OSDictionary, properties)))
+    if( !(props = OSDynamicCast( OSDictionary, properties)))
 	return( kIOReturnBadArgument);
 
-    if( (array = OSDynamicCast(OSArray,
-		dict->getObject( kIOFBDetailedTimingsKey))))
-        kr = owner->setDetailedTimings( array );
-    else
-        kr = kIOReturnBadArgument;
+    if( (dict = OSDynamicCast( OSDictionary, props->getObject(kIOFBConfigKey)))) {
+
+        owner->setProperty( kIOFBConfigKey, dict );
+    
+        if( (array = OSDynamicCast(OSArray,
+                    dict->getObject( kIOFBDetailedTimingsKey))))
+            kr = owner->setDetailedTimings( array );
+        else
+            kr = kIOReturnSuccess;
+
+    }
 
     return( kr );
 }

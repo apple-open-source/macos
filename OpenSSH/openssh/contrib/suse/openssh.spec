@@ -1,6 +1,6 @@
-Summary: OpenSSH, a free Secure Shell (SSH) implementation
+Summary: OpenSSH, a free Secure Shell (SSH) protocol implementation
 Name: openssh
-Version: 2.9p2
+Version: 3.0.2p1
 URL: http://www.openssh.com/
 Release: 1
 Source0: openssh-%{version}.tar.gz
@@ -89,12 +89,13 @@ passphrase dialog.
 %build
 CFLAGS="$RPM_OPT_FLAGS" \
 ./configure	--prefix=/usr \
-				--sysconfdir=/etc/ssh \
-				--with-pam \
-				--with-gnome-askpass \
-            --with-tcp-wrappers \
-				--with-ipv4-default \
-				--libexecdir=/usr/lib/ssh
+		--sysconfdir=/etc/ssh \
+		--datadir=/usr/share/openssh \
+		--with-pam \
+		--with-gnome-askpass \
+		--with-tcp-wrappers \
+		--with-ipv4-default \
+		--libexecdir=/usr/lib/ssh
 make
 
 cd contrib
@@ -171,7 +172,7 @@ fi
 %attr(0755,root,root) %dir /etc/ssh
 %attr(0644,root,root) %config /etc/ssh/ssh_config
 %attr(0600,root,root) %config /etc/ssh/sshd_config
-%attr(0600,root,root) %config /etc/ssh/primes
+%attr(0600,root,root) %config /etc/ssh/moduli
 %attr(0644,root,root) %config /etc/pam.d/sshd
 %attr(0755,root,root) %config /sbin/init.d/sshd
 %attr(0755,root,root) /usr/bin/ssh-keygen

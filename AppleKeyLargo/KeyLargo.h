@@ -778,6 +778,9 @@ enum
   long clk49RefCount;			// 49.1 MHz clock - Audio & I2S
   long clk32RefCount;			// 32.0 MHz clock - SCC & VIA (Pangea only)
   
+  // true for PowerBooks/iBooks
+  bool hostIsMobile;
+  
   void resetUniNEthernetPhy(void);
   
 public:
@@ -819,6 +822,9 @@ public:
   // Power handling methods:
   void initForPM (IOService *provider);
   IOReturn setPowerState(unsigned long powerStateOrdinal, IOService* whatDevice);
+  
+  // Determine if we're on PowerBook/iBook
+  bool HostIsMobile();
 };
 
 class KeyLargoWatchDogTimer : public IOWatchDogTimer

@@ -12,7 +12,7 @@
  */
 
 #include "includes.h"
-RCSID("$OpenBSD: uidswap.c,v 1.16 2001/04/20 16:32:22 markus Exp $");
+RCSID("$OpenBSD: uidswap.c,v 1.18 2001/08/08 21:34:19 markus Exp $");
 
 #include "log.h"
 #include "uidswap.h"
@@ -117,8 +117,7 @@ restore_uid(void)
 #ifdef SAVED_IDS_WORK_WITH_SETEUID
 	/* Set the effective uid back to the saved privileged uid. */
 	if (seteuid(saved_euid) < 0)
-		fatal("seteuid %u: %.100s", (u_int) saved_euid, 
-		    strerror(errno));
+		fatal("seteuid %u: %.100s", (u_int) saved_euid, strerror(errno));
 	if (setegid(saved_egid) < 0)
 		fatal("setegid %u: %.100s", (u_int) saved_egid, 
 		    strerror(errno));

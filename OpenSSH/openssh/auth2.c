@@ -23,7 +23,7 @@
  */
 
 #include "includes.h"
-RCSID("$OpenBSD: auth2.c,v 1.56 2001/04/19 00:05:11 markus Exp $");
+RCSID("$OpenBSD: auth2.c,v 1.72 2001/11/07 22:41:51 markus Exp $");
 
 #include <openssl/evp.h>
 
@@ -50,16 +50,12 @@ RCSID("$OpenBSD: auth2.c,v 1.56 2001/04/19 00:05:11 markus Exp $");
 #include "misc.h"
 #include "hostfile.h"
 #include "canohost.h"
-#include "tildexpand.h"
+#include "match.h"
 
 /* import */
 extern ServerOptions options;
 extern u_char *session_id2;
 extern int session_id2_len;
-
-#ifdef WITH_AIXAUTHENTICATE
-extern char *aixloginmsg;
-#endif
 
 static Authctxt	*x_authctxt = NULL;
 static int one = 1;
@@ -73,26 +69,23 @@ struct Authmethod {
 
 /* protocol */
 
-void	input_service_request(int type, int plen, void *ctxt);
-void	input_userauth_request(int type, int plen, void *ctxt);
-void	protocol_error(int type, int plen, void *ctxt);
+static void input_service_request(int, int, void *);
+static void input_userauth_request(int, int, void *);
+static void protocol_error(int, int, void *);
 
 /* helper */
-Authmethod	*authmethod_lookup(const char *name);
-char	*authmethods_get(void);
-int	user_key_allowed(struct passwd *pw, Key *key);
-int
-hostbased_key_allowed(struct passwd *pw, const char *cuser, char *chost,
-    Key *key);
+static Authmethod *authmethod_lookup(const char *);
+static char *authmethods_get(void);
+static int user_key_allowed(struct passwd *, Key *);
+static int hostbased_key_allowed(struct passwd *, const char *, char *, Key *);
 
 /* auth */
-void	userauth_banner(void);
-void	userauth_reply(Authctxt *authctxt, int authenticated);
-int	userauth_none(Authctxt *authctxt);
-int	userauth_passwd(Authctxt *authctxt);
-int	userauth_pubkey(Authctxt *authctxt);
-int	userauth_hostbased(Authctxt *authctxt);
-int	userauth_kbdint(Authctxt *authctxt);
+static void userauth_banner(void);
+static int userauth_none(Authctxt *);
+static int userauth_passwd(Authctxt *);
+static int userauth_pubkey(Authctxt *);
+static int userauth_hostbased(Authctxt *);
+static int userauth_kbdint(Authctxt *);
 
 Authmethod authmethods[] = {
 	{"none",
@@ -124,8 +117,8 @@ do_authentication2()
 
 	x_authctxt = authctxt;		/*XXX*/
 
-	/* challenge-reponse is implemented via keyboard interactive */
-	if (options.challenge_reponse_authentication)
+	/* challenge-response is implemented via keyboard interactive */
+	if (options.challenge_response_authentication)
 		options.kbd_interactive_authentication = 1;
 	if (options.pam_authentication_via_kbd_int)
 		options.kbd_interactive_authentication = 1;
@@ -136,7 +129,7 @@ do_authentication2()
 	do_authenticated(authctxt);
 }
 
-void
+static void
 protocol_error(int type, int plen, void *ctxt)
 {
 	log("auth: protocol error: type %d plen %d", type, plen);
@@ -146,7 +139,7 @@ protocol_error(int type, int plen, void *ctxt)
 	packet_write_wait();
 }
 
-void
+static void
 input_service_request(int type, int plen, void *ctxt)
 {
 	Authctxt *authctxt = ctxt;
@@ -179,7 +172,7 @@ input_service_request(int type, int plen, void *ctxt)
 	xfree(service);
 }
 
-void
+static void
 input_userauth_request(int type, int plen, void *ctxt)
 {
 	Authctxt *authctxt = ctxt;
@@ -219,14 +212,12 @@ input_userauth_request(int type, int plen, void *ctxt)
 		setproctitle("%s", pw ? user : "unknown");
 		authctxt->user = xstrdup(user);
 		authctxt->service = xstrdup(service);
-		authctxt->style = style ? xstrdup(style) : NULL; /* currently unused */
-	} else if (authctxt->valid) {
-		if (strcmp(user, authctxt->user) != 0 ||
-		    strcmp(service, authctxt->service) != 0) {
-			log("input_userauth_request: mismatch: (%s,%s)!=(%s,%s)",
-			    user, service, authctxt->user, authctxt->service);
-			authctxt->valid = 0;
-		}
+		authctxt->style = style ? xstrdup(style) : NULL;
+	} else if (strcmp(user, authctxt->user) != 0 ||
+	    strcmp(service, authctxt->service) != 0) {
+		packet_disconnect("Change of username or service not allowed: "
+		    "(%s,%s) -> (%s,%s)",
+		    authctxt->user, authctxt->service, user, service);
 	}
 	/* reset state */
 	dispatch_set(SSH2_MSG_USERAUTH_INFO_RESPONSE, &protocol_error);
@@ -254,6 +245,8 @@ input_userauth_request(int type, int plen, void *ctxt)
 void
 userauth_finish(Authctxt *authctxt, int authenticated, char *method)
 {
+	char *methods;
+
 	if (!authctxt->valid && authenticated)
 		fatal("INTERNAL ERROR: authenticated invalid user %s",
 		    authctxt->user);
@@ -272,11 +265,38 @@ userauth_finish(Authctxt *authctxt, int authenticated, char *method)
 	/* Log before sending the reply */
 	auth_log(authctxt, authenticated, method, " ssh2");
 
-	if (!authctxt->postponed)
-		userauth_reply(authctxt, authenticated);
+	if (authctxt->postponed)
+		return;
+
+	/* XXX todo: check if multiple auth methods are needed */
+	if (authenticated == 1) {
+		/* turn off userauth */
+		dispatch_set(SSH2_MSG_USERAUTH_REQUEST, &protocol_error);
+		packet_start(SSH2_MSG_USERAUTH_SUCCESS);
+		packet_send();
+		packet_write_wait();
+		/* now we can break out */
+		authctxt->success = 1;
+	} else {
+		if (authctxt->failures++ > AUTH_FAIL_MAX) {
+#ifdef WITH_AIXAUTHENTICATE
+			loginfailed(authctxt->user,
+			    get_canonical_hostname(options.reverse_mapping_check),
+			    "ssh");
+#endif /* WITH_AIXAUTHENTICATE */
+			packet_disconnect(AUTH_FAIL_MSG, authctxt->user);
+		}
+		methods = authmethods_get();
+		packet_start(SSH2_MSG_USERAUTH_FAILURE);
+		packet_put_cstring(methods);
+		packet_put_char(0);	/* XXX partial success, unused */
+		packet_send();
+		packet_write_wait();
+		xfree(methods);
+	}
 }
 
-void
+static void
 userauth_banner(void)
 {
 	struct stat st;
@@ -307,41 +327,7 @@ done:
 	return;
 }
 
-void
-userauth_reply(Authctxt *authctxt, int authenticated)
-{
-	char *methods;
-
-	/* XXX todo: check if multiple auth methods are needed */
-	if (authenticated == 1) {
-#ifdef WITH_AIXAUTHENTICATE
-		/* We don't have a pty yet, so just label the line as "ssh" */
-		if (loginsuccess(authctxt->user?authctxt->user:"NOUSER",
-		    get_canonical_hostname(options.reverse_mapping_check),
-		    "ssh", &aixloginmsg) < 0)
-			aixloginmsg = NULL;
-#endif /* WITH_AIXAUTHENTICATE */
-		/* turn off userauth */
-		dispatch_set(SSH2_MSG_USERAUTH_REQUEST, &protocol_error);
-		packet_start(SSH2_MSG_USERAUTH_SUCCESS);
-		packet_send();
-		packet_write_wait();
-		/* now we can break out */
-		authctxt->success = 1;
-	} else {
-		if (authctxt->failures++ > AUTH_FAIL_MAX)
-			packet_disconnect(AUTH_FAIL_MSG, authctxt->user);
-		methods = authmethods_get();
-		packet_start(SSH2_MSG_USERAUTH_FAILURE);
-		packet_put_cstring(methods);
-		packet_put_char(0);	/* XXX partial success, unused */
-		packet_send();
-		packet_write_wait();
-		xfree(methods);
-	}
-}
-
-int
+static int
 userauth_none(Authctxt *authctxt)
 {
 	/* disable method "none", only allowed one time */
@@ -367,7 +353,7 @@ userauth_none(Authctxt *authctxt)
 #endif /* USE_PAM */
 }
 
-int
+static int
 userauth_passwd(Authctxt *authctxt)
 {
 	char *password;
@@ -396,28 +382,27 @@ userauth_passwd(Authctxt *authctxt)
 	return authenticated;
 }
 
-int
+static int
 userauth_kbdint(Authctxt *authctxt)
 {
 	int authenticated = 0;
-	char *lang = NULL;
-	char *devs = NULL;
+	char *lang, *devs;
 
 	lang = packet_get_string(NULL);
 	devs = packet_get_string(NULL);
 	packet_done();
 
-	debug("keyboard-interactive language %s devs %s", lang, devs);
+	debug("keyboard-interactive devs %s", devs);
 
-	if (options.challenge_reponse_authentication)
+	if (options.challenge_response_authentication)
 		authenticated = auth2_challenge(authctxt, devs);
 
 #ifdef USE_PAM
 	if (authenticated == 0 && options.pam_authentication_via_kbd_int)
 		authenticated = auth2_pam(authctxt);
 #endif
-	xfree(lang);
 	xfree(devs);
+	xfree(lang);
 #ifdef HAVE_CYGWIN
 	if (check_nt_auth(0, authctxt->pw->pw_uid) == 0)
 		return(0);
@@ -425,7 +410,7 @@ userauth_kbdint(Authctxt *authctxt)
 	return authenticated;
 }
 
-int
+static int
 userauth_pubkey(Authctxt *authctxt)
 {
 	Buffer b;
@@ -531,7 +516,7 @@ userauth_pubkey(Authctxt *authctxt)
 	return authenticated;
 }
 
-int
+static int
 userauth_hostbased(Authctxt *authctxt)
 {
 	Buffer b;
@@ -616,7 +601,7 @@ auth_get_user(void)
 
 #define	DELIM	","
 
-char *
+static char *
 authmethods_get(void)
 {
 	Authmethod *method = NULL;
@@ -648,7 +633,7 @@ authmethods_get(void)
 	return list;
 }
 
-Authmethod *
+static Authmethod *
 authmethod_lookup(const char *name)
 {
 	Authmethod *method = NULL;
@@ -663,10 +648,10 @@ authmethod_lookup(const char *name)
 }
 
 /* return 1 if user allows given key */
-int
-user_key_allowed(struct passwd *pw, Key *key)
+static int
+user_key_allowed2(struct passwd *pw, Key *key, char *file)
 {
-	char line[8192], file[MAXPATHLEN];
+	char line[8192];
 	int found_key = 0;
 	FILE *f;
 	u_long linenum = 0;
@@ -679,9 +664,7 @@ user_key_allowed(struct passwd *pw, Key *key)
 	/* Temporarily use the user's uid. */
 	temporarily_use_uid(pw);
 
-	/* The authorized keys. */
-	snprintf(file, sizeof file, "%.500s/%.100s", pw->pw_dir,
-	    _PATH_SSH_USER_PERMITTED_KEYS2);
+	debug("trying public key file %s", file);
 
 	/* Fail quietly if file does not exist */
 	if (stat(file, &st) < 0) {
@@ -696,46 +679,14 @@ user_key_allowed(struct passwd *pw, Key *key)
 		restore_uid();
 		return 0;
 	}
-	if (options.strict_modes) {
-		int fail = 0;
-		char buf[1024];
-		/* Check open file in order to avoid open/stat races */
-		if (fstat(fileno(f), &st) < 0 ||
-		    (st.st_uid != 0 && st.st_uid != pw->pw_uid) ||
-		    (st.st_mode & 022) != 0) {
-			snprintf(buf, sizeof buf,
-			    "%s authentication refused for %.100s: "
-			    "bad ownership or modes for '%s'.",
-			    key_type(key), pw->pw_name, file);
-			fail = 1;
-		} else {
-			/* Check path to _PATH_SSH_USER_PERMITTED_KEYS */
-			int i;
-			static const char *check[] = {
-				"", _PATH_SSH_USER_DIR, NULL
-			};
-			for (i = 0; check[i]; i++) {
-				snprintf(line, sizeof line, "%.500s/%.100s",
-				    pw->pw_dir, check[i]);
-				if (stat(line, &st) < 0 ||
-				    (st.st_uid != 0 && st.st_uid != pw->pw_uid) ||
-				    (st.st_mode & 022) != 0) {
-					snprintf(buf, sizeof buf,
-					    "%s authentication refused for %.100s: "
-					    "bad ownership or modes for '%s'.",
-					    key_type(key), pw->pw_name, line);
-					fail = 1;
-					break;
-				}
-			}
-		}
-		if (fail) {
-			fclose(f);
-			log("%s", buf);
-			restore_uid();
-			return 0;
-		}
+	if (options.strict_modes &&
+	    secure_filename(f, file, pw, line, sizeof(line)) != 0) {
+		fclose(f);
+		log("Authentication refused: %s", line);
+		restore_uid();
+		return 0;
 	}
+
 	found_key = 0;
 	found = key_new(key->type);
 
@@ -748,7 +699,7 @@ user_key_allowed(struct passwd *pw, Key *key)
 		if (!*cp || *cp == '\n' || *cp == '#')
 			continue;
 
-		if (key_read(found, &cp) == -1) {
+		if (key_read(found, &cp) != 1) {
 			/* no key?  check if there are options for this key */
 			int quoted = 0;
 			debug2("user_key_allowed: check options: '%s'", cp);
@@ -762,7 +713,7 @@ user_key_allowed(struct passwd *pw, Key *key)
 			/* Skip remaining whitespace. */
 			for (; *cp == ' ' || *cp == '\t'; cp++)
 				;
-			if (key_read(found, &cp) == -1) {
+			if (key_read(found, &cp) != 1) {
 				debug2("user_key_allowed: advance: '%s'", cp);
 				/* still no key?  advance to next line*/
 				continue;
@@ -771,7 +722,7 @@ user_key_allowed(struct passwd *pw, Key *key)
 		if (key_equal(found, key) &&
 		    auth_parse_options(pw, options, file, linenum) == 1) {
 			found_key = 1;
-			debug("matching key found: file %s, line %ld",
+			debug("matching key found: file %s, line %lu",
 			    file, linenum);
 			break;
 		}
@@ -784,15 +735,32 @@ user_key_allowed(struct passwd *pw, Key *key)
 	return found_key;
 }
 
+/* check whether given key is in .ssh/authorized_keys* */
+static int
+user_key_allowed(struct passwd *pw, Key *key)
+{
+	int success;
+	char *file;
+
+	file = authorized_keys_file(pw);
+	success = user_key_allowed2(pw, key, file);
+	xfree(file);
+	if (success)
+		return success;
+
+	/* try suffix "2" for backward compat, too */
+	file = authorized_keys_file2(pw);
+	success = user_key_allowed2(pw, key, file);
+	xfree(file);
+	return success;
+}
+
 /* return 1 if given hostkey is allowed */
-int
+static int
 hostbased_key_allowed(struct passwd *pw, const char *cuser, char *chost,
     Key *key)
 {
-	Key *found;
 	const char *resolvedname, *ipaddr, *lookup;
-	struct stat st;
-	char *user_hostfile;
 	int host_status, len;
 
 	resolvedname = get_canonical_hostname(options.reverse_mapping_check);
@@ -820,32 +788,17 @@ hostbased_key_allowed(struct passwd *pw, const char *cuser, char *chost,
 	}
 	debug2("userauth_hostbased: access allowed by auth_rhosts2");
 
-	/* XXX this is copied from auth-rh-rsa.c and should be shared */
-	found = key_new(key->type);
-	host_status = check_host_in_hostfile(_PATH_SSH_SYSTEM_HOSTFILE2, lookup,
-	    key, found, NULL);
+	host_status = check_key_in_hostfiles(pw, key, lookup,
+	    _PATH_SSH_SYSTEM_HOSTFILE,
+	    options.ignore_user_known_hosts ? NULL : _PATH_SSH_USER_HOSTFILE);
 
-	if (host_status != HOST_OK && !options.ignore_user_known_hosts) {
-		user_hostfile = tilde_expand_filename(_PATH_SSH_USER_HOSTFILE2,
-		    pw->pw_uid);
-		if (options.strict_modes &&
-		    (stat(user_hostfile, &st) == 0) &&
-		    ((st.st_uid != 0 && st.st_uid != pw->pw_uid) ||
-		     (st.st_mode & 022) != 0)) {
-			log("Hostbased authentication refused for %.100s: "
-			    "bad owner or modes for %.200s",
-			    pw->pw_name, user_hostfile);
-		} else {
-			temporarily_use_uid(pw);
-			host_status = check_host_in_hostfile(user_hostfile,
-			    lookup, key, found, NULL);
-			restore_uid();
-		}
-		xfree(user_hostfile);
-	}
-	key_free(found);
+	/* backward compat if no key has been found. */
+	if (host_status == HOST_NEW)
+		host_status = check_key_in_hostfiles(pw, key, lookup,
+		    _PATH_SSH_SYSTEM_HOSTFILE2,
+		    options.ignore_user_known_hosts ? NULL :
+		    _PATH_SSH_USER_HOSTFILE2);
 
-	debug2("userauth_hostbased: key %s for %s", host_status == HOST_OK ?
-	    "ok" : "not found", lookup);
 	return (host_status == HOST_OK);
 }
+

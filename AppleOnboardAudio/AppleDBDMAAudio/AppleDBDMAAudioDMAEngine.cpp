@@ -12,7 +12,6 @@
 #include <IOKit/audio/IOAudioLevelControl.h>
 
 #include <IOKit/IOFilterInterruptEventSource.h>
-#include <IOKit/IOTimerEventSource.h>
 #include <IOKit/IOWorkLoop.h>
 #include "AudioHardwareUtilities.h"
 #include "AppleiSubEngine.h"
@@ -31,7 +30,6 @@ const int AppleDBDMAAudioDMAEngine::kDBDMAInputIndex	= 2;
 
 bool AppleDBDMAAudioDMAEngine::init(OSDictionary	*properties,
                                  IOService 			*theDeviceProvider,
-								 IOAudioDevice		*theDevice,
                                  bool				hasInput,
                                  UInt32				nBlocks,
                                  UInt32				bSize,
@@ -49,11 +47,6 @@ bool AppleDBDMAAudioDMAEngine::init(OSDictionary	*properties,
 	// Ususal check
 	FailIf (FALSE == super::init (properties), Exit);
 	FailIf (NULL == theDeviceProvider, Exit);
-
-	gTheDevice = theDevice;
-	if (NULL != gTheDevice) {
-		gTheDevice->retain ();
-	}
 
 	// create the memory places for DMA
 	map = theDeviceProvider->mapDeviceMemoryWithIndex(AppleDBDMAAudioDMAEngine::kDBDMAOutputIndex);
@@ -92,11 +85,6 @@ Exit:
 
 void AppleDBDMAAudioDMAEngine::free()
 {
-	if (NULL != gTheDevice) {
-		gTheDevice->release ();
-		gTheDevice = NULL;
-	}
-
     if (interruptEventSource) {
         interruptEventSource->release();
         interruptEventSource = 0;
@@ -360,15 +348,6 @@ bool AppleDBDMAAudioDMAEngine::initHardware(IOService *provider)
 		iSubEngineNotifier->remove ();
     }
 
-	// Create a timer event source
-	idleTimer = IOTimerEventSource::timerEventSource (this, IdleSleepHandlerTimer);
-	if (NULL != idleTimer) {
-		workLoop->addEventSource (idleTimer);
-	}
-
-	playing = FALSE;
-	ScheduleIdle ();
-
     DEBUG_IOLOG("- AppleDBDMAAudioDMAEngine::initHardware()\n");
     return true;
 }
@@ -444,12 +423,7 @@ IOReturn AppleDBDMAAudioDMAEngine::message (UInt32 type, IOService * provider, v
 
 IOReturn AppleDBDMAAudioDMAEngine::performAudioEngineStart()
 {
-    DEBUG_IOLOG(" + AppleDBDMAAudioDMAEngine::performAudioEngineStart()\n");
-
-	playing = TRUE;			// tell the timer function that it shouldn't do anything.
-	if (TRUE == idling) {
-		performFullPower ();
-	}
+    debugIOLog(" + AppleDBDMAAudioDMAEngine::performAudioEngineStart()\n");
 
     if (!ioBaseDMAOutput || !dmaCommandBufferOut || !status || !interruptEventSource) {
         return kIOReturnError;
@@ -489,7 +463,7 @@ IOReturn AppleDBDMAAudioDMAEngine::performAudioEngineStart()
     IOSetDBDMABranchSelect(ioBaseDMAOutput, IOSetDBDMAChannelControlBits(kdbdmaS0));
     IODBDMAStart(ioBaseDMAOutput, (IODBDMADescriptor *)pmap_extract(kernel_pmap, (vm_address_t)(dmaCommandBufferOut)));
 
-    DEBUG_IOLOG(" - AppleDBDMAAudioDMAEngine::performDMAEngineStart()\n");
+    debugIOLog(" - AppleDBDMAAudioDMAEngine::performAudioEngineStart()\n");
     return kIOReturnSuccess;
 }
 
@@ -499,15 +473,6 @@ IOReturn AppleDBDMAAudioDMAEngine::restartOutputIfFailure(){
     }
 
     flush_dcache((vm_offset_t)dmaCommandBufferOut, commandBufferSize, false);
-
-    filterState.xl_1 = 0.0;
-    filterState.xr_1 = 0.0;
-    filterState.xl_2 = 0.0;
-    filterState.xr_2 = 0.0;
-    filterState.yl_1 = 0.0;
-    filterState.yr_1 = 0.0;
-    filterState.yl_2 = 0.0;
-    filterState.yr_2 = 0.0;
 
     if (NULL != iSubEngine) {
 		startiSub = TRUE;
@@ -531,7 +496,7 @@ IOReturn AppleDBDMAAudioDMAEngine::performAudioEngineStop()
 {
     UInt16 attemptsToStop = 1000;
 
-    DEBUG2_IOLOG("+ AppleDBDMAAudioDMAEngine[%p]::performAudioEngineStop()\n", this);
+    debugIOLog("+ AppleDBDMAAudioDMAEngine::performAudioEngineStop()\n");
 
     if (NULL != iSubEngine) {
         iSubEngine->StopiSub ();
@@ -568,50 +533,8 @@ IOReturn AppleDBDMAAudioDMAEngine::performAudioEngineStop()
     
     interruptEventSource->enable();
 
-	playing = FALSE;
-	ScheduleIdle ();
-
     DEBUG_IOLOG("- AppleDBDMAAudioDMAEngine::performAudioEngineStop()\n");
     return kIOReturnSuccess;
-}
-
-// Set up a timer to power down the hardware if we haven't used it in a while.
-void AppleDBDMAAudioDMAEngine::ScheduleIdle (void) {
-    AbsoluteTime				fireTime;
-    UInt64						nanos;
-
-	if (NULL != idleTimer) {
-		clock_get_uptime (&fireTime);
-		absolutetime_to_nanoseconds (fireTime, &nanos);
-		nanos += kPowerDownDelayTime;	// Schedule 30 seconds in the future...
-
-		nanoseconds_to_absolutetime (nanos, &fireTime);
-		idleTimer->wakeAtTime (fireTime);
-	}
-
-	return;
-}
-
-void AppleDBDMAAudioDMAEngine::IdleSleepHandlerTimer (OSObject *owner, IOTimerEventSource *sender) {
-	AppleDBDMAAudioDMAEngine *		audioEngine;
-
-	audioEngine = OSDynamicCast (AppleDBDMAAudioDMAEngine, owner);
-	FailIf (NULL == audioEngine, Exit);
-
-	if (FALSE == audioEngine->playing && NULL != audioEngine->gTheDevice) {
-		audioEngine->idling = TRUE;
-		((AppleOnboardAudio *)audioEngine->gTheDevice)->GoIdlePower ();
-	}
-
-Exit:
-	return;
-}
-
-IOReturn AppleDBDMAAudioDMAEngine::performFullPower (void) {
-	((AppleOnboardAudio *)gTheDevice)->GoFullPower ();
-	idling = FALSE;
-
-	return kIOReturnSuccess;
 }
 
 bool AppleDBDMAAudioDMAEngine::filterInterrupt(int index)
@@ -670,8 +593,19 @@ UInt32 AppleDBDMAAudioDMAEngine::getCurrentSampleFrame()
     return currentBlock * blockSize / 4;	// 4 bytes per frame - 2 per sample * 2 channels - BIG HACK
 }
 
+// This gets called when a new audio stream needs to be mixed into an already playing audio stream
 void AppleDBDMAAudioDMAEngine::resetClipPosition (IOAudioStream *audioStream, UInt32 clipSampleFrame) {
     if (NULL != iSubBufferMemory) {
+		// start the filter over again since old filter state is invalid
+		filterState.xl_1 = 0.0;
+		filterState.xr_1 = 0.0;
+		filterState.xl_2 = 0.0;
+		filterState.xr_2 = 0.0;
+		filterState.yl_1 = 0.0;
+		filterState.yr_1 = 0.0;
+		filterState.yl_2 = 0.0;
+		filterState.yr_2 = 0.0;
+
 #if DEBUGLOG
 		IOLog ("resetClipPosition, iSubBufferOffset=%ld, previousClippedToFrame=%ld, clipSampleFrame=%ld\n", iSubBufferOffset, previousClippedToFrame, clipSampleFrame);
 #endif
@@ -800,6 +734,15 @@ IOReturn AppleDBDMAAudioDMAEngine::clipOutputSamples(const void *mixBuf, void *s
 		// sync up with iSub
 		if (TRUE == needToSync) {
 			needToSync = FALSE;
+			// start the filter over again since old filter state is invalid
+			filterState.xl_1 = 0.0;
+			filterState.xr_1 = 0.0;
+			filterState.xl_2 = 0.0;
+			filterState.xr_2 = 0.0;
+			filterState.yl_1 = 0.0;
+			filterState.yr_1 = 0.0;
+			filterState.yl_2 = 0.0;
+			filterState.yr_2 = 0.0;
 			iSubLoopCount = iSubEngine->GetCurrentLoopCount ();
 			iSubBufferOffset = (firstSampleFrame - getCurrentSampleFrame ()) * streamFormat->fNumChannels;
 #if DEBUGLOG

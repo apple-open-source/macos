@@ -11,7 +11,7 @@
  * called by a name other than "ssh" or "Secure Shell".
  *
  * SSH2 support by Markus Friedl.
- * Copyright (c) 2000 Markus Friedl.  All rights reserved.
+ * Copyright (c) 2000, 2001 Markus Friedl.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,7 +35,7 @@
  */
 
 #include "includes.h"
-RCSID("$OpenBSD: serverloop.c,v 1.61 2001/04/13 22:46:54 beck Exp $");
+RCSID("$OpenBSD: serverloop.c,v 1.83 2001/11/09 18:59:23 markus Exp $");
 
 #include "xmalloc.h"
 #include "packet.h"
@@ -59,6 +59,7 @@ extern ServerOptions options;
 
 /* XXX */
 extern Kex *xxx_kex;
+static Authctxt *xxx_authctxt;
 
 static Buffer stdin_buffer;	/* Buffer for stdin data. */
 static Buffer stdout_buffer;	/* Buffer for stdout data. */
@@ -79,46 +80,25 @@ static int connection_in;	/* Connection to client (input). */
 static int connection_out;	/* Connection to client (output). */
 static int connection_closed = 0;	/* Connection to client closed. */
 static u_int buffer_high;	/* "Soft" max buffer size. */
+static int client_alive_timeouts = 0;
 
 /*
  * This SIGCHLD kludge is used to detect when the child exits.  The server
  * will exit after that, as soon as forwarded connections have terminated.
  */
 
-static pid_t child_pid;			/* Pid of the child. */
 static volatile int child_terminated;	/* The child has terminated. */
-static volatile int child_wait_status;	/* Status from wait(). */
 
-void	server_init_dispatch(void);
+/* prototypes */
+static void server_init_dispatch(void);
 
-int client_alive_timeouts = 0;
-
-void
+static void
 sigchld_handler(int sig)
-{
-	int save_errno = errno;
-	pid_t wait_pid;
-
-	debug("Received SIGCHLD.");
-	wait_pid = wait((int *) &child_wait_status);
-	if (wait_pid != -1) {
-		if (wait_pid != child_pid)
-			error("Strange, got SIGCHLD and wait returned pid %d but child is %d",
-			      wait_pid, child_pid);
-		if (WIFEXITED(child_wait_status) ||
-		    WIFSIGNALED(child_wait_status))
-			child_terminated = 1;
-	}
-	signal(SIGCHLD, sigchld_handler);
-	errno = save_errno;
-}
-void
-sigchld_handler2(int sig)
 {
 	int save_errno = errno;
 	debug("Received SIGCHLD.");
 	child_terminated = 1;
-	mysignal(SIGCHLD, sigchld_handler2);
+	mysignal(SIGCHLD, sigchld_handler);
 	errno = save_errno;
 }
 
@@ -126,7 +106,7 @@ sigchld_handler2(int sig)
  * Make packets from buffered stderr data, and buffer it for sending
  * to the client.
  */
-void
+static void
 make_packets_from_stderr_data(void)
 {
 	int len;
@@ -155,7 +135,7 @@ make_packets_from_stderr_data(void)
  * Make packets from buffered stdout data, and buffer it for sending to the
  * client.
  */
-void
+static void
 make_packets_from_stdout_data(void)
 {
 	int len;
@@ -180,15 +160,35 @@ make_packets_from_stdout_data(void)
 	}
 }
 
+static void
+client_alive_check(void)
+{
+	int id;
+
+	/* timeout, check to see how many we have had */
+	if (++client_alive_timeouts > options.client_alive_count_max)
+		packet_disconnect("Timeout, your session not responding.");
+
+	id = channel_find_open();
+	if (id == -1)
+		packet_disconnect("No open channels after timeout!");
+	/*
+	 * send a bogus channel request with "wantreply",
+	 * we should get back a failure
+	 */
+	channel_request_start(id, "keepalive@openssh.com", 1);
+	packet_send();
+}
+
 /*
  * Sleep in select() until we can do something.  This will initialize the
  * select masks.  Upon return, the masks will indicate which descriptors
  * have data or can accept data.  Optionally, a maximum time can be specified
  * for the duration of the wait (0 = infinite).
  */
-void
+static void
 wait_until_can_do_something(fd_set **readsetp, fd_set **writesetp, int *maxfdp,
-    u_int max_time_milliseconds)
+    int *nallocp, u_int max_time_milliseconds)
 {
 	struct timeval tv, *tvp;
 	int ret;
@@ -202,22 +202,21 @@ wait_until_can_do_something(fd_set **readsetp, fd_set **writesetp, int *maxfdp,
 	 * this could be randomized somewhat to make traffic
 	 * analysis more difficult, but we're not doing it yet.  
 	 */
-	if (max_time_milliseconds == 0 && options.client_alive_interval) {
-	        client_alive_scheduled = 1;
+	if (compat20 &&
+	    max_time_milliseconds == 0 && options.client_alive_interval) {
+		client_alive_scheduled = 1;
 		max_time_milliseconds = options.client_alive_interval * 1000;
-	} else 
-	        client_alive_scheduled = 0;
-
-	/* When select fails we restart from here. */
-retry_select:
+	}
 
 	/* Allocate and update select() masks for channel descriptors. */
-	channel_prepare_select(readsetp, writesetp, maxfdp, 0);
+	channel_prepare_select(readsetp, writesetp, maxfdp, nallocp, 0);
 
 	if (compat20) {
+#if 0
 		/* wrong: bad condition XXX */
 		if (channel_not_very_much_buffered_data())
-			FD_SET(connection_in, *readsetp);
+#endif
+		FD_SET(connection_in, *readsetp);
 	} else {
 		/*
 		 * Read packets from the client unless we have too much
@@ -273,42 +272,19 @@ retry_select:
 	ret = select((*maxfdp)+1, *readsetp, *writesetp, NULL, tvp);
 
 	if (ret == -1) {
+		memset(*readsetp, 0, *nallocp);
+		memset(*writesetp, 0, *nallocp);
 		if (errno != EINTR)
 			error("select: %.100s", strerror(errno));
-		else
-			goto retry_select;
-	}
-	if (ret == 0 && client_alive_scheduled) {
-		/* timeout, check to see how many we have had */
-		client_alive_timeouts++;
-
-		if (client_alive_timeouts > options.client_alive_count_max ) {
-			packet_disconnect(
-				"Timeout, your session not responding.");
-		} else {
-			/*
-			 * send a bogus channel request with "wantreply" 
-			 * we should get back a failure
-			 */
-			int id;
-			
-			id = channel_find_open();
-			if (id != -1) {
-				channel_request_start(id,
-				  "keepalive@openssh.com", 1);
-				packet_send();
-			} else 
-				packet_disconnect(
-					"No open channels after timeout!");
-		}
-	} 
+	} else if (ret == 0 && client_alive_scheduled)
+		client_alive_check();
 }
 
 /*
  * Processes input from the client and the program.  Input data is stored
  * in buffers and processed later.
  */
-void
+static void
 process_input(fd_set * readset)
 {
 	int len;
@@ -364,16 +340,19 @@ process_input(fd_set * readset)
 /*
  * Sends data from internal buffers to client program stdin.
  */
-void
+static void
 process_output(fd_set * writeset)
 {
 	struct termios tio;
+	u_char *data;
+	u_int dlen;
 	int len;
 
 	/* Write buffered data to program stdin. */
 	if (!compat20 && fdin != -1 && FD_ISSET(fdin, writeset)) {
-		len = write(fdin, buffer_ptr(&stdin_buffer),
-		    buffer_len(&stdin_buffer));
+		data = buffer_ptr(&stdin_buffer);
+		dlen = buffer_len(&stdin_buffer);
+		len = write(fdin, data, dlen);
 		if (len < 0 && (errno == EINTR || errno == EAGAIN)) {
 			/* do nothing */
 		} else if (len <= 0) {
@@ -388,7 +367,8 @@ process_output(fd_set * writeset)
 			fdin = -1;
 		} else {
 			/* Successful write. */
-			if (fdin_is_tty && tcgetattr(fdin, &tio) == 0 &&
+			if (fdin_is_tty && dlen >= 1 && data[0] != '\r' &&
+			    tcgetattr(fdin, &tio) == 0 &&
 			    !(tio.c_lflag & ECHO) && (tio.c_lflag & ICANON)) {
 				/*
 				 * Simulate echo to reduce the impact of
@@ -412,7 +392,7 @@ process_output(fd_set * writeset)
  * Wait until all buffered output has been sent to the client.
  * This is used when the program terminates.
  */
-void
+static void
 drain_output(void)
 {
 	/* Send any buffered stdout data to the client. */
@@ -437,7 +417,7 @@ drain_output(void)
 	packet_write_wait();
 }
 
-void
+static void
 process_buffered_input_packets(void)
 {
 	dispatch_run(DISPATCH_NONBLOCK, NULL, compat20 ? xxx_kex : NULL);
@@ -454,7 +434,7 @@ void
 server_loop(pid_t pid, int fdin_arg, int fdout_arg, int fderr_arg)
 {
 	fd_set *readset = NULL, *writeset = NULL;
-	int max_fd;
+	int max_fd = 0, nalloc = 0;
 	int wait_status;	/* Status returned by wait(). */
 	pid_t wait_pid;		/* pid returned by wait(). */
 	int waiting_termination = 0;	/* Have displayed waiting close message. */
@@ -466,9 +446,8 @@ server_loop(pid_t pid, int fdin_arg, int fdout_arg, int fderr_arg)
 	debug("Entering interactive session.");
 
 	/* Initialize the SIGCHLD kludge. */
-	child_pid = pid;
 	child_terminated = 0;
-	signal(SIGCHLD, sigchld_handler);
+	mysignal(SIGCHLD, sigchld_handler);
 
 	/* Initialize our global variables. */
 	fdin = fdin_arg;
@@ -496,12 +475,14 @@ server_loop(pid_t pid, int fdin_arg, int fdout_arg, int fderr_arg)
 	else
 		buffer_high = 64 * 1024;
 
+#if 0
 	/* Initialize max_fd to the maximum of the known file descriptors. */
-	max_fd = MAX(fdin, fdout);
+	max_fd = MAX(connection_in, connection_out);
+	max_fd = MAX(max_fd, fdin);
+	max_fd = MAX(max_fd, fdout);
 	if (fderr != -1)
 		max_fd = MAX(max_fd, fderr);
-	max_fd = MAX(max_fd, connection_in);
-	max_fd = MAX(max_fd, connection_out);
+#endif
 
 	/* Initialize Initialize buffers. */
 	buffer_init(&stdin_buffer);
@@ -587,9 +568,14 @@ server_loop(pid_t pid, int fdin_arg, int fdout_arg, int fderr_arg)
 				xfree(cp);
 			}
 		}
+		max_fd = MAX(connection_in, connection_out);
+		max_fd = MAX(max_fd, fdin);
+		max_fd = MAX(max_fd, fdout);
+		max_fd = MAX(max_fd, fderr);
+
 		/* Sleep in select() until we can do something. */
 		wait_until_can_do_something(&readset, &writeset, &max_fd,
-		    max_time_milliseconds);
+		    &nalloc, max_time_milliseconds);
 
 		/* Process any channel events. */
 		channel_after_select(readset, writeset);
@@ -631,30 +617,17 @@ server_loop(pid_t pid, int fdin_arg, int fdout_arg, int fderr_arg)
 		close(fdin);
 	fdin = -1;
 
-	/* Stop listening for channels; this removes unix domain sockets. */
-	channel_stop_listening();
-
-	/* Wait for the child to exit.  Get its exit status. */
-	wait_pid = wait(&wait_status);
-	if (wait_pid == -1) {
-		/*
-		 * It is possible that the wait was handled by SIGCHLD
-		 * handler.  This may result in either: this call
-		 * returning with EINTR, or: this call returning ECHILD.
-		 */
-		if (child_terminated)
-			wait_status = child_wait_status;
-		else
-			packet_disconnect("wait: %.100s", strerror(errno));
-	} else {
-		/* Check if it matches the process we forked. */
-		if (wait_pid != pid)
-			error("Strange, wait returned pid %d, expected %d",
-			       wait_pid, pid);
-	}
+	channel_free_all();
 
 	/* We no longer want our SIGCHLD handler to be called. */
-	signal(SIGCHLD, SIG_DFL);
+	mysignal(SIGCHLD, SIG_DFL);
+
+	wait_pid = waitpid(-1, &wait_status, child_terminated ? WNOHANG : 0);
+	if (wait_pid == -1)
+		packet_disconnect("wait: %.100s", strerror(errno));
+	else if (wait_pid != pid)
+		error("Strange, wait returned pid %d, expected %d",
+		    wait_pid, pid);
 
 	/* Check if it exited normally. */
 	if (WIFEXITED(wait_status)) {
@@ -691,21 +664,40 @@ server_loop(pid_t pid, int fdin_arg, int fdout_arg, int fderr_arg)
 	/* NOTREACHED */
 }
 
+static void
+collect_children(void)
+{
+	pid_t pid;
+	sigset_t oset, nset;
+	int status;
+
+	/* block SIGCHLD while we check for dead children */
+	sigemptyset(&nset);
+	sigaddset(&nset, SIGCHLD);
+	sigprocmask(SIG_BLOCK, &nset, &oset);
+	if (child_terminated) {
+		while ((pid = waitpid(-1, &status, WNOHANG)) > 0)
+			session_close_by_pid(pid, status);
+		child_terminated = 0;
+	}
+	sigprocmask(SIG_SETMASK, &oset, NULL);
+}
+
 void
-server_loop2(void)
+server_loop2(Authctxt *authctxt)
 {
 	fd_set *readset = NULL, *writeset = NULL;
-	int rekeying = 0, max_fd, status;
-	pid_t pid;
+	int rekeying = 0, max_fd, nalloc = 0;
 
 	debug("Entering interactive session for SSH2.");
 
-	mysignal(SIGCHLD, sigchld_handler2);
+	mysignal(SIGCHLD, sigchld_handler);
 	child_terminated = 0;
 	connection_in = packet_get_connection_in();
 	connection_out = packet_get_connection_out();
 
 	max_fd = MAX(connection_in, connection_out);
+	xxx_authctxt = authctxt;
 
 	server_init_dispatch();
 
@@ -717,12 +709,9 @@ server_loop2(void)
 		if (!rekeying && packet_not_very_much_data_to_write())
 			channel_output_poll();
 		wait_until_can_do_something(&readset, &writeset, &max_fd,
-		    rekeying);
-		if (child_terminated) {
-			while ((pid = waitpid(-1, &status, WNOHANG)) > 0)
-				session_close_by_pid(pid, status);
-			child_terminated = 0;
-		}
+		    &nalloc, 0);
+
+		collect_children();
 		if (!rekeying)
 			channel_after_select(readset, writeset);
 		process_input(readset);
@@ -730,23 +719,26 @@ server_loop2(void)
 			break;
 		process_output(writeset);
 	}
+	collect_children();
+
 	if (readset)
 		xfree(readset);
 	if (writeset)
 		xfree(writeset);
 
-	signal(SIGCHLD, SIG_DFL);
-	while ((pid = waitpid(-1, &status, WNOHANG)) > 0)
-		session_close_by_pid(pid, status);
-	channel_stop_listening();
+	/* free all channels, no more reads and writes */
+	channel_free_all();
+
+	/* free remaining sessions, e.g. remove wtmp entries */
+	session_destroy_all();
 }
 
-void
+static void
 server_input_channel_failure(int type, int plen, void *ctxt)
 {
 	debug("Got CHANNEL_FAILURE for keepalive");
 	/* 
-         * reset timeout, since we got a sane answer from the client.
+	 * reset timeout, since we got a sane answer from the client.
 	 * even if this was generated by something other than
 	 * the bogus CHANNEL_REQUEST we send for keepalives.
 	 */
@@ -754,7 +746,7 @@ server_input_channel_failure(int type, int plen, void *ctxt)
 }
 
 
-void
+static void
 server_input_stdin_data(int type, int plen, void *ctxt)
 {
 	char *data;
@@ -771,7 +763,7 @@ server_input_stdin_data(int type, int plen, void *ctxt)
 	xfree(data);
 }
 
-void
+static void
 server_input_eof(int type, int plen, void *ctxt)
 {
 	/*
@@ -784,7 +776,7 @@ server_input_eof(int type, int plen, void *ctxt)
 	stdin_eof = 1;
 }
 
-void
+static void
 server_input_window_size(int type, int plen, void *ctxt)
 {
 	int row = packet_get_int();
@@ -798,10 +790,11 @@ server_input_window_size(int type, int plen, void *ctxt)
 		pty_change_window_size(fdin, row, col, xpixel, ypixel);
 }
 
-Channel *
+static Channel *
 server_request_direct_tcpip(char *ctype)
 {
-	int sock, newch;
+	Channel *c;
+	int sock;
 	char *target, *originator;
 	int target_port, originator_port;
 
@@ -820,16 +813,20 @@ server_request_direct_tcpip(char *ctype)
 	xfree(originator);
 	if (sock < 0)
 		return NULL;
-	newch = channel_new(ctype, SSH_CHANNEL_CONNECTING,
+	c = channel_new(ctype, SSH_CHANNEL_CONNECTING,
 	    sock, sock, -1, CHAN_TCP_WINDOW_DEFAULT,
 	    CHAN_TCP_PACKET_DEFAULT, 0, xstrdup("direct-tcpip"), 1);
-	return (newch >= 0) ? channel_lookup(newch) : NULL;
+	if (c == NULL) {
+		error("server_request_direct_tcpip: channel_new failed");
+		close(sock);
+	}
+	return c;
 }
 
-Channel *
+static Channel *
 server_request_session(char *ctype)
 {
-	int newch;
+	Channel *c;
 
 	debug("input_session_request");
 	packet_done();
@@ -839,22 +836,25 @@ server_request_session(char *ctype)
 	 * SSH_CHANNEL_LARVAL.  Additionally, a callback for handling all
 	 * CHANNEL_REQUEST messages is registered.
 	 */
-	newch = channel_new(ctype, SSH_CHANNEL_LARVAL,
-	    -1, -1, -1, 0, CHAN_SES_PACKET_DEFAULT,
+	c = channel_new(ctype, SSH_CHANNEL_LARVAL,
+	    -1, -1, -1, /*window size*/0, CHAN_SES_PACKET_DEFAULT,
 	    0, xstrdup("server-session"), 1);
-	if (session_open(newch) == 1) {
-		channel_register_callback(newch, SSH2_MSG_CHANNEL_REQUEST,
-		    session_input_channel_req, (void *)0);
-		channel_register_cleanup(newch, session_close_by_channel);
-		return channel_lookup(newch);
-	} else {
-		debug("session open failed, free channel %d", newch);
-		channel_free(newch);
+	if (c == NULL) {
+		error("server_request_session: channel_new failed");
+		return NULL;
 	}
-	return NULL;
+	if (session_open(xxx_authctxt, c->self) != 1) {
+		debug("session open failed, free channel %d", c->self);
+		channel_free(c);
+		return NULL;
+	}
+	channel_register_callback(c->self, SSH2_MSG_CHANNEL_REQUEST,
+	    session_input_channel_req, (void *)0);
+	channel_register_cleanup(c->self, session_close_by_channel);
+	return c;
 }
 
-void
+static void
 server_input_channel_open(int type, int plen, void *ctxt)
 {
 	Channel *c = NULL;
@@ -882,26 +882,29 @@ server_input_channel_open(int type, int plen, void *ctxt)
 		c->remote_id = rchan;
 		c->remote_window = rwindow;
 		c->remote_maxpacket = rmaxpack;
-
-		packet_start(SSH2_MSG_CHANNEL_OPEN_CONFIRMATION);
-		packet_put_int(c->remote_id);
-		packet_put_int(c->self);
-		packet_put_int(c->local_window);
-		packet_put_int(c->local_maxpacket);
-		packet_send();
+		if (c->type != SSH_CHANNEL_CONNECTING) {
+			packet_start(SSH2_MSG_CHANNEL_OPEN_CONFIRMATION);
+			packet_put_int(c->remote_id);
+			packet_put_int(c->self);
+			packet_put_int(c->local_window);
+			packet_put_int(c->local_maxpacket);
+			packet_send();
+		}
 	} else {
 		debug("server_input_channel_open: failure %s", ctype);
 		packet_start(SSH2_MSG_CHANNEL_OPEN_FAILURE);
 		packet_put_int(rchan);
 		packet_put_int(SSH2_OPEN_ADMINISTRATIVELY_PROHIBITED);
-		packet_put_cstring("bla bla");
-		packet_put_cstring("");
+		if (!(datafellows & SSH_BUG_OPENFAILURE)) {
+			packet_put_cstring("open failed");
+			packet_put_cstring("");
+		}
 		packet_send();
 	}
 	xfree(ctype);
 }
 
-void
+static void
 server_input_global_request(int type, int plen, void *ctxt)
 {
 	char *rtype;
@@ -951,7 +954,7 @@ server_input_global_request(int type, int plen, void *ctxt)
 	xfree(rtype);
 }
 
-void
+static void
 server_init_dispatch_20(void)
 {
 	debug("server_init_dispatch_20");
@@ -971,7 +974,7 @@ server_init_dispatch_20(void)
 	/* rekeying */
 	dispatch_set(SSH2_MSG_KEXINIT, &kex_input_kexinit);
 }
-void
+static void
 server_init_dispatch_13(void)
 {
 	debug("server_init_dispatch_13");
@@ -986,7 +989,7 @@ server_init_dispatch_13(void)
 	dispatch_set(SSH_MSG_CHANNEL_OPEN_FAILURE, &channel_input_open_failure);
 	dispatch_set(SSH_MSG_PORT_OPEN, &channel_input_port_open);
 }
-void
+static void
 server_init_dispatch_15(void)
 {
 	server_init_dispatch_13();
@@ -994,7 +997,7 @@ server_init_dispatch_15(void)
 	dispatch_set(SSH_MSG_CHANNEL_CLOSE, &channel_input_ieof);
 	dispatch_set(SSH_MSG_CHANNEL_CLOSE_CONFIRMATION, &channel_input_oclose);
 }
-void
+static void
 server_init_dispatch(void)
 {
 	if (compat20)
@@ -1004,4 +1007,3 @@ server_init_dispatch(void)
 	else
 		server_init_dispatch_15();
 }
-

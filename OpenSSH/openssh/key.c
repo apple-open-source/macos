@@ -9,7 +9,7 @@
  * called by a name other than "ssh" or "Secure Shell".
  *
  *
- * Copyright (c) 2000 Markus Friedl.  All rights reserved.
+ * Copyright (c) 2000, 2001 Markus Friedl.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,7 +32,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 #include "includes.h"
-RCSID("$OpenBSD: key.c,v 1.25 2001/04/17 10:53:24 markus Exp $");
+RCSID("$OpenBSD: key.c,v 1.33 2001/10/04 14:34:16 markus Exp $");
 
 #include <openssl/evp.h>
 
@@ -54,6 +54,7 @@ key_new(int type)
 	DSA *dsa;
 	k = xmalloc(sizeof(*k));
 	k->type = type;
+	k->flags = 0;
 	k->dsa = NULL;
 	k->rsa = NULL;
 	switch (k->type) {
@@ -153,7 +154,7 @@ key_equal(Key *a, Key *b)
 	return 0;
 }
 
-u_char*
+static u_char*
 key_fingerprint_raw(Key *k, enum fp_type dgst_type, size_t *dgst_raw_length)
 {
 	EVP_MD *md = NULL;
@@ -210,7 +211,7 @@ key_fingerprint_raw(Key *k, enum fp_type dgst_type, size_t *dgst_raw_length)
 	return retval;
 }
 
-char*
+static char*
 key_fingerprint_hex(u_char* dgst_raw, size_t dgst_raw_len)
 {
 	char *retval;
@@ -227,7 +228,7 @@ key_fingerprint_hex(u_char* dgst_raw, size_t dgst_raw_len)
 	return retval;
 }
 
-char*
+static char*
 key_fingerprint_bubblebabble(u_char* dgst_raw, size_t dgst_raw_len)
 {
 	char vowels[] = { 'a', 'e', 'i', 'o', 'u', 'y' };
@@ -308,7 +309,7 @@ key_fingerprint(Key *k, enum fp_type dgst_type, enum fp_rep dgst_rep)
  * last processed (and maybe modified) character.  Note that this may modify
  * the buffer containing the number.
  */
-int
+static int
 read_bignum(char **cpp, BIGNUM * value)
 {
 	char *cp = *cpp;
@@ -344,7 +345,7 @@ read_bignum(char **cpp, BIGNUM * value)
 	*cpp = cp;
 	return 1;
 }
-int
+static int
 write_bignum(FILE *f, BIGNUM *num)
 {
 	char *buf = BN_bn2dec(num);
@@ -353,11 +354,11 @@ write_bignum(FILE *f, BIGNUM *num)
 		return 0;
 	}
 	fprintf(f, " %s", buf);
-	xfree(buf);
+	OPENSSL_free(buf);
 	return 1;
 }
 
-/* returns 1 ok, -1 error, 0 type mismatch */
+/* returns 1 ok, -1 error */
 int
 key_read(Key *ret, char **cpp)
 {
@@ -412,7 +413,7 @@ key_read(Key *ret, char **cpp)
 		} else if (ret->type != type) {
 			/* is a key, but different type */
 			debug3("key_read: type mismatch");
-			return 0;
+			return -1;
 		}
 		len = 2*strlen(cp);
 		blob = xmalloc(len);
@@ -544,7 +545,7 @@ key_size(Key *k){
 	return 0;
 }
 
-RSA *
+static RSA *
 rsa_generate_private_key(u_int bits)
 {
 	RSA *private;
@@ -554,7 +555,7 @@ rsa_generate_private_key(u_int bits)
 	return private;
 }
 
-DSA*
+static DSA*
 dsa_generate_private_key(u_int bits)
 {
 	DSA *private = DSA_generate_parameters(bits, NULL, 0, NULL, NULL, NULL, NULL);
@@ -652,7 +653,7 @@ key_names_valid2(const char *names)
 }
 
 Key *
-key_from_blob(char *blob, int blen)
+key_from_blob(u_char *blob, int blen)
 {
 	Buffer b;
 	char *ktype;
@@ -727,8 +728,9 @@ key_to_blob(Key *key, u_char **blobp, u_int *lenp)
 		buffer_put_bignum2(&b, key->rsa->n);
 		break;
 	default:
-		error("key_to_blob: illegal key type %d", key->type);
-		break;
+		error("key_to_blob: unsupported key type %d", key->type);
+		buffer_free(&b);
+		return 0;
 	}
 	len = buffer_len(&b);
 	buf = xmalloc(len);
@@ -768,6 +770,9 @@ key_verify(
     u_char *signature, int signaturelen,
     u_char *data, int datalen)
 {
+	if (signaturelen == 0)
+		return -1;
+
 	switch(key->type){
 	case KEY_DSA:
 		return ssh_dss_verify(key, signature, signaturelen, data, datalen);

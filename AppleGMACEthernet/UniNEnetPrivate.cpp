@@ -268,6 +268,9 @@ void UniNEnet::startChip()
 
 	fRxMACConfiguration	= kRxMACConfiguration_Rx_Mac_Enable		// Rx MAC enable
 						| kRxMACConfiguration_Strip_FCS;
+	if ( fIsPromiscuous )
+		fRxMACConfiguration |= kRxMACConfiguration_Promiscuous;
+
 	WRITE_REGISTER( RxMACConfiguration, fRxMACConfiguration  );
 
 	gemReg = ~(kStatus_TX_INT_ME | kStatus_RX_DONE);	/// add kStatus_MIF_Interrupt for WOL
@@ -823,6 +826,7 @@ bool UniNEnet::transmitPacket( struct mbuf *packet )
 
     txCommandTail = j;
           
+	OSSynchronizeIO();				// make sure ring updated before kicked.
 	WRITE_REGISTER( TxKick, j );
      
     return true;          

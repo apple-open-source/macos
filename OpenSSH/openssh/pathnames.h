@@ -1,4 +1,4 @@
-/*	$OpenBSD: pathnames.h,v 1.5 2001/04/12 19:15:24 markus Exp $	*/
+/*	$OpenBSD: pathnames.h,v 1.9 2001/06/23 02:34:30 markus Exp $	*/
 
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
@@ -25,6 +25,7 @@
  * world-readable.
  */
 #define _PATH_SSH_SYSTEM_HOSTFILE	ETCDIR "/ssh_known_hosts"
+/* backward compat for protocol 2 */
 #define _PATH_SSH_SYSTEM_HOSTFILE2	ETCDIR "/ssh_known_hosts2"
 
 /*
@@ -36,6 +37,8 @@
 #define _PATH_HOST_KEY_FILE		ETCDIR "/ssh_host_key"
 #define _PATH_HOST_DSA_KEY_FILE		ETCDIR "/ssh_host_dsa_key"
 #define _PATH_HOST_RSA_KEY_FILE		ETCDIR "/ssh_host_rsa_key"
+#define _PATH_DH_MODULI			ETCDIR "/moduli"
+/* Backwards compatibility */
 #define _PATH_DH_PRIMES			ETCDIR "/primes"
 
 #ifndef _PATH_SSH_PROGRAM
@@ -60,6 +63,7 @@
  * contain anything particularly secret.
  */
 #define _PATH_SSH_USER_HOSTFILE		"~/.ssh/known_hosts"
+/* backward compat for protocol 2 */
 #define _PATH_SSH_USER_HOSTFILE2	"~/.ssh/known_hosts2"
 
 /*
@@ -87,6 +91,8 @@
  * running as root.)
  */
 #define _PATH_SSH_USER_PERMITTED_KEYS	".ssh/authorized_keys"
+
+/* backward compat for protocol v2 */
 #define _PATH_SSH_USER_PERMITTED_KEYS2	".ssh/authorized_keys2"
 
 /*
@@ -110,6 +116,11 @@
  */
 #ifndef _PATH_SSH_ASKPASS_DEFAULT
 #define _PATH_SSH_ASKPASS_DEFAULT	"/usr/X11R6/bin/ssh-askpass"
+#endif
+
+/* xauth for X11 forwarding */
+#ifndef _PATH_XAUTH
+#define _PATH_XAUTH			"/usr/X11R6/bin/xauth"
 #endif
 
 /* for scp */
@@ -148,4 +159,3 @@
 #ifndef SSH_PRNG_COMMAND_FILE
 # define SSH_PRNG_COMMAND_FILE   ETCDIR "/ssh_prng_cmds"
 #endif /* SSH_PRNG_COMMAND_FILE */
-
