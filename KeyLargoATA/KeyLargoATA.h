@@ -83,7 +83,7 @@ protected:
 	bool _needsResync;
 	// calculate the correct binary configuration for the desired bus timings.
 	virtual IOReturn selectIOTimerValue( IOATADevConfig* configRequest, UInt32 unitNumber);
-
+	bool isExtLBA;
 	// overrides
 	// set the timing config for a specific device.	
 	virtual void selectIOTiming( ataUnitID unit );

@@ -1,5 +1,5 @@
 /*
-** Copyright (c) 1999-2000 Sendmail, Inc. and its suppliers.
+** Copyright (c) 1999-2001 Sendmail, Inc. and its suppliers.
 **	All rights reserved.
 **
 ** By using this file, you agree to the terms and conditions set
@@ -7,9 +7,8 @@
 ** the sendmail distribution.
 */
 
-#ifndef lint
-static char id[] = "@(#)$Id: smdb1.c,v 1.1.1.1 2000/06/10 00:40:51 wsanchez Exp $";
-#endif /* ! lint */
+#include <sm/gen.h>
+SM_RCSID("@(#)$Id: smdb1.c,v 1.1.1.2 2002/03/12 18:00:21 zarzycki Exp $")
 
 #include <unistd.h>
 #include <stdlib.h>
@@ -36,7 +35,7 @@ struct smdb_db1_cursor
 };
 typedef struct smdb_db1_cursor SMDB_DB1_CURSOR;
 
-/*
+/*
 **  SMDB_TYPE_TO_DB1_TYPE -- Translates smdb database type to db1 type.
 **
 **	Parameters:
@@ -64,9 +63,7 @@ smdb_type_to_db1_type(type)
 	/* Should never get here thanks to test in smdb_db_open() */
 	return DB_HASH;
 }
-
-
-/*
+/*
 **  SMDB_PUT_FLAGS_TO_DB1_FLAGS -- Translates smdb put flags to db1 put flags.
 **
 **	Parameters:
@@ -80,7 +77,7 @@ smdb_type_to_db1_type(type)
 **
 */
 
-u_int
+unsigned int
 smdb_put_flags_to_db1_flags(flags)
 	SMDB_FLAG flags;
 {
@@ -93,8 +90,7 @@ smdb_put_flags_to_db1_flags(flags)
 
 	return return_flags;
 }
-
-/*
+/*
 **  SMDB_CURSOR_GET_FLAGS_TO_SMDB1
 **
 **	Parameters:
@@ -131,6 +127,10 @@ smdb_cursor_get_flags_to_smdb1(flags)
 	}
 }
 
+/*
+**  The rest of these functions correspond to the interface laid out in smdb.h.
+*/
+
 SMDB_DB1_DATABASE *
 smdb1_malloc_database()
 {
@@ -141,42 +141,43 @@ smdb1_malloc_database()
 	if (db1 != NULL)
 	{
 		db1->smdb1_lock_fd = -1;
-		db1->smdb1_cursor_in_use = FALSE;
+		db1->smdb1_cursor_in_use = false;
 	}
 
 	return db1;
 }
 
-/*
-** The rest of these function correspond to the interface laid out
-** in smdb.h.
-*/
-
 int
 smdb1_close(database)
 	SMDB_DATABASE *database;
 {
+	int result;
 	SMDB_DB1_DATABASE *db1 = (SMDB_DB1_DATABASE *) database->smdb_impl;
 	DB *db = ((SMDB_DB1_DATABASE *) database->smdb_impl)->smdb1_db;
 
+	result = db->close(db);
 	if (db1->smdb1_lock_fd != -1)
 		(void) close(db1->smdb1_lock_fd);
 
 	free(db1);
 	database->smdb_impl = NULL;
 
-	return db->close(db);
+	return result;
 }
 
 int
 smdb1_del(database, key, flags)
 	SMDB_DATABASE *database;
 	SMDB_DBENT *key;
-	u_int flags;
+	unsigned int flags;
 {
 	DB *db = ((SMDB_DB1_DATABASE *) database->smdb_impl)->smdb1_db;
+	DBT dbkey;
 
-	return db->del(db, &key->db, flags);
+	(void) memset(&dbkey, '\0', sizeof dbkey);
+	dbkey.data = key->data;
+	dbkey.size = key->size;
+	return db->del(db, &dbkey, flags);
 }
 
 int
@@ -194,22 +195,40 @@ smdb1_fd(database, fd)
 }
 
 int
+smdb1_lockfd(database)
+	SMDB_DATABASE *database;
+{
+	SMDB_DB1_DATABASE *db1 = (SMDB_DB1_DATABASE *) database->smdb_impl;
+
+	return db1->smdb1_lock_fd;
+}
+
+
+int
 smdb1_get(database, key, data, flags)
 	SMDB_DATABASE *database;
 	SMDB_DBENT *key;
 	SMDB_DBENT *data;
-	u_int flags;
+	unsigned int flags;
 {
 	int result;
 	DB *db = ((SMDB_DB1_DATABASE *) database->smdb_impl)->smdb1_db;
+	DBT dbkey, dbdata;
 
-	result = db->get(db, &key->db, &data->db, flags);
+	(void) memset(&dbdata, '\0', sizeof dbdata);
+	(void) memset(&dbkey, '\0', sizeof dbkey);
+	dbkey.data = key->data;
+	dbkey.size = key->size;
+
+	result = db->get(db, &dbkey, &dbdata, flags);
 	if (result != 0)
 	{
 		if (result == 1)
 			return SMDBE_NOT_FOUND;
 		return errno;
 	}
+	data->data = dbdata.data;
+	data->size = dbdata.size;
 	return SMDBE_OK;
 }
 
@@ -218,12 +237,20 @@ smdb1_put(database, key, data, flags)
 	SMDB_DATABASE *database;
 	SMDB_DBENT *key;
 	SMDB_DBENT *data;
-	u_int flags;
+	unsigned int flags;
 {
 	DB *db = ((SMDB_DB1_DATABASE *) database->smdb_impl)->smdb1_db;
+	DBT dbkey, dbdata;
 
-	return db->put(db, &key->db, &data->db,
-			    smdb_put_flags_to_db1_flags(flags));
+	(void) memset(&dbdata, '\0', sizeof dbdata);
+	(void) memset(&dbkey, '\0', sizeof dbkey);
+	dbkey.data = key->data;
+	dbkey.size = key->size;
+	dbdata.data = data->data;
+	dbdata.size = data->size;
+
+	return db->put(db, &dbkey, &dbdata,
+		       smdb_put_flags_to_db1_flags(flags));
 }
 
 int
@@ -252,7 +279,7 @@ smdb1_set_owner(database, uid, gid)
 int
 smdb1_sync(database, flags)
 	SMDB_DATABASE *database;
-	u_int flags;
+	unsigned int flags;
 {
 	DB *db = ((SMDB_DB1_DATABASE *) database->smdb_impl)->smdb1_db;
 
@@ -269,7 +296,7 @@ smdb1_cursor_close(cursor)
 	if (!db1->smdb1_cursor_in_use)
 		return SMDBE_NOT_A_VALID_CURSOR;
 
-	db1->smdb1_cursor_in_use = FALSE;
+	db1->smdb1_cursor_in_use = false;
 	free(cursor);
 
 	return SMDBE_OK;
@@ -278,7 +305,7 @@ smdb1_cursor_close(cursor)
 int
 smdb1_cursor_del(cursor, flags)
 	SMDB_CURSOR *cursor;
-	u_int flags;
+	unsigned int flags;
 {
 	SMDB_DB1_CURSOR *db1_cursor = (SMDB_DB1_CURSOR *) cursor->smdbc_impl;
 	SMDB_DB1_DATABASE *db1 = db1_cursor->db;
@@ -299,13 +326,21 @@ smdb1_cursor_get(cursor, key, value, flags)
 	SMDB_DB1_CURSOR *db1_cursor = (SMDB_DB1_CURSOR *) cursor->smdbc_impl;
 	SMDB_DB1_DATABASE *db1 = db1_cursor->db;
 	DB *db = db1->smdb1_db;
+	DBT dbkey, dbdata;
+
+	(void) memset(&dbdata, '\0', sizeof dbdata);
+	(void) memset(&dbkey, '\0', sizeof dbkey);
 
 	db1_flags = smdb_cursor_get_flags_to_smdb1(flags);
-	result = db->seq(db, &key->db, &value->db, db1_flags);
+	result = db->seq(db, &dbkey, &dbdata, db1_flags);
 	if (result == -1)
 		return errno;
 	if (result == 1)
 		return SMDBE_LAST_ENTRY;
+	value->data = dbdata.data;
+	value->size = dbdata.size;
+	key->data = dbkey.data;
+	key->size = dbkey.size;
 	return SMDBE_OK;
 }
 
@@ -319,15 +354,23 @@ smdb1_cursor_put(cursor, key, value, flags)
 	SMDB_DB1_CURSOR *db1_cursor = (SMDB_DB1_CURSOR *) cursor->smdbc_impl;
 	SMDB_DB1_DATABASE *db1 = db1_cursor->db;
 	DB *db = db1->smdb1_db;
+	DBT dbkey, dbdata;
 
-	return db->put(db, &key->db, &value->db, R_CURSOR);
+	(void) memset(&dbdata, '\0', sizeof dbdata);
+	(void) memset(&dbkey, '\0', sizeof dbkey);
+	dbkey.data = key->data;
+	dbkey.size = key->size;
+	dbdata.data = value->data;
+	dbdata.size = value->size;
+
+	return db->put(db, &dbkey, &dbdata, R_CURSOR);
 }
 
 int
 smdb1_cursor(database, cursor, flags)
 	SMDB_DATABASE *database;
 	SMDB_CURSOR **cursor;
-	u_int flags;
+	unsigned int flags;
 {
 	SMDB_DB1_DATABASE *db1 = (SMDB_DB1_DATABASE *) database->smdb_impl;
 	SMDB_CURSOR *cur;
@@ -336,7 +379,7 @@ smdb1_cursor(database, cursor, flags)
 	if (db1->smdb1_cursor_in_use)
 		return SMDBE_ONLY_SUPPORTS_ONE_CURSOR;
 
-	db1->smdb1_cursor_in_use = TRUE;
+	db1->smdb1_cursor_in_use = true;
 	db1_cursor = (SMDB_DB1_CURSOR *) malloc(sizeof(SMDB_DB1_CURSOR));
 	db1_cursor->db = db1;
 
@@ -354,8 +397,7 @@ smdb1_cursor(database, cursor, flags)
 
 	return SMDBE_OK;
 }
-
-/*
+/*
 **  SMDB_DB_OPEN -- Opens a db1 database.
 **
 **	Parameters:
@@ -442,7 +484,7 @@ smdb_db_open(database, db_name, mode, mode_mask, sff, type, user_info,
 	if (db_params != NULL &&
 	    (strncmp(SMDB_TYPE_HASH, type, SMDB_TYPE_HASH_LEN) == 0))
 	{
-		memset(&hash_info, '\0', sizeof hash_info);
+		(void) memset(&hash_info, '\0', sizeof hash_info);
 		hash_info.nelem = db_params->smdbp_num_elements;
 		hash_info.cachesize = db_params->smdbp_cache_size;
 		params = &hash_info;
@@ -451,7 +493,7 @@ smdb_db_open(database, db_name, mode, mode_mask, sff, type, user_info,
 	if (db_params != NULL &&
 	    (strncmp(SMDB_TYPE_BTREE, type, SMDB_TYPE_BTREE_LEN) == 0))
 	{
-		memset(&btree_info, '\0', sizeof btree_info);
+		(void) memset(&btree_info, '\0', sizeof btree_info);
 		btree_info.cachesize = db_params->smdbp_cache_size;
 		if (db_params->smdbp_allow_dup)
 			btree_info.flags |= R_DUP;
@@ -482,6 +524,7 @@ smdb_db_open(database, db_name, mode, mode_mask, sff, type, user_info,
 		smdb_db->smdb_close = smdb1_close;
 		smdb_db->smdb_del = smdb1_del;
 		smdb_db->smdb_fd = smdb1_fd;
+		smdb_db->smdb_lockfd = smdb1_lockfd;
 		smdb_db->smdb_get = smdb1_get;
 		smdb_db->smdb_put = smdb1_put;
 		smdb_db->smdb_set_owner = smdb1_set_owner;

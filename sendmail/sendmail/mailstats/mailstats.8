@@ -1,4 +1,4 @@
-.\" Copyright (c) 1998-2000 Sendmail, Inc. and its suppliers.
+.\" Copyright (c) 1998-2001 Sendmail, Inc. and its suppliers.
 .\"	 All rights reserved.
 .\"
 .\" By using this file, you agree to the terms and conditions set
@@ -6,15 +6,15 @@
 .\" the sendmail distribution.
 .\"
 .\"
-.\"	$Id: mailstats.8,v 1.1.1.3 2000/06/10 00:40:52 wsanchez Exp $
+.\"	$Id: mailstats.8,v 1.1.1.4 2002/03/12 18:00:24 zarzycki Exp $
 .\"
-.TH MAILSTATS 1 "April 25, 1996"
+.TH MAILSTATS 8 "$Date: 2002/03/12 18:00:24 $"
 .SH NAME
-.B mailstats
+mailstats
 \- display mail statistics
 .SH SYNOPSIS
 .B mailstats
-.RB [ \-o "] [" \-p ]
+.RB [ \-o "] [" \-p "] [" \-P ]
 .RB [ \-C 
 .IR cffile ]
 .RB [ \-f
@@ -50,10 +50,10 @@ Number of messages to the mailer.
 Kbytes to the mailer.
 .TP
 .B msgsrej
-Number of messages rejected.
+Number of messages rejected (by check_* rulesets).
 .TP
 .B msgsdis
-Number of messages discarded.
+Number of messages discarded (by check_* rulesets).
 .TP
 .B Mailer
 The name of the mailer.
@@ -61,25 +61,28 @@ The name of the mailer.
 .RE
 .PP
 After this display, a line totaling the values for all of the mailers 
-is displayed (preceeded with a ``T''),
+is displayed (preceded with a ``T''),
 separated from the previous information by a line containing only equals 
 (``='') 
 characters.
-Another line preceeded with a ``C'' lists the number of connections.
+Another line preceded with a ``C'' lists the number of connections.
 .PP
 The options are as follows:
 .TP 
 .B \-C
 Read the specified file instead of the default
 .B sendmail
-``cf'' file.
+configuration file.
 .TP
 .B \-f
 Read the specified statistics file instead of the statistics file
 specified in the
 .B sendmail 
-``cf'' file.
+configuration file.
 .TP 
+.B \-P
+Output information in program-readable mode without clearing statistics.
+.TP
 .B \-p
 Output information in program-readable mode and clear statistics.
 .TP
@@ -95,7 +98,7 @@ utility exits 0 on success, and >0 if an error occurs.
 /etc/mail/sendmail.cf
 The default
 .B sendmail
-``cf'' file.
+configuration file.
 .TP
 /etc/mail/statistics
 The default

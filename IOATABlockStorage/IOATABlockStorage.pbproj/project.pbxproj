@@ -243,7 +243,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOATABlockStorage;
-				MODULE_VERSION = 1.1.1;
+				MODULE_VERSION = 1.1.2;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -268,7 +268,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOATABlockStorage</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.1.1, Copyright Apple Computer, Inc. 1998-2001</string>
+	<string>1.1.2, Copyright Apple Computer, Inc. 1998-2002</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -280,11 +280,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1.1</string>
+	<string>1.1.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1.1</string>
+	<string>1.1.2</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOATABlockStorage</key>
@@ -310,7 +310,7 @@
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.iokit.IOATAFamily</key>
-		<string>1.4.8b1</string>
+		<string>1.5.1d1</string>
 		<key>com.apple.iokit.IOStorageFamily</key>
 		<string>1.0.0</string>
 	</dict>

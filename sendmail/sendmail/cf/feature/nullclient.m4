@@ -1,6 +1,6 @@
 divert(-1)
 #
-# Copyright (c) 1998, 1999 Sendmail, Inc. and its suppliers.
+# Copyright (c) 1998-2000 Sendmail, Inc. and its suppliers.
 #	All rights reserved.
 # Copyright (c) 1983 Eric P. Allman.  All rights reserved.
 # Copyright (c) 1988, 1993
@@ -22,13 +22,15 @@ ifelse(defn(`_ARG_'), `', `errprint(`Feature "nullclient" requires argument')',
 #
 
 divert(0)
-VERSIONID(`$Id: nullclient.m4,v 1.1.1.3 2000/06/10 00:40:35 wsanchez Exp $')
+VERSIONID(`$Id: nullclient.m4,v 1.1.1.4 2002/03/12 17:59:49 zarzycki Exp $')
 divert(-1)
 
 undefine(`ALIAS_FILE')
 define(`MAIL_HUB', _NULL_CLIENT_)
 define(`SMART_HOST', _NULL_CLIENT_)
 define(`confFORWARD_PATH', `')
+ifdef(`confFROM_HEADER',, `define(`confFROM_HEADER', `<$g>')')
+define(`_DEF_LOCAL_MAILER_FLAGS', `lsDFM5q')
 MASQUERADE_AS(_NULL_CLIENT_)
 FEATURE(`allmasquerade')
 FEATURE(`masquerade_envelope')

@@ -69,6 +69,7 @@
 #define kCableTypeKey "cable-type"
 #define kModel4String "ata-4"
 #define k80ConductorString "80-conductor"
+#define kExtendedLBAKey "lba-48"
 
 
 			/*  Bit-significant representation of supported modes.*/ 
@@ -117,6 +118,7 @@ KeyLargoATA::init(OSDictionary* properties)
 	isUltraCell = false;
 	cableIs80Conductor = false;
 	_needsResync = false;
+	isExtLBA = false;
 	
 	DLOG("KeyLargoATA init done\n");
 
@@ -182,6 +184,15 @@ KeyLargoATA::probe(IOService* provider,	SInt32*	score)
 
 	
 		cableIs80Conductor = registryEntry->isEqualTo( k80ConductorString, sizeof(k80ConductorString)-1 );
+	}
+	
+	// test for extended LBA capability.
+
+	registryEntry = OSDynamicCast( OSData, provider->getProperty( kExtendedLBAKey ) );
+	if( registryEntry != 0)
+	{
+		DLOG("KeyLargoATA Extended LBA.\n");
+		isExtLBA = true;
 	}
 	
 	// initialize the timing params to PIO mode 0 at 600ns and MWDMA mode 0 at 480ns
@@ -407,6 +418,14 @@ KeyLargoATA::provideBusInfo( IOATABusInfo* infoOut)
 		// non-ultra capable cell
 		infoOut->setUltraModes( 0x00 );
 	
+	}
+	
+	if(isExtLBA )
+	{
+		infoOut->setExtendedLBA( true );  // indicate extended LBA is available on this bus. 
+		infoOut->setMaxBlocksExtended( 0x0800 ); // allow up to 1 meg per transfer on this controller. 
+											//Size is arbitrary up to 16 bit sector count (0x0000)
+											// current technology though puts the efficiency limit around 1 meg though. 
 	}
 	
 	UInt8 units = 0;

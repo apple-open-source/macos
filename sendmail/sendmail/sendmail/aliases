@@ -1,54 +1,66 @@
 #
-#	$Id: aliases,v 1.1.1.1 2000/06/10 00:40:55 wsanchez Exp $
+#	$Id: aliases,v 1.1.1.2 2002/03/12 18:00:28 zarzycki Exp $
 #	@(#)aliases	8.2 (Berkeley) 3/5/94
 #
 #  Aliases in this file will NOT be expanded in the header from
-#  Mail, but WILL be visible over networks or from /bin/mail.
+#  Mail, but WILL be visible over networks.
 #
 #	>>>>>>>>>>	The program "newaliases" must be run after
 #	>> NOTE >>	this file is updated for any changes to
 #	>>>>>>>>>>	show through to sendmail.
 #
+#
+# See also RFC 2142, `MAILBOX NAMES FOR COMMON SERVICES, ROLES 
+# AND FUNCTIONS', May 1997
 
-# Basic system aliases -- these MUST be present.
+# Pretty much everything else in this file points to "root", so 
+# you should forward root's email to the system administrator.
+# Delivering mail to root's mailbox or reading mail as root is
+# inadvisable.
+
+# Uncomment and *CHANGE* this!
+# root:		insert-human-being-here
+
+# Basic system aliases -- these MUST be present
 MAILER-DAEMON:	postmaster
 postmaster:	root
 
-# General redirections for pseudo accounts.
+# General redirections for pseudo accounts
 bin:		root
 daemon:		root
 games:		root
+mailnull:	postmaster
+smmsp:		postmaster
 ingres:		root
 nobody:		root
 system:		root
 toor:		root
 uucp:		root
 
-# Well-known aliases.
+# Well-known aliases
 manager:	root
 dumper:		root
 operator:	root
 
-# trap decode to catch security attacks
+# RFC 2142: BUSINESS-RELATED MAILBOX NAMES
+# info:		root
+# marketing:	root
+# sales:	root
+# support:	root
+
+# RFC 2142: NETWORK OPERATIONS MAILBOX NAMES
+abuse:		root
+noc:		root
+security:	root
+
+# RFC 2142: SUPPORT MAILBOX NAMES FOR SPECIFIC INTERNET SERVICES
+hostmaster:	root
+usenet:		root
+news:		usenet
+webmaster:	root
+www:		webmaster
+uucp:		root
+ftp:		root
+
+# Trap decode to catch security attacks
 decode:		root
-
-# OFFICIAL CSRG/BUG ADDRESSES
-
-# Ftp maintainer.
-ftp: ftp-bugs
-ftp-bugs: bigbug@cs.berkeley.edu
-
-# Distribution office.
-bsd-dist: bsd-dist@cs.berkeley.edu
-
-# Fortune maintainer.
-fortune: fortune@cs.berkeley.edu
-
-# Termcap maintainer.
-termcap: termcap@cs.berkeley.edu
-
-# General bug address.
-ucb-fixes: bigbug@cs.berkeley.edu
-ucb-fixes-request: bigbug@cs.berkeley.edu
-bugs: bugs@cs.berkeley.edu
-# END OFFICIAL BUG ADDRESSES

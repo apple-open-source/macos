@@ -42,6 +42,7 @@ extern "C" {
 #include <sys/param.h>  // mbuf limits defined here.
 #include <sys/mbuf.h>
 #include <sys/kdebug.h>
+#include <machine/machine_routines.h>
 //
 // osfmk/kern/spl.h - Need splimp for mbuf macros.
 //
@@ -310,6 +311,8 @@ bool IONetworkController::start(IOService * provider)
         return false;
     }
     _workLoop->retain();
+
+    ml_thread_policy(_workLoop->getThread(), MACHINE_GROUP, (MACHINE_NETWORK_GROUP|MACHINE_NETWORK_WORKLOOP));
 
     // Create a 'private' IOCommandGate object and attach it to
     // our workloop created above. This is used by executeCommand().

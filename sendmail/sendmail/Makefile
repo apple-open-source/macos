@@ -1,34 +1,42 @@
-#       $Id: Makefile,v 1.5 2000/07/25 02:25:38 wsanchez Exp $
+#       $Id: Makefile,v 1.6 2002/03/13 23:23:18 zarzycki Exp $
 
 SHELL= /bin/sh
-SUBDIRS= libsmutil libsmdb sendmail mail.local mailstats makemap \
-	 praliases rmail smrsh vacation
+SUBDIRS= libsm libsmutil libsmdb sendmail editmap mail.local \
+	 mailstats makemap praliases rmail smrsh vacation
+# libmilter: requires pthread
 BUILD=   ./Build
 OPTIONS= $(CONFIG) $(FLAGS)
 
 all: FRC
-	@set -e && for x in $(SUBDIRS); \
+	@for x in $(SUBDIRS); \
 	do \
 		(cd $$x; echo Making $@ in:; pwd; \
 		$(SHELL) $(BUILD) $(OPTIONS)); \
 	done
 
 clean: FRC
-	@set -e && for x in $(SUBDIRS); \
+	@for x in $(SUBDIRS); \
 	do \
 		(cd $$x; echo Making $@ in:; pwd; \
 		$(SHELL) $(BUILD) $(OPTIONS) $@); \
 	done
 
-install install-strip: FRC
-	@set -e && for x in $(SUBDIRS); \
+install: FRC
+	@for x in $(SUBDIRS); \
+	do \
+		(cd $$x; echo Making $@ in:; pwd; \
+		$(SHELL) $(BUILD) $(OPTIONS) $@); \
+	done
+
+install-docs: FRC
+	@for x in $(SUBDIRS); \
 	do \
 		(cd $$x; echo Making $@ in:; pwd; \
 		$(SHELL) $(BUILD) $(OPTIONS) $@); \
 	done
 
 fresh: FRC
-	@set -e && for x in $(SUBDIRS); \
+	@for x in $(SUBDIRS); \
 	do \
 		(cd $$x; echo Making $@ in:; pwd; \
 		$(SHELL) $(BUILD) $(OPTIONS) -c); \

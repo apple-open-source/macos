@@ -84,7 +84,9 @@ enum {
     nrPropertyAlreadyExists     = -2553,    /* property already exists */
     nrIterationDone                = -2554,    /* iteration operation is done */
     nrExitedIteratorScope        = -2555,    /* outer scope of iterator was exited */
-    nrTransactionAborted        = -2556        /* transaction was aborted */
+    nrTransactionAborted        = -2556,        /* transaction was aborted */
+
+    gestaltUndefSelectorErr       = -5551 /*undefined selector was passed to Gestalt*/
 };
 
 enum {
@@ -886,7 +888,7 @@ AbsoluteTime _eAddAbsoluteToAbsolute(AbsoluteTime left, AbsoluteTime right)
 {
     AbsoluteTime    result = left;
 
-    ADD_ABSOLUTETIME( &left, &right);
+    ADD_ABSOLUTETIME( &result, &right);
 
     return( result);
 }
@@ -1058,6 +1060,80 @@ void _eSysDebugStr( const char * from )
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
+static IOReturn
+ApplePMUSendMiscCommand( UInt32 command,
+                        IOByteCount sendLength, UInt8 * sendBuffer,
+                        IOByteCount * readLength, UInt8 * readBuffer )
+{
+    struct SendMiscCommandParameterBlock {
+        int command;  
+        IOByteCount sLength;
+        UInt8 *sBuffer;
+        IOByteCount *rLength; 
+        UInt8 *rBuffer;
+    };
+    IOReturn ret = kIOReturnError;
+    static IOService * pmu;
+
+    // See if ApplePMU exists
+    if( !pmu) {
+        OSIterator * iter;
+        iter = IOService::getMatchingServices(IOService::serviceMatching("ApplePMU"));
+        if( iter) {
+            pmu = (IOService *) iter->getNextObject();
+            iter->release();
+        }
+    }
+
+    SendMiscCommandParameterBlock params = { command, sendLength, sendBuffer,
+                                                      readLength, readBuffer };
+    if( pmu)
+        ret = pmu->callPlatformFunction( "sendMiscCommand", true,
+                                         (void*)&params, NULL, NULL, NULL );
+    return( ret );
+}
+
+typedef ResType VSLGestaltType;
+enum {
+  kVSLClamshellStateGestaltType = 'clam',
+};
+#define	readExtSwitches	0xDC
+
+extern IOOptionBits gIOFBLastClamshellState;
+extern bool	    gIOFBDesktopModeAllowed;
+
+OSStatus _eVSLGestalt( VSLGestaltType selector, UInt32 * response )
+{
+    IOReturn ret;
+
+    if(!response)
+        return( paramErr);
+
+    *response = 0;
+
+    switch( selector ) {
+
+        case kVSLClamshellStateGestaltType:
+        {
+            UInt8 bootEnvIntData[32];
+            IOByteCount iLen = sizeof(UInt8);
+
+            ret = ApplePMUSendMiscCommand(readExtSwitches, 0, NULL, &iLen, &bootEnvIntData[0]);
+            if( kIOReturnSuccess == ret) {
+                gIOFBLastClamshellState = bootEnvIntData[0] & 1;
+                if( gIOFBDesktopModeAllowed)
+                    *response = bootEnvIntData[0];
+            }
+            break;
+        }
+        default:
+            ret = gestaltUndefSelectorErr;
+            break;
+    }
+
+    return( ret );
+}
+
 OSStatus _eCallOSTrapUniversalProc( UInt32 /* theProc */,
 					UInt32 procInfo, UInt32 trap, UInt8 * pb )
 {
@@ -1069,7 +1145,7 @@ OSStatus _eCallOSTrapUniversalProc( UInt32 /* theProc */,
         UInt8 *	pmRBuffer;
         UInt8	pmData[4];
     };
-#define	readExtSwitches	0xDC
+    UInt8	bootEnvIntData[32];
 
     if( (procInfo == 0x133822)
      && (trap == 0xa085) ) {
@@ -1077,9 +1153,23 @@ OSStatus _eCallOSTrapUniversalProc( UInt32 /* theProc */,
         PMgrOpParamBlock * pmOp = (PMgrOpParamBlock *) pb;
 
         if( (readExtSwitches == pmOp->pmCommand) && pmOp->pmRBuffer) {
-            OSNumber * num = OSDynamicCast(OSNumber,
-                                IOService::getPlatform()->getProperty("AppleExtSwitchBootState"));
-            *pmOp->pmRBuffer = (num->unsigned32BitValue() & 1);
+#if 1
+            IOReturn ret;
+            IOByteCount iLen = sizeof(UInt8);
+            ret = ApplePMUSendMiscCommand(readExtSwitches, 0, NULL, &iLen, &bootEnvIntData[0]);
+            if( kIOReturnSuccess == ret)
+                *pmOp->pmRBuffer = (bootEnvIntData[0] & 1);
+            else
+#endif
+            {
+                OSNumber * num = OSDynamicCast(OSNumber,
+                                    IOService::getPlatform()->getProperty("AppleExtSwitchBootState"));
+                if( num)
+                    *pmOp->pmRBuffer = (num->unsigned32BitValue() & 1);
+                else
+                    *pmOp->pmRBuffer = 0;
+            }
+            gIOFBLastClamshellState = *pmOp->pmRBuffer;
             err = noErr;
         }
 
@@ -1455,7 +1545,8 @@ static FunctionEntry VideoServicesLibFuncs[] =
     MAKEFUNC( "VSLNewInterruptService", IONDRVFramebuffer::VSLNewInterruptService),
     MAKEFUNC( "VSLDisposeInterruptService", IONDRVFramebuffer::VSLDisposeInterruptService),
     MAKEFUNC( "VSLDoInterruptService", IONDRVFramebuffer::VSLDoInterruptService),
-    MAKEFUNC( "VSLSetDisplayConfiguration", _eVSLSetDisplayConfiguration)
+    MAKEFUNC( "VSLSetDisplayConfiguration", _eVSLSetDisplayConfiguration),
+    MAKEFUNC( "VSLGestalt", _eVSLGestalt)
 };
 
 static FunctionEntry NameRegistryLibFuncs[] =
@@ -1487,14 +1578,22 @@ static FunctionEntry NameRegistryLibFuncs[] =
     MAKEFUNC( "RegistryPropertySet", _eRegistryPropertySet)
 };
 
+extern void bcopy_nc( void );
 
 static FunctionEntry DriverServicesLibFuncs[] =
 {
     MAKEFUNC( "SynchronizeIO", _eSynchronizeIO),
     MAKEFUNC( "SetProcessorCacheMode", _eSetProcessorCacheMode),
-    MAKEFUNC( "BlockCopy", bcopy),
-    MAKEFUNC( "BlockMove", bcopy),
-    MAKEFUNC( "BlockMoveData", bcopy),
+    MAKEFUNC( "BlockCopy", bcopy_nc),
+    MAKEFUNC( "BlockMove", bcopy_nc),
+    MAKEFUNC( "BlockMoveData", bcopy_nc),
+
+    MAKEFUNC( "BlockMoveDataUncached", bcopy_nc),
+    MAKEFUNC( "BlockMoveUncached", bcopy_nc),
+
+    MAKEFUNC( "BlockZero", bzero),
+    MAKEFUNC( "BlockZeroUncached", bzero),	// bzero_nc
+
     MAKEFUNC( "CStrCopy", strcpy),
     MAKEFUNC( "CStrCmp", strcmp),
     MAKEFUNC( "CStrLen", strlen),

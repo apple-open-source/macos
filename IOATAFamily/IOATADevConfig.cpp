@@ -577,3 +577,34 @@ IOATADevConfig::bitSigToNumeric(UInt16 binary)
 	return (integer);
 }	/* end BitSigToNumeric() */
 
+bool 
+IOATADevConfig::sDriveSupports48BitLBA( const UInt16* identifyData )
+{
+
+	if( (identifyData[83] & 0x0400) 
+		&& (identifyData[86] & 0x0400))
+	{
+		return true;
+	}
+	
+	return false;
+}
+
+UInt32 
+IOATADevConfig::sDriveExtendedLBASize( UInt32* lbaHi, UInt32* lbaLo, const UInt16* identifyData)
+{
+
+	UInt32 lowerLBA = 0;
+	UInt32 upperLBA = 0;
+
+	if( IOATADevConfig::sDriveSupports48BitLBA( identifyData ) )
+	{
+		lowerLBA = identifyData[ 100 ] | ( identifyData[101] << 16 );
+		upperLBA = identifyData[102] | ( identifyData[103] << 16 );
+	}
+	
+	*lbaLo = lowerLBA;
+	*lbaHi = upperLBA;
+	
+	return lowerLBA;
+

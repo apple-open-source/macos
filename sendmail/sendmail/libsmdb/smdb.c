@@ -1,5 +1,5 @@
 /*
-** Copyright (c) 1999-2000 Sendmail, Inc. and its suppliers.
+** Copyright (c) 1999-2001 Sendmail, Inc. and its suppliers.
 **	All rights reserved.
 **
 ** By using this file, you agree to the terms and conditions set
@@ -7,18 +7,18 @@
 ** the sendmail distribution.
 */
 
-#ifndef lint
-static char id[] = "@(#)$Id: smdb.c,v 1.1.1.1 2000/06/10 00:40:51 wsanchez Exp $";
-#endif /* ! lint */
+#include <sm/gen.h>
+SM_RCSID("@(#)$Id: smdb.c,v 1.1.1.2 2002/03/12 18:00:21 zarzycki Exp $")
 
 #include <fcntl.h>
 #include <stdlib.h>
 #include <unistd.h>
 
+
 #include <sendmail/sendmail.h>
 #include <libsmdb/smdb.h>
 
-/*
+/*
 ** SMDB_MALLOC_DATABASE -- Allocates a database structure.
 **
 **	Parameters:
@@ -37,13 +37,13 @@ smdb_malloc_database()
 	db = (SMDB_DATABASE *) malloc(sizeof(SMDB_DATABASE));
 
 	if (db != NULL)
-		memset(db, '\0', sizeof(SMDB_DATABASE));
+		(void) memset(db, '\0', sizeof(SMDB_DATABASE));
 
 	return db;
 }
 
 
-/*
+/*
 ** SMDB_FREE_DATABASE -- Unallocates a database structure.
 **
 **	Parameters:
@@ -60,9 +60,102 @@ smdb_free_database(database)
 	if (database != NULL)
 		free(database);
 }
+/*
+**  SMDB_LOCKFILE -- lock a file using flock or (shudder) fcntl locking
+**
+**	Parameters:
+**		fd -- the file descriptor of the file.
+**		type -- type of the lock.  Bits can be:
+**			LOCK_EX -- exclusive lock.
+**			LOCK_NB -- non-blocking.
+**
+**	Returns:
+**		true if the lock was acquired.
+**		false otherwise.
+*/
 
+static bool
+smdb_lockfile(fd, type)
+	int fd;
+	int type;
+{
+	int i;
+	int save_errno;
+#if !HASFLOCK
+	int action;
+	struct flock lfd;
 
-/*
+	(void) memset(&lfd, '\0', sizeof lfd);
+	if (bitset(LOCK_UN, type))
+		lfd.l_type = F_UNLCK;
+	else if (bitset(LOCK_EX, type))
+		lfd.l_type = F_WRLCK;
+	else
+		lfd.l_type = F_RDLCK;
+
+	if (bitset(LOCK_NB, type))
+		action = F_SETLK;
+	else
+		action = F_SETLKW;
+
+	while ((i = fcntl(fd, action, &lfd)) < 0 && errno == EINTR)
+		continue;
+	if (i >= 0)
+		return true;
+	save_errno = errno;
+
+	/*
+	**  On SunOS, if you are testing using -oQ/tmp/mqueue or
+	**  -oA/tmp/aliases or anything like that, and /tmp is mounted
+	**  as type "tmp" (that is, served from swap space), the
+	**  previous fcntl will fail with "Invalid argument" errors.
+	**  Since this is fairly common during testing, we will assume
+	**  that this indicates that the lock is successfully grabbed.
+	*/
+
+	if (save_errno == EINVAL)
+		return true;
+
+	if (!bitset(LOCK_NB, type) ||
+	    (save_errno != EACCES && save_errno != EAGAIN))
+	{
+		int omode = -1;
+# ifdef F_GETFL
+		(void) fcntl(fd, F_GETFL, &omode);
+		errno = save_errno;
+# endif /* F_GETFL */
+# if 0
+		syslog(LOG_ERR, "cannot lockf(%s%s, fd=%d, type=%o, omode=%o, euid=%d)",
+		       filename, ext, fd, type, omode, (int) geteuid());
+# endif /* 0 */
+		return false;
+	}
+#else /* !HASFLOCK */
+
+	while ((i = flock(fd, type)) < 0 && errno == EINTR)
+		continue;
+	if (i >= 0)
+		return true;
+	save_errno = errno;
+
+	if (!bitset(LOCK_NB, type) || save_errno != EWOULDBLOCK)
+	{
+		int omode = -1;
+# ifdef F_GETFL
+		(void) fcntl(fd, F_GETFL, &omode);
+		errno = save_errno;
+# endif /* F_GETFL */
+# if 0
+		syslog(LOG_ERR, "cannot flock(%s%s, fd=%d, type=%o, omode=%o, euid=%d)",
+		       filename, ext, fd, type, omode, (int) geteuid());
+# endif /* 0 */
+		return false;
+	}
+#endif /* !HASFLOCK */
+	errno = save_errno;
+	return false;
+}
+/*
 ** SMDB_OPEN_DATABASE -- Opens a database.
 **
 **	This opens a database. If type is SMDB_DEFAULT it tries to
@@ -105,12 +198,11 @@ smdb_open_database(database, db_name, mode, mode_mask, sff, type, user_info,
 	SMDB_USER_INFO *user_info;
 	SMDB_DBPARAMS *params;
 {
-	int result;
-	bool type_was_default = FALSE;
+	bool type_was_default = false;
 
 	if (type == SMDB_TYPE_DEFAULT)
 	{
-		type_was_default = TRUE;
+		type_was_default = true;
 #ifdef NEWDB
 		type = SMDB_TYPE_HASH;
 #else /* NEWDB */
@@ -127,6 +219,8 @@ smdb_open_database(database, db_name, mode, mode_mask, sff, type, user_info,
 	    (strncmp(type, SMDB_TYPE_BTREE, SMDB_TYPE_BTREE_LEN) == 0))
 	{
 #ifdef NEWDB
+		int result;
+
 		result = smdb_db_open(database, db_name, mode, mode_mask, sff,
 				      type, user_info, params);
 # ifdef NDBM
@@ -143,6 +237,8 @@ smdb_open_database(database, db_name, mode, mode_mask, sff, type, user_info,
 	if (strncmp(type, SMDB_TYPE_NDBM, SMDB_TYPE_NDBM_LEN) == 0)
 	{
 #ifdef NDBM
+		int result;
+
 		result = smdb_ndbm_open(database, db_name, mode, mode_mask,
 					sff, type, user_info, params);
 		return result;
@@ -153,8 +249,7 @@ smdb_open_database(database, db_name, mode, mode_mask, sff, type, user_info,
 
 	return SMDBE_UNKNOWN_DB_TYPE;
 }
-
-/*
+/*
 ** SMDB_ADD_EXTENSION -- Adds an extension to a file name.
 **
 **	Just adds a . followed by a string to a db_name if there
@@ -194,15 +289,14 @@ smdb_add_extension(full_name, max_full_name_len, db_name, extension)
 	if (db_name_len < extension_len + 1 ||
 	    db_name[db_name_len - extension_len - 1] != '.' ||
 	    strcmp(&db_name[db_name_len - extension_len], extension) != 0)
-		snprintf(full_name, max_full_name_len, "%s.%s", db_name,
-			 extension);
+		(void) sm_snprintf(full_name, max_full_name_len, "%s.%s",
+				   db_name, extension);
 	else
-		(void) strlcpy(full_name, db_name, max_full_name_len);
+		(void) sm_strlcpy(full_name, db_name, max_full_name_len);
 
 	return SMDBE_OK;
 }
-
-/*
+/*
 **  SMDB_LOCK_FILE -- Locks the database file.
 **
 **	Locks the actual database file.
@@ -240,8 +334,7 @@ smdb_lock_file(lock_fd, db_name, mode, sff, extension)
 
 	return SMDBE_OK;
 }
-
-/*
+/*
 **  SMDB_UNLOCK_FILE -- Unlocks a file
 **
 **	Unlocks a file.
@@ -265,8 +358,57 @@ smdb_unlock_file(lock_fd)
 
 	return SMDBE_OK;
 }
+/*
+**  SMDB_LOCK_MAP -- Locks a database.
+**
+**	Parameters:
+**		database -- database description.
+**		type -- type of the lock.  Bits can be:
+**			LOCK_EX -- exclusive lock.
+**			LOCK_NB -- non-blocking.
+**
+**	Returns:
+**		SMDBE_OK -- Success, otherwise errno.
+*/
 
-/*
+int
+smdb_lock_map(database, type)
+	SMDB_DATABASE *database;
+	int type;
+{
+	int fd;
+
+	fd = database->smdb_lockfd(database);
+	if (fd < 0)
+		return SMDBE_NOT_FOUND;
+	if (!smdb_lockfile(fd, type))
+		return SMDBE_LOCK_NOT_GRANTED;
+	return SMDBE_OK;
+}
+/*
+**  SMDB_UNLOCK_MAP -- Unlocks a database
+**
+**	Parameters:
+**		database -- database description.
+**
+**	Returns:
+**		SMDBE_OK -- Success, otherwise errno.
+*/
+
+int
+smdb_unlock_map(database)
+	SMDB_DATABASE *database;
+{
+	int fd;
+
+	fd = database->smdb_lockfd(database);
+	if (fd < 0)
+		return SMDBE_NOT_FOUND;
+	if (!smdb_lockfile(fd, LOCK_UN))
+		return SMDBE_LOCK_NOT_HELD;
+	return SMDBE_OK;
+}
+/*
 **  SMDB_SETUP_FILE -- Gets db file ready for use.
 **
 **	Makes sure permissions on file are safe and creates it if it
@@ -310,8 +452,7 @@ smdb_setup_file(db_name, extension, mode_mask, sff, user_info, stat_info)
 
 	return SMDBE_OK;
 }
-
-/*
+/*
 **  SMDB_FILECHANGED -- Checks to see if a file changed.
 **
 **	Compares the passed in stat_info with a current stat on
@@ -341,12 +482,9 @@ smdb_filechanged(db_name, extension, db_fd, stat_info)
 				    extension);
 	if (result != SMDBE_OK)
 		return result;
-
-	result = filechanged(db_file_name, db_fd, stat_info);
-
-	return result;
+	return filechanged(db_file_name, db_fd, stat_info);
 }
-/*
+/*
 ** SMDB_PRINT_AVAILABLE_TYPES -- Prints the names of the available types.
 **
 **	Parameters:
@@ -367,7 +505,7 @@ smdb_print_available_types()
 	printf("btree\n");
 #endif /* NEWDB */
 }
-/*
+/*
 ** SMDB_DB_DEFINITION -- Given a database type, return database definition
 **
 **	Reads though a structure making an association with the database

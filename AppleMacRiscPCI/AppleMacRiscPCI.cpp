@@ -47,6 +47,10 @@
 
 #define ALLOC_AGP_RANGE	0
 
+#ifndef kIOAGPCommandValueKey
+#define kIOAGPCommandValueKey	"IOAGPCommandValue"
+#endif
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 #define super IOPCIBridge
@@ -68,6 +72,9 @@ bool AppleMacRiscPCI::start( IOService * provider )
     IODeviceMemory::InitElement	rangeList[ 3 ];
     IORegistryEntry *		bridge;
     OSData *			busProp;
+
+    IORegistryEntry		*parent, *uniNRegEntry;
+    OSData               	*tmpData;
     
     if( !IODTMatchNubWithKeys(provider, "('pci', 'vci')"))
 	return( false);
@@ -87,6 +94,22 @@ bool AppleMacRiscPCI::start( IOService * provider )
     ioAddrCell.lengthHi 	= 0;
     ioAddrCell.lengthLo 	= 0x10000;
 
+    //
+    // Disable AGP for P58/P69 U2 (v2.0) due to stablity issues
+    //
+    parent = provider->getParentEntry(gIODTPlane);
+    
+    // Get the Uni-N Version.
+    uniNRegEntry = parent->fromPath("/uni-n", gIODTPlane);
+        
+    if (uniNRegEntry != NULL)
+    {
+        tmpData = OSDynamicCast(OSData, uniNRegEntry->getProperty("device-rev"));
+            
+        if (tmpData != NULL)
+            uniNVersion = *(long *)tmpData->getBytesNoCopy();
+    }
+            
     bridge = provider;
 
     if( ! IODTResolveAddressCell( bridge, (UInt32 *) &ioAddrCell,
@@ -407,12 +430,19 @@ IOPCIDevice * AppleMacRiscAGP::createNub( OSDictionary * from )
     IOPCIAddressSpace	space;
     bool		isAGP;
     UInt8		masterAGPRegisters;
-
+    
     spaceFromProperties( from, &space);
 
     isAGP = (  (space.s.deviceNum != getBridgeSpace().s.deviceNum)
 	    && findPCICapability( space, kIOPCIAGPCapability, &masterAGPRegisters ));
 
+    // more of P58/P69 AGP disable code from start
+    if (uniNVersion == 0x20)
+    {
+        isAGP = false;
+        IOLog("AGP mode disabled on this machine\n");
+    }
+    
     if( isAGP) {
 	nub = new IOAGPDevice;
         if( nub)
@@ -671,6 +701,12 @@ IOReturn AppleMacRiscAGP::setAGPEnable( IOAGPDevice * _master,
 	command &= targetStatus;
 	command &= masterStatus;
 
+        if (uniNVersion == 0x21)
+        {
+            command &= ~(kIOAGP4xDataRate);
+            IOLog("AGP 4x mode disabled on this machine\n");
+        }
+
 	if( command & kIOAGP4xDataRate)
 	    command &= ~(kIOAGP2xDataRate | kIOAGP1xDataRate);
 	else if( command & kIOAGP2xDataRate)
@@ -684,6 +720,8 @@ IOReturn AppleMacRiscAGP::setAGPEnable( IOAGPDevice * _master,
 	if( targetStatus > masterStatus)
 	    targetStatus = masterStatus;
 	command |= (targetStatus & kIOAGPRequestQueueMask);
+
+        _master->setProperty(kIOAGPCommandValueKey, &command, sizeof(command));
 
 #if 1
         configWrite32( target, kUniNGART_CTRL, kGART_EN | kGART_INV );
@@ -703,10 +741,12 @@ IOReturn AppleMacRiscAGP::setAGPEnable( IOAGPDevice * _master,
                     (kIOAGPEnable & configRead32( master,
                             masterAGPRegisters + kIOPCIConfigAGPCommandOffset)));
 
+#if 0
         configWrite32( target, kUniNGART_CTRL, kGART_EN | kGART_INV );
         configWrite32( target, kUniNGART_CTRL, kGART_EN );
         configWrite32( target, kUniNGART_CTRL, kGART_EN | kGART_2xRESET);
         configWrite32( target, kUniNGART_CTRL, kGART_EN );
+#endif
 
         _master->masterState |= kIOAGPStateEnabled;
 

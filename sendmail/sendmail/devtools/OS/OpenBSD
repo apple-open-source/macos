@@ -1,4 +1,10 @@
-#	$Id: OpenBSD,v 1.1.1.1 2000/06/10 00:40:47 wsanchez Exp $
+#	$Id: OpenBSD,v 1.1.1.2 2002/03/12 18:00:07 zarzycki Exp $
+define(`confLD', `cc')
+define(`confLDOPTS_SO', `-shared')
+define(`confCCOPTS_SO', `-fPIC')
+
 define(`confMAPDEF', `-DNEWDB -DNIS -DMAP_REGEX')
-define(`confENVDEF', ` -DNETISO')
-define(`confSTDIO_TYPE', `torek')
+define(`confENVDEF', ` -DNETISO -DFAST_PID_RECYCLE')
+define(`confSM_OS_HEADER', `sm_os_openbsd')
+define(`confMTCCOPTS', `-pthread')
+define(`confMTLDOPTS', `-pthread')

@@ -55,6 +55,8 @@
 #define		kI2SPeakLevelSelOffset	0x0070
 #define		kI2SPeakLevelIn0Offset	0x0080
 #define		kI2SPeakLevelIn1Offset	0x0090
+#define		kFCR1Offset				0x003C
+#define		kFCR3Offset				0x0044
 
 #define		kDontRestoreOnNormal		0
 #define		kRestoreOnNormal			1
@@ -486,6 +488,9 @@ enum {
 #define	kTumblerMaxIntVolume	256
 // 225 was picked over 10 because it allows the part to come fully to volume after mute so that we don't loose the start of a sound
 #define	kAmpRecoveryMuteDuration	225					/* expressed in milliseconds	*/
+
+#define kTexasInputSampleLatency	32
+#define kTexasOutputSampleLatency	31
 
 #define kHeadphoneAmpEntry			"headphone-mute"
 #define kAmpEntry					"amp-mute"

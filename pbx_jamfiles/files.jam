@@ -28,6 +28,7 @@ REMOVE_CVS_FROM_RESOURCES default = YES ;
 COPY_PHASE_STRIP default = YES ;
 CLONE_HEADERS default = YES ;
 PREBINDING default = YES ;
+KEEP_PRIVATE_EXTERNS default = YES ;   # this currently affects the master.o file only
 
 # Set initial optimization level, debug, and profile settings
 export OPTIMIZATION_LEVEL default = 0 ;

@@ -985,6 +985,13 @@ IODisplayCreateInfoDictionary(
         if( IOObjectConformsTo( service, "IOBacklightDisplay"))
             CFDictionarySetValue( dict, CFSTR(kIODisplayHasBacklightKey), kCFBooleanTrue );
 
+
+        if( (obj = IORegistryEntryCreateCFProperty( framebuffer, CFSTR("graphic-options"), 
+                                                    kCFAllocatorDefault, kNilOptions))) {
+            CFDictionaryAddValue( dict, CFSTR("graphic-options"), obj );
+            CFRelease(obj);
+        }
+
         data = CFDictionaryGetValue( dict, CFSTR("dmdg") );
         if( data)
             sint = *((SInt32 *) CFDataGetBytePtr(data));
@@ -1008,6 +1015,9 @@ IODisplayCreateInfoDictionary(
                 CFDictionaryAddValue( dict, CFSTR(kDisplayFixedPixelFormat), kCFBooleanTrue );
                 sint = kDisplaySubPixelLayoutRGB;
                 makeInt( CFSTR( kDisplaySubPixelLayout ), sint );
+
+                CFDictionaryRemoveValue( dict, CFSTR(kDisplayBrightnessAffectsGamma) );
+                CFDictionarySetValue( dict, CFSTR(kDisplayViewAngleAffectsGamma), kCFBooleanTrue );
             }
         }
 

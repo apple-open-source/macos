@@ -60,10 +60,10 @@ static	Boolean	ExtentInfoExists( ExtentsTable **extentsTableH, ExtentInfo *exten
 static	OSErr	CheckWrapperExtents( SGlobPtr GPtr, HFSMasterDirectoryBlock *mdb );
 
 static OSErr  GetVolumeHeaderBlock(SVCB *vcb, HFSMasterDirectoryBlock *mdb, BlockDescriptor *block,
-			UInt32 *idSector, UInt32 *hfsPlusIOPosOffset);
+			UInt64 *idSector, UInt32 *hfsPlusIOPosOffset);
 
 OSErr	ScavengeVolumeType( SGlobPtr GPtr, HFSMasterDirectoryBlock *mdb, UInt16 *volumeType );
-OSErr	SeekVolumeHeader( SGlobPtr GPtr, UInt32 startSector, UInt32 numSectors, UInt32 *vHSector );
+OSErr	SeekVolumeHeader( SGlobPtr GPtr, UInt64 startSector, UInt32 numSectors, UInt64 *vHSector );
 
 /*
  * Check if a volume is clean (unmounted safely)
@@ -157,7 +157,6 @@ Output:		IVChk	-	function result:
 OSErr IVChk( SGlobPtr GPtr )
 {
 	#define					kBitsPerSector	4096
-	#define					kLog2SectorSize	9
 	UInt32					bitMapSizeInSectors;
 	OSErr					err;
 	HFSMasterDirectoryBlock	*alternateMDB;
@@ -165,17 +164,15 @@ OSErr IVChk( SGlobPtr GPtr )
 	BlockDescriptor			block_VH;
 	BlockDescriptor			block_MDB;
 	UInt32					numABlks;
-	UInt32					alternateBlockLocation;
+	UInt64					alternateBlockLocation;
 	UInt32					minABlkSz;
-	UInt32					totalSectors, sectorSize;
+	UInt64					totalSectors;
+	UInt32					sectorSize;
 	UInt32					maxNumberOfAllocationBlocks;
 	UInt32					realAllocationBlockSize;
 	UInt32					realTotalBlocks;
-	UInt32					hfsBlockSize;
-	UInt32					hfsBlockCount;
 	UInt32					i;
 	UInt32					hfsPlusIOPosOffset;
-//	SFCB				*fcb;
 	BTreeControlBlock		*btcb;
 	SVCB				*vcb	= GPtr->calculatedVCB;
 	
@@ -271,13 +268,10 @@ again:
 		if ( GPtr->volumeType == kPureHFSPlusVolumeType )
 		{
 			hfsPlusIOPosOffset	=	0;			//	alternateBlockLocation is already set up
-			HFSBlocksFromTotalSectors( totalSectors, &hfsBlockSize, (UInt16*)&hfsBlockCount );
 		}
 		else
 		{
-			totalSectors	= alternateMDB->drEmbedExtent.blockCount * ( alternateMDB->drAlBlkSiz / Blk_Size );
-			hfsBlockSize	= alternateMDB->drAlBlkSiz;
-			hfsBlockCount	= alternateMDB->drNmAlBlks;
+			totalSectors	= (UInt64)alternateMDB->drEmbedExtent.blockCount * ( alternateMDB->drAlBlkSiz / Blk_Size );
 
 			err = GetVolumeHeaderBlock(vcb, alternateMDB, &block_VH, &alternateBlockLocation, &hfsPlusIOPosOffset);
 			if (err)
@@ -325,8 +319,6 @@ again:
 
 		realAllocationBlockSize		= alternateMDB->drAlBlkSiz;
 		realTotalBlocks				= alternateMDB->drNmAlBlks;
-		hfsBlockSize				= alternateMDB->drAlBlkSiz;
-		hfsBlockCount				= alternateMDB->drNmAlBlks;
 	}
 	
 	
@@ -345,7 +337,6 @@ again:
 	
 	if ((realAllocationBlockSize >= minABlkSz) && (realAllocationBlockSize <= Max_ABSiz) && ((realAllocationBlockSize % Blk_Size) == 0))
 	{
-	//	vcb->vcbBlockSize = hfsBlockSize;
 		vcb->vcbBlockSize = realAllocationBlockSize;
 		numABlks = totalSectors / ( realAllocationBlockSize / Blk_Size );	//	max # of alloc blks
 	}
@@ -354,21 +345,17 @@ again:
 		RcdError( GPtr, E_ABlkSz );
 		err = E_ABlkSz;													//	bad allocation block size
 		goto ReleaseAndBail;
-	}		
+	}
 	
-	//	Calculate the volume bitmap size
-	bitMapSizeInSectors	= ( numABlks + kBitsPerSector - 1 ) / kBitsPerSector;			//	VBM size in blocks
-	
-//	vcb->vcbNmAlBlks	= hfsBlockCount;
-//	vcb->vcbFreeBks	= LongToShort( realTotalBlocks );
 	vcb->vcbTotalBlocks	= realTotalBlocks;
 	vcb->vcbFreeBlocks	= 0;
-	
 	//	Only do these tests on HFS volumes, since they are either irrellivent
 	//	or, getting the VolumeHeader would have already failed.
 
 	if ( GPtr->isHFSPlus == false )
 	{
+		// Calculate the volume bitmap size
+		bitMapSizeInSectors = ( numABlks + kBitsPerSector - 1 ) / kBitsPerSector;			//	VBM size in blocks
 
 	//ее	Calculate the validaty of HFS+ Allocation blocks, I think realTotalBlocks == numABlks
 		numABlks = (totalSectors - 3 - bitMapSizeInSectors) / (realAllocationBlockSize / Blk_Size);	//	actual # of alloc blks
@@ -408,9 +395,13 @@ ReleaseAndBail:
 	return( err );		
 }
 
+/*
+ * Note: GetVolumeHeaderBlock does not need to be 64 bit clean
+ * since we don't support HFS Wrappers on TB volumes.
+ */
 static OSErr
 GetVolumeHeaderBlock(SVCB *vcb, HFSMasterDirectoryBlock *mdb, BlockDescriptor *block,
-			UInt32 *idSector, UInt32 *hfsPlusIOPosOffset)
+			UInt64 *idSector, UInt32 *hfsPlusIOPosOffset)
 {
 	OSErr  err;
 	HFSPlusVolumeHeader *  altVH;
@@ -447,13 +438,13 @@ GetVolumeHeaderBlock(SVCB *vcb, HFSMasterDirectoryBlock *mdb, BlockDescriptor *b
 
 OSErr	ScavengeVolumeType( SGlobPtr GPtr, HFSMasterDirectoryBlock *mdb, UInt16 *volumeType  )
 {
-	UInt32					vHSector;
-	UInt32					totalSectors;
+	UInt64					vHSector;
+	UInt64					totalSectors;
 	UInt32					sectorSize;
-	UInt32					startSector;
-	UInt32					altVHSector;
+	UInt64					startSector;
+	UInt64					altVHSector;
 	UInt32					sectorsPerBlock;
-	UInt32					hfsPlusSectors = 0;
+	UInt64					hfsPlusSectors = 0;
 	UInt32					numSectorsToSearch;
 	OSErr					err;
 	HFSPlusVolumeHeader 	*volumeHeader;
@@ -485,7 +476,8 @@ OSErr	ScavengeVolumeType( SGlobPtr GPtr, HFSMasterDirectoryBlock *mdb, UInt16 *v
 	if ( embedSigWord == kHFSPlusSigWord )
 	{
 		/* 2nd to last sector */
-		vHSector = mdb->drAlBlSt + ((mdb->drAlBlkSiz / 512) * mdb->drEmbedExtent.startBlock) + 2;
+		vHSector = (UInt64)mdb->drAlBlSt +
+			((UInt64)(mdb->drAlBlkSiz / 512) * (UInt64)mdb->drEmbedExtent.startBlock) + 2;
 
 		err = GetVolumeBlock(calculatedVCB, vHSector, kGetBlock, &block);
 		volumeHeader = (HFSPlusVolumeHeader *) block.buffer;
@@ -536,7 +528,8 @@ OSErr	ScavengeVolumeType( SGlobPtr GPtr, HFSMasterDirectoryBlock *mdb, UInt16 *v
 		
 	if ( embedSigWord == kHFSPlusSigWord )
 	{
-		startSector		= (embededExtent.startBlock * mdb->drAlBlkSiz / 512) + mdb->drAlBlSt + 2;
+		startSector = 2 + mdb->drAlBlSt +
+			((UInt64)embededExtent.startBlock * (mdb->drAlBlkSiz / 512));
 			
 		err = SeekVolumeHeader( GPtr, startSector, mdb->drAlBlkSiz / 512, &vHSector );
 		if ( err != noErr ) goto AssumeHFS;
@@ -557,7 +550,7 @@ AssumeHFS:
 }
 
 
-OSErr	SeekVolumeHeader( SGlobPtr GPtr, UInt32 startSector, UInt32 numSectors, UInt32 *vHSector )
+OSErr	SeekVolumeHeader( SGlobPtr GPtr, UInt64 startSector, UInt32 numSectors, UInt64 *vHSector )
 {
 	OSErr  err;
 	HFSPlusVolumeHeader  *volumeHeader;
@@ -1130,7 +1123,7 @@ OSErr	CreateExtendedAllocationsFCB( SGlobPtr GPtr )
 		err = CheckFileExtents( GPtr, kHFSAllocationFileID, 0, (void *)fcb->fcbExtents32, &numABlks );
 		if (err) goto exit;
 
-		(void) SetFileBlockSize (fcb, 512);
+		(void) SetFileBlockSize (fcb, vcb->vcbBlockSize);
 
 		if ( volumeHeader->allocationFile.totalBlocks != numABlks )
 		{

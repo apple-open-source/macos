@@ -6,6 +6,8 @@
 	<string>English</string>
 	<key>CFBundleExecutable</key>
 	<string>AppleI2C</string>
+	<key>CFBundleGetInfoString</key>
+	<string>AppleI2C version 3.1.7, Copyright 2002 Apple Computer, Inc.</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.apple.driver.AppleI2C</string>
 	<key>CFBundleInfoDictionaryVersion</key>
@@ -15,11 +17,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.1</string>
+	<string>3.1.7</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.0.1d3</string>
+	<string>3.1.7</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>MacIOAppleI2C</key>
@@ -30,6 +32,19 @@
 			<string>PPCI2CInterface</string>
 			<key>IONameMatch</key>
 			<string>i2c</string>
+			<key>IOProviderClass</key>
+			<string>AppleMacIODevice</string>
+		</dict>
+		<key>PmuAppleI2C</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleI2C</string>
+			<key>IOClass</key>
+			<string>PPCI2CInterface</string>
+			<key>IONameMatch</key>
+			<string>pmu-i2c</string>
+			<key>IOProbeScore</key>
+			<integer>10000</integer>
 			<key>IOProviderClass</key>
 			<string>AppleMacIODevice</string>
 		</dict>
@@ -54,5 +69,7 @@
 		<key>com.apple.kernel.mach</key>
 		<string>1.0.0b1</string>
 	</dict>
+	<key>OSBundleRequired</key>
+	<string>Root</string>
 </dict>
 </plist>

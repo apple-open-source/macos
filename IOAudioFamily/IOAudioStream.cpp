@@ -348,7 +348,7 @@ void IOAudioStream::free()
     }
     
     if (mixBuffer && streamAllocatedMixBuffer) {
-        IOFree(mixBuffer, mixBufferSize);
+        IOFreeAligned(mixBuffer, mixBufferSize);
         mixBuffer = NULL;
         mixBufferSize = 0;
     }
@@ -379,7 +379,7 @@ void IOAudioStream::free()
     }
     
     if (audioIOFunctions && (numIOFunctions > 0)) {
-        IOFree(audioIOFunctions, numIOFunctions * sizeof(AudioIOFunction));
+        IOFreeAligned(audioIOFunctions, numIOFunctions * sizeof(AudioIOFunction));
         audioIOFunctions = NULL;
         numIOFunctions = 0;
     }
@@ -389,11 +389,11 @@ void IOAudioStream::free()
         
         for (formatNum = 0; formatNum < numAvailableFormats; formatNum++) {
             if (availableFormats[formatNum].ioFunctionList && (availableFormats[formatNum].numIOFunctions > 0)) {
-                IOFree(availableFormats[formatNum].ioFunctionList, availableFormats[formatNum].numIOFunctions * sizeof(AudioIOFunction));
+                IOFreeAligned(availableFormats[formatNum].ioFunctionList, availableFormats[formatNum].numIOFunctions * sizeof(AudioIOFunction));
             }
         }
         
-        IOFree(availableFormats, numAvailableFormats * sizeof(IOAudioStreamFormatDesc));
+        IOFreeAligned(availableFormats, numAvailableFormats * sizeof(IOAudioStreamFormatDesc));
         availableFormats = NULL;
         numAvailableFormats = 0;
     }
@@ -500,7 +500,7 @@ void IOAudioStream::setMixBuffer(void *buffer, UInt32 size)
     lockStreamForIO();
       
     if (mixBuffer && streamAllocatedMixBuffer) {
-        IOFree(mixBuffer, mixBufferSize);
+        IOFreeAligned(mixBuffer, mixBufferSize);
         mixBuffer = NULL;
         mixBufferSize = 0;
         streamAllocatedMixBuffer = false;
@@ -556,13 +556,13 @@ void IOAudioStream::setIOFunctionList(const AudioIOFunction *ioFunctionList, UIn
     lockStreamForIO();
 
     if (audioIOFunctions && (numIOFunctions > 0)) {
-        IOFree(audioIOFunctions, numIOFunctions * sizeof(AudioIOFunction));
+        IOFreeAligned(audioIOFunctions, numIOFunctions * sizeof(AudioIOFunction));
         audioIOFunctions = NULL;
         numIOFunctions = 0;
     }
     
     if (ioFunctionList && (numFunctions != 0)) {
-        audioIOFunctions = (AudioIOFunction *)IOMalloc(numFunctions * sizeof(AudioIOFunction));
+        audioIOFunctions = (AudioIOFunction *)IOMallocAligned(numFunctions * sizeof(AudioIOFunction), sizeof (AudioIOFunction *));
         if (audioIOFunctions) {
             memcpy(audioIOFunctions, ioFunctionList, numFunctions * sizeof(AudioIOFunction));
             numIOFunctions = numFunctions;
@@ -729,7 +729,7 @@ IOReturn IOAudioStream::setFormat(const IOAudioStreamFormat *streamFormat, OSDic
                             newMixBufSize = validFormat.fNumChannels * kIOAudioEngineDefaultMixBufferSampleSize * audioEngine->numSampleFramesPerBuffer;
         
                             if (newMixBufSize > 0) {
-                                void *newMixBuf = IOMalloc(newMixBufSize);
+                                void *newMixBuf = IOMallocAligned(newMixBufSize, 32);
                                 if (newMixBuf) {
                                     setMixBuffer(newMixBuf, newMixBufSize);
                                     streamAllocatedMixBuffer = true;
@@ -812,7 +812,7 @@ void IOAudioStream::addAvailableFormat(const IOAudioStreamFormat *streamFormat, 
     if (streamFormat && minRate && maxRate) {
         IOAudioStreamFormatDesc *newAvailableFormatList;
         
-        newAvailableFormatList = (IOAudioStreamFormatDesc *)IOMalloc((numAvailableFormats+1) * sizeof(IOAudioStreamFormatDesc));
+        newAvailableFormatList = (IOAudioStreamFormatDesc *)IOMallocAligned((numAvailableFormats+1) * sizeof(IOAudioStreamFormatDesc), sizeof (IOAudioStreamFormatDesc *));
         if (newAvailableFormatList) {
             if (availableFormats && (numAvailableFormats > 0)) {
                 memcpy(newAvailableFormatList, availableFormats, numAvailableFormats * sizeof(IOAudioStreamFormatDesc));
@@ -822,7 +822,7 @@ void IOAudioStream::addAvailableFormat(const IOAudioStreamFormat *streamFormat, 
             newAvailableFormatList[numAvailableFormats].maximumSampleRate = *maxRate;
             
             if (ioFunctionList && (numFunctions > 0)) {
-                newAvailableFormatList[numAvailableFormats].ioFunctionList = (AudioIOFunction *)IOMalloc(numFunctions * sizeof(AudioIOFunction));
+                newAvailableFormatList[numAvailableFormats].ioFunctionList = (AudioIOFunction *)IOMallocAligned(numFunctions * sizeof(AudioIOFunction), sizeof (AudioIOFunction *));
                 newAvailableFormatList[numAvailableFormats].numIOFunctions = numFunctions;
                 memcpy(newAvailableFormatList[numAvailableFormats].ioFunctionList, ioFunctionList, numFunctions * sizeof(AudioIOFunction));
             } else {
@@ -830,7 +830,7 @@ void IOAudioStream::addAvailableFormat(const IOAudioStreamFormat *streamFormat, 
                 newAvailableFormatList[numAvailableFormats].numIOFunctions = 0;
             }
             
-            IOFree(availableFormats, numAvailableFormats * sizeof(IOAudioStreamFormatDesc));
+            IOFreeAligned(availableFormats, numAvailableFormats * sizeof(IOAudioStreamFormatDesc));
             availableFormats = newAvailableFormatList;
             numAvailableFormats++;
         }
@@ -957,7 +957,7 @@ IOReturn IOAudioStream::addClient(IOAudioClientBuffer *clientBuffer)
                         UInt32 mixBufSize = format.fNumChannels * kIOAudioEngineDefaultMixBufferSampleSize * audioEngine->numSampleFramesPerBuffer;
                         
                         if (mixBufSize > 0) {
-                            void *mixBuf = IOMalloc(mixBufSize);
+                            void *mixBuf = IOMallocAligned(mixBufSize, 32);
                             if (mixBuf) {
                                 setMixBuffer(mixBuf, mixBufSize);
                                 streamAllocatedMixBuffer = true;
@@ -1040,8 +1040,11 @@ void IOAudioStream::removeClient(IOAudioClientBuffer *clientBuffer)
                 }
             }
         }
-        
-        unlockStreamForIO();
+		// clear these values for bug 2851917
+		clientBuffer->previousClip = NULL;
+		clientBuffer->nextClip = NULL;
+		clientBuffer->nextClient = NULL;       
+		unlockStreamForIO();
     }
 }
 

@@ -32,6 +32,7 @@
 #include "IOATADevice.h"
 #include "IOATAController.h"
 #include "ATADeviceNub.h"
+#include "IOATADevConfig.h"
 
 #include <IOKit/IOSyncer.h>
 
@@ -342,6 +343,11 @@ ATADeviceNub::getDeviceID( void )
 // Regular data doesn't need to be byte-swapped because it is written and 
 // read from the host and is intrinsically byte-order correct.	
 		swapBytes16( buffer, kIDBufferBytes);
+#else /* __LITTLE_ENDIAN__ */
+    // Swap the strings in the identify data.
+    swapBytes16( &buffer[46], 8);   // Firmware revision
+    swapBytes16( &buffer[54], 40);  // Model number
+    swapBytes16( &buffer[20], 20);  // Serial number
 #endif
 
 	return err;
@@ -493,7 +499,14 @@ void
 ATADeviceNub::publishVendorProperties(void)
 {
 	
-
+	if( IOATADevConfig::sDriveSupports48BitLBA( ( const UInt16*) buffer ) )
+	{
+		UInt32 upperLBA, lowerLBA;
+		OSNumber* extendedCapacity = OSNumber::withNumber( IOATADevConfig::sDriveExtendedLBASize(   &upperLBA, &lowerLBA, ( const UInt16*) buffer ), 32 );
+		setProperty( "extended LBA capacity", (OSObject *) extendedCapacity);
+		extendedCapacity->release();
+	
+	}
 	// terminate the strings with 0's
 	// this changes the identify data, so we MUST do this part last.
 	buffer[94] = 0;

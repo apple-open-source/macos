@@ -31,10 +31,6 @@
 #ifndef __AUDIOHARDWAREUTILITIES__
 #define __AUDIOHARDWAREUTILITIES__
 
-    // Debugging flag (comment to remove console logging)
-
-//#define DEBUGLOG 1
-
     // Debugging help
 #ifdef DEBUGLOG
 #define debugIOLog( message ) \

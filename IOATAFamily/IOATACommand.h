@@ -24,6 +24,7 @@
  *	IOATACommand.h
  *
  */
+
 #ifndef _IOATACOMMAND_H
 #define _IOATACOMMAND_H
 
@@ -31,7 +32,10 @@
 #include <IOKit/IOTypes.h>
 #include <IOKit/IOMemoryDescriptor.h>
 #include <IOKit/IOCommand.h>
-#include <IOKit/ata/IOATATypes.h>
+#include "IOATATypes.h"
+
+
+
 
 
 
@@ -49,7 +53,7 @@ Disk device drivers will only have visibility to this interface and may not subc
 Disk device drivers should instead make use of the void* refcon field which the controllers will not 
 touch
 */
-
+class IOExtendedLBA;
 class IOATACommand;
 
 /*! @typedef IOATACompletionFunction callback function for ATA disk devices.
@@ -291,15 +295,19 @@ protected:
 /*! @struct ExpansionData
     @discussion This structure will be used to expand the capablilties of the IOWorkLoop in the future.
     */    
-    struct ExpansionData { };
+    struct ExpansionData {IOExtendedLBA* extLBA; };
 
 /*! @var reserved
     Reserved for future use.  (Internal use only)  */
-    ExpansionData *reserved;
+    ExpansionData *fExpansionData;
+	
+	// overrides
+	virtual void free();
+
 
 private:
-    OSMetaClassDeclareReservedUnused(IOATACommand, 0);
-    OSMetaClassDeclareReservedUnused(IOATACommand, 1);
+    OSMetaClassDeclareReservedUsed(IOATACommand, 0);   // set end result
+    OSMetaClassDeclareReservedUsed(IOATACommand, 1); // get extendedLBAPtr
     OSMetaClassDeclareReservedUnused(IOATACommand, 2);
     OSMetaClassDeclareReservedUnused(IOATACommand, 3);
     OSMetaClassDeclareReservedUnused(IOATACommand, 4);
@@ -319,7 +327,90 @@ private:
     OSMetaClassDeclareReservedUnused(IOATACommand, 18);
     OSMetaClassDeclareReservedUnused(IOATACommand, 19);
     OSMetaClassDeclareReservedUnused(IOATACommand, 20);
+
+public:
+	virtual void setEndResult(UInt8 inStatus, UInt8 endError  );
+	virtual IOExtendedLBA* getExtendedLBA(void);
+	
+
 };
+
+
+class IOExtendedLBA : public OSObject
+{
+	OSDeclareDefaultStructors( IOExtendedLBA )
+	
+	public:
+	static IOExtendedLBA* createIOExtendedLBA(IOATACommand* owner);
+	
+	// terminology as established in ATA/ATAPI-6. 
+	// for the extended LBA address
+	virtual void setLBALow16( UInt16 lbaLow);
+	virtual UInt16 getLBALow16 (void);
+	
+	virtual void setLBAMid16 (UInt16 lbaMid);
+	virtual UInt16 getLBAMid16( void );
+	
+	virtual void setLBAHigh16( UInt16 lbaHigh );
+	virtual UInt16 getLBAHigh16( void );
+	
+	virtual void setSectorCount16( UInt16 sectorCount );
+	virtual UInt16 getSectorCount16( void );
+	
+	virtual void setFeatures16( UInt16 features );
+	virtual UInt16 getFeatures16( void );
+
+	virtual void setDevice( UInt8 inDevice );
+	virtual UInt8 getDevice( void );
+
+	virtual void setCommand( UInt8 inCommand );
+	virtual UInt8 getCommand( void );
+
+	
+	virtual void setExtendedLBA( UInt32 inLBAHi, UInt32 inLBALo, ataUnitID inUnit, UInt16 extendedCount, UInt8 extendedCommand);
+	virtual void getExtendedLBA(  UInt32* outLBAHi, UInt32* outLBALo );
+
+	virtual void zeroData(void);
+	
+
+	/*! @struct ExpansionData
+    @discussion This structure will be used to expand the capablilties in the future.
+    */    
+    struct ExpansionData { };
+
+	/*! @var reserved
+    Reserved for future use.  (Internal use only)  */
+    ExpansionData *reserved;
+
+
+	protected:
+	
+	IOATACommand* owner;
+	UInt16 lbaLow;
+	UInt16 lbaMid;
+	UInt16 lbaHigh;
+	UInt16 sectorCount;
+	UInt16 features;
+	UInt16 device;
+	UInt16 command;
+	
+	private:
+    OSMetaClassDeclareReservedUnused(IOExtendedLBA, 0);
+    OSMetaClassDeclareReservedUnused(IOExtendedLBA, 1);
+    OSMetaClassDeclareReservedUnused(IOExtendedLBA, 2);
+    OSMetaClassDeclareReservedUnused(IOExtendedLBA, 3);
+    OSMetaClassDeclareReservedUnused(IOExtendedLBA, 4);
+    OSMetaClassDeclareReservedUnused(IOExtendedLBA, 5);
+    OSMetaClassDeclareReservedUnused(IOExtendedLBA, 6);
+    OSMetaClassDeclareReservedUnused(IOExtendedLBA, 7);
+    OSMetaClassDeclareReservedUnused(IOExtendedLBA, 8);
+    OSMetaClassDeclareReservedUnused(IOExtendedLBA, 9);
+    OSMetaClassDeclareReservedUnused(IOExtendedLBA, 10);
+
+
+};
+
+
 
 
 #endif

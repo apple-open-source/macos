@@ -11,7 +11,7 @@
 #include "AppleOnboardAudio.h"
 
 
-#pragma mark - 
+#pragma mark -Generic Power Object
 OSDefineMetaClassAndStructors(AudioPowerObject, OSObject)
    
 AudioPowerObject* AudioPowerObject::createAudioPowerObject(AppleOnboardAudio *pluginRef){
@@ -61,7 +61,7 @@ IOReturn AudioPowerObject::setHardwarePowerOff(){
 
 
     //For FW PB and Titanium
-#pragma mark -
+#pragma mark -FW PowerBook and PowerBook G4
 
 OSDefineMetaClassAndStructors(AudioProj10PowerObject, AudioPowerObject)
 
@@ -139,14 +139,6 @@ IOReturn AudioProj10PowerObject::setHardwarePowerOff(){
          audioPluginRef->setMuteState(false);
     }
     
-        //clock
-    keyLargo = IOService::waitForService(IOService::serviceMatching("KeyLargo")); 
-                
-    if(keyLargo){
-        long gpioOffset = kPowerObjectOffset;
-        UInt8  value = kPowerOff;  //KPowerOff
-        keyLargo->callPlatformFunction("keyLargo_writeRegUInt8", false, (void *)&gpioOffset, (void *)value, 0, 0);
-    }
         //specific
     progOut = audioPluginRef->sndHWGetProgOutput();
     progOut |= kSndHWProgOutput0;  //this turns the boomer off
@@ -157,13 +149,22 @@ IOReturn AudioProj10PowerObject::setHardwarePowerOff(){
     audioPluginRef->sndHWSetPowerState(kIOAudioDeviceSleep);
     audioPluginRef->setDeviceDetectionInActive();
 
+        //clock
+    keyLargo = IOService::waitForService(IOService::serviceMatching("KeyLargo")); 
+                
+    if(keyLargo){
+        long gpioOffset = kPowerObjectOffset;
+        UInt8  value = kPowerOff;  //KPowerOff
+        keyLargo->callPlatformFunction("keyLargo_writeRegUInt8", false, (void *)&gpioOffset, (void *)value, 0, 0);
+    }
+
     DEBUG_IOLOG("- AudioProj10PowerObject::setHardwarePowerOff");
     return result;
 }
 
     
     //For WallStreet
-#pragma mark -
+#pragma mark -Wallstreet
 
 OSDefineMetaClassAndStructors(AudioProj6PowerObject, AudioPowerObject)
 
@@ -265,7 +266,7 @@ IOReturn AudioProj6PowerObject::setHardwarePowerOn(){
 
 
     //For B&W G3 (Yosemite)
-#pragma mark -
+#pragma mark -B&W G3
 
 OSDefineMetaClassAndStructors(AudioProj4PowerObject, AudioPowerObject)
 
@@ -288,7 +289,7 @@ IOReturn AudioProj4PowerObject::setHardwarePowerOn(){
 }
 
     //for iBooks in Clamshell
-#pragma mark -
+#pragma mark -Original iBooks
 
 OSDefineMetaClassAndStructors(AudioProj8PowerObject, AudioPowerObject)
 
@@ -375,8 +376,8 @@ IOReturn AudioProj8PowerObject::setHardwarePowerOn()
     return result;
 }
 
-    //for Screamer base G4 and iMac DVs
-#pragma mark -
+    //for Screamer base G3 and iMac DVs
+#pragma mark -Screamer based G3 and iMacs
 
 OSDefineMetaClassAndStructors(AudioProj7PowerObject, AudioPowerObject)
 
@@ -417,6 +418,9 @@ IOReturn AudioProj7PowerObject::setHardwarePowerOff(){
     audioPluginRef->sndHWSetProgOutput(progOut);
     IOSleep(200);
 
+    audioPluginRef->sndHWSetPowerState(kIOAudioDeviceSleep);
+    audioPluginRef->setDeviceDetectionInActive();
+
     keyLargo = IOService::waitForService(IOService::serviceMatching("KeyLargo")); 
                 
     if(keyLargo){
@@ -425,9 +429,6 @@ IOReturn AudioProj7PowerObject::setHardwarePowerOff(){
         keyLargo->callPlatformFunction("keyLargo_writeRegUInt8", false, (void *)&gpioOffset, (void *)value, 0, 0);
     }
     
-    audioPluginRef->sndHWSetPowerState(kIOAudioDeviceSleep);
-    audioPluginRef->setDeviceDetectionInActive();
-
     DEBUG_IOLOG("- AudioProj7PowerObject::setHardwarePowerOff");
     return result;
 }
@@ -463,7 +464,7 @@ IOReturn AudioProj7PowerObject::setHardwarePowerOn(){
 }
 
     //for Texas3001 Tower
-#pragma mark -
+#pragma mark -Texas Desktop CPUs
 
 OSDefineMetaClassAndStructors(AudioProj14PowerObject, AudioPowerObject)
 
@@ -536,7 +537,7 @@ UInt32 AudioProj14PowerObject::GetTimeToChangePowerState (IOAudioDevicePowerStat
     
 
     //for iBook dual USB
-#pragma mark -
+#pragma mark -iBook dual USB
 
 OSDefineMetaClassAndStructors(AudioProj16PowerObject, AudioPowerObject)
 

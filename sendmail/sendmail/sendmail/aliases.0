@@ -5,7 +5,7 @@ ALIASES(5)                                             ALIASES(5)
 
 
 NNAAMMEE
-       aalliiaasseess - aliases file for sendmail
+       aliases - aliases file for sendmail
 
 SSYYNNOOPPSSIISS
        aalliiaasseess
@@ -61,7 +61,7 @@ DDEESSCCRRIIPPTTIIOONN
 
 
 
-                   $Date: 2000/06/10 00:40:55 $                 1
+                   $Date: 2002/03/12 18:00:28 $                 1
 
 
 
@@ -82,7 +82,7 @@ ALIASES(5)                                             ALIASES(5)
        aliases file is changed for the change to take effect.
 
 SSEEEE AALLSSOO
-       newaliases(1), dbopen(3), dbm(3), sendmail(8)
+       newaliases(1), dbm(3), dbopen(3), db_open(3), sendmail(8)
 
        _S_E_N_D_M_A_I_L _I_n_s_t_a_l_l_a_t_i_o_n _a_n_d _O_p_e_r_a_t_i_o_n _G_u_i_d_e_.
 
@@ -127,6 +127,6 @@ HHIISSTTOORRYY
 
 
 
-                   $Date: 2000/06/10 00:40:55 $                 2
+                   $Date: 2002/03/12 18:00:28 $                 2
 
 

@@ -126,7 +126,7 @@ protected:
                 
             //hardware registers manipulationf
     void 	sndHWInitialize(IOService *provider);
-	virtual void	sndHWPostDMAEngineInit (IOService *provider) {return;}
+	virtual void	sndHWPostDMAEngineInit (IOService *provider);
 
     UInt32 	sndHWGetInSenseBits(void);
     UInt32 	sndHWGetRegister(UInt32 regNum);
@@ -172,6 +172,11 @@ protected:
 
 	IOAudioDevicePowerState SndHWGetPowerState( void );
 	void SetStateBits( UInt32 stateBits, UInt32 delay );
+
+			// User Client calls
+	virtual UInt8	readGPIO (UInt32 selector) {return 0;}
+	virtual void	writeGPIO (UInt32 selector, UInt8 data) {return;}
+	virtual Boolean	getGPIOActiveState (UInt32 gpioSelector) {return 0;}
 };
 
 #endif /* _APPLESCREAMERAUDIO_H */

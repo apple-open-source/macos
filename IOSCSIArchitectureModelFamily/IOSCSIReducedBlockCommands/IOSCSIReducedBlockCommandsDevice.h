@@ -61,9 +61,14 @@ private:
 
 protected:
     // Reserve space for future expansion.
-    struct IOSCSIReducedBlockCommandsDeviceExpansionData { };
-    IOSCSIReducedBlockCommandsDeviceExpansionData *fIOSCSIReducedBlockCommandsDeviceReserved;
-
+    struct IOSCSIReducedBlockCommandsDeviceExpansionData
+	{
+		IONotifier *	fPowerDownNotifier;
+	};
+    IOSCSIReducedBlockCommandsDeviceExpansionData * fIOSCSIReducedBlockCommandsDeviceReserved;
+	
+	#define fPowerDownNotifier	fIOSCSIReducedBlockCommandsDeviceReserved->fPowerDownNotifier
+	
 	bool				fMediaChanged;
 	bool				fMediaPresent;
 
@@ -315,9 +320,17 @@ public:
 							SCSICmdField3Byte 			BUFFER_OFFSET,
 							SCSICmdField3Byte 			PARAMETER_LIST_LENGTH );
 	
+	OSMetaClassDeclareReservedUsed( IOSCSIReducedBlockCommandsDevice, 1 );
+	
+	virtual IOReturn	PowerDownHandler(	void * 			refCon,
+											UInt32 			messageType,
+											IOService * 	provider,
+											void * 			messageArgument,
+											vm_size_t 		argSize );
+	
+	
 private:
 	// Space reserved for future expansion.
-    OSMetaClassDeclareReservedUnused( IOSCSIReducedBlockCommandsDevice, 1 );
     OSMetaClassDeclareReservedUnused( IOSCSIReducedBlockCommandsDevice, 2 );
     OSMetaClassDeclareReservedUnused( IOSCSIReducedBlockCommandsDevice, 3 );
     OSMetaClassDeclareReservedUnused( IOSCSIReducedBlockCommandsDevice, 4 );

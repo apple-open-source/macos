@@ -1,12 +1,12 @@
 /*
- * Copyright (c) 1999 Sendmail, Inc. and its suppliers.
+ * Copyright (c) 1999-2000 Sendmail, Inc. and its suppliers.
  *	All rights reserved.
  *
  * By using this file, you agree to the terms and conditions set
  * forth in the LICENSE file which can be found at the top level of
  * the sendmail distribution.
  *
- *	$Id: timers.h,v 1.1.1.1 2000/06/10 00:40:56 wsanchez Exp $
+ *	$Id: timers.h,v 1.1.1.2 2002/03/12 18:00:41 zarzycki Exp $
  *
  * Contributed by Exactis.com, Inc.
  *
@@ -30,4 +30,4 @@ TIMER
 extern void	pushtimer __P((TIMER *));
 extern void	poptimer __P((TIMER *));
 extern char	*strtimer __P((TIMER *));
-#endif /* TIMERS_H */
+#endif /* ! TIMERS_H */

@@ -324,7 +324,7 @@ static IOPMPowerState ourPowerStates[kIODisplayWranglerNumPowerStates] = {
   { 1, 0,               			 0, 0,           0,0,0,0,0,0,0,0 },
   { 1, 0,                			 0, IOPMPowerOn, 0,0,0,0,0,0,0,0 },
   { 1, 0,               			 0, IOPMPowerOn, 0,0,0,0,0,0,0,0 },
-  { 1, 0,                			 0, IOPMPowerOn, 0,0,0,0,0,0,0,0 },
+  { 1, IOPMDeviceUsable | kIOPMPreventIdleSleep, 0, IOPMPowerOn, 0,0,0,0,0,0,0,0 },
   { 1, IOPMDeviceUsable | kIOPMPreventIdleSleep, 0, IOPMPowerOn, 0,0,0,0,0,0,0,0 }
   // staticPower, unbudgetedPower, powerToAttain, timeToAttain, settleUpTime, 
   // timeToLower, settleDownTime, powerDomainBudget
@@ -422,7 +422,7 @@ IOReturn IODisplayWrangler::setAggressiveness( unsigned long type, unsigned long
         // no, currently in emergency level?
         if( pm_vars->aggressiveness < kIOPowerEmergencyLevel) {
             // no, set new timeout
-            setIdleTimerPeriod( newLevel*60 );
+            setIdleTimerPeriod( newLevel*60 / 2);
         }
 
     // general factor received
@@ -437,16 +437,16 @@ IOReturn IODisplayWrangler::setAggressiveness( unsigned long type, unsigned long
             if( pm_vars->aggressiveness >= kIOPowerEmergencyLevel ) {
                 if( fUseGeneralAggressiveness) {
                     // yes, set new timer period
-                    setIdleTimerPeriod( 333 - (newLevel/3) );
+                    setIdleTimerPeriod( (333 - (newLevel/3)) / 2 );
                 }
                 else {
-                    setIdleTimerPeriod( fMinutesToDim * 60);
+                    setIdleTimerPeriod( fMinutesToDim * 60 / 2);
                 }
             }
             else {
                 if( fUseGeneralAggressiveness) {
                     // no, maybe set period
-                    setIdleTimerPeriod( 333 - (newLevel/3) );
+                    setIdleTimerPeriod( (333 - (newLevel/3)) / 2 );
                 }
             }
         }

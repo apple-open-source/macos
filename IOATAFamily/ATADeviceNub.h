@@ -33,9 +33,9 @@
 #define _ATADEVICENUB_H
 
 #include <IOKit/IOTypes.h>
-#include <IOKit/ata/IOATATypes.h>
-#include <IOKit/ata/IOATADevice.h>
-#include <IOKit/ata/IOATAController.h>
+#include "IOATATypes.h"
+#include "IOATADevice.h"
+#include "IOATAController.h"
 
 #include "IOATABusCommand.h"
 

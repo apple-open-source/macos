@@ -438,7 +438,7 @@ OSErr MapFileBlockC (
 	SFCB			*fcb,				// FCB of file
 	UInt32			numberOfBytes,		// number of contiguous bytes desired
 	UInt32			sectorOffset,		// starting offset within file (in 512-byte sectors)
-	UInt32			*startSector,		// first 512-byte volume sector (NOT an allocation block)
+	UInt64			*startSector,		// first 512-byte volume sector (NOT an allocation block)
 	UInt32			*availableBytes)	// number of contiguous bytes (up to numberOfBytes)
 {
 	OSErr				err;
@@ -451,7 +451,7 @@ OSErr MapFileBlockC (
 	UInt32				nextFABN;				// file allocation block of block after end of found extent
 	UInt32				dataEnd;				// (offset) end of range that is contiguous (in sectors)
 	UInt32				startBlock;				// volume allocation block corresponding to firstFABN
-	UInt32				temp;
+	UInt64				temp;
 	
 	
 //	LogStartTime(kTraceMapFileBlock);
@@ -494,7 +494,7 @@ OSErr MapFileBlockC (
 	//	Compute the absolute sector number that contains the offset of the given file
 	//
 	temp  = sectorOffset - (firstFABN * allocBlockSize);	// offset in sectors from start of this extent
-	temp += startBlock * allocBlockSize;			// offset in sectors from start of allocation block space
+	temp += (UInt64)startBlock * (UInt64)allocBlockSize;	// offset in sectors from start of allocation block space
 	if (vcb->vcbSignature == kHFSPlusSigWord)
 		temp += vcb->vcbEmbeddedOffset/512;		// offset into the wrapper
 	else
@@ -561,7 +561,7 @@ static OSErr ReleaseExtents(
 			break;
 		}
 
-		err = BlockDeallocate( vcb, extentRecord[extentIndex].startBlock, numAllocationBlocks );
+		err = ReleaseBitmapBits( extentRecord[extentIndex].startBlock, numAllocationBlocks );
 		if ( err != noErr )
 			break;
 					
@@ -733,6 +733,8 @@ OSErr DeallocateFile(SVCB *vcb, CatalogRecord * fileRec)
 
 	if (recordDeleted)
 		(void) FlushExtentFile(vcb);
+	
+	MarkVCBDirty(vcb);
 		
 	return (errDF ? errDF : errRF);
 }

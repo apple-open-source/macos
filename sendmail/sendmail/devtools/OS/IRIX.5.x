@@ -1,8 +1,8 @@
-#	$Id: IRIX.5.x,v 1.1.1.1 2000/06/10 00:40:47 wsanchez Exp $
-define(`confCC', `cc -mips2')
+#	$Id: IRIX.5.x,v 1.1.1.2 2002/03/12 18:00:02 zarzycki Exp $
+define(`confCC', `cc -mips2 -OPT:Olimit=1400')
 define(`confMAPDEF', `-DNDBM -DNIS')
-define(`confENVDEF', `-DIRIX5')
 define(`confLIBS', `-lmld -lmalloc')
+define(`confSM_OS_HEADER', `sm_os_irix')
 define(`confMBINDIR', `/usr/lib')
 define(`confSBINDIR', `/usr/etc')
 define(`confUBINDIR', `/usr/bsd')

@@ -2,10 +2,11 @@
     DYNAMIC_CODE_GEN = YES; 
     FILESTABLE = {
         H_FILES = (IOPMLib.h); 
-        OTHER_LINKED = (IOPMLib.c); 
+        FRAMEWORKS = (CoreFoundation.framework, SystemConfiguration.framework);
+        OTHER_LINKED = (IOPMLib.c, IOPMEnergyPrefs.c); 
         OTHER_SOURCES = (Makefile.preamble, Makefile, pma.c, sleep.c); 
         PRECOMPILED_HEADERS = (); 
-        PROJECT_HEADERS = (IOPMLib.h); 
+        PROJECT_HEADERS = (IOPMLib.h, IOPMLibPrivate.h); 
         PUBLIC_HEADERS = (IOPMLib.h); 
         SUBPROJECTS = (); 
     }; 

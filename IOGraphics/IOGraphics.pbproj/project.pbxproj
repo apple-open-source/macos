@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 34;
+	objectVersion = 38;
 	objects = {
 		015488CC00BAFF6C11CA2A5F = {
 			buildStyles = (
@@ -89,13 +89,13 @@
 			);
 			buildSettings = {
 				FRAMEWORK_SEARCH_PATHS = "";
-				HEADER_SEARCH_PATHS = "$(SRCROOT) $(SRCROOT)/IOGraphicsFamily";
+				HEADER_SEARCH_PATHS = "$(SRCROOT) $(SRCROOT)/IOGraphicsFamily $(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/PrivateHeaders";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				KERNEL_MODULE = YES;
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOGraphicsFamily;
-				MODULE_VERSION = 1.1.1;
+				MODULE_VERSION = 1.1.7;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -120,7 +120,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOGraphicsFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.1.1, Copyright Apple Computer, Inc. 2000-2001</string>
+	<string>1.1.7, Copyright Apple Computer, Inc. 2000-2001</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -132,11 +132,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1.1</string>
+	<string>1.1.7</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1.1</string>
+	<string>1.1.7</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleBacklightDisplay</key>
@@ -198,7 +198,6 @@
 			generatedFileNames = (
 			);
 			isa = PBXShellScriptBuildPhase;
-			name = "Shell Script";
 			neededFileNames = (
 			);
 			shellPath = /bin/sh;
@@ -229,7 +228,6 @@
 				03BF533001C55C1A03CA2A5F,
 			);
 			isa = PBXHeadersBuildPhase;
-			name = Headers;
 		};
 		015488D600BB003811CA2A5F = {
 			buildActionMask = 2147483647;
@@ -245,21 +243,18 @@
 				03BF532901C55B9A03CA2A5F,
 			);
 			isa = PBXSourcesBuildPhase;
-			name = Sources;
 		};
 		015488D700BB003811CA2A5F = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXResourcesBuildPhase;
-			name = "Bundle Resources";
 		};
 		015488D800BB003811CA2A5F = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
-			name = "Frameworks & Libraries";
 		};
 		015488D900BB003811CA2A5F = {
 			buildActionMask = 2147483647;
@@ -268,7 +263,6 @@
 			generatedFileNames = (
 			);
 			isa = PBXShellScriptBuildPhase;
-			name = "Shell Script";
 			neededFileNames = (
 			);
 			shellPath = /bin/sh;
@@ -295,7 +289,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IONDRVSupport;
-				MODULE_VERSION = 1.1.1;
+				MODULE_VERSION = 1.1.7;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -321,7 +315,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IONDRVSupport</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.1.1, Copyright Apple Computer, Inc. 2000-2001</string>
+	<string>1.1.7, Copyright Apple Computer, Inc. 2000-2001</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -333,11 +327,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1.1</string>
+	<string>1.1.7</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1.1</string>
+	<string>1.1.7</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>1</key>
@@ -411,7 +405,6 @@
 			generatedFileNames = (
 			);
 			isa = PBXShellScriptBuildPhase;
-			name = "Shell Script";
 			neededFileNames = (
 			);
 			shellPath = /bin/sh;
@@ -431,7 +424,6 @@
 				03BF532A01C55B9A03CA2A5F,
 			);
 			isa = PBXHeadersBuildPhase;
-			name = Headers;
 		};
 		015488DE00BB003811CA2A5F = {
 			buildActionMask = 2147483647;
@@ -444,21 +436,18 @@
 				03BF532B01C55B9A03CA2A5F,
 			);
 			isa = PBXSourcesBuildPhase;
-			name = Sources;
 		};
 		015488DF00BB003811CA2A5F = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXResourcesBuildPhase;
-			name = "Bundle Resources";
 		};
 		015488E000BB003811CA2A5F = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
-			name = "Frameworks & Libraries";
 		};
 		015488E100BB003811CA2A5F = {
 			buildActionMask = 2147483647;
@@ -467,7 +456,6 @@
 			generatedFileNames = (
 			);
 			isa = PBXShellScriptBuildPhase;
-			name = "Shell Script";
 			neededFileNames = (
 			);
 			shellPath = /bin/sh;
@@ -1174,28 +1162,24 @@
 			files = (
 			);
 			isa = PBXHeadersBuildPhase;
-			name = Headers;
 		};
 		221BC5AB00BC8D3D11CA2A5F = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXSourcesBuildPhase;
-			name = Sources;
 		};
 		221BC5AC00BC8D3D11CA2A5F = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
-			name = "Frameworks & Libraries";
 		};
 		221BC5AD00BC8D3D11CA2A5F = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
-			name = "ResourceManager Resources";
 		};
 		221BC5AF00BC8D5211CA2A5F = {
 			isa = PBXTargetDependency;
@@ -1219,7 +1203,6 @@
 				16E5BE0200BEE46711CA2A5F,
 			);
 			isa = PBXCopyFilesBuildPhase;
-			name = "Copy Files";
 		};
 		221BC5B100BC8ED611CA2A5F = {
 			fileRef = 0154891800BB054811CA2A5F;
@@ -1296,7 +1279,6 @@
 				16E5BE0100BEE45C11CA2A5F,
 			);
 			isa = PBXCopyFilesBuildPhase;
-			name = "Copy Files";
 		};
 		221BC5BD00BC98E311CA2A5F = {
 			fileRef = 0154891800BB054811CA2A5F;
@@ -1343,7 +1325,6 @@
 				03BF533201C55C9C03CA2A5F,
 			);
 			isa = PBXCopyFilesBuildPhase;
-			name = "Copy Files";
 		};
 		221BC5C900BC9B5611CA2A5F = {
 			isa = PBXExecutableFileReference;
@@ -1388,28 +1369,24 @@
 			files = (
 			);
 			isa = PBXHeadersBuildPhase;
-			name = Headers;
 		};
 		221BC5CD00BC9B5611CA2A5F = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXSourcesBuildPhase;
-			name = Sources;
 		};
 		221BC5CE00BC9B5611CA2A5F = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
-			name = "Frameworks & Libraries";
 		};
 		221BC5CF00BC9B5611CA2A5F = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
-			name = "ResourceManager Resources";
 		};
 		221BC5D000BC9B5611CA2A5F = {
 			buildActionMask = 8;
@@ -1422,7 +1399,6 @@
 				221BC5D500BC9BA811CA2A5F,
 			);
 			isa = PBXCopyFilesBuildPhase;
-			name = "Copy Files";
 		};
 		221BC5D200BC9BA811CA2A5F = {
 			fileRef = 221BC4E700BB072011CA2A5F;
@@ -1457,7 +1433,6 @@
 				221BC5D800BC9BC911CA2A5F,
 			);
 			isa = PBXCopyFilesBuildPhase;
-			name = "Copy Files";
 		};
 		221BC5D700BC9BC911CA2A5F = {
 			fileRef = 221BC4E700BB072011CA2A5F;

@@ -1,22 +1,22 @@
 /*
-** Copyright (c) 1999-2000 Sendmail, Inc. and its suppliers.
-**	All rights reserved.
-**
-** By using this file, you agree to the terms and conditions set
-** forth in the LICENSE file which can be found at the top level of
-** the sendmail distribution.
-**
-** $Id: smdb.h,v 1.1.1.1 2000/06/10 00:40:50 wsanchez Exp $
-*/
+ * Copyright (c) 1999-2001 Sendmail, Inc. and its suppliers.
+ *	All rights reserved.
+ *
+ * By using this file, you agree to the terms and conditions set
+ * forth in the LICENSE file which can be found at the top level of
+ * the sendmail distribution.
+ *
+ *	$Id: smdb.h,v 1.1.1.2 2002/03/12 18:00:15 zarzycki Exp $
+ *
+ */
 
 #ifndef _SMDB_H_
 # define _SMDB_H_
 
 # include <sys/types.h>
 # include <sys/stat.h>
-# ifndef __P
-#  include "sendmail/cdefs.h"
-# endif /* __P */
+# include <sm/gen.h>
+# include <sm/errstring.h>
 
 # ifdef NDBM
 #  include <ndbm.h>
@@ -30,28 +30,28 @@
 # endif /* NEWDB */
 
 /*
-** Some size constants
+**  Some size constants
 */
+
 #define SMDB_MAX_USER_NAME_LEN	1024
 #define SMDB_MAX_NAME_LEN	1024
 
 /*
-** This file defines the abstraction for database lookups. It is pretty
-** much a copy of the db2 interface with the exception that every function
-** returns 0 on success and non-zero on failure. The non-zero return code
-** is meaningful.
+**  This file defines the abstraction for database lookups. It is pretty
+**  much a copy of the db2 interface with the exception that every function
+**  returns 0 on success and non-zero on failure. The non-zero return code
+**  is meaningful.
 **
-** I'm going to put the function comments in this file since the interface
-** MUST be the same for all inheritors of this interface.
+**  I'm going to put the function comments in this file since the interface
+**  MUST be the same for all inheritors of this interface.
 */
 
 typedef struct database_struct SMDB_DATABASE;
 typedef struct cursor_struct SMDB_CURSOR;
-typedef union database_entity_union SMDB_DBENT;
+typedef struct entry_struct SMDB_DBENT;
 
-
 /*
-** DB_CLOSE_FUNC -- close the database
+**  DB_CLOSE_FUNC -- close the database
 **
 **	Parameters:
 **		db -- The database to close.
@@ -60,12 +60,11 @@ typedef union database_entity_union SMDB_DBENT;
 **		0 - Success, otherwise errno.
 **
 */
+
 typedef int (*db_close_func) __P((SMDB_DATABASE *db));
 
-
-
 /*
-** DB_DEL_FUNC -- removes a key and data pair from the database
+**  DB_DEL_FUNC -- removes a key and data pair from the database
 **
 **	Parameters:
 **		db -- The database to close.
@@ -77,13 +76,12 @@ typedef int (*db_close_func) __P((SMDB_DATABASE *db));
 **		0 - Success, otherwise errno.
 **
 */
+
 typedef int (*db_del_func) __P((SMDB_DATABASE *db,
-			   SMDB_DBENT *key, u_int flags));
+			   SMDB_DBENT *key, unsigned int flags));
 
-
-
 /*
-** DB_FD_FUNC -- Returns a pointer to a file used for the database.
+**  DB_FD_FUNC -- Returns a pointer to a file used for the database.
 **
 **	Parameters:
 **		db -- The database to close.
@@ -93,12 +91,11 @@ typedef int (*db_del_func) __P((SMDB_DATABASE *db,
 **		0 - Success, otherwise errno.
 **
 */
+
 typedef int (*db_fd_func) __P((SMDB_DATABASE *db, int* fd));
 
-
-
 /*
-** DB_GET_FUNC -- Gets the data associated with a key.
+**  DB_GET_FUNC -- Gets the data associated with a key.
 **
 **	Parameters:
 **		db -- The database to close.
@@ -111,14 +108,13 @@ typedef int (*db_fd_func) __P((SMDB_DATABASE *db, int* fd));
 **		0 - Success, otherwise errno.
 **
 */
+
 typedef int (*db_get_func) __P((SMDB_DATABASE *db,
 			   SMDB_DBENT *key,
-			   SMDB_DBENT *data, u_int flags));
+			   SMDB_DBENT *data, unsigned int flags));
 
-
-
 /*
-** DB_PUT_FUNC -- Sets some data according to the key.
+**  DB_PUT_FUNC -- Sets some data according to the key.
 **
 **	Parameters:
 **		db -- The database to close.
@@ -133,13 +129,13 @@ typedef int (*db_get_func) __P((SMDB_DATABASE *db,
 **		0 - Success, otherwise errno.
 **
 */
+
 typedef int (*db_put_func) __P((SMDB_DATABASE *db,
 			   SMDB_DBENT *key,
-			   SMDB_DBENT *data, u_int flags));
+			   SMDB_DBENT *data, unsigned int flags));
 
-
 /*
-** DB_SYNC_FUNC -- Flush any cached information to disk.
+**  DB_SYNC_FUNC -- Flush any cached information to disk.
 **
 **	Parameters:
 **		db -- The database to sync.
@@ -149,11 +145,11 @@ typedef int (*db_put_func) __P((SMDB_DATABASE *db,
 **		0 - Success, otherwise errno.
 **
 */
-typedef int (*db_sync_func) __P((SMDB_DATABASE *db, u_int flags));
 
-
+typedef int (*db_sync_func) __P((SMDB_DATABASE *db, unsigned int flags));
+
 /*
-** DB_SET_OWNER_FUNC -- Set the owner and group of the database files.
+**  DB_SET_OWNER_FUNC -- Set the owner and group of the database files.
 **
 **	Parameters:
 **		db -- The database to set.
@@ -164,12 +160,11 @@ typedef int (*db_sync_func) __P((SMDB_DATABASE *db, u_int flags));
 **		0 - Success, otherwise errno.
 **
 */
-typedef int (*db_set_owner_func) __P((SMDB_DATABASE *db, uid_t uid,
-				 gid_t gid));
 
-
+typedef int (*db_set_owner_func) __P((SMDB_DATABASE *db, uid_t uid, gid_t gid));
+
 /*
-** DB_CURSOR -- Obtain a cursor for sequential access
+**  DB_CURSOR -- Obtain a cursor for sequential access
 **
 **	Parameters:
 **		db -- The database to use.
@@ -180,9 +175,11 @@ typedef int (*db_set_owner_func) __P((SMDB_DATABASE *db, uid_t uid,
 **		0 - Success, otherwise errno.
 **
 */
-typedef int (*db_cursor_func) __P((SMDB_DATABASE *db,
-			      SMDB_CURSOR **cursor, u_int flags));
 
+typedef int (*db_cursor_func) __P((SMDB_DATABASE *db,
+			      SMDB_CURSOR **cursor, unsigned int flags));
+
+typedef int (*db_lockfd_func) __P((SMDB_DATABASE *db));
 
 struct database_struct
 {
@@ -194,13 +191,11 @@ struct database_struct
 	db_sync_func		smdb_sync;
 	db_set_owner_func	smdb_set_owner;
 	db_cursor_func		smdb_cursor;
+	db_lockfd_func		smdb_lockfd;
 	void			*smdb_impl;
 };
-
-
-
 /*
-** DB_CURSOR_CLOSE -- Close a cursor
+**  DB_CURSOR_CLOSE -- Close a cursor
 **
 **	Parameters:
 **		cursor -- The cursor to close.
@@ -209,11 +204,11 @@ struct database_struct
 **		0 - Success, otherwise errno.
 **
 */
+
 typedef int (*db_cursor_close_func) __P((SMDB_CURSOR *cursor));
 
-
 /*
-** DB_CURSOR_DEL -- Delete the key/value pair of this cursor
+**  DB_CURSOR_DEL -- Delete the key/value pair of this cursor
 **
 **	Parameters:
 **		cursor -- The cursor.
@@ -223,11 +218,12 @@ typedef int (*db_cursor_close_func) __P((SMDB_CURSOR *cursor));
 **		0 - Success, otherwise errno.
 **
 */
-typedef int (*db_cursor_del_func) __P((SMDB_CURSOR *cursor, u_int flags));
 
-
+typedef int (*db_cursor_del_func) __P((SMDB_CURSOR *cursor,
+					unsigned int flags));
+
 /*
-** DB_CURSOR_GET -- Get the key/value of this cursor.
+**  DB_CURSOR_GET -- Get the key/value of this cursor.
 **
 **	Parameters:
 **		cursor -- The cursor.
@@ -242,22 +238,23 @@ typedef int (*db_cursor_del_func) __P((SMDB_CURSOR *cursor, u_int flags));
 **				   database is hit.
 **
 */
+
 typedef int (*db_cursor_get_func) __P((SMDB_CURSOR *cursor,
 				  SMDB_DBENT *key,
 				  SMDB_DBENT *data,
-				  u_int flags));
+				  unsigned int flags));
 
 /*
-** Flags for DB_CURSOR_GET
+**  Flags for DB_CURSOR_GET
 */
+
 #define SMDB_CURSOR_GET_FIRST	0
 #define SMDB_CURSOR_GET_LAST	1
 #define SMDB_CURSOR_GET_NEXT	2
 #define SMDB_CURSOR_GET_RANGE	3
 
-
 /*
-** DB_CURSOR_PUT -- Put the key/value at this cursor.
+**  DB_CURSOR_PUT -- Put the key/value at this cursor.
 **
 **	Parameters:
 **		cursor -- The cursor.
@@ -269,10 +266,11 @@ typedef int (*db_cursor_get_func) __P((SMDB_CURSOR *cursor,
 **		0 - Success, otherwise errno.
 **
 */
+
 typedef int (*db_cursor_put_func) __P((SMDB_CURSOR *cursor,
 				  SMDB_DBENT *key,
 				  SMDB_DBENT *data,
-				  u_int flags));
+				  unsigned int flags));
 
 
 
@@ -288,9 +286,9 @@ struct cursor_struct
 
 struct database_params_struct
 {
-	u_int	smdbp_num_elements;
-	u_int	smdbp_cache_size;
-	bool	smdbp_allow_dup;
+	unsigned int	smdbp_num_elements;
+	unsigned int	smdbp_cache_size;
+	bool		smdbp_allow_dup;
 };
 
 typedef struct database_params_struct SMDB_DBPARAMS;
@@ -304,27 +302,17 @@ struct database_user_struct
 
 typedef struct database_user_struct SMDB_USER_INFO;
 
-union database_entity_union
+struct entry_struct
 {
-# ifdef NDBM
-	datum	dbm;
-# endif /* NDBM */
-# ifdef NEWDB
-	DBT	db;
-# endif /* NEWDB */
-	struct
-	{
-		char	*data;
-		size_t	size;
-	} data;
+	void	*data;
+	size_t	size;
 };
 
-
 typedef char *SMDB_DBTYPE;
-typedef u_int SMDB_FLAG;
+typedef unsigned int SMDB_FLAG;
 
 /*
-** These are types of databases.
+**  These are types of databases.
 */
 
 # define SMDB_TYPE_DEFAULT	NULL
@@ -337,8 +325,9 @@ typedef u_int SMDB_FLAG;
 # define SMDB_TYPE_NDBM_LEN	4
 
 /*
-** These are flags
+**  These are flags
 */
+
 /* Flags for put */
 # define SMDBF_NO_OVERWRITE	0x00000001
 # define SMDBF_ALLOW_DUP	0x00000002
@@ -370,4 +359,6 @@ extern int		smdb_filechanged __P((char *, char *, int,
 					      struct stat *));
 extern void		smdb_print_available_types __P((void));
 extern char		*smdb_db_definition __P((SMDB_DBTYPE));
+extern int		smdb_lock_map __P((SMDB_DATABASE *, int));
+extern int		smdb_unlock_map __P((SMDB_DATABASE *));
 #endif /* ! _SMDB_H_ */

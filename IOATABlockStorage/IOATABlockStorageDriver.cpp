@@ -128,6 +128,9 @@ IOATABlockStorageDriver::start ( IOService * provider )
 		
 	}
 	
+	reserved = ( ExpansionData * ) IOMalloc ( sizeof ( ExpansionData ) );
+	bzero ( reserved, sizeof ( ExpansionData ) );
+	
 	STATUS_LOG ( ( "IOATABlockStorageDriver::start opening device.\n" ) );
 	
 	if ( fATADevice->open ( this ) == false )
@@ -304,6 +307,14 @@ IOATABlockStorageDriver::free ( void )
 		thread_call_free ( fPowerManagementThread );
 		
 	}
+	
+	if ( reserved != NULL )
+	{
+		
+		IOFree ( reserved, sizeof ( ExpansionData ) );
+		reserved = NULL;
+		
+	}
 
 	super::free ( );
 	
@@ -377,6 +388,8 @@ IOATABlockStorageDriver::inspectDevice ( IOATADevice * ataDevice )
 	
 	if ( fDeviceIdentifyData[kATAIdentifyDriveCapabilities] & kLBASupportedMask )
 		fUseLBAAddressing = true;
+	
+	fUseExtendedLBA = IOATADevConfig::sDriveSupports48BitLBA ( fDeviceIdentifyData );
 	
 	// Add an OSNumber property indicating the supported features.
 	setProperty ( 	kIOATASupportedFeaturesKey,
@@ -590,7 +603,18 @@ IOATABlockStorageDriver::doGetFormatCapacities ( UInt64 * 	capacities,
 	if ( ( capacities != NULL ) && ( capacitiesMaxCount > 0 ) )
 	{
 		
-		if ( fUseLBAAddressing )
+		if ( fUseExtendedLBA )
+		{
+			
+			UInt32	hiLBA = 0;
+			UInt32	loLBA = 0;
+			
+			IOATADevConfig::sDriveExtendedLBASize ( &hiLBA, &loLBA, fDeviceIdentifyData );
+			*capacities = ( ( UInt64 ) hiLBA ) << 32 | loLBA;
+			
+		}
+		
+		else if ( fUseLBAAddressing )
 		{
 			
 			*capacities = ( fDeviceIdentifyData[kATAIdentifyLBACapacity + 1] << 16 ) +

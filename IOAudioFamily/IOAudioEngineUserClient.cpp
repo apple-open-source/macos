@@ -177,12 +177,16 @@ void IOAudioClientBufferSet::setWatchdogTimeout(AbsoluteTime *timeout)
     
     generationCount++;
     
+	userClient->lockBuffers();
+
     if (!timerPending) {
         retain();
     }
     
-    thread_call_enter1_delayed(watchdogThreadCall, (thread_call_param_t)generationCount, outputTimeout);
     timerPending = true;
+	userClient->unlockBuffers();
+
+    thread_call_enter1_delayed(watchdogThreadCall, (thread_call_param_t)generationCount, outputTimeout);
 }
 
 void IOAudioClientBufferSet::cancelWatchdogTimer()
@@ -191,15 +195,11 @@ void IOAudioClientBufferSet::cancelWatchdogTimer()
     IOLog("IOAudioClientBufferSet[%p]::cancelWatchdogTimer()\n", this);
 #endif
 
-    if ((watchdogThreadCall != NULL) && timerPending) {
-        // If we have a timer pending, then there is an outstanding retain()
-        // If we are able to cancel the timer, call release() to even the count
-        // If not, then the timer will fire and call release() itself
-        if (thread_call_cancel(watchdogThreadCall)) {
-            release();
-        }
-        timerPending = false;
-    }
+	if (NULL != userClient) {
+		userClient->lockBuffers();
+		timerPending = false;
+		userClient->unlockBuffers();
+	}
 }
 
 void IOAudioClientBufferSet::watchdogTimerFired(IOAudioClientBufferSet *clientBufferSet, UInt32 generationCount)
@@ -214,22 +214,23 @@ void IOAudioClientBufferSet::watchdogTimerFired(IOAudioClientBufferSet *clientBu
 
     assert(clientBufferSet);
     assert(clientBufferSet->userClient);
-    
-    userClient = clientBufferSet->userClient;
-    
-    userClient->retain();
-    userClient->lockBuffers();
-    
-    clientBufferSet->userClient->performWatchdogOutput(clientBufferSet, generationCount);
-    
-    // If there's no timer pending once we attempt to do the watchdog I/O
-    // then we need to release the set
-    if (!clientBufferSet->timerPending) {
-        clientBufferSet->release();
-    }
 
-    userClient->unlockBuffers();
-    userClient->release();
+	userClient = clientBufferSet->userClient;
+	userClient->retain();
+	userClient->lockBuffers();
+
+	if(clientBufferSet->timerPending != false) {
+		userClient->performWatchdogOutput(clientBufferSet, generationCount);
+	}
+
+	// If there's no timer pending once we attempt to do the watchdog I/O
+	// then we need to release the set
+	if (!clientBufferSet->timerPending) {
+		clientBufferSet->release();
+	}
+
+	userClient->unlockBuffers();
+	userClient->release();
 }
 
 #undef super
@@ -380,7 +381,7 @@ void IOAudioEngineUserClient::free()
     freeClientBufferSetList();
     
     if (notificationMessage) {
-        IOFree(notificationMessage, sizeof(IOAudioNotificationMessage));
+        IOFreeAligned(notificationMessage, sizeof(IOAudioNotificationMessage));
         notificationMessage = NULL;
     }
     
@@ -449,7 +450,7 @@ void IOAudioEngineUserClient::freeClientBuffer(IOAudioClientBuffer *clientBuffer
             clientBuffer->sourceBufferMap->release();
         }
 
-        IOFree(clientBuffer, sizeof(IOAudioClientBuffer));
+        IOFreeAligned(clientBuffer, sizeof(IOAudioClientBuffer));
     }
 }
 
@@ -670,7 +671,7 @@ IOReturn IOAudioEngineUserClient::registerNotification(mach_port_t port, UInt32 
             }
         } else {
             if (notificationMessage == NULL) {
-                notificationMessage = (IOAudioNotificationMessage *)IOMalloc(sizeof(IOAudioNotificationMessage));
+                notificationMessage = (IOAudioNotificationMessage *)IOMallocAligned(sizeof(IOAudioNotificationMessage), sizeof (IOAudioNotificationMessage *));
                 
                 if (notificationMessage) {
                     notificationMessage->messageHeader.msgh_bits = MACH_MSGH_BITS(MACH_MSG_TYPE_COPY_SEND, 0);
@@ -778,12 +779,15 @@ IOReturn IOAudioEngineUserClient::registerClientBuffer(IOAudioStream *audioStrea
         */
         
         // allocate IOAudioClientBuffer to hold buffer descriptor, etc...
-        clientBuffer = (IOAudioClientBuffer *)IOMalloc(sizeof(IOAudioClientBuffer));
+        clientBuffer = (IOAudioClientBuffer *)IOMallocAligned(sizeof(IOAudioClientBuffer), sizeof (IOAudioClientBuffer *));
         if (!clientBuffer) {
             result = kIOReturnNoMemory;
             goto Exit;
         }
-        
+		
+		// make sure everthing is set to NULL [2851917]
+		bzero(clientBuffer,sizeof(IOAudioClientBuffer));
+       
         clientBuffer->userClient = this;
         
         bufferDirection = audioStream->getDirection() == kIOAudioStreamDirectionOutput ? kIODirectionIn : kIODirectionOut;
@@ -889,7 +893,7 @@ IOReturn IOAudioEngineUserClient::registerClientBuffer(IOAudioStream *audioStrea
                 if (clientBuffer->audioStream) {
                     clientBuffer->audioStream->release();
                 }
-                IOFree(clientBuffer, sizeof(IOAudioClientBuffer));
+                IOFreeAligned(clientBuffer, sizeof(IOAudioClientBuffer));
             }
         } else if (isOnline()) {
             result = audioStream->addClient(clientBuffer);
@@ -1196,56 +1200,54 @@ IOLog("IOAudioEngineUserClient[%p]::performWatchdogOutput(%p, %ld) - (%lx,%lx)\n
     IORecursiveLockLock(clientBufferLock);
     
     if (!isInactive() && isOnline()) {
-        if (clientBufferSet->timerPending) {
-            // If the generation count of the clientBufferSet is different than the
-            // generation count passed in, then a new client IO was received just before
-            // the timer fired, and we don't need to do the fake IO
-            // We just leave the timerPending field set
-            if (clientBufferSet->generationCount == generationCount) {
-                IOAudioClientBuffer *clientBuffer;
-                
-                clientBuffer = clientBufferSet->outputBufferList;
-                
-                while (clientBuffer) {
-                    IOAudioStream *audioStream;
-                    
-                    audioStream = clientBuffer->audioStream;
-                    
-                    assert(audioStream);
-                    assert(audioStream->getDirection() == kIOAudioStreamDirectionOutput);
-                    
-                    audioStream->lockStreamForIO();
-                    
-                    audioStream->processOutputSamples(clientBuffer, clientBufferSet->nextOutputPosition.fSampleFrame, clientBufferSet->nextOutputPosition.fLoopCount, false);
-                    
-                    audioStream->unlockStreamForIO();
-                    
-                    clientBuffer = clientBuffer->next;
-                }
+		// If the generation count of the clientBufferSet is different than the
+		// generation count passed in, then a new client IO was received just before
+		// the timer fired, and we don't need to do the fake IO
+		// We just leave the timerPending field set
+		if (clientBufferSet->generationCount == generationCount) {
+			IOAudioClientBuffer *clientBuffer;
+			
+			clientBuffer = clientBufferSet->outputBufferList;
+			
+			while (clientBuffer) {
+				IOAudioStream *audioStream;
+				
+				audioStream = clientBuffer->audioStream;
+				
+				assert(audioStream);
+				assert(audioStream->getDirection() == kIOAudioStreamDirectionOutput);
+				
+				audioStream->lockStreamForIO();
+				
+				audioStream->processOutputSamples(clientBuffer, clientBufferSet->nextOutputPosition.fSampleFrame, clientBufferSet->nextOutputPosition.fLoopCount, false);
+				
+				audioStream->unlockStreamForIO();
+				
+				clientBuffer = clientBuffer->next;
+			}
 
-                if (clientBufferSet->outputBufferList != NULL) {
-                    UInt32 numSampleFrames, numSampleFramesPerBuffer;
-                    AbsoluteTime outputTimeout;
-                    
-                    numSampleFrames = clientBufferSet->outputBufferList->numSampleFrames;
-                    numSampleFramesPerBuffer = audioEngine->getNumSampleFramesPerBuffer();
-                    
-                    clientBufferSet->nextOutputPosition.fSampleFrame += numSampleFrames;
-                    
-                    if (clientBufferSet->nextOutputPosition.fSampleFrame >= numSampleFramesPerBuffer) {
-                        clientBufferSet->nextOutputPosition.fSampleFrame -= numSampleFramesPerBuffer;
-                        clientBufferSet->nextOutputPosition.fLoopCount++;
-                    }
-                    
-                    audioEngine->calculateSampleTimeout(&clientBufferSet->sampleInterval, numSampleFrames, &clientBufferSet->nextOutputPosition, &outputTimeout);
-                    
-                    clientBufferSet->setWatchdogTimeout(&outputTimeout);
+			if (clientBufferSet->outputBufferList != NULL) {
+				UInt32 numSampleFrames, numSampleFramesPerBuffer;
+				AbsoluteTime outputTimeout;
+				
+				numSampleFrames = clientBufferSet->outputBufferList->numSampleFrames;
+				numSampleFramesPerBuffer = audioEngine->getNumSampleFramesPerBuffer();
+				
+				clientBufferSet->nextOutputPosition.fSampleFrame += numSampleFrames;
+				
+				if (clientBufferSet->nextOutputPosition.fSampleFrame >= numSampleFramesPerBuffer) {
+					clientBufferSet->nextOutputPosition.fSampleFrame -= numSampleFramesPerBuffer;
+					clientBufferSet->nextOutputPosition.fLoopCount++;
+				}
+				
+				audioEngine->calculateSampleTimeout(&clientBufferSet->sampleInterval, numSampleFrames, &clientBufferSet->nextOutputPosition, &outputTimeout);
+				
+				clientBufferSet->setWatchdogTimeout(&outputTimeout);
 
-                } else {
-                    clientBufferSet->timerPending = false;
-                }
-            }
-        }
+			} else {
+				clientBufferSet->timerPending = false;
+			}
+		}
     } else {
         clientBufferSet->timerPending = false;
     }
@@ -1365,7 +1367,11 @@ IOReturn IOAudioEngineUserClient::startClient()
             result = kIOReturnOffline;
         }
     }
-    
+
+	if (kIOReturnSuccess != result) {
+		setOnline(false);
+	}
+
     return result;
 }
 

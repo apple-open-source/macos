@@ -35,6 +35,7 @@
 #define kBrightness_up	0x09
 #define kBrightness_down	0x0a
 #define kEject		0x0b
+#define kVideoMirror	0x0c
 #define kNum_lock_on_laptops	0x7f
 
 #define kMax_registrations 10

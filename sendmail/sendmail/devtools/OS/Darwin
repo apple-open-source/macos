@@ -1,11 +1,11 @@
-#	$Id: Darwin,v 1.3 2000/06/12 22:41:41 wsanchez Exp $
+#	$Id: Darwin,v 1.6 2002/03/13 23:23:23 zarzycki Exp $
 #
 # Wilfredo Sanchez <wsanchez@apple.com>:
 #    We look a lot more like 4.4BSD than NeXTStep or OpenStep.
 #
-define(`confCC', `cc -traditional-cpp -pipe ${Extra_CC_Flags}')
+define(`confCC', `cc -no-cpp-precomp -pipe ${Extra_CC_Flags}')
 define(`confMAPDEF', `-DDARWIN -DNEWDB -DNIS -DMAP_REGEX -DNETINFO -DAUTO_NETINFO_ALIASES -DAUTO_NETINFO_HOSTS')
-define(`confENVDEF', `-DNETISO')
+define(`confENVDEF', `-DDARWIN')
 define(`confLDOPTS', `${Extra_LD_Flags}')
 define(`confOPTIMIZE', `-O3')
 define(`confRANLIBOPTS', `-c')
@@ -17,3 +17,4 @@ define(`confUBINOWN', `root')
 define(`confUBINGRP', `wheel')
 define(`confSBINOWN', `root')
 define(`confSBINGRP', `wheel')
+define(`confDONT_INSTALL_CATMAN')

@@ -580,8 +580,8 @@ typedef struct SGlob {
 	UInt16				CBTStat;				//	scavenge status flags for catalog BTree 
 	UInt16				CatStat;				//	scavenge status flags for catalog file
 	UInt16				VeryMinorErrorsStat;	//	scavenge status flags for very minor errors
-	DrvQElPtr			DrvPtr;				//	pointer to driveQ element for target drive
-	UInt32				idSector;				//	location of id block alt MDB or VH
+	DrvQElPtr			DrvPtr;					//	pointer to driveQ element for target drive
+	UInt64				idSector;				//	location of id block alt MDB or VH
 	UInt32				TarID;					//	target ID (CNID of data structure being verified)
 	UInt32				TarBlock;				//	target block/node number being verified
 	SInt16				BTLevel;				//	current BTree enumeration level
@@ -1025,7 +1025,7 @@ OSErr MapFileBlockC (
 	SFCB			*fcb,				// FCB of file
 	UInt32			numberOfBytes,		// number of contiguous bytes desired
 	UInt32			sectorOffset,		// starting offset within file (in 512-byte sectors)
-	UInt32			*startSector,		// first 512-byte volume sector (NOT an allocation block)
+	UInt64			*startSector,		// first 512-byte volume sector (NOT an allocation block)
 	UInt32			*availableBytes);	// number of contiguous bytes (up to numberOfBytes)
 
 OSErr ExtendFileC (
@@ -1160,11 +1160,6 @@ CompareAttributeKeys			(const void *			searchKey,
 EXTERN_API( SFCB* )
 ResolveFCB						(short 					fileRefNum);
 
-EXTERN_API_C( void )
-HFSBlocksFromTotalSectors		(UInt32 				totalSectors,
-								 UInt32 *				blockSize,
-								 UInt16 *				blockCount);
-
 EXTERN_API_C( OSErr )
 ValidVolumeHeader				(HFSPlusVolumeHeader *	volumeHeader);
 
@@ -1277,6 +1272,7 @@ extern int   CheckHardLinks(void *cookie);
 extern int  BitMapCheckBegin(SGlobPtr g);
 extern int  BitMapCheckEnd(void);
 extern int  CaptureBitmapBits(UInt32 startBit, UInt32 bitCount);
+extern int  ReleaseBitmapBits(UInt32 startBit, UInt32 bitCount);
 extern int  CheckVolumeBitMap(SGlobPtr g, Boolean repair);
 
 

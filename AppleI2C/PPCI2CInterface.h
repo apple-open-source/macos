@@ -57,6 +57,11 @@
 // the sequence open/setup/use/close should be as compact as possible
 // (it is great if it is concertrated all in the same function) and
 // it MUST be all in the same thread.
+// class ApplePMUInterface;  //not necessary
+
+
+// Clients get call backs with this type of function:
+typedef void (*AppleI2Cclient)(IOService * client, UInt32 addressInfo, UInt32 length, UInt8 * buffer); 
 
 class PPCI2CInterface : public IOService
 {
@@ -83,7 +88,10 @@ private:
         kStandardMode    = 0x01, //
         kStandardSubMode = 0x02, //
         kCombinedMode    = 0x03, //
-        kModeMask        = 0x03  //
+        kModeMask        = 0x03,  //
+        kSimpleI2CStream            = 0,	// PMU i2c modes			
+        kSubaddressI2CStream        = 1,
+        kCombinedI2CStream          = 2
     } I2CMode;
 
     typedef enum {
@@ -163,6 +171,7 @@ private:
     // Constants for the Address register
     enum I2CAddress {
         kADDRMask           = 0x7F   //
+
     };
 
     typedef enum {
@@ -200,12 +209,82 @@ private:
     I2CRegister address;               // Holds the 7 bits address and the R/W bit.
     I2CRegister subAddr;               // the 8bit subaddress..
     I2CRegister data;                  // the byte to sents or the last byte received
+    
+#pragma options align=mac68k
 
-    // Remebers the provider so when we work as interrupt-driven we can enable and disable the
+    struct i2cRegCopyPB
+    {
+        UInt8 mode;                         // local copies for PMU I2C case (see above for comments)
+        UInt8 control;               
+        UInt8 status;                
+        UInt8 ISR;                   
+        UInt8 IER;                   
+        UInt8 address;               
+        UInt8 subAddr;               
+        UInt8 data;                  
+    };
+    typedef struct i2cRegCopyPB i2cRegCopyPB;
+    
+#pragma options align=reset
+
+    // pointer to local data in PMU case
+    i2cRegCopyPB *i2cPBptr;
+    
+    //#pragma options align=reset
+
+    /*  PMU99 I2C command equates (command $9A)*/
+    enum {
+        kPMUI2CCmd			= 0x9A,
+
+//        kSimpleI2CStream            = 0,	// placed in I2CMode			
+//        kSubaddressI2CStream        = 1,
+//        kCombinedI2CStream          = 2,
+        kI2CReplyPendingErr         = -4,
+        kI2CTransactionErr          = -3,
+        kI2CBusyErr                 = -2,
+        kI2CParameterErr            = -1,
+        kI2CNoErr                   = 0,
+        kI2CReadData                = 1,
+        kI2CDataBufSize             = 249
+    };
+
+    // I2C bus types for PMU
+    typedef enum {
+        kI2CStatusBus               = 0,                 /* pseudo bus used for status retrieval*/
+        kSystemClockBus             = 1,                 /* (Clocks and GPIOs live here, currenlty) */
+        kPowerSupplyBus             = 2,                 /* (IVAD is here)*/
+    } BusType;
+
+    struct PMUI2CPB {
+        UInt8                           bus;
+        UInt8                           xferType;
+        UInt8                           secondaryBusNum;
+        UInt8                           address;
+        UInt8                           subAddr;
+        UInt8                           combAddr;
+        UInt8                           dataCount;
+        UInt8                           data[249];                  /* sizeof(PMUI2CPB) = 256*/
+    };
+    typedef struct PMUI2CPB                 PMUI2CPB;
+
+#define MAXIICRETRYCOUNT	20
+#define STATUS_DATAREAD		1
+#define STATUS_OK		0
+#define STATUS_BUSY		0xfe
+
+    // Parameters for PMU i2c transactions
+    PMUI2CPB		i2c;
+    IOByteCount		length;
+
+
+    // Remembers the provider so when we work as interrupt-driven we can enable and disable the
     // interrupts:
     IOService *myProvider;
     
-    // Keeps track of the success (or faliture) of the last transfer:
+    // Remember if we had a PMU provider or not
+    bool i2cPMU;
+    
+    // Keeps track of the success (or failure) of the last transfer:
     bool transferWasSuccesful;
 
     // When the driver is not in polling mode (so it is interrupt driven) the
@@ -213,12 +292,12 @@ private:
     volatile semaphore_t mySync;
     
     // This is a parameter used in memory cells and useless for
-    // the mac-io.
+    // the mac-io. It's also the bus number in the PMU:
     UInt8 portSelect;
 
     // This is the current state for the driver:
     PPCI2CState currentState;
-
+    
     // This interface does not need to be attached to an interrrupt. (it is obvoiusly
     // better to be, but it is not NECESSARY). When it is not attached to an interrupt
     // it works in polling mode. The following bool flag sets the default behavior.
@@ -229,10 +308,68 @@ private:
     // the the same thread can access the service after the lock has been
     // obrained I am going to use a recursive lock:
     IORecursiveLock *mutexLock;
-
+    
+    // PMU version needs to block other threads as well until port closed
+    IOLock *pmuLock;
+    
 protected:
-    // Chaches the last mode set (I would not do this, but each access to getMode requires a mask and a shift):
+//************************************************************************************************
+    // Client handling methods and functions:
+    // --------------------------------------
+    
+    // The i2c clients register with the driver to be notified
+    // when some events (interrupts) occur. The driver has so
+    // to keep a list of all the clients:
+    typedef struct I2Cclient {
+        UInt32	         addressInfo;
+        IOService        *client;
+        AppleI2Cclient   callBackFunction;
+        struct I2Cclient *nextClient;
+    } I2Cclient;
+    typedef I2Cclient *I2CclientPtr;
+    
+    // This is the top of the list:
+    I2CclientPtr listHead;
+
+    // This lock protects the access to the clients
+    // list:
+    IOLock *clientMutexLock;
+
+    // Adds a client to the list:
+    bool addI2Cclient(UInt32 addressInfo, AppleI2Cclient function, IOService * caller);
+
+    // Removes a client to the list:
+    bool removeI2Cclient(UInt32 addressInfo, IOService * caller);
+
+    // Removes all clients from the list:
+    bool clearI2CclientList();
+
+    // Calls a client in the list with the data from the current interrupt:
+    bool calli2cClient(UInt8 interruptMask, UInt32 length, UInt8 * buffer);
+
+    // If an other driver wishes to be aware of i2c interrupts
+    // it has to register with the i2c driver:
+    // Note that clients have rules to follow: the most important is
+    // that they should NEVER change the content of the buffer status
+    // they receive from the i2c driver.
+    bool registerForI2cInterrupts(UInt32 addressInfo, AppleI2Cclient function, IOService * caller);
+    
+    // Only register once for Pmu I2C interrupts, since we will call back all interested clients from ourself
+    bool registeredForPmuI2C;
+    
+    // This is to de-register from the clients that  wish to be aware of i2c transactions
+    bool deRegisterI2cClient(UInt32 addressInfo, IOService * caller);
+    
+    // This is the interrupt handler for PMU callbacks of I2C interrupts
+    static void handlePMUi2cInterrupt(IOService *client, UInt8 interruptMask, UInt32 length, UInt8 *buffer);
+
+//************************************************************************************************
+
+    // Caches the last mode set (I would not do this, but each access to getMode requires a mask and a shift):
     I2CMode lastMode;
+    
+    // Caches the last speed set
+    I2CSpeed lastSpeed;
     
     // pointer to the data to be transfered
     UInt8 *dataBuffer;
@@ -254,6 +391,25 @@ protected:
     
     // Given the base of the i2c registers inits all the registers.
     void SetI2CBase(UInt8 *baseAddress, UInt8 steps);
+    
+    // setAddress and Data for PMU transfer
+    void setAddressDataForPMU();
+        
+    // send a general purpose call to Apple PMU (uses callPlatformFunction)
+    static IOReturn ApplePMUSendMiscCommand( UInt32 command,
+                        IOByteCount sendLength, UInt8 * sendBuffer,
+                        IOByteCount * readLength, UInt8 * readBuffer);
+                                                
+    // send a write I2c packet to PMU, includes status check at end
+    // static? 
+    bool writePmuI2C( UInt8 address, UInt8 subAddress, UInt8 * buffer, IOByteCount count );
+
+    // send a read I2c packet to PMU, includes status check at end
+    // static?
+    bool readPmuI2C( UInt8 address, UInt8 subAddress, UInt8 * buffer, IOByteCount count );
+
+    // set up interface for PMU transfer if needed
+    bool PPCI2CInterface::retrieveProperty(IOService *provider);
 
     // Returns the mask to use with the register:
     UInt8 shiftedMask(UInt8 mask, UInt8 shift);
@@ -374,6 +530,19 @@ public:
     // but look in the OF device tree to find out the
     // extension of the i2c bus you are interested in.
     virtual const char * getResourceName();
+    
+    // Overides the standard callPlatformFunction to catch all the calls
+    // that may be directed to the PPCI2CInterface
+    virtual IOReturn callPlatformFunction( const OSSymbol *functionName,
+                                       bool waitForFunction,
+                                       void *param1, void *param2,
+                                       void *param3, void *param4 );
+
+    virtual IOReturn callPlatformFunction( const char *functionName,
+                                           bool waitForFunction,
+                                           void *param1, void *param2,
+                                           void *param3, void *param4 );
+
 };
 
 #endif //_PPCI2CINTERFACE_H

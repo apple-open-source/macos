@@ -27,7 +27,7 @@
 #include <libkern/c++/OSObject.h>
 #include <IOKit/IOTypes.h>
 #include "IOATATypes.h"
-#include <IOKit/ata/IOATABusInfo.h>
+#include "IOATABusInfo.h"
 
 
 /*!
@@ -222,6 +222,13 @@ private:
     OSMetaClassDeclareReservedUnused(IOATADevConfig, 18);
     OSMetaClassDeclareReservedUnused(IOATADevConfig, 19);
     OSMetaClassDeclareReservedUnused(IOATADevConfig, 20);
+	
+public:
+
+//some static utility functions to parse the identify data for feature support
+
+  static bool sDriveSupports48BitLBA( const UInt16* identifyData );
+  static UInt32 sDriveExtendedLBASize( UInt32* lbaHi, UInt32* lbaLo, const UInt16* identifyData); // result returned is same as lbaLo. 
 	
 };
 

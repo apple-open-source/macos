@@ -161,6 +161,7 @@ enum {
 };
 
 #define kIOFBDependentIDKey	"IOFBDependentID"
+#define kIOFBDependentIndexKey	"IOFBDependentIndex"
 
 struct StdFBShmem_t;
 class IOFramebufferUserClient;
@@ -226,7 +227,11 @@ protected:
     IOMemoryMap *			vramMap;
     IOByteCount				vramMapOffset;
     OSArray *				userAccessRanges;
-    unsigned int                       _IOFramebuffer_reservedC;
+    unsigned int			suspended:1;
+    unsigned int			captured:1;
+    unsigned int			sleepConnectCheck:1;
+    unsigned int                        messaged:1;
+    unsigned int                       _IOFramebuffer_reservedC:28;
     IOFramebuffer * 			nextDependent;
     OSSet *				fbNotifications;
 
@@ -244,7 +249,8 @@ protected:
     unsigned int 			pendingPowerState:4;
     unsigned int			pendingPowerChange:1;
     unsigned int			pagingState:1;
-    unsigned int			_IOFramebuffer_reservedB:2;
+    unsigned int			mirrorPrimary:1;
+    unsigned int			mirrorSWCursor:1;
 
     bool				clutValid;
     bool				currentMono;

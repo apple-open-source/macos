@@ -1,6 +1,6 @@
 divert(-1)
 #
-# Copyright (c) 1999 Sendmail, Inc. and its suppliers.
+# Copyright (c) 1999, 2001 Sendmail, Inc. and its suppliers.
 #	All rights reserved.
 #
 # By using this file, you agree to the terms and conditions set
@@ -10,7 +10,7 @@ divert(-1)
 #
 #  Definitions for Makefile construction for sendmail
 #
-#	$Id: executable.m4,v 1.3 2000/08/15 00:41:58 wsanchez Exp $
+#	$Id: executable.m4,v 1.4 2002/03/13 23:23:22 zarzycki Exp $
 #
 divert(0)dnl
 include(confBUILDTOOLSDIR`/M4/'bldM4_TYPE_DIR`/links.m4')dnl
@@ -29,14 +29,12 @@ bldCURRENT_PRODUCT: ${bldCURRENT_PRODUCT`OBJS'} ${bldCURRENT_PRODUCT`SMDEPLIBS'}
 ifdef(`bldLINK_SOURCES', `bldMAKE_SOURCE_LINKS(bldLINK_SOURCES)')
 
 ifdef(`bldNO_INSTALL', ,
-`install-`'bldCURRENT_PRODUCT: bldCURRENT_PRODUCT
-	${INSTALL} -d -o ${bldBIN_TYPE`'BINOWN} -g ${bldBIN_TYPE`'BINGRP} -m 755 ${DESTDIR}${bldINSTALL_DIR`'BINDIR}
+`install-`'bldCURRENT_PRODUCT: bldCURRENT_PRODUCT ifdef(`bldTARGET_INST_DEP', `bldTARGET_INST_DEP')
 	${INSTALL} -c -o ${bldBIN_TYPE`'BINOWN} -g ${bldBIN_TYPE`'BINGRP} -m ${bldBIN_TYPE`'BINMODE} bldCURRENT_PRODUCT ${DESTDIR}${bldINSTALL_DIR`'BINDIR}
 ifdef(`bldTARGET_LINKS', `bldMAKE_TARGET_LINKS(${bldINSTALL_DIR`'BINDIR}/bldCURRENT_PRODUCT, ${bldCURRENT_PRODUCT`'TARGET_LINKS})')')
 
 strip-`'bldCURRENT_PRODUCT: bldCURRENT_PRODUCT
 	${STRIP} ${STRIPOPTS} ${DESTDIR}${bldINSTALL_DIR`'BINDIR}`'/bldCURRENT_PRODUCT
-	chmod ${bldBIN_TYPE`'BINMODE} ${DESTDIR}${bldINSTALL_DIR`'BINDIR}`'/bldCURRENT_PRODUCT
 
 bldCURRENT_PRODUCT-clean:
 	rm -f ${OBJS} bldCURRENT_PRODUCT ${MANPAGES}

@@ -1,12 +1,15 @@
 include(confBUILDTOOLSDIR`/M4/switch.m4')
 
+define(`confREQUIRE_LIBSM', `true')
+# sendmail dir
+SMSRCDIR=     ifdef(`confSMSRCDIR', `confSMSRCDIR', `${SRCDIR}/sendmail')
 PREPENDDEF(`confENVDEF', `confMAPDEF')
+PREPENDDEF(`confINCDIRS', `-I${SMSRCDIR} ')
 
 bldPRODUCT_START(`executable', `rmail')
-define(`bldNO_INSTALL')
-define(`bldINSTALL_DIR', `U')
+define(`bldNO_INSTALL', `true')
 define(`bldSOURCES', `rmail.c ')
-bldPUSH_SMLIB(`smutil')
+bldPUSH_SMLIB(`sm')
 bldPRODUCT_END
 
 bldPRODUCT_START(`manpage', `rmail')
@@ -16,7 +19,7 @@ bldPRODUCT_END
 RMAIL=ifdef(`confFORCE_RMAIL', `force-install', `defeat-install')
 
 divert(bldTARGETS_SECTION)
-install install-strip: ${RMAIL}
+install: ${RMAIL}
 
 defeat-install:
 	@echo "NOTE: This version of rmail is not suited for some operating"

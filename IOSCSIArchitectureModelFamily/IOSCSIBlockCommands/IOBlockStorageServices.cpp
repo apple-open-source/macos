@@ -160,7 +160,7 @@ IOBlockStorageServices::message ( UInt32 		type,
 			
 			fMediaChanged	= true;
 			fMediaPresent	= true;
-			status = messageClients ( type, arg, sizeof ( IOMediaState ) );
+			status = messageClients ( type, arg );
 			ERROR_LOG ( ( "status = %ld\n", ( UInt32 ) status ) );
 		
 		}

@@ -15,7 +15,7 @@ class IOFilterInterruptEventSource;
 #define DBDMAAUDIODMAENGINE_DEFAULT_SAMPLE_RATE	44100
 #define DBDMAAUDIODMAENGINE_DEFAULT_BIT_DEPTH	16
 #define DBDMAAUDIODMAENGINE_DEFAULT_NUM_CHANNELS	2
-#define kMinimumLatency (16) // minimum safety offset
+#define kMinimumLatency (441 * 2) // minimum safety offset, was 16, up to 441 for iSub
 
 typedef struct _sPreviousValues {
     float	xl_1;
@@ -40,20 +40,26 @@ protected:
     IODBDMADescriptor *			dmaCommandBufferOut;
     IODBDMADescriptor *			dmaCommandBufferIn;
     UInt32				commandBufferSize;
-        //Next lines for iSub
-    IOMemoryDescriptor *		iSubBufferMemory;
-	UInt32						iSubLoopCount;
-	SInt32						iSubBufferOffset;		// Where we are writing to in the iSub buffer
-	UInt32						ourSampleFrameAtiSubLoop;
-	UInt32						previousClippedToFrame;
-    IOService *					ourProvider;
-    IONotifier *				iSubEngineNotifier;
+        
+    //Next lines for iSub
+    UInt32				iSubLoopCount;
+    SInt32				iSubBufferOffset;		// Where we are writing to in the iSub buffer
+    UInt32				ourSampleFrameAtiSubLoop;
+    UInt32				previousClippedToFrame;
+    UInt32				initialiSubLead;
+    UInt32				clipAdjustment;
+    IOService *				ourProvider;
+    IONotifier *			iSubEngineNotifier;
     AppleiSubEngine *			iSubEngine;
-    float *						lowFreqSamples;
-    float *						highFreqSamples;
-    PreviousValues				filterState;
-	Boolean						needToSync;
-	Boolean						startiSub;
+    float *				lowFreqSamples;
+    float *				highFreqSamples;
+    PreviousValues			filterState;
+    PreviousValues			filterState2;			// aml 2.14.02, added for 4th order filter
+    PreviousValues			phaseCompState;			// aml 2.18.02, added for phase compensator
+    Boolean				needToSync;
+    Boolean				startiSub;
+    Boolean				justResetClipPosition;
+    Boolean				restartedDMA;
 
     IOFilterInterruptEventSource *	interruptEventSource;
 
@@ -76,6 +82,8 @@ protected:
 	static IOReturn iSubOpenAction (OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4);
 
 public:
+    IOMemoryDescriptor *		iSubBufferMemory;
+
     virtual bool init(OSDictionary 			*properties,
                       IOService 			*theDeviceProvider,
                       bool					hasInput,
@@ -94,6 +102,8 @@ public:
     virtual IOReturn performAudioEngineStop();
     
     IOReturn     restartOutputIfFailure();
+
+	virtual void setSampleLatencies (UInt32 outputLatency, UInt32 inputLatency);
 
     inline void  setPhaseInversion(bool needsPhaseInversion ) { fNeedsPhaseInversion = needsPhaseInversion; }; 
     inline bool  getPhaseInversion() { return fNeedsPhaseInversion; };

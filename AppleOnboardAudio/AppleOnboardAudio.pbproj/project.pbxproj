@@ -27,7 +27,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleOWScreamerAudio;
-				MODULE_VERSION = 1.7.2d2;
+				MODULE_VERSION = 1.7.4d6;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -52,7 +52,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleOWScreamerAudio</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleOWScreamerAudio version 1.7.2, Copyright 2000-2002 Apple Computer ,Inc.</string>
+	<string>AppleOWScreamerAudio version 1.7.4, Copyright 2000-2002 Apple Computer ,Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -64,11 +64,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.7.2</string>
+	<string>1.7.4</string>
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>1.7.2d2</string>
+	<string>1.7.4d6</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleOWScreamerAudio</key>
@@ -89,7 +89,7 @@
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.driver.AppleDBDMAAudio</key>
-		<string>1.7.2d1</string>
+		<string>1.7.0d1</string>
 		<key>com.apple.iokit.IOAudioFamily</key>
 		<string>1.1fc9</string>
 	</dict>
@@ -417,7 +417,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.AudioDeviceTreeUpdater;
-				MODULE_VERSION = 1.7.2;
+				MODULE_VERSION = 1.7.4d6;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -442,7 +442,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AudioDeviceTreeUpdater</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AudioDeviceTreeUpdater version 1.7.2, Copyright 2000-2001 Apple Computer, Inc.</string>
+	<string>AudioDeviceTreeUpdater version 1.7.3, Copyright 2000-2002 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -454,11 +454,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.7.2</string>
+	<string>1.7.3</string>
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>1.7.2</string>
+	<string>1.7.4d6</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>Power Macintosh</key>
@@ -1382,7 +1382,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleDBDMAAudio;
-				MODULE_VERSION = 1.7.2d3;
+				MODULE_VERSION = 1.7.4d8;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1408,7 +1408,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleDBDMAAudio</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleDBDMAAudio version 1.7.2, Copyright 2000-2002 Apple Computer, Inc.
+	<string>AppleDBDMAAudio version 1.7.4, Copyright 2000-2002 Apple Computer, Inc.
 AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
@@ -1421,13 +1421,13 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.7.2</string>
+	<string>1.7.4</string>
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>1.7.2d3</string>
+	<string>1.7.4d8</string>
 	<key>OSBundleCompatibleVersion</key>
-	<string>1.7.2d1</string>
+	<string>1.7.0d1</string>
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.iokit.IOAudioFamily</key>
@@ -1589,7 +1589,7 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 			};
 		};
 		03254968FFDDCA4E11CA29EB = {
-			buildActionMask = 8;
+			buildActionMask = 12;
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
@@ -1734,7 +1734,7 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleScreamerAudio;
-				MODULE_VERSION = 1.7.2d2;
+				MODULE_VERSION = 1.7.4d7;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1760,7 +1760,7 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 	<key>CFBundleExecutable</key>
 	<string>AppleScreamerAudio</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleScreamerAudio version 1.7.2, Copyright 2000-2002 Apple Computer, Inc.</string>
+	<string>AppleScreamerAudio version 1.7.4, Copyright 2000-2002 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1772,11 +1772,11 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.7.2</string>
+	<string>1.7.4</string>
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>1.7.2d2</string>
+	<string>1.7.4d7</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleScreamerAudio</key>
@@ -1832,7 +1832,7 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.driver.AppleDBDMAAudio</key>
-		<string>1.7.2d1</string>
+		<string>1.7.0d1</string>
 		<key>com.apple.driver.AppleOnboardAudio</key>
 		<string>1.7.0d1</string>
 		<key>com.apple.iokit.IOAudioFamily</key>
@@ -1929,7 +1929,7 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleBurgundyAudio;
-				MODULE_VERSION = 1.7.2d1;
+				MODULE_VERSION = 1.7.4d6;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1955,7 +1955,7 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 	<key>CFBundleExecutable</key>
 	<string>AppleBurgundyAudio</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleBurgundyAudio version 1.7.2, Copyright 2000-2002 Apple Computer, Inc.</string>
+	<string>AppleBurgundyAudio version 1.7.4, Copyright 2000-2002 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1967,11 +1967,11 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.7.2</string>
+	<string>1.7.4</string>
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>1.7.2d1</string>
+	<string>1.7.4d6</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleBurgundyAudio</key>
@@ -2027,7 +2027,7 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.driver.AppleDBDMAAudio</key>
-		<string>1.7.2d1</string>
+		<string>1.7.0d1</string>
 		<key>com.apple.driver.AppleOnboardAudio</key>
 		<string>1.7.0d1</string>
 		<key>com.apple.iokit.IOAudioFamily</key>
@@ -2282,7 +2282,7 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleOnboardAudio;
-				MODULE_VERSION = 1.7.2d3;
+				MODULE_VERSION = 1.7.4d23;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -2317,7 +2317,7 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 	<key>CFBundleExecutable</key>
 	<string>AppleOnboardAudio</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleOnboardAudio version 1.7.2, Copyright 2000-2002 Apple Computer, Inc.</string>
+	<string>AppleOnboardAudio version 1.7.4, Copyright 2000-2002 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -2329,17 +2329,17 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.7.2</string>
+	<string>1.7.4</string>
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>1.7.2d3</string>
+	<string>1.7.4d23</string>
 	<key>OSBundleCompatibleVersion</key>
 	<string>1.7.0d1</string>
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.driver.AppleDBDMAAudio</key>
-		<string>1.7.2d1</string>
+		<string>1.7.0d1</string>
 		<key>com.apple.iokit.IOAudioFamily</key>
 		<string>1.1fc9</string>
 	</dict>
@@ -2669,7 +2669,7 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleTexas2Audio;
-				MODULE_VERSION = 1.7.2d1;
+				MODULE_VERSION = 1.7.4d12;
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = AppleTexas2Audio;
@@ -2692,7 +2692,7 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 	<key>CFBundleExecutable</key>
 	<string>AppleTexas2Audio</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleTexas2Audio version 1.7.2, Copyright 2000-2002 Apple Computer, Inc.</string>
+	<string>AppleTexas2Audio version 1.7.4, Copyright 2000-2002 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -2704,17 +2704,32 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.7.2</string>
+	<string>1.7.4</string>
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>1.7.2d1</string>
+	<string>1.7.4d12</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleTexas2Audio</key>
 		<dict>
 			<key>AOAAttributes</key>
 			<dict>
+				<key>RangeIn</key>
+				<dict>
+					<key>maxLin</key>
+					<integer>0</integer>
+					<key>maxLog</key>
+					<data>
+					AAAAAA==
+					</data>
+					<key>minLin</key>
+					<integer>0</integer>
+					<key>minLog</key>
+					<data>
+					AAAAAA==
+					</data>
+				</dict>
 				<key>RangeOut</key>
 				<dict>
 					<key>maxLin</key>
@@ -2746,7 +2761,7 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.driver.AppleDBDMAAudio</key>
-		<string>1.7.2d1</string>
+		<string>1.7.0d1</string>
 		<key>com.apple.driver.AppleOnboardAudio</key>
 		<string>1.7.0d1</string>
 		<key>com.apple.iokit.IOAudioFamily</key>
@@ -3185,7 +3200,7 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleTexasAudio;
-				MODULE_VERSION = 1.7.2d1;
+				MODULE_VERSION = 1.7.4d10;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -3209,7 +3224,7 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 	<key>CFBundleExecutable</key>
 	<string>AppleTexasAudio</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleTexasAudio version 1.7.2, Copyright 2000-2002 Apple Computer, Inc.</string>
+	<string>AppleTexasAudio version 1.7.4, Copyright 2000-2002 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -3221,11 +3236,11 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.7.2</string>
+	<string>1.7.4</string>
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>1.7.2d1</string>
+	<string>1.7.4d10</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleTexasAudio</key>
@@ -3263,7 +3278,7 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.driver.AppleDBDMAAudio</key>
-		<string>1.7.2d1</string>
+		<string>1.7.0d1</string>
 		<key>com.apple.driver.AppleOnboardAudio</key>
 		<string>1.7.0d1</string>
 		<key>com.apple.iokit.IOAudioFamily</key>
@@ -3591,7 +3606,7 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleDACAAudio;
-				MODULE_VERSION = 1.7.2d1;
+				MODULE_VERSION = 1.7.4d6;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -3615,7 +3630,7 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 	<key>CFBundleExecutable</key>
 	<string>AppleDACAAudio</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleDACAAudio version 1.7.2, Copyright 2000-2002 Apple Computer, Inc.</string>
+	<string>AppleDACAAudio version 1.7.4, Copyright 2000-2002 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -3627,11 +3642,11 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.7.2</string>
+	<string>1.7.4</string>
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>1.7.2d1</string>
+	<string>1.7.4d6</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleDACAAudio</key>
@@ -3684,7 +3699,7 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.driver.AppleDBDMAAudio</key>
-		<string>1.7.2d1</string>
+		<string>1.7.0d1</string>
 		<key>com.apple.driver.AppleOnboardAudio</key>
 		<string>1.7.0d1</string>
 		<key>com.apple.iokit.IOAudioFamily</key>

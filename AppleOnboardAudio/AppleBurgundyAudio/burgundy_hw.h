@@ -19,12 +19,15 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
 /*
  * Copyright (c) 1998-1999 Apple Computer, Inc.  All rights reserved.
  *
  * Burgundy Hardware Registers
  *
  */
+
+#define kBurgundySampleLatency			32
 
 #define kSoundCtlReg				0x00
 #define kSoundCtlReg_InSubFrame_Mask		0x0000000F	/*All of the input subframe bits*/

@@ -1,0 +1,38 @@
+The sendmail m4 config files are located in /usr/share/sendmail/conf.  
+Everything you need to reconfig your sendmail from the m4 files 
+should be there.  The default sendmail.cf as shipped on your machine
+was generated from the /usr/share/sendmail/conf/cf/generic-darwin.mc
+config file.  If you wish to make changes, the following steps are
+recommended:
+* cd to /usr/share/sendmail/conf/cf:
+	cd /usr/share/sendmail/conf/cf
+* Copy the default config file to yourdomain.mc:
+	sudo cp generic-darwin.mc yourdomain.mc
+* Edit your new config file:
+	sudo vi yourdomain.mc
+* Regenerate your sendmail.cf file from the m4 file you just edited:
+	m4 ../m4/cf.m4 yourdomain.mc > /tmp/sendmail.cf
+* Backup your old sendmail.cf:
+	sudo cp /etc/mail/sendmail.cf /etc/mail/sendmail.cf.orig
+* Put your new sendmail.cf in place:
+	sudo cp /tmp/sendmail.cf /etc/mail/
+* Restart sendmail
+
+Other oddities of using sendmail on Mac OS X:
+* aliases are first taken from netinfo, and then sendmail falls back on
+  the aliases file.
+* The aliases file lives in /etc/aliases although no default aliases file
+  is shipped in the stock Mac OS X config.  You can change the location
+  of your aliases file by using the following line in your sendmail m4
+  config file:
+  define(`ALIAS_FILE', `path/to/aliases')
+  Or you can change it in your sendmail.cf file with the following line
+  (probably commented out in your config):
+  O AliasFile=/path/to/aliases
+* To ensure that sendmail does not read its config file from netinfo, 
+  execute the following commands:
+niutil -create . /locations/sendmail
+niutil -createprop . /locations/sendmail sendmail.cf /etc/mail/sendmail.cf 
+  This will tell sendmail (when it looks at netinfo) to not look in
+  netinfo for its config file, but to look at /etc/mail/sendmail.cf
+

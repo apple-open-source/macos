@@ -1,4 +1,4 @@
-.\" Copyright (c) 1998, 1999 Sendmail, Inc. and its suppliers.
+.\" Copyright (c) 1998-2000 Sendmail, Inc. and its suppliers.
 .\"	 All rights reserved.
 .\" Copyright (c) 1983, 1997 Eric P. Allman.  All rights reserved.
 .\" Copyright (c) 1985, 1990, 1993
@@ -9,11 +9,11 @@
 .\" the sendmail distribution.
 .\"
 .\"
-.\"     $Id: mailq.1,v 1.1.1.1 2000/06/10 00:40:55 wsanchez Exp $
+.\"     $Id: mailq.1,v 1.1.1.2 2002/03/12 18:00:32 zarzycki Exp $
 .\"
-.TH MAILQ 1 "$Date: 2000/06/10 00:40:55 $"
+.TH MAILQ 1 "$Date: 2002/03/12 18:00:32 $"
 .SH NAME
-.B mailq
+mailq
 \- print the mail queue
 .SH SYNOPSIS
 .B mailq
@@ -24,7 +24,7 @@ prints a summary of the mail messages queued for future delivery.
 .PP
 The first line printed for each message 
 shows the internal identifier used on this host 
-for the message, 
+for the message with a possible status character, 
 the size of the message in bytes,
 the date and time the message was accepted into the queue, 
 and the envelope sender of the message.  
@@ -32,6 +32,13 @@ The second line shows the error message that caused this message
 to be retained in the queue; 
 it will not be present if the message is being processed 
 for the first time.  
+The status characters are either
+.B *
+to indicate the job is being processed;
+.B X
+to indicate that the load is too high to process the job; and
+.B -
+to indicate that the job is too young to process.
 The following lines show message recipients, 
 one per line.
 .PP
@@ -51,6 +58,8 @@ indicating the ``controlling user'' information;
 this shows who will own any programs that are executed 
 on behalf of this message 
 and the name of the alias this command expanded from, if any.
+Moreover, status messages for each recipient are printed
+if available.
 .PP
 The
 .B mailq

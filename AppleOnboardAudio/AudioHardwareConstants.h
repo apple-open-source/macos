@@ -1,4 +1,4 @@
-/*
+ /*
  *  AudioHardwareConstants.h
  *  AppleOnboardAudio
  *
@@ -58,6 +58,7 @@
 #define kInSenseBitsDetectObjName	"InSenseBitsDetect"	
 #define kGPIODetectObjName			"GPIODetect"
 #define kGPIOGenericDetectObjName	"GPIOGenericDetect"
+#define kGPIOPrioritizedDetectObjName	"GPIOPrioritizedDetect"
 
 #define kBitMaskPropName			"bit-mask"
 #define kBitMatchPropName			"bit-match"
@@ -66,6 +67,7 @@
 #define kDeviceMaskPropName			"device-mask"
 #define kDeviceMatchPropName		"device-match"
 #define kDeviceTypePropName			"device_type"
+#define	kHasANDedResetPropName		"has-anded-reset"
 #define kIconIDPropName         	"icon-id"
 #define kPortChannelsPropName   	"port-channels"
 #define kPortConnectionPropName 	"port-connection"
@@ -130,7 +132,10 @@ enum {
 	layoutP58					=	22,
 	layoutP62					=	23,
 	layoutP72					=	24,
-	layoutP92					=	25
+	layoutP92					=	25,
+	layoutP59					=	26,
+	layoutP57b					=	27,
+	layoutP73					=	28
 };
 
 // Hardware type 
@@ -140,6 +145,7 @@ enum{
     kBurgundyHardwareType,
     kDACAHardwareType,
     kTexas3001HardwareType,
+    kTexas3004HardwareType
 };
 
 // Kind of devices
@@ -155,8 +161,10 @@ enum {
     kSndHWModemRingDetect	=	0x00000100,		// modem ring detect
     kSndHWModemLineCurrent	=	0x00000200,		// modem line current
     kSndHWModemESquared		=	0x00000400,		// modem E squared
+	kSndHWLineInput			=	0x00000800,		//	line input device present
+	kSndHWLineOutput		=	0x00001000,		//	line output device present
 
-    kSndHWInputDevices		=       0x000000B0,		// mask to get input devices (excluding modems)
+    kSndHWInputDevices		=	0x000000B0,		// mask to get input devices (excluding modems)
     kSndHWAllDevices		=	0xFFFFFFFF		// all available devices
     
 };
@@ -164,7 +172,7 @@ enum {
 // Codec kind
 enum {
     kSndHWTypeUnknown			=	0x00000000,		// unknown part
-    kSndHWTypeAWACs			=	0x00000001,		// AWACs part
+    kSndHWTypeAWACs				=	0x00000001,		// AWACs part
     kSndHWTypeScreamer			=	0x00000002,		// Screamer part
     kSndHWTypeBurgundy			=	0x00000003,		// Burgundy
     kSndHWTypeUSB				=	0x00000004,		// USB codec on a wire...
@@ -225,6 +233,17 @@ enum {
   kSndHWInput8                  = 8,    /* input 8*/
   kSndHWInput9                  = 9,    /* input 9*/
   kSndHWInputNone               = 0     /* no input*/
+};
+
+enum GpioAddressSelector {
+	kHeadphoneMuteSel			=	'hmut',
+	kHeadphoneDetecteSel		=	'hcon',
+	kAmplifierMuteSel			=	'amut',
+	kSpeakerDetectSel			=	'dlas',
+	kCodecResetSel				=	'rset',
+	kLineInDetectSel			=	'ldet',
+	kLineOutMuteRefSel			=	'lmut',
+	kLineOutDetectSel			=	'lcon'
 };
 
 

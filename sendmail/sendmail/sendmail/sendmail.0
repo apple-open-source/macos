@@ -5,7 +5,7 @@ SENDMAIL(8)                                           SENDMAIL(8)
 
 
 NNAAMMEE
-       sseennddmmaaiill - an electronic mail transport agent
+       sendmail - an electronic mail transport agent
 
 SSYYNNOOPPSSIISS
        sseennddmmaaiill [_f_l_a_g_s] [_a_d_d_r_e_s_s _._._.]
@@ -39,6 +39,12 @@ DDEESSCCRRIIPPTTIIOONN
        then the letter will also be delivered to `john'.
 
    PPaarraammeetteerrss
+       --AAcc    Use  submit.cf  even if the operation mode does not
+              indicate an initial mail submission.
+
+       --AAmm    Use sendmail.cf even if the  operation  mode  indi-
+              cates an initial mail submission.
+
        --BB_t_y_p_e Set  the  body  type to _t_y_p_e.  Current legal values
               are 7BIT or 8BITMIME.
 
@@ -53,15 +59,9 @@ DDEESSCCRRIIPPTTIIOONN
               on socket 25 for incoming SMTP  connections.   This
               is normally run from /etc/rc.
 
-       --bbDD    Same as --bbdd except runs in foreground.
-
-       --bbhh    Print the persistent host status database.
-
-       --bbHH    Purge  expired  entries  from  the  persistent host
 
 
-
-                   $Date: 2000/06/10 00:40:56 $                 1
+                   $Date: 2002/03/12 18:00:39 $                 1
 
 
 
@@ -70,29 +70,37 @@ DDEESSCCRRIIPPTTIIOONN
 SENDMAIL(8)                                           SENDMAIL(8)
 
 
-              status database.
+       --bbDD    Same as --bbdd except runs in foreground.
+
+       --bbhh    Print the persistent host status database.
+
+       --bbHH    Purge expired entries from the persistent host sta-
+              tus database.
 
        --bbii    Initialize the alias database.
 
        --bbmm    Deliver mail in the usual way (default).
 
-       --bbpp    Print a listing of the queue.
+       --bbpp    Print a listing of the queue(s).
 
-       --bbss    Use the SMTP protocol as  described  in  RFC821  on
-              standard  input  and output.  This flag implies all
-              the operations of the --bbaa flag that are  compatible
+       --bbPP    Print number  of  entries  in  the  queue(s);  only
+              available with shared memory support.
+
+       --bbss    Use  the  SMTP  protocol  as described in RFC821 on
+              standard input and output.  This flag  implies  all
+              the  operations of the --bbaa flag that are compatible
               with SMTP.
 
-       --bbtt    Run   in   address  test  mode.   This  mode  reads
-              addresses and shows the steps  in  parsing;  it  is
+       --bbtt    Run  in  address  test  mode.   This   mode   reads
+              addresses  and  shows  the  steps in parsing; it is
               used for debugging configuration tables.
 
-       --bbvv    Verify  names  only  -  do  not  try  to collect or
-              deliver a message.  Verify mode  is  normally  used
+       --bbvv    Verify names only  -  do  not  try  to  collect  or
+              deliver  a  message.   Verify mode is normally used
               for validating users or mailing lists.
 
        --CC_f_i_l_e Use alternate configuration file.  SSeennddmmaaiill refuses
-              to run as root if an alternate  configuration  file
+              to  run  as root if an alternate configuration file
               is specified.
 
        --dd_X    Set debugging value to _X.
@@ -100,18 +108,33 @@ SENDMAIL(8)                                           SENDMAIL(8)
        --FF_f_u_l_l_n_a_m_e
               Set the full name of the sender.
 
-       --ff_n_a_m_e Sets  the  name  of  the ``from'' person (i.e., the
-              envelope sender of the  mail).   This  address  may
-              also  be used in the From: header if that header is
-              missing during initial  submission.   The  envelope
-              sender  address is used as the recipient for deliv-
-              ery status notifications and may also appear  in  a
-              Return-Path:  header.   --ff  should  only be used by
-              ``trusted'' users (normally _r_o_o_t, _d_a_e_m_o_n, and  _n_e_t_-
-              _w_o_r_k)  or if the person you are trying to become is
-              the same as the person you are.  Otherwise,  an  X-
-              Authentication-Warning  header will be added to the
+       --ff_n_a_m_e Sets the name of the  ``from''  person  (i.e.,  the
+              envelope  sender  of  the  mail).  This address may
+              also be used in the From: header if that header  is
+              missing  during  initial  submission.  The envelope
+              sender address is used as the recipient for  deliv-
+              ery  status  notifications and may also appear in a
+              Return-Path: header.  --ff should  only  be  used  by
+              ``trusted''  users (normally _r_o_o_t, _d_a_e_m_o_n, and _n_e_t_-
+              _w_o_r_k) or if the person you are trying to become  is
+              the  same  as the person you are.  Otherwise, an X-
+              Authentication-Warning header will be added to  the
               message.
+
+       --GG     Relay (gateway) submission of a message, e.g., when
+              rrmmaaiill calls sseennddmmaaiill ..
+
+
+
+
+                   $Date: 2002/03/12 18:00:39 $                 2
+
+
+
+
+
+SENDMAIL(8)                                           SENDMAIL(8)
+
 
        --hh_N    Set the hop count to _N.  The hop  count  is  incre-
               mented  every  time the mail is processed.  When it
@@ -123,18 +146,6 @@ SENDMAIL(8)                                           SENDMAIL(8)
        --ii     Ignore  dots alone on lines by themselves in incom-
               ing messages.  This should be set if you are  read-
               ing data from a file.
-
-
-
-
-                   $Date: 2000/06/10 00:40:56 $                 2
-
-
-
-
-
-SENDMAIL(8)                                           SENDMAIL(8)
-
 
        --LL _t_a_g Set  the  identifier used in syslog messages to the
               supplied _t_a_g.
@@ -166,34 +177,23 @@ SENDMAIL(8)                                           SENDMAIL(8)
               ``UUCP:ucbvax''.
 
        --qq[_t_i_m_e]
-              Processed saved messages  in  the  queue  at  given
-              intervals.   If  _t_i_m_e is omitted, process the queue
-              once.  _T_i_m_e is given as a tagged number,  with  `s'
-              being  seconds, `m' being minutes, `h' being hours,
-              `d' being days, and `w' being weeks.  For  example,
-              `-q1h30m'  or `-q90m' would both set the timeout to
-              one hour thirty minutes.   If  _t_i_m_e  is  specified,
+              Process saved messages in the queue at given inter-
+              vals.   If _t_i_m_e is omitted, process the queue once.
+              _T_i_m_e is given as a tagged number,  with  `s'  being
+              seconds,  `m'  being  minutes  (default), `h' being
+              hours, `d' being days, and `w'  being  weeks.   For
+              example,  `-q1h30m'  or  `-q90m' would both set the
+              timeout to one hour thirty  minutes.   By  default,
               sseennddmmaaiill  will  run in the background.  This option
               can be used safely with --bbdd.
 
-       --qqII_s_u_b_s_t_r
-              Limit processed jobs to those containing _s_u_b_s_t_r  as
-              a substring of the queue id.
-
-       --qqRR_s_u_b_s_t_r
-              Limit  processed jobs to those containing _s_u_b_s_t_r as
-              a substring of one of the recipients.
-
-       --qqSS_s_u_b_s_t_r
-              Limit processed jobs to those containing _s_u_b_s_t_r  as
-              a substring of the sender.
-
-       --RR _r_e_t_u_r_n
-              Set the amount of the message to be returned if the
+       --qqpp[_t_i_m_e]
+              Similar to --qq_t_i_m_e, except that instead of  periodi-
+              cally   forking  a  child  to  process  the  queue,
 
 
 
-                   $Date: 2000/06/10 00:40:56 $                 3
+                   $Date: 2002/03/12 18:00:39 $                 3
 
 
 
@@ -202,21 +202,46 @@ SENDMAIL(8)                                           SENDMAIL(8)
 SENDMAIL(8)                                           SENDMAIL(8)
 
 
+              sendmail forks a single persistent child  for  each
+              queue  that alternates between processing the queue
+              and sleeping.  The sleep time is given as the argu-
+              ment;  it  defaults  to 1 second.  The process will
+              always sleep at least 5 seconds if  the  queue  was
+              empty in the previous queue run.
+
+       --qqf    Process saved messages in the queue once and do not
+              fork(), but run in the foreground.
+
+       --qqG name
+              Process jobs in queue group called _n_a_m_e only.
+
+       --qq[_!]I substr
+              Limit processed jobs to those containing _s_u_b_s_t_r  as
+              a substring of the queue id or not when _!  is spec-
+              ified.
+
+       --qq[_!]R substr
+              Limit processed jobs to those containing _s_u_b_s_t_r  as
+              a  substring of one of the recipients or not when _!
+              is specified.
+
+       --qq[_!]S substr
+              Limit processed jobs to those containing _s_u_b_s_t_r  as
+              a  substring of the sender or not when _!  is speci-
+              fied.
+
+       --RR _r_e_t_u_r_n
+              Set the amount of the message to be returned if the
               message  bounces.   The  _r_e_t_u_r_n  parameter  can  be
-              `full'  to  return  the entire message or `hdrs' to
-              return only the headers.  In the latter  case  also
+              `full' to return the entire message  or  `hdrs'  to
+              return  only  the headers.  In the latter case also
               local bounces return only the headers.
 
        --rr_n_a_m_e An alternate and obsolete form of the --ff flag.
 
-       --tt     Read  message  for  recipients.  To:, Cc:, and Bcc:
+       --tt     Read message for recipients.  To:,  Cc:,  and  Bcc:
               lines will be scanned for recipient addresses.  The
               Bcc: line will be deleted before transmission.
-
-       --UU     Initial  (user)  submission.  This should _a_l_w_a_y_s be
-              set when called from a user agent such as  MMaaiill  or
-              eexxmmhh  and  _n_e_v_e_r  be  set  when called by a network
-              delivery agent such as rrmmaaiill.
 
        --VV _e_n_v_i_d
               Set the original envelope id.  This  is  propagated
@@ -231,6 +256,17 @@ SENDMAIL(8)                                           SENDMAIL(8)
               cated log file.  This should only be used as a last
               resort  for  debugging  mailer bugs.  It will log a
               lot of data very quickly.
+
+
+
+                   $Date: 2002/03/12 18:00:39 $                 4
+
+
+
+
+
+SENDMAIL(8)                                           SENDMAIL(8)
+
 
        ----     Stop processing command flags and use the  rest  of
               the arguments as addresses.
@@ -256,18 +292,6 @@ SENDMAIL(8)                                           SENDMAIL(8)
 
        CheckpointInterval=_N
               Checkpoint  the queue file after every _N successful
-
-
-
-                   $Date: 2000/06/10 00:40:56 $                 4
-
-
-
-
-
-SENDMAIL(8)                                           SENDMAIL(8)
-
-
               deliveries (default  10).   This  avoids  excessive
               duplicate  deliveries  when sending to long mailing
               lists interrupted by system crashes.
@@ -299,6 +323,17 @@ SENDMAIL(8)                                           SENDMAIL(8)
               Save  UNIX-style  From  lines  at the front of mes-
               sages.
 
+
+
+                   $Date: 2002/03/12 18:00:39 $                 5
+
+
+
+
+
+SENDMAIL(8)                                           SENDMAIL(8)
+
+
        MaxHopCount=_N
               The maximum number of times a message is allowed to
               ``hop'' before we decide it is in a loop.
@@ -320,19 +355,6 @@ SENDMAIL(8)                                           SENDMAIL(8)
 
        LogLevel=_n
               The log level.
-
-
-
-
-
-                   $Date: 2000/06/10 00:40:56 $                 5
-
-
-
-
-
-SENDMAIL(8)                                           SENDMAIL(8)
-
 
        MeToo=_F_a_l_s_e
               Don't send to ``me'' (the sender) if  I  am  in  an
@@ -366,6 +388,18 @@ SENDMAIL(8)                                           SENDMAIL(8)
        UserDatabaseSpec=_u_s_e_r_d_a_t_a_b_a_s_e
               If set, a user database is consulted  to  get  for-
               warding  information.   You  can  consider  this an
+
+
+
+                   $Date: 2002/03/12 18:00:39 $                 6
+
+
+
+
+
+SENDMAIL(8)                                           SENDMAIL(8)
+
+
               adjunct to the aliasing mechanism, except that  the
               database is intended to be distributed; aliases are
               local to a particular host.  This may not be avail-
@@ -388,18 +422,6 @@ SENDMAIL(8)                                           SENDMAIL(8)
 
        MinQueueAge=_t_i_m_e_o_u_t
               Sets  how  long  a  job  must  ferment in the queue
-
-
-
-                   $Date: 2000/06/10 00:40:56 $                 6
-
-
-
-
-
-SENDMAIL(8)                                           SENDMAIL(8)
-
-
               between attempts to send it.
 
        DefaultCharSet=_c_h_a_r_s_e_t
@@ -432,6 +454,18 @@ SENDMAIL(8)                                           SENDMAIL(8)
 
        In  aliases, the first character of a name may be a verti-
        cal bar to cause interpretation of the rest of the name as
+
+
+
+                   $Date: 2002/03/12 18:00:39 $                 7
+
+
+
+
+
+SENDMAIL(8)                                           SENDMAIL(8)
+
+
        a  command  to  pipe  the mail to.  It may be necessary to
        quote the name  to  keep  sseennddmmaaiill  from  suppressing  the
        blanks  from  between  arguments.   For  example, a common
@@ -452,19 +486,6 @@ SENDMAIL(8)                                           SENDMAIL(8)
        The codes are defined in <_s_y_s_e_x_i_t_s_._h>:
 
        EX_OK  Successful completion on all addresses.
-
-
-
-
-
-                   $Date: 2000/06/10 00:40:56 $                 7
-
-
-
-
-
-SENDMAIL(8)                                           SENDMAIL(8)
-
 
        EX_NOUSER
               User name not recognized.
@@ -499,6 +520,18 @@ SENDMAIL(8)                                           SENDMAIL(8)
        ssmmttppdd, sseennddmmaaiill will act as a daemon, as if the --bbdd option
        were specified.
 
+
+
+
+                   $Date: 2002/03/12 18:00:39 $                 8
+
+
+
+
+
+SENDMAIL(8)                                           SENDMAIL(8)
+
+
 NNOOTTEESS
        sseennddmmaaiill often gets blamed  for  many  problems  that  are
        actually the result of other problems, such as overly per-
@@ -520,18 +553,6 @@ FFIILLEESS
         /etc/mail/aliases
               raw data for alias names
 
-
-
-
-                   $Date: 2000/06/10 00:40:56 $                 8
-
-
-
-
-
-SENDMAIL(8)                                           SENDMAIL(8)
-
-
         /etc/mail/aliases.db
               data base of alias names
 
@@ -552,8 +573,7 @@ SSEEEE AALLSSOO
        mailaddr(7), rc(8)
 
        DARPA  Internet  Request  For  Comments  _R_F_C_8_1_9,   _R_F_C_8_2_1,
-       _R_F_C_8_2_2.   _S_e_n_d_m_a_i_l  _-  _A_n _I_n_t_e_r_n_e_t_w_o_r_k _M_a_i_l _R_o_u_t_e_r, No. 9,
-       SMM.  _S_e_n_d_m_a_i_l _I_n_s_t_a_l_l_a_t_i_o_n _a_n_d _O_p_e_r_a_t_i_o_n  _G_u_i_d_e,  No.  8,
+       _R_F_C_8_2_2.  _S_e_n_d_m_a_i_l _I_n_s_t_a_l_l_a_t_i_o_n _a_n_d _O_p_e_r_a_t_i_o_n _G_u_i_d_e, No. 8,
        SMM.
 
        http://www.sendmail.org/
@@ -569,26 +589,6 @@ HHIISSTTOORRYY
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-                   $Date: 2000/06/10 00:40:56 $                 9
+                   $Date: 2002/03/12 18:00:39 $                 9
 
 

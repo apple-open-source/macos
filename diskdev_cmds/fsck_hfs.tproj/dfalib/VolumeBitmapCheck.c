@@ -35,18 +35,23 @@ enum {
 	kBytesPerSegment	= kBitsPerSegment / kBitsPerByte,
 	kWordsPerSegment	= kBitsPerSegment / kBitsPerWord,
 
-	kBitsPerSector		= 4096,
-	kBitsWithinSectorMask	= kBitsPerSector-1,
-	
 	kBitsWithinWordMask	= kBitsPerWord-1,
 	kBitsWithinSegmentMask	= kBitsPerSegment-1,
 	
 	kBMS_NodesPerPool	= 450,
-	kBMS_PoolMax		= 512
+	kBMS_PoolMax		= 2000
 };
 
 #define kAllBitsSetInWord	0xFFFFFFFFul
-#define kSettingBits	1
+
+enum {
+	kSettingBits		= 1,
+	kClearingBits		= 2,
+	kTestingBits		= 3
+};
+
+#define kEmptySegment	0
+#define kFullSegment	1
 
 int gBitMapInited = 0;
 
@@ -84,7 +89,7 @@ int gBMS_PoolCount;            /* count of pools allocated */
 static int        BMS_InitTree(void);
 static int        BMS_DisposeTree(void);
 static BMS_Node * BMS_Lookup(UInt32 segment);
-static BMS_Node * BMS_Insert(UInt32 segment);
+static BMS_Node * BMS_Insert(UInt32 segment, int segmentType);
 static BMS_Node * BMS_Delete(UInt32 segment);
 static void	  BMS_GrowNodePool(void);
 
@@ -180,22 +185,38 @@ BitMapCheckEnd(void)
 
 
 static int
-GetSegmentBitmap(UInt32 startBit, UInt32 **buffer, int settingBits)
+GetSegmentBitmap(UInt32 startBit, UInt32 **buffer, int bitOperation)
 {
 	UInt32 segment;
 	BMS_Node *segNode = NULL;
-
+	
+	*buffer = NULL;
 	segment = startBit / kBitsPerSegment;
 
-	if (bit_test(gFullSegmentList, segment))
-		*buffer = gFullBitmapSegment;
-	else if ((segNode = BMS_Lookup(segment)) != NULL)
-		*buffer = &segNode->bitmap[0];
-	else if (!settingBits)
-		*buffer = gEmptyBitmapSegment;
-	else if ((segNode = BMS_Insert(segment)) != NULL)
-		*buffer = &segNode->bitmap[0];
-	else {
+	// for a full seqment...
+	if (bit_test(gFullSegmentList, segment)) {
+		if (bitOperation == kClearingBits) {
+                    bit_clear(gFullSegmentList, segment);
+					--gFullSegments;
+                    if ((segNode = BMS_Insert(segment, kFullSegment)) != NULL)
+                        *buffer = &segNode->bitmap[0];
+		} else
+			*buffer = gFullBitmapSegment;
+	
+	// for a  partially full segment..
+	} else if ((segNode = BMS_Lookup(segment)) != NULL) {
+			*buffer = &segNode->bitmap[0];
+	
+	// for an empty segment...
+	} else {
+		if (bitOperation == kSettingBits) { 
+			if ((segNode = BMS_Insert(segment, kEmptySegment)) != NULL)
+				*buffer = &segNode->bitmap[0];
+		} else	
+			*buffer = gEmptyBitmapSegment;
+	}
+		
+	if (*buffer == NULL) {
 #if _VBC_DEBUG_
 		printf("GetSegmentBitmap: couldn't get a node for block %d, segment %d\n", startBit, segment);
 #endif
@@ -215,8 +236,12 @@ GetSegmentBitmap(UInt32 startBit, UInt32 **buffer, int settingBits)
 		printf("\n");
 	}
 
-	if (settingBits && *buffer && bcmp(*buffer, gFullBitmapSegment, kBytesPerSegment) == 0) {
+	if (bitOperation == kSettingBits && *buffer && bcmp(*buffer, gFullBitmapSegment, kBytesPerSegment) == 0) {
 		printf("*** segment %d (start blk %d) is already full!\n", segment, startBit);
+		exit(5);
+	}
+	if (bitOperation == kClearingBits && *buffer && bcmp(*buffer, gEmptyBitmapSegment, kBytesPerSegment) == 0) {
+		printf("*** segment %d (start blk %d) is already empty!\n", segment, startBit);
 		exit(5);
 	}
 #endif
@@ -252,6 +277,13 @@ TestSegmentBitmap(UInt32 startBit)
 				bit_set(gFullSegmentList, segment);
 				/* debugging stats */
 				++gFullSegments;
+				--gSegmentNodes;
+			}
+		}
+		
+		if (segment != 0 && bcmp(&segNode->bitmap[0], gEmptyBitmapSegment, kBytesPerSegment) == 0) {
+			if (BMS_Delete(segment) != NULL) {
+				/* debugging stats */
 				--gSegmentNodes;
 			}
 		}
@@ -393,6 +425,139 @@ Exit:
 
 
 /*
+ * Clear bits in the segmented bitmaps
+ */
+int
+ReleaseBitmapBits(UInt32 startBit, UInt32 bitCount)
+{
+	Boolean overlap;
+	OSErr   err;
+	UInt32  wordsLeft;
+	UInt32  bitMask;
+	UInt32  firstBit;
+	UInt32  numBits;
+	UInt32  *buffer;
+	UInt32  *currentWord;
+
+	overlap = false;
+	if (bitCount == 0)
+		return (0);
+
+	if ((startBit + bitCount) > gTotalBits) {
+		err = vcInvalidExtentErr;
+		goto Exit;
+	}
+
+	/* decrment allocated bits */
+	gBitsMarked -= bitCount;
+
+	/*
+	 * Get the bitmap segment containing the first word to check
+	 */
+	err = GetSegmentBitmap(startBit, &buffer, kClearingBits);
+	if (err != noErr) goto Exit;
+
+	/* Initialize buffer stuff */
+	{
+		UInt32 wordIndexInSegment;
+
+		wordIndexInSegment = (startBit & kBitsWithinSegmentMask) / kBitsPerWord;
+		currentWord = buffer + wordIndexInSegment;
+		wordsLeft = kWordsPerSegment - wordIndexInSegment;
+	}
+	
+	/*
+	 * If the first bit to check doesn't start on a word
+	 * boundary in the bitmap, then treat that first word
+	 * specially.
+	 */
+	firstBit = startBit % kBitsPerWord;
+	if (firstBit != 0) {
+		bitMask = kAllBitsSetInWord >> firstBit;  // turn off all bits before firstBit
+		numBits = kBitsPerWord - firstBit;	// number of remaining bits in this word
+		if (numBits > bitCount) {
+			numBits = bitCount;	// entire deallocation is inside this one word
+			bitMask &= ~(kAllBitsSetInWord >> (firstBit + numBits)); // turn off bits after last
+		}
+
+		if ((*currentWord & bitMask) != bitMask) {
+			overlap = true;
+
+		//	printf("(1) overlapping file blocks! word: 0x%08x, mask: 0x%08x\n", *currentWord, bitMask);
+		}
+		
+		*currentWord &= ~bitMask;  /* clear the bits in the bitmap */
+		
+		bitCount -= numBits;
+		++currentWord;
+		--wordsLeft;
+		if (wordsLeft == 0 || bitCount == 0)
+			TestSegmentBitmap(startBit);
+	}
+
+	/*
+	 * Clear whole words (32 bits) at a time.
+	 */
+	bitMask = kAllBitsSetInWord;
+	while (bitCount >= kBitsPerWord) {
+		/* See if it's time to move to the next bitmap segment */
+		if (wordsLeft == 0) {
+			startBit += kBitsPerSegment;	 // generate a bit in the next bitmap segment
+			
+			err = GetSegmentBitmap(startBit, &buffer, kClearingBits);
+			if (err != noErr) goto Exit;
+			
+			// Readjust currentWord, wordsLeft
+			currentWord = buffer;
+			wordsLeft = kWordsPerSegment;
+		}
+		
+		if ((*currentWord & bitMask) != bitMask) {
+			overlap = true;
+
+		//	printf("(2) overlapping file blocks! word: 0x%08x, mask: 0x%08x\n", *currentWord, bitMask);
+		}
+		
+		*currentWord &= ~bitMask;  /* clear the bits in the bitmap */
+
+		bitCount -= kBitsPerWord;
+		++currentWord;
+		--wordsLeft;
+		if (wordsLeft == 0 || bitCount == 0)
+			TestSegmentBitmap(startBit);
+	}
+	
+	/*
+	 * Check any remaining bits.
+	 */
+	if (bitCount != 0) {
+		bitMask = ~(kAllBitsSetInWord >> bitCount);	// set first bitCount bits
+		if (wordsLeft == 0) {
+			startBit += kBitsPerSegment;
+			
+			err = GetSegmentBitmap(startBit, &buffer, kClearingBits);
+			if (err != noErr) goto Exit;
+			
+			currentWord = buffer;
+			wordsLeft = kWordsPerSegment;
+		}
+		
+		if ((*currentWord & bitMask) != bitMask) {
+			overlap = true;
+
+		//	printf("(3) overlapping file blocks! word: 0x%08x, mask: 0x%08x\n", *currentWord, bitMask);
+		}
+		
+		*currentWord &= ~bitMask;  /* set the bits in the bitmap */
+
+		TestSegmentBitmap(startBit);
+	}
+Exit:
+	return (overlap ? E_OvlExt : err);
+}
+
+
+/*
  * CheckBitMap
  *
  * Compares the in-memory VBM with the on-disk VBM.
@@ -403,7 +568,8 @@ CheckVolumeBitMap(SGlobPtr g, Boolean repair)
 	UInt8 *vbmBlockP;
 	UInt32 *buffer;
 	UInt32 bit;
-	UInt32 sector;
+	UInt32 bitsWithinFileBlkMask;
+	UInt32 fileBlk;
 	BlockDescriptor block;
 	ReleaseBlockOptions relOpt;
 	SFCB * fcb;
@@ -412,64 +578,68 @@ CheckVolumeBitMap(SGlobPtr g, Boolean repair)
 	
 	vcb = g->calculatedVCB;
 	fcb = g->calculatedAllocationsFCB;
-	vcb->vcbFreeBlocks = vcb->vcbTotalBlocks - gBitsMarked;
+	
+	if ( vcb->vcbFreeBlocks != (vcb->vcbTotalBlocks - gBitsMarked) ) {
+		vcb->vcbFreeBlocks = vcb->vcbTotalBlocks - gBitsMarked;
+		MarkVCBDirty(vcb);
+	}
 
 	vbmBlockP = (UInt8 *)NULL;
 	block.buffer = (void *)NULL;
 	relOpt = kReleaseBlock;
-	sector = (g->isHFSPlus ? 0 : vcb->vcbVBMSt);
+	bitsWithinFileBlkMask = (fcb->fcbBlockSize * 8) - 1;
+	fileBlk = (g->isHFSPlus ? 0 : vcb->vcbVBMSt);
 
 	/* 
 	 * Loop through all the bitmap segments and compare
 	 * them against the on-disk bitmap.
 	 */
 	for (bit = 0; bit < gTotalBits; bit += kBitsPerSegment) {
-		(void) GetSegmentBitmap(bit, &buffer, !kSettingBits);
+		(void) GetSegmentBitmap(bit, &buffer, kTestingBits);
 
 		/* 
-		 * When we cross block boundries read a new block from disk.
+		 * When we cross file block boundries read a new block from disk.
 		 */
-		if ((bit & kBitsWithinSectorMask) == 0) {
+		if ((bit & bitsWithinFileBlkMask) == 0) {
 			if (g->isHFSPlus) {
 				if (block.buffer) {
 					err = ReleaseFileBlock(fcb, &block, relOpt);
 					ReturnIfError(err);
 				}
-				err = GetFileBlock(fcb, sector, kGetBlock, &block);
-	
+				err = GetFileBlock(fcb, fileBlk, kGetBlock, &block);
 			} else /* plain HFS */ {
 				if (block.buffer) {
 					err = ReleaseVolumeBlock(vcb, &block, relOpt);
 					ReturnIfError(err);
 				}
-				err = GetVolumeBlock(vcb, sector, kGetBlock, &block);
+				err = GetVolumeBlock(vcb, fileBlk, kGetBlock, &block);
 			}
 			ReturnIfError(err);
 
 			vbmBlockP = (UInt8 *) block.buffer;
 			relOpt = kReleaseBlock;
-			g->TarBlock = sector;
-			++sector;
+			g->TarBlock = fileBlk;
+			++fileBlk;
 		}
 
-		if (memcmp(buffer, vbmBlockP + (bit & kBitsWithinSectorMask)/8, kBytesPerSegment) == 0)
+		if (memcmp(buffer, vbmBlockP + (bit & bitsWithinFileBlkMask)/8, kBytesPerSegment) == 0)
 			continue;
 			
 		if (repair) {
-			bcopy(buffer, vbmBlockP + (bit & kBitsWithinSectorMask)/8, kBytesPerSegment);
+			bcopy(buffer, vbmBlockP + (bit & bitsWithinFileBlkMask)/8, kBytesPerSegment);
 			relOpt = kForceWriteBlock;
 		} else {
 #if _VBC_DEBUG_
 			int i;
 
-			printf("  disk buffer + %d\n", (bit & kBitsWithinSectorMask)/8);
+			printf("  disk buffer + %d\n", (bit & bitsWithinFileBlkMask)/8);
 			printf("  segment %d\nM ", bit / kBitsPerSegment);
 			for (i = 0; i < kWordsPerSegment; ++i) {
 				printf("0x%08x ", buffer[i]);
 				if ((i & 0x7) == 0x7)
 					printf("\n  ");
 			}
-			buffer = (UInt32*) (vbmBlockP + (bit & kBitsWithinSectorMask)/8);
+			buffer = (UInt32*) (vbmBlockP + (bit & bitsWithinFileBlkMask)/8);
 			printf("\nD ");
 			for (i = 0; i < kWordsPerSegment; ++i) {
 				printf("0x%08x ", buffer[i]);
@@ -585,7 +755,7 @@ BMS_InsertTree(BMS_Node *NewEntry)
 
 /* insert a new segment into the tree */
 static BMS_Node *
-BMS_Insert(UInt32 segment) 
+BMS_Insert(UInt32 segment, int segmentType) 
 {
 	BMS_Node *new; 
 
@@ -601,7 +771,10 @@ BMS_Insert(UInt32 segment)
 
 	new->right = NULL; 
 	new->segment = segment;
-	bzero(new->bitmap, sizeof(new->bitmap));
+	if (segmentType == kFullSegment)
+		bcopy(gFullBitmapSegment, new->bitmap, kBytesPerSegment);
+	else
+		bzero(new->bitmap, sizeof(new->bitmap));	
 
 	if (BMS_InsertTree(new) != NULL)
 		return (new);

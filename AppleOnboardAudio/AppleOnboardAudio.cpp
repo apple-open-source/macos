@@ -314,12 +314,16 @@ bool AppleOnboardAudio::initHardware (IOService *provider){
 	sndHWPostDMAEngineInit (provider);
 
 	// Set the default volume to that stored in the PRAM in case we don't get a setValue call from the Sound prefs before being activated.
-	if (NULL != outVolLeft && NULL != outVolRight) {
+	gExpertMode = TRUE;			// Don't update the PRAM value while we're initing from it
+	if (NULL != outVolLeft) {
 		outVolLeft->setValue (PRAMToVolumeValue ());
+	}
+	if (NULL != outVolRight) {
 		outVolRight->setValue (PRAMToVolumeValue ());
 	}
 
     flushAudioControls ();
+	gExpertMode = FALSE;
 
     publishResource ("setModemSound", this);
 
@@ -343,10 +347,9 @@ IOReturn AppleOnboardAudio::configureDMAEngines(IOService *provider){
     result = kIOReturnError;
 
 	// All this config should go in a single method
-    if(!theAudioDeviceTreeParser)
-        goto EXIT;
+	FailIf (NULL == theAudioDeviceTreeParser, EXIT);
 
-    if (theAudioDeviceTreeParser->getNumberOfInputs() > 0)
+    if (theAudioDeviceTreeParser->getNumberOfInputs () > 0)
         hasInput = true;
     else 
         hasInput = false;
@@ -354,15 +357,14 @@ IOReturn AppleOnboardAudio::configureDMAEngines(IOService *provider){
     driverDMAEngine = new AppleDBDMAAudioDMAEngine;
     // make sure we get an engine
     FailIf (NULL == driverDMAEngine, EXIT);
-    //tell the uber class if it has to worry about reversing the phase of a channel
-    fCPUNeedsPhaseInversion = theAudioDeviceTreeParser->getPhaseInversion();
-    
+
+    // tell the uber class if it has to worry about reversing the phase of a channel
+    fCPUNeedsPhaseInversion = theAudioDeviceTreeParser->getPhaseInversion ();
     // it will be set when the device polling starts
-    driverDMAEngine->setPhaseInversion(false);
+    driverDMAEngine->setPhaseInversion (false);
     
-    if (!driverDMAEngine->init(0, provider, hasInput)) 
-    {
-        driverDMAEngine->release();
+    if (!driverDMAEngine->init (NULL, provider, hasInput)) {
+        driverDMAEngine->release ();
         goto EXIT;
     }
     
@@ -415,7 +417,8 @@ IOReturn AppleOnboardAudio::createDefaultsPorts() {
 												kIOAudioControlUsageOutput);
 			if (NULL != outVolLeft) {
 				driverDMAEngine->addDefaultAudioControl(outVolLeft);
-				outVolLeft->setValueChangeHandler((IOAudioControl::IntValueChangeHandler)volumeLeftChangeHandler, this);
+				outVolLeft->setValueChangeHandler((IOAudioControl::IntValueChangeHandler)volumeChangeHandler, this);
+//				outVolLeft->release ();
 			}
 		
 			outVolRight = IOAudioLevelControl::createVolumeControl(OutmaxLin, OutminLin, OutmaxLin, OutminDB, OutmaxDB,
@@ -425,7 +428,8 @@ IOReturn AppleOnboardAudio::createDefaultsPorts() {
 												kIOAudioControlUsageOutput);
 			if (NULL != outVolRight) {
 				driverDMAEngine->addDefaultAudioControl(outVolRight);
-				outVolRight->setValueChangeHandler((IOAudioControl::IntValueChangeHandler)volumeRightChangeHandler, this);
+				outVolRight->setValueChangeHandler((IOAudioControl::IntValueChangeHandler)volumeChangeHandler, this);
+//				outVolRight->release ();
 			}
 			
 			outMute = IOAudioToggleControl::createMuteControl(false,
@@ -436,6 +440,7 @@ IOReturn AppleOnboardAudio::createDefaultsPorts() {
 			if (NULL != outMute) {
 				driverDMAEngine->addDefaultAudioControl(outMute);
 				outMute->setValueChangeHandler((IOAudioControl::IntValueChangeHandler)outputMuteChangeHandler, this);
+//				outMute->release ();
 			}
 
 			attachAudioPort(outputPort, driverDMAEngine, 0);
@@ -586,29 +591,91 @@ Exit:
 	return theEntry;
 }
 
-IOReturn AppleOnboardAudio::volumeLeftChangeHandler(IOService *target, 
-                    IOAudioControl *volumeControl, SInt32 oldValue, SInt32 newValue){
-    IOReturn result = kIOReturnSuccess;
-    AppleOnboardAudio *audioDevice;
+IOReturn AppleOnboardAudio::volumeChangeHandler (IOService *target, IOAudioControl *volumeControl, SInt32 oldValue, SInt32 newValue) {
+	AppleOnboardAudio *				audioDevice;
+    IOCommandGate *					cg;
+	IOReturn						result;
 
-    DEBUG_IOLOG("+ AppleOnboardAudio::volumeLeftChangeHandler\n");
+	result = kIOReturnError;
+	audioDevice = OSDynamicCast (AppleOnboardAudio, target);
+	FailIf (NULL == audioDevice, Exit);
 
-    audioDevice = (AppleOnboardAudio *)target;
-    if(!audioDevice)
-        goto BAIL;
-    result = audioDevice->volumeLeftChanged(volumeControl, oldValue, newValue);
+	cg = audioDevice->getCommandGate ();
+	if (NULL != cg) {
+		result = cg->runAction (volumeChangeAction, (void *)volumeControl, (void *)oldValue, (void *)newValue);
+	}
 
-EXIT:
-    DEBUG2_IOLOG("- AppleOnboardAudio::volumeLeftChangeHandler, %d\n", 
-                                                (result == kIOReturnSuccess));
-    return result;
-BAIL:
-    result = kIOReturnError;
-    goto EXIT;
+Exit:
+	return result;
 }
 
-IOReturn AppleOnboardAudio::volumeLeftChanged(IOAudioControl *volumeControl, 
-                    SInt32 oldValue, SInt32 newValue){
+IOReturn AppleOnboardAudio::volumeChangeAction (OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4) {
+	IOReturn						result = kIOReturnError;
+	AppleOnboardAudio *				audioDevice;
+	IOAudioLevelControl *			levelControl;
+
+	audioDevice = OSDynamicCast (AppleOnboardAudio, owner);
+	FailIf (NULL == audioDevice, Exit);
+	levelControl = OSDynamicCast (IOAudioLevelControl, (IOAudioControl *)arg1);
+	FailIf (NULL == levelControl, Exit);
+
+    switch (levelControl->getSubType ()) {
+		case kIOAudioLevelControlSubTypeVolume:
+			switch (levelControl->getChannelID ()) {
+				case kIOAudioControlChannelIDDefaultLeft:
+					result = volumeLeftChangeHandler ((IOService *)owner, (IOAudioControl *)arg1, (SInt32)arg2, (SInt32)arg3);
+					break;
+				case kIOAudioControlChannelIDDefaultRight:
+					result = volumeRightChangeHandler ((IOService *)owner, (IOAudioControl *)arg1, (SInt32)arg2, (SInt32)arg3);
+					break;
+			}
+			break;
+		case kIOAudioToggleControlSubTypeMute:
+			result = outputMuteChangeHandler ((IOService *)owner, (IOAudioControl *)arg1, (SInt32)arg2, (SInt32)arg3);
+			break;
+		default:
+			result = kIOReturnBadArgument;
+	}
+
+Exit:
+	return result;
+}
+
+IOReturn AppleOnboardAudio::volumeLeftChangeHandler(IOService *target, IOAudioControl *volumeControl, SInt32 oldValue, SInt32 newValue){
+	IOReturn						result = kIOReturnSuccess;
+	AppleOnboardAudio *				audioDevice;
+	IOAudioLevelControl *			levelControl;
+
+	DEBUG_IOLOG("+ AppleOnboardAudio::volumeLeftChangeHandler\n");
+
+	audioDevice = OSDynamicCast (AppleOnboardAudio, target);
+	if(!audioDevice)
+		goto BAIL;
+
+	levelControl = OSDynamicCast (IOAudioLevelControl, volumeControl);
+	FailIf (NULL == levelControl, EXIT);
+	result = audioDevice->volumeLeftChanged(volumeControl, oldValue, newValue);
+
+	if (newValue == levelControl->getMinValue () && (NULL == audioDevice->outVolRight || (NULL != audioDevice->outVolRight && audioDevice->outVolRight->getMinValue () == audioDevice->outVolRight->getIntValue ()))) {
+		// If it's set to it's min, then it's mute, so tell the HAL it's muted
+		OSNumber *			muteState;
+		muteState = OSNumber::withNumber (1, 32);
+		audioDevice->outMute->hardwareValueChanged (muteState);
+	} else if (oldValue == levelControl->getMinValue () && FALSE == audioDevice->gIsMute) {
+		OSNumber *			muteState;
+		muteState = OSNumber::withNumber ((long long unsigned int)0, 32);
+		audioDevice->outMute->hardwareValueChanged (muteState);
+	}
+
+EXIT:
+	DEBUG2_IOLOG("- AppleOnboardAudio::volumeLeftChangeHandler, %d\n", (result == kIOReturnSuccess));
+	return result;
+BAIL:
+	result = kIOReturnError;
+	goto EXIT;
+}
+
+IOReturn AppleOnboardAudio::volumeLeftChanged(IOAudioControl *volumeControl, SInt32 oldValue, SInt32 newValue){
                     
     IOReturn result = kIOReturnSuccess;
     AudioHardwareOutput *theOutput;
@@ -627,20 +694,26 @@ IOReturn AppleOnboardAudio::volumeLeftChanged(IOAudioControl *volumeControl,
         if( theOutput) theOutput->setVolume(newValue, gVolRight);
     }
 
-    start = childFromPath ("AppleDBDMAAudioDMAEngine", gIOServicePlane);
-    FAIL_IF (NULL == start, Exit);
+	if (NULL != driverDMAEngine->iSubBufferMemory) {
+		start = childFromPath ("AppleDBDMAAudioDMAEngine", gIOServicePlane);
+		FAIL_IF (NULL == start, Exit);
 
-    iSubLeftVolume = (IOAudioLevelControl *)FindEntryByNameAndProperty (start, "AppleUSBAudioLevelControl", kIOAudioControlSubTypeKey, 'subL');
-    start->release ();
-
-    FAIL_IF (NULL == iSubLeftVolume, Exit);
-    newiSubVolume = (newValue * 60) / ((IOAudioLevelControl *)volumeControl)->getMaxValue ();
-    iSubLeftVolume->setValue (newiSubVolume);
-    iSubLeftVolume->release();
+		iSubLeftVolume = (IOAudioLevelControl *)FindEntryByNameAndProperty (start, "AppleUSBAudioLevelControl", kIOAudioControlSubTypeKey, 'subL');
+		start->release ();
+	
+		if (NULL != iSubLeftVolume) {
+			newiSubVolume = ((newValue * kiSubMaxVolume) / ((IOAudioLevelControl *)volumeControl)->getMaxValue ()) * kiSubVolumePercent / 100;
+			iSubLeftVolume->setValue (newiSubVolume);
+			iSubLeftVolume->release();
+		}
+	}
 
 Exit:
-    if(!gExpertMode)				//We do that only if we are on a OS 9 like UI guideline
+	debug2IOLog ( "AppleOnboardAudio::volumeLeftChanged say's gExpertMode = %d\n", (unsigned int)gExpertMode );
+    if(!gExpertMode) {				//We do that only if we are on a OS 9 like UI guideline
+		debug3IOLog ( "AppleOnboardAudio::volumeLeftChanged invokes WritePRAMVol( %d, %d)\n", (unsigned int)gVolLeft, (unsigned int)gVolRight );
         WritePRAMVol(gVolLeft,gVolRight);
+	}
 EXIT:
     DEBUG2_IOLOG("- AppleOnboardAudio::volumeLeftChanged, %d\n", (result == kIOReturnSuccess));
     return result;
@@ -651,25 +724,38 @@ BAIL:
 }
 
     
-IOReturn AppleOnboardAudio::volumeRightChangeHandler(IOService *target, 
-            IOAudioControl *volumeControl, SInt32 oldValue, SInt32 newValue){
-    IOReturn result = kIOReturnSuccess;
-    AppleOnboardAudio *audioDevice;
+IOReturn AppleOnboardAudio::volumeRightChangeHandler(IOService *target, IOAudioControl *volumeControl, SInt32 oldValue, SInt32 newValue){
+	IOReturn						result = kIOReturnSuccess;
+	AppleOnboardAudio *				audioDevice;
+	IOAudioLevelControl *			levelControl;
 
-    DEBUG_IOLOG("+ AppleOnboardAudio::volumeRightChangeHandler\n");
+	DEBUG_IOLOG("+ AppleOnboardAudio::volumeRightChangeHandler\n");
 
-    audioDevice = (AppleOnboardAudio *)target;
-    if(!audioDevice)
-        goto BAIL;
-    result = audioDevice->volumeRightChanged(volumeControl, oldValue, newValue);
+	audioDevice = OSDynamicCast (AppleOnboardAudio, target);
+	if(!audioDevice)
+		goto BAIL;
+
+	levelControl = OSDynamicCast (IOAudioLevelControl, volumeControl);
+	FailIf (NULL == levelControl, EXIT);
+	result = audioDevice->volumeRightChanged(volumeControl, oldValue, newValue);
+
+	if (newValue == levelControl->getMinValue () && (NULL == audioDevice->outVolLeft || (NULL != audioDevice->outVolLeft && audioDevice->outVolLeft->getMinValue () == audioDevice->outVolLeft->getIntValue ()))) {
+		// If it's set to it's min, then it's mute, so tell the HAL it's muted
+		OSNumber *			muteState;
+		muteState = OSNumber::withNumber (1, 32);
+		audioDevice->outMute->hardwareValueChanged (muteState);
+	} else if (oldValue == levelControl->getMinValue () && FALSE == audioDevice->gIsMute) {
+		OSNumber *			muteState;
+		muteState = OSNumber::withNumber ((long long unsigned int)0, 32);
+		audioDevice->outMute->hardwareValueChanged (muteState);
+	}
 
 EXIT:
-    DEBUG2_IOLOG("- AppleOnboardAudio::volumeRightChangeHandler, %d\n", 
-                                                    (result == kIOReturnSuccess));
-    return result;
+	DEBUG2_IOLOG("- AppleOnboardAudio::volumeRightChangeHandler, result = %d\n", kIOReturnSuccess);
+	return result;
 BAIL:
-    result = kIOReturnError;
-    goto EXIT;
+	result = kIOReturnError;
+	goto EXIT;
 }
 
 IOReturn AppleOnboardAudio::volumeRightChanged(IOAudioControl *volumeControl, SInt32 oldValue, SInt32 newValue){
@@ -690,21 +776,26 @@ IOReturn AppleOnboardAudio::volumeRightChanged(IOAudioControl *volumeControl, SI
         if( theOutput) theOutput->setVolume(gVolLeft, newValue);
     }
 
-    start = childFromPath ("AppleDBDMAAudioDMAEngine", gIOServicePlane);
-    FAIL_IF (NULL == start, Exit);
+	if (NULL != driverDMAEngine->iSubBufferMemory) {
+		start = childFromPath ("AppleDBDMAAudioDMAEngine", gIOServicePlane);
+		FAIL_IF (NULL == start, Exit);
 
-    iSubRightVolume = (IOAudioLevelControl *)FindEntryByNameAndProperty (start, "AppleUSBAudioLevelControl", kIOAudioControlSubTypeKey, 'subR');
-    start->release ();
+		iSubRightVolume = (IOAudioLevelControl *)FindEntryByNameAndProperty (start, "AppleUSBAudioLevelControl", kIOAudioControlSubTypeKey, 'subR');
+		start->release ();
 
-    FAIL_IF (NULL == iSubRightVolume, Exit);
-    newiSubVolume = (newValue * 60) / ((IOAudioLevelControl *)volumeControl)->getMaxValue ();
-    iSubRightVolume->setValue (newiSubVolume);
-    iSubRightVolume->release();
-
+		if (NULL != iSubRightVolume) {
+			newiSubVolume = ((newValue * kiSubMaxVolume) / ((IOAudioLevelControl *)volumeControl)->getMaxValue ()) * kiSubVolumePercent / 100;
+			iSubRightVolume->setValue (newiSubVolume);
+			iSubRightVolume->release();
+		}
+	}
 
 Exit:
-    if(!gExpertMode)				//We do that only if we are on a OS 9 like UI guideline
+	debug2IOLog ( "AppleOnboardAudio::volumeRightChanged say's gExpertMode = %d\n", (unsigned int)gExpertMode );
+    if(!gExpertMode) {				//We do that only if we are on a OS 9 like UI guideline
+		debug3IOLog ( "AppleOnboardAudio::volumeRightChanged invokes WritePRAMVol( %d, %d)\n", (unsigned int)gVolLeft, (unsigned int)gVolRight );
         WritePRAMVol(gVolLeft,gVolRight);
+	}
 EXIT:
     DEBUG2_IOLOG("- AppleOnboardAudio::volumeRightChanged, %d\n", (result == kIOReturnSuccess));
     return result;
@@ -752,11 +843,15 @@ IOReturn AppleOnboardAudio::outputMuteChanged(IOAudioControl *muteControl, SInt3
         if( theOutput) theOutput->setMute(newValue);
     }
     
+	debug2IOLog ( "AppleOnboardAudio::outputMuteChanged say's gExpertMode = %d\n", (unsigned int)gExpertMode );
     if(!gExpertMode) {		
-        if (newValue)
+        if (newValue) {
+			debugIOLog( "AppleOnboardAudio::outputMuteChanged invokes WritePRAMVol(0,0)\n" );
             WritePRAMVol(0,0);
-        else
+        } else {
+			debug3IOLog ( "AppleOnboardAudio::outputMuteChanged invokes WritePRAMVol( %d, %d)\n", (unsigned int)gVolLeft, (unsigned int)gVolRight );
             WritePRAMVol(gVolLeft,gVolRight);
+		}
     }
     
     start = childFromPath ("AppleDBDMAAudioDMAEngine", gIOServicePlane);
@@ -764,9 +859,10 @@ IOReturn AppleOnboardAudio::outputMuteChanged(IOAudioControl *muteControl, SInt3
     iSubMute = (IOAudioToggleControl *)FindEntryByNameAndProperty (start, "AppleUSBAudioMuteControl", kIOAudioControlSubTypeKey, 'subM');
     start->release ();
 
-    FAIL_IF (NULL == iSubMute, EXIT);
-    iSubMute->setValue (newValue);
-    iSubMute->release();
+	if ( NULL != iSubMute ) {
+		iSubMute->setValue (newValue);
+		iSubMute->release();
+	}
     
 EXIT:
     DEBUG2_IOLOG("- AppleOnboardAudio::outputMuteChanged, %d\n", (result == kIOReturnSuccess));
@@ -1162,30 +1258,70 @@ IOReturn AppleOnboardAudio::callPlatformFunction( const OSSymbol * functionName,
 #pragma mark +PRAM VOLUME
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //	Calculates the PRAM volume value for stereo volume.
-UInt8 AppleOnboardAudio::VolumeToPRAMValue (UInt32 leftVol, UInt32 rightVol) {
+UInt8 AppleOnboardAudio::VolumeToPRAMValue (UInt32 inLeftVol, UInt32 inRightVol) {
 	UInt32			pramVolume;						// Volume level to store in PRAM
 	UInt32 			averageVolume;					// summed volume
-    const UInt32 	volumeRange = (fMaxVolume - fMinVolume+1);
+    UInt32		 	volumeRange;
     UInt32 			volumeSteps;
+	UInt32			leftVol;
+	UInt32			rightVol;
 
-	averageVolume = (leftVol + rightVol) >> 1;		// sum the channel volumes and get an average
-    volumeSteps = volumeRange / kMaximumPRAMVolume;	// divide the range by the range of the pramVolume
-    pramVolume = averageVolume / volumeSteps;    
-
-	// Since the volume level in PRAM is only worth three bits,
-	// we round small values up to 1. This avoids SysBeep from
-	// flashing the menu bar when it thinks sound is off and
-	// should really just be very quiet.
-
-	if ((pramVolume == 0) && (leftVol != 0 || rightVol !=0 ))
-		pramVolume = 1;
-
+	debug3IOLog ( "AppleOnboardAudio::VolumeToPRAMValue ( 0x%X, 0x%X )\n", (unsigned int)inLeftVol, (unsigned int)inRightVol );
+	pramVolume = 0;											//	[2886446]	Always pass zero as a result when muting!!!
+	if ( ( 0 != inLeftVol ) || ( 0 != inRightVol ) ) {		//	[2886446]
+		leftVol = inLeftVol;
+		rightVol = inRightVol;
+		if (NULL != outVolLeft) {
+			leftVol -= outVolLeft->getMinValue ();
+			debug2IOLog ( "AppleOnboardAudio::VolumeToPRAMValue leftVol = 0x%X\n", (unsigned int)leftVol );
+		}
+	
+		if (NULL != outVolRight) {
+			rightVol -= outVolRight->getMinValue ();
+			debug2IOLog ( "AppleOnboardAudio::VolumeToPRAMValue rightVol = 0x%X\n", (unsigned int)rightVol );
+		}
+	
+		if (NULL != outVolLeft) {
+			volumeRange = (outVolLeft->getMaxValue () - outVolLeft->getMinValue () + 1);
+			debug2IOLog ( "AppleOnboardAudio::VolumeToPRAMValue outVolLeft volumeRange = 0x%X\n", (unsigned int)volumeRange );
+		} else if (NULL != outVolRight) {
+			volumeRange = (outVolRight->getMaxValue () - outVolRight->getMinValue () + 1);
+			debug2IOLog ( "AppleOnboardAudio::VolumeToPRAMValue outVolRight volumeRange = 0x%X\n", (unsigned int)volumeRange );
+		} else {
+			volumeRange = kMaximumPRAMVolume;
+			debug2IOLog ( "AppleOnboardAudio::VolumeToPRAMValue volumeRange = 0x%X\n", (unsigned int)volumeRange );
+		}
+	
+		averageVolume = (leftVol + rightVol) >> 1;		// sum the channel volumes and get an average
+		debug2IOLog ( "AppleOnboardAudio::VolumeToPRAMValue averageVolume = 0x%X\n", (unsigned int)volumeRange );
+		volumeSteps = volumeRange / kMaximumPRAMVolume;	// divide the range by the range of the pramVolume
+		pramVolume = averageVolume / volumeSteps;    
+	
+		// Since the volume level in PRAM is only worth three bits,
+		// we round small values up to 1. This avoids SysBeep from
+		// flashing the menu bar when it thinks sound is off and
+		// should really just be very quiet.
+	
+		if ((pramVolume == 0) && (leftVol != 0 || rightVol !=0 )) {
+			pramVolume = 1;
+		}
+	
+	}
+	debug2IOLog ( "AppleOnboardAudio::VolumeToPRAMValue returns 0x%X\n", (unsigned int)pramVolume );
 	return (pramVolume & 0x07);
 }
 
 UInt32 AppleOnboardAudio::PRAMToVolumeValue (void) {
-	const UInt32 	volumeRange = (fMaxVolume - fMinVolume + 1);
+	UInt32		 	volumeRange;
 	UInt32 			volumeSteps;
+
+	if (NULL != outVolLeft) {
+		volumeRange = (outVolLeft->getMaxValue () - outVolLeft->getMinValue () + 1);
+	} else if (NULL != outVolRight) {
+		volumeRange = (outVolRight->getMaxValue () - outVolRight->getMinValue () + 1);
+	} else {
+		volumeRange = kMaximumPRAMVolume;
+	}
 
 	volumeSteps = volumeRange / kMaximumPRAMVolume;	// divide the range by the range of the pramVolume
 
@@ -1196,26 +1332,51 @@ void AppleOnboardAudio::WritePRAMVol (UInt32 leftVol, UInt32 rightVol) {
 	UInt8						pramVolume;
 	UInt8 						curPRAMVol;
 	IODTPlatformExpert * 		platform;
+	IOReturn					err;
 		
 	platform = OSDynamicCast(IODTPlatformExpert,getPlatform());
     
     debug3IOLog("AppleOnboardAudio::WritePRAMVol leftVol=%lu, rightVol=%lu\n",leftVol,  rightVol);
     
     if (platform) {
+		debug2IOLog ( "AppleOnboardAudio::WritePRAMVol platform 0x%X\n", (unsigned int)platform );
 		pramVolume = VolumeToPRAMValue(leftVol,rightVol);
+		curPRAMVol = pramVolume ^ 0xFF;
+		debug3IOLog ( "AppleOnboardAudio::WritePRAMVol target pramVolume = 0x%X, curPRAMVol = 0x%X\n", pramVolume, curPRAMVol );
 		
 		// get the old value to compare it with
-		platform->readXPRAM((IOByteCount)kPRamVolumeAddr, &curPRAMVol, (IOByteCount)1);
-		
-		// Update only if there is a change
-		if (pramVolume != (curPRAMVol & 0x07)) {
-			// clear bottom 3 bits of volume control byte from PRAM low memory image
-			curPRAMVol = (curPRAMVol & 0xF8) | pramVolume;
-            debug2IOLog("AppleOnboardAudio::WritePRAMVol curPRAMVol=0x%x\n",curPRAMVol);
-
-			// write out the volume control byte to PRAM
-			platform->writeXPRAM((IOByteCount)kPRamVolumeAddr, &curPRAMVol,(IOByteCount) 1);
+		err = platform->readXPRAM((IOByteCount)kPRamVolumeAddr, &curPRAMVol, (IOByteCount)1);
+		if ( kIOReturnSuccess == err ) {
+			debug2IOLog ( "AppleOnboardAudio::WritePRAMVol curPRAMVol = 0x%X before write\n", (curPRAMVol & 0x07) );
+			// Update only if there is a change
+			if (pramVolume != (curPRAMVol & 0x07)) {
+				// clear bottom 3 bits of volume control byte from PRAM low memory image
+				curPRAMVol = (curPRAMVol & 0xF8) | pramVolume;
+				debug2IOLog("AppleOnboardAudio::WritePRAMVol curPRAMVol = 0x%x\n",curPRAMVol);
+				// write out the volume control byte to PRAM
+				err = platform->writeXPRAM((IOByteCount)kPRamVolumeAddr, &curPRAMVol,(IOByteCount) 1);
+				if ( kIOReturnSuccess != err ) {
+					debug5IOLog ( "0x%X = platform->writeXPRAM( 0x%X, & 0x%X, 1 ), value = 0x%X\n", err, (unsigned int)kPRamVolumeAddr, (unsigned int)&curPRAMVol, (unsigned int)curPRAMVol );
+				} else {
+					err = platform->readXPRAM((IOByteCount)kPRamVolumeAddr, &curPRAMVol, (IOByteCount)1);
+					if ( kIOReturnSuccess == err ) {
+						if ( ( 0x07 & curPRAMVol ) != pramVolume ) {
+							debug3IOLog ( "PRAM Read after Write did not compare:  Write = 0x%X, Read = 0x%X\n", (unsigned int)pramVolume, (unsigned int)curPRAMVol );
+						} else {
+							debugIOLog ( "PRAM verified after write!\n" );
+						}
+					} else {
+						debugIOLog ( "Could not readXPRAM to verify write!\n" );
+					}
+				}
+			} else {
+				debugIOLog ( "PRAM write request is to current value: no I/O\n" );
+			}
+		} else {
+			debug2IOLog ( "Could not readXPRAM prior to write! Error 0x%X\n", err );
 		}
+	} else {
+		debugIOLog ( "AppleOnboardAudio::WritePRAMVol say's no platform\n" );
 	}
 }
 
@@ -1233,3 +1394,493 @@ UInt8 AppleOnboardAudio::ReadPRAMVol (void) {
 
 	return curPRAMVol;
 }
+
+/*
+		User Client stuff
+*/
+
+//===========================================================================================================================
+//	newUserClient
+//===========================================================================================================================
+
+IOReturn AppleOnboardAudio::newUserClient( task_t 			inOwningTask,
+										 void *				inSecurityID,
+										 UInt32 			inType,
+										 IOUserClient **	outHandler )
+{
+	#pragma unused( inType )
+	
+    IOReturn 			err;
+    IOUserClient *		userClientPtr;
+    bool				result;
+	
+	IOLog( "[AppleOnboardAudio] creating user client for task 0x%08lX\n", ( UInt32 ) inOwningTask );
+	
+	// Create the user client object.
+	
+	err = kIOReturnNoMemory;
+	userClientPtr = AppleOnboardAudioUserClient::Create( this, inOwningTask );
+	if( !userClientPtr ) goto exit;
+    
+	// Set up the user client.
+	
+	err = kIOReturnError;
+	result = userClientPtr->attach( this );
+	if( !result ) goto exit;
+
+	result = userClientPtr->start( this );
+	if( !result ) goto exit;
+	
+	// Success.
+	
+    *outHandler = userClientPtr;
+	err = kIOReturnSuccess;
+	
+exit:
+	IOLog( "[AppleOnboardAudio] newUserClient done (err=%d)\n", err );
+	if( err != kIOReturnSuccess )
+	{
+		if( userClientPtr )
+		{
+			userClientPtr->detach( this );
+			userClientPtr->release();
+		}
+	}
+	return( err );
+}
+
+#if 0
+#pragma mark -
+#endif
+
+//===========================================================================================================================
+//	Static member variables
+//===========================================================================================================================
+
+///
+/// Method Table
+///
+
+const IOExternalMethod		AppleOnboardAudioUserClient::sMethods[] =
+{
+	//	Read
+	
+	{
+		NULL,														// object
+		( IOMethod ) &AppleOnboardAudioUserClient::gpioRead,		// func
+		kIOUCScalarIScalarO,										// flags
+		1,															// count of input parameters
+		1															// count of output parameters
+	},
+	
+	//	Write
+	
+	{
+		NULL,														// object
+		( IOMethod ) &AppleOnboardAudioUserClient::gpioWrite,		// func
+		kIOUCScalarIScalarO,										// flags
+		2,															// count of input parameters
+		0															// count of output parameters
+	},
+
+	// gpioGetActiveState
+
+	{
+		NULL,														// object
+		( IOMethod ) &AppleOnboardAudioUserClient::gpioGetActiveState,		// func
+		kIOUCScalarIScalarO,										// flags
+		1,															// count of input parameters
+		1															// count of output parameters
+	},
+};
+
+const IOItemCount		AppleOnboardAudioUserClient::sMethodCount = sizeof( AppleOnboardAudioUserClient::sMethods ) / 
+																  sizeof( AppleOnboardAudioUserClient::sMethods[ 0 ] );
+
+OSDefineMetaClassAndStructors( AppleOnboardAudioUserClient, IOUserClient )
+
+//===========================================================================================================================
+//	Create
+//===========================================================================================================================
+
+AppleOnboardAudioUserClient *	AppleOnboardAudioUserClient::Create( AppleOnboardAudio *inDriver, task_t inTask )
+{
+    AppleOnboardAudioUserClient *		userClient;
+    
+    userClient = new AppleOnboardAudioUserClient;
+	if( !userClient )
+	{
+		IOLog( "[AppleOnboardAudio] create user client object failed\n" );
+		goto exit;
+	}
+    
+    if( !userClient->initWithDriver( inDriver, inTask ) )
+	{
+		IOLog( "[AppleOnboardAudio] initWithDriver failed\n" );
+		
+		userClient->release();
+		userClient = NULL;
+		goto exit;
+	}
+	
+	IOLog( "[AppleOnboardAudio] User client created for task 0x%08lX\n", ( UInt32 ) inTask );
+	
+exit:
+	return( userClient );
+}
+
+//===========================================================================================================================
+//	initWithDriver
+//===========================================================================================================================
+
+bool	AppleOnboardAudioUserClient::initWithDriver( AppleOnboardAudio *inDriver, task_t inTask )
+{
+	bool		result;
+	
+	IOLog( "[AppleOnboardAudio] initWithDriver\n" );
+	
+	result = false;
+    if( !initWithTask( inTask, NULL, 0 ) )
+	{
+		IOLog( "[AppleOnboardAudio] initWithTask failed\n" );
+		goto exit;
+    }
+    if( !inDriver )
+	{
+		IOLog( "[AppleOnboardAudio] initWithDriver failed (null input driver)\n" );
+        goto exit;
+    }
+    
+    mDriver 	= inDriver;
+    mClientTask = inTask;
+    result		= true;
+	
+exit:
+	return( result );
+}
+
+//===========================================================================================================================
+//	free
+//===========================================================================================================================
+
+void	AppleOnboardAudioUserClient::free( void )
+{
+	IOLog( "[AppleOnboardAudio] free\n" );
+	
+    IOUserClient::free();
+}
+
+//===========================================================================================================================
+//	clientClose
+//===========================================================================================================================
+
+IOReturn	AppleOnboardAudioUserClient::clientClose( void )
+{
+	IOLog( "[AppleOnboardAudio] clientClose\n" );
+	
+    if( !isInactive() )
+	{
+        mDriver = NULL;
+    }
+    return( kIOReturnSuccess );
+}
+
+//===========================================================================================================================
+//	clientDied
+//===========================================================================================================================
+
+IOReturn	AppleOnboardAudioUserClient::clientDied( void )
+{
+	IOLog( "[AppleOnboardAudio] clientDied\n" );
+	
+    return( clientClose() );
+}
+
+//===========================================================================================================================
+//	getTargetAndMethodForIndex
+//===========================================================================================================================
+
+IOExternalMethod *	AppleOnboardAudioUserClient::getTargetAndMethodForIndex( IOService **outTarget, UInt32 inIndex )
+{
+	IOExternalMethod *		methodPtr;
+	
+	methodPtr = NULL;
+	if( inIndex <= sMethodCount )
+    {
+        *outTarget = this;
+		methodPtr = ( IOExternalMethod * ) &sMethods[ inIndex ];
+    }
+	else
+	{
+		IOLog( "[AppleOnboardAudio] getTargetAndMethodForIndex - bad index (index=%lu)\n", inIndex );
+	}
+	return( methodPtr );
+}
+
+//===========================================================================================================================
+//	gpioRead
+//===========================================================================================================================
+
+IOReturn	AppleOnboardAudioUserClient::gpioRead (UInt32 selector, UInt8 * gpioState)
+{
+	IOReturn		err;
+
+#ifdef DEBUGMODE
+	IOLog ("gpioRead (selector=%4s, gpioState=0x%p)\n", (char *)&selector, gpioState);
+#endif
+
+	err = kIOReturnNotReadable;
+
+	FailIf (NULL == mDriver, Exit);
+	*gpioState = mDriver->readGPIO (selector);
+
+#ifdef DEBUGMODE
+	IOLog ("gpioRead gpioState=0x%x\n", *gpioState);
+#endif
+
+	err = kIOReturnSuccess;
+
+Exit:
+	return (err);
+}
+
+//===========================================================================================================================
+//	gpioWrite
+//===========================================================================================================================
+
+IOReturn	AppleOnboardAudioUserClient::gpioWrite (UInt32 selector, UInt8 value)
+{
+	IOReturn		err;
+
+#ifdef DEBUGMODE
+	IOLog ( "gpioWrite (selector=%4s, value=0x%x)\n", (char *)&selector, value);
+#endif
+
+	err = kIOReturnNotReadable;
+
+	FailIf (NULL == mDriver, Exit);
+	mDriver->writeGPIO (selector, value);
+
+	err = kIOReturnSuccess;
+
+Exit:
+	return (err);
+}
+
+//===========================================================================================================================
+//	gpioGetActiveState
+//===========================================================================================================================
+
+IOReturn	AppleOnboardAudioUserClient::gpioGetActiveState (UInt32 selector, UInt8 * gpioActiveState)
+{
+	IOReturn		err;
+
+#ifdef DEBUGMODE
+	IOLog ("gpioGetActiveState (selector=%4s, gpioActiveState=0x%p)\n", (char *)&selector, gpioActiveState);
+#endif
+
+	err = kIOReturnNotReadable;
+
+	FailIf (NULL == mDriver, Exit);
+	*gpioActiveState = mDriver->getGPIOActiveState (selector);
+
+#ifdef DEBUGMODE
+	IOLog ("gpioGetActiveState gpioState=0x%x\n", *gpioActiveState);
+#endif
+
+	err = kIOReturnSuccess;
+
+Exit:
+	return (err);
+}
+
+#if 0
+/*
+		The following code goes into whatever application wants to call into AppleOnboardAudio
+*/
+
+//===========================================================================================================================
+//	Private constants
+//===========================================================================================================================
+
+enum
+{
+	kgpioReadIndex	 		= 0,
+	kgpioWriteIndex 		= 1
+};
+
+//===========================================================================================================================
+//	Private prototypes
+//===========================================================================================================================
+
+static IOReturn	SetupUserClient( void );
+static void		TearDownUserClient( void );
+
+//===========================================================================================================================
+//	Globals
+//===========================================================================================================================
+
+static mach_port_t		gMasterPort		= 0;
+static io_object_t		gDriverObject	= 0;
+static io_connect_t		gDataPort 		= 0;
+
+//===========================================================================================================================
+//	SetupUserClient
+//===========================================================================================================================
+
+static IOReturn	SetupUserClient( void )
+{
+	IOReturn			err;
+	CFDictionaryRef		matchingDictionary;
+	io_iterator_t		serviceIter;
+	
+	// Initialize variables for easier cleanup.
+	
+	err					= kIOReturnSuccess;
+	matchingDictionary 	= NULL;
+	serviceIter			= NULL;
+	
+	// Exit quickly if we're already set up.
+	
+	if( gDataPort )
+	{
+		goto exit;
+	}
+	
+	// Get a port so we can communicate with IOKit.
+	
+	err = IOMasterPort( NULL, &gMasterPort );
+	if( err != kIOReturnSuccess ) goto exit;
+	
+	// Build a dictionary of all the services matching our service name. Note that we do not release the dictionary
+	// if IOServiceGetMatchingServices succeeds because it does the release itself.
+	
+	err = kIOReturnNotFound;
+	matchingDictionary = IOServiceNameMatching( "AppleTexasAudio" );
+	if( !matchingDictionary ) goto exit;
+	
+	err = IOServiceGetMatchingServices( gMasterPort, matchingDictionary, &serviceIter );
+	if( err != kIOReturnSuccess ) goto exit;
+	matchingDictionary = NULL;
+	
+	err = kIOReturnNotFound;
+	gDriverObject = IOIteratorNext( serviceIter );
+	if( !gDriverObject ) goto exit;
+	
+	// Open a connection to our service so we can talk to it.
+	
+	err = IOServiceOpen( gDriverObject, mach_task_self(), 0, &gDataPort );
+	if( err != kIOReturnSuccess ) goto exit;
+	
+	// Success. Clean up stuff and we're done.
+	
+exit:
+	if( serviceIter )
+	{
+		IOObjectRelease( serviceIter );
+	}
+	if( matchingDictionary )
+	{
+		CFRelease( matchingDictionary );
+	}
+	if( err != kIOReturnSuccess )
+	{
+		TearDownUserClient();
+	}
+	return( err );
+}
+
+//===========================================================================================================================
+//	TearDownUserClient
+//===========================================================================================================================
+
+static void	TearDownUserClient( void )
+{
+	if( gDataPort )
+	{
+		IOServiceClose( gDataPort );
+		gDataPort = 0;
+	}
+	if( gDriverObject )
+	{
+		IOObjectRelease( gDriverObject );
+		gDriverObject = NULL;
+	}
+	if( gMasterPort )
+	{
+		mach_port_deallocate( mach_task_self(), gMasterPort );
+		gMasterPort = 0;
+	}
+}
+
+#if 0
+#pragma mark -
+#endif
+
+//===========================================================================================================================
+//	gpioRead
+//===========================================================================================================================
+
+OSStatus	gpioRead( UInt32 selector, UInt8 * gpioState )
+{	
+	OSStatus		err;
+	
+	// Set up user client if not already set up.
+	
+	err = SetupUserClient();
+	if( err != noErr ) goto exit;
+	
+	// RPC to the kernel.
+	
+	err = IOConnectMethodScalarIScalarO( gDataPort, kgpioReadIndex, 1, 1, selector, gpioState );
+	if( err != noErr ) goto exit;
+	
+exit:
+	return( err );
+}
+
+//===========================================================================================================================
+//	gpioWrite
+//===========================================================================================================================
+
+OSStatus	gpioWrite( UInt32 selector, UInt8 value )
+{	
+	OSStatus		err;
+	
+	// Set up user client if not already set up.
+	
+	err = SetupUserClient();
+	if( err != noErr ) goto exit;
+	
+	// RPC to the kernel.
+	
+	err = IOConnectMethodScalarIScalarO( gDataPort, kgpioWriteIndex, 2, 0, selector, gpioState );
+	if( err != noErr ) goto exit;
+	
+exit:
+	return( err );
+}
+
+//===========================================================================================================================
+//	getGPIOAddress
+//===========================================================================================================================
+
+OSStatus	gpioGetAddress( UInt32 selector, UInt8 ** gpioAddress )
+{
+	OSStatus		err;
+	
+	// Set up user client if not already set up.
+	
+	err = SetupUserClient();
+	if( err != noErr ) goto exit;
+	
+	// RPC to the kernel.
+	
+	err = IOConnectMethodScalarIScalarO( gDataPort, kgpiogetAddressIndex, 2, selector, gpioAddress );
+	if( err != noErr ) goto exit;
+	
+exit:
+	return( err );
+}
+
+#endif

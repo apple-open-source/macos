@@ -1,6 +1,6 @@
 PUSHDIVERT(-1)
 #
-# Copyright (c) 1998, 1999 Sendmail, Inc. and its suppliers.
+# Copyright (c) 1998-2001 Sendmail, Inc. and its suppliers.
 #	All rights reserved.
 # Copyright (c) 1983 Eric P. Allman.  All rights reserved.
 # Copyright (c) 1988, 1993
@@ -12,12 +12,10 @@ PUSHDIVERT(-1)
 #
 #
 
-ifdef(`_MAILER_local_', `',
-	`errprint(`*** MAILER(`local') must appear before MAILER(`pop')')')dnl
-
 ifdef(`POP_MAILER_PATH',, `define(`POP_MAILER_PATH', /usr/lib/mh/spop)')
 _DEFIFNOT(`POP_MAILER_FLAGS', `Penu')
 ifdef(`POP_MAILER_ARGS',, `define(`POP_MAILER_ARGS', `pop $u')')
+define(`_POP_QGRP', `ifelse(defn(`POP_MAILER_QGRP'),`',`', ` Q=POP_MAILER_QGRP,')')dnl
 
 POPDIVERT
 
@@ -25,10 +23,10 @@ POPDIVERT
 ###   POP Mailer specification   ###
 ####################################
 
-VERSIONID(`$Id: pop.m4,v 1.1.1.3 2000/06/10 00:40:39 wsanchez Exp $')
+VERSIONID(`$Id: pop.m4,v 1.1.1.4 2002/03/12 17:59:52 zarzycki Exp $')
 
 Mpop,		P=POP_MAILER_PATH, F=_MODMF_(CONCAT(`lsDFMq', POP_MAILER_FLAGS), `POP'), S=EnvFromL, R=EnvToL/HdrToL,
-		T=DNS/RFC822/X-Unix,
+		T=DNS/RFC822/X-Unix,_POP_QGRP
 		A=POP_MAILER_ARGS
 
 LOCAL_CONFIG

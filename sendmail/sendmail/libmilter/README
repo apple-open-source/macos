@@ -9,14 +9,27 @@ through reference to a sample filter which is attached at the end of this
 file.  It is necessary to first build libmilter.a, which can be done by
 issuing the './Build' command in SRCDIR/libmilter .
 
-NOTE: Both libmilter and the callouts in sendmail are marked as an FFR (For
-Future Release).  If you intend to use them in 8.10.X, you must compiled
-both libmilter and sendmail with -D_FFR_MILTER defined.  You can do this by
-adding the following to your devtools/Site/site.config.m4 file:
+NOTE: If you intend to use filters in sendmail, you must compile sendmail
+with -DMILTER defined.  You can do this by adding the following to
+your devtools/Site/site.config.m4 file:
 
-	dnl Milter
-	APPENDDEF(`conf_sendmail_ENVDEF', `-D_FFR_MILTER=1')
-	APPENDDEF(`conf_libmilter_ENVDEF', `-D_FFR_MILTER=1') 
+	APPENDDEF(`conf_sendmail_ENVDEF', `-DMILTER')
+
++----------------+
+| SECURITY HINTS |
++----------------+
+
+Note: we strongly recommend not to run any milter as root.  Libmilter
+does not need root access to communicate with sendmail.  It is a
+good security practice to run a program only with root privileges
+if really necessary.  A milter should probably check first whether
+it runs as root and refuse to start in that case.  There is a
+compile time option _FFR_MILTER_ROOT_UNSAFE which keeps libmilter
+from unlinking a socket when running as root.  It is recommended
+to turn on this option:
+
+	APPENDDEF(`conf_libmilter_ENVDEF', `-D_FFR_MILTER_ROOT_UNSAFE ')
+
 
 +-------------------+
 | BUILDING A FILTER |
@@ -26,19 +39,25 @@ The following command presumes that the sample code from the end of this
 README is saved to a file named 'sample.c' and built in the local platform-
 specific build subdirectory (SRCDIR/obj.*/libmilter).
 
-	cc -I../../sendmail -I../../include -o sample sample.c libmilter.a ../libsmutil/libsmutil.a -pthread
+	cc -I../../sendmail -I../../include -o sample sample.c libmilter.a ../libsm/libsm.a -pthread
 
 It is recommended that you build your filters in a location outside of
 the sendmail source tree.  Modify the compiler include references (-I)
 and the library locations accordingly.  Also, some operating systems may
 require additional libraries.  For example, SunOS 5.X requires '-lresolv
--lsocket -lnsl'.
+-lsocket -lnsl'.  Depending on your operating system you may need a library
+instead of the option -pthread, e.g., -lpthread.
 
 Filters must be thread-safe!  Many operating systems now provide support for
 POSIX threads in the standard C libraries.  The compiler flag to link with
 threading support differs according to the compiler and linker used.  Check
 the Makefile in your appropriate obj.*/libmilter build subdirectory if you
 are unsure of the local flag used.
+
+Note that since filters use threads, it may be necessary to alter per
+process limits in your filter.  For example, you might look at using
+setrlimit() to increase the number of open file descriptors if your filter
+is going to be busy.
 
 
 +----------------------------------------+
@@ -49,15 +68,15 @@ Filters are specified with a key letter ``X'' (for ``eXternal'').
 
 For example:
 
-	Xfilter1, S=unix:/var/run/f1.sock, F=R
-	Xfilter2, S=inet6:999@localhost, F=T, T=S:1s;R:1s;E:5m
+	Xfilter1, S=local:/var/run/f1.sock, F=R
+	Xfilter2, S=inet6:999@localhost, F=T, T=C:10m;S:1s;R:1s;E:5m
 	Xfilter3, S=inet:3333@localhost
 
 specifies three filters.  Filters can be specified in your .mc file using
 the following:
 
-	INPUT_MAIL_FILTER(`filter1', `S=unix:/var/run/f1.sock, F=R')
-	INPUT_MAIL_FILTER(`filter2', `S=inet6:999@localhost, F=T, T=S:1s;R:1s;E:5m')
+	INPUT_MAIL_FILTER(`filter1', `S=local:/var/run/f1.sock, F=R')
+	INPUT_MAIL_FILTER(`filter2', `S=inet6:999@localhost, F=T, T=C:10m;S:1s;R:1s;E:5m')
 	INPUT_MAIL_FILTER(`filter3', `S=inet:3333@localhost')
 
 The first attaches to a Unix-domain socket in the /var/run directory; the
@@ -67,30 +86,40 @@ IPv4 socket on port 3333 of localhost.  The current flags (F=) are:
 	R		Reject connection if filter unavailable
 	T		Temporary fail connection if filter unavailable
 
+If neither F=R nor F=T is specified, the message is passed through sendmail
+in case of filter errors as if the failing filters were not present.
+
 Finally, you can override the default timeouts used by sendmail when
-talking to the filters using the T= equate.  There are three fields inside
+talking to the filters using the T= equate.  There are four fields inside
 of the T= equate:
 
-Letter          Meaning
-  S             Timeout for sending information from the MTA to a filter
-  R             Timeout for reading reply from the filter
-  E             Overall timeout between sending end-of-message to filter
-                and waiting for the final acknowledgment
+Letter		Meaning
+  C		Timeout for connecting to a filter (if 0, use system timeout)
+  S		Timeout for sending information from the MTA to a filter
+  R		Timeout for reading reply from the filter
+  E		Overall timeout between sending end-of-message to filter
+		and waiting for the final acknowledgment
 
 Note the separator between each is a ';' as a ',' already separates equates
-and therefore can't separate timeouts.  The default values (if not set in the config) are:
+and therefore can't separate timeouts.  The default values (if not set in
+the config) are:
 
-T=S:10s;R:10s;E:5m
+T=C:5m;S:10s;R:10s;E:5m
 
 where 's' is seconds and 'm' is minutes.
 
-Actual sequencing is handled by the InputMailFilters option which is set
-automatically according to the order of the INPUT_MAIL_FILTER commands
-in your .mc file.  Alternatively, you can reset it's value by setting
-confINPUT_MAIL_FILTERS in your .mc file.  This options causes the three
-filters to be called in the same order they were specified.  It allows
-for possible future filtering on output (although this is not intended
-for this release).
+Which filters are invoked and their sequencing is handled by the 
+InputMailFilters option. Note: if InputMailFilters is not defined no filters
+will be used.
+
+	O InputMailFilters=filter1, filter2, filter3
+
+This is is set automatically according to the order of the
+INPUT_MAIL_FILTER commands in your .mc file.  Alternatively, you can
+reset its value by setting confINPUT_MAIL_FILTERS in your .mc file.
+This options causes the three filters to be called in the same order
+they were specified.  It allows for possible future filtering on output
+(although this is not intended for this release).
 
 Also note that a filter can be defined without adding it to the input
 filter list by using MAIL_FILTER() instead of INPUT_MAIL_FILTER() in your
@@ -99,7 +128,7 @@ filter list by using MAIL_FILTER() instead of INPUT_MAIL_FILTER() in your
 To test sendmail with the sample filter, the following might be added (in
 the appropriate locations) to your .mc file:
 
-	INPUT_MAIL_FILTER(`sample', `S=unix:/var/run/f1.sock')
+	INPUT_MAIL_FILTER(`sample', `S=local:/var/run/f1.sock')
 
 
 +------------------+
@@ -115,7 +144,7 @@ on which to create a listening socket for the filter.  Maintaining
 consistency with the suggested options for sendmail.cf, this would be the
 UNIX domain socket located in /var/run/f1.sock.
 
-	% ./sample -p unix:/var/run/f1.sock
+	% ./sample -p local:/var/run/f1.sock
 
 If the sample filter returns immediately to a command line, there was either
 an error with your command or a problem creating the specified socket.
@@ -130,7 +159,7 @@ connected via one of these options, the session can be continued through
 the use of standard SMTP commands.
 
 % sendmail -bs
-220 test.sendmail.com ESMTP Sendmail 8.10.0.Beta8/8.10.0.Beta8; Mon, 6 Dec 1999 19:34:23 -0800 (PST)
+220 test.sendmail.com ESMTP Sendmail 8.11.0/8.11.0; Tue, 10 Nov 1970 13:05:23 -0500 (EST)
 HELO localhost
 250 test.sendmail.com Hello testy@localhost, pleased to meet you
 MAIL From:<testy>
@@ -163,13 +192,54 @@ the logging level of sendmail can be raised with the LogLevel option.
 See the sendmail(8) manual page for more information.
 
 
++--------------+
+| REQUIREMENTS |
++--------------+
+
+libmilter requires pthread support in the operating system.  Moreover, it
+requires that the library functions it uses are thread safe; which is true
+for the operating systems libmilter has been developed and tested on.  On
+some operating systems this requires special compile time options (e.g.,
+not just -pthread).  libmilter is currently known to work on (modulo problems
+in the pthread support of some specific versions):
+
+FreeBSD 3.x, 4.x
+SunOS 5.x (x >= 5)
+AIX 4.3.x
+HP UX 11.x
+Linux (recent versions/distributions)
+
+libmilter is currently not supported on:
+
+IRIX 6.x
+Ultrix
+
+Feedback about problems (and possible fixes) is welcome.
+
 +--------------------------+
 | SOURCE FOR SAMPLE FILTER |
 +--------------------------+
 
+Note that the filter below may not be thread safe on some operating
+systems.  You should check your system man pages for the functions used
+below to verify the functions are thread safe.
+
 /* A trivial filter that logs all email to a file. */
 
+#include <sys/types.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sysexits.h>
+#include <unistd.h>
+
 #include "libmilter/mfapi.h"
+
+#ifndef true
+typedef int bool;
+# define false	0
+# define true	1
+#endif /* ! true */
 
 struct mlfiPriv
 {
@@ -187,7 +257,7 @@ mlfi_envfrom(ctx, envfrom)
 	char **envfrom;
 {
 	struct mlfiPriv *priv;
-	int fd;
+	int fd = -1;
 
 	/* allocate some private memory */
 	priv = malloc(sizeof *priv);
@@ -208,6 +278,8 @@ mlfi_envfrom(ctx, envfrom)
 	if ((fd = mkstemp(priv->mlfi_fname)) < 0 ||
 	    (priv->mlfi_fp = fdopen(fd, "w+")) == NULL)
 	{
+		if (fd >= 0)
+			(void) close(fd);
 		free(priv->mlfi_fname);
 		free(priv);
 		return SMFIS_TEMPFAIL;
@@ -254,7 +326,7 @@ mlfi_body(ctx, bodyp, bodylen)
 	if (fwrite(bodyp, bodylen, 1, MLFIPRIV->mlfi_fp) <= 0)
 	{
 		/* write failed */
-		(void) mlfi_cleanup(ctx, FALSE);
+		(void) mlfi_cleanup(ctx, false);
 		return SMFIS_TEMPFAIL;
 	}
 
@@ -266,7 +338,7 @@ sfsistat
 mlfi_eom(ctx)
 	SMFICTX *ctx;
 {
-	return mlfi_cleanup(ctx, TRUE);
+	return mlfi_cleanup(ctx, true);
 }
 
 sfsistat
@@ -280,7 +352,7 @@ sfsistat
 mlfi_abort(ctx)
 	SMFICTX *ctx;
 {
-	return mlfi_cleanup(ctx, FALSE);
+	return mlfi_cleanup(ctx, false);
 }
 
 sfsistat
@@ -308,7 +380,7 @@ mlfi_cleanup(ctx, ok)
 	{
 		/* add a header to the message announcing our presence */
 		if (gethostname(host, sizeof host) < 0)
-			strlcpy(host, "localhost", sizeof host);
+			snprintf(host, sizeof host, "localhost");
 		p = strrchr(priv->mlfi_fname, '/');
 		if (p == NULL)
 			p = priv->mlfi_fname;
@@ -336,7 +408,7 @@ struct smfiDesc smfilter =
 {
 	"SampleFilter",	/* filter name */
 	SMFI_VERSION,	/* version code -- do not change */
-	SMFIF_MODHDRS,	/* flags */
+	SMFIF_ADDHDRS,	/* flags */
 	NULL,		/* connection info filter */
 	NULL,		/* SMTP HELO command filter */
 	mlfi_envfrom,	/* envelope sender filter */
@@ -355,7 +427,7 @@ main(argc, argv)
 	int argc;
 	char *argv[];
 {
-	char c;
+	int c;
 	const char *args = "p:";
 
 	/* Process command line options */
@@ -385,4 +457,4 @@ main(argc, argv)
 
 /* eof */
 
-$Revision: 1.1.1.1 $, Last updated $Date: 2000/06/10 00:40:50 $
+$Revision: 1.1.1.2 $, Last updated $Date: 2002/03/12 18:00:17 $

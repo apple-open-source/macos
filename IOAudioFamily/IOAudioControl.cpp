@@ -215,6 +215,9 @@ bool IOAudioControl::start(IOService *provider)
         return false;
     }
     
+	// for 2761764, allocate the command gate early to avoid race condition later
+	(void)getCommandGate();
+
     isStarted = true;
 
     return true;

@@ -1,4 +1,5 @@
-#	$Id: NeXT.2.x,v 1.1.1.1 2000/06/10 00:40:47 wsanchez Exp $
+#	$Id: NeXT.2.x,v 1.1.1.2 2002/03/12 18:00:05 zarzycki Exp $
+define(`confSM_OS_HEADER', `sm_os_next')
 define(`confBEFORE', `unistd.h dirent.h')
 define(`confMAPDEF', `-DNDBM -DNIS -DNETINFO')
 define(`confENVDEF', `-DNeXT')

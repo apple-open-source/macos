@@ -175,7 +175,7 @@ bool AppleOWScreamerAudio::start(IOService *provider)
     ioBase = (awacsOW_regmap_t *)map->getVirtualAddress();
 
     driverDMAEngine = new AppleDBDMAAudioDMAEngine;
-    if (!driverDMAEngine->init(0, provider, true)) {
+    if (!driverDMAEngine->init(NULL, provider, true)) {
         driverDMAEngine->release();
         return false;
     }
@@ -237,6 +237,9 @@ bool AppleOWScreamerAudio::start(IOService *provider)
 
     nanoseconds_to_absolutetime(NSEC_PER_SEC, &timerInterval);
     addTimerEvent(this, &AppleOWScreamerAudio::timerCallback, timerInterval);
+
+	if (NULL != driverDMAEngine)
+		driverDMAEngine->setSampleLatencies (kScreamerOWSampleLatency, kScreamerOWSampleLatency);
 
     duringInitialization = false;
     CLOG("- AppleOWScreamerAudio::start\n");

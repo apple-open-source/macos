@@ -1,7 +1,8 @@
-#	$Id: HP-UX,v 1.1.1.1 2000/06/10 00:40:47 wsanchez Exp $
+#	$Id: HP-UX,v 1.1.1.2 2002/03/12 18:00:01 zarzycki Exp $
 define(`confCC', `cc -Aa')
 define(`confENVDEF', `-D_HPUX_SOURCE')
 define(`confMAPDEF', `-DNDBM -DNIS -DMAP_REGEX')
+define(`confSM_OS_HEADER', `sm_os_hp')
 define(`confOPTIMIZE', `+O1')
 define(`confLIBS', `-lndbm')
 define(`confMBINDIR', `/usr/lib')

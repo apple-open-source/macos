@@ -1,9 +1,9 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
+ * "Portions Copyright (c) 1999-2002 Apple Computer, Inc.  All Rights
  * Reserved.  This file contains Original Code and/or Modifications of
  * Original Code as defined in and that are subject to the Apple Public
  * Source License Version 1.0 (the 'License').  You may not use this file
@@ -68,14 +68,14 @@ struct filefork {
 	SInt32	physicalSize;
 };
 
-struct filefork		gDTDBFork, gSystemFork, gReadMeFork;
+struct filefork	gDTDBFork, gSystemFork, gReadMeFork;
 
 
 static void WriteMDB __P((const DriveInfo *driveInfo, HFS_MDB *mdbp));
 static void InitMDB __P((hfsparams_t *defaults, UInt32 driveBlocks, HFS_MDB *mdbp));
 
 static void WriteVH __P((const DriveInfo *driveInfo, HFSPlusVolumeHeader *hp));
-static void InitVH __P((hfsparams_t *defaults, UInt32 sectors,
+static void InitVH __P((hfsparams_t *defaults, UInt64 sectors,
 		HFSPlusVolumeHeader *header));
 
 static void WriteBitmap __P((const DriveInfo *dip, UInt32 startingSector,
@@ -98,7 +98,7 @@ static void InitSecondCatalogLeaf __P((const hfsparams_t *dp, void *buffer));
 static void WriteDesktopDB(const hfsparams_t *dp, const DriveInfo *driveInfo,
         UInt32 startingSector, void *buffer, UInt32 *mapNodes);
 
-static void ClearDisk __P((const DriveInfo *driveInfo, UInt32 startingSector,
+static void ClearDisk __P((const DriveInfo *driveInfo, UInt64 startingSector,
 		UInt32 numberOfSectors));
 static void WriteSystemFile __P((const DriveInfo *dip, UInt32 startingSector,
 		UInt32 *filesize));
@@ -106,7 +106,7 @@ static void WriteReadMeFile __P((const DriveInfo *dip, UInt32 startingSector,
 		UInt32 *filesize));
 static void WriteMapNodes __P((const DriveInfo *driveInfo, UInt32 diskStart,
 		UInt32 firstMapNode, UInt32 mapNodes, UInt16 btNodeSize, void *buffer));
-static void WriteBuffer __P((const DriveInfo *driveInfo, UInt32 startingSector,
+static void WriteBuffer __P((const DriveInfo *driveInfo, UInt64 startingSector,
 		UInt32 byteCount, const void *buffer));
 static UInt32 Largest __P((UInt32 a, UInt32 b, UInt32 c, UInt32 d ));
 
@@ -169,7 +169,7 @@ make_hfs(const DriveInfo *driveInfo,
 	if (nodeBuffer == NULL || mdbp == NULL) 
 		err(1, NULL);
 
-    /* MDB Initialized in native byte order */
+	/* MDB Initialized in native byte order */
 	InitMDB(defaults, driveInfo->totalSectors, mdbp);
 
 	
@@ -262,9 +262,9 @@ make_hfs(const DriveInfo *driveInfo,
 
 	/* write mdb last in case we fail along the way */
 
-    /* Writes both copies of the MDB */
-    WriteMDB (driveInfo, mdbp);
-    /* MDB is now big-endian */
+	/* Writes both copies of the MDB */
+	WriteMDB (driveInfo, mdbp);
+	/* MDB is now big-endian */
 
 	free(nodeBuffer);		
 	free(mdbp);	
@@ -301,7 +301,7 @@ make_hfsplus(const DriveInfo *driveInfo, hfsparams_t *defaults)
 	if (header == NULL)
 		err(1, NULL);
 
-    /* VH Initialized in native byte order */
+	/* VH Initialized in native byte order */
 	InitVH(defaults, driveInfo->totalSectors, header);
 
 	sectorsPerBlock = header->blockSize / kBytesPerSector;
@@ -400,9 +400,9 @@ make_hfsplus(const DriveInfo *driveInfo, hfsparams_t *defaults)
 
 	/* write header last in case we fail along the way */
 
-    /* Writes both copies of the volume header */
-    WriteVH (driveInfo, header);
-    /* VH is now big-endian */
+	/* Writes both copies of the volume header */
+	WriteVH (driveInfo, header);
+	/* VH is now big-endian */
 
 	free(nodeBuffer);
 	free(header);
@@ -422,7 +422,7 @@ make_hfsplus(const DriveInfo *driveInfo, hfsparams_t *defaults)
 static void
 WriteMDB (const DriveInfo *driveInfo, HFS_MDB *mdbp)
 {
-    SWAP_HFSMDB (mdbp);
+	SWAP_HFSMDB (mdbp);
 
 	WriteBuffer(driveInfo, kMDBStart, kBytesPerSector, mdbp);
 	WriteBuffer(driveInfo, driveInfo->totalSectors - 2, kBytesPerSector, mdbp);
@@ -553,7 +553,7 @@ InitMDB(hfsparams_t *defaults, UInt32 driveBlocks, HFS_MDB *mdbp)
 static void
 WriteVH (const DriveInfo *driveInfo, HFSPlusVolumeHeader *hp)
 {
-    SWAP_HFSPLUSVH (hp);
+	SWAP_HFSPLUSVH (hp);
 
 	WriteBuffer(driveInfo, 2, kBytesPerSector, hp);
 	WriteBuffer(driveInfo, driveInfo->totalSectors - 2, kBytesPerSector, hp);
@@ -566,7 +566,7 @@ WriteVH (const DriveInfo *driveInfo, HFSPlusVolumeHeader *hp)
  * Initialize a Volume Header record.
  */
 static void
-InitVH(hfsparams_t *defaults, UInt32 sectors, HFSPlusVolumeHeader *hp)
+InitVH(hfsparams_t *defaults, UInt64 sectors, HFSPlusVolumeHeader *hp)
 {
 	UInt32	blockSize;
 	UInt32	blockCount;
@@ -654,7 +654,7 @@ InitVH(hfsparams_t *defaults, UInt32 sectors, HFSPlusVolumeHeader *hp)
 	 * Add some room for the catalog file to grow...
 	 */
 	hp->nextAllocation = blocksUsed - 1 - burnedBlocksAfterAltVH +
-		4 * (hp->catalogFile.clumpSize / hp->blockSize);
+		10 * (hp->catalogFile.clumpSize / hp->blockSize);
 }
 
 
@@ -689,7 +689,6 @@ WriteBitmap(const DriveInfo *driveInfo, UInt32 startingSector,
 
 	if (bytesUsed > bytes)
 		bzero(buffer + bytes, bytesUsed - bytes);
-
 	WriteBuffer(driveInfo, startingSector, bytesUsed, buffer);
 }
 
@@ -708,14 +707,14 @@ WriteExtentsFile(const DriveInfo *driveInfo, UInt32 startingSector,
         UInt32 *bytesUsed, UInt32 *mapNodes)
 {
 	BTNodeDescriptor	*ndp;
-	BTHeaderRec			*bthp;
-	UInt8				*bmp;
-	UInt32				nodeBitsInHeader;
-	UInt32				fileSize;
-	UInt32				nodeSize;
-    UInt32				temp;
-	SInt16				offset;
-	int					wrapper = (dp->flags & kMakeHFSWrapper);
+	BTHeaderRec		*bthp;
+	UInt8			*bmp;
+	UInt32			nodeBitsInHeader;
+	UInt32			fileSize;
+	UInt32			nodeSize;
+	UInt32			temp;
+	SInt16			offset;
+	int			wrapper = (dp->flags & kMakeHFSWrapper);
 
 	*mapNodes = 0;
 	fileSize = dp->extentsClumpSize;
@@ -735,11 +734,11 @@ WriteExtentsFile(const DriveInfo *driveInfo, UInt32 startingSector,
 
 	/* FILL IN THE HEADER RECORD:  */
 	bthp = (BTHeaderRec *)((UInt8 *)buffer + offset);
-	// bthp->treeDepth		= 0;
-	// bthp->rootNode		= 0;
-    // bthp->firstLeafNode	= 0;
-    // bthp->lastLeafNode	= 0;
-	// bthp->leafRecords	= 0;
+    //	bthp->treeDepth		= 0;
+    //	bthp->rootNode		= 0;
+    //	bthp->firstLeafNode	= 0;
+    //	bthp->lastLeafNode	= 0;
+    //	bthp->leafRecords	= 0;
 	bthp->nodeSize		= SWAP_BE16 (nodeSize);
 	bthp->totalNodes	= SWAP_BE32 (fileSize / nodeSize);
 	bthp->freeNodes		= SWAP_BE32 (SWAP_BE32 (bthp->totalNodes) - 1);  /* header */
@@ -795,12 +794,12 @@ WriteExtentsFile(const DriveInfo *driveInfo, UInt32 startingSector,
 	 * FILL IN THE MAP RECORD, MARKING NODES THAT ARE IN USE.
 	 * Note - worst case (32MB alloc blk) will have only 18 nodes in use.
 	 */
-    bmp = ((UInt8 *)buffer + offset);
-    temp = SWAP_BE32 (bthp->totalNodes) - SWAP_BE32 (bthp->freeNodes);
+	bmp = ((UInt8 *)buffer + offset);
+	temp = SWAP_BE32 (bthp->totalNodes) - SWAP_BE32 (bthp->freeNodes);
 
-    /* Working a byte at a time is endian safe */
-    while (temp >= 8) { *bmp = 0xFF; temp -= 8; bmp++; }
-    *bmp = ~(0xFF >> temp);
+	/* Working a byte at a time is endian safe */
+	while (temp >= 8) { *bmp = 0xFF; temp -= 8; bmp++; }
+	*bmp = ~(0xFF >> temp);
 	offset += nodeBitsInHeader/8;
 
 	SETOFFSET(buffer, nodeSize, offset, 4);
@@ -811,7 +810,7 @@ WriteExtentsFile(const DriveInfo *driveInfo, UInt32 startingSector,
 	
 	*bytesUsed = (SWAP_BE32 (bthp->totalNodes) - SWAP_BE32 (bthp->freeNodes) - *mapNodes) * nodeSize;
 
-    WriteBuffer(driveInfo, startingSector, *bytesUsed, buffer);
+	WriteBuffer(driveInfo, startingSector, *bytesUsed, buffer);
 }
 
 
@@ -835,7 +834,6 @@ InitExtentsRoot(UInt16 btNodeSize, HFSExtentDescriptor *bbextp, void *buffer)
 	offset = sizeof(BTNodeDescriptor);
 
 	SETOFFSET(buffer, btNodeSize, offset, 1);
-
 
 	/*
 	 * First and only record is bad block extents...
@@ -870,14 +868,14 @@ WriteCatalogFile(const DriveInfo *driveInfo, UInt32 startingSector,
         UInt32 *mapNodes)
 {
 	BTNodeDescriptor	*ndp;
-	BTHeaderRec			*bthp;
-	UInt8				*bmp;
-	UInt32				nodeBitsInHeader;
-	UInt32				fileSize;
-	UInt32				nodeSize;
-    UInt32				temp;
-	SInt16				offset;
-	int					wrapper = (dp->flags & kMakeHFSWrapper);
+	BTHeaderRec		*bthp;
+	UInt8			*bmp;
+	UInt32			nodeBitsInHeader;
+	UInt32			fileSize;
+	UInt32			nodeSize;
+	UInt32			temp;
+	SInt16			offset;
+	int			wrapper = (dp->flags & kMakeHFSWrapper);
 
 	*mapNodes = 0;
 	fileSize = dp->catalogClumpSize;
@@ -900,7 +898,7 @@ WriteCatalogFile(const DriveInfo *driveInfo, UInt32 startingSector,
 	bthp->treeDepth		= SWAP_BE16 (1);
 	bthp->rootNode		= SWAP_BE32 (1);
 	bthp->firstLeafNode	= SWAP_BE32 (1);
-    bthp->lastLeafNode	= SWAP_BE32 (1);
+	bthp->lastLeafNode	= SWAP_BE32 (1);
 	bthp->leafRecords	= SWAP_BE32 (2);
 	bthp->nodeSize		= SWAP_BE16 (nodeSize);
 	bthp->totalNodes	= SWAP_BE32 (fileSize / nodeSize);
@@ -929,7 +927,6 @@ WriteCatalogFile(const DriveInfo *driveInfo, UInt32 startingSector,
 
 	SETOFFSET(buffer, nodeSize, offset, 3);
 
-
 	/* FIGURE OUT HOW MANY MAP NODES (IF ANY):  */
 	nodeBitsInHeader = 8 * (nodeSize
 					- sizeof(BTNodeDescriptor)
@@ -950,21 +947,19 @@ WriteCatalogFile(const DriveInfo *driveInfo, UInt32 startingSector,
 		bthp->freeNodes = SWAP_BE32 (SWAP_BE32 (bthp->freeNodes) - *mapNodes);
 	}
 
-
 	/* 
 	 * FILL IN THE MAP RECORD, MARKING NODES THAT ARE IN USE.
 	 * Note - worst case (32MB alloc blk) will have only 18 nodes in use.
 	 */
-    bmp = ((UInt8 *)buffer + offset);
-    temp = SWAP_BE32 (bthp->totalNodes) - SWAP_BE32 (bthp->freeNodes);
+	bmp = ((UInt8 *)buffer + offset);
+	temp = SWAP_BE32 (bthp->totalNodes) - SWAP_BE32 (bthp->freeNodes);
 
-    /* Working a byte at a time is endian safe */
-    while (temp >= 8) { *bmp = 0xFF; temp -= 8; bmp++; }
-    *bmp = ~(0xFF >> temp);
+	/* Working a byte at a time is endian safe */
+	while (temp >= 8) { *bmp = 0xFF; temp -= 8; bmp++; }
+	*bmp = ~(0xFF >> temp);
 	offset += nodeBitsInHeader/8;
 
 	SETOFFSET(buffer, nodeSize, offset, 4);
-	
 
 	if (dp->signature == kHFSPlusSigWord) {
 		InitCatalogRoot_HFSPlus(dp, buffer + nodeSize);
@@ -980,7 +975,7 @@ WriteCatalogFile(const DriveInfo *driveInfo, UInt32 startingSector,
 
 	*bytesUsed = (SWAP_BE32 (bthp->totalNodes) - SWAP_BE32 (bthp->freeNodes) - *mapNodes) * nodeSize;
 
-    WriteBuffer(driveInfo, startingSector, *bytesUsed, buffer);
+	WriteBuffer(driveInfo, startingSector, *bytesUsed, buffer);
 }
 
 
@@ -1013,7 +1008,6 @@ InitCatalogRoot_HFSPlus(const hfsparams_t *dp, void * buffer)
 
 	SETOFFSET(buffer, nodeSize, offset, 1);
 
-
 	/*
 	 * First record is always the root directory...
 	 */
@@ -1035,7 +1029,7 @@ InitCatalogRoot_HFSPlus(const hfsparams_t *dp, void * buffer)
 		      dp->volumeName, kDefaultVolumeNameStr);
 	}
 	CFRelease(cfstr);
-    ckp->nodeName.length = SWAP_BE16 (ckp->nodeName.length);
+	ckp->nodeName.length = SWAP_BE16 (ckp->nodeName.length);
 
 	unicodeBytes = sizeof(UniChar) * SWAP_BE16 (ckp->nodeName.length);
 
@@ -1052,7 +1046,6 @@ InitCatalogRoot_HFSPlus(const hfsparams_t *dp, void * buffer)
 	offset += sizeof(HFSPlusCatalogFolder);
 
 	SETOFFSET(buffer, nodeSize, offset, 2);
-
 
 	/*
 	 * Second record is always the root directory thread...
@@ -1225,7 +1218,6 @@ InitSecondCatalogLeaf(const hfsparams_t *dp, void * buffer)
 
 	SETOFFSET(buffer, nodeSize, offset, 1);
 
-
 	/*
 	 * Add "Finder" file...
 	 */
@@ -1325,7 +1317,6 @@ InitCatalogRoot_HFS(const hfsparams_t *dp, void * buffer)
 
 	SETOFFSET(buffer, nodeSize, offset, 1);
 
-
 	/*
 	 * Add root directory index...
 	 */
@@ -1341,7 +1332,6 @@ InitCatalogRoot_HFS(const hfsparams_t *dp, void * buffer)
 	offset += sizeof(UInt32);
 
 	SETOFFSET(buffer, nodeSize, offset, 2);
-
 
 	/*
 	 * Add finder file index...
@@ -1371,7 +1361,7 @@ WriteDesktopDB(const hfsparams_t *dp, const DriveInfo *driveInfo,
 	UInt32		nodeBitsInHeader;
 	UInt32		fileSize;
 	UInt32		nodeSize;
-    UInt32		temp;
+	UInt32		temp;
 	SInt16		offset;
 	UInt8		*keyDiscP;
 
@@ -1391,11 +1381,11 @@ WriteDesktopDB(const hfsparams_t *dp, const DriveInfo *driveInfo,
 
 	/* FILL IN THE HEADER RECORD:  */
 	bthp = (BTHeaderRec *)((UInt8 *)buffer + offset);
-	// bthp->treeDepth		= 0;
-	// bthp->rootNode		= 0;
-    // bthp->firstLeafNode	= 0;
-    // bthp->lastLeafNode	= 0;
-	// bthp->leafRecords	= 0;
+    //	bthp->treeDepth		= 0;
+    //	bthp->rootNode		= 0;
+    //	bthp->firstLeafNode	= 0;
+    //	bthp->lastLeafNode	= 0;
+    //	bthp->leafRecords	= 0;
 	bthp->nodeSize		= SWAP_BE16 (nodeSize);
 	bthp->maxKeyLength	= SWAP_BE16 (37);
 	bthp->totalNodes	= SWAP_BE32 (fileSize / nodeSize);
@@ -1438,17 +1428,17 @@ WriteDesktopDB(const hfsparams_t *dp, const DriveInfo *driveInfo,
 	 * FILL IN THE MAP RECORD, MARKING NODES THAT ARE IN USE.
 	 * Note - worst case (32MB alloc blk) will have only 18 nodes in use.
 	 */
-    bmp = ((UInt8 *)buffer + offset);
-    temp = SWAP_BE32 (bthp->totalNodes) - SWAP_BE32 (bthp->freeNodes);
+	bmp = ((UInt8 *)buffer + offset);
+	temp = SWAP_BE32 (bthp->totalNodes) - SWAP_BE32 (bthp->freeNodes);
 
-    /* Working a byte at a time is endian safe */
-    while (temp >= 8) { *bmp = 0xFF; temp -= 8; bmp++; }
-    *bmp = ~(0xFF >> temp);
+	/* Working a byte at a time is endian safe */
+	while (temp >= 8) { *bmp = 0xFF; temp -= 8; bmp++; }
+	*bmp = ~(0xFF >> temp);
 	offset += nodeBitsInHeader/8;
 
 	SETOFFSET(buffer, nodeSize, offset, 4);
 
-    WriteBuffer(driveInfo, startingSector, kHFSNodeSize, buffer);
+	WriteBuffer(driveInfo, startingSector, kHFSNodeSize, buffer);
 }
 
 
@@ -1568,14 +1558,15 @@ WriteMapNodes(const DriveInfo *driveInfo, UInt32 diskStart, UInt32 firstMapNode,
  *
  */
 static void
-ClearDisk(const DriveInfo *driveInfo, UInt32 startingSector, UInt32 numberOfSectors)
+ClearDisk(const DriveInfo *driveInfo, UInt64 startingSector, UInt32 numberOfSectors)
 {
 	UInt32 bufferSize;
 	UInt32 bufferSizeInSectors;
 	void *tempBuffer = NULL;
 
-	if ( numberOfSectors > 0x100 )	/* pin at 128K */
-		bufferSizeInSectors = 0x100;
+
+	if ( numberOfSectors > driveInfo->sectorsPerIO )
+		bufferSizeInSectors = driveInfo->sectorsPerIO;
 	else
 		bufferSizeInSectors = numberOfSectors;
 
@@ -1585,7 +1576,6 @@ ClearDisk(const DriveInfo *driveInfo, UInt32 startingSector, UInt32 numberOfSect
 	if (tempBuffer == NULL)
 		err(1, NULL);
 
-        /* XXX calloc instead ? */
 	bzero(tempBuffer, bufferSize);
 
 	while (numberOfSectors > 0) {
@@ -1600,14 +1590,14 @@ ClearDisk(const DriveInfo *driveInfo, UInt32 startingSector, UInt32 numberOfSect
 			bufferSize = bufferSizeInSectors << kLog2SectorSize;
 		}
 	}
-	
+
 	if (tempBuffer)
 		free(tempBuffer);
 }
 
 
 static void
-WriteBuffer(const DriveInfo *driveInfo, UInt32 startingSector, UInt32 byteCount,
+WriteBuffer(const DriveInfo *driveInfo, UInt64 startingSector, UInt32 byteCount,
 	const void *buffer)
 {
 	off_t sector;
@@ -1618,10 +1608,10 @@ WriteBuffer(const DriveInfo *driveInfo, UInt32 startingSector, UInt32 byteCount,
 	sector = driveInfo->sectorOffset + startingSector;
 
 	if (lseek(driveInfo->fd, sector * driveInfo->sectorSize, SEEK_SET) < 0)
-		err(1, "seek (sector %ld)", sector);
+		err(1, "seek (sector %qd)", sector);
 
 	if (write(driveInfo->fd, buffer, byteCount) != byteCount)
-		err(1, "seek (sector %ld, %ld bytes)", sector, byteCount);
+		err(1, "write (sector %qd, %ld bytes)", sector, byteCount);
 }
 
 

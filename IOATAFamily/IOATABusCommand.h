@@ -31,8 +31,8 @@
 #define _IOATABUSCOMMAND_H
 
 #include <IOKit/IOTypes.h>
-#include <IOKit/ata/IOATATypes.h>
-#include <IOKit/ata/IOATACommand.h>
+#include "IOATATypes.h"
+#include "IOATACommand.h"
 #include <IOKit/IOSyncer.h>
 
 

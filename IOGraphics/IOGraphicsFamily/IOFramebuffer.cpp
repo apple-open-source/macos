@@ -50,6 +50,22 @@
 #include <IOKit/assert.h>
 #include <sys/kdebug.h>
 
+#if IOPM_ROOTDOMAIN_REV < 2
+enum {
+    kIOPMSetValue		= (1<<16),
+    // don't sleep on clamshell closure on a portable with AC connected
+    kIOPMSetDesktopMode		= (1<<17),
+    // set state of AC adaptor connected
+    kIOPMSetACAdaptorConnected	= (1<<18),
+};
+#else
+#include <IOKit/pwr_mgt/IOPMPrivate.h>
+#endif
+
+#ifndef kAppleClamshellStateKey
+#define kAppleClamshellStateKey	"AppleClamshellState"
+#endif
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 //#undef DEBUG
@@ -77,6 +93,12 @@ static IOService *	gIOFBSystemPowerAckTo;
 static UInt32		gIOFBSystemPowerAckRef;
 static bool		gIOFBSystemPower = true;
 static bool		gIOFBSleepThread;
+static thread_call_t	gIOFBClamshellCallout;
+static SInt32		gIOFBClamshellEnable;
+static IOOptionBits	gIOFBClamshellState;
+static SInt32		gIOFBSuspendCount;
+bool			gIOFBDesktopModeAllowed = true;
+IOOptionBits		gIOFBLastClamshellState;
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -275,6 +297,7 @@ void IOFramebuffer::setupCursor( IOPixelInformation * info )
                             * bytesPerPixel;
         bits = shmem->cursor;
         for( int i = 0; i < kIOFBNumCursorFrames; i++ ) {
+            shmem->hardwareCursorFlags[i] = kIOFBCursorImageNew;
             cursorImages[i] = bits;
             bits += cursorImageBytes;
 	    shmem->cursorSize[i] = maxCursorSize;
@@ -636,7 +659,7 @@ void IOFramebuffer::moveCursor( Point * cursorLoc, int frame )
 
     if( frame != shmem->frame) {
 
-        if( shmem->hardwareCursorFlags[frame]) {
+        if( pagingState && shmem->hardwareCursorFlags[frame]) {
             hwCursorLoaded = (kIOReturnSuccess == setCursorImage( (void *) frame ));
             shmem->hardwareCursorFlags[frame] = hwCursorLoaded ? kIOFBCursorHWCapable : 0;
         } else
@@ -1457,8 +1480,11 @@ IOReturn IOFramebuffer::powerStateWillChangeTo( IOPMPowerFlags flags,
     IOLog("IOFB::powerStateWillChangeTo(%p, ->%08lx)\n", this, flags);
 #endif
 
-    if( state && !pm_vars->myCurrentState)
+    if( state && !pm_vars->myCurrentState) {
 	gIOFBSystemPower = true;
+        sleepConnectCheck = true;
+        gIOFBLastClamshellState = 0;
+    }
 
     if( IOPMDeviceUsable & flags)
         return( kIOReturnSuccess );
@@ -1498,6 +1524,45 @@ IOReturn IOFramebuffer::powerStateDidChangeTo( IOPMPowerFlags flags,
     return( kIOReturnSuccess );
 }
 
+void IOFramebuffer::clamshellWork( thread_call_param_t p0, thread_call_param_t p1 )
+{
+    clamshellEnable( (SInt32) p1 );
+}
+
+void IOFramebuffer::clamshellEnable( SInt32 delta )
+{
+    UInt32	change;
+    bool	desktopMode;
+    bool	notSuspended;
+    OSObject *  state;
+
+    IOLockLock( gIOFBSleepStateLock );
+    gIOFBClamshellEnable += delta;
+    notSuspended = gIOFBSystemPower && (0 == gIOFBSuspendCount);
+    desktopMode = notSuspended && gIOFBDesktopModeAllowed && (gIOFBClamshellEnable <= 0);
+    IOLockUnlock( gIOFBSleepStateLock );
+
+    if( delta < 0)
+        change = kIOPMDisableClamshell;
+    else if( notSuspended)
+        change = kIOPMEnableClamshell | kIOPMSetDesktopMode | (desktopMode ? kIOPMSetValue : 0);
+    else
+        return;
+
+    gIOFBClamshellState = change;
+    getPMRootDomain()->receivePowerNotification( change );
+
+    if( (kIOPMEnableClamshell & change)
+     && (state = getPMRootDomain()->getProperty(kAppleClamshellStateKey))) {
+        publishResource(kAppleClamshellStateKey, gIOFBLastClamshellState ? kOSBooleanTrue : kOSBooleanFalse );
+    }
+}
+
+IOOptionBits IOFramebuffer::clamshellState( void )
+{
+    return( gIOFBClamshellState );
+}
+
 IOReturn IOFramebuffer::systemPowerChange( void * target, void * refCon,
                                     UInt32 messageType, IOService * service,
                                     void * messageArgument, vm_size_t argSize )
@@ -1513,6 +1578,9 @@ IOReturn IOFramebuffer::systemPowerChange( void * target, void * refCon,
     switch (messageType) {
 
         case kIOMessageSystemWillSleep:
+
+            gIOFBClamshellState = kIOPMDisableClamshell;
+            getPMRootDomain()->receivePowerNotification( kIOPMDisableClamshell );
 
             IOLockLock( gIOFBSleepStateLock );
 
@@ -1618,27 +1686,53 @@ void IOFramebuffer::deferredInterrupt( OSObject * owner,
     self->checkConnectionChange();
 }
 
-void IOFramebuffer::checkConnectionChange( void )
+void IOFramebuffer::postConnectionChange( void )
 {
-    IOReturn		err;
-    UInt32		connectEnabled;
+    bool message;
 
-    if( connectChange) {
-        err = getAttributeForConnection( 0, kConnectionChanged, (UInt32 *) &connectChange );
-        if( (kIOReturnSuccess != err) || connectChange) {
+    IOLockLock( gIOFBSleepStateLock );
+    message = (suspended && !messaged);
+    if( message)
+        messaged = true;
+    IOLockUnlock( gIOFBSleepStateLock );
 
-            temporaryPowerClampOn();
-            IODisplayWrangler::destroyDisplayConnects( this );
+    if( message)
+        messageClients( kIOMessageServiceIsSuspended, (void *) true );
+}
 
-            err = getAttributeForConnection( 0, kConnectionEnable, &connectEnabled );
-            if( (kIOReturnSuccess != err) || connectEnabled)
-                IODisplayWrangler::makeDisplayConnects( this );
+void IOFramebuffer::checkConnectionChange( bool message )
+{
+    bool nowSuspended;
 
-            messageClients( kIOMessageServiceIsSuspended, (void *) connectChange );
-            setProperty("IOFBConnectChange", connectChange, 32);
+    if( connectChange && (sleepConnectCheck || !captured)) {
+        IOLockLock( gIOFBSleepStateLock );
+        nowSuspended = !suspended;
+        if( nowSuspended) {
+            suspended = true;
+            messaged = message;
+            gIOFBSuspendCount++;
+#if DEBUG
+            IOLog("%s: susp\n", getProvider()->getName());
+#endif
         }
-        connectChange = 0;
+        IOLockUnlock( gIOFBSleepStateLock );
+
+        if( message) {
+            IOFramebuffer * next = this;
+            while( (next = next->getNextDependent()) && (next != this)) {
+                next->checkConnectionChange(false);
+            }
+        }
+
+        if( nowSuspended && message)
+            messageClients( kIOMessageServiceIsSuspended, (void *) true );
+#if DEBUG
+        else
+            IOLog("%s: spurious\n", getProvider()->getName());
+#endif
     }
+    sleepConnectCheck = false;
+    clamshellEnable(0);
 }
 
 IOReturn IOFramebuffer::open( void )
@@ -1647,6 +1741,8 @@ IOReturn IOFramebuffer::open( void )
     UInt32		value;
     void *		vblInterrupt;
     void *		connectInterrupt;
+    IOFramebuffer *	next;
+    bool		firstOpen;
 
     do {
 	if( opened)
@@ -1655,8 +1751,18 @@ IOReturn IOFramebuffer::open( void )
             err = kIOReturnNotOpen;
 	    continue;
         }
-        if( !gAllFramebuffers)
+        if( !gAllFramebuffers) {
             gAllFramebuffers = OSArray::withCapacity(1);
+
+            IORegistryEntry   * root;
+            OSData *	        data = 0;
+            if( (root = IORegistryEntry::fromPath("/", gIOServicePlane))) {
+                data = OSDynamicCast(OSData, root->getProperty("graphic-options"));
+                root->release();
+            }
+            gIOFBDesktopModeAllowed = !data || (0 != (8 & *((UInt32 *) data->getBytesNoCopy())));
+        }
+
         if( !gAllFramebuffers)
 	    continue;
         if( !gIOFBSleepStateLock)
@@ -1669,8 +1775,14 @@ IOReturn IOFramebuffer::open( void )
         if( !gIOFBRootNotifier)
 	    continue;
         if( !gIOFBSleepCallout)
-            gIOFBSleepCallout = thread_call_allocate( (thread_call_func_t)&sleepWork, (thread_call_param_t) 0);
+            gIOFBSleepCallout = thread_call_allocate( (thread_call_func_t)&sleepWork,
+                                                            (thread_call_param_t) 0);
         if( !gIOFBSleepCallout)
+	    continue;
+        if( !gIOFBClamshellCallout)
+            gIOFBClamshellCallout = thread_call_allocate( &clamshellWork,
+                                                            (thread_call_param_t) 0);
+        if( !gIOFBClamshellCallout)
 	    continue;
 
         // tell the console if it's on this display, it's going away
@@ -1682,6 +1794,10 @@ IOReturn IOFramebuffer::open( void )
 	err = enableController();
 	if( kIOReturnSuccess != err) {
             dead = true;
+            if( nextDependent) {
+                nextDependent->setNextDependent( NULL );
+                nextDependent = NULL;
+            }
             deliverFramebufferNotification( kIOFBNotifyDisplayModeDidChange );
 	    continue;
 	}
@@ -1708,11 +1824,13 @@ IOReturn IOFramebuffer::open( void )
 	haveHWCursor = ((err == kIOReturnSuccess) && value);
 
         OSNumber * num = OSDynamicCast( OSNumber, getProperty(kIOFBDependentIDKey) );
-        if( num && !nextDependent) do {
+        firstOpen = num && !nextDependent;
 
-            OSDictionary * matching;
-            OSDictionary * propMatch;
-            OSIterator   * iter;
+        if( firstOpen) do {
+
+            OSDictionary  * matching;
+            OSDictionary  * propMatch;
+            OSIterator    * iter;
 
             matching = serviceMatching("IOFramebuffer");
             if( !matching)
@@ -1727,7 +1845,6 @@ IOReturn IOFramebuffer::open( void )
             matching->release();
             if( iter) {
 
-                IOFramebuffer * next;
                 IOFramebuffer * first = 0;
                 IOFramebuffer * last = 0;
 
@@ -1745,16 +1862,28 @@ IOReturn IOFramebuffer::open( void )
 
         } while( false);
 
+        opened = true;
+
         UInt32 connectEnabled;
 	err = getAttributeForConnection( 0, kConnectionEnable, &connectEnabled );
-        if( (kIOReturnSuccess != err) || connectEnabled) {
+        if( kIOReturnSuccess != err)
+            connectEnabled = true;
+
+        if( connectEnabled)
             IODisplayWrangler::makeDisplayConnects( this );
+
+        if( firstOpen) {
+            next = this;
+            while( (next = next->getNextDependent()) && (next != this)) {
+                next->open();
+            }
+        }
+
+        if( connectEnabled) {
             setupForCurrentConfig();
             err = kIOReturnSuccess;
         } else
             deliverFramebufferNotification( kIOFBNotifyDisplayModeDidChange, 0 );
-
-        opened = true;
 
     } while( false );
 
@@ -1763,9 +1892,19 @@ IOReturn IOFramebuffer::open( void )
     return( err );
 }
 
+void IOFramebuffer::setCaptured( bool isCaptured )
+{
+    captured = isCaptured;
+}
+
 void IOFramebuffer::setNextDependent( IOFramebuffer * dependent )
 {
     nextDependent = dependent;
+}
+
+IOFramebuffer * IOFramebuffer::getNextDependent( void )
+{
+    return( nextDependent );
 }
 
 void  IOFramebuffer::close( void )	// called by the user client when
@@ -1779,6 +1918,7 @@ void  IOFramebuffer::close( void )	// called by the user client when
     msgh->msgh_remote_port = MACH_PORT_NULL;
 
     serverConnect = 0;
+    captured = false;
 }
 
 IODeviceMemory * IOFramebuffer::getVRAMRange( void )
@@ -1899,13 +2039,15 @@ IOReturn IOFramebuffer::doSetup( bool full )
             getPlatform()->setConsoleInfo( &newConsole, kPEEnableScreen );
         }
 
-        deliverFramebufferNotification( kIOFBNotifyDisplayModeDidChange, 0 );
 
         (void) getInformationForDisplayMode( mode, &dmInfo );
         IOLog( "%s: using (%ldx%ld@%ldHz,%ld bpp)\n", getName(),
                     info.activeWidth, info.activeHeight,
                     (dmInfo.refreshRate + 0x8000) >> 16, info.bitsPerPixel );
     }
+
+    if( full)
+        deliverFramebufferNotification( kIOFBNotifyDisplayModeDidChange, 0 );
 
     if( fbRange)
         fbRange->release();
@@ -1919,13 +2061,20 @@ IOReturn IOFramebuffer::extSetDisplayMode( IODisplayModeID displayMode,
 				IOIndex depth )
 {
     IOReturn	err;
+    bool	wasSuspended;
 
     stopCursor();
 
     if( isConsoleDevice())
         getPlatform()->setConsoleInfo( 0, kPEDisableScreen);
 
-    deliverFramebufferNotification( kIOFBNotifyDisplayModeWillChange );
+#if DEBUG
+    IOLog("%s: set mode, ", getProvider()->getName());
+    if( suspended)
+        IOLog("susp\n");
+#endif
+    if( !suspended)
+        deliverFramebufferNotification( kIOFBNotifyDisplayModeWillChange );
 
     err = setDisplayMode( displayMode, depth );
 
@@ -1933,7 +2082,27 @@ IOReturn IOFramebuffer::extSetDisplayMode( IODisplayModeID displayMode,
 
     setupForCurrentConfig();
 
-    removeProperty("IOFBConnectChange");
+    IOLockLock( gIOFBSleepStateLock );
+    wasSuspended = suspended;
+    if( wasSuspended) {
+        suspended = false;
+        --gIOFBSuspendCount;
+        connectChange = 0;
+    }
+    IOLockUnlock( gIOFBSleepStateLock );
+
+    if( connectChange)
+        checkConnectionChange();
+    else
+        getAttributeForConnection( 0, kConnectionChanged, (UInt32 *) &connectChange );
+
+    if( wasSuspended && !suspended) {
+        AbsoluteTime deadline;
+
+        clock_interval_to_deadline( 10*1000, kMillisecondScale, &deadline );
+        thread_call_enter1_delayed( gIOFBClamshellCallout,
+                                    (thread_call_param_t) 0, deadline );
+    }
 
     return( err );
 }
@@ -1949,11 +2118,24 @@ IOReturn IOFramebuffer::extSetAttribute(
     
         case kIOMirrorAttribute:
     
+            if( suspended) {
+                err = kIOReturnSuccess;
+                break;
+            }
+
+            if( !value && (0 == getNextDependent())) {
+                err = kIOReturnSuccess;
+                break;
+            }
+    
             stopCursor();
         
             if( isConsoleDevice())
                 getPlatform()->setConsoleInfo( 0, kPEDisableScreen);
         
+#if DEBUG
+            IOLog("mirr %d, ", value);
+#endif
             deliverFramebufferNotification( kIOFBNotifyDisplayModeWillChange );
         
             data[0] = value;
@@ -1977,6 +2159,28 @@ IOReturn IOFramebuffer::extGetAttribute(
             IOSelect attribute, UInt32 * value, IOFramebuffer * other )
 {
     IOReturn	err;
+
+    if( kConnectionChanged == attribute) {
+    
+        IOReturn	err;
+        UInt32		connectEnabled;
+
+        err = getAttributeForConnection( 0, kConnectionChanged, (UInt32 *) &connectChange );
+
+        temporaryPowerClampOn();
+        IODisplayWrangler::destroyDisplayConnects( this );
+
+        err = getAttributeForConnection( 0, kConnectionEnable, &connectEnabled );
+        if( (kIOReturnSuccess != err) || connectEnabled)
+            IODisplayWrangler::makeDisplayConnects( this );
+
+        IOFramebuffer * next = this;
+        while( (next = next->getNextDependent()) && (next != this)) {
+            next->postConnectionChange();
+        }
+
+        return( kIOReturnSuccess );
+    }
 
     *value = (UInt32) other;
 
@@ -2005,10 +2209,76 @@ IOReturn IOFramebuffer::extGetInformationForDisplayMode(
 	}
         getTiming = (length >= sizeof(IOFBDisplayModeDescription));
         out->timingInfo.flags = getTiming ? kIODetailedTimingValid : 0;
-        err = getTimingInfoForDisplayMode( mode, &out->timingInfo );
+        if( kIOReturnSuccess != getTimingInfoForDisplayMode( mode, &out->timingInfo )) {
+            out->timingInfo.flags &= ~kIODetailedTimingValid;
+            out->timingInfo.appleTimingID = 0;
+        }
     }
 
     return( err );
+}
+
+IOReturn IOFramebuffer::extSetProperties( OSDictionary * props )
+{
+    OSDictionary * dict;
+    OSArray *      array;
+    OSNumber *     num;
+    IOReturn       kr = kIOReturnUnsupported;
+
+    if( (dict = OSDynamicCast( OSDictionary, props->getObject(kIOFBConfigKey)))) {
+
+        setProperty( kIOFBConfigKey, dict );
+    
+        if( (num = OSDynamicCast(OSNumber,
+                    dict->getObject( kIODisplayConnectFlagsKey))))
+            setAttributeForConnection( 0, kConnectionFlags, num->unsigned32BitValue() );
+
+        if( (array = OSDynamicCast(OSArray,
+                    dict->getObject( kIOFBDetailedTimingsKey))))
+            kr = setDetailedTimings( array );
+        else
+            kr = kIOReturnSuccess;
+    }
+
+    return( kr );
+}
+
+//// Controller attributes
+
+IOReturn IOFramebuffer::setAttribute( IOSelect attribute, UInt32 value )
+{
+    IOReturn	    ret;
+    IOFramebuffer * next;
+    bool	    wasCaptured;
+
+    switch( attribute ) {
+
+        case kIOCapturedAttribute:
+
+            wasCaptured = captured;
+            setCaptured( 0 != value );
+
+            next = this;
+            while( (next = next->getNextDependent()) && (next != this)) {
+                next->setCaptured(captured);
+            }
+
+            if( wasCaptured && !captured)
+                checkConnectionChange();
+            ret = kIOReturnSuccess;
+            break;
+
+	default:
+            ret = kIOReturnUnsupported;
+            break;
+    }
+
+    return( ret );
+}
+
+IOReturn IOFramebuffer::getAttribute( IOSelect attribute, UInt32 * value )
+{
+    return( kIOReturnUnsupported);
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -2206,6 +2476,10 @@ IOReturn IOFramebuffer::deliverFramebufferNotification(
     IOReturn			ret = kIOReturnSuccess;
     IOReturn			r;
 
+#if DEBUG
+    IOLog("%s: event %d\n", getProvider()->getName(), event);
+#endif
+
     LOCKNOTIFY();
 
     iter = OSCollectionIterator::withCollection( fbNotifications );
@@ -2286,18 +2560,6 @@ IOReturn IOFramebuffer::setGammaTable( UInt32 /* channelCount */,
     return( kIOReturnUnsupported);
 }
 
-//// Controller attributes
-
-IOReturn IOFramebuffer::setAttribute( IOSelect /* attribute */, UInt32 /* value */ )
-{
-    return( kIOReturnUnsupported);
-}
-
-IOReturn IOFramebuffer::getAttribute( IOSelect /* attribute */,
-		UInt32 * /* value */ )
-{
-    return( kIOReturnUnsupported);
-}
 
 //// Display mode timing information
 

@@ -207,7 +207,7 @@ protected:
 public:
     virtual IOService * probe( IOService *, SInt32 * );
     virtual void stop( IOService * provider );
-    virtual IOReturn setPowerState( unsigned long, IOService* );
+    virtual IOReturn setPowerState( unsigned long, IOService * );
     virtual unsigned long maxCapabilityForDomainState( IOPMPowerFlags );
     virtual unsigned long initialPowerStateForDomainState( IOPMPowerFlags );
     virtual unsigned long powerStateForDomainState( IOPMPowerFlags );

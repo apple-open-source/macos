@@ -33,6 +33,8 @@ enum {
 };
 
 #define kPowerDownDelayTime 30000000000ULL
+#define kiSubMaxVolume		60
+#define kiSubVolumePercent	92
 
 class IOAudioControl;
 
@@ -98,8 +100,6 @@ public:
     virtual bool init(OSDictionary *properties);
     virtual void free();
     virtual IOService* probe(IOService *provider, SInt32*);
-	virtual void handleClose (IOService * forClient, IOOptionBits options);
-    virtual bool handleOpen (IOService * forClient, IOOptionBits options, void * arg );
 
     bool     getMuteState();
     void     setMuteState(bool newMuteState);
@@ -109,7 +109,10 @@ public:
     virtual bool initHardware(IOService *provider);
     virtual IOReturn createDefaultsPorts();
     
-	virtual IORegistryEntry * FindEntryByNameAndProperty (const IORegistryEntry * start, const char * name, const char * key, UInt32 value);
+    virtual IORegistryEntry * FindEntryByNameAndProperty (const IORegistryEntry * start, const char * name, const char * key, UInt32 value);
+
+    static IOReturn volumeChangeHandler (IOService *target, IOAudioControl *volumeControl, SInt32 oldValue, SInt32 newValue);
+    static IOReturn volumeChangeAction (OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4);
 
     static IOReturn volumeLeftChangeHandler(IOService *target, IOAudioControl *volumeControl, SInt32 oldValue, SInt32 newValue);
     virtual IOReturn volumeLeftChanged(IOAudioControl *volumeControl, SInt32 oldValue, SInt32 newValue);
@@ -139,12 +142,10 @@ public:
     virtual IOReturn callPlatformFunction( const OSSymbol * functionName,bool waitForFunction,
             void *param1, void *param2, void *param3, void *param4 );
     
-#if 0
 	virtual IOReturn	newUserClient( task_t 			inOwningTask,
 							void *			inSecurityID,
 							UInt32 			inType,
 							IOUserClient **	outHandler );
-#endif
 
 protected:
             //Do the link to the IOAudioFamily 
@@ -192,7 +193,12 @@ public:
     virtual  UInt32 	sndHWGetProgOutput() = 0;
     virtual  IOReturn   sndHWSetProgOutput(UInt32 outputBits) = 0;
 
-protected:    
+			// User Client calls
+	virtual Boolean	getGPIOActiveState (UInt32 gpioSelector) = 0;
+	virtual UInt8	readGPIO (UInt32 selector) = 0;
+	virtual void	writeGPIO (UInt32 selector, UInt8 data) = 0;
+
+protected:
 
             //activation functions
     virtual  UInt32	sndHWGetActiveOutputExclusive(void) = 0;
@@ -213,13 +219,15 @@ protected:
             //Identification
     virtual UInt32 	sndHWGetType( void ) = 0;
     virtual UInt32	sndHWGetManufacturer( void ) = 0;
-
 };
 
-#if 0
-class	AOAUserClient : public IOUserClient
+//===========================================================================================================================
+//	AppleOnboardAudioUserClient
+//===========================================================================================================================
+
+class	AppleOnboardAudioUserClient : public IOUserClient
 {
-    OSDeclareDefaultStructors( AOAUserClient )
+    OSDeclareDefaultStructors( AppleOnboardAudioUserClient )
 	
 	public:
 	
@@ -233,9 +241,15 @@ class	AOAUserClient : public IOUserClient
 		
 	public:
 		
+		enum
+		{
+			kgpioReadIndex	 		= 0,
+			kgpioWriteIndex 		= 1
+		};
+		
 		// Static member functions
 		
-		static AOAUserClient * Create( AppleOnboardAudio *inDriver, task_t task );
+		static AppleOnboardAudioUserClient * Create( AppleOnboardAudio *inDriver, task_t task );
 		
 		// Creation/Deletion
 		
@@ -244,8 +258,12 @@ class	AOAUserClient : public IOUserClient
 		
 		// Public API's
 		
-		virtual IOReturn	Shutdown( void );
-		
+		virtual IOReturn	gpioRead (UInt32 selector, UInt8 * gpioState);
+
+		virtual IOReturn	gpioWrite (UInt32 selector, UInt8 gpioState);
+
+		virtual IOReturn	gpioGetActiveState (UInt32 selector, UInt8 * gpioActiveState);
+
 	protected:
 		
 		// IOUserClient overrides
@@ -254,5 +272,5 @@ class	AOAUserClient : public IOUserClient
 		virtual IOReturn			clientDied();
 		virtual	IOExternalMethod *	getTargetAndMethodForIndex( IOService **outTarget, UInt32 inIndex );
 };
-#endif
+
 #endif

@@ -62,6 +62,7 @@
 
 #include "AppleDBDMAAudioDMAEngine.h"
 
+static void		ScreamerWaitUntilReady (volatile awacs_regmap_t *ioBaseAwacs);
 static void 	Screamer_writeCodecControlReg( volatile awacs_regmap_t *ioBaseAwacs, int value );
 static void 	Screamer_writeSoundControlReg( volatile awacs_regmap_t *ioBaseAwacs, int value );
 static UInt32   Screamer_ReadStatusRegisters( volatile awacs_regmap_t *ioBaseAwacs );
@@ -71,6 +72,20 @@ static int		Screamer_readCodecControlReg(volatile awacs_regmap_t *ioBaseAwacs, i
 #define RIGHTATTEN(x)				(x & kAWACsOutputRightAtten)
 
 // Not used at the moment, turned off just to kill warning
+
+static void ScreamerWaitUntilReady (volatile awacs_regmap_t *ioBaseAwacs) {
+	UInt32					codecStatus;
+	UInt32					partReady;
+
+	// Wait for the part to become ready before we talk to it
+	codecStatus = Screamer_ReadStatusRegisters (ioBaseAwacs);
+	partReady = codecStatus & 1 << 22;
+	while (!partReady) {
+		IOSleep (1);
+		codecStatus = Screamer_ReadStatusRegisters (ioBaseAwacs);
+		partReady = codecStatus & 1 << 22;
+	}
+}
 
 static int Screamer_readCodecControlReg(volatile awacs_regmap_t *ioBaseAwacs, int regNum)
 {
@@ -106,36 +121,37 @@ static int Screamer_readCodecControlReg(volatile awacs_regmap_t *ioBaseAwacs, in
 
 static void Screamer_writeCodecControlReg( volatile awacs_regmap_t *ioBaseAwacs, int value )
 {
-  int          CodecControlReg;
+	int          CodecControlReg;
 
-  //DEBUG_IOLOG( "PPCSound(awacs): CodecControlReg @ %08x = %08x\n", (int)&ioBaseAwacs->CodecControlRegister, value);
+	//DEBUG_IOLOG( "PPCSound(awacs): CodecControlReg @ %08x = %08x\n", (int)&ioBaseAwacs->CodecControlRegister, value);
 
-  OSWriteLittleInt32(&ioBaseAwacs->CodecControlRegister, 0, value );
-  eieio();
+	ScreamerWaitUntilReady (ioBaseAwacs);
 
-  do
-    {
-      CodecControlReg =  OSReadLittleInt32( &ioBaseAwacs->CodecControlRegister, 0 );
-      eieio();
-    }
-  while ( CodecControlReg & kCodecCtlBusy );
+	OSWriteLittleInt32(&ioBaseAwacs->CodecControlRegister, 0, value );
+	eieio();
+
+	do
+	{
+		CodecControlReg =  OSReadLittleInt32( &ioBaseAwacs->CodecControlRegister, 0 );
+		eieio();
+	}
+	while ( CodecControlReg & kCodecCtlBusy );
 }
 
 
 static void Screamer_writeSoundControlReg( volatile awacs_regmap_t *ioBaseAwacs, int value )
 {
-  //DEBUG_IOLOG( "PPCSound(awacs): SoundControlReg = %08x\n", value);
+	//DEBUG_IOLOG( "PPCSound(awacs): SoundControlReg = %08x\n", value);
 
-  OSWriteLittleInt32( &ioBaseAwacs->SoundControlRegister, 0, value );
-  eieio();
+	OSWriteLittleInt32( &ioBaseAwacs->SoundControlRegister, 0, value );
+	eieio();
 }
 
 static UInt32 Screamer_ReadStatusRegisters( volatile awacs_regmap_t *ioBaseAwacs )
 {	
-
     //we need to have something that check if the Screamer is busy or in readback mode
 
-   return OSReadLittleInt32( &ioBaseAwacs->CodecStatusRegister, 0 );
+	return OSReadLittleInt32( &ioBaseAwacs->CodecStatusRegister, 0 );
 }
 
 #define super AppleOnboardAudio
@@ -266,6 +282,11 @@ bool AppleScreamerAudio::initHardware(IOService *provider)
     duringInitialization = false;
     DEBUG_IOLOG("- AppleScreamerAudio::initHardware\n");
     return myreturn;
+}
+
+void AppleScreamerAudio::sndHWPostDMAEngineInit (IOService *provider) {
+	if (NULL != driverDMAEngine)
+		driverDMAEngine->setSampleLatencies (kScreamerSampleLatency, kScreamerSampleLatency);
 }
 
 void AppleScreamerAudio::setDeviceDetectionActive(){
@@ -536,13 +557,15 @@ IOReturn AppleScreamerAudio::sndHWSetActiveInputExclusive(UInt32 input ){
     UInt32		pcmciaReg;
     Boolean		needsRecalibrate;
 	
-    needsRecalibrate = (input != sndHWGetActiveInputExclusive());
+//	needsRecalibrate = (input != sndHWGetActiveInputExclusive());
+	needsRecalibrate = FALSE;		// no need to recalibrate when switching to the modem input, this is the modem input on PowerBook G4
         // start with all inputs off
     inputReg = sndHWGetRegister(kAWACsInputReg) & ~kAWACsInputField;
     pcmciaReg = sndHWGetRegister(kAWACsPCMCIAAttenReg) & ~kAWACsPCMCIAAttenField;
     	
     switch (input){
         case kSndHWInputNone:
+			needsRecalibrate = TRUE;		// Force a recalibration
             break;
         case kSndHWInput1:
             inputReg |= kAWACsInputA;	
@@ -555,7 +578,6 @@ IOReturn AppleScreamerAudio::sndHWSetActiveInputExclusive(UInt32 input ){
             break;
         case kSndHWInput4:
             pcmciaReg |= kAWACsPCMCIAOn;
-            needsRecalibrate = false;
             break;
         default:
             result = kIOReturnError;
@@ -798,7 +820,7 @@ IOReturn AppleScreamerAudio::sndHWSetSystemInputGain(UInt32 leftGain, UInt32 rig
 #pragma mark ++++++++ UTILITIES
 
 /************************** Utilities for AWACS/Screamer only ************************/
-
+/*
 void AppleScreamerAudio::GC_Recalibrate()
 {
     UInt32 awacsReg, saveReg;
@@ -821,14 +843,11 @@ void AppleScreamerAudio::GC_Recalibrate()
     sndHWSetRegister(kAWACsRecalibrateReg, saveReg);
     DEBUG_IOLOG("- AppleScreamerAudio::GC_Recalibrate\n");
 }
+*/
 
-/*
 void AppleScreamerAudio::GC_Recalibrate () {
 	UInt32					awacsReg;
 	UInt32					saveReg;
-	UInt32					codecStatus;
-	UInt32					partReady;
-	UInt32					loopCount;
 
 	debugIOLog ("+ AppleScreamerAudio::GC_Recalibrate\n");
 
@@ -842,21 +861,11 @@ void AppleScreamerAudio::GC_Recalibrate () {
 
 	sndHWSetRegister (kAWACsRecalibrateReg, awacsReg);
 
-	// Wait for the part to become ready after recalibrating...
-	loopCount = 0;
-	do {
-		loopCount++;
-		IOSleep (1);
-		codecStatus = Screamer_ReadStatusRegisters (ioBase);
-		partReady = codecStatus & 1 << 22;
-	} while (loopCount < 1000 && !partReady);
-	debug2IOLog ("loopCount = %ld\n", loopCount);
-//	IOSleep (1000 - loopCount);
+	ScreamerWaitUntilReady (ioBase);
 
 	sndHWSetRegister (kAWACsRecalibrateReg, saveReg);
 	debugIOLog ("- AppleScreamerAudio::GC_Recalibrate\n");
 }
-*/
 
 void AppleScreamerAudio::restoreSndHWRegisters( void )
 {

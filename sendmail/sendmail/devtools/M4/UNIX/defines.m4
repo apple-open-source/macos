@@ -1,6 +1,6 @@
 divert(-1)
 #
-# Copyright (c) 1999-2000 Sendmail, Inc. and its suppliers.
+# Copyright (c) 1999-2001 Sendmail, Inc. and its suppliers.
 #	All rights reserved.
 #
 # By using this file, you agree to the terms and conditions set
@@ -10,7 +10,7 @@ divert(-1)
 #
 #  Definitions for Makefile construction for sendmail
 #
-#	$Id: defines.m4,v 1.1.1.1 2000/06/10 00:40:47 wsanchez Exp $
+#	$Id: defines.m4,v 1.1.1.2 2002/03/12 17:59:58 zarzycki Exp $
 #
 divert(0)dnl
 
@@ -33,6 +33,14 @@ O=	ifdef(`confOPTIMIZE', `confOPTIMIZE', `-O')
 AR=     ifdef(`confAR', `confAR', `ar')
 AROPTS=	ifdef(`confAROPTS', `confAROPTS', `crv')
 
+# Remove command
+RM=     ifdef(`confRM', `confRM', `rm')
+RMOPTS=	ifdef(`confRMOPTS', `confRMOPTS', `-f')
+
+# Link command
+LN=     ifdef(`confLN', `confLN', `ln')
+LNOPTS=	ifdef(`confLNOPTS', `confLNOPTS', `-f -s')
+
 # Ranlib (or echo)
 RANLIB= ifdef(`confRANLIB', `confRANLIB', `ranlib')
 RANLIBOPTS=	ifdef(`confRANLIBOPTS', `confRANLIBOPTS', `')
@@ -47,7 +55,7 @@ ENVDEF= ifdef(`confENVDEF', `confENVDEF') ifdef(`conf_'bldCURRENT_PRD`_ENVDEF', 
 # location of the source directory
 SRCDIR=	ifdef(`confSRCDIR', `confSRCDIR', `_SRC_PATH_')
 
-# include directories
+# inc`'lude directories
 INCDIRS= confINCDIRS
 
 # library directories
@@ -57,7 +65,6 @@ LIBDIRS=confLIBDIRS
 LIBADD= ifdef(`conf_'bldCURRENT_PRD`_LIBS', `conf_'bldCURRENT_PRD`_LIBS') 
 
 # libraries required on your system
-#  delete -l44bsd if you are not running BIND 4.9.x
 LIBS= ${LIBADD} ifdef(`confLIBS', `confLIBS') ifdef(`conf_'bldCURRENT_PRD`_LIB_POST', `conf_'bldCURRENT_PRD`_LIB_POST') 
 
 # location of sendmail binary (usually /usr/sbin or /usr/lib)
@@ -69,8 +76,17 @@ UBINDIR=ifdef(`confUBINDIR', `confUBINDIR', `/usr/bin')
 # location of "root" binaries (usually /usr/sbin or /usr/etc)
 SBINDIR=ifdef(`confSBINDIR', `confSBINDIR', `/usr/sbin')
 
+# location of "root" binaries (usually /usr/sbin or /usr/etc)
+MBINDIR=ifdef(`confMBINDIR', `confMBINDIR', `/usr/sbin')
+
 # location of "libexec" binaries (usually /usr/libexec or /usr/etc)
 EBINDIR=ifdef(`confEBINDIR', `confEBINDIR', `/usr/libexec')
+
+# where to install inc`'lude files (usually /usr/inc`'lude)
+INCLUDEDIR=ifdef(`confINCLUDEDIR', `confINCLUDEDIR', `/usr/inc`'lude')
+
+# where to install library files (usually /usr/lib)
+LIBDIR=ifdef(`confLIBDIR', `confLIBDIR', `/usr/lib')
 
 # additional .c files needed
 SRCADD= ifdef(`confSRCADD', `confSRCADD')
@@ -93,7 +109,8 @@ BUILDBIN=confBUILDBIN
 COPTS=	-I. ${INCDIRS} ${ENVDEF} ${CCOPTS}
 CFLAGS=	$O ${COPTS} ifdef(`confMT', ifdef(`confMTCFLAGS', `confMTCFLAGS -DXP_MT', `-DXP_MT'), `')
 
-BEFORE=	confBEFORE
+
+BEFORE=	confBEFORE ifdef(`confREQUIRE_LIBSM',`sm_os.h')
 
 LINKS=ifdef(`bldLINK_SOURCES', `bldLINK_SOURCES', `')
 
@@ -122,3 +139,25 @@ SBINOWN=ifdef(`confSBINOWN', `confSBINOWN', `root')
 SBINGRP=ifdef(`confSBINGRP', `confSBINGRP', `bin')
 SBINMODE=ifdef(`confSBINMODE', `confSBINMODE', `4555')
 
+# Setgid binary ownership/permissions
+GBINOWN=ifdef(`confGBINOWN', `confGBINOWN', `root')
+GBINGRP=ifdef(`confGBINGRP', `confGBINGRP', `smmsp')
+GBINMODE=ifdef(`confGBINMODE', `confGBINMODE', `2555')
+
+# owner of MSP queue
+MSPQOWN=ifdef(`confMSPQOWN', `confMSPQOWN', `smmsp')
+
+# MTA binary ownership/permissions
+MBINOWN=ifdef(`confMBINOWN', `confMBINOWN', `root')
+MBINGRP=ifdef(`confMBINGRP', `confMBINGRP', `bin')
+MBINMODE=ifdef(`confMBINMODE', `confMBINMODE', `550')
+
+# Library ownership/permissions
+LIBOWN=ifdef(`confLIBOWN', `confLIBOWN', `root')
+LIBGRP=ifdef(`confLIBGRP', `confLIBGRP', `bin')
+LIBMODE=ifdef(`confLIBMODE', `confLIBMODE', `0444')
+
+# Include file ownership/permissions
+INCOWN=ifdef(`confINCOWN', `confINCOWN', `root')
+INCGRP=ifdef(`confINCGRP', `confINCGRP', `bin')
+INCMODE=ifdef(`confINCMODE', `confINCMODE', `0444')

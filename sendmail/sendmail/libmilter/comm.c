@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 1999-2000 Sendmail, Inc. and its suppliers.
+ *  Copyright (c) 1999-2001 Sendmail, Inc. and its suppliers.
  *	All rights reserved.
  *
  * By using this file, you agree to the terms and conditions set
@@ -8,25 +8,24 @@
  *
  */
 
-#ifndef lint
-static char id[] = "@(#)$Id: comm.c,v 1.1.1.1 2000/06/10 00:40:50 wsanchez Exp $";
-#endif /* ! lint */
+#include <sm/gen.h>
+SM_RCSID("@(#)$Id: comm.c,v 1.1.1.2 2002/03/12 18:00:17 zarzycki Exp $")
 
-#if _FFR_MILTER
 #include "libmilter.h"
+#include <sm/errstring.h>
 
-#define FD_Z	FD_ZERO(&readset);	\
-		FD_SET(fd, &readset);	\
-		FD_ZERO(&excset);	\
-		FD_SET(fd, &excset)
+#define FD_Z	FD_ZERO(&readset);			\
+		FD_SET((unsigned int) sd, &readset);	\
+		FD_ZERO(&excset);			\
+		FD_SET((unsigned int) sd, &excset)
 
 /*
 **  MI_RD_CMD -- read a command
 **
 **	Parameters:
-**		fd -- file descriptor
+**		sd -- socket descriptor
 **		timeout -- maximum time to wait
-**		cmd -- single character command read from fd
+**		cmd -- single character command read from sd
 **		rlen -- pointer to length of result
 **		name -- name of milter
 **
@@ -37,8 +36,8 @@ static char id[] = "@(#)$Id: comm.c,v 1.1.1.1 2000/06/10 00:40:50 wsanchez Exp $
 */
 
 char *
-mi_rd_cmd(fd, timeout, cmd, rlen, name)
-	int fd;
+mi_rd_cmd(sd, timeout, cmd, rlen, name)
+	socket_t sd;
 	struct timeval *timeout;
 	char *cmd;
 	size_t *rlen;
@@ -55,27 +54,31 @@ mi_rd_cmd(fd, timeout, cmd, rlen, name)
 
 	*cmd = '\0';
 	*rlen = 0;
-	if (fd >= FD_SETSIZE)
+
+	if (sd >= FD_SETSIZE)
 	{
 		smi_log(SMI_LOG_ERR, "%s: fd %d is larger than FD_SETSIZE %d",
-			name, fd, FD_SETSIZE);
+			name, sd, FD_SETSIZE);
 		*cmd = SMFIC_SELECT;
 		return NULL;
 	}
+
 	FD_Z;
 	i = 0;
-	while ((ret = select(fd + 1, &readset, NULL, &excset, timeout)) >= 1)
+	while ((ret = select(sd + 1, &readset, NULL, &excset, timeout)) >= 1)
 	{
-		if (FD_ISSET(fd, &excset))
+		if (FD_ISSET(sd, &excset))
 		{
 			*cmd = SMFIC_SELECT;
 			return NULL;
 		}
-		if ((len = read(fd, data + i, sizeof data - i)) < 0)
+
+		len = MI_SOCK_READ(sd, data + i, sizeof data - i);
+		if (MI_SOCK_READ_FAIL(len))
 		{
 			smi_log(SMI_LOG_ERR,
 				"%s, mi_rd_cmd: read returned %d: %s",
-				name, len, strerror(errno));
+				name, len, sm_errstring(errno));
 			*cmd = SMFIC_RECVERR;
 			return NULL;
 		}
@@ -84,7 +87,7 @@ mi_rd_cmd(fd, timeout, cmd, rlen, name)
 			*cmd = SMFIC_EOF;
 			return NULL;
 		}
-		if (len >= sizeof data - i)
+		if (len >= (ssize_t) sizeof data - i)
 			break;
 		i += len;
 		FD_Z;
@@ -98,7 +101,7 @@ mi_rd_cmd(fd, timeout, cmd, rlen, name)
 	{
 		smi_log(SMI_LOG_ERR,
 			"%s: mi_rd_cmd: select returned %d: %s",
-			name, ret, strerror(errno));
+			name, ret, sm_errstring(errno));
 		*cmd = SMFIC_RECVERR;
 		return NULL;
 	}
@@ -114,7 +117,11 @@ mi_rd_cmd(fd, timeout, cmd, rlen, name)
 		*cmd = SMFIC_TOOBIG;
 		return NULL;
 	}
+#if _FFR_ADD_NULL
+	buf = malloc(expl + 1);
+#else /* _FFR_ADD_NULL */
 	buf = malloc(expl);
+#endif /* _FFR_ADD_NULL */
 	if (buf == NULL)
 	{
 		*cmd = SMFIC_MALLOC;
@@ -123,19 +130,20 @@ mi_rd_cmd(fd, timeout, cmd, rlen, name)
 
 	i = 0;
 	FD_Z;
-	while ((ret = select(fd + 1, &readset, NULL, &excset, timeout)) == 1)
+	while ((ret = select(sd + 1, &readset, NULL, &excset, timeout)) == 1)
 	{
-		if (FD_ISSET(fd, &excset))
+		if (FD_ISSET(sd, &excset))
 		{
 			*cmd = SMFIC_SELECT;
 			free(buf);
 			return NULL;
 		}
-		if ((len = read(fd, buf + i, expl - i)) < 0)
+		len = MI_SOCK_READ(sd, buf + i, expl - i);
+		if (MI_SOCK_READ_FAIL(len))
 		{
 			smi_log(SMI_LOG_ERR,
 				"%s: mi_rd_cmd: read returned %d: %s",
-				name, len, strerror(errno));
+				name, len, sm_errstring(errno));
 			ret = -1;
 			break;
 		}
@@ -154,6 +162,10 @@ mi_rd_cmd(fd, timeout, cmd, rlen, name)
 		if (len >= expl - i)
 		{
 			*rlen = expl;
+#if _FFR_ADD_NULL
+			/* makes life simpler for common string routines */
+			buf[expl] = '\0';
+#endif /* _FFR_ADD_NULL */
 			return buf;
 		}
 		i += len;
@@ -173,18 +185,18 @@ mi_rd_cmd(fd, timeout, cmd, rlen, name)
 	{
 		smi_log(SMI_LOG_ERR,
 			"%s: mi_rd_cmd: select returned %d: %s",
-			name, ret, strerror(save_errno));
+			name, ret, sm_errstring(save_errno));
 		*cmd = SMFIC_RECVERR;
 		return NULL;
 	}
 	*cmd = SMFIC_UNKNERR;
 	return NULL;
 }
-/*
-**  MI_WR_CMD -- write a cmd to fd
+/*
+**  MI_WR_CMD -- write a cmd to sd
 **
 **	Parameters:
-**		fd -- file descriptor
+**		sd -- socket descriptor
 **		timeout -- maximum time to wait (currently unused)
 **		cmd -- single character command to write
 **		buf -- buffer with further data
@@ -195,8 +207,8 @@ mi_rd_cmd(fd, timeout, cmd, rlen, name)
 */
 
 int
-mi_wr_cmd(fd, timeout, cmd, buf, len)
-	int fd;
+mi_wr_cmd(sd, timeout, cmd, buf, len)
+	socket_t sd;
 	struct timeval *timeout;
 	int cmd;
 	char *buf;
@@ -217,17 +229,19 @@ mi_wr_cmd(fd, timeout, cmd, buf, len)
 	i = 0;
 	sl = MILTER_LEN_BYTES + 1;
 
-	do {
+	do
+	{
 		FD_ZERO(&wrtset);
-		FD_SET(fd, &wrtset);
-		if ((ret = select(fd + 1, NULL, &wrtset, NULL, timeout)) == 0)
+		FD_SET((unsigned int) sd, &wrtset);
+		if ((ret = select(sd + 1, NULL, &wrtset, NULL, timeout)) == 0)
 			return MI_FAILURE;
 	} while (ret < 0 && errno == EINTR);
 	if (ret < 0)
 		return MI_FAILURE;
 
 	/* use writev() instead to send the whole stuff at once? */
-	while ((l = write(fd, (void *) (data + i), sl - i)) < sl)
+	while ((l = MI_SOCK_WRITE(sd, (void *) (data + i),
+				  sl - i)) < (ssize_t) sl)
 	{
 		if (l < 0)
 			return MI_FAILURE;
@@ -241,15 +255,17 @@ mi_wr_cmd(fd, timeout, cmd, buf, len)
 		return MI_SUCCESS;
 	i = 0;
 	sl = len;
-	do {
+	do
+	{
 		FD_ZERO(&wrtset);
-		FD_SET(fd, &wrtset);
-		if ((ret = select(fd + 1, NULL, &wrtset, NULL, timeout)) == 0)
+		FD_SET((unsigned int) sd, &wrtset);
+		if ((ret = select(sd + 1, NULL, &wrtset, NULL, timeout)) == 0)
 			return MI_FAILURE;
 	} while (ret < 0 && errno == EINTR);
 	if (ret < 0)
 		return MI_FAILURE;
-	while ((l = write(fd, (void *) (buf + i), sl - i)) < sl)
+	while ((l = MI_SOCK_WRITE(sd, (void *) (buf + i),
+				  sl - i)) < (ssize_t) sl)
 	{
 		if (l < 0)
 			return MI_FAILURE;
@@ -258,4 +274,3 @@ mi_wr_cmd(fd, timeout, cmd, buf, len)
 	}
 	return MI_SUCCESS;
 }
-#endif /* _FFR_MILTER */

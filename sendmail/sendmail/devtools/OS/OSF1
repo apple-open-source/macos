@@ -1,11 +1,15 @@
-#	$Id: OSF1,v 1.1.1.1 2000/06/10 00:40:47 wsanchez Exp $
+#	$Id: OSF1,v 1.1.1.2 2002/03/12 18:00:07 zarzycki Exp $
 define(`confCC', `cc -std1 -Olimit 1000')
 define(`confMAPDEF', `-DNDBM -DNIS -DMAP_REGEX')
 define(`confLIBS', `-ldbm')
+define(`confSM_OS_HEADER', `sm_os_osf1')
 define(`confSTDIR', `/var/adm/sendmail')
 define(`confINSTALL', `installbsd')
 define(`confEBINDIR', `/usr/lbin')
 define(`confUBINDIR', `${BINDIR}')
 define(`confDEPEND_TYPE', `CC-M')
 
+define(`confMTCCOPTS', `-D_REENTRANT')
 define(`confMTLDOPTS', `-lpthread')
+define(`confDEPLIBS', `-lpthread -lc')
+define(`confSONAME', `-soname')

@@ -27,7 +27,7 @@
 
 #include <libkern/c++/OSObject.h>
 #include <IOKit/IOTypes.h>
-#include <IOKit/ata/IOATATypes.h>
+#include "IOATATypes.h"
 
 /*!
 @class IOATABusInfo
@@ -92,7 +92,14 @@ class IOATABusInfo : public OSObject
 	@abstract Supports 48-bit LBA if true.
 	Used by clients of ATAControllers to find out about the bus.
 	*/
-	bool supportsExtendedLBA( void ); 
+	bool supportsExtendedLBA( void );
+	
+	/*!@function maxBlocksExtended
+	@abstract The maximum number of 512-byte blocks this controller supports
+	in a single Extended LBA transfer. Some controllers may be limited to less than 
+	the maximum sector count allowed under extended LBA protocol. 
+	*/  
+	UInt16 maxBlocksExtended(void);
 	
 	/*!@function supportsOverlapped
 	@abstract Supports overlapped packet feature set if true. 
@@ -142,6 +149,14 @@ class IOATABusInfo : public OSObject
 	*/	
 	void setExtendedLBA( bool	inState ); 	
 	
+	/*!function setMaxBlocksExtended 
+	 @abstract value set by controllers to indicate the maximum number of blocks 
+	 allowed in a single transfer of data. Some dma engines may not be capable of supporting the full 
+	 16-bit worth of sector count allowed under 48 bit extended LBA. Default is 256 blocks, same as 
+	 standard ATA. 
+	 */
+	void setMaxBlocksExtended( UInt16 inMaxBlocks);
+	
 	/*!@function setOverlapped
 	@abstract Set true for supports overlapped packet feature set. Set by ATAControllers.
 	*/
@@ -162,7 +177,7 @@ class IOATABusInfo : public OSObject
 	bool							_DMAQueued;				/* <--: Supports DMA Queued Feature set */
 	ataSocketType					_SocketType;			/* <--: Indicates bus is fixed internal, removable media-bay, removable PC-Card or unknown type */
 	UInt8							_numUnits;				/* <--: How many devices on this bus */
-
+	UInt16							_maxBlocksExtended;
 	
 	protected:
 /*! @struct ExpansionData

@@ -322,7 +322,9 @@ IOReturn IONDRVI2CInterface::create( IONDRVFramebuffer * ndrv )
         IOLog("%s: cscGetCommunicationInfo: ", ndrv->getName());
 #endif
         if( kIOReturnSuccess != err) {
+#if IONDRVI2CLOG
             IOLog("fails with %d\n", err);
+#endif
             continue;
         }
 #if IONDRVI2CLOG

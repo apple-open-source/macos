@@ -254,6 +254,8 @@ enum AWACsClippingCountRegisterConstants
 };
 
 
+#define kScreamerOWSampleLatency		32
+
 /*------------------ Gossamer from GossamerOut.h ----------------------------------------*/
 
 #define	kSGS7433Addr		0x8A	// IIC address of the SGS tone chip

@@ -314,6 +314,7 @@
 				019C1A55FFDDADA47F000001,
 				01640CD1FFDF242C7F000001,
 				0176C371002B79CE11CE156E,
+				B9D54E1201970D7508CA29FD,
 			);
 			isa = PBXCopyFilesBuildPhase;
 			name = "Copy Files";
@@ -480,13 +481,13 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOATAFamily;
-				MODULE_VERSION = 1.4.9f1;
+				MODULE_VERSION = 1.5.1f1;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOATAFamily;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = ppc;
+				VALID_ARCHS = "ppc i386";
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = kext;
 			};
@@ -518,11 +519,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.4.9</string>
+	<string>1.5.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.4.9f1</string>
+	<string>1.5.1f1</string>
 	<key>IOKitPersonalities</key>
 	<dict/>
 	<key>OSBundleCompatibleVersion</key>
@@ -555,6 +556,7 @@
 				019C1A42FFDDABCE7F000001,
 				0176C373002BAC1E11CE156E,
 				01640CD0FFDF22697F000001,
+				B9D54E11019702DB08CA29FD,
 			);
 			isa = PBXHeadersBuildPhase;
 			name = Headers;
@@ -580,6 +582,7 @@
 				019C1A4AFFDDABCE7F000001,
 				019C1A4BFFDDABCE7F000001,
 				0176C372002B79CE11CE156E,
+				B91829CE0197498808CA29FD,
 			);
 			isa = PBXSourcesBuildPhase;
 			name = Sources;
@@ -689,11 +692,51 @@
 				019C1A38FFDDABCE7F000001,
 				0176C36F002B79CE11CE156E,
 				0176C370002B79CE11CE156E,
+				B9D54E10019702DB08CA29FD,
+				B91829CD0197498808CA29FD,
 			);
 			isa = PBXGroup;
 			name = Family;
 			path = "";
 			refType = 4;
+		};
+//240
+//241
+//242
+//243
+//244
+//B90
+//B91
+//B92
+//B93
+//B94
+		B91829CD0197498808CA29FD = {
+			isa = PBXFileReference;
+			path = IOATARegI386.cpp;
+			refType = 4;
+		};
+		B91829CE0197498808CA29FD = {
+			fileRef = B91829CD0197498808CA29FD;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B9D54E10019702DB08CA29FD = {
+			isa = PBXFileReference;
+			path = IOATARegI386.h;
+			refType = 4;
+		};
+		B9D54E11019702DB08CA29FD = {
+			fileRef = B9D54E10019702DB08CA29FD;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B9D54E1201970D7508CA29FD = {
+			fileRef = B9D54E10019702DB08CA29FD;
+			isa = PBXBuildFile;
+			settings = {
+			};
 		};
 	};
 	rootObject = 089C1669FE841209C02AAC07;

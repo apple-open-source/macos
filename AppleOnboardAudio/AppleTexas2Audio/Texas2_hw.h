@@ -26,6 +26,53 @@
 #include <libkern/OSTypes.h>
 
 /*
+ *	Feature Control Registers
+ */
+#define	kFCR0Offset					0x00000038
+#define	kFCR1Offset					0x0000003C
+#define	kFCR2Offset					0x00000040
+#define	kFCR3Offset					0x00000044
+#define	kFCR4Offset					0x00000048
+
+enum FCR1_Bit_Addresses {			//	bit addresses
+	kI2S0Enable					=	13,
+	kI2S0ClkEnBit				=	12,
+	kI2S0SwReset				=	11,
+	kI2S0CellEn					=	10,
+	kChooseI2S0					=	 9,
+	kChooseAudio				=	 7,
+	kAUDIOCellEN				=	 6
+};
+
+enum FCR1_Field_Width {
+	kI2S0Enable_bitWidth		=	1,
+	kI2S0ClkEnBit_bitWidth		=	1,
+	kI2S0SwReset_bitWidth		=	1,
+	kI2S0CellEn_bitWidth		=	1,
+	kChooseI2S0_bitWidth		=	1,
+	kChooseAudio_bitWidth		=	1,
+	kAUDIOCellEN_bitWidth		=	1
+};
+
+enum FCR3_Bit_Addresses {
+	kClk18_EN_h					=	14,
+	kClk45_EN_h					=	10,
+	kClk49_EN_h					=	 9,
+	kShutdown_PLLKW4			=	 2,
+	kShutdown_PLLKW6			=	 1,
+	kShutdown_PLL_Total			=	 0
+};
+
+enum FCR3_FieldWidth {
+	kClk18_EN_h_bitWidth			=	1,
+	kClk45_EN_h_bitWidth			=	1,
+	kClk49_EN_h_bitWidth			=	1,
+	kShutdown_PLLKW4_bitWidth		=	1,
+	kShutdown_PLLKW6_bitWidth		=	1,
+	kShutdown_PLL_Total_bitWidth	=	1
+};
+
+/*
  * I2S registers:
  */
 
@@ -400,7 +447,7 @@ enum Texas2_DRC_Constants {
 		kDRCIntegrationThreshold		=	0xF0,	/*	Abstracts Texas2 decay to TAS3001C behavior of 2400 mS		*/
 		kDRCAttachThreshold				=	0x70,	/*	Abstracts Texas2 decay to TAS3001C behavior of 13 mS		*/
 		kDRCDecayThreshold				=	0xB0,	/*	Abstracts Texas2 decay to TAS3001C behavior of 212 mS		*/
-		kDRC_ThreholdStepSize			=	-750,	/*	Expressed in dB X 1000										*/
+		kDRC_ThreholdStepSize			=	 750,	/*	Expressed in dB X 1000										*/
 		kDRC_CountsPerStep				=	2		/*	Each 0.750 dB step requires a two count step in hardware	*/
 };
 
@@ -536,15 +583,26 @@ enum {
 #define	kTexas2MaxIntVolume			256
 // 225 was picked over 10 because it allows the part to come fully to volume after mute so that we don't loose the start of a sound
 #define	kAmpRecoveryMuteDuration	225					/* expressed in milliseconds	*/
+#define	kCodecResetMakeBreakDuration	10				/* expressed in milliseconds	*/
+#define	kCodec_RESET_SETUP_TIME			 5				/* expressed in milliseconds	*/
+#define	kCodec_RESET_HOLD_TIME			20				/* expressed in milliseconds	*/
+#define	kCodec_RESET_RELEASE_TIME		10				/* expressed in milliseconds	*/
+
+#define kTexas2OutputSampleLatency	31
+#define kTexas2InputSampleLatency	32
 
 #define kHeadphoneAmpEntry			"headphone-mute"
 #define kAmpEntry					"amp-mute"
+#define kLineOutAmpEntry			"line-output-mute"
 #define kHWResetEntry				"audio-hw-reset"
 #define kHeadphoneDetectInt			"headphone-detect"
+#define kLineInDetectInt			"line-input-detect"
+#define kLineOutDetectInt			"line-output-detect"
 #define	kKWHeadphoneDetectInt		"keywest-gpio15"
 #define kDallasDetectInt			"extint-gpio16"
 #define kKWDallasDetectInt			"keywest-gpio16"
 #define kVideoPropertyEntry			"video"
+#define kSerialPropertyEntry		"headphone-serial"
 
 #define kGPIODTEntry				"gpio"
 #define kI2CDTEntry					"i2c"
@@ -602,7 +660,8 @@ enum eqPrefsVersion{
 
 enum muteSelectors{
 	kHEADPHONE_AMP					=	0,
-	kSPEAKER_AMP					=	1
+	kSPEAKER_AMP					=	1,
+    kLINEOUT_AMP					=	2
 };
 
 #define kHeadphoneBitPolarity		1
@@ -689,7 +748,7 @@ struct EQPrefsElement {
 	UInt32					speakerID;				//	what typeof external speaker is connected.
 	UInt32					reserved;
 	UInt32					filterCount;			//	number of biquad filters (total number : channels X ( biquads per channel )
-	EQFilterCoefficients	filter[12];				//	an array of filter coefficient equal in length to filter count * sizeof(EQFilterCoefficients)
+	EQFilterCoefficients	filter[14];				//	an array of filter coefficient equal in length to filter count * sizeof(EQFilterCoefficients)
 };
 typedef EQPrefsElement *EQPrefsElementPtr;
 
@@ -699,7 +758,7 @@ struct EQPrefs {
 	UInt32					genreType;				//	'jazz', 'clas', etc...
 	UInt32					eqCount;				//	number of eq[n] array elements
 	UInt32					nameID;					//	resource id of STR identifying the filter genre
-	EQPrefsElement			eq[8];					//	'n' sized based on number of devicID/speakerID/layoutID combinations...
+	EQPrefsElement			eq[4];					//	'n' sized based on number of devicID/speakerID/layoutID combinations...
 };
 typedef EQPrefs *EQPrefsPtr;
 

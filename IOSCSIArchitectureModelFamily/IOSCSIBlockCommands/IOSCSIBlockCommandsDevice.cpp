@@ -92,7 +92,17 @@ IOSCSIBlockCommandsDevice::InitializeDeviceSupport( void )
 	fKnownManualEject		= false;
 	
     STATUS_LOG ( ( "IOSCSIBlockCommandsDevice::InitializeDeviceSupport called\n" ) );
-
+	
+	fIOSCSIBlockCommandsDeviceReserved = ( IOSCSIBlockCommandsDeviceExpansionData * )
+			IOMalloc ( sizeof ( IOSCSIBlockCommandsDeviceExpansionData ) );
+	
+	if ( fIOSCSIBlockCommandsDeviceReserved == NULL )
+	{
+		goto ERROR_EXIT;
+	}
+	
+	bzero ( fIOSCSIBlockCommandsDeviceReserved, sizeof ( IOSCSIBlockCommandsDeviceExpansionData ) );
+	
 	// Grab any device information from the IORegistry
 	if ( getProperty( kIOPropertySCSIDeviceCharacteristicsKey ) != NULL )
 	{
@@ -148,6 +158,14 @@ IOSCSIBlockCommandsDevice::InitializeDeviceSupport( void )
 	
 ERROR_EXIT:
 	
+	
+	if ( fIOSCSIBlockCommandsDeviceReserved != NULL )
+	{
+		
+		IOFree ( fIOSCSIBlockCommandsDeviceReserved, sizeof ( IOSCSIBlockCommandsDeviceExpansionData ) );
+		fIOSCSIBlockCommandsDeviceReserved = NULL;
+		
+	}
 	
 	return setupSuccessful;
 	
@@ -221,7 +239,27 @@ IOSCSIBlockCommandsDevice::TerminateDeviceSupport( void )
         fPollingThread = NULL;
         
     }
-
+	
+	// Release all memory/objects associated with the reserved fields.
+	if ( fPowerDownNotifier != NULL )
+	{
+		
+		// remove() will also call release() on this object (IONotifier).
+		// See IONotifier.h for more info.
+		fPowerDownNotifier->remove ( );
+		fPowerDownNotifier = NULL;
+		
+	}
+	
+	// Release the reserved structure.
+	if ( fIOSCSIBlockCommandsDeviceReserved != NULL )
+	{
+		
+		IOFree ( fIOSCSIBlockCommandsDeviceReserved, sizeof ( IOSCSIBlockCommandsDeviceExpansionData ) );
+		fIOSCSIBlockCommandsDeviceReserved = NULL;
+		
+	}
+	
 }
 
 bool
@@ -715,9 +753,7 @@ IOSCSIBlockCommandsDevice::PollForNewMedia( void )
 	fPollingMode	= kPollingMode_Suspended;
 	
 	// Message up the chain that we have media
-	messageClients ( kIOMessageMediaStateHasChanged,
-					 ( void * ) kIOMediaStateOnline,
-					 sizeof ( IOMediaState ) );
+	messageClients ( kIOMessageMediaStateHasChanged, ( void * ) kIOMediaStateOnline );
 	
 }
 
@@ -995,10 +1031,10 @@ IOSCSIBlockCommandsDevice::DetermineMediumWriteProtectState( void )
 		if ( MODE_SENSE_10( 	request,
 								bufferDesc,
 								0x00,
-								0x01,	/* Disable block descriptors */
 								0x00,
-								0x3F,
-								8,
+								0x00,	// Normally, we set DBD=1, but since we're only
+								0x3F,	// interested in modeBuffer[3], we set DBD=0 since
+								8,		// it makes legacy devices happier
 								0 ) == true )
 	    {
 	    	// The command was successfully built, now send it
@@ -1016,14 +1052,16 @@ IOSCSIBlockCommandsDevice::DetermineMediumWriteProtectState( void )
 			
 			STATUS_LOG ( ( "%s: Returned Mode sense data: ", getName() ) );
 			
-#if DEBUG
+#if SCSI_SBC_DEVICE_DEBUGGING_LEVEL >= 3
+
 				for ( UInt32 i = 0;i < 8; i++ )
 				{
 					STATUS_LOG ( ( "%x: ", modeBuffer[i] ) );
 				}
 		
 		        STATUS_LOG ( ( "\n" ) );
-#endif // DEBUG
+
+#endif // SCSI_SBC_DEVICE_DEBUGGING_LEVEL >= 3
 			
 			if ( ( modeBuffer[3] & 0x80 ) != 0 )
 			{
@@ -1045,10 +1083,10 @@ IOSCSIBlockCommandsDevice::DetermineMediumWriteProtectState( void )
 		// Try the six byte mode sense.	
 		if ( MODE_SENSE_6( 	request, 
 							bufferDesc,
-							0x01,	/* Disable block descriptors */
-							0,
-							0x3F,
-							8,
+							0x00,
+							0x00,	// Normally, we set DBD=1, but since we're only
+							0x3F,	// interested in modeBuffer[3], we set DBD=0 since
+							8,		// it makes legacy devices happier
 							0 ) == true )
 	    {
 	    	// The command was successfully built, now send it
@@ -3120,8 +3158,10 @@ IOSCSIBlockCommandsDevice::XPWRITE(
     			CONTROL );
 }
 
+
+OSMetaClassDefineReservedUsed( IOSCSIBlockCommandsDevice, 1 );	/* PowerDownHandler */
+
 // Space reserved for future expansion.
-OSMetaClassDefineReservedUnused( IOSCSIBlockCommandsDevice, 1 );
 OSMetaClassDefineReservedUnused( IOSCSIBlockCommandsDevice, 2 );
 OSMetaClassDefineReservedUnused( IOSCSIBlockCommandsDevice, 3 );
 OSMetaClassDefineReservedUnused( IOSCSIBlockCommandsDevice, 4 );
@@ -3136,4 +3176,3 @@ OSMetaClassDefineReservedUnused( IOSCSIBlockCommandsDevice, 12 );
 OSMetaClassDefineReservedUnused( IOSCSIBlockCommandsDevice, 13 );
 OSMetaClassDefineReservedUnused( IOSCSIBlockCommandsDevice, 14 );
 OSMetaClassDefineReservedUnused( IOSCSIBlockCommandsDevice, 15 );
-OSMetaClassDefineReservedUnused( IOSCSIBlockCommandsDevice, 16 );

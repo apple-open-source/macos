@@ -1,0 +1,15 @@
+#!/bin/sh
+niutil -create . /users/smmsp
+niutil -createprop . /users/smmsp passwd "*"
+niutil -createprop . /users/smmsp uid 25
+niutil -createprop . /users/smmsp gid 25
+niutil -createprop . /users/smmsp change 0
+niutil -createprop . /users/smmsp expire 0
+niutil -createprop . /users/smmsp realname "Sendmail User"
+niutil -createprop . /users/smmsp home /private/etc/mail
+niutil -createprop . /users/smmsp shell /dev/null
+niutil -createprop . /users/smmsp _writers_passwd smmsp
+
+niutil -create . /groups/smmsp
+niutil -createprop . /groups/smmsp gid 25
+niutil -createprop . /groups/smmsp passwd "*"

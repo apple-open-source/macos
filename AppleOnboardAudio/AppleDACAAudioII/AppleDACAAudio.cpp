@@ -386,8 +386,6 @@ void AppleDACAAudio::sndHWPostDMAEngineInit (IOService *provider) {
 
 	nanoseconds_to_absolutetime(NSEC_PER_SEC, &timerInterval);
 	addTimerEvent(this, &AppleDACAAudio::timerCallback, timerInterval);
-//	registerService();
-//	publishResource("setModemSound", this);
 }
 
 UInt32 	AppleDACAAudio::sndHWGetInSenseBits(

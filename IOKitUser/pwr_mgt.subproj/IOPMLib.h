@@ -139,7 +139,7 @@ boolean_t IOPMSleepEnabled ( void );
 IOReturn IOPMSleepSystem ( io_connect_t fb );
 
 IOReturn IOPMCopyBatteryInfo( mach_port_t masterPort, CFArrayRef * info );
-    
+
 #ifdef __cplusplus
 }
 #endif

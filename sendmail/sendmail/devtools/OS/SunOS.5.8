@@ -1,9 +1,12 @@
-#	$Id: SunOS.5.8,v 1.1.1.1 2000/06/10 00:40:48 wsanchez Exp $
+#	$Id: SunOS.5.8,v 1.1.1.2 2002/03/12 18:00:10 zarzycki Exp $
 define(`confCC', `gcc')
+define(`confLDOPTS_SO', `-G')
 define(`confBEFORE', `sysexits.h')
-define(`confMAPDEF', `-DNDBM -DNIS -DNISPLUS -DMAP_REGEX -DLDAPMAP')
-define(`confENVDEF', `-DSOLARIS=20800')
-define(`confLIBS', `-lsocket -lnsl -lldap')
+define(`confMAPDEF', `-DNDBM -DNIS -DNISPLUS -DMAP_REGEX')
+define(`confENVDEF', `-DSOLARIS=20800 -DNETINET6')
+define(`confSM_OS_HEADER', `sm_os_sunos')
+define(`confLIBS', `-lsocket -lnsl')
+define(`confMTCCOPTS', `-D_REENTRANT')
 define(`confMTLDOPTS', `-lpthread')
 define(`confMBINDIR', `/usr/lib')
 define(`confEBINDIR', `/usr/lib')

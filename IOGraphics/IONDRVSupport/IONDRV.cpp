@@ -85,15 +85,18 @@ IONDRV * IONDRV::instantiate( IORegistryEntry * regEntry,
 				(IOLogicalAddress *) &inst->theDriverDesc )) {
 
             char * 	name;
-            int		plen;
+            IOByteCount	plen;
 
             name = (char *) inst->theDriverDesc->driverOSRuntimeInfo.driverName;
             plen = name[ 0 ];
-            strncpy( name, name + 1, plen);
-	    name[ plen ] = 0;
+            if( plen >= sizeof(inst->theDriverDesc->driverOSRuntimeInfo.driverName))
+                plen = sizeof(inst->theDriverDesc->driverOSRuntimeInfo.driverName) - 1;
 
-	    kprintf("ndrv version %08x\n",
-			inst->theDriverDesc-> driverType.version);
+            strncpy( inst->fName, name + 1, plen);
+            sprintf( inst->fName + plen, "-%08lx", *((UInt32 *) &inst->theDriverDesc->driverType.version));
+
+            regEntry->setProperty("IONDRVDescription", inst->theDriverDesc,
+                        sizeof(struct DriverDescription));
 	}
 
     } while( false);
@@ -316,7 +319,7 @@ IONDRV * IONDRV::fromRegistryEntry( IORegistryEntry * regEntry,
 
 const char * IONDRV::driverName( void )
 {
-    return( (const char *) theDriverDesc->driverOSRuntimeInfo.driverName);
+    return( fName );
 }
 
 

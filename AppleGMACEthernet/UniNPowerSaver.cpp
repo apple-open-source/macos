@@ -245,16 +245,31 @@ void UniNEnet::stopPHY()
 		WRITE_REGISTER( RxMACSoftwareResetCommand, kRxMACSoftwareResetCommand_Reset );
 
 			// This is what actually turns off the LINK LED
-		if ( (fPHYType == 0x5400) || (fPHYType == 0x5401) )
+
+		switch ( fPHYType )
 		{
+		case 0x5400:
+		case 0x5401:
 #if 0
 				// The 5400 has read/write privilege on this bit,
 				// but 5201 is read-only.
 			miiWriteWord( MII_CONTROL_POWERDOWN, MII_CONTROL, kPHYAddr0 );
 #endif
-		}
-		else  // Only other possibility is Broadcom 5201 (or 5202?)
-		{
+			break;
+
+		case 0x5221:
+				// 1: enable shadow mode registers in 5221 (0x1A-0x1E)
+			miiReadWord( &val16, MII_BCM5221_TestRegister, kPHYAddr0 );
+			miiWriteWord( val16 | MII_BCM5221_ShadowRegEnableBit, MII_BCM5221_TestRegister, kPHYAddr0 );	
+
+				// 2: Force IDDQ mode for max power savings
+				// remember..after setting IDDQ mode we have to "hard" reset
+				// the PHY in order to access it.
+			miiReadWord( &val16, MII_BCM5221_AuxiliaryMode4, kPHYAddr0 );
+			miiWriteWord( val16 | MII_BCM5221_SetIDDQMode, MII_BCM5221_AuxiliaryMode4, kPHYAddr0 );
+			break;
+
+		case 0x5201:
 #if 0
 			miiReadWord( &val16, MII_BCM5201_AUXMODE2, kPHYAddr0 );
 			miiWriteWord( val16 & ~MII_BCM5201_AUXMODE2_LOWPOWER,
@@ -264,7 +279,16 @@ void UniNEnet::stopPHY()
 			miiWriteWord( MII_BCM5201_MULTIPHY_SUPERISOLATE,
 						  MII_BCM5201_MULTIPHY,
 						  kPHYAddr0 );
-		}
+			break;
+
+
+		case 0x5411:
+		case 0x5421:
+		default:
+			miiWriteWord( MII_CONTROL_POWERDOWN, MII_CONTROL, kPHYAddr0 );
+			break;
+		}/* end SWITCH on PHY type */
+
 			/* Put the MDIO pins into a benign state.							*/
 			/* Note that the management regs in the PHY will be inaccessible.	*/
 			/* This is to guarantee max power savings on Powerbooks and			*/
@@ -307,11 +331,13 @@ void UniNEnet::startPHY()
 	val32 = READ_REGISTER( TxMACConfiguration );
 	WRITE_REGISTER( TxMACConfiguration, val32 | kTxMACConfiguration_TxMac_Enable );
 
-	val32 = READ_REGISTER( RxMACConfiguration );
-	WRITE_REGISTER( RxMACConfiguration,
-							val32 | kRxMACConfiguration_Rx_Mac_Enable
-								  | kRxMACConfiguration_Strip_FCS
-								  | kRxMACConfiguration_Hash_Filter_Enable );
+	val32  = READ_REGISTER( RxMACConfiguration );	/// ??? use fRxMACConfiguration?
+	val32 |= kRxMACConfiguration_Rx_Mac_Enable | kRxMACConfiguration_Hash_Filter_Enable;
+	if ( fIsPromiscuous )
+		 val32 &= ~kRxMACConfiguration_Strip_FCS;
+	else val32 |=  kRxMACConfiguration_Strip_FCS;
+
+	WRITE_REGISTER( RxMACConfiguration, val32 );
 
 		// Set flag to RxMACEnabled somewhere??
 

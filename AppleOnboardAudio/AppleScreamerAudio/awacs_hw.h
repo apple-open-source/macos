@@ -462,7 +462,7 @@ enum GeneralHardware {
 
 
 //some constants
-
+#define kScreamerSampleLatency		32
 #define	kScreamerAttenStep			1.5
 #define kScreamerMaxVolume			0.0
 #define kScreamerMinVolume			-22.5

@@ -70,6 +70,10 @@ protected:
     virtual UInt32 	sndHWGetType( void );
     virtual UInt32	sndHWGetManufacturer( void );
 
+			// User Client calls
+	virtual UInt8	readGPIO (UInt32 selector) {return 0;}
+	virtual void	writeGPIO (UInt32 selector, UInt8 data) {return;}
+	virtual Boolean	getGPIOActiveState (UInt32 gpioSelector) {return 0;}
 
 public:
     // Classic Unix driver functions

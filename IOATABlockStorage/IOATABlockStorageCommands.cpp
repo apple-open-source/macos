@@ -180,7 +180,21 @@ IOATABlockStorageDriver::setupReadWriteTaskFile (
 	if ( fUltraDMAMode || fDMAMode )
 	{
 		
-		command = ( isWrite ) ? kATAcmdWriteDMA : kATAcmdReadDMA;
+		if ( fUseExtendedLBA )
+		{
+			
+			command = ( isWrite ) ? 0x35 : 0x25;
+			flags |= mATAFlag48BitLBA;
+			
+		}
+		
+		else
+		{	
+			
+			command = ( isWrite ) ? kATAcmdWriteDMA : kATAcmdReadDMA;
+			
+		}
+		
 		flags |= mATAFlagUseDMA;
 		
 	}
@@ -188,7 +202,19 @@ IOATABlockStorageDriver::setupReadWriteTaskFile (
 	else
 	{
 		
-		command = ( isWrite ) ? kATAcmdWrite : kATAcmdRead;
+		if ( fUseExtendedLBA )
+		{
+			
+			command = ( isWrite ) ? 0x34 : 0x24;
+		
+		}
+		
+		else
+		{	
+			
+			command = ( isWrite ) ? kATAcmdWrite : kATAcmdRead;
+			
+		}
 		
 	}
 	
@@ -201,11 +227,34 @@ IOATABlockStorageDriver::setupReadWriteTaskFile (
 	if ( fUseLBAAddressing )
 	{
 		
-		STATUS_LOG ( ( "IOATABlockStorageDriver::setupReadWriteTaskFile block = %lx.\n",  block ) );
-
-		// 28bit LBA addressing supported
-		cmd->setLBA28 ( block, fATAUnitID );
-				
+		if ( fUseExtendedLBA )
+		{
+			
+			IOExtendedLBA *		extLBA = cmd->getExtendedLBA ( );
+			
+			extLBA->setExtendedLBA ( 0, block, fATAUnitID, ( UInt16 ) nblks, command );
+			
+			clientData->useExtendedLBA 	= true;
+			clientData->lbaLow16 		= extLBA->getLBALow16 ( );
+			clientData->lbaMid16		= extLBA->getLBAMid16 ( );
+			clientData->lbaHigh16		= extLBA->getLBAHigh16 ( );
+			clientData->sectorCount16	= extLBA->getSectorCount16 ( );
+			clientData->features16		= extLBA->getFeatures16 ( );
+			clientData->device			= extLBA->getDevice ( );
+			clientData->command16		= extLBA->getCommand ( );
+			
+		}
+		
+		else
+		{
+			
+			STATUS_LOG ( ( "IOATABlockStorageDriver::setupReadWriteTaskFile block = %lx.\n",  block ) );
+			
+			// 28bit LBA addressing supported
+			cmd->setLBA28 ( block, fATAUnitID );
+			
+		}
+		
 		clientData->sectorNumber 	= ( block & 0xFF );
 		clientData->cylLow			= ( ( block & 0xFF00 ) >> 8 );
 		clientData->cylHigh			= ( ( block & 0x00FF0000 ) >> 16 );
@@ -362,6 +411,25 @@ IOATABlockStorageDriver::ataCommandFlushCache ( void )
 	
 	// Zero the command
 	cmd->zeroCommand ( );
+	
+	if ( fUseExtendedLBA )
+	{
+		
+		IOExtendedLBA *		extLBA = cmd->getExtendedLBA ( );
+		
+		extLBA->setExtendedLBA ( 0, 0, fATAUnitID, 0, 0xEA );
+		cmd->setFlags ( mATAFlag48BitLBA );
+		
+		clientData->useExtendedLBA 	= true;
+		clientData->lbaLow16 		= extLBA->getLBALow16 ( );
+		clientData->lbaMid16		= extLBA->getLBAMid16 ( );
+		clientData->lbaHigh16		= extLBA->getLBAHigh16 ( );
+		clientData->sectorCount16	= extLBA->getSectorCount16 ( );
+		clientData->features16		= extLBA->getFeatures16 ( );
+		clientData->device			= extLBA->getDevice ( );
+		clientData->command16		= extLBA->getCommand ( );
+		
+	}
 	
 	cmd->setOpcode ( kATAFnExecIO );
 	cmd->setCommand ( 0xE7 );
@@ -1293,9 +1361,24 @@ IOATABlockStorageDriver::sReissueCommandFromClientData ( IOATACommand * cmd )
 	cmd->setCylHi 				( clientData->cylHigh );
 	cmd->setDevice_Head			( clientData->sdhReg );
 	cmd->setCommand 			( clientData->command );
+
+	if ( clientData->useExtendedLBA )
+	{
+		
+		IOExtendedLBA *		extLBA = cmd->getExtendedLBA ( );
+		
+		extLBA->setLBALow16 ( clientData->lbaLow16 );
+		extLBA->setLBAMid16 ( clientData->lbaMid16 );
+		extLBA->setLBAHigh16 ( clientData->lbaHigh16 );
+		extLBA->setSectorCount16 ( clientData->sectorCount16 );
+		extLBA->setFeatures16 ( clientData->features16 );
+		extLBA->setDevice ( clientData->device );
+		extLBA->setCommand ( clientData->command16 );
+		
+	}
 	
 	clientData->self->fATADevice->executeCommand ( cmd );
-
+	
 	STATUS_LOG ( ( "%ssReissueCommandFromClientData%s\n", "\033[33m", "\033[0m" ) );
 	
 }

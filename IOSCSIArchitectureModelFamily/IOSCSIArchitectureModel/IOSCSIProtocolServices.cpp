@@ -317,7 +317,7 @@ IOSCSIProtocolServices::SendNotification_VerifyDeviceState( void )
 	STATUS_LOG ( ("%s: SendNotification_VerifyDeviceState called\n", getName ( ) ) );
 	
 	// Send message up to SCSI Application Layer.
-	messageClients ( kSCSIProtocolNotification_VerifyDeviceState, 0 , 0 );
+	messageClients ( kSCSIProtocolNotification_VerifyDeviceState );
 	
 }
 

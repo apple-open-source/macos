@@ -61,6 +61,7 @@ protected:
     UInt16			fineAddressMask;
     UInt8			primaryBus;
     UInt8			configDataOffsetMask;
+    UInt32               	uniNVersion;
 
     inline bool setConfigSpace( IOPCIAddressSpace space, UInt8 offset );
     virtual UInt8 firstBusNum( void );
