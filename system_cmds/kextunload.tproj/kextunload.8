@@ -1,0 +1,43 @@
+.\"
+.\"
+.Dd July 5, 2000
+.Dt kextunload 8
+.Os Apple Computer, Inc.
+.Sh NAME
+.Nm kextunload
+.Nd terminates classes, unloads modules associated with a kernel extension
+.Sh SYNOPSIS
+.Nm kextunload
+.Op Fl c Ar classname
+.Op Fl m Ar modulename
+.Op Fl h
+.Op Ar kextbundle
+.Sh DESCRIPTION
+The
+.Nm
+utility terminates classes and unloads the module files contained within 
+.Ar kextbundle
+or with a given name. Modules and classes in the kernel must be written correctly to handle the termination and unload process for this to be successful.
+.Pp
+The following options are available:
+.Bl -tag -width indent
+.It Fl h
+Provide quick help.
+.It Fl m
+Terminate the classes found in the module name given, and unload the module.
+.It Fl c
+Terminate the classes in the kernel with the given name.
+.El
+.Sh FILES
+.Bl -tag -width /modules -compact
+.Ar kextbundle
+directory containing loadable kernel modules.
+.Sh DIAGNOSTICS
+The
+.Nm
+utility exits with a status of 0 on success or with a nonzero status if an error occurs.
+.Sh SEE ALSO
+.Xr kextload 8 ,
+.Xr kmodload 8 ,
+.Xr kmodstat 8 ,
+.Xr kmodunload 8

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd">
+<plist version="0.9">
+<dict>
+	<key>CFBundleName</key>
+	<string>hfs</string>
+	<key>FSPersonalities</key>
+	<dict>
+		<key>HFS</key>
+		<dict>
+			<key>FSName</key>
+			<string>Mac OS Standard</string>
+		</dict>
+		<key>HFS+</key>
+		<dict>
+			<key>FSName</key>
+			<string>Mac OS Extended</string>
+		</dict>
+	</dict>
+</dict>
+</plist>

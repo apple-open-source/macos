@@ -1,0 +1,200 @@
+.TH SETFILE 1 "July 25, 2000" "Mac OS X"
+.na
+.nh
+.SH NAME
+SetFile
+\- sets file attributes
+.SH SYNOPSIS
+.B SetFile 
+.I file1 \fR[\fIfile2\fR]... 
+[ 
+.B \-a 
+.I attributes 
+] [ 
+.B \-c 
+.I creator 
+] [ 
+.B \-d 
+.I date 
+] [ 
+.B \-l 
+.I h
+,
+.I v 
+] [ 
+.B \-m 
+.I date 
+] [ 
+.B \-noResolve 
+] [ 
+.B \-t 
+.I type 
+]
+.SH DESCRIPTION
+The 
+.B SetFile 
+command sets attributes for one or more files. The options apply to all files listed.
+.SH INPUT
+None
+.SH OUTPUT
+None
+.SH ALIAS RESOLUTION
+This command resolves Finder aliases used as part of any pathname or filename specification. You may use the option 
+.B -noResolve 
+to override this behavior, which allows you to use 
+.B SetFile 
+to set the attributes of your Finder alias file.
+.SH STATUS
+.B SetFile 
+can return the following status codes:
+.PP
+.PD 0
+.TP 3
+.B 0
+attributes set
+.TP 3
+.B 1
+syntax error
+.TP 3
+.B 2
+any other error
+.PD
+.SH PARAMETERS
+.TP
+\fIfile1\fR [\fIfile2\fR] ...
+Specifies one or more files.
+.SH OPTIONS
+.TP
+\fB-a \fIattributes\fR
+Sets the file attribute bits, where 
+.I attributes 
+is a string of case-sensitive letters. Each letter corresponds to a file attribute: an uppercase letter indicates that the attribute bit is set (1); a lowercase letter indicates that it is not (0). These are the same attributes that are displayed for files in the 
+.B -l 
+and 
+.B -x 
+options of the 
+.B Files 
+command.
+The letters and their meanings when set are given below. Note that attributes that are not specified in the command line remain unchanged. 
+.PP
+.RS
+.PD 0
+.TP
+\fBAttr\fR
+\fBMeaning when set\fR
+.TP
+\fBA \fR|\fB a\fR
+Finder alias file.
+.TP
+\fBV \fR|\fB v\fR
+Invisible. *
+.TP
+\fBB \fR|\fB b\fR
+Has bundle.
+.TP
+\fBS \fR|\fB s\fR
+System file.
+.TP
+\fBT \fR|\fB t\fR
+Stationery file.
+.TP
+\fBC \fR|\fB c\fR
+File has custom icon.
+.TP
+\fBO \fR|\fB o\fR
+File is open.
+.TP
+\fBL \fR|\fB l\fR
+Write-locked.
+.TP
+\fBI \fR|\fB i\fR
+Initialized (that is, the Finder is aware of this file and has given it a location in a window). *
+.TP
+\fBN \fR|\fB n\fR
+File has no 'INIT' resource.
+.TP
+\fBM \fR|\fB m\fR
+Shared file (can be launched multiple times).
+.TP
+\fBW \fR|\fB w\fR
+Always switch launch (if possible).
+.TP
+\fBD \fR|\fB d\fR
+Located on the desktop. Note that this attribute is not used in System 7. *
+.PD
+.RE
+.IP
+* This attribute can also be set for folders.
+.IP
+.B Note
+.br
+These attributes are described in the chapter about the File Manager in 
+.I Inside Macintosh. 
+.TP
+\fB-c \fIcreator\fR
+Specifies the file's creator, where 
+.I creator 
+is a string of exactly four characters. For example,
+.IP
+-c 'MPS '
+.TP
+\fB-d \fIdate\fR 
+Sets the creation date, where 
+.I date 
+is a string of the form 
+.IP
+"\fImm\fB/\fIdd\fB/\fIyy\fR [ \fIhh\fB:\fImm\fR[\fB:\fIss\fR]  [ \fBAM \fR|\fB PM\fR ] ]"
+.IP
+representing the month, day, year (0\-99), hour (0\-23), minute, and second. Note that you must enclose the string in quotation marks if it contains spaces and that, as a convenience, you can use a period ( . ) instead of the form shown above to indicate the current date and time.
+.TP
+\fB-l \fIh\fR,\fIv\fR 
+Sets the icon location, where 
+.I h 
+and 
+.I v 
+are positive integer values that represent the horizontal and vertical pixel offsets from the upper-left corner of the enclosing window. 
+.TP
+\fB-m \fIdate\fR
+Sets the modification date, where 
+.I date 
+is a string of the same format used for 
+.B -d. 
+As a convenience you can use a period ( . ) in place of the usual date string to indicate the current date and time.
+.TP
+.B -noResolve
+Prevents 
+.B SetFile 
+from resolving the leaf alias in the input file path. This lets you act on the Finder alias file rather than its target file.
+.TP
+\fB-t \fItype\fR 
+Sets the file type, where 
+.I type 
+is a string of exactly four characters. For example:
+.IP
+-t 'TEXT'
+.SH EXAMPLES
+The following command line sets the creator and type for the 
+.B ResEqual 
+tool:
+.PP
+SetFile ResEqual -c "MPS " -t MPST 
+.PP
+This command line sets the modification date of the 
+.B myFile 
+file:
+.PP
+SetFile myFile -m "5/13/92 12:29"
+.PP
+Using a period (.) as a parameter to 
+.B -m, 
+the following command line sets the modification date of the 
+.B myFile 
+and 
+.B Bar 
+files to the current date and time. Setting the date is useful, for instance, before running the 
+.B Make 
+tool.
+.PP
+SetFile myFile Bar -m
+.SH SEE ALSO
+.B Files

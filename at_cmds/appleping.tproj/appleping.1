@@ -1,0 +1,57 @@
+.TH appleping 1
+.SH NAME
+appleping - exercises the AppleTalk network by sending packets to a named host
+
+.SH SYNOPSIS
+.B appleping 
+.I net-node 
+[
+.I packet-size 
+[
+.I npackets
+]]
+
+.B appleping 
+.I name:type[@zone] 
+[
+.I packet-size 
+[
+.I npackets
+]]
+
+.SH ARGUMENTS
+.TP 8
+.I name:type[@zone]
+Specifies the host by its name, type, and zone. If you
+do not specify a value for zone, appleping uses the
+local zone.
+.TP 8
+.I net-node
+Specifies the host by its network node number. To see
+the network node number for a particular system, run
+atlookup. The network and node numbers must be in 
+hexadecimal.
+.TP 8
+.I npackets
+Specifies how many packets to send before terminating.
+.TP 8
+.I packet-size
+Specifies in bytes the size of each packet.  The value
+of packet-size must be between 14 and 599. The default
+packet size is 64 bytes.
+
+.SH DESCRIPTION
+appleping repeatedly sends AppleTalk Echo Protocol request
+packets to the specified computer and reports whether a
+reply was received. The appleping command continues to send
+packets and to display the result until the number of
+packets specified by npackets is reached or until you issue
+the interrupt character (usually by pressing CONTROL-C).
+Before exiting, appleping displays a summary of statistics.
+
+.SH FILES
+/usr/bin/appleping
+Executable file
+
+.SH SEE ALSO
+appletalk(8), atlookup(1)

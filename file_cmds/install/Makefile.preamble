@@ -1,0 +1,5 @@
+vpath stat_flags.c ../ls
+
+CFILES += stat_flags.c
+
+include $(CoreOSMakefiles)/ProjectBuilder/Makefile.Preamble.Common

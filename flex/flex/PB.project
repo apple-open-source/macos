@@ -1,0 +1,34 @@
+{
+    FILESTABLE = {
+        Documentation = (COPYING, NEWS, README, INSTALL, flex.1); 
+        Headers = (FlexLexer.h, flexdef.h, version.h); 
+        Makefiles = (configure.in, conf.in, Makefile.in, configure, mkinstalldirs); 
+        Resources = (mkskel.sh, install.sh); 
+        SUBPROJECTS = (MISC); 
+        Sources = (
+            ccl.c, 
+            dfa.c, 
+            ecs.c, 
+            initscan.c, 
+            gen.c, 
+            yylex.c, 
+            libmain.c, 
+            libyywrap.c, 
+            main.c, 
+            misc.c, 
+            tblcmp.c, 
+            nfa.c, 
+            parse.y, 
+            scan.l, 
+            skel.c, 
+            sym.c
+        ); 
+    }; 
+    LANGUAGE = English; 
+    NEXTSTEP_BUILDTOOL = /bin/make; 
+    PDO_UNIX_BUILDTOOL = /bin/make; 
+    PROJECTNAME = flex; 
+    PROJECTTYPE = "GNU Source"; 
+    PROJECTVERSION = 2.6; 
+    WINDOWS_BUILDTOOL = "${NEXT_ROOT}/NextDeveloper/Executables/make"; 
+}

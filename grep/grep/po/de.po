@@ -1,0 +1,337 @@
+# German messages for GNU grep
+# Copyright (C) 1997-99, 2000 Free Software Foundation, Inc.
+# Martin von Löwis <martin@mira.isdn.cs.tu-berlin.de>, 1997-99, 2000
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: GNU grep 2.4f\n"
+"POT-Creation-Date: 2000-03-01 22:44-0500\n"
+"PO-Revision-Date: 2000-02-15 20:48+01:00\n"
+"Last-Translator: Martin von Löwis <martin@mira.isdn.cs.tu-berlin.de>\n"
+"Language-Team: German <de@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=ISO-8859-1\n"
+"Content-Transfer-Encoding: 8-bit\n"
+
+#: src/dfa.c:163 src/dfa.c:174 src/dfa.c:185 src/grep.c:902
+msgid "Memory exhausted"
+msgstr "Virtueller Speicher erschöpft."
+
+#: src/dfa.c:448
+msgid "Unfinished \\ escape"
+msgstr "Unbeendete \\-Escape-Sequenz."
+
+#. Cases:
+#. {M} - exact count
+#. {M,} - minimum count, maximum is infinity
+#. {M,N} - M through N
+#: src/dfa.c:581 src/dfa.c:587 src/dfa.c:597 src/dfa.c:605 src/dfa.c:620
+msgid "unfinished repeat count"
+msgstr "Unbeendeter Wiederholungszähler."
+
+#: src/dfa.c:594 src/dfa.c:611 src/dfa.c:619 src/dfa.c:623
+msgid "malformed repeat count"
+msgstr "Unförmiger Wiederholungszähler."
+
+# Is this message used only for [ without matching ],
+# or for ] without [ as well?
+#: src/dfa.c:688 src/dfa.c:691 src/dfa.c:718 src/dfa.c:722 src/dfa.c:723
+#: src/dfa.c:726 src/dfa.c:739 src/dfa.c:740
+msgid "Unbalanced ["
+msgstr "Öffnende [ ohne schließende."
+
+#: src/dfa.c:886
+msgid "Unbalanced ("
+msgstr "Öffnende ( ohne schließende."
+
+#: src/dfa.c:1000
+msgid "No syntax specified"
+msgstr "Keine Syntax angegeben."
+
+#: src/dfa.c:1008
+msgid "Unbalanced )"
+msgstr "Schließende ) ohne öffnende."
+
+#: src/dfa.c:1994
+msgid "out of memory"
+msgstr "Speicher ist alle."
+
+#: src/getopt.c:675
+#, c-format
+msgid "%s: option `%s' is ambiguous\n"
+msgstr "%s: Die Option »%s« ist mehrdeutig.\n"
+
+#: src/getopt.c:700
+#, c-format
+msgid "%s: option `--%s' doesn't allow an argument\n"
+msgstr "%s: Die Option »%s« erlaubt keinen Parameter.\n"
+
+#: src/getopt.c:705
+#, c-format
+msgid "%s: option `%c%s' doesn't allow an argument\n"
+msgstr "%s: Die Option »%c%s« erlaubt keinen Parameter.\n"
+
+#: src/getopt.c:723 src/getopt.c:896
+#, c-format
+msgid "%s: option `%s' requires an argument\n"
+msgstr "%s: Die Option »%s« verlangt einen Parameter.\n"
+
+#. --option
+#: src/getopt.c:752
+#, c-format
+msgid "%s: unrecognized option `--%s'\n"
+msgstr "%s: Nicht erkannte Option »--%s«\n"
+
+#. +option or -option
+#: src/getopt.c:756
+#, c-format
+msgid "%s: unrecognized option `%c%s'\n"
+msgstr "%s: Nicht erkannte Option »%c%s«.\n"
+
+#. 1003.2 specifies the format of this message.
+#: src/getopt.c:782
+#, c-format
+msgid "%s: illegal option -- %c\n"
+msgstr "%s: Ungültige Option -- %c.\n"
+
+#: src/getopt.c:785
+#, c-format
+msgid "%s: invalid option -- %c\n"
+msgstr "%s: Ungültige Option -- %c.\n"
+
+#. 1003.2 specifies the format of this message.
+#: src/getopt.c:815 src/getopt.c:945
+#, c-format
+msgid "%s: option requires an argument -- %c\n"
+msgstr "%s: Option verlangt einen Parameter -- %c.\n"
+
+#: src/getopt.c:862
+#, c-format
+msgid "%s: option `-W %s' is ambiguous\n"
+msgstr "%s: Option »-W %s« ist zweideutig.\n"
+
+#: src/getopt.c:880
+#, c-format
+msgid "%s: option `-W %s' doesn't allow an argument\n"
+msgstr "%s: Option »-W %s« erlaubt keinen Parameter.\n"
+
+#: src/grep.c:185 src/grep.c:200 src/grep.c:293 src/grep.c:399 src/kwset.c:180
+#: src/kwset.c:186 src/obstack.c:471
+msgid "memory exhausted"
+msgstr "Virtueller Speicher erschöpft."
+
+#: src/grep.c:550 src/grep.c:1441
+msgid "writing output"
+msgstr "schreibe Ausgabe"
+
+#: src/grep.c:777
+#, c-format
+msgid "Binary file %s matches\n"
+msgstr "Übereinstimmungen in Binärdatei %s.\n"
+
+#: src/grep.c:791
+msgid "(standard input)"
+msgstr "(Standardeingabe)"
+
+#: src/grep.c:887
+#, c-format
+msgid "%s: warning: %s: %s\n"
+msgstr "%s: Warnung: %s: %s\n"
+
+#: src/grep.c:888
+msgid "recursive directory loop"
+msgstr "Rekursive Verzeichnisschleife."
+
+#: src/grep.c:938
+#, c-format
+msgid "Usage: %s [OPTION]... PATTERN [FILE]...\n"
+msgstr "Aufruf: %s [OPTION]... MUSTER [DATEI]...\n"
+
+#: src/grep.c:939
+#, c-format
+msgid "Try `%s --help' for more information.\n"
+msgstr "»%s --help« gibt Ihnen mehr Informationen.\n"
+
+#: src/grep.c:943
+#, c-format
+msgid "Usage: %s [OPTION]... PATTERN [FILE] ...\n"
+msgstr "Aufruf: %s [OPTION]... MUSTER [DATEI] ...\n"
+
+#: src/grep.c:944
+#, c-format
+msgid ""
+"Search for PATTERN in each FILE or standard input.\n"
+"Example: %s -i 'hello world' menu.h main.c\n"
+"\n"
+"Regexp selection and interpretation:\n"
+msgstr ""
+"Suche nach MUSTER in jeder DATEI oder der Standardeingabe.\n"
+"Beispiel: %s -i 'Hallo Welt' menu.h main.c\n"
+"\n"
+"Auswahl und Interpretation regulärer Ausdrücke:\n"
+
+#: src/grep.c:949
+msgid ""
+"  -E, --extended-regexp     PATTERN is an extended regular expression\n"
+"  -F, --fixed-strings       PATTERN is a set of newline-separated strings\n"
+"  -G, --basic-regexp        PATTERN is a basic regular expression\n"
+msgstr ""
+"  -E, --extended-regexp     MUSTER ist ein erweiterter regulärer Ausdruck.\n"
+"  -F, --fixed-strings       MUSTER ist eine Menge Newline-getrennter \n"
+"                            Zeichenketten.\n"
+"  -G, --basic-regexp        MUSTER ist ein regulärer Standardausdruck.\n"
+
+#: src/grep.c:953
+msgid ""
+"  -e, --regexp=PATTERN      use PATTERN as a regular expression\n"
+"  -f, --file=FILE           obtain PATTERN from FILE\n"
+"  -i, --ignore-case         ignore case distinctions\n"
+"  -w, --word-regexp         force PATTERN to match only whole words\n"
+"  -x, --line-regexp         force PATTERN to match only whole lines\n"
+"  -z, --null-data           a data line ends in 0 byte, not newline\n"
+msgstr ""
+"  -e, --regexp=MUSTER       MUSTER als regulären Ausdruck verwenden.\n"
+"  -f, --file=FILE           MUSTER aus DATEI lesen.\n"
+"  -i, --ignore-case         Unterschied zwischen Groß- und Kleinschreibung\n"
+"                            ignorieren.\n"
+"  -w, --word-regexp         MUSTER paßt nur auf ganze Wörter.\n"
+"  -x, --line-regexp         MUSTER paßt nur auf ganze Zeilen.\n"
+"  -z, --null-data           Eine Zeile endet mit Nullbyte, nicht Newline.\n"
+
+#: src/grep.c:960
+msgid ""
+"\n"
+"Miscellaneous:\n"
+"  -s, --no-messages         suppress error messages\n"
+"  -v, --invert-match        select non-matching lines\n"
+"  -V, --version             print version information and exit\n"
+"      --help                display this help and exit\n"
+"      --mmap                use memory-mapped input if possible\n"
+msgstr ""
+"\n"
+"Verschiedenes:\n"
+"  -s, --no-messages         Fehlermeldungen unterdrücken.\n"
+"  -v, --revert-match        Nicht-passende Zeilen anzeigen.\n"
+"  -V, --version             Versionnummer ausgeben und beenden.\n"
+"      --help                Diese Hilfe ausgeben und beenden.\n"
+"      --mmap                Wenn möglich, Eingabe in den Speicher mappen.\n"
+
+#: src/grep.c:968
+msgid ""
+"\n"
+"Output control:\n"
+"  -b, --byte-offset         print the byte offset with output lines\n"
+"  -n, --line-number         print line number with output lines\n"
+"  -H, --with-filename       print the filename for each match\n"
+"  -h, --no-filename         suppress the prefixing filename on output\n"
+"  -q, --quiet, --silent     suppress all normal output\n"
+"      --binary-files=TYPE   assume that binary files are TYPE\n"
+"                            TYPE is 'binary', 'text', or 'without-match'.\n"
+"  -a, --text                equivalent to --binary-files=text\n"
+"  -I                        equivalent to --binary-files=without-match\n"
+"  -d, --directories=ACTION  how to handle directories\n"
+"                            ACTION is 'read', 'recurse', or 'skip'.\n"
+"  -r, --recursive           equivalent to --directories=recurse.\n"
+"  -L, --files-without-match only print FILE names containing no match\n"
+"  -l, --files-with-matches  only print FILE names containing matches\n"
+"  -c, --count               only print a count of matching lines per FILE\n"
+"  -Z, --null                print 0 byte after FILE name\n"
+msgstr ""
+"\n"
+"Ausgabekontrolle:\n"
+"  -b, --byte-offset         Byte-Offset zusammen mit Ausgezeilen anzeigen.\n"
+"  -n, --line-number         Zeilennummber mit Ausgabezeilen anzeigen.\n"
+"  -H, --with-filename       Dateiname bei jeder Übereinstimmung anzeigen.\n"
+"  -h, --no-filename         Anzeige des Dateinamens unterdrücken.\n"
+"  -q, --quiet, --silent     Alle normalen Ausgaben unterdrücken.\n"
+"      --binary-files=TYP    Binärdateien als TYP annehmen. TYP kann \n"
+"                            »binary«, »text« oder »without-match« sein.\n"
+"  -a, --text                Entspricht --binary-files=text.\n"
+"  -I                        Entspricht --binary-files=without-match.\n"
+"  -d, --directories=AKTION  Verarbeitung von Verzeichnissen festlegen.\n"
+"                            AKTION ist 'read', 'recurse', oder 'skip'.\n"
+"  -r, --recursive           Äquivalent zu --directories=recurse.\n"
+"  -L, --files-without-match Nur Namen von Dateien ausgeben, die keine\n"
+"                            Übereinstimmung enthalten.\n"
+"  -l, --files-with-matches  Nur Dateinamen mit Übereinstimmungen ausgeben.\n"
+"  -c, --count               Nur Zahl der passenden Zeilen pro Datei "
+"ausgeben.\n"
+"  -Z, --null                Null-Byte nach jedem Dateinamen ausgeben.\n"
+
+#: src/grep.c:987
+msgid ""
+"\n"
+"Context control:\n"
+"  -B, --before-context=NUM  print NUM lines of leading context\n"
+"  -A, --after-context=NUM   print NUM lines of trailing context\n"
+"  -C, --context[=NUM]       print NUM (default 2) lines of output context\n"
+"                            unless overridden by -A or -B\n"
+"  -NUM                      same as --context=NUM\n"
+"  -U, --binary              do not strip CR characters at EOL (MSDOS)\n"
+"  -u, --unix-byte-offsets   report offsets as if CRs were not there (MSDOS)\n"
+"\n"
+"`egrep' means `grep -E'.  `fgrep' means `grep -F'.\n"
+"With no FILE, or when FILE is -, read standard input.  If less than\n"
+"two FILEs given, assume -h.  Exit status is 0 if match, 1 if no match,\n"
+"and 2 if trouble.\n"
+msgstr ""
+"\n"
+"Kontextkontrolle:\n"
+"  -B, --before-context=ZAHL ZAHL Zeilen von vorausgehendem Kontext "
+"anzeigen.\n"
+"  -A, --after-context=ZAHL  ZAHL Zeilen von folgendem Kontext anzeigen.\n"
+"  -C, --context[=ZAHL]      ZAHL (Standard ist 2) Zeilen Kontext anzeigen,\n"
+"                            wenn nicht mit -A oder -B anderes festgelegt "
+"ist.\n"
+"  -ZAHL                     Wie --context=ZAHL.\n"
+"  -U, --binary              CR-Zeichen am Zeilenende belassen (MSDOS).\n"
+"  -u, --unix-byte-offsets   Offsets ausgeben, als fehlten CR-Zeichen "
+"(MSDOS).\n"
+"\n"
+"»egrep« bedeutet »grep -E«. »fgrep« bedeutet »grep -F«.\n"
+"Wenn DATEI fehlt oder »-« ist, wird die Standardeingabe gelesen.\n"
+"Weniger als zwei DATEIen implizieren -h. Status ist 0 bei \n"
+"Übereinstimmungen, 1 ohne, 2 bei Problemen.\n"
+
+#: src/grep.c:1002
+msgid ""
+"\n"
+"Report bugs to <bug-gnu-utils@gnu.org>.\n"
+msgstr ""
+"\n"
+"Fehlerberichte bitte an <bug-gnu-utils@gnu.org>.\n"
+
+#: src/grep.c:1012
+msgid "conflicting matchers specified"
+msgstr "Festgelegte Vergleicher widersprechen einander."
+
+#: src/grep.c:1203 src/grep.c:1210 src/grep.c:1219
+msgid "invalid context length argument"
+msgstr "Ungültige Kontextlänge."
+
+#: src/grep.c:1273
+msgid "unknown directories method"
+msgstr "Unbekannte Methode für Verzeichnisse."
+
+#: src/grep.c:1358
+msgid "unknown binary-files type"
+msgstr "Unbekannter Typ für »--binary-files«."
+
+#: src/grep.c:1378
+#, c-format
+msgid "%s (GNU grep) %s\n"
+msgstr "%s (GNU grep) %s\n"
+
+#: src/grep.c:1380
+msgid "Copyright 1988, 1992-1999, 2000 Free Software Foundation, Inc.\n"
+msgstr "Copyright 1988, 1992-1999, 2000 Free Software Foundation, Inc.\n"
+
+#: src/grep.c:1382
+msgid ""
+"This is free software; see the source for copying conditions. There is NO\n"
+"warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n"
+msgstr ""
+"Dies ist freie Software; in den Quellen befinden sich die "
+"Lizenzbedingungen.\n"
+"Es gibt KEINERLEI Garantie; nicht einmal für die TAUGLICHKEIT oder\n"
+"VERWENDBARKEIT FÜR EINEN BESTIMMTEN ZWECK.\n"

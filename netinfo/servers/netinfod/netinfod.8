@@ -1,0 +1,21 @@
+.\" @(#)netinfod.8      92/05/17 rev by JJ
+.TH NETINFOD 8 "March 23, 1989" "Apple Computer, Inc."
+.SH NAME
+netinfod \- NetInfo daemon
+.SH SYNOPSIS
+.B netinfod 
+.I domain-tag
+.SH DESCRIPTION
+The
+.I netinfod
+daemon
+serves the information in the given 
+.I domain-tag
+to the network.
+It is normally executed automatically by
+\fInibindd\fR(8)
+and should not be run manually.
+.SH FILES
+/etc/netinfo/\fIdomain-tag\fP.nidb \- where the actual information served is stored
+.SH "SEE ALSO"
+nibindd(8), nidomain(8)

@@ -1,0 +1,41 @@
+
+
+/* Don't define HOSTNAME or DOMAINNAME unless you have to.  After compiling,
+ * a test run of the program will tell you if it couldn't determine these
+ * itself.  If the test run looks normal (i.e. doesn't mention this stuff)
+ * you're okay.
+ */
+
+/* #define HOSTNAME "cse.unl.edu" */
+
+/* #define DOMAINNAME "unl.edu" */
+
+/* If you're using the program as an FTP program in an enviroment where
+ * you almost always need to open with a user name and password, you
+ * might consider turning off anonymous by default.
+ *
+ * Note:  this won't override whatever is in your ~/.ncftp/prefs.
+ * When you run the program the first time, that file is created, so
+ * changing this may not seem to work until you edit your prefs.
+ */ 
+#define UOPEN 0					/* No anon ftp by default? */
+
+/* After compiling the program, you may decide that the curses stuff
+ * doesn't perform well.  (It works great on some systems, awful on others).
+ * If visual mode doesn't do a good job, you can have visual mode off
+ * by default.
+ *
+ * Note:  this won't override whatever is in your ~/.ncftp/prefs.
+ * When you run the program the first time, that file is created, so
+ * changing this may not seem to work until you edit your prefs.
+ */
+#define VISUAL 1
+
+/* Keep user logs by default? */
+#define USERLOG 1
+
+/* Default progress meter (0..4) */
+#define PROGRESS 2
+
+
+

@@ -1,0 +1,15 @@
+* TODO file for GNU tar				-*- outline -*-
+
+Tell <tar-bugs@gnu.org> if you feel like volunteering for any
+of these ideas, listed more or less in decreasing order of priority.
+Some TODO items are implicit from received email.  See file BACKLOG.
+Significant contributions require written assignments and disclaimers.
+
+.* create.c: diagnostics missing when `goto badfile'.
+.* compare.c: confusion between stderr and stdlis, WARN and ERROR.
+.* --ignore-failed-read might have been defeated.
+.* Better clean sources for list.c, extract.c, create.c and buffer.c.
+.* revise all NAMSIZ references, too often related to short buffers.
+.* current_link_name, current_file_name not always quoted when printed.
+.* Take over script maintenance, implement a `restore' script.
+.* Make a debugging feature out of all `#if 0'.

@@ -1,0 +1,9 @@
+Project		: misc_cmds
+Description	: Miscellaneous Commands
+Distribution	: NetBSD Mon Nov 10 14:18:42 PST 1997
+Source		: NetBSD Foundation, Inc.
+Location	: cvs.netbsd.org:/cvsroot
+Owner		: wsanchez
+Releases	: Titan
+Dependancies	: 
+

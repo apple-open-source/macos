@@ -1,0 +1,2 @@
+project_version.h:
+	sh mk_version > $(DERIVED_SRC_DIR)/project_version.h

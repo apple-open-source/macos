@@ -1,0 +1,8 @@
+include $(CoreOSMakefiles)/ProjectBuilder/Makefile.Postamble.Common
+
+install_resources:
+	$(INSTALL_DIRECTORY) $(DSTROOT)$(INSTALLDIR)
+	$(INSTALL_DIRECTORY) $(DSTROOT)$(INSTALLDIR)/Resources
+	$(INSTALL_DIRECTORY) $(DSTROOT)$(INSTALLDIR)/Resources/English.lproj
+	$(INSTALL_FILE) -c Localizable.strings $(DSTROOT)$(INSTALLDIR)/Resources/English.lproj
+	$(INSTALL_FILE) -c StartupParameters.plist $(DSTROOT)$(INSTALLDIR)

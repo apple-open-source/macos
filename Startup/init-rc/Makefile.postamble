@@ -1,0 +1,14 @@
+include $(CoreOSMakefiles)/ProjectBuilder/Makefile.Postamble.Common
+
+PRODUCTS = $(OTHERLINKED)
+
+$(PRODUCT): $(OTHERLINKED)
+	$(INSTALL_FILE) -c $^ $(PRODUCT_DIR)
+
+INSTALL_PERMISSIONS = 444
+
+##
+# Work around make clean wierdness. We have nothing to clean up anyway.
+##
+clean:
+	@true

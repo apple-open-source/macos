@@ -1,0 +1,49 @@
+{
+    DYNAMIC_CODE_GEN = YES; 
+    FILESTABLE = {
+        FRAMEWORKS = (CoreFoundation.framework, SystemConfiguration.framework); 
+        FRAMEWORKSEARCH = ("$(NEXT_ROOT)/System/Library/PrivateFrameworks"); 
+        H_FILES = (
+            ipconfigd.h, 
+            server.h, 
+            timer.h, 
+            bootp_session.h, 
+            FDSet.h, 
+            arp_session.h, 
+            globals.h, 
+            ipconfigd_globals.h, 
+            ipconfigd_threads.h
+        ); 
+        OTHER_LIBS = (bootplib); 
+        OTHER_LINKED = (
+            arp_session.c, 
+            bootp_session.c, 
+            dhcp.c, 
+            bootp.c, 
+            FDSet.c, 
+            ipconfigd.c, 
+            server.c, 
+            timer.c, 
+            manual.c
+        ); 
+        OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble); 
+        SUBPROJECTS = (); 
+    }; 
+    LANGUAGE = English; 
+    LOCALIZABLE_FILES = {}; 
+    MAKEFILEDIR = "$(MAKEFILEPATH)/pb_makefiles"; 
+    NEXTSTEP_BUILDTOOL = /bin/gnumake; 
+    NEXTSTEP_COMPILEROPTIONS = " -I../bootplib"; 
+    NEXTSTEP_INSTALLDIR = /usr/sbin; 
+    NEXTSTEP_JAVA_COMPILER = /usr/bin/javac; 
+    NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc; 
+    PDO_UNIX_BUILDTOOL = $NEXT_ROOT/Developer/bin/make; 
+    PDO_UNIX_JAVA_COMPILER = "$(NEXTDEV_BIN)/javac"; 
+    PDO_UNIX_OBJCPLUS_COMPILER = "$(NEXTDEV_BIN)/gcc"; 
+    PROJECTNAME = ipconfigd; 
+    PROJECTTYPE = Tool; 
+    PROJECTVERSION = 2.8; 
+    WINDOWS_BUILDTOOL = $NEXT_ROOT/Developer/Executables/make; 
+    WINDOWS_JAVA_COMPILER = "$(JDKBINDIR)/javac.exe"; 
+    WINDOWS_OBJCPLUS_COMPILER = "$(DEVDIR)/gcc"; 
+}

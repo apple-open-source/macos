@@ -1,0 +1,103 @@
+{
+    CURRENTLY_ACTIVE_VERSION = YES; 
+    DEPLOY_WITH_VERSION_NAME = A; 
+    DYNAMIC_CODE_GEN = YES; 
+    FILESTABLE = {
+        FRAMEWORKS = (); 
+        HEADERSEARCH = (
+            "$(NEXT_ROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders/bsd/netat", 
+            "$(NEXT_ROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/Headers/bsd/netat"
+        ); 
+        H_FILES = (at_paths.h, at_proto.h, at_rwlock.h); 
+        OTHER_LINKED = (
+            adsp_socket.c, 
+            asp_if.c, 
+            atalk_status.c, 
+            at_abort.c, 
+            at_get_req.c, 
+            at_get_rsp.c, 
+            at_look.c, 
+            at_open.c, 
+            at_rwlock.c, 
+            at_snd_dev.c, 
+            at_snd_req.c, 
+            at_snd_rsp.c, 
+            ddp_config.c, 
+            lap_init.c, 
+            nbp_conf.c, 
+            nbp_iswild.c, 
+            nbp_lookup.c, 
+            nbp_parse.c, 
+            nbp_reg.c, 
+            nbp_remove.c, 
+            nbp_send.c, 
+            pap_close.c, 
+            pap_open.c, 
+            pap_read.c, 
+            pap_rig.c, 
+            pap_status.c, 
+            pap_ustat.c, 
+            pap_write.c, 
+            version.c, 
+            zip_lolist.c, 
+            zip_myzone.c, 
+            zip_zlist.c
+        ); 
+        OTHER_SOURCES = (
+            Makefile.preamble, 
+            Makefile, 
+            Makefile.postamble, 
+            atp.3, 
+            atp_close.3, 
+            atp_getreq.3, 
+            atp_getresp.3, 
+            atp_sendreq.3, 
+            atp_sendrsp.3, 
+            ddp.3, 
+            ddp_close.3, 
+            ddp_open.3, 
+            nbp.3, 
+            nbp_confirm.3, 
+            nbp_lookup.3, 
+            nbp_make_entity.3, 
+            nbp_parse_entity.3, 
+            nbp_register.3, 
+            nbp_remove.3, 
+            pap.3, 
+            pap_close.3, 
+            pap_open.3, 
+            pap_read.3, 
+            pap_read_ignore.3, 
+            pap_status.3, 
+            pap_write.3, 
+            zip.3, 
+            zip_getlocalzones.3, 
+            zip_getmyzone.3, 
+            zip_getzonelist.3, 
+            atp_abort.3, 
+            atp_look.3, 
+            atp_open.3, 
+            CustomInfo.plist
+        ); 
+        PROJECT_HEADERS = (); 
+        PUBLIC_HEADERS = (); 
+    }; 
+    LANGUAGE = English; 
+    LOCALIZABLE_FILES = {}; 
+    MAKEFILEDIR = "$(MAKEFILEPATH)/pb_makefiles"; 
+    NEXTSTEP_BUILDTOOL = /usr/bin/gnumake; 
+    NEXTSTEP_COMPILEROPTIONS = "-DNEXT"; 
+    NEXTSTEP_INSTALLDIR = "$(SYSTEM_LIBRARY_DIR)/Frameworks"; 
+    NEXTSTEP_JAVA_COMPILER = /usr/bin/javac; 
+    NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc; 
+    PDO_UNIX_BUILDTOOL = $NEXT_ROOT/Developer/bin/make; 
+    PDO_UNIX_JAVA_COMPILER = "$(JDKBINDIR)/javac"; 
+    PDO_UNIX_OBJCPLUS_COMPILER = "$(NEXTDEV_BIN)/gcc"; 
+    PROJECTNAME = AppleTalk; 
+    PROJECTTYPE = Framework; 
+    PROJECTVERSION = 2.8; 
+    WINDOWS_BUILDTOOL = $NEXT_ROOT/Developer/Executables/make; 
+    WINDOWS_INSTALLDIR = "$(HOMEDRIVE)$(LOCAL_DEVELOPER_DIR)/Frameworks"; 
+    WINDOWS_JAVA_COMPILER = "$(JDKBINDIR)/javac.exe"; 
+    WINDOWS_OBJCPLUS_COMPILER = "$(DEVDIR)/gcc"; 
+}

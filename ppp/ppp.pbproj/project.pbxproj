@@ -1,0 +1,2712 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 32;
+	objects = {
+		012D497C003B195C11CA2CD9 = {
+			isa = PBXFileReference;
+			path = MTTerminalView.h;
+			refType = 4;
+		};
+		012D497D003B195C11CA2CD9 = {
+			fileRef = 012D497C003B195C11CA2CD9;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		012D497E003B198111CA2CD9 = {
+			isa = PBXFileReference;
+			path = MTTerminalView.m;
+			refType = 4;
+		};
+		012D497F003B198111CA2CD9 = {
+			fileRef = 012D497E003B198111CA2CD9;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		013F971D001901317F000001 = {
+			isa = PBXApplicationReference;
+			path = MiniTerm.app;
+			refType = 3;
+		};
+		013F971E001901317F000001 = {
+			buildPhases = (
+				013F971F001901317F000001,
+				013F9720001901317F000001,
+				013F9721001901317F000001,
+				013F9722001901317F000001,
+				013F9723001901317F000001,
+			);
+			buildSettings = {
+				INSTALL_PATH = /usr/libexec;
+				OPTIMIZATION_CFLAGS = "";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = MiniTerm;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = app;
+			};
+			conditionalBuildSettings = {
+			};
+			dependencies = (
+			);
+			isa = PBXApplicationTarget;
+			name = "MiniTerm (Application)";
+			productInstallPath = /usr/libexec;
+			productName = MiniTerm;
+			productReference = 013F971D001901317F000001;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
+<plist version=\"0.9\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string></string>
+	<key>CFBundleGetInfoString</key>
+	<string>Terminal window application for PPP</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.pppminiterm</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>PPP MiniTerm</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.0</string>
+	<key>LSUIElement</key>
+	<string>1</string>
+	<key>NSMainNibFile</key>
+	<string>MiniTerm.nib</string>
+	<key>NSPrincipalClass</key>
+	<string>NSApplication</string>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 0;
+		};
+		013F971F001901317F000001 = {
+			buildActionMask = 2147483647;
+			files = (
+				013F9758001901697F000001,
+				012D497D003B195C11CA2CD9,
+			);
+			isa = PBXHeadersBuildPhase;
+			name = Headers;
+		};
+		013F9720001901317F000001 = {
+			buildActionMask = 2147483647;
+			files = (
+				013F975F001901697F000001,
+				013F9760001901697F000001,
+				013F9762001901697F000001,
+				013F9763001901697F000001,
+				013F976B001901697F000001,
+			);
+			isa = PBXResourcesBuildPhase;
+			name = "Bundle Resources";
+		};
+		013F9721001901317F000001 = {
+			buildActionMask = 2147483647;
+			files = (
+				013F9771001901697F000001,
+				013F9772001901697F000001,
+				012D497F003B198111CA2CD9,
+			);
+			isa = PBXSourcesBuildPhase;
+			name = Sources;
+		};
+		013F9722001901317F000001 = {
+			buildActionMask = 2147483647;
+			files = (
+				013F977E001904737F000001,
+			);
+			isa = PBXFrameworksBuildPhase;
+			name = "Frameworks & Libraries";
+		};
+		013F9723001901317F000001 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			name = "ResourceManager Resources";
+		};
+		013F9724001901697F000001 = {
+			children = (
+				013F9777001904587F000001,
+				013F9778001904587F000001,
+				013F9779001904587F000001,
+				013F977A001904587F000001,
+				013F977B001904587F000001,
+				013F977C001904587F000001,
+			);
+			isa = PBXGroup;
+			path = MiniTerm;
+			refType = 4;
+		};
+		013F9735001901697F000001 = {
+			children = (
+				013F9736001901697F000001,
+				013F9737001901697F000001,
+			);
+			isa = PBXVariantGroup;
+			name = MiniTerm.nib;
+			path = "";
+			refType = 4;
+		};
+		013F9736001901697F000001 = {
+			isa = PBXFileReference;
+			name = "English - windows";
+			path = "English.lproj/MiniTerm-windows.nib";
+			refType = 4;
+		};
+		013F9737001901697F000001 = {
+			isa = PBXFileReference;
+			name = English;
+			path = English.lproj/MiniTerm.nib;
+			refType = 4;
+		};
+		013F9738001901697F000001 = {
+			isa = PBXFileReference;
+			path = h.template;
+			refType = 4;
+		};
+		013F973A001901697F000001 = {
+			isa = PBXFileReference;
+			path = java.template;
+			refType = 4;
+		};
+		013F973B001901697F000001 = {
+			isa = PBXFileReference;
+			path = m.template;
+			refType = 4;
+		};
+		013F974C001901697F000001 = {
+			isa = PBXFileReference;
+			path = MiniTerm.h;
+			refType = 4;
+		};
+		013F974D001901697F000001 = {
+			isa = PBXFileReference;
+			path = MiniTerm.iconheader;
+			refType = 4;
+		};
+		013F974E001901697F000001 = {
+			isa = PBXFileReference;
+			path = MiniTerm.m;
+			refType = 4;
+		};
+		013F9752001901697F000001 = {
+			isa = PBXFileReference;
+			path = MiniTerm_main.m;
+			refType = 4;
+		};
+		013F9758001901697F000001 = {
+			fileRef = 013F974C001901697F000001;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		013F975F001901697F000001 = {
+			fileRef = 013F9735001901697F000001;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		013F9760001901697F000001 = {
+			fileRef = 013F9738001901697F000001;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		013F9762001901697F000001 = {
+			fileRef = 013F973A001901697F000001;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		013F9763001901697F000001 = {
+			fileRef = 013F973B001901697F000001;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		013F976B001901697F000001 = {
+			fileRef = 013F974D001901697F000001;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		013F9771001901697F000001 = {
+			fileRef = 013F974E001901697F000001;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		013F9772001901697F000001 = {
+			fileRef = 013F9752001901697F000001;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		013F9777001904587F000001 = {
+			children = (
+				013F977D001904737F000001,
+			);
+			isa = PBXGroup;
+			name = Frameworks;
+			refType = 4;
+		};
+		013F9778001904587F000001 = {
+			children = (
+				013F9738001901697F000001,
+				013F973A001901697F000001,
+				013F973B001901697F000001,
+				013F974D001901697F000001,
+			);
+			isa = PBXGroup;
+			name = "Supporting FIles";
+			refType = 4;
+		};
+		013F9779001904587F000001 = {
+			children = (
+				013F9735001901697F000001,
+			);
+			isa = PBXGroup;
+			name = Interfaces;
+			refType = 4;
+		};
+		013F977A001904587F000001 = {
+			children = (
+				013F9752001901697F000001,
+			);
+			isa = PBXGroup;
+			name = "Other Sources";
+			refType = 4;
+		};
+		013F977B001904587F000001 = {
+			children = (
+				013F974E001901697F000001,
+				012D497E003B198111CA2CD9,
+			);
+			isa = PBXGroup;
+			name = Classes;
+			path = "";
+			refType = 4;
+		};
+		013F977C001904587F000001 = {
+			children = (
+				013F974C001901697F000001,
+				012D497C003B195C11CA2CD9,
+			);
+			isa = PBXGroup;
+			name = Headers;
+			refType = 4;
+		};
+		013F977D001904737F000001 = {
+			isa = PBXFrameworkReference;
+			name = AppKit.framework;
+			path = /System/Library/Frameworks/AppKit.framework;
+			refType = 0;
+		};
+		013F977E001904737F000001 = {
+			fileRef = 013F977D001904737F000001;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		013F977F0019059F7F000001 = {
+			isa = PBXTargetDependency;
+			target = 013F971E001901317F000001;
+		};
+		7129A431FFF956F311CA2CDC = {
+			buildStyles = (
+				7129A554FFF9584B11CA2CDC,
+				7129A555FFF9584B11CA2CDC,
+			);
+			isa = PBXProject;
+			mainGroup = 7129A432FFF956F311CA2CDC;
+			productRefGroup = 7129A4CEFFF956F311CA2CDC;
+			projectDirPath = .;
+			targets = (
+				7129A4D4FFF956F311CA2CDC,
+				7129A4D6FFF956F311CA2CDC,
+				7129A506FFF956F311CA2CDC,
+				7129A51BFFF956F311CA2CDC,
+				7129A51DFFF956F311CA2CDC,
+				7129A530FFF956F311CA2CDC,
+				7129A53EFFF956F311CA2CDC,
+				7129A540FFF956F311CA2CDC,
+				7129A542FFF956F311CA2CDC,
+				013F971E001901317F000001,
+			);
+		};
+		7129A432FFF956F311CA2CDC = {
+			children = (
+				7129A433FFF956F311CA2CDC,
+				7129A437FFF956F311CA2CDC,
+				7129A4CBFFF956F311CA2CDC,
+				7129A4CEFFF956F311CA2CDC,
+			);
+			isa = PBXGroup;
+			name = ppp;
+			refType = 4;
+		};
+		7129A433FFF956F311CA2CDC = {
+			children = (
+				7129A434FFF956F311CA2CDC,
+				7129A435FFF956F311CA2CDC,
+				7129A436FFF956F311CA2CDC,
+			);
+			isa = PBXGroup;
+			name = "Supporting Files";
+			refType = 4;
+		};
+		7129A434FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = Makefile.preamble;
+			refType = 4;
+		};
+		7129A435FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = Makefile;
+			refType = 4;
+		};
+		7129A436FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = Makefile.postamble;
+			refType = 4;
+		};
+		7129A437FFF956F311CA2CDC = {
+			children = (
+				7129A438FFF956F311CA2CDC,
+				7129A46AFFF956F311CA2CDC,
+				7129A485FFF956F311CA2CDC,
+				7129A4B5FFF956F311CA2CDC,
+				7129A4BAFFF956F311CA2CDC,
+			);
+			isa = PBXGroup;
+			name = Subprojects;
+			refType = 4;
+		};
+		7129A438FFF956F311CA2CDC = {
+			children = (
+				7129A439FFF956F311CA2CDC,
+				7129A44EFFF956F311CA2CDC,
+				7129A464FFF956F311CA2CDC,
+			);
+			isa = PBXGroup;
+			path = Controller;
+			refType = 4;
+		};
+		7129A439FFF956F311CA2CDC = {
+			children = (
+				7129A43AFFF956F311CA2CDC,
+				7129A43BFFF956F311CA2CDC,
+				7129A43CFFF956F311CA2CDC,
+				7129A43DFFF956F311CA2CDC,
+				7129A43EFFF956F311CA2CDC,
+				7129A440FFF956F311CA2CDC,
+				7129A442FFF956F311CA2CDC,
+				7129A443FFF956F311CA2CDC,
+				7129A43FFFF956F311CA2CDC,
+				7129A444FFF956F311CA2CDC,
+				7129A445FFF956F311CA2CDC,
+				7129A446FFF956F311CA2CDC,
+				7129A447FFF956F311CA2CDC,
+				7129A449FFF956F311CA2CDC,
+				7129A44AFFF956F311CA2CDC,
+				7129A44BFFF956F311CA2CDC,
+				7129A44CFFF956F311CA2CDC,
+				7129A448FFF956F311CA2CDC,
+				7129A44DFFF956F311CA2CDC,
+			);
+			isa = PBXGroup;
+			name = Headers;
+			refType = 4;
+		};
+		7129A43AFFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = auth.h;
+			refType = 4;
+		};
+		7129A43BFFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = chap.h;
+			refType = 4;
+		};
+		7129A43CFFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = chap_ms.h;
+			refType = 4;
+		};
+		7129A43DFFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = fsm.h;
+			refType = 4;
+		};
+		7129A43EFFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = ipcp.h;
+			refType = 4;
+		};
+		7129A43FFFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = lcp.h;
+			refType = 4;
+		};
+		7129A440FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = link.h;
+			refType = 4;
+		};
+		7129A442FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = md4.h;
+			refType = 4;
+		};
+		7129A443FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = md5.h;
+			refType = 4;
+		};
+		7129A444FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = pathnames.h;
+			refType = 4;
+		};
+		7129A445FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = ppp_client.h;
+			refType = 4;
+		};
+		7129A446FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = ppp_command.h;
+			refType = 4;
+		};
+		7129A447FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = ppp_manager.h;
+			refType = 4;
+		};
+		7129A448FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = ppp_msg.h;
+			refType = 4;
+		};
+		7129A449FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = ppp_option.h;
+			refType = 4;
+		};
+		7129A44AFFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = ppp_utils.h;
+			refType = 4;
+		};
+		7129A44BFFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = queue_data.h;
+			refType = 4;
+		};
+		7129A44CFFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = upap.h;
+			refType = 4;
+		};
+		7129A44DFFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = ppp_privmsg.h;
+			refType = 4;
+		};
+		7129A44EFFF956F311CA2CDC = {
+			children = (
+				7129A44FFFF956F311CA2CDC,
+				7129A462FFF956F311CA2CDC,
+				7129A450FFF956F311CA2CDC,
+				7129A451FFF956F311CA2CDC,
+				7129A457FFF956F311CA2CDC,
+				7129A458FFF956F311CA2CDC,
+				7129A453FFF956F311CA2CDC,
+				7129A454FFF956F311CA2CDC,
+				7129A455FFF956F311CA2CDC,
+				7129A461FFF956F311CA2CDC,
+				7129A452FFF956F311CA2CDC,
+				7129A460FFF956F311CA2CDC,
+				7129A459FFF956F311CA2CDC,
+				7129A45AFFF956F311CA2CDC,
+				7129A45DFFF956F311CA2CDC,
+				7129A45EFFF956F311CA2CDC,
+				7129A45CFFF956F311CA2CDC,
+				7129A45FFFF956F311CA2CDC,
+				7129A463FFF956F311CA2CDC,
+			);
+			isa = PBXGroup;
+			name = "Other Sources";
+			refType = 4;
+		};
+		7129A44FFFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = auth.c;
+			refType = 4;
+		};
+		7129A450FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = chap.c;
+			refType = 4;
+		};
+		7129A451FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = chap_ms.c;
+			refType = 4;
+		};
+		7129A452FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = fsm.c;
+			refType = 4;
+		};
+		7129A453FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = ipcp.c;
+			refType = 4;
+		};
+		7129A454FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = lcp.c;
+			refType = 4;
+		};
+		7129A455FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = link.c;
+			refType = 4;
+		};
+		7129A457FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = md4.c;
+			refType = 4;
+		};
+		7129A458FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = md5.c;
+			refType = 4;
+		};
+		7129A459FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = ppp_client.c;
+			refType = 4;
+		};
+		7129A45AFFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = ppp_command.c;
+			refType = 4;
+		};
+		7129A45CFFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = ppp_getoption.c;
+			refType = 4;
+		};
+		7129A45DFFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = ppp_manager.c;
+			refType = 4;
+		};
+		7129A45EFFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = ppp_option.c;
+			refType = 4;
+		};
+		7129A45FFFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = ppp_setoption.c;
+			refType = 4;
+		};
+		7129A460FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = ppp_utils.c;
+			refType = 4;
+		};
+		7129A461FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = queue_data.c;
+			refType = 4;
+		};
+		7129A462FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = upap.c;
+			refType = 4;
+		};
+		7129A463FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = ppp_main.c;
+			refType = 4;
+		};
+		7129A464FFF956F311CA2CDC = {
+			children = (
+				7129A465FFF956F311CA2CDC,
+				7129A466FFF956F311CA2CDC,
+				7129A467FFF956F311CA2CDC,
+				7129A468FFF956F311CA2CDC,
+				7129A469FFF956F311CA2CDC,
+			);
+			isa = PBXGroup;
+			name = "Supporting Files";
+			refType = 4;
+		};
+		7129A465FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = Makefile.preamble;
+			refType = 4;
+		};
+		7129A466FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = Makefile;
+			refType = 4;
+		};
+		7129A467FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = Makefile.postamble;
+			refType = 4;
+		};
+		7129A468FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = m.template;
+			refType = 4;
+		};
+		7129A469FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = h.template;
+			refType = 4;
+		};
+		7129A46AFFF956F311CA2CDC = {
+			children = (
+				7129A46BFFF956F311CA2CDC,
+				7129A470FFF956F311CA2CDC,
+			);
+			isa = PBXGroup;
+			path = Family;
+			refType = 4;
+		};
+		7129A46BFFF956F311CA2CDC = {
+			children = (
+				7129A46CFFF956F311CA2CDC,
+				7129A46DFFF956F311CA2CDC,
+				7129A46EFFF956F311CA2CDC,
+				7129A46FFFF956F311CA2CDC,
+			);
+			isa = PBXGroup;
+			name = "Supporting Files";
+			refType = 4;
+		};
+		7129A46CFFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = Makefile.preamble;
+			refType = 4;
+		};
+		7129A46DFFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = Makefile;
+			refType = 4;
+		};
+		7129A46EFFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = Makefile.postamble;
+			refType = 4;
+		};
+		7129A46FFFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = CustomInfo.xml;
+			refType = 4;
+		};
+		7129A470FFF956F311CA2CDC = {
+			children = (
+				7129A471FFF956F311CA2CDC,
+			);
+			isa = PBXGroup;
+			name = Subprojects;
+			refType = 4;
+		};
+		7129A471FFF956F311CA2CDC = {
+			children = (
+				7129A472FFF956F311CA2CDC,
+				7129A479FFF956F311CA2CDC,
+				7129A480FFF956F311CA2CDC,
+			);
+			isa = PBXGroup;
+			name = PPP;
+			path = PPP.kmodproj;
+			refType = 4;
+		};
+		7129A472FFF956F311CA2CDC = {
+			children = (
+				7129A473FFF956F311CA2CDC,
+				7129A474FFF956F311CA2CDC,
+				7129A475FFF956F311CA2CDC,
+				7129A476FFF956F311CA2CDC,
+				7129A477FFF956F311CA2CDC,
+				7129A478FFF956F311CA2CDC,
+			);
+			isa = PBXGroup;
+			name = Headers;
+			refType = 4;
+		};
+		7129A473FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = ppp.h;
+			refType = 4;
+		};
+		7129A474FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = ppp_comp.h;
+			refType = 4;
+		};
+		7129A475FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = slcompress.h;
+			refType = 4;
+		};
+		7129A476FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = ppp_ip.h;
+			refType = 4;
+		};
+		7129A477FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = ppp_domain.h;
+			refType = 4;
+		};
+		7129A478FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = ppp_fam.h;
+			refType = 4;
+		};
+		7129A479FFF956F311CA2CDC = {
+			children = (
+				7129A47AFFF956F311CA2CDC,
+				7129A47BFFF956F311CA2CDC,
+				7129A47CFFF956F311CA2CDC,
+				7129A47DFFF956F311CA2CDC,
+				7129A47EFFF956F311CA2CDC,
+				7129A47FFFF956F311CA2CDC,
+			);
+			isa = PBXGroup;
+			name = "Other Sources";
+			refType = 4;
+		};
+		7129A47AFFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = ppp.c;
+			refType = 4;
+		};
+		7129A47BFFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = ppp_comp.c;
+			refType = 4;
+		};
+		7129A47CFFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = slcompress.c;
+			refType = 4;
+		};
+		7129A47DFFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = ppp_ip.c;
+			refType = 4;
+		};
+		7129A47EFFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = ppp_domain.c;
+			refType = 4;
+		};
+		7129A47FFFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = ppp_fam.c;
+			refType = 4;
+		};
+		7129A480FFF956F311CA2CDC = {
+			children = (
+				7129A481FFF956F311CA2CDC,
+				7129A482FFF956F311CA2CDC,
+				7129A483FFF956F311CA2CDC,
+				7129A484FFF956F311CA2CDC,
+			);
+			isa = PBXGroup;
+			name = "Supporting Files";
+			refType = 4;
+		};
+		7129A481FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = Makefile.preamble;
+			refType = 4;
+		};
+		7129A482FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = Makefile;
+			refType = 4;
+		};
+		7129A483FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = Makefile.postamble;
+			refType = 4;
+		};
+		7129A484FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = CustomInfo.xml;
+			refType = 4;
+		};
+		7129A485FFF956F311CA2CDC = {
+			children = (
+				7129A486FFF956F311CA2CDC,
+				7129A48AFFF956F311CA2CDC,
+			);
+			isa = PBXGroup;
+			path = Drivers;
+			refType = 4;
+		};
+		7129A486FFF956F311CA2CDC = {
+			children = (
+				7129A487FFF956F311CA2CDC,
+				7129A488FFF956F311CA2CDC,
+				7129A489FFF956F311CA2CDC,
+			);
+			isa = PBXGroup;
+			name = "Supporting Files";
+			refType = 4;
+		};
+		7129A487FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = Makefile.preamble;
+			refType = 4;
+		};
+		7129A488FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = Makefile;
+			refType = 4;
+		};
+		7129A489FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = Makefile.postamble;
+			refType = 4;
+		};
+		7129A48AFFF956F311CA2CDC = {
+			children = (
+				7129A48BFFF956F311CA2CDC,
+				7129A4A4FFF956F311CA2CDC,
+			);
+			isa = PBXGroup;
+			name = Subprojects;
+			refType = 4;
+		};
+		7129A48BFFF956F311CA2CDC = {
+			children = (
+				7129A48CFFF956F311CA2CDC,
+				7129A491FFF956F311CA2CDC,
+			);
+			isa = PBXGroup;
+			path = PPPoE;
+			refType = 4;
+		};
+		7129A48CFFF956F311CA2CDC = {
+			children = (
+				7129A48DFFF956F311CA2CDC,
+				7129A48EFFF956F311CA2CDC,
+				7129A48FFFF956F311CA2CDC,
+				7129A490FFF956F311CA2CDC,
+			);
+			isa = PBXGroup;
+			name = "Supporting Files";
+			refType = 4;
+		};
+		7129A48DFFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = Makefile.preamble;
+			refType = 4;
+		};
+		7129A48EFFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = Makefile;
+			refType = 4;
+		};
+		7129A48FFFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = Makefile.postamble;
+			refType = 4;
+		};
+		7129A490FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = CustomInfo.xml;
+			refType = 4;
+		};
+		7129A491FFF956F311CA2CDC = {
+			children = (
+				7129A492FFF956F311CA2CDC,
+			);
+			isa = PBXGroup;
+			name = Subprojects;
+			refType = 4;
+		};
+		7129A492FFF956F311CA2CDC = {
+			children = (
+				7129A493FFF956F311CA2CDC,
+				7129A499FFF956F311CA2CDC,
+				7129A49FFFF956F311CA2CDC,
+			);
+			isa = PBXGroup;
+			name = PPPoE;
+			path = PPPoE.kmodproj;
+			refType = 4;
+		};
+		7129A493FFF956F311CA2CDC = {
+			children = (
+				7129A494FFF956F311CA2CDC,
+				7129A495FFF956F311CA2CDC,
+				7129A496FFF956F311CA2CDC,
+				7129A497FFF956F311CA2CDC,
+				7129A498FFF956F311CA2CDC,
+			);
+			isa = PBXGroup;
+			name = Headers;
+			refType = 4;
+		};
+		7129A494FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = PPPoE.h;
+			refType = 4;
+		};
+		7129A495FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = pppoe_rfc.h;
+			refType = 4;
+		};
+		7129A496FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = pppoe_dlil.h;
+			refType = 4;
+		};
+		7129A497FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = pppoe_proto.h;
+			refType = 4;
+		};
+		7129A498FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = pppoe_wan.h;
+			refType = 4;
+		};
+		7129A499FFF956F311CA2CDC = {
+			children = (
+				7129A49AFFF956F311CA2CDC,
+				7129A49BFFF956F311CA2CDC,
+				7129A49CFFF956F311CA2CDC,
+				7129A49DFFF956F311CA2CDC,
+				7129A49EFFF956F311CA2CDC,
+			);
+			isa = PBXGroup;
+			name = "Other Sources";
+			refType = 4;
+		};
+		7129A49AFFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = pppoe_domain.c;
+			refType = 4;
+		};
+		7129A49BFFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = pppoe_proto.c;
+			refType = 4;
+		};
+		7129A49CFFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = pppoe_rfc.c;
+			refType = 4;
+		};
+		7129A49DFFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = pppoe_dlil.c;
+			refType = 4;
+		};
+		7129A49EFFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = pppoe_wan.c;
+			refType = 4;
+		};
+		7129A49FFFF956F311CA2CDC = {
+			children = (
+				7129A4A0FFF956F311CA2CDC,
+				7129A4A1FFF956F311CA2CDC,
+				7129A4A2FFF956F311CA2CDC,
+				7129A4A3FFF956F311CA2CDC,
+			);
+			isa = PBXGroup;
+			name = "Supporting Files";
+			refType = 4;
+		};
+		7129A4A0FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = Makefile.preamble;
+			refType = 4;
+		};
+		7129A4A1FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = Makefile;
+			refType = 4;
+		};
+		7129A4A2FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = Makefile.postamble;
+			refType = 4;
+		};
+		7129A4A3FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = CustomInfo.xml;
+			refType = 4;
+		};
+		7129A4A4FFF956F311CA2CDC = {
+			children = (
+				7129A4A5FFF956F311CA2CDC,
+				7129A4AAFFF956F311CA2CDC,
+			);
+			isa = PBXGroup;
+			path = PPPSerial;
+			refType = 4;
+		};
+		7129A4A5FFF956F311CA2CDC = {
+			children = (
+				7129A4A6FFF956F311CA2CDC,
+				7129A4A7FFF956F311CA2CDC,
+				7129A4A8FFF956F311CA2CDC,
+				7129A4A9FFF956F311CA2CDC,
+			);
+			isa = PBXGroup;
+			name = "Supporting Files";
+			refType = 4;
+		};
+		7129A4A6FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = Makefile.preamble;
+			refType = 4;
+		};
+		7129A4A7FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = Makefile;
+			refType = 4;
+		};
+		7129A4A8FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = Makefile.postamble;
+			refType = 4;
+		};
+		7129A4A9FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = CustomInfo.xml;
+			refType = 4;
+		};
+		7129A4AAFFF956F311CA2CDC = {
+			children = (
+				7129A4ABFFF956F311CA2CDC,
+			);
+			isa = PBXGroup;
+			name = Subprojects;
+			refType = 4;
+		};
+		7129A4ABFFF956F311CA2CDC = {
+			children = (
+				7129A4ACFFF956F311CA2CDC,
+				7129A4AEFFF956F311CA2CDC,
+				7129A4B0FFF956F311CA2CDC,
+			);
+			isa = PBXGroup;
+			name = PPPSerial;
+			path = PPPSerial.kmodproj;
+			refType = 4;
+		};
+		7129A4ACFFF956F311CA2CDC = {
+			children = (
+				7129A4ADFFF956F311CA2CDC,
+			);
+			isa = PBXGroup;
+			name = Headers;
+			refType = 4;
+		};
+		7129A4ADFFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = pppserial.h;
+			refType = 4;
+		};
+		7129A4AEFFF956F311CA2CDC = {
+			children = (
+				7129A4AFFFF956F311CA2CDC,
+			);
+			isa = PBXGroup;
+			name = "Other Sources";
+			refType = 4;
+		};
+		7129A4AFFFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = pppserial.c;
+			refType = 4;
+		};
+		7129A4B0FFF956F311CA2CDC = {
+			children = (
+				7129A4B1FFF956F311CA2CDC,
+				7129A4B2FFF956F311CA2CDC,
+				7129A4B3FFF956F311CA2CDC,
+				7129A4B4FFF956F311CA2CDC,
+			);
+			isa = PBXGroup;
+			name = "Supporting Files";
+			refType = 4;
+		};
+		7129A4B1FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = Makefile.preamble;
+			refType = 4;
+		};
+		7129A4B2FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = Makefile;
+			refType = 4;
+		};
+		7129A4B3FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = Makefile.postamble;
+			refType = 4;
+		};
+		7129A4B4FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = CustomInfo.xml;
+			refType = 4;
+		};
+		7129A4B5FFF956F311CA2CDC = {
+			children = (
+				7129A4B6FFF956F311CA2CDC,
+			);
+			isa = PBXGroup;
+			path = SampleCode;
+			refType = 4;
+		};
+		7129A4B6FFF956F311CA2CDC = {
+			children = (
+				7129A4B7FFF956F311CA2CDC,
+				7129A4B8FFF956F311CA2CDC,
+				7129A4B9FFF956F311CA2CDC,
+			);
+			isa = PBXGroup;
+			name = "Supporting Files";
+			refType = 4;
+		};
+		7129A4B7FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = Makefile.preamble;
+			refType = 4;
+		};
+		7129A4B8FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = Makefile;
+			refType = 4;
+		};
+		7129A4B9FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = Makefile.postamble;
+			refType = 4;
+		};
+		7129A4BAFFF956F311CA2CDC = {
+			children = (
+				7129A4BBFFF956F311CA2CDC,
+				7129A4BFFFF956F311CA2CDC,
+			);
+			isa = PBXGroup;
+			path = Helpers;
+			refType = 4;
+		};
+		7129A4BBFFF956F311CA2CDC = {
+			children = (
+				7129A4BCFFF956F311CA2CDC,
+				7129A4BDFFF956F311CA2CDC,
+				7129A4BEFFF956F311CA2CDC,
+			);
+			isa = PBXGroup;
+			name = "Supporting Files";
+			refType = 4;
+		};
+		7129A4BCFFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = Makefile.preamble;
+			refType = 4;
+		};
+		7129A4BDFFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = Makefile;
+			refType = 4;
+		};
+		7129A4BEFFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = Makefile.postamble;
+			refType = 4;
+		};
+		7129A4BFFFF956F311CA2CDC = {
+			children = (
+				013F9724001901697F000001,
+				7129A4C0FFF956F311CA2CDC,
+			);
+			isa = PBXGroup;
+			name = Subprojects;
+			refType = 4;
+		};
+		7129A4C0FFF956F311CA2CDC = {
+			children = (
+				7129A4C1FFF956F311CA2CDC,
+				7129A4C3FFF956F311CA2CDC,
+				7129A4C5FFF956F311CA2CDC,
+			);
+			isa = PBXGroup;
+			path = CCLEngine;
+			refType = 4;
+		};
+		7129A4C1FFF956F311CA2CDC = {
+			children = (
+				7129A4C2FFF956F311CA2CDC,
+			);
+			isa = PBXGroup;
+			name = Headers;
+			refType = 4;
+		};
+		7129A4C2FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = CCLEngine.h;
+			refType = 4;
+		};
+		7129A4C3FFF956F311CA2CDC = {
+			children = (
+				7129A4C4FFF956F311CA2CDC,
+			);
+			isa = PBXGroup;
+			name = "Other Sources";
+			refType = 4;
+		};
+		7129A4C4FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = CCLEngine.c;
+			refType = 4;
+		};
+		7129A4C5FFF956F311CA2CDC = {
+			children = (
+				7129A4C6FFF956F311CA2CDC,
+				7129A4C7FFF956F311CA2CDC,
+				7129A4C8FFF956F311CA2CDC,
+				7129A4C9FFF956F311CA2CDC,
+				7129A4CAFFF956F311CA2CDC,
+			);
+			isa = PBXGroup;
+			name = "Supporting Files";
+			refType = 4;
+		};
+		7129A4C6FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = Makefile.preamble;
+			refType = 4;
+		};
+		7129A4C7FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = Makefile;
+			refType = 4;
+		};
+		7129A4C8FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = Makefile.postamble;
+			refType = 4;
+		};
+		7129A4C9FFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = m.template;
+			refType = 4;
+		};
+		7129A4CAFFF956F311CA2CDC = {
+			isa = PBXFileReference;
+			path = h.template;
+			refType = 4;
+		};
+		7129A4CBFFF956F311CA2CDC = {
+			children = (
+				7129A4CCFFF956F311CA2CDC,
+			);
+			isa = PBXGroup;
+			name = "External Frameworks and Libraries";
+			refType = 4;
+		};
+		7129A4CCFFF956F311CA2CDC = {
+			isa = PBXFrameworkReference;
+			name = Foundation.framework;
+			path = /System/Library/Frameworks/Foundation.framework;
+			refType = 0;
+		};
+		7129A4CEFFF956F311CA2CDC = {
+			children = (
+				7129A4CFFFF956F311CA2CDC,
+				7129A4D0FFF956F311CA2CDC,
+				7129A4D1FFF956F311CA2CDC,
+				7129A4D2FFF956F311CA2CDC,
+				7129A4D3FFF956F311CA2CDC,
+				013F971D001901317F000001,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+		};
+		7129A4CFFFF956F311CA2CDC = {
+			isa = PBXBundleReference;
+			path = PPPController.bundle;
+			refType = 3;
+		};
+		7129A4D0FFF956F311CA2CDC = {
+			isa = PBXBundleReference;
+			path = PPP.kext;
+			refType = 3;
+		};
+		7129A4D1FFF956F311CA2CDC = {
+			isa = PBXBundleReference;
+			path = PPPoE.kext;
+			refType = 3;
+		};
+		7129A4D2FFF956F311CA2CDC = {
+			isa = PBXBundleReference;
+			path = PPPSerial.kext;
+			refType = 3;
+		};
+		7129A4D3FFF956F311CA2CDC = {
+			isa = PBXExecutableFileReference;
+			path = CCLEngine;
+			refType = 3;
+		};
+		7129A4D4FFF956F311CA2CDC = {
+			buildPhases = (
+				7129A54CFFF956F311CA2CDC,
+				7129A54EFFF956F311CA2CDC,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				OPTIMIZATION_CFLAGS = "";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = ppp;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			conditionalBuildSettings = {
+			};
+			dependencies = (
+				7129A4D5FFF956F311CA2CDC,
+				7129A505FFF956F311CA2CDC,
+				7129A51AFFF956F311CA2CDC,
+				7129A53DFFF956F311CA2CDC,
+				7129A53FFFF956F311CA2CDC,
+			);
+			isa = PBXAggregateTarget;
+			name = "ppp (Aggregate)";
+			productName = "ppp (Aggregate)";
+			shouldUseHeadermap = 0;
+		};
+		7129A4D5FFF956F311CA2CDC = {
+			isa = PBXTargetDependency;
+			target = 7129A4D6FFF956F311CA2CDC;
+		};
+		7129A4D6FFF956F311CA2CDC = {
+			buildPhases = (
+				7129A4D7FFF956F311CA2CDC,
+				7129A4ECFFF956F311CA2CDC,
+				7129A4EDFFF956F311CA2CDC,
+				7129A503FFF956F311CA2CDC,
+				7129A504FFF956F311CA2CDC,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\" \"$(NEXT_ROOT)/System/Library/Frameworks/CoreServices.framework/Frameworks\"";
+				HEADER_SEARCH_PATHS = ../include;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
+				LIBRARY_SEARCH_PATHS = "";
+				OPTIMIZATION_CFLAGS = "";
+				OTHER_CFLAGS = "-D__FreeBSD__";
+				OTHER_LDFLAGS = "-bundle -undefined suppress";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = PPPController;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = bundle;
+			};
+			conditionalBuildSettings = {
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = "PPPController (Bundle)";
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
+			productName = "PPPController (Bundle)";
+			productReference = 7129A4CFFFF956F311CA2CDC;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
+<plist version=\"0.9\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>PPPController</string>
+	<key>CFBundleGetInfoString</key>
+	<string>PPP Controller</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.SystemConfiguration.PPPController</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>PPP</string>
+	<key>CFBundlePackageType</key>
+	<string>BNDL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.0</string>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 0;
+		};
+		7129A4D7FFF956F311CA2CDC = {
+			buildActionMask = 2147483647;
+			files = (
+				7129A4D8FFF956F311CA2CDC,
+				7129A4D9FFF956F311CA2CDC,
+				7129A4DAFFF956F311CA2CDC,
+				7129A4DBFFF956F311CA2CDC,
+				7129A4DCFFF956F311CA2CDC,
+				7129A4DDFFF956F311CA2CDC,
+				7129A4DEFFF956F311CA2CDC,
+				7129A4E0FFF956F311CA2CDC,
+				7129A4E1FFF956F311CA2CDC,
+				7129A4E2FFF956F311CA2CDC,
+				7129A4E3FFF956F311CA2CDC,
+				7129A4E4FFF956F311CA2CDC,
+				7129A4E5FFF956F311CA2CDC,
+				7129A4E6FFF956F311CA2CDC,
+				7129A4E7FFF956F311CA2CDC,
+				7129A4E8FFF956F311CA2CDC,
+				7129A4E9FFF956F311CA2CDC,
+				7129A4EAFFF956F311CA2CDC,
+				7129A4EBFFF956F311CA2CDC,
+			);
+			isa = PBXHeadersBuildPhase;
+			name = Headers;
+		};
+		7129A4D8FFF956F311CA2CDC = {
+			fileRef = 7129A43AFFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7129A4D9FFF956F311CA2CDC = {
+			fileRef = 7129A43BFFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7129A4DAFFF956F311CA2CDC = {
+			fileRef = 7129A43CFFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7129A4DBFFF956F311CA2CDC = {
+			fileRef = 7129A43DFFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7129A4DCFFF956F311CA2CDC = {
+			fileRef = 7129A43EFFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7129A4DDFFF956F311CA2CDC = {
+			fileRef = 7129A43FFFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7129A4DEFFF956F311CA2CDC = {
+			fileRef = 7129A440FFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7129A4E0FFF956F311CA2CDC = {
+			fileRef = 7129A442FFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7129A4E1FFF956F311CA2CDC = {
+			fileRef = 7129A443FFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7129A4E2FFF956F311CA2CDC = {
+			fileRef = 7129A444FFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7129A4E3FFF956F311CA2CDC = {
+			fileRef = 7129A445FFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7129A4E4FFF956F311CA2CDC = {
+			fileRef = 7129A446FFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7129A4E5FFF956F311CA2CDC = {
+			fileRef = 7129A447FFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7129A4E6FFF956F311CA2CDC = {
+			fileRef = 7129A448FFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7129A4E7FFF956F311CA2CDC = {
+			fileRef = 7129A449FFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7129A4E8FFF956F311CA2CDC = {
+			fileRef = 7129A44AFFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7129A4E9FFF956F311CA2CDC = {
+			fileRef = 7129A44BFFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7129A4EAFFF956F311CA2CDC = {
+			fileRef = 7129A44CFFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7129A4EBFFF956F311CA2CDC = {
+			fileRef = 7129A44DFFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7129A4ECFFF956F311CA2CDC = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			name = "Bundle Resources";
+		};
+		7129A4EDFFF956F311CA2CDC = {
+			buildActionMask = 2147483647;
+			files = (
+				7129A4EEFFF956F311CA2CDC,
+				7129A4EFFFF956F311CA2CDC,
+				7129A4F0FFF956F311CA2CDC,
+				7129A4F1FFF956F311CA2CDC,
+				7129A4F2FFF956F311CA2CDC,
+				7129A4F3FFF956F311CA2CDC,
+				7129A4F4FFF956F311CA2CDC,
+				7129A4F6FFF956F311CA2CDC,
+				7129A4F7FFF956F311CA2CDC,
+				7129A4F8FFF956F311CA2CDC,
+				7129A4F9FFF956F311CA2CDC,
+				7129A4FBFFF956F311CA2CDC,
+				7129A4FCFFF956F311CA2CDC,
+				7129A4FDFFF956F311CA2CDC,
+				7129A4FEFFF956F311CA2CDC,
+				7129A4FFFFF956F311CA2CDC,
+				7129A500FFF956F311CA2CDC,
+				7129A501FFF956F311CA2CDC,
+				7129A502FFF956F311CA2CDC,
+			);
+			isa = PBXSourcesBuildPhase;
+			name = Sources;
+		};
+		7129A4EEFFF956F311CA2CDC = {
+			fileRef = 7129A44FFFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		7129A4EFFFF956F311CA2CDC = {
+			fileRef = 7129A450FFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		7129A4F0FFF956F311CA2CDC = {
+			fileRef = 7129A451FFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		7129A4F1FFF956F311CA2CDC = {
+			fileRef = 7129A452FFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		7129A4F2FFF956F311CA2CDC = {
+			fileRef = 7129A453FFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		7129A4F3FFF956F311CA2CDC = {
+			fileRef = 7129A454FFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		7129A4F4FFF956F311CA2CDC = {
+			fileRef = 7129A455FFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		7129A4F6FFF956F311CA2CDC = {
+			fileRef = 7129A457FFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		7129A4F7FFF956F311CA2CDC = {
+			fileRef = 7129A458FFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		7129A4F8FFF956F311CA2CDC = {
+			fileRef = 7129A459FFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		7129A4F9FFF956F311CA2CDC = {
+			fileRef = 7129A45AFFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		7129A4FBFFF956F311CA2CDC = {
+			fileRef = 7129A45CFFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		7129A4FCFFF956F311CA2CDC = {
+			fileRef = 7129A45DFFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		7129A4FDFFF956F311CA2CDC = {
+			fileRef = 7129A45EFFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		7129A4FEFFF956F311CA2CDC = {
+			fileRef = 7129A45FFFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		7129A4FFFFF956F311CA2CDC = {
+			fileRef = 7129A460FFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		7129A500FFF956F311CA2CDC = {
+			fileRef = 7129A461FFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		7129A501FFF956F311CA2CDC = {
+			fileRef = 7129A462FFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		7129A502FFF956F311CA2CDC = {
+			fileRef = 7129A463FFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		7129A503FFF956F311CA2CDC = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			name = "Frameworks & Libraries";
+		};
+		7129A504FFF956F311CA2CDC = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			name = "ResourceManager Resources";
+		};
+		7129A505FFF956F311CA2CDC = {
+			isa = PBXTargetDependency;
+			target = 7129A506FFF956F311CA2CDC;
+		};
+		7129A506FFF956F311CA2CDC = {
+			buildPhases = (
+				7129A507FFF956F311CA2CDC,
+				7129A508FFF956F311CA2CDC,
+				7129A50FFFF956F311CA2CDC,
+				7129A510FFF956F311CA2CDC,
+				7129A517FFF956F311CA2CDC,
+				7129A518FFF956F311CA2CDC,
+				7129A519FFF956F311CA2CDC,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_EXTENSION = YES;
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_NAME = com.apple.nke.ppp;
+				MODULE_START = ppp_module_start;
+				MODULE_STOP = ppp_module_stop;
+				MODULE_VERSION = 1.0;
+				OPTIMIZATION_CFLAGS = "";
+				OTHER_CFLAGS = "-Wno-format";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = PPP;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			conditionalBuildSettings = {
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = "PPP (Kernel Extension)";
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+			productName = "PPP (Bundle)";
+			productReference = 7129A4D0FFF956F311CA2CDC;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
+<plist version=\"0.9\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>PPP</string>
+	<key>CFBundleGetInfoString</key>
+	<string>PPP Family</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.nke.ppp</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>PPP</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.0</string>
+	<key>IOKitPersonalities</key>
+	<dict/>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 0;
+		};
+		7129A507FFF956F311CA2CDC = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			name = "Shell Script";
+			neededFileNames = (
+			);
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		7129A508FFF956F311CA2CDC = {
+			buildActionMask = 2147483647;
+			files = (
+				7129A509FFF956F311CA2CDC,
+				7129A50AFFF956F311CA2CDC,
+				7129A50BFFF956F311CA2CDC,
+				7129A50CFFF956F311CA2CDC,
+				7129A50DFFF956F311CA2CDC,
+				7129A50EFFF956F311CA2CDC,
+			);
+			isa = PBXHeadersBuildPhase;
+			name = Headers;
+		};
+		7129A509FFF956F311CA2CDC = {
+			fileRef = 7129A473FFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7129A50AFFF956F311CA2CDC = {
+			fileRef = 7129A474FFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7129A50BFFF956F311CA2CDC = {
+			fileRef = 7129A475FFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7129A50CFFF956F311CA2CDC = {
+			fileRef = 7129A476FFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7129A50DFFF956F311CA2CDC = {
+			fileRef = 7129A477FFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7129A50EFFF956F311CA2CDC = {
+			fileRef = 7129A478FFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7129A50FFFF956F311CA2CDC = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			name = "Bundle Resources";
+		};
+		7129A510FFF956F311CA2CDC = {
+			buildActionMask = 2147483647;
+			files = (
+				7129A511FFF956F311CA2CDC,
+				7129A512FFF956F311CA2CDC,
+				7129A513FFF956F311CA2CDC,
+				7129A514FFF956F311CA2CDC,
+				7129A515FFF956F311CA2CDC,
+				7129A516FFF956F311CA2CDC,
+			);
+			isa = PBXSourcesBuildPhase;
+			name = Sources;
+		};
+		7129A511FFF956F311CA2CDC = {
+			fileRef = 7129A47AFFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		7129A512FFF956F311CA2CDC = {
+			fileRef = 7129A47BFFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		7129A513FFF956F311CA2CDC = {
+			fileRef = 7129A47CFFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		7129A514FFF956F311CA2CDC = {
+			fileRef = 7129A47DFFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		7129A515FFF956F311CA2CDC = {
+			fileRef = 7129A47EFFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		7129A516FFF956F311CA2CDC = {
+			fileRef = 7129A47FFFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		7129A517FFF956F311CA2CDC = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			name = "Frameworks & Libraries";
+		};
+		7129A518FFF956F311CA2CDC = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			name = "ResourceManager Resources";
+		};
+		7129A519FFF956F311CA2CDC = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			name = "Shell Script";
+			neededFileNames = (
+			);
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		7129A51AFFF956F311CA2CDC = {
+			isa = PBXTargetDependency;
+			target = 7129A51BFFF956F311CA2CDC;
+		};
+		7129A51BFFF956F311CA2CDC = {
+			buildPhases = (
+				7129A53AFFF956F311CA2CDC,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				LIBRARY_SEARCH_PATHS = "";
+				OPTIMIZATION_CFLAGS = "";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = Drivers;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			conditionalBuildSettings = {
+			};
+			dependencies = (
+				7129A51CFFF956F311CA2CDC,
+				7129A52FFFF956F311CA2CDC,
+			);
+			isa = PBXAggregateTarget;
+			name = "Drivers (Aggregate)";
+			productName = "Drivers (Aggregate)";
+			shouldUseHeadermap = 0;
+		};
+		7129A51CFFF956F311CA2CDC = {
+			isa = PBXTargetDependency;
+			target = 7129A51DFFF956F311CA2CDC;
+		};
+		7129A51DFFF956F311CA2CDC = {
+			buildPhases = (
+				7129A51EFFF956F311CA2CDC,
+				7129A51FFFF956F311CA2CDC,
+				7129A525FFF956F311CA2CDC,
+				7129A526FFF956F311CA2CDC,
+				7129A52CFFF956F311CA2CDC,
+				7129A52DFFF956F311CA2CDC,
+				7129A52EFFF956F311CA2CDC,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_EXTENSION = YES;
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_NAME = com.apple.nke.pppoe;
+				MODULE_START = pppoe_domain_module_start;
+				MODULE_STOP = pppoe_domain_module_stop;
+				MODULE_VERSION = 1.0;
+				OPTIMIZATION_CFLAGS = "";
+				OTHER_CFLAGS = "-Wno-format";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = PPPoE;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			conditionalBuildSettings = {
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = "PPPoE (Kernel Extension)";
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+			productName = "PPPoE (Bundle)";
+			productReference = 7129A4D1FFF956F311CA2CDC;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
+<plist version=\"0.9\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>PPPoE</string>
+	<key>CFBundleGetInfoString</key>
+	<string>PPPoE Driver</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.nke.pppoe</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>PPP</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.0</string>
+	<key>IOKitPersonalities</key>
+	<dict/>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 0;
+		};
+		7129A51EFFF956F311CA2CDC = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			name = "Shell Script";
+			neededFileNames = (
+			);
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		7129A51FFFF956F311CA2CDC = {
+			buildActionMask = 2147483647;
+			files = (
+				7129A520FFF956F311CA2CDC,
+				7129A521FFF956F311CA2CDC,
+				7129A522FFF956F311CA2CDC,
+				7129A523FFF956F311CA2CDC,
+				7129A524FFF956F311CA2CDC,
+			);
+			isa = PBXHeadersBuildPhase;
+			name = Headers;
+		};
+		7129A520FFF956F311CA2CDC = {
+			fileRef = 7129A494FFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7129A521FFF956F311CA2CDC = {
+			fileRef = 7129A495FFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7129A522FFF956F311CA2CDC = {
+			fileRef = 7129A496FFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7129A523FFF956F311CA2CDC = {
+			fileRef = 7129A497FFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7129A524FFF956F311CA2CDC = {
+			fileRef = 7129A498FFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7129A525FFF956F311CA2CDC = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			name = "Bundle Resources";
+		};
+		7129A526FFF956F311CA2CDC = {
+			buildActionMask = 2147483647;
+			files = (
+				7129A527FFF956F311CA2CDC,
+				7129A528FFF956F311CA2CDC,
+				7129A529FFF956F311CA2CDC,
+				7129A52AFFF956F311CA2CDC,
+				7129A52BFFF956F311CA2CDC,
+			);
+			isa = PBXSourcesBuildPhase;
+			name = Sources;
+		};
+		7129A527FFF956F311CA2CDC = {
+			fileRef = 7129A49AFFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		7129A528FFF956F311CA2CDC = {
+			fileRef = 7129A49BFFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		7129A529FFF956F311CA2CDC = {
+			fileRef = 7129A49CFFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		7129A52AFFF956F311CA2CDC = {
+			fileRef = 7129A49DFFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		7129A52BFFF956F311CA2CDC = {
+			fileRef = 7129A49EFFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		7129A52CFFF956F311CA2CDC = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			name = "Frameworks & Libraries";
+		};
+		7129A52DFFF956F311CA2CDC = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			name = "ResourceManager Resources";
+		};
+		7129A52EFFF956F311CA2CDC = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			name = "Shell Script";
+			neededFileNames = (
+			);
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		7129A52FFFF956F311CA2CDC = {
+			isa = PBXTargetDependency;
+			target = 7129A530FFF956F311CA2CDC;
+		};
+		7129A530FFF956F311CA2CDC = {
+			buildPhases = (
+				7129A531FFF956F311CA2CDC,
+				7129A532FFF956F311CA2CDC,
+				7129A534FFF956F311CA2CDC,
+				7129A535FFF956F311CA2CDC,
+				7129A537FFF956F311CA2CDC,
+				7129A538FFF956F311CA2CDC,
+				7129A539FFF956F311CA2CDC,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_EXTENSION = YES;
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_NAME = com.apple.nke.pppserial;
+				MODULE_START = pppserial_module_start;
+				MODULE_STOP = pppserial_module_stop;
+				MODULE_VERSION = 1.0;
+				OPTIMIZATION_CFLAGS = "";
+				OTHER_CFLAGS = "-Wno-format";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = PPPSerial;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			conditionalBuildSettings = {
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = "PPPSerial (Kernel Extension)";
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+			productName = "PPPSerial (Bundle)";
+			productReference = 7129A4D2FFF956F311CA2CDC;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
+<plist version=\"0.9\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>PPPSerial</string>
+	<key>CFBundleGetInfoString</key>
+	<string>PPP Serial Driver</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.nke.pppserial</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>PPP</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.0</string>
+	<key>IOKitPersonalities</key>
+	<dict/>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 0;
+		};
+		7129A531FFF956F311CA2CDC = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			name = "Shell Script";
+			neededFileNames = (
+			);
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		7129A532FFF956F311CA2CDC = {
+			buildActionMask = 2147483647;
+			files = (
+				7129A533FFF956F311CA2CDC,
+			);
+			isa = PBXHeadersBuildPhase;
+			name = Headers;
+		};
+		7129A533FFF956F311CA2CDC = {
+			fileRef = 7129A4ADFFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7129A534FFF956F311CA2CDC = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			name = "Bundle Resources";
+		};
+		7129A535FFF956F311CA2CDC = {
+			buildActionMask = 2147483647;
+			files = (
+				7129A536FFF956F311CA2CDC,
+			);
+			isa = PBXSourcesBuildPhase;
+			name = Sources;
+		};
+		7129A536FFF956F311CA2CDC = {
+			fileRef = 7129A4AFFFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		7129A537FFF956F311CA2CDC = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			name = "Frameworks & Libraries";
+		};
+		7129A538FFF956F311CA2CDC = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			name = "ResourceManager Resources";
+		};
+		7129A539FFF956F311CA2CDC = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			name = "Shell Script";
+			neededFileNames = (
+			);
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		7129A53AFFF956F311CA2CDC = {
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				7129A53BFFF956F311CA2CDC,
+				7129A53CFFF956F311CA2CDC,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			name = "Copy Files";
+		};
+		7129A53BFFF956F311CA2CDC = {
+			fileRef = 7129A4D1FFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7129A53CFFF956F311CA2CDC = {
+			fileRef = 7129A4D2FFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7129A53DFFF956F311CA2CDC = {
+			isa = PBXTargetDependency;
+			target = 7129A53EFFF956F311CA2CDC;
+		};
+		7129A53EFFF956F311CA2CDC = {
+			buildPhases = (
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				LIBRARY_SEARCH_PATHS = "";
+				OPTIMIZATION_CFLAGS = "";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = SampleCode;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			conditionalBuildSettings = {
+			};
+			dependencies = (
+			);
+			isa = PBXAggregateTarget;
+			name = "SampleCode (Aggregate)";
+			productName = "SampleCode (Aggregate)";
+			shouldUseHeadermap = 0;
+		};
+		7129A53FFFF956F311CA2CDC = {
+			isa = PBXTargetDependency;
+			target = 7129A540FFF956F311CA2CDC;
+		};
+		7129A540FFF956F311CA2CDC = {
+			buildPhases = (
+				7129A54AFFF956F311CA2CDC,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				LIBRARY_SEARCH_PATHS = "";
+				OPTIMIZATION_CFLAGS = "";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = Helpers;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			conditionalBuildSettings = {
+			};
+			dependencies = (
+				013F977F0019059F7F000001,
+				7129A541FFF956F311CA2CDC,
+			);
+			isa = PBXAggregateTarget;
+			name = "Helpers (Aggregate)";
+			productName = "Helpers (Aggregate)";
+			shouldUseHeadermap = 0;
+		};
+		7129A541FFF956F311CA2CDC = {
+			isa = PBXTargetDependency;
+			target = 7129A542FFF956F311CA2CDC;
+		};
+		7129A542FFF956F311CA2CDC = {
+			buildPhases = (
+				7129A543FFF956F311CA2CDC,
+				7129A545FFF956F311CA2CDC,
+				7129A547FFF956F311CA2CDC,
+				7129A549FFF956F311CA2CDC,
+				7129A553FFF9579D11CA2CDC,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = /usr/libexec;
+				LIBRARY_SEARCH_PATHS = "";
+				OPTIMIZATION_CFLAGS = "";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = CCLEngine;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			conditionalBuildSettings = {
+			};
+			dependencies = (
+			);
+			isa = PBXToolTarget;
+			name = "CCLEngine (Tool)";
+			productInstallPath = /usr/libexec;
+			productName = "CCLEngine (Tool)";
+			productReference = 7129A4D3FFF956F311CA2CDC;
+			shouldUseHeadermap = 0;
+		};
+		7129A543FFF956F311CA2CDC = {
+			buildActionMask = 2147483647;
+			files = (
+				7129A544FFF956F311CA2CDC,
+			);
+			isa = PBXHeadersBuildPhase;
+			name = Headers;
+		};
+		7129A544FFF956F311CA2CDC = {
+			fileRef = 7129A4C2FFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7129A545FFF956F311CA2CDC = {
+			buildActionMask = 2147483647;
+			files = (
+				7129A546FFF956F311CA2CDC,
+			);
+			isa = PBXSourcesBuildPhase;
+			name = Sources;
+		};
+		7129A546FFF956F311CA2CDC = {
+			fileRef = 7129A4C4FFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		7129A547FFF956F311CA2CDC = {
+			buildActionMask = 2147483647;
+			files = (
+				7129A548FFF956F311CA2CDC,
+			);
+			isa = PBXFrameworksBuildPhase;
+			name = "Frameworks & Libraries";
+		};
+		7129A548FFF956F311CA2CDC = {
+			fileRef = 7129A4CCFFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7129A549FFF956F311CA2CDC = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			name = "ResourceManager Resources";
+		};
+		7129A54AFFF956F311CA2CDC = {
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 7;
+			files = (
+				7129A54BFFF956F311CA2CDC,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			name = "Copy Files";
+		};
+		7129A54BFFF956F311CA2CDC = {
+			fileRef = 7129A4D3FFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7129A54CFFF956F311CA2CDC = {
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 7;
+			files = (
+				7129A54DFFF956F311CA2CDC,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			name = "Copy Files";
+		};
+		7129A54DFFF956F311CA2CDC = {
+			fileRef = 7129A4CFFFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7129A54EFFF956F311CA2CDC = {
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				7129A54FFFF956F311CA2CDC,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			name = "Copy Files";
+		};
+		7129A54FFFF956F311CA2CDC = {
+			fileRef = 7129A4D0FFF956F311CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7129A553FFF9579D11CA2CDC = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			name = "Shell Script";
+			neededFileNames = (
+			);
+			shellPath = /bin/sh;
+			shellScript = "mkdir -m 755 -p $DSTROOT/Library/Modem\\ Scripts\ncp -f Helpers/Modems/* $DSTROOT/Library/Modem\\ Scripts\n";
+		};
+		7129A554FFF9584B11CA2CDC = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		7129A555FFF9584B11CA2CDC = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+	};
+	rootObject = 7129A431FFF956F311CA2CDC;
+}

@@ -1,0 +1,9 @@
+int install_choose( char **strings, int nstrings, int min, int max )
+strings, nstrings, min, max;
+int install_chooseFromDriverList(
+    char *title,
+    char *message,
+    char **strings,
+    int nstrings
+) title, message, strings, nstrings;
+void install_clearScreen(void) ;

@@ -1,0 +1,68 @@
+.\" @(#)nidomain.8      92/05/17 rev byJJ
+.TH NIDOMAIN 8 "March 23, 1989" "Apple Computer, Inc."
+.SH NAME
+nidomain \- NetInfo domain utility
+.SH SYNOPSIS
+.B nidomain 
+\fB-l\fR [ \fIhostname\fR ]
+.LP
+.B nidomain 
+\fB-m\fR \fItag\fR
+.LP
+.B nidomain 
+\fB-d\fR \fItag\fR
+.LP
+.B nidomain 
+\fB-c\fR \fItag\fR \fImaster\fR/\fIremotetag\fR
+.SH DESCRIPTION
+The
+.I nidomain
+utility
+is an interface to nibindd(8),
+to which it sends all of its requests
+about the domains served on a given machine.
+It also can be used to create and destroy NetInfo databases.
+.PP
+The
+.I nidomain
+utility
+will allow one to create multiple levels of NetInfo hierarchy,
+but it is not a particularly easy way to do it.
+One should use the NetInfo Manager application
+for setting up multilevel hierarchies.
+.SH OPTIONS
+.TP 
+\fB-l\fR [ \fIhostname\fR ]
+List the domains by tag served on the given 
+.I hostname.
+If 
+.I hostname 
+is unspecified,
+the local host is used.
+.TP
+.B "-m \fItag\fR"
+Create a new NetInfo database and server on the local machine
+for the domain tag of 
+.I tag.
+.TP
+.B "-d \fItag\fR"
+Destroy the local NetInfo database and server
+associated with the domain tagged
+.I tag.
+If the database was associated with a clone,
+the machine's ``serves'' property 
+on the master is NOT modified
+to reflect the fact that the database has been deleted.
+.TP
+.B "-c \fItag\fR \fImaster\fR/\fIremotetag\fR"
+Creates a clone NetInfo database with the domain tagged
+.I tag.
+The database is cloned from the machine
+.I master
+and remote tag
+.I remotetag.
+The machine's ``serves'' property
+should be set up prior to running this command
+to contain the entry "./\fItag\fR".
+.SH "SEE ALSO"
+nibindd(8)

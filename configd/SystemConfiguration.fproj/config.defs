@@ -1,0 +1,168 @@
+/*
+ * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ *
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
+ *
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
+ *
+ * @APPLE_LICENSE_HEADER_END@
+ */
+
+#include <mach/std_types.defs>
+#include <mach/mach_types.defs>
+
+subsystem config 20000;
+serverprefix _;
+
+import "config_types.h";
+
+/*
+ * serialized XML data (client->server)
+ */
+type xmlData    = ^ array [] of MACH_MSG_TYPE_BYTE
+	ctype : xmlData_t;
+
+/*
+ * serialized XML data (server->client)
+ */
+type xmlDataOut = ^ array [] of MACH_MSG_TYPE_BYTE
+	ctype : xmlDataOut_t;
+
+/*
+ * additional types
+ */
+/*
+type task_move_send_t = MACH_MSG_TYPE_MOVE_SEND
+	ctype: mach_port_t;
+*/
+
+
+/*
+ * Connection management API's
+ */
+
+routine configopen	(	server		: mach_port_t;
+				name		: xmlData;
+			 out	session		: mach_port_move_send_t;
+			 out	status		: int);
+
+routine configclose	(	server		: mach_port_t;
+			 out	status		: int);
+
+routine configlock	(	server		: mach_port_t;
+			 out	status		: int);
+
+routine configunlock	(	server		: mach_port_t;
+			 out	status		: int);
+
+	skip;	/* reserved for future use */
+	skip;	/* reserved for future use */
+	skip;	/* reserved for future use */
+	skip;	/* reserved for future use */
+
+/*
+ * Cache access API's
+ */
+
+routine configlist	(	server		: mach_port_t;
+				xmlData		: xmlData;
+				regexOptions	: int;
+			 out	list		: xmlDataOut, dealloc;
+			 out	status		: int);
+
+routine configadd	(	server		: mach_port_t;
+				key		: xmlData;
+				data		: xmlData;
+			 out	newInstance	: int;
+			 out	status		: int);
+
+routine configget	(	server		: mach_port_t;
+				key		: xmlData;
+			 out	data		: xmlDataOut, dealloc;
+			 out	newInstance	: int;
+			 out	status		: int);
+
+routine configset	(	server		: mach_port_t;
+				key		: xmlData;
+				data		: xmlData;
+				instance	: int;
+			 out	newInstance	: int;
+			 out	status		: int);
+
+routine configremove	(	server		: mach_port_t;
+				key		: xmlData;
+			 out	status		: int);
+
+routine configtouch	(	server		: mach_port_t;
+				key		: xmlData;
+			 out	status		: int);
+
+routine configadd_s	(	server		: mach_port_t;
+				key		: xmlData;
+				data		: xmlData;
+			 out	newInstance	: int;
+			 out	status		: int);
+
+	skip;	/* reserved for future use */
+	skip;	/* reserved for future use */
+	skip;	/* reserved for future use */
+
+/*
+ * Notification API's
+ */
+
+routine notifyadd	(	server		: mach_port_t;
+				key		: xmlData;
+				regexOptions	: int;
+			 out	status		: int);
+
+routine notifyremove	(	server		: mach_port_t;
+				key		: xmlData;
+				regexOptions	: int;
+			 out	status		: int);
+
+routine notifychanges	(	server		: mach_port_t;
+			 out	list		: xmlDataOut, dealloc;
+			 out	status		: int);
+
+routine notifyviaport	(	server		: mach_port_t;
+				port		: mach_port_move_send_t;
+				msgid           : mach_msg_id_t;
+			 out	status		: int);
+
+routine notifyviafd	(	server		: mach_port_t;
+				path		: xmlData;
+				identifier	: int;
+			 out	status		: int);
+
+routine notifyviasignal	(	server		: mach_port_t;
+				task		: task_t /*task_move_send_t*/;
+				sig		: int;
+			 out	status		: int);
+
+routine notifycancel	(	server		: mach_port_t;
+			 out	status		: int);
+
+	skip;	/* reserved for future use */
+	skip;	/* reserved for future use */
+	skip;	/* reserved for future use */
+	skip;	/* reserved for future use */
+
+/*
+ * Miscellaneous API's
+ */
+
+routine snapshot	(	server		: mach_port_t;
+			 out	status		: int);

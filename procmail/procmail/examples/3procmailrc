@@ -1,0 +1,56 @@
+# Please check if all the paths in PATH are reachable, remove the ones that
+# are not.
+
+PATH=$HOME/bin:/usr/bin:/global/bin:/usr/ucb:/bin:/usr/local/bin:
+MAILDIR =	$HOME/Mail	# You'd better make sure it exists
+DEFAULT =	$MAILDIR/mbox
+LOGFILE =	$MAILDIR/from
+LOCKFILE=	$HOME/.lockmail
+
+			# This will create a local lockfile named todd.lock
+:0:			# *if* the condition matches
+* ^From.*thf
+todd
+
+LOCKFILE=$MAILDIR/whatever	# This will remove the global lockfile
+				# $HOME/.lockmail and the new lockfile
+				# will be $MAILDIR/whatever
+
+
+				# The next recipe will
+				# filter out all messages from "at"
+				# jobs and will put them in a terse format
+				# (only the date and the body) in
+				# a file called $MAILDIR/atjunk
+:0 fh
+* ^From root
+* ^Subject: Output from "at" job
+|egrep "^Date:"
+				# The next recipe will only be used if
+				# the previous one matched
+:0 A
+atjunk
+
+
+
+MAILDIR=$HOME/News	# This will change the current directory
+
+
+			# The next recipe will create a local lockfile
+			# named $HOME/News/dustbin.lock (*if* the condition
+			# matches), and will feed the body of the message
+			# through `sort` (sorry, couldn't come up with anything
+			# better :-), after which the result will be
+			# appended to $HOME/News/dustbin
+:0 b:
+* ^Subject:.*rubbish
+|sort >>dustbin
+
+			# The next recipe will use the games directory as a MH
+			# folder (of course you need MH to read the mail then)
+:0
+* ^Subject:.*games
+games/.
+
+# Anything not delivered by now will go to $HOME/Mail/mbox
+# Using LOCKFILE=$HOME/Mail/mbox.lock

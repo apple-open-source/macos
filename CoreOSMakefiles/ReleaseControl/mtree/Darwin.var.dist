@@ -1,0 +1,43 @@
+# $FreeBSD: src/etc/mtree/BSD.var.dist,v 1.43 1999/08/27 23:24:01 peter Exp $
+#
+# Please see the file README before making changes to this file.
+#
+
+/set type=dir uname=root gname=wheel mode=0755
+.
+/set type=dir uname=daemon gname=wheel mode=0755
+    at              uname=root
+        jobs
+        ..
+        spool
+        ..
+    ..
+    backups         uname=root mode=0750
+    ..
+/set type=dir uname=root gname=wheel mode=0700
+    cron            mode=0750
+        tabs
+        ..
+    ..
+    db              mode=0755
+    ..
+/set type=dir uname=root gname=wheel mode=0755
+    log
+    ..
+    mail            gname=mail mode=0775
+    ..
+    msgs            uname=daemon
+    ..
+    run
+    ..
+/set type=dir uname=root gname=daemon mode=0755
+    rwho            gname=daemon mode=0775
+    ..
+    spool           gname=wheel
+/set type=dir uname=root gname=wheel mode=01777
+    tmp
+    ..
+/set type=dir uname=root gname=wheel mode=0755
+    yp
+    ..
+..

@@ -1,0 +1,88 @@
+// !$*UTF8*$!
+{
+	089C1669FE841209C02AAC07 = {
+		activeBuildStyle = 06AA1265FFB2107B11CA28AA;
+		activeTarget = 089C1673FE841209C02AAC07;
+		addToTargets = (
+			089C1673FE841209C02AAC07,
+		);
+		perUserDictionary = {
+			PBXWorkspaceConfiguration = {
+				ContentSize = "{886, 691}";
+				LeftSlideOut = {
+					Frame = "{{0, 23}, {886, 638}}";
+					Split0 = {
+						Frame = "{{25, 0}, {861, 638}}";
+						Split0 = {
+							Frame = "{{0, 25}, {861, 613}}";
+						};
+						SplitCount = 1;
+						Tab0 = {
+							Debugger = {
+								Frame = "{{0, 18}, {484, 190}}";
+								Split0 = {
+									Frame = "{{0, 25}, {484, 165}}";
+									Split0 = {
+										Frame = "{{0, 0}, {236, 165}}";
+									};
+									Split1 = {
+										Frame = "{{245, 0}, {239, 165}}";
+									};
+									SplitCount = 2;
+								};
+								SplitCount = 1;
+								Tab0 = {
+									Frame = "{{0, 0}, {100, 50}}";
+								};
+								TabCount = 1;
+							};
+							Frame = "{{0, 0}, {484, 208}}";
+							LauncherConfigVersion = 3;
+						};
+						Tab1 = {
+							Frame = "{{0, 0}, {484, 208}}";
+							LauncherConfigVersion = 2;
+							Runner = {
+								Frame = "{{0, 18}, {484, 190}}";
+							};
+						};
+						Tab2 = {
+							BuildMessageFrame = "{{0, 0}, {665, 80}}";
+							BuildTranscriptFrame = "{{0, 89}, {665, 105}}";
+							Frame = "{{0, 0}, {661, 192}}";
+						};
+						Tab3 = {
+							Frame = "{{0, 0}, {612, 295}}";
+						};
+						TabCount = 4;
+					};
+					SplitCount = 1;
+					Tab0 = {
+						Frame = "{{0, 0}, {200, 638}}";
+					};
+					Tab1 = {
+						Frame = "{{0, 0}, {200, 100}}";
+					};
+					Tab2 = {
+						Frame = "{{0, 0}, {200, 638}}";
+						Split0 = {
+							Frame = "{{0, 0}, {200, 311}}";
+						};
+						Split1 = {
+							Frame = "{{0, 320}, {200, 318}}";
+						};
+						SplitCount = 2;
+					};
+					Tab3 = {
+						Frame = "{{0, 0}, {250, 100}}";
+					};
+					TabCount = 4;
+				};
+				WindowLoc = "{130, 2}";
+			};
+		};
+	};
+	089C1673FE841209C02AAC07 = {
+		activeExec = 0;
+	};
+}

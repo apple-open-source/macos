@@ -1,0 +1,19 @@
+# Copyright (c) 1999,2000 Apple Computer, Inc.
+# All rights reserved.
+
+# Maps legacy Makefile variables to modern Jambase variables
+# Source root is SRCROOT, or ., or working directory
+# Root values are overridden by default
+SRCROOT default = $(PWD) ;
+SRCROOT default = . ;
+SOURCE_ROOT default = $(SRCROOT) ;
+# Set global C flags, architectures, and architecture flags for linking
+GLOBAL_CFLAGS default = $(RC_NONARCH_CFLAGS) ;
+ARCHITECTURES default = $(RC_ARCHS) ;
+SUPPORTED_ARCHITECTURES = i386 ppc ;
+VALID_ARCHS default = i386 ppc ;
+for ARCH in $(SUPPORTED_ARCHITECTURES) {
+    if $(RC_$(ARCH)) = YES {
+        $(ARCH) = YES ;
+    }
+}

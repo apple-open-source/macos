@@ -1,0 +1,89 @@
+{
+    FILESTABLE = {
+        CLASSES = (); 
+        Documentation = (NOTES, ChangeLog); 
+        H_FILES = (); 
+        Headers = (
+            watch.h, 
+            hash.h, 
+            update.h, 
+            server.h, 
+            rcs.h, 
+            buffer.h, 
+            myndbm.h, 
+            error.h, 
+            fileattr.h, 
+            edit.h, 
+            client.h, 
+            cvs.h
+        ); 
+        Makefiles = (options.h.in, Makefile.in); 
+        OTHER_LINKED = (); 
+        OTHER_SOURCES = (); 
+        Resources = (sanity.sh, cvsbug.sh); 
+        SUBPROJECTS = (); 
+        Sources = (
+            parseinfo.c, 
+            mkmodules.c, 
+            logmsg.c, 
+            login.c, 
+            wrapper.c, 
+            watch.c, 
+            zlib.c, 
+            find_names.c, 
+            hash.c, 
+            version.c, 
+            vers_ts.c, 
+            update.c, 
+            tag.c, 
+            subr.c, 
+            status.c, 
+            server.c, 
+            scramble.c, 
+            run.c, 
+            rtag.c, 
+            root.c, 
+            repos.c, 
+            remove.c, 
+            release.c, 
+            recurse.c, 
+            rcscmds.c, 
+            rcs.c, 
+            patch.c, 
+            no_diff.c, 
+            myndbm.c, 
+            filesubr.c, 
+            log.c, 
+            lock.c, 
+            import.c, 
+            modules.c, 
+            ignore.c, 
+            history.c, 
+            main.c, 
+            expand_path.c, 
+            entries.c, 
+            error.c, 
+            fileattr.c, 
+            cvsrc.c, 
+            add.c, 
+            edit.c, 
+            diff.c, 
+            client.c, 
+            classify.c, 
+            checkout.c, 
+            checkin.c, 
+            create_adm.c, 
+            commit.c, 
+            buffer.c, 
+            admin.c
+        ); 
+    }; 
+    LANGUAGE = English; 
+    LOCALIZABLE_FILES = {}; 
+    NEXTSTEP_BUILDTOOL = /bin/make; 
+    PDO_UNIX_BUILDTOOL = /bin/make; 
+    PROJECTNAME = src; 
+    PROJECTTYPE = "GNU Source"; 
+    PROJECTVERSION = 2.6; 
+    WINDOWS_BUILDTOOL = "${NEXT_ROOT}/NextDeveloper/Executables/make"; 
+}

@@ -1,0 +1,79 @@
+\initial {M}
+\entry {\code {\code {mail-citation-hook}}}{36}
+\entry {\code {\code {mh-auto-folder-collect}}}{39}
+\entry {\code {\code {mh-before-quit-hook}}}{42}
+\entry {\code {\code {mh-before-send-letter-hook}}}{38}
+\entry {\code {\code {mh-before-send-letter-hook}, example}}{38}
+\entry {\code {\code {mh-bury-show-buffer}}}{30}
+\entry {\code {\code {mh-bury-show-buffer}, example}}{27}
+\entry {\code {\code {mh-clean-message-header}}}{31}
+\entry {\code {\code {mh-cmd-note}}}{41}
+\entry {\code {\code {mh-comp-formfile}}}{33}
+\entry {\code {\code {mh-compose-letter-function}}}{34}
+\entry {\code {\code {mh-cur-scan-msg-regexp}}}{41}
+\entry {\code {\code {mh-default-folder-for-message-function}}}{39}
+\entry {\code {\code {mh-default-folder-for-message-function}, example}}{40}
+\entry {\code {\code {mh-delete-msg-hook}}}{39}
+\entry {\code {\code {mh-delete-yanked-msg-window}}}{36}
+\entry {\code {\code {mh-deleted-msg-regexp}}}{41}
+\entry {\code {\code {mh-do-not-confirm}}}{30}
+\entry {\code {\code {mh-folder-mode-hook}}}{30}
+\entry {\code {\code {mh-folder-mode-hook}, example}}{30}
+\entry {\code {\code {mh-forward-subject-format}}}{34}
+\entry {\code {\code {mh-good-msg-regexp}}}{41}
+\entry {\code {\code {mh-inc-folder-hook}}}{39}
+\entry {\code {\code {mh-inc-folder-hook}, example}}{39}
+\entry {\code {\code {mh-inc-prog}}}{39}
+\entry {\code {\code {mh-ins-buf-prefix}}}{36}
+\entry {\code {\code {mh-invisible-headers}}}{31}
+\entry {\code {\code {mh-letter-mode-hook}}}{33}
+\entry {\code {\code {mh-lib}}}{30}
+\entry {\code {\code {mh-lib}, example}}{5}
+\entry {\code {\code {mh-lpr-command-format}}}{42}
+\entry {\code {\code {mh-lpr-command-format}, example}}{27}
+\entry {\code {\code {mh-mhn-args}}}{37}
+\entry {\code {\code {mh-mime-content-types}}}{37}
+\entry {\code {\code {mh-mime-content-types}, example}}{37}
+\entry {\code {\code {mh-msg-number-regexp}}}{41}
+\entry {\code {\code {mh-msg-search-regexp}}}{41}
+\entry {\code {\code {mh-new-draft-cleaned-headers}}}{35}
+\entry {\code {\code {mh-new-draft-cleaned-headers}, example}}{35}
+\entry {\code {\code {mh-note-copied}}}{42}
+\entry {\code {\code {mh-note-cur}}}{42}
+\entry {\code {\code {mh-note-deleted}}}{41}
+\entry {\code {\code {mh-note-dist}}}{42}
+\entry {\code {\code {mh-note-forw}}}{42}
+\entry {\code {\code {mh-note-printed}}}{42}
+\entry {\code {\code {mh-note-refiled}}}{41}
+\entry {\code {\code {mh-note-repl}}}{42}
+\entry {\code {\code {mh-note-seq}}}{42}
+\entry {\code {\code {mh-partial-folder-mode-line-annotation}}}{43}
+\entry {\code {\code {mh-pick-mode-hook}}}{43}
+\entry {\code {\code {mh-print-background}}}{42}
+\entry {\code {\code {mh-progs}}}{30, 39, 40}
+\entry {\code {\code {mh-progs}, example}}{5}
+\entry {\code {\code {mh-quit-hook}}}{42}
+\entry {\code {\code {mh-recenter-summary-p}}}{32}
+\entry {\code {\code {mh-recursive-folders}}}{39}
+\entry {\code {\code {mh-redist-full-contents}}}{35}
+\entry {\code {\code {mh-refile-msg-hook}}}{40}
+\entry {\code {\code {mh-refiled-msg-regexp}}}{41}
+\entry {\code {\code {mh-repl-formfile}}}{33}
+\entry {\code {\code {mh-reply-default-reply-to}}}{34}
+\entry {\code {\code {mh-scan-prog}}}{39, 40}
+\entry {\code {\code {mh-send-prog}}}{38}
+\entry {\code {\code {mh-show-buffer-mode-line-buffer-id}}}{32}
+\entry {\code {\code {mh-show-hook}}}{32}
+\entry {\code {\code {mh-show-hook}, example}}{32}
+\entry {\code {\code {mh-show-mode-hook}}}{32}
+\entry {\code {\code {mh-show-mode-hook}, example}}{32}
+\entry {\code {\code {mh-signature-file-name}}}{36}
+\entry {\code {\code {mh-sortm-args}}}{40}
+\entry {\code {\code {mh-store-default-directory}}}{42}
+\entry {\code {\code {mh-store-default-directory}, example}}{42}
+\entry {\code {\code {mh-summary-height}}}{30}
+\entry {\code {\code {mh-user-path}, example}}{40}
+\entry {\code {\code {mh-valid-scan-line}}}{41}
+\entry {\code {\code {mh-visible-headers}}}{31}
+\entry {\code {\code {mh-yank-from-start-of-msg}}}{36}
+\entry {\code {\code {mhl-formfile}}}{31}

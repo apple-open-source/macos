@@ -1,0 +1,1571 @@
+# Polish translation of GNU tar
+# Copyright (C) 1996, 1997 Free Software Foundation, Inc.
+# Rafa³ Maszkowski <rzm@pdi.net>, 1996-1997.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: tar 1.12\n"
+"POT-Creation-Date: 1999-07-04 23:46-0700\n"
+"PO-Revision-Date: 1997-04-26 17:29+0200\n"
+"Last-Translator: Rafa³ Maszkowski <rzm@pdi.net>\n"
+"Language-Team: Polish <pl@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=ISO-8859-2\n"
+"Content-Transfer-Encoding: 8-bit\n"
+
+#: lib/argmatch.c:167
+#, fuzzy, c-format
+msgid "invalid argument `%s' for `%s'"
+msgstr "B³êdny format daty `%s'"
+
+#: lib/argmatch.c:168
+#, fuzzy, c-format
+msgid "ambiguous argument `%s' for `%s'"
+msgstr "Niejednoznaczny wzór `%s'"
+
+#. We try to put synonyms on the same line.  The assumption is that
+#. synonyms follow each other
+#: lib/argmatch.c:188
+msgid "Valid arguments are:"
+msgstr ""
+
+#: lib/error.c:102 src/rmt.c:89
+msgid "Unknown system error"
+msgstr "Nieznany b³±d systemu"
+
+#: lib/getopt.c:677
+#, c-format
+msgid "%s: option `%s' is ambiguous\n"
+msgstr ""
+
+#: lib/getopt.c:702
+#, fuzzy, c-format
+msgid "%s: option `--%s' doesn't allow an argument\n"
+msgstr "Stara opcja `%c' wymaga argumentu."
+
+#: lib/getopt.c:707
+#, fuzzy, c-format
+msgid "%s: option `%c%s' doesn't allow an argument\n"
+msgstr "Stara opcja `%c' wymaga argumentu."
+
+#: lib/getopt.c:725 lib/getopt.c:898
+#, fuzzy, c-format
+msgid "%s: option `%s' requires an argument\n"
+msgstr "Stara opcja `%c' wymaga argumentu."
+
+#. --option
+#: lib/getopt.c:754
+#, c-format
+msgid "%s: unrecognized option `--%s'\n"
+msgstr ""
+
+#. +option or -option
+#: lib/getopt.c:758
+#, c-format
+msgid "%s: unrecognized option `%c%s'\n"
+msgstr ""
+
+#. 1003.2 specifies the format of this message.
+#: lib/getopt.c:784
+#, c-format
+msgid "%s: illegal option -- %c\n"
+msgstr ""
+
+#: lib/getopt.c:787
+#, c-format
+msgid "%s: invalid option -- %c\n"
+msgstr ""
+
+#. 1003.2 specifies the format of this message.
+#: lib/getopt.c:817 lib/getopt.c:947
+#, fuzzy, c-format
+msgid "%s: option requires an argument -- %c\n"
+msgstr "Stara opcja `%c' wymaga argumentu."
+
+#: lib/getopt.c:864
+#, c-format
+msgid "%s: option `-W %s' is ambiguous\n"
+msgstr ""
+
+#: lib/getopt.c:882
+#, fuzzy, c-format
+msgid "%s: option `-W %s' doesn't allow an argument\n"
+msgstr "Stara opcja `%c' wymaga argumentu."
+
+#. If XALLOC_FAIL_FUNC is NULL, or does return, display this message
+#. before exiting when memory is exhausted.  Goes through gettext.
+#: lib/xmalloc.c:66 src/compare.c:316 src/incremen.c:683 src/list.c:390
+#: src/mangle.c:53 src/tar.c:837
+msgid "Memory exhausted"
+msgstr "Brak pamiêci"
+
+#: src/arith.c:112 src/arith.c:132
+msgid "Arithmetic overflow"
+msgstr ""
+
+#: src/buffer.c:157
+msgid "Total bytes written: "
+msgstr "Ca³kowita zapisana ilo¶æ bajtów: "
+
+#: src/buffer.c:252
+#, c-format
+msgid "Cannot close file #%d"
+msgstr "Nie mogê zamkn±æ pliku #%d"
+
+#: src/buffer.c:268
+#, c-format
+msgid "Cannot close descriptor %d"
+msgstr "Nie mogê zamkn±æ deskryptora %d"
+
+#: src/buffer.c:271
+#, c-format
+msgid "Cannot properly duplicate %s"
+msgstr "Nie mogê prawied³owo powieliæ %s"
+
+#: src/buffer.c:285 src/buffer.c:295
+msgid "Cannot use compressed or remote archives"
+msgstr "Nie mogê u¿yæ archiwum skompresowanego lub zdalnego"
+
+#: src/buffer.c:349 src/buffer.c:406 src/buffer.c:511 src/buffer.c:560
+msgid "Cannot open pipe"
+msgstr "Nie mogê zamkn±æ potoku"
+
+#: src/buffer.c:353 src/buffer.c:515
+msgid "Cannot fork"
+msgstr "Nie mogê rozwidliæ procesu"
+
+#. The new born child tar is here!
+#: src/buffer.c:366 src/buffer.c:529
+msgid "tar (child)"
+msgstr "tar (potomny)"
+
+#: src/buffer.c:368
+msgid "(child) Pipe to stdin"
+msgstr "(proces potomny) potok do stdin"
+
+#: src/buffer.c:393 src/buffer.c:439 src/buffer.c:548 src/buffer.c:593
+#, c-format
+msgid "Cannot open archive %s"
+msgstr "Nie mogê otworzyæ archiwum %s"
+
+#: src/buffer.c:396
+msgid "Archive to stdout"
+msgstr "Archiwizujê do stdout"
+
+#: src/buffer.c:399 src/buffer.c:421 src/buffer.c:553 src/buffer.c:574
+#, c-format
+msgid "Cannot exec %s"
+msgstr "Nie mogê wykonaæ %s"
+
+#: src/buffer.c:410 src/buffer.c:564
+msgid "Child cannot fork"
+msgstr "Proces potomny nie mo¿e rozwidliæ procesu"
+
+#: src/buffer.c:417
+msgid "((child)) Pipe to stdout"
+msgstr "((proces potomny)) potok do stdout"
+
+#. The new born grandchild tar is here!
+#: src/buffer.c:427 src/buffer.c:580
+msgid "tar (grandchild)"
+msgstr "tar (wnuczek)"
+
+#. Prepare for reblocking the data from the compressor into the archive.
+#: src/buffer.c:431
+msgid "(grandchild) Pipe to stdin"
+msgstr "(wnuczek) potok do stdin"
+
+#: src/buffer.c:466
+msgid "Cannot read from compression program"
+msgstr "Nie mogê czytaæ z programu kompresuj±cego"
+
+#: src/buffer.c:531
+msgid "(child) Pipe to stdout"
+msgstr "(proces potomny) potok do stdout"
+
+#: src/buffer.c:550
+msgid "Archive to stdin"
+msgstr "Archiwizujê do stdin"
+
+#. The child tar is still here!  Launch the uncompressor.
+#: src/buffer.c:570
+msgid "((child)) Pipe to stdin"
+msgstr "((proces potomny)) potok do stdin"
+
+#. Prepare for unblocking the data from the archive into the uncompressor.
+#: src/buffer.c:584
+msgid "(grandchild) Pipe to stdout"
+msgstr "(wnuczek) potok do stdout"
+
+# nie jestem pewien, czy nie powinno byæ "komprymuj±cego" -pk
+#: src/buffer.c:623
+msgid "Cannot write to compression program"
+msgstr "Nie mogê pisaæ do programu kompresuj±cego"
+
+# here we should use different forms for different numbers of `bajtów' in Polish - rzm
+#: src/buffer.c:628
+#, fuzzy, c-format
+msgid "Write to compression program short %lu bytes"
+msgstr "Zapis do programu kompresuj±cego skrócony o %d bajtów"
+
+#: src/buffer.c:687
+msgid "Invalid value for record_size"
+msgstr "B³êdna warto¶æ record_size"
+
+#: src/buffer.c:690
+msgid "No archive name given"
+msgstr "Nie podana nazwa archiwum"
+
+#: src/buffer.c:717
+#, c-format
+msgid "Could not allocate memory for blocking factor %d"
+msgstr "Nie mog³em przydzieliæ pamiêci dla bloków %d"
+
+#: src/buffer.c:726
+msgid "Cannot verify multi-volume archives"
+msgstr "Nie mogê zweryfikowaæ archiwum wieloczê¶ciowego"
+
+#: src/buffer.c:731
+msgid "Cannot use multi-volume compressed archives"
+msgstr "Nie mogê u¿ywaæ wielocze¶ciowego archiwum skompresowanego"
+
+#: src/buffer.c:733
+msgid "Cannot verify compressed archives"
+msgstr "Nie mogê zweryfikowaæ archiwum skompresowanego"
+
+#: src/buffer.c:746
+msgid "Cannot update compressed archives"
+msgstr "Nie mogê uaktualniæ archiwum skompresowanego"
+
+#: src/buffer.c:757
+msgid "Cannot verify stdin/stdout archive"
+msgstr "Nie mogê zweryfikowaæ archiwum z/do stdin/stdout"
+
+#: src/buffer.c:811 src/buffer.c:1702 src/compare.c:533 src/incremen.c:456
+#: src/names.c:904
+#, c-format
+msgid "Cannot open %s"
+msgstr "Nie mogê otworzyæ %s"
+
+#: src/buffer.c:856
+#, c-format
+msgid "Archive not labelled to match `%s'"
+msgstr "Etykieta archiwum nie pasuje do `%s'"
+
+#: src/buffer.c:859 src/buffer.c:1189
+#, c-format
+msgid "Volume `%s' does not match `%s'"
+msgstr "Czê¶æ `%s' nie pasuje do `%s'"
+
+#: src/buffer.c:898
+#, c-format
+msgid "Write checkpoint %d"
+msgstr "Zapis punktu kontrolnego %d"
+
+#: src/buffer.c:1064 src/incremen.c:521
+#, c-format
+msgid "Cannot write to %s"
+msgstr "Nie mogê pisaæ do %s"
+
+#: src/buffer.c:1067
+#, fuzzy, c-format
+msgid "Only wrote %lu of %lu bytes to %s"
+msgstr "Zapisa³em tylko %u z %u bajtów do %s"
+
+#: src/buffer.c:1080
+#, c-format
+msgid "Read error on %s"
+msgstr "B³±d czytania %s"
+
+#: src/buffer.c:1083
+msgid "At beginning of tape, quitting now"
+msgstr "Na pocz±tku ta¶my, teraz koñczê"
+
+#: src/buffer.c:1089
+msgid "Too many errors, quitting"
+msgstr "Za du¿o b³êdów, koñczê"
+
+#: src/buffer.c:1105
+#, c-format
+msgid "Read checkpoint %d"
+msgstr "Czytam punkt kontrolny %d"
+
+#: src/buffer.c:1197 src/extract.c:946
+#, c-format
+msgid "Reading %s\n"
+msgstr "Czytam %s\n"
+
+#: src/buffer.c:1201
+msgid "WARNING: No volume header"
+msgstr "UWAGA: Brak etykiety czê¶ci"
+
+#: src/buffer.c:1209
+#, c-format
+msgid "%s is not continued on this volume"
+msgstr "%s nie jest kontynuowany w tej czê¶ci"
+
+#: src/buffer.c:1223
+#, fuzzy, c-format
+msgid "%s is the wrong size (%s != %s + %s)"
+msgstr "%s to z³y rozmiar (%ld != %ld + %ld)"
+
+#: src/buffer.c:1235
+msgid "This volume is out of sequence"
+msgstr "Ta czê¶æ nie jest kolejn±"
+
+#: src/buffer.c:1263
+#, fuzzy, c-format
+msgid "Record size = %lu blocks"
+msgstr "Rozmiar rekordu = %d bloków"
+
+#: src/buffer.c:1284
+#, c-format
+msgid "Archive %s EOF not on block boundary"
+msgstr "EOF archiwum %s nie jest na granicy bloku"
+
+#: src/buffer.c:1292
+#, fuzzy, c-format
+msgid "Only read %lu bytes from archive %s"
+msgstr "Przeczyta³em tylko %d bajtów z archiwum %s"
+
+#: src/buffer.c:1317 src/buffer.c:1428 src/buffer.c:1544
+#, c-format
+msgid "WARNING: Cannot close %s (%d, %d)"
+msgstr "UWAGA: Nie mogê zamkn±æ %s (%d, %d)"
+
+#. Lseek failed.  Try a different method.
+#: src/buffer.c:1373
+msgid "Could not backspace archive file; it may be unreadable without -i"
+msgstr "Nie mogê siê cofn±æ w pliku archiwum; mo¿e nie byæ czytelny bez -i"
+
+#: src/buffer.c:1418
+#, fuzzy, c-format
+msgid "WARNING: Cannot truncate %s"
+msgstr "UWAGA: Nie mogê zamkn±æ %s (%d, %d)"
+
+#: src/buffer.c:1456
+#, c-format
+msgid "Child died with signal %d%s"
+msgstr "Proces potomny zosta³ zabity sygna³em %d%s"
+
+#: src/buffer.c:1458
+msgid " (core dumped)"
+msgstr " (zrzut pamiêci)"
+
+#: src/buffer.c:1467
+#, c-format
+msgid "Child returned status %d"
+msgstr "Proces potomny zwróci³ stan %d"
+
+#: src/buffer.c:1574
+#, c-format
+msgid "Prepare volume #%d for %s and hit return: "
+msgstr "Przygotuj czê¶æ numer %d dla %s i naci¶nij return"
+
+#: src/buffer.c:1580
+msgid "EOF where user reply was expected"
+msgstr "EOF kiedy by³a oczekiwana odpowied¼ u¿ytkownika"
+
+#: src/buffer.c:1585 src/buffer.c:1614
+msgid "WARNING: Archive is incomplete"
+msgstr "UWAGA: Archiwum jest niekompletne"
+
+# rare case when `for parts' translates into `czê¶ci' for both sing. and plural in Polish - rzm
+#: src/buffer.c:1598
+msgid ""
+" n [name]   Give a new file name for the next (and subsequent) volume(s)\n"
+" q          Abort tar\n"
+" !          Spawn a subshell\n"
+" ?          Print this list\n"
+msgstr ""
+" n [nazwa]  Podaj now± nazwê dla nastêpnej (i kolejnych) czê¶ci\n"
+" q          Informacje o programie tar\n"
+" !          Uruchom shella\n"
+" ?          Wypisz tê listê\n"
+
+#. Quit.
+#: src/buffer.c:1609
+msgid "No new volume; exiting.\n"
+msgstr "Brak nowej czê¶ci; koñczê.\n"
+
+#: src/buffer.c:1644
+msgid "Cannot fork!"
+msgstr "Nie mogê rozwidliæ procesu!"
+
+#: src/buffer.c:1654
+#, c-format
+msgid "Cannot exec a shell %s"
+msgstr "Nie mogê uruchomiæ shella %s"
+
+#: src/compare.c:50
+#, fuzzy, c-format
+msgid "Could not allocate memory for diff buffer of %lu bytes"
+msgstr "Nie mogê przydzieliæ pamiêci dla bufora diff o wielko¶ci %d bajtów"
+
+#: src/compare.c:96 src/compare.c:328 src/compare.c:358
+#, c-format
+msgid "Cannot read %s"
+msgstr "Nie mogê czytaæ %s"
+
+#: src/compare.c:101 src/compare.c:335 src/compare.c:365
+#, fuzzy, c-format
+msgid "Could only read %lu of %lu bytes"
+msgstr "Mog³em przeczytaæ tylko %d z %ld bajtów"
+
+#: src/compare.c:110 src/compare.c:130 src/compare.c:403
+msgid "Data differs"
+msgstr "Dane siê ró¿ni±"
+
+#: src/compare.c:159 src/extract.c:335 src/extract.c:644 src/list.c:398
+#: src/list.c:1034
+msgid "Unexpected EOF on archive file"
+msgstr "Niespodziewany EOF w pliku archiwum"
+
+#: src/compare.c:306 src/compare.c:777
+#, fuzzy, c-format
+msgid "Cannot seek to %s in file %s"
+msgstr "Nie mogê ustawiæ pozycji %ld w pliku %s"
+
+#: src/compare.c:422
+msgid "File does not exist"
+msgstr "Plik nie istnieje"
+
+#: src/compare.c:425 src/compare.c:585
+#, c-format
+msgid "Cannot stat file %s"
+msgstr "Nie mogê sprawdziæ stanu pliku %s"
+
+#: src/compare.c:459
+msgid "Verify "
+msgstr "Sprawdzam "
+
+#: src/compare.c:466
+#, c-format
+msgid "Unknown file type '%c' for %s, diffed as normal file"
+msgstr "Nieznany typ liku %c' dla %s, zrobi³em diff jak dla zwyk³ego pliku"
+
+#: src/compare.c:491 src/compare.c:750
+msgid "Not a regular file"
+msgstr "Nie jest zwyk³ym plikiem"
+
+#: src/compare.c:498 src/compare.c:731
+msgid "Mode differs"
+msgstr "Uprawnienia siê ró¿ni±"
+
+#: src/compare.c:505
+msgid "Uid differs"
+msgstr "Uid siê ró¿ni"
+
+#: src/compare.c:507
+msgid "Gid differs"
+msgstr "Gid siê ró¿ni"
+
+#: src/compare.c:511
+msgid "Mod time differs"
+msgstr "Czas modyfikacji siê ró¿ni"
+
+#: src/compare.c:515 src/compare.c:759
+msgid "Size differs"
+msgstr "Rozmiar siê ró¿ni"
+
+#: src/compare.c:562 src/compare.c:797
+#, c-format
+msgid "Error while closing %s"
+msgstr "B³±d w czasie zamykania %s"
+
+#: src/compare.c:582
+msgid "Does not exist"
+msgstr "Nie istnieje"
+
+#: src/compare.c:596
+#, c-format
+msgid "Not linked to %s"
+msgstr "Nie do³±czony do %s"
+
+#: src/compare.c:616
+msgid "No such file or directory"
+msgstr "Nie ma takiego pliku ani katalogu"
+
+#: src/compare.c:619
+#, c-format
+msgid "Cannot read link %s"
+msgstr "Nie mogê przeczytaæ ³±cza %s"
+
+#: src/compare.c:627
+msgid "Symlink differs"
+msgstr "£±cze symboliczne siê ró¿ni"
+
+#: src/compare.c:666
+msgid "Device numbers changed"
+msgstr "Numery urz±dzeñ zmienione"
+
+#: src/compare.c:680
+msgid "Mode or device-type changed"
+msgstr "Zmieni³y siê uprawnienia albo typ urz±dzenia"
+
+#: src/compare.c:726
+msgid "No longer a directory"
+msgstr "Nie jest ju¿ katalogiem"
+
+#: src/compare.c:768 src/names.c:268 src/update.c:55
+#, c-format
+msgid "Cannot open file %s"
+msgstr "Nie mogê otworzyæ pliku %s"
+
+#: src/compare.c:850
+msgid "Could not rewind archive file for verify"
+msgstr "Nie mogê przewin±æ pliku archiwum dla weryfikacji"
+
+#: src/compare.c:877
+#, c-format
+msgid "VERIFY FAILURE: %d invalid header(s) detected"
+msgstr "B£¡D WERYFIKACJI: wykryto %d b³êdnych nag³ówków"
+
+#: src/create.c:113
+#, c-format
+msgid "%s value %s too large (max=%s); substituting %s"
+msgstr ""
+
+#: src/create.c:119
+#, c-format
+msgid "%s value %s too large (max=%s)"
+msgstr ""
+
+#: src/create.c:294
+msgid "Removing drive spec from names in the archive"
+msgstr "Usuwam nazwe napêdu z nazw w archiwum"
+
+#: src/create.c:305 src/extract.c:434
+msgid "Removing leading `/' from absolute path names in the archive"
+msgstr "Usuwam pocz±tkowy `/' ze ¶cie¿ek absolutnych w archiwum"
+
+#: src/create.c:638
+#, fuzzy, c-format
+msgid "Wrote %s of %s bytes to file %s"
+msgstr "Zapisane %ld z %ld bajtów do pliku %s"
+
+#: src/create.c:648
+#, fuzzy, c-format
+msgid "lseek error at byte %s in file %s"
+msgstr "B³±d czytania przy bajcie %ld po przeczytaniu %d bajtów pliku %s"
+
+#: src/create.c:677 src/create.c:703 src/create.c:1204
+#, fuzzy, c-format
+msgid "Read error at byte %s, reading %lu bytes, in file %s"
+msgstr "B³±d czytania, bajt %ld po przeczytaniu %d bajtów z pliku %s"
+
+#: src/create.c:716
+#, fuzzy, c-format
+msgid "File %s shrunk, padding with zeros"
+msgstr "Plik %s skurczy³ siê o %d bajtów, dope³niam zerami"
+
+#: src/create.c:832 src/create.c:1094 src/create.c:1284
+#, c-format
+msgid "Cannot add file %s"
+msgstr "Nie mogê dodaæ pliku %s"
+
+# what's dump here? - rzm
+#: src/create.c:863
+#, c-format
+msgid "%s: is unchanged; not dumped"
+msgstr "%s: jest niezmienione; nie zapisujê"
+
+#: src/create.c:873
+#, c-format
+msgid "%s is the archive; not dumped"
+msgstr "%s jest tym archiwum; nie zapisujê"
+
+#: src/create.c:918
+msgid "Removing leading `/' from absolute links"
+msgstr "Usuwam pocz±tkowy `/' ze ¶cie¿ek bezwzglêdnych"
+
+#: src/create.c:948 src/create.c:1248 src/create.c:1308 src/create.c:1560
+#, c-format
+msgid "Cannot remove %s"
+msgstr "Nie mogê usun±æ %s"
+
+#: src/create.c:1223
+#, fuzzy, c-format
+msgid "File %s shrunk by %s bytes, padding with zeros"
+msgstr "Plik %s skurczy³ siê o %d bajtów, dope³niam zerami"
+
+#: src/create.c:1239
+#, c-format
+msgid "%s: file changed as we read it"
+msgstr ""
+
+#: src/create.c:1241
+#, c-format
+msgid "%s: close"
+msgstr ""
+
+#: src/create.c:1332
+#, c-format
+msgid "Cannot add directory %s"
+msgstr "Nie mogê dodaæ katalogu %s"
+
+#: src/create.c:1457
+#, c-format
+msgid "%s: On a different filesystem; not dumped"
+msgstr "%s: W innym systemie plików; nie zapisujê"
+
+#: src/create.c:1468 src/incremen.c:192
+#, c-format
+msgid "Cannot open directory %s"
+msgstr "Nie mogê otworzyæ katalogu %s"
+
+#: src/create.c:1492
+#, c-format
+msgid "File name %s%s too long"
+msgstr "Nazwa pliku %s%s jest za d³uga"
+
+#: src/create.c:1565
+#, c-format
+msgid "%s: Unknown file type; file ignored"
+msgstr "%s: Nieznany typ pliku; plik zignorowany"
+
+#: src/delete.c:55 src/delete.c:62 src/delete.c:84
+msgid "Could not re-position archive file"
+msgstr "Nie mogê ponownie ustawiæ pozycji w pliku archiwum"
+
+#: src/delete.c:180 src/update.c:163
+msgid "This does not look like a tar archive"
+msgstr "To nie wygl±da jak archiwum tar"
+
+#: src/delete.c:185 src/update.c:168
+msgid "Skipping to next header"
+msgstr "Przeskakujê do nastêpnego nag³ówka"
+
+#: src/delete.c:263
+msgid "Deleting non-header from archive"
+msgstr "Kasujê z archiwum nie-nag³ówek"
+
+#: src/extract.c:107
+#, fuzzy, c-format
+msgid "%s: Cannot change mode to %04lo"
+msgstr "%s: Nie mogê zmieniæ uprawnieñ na %0.4o"
+
+#: src/extract.c:150
+#, c-format
+msgid "%s: Could not change access and modification times"
+msgstr "%s: Nie mogê zmieniæ czasów dostêpu i modyfikacji"
+
+#: src/extract.c:177
+#, fuzzy, c-format
+msgid "%s: Cannot lchown to uid %lu gid %lu"
+msgstr "%s: Nie mogê lchown na uid %d gid %d"
+
+#: src/extract.c:185 src/extract.c:196
+#, fuzzy, c-format
+msgid "%s: Cannot chown to uid %lu gid %lu"
+msgstr "%s: Nie mogê chown na udi %d gid %d"
+
+#: src/extract.c:252
+#, fuzzy, c-format
+msgid "%s: Cannot change owner to uid %lu, gid %lu"
+msgstr "%s: Nie mogê zmieniæ w³a¶ciciela na uid %d, gid %d"
+
+#: src/extract.c:341
+#, c-format
+msgid "%s: lseek error at byte %s"
+msgstr ""
+
+#: src/extract.c:351 src/extract.c:361 src/extract.c:664
+#, c-format
+msgid "%s: Could not write to file"
+msgstr "%s: Nie mogê pisaæ do pliku"
+
+#: src/extract.c:366
+#, fuzzy, c-format
+msgid "%s: Could only write %s of %s bytes"
+msgstr "%s: Mog³em zapisaæ tylko %d z %d bajtów"
+
+#: src/extract.c:444
+#, c-format
+msgid "%s: Was unable to backup this file"
+msgstr "%s: Nie mog³em zrobiæ kopii zapasowej tego pliku"
+
+# ? - rzm
+# mo¿e chodzi o takie jak /dev/zero? -pk
+#: src/extract.c:585
+msgid "Extracting contiguous files as regular files"
+msgstr "Odtwarzam pliki ci±g³e jako zwyk³e"
+
+#: src/extract.c:597
+#, c-format
+msgid "%s: Could not create file"
+msgstr "%s: Nie mog³em utworzyæ pliku"
+
+#: src/extract.c:667
+#, fuzzy, c-format
+msgid "%s: Could only write %lu of %lu bytes"
+msgstr "%s: Mog³em zapisaæ tylko %d z %d bajtów"
+
+#: src/extract.c:687
+#, c-format
+msgid "%s: Error while closing"
+msgstr "%s: B³±d w czasie zamykania"
+
+#: src/extract.c:719
+#, c-format
+msgid "%s: Could not create symlink to `%s'"
+msgstr "%s: Nie mog³em utworzyæ ³±cza symbolicznego do %s'"
+
+#: src/extract.c:733
+msgid "Attempting extraction of symbolic links as hard links"
+msgstr "Próbujê odtworzyæ ³±cza symboliczne jako zwyk³e"
+
+#: src/extract.c:769
+#, c-format
+msgid "%s: Could not link to `%s'"
+msgstr "%s: Nie mog³em do³±czyæ do %s'"
+
+#: src/extract.c:802
+#, c-format
+msgid "%s: Could not make node"
+msgstr "%s: Nie mog³em utworzyæ pliku specjalnego"
+
+#: src/extract.c:828
+#, c-format
+msgid "%s: Could not make fifo"
+msgstr "%s: Nie mog³em utworzyæ fifo"
+
+#: src/extract.c:905
+#, c-format
+msgid "%s: Could not create directory"
+msgstr "%s: Nie mog³em utworzyæ katalogu"
+
+#: src/extract.c:916
+#, c-format
+msgid "Added write and execute permission to directory %s"
+msgstr "Dodane uprawnienia pisania i wykonywania do katalogu %s"
+
+#: src/extract.c:954
+#, c-format
+msgid "Cannot extract `%s' -- file is continued from another volume"
+msgstr "Nie mogê odtworzyæ %s' -- plik jest kontynuowany z innej czê¶ci"
+
+# ? - rzm
+#: src/extract.c:964
+msgid "Visible long name error"
+msgstr "B³±d d³ugiej nazwy"
+
+#: src/extract.c:972
+#, c-format
+msgid "Unknown file type '%c' for %s, extracted as normal file"
+msgstr "Nieznay typ pliku `%c' dla %s; odtworzony jako plik zwyk³y"
+
+#: src/incremen.c:237 src/incremen.c:610 src/update.c:138
+#, c-format
+msgid "Cannot stat %s"
+msgstr "Nie mogê uzyskaæ informacji (stat) o %s"
+
+#: src/incremen.c:270
+#, c-format
+msgid "Directory %s has been renamed"
+msgstr "Nazwa katalogu %s zosta³a zmieniona"
+
+#: src/incremen.c:282
+#, c-format
+msgid "Directory %s is new"
+msgstr "Katalog %s jest nowy"
+
+#: src/incremen.c:437 src/names.c:504
+msgid "Could not get current directory"
+msgstr "Nie mog³em siê dostaæ do bie¿±cego katalogu"
+
+#: src/incremen.c:442 src/names.c:509
+#, c-format
+msgid "Could not get current directory: %s"
+msgstr "Nie mog³em siê dostaæ do bie¿±cego katalogu: %s"
+
+#: src/incremen.c:446
+#, c-format
+msgid "File name %s/%s too long"
+msgstr "Nazwa pliku %s/%s jest za d³uga"
+
+#: src/incremen.c:489
+#, fuzzy
+msgid "Device number out of range"
+msgstr "Numery urz±dzeñ zmienione"
+
+#: src/incremen.c:494
+msgid "Inode number out of range"
+msgstr ""
+
+#: src/incremen.c:598
+#, c-format
+msgid "Cannot chdir to %s"
+msgstr "Nie mogê zmieniæ katalogu na %s"
+
+#: src/incremen.c:691
+msgid "Unexpected EOF in archive"
+msgstr "Nieoczekiwany EOF w archiwum"
+
+#: src/incremen.c:720
+#, c-format
+msgid "%s: Deleting %s\n"
+msgstr "%s: Usuwam %s\n"
+
+#: src/incremen.c:722
+#, c-format
+msgid "Error while deleting %s"
+msgstr "B³±d w czasie usuwania %s"
+
+#: src/list.c:86
+#, c-format
+msgid "Omitting %s"
+msgstr "Pomijam %s"
+
+#: src/list.c:127
+#, fuzzy, c-format
+msgid "block %s: ** Block of NULs **\n"
+msgstr "blok %10ld: ** Blok zer **\n"
+
+#: src/list.c:141
+#, fuzzy, c-format
+msgid "block %s: ** End of File **\n"
+msgstr "blok: %10ld: ** Koniec pliku **\n"
+
+#: src/list.c:153
+msgid "Hmm, this doesn't look like a tar archive"
+msgstr "Hmm..., to nie wygl±da jak archiwum tar"
+
+#: src/list.c:158
+msgid "Skipping to next file header"
+msgstr "Przeskakujê do nastêpnego nag³ówka pliku"
+
+#: src/list.c:213
+msgid "EOF in archive file"
+msgstr "EOF w pliku archiwum"
+
+#: src/list.c:225
+#, fuzzy, c-format
+msgid "Only wrote %lu of %lu bytes to file %s"
+msgstr "Zapisane tylko %ld z %ld bajtów do pliku %s"
+
+#: src/list.c:549
+#, c-format
+msgid "Blanks in header where octal %s value expected"
+msgstr ""
+
+#: src/list.c:585
+#, c-format
+msgid "Header contains \"%.*s\" where octal %s value expected"
+msgstr ""
+
+#: src/list.c:597
+#, c-format
+msgid "Octal value `%.*s' is out of range for %s"
+msgstr ""
+
+#: src/list.c:769 src/list.c:999
+#, fuzzy, c-format
+msgid "block %s: "
+msgstr "blok %10ld: "
+
+# ? - rzm
+#: src/list.c:808
+msgid "Visible longname error"
+msgstr "B³±d d³ugiej nazwy"
+
+#: src/list.c:935 src/list.c:939
+#, c-format
+msgid " link to %s\n"
+msgstr " ³±cze do %s\n"
+
+#: src/list.c:943
+#, c-format
+msgid " unknown file type `%c'\n"
+msgstr " nieznany typ pliku `%c'\n"
+
+#: src/list.c:960
+msgid "--Volume Header--\n"
+msgstr "--Nag³ówek czê¶ci--\n"
+
+#: src/list.c:968
+#, fuzzy, c-format
+msgid "--Continued at byte %s--\n"
+msgstr "--Kontynuacja od bajtu %ld--\n"
+
+# what is 'mangled'? - rzm
+# chyba raczej "pomieszane, poprzekrêcane" ?
+# w man, info i docach nie ma ani s³owa o tym - pk
+#: src/list.c:972
+msgid "--Mangled file names--\n"
+msgstr "--Zakodowane nazwy plików--\n"
+
+#: src/list.c:1006 src/list.c:1011
+msgid "Creating directory:"
+msgstr "Tworzê katalog:"
+
+# ? - rzm
+# jw -pk
+#: src/mangle.c:64
+msgid "Unexpected EOF in mangled names"
+msgstr "Niespodziewany EOF w zakodowanych nazwach"
+
+#: src/mangle.c:100
+#, c-format
+msgid "Cannot rename %s to %s"
+msgstr "Nie mogê przemianowaæ %s na %s"
+
+#: src/mangle.c:102
+#, c-format
+msgid "Renamed %s to %s"
+msgstr "Przemianowa³em %s na %s"
+
+#: src/mangle.c:119
+#, c-format
+msgid "Cannot symlink %s to %s"
+msgstr "Nie mogê utworzyæ ³±cza symbolicznego z %s do %s"
+
+#: src/mangle.c:122
+#, c-format
+msgid "Symlinked %s to %s"
+msgstr "Do³±czy³em symbolicznie %s do %s"
+
+# ? - rzm
+# tu by pasowa³o "porz±dkuj±ca" albo co¶ w tym stylu -pk
+#: src/mangle.c:126
+#, c-format
+msgid "Unknown demangling command %s"
+msgstr "Nieznana komenda odkodowuj±ca nazwy %s"
+
+#: src/misc.c:449
+#, fuzzy, c-format
+msgid "Renaming previous `%s' to `%s'\n"
+msgstr "Przemianowa³em %s na %s"
+
+#. The backup operation failed.
+#: src/misc.c:456
+#, fuzzy, c-format
+msgid "%s: Cannot rename for backup"
+msgstr "Nie mogê przemianowaæ %s na %s"
+
+#: src/misc.c:472
+#, fuzzy, c-format
+msgid "%s: Cannot rename from backup"
+msgstr "Nie mogê przemianowaæ %s na %s"
+
+#: src/misc.c:475
+#, fuzzy, c-format
+msgid "Renaming `%s' back to `%s'\n"
+msgstr "Przemianowa³em %s na %s"
+
+#: src/names.c:375 src/names.c:573 src/names.c:599 src/names.c:625
+#: src/names.c:778
+#, c-format
+msgid "Cannot change to directory %s"
+msgstr "Nie mogê przej¶æ do katalogu %s"
+
+#: src/names.c:394 src/names.c:450 src/names.c:495
+msgid "Missing file name after -C"
+msgstr "Brakuj±ca nazwa pliku po -C"
+
+#: src/names.c:663 src/names.c:682
+#, c-format
+msgid "%s: Not found in archive"
+msgstr "%s: Nie znalaz³em w archiwum"
+
+#: src/rmt.c:157
+msgid "rmtd: Cannot allocate buffer space\n"
+msgstr "rmtd: Nie mogê przydzieliæ miejsca na bufor\n"
+
+#: src/rmt.c:159
+msgid "Cannot allocate buffer space"
+msgstr "Nie mogê przydzieliæ miejsca na bufor"
+
+#: src/rmt.c:285 src/rmt.c:405 src/rmt.c:415
+msgid "Seek offset out of range"
+msgstr ""
+
+#: src/rmt.c:298
+msgid "Seek direction out of range"
+msgstr ""
+
+#: src/rmt.c:337
+msgid "rmtd: Premature eof\n"
+msgstr "rmtd: Przedwczesny EOF\n"
+
+#: src/rmt.c:339
+msgid "Premature end of file"
+msgstr "Przedwczesny koniec pliku"
+
+#: src/rmt.c:447
+#, c-format
+msgid "rmtd: Garbage command %c\n"
+msgstr "rmtd: Bezsensowna komenda %c\n"
+
+#: src/rmt.c:449
+msgid "Garbage command"
+msgstr "Bezsensowna komenda"
+
+#: src/rtapelib.c:296
+msgid "exec/tcp: Service not available"
+msgstr "exec/tcp: Us³uga niedostêpna"
+
+#: src/rtapelib.c:301
+msgid "stdin"
+msgstr "stdin"
+
+#: src/rtapelib.c:304
+msgid "stdout"
+msgstr "stdout"
+
+#. Bad problems if we get here.
+#. In a previous version, _exit was used here instead of exit.
+#: src/rtapelib.c:464
+msgid "Cannot execute remote shell"
+msgstr "Nie mogê wykonaæ zdalnego shella"
+
+#: src/tar.c:64
+#, c-format
+msgid "Options `-%s' and `-%s' both want standard input"
+msgstr "Opcje `-%s' i `-%s' obie chc± dostêpu do standardowego wej¶cia"
+
+#: src/tar.c:90
+msgid "Cannot read confirmation from user"
+msgstr "Nie mogê przeczytaæ potwiedzenia u¿ytkownika"
+
+#: src/tar.c:258 tests/genfile.c:60
+#, c-format
+msgid "Try `%s --help' for more information.\n"
+msgstr "Spróbuj `%s --help' ¿eby otrzymaæ wiêcej informacji\n"
+
+#: src/tar.c:262
+msgid ""
+"GNU `tar' saves many files together into a single tape or disk archive, and\n"
+"can restore individual files from the archive.\n"
+msgstr ""
+"`tar' GNU zapisuje wiele plików razem na na jednej ta¶mie lub archiwum\n"
+"dyskowym i mo¿e odzyskaæ poszczególne pliki z archiwum.\n"
+
+#: src/tar.c:266
+#, c-format
+msgid ""
+"\n"
+"Usage: %s [OPTION]... [FILE]...\n"
+msgstr ""
+"\n"
+"U¿ycie: %s [OPCJA]... [PLIK]...\n"
+
+#: src/tar.c:267
+msgid ""
+"\n"
+"If a long option shows an argument as mandatory, then it is mandatory\n"
+"for the equivalent short option also.  Similarly for optional arguments.\n"
+msgstr ""
+"\n"
+"Argumenty obowi±zkowe dla opcji d³ugich obowi±zuj± równie¿ dla krótkich.\n"
+"Podobnie je¿eli argument jest podany jako opcjonalny.\n"
+
+#: src/tar.c:272
+msgid ""
+"\n"
+"Main operation mode:\n"
+"  -t, --list              list the contents of an archive\n"
+"  -x, --extract, --get    extract files from an archive\n"
+"  -c, --create            create a new archive\n"
+"  -d, --diff, --compare   find differences between archive and file system\n"
+"  -r, --append            append files to the end of an archive\n"
+"  -u, --update            only append files newer than copy in archive\n"
+"  -A, --catenate          append tar files to an archive\n"
+"      --concatenate       same as -A\n"
+"      --delete            delete from the archive (not on mag tapes!)\n"
+msgstr ""
+"\n"
+"G³ówny tryb dzi³ania:\n"
+"  -t, --list              wypisz zawarto¶æ archiwum\n"
+"  -x, --extract, --get    rozpakuj pliki z archiwum\n"
+"  -c, --create            utwórz nowe archiwum\n"
+"  -d, --diff, --compare   znajd¼ ró¿nice miêdzy archiwum i plikami na dysku\n"
+"  -r, --append            do³±cz pliki na koñcu archiwum\n"
+"  -u, --update            do³±cz tylko pliki nowsze ni¿ kopia w archiwum\n"
+"  -A, --catenate          do³±cz pliki tar do archiwum\n"
+"      --concatenate       to samo co -A\n"
+"      --delete            skasuj pliki z archiwum (nie na ta¶mie!)\n"
+
+#: src/tar.c:285
+msgid ""
+"\n"
+"Operation modifiers:\n"
+"  -W, --verify               attempt to verify the archive after writing it\n"
+"      --remove-files         remove files after adding them to the archive\n"
+"  -k, --keep-old-files       don't overwrite existing files when extracting\n"
+"  -U, --unlink-first         remove each file prior to extracting over it\n"
+"      --recursive-unlink     empty hierarchies prior to extracting "
+"directory\n"
+"  -S, --sparse               handle sparse files efficiently\n"
+"  -O, --to-stdout            extract files to standard output\n"
+"  -G, --incremental          handle old GNU-format incremental backup\n"
+"  -g, --listed-incremental   handle new GNU-format incremental backup\n"
+"      --ignore-failed-read   do not exit with nonzero on unreadable files\n"
+msgstr ""
+"\n"
+"Modyfikatory dzia³ania:\n"
+"  -W, --verify               spróbuj zweryfikowaæ archiwum po zapisaniu\n"
+"      --remove-files         usuñ pliki po dodaniu do archiwum\n"
+"  -k, --keep-old-files       nie zamazuj istniej±cych plików rozpakowanymi\n"
+"  -U, --unlink-first         usuñ ka¿dy plik przed zamazaniem go "
+"rozpakowanym\n"
+"      --recursive-unlink     usuñ stary katalog przed rozpakowaniem nowego\n"
+"  -S, --sparse               dzia³aj efektywnie na plikach rzadkich\n"
+"  -O, --to-stdout            rozpakuj pliki na standardowe wyj¶cie\n"
+"  -G, --incremental          backup przyrostowy w starym formacie GNU\n"
+"  -g, --listed-incremental   backup przyrostowy w nowym formacie GNU\n"
+"      --ignore-failed-read   nie koñcz b³êdem je¿eli nieczytelne pliki\n"
+
+#: src/tar.c:299
+msgid ""
+"\n"
+"Handling of file attributes:\n"
+"      --owner=NAME             force NAME as owner for added files\n"
+"      --group=NAME             force NAME as group for added files\n"
+"      --mode=CHANGES           force (symbolic) mode CHANGES for added "
+"files\n"
+"      --atime-preserve         don't change access times on dumped files\n"
+"  -m, --modification-time      don't extract file modified time\n"
+"      --same-owner             try extracting files with the same ownership\n"
+"      --numeric-owner          always use numbers for user/group names\n"
+"  -p, --same-permissions       extract all protection information\n"
+"      --preserve-permissions   same as -p\n"
+"  -s, --same-order             sort names to extract to match archive\n"
+"      --preserve-order         same as -s\n"
+"      --preserve               same as both -p and -s\n"
+msgstr ""
+"\n"
+"Przetwarzanie atrybutów plików:\n"
+"      --owner=NAZWA            nadaj w³a¶ciciela NAZWA dodanym plikom\n"
+"      --group=NAME             nadaj grupê NAZWA dodanym plikom\n"
+"      --mode=ÓSEMK             nadaj uprawnienia ÓSEMK dodanym plikom\n"
+"      --atime-preserve         nie zmieniaj czasu dostêpu pakowanych plików\n"
+"  -m, --modification-time      nie zapisuj czasu modyf. rozpakowanego pliku\n"
+"      --same-owner             próbuj rozpakowaæ pliki z tym samym "
+"w³a¶cicielem\n"
+"      --numeric-owner          u¿ywaj numerów, nie nazw uzytkowników/grup\n"
+"  -p, --same-permissions       rozpakuj ca³± informacjê o uprawnieniach\n"
+"      --preserve-permissions   to samo co -p\n"
+"  -s, --same-order             posortuj rozpakowne nazwy dla porównania\n"
+"      --preserve-order         to samo co -s\n"
+"      --preserve               to samo co równocze¶nie -p i -s\n"
+
+#: src/tar.c:315
+msgid ""
+"\n"
+"Device selection and switching:\n"
+"  -f, --file=ARCHIVE             use archive file or device ARCHIVE\n"
+"      --force-local              archive file is local even if has a colon\n"
+"      --rsh-command=COMMAND      use remote COMMAND instead of rsh\n"
+"  -[0-7][lmh]                    specify drive and density\n"
+"  -M, --multi-volume             create/list/extract multi-volume archive\n"
+"  -L, --tape-length=NUM          change tape after writing NUM x 1024 bytes\n"
+"  -F, --info-script=FILE         run script at end of each tape (implies "
+"-M)\n"
+"      --new-volume-script=FILE   same as -F FILE\n"
+"      --volno-file=FILE          use/update the volume number in FILE\n"
+msgstr ""
+"\n"
+"Wybór i prze³±czanie urz±dzeñ:\n"
+"  -f, --file=ARCHIWUM            u¿yj pliku lub urz±dzenia ARCHIWUM\n"
+"      --force-local              plik archiwum lokalny, nawet z dwukropkiem\n"
+"      --rsh-command=KOMENDA      u¿yj KOMENDY zamiast rsh\n"
+"  -[0-7][lmh]                    podaj napêd i gêsto¶æ\n"
+"  -M, --multi-volume             twórz/wypisz/rozpakuj archiwum "
+"wieloczê¶ciowe\n"
+"  -L, --tape-length=ILE          zmieñ ta¶mê po zapisaniu ILE x 1024 bajtów\n"
+"  -F, --info-script=PLIK         uruchom skrypt na koñcu ta¶my (w³±cza -M)\n"
+"      --new-volume-script=PLIK   to samo co -F PLIK\n"
+"      --volno-file=PLIK          u¿yj/uaktualnij numer czê¶ci w PLIKu\n"
+
+#: src/tar.c:328
+msgid ""
+"\n"
+"Device blocking:\n"
+"  -b, --blocking-factor=BLOCKS   BLOCKS x 512 bytes per record\n"
+"      --record-size=SIZE         SIZE bytes per record, multiple of 512\n"
+"  -i, --ignore-zeros             ignore zeroed blocks in archive (means "
+"EOF)\n"
+"  -B, --read-full-records        reblock as we read (for 4.2BSD pipes)\n"
+msgstr ""
+"\n"
+"Parametry bloków:\n"
+"  -b, --blocking-factor=BLOKI    BLOKI x 512 bajtów na rekord\n"
+"      --record-size=ROZMIAR      ROZMIAR bajtów na rekord, wielokrotno¶æ "
+"512\n"
+"  -i, --ignore-zeros             ignoruj wyzerowane bloki (oznacza EOF)\n"
+"  -B, --read-full-records        podziel na bloki czytaj±c (dla pipe "
+"4.2BSD)\n"
+
+#: src/tar.c:336
+msgid ""
+"\n"
+"Archive format selection:\n"
+"  -V, --label=NAME                   create archive with volume name NAME\n"
+"              PATTERN                at list/extract time, a globbing "
+"PATTERN\n"
+"  -o, --old-archive, --portability   write a V7 format archive\n"
+"      --posix                        write a POSIX conformant archive\n"
+"  -z, --gzip, --ungzip               filter the archive through gzip\n"
+"  -Z, --compress, --uncompress       filter the archive through compress\n"
+"      --use-compress-program=PROG    filter through PROG (must accept -d)\n"
+msgstr ""
+"\n"
+"Wybór formatu archiwum:\n"
+"  -V, --label=NAZWA                  utwórz archiwum z etykiet± NAZWA\n"
+"              WZORZEC                przy wypisywaniu/rozpakowaniu\n"
+"  -o, --old-archive, --portability   zapisz archiwum w formacie V7\n"
+"      --posix                        zapisz archiwum zgodne z POSIX-em\n"
+"  -z, --gzip, --ungzip               filtruj archiwum przez gzip\n"
+"  -Z, --compress, --uncompress       filtruj archiwum przez compess\n"
+"      --use-compress-program=PROG    filtruj przez PROGram (musi akceptowac "
+"-d)\n"
+
+# !understand -h - rzm
+#: src/tar.c:347
+msgid ""
+"\n"
+"Local file selection:\n"
+"  -C, --directory=DIR          change to directory DIR\n"
+"  -T, --files-from=NAME        get names to extract or create from file "
+"NAME\n"
+"      --null                   -T reads null-terminated names, disable -C\n"
+"      --exclude=PATTERN        exclude files, given as a globbing PATTERN\n"
+"  -X, --exclude-from=FILE      exclude globbing patterns listed in FILE\n"
+"  -P, --absolute-names         don't strip leading `/'s from file names\n"
+"  -h, --dereference            dump instead the files symlinks point to\n"
+"      --no-recursion           avoid descending automatically in "
+"directories\n"
+"  -l, --one-file-system        stay in local file system when creating "
+"archive\n"
+"  -K, --starting-file=NAME     begin at file NAME in the archive\n"
+msgstr ""
+"\n"
+"Wybór plików lokalnych:\n"
+"  -C, --directory KATALOG      przejd¼ do KATALOGu\n"
+"  -T, --files-from=NAZWA       nazwy plików do roz/zapakowania s± w pliku "
+"NAZWA\n"
+"      --null                   -T czyta nazwy zakoñczone zerem, wy³±cz -C\n"
+"      --exclude=WZORZEC        wyklucz nazwy pasuj±ce do WZORCA\n"
+"  -X, --exclude-from=PLIK      wyklucz nazwy pasuj±ce do wzorców w PLIKu\n"
+"  -P, --absolute-names         nie usuwaj pocz±tkowego '/' z nazw plików\n"
+"  -h, --dereference            zamiast plików pakuj symlinki na nie "
+"wskazuj±ce\n"
+"      --no-recurse             nie wg³êbiaj siê automatycznie w katalogi\n"
+"  -l, --one-file-system        archiwizuj±c pozostañ w jednym systemi "
+"plików\n"
+"  -K, --starting-file=NAZWA    zacznij od pliku o tej NAZWie w archiwum\n"
+
+# !understand --never-mtime - rzm
+#: src/tar.c:362
+msgid ""
+"  -N, --newer=DATE             only store files newer than DATE\n"
+"      --newer-mtime            compare date and time when data changed only\n"
+"      --after-date=DATE        same as -N\n"
+msgstr ""
+"  -N, --newer=DATA             zapisuj tylko pliki nowsze ni¿ DATA\n"
+"      --newer-mtime            porównuj datê i czas tylko dla zmienionych "
+"danych\n"
+"      --after-date=DATA        to samo co -N\n"
+
+# `removel'! - rzm
+#: src/tar.c:368
+msgid ""
+"      --backup[=CONTROL]       backup before removal, choose version "
+"control\n"
+"      --suffix=SUFFIX          backup before removel, override usual suffix\n"
+msgstr ""
+"      --backup[=TRYB]          kopia zapasowa przed usuniêciem, wybierz "
+"tryb\n"
+"                               zarz±dzania wersjami\n"
+"      --suffix=PRZYROSTEK      kopia zapasowa przed usniêciem, zmieñ "
+"domy¶lny\n"
+"                               PRZYROSTEK\n"
+
+#: src/tar.c:372
+msgid ""
+"\n"
+"Informative output:\n"
+"      --help            print this help, then exit\n"
+"      --version         print tar program version number, then exit\n"
+"  -v, --verbose         verbosely list files processed\n"
+"      --checkpoint      print directory names while reading the archive\n"
+"      --totals          print total bytes written while creating archive\n"
+"  -R, --block-number    show block number within archive with each message\n"
+"  -w, --interactive     ask for confirmation for every action\n"
+"      --confirmation    same as -w\n"
+msgstr ""
+"\n"
+"Informacje:\n"
+"      --help            wy¶wietl ten opis i zakoñcz\n"
+"      --version         wy¶wietl informacjê o wersji tar-a i zakoñcz\n"
+"  -v, --verbose         wypisuj szczegó³y o przetwarzanych plikach\n"
+"      --checkpoint      wypisuj nazwy katalogów podczas czytania archiwum\n"
+"      --totals          wypisz ca³kowit± ilo¶c bajtów zapisanych do "
+"archiwum\n"
+"  -R, --block-number    przy ka¿dej informacji podaj numer bloku w archiwum\n"
+"  -w, --interactive     pytaj o potwierdzenie ka¿dej akcji\n"
+"      --confirmation    to samo co -w\n"
+
+#: src/tar.c:384
+msgid ""
+"\n"
+"The backup suffix is `~', unless set with --suffix or SIMPLE_BACKUP_SUFFIX.\n"
+"The version control may be set with --backup or VERSION_CONTROL, values "
+"are:\n"
+"\n"
+"  t, numbered     make numbered backups\n"
+"  nil, existing   numbered if numbered backups exist, simple otherwise\n"
+"  never, simple   always make simple backups\n"
+msgstr ""
+"\n"
+"Przyrostek kopii zapasowej to `~', je¿eli nie zosta³ zmieniony przez "
+"--suffix\n"
+"lub SIMPLE_BACKUP_SUFFIX.  Sposób zarz±dzania wersjami mo¿e byæ zmieniony "
+"przez\n"
+"--backup lub VERSION_CONTROL, mo¿liwe warto¶ci:\n"
+"\n"
+"  t, numbered     zrób numerowane kopie zapasowe\n"
+"  nil, existing   numerowane je¿eli takie ju¿ s±, w przeciwnym wypadku "
+"proste\n"
+"  never, simple   proste kopie zapasowe\n"
+
+#: src/tar.c:393
+#, c-format
+msgid ""
+"\n"
+"GNU tar cannot read nor produce `--posix' archives.  If POSIXLY_CORRECT\n"
+"is set in the environment, GNU extensions are disallowed with `--posix'.\n"
+"Support for POSIX is only partially implemented, don't count on it yet.\n"
+"ARCHIVE may be FILE, HOST:FILE or USER@HOST:FILE; and FILE may be a file\n"
+"or a device.  *This* `tar' defaults to `-f%s -b%d'.\n"
+msgstr ""
+"\n"
+"GNU tar mo¿e czytaæ ani zapisywaæ archiwów `--posix'.  Je¿eli w ¶rodowisku\n"
+"jest ustawiona zmienna POSSIXLY_CORRECT rozszerzenia GNU s± wy³±czone przy\n"
+"u¿ywaniu `--posix'.  Format posixowy jest zaimplementowany tylko czê¶ciowo,\n"
+"na razie nie licz na niego.  ARCHIWUM mo¿e byæ PLIKiem, KOMPUTER:PLIK lub\n"
+"U¯YTKOWNIK@KOMPUTER:PLIK, PLIK mo¿e byæ plikiem lub urz±dzeniem.  Opcje\n"
+"domy¶lne *tego* tara to `-f%s -b%d'.\n"
+
+#: src/tar.c:401
+msgid ""
+"\n"
+"Report bugs to <tar-bugs@gnu.org>.\n"
+msgstr ""
+"\n"
+"Raporty o b³êdach wysy³aj do <tar-bugs@gnu.org>.\n"
+
+#: src/tar.c:427
+msgid "You may not specify more than one `-Acdtrux' option"
+msgstr "Nie mo¿esz podaæ wiêcej ni¿ jednej opcji `-Acdtrux'"
+
+#: src/tar.c:436
+msgid "Conflicting compression options"
+msgstr "Niezgodne opcje kompresji"
+
+#: src/tar.c:500
+#, c-format
+msgid "Old option `%c' requires an argument."
+msgstr "Stara opcja `%c' wymaga argumentu."
+
+#: src/tar.c:543
+msgid "Obsolete option, now implied by --blocking-factor"
+msgstr "Przestarza³a opcja, teraz w³±cza j± --blocking-factor"
+
+#: src/tar.c:547
+msgid "Obsolete option name replaced by --blocking-factor"
+msgstr "Przestarza³a opcja, wymieniona na --blocking-factor"
+
+#: src/tar.c:557
+msgid "Invalid blocking factor"
+msgstr ""
+
+#: src/tar.c:563
+msgid "Obsolete option name replaced by --read-full-records"
+msgstr "Przestarzala nazwa opcji zmieniona na --read-full-records"
+
+#: src/tar.c:657
+msgid "Invalid tape length"
+msgstr ""
+
+#: src/tar.c:666
+msgid "Obsolete option name replaced by --touch"
+msgstr "Przestarza³a nazwa opcja zamieniona na --touch"
+
+#: src/tar.c:687
+msgid "More than one threshold date"
+msgstr "Wiêcej ni¿ jedna data graniczna"
+
+#: src/tar.c:691
+#, c-format
+msgid "Invalid date format `%s'"
+msgstr "B³êdny format daty `%s'"
+
+#: src/tar.c:700 src/tar.c:866 src/tar.c:871
+msgid "Conflicting archive format options"
+msgstr "Niezgodne opcje formatu archiwum"
+
+#: src/tar.c:712
+msgid "Obsolete option name replaced by --absolute-names"
+msgstr "Przestarza³a nazwa opcji zamieniona na --absolute-names"
+
+#: src/tar.c:724
+msgid "Obsolete option name replaced by --block-number"
+msgstr "Przestarza³a nazwa opcji zamieniona na --block-number"
+
+#: src/tar.c:799
+msgid "Obsolete option name replaced by --backup"
+msgstr "Przestarza³a nazwa opcji, zamieniona na --backup"
+
+#: src/tar.c:826
+msgid "Invalid group given on option"
+msgstr "B³êdna grupa podana w opcji"
+
+#: src/tar.c:835
+msgid "Invalid mode given on option"
+msgstr "B³êdne uprawnienia podane w opcji"
+
+#: src/tar.c:857
+msgid "Invalid owner given on option"
+msgstr "B³êdny w³a¶ciciel podany w opcji"
+
+#: src/tar.c:885
+#, fuzzy
+msgid "Invalid record size"
+msgstr "B³êdna warto¶æ record_size"
+
+#: src/tar.c:888
+#, c-format
+msgid "Record size must be a multiple of %d."
+msgstr "Rozmiar rekordu musi byæ wielokrotno¶ci± %d"
+
+#: src/tar.c:985
+msgid "Options `-[0-7][lmh]' not supported by *this* tar"
+msgstr "Opcje `-[0-7][lmh]' nie s± u¿ywane w *tym* tarze"
+
+#: src/tar.c:995
+#, fuzzy
+msgid ""
+"\n"
+"Copyright (C) 1988, 92,93,94,95,96,97,98, 1999 Free Software Foundation, "
+"Inc.\n"
+msgstr ""
+"\n"
+"Copyright (C) 1988, 92, 93, 94, 95, 96, 97 Free Software Foundation, Inc.\n"
+
+# transl. copied from make 3.74 by PK - rzm
+#: src/tar.c:999 tests/genfile.c:161
+msgid ""
+"This is free software; see the source for copying conditions.  There is NO\n"
+"warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n"
+msgstr ""
+"Ten program jest darmowy; warunki kopiowania s± opisane w ¼ród³ach.\n"
+"Autorzy nie daj± ¯ADNYCH gwarancji, w tym równie¿ gwarancji PRZYDATNO¦CI\n"
+"DO SPRZEDA¯Y LUB DO KONKRETNYCH CELÓW.\n"
+
+#: src/tar.c:1003
+msgid ""
+"\n"
+"Written by John Gilmore and Jay Fenlason.\n"
+msgstr ""
+"\n"
+"Napisany przez Johna Gilmore'a i Jay'a Fenlasona.\n"
+
+#: src/tar.c:1031
+msgid "GNU features wanted on incompatible archive format"
+msgstr "Próba u¿ycia rozszerzeñ GNU z niekompatybilnym formatem archiwum"
+
+#: src/tar.c:1048
+msgid "Multiple archive files requires `-M' option"
+msgstr "Wiele plików archiwum wymaga opcji `-M'"
+
+#: src/tar.c:1062
+msgid "Cowardly refusing to create an empty archive"
+msgstr "Tchórzliwie odmawiam utworzenia pustego archiwum"
+
+#: src/tar.c:1083
+msgid "Options `-Aru' are incompatible with `-f -'"
+msgstr "Opce `-Aru s± niekompatybilne z `-f -'"
+
+#: src/tar.c:1145
+msgid "You must specify one of the `-Acdtrux' options"
+msgstr "Musisz podaæ jedn± z opcji `-Acdtrux'"
+
+#: src/tar.c:1192
+msgid "Error exit delayed from previous errors"
+msgstr "Zakoñczenie z b³êdem z powodu uprzednich b³êdów"
+
+#: src/update.c:81
+#, fuzzy, c-format
+msgid "Read error at byte %s reading %lu bytes in file %s"
+msgstr "B³±d czytania przy bajcie %ld po przeczytaniu %d bajtów pliku %s"
+
+# what's `yark'? - rzm
+#: src/update.c:92
+#, fuzzy, c-format
+msgid "%s: File shrunk by %s bytes, (yark!)"
+msgstr "%s: Plik skurczy³ sie o %d bajtów (bum!)"
+
+#: tests/genfile.c:64
+msgid "Generate data files for GNU tar test suite.\n"
+msgstr "Utwórz pliki danych do zestawu testów tara GNU.\n"
+
+#: tests/genfile.c:65
+#, c-format
+msgid ""
+"\n"
+"Usage: %s [OPTION]...\n"
+msgstr ""
+"\n"
+"U¿ycie: %s [OPCJA]...\n"
+
+#: tests/genfile.c:68
+msgid ""
+"If a long option shows an argument as mandatory, then it is mandatory\n"
+"for the equivalent short option also.\n"
+"\n"
+"  -l, --file-length=LENGTH   LENGTH of generated file\n"
+"  -p, --pattern=PATTERN      PATTERN is `default' or `zeros'\n"
+"      --help                 display this help and exit\n"
+"      --version              output version information and exit\n"
+msgstr ""
+"Argumenty obowi±zkowe dla opcji d³ugich obowiazuj± równie¿ dla odpowiednich\n"
+"krótkich.\n"
+"\n"
+"  -l, --file-length=D£UGO¦Æ  D£UGO¦Æ utworzonego pliku\n"
+"  -p, --pattern=WZÓR         WZÓR: `default' (domy¶lny) albo `zeros' (zera)\n"
+"      --help                 wy¶wietl ten opis i zakoñcz\n"
+"      --version              wy¶wietl informacjê o wersji i zakoñcz\n"
+
+#: tests/genfile.c:134
+#, c-format
+msgid "Ambiguous pattern `%s'"
+msgstr "Niejednoznaczny wzór `%s'"
+
+#: tests/genfile.c:138
+#, c-format
+msgid "Unknown pattern `%s'"
+msgstr "Nieznany wzór `%s'"
+
+#: tests/genfile.c:157
+msgid ""
+"\n"
+"Copyright (C) 1995, 1996, 1997 Free Software Foundation, Inc.\n"
+msgstr ""
+"\n"
+"Copyright (C) 1995, 1996, 1997 Free Software Foundation, Inc.\n"
+
+#: tests/genfile.c:165
+msgid ""
+"\n"
+"Written by François Pinard <pinard@iro.umontreal.ca>.\n"
+msgstr ""
+"\n"
+"Napisany przez Françoisa Pinarda <pinard@iro.umontreal.ca>.\n"
+
+#~ msgid "Amount actually written is (I hope) %d.\n"
+#~ msgstr "Ilo¶æ (mam nadziejê) ostatecznie zapisana: %d.\n"
+
+#~ msgid "%d at %d\n"
+#~ msgstr "%d przy %d\n"

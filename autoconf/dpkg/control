@@ -1,0 +1,7 @@
+Package: autoconf
+Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
+Vendor: GNU Project
+Version: 2.13
+URL: ftp://ftp.gnu.org/pub/gnu/autoconf/
+Description: GNU source configuration tool
+Build-Depends: build-base, gm4, perl, texi2html

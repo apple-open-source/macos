@@ -1,0 +1,11 @@
+{
+  Description     = "AppleTalk networking";
+  Provides        = ("AppleTalk");
+  Requires        = ("Network", "Network Configuration");
+  OrderPreference = "None";
+  Messages =
+  {
+    start = "Starting AppleTalk";
+    stop  = "Stopping AppleTalk";
+  };
+}

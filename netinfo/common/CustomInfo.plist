@@ -1,0 +1,6 @@
+{
+	CFBundleName = "NetInfo";
+	CFBundleIdentifier = "com.apple.NetInfo";
+	CFBundleShortVersionString = "1.0.0";
+}
+

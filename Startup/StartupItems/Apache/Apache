@@ -1,0 +1,13 @@
+#!/bin/sh
+
+##
+# Start Web Server
+##
+
+. /etc/rc.common
+
+if [ "${WEBSERVER:=-NO-}" = "-YES-" ]; then
+    ConsoleMessage "Starting web server"
+
+    apachectl start
+fi

@@ -1,0 +1,464 @@
+.\"
+.TH ZSHCOMPCTL 1 "June 26, 1996" "zsh version 3.0"
+.SH NAME
+zshcompctl \- zsh programmable completion
+.SH DESCRIPTION
+\fBcompctl\fP [ \-\fBCDT\fP ] \fIoptions\fP [ \fIcommand\fP ... ]
+.TP
+\fBcompctl\fP [ \-\fBCDT\fP ] \fIoptions\fP
+.br
+[ \-\fBx\fP \fIpattern\fP \fIoptions\fP \- ... \-\- ]
+.br
+[ \fB+\fP \fIoptions\fP [ \-\fBx\fP ... -- ] ... [+] ]
+.br
+[ \fIcommand\fP ... ]
+.TP
+\fBcompctl\fP \-\fBL\fP [ \-\fBCDT\fP ] [ \fIcommand\fP ... ]
+.TP
+\fBcompctl\fP + \fIcommand\fP ...
+.PP
+Control the editor's completion behavior according to the supplied set
+of \fIoptions\fP.  Various editing commands, notably
+\fBexpand-or-complete-word\fP, usually bound to \fBTAB\fP, will
+attempt to complete a word typed by the user, while others, notably
+\fBdelete-char-or-list\fP, usually bound to ^D in emacs editing
+mode, list the possibilities; \fBcompctl\fP controls what those
+possibilities are.  They may for example be filenames (the most common
+case, and hence the default), shell variables, or words from a
+user-specified list.
+.SH "COMMAND FLAGS"
+Completion of the arguments of a command may be different for each
+command or may use the default.  The behavior when completing the
+command word itself may also be separately specified.  These
+correspond to the following flags and arguments, all of which (except
+for \-\fBL\fP) may be combined with any combination of the
+\fIoptions\fP described subsequently in the section \fBOPTION FLAGS\fP:
+.RS
+.TP
+.PD 0
+\fIcommand\fP ...
+controls completion for the named commands, which must be listed last
+on the command line.  If completion is attempted for a command with a
+pathname containing slashes and no completion definition is found, the
+search is retried with the last pathname component.  Note that aliases
+are expanded before the command name is determined unless the
+\fBCOMPLETE_ALIASES\fP option is set.  Commands should not be combined
+with the \-\fBD\fP, \-\fBC\fP or \-\fBT\fP flags.
+.TP
+\-\fBD\fP
+controls default completion behavior for the arguments of commands not
+assigned any special behavior.  If no \fBcompctl \-D\fP command has
+been issued, filenames are completed.
+.TP
+\-\fBC\fP
+controls completion when the command word itself is being completed.
+If no \fBcompctl \-C\fP command has been issued,  the names of any
+executable command (whether in the path or specific to the shell, such
+as aliases or functions) are completed.
+.TP
+\-\fBT\fP
+supplies completion flags to be used before any other processing is
+done, even those given to specific commands with other compctl
+definitions.  This is only useful when combined with extended
+completion (the \-\fBx\fP flag, see the section \fBEXTENDED
+COMPLETION\fP below).  Using this flag you can define default behavior
+which will apply to all commands without exception, or you can alter
+the standard behavior for all commands.  For example, if your access
+to the user database is too slow and/or it contains too many users (so
+that completion after \fB~\fP is too slow to be usable), you can use
+.nf
+    compctl -Tx  'C[0,*/*]' -f - 's[~]' -k friends -S/
+.fi
+to complete the strings in the array \fBfriends\fP after a \fB~\fP.
+The first argument is necessary so that this form of ~-completion is
+not tried after the directory name is finished.
+.TP
+\-\fBL\fP
+lists the existing completion behavior in a manner suitable for
+putting into a start-up script; the existing behavior is not changed.
+Any combination of the above forms may be specified, otherwise all
+defined completions are listed.  Any other flags supplied
+are ignored.
+.TP
+\fIno argument\fP
+If no argument is given, \fBcompctl\fP lists all defined completions
+in an abbreviated form;  with a list of \fIoptions\fP, all completions
+with those flags set (not counting extended completion) are listed.
+.PD
+.PP
+If the + flag is alone and followed immediately by the \fIcommand\fP list,
+the completion behavior for all the commands in the list is reset to
+the default.  In other words, completion will subsequently use the
+options specified by the \-\fBD\fP flag.
+.SH "OPTION FLAGS"
+[ \-\fBfcFBdeaRGovNAIOPZEnbjrzu\fP ]
+.br
+[ \-\fBk\fP \fIarray\fP ] [ \-\fBg\fP \fIglobstring\fP ]
+[ \-\fBs\fP \fIsubststring\fP ]
+.br
+[ \-\fBK\fP \fIfunction\fP ] [ \-\fBH\fP \fInum pattern\fP ]
+.br
+[ \-\fBQ\fP ] [ \-\fBP\fP \fIprefix\fP ] [ \-\fBS\fP \fIsuffix\fP ]
+.br
+[ \-\fBq\fP ] [ \-\fBX\fP \fIexplanation\fP ]
+.br
+[ \-\fBl\fP \fIcmd\fP ] [ \-\fBU\fP ]
+.PP
+The remaining \fIoptions\fP specify the type of command arguments
+to look for during completion.  Any combination of these flags may be
+specified; the result is a sorted list of all the possibilities.  The
+options are as follows.
+.SS "Simple flags"
+These produce completion lists made up by the shell itself:
+.RS
+.TP
+.PD 0
+\-\fBf\fP
+Filenames and filesystem paths.
+.TP
+\-\fBc\fP
+Command names, including aliases, shell functions, builtins
+and reserved words.
+.TP
+\-\fBF\fP
+Function names.
+.TP
+\-\fBB\fP
+Names of builtin commands.
+.TP
+\-\fBm\fP
+Names of external commands.
+.TP
+\-\fBw\fP
+Reserved words.
+.TP
+\-\fBa\fP
+Alias names.
+.TP
+\-\fBR\fP
+Names of regular (non-global) aliases.
+.TP
+\-\fBG\fP
+Names of global aliases.
+.TP
+\-\fBd\fP
+This can be combined with \-\fBF\fP, \-\fBB\fP, \-\fBw\fP,
+\-\fBa\fP, \-\fBR\fP and \-\fBG\fP to get names of disabled
+functions, builtins, reserved words or aliases.
+.TP
+\-\fBe\fP
+This option (to show enabled commands) is in effect by default, but
+may be combined with \-\fBd\fP; \-\fBde\fP in combination with
+\-\fBF\fP, \-\fBB\fP, \-\fBw\fP, \-\fBa\fP, \-\fBR\fP and \-\fBG\fP
+will complete names of functions, builtins, reserved words or aliases
+whether or not they are disabled.
+.TP
+\-\fBo\fP
+Names of shell options (see the zshoptions manual page).
+.TP
+\-\fBv\fP
+Names of any variable defined in the shell.
+.TP
+\-\fBN\fP
+Names of scalar (non-array) parameters.
+.TP
+\-\fBA\fP
+Array names.
+.TP
+\-\fBI\fP
+Names of integer variables.
+.TP
+\-\fBO\fP
+Names of read-only variables.
+.TP
+\-\fBp\fP
+Names of parameters used by the shell (including special parameters).
+.TP
+\-\fBZ\fP
+Names of shell special parameters.
+.TP
+\-\fBE\fP
+Names of environment variables.
+.TP
+\-\fBn\fP
+Named directories.
+.TP
+\-\fBb\fP
+Key binding names.
+.TP
+\-\fBj\fP
+Job names:  the first word of the job leader's command line.  This is useful
+with the \fBkill\fP builtin.
+.TP
+\-\fBr\fP
+Names of running jobs.
+.TP
+\-\fBz\fP
+Names of suspended jobs.
+.TP
+\-\fBu\fP
+User names.
+.RE
+.SS "Flags with arguments"
+These have user supplied arguments to determine how the list of
+completions is to be made up:
+.RS
+.TP
+\-\fBk\fP \fIarray\fP
+Names taken from the elements of \fB$array\fP (note that the \fB$\fP
+does not appear on the command line).
+Alternatively, the argument \fIarray\fP itself may be a set
+of space- or comma-separated values in parentheses, in which any
+delimiter may be escaped with a backslash; in this case the argument
+should be quoted.  For example,
+.nf
+    compctl -k "(cputime filesize datasize stacksize 
+    coredumpsize resident descriptors)" limit
+.fi
+.TP
+\-\fBg\fP \fIglobstring\fP
+The \fIglobstring\fP is expanded using filename globbing; it should be
+quoted to protect it from immediate expansion. The resulting
+filenames are taken as the possible completions.  Use `*(/)' instead of
+`*/' for directories.  The \fBfignore\fP special parameter is not
+applied to the resulting files.  More than one pattern may be given
+separated by blanks. (Note that brace expansion is \fInot\fP part of
+globbing.  Use the syntax `(either|or)' to match alternatives.)
+.TP
+\-\fBs\fP \fIsubststring\fP
+The \fIsubststring\fP is split into words and these words are than
+expanded using all shell expansion mechanisms (see the \fBzshexpn\fP
+manual page). The resulting words are taken as possible
+completions. The \fBfignore\fP special parameter is not applied to the
+resulting files.  Note that \-\fBg\fP is faster for filenames.
+.TP
+\-\fBK\fP \fIfunction\fP
+Call the given function to get the completions.  The function is
+passed two arguments: the prefix and the suffix of the word on which
+completion is to be attempted, in other words those characters before
+the cursor position, and those from the cursor position onwards.  The
+function should set the variable \fBreply\fP to an array containing
+the completions (one completion per element); note that \fBreply\fP
+should not be made local to the function.  From such a function the
+command line can be accessed with the \fB\-c\fP and \fB\-l\fP flags to
+the \fBread\fP builtin.  For example,
+.nf
+    function whoson { reply=(`users`); }
+    compctl -K whoson talk
+.fi
+completes only logged-on users after `talk'.  Note that `whoson' must
+return an array so that "reply=`users`" is incorrect.
+.TP
+\-\fBH\fP \fInum pattern\fP
+The possible completions are taken from the last \fInum\fP history
+lines. Only words matching \fIpattern\fP are taken. If \fInum\fP is
+zero or negative the whole history is searched and if \fIpattern\fP is
+the empty string all words are taken (as with `\fB*\fP').  A typical
+use is
+.nf
+    compctl -D -f + -H 0 '' \e
+    -X '(No file found; using history)'
+.fi
+which forces completion to look back in the history list for a word if
+no filename matches.  The explanation string is useful as it tells
+the user that no file of that name exists, which is otherwise
+ambiguous. (See the next section for \-\fBX\fP).
+.RE
+.SS "Control flags"
+.PP
+These do not directly specify types of name to be completed, but
+manipulate the options that do:
+.RS
+.TP
+\-\fBQ\fP
+This instructs the shell not to quote any metacharacters in the possible
+completions.  Normally the results of a completion are inserted into
+the command line with any metacharacters quoted so that they are
+interpreted as normal characters.  This is appropriate for filenames
+and ordinary strings.  However, for special effects, such as inserting
+a backquoted expression from a completion array (\-\fBk\fP) so that
+the expression will not be evaluated until the complete line is
+executed, this option must be used.
+.TP
+\-\fBP\fP \fIprefix\fP
+The \fIprefix\fP is inserted just before the completed string; any
+initial part already typed will be completed and the whole \fIprefix\fP
+ignored for completion purposes.  For example,
+.nf
+    compctl -j -P "%" kill
+.fi
+inserts a `%' after the kill command and then completes job names.
+.TP
+\-\fBS\fP \fIsuffix\fP
+When a completion is found the \fIsuffix\fP is inserted after
+the completed string.  In the case of menu completion the suffix is
+inserted immediately, but it is still possible to cycle through the
+list of completions by repeatedly hitting the same key.
+.TP
+\-\fBq\fP
+If used with a suffix as specified by the previous option, this
+causes the suffix to be removed if the next character typed is a blank
+or does not insert anything (the same rule as used for the
+\fBAUTO_REMOVE_SLASH\fP option).  The option is most useful for list
+separators (comma, colon, etc.).
+.TP
+\-\fBl\fP \fIcmd\fP
+This option cannot be combined with any other.  It restricts the range
+of command line words that are considered to be arguments.  If
+combined with one of the extended completion patterns `\fBp\fP[...]',
+`\fBr\fP[...]', or `\fBR\fP[...]'  (see the section \fBEXTENDED
+COMPLETION\fP below) the range is restricted to the range of arguments
+specified in the brackets.  Completion is then performed as if these
+had been given as arguments to the \fIcmd\fP supplied with the
+option. If the \fIcmd\fP string is empty the first word in the range
+is instead taken as the command name, and command name completion
+performed on the first word in the range.  For example,
+.nf
+    compctl -x 'r[-exec,;]' -l '' -- find
+.fi
+completes arguments between `-exec' and the following `;' (or the end
+of the command line if there is no such string) as if they were
+a separate command line.
+.TP
+\-\fBU\fP
+Use the whole list of possible completions, whether or not they
+actually match the word on the command line.  The word typed so far
+will be deleted.  This is most useful with a function (given by the
+\-\fBK\fP option) which can examine the word components passed to it
+(or via the \fBread\fP builtin's \-\fBc\fP and \-\fBl\fP flags) and
+use its own criteria to decide what matches.  If there is no
+completion, the original word is retained.
+.TP
+\-\fBX\fP \fIexplanation\fP
+Print \fIexplanation\fP when trying completion on the current set of
+options. A `%n' in this string is replaced by the number of matches.
+.PD
+.SH "ALTERNATIVE COMPLETION"
+\fBcompctl\fP [ \-\fBCDT\fP ] \fIoptions\fP + \fIoptions\fP [ + ... ]
+[ + ] \fIcommand\fP ...
+.PP
+The form with `\fB+\fP' specifies alternative options. Completion is
+tried with the options before the first `+'. If this produces no
+matches completion is tried with the flags after the `+' and so on. If
+there are no flags after the last `+' and a match has not been found
+up to that point, default completion is tried.
+.PD
+.SH "EXTENDED COMPLETION"
+\fBcompctl\fP [ \-\fBCDT\fP ] \fIoptions\fP
+\-\fBx\fP \fIpattern\fP \fIoptions\fP \- ... \-\-
+[ \fIcommand\fP ... ]
+.TP
+\fBcompctl\fP [ \-\fBCDT\fP ] \fIoptions\fP \
+[ \-\fBx\fP \fIpattern\fP \fIoptions\fP \- ... \-\- ]
+.br
+[ \fB+\fP \fIoptions\fP [ \-\fBx\fP ... -- ] ... [+] ] 
+[ \fIcommand\fP ... ]
+.PP
+The form with `\-\fBx\fP' specifies extended completion for the
+commands given; as shown, it may be combined with alternative
+completion using +.  Each \fIpattern\fP is examined in turn; when a
+match is found, the corresponding \fIoptions\fP, as described in the
+section \fBOPTION FLAGS\fP above, are used to generate possible
+completions.  If no \fIpattern\fP matches, the \fIoptions\fP given
+before the \-\fBx\fP are used.
+.PP
+Note that each pattern should be supplied as a single argument and
+should be quoted to prevent expansion of metacharacters by the
+shell.
+.PP
+A \fIpattern\fP is built of sub\-patterns separated by commas; it
+matches if at least one of these sub\-patterns matches (they are
+`or'ed'). These sub\-patterns are in turn composed of other
+sub\-patterns separated by white spaces which match if all of the
+sub\-patterns match (they are `and'ed').  An element of the
+sub\-patterns is of the form `c[...][...]', where the pairs of
+brackets may be repeated as often as necessary, and matches if any of
+the sets of brackets match (an `or').  The example below makes this
+clearer.
+.PP
+The elements may be any of the following:
+.sp
+.RS
+.TP
+.PD 0
+\fBs\fP[\fIstring\fP] ...
+Matches if the current word on the command line starts with
+one of the strings given in brackets.  The \fIstring\fP is not removed
+and is not part of the completion.
+.TP
+\fBS\fP[\fIstring\fP] ...
+Like \fBs\fP[\fIstring\fP] except that the \fIstring\fP is part of the
+completion.
+.TP
+\fBp\fP[\fIfrom\fP,\fIto\fP] ...
+Matches if the number of the current word is between one of
+the \fIfrom\fP and \fIto\fP pairs inclusive. The comma and \fIto\fP
+are optional;  \fIto\fP defaults to the same value as \fIfrom\fP. The
+numbers may be negative: \fI\-n\fP refers to the \fIn\fP'th last word
+on the line.
+.TP
+\fBc\fP[\fIoffset\fP,\fIstring\fP] ...
+Matches if the \fIstring\fP matches the word offset by
+\fIoffset\fP from the current word position.  Usually \fIoffset\fP
+will be negative.
+.TP
+\fBC\fP[\fIoffset\fP,\fIpattern\fP] ...
+Like \fBc\fP but using pattern matching instead.
+.TP
+\fBw\fP[\fIindex\fP,\fIstring\fP] ...
+Matches if the word in position \fIindex\fP is equal
+to the corresponding \fIstring\fP.  Note that the word count is made
+after any alias expansion.
+.TP
+\fBW\fP[\fIindex\fP,\fIpattern\fP] ...
+Like \fBw\fP but using pattern matching instead.
+.TP
+\fBn\fP[\fIindex\fP,\fIstring\fP] ...
+Matches if the current word contains \fIstring\fP. Anything up to and
+including the \fIindex\fP'th occurrence of this string will not be
+considered part of the completion, but the rest will.  \fIIndex\fP may
+be negative to count from the end:  in most cases, \fIindex\fP will be
+1 or -1.
+.TP
+\fBN\fP[\fIindex\fP,\fIstring\fP] ...
+Like \fBn\fP[\fIindex\fP,\fIstring\fP] except that the string will be
+taken as a character class.  Anything up to and including the
+\fIindex\fP'th occurrence of any of the characters in \fIstring\fP
+will not be considered part of the completion.
+.TP
+\fBm\fP[\fImin\fP,\fImax\fP] ...
+Matches if the total number of words lies between \fImin\fP and
+\fImax\fP inclusive.
+.TP
+\fBr\fP[\fIstr1\fP,\fIstr2\fP]...
+Matches if the cursor is after a word with prefix \fIstr1\fP. If there
+is also a word with prefix \fIstr2\fP on the command line it matches
+only if the cursor is before this word.
+.TP
+\fBR\fP[\fIstr1\fP,\fIstr2\fP]...
+Like \fBr\fP but using pattern matching instead.
+.RE
+.PD
+.SH EXAMPLE
+.RS
+.nf
+compctl -u -x 's[+] c[-1,-f],s[-f+]' -g '~/Mail/*(:t)' \e
+- 's[-f],c[-1,-f]' -f -- mail
+.fi
+.RE
+.PP
+This is to be interpreted as follows:
+.PP
+If the current command is \fBmail\fP, then
+.RS
+.PP
+if ((the current word begins with + and the previous word is -f)
+or (the current word begins with -f+)), then complete the
+non-directory part (the :t glob modifier) of files in the directory
+~/Mail; else
+.PP
+if the current word begins with -f or the previous word was -f, then
+complete any file; else
+.PP
+complete user names.
+.RE

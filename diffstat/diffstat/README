@@ -1,0 +1,10 @@
+$Id: README,v 1.1.1.1 1999/12/08 03:42:42 wsanchez Exp $
+
+Readme file for DiffStat.
+
+This program is a simple filter that reads the output of the 'diff' program,
+and produces a histogram of the total number of lines that were changed.  It is
+useful for scanning a patch file to see which files were changed.
+
+This is a reposting of the program to consolidate the patches over the past
+year, and to use autoconf 2.12(971122).

@@ -1,0 +1,8 @@
+    CFBundleIconFile = "chess.icns";
+    CFBundleDocumentTypes = (
+	{
+            CFBundleTypeName = "chess";
+            CFBundleTypeRole = Editor;
+            CFBundleTypeIconFile = (chess.icns);
+            CFBundleTypeExtensions = (chess);
+	}    );

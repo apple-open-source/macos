@@ -1,0 +1,9 @@
+$$
+/* $FILENAME$ created by $USERNAME$ on $DATE$ */
+
+@interface $FILENAMESANSEXTENSION$ : Object
+{
+
+}
+
+@end

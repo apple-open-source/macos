@@ -1,0 +1,75 @@
+{
+    DOCICONFILES = (); 
+    FILESTABLE = {
+        CLASSES = (
+            AMMap.m, 
+            AMString.m, 
+            AMVnode.m, 
+            Array.m, 
+            Controller.m, 
+            FileMap.m, 
+            FstabMap.m, 
+            NIMap.m, 
+            RRObject.m, 
+            Server.m
+        ); 
+        C_FILES = (); 
+        FRAMEWORKS = (AppleShareClientCore.framework, System.framework); 
+        FRAMEWORKSEARCH = (/System/Library/PrivateFrameworks); 
+        HEADERSEARCH = (.); 
+        H_FILES = (
+            AMMap.h, 
+            AMString.h, 
+            AMVersion.h, 
+            AMVnode.h, 
+            Array.h, 
+            Controller.h, 
+            FileMap.h, 
+            FstabMap.h, 
+            NFSHeaders.h, 
+            NIMap.h, 
+            RRObject.h, 
+            Server.h, 
+            automount.h, 
+            config.h, 
+            log.h, 
+            syslock.h, 
+            systhread.h
+        ); 
+        OTHER_LIBS = (objc); 
+        OTHER_LINKED = (automount.m, proc.m, getport.c, log.c, syslock.c, systhread.c); 
+        OTHER_SOURCES = (
+            Makefile, 
+            Makefile.postamble, 
+            Makefile.preamble, 
+            automount.8, 
+            mount.x, 
+            nfs_prot.x
+        ); 
+    }; 
+    GENERATEMAIN = YES; 
+    LANGUAGE = English; 
+    LOCALIZABLE_FILES = {}; 
+    MAKEFILEDIR = "$(MAKEFILEPATH)/pb_makefiles"; 
+    NEXTSTEP_BUILDTOOL = /usr/bin/gnumake; 
+    NEXTSTEP_INSTALLDIR = /usr/sbin; 
+    NEXTSTEP_JAVA_COMPILER = /usr/bin/javac; 
+    NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc; 
+    PDO_UNIX_BUILDDIR = ""; 
+    PDO_UNIX_BUILDTOOL = /bin/make; 
+    PDO_UNIX_COMPILEROPTIONS = ""; 
+    PDO_UNIX_INSTALLDIR = /usr/sbin; 
+    PDO_UNIX_JAVA_COMPILER = "$(NEXTDEV_BIN)/javac"; 
+    PDO_UNIX_LINKEROPTIONS = ""; 
+    PDO_UNIX_OBJCPLUS_COMPILER = "$(NEXTDEV_BIN)/gcc"; 
+    PROJECTNAME = automount; 
+    PROJECTTYPE = Tool; 
+    PROJECTVERSION = 2.8; 
+    WINDOWS_BUILDDIR = ""; 
+    WINDOWS_BUILDTOOL = /bin/make; 
+    WINDOWS_COMPILEROPTIONS = ""; 
+    WINDOWS_INSTALLDIR = /usr/sbin; 
+    WINDOWS_JAVA_COMPILER = "$(JDKBINDIR)/javac.exe"; 
+    WINDOWS_LINKEROPTIONS = ""; 
+    WINDOWS_OBJCPLUS_COMPILER = "$(DEVDIR)/gcc"; 
+}

@@ -1,0 +1,8 @@
+Project		: m4
+Description	: m4 Macro Preprocessor
+Distribution	: NetBSD Tue Oct  6 23:12:04 PDT 1998
+Source		: NetBSD Foundation, Inc.
+Location	: cvs.netbsd.org:/cvsroot
+Owner		: wsanchez
+Dependancies	: 
+

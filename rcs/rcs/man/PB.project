@@ -1,0 +1,33 @@
+{
+    FILESTABLE = {
+        Documentation = (
+            rlog.1, 
+            rcsfreeze.1, 
+            rcsmerge.1, 
+            rcsintro.1, 
+            rcsfile.5, 
+            rcsdiff.1, 
+            rcsclean.1, 
+            rcs.1, 
+            merge.1, 
+            ident.1, 
+            co.1, 
+            ci.1, 
+            ChangeLog, 
+            COPYING
+        ); 
+        Headers = (); 
+        Makefiles = (Makefile.in, rcsfile.5in); 
+        Resources = (); 
+        SUBPROJECTS = (); 
+        Sources = (); 
+    }; 
+    LANGUAGE = English; 
+    LOCALIZABLE_FILES = {}; 
+    NEXTSTEP_BUILDTOOL = /bin/make; 
+    PDO_UNIX_BUILDTOOL = /bin/make; 
+    PROJECTNAME = man; 
+    PROJECTTYPE = "GNU Source"; 
+    PROJECTVERSION = 2.6; 
+    WINDOWS_BUILDTOOL = "${NEXT_ROOT}/NextDeveloper/Executables/make"; 
+}

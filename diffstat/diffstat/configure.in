@@ -1,0 +1,25 @@
+dnl Process this file with 'autoconf' to produce a 'configure' script
+dnl $Id: configure.in,v 1.1.1.1 1999/12/08 03:42:42 wsanchez Exp $
+AC_PREREQ(2.12.971222)
+AC_REVISION($Revision: 1.1.1.1 $)
+AC_INIT(diffstat.c)
+AC_CONFIG_HEADER(config.h:config_h.in)
+AC_PROG_CC
+AC_PROG_INSTALL
+AC_GCC_TRADITIONAL
+
+if test -n "$GCC"
+then
+CFLAGS='-O -Wall -Wshadow -Wconversion -Wstrict-prototypes -Wmissing-prototypes'
+fi
+AC_SUBST(CFLAGS)
+AC_SUBST(LIBS)
+
+AC_CONST
+AC_STDC_HEADERS
+AC_HAVE_HEADERS(stdlib.h unistd.h)
+AC_HAVE_HEADERS(getopt.h string.h malloc.h)
+AC_TYPE_SIZE_T
+
+###	output makefile and config.h
+AC_OUTPUT(makefile,,,sort)

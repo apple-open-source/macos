@@ -1,0 +1,209 @@
+#
+# Makefile for top level of zsh distribution
+#
+# Copyright (c) 1996 Richard Coleman
+# All rights reserved.
+#
+# Permission is hereby granted, without written agreement and without
+# license or royalty fees, to use, copy, modify, and distribute this
+# software and to distribute modified versions of this software for any
+# purpose, provided that the above copyright notice and the following
+# two paragraphs appear in all copies of this software.
+#
+# In no event shall Richard Coleman or the Zsh Development Group be liable
+# to any party for direct, indirect, special, incidental, or consequential
+# damages arising out of the use of this software and its documentation,
+# even if Richard Coleman and the Zsh Development Group have been advised of
+# the possibility of such damage.
+#
+# Richard Coleman and the Zsh Development Group specifically disclaim any
+# warranties, including, but not limited to, the implied warranties of
+# merchantability and fitness for a particular purpose.  The software
+# provided hereunder is on an "as is" basis, and Richard Coleman and the
+# Zsh Development Group have no obligation to provide maintenance,
+# support, updates, enhancements, or modifications.
+#
+
+# zsh version
+VERSION = @VERSION@
+
+SHELL = /bin/sh
+@SET_MAKE@
+
+srcdir = @srcdir@
+VPATH  = @srcdir@
+
+# ========== USER CONFIGURATION SECTION ==========
+#
+# If `make' is executed in the directory containing this Makefile,
+# any changes made in this section will override the values of
+# these parameters in makefiles in any of the subdirectories.
+
+prefix      = @prefix@
+exec_prefix = @exec_prefix@
+bindir      = @bindir@
+infodir     = @infodir@
+mandir      = @mandir@
+manext      = 1
+
+CC       = @CC@
+CPPFLAGS = @CPPFLAGS@
+DEFS     = @DEFS@
+CFLAGS   = @CFLAGS@
+LDFLAGS  = @LDFLAGS@
+LIBS     = @LIBS@
+
+# ========== YOU SHOULDN'T HAVE TO CHANGE ANYTHING BELOW HERE ==========
+
+INSTALL         = @INSTALL@
+INSTALL_PROGRAM = @INSTALL_PROGRAM@
+INSTALL_DATA    = @INSTALL_DATA@
+
+.SUFFIXES:
+
+# flags passed to recursive makes in subdirectories
+MAKEDEFS = CC='$(CC)' CPPFLAGS='$(CPPFLAGS)' DEFS='$(DEFS)' \
+CFLAGS='$(CFLAGS)' LDFLAGS='$(LDFLAGS)' LIBS='$(LIBS)' \
+prefix='$(prefix)' exec_prefix='$(exec_prefix)' bindir='$(bindir)' \
+infodir='$(infodir)' mandir='$(mandir)' manext='$(manext)'
+
+# subdirectories in distribution
+SUBDIRS = Src Doc Etc Functions StartupFiles Misc Util
+
+# all files in this directory included in the distribution
+DIST = README INSTALL META-FAQ ChangeLog configure.in Makefile.in aclocal.m4 \
+config.guess config.sub acconfig.h config.h.in install-sh stamp-h.in \
+mkinstalldirs configure
+
+# ========== DEPENDENCIES FOR BUILDING AND INSTALLING ==========
+
+# default target
+all: config.h Makefile $(SUBDIRS)
+
+$(SUBDIRS): FORCE
+	cd $@ && $(MAKE) $(MAKEDEFS)
+
+FORCE:
+
+# install stripped
+install-strip:
+	$(MAKE) install STRIPFLAGS="-s"
+
+# install everything
+install: install.bin install.man #install.info
+
+# install/uninstall just the binary
+install.bin uninstall.bin:
+	cd Src && $(MAKE) $(MAKEDEFS) $@
+
+# install/uninstall just the man pages
+install.man uninstall.man:
+	cd Doc && $(MAKE) $(MAKEDEFS) $@
+
+# install/uninstall just the info pages
+install.info uninstall.info:
+	cd Doc && $(MAKE) $(MAKEDEFS) $@
+
+# ========== DEPENDENCIES FOR CLEANUP ==========
+
+mostlyclean: mostlyclean-recursive mostlyclean-top
+clean:       clean-recursive       clean-top
+distclean:   distclean-recursive   distclean-top
+realclean:   realclean-recursive   realclean-top
+superclean:  superclean-recursive  superclean-top
+
+mostlyclean-top:
+	rm -f *~
+
+clean-top: mostlyclean-top
+
+distclean-top: clean-top
+	rm -f Makefile config.h config.status config.log config.cache stamp-h distname
+
+realclean-top: distclean-top
+
+superclean-top: realclean-top
+	cd $(srcdir) && rm -f config.h.in stamp-h.in configure *~
+
+mostlyclean-recursive clean-recursive distclean-recursive realclean-recursive superclean-recursive:
+	for subdir in $(SUBDIRS); do \
+	  target=`echo $@ | sed s/-recursive//`; \
+	  (cd $$subdir && $(MAKE) $(MAKEDEFS) $$target) || exit 1; \
+	done
+
+# ========== DEPENDENCIES FOR MAINTENANCE ==========
+
+Makefile: Makefile.in config.status
+	CONFIG_FILES=$@ CONFIG_HEADERS= ./config.status
+
+config.status: configure Src/version.h
+	./config.status --recheck
+
+#configure: configure.in aclocal.m4
+#	cd $(srcdir) && autoconf
+
+config.h: stamp-h
+stamp-h: config.h.in config.status
+	CONFIG_FILES= CONFIG_HEADERS=config.h ./config.status
+
+config.h.in: stamp-h.in
+stamp-h.in: configure.in acconfig.h aclocal.m4
+	cd $(srcdir) && autoheader
+	echo > $@
+
+# create tag files for vi and emacs
+tags:
+	cd Src && $(MAKE) $@
+
+test:
+	@echo zsh test suite not available yet
+
+FTPDIR   = @ftpdir@
+FTP_DIST = $(FTPDIR)/zsh-$(VERSION).tar.gz
+
+# build zsh distribution
+distdir = @distdir@/zsh-$(VERSION)
+dist: $(DIST) Makefile
+	@echo "Copying distribution files in $(srcdir)" ; \
+	echo "$(distdir)" > distname
+	(test -d $(distdir) || mkdir -p $(distdir)) || exit 1 ; \
+	for file in $(DIST); do    \
+	  cp -p $$file $(distdir); \
+	done; \
+	for subdir in $(SUBDIRS); do \
+	  target=$(distdir)/$$subdir ; \
+	  (test -d $$target || mkdir $$target) || exit 1; \
+	  (cd $$subdir && $(MAKE) $(MAKEDEFS) $@) || exit 1; \
+	done
+
+# build zsh distribution for FTP
+ftp-dist: dist-diff
+	@echo "Begin building zsh distribution"
+	Src/zsh -c '(cd $(distdir)/.. ; \
+	tar cf - zsh-$(VERSION)) | gzip > $(FTP_DIST) && \
+	ln -sf $${$${:-$(FTP_DIST)}#$(FTPDIR)/} $(FTPDIR)/zsh.tar.gz'
+	@echo "Done building zsh distribution"
+
+# make patch against the previous release
+dist-diff: Src dist
+	@echo "Making patch against the previous release"
+	Src/zsh -o extendedglob -c 'VERSION=$(VERSION) ; \
+	pl=$${(M)VERSION%%[0-9]##} ; \
+	: $${prevrel:=$${VERSION%%[0-9]##}$$((pl-1))} ; \
+	(cd $(distdir)/.. && diff -ru zsh-$${prevrel} zsh-$(VERSION)) | \
+	gzip > $(FTPDIR)/zsh-$${prevrel}-$(VERSION).diff.gz && \
+	rm -f $(FTPDIR)/zsh-$${prevrel}.tar.gz'
+
+md5sum:
+	cd $(FTPDIR) ; md5sum *.gz > MD5SUM
+
+$(FTPDIR)/zsh-doc.tar.gz: $(srcdir)/Doc/zsh.texi
+	if test -d Doc/zsh-doc ; then \
+		(cd Doc ; \
+		make everything ; \
+		mv zsh*.html zsh*.ps zsh.dvi zsh.info* zsh-doc) ; \
+		(cd Doc ; tar cf - zsh-doc) | gzip > $@ ; \
+	fi
+
+release: ftp-dist dist-diff $(FTPDIR)/zsh-doc.tar.gz md5sum
+	cd $(srcdir) && cp -p META-FAQ Etc/FAQ $(FTPDIR)

@@ -1,0 +1,152 @@
+.TH DEFAULTS 1 "March 7 1995" "Apple Computer, Inc."
+.SH NAME
+defaults \- access the Mac OS X user defaults system
+.SH SYNOPSIS
+.B defaults
+.B read
+.RI "[ " domain_name " [ " key " ] ]"
+.PP
+.B defaults
+.B write
+.I domain_name
+.RI "{ " "'domain_rep'" " | " "domain_name key 'value_rep'" " }"
+.PP
+.B defaults
+.B delete
+.RI "[ " domain_name " [ " key " ] ]"
+.PP
+.B defaults
+{\ \fBdomains\fR\ |\ \fBfind\fR \fIword\fR\ | \fBhelp\fR\ }
+
+.SH DESCRIPTION
+.I defaults
+allows users to read, write, and delete Mac OS X user defaults
+from a command-line shell.
+Mac OS X applications and other programs use the defaults system
+to record user preferences and other information
+that must be maintained when the applications aren't running
+(such as default font for new documents, or the position
+of an Inspector panel).
+Much of this information is accessible through an application's
+Preferences panel (or the equivalent), but some of it isn't,
+such as the position of the Inspector panel.
+You can access this information with
+.IR defaults .
+.PP
+.B Note:
+Since applications
+.I do
+access the defaults system while they're running,
+you shouldn't modify the defaults of a running application.
+If you change a default in a domain that belongs to a running application,
+the application won't see the change and might even overwrite the default.
+.PP
+User defaults belong to
+.IR domains ,
+which typically correspond to individual applications.
+Each domain has a dictionary of keys and values
+representing its defaults;
+for example, "Default\ Font" = "Helvetica".
+Keys are always strings, but values can be complex data structures
+comprising arrays, dictionaries, strings, and binary data.
+These data structures are stored as
+.I property
+.IR lists ;
+see
+.IR PropertyList (5)
+for more information.
+.PP
+Though all applications, system services, and other programs
+have their own domains, they also share a domain named
+.BR NSGlobalDomain .
+If a default isn't specified in the application's domain,
+but is specified in
+.BR NSGlobalDomain ,
+then the application uses the value in that domain.
+.SH OPTIONS
+.TP
+.B read
+Prints all of the user's defaults, for every domain, to standard output.
+.TP
+.B read \fIdomain_name\fR
+Prints all of the user's defaults for
+.I domain_name
+to standard output.
+.TP
+.B read \fIdomain_name key\fR
+Prints the value for the default of
+.I domain_name
+identified by
+.IR key .
+.TP
+.B write \fIdomain_name key\fR '\fIvalue_rep\fR'
+Writes
+.I value_rep
+as the value for
+.I key
+in
+.IR domain_name .
+.I value_rep
+must be a property list, and must be enclosed in single quotes.
+For example:
+.PP
+.in +1i
+.nf
+defaults write MyApplication "Default Color" '(255, 0, 0)'
+.fi
+.PP
+.DT
+.in +0.5i
+sets the value for Default\ Color to an array containing
+the strings 255, 0, 0 (the red, green, and blue components).
+Note that the key is enclosed in quotation marks because
+it contains a space.
+.TP
+.B write \fIdomain_name\fR '\fIdomain_rep\fR'
+Overwrites the defaults information in
+.I domain_name
+with that given as
+.IR domain_rep .
+.I domain_rep
+must be a property list representation of a dictionary,
+and must be enclosed in single quotes.
+For example, this command:
+.PP
+.in +1i
+.nf
+defaults write MyApplication '{ "Default Color" = (255, 0, 0);
+"Default Font" = Helvetica; }'
+.fi
+.PP
+.DT
+.in +0.5i
+erases any previous defaults for MyApplication and
+writes the values for the two names into the defaults system.
+.TP
+.B delete \fIdomain_name\fR
+Removes all default information for
+.IR domain_name .
+.TP
+.B delete \fIdomain_name key\fR
+Removes the default named
+.I key
+from
+.IR domain_name .
+.TP
+.B domains
+Prints the names of all domains in the user's defaults system.
+.TP
+.B find \fIword\fR
+Searches
+for
+.I word
+in the domain names, keys, and values of the user's defaults,
+and prints out a list of matches.
+.TP
+.B help
+Prints a list of possible command formats.
+.SH "SEE ALSO"
+PropertyList(5)
+.SH BUGS
+Defaults can be structured in very complex ways,
+making it difficult for the user to enter them with this command.

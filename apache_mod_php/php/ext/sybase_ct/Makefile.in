@@ -1,0 +1,5 @@
+
+LTLIBRARY_NAME    = libsybase_ct.la
+LTLIBRARY_SOURCES = php_sybase_ct.c
+
+include $(top_srcdir)/build/dynlib.mk

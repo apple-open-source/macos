@@ -1,0 +1,7 @@
+Package: less
+Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
+Vendor: GNU Project
+Version: 340
+URL: ftp://prep.ai.mit.edu/pub/gnu/less/
+Description: Text pager
+Build-Depends: build-base

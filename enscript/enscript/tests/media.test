@@ -1,0 +1,12 @@
+#!/bin/sh
+#
+# Output media.
+#
+
+. $srcdir/defs || exit 1
+
+for i in A3 A4 A5 Letter Legal A4dj Letterdj; do
+  $enscript -G2r --quiet --media=$i -p$output $asciifiles
+done
+
+rm $output

@@ -1,0 +1,6 @@
+dnl ../doc/m4.texinfo:2078: Origin of test
+include(`no-such-file')
+dnl @result{}
+dnl @error{}30.include:2: m4: Cannot open no-such-file: No such file or directory
+sinclude(`no-such-file')
+dnl @result{}

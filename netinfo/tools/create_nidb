@@ -1,0 +1,322 @@
+#!/usr/bin/perl
+
+##
+# Create a NetInfo database from flat files.
+# Usage: create_nidb [tag [masterhostname]]
+#
+# Default tag is local.
+# Default master hostname for tag local is localhost.
+# Default master hostname for other tags is system hostname.
+##
+
+use Sys::Hostname;
+
+my $nipath = "/var/db/netinfo";
+my $filepath = "/etc";
+
+if ($ARGV[0]) { $tag = $ARGV[0]; }
+else { $tag = "local"; }
+
+my $nidb = "${nipath}/${tag}.nidb";
+
+die "Error: database ${nidb} exists\n" if (-d ${nidb});
+
+if ($ARGV[1]) { $master = $ARGV[1]; }
+else 
+{
+	if (${tag} eq "local") { $master = "localhost"; }
+	else { $master = hostname; }
+}
+
+my $nicl = "nicl -q -raw ${nidb}";
+
+##
+# For debugging:
+# open(NICL, ">/dev/tty"); 
+##
+
+##
+# Create the database
+##
+
+system("${nicl} -create");
+open(NICL, "|${nicl}");
+
+##
+# Setup root directory
+##
+
+print NICL "create / master ${master}/${tag}\n";
+if (${tag} eq "local") { print NICL "create / trusted_networks\n" };
+
+##
+# Users
+##
+
+my $checkforroot = 0;
+
+open(PASSWD, "${filepath}/master.passwd");
+
+print NICL "create /users\n";
+
+while (<PASSWD>)
+{
+	chop;
+	s/#.*$//;
+
+	my ($user, $passwd, $uid, $gid, $class, $change, $expire, $gecos, $dir, $shell) = split(':', $_);
+
+	if ($user)
+	{
+		die "Found invalid passwd entry $_\n" if ($uid eq "" || $gid eq "");
+		if (${user} eq "root") { $checkforroot = 1; }
+
+		print NICL "create /users/${user}\n";
+		print NICL "create /users/${user} passwd \"${passwd}\"\n";
+		print NICL "create /users/${user} uid \"${uid}\"\n";
+		print NICL "create /users/${user} gid \"${gid}\"\n";
+		print NICL "create /users/${user} class \"${class}\"\n" if ($class ne "");
+		print NICL "create /users/${user} change \"${change}\"\n" if ($change ne "");
+		print NICL "create /users/${user} expire \"${expire}\"\n" if ($expire ne "");
+		print NICL "create /users/${user} realname \"${gecos}\"\n";
+		print NICL "create /users/${user} home \"${dir}\"\n" if ($dir ne "");
+		print NICL "create /users/${user} shell	\"${shell}\"\n" if ($shell ne "");
+	}
+}
+
+close (PASSWD);
+
+##
+# Make sure there is a root user
+##
+
+if (${checkforroot} eq 0)
+{
+	print NICL "create /users/root\n";
+	print NICL "create /users/root passwd *\n";
+	print NICL "create /users/root uid 0\n";
+	print NICL "create /users/root gid 0\n";
+	print NICL "create /users/root change 0\n";
+	print NICL "create /users/root expire 0\n";
+	print NICL "create /users/root realname \"System Administrator\"\n";
+	print NICL "create /users/root home /var/root\n";
+	print NICL "create /users/root shell /bin/tcsh\n";
+}
+
+##
+# Groups
+##
+
+open(GROUP, "${filepath}/group");
+
+print NICL "create /groups\n";
+
+while (<GROUP>)
+{
+	chop;
+	s/#.*$//;
+
+	my ($group, $passwd, $gid, $users) = split(':', $_);
+	my (@users) = split(',', $users);
+
+	if ($group)
+	{
+		die "Found invalid group entry $_\n" if ($gid eq "");
+
+		print NICL "create /groups/${group}\n";
+		print NICL "create /groups/${group} gid \"${gid}\"\n";
+		print NICL "create /groups/${group} passwd \"${passwd}\"\n" if ($passwd ne "");
+		print NICL "create /groups/${group} users \"".join('" "', @users)."\"\n" if (@users);
+	}
+}
+
+close (GROUP);
+
+##
+# Groups
+##
+
+open(HOSTS, "${filepath}/hosts");
+
+print NICL "create /machines\n";
+
+while (<HOSTS>)
+{
+    chop;
+    s/#.*$//;
+    s/\s+/ /g;
+
+    my ($ip_addr, @hostnames) = split(" ", $_);
+
+    if ($ip_addr)
+    {
+	die "Found invalid hosts entry $_\n" unless @hostnames;
+
+	print NICL "create /machines/${hostnames[0]}\n";
+	print NICL "create /machines/${hostnames[0]} name \"".join('" "', @hostnames)."\"\n";
+	print NICL "create /machines/${hostnames[0]} ip_address \"${ip_addr}\"\n";
+    }
+}
+
+print NICL "create /machines/localhost serves 	\"./local\"\n";
+print NICL "create /machines/broadcasthost serves 	\"../network\"\n";
+print NICL "create /machines/-DHCP- serves \"../-DHCP-\"\n";
+print NICL "create /machines/-DHCP- ip_address \"255.255.255.255\"\n";
+
+close (HOSTS);
+
+##
+# Networks
+##
+
+open(NETWORKS, "${filepath}/networks");
+
+print NICL "create /networks\n";
+
+while (<NETWORKS>)
+{
+	chop;
+	s/#.*$//;
+	s/\s+/ /g;
+
+	my ($name, $network, @names) = split(" ", $_);
+	unshift(@names, $name);
+
+	if ($name)
+	{
+		die "Found invalid networks entry $_\n" if ($network eq "");
+
+		print NICL "create /networks/$name\n";
+		print NICL "create /networks/$name name \"".join('" "', @names)."\"\n";
+		print NICL "create /networks/$name address \"${network}\"\n";
+	}
+}
+
+close (NETWORKS);
+
+##
+# Protocols
+##
+
+open(PROTOCOLS, "${filepath}/protocols");
+
+print NICL "create /protocols\n";
+
+while (<PROTOCOLS>)
+{
+	chop;
+	s/#.*$//;
+	s/\s+/ /g;
+
+	my ($name, $number, @names) = split(" ", $_);
+	unshift(@names, $name);
+
+	if ($name)
+	{
+		die "Found invalid protocols entry $_\n" if ($number eq "");
+
+		print NICL "create /protocols/$name\n";
+		print NICL "create /protocols/$name name \"".join('" "', @names)."\"\n";
+		print NICL "create /protocols/$name number \"${number}\"\n";
+	}
+}
+
+close (PROTOCOLS);
+
+##
+# RPCs
+##
+
+open(RPC, "${filepath}/rpc");
+
+print NICL "create /rpcs\n";
+
+while (<RPC>)
+{
+	chop;
+	s/#.*$//;
+	s/\s+/ /g;
+
+	my ($name, $number, @names) = split(" ", $_);
+	unshift(@names, $name);
+
+	if ($name)
+	{
+		die "Found invalid rpc entry $_\n" if ($number eq "");
+
+		print NICL "create /rpcs/$name\n";
+		print NICL "create /rpcs/$name name \"".join('" "', @names)."\"\n";
+		print NICL "create /rpcs/$name number \"${number}\"\n";
+	}
+}
+
+close (RPC);
+
+##
+# Services
+##
+
+open(SERVICES, "${filepath}/services");
+
+print NICL "create /services\n";
+
+while (<SERVICES>)
+{
+	chop;
+	s/#.*$//;
+	s/\s+/ /g;
+
+	my ($name, $connection, @names) = split(" ", $_);
+	unshift(@names, $name);
+	my ($port, $protocol) = split("/", $connection);
+
+	if ($name)
+	{
+		die "Found invalid services entry $_\n" if ($port eq "" || $protocol eq "");
+
+		print NICL "create /services/$name\n";
+		print NICL "create /services/$name name \"".join('" "', @names)."\"\n";
+		print NICL "create /services/$name port \"${port}\"\n";
+		print NICL "append /services/$name protocol \"${protocol}\"\n";
+	}
+}
+
+##
+# Aliases
+##
+
+print NICL "create /aliases\n";
+print NICL "create /aliases/administrator\n";
+print NICL "create /aliases/administrator members root\n";
+print NICL "create /aliases/postmaster\n";
+print NICL "create /aliases/postmaster members root\n";
+print NICL "create /aliases/MAILER-DAEMON\n";
+print NICL "create /aliases/MAILER-DAEMON members postmaster\n";
+print NICL "create /aliases/MAILER-AGENT\n";
+print NICL "create /aliases/MAILER-AGENT members postmaster\n";
+print NICL "create /aliases/nobody\n";
+print NICL "create /aliases/nobody members root\n";
+print NICL "create /aliases/dumper\n";
+print NICL "create /aliases/dumper members root\n";
+print NICL "create /aliases/manager\n";
+print NICL "create /aliases/manager members root\n";
+print NICL "create /aliases/operator\n";
+print NICL "create /aliases/operator members root\n";
+
+##
+# Mounts
+##
+
+print NICL "create /mounts\n";
+
+##
+# Printers
+##
+
+print NICL "create /printers\n";
+
+##
+# Clean up
+##
+
+close (NICL);

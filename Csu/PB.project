@@ -1,0 +1,11 @@
+{
+    BUILDTOOL = /bin/gnumake; 
+    FILESTABLE = {
+        OTHER_LINKED = (bundle1.s, crt.c, dyld.s, dylib1.s, init_shlibs.c, start.s); 
+        OTHER_SOURCES = (indr_list); 
+    }; 
+    LANGUAGE = English; 
+    LOCALIZABLE_FILES = {}; 
+    PROJECTNAME = Csu; 
+    PROJECTTYPE = Legacy; 
+}

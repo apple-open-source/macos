@@ -1,0 +1,13 @@
+ProjectBuilder Supplemental Makefiles
+
+  These makefiles extend the functionality of the PB makefiles and corrects
+some bogus assumptions made in the PB makefiles about how projects should
+build.  Some things you get:
+
+ - More predefined variables:
+   - commands
+   - path locations
+ - Knows how to install man pages placed in the "Supporting Files" bucket
+ - Corrects some assumptions about how projects should build
+   - Not everyone wants ObjC in their frameworks
+ - Handles tool projects which are shell scrips (no compiled code)

@@ -1,0 +1,34 @@
+#
+# Check if we have a display
+#
+if {![info exists ::env(DISPLAY)]} {
+  untested "No DISPLAY -- skipping test"
+} else {
+
+  if {$tracelevel} {
+    strace $tracelevel
+  }
+
+  #
+  # test variable API
+  #
+  set prms_id 0
+  set bug_id 0
+
+  set testfile "cpp_variable"
+  set srcfile ${testfile}.cc
+  set binfile ${objdir}/${subdir}/${testfile}
+  set r [gdb_compile "${srcdir}/${subdir}/${srcfile}" "${binfile}" executable {debug c++}]
+  if  { $r != "" } {
+    gdb_suppress_entire_file \
+      "Testcase compile failed, so some tests in this file will automatically fail."
+  }
+
+  # Start with a fresh gdbtk
+  gdb_exit
+  set results [gdbtk_start [file join $srcdir $subdir ${testfile}.test]]
+  set results [split $results \n]
+
+  # Analyze results
+  gdbtk_analyze_results $results
+}

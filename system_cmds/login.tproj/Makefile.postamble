@@ -1,0 +1,6 @@
+INSTALL_AS_USER =	root
+INSTALL_PERMISSIONS = 4555
+#CHFLAGS = /usr/bin/chflags
+
+#after_install::
+#	$(CHFLAGS) schg  $(DSTROOT)$(INSTALLDIR)/$(NAME)

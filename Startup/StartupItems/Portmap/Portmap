@@ -1,0 +1,12 @@
+#!/bin/sh
+
+##
+# Start the portmap server.
+# portmap converts Sun RPC program numbers into IP port numbers.
+##
+
+. /etc/rc.common
+
+ConsoleMessage "Starting RPC nameserver"
+
+portmap

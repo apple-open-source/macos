@@ -1,0 +1,258 @@
+#!/bin/sh
+
+##
+# Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+#
+# @APPLE_LICENSE_HEADER_START@
+# 
+# The contents of this file constitute Original Code as defined in and
+# are subject to the Apple Public Source License Version 1.1 (the
+# "License").  You may not use this file except in compliance with the
+# License.  Please obtain a copy of the License at
+# http://www.apple.com/publicsource and read it before using this file.
+# 
+# This Original Code and all software distributed under the License are
+# distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+# EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+# INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+# License for the specific language governing rights and limitations
+# under the License.
+# 
+# @APPLE_LICENSE_HEADER_END@
+##
+#
+# libtool
+#
+# written by Mike Gobbi
+# created July 10, 1995
+#
+# Copyright (C) 1995 NeXT Computer, Inc.
+# All Rights Reserved
+#
+
+mode=dynamic
+ifiles=
+soptions=""
+doptions=""
+output_specified=no
+output_file=
+arch=
+deffile=
+verbose=no
+CC=gcc
+archive_command="lib /nologo"
+
+while true
+do
+	case $1 in
+	
+	-static )
+		mode=static
+		shift
+		;;
+		
+	-dynamic )
+		mode=dynamic
+		shift
+		;;
+		
+	-o )
+		soptions="$soptions /OUT:$2"
+		doptions="$doptions -o $2"
+		output_specified=yes
+		output_file="$2"
+		shift
+		shift
+		;;
+		
+	-[sac] | -[sac][sac] | -[sac][sac][sac] )
+		echo "libtool: warning: -sac options ignored" 1>&2
+		shift
+		;;
+
+	-g )
+		doptions="$doptions -g"
+		shift
+		;;
+
+	-def )
+		deffile="$2"
+		shift
+		shift
+		;;
+		
+	-file[lL]ist )
+		if [ "$mode" = "dynamic" ]
+		then
+		    doptions="$doptions -filelist $2"
+		else
+		    file=`echo $2 | sed "s/,.*//g"`
+		    if echo $2 | grep -s ,
+		    then
+			dir=`echo $2 | sed "s/.*,//g"`
+		    else
+			dir=
+		    fi
+		    if [ ! -r "$file" ]
+		    then
+			echo "libtool: error: filelist '$2' not found" 1>&2
+			exit 1
+		    elif [ -n "$dir" ]
+		    then
+			ifiles="$ifiles `cat $file | sed "s@^@$dir/@" | tr -s '\012\015 ' ' '`"
+		    else
+			ifiles="$ifiles `cat $file | tr -s '\012\015 ' ' '`"
+		    fi
+		fi
+		shift
+		shift
+		;;
+		
+	-install_name )
+		echo "libtool: warning: -install_name ignored" 1>&2
+		shift
+		shift
+		;;
+
+        -read_only_relocs )
+		echo "libtool: warning: -read_only_relocs ignored" 1>&2
+		shift
+		shift
+		;;
+		
+	-compatibility_version )
+		echo "libtool: warning: -compatibility_version ignored" 1>&2
+		shift
+		shift
+		;;
+		
+	-current_version )
+		echo "libtool: warning: -current_version ignored" 1>&2
+		shift
+		shift
+		;;
+		
+	-v )
+		verbose=yes
+		soptions="$soptions /VERBOSE"
+		doptions="$doptions"
+		shift
+		;;
+		
+	-seg1addr | -undefined )
+		echo "libtool: warning: option '$1 $2' suppressed" 1>&2
+		shift
+		shift
+		;;
+		
+	-image_base )
+		doptions="$doptions -Xlinker /BASE:$2"
+		shift
+		shift
+		;;
+
+	-sectorder )
+		echo "libtool: warning: option '$1 $2 $3 $4' suppressed" 1>&2
+		shift
+		shift
+		shift
+		shift
+		;;
+		
+	-sectorder_detail )
+		echo "libtool: warning: option '$1' suppressed" 1>&2
+		shift
+		;;
+		
+	-t )
+		shift
+		;;
+		
+	- )
+		shift
+		break
+		;;
+
+        -Xlinker )
+		doptions="$doptions $1 $2"
+		shift
+		shift
+		;;
+        -framework )
+		doptions="$doptions -framework $2"
+		shift
+		shift
+		;;
+
+        -F* )
+		doptions="$doptions $1"
+		shift
+		;;
+
+	-arch* )
+		doptions="$doptions -arch $2"
+		arch="$2"
+		shift
+		shift
+		;;
+		
+	-* )
+		soptions="$soptions $1"
+		doptions="$doptions $1"
+		shift
+		;;
+		
+	* )
+		break
+		;;
+	
+	esac
+done
+
+if [ -n "$deffile" ]
+then
+  if [ ! -r "$deffile" ]
+  then
+    echo "libtool: error: definition file $deffile is missing" 1>&2
+    exit 1
+  fi
+elif [ -n "$output_file" -a -n "$arch" ]; then
+  deffile=`echo $output_file | sed -e 's/\.dll$//' -e "s/\.$arch//" -e "s@.*/@@"`.def
+else
+  deffile=`echo $output_file | sed -e 's/\.dll$//'`.def
+fi
+ 
+ifiles="$ifiles $*"
+
+if [ "$output_specified" = "no" ]
+then
+	echo "libtool: error: -o option is required" 1>&2
+	exit 1
+elif [ "$mode" = "static" ]
+then
+	if [ "$verbose" = "yes" ]
+	then
+		echo $archive_command $soptions $ifiles
+	fi
+	$archive_command $soptions $ifiles
+	exit $?
+elif [ "$mode" = "dynamic" ]
+then
+	if [ -r $deffile ]
+	then
+		cmd="$CC -dll $doptions $ifiles -Xlinker -DEF:$deffile"
+	else
+		echo "libtool: warning: default definition file $deffile is missing" 1>&2
+		cmd="$CC -dll $doptions $ifiles"
+	fi
+	if [ "$verbose" = "yes" ]
+	then
+		echo $cmd
+	fi
+	$cmd
+	exit $?
+else
+	echo "libtool: error: unknown mode $mode" 1>&2
+	exit 1
+fi

@@ -1,0 +1,33 @@
+\initial {D}
+\entry {\code {default-directory}}{15}
+\entry {\code {dired-clean-patch}}{13}
+\entry {\code {dired-clean-tex}}{13}
+\entry {\code {dired-copy-filename-as-kill}}{17}
+\entry {\code {dired-do-find-marked-files}}{13}
+\entry {\code {dired-do-relative-symlink}}{18}
+\entry {\code {dired-do-relative-symlink-regexp}}{18}
+\entry {\code {dired-do-toggle}}{17}
+\entry {\code {dired-flag-extension}}{13}
+\entry {\code {dired-goto-file}}{17}
+\entry {\code {dired-goto-subdir}}{17}
+\entry {\code {dired-info}}{18}
+\entry {\code {dired-jump}}{17}
+\entry {\code {dired-jump-other-window}}{18}
+\entry {\code {dired-man}}{18}
+\entry {\code {dired-mark-extension}}{13}
+\entry {\code {dired-mark-sexp}}{14}
+\entry {\code {dired-omit-here-always}}{6}
+\entry {\code {dired-omit-toggle}}{6}
+\entry {\code {dired-rmail}}{18}
+\entry {\code {dired-smart-shell-command}}{17}
+\entry {\code {dired-very-clean-tex}}{13}
+\entry {\code {dired-virtual}}{12}
+\entry {\code {dired-virtual-mode}}{12}
+\entry {\code {dired-virtual-revert}}{12}
+\entry {\code {dired-vm}}{18}
+\entry {\code {dired-x-bind-find-file}}{16}
+\entry {\code {dired-x-find-file}}{15}
+\entry {\code {dired-x-find-file-other-window}}{16}
+\entry {\code {dired-x-submit-report}}{19}
+\initial {S}
+\entry {\code {shell-command}}{17}

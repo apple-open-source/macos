@@ -1,0 +1,29 @@
+.TH open 1 "August 22, 1989" "Apple Computer, Inc."
+.SH NAME
+open \- open files
+.SH SYNOPSIS
+\fBopen\fR [ -a \fIapp\fR ] [ -o ] [ -p ] \fIfilename\fR ...
+.SH DESCRIPTION
+The \fBopen\fR command opens a file (or a directory), just as if you had
+double-clicked the file's icon.
+.PP
+You can specify one or more
+file names (or pathnames), which are interpreted relative to the Shell
+or Terminal window's current working directory.  For example, the following
+command would open all WriteNow files in the current working directory:
+.nf
+
+	open *.wn
+
+.fi
+.SH ARGUMENTS
+.TP 9
+.B \-a
+specifies an application to use for opening the file.
+.TP 9
+.B \-o
+opens the file (can be used in combination with
+.BR \-p ).
+.TP 9
+.B \-p
+causes the file to be printed instead of opened.

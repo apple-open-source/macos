@@ -1,0 +1,47 @@
+#!/bin/sh
+
+##
+# Application Services
+##
+
+. /etc/rc.common
+
+##
+# Desktop Database
+##
+
+if [ "$(uname -p)" = "powerpc" ]; then
+  ConsoleMessage "Starting Desktop Database"
+
+  if type DesktopDB >/dev/null; then DesktopDB; fi
+fi
+
+##
+# InputManager startup procedure
+##
+
+if [ -d /System/Library/InputManagers ]; then
+    ConsoleMessage "Starting input servers"
+
+    cd /System/Library/InputManagers
+
+    for i in *; do
+	if [ -d "${i}" ]; then
+	    if [ "${i}" = "Resources" ]; then continue; fi
+
+	    rcfile=$(basename "${i}")
+
+	    if [ -f "${i}/${rcfile}.rc" ]; then
+		sh "${i}/${rcfile}.rc" $1
+	    fi
+	fi
+    done
+fi
+
+##
+# Start printing services
+##
+
+ConsoleMessage "Configuring print services" 
+
+/System/Library/Printers/Libraries/PrintStarter

@@ -1,0 +1,10 @@
+dnl ../doc/m4.texinfo:1447: Origin of test
+define(`reverse', `ifelse($#, 0, , $#, 1, ``$1'',
+			  `reverse(shift($@)), `$1'')')
+dnl @result{}
+reverse
+dnl @result{}
+reverse(foo)
+dnl @result{}foo
+reverse(foo, bar, gnats, and gnus)
+dnl @result{}and gnus, gnats, bar, foo

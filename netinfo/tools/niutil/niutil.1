@@ -1,0 +1,174 @@
+.TH NIUTIL 1 "June 20 1989" "Apple Computer, Inc."
+.SH NAME
+niutil \- NetInfo utility
+.SH SYNOPSIS
+.B niutil 
+\fB-create\fR [ opts ] \fIdomain\fR \fIpath\fR
+.LP
+.B niutil 
+\fB-destroy\fR [ opts ] \fIdomain\fR \fIpath\fR
+.LP
+.B niutil 
+\fB-createprop\fR [ opts ] \fIdomain\fR \fIpath\fR \fIkey\fR [ \fIval\fR... ]
+.LP
+.B niutil 
+\fB-appendprop\fR [ opts ] \fIdomain\fR \fIpath\fR \fIkey\fR \fIval\fR...
+.LP
+.B niutil 
+\fB-mergeprop\fR [ opts ] \fIdomain\fR \fIpath\fR \fIkey\fR \fIval\fR...
+.LP
+.B niutil 
+\fB-insertval\fR [ opts ] \fIdomain\fR \fIpath\fR \fIkey\fR \fIval\fR \fIindex\fR
+.LP
+.B niutil 
+\fB-destroyprop\fR [ opts ] \fIdomain\fR \fIpath\fR \fIkey\fR
+.LP
+.B niutil 
+\fB-destroyval\fR [ opts ] \fIdomain\fR \fIpath\fR \fIkey\fR \fIval\fR
+.LP
+.B niutil 
+\fB-renameprop\fR [ opts ] \fIdomain\fR \fIpath\fR \fIoldkey\fR \fInewkey\fR
+.LP
+.B niutil 
+\fB-read\fR [ opts ] \fIdomain\fR \fIpath\fR
+.LP
+.B niutil 
+\fB-list\fR [ opts ] \fIdomain\fR \fIpath\fR
+.LP
+.B niutil 
+\fB-rparent\fR [ opts ] \fIdomain\fR
+.LP
+.B niutil 
+\fB-resync\fR [ opts ] \fIdomain\fR
+.LP
+.B niutil 
+\fB-statistics\fR [ opts ] \fIdomain\fR
+.LP
+.SH DESCRIPTION
+.I niutil
+lets you to do arbitrary reads and writes on the given NetInfo
+.I domain.
+In order to perform writes,
+\fIniutil\fR
+must be run as root on the NetInfo master for the database, unless the
+\fB-p\fR, \fB-P\fR, or \fB-u\fR options are given.
+The directory specified by
+.I path
+is separated by "/"s, similar to the filesystem.  The property
+names may be given in the path using a "=", but will default to the
+property name "name".  For example, the following refers to a user with the
+user ID 3.
+.LP
+.DS
+"/name=users/uid=3"
+.DE
+.LP
+The following shorter form would also be sufficient:
+.LP
+.DS
+"/users/uid=3"
+.DE
+.LP
+You may specify a numeric ID for the directory instead of the string path.
+.SH OPTIONS
+.TP
+.B "-t"
+Interpret the domain as a tagged domain.  For example, "parrish/network"
+refers to the database tagged "network" on the machine "parrish".  You
+may supply an IP address instead of a machine name.
+.TP
+.B "-p"
+Prompt for the root password or the named user password if combined with the \fB-u\fR option.
+.TP
+.B "-u user"
+Run this command as the named user.  This option implies \fB-p\fR.
+.TP
+.B "-P password"
+Supplies the root password or the named user password if combined with the \fB-u\fR option.
+.TP
+.B "-T seconds"
+Sets the read and write timeout to the given number of seconds.
+.SH OPERATIONS
+.TP
+\fB-create\fR \fIdomain\fR \fIpath\fR
+Create a new directory with the given path.
+.TP
+\fB-destroy\fR \fIdomain\fR \fIpath\fR
+Destroy the directory with the given path.
+.TP 
+\fB-createprop\fR \fIdomain\fR \fIpath\fR \fIkey\fR [ \fIval\fR... ]
+Create a new property in the directory
+\fIpath\fR.
+.I key
+refers to the name of the property;
+0 or more property values may be specified.  If the named property already
+exists, it's overwritten.
+.TP 
+\fB-appendprop\fR \fIdomain\fR \fIpath\fR \fIkey\fR \fIval\fR...
+Appends new values to an existing property in the directory
+\fIpath\fR.
+.I key
+refers to the name of the property;
+0 or more property values may be specified.  If the named property doesn't
+exist, it's created.
+.TP 
+\fB-mergeprop\fR \fIdomain\fR \fIpath\fR \fIkey\fR \fIval\fR...
+Merges new values into an existing property in the directory
+\fIpath\fR.
+.I key
+refers to the name of the property;
+0 or more property values may be specified.  The values are appended to the property only if they are not already present.  If the named property doesn't
+exist, it's created.
+.TP 
+\fB-insertval\fR \fIdomain\fR \fIpath\fR \fIkey\fR \fIval\fR \fIpropindex\fR 
+Inserts a new value into an existing property in the directory \fIpath\fR
+at position \fIpropindex\fR.
+.I key
+refers to the name of the property.  If the named property doesn't
+exist, it's created.
+.TP
+\fB-destroyprop\fR \fIdomain\fR \fIpath\fR \fIkey\fR
+Destroy the property with name
+.I key
+in the given path.
+.TP
+\fB-destroyval\fR \fIdomain\fR \fIpath\fR \fIkey\fR \fIval\fR 
+Destroy the given value in the property with name
+.I key
+in the given path.
+.TP
+\fB-renameprop\fR \fIdomain\fR \fIpath\fR \fIoldkey\fR \fInewkey\fR 
+Renames the property with name
+.I oldkey
+in the given path.
+.TP
+\fB-read\fR \fIdomain\fR \fIpath\fR
+Read the properties associated with the directory specified in the
+given path.
+.TP
+\fB-list\fR \fIdomain\fR \fIpath\fR
+List the directories in the given domain/path.  The directory ID's are
+listed along with any names they may have.
+.TP
+\fB-readprop\fR \fIdomain\fR \fIpath\fR \fIkey\fR
+Read the values of the given property in the specified directory.
+.TP
+\fB-readval\fR \fIdomain\fR \fIpath\fR \fIkey\fR \fIindex\fR
+Read the value at the given index of the named property in the specified directory.
+.TP
+\fB-rparent\fR \fIdomain\fR
+Prints the current NetInfo parent of a server.  The server should be explicitly given using the \fB-t host/tag\fR option.
+.TP
+\fB-resync\fR \fIdomain\fR
+Resynchronizes NetInfo.  If a domain name is given, the master resynchronizes all clones.  If the \fB-t clone/tag\fR option is used instead of a tag, then only that clone is resynchronized.  Using \fB-t master/tag\fR resynchronizes the whole domain.
+.TP
+\fB-statistics\fR \fIdomain\fR
+Print server statistics.
+.TP
+\fB-domainname\fR \fIdomain\fR
+Print the domain name of the given domain.  This is useful when the domain is specified is a relative name (like "." or "..") or when a connection is made using the \fB-t server/tag\fR option.
+.SH EXAMPLE
+"niutil -list . /" list the directories at the top level in 
+the local NetInfo database.
+.SH "SEE ALSO"
+niload(8), nidump(8), nigrep(1), nifind(1), nireport(1), netinfo(5)

@@ -1,0 +1,64 @@
+{
+    FILESTABLE = {
+        Documentation = (INSTALL, NEWS, README, less.man, lesskey.man); 
+        Headers = (
+            acconfig.h, 
+            cmd.h, 
+            funcs.h, 
+            less.h, 
+            lesskey.h, 
+            lglob.h, 
+            option.h, 
+            pckeys.h, 
+            position.h, 
+            regexp.h
+        ); 
+        Makefiles = (Makefile.in, configure, configure.in, defines.h.in, mkinstalldirs); 
+        Resources = (install.sh); 
+        SUBPROJECTS = (); 
+        Sources = (
+            brac.c, 
+            ch.c, 
+            charset.c, 
+            cmdbuf.c, 
+            command.c, 
+            decode.c, 
+            edit.c, 
+            filename.c, 
+            forwback.c, 
+            help.c, 
+            ifile.c, 
+            input.c, 
+            jump.c, 
+            lessecho.c, 
+            lesskey.c, 
+            line.c, 
+            linenum.c, 
+            lsystem.c, 
+            main.c, 
+            mark.c, 
+            mkhelp.c, 
+            optfunc.c, 
+            option.c, 
+            opttbl.c, 
+            os.c, 
+            output.c, 
+            position.c, 
+            prompt.c, 
+            regexp.c, 
+            screen.c, 
+            search.c, 
+            signal.c, 
+            tags.c, 
+            ttyin.c, 
+            version.c
+        ); 
+    }; 
+    LANGUAGE = English; 
+    NEXTSTEP_BUILDTOOL = /bin/make; 
+    PDO_UNIX_BUILDTOOL = /bin/make; 
+    PROJECTNAME = less; 
+    PROJECTTYPE = "GNU Source"; 
+    PROJECTVERSION = 2.6; 
+    WINDOWS_BUILDTOOL = "${NEXT_ROOT}/NextDeveloper/Executables/make"; 
+}

@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd">
+<plist version="0.9">
+<!-- Welcome to XML.  Anything you see surrounded like this is a comment. -->
+<dict>
+    <!--
+        Currently Personalities are only needed for IOKit extensions.
+        If you are not writing an IOKit extension then delete the entire
+        Personality key and it's dictionary below.
+    -->
+    <key>Personality</key>
+    <dict>
+        <key>Name</key>
+            <string>$PRODUCTNAME$</string>
+        <key>Module</key>
+            <string>$PRODUCTNAME$</string>
+
+        <!-- The name of class IOKit will allocate when probing. -->
+        <key>IOClass</key>
+            <string>$PRODUCTNAME$</string>
+
+        <!--
+            IOKit matching properties
+            Setup for a debug node by default, the exact matching criterea
+	    will depend on the provider class for this personality
+        -->
+        <key>IOProviderClass</key>
+            <string>IOResources</string>
+        <key>IOResourceMatch</key>
+            <string>IOKit</string>
+        <key>IOMatchCategory</key>
+            <string>$PRODUCTNAME$</string>
+    </dict>
+    <key>Module</key>
+    <dict>
+        <key>Name</key>
+            <string>$PRODUCTNAME$</string>
+        <key>File</key>
+            <string>$PRODUCTNAME$</string>
+
+        <!--
+            Delete this key if this module doesn't require another module's
+            symbols to link.  This key is the heart of the dependency system.
+        -->
+        <key>Requires</key>
+            <array></array>
+
+        <!--
+            Delete these keys if this is an IOKit module.
+	    Leave these keys as 0 if you are a library module or use
+	    C++ static construction to start and stop your module
+        -->
+        <key>Initialize</key>
+            <string>0</string>
+        <key>Finalize</key>
+            <string>0</string>
+
+        <!-- Keys reserved for future use, please leave -->
+        <key>Target</key>
+            <string>Kernel</string>
+        <key>Format</key>
+            <string>mach-o</string>
+    </dict>
+</dict>
+</plist>
+

@@ -1,0 +1,7 @@
+Package: bsdmake
+Maintainer: Wilfredo Sanchez <wsanchez@darwin.apple.com>
+Vendor: FreeBSD
+Version: 2000.07.08
+URL: http://www.freebsd.org/
+Description: BSD build driver ("make")
+Build-Depends: build-base

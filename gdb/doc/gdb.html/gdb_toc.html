@@ -1,0 +1,257 @@
+<HTML>
+<HEAD>
+<!-- This HTML file has been created by texi2html 1.51
+     from /mnt/apple/gdb/source/gdb.apple/source/gdb/gdb/doc/gdb.texinfo on 23 November 1999 -->
+
+<TITLE>Debugging with GDB - Table of Contents</TITLE>
+</HEAD>
+<BODY>
+<H1>Debugging with GDB</H1>
+<H2>The GNU Source-Level Debugger</H2>
+<H2>Seventh Edition, for GDB version 19990707</H2>
+<H2>February 1999</H2>
+<ADDRESS>Richard M. Stallman and Roland H. Pesch</ADDRESS>
+<P>
+<P><HR><P>
+<UL>
+<LI><A NAME="TOC1" HREF="gdb_1.html#SEC1">Summary of GDB</A>
+<UL>
+<LI><A NAME="TOC2" HREF="gdb_1.html#SEC2">Free software</A>
+<LI><A NAME="TOC3" HREF="gdb_1.html#SEC3">Contributors to GDB</A>
+</UL>
+<LI><A NAME="TOC4" HREF="gdb_2.html#SEC4">A Sample GDB Session</A>
+<LI><A NAME="TOC5" HREF="gdb_3.html#SEC5">Getting In and Out of GDB</A>
+<UL>
+<LI><A NAME="TOC6" HREF="gdb_3.html#SEC6">Invoking GDB</A>
+<UL>
+<LI><A NAME="TOC7" HREF="gdb_3.html#SEC7">Choosing files</A>
+<LI><A NAME="TOC8" HREF="gdb_3.html#SEC8">Choosing modes</A>
+</UL>
+<LI><A NAME="TOC9" HREF="gdb_3.html#SEC9">Quitting GDB</A>
+<LI><A NAME="TOC10" HREF="gdb_3.html#SEC10">Shell commands</A>
+</UL>
+<LI><A NAME="TOC11" HREF="gdb_4.html#SEC11">GDB Commands</A>
+<UL>
+<LI><A NAME="TOC12" HREF="gdb_4.html#SEC12">Command syntax</A>
+<LI><A NAME="TOC13" HREF="gdb_4.html#SEC13">Command completion</A>
+<LI><A NAME="TOC14" HREF="gdb_4.html#SEC14">Getting help</A>
+</UL>
+<LI><A NAME="TOC15" HREF="gdb_5.html#SEC15">Running Programs Under GDB</A>
+<UL>
+<LI><A NAME="TOC16" HREF="gdb_5.html#SEC16">Compiling for debugging</A>
+<LI><A NAME="TOC17" HREF="gdb_5.html#SEC17">Starting your program</A>
+<LI><A NAME="TOC18" HREF="gdb_5.html#SEC18">Your program's arguments</A>
+<LI><A NAME="TOC19" HREF="gdb_5.html#SEC19">Your program's environment</A>
+<LI><A NAME="TOC20" HREF="gdb_5.html#SEC20">Your program's working directory</A>
+<LI><A NAME="TOC21" HREF="gdb_5.html#SEC21">Your program's input and output</A>
+<LI><A NAME="TOC22" HREF="gdb_5.html#SEC22">Debugging an already-running process</A>
+<LI><A NAME="TOC23" HREF="gdb_5.html#SEC23">Killing the child process</A>
+<LI><A NAME="TOC24" HREF="gdb_5.html#SEC24">Additional process information</A>
+<LI><A NAME="TOC25" HREF="gdb_5.html#SEC25">Debugging programs with multiple threads</A>
+<LI><A NAME="TOC26" HREF="gdb_5.html#SEC26">Debugging programs with multiple processes</A>
+</UL>
+<LI><A NAME="TOC27" HREF="gdb_6.html#SEC27">Stopping and Continuing</A>
+<UL>
+<LI><A NAME="TOC28" HREF="gdb_6.html#SEC28">Breakpoints, watchpoints, and catchpoints</A>
+<UL>
+<LI><A NAME="TOC29" HREF="gdb_6.html#SEC29">Setting breakpoints</A>
+<LI><A NAME="TOC30" HREF="gdb_6.html#SEC30">Setting watchpoints</A>
+<LI><A NAME="TOC31" HREF="gdb_6.html#SEC31">Setting catchpoints</A>
+<LI><A NAME="TOC32" HREF="gdb_6.html#SEC32">Deleting breakpoints</A>
+<LI><A NAME="TOC33" HREF="gdb_6.html#SEC33">Disabling breakpoints</A>
+<LI><A NAME="TOC34" HREF="gdb_6.html#SEC34">Break conditions</A>
+<LI><A NAME="TOC35" HREF="gdb_6.html#SEC35">Breakpoint command lists</A>
+<LI><A NAME="TOC36" HREF="gdb_6.html#SEC36">Breakpoint menus</A>
+</UL>
+<LI><A NAME="TOC37" HREF="gdb_6.html#SEC37">Continuing and stepping</A>
+<LI><A NAME="TOC38" HREF="gdb_6.html#SEC38">Signals</A>
+<LI><A NAME="TOC39" HREF="gdb_6.html#SEC39">Stopping and starting multi-thread programs</A>
+</UL>
+<LI><A NAME="TOC40" HREF="gdb_7.html#SEC40">Examining the Stack</A>
+<UL>
+<LI><A NAME="TOC41" HREF="gdb_7.html#SEC41">Stack frames</A>
+<LI><A NAME="TOC42" HREF="gdb_7.html#SEC42">Backtraces</A>
+<LI><A NAME="TOC43" HREF="gdb_7.html#SEC43">Selecting a frame</A>
+<LI><A NAME="TOC44" HREF="gdb_7.html#SEC44">Information about a frame</A>
+<LI><A NAME="TOC45" HREF="gdb_7.html#SEC45">MIPS/Alpha machines and the function stack</A>
+</UL>
+<LI><A NAME="TOC46" HREF="gdb_8.html#SEC46">Examining Source Files</A>
+<UL>
+<LI><A NAME="TOC47" HREF="gdb_8.html#SEC47">Printing source lines</A>
+<LI><A NAME="TOC48" HREF="gdb_8.html#SEC48">Searching source files</A>
+<LI><A NAME="TOC49" HREF="gdb_8.html#SEC49">Specifying source directories</A>
+<LI><A NAME="TOC50" HREF="gdb_8.html#SEC50">Source and machine code</A>
+</UL>
+<LI><A NAME="TOC51" HREF="gdb_9.html#SEC51">Examining Data</A>
+<UL>
+<LI><A NAME="TOC52" HREF="gdb_9.html#SEC52">Expressions</A>
+<LI><A NAME="TOC53" HREF="gdb_9.html#SEC53">Program variables</A>
+<LI><A NAME="TOC54" HREF="gdb_9.html#SEC54">Artificial arrays</A>
+<LI><A NAME="TOC55" HREF="gdb_9.html#SEC55">Output formats</A>
+<LI><A NAME="TOC56" HREF="gdb_9.html#SEC56">Examining memory</A>
+<LI><A NAME="TOC57" HREF="gdb_9.html#SEC57">Automatic display</A>
+<LI><A NAME="TOC58" HREF="gdb_9.html#SEC58">Print settings</A>
+<LI><A NAME="TOC59" HREF="gdb_9.html#SEC59">Value history</A>
+<LI><A NAME="TOC60" HREF="gdb_9.html#SEC60">Convenience variables</A>
+<LI><A NAME="TOC61" HREF="gdb_9.html#SEC61">Registers</A>
+<LI><A NAME="TOC62" HREF="gdb_9.html#SEC62">Floating point hardware</A>
+</UL>
+<LI><A NAME="TOC63" HREF="gdb_10.html#SEC63">Using GDB with Different Languages</A>
+<UL>
+<LI><A NAME="TOC64" HREF="gdb_10.html#SEC64">Switching between source languages</A>
+<UL>
+<LI><A NAME="TOC65" HREF="gdb_10.html#SEC65">List of filename extensions and languages</A>
+<LI><A NAME="TOC66" HREF="gdb_10.html#SEC66">Setting the working language</A>
+<LI><A NAME="TOC67" HREF="gdb_10.html#SEC67">Having GDB infer the source language</A>
+</UL>
+<LI><A NAME="TOC68" HREF="gdb_10.html#SEC68">Displaying the language</A>
+<LI><A NAME="TOC69" HREF="gdb_10.html#SEC69">Type and range checking</A>
+<UL>
+<LI><A NAME="TOC70" HREF="gdb_10.html#SEC70">An overview of type checking</A>
+<LI><A NAME="TOC71" HREF="gdb_10.html#SEC71">An overview of range checking</A>
+</UL>
+<LI><A NAME="TOC72" HREF="gdb_10.html#SEC72">Supported languages</A>
+<UL>
+<LI><A NAME="TOC73" HREF="gdb_10.html#SEC73">C and C++</A>
+<UL>
+<LI><A NAME="TOC74" HREF="gdb_10.html#SEC74">C and C++ operators</A>
+<LI><A NAME="TOC75" HREF="gdb_10.html#SEC75">C and C++ constants</A>
+<LI><A NAME="TOC76" HREF="gdb_10.html#SEC76">C++ expressions</A>
+<LI><A NAME="TOC77" HREF="gdb_10.html#SEC77">C and C++ defaults</A>
+<LI><A NAME="TOC78" HREF="gdb_10.html#SEC78">C and C++ type and range checks</A>
+<LI><A NAME="TOC79" HREF="gdb_10.html#SEC79">GDB and C</A>
+<LI><A NAME="TOC80" HREF="gdb_10.html#SEC80">GDB features for C++</A>
+</UL>
+<LI><A NAME="TOC81" HREF="gdb_10.html#SEC81">Modula-2</A>
+<UL>
+<LI><A NAME="TOC82" HREF="gdb_10.html#SEC82">Operators</A>
+<LI><A NAME="TOC83" HREF="gdb_10.html#SEC83">Built-in functions and procedures</A>
+<LI><A NAME="TOC84" HREF="gdb_10.html#SEC84">Constants</A>
+<LI><A NAME="TOC85" HREF="gdb_10.html#SEC85">Modula-2 defaults</A>
+<LI><A NAME="TOC86" HREF="gdb_10.html#SEC86">Deviations from standard Modula-2</A>
+<LI><A NAME="TOC87" HREF="gdb_10.html#SEC87">Modula-2 type and range checks</A>
+<LI><A NAME="TOC88" HREF="gdb_10.html#SEC88">The scope operators <CODE>::</CODE> and <CODE>.</CODE></A>
+<LI><A NAME="TOC89" HREF="gdb_10.html#SEC89">GDB and Modula-2</A>
+</UL>
+<LI><A NAME="TOC90" HREF="gdb_10.html#SEC90">Chill</A>
+<UL>
+<LI><A NAME="TOC91" HREF="gdb_10.html#SEC91">How modes are displayed</A>
+<LI><A NAME="TOC92" HREF="gdb_10.html#SEC92">Locations and their accesses</A>
+<LI><A NAME="TOC93" HREF="gdb_10.html#SEC93">Values and their Operations</A>
+<LI><A NAME="TOC94" HREF="gdb_10.html#SEC94">Chill type and range checks</A>
+<LI><A NAME="TOC95" HREF="gdb_10.html#SEC95">Chill defaults</A>
+</UL>
+<LI><A NAME="TOC96" HREF="gdb_10.html#SEC96">Objective-C/C++</A>
+<UL>
+<LI><A NAME="TOC97" HREF="gdb_10.html#SEC97">Method Names in Commands</A>
+<LI><A NAME="TOC98" HREF="gdb_10.html#SEC98">Command Descriptions</A>
+<LI><A NAME="TOC99" HREF="gdb_10.html#SEC99">Objective-C/C++ Expressions</A>
+</UL>
+<LI><A NAME="TOC100" HREF="gdb_10.html#SEC100">PostScript</A>
+</UL>
+</UL>
+<LI><A NAME="TOC101" HREF="gdb_11.html#SEC101">Examining the Symbol Table</A>
+<LI><A NAME="TOC102" HREF="gdb_12.html#SEC102">Altering Execution</A>
+<UL>
+<LI><A NAME="TOC103" HREF="gdb_12.html#SEC103">Assignment to variables</A>
+<LI><A NAME="TOC104" HREF="gdb_12.html#SEC104">Continuing at a different address</A>
+<LI><A NAME="TOC105" HREF="gdb_12.html#SEC105">Giving your program a signal</A>
+<LI><A NAME="TOC106" HREF="gdb_12.html#SEC106">Returning from a function</A>
+<LI><A NAME="TOC107" HREF="gdb_12.html#SEC107">Calling program functions</A>
+<LI><A NAME="TOC108" HREF="gdb_12.html#SEC108">Patching programs</A>
+</UL>
+<LI><A NAME="TOC109" HREF="gdb_13.html#SEC109">GDB Files</A>
+<UL>
+<LI><A NAME="TOC110" HREF="gdb_13.html#SEC110">Commands to specify files</A>
+<LI><A NAME="TOC111" HREF="gdb_13.html#SEC111">Errors reading symbol files</A>
+</UL>
+<LI><A NAME="TOC112" HREF="gdb_14.html#SEC112">Specifying a Debugging Target</A>
+<UL>
+<LI><A NAME="TOC113" HREF="gdb_14.html#SEC113">Active targets</A>
+<LI><A NAME="TOC114" HREF="gdb_14.html#SEC114">Commands for managing targets</A>
+<LI><A NAME="TOC115" HREF="gdb_14.html#SEC115">Choosing target byte order</A>
+<LI><A NAME="TOC116" HREF="gdb_14.html#SEC116">Remote debugging</A>
+<UL>
+<LI><A NAME="TOC117" HREF="gdb_14.html#SEC117">The GDB remote serial protocol</A>
+<UL>
+<LI><A NAME="TOC118" HREF="gdb_14.html#SEC118">What the stub can do for you</A>
+<LI><A NAME="TOC119" HREF="gdb_14.html#SEC119">What you must do for the stub</A>
+<LI><A NAME="TOC120" HREF="gdb_14.html#SEC120">Putting it all together</A>
+<LI><A NAME="TOC121" HREF="gdb_14.html#SEC121">Communication protocol</A>
+<LI><A NAME="TOC122" HREF="gdb_14.html#SEC122">Using the <CODE>gdbserver</CODE> program</A>
+<LI><A NAME="TOC123" HREF="gdb_14.html#SEC123">Using the <CODE>gdbserve.nlm</CODE> program</A>
+</UL>
+<LI><A NAME="TOC124" HREF="gdb_14.html#SEC124">GDB with a remote i960 (Nindy)</A>
+<UL>
+<LI><A NAME="TOC125" HREF="gdb_14.html#SEC125">Startup with Nindy</A>
+<LI><A NAME="TOC126" HREF="gdb_14.html#SEC126">Options for Nindy</A>
+<LI><A NAME="TOC127" HREF="gdb_14.html#SEC127">Nindy reset command</A>
+</UL>
+<LI><A NAME="TOC128" HREF="gdb_14.html#SEC128">The UDI protocol for AMD29K</A>
+<LI><A NAME="TOC129" HREF="gdb_14.html#SEC129">The EBMON protocol for AMD29K</A>
+<UL>
+<LI><A NAME="TOC130" HREF="gdb_14.html#SEC130">Communications setup</A>
+<LI><A NAME="TOC131" HREF="gdb_14.html#SEC131">EB29K cross-debugging</A>
+<LI><A NAME="TOC132" HREF="gdb_14.html#SEC132">Remote log</A>
+</UL>
+<LI><A NAME="TOC133" HREF="gdb_14.html#SEC133">GDB with a Tandem ST2000</A>
+<LI><A NAME="TOC134" HREF="gdb_14.html#SEC134">GDB and VxWorks</A>
+<UL>
+<LI><A NAME="TOC135" HREF="gdb_14.html#SEC135">Connecting to VxWorks</A>
+<LI><A NAME="TOC136" HREF="gdb_14.html#SEC136">VxWorks download</A>
+<LI><A NAME="TOC137" HREF="gdb_14.html#SEC137">Running tasks</A>
+</UL>
+<LI><A NAME="TOC138" HREF="gdb_14.html#SEC138">GDB and Sparclet</A>
+<UL>
+<LI><A NAME="TOC139" HREF="gdb_14.html#SEC139">Setting file to debug</A>
+<LI><A NAME="TOC140" HREF="gdb_14.html#SEC140">Connecting to Sparclet</A>
+<LI><A NAME="TOC141" HREF="gdb_14.html#SEC141">Sparclet download</A>
+<LI><A NAME="TOC142" HREF="gdb_14.html#SEC142">Running and debugging</A>
+</UL>
+<LI><A NAME="TOC143" HREF="gdb_14.html#SEC143">GDB and Hitachi microprocessors</A>
+<UL>
+<LI><A NAME="TOC144" HREF="gdb_14.html#SEC144">Connecting to Hitachi boards</A>
+<LI><A NAME="TOC145" HREF="gdb_14.html#SEC145">Using the E7000 in-circuit emulator</A>
+<LI><A NAME="TOC146" HREF="gdb_14.html#SEC146">Special GDB commands for Hitachi micros</A>
+</UL>
+<LI><A NAME="TOC147" HREF="gdb_14.html#SEC147">GDB and remote MIPS boards</A>
+<LI><A NAME="TOC148" HREF="gdb_14.html#SEC148">Simulated CPU target</A>
+</UL>
+</UL>
+<LI><A NAME="TOC149" HREF="gdb_15.html#SEC149">Controlling GDB</A>
+<UL>
+<LI><A NAME="TOC150" HREF="gdb_15.html#SEC150">Prompt</A>
+<LI><A NAME="TOC151" HREF="gdb_15.html#SEC151">Command editing</A>
+<LI><A NAME="TOC152" HREF="gdb_15.html#SEC152">Command history</A>
+<LI><A NAME="TOC153" HREF="gdb_15.html#SEC153">Screen size</A>
+<LI><A NAME="TOC154" HREF="gdb_15.html#SEC154">Numbers</A>
+<LI><A NAME="TOC155" HREF="gdb_15.html#SEC155">Optional warnings and messages</A>
+</UL>
+<LI><A NAME="TOC156" HREF="gdb_16.html#SEC156">Canned Sequences of Commands</A>
+<UL>
+<LI><A NAME="TOC157" HREF="gdb_16.html#SEC157">User-defined commands</A>
+<LI><A NAME="TOC158" HREF="gdb_16.html#SEC158">User-defined command hooks</A>
+<LI><A NAME="TOC159" HREF="gdb_16.html#SEC159">Command files</A>
+<LI><A NAME="TOC160" HREF="gdb_16.html#SEC160">Commands for controlled output</A>
+</UL>
+<LI><A NAME="TOC161" HREF="gdb_17.html#SEC161">Using GDB under GNU Emacs</A>
+<LI><A NAME="TOC162" HREF="gdb_18.html#SEC162">Reporting Bugs in GDB</A>
+<UL>
+<LI><A NAME="TOC163" HREF="gdb_18.html#SEC163">Have you found a bug?</A>
+<LI><A NAME="TOC164" HREF="gdb_18.html#SEC164">How to report bugs</A>
+</UL>
+<LI><A NAME="TOC165" HREF="gdb_19.html#SEC165">Formatting Documentation</A>
+<LI><A NAME="TOC166" HREF="gdb_20.html#SEC166">Installing GDB</A>
+<UL>
+<LI><A NAME="TOC167" HREF="gdb_20.html#SEC167">Compiling GDB in another directory</A>
+<LI><A NAME="TOC168" HREF="gdb_20.html#SEC168">Specifying names for hosts and targets</A>
+<LI><A NAME="TOC169" HREF="gdb_20.html#SEC169"><CODE>configure</CODE> options</A>
+</UL>
+<LI><A NAME="TOC170" HREF="gdb_21.html#SEC170">Index</A>
+</UL>
+<P><HR><P>
+This document was generated on 23 November 1999 using the
+<A HREF="http://wwwcn.cern.ch/dci/texi2html/">texi2html</A>
+translator version 1.51.</P>
+</BODY>
+</HTML>

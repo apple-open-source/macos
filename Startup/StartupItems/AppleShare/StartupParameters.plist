@@ -1,0 +1,12 @@
+{
+  Description     = "Apple File Service";
+  Provides        = ("Apple File Service");
+  Requires        = ("Disks", "Resolver", "AppleTalk");
+  Uses            = ("Network Time");
+  OrderPreference = "None";
+  Messages =
+  {
+    start = "Starting Apple File Service";
+    stop  = "Stopping Apple File Service";
+  };
+}

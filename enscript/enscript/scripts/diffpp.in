@@ -1,0 +1,195 @@
+#!@PERLPROG@
+# -*- perl -*-
+#
+# Pretty-print diff outputs with GNU enscript.
+# Copyright (c) 1996-1998 Markku Rossi
+#
+# Author: Markku Rossi <mtr@iki.fi>
+#
+
+#
+# This file is part of GNU enscript.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; see the file COPYING.  If not, write to
+# the Free Software Foundation, 59 Temple Place - Suite 330,
+# Boston, MA 02111-1307, USA.
+#
+
+#
+# Original idea by Trent Fisher <trent@informix.com>
+# Thanks to:
+#  - Tero Kivinen <kivinen@iki.fi> for the first prototype
+#  - Tait Cyrus <tait.cyrus@mci.com> for fixes and cleanups
+#
+
+$file = shift(@ARGV);
+$add_gray = ".80";
+$del_gray = ".60";
+
+$program = $0;
+$program =~ s/.*\///g;
+
+sub usage {
+    warn "Usage: $program ORIGINAL_FILE < DIFF\n\n";
+    warn "Program reads a diff file from its standard input and annotates
+ORIGINAL_FILE to show the changes made to the file.  The easiest way to use
+this program is to use it as an input filter for GNU enscript:
+
+  \$ enscript -G2re --filter='rcsdiff %s | diffpp %s' *.c *.h
+  \$ enscript -G2re --filter='diff %s~ %s | diffpp %s' *.c *.h
+
+";
+}
+
+if (!defined($file) || defined($ARGV[0])) {
+    &usage;
+    exit 1;
+}
+
+if ($file eq "--help") {
+    &usage;
+    exit 0;
+}
+
+if ($file eq "--version") {
+    warn "diffpp 1.0\n";
+    exit 0;
+}
+
+# Read in original file into internal array.
+open(FP, $file) || die "$program: couldn't open file `$file' for input: $!\n";
+@orig_file = <FP>;
+close(FP);
+$[ = 1;
+$orig_line_num = 1;
+$orig_num_lines = @orig_file;
+
+# Now read in file of diffs into internal array.
+@diffs = <STDIN>;
+$diff_line_num = 1;
+$diff_num_lines = @diffs;
+
+while ($diff_line_num <= $diff_num_lines) {
+    $_ = $diffs[$diff_line_num];
+    if (/a/) {
+	do_add($_);
+    } elsif (/d/) {
+	do_delete($_);
+    } elsif (/c/) {
+	do_change($_);
+    }
+}
+
+while ($orig_line_num <= $orig_num_lines) {
+    print $orig_file[$orig_line_num++];
+}
+
+# Handle new/added lines
+#
+# Formats used:
+#	#a#
+#	#a#,#
+sub do_add {
+    ($line) = @_;
+    if ($line =~ /(\d+)a(\d+),(\d+)/) {
+	$insert_at_line = $1;
+	$num_new_lines = $3 - $2 + 1;
+    } elsif ($line =~ /(\d+)a(\d+)/) {
+	$insert_at_line = $1;
+	$num_new_lines = 1;
+    }
+    &skip_to_line($insert_at_line);
+    printf("\000shade{$add_gray}");
+    &mark_to_line($num_new_lines, "+");
+    printf("\000shade{1.0}");
+}
+
+# Handle deleted/removed lines
+#
+# Formats used:
+#	#d#
+#	#,#d#
+sub do_delete {
+    ($line) = @_;
+    if ($line =~ /(\d+),(\d+)d(\d+)/) {
+	$num_del_lines = $2 - $1 + 1;
+    } elsif ($line =~ /(\d+)d(\d+)/) {
+	$num_del_lines = 1;
+    }
+    $del_from = $1;
+    &skip_to_line($del_from - 1);
+    printf("\000shade{$del_gray}");
+    &mark_to_line($num_del_lines, "-");
+    printf("\000shade{1.0}");
+    $orig_line_num += $num_del_lines;
+}
+
+# Handle changed/modified lines
+#
+# Formats used:
+#	#,#c#,#
+#	#,#c#
+#	#c#,#
+#	#c#
+sub do_change {
+    ($line) = @_;
+    if ($line =~ /(\d+),(\d+)c(\d+),(\d+)/) {
+	$num_old_lines = $2 - $1 + 1;
+	$num_new_lines = $4 - $3 + 1;
+	$change_at_line = $1;
+    } elsif ($line =~ /(\d+),(\d+)c(\d+)/) {
+	$num_old_lines = $2 - $1 + 1;
+	$num_new_lines = 1;
+	$change_at_line = $1;
+    } elsif ($line =~ /(\d+)c(\d+),(\d+)/) {
+	$num_old_lines = 1;
+	$num_new_lines = $3 - $2 + 1;
+	$change_at_line = $1;
+    } elsif ($line =~ /(\d+)c(\d+)/) {
+	$num_old_lines = 1;
+	$num_new_lines = 1;
+	$change_at_line = $1;
+    }
+    # Mark old lines
+    &skip_to_line($change_at_line - 1);
+    $orig_line_num += $num_old_lines;	# skip over changed lines
+    printf("\000shade{$del_gray}");
+    &mark_to_line($num_old_lines, "-");
+    printf("\000shade{1.0}");
+    # Mark new lines
+    printf("\000shade{$add_gray}");
+    &mark_to_line($num_new_lines, "+");
+    printf("\000shade{1.0}");
+}
+
+sub skip_to_line {
+    ($line) = @_;
+
+    while ($orig_line_num <= $line) {
+	print $orig_file[$orig_line_num];
+	$orig_line_num++;
+    }
+}
+
+sub mark_to_line {
+    ($num_lines, $marker) = @_;
+
+    $diff_line_num++;		# skip over diff command
+    while ($num_lines > 0) {
+	$diff_line = substr($diffs[$diff_line_num++],3);
+	print "\000ps{gsave -5 0 rmoveto ($marker) show grestore}";
+	print $diff_line;
+	$num_lines--;
+    }
+}

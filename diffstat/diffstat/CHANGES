@@ -1,0 +1,52 @@
+Patch 5 (16-Jan-1998)
+	diffstat 1.26
+
+	Change copyright terms.
+
+ 	Accommodate patches w/o tabs in header lines (e.g., from cut/paste).
+	Still prefer the tabs because otherwise we cannot have spaces in
+	filenames.
+
+ 	Strip suffixes such as ".orig", to avoid confusing output.
+
+Patch 4 (16-Mar-1996)
+	diffstat 1.24
+
+	Corrected state-transition after "Binary".
+
+	Added testing subdirectory
+
+	Added -p option.
+
+	Handle differences from /tmp (e.g., for X11R5 patches).
+
+Patch 3 (06-May-1995)
+
+	Repost whole program to comp.sources.misc (1.17)
+
+	Mods to scaling: limit to 1:1 if only a few changes were made; added
+	logic to accumulate error across +/-/!  calls.
+
+	added logic to recognize 'rcsdiff -u' output.
+
+Patch 2 (26-Dec-1994)
+
+	Strip common pathname prefix (1.15)
+
+Patch 1 (13-Nov-1994)
+
+	Test for <string.h> vs <strings.h>
+
+	Corrected error in 'match()' that didn't handle properly the case when
+	an argument was a null string (i.e., blank lines in a unified diff).
+
+	Added options '-n' and '-V'
+
+	Added patchlev.h, CHANGES files.
+
+	Added install.sh, for autoconf 2.1
+
+
+Patch 0 (13-Jun-1994)
+
+	Initial version of 'diffstat' (1.12).

@@ -1,0 +1,124 @@
+.\" cvs-make-branch.1
+.\" 3/24/2000
+.\"
+.\" Wilfredo Sanchez Jr. | wsanchez@apple.com
+.\" Copyright 2000 Apple Computer, Inc.
+.\"
+.Dd March 24 2000
+.Dt CVS-MAKE-BRANCH 1
+.Os Darwin
+.Sh NAME
+.Nm cvs-make-branch
+.Nd make a tagged cvs branch
+.Sh SYNOPSIS
+.Nm
+.Op Fl anv
+.Ar branch
+.Nm cvs-make-branch
+.Op Fl d Ar repository
+.Fl m Ar module
+.Op Fl b Ar base_version
+.Op Fl anv
+.Ar branch
+.Sh DESCRIPTION
+.Nm
+creates a tagged branch named
+.Ar branch
+in a CVS module.
+.Pp
+A branch in CVS has a name which corresponds to the branch itself and
+can be used to identify the latest version of the files on that
+branch.
+There is, however, no cooresponding symbolic name for the version from
+which the branch was created.
+.Nm
+will therefore tag the module with the symbolic name
+.Ar branch-base
+and then create the specified
+.Ar branch .
+This makes it easy to later reference the original version by name.
+.Pp
+In the first synopsis form,
+.Nm
+expects the current working directory to contain a CVS working copy
+and it will create the "-base" tag against the checked-out file
+revisions.
+Note that uses the
+.Nm cvs tag
+command; therefore any locally modified changes do not get tagged as
+the base version.
+.Nm
+will then create specified branch and update the working copy to it.
+It should be noted that locally modified (uncommitted) files remain so
+until committed, and if they are committed after the branch is
+created, then the commit will happen on the new branch.
+.Pp
+In the second synopsis form,
+.Nm
+does not expect a working copy to exist and will create the specified
+branch in the specified
+.Ar module
+directly in the repository using the 
+.Nm cvs rtag
+command.
+.Nm
+will then ask the user whether to check out the new
+.Ar branch
+in
+.Ar module .
+.Pp
+The following options are available:
+.Bl -tag -width flag
+.It Fl a
+By default,
+.Nm
+will print its parameters and ask the user to verify that a branch
+should be created with those parameters.
+The
+.Fl a
+option disables this prompt as well as the checkout prompt which
+is presented if the second synopsis form was used. A yes response is
+assumed in each case.
+.It Fl l
+Normally, in the first synopsis form,
+.Nm
+creates a branch in the current directory and recursively in all
+subdirectories. If the
+.Fl n
+option is specified,
+.Nm
+will create the specified
+.Ar branch
+only in the current working directory.
+.It Fl n
+If the
+.Fl n
+option is specified,
+.Nm
+will create the specified
+.Ar branch ,
+but will not update to it if the first synopsis form was used and will
+not check it out (or prompt to check it out) if the second synopsis form
+was used.
+.It Fl v
+The
+.Fl v
+option causes
+.Nm
+to be more verbose, which may aid in debugging problems.
+.It Fl d Ar repository
+The
+.Fl d
+option overrrides the value of the CVSROOT environment variable with
+.Ar repository .
+.It Fl b Ar base_version
+The
+.Fl b
+option allows the user to specify what version of the module to create
+the
+.Ar branch
+from.  The default is to branch from the main (HEAD) branch.
+.Sh SEE ALSO
+.Xr cvs 1 ,
+.Xr cvs-diff-branch 1 ,
+.Xr cvs-merge-branch 1

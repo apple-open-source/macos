@@ -1,0 +1,10 @@
+#!/bin/sh
+#
+# --file-align
+#
+
+. $srcdir/defs || exit 1
+
+$enscript --quiet --file-align=2 -p$output $asciifiles
+
+rm $output

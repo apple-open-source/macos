@@ -1,0 +1,11 @@
+dnl ../doc/m4.texinfo:1062: Origin of test
+define(`echo1', `$*')
+dnl @result{}
+define(`echo2', `$@')
+dnl @result{}
+define(`foo', `This is macro `foo'.')
+dnl @result{}
+echo1(foo)
+dnl @result{}This is macro This is macro foo..
+echo2(foo)
+dnl @result{}This is macro foo.

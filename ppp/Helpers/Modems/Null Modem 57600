@@ -1,0 +1,1 @@
+! Null Modem 57600!! Copyright:	© 1996 Apple Computer, Inc., All Rights Reserved.!! 'mlts' resource info for this modem: None.!! Use this script when you have a direct serial link to your server.!@ORIGINATE@ANSWERserreset 57600, 0, 8, 1@HANGUPexit 0

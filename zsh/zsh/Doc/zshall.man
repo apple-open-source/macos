@@ -1,0 +1,102 @@
+.\"
+.TH ZSHALL 1 "June 26, 1996" "zsh version 3.0"
+.SH NAME
+zshall \- the Z shell meta-man page
+.SH SYNOPSIS
+.\" \fBzsh\fP [ \(+-\fIoptions\fP ] [ \(+-\fBo\fP \fIoption\fP ] ...  [ \-\fBc\fP \fIstring\fP ] [ \fIarg\fP ... ]
+
+.SH "DESCRIPTION"
+Zsh is a UNIX command interpreter (shell) usable as an interactive
+login shell and as a shell script command processor.  Of the standard shells,
+zsh most closely resembles \fIksh\fR but includes many enhancements.  Zsh
+has comand line editing, builtin spelling correction, programmable
+command completion, shell functions (with autoloading), a history
+mechanism, and a host of other features.
+.sp
+This manual page includes all the separate manual pages in the
+following order:  zshmisc (general information), zshexpn (command and
+parameter expansion), zshbuiltins (built-in functions), zshcompctl
+(completion control via the \fBcompctl\fP built-in), zshparam
+(shell parameters), zshzle (command line editing) and zshoptions
+(shell options).
+.so %mandir%/zshmisc.%manext%
+.so %mandir%/zshexpn.%manext%
+.so %mandir%/zshbuiltins.%manext%
+.so %mandir%/zshcompctl.%manext%
+.so %mandir%/zshparam.%manext%
+.so %mandir%/zshzle.%manext%
+.so %mandir%/zshoptions.%manext%
+.SH "INVOCATION OPTIONS"
+If the \-\fBs\fP flag is not present and an argument is given,
+the first argument is taken to be the pathname of a script to
+execute.  The remaining arguments are assigned to the positional
+parameters.  The following flags are interpreted by the shell
+when invoked:
+.TP
+.PD 0
+\-\fBc\fP \fIstring\fP
+Read commands from \fIstring\fP.
+.TP
+\-\fBi\fP
+Force shell to be interactive.
+.TP
+\-\fBs\fP
+Read command from the standard input.
+.sp
+.SH STARTUP/SHUTDOWN FILES
+Commands are first read from \fB%zshenv%\fP.
+If the \fBRCS\fP option is unset
+within \fB%zshenv%\fP, all other
+initialization files are skipped.
+Otherwise, commands are read
+from \fB$ZDOTDIR/.zshenv\fP.
+(If \fBZDOTDIR\fP is unset, \fBHOME\fP is used instead).
+If the first character of argument zero passed to the shell
+is \-, or if the \-\fBl\fP flag is present, then the shell is
+assumed to be a login shell, and commands
+are read from \fB%zprofile%\fP and then \fB$ZDOTDIR/.zprofile\fP.
+Then, if the shell is interactive,
+commands are read from \fB%zshrc%\fP and then \fB$ZDOTDIR/.zshrc\fP.
+Finally, if the shell is a login shell, \fB%zlogin%\fP and
+\fB$ZDOTDIR/.zlogin\fP are read.
+.sp
+.SH FILES
+.B $ZDOTDIR/.zshenv
+.br
+.B $ZDOTDIR/.zprofile
+.br
+.B $ZDOTDIR/.zshrc
+.br
+.B $ZDOTDIR/.zlogin
+.br
+.B $ZDOTDIR/.zlogout
+.br
+\fB${TMPPREFIX}*\fP   (default is /tmp/zsh*)
+.br
+.B %zshenv%
+.br
+.B %zprofile%
+.br
+.B %zshrc%
+.br
+.B %zlogin%
+.br
+.B %zlogout%
+.sp
+.SH AUTHOR
+Zsh was originally written by Paul Falstad <pjf@cts.com>.  Zsh
+is now maintained by the members of the zsh workers mailing list
+\fBzsh-workers@math.gatech.edu\fP.  The development is currently
+coordinated by Zoltan Hidvegi <hzoli@cs.elte.hu>.
+.sp
+.SH SEE ALSO
+.IR sh (1),
+.IR csh (1),
+.IR tcsh (1),
+.IR rc (1),
+.IR bash (1),
+.IR ksh (1).
+.PP
+.sp
+.IR "IEEE Standard for information Technology \- Portable Operating System Interface (POSIX) \- Part 2: Shell and Utilities" ,
+IEEE Inc, 1993, ISBN 1-55937-255-9.

@@ -1,0 +1,25 @@
+C_GPERF = $(srcdir)/c-parse.gperf-next
+C_GPERF_H = $(srcdir)/c-gperf-next.h
+OBCP_GPERF = $(srcdir)/obcp/obcp.gperf-next
+
+# libgcc1.c is not needed, since the standard library has these functions.
+LIBGCC1=
+CROSS_LIBGCC1=
+
+# On Mac OS X, we need vector, FP and world save/restore routines.
+LIB2FUNCS_EXTRA = $(srcdir)/config/rs6000/macosx-fpsave.asm \
+		  $(srcdir)/config/rs6000/macosx-vecsave.asm \
+		  $(srcdir)/config/rs6000/macosx-worldsave.asm
+TARGET_LIBGCC2_CFLAGS = -force_cpusubtype_ALL
+
+# Specify other dirs of system header files to be fixed.
+# OTHER_FIXINCLUDES_DIRS= /LocalDeveloper/Headers
+
+ansi_include  = ansi
+base_include  = bsd
+posix_include = bsd
+
+machopic.o: config/next/machopic.c config/next/machopic.h \
+	    insn-config.h insn-flags.h $(CONFIG_H) $(RTL_H)
+	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
+	  $(srcdir)/config/next/machopic.c

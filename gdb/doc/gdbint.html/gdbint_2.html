@@ -1,0 +1,123 @@
+<HTML>
+<HEAD>
+<!-- This HTML file has been created by texi2html 1.51
+     from /mnt/apple/gdb/source/gdb.apple/source/gdb/gdb/doc/gdbint.texinfo on 23 November 1999 -->
+
+<TITLE>GDB Internals - Overall Structure</TITLE>
+</HEAD>
+<BODY>
+Go to the <A HREF="gdbint_1.html">first</A>, <A HREF="gdbint_1.html">previous</A>, <A HREF="gdbint_3.html">next</A>, <A HREF="gdbint_16.html">last</A> section, <A HREF="gdbint_toc.html">table of contents</A>.
+<P><HR><P>
+
+
+<H1><A NAME="SEC2" HREF="gdbint_toc.html#TOC2">Overall Structure</A></H1>
+
+<P>
+GDB consists of three major subsystems: user interface, symbol handling
+(the "symbol side"), and target system handling (the "target side").
+
+</P>
+<P>
+Ther user interface consists of several actual interfaces, plus
+supporting code.
+
+</P>
+<P>
+The symbol side consists of object file readers, debugging info
+interpreters, symbol table management, source language expression
+parsing, type and value printing.
+
+</P>
+<P>
+The target side consists of execution control, stack frame analysis, and
+physical target manipulation.
+
+</P>
+<P>
+The target side/symbol side division is not formal, and there are a
+number of exceptions.  For instance, core file support involves symbolic
+elements (the basic core file reader is in BFD) and target elements (it
+supplies the contents of memory and the values of registers).  Instead,
+this division is useful for understanding how the minor subsystems
+should fit together.
+
+</P>
+
+
+<H2><A NAME="SEC3" HREF="gdbint_toc.html#TOC3">The Symbol Side</A></H2>
+
+<P>
+The symbolic side of GDB can be thought of as "everything you can do in
+GDB without having a live program running".  For instance, you can look
+at the types of variables, and evaluate many kinds of expressions.
+
+</P>
+
+
+<H2><A NAME="SEC4" HREF="gdbint_toc.html#TOC4">The Target Side</A></H2>
+
+<P>
+The target side of GDB is the "bits and bytes manipulator".  Although
+it may make reference to symbolic info here and there, most of the
+target side will run with only a stripped executable available -- or
+even no executable at all, in remote debugging cases.
+
+</P>
+<P>
+Operations such as disassembly, stack frame crawls, and register
+display, are able to work with no symbolic info at all.  In some cases,
+such as disassembly, GDB will use symbolic info to present addresses
+relative to symbols rather than as raw numbers, but it will work either
+way.
+
+</P>
+
+
+<H2><A NAME="SEC5" HREF="gdbint_toc.html#TOC5">Configurations</A></H2>
+
+<P>
+<STRONG>Host</STRONG> refers to attributes of the system where GDB runs.
+<STRONG>Target</STRONG> refers to the system where the program being debugged
+executes.  In most cases they are the same machine, in which case a
+third type of <STRONG>Native</STRONG> attributes come into play.
+
+</P>
+<P>
+Defines and include files needed to build on the host are host support.
+Examples are tty support, system defined types, host byte order, host
+float format.
+
+</P>
+<P>
+Defines and information needed to handle the target format are target
+dependent.  Examples are the stack frame format, instruction set,
+breakpoint instruction, registers, and how to set up and tear down the stack
+to call a function.
+
+</P>
+<P>
+Information that is only needed when the host and target are the same,
+is native dependent.  One example is Unix child process support; if the
+host and target are not the same, doing a fork to start the target
+process is a bad idea.  The various macros needed for finding the
+registers in the <CODE>upage</CODE>, running <CODE>ptrace</CODE>, and such are all
+in the native-dependent files.
+
+</P>
+<P>
+Another example of native-dependent code is support for features that
+are really part of the target environment, but which require
+<CODE>#include</CODE> files that are only available on the host system.  Core
+file handling and <CODE>setjmp</CODE> handling are two common cases.
+
+</P>
+<P>
+When you want to make GDB work "native" on a particular machine, you
+have to include all three kinds of information.
+
+</P>
+
+<P><HR><P>
+Go to the <A HREF="gdbint_1.html">first</A>, <A HREF="gdbint_1.html">previous</A>, <A HREF="gdbint_3.html">next</A>, <A HREF="gdbint_16.html">last</A> section, <A HREF="gdbint_toc.html">table of contents</A>.
+</BODY>
+</HTML>

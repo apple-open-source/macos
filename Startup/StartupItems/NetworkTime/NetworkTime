@@ -1,0 +1,24 @@
+#!/bin/sh
+
+##
+# Start up time service.  If you're doing any sort of network file 
+# access, be sure NTP is enabled and properly configured, or you may 
+# see very strange errors and file consistency problems.
+##
+
+. /etc/rc.common
+
+if [ "${TIMESYNC:=-YES-}" = "-YES-" ]; then
+    CheckForNetwork
+
+    if [ "${NETWORKUP}" = "-NO-" ]; then exit; fi
+
+    ConsoleMessage "Configuring network time"
+
+    ##
+    # Synchronize our clock to the network's time
+    # and fire off ntpd to keep the clock in sync.
+    ##
+    ntpdate -bvs
+    ntpd -f /var/run/ntp.drift -p /var/run/ntpd.pid
+fi

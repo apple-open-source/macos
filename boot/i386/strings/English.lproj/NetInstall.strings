@@ -1,0 +1,126 @@
+/* Informational messages */
+
+"Loading Rhapsody";
+"Loading %s\n";
+"Reading Rhapsody configuration";
+"Couldn't load standalone linker; unable to load boot drivers.\n";
+"Insert file system media and press Return";
+"Errors encountered while starting up the computer.\n";
+"Pausing %d seconds...\n";
+"Starting Rhapsody";
+"Can't find %s\n";
+"Couldn't start up the computer using this floppy disk.";
+"Error occurred while linking driver %s:\n%s";
+"Loading %s device driver.\n";
+"The driver was loaded successfully.\n";
+"An error occurred while loading the %s device driver.\n";
+"Press Return to continue.\n";
+"That driver has already been loaded.\n";
+"Searching for drivers\n";
+"Reading configuration file '%s'.\n";
+
+/* Warnings */
+
+"Config file \"%s\" not found\n";
+"System config file '%s' not found\n";
+"Loading binary for %s device driver.\n";
+"Warning: No active drivers specified in system config.\n";
+
+/* Install messages */
+
+"DRIVER_MESSAGE_1" = 
+"The floppy disk in the drive contains device drivers for the following SCSI
+adapters and hard disk controllers:\n";
+"DRIVER_INSTRUCTION_1" = 
+"Type the number for the SCSI adapter or hard disk controller that
+the hard disk you want to install Rhapsody on is connected to.
+(This may be the same SCSI adapter that your CD-ROM drive is connected to.)\n\n";
+"DRIVER_ALTERNATE_1" = 
+"If the driver for this device is on another disk, insert that disk in the
+floppy disk drive and type %d.\n";
+"DRIVER_QUIT_1" = "";
+"DRIVER_MESSAGE_2" =
+"The floppy disk in the drive contains device drivers for the following
+SCSI adapters, hard disk controllers, and network adapters:\n";
+"DRIVER_INSTRUCTION_2" = 
+"Type the number for the network adapter in your computer.\n\n";
+"DRIVER_ALTERNATE_2" =
+"If the driver for this device is on another disk, insert that disk in the
+floppy disk drive and type %d.\n";
+"DRIVER_QUIT_2" = "";
+"DRIVER_MESSAGE_3" = 
+"The floppy disk in the drive contains the following device drivers:\n";
+"DRIVER_INSTRUCTION_3" = 
+"Type the number for the device driver you need to install Rhapsody.\n\n";
+"DRIVER_ALTERNATE_3" = 
+"If the device driver you need to load is on another disk, insert it in
+the drive and type %d.\n\n";
+"DRIVER_QUIT_3" = "Type %d to continue without installing a device driver from this disk.\n";
+"DRIVER_QUESTION_3" =
+"Normally, you only need to load the device drivers for the adapters your
+CD-ROM drive and hard disk are connected to in order to install Rhapsody.
+Other drivers are loaded automatically.
+
+If you do need to load another device driver, insert the disk that contains it
+in the floppy disk drive.\n\n";
+
+"Really Install?" =
+"This program is for installing Rhapsody on a hard disk.
+THIS IS NOT AN UPGRADE: ANY EXISTING FILES WILL BE DELETED.
+
+If you have files on your hard disk that you want to keep,
+quit this program and copy what you want to keep onto another disk.
+
+Type 1 to prepare to install Rhapsody.
+Type 2 to quit this installation program.\n";
+
+"Type %d to view a list of additional device drivers on this disk.\n\n";
+
+"Insert Driver Disk" = 
+"Please insert the Rhapsody Device Drivers disk in the floppy disk drive
+and press Return.\n\n---> ";
+
+"Load Other Drivers?" =
+"Normally, you only need to load the device drivers for the adapters your
+CD-ROM drive and hard disk are connected to in order to install Rhapsody.
+Other drivers are loaded automatically from the Rhapsody CD-ROM.
+
+If you do need to load another device driver, insert the disk that contains it
+in the floppy disk drive.\n";
+
+"Missing Drivers:" =
+"When you began installing Rhapsody, you loaded one or more device drivers
+that were not on the Rhapsody CD-ROM:\n";
+
+"No Drivers On This Disk" =
+"There are no suitable device drivers on this floppy disk.
+Please insert a new disk and press Return.
+---> ";
+
+"Install Canceled" =
+"Installation canceled.  Eject the floppy disk and restart the computer.\n";
+
+"1 To Continue" =
+"Type 1 to continue without loading additional device drivers.\n";
+
+"2 To Load" =
+"Type 2 to load a device driver from the disk in the floppy disk drive.\n";
+
+"1 To Load Driver" =
+"Please insert the floppy disk that contains one or more of these device
+drivers and type 1.\n";
+
+"2 To Continue" =
+"Type 2 to continue without loading any of the device drivers in this list.\n";
+
+/* Somewhat obscure error messages */
+
+"Error loading %s\n";
+"Read error\n";
+"Error in standalone linker executable\n";
+"Fat binary file doesn't contain i386 code\n";
+"Unrecognized binary format\n";
+"Error reading commands\n";
+"Error loading section\n";
+"Can't load driver %s without sarld\n";
+"Driver %s is larger than %d bytes and can't be loaded.\n";

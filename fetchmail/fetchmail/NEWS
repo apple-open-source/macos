@@ -1,0 +1,2059 @@
+				To do:
+
+* Warn user that fetchmailconf autoprobe may take a while?  (It can hang for
+  10 or 12 minutes if it hits a firewall that drops SYN packets sent to denied
+  ports.)
+
+* --all option that forces poll of skipped entries?
+
+				Release Notes:
+
+fetchmail-5.1.0 (Wed Sep 22 01:27:42 EDT 1999):
+* CRAM-MD5 code now doublequotes usernames with embedded spaces.  This will
+  probably fail (the RFCs don't support quoting) but it's better than nothing
+  and works with at least one server.
+* Federico G. Schwindt's fix for NetBSD/OpenBSD --with-kerberos.
+* auth keyword and option changed to preauth.
+* Correct the exit value when .fetchmailrc permissions are wrong.
+* getmail/gotmail scripts by Thomas Nesges added to contrib.
+* Guenther H. Leber's fix for a potential uid.c buffer overflow.
+* Todd Sabin's option to force IMAP authentication type; enables working
+  around some broken servers.
+
+There are 266 people on fetchmail-friends and 444 on fetchmail-announce.
+
+fetchmail-5.0.8 (Tue Sep 14 06:56:50 EDT 1999):
+* Todd Sabin's patch to accept spaces in CRAM-MD5 names.
+* Fix to CRAM endianness patch, by Dan Root via Lawrence Rogers.
+* Suppress duplicates by message ID in multidrop mode.
+* NTLM support for querying Microsoft Exchange servers, from Grant Edwards.
+* Lexer fix by Brian Boutel.
+
+There are 264 people on fetchmail-friends and 441 on fetchmail-announce.
+
+fetchmail-5.0.7 (Sat Aug 21 04:26:13 EDT 1999):
+* RPA support works again.
+* Added debian_rc startup/shutdown script to contrib/.
+* Yet another monitor option fix.
+* Various small option-processing fixes.
+* Teach fetchmailconf about HP OpenMail.
+* SunOS compilation fixes.
+* Steve Dodd's fix to not send bouncemail on transient errors.
+* Don Willis's improved UID parsing.
+* Fetchmail now logs and recovers from SIGPIPE errors produced by broken
+  socket streams or MDAs.  The current poll cycle is terminated.
+
+There are 256 people on fetchmail-friends and 433 on fetchmail-announce.
+
+fetchmail-5.0.6 (Mon Aug  2 14:04:23 EDT 1999):
+* Czech internationalization support (thanks to Jiri Pavlovsky).
+* Russion internationalization support (but I couldn't read the contributor
+  name in the headers!)
+* Update of the French internationalization support by Guy Brand.
+* Lexer fix for the `nokeep' problem by Robert de Bath (thanks
+  to David "Hi! I'm an obnoxious twerp" Ashley for stimulating this).
+* Lexer states added to tell the lexer to return a string after a
+  `username' or `password' keyword, courtesy of Brian Boutel.
+* Interface option fix from Bill Currie.
+* 554 added to default antispam values (for Postfix).
+* In UID files, split on *rightmost* @ as some dialups actually embed
+  @ in usernames.
+* Detect Intermail server's "wait a few minutes" message and cope.
+* Patches for Heimdal implementation of GSSAPI from Leif Johansson 
+  <leifj@matematik.su.se>.  Somebody should test this against the MIT version.
+* Fix IMAP authentication code to not rely on the challenge code
+  accepting multiple writes; thanks to Kevin Turner <kevin.turner@oberlin.edu>.
+
+Warning: CompuServe changed their POP3 system on 31 July 1999.  In doing
+so, they broke fetchmail's RPA support.  Nobody has sent me either code that
+works with the new system or a spec for it yet.
+
+There are 263 people on fetchmail-friends and 421 on fetchmail-announce.
+
+fetchmail-5.0.5 (Sat Jun 26 14:41:27 EDT 1999):
+* Merged in official OpenBSD port patches.
+* Added Spanish and German descriptions to spec (thanks to Horst von Brand).
+* Moved MIME decoding earlier to avoid messing with header length after
+  offsets have been calculated.
+* Make the .fetchmail_pid lockfile with O_EXCL.  Duhh...
+* New FAQ item R8 on startup failures under Red Hat 6.0 and Debian.
+* IMAP now skips the authorization step on a PREAUTH response.
+* Fix bug in defaulting of IMAP expunge period with non-LOGIN auth modes.
+
+There are 260 people on fetchmail-friends and 414 on fetchmail-announce.
+
+fetchmail-5.0.4 (Fri Jun 11 18:32:58 EDT 1999):
+* Fixed compilation error on systems without vnsprintf.
+* No more GIFs!  RPM is now patent-encumbrance-free.
+* Fix yet another annoying qmail \n bug (thanks to Paul Gilmore).
+* There is now a documented return code 13 for termination on fetchlimit.
+* Added qpopper 2.53 warning to the FAQ and fetchmailconf.
+* Fix fetchmailconf to handle window-manager destroy notifications.
+* Todd <tastas@home.com> Sabin's RFC2195 support for AUTH=CRAM-MD5 under IMAP.
+* New FAQ material on single-drop use with Daemon, thanks to Phil Hunt.
+* Fix memory leak triggered by UIDL usage, and a .fetchids-trashing bug.
+
+There are 261 people on fetchmail-friends and 407 on fetchmail-announce.
+
+fetchmail-5.0.3 (Sun May  2 23:39:22 EDT 1999):
+* Added FAQ item about things to check if --monitor fails with pppd.
+* Fixed Matthias Andree's SMTP error bug.
+
+There are 257 people on fetchmail-friends and 380 on fetchmail-announce.
+
+fetchmail-5.0.2 (Thu Apr 29 22:09:46 EDT 1999):
+* The IMAP driver now sets SEEN at deletion time, in case the server
+  ships DSNs when that bit is set (HP OpenMail does this).
+* Delay between POP3 subsessions to allow the server time to release locks.
+* Improved environment-query logic to handle mutiple names per UID.
+  (This also fixes the no-pidfile bug introduced in 5.0.1.)
+* FAQ now includes the location of SSL patches.
+
+There are 256 people on fetchmail-friends and 377 on fetchmail-announce.
+
+fetchmail-5.0.1 (Sun Apr 18 14:59:56 EDT 1999):
+* Try to discover user/home via getpwuid(getuid()) before using LOGNAME/HOME.
+* Mike Pearce's fix for buggy DEFAULT handling in .netrc.
+* Keep validation errors from generating message lines that qmail will reject.
+* Can now use expunge option to chop POP3 retrievals into subsessions.
+* Fix broken site-deletion code in fetchmailconf.
+
+There are 254 people on fetchmail-friends and 370 on fetchmail-announce.
+
+------------------------------------------------------------------------------
+fetchmail-5.0.0 (Mon Apr  5 11:00:24 EDT 1999):
+* Update for fetchsetup from Kent Robotti.
+* Eliminate a realloc error in fetchmail -v -v progress message generation.
+* Spanish-language update by Javier Kohen.
+* French-language update by Guy Brand.
+* Danish summary and description for specgen.sh.
+* Henrik Storner's fix for the PGP/mimedecode problem.
+* Fix netrc search code to be able to search >1 host entry per file.
+* Added heads-up about SpryNet in the FAQ and a test in the autoprobe code.
+* Removed the Hotmole script.  Instead, the web page and FAQ now refer to it.
+
+There are 254 people on fetchmail-friends and 369 on fetchmail-announce.
+
+fetchmail-4.7.9 (Tue Mar  9 13:25:01 EST 1999):
+* Patch by Dan Root to solve an endianness problem in IMAP-K4.
+* Fix lexical-analyzer bug that rejected `set nobouncemail',
+* Prevent send_bouncemail from stepping on SMTP antispam response.
+* Added French internationalization (LC_ALL=fr) from Guy Brand.
+* Added Hugo Rabson's script for fetching from Hotmail.
+* Test for .fetchmailrc ownership using geteuid() when possible.
+* Prevent parsing of delimited protocols from tripping up on a 
+  MIME-armored line consisting of "=2E\r\n".
+
+There are 263 people on fetchmail-friends and 361 on fetchmail-announce.
+
+fetchmail-4.7.8 (Mon Feb 22 10:06:04 EST 1999):
+* FreeBSD support for interface and monitor options by Andy Doran <ad@psn.ie>.
+* Fixed server-deletion bug in fetchmailconf.  Also, handle `port' properly.
+* Timestamps now generated into logfiles at start of poll cycle.
+* New `nobounce' debugging option (specifically exempted from feature freeze)
+  allows SMTP error bouncemail to be redirected from sender to local
+  postmaster.
+* Suppress dancing progress dots when syslog is on.
+* es.po update by Javier Kohen.
+* Added FAQ material on what to do for a "do not relay" sendmail response.
+* Can now build under Lynx 3.0.0.
+
+There are 261 people on fetchmail-friends and 358 on fetchmail-announce.
+
+fetchmail-4.7.7 (Tue Feb  2 18:57:04 EST 1999):
+* Fixed off-by-one error in batchlimit logic (thanks to Brian Warner).
+* Added MD5 checksums to web page.
+* Get kernel type (and derive /proc/net/dev format) at startup.
+* Fixes for fetchmailconf bugs reported by Gunther Leber.
+* Return of the dancing progress dots!
+
+There are 257 people on fetchmail-friends and 349 on fetchmail-announce.
+
+fetchmail-4.7.6 (Sat Jan 30 19:44:24 EST 1999):
+* Henrik Storner's fix for mimedecode
+* ' now works as a string quote in. fetchmailrc syntax, just like ".
+* All bounce messages now use FQDN return paths.
+* Check for background mode before generating oversized-message mail.  Duh!
+* Paul Murphy's improvements for SDPS.
+* Message deletion on miscellaneous 5xx SMTP errors is suppressed unless a
+  bounce can be sent.
+
+There are 262 people on fetchmail-friends and 343 on fetchmail-announce.
+
+fetchmail-4.7.5 (Sat Jan  9 17:01:13 EST 1999):
+* Issue proper logout after running fetchmail -c
+* Fix prefix problem with internationalized version.
+* Fix for Harry McGavran's VPATH bug.
+* Progress messages now go to stdout.  Errors still go to stderr
+* Fetchmailconf can now launch fetchmail with a point-and-click interface.
+* Many small cleanups suggested by Byrial Jensen.
+* Polish-language (LC_ALL=pl) support.  Turkish text in spec file.
+
+There are 253 people on fetchmail-friends and 331 on fetchmail-announce.
+
+fetchmail-4.7.4 (Mon Jan  4 13:26:32 EST 1999):
+* Error message cleanup.
+* HTML cleanup in design notes and FAQ, thanks to Byrial Jensen.
+* Don't get message sizes when --check is on.
+* Supply our own strerror() if system doesn't have one.
+* Gunther Leber's cleanup for the plugin/plugout code.
+* Hajimu UMEMOTO's code for localtime in timestamps.
+* Michael Warfield's IPv6 fixes.
+* Added Argentine Spanish as supported language (LC_ALL=es_AR) from a
+  po file by Javier Kohen <jkohen@tough.com>.
+* Accept 'passwd' as a synonym for 'password' in .netrc files.
+* In fetchmailconf, Save or Quit in a frame first performs that action
+  on all dependent frames.
+* Source distribution now includes Debian package data under debian/
+
+There are 249 people on fetchmail-friends and 334 on fetchmail-announce.
+
+fetchmail-4.7.3 (Thu Dec 31 11:54:01 EST 1998):
+* Added new FAQ item G11 and added material to R1.
+* Do a full antispam check on the EOM response in case the local MTA does
+  content analysis of the message body.
+* Bouncemail now conforms to RFC1984 correctly.
+* Use sigprocmask to avoid Ron Gomes's weird hang bug (I hope).
+
+There are 248 people on fetchmail-friends and 336 on fetchmail-announce.
+
+fetchmail-4.7.2 (Fri Dec 25 01:01:54 EST 1998):
+* Don't append the destination address to a postmaster name containing @.
+* Added John Summerfield's getfetchmail script.
+* Minor fixes in bouncemail format.
+
+There are 246 people on fetchmail-friends and 329 on fetchmail-announce.
+
+fetchmail-4.7.1 (Fri Dec 18 03:02:22 EST 1998):
+* FEATURE FREEZE IS NOW IN EFFECT!  No new features until after 5.0.0.
+* Enable fetchmail to build correctly on systems without socketpair.
+* gcc -Wall cleanup.
+* Make sure user can see a trouble message in verbose mode when there 
+  are no local matches for recipient addresses.
+* Harry McGavran's configure.in fix for mixed Kerberos IV/V installations.
+
+There are 246 people on fetchmail-friends and 329 on fetchmail-announce.
+
+------------------------------------------------------------------------------
+fetchmail-4.7.0 (Mon Dec 14 12:05:27 EST 1998):
+* Minor correction to make i18n subdirectory builds work better.
+* Rob Funk's old-message-check optimization.
+* Fix an error in the logic for detecting when all connections are wedged.
+* Unwedge connections on wakeup.
+* Fix Ken Estes's LMTP coredump error.
+* Bounce mail with addresses rejected by the listener back to the sender.
+* Search .netrc on via name as well as poll name (thanks to Rob Funk).
+* Handle SMTP error responses from DATA, so zmailer will work.
+
+There are 246 people on fetchmail-friends and 327 on fetchmail-announce.
+
+fetchmail-4.6.9 (Tue Dec  1 14:46:19 EST 1998):
+* Better RFC822 conformance in fetchmail trace headers.
+* Corrected MIME generation of bounce mail.
+* Prevent core dumps on 'for' and 'by' in names (bug introduced in 4.6.8).
+* Peter Hamlen's fix for bounce-message generation.
+* Silent mode now suppresses progress messages from 2xx responses in ETRN.
+* Fix for netrc.c core dump from Michael Pearce 
+  <Michael_Pearce-AMP001@email.mot.com>.
+
+There are 244 people on fetchmail-friends and 315 on fetchmail-announce.
+
+fetchmail-4.6.8 (Sat Nov 28 21:07:46 EST 1998):
+* Added bounce-mail capability on SMTP/ESMTP error conditions.
+* Internationalization support via GNU gettext from Arnaldo Carvalho de Melo
+  <acme@conectiva.com.br> and Jorge Godoy <godoy@conectiva.com.br>.  First
+  supported language is Brazilo-Portuegese (LC_ALL=pt_BR).
+* Fixed Debian Bug#29913: -M on the command line causes SEGV in daemon mode.
+* Emit an informational message when fetchlimit is reached.
+* Documented fetchmail's actions on ESMTP errors on the man page.
+* Fix an undead-message hole in POP3 with fetchall on.
+* Fix a minor error in generation of fetchmail's trace headers.
+* Better Received-line parsing (avoid some false positives).
+
+There are 247 people on fetchmail-friends and 309 on fetchmail-announce.
+
+fetchmail-4.6.7 (Sat Nov 21 13:59:47 EST 1998):
+* Gerald Britton's patches to enable Hesiod support.
+* Postmaster option fix from Bill Metzenthen <billm@melbpc.org.au>.
+* Socks library support from Guiseppe Guerini.
+* Notification mail is now sent to the user on 20 consecutive timeouts.
+* Try to cope with the InterMail server's "wait a few minutes" error.
+
+There are 247 people on fetchmail-friends and 308 on fetchmail-announce.
+
+fetchmail-4.6.6 (Sat Nov  7 17:27:04 EST 1998):
+* Fixed a core-dump bug in reply_hack with -v -v on.
+* Fix fetchmailconf to be able to edit properties.
+* Send calling user mail when password authentication fails in daemon mode.
+* Added plugin/plugout features from Felix von Leitner.
+* Dave Bodenstab's errno fix.
+* You can make fetchmail read its config from stdin with the option `-f -'.
+* Experimental, UNTESTED support of LSMTP (RFC2033).
+
+There are 249 people on fetchmail-friends and 304 on fetchmail-announce.
+
+fetchmail-4.6.5 (Wed Oct 28 18:28:01 EST 1998):
+* Fixed a bug in reply_hack that could occasionally cause malloc smashes.
+* Added --bsmtp option to dump mail as a BSMTP batch.
+
+There are 247 people on fetchmail-friends and 306 on fetchmail-announce.
+
+fetchmail-4.6.4 (Tue Oct 27 09:07:58 EST 1998):
+* Code cleanup fixes by Jonathan T. Agnew <jtagnew@amherst.edu>.
+* Fix to fetchmailconf to not output empty properties.
+* Better instrumentation for the rewrite code -- hopefully this will
+  enable us to nail Sam Steingold's bug.
+* Fixed bug in %T expansion.
+
+There are 245 people on fetchmail-friends and 304 on fetchmail-announce.
+
+fetchmail-4.6.3 (Tue Oct 20 12:37:25 EDT 1998):
+* Introduced `debug' verbosity, invocable by -v -v.
+* Make authentication failures more visible by syslogging them.
+* fetchmailconf now has access to information about which fetchmail
+  compile-time options have been enabled, and uses it to control
+  the choices in various panels.
+* Added `properties' option for extension scripts.
+* gcc -Wall cleanup
+* Removed ad-hoc rewrite of Return-Path introduced in 4.6.1.  This was 
+  redundant with what reply_hack already does.
+
+There are 249 people on fetchmail-friends and 294 on fetchmail-announce.
+
+fetchmail-4.6.2 (Fri Oct 16 12:49:30 EDT 1998):
+* Time out server open requests like we do reads.  This protects against
+  buggy TCP/IP configurations that hang forever on a bad open.
+* The '--limit' option can now be used with daemon mode. The user is notified
+  that some messages are being skipped on the mail server; the user get
+  notified by email that mentions all the messages being skipped (including
+  their size). A -w/--warnings per-user option specifies at what intervals
+  size warnings are sent to the user (default = 3600 sec).
+* Added FAQ item M7 on diagnosing failures to extract envelope addresses
+  from sendmail trace headers.
+* Added Andrea Sterbini's init script for Red Hat to the contrib directory.
+
+There are 252 people on fetchmail-friends and 295 on fetchmail-announce.
+
+fetchmail-4.6.1 (Wed Oct 14 18:46:58 EDT 1998):
+* Fixed a minor memory leak in the IP-address-comparison code.
+* Mark Staveley's patch to suppress progress dots from non-detached daemon
+  fetchmails.
+* Removed -pipe compilation option, it confuses too many non-GCC compilers.
+* Major update of SDPS FAQ material from B.Candler@pobox.com.
+* Fetchmailconf can deal with zsh now.
+* Append "@localhost" to MAIL FROM if it's not an FQDN.
+* Fix minor bug in processing postconnect option.
+* Corrected contrib/fetchspool script as suggested by William Boughton.
+
+There are 257 people on fetchmail-friends and 296 on fetchmail-announce.
+
+fetchmail-4.6.0 (Fri Sep 18 13:17:17 EDT 1998):
+* Added Bill Adams's mailqueue.pl to the contrib directory.
+* Try to enable KPOP initialization to work even if `no dns' is on.
+
+This is a "gold" version. It will be carried on the fetchmail home page
+in addition to the current leading-edge one, until the next gold version.
+
+There are 250 people on fetchmail-friends and 281 on fetchmail-announce.
+
+fetchmail-4.5.8 (Tue Sep  8 12:06:26 EDT 1998):
+
+* Prevent fetchmailconf from adding an additional layer of quotes on
+  preconnect/postconnect/smtpaddress options.
+* Fix a --configdump bug affecting multidrop configurations.
+
+There are 252 people on fetchmail-friends and 278 on fetchmail-announce.
+
+fetchmail-4.5.7 (Thu Aug 27 17:10:46 EDT 1998):
+* Fixed SDPS support (thanks to Chris Brooks).
+* One more fix for the snakebit postmaster option.
+* Compute FQDN from localhost when we're using Kerberos.
+
+There are 249 people on fetchmail-friends and 273 on fetchmail-announce.
+
+fetchmail-4.5.6 (Tue Aug 25 00:29:44 EDT 1998):
+* SDPS support, experimental version 2.  Requires configure --enable-SDPS.
+* Major FAQ update.  Added geocities warning.
+* Fixed --configdump so embedded single and double quotes are handled.
+* Fetchmailconf 1.3: fixed bug that prevented deletion of first items in lists.
+* Fixed the `set postmaster' option to work correctly, grrr...
+* Fix for Debian bug #25997, handling of >Received lines.
+
+There are 253 people on fetchmail-friends and 272 on fetchmail-announce.
+
+fetchmail-4.5.5 (Mon Aug  3 16:08:14 EDT 1998):
+* Brendan Cully's FAQ entry on GSSAPI.
+* Andrew Cagney's improvement to Received-line parsing.
+* Kent Robotti sent an updated version of fetchsetup.
+* Fixed the spam-block code that I broke in 4.5.3 :-(.
+* Updated the entry on setting up sendmail spam blocks.
+* Added setrlimit call to inhibit core dumps unless debugging is on.
+* The default of smtplist has been changed; the undocumented feature that
+  it always included the fetchmail host's FQDN is gone (this is now
+  true for ETRN mode only).
+* Modes other than ETRN no longer need to know the fetchmail host's FQDN.
+  This eliminates a gethostbyname() call and makes fetchmail more independent
+  of local DNS configuration quirks.
+* Added experimental SDPS code for demon.co.uk users.
+
+There are 256 people on fetchmail-friends and 256 on fetchmail-announce.
+
+fetchmail-4.5.4 (Sat Jul 25 10:25:14 EDT 1998):
+* Fixed processing of --antispam option.
+* Antispam default value is now the list [571, 550, 501] corresponding
+  to the sendmail, old exim, and new exim spam-block responses.
+* Fetchmailconf 1.2 has been fixed to handle list values of antispam.
+
+There are 262 people on fetchmail-friends and 252 on fetchmail-announce.
+
+fetchmail-4.5.3 (Mon Jul 20 15:02:08 EDT 1998):
+* Minor fixes to the GSSAPI code.  Seems to work with stock UW IMAP now.
+* Fetchmail running as root now sends misaddressed multidrop mail to
+  `postmaster', not root.  Added `postmaster' option to allow override.
+* DNS names of target servers are now canonicalized only once, at start
+  of run, and then only if they'll actually be needed later for multidrop
+  checking or fetching Kerberos tickets.  This change eliminates many
+  gethostbyname calls.
+* It's now possible to specify multiple spam-block responses as a list.
+* Download-progress dots are no longer generated when syslog is enabled.
+* 1.1 version of fetchmailconf.
+
+Note: the DNS-usage change might conceivably break your configuration
+if (a) you're using `no dns' and multidrop and (b) you're not
+specifying either a `via' option or pollname that is the host's
+canonical name.  The thing to watch for will be an illegal domain name
+error from your listener.  If this happens, just add a `via' option with
+the cononical FQDN of the host as argument.
+
+There are 267 people on fetchmail-friends and 249 on fetchmail-announce.
+
+fetchmail-4.5.2 (Tue Jul 14 19:02:52 EDT 1998):
+* German-language internationalization in the RPM, thanks to Jochen Hayek.
+* .fetchmailrc files are now permitted to be executable by user and group.
+* Eric Daniel's guard code against very long lines.
+* Added --nosyslog option.
+
+There are 270 people on fetchmail-friends and 245 on fetchmail-announce.
+
+fetchmail-4.5.1 (Wed Jul  1 19:27:56 EDT 1998):
+* Checkalias option from Enrico Musio <enrico.musio@spaziozerouno.it>.
+* Discard Unix From_ lines in headers (copes with Debian bug report #23808).
+* Tell fetchmailconf not to care if the attempt to create an icon window fails.
+* All fetchmailconf windows now iconify with an image.
+* obituary@freshmeat's enhancements to hook fetchmail into the Red Hat 
+  control panel. 
+* Even if RPA is enabled, it won't be done unless your remotename ends in
+  `@compuserve.com' as CompuServe requires.  Thus CompuServe users may now
+  choose ordinary authentication at runtime.
+
+There are 275 people on fetchmail-friends and 238 on fetchmail-announce.
+
+------------------------------------------------------------------------------
+fetchmail-4.5.0bis (Sat Jun 20 10:55:52 EDT 1998):
+
+One-line fix for an embarrassing bug in the `gold' version; command-line
+options were being ignored when there was no .fetchmailrc.
+
+There are 281 people on fetchmail-friends and 229 on fetchmail-announce.
+
+fetchmail-4.5.0 (Tue Jun 16 01:56:24 EDT 1998):
+
+This is a "gold" version. It will be carried on the fetchmail home page
+in addition to the current leading-edge one, until the next gold version.
+
+* 1.0 version of fetchmailconf.
+* Jochen Hayek's changes to make RPA less verbose.
+* Harry McGavran's fix for subdirectory installation.
+* Marty Lee fixed a bug in activation of hosts named on the command-line.
+* The fetchall option forces RETR again.  We can cope with USA.NET now. 
+* Gunther Leber's patch to make fetchmail -V less chatty when mode is ETRN.
+* Gunther Leber's code to sanitize %T and %F expansion in the MDA string.
+* Jonathan Marten's fix for list option handling.
+
+There are 281 people on fetchmail-friends and 228 on fetchmail-announce.
+
+fetchmail-4.4.9 (Thu Jun  4 10:41:02 EDT 1998):
+* 0.93 beta version of fetchmailconf (now with autoprobing for servers!).
+* Merging of command-line arguments has now been fixed (I think!).
+* Make fetchmail 64-bit clean (thanks to John Franklin <john@iptimaging.com>).
+* Fix man-page installation (thanks to Kevin Hawkins <khawkins@ncsa.uiuc.edu>).
+* Should build on SunOS again (__STDC__ conditions changed to STDC_HEADERS).
+* CompuServe RPA and idfile fixes from Rich Beerman <rbeerman@pobox.com>.
+* Hajimu UMEMOTO <ume@calm.imasy.or.jp> patched the address-rewrite logic to
+  deal with addresses of the form "John Smith (foo) <jsmith@bar.com>" better.
+* POP3 TOP argument reduced to 99999999, the most CompuServe will accept.
+* Brendan Cully's fixes for the GSS code.
+
+There are 279 people on fetchmail-friends and 217 on fetchmail-announce.
+
+fetchmail-4.4.8 (Tue May 26 12:30:58 EDT 1998):
+* Added 0.90 beta version of fetchmailconf.
+* Removed fetchall side-effect kluge, now that we know how to make TOP work
+  with qpopper 2.3+.
+* Patch by Kok Seng to prevent loss of UID info when a query fails.
+* Pascal Grudler <pg@dtx466.ledl.com> sent a fix for the idfile option.
+* Several fixes for command-line processing from Gunther Leber:
+  - in fetchmail.c
+    * set tmpbuf to NULL after freeing the buffer (so this will hopefully
+      cause a coredump, when tmpbuf is used somewhere else)
+    * when makeing sure we have a nonempty host list to forward to, I
+      added "localhost" for non ETRN protocols.  This should relieve the
+      situation for people, who do neither have a static ip-address
+      (hostname) assigned and don't bother to set up a dummy-interface
+      for their hostname.  I think this feature was already in fetchmail
+      in an older version.  We lost this, when we changed the code that it
+      would work with ETRN.  My fix here works for both ETRN and non ETRN.
+  - in options.c
+    * changed char buf[...] to *buf + xmalloc to avoid buffer overuns and
+      possible resulting (and annoying) coredumps
+    * in parsecmdline(): replaced atoi by xatoi which uses strtol and
+      better validity checks for input numbers.  This fix only works on
+      ANSI-C systems; old systems still use atoi.  
+  - fixed reversed dumping of mimedecode option
+
+There are 272 people on fetchmail-friends and 214 on fetchmail-announce.
+
+fetchmail-4.4.7 (Sat May 23 08:26:58 EDT 1998):
+* FEATURE FREEZE IS NOW IN EFFECT!  No new features until after 4.5.0.
+* Better workaround for TOP bounds-checking in qpopper 2.3+.
+* Several fixes for option-parsing and elsewhere by Gunther Leber.
+* George Colouris's second try at NetBSD autoconfiguration.
+* Bruce Mah's fix for core dump in command-line host specification.
+* Missing `idfile' declaration added to .fetchmailrc processing.
+* Mimedecode default turned off pending a fix for the PGP-signature-
+  munging bug.
+
+There are 270 people on fetchmail-friends and 216 on fetchmail-announce.
+
+fetchmail-4.4.6 (Sat May 16 14:16:49 EDT 1998):
+* Fix a bug introduced by my 4.4.5 bug-fix release :-(
+* Make the internal line buffer eight times longer to cope with idiot
+  DOS-world editors.
+* Back out NetBSD configure.in change, it broke all other Kerberos installs. 
+* Fixed qmail dup problem, thanks to Chris Bond's smoking-gun -v transcript.
+
+There are 270 people on fetchmail-friends and 212 on fetchmail-announce.
+
+fetchmail-4.4.5 (Wed May 13 21:37:02 EDT 1998):
+* Make RPA logging use error() rather than stderr.
+* Autoconfiguration support for NetBSD.
+* Henrik Storner's fix for a minor mimedecode bug.
+
+There are 271 people on fetchmail-friends and 209 on fetchmail-announce.
+
+fetchmail-4.4.4 (Wed May  6 10:08:15 EDT 1998):
+* Francois Wautier's fix for qvirtual.
+* Willem Hengeveld's fix for UID initialization.
+* Strip out qvirtual prefix *before* doing name mapping or localdomain check.
+
+There are 270 people on fetchmail-friends and 199 on fetchmail-announce.
+
+fetchmail-4.4.3 (Sun Apr 19 18:22:00 EDT 1998):
+* Back out one of the changes to the null Return-Path handling, as it caused
+  invalid rewrites leading to protocol sync errors under some configurations.
+* Add code to disable using TOP for pop3.c when fetchall is on.  Recent
+  versions of qpopper don't bounds-check TOP requests properly.
+
+There are 277 people on fetchmail-friends and 186 on fetchmail-announce.
+
+fetchmail-4.4.2 (Sun Apr 19 00:13:42 EDT 1998):
+* Use TOP for POP3 retrieval to avoid marking messages seen.  Duh!
+* Another fix for command-line --smtphost option.
+* Deal with "Return-Path: <>" more gracefully.
+* Re-enable build on some random Solaris (memmove wasn't in the C library).
+* Comparison of UIDs is no longer caseblind.
+* Fix patch for unmime from Henrik Storner to correct "Content-Type:" header.
+
+There are 277 people on fetchmail-friends and 185 on fetchmail-announce.
+
+fetchmail-4.4.1 (Tue Mar 24 00:01:20 EST 1998):
+* We now properly shroud IMAP passwords containing ", \, and SP.
+* Checked for Y2K safety.  No 2-digit dates anywhere, so we're safe.
+* Added mimedecode option by Henrik Storner.
+* Display a total byte count in the fetchmail status message.
+* Fixed a strange core-dump bug that manifested when using -f and --smtphunt.
+
+There are 279 people on fetchmail-friends and 165 on fetchmail-announce.
+
+------------------------------------------------------------------------------
+fetchmail-4.4.0 (Mon Mar 16 14:57:38 EST 1998):
+* Fix bug that prevented graceful exit from POP3 validation on wrong password.
+* Dominique Unruh's patch that copes gracefully with bodiless messages.
+* Fix timer-leak problem with the SIGALRM fix, pointed out by Dave Bodenstab.
+* Deal with more M$ Exchange braindamage (violating an RFC1939 limit).
+* Allow spaces in IMAP usernames (thank Juerg Wanner <juerg.wanner@ubs.com>).
+* Handle empty Return-Path (thank Dmitry Yaitskov <dyaitskov@insystems.com>).
+* Improvements in UID handling; should be a cleaner fix for Dick van den Burg.
+* Remove the LOGIN capability check for IMAPrev1 servers; Cyrus chokes on it.
+
+There are 273 people on fetchmail-friends and 160 on fetchmail-announce.
+
+fetchmail-4.3.9 (Fri Mar  6 10:45:32 EST 1998):
+* Relax the LOGIN capability check in IMAP.
+* John Stracke <francis@netscape.com> sent a workaround for SIGALRM flakiness
+  under glibc6 over Linux.
+* Kerberos V support from Jon Dugan <jdugan@ncsa.uiuc.edu> and
+  Von Welch <vwelch@ncsa.uiuc.edu>.
+* Ron Kaminsky <kam@Orbotech.Co.IL> sent a patch to RFC1730-encode passwords
+  sent to IMAP servers.  This allows them to contain doublequotes and
+  backslashes.
+* Made the antispam response configurable.
+* UID-handling fix from Dick van den Burg <burg@is.ge.com>,
+
+There are 275 people on fetchmail-friends and 153 on fetchmail-announce.
+
+fetchmail-4.3.8 (Tue Feb 24 15:47:13 EST 1998):
+* Documentation cleanup.
+* -S is back to setting smtphost all the time; net-security option is now -T.
+* net-security option is now per-server, with a `netsec' keyword.
+* Handle "account" token in .netrc.
+* Fix IMAP4rev1 detection.
+* Added /-suffix capability to specify a port or service on smtphost args.
+* More fixes by Nicholas Pitre.
+* Fix for core-dump bug in the new UID-marking code by timw@aracnet.com.
+* EMX changes support running fetchmail under OS/2.
+
+There are 269 people on fetchmail-friends and 144 on fetchmail-announce.
+
+fetchmail-4.3.7 (Tue Feb 17 21:30:26 EST 1998):
+* Fixed a minor bug in the IMAP re-polling logic.
+* Nicholas Pitre's extensive changes to multidrop:
+  - Seek for the true sender of a mail which is not necessarily in the
+    From: header. (see comments in the code for more explicit details).
+    This one is particularly important with list distributions...
+  - Respect the Resent-To/-Cc/-Bcc precedence over the To/Cc/Bcc headers
+    for recipient delivery.  So avoid resending a message to a person who
+    just resent a mail to some other addresses.
+  - Fix a bug in find_server_names() wich caused recipient addresses to
+    figure twice in the recipient address list.
+  - Modified parse_received()  to let full adress from the Received header to
+    pass through so local domains can be used (now has same policy as in
+    the find_server_names() function).
+  - Fixed memory leaks from readheaders().
+  - Made some strcmp() be strcasecmp() as it should be because it didn't
+    work correctly in some cases.
+  - Modified reply_hack() to meet the needs of above modifications.
+  Thomas says these changes have been tested for two weeks in a production
+  multidrop environment.  I tested them for another week in mine.
+* Doug Muth's runfetchmail version 1.1.
+* Minor port patches from Philippe De Muyter.
+* Patch by Chun-Chung Chen <cjj@u.washington.edu> to handle quotes in .netrc
+* Corrected OTP support, IPv6 and IPSEC support patches from Craig Metz.
+* Fix bad interaction between UID handling and fetchlimit.
+
+There are 272 people on fetchmail-friends and 136 on fetchmail-announce.
+
+fetchmail-4.3.6 (Fri Jan 23 00:25:57 EST 1998):
+* Improved RPM packaging with correct grouping and an icon.
+* Fixed another minor bug in handling of `expunge 0'.
+* Kent Robotti sent a new version of fetchsetup.
+* Scott Burson's tweak to allow USER=postmaster to work.
+* Byrial Jensen's fix to handle NULs in mail correctly.
+* Vojtech Pavlik's fix for simultaneous %F and %T.
+* IMAP code can now deal with untagged responses during CAPABILITY
+  (at least one server issues the motd in a bunch of "* OK {ALERT]" lines
+  in response to the first command after connecting.)
+* New --smtpaddress option from Henning P. Schmiedehausen allows you
+  to force the hostname used in MAIL FROM lines.
+* If link can't find the bind library, force `no dns' on all connections.
+* Change name of ordinary-user lockfile so .fetchmail can be used as a
+  logging directory.
+* Close pipe to MDA when we get a nonresponse timeout.  This should 
+  prevent MDA zombies from piling up when we have errors.
+* Treat Netscape's "X-Mozilla-Status" lines like "Status:" lines.
+* More informative error messages on timeout.
+
+There are 269 people on fetchmail-friends and 123 on fetchmail-announce.
+
+fetchmail-4.3.5 (Mon Dec 15 06:07:08 EST 1997):
+* Added Kent Robotti's fetchsetup configuration script.
+* Corrected buggy handling of `expunge 0'.
+* RFC 1731 GSSAPI support from Brendan Cully <brendan@kublai.com>.
+* We no longer reveal the remotename in fetchmail's Received line, as this
+  may be sensitive information.
+
+There are 264 people on fetchmail-friends and 106 on fetchmail-announce.
+
+fetchmail-4.3.4 (Fri Dec  5 12:39:31 EST 1997):
+* Yet another attempt on the Compuserve RPA moving target.
+* Fix ETRN code to poll for the fetchmail host if there's no -S option.
+* Allow `--quit' to be given with other options to shut down a running daemon
+  before anything else gets done (suggested by Greg Stark).
+* Added Gordon Matzigkeit's warning about -F to the man page.
+* Improved POP3 protocol-synchronization error messages.
+* Allow fetchmail to proceed even if DNS is down or unavailable, if all
+  multidrop entries have `no dns'.
+* Added Robert de Bath's "fetchspool" script to contrib.
+* Use strftime(3) to gen a proper RFC822 date into fetchmail's Received header.
+
+There are 272 people on fetchmail-friends and 96 on fetchmail-announce.
+
+fetchmail-4.3.3 (Sat Nov 22 01:51:41 EST 1997):
+* Robert Hardy <rhardy@webcon.net>'s patch to use IMAP EXAMINE in check mode. 
+* Alexander Kourakos's patch for cleaner handling of group addresses.
+* Fixed expansion of MDA %-escapes (thanks Wez Furlong <wjf103@york.ac.uk>).
+* Deal with the possibility that IMAP NOOP issued on rescan might not get an
+  EXISTS response (thanks to Jonathan T. Agnew <jtagnew@amherst.edu>).
+* contrib/runfetchmail copyright now meets Debian Free Software Guidelines.
+* RPA code is changed to track a change I'm told CompuServe made on the weekend
+  of November 15.
+* Set %p 3000 in the lexer source to fix the Solaris 2.4 build.
+* Changed the summary status message emitted by a foreground run.  The old
+  user@host produced odd results under some virtual-domain setups, so it's
+  "user at host" now.
+
+There are 281 people on fetchmail-friends and 83 on fetchmail-announce.
+
+fetchmail-4.3.2 (Wed Oct 22 20:30:14 EDT 1997):
+* More slow-UIDL patches from Wolfgang Wander.
+* Yet another attempt to fix IMAP-K4.  This one, my beta-testers say, works.
+* Only re-poll on actual dispatches (not just fetches).
+* Monitor patch for newer kernels by Keith Rohrer <kwrohrer@enteract.com>.
+* Handle repolling multiple folders correctly.
+
+There are 261 people on fetchmail-friends and 64 on fetchmail-announce.
+
+fetchmail-4.3.1 (Mon Oct 13 17:12:40 EDT 1997):
+* Minor portation fixes for early AIX versions and NextSTEP.
+* Fixed a bad interaction between --limit and the repoll feature.
+* = is now optional in global options.
+* Code for parsing Received headers now strips out RFC822 routes.
+* Fixed processing of -S/-r arguments so giving a comma-separated list works. 
+* Don't query for the fetchmail host machine by default in ETRN mode.
+* Added skip prefix clause on `envelope' option
+* Don't use TCP/IP for DNS queries, it interacts badly with diald.
+* Allow usernames up to 40 chars long a la RFC1939.
+* Fixed IMAP-K4 authorization sequence.
+* Added --invisible option.  Note: you can now either make fetchmail generate
+  a Received header (the default) *or* spoof your listener into thinking
+  fetchmail connected from the mailserver machine, *but not both*.
+
+There are 269 people on fetchmail-friends and 40 on fetchmail-announce.
+
+------------------------------------------------------------------------------
+fetchmail-4.3.0 (Mon Oct  6 16:44:38 EDT 1997):
+* Rearranged IMAP authentication so CAPABILITY is done first,
+* FAQ update, including a major new item on how to protect your password.
+* Added code to have %F in an MDA string expand to the From address
+* Added code to prevent buffer spamming via the MDA %T/%s escape.
+* Luca Olivetti's --qvirtual option patch for qmail users.  
+* Fixed a bug in the code that was supposed to suppress expansion of RFC822 
+  groupnames.  (Thanks to Santiago Vila Doncel for pointing this out)
+* It's now possible to explicitly configure out POP3, IMAP, or ETRN.
+* We no longer get the hostname for address rewrites and log messages from the
+  server greeting line, instead it's the server's canonical DNS name.
+* Improved UID handling for RFC1725 POP3 servers coping with a line hit.
+* Created fetchmail-announce list.
+
+There are 281 people on fetchmail-friends and 8 on fetchmail-announce.
+% fetchmail-friends list split
+
+fetchmail-4.2.9 (Tue Sep 30 18:21:35 EDT 1997):
+* Don't byte-stuff when writing to an MDA.
+* IMAP mode now does smart re-polling, eliminating connection/authentication
+  overhead when messages are being delivered to the server mailbox while
+  the poll is in progress.
+* Fetchmail's synthetic Received line is now inserted just before the first
+  existing Received line and *after* any From headers shipped up by the
+  server.  This fixes odd problems with some sensitive sendmails.
+* Compuserve RPA authentication support.
+* Fixed a bug that screwed up message size queries on some IMAP2bis servers.
+
+There are 285 people on the fetchmail-friends list.
+
+fetchmail-4.2.8 (Sun Sep 28 16:59:59 EDT 1997):
+* Fixed a bug in POP2 compilation introduced sometime after 4.0.8.
+* Only emit length-mismatch messages in verbose mode.
+* POP3 lock busy error is now treated as authorization failure (Greg Stark)
+* Kerberos error is now treated as authorization failure (Greg Stark)
+* New --expunge option allows you to better control resource use under IMAP.
+
+There are 285 people on the fetchmail-friends list.
+
+fetchmail-4.2.7 (Fri Sep 26 11:21:15 EDT 1997):
+* Full OTP support with Craig Metz's libopie 2.32 or higher.
+* Major upgrade of FAQ with a procedure for diagnosing mangled-mail problems.
+* Emit fetchmail's Received with stuffline so stripcr/forcecr are implemented.
+
+There are 284 people on the fetchmail-friends list.
+
+fetchmail-4.2.6 (Wed Sep 24 17:37:13 EDT 1997):
+* Prevent bad matches on Received line due to hostnames ending "for" and "by".
+* Improved bug-tracking header, now also emitted when using an MDA.
+* Cope with Post Office/NT's brain-dead habit of prepending bogus LIST items
+  with a -1 length.
+* Return of the size consistency check; this time it works for POP3 too.
+
+There are 283 people on the fetchmail-friends list.
+
+fetchmail-4.2.5 (Mon Sep 22 23:38:46 EDT 1997):
+* Greg Stark's patch for better autoconfiguration on mixed libc5/libc6 systems.
+* We no longer mess with CFLAGS/LDFLAGS to get Kerberos support linked.
+* fetchmail now generates its own Received header for bug-tracking.
+* Improved handling of IMAP4rev1 CAPABILITY response.
+* Better code to avoid buffer overruns on long To/Cc/Bcc headers.
+
+There are 284 people on the fetchmail-friends list.
+
+fetchmail-4.2.4 (Fri Sep 19 19:48:50 EDT 1997):
+* Small compilation cleanups, thanks to Florian laRoche.
+* Removed the length consistency check, it mysteriously fails under POP3.
+* Added Alexander Kourakos's patch to improve address rewriting.
+* Added Wilfried Teiken's patch allowing the password to be piped in.
+
+There are 287 people on the fetchmail-friends list.
+
+fetchmail-4.2.3 (Thu Sep 18 16:19:10 EDT 1997):
+* Fix a bug in IMAP message-size retrieval.
+* Yet another try at getting the size-consistency check right.
+
+There are 286 people on the fetchmail-friends list.
+
+fetchmail-4.2.2 (Wed Sep 17 22:56:05 EDT 1997):
+* Re-enable --limit under IMAP (bug introduced in 4.2.0).
+* Autoconfigure root-mode PID-file directory to /etc if no /var/run.
+* ETRN mode no longer tries to flush queue for "localhost".
+* Introduced new DNS error return 11 to indicate DNS failure at startup.
+* More portation tweaks for unusual Unixes.
+* Make sure any X-Fetchmail-Error: line is properly terminated.
+
+There are 289 people on the fetchmail-friends list.
+
+fetchmail-4.2.1 (Tue Sep 16 12:26:57 EDT 1997):
+* Type and inclusion changes to eliminate warnings on weird Unixes.
+* Detect and warn about servers like M$ Exchange that get lengths wrong.
+
+There are 285 people on the fetchmail-friends list.
+
+------------------------------------------------------------------------------
+fetchmail-4.2.0 (Sun Sep 14 16:31:58 EDT 1997):
+* Driver code changed so delimited protocols don't rely on message lengths
+  being correct (this means #@!%^# brain-dead Microsoft Exchange will work).
+
+There are 285 people on the fetchmail-friends list.
+
+fetchmail-4.1.8 (Thu Sep 11 16:20:15 EDT 1997):
+* Fix nasty single-char-adddress bug in multidrop mode.
+* Fixed cosmetic bug in ETRN mode -v output!
+* Added warning about broken Microsoft Exchange server to FAQ. 
+* Will Renkel supplied an implementation of inet_aton().
+
+There are 286 people on the fetchmail-friends list.
+
+fetchmail-4.1.7 (Tue Sep  9 16:55:04 EDT 1997):
+* Now works with Cyrus IMAP server.
+* Will build OK even if local environment lacks strstr(3).
+
+There are 283 people on the fetchmail-friends list.
+
+fetchmail-4.1.6 (Sat Sep  6 13:11:59 EDT 1997):
+* Correct autoconfiguration machinery for Amiga (thanks to Steffen Opel).
+* Append hostname to fallback address in multidrop mode correctly.
+* Suppress append of smtphost name to RCPT TO address when it has a @ already.
+
+There are 285 people on the fetchmail-friends list.
+
+fetchmail-4.1.5 (Fri Sep  5 15:06:13 EDT 1997):
+* Prevent core dumps on messages with no destination lines.
+* Decorate RCPT TO names with smtphost.
+* Have AUTO mode croak on SMTP error.
+* Fall back on localhost if smtphost is defaulted and `hostname` is not
+  DNS-accessible.
+
+There are 286 people on the fetchmail-friends list.
+
+fetchmail-4.1.4 (Thu Sep  4 15:41:05 EDT 1997):
+* Autoconfigure correctly for systems that lack inet_aton().
+* Better failure reporting on SMTP connect failures.
+* Autoconfigure the MD5 support for 64-bit machines.
+
+Due to pilot error, there was no release actually numbered 4.1.3.
+There are 286 people on the fetchmail-friends list.
+
+fetchmail-4.1.2 (Wed Sep  3 18:44:58 EDT 1997):
+* Fixed a bonehead bug in RCPT TO name generation introduced in 4.1.1.
+* Added James Steven's ip-up wrapper to the contrib directory.
+* Prevent buffer spamming in SockOpen by a broken DNS.
+* Al Youngwerth's fix to prevent segfaults when Return-Path has no address.
+* Phillippe De Muyter's port changes for sysV68 R3V7.1.
+* Port changes for Kerberos under FreeBSD, thanks to Benjamin Greenwald.
+* Don't use inet_addr() any more.
+
+First release after my two-week vacation.
+There are 285 people on the fetchmail-friends list.
+
+fetchmail-4.1.1 (Fri Aug 15 21:02:50 EDT 1997):
+* Fix an obvious bug in some snprintf calls (non-Linux systems only)
+* No more hard limit on number of destination headers
+* Wolfgang Wander's support for faster new-message detection using UIDL.
+* Changed the default of the `envelope' option.
+
+There are 269 people on the fetchmail-friends list.
+
+fetchmail-4.1.0 (Mon Aug 11 17:19:57 EDT 1997):
+* Make the RPM depend on `smtpdaemon', which the sendmail package provides.
+* Clean up the Interactive UNIX System V/386 Release 3.2 port.
+* Enable parser to detect and complain about the most common syntax error.
+* More warnings about things that can go wrong with multidrop.
+* Dave Bodenstab's fix for flaky phone lines.
+* Always pass FQDNs in RCPT TO addresses (avoids minor tsuris with exim).
+
+There are 263 people on the fetchmail-friends list.
+% web page existed by this point
+
+fetchmail-4.0.8 (Thu Aug  7 17:05:27 EDT 1997):
+* Fixed core dump bug in UID handling introduced by the 4.0.6 change.
+* Retrieval code for POP3 & older IMAP versions now skips X-IMAP message
+  used by UW IMAP4rev1 server to store UIDs.
+* Port to Interactive UNIX System V/386 Release 3.2.
+
+There are 263 people on the fetchmail-friends list.
+
+fetchmail-4.0.7 (Tue Aug  5 22:47:11 EDT 1997):
+* Fixed a minor bug in handling of DNS errors in multidrop mode.
+* Added a `postconnect' analogous to `preconnect'.
+* Make `interval' count polls skipped because of interface or monitor option.
+* Fixed UIDL and dropstatus option processing.
+
+There are 258 people on the fetchmail-friends list.
+
+fetchmail-4.0.6 (Fri Aug  1 11:14:31 EDT 1997):
+* Changed semantics of `via' and `poll <name>' to be more orthogonal.
+* Substantially improved option coverage on the man page.
+* Yet another try at getting the remote-build right for Harry McGavran.
+* Don't emit "No mail" messages in (non-verbose) daemon mode).
+* Fixed the stock POP3 authorization sequence, which got broken in 4.0.4.
+* --kill option renamed to --nokeep for consistency
+
+WARNING: If you are running multidrop, (RE)READ FAQ ITEM F1 NOW!
+There are 258 people on the fetchmail-friends list.
+
+fetchmail-4.0.5 (Wed Jul 30 10:27:25 EDT 1997):
+* Increased %o in the Lex source to cope with Ultrix lex.
+* RPMs are now built with --without-OPIE to avoid validation problems.
+* Channge in computation of true name to avoid HELO (null) bug.
+
+There are 255 people on the fetchmail-friends list.
+
+fetchmail-4.0.4 (Mon Jul 28 23:38:20 EDT 1997):
+* Overhauled the build machinery.
+* The `no envelope' option now suppresses parsing of Received lines.
+* Added Al Youngwerth as a backup maintainer.
+
+This tries to fix the various yacc- and remote-build problems.
+There are 256 people on the fetchmail-friends list.
+
+fetchmail-4.0.3 (Mon Jul 28 16:39:17 EDT 1997):
+* Replace vsprintf with vnsprintf to avoid buffer-overrun screws.
+* Added via option to make ssh configuration cleaner.
+* Added dropstatus option.
+* Allow either `login' or `user' in .netrc files.
+
+Interim release, mainly because I inadvertently messed up the web page.
+Note: RFC1938 support is tentative, untested, and requires a patch to the
+LIBOPIE library.  See the file LIBOPIE.PATCH for the sad details.
+There are 258 people on the fetchmail-friends list.
+
+fetchmail-4.0.2 (Mon Jul 17 20:54:30 EDT 1997):
+* Experimental RFC1938 one-time password support using OPIE library,
+  courtesy of Craig Metz <cmetz@inner.net> (couthor of RFC1938).
+
+Private release to Craig Metz only for OPIE testing.
+There are 251 people on the fetchmail-friends list.
+
+fetchmail-4.0.1 (Wed Jul 16 14:32:08 EDT 1997):
+* Compilation cleanup for DEC Unix 4.0 and AIX.
+* Corrected the machinery for remote builds.
+* Minor improvements in failed-connection error messages.
+
+A minor cleanup release for non-Linux systems.
+There are 254 people on the fetchmail-friends list.
+
+------------------------------------------------------------------------------
+fetchmail-4.0.0 (Wed Jul  9 10:30:16 EDT 1997):
+
+This is a "gold" version.  Bug cleanup was finished (I hope...) in 3.9.9.
+And about time, too, I've been hacking on this code for a year now!
+
+* Fixes for minor compilation glitches on non-Linux systems.
+* Progress messages now show total count as well as message number.
+* Removed the popclient backward-compatibility hacks.
+* Leif Erlingsson <leif@lege.com> sent a patch to separate a "lock busy"
+  condition from other authentication failures on a POP3 server.
+* Allow duplicate server hostnames again.
+* Fetchmail now returns 0 if *any* poll during the run succeeded.
+
+There are 251 people on the fetchmail-friends list.
+
+------------------------------------------------------------------------------
+fetchmail-3.9.9 (Wed Jun 25 11:01:51 EDT 1997):
+* We can now process multiple To headers a la Microsoft Exchange Server.
+* Avoid sending LIST and getting an error when no messages are waiting.
+* Allow `fetchmail' to do wakeup even when no .fetchmailrc.
+* Fixed Paul Sutcliffe's headerless-mail bug triggered by -s.
+* Added `pass8bits' to help prevent internationalization lossage.
+* Add Guenther Leber's fixes for ETRN mode.
+
+There are 248 people on the fetchmail-friends list.
+
+fetchmail-3.9.8 (Sat Jun 14 14:19:32 EDT 1997):
+* Fetchmail is now normally built with optimization.
+* POP2 support is no longer compiled by default, but you can configure
+  it in with `configure --enable-POP2'.
+* If a .fetchmailrc entry has multiple user parts, the opening `username'
+  keyword is now required for all.
+* Fetchall no longer overrides --limit.  
+* Values of --limit, --fetchlimit, and --batchlimit in .fetchmailrc can now
+  be overridden from the command line by specifying an explicit option of 0.
+* Architecture-independent RPM building.
+* Fix code to work correctly with POP3 servers that don't return a reliable
+  size in the response to FETCH.
+
+There are 261 people on the fetchmail-friends list.
+
+fetchmail-3.9.7 (Mon Jun  9 18:40:04 EDT 1997):
+* Complain and exit if user tries to start fetchmail with options while a
+  background fetchmail is running.
+* Various installation headaches are gone, INSTALL edited accordingly.
+* Treat exim's 501 and (soon) 550 antispam responses as equivalent to 571.
+* Separate header and body byte counts in IMAP progress messages.
+* Man page updates, including removal of restriction on --syslog.
+* You can now set --syslog in the .fetchmailrc file.
+* Parse more different variants of IMAP "UNSEEN" message.
+* Handle zero-length messages correctly.
+
+There are 252 people on the fetchmail-friends list.
+
+fetchmail-3.9.6 (Wed May 28 18:28:35 EDT 1997):
+* Fix the libc6 configuration stuff (thanks to Jesse Thilo).
+* Support for Kerberos-v4-authenticated IMAP (thanks to Rudolph Maceyko).
+* Don't choke on RFC822 group names.
+* More improvements in RFC822 name parsing.
+* Interval skip feature, courtesy of Hal DeVore.
+
+There are 257 people on the fetchmail-friends list.
+
+fetchmail-3.9.5 (Sun May 18 01:05:13 EDT 1997):
+* Add an error notification when an incoming message has embedded NULs.
+* Throw out >From lines in headers to prevent getting hosed by upstream
+  sendmails with the 'E' option on.
+* Enable forcecr to work on the \r\n header terminator line.
+* Multiple-folder support for POP2 and IMAP.
+* Under IMAP, bodies of messages refused by SMTP's 571 response are no longer
+  fetched.
+* Configure should do the right thing with libc6 now.
+
+There are 249 people on the fetchmail-friends list.
+
+fetchmail-3.9.4 (Wed May 14 12:27:22 EDT 1997):
+* Fixed a compilation glitch for systems like SunOS & others without atexit(3).
+* Fixed a compilation glitch in daemonize for HP-UX.
+* Changes to compile correctly on systems that have on_exit() but not atexit().
+* Changes to forbid duplicate server names in the rc file.
+* Do caseblind comparisons of host and user names everywhere.
+* IMAP retrieval can now handle messages with embedded NULs.
+* Fixed a core dump in .netrc searching reported by Jim Spath.
+
+There are 248 people on the fetchmail-friends list.
+
+fetchmail-3.9.3 (Wed May  7 11:40:47 EDT 1997):
+* Fix for -I option from George Sipe.
+* Finally got error.c to compile under AIX, thanks to Dave Vinish.
+* Prevent header rewrite logic from appending mailserver name to blank To.
+* When header rewrite is on, hack Return-Path as well.
+
+There are 240 people on the fetchmail-friends list.
+
+fetchmail-3.9.2 (Wed Apr 23 14:07:03 EDT 1997):
+* Fixed a glitch in the Makefile yacc and lex productions
+* Add logic for X-Fetchmail-Warning emission of \r\n to pacify qmail.
+* Yet another try at getting error.c to play nice with AIX.
+
+There are 224 people on the fetchmail-friends list.
+
+fetchmail-3.9.1 (Thu Apr 17 11:37:14 EDT 1997):
+* Hypertext FAQ added to distribution manifest.
+* RPM builder production fixed.
+* Minor additions and corrections to man page.
+* Delivery failures are now syslogged as LOG_ERR, not LOG_INFO.
+* --check now turns off --daemon.
+* --syslog is now independent of --daemon.
+* Multiple-error X- headers are improved.
+* Added `forcecr' to fix qmail problems by forcing CRLF termination.
+
+There are 222 people on the fetchmail-friends list.
+% bad addresses dropped after the switchover to SmartList
+
+------------------------------------------------------------------------------
+fetchmail-3.9 (Wed Apr  2 13:36:22 EST 1997):
+
+features --
+
+* It is now possible to set a default poll interval with `set daemon'.
+
+* -U/uidl option to force UIDL use under POP3 (thanks, Ingmar Baumgart).
+
+bugs -- 
+
+* Server-response timeouts were broken.  Various symptoms of this problem
+  were reported by Klee Dienes <klee@mit.edu>, Dirk Eddelbuettel
+  <edd@rosebud.sps.queensu.ca>, Robert V. Schipper <rvs@gol.com>,
+  and Steven Brown <swbrown@ucsd.edu>.
+
+* George Sipe sent a fix for the --monitor code.
+
+* --norewrite was a no-op.  Fixed.
+
+* Fetchmail was aborting with "partial message buffer overflow" on Suns
+  due to unreliable vsprintf return.  This has been fixed with changes
+  to error.c.
+
+There are 268 people on the fetchmail-friends list.
+
+------------------------------------------------------------------------------
+fetchmail-3.8 (Fri Mar  7 17:34:02 EST 1997):
+
+features --
+
+* More FAQ material on using `localdomains'.
+
+* Compilation hacks for ISC 4.0 (thanks, Larry Jones!).
+
+bugs --
+
+* Enabled ETRN and RPOP command-line options.
+
+* Yet another attempt to fix the error.c compilation problems under
+  Solaris and NEXTSTEP.
+
+* Handle \( and \) correctly in RFC822 comments, thanks to Gareth McCaughan.
+
+* Fixed off-by-one error fingered by Brian Jones that prevented
+  `localdomains' from working.
+
+There are 248 people on the fetchmail-friends list.
+
+------------------------------------------------------------------------------
+fetchmail-3.7 (Fri Feb 21 17:38:40 EST 1997):
+
+features --
+
+* You can now specify a hunt list of SMTP forwarding hosts.
+
+* Treat unexpected EOF as a protocol error.
+
+* DNS errors no longer abort an entire poll.  Instead they just cause 
+  forwarding and deletion of the current message to be suppressed.  
+
+* -v output now includes the version/pl numbers (help for harried maintainer!).
+
+bugs --
+
+* Fix password-shrouding logic so it doesn't crap out on a zero-length
+  password.
+
+* Various error-logging fixes by Dave Bodenstab.
+
+* Fix parsing bug that broke UIDL-processing code.
+
+There are 233 people on the fetchmail-friends list.
+
+------------------------------------------------------------------------------
+fetchmail-3.6 (Mon Feb 17 00:19:55 EST 1997):
+
+features --
+
+* Use Return-Path for RCPT FROM if possible for better behavior on mailing
+  lists and bouncemail.
+
+* New Makefile production to generate an RPM.
+
+* The `no received' option of 3.4 is gone.  Instead, say `no envelope'. 
+  This suppresses all attempts to extract an envelope address and route
+  based on it.  If you set `no envelope' in the defaults entry it is possible
+  to undo that in individual entries by using `envelope <string>'.
+
+bugs --
+
+* Yet another fix to the password-shrouding logic.
+
+* Fix bug that screwed up IMAP mail reception in -v mode *only*.
+
+There are 229 people on the fetchmail-friends list.
+
+------------------------------------------------------------------------------
+fetchmail-3.5 (Sat Feb 15 15:19:36 EST 1997):
+
+features --
+
+* The host that ETRN specifies is now set by the smtphost option.
+
+* It is now possible to suppress Received line parsing in multidrop mode
+  with a new `no received' per-server option.
+
+* Major FAQ reorganization and additions.
+
+* .poprc-style `user'-less entry now triggers a warning.
+
+bugs --
+
+* The counter referred to by the batchlimit option used to count not only 
+  fetched messages but skipped ones.  This has been fixed.
+
+* Compilation fixes for Kerberos V4 support and GNU glibc2 support.
+
+There are 230 people on the fetchmail-friends list.
+
+------------------------------------------------------------------------------
+fetchmail-3.4 (Wed Feb 12 19:23:06 EST 1997):
+
+features --
+
+* Support for ESMTP ETRN extension.
+
+* It is now possible to turn off option flags in individual server entries
+  that had been turned on in a `defaults' entry.
+
+* The code should now deal gracefully with headerless mail.
+
+bugs --
+
+* The bug that displayed incorrect sizes for POP3 connections has been fixed.
+
+* Upped the %a option in the lexer file so SunOS 4.1.3 lex won't choke with a
+  "Too Many Transitions" error.
+
+* Size-ticker dots are now disabled when verbose is on.  This should eliminate
+  some alarming but harmless "(message incomplete)" messages from the
+  error-logging machinery.
+
+* A core dump in save_str_pair() that only showed up on some systems has
+  been fixed.
+
+There are 223 people on the fetchmail-friends list.
+
+------------------------------------------------------------------------------\
+
+fetchmail-3.3.2 (Mon Feb  3 12:59:33 EST 1997):
+* Minor fixes to stripcr and password-shrouding logic.
+
+fetchmail-3.3.1 (Sun Feb  2 02:17:07 EST 1997):
+* Fix incorrect stripcr processing
+* Unapply a patch that broke error logging to files.
+
+------------------------------------------------------------------------------\
+fetchmail-3.3 (Sat Feb  1 15:15:13 EST 1997):
+
+features --
+
+* Whether or not carriage returns will be stripped on output is explicitly
+  controllable with stripcr.
+
+* fetchmail -v messages no longer reveal password lengths.
+
+bugs --
+
+* Correction to length-extraction code for servers that return (nnn octets).
+
+* Correction to RF822 continuation code so it doesn't eat leading blank-led
+  lines in the text.
+
+There are 215 people on the fetchmail-friends list.
+
+------------------------------------------------------------------------------
+fetchmail-3.2 (Mon Jan 27 02:51:10 EST 1997):
+
+features --
+
+* Better error notification on IMAP select failure.
+
+bugs --
+
+* The code can now handle arbitrarily long address lists.
+
+* Fix RFC822 parsing to strip comments at end of bare addresses.
+
+* Explicitly strip CRs out of fetched mail.
+
+* Corrections to 8BITMIME processing.
+
+There are 207 people on the fetchmail-friends list.
+
+------------------------------------------------------------------------------
+fetchmail-3.1 (Fri Jan 24 12:45:18 EST 1997):
+
+features --
+
+* Forwarding is now done via ESMTP where possible.
+
+* ESMTP 8BITMIME option is supported; when 8BITMIME is supported and the
+  Content-Transfer-Encoding header is 7BIT or 8BIT, it is appended to the
+  MAIL FROM command as a BODY option.
+
+* ESMTP SIZE option is supported when using IMAP2bis or IMAP4.  This means
+  messages too long for the local ESMTP listener will be rejected *before*
+  they are passed to the ESMTP listener.
+
+* IMAP code now detects IMAP4rev1 capabilities (RFC 2060) and uses them.
+  (It will fall back to IMAP4 or IMAP2bis depending on what it sees.)
+
+bugs --
+
+* Compilation fixes for non-Linux machines.
+
+There are 205 people on the fetchmail-friends list.
+
+------------------------------------------------------------------------------
+fetchmail-3.0 (Tue Jan 21 16:44:56 EST 1997):
+
+features --
+
+* `interface' and `monitor' options are now per-server.
+
+* `batchlimit' option is now per-user.
+
+* RFC822 header continuation for long address lists is is now handled properly.
+
+* There is now a `nodns' option to suppress DNS checking of address hostname
+  parts in multidrop mode (make sure your aka list is complete before you use
+  this!).
+
+* Options such as `nokeep' can now be written `no keep'.
+
+* RPOP support is back by user request.
+
+Note: The first two changes mean that older .fetchmailrc files using
+the `set' syntax for these options will cause fetchmail to die with a
+parse error at initialization time.  Conversion is trivial -- for
+details, see the FAQ.
+
+bugs --
+
+* Stricter parsing of greeting message for the host name; eliminates some
+  minor errors when using IMAP and the hostname is something like jet.es.
+
+* --quit in root-daemon mode didn't work, fixed this.
+
+* Ensure that default server parameters get properly zeroed out after each
+  poll or skip statement in .fetchmailrc. 
+
+* Arrange an EXPUNGE after each delete when using IMAP, so deletions get done
+  OK even if there's a socket error before termination.
+
+* Simpler and better header-rewrite code, fixing some weird cases where 
+  it failed.  Thanks to Masafumi NAKANE <max@wide.ad.jp> and
+  Carey Evans <c.evans@student.canterbury.ac.nz> for pointing out these
+  problems.
+
+* Handle zero-length messages properly; thanks to Bob Craycroft.
+
+Note: the RFC subdirectory is no longer included with the distribution
+(this cut its size in half!)  Instead, applicable RFCs are listed on the
+manual page.
+
+There are 201 people on the fetchmail-friends list.
+
+------------------------------------------------------------------------------
+fetchmail-2.8 (Sat Jan 11 15:48:33 EST 1997):
+
+features -- 
+
+* We now get the hostname used for progress messages from the server greeting.
+  This means you'll get sensible-looking progress messages even when using
+  ssh to redirect secure connections.
+
+* Reorganized and improved man page.
+
+* Mail header parsing now handles RFC822 escapes properly.
+
+bugs --
+
+* Stop netrc parser from complaining about blank lines.
+
+* Add ssh recipe correction.
+
+* Eliminate infinite-loop bug in defaults handling.
+
+* Fixed some address-parsing bugs in rfc822.c:nxtaddr().
+
+* 2.7 broke portability to Solaris.  Fix that.
+
+There are 184 people on the fetchmail-friends list.
+
+------------------------------------------------------------------------------
+fetchmail-2.7 (Thu Jan  9 03:18:15 EST 1997):
+
+features -- 
+
+* New --syslog option by Dave Bodenstab.
+
+* Automatic parsing of ~/.netrc for a mailserver password if necessary, thanks
+  to Gordon Matzigkeit.
+
+* Added preconnect option for initializing ssh connections.
+
+* Added local-domains support for multidrop as requested by Pablo Saratxaga.
+
+* More FAQ material on how and when to use --interface.
+
+bugs --
+
+* Fixed a minor bug introduced into From handling by 2.6.
+
+* Fixed bug in SMTP forwarding of msg lines with leading dot.
+
+* Fixed a bug that generated incorrect HELO for second and subsequent
+  poll entries attached to the same SMTP host.
+
+There are 177 people on the fetchmail-friends list.
+
+------------------------------------------------------------------------------
+fetchmail-2.6 (Fri Dec 27 12:42:56 EST 1996):
+
+features -- 
+
+* IMAP4 code now sets the server "seen" flag on each message if "keep" is on.
+
+* New FAQ material on how to use --interface.
+
+bugs --
+
+* Dropped back to separate SockGets/SockWrite code with no attempt at
+  stdio buffering -- we hope this will fix the Solaris peoples' problems.
+
+* Fixed length-computation bug (apparently introduced in 2.3) that messed
+  up IMAP deletes.
+
+There are 169 people on the fetchmail-friends list.
+
+------------------------------------------------------------------------------
+fetchmail-2.5 (Mon Dec 23 04:18:54 EST 1996):
+
+features -- 
+
+* New --interface and --monitor options for Linux courtesy of George Sipe.
+
+bugs --
+
+* Replaced bug-prone setvbuf with setlinebuf.
+
+* Moved lock file to ~/.fetchmail to eliminate various /tmp problems.
+
+There are 165 people on the fetchmail-friends list.
+
+------------------------------------------------------------------------------
+fetchmail-2.4 (Sat Dec 21 05:24:44 EST 1996):
+
+features -- 
+
+* Add FAQ material on troubleshooting and working around SMTP connection
+  failures.
+
+bugs --
+
+* Fixed a core-dump bug in MX processing that's been lurking there for ghods
+  know how long.  It could never have been more than rare.
+
+* Fixed a minor bug in Received processing.
+
+* Restored compile-time portability to Solaris.
+
+* Initial 2.4 said: "Force line-buffering on socket streams (Linux apparently
+  defaults to this). This may fix some hang problems reported under Solaris."
+  Unfortunately this "fix" triggers horrible lossage on long messages and had
+  to be removed.
+
+There are 166 people on the fetchmail-friends list.
+
+------------------------------------------------------------------------------
+fetchmail-2.3 (Sat Dec 12 14:31:00 EST 1996):
+
+features -- 
+
+* Full IMAP4 support -- we now probe for IMAP4 capabilities and use 
+  RFC822.PEEK when possible to avoid marking messages seen on the server
+  before they are deleted.  This improves recovery from sendmail and
+  dropped-connection errors.
+
+* True stdio buffering of sockets at last, thanks to Cameron McPherson.
+  This should be good for a significant throughput increase.
+
+* Almost all error messages that might be emitted in daemon mode now go
+  through the error() subroutine.  This is a first step towards allowing
+  a daemon-mode fetchmail to use syslog.
+
+* SIGUSR1 is now used for wakeup rather than SIGHUP.  This eliminates any
+  possible confusion about fetchmail's behavior at logout time.
+
+* Received line parsing for envelope addresses now matches MX as well as 
+  canonical DNS addresses, making multidrop routing slightly more reliable.
+
+* Added --fetchlimit option to limit number of messages fetched in a
+  single poll.
+
+bugs --
+
+* Fixed a FreeBSD compilation glitch involving SIGCLD (thanks to
+  Masafumi NAKANE).
+
+* Added some port patches for NEXTSTEP.
+
+* SIGCHLD used everywhere now, not SIGCLD (this was strictly a cosmetic bug).
+
+* Prevent occasional hangs when fetchmail was terminated by signal.
+
+There are 168 people on the fetchmail-friends list.
+
+------------------------------------------------------------------------------
+fetchmail-2.2 (Mon Dec  9 00:15:01 EST 1996):
+
+features --
+
+* If SMTP returns 571 (unsolicited mail refused) to a MAIL FROM, the
+  address is excluded by the local sendmail's spam filter.  Drop the mail.
+  (This is the only circumstance in which mail is thrown away.)
+
+* The header your mailserver uses to convey envelope addresses is no longer
+  wired to `X-Envelope-Header'.  You can now specify it with the `envelope'
+  option in .fetchmailrc.  (This header is not RFC822 standard, and we have a
+  report of an ISP using X-Frontier-To).
+
+bugs --
+
+* Fixed a startup-time core dump introduced by 2.1's aka-list feature.
+
+* Fixed a bug in non-implicit mode (poll specified host), also due to aka.
+
+* Various minor portability fixes for Suns.  Adding #include <errno.h>
+  in fetchmail.c was the most significant one. 
+
+* Avoid using -lresolv when possible, some Linux versions are badly broken.
+
+* Fix error in MX record handling that was causing multidrop problems.
+
+* Disable daemon SIGCHLD handler while an MDA is running, to avoid snafus.
+  Thanks to Dave Bodenstab <imdave@synet.net> for spotting this obscure bug.
+
+There are 156 people on the fetchmail-friends list.
+
+------------------------------------------------------------------------------
+fetchmail-2.1 (Thu Nov 28 11:07:48 EST 1996):
+
+features --
+
+* Added FAQ file.
+
+* Try to pass envelope From to the listener so that logging and procmail
+  processing works right.  If that fails, fall back on calling-user.
+
+* Added `set logfile = ' option to rc syntax.
+
+* We now use X-Envelope-To headers and parse the Received lines.  If
+  X-Envelope-To is found, OK; otherwise we look for a `Received for' line;
+  either is treated as a true envelope address.  If neither of these are
+  found we go to the To/Cc/Bcc header addresses.
+
+* Added `*' as a wildcard option for multidrop to ... here.  This will allow
+  names to be local names to be passed through from a multi-drop box on
+  a mailserver 
+
+* Added an `aka' option to allow users to declare mailserver aliases at start
+  of run, so DNS does less work.  During a run, cache host matches on the
+  aka list so no potential alias has to be DNS-checked more than once.  
+  A server being polled explicitly may be referred to by any of its aliaseses.
+
+bugs --
+
+* Nalin Dahyabhai's fix patch for MIT Kerberos V4 support.
+
+* Fixed a fencepost error in the APOP code that was causing a core dump.
+
+* Skip flag wasn't getting reset on poll hosts following a skipped one.
+
+* Include remote name in saved UID mappings so multiple POP accounts on
+  the same server won't get their UIDs confused.
+
+There are 138 people on the fetchmail-friends list.
+% FAQ file started
+
+------------------------------------------------------------------------------
+fetchmail-2.0 (Mon Nov 18 00:32:17 EST 1996):
+* Fix typo in setitimer call setup that caused obscure bugs under FreeBSD.
+* Accept Apparently-To if there is no To header.
+* Include Cameron McPherson's patch for handling multi-line SMTP responses.
+* Don't try to feed listener the header From any more.
+
+fetchmail-1.9.9 (Mon Nov 11 10:40:14 EST 1996):
+* Accept Resent-From & Apparently-From a la RFC822.
+* Include file fixes for Solaris 2.5 and FreeBSD 2.2.
+* Improved error notification on SMTP and no-matching-local-address errors.
+* Delivery to multidrop mailboxes now always aborts on DNS errors.
+* Batch limit option prevents long delivery delays on smail/qmail.
+* Configuration now handles -lresolv and non-Linux bind libraries correctly.
+
+fetchmail-1.9.8 (Wed Nov  6 16:40:34 EST 1996):
+* Don't append spurious NUL to the headers, qmail actually notices it.
+* Fatal bug in multidrop code fixed.
+* Fail cleanly, instead of core-dumping, on mail lacking an RFC822 From line.
+* Don't try to keep the SMTP socket open across poll cycles.
+
+fetchmail-1.9.7 (Fri Nov  1 10:02:34 EST 1996):
+* %s is back.  Seems some popular MDAs actually choke on name arguments.
+* We can handle responses longer than the socket atomic read length now.
+
+fetchmail-1.9.6 (Thu Oct 31 00:07:23 EST 1996):
+* Make rewrite option handle multiple comma-separated local names correctly.
+* Fix yet another fatal error in MDA argument list construction.
+* Reset timeout every time input is received.
+* Correct localname detection when --norewrite is on.
+
+fetchmail-1.9.5 (Tue Oct 29 20:07:41 EST 1996):
+* Added -N, --nodetach option for debugging purposes.
+* Use interval timers for poll-interval sleep and nonresponse timeout.
+* fetchmail -q no longer parses the configuration file.
+* Configuration file grammar is slightly cleaned up and improved.
+
+fetchmail-1.9.4 (Mon Oct 28 20:58:48 EST 1996):
+* Correct status interpretation in closemailpipe() (thanks to Neil Harkins).
+* Tweak SMTP forwarding to only open one listener per SMTP host in daemon mode.
+
+fetchmail-1.9.3 (Sun Oct 27 22:35:33 EST 1996):
+* Handle nested parens in RFC822 comments.
+* More gcc -Wall cleanup.
+* Improved installation docs.
+* Don't query DNS on startup unless needed for Kerberos or multidrop mailboxes.
+
+fetchmail-1.9.2 (Sun Oct 27 01:10:30 EST 1996): 
+* Fix initialization-time core dump when running as root
+* Fix fatal error in MDA argument-list construction.
+
+There are 118 people on the fetchmail-friends list.
+
+------------------------------------------------------------------------------
+fetchmail-1.9 (Fri Oct 25 23:02:26 EDT 1996):
+
+features --
+
+* FEATURE FREEZE IS NOW IN EFFECT!  No new features until after 2.0.  Thanks
+  to everybody who contributed ideas and criticism.
+
+* It is now possible to specify multiple local recipients by giving a list
+  of names following "to" or "is".  Each local recipient is checked for in the
+  To:, Cc: and Bcc: headers of each message; if a match is found, the message
+  is sent to that local recipient.  This makes it possible to do mailing
+  lists and multidrop mailboxes.  See the man page for details (and note
+  the caveat in the BUGS AND KNOWN PROBLEMS section).
+
+* It is possible to specify a size limit for retrieved messages.  I resisted
+  doing this because I don't want fetchmail to be in the filtering game, but
+  too many Europeans begged for it because their telecomms monopolies are
+  price-gouging them on per-second phone charges.  I will ignore, or be
+  extremely rude to, anyone who takes this feature as a license to beg me
+  for kill files or any other form of content-based filtering.  Use 
+  procmail on your server if you want that.
+
+* If you use an MDA, the internal changes to support multi-drop mailboxes
+  require that you *remove* the %s at the end of your MDA string.  Local 
+  delivery addresses will be appended to the end of the command in the
+  obvious way.
+
+* The first message from a query now includes the number of old messages
+  when this can be determined (that is not under POP2).
+
+* POP3 UID support really works now.  I make rude noises at the POP3 mavens
+  who forced us to this with RFC1725, but thank Al Longyear <longyear@sii.com>
+  for fixing and verifying my slightly buggy implementation.
+
+* Kerberos V4 support ditto.  Thanks to Chris Hanson <cph@martigny.mit.edu>
+  for this feature.
+
+* When there's a daemon fetchmail in background, running fetchmail in
+  foreground without --quit now tries to wake the daemon and force it
+  to poll immediately.
+
+* Add option to set server nonresponse timeout.
+
+* Password is no longer displayed in verbose mode.
+
+* You may use C-like escapes to embed non-printables in passwords and other
+  strings.  Fetchmail -V will display them in a printable form.
+
+* Program now tries to set itself to the ID of the local user before
+  running an MDA, and reset to root afterwards.  This will work on
+  any system with seteuid(2), including Linux and the BSDs.
+
+bugs --
+
+* Default user name to deliver to is now the calling user, unless
+  program is running as root in which case it is the remote user name
+  (default can be overridden with an `is' or `to' declaration).
+  In versions up to 1.7 it was the calling user; in 1.8 the remote
+  user ID.  This created some confusion.
+
+* Accept RFC822 headers with a tab after the colon.
+
+* You now see a "skipping" message for each message not retrieved.
+
+* --keep no longer overrides --flush.
+
+* Rewrite "To: jrh (J. Random Hacker)" correctly.
+
+* Find "nnn octets" anywhere on a POP3 server's RETR response line.
+
+* Fixed various bugs in --check.  It now reports PS_SUCCESS only if
+  there is new mail waiting.
+
+* Under Linux, if fetchmail is run in daemon mode with the network
+  inaccessible, each poll leaves a socket allocated but in CLOSE state
+  (this is visible in netstat(1)'s output).  These sockets aren't
+  garbage-collected until fetchmail exits.  When whatever kernel table
+  is involved fills up, fetchmail can no longer run even if the network is up.
+  To avoid this, fetchmail now commits seppuku after some number of
+  unsuccessful socket opens.
+
+* Don't try using FLAGS.SILENT, some allegedly IMAP2bis servers seem to
+  choke on it.
+
+There are 100 people on the fetchmail-friends list.
+
+------------------------------------------------------------------------------
+fetchmail-1.8 (Fri Oct 11 15:08:10 EDT 1996):
+
+features --
+
+* Use kill(0, pid) to make lock handling a bit smarter (thanks to Johan
+  Vromans <JVromans@squirrel.nl> for the suggestion).
+
+* Arrange for timeout of client after 5 minutes if connection to server is 
+  dropped (thanks to Gaspar Sinai <gsinai@gol.com>).
+
+* All pretensions to RPOP support have been dropped.  Yes, this is a feature,
+  RPOP is very vulnerable to spoofing!  Use APOP instead.
+
+* Normal start-of-read message now displays the byte (excuse me, "octet")
+  size of the message.  Yes, 3schwend, you can stop noodging me now :-).
+
+* Normal progress notifications now take only 1 line per message, not 2.
+
+* Linux packagers: building fetchmail now generates an RPM specfile for it.
+
+* Kerberos V4 support via KPOP protocol (thanks to Chris Hanson).
+
+* New --check option for asking server whether there is mail without
+  actually retrieving or deleting it.
+
+* UID support is back by popular demand.  Bletch.
+
+* Permit spaces in IMAP passwords (ship them as quoted strings).
+
+bugs --
+
+* Fix buggy getopt specification of P and p options.
+
+* Fix uninitialized-variable bug that was hanging second IMAP queries.
+
+------------------------------------------------------------------------------
+fetchmail-1.7 (Tue Oct  8 11:32:44 EDT 1996):
+
+features --
+
+* Noise words for rcfile syntax make English-like syntax possible.
+
+* Make configure more GNUish; it understands --prefix and other standard
+  autoconf options now (see INSTALL for details)
+
+* Better documentation of the new .fetchmailrc extensions and the slightly
+  stricter rules for ordering options.
+
+* Expanded installation instructions including how to test for correct
+  operation without losing mail to misconfigured MDAs, alias loops, etc.
+
+bugs --
+
+* You may have to rearrange the order of options in your .fetchmailrc.
+  The grammar for the new multiple-user syntax requires that server 
+  options (protocol and port) come before any user options.
+
+* Fixed core dump bug that was screwing configurations with no .fetchmailrc.
+
+* Fixed broken 'p' option.
+
+* `norewrite' and `rewrite' in .fetchrc were the inverses of what they
+  should have been (but the rewrite default was set correctly).
+
+------------------------------------------------------------------------------
+fetchmail-1.6 (Sun Oct  6 20:55:09 EDT 1996):
+
+features --
+
+* You can now have multiple entries for the same server but different
+  users, and the right thing will happen (each user's mailbox will
+  be queried).  Even better, you can now specify multiple users in a
+  single server entry.
+
+* Restore --mda, seems some people either can't run a port 25 listener
+  due to bizarre dynamic-SLIP problems, or won't for security reasons.
+
+* When delivering to an MDA, print error and die (before deleting the message!)
+  if the MDA returns nonzero status.  Better safe than sorry.
+
+* If fetchmail is called through a link named `popclient' it will look in
+  ~/.poprc for a run control file.  Unless that file includes the deleted
+  options limit and localfolder this should actually work.
+
+bug fixes --
+
+* Makefile fixes for correct linking on Sparcs and avoiding duplication of
+  the md5 files (leading to harmless install-time error messages).
+
+* Fix a bonehead coding error in pop3_delete() that was masked by the
+  Intel register architecture.  *blush*  Thanks to Jay Anderson
+  <anderson@optical.bms.com>.
+
+* Fix bug that prevented SMTP from being specified on the defaults line.
+
+* Allow program to generate correct lockfiles when USER is undefined
+  (i.e. under zsh).
+
+* Allow program to run with no .fetchmailrc file again.
+
+------------------------------------------------------------------------------
+fetchmail-1.5 (Thu Oct  3 04:35:15 EDT 1996):
+* Naturally, my decision to announce 1.4 on comp.os.linux.announce 
+  immediately caused the code to manifest its first real bug --
+  a core dump when the "From:" header is spelled "from:" (all lower
+  case).  Fixed.
+* Update and expansion of NOTES.
+* The --all and --flush flag validity checks move to driver.c.
+
+------------------------------------------------------------------------------
+fetchmail-1.4 (Wed Oct  2 09:22:37 EDT 1996):
+* More man page improvements.
+* Lexer changes to work around bison's "feature" of silently ignoring 0-value
+  tokens (caused options nokeep, norewrite, nofetchall, noskip to be no-ops).
+
+------------------------------------------------------------------------------
+fetchmail-1.3 (Tue Oct  1 05:49:49 EDT 1996):
+* Significant man page improvements.
+* Escapes for newlines in .fetchmailrc are now optional.
+* Kill off -2 and -3 options, redundant popclient remnants.
+* IMAP code simplification and robustification.  Use FETCH FLAGS to find
+  seen messages.  Code should now work even if unseen messages are 
+  interspersed with seen ones, and even if messages are appended to the
+  mailbox during the run.
+
+------------------------------------------------------------------------------
+fetchmail-1.2 (Sat Sep 28 15:40:50 EDT 1996):
+* The great option massacre.  Remove --stdout, --limit, --local, --mda.
+  We get a significant code and complexity shrinkage this way (a lot of the
+  configuration machinery goes away too).  These things are your MDA's job.
+  (This also kills off the lose-mail-on-disk-full bug, which I've never 
+  seen but two users reported.)
+* Link APOP support by default.
+* Fix embarrassing Makefile bug.
+
+------------------------------------------------------------------------------
+fetchmail-1.1 (Sat Sep 28 09:21:10 EDT 1996):
+* In POP3, don't send LAST if STAT shows count of waiting messages to be zero.
+* Document APOP better, we know it works now.
+* Lose the .fetchids file and give up on POP3 UIDs, they're a dead loss.
+
+------------------------------------------------------------------------------
+fetchmail-1.0 (Thu Sep 26 11:59:38 EDT 1996):
+* SMTP forwarding and header-rewrite features work with POP2 now.
+* Stricter RFC822 conformance, so SMTP to qmail works.  Thanks to
+  Cameron MacPherson <unsound@oz.net> for these changes.
+* The program is quieter but more informative now (suppress printing of
+  server greeting message; add the server host being queried to the
+  message count information line).
+* Add `skip' option to make it easier to set up test entries.
+* Name change (it ain't just for POP any more).
+
+==============================================================================
+popclient-3.2 (Mon Sep 23 13:29:46 EDT 1996):
+* RPOP support (coded at a user's request but untested).
+* Ported to QNX (see the Makefile).
+* Add code by Michael Schwendt <3schwend@informatik.uni-hamburg.de> for
+  improved sizeticker.
+* Improved RFC822 parsing (thanks to Rob Funk).
+* Move the per-user lockfile to /tmp so it gets cleared at reboot time.
+* Warn users that running concurrent instances of popclient is a bad idea.
+* Try USER and HOME to set defaults before going to the password file.
+  This should work better in Sun NIS environments.
+
+popclient-3.1 (Thu Sep 12 15:45:25 EDT 1996):
+* MDA arguments are now dumped when using the -V option.
+* Sendmail delivery from background seems to work now.
+* We have IMAP2bis/IMAP4 support.
+* Code now autoprobes for a POP3, IMAP, or POP2 server if no protocol is
+  specified.
+* SMTP forwarding support.  Thanks to Harry Hochheiser <harry@tigger.jvnc.net>
+  for this simple but clever idea.  It's now the default delivery mode.
+* If no UNIX From line is found, popclient will now synthesize a correct
+  line from the RFC822 From line.
+* It is now possible to specify the host TCP/IP port number to connect to.
+
+popclient-3.05 (Thu Aug 22 22:59:04 EDT 1996):
+* Experimental support for RFC1725-compliant POP servers with the UIDL
+  command and without LAST.
+
+popclient-3.04 (Wed Aug 21 00:22:44 EDT 1996):
+* Logfile option works.
+
+popclient-3.03:
+* Minor bug fixes for password querying and redirection to stdout.
+
+popclient-3.02 (Fri Jul 19 11:37:56 EDT 1996):
+* Correct buggy processing of nokeep/noflush/fetchall.
+* Fix buggy -mda option processing.
+* Added -N/--norewrite option.
+* Delivery via sendmail now works in non-daemon mode.
+
+popclient-3.01 (Mon Jul  1 13:33:51 EDT 1996):
+* Fixed a lexical analyzer bug in quoted-string processing.
+* Fixed a bug in dump_options that caused username to be displayed incorrectly.
+* The lock assertion code was in the wrong place relative to the daemonize()
+  call.  
+
+popclient-3.0 (Fri Jun 28 11:33:34 EDT 1996):
+
+Eric S. Raymond <esr@thyrsus.com> hacked extensively on 3.0b6 and took over
+the package with the consent of Carl Harris, the original implementor.
+Some of the 3.0 feature additions were inspired by Sean Oh's fetchpop 1.8
+code, and a few use code directly lifted from fetchpop. Here are my (Eric's)
+change notes:
+
+CONFIGURATION AND BUILDING
+
+* The autoconfigure script incorrectly assumed that all Linuxes use
+  /usr/bin/deliver.  Under Linux it now checks for both /usr/bin/delivermail
+  and /bin/mail.
+
+* I added a distribution-maker production to Makefile.in.
+
+OPTIONS AND COMMAND LINE
+
+* I have removed the -p command-line option. Given that there's a run control
+  facility there is no excuse for encouraging users to put plaintext passwords
+  in scripts which might be readable.
+
+* Calling popclient with no arguments now causes it to query or operate
+  on every host in the run control file.
+
+* I have made --version more useful by having it dump the computed
+  connection options for each server specified.
+
+* The user can now explicitly set an MDA (such as procmail) with the
+  new option -m or -mda.  Various possible MDAs are listed on the man page.
+
+POPRC FILE SYNTAX
+
+* The run control file lexer now supports "-enclosed strings which may 
+  contain whitespace.
+
+* I added a --yydebug option to enable run control parser debugging at 
+  runtime if the parser was generated with --debug.  It's not documented.
+
+* You may now have a `defaults' entry in the run control file which sets 
+  overrideable values for other entries.  See the man page for details.
+
+* It is now possible to set keep, flush and fetchall in your run control
+  file.
+
+* Fixed incorrect numbering of source lines in run control file parse error
+  messages.
+
+* The configure.in specification no longer uses the obsolete AC_TRY_COMPILE
+  macro (it uses AC_TRY_LINK instead).
+
+MAILBOX LOCKING
+
+* I have added mandatory locking of mailbox files where supported.
+  This will cover Linux systems, in particular.
+
+* The default behavior is now to do lock-protected append on the user's
+  system mailbox rather than using delivermail or some other MDA.
+  (This is a performance hack.)
+
+* The autoconfigure script now looks for standard mail locations.  The
+  default mail delivery agent is used only if it can't find a mail spool
+  directory in the standard places.
+
+FUNCTIONAL ENHANCEMENTS
+
+* When using POP3, message headers are edited so that replies won't foo up.
+  Anything that looks like a mail ID local to the POP host gets @ and the
+  pop servername attached to it before being appended to the user's
+  mailbox or passed to an MDA.
+
+* I have implemented daemon mode.
+
+* I have added a lock check to ensure that there is only one popclient
+  running per user, and a --quit option to kill the currently running
+  one.
+
+DOCUMENTATION
+
+* All changes and feature additions have been tested in actual use and are
+  documented on the man page.
+
+* I have turned the comments in the sample run control file into a new manual
+  section documenting the file format.
+
+MISCELLANEOUS BUG FIXES
+
+* I fixed some de-initialization bugs in pop2.c and pop3.c that led to
+  fd leaks (these became painfully obvious when I tested daemon mode!).
+
+* I've fixed the flaky parser error messages. They turned out to be due 
+  to a misdeclaration of yytext.
+
+These are Carl Harris's change notes from previous releases:
+
+3.0b5
+o	"From " header fix in pop2.c and pop3.c
+o	Surpress "..." output when --stdout option specified in pop3.c
+
+3.0b4
+o	alloca fix.
+o	various diagnostic/informational message fixes.
+
+3.0b3
+o	Support for retrieving only new messages from maildrop when
+	using POP3.  
+o	Support for retrieving only the first n lines of each message
+	when using POP3.
+o	APOP authentication support.
+o	Buffered socket input.
+
+3.0b2
+	This is a "new features" release.
+o	support for .poprc file.
+o	GNU-style long options.
+o	fixed passwords appearing in 'ps' output
+o	support for multiple servers on one command line
+
+3.0b1
+	This is mostly a test of the autoconfigure integration.
+Among the functions performed by the new configure script, is
+the ability to detect known system types, configures the mail
+delivery agent (MDA) correctly.  This should permanently solve
+the problem of using something other than an MDA for mail
+delivery (which continues to plague Linux slackware 1.2.9).
+For this beta, please check the values of MDA_PATH and MDA_ARGS
+carefully.  They should match the values found in your
+sendmail.cf file on the line which begins with "Mlocal".
+
+	Other changes from popclient version 2.21:
+
+o       no longer uses getpass() from the C library.  The
+	internal getpassword() function allows the use of long
+	passwords.
+
+o	integrated GNU getopt() for long options.  Long option	
+	names will appear in a future beta.
+
+o	Several compiler warnings fixed.
+
+o	Fixed problems related to missing include files in
+	Solaris port.

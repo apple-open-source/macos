@@ -1,0 +1,3 @@
+OTHER_PUBLIC_HEADERS = bootstrap.h netname.h
+OTHER_OFILES = bootstrapUser.o netnameUser.o
+PUBLIC_HEADER_DIR_SUFFIX = /servers

@@ -1,0 +1,6 @@
+As of PHP 4.0.4, the BC math library routines are bundled in the
+standard PHP distribution.  There is no need to install any additional
+files.
+
+Thanks goes to Phil Nelson, for releasing the BC math library routines
+under the LGPL.

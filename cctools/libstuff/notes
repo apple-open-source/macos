@@ -1,0 +1,473 @@
+TODO:
+- Deal with LC_PREPAGE and unknown load commands that don't need to be swapped.
+
+Changes for the 5.8 release (the cctools-357 release):
+- Added support for the CPU_SUBTYPE_POWERPC_7450 in arch.c, best_arch.c and
+  get_arch_from_host.c. Radar bug #2599869.
+
+Changes for the 5.8 release (the cctools-356 release):
+- Changed execute.c and ofile.c to include <libc.h> instead of <bsd/libc.h>
+
+Changes for the 5.8 release (the cctools-345 release):
+- Fixed a bug in guess_short_name() that showed up in seg_addr_table(1) that
+  caused it to crash as it was doing a strcpy for the suffix when it should
+  have been doing a strncpy() (Radar bug #2540744).
+
+Changes for the 5.8 release (the cctools-344 release):
+- Fixed a bug in swap_object_headers() which was missing the calls to swap
+  the swap_sub_umbrella_command() and swap_sub_client_command().
+- Changed cpusubtype_findbestarch() in best_arch.c in the loop looking for the
+  lowest_model to save the current lowest_model so it finds the lowest_model.
+
+Changes for the 5.8 release (the cctools-342 release):
+- Added support for swapping the LC_SUB_CLIENT load command (Radar bug
+  #2533649).
+
+Changes for the 5.8 release (the cctools-341 release):
+- Added support for swapping the LC_SUB_UMBRELLA load command (Radar bug
+  #2530028).
+- Pulled get_arch_from_host() out of arch.c and put it into get_arch_from_host.c
+  so kld could avoid referencing host_info and mach_host_self.
+
+Changes for the 5.7 release (the cctools-334 release):
+- Changed guess_short_name()'s has_suffix argument to return_suffix to a pointer
+  to the suffix so checksyms could check for "_debug".
+
+Changes for the 5.7 release (the cctools-332 release):
+- Changed the following routines to take a disablewarnings flag which was added
+  to seg_addr_table(1): get_symfile_for_dylib() and get_dstfile_for_dylib() in
+  dylib_roots.c and dstLocForDylib(), get_dstfile_for_dylib() and LocForDylib()
+  in SymLoc.c (Radar bug #2482327).
+
+Changes for the 5.7 release (the cctools-329 release):
+- Changed iinit and ninit fields of the struct dylib_module in
+  swap_dylib_module() in bytesex.c to iinit_iterm and ninit_nterm.
+  Radar bug #2469527.
+
+Changes for the 5.7 release (the cctools-327 release):
+- ifdef'ed __GONZO_BUNSEN_BEAKER__ the code in seg_addr_table.c for its use of
+  /Local to use /AppleInternal by default.
+- ifdef'ed __GONZO_BUNSEN_BEAKER__ the code in and dylib_table.c for its use of
+  /Local to use /MacOSX by default.  And added code ifndef'ed
+  __GONZO_BUNSEN_BEAKER__ to use /AppleInternal/...
+
+Changes for the 5.6 release (the cctools-324 release):
+- Picked up the mods to SymLoc.c from Doug Wiebe in B&I which no longer does
+  a chdir().  This allows the -seg_addr_table option to seg_addr_table not to
+  be an absolute path.
+
+Changes for the 5.6 release (the cctools-323 release):
+- Found the bug in find_dylib_in_root() in dylib_roots.c which was not doing
+  an fts_close() and causing "Too many open files" later.
+
+Changes for the 5.6 release (the cctools-322 release):
+- Added ifdef'ed for __SPACE__ and created a macro SYSTEM_LIBRARY in
+  dylib_table.c in preparation for the directory changes.  /System/Library
+  changing to /MacOSX/System.
+
+Changes for the 5.6 release (the cctools-321 release):
+- Moved SymLoc.m to SymLoc.c as it contains only 'C' code and the debugger was
+  crashing when it was an Objective-C file.
+
+Changes for the 5.6 release (the cctools-320 release):
+- Added support for the new LC_SUB_FRAMEWORK load command to support "Guarding
+  against direct linking of non-umbrella frameworks".  The files that swap
+  load commands, bytesex.c and swap_headers.c, were update.  As part of this
+  work the routine guess_short_name() was broken out of seg_addr_table.c into
+  guess_short_name.c so it could be used by the static linker.
+  Radar bug 2443212.
+
+Changes for the 5.6 release (the cctools-319 release):
+- Added the file seg_addr_table.c with the support routines for segment address
+  tables.
+- Added the file dylib_table.c which broke out some of the code that was used
+  in checksyms(l) in to support routines used by it and the new
+  seg_addr_table(l) tool.
+- Picked up the file SymLoc.m from Doug Wiebe in B&I which returns the SYMROOT
+  for a given release (used by the seg_addr_table(l) tool).  It currently uses
+  Foundation which would cause build dependencies problems so this can't be
+  used in a submission.  Doug is planning to do a version that does not use
+  Foundation.
+- Added the file dylib_roots.c which looks for a dynamic library in a given
+  root (used by the seg_addr_table(l) tool).
+
+Changes for the 5.5 release (the cctools-307 release):
+- Added support for the CPU_SUBTYPE_POWERPC_7400 in arch.c and best_arch.c.
+  Radar bug #2397523.
+
+Changes for the 5.4 release (the cctools-300 release):
+- Added logic to check_Mach_O() in ofile.c for checking the new LC_ROUTINES
+  load command.
+- Added swap_routines_command() for the new LC_ROUTINES command and also updated
+  swap_headers().
+
+Changes for the 5.3 release (the cctools-292 release):
+- Added get_segalign_from_flag() to allow setting the default segment alignment
+  to 4K for PowerPC and 8K for everything else.  Used by ld(1) in layout.c in
+  layout() to fix Radar bug #2277625.
+
+Changes for the 5.3 release (the cctools-286 release):
+- Change the use of the i386 cpp macro to __i386__ and ppc to __ppc__
+
+Changes for the 5.3 release, MacOS X bring up (the cctools-282 release):
+- Added the source files arch_usage.c ofile.c print.c set_arch_flag_name.c
+  to be shipped so that libtool can be built from the source given to MetroWerks
+- Changed swap_ppc_thread_state_t() to not use bit fields for srr1, cr and exr
+  to match the ppc_thread_state for Rhapsody/MacOS X.
+- Changed host_self() and task_self() to mach_host_self() and mach_task_self()
+  for MacOS X.  Also included "stuff/openstep_mach.h" for macros to allow it
+  to still build on Openstep.  Also changed ifdef's __SLICK__ to __OPENSTEP__.
+- Changed the Makefile to allow for RC_OS=macos for MacOS X builds.
+- Changed vm_task_t to mach_port_t in vm_flush_cache.c to build for MacOS X.
+
+Changes for the 5.2 release (the cctools-277 release):
+- Added default cases for i386 and ppc subtypes to get_arch_from_host() which
+  does a sprintf() for the unknown subtypes.  Also added code for unknown
+  types to get_arch_name_from_types() insteading of returning "unknown".
+  Radar bug #2241690.
+
+Changes for the 5.2 release (the cctools-274 release):
+- Removed all uses of CPU_SUBTYPE_586SX.  Added the pentium, pentiumpro,
+  pentiumIImodel3 and pentiumIImodel5 subtypes. Updated cpusubtype_combine() and
+  cpusubtype_findbestarch() deal with the new intel cpusubtypes. Radar bug
+  #2231830.
+
+Changes for the 5.2 release (the cctools-270 release):
+- Fixed a bug in get_toc_byte_sex() which did not have code to deal with the
+  extended format #1.
+
+Changes for the 5.2 release (the cctools-267 release):
+- Added many casts and dummy variables  to deal with MetroWerks compiler
+  warnings (the ones with out -Wall). Radar bug #2227678.
+- Added support for the 4.4BSD extend format #1 feature where the size of the
+  name is in the ar_name field and the name follow the archive header before the
+  contents of the member.  A member_name and member_name_size field have been
+  added to the ofile struct to support this. Radar bug #1670513.
+
+Changes for the 5.1 release (the cctools-261 release):
+- Added the 603e, 603ev, and 750 to the table of arch types.
+- Added the case for CPU_SUBTYPE_POWERPC_750 in get_arch_from_host() in arch.c
+  (it had support for CPU_SUBTYPE_POWERPC_603e and CPU_SUBTYPE_POWERPC_603ev).
+  (Radar 2213821)
+- Changed cpusubtype_findbestarch() in best_arch.c for PowerPC subtypes.  If an
+  exact match is not found the subtype will be picked from the following order:
+	750, 604e, 604, 603ev, 603e, 603, ALL
+  Note the 601 is NOT in the list above.  It is only picked via an exact match.
+  (Radar 2213821)
+- Changed cpusubtype_combine() in best_arch.c for for PowerPC subtypes.
+  Combining with the ALL type becomes the other type. Combining anything with
+  the 601 becomes 601.  All other non exact matches combine to the ALL type.
+  (Radar 2213821)
+
+Changes for the 5.1 release (the cctools-254 release):
+- Fixed a bug in swap_dylib_module() where it did not swap the two objc fields.
+
+Changes for the 5.1 release (the cctools-252 release):
+- Removed the m98k arch entry from arch.c and reorder the table to put the
+  Rhapsody archs first. 
+
+Changes for the 5.1 release (the cctools-247 release):
+- Added MKDIRS if code to the Makefile to build native on Rhapsody.
+- Changed the Makefile to use gnutar instead of tar because it works on Rhapsody
+  where tar does not.
+- Changed the Makefile so profiled objects get built for RC_OS teflon.
+- Changed the code ifdef __TEFLON__ to ifndef __SLICK__ (where __TEFLON__ will
+  nolonger be defined for Rhapsody builds) so the default builds will be native
+  Rhapsody builds.  The changes were to execute.c, ofile.c and writeout.c .
+
+Changes for the 5.0 release (the cctools-240 release):
+- Moved fatals.c in the Makefile from CFILES2 to CFILES1 so it can be used by
+  the GNU assembler source.
+
+Changes for the 5.0 release (the cctools-239 release):
+- Fixed a bug in get_arch_from_host() for the family cpusubtype not getting
+  set correctly for 603, 604 and 604e
+
+Changes for the 5.0 release (the cctools-235 release):
+- Added PPC_RELOC_JBSR to reloc_has_pair() in reloc.c .
+- Fixed a warning about testing an unsigned value for less than zero in
+  writeout.c
+
+Changes for the 5.0 release (the cctools-230 release):
+- Added ppc604e to the arch table and to get_arch_from_host().  This is what
+  some kernels on some of Power Mac 8500 is returning today.
+- Added a cast to writeout.c to get rid of a warning and fix a bug where it
+  was testing ran_off < 0 which is now unsigned.
+
+Changes for the 5.0 release (the cctools-226 release):
+- Added ppc604 to the arch table and to get_arch_from_host().  This is what
+  the kernel on the Power Mac 8500 is returning.
+
+Changes for the 5.0 release (the cctools-224 release):
+- Changed including <bsd/ranlib.h> to <mach-o/ranlib.h> which uses unsigned long
+  instead of off_t (64 bits on Teflon).
+- Fixed a bug in the __TEFLON__ execute code that was not testing the return
+  status for 0.
+- Added the routines swap_ppc_float_state_t() and swap_ppc_exception_state_t()
+  to swap the other ppc flavors to byteswap.c and swap_headers.c .
+- Changed cpusubtype_findbestarch() for PowerPC to deal with the 603 and 604
+  types the best I can.
+- Changed cpusubtype_combine() for PowerPC to combine any specific cpusubtype
+  with the CPU_SUBTYPE_POWERPC_ALL and return the specific cpusubtype.  Made
+  a cut at combining the 603 and 604 types.
+
+Changes for the 5.0 release (the cctools-222 release):
+- Added get_stack_direction_from_flag(), get_stack_addr_from_flag() and
+  get_stack_size_from_flag() routines to arch.c.
+
+Changes for the 5.0 release (the cctools-221.1 and cctools-222 releases):
+- Picked up changed to the Makefile to not build profile objects for teflon.
+  This is because the PowerPC compiler core dumps with -pg.
+
+Changes for the 5.0 release (the cctools-221 release):
+- Picked up the changes for the correct Rhapsody thread state changes into
+  ofile.c, bytesex.c and swap_headers.c.
+
+Changes for the 5.0 release (the cctools-215 release):
+- Updated reloc_is_sectdiff() and reloc_has_pair() in reloc.c for the PowerPC
+  relocation types PPC_RELOC_HI16_SECTDIFF, PPC_RELOC_LO16_SECTDIFF and
+  PPC_RELOC_HA16_SECTDIFF.
+
+Changes for the 5.0 release (the cctools-212 release):
+- Added the ppc601 and ppc603 specific arch types.  The specific types at this
+  point are treated as mutually exclusive and can't combine with each other and
+  only can combine with the ALL type.
+
+Changes for the 5.0 release (the cctools-211 release):
+- Integrated changes to allow teflon builds (RC_OS=teflon or RC_OS=nextstep) to
+  not build shlib in the Makefile.  Also changes in the sources to not
+  include <libc.h> for __TEFLON__ builds.
+
+Changes for the 5.0 release (the cctools-210 release):
+- Changed everything from using m98k to ppc.
+
+Changes for the 4.0 release (the cctools-193 release):
+- Changed the way what appears to be a malformed fat file for files that start
+  with the FAT_MAGIC to treat them as unknown files rather than malformed fat
+  files.  This fixes the problem checksyms(l) was having with java applets which
+  use the same magic number (bug #63886).
+
+Changes for the 4.0 release (the cctools-185 release):
+- Changed checkout.c to deal with ld -r files vs. .o files from the assember
+  which differ as the indirect symbol table is between the symbol table and
+  string table in the ld -r case. This was to fix redo_prebinding(1) but also
+  fixes strip.
+- Changed checkout.c to deal with segments marked SG_FVMLIB so not to complain
+  about them.  This was to fix redo_prebinding(1).
+- Changed ofile.c for i860 thread status on non-m68k machines to not check or
+  swap the thread status which the struct has different layout on non-m68k
+  machines. This was to fix redo_prebinding(1).
+
+Changes for the 4.0 release (the cctools-168 release):
+- Change the version numbers of dynamic library to the form X[.Y[.Z]] to match
+  how next does versioning of it's projects.  This effected libtool(1), ld(1),
+  otool(1), dyld, libstuff(version_number.c) and man pages for ld and libtool
+  bug #55627). The change here is the new file version_number.c.
+
+Changes for the 4.0 release (the cctools-166 release):
+- Changed the use of the cpp macro DYNAMIC (set by the Makefile) to __DYNAMIC__
+  (set by the compiler when -dynamic is in effect).
+
+Changes for the 4.0 release (the cctools-161 release):
+- Added in the Makefile passing -DDYNAMIC for things built with -dynamic
+  Then ifdef'ed out the const in arch.c for arch_flags[] with DYNAMIC so that
+  when this is put in a dynamic shared library it does not have relocation
+  entries in a read-only section.
+
+Changes for the 4.0 release (the cctools-154 release):
+- To fix a bug in stripping .o files compiled dynamic the routine
+  copy_new_symbol_info() needed to base it's copy output on if there was an
+  dynamic symbol table command in the object not on if it had MH_DYLDLINK in
+  the mach header.  So a pointer to the old dynamic symbol table command is now
+  passed and if not null the full dynamic symbol table is copied out.
+
+Changes for the 4.0 release (the cctools-150 release):
+- Fixed some problems in ofile_process() with passing the correct arch_name
+  argument to processor() for fat files.
+- Changed the profiled objects to be compiled with -dynamic.
+- Changed everything to use __private_extern__ .
+
+Changes for the 4.0 release (the cctools-149 release):
+- Fixed a bug in ofile_process() in ofile.c for #ifdef OTOOL when an arch was
+  specified as for cross bytesex.  The problem was the #ifdef OTOOL does not
+  swap the mach header and it was being used in ofile_process() to select the
+  arch.  Some ifdef'ed OTOOL was added (bug #50350).
+
+Changes for the 4.0 release (the cctools-148 release):
+- Changed how the libstuff directory builds.  It now builds 4 libraries.  One
+  for the following uses: static, dynamic, profiled and shlib.
+
+Changes for the 4.0 release (the cctools-146 release):
+- Fixed a bug in swap_sparc_thread_state_regs() where the reserved field of
+  the psw was not included in the swap code (bug #49685).  This was CCC
+  approved for 3.3risc and a cctools-142.1 clone with just this fix was
+  submitted.
+
+Changes for the 4.0 release (the cctools-145 release):
+- Changed writeout() to update the time stamp for dylibs.
+
+Changes for the 4.0 release (the cctools-143 release):
+- Added support to loop through the modules of a dylib in ofile_process() when
+  the new prameter dylib_flat == FALSE.  This is use in nm(1) to print the
+  symbol tables of a dylib.
+
+Changes for the 4.0 release (the cctools-140 release):
+- Changed vm_flush_cache() to define __3_3_User_with_hppa__ so it will build
+  for 4.0.
+
+Changes for the 4.0 release (the cctools-133 release):
+- Picked up the sparc changes to byte_sex.c and swap_headers.c that swaps the
+  floating-point sparc thread state.
+- Picked up the sparc changes to check_Mach_O() in ofile.c for checking and
+  swaping the floating-point thread.
+- Fixed a problem in strip for cross byte sex striping when the dynamic
+  symbol table info is present.  In strip.c the problem was the new symbolic
+  tables were not swapped to the target byte sex.  And in writeout.c in libstuff
+  the problem was that parts of the headers were used after they were swapped.
+
+Changes for the 4.0 release (the cctools-132 release):
+- Picked up the sparc changes to reloc.c for the sparc relocs.
+- Picked up the sparc changes to byte_sex.c and swap_headers.c that swaps the
+  sparc thread state.
+- Picked up the sparc changes to check_Mach_O() in ofile.c for checking the
+  sparc thread state.
+- Fixed a logic bug in cpusubtype_findbestarch() where the loops after the
+  cases on the cputype were not checking to make sure the cputype of the fat
+  arch struct was right before checking the subtype.
+
+Changes for the 3.3 release (the cctools-128 release):
+- Fixed a bug in symbol_string_at_end() in checkout.c which was not using the
+  object->object_size to test if the LINKEDIT segment covered the end of the
+  file.
+
+Changes for the 3.3 release (the cctools-125 release):
+- Fixed a bug in get_arch_from_host() in arch.c for the hppa where the family
+  cpu_subtype was getting set to a specific subtype CPU_SUBTYPE_HPPA_7100 for
+  that host.
+
+Changes for the 3.3 release (the cctools-124 release):
+- Added a temporary error message to check_object() in checkout.c to print the
+  error "current limitation, can't process files with LC_DYSYMTAB load command"
+  so the strip(1), nmedit(1) and indr(l) for now print a reasonable message
+  when such a file is used.
+
+Changes for the 3.3 release (the cctools-119 release):
+- Picked up first set of changes for sparc target.
+
+Changes for the 3.3 release (the cctools-118 release):
+- Fixed a bug that crashed strip when doing a strip -S on a library and a member
+  had no symbol table command.  The bug was in writeout.c in libstuff at line
+  490 where it indirected thought the pointer to the symbol table command
+  without checking if it was NULL.
+
+Changes for the 3.3 release (the cctools-104 release):
+- Changed the name of the first parameter of swap_ident_command() from id to
+  id_cmd (in bytesex.c).  The compiler is treating this as a reserved word.
+
+Changes for the 3.3 release (the cctools-102 release):
+- Integrated in the hppa support.
+  Changed the rounding in calc_hppa_HILO() in hppa.h to round to nearest (add
+  half then round) from round up.
+created libstuff/hppa.c and include/stuff/hppa.h for cctools-102
+     Contains the definition of:
+	 calc_hppa_HILO()
+different libstuff/arch.c (integrated for cctools-102)
+     Using cctoolshppa-37.  New stuff for hppa cputype.
+different libstuff/best_arch.c (integrated for cctools-102)
+     Using cctoolshppa-37.  New stuff for hppa cputype.
+different libstuff/bytesex.c (integrated for cctools-102)
+     Using cctoolshppa-37.  New stuff for hppa cputype.
+different libstuff/ofile.c (integrated for cctools-102)
+     Using cctoolshppa-37.  New stuff for hppa cputype.
+different libstuff/swap_headers.c (integrated for cctools-102)
+     Using cctoolshppa-37.  New stuff for hppa cputype.
+
+Changes for the 3.2 release (the cctools-25 release):
+- Added Makefile support for installGNUsrc and fromGNUsrc.
+
+Changes for the 3.1 release (the cctools-22 release):
+- Changed ofile_map() when one architecture is specified to first look for that
+  specific cpusubtype then the family.  This caused gprof(1) to fail to open
+  a fat file (or fat shlibs) that had an i486 subtype (bug #31857).
+- Added to arch.c (bug #32553):
+    { "any",	CPU_TYPE_ANY,	  CPU_SUBTYPE_MULTIPLE },
+    { "little",	CPU_TYPE_ANY,	  CPU_SUBTYPE_LITTLE_ENDIAN },
+    { "big",	CPU_TYPE_ANY,	  CPU_SUBTYPE_BIG_ENDIAN },
+
+Changes for the 3.1 release (the cctools-15 release):
+- Fixed a bug where cpusubtype_findbestarch() would fail to select an i486
+  object from a fat file when a starting with a CPU_SUBTYPE_I386_ALL.
+  The fix was that cpusubtype_findbestarch() was changed such that
+  previously when it failed it would pick something (architecture dependent)
+  that will work for the cputype and will successfully combine when
+  cpusubtype_combine() is applied to the two cpusubtypes.
+
+    For the i386 architecture the selection is the lowest in order of 
+    CPU_SUBTYPE_I386_ALL, CPU_SUBTYPE_486, CPU_SUBTYPE_486SX, CPU_SUBTYPE_586
+    and CPU_SUBTYPE_586SX starting with the given cpusubtype.
+
+    For the m68k architecture (where the cpusubtypes do NOT run on anything
+    other than that implementation) the selection favors the
+    CPU_SUBTYPE_MC68040 over the CPU_SUBTYPE_MC68030_ONLY when starting
+    with the cpusubtype of CPU_SUBTYPE_MC680x0_ALL.
+  Bug #30765.
+- Removed the kludged mach/m98k/thread_status.h with only an entry point and
+  added the code to swap the grf thread with the real entry point.
+
+Changes for the 3.1 release (the cctools-13 release):
+- Added the m98k (PowerPC) architecture.  This includes a kludged
+  mach/m98k/thread_status.h with only an entry point.
+
+Changes for the 3.1 release (the cctools-10 release):
+- Changed the cpusubtypes to use the correct #defines from <mach/machine.h> in
+  arch.c, ofile.c and swap_headers.c .  Also added the i486, i486SX, i586, and
+  i586SX arch flags and code to back them up.
+
+Changes for the 3.1 release (the cctools-8 release):
+- Changed the checking in check_archive to only look at the cputype and not at
+  both the cputype and cpusubtype (this will change as the correct handling of
+  the cpusubtype is implemented).
+
+Changes for the 3.1 release (the cctools-6 release):
+- Fixed a bug in get_arch_from_host() where it did not recognize the 486 cpu
+  subtype.
+- Hacked in a fix for a basic algorthim flaw in ofile_process() in ofile.c as
+  it makes a second pass over the mapped ofile it looses the information as
+  to which bytesex the objects were because it swaps the memory in place.
+  So a call to ofile_unmap() and ofile_map() were placed after the first
+  loop.  (this still needs a better fix).
+
+Changes for the 3.1 release (the cctools-5 release):
+- Picked up the lono team mods to ofile.c and swap_headers for the change to
+  the i386 thread_status.h.
+- Picked up the lono team mods to bytesex.c for some new code to swap 16-bit
+  address segments.
+- Fixed a bug in ofile_next_member() in ofile.c where if the next member was not
+  an object file the fields (object_*, mh, load_commands) were not zeroed out.
+  This caused libtool(1) to think an archive member was an object file when it
+  was not.
+
+Changes for the 3.1 release (the cctools-4 release):
+- Changed the arch name of ix86 to i386.
+- Fixed a bug in get_arch_from_host() in arch.c that set the cpusubtype for the
+  family arch_flags wrong.  This needed to be set based on the cputype and
+  hard coded for each cputype.  The problem was that the 040 cpusubtype was
+  being set for the family arch_flags when the 030 cpusubtype was needed.
+
+Changes for the 3.0 release (the -56 compiler release):
+- Added hash_string.c from the mkshlib directory to libstuff.
+
+Changes for the 3.0 release (the -56 compiler release):
+- Picked up some fixes for ofile.c where host_byte_sex was not set early enough
+  in some of the functions.
+
+Changes for the 3.0 release (the -53 compiler release):
+- Added SWAP_FLOAT().
+
+Changes for the 3.0 release (the -49 compiler release):
+- Changed {BIG,LITTLE}_ENDIAN to __{BIG,LITTEL}_ENDIAN__ as the cc-49 cc driver
+  will define them.
+- Changed the Makefile to meet the RC api.
+
+Changes for the 3.0 release (the -44 compiler release):
+- Created the libstuff directory.

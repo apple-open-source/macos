@@ -1,0 +1,53 @@
+{\rtf0\ansi{\fonttbl\f0\fswiss Helvetica;\f1\fmodern Courier;}
+\pard\tx532\tx1065\tx1601\tx2135\tx2667\tx3202\tx3736\tx4270\tx4802\tx5337\ql\qnatural
+
+\f0\b\fs28 \cf0 BUGS and TODOs\
+
+\b0\fs24 \
+\pard\tx532\tx1065\tx1601\tx2135\tx2667\tx3202\tx3736\tx4270\tx4802\tx5337\ql\qnatural
+
+\b \cf0 Top-level targets are all rebuilt 
+\b0 (derek)\
+If a project contains subprojects, then all of the top-level targets (including .o files) are rebuilt whenever you do a make.\
+The problem was that I has said $(OFILES): $(OFILE_DIR) to ensure that the object-file directory is created before any object files are built.  Unfortunately, it also ensured that the object file is rebuild if the directory ever changed.\
+\pard\tx532\tx1065\tx1601\tx2135\tx2667\tx3202\tx3736\tx4270\tx4802\tx5337\ql\qnatural
+
+\f1 \cf0 sandman> diff ../pb_makefiles-1/common.make .\
+149,155d148\
+< # Dependencies\
+< #\
+< \
+< $(OFILES): $(OFILE_DIR)\
+< $(GENERATED_SRCFILES): $(SFILE_DIR)\
+< \
+< #\
+\pard\tx532\tx1065\tx1601\tx2135\tx2667\tx3202\tx3736\tx4270\tx4802\tx5337\ql\qnatural
+
+\f0 \cf0 \
+\pard\tx532\tx1065\tx1601\tx2135\tx2667\tx3202\tx3736\tx4270\tx4802\tx5337\ql\qnatural
+
+\b \cf0 Subprojects of Frameworks may not find public/private headers
+\b0  (peter)\
+Rather than making -F$(PRODUCT_ROOT) a PROJTYPE_MFLAG it must be made a RECURSIVE_MFLAG.\
+\pard\tx532\tx1065\tx1601\tx2135\tx2667\tx3202\tx3736\tx4270\tx4802\tx5337\ql\qnatural
+
+\f1 \cf0 sandman> diff ../pb_makefiles-1/framework.make .\
+18c18\
+< PROJTYPE_MFLAGS = -F$(PRODUCT_DIR)\
+---\
+> RECURSIVE_MFLAGS += -F$(PRODUCT_DIR)\
+\pard\tx532\tx1065\tx1601\tx2135\tx2667\tx3202\tx3736\tx4270\tx4802\tx5337\ql\qnatural
+
+\f0 \cf0 \
+\pard\tx532\tx1065\tx1601\tx2135\tx2667\tx3202\tx3736\tx4270\tx4802\tx5337\ql\qnatural
+
+\b \cf0 Info.plist is not being built
+\b0 \
+This is because the line adding it to the BEFORE_BUILD in wrapped.make occurs after the inclusion of common.make and not before.  Fixed\
+\
+
+\b Files not being chowned and chmoded during installation
+\b0 \
+Oversight, now corrected.\
+\
+}

@@ -1,0 +1,16 @@
+Package: bison
+Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
+Vendor: GNU Project
+Version: 1.28
+URL: ftp://prep.ai.mit.edu/pub/gnu/bison/
+Build-Depends: build-base, perl
+Description: Bison parser generator
+ Bison is a general-purpose parser generator that converts a grammar
+ description for an LALR(1) context-free grammar into a C program to
+ parse that grammar.  Once you are proficient with Bison, you may use
+ it to develop a wide range of language parsers, from those used in
+ simple desk calculators to complex programming languages.
+ .
+ Bison is upward compatible with Yacc: all properly-written Yacc
+ grammars ought to work with Bison with no change.  Anyone familiar
+ with Yacc should be able to use Bison with little trouble.

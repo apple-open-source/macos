@@ -1,0 +1,7 @@
+# $Id: Makefile.in,v 1.1.1.1 2001/01/25 04:59:46 wsanchez Exp $
+
+LTLIBRARY_NAME        = libopenssl.la
+LTLIBRARY_SOURCES     = openssl.c
+LTLIBRARY_SHARED_NAME = openssl.la
+
+include $(top_srcdir)/build/dynlib.mk

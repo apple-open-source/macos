@@ -1,0 +1,38 @@
+.TH NMSERVER 8 2/22/88
+.CM 4
+.SH NAME
+nmserver \- Mach network server
+.SH SYNOPSIS
+.B nmserver
+[ \fB-c\fR ] [ \fB-t\fR ] [ \fB-p\fR \fIprint_level\fR ]
+.SH DESCRIPTION
+The
+.I network server
+is the program responsible for forwarding Mach IPC over the network.
+Currently, it also implements a simple network name service.
+The network server should be started once and for all at boot time.
+It is shared by all users of the machine.
+.SH OPTIONS
+.B -c
+enables debugging in the
+.I cthreads
+library.
+
+.B -t
+enables procedure call tracing, if the executable was compiled with
+this facility turned on.
+
+.B -p
+is used to set the level of debugging messages printed on the console.
+Possible values for \fIprint_level\fR are 5, 3, and 0, which
+correspond to LS_PRINT_NEVER, LS_PRINT_LOG, and LS_PRINT_ALWAYS
+respectively.  The debugging messages become more verbose as the value
+changes from LS_PRINT_NEVER to LS_PRINT_ALWAYS.
+
+
+.SH "SEE ALSO"
+\fINetwork Server Design\fR (an internal document from the CMU Mach group)
+.SH HISTORY
+.TP 
+22-Feb-88  Daniel Julin (dpj) at Carnegie-Mellon University
+Created.

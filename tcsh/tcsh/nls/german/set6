@@ -1,0 +1,11 @@
+$ $Id: set6,v 1.1.1.1 1999/04/23 02:00:06 wsanchez Exp $
+$ ed.inputl.c
+$set 6
+1 FEHLER: Illegaler Befehl von Taste 0%o\r\n
+2 ja\n
+3 ediere\n
+4 brich ab\n
+5 nein\n
+6 Kein entsprechender Befehl\n
+7 Mehrdeutiger Befehl\n
+8 *** Editor fataler FEHLER ***\r\n\n

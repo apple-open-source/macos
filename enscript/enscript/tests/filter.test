@@ -1,0 +1,10 @@
+#!/bin/sh
+#
+# --filter
+#
+
+. $srcdir/defs || exit 1
+
+$enscript --quiet --filter="cat %s" -p$output $asciifiles
+
+rm $output

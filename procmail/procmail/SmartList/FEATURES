@@ -1,0 +1,41 @@
+Summary of what SmartList provides:
+	+ The overseeable management of an arbitrary number of mailinglists
+	+ Convenient and simple creation of new mailinglists
+	+ Convenient and simple removal of existing mailinglists
+	+ Fully automated subscription/unsubscription/help-request processing
+	  (no operator intervention needed)
+	+ Enough intelligence to overcome the ignorance of some subscribers
+	  (will direct subscribe and unsubscribe requests away from the
+	  regular list and automatically onto the -request address)
+	+ No hardwired format for (un)subscribe requests (i.e. new subscribers
+	  need not be educated, unsubscribing users do not need to remember
+	  any particular syntax)
+	+ *Intelligent* autoremoval of addresses from the list that cause
+	  too many bounces
+	+ Submissions can be limited to people on the accept list (which could
+	  be the current list of subscribers)
+	+ The fully automated subscription mechanism allows for a reject list
+	  of unwanted subscribers and a general address screening mechanism
+	  which allows you to control exactly who is allowed to subscribe
+	+ Optional implicit subscription upon first submission to the list
+	+ MIME-compliant auto-digest-generation (configurable per list)
+	+ Joint management of several mailinglists possible
+	+ Customisation per mailinglist or mailinglist group possible (simply
+	  remove or create the desired links)
+	+ A listmaintainer can be assigned per list;  miscellaneous requests
+	  that couldn't be handled by the list automatically are then
+	  forwarded to his mail address (instead of being accumulated in
+	  a file)
+	+ Allows for remote maintenance of any mailinglist by a
+	  listmaintainer
+	+ Integrated archiving service
+	+ Integrated diagnostic aid to give hints to the maintainer about
+	  possible problems
+	+ Moderated mailinglists with an arbitrary number of moderators
+	+ Automatically eliminates duplicate submissions
+	+ You can set up a mailinglist to function as a standalone mail
+	  archive server
+	+ Extended MIME support (autorecognition, encapsulation and suitable
+	  encoding of well known (and unknown) file formats)
+	+ The archive server can send arbitrarily long (even binary) files
+	  in MIME-multipart mails

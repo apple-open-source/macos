@@ -1,0 +1,13 @@
+ifeq "$(VERSIONING_SYSTEM)" "next-cvs"
+	PROJECT_VERS_CMD = $(CVS_PROJECT_VERS_CMD)
+else
+	PROJECT_VERS_CMD = $(VERS_STRING)
+endif
+
+version_tables:
+	$(SILENT) vers_string=`$(PROJECT_VERS_CMD) $(NAME)`;		\
+	for table in $(GLOBAL_RESOURCE_DIR)/*.table;	       		\
+	do								\
+	    $(CHMOD) +w $$table;					\
+	    $(ECHO) "\"Driver Version\" = \"$$vers_string\";" >> $$table; \
+	done

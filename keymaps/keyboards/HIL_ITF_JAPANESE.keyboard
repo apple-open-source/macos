@@ -1,0 +1,175 @@
+##
+# Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+#
+# @APPLE_LICENSE_HEADER_START@
+# 
+# "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
+# Reserved.  This file contains Original Code and/or Modifications of
+# Original Code as defined in and that are subject to the Apple Public
+# Source License Version 1.0 (the 'License').  You may not use this file
+# except in compliance with the License.  Please obtain a copy of the
+# License at http://www.apple.com/publicsource and read it before using
+# this file.
+# 
+# The Original Code and all software distributed under the License are
+# distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+# EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+# INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+# License for the specific language governing rights and limitations
+# under the License."
+# 
+# @APPLE_LICENSE_HEADER_END@
+##
+#
+# HIL_ITF_JAPANESE.keyboard
+# - a keyboard layout description file for HIL Kanji ITF keyboard
+#
+
+name HIL Kanji ITF Keyboard
+interface 3
+handler_id 28
+
+# modifiers + space bar	
+row 0.0 0.0
+key square(24.0) 0x70		#print/enter
+key rectangle(36.0,24.0) 0x7b	#Muhennkann	Only Japanese Keyboard
+key square(24.0) 0x38		#Left Extended char
+key rectangle(192.0,24.0) 0x39	#space bar
+key square(24.0) 0x61		#Right Extended char
+key rectangle(36.0,24.0) 0x79	#Hennkann	Only Japanese Keyboard
+key square(24.0) 0x66		#Left Arrow char
+key square(24.0) 0x65		#Down Extended char
+key square(24.0) 0x67		#Left Extended char
+
+# row 1 (add upto 408)
+row 0.0 24.0
+key square(24.0) 0x01		#Del/ESC
+key rectangle(36.0,24.0) 0x2a	# left shift
+# row 1 alpha keys
+key square(24.0) 0x2c		# Z
+key square(24.0) 0x2d		# X
+key square(24.0) 0x2e		# C
+key square(24.0) 0x2f		# V
+key square(24.0) 0x30		# B
+key square(24.0) 0x31		# N
+key square(24.0) 0x32		# M
+key square(24.0) 0x33		# ,  <
+key square(24.0) 0x34		# . >
+key square(24.0) 0x35		# / ?
+key rectangle(36.0,24.0) 0x36	# right shift
+key square(24.0) 0x6d		#Select ( same as end in 101 keyboard)
+key square(24.0) 0x64		# Up arrow
+key square(24.0) 0x6b		# Next (Pagedown in 101 keyboard)
+
+# row 2
+row 0.0 48.0
+key square(24.0) 0x3a		# caps lock
+key square(24.0) 0x1d		# ctrl
+# row 2 alpha keys
+key square(24.0) 0x1e		# A
+key square(24.0) 0x1f		# S
+key square(24.0) 0x20		# D
+key square(24.0) 0x21		# F
+key square(24.0) 0x22		# G
+key square(24.0) 0x23		# H
+key square(24.0) 0x24		# J
+key square(24.0) 0x25		# K
+key square(24.0) 0x26		# L
+key square(24.0) 0x27		# ; :
+key square(24.0) 0x28		# ' "
+key rectangle(48.0,24.0) 0x1c	# return key
+key square(24.0) 0x6c		#  traingle? (eq Home in 101 pc)
+key square(24.0) 0x6a		# Prev (Page up in 101 keyboard)
+
+# row 3
+row 0.0 72.0
+key rectangle(36.0,24.0) 0x0f	# tab
+# row 3 alpha keys
+key square(24.0) 0x10		# Q
+key square(24.0) 0x11		# W
+key square(24.0) 0x12		# E
+key square(24.0) 0x13		# R
+key square(24.0) 0x14		# T
+key square(24.0) 0x15		# Y
+key square(24.0) 0x16		# U
+key square(24.0) 0x17		# I
+key square(24.0) 0x18		# O
+key square(24.0) 0x19		# P
+key square(24.0) 0x1a		# [ {
+key square(24.0) 0x1b		# } }
+key rectangle(36.0,24.0) 0x2b	# \ |
+key square(24.0) 0x68		# Ins char (Insert in 101 keyboard)
+key square(24.0) 0x69		# Del char (Delete in 101 keyboard)
+
+# row 4 (the number keys)
+row 0.0 96.0
+key rectangle(28.0,24.0) 0x29	#  ` ~
+key square(24.0) 0x02		# 1
+key square(24.0) 0x03		# 2
+key square(24.0) 0x04		# 3
+key square(24.0) 0x05		# 4
+key square(24.0) 0x06		# 5
+key square(24.0) 0x07		# 6
+key square(24.0) 0x08		# 7
+key square(24.0) 0x09		# 8
+key square(24.0) 0x0a		# 9
+key square(24.0) 0x0b		# 0
+key square(24.0) 0x0c		# - _
+key square(24.0) 0x0d		# = +
+key rectangle(44.0,24.0) 0x0e	# backspace
+key square(24.0) 0x71		#  Insert line	0x71 At USA Keyboard
+key square(24.0) 0x72		#  Delete Line	0x72 At USA Keyboard
+
+# row 5 (the function keys)
+row 0.0 130.0
+key square(24.0) 0x6f		# Reset/Break(Pause/break in 101)
+key square(24.0) 0x46		# stop (scroll lock in 101)
+space 12.0
+key rectangle(30.0,24.0) 0x3b	# F1
+key rectangle(30.0,24.0) 0x3c	# F2
+key rectangle(30.0,24.0) 0x3d	# F3
+key rectangle(30.0,24.0) 0x3e	# F4
+key square(24.0) 0x6e		# Menu	(Print Screen in 101)
+key square(24.0) 0x45		# User/system 0x77 At USA Keyboard
+key rectangle(30.0,24.0) 0x3f	# F5
+key rectangle(30.0,24.0) 0x40	# F6
+key rectangle(30.0,24.0) 0x41	# F7
+key rectangle(30.0,24.0) 0x42	# F8
+space 12.0
+key square(24.0) 0x73		# Clear line	0x73 At USA Keyboard
+key square(24.0) 0x74		# clear display	0x74 At USA Keyboard
+
+#
+# now, on to the right hand side of the keyboard
+#
+
+# numeric keypad
+row 442.0 0.0
+key rectangle(48.0,24.0) 0x52	# 0	0x52 At USA Keyboard
+key square(24.0) 0x53		# .	0x53 At USA Keyboard
+key rectangle(24.0,48.0) 0x75	# tab	0x75 At USA Keyboard
+row 442.0 24.0
+key square(24.0) 0x4f
+key square(24.0) 0x50
+key square(24.0) 0x51
+row 442.0 48.0
+key square(24.0) 0x4b
+key square(24.0) 0x4c
+key square(24.0) 0x4d
+key square(24.0) 0x76		# ,	0x76 At USA Keyboard
+row 442.0 72.0
+key square(24.0) 0x47
+key square(24.0) 0x48
+key square(24.0) 0x49
+key square(24.0) 0x62		# enter
+row 442.0 96.0
+key square(24.0) 0x37		# *
+key square(24.0) 0x63		# /
+key square(24.0) 0x4e		# +
+key square(24.0) 0x4a		# -
+row 442.0 130.0
+key square(24.0) 0x43		# F9
+key square(24.0) 0x44		# F10
+key square(24.0) 0x57		# F11
+key square(24.0) 0x58		# F12

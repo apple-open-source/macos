@@ -1,0 +1,62 @@
+{
+    DEBUGTARGETS = ({ExecInfo = (); }); 
+    FILESTABLE = {
+        CLASSES = (); 
+        C_FILES = (); 
+        FRAMEWORKS = (); 
+        H_FILES = (ndir.h); 
+        M_FILES = (); 
+        OTHER_LINKED = (
+            arch_tool.c, 
+            changes.c, 
+            fastcp.c, 
+            publicizeCopy.c, 
+            ofileListTool.c, 
+            frameworkFlags.c, 
+            clonehdrs.c
+        ); 
+        OTHER_SOURCES = (
+            app.make, 
+            bundle.make, 
+            framework.make, 
+            library.make, 
+            tool.make, 
+            aggregate.make, 
+            "bundle-common.make", 
+            common.make, 
+            subproj.make, 
+            basicrules.make, 
+            Makefile.preamble.template, 
+            Makefile.postamble.template, 
+            Makefile, 
+            "winnt-specific.make", 
+            "nextstep-specific.make", 
+            "macos-specific.make", 
+            "solaris-specific.make", 
+            "hpux-specific.make", 
+            libtool.winnt, 
+            libtool.solaris, 
+            libtool.hpux, 
+            "platform-variables.make"
+        ); 
+        PRECOMPILED_HEADERS = (); 
+        PROJECT_HEADERS = (); 
+        PUBLIC_HEADERS = (); 
+        SUBPROJECTS = (); 
+        TOOLS = (); 
+    }; 
+    GENERATEMAIN = YES; 
+    LANGUAGE = English; 
+    LOCALIZABLE_FILES = {}; 
+    NEXTSTEP_BUILDTOOL = /bin/gnumake; 
+    NEXTSTEP_JAVA_COMPILER = /usr/bin/javac; 
+    NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc; 
+    PDO_UNIX_JAVA_COMPILER = "$(JDKBINDIR)/javac"; 
+    PDO_UNIX_OBJCPLUS_COMPILER = "$(NEXTDEV_BIN)/gcc"; 
+    PROJECTNAME = project_makefiles; 
+    PROJECTTYPE = Legacy; 
+    PROJECTVERSION = 2.8; 
+    WINDOWS_BUILDTOOL = /bin/gnumake; 
+    WINDOWS_JAVA_COMPILER = "$(JDKBINDIR)/javac.exe"; 
+    WINDOWS_OBJCPLUS_COMPILER = "$(DEVDIR)/gcc"; 
+}

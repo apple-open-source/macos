@@ -1,0 +1,6 @@
+# $Source: /cvs/Darwin/Services/apache_mod_php/php/ext/hyperwave/setup.stub,v $
+# $Id: setup.stub,v 1.1.1.1 2000/08/10 02:08:29 wsanchez Exp $
+
+define_option with-hyperwave 'Hyperwave support?' yesno no \
+'     Whether to build with Hyperwave support. More\n
+     information about Hyperwave can be found at http://www.hyperwave.com.'

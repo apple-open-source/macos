@@ -1,0 +1,21 @@
+INSTALLED_RESOURCES = $(INSTALLED_PRODUCTS)/Resources
+fix_resource_permissions: 
+	$(SILENT) ( \
+	    cmd="$(CD) $(INSTALLED_RESOURCES)"; \
+	    $(ECHO) $$cmd; eval $$cmd; \
+	    cmd="$(CHMOD) -R u=rwX,go=rX *.lproj/projectTemplate"; \
+	    $(ECHO) $$cmd; eval $$cmd; \
+	    cmd="$(CHMOD) a+x *.perl"; \
+	    $(ECHO) $$cmd; eval $$cmd; \
+	)
+
+$(MAKEFILE_INSTALL_DIR) $(LOCAL_MAKEFILE_INSTALL_DIR):
+	$(SILENT) $(MKDIRS) $@
+
+install_makefiles: $(MAKEFILE_INSTALL_DIR) $(LOCAL_MAKEFILE_INSTALL_DIR)
+	$(SILENT) $(FASTCP) $(TYPE_MAKEFILE) $(MAKEFILE_INSTALL_DIR)
+	$(SILENT) $(FASTCP) $(TYPE_MAKEFILE_PRE) \
+	    $(LOCAL_MAKEFILE_INSTALL_DIR)
+
+INSTALL_PERMISSIONS = +rwX
+

@@ -1,0 +1,12 @@
+##
+## Temporary flags for static Teflon builds
+##
+
+#CODE_GEN_STYLE = STATIC
+#OTHER_LDFLAGS = -nostdlib /lib/crt0.o -L/tmp/lennart/lib -L/usr/local/lib
+#OTHER_LIBS = -linfo -lc -lm
+
+#OTHER_LDFLAGS = -nostdlib /lib/crt1.o
+#OTHER_LIBS = -framework System
+
+CHFLAGS = true		# until we really have chflags on our system

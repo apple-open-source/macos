@@ -1,0 +1,6 @@
+Package: headerdoc
+Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
+Build-Depends: cctools, libsystem, files, zsh, gnumake, file-cmds, perl
+Description: Documentation generator
+ HeaderDoc is a tool for generating HTML reference documentation from
+ comments in C or C++ header files.

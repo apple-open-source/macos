@@ -1,0 +1,1347 @@
+This is ../info/mh-e, produced by makeinfo version 4.0 from mh-e.texi.
+
+INFO-DIR-SECTION Editors
+START-INFO-DIR-ENTRY
+* MH-E: (mh-e).		Emacs interface to the MH mail system.
+END-INFO-DIR-ENTRY
+
+   This is Edition 1.2, last updated 22 August 1995, of `mh-e, The
+Emacs Interface to MH', for mh-e, Version 5.0.2.
+
+   Copyright 1995 Free Software Foundation, Inc.
+
+   Permission is granted to make and distribute verbatim copies of this
+manual provided the copyright notice and this permission notice are
+preserved on all copies.
+
+   Permission is granted to copy and distribute modified versions of
+this manual under the conditions for verbatim copying, provided also
+that the section entitled "Copying" is included exactly as in the
+original, and provided that the entire resulting derived work is
+distributed under the terms of a permission notice identical to this
+one.
+
+   Permission is granted to copy and distribute translations of this
+manual into another language, under the above conditions for modified
+versions, except that this permission notice may be stated in a
+translation approved by the Free Software Foundation.
+
+
+File: mh-e,  Node: Top,  Next: Preface,  Prev: (dir),  Up: (dir)
+
+MH and Emacs
+************
+
+   This is Edition 1.2 of `mh-e, The Emacs Interface to MH', last
+updated 22 August 1995 for mh-e Version 5.0.2.
+
+* Menu:
+
+* Preface::                     Introduction to mh-e.
+* Tour Through mh-e::           Use mh-e quickly!
+* Using mh-e::                  Documentation for all commands.
+* Customizing mh-e::            Documentation for all variables.
+* Odds and Ends::               Getting mh-e, reporting bugs, mailing
+                                list and FAQ.
+* History::                     The authors speak up!
+* Changes to mh-e::             Actual changes between Versions 3 and beyond.
+* Copying::                     The GNU General Public License
+* Command Index::
+* Variable Index::
+* Concept Index::
+
+
+File: mh-e,  Node: Preface,  Next: Tour Through mh-e,  Prev: Top,  Up: Top
+
+Preface
+*******
+
+   These chapters introduce another interface to MH that is accessible
+through the GNU Emacs editor, namely, _mh-e_.  mh-e is easy to use.  I
+don't assume that you know GNU Emacs or even MH at this point, since I
+didn't know either of them when I discovered mh-e.  However, mh-e was
+the tip of the iceberg, and I discovered more and more niceties about
+GNU Emacs and MH.  Now I'm fully hooked on both of them.
+
+   The mh-e package is distributed with GNU Emacs, (1) so you shouldn't
+have to do anything special to use it.  But it's important to note a
+brief history of mh-e.  Version 3 was prevalent through the Emacs 18
+and early Emacs 19 years.  Then Version 4 came out (Emacs 19.23), which
+introduced several new and changed commands.  Finally, Version 5.0 was
+released, which fixed some bugs and incompatibilities.  This is the
+version covered by this manual.  *Note Getting Started:: will help you
+decide which version you have.
+
+   If you don't already use GNU Emacs but want to learn more, you can
+read an online tutorial by starting GNU Emacs and typing `C-h t'
+(`help-with-tutorial').  (This notation is described in *Note
+Conventions::.)  If you want to take the plunge, consult the *Note GNU
+Emacs Manual: (emacs)top, from the Free Software Foundation.
+
+   If more information is needed, you can go to the Unix manual pages of
+the individual MH commands.  When the name is not obvious, I'll guide
+you to a relevant MH manual page that describes the action more fully.
+
+   I hope you enjoy these chapters!  If you have any comments, or
+suggestions for this document, please let me know.
+
+Bill Wohler <wohler@newt.com>
+8 February 1995
+
+   ---------- Footnotes ----------
+
+   (1) Note that mh-e is supported with MH 6 and either Emacs 18 or
+Emacs 19.  Reportedly, large parts of it work with MH 5 and also with
+Lucid/XEmacs and Epoch, but there are no guarantees.  It is also
+distributed with Lucid/XEmacs, as well as with MH itself.
+
+
+File: mh-e,  Node: Tour Through mh-e,  Next: Using mh-e,  Prev: Preface,  Up: Top
+
+Tour Through mh-e
+*****************
+
+   This chapter introduces some of the terms you'll need to know and
+then takes you on a tour of mh-e. (1)  When you're done, you'll be able
+to send, read, and file mail, which is all that a lot of people ever
+do.  But if you're the curious type, you'll read *Note Using mh-e:: to
+be able to use all the features of mh-e.  If you're the adventurous
+type, you'll read *Note Customizing mh-e:: to make mh-e do what you
+want.  I suggest you read this chapter first to get the big picture,
+and then you can read the other two as you wish.
+
+* Menu:
+
+* Conventions::                 GNU Emacs Terms and Conventions
+* Getting Started::
+* Sending Mail Tour::
+* Reading Mail Tour::
+* Processing Mail Tour::
+* Leaving mh-e::
+* More About mh-e::
+
+   ---------- Footnotes ----------
+
+   (1) The keys mentioned in these chapters refer to the default key
+bindings.  If you've changed the bindings, refer to the command
+summaries at the beginning of each major section in *Note Using mh-e::,
+for a mapping between default key bindings and function names.
+
+
+File: mh-e,  Node: Conventions,  Next: Getting Started,  Prev: Tour Through mh-e,  Up: Tour Through mh-e
+
+GNU Emacs Terms and Conventions
+===============================
+
+   If you're an experienced Emacs user, you can skip the following
+conventions and definition of terms and go directly to *Note Getting
+Started:: below.  The conventions are as follows:
+
+`C-x'
+     Hold down the <CTRL> (Control) key and press the `x' key.
+
+`M-x'
+     Hold down the <META> or <ALT> key and press the `x' key.
+
+     Since some keyboards don't have a <META> key, you can generate
+     `M-x', for example, by pressing <ESC> (Escape), _releasing it_, (1)
+     and then pressing the `x' key.
+
+`RET'
+     Press the <RETURN> or <ENTER> key.  This is normally used to
+     complete a command.
+
+`SPC'
+     Press the space bar.
+
+`TAB'
+     Press the <TAB> key.
+
+`DEL'
+     Press the <DELETE> key.  This may also be a Backspace key,
+     depending on your keyboard or Emacs configuration.
+
+   A "prefix argument" allows you to pass an argument to any Emacs
+function.  To pass an argument, type `C-u' before the Emacs command or
+keystroke.  Numeric arguments can be passed as well.  For example, to
+insert five f's, use `C-u 5 f'.  There is a default of four when using
+`C-u', and you can use multiple prefix arguments to provide arguments
+of powers of four.  To continue our example, you could insert four f's
+with `C-u f', 16 f's with `C-u C-u f', 64 f's with `C-u C-u C-u f', and
+so on.  Numeric and valueless negative arguments can also be inserted
+with the <META> key.  Examples include `M-5' to specify an argument of
+5, or `M--' which specifies a negative argument with no particular
+value.
+
+
+
+                                *NOTE*
+
+     The prefix `C-u' or `M-' is not necessary in mh-e's MH-Folder
+     modes (*note Reading Mail Tour::).  In these modes, simply enter
+     the numerical argument before entering the command.
+
+   There are several other terms that are used in Emacs that you should
+know.  The "point" is where the cursor currently is.  You can save your
+current place in the file by setting a "mark".  This operation is
+useful in several ways.  The mark can be later used when defining a
+"region", which is the text between the point and mark.  Many commands
+operate on regions, such as those for deleting text or filling
+paragraphs.  A mark can be set with `C-@' (or `C-SPC').
+
+   The "minibuffer" is the bottom line of the Emacs window, where all
+prompting and multiple-character input is directed.  If you are prompted
+for information in the minibuffer, such as a filename, Emacs can help
+you complete your answer if you type <SPC> or <TAB>.  A second <SPC> or
+<TAB> will list all possibilities at that point.  The minibuffer is
+also where you enter Emacs function names after typing `M-x'.  For
+example, in the first paragraph, I mentioned that you could obtain help
+with `C-h t' (`help-with-tutorial').  What this means is that you can
+get a tutorial by typing either `C-h t' or `M-x help-with-tutorial'.
+In the latter case, you are prompted for `help-with-tutorial' in the
+minibuffer after typing `M-x'.
+
+   In case of trouble: Emacs can be interrupted at any time with `C-g'.
+For example, if you've started a command that requests that you enter
+something in the minibuffer, but then you change your mind, type `C-g'
+and you'll be back where you started.  If you want to exit Emacs
+entirely, use `C-x C-c'.
+
+   ---------- Footnotes ----------
+
+   (1) This is emphasized because pressing ESC twice or holding it down
+a second too long so that it repeats gives you an error message.
+
+
+File: mh-e,  Node: Getting Started,  Next: Sending Mail Tour,  Prev: Conventions,  Up: Tour Through mh-e
+
+Getting Started
+===============
+
+   Because there are many old versions of mh-e out there, it is
+important to know which version you have.  I'll be talking about
+Version 5 which is similar to Version 4 and vastly different from
+Version 3.
+
+   First, enter `M-x load-library <RET> mh-e <RET>'. (1)  The message,
+`Loading mh-e...done', should be displayed in the minibuffer.  If you
+get `Cannot open load file: mh-e', then your Emacs is very badly
+configured, or mh-e is missing.  You may wish to have your system
+administrator install a new Emacs or at least the latest mh-e files.
+
+   Having loaded mh-e successfully, enter `M-x mh-version <RET>'.  The
+version of mh-e should be displayed.  Hopefully it says that you're
+running Version 5.0.2 which is the latest version as of this printing.
+If instead Emacs beeps and says `[No match]', then you're running an
+old version of mh-e.
+
+   If these tests reveal a non-existent or old version of mh-e, please
+consider obtaining a new version.  You can have your system
+administrator upgrade the system-wide version, or you can install your
+own personal version.  It's really quite easy; instructions for getting
+and installing mh-e are in *Note Getting mh-e::.  In the meantime, see
+*Note Changes to mh-e::, which compares the old and new names of
+commands, functions, variables, and buffers.
+
+   Also, older versions of mh-e assumed that you had already set up
+your MH environment.  Newer versions set up a new MH environment for
+you by running `install-mh' and notifying you of this fact with the
+message in a temporary buffer:
+
+     I'm going to create the standard MH path for you.
+
+   Therefore, if you've never run MH before and you're using an old
+version of mh-e, you need to run `install-mh' from the shell before you
+continue the tour.  If you don't, you'll be greeted with the error
+message: `Can't find MH profile'.
+
+   If, during the tour described in this chapter, you see a message
+like: `Searching for program: no such file or directory,
+/usr/local/bin/mhpath', it means that the MH programs and files are kept
+in a nonstandard directory.  In this case, simply add the following to
+`~/.emacs' and restart `emacs'.
+
+     (setq mh-progs "/PATH/TO/MH/BINARY/DIRECTORY/")
+     (setq mh-lib "/PATH/TO/MH/LIBRARY/DIRECTORY/")
+
+   The `~' notation used by `~/.emacs' above represents your home
+directory.  This is used by the `bash' and `csh' shells.  If your shell
+does not support this feature, you could use the environment variable
+`$HOME' (such as `$HOME/.emacs') or the absolute path (as in
+`/home/wohler/.emacs') instead.
+
+   At this point, you should see something like the screen in the
+figure in *Note Reading Mail Tour::.  We're now ready to move on.
+
+   ---------- Footnotes ----------
+
+   (1) You wouldn't ordinarily do this.
+
+
+File: mh-e,  Node: Sending Mail Tour,  Next: Reading Mail Tour,  Prev: Getting Started,  Up: Tour Through mh-e
+
+Sending Mail
+============
+
+   Let's start our tour by sending ourselves a message which we can
+later read and process.  Enter `M-x mh-smail' to invoke the mh-e program
+to send messages.  You will be prompted in the minibuffer by `To:'.
+Enter your login name.  The next prompt is `cc:'.  Hit <RET> to
+indicate that no carbon copies are to be sent.  At the `Subject:'
+prompt, enter `Test' or anything else that comes to mind.
+
+   Once you've specified the recipients and subject, your message
+appears in an Emacs buffer whose mode (1) is MH-Letter.  Enter some
+text in the body of the message, using normal Emacs commands.  You
+should now have something like this: (2)
+
+
+
+
+
+
+
+     -----Emacs: *scratch*         (Lisp Interaction)--All---------------------
+     To: wohler
+     cc:
+     Subject: Test
+     --------
+       This is a test message to get the wheels churning...#
+     
+     
+     --**-{draft}      (MH-Letter)--All----------------------------------------
+     mh-e message composition window
+
+   Note the line of dashes that separates the header and the body of the
+message.  It is essential that these dashes (or a blank line) are
+present or the body of your message will be considered to be part of
+the header.
+
+   There are several commands specific to MH-Letter mode, but at this
+time we'll only use `C-c C-c' to send your message.  Type `C-c C-c'
+now.  That's all there is to it!
+
+   ---------- Footnotes ----------
+
+   (1) A "mode" changes Emacs to make it easier to edit a particular
+type of text.
+
+   (2) If you're running Emacs under the X Window System, then you
+would also see a menubar.  I've left out the menubar in all of the
+example screens.
+
+
+File: mh-e,  Node: Reading Mail Tour,  Next: Processing Mail Tour,  Prev: Sending Mail Tour,  Up: Tour Through mh-e
+
+Receiving Mail
+==============
+
+   To read the mail you've just sent yourself, enter `M-x mh-rmail'.
+This incorporates the new mail and put the output from `inc' (called
+"scan lines" after the MH program `scan' which prints a one-line
+summary of each message) into a buffer called `+inbox' whose major mode
+is MH-Folder.
+
+
+
+                                *NOTE*
+
+     The `M-x mh-rmail' command will show you only new mail, not old
+     mail.  If you were to run this tour again, you would use `M-r' to
+     pull all your messages into mh-e.
+
+   You should see the scan line for your message, and perhaps others.
+Use `n' or `p' to move the cursor to your test message and type <RET>
+to read your message.  You should see something like:
+
+        3  24Aug  root       received fax files on Wed Aug 24 11:00:13 PDT 1994
+     #  4+ 24Aug  To:wohler  Test<<This is a test message to get the wheels chu
+     
+     --%%-{+inbox} 4 msgs (1-4)      (MH-Folder Show)--Bot---------------------
+     To: wohler
+     Subject: Test
+     Date: Wed, 24 Aug 1994 13:01:13 -0700
+     From: Bill Wohler <wohler@newt.com>
+     
+       This is a test message to get the wheels churning...
+     
+     
+     
+     
+     
+     -----{show-+inbox} 4      (MH-Show)--Bot----------------------------------
+     After incorporating new messages
+
+   If you typed a long message, you can view subsequent pages with <SPC>
+and previous pages with <DEL>.
+
+
+File: mh-e,  Node: Processing Mail Tour,  Next: Leaving mh-e,  Prev: Reading Mail Tour,  Up: Tour Through mh-e
+
+Processing Mail
+===============
+
+   The first thing we want to do is reply to the message that we sent
+ourselves.  Ensure that the cursor is still on the same line as your
+test message and type `r'.  You are prompted in the minibuffer with
+`Reply to whom:'.  Here mh-e is asking whether you'd like to reply to
+the original sender only, to the sender and primary recipients, or to
+the sender and all recipients.  If you simply hit <RET>, you'll reply
+only to the sender.  Hit <RET> now.
+
+   You'll find yourself in an Emacs buffer similar to that when you were
+sending the original message, like this:
+
+     To: wohler
+     Subject: Re: Test
+     In-reply-to: Bill Wohler's message of Wed, 24 Aug 1994 13:01:13 -0700
+                  <199408242001.NAA00505@newt.com>
+     --------
+     #
+     
+     --**-{draft}      (MH-Letter)--All----------------------------------------
+     To: wohler
+     Subject: Test
+     Date: Wed, 24 Aug 1994 13:01:13 -0700
+     From: Bill Wohler <wohler@newt.com>
+     
+       This is a test message to get the wheels churning...
+     
+     -----{show-+inbox} 4      (MH-Show)--Bot----------------------------------
+     Composing a reply...done
+     Composition window during reply
+
+   By default, MH will not add you to the address list of your replies,
+so if you find that the `To:' header field is missing, don't worry.  In
+this case, type `C-c C-f C-t' to create and go to the `To:' field,
+where you can type your login name again.  You can move around with the
+arrow keys or with `C-p' (`previous-line'), `C-n' (`next-line'), `C-b'
+(`backward-char'), and `C-f' (`forward-char') and can delete the
+previous character with <DEL>.  When you're finished editing your
+message, send it with `C-c C-c' as before.
+
+   You'll often want to save messages that were sent to you in an
+organized fashion.  This is done with "folders".  You can use folders
+to keep messages from your friends, or messages related to a particular
+topic.  With your cursor in the MH-Folder buffer and positioned on the
+message you sent to yourself, type `o' to output (`refile' in MH
+parlance) that message to a folder.  Enter `test' at the `Destination:'
+prompt and type `y' (or <SPC>) when mh-e asks to create the folder
+`+test'.  Note that a `^' (caret) appears next to the message number,
+which means that the message has been marked for refiling but has not
+yet been refiled.  We'll talk about how the refile is actually carried
+out in a moment.
+
+   Your previous reply is now waiting in the system mailbox.  You
+incorporate this mail into your MH-Folder buffer named `+inbox' with
+the `i' command.  Do this now.  After the mail is incorporated, use `n'
+or `p' to move the cursor to the new message, and read it with <RET>.
+Let's delete this message by typing `d'.  Note that a `D' appears next
+to the message number.  This means that the message is marked for
+deletion but is not yet deleted.  To perform the deletion (and the
+refile we did previously), use the `x' command.
+
+   If you want to send another message you can use `m' instead of `M-x
+mh-smail'.  So go ahead, send some mail to your friends!
+
+
+File: mh-e,  Node: Leaving mh-e,  Next: More About mh-e,  Prev: Processing Mail Tour,  Up: Tour Through mh-e
+
+Leaving mh-e
+============
+
+   You may now wish to exit `emacs' entirely.  Use `C-x C-c' to exit
+`emacs'.  If you exited without running `x' in the `+inbox' buffer,
+Emacs will offer to save it for you.  Type `y' or <SPC> to save
+`+inbox' changes, which means to perform any refiles and deletes that
+you did there.
+
+   If you don't want to leave Emacs, you can type `q' to bury (hide)
+the mh-e folder or delete them entirely with `C-x k'.  You can then
+later recall them with `C-x b' or `M-x mh-rmail'.
+
+
+File: mh-e,  Node: More About mh-e,  Prev: Leaving mh-e,  Up: Tour Through mh-e
+
+More About mh-e
+===============
+
+   These are the basic commands to get you going, but there are plenty
+more.  If you think that mh-e is for you, read *Note Using mh-e:: and
+*Note Customizing mh-e:: to find out how you can:
+
+   * Print your messages.  (*Note Printing:: and *Note Customizing
+     Printing::.)
+
+   * Edit messages and include your signature.  (*Note Draft Editing::
+     and *Note Customizing Draft Editing::.)
+
+   * Forward messages.  (*Note Forwarding:: and *Note Customizing
+     Forwarding::.)
+
+   * Read digests.  (*Note Viewing::.)
+
+   * Edit bounced messages.  (*Note Old Drafts:: and *Note Customizing
+     Old Drafts::.)
+
+   * Send multimedia messages.  (*Note Editing MIME:: and *Note
+     Customizing Editing MIME::.)
+
+   * Process mail that was sent with `shar' or `uuencode'.  (*Note
+     Files and Pipes::.)
+
+   * Use sequences conveniently.  (*Note Sequences::.)
+
+   * Show header fields in different fonts.  (*Note Customizing
+     Viewing::.)
+
+   * Find previously refiled messages.  (*Note Searching::.)
+
+   * Place messages in a file.  (*Note Files and Pipes::.)
+
+   Remember that you can also use MH commands when you're not running
+mh-e (and when you are!).
+
+
+File: mh-e,  Node: Using mh-e,  Next: Customizing mh-e,  Prev: Tour Through mh-e,  Up: Top
+
+Using mh-e
+**********
+
+   This chapter leaves the tutorial style and goes into more detail
+about every mh-e command.  The default, or "out of the box," behavior is
+documented.  If this is not to your liking (for instance, you print with
+something other than `lpr)', see the associated section in *Note
+Customizing mh-e:: which is organized exactly like this chapter.
+
+   There are many commands, but don't get intimidated.  There are
+command summaries at the beginning of each section.  In case you have
+or would like to rebind the keys, the command summaries also list the
+associated Emacs Lisp function.  Furthermore, even if you're stranded
+on a desert island with a laptop and are without your manuals, you can
+get a summary of all these commands with GNU Emacs online help: use
+`C-h m' (`describe-mode') for a brief summary of commands or `C-h i' to
+read this manual via Info.  The online help is quite good; try running
+`C-h C-h C-h'.  This brings up a list of available help topics, one of
+which displays the documentation for a given key (like `C-h k C-n').
+In addition, review *Note Conventions::, if any of the GNU Emacs
+conventions are strange to you.
+
+   Let's get started!
+
+* Menu:
+
+* Reading Mail::
+* Sending Mail::
+* Draft Editing::
+* Moving Mail::
+* Searching::
+* Sequences::
+* Miscellaneous::
+
+
+File: mh-e,  Node: Reading Mail,  Next: Sending Mail,  Prev: Using mh-e,  Up: Using mh-e
+
+Reading Your Mail
+=================
+
+   The mh-e entry point for reading mail is `M-x mh-rmail'.  This
+command incorporates your mail and creates a buffer called `+inbox' in
+MH-Folder mode.  The `M-x mh-rmail' command shows you only new mail,
+not old mail. (1)  The `+inbox' buffer contains "scan lines", which are
+one-line summaries of each incorporated message.  You can perform most
+MH commands on these messages via one-letter commands discussed in this
+chapter.  See `scan'(1) for a description of the contents of the scan
+lines, and see the Figure in *Note Reading Mail Tour::, for an example.
+
+`RET'
+     Display a message (`mh-show').
+
+`SPC'
+     Go to next page in message (`mh-page-msg').
+
+`DEL'
+     Go to previous page in message (`mh-previous-page').
+
+`, (comma)'
+     Display a message with all header fields (`mh-header-display').
+
+`M-SPC'
+     Go to next message in digest (`mh-page-digest').
+
+`M-DEL'
+     Go to previous message in digest (`mh-page-digest-backwards').
+
+`M-b'
+     Break up digest into separate messages (`mh-burst-digest').
+
+`n'
+     Display next message (`mh-next-undeleted-msg').
+
+`p'
+     Display previous message (`mh-previous-undeleted-msg').
+
+`g'
+     Go to a message (`mh-goto-msg').
+
+`M-<'
+     Go to first message (`mh-first-msg').
+
+`M->'
+     Go to last message (`mh-last-msg').
+
+`t'
+     Toggle between MH-Folder and MH-Folder Show modes
+     (`mh-toggle-showing').
+
+* Menu:
+
+* Viewing::
+* Moving Around::
+
+   ---------- Footnotes ----------
+
+   (1) If you want to see your old mail as well, use `M-r' to pull all
+your messages into mh-e.  Or, give a prefix argument to `mh-rmail' so
+it will prompt you for folder to visit like `M-f' (for example, `C-u
+M-x mh-rmail <RET> bob <RET>').  Both `M-r' and `M-f' are described in
+*Note Organizing::.
+
+
+File: mh-e,  Node: Viewing,  Next: Moving Around,  Prev: Reading Mail,  Up: Reading Mail
+
+Viewing Your Mail
+-----------------
+
+   The `RET' (`mh-show') command displays the message that the cursor
+is on.  If the message is already displayed, it scrolls to the
+beginning of the message.  Use <SPC> (`mh-page-msg') and <DEL>
+(`mh-previous-page') to move forwards and backwards one page at a time
+through the message.  You can give either of these commands a prefix
+argument that specifies the number of lines to scroll (such as `10
+SPC').  mh-e normally hides a lot of the superfluous header fields that
+mailers add to a message, but if you wish to see all of them, use the
+`,' (comma; `mh-header-display') command.
+
+* Menu:
+
+* Reading Digests::
+* Reading MIME::
+
+
+File: mh-e,  Node: Reading Digests,  Next: Reading MIME,  Prev: Viewing,  Up: Viewing
+
+Reading Digests
+...............
+
+   A digest is a message that contains other messages.  Special mh-e
+commands let you read digests conveniently.  You can use <SPC> and
+<DEL> to page through the digest as if it were a normal message, but if
+you wish to skip to the next message in the digest, use `M-SPC'
+(`mh-page-digest').  To return to a previous message, use `M-DEL'
+(`mh-page-digest-backwards').
+
+   Another handy command is `M-b' (`mh-burst-digest').  This command
+uses the MH command `burst' to break out each message in the digest
+into its own message.  Using this command, you can quickly delete
+unwanted messages, like this: Once the digest is split up, toggle out
+of MH-Folder Show mode with `t' (*note Moving Around::) so that the
+scan lines fill the screen and messages aren't displayed.  Then use `d'
+(*note Deleting::) to quickly delete messages that you don't want to
+read (based on the `Subject:' header field).  You can also burst the
+digest to reply directly to the people who posted the messages in the
+digest.  One problem you may encounter is that the `From:' header
+fields are preceded with a `>' so that your reply can't create the
+`To:' field correctly.  In this case, you must correct the `To:' field
+yourself.  This is described later in *Note Editing Textual::.
+
+
+File: mh-e,  Node: Reading MIME,  Prev: Reading Digests,  Up: Viewing
+
+Reading Multimedia Mail
+.......................
+
+   MH has the ability to read "MIME" (Multipurpose Internet Mail
+Extensions) messages.  Unfortunately, mh-e does not yet have this
+ability, so you have to use the MH commands `show' or `mhn' from the
+shell to read MIME messages.  (1)
+
+   ---------- Footnotes ----------
+
+   (1) You can call them directly from Emacs if you're running the X
+Window System: type `M-!  xterm -e mhn MESSAGE-NUMBER'.  You can leave
+out the `xterm -e' if you use `mhn -list' or `mhn -store'.
+
+
+File: mh-e,  Node: Moving Around,  Prev: Viewing,  Up: Reading Mail
+
+Moving Around
+-------------
+
+   To move on to the next message, use the `n'
+(`mh-next-undeleted-msg') command; use the `p'
+(`mh-previous-undeleted-msg') command to read the previous message.
+Both of these commands can be given a prefix argument to specify how
+many messages to skip (for example, `5 n').  You can also move to a
+specific message with `g' (`mh-goto-msg').  You can enter the message
+number either before or after typing `g'.  In the latter case, Emacs
+prompts you.  Finally, you can go to the first or last message with
+`M-<' (`mh-first-msg') and `M->' (`mh-last-msg') respectively.
+
+   You can also use the Emacs commands `C-p' (`previous-line') and
+`C-n' (`next-line') to move up and down the scan lines in the MH-Folder
+window.  These commands can be used in conjunction with `RET' to look
+at deleted or refiled messages.
+
+   The command `t' (`mh-toggle-showing') switches between MH-Folder
+mode and MH-Folder Show mode.  (1) MH-Folder mode turns off the
+associated show buffer so that you can perform operations on the
+messages quickly without reading them.  This is an excellent way to
+prune out your junk mail or to refile a group of messages to another
+folder for later examination.
+
+   ---------- Footnotes ----------
+
+   (1) For you Emacs wizards, this is implemented as an Emacs minor
+mode.
+
+
+File: mh-e,  Node: Sending Mail,  Next: Draft Editing,  Prev: Reading Mail,  Up: Using mh-e
+
+Sending Mail
+============
+
+   You can send a mail message in several ways.  You can call `M-x
+mh-smail' directly, or from the command line like this:
+
+     % emacs -f mh-smail
+
+   From within mh-e's MH-Folder mode, other methods of sending mail are
+available as well:
+
+`m'
+     Compose a message (`mh-send').
+
+`r'
+     Reply to a message (`mh-reply').
+
+`f'
+     Forward message(s) (`mh-forward').
+
+`M-d'
+     Redistribute a message (`mh-redistribute').
+
+`M-e'
+     Edit a message that was bounced by mailer
+     (`mh-extract-rejected-mail').
+
+`M-a'
+     Edit a message to send it again (`mh-edit-again').
+
+   From within a MH-Folder buffer, you can simply use the command `m'
+(`mh-send').  However you invoke `mh-send', you are prompted for the
+`To:', `cc:', and `Subject:' header fields.  Once you've specified the
+recipients and subject, your message appears in an Emacs buffer whose
+mode is MH-Letter (see the Figure in *Note Sending Mail:: to see what
+the buffer looks like).  MH-Letter mode allows you to edit your
+message, to check the validity of the recipients, to insert other
+messages into your message, and to send the message.  We'll go more
+into depth about editing a "draft" (1) (a message you're composing) in
+just a moment.
+
+   `mh-smail' always creates a two-window layout with the current
+buffer on top and the draft on the bottom.  If you would rather preserve
+the window layout, use `M-x mh-smail-other-window'.
+
+* Menu:
+
+* Replying::
+* Forwarding::
+* Redistributing::
+* Old Drafts::
+
+   ---------- Footnotes ----------
+
+   (1) I highly recommend that you use a "draft folder" so that you can
+edit several drafts in parallel.  To do so, create a folder (e.g.,
+`+drafts'), and add a profile component called `Draft-Folder:' which
+contains `+drafts' (see `mh-profile'(5)).
+
+
+File: mh-e,  Node: Replying,  Next: Forwarding,  Prev: Sending Mail,  Up: Sending Mail
+
+Replying to Mail
+----------------
+
+   To compose a reply to a message, use the `r' (`mh-reply') command.
+If you supply a prefix argument (as in `C-u r'), the message you are
+replying to is inserted in your reply after having first been run
+through `mhl' with the format file `mhl.reply'.  See `mhl'(1) to see
+how you can modify the default `mhl.reply' file.
+
+   When you reply to a message, you are first prompted with `Reply to
+whom?'.  You have several choices here.
+
+     Response     Reply Goes To
+     
+     from         The person who sent the message.  This is the default,
+                  so <RET> is sufficient.
+     
+     to           Replies to the sender, plus all recipients in the
+                  `To:' header field.
+     
+     all
+     cc           Forms a reply to the sender, plus all recipients.
+
+   Depending on your answer, `repl' is given a different argument to
+form your reply.  Specifically, a choice of `from' or none at all runs
+`repl -nocc all', and a choice of `to' runs `repl -cc to'.  Finally,
+either `cc' or `all' runs `repl -cc all -nocc me'.
+
+   Two windows are then created.  One window contains the message to
+which you are replying.  Your draft, in MH-Letter mode (described in
+*Note Draft Editing::), is in the other window.
+
+   If you wish to customize the header or other parts of the reply
+draft, please see `repl'(1) and `mh-format'(5).
+
+
+File: mh-e,  Node: Forwarding,  Next: Redistributing,  Prev: Replying,  Up: Sending Mail
+
+Forwarding Mail
+---------------
+
+   To forward a message, use the `f' (`mh-forward') command.  You are
+given a draft to edit that looks like it would if you had run the MH
+command `forw'.  You are given a chance to add some text (see *Note
+Draft Editing::).
+
+   You can forward several messages by using a prefix argument; in this
+case, you are prompted for the name of a "sequence", a symbolic name
+that represents a list or range of message numbers (for example, `C-u f
+forbob <RET>').  All of the messages in the sequence are inserted into
+your draft.  By the way, although sequences are often mentioned in this
+chapter, you don't have to worry about them for now; the full
+description of sequences in mh-e is at the end in *Note Sequences::.
+To learn more about sequences in general, please see `mh-sequence'(5).
+
+
+File: mh-e,  Node: Redistributing,  Next: Old Drafts,  Prev: Forwarding,  Up: Sending Mail
+
+Redistributing Your Mail
+------------------------
+
+   The command `M-d' (`mh-redistribute') is similar in function to
+forwarding mail, but it does not allow you to edit the message, nor does
+it add your name to the `From:' header field.  It appears to the
+recipient as if the message had come from the original sender.  For more
+information on redistributing messages, see `dist'(1).  Also
+investigate the `M-a' (`mh-edit-again') command in *Note Old Drafts::,
+for another way to redistribute messages.
+
+
+File: mh-e,  Node: Old Drafts,  Prev: Redistributing,  Up: Sending Mail
+
+Editing Old Drafts and Bounced Messages
+---------------------------------------
+
+   If you don't complete a draft for one reason or another, and if the
+draft buffer is no longer available, you can pick your draft up again
+with `M-a' (`mh-edit-again').  If you don't use a draft folder, your
+last `draft' file will be used.  If you use draft folders, you'll need
+to visit the draft folder with `M-f drafts <RET>', use `n' to move to
+the appropriate message, and then use `M-a' to prepare the message for
+editing.
+
+   The `M-a' command can also be used to take messages that were sent
+to you and to send them to more people.
+
+   Don't use `M-a' to re-edit a message from a Mailer-Daemon who
+complained that your mail wasn't posted for some reason or another.  In
+this case, use `M-e' (`mh-extract-rejected-mail') to prepare the
+message for editing by removing the Mailer-Daemon envelope and unneeded
+header fields.  Fix whatever addressing problem you had, and send the
+message again with `C-c C-c'.
+
+
+File: mh-e,  Node: Draft Editing,  Next: Moving Mail,  Prev: Sending Mail,  Up: Using mh-e
+
+Editing a Draft
+===============
+
+   When you edit a message that you want to send (called a "draft" in
+this case), the mode used is MH-Letter.  This mode provides several
+commands in addition to the normal Emacs editing commands to help you
+edit your draft.
+
+`C-c C-y'
+     Insert contents of message to which you're replying
+     (`mh-yank-cur-msg').
+
+`C-c C-i'
+     Insert a message from a folder (`mh-insert-letter').
+
+`C-c C-f C-t'
+     Move to `To:' header field (`mh-to-field').
+
+`C-c C-f C-c'
+     Move to `cc:' header field (`mh-to-field').
+
+`C-c C-f C-s'
+     Move to `Subject:' header field (`mh-to-field').
+
+`C-c C-f C-f'
+     Move to `From:' header field (`mh-to-field').
+
+`C-c C-f C-b'
+     Move to `Bcc:' header field (`mh-to-field').
+
+`C-c C-f C-f'
+     Move to `Fcc:' header field (`mh-to-fcc').
+
+`C-c C-f C-d'
+     Move to `Dcc:' header field (`mh-to-field').
+
+`C-c C-w'
+     Display expanded recipient list (`mh-check-whom').
+
+`C-c C-s'
+     Insert signature in message (`mh-insert-signature').
+
+`C-c C-m C-f'
+     Include forwarded message (MIME) (`mh-mhn-compose-forw').
+
+`C-c C-m C-e'
+     Include anonymous ftp reference (MIME) (`mh-mhn-compose-anon-ftp').
+
+`C-c C-m C-t'
+     Include anonymous ftp reference to compressed tar file (MIME)
+     (`mh-mhn-compose-external-compressed-tar').
+
+`C-c C-m C-i'
+     Include binary, image, sound, etc. (MIME)
+     (`mh-mhn-compose-insertion').
+
+`C-c C-e'
+     Run through `mhn' before sending (`mh-edit-mhn').
+
+`C-c C-m C-u'
+     Undo effects of `mhn' (`mh-revert-mhn-edit').
+
+`C-c C-c'
+     Save draft and send message (`mh-send-letter').
+
+`C-c C-q'
+     Quit editing and delete draft message (`mh-fully-kill-draft').
+
+* Menu:
+
+* Editing Textual::
+* Editing MIME::
+* Sending Message::
+* Killing Draft::
+
+
+File: mh-e,  Node: Editing Textual,  Next: Editing MIME,  Prev: Draft Editing,  Up: Draft Editing
+
+Editing Textual Messages
+------------------------
+
+   The following sections show you how to edit a draft.  The commands
+described here are also applicable to messages that have multimedia
+components.
+
+* Menu:
+
+* Inserting Letter::
+* Inserting Messages::
+* Header::
+* Recipients::
+* Signature::
+
+
+File: mh-e,  Node: Inserting Letter,  Next: Inserting Messages,  Prev: Editing Textual,  Up: Editing Textual
+
+Inserting letter to which you're replying
+.........................................
+
+   It is often useful to insert a snippet of text from a letter that
+someone mailed to provide some context for your reply.  The command
+`C-c C-y' (`mh-yank-cur-msg') does this by yanking a portion of text
+from the message to which you're replying and inserting `> ' before
+each line.
+
+   You can control how much text is included when you run this command.
+If you run this command right away, without entering the buffer
+containing the message to you, this command will yank the entire
+message, as is, into your reply. (1) If you enter the buffer containing
+the message sent to you and move the cursor to a certain point and
+return to your reply and run `C-c C-y', then the text yanked will range
+from that point to the end of the message.  Finally, the most common
+action you'll perform is to enter the message sent to you, move the
+cursor to the beginning of a paragraph or phrase, set the "mark" with
+`C-SPC' or `C-@', and move the cursor to the end of the paragraph or
+phrase.  The cursor position is called the "point", and the space
+between the mark and point is called the "region".  Having done that,
+`C-c C-y' will insert the region you selected.
+
+   ---------- Footnotes ----------
+
+   (1) If you'd rather have the header cleaned up, use `C-u r' instead
+of `r' when replying (see *Note Replying::).
+
+
+File: mh-e,  Node: Inserting Messages,  Next: Header,  Prev: Inserting Letter,  Up: Editing Textual
+
+Inserting messages
+..................
+
+   Messages can be inserted with `C-c C-i' (`mh-insert-letter').  This
+command prompts you for the folder and message number and inserts the
+message, indented by `> '.  Certain undesirable header fields are
+removed before insertion.  If given a prefix argument (like `C-u C-c
+C-i'), the header is left intact, the message is not indented, and `> '
+is not inserted before each line.
+
+
+File: mh-e,  Node: Header,  Next: Recipients,  Prev: Inserting Messages,  Up: Editing Textual
+
+Editing the header
+..................
+
+   Because the header is part of the message, you can edit the header
+fields as you wish.  However, several convenience functions exist to
+help you create and edit them.  For example, the command `C-c C-f C-t'
+(`mh-to-field'; alternatively, `C-c C-f t') moves the cursor to the
+`To:' header field, creating it if necessary.  The functions to move to
+the `cc:', `Subject:', `From:', `Bcc:', and `Dcc:' header fields are
+similar.
+
+   One function behaves differently from the others, namely, `C-c C-f
+C-f' (`mh-to-fcc'; alternatively, `C-c C-f f').  This function will
+prompt you for the folder name in which to file a copy of the draft.
+
+   Be sure to leave a row of dashes or a blank line between the header
+and the body of the message.
+
+
+File: mh-e,  Node: Recipients,  Next: Signature,  Prev: Header,  Up: Editing Textual
+
+Checking recipients
+...................
+
+   The `C-c C-w' (`mh-check-whom') command expands aliases so you can
+check the actual address(es) in the alias.  A new buffer is created
+with the output of `whom'.
+
+
+File: mh-e,  Node: Signature,  Prev: Recipients,  Up: Editing Textual
+
+Inserting your signature
+........................
+
+   You can insert your signature at the current cursor location with the
+`C-c C-s' (`mh-insert-signature') command.  The text of your signature
+is taken from the file `~/.signature'.
+
+
+File: mh-e,  Node: Editing MIME,  Next: Sending Message,  Prev: Editing Textual,  Up: Draft Editing
+
+Editing Multimedia Messages
+---------------------------
+
+   mh-e has the capability to create multimedia messages.  It uses the
+MIME (Multipurpose Internet Mail Extensions) protocol.  The MIME
+protocol allows you to incorporate images, sound, video, binary files,
+and even commands that fetch a file with `ftp' when your recipient
+reads the message!  If you were to create a multimedia message with
+plain MH commands, you would use `mhn'.  Indeed, the mh-e MIME commands
+merely insert `mhn' directives which are later expanded by `mhn'.
+
+   Each of the mh-e commands for editing multimedia messages or for
+incorporating multimedia objects is prefixed with `C-c C-m' .
+
+   Several MIME objects are defined.  They are called "content types".
+The table in *Note Customizing Draft Editing:: contains a list of the
+content types that mh-e currently knows about.  Several of the mh-e
+commands fill in the content type for you, whereas others require you to
+enter one.  Most of the time, it should be obvious which one to use
+(e.g., use `image/jpeg' to include a JPEG image).  If not, you can
+refer to RFC 1521, (1) which defines the MIME protocol, for a list of
+valid content types.
+
+   You are also sometimes asked for a "content description".  This is
+simply an optional brief phrase, in your own words, that describes the
+object.  If you don't care to enter a content description, just press
+return and none will be included; however, a reader may skip over
+multimedia fields unless the content description is compelling.
+
+   Remember: you can always add `mhn' directives by hand.
+
+* Menu:
+
+* Forwarding MIME::
+* FTP::
+* Tar::
+* Other MIME Objects::
+* Sending MIME::
+
+   ---------- Footnotes ----------
+
+   (1) This RFC (Request For Comments) is available via the URL
+`ftp://ds.internic.net/rfc/rfc1521.txt'.
+
+
+File: mh-e,  Node: Forwarding MIME,  Next: FTP,  Prev: Editing MIME,  Up: Editing MIME
+
+Forwarding multimedia messages
+..............................
+
+   Mail may be forwarded with MIME using the command `C-c C-m C-f'
+(`mh-mhn-compose-forw').  You are prompted for a content description,
+the name of the folder in which the messages to forward are located,
+and the messages' numbers.
+
+
+File: mh-e,  Node: FTP,  Next: Tar,  Prev: Forwarding MIME,  Up: Editing MIME
+
+Including an ftp reference
+..........................
+
+   You can even have your message initiate an `ftp' transfer when the
+recipient reads the message.  To do this, use the `C-c C-m C-e'
+(`mh-mhn-compose-anon-ftp') command.  You are prompted for the remote
+host and pathname, the content type, and the content description.
+
+
+File: mh-e,  Node: Tar,  Next: Other MIME Objects,  Prev: FTP,  Up: Editing MIME
+
+Including tar files
+...................
+
+   If the remote file (*note FTP::) is a compressed tar file, you can
+use `C-c C-m C-t' (`mh-mhn-compose-external-compressed-tar').  Then, in
+addition to retrieving the file via anonymous _ftp_, the file will also
+be uncompressed and untarred.  You are prompted for the remote host and
+pathname and the content description.  The pathname should contain at
+least one `/' (slash), because the pathname is broken up into directory
+and name components.
+
+
+File: mh-e,  Node: Other MIME Objects,  Next: Sending MIME,  Prev: Tar,  Up: Editing MIME
+
+Including other multimedia objects
+..................................
+
+   Images, sound, and video can be inserted in your message with the
+`C-c C-m C-i' (`mh-mhn-compose-insertion') command.  You are prompted
+for the filename containing the object, the content type, and a content
+description of the object.
+
+
+File: mh-e,  Node: Sending MIME,  Prev: Other MIME Objects,  Up: Editing MIME
+
+Readying multimedia messages for sending
+........................................
+
+   When you are finished editing a MIME message, it might look like
+this:
+
+        3  24Aug  root               received fax files on Wed Aug 24 11:00:13
+        4+ 24Aug  To:wohler          Test<<This is a test message to get the wh
+     
+     
+     
+     
+     
+     --%%-{+inbox} 4 msgs (1-4)      (MH-Folder Show)--Bot-------------------
+     To: wohler
+     cc:
+     Subject: Test of MIME
+     --------
+     #@application/octet-stream [Nonexistent ftp test file] \
+     access-type=anon-ftp; site=berzerk.com; name=panacea.tar.gz; \
+     directory="/pub/"
+     #audio/basic [Test sound bite] /tmp/noise.au
+     --**-{draft}      (MH-Letter)--All--------------------------------------
+     mh-e MIME draft
+
+   The lines added by the previous commands are `mhn' directives and
+need to be converted to MIME directives before sending.  This is
+accomplished by the command `C-c C-e' (`mh-edit-mhn'), which runs `mhn'
+on the message.  The following screen shows what those commands look
+like in full MIME format.  You can see why mail user agents are usually
+built to hide these details from the user.
+
+     To: wohler
+     cc:
+     Subject: Test of MIME
+     MIME-Version: 1.0
+     Content-Type: multipart/mixed; boundary="----- =_aaaaaaaaaa0"
+     Content-ID: <1623.777796162.0@newt.com>
+     
+     ------- =_aaaaaaaaaa0
+     Content-Type: message/external-body; access-type="anon-ftp";
+             site="berzerk.com"; name="panacea.tar.gz"; directory="/pub/"
+     
+     Content-Type: application/octet-stream
+     Content-ID: <1623.777796162.1@newt.com>
+     Content-Description: Nonexistent ftp test file
+     
+     ------- =_aaaaaaaaaa0
+     Content-Type: audio/basic
+     Content-ID: <1623.777796162.2@newt.com>
+     Content-Description: Test sound bite
+     Content-Transfer-Encoding: base64
+     
+     Q3JlYXRpdmUgVm9pY2UgRmlsZRoaAAoBKREBQh8AgwCAgH9/f35+fn59fX5+fn5+f39/f39/f3
+     f4B/f39/f39/f39/f39/f39+f39+f39/f39/f4B/f39/fn5/f39/f3+Af39/f39/gH9/f39/fn
+     -----{draft}      (MH-Letter)--Top--------------------------------------
+     mh-e MIME draft ready to send
+
+   This action can be undone by running `C-c C-m C-u'
+(`mh-revert-mhn-edit').  It does this by reverting to a backup file.
+You are prompted to confirm this action, but you can avoid the
+confirmation by adding an argument (for example, `C-u C-c C-m C-u').
+
+
+File: mh-e,  Node: Sending Message,  Next: Killing Draft,  Prev: Editing MIME,  Up: Draft Editing
+
+Sending a Message
+-----------------
+
+   When you are all through editing a message, you send it with the
+`C-c C-c' (`mh-send-letter') command.  You can give an argument (as in
+`C-u C-c C-c') to monitor the first stage of the delivery.
+
+
+File: mh-e,  Node: Killing Draft,  Prev: Sending Message,  Up: Draft Editing
+
+Killing the Draft
+-----------------
+
+   If for some reason you are not happy with the draft, you can kill it
+instead with `C-c C-q' (`mh-fully-kill-draft').  Emacs then kills the
+draft buffer and deletes the draft message.
+
+
+File: mh-e,  Node: Moving Mail,  Next: Searching,  Prev: Draft Editing,  Up: Using mh-e
+
+Moving Your Mail Around
+=======================
+
+   This section covers how messages and folders can be moved about or
+manipulated.  Messages may be incorporated into your `+inbox', deleted,
+and refiled.  Messages containing `shar' or `uuencode' output can be
+stored.  Folders can be visited, sorted, packed, or deleted.  Here's a
+list of the available commands to do these things:
+
+`i'
+     Incorporate new mail into folder (`mh-inc-folder').
+
+`d'
+     Delete message (`mh-delete-msg').
+
+`C-d'
+     Delete message, don't move to next message
+     (`mh-delete-msg-no-motion').
+
+`M-s'
+     Find messages that meet search criteria (`mh-search-folder').
+
+`o'
+     Output (refile) message to folder (`mh-refile-msg').
+
+`c'
+     Copy message to folder (`mh-copy-msg').
+
+`C-o'
+     Output (write) message to file (`mh-write-msg-to-file').
+
+`!'
+     Repeat last output command (`mh-refile-or-write-again').
+
+`l'
+     Print message with `lpr' (`mh-print-msg').
+
+`|'
+     Pipe message through shell command (`mh-pipe-msg').
+
+`M-n'
+     Unpack message created with `uudecode' or `shar' (`mh-store-msg').
+
+`M-l'
+     List all folders (`mh-list-folders').
+
+`M-f'
+     Visit folder (`mh-visit-folder').
+
+`M-r'
+     Regenerate scan lines (`mh-rescan-folder').
+
+`M-x mh-sort-folder'
+     Sort folder.
+
+`M-p'
+     Pack folder (`mh-pack-folder').
+
+`M-k'
+     Remove folder (`mh-kill-folder').
+
+`x'
+     Execute pending refiles and deletes (`mh-execute-commands').
+
+`u'
+     Undo pending refile or delete (`mh-undo').
+
+`M-u'
+     Undo all pending refiles and deletes (`mh-undo-folder').
+
+`q'
+     Quit (`mh-quit').
+
+* Menu:
+
+* Incorporating::
+* Deleting::
+* Organizing::
+* Printing::
+* Files and Pipes::
+* Finishing Up::
+
+
+File: mh-e,  Node: Incorporating,  Next: Deleting,  Prev: Moving Mail,  Up: Moving Mail
+
+Incorporating Your Mail
+-----------------------
+
+   If at any time you receive new mail, incorporate the new mail into
+your `+inbox' buffer with `i' (`mh-inc-folder').  Note that `i' will
+display the `+inbox' buffer, even if there isn't any new mail.  You can
+incorporate mail from any file into the current folder by specifying a
+prefix argument; you'll be prompted for the name of the file to use
+(for example, `C-u i ~/mbox <RET>').
+
+   Emacs can notify you when you have new mail by displaying `Mail' in
+the mode line.  To enable this behavior, and to have a clock in the mode
+line besides, add the following to `~/.emacs':
+
+     (display-time)
+
+
+File: mh-e,  Node: Deleting,  Next: Organizing,  Prev: Incorporating,  Up: Moving Mail
+
+Deleting Your Mail
+------------------
+
+   To mark a message for deletion, use the `d' (`mh-delete-msg')
+command.  A `D' is placed by the message in the scan window, and the
+next message is displayed.  If the previous command had been `p', then
+the next message displayed is the message previous to the message just
+deleted.  If you specify a prefix argument, you will be prompted for a
+sequence (*note Sequences::) to delete (for example, `C-u d frombob
+RET').  The `x' command actually carries out the deletion (*note
+Finishing Up::).  `C-d' (`mh-delete-msg-no-motion') marks the message
+for deletion but leaves the cursor at the current message in case you
+wish to perform other operations on the message.
+

@@ -1,0 +1,8 @@
+$ $Id: set10,v 1.1.1.1 1999/04/23 02:00:07 wsanchez Exp $
+$ ma.setp.c
+$set 10 
+1 setpath: comando '%s' non valido.\n
+2 setpath: argomenti insufficienti per il comando '%s'.\n
+3 setpath: manca un valore nel percorso '%s'\n
+4 setpath: %s non trovato in %s\n
+5 setpath: posizione %d non valida in %s\n

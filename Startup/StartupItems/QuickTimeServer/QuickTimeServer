@@ -1,0 +1,9 @@
+#!/bin/sh
+
+. /etc/rc.common
+
+if [ "${QTSSERVER}" = "-YES-" ]; then
+    ConsoleMessage "Starting QuickTime streaming server"
+
+    QuickTimeStreamingServer
+fi

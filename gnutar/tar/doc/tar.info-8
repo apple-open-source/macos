@@ -1,0 +1,284 @@
+This is tar.info, produced by Makeinfo version 3.12f from tar.texi.
+
+START-INFO-DIR-ENTRY
+* tar: (tar).			Making tape (or disk) archives.
+END-INFO-DIR-ENTRY
+
+   This file documents GNU `tar', a utility used to store, backup, and
+transport files.
+
+   Copyright (C) 1992, 1994, 1995, 1996, 1997, 1999 Free Software
+Foundation, Inc.
+
+   Permission is granted to make and distribute verbatim copies of this
+manual provided the copyright notice and this permission notice are
+preserved on all copies.
+
+   Permission is granted to copy and distribute modified versions of
+this manual under the conditions for verbatim copying, provided that
+the entire resulting derived work is distributed under the terms of a
+permission notice identical to this one.
+
+   Permission is granted to copy and distribute translations of this
+manual into another language, under the above conditions for modified
+versions, except that this permission notice may be stated in a
+translation approved by the Foundation.
+
+   This file documents GNU `tar', which is a utility used to store,
+backup, and transport files.  `tar' is a tape (or disk) archiver.  This
+manual documents the release 1.13.
+
+
+File: tar.info,  Node: Index,  Prev: Media,  Up: Top
+
+Index
+*****
+
+* Menu:
+
+* --list with file name arguments:       list.
+* -backup:                               backup.
+* -suffix:                               backup.
+* -version-control:                      backup.
+* Adding archives to an archive:         concatenate.
+* Adding files to an Archive:            appending files.
+* Age, excluding files by:               after.
+* Alaska-Hawaii Time:                    Timezone item.
+* Appending files to an Archive:         appending files.
+* Archive Name:                          file.
+* Archive creation:                      file.
+* Archives, Appending files to:          appending files.
+* Archiving Directories:                 create dir.
+* Atlantic Standard Time:                Timezone item.
+* Avoiding recursion in directories:     recurse.
+* Azores Time:                           Timezone item.
+* Baghdad Time:                          Timezone item.
+* Bellovin, Steven M.:                   Authors of getdate.
+* Berets, Jim:                           Authors of getdate.
+* Berry, K.:                             Authors of getdate.
+* Block number where error occured:      verbose.
+* Blocking Factor:                       Blocking Factor.
+* Blocks per record:                     Blocking Factor.
+* Bytes per record:                      Blocking Factor.
+* Central Alaska Time:                   Timezone item.
+* Central European Time:                 Timezone item.
+* Central Standard Time:                 Timezone item.
+* Changing directory mid-stream:         directory.
+* Character class, excluding characters from: Wildcards.
+* China Coast Time:                      Timezone item.
+* Choosing an archive file:              file.
+* Compressed archives:                   gzip.
+* Concatenating Archives:                concatenate.
+* DAT blocking:                          Blocking Factor.
+* Deleting files from an archive:        delete.
+* Deleting from tape archives:           delete.
+* Descending directories, avoiding:      recurse.
+* Directing output:                      file.
+* Directories, Archiving:                create dir.
+* Directories, avoiding recursion:       recurse.
+* Directory, changing mid-stream:        directory.
+* Disk space, running out of:            Scarce.
+* Double-checking a write operation:     verify.
+* East Australian Standard Time:         Timezone item.
+* Eastern European Time:                 Timezone item.
+* Eastern Standard Time:                 Timezone item.
+* End-of-archive entries, ignoring:      Reading.
+* Error message, block number of:        verbose.
+* Exabyte blocking:                      Blocking Factor.
+* Excluding characters from a character class: Wildcards.
+* Excluding file by age:                 after.
+* Excluding files by file system:        exclude.
+* Excluding files by name and pattern:   exclude.
+* Extraction:                            extract.
+* Feedback from tar:                     verbose.
+* File Name arguments, alternatives:     files.
+* File name arguments, using --list with: list.
+* File names, excluding files by:        exclude.
+* File names, terminated by NUL:         nul.
+* File names, using symbolic links:      dereference.
+* File system boundaries, not crossing:  one.
+* Format Options:                        Format Variations.
+* Format Parameters:                     Format Variations.
+* Format, old style:                     old.
+* French Winter Time:                    Timezone item.
+* Getting more information during the operation: verbose.
+* Greenwich Mean Time:                   Timezone item.
+* Guam Standard Time:                    Timezone item.
+* Hawaii Standard Time:                  Timezone item.
+* ISO 8601 date format:                  Calendar date item.
+* Ignoring end-of-archive entries:       Reading.
+* Information during operation:          verbose.
+* Information on progress and status of operations: verbose.
+* Interactive operation:                 interactive.
+* International Date Line East:          Timezone item.
+* International Date Line West:          Timezone item.
+* Japan Standard Time:                   Timezone item.
+* Labeling an archive:                   label.
+* Labelling multi-volume archives:       Multi-Volume Archives.
+* Labels on the archive media:           label.
+* Large lists of file names on small machines: Reading.
+* Lists of file names:                   files.
+* MacKenzie, David:                      Authors of getdate.
+* Members, replacing with other members: append.
+* Meyering, Jim:                         Authors of getdate.
+* Middle European Time:                  Timezone item.
+* Middle European Winter Time:           Timezone item.
+* Middle of the archive, starting in the: Scarce.
+* Modes of extracted files:              Writing.
+* Modification time, excluding files by: after.
+* Modification times of extracted files: Writing.
+* Mountain Standard Time:                Timezone item.
+* Multi-volume archives:                 Multi-Volume Archives.
+* NUL terminated file names:             nul.
+* Naming an archive:                     file.
+* New Zealand Standard Time:             Timezone item.
+* Nome Standard Time:                    Timezone item.
+* Number of blocks per record:           Blocking Factor.
+* Number of bytes per record:            Blocking Factor.
+* Old style archives:                    old.
+* Old style format:                      old.
+* Options when reading archives:         Reading.
+* Options, archive format specifying:    Format Variations.
+* Options, format specifying:            Format Variations.
+* Overwriting old files, prevention:     Writing.
+* Pacific Standard Time:                 Timezone item.
+* Permissions of extracted files:        Writing.
+* Pinard, F.:                            Authors of getdate.
+* Progress information:                  verbose.
+* Protecting old files:                  Writing.
+* Reading file names from a file:        files.
+* Reading incomplete records:            Reading.
+* Record Size:                           Blocking Factor.
+* Records, incomplete:                   Reading.
+* Recursion in directories, avoiding:    recurse.
+* Removing files from an archive:        delete.
+* Replacing members with other members:  append.
+* Resurrecting files from an archive:    extract.
+* Retrieving files from an archive:      extract.
+* Running out of space:                  Reading.
+* Running out of space during extraction: Scarce.
+* SIMPLE_BACKUP_SUFFIX:                  backup.
+* Salz, Rich:                            Authors of getdate.
+* Small memory:                          Reading.
+* Space on the disk, recovering from lack of: Scarce.
+* Sparse Files:                          sparse.
+* Specifying archive members:            Selecting Archive Members.
+* Specifying files to act on:            Selecting Archive Members.
+* Standard input and output:             file.
+* Standard output, writing extracted files to: Writing.
+* Status information:                    verbose.
+* Storing archives in compressed format: gzip.
+* Swedish Winter Time:                   Timezone item.
+* Symbolic link as file name:            dereference.
+* Tapes, using --delete and:             delete.
+* USSR Zone:                             Timezone item.
+* Ultrix 3.1 and write failure:          Remote Tape Server.
+* Universal Coordinated Time:            Timezone item.
+* Updating an archive:                   update.
+* VERSION_CONTROL:                       backup.
+* Verbose operation:                     verbose.
+* Verifying a write operation:           verify.
+* Verifying the currency of an archive:  compare.
+* Version of the tar program:            verbose.
+* West African Time:                     Timezone item.
+* West Australian Standard Time:         Timezone item.
+* Western European Time:                 Timezone item.
+* Where is the archive?:                 file.
+* Working directory, specifying:         directory.
+* Writing extracted files to standard output: Writing.
+* Writing new archives:                  file.
+* Yukon Standard Time:                   Timezone item.
+* abbreviations for months:              Calendar date item.
+* absolute file names:                   Remote Tape Server.
+* ago in date strings:                   Relative item in date strings.
+* am in date strings:                    Time of day item.
+* archive:                               Definitions.
+* archive member:                        Definitions.
+* authors of getdate:                    Authors of getdate.
+* backup files, type made:               backup.
+* backup options:                        backup.
+* backup suffix:                         backup.
+* backups, making:                       backup.
+* beginning of time, for Unix:           Date input formats.
+* blocking factor:                       Blocking Factor.
+* bug reports:                           Reports.
+* calendar date item:                    Calendar date item.
+* case, ignored in dates:                General date syntax.
+* cat vs concatenate:                    concatenate.
+* comments, in dates:                    General date syntax.
+* concatenate vs cat:                    concatenate.
+* corrupted archives <1>:                gzip.
+* corrupted archives:                    Full Dumps.
+* date format, ISO 8601:                 Calendar date item.
+* date input formats:                    Date input formats.
+* day in date strings:                   Relative item in date strings.
+* day of week item:                      Day of week item.
+* daylight savings time:                 Timezone item.
+* displacement of dates:                 Relative item in date strings.
+* dumps, full:                           Full Dumps.
+* dumps, incremental:                    Inc Dumps.
+* entry:                                 Naming tar Archives.
+* epoch, for Unix:                       Date input formats.
+* exclude:                               exclude.
+* exclude-from:                          exclude.
+* existing backup method:                backup.
+* exit status:                           Synopsis.
+* extraction:                            Definitions.
+* file name:                             Definitions.
+* first in date strings:                 General date syntax.
+* fortnight in date strings:             Relative item in date strings.
+* full dumps:                            Full Dumps.
+* general date syntax:                   General date syntax.
+* getdate:                               Date input formats.
+* hour in date strings:                  Relative item in date strings.
+* incremental dumps:                     Inc Dumps.
+* items in date strings:                 General date syntax.
+* last DAY:                              Day of week item.
+* last in date strings:                  General date syntax.
+* member:                                Definitions.
+* member name:                           Definitions.
+* midnight in date strings:              Time of day item.
+* minute in date strings:                Relative item in date strings.
+* minutes, timezone correction by:       Time of day item.
+* month in date strings:                 Relative item in date strings.
+* month names in date strings:           Calendar date item.
+* months, written-out:                   General date syntax.
+* next DAY:                              Day of week item.
+* next in date strings:                  General date syntax.
+* noon in date strings:                  Time of day item.
+* now in date strings:                   Relative item in date strings.
+* ntape device:                          Many.
+* numbered backup method:                backup.
+* numbers, written-out:                  General date syntax.
+* option syntax, traditional:            Old Options.
+* ordinal numbers:                       General date syntax.
+* pm in date strings:                    Time of day item.
+* pure numbers in date strings:          Pure numbers in date strings.
+* relative items in date strings:        Relative item in date strings.
+* remote tape drive:                     Remote Tape Server.
+* reporting bugs:                        Reports.
+* return status:                         Synopsis.
+* rmt:                                   Remote Tape Server.
+* simple backup method:                  backup.
+* tape blocking:                         Blocking Factor.
+* tape marks:                            Many.
+* tape positioning:                      Many.
+* tar:                                   What tar Does.
+* tar archive:                           Definitions.
+* tar entry:                             Naming tar Archives.
+* tar file:                              Naming tar Archives.
+* tar to standard input and output:      file.
+* this in date strings:                  Relative item in date strings.
+* time of day item:                      Time of day item.
+* timezone correction:                   Time of day item.
+* timezone item:                         Timezone item.
+* today in date strings:                 Relative item in date strings.
+* tomorrow in date strings:              Relative item in date strings.
+* unpacking:                             Definitions.
+* uuencode:                              Applications.
+* version-control Emacs variable:        backup.
+* week in date strings:                  Relative item in date strings.
+* year in date strings:                  Relative item in date strings.
+* yesterday in date strings:             Relative item in date strings.
+
+

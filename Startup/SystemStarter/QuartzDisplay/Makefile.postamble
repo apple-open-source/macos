@@ -1,0 +1,7 @@
+NEXTSTEP_PB_CFLAGS += -DkBootImagePath="\"$(SYSTEM_CORE_SERVICES_DIR)/SystemStarter/QuartzDisplay.bundle/Resources/$(BootPanelImage)\""
+
+# We aren't really a CFBundle
+remove_info_file:
+	$(RM) -f $(INFO_FILE)
+
+include $(CoreOSMakefiles)/ProjectBuilder/Makefile.Postamble.Common

@@ -1,0 +1,11 @@
+dnl ../doc/m4.texinfo:2839: Origin of test
+eval(666, 10)
+dnl @result{}666
+eval(666, 11)
+dnl @result{}556
+eval(666, 6)
+dnl @result{}3030
+eval(666, 6, 10)
+dnl @result{}0000003030
+eval(-666, 6, 10)
+dnl @result{}-000003030

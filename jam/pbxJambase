@@ -1,0 +1,19 @@
+NEXT_ROOT ?= "" ;
+if $(JAMBASE) = "" {
+    if $(OS) = NT {
+        SYSTEM_DEVELOPER_DIR = /Developer ;
+    } else {
+        SYSTEM_DEVELOPER_DIR = /Developer ;
+    }
+    if $(OS) = NT {
+        LOCAL_DEVELOPER_DIR = /Local/Developer ;
+    } else {
+        LOCAL_DEVELOPER_DIR = /Library/Developer ;
+    }
+    JAMBASE_DIR ?= $(NEXT_ROOT)$(SYSTEM_DEVELOPER_DIR)/Makefiles/pbx_jamfiles ;
+    include $(JAMBASE_DIR)/Jambase ;
+}
+else {
+    JAMBASE_DIR = $(JAMBASE:D) ;
+    include $(JAMBASE) ;
+}

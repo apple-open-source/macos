@@ -1,0 +1,6 @@
+# $Id: setup.stub,v 1.1.1.1 2000/08/10 02:08:28 wsanchez Exp $
+
+define_option with-gettext 'gettext support?' yesnodir \
+    "yes /usr/local" \
+'    Whether to include gettext support.'
+	

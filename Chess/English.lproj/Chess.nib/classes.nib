@@ -1,0 +1,76 @@
+{
+    IBClasses = (
+        {
+            ACTIONS = {print = id; }; 
+            CLASS = Board; 
+            LANGUAGE = ObjC; 
+            SUPERCLASS = NSControl; 
+        }, 
+        {CLASS = Board3D; LANGUAGE = ObjC; SUPERCLASS = NSControl; }, 
+        {
+            ACTIONS = {
+                chooseSide = id; 
+                closeGame = id; 
+                forceMove = id; 
+                hint = id; 
+                info = id; 
+                levelSliding = id; 
+                listGame = id; 
+                myAction = id; 
+                newGame = id; 
+                openGame = id; 
+                print = id; 
+                renderColors = id; 
+                saveAsGame = id; 
+                saveGame = id; 
+                setBlackColor = id; 
+                setPreferences = id; 
+                setWhiteColor = id; 
+                showGnuDisclaimer = id; 
+                showPosition = id; 
+                startGame = id; 
+                undoMove = id; 
+                view2D = id; 
+                view3D = id; 
+            }; 
+            CLASS = Chess; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {
+                blackClock = id; 
+                blackClockText = id; 
+                blackColorWell = id; 
+                blackMeter = id; 
+                blackSample = id; 
+                blackSideName = id; 
+                board2D = id; 
+                board3D = id; 
+                boardWindow = id; 
+                clockPanel = id; 
+                colorSetButton = id; 
+                forceButton = id; 
+                gamePopup = id; 
+                infoPanel = id; 
+                infoScroll = id; 
+                levelSlider = id; 
+                levelText = id; 
+                menu2D = id; 
+                menu3D = id; 
+                prefPanel = id; 
+                prefSetButton = id; 
+                srCheckBox = id; 
+                startButton = id; 
+                whiteClock = id; 
+                whiteClockText = id; 
+                whiteColorWell = id; 
+                whiteMeter = id; 
+                whiteSample = id; 
+                whiteSideName = id; 
+            }; 
+            SUPERCLASS = NSApplication; 
+        }, 
+        {CLASS = Clock; LANGUAGE = ObjC; SUPERCLASS = NSView; }, 
+        {CLASS = FirstResponder; LANGUAGE = ObjC; SUPERCLASS = NSObject; }, 
+        {CLASS = ResponseMeter; LANGUAGE = ObjC; SUPERCLASS = NSView; }
+    ); 
+    IBVersion = 1; 
+}

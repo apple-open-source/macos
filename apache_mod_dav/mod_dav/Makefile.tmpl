@@ -1,0 +1,64 @@
+##
+##  Apache 1.3 Makefile template for mod_dav module
+##  [src/modules/dav/Makefile.tmpl]
+##
+
+#   the parametrized target
+LIB=libdav.$(LIBEXT)
+
+#LIBS_SHLIB=-lexpat -lgdbm
+#LIBS_SHLIB=-lgdbm
+
+# objects for building the static library
+#
+# Note: this Makefile can't do it... it is built externally by the mod_dav
+#       build/install process.
+OBJS=
+OBJS_LIB=
+
+# objects for building the shared library (convert the static into shared)
+SHLIB_OBJS=dav_shared_stub.o
+SHLIB_OBJS_LIB=libdav.a
+
+# standard targets
+all: lib
+lib: $(LIB)
+
+# not needed
+#libdav.a: $(OBJS) $(OBJS_LIB)
+#	cp $(OBJS_LIB) $@
+#	ar r $@ $(OBJS)
+#	$(RANLIB) $@
+
+libdav.so: $(SHLIB_OBJS) $(SHLIB_OBJS_LIB)
+	rm -f $@
+	$(LD_SHLIB) $(LDFLAGS_SHLIB) -o $@ $(SHLIB_OBJS) $(SHLIB_OBJS_LIB) $(LIBS)
+
+clean:
+	rm -f $(OBJS) $(SHLIB_OBJS) $(LIB)
+
+distclean: clean
+	-rm -f Makefile
+
+# We really don't expect end users to use this rule.  It works only with
+# gcc, and rebuilds Makefile.tmpl.  You have to re-run Configure after
+# using it.
+depend:
+	cp Makefile.tmpl Makefile.tmpl.bak \
+	    && sed -ne '1,/^# DO NOT REMOVE/p' Makefile.tmpl > Makefile.new \
+	    && gcc -MM $(INCLUDES) $(CFLAGS) *.c >> Makefile.new \
+	    && sed -e '1,$$s: $(INCDIR)/: $$(INCDIR)/:g' \
+	           -e '1,$$s: $(OSDIR)/: $$(OSDIR)/:g' Makefile.new \
+		> Makefile.tmpl \
+	    && rm Makefile.new
+
+.SUFFIXES: .o
+
+.c.o:
+	$(CC) -c $(INCLUDES) $(CFLAGS) $< -o $@
+
+#Dependencies
+
+$(OBJS) $(SHLIB_OBJS) $(LIB): Makefile
+
+# DO NOT REMOVE

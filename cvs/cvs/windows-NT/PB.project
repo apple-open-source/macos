@@ -1,0 +1,31 @@
+{
+    FILESTABLE = {
+        Documentation = (README, ChangeLog); 
+        Headers = (pwd.h, rcmd.h, config.h, options.h, ndir.h); 
+        Makefiles = (Makefile.in); 
+        Resources = (); 
+        SUBPROJECTS = (SCC); 
+        Sources = (
+            pwd.c, 
+            rcmd.c, 
+            filesubr.c, 
+            mkdir.c, 
+            waitpid.c, 
+            sockerror.c, 
+            startserver.c, 
+            run.c, 
+            ndir.c, 
+            strippath.c, 
+            stripslash.c, 
+            win32.c
+        ); 
+    }; 
+    LANGUAGE = English; 
+    LOCALIZABLE_FILES = {}; 
+    NEXTSTEP_BUILDTOOL = /bin/make; 
+    PDO_UNIX_BUILDTOOL = /bin/make; 
+    PROJECTNAME = "windows-NT"; 
+    PROJECTTYPE = "GNU Source"; 
+    PROJECTVERSION = 2.6; 
+    WINDOWS_BUILDTOOL = "${NEXT_ROOT}/NextDeveloper/Executables/make"; 
+}

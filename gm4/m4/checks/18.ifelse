@@ -1,0 +1,3 @@
+dnl ../doc/m4.texinfo:1400: Origin of test
+ifelse(foo, bar, `third', gnu, gnats, `sixth', `seventh')
+dnl @result{}seventh

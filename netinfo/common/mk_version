@@ -1,0 +1,38 @@
+#! /bin/sh
+
+#
+# Generate project version string
+#
+
+BASE=`cd .. ; /bin/pwd | sed 's:.*/::'`
+VERS=`echo $BASE | sed 's:.*-::'`
+DEV=`echo $VERS | sed 's:.dev::'`
+if [ $BASE = $VERS ]; then
+  echo "#define _PROJECT_VERSION_ \"0\""
+else
+  if [ $VERS = $DEV ]; then
+    echo "#define _PROJECT_VERSION_ \"$VERS\""
+  else
+    echo "#define _PROJECT_VERSION_ \"$DEV\""
+  fi
+fi
+
+#
+# Generate build info string
+#
+
+TS=`date -u | awk '{printf "%d.%s.%02d %s\n", $6,$2,$3,$4}'`
+TS=`echo $TS | sed 's/Jan/01/'`
+TS=`echo $TS | sed 's/Feb/02/'`
+TS=`echo $TS | sed 's/Mar/03/'`
+TS=`echo $TS | sed 's/Apr/04/'`
+TS=`echo $TS | sed 's/May/05/'`
+TS=`echo $TS | sed 's/Jun/06/'`
+TS=`echo $TS | sed 's/Jul/07/'`
+TS=`echo $TS | sed 's/Aug/08/'`
+TS=`echo $TS | sed 's/Sep/09/'`
+TS=`echo $TS | sed 's/Oct/10/'`
+TS=`echo $TS | sed 's/Nov/11/'`
+TS=`echo $TS | sed 's/Dec/12/'`
+
+echo "#define _PROJECT_BUILD_INFO_ \"`whoami` $TS UTC\""

@@ -1,0 +1,15 @@
+{
+    BUNDLE_EXTENSION = kext; 
+    DYNAMIC_CODE_GEN = YES; 
+    FILESTABLE = {
+        OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble); 
+    }; 
+    LANGUAGE = English; 
+    MAKEFILEDIR = "$(MAKEFILEPATH)/pb_makefiles"; 
+    NEXTSTEP_BUILDTOOL = /bin/gnumake; 
+    NEXTSTEP_INSTALLDIR = "$(SYSTEM_LIBRARY_DIR)/Extensions"; 
+    NEXTSTEP_JAVA_COMPILER = /usr/bin/javac; 
+    NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc; 
+    PROJECTTYPE = "Kernel Extension"; 
+    PROJECTVERSION = 2.8; 
+}

@@ -1,0 +1,5 @@
+1999-03-21  Olaf Bachmann  <obachman@mathematik.uni-kl.de>
+* fixed uref to correctly handle all three arguments
+* implemented @center 
+	
+

@@ -1,0 +1,12 @@
+#!/bin/sh
+#
+# Test startrules.
+#
+
+. $srcdir/defs || exit 1
+
+result=`$states $srcdir/startrules.test 2>&1`
+
+if test "X$result" != "Xtest_startrules"; then
+  exit 1;
+fi

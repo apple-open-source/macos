@@ -1,0 +1,4 @@
+CLEAN_ALL_SUBPROJECTS = YES
+OTHER_GENERATED_OFILES = $(VERS_OFILE)
+OTHER_LIBS = -ltelnet
+-include ../Makefile.include

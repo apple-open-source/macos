@@ -1,0 +1,24 @@
+-i4 -npsl -di0 -br -nce -d0 -cli0 -npcs -nfc1
+-Tdav_api_request_handler
+-Tdav_api_method_handler
+-Tdav_buffer
+-Tdav_datum
+-Tdav_db
+-Tdav_dbm_file
+-Tdav_dir_conf
+-Tdav_get_props_result
+-Tdav_hooks
+-Tdav_hooks_db
+-Tdav_lookup_result
+-Tdav_propdb
+-Tdav_propdb_metadata
+-Tdav_response
+-Tdav_server_conf
+-Tdav_text
+-Tdav_text_header
+-Tdav_walker_ctx
+-Tdav_xml_attr
+-Tdav_xml_ctx
+-Tdav_xml_doc
+-Tdav_xml_elem
+-Tdav_xml_ns_scope

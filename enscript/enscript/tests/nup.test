@@ -1,0 +1,13 @@
+#!/bin/sh
+#
+# --nup
+#
+
+. $srcdir/defs || exit 1
+
+$enscript --quiet -G --nup=2 -p$output $asciifiles
+$enscript --quiet -G2r -U2 -p$output $asciifiles
+$enscript --quiet -G --nup=4 -p$output $asciifiles
+$enscript --quiet -G2r -U4 -p$output $asciifiles
+
+rm $output

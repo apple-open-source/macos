@@ -1,0 +1,116 @@
+\initial {A}
+\entry {\code {attrib-selection-list}}{31}
+\entry {\code {attrib-selection-list (sc-)}}{18, 19}
+\entry {\code {attribs-postselect-hook (sc-)}}{20}
+\entry {\code {attribs-preselect-hook (sc-)}}{20}
+\entry {\code {auto-fill-region-p (sc-)}}{16}
+\initial {B}
+\entry {\code {blank-lines-after-headers (sc-)}}{16}
+\initial {C}
+\entry {\code {citation-delimiter (sc-)}}{5}
+\entry {\code {citation-delimiter-regexp (sc-)}}{5}
+\entry {\code {citation-leader (sc-)}}{4}
+\entry {\code {citation-leader-regexp (sc-)}}{5}
+\entry {\code {citation-nonnested-root-regexp (sc-)}}{5}
+\entry {\code {citation-root-regexp (sc-)}}{5}
+\entry {\code {citation-separator (sc-)}}{5}
+\entry {\code {citation-separator-regexp (sc-)}}{5}
+\entry {\code {cite-blank-lines-p (sc-)}}{16}
+\entry {\code {cite-region-limit}}{31}
+\entry {\code {cite-region-limit (sc-)b}}{16}
+\entry {\code {confirm-always-p}}{25}
+\entry {\code {confirm-always-p (sc-)}}{15, 20, 26}
+\initial {D}
+\entry {\code {default-attribution (sc-)}}{19}
+\entry {\code {default-author-name (sc-)}}{19}
+\entry {\code {downcase-p (sc-)}}{20}
+\initial {E}
+\entry {\code {electric-circular-p (sc-)}}{9}
+\entry {\code {electric-mode-hook (sc-)}}{10}
+\entry {\code {electric-references-p (sc-)}}{9}
+\initial {F}
+\entry {\code {fill-prefix}}{2, 17}
+\entry {\code {fixup-whitespace-p (sc-)}}{17}
+\initial {G}
+\entry {\code {gnews-ready-hook}}{13}
+\initial {H}
+\entry {\code {hyperb:version}}{14}
+\initial {L}
+\entry {\code {load-hook (sc-)}}{11, 16}
+\initial {M}
+\entry {\code {mail-citation-hook}}{11, 12, 13, 29}
+\entry {\code {mail-header-separator}}{2}
+\entry {\code {mail-warn-if-non-rfc822-p (sc-)}}{15}
+\entry {\code {mail-yank-hooks}}{13, 29}
+\entry {\code {mh-yank-from-start-of-msg}}{13}
+\entry {\code {mh-yank-hooks}}{12}
+\entry {\code {mode-map-prefix (sc-)}}{15, 24}
+\entry {\code {mumble (sc-)}}{6}
+\initial {N}
+\entry {\code {name-filter-alist (sc-)}}{20}
+\entry {\code {nested-citation-p (sc-)}}{4}
+\entry {\code {news-reply-mode-hook}}{13, 14}
+\entry {\code {nuke-mail-header-list (sc-)}}{15}
+\entry {\code {nuke-mail-headers (sc-)}}{15}
+\initial {P}
+\entry {\code {post-hook (sc-)}}{16}
+\entry {\code {pre-cite-hook (sc-)}}{25}
+\entry {\code {pre-hook (sc-)}}{11, 15}
+\entry {\code {preferred-attribution-list (sc-)}}{17}
+\entry {\code {preferred-header-style (sc-)}}{8, 26}
+\initial {R}
+\entry {\code {reference-tag-string (sc-)}}{8}
+\entry {\code {rewrite-header-list (sc-)}}{8}
+\initial {S}
+\entry {\code {sc-attrib-selection-list}}{18, 19, 31}
+\entry {\code {sc-attribs-postselect-hook}}{20}
+\entry {\code {sc-attribs-preselect-hook}}{20}
+\entry {\code {sc-auto-fill-region-p}}{16}
+\entry {\code {sc-blank-lines-after-headers}}{16}
+\entry {\code {sc-citation-delimiter}}{5}
+\entry {\code {sc-citation-delimiter-regexp}}{5}
+\entry {\code {sc-citation-leader}}{4}
+\entry {\code {sc-citation-leader-regexp}}{5}
+\entry {\code {sc-citation-nonnested-root-regexp}}{5}
+\entry {\code {sc-citation-root-regexp}}{5}
+\entry {\code {sc-citation-separator}}{5}
+\entry {\code {sc-citation-separator-regexp}}{5}
+\entry {\code {sc-cite-blank-lines-p}}{16}
+\entry {\code {sc-cite-frame-alist}}{24}
+\entry {\code {sc-cite-region-limit}}{16, 25, 31}
+\entry {\code {sc-confirm-always-p}}{15, 20, 25, 26}
+\entry {\code {sc-default-attribution}}{19}
+\entry {\code {sc-default-author-name}}{19}
+\entry {\code {sc-default-cite-frame}}{23}
+\entry {\code {sc-default-recite-frame}}{24}
+\entry {\code {sc-default-uncite-frame}}{24}
+\entry {\code {sc-downcase-p}}{20}
+\entry {\code {sc-electric-circular-p}}{9}
+\entry {\code {sc-electric-mode-hook}}{10}
+\entry {\code {sc-electric-references-p}}{9}
+\entry {\code {sc-fixup-whitespace-p}}{17}
+\entry {\code {sc-load-hook}}{11, 16}
+\entry {\code {sc-mail-field}}{24}
+\entry {\code {sc-mail-warn-if-non-rfc822-p}}{15}
+\entry {\code {sc-mode-map-prefix}}{15, 24}
+\entry {\code {sc-mumble}}{6}
+\entry {\code {sc-name-filter-alist}}{20}
+\entry {\code {sc-nested-citation-p}}{4}
+\entry {\code {sc-nuke-mail-header}}{23}
+\entry {\code {sc-nuke-mail-header-list}}{15}
+\entry {\code {sc-nuke-mail-headers}}{15}
+\entry {\code {sc-post-hook}}{16}
+\entry {\code {sc-pre-cite-hook}}{25}
+\entry {\code {sc-pre-hook}}{11, 15}
+\entry {\code {sc-preferred-attribution-list}}{17}
+\entry {\code {sc-preferred-header-style}}{8, 26}
+\entry {\code {sc-recite-frame-alist}}{24}
+\entry {\code {sc-reference-tag-string}}{8}
+\entry {\code {sc-rewrite-header-list}}{8}
+\entry {\code {sc-titlecue-regexp}}{20}
+\entry {\code {sc-uncite-frame-alist}}{24}
+\entry {\code {sc-use-only-preference-p}}{19}
+\initial {T}
+\entry {\code {titlecue-regexp (sc-)}}{20}
+\initial {U}
+\entry {\code {use-only-preference-p (sc-)}}{19}

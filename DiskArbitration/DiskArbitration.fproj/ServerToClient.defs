@@ -1,0 +1,157 @@
+subsystem ServerToClient 0;
+
+#include <mach/std_types.defs>
+
+import "DiskArbitrationTypes.h";
+
+/*
+--	TYPES
+*/
+
+/* Beware: these definitions must be kept synchronized with DiskArbitrationTypes.h */
+
+type DiskArbDiskIdentifier = c_string[*:1024];
+
+type DiskArbMountpoint = c_string[*:1024];
+
+type DiskArbIOContent = c_string[*:1024];
+
+type DiskArbDeviceTreePath = c_string[*:1024];
+
+type DiskArbGenericString = c_string[*:1024];
+
+
+/*
+--	Messages sent by the DiskArbitration Server to the Client
+*/
+
+/* Should be obsoleted */
+
+simpleroutine DiskArbDiskAppearedWithoutMountpoint_rpc(
+				dest: mach_port_t;
+			in	diskIdentifier: DiskArbDiskIdentifier;
+			in	flags: unsigned);
+
+/* Will remain */
+
+simpleroutine DiskArbDiskAppearedWithMountpoint_rpc(
+				dest: mach_port_t;
+			in	diskIdentifier: DiskArbDiskIdentifier;
+			in	flags: unsigned;
+			in	mountpoint: DiskArbMountpoint);
+
+/* Will remain */
+
+simpleroutine DiskArbDiskAppeared_rpc(
+				dest: mach_port_t;
+			in	diskIdentifier: DiskArbDiskIdentifier;
+			in	flags: unsigned;
+			in	mountpoint: DiskArbMountpoint;
+			in	ioContent: DiskArbIOContent);
+
+simpleroutine DiskArbDiskAppeared2_rpc(
+				dest: mach_port_t;
+			in	diskIdentifier: DiskArbDiskIdentifier;
+			in	flags: unsigned;
+			in	mountpoint: DiskArbMountpoint;
+			in	ioContent: DiskArbIOContent;
+			in	deviceTreePath: DiskArbDeviceTreePath;
+			in	sequenceNumber: unsigned);
+
+/*
+-- Async unmount + eject
+*/
+
+simpleroutine DiskArbUnmountPreNotify_async_rpc(
+				dest: mach_port_t;
+			in	diskIdentifier: DiskArbDiskIdentifier;
+			in	flags: unsigned); /* ejected? forced? */
+
+simpleroutine DiskArbUnmountPostNotify_async_rpc(
+				dest: mach_port_t;
+			in	diskIdentifier: DiskArbDiskIdentifier;
+			in	errorCode: int; /* did it succeed? was it ejected? */
+			in	dissenter: int); /* the pid of the process that said no */
+
+simpleroutine DiskArbEjectPreNotify_async_rpc(
+				dest: mach_port_t;
+			in	diskIdentifier: DiskArbDiskIdentifier;
+			in	flags: unsigned); /* ejected? forced? */
+
+simpleroutine DiskArbEjectPostNotify_async_rpc(
+				dest: mach_port_t;
+			in	diskIdentifier: DiskArbDiskIdentifier;
+			in	errorCode: int; /* did it succeed? was it ejected? */
+			in	dissenter: int); /* the pid of the process that said no */
+
+/* 
+-- Client Disconnected
+*/
+
+simpleroutine DiskArbClientDisconnected_rpc(dest: mach_port_t);
+
+/*
+-- Blue Box boot volume
+*/
+
+/* Sends -1 if the seqno has not been set. */
+
+simpleroutine DiskArbBlueBoxBootVolumeUpdated_async_rpc(
+				dest: mach_port_t;
+			in	seqno: int);
+
+/*
+-- Unknown filesystem inserted ... 
+*/
+
+simpleroutine DiskArbUnknownFileSystemInserted_rpc(
+				dest: mach_port_t;
+			in	diskIdentifier: DiskArbDiskIdentifier;
+			in	fsType: DiskArbGenericString;
+			in	deviceType: DiskArbGenericString;
+			in	isWritable: int;
+			in	isRemovable: int;
+			in	isWhole: int);
+
+/* 
+-- Disk Information Changed
+*/
+simpleroutine DiskArbDiskChanged_rpc(
+				dest: mach_port_t;
+			in	diskIdentifier: DiskArbDiskIdentifier;
+			in	newMountpoint: DiskArbMountpoint;
+			in	newVolumeName: DiskArbMountpoint;
+			in	flags: unsigned;
+			in	success: int);
+
+/* 
+-- "That's all for now" message
+-- Sent out when adm has completed send any of the async calls or appeared calls
+-- "for now"
+*/
+simpleroutine DiskArbNotificationComplete_rpc(
+				dest: mach_port_t;
+			in	notificationType: int);
+
+/* 
+-- Registration complete message
+*/
+simpleroutine DiskArbRegistrationComplete_rpc(
+				dest: mach_port_t);
+
+/* -- Printer Arbitration -- */
+
+simpleroutine DiskArbPrinter_FinalRequest_rpc (
+				dest: mach_port_t;
+			in	pid: int;
+			in	locationID: int);
+
+simpleroutine DiskArbPrinter_FinalResponse_rpc (
+				dest: mach_port_t;
+			in	locationID: int;
+			in	answer: int);
+
+simpleroutine DiskArbPrinter_FinalRelease_rpc (
+				dest: mach_port_t;
+			in	locationID: int);
+

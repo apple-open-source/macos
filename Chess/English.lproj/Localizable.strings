@@ -1,0 +1,39 @@
+/* alert panel messages */
+"new_game" = "Start a new game with these Preferences?";
+"no_hint"  = "I don't have a hint.";
+"no_undo"  = "No more moves to undo.";
+
+"draw_game" = "The game is a draw.";
+"black_win" = "The game is over.  Black wins.";
+"white_win" = "The game is over.  White wins.";
+"you_win"   = "The game is over.\nCongratulations, you win.";
+
+"exit_chess" = "Do you want to exit chess?";
+
+/* alert panel buttons */
+"Yes";
+"No";
+
+/* window title messages */
+"Chess";
+"Chess:  ";
+"   :   ";
+"1 Undo  ";
+"%d Undos  ";
+"1 Hint";
+"%d Hints";
+
+"Illegal move";
+"Black's move";
+"White's move";
+"Illegal Move!!";
+"Ambiguous Move!";
+"Black is in check";
+"White is in check";
+
+/* preferences panel messages */
+"%d moves in %d minutes";
+"%d move in %d minutes";
+
+/* black/white player */
+"Computer";

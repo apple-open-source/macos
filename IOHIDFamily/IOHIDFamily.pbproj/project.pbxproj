@@ -1,0 +1,854 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 32;
+	objects = {
+		0140D13CFFF91A5311CA29FD = {
+			isa = PBXFileReference;
+			path = IOHIDParserPriv.h;
+			refType = 4;
+		};
+		0140D13DFFF91A5311CA29FD = {
+			fileRef = 0140D13CFFF91A5311CA29FD;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		014C794B00027ECC11CA2CF6 = {
+			isa = PBXFrameworkReference;
+			name = IOKit.framework;
+			path = /System/Library/Frameworks/IOKit.framework;
+			refType = 0;
+		};
+		014C794C00027ECC11CA2CF6 = {
+			fileRef = 014C794B00027ECC11CA2CF6;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		014D176AFFE1C65511CA2CF6 = {
+			children = (
+				019150F3FFE6F74111CA29FD,
+				014D176BFFE1C65511CA2CF6,
+				01ABF5C2FFEAD77011CA29FD,
+				01ABF5C3FFEAD77011CA29FD,
+				014D176CFFE1C65511CA2CF6,
+				014D176DFFE1C65511CA2CF6,
+				014D176EFFE1C65511CA2CF6,
+				0A308BA3FFFA5B7A11CA29FD,
+				0A308BA4FFFA5B7A11CA29FD,
+				019D7CAFFFE8274811CA2CF6,
+				0140D13CFFF91A5311CA29FD,
+				01ABF5C6FFEAF24711CA29FD,
+				01ABF5C7FFEAF24711CA29FD,
+				014D176FFFE1C65511CA2CF6,
+			);
+			isa = PBXGroup;
+			path = IOHIDFamily;
+			refType = 4;
+		};
+		014D176BFFE1C65511CA2CF6 = {
+			isa = PBXFileReference;
+			path = IOHIDDevice.h;
+			refType = 4;
+		};
+		014D176CFFE1C65511CA2CF6 = {
+			isa = PBXFileReference;
+			path = IOHIDLibUserClient.cpp;
+			refType = 4;
+		};
+		014D176DFFE1C65511CA2CF6 = {
+			isa = PBXFileReference;
+			path = IOHIDLibUserClient.h;
+			refType = 4;
+		};
+		014D176EFFE1C65511CA2CF6 = {
+			isa = PBXFileReference;
+			path = IOHIDLibUserClientIniter.cpp;
+			refType = 4;
+		};
+		014D176FFFE1C65511CA2CF6 = {
+			children = (
+				014D1770FFE1C65511CA2CF6,
+			);
+			isa = PBXVariantGroup;
+			name = InfoPlist.strings;
+			path = "";
+			refType = 4;
+		};
+		014D1770FFE1C65511CA2CF6 = {
+			isa = PBXFileReference;
+			name = English;
+			path = English.lproj/InfoPlist.strings;
+			refType = 2;
+		};
+		014D1771FFE1C65511CA2CF6 = {
+			children = (
+				014D1772FFE1C65511CA2CF6,
+				014D1773FFE1C65511CA2CF6,
+				014D1774FFE1C65511CA2CF6,
+				014D1775FFE1C65511CA2CF6,
+				03314B2DFFEFB07611CA29FD,
+				02CE16E8FFFAC28A11CA2CF6,
+				02CE16E9FFFAC28A11CA2CF6,
+				014C794B00027ECC11CA2CF6,
+			);
+			isa = PBXGroup;
+			path = IOHIDLib;
+			refType = 4;
+		};
+		014D1772FFE1C65511CA2CF6 = {
+			isa = PBXFileReference;
+			path = IOHIDDeviceClass.cpp;
+			refType = 4;
+		};
+		014D1773FFE1C65511CA2CF6 = {
+			isa = PBXFileReference;
+			path = IOHIDDeviceClass.h;
+			refType = 4;
+		};
+		014D1774FFE1C65511CA2CF6 = {
+			isa = PBXFileReference;
+			path = IOHIDIUnknown.cpp;
+			refType = 4;
+		};
+		014D1775FFE1C65511CA2CF6 = {
+			isa = PBXFileReference;
+			path = IOHIDIUnknown.h;
+			refType = 4;
+		};
+		014D1776FFE1C65511CA2CF6 = {
+			fileRef = 014D1773FFE1C65511CA2CF6;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		014D1777FFE1C65511CA2CF6 = {
+			fileRef = 014D1775FFE1C65511CA2CF6;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		014D1778FFE1C65511CA2CF6 = {
+			fileRef = 014D1772FFE1C65511CA2CF6;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		014D1779FFE1C65511CA2CF6 = {
+			fileRef = 014D1774FFE1C65511CA2CF6;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		014D177AFFE1C65511CA2CF6 = {
+			fileRef = 014D176BFFE1C65511CA2CF6;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		014D177BFFE1C65511CA2CF6 = {
+			fileRef = 014D176DFFE1C65511CA2CF6;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		014D177CFFE1C65511CA2CF6 = {
+			fileRef = 014D176FFFE1C65511CA2CF6;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		014D177DFFE1C65511CA2CF6 = {
+			fileRef = 014D176CFFE1C65511CA2CF6;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		014D177EFFE1C65511CA2CF6 = {
+			fileRef = 014D176EFFE1C65511CA2CF6;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		019150F3FFE6F74111CA29FD = {
+			isa = PBXFileReference;
+			path = IOHIDDevice.cpp;
+			refType = 4;
+		};
+		019150F4FFE6F74111CA29FD = {
+			fileRef = 019150F3FFE6F74111CA29FD;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		019D7CAFFFE8274811CA2CF6 = {
+			isa = PBXFileReference;
+			path = IOHIDKeys.h;
+			refType = 4;
+		};
+		019D7CB0FFE8274811CA2CF6 = {
+			fileRef = 019D7CAFFFE8274811CA2CF6;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		019D7CB1FFE829CD11CA2CF6 = {
+			isa = PBXExecutableFileReference;
+			path = InstallHeaders;
+			refType = 3;
+		};
+		019D7CB2FFE829CD11CA2CF6 = {
+			isa = PBXTargetDependency;
+			target = 019D7CB3FFE829CD11CA2CF6;
+		};
+		019D7CB3FFE829CD11CA2CF6 = {
+			buildPhases = (
+				019D7CB4FFE829CD11CA2CF6,
+				019D7CB5FFE829CD11CA2CF6,
+				019D7CB6FFE829CD11CA2CF6,
+				019D7CB9FFE82BC211CA2CF6,
+				0694E370FFF1489011CA29FD,
+				019D7CBBFFE82BC211CA2CF6,
+				019D7CB7FFE829CD11CA2CF6,
+			);
+			buildSettings = {
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/hid";
+				OPTIMIZATION_CFLAGS = "";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = InstallHeaders;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			conditionalBuildSettings = {
+			};
+			dependencies = (
+			);
+			isa = PBXToolTarget;
+			name = InstallHeaders;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/hid";
+			productName = InstallHeaders;
+			productReference = 019D7CB1FFE829CD11CA2CF6;
+			shouldUseHeadermap = 0;
+		};
+		019D7CB4FFE829CD11CA2CF6 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+			name = Headers;
+		};
+		019D7CB5FFE829CD11CA2CF6 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXSourcesBuildPhase;
+			name = Sources;
+		};
+		019D7CB6FFE829CD11CA2CF6 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			name = "Frameworks & Libraries";
+		};
+		019D7CB7FFE829CD11CA2CF6 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			name = "ResourceManager Resources";
+		};
+		019D7CB9FFE82BC211CA2CF6 = {
+			buildActionMask = 8;
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/hid";
+			dstSubfolderSpec = 0;
+			files = (
+				019D7CBAFFE82BC211CA2CF6,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			name = "Copy Files";
+		};
+		019D7CBAFFE82BC211CA2CF6 = {
+			fileRef = 019D7CAFFFE8274811CA2CF6;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		019D7CBBFFE82BC211CA2CF6 = {
+			buildActionMask = 8;
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/Headers/hid";
+			dstSubfolderSpec = 0;
+			files = (
+				019D7CBCFFE82BC211CA2CF6,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			name = "Copy Files";
+		};
+		019D7CBCFFE82BC211CA2CF6 = {
+			fileRef = 019D7CAFFFE8274811CA2CF6;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		01ABF5C2FFEAD77011CA29FD = {
+			isa = PBXFileReference;
+			path = IOHIDElement.h;
+			refType = 4;
+		};
+		01ABF5C3FFEAD77011CA29FD = {
+			isa = PBXFileReference;
+			path = IOHIDElement.cpp;
+			refType = 4;
+		};
+		01ABF5C4FFEAD77011CA29FD = {
+			fileRef = 01ABF5C2FFEAD77011CA29FD;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		01ABF5C5FFEAD77011CA29FD = {
+			fileRef = 01ABF5C3FFEAD77011CA29FD;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		01ABF5C6FFEAF24711CA29FD = {
+			isa = PBXFileReference;
+			path = IOHIDTestDriver.cpp;
+			refType = 4;
+		};
+		01ABF5C7FFEAF24711CA29FD = {
+			isa = PBXFileReference;
+			path = IOHIDTestDriver.h;
+			refType = 4;
+		};
+		01ABF5C8FFEAF24711CA29FD = {
+			fileRef = 01ABF5C7FFEAF24711CA29FD;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		01ABF5C9FFEAF24711CA29FD = {
+			fileRef = 01ABF5C6FFEAF24711CA29FD;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		02CE16E8FFFAC28A11CA2CF6 = {
+			isa = PBXFileReference;
+			path = IOHIDQueueClass.cpp;
+			refType = 4;
+		};
+		02CE16E9FFFAC28A11CA2CF6 = {
+			isa = PBXFileReference;
+			path = IOHIDQueueClass.h;
+			refType = 4;
+		};
+		02CE16EAFFFAC28A11CA2CF6 = {
+			fileRef = 02CE16E9FFFAC28A11CA2CF6;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		02CE16EBFFFAC28A11CA2CF6 = {
+			fileRef = 02CE16E8FFFAC28A11CA2CF6;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		03314B2DFFEFB07611CA29FD = {
+			isa = PBXFileReference;
+			path = IOHIDLib.h;
+			refType = 4;
+		};
+		03314B2EFFEFB07611CA29FD = {
+			fileRef = 03314B2DFFEFB07611CA29FD;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0391B0BAFFE983AE11CA2CF6 = {
+			isa = PBXTargetDependency;
+			target = 019D7CB3FFE829CD11CA2CF6;
+		};
+		0391B0BBFFE983AE11CA2CF6 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			name = "Shell Script";
+			neededFileNames = (
+			);
+			shellPath = /bin/sh;
+			shellScript = "mkdir -p \"$DERIVED_SOURCES_DIR/IOKit\" && ln -sf \"$SRCROOT/IOHIDFamily\" \"$DERIVED_SOURCES_DIR/IOKit/hid\"";
+		};
+		0391B0BCFFE9844211CA2CF6 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			name = "Shell Script";
+			neededFileNames = (
+			);
+			shellPath = /bin/sh;
+			shellScript = "mkdir -p \"$DERIVED_SOURCES_DIR/IOKit\" && ln -sf \"$SRCROOT/IOHIDFamily\" \"$DERIVED_SOURCES_DIR/IOKit/hid\"";
+		};
+		0694E370FFF1489011CA29FD = {
+			buildActionMask = 8;
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/hid";
+			dstSubfolderSpec = 0;
+			files = (
+				0694E371FFF1489011CA29FD,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			name = "Copy Files";
+		};
+		0694E371FFF1489011CA29FD = {
+			fileRef = 014D176BFFE1C65511CA2CF6;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		06AA1264FFB2107B11CA28AA = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			name = "Shell Script";
+			neededFileNames = (
+			);
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		06AA1265FFB2107B11CA28AA = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		06AA1266FFB2107B11CA28AA = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+		06AA1267FFB2110C11CA28AA = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			name = "Shell Script";
+			neededFileNames = (
+			);
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		089C1669FE841209C02AAC07 = {
+			buildStyles = (
+				06AA1265FFB2107B11CA28AA,
+				06AA1266FFB2107B11CA28AA,
+			);
+			isa = PBXProject;
+			mainGroup = 089C166AFE841209C02AAC07;
+			projectDirPath = .;
+			targets = (
+				089C1673FE841209C02AAC07,
+				09CF03A9FFC4B24911CA285C,
+				019D7CB3FFE829CD11CA2CF6,
+			);
+		};
+		089C166AFE841209C02AAC07 = {
+			children = (
+				014D176AFFE1C65511CA2CF6,
+				014D1771FFE1C65511CA2CF6,
+				19C28FB6FE9D52B211CA2CBB,
+			);
+			isa = PBXGroup;
+			name = IOHIDFamily;
+			refType = 4;
+		};
+		089C1673FE841209C02AAC07 = {
+			buildPhases = (
+				06AA1267FFB2110C11CA28AA,
+				089C1674FE841209C02AAC07,
+				0391B0BBFFE983AE11CA2CF6,
+				089C1675FE841209C02AAC07,
+				089C1676FE841209C02AAC07,
+				089C1677FE841209C02AAC07,
+				089C1679FE841209C02AAC07,
+				09CF03BEFFC4B63911CA285C,
+				06AA1264FFB2107B11CA28AA,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.iokit.IOHIDFamily;
+				MODULE_VERSION = 1.0.0b1;
+				OPTIMIZATION_CFLAGS = "";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOHIDFamily;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			conditionalBuildSettings = {
+			};
+			dependencies = (
+				019D7CB2FFE829CD11CA2CF6,
+				09CF03BDFFC4B63911CA285C,
+			);
+			isa = PBXBundleTarget;
+			name = IOHIDFamily;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+			productName = IOHIDFamily;
+			productReference = 0B81C263FFB7832611CA28AA;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
+<plist version=\"0.9\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>IOHIDFamily</string>
+	<key>CFBundleGetInfoString</key>
+	<string></string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.iokit.IOHIDFamily</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>IOHIDFamily</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.0.0b1</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>IOHIDLibUserClient</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.IOHIDFamily</string>
+			<key>IOClass</key>
+			<string>IOHIDLibUserClientIniter</string>
+			<key>IOProviderClass</key>
+			<string>IOHIDDevice</string>
+			<key>IOProviderMergeProperties</key>
+			<dict>
+				<key>IOCFPlugInTypes</key>
+				<dict>
+					<key>FA12FA38-6F1A-11D4-BA0C-0005028F18D5</key>
+					<string>IOHIDFamily.kext/Contents/PlugIns/IOHIDLib.plugin</string>
+				</dict>
+				<key>IOUserClientClass</key>
+				<string>IOHIDLibUserClient</string>
+			</dict>
+		</dict>
+	</dict>
+	<key>OSBundleCompatibleVersion</key>
+	<string>1.0.0b1</string>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.kernel.iokit</key>
+		<string>1.0.0b1</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>1.0.0b1</string>
+	</dict>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 1;
+		};
+		089C1674FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				014D177AFFE1C65511CA2CF6,
+				014D177BFFE1C65511CA2CF6,
+				019D7CB0FFE8274811CA2CF6,
+				01ABF5C4FFEAD77011CA29FD,
+				01ABF5C8FFEAF24711CA29FD,
+				03314B2EFFEFB07611CA29FD,
+				0140D13DFFF91A5311CA29FD,
+				0A308BA5FFFA5B7A11CA29FD,
+			);
+			isa = PBXHeadersBuildPhase;
+			name = Headers;
+		};
+		089C1675FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				014D177CFFE1C65511CA2CF6,
+			);
+			isa = PBXResourcesBuildPhase;
+			name = "Bundle Resources";
+		};
+		089C1676FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				014D177DFFE1C65511CA2CF6,
+				014D177EFFE1C65511CA2CF6,
+				019150F4FFE6F74111CA29FD,
+				01ABF5C5FFEAD77011CA29FD,
+				01ABF5C9FFEAF24711CA29FD,
+				0A308BA6FFFA5B7A11CA29FD,
+			);
+			isa = PBXSourcesBuildPhase;
+			name = Sources;
+		};
+		089C1677FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			name = "Frameworks & Libraries";
+		};
+		089C1679FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			name = "ResourceManager Resources";
+		};
+		09CF03A8FFC4B24911CA285C = {
+			isa = PBXBundleReference;
+			path = IOHIDLib.plugin;
+			refType = 3;
+		};
+		09CF03A9FFC4B24911CA285C = {
+			buildPhases = (
+				09CF03AAFFC4B24911CA285C,
+				0391B0BCFFE9844211CA2CF6,
+				09CF03ABFFC4B24911CA285C,
+				09CF03ACFFC4B24911CA285C,
+				09CF03ADFFC4B24911CA285C,
+				09CF03AEFFC4B24911CA285C,
+			);
+			buildSettings = {
+				HEADER_SEARCH_PATHS = "\"$(SRCROOT)/IOHIDFamily\"";
+				OPTIMIZATION_CFLAGS = "";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-bundle -undefined suppress";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOHIDLib;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = plugin;
+			};
+			conditionalBuildSettings = {
+			};
+			dependencies = (
+				0391B0BAFFE983AE11CA2CF6,
+			);
+			isa = PBXBundleTarget;
+			name = IOHIDLib;
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = IOHIDLib;
+			productReference = 09CF03A8FFC4B24911CA285C;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
+<plist version=\"0.9\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>IOHIDLib</string>
+	<key>CFBundleGetInfoString</key>
+	<string></string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.iokit.IOHIDLib</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>IOKit HID User Client Plugin</string>
+	<key>CFBundlePackageType</key>
+	<string>BNDL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.0.0</string>
+	<key>CFPlugInDynamicRegistration</key>
+	<string>NO</string>
+	<key>CFPlugInFactories</key>
+	<dict>
+		<key>13AA9C44-6F1B-11D4-907C-0005028F18D5</key>
+		<string>IOHIDLibFactory</string>
+	</dict>
+	<key>CFPlugInTypes</key>
+	<dict>
+		<key>FA12FA38-6F1A-11D4-BA0C-0005028F18D5</key>
+		<array>
+			<string>13AA9C44-6F1B-11D4-907C-0005028F18D5</string>
+		</array>
+	</dict>
+	<key>Personality</key>
+	<dict>
+		<key>IOProviderClass</key>
+		<string>IOHIDDevice</string>
+	</dict>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 0;
+		};
+		09CF03AAFFC4B24911CA285C = {
+			buildActionMask = 2147483647;
+			files = (
+				014D1776FFE1C65511CA2CF6,
+				014D1777FFE1C65511CA2CF6,
+				02CE16EAFFFAC28A11CA2CF6,
+			);
+			isa = PBXHeadersBuildPhase;
+			name = Headers;
+		};
+		09CF03ABFFC4B24911CA285C = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			name = "Bundle Resources";
+		};
+		09CF03ACFFC4B24911CA285C = {
+			buildActionMask = 2147483647;
+			files = (
+				014D1778FFE1C65511CA2CF6,
+				014D1779FFE1C65511CA2CF6,
+				02CE16EBFFFAC28A11CA2CF6,
+			);
+			isa = PBXSourcesBuildPhase;
+			name = Sources;
+		};
+		09CF03ADFFC4B24911CA285C = {
+			buildActionMask = 2147483647;
+			files = (
+				014C794C00027ECC11CA2CF6,
+			);
+			isa = PBXFrameworksBuildPhase;
+			name = "Frameworks & Libraries";
+		};
+		09CF03AEFFC4B24911CA285C = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			name = "ResourceManager Resources";
+		};
+		09CF03BDFFC4B63911CA285C = {
+			isa = PBXTargetDependency;
+			target = 09CF03A9FFC4B24911CA285C;
+		};
+		09CF03BEFFC4B63911CA285C = {
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				09CF03BFFFC4B63911CA285C,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			name = "Copy Files";
+		};
+		09CF03BFFFC4B63911CA285C = {
+			fileRef = 09CF03A8FFC4B24911CA285C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0A308BA3FFFA5B7A11CA29FD = {
+			isa = PBXFileReference;
+			path = IOHIDEventQueue.cpp;
+			refType = 4;
+		};
+		0A308BA4FFFA5B7A11CA29FD = {
+			isa = PBXFileReference;
+			path = IOHIDEventQueue.h;
+			refType = 4;
+		};
+		0A308BA5FFFA5B7A11CA29FD = {
+			fileRef = 0A308BA4FFFA5B7A11CA29FD;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0A308BA6FFFA5B7A11CA29FD = {
+			fileRef = 0A308BA3FFFA5B7A11CA29FD;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		0B81C263FFB7832611CA28AA = {
+			isa = PBXBundleReference;
+			path = IOHIDFamily.kext;
+			refType = 3;
+		};
+		19C28FB6FE9D52B211CA2CBB = {
+			children = (
+				0B81C263FFB7832611CA28AA,
+				09CF03A8FFC4B24911CA285C,
+				019D7CB1FFE829CD11CA2CF6,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+		};
+	};
+	rootObject = 089C1669FE841209C02AAC07;
+}

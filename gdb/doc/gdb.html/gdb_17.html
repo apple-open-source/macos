@@ -1,0 +1,222 @@
+<HTML>
+<HEAD>
+<!-- This HTML file has been created by texi2html 1.51
+     from /mnt/apple/gdb/source/gdb.apple/source/gdb/gdb/doc/gdb.texinfo on 23 November 1999 -->
+
+<TITLE>Debugging with GDB - Using GDB under gnu Emacs</TITLE>
+</HEAD>
+<BODY>
+Go to the <A HREF="gdb_1.html">first</A>, <A HREF="gdb_16.html">previous</A>, <A HREF="gdb_18.html">next</A>, <A HREF="gdb_21.html">last</A> section, <A HREF="gdb_toc.html">table of contents</A>.
+<P><HR><P>
+
+
+<H1><A NAME="SEC161" HREF="gdb_toc.html#TOC161">Using GDB under GNU Emacs</A></H1>
+
+<P>
+<A NAME="IDX725"></A>
+<A NAME="IDX726"></A>
+A special interface allows you to use GNU Emacs to view (and
+edit) the source files for the program you are debugging with
+GDB.
+
+</P>
+<P>
+To use this interface, use the command <KBD>M-x gdb</KBD> in Emacs.  Give the
+executable file you want to debug as an argument.  This command starts
+GDB as a subprocess of Emacs, with input and output through a newly
+created Emacs buffer.
+
+</P>
+<P>
+Using GDB under Emacs is just like using GDB normally except for two
+things:
+
+</P>
+
+<UL>
+<LI>
+
+All "terminal" input and output goes through the Emacs buffer.
+</UL>
+
+<P>
+This applies both to GDB commands and their output, and to the input
+and output done by the program you are debugging.
+
+</P>
+<P>
+This is useful because it means that you can copy the text of previous
+commands and input them again; you can even use parts of the output
+in this way.
+
+</P>
+<P>
+All the facilities of Emacs' Shell mode are available for interacting
+with your program.  In particular, you can send signals the usual
+way--for example, <KBD>C-c C-c</KBD> for an interrupt, <KBD>C-c C-z</KBD> for a
+stop.
+
+</P>
+
+<UL>
+<LI>
+
+GDB displays source code through Emacs.
+</UL>
+
+<P>
+Each time GDB displays a stack frame, Emacs automatically finds the
+source file for that frame and puts an arrow (<SAMP>`=&#62;'</SAMP>) at the
+left margin of the current line.  Emacs uses a separate buffer for
+source display, and splits the screen to show both your GDB session
+and the source.
+
+</P>
+<P>
+Explicit GDB <CODE>list</CODE> or search commands still produce output as
+usual, but you probably have no reason to use them from Emacs.
+
+</P>
+
+<BLOCKQUOTE>
+<P>
+<EM>Warning:</EM> If the directory where your program resides is not your
+current directory, it can be easy to confuse Emacs about the location of
+the source files, in which case the auxiliary display buffer does not
+appear to show your source.  GDB can find programs by searching your
+environment's <CODE>PATH</CODE> variable, so the GDB input and output
+session proceeds normally; but Emacs does not get enough information
+back from GDB to locate the source files in this situation.  To
+avoid this problem, either start GDB mode from the directory where
+your program resides, or specify an absolute file name when prompted for the
+<KBD>M-x gdb</KBD> argument.
+
+</P>
+<P>
+A similar confusion can result if you use the GDB <CODE>file</CODE> command to
+switch to debugging a program in some other location, from an existing
+GDB buffer in Emacs.
+</BLOCKQUOTE>
+
+<P>
+By default, <KBD>M-x gdb</KBD> calls the program called <TT>`gdb'</TT>.  If
+you need to call GDB by a different name (for example, if you keep
+several configurations around, with different names) you can set the
+Emacs variable <CODE>gdb-command-name</CODE>; for example,
+
+</P>
+
+<PRE>
+(setq gdb-command-name "mygdb")
+</PRE>
+
+<P>
+(preceded by <KBD>ESC ESC</KBD>, or typed in the <CODE>*scratch*</CODE> buffer, or
+in your <TT>`.emacs'</TT> file) makes Emacs call the program named
+"<CODE>mygdb</CODE>" instead.
+
+</P>
+<P>
+In the GDB I/O buffer, you can use these special Emacs commands in
+addition to the standard Shell mode commands:
+
+</P>
+<DL COMPACT>
+
+<DT><KBD>C-h m</KBD>
+<DD>
+Describe the features of Emacs' GDB Mode.
+
+<DT><KBD>M-s</KBD>
+<DD>
+Execute to another source line, like the GDB <CODE>step</CODE> command; also
+update the display window to show the current file and location.
+
+<DT><KBD>M-n</KBD>
+<DD>
+Execute to next source line in this function, skipping all function
+calls, like the GDB <CODE>next</CODE> command.  Then update the display window
+to show the current file and location.
+
+<DT><KBD>M-i</KBD>
+<DD>
+Execute one instruction, like the GDB <CODE>stepi</CODE> command; update
+display window accordingly.
+
+<DT><KBD>M-x gdb-nexti</KBD>
+<DD>
+Execute to next instruction, using the GDB <CODE>nexti</CODE> command; update
+display window accordingly.
+
+<DT><KBD>C-c C-f</KBD>
+<DD>
+Execute until exit from the selected stack frame, like the GDB
+<CODE>finish</CODE> command.
+
+<DT><KBD>M-c</KBD>
+<DD>
+Continue execution of your program, like the GDB <CODE>continue</CODE>
+command.
+
+<EM>Warning:</EM> In Emacs v19, this command is <KBD>C-c C-p</KBD>.
+
+<DT><KBD>M-u</KBD>
+<DD>
+Go up the number of frames indicated by the numeric argument
+(see section `Numeric Arguments' in <CITE>The GNU Emacs Manual</CITE>),
+like the GDB <CODE>up</CODE> command.
+
+<EM>Warning:</EM> In Emacs v19, this command is <KBD>C-c C-u</KBD>.
+
+<DT><KBD>M-d</KBD>
+<DD>
+Go down the number of frames indicated by the numeric argument, like the
+GDB <CODE>down</CODE> command.
+
+<EM>Warning:</EM> In Emacs v19, this command is <KBD>C-c C-d</KBD>.
+
+<DT><KBD>C-x &#38;</KBD>
+<DD>
+Read the number where the cursor is positioned, and insert it at the end
+of the GDB I/O buffer.  For example, if you wish to disassemble code
+around an address that was displayed earlier, type <KBD>disassemble</KBD>;
+then move the cursor to the address display, and pick up the
+argument for <CODE>disassemble</CODE> by typing <KBD>C-x &#38;</KBD>.
+
+You can customize this further by defining elements of the list
+<CODE>gdb-print-command</CODE>; once it is defined, you can format or
+otherwise process numbers picked up by <KBD>C-x &#38;</KBD> before they are
+inserted.  A numeric argument to <KBD>C-x &#38;</KBD> indicates that you
+wish special formatting, and also acts as an index to pick an element of the
+list.  If the list element is a string, the number to be inserted is
+formatted using the Emacs function <CODE>format</CODE>; otherwise the number
+is passed as an argument to the corresponding list element.
+</DL>
+
+<P>
+In any source file, the Emacs command <KBD>C-x SPC</KBD> (<CODE>gdb-break</CODE>)
+tells GDB to set a breakpoint on the source line point is on.
+
+</P>
+<P>
+If you accidentally delete the source-display buffer, an easy way to get
+it back is to type the command <CODE>f</CODE> in the GDB buffer, to
+request a frame display; when you run under Emacs, this recreates
+the source buffer if necessary to show you the context of the current
+frame.
+
+</P>
+<P>
+The source files displayed in Emacs are in ordinary Emacs buffers
+which are visiting the source files in the usual way.  You can edit
+the files with these buffers if you wish; but keep in mind that GDB
+communicates with Emacs in terms of line numbers.  If you add or
+delete lines from the text, the line numbers that GDB knows cease
+to correspond properly with the code.
+
+</P>
+
+<P><HR><P>
+Go to the <A HREF="gdb_1.html">first</A>, <A HREF="gdb_16.html">previous</A>, <A HREF="gdb_18.html">next</A>, <A HREF="gdb_21.html">last</A> section, <A HREF="gdb_toc.html">table of contents</A>.
+</BODY>
+</HTML>

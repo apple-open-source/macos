@@ -1,0 +1,10 @@
+This extension is going to provide read access to ZIP files
+using the zziplib library (similar to the zlib extension for
+gzip'ped files).
+
+zziplib is available at http://zziplib.sourceforge.net/
+
+It' developed developed by Guido Draheim <guidod@gmx.de> and
+Tommi Ollila <too@iki.fi> and is made available under the LGPL
+
+

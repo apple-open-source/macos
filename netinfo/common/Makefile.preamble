@@ -1,0 +1,7 @@
+OTHER_LIBTOOL_FLAGS = -F${DSTROOT}$(SYSTEM_LIBRARY_DIR)/Frameworks -seg_addr_table $(APPLE_INTERNAL_DEVELOPER_DIR)/seg_addr_table
+
+# SECTORDER_FLAGS = -sectorder __TEXT __text $(APPLE_INTERNAL_DIR)/OrderFiles/NetInfo.order
+
+OTHER_PROJECT_HEADERS = project_version.h
+DEFSFILES = lookup.defs
+RPCFILES = nibind_prot.x ni_prot.x _lu_types.x

@@ -1,0 +1,250 @@
+
+		      What's new in GNU enscript
+		      --------------------------
+
+Noteworthy changes in enscript version 1.6.1:
+
+* new options:
+
+  - --ps-level=LEVEL, PostScriptLevel
+			set the PostScript language level that
+			enscript should use for its output
+  - --rotate-even-pages
+			Rotate each even-numbered page 180 degrees.
+
+* misc
+
+  - updated C, C++, and Objective-C highlighting
+  - set the states to process the stdin if argument "-" is given
+  - bug and portability fixes
+
+
+Noteworthy changes in enscript version 1.6:
+
+* new options:
+
+  - StatesPath		define absolute path for the states program
+  - GeneratePageSize	specify wheter the PageSize page device
+			setting is generated to the output
+  - -C, --line-numbers	option takes an optional argument to specify
+			the number of the first line in the input
+  - -W, --language=LANG set ouput language to LANG
+  - --h-column-height=HEIGHT
+			set the horizontal column height to HEIGHT
+			PostScript points
+  - --mark-wrapped-lines[=STYLE], MarkWrappedLines
+			mark wrapped lines in the printout with STYLE
+  - --margins=LEFT:RIGHT:TOP:BOTTOM
+			adjust page marginals
+  - --nup-xpad=NUM	set the page x-padding of N-up printing to NUM
+  - --nup-ypad=NUM	set the page y-padding of N-up printing to NUM
+  - --word-wrap		wrap long lines from word boundaries
+
+* new highlighting rules:
+
+  - ada		Ada95 programming language
+  - asm		assembler listings
+  - awk		awk scripting language
+  - delphi	Delphi programming language
+  - diff	diff files
+  - diffu	unified diff files
+  - elisp	Emacs Lisp
+  - fortran	Fortran77 programming language
+  - haskell	Haskell programming language
+  - idl		CORBA interface definition language
+  - java	Java programming language
+  - javascript	JavaScript language
+  - pascal	Pascal programming language
+  - perl	Perl programming language
+  - postscript	PostScript
+  - python	Python programming language
+  - sh		Bourne shell scripts
+  - sql		Sybase 11 SQL
+  - vba		Visual Basic (for Applications)
+
+  - improved C, C++ and Objective-C highlighting
+
+* new special escapes:
+
+  - ^@bggray{GRAY} change text's background color
+  - ^@escape{CODE} changes the escape character
+
+* new encodings:
+
+  - 88594	ISO-8859-4 (ISO Latin4)
+  - 88597	ISO-8859-7 (ISO Greek)
+
+* misc:
+
+  - interpret formatting escapes from the page header strings
+  - page header string can contain left, center and right aligned
+    fields
+  - support for HTML, RTF (Rich Text Format) and overstrike output
+    languages
+  - fixed tabulator character handling with variable width fonts
+  - added support for regular expression character syntax tables in
+    the states program
+  - generates the PageSize page device setting to the PostScript
+    output -- this should make the printer to select the correct paper
+    tray automatically
+  - replaced all stdarg functions with macros
+  - fixed N-up printing to cooperate with the page margins
+  - renamed the ISO-8859-* input encoding names to conform their
+    ISO names
+
+Noteworthy changes in enscript version 1.5:
+
+* new options:
+
+  -A ALIGN, --file-align=ALIGN
+			align separate input files to even ALIGN page
+			count
+  -E, --pretty-print	pretty print program source files with states
+  -U NUM, --nup=NUM	print NUM logical pages on each output page
+			(N-up printing)
+  --help-pretty-print	describe all supported --pretty-print
+			languages and file formats
+  --slice		print vertical slices of input files
+  --toc			print table of contents
+
+* config file options:
+
+  - TOCFormat		set the table-of-contents line format
+  - NoJobHeaderSwitch	set the spooler switch which disables job
+			header (-h)
+  - OutputFirstLine	set output's fist line
+  - StatesColorModel	define color model for states
+  - StatesConfigFile	set states' config file
+  - StatesHighlightLevel
+			define highlight level for states
+
+* new utilities:
+
+  - sliceprint 	print documents with long lines
+  - states 	awk like state machine to highlight program listings
+  - many2html 	convert files to HTML.  Program supports all file
+		formats which can be pretty-printed with enscript.
+
+* new encodings:
+
+  - koi8		Adobe Standard Cyrillic Font KOI8 charset
+  - 88595		ISO-8859-5 (ISO Cyrillic)
+  - asciifise		7 bit ascii with fi and se encodings for {|}[\]
+			(old asciiscands)
+  - asciidkno		7 bit ascii with dk and no encodings for {|}[\]
+
+* misc
+
+  - ^@color{r g b} special escape
+  - if input file (all input files) does not exist, enscript doesn't
+    generate any output
+  - -E, --pretty-print highlighting for: C, ChangeLog, C++, mail,
+    Makefile, nroff output, Objective-C, Scheme, States, Synopsys,
+    Tcl, Verilog, VHDL
+
+
+Noteworthy changes in enscript version 1.4:
+
+* new and changed options:
+
+  -a, --pages		select pages to print
+  -e, --escapes		option takes an optional argument which
+			changes the escape character
+  -h, --no-job-header	supress the job header page
+  --title		sets the name of stdin
+  -I, --filter		set input filter
+  -j, --borders		print borders around columns
+  -k, --page-prefeed	enable page prefeed
+  -K, --no-page-prefeed	disable page prefeed
+  --highlight-bars	enable highlight bars
+  --highlight-bar-gray	set the gray-level for highlight bars
+  --printer-options	pass extra options to the printer command
+  --ul-style		specify how the underlay strings are printed
+
+  - renamed option `--page-header' to `--header'
+  - renamed option `--pass-through-ps-files' to `--pass-through'
+
+* config file options:
+
+  - AcceptCompositeCharacters
+  - AppendCtrlD
+  - FormFeedType	what to do when a formfeed character is
+			encountered from input
+  - EscapeChar		specify the escape character
+  - UnderlayStyle	how underlays are printed: outline / filled
+
+* new fancy headers: mp, frame
+
+* escapes:
+
+  - font 	works now over page boundaries
+  - ps		include raw PostScript code to the output
+  - shade 	new escape to highlight text regions
+  - setfilename
+  - setpagenumber
+  - newpage
+
+* new encodings:
+  - hp8		HP Roman-8
+
+* internationalization support with the GNU gettext
+
+* changed to use GNU Automake
+
+* program renamed from genscript to enscript
+
+* new utility scripts:
+  - diffpp - pretty-print diff outputs
+
+
+Noteworthy changes in enscript version 1.3:
+
+* new encodings:
+  - 88593 	ISO-8859-3
+  - pslatin1	PostScript interpreter's ISOLatin1Encoding
+
+* new fancy header: edd, a2ps
+
+* option changes:
+  - option -Z, --pass-through-ps-files no longer wraps PS document
+    inside enscript prolog and epilog.
+
+  - renamed some options to conform the GNU coding standards:
+      --output-file	=> 	--output
+      --queue		=>	--printer
+      --tab-size	=>	--tabsize
+
+  - new command line / config file options:
+    -z, --no-formfeed
+    --ul-angle			UnderlayAngle
+    --ul-position		UnderlayPosition
+    --non-printable-format	NonPrintableFormat
+
+* added some customization options to header description files:
+    %Format		format and define string constants according
+			to format string
+    %HeaderHeight	explicit set the fancy header height
+    %FooterHeight	allocate space for the page footer
+
+  Note!  If you have defined your own fancy header, it will probably
+  not work on enscript-1.3 without modifications.  Following constants
+  are removed from the enscript prolog so you must define them with
+  the `%Format' comment:
+
+    usadatestr = %Format: usadatestr	%W
+    eurdatestr = %Format: eurdatestr	%E
+    findatestr = %Format: findatestr	%F
+    timestr    = %Format: timestr	%C
+    fmodstr    = %Format: fmodstr	$D{%a %b %e %T %Y}
+
+  Check `lib/*.hdr' to see them in action.
+
+* the library directory has changed from `<prefix>/lib/enscript' to
+  `<prefix>/share/enscript'
+
+* new Makefile targets: check, uninstall
+
+* enscript must no longer be installed before it can be tested; you
+  can print files directly after you have compiled enscript.
+
+* support for Windows95/NT via the Win32 api

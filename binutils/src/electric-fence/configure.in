@@ -1,0 +1,24 @@
+dnl Process this file with autoconf to produce a configure script.
+
+AC_PREREQ(2.5)dnl
+AC_INIT(efence.c)
+
+AC_PROG_CC
+AC_PROG_INSTALL
+AC_CHECK_TOOL(AR, ar)
+AC_CHECK_TOOL(RANLIB, ranlib, :)
+
+AC_FUNC_MMAP
+AC_CHECK_HEADERS(limits.h stddef.h)
+
+AC_CANONICAL_SYSTEM()
+
+case "$host" in
+*-apple-rhapsody*|*-apple-macos10*|*-apple-darwin*) PAGEFILE=nspage ;;
+*-*-winnt*|*-*-cygwin*) PAGEFILE=ntpage ;;
+*) PAGEFILE=page ;;
+esac
+
+AC_SUBST(PAGEFILE)
+
+AC_OUTPUT(Makefile)

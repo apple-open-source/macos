@@ -1,0 +1,79 @@
+/* Informational messages */
+
+"Loading Rhapsody" = "Lade Rhapsody";
+"Loading %s\n" = "Lade %s\n";
+"Reading Rhapsody configuration" = "Lese Rhapsody-Konfiguration";
+"Couldn't load standalone linker; unable to load boot drivers.\n" = "Konnte Standalone-\"linker\" nicht laden; Start-Treiber konnten nicht geladen\nwerden.\n";
+"Insert file system media and press Return" = "Legen Sie die Disk fuer das Dateisystem ein und druecken Sie die Return-Taste.";
+"Errors encountered while starting up the computer.\n" = "Waehrend des Systemstarts ist ein Fehler aufgetreten.\n";
+"Pausing %d seconds...\n" = "Unterbreche %d Sekunden lang...\n";
+"Starting Rhapsody" = "Starte Rhapsody";
+"Can't find %s\n" = "%s\n konnte nicht gefunden werden";
+"Couldn't start up the computer using this floppy disk." = "Konnte den Computer nicht mit dieser Diskette starten.";
+"Error occurred while linking driver %s:\n%s" = "Bei der Verbindung des Treibers %s ist ein Fehler aufgetreten:\n%s";
+"Loading %s device driver.\n" = "Lade %s Geraetetreiber.\n";
+"The driver was loaded successfully.\n" = "Der Treiber wurde erfolgreich geladen.\n";
+"An error occurred while loading the %s device driver.\n" = "Fehler beim Laden des %s Geraetetreibers.\n";
+"Press Return to continue.\n" = "Druecken Sie die Return-Taste, um fortzusetzen.\n";
+"That driver has already been loaded.\n" = "Dieser Treiber wurde bereits geladen.\n";
+"Searching for drivers\n" = "Suche nach Treibern\n";
+"Reading configuration file '%s'.\n" = "Lese Konfigurationsdatei '%s'.\n";
+
+/* Warnings */
+
+"Config file \"%s\" not found\n" = "Kann Konfigurations-Datei \"%s\" nicht finden\n";
+"System config file '%s' not found\n" = "Kann Systemkonfigurations-Datei \"%s\" nicht finden\n";
+"Loading binary for %s device driver.\n" = "Lade binaer fuer %s Geraetetreiber.\n";
+"Warning: No active drivers specified in system config.\n" = "Achtung: Es wurden keine aktiven Treiber in der Systemkonfiguration angegeben.\n";
+
+/* Install messages */
+
+"DRIVER_MESSAGE_1" = "Die Diskette im Laufwerk enthaelt Geraetetreiber fuer die folgenden\nSCSI-Adapter:\n";
+"DRIVER_INSTRUCTION_1" = "Geben Sie die Nummer fuer den SCSI-Adapter ein, an den Ihr CD-ROM-Laufwerk\nangeschlossen ist.\n\n";
+"DRIVER_ALTERNATE_1" = "Wenn sich der Treiber fuer dieses Geraet auf einer anderen Diskette befindet,\nlegen Sie diese Diskette in das Diskettenlaufwerk ein und geben Sie %d ein.\n";
+"DRIVER_QUIT_1" = "";
+"DRIVER_MESSAGE_2" = "Die Diskette im Laufwerk enthaelt Geraetetreiber fuer die folgenden\nSCSI-Adapter und Festplatten-Controller:\n";
+"DRIVER_INSTRUCTION_2" = "Geben Sie die Nummer fuer den SCSI-Adapter oder den Festplatten-Controller ein,\nan den die Festplatte angeschlossen ist, auf der Sie Rhapsody installieren\nmoechten. (Hierbei kann es sich um denselben SCSI-Adapter handeln, an den\nIhr CD-ROM-Laufwerk angeschlossen ist.)\n\n";
+"DRIVER_ALTERNATE_2" = "Wenn sich der Treiber fuer dieses Geraet auf einer anderen Diskette befindet,\nlegen Sie diese Diskette in das Laufwerk ein und geben Sie %d  ein.";
+"DRIVER_QUIT_2" = "";
+"DRIVER_MESSAGE_3" = "Die Diskette im Laufwerk enthaelt die folgenden Geraetetreiber:\n";
+"DRIVER_INSTRUCTION_3" = "Geben Sie die Nummer des Geraetetreibers fuer die Installation von Rhapsody ein.  \n";
+"DRIVER_ALTERNATE_3" = "Wenn sich der Geraetetreiber, den Sie laden muessen, auf einer anderen Diskette\nbefindet, legen Sie sie in das Laufwerk ein und geben Sie %d.\n\n";
+"DRIVER_QUIT_3" = "Geben Sie %d ein, um fortzufahren, ohne den Geraetetreiber  von der Diskette zu\ninstallieren.\n";
+"DRIVER_QUESTION_3" = "Normalerweise muessen Sie nur die Geraetetreiber fuer die Adapter laden, an die\nIhr CD-ROM-Laufwerk und Ihre Festplatte angeschlossen sind, um  Rhapsody zu\ninstallieren. Andere Treiber werden automatisch geladen.\n\nWenn Sie dennoch andere Geraetetreiber laden muessen, legen Sie die\nentsprechende Diskette in das Diskettenlaufwerk ein.\n\n";
+
+"Type %d to view a list of additional device drivers on this disk.\n\n" = 
+"Geben Sie %d ein, um eine Liste zusaetzlicher Geraetetreiber
+auf dieser Disk einzusehen.\n\n";
+
+"Really Install?" = "Dieses Programm installiert Rhapsody auf einer Festplatte.\nDIES IST KEIN UPGRADE: ALLE EXISTIERENDEN Rhapsody-DATEIEN WERDEN GELOSCHT.\n\nWenn Sie bestimmte Dateien auf Ihrer Festplatte behalten moechten,\nverlassen Sie das Programm und kopieren Sie die gewuenschten Dateien\nauf eine andere Platte.\n\nGeben Sie 1 ein, um die Installation von Rhapsody vorzubereiten.\nGeben Sie 2 ein, um dieses Installationsprogramm zu verlassen.\n";
+
+"Insert Driver Disk" = "Bitte legen Sie die Rhapsody-Geraetetreiberdiskette in das Laufwerk ein\nund druecken Sie die Return-Taste.\n\n---> ";
+
+"Load Other Drivers?" = "Normalerweise muessen Sie nur die Geraetetreiber fuer die Adapter installieren,\nan die Ihr CD-ROM-Laufwerk und Festplatte angeschlossen sind, um Rhapsody zu\ninstallieren. Andere Treiber werden automatisch von der Rhapsody CD-ROM geladen.\n\nWenn Sie dennoch andere Geraetetreiber laden muessen, legen Sie die\nentsprechende Diskette in das Laufwerk ein.\n";
+
+"Missing Drivers:" = "Als Sie mit der Installation von Rhapsody begonnen haben, haben Sie einen\noder mehrere Geraetetreiber geladen, die sich nicht auf der Rhapsody CD-ROM\nbefinden:\n";
+
+"No Drivers On This Disk" = "Auf dieser Diskette befinden sich keine geeigneten Geraetetreiber.\nLegen Sie bitte eine neue Diskette ein und druecken Sie die Return-Taste.\n---> ";
+
+"Install Canceled" = "Installation abgebrochen. Werfen Sie die Diskette aus und starten Sie den\nComputer neu.\n";
+
+"1 To Continue" = "Geben Sie 1 ein, um fortzufahren, ohne zusaetzliche Geraetetreiber zu laden.\n";
+
+"2 To Load" = "Geben Sie 2 ein, um einen Geraetetreiber von der Diskette im Laufwerk zu laden.\n";
+
+"1 To Load Driver" = "Bitte legen Sie die Diskette ein, die einen oder mehrere dieser Geraetetreiber\nenthaelt und geben Sie 1 ein.\n";
+
+"2 To Continue" = "Geben Sie 2 ein, um fortzufahren, ohne einen Geraetetreiber aus dieser Liste\nzu laden.\n";
+
+/* Somewhat obscure error messages */
+
+"Error loading %s\n" = "Beim Laden von %s ist ein Fehler aufgetreten\n";
+"Read error\n" = "Lesefehler\n";
+"Error in standalone linker executable\n" = "Im Standalone-\"linker\"-Programm ist ein Fehler aufgetreten\n";
+"Fat binary file doesn't contain i386 code\n" = "\"Fat binary\"-Datei enthaelt keinen i386-Code";
+"Unrecognized binary format\n" = "Binaerformat nicht erkennbar\n";
+"Error reading commands\n" = "Beim Lesen der Befehle ist ein Fehler aufgetreten\n";
+"Error loading section\n" = "Beim Laden des Abschnittes ist ein Fehler aufgetreten\n";
+"Can't load driver %s without sarld\n" = "Konnte Treiber %s ohne sarld nicht laden\n";
+"Driver %s is larger than %d bytes and can't be loaded.\n" = "Treiber %s ist groesser als %d Bytes und konnte nicht geladen werden.\n";

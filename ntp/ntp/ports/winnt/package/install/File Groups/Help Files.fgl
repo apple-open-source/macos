@@ -1,0 +1,8 @@
+[TopDir]
+file0=N:\ntp-4.0.73a\ports\winnt\package\distrib\ntpog.wri
+file1=N:\ntp-4.0.73a\ports\winnt\package\distrib\readme.nt
+
+[General]
+Type=FILELIST
+Version=1.00.000
+

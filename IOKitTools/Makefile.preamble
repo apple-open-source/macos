@@ -1,0 +1,8 @@
+include $(MAKEFILEPATH)/CoreOS/ProjectBuilder/Makefile.Preamble.Common
+
+# Can't build IORegistryExplorer without AppKit
+APPKIT_FRAMEWORK = $(NSFRAMEWORKDIR)/AppKit.framework
+ifeq "$(wildcard $(APPKIT_FRAMEWORK))" ""
+SUBPROJECTS := $(filter-out IORegistryExplorer, $(SUBPROJECTS))
+IMPLICIT_SOURCE_FILES += IORegistryExplorer
+endif

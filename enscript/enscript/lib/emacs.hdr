@@ -1,0 +1,75 @@
+% 
+% Emacs ps-print-buffer styled header.
+% Copyright (c) 1995 Markku Rossi.
+% Author: Markku Rossi <mtr@iki.fi>
+%
+
+%
+% This file is part of GNU enscript.
+% 
+% This program is free software; you can redistribute it and/or modify
+% it under the terms of the GNU General Public License as published by
+% the Free Software Foundation; either version 2, or (at your option)
+% any later version.
+%
+% This program is distributed in the hope that it will be useful,
+% but WITHOUT ANY WARRANTY; without even the implied warranty of
+% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+% GNU General Public License for more details.
+%
+% You should have received a copy of the GNU General Public License
+% along with this program; see the file COPYING.  If not, write to
+% the Free Software Foundation, 59 Temple Place - Suite 330,
+% Boston, MA 02111-1307, USA.
+%
+
+% -- code follows this line --
+%%DocumentNeededResources: font Helvetica
+%Format: eurdatestr	%E
+%Format: pagenumstr	$V$%/$=
+
+% Fonts.
+/Helvetica /HeaderFont-Bold MF
+/HeaderF /HeaderFont-Bold findfont 12 scalefont def
+
+/Helvetica /HeaderFont-Large MF
+/HeaderLF /HeaderFont-Large findfont 12 1.3 mul scalefont def
+
+/do_header {	% print emacs header
+  gsave
+    d_header_x d_header_y translate
+    0 setgray
+    .5 setlinewidth
+
+    % black shadow
+    1 0 d_header_w 1 sub d_header_h 1 sub Box fill
+    
+    % gray box with black frames
+    0 1 d_header_w 1 sub d_header_h 1 sub Box
+    gsave
+      .9 setgray fill
+    grestore
+    stroke
+    
+    % texts
+
+    /xmarg 5 def
+
+    % Top line.
+    HeaderLF setfont
+    /y d_header_h 12 div d_header_h 2 div add def 
+    xmarg y moveto ftail show
+
+    pagenumstr dup stringwidth pop 
+    d_header_w exch sub 1 sub xmarg sub y moveto show
+
+    % Bottom line
+    HeaderF setfont
+    /y d_header_h 6 div def
+    xmarg y moveto fdir show
+
+    eurdatestr dup stringwidth pop
+    d_header_w exch sub 1 sub xmarg sub y moveto show
+
+  grestore
+} def

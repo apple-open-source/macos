@@ -1,0 +1,64 @@
+# Please check if all the paths in PATH are reachable, remove the ones that
+# are not.
+
+PATH=$HOME/bin:/usr/bin:/usr/ucb:/bin:/usr/local/bin:.
+MAILDIR=$HOME/Mail	# You'd better make sure it exists
+DEFAULT=$MAILDIR/mbox
+			# We don't use a global lockfile here now.
+			# Instead we use local lockfiles everywhere.
+			# This allows mail to arrive in all mailboxes
+			# concurrently, or allows you to read one mailbox
+			# while mail arrives in another.
+
+# The next recipe will split up Digests into their individual messages.
+# Don't do this if you use a global lockfile before this recipe (deadlock)
+
+:0
+* ^Subject:.*Digest
+|formail +1 -d -s procmail
+
+LOGFILE=$MAILDIR/from		# Put it here, in order to avoid logging
+				# the arrival of the digest.
+
+# An alternative and probably more efficient solution to splitting up a digest
+# would be (only works for standard format mailbox files though):
+
+:0:
+* ^Subject:.*Other Digest
+|formail +1 -ds cat >>this_lists_mailbox
+
+# Notice the double : in the next recipe, this will cause a lockfile
+# named "$MAILDIR/todd.lock" to be used if and only if this mail is going
+# into the file "todd".
+
+:0:				# Anything from thf
+* ^From.*thf@somewhere.someplace
+todd				# will go to $MAILDIR/todd
+
+
+# The next recipe will likewise use $MAILDIR/uunetbox.lock as a lock file.
+
+:0:				# Anything from people at uunet
+* ^From.*@uunet
+uunetbox			# will go to $MAILDIR/uunetbox
+
+
+# And here the lockfile will be $MAILDIR/henries.lock of course.
+
+:0:				# Anything from Henry
+* ^From.*henry
+henries				# will go to $MAILDIR/henries
+
+
+# But you can specify any lockfile you want, like "myfile".  The following
+# recipe will use "$MAILDIR/myfile" as the lock file.
+
+:0:myfile			# All 'questions' will go to
+* ^Subject:.*questions
+toread				# $MAILDIR/toread
+
+# Anything that has not been delivered by now will go to $DEFAULT
+
+# After procmail sees the end of the rcfile, it pretends that it sees a
+# LOCKFILE=$DEFAULT$LOCKEXT
+# Therefore $DEFAULT is always locked.

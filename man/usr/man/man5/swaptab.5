@@ -1,0 +1,79 @@
+.TH SWAPTAB 5 "March 1, 1989" "Apple Computer, Inc."
+.SH NAME
+swaptab \- static table of paging files
+.SH SYNOPSIS
+.B /etc/swaptab
+.SH DESCRIPTION
+The
+.B /etc/swaptab
+file contains entries for files that can be enabled for system
+paging/swapping.  This file is read automatically by the
+.BR mach_swapon (8)
+command at system startup time.  If you change this file, the
+changes will not take effect until the system is rebooted.
+.PP
+An entry for a paging file consists of a line of the following form:
+.IP
+.I file\ \ \ \fR[\fIoption\fR[\fB,\|\fIoption\fR]\|.\|.\|.] [\fB# \fIcomment\fR]
+.TP 20
+.I file
+is the pathname of the file to page into
+.TP
+.I option
+is one of:
+.RS
+.TP
+.B prefer
+Enable this file as a "preferred" paging area.  The system will
+preferentially allocate space in this paging file over non-preferred
+paging files.
+.TP
+.B noauto
+Do not enable this file when
+.B mach_swapon -a
+is called.
+.TP
+.BI lowat= size
+Attempt to shrink the file down to the low water mark,
+.IR size ,
+when paging resources are freed.  If
+.I size
+equals zero, then the paging file does not shrink as resources
+are freed.
+.TP
+.BI hiwat= size
+Do not grow the paging file above the high water mark,
+.IR size .
+If
+.I size
+is zero then the file will grow as large as needed.
+.TP
+.B nocompress
+Do not compress the swapfile.  Normally, the swapfile is compressed, resulting in reduced disk usage and increased swapping performance (there is less to swap).  This option will turn this feature off.
+.RE
+.TP
+.I comment
+Anything preceded by a
+.RB "# "
+is ignored.
+.SH EXAMPLE
+.LP
+.ta 0.8i 1.6i 2.4i 3.2i 4.0i
+.nf
+#
+#	/etc/swaptab
+#
+/private/vm/swapfile	lowat=20971520	# 20 Meg low water mark
+.fi
+.br
+.ne 6
+.SH FILES
+.PD 0
+.TP 20
+.B /etc/swaptab
+.PD
+.SH "SEE ALSO"
+.BR mach_swapon (2),
+.BR mach_swapon (8)
+.SH WARNINGS
+Entries beginning with whitespace will be ignored.

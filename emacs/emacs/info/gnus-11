@@ -1,0 +1,393 @@
+This is ../info/gnus, produced by makeinfo version 4.0 from gnus.texi.
+
+START-INFO-DIR-ENTRY
+* Gnus: (gnus).         The newsreader Gnus.
+END-INFO-DIR-ENTRY
+
+   This file documents Gnus, the GNU Emacs newsreader.
+
+   Copyright (C) 1995,96 Free Software Foundation, Inc.
+
+   Permission is granted to make and distribute verbatim copies of this
+manual provided the copyright notice and this permission notice are
+preserved on all copies.
+
+   Permission is granted to copy and distribute modified versions of
+this manual under the conditions for verbatim copying, provided also
+that the entire resulting derived work is distributed under the terms
+of a permission notice identical to this one.
+
+   Permission is granted to copy and distribute translations of this
+manual into another language, under the above conditions for modified
+versions.
+
+
+File: gnus,  Node: September Gnus,  Next: Red Gnus,  Prev: ding Gnus,  Up: New Features
+
+September Gnus
+..............
+
+   New features in Gnus 5.2/5.3:
+
+   * A new message composition mode is used.  All old customization
+     variables for `mail-mode', `rnews-reply-mode' and `gnus-msg' are
+     now obsolete.
+
+   * Gnus is now able to generate "sparse" threads--threads where
+     missing articles are represented by empty nodes (*note Customizing
+     Threading::).
+
+          (setq gnus-build-sparse-threads 'some)
+
+   * Outgoing articles are stored on a special archive server (*note
+     Archived Messages::).
+
+   * Partial thread regeneration now happens when articles are referred.
+
+   * Gnus can make use of GroupLens predictions (*note GroupLens::).
+
+   * Picons (personal icons) can be displayed under XEmacs (*note
+     Picons::).
+
+   * A `trn'-like tree buffer can be displayed (*note Tree Display::).
+
+          (setq gnus-use-trees t)
+
+   * An `nn'-like pick-and-read minor mode is available for the summary
+     buffers (*note Pick and Read::).
+
+          (add-hook 'gnus-summary-mode-hook 'gnus-pick-mode)
+
+   * In binary groups you can use a special binary minor mode (*note
+     Binary Groups::).
+
+   * Groups can be grouped in a folding topic hierarchy (*note Group
+     Topics::).
+
+          (add-hook 'gnus-group-mode-hook 'gnus-topic-mode)
+
+   * Gnus can re-send and bounce mail (*note Summary Mail Commands::).
+
+   * Groups can now have a score, and bubbling based on entry frequency
+     is possible (*note Group Score::).
+
+          (add-hook 'gnus-summary-exit-hook 'gnus-summary-bubble-group)
+
+   * Groups can be process-marked, and commands can be performed on
+     groups of groups (*note Marking Groups::).
+
+   * Caching is possible in virtual groups.
+
+   * `nndoc' now understands all kinds of digests, mail boxes, rnews
+     news batches, ClariNet briefs collections, and just about
+     everything else (*note Document Groups::).
+
+   * Gnus has a new backend (`nnsoup') to create/read SOUP packets
+     (*note SOUP::).
+
+   * The Gnus cache is much faster.
+
+   * Groups can be sorted according to many criteria (*note Sorting
+     Groups::).
+
+   * New group parameters have been introduced to set list-addresses and
+     expiry times (*note Group Parameters::).
+
+   * All formatting specs allow specifying faces to be used (*note
+     Formatting Fonts::).
+
+   * There are several more commands for setting/removing/acting on
+     process marked articles on the `M P' submap (*note Setting Process
+     Marks::).
+
+   * The summary buffer can be limited to show parts of the available
+     articles based on a wide range of criteria.  These commands have
+     been bound to keys on the `/' submap (*note Limiting::).
+
+   * Articles can be made persistent with the `*' command (*note
+     Persistent Articles::).
+
+   * All functions for hiding article elements are now toggles.
+
+   * Article headers can be buttonized (*note Article Washing::).
+
+          (add-hook 'gnus-article-display-hook
+                    'gnus-article-add-buttons-to-head)
+
+   * All mail backends support fetching articles by `Message-ID'.
+
+   * Duplicate mail can now be treated properly (*note Duplicates::).
+
+   * All summary mode commands are available directly from the article
+     buffer (*note Article Keymap::).
+
+   * Frames can be part of `gnus-buffer-configuration' (*note Windows
+     Configuration::).
+
+   * Mail can be re-scanned by a daemonic process (*note Daemons::).
+
+   * Gnus can make use of NoCeM files to weed out spam (*note NoCeM::).
+
+          (setq gnus-use-nocem t)
+
+   * Groups can be made permanently visible (*note Listing Groups::).
+
+          (setq gnus-permanently-visible-groups "^nnml:")
+
+   * Many new hooks have been introduced to make customizing easier.
+
+   * Gnus respects the `Mail-Copies-To' header.
+
+   * Threads can be gathered by looking at the `References' header
+     (*note Customizing Threading::).
+
+          (setq gnus-summary-thread-gathering-function
+                'gnus-gather-threads-by-references)
+
+   * Read articles can be stored in a special backlog buffer to avoid
+     refetching (*note Article Backlog::).
+
+          (setq gnus-keep-backlog 50)
+
+   * A clean copy of the current article is always stored in a separate
+     buffer to allow easier treatment.
+
+   * Gnus can suggest where to save articles (*note Saving Articles::).
+
+   * Gnus doesn't have to do as much prompting when saving (*note
+     Saving Articles::).
+
+          (setq gnus-prompt-before-saving t)
+
+   * `gnus-uu' can view decoded files asynchronously while fetching
+     articles (*note Other Decode Variables::).
+
+          (setq gnus-uu-grabbed-file-functions 'gnus-uu-grab-view)
+
+   * Filling in the article buffer now works properly on cited text
+     (*note Article Washing::).
+
+   * Hiding cited text adds buttons to toggle hiding, and how much
+     cited text to hide is now customizable (*note Article Hiding::).
+
+          (setq gnus-cited-lines-visible 2)
+
+   * Boring headers can be hidden (*note Article Hiding::).
+
+          (add-hook 'gnus-article-display-hook
+                    'gnus-article-hide-boring-headers t)
+
+   * Default scoring values can now be set from the menu bar.
+
+   * Further syntax checking of outgoing articles have been added.
+
+
+
+File: gnus,  Node: Red Gnus,  Next: Quassia Gnus,  Prev: September Gnus,  Up: New Features
+
+Red Gnus
+........
+
+   New features in Gnus 5.4/5.5:
+
+   * `nntp.el' has been totally rewritten in an asynchronous fashion.
+
+   * Article prefetching functionality has been moved up into Gnus
+     (*note Asynchronous Fetching::).
+
+   * Scoring can now be performed with logical operators like `and',
+     `or', `not', and parent redirection (*note Advanced Scoring::).
+
+   * Article washing status can be displayed in the article mode line
+     (*note Misc Article::).
+
+   * `gnus.el' has been split into many smaller files.
+
+   * Suppression of duplicate articles based on Message-ID can be done
+     (*note Duplicate Suppression::).
+
+          (setq gnus-suppress-duplicates t)
+
+   * New variables for specifying what score and adapt files are to be
+     considered home score and adapt files (*note Home Score File::)
+     have been added.
+
+   * `nndoc' was rewritten to be easily extendable (*note Document
+     Server Internals::).
+
+   * Groups can inherit group parameters from parent topics (*note
+     Topic Parameters::).
+
+   * Article editing has been revamped and is now actually usable.
+
+   * Signatures can be recognized in more intelligent fashions (*note
+     Article Signature::).
+
+   * Summary pick mode has been made to look more `nn'-like.  Line
+     numbers are displayed and the `.' command can be used to pick
+     articles (`Pick and Read').
+
+   * Commands for moving the `.newsrc.eld' from one server to another
+     have been added (*note Changing Servers::).
+
+   * There's a way now to specify that "uninteresting" fields be
+     suppressed when generating lines in buffers (*note Advanced
+     Formatting::).
+
+   * Several commands in the group buffer can be undone with `M-C-_'
+     (*note Undo::).
+
+   * Scoring can be done on words using the new score type `w' (*note
+     Score File Format::).
+
+   * Adaptive scoring can be done on a Subject word-by-word basis
+     (*note Adaptive Scoring::).
+
+          (setq gnus-use-adaptive-scoring '(word))
+
+   * Scores can be decayed (*note Score Decays::).
+
+          (setq gnus-decay-scores t)
+
+   * Scoring can be performed using a regexp on the Date header.  The
+     Date is normalized to compact ISO 8601 format first (*note Score
+     File Format::).
+
+   * A new command has been added to remove all data on articles from
+     the native server (*note Changing Servers::).
+
+   * A new command for reading collections of documents (`nndoc' with
+     `nnvirtual' on top) has been added--`M-C-d' (*note Really Various
+     Summary Commands::).
+
+   * Process mark sets can be pushed and popped (*note Setting Process
+     Marks::).
+
+   * A new mail-to-news backend makes it possible to post even when the
+     NNTP server doesn't allow posting (*note Mail-To-News Gateways::).
+
+   * A new backend for reading searches from Web search engines
+     ("DejaNews", "Alta Vista", "InReference") has been added (*note
+     Web Searches::).
+
+   * Groups inside topics can now be sorted using the standard sorting
+     functions, and each topic can be sorted independently (*note Topic
+     Sorting::).
+
+   * Subsets of the groups can be sorted independently (`Sorting
+     Groups').
+
+   * Cached articles can be pulled into the groups (*note Summary
+     Generation Commands::).
+
+   * Score files are now applied in a more reliable order (*note Score
+     Variables::).
+
+   * Reports on where mail messages end up can be generated (*note
+     Splitting Mail::).
+
+   * More hooks and functions have been added to remove junk from
+     incoming mail before saving the mail (*note Washing Mail::).
+
+   * Emphasized text can be properly fontisized:
+
+          (add-hook 'gnus-article-display-hook
+                    'gnus-article-emphasize)
+
+
+
+File: gnus,  Node: Quassia Gnus,  Prev: Red Gnus,  Up: New Features
+
+Quassia Gnus
+............
+
+   New features in Gnus 5.6:
+
+   * New functionality for using Gnus as an offline newsreader has been
+     added.  A plethora of new commands and modes have been added.  See
+     *note Gnus Unplugged:: for the full story.
+
+   *  The `nndraft' backend has returned, but works differently than
+     before.  All Message buffers are now also articles in the `nndraft'
+     group, which is created automatically.
+
+   * `gnus-alter-header-function' can now be used to alter header
+     values.
+
+   *  `gnus-summary-goto-article' now accept Message-ID's.
+
+   *  A new Message command for deleting text in the body of a message
+     outside the region: `C-c C-v'.
+
+   *  You can now post to component group in `nnvirtual' groups with
+     `C-u C-c C-c'.
+
+   *  `nntp-rlogin-program'--new variable to ease customization.
+
+   *  `C-u C-c C-c' in `gnus-article-edit-mode' will now inhibit
+     re-highlighting of the article buffer.
+
+   *  New element in `gnus-boring-article-headers'--`long-to'.
+
+   *  `M-i' symbolic prefix command.  See the section "Symbolic
+     Prefixes" in the Gnus manual for details.
+
+   *  `L' and `I' in the summary buffer now take the symbolic prefix
+     `a' to add the score rule to the "all.SCORE" file.
+
+   *  `gnus-simplify-subject-functions' variable to allow greater
+     control over simplification.
+
+   *  `A T'--new command for fetching the current thread.
+
+   *  `/ T'--new command for including the current thread in the limit.
+
+   *  `M-RET' is a new Message command for breaking cited text.
+
+   *  `\\1'-expressions are now valid in `nnmail-split-methods'.
+
+   *  The `custom-face-lookup' function has been removed.  If you used
+     this function in your initialization files, you must rewrite them
+     to use `face-spec-set' instead.
+
+   *  Canceling now uses the current select method.  Symbolic prefix
+     `a' forces normal posting method.
+
+   *  New command to translate M******** sm*rtq**t*s into proper
+     text--`W d'.
+
+   *  For easier debugging of `nntp', you can set
+     `nntp-record-commands' to a non-`nil' value.
+
+   *  `nntp' now uses `~/.authinfo', a `.netrc'-like file, for
+     controlling where and how to send AUTHINFO to NNTP servers.
+
+   *  A command for editing group parameters from the summary buffer
+     has been added.
+
+   *  A history of where mails have been split is available.
+
+   *  A new article date command has been added--`article-date-iso8601'.
+
+   *  Subjects can be simplified when threading by setting
+     `gnus-score-thread-simplify'.
+
+   *  A new function for citing in Message has been
+     added--`message-cite-original-without-signature'.
+
+   *  `article-strip-all-blank-lines'--new article command.
+
+   *  A new Message command to kill to the end of the article has been
+     added.
+
+   *  A minimum adaptive score can be specified by using the
+     `gnus-adaptive-word-minimum' variable.
+
+   *  The "lapsed date" article header can be kept continually updated
+     by the `gnus-start-date-timer' command.
+
+   *  Web listserv archives can be read with the `nnlistserv' backend.
+
+   *  Old dejanews archives can now be read by `nnweb'.
+
+

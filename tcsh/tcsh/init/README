@@ -1,0 +1,27 @@
+This directory contains some useful tcsh files.
+
+In order to use this configuration:
+
+	echo "source /usr/share/init/tcsh/rc"     > ~/.tcshrc
+	echo "source /usr/share/init/tcsh/login"  > ~/.login
+	echo "source /usr/share/init/tcsh/logout" > ~/.logout
+
+To do this system-wide, so the same instead to /etc/csh.cshrc, /etc/csh.login, and /etc/csh.logout.
+
+In order to customize tcsh:
+
+	mkdir ~/Library/init/tcsh
+
+and create the following files there as necessary:
+
+	aliases.mine		- shell aliases
+	completions.mine	- completions
+	environment.mine	- environment
+	rc.mine			- run commands
+	path			- command search path
+
+See the corresponding file in /usr/share/init/tcsh for more information about the role of each file. You can easily extend or override the configuration provided by the default file. For example, you can add more aliases by adding the appropriate commands in aliases.mine. 
+
+	-Fred
+	 Massachusetts Institute of Technology
+	 tritan@mit.edu

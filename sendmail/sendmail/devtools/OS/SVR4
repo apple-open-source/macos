@@ -1,0 +1,12 @@
+#	$Id: SVR4,v 1.1.1.1 2000/06/10 00:40:48 wsanchez Exp $
+define(`confCC', `gcc')
+define(`confMAPDEF', `-DNDBM')
+define(`confENVDEF', `-D__svr4__')
+define(`confLIBS', `-ldbm -lsocket -lnsl -lelf')
+define(`confMBINDIR', `/usr/ucblib')
+define(`confSBINDIR', `/usr/ucbetc')
+define(`confUBINDIR', `/usr/ucb')
+define(`confEBINDIR', `/usr/ucblib')
+define(`confSBINGRP', `mail')
+define(`confINSTALL', `/usr/ucb/install')
+define(`confDEPEND_TYPE', `CC-M')

@@ -1,0 +1,17 @@
+# files with translatable strings in fetchmail package
+checkalias.c
+driver.c
+env.c
+error.c
+etrn.c
+fetchmail.c
+getpass.c
+imap.c
+interface.c
+netrc.c
+options.c
+pop3.c
+rpa.c
+sink.c
+socket.c
+xmalloc.c

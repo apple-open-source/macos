@@ -1,0 +1,11 @@
+Package: apache_mod_php
+Maintainer: Wilfredo Sanchez <wsanchez@opensource.apple.com>
+Vendor: PHP Project
+Version: 4.0.4pl1
+URL: http://www.php.net/
+Build-Depends: build-base
+Description: PHP Hypertext Preprocessor
+ PHP Version is an HTML-embedded scripting language. Much of its syntax
+ is borrowed from C, Java and Perl with a couple of unique PHP-specific
+ features thrown in. The goal of the language is to allow web
+ developers to write dynamically generated pages quickly.

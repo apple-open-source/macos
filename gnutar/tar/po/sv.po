@@ -1,0 +1,1557 @@
+# Swedish messages for tar
+# Copyright © 1996 Free Software Foundation, Inc.
+# Jan Djärv <Jan.Djarv@mbox200.swipnet.se>, 1996.
+# $Revision: 1.1.1.4 $
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: tar 1.12\n"
+"POT-Creation-Date: 1999-07-04 23:46-0700\n"
+"PO-Revision-Date: $Date: 2000/05/06 23:28:38 $\n"
+"Last-Translator: Jan Djärv <Jan.Djarv@mbox200.swipnet.se>\n"
+"Language-Team: Swedish <sv@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=ISO-8859-1\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: lib/argmatch.c:167
+#, fuzzy, c-format
+msgid "invalid argument `%s' for `%s'"
+msgstr "Ogiltigt datumformat \"%s\""
+
+#: lib/argmatch.c:168
+#, fuzzy, c-format
+msgid "ambiguous argument `%s' for `%s'"
+msgstr "Tvetydigt mönster \"%s\""
+
+#. We try to put synonyms on the same line.  The assumption is that
+#. synonyms follow each other
+#: lib/argmatch.c:188
+msgid "Valid arguments are:"
+msgstr ""
+
+#: lib/error.c:102 src/rmt.c:89
+msgid "Unknown system error"
+msgstr "Okänt systemfel"
+
+#: lib/getopt.c:677
+#, c-format
+msgid "%s: option `%s' is ambiguous\n"
+msgstr ""
+
+#: lib/getopt.c:702
+#, fuzzy, c-format
+msgid "%s: option `--%s' doesn't allow an argument\n"
+msgstr "Gammal flagga \"%c\" behöver ett argument"
+
+#: lib/getopt.c:707
+#, fuzzy, c-format
+msgid "%s: option `%c%s' doesn't allow an argument\n"
+msgstr "Gammal flagga \"%c\" behöver ett argument"
+
+#: lib/getopt.c:725 lib/getopt.c:898
+#, fuzzy, c-format
+msgid "%s: option `%s' requires an argument\n"
+msgstr "Gammal flagga \"%c\" behöver ett argument"
+
+#. --option
+#: lib/getopt.c:754
+#, c-format
+msgid "%s: unrecognized option `--%s'\n"
+msgstr ""
+
+#. +option or -option
+#: lib/getopt.c:758
+#, c-format
+msgid "%s: unrecognized option `%c%s'\n"
+msgstr ""
+
+#. 1003.2 specifies the format of this message.
+#: lib/getopt.c:784
+#, c-format
+msgid "%s: illegal option -- %c\n"
+msgstr ""
+
+#: lib/getopt.c:787
+#, c-format
+msgid "%s: invalid option -- %c\n"
+msgstr ""
+
+#. 1003.2 specifies the format of this message.
+#: lib/getopt.c:817 lib/getopt.c:947
+#, fuzzy, c-format
+msgid "%s: option requires an argument -- %c\n"
+msgstr "Gammal flagga \"%c\" behöver ett argument"
+
+#: lib/getopt.c:864
+#, c-format
+msgid "%s: option `-W %s' is ambiguous\n"
+msgstr ""
+
+#: lib/getopt.c:882
+#, fuzzy, c-format
+msgid "%s: option `-W %s' doesn't allow an argument\n"
+msgstr "Gammal flagga \"%c\" behöver ett argument"
+
+#. If XALLOC_FAIL_FUNC is NULL, or does return, display this message
+#. before exiting when memory is exhausted.  Goes through gettext.
+#: lib/xmalloc.c:66 src/compare.c:316 src/incremen.c:683 src/list.c:390
+#: src/mangle.c:53 src/tar.c:837
+msgid "Memory exhausted"
+msgstr "Minnet slut"
+
+#: src/arith.c:112 src/arith.c:132
+msgid "Arithmetic overflow"
+msgstr ""
+
+#: src/buffer.c:157
+msgid "Total bytes written: "
+msgstr "Totalt antal byte skrivna: "
+
+#: src/buffer.c:252
+#, c-format
+msgid "Cannot close file #%d"
+msgstr "Kan inte stänga fil #%d"
+
+#: src/buffer.c:268
+#, c-format
+msgid "Cannot close descriptor %d"
+msgstr "Kan inte stänga filnummer %d"
+
+#: src/buffer.c:271
+#, c-format
+msgid "Cannot properly duplicate %s"
+msgstr "Kan inte duplicera %s"
+
+#: src/buffer.c:285 src/buffer.c:295
+msgid "Cannot use compressed or remote archives"
+msgstr "Kan inte använda komprimerade arkiv eller fjärrarkiv"
+
+#: src/buffer.c:349 src/buffer.c:406 src/buffer.c:511 src/buffer.c:560
+msgid "Cannot open pipe"
+msgstr "Kan inte öppna rör"
+
+#: src/buffer.c:353 src/buffer.c:515
+msgid "Cannot fork"
+msgstr "Kan inte grena"
+
+#. The new born child tar is here!
+#: src/buffer.c:366 src/buffer.c:529
+msgid "tar (child)"
+msgstr "tar (barn)"
+
+#: src/buffer.c:368
+msgid "(child) Pipe to stdin"
+msgstr "(barn) Rör till standard in"
+
+#: src/buffer.c:393 src/buffer.c:439 src/buffer.c:548 src/buffer.c:593
+#, c-format
+msgid "Cannot open archive %s"
+msgstr "Kan inte öppna arkivet %s"
+
+#: src/buffer.c:396
+msgid "Archive to stdout"
+msgstr "Arkiv till standard ut"
+
+#: src/buffer.c:399 src/buffer.c:421 src/buffer.c:553 src/buffer.c:574
+#, c-format
+msgid "Cannot exec %s"
+msgstr "Kan inte exekvera %s"
+
+#: src/buffer.c:410 src/buffer.c:564
+msgid "Child cannot fork"
+msgstr "Barnet kan inte grena"
+
+#: src/buffer.c:417
+msgid "((child)) Pipe to stdout"
+msgstr "((barn)) Rör standard ut"
+
+#. The new born grandchild tar is here!
+#: src/buffer.c:427 src/buffer.c:580
+msgid "tar (grandchild)"
+msgstr "tar (barnbarn)"
+
+#. Prepare for reblocking the data from the compressor into the archive.
+#: src/buffer.c:431
+msgid "(grandchild) Pipe to stdin"
+msgstr "(barnbarn) Rör till standard in"
+
+#: src/buffer.c:466
+msgid "Cannot read from compression program"
+msgstr "Kan inte läsa från komprimeringsprogrammet"
+
+#: src/buffer.c:531
+msgid "(child) Pipe to stdout"
+msgstr "(barn) Rör till standard ut"
+
+#: src/buffer.c:550
+msgid "Archive to stdin"
+msgstr "Arkiv till standard in"
+
+#. The child tar is still here!  Launch the uncompressor.
+#: src/buffer.c:570
+msgid "((child)) Pipe to stdin"
+msgstr "((barn)) Rör till standard in"
+
+#. Prepare for unblocking the data from the archive into the uncompressor.
+#: src/buffer.c:584
+msgid "(grandchild) Pipe to stdout"
+msgstr "(barnbarn) Rör till standard ut"
+
+#: src/buffer.c:623
+msgid "Cannot write to compression program"
+msgstr "Kan inte skriva till komprimeringsprogrammet"
+
+#: src/buffer.c:628
+#, fuzzy, c-format
+msgid "Write to compression program short %lu bytes"
+msgstr "Skriver till komprimeringsprogram men är %d byte kort"
+
+#: src/buffer.c:687
+msgid "Invalid value for record_size"
+msgstr "Ogiltigt värde på record_size"
+
+#: src/buffer.c:690
+msgid "No archive name given"
+msgstr "Arkivnamn saknas"
+
+#: src/buffer.c:717
+#, c-format
+msgid "Could not allocate memory for blocking factor %d"
+msgstr "Kunde inte allokera minne för blockfaktor %d"
+
+#: src/buffer.c:726
+msgid "Cannot verify multi-volume archives"
+msgstr "Flervolymsarkiv kan inte verifieras"
+
+#: src/buffer.c:731
+msgid "Cannot use multi-volume compressed archives"
+msgstr "Kan inte använda komprimerade flervolymsarkiv"
+
+#: src/buffer.c:733
+msgid "Cannot verify compressed archives"
+msgstr "Komprimerade arkiv kan inte verifieras"
+
+#: src/buffer.c:746
+msgid "Cannot update compressed archives"
+msgstr "Komprimerade arkiv kan inte uppdateras"
+
+#: src/buffer.c:757
+msgid "Cannot verify stdin/stdout archive"
+msgstr "Kan inte verifiera standard in/ut-arkiv"
+
+#: src/buffer.c:811 src/buffer.c:1702 src/compare.c:533 src/incremen.c:456
+#: src/names.c:904
+#, c-format
+msgid "Cannot open %s"
+msgstr "Kan inte öppna %s"
+
+#: src/buffer.c:856
+#, c-format
+msgid "Archive not labelled to match `%s'"
+msgstr "Arkivet är inte märkt för att stämma med \"%s\""
+
+#: src/buffer.c:859 src/buffer.c:1189
+#, c-format
+msgid "Volume `%s' does not match `%s'"
+msgstr "Volym \"%s\" överensstämmer inte med \"%s\""
+
+#: src/buffer.c:898
+#, c-format
+msgid "Write checkpoint %d"
+msgstr "Skriver kontrollpunkt %d"
+
+#: src/buffer.c:1064 src/incremen.c:521
+#, c-format
+msgid "Cannot write to %s"
+msgstr "Kan inte skriva till %s"
+
+#: src/buffer.c:1067
+#, fuzzy, c-format
+msgid "Only wrote %lu of %lu bytes to %s"
+msgstr "Skrev bara %u av %u byte till %s"
+
+#: src/buffer.c:1080
+#, c-format
+msgid "Read error on %s"
+msgstr "Läsfel i %s"
+
+#: src/buffer.c:1083
+msgid "At beginning of tape, quitting now"
+msgstr "Vid bandets början, avslutar nu"
+
+#: src/buffer.c:1089
+msgid "Too many errors, quitting"
+msgstr "För många fel, avslutar"
+
+#: src/buffer.c:1105
+#, c-format
+msgid "Read checkpoint %d"
+msgstr "Läser kontrollpunkt %d"
+
+#: src/buffer.c:1197 src/extract.c:946
+#, c-format
+msgid "Reading %s\n"
+msgstr "Läser %s\n"
+
+#: src/buffer.c:1201
+msgid "WARNING: No volume header"
+msgstr "VARNING: Inget volymhuvud"
+
+#: src/buffer.c:1209
+#, c-format
+msgid "%s is not continued on this volume"
+msgstr "%s fortsätter inte i denna volym"
+
+#: src/buffer.c:1223
+#, fuzzy, c-format
+msgid "%s is the wrong size (%s != %s + %s)"
+msgstr "%s har fel storlek (%ld != %ld + %ld)"
+
+#: src/buffer.c:1235
+msgid "This volume is out of sequence"
+msgstr "Denna volym kommer inte i rätt ordning"
+
+#: src/buffer.c:1263
+#, fuzzy, c-format
+msgid "Record size = %lu blocks"
+msgstr "Poststorlek = %d block"
+
+#: src/buffer.c:1284
+#, c-format
+msgid "Archive %s EOF not on block boundary"
+msgstr "I arkiv %s är inte filslut vid en blockgräns"
+
+#: src/buffer.c:1292
+#, fuzzy, c-format
+msgid "Only read %lu bytes from archive %s"
+msgstr "Läste bara %d byte från arkivet %s"
+
+#: src/buffer.c:1317 src/buffer.c:1428 src/buffer.c:1544
+#, c-format
+msgid "WARNING: Cannot close %s (%d, %d)"
+msgstr "VARNING: Kan inte stänga %s (%d, %d)"
+
+#. Lseek failed.  Try a different method.
+#: src/buffer.c:1373
+msgid "Could not backspace archive file; it may be unreadable without -i"
+msgstr "Kunde inte söka bakåt i arkivfilen, den kan vara oläsbar utan -i"
+
+#: src/buffer.c:1418
+#, fuzzy, c-format
+msgid "WARNING: Cannot truncate %s"
+msgstr "VARNING: Kan inte stänga %s (%d, %d)"
+
+#: src/buffer.c:1456
+#, c-format
+msgid "Child died with signal %d%s"
+msgstr "Barnet dog med signal %d%s"
+
+#: src/buffer.c:1458
+msgid " (core dumped)"
+msgstr " (minnet sparat)"
+
+#: src/buffer.c:1467
+#, c-format
+msgid "Child returned status %d"
+msgstr "Barnet avslutade med slutstatus %d"
+
+#: src/buffer.c:1574
+#, c-format
+msgid "Prepare volume #%d for %s and hit return: "
+msgstr "Gör iordning volym nummer %d för %s och tryck vagnretur:"
+
+#: src/buffer.c:1580
+msgid "EOF where user reply was expected"
+msgstr "Filslut vid förväntat användarsvar"
+
+#: src/buffer.c:1585 src/buffer.c:1614
+msgid "WARNING: Archive is incomplete"
+msgstr "VARNING: Arkivet är ofullständigt"
+
+#: src/buffer.c:1598
+msgid ""
+" n [name]   Give a new file name for the next (and subsequent) volume(s)\n"
+" q          Abort tar\n"
+" !          Spawn a subshell\n"
+" ?          Print this list\n"
+msgstr ""
+" n [namn]   Ge ett nytt filnamn för nästa (och efterföljande) volym(er)\n"
+" q          Avsluta programmet\n"
+" !          Starta ett underskal\n"
+" ?          Skriv denna lista\n"
+
+#. Quit.
+#: src/buffer.c:1609
+msgid "No new volume; exiting.\n"
+msgstr "Ingen ny volym; avslutar.\n"
+
+#: src/buffer.c:1644
+msgid "Cannot fork!"
+msgstr "Kan inte grena!"
+
+#: src/buffer.c:1654
+#, c-format
+msgid "Cannot exec a shell %s"
+msgstr "Kan inte exekvera ett skal %s"
+
+#: src/compare.c:50
+#, fuzzy, c-format
+msgid "Could not allocate memory for diff buffer of %lu bytes"
+msgstr "Kunde inte allokera minne för skillnadsbuffert med %d byte"
+
+#: src/compare.c:96 src/compare.c:328 src/compare.c:358
+#, c-format
+msgid "Cannot read %s"
+msgstr "Kan inte läsa %s"
+
+#: src/compare.c:101 src/compare.c:335 src/compare.c:365
+#, fuzzy, c-format
+msgid "Could only read %lu of %lu bytes"
+msgstr "Kunde bara läsa %d av %ld byte"
+
+#: src/compare.c:110 src/compare.c:130 src/compare.c:403
+msgid "Data differs"
+msgstr "Data är olika"
+
+#: src/compare.c:159 src/extract.c:335 src/extract.c:644 src/list.c:398
+#: src/list.c:1034
+msgid "Unexpected EOF on archive file"
+msgstr "Oväntat filslut i arkivfilen"
+
+#: src/compare.c:306 src/compare.c:777
+#, fuzzy, c-format
+msgid "Cannot seek to %s in file %s"
+msgstr "Kan inte söka till %ld i filen %s"
+
+#: src/compare.c:422
+msgid "File does not exist"
+msgstr "Filen existerar inte"
+
+#: src/compare.c:425 src/compare.c:585
+#, c-format
+msgid "Cannot stat file %s"
+msgstr "Kan inte ta status på filen %s"
+
+#: src/compare.c:459
+msgid "Verify "
+msgstr "Verifierar "
+
+#: src/compare.c:466
+#, c-format
+msgid "Unknown file type '%c' for %s, diffed as normal file"
+msgstr "Okänd filtyp \"%c\" för %s, jämförd som en normal fil"
+
+#: src/compare.c:491 src/compare.c:750
+msgid "Not a regular file"
+msgstr "Inte en normal fil"
+
+#: src/compare.c:498 src/compare.c:731
+msgid "Mode differs"
+msgstr "Rättigheterna är olika"
+
+#: src/compare.c:505
+msgid "Uid differs"
+msgstr "Uid är olika"
+
+#: src/compare.c:507
+msgid "Gid differs"
+msgstr "Gid är olika"
+
+#: src/compare.c:511
+msgid "Mod time differs"
+msgstr "Modifieringstiderna är olika"
+
+#: src/compare.c:515 src/compare.c:759
+msgid "Size differs"
+msgstr "Storlekarna är olika"
+
+#: src/compare.c:562 src/compare.c:797
+#, c-format
+msgid "Error while closing %s"
+msgstr "Fel vid stängning av %s"
+
+#: src/compare.c:582
+msgid "Does not exist"
+msgstr "Existerar inte"
+
+#: src/compare.c:596
+#, c-format
+msgid "Not linked to %s"
+msgstr "Inte länkad till %s"
+
+#: src/compare.c:616
+msgid "No such file or directory"
+msgstr "Filen eller katalogen finns inte"
+
+#: src/compare.c:619
+#, c-format
+msgid "Cannot read link %s"
+msgstr "Kan inte läsa länk %s"
+
+#: src/compare.c:627
+msgid "Symlink differs"
+msgstr "Symboliska länkar är olika"
+
+#: src/compare.c:666
+msgid "Device numbers changed"
+msgstr "Enhetsnummer har ändrats"
+
+#: src/compare.c:680
+msgid "Mode or device-type changed"
+msgstr "Rättighet eller enhetstyp har ändrats"
+
+#: src/compare.c:726
+msgid "No longer a directory"
+msgstr "Inte längre en katalog"
+
+#: src/compare.c:768 src/names.c:268 src/update.c:55
+#, c-format
+msgid "Cannot open file %s"
+msgstr "Kan inte öppna filen %s"
+
+#: src/compare.c:850
+msgid "Could not rewind archive file for verify"
+msgstr "Kunde inte gå till början på arkivfilen för verifikation"
+
+#: src/compare.c:877
+#, c-format
+msgid "VERIFY FAILURE: %d invalid header(s) detected"
+msgstr "VERIFIKATIONSFEL: %d okända arkivhuvuden upptäckta"
+
+#: src/create.c:113
+#, c-format
+msgid "%s value %s too large (max=%s); substituting %s"
+msgstr ""
+
+#: src/create.c:119
+#, c-format
+msgid "%s value %s too large (max=%s)"
+msgstr ""
+
+#: src/create.c:294
+msgid "Removing drive spec from names in the archive"
+msgstr "Tar bort enhetsnamn från namnen i arkivet"
+
+#: src/create.c:305 src/extract.c:434
+msgid "Removing leading `/' from absolute path names in the archive"
+msgstr "Tar bort inledande \"/\" från absoluta sökvägar i arkivet"
+
+#: src/create.c:638
+#, fuzzy, c-format
+msgid "Wrote %s of %s bytes to file %s"
+msgstr "Skrev %ld av %ld byte till fil %s"
+
+#: src/create.c:648
+#, fuzzy, c-format
+msgid "lseek error at byte %s in file %s"
+msgstr "Läsfel vid byte %ld vid läsning av %d byte från fil %s"
+
+#: src/create.c:677 src/create.c:703 src/create.c:1204
+#, fuzzy, c-format
+msgid "Read error at byte %s, reading %lu bytes, in file %s"
+msgstr "Läsfel vid byte %ld, läste %d byte, i fil %s"
+
+#: src/create.c:716
+#, fuzzy, c-format
+msgid "File %s shrunk, padding with zeros"
+msgstr "Filen %s krympte med %d byte, fyller ut med nolltecken"
+
+#: src/create.c:832 src/create.c:1094 src/create.c:1284
+#, c-format
+msgid "Cannot add file %s"
+msgstr "Kan inte lägga till filen %s"
+
+#: src/create.c:863
+#, c-format
+msgid "%s: is unchanged; not dumped"
+msgstr "%s: är oförändrad; inte arkiverad"
+
+#: src/create.c:873
+#, c-format
+msgid "%s is the archive; not dumped"
+msgstr "%s är arkivet; inte arkiverat"
+
+#: src/create.c:918
+msgid "Removing leading `/' from absolute links"
+msgstr "Tar bort inledande \"/\" från absoluta länkar"
+
+#: src/create.c:948 src/create.c:1248 src/create.c:1308 src/create.c:1560
+#, c-format
+msgid "Cannot remove %s"
+msgstr "Kan inte ta bort %s"
+
+#: src/create.c:1223
+#, fuzzy, c-format
+msgid "File %s shrunk by %s bytes, padding with zeros"
+msgstr "Filen %s krympte med %d byte, fyller ut med nolltecken"
+
+#: src/create.c:1239
+#, c-format
+msgid "%s: file changed as we read it"
+msgstr ""
+
+#: src/create.c:1241
+#, c-format
+msgid "%s: close"
+msgstr ""
+
+#: src/create.c:1332
+#, c-format
+msgid "Cannot add directory %s"
+msgstr "Kan inte lägga till katalogen %s"
+
+#: src/create.c:1457
+#, c-format
+msgid "%s: On a different filesystem; not dumped"
+msgstr "%s: På ett annat filsystem; inte arkiverad"
+
+#: src/create.c:1468 src/incremen.c:192
+#, c-format
+msgid "Cannot open directory %s"
+msgstr "Kan inte öppna katalogen %s"
+
+#: src/create.c:1492
+#, c-format
+msgid "File name %s%s too long"
+msgstr "Filnamnet %s%s är för långt"
+
+#: src/create.c:1565
+#, c-format
+msgid "%s: Unknown file type; file ignored"
+msgstr "%s: Okänd filtyp; filen ignorerad"
+
+#: src/delete.c:55 src/delete.c:62 src/delete.c:84
+msgid "Could not re-position archive file"
+msgstr "Kunde inte byta position i arkivfilen"
+
+#: src/delete.c:180 src/update.c:163
+msgid "This does not look like a tar archive"
+msgstr "Det här ser inte ut som ett \"tar\"-arkiv"
+
+#: src/delete.c:185 src/update.c:168
+msgid "Skipping to next header"
+msgstr "Hoppar till nästa filhuvud"
+
+#: src/delete.c:263
+msgid "Deleting non-header from archive"
+msgstr "Tar bort icke-huvuddata från arkivet"
+
+#: src/extract.c:107
+#, fuzzy, c-format
+msgid "%s: Cannot change mode to %04lo"
+msgstr "%s: Kan inte ändra rättigheter till %0.4o"
+
+#: src/extract.c:150
+#, c-format
+msgid "%s: Could not change access and modification times"
+msgstr "%s: Kunde inte ändra åtkomst- och modifieringstid"
+
+#: src/extract.c:177
+#, fuzzy, c-format
+msgid "%s: Cannot lchown to uid %lu gid %lu"
+msgstr "%s: Kan inte byta ägare (lchown) till uid %d gid %d"
+
+#: src/extract.c:185 src/extract.c:196
+#, fuzzy, c-format
+msgid "%s: Cannot chown to uid %lu gid %lu"
+msgstr "%s: Kan inte byta ägare (chown) till uid %d gid %d"
+
+#: src/extract.c:252
+#, fuzzy, c-format
+msgid "%s: Cannot change owner to uid %lu, gid %lu"
+msgstr "%s: Kan inte byta ägare till uid %d, gid %d"
+
+#: src/extract.c:341
+#, c-format
+msgid "%s: lseek error at byte %s"
+msgstr ""
+
+#: src/extract.c:351 src/extract.c:361 src/extract.c:664
+#, c-format
+msgid "%s: Could not write to file"
+msgstr "%s: Kunde inte skriva till fil"
+
+#: src/extract.c:366
+#, fuzzy, c-format
+msgid "%s: Could only write %s of %s bytes"
+msgstr "%s: Kunde bara skriva %d av %d byte"
+
+#: src/extract.c:444
+#, c-format
+msgid "%s: Was unable to backup this file"
+msgstr "%s kunde inte säkerhetskopieras"
+
+#: src/extract.c:585
+msgid "Extracting contiguous files as regular files"
+msgstr "Extraherar sammanhängande filer som vanliga filer"
+
+#: src/extract.c:597
+#, c-format
+msgid "%s: Could not create file"
+msgstr "%s: Kunde inte skapa fil"
+
+#: src/extract.c:667
+#, fuzzy, c-format
+msgid "%s: Could only write %lu of %lu bytes"
+msgstr "%s: Kunde bara skriva %d av %d byte"
+
+#: src/extract.c:687
+#, c-format
+msgid "%s: Error while closing"
+msgstr "%s: Fel vid stängning"
+
+#: src/extract.c:719
+#, c-format
+msgid "%s: Could not create symlink to `%s'"
+msgstr "%s: Kunde inte skapa symbolisk länk till \"%s\""
+
+#: src/extract.c:733
+msgid "Attempting extraction of symbolic links as hard links"
+msgstr "Försöker extrahera symboliska länkar som hårda länkar"
+
+#: src/extract.c:769
+#, c-format
+msgid "%s: Could not link to `%s'"
+msgstr "%s: Kunde inte länka till \"%s\""
+
+#: src/extract.c:802
+#, c-format
+msgid "%s: Could not make node"
+msgstr "%s: Kunde inte skapa enhetsfil"
+
+#: src/extract.c:828
+#, c-format
+msgid "%s: Could not make fifo"
+msgstr "%s: Kunde inte skapa fifo"
+
+#: src/extract.c:905
+#, c-format
+msgid "%s: Could not create directory"
+msgstr "%s: Kunde inte skapa katalog"
+
+#: src/extract.c:916
+#, c-format
+msgid "Added write and execute permission to directory %s"
+msgstr "Lade till skriv- och exekveringsrättigheter till katalog %s"
+
+#: src/extract.c:954
+#, c-format
+msgid "Cannot extract `%s' -- file is continued from another volume"
+msgstr "Kan inte extrahera \"%s\" -- filen fortsätter från en tidigare volym"
+
+#: src/extract.c:964
+msgid "Visible long name error"
+msgstr "Fel på ett långt namn"
+
+#: src/extract.c:972
+#, c-format
+msgid "Unknown file type '%c' for %s, extracted as normal file"
+msgstr "Okänd filtyp \"%c\" för %s, extraherad som en normal fil"
+
+#: src/incremen.c:237 src/incremen.c:610 src/update.c:138
+#, c-format
+msgid "Cannot stat %s"
+msgstr "Kan inte ta status på %s"
+
+#: src/incremen.c:270
+#, c-format
+msgid "Directory %s has been renamed"
+msgstr "Katalogen %s har bytt namn"
+
+#: src/incremen.c:282
+#, c-format
+msgid "Directory %s is new"
+msgstr "Katalogen %s är ny"
+
+#: src/incremen.c:437 src/names.c:504
+msgid "Could not get current directory"
+msgstr "Kunde inte avgöra aktuell katalog"
+
+#: src/incremen.c:442 src/names.c:509
+#, c-format
+msgid "Could not get current directory: %s"
+msgstr "Kunde inte komma åt namnet på aktuell katalog: %s"
+
+#: src/incremen.c:446
+#, c-format
+msgid "File name %s/%s too long"
+msgstr "Filnamnet %s/%s är för långt"
+
+#: src/incremen.c:489
+#, fuzzy
+msgid "Device number out of range"
+msgstr "Enhetsnummer har ändrats"
+
+#: src/incremen.c:494
+msgid "Inode number out of range"
+msgstr ""
+
+#: src/incremen.c:598
+#, c-format
+msgid "Cannot chdir to %s"
+msgstr "Kan inte gå till katalogen %s"
+
+#: src/incremen.c:691
+msgid "Unexpected EOF in archive"
+msgstr "Oväntat filslut i arkivet"
+
+#: src/incremen.c:720
+#, c-format
+msgid "%s: Deleting %s\n"
+msgstr "%s: Tar bort %s\n"
+
+#: src/incremen.c:722
+#, c-format
+msgid "Error while deleting %s"
+msgstr "Fel inträffade vid borttagning av %s"
+
+#: src/list.c:86
+#, c-format
+msgid "Omitting %s"
+msgstr "Utelämnar %s"
+
+#: src/list.c:127
+#, fuzzy, c-format
+msgid "block %s: ** Block of NULs **\n"
+msgstr "block %10ld: ** Block av nolltecken **\n"
+
+#: src/list.c:141
+#, fuzzy, c-format
+msgid "block %s: ** End of File **\n"
+msgstr "block %10ld: ** Filslut **\n"
+
+#: src/list.c:153
+msgid "Hmm, this doesn't look like a tar archive"
+msgstr "Hmm, det här ser inte ut som ett \"tar\"-arkiv"
+
+#: src/list.c:158
+msgid "Skipping to next file header"
+msgstr "Hoppar över data till nästa filhuvud"
+
+#: src/list.c:213
+msgid "EOF in archive file"
+msgstr "Filslut i arkivfilen"
+
+#: src/list.c:225
+#, fuzzy, c-format
+msgid "Only wrote %lu of %lu bytes to file %s"
+msgstr "Skrev bara %ld av %ld byte till filen %s"
+
+#: src/list.c:549
+#, c-format
+msgid "Blanks in header where octal %s value expected"
+msgstr ""
+
+#: src/list.c:585
+#, c-format
+msgid "Header contains \"%.*s\" where octal %s value expected"
+msgstr ""
+
+#: src/list.c:597
+#, c-format
+msgid "Octal value `%.*s' is out of range for %s"
+msgstr ""
+
+#: src/list.c:769 src/list.c:999
+#, fuzzy, c-format
+msgid "block %s: "
+msgstr "block %10ld: "
+
+#: src/list.c:808
+msgid "Visible longname error"
+msgstr "Fel på ett långt namn"
+
+#: src/list.c:935 src/list.c:939
+#, c-format
+msgid " link to %s\n"
+msgstr " länk till %s\n"
+
+#: src/list.c:943
+#, c-format
+msgid " unknown file type `%c'\n"
+msgstr " okänd filtyp \"%c\"\n"
+
+#: src/list.c:960
+msgid "--Volume Header--\n"
+msgstr "--Volymhuvud--\n"
+
+#: src/list.c:968
+#, fuzzy, c-format
+msgid "--Continued at byte %s--\n"
+msgstr "--Fortsätter vid byte %ld--\n"
+
+#: src/list.c:972
+msgid "--Mangled file names--\n"
+msgstr "--Kodade filnamn--\n"
+
+#: src/list.c:1006 src/list.c:1011
+msgid "Creating directory:"
+msgstr "Skapar katalog:"
+
+#: src/mangle.c:64
+msgid "Unexpected EOF in mangled names"
+msgstr "Oväntat filslut i kodade namn"
+
+#: src/mangle.c:100
+#, c-format
+msgid "Cannot rename %s to %s"
+msgstr "Kan inte byta namn på %s till %s"
+
+#: src/mangle.c:102
+#, c-format
+msgid "Renamed %s to %s"
+msgstr "Bytte namn på %s till %s"
+
+#: src/mangle.c:119
+#, c-format
+msgid "Cannot symlink %s to %s"
+msgstr "Kan inte symboliskt länka %s till %s"
+
+#: src/mangle.c:122
+#, c-format
+msgid "Symlinked %s to %s"
+msgstr "%s symboliskt länkad till %s"
+
+#: src/mangle.c:126
+#, c-format
+msgid "Unknown demangling command %s"
+msgstr "Okänt avkodningskommando %s"
+
+#: src/misc.c:449
+#, fuzzy, c-format
+msgid "Renaming previous `%s' to `%s'\n"
+msgstr "Bytte namn på %s till %s"
+
+#. The backup operation failed.
+#: src/misc.c:456
+#, fuzzy, c-format
+msgid "%s: Cannot rename for backup"
+msgstr "Kan inte byta namn på %s till %s"
+
+#: src/misc.c:472
+#, fuzzy, c-format
+msgid "%s: Cannot rename from backup"
+msgstr "Kan inte byta namn på %s till %s"
+
+#: src/misc.c:475
+#, fuzzy, c-format
+msgid "Renaming `%s' back to `%s'\n"
+msgstr "Bytte namn på %s till %s"
+
+#: src/names.c:375 src/names.c:573 src/names.c:599 src/names.c:625
+#: src/names.c:778
+#, c-format
+msgid "Cannot change to directory %s"
+msgstr "Kan inte gå till katalogen %s"
+
+#: src/names.c:394 src/names.c:450 src/names.c:495
+msgid "Missing file name after -C"
+msgstr "Filnamn efter -C saknas"
+
+#: src/names.c:663 src/names.c:682
+#, c-format
+msgid "%s: Not found in archive"
+msgstr "%s: Fanns inte i arkivet"
+
+#: src/rmt.c:157
+msgid "rmtd: Cannot allocate buffer space\n"
+msgstr "rmtd: Kan inte allokera buffert\n"
+
+#: src/rmt.c:159
+msgid "Cannot allocate buffer space"
+msgstr "Kan inte allokera buffert"
+
+#: src/rmt.c:285 src/rmt.c:405 src/rmt.c:415
+msgid "Seek offset out of range"
+msgstr ""
+
+#: src/rmt.c:298
+msgid "Seek direction out of range"
+msgstr ""
+
+#: src/rmt.c:337
+msgid "rmtd: Premature eof\n"
+msgstr "rmtd: För tidigt filslut\n"
+
+#: src/rmt.c:339
+msgid "Premature end of file"
+msgstr "För tidigt filslut"
+
+#: src/rmt.c:447
+#, c-format
+msgid "rmtd: Garbage command %c\n"
+msgstr "rmtd: Okänt kommando \"%c\"\n"
+
+#: src/rmt.c:449
+msgid "Garbage command"
+msgstr "Okänt kommando"
+
+#: src/rtapelib.c:296
+msgid "exec/tcp: Service not available"
+msgstr "exec/tcp: Tjänsten är inte tillgänglig"
+
+#: src/rtapelib.c:301
+msgid "stdin"
+msgstr "standard in"
+
+#: src/rtapelib.c:304
+msgid "stdout"
+msgstr "standard ut"
+
+#. Bad problems if we get here.
+#. In a previous version, _exit was used here instead of exit.
+#: src/rtapelib.c:464
+msgid "Cannot execute remote shell"
+msgstr "Kan inte exekvera fjärrskal"
+
+#: src/tar.c:64
+#, c-format
+msgid "Options `-%s' and `-%s' both want standard input"
+msgstr "Flaggorna \"-%s\" och \"-%s\" vill båda läsa från standard in"
+
+#: src/tar.c:90
+msgid "Cannot read confirmation from user"
+msgstr "Kan inte läsa bekräftelse från användaren"
+
+#: src/tar.c:258 tests/genfile.c:60
+#, c-format
+msgid "Try `%s --help' for more information.\n"
+msgstr "Försök med \"%s --help\" för mer information.\n"
+
+#: src/tar.c:262
+msgid ""
+"GNU `tar' saves many files together into a single tape or disk archive, and\n"
+"can restore individual files from the archive.\n"
+msgstr ""
+"GNU \"tar\" sparar många filer tillsammans i ett band- eller fil-arkiv och\n"
+"kan återskapa individuella filer från arkivet.\n"
+
+#: src/tar.c:266
+#, c-format
+msgid ""
+"\n"
+"Usage: %s [OPTION]... [FILE]...\n"
+msgstr ""
+"\n"
+"Användning: %s [FLAGGA]... [FIL]...\n"
+
+#: src/tar.c:267
+msgid ""
+"\n"
+"If a long option shows an argument as mandatory, then it is mandatory\n"
+"for the equivalent short option also.  Similarly for optional arguments.\n"
+msgstr ""
+"\n"
+"Om en lång flagga visar ett argument som obligatoriskt då är det även\n"
+"obligatoriskt för den korta flaggan.  Motsvarande gäller för frivilliga\n"
+"argument.\n"
+
+#: src/tar.c:272
+msgid ""
+"\n"
+"Main operation mode:\n"
+"  -t, --list              list the contents of an archive\n"
+"  -x, --extract, --get    extract files from an archive\n"
+"  -c, --create            create a new archive\n"
+"  -d, --diff, --compare   find differences between archive and file system\n"
+"  -r, --append            append files to the end of an archive\n"
+"  -u, --update            only append files newer than copy in archive\n"
+"  -A, --catenate          append tar files to an archive\n"
+"      --concatenate       same as -A\n"
+"      --delete            delete from the archive (not on mag tapes!)\n"
+msgstr ""
+"\n"
+"Operationsläge:\n"
+"  -t, --list              visa innehållet i arkivet\n"
+"  -x, --extract, --get    extrahera filer från arkivet\n"
+"  -c, --create            skapa ett nytt arkiv\n"
+"  -d, --diff, --compare   visa skillnader mellan filsystemet och arkivet\n"
+"  -r, --append            lägg till filer på slutet av arkivet\n"
+"  -u, --update            lägg till filer som är nyare än de i arkivet\n"
+"  -A, --catenate          lägg till innehållet i en arkivfil till arkivet\n"
+"      --concatenate       samma som -A\n"
+"      --delete            ta bort från arkivet (ej för arkiv på "
+"magnetband!)\n"
+
+#: src/tar.c:285
+msgid ""
+"\n"
+"Operation modifiers:\n"
+"  -W, --verify               attempt to verify the archive after writing it\n"
+"      --remove-files         remove files after adding them to the archive\n"
+"  -k, --keep-old-files       don't overwrite existing files when extracting\n"
+"  -U, --unlink-first         remove each file prior to extracting over it\n"
+"      --recursive-unlink     empty hierarchies prior to extracting "
+"directory\n"
+"  -S, --sparse               handle sparse files efficiently\n"
+"  -O, --to-stdout            extract files to standard output\n"
+"  -G, --incremental          handle old GNU-format incremental backup\n"
+"  -g, --listed-incremental   handle new GNU-format incremental backup\n"
+"      --ignore-failed-read   do not exit with nonzero on unreadable files\n"
+msgstr ""
+"\n"
+"Modifiera operationslägen:\n"
+"  -W, --verify               försök verifiera arkivet efter det skapats\n"
+"      --remove-files         ta bort filer efter de sparats i arkivet\n"
+"  -k, --keep-old-files       skriv inte över existerande filer vid "
+"extraktion\n"
+"  -U, --unlink-first         ta bort gamla filer innan de nya extraheras\n"
+"      --recursive-unlink     ta bort kataloger före extrahering\n"
+"  -S, --sparse               hantera filer med hål mer effektivt\n"
+"  -O, --to-stdout            extrahera filer till standard ut\n"
+"  -G, --incremental          hantera gamla GNU-formatet för inkrementell\n"
+"                             säkerhetskopiering\n"
+"  -g, --listed-incremental   hantera nya GNU-formatet för inkrementell\n"
+"                             säkerhetskopiering\n"
+"      --ignore-failed-read   avsluta inte med felslutstatus p.g.a. oläsbara\n"
+"                             filer\n"
+
+#: src/tar.c:299
+msgid ""
+"\n"
+"Handling of file attributes:\n"
+"      --owner=NAME             force NAME as owner for added files\n"
+"      --group=NAME             force NAME as group for added files\n"
+"      --mode=CHANGES           force (symbolic) mode CHANGES for added "
+"files\n"
+"      --atime-preserve         don't change access times on dumped files\n"
+"  -m, --modification-time      don't extract file modified time\n"
+"      --same-owner             try extracting files with the same ownership\n"
+"      --numeric-owner          always use numbers for user/group names\n"
+"  -p, --same-permissions       extract all protection information\n"
+"      --preserve-permissions   same as -p\n"
+"  -s, --same-order             sort names to extract to match archive\n"
+"      --preserve-order         same as -s\n"
+"      --preserve               same as both -p and -s\n"
+msgstr ""
+"\n"
+"Hantering av filattribut:\n"
+"      --owner=NAMN             sätt NAMN som ägare för adderade filer\n"
+"      --group=NAMN             sätt NAMN som grupp för adderade filer\n"
+"      --mode=RÄTTIGHET         sätt (symbolisk) RÄTTIGHET för adderade "
+"filer\n"
+"      --atime-preserve         ändra inte åtkomsttider på arkiverade filer\n"
+"  -m, --modification-time      extrahera inte filers modifieringstid\n"
+"      --same-owner             försök extrahera filer med samma ägare som i\n"
+"                               arkivet\n"
+"      --numeric-owner          använd alltid tal för användar- och "
+"gruppnamn\n"
+"  -p, --same-permissions       extrahera all åtkomstinformation\n"
+"      --preserve-permissions   samma som -p\n"
+"  -s, --same-order             sortera namn som ska extraheras så de passar\n"
+"                               ihop med arkivet\n"
+"      --preserve-order         samma som -s\n"
+"      --preserve               samma som både -p och -s\n"
+
+#: src/tar.c:315
+msgid ""
+"\n"
+"Device selection and switching:\n"
+"  -f, --file=ARCHIVE             use archive file or device ARCHIVE\n"
+"      --force-local              archive file is local even if has a colon\n"
+"      --rsh-command=COMMAND      use remote COMMAND instead of rsh\n"
+"  -[0-7][lmh]                    specify drive and density\n"
+"  -M, --multi-volume             create/list/extract multi-volume archive\n"
+"  -L, --tape-length=NUM          change tape after writing NUM x 1024 bytes\n"
+"  -F, --info-script=FILE         run script at end of each tape (implies "
+"-M)\n"
+"      --new-volume-script=FILE   same as -F FILE\n"
+"      --volno-file=FILE          use/update the volume number in FILE\n"
+msgstr ""
+"\n"
+"Enhetsval och enhetsbyte:\n"
+"  -f, --file=ARKIV               använd arkivfil eller enhet ARKIV\n"
+"      --force-local              arkivfilen är lokal även om namnet har "
+"kolon\n"
+"      --rsh-command=KOMMANDO     använd KOMMANDO i stället för rsh.\n"
+"  -[0-7][lmh]                    ange enhet och densitet\n"
+"  -M, --multi-volume             skapa/visa/extrahera ett flervolymsarkiv\n"
+"  -L, --tape-length=ANTAL        byt band efter det att ANTAL x 1024\n"
+"                                 byte skrivits\n"
+"  -F, --info-script=FIL          kör kommandofil FIL vid slutet av varje "
+"band\n"
+"                                 (flaggan -M sätts också)\n"
+"      --new-volume-script=FIL    samma som -F FIL\n"
+"      --volno-file=FIL           använd/uppdatera volymnummer i FIL\n"
+
+#: src/tar.c:328
+msgid ""
+"\n"
+"Device blocking:\n"
+"  -b, --blocking-factor=BLOCKS   BLOCKS x 512 bytes per record\n"
+"      --record-size=SIZE         SIZE bytes per record, multiple of 512\n"
+"  -i, --ignore-zeros             ignore zeroed blocks in archive (means "
+"EOF)\n"
+"  -B, --read-full-records        reblock as we read (for 4.2BSD pipes)\n"
+msgstr ""
+"\n"
+"Blockhantering:\n"
+"  -b, --blocking-factor=BLOCK    BLOCK x 512 byte per post\n"
+"      --record-size=ANTAL        ANTAL byte per post, multipel av 512\n"
+"  -i, --ignore-zeros             ignorera block med enbart nolltecken\n"
+"                                 (betyder filslut)\n"
+"  -B, --read-full-records        omblocka vid läsning (för 4.2BSD-rör)\n"
+
+#: src/tar.c:336
+msgid ""
+"\n"
+"Archive format selection:\n"
+"  -V, --label=NAME                   create archive with volume name NAME\n"
+"              PATTERN                at list/extract time, a globbing "
+"PATTERN\n"
+"  -o, --old-archive, --portability   write a V7 format archive\n"
+"      --posix                        write a POSIX conformant archive\n"
+"  -z, --gzip, --ungzip               filter the archive through gzip\n"
+"  -Z, --compress, --uncompress       filter the archive through compress\n"
+"      --use-compress-program=PROG    filter through PROG (must accept -d)\n"
+msgstr ""
+"\n"
+"Val av arkivformat:\n"
+"  -V, --label=NAMN                   skapa ett arkiv med volymnamnet NAMN\n"
+"              REGUTTR                vid visning/extrahering är namnet ett\n"
+"                                     reguljärt uttryck.\n"
+"  -o, --old-archive, --portability   skriv ett arkiv i V7-format\n"
+"      --posix                        skriv ett arkiv i POSIX-format\n"
+"  -z, --gzip, --ungzip               filtrera arkivet genom gzip\n"
+"  -Z, --compress, --uncompress       filtrera arkivet genom compress\n"
+"      --use-compress-program=PROG    filtrera genom PROG (måste förstå -d)\n"
+
+#: src/tar.c:347
+msgid ""
+"\n"
+"Local file selection:\n"
+"  -C, --directory=DIR          change to directory DIR\n"
+"  -T, --files-from=NAME        get names to extract or create from file "
+"NAME\n"
+"      --null                   -T reads null-terminated names, disable -C\n"
+"      --exclude=PATTERN        exclude files, given as a globbing PATTERN\n"
+"  -X, --exclude-from=FILE      exclude globbing patterns listed in FILE\n"
+"  -P, --absolute-names         don't strip leading `/'s from file names\n"
+"  -h, --dereference            dump instead the files symlinks point to\n"
+"      --no-recursion           avoid descending automatically in "
+"directories\n"
+"  -l, --one-file-system        stay in local file system when creating "
+"archive\n"
+"  -K, --starting-file=NAME     begin at file NAME in the archive\n"
+msgstr ""
+"\n"
+"Filval:\n"
+"  -C, --directory=KATALOG    byt katalog till KATALOG\n"
+"  -T, --files-from=NAMN      hämta namn att extrahera från filen NAMN\n"
+"      --null                 -T läser namn åtskilda med nolltecken, -C "
+"obrukbar\n"
+"      --exclude=MÖNSTER      tag inte med filer som matchar MÖNSTER\n"
+"  -X, --exclude-from=FIL     tag inte med filer som matchar mönster i filen "
+"FIL\n"
+"  -P, --absolute-names       tag inte bort inledande \"/\" från namn\n"
+"  -h, --dereference          arkivera det som symboliska länkar pekar på\n"
+"      --no-recurse           gå inte automatiskt ned i kataloger\n"
+"  -l, --one-file-system      byt inte filsystem när arkivet skapas\n"
+"  -K, --starting-file=NAMN   börja med fil NAMN i arkivet\n"
+
+#: src/tar.c:362
+msgid ""
+"  -N, --newer=DATE             only store files newer than DATE\n"
+"      --newer-mtime            compare date and time when data changed only\n"
+"      --after-date=DATE        same as -N\n"
+msgstr ""
+"  -N, --newer=DATUM          arkivera bara filer nyare än DATUM\n"
+"      --newer-mtime          jämför datum och tid endast för dataändringar\n"
+"      --after-date=DATUM     samma som -N\n"
+
+#: src/tar.c:368
+msgid ""
+"      --backup[=CONTROL]       backup before removal, choose version "
+"control\n"
+"      --suffix=SUFFIX          backup before removel, override usual suffix\n"
+msgstr ""
+"      --backup[=KONTROLL]      gör säkerhetskopior före borttagning,\n"
+"                               välj typ av versionshantering\n"
+"      --suffix=SUFFIX          gör säkerhetskopior före borttagning,\n"
+"                               ersätt den normala säkerhetskopieändelsen\n"
+
+#: src/tar.c:372
+msgid ""
+"\n"
+"Informative output:\n"
+"      --help            print this help, then exit\n"
+"      --version         print tar program version number, then exit\n"
+"  -v, --verbose         verbosely list files processed\n"
+"      --checkpoint      print directory names while reading the archive\n"
+"      --totals          print total bytes written while creating archive\n"
+"  -R, --block-number    show block number within archive with each message\n"
+"  -w, --interactive     ask for confirmation for every action\n"
+"      --confirmation    same as -w\n"
+msgstr ""
+"\n"
+"Informativ utskrift:\n"
+"      --help            visa denna hjälptext och avsluta\n"
+"      --version         visa versionsinformation och avsluta\n"
+"  -v, --verbose         visa namn på alla filer som behandlas\n"
+"      --checkpoint      visa katalognamn när arkivet läses\n"
+"      --totals          visa antal skrivna byte när arkivet skapas\n"
+"  -R, --block-number    visa blocknummer inom arkivet för varje meddelande\n"
+"  -w, --interactive     fråga efter bekräftelse för varje steg\n"
+"      --confirmation    samma som -w\n"
+
+#: src/tar.c:384
+msgid ""
+"\n"
+"The backup suffix is `~', unless set with --suffix or SIMPLE_BACKUP_SUFFIX.\n"
+"The version control may be set with --backup or VERSION_CONTROL, values "
+"are:\n"
+"\n"
+"  t, numbered     make numbered backups\n"
+"  nil, existing   numbered if numbered backups exist, simple otherwise\n"
+"  never, simple   always make simple backups\n"
+msgstr ""
+"\n"
+"Säkerhetskopieändelse är \"~\", om den inte sätts med --suffix eller\n"
+"SIMPLE_BACKUP_SUFFIX.\n"
+"Versionshanteringen kan styras med --backup eller VERSION_CONTROL,\n"
+"där värdena kan vara:\n"
+"\n"
+"  t, numbered     gör numrerade säkerhetskopior\n"
+"  nil, existing   numrerade säkerhetskopior om det redan finns sådana,\n"
+"                   enkla annars\n"
+"  never, simple   gör alltid enkla säkerhetskopior\n"
+
+#: src/tar.c:393
+#, c-format
+msgid ""
+"\n"
+"GNU tar cannot read nor produce `--posix' archives.  If POSIXLY_CORRECT\n"
+"is set in the environment, GNU extensions are disallowed with `--posix'.\n"
+"Support for POSIX is only partially implemented, don't count on it yet.\n"
+"ARCHIVE may be FILE, HOST:FILE or USER@HOST:FILE; and FILE may be a file\n"
+"or a device.  *This* `tar' defaults to `-f%s -b%d'.\n"
+msgstr ""
+"\n"
+"GNU \"tar\" kan inte läsa eller skapa \"--posix\" arkiv. Om miljövariabeln\n"
+"POSIXLY_CORRECT är satt så tar \"--posix\" bort GNUs utökningar till "
+"\"tar\".\n"
+"Stöd för POSIX är bara delvis implementerat, så förlita er inte på det än.\n"
+"ARKIV kan vara FIL, MASKIN:FIL eller ANVÄNDARE@MASKIN:FIL, och FIL kan vara\n"
+"en fil eller en enhet.  *Denna* \"tar\" har normalvärdena \"-f%s -b%d\".\n"
+
+#: src/tar.c:401
+msgid ""
+"\n"
+"Report bugs to <tar-bugs@gnu.org>.\n"
+msgstr ""
+"\n"
+"Rapportera fel till <tar-bugs@gnu.org>.\n"
+"Rapportera fel eller synpunkter på översättningen till <sv@li.org>.\n"
+
+#: src/tar.c:427
+msgid "You may not specify more than one `-Acdtrux' option"
+msgstr "Du kan endast ange en av flaggorna \"-Acdtrux\""
+
+#: src/tar.c:436
+msgid "Conflicting compression options"
+msgstr "Motstridiga komprimeringsflaggor"
+
+#: src/tar.c:500
+#, c-format
+msgid "Old option `%c' requires an argument."
+msgstr "Gammal flagga \"%c\" behöver ett argument"
+
+#: src/tar.c:543
+msgid "Obsolete option, now implied by --blocking-factor"
+msgstr "Föråldrad flagga som nu impliceras av --blocking-factor"
+
+#: src/tar.c:547
+msgid "Obsolete option name replaced by --blocking-factor"
+msgstr "Föråldrad flagga ersatt med --blocking-factor"
+
+#: src/tar.c:557
+msgid "Invalid blocking factor"
+msgstr ""
+
+#: src/tar.c:563
+msgid "Obsolete option name replaced by --read-full-records"
+msgstr "Föråldrad flagga ersatt med --read-full-records"
+
+#: src/tar.c:657
+msgid "Invalid tape length"
+msgstr ""
+
+#: src/tar.c:666
+msgid "Obsolete option name replaced by --touch"
+msgstr "Föråldrad flagga ersatt med --touch"
+
+#: src/tar.c:687
+msgid "More than one threshold date"
+msgstr "Mer än en datumgräns"
+
+#: src/tar.c:691
+#, c-format
+msgid "Invalid date format `%s'"
+msgstr "Ogiltigt datumformat \"%s\""
+
+#: src/tar.c:700 src/tar.c:866 src/tar.c:871
+msgid "Conflicting archive format options"
+msgstr "Motstridiga arkivformatsflaggor"
+
+#: src/tar.c:712
+msgid "Obsolete option name replaced by --absolute-names"
+msgstr "Föråldrad flagga ersatt med --absolute-names"
+
+#: src/tar.c:724
+msgid "Obsolete option name replaced by --block-number"
+msgstr "Föråldrad flagga ersatt med --block-number"
+
+#: src/tar.c:799
+msgid "Obsolete option name replaced by --backup"
+msgstr "Föråldrad flagga ersatt med --backup"
+
+#: src/tar.c:826
+msgid "Invalid group given on option"
+msgstr "Ogiltig grupp given för flagga"
+
+#: src/tar.c:835
+msgid "Invalid mode given on option"
+msgstr "Ogiltiga rättigheter givna för flagga"
+
+#: src/tar.c:857
+msgid "Invalid owner given on option"
+msgstr "Ogiltig användare given för flagga"
+
+#: src/tar.c:885
+#, fuzzy
+msgid "Invalid record size"
+msgstr "Ogiltigt värde på record_size"
+
+#: src/tar.c:888
+#, c-format
+msgid "Record size must be a multiple of %d."
+msgstr "Poststorlek måste vara en multipel av %d"
+
+#: src/tar.c:985
+msgid "Options `-[0-7][lmh]' not supported by *this* tar"
+msgstr "Flaggorna \"-[0-7][lmh]\" stöds inte av *detta* \"tar\"-program"
+
+#: src/tar.c:995
+#, fuzzy
+msgid ""
+"\n"
+"Copyright (C) 1988, 92,93,94,95,96,97,98, 1999 Free Software Foundation, "
+"Inc.\n"
+msgstr ""
+"\n"
+"Copyright © 1988, 92, 93, 94, 95, 96, 97 Free Software Foundation, Inc.\n"
+
+#: src/tar.c:999 tests/genfile.c:161
+msgid ""
+"This is free software; see the source for copying conditions.  There is NO\n"
+"warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n"
+msgstr ""
+"Detta är fri programvara; se källkoden för kopieringsvillkor.  Det finns "
+"INGEN\n"
+"garanti; inte ens för SÄLJBARHET eller LÄMPLIGHET FÖR NÅGOT SPECIELLT "
+"ÄNDAMÅL.\n"
+
+#: src/tar.c:1003
+msgid ""
+"\n"
+"Written by John Gilmore and Jay Fenlason.\n"
+msgstr ""
+"\n"
+"Skriven av John Gilmore och Jay Fenlason.\n"
+
+#: src/tar.c:1031
+msgid "GNU features wanted on incompatible archive format"
+msgstr "GNU-finesser önskade i ett inkompatibelt arkivformat"
+
+#: src/tar.c:1048
+msgid "Multiple archive files requires `-M' option"
+msgstr "Multipla arkivfiler kräver \"-M\" flaggan"
+
+#: src/tar.c:1062
+msgid "Cowardly refusing to create an empty archive"
+msgstr "Vägrar fegt skapa ett tomt arkiv"
+
+#: src/tar.c:1083
+msgid "Options `-Aru' are incompatible with `-f -'"
+msgstr "Flaggorna \"-Aru\" är inkompatibla med \"-f -\""
+
+#: src/tar.c:1145
+msgid "You must specify one of the `-Acdtrux' options"
+msgstr "Du måste ange en av flaggorna \"-Acdtrux\""
+
+#: src/tar.c:1192
+msgid "Error exit delayed from previous errors"
+msgstr "Avslut med felslutstatus fördröjd från föregående fel"
+
+#: src/update.c:81
+#, fuzzy, c-format
+msgid "Read error at byte %s reading %lu bytes in file %s"
+msgstr "Läsfel vid byte %ld vid läsning av %d byte från fil %s"
+
+#: src/update.c:92
+#, fuzzy, c-format
+msgid "%s: File shrunk by %s bytes, (yark!)"
+msgstr "%s: Filen krympte med %d byte, (huga!)"
+
+#: tests/genfile.c:64
+msgid "Generate data files for GNU tar test suite.\n"
+msgstr "Generera datafiler för GNU tar testsvit.\n"
+
+#: tests/genfile.c:65
+#, c-format
+msgid ""
+"\n"
+"Usage: %s [OPTION]...\n"
+msgstr ""
+"\n"
+"Användning: %s [FLAGGA]...\n"
+
+#: tests/genfile.c:68
+msgid ""
+"If a long option shows an argument as mandatory, then it is mandatory\n"
+"for the equivalent short option also.\n"
+"\n"
+"  -l, --file-length=LENGTH   LENGTH of generated file\n"
+"  -p, --pattern=PATTERN      PATTERN is `default' or `zeros'\n"
+"      --help                 display this help and exit\n"
+"      --version              output version information and exit\n"
+msgstr ""
+"Obligatoriska argument för långa flaggor är obligatoriska även för korta.\n"
+"\n"
+"  -l, --file-length=LÄNGD    LÄNGD på genererad fil\n"
+"  -p, --pattern=MÖNSTER      MÖNSTER är \"default\" eller \"zeros\"\n"
+"      --help                 visa denna hjälptext och avsluta\n"
+"      --version              visa versionsinformation och avsluta\n"
+
+#: tests/genfile.c:134
+#, c-format
+msgid "Ambiguous pattern `%s'"
+msgstr "Tvetydigt mönster \"%s\""
+
+#: tests/genfile.c:138
+#, c-format
+msgid "Unknown pattern `%s'"
+msgstr "Okänt mönster \"%s\""
+
+#: tests/genfile.c:157
+msgid ""
+"\n"
+"Copyright (C) 1995, 1996, 1997 Free Software Foundation, Inc.\n"
+msgstr ""
+"\n"
+"Copyright © 1995, 1996, 1997 Free Software Foundation, Inc.\n"
+
+#: tests/genfile.c:165
+msgid ""
+"\n"
+"Written by François Pinard <pinard@iro.umontreal.ca>.\n"
+msgstr ""
+"\n"
+"Skriven av François Pinard <pinard@iro.umontreal.ca>.\n"
+
+#~ msgid "Amount actually written is (I hope) %d.\n"
+#~ msgstr "Verkligen skriven mängd är %d (hoppas jag).\n"
+
+#~ msgid "%d at %d\n"
+#~ msgstr "%d vid %d\n"

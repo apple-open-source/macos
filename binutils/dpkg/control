@@ -1,0 +1,6 @@
+Package: binutils
+Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
+Vendor: Cygnus
+Version: 4.18-1990707
+Description: GNU Binary Utilities
+Build-Depends: build-base, flex, gnudiff, perl

@@ -1,0 +1,726 @@
+.\"
+.TH ZSHZLE 1 "June 26, 1996" "zsh version 3.0"
+.SH NAME
+zshzle \- zsh command line editor
+.SH DESCRIPTION
+If the \fBZLE\fP option is set (it is by default)
+and the shell input is attached to the terminal, the user
+is allowed to edit command lines.
+.PP
+There are two display modes.  The first, multiline mode, is the
+default.  It only works if the \fBTERM\fP parameter is set to a valid
+terminal type that can move the cursor up.  The second, single line
+mode, is used if \fBTERM\fP is invalid or incapable of moving the
+cursor up, or if the \fBSINGLE_LINE_ZLE\fP option is set.  This mode
+is similar to ksh, and uses no termcap sequences.  If \fBTERM\fP is
+"emacs", the \fBZLE\fP option will be unset by the shell.
+.SS Bindings
+Command bindings may be set using the \fBbindkey\fP builtin.
+There are two keymaps\-the main keymap and the alternate keymap.
+The alternate keymap is bound to vi command mode.
+The main keymap is bound to emacs mode by default.
+To bind the main keymap to vi insert mode, use 
+\fBbindkey \-v\fP. However, if one of the \fBVISUAL\fP or
+\fBEDITOR\fP environment variables contain the string \fBvi\fP when the shell
+starts up the main keymap will be bound to vi insert mode by default.
+.PP
+The following is a list of all the key commands
+and their default bindings in emacs mode,
+vi command mode and vi insert mode.
+.SS Movement
+.TP
+\fBvi-backward-blank-word\fP (unbound) (B) (unbound)
+Move backward one word, where a word is defined as a series of
+non-blank characters.
+.TP
+\fBbackward-char\fP (^B ESC-[D) (unbound) (unbound)
+Move backward one character.
+.TP
+\fBvi-backward-char\fP (unbound) (^H h ^?) (unbound)
+Move backward one character, without changing lines.
+.TP
+\fBbackward-word\fP (ESC-B ESC-b) (unbound) (unbound)
+Move to the beginning of the previous word.
+.TP
+\fBemacs-backward-word\fP
+Move to the beginning of the previous word.
+.TP
+\fBvi-backward-word\fP (unbound) (b) (unbound)
+Move to the beginning of the previous word, vi-style.
+.TP
+\fBbeginning-of-line\fP (^A) (unbound) (unbound)
+Move to the beginning of the line.  If already at the beginning
+of the line, move to the beginning of the previous line, if any.
+.TP
+\fBvi-beginning-of-line\fP
+Move to the beginning of the line, without changing lines.
+.TP
+\fBend-of-line\fP (^E) (unbound) (unbound)
+Move to the end of the line.  If already at the end 
+of the line, move to the end of the next line, if any.
+.TP
+\fBvi-end-of-line\fP (unbound) ($) (unbound)
+Move to the end of the line.
+If an argument is given to this command, the cursor will be moved to
+the end of the line (argument - 1) lines down.
+.TP
+\fBvi-forward-blank-word\fP (unbound) (W) (unbound)
+Move forward one word, where a word is defined as a series of
+non-blank characters.
+.TP
+\fBvi-forward-blank-word-end\fP (unbound) (E) (unbound)
+Move to the end of the current word,
+or, if at the end of the current word,
+to the end of the next word,
+where a word is defined as a series of
+non-blank characters.
+.TP
+\fBforward-char\fP (^F ESC-[C) (unbound) (unbound)
+Move forward one character.
+.TP
+\fBvi-forward-char\fP (unbound) (space l) (unbound)
+Move forward one character.
+.TP
+\fBvi-find-next-char\fP (^X^F) (f) (unbound)
+Read a character from the keyboard, and move to
+the next occurrence of it in the line.
+.TP
+\fBvi-find-next-char-skip\fP (unbound) (t) (unbound)
+Read a character from the keyboard, and move to
+the position just before the next occurrence of it in the line.
+.TP
+\fBvi-find-prev-char\fP (unbound) (F) (unbound)
+Read a character from the keyboard, and move to
+the previous occurrence of it in the line.
+.TP
+\fBvi-find-prev-char-skip\fP (unbound) (T) (unbound)
+Read a character from the keyboard, and move to
+the position just after the previous occurrence of it in the line.
+.TP
+\fBvi-first-non-blank\fP (unbound) (^) (unbound)
+Move to the first non-blank character in the line.
+.TP
+\fBvi-forward-word\fP (unbound) (w) (unbound)
+Move forward one word, vi-style.
+.TP
+\fBforward-word\fP (ESC-F ESC-f) (unbound) (unbound)
+Move to the beginning of the next word.
+The editor's idea of a word is specified with the \fBWORDCHARS\fP
+parameter.
+.TP
+\fBemacs-forward-word\fP
+Move to the end of the next word.
+.TP
+\fBvi-forward-word-end\fP (unbound) (e) (unbound)
+Move to the end of the next word.
+.TP
+\fBvi-goto-column\fP (ESC-|) (|) (unbound)
+Move to the column specified by the numeric argument.
+.TP
+\fBvi-goto-mark\fP (unbound) (`) (unbound)
+Move to the specified mark.
+.TP
+\fBvi-goto-mark-line\fP (unbound) (') (unbound)
+Move to beginning of the line containing the specified mark.
+.TP
+\fBvi-repeat-find\fP (unbound) (;) (unbound)
+Repeat the last \fBvi-find\fP command.
+.TP
+\fBvi-rev-repeat-find\fP (unbound) (,) (unbound)
+Repeat the last \fBvi-find\fP command in the opposite direction.
+.SS History
+.TP
+\fBbeginning-of-buffer-or-history\fP (ESC-<) (unbound) (unbound)
+Move to the beginning of the buffer, or if already there,
+move to the first event in the history list.
+.TP
+\fBbeginning-of-line-hist\fP
+Move to the beginning of the line.  If already at the
+beginning of the buffer, move to the previous history line.
+.TP
+\fBbeginning-of-history\fP
+Move to the first event in the history list.
+.TP
+\fBdown-line-or-history\fP (^N ESC-[B) (j) (unbound)
+Move down a line in the buffer, or if already at the bottom line,
+move to the next event in the history list.
+.TP
+\fBvi-down-line-or-history\fP (unbound) (+) (unbound)
+Move down a line in the buffer, or if already at the bottom line,
+move to the next event in the history list.
+Then move to the first non-blank character on the line.
+.TP
+\fBdown-line-or-search\fP
+Move down a line in the buffer, or if already at the bottom line,
+search forward in the history for a line beginning with the first
+word in the buffer.
+.TP
+\fBdown-history\fP (unbound) (^N) (unbound)
+Move to the next event in the history list.
+.TP
+\fBhistory-beginning-search-backward\fP
+Search backward in the history for a line beginning with the current
+line up to the cursor.
+This leaves the cursor in its original position.
+.TP
+\fBend-of-buffer-or-history\fP (ESC->) (unbound) (unbound)
+Move to the end of the buffer, or if already there,
+move to the last event in the history list.
+.TP
+\fBend-of-line-hist\fP
+Move to the end of the line.  If already at the end of
+the buffer, move to the next history line.
+.TP
+\fBend-of-history\fP
+Move to the last event in the history list.
+.TP
+\fBvi-fetch-history\fP (unbound) (G) (unbound)
+Fetch the history line specified by the numeric argument.
+This defaults to the current history line
+(i.e. the one that isn't history yet).
+.TP
+\fBhistory-incremental-search-backward\fP (^R ^Xr) (unbound) (unbound)
+Search backward incrementally for a specified string.  The search is
+case-insensitive if the search string does not have uppercase letters and no
+numeric argument was given.  The string may begin with `^' to anchor the
+search to the beginning of the line. A restricted set of editing functions
+is available in the mini-buffer. An interrupt signal, as defined by the stty
+setting, will stop the search and go back to the original line. An undefined
+key will have the same effect. The supported functions are:
+backward-delete-char, vi-backward-delete-char,
+clear-screen, redisplay,
+quoted-insert, vi-quoted-insert,
+accept-and-hold, accept-and-infer-next-history, accept-line and
+accept-line-and-down-history; magic-space just inserts a space.
+vi-cmd-mode toggles between the main and alternate key bindings;
+the main key bindings (insert mode) will be selected initially.
+Any string
+that is bound to an out-string (via bindkey -s) will behave as if out-string
+were typed directly.
+Typing the binding of \fBhistory-incremental-search-backward\fP will get the
+next occurrence of the contents of the mini-buffer. Typing the binding of
+\fBhistory-incremental-search-forward\fP inverts the sense of the search.
+\fBvi-repeat-search\fP and \fBvi-rev-repeat-search\fP are similarly supported.
+The direction of the search is indicated in the mini-buffer.
+Any multi-character string 
+that is not bound to one of the above functions will beep and interrupt the
+search, leaving the last found line in the buffer. Any single character that
+is not bound to one of the above functions, or self-insert or
+self-insert-unmeta, will have the same effect but the function will be
+executed.
+.TP
+\fBhistory-incremental-search-forward\fP (^S ^Xs) (unbound) (unbound)
+Search forward incrementally for a specified string.  The search is
+case-insensitive if the search string does not have uppercase letters and no
+numeric argument was given.  The string may begin with `^' to anchor the
+search to the beginning of the line. The functions available in the
+mini-buffer are the same as for \fBhistory-incremental-search-backward\fP.
+.TP
+\fBhistory-search-backward\fP (ESC-P ESC-p) (unbound) (unbound)
+Search backward in the history for a line beginning with the first
+word in the buffer.
+.TP
+\fBvi-history-search-backward\fP (unbound) (/) (unbound)
+Search backward in the history for a specified string.
+The string may begin with `^' to anchor the search to the
+beginning of the line. A restricted set of editing functions is available in
+the mini-buffer. An interrupt signal, as defined by the stty setting,  will
+stop the search.
+The functions available in the mini-buffer are: accept-line,
+vi-cmd-mode (treated the same as accept-line),
+backward-delete-char, vi-backward-delete-char,
+backward-kill-word, vi-backward-kill-word,
+clear-screen, redisplay,
+magic-space (treated as a space),
+quoted-insert and vi-quoted-insert.
+Any string
+that is bound to an out-string (via bindkey -s) will behave as if out-string
+were typed directly. Any other character that is not bound to self-insert or
+self-insert-unmeta will beep and be ignored. If the function is called from vi
+command mode, the bindings of the current insert mode will be used.
+.TP
+\fBhistory-search-forward\fP (ESC-N ESC-n) (unbound) (unbound)
+Search forward in the history for a line beginning with the first
+word in the buffer.
+.TP
+\fBvi-history-search-forward\fP (unbound) (?) (unbound)
+Search forward in the history for a specified string.
+The string may begin with `^' to anchor the search to the
+beginning of the line. The functions available in the mini-buffer are the same
+as for \fBvi-history-search-backward\fP.
+.TP
+\fBinfer-next-history\fP (^X^N) (unbound) (unbound)
+Search in the history list for a line matching the current one and
+fetch the event following it.
+.TP
+\fBinsert-last-word\fP (ESC-_ ESC-.) (unbound) (unbound)
+Insert the last word from the previous history event at the
+cursor position.  If a positive numeric argument is given,
+insert that word from the end of the previous history event.
+If the argument is zero or negative insert that word from the
+left (zero inserts the previous command word).
+.TP
+\fBvi-repeat-search\fP (unbound) (n) (unbound)
+Repeat the last vi history search.
+.TP
+\fBvi-rev-repeat-search\fP (unbound) (N) (unbound)
+Repeat the last vi history search, but in reverse.
+.TP
+\fBup-line-or-history\fP (^P ESC-[A) (k) (unbound)
+Move up a line in the buffer, or if already at the top line,
+move to the previous event in the history list.
+.TP
+\fBvi-up-line-or-history\fP (unbound) (-) (unbound)
+Move up a line in the buffer, or if already at the top line,
+move to the previous event in the history list.
+Then move to the first non-blank character on the line.
+.TP
+\fBup-line-or-search\fP
+Move up a line in the buffer, or if already at the top line,
+search backward in the history for a line beginning with the
+first word in the buffer.
+.TP
+\fBup-history\fP (unbound) (^P) (unbound)
+Move to the previous event in the history list.
+.TP
+\fBhistory-beginning-search-forward\fP
+Search forward in the history for a line beginning with the current
+line up to the cursor.
+This leaves the cursor in its original position.
+.SS Modifying Text
+.TP
+\fBvi-add-eol\fP (unbound) (A) (unbound)
+Move to the end of the line and enter insert mode.
+.TP
+\fBvi-add-next\fP (unbound) (a) (unbound)
+Enter insert mode after the current cursor position, without changing lines.
+.TP
+\fBbackward-delete-char\fP (^H ^?) (unbound) (unbound)
+Delete the character behind the cursor.
+.TP
+\fBvi-backward-delete-char\fP (unbound) (X) (^H)
+Delete the character behind the cursor, without changing lines.
+If in insert mode, this won't delete past the point where insert mode was
+last entered.
+.TP
+\fBbackward-delete-word\fP
+Delete the word behind the cursor.
+.TP
+\fBbackward-kill-line\fP
+Kill from the beginning of the line to the cursor position.
+.TP
+\fBbackward-kill-word\fP (^W ESC-^H ESC-^?) (unbound) (unbound)
+Kill the word behind the cursor.
+.TP
+\fBvi-backward-kill-word\fP (unbound) (unbound) (^W)
+Kill the word behind the cursor, without going past the point where insert
+mode was last entered.
+.TP
+\fBcapitalize-word\fP (ESC-C ESC-c) (unbound) (unbound)
+Capitalize the current word and move past it.
+.TP
+\fBvi-change\fP (unbound) (c) (unbound)
+Read a movement command from the keyboard, and kill
+from the cursor position to the endpoint of the movement.
+Then enter insert mode.
+If the command is \fBvi-change\fP, change the current line.
+.TP
+\fBvi-change-eol\fP (unbound) (C) (unbound)
+Kill to the end of the line and enter insert mode.
+.TP
+\fBvi-change-whole-line\fP (unbound) (S) (unbound)
+Kill the current line and enter insert mode.
+.TP
+\fBcopy-region-as-kill\fP (ESC-W ESC-w) (unbound) (unbound)
+Copy the area from the cursor to the mark to the kill buffer.
+.TP
+\fBcopy-prev-word\fP (ESC-^_) (unbound) (unbound)
+Duplicate the word behind the cursor.
+.TP
+\fBvi-delete\fP (unbound) (d) (unbound)
+Read a movement command from the keyboard, and kill 
+from the cursor position to the endpoint of the movement.
+If the command is \fBvi-delete\fP, kill the current line.
+.TP
+\fBdelete-char\fP
+Delete the character under the cursor.
+.TP
+\fBvi-delete-char\fP (unbound) (x) (unbound)
+Delete the character under the cursor,
+without going past the end of the line.
+.TP
+\fBdelete-word\fP
+Delete the current word.
+.TP
+\fBdown-case-word\fP (ESC-L ESC-l) (unbound) (unbound)
+Convert the current word to all lowercase and move past it.
+.TP
+\fBkill-word\fP (ESC-D ESC-d) (unbound) (unbound)
+Kill the current word.
+.TP
+\fBgosmacs-transpose-chars\fP
+Exchange the two characters behind the cursor.
+.TP
+\fBvi-indent\fP (unbound) (>) (unbound)
+Indent a number of lines.
+.TP
+\fBvi-insert\fP (unbound) (i) (unbound)
+Enter insert mode.
+.TP
+\fBvi-insert-bol\fP (unbound) (I) (unbound)
+Move to the first non-blank character on the line and enter insert mode.\fP
+.TP
+\fBvi-join\fP (^X^J) (J) (unbound)
+Join the current line with the next one.
+.TP
+\fBkill-line\fP (^K) (unbound) (unbound)
+Kill from the cursor to the end of the line.
+If already on the end of the line, kill the newline character.
+.TP
+\fBvi-kill-line\fP (unbound) (unbound) (^U)
+Kill from the cursor back to wherever insert mode was last entered.
+.TP
+\fBvi-kill-eol\fP (unbound) (D) (unbound)
+Kill from the cursor to the end of the line.
+.TP
+\fBkill-region\fP
+Kill from the cursor to the mark.
+.TP
+\fBkill-buffer\fP (^X^K) (unbound) (unbound)
+Kill the entire buffer.
+.TP
+\fBkill-whole-line\fP (^U) (unbound) (unbound)
+Kill the current line.
+.TP
+\fBvi-match-bracket\fP (^X^B) (%) (unbound)
+Move to the bracket character (one of {\|}, (\|), or [\|]) that
+matches the one under the cursor.
+If the cursor is not on a bracket character, move forward without going
+past the end of the line to find one, and then go to the matching bracket.
+.TP
+\fBvi-open-line-above\fP (unbound) (O) (unbound)
+Open a line above the cursor and enter insert mode.
+.TP
+\fBvi-open-line-below\fP (unbound) (o) (unbound)
+Open a line below the cursor and enter insert mode.
+.TP
+\fBvi-oper-swap-case\fP
+Read a movement command from the keyboard, and swap
+the case of all characters
+from the cursor position to the endpoint of the movement.
+If the movement command is \fBvi-oper-swap-case\fP,
+swap the case of all characters on the current line.
+.TP
+\fBoverwrite-mode\fP (^X^O) (unbound) (unbound)
+Toggle between overwrite mode and insert mode.
+.TP
+\fBvi-put-before\fP (unbound) (P) (unbound)
+Insert the contents of the kill buffer before the cursor.
+If the kill buffer contains a sequence of lines (as opposed to characters),
+paste it above the current line.
+.TP
+\fBvi-put-after\fP (unbound) (p) (unbound)
+Insert the contents of the kill buffer after the cursor.
+If the kill buffer contains a sequence of lines (as opposed to characters),
+paste it below the current line.
+.TP
+\fBquoted-insert\fP (^V) (unbound) (unbound)
+Insert the next character typed into the buffer literally.
+An interrupt character will not be inserted.
+.TP
+\fBvi-quoted-insert\fP (unbound) (unbound) (^Q ^V)
+Display a `^' at the cursor position, and
+insert the next character typed into the buffer literally.
+An interrupt character will not be inserted.
+.TP
+\fBquote-line\fP (ESC-') (unbound) (unbound)
+Quote the current line; that is, put a ' character at the
+beginning and the end, and convert all ' characters
+to '\e''.
+.TP
+\fBquote-region\fP (ESC-") (unbound) (unbound)
+Quote the region from the cursor to the mark.
+.TP
+\fBvi-replace\fP (unbound) (R) (unbound)
+Enter overwrite mode.
+.TP
+\fBvi-repeat-change\fP (unbound) (.) (unbound)
+Repeat the last vi mode text modification.
+If a count was used with the modification, it is remembered.
+If a count is given to this command, it overrides the remembered count,
+and is remembered for future uses of this command.
+The cut buffer specification is similarly remembered.
+.TP
+\fBvi-replace-chars\fP (unbound) (r) (unbound)
+Replace the character under the cursor with a character
+read from the keyboard.
+.TP
+\fBself-insert\fP (printable characters) (unbound) (printable characters and some control characters)
+Put a character in the buffer at the cursor position.
+.TP
+\fBself-insert-unmeta\fP (ESC-^I ESC-^J ESC-^M) (unbound) (unbound)
+Put a character in the buffer after stripping the meta bit
+and converting \fB^M\fP to \fB^J\fP.
+.TP
+\fBvi-substitute\fP (unbound) (s) (unbound)
+Substitute the next character(s).
+.TP
+\fBvi-swap-case\fP (unbound) (~) (unbound)
+Swap the case of the character under the cursor and move past it.
+.TP
+\fBtranspose-chars\fP (^T) (unbound) (unbound)
+Exchange the two characters to the left of the
+cursor if at end of line, else exchange the
+character under the cursor with the character
+to the left.
+.TP
+\fBtranspose-words\fP (ESC-T ESC-t) (unbound) (unbound)
+Exchange the current word with the one before it.
+.TP
+\fBvi-unindent\fP (unbound) (<) (unbound)
+Unindent a number of lines.
+.TP
+\fBup-case-word\fP (ESC-U ESC-u) (unbound) (unbound)
+Convert the current word to all caps and move past it.
+.TP
+\fByank\fP (^Y) (unbound) (unbound)
+Insert the contents of the kill buffer at the cursor position.
+.TP
+\fByank-pop\fP (ESC-y) (unbound) (unbound)
+Remove the text just yanked, rotate the kill\-ring,
+and yank the new top.  Only works following
+\fByank\fP or \fByank-pop\fP.
+.TP
+\fBvi-yank\fP (unbound) (y) (unbound)
+Read a movement command from the keyboard, and copy the region
+from the cursor position to the endpoint of the movement
+into the kill buffer.
+If the command is \fBvi-yank\fP, copy the current line.
+.TP
+\fBvi-yank-whole-line\fP (unbound) (Y) (unbound)
+Copy the current line into the kill buffer.
+.TP
+\fBvi-yank-eol\fP
+Copy the region from the cursor position to the end of the line
+into the kill buffer.
+Arguably, this is what Y should do in vi, but it isn't what it actually does.
+.SS Arguments
+.TP
+\fBdigit-argument\fP (ESC-0..ESC-9) (1-9) (unbound)
+Start a new numeric argument, or add to the current one.
+See also \fBvi-digit-or-beginning-of-line\fP.
+.TP
+\fBneg-argument\fP (ESC--) (unbound) (unbound)
+Changes the sign of the following argument.
+.TP
+\fBuniversal-argument\fP
+Multiply the argument of the next command by 4.
+.SS Completion
+.TP
+\fBaccept-and-menu-complete\fP
+In a menu completion, insert the current completion into the buffer,
+and advance to the next possible completion.
+.TP
+\fBcomplete-word\fP
+Attempt completion on the current word.
+.TP
+\fBdelete-char-or-list\fP (^D) (unbound) (unbound)
+Delete the character under the cursor.  If the cursor
+is at the end of the line, list possible completions for the
+current word.
+.TP
+\fBexpand-cmd-path\fP
+Expand the current command to its full pathname.
+.TP
+\fBexpand-or-complete\fP (TAB) (unbound) (TAB)
+Attempt shell expansion on the current word.
+If that fails,
+attempt completion.
+.TP
+\fBexpand-or-complete-prefix\fP
+Attempt shell expansion on the current word upto cursor.
+.TP
+\fBexpand-history\fP (ESC-space ESC-!) (unbound) (unbound)
+Perform history expansion on the edit buffer.
+.TP
+\fBexpand-word\fP (^X*) (unbound) (unbound)
+Attempt shell expansion on the current word.
+.TP
+\fBlist-choices\fP (ESC-^D) (^D =) (^D)
+List possible completions for the current word.
+.TP
+\fBlist-expand\fP (^Xg ^XG) (^G) (^G)
+List the expansion of the current word.
+.TP
+\fBmagic-space\fP
+Perform history expansion and insert a space into the
+buffer.  This is intended to be bound to space.
+.TP
+\fBmenu-complete\fP
+Like \fBcomplete-word\fP, except that menu completion is used.
+See the \fBMENU_COMPLETE\fP option below.
+.TP
+\fBmenu-expand-or-complete\fP
+Like \fBexpand-or-complete\fP, except that menu completion is used.
+.TP
+\fBreverse-menu-complete\fP
+See the \fBMENU_COMPLETE\fP option below.
+.SS Miscellaneous
+.TP
+\fBaccept-and-hold\fP (ESC-A ESC-a) (unbound) (unbound)
+Push the contents of the buffer on the buffer stack
+and execute it.
+.TP
+\fBaccept-and-infer-next-history\fP
+Execute the contents of the buffer.
+Then search the history list for a line matching the current one
+and push the event following onto the buffer stack.
+.TP
+\fBaccept-line\fP (^J ^M) (^J ^M) (^J ^M)
+Execute the contents of the buffer.
+.TP
+\fBaccept-line-and-down-history\fP (^O) (unbound) (unbound)
+Execute the current line, and push the next history
+event on the the buffer stack.
+.TP
+\fBvi-cmd-mode\fP (^X^V) (unbound) (^[)
+Enter command mode; that is, use the alternate keymap.
+Yes, this is bound by default in emacs mode.
+.TP
+\fBvi-caps-lock-panic\fP
+Hang until any lowercase key is pressed.
+This is for vi users without the mental capacity to keep
+track of their caps lock key (like the author).
+.TP
+\fBclear-screen\fP (^L ESC-^L) (^L) (^L)
+Clear the screen and redraw the prompt.
+.TP
+\fBdescribe-key-briefly\fP
+Waits for a keypress then prints the function bound to the pressed key.
+.TP
+\fBexchange-point-and-mark\fP (^X^X) (unbound) (unbound)
+Exchange the cursor position with the position of the mark.
+.TP
+\fBexecute-named-cmd\fP (ESC-x) (unbound) (unbound)
+Read the name of an editor command and
+execute it. A restricted set of editing functions is available in the
+mini-buffer. An interrupt signal, as defined by the stty setting, will
+abort the function. The allowed functions are:
+backward-delete-char, vi-backward-delete-char,
+clear-screen, redisplay,
+quoted-insert, vi-quoted-insert,
+kill-region (kills the last word),
+backward-kill-word, vi-backward-kill-word,
+kill-whole-line, vi-kill-line, backward-kill-line,
+list-choices, delete-char-or-list,
+complete-word, expand-or-complete, expand-or-complete-prefix,
+accept-line and vi-cmd-mode (treated the same as accept-line).
+The space and tab characters, if not bound to one of
+these functions, will complete the name and then list the
+possibilities if the \fBAUTO_LIST\fP option is set.
+Any string
+that is bound to an out-string (via bindkey -s) will behave as if out-string
+were typed directly. Any other character that is not bound to self-insert or
+self-insert-unmeta will beep and be ignored. If the function is called from vi
+command mode, the bindings of the current insert mode will be used.
+.TP
+\fBexecute-last-named-cmd\fP (ESC-z) (unbound) (unbound)
+Redo the last function executed with \fBexecute-named-cmd\fP.
+.TP
+\fBget-line\fP (ESC-G ESC-g) (unbound) (unbound)
+Pop the top line off the buffer stack and insert it at the
+cursor position.
+.TP
+\fBpound-insert\fP (unbound) (#) (unbound)
+If there is no # character at the beginning of the buffer,
+add one to the beginning of each line.
+If there is one, remove a # from each line that has one.
+In either case, accept the current line.
+The \fBINTERACTIVE_COMMENTS\fP option must be set
+for this to have any usefulness.
+.TP
+\fBvi-pound-insert\fP
+If there is no # character at the beginning of the current line,
+add one.  If there is one, remove it.
+The \fBINTERACTIVE_COMMENTS\fP option must be set
+for this to have any usefulness.
+.TP
+\fBpush-input\fP
+Push the entire current multiline construct onto the buffer stack and
+return to the top-level (\fBPS1\fP) prompt.
+If the current parser construct is only a single line, this is exactly
+like \fBpush-line\fP.
+Next time the editor starts up or is popped with \fBget-line\fP, the
+construct will be popped off the top of the buffer stack and loaded
+into the editing buffer.
+.TP
+\fBpush-line\fP (^Q ESC-Q ESC-q) (unbound) (unbound)
+Push the current buffer onto the buffer stack and clear
+the buffer.
+Next time the editor starts up, the buffer will be popped
+off the top of the buffer stack and loaded into the editing
+buffer.
+.TP
+\fBpush-line-or-edit\fP
+At the top-level (\fBPS1\fP) prompt, equivalent to \fBpush-line\fP.
+At a secondary (\fBPS2\fP) prompt, move the entire current multiline
+construct into the editor buffer.
+The latter is equivalent to \fBpush-input\fP followed by \fBget-line\fP.
+.TP
+\fBredisplay\fP (unbound) (^R) (^R)
+Redisplays the edit buffer.
+.TP
+\fBsend-break\fP (^G ESC-^G) (unbound) (unbound)
+Abort the current editor function, eg. \fBexecute-named-command\fP, or the
+editor itself, eg. if you are in \fBvared\fP. Otherwise abort the parsing of
+the current line.
+.TP
+\fBrun-help\fP (ESC-H ESC-h) (unbound) (unbound)
+Push the buffer onto the buffer stack, and execute the
+command "\fBrun-help\fP \fIcmd\fP", where \fIcmd\fP is the current
+command.  \fBrun-help\fP is normally aliased to \fBman\fP.
+.TP
+\fBvi-set-buffer\fP (unbound) (") (unbound)
+Specify a buffer to be used in the following command.
+There are 35 buffers that can be specified: the 26 `named' buffers "a to "z
+and the nine `queued' buffers "1 to "9.  The named buffers can also
+be specified as "A to "Z.
+When a buffer is specified for a cut command, the text being cut replaces
+the previous contents of the specified buffer.  If a named buffer
+is specified using a capital, the newly cut text is appended to the buffer
+instead of overwriting it.
+If no buffer is specified for a cut command, "1 is used, and the
+contents of "1 to "8 are each shifted along one buffer; the contents of
+"9 is lost.
+.TP
+\fBvi-set-mark\fP (unbound) (m) (unbound)
+Set the specified mark at the cursor position.
+.TP
+\fBset-mark-command\fP (^@) (unbound) (unbound)
+Set the mark at the cursor position.
+.TP
+\fBspell-word\fP (ESC-$ ESC-S ESC-s) (unbound) (unbound)
+Attempt spelling correction on the current word.
+.TP
+\fBundefined-key\fP (lots o' keys) (lots o' keys) (unbound)
+Beep.
+.TP
+\fBundo\fP (^_ ^Xu ^X^U) (unbound) (unbound)
+Incrementally undo the last text modification.
+.TP
+\fBvi-undo-change\fP (unbound) (u) (unbound)
+Undo the last text modification.
+If repeated, redo the modification.
+.TP
+\fBwhere-is\fP
+Read the name of an editor command and and print the listing of key
+sequences that invoke the specified command.
+.TP
+\fBwhich-command\fP (ESC-?) (unbound) (unbound)
+Push the buffer onto the buffer stack, and execute the
+command "\fBwhich-command\fP \fIcmd\fP", where \fIcmd\fP is the current
+command.  \fBwhich-command\fP is normally aliased to \fBwhence\fP.
+.TP
+\fBvi-digit-or-beginning-of-line\fP (unbound) (0) (unbound)
+If the last command executed was a digit as part of an argument,
+continue the argument.  Otherwise, execute vi-beginning-of-line.

@@ -1,0 +1,19 @@
+# List of source files containing translatable strings.
+
+# Source files from the compat directory
+compat/getopt.c
+compat/xalloc.c
+compat/regex.c
+
+# Enscript source.
+src/main.c
+src/psgen.c
+src/util.c
+src/mkafmmap.c
+
+# States source.
+states/lex.l
+states/main.c
+states/prims.c
+states/process.c
+states/utils.c

@@ -1,0 +1,31 @@
+.\"	$OpenBSD: bindresvport.3,v 1.4 1996/10/21 03:49:53 deraadt Exp $
+.\"
+.Dd November 22, 1987
+.Dt BINDRESVPORT 3
+.Os
+.Sh NAME
+.Nm bindresvport
+.Nd bind a socket to a privileged IP port
+.Sh SYNOPSIS
+.Fd #include <sys/types.h>
+.Fd include <netinet/in.h>
+.Ft int
+.Fn bindresvport "int sd" "struct sockaddr_in **sin"
+.Sh DESCRIPTION
+.Fn bindresvport
+is used to bind a socket descriptor to a privileged
+.Tn IP
+port, that is, a
+port number in the range 0-1023.
+The routine returns 0 if it is successful,
+otherwise -1 is returned and
+.Va errno
+set to reflect the cause of the error.
+.Pp
+Only root can bind to a privileged port; this call will fail for any
+other users.
+.Pp
+If the value of sin->sin_port is non-zero
+.Fn bindresvport
+otherwise it attempts to use the specified port.  If that fails, it
+chooses another privileged port number automatically.

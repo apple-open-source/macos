@@ -1,0 +1,1306 @@
+This is ../info/gnus, produced by makeinfo version 4.0 from gnus.texi.
+
+START-INFO-DIR-ENTRY
+* Gnus: (gnus).         The newsreader Gnus.
+END-INFO-DIR-ENTRY
+
+   This file documents Gnus, the GNU Emacs newsreader.
+
+   Copyright (C) 1995,96 Free Software Foundation, Inc.
+
+   Permission is granted to make and distribute verbatim copies of this
+manual provided the copyright notice and this permission notice are
+preserved on all copies.
+
+   Permission is granted to copy and distribute modified versions of
+this manual under the conditions for verbatim copying, provided also
+that the entire resulting derived work is distributed under the terms
+of a permission notice identical to this one.
+
+   Permission is granted to copy and distribute translations of this
+manual into another language, under the above conditions for modified
+versions.
+
+
+File: gnus,  Node: Troubleshooting,  Next: A Programmers Guide to Gnus,  Prev: Customization,  Up: Appendices
+
+Troubleshooting
+===============
+
+   Gnus works _so_ well straight out of the box--I can't imagine any
+problems, really.
+
+   Ahem.
+
+  1. Make sure your computer is switched on.
+
+  2. Make sure that you really load the current Gnus version.  If you
+     have been running GNUS, you need to exit Emacs and start it up
+     again before Gnus will work.
+
+  3. Try doing an `M-x gnus-version'.  If you get something that looks
+     like `Gnus v5.46; nntp 4.0' you have the right files loaded.  If,
+     on the other hand, you get something like `NNTP 3.x' or `nntp
+     flee', you have some old `.el' files lying around.  Delete these.
+
+  4. Read the help group (`G h' in the group buffer) for a FAQ and a
+     how-to.
+
+  5. Gnus works on many recursive structures, and in some extreme (and
+     very rare) cases Gnus may recurse down "too deeply" and Emacs will
+     beep at you.  If this happens to you, set `max-lisp-eval-depth' to
+     500 or something like that.
+
+   If all else fails, report the problem as a bug.
+
+   If you find a bug in Gnus, you can report it with the `M-x gnus-bug'
+command. `M-x set-variable RET debug-on-error RET t RET', and send me
+the backtrace.  I will fix bugs, but I can only fix them if you send me
+a precise description as to how to reproduce the bug.
+
+   You really can never be too detailed in a bug report.  Always use the
+`M-x gnus-bug' command when you make bug reports, even if it creates a
+10Kb mail each time you use it, and even if you have sent me your
+environment 500 times before.  I don't care.  I want the full info each
+time.
+
+   It is also important to remember that I have no memory whatsoever.
+If you send a bug report, and I send you a reply, and then you just send
+back "No, it's not! Moron!", I will have no idea what you are insulting
+me about.  Always over-explain everything.  It's much easier for all of
+us--if I don't have all the information I need, I will just mail you
+and ask for more info, and everything takes more time.
+
+   If the problem you're seeing is very visual, and you can't quite
+explain it, copy the Emacs window to a file (with `xwd', for instance),
+put it somewhere it can be reached, and include the URL of the picture
+in the bug report.
+
+   If you just need help, you are better off asking on
+`gnu.emacs.gnus'.  I'm not very helpful.
+
+   You can also ask on the ding mailing list--`ding@gnus.org'.  Write
+to `ding-request@gnus.org' to subscribe.
+
+
+File: gnus,  Node: A Programmers Guide to Gnus,  Next: Emacs for Heathens,  Prev: Troubleshooting,  Up: Appendices
+
+A Programmers' Guide to Gnus
+============================
+
+   It is my hope that other people will figure out smart stuff that Gnus
+can do, and that other people will write those smart things as well.  To
+facilitate that I thought it would be a good idea to describe the inner
+workings of Gnus.  And some of the not-so-inner workings, while I'm at
+it.
+
+   You can never expect the internals of a program not to change, but I
+will be defining (in some details) the interface between Gnus and its
+backends (this is written in stone), the format of the score files
+(ditto), data structures (some are less likely to change than others)
+and general methods of operation.
+
+* Menu:
+
+* Gnus Utility Functions::   Common functions and variable to use.
+* Backend Interface::        How Gnus communicates with the servers.
+* Score File Syntax::        A BNF definition of the score file standard.
+* Headers::                  How Gnus stores headers internally.
+* Ranges::                   A handy format for storing mucho numbers.
+* Group Info::               The group info format.
+* Extended Interactive::     Symbolic prefixes and stuff.
+* Emacs/XEmacs Code::        Gnus can be run under all modern Emacsen.
+* Various File Formats::     Formats of files that Gnus use.
+
+
+File: gnus,  Node: Gnus Utility Functions,  Next: Backend Interface,  Up: A Programmers Guide to Gnus
+
+Gnus Utility Functions
+----------------------
+
+   When writing small functions to be run from hooks (and stuff), it's
+vital to have access to the Gnus internal functions and variables.
+Below is a list of the most common ones.
+
+`gnus-newsgroup-name'
+     This variable holds the name of the current newsgroup.
+
+`gnus-find-method-for-group'
+     A function that returns the select method for GROUP.
+
+`gnus-group-real-name'
+     Takes a full (prefixed) Gnus group name, and returns the unprefixed
+     name.
+
+`gnus-group-prefixed-name'
+     Takes an unprefixed group name and a select method, and returns
+     the full (prefixed) Gnus group name.
+
+`gnus-get-info'
+     Returns the group info list for GROUP.
+
+`gnus-group-unread'
+     The number of unread articles in GROUP, or `t' if that is unknown.
+
+`gnus-active'
+     The active entry for GROUP.
+
+`gnus-set-active'
+     Set the active entry for GROUP.
+
+`gnus-add-current-to-buffer-list'
+     Adds the current buffer to the list of buffers to be killed on Gnus
+     exit.
+
+`gnus-continuum-version'
+     Takes a Gnus version string as a parameter and returns a floating
+     point number.  Earlier versions will always get a lower number
+     than later versions.
+
+`gnus-group-read-only-p'
+     Says whether GROUP is read-only or not.
+
+`gnus-news-group-p'
+     Says whether GROUP came from a news backend.
+
+`gnus-ephemeral-group-p'
+     Says whether GROUP is ephemeral or not.
+
+`gnus-server-to-method'
+     Returns the select method corresponding to SERVER.
+
+`gnus-server-equal'
+     Says whether two virtual servers are equal.
+
+`gnus-group-native-p'
+     Says whether GROUP is native or not.
+
+`gnus-group-secondary-p'
+     Says whether GROUP is secondary or not.
+
+`gnus-group-foreign-p'
+     Says whether GROUP is foreign or not.
+
+`group-group-find-parameter'
+     Returns the parameter list of GROUP.  If given a second parameter,
+     returns the value of that parameter for GROUP.
+
+`gnus-group-set-parameter'
+     Takes three parameters; GROUP, PARAMETER and VALUE.
+
+`gnus-narrow-to-body'
+     Narrows the current buffer to the body of the article.
+
+`gnus-check-backend-function'
+     Takes two parameters, FUNCTION and GROUP.  If the backend GROUP
+     comes from supports FUNCTION, return non-`nil'.
+
+          (gnus-check-backend-function "request-scan" "nnml:misc")
+          => t
+
+`gnus-read-method'
+     Prompts the user for a select method.
+
+
+File: gnus,  Node: Backend Interface,  Next: Score File Syntax,  Prev: Gnus Utility Functions,  Up: A Programmers Guide to Gnus
+
+Backend Interface
+-----------------
+
+   Gnus doesn't know anything about NNTP, spools, mail or virtual
+groups.  It only knows how to talk to "virtual servers".  A virtual
+server is a "backend" and some "backend variables".  As examples of the
+first, we have `nntp', `nnspool' and `nnmbox'.  As examples of the
+latter we have `nntp-port-number' and `nnmbox-directory'.
+
+   When Gnus asks for information from a backend--say `nntp'--on
+something, it will normally include a virtual server name in the
+function parameters.  (If not, the backend should use the "current"
+virtual server.)  For instance, `nntp-request-list' takes a virtual
+server as its only (optional) parameter.  If this virtual server hasn't
+been opened, the function should fail.
+
+   Note that a virtual server name has no relation to some physical
+server name.  Take this example:
+
+     (nntp "odd-one"
+           (nntp-address "ifi.uio.no")
+           (nntp-port-number 4324))
+
+   Here the virtual server name is `odd-one' while the name of the
+physical server is `ifi.uio.no'.
+
+   The backends should be able to switch between several virtual
+servers.  The standard backends implement this by keeping an alist of
+virtual server environments that they pull down/push up when needed.
+
+   There are two groups of interface functions: "required functions",
+which must be present, and "optional functions", which Gnus will always
+check for presence before attempting to call 'em.
+
+   All these functions are expected to return data in the buffer
+`nntp-server-buffer' (` *nntpd*'), which is somewhat unfortunately
+named, but we'll have to live with it.  When I talk about "resulting
+data", I always refer to the data in that buffer.  When I talk about
+"return value", I talk about the function value returned by the
+function call.  Functions that fail should return `nil' as the return
+value.
+
+   Some backends could be said to be "server-forming" backends, and
+some might be said not to be.  The latter are backends that generally
+only operate on one group at a time, and have no concept of "server" -
+they have a group, and they deliver info on that group and nothing more.
+
+   In the examples and definitions I will refer to the imaginary backend
+`nnchoke'.
+
+* Menu:
+
+* Required Backend Functions::        Functions that must be implemented.
+* Optional Backend Functions::        Functions that need not be implemented.
+* Error Messaging::                   How to get messages and report errors.
+* Writing New Backends::              Extending old backends.
+* Hooking New Backends Into Gnus::    What has to be done on the Gnus end.
+* Mail-like Backends::                Some tips on mail backends.
+
+
+File: gnus,  Node: Required Backend Functions,  Next: Optional Backend Functions,  Up: Backend Interface
+
+Required Backend Functions
+..........................
+
+`(nnchoke-retrieve-headers ARTICLES &optional GROUP SERVER FETCH-OLD)'
+     ARTICLES is either a range of article numbers or a list of
+     `Message-ID's.  Current backends do not fully support either--only
+     sequences (lists) of article numbers, and most backends do not
+     support retrieval of `Message-ID's.  But they should try for both.
+
+     The result data should either be HEADs or NOV lines, and the result
+     value should either be `headers' or `nov' to reflect this.  This
+     might later be expanded to `various', which will be a mixture of
+     HEADs and NOV lines, but this is currently not supported by Gnus.
+
+     If FETCH-OLD is non-`nil' it says to try fetching "extra headers",
+     in some meaning of the word.  This is generally done by fetching
+     (at most) FETCH-OLD extra headers less than the smallest article
+     number in `articles', and filling the gaps as well.  The presence
+     of this parameter can be ignored if the backend finds it
+     cumbersome to follow the request.  If this is non-`nil' and not a
+     number, do maximum fetches.
+
+     Here's an example HEAD:
+
+          221 1056 Article retrieved.
+          Path: ifi.uio.no!sturles
+          From: sturles@ifi.uio.no (Sturle Sunde)
+          Newsgroups: ifi.discussion
+          Subject: Re: Something very droll
+          Date: 27 Oct 1994 14:02:57 +0100
+          Organization: Dept. of Informatics, University of Oslo, Norway
+          Lines: 26
+          Message-ID: <38o8e1$a0o@holmenkollen.ifi.uio.no>
+          References: <38jdmq$4qu@visbur.ifi.uio.no>
+          NNTP-Posting-Host: holmenkollen.ifi.uio.no
+          .
+
+     So a `headers' return value would imply that there's a number of
+     these in the data buffer.
+
+     Here's a BNF definition of such a buffer:
+
+          headers        = *head
+          head           = error / valid-head
+          error-message  = [ "4" / "5" ] 2number " " <error message> eol
+          valid-head     = valid-message *header "." eol
+          valid-message  = "221 " <number> " Article retrieved." eol
+          header         = <text> eol
+
+     If the return value is `nov', the data buffer should contain
+     "network overview database" lines.  These are basically fields
+     separated by tabs.
+
+          nov-buffer = *nov-line
+          nov-line   = 8*9 [ field <TAB> ] eol
+          field      = <text except TAB>
+
+     For a closer look at what should be in those fields, *note
+     Headers::.
+
+`(nnchoke-open-server SERVER &optional DEFINITIONS)'
+     SERVER is here the virtual server name.  DEFINITIONS is a list of
+     `(VARIABLE VALUE)' pairs that define this virtual server.
+
+     If the server can't be opened, no error should be signaled.  The
+     backend may then choose to refuse further attempts at connecting
+     to this server.  In fact, it should do so.
+
+     If the server is opened already, this function should return a
+     non-`nil' value.  There should be no data returned.
+
+`(nnchoke-close-server &optional SERVER)'
+     Close connection to SERVER and free all resources connected to it.
+     Return `nil' if the server couldn't be closed for some reason.
+
+     There should be no data returned.
+
+`(nnchoke-request-close)'
+     Close connection to all servers and free all resources that the
+     backend have reserved.  All buffers that have been created by that
+     backend should be killed.  (Not the `nntp-server-buffer', though.)
+     This function is generally only called when Gnus is shutting down.
+
+     There should be no data returned.
+
+`(nnchoke-server-opened &optional SERVER)'
+     If SERVER is the current virtual server, and the connection to the
+     physical server is alive, then this function should return a
+     non-`nil' vlue.  This function should under no circumstances
+     attempt to reconnect to a server we have lost connection to.
+
+     There should be no data returned.
+
+`(nnchoke-status-message &optional SERVER)'
+     This function should return the last error message from SERVER.
+
+     There should be no data returned.
+
+`(nnchoke-request-article ARTICLE &optional GROUP SERVER TO-BUFFER)'
+     The result data from this function should be the article specified
+     by ARTICLE.  This might either be a `Message-ID' or a number.  It
+     is optional whether to implement retrieval by `Message-ID', but it
+     would be nice if that were possible.
+
+     If TO-BUFFER is non-`nil', the result data should be returned in
+     this buffer instead of the normal data buffer.  This is to make it
+     possible to avoid copying large amounts of data from one buffer to
+     another, while Gnus mainly requests articles to be inserted
+     directly into its article buffer.
+
+     If it is at all possible, this function should return a cons cell
+     where the `car' is the group name the article was fetched from,
+     and the `cdr' is the article number.  This will enable Gnus to
+     find out what the real group and article numbers are when fetching
+     articles by `Message-ID'.  If this isn't possible, `t' should be
+     returned on successful article retrieval.
+
+`(nnchoke-request-group GROUP &optional SERVER FAST)'
+     Get data on GROUP.  This function also has the side effect of
+     making GROUP the current group.
+
+     If FAST, don't bother to return useful data, just make GROUP the
+     current group.
+
+     Here's an example of some result data and a definition of the same:
+
+          211 56 1000 1059 ifi.discussion
+
+     The first number is the status, which should be 211.  Next is the
+     total number of articles in the group, the lowest article number,
+     the highest article number, and finally the group name.  Note that
+     the total number of articles may be less than one might think
+     while just considering the highest and lowest article numbers, but
+     some articles may have been canceled.  Gnus just discards the
+     total-number, so whether one should take the bother to generate it
+     properly (if that is a problem) is left as an exercise to the
+     reader.
+
+          group-status = [ error / info ] eol
+          error        = [ "4" / "5" ] 2<number> " " <Error message>
+          info         = "211 " 3* [ <number> " " ] <string>
+
+`(nnchoke-close-group GROUP &optional SERVER)'
+     Close GROUP and free any resources connected to it.  This will be
+     a no-op on most backends.
+
+     There should be no data returned.
+
+`(nnchoke-request-list &optional SERVER)'
+     Return a list of all groups available on SERVER.  And that means
+     _all_.
+
+     Here's an example from a server that only carries two groups:
+
+          ifi.test 0000002200 0000002000 y
+          ifi.discussion 3324 3300 n
+
+     On each line we have a group name, then the highest article number
+     in that group, the lowest article number, and finally a flag.
+
+          active-file = *active-line
+          active-line = name " " <number> " " <number> " " flags eol
+          name        = <string>
+          flags       = "n" / "y" / "m" / "x" / "j" / "=" name
+
+     The flag says whether the group is read-only (`n'), is moderated
+     (`m'), is dead (`x'), is aliased to some other group
+     (`=other-group') or none of the above (`y').
+
+`(nnchoke-request-post &optional SERVER)'
+     This function should post the current buffer.  It might return
+     whether the posting was successful or not, but that's not
+     required.  If, for instance, the posting is done asynchronously,
+     it has generally not been completed by the time this function
+     concludes.  In that case, this function should set up some kind of
+     sentinel to beep the user loud and clear if the posting could not
+     be completed.
+
+     There should be no result data from this function.
+
+
+File: gnus,  Node: Optional Backend Functions,  Next: Error Messaging,  Prev: Required Backend Functions,  Up: Backend Interface
+
+Optional Backend Functions
+..........................
+
+`(nnchoke-retrieve-groups GROUPS &optional SERVER)'
+     GROUPS is a list of groups, and this function should request data
+     on all those groups.  How it does it is of no concern to Gnus, but
+     it should attempt to do this in a speedy fashion.
+
+     The return value of this function can be either `active' or
+     `group', which says what the format of the result data is.  The
+     former is in the same format as the data from
+     `nnchoke-request-list', while the latter is a buffer full of lines
+     in the same format as `nnchoke-request-group' gives.
+
+          group-buffer = *active-line / *group-status
+
+`(nnchoke-request-update-info GROUP INFO &optional SERVER)'
+     A Gnus group info (*note Group Info::) is handed to the backend for
+     alterations.  This comes in handy if the backend really carries
+     all the information (as is the case with virtual and imap groups).
+     This function should destructively alter the info to suit its
+     needs, and should return the (altered) group info.
+
+     There should be no result data from this function.
+
+`(nnchoke-request-type GROUP &optional ARTICLE)'
+     When the user issues commands for "sending news" (`F' in the
+     summary buffer, for instance), Gnus has to know whether the
+     article the user is following up on is news or mail.  This
+     function should return `news' if ARTICLE in GROUP is news, `mail'
+     if it is mail and `unknown' if the type can't be decided.  (The
+     ARTICLE parameter is necessary in `nnvirtual' groups which might
+     very well combine mail groups and news groups.)  Both GROUP and
+     ARTICLE may be `nil'.
+
+     There should be no result data from this function.
+
+`(nnchoke-request-update-mark GROUP ARTICLE MARK)'
+     If the user tries to set a mark that the backend doesn't like, this
+     function may change the mark.  Gnus will use whatever this function
+     returns as the mark for ARTICLE instead of the original MARK.  If
+     the backend doesn't care, it must return the original MARK, and
+     not `nil' or any other type of garbage.
+
+     The only use for this I can see is what `nnvirtual' does with
+     it--if a component group is auto-expirable, marking an article as
+     read in the virtual group should result in the article being
+     marked as expirable.
+
+     There should be no result data from this function.
+
+`(nnchoke-request-scan &optional GROUP SERVER)'
+     This function may be called at any time (by Gnus or anything else)
+     to request that the backend check for incoming articles, in one
+     way or another.  A mail backend will typically read the spool file
+     or query the POP server when this function is invoked.  The GROUP
+     doesn't have to be heeded--if the backend decides that it is too
+     much work just scanning for a single group, it may do a total scan
+     of all groups.  It would be nice, however, to keep things local if
+     that's practical.
+
+     There should be no result data from this function.
+
+`(nnchoke-request-group-description GROUP &optional SERVER)'
+     The result data from this function should be a description of
+     GROUP.
+
+          description-line = name <TAB> description eol
+          name             = <string>
+          description      = <text>
+
+`(nnchoke-request-list-newsgroups &optional SERVER)'
+     The result data from this function should be the description of all
+     groups available on the server.
+
+          description-buffer = *description-line
+
+`(nnchoke-request-newgroups DATE &optional SERVER)'
+     The result data from this function should be all groups that were
+     created after `date', which is in normal human-readable date
+     format.  The data should be in the active buffer format.
+
+`(nnchoke-request-create-group GROUP &optional SERVER)'
+     This function should create an empty group with name GROUP.
+
+     There should be no return data.
+
+`(nnchoke-request-expire-articles ARTICLES &optional GROUP SERVER FORCE)'
+     This function should run the expiry process on all articles in the
+     ARTICLES range (which is currently a simple list of article
+     numbers.)  It is left up to the backend to decide how old articles
+     should be before they are removed by this function.  If FORCE is
+     non-`nil', all ARTICLES should be deleted, no matter how new they
+     are.
+
+     This function should return a list of articles that it did not/was
+     not able to delete.
+
+     There should be no result data returned.
+
+`(nnchoke-request-move-article ARTICLE GROUP SERVER ACCEPT-FORM'
+     &optional LAST)
+
+     This function should move ARTICLE (which is a number) from GROUP
+     by calling ACCEPT-FORM.
+
+     This function should ready the article in question for moving by
+     removing any header lines it has added to the article, and
+     generally should "tidy up" the article.  Then it should `eval'
+     ACCEPT-FORM in the buffer where the "tidy" article is.  This will
+     do the actual copying.  If this `eval' returns a non-`nil' value,
+     the article should be removed.
+
+     If LAST is `nil', that means that there is a high likelihood that
+     there will be more requests issued shortly, so that allows some
+     optimizations.
+
+     The function should return a cons where the `car' is the group
+     name and the `cdr' is the article number that the article was
+     entered as.
+
+     There should be no data returned.
+
+`(nnchoke-request-accept-article GROUP &optional SERVER LAST)'
+     This function takes the current buffer and inserts it into GROUP.
+     If LAST in `nil', that means that there will be more calls to this
+     function in short order.
+
+     The function should return a cons where the `car' is the group
+     name and the `cdr' is the article number that the article was
+     entered as.
+
+     There should be no data returned.
+
+`(nnchoke-request-replace-article ARTICLE GROUP BUFFER)'
+     This function should remove ARTICLE (which is a number) from GROUP
+     and insert BUFFER there instead.
+
+     There should be no data returned.
+
+`(nnchoke-request-delete-group GROUP FORCE &optional SERVER)'
+     This function should delete GROUP.  If FORCE, it should really
+     delete all the articles in the group, and then delete the group
+     itself.  (If there is such a thing as "the group itself".)
+
+     There should be no data returned.
+
+`(nnchoke-request-rename-group GROUP NEW-NAME &optional SERVER)'
+     This function should rename GROUP into NEW-NAME.  All articles in
+     GROUP should move to NEW-NAME.
+
+     There should be no data returned.
+
+
+File: gnus,  Node: Error Messaging,  Next: Writing New Backends,  Prev: Optional Backend Functions,  Up: Backend Interface
+
+Error Messaging
+...............
+
+   The backends should use the function `nnheader-report' to report
+error conditions--they should not raise errors when they aren't able to
+perform a request.  The first argument to this function is the backend
+symbol, and the rest are interpreted as arguments to `format' if there
+are multiple of them, or just a string if there is one of them.  This
+function must always returns `nil'.
+
+     (nnheader-report 'nnchoke "You did something totally bogus")
+     
+     (nnheader-report 'nnchoke "Could not request group %s" group)
+
+   Gnus, in turn, will call `nnheader-get-report' when it gets a `nil'
+back from a server, and this function returns the most recently
+reported message for the backend in question.  This function takes one
+argument--the server symbol.
+
+   Internally, these functions access BACKEND`-status-string', so the
+`nnchoke' backend will have its error message stored in
+`nnchoke-status-string'.
+
+
+File: gnus,  Node: Writing New Backends,  Next: Hooking New Backends Into Gnus,  Prev: Error Messaging,  Up: Backend Interface
+
+Writing New Backends
+....................
+
+   Many backends are quite similar.  `nnml' is just like `nnspool', but
+it allows you to edit the articles on the server.  `nnmh' is just like
+`nnml', but it doesn't use an active file, and it doesn't maintain
+overview databases.  `nndir' is just like `nnml', but it has no concept
+of "groups", and it doesn't allow editing articles.
+
+   It would make sense if it were possible to "inherit" functions from
+backends when writing new backends.  And, indeed, you can do that if you
+want to.  (You don't have to if you don't want to, of course.)
+
+   All the backends declare their public variables and functions by
+using a package called `nnoo'.
+
+   To inherit functions from other backends (and allow other backends to
+inherit functions from the current backend), you should use the
+following macros:
+
+`nnoo-declare'
+     This macro declares the first parameter to be a child of the
+     subsequent parameters.  For instance:
+
+          (nnoo-declare nndir
+            nnml nnmh)
+
+     `nndir' has declared here that it intends to inherit functions from
+     both `nnml' and `nnmh'.
+
+`defvoo'
+     This macro is equivalent to `defvar', but registers the variable as
+     a public server variable.  Most state-oriented variables should be
+     declared with `defvoo' instead of `defvar'.
+
+     In addition to the normal `defvar' parameters, it takes a list of
+     variables in the parent backends to map the variable to when
+     executing a function in those backends.
+
+          (defvoo nndir-directory nil
+            "Where nndir will look for groups."
+            nnml-current-directory nnmh-current-directory)
+
+     This means that `nnml-current-directory' will be set to
+     `nndir-directory' when an `nnml' function is called on behalf of
+     `nndir'.  (The same with `nnmh'.)
+
+`nnoo-define-basics'
+     This macro defines some common functions that almost all backends
+     should have.
+
+          (nnoo-define-basics nndir)
+
+`deffoo'
+     This macro is just like `defun' and takes the same parameters.  In
+     addition to doing the normal `defun' things, it registers the
+     function as being public so that other backends can inherit it.
+
+`nnoo-map-functions'
+     This macro allows mapping of functions from the current backend to
+     functions from the parent backends.
+
+          (nnoo-map-functions nndir
+            (nnml-retrieve-headers 0 nndir-current-group 0 0)
+            (nnmh-request-article 0 nndir-current-group 0 0))
+
+     This means that when `nndir-retrieve-headers' is called, the first,
+     third, and fourth parameters will be passed on to
+     `nnml-retrieve-headers', while the second parameter is set to the
+     value of `nndir-current-group'.
+
+`nnoo-import'
+     This macro allows importing functions from backends.  It should be
+     the last thing in the source file, since it will only define
+     functions that haven't already been defined.
+
+          (nnoo-import nndir
+            (nnmh
+             nnmh-request-list
+             nnmh-request-newgroups)
+            (nnml))
+
+     This means that calls to `nndir-request-list' should just be passed
+     on to `nnmh-request-list', while all public functions from `nnml'
+     that haven't been defined in `nndir' yet should be defined now.
+
+   Below is a slightly shortened version of the `nndir' backend.
+
+     ;;; nndir.el --- single directory newsgroup access for Gnus
+     ;; Copyright (C) 1995,96 Free Software Foundation, Inc.
+     
+     ;;; Code:
+     
+     (require 'nnheader)
+     (require 'nnmh)
+     (require 'nnml)
+     (require 'nnoo)
+     (eval-when-compile (require 'cl))
+     
+     (nnoo-declare nndir
+       nnml nnmh)
+     
+     (defvoo nndir-directory nil
+       "Where nndir will look for groups."
+       nnml-current-directory nnmh-current-directory)
+     
+     (defvoo nndir-nov-is-evil nil
+       "*Non-nil means that nndir will never retrieve NOV headers."
+       nnml-nov-is-evil)
+     
+     (defvoo nndir-current-group "" nil nnml-current-group nnmh-current-group)
+     (defvoo nndir-top-directory nil nil nnml-directory nnmh-directory)
+     (defvoo nndir-get-new-mail nil nil nnml-get-new-mail nnmh-get-new-mail)
+     
+     (defvoo nndir-status-string "" nil nnmh-status-string)
+     (defconst nndir-version "nndir 1.0")
+     
+     ;;; Interface functions.
+     
+     (nnoo-define-basics nndir)
+     
+     (deffoo nndir-open-server (server &optional defs)
+       (setq nndir-directory
+             (or (cadr (assq 'nndir-directory defs))
+                 server))
+       (unless (assq 'nndir-directory defs)
+         (push `(nndir-directory ,server) defs))
+       (push `(nndir-current-group
+               ,(file-name-nondirectory (directory-file-name nndir-directory)))
+             defs)
+       (push `(nndir-top-directory
+               ,(file-name-directory (directory-file-name nndir-directory)))
+             defs)
+       (nnoo-change-server 'nndir server defs))
+     
+     (nnoo-map-functions nndir
+       (nnml-retrieve-headers 0 nndir-current-group 0 0)
+       (nnmh-request-article 0 nndir-current-group 0 0)
+       (nnmh-request-group nndir-current-group 0 0)
+       (nnmh-close-group nndir-current-group 0))
+     
+     (nnoo-import nndir
+       (nnmh
+        nnmh-status-message
+        nnmh-request-list
+        nnmh-request-newgroups))
+     
+     (provide 'nndir)
+
+
+File: gnus,  Node: Hooking New Backends Into Gnus,  Next: Mail-like Backends,  Prev: Writing New Backends,  Up: Backend Interface
+
+Hooking New Backends Into Gnus
+..............................
+
+   Having Gnus start using your new backend is rather easy--you just
+declare it with the `gnus-declare-backend' functions.  This will enter
+the backend into the `gnus-valid-select-methods' variable.
+
+   `gnus-declare-backend' takes two parameters--the backend name and an
+arbitrary number of "abilities".
+
+   Here's an example:
+
+     (gnus-declare-backend "nnchoke" 'mail 'respool 'address)
+
+   The abilities can be:
+
+`mail'
+     This is a mailish backend--followups should (probably) go via mail.
+
+`post'
+     This is a newsish backend--followups should (probably) go via news.
+
+`post-mail'
+     This backend supports both mail and news.
+
+`none'
+     This is neither a post nor mail backend--it's something completely
+     different.
+
+`respool'
+     It supports respooling--or rather, it is able to modify its source
+     articles and groups.
+
+`address'
+     The name of the server should be in the virtual server name.  This
+     is true for almost all backends.
+
+`prompt-address'
+     The user should be prompted for an address when doing commands like
+     `B' in the group buffer.  This is true for backends like `nntp',
+     but not `nnmbox', for instance.
+
+
+File: gnus,  Node: Mail-like Backends,  Prev: Hooking New Backends Into Gnus,  Up: Backend Interface
+
+Mail-like Backends
+..................
+
+   One of the things that separate the mail backends from the rest of
+the backends is the heavy dependence by the mail backends on common
+functions in `nnmail.el'.  For instance, here's the definition of
+`nnml-request-scan':
+
+     (deffoo nnml-request-scan (&optional group server)
+       (setq nnml-article-file-alist nil)
+       (nnmail-get-new-mail 'nnml 'nnml-save-nov nnml-directory group))
+
+   It simply calls `nnmail-get-new-mail' with a few parameters, and
+`nnmail' takes care of all the moving and splitting of the mail.
+
+   This function takes four parameters.
+
+METHOD
+     This should be a symbol to designate which backend is responsible
+     for the call.
+
+EXIT-FUNCTION
+     This function should be called after the splitting has been
+     performed.
+
+TEMP-DIRECTORY
+     Where the temporary files should be stored.
+
+GROUP
+     This optional argument should be a group name if the splitting is
+     to be performed for one group only.
+
+   `nnmail-get-new-mail' will call BACKEND`-save-mail' to save each
+article.  BACKEND`-active-number' will be called to find the article
+number assigned to this article.
+
+   The function also uses the following variables:
+BACKEND`-get-new-mail' (to see whether to get new mail for this
+backend); and BACKEND`-group-alist' and BACKEND`-active-file' to
+generate the new active file.  BACKEND`-group-alist' should be a
+group-active alist, like this:
+
+     (("a-group" (1 . 10))
+      ("some-group" (34 . 39)))
+
+
+File: gnus,  Node: Score File Syntax,  Next: Headers,  Prev: Backend Interface,  Up: A Programmers Guide to Gnus
+
+Score File Syntax
+-----------------
+
+   Score files are meant to be easily parseable, but yet extremely
+mallable.   It was decided that something that had the same read syntax
+as an Emacs Lisp list would fit that spec.
+
+   Here's a typical score file:
+
+     (("summary"
+       ("win95" -10000 nil s)
+       ("Gnus"))
+      ("from"
+       ("Lars" -1000))
+      (mark -100))
+
+   BNF definition of a score file:
+
+     score-file       = "" / "(" *element ")"
+     element          = rule / atom
+     rule             = string-rule / number-rule / date-rule
+     string-rule      = "(" quote string-header quote space *string-match ")"
+     number-rule      = "(" quote number-header quote space *number-match ")"
+     date-rule        = "(" quote date-header quote space *date-match ")"
+     quote            = <ascii 34>
+     string-header    = "subject" / "from" / "references" / "message-id" /
+                        "xref" / "body" / "head" / "all" / "followup"
+     number-header    = "lines" / "chars"
+     date-header      = "date"
+     string-match     = "(" quote <string> quote [ "" / [ space score [ "" /
+                        space date [ "" / [ space string-match-t ] ] ] ] ] ")"
+     score            = "nil" / <integer>
+     date             = "nil" / <natural number>
+     string-match-t   = "nil" / "s" / "substring" / "S" / "Substring" /
+                        "r" / "regex" / "R" / "Regex" /
+                        "e" / "exact" / "E" / "Exact" /
+                        "f" / "fuzzy" / "F" / "Fuzzy"
+     number-match     = "(" <integer> [ "" / [ space score [ "" /
+                        space date [ "" / [ space number-match-t ] ] ] ] ] ")"
+     number-match-t   = "nil" / "=" / "<" / ">" / ">=" / "<="
+     date-match       = "(" quote <string> quote [ "" / [ space score [ "" /
+                        space date [ "" / [ space date-match-t ] ] ] ] ")"
+     date-match-t     = "nil" / "at" / "before" / "after"
+     atom             = "(" [ required-atom / optional-atom ] ")"
+     required-atom    = mark / expunge / mark-and-expunge / files /
+                        exclude-files / read-only / touched
+     optional-atom    = adapt / local / eval
+     mark             = "mark" space nil-or-number
+     nil-or-number    = "nil" / <integer>
+     expunge          = "expunge" space nil-or-number
+     mark-and-expunge = "mark-and-expunge" space nil-or-number
+     files            = "files" *[ space <string> ]
+     exclude-files    = "exclude-files" *[ space <string> ]
+     read-only        = "read-only" [ space "nil" / space "t" ]
+     adapt            = "adapt" [ space "ignore" / space "t" / space adapt-rule ]
+     adapt-rule       = "(" *[ <string> *[ "(" <string> <integer> ")" ] ")"
+     local            = "local" *[ space "(" <string> space <form> ")" ]
+     eval             = "eval" space <form>
+     space            = *[ " " / <TAB> / <NEWLINE> ]
+
+   Any unrecognized elements in a score file should be ignored, but not
+discarded.
+
+   As you can see, white space is needed, but the type and amount of
+white space is irrelevant.  This means that formatting of the score
+file is left up to the programmer--if it's simpler to just spew it all
+out on one looong line, then that's ok.
+
+   The meaning of the various atoms are explained elsewhere in this
+manual (*note Score File Format::).
+
+
+File: gnus,  Node: Headers,  Next: Ranges,  Prev: Score File Syntax,  Up: A Programmers Guide to Gnus
+
+Headers
+-------
+
+   Internally Gnus uses a format for storing article headers that
+corresponds to the NOV format in a mysterious fashion.  One could
+almost suspect that the author looked at the NOV specification and just
+shamelessly _stole_ the entire thing, and one would be right.
+
+   "Header" is a severely overloaded term.  "Header" is used in RFC1036
+to talk about lines in the head of an article (e.g., `From').  It is
+used by many people as a synonym for "head"--"the header and the body".
+(That should be avoided, in my opinion.)  And Gnus uses a format
+internally that it calls "header", which is what I'm talking about
+here.  This is a 9-element vector, basically, with each header (ouch)
+having one slot.
+
+   These slots are, in order: `number', `subject', `from', `date',
+`id', `references', `chars', `lines', `xref'.  There are macros for
+accessing and setting these slots--they all have predictable names
+beginning with `mail-header-' and `mail-header-set-', respectively.
+
+   The `xref' slot is really a `misc' slot.  Any extra info will be put
+in there.
+
+
+File: gnus,  Node: Ranges,  Next: Group Info,  Prev: Headers,  Up: A Programmers Guide to Gnus
+
+Ranges
+------
+
+   GNUS introduced a concept that I found so useful that I've started
+using it a lot and have elaborated on it greatly.
+
+   The question is simple: If you have a large amount of objects that
+are identified by numbers (say, articles, to take a _wild_ example)
+that you want to qualify as being "included", a normal sequence isn't
+very useful.  (A 200,000 length sequence is a bit long-winded.)
+
+   The solution is as simple as the question: You just collapse the
+sequence.
+
+     (1 2 3 4 5 6 10 11 12)
+
+   is transformed into
+
+     ((1 . 6) (10 . 12))
+
+   To avoid having those nasty `(13 . 13)' elements to denote a
+lonesome object, a `13' is a valid element:
+
+     ((1 . 6) 7 (10 . 12))
+
+   This means that comparing two ranges to find out whether they are
+equal is slightly tricky:
+
+     ((1 . 5) 7 8 (10 . 12))
+
+   and
+
+     ((1 . 5) (7 . 8) (10 . 12))
+
+   are equal.  In fact, any non-descending list is a range:
+
+     (1 2 3 4 5)
+
+   is a perfectly valid range, although a pretty long-winded one.  This
+is also valid:
+
+     (1 . 5)
+
+   and is equal to the previous range.
+
+   Here's a BNF definition of ranges.  Of course, one must remember the
+semantic requirement that the numbers are non-descending.  (Any number
+of repetition of the same number is allowed, but apt to disappear in
+range handling.)
+
+     range           = simple-range / normal-range
+     simple-range    = "(" number " . " number ")"
+     normal-range    = "(" start-contents ")"
+     contents        = "" / simple-range *[ " " contents ] /
+                       number *[ " " contents ]
+
+   Gnus currently uses ranges to keep track of read articles and article
+marks.  I plan on implementing a number of range operators in C if The
+Powers That Be are willing to let me.  (I haven't asked yet, because I
+need to do some more thinking on what operators I need to make life
+totally range-based without ever having to convert back to normal
+sequences.)
+
+
+File: gnus,  Node: Group Info,  Next: Extended Interactive,  Prev: Ranges,  Up: A Programmers Guide to Gnus
+
+Group Info
+----------
+
+   Gnus stores all permanent info on groups in a "group info" list.
+This list is from three to six elements (or more) long and exhaustively
+describes the group.
+
+   Here are two example group infos; one is a very simple group while
+the second is a more complex one:
+
+     ("no.group" 5 (1 . 54324))
+     
+     ("nnml:my.mail" 3 ((1 . 5) 9 (20 . 55))
+                     ((tick (15 . 19)) (replied 3 6 (19 . 3)))
+                     (nnml "")
+                     ((auto-expire . t) (to-address . "ding@gnus.org")))
+
+   The first element is the "group name"--as Gnus knows the group,
+anyway.  The second element is the "subscription level", which normally
+is a small integer.  (It can also be the "rank", which is a cons cell
+where the `car' is the level and the `cdr' is the score.)  The third
+element is a list of ranges of read articles.  The fourth element is a
+list of lists of article marks of various kinds.  The fifth element is
+the select method (or virtual server, if you like).  The sixth element
+is a list of "group parameters", which is what this section is about.
+
+   Any of the last three elements may be missing if they are not
+required.  In fact, the vast majority of groups will normally only have
+the first three elements, which saves quite a lot of cons cells.
+
+   Here's a BNF definition of the group info format:
+
+     info          = "(" group space ralevel space read
+                     [ "" / [ space marks-list [ "" / [ space method [ "" /
+                     space parameters ] ] ] ] ] ")"
+     group         = quote <string> quote
+     ralevel       = rank / level
+     level         = <integer in the range of 1 to inf>
+     rank          = "(" level "." score ")"
+     score         = <integer in the range of 1 to inf>
+     read          = range
+     marks-lists   = nil / "(" *marks ")"
+     marks         = "(" <string> range ")"
+     method        = "(" <string> *elisp-forms ")"
+     parameters    = "(" *elisp-forms ")"
+
+   Actually that `marks' rule is a fib.  A `marks' is a `<string>'
+consed on to a `range', but that's a bitch to say in pseudo-BNF.
+
+   If you have a Gnus info and want to access the elements, Gnus offers
+a series of macros for getting/setting these elements.
+
+`gnus-info-group'
+`gnus-info-set-group'
+     Get/set the group name.
+
+`gnus-info-rank'
+`gnus-info-set-rank'
+     Get/set the group rank (*note Group Score::).
+
+`gnus-info-level'
+`gnus-info-set-level'
+     Get/set the group level.
+
+`gnus-info-score'
+`gnus-info-set-score'
+     Get/set the group score (*note Group Score::).
+
+`gnus-info-read'
+`gnus-info-set-read'
+     Get/set the ranges of read articles.
+
+`gnus-info-marks'
+`gnus-info-set-marks'
+     Get/set the lists of ranges of marked articles.
+
+`gnus-info-method'
+`gnus-info-set-method'
+     Get/set the group select method.
+
+`gnus-info-params'
+`gnus-info-set-params'
+     Get/set the group parameters.
+
+   All the getter functions take one parameter--the info list.  The
+setter functions take two parameters--the info list and the new value.
+
+   The last three elements in the group info aren't mandatory, so it
+may be necessary to extend the group info before setting the element.
+If this is necessary, you can just pass on a non-`nil' third parameter
+to the three final setter functions to have this happen automatically.
+
+
+File: gnus,  Node: Extended Interactive,  Next: Emacs/XEmacs Code,  Prev: Group Info,  Up: A Programmers Guide to Gnus
+
+Extended Interactive
+--------------------
+
+   Gnus extends the standard Emacs `interactive' specification slightly
+to allow easy use of the symbolic prefix (*note Symbolic Prefixes::).
+Here's an example of how this is used:
+
+     (defun gnus-summary-increase-score (&optional score symp)
+       (interactive (gnus-interactive "P\ny"))
+       ...
+       )
+
+   The best thing to do would have been to implement `gnus-interactive'
+as a macro which would have returned an `interactive' form, but this
+isn't possible since Emacs checks whether a function is interactive or
+not by simply doing an `assq' on the lambda form.  So, instead we have
+`gnus-interactive' function that takes a string and returns values that
+are usable to `interactive'.
+
+   This function accepts (almost) all normal `interactive' specs, but
+adds a few more.
+
+`y'
+     The current symbolic prefix--the `gnus-current-prefix-symbol'
+     variable.
+
+`Y'
+     A list of the current symbolic prefixes--the
+     `gnus-current-prefix-symbol' variable.
+
+`A'
+     The current article number--the `gnus-summary-article-number'
+     function.
+
+`H'
+     The current article header--the `gnus-summary-article-header'
+     function.
+
+`g'
+     The current group name--the `gnus-group-group-name' function.
+
+
+File: gnus,  Node: Emacs/XEmacs Code,  Next: Various File Formats,  Prev: Extended Interactive,  Up: A Programmers Guide to Gnus
+
+Emacs/XEmacs Code
+-----------------
+
+   While Gnus runs under Emacs, XEmacs and Mule, I decided that one of
+the platforms must be the primary one.  I chose Emacs.  Not because I
+don't like XEmacs or Mule, but because it comes first alphabetically.
+
+   This means that Gnus will byte-compile under Emacs with nary a
+warning, while XEmacs will pump out gigabytes of warnings while
+byte-compiling.  As I use byte-compilation warnings to help me root out
+trivial errors in Gnus, that's very useful.
+
+   I've also consistently used Emacs function interfaces, but have used
+Gnusey aliases for the functions.  To take an example:  Emacs defines a
+`run-at-time' function while XEmacs defines a `start-itimer' function.
+I then define a function called `gnus-run-at-time' that takes the same
+parameters as the Emacs `run-at-time'.  When running Gnus under Emacs,
+the former function is just an alias for the latter.  However, when
+running under XEmacs, the former is an alias for the following function:
+
+     (defun gnus-xmas-run-at-time (time repeat function &rest args)
+       (start-itimer
+        "gnus-run-at-time"
+        `(lambda ()
+           (,function ,@args))
+        time repeat))
+
+   This sort of thing has been done for bunches of functions.  Gnus does
+not redefine any native Emacs functions while running under XEmacs--it
+does this `defalias' thing with Gnus equivalents instead.  Cleaner all
+over.
+
+   In the cases where the XEmacs function interface was obviously
+cleaner, I used it instead.  For example `gnus-region-active-p' is an
+alias for `region-active-p' in XEmacs, whereas in Emacs it is a
+function.
+
+   Of course, I could have chosen XEmacs as my native platform and done
+mapping functions the other way around.  But I didn't.  The performance
+hit these indirections impose on Gnus under XEmacs should be slight.
+
+
+File: gnus,  Node: Various File Formats,  Prev: Emacs/XEmacs Code,  Up: A Programmers Guide to Gnus
+
+Various File Formats
+--------------------
+
+* Menu:
+
+* Active File Format::      Information on articles and groups available.
+* Newsgroups File Format::  Group descriptions.
+
+
+File: gnus,  Node: Active File Format,  Next: Newsgroups File Format,  Up: Various File Formats
+
+Active File Format
+..................
+
+   The active file lists all groups available on the server in
+question.  It also lists the highest and lowest current article numbers
+in each group.
+
+   Here's an excerpt from a typical active file:
+
+     soc.motss 296030 293865 y
+     alt.binaries.pictures.fractals 3922 3913 n
+     comp.sources.unix 1605 1593 m
+     comp.binaries.ibm.pc 5097 5089 y
+     no.general 1000 900 y
+
+   Here's a pseudo-BNF definition of this file:
+
+     active      = *group-line
+     group-line  = group space high-number space low-number space flag <NEWLINE>
+     group       = <non-white-space string>
+     space       = " "
+     high-number = <non-negative integer>
+     low-number  = <positive integer>
+     flag        = "y" / "n" / "m" / "j" / "x" / "=" group
+
+   For a full description of this file, see the manual pages for
+`innd', in particular `active(5)'.
+
+
+File: gnus,  Node: Newsgroups File Format,  Prev: Active File Format,  Up: Various File Formats
+
+Newsgroups File Format
+......................
+
+   The newsgroups file lists groups along with their descriptions.  Not
+all groups on the server have to be listed,  and not all groups in the
+file have to exist on the server.  The file is meant purely as
+information to the user.
+
+   The format is quite simple; a group name, a tab, and the description.
+Here's the definition:
+
+     newsgroups    = *line
+     line          = group tab description <NEWLINE>
+     group         = <non-white-space string>
+     tab           = <TAB>
+     description   = <string>
+
+
+File: gnus,  Node: Emacs for Heathens,  Next: Frequently Asked Questions,  Prev: A Programmers Guide to Gnus,  Up: Appendices
+
+Emacs for Heathens
+==================
+
+   Believe it or not, but some people who use Gnus haven't really used
+Emacs much before they embarked on their journey on the Gnus Love Boat.
+If you are one of those unfortunates whom "`M-C-a'", "kill the region",
+and "set `gnus-flargblossen' to an alist where the key is a regexp that
+is used for matching on the group name" are magical phrases with little
+or no meaning, then this appendix is for you.  If you are already
+familiar with Emacs, just ignore this and go fondle your cat instead.
+
+* Menu:
+
+* Keystrokes::      Entering text and executing commands.
+* Emacs Lisp::      The built-in Emacs programming language.
+

@@ -1,0 +1,176 @@
+Please glance through *all* sections of this
+`README' file before starting configuration.  Also make sure you read files
+`ABOUT-NLS' and `INSTALL' if you are not familiar with them already.
+
+If you got the `tar' distribution in `shar' format, timestamps ought to be
+properly restored, do not ignore such complaints at `unshar' time.
+
+GNU `tar' saves many files together into a single tape or disk
+archive, and can restore individual files from the archive.  It includes
+multivolume support, the ability to archive sparse files, automatic archive
+compression/decompression, remote archives and special features that allow
+`tar' to be used for incremental and full backups.  This distribution
+also includes `rmt', the remote tape server.  The `mt' tape drive control
+program is in the GNU `cpio' distribution.
+
+GNU `tar' is derived from John Gilmore's public domain `tar'.
+
+See file `ABOUT-NLS' for how to customize this program to your language.
+See file `BACKLOG' for a summary of pending mail and articles.
+See file `COPYING' for copying conditions.
+See file `INSTALL' for compilation and installation instructions.
+See file `PORTS' for various ports of GNU tar to non-Unix systems.
+See file `NEWS' for a list of major changes in the current release.
+See file `THANKS' for a list of contributors.
+
+Besides those configure options documented in files `INSTALL' and
+`ABOUT-NLS', a few extra options may be accepted after `./configure':
+
+* `--with-dmalloc' is a debugging option for looking at memory management
+problems, it prerequires Gray Watson's package, which is available as
+`ftp://ftp.letters.com/src/dmalloc/dmalloc.tar.gz'.
+
+The default archive device is now `stdin' on read and `stdout' on write.
+The installer can still override this by presetting `DEFAULT_ARCHIVE'
+in the environment before configuring (the behavior of `-[0-7]' or
+`-[0-7]lmh' options in `tar' are then derived automatically).  Similarly,
+`DEFAULT_BLOCKING' can be preset to something else than 20.
+
+For comprehensive modifications to GNU tar, you might need tools beyond
+those used in simple installations.  Fully install GNU m4 1.4 first,
+and only then, Autoconf 2.13 or later.  Install Perl, then Automake
+1.4 or later.  You might need Bison 1.26 or later, and GNU tar itself.
+All are available on GNU archive sites, like in
+ftp://ftp.gnu.org/pub/gnu/.
+
+Send bug reports to `tar-bugs@gnu.org'.  (Beware, old-timers: it is
+`@gnu', not `@prep'; and not `bug-gnu-utils' anymore.)  A bug report is
+an adequate description of the problem: your input, what you expected,
+what you got, and why this is wrong.  Diffs are welcome, but they only
+describe a solution, from which the problem might be uneasy to infer.
+If needed, submit actual data files with your report.  Small data files
+are preferred.  Big files may sometimes be necessary, but do not send them
+to the report address; rather take special arrangement with the maintainer.
+
+Your feedback will help us to make a better and more portable package.
+Consider documentation errors as bugs, and report them as such.  If you
+develop anything pertaining to `tar' or have suggestions, let us know
+and share your findings by writing at `tar-forum@iro.umontreal.ca'.
+
+.--------------------.
+| Installation hints |
+`--------------------'
+
+Here are a few hints which might help installing `tar' on some systems.
+
+* Static linking.
+
+Some platform will, by default, prepare a smaller `tar' executable
+which depends on shared libraries.  Since GNU `tar' may be used for
+system-level backups and disaster recovery, installers might prefer to
+force static linking, making a bigger `tar' executable maybe, but able to
+work standalone, in situations where shared libraries are not available.
+The way to achieve static linking varies between systems.  Set LDFLAGS
+to a value from the table below, before configuration (see `INSTALL').
+
+	Platform	Compiler	LDFLAGS
+
+	(any)		Gnu C		-static
+	AIX		(vendor)	"-bnso -bI:/lib/syscalls.exp"
+	HPUX		(vendor)	-Wl,-a,archive
+	IRIX		(vendor)	-non_shared
+	OSF		(vendor)	-non_shared
+	SCO 3.2v5	(vendor)	-dn
+	Solaris		(vendor)	-Bstatic
+	SunOS		(vendor)	-Bstatic
+
+* Failed `incremen.sh'.
+
+In an NFS environment, lack of synchronisation between machine clocks
+might create difficulties to any tool comparing dates and file timestamps,
+like `tar' in incremental dumps.  This has been a recurrent problem in
+GNU Makefiles for the last few years.  We would like a general solution.
+
+* BSD compatibility matters.
+
+Set LIBS to `-lbsd' before configuration (see `INSTALL') if the linker
+complains about undefined `valloc' (AIX) or `bsd_ioctl' (Slackware).
+Also set CPPFLAGS to `-I/usr/include/bsd/sys' before configuration to
+solve dirent problems (NeXT), or to `-I/usr/include/bsd' if <sgtty.h>
+is not found (Slackware).
+
+* `union wait' problems.
+
+Configuration of `union wait' does not always take the best decision.
+If you have this problem, edit file `config.cache' after configuration,
+find the line about `tar_cv_header_union_wait', change `yes' by `no'
+or vice-versa, execute `./config.status', then launch `make'.
+
+* `%lld' unsupported in `printf'.
+
+GNU C has `long long', but the underneath C library might not support
+the `%lld' format.  If you have this problem, edit file `config.cache'
+after configuration, find the line about `ac_cv_sizeof_long_long, change
+`8' by `0', execute `./config.status', then launch `make'.
+
+* FreeBSD users -- `configure' fails.
+
+It has been reported that `configure' does not run on FreeBSD 2.1.7,
+because of a buggy `sh'.  It works using `bash', however.
+
+* ISC users -- `S_*' symbols undefined.
+
+On ISC 4.1mu, POSIX environment, set CFLAGS to `-posix' and CPPFLAGS to
+`-D_SYSV3' before configuration (see `INSTALL').  This will trigger the
+definition of a few `S_' prefixed symbols from <sys/stat.h>.
+
+* Ultrix users -- broken `make'.
+
+It seems that Ultrix make does not correctly handle shell commands
+having logical connectives in them.  Use `s5make' if you have it, try
+`PROG_ENV=SYSTEM_FIVE make' (works on Ultrix 4.4), or install GNU Make.
+
+.------------------.
+| Special topics.  |
+`------------------'
+
+Here are a few special matters about GNU `tar', not related to build
+matters.  See previous section for such.
+
+* File attributes.
+
+About *security*, it is probable that future releases of `tar' will have
+some behaviour changed.  There are many pending suggestions to choose from.
+Today, extracting an archive not being `root', `tar' will restore suid/sgid
+bits on files but owned by the extracting user.  `root' automatically gets
+a lot of special priviledges, `-p' might later become required to get them.
+
+GNU `tar' does not properly restore symlink attributes.  Various systems
+implement flavours of symbolic links showing different behaviour and
+properties.  We did not successfully sorted all these out yet.  Currently,
+the `lchown' call will be used if available, but that's all.
+
+* POSIX compliance.
+
+GNU `tar' implements an early draft of the POSIX 1003.1 `ustar' standard
+which is different from the final standard.  This will be progressively
+corrected over the incoming few years.  Don't be mislead by the mere
+existence of the --posix option.  Later releases will become able to
+read truly POSIX archives, and also to produce them under option.  (Also,
+if you look at the internals, don't take the GNU extensions you see for
+granted, as they are planned to change.)  GNU tar 2.0 will produce POSIX
+archives by default, but there is a long way before we get there.
+
+* What's next?
+
+The emphasis from 1.11.2 to 1.12 has been on solving the main portability,
+execution or usability bugs.  This was accompanied all over with an
+internal cleanup in the sources, and the reassembly of a `tar' manual.
+
+The `BACKLOG' file shows an approximative priorisation of the many pending
+problems and suggestions.  Besides pending problems and all other matters
+listed above, the cleanup is planned to continue and extend to the general
+organisation of the code, preparing a long time in advance for a possible
+merge of the `cpio' and `tar' distributions, into some common `paxutils'.
+We also want to address some long-awaited performance issues (for example:
+double buffering) or enhancements (for example: per-file compression).

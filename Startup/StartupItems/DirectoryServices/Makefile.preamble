@@ -1,0 +1,5 @@
+SHELLTOOL = $(NAME)
+
+AFTER_INSTALL = install_resources
+
+include $(MAKEFILEPATH)/CoreOS/ProjectBuilder/Makefile.Preamble.Common

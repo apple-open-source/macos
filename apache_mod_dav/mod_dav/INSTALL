@@ -1,0 +1,657 @@
+
+                    mod_dav Installation and Configuration
+                                       
+   This page details as much information as possible regarding the
+   building, installation, and configuration of the mod_dav Apache
+   module. This page does not cover installation of binary distributions
+   of mod_dav, although the Apache configuration will still apply.
+   
+     * [1]Unix Build and Install
+     * [2]Windows Build and Install
+     * [3]Apache Configuration
+     * [4]Setting Up the File Repository
+     * [5]Other Notes
+     * [6]Expat Build and Install (if necessary)
+       
+     * [7]What to do if you have a problem
+       
+     * [8]Configuration for complex setups
+       This section explains how to configure mod_dav when other "content
+       handlers" such as mod_include, PHP, or CGI scripts are present.
+       
+   When this page refers to "Unix", it generally means any of the Unix or
+   Unix-like platforms (such as Linux, *BSD, Solaris, AIX, HP/UX, etc).
+   
+   [9][ back to the main mod_dav page ]
+     _________________________________________________________________
+   
+Unix Build and Install
+
+   Step 1: Configuration
+          There are two general mechanisms for installing mod_dav into
+          your Apache installation. The first method is to create a
+          dynamically-loaded module using the "apxs" tool. The second
+          method is to statically link mod_dav into the Apache
+          executable.
+          
+          Based on the method you choose, use one of the following
+          configure commands:
+          
+     ./configure --with-apxs=/usr/local/apache/bin/apxs
+     
+     or
+     ./configure --with-apache=/usr/local/apache
+     
+          Of course, you should use the path to your system's apxs
+          executable or Apache build directory.
+          
+     Note: if you use just --with-apxs (no directory), then configure
+     assumes that apxs is in your path.
+     
+     Note: sometimes, the APXS installation may be broken. If the
+     configure process reports this, then please refer to a [10]FAQ
+     entry written by the PHP folks. It explains the problem quite well.
+     
+          The configuration process will do its stuff. One of its tasks
+          is to locate the Expat library (an XML parsing library). This
+          library is included with Apache 1.3.9 and will automatically be
+          found. If you have a previous version of Apache 1.3 (it must be
+          at least Apache 1.3.4), then you will need a copy on your
+          system. configure will look for it in /usr/{include,lib} and in
+          /usr/local/{include,lib}. If it can't find it, then you will
+          need to tell configure where it is on your system using the
+          --with-expat=<dir> command line option. For example:
+          
+     ./configure --with-apxs=/usr/local/apache/bin/apxs
+     --with-expat=/home/gstein/expat
+     
+          If you need Expat, then please see [11]the section at the end
+          of this document for information on where to get Expat and how
+          it must installed on your system.
+          
+   Step 2: Build and Install
+          This is pretty simple. Just use the following two commands:
+          
+     make
+     make install
+     
+        Dynamic loading
+                If you chose to do a dynamically-loaded module using
+                APXS, then your module will have been installed into
+                Apache's runtime area.
+                
+                Note: if using APXS and your Apache installation does not
+                support loadable modules, then APXS will terminate with
+                an error. Typically, we have seen the following error
+                when this happens:
+                
+     apxs:Break: Command failed with rc=16711680
+     
+                If this happens, then you will need to rebuild and
+                reinstall your Apache software with the mod_so module
+                included. Note the reinstall part -- we've seen several
+                cases where a new Apache was built and installed, but a
+                new APXS was not (so the problems continued).
+                
+                PHP has a [12]FAQ entry about this problem that may help.
+                
+        Static linking
+                If you chose to go with statically linking mod_dav into
+                Apache, then mod_dav will have been partially compiled
+                and placed into the Apache tree during the make install
+                step. You are now ready to (re)configure and build
+                Apache. When you configure Apache, there are two methods
+                that you can choose. For the APACI-style (./configure
+                style), use the following command line option:
+                
+     --activate-module=src/modules/dav/libdav.a
+     
+                For the old-style configuration, add the following line
+                to your Configuration.tmpl file:
+                
+     SharedModule modules/dav/libdav.a
+     
+   Step 3: Configure Apache
+          See [13]the Apache configuration section below.
+     _________________________________________________________________
+   
+Win32 Build and Install
+
+   Step 1: Expat installation
+          Expat must be installed first. See [14]the Expat section at the
+          end of this document for instructions.
+          
+   Step 2: Build
+          To build mod_dav using Microsoft Visual C++, simply issue the
+          following command line from the directory containing the
+          mod_dav files:
+          
+     nmake /f mod_dav.mak
+     
+          This builds an optimized version of mod_dav, located in
+          Release/mod_dav.dll.
+          
+          mod_dav can also be built with Microsoft Visual Studio 5.0 or
+          later using the supplied .dsp file.
+          
+   Step 3: Install
+          For mod_dav installation, copy the following three files:
+          
+Release/mod_dav.dll
+expat/bin/xmlparse.dll
+expat/bin/xmltok.tll
+
+          to the directory where your Apache modules are located
+          (ServerRoot). If you use a precompiled binary, then just ensure
+          the three DLLs are in the ServerRoot directory.
+          
+          To add mod_dav to Apache, add the following line to the
+          httpd.conf file:
+          
+     LoadModule dav_module mod_dav.dll
+     
+   Step 4: Configure Apache
+          See [15]the Apache configuration section below.
+     _________________________________________________________________
+   
+Apache Configuration
+
+   See the note on [16]upgrading from 0.9.8 and prior versions.
+   
+  Loading the DAV Module
+  
+   Apache must be informed about the mod_dav module through the Addmodule
+   and LoadModule directives. LoadModule is used when mod_dav is
+   dynamically loaded (i.e. built using APXS or you're on the Win32
+   platform). These configuration lines are (normally) inserted
+   automatically on the Unix platforms (by APXS or the Apache build
+   process), but the Win32 line needs to be added manually for that
+   platform.
+   (this information is here for reference; if Apache does not recognize
+   the mod_dav directives such as DAV or DAVLockDB, then you may be
+   missing these configuration lines)
+     * Unix platform, dynamic loading:
+Loadmodule dav_module libexec/libdav.so
+Addmodule mod_dav.c
+     * Unix platform, statically linked:
+Addmodule mod_dav.c
+     * Win32 platform:
+Loadmodule dav_module mod_dav.dll
+Addmodule mod_dav.c
+       
+  Enabling DAV
+  
+   Configuring the mod_dav module is quite simple, actually. Within a
+   <Directory> or <Location> directive in your Apache configuration file
+   (i.e. httpd.conf), simply insert the following line:
+   
+     DAV On
+     
+   If the DAV directive is within a <Directory> directive, then DAV will
+   be enabled for that particular directory and its subdirectories. For a
+   <Location> directive, then DAV will be enabled for that portion of the
+   URL namespace.
+   
+  The Lock Database
+  
+   Next, add a DAVLockDB directive at the top-level of your configuration
+   file (i.e. outside of a <Directory> or <Location> directive). This
+   directive should specify a filename that mod_dav will create. The
+   directory should exist and should be writable by the web server
+   process.
+   
+     Note: the directory should not be on an NFS-mounted partition.
+     mod_dav uses flock/fcntl to manage access to the database. Some
+     operating systems cannot use these operations on an NFS-mounted
+     partition.
+     
+   In the following example, the DAV lock database will be stored in the
+   /usr/local/apache/var directory (which must be writable by the server
+   process). The file's name will be DAVLock when mod_dav needs to create
+   it.
+   (actually, mod_dav will create one or more files using this file name
+   plus an extension)
+   
+     DAVLockDB /usr/local/apache/var/DAVLock
+     
+   The DAVLockDB directive can appear outside of any container or within
+   a <VirtualHost>, it only needs to appear once, and a file extension
+   should not be supplied.
+   
+  Lock Timeout Minimums
+  
+   An optional directive, DAVMinTimeout, specifies the minimum lifetime
+   of a lock in seconds. If a client requests a lock timeout less than
+   DAVMinTimeout, then the DAVMinTimeout value will be used and returned
+   instead. For example, Microsoft's Web Folders defaults to a lock
+   timeout of 2 minutes; 10 minutes could be used to reduce network
+   traffic and the chance that the client might lose a lock due to
+   network latency.
+   
+   The DAVMinTimeout directive is optional, and may be used on a
+   per-server or per-directory/location basis. It takes a single,
+   non-negative integer. Since this value represents a minimum allowed,
+   setting it to zero (0) will disable this feature. The default value
+   for DAVMinTimeout is zero.
+   
+  Preventing "Depth Infinity" PROPFINDs
+  
+   A PROPFIND request with a Depth:&nbspInfinity header can impose a
+   large burden on the server. These kinds of requests could "walk" the
+   entire repository, returning information about each resource found.
+   mod_dav builds the response in memory, so these kinds of requests
+   could potentially consume a lot of memory (the memory would be
+   released at the end of the request, but the peak can be quite large).
+   
+   To prevent these kinds of requests, the DAVDepthInfinity directive has
+   been provided. It is a simple on/off directive, which can be used on a
+   per-server or a per-directory/location basis. The default value for
+   this directive is off, meaning these kinds of requests are not
+   allowed.
+   
+   NOTE: the WebDAV Working Group has stated that it is acceptable for
+   DAV servers to refuse these kinds of requests. Properly written client
+   software should not issue them, and you should not worry about
+   disabling them.
+   
+  Limiting XML Request Body Sizes
+  
+   mod_dav will parse XML request bodies into memory. It would be a very
+   effective "Denial of Service" attach to send a large request body at a
+   mod_dav server. Apache defines a directive named LimitRequestBody
+   which will limit all methods' request bodies. Unfortunately, this is
+   not an effective mechanism for a mod_dav server since large PUT
+   operations should be allowed.
+   
+   To limit just the methods that have an XML request body, mod_dav
+   defines the LimitXMLRequestBody directive. The default for this value
+   is a compile-time constant, which is set to one million (1000000)
+   bytes in the standard distribution. Setting the value to zero (0) will
+   disable the size limit.
+   
+   LimitXMLRequestBody may be set on a per-server or a
+   per-directory/location basis, and takes a single non-negative integer
+   argument.
+   
+  Sample Configuration
+  
+   A sample configuration segment might look like:
+   
+   ...
+   DAVLockDB /usr/local/apache/var/DAVLock
+   DAVMinTimeout 600
+   <Location /mypages>
+       DAV On
+   </Location>
+   ...
+   
+  Limiting DAV Access to Authorized Users
+  
+   The DAV and DAVLockDB directives are the only two configuration
+   changes necessary to operate a DAV server. However, it is usually best
+   to secure the site to be writable only by specific users. This
+   requires the use of the <Limit> directive. Here is an example:
+   
+   <Location /mypages>
+       DAV On
+       <Limit PUT POST DELETE PROPFIND PROPPATCH MKCOL COPY MOVE LOCK
+   UNLOCK>
+           Require user greg
+       </Limit>
+   </Location>
+   
+   The above configuration will allow only authorized users to manipulate
+   the site. However, it does allow them a bit more freedom than you may
+   like. In particular, they may be able to place a .htaccess file into
+   the target directory, altering your server configuration. The server
+   may have already been configured to not read .htaccess files, but it
+   is best to make sure. Also, you may want to disallow other options
+   within the DAV-enabled directory -- CGI, symbolic links, server-side
+   includes, etc. Here is a modified configuration with the additional
+   restrictions placed on it:
+   
+   <Location /mypages>
+       DAV On
+       AllowOverride None
+       Options None
+       <Limit PUT POST DELETE PROPFIND PROPPATCH MKCOL COPY MOVE LOCK
+   UNLOCK>
+           Require user greg
+       </Limit>
+   </Location>
+   
+  Using LimitExcept
+  
+   Rather than using the <Limit> directive and specifying an exhaustive
+   list of HTTP methods to secure, it is also possible to use the
+   <LimitExcept> directive. This directive applies the access
+   restrictions to all methods except for the methods listed. For
+   example, your configuration section might look like:
+   
+   <Location /mypages>
+       DAV On
+       AllowOverride None
+       Options None
+       <LimitExcept GET HEAD OPTIONS>
+           require user webadmin
+       </LimitExcept>
+   </Location>
+   
+   Choosing to use one or the other is a matter of preference. The
+   <Limit> directive is precise and explicit, but the <LimitExcept>
+   directive will automatically restrict methods that are added in the
+   future.
+   
+  PROPFIND Security
+  
+   In the example configurations above, the PROPFIND method was limited,
+   even though it is read-only. This is because the PROPFIND method can
+   be used to list all the files in the DAV-enabled directory. For
+   security purposes, you probably want the exact list of files to be
+   hidden.
+   
+   An alternative would be to limit the PROPFIND to a group of people, a
+   set of domains, or a set of hosts, while the methods that modify
+   content are limited to just a few authors. This scenario allows, say,
+   your company's employees to browse the files on the server, yet only a
+   few people can change them. Anonymous (non-authenticated) visitors
+   cannot browse or modify.
+   
+   Finally, you can simply omit PROPFIND from the limits if your web
+   server is intended as a general, read-only repository of files. This
+   allows anybody to arbitrarily browse the directories and then to fetch
+   the files.
+   
+  Other Security Issues
+  
+   Please refer to the [17]security section, on the main mod_dav web
+   page, for more information about security issues related to DAV and
+   mod_dav in particular.
+   
+  Upgrading from version 0.9.8 or earlier
+  
+   Previous versions did not contain a DAVLockDB directive. You will need
+   to add that for mod_dav to operate properly.
+     _________________________________________________________________
+   
+Setting Up the File Repository
+
+   mod_dav requires read/write access to the filesystem where the
+   documents are stored. The following discussion uses Unix as an
+   example; the Win32 platform will have similar concerns when used on an
+   NTFS partition (where file/directory security is present).
+   
+   The need for read/write access means that the owner and group of the
+   files will be that of the web server. For discussion, let's say that
+   your Apache configuration file contains the following directives
+   (among others!):
+   
+   User nobody
+   Group www
+   Alias /pages /home/www/davhome
+   <Location /pages>
+       DAV On
+   </Location>
+   
+   In the above configuration, the web server is running as "nobody" and
+   as group "www". mod_dav is going to need to read/write files in the
+   /home/www/davhome directory. A directory listing might look like this:
+   
+drwxr-s---   2 nobody   www          1024 Jul 14 11:28 ./
+drwxr-s---  18 nobody   www          1024 Oct 25 17:03 ../
+drwxr-s---   2 nobody   www          1024 Oct 11 01:37 .DAV/
+-rw-r--r--   1 nobody   www          2976 Jul 14 11:28 acknowledgments.html
+-rw-r--r--   1 nobody   www          2755 Jul 14 11:28 demos.html
+-rw-r--r--   1 nobody   www          4963 Jul 14 11:28 documentation.html
+-rw-r--r--   1 nobody   www          4423 Jul 14 11:28 downloads.html
+-rw-r--r--   1 nobody   www          1457 Jul 14 11:28 footnote.html
+drwxr-s---   2 nobody   www          1024 Oct 18 11:52 images/
+-rw-r--r--   1 nobody   www          5592 Jul 14 11:28 index.html
+-rw-r--r--   1 nobody   www          2136 Jul 14 11:28 intro.html
+-rw-r--r--   1 nobody   www          5456 Jul 14 11:28 news.html
+-rw-r--r--   1 nobody   www          3125 Jul 14 11:28 tutorial.html
+
+   In this example, the web server will have no problem reading and
+   writing the files in the /home/www/davhome file repository.
+   
+   NOTE: the file repository is considered "private" to mod_dav and the
+   web server. Modifying files via FTP or through filesystem commands
+   should not be allowed. This is for a couple reasons:
+    1. External access may create files and directories with ownership or
+       privileges that would prevent mod_dav from operating properly.
+    2. mod_dav does not use filesystem locking to protect the files from
+       modification. Note that filesystem locking isn't even a guarantee
+       [against changes] on many operating systems.
+     _________________________________________________________________
+   
+Other Notes
+
+   The DAV spec ([18]RFC 2518) does not incorporate a security model. It
+   relies on any web server and file system security that the
+   administrator configures.
+   
+   On Unix machines, the web server process must have permission to write
+   to the DAV-enabled directories and any files to be modified.
+   
+   Local manipulation of files in a DAV-enabled directory is a bad thing.
+   Specifically, DAV file locks are implemented by mod_dav, not the file
+   system.
+     _________________________________________________________________
+   
+Expat Build and Install
+
+   James Clark's Expat parser is included in the source tree of Apache
+   1.3.9 and later. It is only necessary to obtain and build the Expat
+   distribution when using an earlier version of Apache.
+   
+   On Windows precompiled Expat dlls are not shipped with the Apache
+   distribution but are available with the mod_dav Win32 distribution.
+   
+   If needed, James Clark's Expat parser is available from:
+   
+     [19]http://www.jclark.com/xml/
+     
+   For Windows
+          Extract the Expat parser .zip into the directory where the
+          mod_dav files are located, using the folders stored in the zip.
+          Expat will be extracted into the expat/ subdirectory.
+          
+   For Unix
+          Note that the expat Makefile does not automatically build the
+          expat library. Add this rule to the Makefile:
+          
+  libexpat.a: $(OBJS)
+        ar -rc $@ $(OBJS)
+        ranlib $@
+        
+          (don't forget to use tabs before the ar and ranlib lines there)
+          
+          Then type: make libexpat.a
+          
+          And copy libexpat.a to /usr/local/lib and xmlparse/xmlparse.h
+          to /usr/local/include. If you wish to use a different
+          directory, then you will need to pass that to ./configure using
+          the --with-expat command line option.
+     _________________________________________________________________
+   
+What to do if you have a problem
+
+   Problems with the installation, configuration, or operation of mod_dav
+   should be sent to the [20]dav-dev mailing list. There are a number of
+   people subscribed to that list who can help, so your chance of a
+   speedy reply is much better than sending to Greg's (too-full) email
+   inbox.
+   
+   Information you should include:
+     * What versions of mod_dav and Apache are you using?
+     * What client are you using to (attempt to) talk to your DAV-enabled
+       server?
+     * The relevant portions of your httpd.conf
+     * The relevant portions of your error_log and access_log
+     * Are you attempting to talk to the DAV server through a proxy?
+       There are [21]known problems with many proxy servers.
+       
+   To send mail to the dav-dev mailing list:
+   
+     [22]dav-dev@lyra.org
+     
+   Information about subscribing to the mailing list, and a link to the
+   list's archive:
+   
+     [23]http://dav.lyra.org/mailman/listinfo/dav-dev
+     _________________________________________________________________
+   
+Configuration for complex setups
+
+   Apache has a particular design restriction in that only one "content
+   handler" is allowed to process a request. There are multiple stages
+   involving authorization, access checking, MIME type handling, etc, but
+   there is only one content handler.
+   
+   This content handler is specified with directives such as SetHandler,
+   AddHandler, or indirectly by mapping a MIME type to a handler. Apache
+   modules may also assert themselves as the handler during the request
+   processing. mod_dav asserts itself this way when the DAV directive has
+   enabled DAV for a particular directory or location. Content handlers
+   may decide to assert themselves based on the request method; for
+   example, mod_dav will be the content handler for methods such as PUT,
+   DELETE, and PROPPATCH, but not for the GET method (which is left to be
+   handled by other modules or Apache itself).
+   
+   Once a content handler is identified for a request, then it will
+   perform the bulk of the processing: it will manage the body of the
+   request, and it will construct the response.
+   
+   The problem that crops up is that many modules will assert themselves
+   as the content handler regardless of the request method. When a DAV
+   client issues a PROPFIND, it will be intercepted by the other module,
+   rather than mod_dav. This is actually reasonable, when you consider
+   that a PHP or CGI script is perfectly capable of responding to a
+   PROPFIND. It is just that we want mod_dav to do it.
+   
+   In the sections below, I'll cover some general problems and their
+   solutions.
+   
+  Web Folders fails when copying a dynamic resource
+  
+   Problem: You are attempting to copy a dynamic resource, such as a CGI
+   script, a server-parsed file (.shtml), or a PHP file, and you get an
+   error dialog that reads:
+   
+     An error occurred copying some or all of the selected files.
+     
+   This is caused by the server-side script not returning a Last-Modified
+   header. If the script can support returning headers (e.g. CGI or PHP),
+   then it should be modified to ensure that a Last-Modified header is
+   returned.
+   
+   NOTE: the recommendation below has been found to NOT work. It inserts
+   a constant Last-Modified time onto a dynamic script. Users' browsers
+   and proxies will see the constant time and believe that the output has
+   not changed. At this time, there is no specific answer to the problem.
+   
+   If the script cannot return headers (such as a server-parsed HTML file
+   (.shtml)), then you can update your Apache installation to include the
+   [24]mod_headers module. Next, add a configuration section to your
+   httpd.conf similar to the following:
+   
+   <Files "*.shtml">
+       Header set Last-Modified "Fri, 03 Mar 2000 06:32:31 GMT"
+   </Files>
+   
+   The date that you specify should not be in the future. This will
+   pretend that all server-parsed files have a specific, constant
+   modification date, but things may be okay.
+   
+   Note: I have not performed exhaustive tests to discover the
+   ramifications of forcing a Last-Modified header to a fixed time. In my
+   tests, this allows Web Folders to perform the copy successfully, and
+   Internet Explorer seems to be fine with it.
+   
+  I'm getting PHP output rather than the source
+  
+   This is caused by the simple fact that a GET is always going to run
+   the script. There is no way to distinguish a "GET for the result" and
+   a "GET for authoring."
+   Note: this problem applies to any server-side scripting solution. It
+   is not specific to PHP. For demonstrations sake, I will use PHP as an
+   example.
+   
+   PHP and mod_dav will also conflict when they each attempt to handle
+   the different HTTP request methods. This is caused by the simple fact
+   that both modules are configured for the same location or directory,
+   and are competing for acting as the content handler.
+   
+   There are several ways to fix this. They all solve the problem by
+   providing a separate URL to access the PHP source. In one scenario,
+   you can provide a simple "source" URL:
+   
+   Alias /phparea /home/gstein/php_files
+   Alias /php-source /home/gstein/php_files
+   <Location /php-source>
+       DAV On
+       ForceType text/plain
+   </Location>
+   
+   A different alternative is to present the source through another
+   virtual server:
+   
+   <VirtualHost 12.34.56.78>
+       DocumentRoot /home/gstein/php_files
+   </VirtualHost>
+   <VirtualHost 12.34.56.78:81>
+       DocumentRoot /home/gstein/php_files
+       DAV On
+       ForceType text/plain
+   </VirtualHost>
+   
+   There are probably a few, similar ways to accomplish the same kind of
+   setup. I have used the first form (a secondary URL space)
+   successfully, but have not tried the second virtual host. Other people
+   have reported success with it, however.
+   
+   In each of these ways to fix the problem, we are taking advantage of
+   the fact that there are different URL namespaces that map to the same,
+   underlying filesystem space. By attaching different processing to the
+   URL spaces, we can create different behaviors during the translation
+   to the filesystem space.
+   
+   Finally, I believe that it may be possible to ensure that mod_dav
+   occurs later in the AddModule directives, thus making mod_dav be the
+   content handler for methods besides GET. If PHP is later in the list,
+   then it will end up handling all methods. This trickery does not solve
+   the authoring problem, however.
+     _________________________________________________________________
+   
+   
+    [25]Greg Stein
+    
+   Last modified: Wed Jun 28 00:18:59 PDT 2000
+
+References
+
+   1. http://www.webdav.org/mod_dav/install.html#unix
+   2. http://www.webdav.org/mod_dav/install.html#win32
+   3. http://www.webdav.org/mod_dav/install.html#apache
+   4. http://www.webdav.org/mod_dav/install.html#repository
+   5. http://www.webdav.org/mod_dav/install.html#notes
+   6. http://www.webdav.org/mod_dav/install.html#expat
+   7. http://www.webdav.org/mod_dav/install.html#problem
+   8. http://www.webdav.org/mod_dav/install.html#complex
+   9. http://www.webdav.org/mod_dav/
+  10. http://www.php.net/FAQ.php#6.11
+  11. http://www.webdav.org/mod_dav/install.html#expat
+  12. http://www.php.net/FAQ.php#6.11
+  13. http://www.webdav.org/mod_dav/install.html#apache
+  14. http://www.webdav.org/mod_dav/install.html#expat
+  15. http://www.webdav.org/mod_dav/install.html#apache
+  16. http://www.webdav.org/mod_dav/install.html#add-lockdb
+  17. http://www.webdav.org/mod_dav/index.html#security
+  18. http://www.webdav.org/specs/index.html#dav
+  19. http://www.jclark.com/xml/
+  20. http://dav.lyra.org/mailman/listinfo/dav-dev
+  21. http://www.webdav.org/other/proxy.html
+  22. mailto:dav-dev@lyra.org
+  23. http://dav.lyra.org/mailman/listinfo/dav-dev
+  24. http://www.apache.org/docs/mod/mod_headers.html
+  25. mailto:gstein@lyra.org

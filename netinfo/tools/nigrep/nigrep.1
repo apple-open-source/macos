@@ -1,0 +1,43 @@
+.TH NIGREP 1 "August 9, 1994" "Apple Computer, Inc."
+.SH "NAME"
+nigrep \- search for a regular expression in the NetInfo hierarchy
+.SH "SYNOPSIS"
+.B nigrep
+\fIexpression\fR [ \fB-t\fR ] \fIdomain\fR [ \fIdirectory\fR ... ]
+.SH "DESCRIPTION"
+.I nigrep
+searches through the specified domain argument for a regular expression.
+It searches the domain's directory hierarchy depth-first starting from
+the root directory. It can also start from each directory specified on the command line.
+.sp
+The
+.I domain
+argument can be specified as an absolute or relative domain name. The \fIdomain\fR argument can be specified as a network address or hostname and tag if preceded by the
+.I \-t
+option.
+.sp
+On output, 
+.I nigrep
+prints the directory ID number of the directory which contains the regular expression, and the property key and values where it was found.  A line is
+printed for each property that contains the regular expression.
+
+.SH "OPTIONS"
+.TP
+.B "-t"
+Specify \fIdomain\fR as a network address or hostname and tag.
+
+.SH "EXAMPLES"
+% nigrep '[Nn]et' /
+.sp
+% nigrep '[Nn]et' -t 192.42.172.17/local
+.sp
+% nigrep '192\.[0-9]+\.172' -t astra/network /machines
+.sp
+% nigrep '/Net/server.*/Users' .. /users /mounts
+
+.SH "SEE ALSO"
+netinfo(5)
+
+.SH "AUTHOR"
+Marc Majka, Apple Computer Inc.
+.PP

@@ -1,0 +1,114 @@
+.TH ATPRINT 1
+.SH NAME
+atprint
+\- transfer data to a printer using AppleTalk protocols
+.SH SYNOPSIS
+.B atprint
+[ 
+.I printer-name
+[:
+.I printer-type
+[@
+.I zone 
+] ] ]
+.SH ARGUMENTS
+.TP 8
+.I printer-name
+Specifies the name of the printer you want to use.
+.TP 8
+.I printer-type
+Specifies the type of printer, such as LaserWriter or
+ImageWriter.  Use this option when you want to allow
+the network to select the printer, but only a printer
+of a given type.  If you omit this option, LaserWriter
+is the printer type used by default.
+
+For example, when the printer name is specified with
+wildcards.  (See atlookup(1) for an explanation of
+wildcards.)  The print device used is the one chosen by
+the network.  By supplying LaserWriter as the printer
+type in a case such as this, you can restrict the
+network to choosing a printer that can handle
+PostScript instructions.
+
+The full range of possible replacement values for
+printer-type depends on the configuration of your
+network. Each different type of print device broadcasts
+its printer-type and printer-name identification when
+it registers itself with the network. You can use
+atlookup to obtain a report showing this information
+for all the AppleTalk devices on your network (see
+atlookup(1)).
+.TP 8
+.I zone 
+Specifies the AppleTalk zone in which the printer
+resides.  If you omit this argument or specify it as *,
+the local zone is used.
+.SH DESCRIPTION
+atprint uses a printing protocol to establish a connection
+to an AppleTalk device, where it sends data received on its
+standard input until it reaches an end-of-file character.
+When it detects an end-of-file character, atprint closes the
+AppleTalk session with the device, enabling other users to
+gain access to the printer.
+
+You can select the destination AppleTalk device through the
+command-line arguments as described in the ``Arguments''
+section earlier in this manual page.  If you do not specify
+any of these arguments, atprint uses the printer that was
+last selected with the at_cho_prn command
+(see at_cho_prn(1)).
+
+Often the printer you access by way of an AppleTalk
+connection is a LaserWriter.  Many LaserWriter models are
+PostScript printers. If you are using such a LaserWriter,
+the data that you send it must already be translated into
+the PostScript page-description language. For example, the
+enscript command translates the output from troff (invoked with
+the -Tpsc option) into PostScript:
+
+        troff -Tpsc -mm file | enscript -p- | atprint
+
+The atprint command displays one or more messages indicating
+the AppleTalk device with which it is communicating and
+possibly many device status messages (such as when another
+print job is occupying the printer for a period of time).
+In the preceding example, the default printer is used.  (See
+the ``Arguments'' section earlier in this manual page.)
+
+(Note that the atprint command does not honor requests from
+a LaserWriter regarding the downloading of fonts.  Likewise,
+it does not prepend a PostScript header to the data stream
+in the same manner as the printer drivers in the Macintosh
+Operating System.  In the preceding example, a PostScript
+header is still provided because enscript prepends its own
+header as part of the PostScript conversion process.)
+
+In AppleTalk programming terms, the arguments make up a
+network-visible entity (NVE), where
+
+        printer-name[:printer-type[@zone]]
+
+corresponds to the AppleTalk object, type, and zone:
+
+        object:type@zone
+
+.SH EXAMPLES
+This command line maps a plain text file into PostScript and
+then submits it to joe's printer:
+
+        enscript -p- file | atprint "joe's printer"
+
+.SH WARNINGS
+The atprint command does not process the input files as does
+lpr.  To print ASCII files properly on a PostScript printer
+with atprint, you must preprocess the files with pstext or
+enscript.  Likewise, you must preprocess files produced by
+troff with enscript(1).
+
+.SH FILES
+/usr/bin/atprint
+Executable file
+
+.SH SEE ALSO
+at_cho_prn(1), atlookup(1), atstatus(1), enscript(1), lpr(1)

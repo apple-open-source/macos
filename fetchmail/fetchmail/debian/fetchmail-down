@@ -1,0 +1,5 @@
+#!/bin/sh
+
+test -x /usr/bin/fetchmail && \
+	fetchmail -q
+

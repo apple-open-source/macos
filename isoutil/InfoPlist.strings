@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd">
+<plist version="0.9">
+<dict>
+	<key>CFBundleName</key>
+	<string>cd9660</string>
+	<key>FSPersonalities</key>
+	<dict>
+		<key>ISO</key>
+		<dict>
+			<key>FSName</key>
+			<string>ISO 9660 File System</string>
+		</dict>
+	</dict>
+</dict>
+</plist>

@@ -1,0 +1,78 @@
+{
+    DYNAMIC_CODE_GEN = YES; 
+    FILESTABLE = {
+        H_FILES = (externs.h); 
+        OTHER_LINKED = (
+            clock_sleep.c, 
+            error_codes.c, 
+            exc_catcher.c, 
+            exc_catcher_state.c, 
+            exc_catcher_state_identity.c, 
+            fprintf_stderr.c, 
+            mach_error.c, 
+            mach_error_string.c, 
+            mach_init.c, 
+            mach_init_ports.c, 
+            mach_msg.c, 
+            mach_msg_destroy.c, 
+            mach_msg_receive.c, 
+            mach_msg_send.c, 
+            mach_msg_server.c, 
+            mach_subsystem_join.c, 
+            mach_traps.s, 
+            mig_allocate.c, 
+            mig_deallocate.c, 
+            mig_reply_setup.c, 
+            mig_strncpy.c, 
+            ms_thread_switch.c, 
+            panic.c, 
+            port_obj.c, 
+            sbrk.c, 
+            semaphore.c, 
+            slot_name.c,
+	    mach_absolute_time.c
+        ); 
+        OTHER_SOURCES = (
+            Makefile.preamble, 
+            Makefile, 
+            Makefile.postamble, 
+            bootstrap.defs, 
+            clock.defs, 
+            clock_reply.defs, 
+            err_ipc.sub, 
+            err_kern.sub, 
+            err_mach_ipc.sub, 
+            err_server.sub, 
+            err_us.sub, 
+            exc.defs, 
+            ledger.defs, 
+            mach_port.defs, 
+            notify.defs, 
+            clock_priv.defs, 
+            host_priv.defs, 
+            host_security.defs, 
+            lock_set.defs, 
+            processor.defs, 
+            processor_set.defs, 
+            task.defs, 
+            thread_act.defs, 
+            vm_map.defs, 
+            mach_host.defs
+        ); 
+        SUBPROJECTS = (headers.subproj, servers.subproj); 
+    }; 
+    LANGUAGE = English; 
+    MAKEFILEDIR = "$(MAKEFILEPATH)/pb_makefiles"; 
+    NEXTSTEP_BUILDTOOL = /bin/gnumake; 
+    NEXTSTEP_JAVA_COMPILER = /usr/bin/javac; 
+    NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc; 
+    PDO_UNIX_BUILDTOOL = $NEXT_ROOT/Developer/bin/make; 
+    PDO_UNIX_JAVA_COMPILER = "$(JDKBINDIR)/javac"; 
+    PDO_UNIX_OBJCPLUS_COMPILER = "$(NEXTDEV_BIN)/gcc"; 
+    PROJECTNAME = mach; 
+    PROJECTTYPE = Component; 
+    PROJECTVERSION = 2.8; 
+    WINDOWS_BUILDTOOL = $NEXT_ROOT/Developer/Executables/make; 
+    WINDOWS_JAVA_COMPILER = "$(JDKBINDIR)/javac.exe"; 
+    WINDOWS_OBJCPLUS_COMPILER = "$(DEVDIR)/gcc"; 
+}

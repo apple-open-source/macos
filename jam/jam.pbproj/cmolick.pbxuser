@@ -1,0 +1,153 @@
+{
+	00FB6896FEF958F911CA2CB3 = {
+		fileReference = 3C5613C1FEEF59C211CA2CB3;
+		isa = PBXFileBreakpoint;
+		lineNumber = 84;
+		state = 1;
+	};
+	00FE5D8DFEF9EE7911CA2CB3 = {
+		activeExec = 0;
+		customExecs = {
+		};
+		targetExecs = {
+			macosx = (
+				00FE5D93FEF9EE7911CA2CB3,
+			);
+		};
+	};
+	00FE5D93FEF9EE7911CA2CB3 = {
+		activeArgIndex = 2147483647;
+		argumentStrings = (
+		);
+		debuggerPlugin = GDBDebugging;
+		dylibVariantSuffix = "";
+		enableDebugStr = 1;
+		environmentEntries = (
+		);
+		execLocation = 00FE5D94FEF9EE7911CA2CB3;
+		isa = PBXExecutable;
+	};
+	00FE5D94FEF9EE7911CA2CB3 = {
+		isa = PBXFileSystemLocation;
+		partSpecifier = 3;
+		path = "";
+		productSpecifier = 0;
+		target = 00FE5D8DFEF9EE7911CA2CB3;
+	};
+	00FE5D97FEF9EFA211CA2CB3 = {
+		activeExec = 0;
+		customExecs = {
+		};
+		targetExecs = {
+		};
+	};
+	3C561387FEEF59C211CA2CB3 = {
+		activeTarget = 3C5613D6FEEF59C211CA2CB3;
+		addToTargets = (
+			00FE5D97FEF9EFA211CA2CB3,
+		);
+		breakpoints = (
+			00FB6896FEF958F911CA2CB3,
+		);
+		perUserDictionary = {
+			PBXWorkspaceConfiguration = {
+				ContentSize = "{814, 614}";
+				LeftSlideOut = {
+					ActiveTab = 0;
+					Frame = "{{0, 23}, {814, 562}}";
+					Split0 = {
+						ActiveTab = 2;
+						Frame = "{{213, 0}, {601, 562}}";
+						Split0 = {
+							Frame = "{{0, 242}, {601, 320}}";
+						};
+						SplitCount = 1;
+						Tab0 = {
+							Debugger = {
+								ActiveTab = 0;
+								Frame = "{{0, 0}, {770, 243}}";
+								Split0 = {
+									Frame = "{{0, 132}, {770, 111}}";
+									Split0 = {
+										Frame = "{{0, 0}, {138, 111}}";
+									};
+									Split1 = {
+										Frame = "{{147, 0}, {623, 111}}";
+									};
+									SplitCount = 2;
+								};
+								SplitCount = 1;
+								Tab0 = {
+									Frame = "{{0, 0}, {770, 107}}";
+								};
+								TabCount = 1;
+							};
+							Frame = "{{0, 0}, {770, 243}}";
+							LauncherConfigVersion = 2;
+						};
+						Tab1 = {
+							Frame = "{{0, 0}, {770, 195}}";
+							LauncherConfigVersion = 1;
+							Runner = {
+								Frame = "{{0, 0}, {770, 195}}";
+							};
+						};
+						Tab2 = {
+							BuildMessageFrame = "{{0, 0}, {605, 41}}";
+							BuildTranscriptFrame = "{{0, 50}, {605, 169}}";
+							Frame = "{{0, 0}, {601, 217}}";
+						};
+						Tab3 = {
+							Frame = "{{0, 0}, {493, 266}}";
+						};
+						TabCount = 4;
+					};
+					SplitCount = 1;
+					Tab0 = {
+						Frame = "{{0, 0}, {188, 562}}";
+					};
+					Tab1 = {
+						Frame = "{{0, 0}, {150, 562}}";
+					};
+					Tab2 = {
+						Frame = "{{0, 0}, {166, 562}}";
+					};
+					TabCount = 3;
+				};
+				WindowLoc = "{76, 50}";
+			};
+		};
+	};
+	3C5613C1FEEF59C211CA2CB3 = {
+	};
+	3C5613D6FEEF59C211CA2CB3 = {
+		activeExec = 0;
+		customExecs = {
+		};
+		targetExecs = {
+			macosx = (
+				3C561412FEEF59C211CA2CB3,
+			);
+		};
+	};
+	3C561412FEEF59C211CA2CB3 = {
+		activeArgIndex = 0;
+		argumentStrings = (
+			"-d6 JAMFILE=/Network/Servers/fivestar/homes/arizona/cmolick/scratch/Exp\335riment/Exp\335rimentale.jam build TARGETNAME=Exp\335rimentale DSTROOT=/ OBJROOT=/Network/Servers/fivestar/homes/arizona/cmolick/scratch/Exp\335riment/build/intermediates SRCROOT=/Network/Servers/fivestar/homes/arizona/cmolick/scratch/Exp\335riment SYMROOT=/Network/Servers/fivestar/homes/arizona/cmolick/scratch/Exp\335riment/build",
+		);
+		debuggerPlugin = GDBDebugging;
+		dylibVariantSuffix = "";
+		enableDebugStr = 1;
+		environmentEntries = (
+		);
+		execLocation = 3C561413FEEF59C211CA2CB3;
+		isa = PBXExecutable;
+	};
+	3C561413FEEF59C211CA2CB3 = {
+		isa = PBXFileSystemLocation;
+		partSpecifier = 3;
+		path = "";
+		productSpecifier = 0;
+		target = 3C5613D6FEEF59C211CA2CB3;
+	};
+}

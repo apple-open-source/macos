@@ -1,0 +1,141 @@
+1998-07-01  Markku Rossi  <mtr@ngs.fi>
+
+	* 88591.txt: Changed 0xb9 to be `/onesuperior' instead of
+	`/dottlessi'.
+
+1998-06-25  Markku Rossi  <mtr@ngs.fi>
+
+	* configure.in: Added check for the strtoul() function.
+
+1998-06-23  Markku Rossi  <mtr@ngs.fi>
+
+	* configure.in (PSLEVEL): added option --with-ps-level to specify
+	the default PostScript language level that enscript should use.
+
+1998-06-16  Markku Rossi  <mtr@ngs.fi>
+
+	* configure.in: Updated version number to 1.6.1.
+
+1998-06-11  Markku Rossi  <mtr@ngs.fi>
+
+	* Renamed all ISO-8859-* encodings to conform their ISO names.
+	All uses changed.
+
+1998-03-25  Markku Rossi  <mtr@ngs.fi>
+
+	* 88597.txt: Added encoding for ISO-8859-7.  Thanks to Manolis
+	Lourakis <lourakis@csd.uch.gr>.
+
+1998-03-09  Markku Rossi  <mtr@ngs.fi>
+
+	* Upgraded automake to version 1.2e.
+
+	* configure.in: Updated version number to 1.5.6.
+
+1997-09-30  Markku Rossi  <mtr@ngs.fi>
+
+	* 88594.txt: Added encoding for ISO-8859-4 character set.  Thanks
+	to Ricardas Cepas <rch@pub.osf.lt> for the patches.
+
+Thu Jul 17 11:47:35 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* Upgraded automake to version 1.2.
+
+Wed Jul 16 12:41:01 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* Makefile.am: Added THANKS file.
+
+Thu May 22 10:43:08 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* configure.in (SPOOLER): added option --with-spooler to specify
+	the system printer spooler.
+
+	* Added a banner which shows the user definable options and their
+	current values.  This should save some emails.
+
+Mon Apr 14 12:18:35 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* INSTALL: Updated Autoconf related installation information.
+
+	* Updated COPYING and COPYING.LIB files to the latest ones.
+
+Wed Feb 12 11:43:06 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* Makefile.am: Added all FAQ related files to the distribution.
+
+Thu Jan 23 12:00:02 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* configure.in: Added checks form memmove() and memcpy() and added
+	their replacements to compat.
+	Added check for alloca().
+
+Tue Jan 21 17:58:03 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* Created a new tests subdirectory which holds the enscript
+	testsuite.
+
+	* Automake-1.1l.
+
+Tue Nov  5 08:21:14 1996  Markku Rossi  <mtr@ngs.ngs.fi>
+
+	* 88595.txt: New encoding for ISO-8859-5 (ISO Cyrillic) character
+	set. Thanks for Ildar Khabibrakhmanov <ildar@hawking.math.mun.ca>
+	for the 88595.txt encoding file.
+
+Sun Sep  8 13:38:36 1996  Markku Rossi  <mtr@ngs.ngs.fi>
+
+	* All encoding description files: changed name of the character
+	0x2d (-) from `/minus' to `/hyphen'.
+
+Sat Sep  7 15:40:03 1996  Markku Rossi  <mtr@ngs.ngs.fi>
+
+	* koi8.txt: New encoding for Adobe's Standard Cyrillic Font KOI8.
+	Thanks for Ildar Khabibrakhmanov <ildar@hawking.math.mun.ca> for
+	the koi8.txt encoding file.
+
+Fri Aug 23 22:09:07 1996  Markku Rossi  <mtr@ngs.ngs.fi>
+
+	* Updated developement tools: autoconf-2.10, automake-1.1c,
+	gettext-0.10.23.
+
+Sun Jul 28 01:26:21 1996  Markku Rossi  <mtr@ngs.ngs.fi>
+
+	* Changed __P() macro to ___P() in all files where it was used.
+  	Now we won't clash with solaris' math.h which defines __P().
+
+Thu Jun 13 12:45:43 1996  Markku Rossi  <mtr@ngs.ngs.fi>
+
+	* Automake-1.0.
+
+	* New subdirectory `scripts' for utility scripts.
+
+Thu Jun  6 08:38:27 1996  Markku Rossi  <mtr@ngs.ngs.fi>
+
+	* gettext-0.10.16.
+
+Mon May  6 10:05:55 1996  Markku Rossi  <mtr@ngs.fi>
+
+	* Automake-0.32.
+
+Thu Mar 14 09:02:39 1996  Markku Rossi  <mtr@ngs.fi>
+
+	* Automake-0.31.
+
+	* configure.in: Removed CFLAGS and LDFLAGS defaults, use whatever
+ 	autoconf gives to us.
+
+Mon Mar 11 09:21:34 1996  Markku Rossi  <mtr@ngs.fi>
+
+	* 88592.txt: fixed character 0xf0 from /eth to /dbar.
+
+Sun Feb 25 05:14:10 1996  Markku Rossi  <mtr@ngs.fi>
+
+	* Reorganized source tree:
+	  - enscript source is moved to the new `src' sub-directory
+	  - `afm' directory is renamed to `afmlib'
+	  - `afmfiles' directory is renamed to `afm'
+
+	* Renamed program to `GNU enscript'.
+
+	* Made to use Automake utility.  The old top level Change log has
+	moved to the src subdirectory.

@@ -1,0 +1,9 @@
+dnl ../doc/m4.texinfo:2019: Origin of test
+define(`cleanup', `This is the `cleanup' actions.
+')
+dnl @result{}
+m4wrap(`cleanup')
+dnl @result{}
+This is the first and last normal input line.
+dnl @result{}This is the first and last normal input line.
+dnl @result{}This is the cleanup actions.

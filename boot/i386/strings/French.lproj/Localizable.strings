@@ -1,0 +1,78 @@
+/* Informational messages */
+
+"Loading Rhapsody" = "Chargement de Rhapsody en cours";
+"Loading %s\n" = "Chargement de %s en cours\n";
+"Reading Rhapsody configuration" = "Lecture de la configuration de Rhapsody en cours";
+"Couldn't load standalone linker; unable to load boot drivers.\n" = "Impossible de charger le \"linker\" autonome: impossible de charger les drivers\nd'initialisation.\n";
+"Insert file system media and press Return" = "Inserez le disque du systeme de fichiers et appuyez sur Retour";
+"Errors encountered while starting up the computer.\n" = "Des erreurs se sont produites lors du lancement de l'ordinateur.\n";
+"Pausing %d seconds...\n" = "Pause de %d secondes...\n";
+"Starting Rhapsody" = "Demarrage de Rhapsody en cours";
+"Can't find %s\n" = "%s introuvable\n";
+"Couldn't start up the computer using this floppy disk." = "Impossible de lancer l'ordinateur a l'aide de cette disquette.";
+"Error occurred while linking driver %s:\n%s" = "Apparition d'une erreur lors de la liaison du driver %s :\n%s";
+"Loading %s device driver.\n" = "Chargement du driver de peripherique %s.\n";
+"The driver was loaded successfully.\n" = "Chargement du driver reussi.\n";
+"An error occurred while loading the %s device driver.\n" = "Erreur au cours du chargement du driver de peripherique %s.\n";
+"Press Return to continue.\n" = "Appuyez sur Retour pour continuer.\n";
+"That driver has already been loaded.\n" = "Ce driver a deja ete charge.\n";
+"Searching for drivers\n" = "Recherche des drivers en cours\n";
+"Reading configuration file '%s'.\n" = "Lecture du fichier de configuration '%s'.\n";
+
+/* Warnings */
+
+"Config file \"%s\" not found\n" = "Fichier de configuration \"%s\" introuvable\n";
+"System config file '%s' not found\n" = "Fichier de configuration du systeme '%s' introuvable\n";
+"Loading binary for %s device driver.\n" = "Chargement du programme en binaire pour %s driver de peripherique.\n";
+"Warning: No active drivers specified in system config.\n" = "Attention : aucun driver actif n'a ete specifie dans la configuration systeme.\n";
+
+/* Install messages */
+
+"DRIVER_MESSAGE_1" = "La disquette placee dans le lecteur contient des drivers de peripherique pour \nles adaptateurs SCSI suivants :\n";
+"DRIVER_INSTRUCTION_1" = "Entrez le numero de l'adaptateur SCSI auquel le lecteur de votre CD-ROM est \nconnecte.\n\n";
+"DRIVER_ALTERNATE_1" = "Si le driver de ce peripherique est sur un autre disque, inserez cette \ndisquette dans le lecteur et entrez %d.\n";
+"DRIVER_QUIT_1" = "";
+"DRIVER_MESSAGE_2" = "La disquette placee dans le lecteur contient des drivers de peripherique pour \nles adaptateurs SCSI et controleurs de disque dur suivants :\n";
+"DRIVER_INSTRUCTION_2" = "Entrez le numero de l'adaptateur SCSI ou du contreleur de disque dur auquel le \ndisque dur sur lequel vous voulez installer Rhapsody est connecte. (Il peut \ns'agir du meme adaptateur SCSI auquel celui de votre lecteur de CD-ROM est \nconnecte.)\n\n";
+"DRIVER_ALTERNATE_2" = "Si le driver de ce peripherique est sur une autre disquette, inserez-la dans \nle lecteur et entrez %d.\n";
+"DRIVER_QUIT_2" = "";
+"DRIVER_MESSAGE_3" = "La disquette placee dans le lecteur contient les drivers de peripheriques \nsuivants :\n";
+"DRIVER_INSTRUCTION_3" = "Entrez le numero pour le driver de peripherique pour lequel vous devez \ninstaller Rhapsody.\n\n";
+"DRIVER_ALTERNATE_3" = "Si le driver de peripherique que vous devez charger est sur une autre disquette,\ninserez-la dans le lecteur et entrez %d.\n\n";
+"DRIVER_QUIT_3" = "Entrez %d pour continuer sans installer de driver de peripherique a partir de\ncette disquette.\n";
+"DRIVER_QUESTION_3" = "Generalement, vous devez uniquement charger les drivers de peripherique pour\nles adaptateurs auxquels le lecteur de votre CD-ROM et votre disque dur sont \nconnectes pour installer Rhapsody.\nLes autres drivers sont charges automatiquement.\n\nSi vous devez charger un autre driver de peripherique, inserez la disquette sur\nlaquelle il est stocke dans le lecteur.\n\n";
+
+"Type %d to view a list of additional device drivers on this disk.\n\n" = 
+"Tapez %d pour afficher la liste des autres drivers de peripherique
+se trouvant sur ce disque.\n\n";
+
+"Really Install?" = "Ce programme vous permet d'installer Rhapsody sur un disque dur.\nIL NE S'AGIT PAS D'UNE MISE A NIVEAU : TOUS LES FICHIERS Rhapsody EXISTANTS\nSERONT SUPPRIMES.\n\nSi vous souhaitez conserver des fichiers stockes sur votre disque dur,\nquittez ce programme et copiez ce que vous souhaitez conserver sur un autre\ndisque.\n\nEntrez 1 pour vous preparer a installer Rhapsody.\nEntrez 2 pour quitter ce programme d'installation.\n";
+
+"Insert Driver Disk" = "Veuillez inserer la disquette des drivers de peripherique Rhapsody dans le\nlecteur et appuyez sur Retour.\n\n---> ";
+
+"Load Other Drivers?" = "Generalement, vous devez uniquement charger les drivers de peripherique pour\nles adaptateurs auxquels le lecteur de votre CD-ROM et votre disque dur sont\nconnectes pour installer Rhapsody.\nLes autres drivers sont charges automatiquement a partir du CD-ROM Rhapsody.\n\nSi vous devez charger un autre driver de peripherique, inserez la disquette sur\nlaquelle il est stocke dans le lecteur.\n\n";
+"Missing Drivers:" = "Lorsque vous avez commence l'installation de Rhapsody, vous avez charge un ou\nplusieurs drivers de peripherique qui n'etaient pas stockes sur le CD-ROM\nRhapsody :\n";
+
+"No Drivers On This Disk" = "Il n'existe pas de driver adequat sur cette disquette.\nVeuillez inserer une nouvelle disquette et appuyer sur Retour.\n---> ";
+
+"Install Canceled" = "Installation annulee.  Ejectez la disquette et redemarrez l'ordinateur.\n";
+
+"1 To Continue" = "Entrez 1 pour continuer sans charger de driver de peripherique supplementaire.\n";
+
+"2 To Load" = "Entrez 2 pour charger un driver de peripherique stocke sur la disquette inseree\ndans le lecteur.\n";
+
+"1 To Load Driver" = "Veuillez inserer la disquette sur laquelle est stockee un ou plusieurs de ces\ndrivers de peripherique et entrez 1.\n";
+
+"2 To Continue" = "Entrez 2 pour continuer sans charger de driver de peripherique affiche de cette\nliste.\n";
+
+/* Somewhat obscure error messages */
+
+"Error loading %s\n" = "Erreur de chargement de %s\n";
+"Read error\n" = "Erreur de lecture\n";
+"Error in standalone linker executable\n" = "Erreur dans le programme d'execution du \"linker\" autonome\n";
+"Fat binary file doesn't contain i386 code\n" = "Le fichier Fat Binary ne contient pas le code i386\n";
+"Unrecognized binary format\n" = "Format binaire inconnu\n";
+"Error reading commands\n" = "Erreur de lecture des commandes\n";
+"Error loading section\n" = "Erreur de chargement de section\n";
+"Can't load driver %s without sarld\n" = "Impossible de charger le driver %s sans le programme sarld\n";
+"Driver %s is larger than %d bytes and can't be loaded.\n" = "La taille du driver %s depasse %d octets : impossible de le charger.\n";

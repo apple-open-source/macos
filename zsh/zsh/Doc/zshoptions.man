@@ -1,0 +1,661 @@
+.\"
+.TH ZSHOPTIONS 1 "June 26, 1996" "zsh version 3.0"
+.SH NAME
+zshoptions \- zsh options
+.SH "SPECIFYING OPTIONS"
+Options are primarily referred to by name.
+These names are case insensitive and underscores are ignored.
+For example, "allexport" is equivalent to "A__lleXP_ort".
+.PP
+The sense of an option name may be inverted by preceding it with "no",
+so "setopt No_Beep" is equivalent to "setopt beep".
+This inversion can only be done once, so "nonobeep" is
+.I not
+a synonym for "beep".
+Similarly, "tify" is not a synonym for "nonotify"
+(the inversion of "notify").
+.PP
+Some options also have one or more single letter names.
+There are two sets of single letter options: one used by default,
+and another when the shell is emulating sh or ksh.
+The single letter options can be used on the shell command line,
+or with the
+.BR set ", " setopt " and " unsetopt
+builtins, as normal Unix options preceded by
+.BR \- .
+.PP
+The sense of the single letter options may be inverted by using
+.B +
+instead of
+.BR \- .
+Some of the single letter option names refer to an option being off,
+in which case the inversion of that name refers to the option being on.
+For example, "+n" is the short name of "exec", and "\-n" is the short name
+of its inversion, "noexec".
+.SH DESCRIPTIONS
+.RS
+.TP
+\fBALL_EXPORT\fP (\-\fBa\fP, ksh: \-\fBa\fP)
+All parameters subsequently defined are automatically exported.
+.TP
+\fBALWAYS_LAST_PROMPT\fP
+If unset, key functions that list completions try to return to the last
+prompt if given a numeric argument. If set these functions try to
+return to the last prompt if given \fBno\fP numeric argument.
+.TP
+\fBALWAYS_TO_END\fP
+If a completion with the cursor in the word was started and it results
+in only one match, the cursor is placed at the end of the word.
+.TP
+\fBAPPEND_HISTORY\fP
+If this is set, zsh sessions will append their history list to
+the history file, rather than overwrite it. Thus, multiple parallel
+zsh sessions will all have their history lists added to the
+history file, in the order they are killed.
+.TP
+\fBAUTO_CD\fP (\-\fBJ\fP)
+If a command is not in the hash table, and there exists an
+executable directory by that name, perform the \fBcd\fP
+command to that directory.
+.TP
+\fBAUTO_LIST\fP (\-\fB9\fP)
+Automatically list choices on an ambiguous completion.
+.TP
+\fBAUTO_MENU\fP
+Automatically use menu completion after the second consecutive request for
+completion, for example by pressing the \fPTAB\fP key repeatedly. This option
+is overridden by \fBMENU_COMPLETE\fP.
+.TP
+\fBAUTO_NAME_DIRS
+Any parameter that is set to the absolute name of a directory
+immediately becomes a name for that directory in the usual form
+~param.  If this option is not set, the parameter must be used in that
+form for it to become a name (a command-line completion is sufficient
+for this).
+.TP
+\fBAUTO_PARAM_KEYS\fP
+If a parameter name was completed and the next character typed is one
+of those that have to come directly after the name (like `}', `:',
+etc.) they are placed there automatically.
+.TP
+\fBAUTO_PARAM_SLASH\fP
+If a parameter is completed whose content is the name of a directory,
+then add a trailing slash.
+.TP
+\fBAUTO_PUSHD\fP (\-\fBN\fP)
+Make \fBcd\fP push the old directory onto the directory stack.
+.TP
+\fBAUTO_REMOVE_SLASH\fP
+When the last character resulting from a completion is a slash and the next
+character typed is a word delimiter, remove the slash.
+.TP
+\fBAUTO_RESUME\fP (\-\fBW\fP)
+Treat single word simple commands without redirection
+as candidates for resumption of an existing job.
+.TP
+\fBBAD_PATTERN\fP (+\fB2\fP)
+If a pattern for filename generation is badly formed,
+print an error.
+If this option is unset, the pattern will be left unchanged.
+.TP
+\fBBANG_HIST\fP (+\fBK\fP)
+Perform textual history substitution, treating the character \fB!\fP specially.
+.TP
+\fBBEEP\fP (+\fBB\fP)
+Beep.
+.TP
+\fBBG_NICE\fP (\-\fB6\fP)
+Run all background jobs at a lower priority.  This option
+is set by default.
+.TP
+\fBBRACE_CCL\fP
+Expand expressions in braces which would not otherwise undergo brace
+expansion to a lexically ordered list of all the characters.  See the
+section \fBBRACE EXPANSION\fP in the \fBzshexpn\fP manual page.
+.TP
+\fBBSD_ECHO\fP
+Make the \fBecho\fP builtin compatible with the BSD \fBecho\fP(1) command.
+This disables backslashed escape sequences in echo strings unless the
+-\fBe\fP option is specified.
+.TP
+\fBCDABLE_VARS\fP (\-\fBT\fP)
+If the argument to a \fBcd\fP command (or an implied \fBcd\fP with the
+\fBAUTO_CD\fP option set) is not a directory, and does not begin with a
+slash, try to expand the expression as if it were preceded by a ~ (see
+\fBFilename Expansion\fP above).
+.TP
+\fBCHASE_LINKS\fP (\-\fBw\fP)
+Resolve symbolic links to their true values.
+.TP
+\fBCLOBBER\fP (+\fBC\fP, ksh: +\fBC\fP)
+Allows \fB>\fP redirection to truncate existing files,
+and \fB>>\fP to create files.
+Otherwise \fB>!\fP must be used to truncate a file,
+and \fB>>!\fP to create a file.
+.TP
+\fBCOMPLETE_ALIASES\fP
+If set, aliases on the command line are not internally substituted
+before completion is attempted.
+.TP
+\fBCOMPLETE_IN_WORD\fP
+If unset, the cursor is set to the end of the word if completion is
+started. Otherwise it stays there and completion is done from both ends.
+.TP
+\fBCORRECT\fP (\-\fB0\fP)
+Try to correct the spelling of commands.
+.TP
+\fBCORRECT_ALL\fP (\-\fBO\fP)
+Try to correct the spelling of all arguments in a line.
+.TP
+\fBCSH_JUNKIE_HISTORY\fP
+A history reference without an event specifier will always refer to the
+previous command.
+.TP
+\fBCSH_JUNKIE_LOOPS\fP
+Allow loop bodies to take the form
+"\fIlist\fP; \fBend\fP" instead of
+"\fBdo\fP \fIlist\fP; \fBdone\fP".
+.TP
+\fBCSH_JUNKIE_QUOTES\fP
+Complain if a quoted expression runs off the end of a line;
+prevent quoted expressions from containing unescaped newlines.
+.TP
+\fBCSH_NULL_GLOB\fP
+If a pattern for filename generation has no matches,
+delete the pattern from the argument list;
+do not report an error unless all the patterns
+in a command have no matches.
+Overrides \fBNULL_GLOB\fP.
+.TP
+\fBEQUALS\fP
+Perform \fB=\fP filename substitution.
+.TP
+\fBERR_EXIT\fP (\-\fBe\fP, ksh: \-\fBe\fP)
+If a command has a non-zero exit status, execute the \fBZERR\fP
+trap, if set, and exit.  This is disabled while running initialization
+scripts.
+.TP
+\fBEXEC\fP (+\fBn\fP, ksh: +\fBn\fP)
+Do execute commands.  Without this option, commands are
+read and checked for syntax errors, but not executed.
+.TP
+\fBEXTENDED_GLOB\fP
+Treat the #, ~ and ^ characters as part of patterns for filename
+generation, etc.  (An initial unquoted ~ always produces named
+directory expansion as in \fBFilename Expansion\fP above.)
+.TP
+\fBEXTENDED_HISTORY\fP
+Save beginning and ending timestamps to the history file.
+The format of these timestamps is
+\fI:<beginning time>:<ending time>:<command>.\fP
+.TP
+\fBFLOW_CONTROL\fP
+If this option is unset,
+output flow control via start/stop characters (usually assigned to
+^S/^Q) is disabled in the shell's editor.
+.TP
+\fBFUNCTION_ARGZERO\fP
+When executing a shell function or sourcing a script, set $0
+temporarily to the name of the function/script.
+.TP
+\fBGLOB\fP (+\fBF\fP, ksh: +\fBf\fP)
+Perform filename generation.
+.TP
+\fBGLOB_ASSIGN\fP
+If this option is set, \fIfilename generation\fP (globbing) is
+performed on the right hand side of scalar parameter assignments of
+the form \fIname\fB=\fIpattern\fB (e.g. `param=*'). If the result has
+more than one word the parameter will become an array with those words
+as arguments. This option is provided for backwards compatibility
+only: globbing is always performed on the right hand side of array
+assignments of the form `\fIname\fB=( \fIvalue\fB )\fR'
+(e.g. `param=(*)') and this form is recommended for clarity;  with this
+option set, it is not possible to predict whether the result will be
+an array or a scalar.
+.TP
+\fBGLOB_COMPLETE\fP
+When the current word has a glob pattern, do not insert all the words
+resulting from the expansion but generate matches as for completion and
+cycle through them like \fBMENU_COMPLETE\fP. The matches are generated
+as if a `*' was added to the end of the word, or inserted at the
+cursor when \fBCOMPLETE_IN_WORD\fP is set.  This actually uses pattern
+matching, not globbing, so it works not only for files but for any
+completion, such as options, user names, etc.
+.TP
+\fBGLOB_DOTS\fP (\-\fB4\fP)
+Do not require a leading . in a filename to be matched explicitly.
+.TP
+\fBGLOB_SUBST\fP
+Treat any characters resulting from parameter substitution as being
+eligible for file expansion and filename generation, and any
+characters resulting from command substitution as being eligible for
+filename generation.
+.TP
+\fBHASH_CMDS\fP
+Place the location of each command in the hash table the first
+time it is executed.  If this option is unset, no path hashing
+will be done at all.
+.TP
+\fBHASH_DIRS\fP
+Whenever a command is executed, hash the directory containing it,
+as well as all directories that occur earlier in the path.
+Has no effect if \fBHASH_CMDS\fP is unset.
+.TP
+\fBHASH_LIST_ALL\fP
+Whenever a command completion is attempted, make sure the entire
+command path is hashed first.  This makes the first completion slower.
+.TP
+\fBHIST_ALLOW_CLOBBER\fP
+Add `|' to output redirections in the history.  This allows history
+references to clobber files even when \fBCLOBBER\fP is unset.
+.TP
+\fBHIST_BEEP\fP
+Beep when an attempt is made to access a history entry which
+isn't there.
+.TP
+\fBHIST_IGNORE_DUPS\fP (\-\fBh\fP)
+Do not enter command lines into the history list
+if they are duplicates of the previous event.
+.TP
+\fBHIST_IGNORE_SPACE\fP (\-\fBg\fP)
+Do not enter command lines into the history list
+if any command on the line begins with a blank.
+.TP
+\fBHIST_NO_STORE\fP
+Remove the \fBhistory\fP (\fBfc\fP \-\fBl\fP) command from
+the history when invoked.
+.TP
+\fBHIST_REDUCE_BLANKS\fP
+Remove superfluous whitespace from each command line
+being added to the history list.
+.TP
+\fBHIST_VERIFY\fP
+Whenever the user enters a line with history substitution,
+don't execute the line directly; instead, perform
+history substitution and reload the line into the editing buffer.
+.TP
+\fBHUP\fP
+Send the \fBHUP\fP signal to running jobs when the
+shell exits.
+.TP
+\fBIGNORE_BRACES\fP (\-\fBI\fP)
+Do not perform brace expansion.
+.TP
+\fBIGNORE_EOF\fP (\-\fB7\fP)
+Do not exit on end-of-file.  Require the use
+of \fBexit\fP or \fBlogout\fP instead.
+.TP
+\fBINTERACTIVE\fP (\-\fBi\fP, ksh: \-\fBi\fP)
+This is an interactive shell.  This option is set upon initialisation if
+the standard input is a tty and commands are being read from standard input.
+(See the discussion of
+.BR SHIN_STDIN .)
+This heuristic may be overridden by specifying a state for this option
+on the command line.
+The value of this option cannot be changed anywhere other than the command line.
+.TP
+\fBINTERACTIVE_COMMENTS\fP (\-\fBk\fP)
+Allow comments even in interactive shells.
+.TP
+\fBKSH_ARRAYS\fP
+Emulate \fIksh\fP array handling as closely as possible. If this option
+is set, array elements are numbered from zero, an array parameter
+without subscript refers to the first element instead of the whole array,
+and braces are required to delimit a subscript (``${path[2]}'' rather
+than just ``$path[2]'').
+.TP
+\fBKSH_OPTION_PRINT\fP
+Alters the way options settings are printed.
+.TP
+\fBLIST_AMBIGUOUS\fP
+If this option is set, completions are shown only if the completions
+don't have a unambiguous prefix or suffix that could be inserted in
+the command line.
+.TP
+\fBLIST_BEEP\fP
+Beep on an ambiguous completion.
+.TP
+\fBLIST_TYPES\fP (\-\fBX\fP)
+When listing files that are possible completions, show the
+type of each file with a trailing identifying mark.
+.TP
+\fBLOCAL_OPTIONS\fP
+If this option is set at the point of return from a shell function,
+all the options (including this one) which were in force upon entry to
+the function are restored.  Otherwise, only this option and the
+\fBXTRACE\fP and \fBPRINT_EXIT_VALUE\fP options are restored.  Hence
+if this is explicitly unset by a shell function the other options in
+force at the point of return will remain so.
+.TP
+\fBLOGIN\fP (\-\fBl\fP, ksh: \-\fBl\fP)
+This is a login shell.
+.TP
+\fBLONG_LIST_JOBS\fP (\-\fBR\fP)
+List jobs in the long format by default.
+.TP
+\fBMAGIC_EQUAL_SUBST\fP
+All unquoted arguments of the form \fIidentifier\fB=\fIexpression\fR
+appearing after the command name have filename expansion (that is,
+where \fIexpression\fR has a leading `~' or `=') performed on
+\fIexpression\fR as if it were a parameter assignment. The argument is
+not otherwise treated specially: in other words, it is subsequently
+treated as a single word, not as an assignment.
+.TP
+\fBMAIL_WARNING\fP (\-\fBU\fP)
+Print a warning message if a mail file has been
+accessed since the shell last checked.
+.TP
+\fBMARK_DIRS\fP (\-\fB8\fP, ksh: \-\fBX\fP)
+Append a trailing / to all directory
+names resulting from filename generation (globbing).
+.TP
+\fBMENU_COMPLETE\fP (\-\fBY\fP)
+On an ambiguous completion, instead of listing possibilities or beeping,
+insert the first match immediately.  Then when completion is requested
+again, remove the first match and insert the second match, etc.
+When there are no more matches, go back to the first one again.
+\fBreverse-menu-complete\fP may be used to loop through the list
+in the other direction. This option overrides \fBAUTO_MENU\fP.
+.TP
+\fBMONITOR\fP (\-\fBm\fP, ksh: \-\fBm\fP)
+Allow job control.  Set by default in interactive shells.
+.TP
+\fBMULTIOS\fP
+Perform implicit \fBtee\fPs or \fBcat\fPs when multiple
+redirections are attempted (see the \fBREDIRECTION\fP section).
+.TP
+\fBNOMATCH\fP (+\fB3\fP)
+If a pattern for filename generation has no matches,
+print an error, instead of
+leaving it unchanged in the argument list.
+This also applies to file expansion 
+of an initial ~ or =.
+.TP
+\fBNOTIFY\fP (\-\fB5\fP, ksh: \-\fBb\fP)
+Report the status of background jobs immediately, rather than
+waiting until just before printing a prompt.
+.TP
+\fBNULL_GLOB\fP (\-\fBG\fP)
+If a pattern for filename generation has no matches,
+delete the pattern from the argument list instead
+of reporting an error.  Overrides \fBNOMATCH\fP.
+.TP
+\fBNUMERIC_GLOB_SORT\fP
+If numeric filenames are matched by a filename generation pattern,
+sort the filenames numerically rather than lexicographically.
+.TP
+\fBOVER_STRIKE\fP
+Start up the line editor in overstrike mode.
+.TP
+\fBPATH_DIRS\fP (\-\fBQ\fP)
+Perform a path search even on command names with slashes in them.
+Thus if "/usr/local/bin" is in the user's path, and he types
+"X11/xinit", the command "/usr/local/bin/X11/xinit" will be executed
+(assuming it exists).
+This applies to the \fB\&.\fP builtin as well as to command execution.
+Commands explicitly beginning with "./" or "../" are not subject to
+path search.
+.TP
+\fBPOSIX_BUILTINS\fP
+When this option is set the \fBcommand\fP builtin can be used to execute
+shell builtin commands.  Parameter assignments specified before shell
+functions and special builtins are kept after the command completes unless
+the special builtin is prefixed with the \fBcommand\fP builtin.  Special
+builtins are
+.BR . ,
+.BR : ,
+.BR break ,
+.BR continue ,
+.BR declare ,
+.BR eval ,
+.BR exit ,
+.BR export ,
+.BR integer ,
+.BR local ,
+.BR readonly ,
+.BR return ,
+.BR set ,
+.BR shift ,
+.BR source ,
+.BR times ,
+.BR trap " and"
+.BR unset .
+.TP
+\fBPRINT_EIGHT_BIT\fP
+Print eight bit characters literally in completion lists, etc.
+This option is not necessary if your system correctly returns the
+printability of eight bit characters (see ctype(3)).
+.TP
+\fBPRINT_EXIT_VALUE\fP (\-\fB1\fP)
+Print the exit value of programs with non-zero exit status.
+.TP
+\fBPRIVILEGED\fP (\-\fBp\fP, ksh: \-\fBp\fP)
+Turn on privileged mode. This is enabled automatically on startup if the
+effective user (group) id is not equal to the real user (group) id. Turning
+this option off causes the effective user and group ids to be set to the
+real user and group ids. This option disables sourcing user startup files.
+If \fIzsh\fP is invoked as \fIsh\fP or \fIksh\fP with this option set,
+\fB/etc/suid_profile\fP is sourced (after \fB/etc/profile\fP on interactive
+shells). Sourcing \fB~/.profile\fP is disabled and the contents of the
+\fBENV\fP variable is ignored. This option cannot be changed using the
+\-\fBm\fP option of \fBsetopt\fP and \fBunsetopt\fP and changing it inside a
+function always changes it globally regardless of the \fBLOCAL_OPTIONS\fP
+option.
+.TP
+\fBPROMPT_CR\fP (+\fBV\fP)
+Print a carriage return just before printing
+a prompt in the line editor.
+.TP
+\fBPROMPT_SUBST\fP
+If set, \fIparameter expansion\fP, \fIcommand substitution\fP and
+\fIarithmetic expansion\fP is performed in prompts.
+.TP
+\fBPUSHD_IGNORE_DUPS\fP
+Don't push multiple copies of the same directory onto the directory stack.
+.TP
+\fBPUSHD_MINUS\fP
+See \fBpopd\fP below.
+.TP
+\fBPUSHD_SILENT\fP (\-\fBE\fP)
+Do not print the directory stack after \fBpushd\fP
+or \fBpopd\fP.
+.TP
+\fBPUSHD_TO_HOME\fP (\-\fBD\fP)
+Have \fBpushd\fP with no arguments act like
+\fBpushd\fP $HOME.
+.TP
+\fBRC_EXPAND_PARAM\fP (\-\fBP\fP)
+Array expansions of the form
+\fIfoo\fB${\fIxx\fB}\fIbar\fR, where the parameter
+\fIxx\fP is set to (\fIa b c\fP), are substituted with
+\fIfooabar foobbar foocbar\fP instead of the default
+\fIfooa b cbar\fP.
+.TP
+\fBRC_QUOTES\fP
+Allow the character sequence \fB''\fP to signify a single quote
+within singly quoted strings.
+.TP
+\fBRCS\fP (+\fBf\fP)
+After /etc/zshenv is sourced on startup, source the
+.zshenv, /etc/zprofile, .zprofile,
+/etc/zshrc, .zshrc, /etc/zlogin, .zlogin, and .zlogout files,
+as described in \fBSTARTUP/SHUTDOWN FILES\fP.
+If this option is unset, only
+the /etc/zshenv file is sourced.
+.TP
+\fBREC_EXACT\fP (\-\fBS\fP)
+In completion, recognize exact matches even
+if they are ambiguous.
+.TP
+\fBRM_STAR_SILENT\fP (\-\fBH\fP)
+Do not query the user before executing "rm *" or "rm path/*".
+.TP
+\fBSH_FILE_EXPANSION\fP
+Perform filename expansion (e.g., ~ expansion)
+.I before
+parateter expansion, command substitution, arithmetic expansion
+and brace expansion.
+If this option is unset, it is performed
+.I after
+brace expansion, so things like ``~$USERNAME'' ``~{pfalstad,rc}'' will work.
+.TP
+\fBSH_GLOB\fP
+Disables the special meaning of `(', `|', `)' and '<' for globbing the
+result of parameter and command substitutions,
+and in some other places where
+the shell accepts patterns.  This option is set if \fIzsh\fP is
+invoked as \fIsh\fP or \fIksh\fP.
+.TP
+\fBSHIN_STDIN\fP (\-\fBs\fP, ksh: \-\fBs\fP)
+Commands are being read from the standard input.
+Commands are read from standard input if no command is specified with
+\-\fBc\fP and no file of commands is specified.  If
+.B SHIN_STDIN
+is set explicitly on the command line,
+any argument that would otherwise have been
+taken as a file to run will instead be treated as a normal positional
+parameter.
+Note that setting or unsetting this option on the command line does not
+necessarily affect the state the option will have while the shell is
+running \- that is purely an indicator of whether on not commands are
+.I actually
+being read from standard input.
+The value of this option cannot be changed anywhere other than the command line.
+.TP
+\fBSH_OPTION_LETTERS\fP
+If this option is set the shell tries to interpret single letter options
+(which are used with \fBset\fP and \fBsetopt\fP) like \fIksh\fP does.
+This also affects the value of the \fB-\fP special parameter.
+.TP
+\fBSHORT_LOOPS\fP
+Allow the short forms of \fBfor\fP, \fBselect\fP,
+\fBif\fP, and \fBfunction\fP constructs.
+.TP
+\fBSH_WORD_SPLIT\fP (\-\fBy\fP)
+See \fIParameter Expansion\fP.
+.TP
+\fBSINGLE_COMMAND\fP (\-\fBt\fP, ksh: \-\fBt\fP)
+If the shell is reading from standard input, it exits after a single command
+has been executed.  This also makes the shell non-interactive, unless the
+.B INTERACTIVE
+option is explicitly set on the command line.
+The value of this option cannot be changed anywhere other than the command line.
+.TP
+\fBSINGLE_LINE_ZLE\fP (\-\fBM\fP)
+Use single-line command line editing instead of multi-line.
+.TP
+\fBSUN_KEYBOARD_HACK\fP (\-\fBL\fP)
+If a line ends with a backquote, and there are an odd number
+of backquotes on the line, ignore the trailing backquote.
+This is useful on some keyboards where the return key is
+too small, and the backquote key lies annoyingly close to it.
+.TP
+\fBUNSET\fP (+\fBu\fP, ksh: +\fBu\fP)
+Treat unset parameters as if they were empty when substituting.
+Otherwise they are treated as an error.
+.TP
+\fBVERBOSE\fP (\-\fBv\fP, ksh: \-\fBv\fP)
+Print shell input lines as they are read.
+.TP
+\fBXTRACE\fP (\-\fBx\fP, ksh: \-\fBx\fP)
+Print commands and their arguments as they are executed.
+.TP
+\fBZLE\fP (\-\fBZ\fP)
+Use the zsh line editor.
+.RE
+.SH "SINGLE LETTER OPTIONS"
+Default set:
+.PP
+.nf
+\-\fB0\fP CORRECT
+\-\fB1\fP PRINT_EXIT_VALUE
++\fB2\fP BAD_PATTERN
++\fB3\fP NOMATCH
+\-\fB4\fP GLOB_DOTS
+\-\fB5\fP NOTIFY
+\-\fB6\fP BG_NICE
+\-\fB7\fP IGNORE_EOF
+\-\fB8\fP MARK_DIRS
+\-\fB9\fP AUTO_LIST
++\fBB\fP BEEP
++\fBC\fP CLOBBER
+\-\fBD\fP PUSHD_TO_HOME
+\-\fBE\fP PUSHD_SILENT
++\fBF\fP GLOB
+\-\fBG\fP NULL_GLOB
+\-\fBH\fP RM_STAR_SILENT
+\-\fBI\fP IGNORE_BRACES
+\-\fBJ\fP AUTO_CD
++\fBK\fP BANG_HIST
+\-\fBL\fP SUN_KEYBOARD_HACK
+\-\fBM\fP SINGLE_LINE_ZLE
+\-\fBN\fP AUTO_PUSHD
+\-\fBO\fP CORRECT_ALL
+\-\fBP\fP RC_EXPAND_PARAM
+\-\fBQ\fP PATH_DIRS
+\-\fBR\fP LONG_LIST_JOBS
+\-\fBS\fP REC_EXACT
+\-\fBT\fP CDABLE_VARS
+\-\fBU\fP MAIL_WARNING
++\fBV\fP PROMPT_CR
+\-\fBW\fP AUTO_RESUME
+\-\fBX\fP LIST_TYPES
+\-\fBY\fP MENU_COMPLETE
+\-\fBZ\fP ZLE
+\-\fBa\fP ALL_EXPORT
+\-\fBe\fP ERR_EXIT
++\fBf\fP RCS
+\-\fBg\fP HIST_IGNORE_SPACE
+\-\fBh\fP HIST_IGNORE_DUPS
+\-\fBi\fP INTERACTIVE
+\-\fBk\fP INTERACTIVE_COMMENTS
+\-\fBl\fP LOGIN
+\-\fBm\fP MONITOR
++\fBn\fP EXEC
+\-\fBp\fP PRIVILEGED
+\-\fBs\fP SHIN_STDIN
+\-\fBt\fP SINGLE_COMMAND
++\fBu\fP UNSET
+\-\fBv\fP VERBOSE
+\-\fBw\fP CHASE_LINKS
+\-\fBx\fP XTRACE
+\-\fBy\fP SH_WORD_SPLIT
+.fi
+.PP
+.BR sh / ksh
+emulation set:
+.PP
+.nf
++\fBC\fP CLOBBER
+\-\fBX\fP MARK_DIRS
+\-\fBa\fP ALL_EXPORT
+\-\fBb\fP NOTIFY
+\-\fBe\fP ERR_EXIT
++\fBf\fP GLOB
+\-\fBi\fP INTERACTIVE
+\-\fBl\fP LOGIN
+\-\fBm\fP MONITOR
++\fBn\fP EXEC
+\-\fBp\fP PRIVILEGED
+\-\fBs\fP SHIN_STDIN
+\-\fBt\fP SINGLE_COMMAND
++\fBu\fP UNSET
+\-\fBv\fP VERBOSE
+\-\fBx\fP XTRACE
+.fi
+.PP
+Also note:
+.PP
+.nf
+\-\fBA\fP Used by \fBset\fP for setting arrays
+\-\fBc\fP Used on the command line to specify a single command
+\-\fBm\fP Used by \fBsetopt\fP for pattern-matching option setting
+\-\fBo\fP Used in all places to allow use of long option names
+.fi
+.PP
+Note that the use of \-\fBm\fP in
+.B setopt
+and
+.BR unsetopt ,
+allowing the specification of option names by glob patterns,
+clashes with the use of \-\fBm\fP for setting the MONITOR option.

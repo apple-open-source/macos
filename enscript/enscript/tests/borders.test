@@ -1,0 +1,10 @@
+#!/bin/sh
+#
+# --borders
+#
+
+. $srcdir/defs || exit 1
+
+$enscript --quiet --borders -p$output $asciifiles
+
+rm $output

@@ -1,0 +1,13 @@
+#!/bin/sh
+# 
+# Definitions for States testing environment.
+#
+
+states="../states -f $srcdir/tests.st"
+
+# Check that $srcdir is set correctly.
+test -f $srcdir/defs || {
+  echo "defs: installation error" 1>&2
+  exit 1
+}
+

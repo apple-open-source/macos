@@ -1,0 +1,5 @@
+# $Source: /cvs/Darwin/Services/apache_mod_php/php/ext/shmop/setup.stub,v $
+# $Id: setup.stub,v 1.1.1.1 2001/01/25 04:59:58 wsanchez Exp $
+
+define_option enable-shmop 'System V shmop suppport? ' yesno no \
+'    Whether to use the System V shmop (currently only Solaris and Linux).'

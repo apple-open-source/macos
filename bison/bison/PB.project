@@ -1,0 +1,69 @@
+{
+    FILESTABLE = {
+        Documentation = (
+            COPYING, 
+            ChangeLog, 
+            NEWS, 
+            README, 
+            INSTALL, 
+            bison.1, 
+            bison.info, 
+            bison.texinfo, 
+            texinfo.tex, 
+            "bison.info-1", 
+            "bison.info-2", 
+            "bison.info-3", 
+            "bison.info-4", 
+            "bison.info-5", 
+            REFERENCES
+        ); 
+        Headers = (
+            files.h, 
+            getopt.h, 
+            gram.h, 
+            lex.h, 
+            machine.h, 
+            new.h, 
+            state.h, 
+            symtab.h, 
+            system.h, 
+            types.h
+        ); 
+        Makefiles = (Makefile.in, configure, configure.in, "install-sh", mkinstalldirs); 
+        Resources = (bison.cld, bison.hairy, bison.rnh, bison.simple, vmshlp.mar); 
+        SUBPROJECTS = (); 
+        Sources = (
+            LR0.c, 
+            alloca.c, 
+            allocate.c, 
+            vmsgetargs.c, 
+            nullable.c, 
+            closure.c, 
+            conflicts.c, 
+            derives.c, 
+            files.c, 
+            getargs.c, 
+            getopt.c, 
+            getopt1.c, 
+            gram.c, 
+            lalr.c, 
+            lex.c, 
+            main.c, 
+            output.c, 
+            print.c, 
+            reader.c, 
+            reduce.c, 
+            symtab.c, 
+            version.c, 
+            warshall.c
+        ); 
+    }; 
+    LANGUAGE = English; 
+    LOCALIZABLE_FILES = {}; 
+    NEXTSTEP_BUILDTOOL = /bin/make; 
+    PDO_UNIX_BUILDTOOL = /bin/make; 
+    PROJECTNAME = bison; 
+    PROJECTTYPE = "GNU Source"; 
+    PROJECTVERSION = 2.6; 
+    WINDOWS_BUILDTOOL = "${NEXT_ROOT}/NextDeveloper/Executables/make"; 
+}

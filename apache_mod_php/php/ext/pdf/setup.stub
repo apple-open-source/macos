@@ -1,0 +1,7 @@
+# $Source: /cvs/Darwin/Services/apache_mod_php/php/ext/pdf/setup.stub,v $
+# $Id: setup.stub,v 1.1.1.1 2000/08/10 02:08:34 wsanchez Exp $
+
+define_option with-pdflib 'pdflib 0.6 support? ' yesnodir \
+    'no /usr/local pdflib install' \
+'    Whether to use the pdflib support to write .pdf-files.\n
+    Tested for version 0.6!'

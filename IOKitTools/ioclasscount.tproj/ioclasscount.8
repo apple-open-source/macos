@@ -1,0 +1,27 @@
+.\"
+.\" Copyright (c) 2000 Apple Computer, Inc.  All rights reserved.
+.\"
+.\"	$Id: ioclasscount.8,v 1.2 2000/10/03 01:50:21 lindak Exp $
+.\"
+.Dd February 29, 2000
+.Dt IOCLASSCOUNT 8
+.Os Darwin
+.Sh NAME
+.Nm ioclasscount
+.Sh SYNOPSIS
+.Nm
+.Ar classname
+.Op ...
+.Sh DESCRIPTION
+.Pp
+.Nm
+displays the instance count, offset by the number of direct subclasses that have at least one instance allocated, for the classes specified. Useful for tracking leaks. This information can also found in the Root of the IORegistry.
+.Sh EXAMPLES
+.Pp
+Count of instances for IOPCIDevices and AppleTestPCIs.
+.Bl -tag -width findx
+.It Li "/usr/sbin/ioclasscount IOPCIDevice AppleTestPCI"
+IOPCIDevice = 2, AppleTestPCI = 1, 
+.Sh SEE ALSO
+.Xr ioalloccount 8 ,
+.Xr ioreg 8

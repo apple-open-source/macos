@@ -1,0 +1,163 @@
+{\rtf0\ansi{\fonttbl\f0\fnil Times-Roman;\f1\ftech Symbol;\f2\fswiss Helvetica;\f4\fmodern Courier;\f3\fmodern Ohlfs;}
+\paperw12240
+\paperh13220
+\margl120
+\margr120
+{\colortbl;\red0\green0\blue0;}
+\pard\tx960\tx1920\tx2880\tx3840\tx4800\tx5760\tx6720\tx7680\tx8640\tx9600\f0\b0\i0\ulnone\fs24\fc0\cf0 Release 5.0 Copyright 
+\f1 ã
+\f0 1997 by Apple Computer, Inc.  All Rights Reserved.\
+
+\pard\f2\fs30\fc0\cf0 \
+\
+
+\pard\tx0\tx2520\tx2880\tx3240\f0\fs48\li1440\fc0\cf0 Apple Need-To-Know Confidential
+\pard\f2\fs30\fc0\cf0 \
+\
+
+\f0\fs48\li1440 Preliminary 5.0 Release Notes: \
+PowerPC Cross Compiler for Rhapsody
+\fs30 \
+
+\fs28 \
+
+\pard\tx1800\li1440\fc0\cf0 This file contains release notes for the 5.0 release of the PowerPC Cross Compiler for Rhapsody.\
+
+\pard\li1440\fc0\cf0 \
+
+\pard\tx1800\tx2160\tx2520\tx2880\fi-360\li1800\fc1\cf1 \
+
+\pard\tx2520\tx2880\tx3240\b\fs36\fc0\cf0 How to install this compiler\
+\
+
+\pard\tx1800\tx2160\tx2520\b0\fs28\li1440\fc0\cf0 A 3-way fat (m68k, i386, and sparc) package for cc-752 can be installed using /NextAdmin/Installer.app and opening the package:\
+	~comp/Packages/cc-752.pkg\
+
+\pard\li1440\fc0\cf0 \
+
+\pard\tx2520\tx2880\tx3240\b\fs36\fc0\cf0 Status of the PowerPC cross compiler (cc-752)\
+
+\pard\tx1800\tx2160\tx2520\b0\fs28\li1440\fc0\cf0 \
+
+\fi-360\li1800 ·	Static code gen for plain C code should be working
+\fc1\cf1 .
+\pard\tx2520\tx2880\tx3240\b\fs36\fc0\cf0 \
+
+\pard\tx1800\tx2160\tx2520\b0\fs28\fi-360\li1800\fc0\cf0 ·	
+\fc1\cf1 The compiler should be stable enough to the point of not crashing when confronted with Objective C or Objective C++ code. However, this hasn't been tested extensively, though compiling such code can result in working programs.
+\pard\tx2520\tx2880\tx3240\b\fs36\fc0\cf0 \
+
+\pard\tx1800\tx2160\tx2520\b0\fs28\fi-360\li1800\fc0\cf0 ·	Dynamic code gen doesn't work yet
+\fc1\cf1 . However, there is no need to use the -static flag, since this compiler accepts, but does not pay attention to, the -dynamic flag. In fact, you should NOT use the -static flag, unless you are very sure you want to create a static image.
+\pard\tx2520\tx2880\tx3240\b\fs36\fc0\cf0 \
+
+\pard\tx1800\tx2160\tx2520\b0\fs28\fi-360\li1800\fc0\cf0 ·	
+\b Code processed by the old gcc 2.2.2-based NRW compiler must NOT be linked with code processed by this compiler
+\fc1\cf1 .
+\b0  This would lead to disastrous results. Your workstation could blow up, and you could be maimed. You have been warned. DON'T TRY IT!
+\pard\tx2520\tx2880\tx3240\b\fs36\fc0\cf0 \
+
+\pard\tx1800\tx2160\tx2520\b0\fs28\fi-360\li1800\fc0\cf0 ·	Compiling with levels of optimization higher than -O2 is not recommended unless you are prepared to spend substantial amounts of time trying to figure out why your programs don't work
+\fc1\cf1 .
+\pard\tx2520\tx2880\tx3240\b\fs36\fc0\cf0 \
+
+\pard\tx1800\tx2160\tx2520\b0\fs28\fi-360\li1800\fc0\cf0 ·	This compiler tells the assembler to flag all references of registers r2, r12, and r13
+\fc1\cf1 . Some kernel code may intentionally refer to r13. If the assembler flags any other uses of these registers, let us know.
+\pard\tx2520\tx2880\tx3240\b\fs36\fc0\cf0 \
+
+\pard\tx1800\tx2160\tx2520\b0\fs28\li1440\fc0\cf0 If there are any bugs that need to be fixed in order to make progress, let Sam Figueroa and/or Doug Landauer (figueroa@next.com and landauer@apple.com, respectively) know.\
+
+\pard\li1440\fc0\cf0 \
+
+\pard\tx2520\tx2880\tx3240\b\fs36\fc0\cf0 Summary of changes/bug fixes to the PowerPC cross compiler\
+\
+
+\pard\tx0\tx2520\tx2880\tx3240\fs28\li720\fc0\cf0 Changes/bug fixes made in cc-752\
+
+\pard\tx1800\tx2160\tx2520\b0\fi-360\li1800\fc0\cf0 ·	The compiler now supports certain pragmas that control whether fields within structs should be aligned as they would be on a 68k Mac compiler, namely the following:\
+		
+\f4\fs26 #pragma pack (
+\f0\i\fs28 n
+\f4\i0\fs26 ) /*
+\f0\fs28  
+\i n
+\i0  is optional 
+\f4\fs26 */
+\f0\fs28 \
+		
+\f4\fs26 #pragma options align = 
+\f0\i\fs28 word
+\f4\i0\fs26  /*
+\f0\fs28  
+\i word
+\i0  can be mac68k, power, or reset 
+\f4\fs26 */
+\f0\fs28\fc1\cf1 \
+
+\fc0\cf0 ·	
+\fc1\cf1 The compiler now puts jump tables in the .const section rather than the .text section.
+\pard\tx2520\tx2880\tx3240\b\fs36\fc0\cf0 \
+\
+
+\pard\tx0\tx2520\tx2880\tx3240\fs28\li720\fc0\cf0 Changes/bug fixes made in cc-751\
+
+\pard\tx1800\tx2160\tx2520\b0\fi-360\li1800\fc0\cf0 ·	If a function returns a struct by value, the struct is now always returned in memory, regardless of whether the entire struct fits in a register or not
+\fc1\cf1 .\
+
+\fc0\cf0 ·	
+\fc1\cf1 The compiler now knows how to deal with Pascal strings when the -fpascal-strings switch is specified on the cc command line.
+\pard\tx2520\tx2880\tx3240\b\fs36\fc0\cf0 \
+
+\pard\tx1800\tx2160\tx2520\b0\fs28\fi-360\li1800\fc0\cf0 ·	
+\fc1\cf1 The compiler no longer complains about four-character constants if the -Wno-four-char-constants switch is specified on the cc command line.
+\pard\tx2520\tx2880\tx3240\b\fs36\fc0\cf0 \
+
+\pard\tx1800\tx2160\tx2520\b0\fs28\fi-360\li1800\fc0\cf0 ·	
+\fc1\cf1 The preprocessor now looks for header files in /NextLibrary/Frameworks/System.framework/PrivateHeaders/bsd.
+\pard\tx2520\tx2880\tx3240\b\fs36\fc0\cf0 \
+
+\pard\tx0\tx2520\tx2880\tx3240\fs28\li720\fc0\cf0 \
+Changes/bug fixes made in cc-750a\
+
+\pard\tx1800\tx2160\tx2520\b0\fi-360\li1800\fc0\cf0 ·	
+\fc1\cf1 The compiler no longer generates calls to special functions in order to save and restore floating-point registers.
+\pard\tx2520\tx2880\tx3240\b\fs36\fc0\cf0 \
+
+\pard\tx1800\tx2160\tx2520\b0\fs28\fi-360\li1800\fc0\cf0 ·	
+\fc1\cf1 This package now includes a Teflon-aware i386 preprocessor.
+\pard\tx2520\tx2880\tx3240\b\fs36\fc0\cf0 \
+
+\pard\tx1800\tx2160\tx2520\b0\fs28\fi-360\li1800\fc0\cf0 ·	
+\fc1\cf1 Support for linking with -static has been removed.
+\pard\tx2520\tx2880\tx3240\b\fs36\fc0\cf0 \
+
+\pard\tx0\tx2520\tx2880\tx3240\fs28\li720\fc0\cf0 \
+Changes/bug fixes made in cc-750\
+
+\pard\tx1800\tx2160\tx2520\b0\fi-360\li1800\fc0\cf0 ·	The compiler now calls one of two entry points into _objc_msgSend, depending on whether the method returns a struct or not
+\fc1\cf1 .\
+
+\fc0\cf0 ·	
+\fc1\cf1 The compiler no longer makes reference to r13.
+\pard\tx2520\tx2880\tx3240\b\fs36\fc0\cf0 \
+
+\pard\tx1800\tx2160\tx2520\b0\fs28\fi-360\li1800\fc0\cf0 ·	
+\fc1\cf1 Compiling Objective C code with -O3 should now generally work. Before, the compiler thought it didn't have to actually emit code for Objective C methods.
+\pard\tx2520\tx2880\tx3240\b\fs36\fc0\cf0 \
+
+\pard\tx1800\tx2160\tx2520\b0\fs28\fi-360\li1800\fc0\cf0 ·	
+\fc1\cf1 The names of methods in an Objective C class can now start with the same letter.
+\pard\tx2520\tx2880\tx3240\b\fs36\fc0\cf0 \
+
+\pard\tx1800\tx2160\tx2520\b0\fs28\fi-360\li1800\fc0\cf0 ·	
+\fc1\cf1 The __STATIC__ macro is always predefined, since the compiler doesn't generate dynamic code; the PPC macro is no longer predefined.
+\pard\tx2520\tx2880\tx3240\b\fs36\fc0\cf0 \
+
+\pard\tx0\tx2520\tx2880\tx3240\fs28\li720\fc0\cf0 \
+Changes/bug fixes made in cc-748\
+
+\pard\tx1800\tx2160\tx2520\b0\fi-360\li1800\fc0\cf0 ·	
+\fc1\cf1 Initial version of the PowerPC compiler.
+\pard\tx2520\tx2880\tx3240\b\fs36\fc0\cf0 \
+
+}

@@ -1,0 +1,76 @@
+# Copyright (c) 1999,2000 Apple Computer, Inc.
+# All rights reserved.
+
+# Rules for target types include Begin and End rules
+# for Tool, Library, Bundle, Application, and Framework
+
+TOOL_SUFFIX default = "" ;
+rule BeginTool
+{
+    export PRODUCT_TYPE = Tool ;
+    BeginProduct $(1) ;
+}
+
+rule EndTool
+{
+    EndProduct $(1) ;
+}
+
+# Library variable names have the form: $(OS)_$(LIBRARY_STYLE)_LIBRARY_$(VARIABLENAME)
+MACOS_STATIC_LIBRARY_PREFIX = lib ;
+MACOS_STATIC_LIBRARY_SUFFIX = .a ;
+MACOS_DYNAMIC_LIBRARY_PREFIX = "" ;
+MACOS_DYNAMIC_LIBRARY_SUFFIX = "" ;
+DARWIN_STATIC_LIBRARY_PREFIX = lib ;
+DARWIN_STATIC_LIBRARY_SUFFIX = .a ;
+DARWIN_DYNAMIC_LIBRARY_PREFIX = "" ;
+DARWIN_DYNAMIC_LIBRARY_SUFFIX = "" ;
+DYNAMIC_LIBRARY_PREFIX = $($(OS)_DYNAMIC_LIBRARY_PREFIX) ;
+DYNAMIC_LIBRARY_SUFFIX = $($(OS)_DYNAMIC_LIBRARY_SUFFIX) ;
+
+rule BeginLibrary
+{
+    # These evaluations here to pick up style from target settings
+    LIBRARY_PREFIX = $($(OS)_$(LIBRARY_STYLE)_LIBRARY_PREFIX) ;
+    LIBRARY_SUFFIX = $($(OS)_$(LIBRARY_STYLE)_LIBRARY_SUFFIX) ;
+    export PRODUCT_TYPE = Library ;
+    BeginProduct $(1) ;
+}
+
+rule EndLibrary
+{
+    EndProduct $(1) ;
+}
+
+rule BeginBundle
+{
+    export PRODUCT_TYPE = Bundle ;
+    BeginWrappedProduct $(1) ;
+}
+
+rule EndBundle
+{
+    EndWrappedProduct $(1) ;
+}
+
+rule BeginApplication
+{
+    export PRODUCT_TYPE = Application ;
+    BeginWrappedProduct $(1) ;
+}
+
+rule EndApplication
+{
+    EndWrappedProduct $(1) ;
+}
+
+rule BeginFramework
+{
+    export PRODUCT_TYPE = Framework ;
+    BeginWrappedProduct $(1) ;
+}
+
+rule EndFramework
+{
+    EndWrappedProduct $(1) ;
+}

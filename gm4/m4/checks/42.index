@@ -1,0 +1,5 @@
+dnl ../doc/m4.texinfo:2442: Origin of test
+index(`gnus, gnats, and armadillos', `nat')
+dnl @result{}7
+index(`gnus, gnats, and armadillos', `dag')
+dnl @result{}-1

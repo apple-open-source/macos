@@ -1,0 +1,131 @@
+{
+    DYNAMIC_CODE_GEN = YES; 
+    FILESTABLE = {
+        FRAMEWORKS = (); 
+        H_FILES = (
+            alias.h, 
+            char.h, 
+            context.h, 
+            defs.h, 
+            lcmd.h, 
+            local.h, 
+            parser.h, 
+            token.h, 
+            tt.h, 
+            value.h, 
+            var.h, 
+            ww.h, 
+            xx.h, 
+            window_string.h
+        ); 
+        OTHER_LINKED = (
+            char.c, 
+            cmd.c, 
+            cmd1.c, 
+            cmd2.c, 
+            cmd3.c, 
+            cmd4.c, 
+            cmd5.c, 
+            cmd6.c, 
+            cmd7.c, 
+            compress.c, 
+            context.c, 
+            error.c, 
+            lcmd.c, 
+            lcmd1.c, 
+            lcmd2.c, 
+            main.c, 
+            mloop.c, 
+            parser1.c, 
+            parser2.c, 
+            parser3.c, 
+            parser4.c, 
+            parser5.c, 
+            scanner.c, 
+            startup.c, 
+            string.c, 
+            ttf100.c, 
+            ttgeneric.c, 
+            tth19.c, 
+            tth29.c, 
+            ttinit.c, 
+            ttoutput.c, 
+            tttermcap.c, 
+            tttvi925.c, 
+            ttwyse60.c, 
+            ttwyse75.c, 
+            ttzapple.c, 
+            ttzentec.c, 
+            var.c, 
+            win.c, 
+            wwadd.c, 
+            wwalloc.c, 
+            wwbox.c, 
+            wwchild.c, 
+            wwclose.c, 
+            wwclreol.c, 
+            wwclreos.c, 
+            wwcursor.c, 
+            wwdata.c, 
+            wwdelchar.c, 
+            wwdelete.c, 
+            wwdelline.c, 
+            wwdump.c, 
+            wwend.c, 
+            wwenviron.c, 
+            wwerror.c, 
+            wwflush.c, 
+            wwframe.c, 
+            wwgets.c, 
+            wwinit.c, 
+            wwinschar.c, 
+            wwinsline.c, 
+            wwiomux.c, 
+            wwlabel.c, 
+            wwmisc.c, 
+            wwmove.c, 
+            wwopen.c, 
+            wwprintf.c, 
+            wwpty.c, 
+            wwputc.c, 
+            wwputs.c, 
+            wwredraw.c, 
+            wwredrawwin.c, 
+            wwrint.c, 
+            wwscroll.c, 
+            wwsize.c, 
+            wwspawn.c, 
+            wwsuspend.c, 
+            wwterminfo.c, 
+            wwtty.c, 
+            wwunframe.c, 
+            wwupdate.c, 
+            wwwrite.c, 
+            xx.c, 
+            xxflush.c
+        ); 
+        OTHER_SOURCES = (Makefile, Makefile.preamble, Makefile.postamble, README, window.1, windowrc); 
+        PRECOMPILED_HEADERS = (); 
+        PROJECT_HEADERS = (); 
+        PUBLIC_HEADERS = (); 
+        SUBPROJECTS = (); 
+    }; 
+    LANGUAGE = English; 
+    LOCALIZABLE_FILES = {}; 
+    MAKEFILEDIR = "$(MAKEFILEPATH)/pb_makefiles"; 
+    NEXTSTEP_BUILDDIR = "/tmp/$(NAME)/Build"; 
+    NEXTSTEP_BUILDTOOL = /bin/gnumake; 
+    NEXTSTEP_COMPILEROPTIONS = "-Wno-error"; 
+    NEXTSTEP_INSTALLDIR = /usr/bin; 
+    NEXTSTEP_JAVA_COMPILER = /usr/bin/javac; 
+    NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc; 
+    PDO_UNIX_BUILDTOOL = $NEXT_ROOT/Developer/bin/make; 
+    PDO_UNIX_JAVA_COMPILER = "$(NEXTDEV_BIN)/javac"; 
+    PDO_UNIX_OBJCPLUS_COMPILER = "$(NEXTDEV_BIN)/gcc"; 
+    PROJECTNAME = window; 
+    PROJECTTYPE = Tool; 
+    PROJECTVERSION = 2.8; 
+    WINDOWS_BUILDTOOL = $NEXT_ROOT/Developer/Executables/make; 
+    WINDOWS_JAVA_COMPILER = "$(JDKBINDIR)/javac.exe"; 
+    WINDOWS_OBJCPLUS_COMPILER = "$(DEVDIR)/gcc"; 
+}

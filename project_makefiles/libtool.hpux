@@ -1,0 +1,236 @@
+#!/bin/sh
+
+##
+# Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+#
+# @APPLE_LICENSE_HEADER_START@
+# 
+# The contents of this file constitute Original Code as defined in and
+# are subject to the Apple Public Source License Version 1.1 (the
+# "License").  You may not use this file except in compliance with the
+# License.  Please obtain a copy of the License at
+# http://www.apple.com/publicsource and read it before using this file.
+# 
+# This Original Code and all software distributed under the License are
+# distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+# EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+# INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+# License for the specific language governing rights and limitations
+# under the License.
+# 
+# @APPLE_LICENSE_HEADER_END@
+##
+#
+# libtool
+#
+# written by Mike Gobbi
+# created July 10, 1995
+#
+# Copyright (C) 1995 NeXT Software, Inc.
+# All Rights Reserved
+#
+
+mode=static
+debug=
+iifiles=
+ifiles=
+soptions=
+doptions=
+liboptions=
+ooptions=
+output_file=
+verbose=no
+
+static_libgen="/bin/ar -r"
+dynamic_libgen="$NEXT_ROOT/Developer/Executables/gcc -nostdlib -r"
+
+while [ $# -gt 0 ]
+do
+	case $1 in
+	
+	-static )
+		mode=static
+		shift
+		;;
+		
+	-dynamic )
+		echo "libtool: warning: dynamic libraries not supported -- building static" 1>&2
+		mode=dynamic
+		shift
+		;;
+		
+	-o )
+		output_file="$2"
+		shift
+		shift
+		;;
+		
+	-[sac] | -[sac][sac] | -[sac][sac][sac] )
+		echo "libtool: warning: -sac options ignored" 1>&2
+		shift
+		;;
+
+	-g )
+		doptions="$doptions -g"
+		debug="-g"
+		shift
+		;;
+
+	-def )
+		echo "libtool: warning: def file ignored" 1>&2
+		shift
+		shift
+		;;
+		
+        -[lL]* )
+                liboptions="$liboptions $1"
+		shift
+		;;
+
+	-file[lL]ist )
+		if [ "$mode" = "dynamic" ]
+		then
+		    ooptions="$ooptions -filelist $2"
+		else
+		    file=`echo $2 | sed "s/,.*//g"`
+		    if echo $2 | grep , > /dev/null
+		    then
+			dir=`echo $2 | sed "s/.*,//g"`
+		    else
+			dir=
+		    fi
+		    if [ ! -r "$file" ]
+		    then
+			echo "libtool: error: filelist '$2' not found" 1>&2
+			exit 1
+		    elif [ -n "$dir" ]
+		    then
+			iifiles=`cat $file | sed "s@^@$dir/@" | tr -s '\012\015 ' ' '`
+			ifiles="$ifiles $iifiles"
+#			ifiles="$ifiles `cat $file | sed "s@^@$dir/@" | tr -s '\012\015 ' ' '`"
+		    else
+			ifiles="$ifiles `cat $file | tr -s '\012\015 ' ' '`"
+		    fi
+		fi
+		shift
+		shift
+		;;
+		
+	-install_name )
+		echo "libtool: warning: -install_name ignored" 1>&2
+		shift
+		shift
+		;;
+		
+        -read_only_relocs )
+		echo "libtool: warning: -read_only_relocs ignored" 1>&2
+		shift
+		shift
+		;;
+
+	-compatibility_version )
+		echo "libtool: warning: -compatibility_version ignored" 1>&2
+		shift
+		shift
+		;;
+		
+	-current_version )
+		echo "libtool: warning: -current_version ignored" 1>&2
+		shift
+		shift
+		;;
+		
+	-v )
+		verbose=yes
+		shift
+		;;
+		
+	-seg1addr | -undefined | -image_base )
+		echo "libtool: warning: option '$1 $2' suppressed" 1>&2
+		shift
+		shift
+		;;
+
+	-sectorder )
+		echo "libtool: warning: option '$1 $2 $3 $4' suppressed" 1>&2
+		shift
+		shift
+		shift
+		shift
+		;;
+		
+	-sectorder_detail )
+		echo "libtool: warning: option '$1' suppressed" 1>&2
+		shift
+		;;
+		
+	-t )
+		shift
+		;;
+		
+	- )
+		shift
+		break
+		;;
+
+        -Xlinker )
+		doptions="$doptions $1 $2"
+		shift
+		shift
+		;;
+
+        -framework )
+#		doptions="$doptions -framework $2"
+		shift
+		shift
+		;;
+
+        -F* )
+#		doptions="$doptions $1"
+		shift
+		;;
+
+	-arch* )
+		echo "libtool: warning: -arch option ignore" 1>&2
+		shift
+		shift
+		;;
+		
+	-* )
+		soptions="$soptions $1"
+		doptions="$doptions $1"
+		shift
+		;;
+		
+	* )
+		ifiles="$ifiles $1"
+		shift
+		;;
+	
+	esac
+done
+
+if [ ! "$output_file" ]; then
+    echo "libtool: error: -o option is required" 1>&2
+    exit 1
+fi
+
+if [ "$mode" = "static" ]; then
+    cmd="$static_libgen $soptions $output_file $ifiles"
+    if [ "$verbose" = "yes" ]; then
+	echo $cmd
+    fi
+    $cmd
+    exit $?
+elif [ "$mode" = "dynamic" ]; then
+    cmd="$dynamic_libgen -o $output_file $doptions $ifiles $ooptions $liboptions"
+    if [ "$verbose" = "yes" ]; then
+	echo $cmd
+    fi
+    $cmd
+else
+    echo "libtool: error: unknown mode $mode" 1>&2
+    exit 1
+fi
+

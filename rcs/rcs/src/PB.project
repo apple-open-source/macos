@@ -1,0 +1,44 @@
+{
+    FILESTABLE = {
+        Documentation = (ChangeLog, conf.heg, COPYING); 
+        Headers = (rcsbase.h, partime.h, maketime.h); 
+        Makefiles = (conf.sh, Makefile.in); 
+        Resources = (rcsfreeze.sh, rcstest); 
+        SUBPROJECTS = (); 
+        Sources = (
+            version.c, 
+            rlog.c, 
+            rcsmerge.c, 
+            rcsmap.c, 
+            rcsutil.c, 
+            rcstime.c, 
+            rcssyn.c, 
+            rcsrev.c, 
+            rcsfnms.c, 
+            rcslex.c, 
+            rcskeys.c, 
+            rcskeep.c, 
+            rcsgen.c, 
+            rcsclean.c, 
+            rcsfcmp.c, 
+            rcsedit.c, 
+            rcsdiff.c, 
+            partime.c, 
+            rcs.c, 
+            maketime.c, 
+            merger.c, 
+            merge.c, 
+            ident.c, 
+            co.c, 
+            ci.c
+        ); 
+    }; 
+    LANGUAGE = English; 
+    LOCALIZABLE_FILES = {}; 
+    NEXTSTEP_BUILDTOOL = /bin/make; 
+    PDO_UNIX_BUILDTOOL = /bin/make; 
+    PROJECTNAME = src; 
+    PROJECTTYPE = "GNU Source"; 
+    PROJECTVERSION = 2.6; 
+    WINDOWS_BUILDTOOL = "${NEXT_ROOT}/NextDeveloper/Executables/make"; 
+}

@@ -1,0 +1,8 @@
+OTHER_CFLAGS = \
+	-Dsetrpcent=_old_setrpcent \
+	-Dgetrpcent=_old_getrpcent \
+	-Dendrpcent=_old_endrpcent \
+	-Dgetrpcbyname=_old_getrpcbyname \
+	-Dgetrpcbynumber=_old_getrpcbynumber
+
+PUBLIC_HEADER_DIR_SUFFIX = /rpc

@@ -1,0 +1,176 @@
+# Stack window for GDBtk.
+# Copyright 1997, 1998, 1999 Cygnus Solutions
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License (GPL) as published by
+# the Free Software Foundation; either version 2 of the License, or (at
+# your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+
+# ------------------------------------------------------------------
+#  CONSTRUCTOR - create new stack window
+# ------------------------------------------------------------------
+body StackWin::constructor {args} {    
+  gdbtk_busy
+  build_win
+  gdbtk_idle
+  
+  add_hook gdb_update_hook [code $this update]
+  add_hook gdb_busy_hook [code $this busy]
+  add_hook gdb_no_inferior_hook [code $this no_inferior]
+  add_hook gdb_idle_hook [code $this idle]
+}
+
+# ------------------------------------------------------------------
+#  DESTRUCTOR - destroy window containing widget
+# ------------------------------------------------------------------
+body StackWin::destructor {} {
+  remove_hook gdb_update_hook [code $this update]
+  remove_hook gdb_idle_hook [code $this idle]
+  remove_hook gdb_busy_hook [code $this busy]
+  remove_hook gdb_no_inferior_hook [code $this no_inferior]
+}
+
+# ------------------------------------------------------------------
+#  METHOD:  build_win - build the main register window
+# ------------------------------------------------------------------
+body StackWin::build_win {} {
+  global tixOption tcl_platform
+  if {$tcl_platform(platform) == "windows"} {
+    tixScrolledListBox $itk_interior.s -scrollbar both -sizebox 1
+  } else {
+    tixScrolledListBox $itk_interior.s -scrollbar auto
+  }
+  set lb [$itk_interior.s subwidget listbox]
+  $lb configure -selectmode single -bg $tixOption(input1_bg) \
+    -selectbackground [pref get gdb/src/STACK_TAG] \
+    -selectforeground black \
+    -font src-font          \
+    -exportselection false
+  update
+  $lb configure -width $maxwidth
+
+  # bind mouse button 1 to change the stack frame
+  bind $lb <ButtonPress-1> [code $this change_frame %y]
+  bind $lb <ButtonRelease-1> break
+
+  pack $itk_interior.s -side left -expand yes -fill both
+
+  window_name "Stack"
+}
+
+
+# ------------------------------------------------------------------
+#  METHOD:  update - update widget when PC changes
+# ------------------------------------------------------------------
+body StackWin::update {} {
+  global gdb_selected_frame_level
+
+  if {!$protect_me} {
+    set lb [$itk_interior.s subwidget listbox]
+
+    # The gdb_stack command might fail, for instance if you are browsing
+    # a trace experiment, and the stack has not been collected.
+
+    if {[catch {gdb_stack 0 -1} frames]} {
+      dbug W "Error in stack collection $frames"
+      set frames {}
+    }
+
+    if {[llength $frames] == 0} {
+      $lb delete 0 end
+      $lb insert end {NO STACK}
+      return
+    }
+    
+    $lb delete 0 end
+    set levels 0
+    foreach frame $frames {
+      set len [string length $frame]
+
+      if {$len > $maxwidth} {
+	set maxwidth $len
+      }
+      $lb insert end $frame
+      incr levels
+    }
+
+    # this next section checks to see if the source
+    # window is looking at some location other than the 
+    # bottom of the stack.  If so, highlight the stack frame
+    set level [expr {$levels - $gdb_selected_frame_level - 1}]
+    $lb selection set $level
+    $lb see $level
+  }
+}
+
+body StackWin::idle {} {
+  set Running 0
+  cursor {}
+}
+
+# ------------------------------------------------------------------
+#  METHOD:  change_frame - change the current frame
+#        This body StackWin::is currently ONLY called from the mouse binding
+# ------------------------------------------------------------------
+body StackWin::change_frame {y} {
+  set lb [$itk_interior.s subwidget listbox]
+
+  if {!$Running && [$lb size] != 0} {
+    gdbtk_busy
+    set lb [$itk_interior.s subwidget listbox] 
+    set linenum [$lb nearest $y]
+    set size [$lb size]
+    set linenum [expr {$size - $linenum - 1}]
+    catch {gdb_cmd "frame $linenum"}
+    
+    # Run idle hooks and cause all widgets to update
+    set protect_me 1
+    gdbtk_update
+    set protect_me 0
+    gdbtk_idle
+  }
+}
+
+# ------------------------------------------------------------------
+#  METHOD:  reconfig - used when preferences change
+# ------------------------------------------------------------------
+body StackWin::reconfig {} {
+  destroy $itk_interior.s
+  build_win
+}
+
+# ------------------------------------------------------------------
+#  METHOD:  busy - gdb_busy_hook
+#
+#        This body StackWin::should accomplish blocking
+#        - clicks in the window
+#        - change mouse pointer
+# ------------------------------------------------------------------
+body StackWin::busy {} {
+  set Running 1
+  cursor watch
+}
+
+# ------------------------------------------------------------------
+#  METHOD:  no_inferior - gdb_no_inferior_hook
+# ------------------------------------------------------------------
+body StackWin::no_inferior {} {
+  set Running 0
+  cursor {}
+}
+
+# ------------------------------------------------------------------
+#  METHOD:  cursor - set the window cursor
+#        This is a convenience body StackWin::which simply sets the mouse
+#        pointer to the given glyph.
+# ------------------------------------------------------------------
+body StackWin::cursor {glyph} {
+  set top [winfo toplevel $itk_interior]
+  $top configure -cursor $glyph
+}

@@ -1,0 +1,34 @@
+#
+# pppd makefile for Mac OS X
+#
+
+ARCHFLAGS = 
+
+BINDIR = $(DSTROOT)/usr/sbin
+MANDIR = $(DSTROOT)/usr/share/man
+
+OBJS = main.o magic.o fsm.o lcp.o ipcp.o upap.o chap.o md5.o ccp.o \
+	auth.o options.o demand.o utils.o sys-MacOSX.o chap_ms.o md4.o
+
+
+COMPILE_FLAGS = -DNO_DRAND48 -DDEBUGUPAP -DDEBUGCHAP -DDEBUGLCP -DDEBUGIPCP -DHAVE_PATHS_H -DCHAPMS -DUSE_CRYPT
+ 
+COPTS = $(ARCHFLAGS) -O -DAPPLE -D__FreeBSD__
+
+CFLAGS = -g $(COPTS) $(COMPILE_FLAGS) -I../include -F/System/Library/PrivateFrameworks
+
+all: pppd
+
+pppd: $(OBJS) 
+	$(CC) $(CFLAGS) -o pppd $(OBJS) $(LIBS) -framework CoreFoundation -framework SystemConfiguration
+	strip pppd
+
+install:
+	/bin/mkdir -p $(MANDIR)/man8 $(BINDIR) 
+	install -c -s -m 4511 -o root -g daemon pppd $(BINDIR)/pppd
+	install -c -m  444 -o root -g wheel pppd.8 $(MANDIR)/man8
+
+
+clean:
+	rm -f $(OBJS) pppd *.o *~ 
+

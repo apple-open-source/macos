@@ -1,0 +1,5 @@
+VPATH += :$(SRCROOT)$(SRCPATH)/../rlogin.tproj
+INSTALL_PERMISSIONS = 4555    # If set, 'install' chmod's executable to this
+
+after_install::
+	$(CHFLAGS) schg $(DSTROOT)$(INSTALLDIR)/$(NAME)

@@ -1,0 +1,106 @@
+{
+    CURRENTLY_ACTIVE_VERSION = YES; 
+    DEPLOY_WITH_VERSION_NAME = A; 
+    DYNAMIC_CODE_GEN = YES; 
+    FILESTABLE = {
+        CLASSES = (clientTypes.m, subnetDescr.m); 
+        FRAMEWORKS = (); 
+        FRAMEWORKSEARCH = ("$(NEXT_ROOT)/System/Library/PrivateFrameworks"); 
+        HEADERSEARCH = ("$(NEXT_ROOT)/System/Library/Frameworks/System.framework/PrivateHeaders/bsd"); 
+        H_FILES = (
+            afp.h, 
+            arp.h, 
+            bpflib.h, 
+            clientTypes.h, 
+            dhcp.h, 
+            dhcplib.h, 
+            dprintf.h, 
+            gen_dhcp_parse_table.h, 
+            gen_dhcp_tags.h, 
+            gen_dhcp_types.h, 
+            hfsvols.h, 
+            hostlist.h, 
+            host_identifier.h, 
+            inetroute.h, 
+            interfaces.h, 
+            in_cksum.h, 
+            netinfo.h, 
+            NIDomain.h, 
+            rfc_options.h, 
+            subnetDescr.h, 
+            util.h, 
+            ipcfg.h, 
+            lockc.h, 
+            ts_log.h, 
+            ipconfig_ext.h, 
+            ipconfig_types.h, 
+            machcompat.h, 
+            threadcompat.h, 
+            dhcp_options.h, 
+            dynarray.h, 
+            macnc_options.h, 
+            ptrlist.h, 
+            tftplib.h, 
+            bsdp.h, 
+            NICache.h, 
+            bootp_transmit.h, 
+            NICachePrivate.h, 
+            nbsp.h, 
+            NetBootServer.h
+        ); 
+        LIBRARYSEARCH = (); 
+        OTHER_LIBS = (); 
+        OTHER_LINKED = (
+            arp.c, 
+            bootp_transmit.c, 
+            bpflib.c, 
+            dhcplib.c, 
+            dhcp_options.c, 
+            dynarray.c, 
+            hfsvols.c, 
+            hostlist.c, 
+            host_identifier.c, 
+            inetroute.c, 
+            interfaces.c, 
+            in_cksum.c, 
+            ipcfg.c, 
+            macnc_options.c, 
+            nbsp.c, 
+            netinfo.c, 
+            NICache.c, 
+            NIDomain.c, 
+            ptrlist.c, 
+            tftplib.c, 
+            ts_log.c, 
+            util.c
+        ); 
+        OTHER_SOURCES = (
+            Makefile.preamble, 
+            Makefile, 
+            Makefile.postamble, 
+            genoptionfiles.c, 
+            ipconfig.defs
+        ); 
+    }; 
+    LANGUAGE = English; 
+    LOCALIZABLE_FILES = {}; 
+    MAKEFILEDIR = "$(MAKEFILEPATH)/pb_makefiles"; 
+    NEXTSTEP_BUILDTOOL = /usr/bin/gnumake; 
+    NEXTSTEP_COMPILEROPTIONS = "-Wno-four-char-constants"; 
+    NEXTSTEP_INSTALLDIR = /usr/libexec; 
+    NEXTSTEP_JAVA_COMPILER = /usr/bin/javac; 
+    NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc; 
+    PDO_UNIX_BUILDTOOL = $NEXT_ROOT/Developer/bin/make; 
+    PDO_UNIX_INSTALLDIR = /usr/local/lib; 
+    PDO_UNIX_JAVA_COMPILER = "$(NEXTDEV_BIN)/javac"; 
+    PDO_UNIX_OBJCPLUS_COMPILER = "$(NEXTDEV_BIN)/gcc"; 
+    PDO_UNIX_PUBLICHEADERSDIR = "$(LOCAL_DEVELOPER_DIR)/Headers/$(NAME)"; 
+    PROJECTNAME = bootplib; 
+    PROJECTTYPE = Library; 
+    PROJECTVERSION = 2.8; 
+    WINDOWS_BUILDTOOL = $NEXT_ROOT/Developer/Executables/make; 
+    WINDOWS_INSTALLDIR = "$(HOMEDRIVE)$(LOCAL_DEVELOPER_DIR)/Libraries"; 
+    WINDOWS_JAVA_COMPILER = "$(JDKBINDIR)/javac.exe"; 
+    WINDOWS_OBJCPLUS_COMPILER = "$(DEVDIR)/gcc"; 
+    WINDOWS_PUBLICHEADERSDIR = "$(HOMEDRIVE)$(LOCAL_DEVELOPER_DIR)/Headers/$(NAME)"; 
+}

@@ -1,0 +1,10 @@
+Package: diffstat
+Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
+Vendor: Thomas E. Dickey
+Version: 1.27
+Build-Depends: build-base
+Description: diff output histogram filter
+ Diffstat is a program that is useful for reviewing large, complex
+ patch files.  It reads from one or more input files which contain
+ output from diff, producing a histogram of the total lines changed for
+ each file referenced.

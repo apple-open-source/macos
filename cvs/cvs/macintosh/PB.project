@@ -1,0 +1,26 @@
+{
+    FILESTABLE = {
+        Documentation = (ChangeLog); 
+        Headers = (pwd.h, options.h, mac_config.h, config.h); 
+        Makefiles = (Makefile.in); 
+        Resources = (AE_example.pl); 
+        SUBPROJECTS = (); 
+        Sources = (
+            macos_filesys.c, 
+            filesubr.c, 
+            server_if.c, 
+            pwd.c, 
+            run.c, 
+            rcmd.c, 
+            mac_init.c, 
+            ae_if.c
+        ); 
+    }; 
+    LANGUAGE = English; 
+    NEXTSTEP_BUILDTOOL = /bin/make; 
+    PDO_UNIX_BUILDTOOL = /bin/make; 
+    PROJECTNAME = macintosh; 
+    PROJECTTYPE = "GNU Source"; 
+    PROJECTVERSION = 2.6; 
+    WINDOWS_BUILDTOOL = "${NEXT_ROOT}/NextDeveloper/Executables/make"; 
+}

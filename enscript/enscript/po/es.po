@@ -1,0 +1,1394 @@
+# Mensajes en español para GNU enscript.
+# Copyright (C) 1996 Free Software Foundation, Inc.
+# L. Marcél Barrero M. <barrero@cui.unige.ch>, 1996.
+# Revisado y enviado por Enrique Melero <melero@iprolink.ch>
+msgid ""
+msgstr ""
+"Project-Id-Version: GNU enscript 1.4.2POT-Creation-Date: 1997-09-30 "
+"12:23+0300PO-Revision-Date: 1997-03-19 23:01+0100Last-Translator: L. Marcél "
+"Barrero M. <barrero@cui.unige.ch>Language-Team: Spanish "
+"<es@li.org>MIME-Version: 1.0Content-Type: text/plain; "
+"charset=ISO-8859-1Content-Transfer-Encoding: 8-bitPOT-Creation-Date: "
+"1997-10-21 08:39+0300:%d: %sPOT-Creation-Date: 1997-11-26 "
+"10:53+0200POT-Creation-Date: 1997-12-17 09:13+0200oPOT-Creation-Date: "
+"1997-12-17 09:13+0200POT-Creation-Date: 1997-12-31 "
+"10:10+0200aPOT-Creation-Date: 1997-12-31 10:10+0200POT-Creation-Date: "
+"1998-01-02 09:31+0200\"POT-Creation-Date: 1998-01-02 "
+"09:31+0200POT-Creation-Date: 1998-01-02 09:31+0200ePOT-Creation-Date: "
+"1998-01-12 15:27+0200POT-Creation-Date: 1998-01-12 "
+"15:27+0200%POT-Creation-Date: 1998-01-13 12:09+0200POT-Creation-Date: "
+"1998-01-13 12:09+0200dPOT-Creation-Date: 1998-01-14 "
+"11:54+0200POT-Creation-Date: 1998-01-14 11:54+0200sPOT-Creation-Date: "
+"1998-01-14 11:54+0200POT-Creation-Date: 1998-01-14 "
+"11:54+0200POT-Creation-Date: 1998-02-23 10:19+0200POT-Creation-Date: "
+"1998-03-09 11:08+0200cPOT-Creation-Date: 1998-03-09 "
+"11:49+0200POT-Creation-Date: 1998-03-25 09:27+0200rPOT-Creation-Date: "
+"1998-03-25 09:27+0200POT-Creation-Date: 1998-05-18 "
+"11:00+0300ePOT-Creation-Date: 1998-05-26 10:28+0300POT-Creation-Date: "
+"1998-05-26 10:28+0300nPOT-Creation-Date: 1998-05-26 "
+"10:28+0300POT-Creation-Date: 1998-05-26 10:28+0300oPOT-Creation-Date: "
+"1998-06-11 14:05+0300POT-Creation-Date: 1998-06-11 14:05+0300 "
+"POT-Creation-Date: 1998-06-11 14:05+0300POT-Creation-Date: 1998-06-11 "
+"14:05+0300iPOT-Creation-Date: 1998-06-11 14:05+0300POT-Creation-Date: "
+"1998-06-17 10:05+0300/POT-Creation-Date: 1998-06-23 "
+"10:16+0300POT-Creation-Date: 1998-06-23 11:27+0300nPOT-Creation-Date: "
+"1998-06-23 11:27+0300POT-Creation-Date: 1998-06-24 "
+"11:00+0300:POT-Creation-Date: 1998-06-25 10:35+0300POT-Creation-Date: "
+"1998-06-25 11:27+0300iPOT-Creation-Date: 1998-06-25 "
+"11:27+0300POT-Creation-Date: 1998-06-25 11:27+0300iPOT-Creation-Date: "
+"1998-06-25 11:27+0300POT-Creation-Date: 1998-06-25 11:27+0300#\n"
+
+#: compat/getopt.c:628
+#, c-format
+msgid "%s: option `%s' is ambiguous\n"
+msgstr "%s: la opción `%s' es ambigua\n"
+
+#: compat/getopt.c:652
+#, c-format
+msgid "%s: option `--%s' doesn't allow an argument\n"
+msgstr "%s: la opción `--%s' no admite ningún argumento\n"
+
+#: compat/getopt.c:657
+#, c-format
+msgid "%s: option `%c%s' doesn't allow an argument\n"
+msgstr "%s: la opción `%c%s' no admite ningún argumento\n"
+
+#: compat/getopt.c:674 compat/getopt.c:847
+#, c-format
+msgid "%s: option `%s' requires an argument\n"
+msgstr "%s: la opción `%s' requiere un argumento\n"
+
+#. --option
+#: compat/getopt.c:703
+#, c-format
+msgid "%s: unrecognized option `--%s'\n"
+msgstr "%s: opción desconocida `--%s'\n"
+
+#. +option or -option
+#: compat/getopt.c:707
+#, c-format
+msgid "%s: unrecognized option `%c%s'\n"
+msgstr "%s: opción desconocida `%c%s'\n"
+
+#. 1003.2 specifies the format of this message.
+#: compat/getopt.c:733
+#, c-format
+msgid "%s: illegal option -- %c\n"
+msgstr "%s: opción no permitida -- %c\n"
+
+#: compat/getopt.c:736
+#, c-format
+msgid "%s: invalid option -- %c\n"
+msgstr "%s: opción no válida -- %c\n"
+
+#. 1003.2 specifies the format of this message.
+#: compat/getopt.c:766 compat/getopt.c:896
+#, c-format
+msgid "%s: option requires an argument -- %c\n"
+msgstr "%s: la opción requiere un argumento -- %c\n"
+
+#: compat/getopt.c:813
+#, fuzzy, c-format
+msgid "%s: option `-W %s' is ambiguous\n"
+msgstr "%s: la opción `%s' es ambigua\n"
+
+#: compat/getopt.c:831
+#, fuzzy, c-format
+msgid "%s: option `-W %s' doesn't allow an argument\n"
+msgstr "%s: la opción `--%s' no admite ningún argumento\n"
+
+#: compat/xalloc.c:63
+#, c-format
+msgid "xmalloc(): couldn't allocate %d bytes\n"
+msgstr "xmalloc(): no se pueden asignar %d bytes\n"
+
+#: compat/xalloc.c:81
+#, c-format
+msgid "xcalloc(): couldn't allocate %d bytes\n"
+msgstr "xcalloc(): no se pudieron asignar %d bytes\n"
+
+#: compat/xalloc.c:102
+#, c-format
+msgid "xrealloc(): couldn't reallocate %d bytes\n"
+msgstr "xrealloc(): no se pudieron reasignar %d bytes\n"
+
+#: compat/regex.c:996
+msgid "Success"
+msgstr ""
+
+#. REG_NOERROR
+#: compat/regex.c:997
+msgid "No match"
+msgstr ""
+
+#. REG_NOMATCH
+#: compat/regex.c:998
+msgid "Invalid regular expression"
+msgstr ""
+
+#. REG_BADPAT
+#: compat/regex.c:999
+msgid "Invalid collation character"
+msgstr ""
+
+#. REG_ECOLLATE
+#: compat/regex.c:1000
+msgid "Invalid character class name"
+msgstr ""
+
+#. REG_ECTYPE
+#: compat/regex.c:1001
+msgid "Trailing backslash"
+msgstr ""
+
+#. REG_EESCAPE
+#: compat/regex.c:1002
+msgid "Invalid back reference"
+msgstr ""
+
+#. REG_ESUBREG
+#: compat/regex.c:1003
+msgid "Unmatched [ or [^"
+msgstr ""
+
+#. REG_EBRACK
+#: compat/regex.c:1004
+msgid "Unmatched ( or \\("
+msgstr ""
+
+#. REG_EPAREN
+#: compat/regex.c:1005
+msgid "Unmatched \\{"
+msgstr ""
+
+#. REG_EBRACE
+#: compat/regex.c:1006
+msgid "Invalid content of \\{\\}"
+msgstr ""
+
+#. REG_BADBR
+#: compat/regex.c:1007
+msgid "Invalid range end"
+msgstr ""
+
+#. REG_ERANGE
+#: compat/regex.c:1008
+msgid "Memory exhausted"
+msgstr ""
+
+#. REG_ESPACE
+#: compat/regex.c:1009
+msgid "Invalid preceding regular expression"
+msgstr ""
+
+#. REG_BADRPT
+#: compat/regex.c:1010
+msgid "Premature end of regular expression"
+msgstr ""
+
+#. REG_EEND
+#: compat/regex.c:1011
+msgid "Regular expression too big"
+msgstr ""
+
+#. REG_ESIZE
+#: compat/regex.c:1012
+msgid "Unmatched ) or \\)"
+msgstr ""
+
+#: compat/regex.c:5458
+msgid "No previous regular expression"
+msgstr ""
+
+#. Create the default TOC format string.  Wow, this is cool!
+#: src/main.c:906
+#, c-format
+msgid "$3v $-40N $3% pages $4L lines  $E $C"
+msgstr "$3v $-40N $3% páginas $4L líneas  $E $C"
+
+# "passwd entry" es la entrada (o el campo) de la contraseña. sv
+# Sugiero cambiarlo a "no se pudo obtener la contraseña para el uid=etc.etc" sv
+# > No es la contraseña la que no se pudo encontrar (password), sino la línea entera,
+# > Un " passwd entry" sería:
+# > guest:*:405:100:guest:/dev/null:/dev/null
+# > Donde el uid es 405 y el gid 100. Su contraseña (password) es *, que significa que la cuenta
+# > está bloqueada. Por eso que lo había traducido como declaración del utilizador en el archivo
+# > passwd. (/etc/passwd).
+# Bueno, bien. Admitiendo que lo que no se encontró fue la línea entera,
+# propongo usar "entrada" y no "declaración" sv
+#
+#: src/main.c:936
+#, c-format
+msgid "couldn't get passwd entry for uid=%d: %s"
+msgstr ""
+"no se pudo obtener la entrada del usuario uid=%d en el archivo passwd: %s"
+
+#. No luck, report error from the original config file.
+#: src/main.c:989
+#, c-format
+msgid "couldn't open config file \"%s/%s\": %s"
+msgstr "no se pudo abrir el archivo de configuración \"%s/%s\": %s"
+
+# Para comprender mejor el sentido, habría que chequear el código fuente.
+#: src/main.c:1049
+#, c-format
+msgid "unknown encoding: %s"
+msgstr "codificación desconocida: %s"
+
+# library=biblioteca, pero me parece que es más corriente (y hasta se entiende mejor),
+# cuando se habla de librerías. En spanglish la semana pasada uno de los mails decía
+# también que ambas traducciones pueden ser válidas.
+# Sí, era Enrique quien lo decía...
+# Pero biblioteca es más correcto: Tú vas a una biblioteca a consultar algo,
+# pero no a llevártelo a casa. sv
+# ¿Consenso? :-)
+# En Spanish-GNU nos hemos decidido por biblioteca. sv
+# Lo cambio directamente. sv
+#: src/main.c:1068
+#, c-format
+msgid "couldn't open AFM library: %s"
+msgstr "no se pudo abrir la biblioteca AFM: %s"
+
+# "media" es medio de comunicación o "soporte" para comunicar. Si tienen alguna idea
+# mejor... otra cosa, en este contexto creo que se refiere sobre todo al papel
+# (tipos, tamaños, formatos)
+# Para tratar de adaptar los ll y ur habrá que comprender mejor el
+# contexto (cf. código fuente).
+#
+# Sugiero comerse el "Lista de" y dejarlo simplemente
+# en "soportes conocidos". sv
+#: src/main.c:1096
+msgid ""
+"known media:\n"
+"name             width\theight\tllx\tlly\turx\tury\n"
+"------------------------------------------------------------\n"
+msgstr ""
+"Soportes conocidos:\n"
+"nombre             ancho\tlargo\tllx\tlly\turx\tury\n"
+"------------------------------------------------------------\n"
+
+#: src/main.c:1115
+#, c-format
+msgid "do not know anything about media \"%s\""
+msgstr "no se pudo reconocer el soporte \"%s\""
+
+#: src/main.c:1159
+#, c-format
+msgid ""
+"set new marginals for media `%s' (%dx%d): llx=%d, lly=%d, urx=%d, ury=%d\n"
+msgstr ""
+
+# Yo tengo por norma comenzar por mayúscula cuando el original lo hace.
+# Este es el único mensaje (y los que siguen) que no son así.
+# De todas formas es lo que yo hago, no tienes por qué estar de acuerdo. sv
+#: src/main.c:1170
+#, c-format
+msgid "illegal page label format \"%s\""
+msgstr "El formato del nombre de página \"%s\" es incorrecto."
+
+# ***********************************************
+#: src/main.c:1182
+#, c-format
+msgid "illegal non-printable format \"%s\""
+msgstr "El formato no imprimible \"%s\" es incorrecto."
+
+#: src/main.c:1196
+#, c-format
+msgid "illegal style for wrapped line marker: \"%s\""
+msgstr ""
+
+#: src/main.c:1206
+#, fuzzy, c-format
+msgid "illegal N-up argument: %d"
+msgstr "opción incorrecta: %s"
+
+#: src/main.c:1211
+#, c-format
+msgid "N-up argument must be power of 2: %d"
+msgstr ""
+
+# ****************************************************************
+#: src/main.c:1288
+#, c-format
+msgid "malformed underlay position: %s"
+msgstr "La posición de pie de página es incorrecta: %s"
+
+# ****************************************************************
+#: src/main.c:1311
+#, c-format
+msgid "illegal underlay style: %s"
+msgstr "El estilo del pie de página es incorrecto: %s"
+
+# ¿Crees que toc es por Table Of Contents?
+#  Sí, casi seguro. sv
+# Si es así podríamos poner: el archivo índice o el archivo del índice
+# Esta línea no existe en la fuente que dispongo para ver qué es el TOC.
+# Otra cosa que se puede hacer es poner "el archivo `toc'". sv
+# Creo que mejor sería poner índice. Sabemos que toc es lo mismo, pero
+# sería mantener una especie de anglicismo fácilmente evitable.
+# Bueno, en este caso no sería tan grave: Piensa que hablando de TeX,
+# uno puede decir "El archivo .tex, el archivo .dvi y el archivo .log"
+# y no pasa nada. sv
+#: src/main.c:1434
+#, c-format
+msgid "couldn't create toc file name: %s"
+msgstr "no se pudo crear el archivo para el índice: %s"
+
+#: src/main.c:1439
+#, c-format
+msgid "couldn't create toc file \"%s\": %s"
+msgstr "no se pudo crear el archivo para el índice \"%s\": %s"
+
+#: src/main.c:1490
+#, c-format
+msgid "couldn't stat input file \"%s\": %s"
+msgstr "stat() no pudo evaluar archivo de entrada \"%s\": %s"
+
+# Ojo: rewind no es abrir. sv
+#   Si, pero ¿vamos a decir rebobinar?
+# Uf, la verdad es que es delicado.
+# Rebobinar queda bien para cintas magnéticas
+# pero para la operación del mismo nombre que puede
+# efectuarse con un archivo abierto, no sé. sv
+# Si quieres déjalo así, a ver si a algún otro revisor se le ocurre algo. sv
+# Y si decimos:
+# msgstr "no se pudo localizar el inicio del archivo para el índice: %s"
+# Algo mejor. sv
+#: src/main.c:1510
+#, c-format
+msgid "couldn't rewind toc file: %s"
+msgstr "no se pudo rebobinar el archivo para el índice: %s"
+
+#: src/main.c:1516
+msgid "Table of Contents"
+msgstr "Índice"
+
+#.
+#. * The value of <ofp> is not reset in close_output_file(),
+#. * this is ugly but it saves one flag.
+#.
+#: src/main.c:1549
+msgid "no output generated\n"
+msgstr ""
+
+# como supongo que se trata de las páginas, lo pongo en género femenino.
+#: src/main.c:1554
+#, fuzzy, c-format
+msgid "output sent to %s\n"
+msgstr " enviadas a %s\n"
+
+# Si supiéramos el contexto sabríamos si el "la" procede o no. sv
+# Si si, según el código fuente, son las páginas enviadas a la impresora.
+# Ver siguiente comentario.
+#: src/main.c:1555 src/main.c:1579
+msgid "printer"
+msgstr "la impresora"
+
+# ¿o sería mejor "faltan"?
+# por mí está bien así, pero ¿y el "in"? sv
+# > Como se trata de un programa de impresión, pienso que se trata de un trabajo incompleto, por
+# > ejemplo, si le indicamos que imprima 3 archivos, y sólo pudo imprimr 2, entonces nos dirá:
+# > quedan: 1.  [Queda 1 en la fila de espera :-)]. Para aclarar mejor, esta tarde me bajaré
+# > el código fuente para tratar  de ver mejor de qué se trata.
+# Espero que el código fuente lo aclare. sv
+# Según el código fuente, si se imprime en la impresora, se imprimirá el mensaje anterior:
+#  	enviadas a la impresora.
+# Si se "imprime" en un archivo (opción -o <outputname>), se imprimirá el mensaje:
+#	quedan en el archivo <outputname>.
+# En este caso, creo que lo mejor sería poner "copiadas en" o "grabadas en"
+#: src/main.c:1557
+#, fuzzy, c-format
+msgid "output left in %s\n"
+msgstr " copiadas en %s\n"
+
+#. We did something, tell what.
+#: src/main.c:1575
+#, c-format
+msgid "[ %d pages * %d copy ]"
+msgstr "[ %d páginas * %d copias ]"
+
+# como supongo que se trata de las páginas, lo pongo en género femenino.
+#: src/main.c:1578
+#, c-format
+msgid " sent to %s\n"
+msgstr " enviadas a %s\n"
+
+# ¿o sería mejor "faltan"?
+# por mí está bien así, pero ¿y el "in"? sv
+# > Como se trata de un programa de impresión, pienso que se trata de un trabajo incompleto, por
+# > ejemplo, si le indicamos que imprima 3 archivos, y sólo pudo imprimr 2, entonces nos dirá:
+# > quedan: 1.  [Queda 1 en la fila de espera :-)]. Para aclarar mejor, esta tarde me bajaré
+# > el código fuente para tratar  de ver mejor de qué se trata.
+# Espero que el código fuente lo aclare. sv
+# Según el código fuente, si se imprime en la impresora, se imprimirá el mensaje anterior:
+#  	enviadas a la impresora.
+# Si se "imprime" en un archivo (opción -o <outputname>), se imprimirá el mensaje:
+#	quedan en el archivo <outputname>.
+# En este caso, creo que lo mejor sería poner "copiadas en" o "grabadas en"
+#: src/main.c:1581
+#, c-format
+msgid " left in %s\n"
+msgstr " copiadas en %s\n"
+
+#: src/main.c:1586
+#, c-format
+msgid "%d lines were %s\n"
+msgstr "%d líneas fueron %s\n"
+
+#: src/main.c:1588
+msgid "truncated"
+msgstr "cortadas"
+
+#: src/main.c:1588
+msgid "wrapped"
+msgstr "separadas"
+
+#: src/main.c:1594
+#, c-format
+msgid "%d characters were missing\n"
+msgstr "faltaron %d caracteres\n"
+
+#: src/main.c:1598
+msgid "missing character codes (decimal):\n"
+msgstr "códigos (en decimal) de los caracteres que faltan:\n"
+
+#: src/main.c:1606
+#, c-format
+msgid "%d non-printable characters\n"
+msgstr "%d caracteres no imprimibles\n"
+
+#: src/main.c:1611
+msgid "non-printable character codes (decimal):\n"
+msgstr "códigos (en decimal) de los caracteres no imprimibles:\n"
+
+#: src/main.c:1653
+#, c-format
+msgid "couldn't open printer `%s': %s"
+msgstr "no se pudo acceder a la impresora `%s': %s"
+
+#: src/main.c:1662
+#, c-format
+msgid "couldn't create output file \"%s\": %s"
+msgstr "no se pudo crear el archivo de salida \"%s\": %s"
+
+# quotation podría ser "cita" a secas. ¿Qué te parece? sv
+# Quedaría "el fin de la cita". sv
+# > Acá lo que me parece falta, son las comillas que cierran la citación.
+# > No se trata de una citación en sí, sino tal vez de una cadena de caracteres
+# > que no está cerrada: "test
+# >                           ^
+# > Y el carácter a ser impreso (%c) indica qué fin de citación falta: " o ' o `.
+# Que sí, que estoy de acuerdo. Lo que digo es cómo se le llama a eso en español.
+# La verdad es que no lo sé. sv
+#
+# Nota: El término correcto es apóstrofo (en inglés sí es "apostrophe").
+# Viene en el diccionario de la Real Academia.
+# ## Toda mi vida había dicho apóstrofe... Cada día se aprende, ¿verdad?  :-)
+# ## Yo también, esto me lo dijo un `webmaster' de Zaragoza...
+#: src/main.c:1735
+#, c-format
+msgid ""
+"syntax error in option string %s=\"%s\":\n"
+"missing end of quotation: %c"
+msgstr ""
+"error de sintaxis en la opción %s=\"%s\":\n"
+"falta el apóstrofo %c que indica el final del argumento."
+
+# *******************************************
+# A comprender el contexto...
+# > Acá creo que significa que algunas opciones pasadas en la línea de comando, no
+# > fueron interpretadas porque existían variables de entorno que son prioritarias
+# > para definir algunas acciones. (Aunque normalmente es lo contrario que sucede,
+# > que las opciones de la línea de comando son prioritarias a las variables de entorno)...
+# > ¿A ver en el código fuente?  :-)
+#: src/main.c:1767
+#, c-format
+msgid ""
+"warning: didn't process following options from environment variable %s:\n"
+msgstr ""
+"atención: no se procesaron las siguientes opciones de la variable de entorno "
+"%s:\n"
+
+#: src/main.c:1771
+#, c-format
+msgid "  option %d = \"%s\"\n"
+msgstr "  opción %d = \"%s\"\n"
+
+#: src/main.c:1862
+msgid "file alignment must be larger than zero"
+msgstr "la alineación del archivo debe ser mayor que cero"
+
+#: src/main.c:1916 src/main.c:1922 src/main.c:2101 src/util.c:391
+#, c-format
+msgid "malformed font spec: %s"
+msgstr "especificación errónea de la fuente: %s"
+
+#: src/main.c:1938
+#, c-format
+msgid "couldn't find header definition file \"%s.hdr\""
+msgstr ""
+"no se pudo encontrar el archivo de definición de la cabecera \"%s.hdr\""
+
+#: src/main.c:1982
+#, c-format
+msgid "must print at least one line per each page: %s"
+msgstr "se debe imprimir por lo menos una línea por página: %s"
+
+#: src/main.c:2002
+#, c-format
+msgid "%s: illegal newline character specifier: '%s': expected 'n' or 'r'\n"
+msgstr ""
+"%s: carácter de nueva línea no permitido: '%s': se esperaba 'n' o 'r'\n"
+
+#: src/main.c:2156
+msgid "slice must be greater than zero"
+msgstr "el intervalo debe ser mayor que cero"
+
+#. Errors found during getopt_long().
+#: src/main.c:2209 states/main.c:288
+#, c-format
+msgid "Try `%s --help' for more information.\n"
+msgstr "Pruebe `%s --help' para más información.\n"
+
+# Sugerencia: imprime el resultado (en vez de la salida). sv
+# Sugerencia: equivalente -> equivale, o bien "igual que" o "lo mismo que". sv
+# Sugerencia: secuencias especiales de escape -> secuencias de escape. sv
+#: src/main.c:2320
+#, fuzzy, c-format
+msgid ""
+"Usage: %s [OPTION]... [FILE]...\n"
+"Mandatory arguments to long options are mandatory for short options too.\n"
+"  -#                         an alias for option -n, --copies\n"
+"  -1                         same as --columns=1\n"
+"  -2                         same as --columns=2\n"
+"      --columns=NUM          specify the number of columns per page\n"
+"  -a, --pages=PAGES          specify which pages are printed\n"
+"  -A, --file-align=ALIGN     align separate input files to ALIGN\n"
+"  -b, --header=HEADER        set page header\n"
+"  -B, --no-header            no page headers\n"
+"  -c, --truncate-lines       cut long lines (default is to wrap)\n"
+"  -C, --line-numbers[=START]\n"
+"                             precede each line with its line number\n"
+"  -d                         an alias for option --printer\n"
+"  -D, --setpagedevice=KEY[:VALUE]\n"
+"                             pass a page device definition to output\n"
+"  -e, --escapes[=CHAR]       enable special escape interpretation\n"
+msgstr ""
+"Modo de empleo: %s [OPCIÓN]... [ARCHIVO]...\n"
+"Los argumentos obligatorios para las opciones largas son también\n"
+"obligatorios para las opciones cortas.\n"
+"  -1                         equivalente a --columns=1\n"
+"  -2                         equivalente a --columns=2\n"
+"      --columns=NUM          especifica el número de columnas por página\n"
+"  -a, --pages=PÁGINAS        especifica las páginas que se imprimirán\n"
+"  -A, --file-align=ALIN      alinea los diferentes archivos de entrada\n"
+"                             a ALIN\n"
+"  -b, --header=CABECERA      define la cabecera de la página\n"
+"  -B, --no-header            sin cabecera de página\n"
+"  -c, --truncate-lines       corta las líneas largas (por defecto las\n"
+"                             divide)\n"
+"  -C, --line-numbers         imprime el número de cada línea\n"
+"  -d                         un alias para la opción --printer\n"
+"  -D, --setpagedevice=CLAVE[:VALOR]\n"
+"                             pasa un dispositivo de página a la salida\n"
+"  -e, --escapes[=CHAR]       habilita la interpretación de las secuencias\n"
+"                             especiales de escape\n"
+
+#: src/main.c:2340
+msgid "  -E, --pretty-print[=LANG]  pretty-print source code\n"
+msgstr ""
+
+# lineprinter = impresora que imprime línea por línea.
+# impresora en línea, ¿no? Creo que no tiene nada que ver si es matricial o no. sv
+# pregunta: ¿"éste" lleva tilde? sv (creo que no).
+#: src/main.c:2343
+#, fuzzy
+msgid ""
+"  -f, --font=NAME            use font NAME for body text\n"
+"  -F, --header-font=NAME     use font NAME for header texts\n"
+"  -g, --print-anyway         nothing (compatibility option)\n"
+"  -G                         same as --fancy-header\n"
+"      --fancy-header[=NAME]  select fancy page header\n"
+"  -h, --no-job-header        suppress the job header page\n"
+"  -H, --highlight-bars=NUM   specify how high highlight bars are\n"
+"  -i, --indent=NUM           set line indent to NUM characters\n"
+"  -I, --filter=CMD           read input files through input filter CMD\n"
+"  -j, --borders              print borders around columns\n"
+"  -J,                        an alias for option --title\n"
+"  -k, --page-prefeed         enable page prefeed\n"
+"  -K, --no-page-prefeed      disable page prefeed\n"
+"  -l, --lineprinter          simulate lineprinter, this is an alias for:\n"
+"                               --lines-per-page=66, --no-header, "
+"--portrait,\n"
+"                               --columns=1\n"
+msgstr ""
+"  -f, --font=NOMBRE          utiliza la fuente NOMBRE para el cuerpo del "
+"texto\n"
+"  -F, --header-font=NOMBRE   utiliza la fuente NOMBRE para la cabecera\n"
+"  -g, --print-anyway         sin efecto (opción de compatibilidad)\n"
+"  -G                         idéntico a --fancy-header\n"
+"      --fancy-header[=NOMBRE] selecciona la página de carátula\n"
+"  -h, --no-job-header        suprime la página de cabecera.\n"
+"  -H, --highlight-bars=NUM   especifica cuán grandes son las barras de "
+"marca\n"
+"  -i, --indent=NUM           inicializa la sangría a NUM\n"
+"  -I, --filter=CMD           lee los ficheros de entrada a través del filtro "
+"CMD\n"
+"  -j, --borders              imprime bordes alrededor de las columnas\n"
+"  -k, --page-prefeed         habilita la pre-alimentación de páginas\n"
+"  -K, --no-page-prefeed      inhabilita la pre-limentación de páginas\n"
+"  -l, --lineprinter          simula la presencia de una impresora, es un\n"
+"                             alias para:\n"
+"                               --lines-per-page=66, --no-header,\n"
+"                               --portrait, --columns=1\n"
+
+# ¿aficha? Nunca había oido la palabra.
+# ¿Se te ocurre alguna otra? sv
+# afichar: colocar un afiche, mostrar algo, ¿no?
+# Nunca lo había oído, de verdad. sv
+# Creo que "modo paisaje" es lo que en España se dice "apaisado".
+# lo de portaretrato no le he oído en mi vida. sv
+# Es apaisado que nunca oí.
+# Si para hacerlo más claro entonces, utilizamos:
+#  "  -r, --landscape            imprime a lo largo de la página\n"
+#  "  -R, --portrait             imprime a lo ancho de la página\n"
+#  "                             (modo estándar)\n"
+# Que lo vea otro, a ver qué dice. sv
+# También se podría poner "imprime en modo apaisado" e "imprime en modo normal"
+# Lo de portaretrato no me gusta. Apaisado sí em+
+#: src/main.c:2361
+msgid ""
+"  -L, --lines-per-page=NUM   specify how many lines are printed on each "
+"page\n"
+"  -m, --mail                 send mail upon completion\n"
+"  -M, --media=NAME           use output media NAME\n"
+"  -n, --copies=NUM           print NUM copies of each page\n"
+"  -N, --newline=NL           select the newline character.  Possible\n"
+"                             values for NL are: n (`\\n') and r (`\\r').\n"
+"  -o                         an alias for option --output\n"
+"  -O, --missing-characters   list missing characters\n"
+"  -p, --output=FILE          leave output to file FILE.  If FILE is `-',\n"
+"                             leave output to stdout.\n"
+"  -P, --printer=NAME         print output to printer NAME\n"
+"  -q, --quiet, --silent      be really quiet\n"
+"  -r, --landscape            print in landscape mode\n"
+"  -R, --portrait             print in portrait mode\n"
+msgstr ""
+"  -L, --lines-per-page=NUM   especifica cuántas líneas se imprimirán en\n"
+"                             cada página\n"
+"  -m, --mail                 envía un mensaje al finalizar su ejecución.\n"
+"  -M, --media=NOMBRE         utiliza el soporte de salida NOMBRE\n"
+"  -n, --copies=NUM           imprime NUM copias de cada página\n"
+"  -N, --newline=NL           selecciona el carácter de nueva línea.\n"
+"                             Los valores posibles son:  n (`\\n') y r "
+"(`\\r').\n"
+"  -o                         un alias para la opción `--output'\n"
+"  -O, --missing-characters   enumera los caracteres que faltan\n"
+"  -p, --output=ARCHIVO       coloca la salida en el archivo ARCHIVO.\n"
+"                             Si ARCHIVO es `-', envía el resultado\n"
+"                             a la salida estándar.\n"
+"  -P, --printer=NOMBRE       envía la salida a la impresora NOMBRE\n"
+"  -q, --quiet, --silent      sé realmente silencioso\n"
+"  -r, --landscape            imprime en modo apaisado\n"
+"  -R, --portrait             imprime en modo portaretrato\n"
+
+# ¿Qué puede significar baselineskip? Es la primera vez que oigo hablar de eso.
+# En TeX es un parámetro que indica la distancia entre una línea y la que hay
+# debajo. sv
+# No estoy muy convencido de la traducción de encoding=codificada
+# > Para baselineskip, entonces, ¿te parece que digamos distancia entre las líneas?
+# > ¿Para encoding qué te parece entonces decir "la entrada de códigos"?
+# > Lo que comprendí del sentido de encoding en casi todo el programa, es
+# > que puedes codificar tu archivo de entrada de diferentes maneras.
+# He cambiado "la talla" por "el tamaño". En España "la talla" suena fatal. sv
+# He puesto `form feed' en lugar de form feed, por no ser palabras españolas.
+# imprimir -> mostrar em+
+# form feed -> salto de pagina em+
+#: src/main.c:2377
+#, fuzzy
+msgid ""
+"  -s, --baselineskip=NUM     set baselineskip to NUM\n"
+"  -S, --statusdict=KEY[:VALUE]\n"
+"                             pass a statusdict definition to the output\n"
+"  -t, --title=TITLE          set banner page's job title to TITLE.  Option\n"
+"                             sets also the name of the input file stdin.\n"
+"  -T, --tabsize=NUM          set tabulator size to NUM\n"
+"  -u, --underlay[=TEXT]      print TEXT under every page\n"
+"  -U, --nup=NUM              print NUM logical pages on each output page\n"
+"  -v, --verbose              tell what we are doing\n"
+"  -V, --version              print version number\n"
+"  -W, --language=LANG        set output language to LANG\n"
+"  -X, --encoding=NAME        use input encoding NAME\n"
+"  -z, --no-formfeed          do not interpret form feed characters\n"
+"  -Z, --pass-through         pass through PostScript and PCL files\n"
+"                             without any modifications\n"
+msgstr ""
+"  -s, --baselineskip=NUM     inicializa `baselineskip' a NUM\n"
+"  -S, --statusdict=CLAVE[:VALOR]\n"
+"                             pasa una definición del `statusdict' a la "
+"salida\n"
+"  -t, --title=TÍTULO         da el nombre TÍTULO a la ejecución. También\n"
+"                             da nombre al archivo de entrada\n"
+"  -T, --tabsize=NUM          inicializa el tamaño del tabulador a NUM\n"
+"  -u, --underlay[=TEXTO]     muestra TEXTO al pie de cada página\n"
+"  -v, --verbose              indica qué está haciendo\n"
+"  -V, --version              informa de la versión y termina\n"
+"  -X, --encoding=NOMBRE      utiliza la codificación NOMBRE\n"
+"  -z, --no-formfeed          no interpreta los caracteres `form feed'\n"
+"  -Z, --pass-through         pasa a través de archivos PostScript y PCL\n"
+"                             sin niguna modificación\n"
+
+#: src/main.c:2394
+#, fuzzy
+msgid ""
+"Long-only options:\n"
+"  --color[=COLOR]            set output color model to COLOR\n"
+"  --download-font=NAME       download font NAME\n"
+"  --filter-stdin=NAME        specify how stdin is shown to the input filter\n"
+"  --h-column-height=HEIGHT   set the horizontal column height to HEIGHT\n"
+"  --help                     print this help and exit\n"
+"  --help-pretty-print        describe all supported --pretty-print "
+"languages\n"
+"                             and file formats\n"
+"  --highlight-bar-gray=NUM   print highlight bars with gray NUM (0 - 1)\n"
+"  --list-media               list names of all known media\n"
+"  --list-options             list all options and their values\n"
+"  --margins=LEFT:RIGHT:TOP:BOTTOM\n"
+"                             adjust page marginals\n"
+"  --mark-wrapped-lines[STYLE]\n"
+"                             mark wrapped lines in the output with STYLE\n"
+"  --non-printable-format=FMT specify how non-printable chars are printed\n"
+msgstr ""
+"Estas opciones sólo existen en formato largo:\n"
+"  --download-font=NOMBRE     carga la fuente NOMBRE\n"
+"  --filter-stdin=NAME        especifica cómo la entrada estándar será\n"
+"                             vista por el filtro de entrada\n"
+"  --help                     muestra esta ayuda y finaliza\n"
+"  --highlight-bar-gray=NUM   imprime las barras de marca con un\n"
+"                             gris NUM (0 - 1)\n"
+"  --list-media               muestra la lista de todos los soportes\n"
+"                             conocidos\n"
+"  --list-options             muestra una lista de todas las opciones\n"
+"                             y sus valores\n"
+"  --non-printable-format=FMT inicializa el formato no-imprimible a FMT\n"
+"  --page-label-format=FMT    inicializa el formato del nombre de la\n"
+"                             página a FMT\n"
+"  --printer-options=OPCIONES pasa OPCIONES suplementarias a la impresión\n"
+
+#: src/main.c:2411
+msgid ""
+"  --nup-xpad=NUM             set the page x-padding of N-up printing to NUM\n"
+"  --nup-ypad=NUM             set the page y-padding of N-up printing to NUM\n"
+"  --page-label-format=FMT    set page label format to FMT\n"
+"  --ps-level=LEVEL           set the PostScript language level that "
+"enscript\n"
+"                             should use\n"
+"  --printer-options=OPTIONS  pass extra options to the printer command\n"
+"  --rotate-even-pages        rotate even-numbered pages 180 degrees\n"
+msgstr ""
+
+# Todos los underlay los he traducido como pie de página.
+# No es footnote, pero viendo su ubicación en la página,
+# es casi lo mismo... ¿alguien tiene otra sugerencia?
+#: src/main.c:2420
+#, fuzzy
+msgid ""
+"  --slice=NUM                print vertical slice NUM\n"
+"  --toc                      print table of contents\n"
+"  --ul-angle=ANGLE           set underlay text's angle to ANGLE\n"
+"  --ul-font=NAME             print underlays with font NAME\n"
+"  --ul-gray=NUM              print underlays with gray value NUM\n"
+"  --ul-position=POS          set underlay's starting position to POS\n"
+"  --ul-style=STYLE           print underlays with style STYLE\n"
+"  --word-wrap                wrap long lines from word boundaries\n"
+msgstr ""
+"  --slice=NUM                inicializa el intervalo vertical a NUM\n"
+"  --toc                      imprime el índice\n"
+"  --ul-angle=ÁNGULO          inicializa la inclinación del texto del pie\n"
+"                             de página a ÁNGULO\n"
+"  --ul-font=NOMBRE           imprime los pies de página con la\n"
+"                             fuente NOMBRE\n"
+"  --ul-gray=NUM              imprime los pies de página con el nivel\n"
+"                             de gris NUM (0 - 1)\n"
+"  --ul-position=POS          inicializa la posición de partida a POS,\n"
+"                             para los pies de página\n"
+"  --ul-style=STYLE           imprime los pies de página con el estilo STYLE\n"
+
+#: src/main.c:2431
+msgid ""
+"\n"
+"Report bugs to mtr@iki.fi.\n"
+msgstr ""
+
+# ¿Qué es prolog?
+# > Prolog es un lenguaje de PROgramaciómn LOGica. Se lo utiliza en trabajos
+# > de inteligencia artificial o en proyectos para analizar el lenguaje natural.
+# > No es la primera vez que veo prolog asociado a un programa que trabaja
+# > con código PostScript. (Hay un script que creo acompaña TeX que se llama
+# > multi , él también uitiza prolog, al menos la version que tengo acá en una
+# > de las máquinas de la Universidad).
+#: src/psgen.c:304
+#, c-format
+msgid "couldn't find prolog \"%s\": %s\n"
+msgstr "no se pudo encontrar prolog \"%s\": %s\n"
+
+# Sugiero: "de codificación". sv
+#: src/psgen.c:312
+#, c-format
+msgid "couldn't find encoding file \"%s.enc\": %s\n"
+msgstr "no se pudo encontrar el archivo de códigos \"%s.enc\": %s\n"
+
+#: src/psgen.c:444
+#, c-format
+msgid "couldn't find header definition file \"%s.hdr\": %s\n"
+msgstr ""
+"no se pudo encontrar el archivo de definición de la cabecera \"%s.hdr\": %s\n"
+
+#: src/psgen.c:584
+#, c-format
+msgid "processing file \"%s\"...\n"
+msgstr "procesando el archivo \"%s\"...\n"
+
+#.
+#. * At the beginning of the column, warn user
+#. * and print image.
+#.
+#: src/psgen.c:858
+#, c-format
+msgid "EPS file \"%s\" is too large for page\n"
+msgstr "el archivo EPS \"%s\" es demasiado grande para la página\n"
+
+#: src/psgen.c:1121
+#, c-format
+msgid "unknown special escape: %s"
+msgstr "secuencia de escape especial desconocida: %s"
+
+#: src/psgen.c:1247
+#, c-format
+msgid "illegal option %c for ^@epsf escape"
+msgstr "opción no permitida %c para la secuencia de escape ^@epsf"
+
+#: src/psgen.c:1253
+msgid "malformed ^@epsf escape: no ']' after options"
+msgstr ""
+"secuencia de escape ^@epsf errónea: falta un ']' después de las opciones"
+
+#: src/psgen.c:1265
+#, c-format
+msgid ""
+"too long file name for ^@epsf escape:\n"
+"%.*s"
+msgstr ""
+"nombre de archivo demasiado largo para la secuencia de escape ^@epsf:\n"
+"%.*s"
+
+# Sugerencia: Fin de archivo (EOF) inesperado ... sv
+# Sugerencia: scan -> examinar. (si te gusta). sv
+#: src/psgen.c:1269
+msgid "unexpected EOF while scanning ^@epsf escape"
+msgstr ""
+"Fin de archivo (EOF) inesperado mientras se examinaba la secuencia\n"
+"de escape ^@epfs"
+
+#: src/psgen.c:1275
+msgid "malformed ^@epsf escape: no '{' found"
+msgstr "secuencia de escape ^@epsf errónea: no se encontró '{'"
+
+#: src/psgen.c:1333
+#, c-format
+msgid "malformed %s escape: no '{' found"
+msgstr "secuencia de escape %s errónea: no se encontró '{'"
+
+#: src/psgen.c:1347
+#, c-format
+msgid ""
+"too long argument for %s escape:\n"
+"%.*s"
+msgstr ""
+"argumento demasiado largo para la secuencia de escape %s:\n"
+"%.*s"
+
+#: src/psgen.c:1365
+#, c-format
+msgid "malformed font spec for ^@font escape: %s"
+msgstr ""
+"especificación de fuente errónea para la secuencia de escape ^@font: %s"
+
+#: src/psgen.c:1395
+#, fuzzy, c-format
+msgid "malformed color spec for ^@color escape: %s"
+msgstr ""
+"especificación de fuente errónea para la secuencia de escape ^@font: %s"
+
+#: src/psgen.c:1414
+#, c-format
+msgid "invalid value for ^@shade escape: %s"
+msgstr "valor incorrecto para la secuencia de escape ^@shade: %s"
+
+#: src/psgen.c:1422
+#, fuzzy, c-format
+msgid "invalid value for ^@bggray escape: %s"
+msgstr "valor incorrecto para la secuencia de escape ^@shade: %s"
+
+# pipe es una palabra delicada. Yo le he traducido por "tubería" en recode
+# Enrique ha puesto "tubería (pipe)" en glibc.
+# Otros lo han traducido como "canalización" o "desviación".
+# En cualquier caso, no sería un pipe "con el comando" sino "hacia el comando" sv
+# Me suena medio feo lo de tubería, pero si son ya dos los que lo tradujeron así...
+# Bueno, hay otras posibilidades, Federico Rivas usó una vez "canalización". sv
+#: src/psgen.c:2221
+#, c-format
+msgid "epsf: couldn't open pipe to command \"%s\": %s\n"
+msgstr "epfs: no se pudo abrir un canal hacia el comando \"%s\": %s\n"
+
+#: src/psgen.c:2247
+#, c-format
+msgid "couldn't open EPS file \"%s\": %s\n"
+msgstr "no se pudo abrir el archivo EPS \"%s\": %s\n"
+
+#: src/psgen.c:2284
+msgid "EPS file \"%s\" does not start with \"%%!\" magic\n"
+msgstr "el archivo EPS \"%s\" no comienza con el código \"%%!\"\n"
+
+#. No, this BoundingBox comment is corrupted.
+#: src/psgen.c:2309
+msgid ""
+"EPS file \"%s\" contains malformed %%%%BoundingBox row:\n"
+"\"%.*s\"\n"
+msgstr ""
+"el archivo EPS \"%s\" tiene una línea %%%%BoundingBox errónea:\n"
+"\"%.*s\"\n"
+
+#: src/psgen.c:2334
+#, c-format
+msgid "EPS file \"%s\" is not a valid EPS file\n"
+msgstr "el archivo EPS \"%s\" no es un archivo EPS válido\n"
+
+#: src/psgen.c:2476
+#, c-format
+msgid "passing through all input files for output language `%s'\n"
+msgstr ""
+
+#: src/psgen.c:2528
+#, c-format
+msgid "passing through %s file \"%s\"\n"
+msgstr "pasando a través del archivo %s \"%s\"\n"
+
+# Los archivos "divert" son temporales, al no encontrar una traducción
+# directa, he de poner simplemente temporal.
+#: src/psgen.c:2629
+#, c-format
+msgid "couldn't create divert file name: %s"
+msgstr "no se pudo crear el archivo temporal: %s"
+
+#: src/psgen.c:2636
+#, c-format
+msgid "couldn't create divert file \"%s\": %s"
+msgstr "no se pudo crear el archivo temporal \"%s\": %s"
+
+# Ojo: rewind no es abrir. sv
+#: src/psgen.c:2660
+#, c-format
+msgid "couldn't rewind divert file: %s"
+msgstr "no se pudo rebobinar el archivo temporal: %s"
+
+#: src/util.c:177 src/util.c:205
+#, c-format
+msgid "illegal value \"%s\" for option %s"
+msgstr "valor \"%s\" incorrecto para la opción %s"
+
+#: src/util.c:193
+#, c-format
+msgid "invalid value \"%s\" for option %s"
+msgstr "valor \"%s\" no permitido para la opción %s"
+
+#: src/util.c:415
+#, c-format
+msgid "illegal option: %s"
+msgstr "opción incorrecta: %s"
+
+#: src/util.c:579
+msgid "%s:%d: %%Format: no name"
+msgstr "%s:%d: %%Format: sin nombre"
+
+# Sinceramente, creo que el "maxlen" no habría que traducirlo. sv
+# > Había pensado en eso, pero como no se trata de ninguna variable, sino
+# > sólo de una referencia a la longitud máxima permitida...
+# Entonces, si de verdad crees que es así, pon "la longitud máxima es %d"
+# Por si acaso (a lo mejor es el nombre interno de la variable), lo dejaría
+# tal y como está. sv
+#: src/util.c:590
+msgid "%s:%d: %%Format: too long name, maxlen=%d"
+msgstr ""
+"%s:%d: %%Format: nombre demasiado largo. La longitud máxima permitida es %d"
+
+#: src/util.c:613
+msgid "%s:%d: %%Format: name \"%s\" is already defined"
+msgstr "%s:%d: %%Format: el nombre \"%s\" ya ha sido definido"
+
+#: src/util.c:634
+msgid "%s:%d: %%HeaderHeight: no argument"
+msgstr "%s:%d: %%HeaderHeight: sin argumento"
+
+#: src/util.c:656
+msgid "%s:%d: %%FooterHeight: no argument"
+msgstr "%s:%d: %%FooterHeight: sin argumento"
+
+#: src/util.c:739
+#, c-format
+msgid "%s: warning: font size is negative\n"
+msgstr ""
+
+#: src/util.c:741
+#, c-format
+msgid "%s: warning: font width is negative\n"
+msgstr ""
+
+#: src/util.c:743
+#, c-format
+msgid "%s: warning: font height is negative\n"
+msgstr ""
+
+#: src/util.c:761
+#, c-format
+msgid "reading AFM info for font \"%s\"\n"
+msgstr "leyendo la información AFM para la fuente \"%s\"\n"
+
+#: src/util.c:788
+#, c-format
+msgid "couldn't open AFM file for font \"%s\", using default\n"
+msgstr ""
+"no se pudo abrir el archivo AFM para la fuente \"%s\", se usará\n"
+"la definición por defecto\n"
+
+#: src/util.c:795
+#, c-format
+msgid "couldn't open AFM file for the default font: %s"
+msgstr "no se pudo abrir el archivo AFM para la fuente: %s"
+
+# cargando, ¿no? sv
+# > Cargando sería copiar hacia la máquina, de algún lado, en éste caso
+# > se trata de copiar la fuente hacia la impresora.... aunque de todas maneras
+# > es cargar, en uno o en otro... vendido!  :-)
+#. Ok, fine.  Font was found.
+#: src/util.c:963
+#, c-format
+msgid "downloading font \"%s\"\n"
+msgstr "cargando la fuente \"%s\"\n"
+
+#: src/util.c:968
+#, c-format
+msgid "couldn't open font description file \"%s\": %s\n"
+msgstr "no se pudo abrir el archivo de descripción \"%s\" de la fuente: %s\n"
+
+#: src/util.c:1256
+msgid "%s: too long format for %%D{} escape"
+msgstr "%s: formato demasiado largo para la secuencia de escape %%D{}"
+
+#: src/util.c:1341
+msgid "%s: unknown `%%' escape `%c' (%d)"
+msgstr "%s: secuencia de escape desconocida `%%' `%c' (%d)"
+
+#: src/util.c:1374
+#, c-format
+msgid "%s: no closing ')' for $() escape"
+msgstr "%s: falta el ')' para la secuencia de escape $()"
+
+#: src/util.c:1377
+#, c-format
+msgid "%s: too long variable name for $() escape"
+msgstr "%s: nombre de variable demasiado largo para la secuancia de escape $()"
+
+#: src/util.c:1404
+#, c-format
+msgid "%s: too long format for $D{} escape"
+msgstr "%s: formato demasiado largo para la secuencia de escape $D{}"
+
+# Propongo "secuencia de escape `$' desconocida ..." sv
+#: src/util.c:1492
+#, c-format
+msgid "%s: unknown `$' escape `%c' (%d)"
+msgstr "%s: secuencia de escape `$' `%c' (%d) desconocida"
+
+#: src/util.c:1659
+#, c-format
+msgid "malformed float dimension: \"%s\""
+msgstr "dimensión de números reales errónea: \"%s\""
+
+#: src/util.c:1776
+#, c-format
+msgid "couldn't open input filter \"%s\" for file \"%s\": %s"
+msgstr ""
+"no se pudo abrir el filtro de entrada \"%s\" para el archivo \"%s\": %s"
+
+#: src/util.c:1793
+#, c-format
+msgid "couldn't open input file \"%s\": %s"
+msgstr "no se pudo abrir el archivo de entrada \"%s\": %s"
+
+#. Open output file.
+#: src/mkafmmap.c:173
+#, c-format
+msgid "file=%s\n"
+msgstr ""
+
+#: src/mkafmmap.c:173
+msgid "stdout"
+msgstr ""
+
+#: src/mkafmmap.c:181
+#, fuzzy, c-format
+msgid "%s: couldn't open output file \"%s\""
+msgstr "no se pudo abrir el archivo de entrada \"%s\": %s"
+
+# library=biblioteca, pero me parece que es más corriente (y hasta se entiende mejor),
+# cuando se habla de librerías. En spanglish la semana pasada uno de los mails decía
+# también que ambas traducciones pueden ser válidas.
+# Sí, era Enrique quien lo decía...
+# Pero biblioteca es más correcto: Tú vas a una biblioteca a consultar algo,
+# pero no a llevártelo a casa. sv
+# ¿Consenso? :-)
+# En Spanish-GNU nos hemos decidido por biblioteca. sv
+# Lo cambio directamente. sv
+#: src/mkafmmap.c:195
+#, fuzzy
+msgid "couldn't create AFM library"
+msgstr "no se pudo abrir la biblioteca AFM: %s"
+
+#: src/mkafmmap.c:244
+#, c-format
+msgid ""
+"Usage: %s [OPTION]... FILE...\n"
+"Mandatory arguments to long options are mandatory for short options too.\n"
+"  -h, --help              print this help and exit\n"
+"  -p, --output-file=NAME  print output to file NAME (default file is\n"
+"                          font.map).  If FILE is `-', leavy output to\n"
+"                          stdout.\n"
+"  -V, --version           print version number\n"
+msgstr ""
+
+#. Format version string.
+#: states/main.c:175
+#, c-format
+msgid "states for GNU %s %s"
+msgstr ""
+
+#: states/main.c:230
+#, fuzzy, c-format
+msgid "%s: malformed variable definition \"%s\"\n"
+msgstr "dimensión de números reales errónea: \"%s\""
+
+#: states/main.c:258
+#, fuzzy, c-format
+msgid "%s: couldn't create output file \"%s\": %s\n"
+msgstr "no se pudo crear el archivo de salida \"%s\": %s"
+
+# Propongo "secuencia de escape `$' desconocida ..." sv
+#: states/main.c:281
+#, fuzzy, c-format
+msgid "%s: unknown warning level `%s'\n"
+msgstr "%s: secuencia de escape `$' `%c' (%d) desconocida"
+
+#: states/main.c:330 states/main.c:371 states/prims.c:1286 states/utils.c:227
+#, c-format
+msgid "%s: out of memory\n"
+msgstr ""
+
+#: states/main.c:341
+#, fuzzy, c-format
+msgid "%s: couldn't open definition file `%s': %s\n"
+msgstr "no se pudo abrir el archivo de descripción \"%s\" de la fuente: %s\n"
+
+#: states/main.c:396
+#, fuzzy, c-format
+msgid "%s: couldn't open input file `%s': %s\n"
+msgstr "no se pudo abrir el archivo de entrada \"%s\": %s"
+
+#: states/main.c:420
+#, c-format
+msgid ""
+"Usage: %s [OPTION]... [FILE]...\n"
+"Mandatory arguments to long options are mandatory for short options too.\n"
+msgstr ""
+
+#: states/main.c:424
+msgid ""
+"  -D, --define=VAR=VAL       define variable VAR to have value VAR\n"
+"  -f, --file=NAME            read state definitions from file NAME\n"
+"  -h, --help                 print this help and exit\n"
+"  -o, --output=NAME          save output to file NAME\n"
+"  -s, --state=NAME           start from state NAME\n"
+"  -V, --version              print version number\n"
+"  -W, --warning=LEVEL        set the warning level to LEVEL\n"
+msgstr ""
+
+#: states/prims.c:105 states/prims.c:125 states/prims.c:231 states/prims.c:404
+#, c-format
+msgid "%s:%d: %s: illegal argument type\n"
+msgstr ""
+
+#: states/prims.c:446
+#, c-format
+msgid "%s: panic: "
+msgstr ""
+
+#: states/prims.c:480
+#, c-format
+msgid "%s:%d: %s: malformed version string `%s'\n"
+msgstr ""
+
+#: states/prims.c:495
+#, c-format
+msgid ""
+"%s: FATAL ERROR: States version %s or higher is required for this script\n"
+msgstr ""
+
+#: states/prims.c:586 states/prims.c:1211
+#, c-format
+msgid "%s:%d: %s: start offset is bigger than end offset\n"
+msgstr ""
+
+#: states/prims.c:595 states/prims.c:611 states/prims.c:1217
+#, c-format
+msgid "%s:%d: %s: offset out of range\n"
+msgstr ""
+
+#: states/prims.c:629
+#, fuzzy, c-format
+msgid "%s:%d: %s: illegal argument\n"
+msgstr "%s: la opción `%s' requiere un argumento\n"
+
+#: states/prims.c:676
+#, c-format
+msgid "%s:%d: %s: illegal regexp character syntax: %c\n"
+msgstr ""
+
+#: states/prims.c:957
+#, c-format
+msgid "%s: primitive `%s': too few arguments for format\n"
+msgstr ""
+
+#: states/prims.c:985
+#, c-format
+msgid "%s:%d: %s: argument %d doesn't match format\n"
+msgstr ""
+
+#: states/prims.c:1015
+msgid "%s:%d: %s: no extra options can be specified for %%s\n"
+msgstr ""
+
+#: states/prims.c:1024
+#, c-format
+msgid "%s:%d: %s: illegal type specifier `%c'\n"
+msgstr ""
+
+#: states/process.c:99
+#, fuzzy, c-format
+msgid "%s: undefined state `%s'\n"
+msgstr "%s: opción desconocida `--%s'\n"
+
+#: states/process.c:185
+#, c-format
+msgid "%s: error: undefined variable `%s'\n"
+msgstr ""
+
+# pipe es una palabra delicada. Yo le he traducido por "tubería" en recode
+# Enrique ha puesto "tubería (pipe)" en glibc.
+# Otros lo han traducido como "canalización" o "desviación".
+# En cualquier caso, no sería un pipe "con el comando" sino "hacia el comando" sv
+# Me suena medio feo lo de tubería, pero si son ya dos los que lo tradujeron así...
+# Bueno, hay otras posibilidades, Federico Rivas usó una vez "canalización". sv
+#: states/utils.c:260
+#, fuzzy, c-format
+msgid "%s:%d: couldn't compile regular expression \"%s\": %s\n"
+msgstr "epfs: no se pudo abrir un canal hacia el comando \"%s\": %s\n"
+
+#: states/utils.c:438 states/utils.c:464
+#, c-format
+msgid "%s: ouf of memory"
+msgstr ""
+
+#: states/utils.c:443
+#, c-format
+msgid "warning: redefining state `%s'"
+msgstr ""
+
+#: states/utils.c:468
+#, c-format
+msgid "%s:%d: warning: redefining subroutine `%s'\n"
+msgstr ""
+
+#. Undefined variable.
+#: states/utils.c:554
+#, c-format
+msgid "%s:%d: error: undefined variable `%s'\n"
+msgstr ""
+
+#. Couldn't set value for variable.
+#: states/utils.c:591
+#, c-format
+msgid "%s:%d: error: couldn't set variable `%s'\n"
+msgstr ""
+
+#: states/utils.c:741
+#, c-format
+msgid "%s:%d: error: expression between illegal types\n"
+msgstr ""
+
+#: states/utils.c:837
+#, c-format
+msgid "%s: too few arguments for subroutine\n"
+msgstr ""
+
+#: states/utils.c:843
+#, c-format
+msgid "%s: too many arguments for subroutine\n"
+msgstr ""
+
+#: states/utils.c:895
+#, fuzzy, c-format
+msgid "%s: undefined procedure `%s'\n"
+msgstr "%s: opción desconocida `--%s'\n"
+
+#: states/utils.c:982
+#, c-format
+msgid "%s:%d: error: illegal lvalue for assignment\n"
+msgstr ""
+
+#: states/utils.c:990 states/utils.c:1074
+#, c-format
+msgid "%s:%d: error: array reference index is not integer\n"
+msgstr ""
+
+#: states/utils.c:996
+#, c-format
+msgid "%s:%d: error: negative array reference index\n"
+msgstr ""
+
+#: states/utils.c:1047
+#, c-format
+msgid "%s:%d: error: illegal rvalue for string assignment\n"
+msgstr ""
+
+#: states/utils.c:1066
+#, c-format
+msgid "%s:%d: error: illegal type for array reference\n"
+msgstr ""
+
+#: states/utils.c:1083
+#, c-format
+msgid "%s:%d: error: array reference index out of rance\n"
+msgstr ""
+
+#~ msgid "couldn't unlink divert file \"%s\": %s"
+#~ msgstr "no se puede borrar el archivo temporal \"%s\": %s"
+
+#~ msgid ""
+#~ "too long font name for ^@font escape:\n"
+#~ "%.*s"
+#~ msgstr ""
+#~ "nombre de fuente muy grande para la secuencia de escape ^@font:\n"
+#~ "%.*s"
+
+#~ msgid "malformed ^@font escape: no '{' found"
+#~ msgstr "secuencia de escape ^@font errónea: no se encontró '{'"

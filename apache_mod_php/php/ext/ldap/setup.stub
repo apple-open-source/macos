@@ -1,0 +1,8 @@
+# $Source: /cvs/Darwin/Services/apache_mod_php/php/ext/ldap/setup.stub,v $
+# $Id: setup.stub,v 1.1.1.1 2000/08/10 02:08:29 wsanchez Exp $
+
+define_option with-ldap 'LDAP support?' yesnodir \
+    'no /usr/local/ldap LDAP base install' \
+'     Whether to build with LDAP (Lightweight Directory Access Protocol)\n
+     support.\n
+     More information about LDAP can be found in RFC1777 and RFC1778.'

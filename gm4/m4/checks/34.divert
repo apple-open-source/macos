@@ -1,0 +1,6 @@
+dnl ../doc/m4.texinfo:2221: Origin of test
+divert(-1)
+define(`foo', `Macro `foo'.')
+define(`bar', `Macro `bar'.')
+divert
+dnl @result{}

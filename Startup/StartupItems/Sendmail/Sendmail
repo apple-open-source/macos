@@ -1,0 +1,23 @@
+#!/bin/sh
+
+. /etc/rc.common
+
+##
+# Start mail server
+##
+
+if [ "${MAILSERVER:=-NO-}" = "-YES-" ]; then
+
+    ConsoleMessage "Starting mail services"
+
+    ##
+    # Remove junk from the outbound mail queue directory and start up
+    # the sendmail daemon. /usr/spool/mqueue is assumed here even though
+    # it can be changed in the sendmail configuration file.
+    ##
+    queue=/var/spool/mqueue
+    rm -f ${queue}/nf* ${queue}/lf*
+
+    /usr/sbin/sendmail -bd -q1h &
+
+fi

@@ -1,0 +1,13 @@
+{
+  Description     = "application services";
+  Provides        = ("Desktop DB",
+		     "Input Managers",
+		     "Print Server");
+  Requires        = ("Resolver");
+  OrderPreference = "None";
+  Messages =
+  {
+    start = "Starting application services";
+    stop  = "Stopping application services";
+  };
+}

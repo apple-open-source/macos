@@ -1,0 +1,26 @@
+CC       = gcc
+LIBGCC1=libgcc1.null
+CROSS_LIBGCC1=libgcc1.null
+LIB2FUNCS_EXTRA=lib2funcs.asm
+
+lib2funcs.asm: $(srcdir)/config/pa/$(LIB2FUNCS_EXTRA)
+	rm -f lib2funcs.asm
+	cp $(srcdir)/config/pa/$(LIB2FUNCS_EXTRA) .
+
+ALLOCA=alloca.o
+
+# This is a hack to make the preprocessor search an additional directory
+# that is not dependent on the version of gcc that is installed on the machine.
+tooldir = $(libdir)/gcc-lib/$(target)
+
+# When gcc is running on a NeXT, we want the make interaction in it.
+
+COMMON_OBJS = makeUser.o make-support.o
+
+makeUser.o: config/next/makeUser.c config/next/make.h
+	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
+	  $(srcdir)/config/next/makeUser.c
+
+make-support.o: config/next/make-support.c config/next/make.h
+	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
+	  -I$(srcdir)/config/next $(srcdir)/config/next/make-support.c

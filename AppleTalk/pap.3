@@ -1,0 +1,194 @@
+.ds At AppleTalk
+.TH pap 3
+.SH NAME
+.NA pap_open
+.NA pap_read
+.NA pap_read_ignore
+.NA pap_status
+.NA pap_write
+.NA pap_close
+.TX
+\*(At Printer Access Protocol (PAP) interface
+.SH SYNOPSIS
+.PP
+.B #include <at/appletalk.h>
+.br
+.B #include <at/pap.h>
+.br
+.B #include <at/nbp.h>
+.PP
+.BI int\0pap_open(at_nbptuple_t\0* tuple );
+.PP
+.BI int\0pap_read(int \0sd , 
+.BI unsigned\0char\0* data ,
+.BI int \0len );
+.PP
+.BI int\0pap_read_ignore(int \0sd );
+.PP
+.BI char\0*pap_status(at_nbptuple_t\0* tuple );
+.PP
+.BI int\0pap_write(int \0sd , 
+.BI char\0* data ,
+.BI int \0len ,
+.if n .ti +5n
+.BI int \0eof ,
+.BI int \0flush );
+.PP
+.BI int\0pap_close(int\0 sd );
+.PP
+.SH DESCRIPTION
+The PAP interface provides applications with access to the
+\*(At Printer Access Protocol operations.
+.PP
+The
+.B pap_open
+routine
+opens a PAP client \*(At socket to a server.
+It attempt to connect to the server whose name and address are contained in
+the 
+.I tuple
+parameter.
+.B nbp_lookup
+(See 
+.BR nbp (3))
+may be used to obtain a valid
+.I tuple
+for the desired PAP server.
+.PP
+Upon successful completion, this routine returns
+a PAP client \*(At socket connected to the server requested.
+.PP
+The
+.B pap_read
+routine
+reads data from a client PAP socket opened by a
+.B pap_open
+call.
+.TP 10
+.I "sd"
+A PAP client \*(At socket descriptor from a previous open.
+.TP
+.I "data"
+The address of the data to be returned.
+The maximum data length returned is 512 bytes.
+.TP
+.I "length"
+The maximum length to be read.
+.PP
+Upon successful completion,
+the number of bytes read is returned.  
+A value of
+0 is returned when an end-of-file is reached.
+.PP
+The
+.B pap_read_ignore
+routine
+issues a PAP read request and ignores any returned data.
+This is used to allow LaserWriters to function
+when they want to return ``status'' messages.
+.TP 10
+.I sd
+The \*(At socket descriptor returned by an earlier
+.BR pap_open .
+.PP
+The
+.B pap_status
+routine
+locates a PAP server and returns pointer to its status string.
+.TP 10
+.I "tuple"
+A pointer to tuple struct containing an name and address of a PAP server entity.
+The routine
+.B nbp_lookup
+(See 
+.BR nbp (3))
+may be used to get a valid tuple.
+.PP
+Upon successful completion, a pointer to the string containing PAP server's
+status is returned;
+if the printer's status can not be recovered,
+NULL is returned.
+.PP
+The
+.B pap_write
+routine
+sends the data passed to it
+to the other end of a PAP client session.
+.TP 8
+.I sd
+A valid PAP client \*(At socket descriptor from a call to
+.BR pap_open .
+.TP
+.I data
+A pointer to the data being written.
+.TP
+.I len
+The length of the data being written;
+this must not exceed 512 bytes.
+.TP
+.I eof
+Boolean flag indicating if EOF indication is to be sent to the other
+end of PAP session (after the data has been sent) to indicate that no
+more data will be sent.  Setting 
+.I eof
+to true implies
+.IR flush .
+.TP
+.I flush
+Boolean flag indicating if data for all waiting PAP writes is to be
+sent to the remote end.
+Because PAP runs on top of ATP,
+PAP writes are queued up until either a complete ATP
+response is available (about 4K bytes) or an end-of-message is sent.
+This call sends an ATP end-of-message,
+which causes all waiting PAP writes to be sent to the other end.
+This should be done if a higher level protocol (for example,
+a handshake with a LaserWriter) needs to do a
+.B write
+followed by a
+.BR read .
+.PP
+Upon successful completion, a value of 0 is returned.
+.PP
+The
+.B pap_close
+routine closes an open PAP client \*(At socket.
+.TP 10
+.I "sd"
+Descriptor for the \*(At socket that is to be closed.
+.PP
+It returns 0 upon successful completion or \-1 on error.
+.PP
+.SH ERRORS
+All routines return \-1 on error with a detailed error code in
+.BR errno :
+.TP 15
+.B [EINVAL]
+An invalid argument was passed.
+.TP
+.B [ENETDOWN]
+The network interface is down.
+.TP
+.B [ESHUTDOWN]
+The requested \*(At socket has already been closed.
+.TP
+.B [ETIMEDOUT]
+The connection is timed out.
+.P
+See
+.BR open (2),
+.BR close (2),
+.BR read (2),
+.BR write (2),
+and
+.BR ioctl (2)
+for additional error codes;
+see also errors returned by the underlying NBP, ATP, DDP, and LAP modules.
+.SH "SEE ALSO"
+.BR atp (3),
+.BR ddp (3),
+.BR lap (3),
+.BR nbp (3),
+.BR rtmp (3)
+.PP
+.IR "Inside AppleTalk" .

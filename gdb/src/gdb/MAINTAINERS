@@ -1,0 +1,253 @@
+			GDB Maintainers
+
+
+			Blanket Write Privs
+
+Jim Blandy			jimb@cygnus.com
+Andrew Cagney			ac131313@cygnus.com
+Mark Kettenis           	kettenis@gnu.org
+Stan Shebs			shebs@apple.com
+Michael Snyder			msnyder@cygnus.com
+Peter Schauer			Peter.Schauer@regent.e-technik.tu-muenchen.de
+Fred Fish			fnf@ninemoons.com
+
+
+			Various Maintainers
+
+Note individuals who maintain parts of the debugger need approval to
+check in changes outside of the immediate domain that they maintain.
+
+If there is no maintainer for a given domain then the responsibility
+falls to the head maintainer.
+
+If there are several maintainers for a given domain then
+responsibility falls to the first maintainer.  The first maintainer is
+free to devolve that responsibility among the other maintainers.
+
+
+Target/Architecture:
+
+Generic ISA (Instruction Set Architecture) issues, API variants, CPU
+variants.  *-tdep.c. The Target/Architecture maintainer works with the
+host maintainer when resolving build issues.  The Target/Architecture
+maintainer works with the native maintainer when resolving API issues.
+
+	a29k		maintenance only (a29k-amd-udi -Werror)
+	alpha		maintenance only (alpha-dec-osf4.0a)
+	arc		maintenance only (arc-elf)
+
+	arm		Fernando Nasser		fnasser@cygnus.com
+			Jim Ingham		jingham@apple.com
+			Scott Bambrough		scottb@netwinder.org
+
+	convex		OBSOLETE
+
+	d10v		Andrew Cagney		cagney@cygnus.com
+
+	d30v		David Taylor		taylor@cygnus.com
+
+	djgpp		(see native and host)
+
+	fr30		maintenance only (fr30-elf)
+	h8300		maintenance only (h8300hms)
+	h8500		maintenance only (h8500hms)
+
+	i386		Mark Kettenis           kettenis@gnu.org
+
+	i960		maintenance only (i960-coff)
+
+	ia64		Kevin Buettner		kevinb@cygnus.com
+	m32r		Michael Snyder		msnyder@cygnus.com
+
+	m68hc11		Stephane Carrez		Stephane.Carrez@worldnet.fr
+
+	m68k		maintenance only (m68k-aout, m68k-coff, m68k-elf)
+	m88k		maintenance only (?)
+	mcore		maintenance only (?)
+
+	mips		Andrew Cagney		cagney@cygnus.com
+
+	mn10200		maintenance only (mn10200-elf)
+
+	mn10300		Andrew Cagney		cagney@cygnus.com
+
+	ns32k		maintenance only (?)
+
+	pa		Jeff Law		law@cygnus.com
+
+	powerpc		Kevin Buettner		kevinb@cygnus.com
+			Nick Duffek		nsd@cygnus.com
+
+	pyramid		OBSOLETE
+
+	romp		maintenance only (?)
+
+	rs6000		(see rs6000 native and ppc target)
+
+	sh		Elena Zannoni		ezannoni@cygnus.com
+
+	sparc		David Taylor		taylor@cygnus.com
+
+	tahoe		OBSOLETE
+
+	tic80		maintenance only (tic80-coff)
+	v850		maintenance only (v850-elf)
+	vax		maintenance only (vax-dec-vms5.5)
+	w65		maintenance only (?)
+	z8k		maintenance only (?)
+
+All maintainers can make arbitrary changes to OBSOLETE targets.
+
+All maintainers can make mechanical (params, spelling, indentation,
+multi-arch, -W..., ....) changes to ``maintenance only'' targets.
+Please sanity check the change by compiling with one of the listed
+targets.
+
+
+
+Host/Native:
+
+The Native maintainer is responsible for target specific native
+support - typically shared libraries and quirks to procfs/ptrace/...
+The Native maintainer works with the Arch and Core maintainers when
+resolving more generic problems.
+
+The host maintainer ensures that gdb (including mmalloc) can be built
+as a cross debugger on their platform.
+
+djgpp native		Eli Zaretskii		eliz@gnu.org
+			DJ Delorie		dj@cygnus.com
+MS Windows (NT, CE, '00, 9x, Me) host & native
+			Chris Faylor		cgf@cygnus.com
+GNU/Linux/x86 native & host
+			Mark Kettenis		kettenis@gnu.org
+			Jim Blandy		jimb@cygnus.com
+GNU/Linux PPC native	Kevin Buettner		kevinb@cygnus.com
+FreeBSD native & host	Mark Kettenis		kettenis@gnu.org
+hurd native		Mark Kettenis		kettenis@gnu.org
+macos host & native	Stan Shebs		shebs@apple.com
+hpux, hp pa native	Jeff Law		law@cygnus.com
+NetBSD native & host	J.T. Conklin		jtc@redback.com
+SCO/Unixware		Nick Duffek		nsd@cygnus.com
+			Robert Lipe		rjl@sco.com
+GNU/Linux ARM native	Scott Bambrough		scottb@netwinder.org
+Solaris/x86 native & host
+			Nick Duffek		nsd@cygnus.com
+			Peter Schauer		Peter.Schauer@regent.e-technik.tu-muenchen.de
+Solaris/SPARC native & host
+			David Taylor		taylor@cygnus.com
+Mac OS X		Klee Dienes		kdienes@apple.com
+			Jim Ingham		jingham@apple.com
+
+
+
+Core: Generic components used by all of GDB
+
+generic arch support	Andrew Cagney		cagney@cygnus.com
+			Any host/target maintainer can add to
+			gdbarch.{c,h,sh}.  Send tricky ones to cagney.
+target vector		Andrew Cagney		cagney@cygnus.com
+main (main.c, top.c)	Elena Zannoni		ezannoni@cygnus.com
+event loop		Elena Zannoni           ezannoni@cygnus.com
+generic symtabs		Jim Blandy		jimb@cygnus.com
+			Elena Zannoni		ezannoni@cygnus.com
+  dwarf readers		Jim Blandy		jimb@cygnus.com
+			Elena Zannoni		ezannoni@cygnus.com
+  elf reader		Jim Blandy		jimb@cygnus.com
+			Elena Zannoni		ezannoni@cygnus.com
+  stabs reader		Jim Blandy		jimb@cygnus.com
+			Elena Zannoni		ezannoni@cygnus.com
+  coff reader		Philippe De Muyter	phdm@macqel.be
+tracing bytecode stuff  Jim Blandy              jimb@cygnus.com
+tracing			Michael Snyder		msnyder@cygnus.com
+threads			Michael Snyder		msnyder@cygnus.com
+			Mark Kettenis		kettenis@gnu.org
+breakpoints		Michael Snyder		msnyder@cygnus.com
+			Jim Blandy		jimb@cygnus.com
+language support	David Taylor		taylor@cygnus.com
+  C++ support		Daniel Berlin		dan@cgsoftware.com
+  Java support		Anthony Green 		green@cygnus.com
+  Objective-C/C++	Klee Dienes		kdienes@apple.com
+			Jim Ingham		jimgham@apple.com
+  Pascal support	Pierre Muller		muller@sourceware.cygnus.com
+expression eval		David Taylor		taylor@cygnus.com
+defs.h			David Taylor		taylor@cygnus.com
+utils.c			David Taylor		taylor@cygnus.com
+Scheme support		Jim Blandy		jimb@cygnus.com
+svr4 shlibs (solib.c)	Jim Blandy		jimb@cygnus.com
+remote.c		Andrew Cagney		cagney@cygnus.com
+			J.T. Conklin		jtc@redback.com
+include/remote-sim.h, remote-sim.c
+			Andrew Cagney		cagney@cygnus.com
+sds protocol		Fernando Nasser		fnasser@cygnus.com
+			Jim Ingham		jingham@apple.com
+rdi/adp protocol	Fernando Nasser		fnasser@cygnus.com
+			Jim Ingham		jingham@apple.com
+gdbserver		Stan Shebs		shebs@apple.com
+documentation	 	Stan Shebs		shebs@apple.com
+			Eli Zaretskii		eliz@gnu.org
+testsuite	 	Stan Shebs		shebs@apple.com
+			Fernando Nasser		fnasser@cygnus.com
+  hp tests (gdb.hp)	Jimmy Guo		guo@cup.hp.com
+  Java tests (gdb.java)	Anthony Green 		green@cygnus.com
+Kernel Object Display	Fernando Nasser		fnasser@cygnus.com
+dcache.c		J.T. Conklin		jtc@redback.com
+
+
+UI: External (user) interfaces.
+
+command interpreter	Fernando Nasser		fnasser@cygnus.com
+gdbtk (c & tcl)		Syd Polk		spolk@cygnus.com
+			Jim Ingham		jingham@apple.com
+			Fernando Nasser         fnasser@cygnus.com
+libgui (w/foundry, sn)	Syd Polk		spolk@cygnus.com
+			Jim Ingham		jingham@apple.com
+mi (gdb/mi)		Andrew Cagney		cagney@cygnus.com
+			Elena Zannoni           ezannoni@cygnus.com
+			Fernando Nasser		fnasser@cygnus.com
+tui			Technical Contact Point	wdb@cup.hp.com
+			Jimmy Guo		guo@cup.hp.com
+
+
+Misc:
+
+Web pages.		Jim Kingdon		kingdon@redhat.com
+			(anyone can edit; kingdon is just lead maintainer)
+
+Makefile.in, configure*	ALL
+
+mmalloc/		ALL Host maintainers
+
+sim/			See sim/MAINTAINERS, co-ordinated by:
+			Frank Ch. Eigler	fche@cygnus.com
+
+readline/		Master version: ftp://ftp.cwru.edu/pub/bash/
+			Elena Zannoni		ezannoni@cygnus.com
+			Host maintainers (host dependant parts)
+			(but get your changes into the master version)
+
+
+
+		Write After Approval
+
+David Anderson					davea@sgi.com
+Jim Kingdon					kingdon@redhat.com
+Jason Molenda					jsm@cygnus.com
+H.J. Lu						hjl@lucon.org
+Nick Clifton					nickc@cygnus.com
+Jonathan Larmour				jlarmour@redhat.co.uk
+Glen McCready					gkm@cygnus.com
+Gary Thomas					gthomas@redhat.com
+Pierre Muller					muller@sourceware.cygnus.com
+Kazu Hirata					kazu@hxi.com
+Tom Tromey					tromey@cygnus.com
+Alexandre Oliva					aoliva@redhat.com
+
+
+* Indicates folks we need to get Kerberos/SSH accounts ready so they
+can write in the source tree
+
+
+Folks that have been caught up in a paper trail:
+
+FreeBSD native & host	David O 'Brien		obrien@NUXI.com

@@ -1,0 +1,174 @@
+<HTML>
+<HEAD>
+<!-- This HTML file has been created by texi2html 1.51
+     from /mnt/apple/gdb/source/gdb.apple/source/gdb/gdb/doc/gdbint.texinfo on 23 November 1999 -->
+
+<TITLE>GDB Internals - Algorithms</TITLE>
+</HEAD>
+<BODY>
+Go to the <A HREF="gdbint_1.html">first</A>, <A HREF="gdbint_2.html">previous</A>, <A HREF="gdbint_4.html">next</A>, <A HREF="gdbint_16.html">last</A> section, <A HREF="gdbint_toc.html">table of contents</A>.
+<P><HR><P>
+
+
+<H1><A NAME="SEC6" HREF="gdbint_toc.html#TOC6">Algorithms</A></H1>
+
+<P>
+GDB uses a number of debugging-specific algorithms.  They are often not
+very complicated, but get lost in the thicket of special cases and
+real-world issues.  This chapter describes the basic algorithms and
+mentions some of the specific target definitions that they use.
+
+</P>
+
+
+<H2><A NAME="SEC7" HREF="gdbint_toc.html#TOC7">Frames</A></H2>
+
+<P>
+A frame is a construct that GDB uses to keep track of calling and called
+functions.
+
+</P>
+<P>
+<CODE>FRAME_FP</CODE> in the machine description has no meaning to the
+machine-independent part of GDB, except that it is used when setting up
+a new frame from scratch, as follows:
+
+</P>
+
+<PRE>
+      create_new_frame (read_register (FP_REGNUM), read_pc ()));
+</PRE>
+
+<P>
+Other than that, all the meaning imparted to <CODE>FP_REGNUM</CODE> is
+imparted by the machine-dependent code.  So, <CODE>FP_REGNUM</CODE> can have
+any value that is convenient for the code that creates new frames.
+(<CODE>create_new_frame</CODE> calls <CODE>INIT_EXTRA_FRAME_INFO</CODE> if it is
+defined; that is where you should use the <CODE>FP_REGNUM</CODE> value, if
+your frames are nonstandard.)
+
+</P>
+<P>
+Given a GDB frame, define <CODE>FRAME_CHAIN</CODE> to determine the address of
+the calling function's frame.  This will be used to create a new GDB
+frame struct, and then <CODE>INIT_EXTRA_FRAME_INFO</CODE> and
+<CODE>INIT_FRAME_PC</CODE> will be called for the new frame.
+
+</P>
+
+
+<H2><A NAME="SEC8" HREF="gdbint_toc.html#TOC8">Breakpoint Handling</A></H2>
+
+<P>
+In general, a breakpoint is a user-designated location in the program
+where the user wants to regain control if program execution ever reaches
+that location.
+
+</P>
+<P>
+There are two main ways to implement breakpoints; either as "hardware"
+breakpoints or as "software" breakpoints.
+
+</P>
+<P>
+Hardware breakpoints are sometimes available as a builtin debugging
+features with some chips.  Typically these work by having dedicated
+register into which the breakpoint address may be stored.  If the PC
+ever matches a value in a breakpoint registers, the CPU raises an
+exception and reports it to GDB.  Another possibility is when an
+emulator is in use; many emulators include circuitry that watches the
+address lines coming out from the processor, and force it to stop if the
+address matches a breakpoint's address.  A third possibility is that the
+target already has the ability to do breakpoints somehow; for instance,
+a ROM monitor may do its own software breakpoints.  So although these
+are not literally "hardware breakpoints", from GDB's point of view
+they work the same; GDB need not do nothing more than set the breakpoint
+and wait for something to happen.
+
+</P>
+<P>
+Since they depend on hardware resources, hardware breakpoints may be
+limited in number; when the user asks for more, GDB will start trying to
+set software breakpoints.
+
+</P>
+<P>
+Software breakpoints require GDB to do somewhat more work.  The basic
+theory is that GDB will replace a program instruction a trap, illegal
+divide, or some other instruction that will cause an exception, and then
+when it's encountered, GDB will take the exception and stop the program.
+When the user says to continue, GDB will restore the original
+instruction, single-step, re-insert the trap, and continue on.
+
+</P>
+<P>
+Since it literally overwrites the program being tested, the program area
+must be writeable, so this technique won't work on programs in ROM.  It
+can also distort the behavior of programs that examine themselves,
+although the situation would be highly unusual.
+
+</P>
+<P>
+Also, the software breakpoint instruction should be the smallest size of
+instruction, so it doesn't overwrite an instruction that might be a jump
+target, and cause disaster when the program jumps into the middle of the
+breakpoint instruction.  (Strictly speaking, the breakpoint must be no
+larger than the smallest interval between instructions that may be jump
+targets; perhaps there is an architecture where only even-numbered
+instructions may jumped to.)  Note that it's possible for an instruction
+set not to have any instructions usable for a software breakpoint,
+although in practice only the ARC has failed to define such an
+instruction.
+
+</P>
+<P>
+The basic definition of the software breakpoint is the macro
+<CODE>BREAKPOINT</CODE>.
+
+</P>
+<P>
+Basic breakpoint object handling is in <TT>`breakpoint.c'</TT>.  However,
+much of the interesting breakpoint action is in <TT>`infrun.c'</TT>.
+
+</P>
+
+
+<H2><A NAME="SEC9" HREF="gdbint_toc.html#TOC9">Single Stepping</A></H2>
+
+
+
+<H2><A NAME="SEC10" HREF="gdbint_toc.html#TOC10">Signal Handling</A></H2>
+
+
+
+<H2><A NAME="SEC11" HREF="gdbint_toc.html#TOC11">Thread Handling</A></H2>
+
+
+
+<H2><A NAME="SEC12" HREF="gdbint_toc.html#TOC12">Inferior Function Calls</A></H2>
+
+
+
+<H2><A NAME="SEC13" HREF="gdbint_toc.html#TOC13">Longjmp Support</A></H2>
+
+<P>
+GDB has support for figuring out that the target is doing a
+<CODE>longjmp</CODE> and for stopping at the target of the jump, if we are
+stepping.  This is done with a few specialized internal breakpoints,
+which are visible in the <CODE>maint info breakpoint</CODE> command.
+
+</P>
+<P>
+To make this work, you need to define a macro called
+<CODE>GET_LONGJMP_TARGET</CODE>, which will examine the <CODE>jmp_buf</CODE>
+structure and extract the longjmp target address.  Since <CODE>jmp_buf</CODE>
+is target specific, you will need to define it in the appropriate
+<TT>`tm-<VAR>xyz</VAR>.h'</TT> file.  Look in <TT>`tm-sun4os4.h'</TT> and
+<TT>`sparc-tdep.c'</TT> for examples of how to do this.
+
+</P>
+
+<P><HR><P>
+Go to the <A HREF="gdbint_1.html">first</A>, <A HREF="gdbint_2.html">previous</A>, <A HREF="gdbint_4.html">next</A>, <A HREF="gdbint_16.html">last</A> section, <A HREF="gdbint_toc.html">table of contents</A>.
+</BODY>
+</HTML>

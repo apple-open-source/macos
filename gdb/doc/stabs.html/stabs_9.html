@@ -1,0 +1,162 @@
+<HTML>
+<HEAD>
+<!-- This HTML file has been created by texi2html 1.51
+     from /mnt/apple/gdb/source/gdb.apple/source/gdb/gdb/doc/stabs.texinfo on 23 November 1999 -->
+
+<TITLE>STABS - Table of Symbol Descriptors</TITLE>
+</HEAD>
+<BODY>
+Go to the <A HREF="stabs_1.html">first</A>, <A HREF="stabs_8.html">previous</A>, <A HREF="stabs_10.html">next</A>, <A HREF="stabs_14.html">last</A> section, <A HREF="stabs_toc.html">table of contents</A>.
+<P><HR><P>
+
+
+<H1><A NAME="SEC70" HREF="stabs_toc.html#TOC70">Table of Symbol Descriptors</A></H1>
+
+<P>
+The symbol descriptor is the character which follows the colon in many
+stabs, and which tells what kind of stab it is.  See section <A HREF="stabs_1.html#SEC4">The String Field</A>,
+for more information about their use.
+
+</P>
+<DL COMPACT>
+
+<DT><CODE><VAR>digit</VAR></CODE>
+<DD>
+<DT><CODE>(</CODE>
+<DD>
+<DT><CODE>-</CODE>
+<DD>
+Variable on the stack; see section <A HREF="stabs_4.html#SEC18">Automatic Variables Allocated on the Stack</A>.
+
+<DT><CODE>:</CODE>
+<DD>
+C++ nested symbol; see See section <A HREF="stabs_7.html#SEC54">Defining a Symbol Within Another Type</A>.
+
+<DT><CODE>a</CODE>
+<DD>
+Parameter passed by reference in register; see section <A HREF="stabs_4.html#SEC27">Passing Parameters by Reference</A>.
+
+<DT><CODE>b</CODE>
+<DD>
+Based variable; see section <A HREF="stabs_4.html#SEC23">Fortran Based Variables</A>.
+
+<DT><CODE>c</CODE>
+<DD>
+Constant; see section <A HREF="stabs_3.html#SEC16">Constants</A>.
+
+<DT><CODE>C</CODE>
+<DD>
+Conformant array bound (Pascal, maybe other languages); section <A HREF="stabs_4.html#SEC28">Passing Conformant Array Parameters</A>.  Name of a caught exception (GNU C++).  These can be
+distinguished because the latter uses <CODE>N_CATCH</CODE> and the former uses
+another symbol type.
+
+<DT><CODE>d</CODE>
+<DD>
+Floating point register variable; see section <A HREF="stabs_4.html#SEC20">Register Variables</A>.
+
+<DT><CODE>D</CODE>
+<DD>
+Parameter in floating point register; see section <A HREF="stabs_4.html#SEC25">Passing Parameters in Registers</A>.
+
+<DT><CODE>f</CODE>
+<DD>
+File scope function; see section <A HREF="stabs_2.html#SEC12">Procedures</A>.
+
+<DT><CODE>F</CODE>
+<DD>
+Global function; see section <A HREF="stabs_2.html#SEC12">Procedures</A>.
+
+<DT><CODE>G</CODE>
+<DD>
+Global variable; see section <A HREF="stabs_4.html#SEC19">Global Variables</A>.
+
+<DT><CODE>i</CODE>
+<DD>
+See section <A HREF="stabs_4.html#SEC25">Passing Parameters in Registers</A>.
+
+<DT><CODE>I</CODE>
+<DD>
+Internal (nested) procedure; see section <A HREF="stabs_2.html#SEC13">Nested Procedures</A>.
+
+<DT><CODE>J</CODE>
+<DD>
+Internal (nested) function; see section <A HREF="stabs_2.html#SEC13">Nested Procedures</A>.
+
+<DT><CODE>L</CODE>
+<DD>
+Label name (documented by AIX, no further information known).
+
+<DT><CODE>m</CODE>
+<DD>
+Module; see section <A HREF="stabs_2.html#SEC12">Procedures</A>.
+
+<DT><CODE>p</CODE>
+<DD>
+Argument list parameter; see section <A HREF="stabs_4.html#SEC24">Parameters</A>.
+
+<DT><CODE>pP</CODE>
+<DD>
+See section <A HREF="stabs_4.html#SEC24">Parameters</A>.
+
+<DT><CODE>pF</CODE>
+<DD>
+Fortran Function parameter; see section <A HREF="stabs_4.html#SEC24">Parameters</A>.
+
+<DT><CODE>P</CODE>
+<DD>
+Unfortunately, three separate meanings have been independently invented
+for this symbol descriptor.  At least the GNU and Sun uses can be
+distinguished by the symbol type.  Global Procedure (AIX) (symbol type
+used unknown); see section <A HREF="stabs_2.html#SEC12">Procedures</A>.  Register parameter (GNU) (symbol
+type <CODE>N_PSYM</CODE>); see section <A HREF="stabs_4.html#SEC24">Parameters</A>.  Prototype of function
+referenced by this file (Sun <CODE>acc</CODE>) (symbol type <CODE>N_FUN</CODE>).
+
+<DT><CODE>Q</CODE>
+<DD>
+Static Procedure; see section <A HREF="stabs_2.html#SEC12">Procedures</A>.
+
+<DT><CODE>R</CODE>
+<DD>
+Register parameter; see section <A HREF="stabs_4.html#SEC25">Passing Parameters in Registers</A>.
+
+<DT><CODE>r</CODE>
+<DD>
+Register variable; see section <A HREF="stabs_4.html#SEC20">Register Variables</A>.
+
+<DT><CODE>S</CODE>
+<DD>
+File scope variable; see section <A HREF="stabs_4.html#SEC22">Static Variables</A>.
+
+<DT><CODE>s</CODE>
+<DD>
+Local variable (OS9000).
+
+<DT><CODE>t</CODE>
+<DD>
+Type name; see section <A HREF="stabs_5.html#SEC43">Giving a Type a Name</A>.
+
+<DT><CODE>T</CODE>
+<DD>
+Enumeration, structure, or union tag; see section <A HREF="stabs_5.html#SEC43">Giving a Type a Name</A>.
+
+<DT><CODE>v</CODE>
+<DD>
+Parameter passed by reference; see section <A HREF="stabs_4.html#SEC27">Passing Parameters by Reference</A>.
+
+<DT><CODE>V</CODE>
+<DD>
+Procedure scope static variable; see section <A HREF="stabs_4.html#SEC22">Static Variables</A>.
+
+<DT><CODE>x</CODE>
+<DD>
+Conformant array; see section <A HREF="stabs_4.html#SEC28">Passing Conformant Array Parameters</A>.
+
+<DT><CODE>X</CODE>
+<DD>
+Function return variable; see section <A HREF="stabs_4.html#SEC24">Parameters</A>.
+</DL>
+
+<P><HR><P>
+Go to the <A HREF="stabs_1.html">first</A>, <A HREF="stabs_8.html">previous</A>, <A HREF="stabs_10.html">next</A>, <A HREF="stabs_14.html">last</A> section, <A HREF="stabs_toc.html">table of contents</A>.
+</BODY>
+</HTML>

@@ -1,0 +1,6 @@
+Package: gdb
+Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
+Vendor: Cygnus
+Version: 4.18-1990707
+Description: The GNU Debugger
+Build-Depends: build-base, flex, gnudiff, perl, binutils, libcurses-hdrs

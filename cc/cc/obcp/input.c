@@ -1,0 +1,1 @@
+#include "../cp/input.c"

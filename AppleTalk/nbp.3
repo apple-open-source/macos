@@ -1,0 +1,273 @@
+.TH nbp 3
+.SH NAME
+nbp_parse_entity, nbp_make_entity, nbp_confirm, nbp_lookup,
+nbp_register, nbp_remove -
+AppleTalk Name Binding Protocol (NBP) interface.
+.SH SYNOPSIS
+.B #include <at/appletalk.h>
+.br
+.B #include <at/nbp.h>
+.PP
+.BI int\0nbp_parse_entity(at_entity_t\0* entity ,
+.BI char\0* str );
+.PP
+.BI int\0nbp_make_entity(at_entity_t\0* entity ,
+.BI char\0* object,
+.if n .ti +5n
+.BI char\0* type,
+.if t .ti +5n
+.BI char\0* zone );
+.PP
+.BI int\0nbp_confirm(at_entity_t\0* entity ,
+.BI at_inet_t\0* dest,
+.if n .ti +5n
+.BI at_retry_t\0* retry );
+.PP
+.BI int\0nbp_lookup(at_entity_t\0* entity ,
+.BI at_nbptuple_t\0* buf,
+.if n .ti +5n
+.BI int\0 max,
+.if t .ti +5n
+.BI at_retry_t\0* retry );
+.PP
+.BI int\0nbp_register(at_entity_t\0* entity ,
+.BI int\0 fd,
+.if n .ti +5n
+.BI at_retry_t\0* retry );
+.PP
+.BI int\0nbp_remove(at_entity_t\0* entity ,
+.BI int\0 fd );
+.fi
+.SH DESCRIPTION
+The NBP interface provides applications with access to the 
+AppleTalk name Binding Protocol operations.
+These routines use the following structures defined in
+\fC<at/appletalk.h>\fR:
+.RS
+.PP
+.nf
+typedef	struct	at_inet {
+	u_short		net;
+	at_node		node;
+	at_socket	socket;
+} at_inet_t;
+.sp 
+typedef	struct	at_retry {
+	short		interval;
+	short		retries;
+	u_char		backoff;
+} at_retry_t;
+.fi
+.RE
+.PP
+and in \fC<at/nbp.h>\fR:
+.RS
+.PP
+.nf
+typedef	struct	at_nvestr {
+	char		len;
+	char		str[NBP_NVE_STR_SIZE];
+} at_nvestr_t;
+.sp
+typedef	struct	at_entity {
+	at_nvestr_t	object;
+	at_nvestr_t	type;
+	at_nvestr_t	zone;
+} at_entity_t;
+.sp
+typedef struct at_nbptuple {
+	at_inet_t       enu_addr;
+	u_char		enu_enum;
+	at_entity_t 	enu_entity;
+} at_nbptuple_t;
+.sp
+.ft R
+.ad
+.fi
+.RE
+.PP
+.I at_inet_t
+specifies the AppleTalk internet address of a DDP socket endpoint.
+.PP
+.I at_retry_t
+specifies the retry interval and maximum count for a transaction.
+The members of this structure are:
+.TP \w'interval'u+2n
+interval
+The interval in seconds before NBP retries a request.
+.TP \w'interval'u+2n
+retries
+The maximum number of retries for this NBP request.
+If retries is AT_INF_RETRY, then the request will be repeated infinitely.
+.PP
+.I at_nvestr_t
+specifies the an NBP entity string.  This structure is used
+to describe the three strings object, type, and zone; which make
+up an 
+.I "entity name."
+The members of this structure are:
+.TP \w'interval'u+2n
+len
+The length of the string in bytes.
+.TP \w'interval'u+2n
+str
+The character data for this string.
+.PP
+An
+.I "entity name"
+is described by the structure
+.I at_entity_t
+which consists of the above three strings:
+.I object,
+.I type,
+and
+.I zone.
+
+.PP
+.B nbp_parse_entity
+constructs an NBP entity name from a NULL-terminated "C" string of the form
+.I "object:type, object:type@zone, type@zone,"
+or just
+.I type.
+The entity name is placed
+into the 
+.I at_entity_t
+structure
+.I entity.
+This routine returns zero on success.
+
+.PP
+.B nbp_make_entity
+constructs an NBP entity name from object, type, and zone strings.
+The strings are NULL-terminated "C" strings.  The entity name is placed
+into the 
+.I at_entity_t
+structure
+.I entity.
+.I "object, type"
+and
+.I zone
+are the character strings to use in constructing the entity name.
+This routine returns zero on success.
+
+.PP
+.B nbp_confirm
+sends a confirmation request to the specified node
+to see if an entity name is still registered at the specified
+AppleTalk internet address.  
+.I entity
+is a pointer to the 
+.I at_entity_t
+structure containing the entity name.
+No metacharacters are allowed in the entity name strings.
+.I dest
+is the AppleTalk internet address to confirm. 
+If the name is still registered on the node
+but at a different socket number, the socket number in 
+.I dest
+is updated.
+.PP
+The 
+.I retry 
+pointer specifies the NBP request retry timeout in seconds and the maximum
+retry count.  If
+.I retry
+is NULL, the default values of a 1 second timeout and 8 retries are used.
+The 
+.I retries
+field of 
+.I retry
+can be set to AT_INF_RETRY, in which case the transaction will be repeated
+infinitely.
+
+.PP
+.B nbp_lookup
+returns a list of registered name-address pairs via an NBP lookup.
+.I entity
+is a pointer to the 
+.I at_entity_t
+structure containing the entity name to be looked up.
+.I buf
+is an array of
+.I at_nbptuple_t
+to receive entity tuples.
+.I max
+is the maximum number of entity tuples to accept.  If more than
+.I max
+tuples are received before the lookup retry is exceeded, the lookup terminates.
+On success,
+.I nbp_lookup
+returns the number of entity tuples actually received.
+.PP
+The 
+.I retry 
+pointer specifies the NBP request retry timeout in seconds and the maximum
+retry count.  If
+.I retry
+is NULL, the default values of a 1 second timeout and 8 retries are used.
+The 
+.I retries
+field of 
+.I retry
+can be set to AT_INF_RETRY, in which case the transaction will be repeated
+infinitely.
+
+.PP
+.B nbp_register
+adds the specified name-socket pair to the list of registered names
+on this node.
+.I entity
+is a pointer to the 
+.I at_entity_t
+structure containing the entity name to be registered.
+.I Fd
+indicates an AppleTalk file descriptor which should be registered with the
+given name.
+The zone field of 
+.I entity 
+is always ignored.
+No metacharacters are allowed in the strings.
+.I socket
+.PP
+The 
+.I retry 
+pointer specifies the NBP request retry timeout in seconds and the maximum
+retry count.  If
+.I retry
+is NULL, the default values of a 1 second timeout and 8 retries are used.
+The 
+.I retries
+field of 
+.I retry
+can be set to AT_INF_RETRY, in which case the transaction will be repeated
+infinitely.
+
+.PP
+.B nbp_remove
+removes the specified entity name from the list of registered names
+on this node.
+.I entity
+is a pointer to the 
+.I at_entity_t
+structure containing the entity name to be registered.
+.I Fd
+indicates an AppleTalk file descriptor which is registered with the
+given name.
+The zone field of 
+.I entity 
+is always ignored.
+No metacharacters are allowed in the strings.
+
+.SH "SEE ALSO"
+ddp(3n)
+.SH DIAGNOSTICS
+All routines return -1 on error, with a detailed error code in
+.I errno:
+.TP 15
+[EINVAL]
+Invalid entity name (\fIall\fR).
+.TP 15
+[ETIMEDOUT]
+Request exceeded maximum retry count (\fInbp_confirm, nbp_lookup, and nbp_register\fR).
+.SH WARNINGS
+Strings in entity names and entity tuples are not NULL terminated.

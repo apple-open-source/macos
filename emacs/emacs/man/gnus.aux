@@ -1,0 +1,789 @@
+'xrdef {Top-title}{The Gnus Newsreader}
+'xrdef {Top-pg}{1}
+'xrdef {Top-snt}{}
+'xrdef {Starting Up-title}{Starting Gnus}
+'xrdef {Starting Up-pg}{3}
+'xrdef {Starting Up-snt}{Chapter'tie1}
+'xrdef {Finding the News-title}{Finding the News}
+'xrdef {Finding the News-pg}{3}
+'xrdef {Finding the News-snt}{Section'tie1.1}
+'xrdef {The First Time-title}{The First Time}
+'xrdef {The First Time-pg}{4}
+'xrdef {The First Time-snt}{Section'tie1.2}
+'xrdef {The Server is Down-title}{The Server is Down}
+'xrdef {The Server is Down-pg}{4}
+'xrdef {The Server is Down-snt}{Section'tie1.3}
+'xrdef {Slave Gnusae-title}{Slave Gnusae}
+'xrdef {Slave Gnusae-pg}{4}
+'xrdef {Slave Gnusae-snt}{Section'tie1.4}
+'xrdef {Fetching a Group-title}{Fetching a Group}
+'xrdef {Fetching a Group-pg}{5}
+'xrdef {Fetching a Group-snt}{Section'tie1.5}
+'xrdef {New Groups-title}{New Groups}
+'xrdef {New Groups-pg}{5}
+'xrdef {New Groups-snt}{Section'tie1.6}
+'xrdef {Checking New Groups-title}{Checking New Groups}
+'xrdef {Checking New Groups-pg}{5}
+'xrdef {Checking New Groups-snt}{Section'tie1.6.1}
+'xrdef {Subscription Methods-title}{Subscription Methods}
+'xrdef {Subscription Methods-pg}{6}
+'xrdef {Subscription Methods-snt}{Section'tie1.6.2}
+'xrdef {Filtering New Groups-title}{Filtering New Groups}
+'xrdef {Filtering New Groups-pg}{6}
+'xrdef {Filtering New Groups-snt}{Section'tie1.6.3}
+'xrdef {Changing Servers-title}{Changing Servers}
+'xrdef {Changing Servers-pg}{7}
+'xrdef {Changing Servers-snt}{Section'tie1.7}
+'xrdef {Startup Files-title}{Startup Files}
+'xrdef {Startup Files-pg}{8}
+'xrdef {Startup Files-snt}{Section'tie1.8}
+'xrdef {Auto Save-title}{Auto Save}
+'xrdef {Auto Save-pg}{9}
+'xrdef {Auto Save-snt}{Section'tie1.9}
+'xrdef {The Active File-title}{The Active File}
+'xrdef {The Active File-pg}{9}
+'xrdef {The Active File-snt}{Section'tie1.10}
+'xrdef {Startup Variables-title}{Startup Variables}
+'xrdef {Startup Variables-pg}{10}
+'xrdef {Startup Variables-snt}{Section'tie1.11}
+'xrdef {The Group Buffer-title}{The Group Buffer}
+'xrdef {The Group Buffer-pg}{11}
+'xrdef {The Group Buffer-snt}{Chapter'tie2}
+'xrdef {Group Buffer Format-title}{Group Buffer Format}
+'xrdef {Group Buffer Format-pg}{11}
+'xrdef {Group Buffer Format-snt}{Section'tie2.1}
+'xrdef {Group Line Specification-title}{Group Line Specification}
+'xrdef {Group Line Specification-pg}{11}
+'xrdef {Group Line Specification-snt}{Section'tie2.1.1}
+'xrdef {Group Modeline Specification-title}{Group Modeline Specification}
+'xrdef {Group Modeline Specification-pg}{12}
+'xrdef {Group Modeline Specification-snt}{Section'tie2.1.2}
+'xrdef {Group Highlighting-title}{Group Highlighting}
+'xrdef {Group Highlighting-pg}{12}
+'xrdef {Group Highlighting-snt}{Section'tie2.1.3}
+'xrdef {Group Maneuvering-title}{Group Maneuvering}
+'xrdef {Group Maneuvering-pg}{13}
+'xrdef {Group Maneuvering-snt}{Section'tie2.2}
+'xrdef {Selecting a Group-title}{Selecting a Group}
+'xrdef {Selecting a Group-pg}{14}
+'xrdef {Selecting a Group-snt}{Section'tie2.3}
+'xrdef {Subscription Commands-title}{Subscription Commands}
+'xrdef {Subscription Commands-pg}{15}
+'xrdef {Subscription Commands-snt}{Section'tie2.4}
+'xrdef {Group Data-title}{Group Data}
+'xrdef {Group Data-pg}{16}
+'xrdef {Group Data-snt}{Section'tie2.5}
+'xrdef {Group Levels-title}{Group Levels}
+'xrdef {Group Levels-pg}{16}
+'xrdef {Group Levels-snt}{Section'tie2.6}
+'xrdef {Group Score-title}{Group Score}
+'xrdef {Group Score-pg}{17}
+'xrdef {Group Score-snt}{Section'tie2.7}
+'xrdef {Marking Groups-title}{Marking Groups}
+'xrdef {Marking Groups-pg}{17}
+'xrdef {Marking Groups-snt}{Section'tie2.8}
+'xrdef {Foreign Groups-title}{Foreign Groups}
+'xrdef {Foreign Groups-pg}{18}
+'xrdef {Foreign Groups-snt}{Section'tie2.9}
+'xrdef {Group Parameters-title}{Group Parameters}
+'xrdef {Group Parameters-pg}{19}
+'xrdef {Group Parameters-snt}{Section'tie2.10}
+'xrdef {Listing Groups-title}{Listing Groups}
+'xrdef {Listing Groups-pg}{21}
+'xrdef {Listing Groups-snt}{Section'tie2.11}
+'xrdef {Sorting Groups-title}{Sorting Groups}
+'xrdef {Sorting Groups-pg}{22}
+'xrdef {Sorting Groups-snt}{Section'tie2.12}
+'xrdef {Group Maintenance-title}{Group Maintenance}
+'xrdef {Group Maintenance-pg}{23}
+'xrdef {Group Maintenance-snt}{Section'tie2.13}
+'xrdef {Browse Foreign Server-title}{Browse Foreign Server}
+'xrdef {Browse Foreign Server-pg}{24}
+'xrdef {Browse Foreign Server-snt}{Section'tie2.14}
+'xrdef {Exiting Gnus-title}{Exiting Gnus}
+'xrdef {Exiting Gnus-pg}{24}
+'xrdef {Exiting Gnus-snt}{Section'tie2.15}
+'xrdef {Group Topics-title}{Group Topics}
+'xrdef {Group Topics-pg}{25}
+'xrdef {Group Topics-snt}{Section'tie2.16}
+'xrdef {Topic Variables-title}{Topic Variables}
+'xrdef {Topic Variables-pg}{25}
+'xrdef {Topic Variables-snt}{Section'tie2.16.1}
+'xrdef {Topic Commands-title}{Topic Commands}
+'xrdef {Topic Commands-pg}{26}
+'xrdef {Topic Commands-snt}{Section'tie2.16.2}
+'xrdef {Topic Sorting-title}{Topic Sorting}
+'xrdef {Topic Sorting-pg}{27}
+'xrdef {Topic Sorting-snt}{Section'tie2.16.3}
+'xrdef {Topic Topology-title}{Topic Topology}
+'xrdef {Topic Topology-pg}{27}
+'xrdef {Topic Topology-snt}{Section'tie2.16.4}
+'xrdef {Topic Parameters-title}{Topic Parameters}
+'xrdef {Topic Parameters-pg}{28}
+'xrdef {Topic Parameters-snt}{Section'tie2.16.5}
+'xrdef {Misc Group Stuff-title}{Misc Group Stuff}
+'xrdef {Misc Group Stuff-pg}{28}
+'xrdef {Misc Group Stuff-snt}{Section'tie2.17}
+'xrdef {Scanning New Messages-title}{Scanning New Messages}
+'xrdef {Scanning New Messages-pg}{29}
+'xrdef {Scanning New Messages-snt}{Section'tie2.17.1}
+'xrdef {Group Information-title}{Group Information}
+'xrdef {Group Information-pg}{29}
+'xrdef {Group Information-snt}{Section'tie2.17.2}
+'xrdef {Group Timestamp-title}{Group Timestamp}
+'xrdef {Group Timestamp-pg}{30}
+'xrdef {Group Timestamp-snt}{Section'tie2.17.3}
+'xrdef {File Commands-title}{File Commands}
+'xrdef {File Commands-pg}{30}
+'xrdef {File Commands-snt}{Section'tie2.17.4}
+'xrdef {The Summary Buffer-title}{The Summary Buffer}
+'xrdef {The Summary Buffer-pg}{31}
+'xrdef {The Summary Buffer-snt}{Chapter'tie3}
+'xrdef {Summary Buffer Format-title}{Summary Buffer Format}
+'xrdef {Summary Buffer Format-pg}{31}
+'xrdef {Summary Buffer Format-snt}{Section'tie3.1}
+'xrdef {Summary Buffer Lines-title}{Summary Buffer Lines}
+'xrdef {Summary Buffer Lines-pg}{31}
+'xrdef {Summary Buffer Lines-snt}{Section'tie3.1.1}
+'xrdef {Summary Buffer Mode Line-title}{Summary Buffer Mode Line}
+'xrdef {Summary Buffer Mode Line-pg}{33}
+'xrdef {Summary Buffer Mode Line-snt}{Section'tie3.1.2}
+'xrdef {Summary Highlighting-title}{Summary Highlighting}
+'xrdef {Summary Highlighting-pg}{33}
+'xrdef {Summary Highlighting-snt}{Section'tie3.1.3}
+'xrdef {Summary Maneuvering-title}{Summary Maneuvering}
+'xrdef {Summary Maneuvering-pg}{34}
+'xrdef {Summary Maneuvering-snt}{Section'tie3.2}
+'xrdef {Choosing Articles-title}{Choosing Articles}
+'xrdef {Choosing Articles-pg}{35}
+'xrdef {Choosing Articles-snt}{Section'tie3.3}
+'xrdef {Choosing Commands-title}{Choosing Commands}
+'xrdef {Choosing Commands-pg}{35}
+'xrdef {Choosing Commands-snt}{Section'tie3.3.1}
+'xrdef {Choosing Variables-title}{Choosing Variables}
+'xrdef {Choosing Variables-pg}{36}
+'xrdef {Choosing Variables-snt}{Section'tie3.3.2}
+'xrdef {Paging the Article-title}{Scrolling the Article}
+'xrdef {Paging the Article-pg}{36}
+'xrdef {Paging the Article-snt}{Section'tie3.4}
+'xrdef {Reply Followup and Post-title}{Reply, Followup and Post}
+'xrdef {Reply Followup and Post-pg}{37}
+'xrdef {Reply Followup and Post-snt}{Section'tie3.5}
+'xrdef {Summary Mail Commands-title}{Summary Mail Commands}
+'xrdef {Summary Mail Commands-pg}{37}
+'xrdef {Summary Mail Commands-snt}{Section'tie3.5.1}
+'xrdef {Summary Post Commands-title}{Summary Post Commands}
+'xrdef {Summary Post Commands-pg}{38}
+'xrdef {Summary Post Commands-snt}{Section'tie3.5.2}
+'xrdef {Canceling and Superseding-title}{Canceling Articles}
+'xrdef {Canceling and Superseding-pg}{39}
+'xrdef {Canceling and Superseding-snt}{Section'tie3.6}
+'xrdef {Marking Articles-title}{Marking Articles}
+'xrdef {Marking Articles-pg}{39}
+'xrdef {Marking Articles-snt}{Section'tie3.7}
+'xrdef {Unread Articles-title}{Unread Articles}
+'xrdef {Unread Articles-pg}{39}
+'xrdef {Unread Articles-snt}{Section'tie3.7.1}
+'xrdef {Read Articles-title}{Read Articles}
+'xrdef {Read Articles-pg}{40}
+'xrdef {Read Articles-snt}{Section'tie3.7.2}
+'xrdef {Other Marks-title}{Other Marks}
+'xrdef {Other Marks-pg}{40}
+'xrdef {Other Marks-snt}{Section'tie3.7.3}
+'xrdef {Setting Marks-title}{Setting Marks}
+'xrdef {Setting Marks-pg}{41}
+'xrdef {Setting Marks-snt}{Section'tie3.7.4}
+'xrdef {Setting Process Marks-title}{Setting Process Marks}
+'xrdef {Setting Process Marks-pg}{42}
+'xrdef {Setting Process Marks-snt}{Section'tie3.7.5}
+'xrdef {Limiting-title}{Limiting}
+'xrdef {Limiting-pg}{43}
+'xrdef {Limiting-snt}{Section'tie3.8}
+'xrdef {Threading-title}{Threading}
+'xrdef {Threading-pg}{44}
+'xrdef {Threading-snt}{Section'tie3.9}
+'xrdef {Customizing Threading-title}{Customizing Threading}
+'xrdef {Customizing Threading-pg}{44}
+'xrdef {Customizing Threading-snt}{Section'tie3.9.1}
+'xrdef {Thread Commands-title}{Thread Commands}
+'xrdef {Thread Commands-pg}{47}
+'xrdef {Thread Commands-snt}{Section'tie3.9.2}
+'xrdef {Sorting-title}{Sorting}
+'xrdef {Sorting-pg}{48}
+'xrdef {Sorting-snt}{Section'tie3.10}
+'xrdef {Asynchronous Fetching-title}{Asynchronous Article Fetching}
+'xrdef {Asynchronous Fetching-pg}{49}
+'xrdef {Asynchronous Fetching-snt}{Section'tie3.11}
+'xrdef {Article Caching-title}{Article Caching}
+'xrdef {Article Caching-pg}{50}
+'xrdef {Article Caching-snt}{Section'tie3.12}
+'xrdef {Persistent Articles-title}{Persistent Articles}
+'xrdef {Persistent Articles-pg}{51}
+'xrdef {Persistent Articles-snt}{Section'tie3.13}
+'xrdef {Article Backlog-title}{Article Backlog}
+'xrdef {Article Backlog-pg}{52}
+'xrdef {Article Backlog-snt}{Section'tie3.14}
+'xrdef {Saving Articles-title}{Saving Articles}
+'xrdef {Saving Articles-pg}{52}
+'xrdef {Saving Articles-snt}{Section'tie3.15}
+'xrdef {Decoding Articles-title}{Decoding Articles}
+'xrdef {Decoding Articles-pg}{55}
+'xrdef {Decoding Articles-snt}{Section'tie3.16}
+'xrdef {Uuencoded Articles-title}{Uuencoded Articles}
+'xrdef {Uuencoded Articles-pg}{55}
+'xrdef {Uuencoded Articles-snt}{Section'tie3.16.1}
+'xrdef {Shared Articles-title}{Shared Articles}
+'xrdef {Shared Articles-pg}{56}
+'xrdef {Shared Articles-snt}{Section'tie3.16.2}
+'xrdef {PostScript Files-title}{PostScript Files}
+'xrdef {PostScript Files-pg}{56}
+'xrdef {PostScript Files-snt}{Section'tie3.16.3}
+'xrdef {Decoding Variables-title}{Decoding Variables}
+'xrdef {Decoding Variables-pg}{56}
+'xrdef {Decoding Variables-snt}{Section'tie3.16.4}
+'xrdef {Rule Variables-title}{Rule Variables}
+'xrdef {Rule Variables-pg}{56}
+'xrdef {Rule Variables-snt}{Section'tie3.16.4.1}
+'xrdef {Other Decode Variables-title}{Other Decode Variables}
+'xrdef {Other Decode Variables-pg}{57}
+'xrdef {Other Decode Variables-snt}{Section'tie3.16.4.2}
+'xrdef {Uuencoding and Posting-title}{Uuencoding and Posting}
+'xrdef {Uuencoding and Posting-pg}{58}
+'xrdef {Uuencoding and Posting-snt}{Section'tie3.16.4.3}
+'xrdef {Viewing Files-title}{Viewing Files}
+'xrdef {Viewing Files-pg}{58}
+'xrdef {Viewing Files-snt}{Section'tie3.16.5}
+'xrdef {Article Treatment-title}{Article Treatment}
+'xrdef {Article Treatment-pg}{59}
+'xrdef {Article Treatment-snt}{Section'tie3.17}
+'xrdef {Article Highlighting-title}{Article Highlighting}
+'xrdef {Article Highlighting-pg}{59}
+'xrdef {Article Highlighting-snt}{Section'tie3.17.1}
+'xrdef {Article Fontisizing-title}{Article Fontisizing}
+'xrdef {Article Fontisizing-pg}{60}
+'xrdef {Article Fontisizing-snt}{Section'tie3.17.2}
+'xrdef {Article Hiding-title}{Article Hiding}
+'xrdef {Article Hiding-pg}{61}
+'xrdef {Article Hiding-snt}{Section'tie3.17.3}
+'xrdef {Article Washing-title}{Article Washing}
+'xrdef {Article Washing-pg}{62}
+'xrdef {Article Washing-snt}{Section'tie3.17.4}
+'xrdef {Article Buttons-title}{Article Buttons}
+'xrdef {Article Buttons-pg}{63}
+'xrdef {Article Buttons-snt}{Section'tie3.17.5}
+'xrdef {Article Date-title}{Article Date}
+'xrdef {Article Date-pg}{64}
+'xrdef {Article Date-snt}{Section'tie3.17.6}
+'xrdef {Article Signature-title}{Article Signature}
+'xrdef {Article Signature-pg}{64}
+'xrdef {Article Signature-snt}{Section'tie3.17.7}
+'xrdef {Article Commands-title}{Article Commands}
+'xrdef {Article Commands-pg}{65}
+'xrdef {Article Commands-snt}{Section'tie3.18}
+'xrdef {Summary Sorting-title}{Summary Sorting}
+'xrdef {Summary Sorting-pg}{65}
+'xrdef {Summary Sorting-snt}{Section'tie3.19}
+'xrdef {Finding the Parent-title}{Finding the Parent}
+'xrdef {Finding the Parent-pg}{65}
+'xrdef {Finding the Parent-snt}{Section'tie3.20}
+'xrdef {Alternative Approaches-title}{Alternative Approaches}
+'xrdef {Alternative Approaches-pg}{66}
+'xrdef {Alternative Approaches-snt}{Section'tie3.21}
+'xrdef {Pick and Read-title}{Pick and Read}
+'xrdef {Pick and Read-pg}{66}
+'xrdef {Pick and Read-snt}{Section'tie3.21.1}
+'xrdef {Binary Groups-title}{Binary Groups}
+'xrdef {Binary Groups-pg}{67}
+'xrdef {Binary Groups-snt}{Section'tie3.21.2}
+'xrdef {Tree Display-title}{Tree Display}
+'xrdef {Tree Display-pg}{68}
+'xrdef {Tree Display-snt}{Section'tie3.22}
+'xrdef {Mail Group Commands-title}{Mail Group Commands}
+'xrdef {Mail Group Commands-pg}{69}
+'xrdef {Mail Group Commands-snt}{Section'tie3.23}
+'xrdef {Various Summary Stuff-title}{Various Summary Stuff}
+'xrdef {Various Summary Stuff-pg}{70}
+'xrdef {Various Summary Stuff-snt}{Section'tie3.24}
+'xrdef {Summary Group Information-title}{Summary Group Information}
+'xrdef {Summary Group Information-pg}{71}
+'xrdef {Summary Group Information-snt}{Section'tie3.24.1}
+'xrdef {Searching for Articles-title}{Searching for Articles}
+'xrdef {Searching for Articles-pg}{71}
+'xrdef {Searching for Articles-snt}{Section'tie3.24.2}
+'xrdef {Summary Generation Commands-title}{Summary Generation Commands}
+'xrdef {Summary Generation Commands-pg}{72}
+'xrdef {Summary Generation Commands-snt}{Section'tie3.24.3}
+'xrdef {Really Various Summary Commands-title}{Really Various Summary Commands}
+'xrdef {Really Various Summary Commands-pg}{72}
+'xrdef {Really Various Summary Commands-snt}{Section'tie3.24.4}
+'xrdef {Exiting the Summary Buffer-title}{Exiting the Summary Buffer}
+'xrdef {Exiting the Summary Buffer-pg}{72}
+'xrdef {Exiting the Summary Buffer-snt}{Section'tie3.25}
+'xrdef {Crosspost Handling-title}{Crosspost Handling}
+'xrdef {Crosspost Handling-pg}{73}
+'xrdef {Crosspost Handling-snt}{Section'tie3.26}
+'xrdef {Duplicate Suppression-title}{Duplicate Suppression}
+'xrdef {Duplicate Suppression-pg}{74}
+'xrdef {Duplicate Suppression-snt}{Section'tie3.27}
+'xrdef {The Article Buffer-title}{The Article Buffer}
+'xrdef {The Article Buffer-pg}{77}
+'xrdef {The Article Buffer-snt}{Chapter'tie4}
+'xrdef {Hiding Headers-title}{Hiding Headers}
+'xrdef {Hiding Headers-pg}{77}
+'xrdef {Hiding Headers-snt}{Section'tie4.1}
+'xrdef {Using MIME-title}{Using {\smallcaps mime}}
+'xrdef {Using MIME-pg}{78}
+'xrdef {Using MIME-snt}{Section'tie4.2}
+'xrdef {Customizing Articles-title}{Customizing Articles}
+'xrdef {Customizing Articles-pg}{79}
+'xrdef {Customizing Articles-snt}{Section'tie4.3}
+'xrdef {Article Keymap-title}{Article Keymap}
+'xrdef {Article Keymap-pg}{79}
+'xrdef {Article Keymap-snt}{Section'tie4.4}
+'xrdef {Misc Article-title}{Misc Article}
+'xrdef {Misc Article-pg}{79}
+'xrdef {Misc Article-snt}{Section'tie4.5}
+'xrdef {Composing Messages-title}{Composing Messages}
+'xrdef {Composing Messages-pg}{81}
+'xrdef {Composing Messages-snt}{Chapter'tie5}
+'xrdef {Mail-title}{Mail}
+'xrdef {Mail-pg}{81}
+'xrdef {Mail-snt}{Section'tie5.1}
+'xrdef {Post-title}{Post}
+'xrdef {Post-pg}{81}
+'xrdef {Post-snt}{Section'tie5.2}
+'xrdef {Posting Server-title}{Posting Server}
+'xrdef {Posting Server-pg}{81}
+'xrdef {Posting Server-snt}{Section'tie5.3}
+'xrdef {Mail and Post-title}{Mail and Post}
+'xrdef {Mail and Post-pg}{82}
+'xrdef {Mail and Post-snt}{Section'tie5.4}
+'xrdef {Archived Messages-title}{Archived Messages}
+'xrdef {Archived Messages-pg}{82}
+'xrdef {Archived Messages-snt}{Section'tie5.5}
+'xrdef {Select Methods-title}{Select Methods}
+'xrdef {Select Methods-pg}{85}
+'xrdef {Select Methods-snt}{Chapter'tie6}
+'xrdef {The Server Buffer-title}{The Server Buffer}
+'xrdef {The Server Buffer-pg}{85}
+'xrdef {The Server Buffer-snt}{Section'tie6.1}
+'xrdef {Server Buffer Format-title}{Server Buffer Format}
+'xrdef {Server Buffer Format-pg}{85}
+'xrdef {Server Buffer Format-snt}{Section'tie6.1.1}
+'xrdef {Server Commands-title}{Server Commands}
+'xrdef {Server Commands-pg}{86}
+'xrdef {Server Commands-snt}{Section'tie6.1.2}
+'xrdef {Example Methods-title}{Example Methods}
+'xrdef {Example Methods-pg}{86}
+'xrdef {Example Methods-snt}{Section'tie6.1.3}
+'xrdef {Creating a Virtual Server-title}{Creating a Virtual Server}
+'xrdef {Creating a Virtual Server-pg}{87}
+'xrdef {Creating a Virtual Server-snt}{Section'tie6.1.4}
+'xrdef {Server Variables-title}{Server Variables}
+'xrdef {Server Variables-pg}{88}
+'xrdef {Server Variables-snt}{Section'tie6.1.5}
+'xrdef {Servers and Methods-title}{Servers and Methods}
+'xrdef {Servers and Methods-pg}{88}
+'xrdef {Servers and Methods-snt}{Section'tie6.1.6}
+'xrdef {Unavailable Servers-title}{Unavailable Servers}
+'xrdef {Unavailable Servers-pg}{88}
+'xrdef {Unavailable Servers-snt}{Section'tie6.1.7}
+'xrdef {Getting News-title}{Getting News}
+'xrdef {Getting News-pg}{89}
+'xrdef {Getting News-snt}{Section'tie6.2}
+'xrdef {NNTP-title}{{\smallcaps nntp}}
+'xrdef {NNTP-pg}{89}
+'xrdef {NNTP-snt}{Section'tie6.2.1}
+'xrdef {News Spool-title}{News Spool}
+'xrdef {News Spool-pg}{91}
+'xrdef {News Spool-snt}{Section'tie6.2.2}
+'xrdef {Getting Mail-title}{Getting Mail}
+'xrdef {Getting Mail-pg}{92}
+'xrdef {Getting Mail-snt}{Section'tie6.3}
+'xrdef {Getting Started Reading Mail-title}{Getting Started Reading Mail}
+'xrdef {Getting Started Reading Mail-pg}{92}
+'xrdef {Getting Started Reading Mail-snt}{Section'tie6.3.1}
+'xrdef {Splitting Mail-title}{Splitting Mail}
+'xrdef {Splitting Mail-pg}{93}
+'xrdef {Splitting Mail-snt}{Section'tie6.3.2}
+'xrdef {Mail Backend Variables-title}{Mail Backend Variables}
+'xrdef {Mail Backend Variables-pg}{94}
+'xrdef {Mail Backend Variables-snt}{Section'tie6.3.3}
+'xrdef {Fancy Mail Splitting-title}{Fancy Mail Splitting}
+'xrdef {Fancy Mail Splitting-pg}{96}
+'xrdef {Fancy Mail Splitting-snt}{Section'tie6.3.4}
+'xrdef {Mail and Procmail-title}{Mail and Procmail}
+'xrdef {Mail and Procmail-pg}{97}
+'xrdef {Mail and Procmail-snt}{Section'tie6.3.5}
+'xrdef {Incorporating Old Mail-title}{Incorporating Old Mail}
+'xrdef {Incorporating Old Mail-pg}{98}
+'xrdef {Incorporating Old Mail-snt}{Section'tie6.3.6}
+'xrdef {Expiring Mail-title}{Expiring Mail}
+'xrdef {Expiring Mail-pg}{99}
+'xrdef {Expiring Mail-snt}{Section'tie6.3.7}
+'xrdef {Washing Mail-title}{Washing Mail}
+'xrdef {Washing Mail-pg}{100}
+'xrdef {Washing Mail-snt}{Section'tie6.3.8}
+'xrdef {Duplicates-title}{Duplicates}
+'xrdef {Duplicates-pg}{101}
+'xrdef {Duplicates-snt}{Section'tie6.3.9}
+'xrdef {Not Reading Mail-title}{Not Reading Mail}
+'xrdef {Not Reading Mail-pg}{102}
+'xrdef {Not Reading Mail-snt}{Section'tie6.3.10}
+'xrdef {Choosing a Mail Backend-title}{Choosing a Mail Backend}
+'xrdef {Choosing a Mail Backend-pg}{102}
+'xrdef {Choosing a Mail Backend-snt}{Section'tie6.3.11}
+'xrdef {Unix Mail Box-title}{Unix Mail Box}
+'xrdef {Unix Mail Box-pg}{102}
+'xrdef {Unix Mail Box-snt}{Section'tie6.3.11.1}
+'xrdef {Rmail Babyl-title}{Rmail Babyl}
+'xrdef {Rmail Babyl-pg}{103}
+'xrdef {Rmail Babyl-snt}{Section'tie6.3.11.2}
+'xrdef {Mail Spool-title}{Mail Spool}
+'xrdef {Mail Spool-pg}{103}
+'xrdef {Mail Spool-snt}{Section'tie6.3.11.3}
+'xrdef {MH Spool-title}{MH Spool}
+'xrdef {MH Spool-pg}{104}
+'xrdef {MH Spool-snt}{Section'tie6.3.11.4}
+'xrdef {Mail Folders-title}{Mail Folders}
+'xrdef {Mail Folders-pg}{104}
+'xrdef {Mail Folders-snt}{Section'tie6.3.11.5}
+'xrdef {Other Sources-title}{Other Sources}
+'xrdef {Other Sources-pg}{105}
+'xrdef {Other Sources-snt}{Section'tie6.4}
+'xrdef {Directory Groups-title}{Directory Groups}
+'xrdef {Directory Groups-pg}{105}
+'xrdef {Directory Groups-snt}{Section'tie6.4.1}
+'xrdef {Anything Groups-title}{Anything Groups}
+'xrdef {Anything Groups-pg}{105}
+'xrdef {Anything Groups-snt}{Section'tie6.4.2}
+'xrdef {Document Groups-title}{Document Groups}
+'xrdef {Document Groups-pg}{106}
+'xrdef {Document Groups-snt}{Section'tie6.4.3}
+'xrdef {Document Server Internals-title}{Document Server Internals}
+'xrdef {Document Server Internals-pg}{107}
+'xrdef {Document Server Internals-snt}{Section'tie6.4.3.1}
+'xrdef {SOUP-title}{SOUP}
+'xrdef {SOUP-pg}{109}
+'xrdef {SOUP-snt}{Section'tie6.4.4}
+'xrdef {SOUP Commands-title}{SOUP Commands}
+'xrdef {SOUP Commands-pg}{110}
+'xrdef {SOUP Commands-snt}{Section'tie6.4.4.1}
+'xrdef {SOUP Groups-title}{{\smallcaps soup} Groups}
+'xrdef {SOUP Groups-pg}{111}
+'xrdef {SOUP Groups-snt}{Section'tie6.4.4.2}
+'xrdef {SOUP Replies-title}{SOUP Replies}
+'xrdef {SOUP Replies-pg}{112}
+'xrdef {SOUP Replies-snt}{Section'tie6.4.4.3}
+'xrdef {Web Searches-title}{Web Searches}
+'xrdef {Web Searches-pg}{112}
+'xrdef {Web Searches-snt}{Section'tie6.4.5}
+'xrdef {Mail-To-News Gateways-title}{Mail-To-News Gateways}
+'xrdef {Mail-To-News Gateways-pg}{113}
+'xrdef {Mail-To-News Gateways-snt}{Section'tie6.4.6}
+'xrdef {Combined Groups-title}{Combined Groups}
+'xrdef {Combined Groups-pg}{114}
+'xrdef {Combined Groups-snt}{Section'tie6.5}
+'xrdef {Virtual Groups-title}{Virtual Groups}
+'xrdef {Virtual Groups-pg}{114}
+'xrdef {Virtual Groups-snt}{Section'tie6.5.1}
+'xrdef {Kibozed Groups-title}{Kibozed Groups}
+'xrdef {Kibozed Groups-pg}{114}
+'xrdef {Kibozed Groups-snt}{Section'tie6.5.2}
+'xrdef {Scoring-title}{Scoring}
+'xrdef {Scoring-pg}{117}
+'xrdef {Scoring-snt}{Chapter'tie7}
+'xrdef {Summary Score Commands-title}{Summary Score Commands}
+'xrdef {Summary Score Commands-pg}{117}
+'xrdef {Summary Score Commands-snt}{Section'tie7.1}
+'xrdef {Group Score Commands-title}{Group Score Commands}
+'xrdef {Group Score Commands-pg}{119}
+'xrdef {Group Score Commands-snt}{Section'tie7.2}
+'xrdef {Score Variables-title}{Score Variables}
+'xrdef {Score Variables-pg}{119}
+'xrdef {Score Variables-snt}{Section'tie7.3}
+'xrdef {Score File Format-title}{Score File Format}
+'xrdef {Score File Format-pg}{121}
+'xrdef {Score File Format-snt}{Section'tie7.4}
+'xrdef {Score File Editing-title}{Score File Editing}
+'xrdef {Score File Editing-pg}{125}
+'xrdef {Score File Editing-snt}{Section'tie7.5}
+'xrdef {Adaptive Scoring-title}{Adaptive Scoring}
+'xrdef {Adaptive Scoring-pg}{126}
+'xrdef {Adaptive Scoring-snt}{Section'tie7.6}
+'xrdef {Home Score File-title}{Home Score File}
+'xrdef {Home Score File-pg}{128}
+'xrdef {Home Score File-snt}{Section'tie7.7}
+'xrdef {Followups To Yourself-title}{Followups To Yourself}
+'xrdef {Followups To Yourself-pg}{129}
+'xrdef {Followups To Yourself-snt}{Section'tie7.8}
+'xrdef {Scoring Tips-title}{Scoring Tips}
+'xrdef {Scoring Tips-pg}{129}
+'xrdef {Scoring Tips-snt}{Section'tie7.9}
+'xrdef {Reverse Scoring-title}{Reverse Scoring}
+'xrdef {Reverse Scoring-pg}{130}
+'xrdef {Reverse Scoring-snt}{Section'tie7.10}
+'xrdef {Global Score Files-title}{Global Score Files}
+'xrdef {Global Score Files-pg}{130}
+'xrdef {Global Score Files-snt}{Section'tie7.11}
+'xrdef {Kill Files-title}{Kill Files}
+'xrdef {Kill Files-pg}{131}
+'xrdef {Kill Files-snt}{Section'tie7.12}
+'xrdef {Converting Kill Files-title}{Converting Kill Files}
+'xrdef {Converting Kill Files-pg}{132}
+'xrdef {Converting Kill Files-snt}{Section'tie7.13}
+'xrdef {GroupLens-title}{GroupLens}
+'xrdef {GroupLens-pg}{132}
+'xrdef {GroupLens-snt}{Section'tie7.14}
+'xrdef {Using GroupLens-title}{Using GroupLens}
+'xrdef {Using GroupLens-pg}{133}
+'xrdef {Using GroupLens-snt}{Section'tie7.14.1}
+'xrdef {Rating Articles-title}{Rating Articles}
+'xrdef {Rating Articles-pg}{133}
+'xrdef {Rating Articles-snt}{Section'tie7.14.2}
+'xrdef {Displaying Predictions-title}{Displaying Predictions}
+'xrdef {Displaying Predictions-pg}{133}
+'xrdef {Displaying Predictions-snt}{Section'tie7.14.3}
+'xrdef {GroupLens Variables-title}{GroupLens Variables}
+'xrdef {GroupLens Variables-pg}{134}
+'xrdef {GroupLens Variables-snt}{Section'tie7.14.4}
+'xrdef {Advanced Scoring-title}{Advanced Scoring}
+'xrdef {Advanced Scoring-pg}{135}
+'xrdef {Advanced Scoring-snt}{Section'tie7.15}
+'xrdef {Advanced Scoring Syntax-title}{Advanced Scoring Syntax}
+'xrdef {Advanced Scoring Syntax-pg}{135}
+'xrdef {Advanced Scoring Syntax-snt}{Section'tie7.15.1}
+'xrdef {Advanced Scoring Examples-title}{Advanced Scoring Examples}
+'xrdef {Advanced Scoring Examples-pg}{136}
+'xrdef {Advanced Scoring Examples-snt}{Section'tie7.15.2}
+'xrdef {Advanced Scoring Tips-title}{Advanced Scoring Tips}
+'xrdef {Advanced Scoring Tips-pg}{136}
+'xrdef {Advanced Scoring Tips-snt}{Section'tie7.15.3}
+'xrdef {Score Decays-title}{Score Decays}
+'xrdef {Score Decays-pg}{137}
+'xrdef {Score Decays-snt}{Section'tie7.16}
+'xrdef {Various-title}{Various}
+'xrdef {Various-pg}{139}
+'xrdef {Various-snt}{Chapter'tie8}
+'xrdef {Process/Prefix-title}{Process/Prefix}
+'xrdef {Process/Prefix-pg}{139}
+'xrdef {Process/Prefix-snt}{Section'tie8.1}
+'xrdef {Interactive-title}{Interactive}
+'xrdef {Interactive-pg}{139}
+'xrdef {Interactive-snt}{Section'tie8.2}
+'xrdef {Formatting Variables-title}{Formatting Variables}
+'xrdef {Formatting Variables-pg}{140}
+'xrdef {Formatting Variables-snt}{Section'tie8.3}
+'xrdef {Formatting Basics-title}{Formatting Basics}
+'xrdef {Formatting Basics-pg}{140}
+'xrdef {Formatting Basics-snt}{Section'tie8.3.1}
+'xrdef {Advanced Formatting-title}{Advanced Formatting}
+'xrdef {Advanced Formatting-pg}{140}
+'xrdef {Advanced Formatting-snt}{Section'tie8.3.2}
+'xrdef {User-Defined Specs-title}{User-Defined Specs}
+'xrdef {User-Defined Specs-pg}{141}
+'xrdef {User-Defined Specs-snt}{Section'tie8.3.3}
+'xrdef {Formatting Fonts-title}{Formatting Fonts}
+'xrdef {Formatting Fonts-pg}{141}
+'xrdef {Formatting Fonts-snt}{Section'tie8.3.4}
+'xrdef {Windows Configuration-title}{Windows Configuration}
+'xrdef {Windows Configuration-pg}{142}
+'xrdef {Windows Configuration-snt}{Section'tie8.4}
+'xrdef {Compilation-title}{Compilation}
+'xrdef {Compilation-pg}{145}
+'xrdef {Compilation-snt}{Section'tie8.5}
+'xrdef {Mode Lines-title}{Mode Lines}
+'xrdef {Mode Lines-pg}{145}
+'xrdef {Mode Lines-snt}{Section'tie8.6}
+'xrdef {Highlighting and Menus-title}{Highlighting and Menus}
+'xrdef {Highlighting and Menus-pg}{146}
+'xrdef {Highlighting and Menus-snt}{Section'tie8.7}
+'xrdef {Buttons-title}{Buttons}
+'xrdef {Buttons-pg}{147}
+'xrdef {Buttons-snt}{Section'tie8.8}
+'xrdef {Daemons-title}{Daemons}
+'xrdef {Daemons-pg}{148}
+'xrdef {Daemons-snt}{Section'tie8.9}
+'xrdef {NoCeM-title}{NoCeM}
+'xrdef {NoCeM-pg}{149}
+'xrdef {NoCeM-snt}{Section'tie8.10}
+'xrdef {Picons-title}{Picons}
+'xrdef {Picons-pg}{150}
+'xrdef {Picons-snt}{Section'tie8.11}
+'xrdef {Picon Basics-title}{Picon Basics}
+'xrdef {Picon Basics-pg}{150}
+'xrdef {Picon Basics-snt}{Section'tie8.11.1}
+'xrdef {Picon Requirements-title}{Picon Requirements}
+'xrdef {Picon Requirements-pg}{151}
+'xrdef {Picon Requirements-snt}{Section'tie8.11.2}
+'xrdef {Easy Picons-title}{Easy Picons}
+'xrdef {Easy Picons-pg}{151}
+'xrdef {Easy Picons-snt}{Section'tie8.11.3}
+'xrdef {Hard Picons-title}{Hard Picons}
+'xrdef {Hard Picons-pg}{151}
+'xrdef {Hard Picons-snt}{Section'tie8.11.4}
+'xrdef {Picon Configuration-title}{Picon Configuration}
+'xrdef {Picon Configuration-pg}{152}
+'xrdef {Picon Configuration-snt}{Section'tie8.11.5}
+'xrdef {Undo-title}{Undo}
+'xrdef {Undo-pg}{152}
+'xrdef {Undo-snt}{Section'tie8.12}
+'xrdef {Moderation-title}{Moderation}
+'xrdef {Moderation-pg}{153}
+'xrdef {Moderation-snt}{Section'tie8.13}
+'xrdef {XEmacs Enhancements-title}{XEmacs Enhancements}
+'xrdef {XEmacs Enhancements-pg}{153}
+'xrdef {XEmacs Enhancements-snt}{Section'tie8.14}
+'xrdef {Fuzzy Matching-title}{Fuzzy Matching}
+'xrdef {Fuzzy Matching-pg}{154}
+'xrdef {Fuzzy Matching-snt}{Section'tie8.15}
+'xrdef {Thwarting Email Spam-title}{Thwarting Email Spam}
+'xrdef {Thwarting Email Spam-pg}{154}
+'xrdef {Thwarting Email Spam-snt}{Section'tie8.16}
+'xrdef {Various Various-title}{Various Various}
+'xrdef {Various Various-pg}{155}
+'xrdef {Various Various-snt}{Section'tie8.17}
+'xrdef {The End-title}{The End}
+'xrdef {The End-pg}{157}
+'xrdef {The End-snt}{Chapter'tie9}
+'xrdef {Appendices-title}{Appendices}
+'xrdef {Appendices-pg}{159}
+'xrdef {Appendices-snt}{Chapter'tie10}
+'xrdef {History-title}{History}
+'xrdef {History-pg}{159}
+'xrdef {History-snt}{Section'tie10.1}
+'xrdef {Why?-title}{Why?}
+'xrdef {Why?-pg}{159}
+'xrdef {Why?-snt}{Section'tie10.1.1}
+'xrdef {Compatibility-title}{Compatibility}
+'xrdef {Compatibility-pg}{160}
+'xrdef {Compatibility-snt}{Section'tie10.1.2}
+'xrdef {Conformity-title}{Conformity}
+'xrdef {Conformity-pg}{160}
+'xrdef {Conformity-snt}{Section'tie10.1.3}
+'xrdef {Emacsen-title}{Emacsen}
+'xrdef {Emacsen-pg}{161}
+'xrdef {Emacsen-snt}{Section'tie10.1.4}
+'xrdef {Contributors-title}{Contributors}
+'xrdef {Contributors-pg}{161}
+'xrdef {Contributors-snt}{Section'tie10.1.5}
+'xrdef {New Features-title}{New Features}
+'xrdef {New Features-pg}{163}
+'xrdef {New Features-snt}{Section'tie10.1.6}
+'xrdef {ding Gnus-title}{(ding) Gnus}
+'xrdef {ding Gnus-pg}{163}
+'xrdef {ding Gnus-snt}{Section'tie10.1.6.1}
+'xrdef {September Gnus-title}{September Gnus}
+'xrdef {September Gnus-pg}{164}
+'xrdef {September Gnus-snt}{Section'tie10.1.6.2}
+'xrdef {Red Gnus-title}{Red Gnus}
+'xrdef {Red Gnus-pg}{167}
+'xrdef {Red Gnus-snt}{Section'tie10.1.6.3}
+'xrdef {Newest Features-title}{Newest Features}
+'xrdef {Newest Features-pg}{168}
+'xrdef {Newest Features-snt}{Section'tie10.1.7}
+'xrdef {The Manual-title}{The Manual}
+'xrdef {The Manual-pg}{168}
+'xrdef {The Manual-snt}{Section'tie10.2}
+'xrdef {Terminology-title}{Terminology}
+'xrdef {Terminology-pg}{169}
+'xrdef {Terminology-snt}{Section'tie10.3}
+'xrdef {Customization-title}{Customization}
+'xrdef {Customization-pg}{171}
+'xrdef {Customization-snt}{Section'tie10.4}
+'xrdef {Slow/Expensive Connection-title}{Slow/Expensive {\smallcaps nntp} Connection}
+'xrdef {Slow/Expensive Connection-pg}{171}
+'xrdef {Slow/Expensive Connection-snt}{Section'tie10.4.1}
+'xrdef {Slow Terminal Connection-title}{Slow Terminal Connection}
+'xrdef {Slow Terminal Connection-pg}{171}
+'xrdef {Slow Terminal Connection-snt}{Section'tie10.4.2}
+'xrdef {Little Disk Space-title}{Little Disk Space}
+'xrdef {Little Disk Space-pg}{172}
+'xrdef {Little Disk Space-snt}{Section'tie10.4.3}
+'xrdef {Slow Machine-title}{Slow Machine}
+'xrdef {Slow Machine-pg}{172}
+'xrdef {Slow Machine-snt}{Section'tie10.4.4}
+'xrdef {Troubleshooting-title}{Troubleshooting}
+'xrdef {Troubleshooting-pg}{172}
+'xrdef {Troubleshooting-snt}{Section'tie10.5}
+'xrdef {A Programmers Guide to Gnus-title}{A Programmer{\accent 19 s} Guide to Gnus}
+'xrdef {A Programmers Guide to Gnus-pg}{173}
+'xrdef {A Programmers Guide to Gnus-snt}{Section'tie10.6}
+'xrdef {Gnus Utility Functions-title}{Gnus Utility Functions}
+'xrdef {Gnus Utility Functions-pg}{173}
+'xrdef {Gnus Utility Functions-snt}{Section'tie10.6.1}
+'xrdef {Backend Interface-title}{Backend Interface}
+'xrdef {Backend Interface-pg}{175}
+'xrdef {Backend Interface-snt}{Section'tie10.6.2}
+'xrdef {Required Backend Functions-title}{Required Backend Functions}
+'xrdef {Required Backend Functions-pg}{175}
+'xrdef {Required Backend Functions-snt}{Section'tie10.6.2.1}
+'xrdef {Optional Backend Functions-title}{Optional Backend Functions}
+'xrdef {Optional Backend Functions-pg}{178}
+'xrdef {Optional Backend Functions-snt}{Section'tie10.6.2.2}
+'xrdef {Error Messaging-title}{Error Messaging}
+'xrdef {Error Messaging-pg}{181}
+'xrdef {Error Messaging-snt}{Section'tie10.6.2.3}
+'xrdef {Writing New Backends-title}{Writing New Backends}
+'xrdef {Writing New Backends-pg}{181}
+'xrdef {Writing New Backends-snt}{Section'tie10.6.2.4}
+'xrdef {Hooking New Backends Into Gnus-title}{Hooking New Backends Into Gnus}
+'xrdef {Hooking New Backends Into Gnus-pg}{184}
+'xrdef {Hooking New Backends Into Gnus-snt}{Section'tie10.6.2.5}
+'xrdef {Mail-like Backends-title}{Mail-like Backends}
+'xrdef {Mail-like Backends-pg}{184}
+'xrdef {Mail-like Backends-snt}{Section'tie10.6.2.6}
+'xrdef {Score File Syntax-title}{Score File Syntax}
+'xrdef {Score File Syntax-pg}{185}
+'xrdef {Score File Syntax-snt}{Section'tie10.6.3}
+'xrdef {Headers-title}{Headers}
+'xrdef {Headers-pg}{186}
+'xrdef {Headers-snt}{Section'tie10.6.4}
+'xrdef {Ranges-title}{Ranges}
+'xrdef {Ranges-pg}{187}
+'xrdef {Ranges-snt}{Section'tie10.6.5}
+'xrdef {Group Info-title}{Group Info}
+'xrdef {Group Info-pg}{188}
+'xrdef {Group Info-snt}{Section'tie10.6.6}
+'xrdef {Emacs/XEmacs Code-title}{Emacs/XEmacs Code}
+'xrdef {Emacs/XEmacs Code-pg}{189}
+'xrdef {Emacs/XEmacs Code-snt}{Section'tie10.6.7}
+'xrdef {Various File Formats-title}{Various File Formats}
+'xrdef {Various File Formats-pg}{190}
+'xrdef {Various File Formats-snt}{Section'tie10.6.8}
+'xrdef {Active File Format-title}{Active File Format}
+'xrdef {Active File Format-pg}{190}
+'xrdef {Active File Format-snt}{Section'tie10.6.8.1}
+'xrdef {Newsgroups File Format-title}{Newsgroups File Format}
+'xrdef {Newsgroups File Format-pg}{190}
+'xrdef {Newsgroups File Format-snt}{Section'tie10.6.8.2}
+'xrdef {Emacs for Heathens-title}{Emacs for Heathens}
+'xrdef {Emacs for Heathens-pg}{191}
+'xrdef {Emacs for Heathens-snt}{Section'tie10.7}
+'xrdef {Keystrokes-title}{Keystrokes}
+'xrdef {Keystrokes-pg}{191}
+'xrdef {Keystrokes-snt}{Section'tie10.7.1}
+'xrdef {Emacs Lisp-title}{Emacs Lisp}
+'xrdef {Emacs Lisp-pg}{191}
+'xrdef {Emacs Lisp-snt}{Section'tie10.7.2}
+'xrdef {Frequently Asked Questions-title}{Frequently Asked Questions}
+'xrdef {Frequently Asked Questions-pg}{192}
+'xrdef {Frequently Asked Questions-snt}{Section'tie10.8}
+'xrdef {Installation FAQ-title}{Installation}
+'xrdef {Installation FAQ-pg}{192}
+'xrdef {Installation FAQ-snt}{Section'tie10.8.1}
+'xrdef {Customization FAQ-title}{Customization}
+'xrdef {Customization FAQ-pg}{195}
+'xrdef {Customization FAQ-snt}{Section'tie10.8.2}
+'xrdef {Reading News FAQ-title}{Reading News}
+'xrdef {Reading News FAQ-pg}{198}
+'xrdef {Reading News FAQ-snt}{Section'tie10.8.3}
+'xrdef {Reading Mail FAQ-title}{Reading Mail}
+'xrdef {Reading Mail FAQ-pg}{199}
+'xrdef {Reading Mail FAQ-snt}{Section'tie10.8.4}
+'xrdef {Index-title}{Index}
+'xrdef {Index-pg}{201}
+'xrdef {Index-snt}{Chapter'tie11}
+'xrdef {Key Index-title}{Key Index}
+'xrdef {Key Index-pg}{217}
+'xrdef {Key Index-snt}{Chapter'tie12}

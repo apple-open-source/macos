@@ -1,0 +1,9 @@
+#	from: @(#)Makefile	5.3 (Berkeley) 5/11/90
+#	$Id: Makefile.dist,v 1.1.1.1 1999/05/02 04:21:30 wsanchez Exp $
+
+PROG=	halt
+MAN8=	halt.0
+DPADD=	${LIBUTIL}
+LDADD=	-lutil
+
+.include <bsd.prog.mk>

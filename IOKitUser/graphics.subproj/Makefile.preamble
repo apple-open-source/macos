@@ -1,0 +1,9 @@
+PROJECT_HEADER_DIR_SUFFIX = /IOKit/$(NAME)
+PUBLIC_HEADER_DIR_SUFFIX = /$(NAME)
+
+CFPLUGIN_H = /System/Library/Frameworks/CoreFoundation.framework/Headers/CFPlugIn.h
+ifeq ($(wildcard $(CFPLUGIN_H)),)
+NEXTSTEP_PB_CFLAGS += -DNO_CFPLUGIN
+else
+NEXTSTEP_PB_CFLAGS += -DHAVE_CFPLUGIN
+endif

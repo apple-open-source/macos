@@ -1,0 +1,102 @@
+# Makefile for GNU m4 documentation.
+# Copyright (C) 1994 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+
+PRODUCT = @PRODUCT@
+VERSION = @VERSION@
+
+SHELL = /bin/sh
+srcdir = @srcdir@
+VPATH = @srcdir@
+
+INSTALL = @INSTALL@
+INSTALL_DATA = @INSTALL_DATA@
+MAKEINFO  = makeinfo
+TEXI2DVI  = texi2dvi
+TEXI2HTML = texi2html
+
+prefix = @prefix@
+infodir = $(prefix)/info
+htmldir = $(prefix)/share/html/m4
+
+.SUFFIXES:
+
+DISTFILES = Makefile.in m4.texinfo texinfo.tex \
+stamp-vti version.texi m4.info m4.info-1 m4.info-2 m4.info-3
+
+all: html #info
+
+info: m4.info
+
+html: m4_1.html
+
+m4.info: m4.texinfo version.texi
+	cd $(srcdir) && $(MAKEINFO) m4.texinfo
+
+dvi: m4.dvi
+
+m4.dvi: m4.texinfo version.texi
+	$(TEXI2DVI) $(srcdir)/m4.texinfo
+
+m4_1.html: m4.texinfo
+	$(TEXI2HTML) -split_chapter $(srcdir)/m4.texinfo
+
+version.texi: stamp-vti
+stamp-vti: m4.texinfo ../configure.in
+	echo "@set EDITION $(VERSION)" > version.tmp
+	echo "@set UPDATED `date '+%B %Y'`" >> version.tmp
+	echo "@set VERSION $(VERSION)" >> version.tmp
+	if cmp -s version.tmp $(srcdir)/version.texi; then rm version.tmp; \
+	else mv version.tmp $(srcdir)/version.texi; fi
+	date > $(srcdir)/stamp-vti
+
+install: all
+	$(srcdir)/../mkinstalldirs $(htmldir) #$(infodir)
+	#cd $(srcdir) && for file in m4.info*; do \
+	#  $(INSTALL_DATA) $$file $(infodir)/$$file; \
+	#done
+	for file in *.html; do \
+	  $(INSTALL_DATA) $$file $(htmldir)/$$file; \
+	done
+
+uninstall:
+	rm -f $(infodir)/m4.info*
+
+mostlyclean:
+	rm -f *.aux *.cp *.cps *.dvi *.fn *.fns *.ky *.log *.pg *.toc *.tp *.vr
+	rm -f *.tmp
+
+clean: mostlyclean
+
+distclean: clean
+	rm -f Makefile
+
+realclean: distclean
+	rm -f stamp-vti version.texi m4.info*
+
+dist: $(DISTFILES)
+	@echo "Copying distribution files"
+	@for file in $(DISTFILES); do \
+	  ln $(srcdir)/$$file ../$(PRODUCT)-$(VERSION)/doc 2> /dev/null \
+	    || cp -p $(srcdir)/$$file ../$(PRODUCT)-$(VERSION)/doc; \
+	done
+
+Makefile: ../config.status Makefile.in
+	cd .. && CONFIG_FILES=doc/$@ CONFIG_HEADERS= ./config.status
+
+# Tell versions [3.59,3.63) of GNU make not to export all variables.
+# Otherwise a system limit (for SysV at least) may be exceeded.
+.NOEXPORT:

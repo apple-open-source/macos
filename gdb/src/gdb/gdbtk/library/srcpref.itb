@@ -1,0 +1,246 @@
+# Source preferences dialog for GDBtk.
+# Copyright 1998, 1999 Cygnus Solutions
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License (GPL) as published by
+# the Free Software Foundation; either version 2 of the License, or (at
+# your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+
+# ------------------------------------------------------------------
+#  CONSTRUCTOR - create new source preferences window
+# ------------------------------------------------------------------
+body SrcPref::constructor {args} {
+  window_name "Source Preferences"
+
+  build_win
+  set saved(gdb/src/PC_TAG)           [pref get gdb/src/PC_TAG]
+  set saved(gdb/src/STACK_TAG)        [pref get gdb/src/STACK_TAG]
+  set saved(gdb/src/BROWSE_TAG)       [pref get gdb/src/BROWSE_TAG]
+  set saved(gdb/src/run_attach)       [pref get gdb/src/run_attach]
+  set saved(gdb/src/run_load)         [pref get gdb/src/run_load]
+  set saved(gdb/src/run_run)          [pref get gdb/src/run_run]
+  set saved(gdb/src/run_cont)         [pref get gdb/src/run_cont]
+  set saved(gdb/src/bp_fg)            [pref get gdb/src/bp_fg]
+  set saved(gdb/src/temp_bp_fg)       [pref get gdb/src/temp_bp_fg]
+  set saved(gdb/src/trace_fg)         [pref get gdb/src/trace_fg]
+  set saved(gdb/src/thread_fg)        [pref get gdb/src/thread_fg]
+  set saved(gdb/src/variableBalloons) [pref get gdb/src/variableBalloons]
+  set saved(gdb/src/source2_fg)       [pref get gdb/src/source2_fg]
+  set saved(gdb/src/tab_size)         [pref get gdb/src/tab_size]
+  set saved(gdb/mode)                 [pref get gdb/mode]
+}
+
+# ------------------------------------------------------------------
+#  METHOD:  build_win - build the dialog
+# ------------------------------------------------------------------
+body SrcPref::build_win {} {
+  frame $itk_interior.f
+  frame $itk_interior.f.a
+  frame $itk_interior.f.b
+  set f $itk_interior.f.a
+
+  # Colors frame
+  Labelledframe $f.colors -anchor nw -text {Colors}
+  set w [$f.colors get_frame]
+
+  set color [pref get gdb/src/PC_TAG]
+  label $w.pcl -text {PC}
+  button $w.pcb -text {     } -activebackground $color -bg $color \
+    -command [code $this _pick $color $w.pcb PC_TAG]
+  
+  set color [pref get gdb/src/STACK_TAG]
+  label $w.stl -text {Stack}
+  button $w.stb -text {     } -activebackground $color -bg $color \
+    -command [code $this _pick $color $w.stb STACK_TAG]
+
+  set color [pref get gdb/src/BROWSE_TAG]
+  label $w.brl -text {Browse}
+  button $w.brb -text {     } -activebackground $color -bg $color\
+    -command [code $this _pick $color $w.brb BROWSE_TAG]
+
+  set color [pref get gdb/src/source2_fg]
+  label $w.s2l -text {Mixed Source}
+  button $w.s2b -text {     } -activebackground $color -bg $color \
+    -command [code $this _pick $color $w.s2b source2_fg]
+
+  set color [pref get gdb/src/bp_fg]
+  label $w.nbpl -text {Normal Breakpoint}
+  button $w.nbpb -text {     } -activebackground $color -bg $color\
+    -command [code $this _pick $color $w.nbpb bp_fg]
+  
+  set color [pref get gdb/src/temp_bp_fg]
+  label $w.tbpl -text {Temporary Breakpoint}
+  button $w.tbpb -text {     } -activebackground $color -bg $color \
+    -command [code $this _pick $color $w.tbpb temp_bp_fg]
+  
+  set color [pref get gdb/src/thread_fg]
+  label $w.dbpl -text {Thread Breakpoint}
+  button $w.dbpb -text {     } -activebackground $color -bg $color \
+    -command [code $this _pick $color $w.dbpb thread_fg]
+
+  set color [pref get gdb/src/trace_fg]
+  label $w.tpl -text {Tracepoint}
+  button $w.tpb -text {     } -activebackground $color -bg $color \
+    -command [code $this _pick $color $w.tpb trace_fg]
+
+  grid $w.pcl $w.pcb $w.nbpl $w.nbpb -padx 10 -pady 2 -sticky w
+  grid $w.stl $w.stb $w.tbpl $w.tbpb -padx 10 -pady 2 -sticky w
+  grid $w.brl $w.brb $w.dbpl $w.dbpb -padx 10 -pady 2 -sticky w
+  grid $w.s2l $w.s2b $w.tpl  $w.tpb  -padx 10 -pady 2 -sticky w
+
+  frame $f.rmv
+
+  # Debug Mode frame
+  Labelledframe $f.rmv.mode -anchor nw -text "Mouse Button-1 Behavior"
+  set w [$f.rmv.mode get_frame]
+  set var [pref varname gdb/B1_behavior]
+  if {[pref get gdb/mode]} {
+    set state normal
+  } else {
+    pref set gdb/B1_behavior 1
+    set state disabled
+  }
+
+  radiobutton $w.async -text "Set/Clear Tracepoints" -variable $var \
+    -value 0 -state $state
+  radiobutton $w.sync  -text "Set/Clear Breakpoints" -variable $var  \
+    -value 1 -state $state
+
+  pack $w.async $w.sync -side top
+
+  # Variable Balloons
+  Labelledframe $f.rmv.var -anchor nw -text "Variable Balloons"
+  set w [$f.rmv.var get_frame]
+  set var [pref varname gdb/src/variableBalloons]
+  radiobutton $w.var_on -text "On " -variable $var -value 1
+  radiobutton $w.var_off -text "Off" -variable $var -value 0
+  pack $w.var_on $w.var_off -side top
+  grid $f.rmv.mode -sticky nsew -pady 5 -row 0 -col 0
+  grid $f.rmv.var -sticky nsew -pady 5 -row 0 -col 2
+  grid columnconfigure $f.rmv 0 -weight 1
+  grid columnconfigure $f.rmv 1 -minsize 4
+  grid columnconfigure $f.rmv 2 -weight 1
+  grid rowconfigure $f.rmv 0 -weight 1
+
+
+  frame $f.x
+  # Tab size
+  tixControl $f.x.size -label "Tab Size" -integer true -max 16 -min 1 \
+    -variable [pref varname gdb/src/tab_size] \
+    -options { entry.width 2	entry.font src-font}
+
+  # Linenumbers
+  # commented out because this option isn't really useful
+#  checkbutton $f.x.linenum -text "Line Numbers" \
+#    -variable [pref varname gdb/src/linenums]
+#  pack $f.x.size $f.x.linenum -side left -padx 5 -pady 5
+  pack $f.x.size -side left -padx 5 -pady 5
+
+  # Disassembly flavor - We tell whether this architecture supports
+  # the flag by checking whether the flag exists.  
+  
+  set have_disassembly_flavor 0
+  set vals [list_disassembly_flavors]
+  if {[llength $vals] != 0} {
+    set have_disassembly_flavor 1
+    frame $f.dis
+    label $f.dis.l -text "Disassembly Flavor: "
+    combobox::combobox $f.dis.combo -maxheight 15 -width 15 -font src-font -editable 0 \
+      -command [code $this set_flavor]
+    
+    foreach elem $vals {
+      $f.dis.combo list insert end $elem
+    }
+    
+    set current_disassembly_flavor [get_disassembly_flavor]
+    $f.dis.combo entryset $current_disassembly_flavor
+    
+    pack $f.dis.l -side left
+    pack $f.dis.combo -side left -padx 4
+    
+  } else {
+    set current_disassembly_flavor ""
+  }
+
+  pack $f.colors -fill both -expand 1
+  pack $f.rmv  -fill both -expand yes
+  pack $f.x -fill x -expand yes
+  
+  if {$have_disassembly_flavor} {
+    pack $f.dis -side top -fill x -padx 4
+  }
+
+  button $itk_interior.f.b.ok -text OK -width 7 -underline 0 -command [code $this _save]
+  button $itk_interior.f.b.apply -text Apply -width 7 -underline 0 -command [code $this _apply]
+  button $itk_interior.f.b.quit -text Cancel -width 7 -underline 0 -command [code $this _cancel]
+  standard_button_box $itk_interior.f.b
+  pack $itk_interior.f.a $itk_interior.f.b $itk_interior.f -expand yes -fill both -padx 5 -pady 5
+}
+
+# ------------------------------------------------------------------
+#  METHOD:  apply - apply changes
+# ------------------------------------------------------------------
+body SrcPref::_apply {} {
+  if {$current_disassembly_flavor != ""} {
+    gdb_cmd "set disassembly-flavor $current_disassembly_flavor"
+    pref set gdb/src/disassembly-flavor $current_disassembly_flavor
+  }
+  ManagedWin::restart
+}
+
+# ------------------------------------------------------------------
+#  METHOD:  cancel
+# ------------------------------------------------------------------
+body SrcPref::_cancel {} {
+  set any_changed 0
+  
+  foreach elem [array names _saved] {
+    set cur_val [pref get $elem]
+    if {[string compare $cur_val $_saved($elem)] != 0} {
+      set any_changed 1
+      pref set $elem $_saved($elem)
+    }
+  }
+  
+  if {$any_changed} {
+    _save
+  } else {
+    unpost
+  }
+}
+
+# ------------------------------------------------------------------
+#  METHOD:  save - apply changes and quit
+# ------------------------------------------------------------------
+body SrcPref::_save {} {
+  _apply
+  unpost
+}
+
+# ------------------------------------------------------------------
+#  METHOD:  set_flavor - sets the disassembly flavor.  The set disassembly-flavor
+#           gdb command is already known to exist, so I don't have to check...
+# ------------------------------------------------------------------
+body SrcPref::set_flavor {w new_mode} {
+  $w entryset $new_mode
+  set current_disassembly_flavor $new_mode
+}
+
+
+# ------------------------------------------------------------------
+#  METHOD:  pick - pick colors
+# ------------------------------------------------------------------
+body SrcPref::_pick {color win tag} {
+  set new_color [tk_chooseColor -initialcolor $color -title "Choose color"]
+  if {$new_color != $color && $new_color != {}} {
+    pref set gdb/src/$tag $new_color
+    $win configure -activebackground $new_color -bg $new_color
+  }
+}
+

@@ -1,0 +1,5 @@
+dnl ../doc/m4.texinfo:1041: Origin of test
+define(`echo', `$*')
+dnl @result{}
+echo(arg1,    arg2, arg3 , arg4)
+dnl @result{}arg1,arg2,arg3 ,arg4

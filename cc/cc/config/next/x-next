@@ -1,0 +1,48 @@
+# Make assignments for compiling on NeXT with their compiler version.
+CC = cc -traditional-cpp
+X_CPPFLAGS = -DNEXT_RELEASE_MAJOR=`((hostinfo | egrep 'NeXT|Rhapsody|Release';\
+	       echo $$RC_RELEASE) | tr '\12' ' '; echo $$RC_OSVERSION) \
+	       | sed -e 's/.*\([0-9]\)\.[0-9][JRm:].*/\1/'` \
+	     -DNEXT_RELEASE_MINOR=`((hostinfo | egrep 'NeXT|Rhapsody|Release';\
+	       echo $$RC_RELEASE) | tr '\12' ' '; echo $$RC_OSVERSION) \
+	       | sed -e 's/.*[0-9]\.\([0-9]\)[JRm:].*/\1/'` \
+	     -DAPPLE_CC=`cd $(srcdir); vers_string -f cc \
+	       | sed -e 's/[-A-Za-z_]*//' | sed -e 's/\.[0-9.]*//'`
+
+GCC_FOR_TARGET = ./xgcc -B./ -traditional-cpp
+
+GCC_CFLAGS = $(INTERNAL_CFLAGS) $(X_CFLAGS) $(T_CFLAGS) $(CFLAGS) -I./include -traditional-cpp
+
+BISON = /usr/local/bin/bison
+
+# There is no need to run fixproto.
+STMP_FIXPROTO =
+
+LIMITS_H_TEST = [ -f /usr/include/ansi/limits.h \
+-o -f $${NEXT_ROOT}/NextLibrary/Frameworks/System.framework/Headers/bsd/limits.h -o \
+-f $${NEXT_ROOT}/System/Library/Frameworks/System.framework/Headers/bsd/limits.h ]
+
+# When gcc is running on a NeXT, we want the make interaction in it.
+
+COMMON_OBJS = makeUser.o make-support.o next-version.o
+
+makeUser.o: makeUser.c make.h
+	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) makeUser.c
+
+makeUser.c make.h: config/next/make.defs
+	$${NEXT_ROOT}/usr/bin/mig \
+	  `if [ "$${RC_OS}" = macos ]; then echo -DMACOSX; fi` \
+	  $(srcdir)/config/next/make.defs
+
+make-support.o: config/next/make-support.c make.h
+	# Make sure the make.h that is #include'd is the one just generated,
+	# and not the one in $(srcdir)/config/next.
+	rm -f make-support.c
+	ln -s $(srcdir)/config/next/make-support.c .
+	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) make-support.c
+
+next-version.o:	next-version.c
+next-version.c:
+	echo "const char *next_version = "\"`cd $(srcdir);vers_string -f cc`\" ";" > \
+		$@
+

@@ -1,0 +1,51 @@
+Changes for the 5.5 release (the cctools-307 release):
+- Removed the reference to Rhapsody in the ar.5 man page.  Radar bug #2399338.
+
+Changes for the 5.3 release (the cctools-283 release):
+- The change from ts_sec to tv_sec was picked up for MacOS X (see below).
+
+Changes for the 5.3 release (the cctools-282.1 release):
+- In the stat struct (non-Openstep) there are three struct timespec's
+  (defined in sys/time.h).  The field name ts_sec was change to tv_sec
+  to match Posix (Radar bug #2005170).  So in ar/archive.c the use of the
+  field ts_sec was changed to tv_sec.  Three places (Radar bug #2284290).
+
+Changes for the 5.3 release, MacOS X bringup (the cctools-282 release):
+- Change it so the ar sources are included with the installMWsrc target in the
+  Makefile.
+- Changed the Makefile to allow for RC_OS=macos for MacOS X builds.
+
+Changes for the 5.2 release (the cctools-267 release):
+- Removed -Dlint from the Makefile to allow precomps to be used.  Radar bug
+  #2227732.
+- Changed the default to use long names (-L the default with -T off).
+- Changed ar to pad long names with \0 out to four byte boundaries when using
+  the extended format. Radar bug #1670513. 
+
+Changes for the 5.1 release (the cctools-260 release):
+- Added -c to all the install commands in the Makefile.
+
+Changes for the 5.1 release (the cctools-253 release):
+- Delt with the problem of the uid and gid fields in the ar.5 format being 6
+  characters wide and the types being 32 bits wide.  A cast to u_short was added
+  as in the 4.3bsd ar.  Radar bug #2000486.
+
+Changes for the 5.1 release (the cctools-250 release):
+- Added a comment in the ar.5 man page that the extended format is not
+  yet used by the Rhapsody compiler tools.
+- Changed the man path to install the man pages directly in /usr/share/man .
+
+Changes for the 5.1 release (the cctools-247 release):
+- Maded the -T option the default so to not used the extended format not yet
+  supported by the compiler tools. The -L option was added to turn this default
+  off.  Updated the man page (Radar 1670513).
+- Added MKDIRS if code to the Makefile to build native on Rhapsody.
+- Changed the Makefile to use gnutar instead of tar because it works on Rhapsody
+  where tar does not.
+
+Changes for the 5.0 release (the cctools-235 release):
+- Added code to detect fat files like the old ar program and print a message
+  about using libtool & lipo.
+- Created this directory from the OpenBSD/src/usr.bin/ar directory.  It is only
+  built when RC_OS=teflon.  Removed all the warnings produced with -Wall and
+  made it compile with the Grail4C header files.

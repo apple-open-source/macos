@@ -1,0 +1,15 @@
+{
+    FILESTABLE = {
+        Documentation = (); 
+        Headers = ("vms-conf.h"); 
+        Resources = (); 
+        SUBPROJECTS = (); 
+        Sources = ("vms-code.c"); 
+    }; 
+    NEXTSTEP_BUILDTOOL = /bin/make; 
+    PDO_UNIX_BUILDTOOL = /bin/make; 
+    PROJECTNAME = VMS; 
+    PROJECTTYPE = "GNU Source"; 
+    PROJECTVERSION = 2.6; 
+    WINDOWS_BUILDTOOL = "${NEXT_ROOT}/NextDeveloper/Executables/make"; 
+}

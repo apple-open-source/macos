@@ -1,0 +1,17 @@
+Errors number is IISFUNC:
+
+-101: Problem with OpenSCManager.
+-102: Problem with OpenService.
+-103: Problem with Stop Service.
+-104: Problem with Start Service.
+-105: Problem with Get Service State.
+
+-501: Can't open Web Service!
+-502: Can't add new key!
+-503: Can't configure key to WebServer!
+-504: Can't configure Server Comment!
+-505: Can't configure Server Bindings!
+-506: Can't configure web server to path!
+-507: Can't set rights on web server!
+-508: Can't start web server!
+-509: Can't set dir security on web server!

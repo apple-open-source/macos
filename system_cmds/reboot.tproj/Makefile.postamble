@@ -1,0 +1,3 @@
+#we already have a halt?
+#after_install::
+#	$(LN) $(INSTALLED_PRODUCTS) $(DSTROOT)$(INSTALLDIR)/halt

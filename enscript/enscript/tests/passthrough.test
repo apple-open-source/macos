@@ -1,0 +1,84 @@
+#!/bin/sh
+#
+# Test pass through files.
+#
+
+. $srcdir/defs || exit 1
+
+cat >test_input.ps <<EOF
+%!
+/Times-Roman findfont 30 scalefont setfont
+100 100 moveto (Hi, I am a PostScript file) show
+showpage
+EOF
+
+### test_pass_through() {
+$enscript -G2r --quiet --pass-through -p- test_input.ps \
+  | tail +2 >$output
+
+result=`tail +2 test_input.ps | cmp - $output`
+
+if test "X$result" != "X"; then
+  exit 1
+fi
+
+rm test_input.ps
+### }
+
+echo 'D%!' | tr 'D' '\4' >test_input.ps
+cat >>test_input.ps <<EOF
+/Times-Roman findfont 30 scalefont setfont
+100 100 moveto (Hi, I am a Windows damaged PostScript file) show
+showpage
+EOF
+
+### test_pass_through() {
+$enscript -G2r --quiet --pass-through -p- test_input.ps \
+  | tail +2 >$output
+
+result=`tail +2 test_input.ps | cmp - $output`
+
+if test "X$result" != "X"; then
+  exit 1
+fi
+
+rm test_input.ps
+### }
+
+echo '@E' | tr '@' '\33' >test_input.pcl
+cat >>test_input.pcl <<EOF
+This isn't really a PCL file but the magic is correct.
+EOF
+
+### test_pass_through() {
+$enscript -G2r --quiet --pass-through -p- test_input.pcl \
+  | tail +2 >$output
+
+result=`tail +2 test_input.pcl | cmp - $output`
+
+if test "X$result" != "X"; then
+  exit 1
+fi
+
+rm test_input.pcl
+### }
+
+echo '@%' | tr '@' '\33' >test_input.pcl
+cat >>test_input.pcl <<EOF
+This isn't really a PCL file but the magic is correct.
+EOF
+
+### test_pass_through() {
+$enscript -G2r --quiet --pass-through -p- test_input.pcl \
+  | tail +2 >$output
+
+result=`tail +2 test_input.pcl | cmp - $output`
+
+if test "X$result" != "X"; then
+  exit 1
+fi
+
+rm test_input.pcl
+### }
+
+rm $output

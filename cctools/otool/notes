@@ -1,0 +1,452 @@
+TODO:
+- Change pad in PPC_THREAD_STATE to vrsave.  Print the altivec state.
+- HPPA, bring the private version of mach/hppa/thread_status.h in sync with
+  the kernel header and change ofile_print.c to recognize new thread states.
+
+Changes for the 5.8 release (the cctools-357 release):
+- Added support for the CPU_SUBTYPE_POWERPC_7450 in ofile_print.c . Radar bug
+  #2599869.
+
+Changes for the 5.8 release (the cctools-355 release):
+- Changed the printing of sections marked with S_ATTR_SOME_INSTRUCTIONS so that
+  they are disassembled.  This is to aid coalesced sections created by the
+  compiler that are not marked with S_ATTR_PURE_INSTRUCTIONS as they contain
+  jump tables (Radar bug #2580311).
+
+Changes for the 5.8 release (the cctools-342 release):
+- Added a print_sub_client_command() to ofile_print.c . Radar bug #2533649.
+- Added printing MH_TWOLEVEL and MH_FORCE_FLAT to print_mach_header() in
+  ofile_print.c. Radar bug #2534043.
+
+Changes for the 5.8 release (the cctools-341 release):
+- Changed print_immediate() in ppc_disasm.c to also check for PPC_RELOC_SECTDIFF
+  as it is incorrectly printing out "Stray PPC_RELOC_PAIR relocation entry".
+  This is happening because switch tables for (__TEXT,__coalesced_text) sections
+  are placed in line.  This is done because ld(1) complains about illegal
+  references to coalesced symbols being used with section difference relocation
+  entries.
+
+Changes for the 5.7 release (the cctools-336 release):
+- Added printing NO_TOC to print_section(). Radar bug #2494286.
+
+Changes for the 5.7 release (the cctools-334 release):
+- Added printing LAZY_INIT to print_mach_header() in ofile_print.c.  Radar bug
+  #2490396.
+
+Changes for the 5.7 release (the cctools-329 release):
+- Changed iinit and ninit fields of the struct dylib_module in
+  print_module_table() in ofile_print.c to iinit_iterm and ninit_nterm and
+  printed them as 2 numbers each.  Radar bug #2469527.
+
+Changes for the 5.7 release (the cctools-328 release):
+- Changed the Makefile so that it would use -L/usr/local/lib/system
+  moving forward and -L/Local/Developer/System when RC_RELEASE is Gonzo, Bunsen
+  or Beaker.
+
+Changes for the 5.7 release (the cctools-327 release):
+- Changed the Makefile so that it would use -L/AppleInternal/Developer/System
+  moving forward and -L/Local/Developer/System when RC_RELEASE is Gonzo, Bunsen
+  or Beaker.
+
+Changes the 5.6 release (the cctools-320 release):
+- Added support for the new LC_SUB_FRAMEWORK load command to support "Guarding
+  against direct linking of non-umbrella frameworks".  The files ofile_print.c
+  and ofile_print.h were updated. Radar bug 2443212.
+
+Changes the 5.6 release (the cctools-316 release):
+- Added printing the mach header flag MH_SPLIT_SEGS to ofile_print.c.
+
+Changes the 5.5 release (the cctools-307 release):
+- Fixed some bugs in print_relocs() in ofile_print.c for ppc section difference
+  relocations.  It was incorrectly printing "half = 0x????\n" some times which
+  lead to an extra "\n" and difficulty in determining which relocation entry an
+  error message was refering to due to the extra lines in the output.
+- Added support for the CPU_SUBTYPE_POWERPC_7400 in ofile_print.c .
+  Radar bug #2397523.
+- Fixed a bug in get_sect_info() where it was not comparing the segment name
+  in an object file.  This caused it to pick the first section if their were
+  segments with the same section names.
+
+Changes the 5.4 release (the cctools-300 release):
+- Added printing the new LC_ROUTINES load command.
+- Added the S_COALESCED section type in section structures.
+
+Changes the 5.3 release (the cctools-292 release):
+- Added some braces to get rid of the warning message from the egcs compiler
+  "warning: suggest explicit braces to avoid ambiguous `else'".  This was done
+  to m68k_disasm.c, i860_disasm.c and sparc_disasm.c .
+- Changed the return type of main() in main.c from void to int to remove a
+  warning from the egcs compiler.  Also changed the exit()'s calls at the end to
+  return()'s.
+
+Changes for the 5.3 release, (the cctools-286 release):
+- Added support for printing S_MOD_TERM_FUNC_POINTERS in print_section() in
+  ofile_print.c .
+
+Changes for the 5.3 release, (the cctools-285 release):
+- Fixed the i386 opcode of cmpxchg from 0x0fa6 (as it is in the i486 manual) to
+  0x0fb0 which is correct (as it is in the Pentium manual).
+
+Changes for the 5.3 release, MacOS X bring up (the cctools-282 release):
+- Changed the printing of the ppc_thread_state to not use bit fields for srr1,
+  cr and exr to match the ppc_thread_state for Rhapsody/MacOS X.
+- Changed the Makefile to allow for RC_OS=macos for MacOS X builds.
+- Added a few casts in places to get it to compile with the MetroWerks compiler
+  without -relax_pointers.
+- To get around the problem with the MetroWerks compiler using -framework
+  System when -static is used the Makefile was changed to if out the -static
+  flag and -static link for mwcc.
+
+Changes for the 5.2 release (the cctools-274 release):
+- Removed the uses of CPU_SUBTYPE_586SX in ofile_print.c and added support for
+  new intel subtypes. Radar bug #2231830.
+
+Changes for the 5.2 release (the cctools-272 release):
+- Removed the reference to the header file "objc/NXString.h" in print_objc.c as
+  this file is going away.  print_objc.c now just defines the layout of struct
+  objc_string_object directly.  Radar bug #2231010.
+
+Changes for the 5.2 release (the cctools-267 release):
+- Added all the suport needed for the 4.4BSD extended format #1 for long names.
+  Radar bug #1670513.
+
+Changes for the 5.1 release (the cctools-261 release):
+- Added disassembling dcba to ppc_disasm.c.
+- Updated print_special_register_name() in ppc_disasm.c to add the special
+  register names to match the assembler.
+- Changed otool's use of CPU_SUBTYPE_POWERPC_740 to CPU_SUBTYPE_POWERPC_750.
+- Fixed a bug that in processor() in main.c where indirect_symbols and
+  nindirect_symbols were not initialized.  This caused printing of symbol
+  stub sections to to call guess_indirect_symbol() with bad results (print
+  incorrect stuff or crash).
+- Fixed a bug in the ppc disasembler where it was printing the prediction of
+  branch conditionals which had the BO 1z1zz (20 decimal) encoding.  See page
+  4-53 of the PowerPC green book.
+
+Changes for the 5.1 release (the cctools-260 release):
+- Added -c to all the install commands in the Makefile.
+
+Changes for the 5.1 release (the cctools-255 release):
+- Added disassembling the VMX opcodes.  Radar bug 2004760.
+
+Changes for the 5.1 release (the cctools-253 release):
+- Changed the Makefile to only create the needed dst directories.
+
+Changes for the 5.1 release (the cctools-252 release):
+- Changed the ppc dissassembly of "addis rX,0,immed" to "lis rX,immed" and
+  "addi rX,0,immed" to "li rX,immed".
+- Added guess_indirect_symbol() to be used by the disassemblers to print as a
+  comment the stub name.  Changed the ppc, i386, m68k and sparc disassemblers
+  to use this.
+
+Changes for the 5.1 release (the cctools-247 release):
+- Added MKDIRS if code to the Makefile to build native on Rhapsody.
+- Changed the Makefile to use gnutar instead of tar because it works on Rhapsody
+  where tar does not.
+- Changed the Makefile to install otool in /usr/bin for RC_OS
+  teflon and in /bin for RC_OS nextstep (Radar 1673496).
+
+Changes for the 5.0 release (the cctools-242 release):
+- Removed the non-existant instructions "stmd", "mtpmr" and "mfpmr".
+
+Changes for the 5.0 release (the cctools-240 release):
+- Changed printing the first agrument of fcmpo and fcmpu to crX not just a
+  number.
+- Changed ldu, lfdu, lfsu, lhau, lwzu, stbu, stdu, stfdu, stfsu, sthu and stwu
+  to print the RA parameter r0 not 0 when it is zero.  Note these are an invalid
+  forms.
+- Changed lbzx, ldx, lfdx, lfsx, lhax, lhbrx, lhzx, lwax, lwbrx, lwzx, stbx,
+  stdx, stfdx, stfiwx, stfsx, sthbrx, sthx, stwbrx, stwx, dcbi, eciwx, ecowx,
+  icbi to print the RA parameter as 0 not r0 when it is zero.
+- Removed the non-existant instruction "lmd".
+
+Changes for the 5.0 release (the cctools-236 release):
+- Added disassembling mulld[o][.] .
+- Changed printing the first operand of mcrfs and mcrxr to print it as a cr
+  register name not just a number.
+- Changed printing the operands of mcrf to print them as cr register names not
+  just numbers.
+- Added the -Z to don't use simplified ppc mnemonics in disassembly.  Code was
+  added for "cmp", "bc", "cmpi", "cmpl" and "cmpli".
+- Added disassembling the "mttbl rS" for "mtspr 284,rS" and "mttbu rS" for
+  "mtspr 285,rS".
+- Removed the incorrect PowerPC disassembly of mttb and mttbu.
+
+Changes for the 5.0 release (the cctools-235 release):
+- Added printing the PPC_RELOC_JBSR and disassembling with it.
+- Removed the #if 0 code that was replaced by print_relocs().
+- Fixed a bug with otool -s __TEXT __text core dumping.  Line 365 in main.c
+  needs an else (bug #79050).
+- Added the PowerPC disassembly of the eciwx, ecowx, fres[.], fsqrts[.],
+  frsqrte[.], fsel[.], fsqrt[.], stfiwx and tlbsync instructions.
+
+Changes for the 5.0 release (the cctools-227 release):
+- Changed print_argstrings() used for -c to use get_stack_addr_from_flag()
+  from libstuff and removed all the *_usrstack.c files.
+- Made otool -c work for PowerPC core files.
+
+Changes for the 5.0 release (the cctools-224 release):
+- Changed including <ranlib.h> to <mach-o/ranlib.h> which uses unsigned long
+  instead of off_t (64 bits on Teflon).
+- Added printing of the ppc_float_state_t and ppc_exception_states.
+- Updated ofile_print.c with the updated PowerPC subtypes.
+
+Changes for the 5.0 release (the cctools-221 release):
+- Picked up the changes for the correct Rhapsody thread state changes into
+  ofile_print.c.
+
+Changes for the 5.0 release (the cctools-215 release):
+- Fixed disassembly for the PowerPC instructions mftb and mftbu.
+
+Changes for the 5.0 release (the cctools-214 release):
+- Added support for PowerPC disassembly using SECTDIFF relocation types.
+- Added support for printing PPC_RELOC_HI16_SECTDIFF, PPC_RELOC_LO16_SECTDIFF,
+  and PPC_RELOC_HA16_SECTDIFF relocation types.
+
+Changes for the 5.0 release (the cctools-212 release):
+- Changed tlbiex to tlbie and slbiex to slbie (also corrected the opcodes).
+- Added the ppc specific cpu subtypes to be printed.
+
+Changes for the 5.0 release (the cctools-210 release):
+- Changed mulwd to mulhw .
+- Changed mull to mullw and mullo to mullwo .
+- Changed m98k to ppc.
+
+Changes for the 4.0 release (the cctools-189 release):
+- Updated objc_print.c to reflect changes in Objc-C runtime structures.
+
+Changes for the 4.0 release (the cctools-188 release):
+- Added printing the __cstring_object section like the __string_object section
+  (bug #61840).
+
+Changes for the 4.0 release (the cctools-185 release):
+- Printed the time stamp for -Lv for dynamic libraries.
+
+Changes for the 4.0 release (the cctools-173 release):
+- Added printing the LC_PREBOUND_DYLIB load command.
+
+Changes for the 4.0 release (the cctools-170 release):
+- Added printing MH_PREBOUND.
+
+Changes for the 4.0 release (the cctools-168 release):
+- Picked up the sparc changes to sparc_disasm.c .
+- Picked up the sparc changes to sparc_r_types[] in ofile_print.c .
+- Change the version numbers of dynamic library to the form X[.Y[.Z]] to match
+  how next does versioning of it's projects.  This effected libtool(1), ld(1),
+  otool(1), dyld, libstuff(version_number.c) and man pages for ld and libtool
+  bug #55627).  In here the changes were in ofile_print.c .
+- Added -T, -M, -R and -I to the usage print out.
+
+Changes for the 4.0 release (the cctools-156 release):
+- Fixed a that caused sections with S_ATTR_PURE_INSTRUCTIONS set not to be
+  disassembled.  This was casued by S_ATTR_SOME_INSTRUCTIONS also being set and
+  the code in main.c checking the SECTION_ATTRIBUTES equal to 
+  S_ATTR_PURE_INSTRUCTIONS and not just checking for that bit.
+
+Changes for the 4.0 release (the cctools-158 release):
+- Fixed a bug that caused printing of shlib and dyld names to be wrong.  Basicly
+  the part of the structure that needed to be swapped was copied but the
+  original pointer needed to be passed to the routine to print the name part of
+  the structure.  This was introduced with the change for cctools-150 below.
+
+Changes for the 4.0 release (the cctools-154 release):
+- Added support for printing indirect symbol table entries for stripped defined
+  externals.  Strip uses the values INDIRECT_SYMBOL_LOCAL and
+  INDIRECT_SYMBOL_ABS to represent the symbols that are defined that were
+  stripped otool prints these as LOCAL and ABSOLUTE.
+
+Changes for the 4.0 release (the cctools-150 release):
+- Fixed a bug in printing load commands that caused the thread commands on
+  hppa to be printed swapped.  This was the same bug as the otool -L bug
+  below where the wrong size to memcpy was used to copy the load command.
+
+Changes for the 4.0 release (the cctools-149 release):
+- Added printing the section attribute SOME_INSTRUCTIONS.
+- Removed printing the section attribute RELOC_AT_LAUNCH.
+- Added printing the mach header flag BINDATLOAD.
+- Fixed a bug in print_libraries for otool -L with dynamic libraries that
+  memcpy'ed the wrong size into the dylib_command (bug #50440).
+
+Changes for the 4.0 release (the cctools-148 release):
+- Changed how otool gets built.  It how gets built with -static.
+
+Changes for the 4.0 release (the cctools-140 release):
+- Picked up sparc changes to sparc_disasm.c.
+- Added printing MH_BUNDLE filetype.
+
+Changes for the 4.0 release (the cctools-138 release):
+- Picked up a change to sparc_disass.c.  It was getting the targets for
+  branches with negative displacements wrong.
+
+Changes for the 4.0 release (the cctools-135 release):
+- Fixed a bug in otool for sparc disassembly in the routine print_symbolic()
+  which printed the wrong value for branch instructions when relocation entries
+  were not present.  The problem was it was adding in the pc to the target
+  value which already had the pc added to it.
+- Fix for Tracker 41317 [as(hppa) : does not support cache control hints.]
+  otool/hppa-dissasm.c changed to disassemble the new parsing rule changes.
+
+Changes for the 4.0 release (the cctools-133 release):
+- Picked up the sparc changes to sparc_disasm.c.
+- Picked up the sparc changes for printing the floating-point sparc thread.
+
+Changes for the 4.0 release (the cctools-132 release):
+- Picked up the sparc changes for sparc_disasm.c and m88k_disasm.c.
+- Picked up the sparc changes for printing the sparc thread.
+
+Changes for the 3.3 release (the cctools-128 release):
+- Fixed otool -c for the hppa.  Had to add special code in print_argstrings()
+  in main.c to deal with the different stack layout (bug #40373).
+- Removed the spaces printed before the register names for the hppa disassembler
+  in 4 places.
+
+Changes for the 3.3 release (the cctools-127 release):
+- Fixed a bug when the a zero fill section was attempted to be printed without
+  -v which caused otool to core dump (bug #42127).
+
+Changes for the 3.3 release (the cctools-122 release):
+- Fixed a bug in printed byte swapped tocs for a dylib.  The code in main.c
+  had some copy and paste errors in it's allocate() and memcpy() before the
+  call to swap_dylib_table_of_contents().
+
+Changes for the 3.3 release (the cctools-119 release):
+- Picked up first round of changes for the sparc target.  This work is
+  incomplete.
+- HPPA, changed main.c, otool.h, ofile_print.c and Makefile to fix bug # 39398
+  (otool does not understand certain thread states for hppa). Added
+  hppa_usrstack.c for the same.
+
+Changes for the 3.3 release (the cctools-115 release):
+- Changed print_symbol() in ofile_print.c to take an extra parameter, dot_value,
+  the value of the address being dissassembled which is only used for the value
+  of the -symbol in a SECTDIFF relocation entry if their is no symbol that
+  matches that value.
+
+Changes for the 3.3 release (the cctools-104 release):
+- Made a quick but incorrect fix for jbsr disassembly in hppa_disasm.c by
+  passing the sect_addr as the first parameter to print_immediate() in the
+  jbsr case '@' this will not work if a jbsr to a different section is used.
+
+Changes for the 3.3 release (the cctools-103 release):
+- Fixed a bug in hppa_r_types[] array which has only 15 (not 16 enties).
+
+Changes for the 3.3 release (the cctools-102 release):
+- Integrated in the hppa support.
+different otool/Makefile (integrated for cctools-102)
+     Using cctoolshppa-37.  New hppa files. Changed to remove hppa-opcode.h.
+different otool/i386_usrstack.c (no changes for cctools-102)
+     Using cctools-29. Late 3.2 fixes the hppa base did not have.
+different otool/m68k_usrstack.c (no changes for cctools-102)
+     Using cctools-29. Late 3.2 fixes the hppa base did not have.
+different otool/main.c (integrated for cctools-102)
+     Using cctoolshppa-37.  Call to hppa_disassemble() added.
+different otool/ofile_print.c (integrated for cctools-102)
+     Using cctoolshppa-37.  Printing hppa cputypes and relocs added.
+     Fixed some print space problems in the master clone ~comp/cctools-29.
+Only in cctoolshppa-37/otool: hppa_disasm.c (integrated for cctools-102)
+     Pickup cctoolshppa-37/otool/hppa_disasm.c from cctoolshppa-37 and
+     Changed line 9 from:
+	#include "hppa-opcode.h"
+     to
+	#include "../as/hppa-opcode.h"
+     Changed line 412 from:
+	struct scattered_relocation_info *srp, *spairp;
+     to
+	struct scattered_relocation_info *srp;
+     to remove a warning.
+     Changed line 630 from:
+	return HPPA_RELOC_NORELOC;
+     to
+	return 0xffffffff;
+     since HPPA_RELOC_NORELOC was removed from mach-o/hppa/reloc.h
+   Changes for cctools-102:
+     moved some functions into libstuff/hppa.c as suggested by the comments.
+Only in cctoolshppa-37/otool: hppa_disasm.h (integrated for cctools-102)
+     Pickup cctoolshppa-37/otool/hppa_disasm.h from cctoolshppa-37.
+Only in cctoolshppa-37/otool: hppa-opcode.h (also NOT pick up for cctools-102)
+     This is simmilar but different to hppa-opcode.h in ../as .  This was not
+     picked up but hppa_disasm.c was changed to include ../as/hppa-opcode.h
+
+Changes for the 3.3 release (the cctools-101 release):
+- Made sections with the attribute S_ATTR_PURE_INSTRUCTIONS disassemble with
+  the -v flag.  Also had to fix the disassemblers to add sect_addr parameter to
+  subract from the address when looking for relocation entries.
+- Added -I to print the indirect symbol tables.
+- Added code to print the dysymtab.
+
+Changes for the 3.3 release (the cctools-100 release):
+- First major round of changes for the new shlib stuff.
+  1) In otool's disassemblers (m68k and i386) support for possition-independent 
+     code through the SECTDIFF relocataion type.
+- Fixed a bug in the m68k disassembler for mulsl where the 2 register form did
+  not disassemble the Dl register correctly (bug #38530).
+- Fixed a bug in the m68k disassembler for bcc branches of 16-bit and 8-bit
+  displacements not getting their target calculated correctly (bug #38531).
+- Fixed a bug in the m68k disassembler for dbcc instructions where the 16-bit
+  displacements were not getting their target calculated correctly.
+
+Changes for the 3.2 release (the cctools-24 release):
+- Fixed a bug in print_argstrings() which was using printf(%s) and that could
+  not correctly deal with a string that did not end in a '\0' before the memory
+  that contained the string ended (bug #33672).
+
+Changes for the 3.1 release (the cctools-22 release):
+- Added printing for these  (bug #32553):
+    { "any",	CPU_TYPE_ANY,	  CPU_SUBTYPE_MULTIPLE },
+    { "little",	CPU_TYPE_ANY,	  CPU_SUBTYPE_LITTLE_ENDIAN },
+    { "big",	CPU_TYPE_ANY,	  CPU_SUBTYPE_BIG_ENDIAN },
+
+Changes for the 3.1 release (the cctools-21 release):
+- Fixed a few bugs in print_objc.c the had arguments reversed so things got
+  swapped when they shouldn't have.
+
+Changes for the 3.1 release (the cctools-15 release):
+- Flushed out the swap_* stubs in print_objc.c.
+- Updated the printing of the m98k cpu flavor to use it's correct definition.
+
+Changes for the 3.1 release (the cctools-14 release):
+- Added the opcodes for tlbiex (31,338) and tlbia (31,370).
+- Changed the m98k instructions: lwarx, ldarx, stwcx. and stdcx. second arg from
+  just a greg to 0 or a greg (r1-r31).
+- For the m98k disassembler removed "mr" for "ori Rx,Ry,0" because the 0 could
+  have a relocation entry and it really could be an "ori" not a "mr" (move
+  register).
+
+Changes for the 3.1 release (the cctools-13 release):
+- Added the m98k (PowerPC) architecture.  This includes a kludged
+  mach/m98k/thread_status.h with only an entry point.
+
+Changes for the 3.1 release (the cctools-10 release):
+- Fixed two bugs in the i386 disassembler.  First the displacement routine
+  needed to sign extend it's value if it was a byte or short before doing the
+  addition.  Second for the 8-bit jumps the operand size needs to be printed
+  as a long not a byte (bug #29789).
+
+Changes for the 3.1 release (the cctools-9 release):
+- Fixed otool -c for the m88k and i386 architectures (bug #29639).  This
+  required a file for each arch that included <bsd/XXXX/vmparam.h> so the value
+  of USRSTACK could be returned.
+
+Changes for the 3.1 release (the cctools-8 release):
+- Added symbolic disassembly for the i386 arch.  This involved a major clean up
+  of i386_disasm.c .
+
+Changes for the 3.1 release (the cctools-7 release):
+- Added the i485 and i586 instructions to the dissembler for the i386 arch.
+- Added a comment character '#' before in the sprintf lines
+  "#***** Error - bad opcode" in _bits.c for disassembling the i386.
+
+Changes for the 3.1 release (the cctools-5 release):
+- Picked up the lono team's mods to ofile_print.c for changes to the i386
+  thread_status.h.
+
+Changes for the 3.1 release (the cctools-4 release):
+- Changed the arch name from ix86 to i386.
+- Changed CPU_TYPE_I80x86 to CPU_TYPE_I386 in main.c that was missed.
+
+Changes for the 3.1 release (the cctools-3 release):
+- Changed CPU_TYPE_I80x86 to CPU_TYPE_I386 and removed CPU_SUBTYPE_AT386
+  CPU_SUBTYPE_EXL .
+
+Changes for the 3.1 release (the cctools-1 release)
+- Created the otool directory with the 3.1 otool.

@@ -1,0 +1,127 @@
+<HTML>
+<HEAD>
+<!-- This HTML file has been created by texi2html 1.51
+     from /mnt/apple/gdb/source/gdb.apple/source/gdb/gdb/doc/gdb.texinfo on 23 November 1999 -->
+
+<TITLE>Debugging with GDB - Formatting Documentation</TITLE>
+</HEAD>
+<BODY>
+Go to the <A HREF="gdb_1.html">first</A>, <A HREF="gdb_18.html">previous</A>, <A HREF="gdb_20.html">next</A>, <A HREF="gdb_21.html">last</A> section, <A HREF="gdb_toc.html">table of contents</A>.
+<P><HR><P>
+
+
+<H1><A NAME="SEC165" HREF="gdb_toc.html#TOC165">Formatting Documentation</A></H1>
+
+<P>
+<A NAME="IDX737"></A>
+The GDB 4 release includes an already-formatted reference card, ready
+for printing with PostScript or Ghostscript, in the <TT>`gdb'</TT>
+subdirectory of the main source directory<A NAME="DOCF5" HREF="gdb_foot.html#FOOT5">(5)</A>.  If you can use PostScript or Ghostscript with your printer,
+you can print the reference card immediately with <TT>`refcard.ps'</TT>.
+
+</P>
+<P>
+The release also includes the source for the reference card.  You
+can format it, using TeX, by typing:
+
+</P>
+
+<PRE>
+make refcard.dvi
+</PRE>
+
+<P>
+The GDB reference card is designed to print in <STRONG>landscape</STRONG> 
+mode on US "letter" size paper; 
+that is, on a sheet 11 inches wide by 8.5 inches
+high.  You will need to specify this form of printing as an option to
+your DVI output program.
+
+</P>
+<P>
+<A NAME="IDX738"></A>
+
+</P>
+<P>
+All the documentation for GDB comes as part of the machine-readable
+distribution.  The documentation is written in Texinfo format, which is
+a documentation system that uses a single source file to produce both
+on-line information and a printed manual.  You can use one of the Info
+formatting commands to create the on-line version of the documentation
+and TeX (or <CODE>texi2roff</CODE>) to typeset the printed version.
+
+</P>
+<P>
+GDB includes an already formatted copy of the on-line Info
+version of this manual in the <TT>`gdb'</TT> subdirectory.  The main Info
+file is <TT>`gdb-19990707/gdb/gdb.info'</TT>, and it refers to
+subordinate files matching <SAMP>`gdb.info*'</SAMP> in the same directory.  If
+necessary, you can print out these files, or read them with any editor;
+but they are easier to read using the <CODE>info</CODE> subsystem in GNU
+Emacs or the standalone <CODE>info</CODE> program, available as part of the
+GNU Texinfo distribution.
+
+</P>
+<P>
+If you want to format these Info files yourself, you need one of the
+Info formatting programs, such as <CODE>texinfo-format-buffer</CODE> or
+<CODE>makeinfo</CODE>.
+
+</P>
+<P>
+If you have <CODE>makeinfo</CODE> installed, and are in the top level
+GDB source directory (<TT>`gdb-19990707'</TT>, in the case of
+version 19990707), you can make the Info file by typing:
+
+</P>
+
+<PRE>
+cd gdb
+make gdb.info
+</PRE>
+
+<P>
+If you want to typeset and print copies of this manual, you need TeX,
+a program to print its DVI output files, and <TT>`texinfo.tex'</TT>, the
+Texinfo definitions file.
+
+</P>
+<P>
+TeX is a typesetting program; it does not print files directly, but
+produces output files called DVI files.  To print a typeset
+document, you need a program to print DVI files.  If your system
+has TeX installed, chances are it has such a program.  The precise
+command to use depends on your system; <KBD>lpr -d</KBD> is common; another
+(for PostScript devices) is <KBD>dvips</KBD>.  The DVI print command may
+require a file name without any extension or a <SAMP>`.dvi'</SAMP> extension.
+
+</P>
+<P>
+TeX also requires a macro definitions file called
+<TT>`texinfo.tex'</TT>.  This file tells TeX how to typeset a document
+written in Texinfo format.  On its own, TeX cannot either read or
+typeset a Texinfo file.  <TT>`texinfo.tex'</TT> is distributed with GDB
+and is located in the <TT>`gdb-<VAR>version-number</VAR>/texinfo'</TT>
+directory.
+
+</P>
+<P>
+If you have TeX and a DVI printer program installed, you can
+typeset and print this manual.  First switch to the the <TT>`gdb'</TT>
+subdirectory of the main source directory (for example, to
+<TT>`gdb-19990707/gdb'</TT>) and type:
+
+</P>
+
+<PRE>
+make gdb.dvi
+</PRE>
+
+<P>
+Then give <TT>`gdb.dvi'</TT> to your DVI printing program.
+
+</P>
+<P><HR><P>
+Go to the <A HREF="gdb_1.html">first</A>, <A HREF="gdb_18.html">previous</A>, <A HREF="gdb_20.html">next</A>, <A HREF="gdb_21.html">last</A> section, <A HREF="gdb_toc.html">table of contents</A>.
+</BODY>
+</HTML>

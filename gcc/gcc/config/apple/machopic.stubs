@@ -1,0 +1,114 @@
+##
+## m68k non-PIC stub
+##
+
+.symbol_stub
+Lprintf$stub:
+        .indirect_symbol _printf
+        jmp @(Lprintf$lazy_ptr)
+Lprintf$stub_binder:
+        movel #Lprintf$lazy_ptr,sp@-
+        bra stub_binding_helper
+        
+.lazy_symbol_pointer
+Lprintf$lazy_ptr:
+        .indirect_symbol _printf
+        .long Lprintf$stub_binder
+
+##
+## m68k PIC stub
+##
+
+.picsymbol_stub
+Lprintf$stub:
+        .indirect_symbol _printf
+        jmp pc@(_printf$lazy_ptr-.)
+Lprintf$stub_binder:
+        movel pc@(Lprintf$lazy_ptr-.),sp@-
+        bra stub_binding_helper
+        
+.lazy_symbol_pointer
+Lprintf$lazy_ptr:
+        .indirect_symbol _printf
+        .long Lprintf$stub_binder
+
+##
+## i386 non-PIC stub
+##
+
+.symbol_stub
+Lprintf$stub:
+        .indirect_symbol _printf
+        ljmp Lprintf$lazy_ptr
+Lprintf$stub_binder:
+        pushl $Lprintf$lazy_ptr
+        jmp stub_binding_helper
+        
+.lazy_symbol_pointer
+Lprintf$lazy_ptr:
+        .indirect_symbol _printf
+        .long Lprintf$stub_binder
+
+##
+## i386 PIC stub
+##
+
+.picsymbol_stub
+Lprintf$stub:
+        .indirect_symbol _printf
+	call LP1
+LP1:	popl %eax
+        jmpl Lprintf$lazy_ptr-LP1(%eax)
+Lprintf$stub_binder:
+	addl Lprintf$lazy_ptr-LP1,%eax
+        pushl %eax
+        jmp stub_binding_helper
+        
+.lazy_symbol_pointer
+Lprintf$lazy_ptr:
+        .indirect_symbol _printf
+        .long Lprintf$stub_binder
+
+##
+## hppa non-PIC stub
+##
+
+.symbol_stub
+Lprintf$stub:
+        .indirect_symbol _printf
+        ldil L`Lprintf$lazy_ptr,%r1
+        ldw R`Lprintf$lazy_ptr(%r1),%r1
+	be,n 0(4,%r1)
+Lprintf$stub_binder:
+	copy %1,%r5
+        ldil L`stub_binding_helper,%r1
+        be,n R`stub_binding_helper(4,%r1)
+
+.lazy_symbol_pointer
+Lprintf$lazy_ptr:
+        .indirect_symbol _printf
+        .long Lprintf$stub_binder
+
+##
+## hppa PIC stub
+##
+
+.picsymbol_stub
+Lprintf$stub:
+        .indirect_symbol _printf
+	bl,n LP1,%r5
+LP1:	addil L`Lprintf$lazy_ptr-LP1,%r5
+        ldw R`Lprintf$lazy_ptr-LP1(%r5),%r1
+	be,n 0(4,%r1)
+Lprintf$stub_binder:
+	bl,n LP2,%r19
+LP2:	copy %r19,%r5
+	addil L`Lprintf$lazy_ptr-LP1,%r5
+        ldo R`Lprintf$lazy_ptr-LP1(%r5),%r5
+        ldil L`stub_binding_helper-LP1,%r19
+        be,n R`stub_binding_helper-LP1(4,%r19)
+
+.lazy_symbol_pointer
+Lprintf$lazy_ptr:
+        .indirect_symbol _printf
+        .long Lprintf$stub_binder

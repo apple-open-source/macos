@@ -1,0 +1,46 @@
+.\" @(#)nibindd.8      92/05/17 rev by JJ
+.TH NIBINDD 8 "March 30, 1998" "Apple Computer, Inc."
+.SH NAME
+nibindd \- NetInfo binder
+.SH SYNOPSIS
+.B nibindd 
+.SH DESCRIPTION
+The
+.I nibindd
+daemon
+is responsible for finding,
+creating and destroying NetInfo
+(\fInetinfod\fP(8)) servers.
+When it starts up,
+it reads the directory
+.I /etc/netinfo
+for directories with the extension ``.nidb''
+and starts up a \fInetinfod\fP server
+for each NetInfo database it finds.
+If
+.I nibindd
+is sent a hangup signal, SIGHUP,
+it kills all running \fInetinfod\fP processes
+and rebinds the NetInfo domain hierarchy (note that this does not affect the connections established by \fIlookupd\fP(8)).
+This is useful
+for getting the system
+to conform to new network configuration changes
+without rebooting. \fInibindd\fP writes a file with its
+process ID number (pid file) in \fI/var/run/nibindd.pid\fP.
+.LP
+The
+.I nibindd
+daemon
+will automatically destroy
+the registration for a \fInetinfod\fP server
+if it disappears for any reason.
+It will take the \fInetinfod\fP servers down
+if it is shut down by sending it a terminate signal, SIGTERM.
+.LP
+\fInidomain\fP(8) is the user interface to \fInibindd\fP.
+.SH FILES
+/etc/netinfo
+.br
+/var/run/nibindd.pid
+.SH "SEE ALSO"
+netinfod(8), nidomain(8), lookupd(8)

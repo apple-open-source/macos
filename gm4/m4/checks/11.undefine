@@ -1,0 +1,11 @@
+dnl ../doc/m4.texinfo:1113: Origin of test
+foo
+dnl @result{}foo
+define(`foo', `expansion text')
+dnl @result{}
+foo
+dnl @result{}expansion text
+undefine(`foo')
+dnl @result{}
+foo
+dnl @result{}foo

@@ -1,0 +1,71 @@
+This is ../info/sc, produced by makeinfo version 4.0 from sc.texi.
+
+INFO-DIR-SECTION Editors
+START-INFO-DIR-ENTRY
+* SC: (sc).		Supercite lets you cite parts of messages you're
+			  replying to, in flexible ways.
+END-INFO-DIR-ENTRY
+
+   This document describes the Supercite Version 3.1 package for citing
+and attributing the replies for various GNU Emacs mail and news reading
+subsystems.
+
+   Copyright (C) 1993 Barry A. Warsaw
+
+   Permission is granted to make and distribute verbatim copies of this
+manual provided the copyright notice and this permission notice are
+preserved on all copies.
+
+
+Indirect:
+sc-1: 594
+sc-2: 48099
+sc-3: 97575
+
+Tag Table:
+(Indirect)
+Node: Top594
+Node: Introduction1294
+Node: Usage Overview3260
+Node: What Supercite Does Not Do4417
+Node: What Supercite Does5546
+Node: Citations8373
+Node: Citation Elements10662
+Node: Recognizing Citations12540
+Node: Information Keys and the Info Alist14585
+Node: Reference Headers17176
+Node: The Built-in Header Rewrite Functions18741
+Node: Electric References21186
+Node: Getting Connected24061
+Node: Emacs 19 MUAs27578
+Node: Emacs 18 MUAs28409
+Node: MH-E with any Emacsen29764
+Node: VM with any Emacsen31524
+Node: GNEWS with any Emacsen32587
+Node: Overloading for Non-conforming MUAs33309
+Node: Replying and Yanking36558
+Node: Reply Buffer Initialization36893
+Node: Filling Cited Text43774
+Node: Selecting an Attribution47242
+Node: Attribution Preferences48099
+Node: Anonymous Attributions52010
+Node: Author Names55046
+Node: Configuring the Citation Engine57529
+Node: Using Regi59253
+Node: Frames You Can Customize63123
+Node: Post-yank Formatting Commands65647
+Node: Citing Commands66792
+Node: Insertion Commands69504
+Node: Variable Toggling Shortcuts70439
+Node: Mail Field Commands72793
+Node: Miscellaneous Commands75160
+Node: Hints to MUA Authors76424
+Node: Version 3 Changes80463
+Node: Thanks and History83159
+Node: The Supercite Mailing List84755
+Node: Concept Index85866
+Node: Command Index92024
+Node: Key Index97575
+Node: Variable Index99566
+
+End Tag Table

@@ -1,0 +1,37 @@
+/*
+ * Copyright 1993 NeXT, Inc.
+ * All rights reserved.
+ *
+ * Malloc interface to zalloc.
+ */
+ 
+#import "libsa.h"
+
+int
+malloc_init(
+    char *start,
+    int size,
+    int nodes
+)
+{
+    return zinit(start,size,nodes);
+}
+
+void *malloc(size_t size)
+{
+    return zalloc(size);
+}
+
+/* This is the simplest way possible.  Should fix this. */
+void *realloc(void *start, size_t newsize)
+{
+    void *newstart = zalloc(newsize);
+    bcopy(start, newstart, newsize);
+    zfree(start);
+    return newstart;
+}
+
+void free(void *start)
+{
+    (void) zfree(start);
+}

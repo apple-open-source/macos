@@ -1,0 +1,79 @@
+{
+    English_RESOURCES = {}; 
+    FILESTABLE = {
+        CLASSES = (zprint.c); 
+        C_FILES = (); 
+        FRAMEWORKS = (); 
+        HEADERSEARCH = (); 
+        H_FILES = (); 
+        M_FILES = (); 
+        OTHER_LINKED = (); 
+        OTHER_SOURCES = (Makefile.preamble, Makefile, README.rtf, APPLE_LICENSE); 
+        PRECOMPILED_HEADERS = (); 
+        PROJECT_HEADERS = (); 
+        PUBLIC_HEADERS = (); 
+        SUBPROJECTS = (
+            dynamic_pager.tproj, 
+            dp_notify_lib, 
+            ac.tproj, 
+            accton.tproj, 
+            arch.tproj, 
+            at.tproj, 
+            atrun.tproj, 
+            chkpasswd.tproj, 
+            chpass.tproj, 
+            dmesg.tproj, 
+            fastboot.tproj, 
+            getty.tproj, 
+            halt.tproj, 
+            hostinfo.tproj, 
+            init.tproj, 
+            iostat.tproj, 
+            kgmon.tproj, 
+            kmodload.tproj, 
+            kmodstat.tproj, 
+            kmodunload.tproj, 
+            ktrace.tproj, 
+            login.tproj, 
+            mach_init.tproj, 
+            makekey.tproj, 
+            mkfile.tproj, 
+            nologin.tproj, 
+            nvram.tproj, 
+            pagesize.tproj, 
+            passwd.tproj, 
+            pwd_mkdb.tproj, 
+            reboot.tproj, 
+            shutdown.tproj, 
+            sync.tproj, 
+            sysctl.tproj, 
+            update.tproj, 
+            vipw.tproj, 
+            zic.tproj, 
+            zdump.tproj, 
+            vm_stat.tproj, 
+            zprint.tproj, 
+            top.tproj, 
+            kextload.tproj, 
+            kextunload.tproj, 
+            kextd.tproj, 
+            latency.tproj, 
+            sc_usage.tproj, 
+            fs_usage.tproj
+        ); 
+    }; 
+    LANGUAGE = English; 
+    LOCALIZABLE_FILES = {}; 
+    MAKEFILEDIR = "$(MAKEFILEPATH)/pb_makefiles"; 
+    NEXTSTEP_BUILDTOOL = /bin/gnumake; 
+    NEXTSTEP_JAVA_COMPILER = /usr/bin/javac; 
+    NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc; 
+    PDO_UNIX_JAVA_COMPILER = "$(NEXTDEV_BIN)/javac"; 
+    PDO_UNIX_OBJCPLUS_COMPILER = "$(NEXTDEV_BIN)/gcc"; 
+    PROJECTNAME = system_cmds; 
+    PROJECTTYPE = Aggregate; 
+    PROJECTVERSION = 2.8; 
+    TARGETS = (); 
+    WINDOWS_JAVA_COMPILER = "$(JDKBINDIR)/javac.exe"; 
+    WINDOWS_OBJCPLUS_COMPILER = "$(DEVDIR)/gcc"; 
+}

@@ -1,0 +1,6 @@
+BundleExtension  = bundle
+BundleInstallDir = $(NSLIBRARYDIR)/CoreServices/SystemStarter
+
+AFTER_INSTALL = install_bundles
+
+include $(MAKEFILEPATH)/CoreOS/ProjectBuilder/Makefile.Preamble.Common

@@ -1,0 +1,24 @@
+{
+    FILESTABLE = {
+        Documentation = (
+            version.texi, 
+            texinfo.tex, 
+            m4.texinfo, 
+            "m4.info-3", 
+            "m4.info-2", 
+            "m4.info-1", 
+            m4.info
+        ); 
+        Headers = (); 
+        Makefiles = (Makefile.in); 
+        Resources = (); 
+        SUBPROJECTS = (); 
+        Sources = (); 
+    }; 
+    NEXTSTEP_BUILDTOOL = /bin/make; 
+    PDO_UNIX_BUILDTOOL = /bin/make; 
+    PROJECTNAME = doc; 
+    PROJECTTYPE = "GNU Source"; 
+    PROJECTVERSION = 2.6; 
+    WINDOWS_BUILDTOOL = "${NEXT_ROOT}/NextDeveloper/Executables/make"; 
+}

@@ -1,0 +1,176 @@
+#$Id: Makefile.0,v 1.1.1.1 1999/09/23 17:30:07 wsanchez Exp $
+
+PM_OBJ=cstdio.$(O) common.$(O) exopen.$(O) goodies.$(O) locking.$(O) \
+ mailfold.$(O) misc.$(O) pipes.$(O) regexp.$(O) robust.$(O) sublib.$(O) \
+ acommon.$(O) mcommon.$(O) lastdirsep.$(O) authenticate.$(O)
+LF_OBJ=exopen.$(O) sublib.$(O) acommon.$(O) mcommon.$(O) authenticate.$(O)
+FM_OBJ=common.$(O) fields.$(O) formisc.$(O) sublib.$(O) ecommon.$(O) \
+ acommon.$(O)
+MG_OBJ=sublib.$(O) ecommon.$(O) mcommon.$(O) hsort.$(O) lastdirsep.$(O)
+
+all:	$(BINSS)
+
+make:							# fake target
+	@$(SHELL) -c "exit 0"
+
+.PRECIOUS: Makefile
+
+procmail: procmail.$(O) $(PM_OBJ) setid
+	$(CC) $(CFLAGS) $@.$(O) $(PM_OBJ) -o $@ $(LDFLAGS)
+
+lockfile: lockfile.$(O) $(LF_OBJ)
+	$(CC) $(CFLAGS) $@.$(O) $(LF_OBJ) -o $@ $(LDFLAGS)
+
+formail: formail.$(O) $(FM_OBJ)
+	$(CC) $(CFLAGS) $@.$(O) $(FM_OBJ) -o $@ $(LDFLAGS)
+
+mailstat: ../examples/mailstat
+	cp ../examples/$@ $@
+	@chmod 0755 $@
+
+multigram: multigram.$(O) $(MG_OBJ) setid
+	$(CC) $(CFLAGS) $@.$(O) $(MG_OBJ) -o $@ $(LDFLAGS)
+
+../config.check:
+	@cd ..; $(MAKE) config.check
+
+_autotst: _autotst.$(O) sublib.c sublib.h
+	$(CC) $(CFLAGS) $@.$(O) -o $@ $(LDFLAGS)
+
+../autoconf.h: autoconf Makefile ../patchlevel.h
+	@echo No this was not make -n >make_n
+	$(SHELL) ./autoconf $(SHELL) "$(RM)" "$(MV)" $(DEVNULL) \
+ "$(FGREP)" "$(MAKE)" $(O) "$(LOCKINGTEST)" \
+ "$(VISIBLE_BINDIR)" $@
+
+autoconf.h: ../autoconf.h
+
+targetdir.h:
+	echo "You only can/need to make multigram if you are installing"
+	echo "the mailinglist scripts.	Read ../SmartList/INSTALL for"
+	echo "more directions."
+	exit 64
+
+acommon.$(O): ../autoconf.h ../config.h includes.h acommon.h robust.h shell.h
+
+authenticate.$(O): ../autoconf.h ../config.h includes.h robust.h shell.h
+authenticate.$(O): misc.h authenticate.h authenticate.c
+	$(CC) -c -DPROCMAIL $(CFLAGS) $*.c
+
+common.$(O): ../autoconf.h ../config.h includes.h procmail.h sublib.h robust.h
+common.$(O): shell.h misc.h common.h
+
+cstdio.$(O): ../autoconf.h ../config.h includes.h procmail.h robust.h cstdio.h
+cstdio.$(O):  misc.h
+
+ecommon.$(O): ../autoconf.h ../config.h includes.h ecommon.h common.h shell.h
+
+exopen.$(O): ../autoconf.h ../config.h includes.h procmail.h acommon.h robust.h
+exopen.$(O): misc.h exopen.h
+
+fields.$(O): ../autoconf.h ../config.h includes.h formail.h sublib.h shell.h
+fields.$(O): common.h fields.h ecommon.h formisc.h
+
+formail.$(O): ../autoconf.h ../config.h includes.h formail.h acommon.h sublib.h
+formail.$(O): shell.h common.h fields.h ecommon.h formisc.h header.h
+formail.$(O): ../patchlevel.h
+
+formisc.$(O): ../autoconf.h ../config.h includes.h formail.h sublib.h shell.h
+formisc.$(O): common.h ecommon.h formisc.h
+
+goodies.$(O): ../autoconf.h ../config.h includes.h procmail.h sublib.h robust.h
+goodies.$(O): shell.h misc.h pipes.h common.h cstdio.h goodies.h
+
+hsort.$(O): ../autoconf.h ../config.h includes.h hsort.h
+
+lastdirsep.$(O): ../autoconf.h ../config.h includes.h lastdirsep.h
+
+lockfile.$(O): ../autoconf.h ../config.h includes.h sublib.h exopen.h mcommon.h
+lockfile.$(O): authenticate.h ../patchlevel.h
+
+locking.$(O): ../autoconf.h ../config.h includes.h procmail.h robust.h shell.h
+locking.$(O): misc.h pipes.h exopen.h locking.h lastdirsep.h
+
+mailfold.$(O): ../autoconf.h ../config.h includes.h procmail.h acommon.h
+mailfold.$(O): sublib.h robust.h shell.h misc.h pipes.h common.h exopen.h
+mailfold.$(O): goodies.h locking.h mailfold.h
+
+mcommon.$(O): ../autoconf.h ../config.h includes.h mcommon.h
+
+misc.$(O): ../autoconf.h ../config.h ../patchlevel.h includes.h procmail.h
+misc.$(O): acommon.h sublib.h robust.h shell.h misc.h pipes.h common.h cstdio.h
+misc.$(O): exopen.h regexp.h mcommon.h goodies.h locking.h network.h mailfold.h
+misc.$(O): lastdirsep.h authenticate.h
+
+multigram.$(O): ../autoconf.h ../config.h includes.h sublib.h hsort.h shell.h
+multigram.$(O): ecommon.h mcommon.h lastdirsep.h targetdir.h
+
+pipes.$(O): ../autoconf.h ../config.h includes.h procmail.h robust.h shell.h
+pipes.$(O): misc.h pipes.h common.h cstdio.h exopen.h mcommon.h goodies.h
+pipes.$(O): mailfold.h
+
+procmail.$(O): ../patchlevel.h ../autoconf.h ../config.h includes.h procmail.h
+procmail.$(O): acommon.h sublib.h robust.h shell.h misc.h pipes.h common.h
+procmail.$(O): cstdio.h exopen.h regexp.h mcommon.h goodies.h locking.h
+procmail.$(O): mailfold.h lastdirsep.h authenticate.h
+
+regexp.$(O): ../autoconf.h ../config.h includes.h procmail.h sublib.h robust.h
+regexp.$(O): shell.h misc.h regexp.h goodies.h
+
+robust.$(O): ../autoconf.h ../config.h includes.h procmail.h robust.h shell.h
+robust.$(O): misc.h pipes.h common.h mailfold.h shell.h
+
+sublib.$(O): ../autoconf.h ../config.h includes.h sublib.h shell.h
+
+gethome.$(O) setid.$(O) recommend.$(O): ../autoconf.h ../config.h includes.h
+
+gethome.$(O): gethome.c
+	@$(CC) -c $(CFLAGS) $*.c
+
+setid.$(O): setid.c
+	@$(CC) -c $(CFLAGS) $*.c
+
+recommend.$(O): recommend.c
+	@$(CC) -c $(CFLAGS) $*.c
+
+.c.$(O):
+	$(CC) -c $(CFLAGS) $<
+
+gethome: gethome.$(O) setid
+	@$(CC) $(CFLAGS) $@.$(O) -o $@ $(LDFLAGS)
+
+getparams:
+	@echo "ln=\"$(LN)\"" >../SmartList/targetdir.tmp
+
+setid: setid.$(O)
+	@$(CC) $(CFLAGS) $@.$(O) -o $@ $(LDFLAGS)
+
+recommend: recommend.$(O) sublib.$(O)
+	@$(CC) $(CFLAGS) $@.$(O) sublib.$(O) -o $@ $(LDFLAGS)
+
+../man/man.sed: manconf.c ../autoconf.h ../config.h includes.h procmail.h
+../man/man.sed: ../patchlevel.h lastdirsep.h lastdirsep.$(O)
+	@$(CC) $(CFLAGS) "-DBINDIR=\"$(VISIBLE_BINDIR)\"" -o _autotst \
+ manconf.c lastdirsep.$(O) $(LDFLAGS)
+	@./_autotst $@
+	@echo Housekeeping file >$@
+	@$(RM) _autotst
+
+clean:
+	$(RM) -r _locktest
+	$(RM) procmail.$(O) $(PM_OBJ) lockfile.$(O) $(LF_OBJ) formail.$O \
+ $(FM_OBJ) multigram.$(O) $(MG_OBJ) $(BINSS) multigram ../autoconf.h \
+ _autotst* lookfor _locktst* grepfor recommend recommend.$(O) manconf \
+ _Makefile lock.log *core* targetdir.h setid setid.$(O) gethome \
+ gethome.$(O) make_n realloc.log
+
+Makefile: ../Makefile Makefile.0
+	@echo "You have made changes to the master Makefile, in order for"
+	@echo "these changes to show through, you will first have to do:"
+	@echo "$(MAKE) makefiles"
+
+makefiles Makefiles makefile:
+	cd ..; $(MAKE) makefiles
+
+init:
+	cd ..; $(MAKE) $@

@@ -1,0 +1,267 @@
+dnl Process this file with autoconf to produce a configure script.
+
+AC_INIT(mod_dav.c)	
+AC_CONFIG_HEADER(config.h)
+
+test -z "$CFLAGS" && auto_cflags=1
+
+AC_PROG_CC
+AC_PROG_RANLIB
+
+#
+# Ugly hack to get around a problem with gcc on AIX.
+#
+if test "$CC" = "gcc" -a "$ac_cv_prog_cc_g" = "yes" -a \
+   "`uname -sv`" = "AIX 4"; then
+   CFLAGS=`echo $CFLAGS | sed -e 's/-g//'`
+fi
+
+if test "`uname -sv`" = "AIX 4" -a "$GCC" != "yes"; then
+     APXS_EXP="-bE:mod_dav.exp"
+fi
+AC_SUBST(APXS_EXP)
+
+#
+# Hack to work around a Mac OS X Server cpp problem
+# Known versions needing this workaround are 5.3 and 5.4
+#
+if test "$ac_cv_prog_gcc" = "yes" -a "`uname -s`" = "Rhapsody"; then
+        CPPFLAGS="$CPPFLAGS -traditional-cpp"
+fi
+
+#
+# Check for /usr/pkg/{lib,include} which is where NetBSD puts binary
+# and source packages.  This should be harmless on other OSs.
+#
+if test -d /usr/pkg/include -a -d /usr/pkg/lib ; then
+       CFLAGS="$CFLAGS -I/usr/pkg/include"
+       LDFLAGS="$LDFLAGS -L/usr/pkg/lib"
+fi
+
+AC_HEADER_STDC
+
+AC_MSG_CHECKING(for static Apache module support)
+AC_ARG_WITH(apache,
+[  --with-apache=DIR      Build static Apache module.  DIR is the path
+                         to the top-level Apache source directory.],
+[
+	if test "$withval" = "yes"; then
+		AC_MSG_ERROR(You need to specify a directory with --with-apache)
+	fi
+	if test -f $withval/src/include/httpd.h; then
+		APACHE_BASE=$withval
+		APACHE_INCLUDE="$withval/src/include";
+		INCLUDE="$INCLUDE -I$withval/src/include -I$withval/src/os/unix"
+		TARGET=$withval/src/modules/dav
+		if test ! -d $TARGET; then
+			mkdir $TARGET
+		fi	
+		BINNAME=libdav.a
+		LIBS="$extra_l"
+		INSTALL_IT="mkdir -p $TARGET; cp $BINNAME mod_dav.c mod_dav.exp Makefile.tmpl Makefile.libdir libdav.module dav_shared_stub.c $extra_copy $TARGET"
+		AC_MSG_RESULT(yes - Apache 1.3.x)
+	else
+		AC_MSG_RESULT(no - Unable to locate $withval/src/include/httpd.h)
+		FAIL_STATIC=1
+	fi
+],[
+    AC_MSG_RESULT(no)
+])
+
+
+AC_MSG_CHECKING([for dynamic Apache module support (via APXS)])
+AC_ARG_WITH(apxs,
+[  --with-apxs[=FILE]      Build shared Apache module.  FILE is the optional
+                          pathname to the Apache apxs tool; defaults to "apxs".],
+[
+    if test "$BINNAME" != ""; then
+      AC_MSG_ERROR(--with-apache and --with-apxs are mutually exclusive)
+    fi
+
+    if test "$withval" = "yes"; then
+      APXS=apxs
+    else
+      APXS="$withval"
+    fi
+])
+
+if test "$BINNAME" = "" -a "$APXS" = "" -a "$FAIL_STATIC" = ""; then
+  for i in /usr/sbin /usr/local/apache/bin ; do
+    if test -f "$i/apxs"; then
+      APXS="$i/apxs"
+    fi
+  done
+fi
+
+if test -n "$APXS"; then
+    BINNAME=libdav.so
+
+    APXS_CC="`$APXS -q CC`"
+    APXS_INCLUDE="`$APXS -q INCLUDEDIR`"
+    APXS_LIBEXEC="`$APXS -q LIBEXECDIR`"
+
+    INCLUDE="$INCLUDE -I$APXS_INCLUDE"
+
+    INSTALL_IT="mkdir -p \$(INSTALL_ROOT)$APXS_LIBEXEC && \
+		\$(APXS) -S LIBEXECDIR=\$(INSTALL_ROOT)$APXS_LIBEXEC -i -a -n dav $BINNAME"
+
+    AC_SUBST(APXS)
+    AC_SUBST(BINNAME)
+    AC_SUBST(INSTALL_IT)
+
+    AC_MSG_RESULT(found at $APXS)
+else
+    AC_MSG_RESULT(no)
+fi
+
+if test -n "$APXS"; then
+    if test -z "`$APXS -q LD_SHLIB`" || test "$APXS_LIBEXEC" = "modules"; then
+	AC_MSG_ERROR(
+[Your APXS installation is broken and cannot be used.
+    Please see http://www.webdav.org/mod_dav/install.html#apxs for
+    more information.])
+
+    fi
+fi
+
+# If we did not find a way to build/install mod_dav, then bail out.
+if test "$BINNAME" = ""; then
+	if test "$FAIL_STATIC" = ""; then
+		AC_MSG_ERROR(You must specify either --with-apxs or --with-apache)
+	else
+		AC_MSG_ERROR(You need to point --with-apache at the base Apache source code directory)
+	fi
+fi
+
+XML_EXPAT_LIB=-lexpat
+
+AC_MSG_CHECKING(for expat)
+AC_ARG_WITH(expat,
+[  --with-expat[=DIR]        Use this to specify expat install dir overriding
+                            default search.],
+[
+  if test "$withval" != "no" ; then
+    if test -f "$withval/include/xmlparse.h" ; then
+        XML_DIR=$withval
+        XML_INCLUDE="$withval/include"
+        XML_LIB="$withval/lib"
+    fi
+    if test "$XML_DIR" = "" ; then
+      if test -f "$withval/include/xml/xmlparse.h" ; then
+        XML_DIR=$withval
+        XML_INCLUDE="$withval/include/xml"
+        XML_LIB="$withval/lib"
+      fi
+    fi
+    if test "$XML_DIR" = "" ; then
+      if test -f "$withval/include/xmltok/xmlparse.h"; then
+	# Debian
+	XML_DIR=$withval
+	XML_INCLUDE="$withval/include/xmltok"
+	XML_LIB="$withval/lib"
+	XML_EXPAT_LIB="-lxmlparse -lxmltok"
+      fi
+    fi
+    if test "$XML_DIR" = "" ; then
+      if test -f "$withval/libexpat.a" -a -f "$withval/xmlparse/xmlparse.h" ; then
+	XML_DIR=$withval
+	XML_INCLUDE="$withval/xmlparse"
+	XML_LIB=$withval
+      fi
+    fi
+    if test "$XML_DIR" = "" ; then
+      AC_MSG_ERROR(cannot find expat include files at specified location)
+    fi
+  fi
+])
+
+#
+# Try to figure out where expat might be found if not specified using
+# --with-expat.  First check to see if it is part of Apache.
+#
+if test "$XML_DIR" = ""; then
+	if test -n "$APXS"; then
+		if test -f "$APXS_INCLUDE/xml/xmlparse.h"; then
+			XML_DIR=$APXS_INCLUDE
+			XML_INCLUDE="$APXS_INCLUDE/xml"
+		fi
+	else
+		if test -f "$APACHE_BASE/src/lib/expat-lite/xmlparse.h" ; then
+			XML_DIR="$APACHE_BASE/src/lib/expat-lite"
+			XML_INCLUDE=$XML_DIR
+		elif test -f "$APACHE_INCLUDE/xml/xmlparse.h" ; then
+			XML_DIR="$APACHE_INCLUDE/xml"
+			XML_INCLUDE=$XML_DIR
+		fi
+	fi
+fi
+
+#
+# It was not in Apache. See if we can find it somewhere in the system.
+#
+if test "$XML_DIR" = ""; then
+	for i in /usr /usr/local ; do
+		if test -f "$i/include/xmlparse.h"; then
+			XML_DIR=$i
+			XML_INCLUDE="$i/include"
+			XML_LIB="$i/lib"
+		elif test -f "$i/include/xml/xmlparse.h"; then
+			XML_DIR=$i
+			XML_INCLUDE="$i/include/xml"
+			XML_LIB="$i/lib"
+		elif test -f "$i/include/xmltok/xmlparse.h"; then
+			# Debian
+			XML_DIR=$i
+			XML_INCLUDE="$i/include/xmltok"
+			XML_LIB="$i/lib"
+			XML_EXPAT_LIB="-lxmlparse -lxmltok"
+		fi
+	done
+fi
+
+#
+# Give up. We could not find Expat on the command line, in Apache, or
+# somewhere in the system.
+#
+if test "$XML_DIR" = "" ; then
+	AC_MSG_ERROR(cannot find expat include files - install expat or use --with-expat=<dir>)
+fi
+
+#
+# The search process above should have set XML_LIB and XML_INCLUDE.
+#
+if test "$XML_LIB" != "" ; then
+	LIBS="$LIBS -L$XML_LIB $XML_EXPAT_LIB"
+fi	
+
+#
+# Set up the various includes -- direct and via APXS
+#
+INCLUDE="$INCLUDE -I$XML_INCLUDE"
+if test -n "$APXS"; then
+  CFLAGS="$CFLAGS `$APXS -q CFLAGS CFLAGS_SHLIB`"
+fi
+
+AC_MSG_RESULT(found in $XML_DIR)
+
+AC_SUBST(INCLUDE)
+AC_SUBST(LIBS)
+
+AC_OUTPUT(Makefile libdav.module)
+
+if test -n "$APXS_CC" && test "$APXS_CC" != "$CC" ; then
+  echo "=================================================================="
+  echo "WARNING: You have chosen to compile mod_dav with a different"
+  echo "         compiler than the one used to compile Apache."
+  echo ""
+  echo "    Current compiler:      $CC"
+  echo "   Apache's compiler:      $APXS_CC"
+  echo ""
+  echo "This could cause some problems."
+  echo "=================================================================="
+fi
+
+# when building outside of the source tree, sdbm may not exist. make it so.
+if test ! -d sdbm; then
+  mkdir sdbm
+fi

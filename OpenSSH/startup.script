@@ -1,0 +1,24 @@
+#!/bin/sh
+
+. /etc/rc.common
+
+##
+# Start up secure login server
+##
+
+if [ "${SSHSERVER:=-NO-}" = "-YES-" ]; then
+
+    ConsoleMessage "Starting Secure Login Server"
+
+    if [ ! -f /etc/ssh_host_key ]; then
+	echo "Generating ssh host RSA key..."
+	ssh-keygen -f /etc/ssh_host_key -N "" -C "$(hostname)"
+    fi
+    if [ ! -f /etc/ssh_host_dsa_key ]; then
+	echo "Generating ssh host DSA key..."
+	ssh-keygen -d -f /etc/ssh_host_dsa_key -N "" -C "$(hostname)"
+    fi
+
+    /usr/sbin/sshd &
+
+fi

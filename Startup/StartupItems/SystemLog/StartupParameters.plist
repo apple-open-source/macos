@@ -1,0 +1,11 @@
+{
+  Description     = "system error/notice log";
+  Provides        = ("System Log");
+  Requires        = ("Network");
+  OrderPreference = "First";
+  Messages =
+  {
+    start = "Starting system log";
+    stop  = "Stopping system log";
+  };
+}

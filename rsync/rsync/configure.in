@@ -1,0 +1,225 @@
+dnl Process this file with autoconf to produce a configure script.
+AC_INIT(byteorder.h)
+AC_CONFIG_HEADER(config.h)
+
+# compile with optimisation and without debugging by default
+CFLAGS=${CFLAGS-"-O"}
+
+AC_CANONICAL_SYSTEM
+AC_VALIDATE_CACHE_SYSTEM_TYPE
+
+dnl Checks for programs.
+AC_PROG_CC
+AC_PROG_INSTALL
+AC_SUBST(SHELL)
+
+AC_CHECK_PROG(HAVE_REMSH, remsh, 1, 0)
+AC_DEFINE_UNQUOTED(HAVE_REMSH, $HAVE_REMSH)
+
+AC_C_BIGENDIAN
+AC_HEADER_DIRENT
+AC_HEADER_TIME
+AC_HEADER_SYS_WAIT
+AC_CHECK_HEADERS(sys/fcntl.h sys/select.h fcntl.h sys/time.h sys/unistd.h unistd.h utime.h grp.h)
+AC_CHECK_HEADERS(compat.h sys/param.h ctype.h sys/wait.h sys/ioctl.h)
+AC_CHECK_HEADERS(sys/filio.h string.h stdlib.h sys/socket.h sys/mode.h)
+AC_CHECK_HEADERS(glob.h)
+
+AC_CHECK_SIZEOF(int)
+AC_CHECK_SIZEOF(long)
+AC_CHECK_SIZEOF(short)
+
+AC_C_INLINE
+
+AC_TYPE_SIGNAL
+AC_TYPE_UID_T
+AC_TYPE_MODE_T
+AC_TYPE_OFF_T
+AC_TYPE_SIZE_T
+AC_TYPE_PID_T
+AC_TYPE_GETGROUPS
+AC_STRUCT_ST_RDEV
+AC_CHECK_TYPE(ino_t,unsigned)
+
+AC_CACHE_CHECK([for errno in errno.h],rsync_cv_errno, [
+    AC_TRY_COMPILE([#include <errno.h>],[int i = errno],
+	rsync_cv_errno=yes,rsync_cv_have_errno_decl=no)])
+if test x"$rsync_cv_errno" = x"yes"; then
+   AC_DEFINE(HAVE_ERRNO_DECL)
+fi
+
+AC_FUNC_MEMCMP
+AC_FUNC_UTIME_NULL
+AC_CHECK_FUNCS(waitpid wait4 getcwd strdup strerror chown chmod mknod)
+AC_CHECK_FUNCS(fchmod fstat strchr readlink link utime utimes strftime)
+AC_CHECK_FUNCS(memmove lchown vsnprintf snprintf setsid glob strpbrk)
+AC_CHECK_FUNCS(strlcat strlcpy)
+
+AC_CACHE_CHECK([for working fnmatch],rsync_cv_HAVE_FNMATCH,[
+AC_TRY_RUN([#include <fnmatch.h>
+main() { exit(fnmatch("*.o", "x.o", FNM_PATHNAME) == 0? 0: 1); }],
+rsync_cv_HAVE_FNMATCH=yes,rsync_cv_HAVE_FNMATCH=no,rsync_cv_HAVE_FNMATCH=cross)])
+if test x"$rsync_cv_HAVE_FNMATCH" = x"yes"; then
+    AC_DEFINE(HAVE_FNMATCH)
+fi
+
+# sometimes getopt_long cannot parse same arguments twice
+# e.g. on certain versions of CygWin32
+AC_CACHE_CHECK([for working getopt_long],rsync_cv_HAVE_GETOPT_LONG,[
+AC_TRY_RUN([#include <getopt.h>
+main() {
+    int i, x = 0; char *argv[] = { "x", "--xx" };
+    struct option o[] = {{"xx", 0, 0, 1}, {0,0,0,0}};
+    getopt_long(2, argv, "x", o, &i) == 1 ? x++ : 0; optind = 0;
+    getopt_long(2, argv, "x", o, &i) == 1 ? x++ : 0;
+    exit(x == 2 ? 0 : 1);
+}], rsync_cv_HAVE_GETOPT_LONG=yes,rsync_cv_HAVE_GETOPT_LONG=no,
+    rsync_cv_HAVE_GETOPT_LONG=cross)])
+if test x"$rsync_cv_HAVE_GETOPT_LONG" = x"yes"; then
+    AC_DEFINE(HAVE_GETOPT_LONG)
+fi
+
+AC_CACHE_CHECK([for long long],rsync_cv_HAVE_LONGLONG,[
+AC_TRY_RUN([#include <stdio.h>
+main() { long long x = 1000000; x *= x; exit(((x/1000000) == 1000000)? 0: 1); }],
+rsync_cv_HAVE_LONGLONG=yes,rsync_cv_HAVE_LONGLONG=no,rsync_cv_HAVE_LONGLONG=cross)])
+if test x"$rsync_cv_HAVE_LONGLONG" = x"yes"; then
+    AC_DEFINE(HAVE_LONGLONG)
+fi
+
+AC_CACHE_CHECK([for off64_t],rsync_cv_HAVE_OFF64_T,[
+AC_TRY_RUN([#include <stdio.h>
+#include <sys/stat.h>
+main() { struct stat64 st; off64_t s; if (sizeof(off_t) == sizeof(off64_t)) exit(1); exit((lstat64("/dev/null", &st)==0)?0:1); }],
+rsync_cv_HAVE_OFF64_T=yes,rsync_cv_HAVE_OFF64_T=no,rsync_cv_HAVE_OFF64_T=cross)])
+if test x"$rsync_cv_HAVE_OFF64_T" = x"yes"; then
+    AC_DEFINE(HAVE_OFF64_T)
+fi
+
+AC_CACHE_CHECK([for short ino_t],rsync_cv_HAVE_SHORT_INO_T,[
+AC_TRY_RUN([#include <stdio.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+main() { if (sizeof(ino_t) < sizeof(unsigned int)) return 0; return 1; }],
+rsync_cv_HAVE_SHORT_INO_T=yes,rsync_cv_HAVE_SHORT_INO_T=no,rsync_cv_HAVE_SHORT_INO_T=cross)])
+if test x"$rsync_cv_HAVE_SHORT_INO_T" = x"yes"; then
+    AC_DEFINE(HAVE_SHORT_INO_T)
+fi
+
+AC_CACHE_CHECK([for unsigned char],rsync_cv_HAVE_UNSIGNED_CHAR,[
+AC_TRY_RUN([#include <stdio.h>
+main() { char c; c=250; exit((c > 0)?0:1); }],
+rsync_cv_HAVE_UNSIGNED_CHAR=yes,rsync_cv_HAVE_UNSIGNED_CHAR=no,rsync_cv_HAVE_UNSIGNED_CHAR=cross)])
+if test x"$rsync_cv_HAVE_UNSIGNED_CHAR" = x"yes"; then
+    AC_DEFINE(HAVE_UNSIGNED_CHAR)
+fi
+
+AC_CACHE_CHECK([for broken readdir],rsync_cv_HAVE_BROKEN_READDIR,[
+AC_TRY_RUN([#include <sys/types.h>
+#include <dirent.h>
+main() { struct dirent *di; DIR *d = opendir("."); di = readdir(d);
+if (di && di->d_name[-2] == '.' && di->d_name[-1] == 0 &&
+di->d_name[0] == 0) exit(0); exit(1);} ],
+rsync_cv_HAVE_BROKEN_READDIR=yes,rsync_cv_HAVE_BROKEN_READDIR=no,rsync_cv_HAVE_BROKEN_READDIR=cross)])
+if test x"$rsync_cv_HAVE_BROKEN_READDIR" = x"yes"; then
+    AC_DEFINE(HAVE_BROKEN_READDIR)
+fi
+
+AC_CACHE_CHECK([for utimbuf],rsync_cv_HAVE_UTIMBUF,[
+AC_TRY_COMPILE([#include <sys/types.h>
+#include <utime.h>],
+[struct utimbuf tbuf;  tbuf.actime = 0; tbuf.modtime = 1; exit(utime("foo.c",&tbuf));],
+rsync_cv_HAVE_UTIMBUF=yes,rsync_cv_HAVE_UTIMBUF=no,rsync_cv_HAVE_UTIMBUF=cross)])
+if test x"$rsync_cv_HAVE_UTIMBUF" = x"yes"; then
+    AC_DEFINE(HAVE_UTIMBUF)
+fi
+
+AC_CACHE_CHECK([for broken inet_ntoa],rsync_cv_REPLACE_INET_NTOA,[
+AC_TRY_RUN([
+#include <stdio.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+main() { struct in_addr ip; ip.s_addr = 0x12345678;
+if (strcmp(inet_ntoa(ip),"18.52.86.120") &&
+    strcmp(inet_ntoa(ip),"120.86.52.18")) { exit(0); } 
+exit(1);}],
+           rsync_cv_REPLACE_INET_NTOA=yes,rsync_cv_REPLACE_INET_NTOA=no,rsync_cv_REPLACE_INET_NTOA=cross)])
+if test x"$rsync_cv_REPLACE_INET_NTOA" = x"yes"; then
+    AC_DEFINE(REPLACE_INET_NTOA)
+fi
+
+# The following test taken from the cvs sources
+# If we can't find connect, try looking in -lsocket, -lnsl, and -linet.
+# The Irix 5 libc.so has connect and gethostbyname, but Irix 5 also has
+# libsocket.so which has a bad implementation of gethostbyname (it
+# only looks in /etc/hosts), so we only look for -lsocket if we need
+# it.
+AC_CHECK_FUNCS(connect)
+if test x"$ac_cv_func_connect" = x"no"; then
+    case "$LIBS" in
+    *-lnsl*) ;;
+    *) AC_CHECK_LIB(nsl_s, printf) ;;
+    esac
+    case "$LIBS" in
+    *-lnsl*) ;;
+    *) AC_CHECK_LIB(nsl, printf) ;;
+    esac
+    case "$LIBS" in
+    *-lsocket*) ;;
+    *) AC_CHECK_LIB(socket, connect) ;;
+    esac
+    case "$LIBS" in
+    *-linet*) ;;
+    *) AC_CHECK_LIB(inet, connect) ;;
+    esac
+    dnl We can't just call AC_CHECK_FUNCS(connect) here, because the value
+    dnl has been cached.
+    if test x"$ac_cv_lib_socket_connect" = x"yes" || 
+       test x"$ac_cv_lib_inet_connect" = x"yes"; then
+        # ac_cv_func_connect=yes
+        # don't!  it would cause AC_CHECK_FUNC to succeed next time configure is run
+        AC_DEFINE(HAVE_CONNECT)
+    fi
+fi
+
+# 
+# if we can't find strcasecmp, look in -lresolv (for Unixware at least)
+#
+AC_CHECK_FUNCS(strcasecmp)
+if test x"$ac_cv_func_strcasecmp" = x"no"; then
+    AC_CHECK_LIB(resolv, strcasecmp)
+fi
+
+#
+# The following test was mostly taken from the tcl/tk plus patches
+#
+AC_CACHE_CHECK([whether -c -o works],rsync_cv_DASHC_WORKS_WITH_DASHO,[
+rm -rf conftest*
+cat > conftest.$ac_ext <<EOF
+int main() { return 0; }
+EOF
+${CC-cc} -c -o conftest..o conftest.$ac_ext
+if test -f conftest..o; then
+    rsync_cv_DASHC_WORKS_WITH_DASHO=yes
+else
+    rsync_cv_DASHC_WORKS_WITH_DASHO=no
+fi
+rm -rf conftest*
+])
+if test x"$rsync_cv_DASHC_WORKS_WITH_DASHO" = x"yes"; then
+    OBJ_SAVE="#"
+    OBJ_RESTORE="#"
+    CC_SHOBJ_FLAG='-o $@'
+else
+    OBJ_SAVE='	@b=`basename $@ .o`;rm -f $$b.o.sav;if test -f $$b.o; then mv $$b.o $$b.o.sav;fi;'
+    OBJ_RESTORE='	@b=`basename $@ .o`;if test "$$b.o" != "$@"; then mv $$b.o $@; if test -f $$b.o.sav; then mv $$b.o.sav $$b.o; fi; fi'
+    CC_SHOBJ_FLAG=""
+fi
+
+AC_SUBST(OBJ_SAVE)
+AC_SUBST(OBJ_RESTORE)
+AC_SUBST(CC_SHOBJ_FLAG)
+
+
+AC_OUTPUT(Makefile lib/dummy zlib/dummy)

@@ -1,0 +1,163 @@
+Changes for the 5.8 release (the cctools-357 release):
+- Added support for the CPU_SUBTYPE_POWERPC_7450 in arch.c . Radar bug #2599869.
+
+Changes for the 5.8 release (the cctools-344 release):
+- Changed NXFindBestFatArch() in arch.c in the loop looking for the
+  lowest_model to save the current lowest_model so it finds the lowest_model.
+
+Changes for the the 5.8 release (the cctools-342 release):
+- Added support for swapping the LC_SUB_CLIENT load command (Radar bug 2533649).
+
+Changes for the the 5.8 release (the cctools-341 release):
+- Added support for swapping the LC_SUB_UMBRELLA load command (Radar bug
+  #2530028).
+- Added back the building of optimized_ofiles and the installing of
+  libmacho_static.a to the Makefile for RC_OS=macos so that the static KLD 
+  can be linked with it. Radar bug #2523649.
+
+Changes for the the 5.7 release (the cctools-329 release):
+- Changed iinit and ninit fields of the struct dylib_module in
+  swap_dylib_module() in swap.c to iinit_iterm and ninit_nterm.
+
+Changes for the the 5.7 release (the cctools-328 release):
+- Changed where the libraries get installed by default.  So going forward things
+  get install in /usr/local/lib/system and /Local/Developer/System
+  is only used for RC_OS=macos when RC_RELEASE is Gonzo, Bunsen or Beaker.
+  Radar bug #2469527.
+
+Changes for the the 5.7 release (the cctools-327 release):
+- Changed where the libraries get installed by default.  So going forward things
+  get install in /AppleInternal/Developer/System and /Local/Developer/System
+  is only used for RC_OS=macos when RC_RELEASE is Gonzo, Bunsen or Beaker.
+
+Changes for the the 5.6 release (the cctools-323 release):
+- Changed where the libraries get installed for the Space release in preparation
+  of this "Half Plan" becoming the default for DP4 (Gonzo).  This directory
+  /Local/Developer/System is changing to /AppleInternal/Developer/System.
+
+Changes for the 5.6 release (the cctools-320 release):
+- Added support for the new LC_SUB_FRAMEWORK load command to support "Guarding
+  against direct linking of non-umbrella frameworks".  The file that swaps
+  load commands, swap.c, was updated.  The public header file in <mach-o/swap.h>
+  was also updated and the missing prototypes for other functions were also
+  added. Radar bug 2443212.
+
+Changes for the 5.5 release (the cctools-307 release):
+- Added support for the CPU_SUBTYPE_POWERPC_7400 in arch.c. Radar bug #2397523.
+
+Changes for the 5.4 release (the cctools-296 release):
+- For RC_OS=macos no longer build the _static versions, the libmacho_pg.a
+  version is now copied as libmacho_profile.a and a link to libmacho_debug.a is
+  made from libmacho.a.
+
+Changes for the 5.3 release (the cctools-285 release):
+- Changed the Makefile to build libmacho.a, libmacho_pg.a and libmacho_static.a
+  in $(DSTROOT)/Local/Developer/System for MacOS X, that is when $(RC_OS) is
+  macos.  This to allow System framework to be built without using SUBLIBROOTS.
+  Radar bug #2268413.
+
+Changes for the 5.3 release, MacOS X bring up (the cctools-282 release):
+- Changed swap_ppc_thread_state_t() to not use bit fields for srr1, cr and exr
+  to match the ppc_thread_state for Rhapsody/MacOS X.
+- Changed host_self() to mach_host_self() for MacOS X.  Also included
+  "stuff/openstep_mach.h" for macros to allow it to still build on Openstep.
+  Also changed ifdef's __SLICK__ to __OPENSTEP__.
+- Changed the Makefile to allow for RC_OS=macos for MacOS X builds.
+- Added a few casts in places to get it to compile with the MetroWerks compiler
+  without -relax_pointers.
+
+Changes for the 5.2 release (the cctools-277 release):
+- Added code in NXGetArchInfoFromCpuType() for i386 and ppc to create an
+  NXArchInfo struct with strings for unknown subtypes.  Radar bug #2241690.
+
+Changes for the 5.2 release (the cctools-274 release):
+- Removed uses of CPU_SUBTYPE_586SX from arch.c and added new intel subtypes.
+  Updates NXFindBestFatArch() and NXCombineCpuSubtypes() from libstuff's
+  version. Radar bug #2231830.
+
+Changes for the 5.2 release (the cctools-268 release):
+- Removed getmachhead.o from dylib.ofileList.
+
+Changes for the 5.2 release (the cctools-267 release):
+- Removed the -DDYLD_PROFILING flag from the Makefile which was left over when
+  copying libdyld's Makefile.  Radar bug #2227782.
+- Fixed some warnings from getsectdatafromFramework() code added.  Included
+  "mach-o/dyld.h" in all DYNAMIC cases.  Also changed getsectbynamefromheader()
+  to use const for segname and sectname.  Radar bug #2227839.
+- Added getsectdatafromFramework() as per Radar 2151720.
+
+Changes for the 5.1 release (the cctools-261 release):
+- Added the PowerPC subtypes 603e, 603ev and 750 to the table of arch types.
+  (Radar 2213821)
+- Changed NXFindBestFatArch() in arch.c for PowerPC subtypes.  If an
+  exact match is not found the subtype will be picked from the following order:
+	750, 604e, 604, 603ev, 603e, 603, ALL
+  Note the 601 is NOT in the list above.  It is only picked via an exact match.
+  (Radar 2213821)
+- Changed NXCombineCpuSubtypes() in arch.c for for PowerPC subtypes.
+  Combining with the ALL type becomes the other type. Combining anything with
+  the 601 becomes 601.  All other non exact matches combine to the ALL type.
+  (Radar 2213821)
+
+Changes for the 5.1 release (the cctools-247 release):
+- Fixed bugs in getsegbyname.c and getsecbyname.c on the ifdef __SLICK__ side
+  where the mach header pointer was not set.  The missing line of code was:
+	mhp = (struct mach_header *)(& USE_VAR(_mh_execute_header));
+  This is the 4.2 Openstep side so these bugs don't really matter.
+- Added MKDIRS if code to the Makefile to build native on Rhapsody.
+- Changed the Makefile to use gnutar instead of tar because it works on Rhapsody
+  where tar does not.
+- Changed the Makefile so profiled objects get built for RC_OS teflon.
+- Changed the code ifdef __TEFLON__ to ifndef __SLICK__ (where __TEFLON__ will
+  nolonger be defined for Rhapsody builds) so the default builds will be native
+  Rhapsody builds.  The changes were to get_end.c, getmachhead.c,
+  getsecbyname.c and getsegbyname.c .
+
+Changes for the 5.0 release (the cctools-241 release):
+- Added ppc604e to the arch table (Radar 1669413).
+
+Changes for the 5.0 release (the cctools-226 release):
+- Added ppc604 to the arch table and to get_arch_from_host().  This is what
+  the kernel on the Power Mac 8500 is returning.
+
+Changes for the 5.0 release (the cctools-224 release):
+- Added a sparc_swap.c and a ppc_swap.c.
+  Added them to the Makefile and dylib.ofileList (but not the shlib.ofileList).
+- Added i860_swap.c and a m88k_swap.c but did NOT add them to any ofileList.
+- Pulled in hppa_swap.c, i386_swap.c, and m68k_swap.c from the libc_gen
+  project.  Added them to the Makefile and dylib.ofileList (except hppa_swap.c)
+  but not the shlib.ofileList.  Updated these files with the code from 
+  libstuff's bytesex.c.
+- Updated swap.c from libstuff's bytesex.c adding the following routines:
+    swap_dysymtab_command()
+    swap_dylib_command()
+    swap_prebound_dylib_command()
+    swap_dylinker_command()
+    swap_indirect_symbols()
+    swap_dylib_reference()
+    swap_dylib_module()
+    swap_dylib_table_of_contents()
+- Updated arch.c by changing m98k to ppc and removed the never supported
+  architectures (mips,and vax).  Also copied in the implementation of
+  cpusubtype_findbestarch() from libstuff's best_arch.c into 
+  NXFindBestFatArch() and likewise for cpusubtype_combine() into
+  NXCombineCpuSubtypes().
+- Fixed the type of headers in getmachheaders() in getmachhead.c to fix a
+  warning.
+- Fixed a warning in getsectdatafromlib() in getsecbyname.c.
+
+Changes for the 5.0 release (the cctools-223 release):
+- Put back changes ifndef'ed __TEFLON__ .
+
+Changes for the 5.0 release (the cctools-221.6 and cctools-222 releases):
+- Picked up changes to get_end() in get_end.c to use _NSGetMachExecuteHeader().
+- Picked up changes to getmachheaders() in getmachhead.c to use
+  _NSGetMachExecuteHeader().
+- Picked up changes to getsectbyname() and getsectdatafromlib() in
+  getsecbyname.c to use _NSGetMachExecuteHeader().
+- Picked up changes to getsegbyname() in getsegbyname.c to use
+  _NSGetMachExecuteHeader().
+
+Changes for the 5.0 release (the cctools-221.1 and cctools-222 releases):
+- Picked up changed to the Makefile to not build profile objects for teflon.
+  This is because the PowerPC compiler core dumps with -pg.

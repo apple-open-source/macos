@@ -1,0 +1,7 @@
+Package: gnuzip
+Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
+Vendor: GNU Project
+Version: 1.2.4
+URL: ftp://prep.ai.mit.edu/pub/gnu/gzip/
+Description: GNU Zip compression tool
+Build-Depends: build-base, perl, texi2html

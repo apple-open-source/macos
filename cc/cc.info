@@ -1,0 +1,21 @@
+# Info file for the Rhapsody 5.0 PowerPC Compiler package
+
+# These fields will be displayed in the Info View
+Title		PowerPC Compiler
+Version		cc-752
+Description	Cross compiler for the PowerPC.  In order to be able to use this compiler, cctools-218 or later (which can most likely be found in /Net/seaport/projects/cctools/Packages) must be installed, either before or after this package.  This package must NOT be installed on a machine that also has the old gcc 2.2.2-based NRW compiler (cc-218 or earlier) installed.  ~comp/Packages/Release_Notes/PowerPC_Compiler-752.rtf contains more information about this compiler.
+
+# These fields are used for the installed and floppy locations
+DefaultLocation		/
+Relocatable		NO
+Diskname		cc #%d
+
+# Other fields
+NeedsAuthorization	YES
+Application		NO
+LibrarySubdirectory	Standard
+InstallOnly 		NO
+DisableStop		NO
+LongFilenames		YES
+
+/NextAdmin/Installer.app

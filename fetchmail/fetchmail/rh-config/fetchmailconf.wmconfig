@@ -1,0 +1,4 @@
+fetchmailconf name "Fetchmail Configuration"
+fetchmailconf description "A graphical configuration tool for Fetchmail"
+fetchmailconf exec "fetchmailconf &"
+fetchmailconf group Administration

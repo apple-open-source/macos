@@ -1,0 +1,42 @@
+<html>
+
+	<head>
+		<title>HeaderDoc Class Hierarchy</title>
+	</head>
+
+	<body bgcolor="white">
+		<h2>HeaderDoc Class Hierarchy</h2>
+		<address>
+        author: Matt Morse (matt@apple.com)<br>
+		last updated: 12/15/99
+		</address>
+<pre>
+HeaderElement                              (Root Class)
+	|
+	|
+	|-----------APIOwner               (Object that owns declared API)
+	|               |
+	|               |-------Header     (Owner for header-wide API)
+	|               |		
+	|               |-------CPPClass   (Owner for C++ class API)
+	|
+	|-----------Constant
+	|
+	|-----------Enum
+	|
+	|-----------Function
+	|
+	|-----------PDefine
+	|
+	|-----------Struct
+	|
+	|-----------Typedef
+	|
+	|-----------Var
+	|
+	|-----------MinorAPIElement  (parameter, members of structs)
+	
+</pre>
+<p>headerDoc2HTML also uses the non object-oriented module, Utilities.pm.</p>
+</body>
+</html>

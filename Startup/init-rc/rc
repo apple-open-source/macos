@@ -1,0 +1,191 @@
+#!/bin/sh
+
+##
+# Multi-user startup script.
+#
+# Customize system startup by adding scripts to the startup 
+# directory, rather than editing this file.
+##
+
+##
+# Set shell to ignore Control-C, etc.
+# Prevent lusers from shooting themselves in the foot.
+##
+
+stty intr  undef
+stty kill  undef
+stty quit  undef
+stty susp  undef
+stty start undef
+stty stop  undef
+stty dsusp undef
+
+. /etc/rc.common
+
+stty status '^T'
+
+##
+# Handle arguments passed from init.
+##
+
+BootType=$1; shift;
+
+if [ -z "${BootType}" ]; then BootType="multiuser"; fi
+
+##
+# Handle options
+##
+
+VerboseFlag=""
+   SafeBoot=""
+
+args=$(getopt vx $*)
+set -- ${args};
+for option; do
+    case "${option}" in
+      -v)
+        VerboseFlag="-v"
+	;;
+      -x)
+        SafeBoot="-x"
+	;;
+    esac;
+done;
+
+echo ""
+
+case "${BootType}" in
+  "autoboot")
+    ConsoleMessage "Automatic reboot in progress"
+    ;;
+  "multiuser")
+    ConsoleMessage "Multiuser startup in progress"
+    ;;
+  *)
+    ConsoleMessage "Unknown boot request: multiuser startup in progress"
+    ;;
+esac
+
+##
+# Are we booting from a CD-ROM?  If so, switch over to /etc/rc.cdrom.
+##
+
+if [ -d /System/Installation ] && [ -f /etc/rc.cdrom ]; then
+
+    # Hand off to installation script
+    /etc/rc.cdrom ${BootType}
+
+    # All done; shut down
+    # We shouldn't get here; CDIS should reboot the machine when done
+    ConsoleMessage "CD-ROM boot procedure complete"
+    halt
+    exit 0
+
+fi
+
+##
+# Mount essential local filesystems (according to /etc/fstab).
+##
+
+ConsoleMessage "Mounting local filesystems"
+
+mount -vat hfs
+mount -vat ufs
+mount -t fdesc -o union stdin /dev
+mkdir -p /.vol && mount_volfs /.vol
+
+##
+# Create mach symbol file
+##
+
+rm -f /mach.sym
+
+sysctl -n kern.symfile
+
+if [ -f /mach.sym ]; then
+  rm -f /mach
+  ln -s /mach.sym /mach
+else
+  rm -f /mach
+  ln -s /mach_kernel /mach
+fi
+
+sync
+
+##
+# Start kextd
+##
+
+if [ "${SafeBoot}" = "-x" ]; then
+    ConsoleMessage "Configuring kernel extensions for safe boot"
+    kextd -x
+else
+    ConsoleMessage "Configuring kernel extensions"
+    kextd
+fi
+
+##
+# This is a hack to deal with resource forks created on UFS during
+# the system build.  It should go away.
+##
+
+if [ -f /var/log/runFixUpResources ]; then
+    /System/Library/CoreServices/FixupResourceForks > /var/tmp/FixupResourceForks.log 2>&1
+    sync
+    rm -f /var/log/runFixUpResources
+fi
+
+##
+# Startup the ATS Server
+## 
+
+if [ -x /System/Library/CoreServices/StartATSServer ]; then
+    ConsoleMessage "Starting ATS Server"
+    /System/Library/CoreServices/StartATSServer
+fi
+
+if [ -z "${VerboseFlag}" ] &&
+   [ -x /System/Library/CoreServices/WindowServer ]; then
+    ConsoleMessage "Starting Window Server"
+    /System/Library/CoreServices/WindowServer
+fi
+
+##
+# update flushes the cached blocks from the filesystem using
+# the sync system call every 30 seconds.  This ensures the
+# disk is reasonably up-to-date in the event of a system crash.
+##
+
+update
+
+##
+# Start the virtual memory system.
+##
+
+ConsoleMessage "Starting virtual memory"
+
+swapdir=/private/var/vm
+
+# Make sure the swapfile exists
+if [ ! -d ${swapdir} ]; then
+    ConsoleMessage "Creating default swap directory"
+    mount -uw /
+    mkdir -p -m 755 ${swapdir}
+    chown root:wheel ${swapdir}
+else
+    rm -rf ${swapdir}/swap*
+fi
+		    
+dynamic_pager -H 40000000 -L 160000000 -S 80000000 -F ${swapdir}/swapfile
+
+##
+# Start System Services
+##
+
+# Set language from CDIS.custom - assumes this is parse-able by sh
+. /var/log/CDIS.custom 
+export LANGUAGE
+
+SystemStarter ${VerboseFlag}
+
+exit 0

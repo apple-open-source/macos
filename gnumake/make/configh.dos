@@ -1,0 +1,52 @@
+
+/* Many things are defined already by a system header.  */
+#include <sys/config.h>
+
+/* Name of this package (needed by automake) */
+#define PACKAGE "make"
+
+/* Version of this package (needed by automake) */
+#define VERSION "3.79"
+
+#if __DJGPP__ > 2 || __DJGPP_MINOR__ > 1
+
+/* Define if `sys_siglist' is declared by <signal.h>.  */
+# define SYS_SIGLIST_DECLARED 1
+
+/* Define this if the C library defines the variable `_sys_siglist'.  */
+# define HAVE_SYS_SIGLIST 1
+
+#else
+
+/* Define NSIG.  */
+# define NSIG SIGMAX
+
+#endif
+
+/* Define if you have sigsetmask.  */
+#define HAVE_SIGSETMASK 1
+
+/* Define if you have the <memory.h> header file.  */
+#define HAVE_MEMORY_H 1
+
+/* Define if you have the memmove function.  */
+#define HAVE_MEMMOVE 1
+
+#define SCCS_GET "get"
+
+/* Define to `unsigned long' or `unsigned long long'
+   if <inttypes.h> doesn't define.  */
+#define uintmax_t unsigned long long
+
+/* Define the type of the first arg to select().  */
+#define fd_set_size_t int
+
+/* Define if you have the select function.  */
+#define HAVE_SELECT 1
+
+/* Define if you have the vprintf library function.  */
+#undef HAVE_VPRINTF
+#define HAVE_VPRINTF 1
+
+/* Build host information. */
+#define MAKE_HOST "i386-pc-msdosdjgpp"

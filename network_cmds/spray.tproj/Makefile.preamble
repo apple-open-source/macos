@@ -1,0 +1,4 @@
+OTHER_OFILES = spray_xdr.o 
+OTHER_INITIAL_TARGETS = spray.h
+OTHER_GENERATED_OFILES = $(VERS_OFILE)
+-include ../Makefile.include

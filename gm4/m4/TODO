@@ -1,0 +1,41 @@
+TODO file for GNU m4
+
+Tell <pinard@iro.umontreal.ca> if you feel like volunteering for any
+of these ideas, listed more or less in decreasing order of priority.
+
+* Features or problems
+  - Update documentation from accumulated mail about it
+  - Changeword without arguments should restore default behavior
+  - Study synclines at the very beginning of each diverted sequence
+  - Make eval work on bignums - the 32 bits limit is artificial
+	From Krste Asanovic <krste@icsi.berkeley.edu>, 1993-03-20
+
+* Optimization and clean up
+  - Check for memory leaks and uninitialized reads
+	From Vern Paxson <vern@horse.ee.lbl.gov> on 1993-12-06
+  - Simplify format/ecvt code, together with HAVE_EFGCVT
+  - Finalize the stdarg vs varargs thing
+  - Profile GNU m4 and speed it up
+	From David J. MacKenzie <djm@eng.umd.edu>, 1993-01-20
+
+	GNU m4 should be sped up by a factor of three for competing
+	with other versions (I think that the lexer is not agressive
+	enough and too often return single characters; obstacks might
+	be a little abused, too).
+  - Have NULs go really undisturbed through GNU m4
+	See `dumpdef' and debugging section, which abuses %s
+	From Thorsten Ohl <ohl@chico.harvard.edu>, 1992-12-21
+
+	path.c (add_include_directory): Why the '\0' terminator?
+
+	GNU m4 is lousy regarding NULs in streams (this would require
+	maintaining the string lengths, and avoiding strlen, strcpy,
+	etc.). 
+  - Clean up the obstack.[ch] code
+  - Use rx.[ch] instead of regex.[ch]
+	From Hal Peterson <hrp@ironwood.cray.com>, 1994-04-22
+
+Local Variables:
+mode: outline
+outline-regexp: " *[-+*.] \\|"
+End:

@@ -1,0 +1,96 @@
+<HTML>
+<HEAD>
+<!-- This HTML file has been created by texi2html 1.51
+     from /mnt/apple/gdb/source/gdb.apple/source/gdb/gdb/doc/stabs.texinfo on 23 November 1999 -->
+
+<TITLE>STABS - Constants</TITLE>
+</HEAD>
+<BODY>
+Go to the <A HREF="stabs_1.html">first</A>, <A HREF="stabs_2.html">previous</A>, <A HREF="stabs_4.html">next</A>, <A HREF="stabs_14.html">last</A> section, <A HREF="stabs_toc.html">table of contents</A>.
+<P><HR><P>
+
+
+<H1><A NAME="SEC16" HREF="stabs_toc.html#TOC16">Constants</A></H1>
+
+<P>
+The <SAMP>`c'</SAMP> symbol descriptor indicates that this stab represents a
+constant.  This symbol descriptor is an exception to the general rule
+that symbol descriptors are followed by type information.  Instead, it
+is followed by <SAMP>`='</SAMP> and one of the following:
+
+</P>
+<DL COMPACT>
+
+<DT><CODE>b <VAR>value</VAR></CODE>
+<DD>
+Boolean constant.  <VAR>value</VAR> is a numeric value; I assume it is 0 for
+false or 1 for true.
+
+<DT><CODE>c <VAR>value</VAR></CODE>
+<DD>
+Character constant.  <VAR>value</VAR> is the numeric value of the constant.
+
+<DT><CODE>e <VAR>type-information</VAR> , <VAR>value</VAR></CODE>
+<DD>
+Constant whose value can be represented as integral.
+<VAR>type-information</VAR> is the type of the constant, as it would appear
+after a symbol descriptor (see section <A HREF="stabs_1.html#SEC4">The String Field</A>).  <VAR>value</VAR> is the
+numeric value of the constant.  GDB 4.9 does not actually get the right
+value if <VAR>value</VAR> does not fit in a host <CODE>int</CODE>, but it does not
+do anything violent, and future debuggers could be extended to accept
+integers of any size (whether unsigned or not).  This constant type is
+usually documented as being only for enumeration constants, but GDB has
+never imposed that restriction; I don't know about other debuggers.
+
+<DT><CODE>i <VAR>value</VAR></CODE>
+<DD>
+Integer constant.  <VAR>value</VAR> is the numeric value.  The type is some
+sort of generic integer type (for GDB, a host <CODE>int</CODE>); to specify
+the type explicitly, use <SAMP>`e'</SAMP> instead.
+
+<DT><CODE>r <VAR>value</VAR></CODE>
+<DD>
+Real constant.  <VAR>value</VAR> is the real value, which can be <SAMP>`INF'</SAMP>
+(optionally preceded by a sign) for infinity, <SAMP>`QNAN'</SAMP> for a quiet
+NaN (not-a-number), or <SAMP>`SNAN'</SAMP> for a signalling NaN.  If it is a
+normal number the format is that accepted by the C library function
+<CODE>atof</CODE>.
+
+<DT><CODE>s <VAR>string</VAR></CODE>
+<DD>
+String constant.  <VAR>string</VAR> is a string enclosed in either <SAMP>`''</SAMP>
+(in which case <SAMP>`''</SAMP> characters within the string are represented as
+<SAMP>`\''</SAMP> or <SAMP>`"'</SAMP> (in which case <SAMP>`"'</SAMP> characters within the
+string are represented as <SAMP>`\"'</SAMP>).
+
+<DT><CODE>S <VAR>type-information</VAR> , <VAR>elements</VAR> , <VAR>bits</VAR> , <VAR>pattern</VAR></CODE>
+<DD>
+Set constant.  <VAR>type-information</VAR> is the type of the constant, as it
+would appear after a symbol descriptor (see section <A HREF="stabs_1.html#SEC4">The String Field</A>).
+<VAR>elements</VAR> is the number of elements in the set (does this means
+how many bits of <VAR>pattern</VAR> are actually used, which would be
+redundant with the type, or perhaps the number of bits set in
+<VAR>pattern</VAR>?  I don't get it), <VAR>bits</VAR> is the number of bits in the
+constant (meaning it specifies the length of <VAR>pattern</VAR>, I think),
+and <VAR>pattern</VAR> is a hexadecimal representation of the set.  AIX
+documentation refers to a limit of 32 bytes, but I see no reason why
+this limit should exist.  This form could probably be used for arbitrary
+constants, not just sets; the only catch is that <VAR>pattern</VAR> should be
+understood to be target, not host, byte order and format.
+</DL>
+
+<P>
+The boolean, character, string, and set constants are not supported by
+GDB 4.9, but it ignores them.  GDB 4.8 and earlier gave an error
+message and refused to read symbols from the file containing the
+constants.
+
+</P>
+<P>
+The above information is followed by <SAMP>`;'</SAMP>.
+
+</P>
+<P><HR><P>
+Go to the <A HREF="stabs_1.html">first</A>, <A HREF="stabs_2.html">previous</A>, <A HREF="stabs_4.html">next</A>, <A HREF="stabs_14.html">last</A> section, <A HREF="stabs_toc.html">table of contents</A>.
+</BODY>
+</HTML>

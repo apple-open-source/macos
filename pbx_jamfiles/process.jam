@@ -1,0 +1,1798 @@
+# Copyright (c) 1999,2000 Apple Computer, Inc.
+# All rights reserved.
+
+# Variables referenced:
+# BUILD_DIR		Location of built product
+# RESOURCE_DIR 		Directory for resource files in product
+# *_LINK, *_LINK_PATH	Wrapper versioning information
+# *_HEADER_DIR		Directories for headers of product
+# PRODUCT_INFO_SETTINGS	Property list file for targets
+# PKGINFO_FILE_CONTENTS Type and creator for package info
+# VERSIONING_SYSTEM	Versioning system to use for product
+# JAVA_COMPILE_TARGET	Nonfile target representing all java compiles
+# REZ_EXECUTABLE	Run Rez directly on executable to produce fork if YES
+# PRESERVE_RESOURCES	Files to be recopied with CpMac after install tar copy
+# APPLESCRIPTS_DIR	Directory for compiled AppleScripts
+#
+# Variables set:
+# DERIVED_FILES		Intermediate sources
+# OBJECT_FILES		Object files produced by compilations
+# LINKED_FILES		Files to be used by a link rule
+# PRODUCT_FILES		Files that belong in the built product
+# INFO_PLIST_FILE	Based on PRODUCT_INFO_SETTINGS
+# PKGINFO_FILE		Package info file from PKGINFO_FILE_CONTENTS
+# HDRRULE, HDRSCAN	Target specific header scanning information
+# FLAGS			Target specific compilation flags
+# HEADER_SEARCH_PATHS, FRAMEWORK_SEARCH_PATHS	Target specific search paths
+#
+# Build phase variables:
+# BUILD_PHASE		Target for current build phase
+# PREVIOUS_BUILD_PHASE	Target for previous build phase
+# BUILD_PHASE_PRODUCTS	Products of current build phase
+# PHASE_TARGETS		List of all phase targets for conflict checks
+
+# Source and resource handling rules by extension
+.h_RULE		= ProcessHeader ;
+.nib_RULE	= ProcessResource ;
+.rtf_RULE	= ProcessResource ;
+.exe_RULE	= ProcessResource ;
+.java_RULE	= ProcessUsingJavaCompiler ;
+.as_RULE	= ProcessAppleScript ;
+.js_RULE	= ProcessAppleScript ;
+.s_RULE		= ProcessC ;
+.c_RULE		= ProcessC ;
+.C_RULE		= ProcessCplusplus ;
+.cc_RULE	= ProcessCplusplus ;
+.cp_RULE	= ProcessCplusplus ;
+.cpp_RULE	= ProcessCplusplus ;
+.CPP_RULE       = ProcessCplusplus ;
+.cxx_RULE	= ProcessCplusplus ;
+.CXX_RULE	= ProcessCplusplus ;
+.m_RULE		= ProcessC ;
+# !!!:20000708:cmolick ObjectiveC++ not supported by compiler
+.M_RULE		= ProcessC ;
+.exp_RULE	= ProcessExportsFile ;
+.defs_RULE	= ProcessUsingMig ;
+.mig_RULE	= ProcessUsingMig ;
+.l_RULE		= ProcessUsingLex ;
+.lm_RULE	= ProcessUsingLex ;
+.y_RULE		= ProcessUsingYacc ;
+.ym_RULE	= ProcessUsingYacc ;
+.x_RULE		= ProcessUsingRPCGen ;
+.framework_RULE = ProcessFrameworkOrLibrary ;
+.r_RULE		= ProcessRezFile ;
+.rsrc_RULE	= ProcessRezFile ;
+.ppob_RULE	= ProcessRezFile ;
+.unix_RULE	= ProcessSuffixedFile ;
+.nt_RULE	= ProcessSuffixedFile ;
+.$(OS:L)_RULE	= ProcessSuffixedFile ;
+
+PHASE_TARGETS = ;
+rule PhaseTarget
+{
+    local PHASE_SUFFIXES = 10 9 8 7 6 5 4 3 2 ;
+    local PHASE_TARGET = $(2:G=$(3)) ;
+    if $(PHASE_TARGET) in $(PHASE_TARGETS) {
+        # attempt differentiation by adding last nonmatching suffix
+        for PHASE_SUFFIX in $(PHASE_SUFFIXES) {
+            ALTERNATE_PHASE_TARGET = $(2:G=$(3)$(PHASE_SUFFIX)) ;
+            if ! $(ALTERNATE_PHASE_TARGET) in $(PHASE_TARGETS) {
+                PHASE_TARGET = $(ALTERNATE_PHASE_TARGET) ;
+            }
+        }
+    }
+    PHASE_TARGETS += $(PHASE_TARGET) ;
+    $(1) = $(PHASE_TARGET) ;
+    NOTFILE $(1) ;
+}
+
+rule BuildPhase
+{
+    # retain name for action echo
+    PHASE_NAME on $(1) = $(1:G) ;
+    # this build phase depends on the previous phase
+    if $(3) {
+        DEPENDS $(1) : $(3) ;
+    }
+    # phase required for parent target
+    DEPENDS $(2) : $(1) ;
+}
+
+actions BuildPhase
+{
+    $(ECHO) Completed phase "$(PHASE_NAME)" for "$(1)"
+}
+
+rule NoOp
+{
+    if $(BUILD_PHASING) = YES {
+        PhaseTarget BUILD_PHASE : $(1) : NoOp ;
+        BuildPhase $(BUILD_PHASE) : $(1) : $(PREVIOUS_BUILD_PHASE) ;
+        PREVIOUS_BUILD_PHASE = $(BUILD_PHASE) ;
+    }
+}
+
+rule ProcessHeaders
+{
+    if headers in $(BUILD_COMPONENTS) || source in $(BUILD_COMPONENTS) {
+        local FILE ;
+        if $(BUILD_PHASING) = YES {
+            PhaseTarget BUILD_PHASE : $(1) : CopyHeaders ;
+            BuildPhase $(BUILD_PHASE) : $(1) : $(PREVIOUS_BUILD_PHASE) ;
+            BUILD_PHASE_PRODUCTS = ;
+        }
+        for FILE in $(2) {
+            if $(BUILD_PHASING) = YES {
+                ProcessHeader $(BUILD_PHASE) : $(FILE) ;
+            }
+            else {
+                ProcessHeader $(1) : $(FILE) ;
+            }
+        }
+        # generate interfacer derived headers
+        if headers in $(BUILD_COMPONENTS) && $(GENERATE_HEADERS) = YES {
+            InterfacerHeaders $(1) ;
+        }
+        if $(BUILD_PHASING) = YES {
+            if $(BUILD_PHASE_PRODUCTS) {
+                DEPENDS $(BUILD_PHASE) : $(BUILD_PHASE_PRODUCTS) ;
+            }
+            PREVIOUS_BUILD_PHASE = $(BUILD_PHASE) ;
+        }
+    }
+}
+
+rule ProcessHeader
+{
+    if source in $(BUILD_COMPONENTS) {
+        local HEADER_SOURCE_COPY ;
+        local HEADER_SOURCE_DIR ;
+        # make directory first if necessary
+        if $(2:D) {
+            HEADER_SOURCE_DIR = $(SOURCE_DIR)/$(2:D:G=) ;
+            Mkdir $(HEADER_SOURCE_DIR) ;
+            HEADER_SOURCE_COPY = $(HEADER_SOURCE_DIR)/$(2:D=:G=) ;
+            DEPENDS $(HEADER_SOURCE_COPY) : $(HEADER_SOURCE_DIR) ;
+        }
+        else {
+            HEADER_SOURCE_COPY = $(SOURCE_DIR)/$(2:D=:G=) ;
+            DEPENDS $(HEADER_SOURCE_COPY) : $(SOURCE_DIR) ;
+            Mkdir $(SOURCE_DIR) ;
+        }
+        Cp $(HEADER_SOURCE_COPY) : $(2) ;
+        if $(BUILD_PHASING) = YES {
+            BUILD_PHASE_PRODUCTS += $(HEADER_SOURCE_COPY) ;
+        }
+    }
+    if build in $(BUILD_COMPONENTS) {
+        # Scan this header to see if it includes other headers.
+        HDRRULE on $(2) = ProcessC.HdrRule ;
+        HDRSCAN on $(2) = $(HDRPATTERN) ;
+
+        # Set search path for header so dependence analysis will find it
+        SEARCH on $(2:D=) += $(2:D) ;
+
+        # Clone header to project header directory
+        if ! $(2) in $(DERIVED_FILES) then {
+            CloneHeader $(1) : $(2) : $(PROJECT_HEADER_DIR) ;
+        }
+    }
+    local ATTRIBUTES = $($(2)_ATTRIBUTES) ;
+    local HEADER_ATTRIBUTE ;
+    for HEADER_ATTRIBUTE in $(ATTRIBUTES) {
+        switch $(HEADER_ATTRIBUTE) {
+            case Project :
+                # Define option as valid, but take no action
+            case Public :
+                # Create a public header directory
+                if ! $(PUBLIC_HEADER_DIR) in $(PRODUCT_FILES) {
+                    PRODUCT_FILES += $(PUBLIC_HEADER_DIR) ;
+                    if $(BUILD_PHASING) = YES {
+                        BUILD_PHASE_PRODUCTS += $(PUBLIC_HEADER_DIR) ;
+                    }
+                    Mkdir $(PUBLIC_HEADER_DIR) ;
+                }
+                # Create symlink to public header dir in versioned frameworks
+                if $(PUBLIC_HEADER_LINK)
+                  && ! $(PUBLIC_HEADER_LINK) in $(PRODUCT_FILES) {
+                    DEPENDS $(PUBLIC_HEADER_LINK) : $(PUBLIC_HEADER_DIR) ;
+                    SymLink $(PUBLIC_HEADER_LINK) : $(PUBLIC_HEADER_LINK_PATH) ;
+                    PRODUCT_FILES += $(PUBLIC_HEADER_LINK) ;
+                    if $(BUILD_PHASING) = YES {
+                        BUILD_PHASE_PRODUCTS += $(PUBLIC_HEADER_LINK) ;
+                    }
+                    NOUPDATE $(PUBLIC_HEADER_LINK) ;
+                }
+                # Public headers get stub "clones" put in the public header dir
+                if build in $(BUILD_COMPONENTS) {
+                    CloneHeader $(1) : $(2) : $(PUBLIC_HEADER_CLONE_DIR) ;
+                }
+                if headers in $(BUILD_COMPONENTS) {
+                    local HEADER_COPY = $(PUBLIC_HEADER_DIR)$(/)$(2:BS:G=) ;
+                    Cp $(HEADER_COPY) : $(2) ;
+                    PRODUCT_FILES += $(HEADER_COPY) ;
+                    if $(BUILD_PHASING) = YES {
+                        BUILD_PHASE_PRODUCTS += $(HEADER_COPY) ;
+                    }
+                }
+            case Private :
+                # create a private header directory
+                if ! $(PRIVATE_HEADER_DIR) in $(PRODUCT_FILES) {
+                    PRODUCT_FILES += $(PRIVATE_HEADER_DIR) ;
+                    if $(BUILD_PHASING) = YES {
+                       BUILD_PHASE_PRODUCTS += $(PRIVATE_HEADER_DIR) ;
+                    }
+                    Mkdir $(PRIVATE_HEADER_DIR) ;
+                }
+                # accompanying link in versioned frameworks
+                if $(PRIVATE_HEADER_LINK)
+                  && ! $(PRIVATE_HEADER_LINK) in $(PRODUCT_FILES) {
+                    PRODUCT_FILES += $(PRIVATE_HEADER_LINK) ;
+                    if $(BUILD_PHASING) = YES {
+                        BUILD_PHASE_PRODUCTS += $(PRIVATE_HEADER_LINK) ;
+                    }
+                    DEPENDS $(PRIVATE_HEADER_LINK) : $(PRIVATE_HEADER_DIR) ;
+                    SymLink $(PRIVATE_HEADER_LINK) : $(PRIVATE_HEADER_LINK_PATH) ;
+                    NOUPDATE $(PRIVATE_HEADER_LINK) ;
+
+                }
+                # Private headers get stub "clones" put in private header dir
+                if build in $(BUILD_COMPONENTS) {
+                    CloneHeader $(1) : $(2) : $(PRIVATE_HEADER_CLONE_DIR) ;
+                }
+                if headers in $(BUILD_COMPONENTS) {
+                    local HEADER_COPY = $(PRIVATE_HEADER_DIR)$(/)$(2:BS:G=) ;
+                    Cp $(HEADER_COPY) : $(2) ;
+                    PRODUCT_FILES += $(HEADER_COPY) ;
+                    if $(BUILD_PHASING) = YES {
+                        BUILD_PHASE_PRODUCTS += $(HEADER_COPY) ;
+                    }
+                }
+            case * :
+                if $(HEADER_ATTRIBUTE) != AbsolutePath {
+                    ECHO jam: warning: Ignoring unknown header attribute $(HEADER_ATTRIBUTE) ;
+                }
+        }
+    }
+}
+
+rule ProcessResources
+{
+    if build in $(BUILD_COMPONENTS) || source in $(BUILD_COMPONENTS) {
+        local FILE ;
+        if $(BUILD_PHASING) = YES {
+            PhaseTarget BUILD_PHASE : $(1) : CopyResources ;
+            BuildPhase $(BUILD_PHASE) : $(1) : $(PREVIOUS_BUILD_PHASE) ;
+            BUILD_PHASE_PRODUCTS = ;
+        }
+        for FILE in $(2) {
+            if $(BUILD_PHASING) = YES {
+                ProcessResource $(BUILD_PHASE) : $(FILE) ;
+            }
+            else {
+                ProcessResource $(1) : $(FILE) ;
+            }
+        }
+        # product settings, version settings, and package info written only during build
+        if build in $(BUILD_COMPONENTS) {
+            # product settings property list
+            if $(PRODUCT_SETTINGS_PATH)
+             && $(PURE_JAVA) != YES {
+                # if available and not pure java
+                if $(PRODUCT_TYPE) = Framework {
+                    INFO_PLIST_FILE default = $(RESOURCE_DIR)$(/)Info.plist ;
+                }
+                else {
+                    INFO_PLIST_FILE default = $(1)$(/)Contents$(/)Info.plist ;
+                }
+                Cp $(INFO_PLIST_FILE) : $(PRODUCT_SETTINGS_PATH) ;
+                PRODUCT_FILES += $(INFO_PLIST_FILE) ;
+                if $(BUILD_PHASING) = YES {
+                    BUILD_PHASE_PRODUCTS += $(INFO_PLIST_FILE) ;
+                }
+            }
+            # version settings property list
+            if $(VERSION_SETTINGS_PATH)
+             && $(PURE_JAVA) != YES {
+                # if available and not pure java
+                if $(PRODUCT_TYPE) = Framework {
+	            VERSION_PLIST_FILE default = $(RESOURCE_DIR)$(/)version.plist ;
+                    # create accompanying link in the case of versioned frameworks
+                    if $(RESOURCE_LINK)
+                     && ! $(RESOURCE_LINK) in $(PRODUCT_FILES) {
+                        SymLink $(RESOURCE_LINK) : $(RESOURCE_LINK_PATH) ;
+                        PRODUCT_FILES += $(RESOURCE_LINK) ;
+                        if $(BUILD_PHASING) = YES {
+                            BUILD_PHASE_PRODUCTS += $(RESOURCE_LINK) ;
+                        }
+                    }
+                }
+                else {
+                    VERSION_PLIST_FILE default = $(1:G=)$(/)Contents$(/)version.plist ;
+                }
+                Cp $(VERSION_PLIST_FILE) : $(VERSION_SETTINGS_PATH) ;
+                PRODUCT_FILES += $(VERSION_PLIST_FILE) ;
+                if $(BUILD_PHASING) = YES {
+                    BUILD_PHASE_PRODUCTS += $(VERSION_PLIST_FILE) ;
+                }
+            }
+            # development settings property list
+            # This plist gets copied into the bundle if we are doing a development build or removed from the symroot otherwise.  Right now, "development build" means that the ACTION is "build" (as opposed to "install").
+            if $(DEVELOPMENT_SETTINGS_PATH)
+             && $(PURE_JAVA) != YES {
+                # if available and not pure java
+                if $(PRODUCT_TYPE) = Framework {
+	            DEVELOPMENT_PLIST_FILE default = $(RESOURCE_DIR)$(/)pbdevelopment.plist ;
+                    # create accompanying link in the case of versioned frameworks
+                    if $(RESOURCE_LINK)
+                      && ! $(RESOURCE_LINK) in $(PRODUCT_FILES) {
+                        SymLink $(RESOURCE_LINK) : $(RESOURCE_LINK_PATH) ;
+                        PRODUCT_FILES += $(RESOURCE_LINK) ;
+                        if $(BUILD_PHASING) = YES {
+                            BUILD_PHASE_PRODUCTS += $(RESOURCE_LINK) ;
+                        }
+                    }
+                }
+                else {
+                    DEVELOPMENT_PLIST_FILE default = $(1:G=)$(/)Contents$(/)pbdevelopment.plist ;
+                }
+                if $(ACTION) = build {
+                    # If we are doing a "build" then put the development plist in place in the symroot.
+                    Cp $(DEVELOPMENT_PLIST_FILE) : $(DEVELOPMENT_SETTINGS_PATH) ;
+                    PRODUCT_FILES += $(DEVELOPMENT_PLIST_FILE) ;
+                    if $(BUILD_PHASING) = YES {
+                        BUILD_PHASE_PRODUCTS += $(DEVELOPMENT_PLIST_FILE) ;
+                    }
+                }
+                else {
+                    # If we are not doing a "build" then remove the development plist from the symroot.
+                    # !!!:mferris:20000919 This bit does not actually work...
+                    # !!!:cmolick:20000928 maybe DEPENDS $(1) : $(DEV...)?
+                    Rm $(DEVELOPMENT_PLIST_FILE) ;
+                }
+            }
+            # Write package info file with type and creator if available
+            # and if not framework or oldest layout or pure java
+            if $(PKGINFO_FILE_CONTENTS)
+             && $(PRODUCT_TYPE) != Framework
+             && $(PURE_JAVA) != YES {
+                PKGINFO_FILE default = $(1)$(/)"Contents"$(/)"PkgInfo" ;
+                RawEcho $(PKGINFO_FILE) : $(PKGINFO_FILE_CONTENTS) ;
+                PRODUCT_FILES += $(PKGINFO_FILE) ;
+                if $(BUILD_PHASING) = YES {
+                    BUILD_PHASE_PRODUCTS += $(PKGINFO_FILE) ;
+                }
+            }
+        }
+        if $(BUILD_PHASING) = YES {
+            if $(BUILD_PHASE_PRODUCTS) {
+                DEPENDS $(BUILD_PHASE) : $(BUILD_PHASE_PRODUCTS) ;
+            }
+            PREVIOUS_BUILD_PHASE = $(BUILD_PHASE) ;
+        }
+    }
+}
+
+rule ProcessResource
+{
+    if source in $(BUILD_COMPONENTS) {
+        local RESOURCE_SOURCE_COPY ;
+        local RESOURCE_SOURCE_DIR ;
+        # make directory first if necessary
+        if $(2:D) {
+            RESOURCE_SOURCE_DIR = $(SOURCE_DIR)/$(2:D:G=) ;
+            Mkdir $(RESOURCE_SOURCE_DIR) ;
+            RESOURCE_SOURCE_COPY = $(RESOURCE_SOURCE_DIR)/$(2:D=:G=) ;
+            DEPENDS $(RESOURCE_SOURCE_COPY) : $(RESOURCE_SOURCE_DIR) ;
+        }
+        else {
+            RESOURCE_SOURCE_COPY = $(SOURCE_DIR)/$(2:D=:G=) ;
+            DEPENDS $(RESOURCE_SOURCE_COPY) : $(SOURCE_DIR) ;
+            Mkdir $(SOURCE_DIR) ;
+        }
+        # copy resource to source location
+        Cp $(RESOURCE_SOURCE_COPY) : $(2) ;
+        if $(BUILD_PHASING) = YES {
+            BUILD_PHASE_PRODUCTS += $(RESOURCE_SOURCE_COPY) ;
+        }
+    }
+    if build in $(BUILD_COMPONENTS) {
+        local REGION = $($(2)_REGION) ;
+        local SPECIFIC_REGION ;
+        # resource directory must exist
+        if ! $(RESOURCE_DIR) in $(PRODUCT_FILES) {
+            PRODUCT_FILES = $(RESOURCE_DIR) $(PRODUCT_FILES) ;
+            if $(BUILD_PHASING) = YES {
+                BUILD_PHASE_PRODUCTS = $(RESOURCE_DIR) $(PRODUCT_FILES) ;
+            }
+        }
+        # create accompanying link in the case of versioned frameworks
+        if $(RESOURCE_LINK)
+         && ! $(RESOURCE_LINK) in $(PRODUCT_FILES) {
+            SymLink $(RESOURCE_LINK) : $(RESOURCE_LINK_PATH) ;
+            PRODUCT_FILES += $(RESOURCE_LINK) ;
+            if $(BUILD_PHASING) = YES {
+                BUILD_PHASE_PRODUCTS += $(RESOURCE_LINK) ;
+            }
+        }
+        if ! $(REGION) {
+            # non-localized resource
+            local NONLOCALIZED_RESOURCE_DIR NONLOCALIZED_RESOURCE ;
+            NONLOCALIZED_RESOURCE_DIR default = $(RESOURCE_DIR) ;
+            if ! $(NONLOCALIZED_RESOURCE_DIR) in $(PRODUCT_FILES) {
+                PRODUCT_FILES = $(NONLOCALIZED_RESOURCE_DIR) $(PRODUCT_FILES) ;
+                if $(BUILD_PHASING) = YES {
+                    BUILD_PHASE_PRODUCTS = $(NONLOCALIZED_RESOURCE_DIR) $(BUILD_PHASE_PRODUCTS) ;
+                }
+            }
+            NONLOCALIZED_RESOURCE default = $(NONLOCALIZED_RESOURCE_DIR)$(/)$(2:BS) ;
+            if ! $(NONLOCALIZED_RESOURCE) in $(PRODUCT_FILES) {
+                PRODUCT_FILES = $(NONLOCALIZED_RESOURCE) $(PRODUCT_FILES) ;
+                if $(BUILD_PHASING) = YES {
+                    BUILD_PHASE_PRODUCTS = $(NONLOCALIZED_RESOURCE) $(BUILD_PHASE_PRODUCTS) ;
+                }
+            }
+            RobustCp $(NONLOCALIZED_RESOURCE) : $(2) ;
+        } else for SPECIFIC_REGION in $(REGION) {
+            # for each localization of a resource (only one ever expected)
+            local LOCALIZED_RESOURCE_DIR LOCALIZED_RESOURCE ;
+            LOCALIZED_RESOURCE_DIR default = $(RESOURCE_DIR)$(/)$(SPECIFIC_REGION:S=.lproj) ;
+            # localized resource directory must exist
+            if ! $(LOCALIZED_RESOURCE_DIR) in $(PRODUCT_FILES) {
+                PRODUCT_FILES = $(LOCALIZED_RESOURCE_DIR) $(PRODUCT_FILES) ;
+                if $(BUILD_PHASING) = YES {
+                    BUILD_PHASE_PRODUCTS = $(LOCALIZED_RESOURCE_DIR) $(BUILD_PHASE_PRODUCTS) ;
+                }
+            }
+            LOCALIZED_RESOURCE default = $(LOCALIZED_RESOURCE_DIR)$(/)$(2:BS) ;
+            if ! $(LOCALIZED_RESOURCE) in $(PRODUCT_FILES) {
+                PRODUCT_FILES = $(LOCALIZED_RESOURCE) $(PRODUCT_FILES) ;
+                if $(BUILD_PHASING) = YES {
+                    BUILD_PHASE_PRODUCTS = $(LOCALIZED_RESOURCE) $(BUILD_PHASE_PRODUCTS) ;
+                }
+            }
+            RobustCp $(LOCALIZED_RESOURCE) : $(2) ;
+        }
+    }
+}
+
+actions CopyProjectFiles
+{
+    if [ -d $(2) ]; then
+        $(CP) -pRP $(2) $(1)
+    elif [ -d $(2:S=.pbxproj) ]; then
+        $(CP) -pRP $(2:S=.pbxproj) $(1)
+    fi
+}
+
+rule ProcessSources
+{
+    if build in $(BUILD_COMPONENTS) || source in $(BUILD_COMPONENTS) {
+        local FILE ;
+        if $(BUILD_PHASING) = YES {
+            PhaseTarget BUILD_PHASE : $(1) : DeriveAndCompileSources ;
+            BuildPhase $(BUILD_PHASE) : $(1) : $(PREVIOUS_BUILD_PHASE) ;
+            BUILD_PHASE_PRODUCTS = ;
+        }
+
+        # copy project files if copying source
+        if source in $(BUILD_COMPONENTS) {
+            local PROJECT_FILES = $(SOURCE_ROOT)/$(PROJECT).pbproj ;
+            local LEGACY_PROJECT_FILES = $(SOURCE_ROOT)/$(PROJECT).pbxproj ;
+            local PROJECT_FILES_COPY = $(INSTALL_ROOT)/$(PROJECT).pbproj ;
+            CopyProjectFiles $(PROJECT_FILES_COPY) : $(PROJECT_FILES) : $(LEGACY_PROJECT_FILES);
+            DEPENDS $(PROJECT_FILES_COPY) : $(INSTALL_ROOT) ;
+            Mkdir $(INSTALL_ROOT) ;
+            DEPENDS $(PROJECT_FILES_COPY) : $(PROJECT_FILES) ;
+            NOCARE $(PROJECT_FILES) ;
+            DEPENDS $(PROJECT_FILES_COPY) : $(LEGACY_PROJECT_FILES) ;
+            NOCARE $(LEGACY_PROJECT_FILES) ;
+            BUILD_PHASE_PRODUCTS += $(PROJECT_FILES_COPY) ;
+        }
+        for FILE in $(2) {
+            if $(BUILD_PHASING) = YES {
+                ProcessSource $(BUILD_PHASE) : $(FILE) ;
+            }
+            else {
+                ProcessSource $(1) : $(FILE) ;
+            }
+        }
+        # any build component implies handling: header cloning, versioning,
+        # kernel module generation, and interfacer usage
+        if build in $(BUILD_COMPONENTS) {
+            # generate versioning system derived sources
+            if $(VERSIONING_SYSTEM) {
+                local RULE = VersioningSystem_$(VERSIONING_SYSTEM) ;
+                $(RULE) $(1) ;
+            }
+            # generate kernel module or extension info source
+            if $(KERNEL_MODULE) = YES {
+                KernelModuleGeneratedSource $(1) ;
+            }
+            # generate interfacer derived sources
+            if $(GENERATE_EXPORT_SETS_AND_GLUE) = YES {
+                InterfacerExportSetsAndGlue $(1) ;
+            }
+        }
+        if $(BUILD_PHASING) = YES {
+            if $(BUILD_PHASE_PRODUCTS) {
+                DEPENDS $(BUILD_PHASE) : $(BUILD_PHASE_PRODUCTS) ;
+            }
+            PREVIOUS_BUILD_PHASE = $(BUILD_PHASE) ;
+        }
+        # Actually copy headers (over clones) only when compiles are finished
+        if $(HEADER_COPIES) && $(OBJECT_FILES) {
+            DEPENDS $(HEADER_COPIES) : $(OBJECT_FILES) ;
+        }
+    }
+}
+
+rule ProcessSource
+{
+    # scan for header file references in any source
+    HDRRULE on $(2) = ProcessC.HdrRule ;
+    HDRSCAN on $(2) = $(HDRPATTERN) ;
+    ProcessFile $(1) : $(2) ;
+}
+
+rule ProcessFiles
+{
+    local FILE ;
+    for FILE in $(2) {
+        ProcessFile $(1) : $(FILE) ;
+    }
+}
+
+rule ProcessFile
+{
+    local SOURCE_COPY ;
+    local SOURCE_SUBDIR ;
+    if source in $(BUILD_COMPONENTS) {
+        # copy to source location
+        # make directory first if necessary
+        if $(2:D) {
+            SOURCE_SUBDIR = $(SOURCE_DIR)/$(2:D:G=) ;
+            Mkdir $(SOURCE_SUBDIR) ;
+            SOURCE_COPY = $(SOURCE_SUBDIR)/$(2:D=:G=) ;
+            DEPENDS $(SOURCE_COPY) : $(SOURCE_SUBDIR) ;
+            if $(BUILD_PHASING) = YES {
+                BUILD_PHASE_PRODUCTS += $(SOURCE_SUBDIR) ;
+            }
+        }
+        else {
+            SOURCE_COPY = $(SOURCE_DIR)/$(2:D=:G=) ;
+            DEPENDS $(SOURCE_COPY) : $(SOURCE_DIR) ;
+            Mkdir $(SOURCE_DIR) ;
+        }
+        Cp $(SOURCE_COPY) : $(2) ;
+        if $(BUILD_PHASING) = YES {
+            BUILD_PHASE_PRODUCTS += $(SOURCE_COPY) ;
+        }
+    }
+    if build in $(BUILD_COMPONENTS) {
+        # process file with rule based on the file suffix
+        local EXCLUDED_OSS = $($(2)_EXCLUDED_OSS) ;
+        local INCLUDED_OSS = $($(2)_INCLUDED_OSS) ;
+        local RULE = $($(2:S)_RULE) ;
+
+        if $(EXCLUDED_OSS) && ( $(OS) in $(EXCLUDED_OSS) ) {
+            # do nothing -- file excluded from build
+        } else if $(INCLUDED_OSS) && ! ( $(OS) in $(INCLUDED_OSS) ) {
+            # do nothing -- file excluded from build
+        } else if $(RULE) {
+            $(RULE) $(1) : $(2) ;
+        } else {
+            ECHO jam: warning: no rule for file $(2) ;
+        }
+    }
+}
+
+rule ProcessFrameworksAndLibraries
+{
+    if build in $(BUILD_COMPONENTS) {
+        if $(BUILD_PHASING) = YES {
+            PhaseTarget BUILD_PHASE : $(1) : LinkWithFrameworksAndLibraries ;
+            BuildPhase $(BUILD_PHASE) : $(1) : $(PREVIOUS_BUILD_PHASE) ;
+            BUILD_PHASE_PRODUCTS = $(INNER_PRODUCT) ;
+        }
+
+	# add to linked files, including java .jar files even when there are no native object files!
+	LINKED_FILES += $(2) ;
+
+        # only link if there are object files
+        if $(OBJECT_FILES) {
+	    # process link based on product type
+	    switch $(PRODUCT_TYPE) {
+	        case Tool :
+		    if $(PURE_JAVA) = YES {
+		        INNER_PRODUCT default = ;
+		        INNER_PRODUCT_LINK = ;
+		    }
+		    else {
+		        INNER_PRODUCT default = $(1:G=) ;
+		        LINK_FILE_LIST on $(INNER_PRODUCT) = $(FILE_LIST) ;
+		        INNER_PRODUCT_LINK = ;
+		        StandaloneExecutable $(INNER_PRODUCT) : $(LINKED_FILES) ;
+		        STRIPPED_PRODUCT default = $(INNER_PRODUCT) ;
+		        PRODUCT_FILES += $(INNER_PRODUCT) ;
+			if $(INNER_PRODUCT) && $(PROFILING_CODE) = YES {
+			    FLAGS.o on $(INNER_PRODUCT) += -pg ;
+			}
+		        if $(BUILD_PHASING) = YES {
+			    BUILD_PHASE_PRODUCTS += $(INNER_PRODUCT) ;
+		        }
+		    }
+	        case Library :
+		    INNER_PRODUCT default = $(1:G=) ;
+		    LINK_FILE_LIST on $(INNER_PRODUCT) = $(FILE_LIST) ;
+		    INNER_PRODUCT_LINK = ;
+		    STRIPPED_PRODUCT default = $(INNER_PRODUCT) ;
+		    PRODUCT_FILES += $(INNER_PRODUCT) ;
+		    if $(BUILD_PHASING) = YES {
+		        BUILD_PHASE_PRODUCTS += $(INNER_PRODUCT) ;
+		    }
+		    # Link the final product
+		    if $(KERNEL_MODULE) = YES {
+                        # link kernel module
+		        local MODULE_OBJECT_PATH = $(OBJECT_FILE_DIR)$(/)$(ARCH)$(/)$(MODULE_OBJECT_FILE:G=) ;
+		        DynamicLibrary $(INNER_PRODUCT) : $(LINKED_FILES) ;
+		        FLAGS.o on $(INNER_PRODUCT) += -static -nostdlib -r -lkmodc++ "$(MODULE_OBJECT_PATH)" -lkmod -lcc_kext ;
+			if $(INNER_PRODUCT) && $(PROFILING_CODE) = YES {
+			    FLAGS.o on $(INNER_PRODUCT) += -pg ;
+			}
+		    }
+		    else {
+		        if $(LIBRARY_STYLE) = STATIC {
+                            # link static library
+			    StaticLibrary $(INNER_PRODUCT) : $(LINKED_FILES) ;
+			    FLAGS.o on $(INNER_PRODUCT) += -static ;
+			    if $(INNER_PRODUCT) && $(PROFILING_CODE) = YES {
+				FLAGS.o on $(INNER_PRODUCT) += -pg ;
+			    }
+		        }
+		        else {
+			    if $(EXPORTED_SYMBOLS_FILE) {
+			        local OTHER_LINKED_FILES ;
+			        # Master object file kept in other directory to avoid name conflict
+			        MASTER_OBJECT_FILE default = $(TEMP_DIR)$(/)master.o ;
+			        NonObjectFiles OTHER_LINKED_FILES : $(LINKED_FILES) ;
+			        MasterObjectFile $(MASTER_OBJECT_FILE) : $(OBJECT_FILES) : $(EXPORTED_SYMBOLS_FILE) ;
+			        if $(OTHER_LINKED_FILES) = "" {
+				    OTHER_LINKED_FILES = $(MASTER_OBJECT_FILE) ;
+			        }
+			        else {
+				    OTHER_LINKED_FILES += $(MASTER_OBJECT_FILE) ;
+			        }
+			        DynamicLibrary $(INNER_PRODUCT) : $(OTHER_LINKED_FILES) ;
+			    }
+			    else {
+                                for ARCH in $(ARCHS) {
+                                    THIN_MASTER_OBJECT_FILE default = $(EXPORTED_SYMBOLS_FILE_$(ARCH)) ;
+                                }
+                                if $(THIN_MASTER_OBJECT_FILE) {
+                                    # link dynamic library with architecture specific symbols edited
+                                    #!!!:cmolick:20001117 missing per-arch exports files not accounted for
+                                    for ARCH in $(ARCHS) {
+                                        MASTER_OBJECT_FILE_$(ARCH) default = $(TEMP_DIR)$(/)master_$(ARCH).o ;
+                                        MasterObjectFile $(MASTER_OBJECT_FILE_$(ARCH)) : $(OBJECT_FILES_$(ARCH)) : $(EXPORTED_SYMBOLS_FILE_$(ARCH)) ;
+                                    }
+                                    NonObjectFiles OTHER_LINKED_FILES : $(LINKED_FILES) ;
+                                    for ARCH in $(ARCHS) {
+                                        if $(OTHER_LINKED_FILES) = "" {
+                                            OTHER_LINKED_FILES = $(MASTER_OBJECT_FILE_$(ARCH)) ;
+                                        }
+                                        else {
+                                            OTHER_LINKED_FILES += $(MASTER_OBJECT_FILE_$(ARCH)) ;
+                                        }
+                                    }
+                                    DynamicLibrary $(INNER_PRODUCT) : $(OTHER_LINKED_FILES) ;
+                                }
+                               else {
+                                    # simple dynamic library link
+
+			            DynamicLibrary $(INNER_PRODUCT) : $(LINKED_FILES) ;
+                                }
+			    }
+			    # Add flags to the link
+			    if $(INNER_PRODUCT) && $(PROFILING_CODE) = YES {
+				FLAGS.o on $(INNER_PRODUCT) += -pg ;
+			    }
+			    if $(LIBRARY_STYLE) = BUNDLE {
+				FLAGS.o on $(INNER_PRODUCT) += -bundle ;
+			    }
+			    else {
+				FLAGS.o on $(INNER_PRODUCT) += -dynamiclib ;
+			    }
+			    if $(DYLIB_COMPATIBILITY_VERSION) {
+			        FLAGS.o on $(INNER_PRODUCT) += -compatibility_version "$(DYLIB_COMPATIBILITY_VERSION)" ;
+			    }
+			    if $(DYLIB_CURRENT_VERSION) {
+			        FLAGS.o on $(INNER_PRODUCT) += -current_version "$(DYLIB_CURRENT_VERSION)" ;
+			    }
+			    if $(INSTALL_PATH) {
+			        DYLIB_INSTALLED_NAME default = $(INSTALL_PATH)$(/)$(INNER_PRODUCT:G=) ;
+                                INSTALLED_NAME_FLAG on $(INNER_PRODUCT) = -install_name \"`echo \"$(DYLIB_INSTALLED_NAME)\" | $(SED) 's!//*!/!g'`\" ;
+			    }
+		        }
+		    }
+	        case Bundle :
+		    # Define primary executable INNER_PRODUCT location in wrapper
+		    if $(OBJECT_FILES) = "" {
+		        INNER_PRODUCT = "" ;
+		        STRIPPED_PRODUCT = "" ;
+		    }
+		    else {
+		        local DEFAULT_INNER_PRODUCT default = $(1)$(/)"Contents"$(/)"MacOS"$(/)$(1:B)$(TOOL_SUFFIX) ;
+		        INNER_PRODUCT default = $(DEFAULT_INNER_PRODUCT) ;
+		        LINK_FILE_LIST on $(INNER_PRODUCT) = $(FILE_LIST) ;
+		        INNER_PRODUCT_LINK default = ;
+		        PRODUCT_FILES += $(INNER_PRODUCT) ;
+			if $(INNER_PRODUCT) && $(PROFILING_CODE) = YES {
+			    FLAGS.o on $(INNER_PRODUCT) += -pg ;
+			}
+		        if $(BUILD_PHASING) = YES {
+			    BUILD_PHASE_PRODUCTS += $(INNER_PRODUCT) ;
+		        }
+		        STRIPPED_PRODUCT = $(INNER_PRODUCT) ;
+		        # link the final executable
+		        if $(EXPORTED_SYMBOLS_FILE) {
+			    local OTHER_LINKED_FILES ;
+			    # Master object file kept in different directory to avoid name conflict
+			    MASTER_OBJECT_FILE default = $(TEMP_DIR)$(/)master.o ;
+			    NonObjectFiles OTHER_LINKED_FILES : $(LINKED_FILES) ;
+			    # Create and edit master object file
+			    MasterObjectFile $(MASTER_OBJECT_FILE) : $(OBJECT_FILES) : $(EXPORTED_SYMBOLS_FILE) ;
+			    if $(OTHER_LINKED_FILES) = "" {
+			        OTHER_LINKED_FILES = $(MASTER_OBJECT_FILE) ;
+			    }
+			    else {
+			        OTHER_LINKED_FILES += $(MASTER_OBJECT_FILE) ;
+			    }
+			    DynamicLibrary $(INNER_PRODUCT) : $(OTHER_LINKED_FILES) ;
+		        }
+                        else if $(KERNEL_MODULE) = YES {
+		            local MODULE_OBJECT_PATH = $(OBJECT_FILE_DIR)$(/)$(ARCH)$(/)$(MODULE_OBJECT_FILE:G=) ;
+		            DynamicLibrary $(INNER_PRODUCT) : $(LINKED_FILES) ;
+		            FLAGS.o on $(INNER_PRODUCT) += -static -nostdlib -r -lkmodc++ "$(MODULE_OBJECT_PATH)" -lkmod -lcc_kext ;
+		        }
+		        else {
+                            for ARCH in $(ARCHS) {
+                                THIN_MASTER_OBJECT_FILE default = $(EXPORTED_SYMBOLS_FILE_$(ARCH)) ;
+                            }
+                            if $(THIN_MASTER_OBJECT_FILE) {
+                                # link bundle with architecture specific symbols edited
+                                #!!!:cmolick:20001117 missing per-arch exports files not accounted for
+                                for ARCH in $(ARCHS) {
+                                    MASTER_OBJECT_FILE_$(ARCH) default = $(TEMP_DIR)$(/)master_$(ARCH).o ;
+                                    MasterObjectFile $(MASTER_OBJECT_FILE_$(ARCH)) : $(OBJECT_FILES_$(ARCH)) : $(EXPORTED_SYMBOLS_FILE_$(ARCH)) ;
+                                }
+                                NonObjectFiles OTHER_LINKED_FILES_$(ARCH) : $(LINKED_FILES) ;
+                                for ARCH in $(ARCHS) {
+                                    if $(OTHER_LINKED_FILES) = "" {
+                                        OTHER_LINKED_FILES = $(MASTER_OBJECT_FILE_$(ARCH)) ;
+                                    }
+                                    else {
+                                        OTHER_LINKED_FILES += $(MASTER_OBJECT_FILE_$(ARCH)) ;
+                                    }
+                                }
+                                DynamicLibrary $(INNER_PRODUCT) : $(OTHER_LINKED_FILES) ;
+                           }
+                           else {
+                               # simple dynamic library link
+			        DynamicLibrary $(INNER_PRODUCT) : $(LINKED_FILES) ;
+                            }
+		        }
+                        if $(KERNEL_MODULE) != YES {
+		            FLAGS.o on $(INNER_PRODUCT) += -bundle ;
+                        }
+		    }
+	        case Application :
+		    # Define primary executable INNER_PRODUCT location in wrapper
+		    if $(PURE_JAVA) = YES {
+		        INNER_PRODUCT default = ;
+		    }
+		    else {
+	                INNER_PRODUCT default = $(1)$(/)Contents$(/)MacOS$(/)$(1:B)$(TOOL_SUFFIX) ;
+	                PRODUCT_FILES += $(INNER_PRODUCT) ;
+		        LINK_FILE_LIST on $(INNER_PRODUCT) = $(FILE_LIST) ;
+		    }
+		    INNER_PRODUCT_LINK default = ;
+		    if $(INNER_PRODUCT) {
+		        if $(JAVA_ONLY) != YES {
+			    StandaloneExecutable $(INNER_PRODUCT) : $(LINKED_FILES) ;
+			    FLAGS.o on $(INNER_PRODUCT) += -prebind ;
+			    STRIPPED_PRODUCT = $(INNER_PRODUCT) ;
+			    PRODUCT_FILES += $(INNER_PRODUCT) ;
+			    if $(INNER_PRODUCT) && $(PROFILING_CODE) = YES {
+				FLAGS.o on $(INNER_PRODUCT) += -pg ;
+			    }
+		        }
+		        if $(BUILD_PHASING) = YES {
+			    BUILD_PHASE_PRODUCTS += $(INNER_PRODUCT) ;
+		        }
+		    }
+	        case Framework :
+		    # Handle product wrapper versioning
+		    if $(CURRENT_VERSION_LINK) {
+		        INNER_PRODUCT default = $(1)$(/)Versions$(/)$(FRAMEWORK_VERSION)$(/)$(1:B)$(DYNAMIC_LIBRARY_SUFFIX) ;
+		        INNER_PRODUCT_LINK default = $(BUILD_DIR)$(/)$(1:G=)$(/)$(1:B)$(DYNAMIC_LIBRARY_SUFFIX) ;
+		        INNER_PRODUCT_LINK_PATH default = Versions$(/)Current$(/)$(1:B)$(DYNAMIC_LIBRARY_SUFFIX) ;
+		        # inner product link
+		        SymLink $(INNER_PRODUCT_LINK) : $(INNER_PRODUCT_LINK_PATH) ;
+		        PRODUCT_FILES += $(INNER_PRODUCT_LINK) ;
+		        NOUPDATE $(INNER_PRODUCT_LINK) ;
+		    }
+		    else  {
+		        INNER_PRODUCT default = $(1)$(/)$(1:B)$(DYNAMIC_LIBRARY_SUFFIX) ;
+		    }
+		    LINK_FILE_LIST on $(INNER_PRODUCT) = $(FILE_LIST) ;
+		    STRIPPED_PRODUCT = $(INNER_PRODUCT) ;
+		    PRODUCT_FILES += $(INNER_PRODUCT) ;
+		    if $(BUILD_PHASING) = YES {
+		        BUILD_PHASE_PRODUCTS += $(INNER_PRODUCT) ;
+		    }
+		    # link the final shared library
+		    if $(EXPORTED_SYMBOLS_FILE) {
+		        local OTHER_LINKED_FILES ;
+		        # Master object file kept in other directory to avoid name conflict
+		        MASTER_OBJECT_FILE default = $(TEMP_DIR)$(/)master.o ;
+		        NonObjectFiles OTHER_LINKED_FILES : $(LINKED_FILES) ;
+		        MasterObjectFile $(MASTER_OBJECT_FILE) : $(OBJECT_FILES) : $(EXPORTED_SYMBOLS_FILE) ;
+		        if $(OTHER_LINKED_FILES) = "" {
+			    OTHER_LINKED_FILES = $(MASTER_OBJECT_FILE) ;
+		        }
+		        else {
+			    OTHER_LINKED_FILES += $(MASTER_OBJECT_FILE) ;
+		        }
+			if $(VECTOR_OBJECT_FILE) {
+			    OTHER_LINKED_FILES += $(VECTOR_OBJECT_FILE) ;
+			}
+		        DynamicLibrary $(INNER_PRODUCT) : $(OTHER_LINKED_FILES) ;
+		    }
+		    else {
+                        for ARCH in $(ARCHS) {
+                            THIN_MASTER_OBJECT_FILE default = $(EXPORTED_SYMBOLS_FILE_$(ARCH)) ;
+                        }
+                        if $(THIN_MASTER_OBJECT_FILE) {
+                            # link bundle with architecture specific symbols edited
+                            #!!!:cmolick:20001117 missing per-arch exports files not accounted for
+                            for ARCH in $(ARCHS) {
+                                MASTER_OBJECT_FILE_$(ARCH) default = $(TEMP_DIR)$(/)master_$(ARCH).o ;
+                                MasterObjectFile $(MASTER_OBJECT_FILE_$(ARCH)) : $(OBJECT_FILES_$(ARCH)) : $(EXPORTED_SYMBOLS_FILE_$(ARCH)) : $(ARCH) ;
+                            }
+                            NonObjectFiles OTHER_LINKED_FILES : $(LINKED_FILES) ;
+                            for ARCH in $(ARCHS) {
+                                if $(OTHER_LINKED_FILES) = "" {
+                                    OTHER_LINKED_FILES = $(MASTER_OBJECT_FILE_$(ARCH)) ;
+                                }
+                                else {
+                                    OTHER_LINKED_FILES += $(MASTER_OBJECT_FILE_$(ARCH)) ;
+                                }
+                            }
+                            DynamicLibrary $(INNER_PRODUCT) : $(OTHER_LINKED_FILES) ;
+                        }
+                       else {
+                            # simple dynamic library link
+		            DynamicLibrary $(INNER_PRODUCT) : $(LINKED_FILES) ;
+                        }
+		    }
+		    if $(INNER_PRODUCT) && $(PROFILING_CODE) = YES {
+			FLAGS.o on $(INNER_PRODUCT) += -pg ;
+		    }
+		    FLAGS.o on $(INNER_PRODUCT) += -dynamiclib ;
+		    if $(DYLIB_COMPATIBILITY_VERSION) {
+		        FLAGS.o on $(INNER_PRODUCT) += -compatibility_version "$(DYLIB_COMPATIBILITY_VERSION)" ;
+		    }
+		    if $(DYLIB_CURRENT_VERSION) {
+		        FLAGS.o on $(INNER_PRODUCT) += -current_version "$(DYLIB_CURRENT_VERSION)" ;
+	            }
+		    if $(INSTALL_PATH) {
+		        FRAMEWORK_INSTALLED_NAME default = $(INSTALL_PATH)$(/)$(INNER_PRODUCT:G=) ;
+                        INSTALLED_NAME_FLAG on $(INNER_PRODUCT) = -install_name \"`echo \"$(FRAMEWORK_INSTALLED_NAME)\" | $(SED) 's!//*!/!g'`\" ;
+		    }
+		    # make link to library if in versioned framework
+		    if $(INNER_PRODUCT_LINK) {
+		        SymLink $(INNER_PRODUCT_LINK) : $(INNER_PRODUCT_LINK_PATH) ;
+		        NOUPDATE $(INNER_PRODUCT_LINK) ;
+		        PRODUCT_FILES += $(INNER_PRODUCT_LINK) ;
+		        if $(BUILD_PHASING) = YES {
+			    BUILD_PHASE_PRODUCTS += $(INNER_PRODUCT_LINK) ;
+		        }
+		    }
+	        case * :
+		    ECHO warning: unknown project type ;
+	   }
+        } # end of object files block
+        if $(COMPILED_JAVA) {
+            # provide stub executable if necessary
+            if $(JAVA_ONLY) = YES {
+                INNER_PRODUCT default = $(1)$(/)Contents$(/)MacOS$(/)$(1:B) ;
+                Cp $(INNER_PRODUCT) : $(JAVA_APP_STUB) ;
+                PRODUCT_FILES += $(INNER_PRODUCT) ;
+                if $(BUILD_PHASING) = YES {
+                    BUILD_PHASE_PRODUCTS += $(INNER_PRODUCT) ;
+                }
+            }
+	    # Add jar/zip files that are in the link phase to the classpath
+	    if $(OTHER_JAVA_CLASS_PATH) {
+	        export LINKED_CLASS_ARCHIVES = :"$(OTHER_JAVA_CLASS_PATH)" ;
+	    }
+	    else {
+	        export LINKED_CLASS_ARCHIVES = "" ;
+	    }
+	    for JAVA_CLASS_SEARCH_PATH in $(JAVA_CLASS_SEARCH_PATHS) {
+	        LINKED_CLASS_ARCHIVES = "$(LINKED_CLASS_ARCHIVES):$(JAVA_CLASS_SEARCH_PATH)" ;
+	    }
+	    local ARCHIVE ;
+	    for ARCHIVE in $(LINKED_FILES) {
+	        switch $(ARCHIVE) {
+	        case *.framework :
+                    local FW_SUBDIR ;
+                    for FW_SUBDIR in $(JAVA_FRAMEWORK_RESOURCES_DIRS) {
+                        LINKED_CLASS_ARCHIVES = $(LINKED_CLASS_ARCHIVES):$(ARCHIVE)$(/)$(FW_SUBDIR)$(/)Java ;
+                        JAVA_FRAMEWORK_JARS += $(ARCHIVE)$(/)$(FW_SUBDIR)$(/)Java ;
+                    }
+	        case *.jar :
+		    LINKED_CLASS_ARCHIVES = $(LINKED_CLASS_ARCHIVES):$(ARCHIVE) ;
+	        case *.zip :
+		    LINKED_CLASS_ARCHIVES = $(LINKED_CLASS_ARCHIVES):$(ARCHIVE) ;
+	        }
+	    }
+	    if $(JAVA_ARCHIVE_CLASSES) != NO {
+	        # java archive suffix applies to applications and frameworks
+	        if $(JAVA_ARCHIVE_TYPE) = JAR {
+		    CLASS_ARCHIVE_SUFFIX default = .jar ;
+	        }
+	        else {
+		    if $(JAVA_ARCHIVE_TYPE) = ZIP {
+		        CLASS_ARCHIVE_SUFFIX default = .zip ;
+		    }
+	        }
+	        if ( $(PRODUCT_TYPE) = Bundle
+                  || $(PRODUCT_TYPE) = Application
+                  || $(PRODUCT_TYPE) = Framework ) {
+                    # Assume bundled products with object files are Cocoa
+		    CLASS_ARCHIVE default = $(RESOURCE_DIR)$(/)Java$(/)$(1:B)$(CLASS_ARCHIVE_SUFFIX) ;
+	        }
+	        else {
+                    CLASS_ARCHIVE default = $(1:B:G=)$(CLASS_ARCHIVE_SUFFIX) ;
+		    LOCATE on $(CLASS_ARCHIVE) = $(BUILD_DIR) ;
+	        }
+	        # class files unknown, so archive depends on java compile log
+	        ClassArchive $(CLASS_ARCHIVE) : $(CLASS_FILE_DIR) ;
+	        DEPENDS $(CLASS_ARCHIVE) : $(JAVA_COMPILE_TARGET) ;
+	        PRODUCT_FILES += $(CLASS_ARCHIVE) ;
+	    
+	        if $(BUILD_PHASING) = YES {
+		    BUILD_PHASE_PRODUCTS += $(CLASS_ARCHIVE) ;
+	        }
+	    }
+        }
+	# Export the path to the inner product, if any.
+	export INNER_PRODUCT_SUBPATH = $(INNER_PRODUCT:G=) ;
+	# Build phasing bookkeeping
+        if $(BUILD_PHASING) = YES {
+            if $(BUILD_PHASE_PRODUCTS) {
+                DEPENDS $(BUILD_PHASE) : $(BUILD_PHASE_PRODUCTS) ;
+            }
+            PREVIOUS_BUILD_PHASE = $(BUILD_PHASE) ;
+        }
+    }
+}
+
+rule ProcessFrameworkOrLibrary
+{
+    LINKED_FILES += $(2) ;
+}
+
+rule ProcessRezFiles
+{
+    if build in $(BUILD_COMPONENTS) || source in $(BUILD_COMPONENTS) {
+        local FILE ;
+        if $(BUILD_PHASING) = YES {
+            PhaseTarget BUILD_PHASE : $(1) : RezResourceManagerFiles ;
+            BuildPhase $(BUILD_PHASE) : $(1) : $(PREVIOUS_BUILD_PHASE) ;
+            BUILD_PHASE_PRODUCTS = ;
+        }
+        for FILE in $(2) {
+            if $(BUILD_PHASING) = YES {
+                ProcessRezFile $(BUILD_PHASE) : $(FILE) ;
+            }
+            else {
+                ProcessRezFile $(1) : $(FILE) ;
+            }
+        }
+        if $(BUILD_PHASING) = YES {
+            if $(BUILD_PHASE_PRODUCTS) {
+                DEPENDS $(BUILD_PHASE) : $(BUILD_PHASE_PRODUCTS) ;
+            }
+            PREVIOUS_BUILD_PHASE = $(BUILD_PHASE) ;
+        }
+    }
+}
+
+rule ProcessRezFile
+{
+    if source in $(BUILD_COMPONENTS) {
+        local REZ_SOURCE_COPY ;
+        local REZ_SOURCE_DIR ;
+        # make directory first if necessary
+        if $(2:D) {
+            REZ_SOURCE_DIR = $(SOURCE_DIR)/$(2:D:G=) ;
+            Mkdir $(REZ_SOURCE_DIR) ;
+            REZ_SOURCE_COPY = $(REZ_SOURCE_DIR)/$(2:D=:G=) ;
+            DEPENDS $(REZ_SOURCE_COPY) : $(REZ_SOURCE_DIR) ;
+        }
+        else {
+            REZ_SOURCE_COPY = $(SOURCE_DIR)/$(2:D=:G=) ;
+            DEPENDS $(REZ_SOURCE_COPY) : $(SOURCE_DIR) ;
+            Mkdir $(SOURCE_DIR) ;
+        }
+        # copy rez files to source location
+        Cp $(REZ_SOURCE_COPY) : $(2) ;
+        if $(BUILD_PHASING) = YES {
+            BUILD_PHASE_PRODUCTS += $(REZ_SOURCE_COPY) ;
+        }
+    }
+    if build in $(BUILD_COMPONENTS) {
+        local REGION = $($(2)_REGION) ;
+        # scan for header files
+        HDRRULE on $(2) = ProcessC.HdrRule ;
+        HDRSCAN on $(2) = $(HDRPATTERN) ;
+        if $(REZ_EXECUTABLE) = YES {
+            # Optionally accumulate ResourceManager resources
+            # on a resource fork of the executable
+            PRESERVE_RESOURCES += $(INNER_PRODUCT) ;
+            if $(RESOURCE_FORK) = "" {
+                RESOURCE_FORK = $(INNER_PRODUCT:G=ResourceFork) ;
+            }
+        }
+        else {
+            # By default ResourceManager resources are stored
+            # in data forks as Resources/<product>.rsrc files
+            # or Resources/<region>.lproj/Localized.rsrc files
+            if $(REGION) {
+                RESOURCE_FORK = $(RESOURCE_DIR)$(/)$(REGION).lproj$(/)Localized.rsrc ;
+            }
+            else {
+                RESOURCE_FORK = $(RESOURCE_DIR)$(/)$(1:S=.rsrc:G=) ;
+            }
+            DEPENDS $(RESOURCE_FORK) : $(RESOURCE_DIR) ;
+            if ! $(RESOURCE_DIR) in $(PRODUCT_FILES) {
+                PRODUCT_FILES += $(RESOURCE_DIR) ;
+                if $(BUILD_PHASING) = YES {
+                    BUILD_PHASE_PRODUCTS += $(RESOURCE_DIR) ;
+                }
+            }
+        }
+        # Setting ALWAYS_REZ nonempty correctly handles iterations
+        # on HFS when REZ_EXECUTABLE is YES and Rez may fail
+        if ! $(ALWAYS_REZ) = "" {
+            ALWAYS $(RESOURCE_FORK) ;
+        }
+        if ! $(RESOURCE_FORK) in $(PRODUCT_FILES) {
+            PRODUCT_FILES += $(RESOURCE_FORK) ;
+            if $(BUILD_PHASING) = YES {
+                BUILD_PHASE_PRODUCTS += $(RESOURCE_FORK) ;
+            }
+        }
+        # create accompanying link in the case of versioned frameworks
+        if $(RESOURCE_LINK) 
+         && ! $(RESOURCE_LINK) in $(PRODUCT_FILES) {
+            SymLink $(RESOURCE_LINK) : $(RESOURCE_LINK_PATH) ;
+            PRODUCT_FILES += $(RESOURCE_LINK) ;
+            if $(BUILD_PHASING) = YES {
+                BUILD_PHASE_PRODUCTS += $(RESOURCE_LINK) ;
+            }
+        }
+        if $(2:S) = ".r" {
+            Rez $(RESOURCE_FORK) : $(2) ;
+        } else {
+            ResMerge $(RESOURCE_FORK) : $(2) ;
+        }
+    }
+}
+
+rule ProcessScriptBuildPhaseFiles
+{
+    if build in $(BUILD_COMPONENTS) || source in $(BUILD_COMPONENTS) {
+        if $(BUILD_PHASING) = YES {
+            PhaseTarget BUILD_PHASE : $(1) : Script ;
+            BuildPhase $(BUILD_PHASE) : $(1) : $(PREVIOUS_BUILD_PHASE) ;
+            BUILD_PHASE_PRODUCTS = ;
+        }
+        if build in $(BUILD_COMPONENTS) {
+            SEARCH on $(2) = $(SOURCE_ROOT) $(TEMP_ROOT) ;
+            PHASE_SCRIPT_EXECUTION = $(2:G=Execution) ;
+            NOTFILE $(PHASE_SCRIPT_EXECUTION) ;
+            ALWAYS $(PHASE_SCRIPT_EXECUTION) ;
+            DEPENDS $(1) : $(PHASE_SCRIPT_EXECUTION) ;
+            PhaseScriptExecution $(PHASE_SCRIPT_EXECUTION) : $(2) ;
+            if ! $(PHASE_SCRIPT_EXECUTION) in $(PRODUCT_FILES) {
+#               PRODUCT_FILES += $(PHASE_SCRIPT_EXECUTION) ;            [!!!:anders:20001117]
+                if $(BUILD_PHASING) = YES {
+                    BUILD_PHASE_PRODUCTS += $(PHASE_SCRIPT_EXECUTION) ;
+                }
+            }
+        }
+        if $(BUILD_PHASING) = YES {
+            if $(BUILD_PHASE_PRODUCTS) {
+                DEPENDS $(BUILD_PHASE) : $(BUILD_PHASE_PRODUCTS) ;
+            }
+            PREVIOUS_BUILD_PHASE = $(BUILD_PHASE) ;
+        }
+        # For compatibility:
+        export TEMP_FILES_DIR default = $(TEMP_DIR) ;
+        export DERIVED_SOURCES_DIR default = $(DERIVED_FILE_DIR) ;
+        export BUILD_PATH default = $(OBJROOT) ;
+    }
+}
+
+rule PhaseScriptExecution
+{
+    JAMSHOULDSETENV on $(1) = YES ;
+    DEPENDS $(1) : $(2) ;
+}
+actions exportvars PhaseScriptExecution
+{
+    echo "=== Script ==="
+    cat "$(2)"
+    echo "--- Output ---"
+    "$(2)"
+    _result=$?
+    echo "=== Exit code: ${_result} ==="
+}
+
+rule ProcessCopyFiles
+{
+    if $(BUILD_PHASING) = YES {
+        PhaseTarget BUILD_PHASE : $(1) : CopyFiles ;
+        BuildPhase $(BUILD_PHASE) : $(1) : $(PREVIOUS_BUILD_PHASE) ;
+        BUILD_PHASE_PRODUCTS = ;
+    }
+    if build in $(BUILD_COMPONENTS)
+     || ( headers in $(BUILD_COMPONENTS) && $(INSTALLHDRS_COPY_PHASE) = YES ) {
+        SEARCH on $(2) = $(SOURCE_ROOT) ;
+        for FILE in $(2) {
+            ProcessCopyFile $(1) : $(FILE) : $(COPYFILES_DESTINATION_PATH) ;
+        }
+    }
+    if $(BUILD_PHASING) = YES {
+        if $(BUILD_PHASE_PRODUCTS) {
+            DEPENDS $(BUILD_PHASE) : $(BUILD_PHASE_PRODUCTS) ;
+        }
+        PREVIOUS_BUILD_PHASE = $(BUILD_PHASE) ;
+    }
+}
+
+rule ProcessCopyFile
+{
+    if source in $(BUILD_COMPONENTS) {
+        local SOURCE_COPY ;
+        local SOURCE_SUBDIR ;
+        # copy files to source location
+        # make directory first if necessary
+        if $(2:D) {
+            SOURCE_SUBDIR = $(2:D:G=SourceCopy) ;
+            Mkdir $(SOURCE_SUBDIR) ;
+            SOURCE_COPY = $(SOURCE_SUBDIR)/$(2:D=:G=) ;
+            DEPENDS $(SOURCE_COPY) : $(SOURCE_SUBDIR) ;
+        }
+        else {
+            SOURCE_COPY = $(SOURCE_DIR)/$(2:D=:G=) ;
+            DEPENDS $(SOURCE_COPY) : $(SOURCE_DIR) ;
+            Mkdir $(SOURCE_DIR) ;
+        }
+        Cp $(SOURCE_COPY) : $(2) ;
+        if $(BUILD_PHASING) = YES {
+            BUILD_PHASE_PRODUCTS += $(SOURCE_COPY) ;
+        }
+    }
+    if build in $(BUILD_COMPONENTS) || headers in $(BUILD_COMPONENTS) {
+        local DESTINATION_DIR = $(3) ;
+        if ! $(DESTINATION_DIR) in $(PRODUCT_FILES) {
+            Mkdir $(DESTINATION_DIR) ;
+            PRODUCT_FILES += $(DESTINATION_DIR) ;
+            if $(BUILD_PHASING) = YES {
+                BUILD_PHASE_PRODUCTS += $(DESTINATION_DIR) ;
+            }
+        }
+        local DESTINATION_BASE = $(2:BS) ;
+        local DESTINATION default = $(3)$(/)$(DESTINATION_BASE) ;
+        DEPENDS $(DESTINATION) : $(DESTINATION_DIR) ;
+        DEPENDS $(DESTINATION) : $(2) ;
+        LOCATE on $(DESTINATION) = $(DESTINATION_DIR) ;
+        PRODUCT_FILES += $(DESTINATION) ;
+        if $(BUILD_PHASING) = YES {
+            BUILD_PHASE_PRODUCTS += $(DESTINATION) ;
+        }
+        RobustCp $(DESTINATION) : $(2) ;
+    }
+}
+
+rule ProcessJavaArchiveFiles
+{
+    if build in $(BUILD_COMPONENTS) {
+        local FILE ;
+        if $(BUILD_PHASING) = YES {
+            PhaseTarget BUILD_PHASE : $(1) : JavaArchiveFiles ;
+            BuildPhase $(BUILD_PHASE) : $(1) : $(PREVIOUS_BUILD_PHASE) ;
+            BUILD_PHASE_PRODUCTS = ;
+        }
+        LOCATE on $(2) = $(SOURCE_ROOT) ;
+        for FILE in $(2) {
+            ProcessJavaArchiveFile $(1) : $(FILE) : $(CLASS_FILE_DIR) ;
+        }
+        if $(BUILD_PHASING) = YES {
+            if $(BUILD_PHASE_PRODUCTS) {
+                DEPENDS $(BUILD_PHASE) : $(BUILD_PHASE_PRODUCTS) ;
+            }
+            PREVIOUS_BUILD_PHASE = $(BUILD_PHASE) ;
+        }
+    }
+}
+
+rule ProcessJavaArchiveFile
+{
+    local ARCHIVE_PATH ;
+    RemovePrefixPath ARCHIVE_PATH : $(JAVA_SOURCE_SUBDIR) : $(2) ;
+    local ARCHIVE_DESTINATION default = $(3)$(/)$(ARCHIVE_PATH) ;
+    PRODUCT_FILES += $(ARCHIVE_DESTINATION) ;
+    if $(BUILD_PHASING) = YES {
+        BUILD_PHASE_PRODUCTS += $(ARCHIVE_DESTINATION) ;
+    }
+    local DESTINATION_DIR = $(ARCHIVE_DESTINATION:D) ;
+    DEPENDS $(ARCHIVE_DESTINATION) : $(DESTINATION_DIR) ;
+    if ! $(DESTINATION_DIR) in $(PRODUCT_FILES) {
+        PRODUCT_FILES += $(DESTINATION_DIR) ;
+    }
+    Cp $(ARCHIVE_DESTINATION) : $(2) ;
+    COMPILED_JAVA += $(2) ;
+}
+
+
+# Following rules are used by ProcessSource
+# to attend to specific types of source file.
+
+rule ProcessUsingJavaCompiler
+{
+    # Because what class files will be generated by the java compiler
+    # can't be known in advance, an abstract target is used for this step.
+    if $(JAVA_COMPILE_TARGET) = "" {
+        JAVA_COMPILE_TARGET = $(1:G=CompileJava) ;
+        NOTFILE $(JAVA_COMPILE_TARGET) ;
+        DEPENDS $(1) : $(JAVA_COMPILE_TARGET) ;
+    }
+    DEPENDS $(JAVA_COMPILE_TARGET) : $(CLASS_FILE_DIR) ;
+    export JAVA_SOURCE_PATH default = $(SOURCE_ROOT)$(/)$(JAVA_SOURCE_SUBDIR) ;
+    # Here we handle the four different combinations of Debug and Optimize settings for source files
+    # To do this, we create up to four sub-targets of JAVA_COMPILE_TARGET and add each source file to
+    # its respective sub-target.
+    JAVAC_FLAGS = $(JAVA_COMPILER_FLAGS) ;
+    local THIS_TARGET ;
+    if $(DEBUGGING_SYMBOLS) = YES {
+        JAVAC_FLAGS += "-g" ;
+	if "Optimize" in $($(2)_ATTRIBUTES) {
+	    JAVAC_FLAGS += "-O" ;
+	    if $(JAVA_COMPILE_DEBUGOPT_TARGET) = "" {
+		JAVA_COMPILE_DEBUGOPT_TARGET = $(1:G=CompileJavaDebugOpt) ;
+		NOTFILE $(JAVA_COMPILE_DEBUGOPT_TARGET) ;
+		DEPENDS $(JAVA_COMPILE_TARGET) : $(JAVA_COMPILE_DEBUGOPT_TARGET) ;
+	    }
+	    THIS_TARGET = $(JAVA_COMPILE_DEBUGOPT_TARGET) ;
+	}
+	else {
+	    if $(JAVA_COMPILE_DEBUG_TARGET) = "" {
+		JAVA_COMPILE_DEBUG_TARGET = $(1:G=CompileJavaDebug) ;
+		NOTFILE $(JAVA_COMPILE_DEBUG_TARGET) ;
+		DEPENDS $(JAVA_COMPILE_TARGET) : $(JAVA_COMPILE_DEBUG_TARGET) ;
+	    }
+	    THIS_TARGET = $(JAVA_COMPILE_DEBUG_TARGET) ;
+	}
+    }
+    else {
+	if "Optimize" in $($(2)_ATTRIBUTES) {
+	    JAVAC_FLAGS += "-O" ;
+	    if $(JAVA_COMPILE_OPT_TARGET) = "" {
+		JAVA_COMPILE_OPT_TARGET = $(1:G=CompileJavaOpt) ;
+		NOTFILE $(JAVA_COMPILE_OPT_TARGET) ;
+		DEPENDS $(JAVA_COMPILE_TARGET) : $(JAVA_COMPILE_OPT_TARGET) ;
+	    }
+	    THIS_TARGET = $(JAVA_COMPILE_OPT_TARGET) ;
+	}
+	else {
+	    if $(JAVA_COMPILE_NONE_TARGET) = "" {
+		JAVA_COMPILE_NONE_TARGET = $(1:G=CompileJavaNone) ;
+		NOTFILE $(JAVA_COMPILE_NONE_TARGET) ;
+		DEPENDS $(JAVA_COMPILE_TARGET) : $(JAVA_COMPILE_NONE_TARGET) ;
+	    }
+	    THIS_TARGET = $(JAVA_COMPILE_NONE_TARGET) ;
+	}
+    }
+
+    local COMPILE_TARGET ;
+    if $(JAVA_USE_DEPENDENCIES) = "NO" {
+        DEPENDS $(THIS_TARGET) : $(2) ;
+        ALWAYS $(THIS_TARGET) ;
+        COMPILE_TARGET = $(THIS_TARGET) ;
+    }
+    else {
+        if $($(2)_JAVA_IMPORTS)"NOTEMPTY" {
+            local THIS_SOURCE_FILE ;
+            RemovePrefixPath THIS_SOURCE_FILE : $(JAVA_SOURCE_SUBDIR) : $(2) ;
+            local THIS_CLASS_FILE = $(CLASS_FILE_DIR)$(/)$(THIS_SOURCE_FILE:S=.class) ;
+            DEPENDS $(THIS_CLASS_FILE) : $(2) ;
+            if $($(2)_JAVA_IMPORTS) != "" {
+                DEPENDS $(THIS_CLASS_FILE) : $($(2)_JAVA_IMPORTS) ;
+            }
+            DEPENDS $(THIS_TARGET) : $(THIS_CLASS_FILE) ;
+            COMPILE_TARGET = $(THIS_CLASS_FILE) ;
+        }
+        else {
+            DEPENDS $(THIS_TARGET) : $(2) ;
+            ALWAYS $(THIS_TARGET) ;
+            COMPILE_TARGET = $(THIS_TARGET) ;
+        }
+    }
+
+    JAVAC_FLAGS on $(COMPILE_TARGET) = $(JAVAC_FLAGS) ;
+    JAVA_COMPILER on $(COMPILE_TARGET) = $(JAVA_COMPILER) ;
+    
+    if $(JAVA_COMPILER:B) = jikes {
+	JavaCompile.jikes $(COMPILE_TARGET) : $(2) ;
+    }
+    else {
+	JavaCompile.default $(COMPILE_TARGET) : $(2) ;
+    }
+    COMPILED_JAVA += $(2) ;
+    if ! $(JAVA_COMPILE_TARGET) in $(PRODUCT_FILES) {
+        PRODUCT_FILES += $(JAVA_COMPILE_TARGET) ;
+        if $(BUILD_PHASING) = YES {
+            BUILD_PHASE_PRODUCTS += $(JAVA_COMPILE_TARGET) ;
+        }
+    }
+    if ! $(THIS_TARGET) in $(PRODUCT_FILES) {
+        PRODUCT_FILES += $(THIS_TARGET) ;
+        if $(BUILD_PHASING) = YES {
+            BUILD_PHASE_PRODUCTS += $(THIS_TARGET) ;
+        }
+    }
+}
+actions together piecemeal JavaCompile.jikes {
+    frameworkjars=""
+    for i in `echo $(JAVA_FRAMEWORK_JARS)/*.jar $(JAVA_FRAMEWORK_JARS)/*.zip ` ; do if [ -f "$i" ] ; then frameworkjars="$frameworkjars":"$i" ; fi ; done
+    classpath="$(CLASS_FILE_DIR):$(JAVA_SOURCE_PATH)$(LINKED_CLASS_ARCHIVES)$frameworkjars:"`$(JAVACONFIG) DefaultClasspath`
+    $(JAVA_COMPILER) +E $(JAVAC_FLAGS) -classpath "$classpath" -d "$(CLASS_FILE_DIR)" '$(2)'
+}
+actions together piecemeal JavaCompile.default {
+    frameworkjars=""
+    for i in `echo $(JAVA_FRAMEWORK_JARS)/*.jar $(JAVA_FRAMEWORK_JARS)/*.zip ` ; do if [ -f "$i" ] ; then frameworkjars="$frameworkjars":"$i" ; fi ; done
+    classpath="$(CLASS_FILE_DIR)$(LINKED_CLASS_ARCHIVES)$frameworkjars:"`$(JAVACONFIG) DefaultClasspath`
+    $(JAVA_COMPILER) $(JAVAC_FLAGS) -sourcepath "$(JAVA_SOURCE_PATH)" -classpath "$classpath" -d "$(CLASS_FILE_DIR)" '$(2)'
+}
+
+rule ProcessApplescripts
+{
+    if build in $(BUILD_COMPONENTS) || source in $(BUILD_COMPONENTS) {
+        local FILE ;
+        if $(BUILD_PHASING) = YES {
+            PhaseTarget BUILD_PHASE : $(1) : CompileAppleScripts ;
+            BuildPhase $(BUILD_PHASE) : $(1) : $(PREVIOUS_BUILD_PHASE) ;
+            BUILD_PHASE_PRODUCTS = ;
+        }
+        if $(CONTEXTNAME) = ""
+        {
+            for FILE in $(2) {
+                if $(BUILD_PHASING) = YES {
+                    ProcessAppleScript $(BUILD_PHASE) : $(FILE) : $(FILE) ;
+                }
+                else {
+                    ProcessAppleScript $(1) : $(FILE) : $(FILE) ;
+                }
+            }
+        }
+        else
+        {
+            ProcessAppleScript $(1) : $(2) : $(CONTEXTNAME) ;
+        }
+        if $(BUILD_PHASING) = YES {
+            if $(BUILD_PHASE_PRODUCTS) {
+                DEPENDS $(BUILD_PHASE) : $(BUILD_PHASE_PRODUCTS) ;
+            }
+            PREVIOUS_BUILD_PHASE = $(BUILD_PHASE) ;
+        }
+    }
+}
+
+rule ProcessAppleScript
+{
+    if source in $(BUILD_COMPONENTS) {
+        # make directory first if necessary
+        if $(2:D) {
+            SCRIPT_SOURCE_DIR = $(2:D:G=) ;
+            Mkdir $(SCRIPT_SOURCE_DIR) ;
+            SCRIPT_SOURCE_COPY = $(SCRIPT_SOURCE_DIR)/$(2:D=:G=) ;
+            DEPENDS $(SCRIPT_SOURCE_COPY) : $(SCRIPT_SOURCE_DIR) ;
+        }
+        else {
+            SCRIPT_SOURCE_COPY = $(SOURCE_DIR)/$(2:D=:G=) ;
+            DEPENDS $(SCRIPT_SOURCE_COPY) : $(SOURCE_DIR) ;
+            Mkdir $(SOURCE_DIR) ;
+        }
+        # copy script to source location
+        Cp $(SCRIPT_SOURCE_COPY) : $(2) ;
+        if $(BUILD_PHASING) = YES {
+            BUILD_PHASE_PRODUCTS += $(SCRIPT_SOURCE_COPY) ;
+        }
+    }
+    if build in $(BUILD_COMPONENTS) {
+        APPLESCRIPT_FILE = $(APPLESCRIPTS_DIR)$(/)$(3:S=.scpt) ;
+        DEPENDS $(APPLESCRIPT_FILE) : $(APPLESCRIPTS_DIR) ;
+        if ! $(APPLESCRIPTS_DIR) in $(PRODUCT_FILES) {
+            Mkdir $(APPLESCRIPTS_DIR) ;
+            PRODUCT_FILES += $(APPLESCRIPTS_DIR) ;
+            if $(BUILD_PHASING) = YES {
+                BUILD_PHASE_PRODUCTS += $(APPLESCRIPTS_DIR) ;
+            }
+        }
+        DEPENDS $(APPLESCRIPT_FILE) : $(2) ;
+        if ! $(APPLESCRIPT_FILE) in $(PRODUCT_FILES) {
+            PRODUCT_FILES += $(APPLESCRIPT_FILE) ;
+            if $(BUILD_PHASING) = YES {
+                BUILD_PHASE_PRODUCTS += $(APPLESCRIPT_FILE) ;
+            }
+        }
+        OTHER_OSAFLAGS on $(APPLESCRIPT_FILE) = $(OTHER_OSAFLAGS) ;
+        OSACompile $(APPLESCRIPT_FILE) : $(2) ;
+    }
+}
+
+actions OSACompile
+{
+    $(OSAC) -i "$(SYSTEM_LIBRARY_DIR)/Frameworks/ASScripting.framework/Resources/ASTerminology.rsrc" -o "$(1)" $(OTHER_OSAFLAGS) "$(2)"
+}
+
+rule ProcessC
+{
+    for ARCH in $(ARCHS) {
+        local OBJECT_FILE ;
+        local OBJECT_SUBDIR = $(OBJECT_FILE_DIR)$(/)$(ARCH) ;
+        # $(2)_UNIQUENAME is defined only if the basename of the file isn't unique within the target.
+        if $($(2)_UNIQUENAME) {
+            OBJECT_FILE = $($(2)_UNIQUENAME:G=$(ARCH)).o ;
+        }
+        else {
+            OBJECT_FILE = $(2:D=:S=:G=$(ARCH)).o ;
+        }
+        DEPENDS $(OBJECT_FILE) : $(OBJECT_SUBDIR) ;
+        if ! $(OBJECT_SUBDIR) in $(PRODUCT_FILES) {
+            Mkdir $(OBJECT_SUBDIR) ;
+#           PRODUCT_FILES += $(OBJECT_SUBDIR) ;       [!!!:anders:20001117]
+            if $(BUILD_PHASING) = YES {
+                BUILD_PHASE_PRODUCTS += $(OBJECT_SUBDIR) ;
+            }
+        }
+        ARCH on $(OBJECT_FILE) = $(ARCH) ;
+        PER_ARCH_CFLAGS = $(PER_ARCH_CFLAGS_$(ARCH)) ;
+        CompileC $(OBJECT_FILE) : $(2) ;
+        OBJECT_FILES += $(OBJECT_FILE) ;
+        OBJECT_FILES_$(ARCH) += $(OBJECT_FILE) ;
+        if $(BUILD_PHASING) = YES {
+            BUILD_PHASE_PRODUCTS += $(OBJECT_FILE) ;
+        }
+        if $(2) = $(MODULE_INFO_FILE) {
+            MODULE_OBJECT_FILE = $(OBJECT_FILE) ;
+            LOCATE on $(MODULE_OBJECT_FILE) = $(OBJECT_SUBDIR) ;
+            DEPENDS $(1) : $(MODULE_OBJECT_FILE) ;
+        }
+        else {
+            LOCATE on $(OBJECT_FILE) = $(OBJECT_SUBDIR) ;
+            LINKED_FILES += $(OBJECT_FILE) ;
+        }
+    }
+}
+
+rule ProcessCplusplus
+{
+    for ARCH in $(ARCHS) {
+        local OBJECT_FILE ;
+        local OBJECT_SUBDIR = $(OBJECT_FILE_DIR)$(/)$(ARCH) ;
+        # $(2)_UNIQUENAME is defined only if the basename of the file isn't unique within the target.
+        if $($(2)_UNIQUENAME) {
+            OBJECT_FILE = $($(2)_UNIQUENAME:G=$(ARCH)).o ;
+        }
+        else {
+            OBJECT_FILE = $(2:D=:S=:G=$(ARCH)).o ;
+        }
+        DEPENDS $(OBJECT_FILE) : $(OBJECT_SUBDIR) ;
+        if ! $(OBJECT_SUBDIR) in $(PRODUCT_FILES) {
+            Mkdir $(OBJECT_SUBDIR) ;
+            # !!!:anders:20001117 adding OBJECT_SUBDIR to PRODUCT_FILES = death
+            PRODUCT_FILES += $(OBJECT_SUBDIR) ;
+            if $(BUILD_PHASING) = YES {
+                BUILD_PHASE_PRODUCTS += $(OBJECT_SUBDIR) ;
+            }
+        }
+        ARCH on $(OBJECT_FILE) = $(ARCH) ;
+        PER_ARCH_CPLUSPLUSFLAGS_$(ARCH) default = $(PER_ARCH_CFLAGS_$(ARCH)) ;
+        PER_ARCH_CPLUSPLUSFLAGS = $(PER_ARCH_CPLUSPLUSFLAGS_$(ARCH)) ;
+        CompileCplusplus $(OBJECT_FILE) : $(2) ;
+        OBJECT_FILES += $(OBJECT_FILE) ;
+        OBJECT_FILES_$(ARCH) += $(OBJECT_FILE) ;
+        if $(BUILD_PHASING) = YES {
+            BUILD_PHASE_PRODUCTS += $(OBJECT_FILE) ;
+        }
+        if $(2) = $(MODULE_INFO_FILE) {
+            MODULE_OBJECT_FILE = $(OBJECT_FILE) ;
+            LOCATE on $(MODULE_OBJECT_FILE) = $(OBJECT_SUBDIR) ;
+            DEPENDS $(1) : $(MODULE_OBJECT_FILE) ;
+        }
+        else {
+            LOCATE on $(OBJECT_FILE) = $(OBJECT_SUBDIR) ;
+            LINKED_FILES += $(OBJECT_FILE) ;
+        }
+    }
+}
+
+HDRPATTERN = "^#[	 ]*include[	 ]*[<\"](.*)[\">].*$" ;
+HDRPATTERN += "^#[	 ]*import[	 ]*[<\"](.*)[\">].*$" ;
+rule ProcessC.HdrRule
+{
+    # header reference in subdirectory source may be to header in that subdirectory
+    local LOCAL_HEADERS = $(2:D=$(1:D)) ;
+    # or header reference may be to elsewhere
+    local FOREIGN_HEADERS = $(2) ;
+    # compiled sources may include headers in subdirectories
+    INCLUDES $(1) : $(LOCAL_HEADERS) $(FOREIGN_HEADERS) ;
+    # headers not found are ignored
+    NOCARE $(LOCAL_HEADERS) $(FOREIGN_HEADERS) ;
+}
+
+rule CompileC
+{
+    # object file depends on the source file
+    DEPENDS $(1) : $(2) ;
+    # Initialize the flags, and set search paths to nothing
+    if $(KERNEL_MODULE) = YES {
+        local KERNEL_FRAMEWORK = $(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework ;
+        local KERNEL_HEADERS = $(KERNEL_FRAMEWORK)/Headers ;
+        local KERNEL_INCLUDE_PATHS = $(KERNEL_HEADERS) $(KERNEL_HEADERS)/bsd ;
+        local KERNEL_COMPILE_OPTIONS = -finline -fno-keep-inline-functions -force_cpusubtype_ALL -msoft-float ;
+        if $(ARCH) in ppc {
+            KERNEL_COMPILE_OPTIONS += -mlong-branch ;
+        }
+        local KERNEL_DEFINITIONS = -DKERNEL -DKERNEL_PRIVATE -DDRIVER_PRIVATE -DAPPLE -DNeXT ;
+        FLAGS on $(1) = -arch $(ARCH) $(PER_ARCH_CFLAGS) -fno-common -nostdinc $(OPTIMIZATION_CFLAGS) $(WARNING_CFLAGS) $(OTHER_CFLAGS) -I$(KERNEL_INCLUDE_PATHS) -I$(PROJECT_HEADER_DIR) $(KERNEL_COMPILE_OPTIONS) -static $(KERNEL_DEFINITIONS) ;
+        GLOBAL_CFLAGS on $(1) = ;
+    }
+    else {
+        FLAGS on $(1) = -arch $(ARCH) $(PER_ARCH_CFLAGS) -fno-common -fpascal-strings $(OPTIMIZATION_CFLAGS) $(WARNING_CFLAGS) ;
+        if ! DerivedAssembly in $($(2)_ATTRIBUTES) {
+            FLAGS on $(1) += $(OTHER_CFLAGS) ;
+        }
+    }
+    FLAGS on $(1) += -pipe ;
+    # seed search paths with target-wide values
+    HEADER_SEARCH_PATHS on $(1) = $(HEADER_SEARCH_PATHS) ;
+    FRAMEWORK_SEARCH_PATHS on $(1) = $(FRAMEWORK_SEARCH_PATHS) ;
+
+    # If the source file is in a subdirectory, then search that
+    # subdirectory for headers
+    if $(2:D) {
+        HEADER_SEARCH_PATHS on $(1) += $(2:D) ;
+    }
+    # We must compile with the extension-specific build flags
+    FLAGS on $(1) += $($(2:S)_CFLAGS) ;
+    # Add debug flags, if appropriate.
+    if $(DEBUGGING_SYMBOLS) = YES {
+        FLAGS on $(1) += -g ;
+    }
+    # Add profiling flags, if appropriate.
+    if $(PROFILING_CODE) = YES {
+        FLAGS on $(1) += -pg ;
+    }
+    # Pass the trusted-precomp file name to the compiler to keep track
+    # of which precompiled headers it has already sanity checked.
+    if $(OS) in MACOS DARWIN {
+        FLAGS on $(1) += -precomp-trustfile $(PRECOMP_TRUSTFILE) ;
+    }
+    if $(CPP_HEADERMAP_FILE) {
+        FLAGS on $(1) += "-Wp,-header-mapfile,$(CPP_HEADERMAP_FILE)" ;
+    }
+    if YES in $(GENERATE_CPP_ILOG_FILES) {
+        local INCLUSION_LOG_FILE default = $(OBJECT_FILE_DIR)$(/)$(ARCH)$(/)$(1:DB).ilog ;
+        FLAGS on $(1) += "-Wp,-inclusion-log-file,$(INCLUSION_LOG_FILE)" ;
+    }
+}
+
+actions CompileC
+{
+    $(CC) -c "-F$(FRAMEWORK_SEARCH_PATHS)" "-I$(HEADER_SEARCH_PATHS)" "$(FLAGS)" $(GLOBAL_CFLAGS) "-I$(DERIVED_PATHS)" "$(2)" -o "$(1)"
+}
+
+rule CompileCplusplus
+{
+    # object file depends on the source file
+    DEPENDS $(1) : $(2) ;
+    # Initialize the flags, and set search paths to nothing
+    if $(KERNEL_MODULE) = YES {
+        local KERNEL_FRAMEWORK = $(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework ;
+        local KERNEL_HEADERS = $(KERNEL_FRAMEWORK)/Headers ;
+        local KERNEL_INCLUDE_PATHS = $(KERNEL_HEADERS) $(KERNEL_HEADERS)/bsd ;
+        local KERNEL_COMPILE_OPTIONS = -finline -fno-keep-inline-functions -force_cpusubtype_ALL -msoft-float ;
+        if $(ARCH) in ppc {
+            KERNEL_COMPILE_OPTIONS += -mlong-branch ;
+        }
+        KERNEL_COMPILE_OPTIONS += -x c++ -fno-rtti -fno-exceptions -fcheck-new -fvtable-thunks ;
+        if $(MODULE_IOKIT) = YES {
+            KERNEL_COMPILE_OPTIONS += -findirect-virtual-calls ;
+        }
+
+        local KERNEL_DEFINITIONS = -DKERNEL -DKERNEL_PRIVATE -DDRIVER_PRIVATE -DAPPLE -DNeXT ;
+        FLAGS on $(1) = -arch $(ARCH) $(PER_ARCH_CPLUSPLUSFLAGS) -fno-common -nostdinc $(OPTIMIZATION_CFLAGS) $(WARNING_CPLUSPLUSFLAGS) $(OTHER_CPLUSPLUSFLAGS) -I$(KERNEL_INCLUDE_PATHS) -I$(PROJECT_HEADER_DIR) $(KERNEL_COMPILE_OPTIONS) -static $(KERNEL_DEFINITIONS) ;
+        GLOBAL_CFLAGS on $(1) = ;
+    }
+    else {
+        FLAGS on $(1) = -arch $(ARCH) $(PER_ARCH_CPLUSPLUSFLAGS) -fno-common -fpascal-strings $(OPTIMIZATION_CFLAGS) $(WARNING_CPLUSPLUSFLAGS) ;
+        if $(2:S) = .CPP {
+            FLAGS on $(1) += -x c++ ;
+        }
+        if ! DerivedAssembly in $($(2)_ATTRIBUTES) {
+            FLAGS on $(1) += $(OTHER_CPLUSPLUSFLAGS) ;
+        }
+    }
+    FLAGS on $(1) += -pipe ;
+    # seed search paths with target-wide values
+    HEADER_SEARCH_PATHS on $(1) = $(HEADER_SEARCH_PATHS) ;
+    FRAMEWORK_SEARCH_PATHS on $(1) = $(FRAMEWORK_SEARCH_PATHS) ;
+    # If the source file is in a subdirectory, then search that
+    # subdirectory for headers
+    if $(2:D) {
+        HEADER_SEARCH_PATHS on $(1) += $(2:D) ;
+    }
+    # We must compile with the extension-specific build flags
+    FLAGS on $(1) += $($(2:S)_CC_FLAGS) ;
+    # Add debug flags, if appropriate.
+    if $(DEBUGGING_SYMBOLS) = YES {
+        FLAGS on $(1) += -g ;
+    }
+    # Add profiling flags, if appropriate.
+    if $(PROFILING_CODE) = YES {
+        FLAGS on $(1) += -pg ;
+    }
+    # Pass the trusted-precomp file name to the compiler to keep track
+    # of which precompiled headers it has already sanity checked.
+    if $(OS) in MACOS DARWIN {
+        FLAGS on $(1) += -precomp-trustfile $(PRECOMP_TRUSTFILE) ;
+    }
+    if $(CPP_HEADERMAP_FILE) {
+        FLAGS on $(1) += "-Wp,-header-mapfile,$(CPP_HEADERMAP_FILE)" ;
+    }
+    if YES in $(GENERATE_CPP_ILOG_FILES) {
+        local INCLUSION_LOG_FILE default = $(OBJECT_FILE_DIR)$(/)$(ARCH)$(/)$(1:DB).ilog ;
+        FLAGS on $(1) += "-Wp,-inclusion-log-file,$(INCLUSION_LOG_FILE)" ;
+    }
+}
+
+actions CompileCplusplus
+{
+    $(CC) -c "-F$(FRAMEWORK_SEARCH_PATHS)" "-I$(HEADER_SEARCH_PATHS)" "$(FLAGS)" $(GLOBAL_CFLAGS) "-I$(DERIVED_PATHS)" "$(2)" -o "$(1)"
+}
+
+VECTOR_SUFFIX default = .vlib ;
+rule ProcessExportsFile
+{
+    if $(CFM_BRIDGE) = YES {
+        local DYLIB_INSTALLED_NAME ;
+        VECTOR_STUB default = $(DERIVED_FILE_DIR)$(/)$(1:B)Vector.s ;
+        VECTOR_OBJECT_FILE default = $(OBJECT_FILE_DIR)$(/)$(1:B)Vector.o ;
+        if $(VECTOR_SUFFIX) {
+            VECTOR_FRAGMENT_NAME default = $(1:B)$(VECTOR_SUFFIX) ;
+        }
+        else {
+            VECTOR_FRAGMENT_NAME default = $(1:B) ;
+        }
+        DEPENDS $(VECTOR_STUB) : $(CURRENT_VERSION_DIR) ;
+        DEPENDS $(VECTOR_STUB) : $(DERIVED_FILE_DIR) ;
+        Mkdir $(CURRENT_VERSION_DIR) ;
+        VECTOR_BRIDGE default = $(BUILD_DIR)$(/)$(1:BG=).bridge ;
+        if $(INSTALL_PATH) {
+            DYLIB_INSTALLED_NAME default = $(INSTALL_PATH)$(/)$(1:G=)$(/)Versions$(/)$(FRAMEWORK_VERSION)$(/)$(1:B:G=) ;
+            if $(DYNAMIC_LIBRARY_SUFFIX) {
+                DYLIB_INSTALLED_NAME = $(DYLIB_INSTALLED_NAME)$(DYNAMIC_LIBRARY_SUFFIX) ;
+            }
+        }
+        DYLIB_INSTALLED_NAME on $(1) = $(DYLIB_INSTALLED_NAME) ;
+        GenerateVectorLibraryIntermediates $(VECTOR_STUB) $(VECTOR_OBJECT_FILE) $(VECTOR_BRIDGE) : $(2) ;
+        BUILD_PHASE_PRODUCTS += $(VECTOR_STUB) ;
+        BUILD_PHASE_PRODUCTS += $(VECTOR_BRIDGE) ;
+        PRESERVE_RESOURCES += $(VECTOR_BRIDGE) ;
+   }
+}
+
+rule ProcessUsingMig
+{
+    local TEMP_FILES ;
+    local FILE_BASE = $(2:B) ;
+    if AbsolutePath in $($(2)_ATTRIBUTES) {
+        FILE_BASE = $(DERIVED_FILE_DIR)$(2:DB) ;
+    }
+    if $(MACH_SERVER) = "" {
+        TEMP_FILES = $(FILE_BASE).h $(FILE_BASE)User.c ;
+    }
+    else {
+        TEMP_FILES = $(FILE_BASE)Server.h $(FILE_BASE)Server.c ;
+    }
+    DEPENDS $(TEMP_FILES) : $(DERIVED_FILE_DIR) ;
+    Mig $(TEMP_FILES) : $(2) ;
+    DERIVED_FILES += $(TEMP_FILES) ;
+    BUILD_PHASE_PRODUCTS += $(TEMP_FILES) ;
+    ProcessFiles $(1) : $(TEMP_FILES) ;
+}
+
+rule ProcessUsingLex
+{
+    local TEMP_FILE ;
+    local FILE_BASE = $(2:B) ;
+    if AbsolutePath in $($(2)_ATTRIBUTES) {
+        FILE_BASE = $(DERIVED_FILE_DIR)$(2:DB) ;
+    }
+    if $(2:S) = ".l" {
+        TEMP_FILE = $(FILE_BASE).c ;
+    }
+    else if $(2:S) = ".lm" {
+        TEMP_FILE = $(FILE_BASE).m ;
+    }
+    DEPENDS $(TEMP_FILES) : $(DERIVED_FILE_DIR) ;
+    Lex $(TEMP_FILE) : $(2) ;
+    DERIVED_FILES += $(TEMP_FILE) ;
+    BUILD_PHASE_PRODUCTS += $(TEMP_FILES) ;
+    ProcessFiles $(1) : $(TEMP_FILE) ;
+}
+
+rule ProcessUsingYacc
+{
+    local FILE_BASE = $(2:B) ;
+    if AbsolutePath in $($(2)_ATTRIBUTES) {
+        FILE_BASE = $(DERIVED_FILE_DIR)$(2:DB) ;
+    }
+    local TEMP_FILES = $(FILE_BASE).h ;
+    if $(2:S) = ".y" {
+        TEMP_FILES += $(FILE_BASE).c ;
+    }
+    else if $(2:S) = ".ym" {
+        TEMP_FILES += $(FILE_BASE).m ;
+    }
+    DEPENDS $(TEMP_FILES) : $(DERIVED_FILE_DIR) ;
+    Yacc $(TEMP_FILES) : $(2) ;
+    DERIVED_FILES += $(TEMP_FILES) ;
+    BUILD_PHASE_PRODUCTS += $(TEMP_FILES) ;
+    ProcessFiles $(1) : $(TEMP_FILES) ;
+}
+
+rule ProcessUsingRPCGen
+{
+    local FILE_BASE = $(2:B) ;
+    if AbsolutePath in $($(2)_ATTRIBUTES) {
+        FILE_BASE = $(DERIVED_FILE_DIR)$(2:DB) ;
+    }
+    local TEMP_FILES = $(FILE_BASE).h $(FILE_BASE)_xdr.c ;
+    DEPENDS $(TEMP_FILES) : $(DERIVED_FILE_DIR) ;
+    RPCGen $(TEMP_FILES) : $(2) ;
+    DERIVED_FILES += $(TEMP_FILES) ;
+    BUILD_PHASE_PRODUCTS += $(TEMP_FILES) ;
+    ProcessFiles $(1) : $(TEMP_FILES) ;
+}
+
+rule ProcessSuffixedFile
+{
+    if $(2:S=) = $(2) {
+        EXIT jam: error: ProcessSuffixedFile: file $(2) has no suffix ;
+    }
+    # Create a copy of the file without the suffix
+    Cp $(2:S=) : $(2) ;
+    DERIVED_FILES += $(2:S=) ;
+    BUILD_PHASE_PRODUCTS += $(2:S=) ;
+    # Process this desuffixed file in the usual way
+    ProcessFile $(1) : $(2:S=) ;
+}

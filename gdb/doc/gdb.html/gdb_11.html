@@ -1,0 +1,229 @@
+<HTML>
+<HEAD>
+<!-- This HTML file has been created by texi2html 1.51
+     from /mnt/apple/gdb/source/gdb.apple/source/gdb/gdb/doc/gdb.texinfo on 23 November 1999 -->
+
+<TITLE>Debugging with GDB - Examining the Symbol Table</TITLE>
+</HEAD>
+<BODY>
+Go to the <A HREF="gdb_1.html">first</A>, <A HREF="gdb_10.html">previous</A>, <A HREF="gdb_12.html">next</A>, <A HREF="gdb_21.html">last</A> section, <A HREF="gdb_toc.html">table of contents</A>.
+<P><HR><P>
+
+
+<H1><A NAME="SEC101" HREF="gdb_toc.html#TOC101">Examining the Symbol Table</A></H1>
+
+<P>
+The commands described in this section allow you to inquire about the
+symbols (names of variables, functions and types) defined in your
+program.  This information is inherent in the text of your program and
+does not change as your program executes.  GDB finds it in your
+program's symbol table, in the file indicated when you started GDB
+(see section <A HREF="gdb_3.html#SEC7">Choosing files</A>), or by one of the
+file-management commands (see section <A HREF="gdb_13.html#SEC110">Commands to specify files</A>).
+
+</P>
+<P>
+<A NAME="IDX420"></A>
+<A NAME="IDX421"></A>
+<A NAME="IDX422"></A>
+Occasionally, you may need to refer to symbols that contain unusual
+characters, which GDB ordinarily treats as word delimiters.  The
+most frequent case is in referring to static variables in other
+source files (see section <A HREF="gdb_9.html#SEC53">Program variables</A>).  File names
+are recorded in object files as debugging symbols, but GDB would
+ordinarily parse a typical file name, like <TT>`foo.c'</TT>, as the three words
+<SAMP>`foo'</SAMP> <SAMP>`.'</SAMP> <SAMP>`c'</SAMP>.  To allow GDB to recognize
+<SAMP>`foo.c'</SAMP> as a single symbol, enclose it in single quotes; for example,
+
+</P>
+
+<PRE>
+p 'foo.c'::x
+</PRE>
+
+<P>
+looks up the value of <CODE>x</CODE> in the scope of the file <TT>`foo.c'</TT>.
+
+</P>
+<DL COMPACT>
+
+<DT><CODE>info address <VAR>symbol</VAR></CODE>
+<DD>
+<A NAME="IDX423"></A>
+ 
+Describe where the data for <VAR>symbol</VAR> is stored.  For a register
+variable, this says which register it is kept in.  For a non-register
+local variable, this prints the stack-frame offset at which the variable
+is always stored.
+
+Note the contrast with <SAMP>`print &#38;<VAR>symbol</VAR>'</SAMP>, which does not work
+at all for a register variable, and for a stack local variable prints
+the exact address of the current instantiation of the variable.
+
+<A NAME="IDX424"></A>
+<DT><CODE>whatis <VAR>exp</VAR></CODE>
+<DD>
+Print the data type of expression <VAR>exp</VAR>.  <VAR>exp</VAR> is not
+actually evaluated, and any side-effecting operations (such as
+assignments or function calls) inside it do not take place.
+See section <A HREF="gdb_9.html#SEC52">Expressions</A>.
+
+<DT><CODE>whatis</CODE>
+<DD>
+Print the data type of <CODE>$</CODE>, the last value in the value history.
+
+<A NAME="IDX425"></A>
+<DT><CODE>ptype <VAR>typename</VAR></CODE>
+<DD>
+Print a description of data type <VAR>typename</VAR>.  <VAR>typename</VAR> may be
+the name of a type, or for C code it may have the form <SAMP>`class
+<VAR>class-name</VAR>'</SAMP>, <SAMP>`struct <VAR>struct-tag</VAR>'</SAMP>, <SAMP>`union
+<VAR>union-tag</VAR>'</SAMP> or <SAMP>`enum <VAR>enum-tag</VAR>'</SAMP>.
+
+<DT><CODE>ptype <VAR>exp</VAR></CODE>
+<DD>
+<DT><CODE>ptype</CODE>
+<DD>
+Print a description of the type of expression <VAR>exp</VAR>.  <CODE>ptype</CODE>
+differs from <CODE>whatis</CODE> by printing a detailed description, instead
+of just the name of the type.
+
+For example, for this variable declaration:
+
+
+<PRE>
+struct complex {double real; double imag;} v;
+</PRE>
+
+the two commands give this output:
+
+
+<PRE>
+(gdb) whatis v
+type = struct complex
+(gdb) ptype v
+type = struct complex {
+    double real;
+    double imag;
+}
+</PRE>
+
+As with <CODE>whatis</CODE>, using <CODE>ptype</CODE> without an argument refers to
+the type of <CODE>$</CODE>, the last value in the value history.
+
+<A NAME="IDX426"></A>
+<DT><CODE>info types <VAR>regexp</VAR></CODE>
+<DD>
+<DT><CODE>info types</CODE>
+<DD>
+Print a brief description of all types whose name matches <VAR>regexp</VAR>
+(or all types in your program, if you supply no argument).  Each
+complete typename is matched as though it were a complete line; thus,
+<SAMP>`i type value'</SAMP> gives information on all types in your program whose
+name includes the string <CODE>value</CODE>, but <SAMP>`i type ^value$'</SAMP> gives
+information only on types whose complete name is <CODE>value</CODE>.
+
+This command differs from <CODE>ptype</CODE> in two ways: first, like
+<CODE>whatis</CODE>, it does not print a detailed description; second, it
+lists all source files where a type is defined.
+
+<A NAME="IDX427"></A>
+<DT><CODE>info source</CODE>
+<DD>
+Show the name of the current source file--that is, the source file for
+the function containing the current point of execution--and the language
+it was written in.
+
+<A NAME="IDX428"></A>
+<DT><CODE>info sources</CODE>
+<DD>
+Print the names of all source files in your program for which there is
+debugging information, organized into two lists: files whose symbols
+have already been read, and files whose symbols will be read when needed.
+
+<A NAME="IDX429"></A>
+<DT><CODE>info functions</CODE>
+<DD>
+Print the names and data types of all defined functions.
+
+<DT><CODE>info functions <VAR>regexp</VAR></CODE>
+<DD>
+Print the names and data types of all defined functions
+whose names contain a match for regular expression <VAR>regexp</VAR>.
+Thus, <SAMP>`info fun step'</SAMP> finds all functions whose names
+include <CODE>step</CODE>; <SAMP>`info fun ^step'</SAMP> finds those whose names
+start with <CODE>step</CODE>.
+
+<A NAME="IDX430"></A>
+<DT><CODE>info variables</CODE>
+<DD>
+Print the names and data types of all variables that are declared
+outside of functions (i.e., excluding local variables).
+
+<DT><CODE>info variables <VAR>regexp</VAR></CODE>
+<DD>
+Print the names and data types of all variables (except for local
+variables) whose names contain a match for regular expression
+<VAR>regexp</VAR>.
+
+<A NAME="IDX431"></A>
+Some systems allow individual object files that make up your program to
+be replaced without stopping and restarting your program.  For example,
+in VxWorks you can simply recompile a defective object file and keep on
+running.  If you are running on one of these systems, you can allow
+GDB to reload the symbols for automatically relinked modules:
+
+<DL COMPACT>
+
+<DT><CODE>set symbol-reloading on</CODE>
+<DD>
+<A NAME="IDX432"></A>
+ 
+Replace symbol definitions for the corresponding source file when an
+object file with a particular name is seen again.
+
+<DT><CODE>set symbol-reloading off</CODE>
+<DD>
+Do not replace symbol definitions when re-encountering object files of
+the same name.  This is the default state; if you are not running on a
+system that permits automatically relinking modules, you should leave
+<CODE>symbol-reloading</CODE> off, since otherwise GDB may discard symbols
+when linking large programs, that may contain several modules (from
+different directories or libraries) with the same name.
+
+<A NAME="IDX433"></A>
+<DT><CODE>show symbol-reloading</CODE>
+<DD>
+Show the current <CODE>on</CODE> or <CODE>off</CODE> setting.
+</DL>
+
+<A NAME="IDX434"></A>
+<A NAME="IDX435"></A>
+<A NAME="IDX436"></A>
+<A NAME="IDX437"></A>
+<DT><CODE>maint print symbols <VAR>filename</VAR></CODE>
+<DD>
+<DT><CODE>maint print psymbols <VAR>filename</VAR></CODE>
+<DD>
+<DT><CODE>maint print msymbols <VAR>filename</VAR></CODE>
+<DD>
+Write a dump of debugging symbol data into the file <VAR>filename</VAR>.
+These commands are used to debug the GDB symbol-reading code.  Only
+symbols with debugging data are included.  If you use <SAMP>`maint print
+symbols'</SAMP>, GDB includes all the symbols for which it has already
+collected full details: that is, <VAR>filename</VAR> reflects symbols for
+only those files whose symbols GDB has read.  You can use the
+command <CODE>info sources</CODE> to find out which files these are.  If you
+use <SAMP>`maint print psymbols'</SAMP> instead, the dump shows information about
+symbols that GDB only knows partially--that is, symbols defined in
+files that GDB has skimmed, but not yet read completely.  Finally,
+<SAMP>`maint print msymbols'</SAMP> dumps just the minimal symbol information
+required for each object file from which GDB has read some symbols.
+See section <A HREF="gdb_13.html#SEC110">Commands to specify files</A>, for a discussion of how
+GDB reads symbols (in the description of <CODE>symbol-file</CODE>).
+</DL>
+
+<P><HR><P>
+Go to the <A HREF="gdb_1.html">first</A>, <A HREF="gdb_10.html">previous</A>, <A HREF="gdb_12.html">next</A>, <A HREF="gdb_21.html">last</A> section, <A HREF="gdb_toc.html">table of contents</A>.
+</BODY>
+</HTML>

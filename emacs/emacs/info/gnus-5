@@ -1,0 +1,1251 @@
+This is ../info/gnus, produced by makeinfo version 4.0 from gnus.texi.
+
+START-INFO-DIR-ENTRY
+* Gnus: (gnus).         The newsreader Gnus.
+END-INFO-DIR-ENTRY
+
+   This file documents Gnus, the GNU Emacs newsreader.
+
+   Copyright (C) 1995,96 Free Software Foundation, Inc.
+
+   Permission is granted to make and distribute verbatim copies of this
+manual provided the copyright notice and this permission notice are
+preserved on all copies.
+
+   Permission is granted to copy and distribute modified versions of
+this manual under the conditions for verbatim copying, provided also
+that the entire resulting derived work is distributed under the terms
+of a permission notice identical to this one.
+
+   Permission is granted to copy and distribute translations of this
+manual into another language, under the above conditions for modified
+versions.
+
+
+File: gnus,  Node: Tree Display,  Next: Mail Group Commands,  Prev: Alternative Approaches,  Up: The Summary Buffer
+
+Tree Display
+============
+
+   If you don't like the normal Gnus summary display, you might try
+setting `gnus-use-trees' to `t'.  This will create (by default) an
+additional "tree buffer".  You can execute all summary mode commands in
+the tree buffer.
+
+   There are a few variables to customize the tree display, of course:
+
+`gnus-tree-mode-hook'
+     A hook called in all tree mode buffers.
+
+`gnus-tree-mode-line-format'
+     A format string for the mode bar in the tree mode buffers (*note
+     Mode Line Formatting::).  The default is `Gnus: %%b %S %Z'.  For a
+     list of valid specs, *note Summary Buffer Mode Line::.
+
+`gnus-selected-tree-face'
+     Face used for highlighting the selected article in the tree
+     buffer.  The default is `modeline'.
+
+`gnus-tree-line-format'
+     A format string for the tree nodes.  The name is a bit of a
+     misnomer, though--it doesn't define a line, but just the node.
+     The default value is `%(%[%3,3n%]%)', which displays the first
+     three characters of the name of the poster.  It is vital that all
+     nodes are of the same length, so you _must_ use `%4,4n'-like
+     specifiers.
+
+     Valid specs are:
+
+    `n'
+          The name of the poster.
+
+    `f'
+          The `From' header.
+
+    `N'
+          The number of the article.
+
+    `['
+          The opening bracket.
+
+    `]'
+          The closing bracket.
+
+    `s'
+          The subject.
+
+     *Note Formatting Variables::.
+
+     Variables related to the display are:
+
+    `gnus-tree-brackets'
+          This is used for differentiating between "real" articles and
+          "sparse" articles.  The format is `((REAL-OPEN . REAL-CLOSE)
+          (SPARSE-OPEN . SPARSE-CLOSE) (DUMMY-OPEN . DUMMY-CLOSE))',
+          and the default is `((?[ . ?]) (?( . ?)) (?{ . ?}) (?< .
+          ?>))'.
+
+    `gnus-tree-parent-child-edges'
+          This is a list that contains the characters used for
+          connecting parent nodes to their children.  The default is
+          `(?- ?\\ ?|)'.
+
+`gnus-tree-minimize-window'
+     If this variable is non-`nil', Gnus will try to keep the tree
+     buffer as small as possible to allow more room for the other Gnus
+     windows.  If this variable is a number, the tree buffer will never
+     be higher than that number.  The default is `t'.  Note that if you
+     have several windows displayed side-by-side in a frame and the tree
+     buffer is one of these, minimizing the tree window will also
+     resize all other windows displayed next to it.
+
+`gnus-generate-tree-function'
+     The function that actually generates the thread tree.  Two
+     predefined functions are available:
+     `gnus-generate-horizontal-tree' and `gnus-generate-vertical-tree'
+     (which is the default).
+
+   Here's an example from a horizontal tree buffer:
+
+     {***}-(***)-[odd]-[Gun]
+          |      \[Jan]
+          |      \[odd]-[Eri]
+          |      \(***)-[Eri]
+          |            \[odd]-[Paa]
+          \[Bjo]
+          \[Gun]
+          \[Gun]-[Jor]
+
+   Here's the same thread displayed in a vertical tree buffer:
+
+     {***}
+       |--------------------------\-----\-----\
+     (***)                         [Bjo] [Gun] [Gun]
+       |--\-----\-----\                          |
+     [odd] [Jan] [odd] (***)                   [Jor]
+       |           |     |--\
+     [Gun]       [Eri] [Eri] [odd]
+                               |
+                             [Paa]
+
+   If you're using horizontal trees, it might be nice to display the
+trees side-by-side with the summary buffer.  You could add something
+like the following to your `.gnus.el' file:
+
+     (setq gnus-use-trees t
+           gnus-generate-tree-function 'gnus-generate-horizontal-tree
+           gnus-tree-minimize-window nil)
+     (gnus-add-configuration
+      '(article
+        (vertical 1.0
+                  (horizontal 0.25
+                              (summary 0.75 point)
+                              (tree 1.0))
+                  (article 1.0))))
+
+   *Note Windows Configuration::.
+
+
+File: gnus,  Node: Mail Group Commands,  Next: Various Summary Stuff,  Prev: Tree Display,  Up: The Summary Buffer
+
+Mail Group Commands
+===================
+
+   Some commands only make sense in mail groups.  If these commands are
+invalid in the current group, they will raise a hell and let you know.
+
+   All these commands (except the expiry and edit commands) use the
+process/prefix convention (*note Process/Prefix::).
+
+`B e'
+     Expire all expirable articles in the group
+     (`gnus-summary-expire-articles').
+
+`B M-C-e'
+     Delete all the expirable articles in the group
+     (`gnus-summary-expire-articles-now').  This means that *all*
+     articles eligible for expiry in the current group will disappear
+     forever into that big `/dev/null' in the sky.
+
+`B DEL'
+     Delete the mail article.  This is "delete" as in "delete it from
+     your disk forever and ever, never to return again." Use with
+     caution.  (`gnus-summary-delete-article').
+
+`B m'
+     Move the article from one mail group to another
+     (`gnus-summary-move-article').
+
+`B c'
+     Copy the article from one group (mail group or not) to a mail group
+     (`gnus-summary-copy-article').
+
+`B B'
+     Crosspost the current article to some other group
+     (`gnus-summary-crosspost-article').  This will create a new copy of
+     the article in the other group, and the Xref headers of the
+     article will be properly updated.
+
+`B i'
+     Import an arbitrary file into the current mail newsgroup
+     (`gnus-summary-import-article').  You will be prompted for a file
+     name, a `From' header and a `Subject' header.
+
+`B r'
+     Respool the mail article (`gnus-summary-respool-article').
+     `gnus-summary-respool-default-method' will be used as the default
+     select method when respooling.  This variable is `nil' by default,
+     which means that the current group select method will be used
+     instead.
+
+`B w'
+`e'
+     Edit the current article (`gnus-summary-edit-article').  To finish
+     editing and make the changes permanent, type `C-c C-c'
+     (`gnus-summary-edit-article-done').  If you give a prefix to the
+     `C-c C-c' command, Gnus won't re-highlight the article.
+
+`B q'
+     If you want to re-spool an article, you might be curious as to
+     what group the article will end up in before you do the
+     re-spooling.  This command will tell you
+     (`gnus-summary-respool-query').
+
+`B t'
+     Similarly, this command will display all fancy splitting patterns
+     used when repooling, if any (`gnus-summary-respool-trace').
+
+`B p'
+     Some people have a tendency to send you "courtesy" copies when they
+     follow up to articles you have posted.  These usually have a
+     `Newsgroups' header in them, but not always.  This command
+     (`gnus-summary-article-posted-p') will try to fetch the current
+     article from your news server (or rather, from
+     `gnus-refer-article-method' or `gnus-select-method') and will
+     report back whether it found the article or not.  Even if it says
+     that it didn't find the article, it may have been posted
+     anyway--mail propagation is much faster than news propagation, and
+     the news copy may just not have arrived yet.
+
+   If you move (or copy) articles regularly, you might wish to have Gnus
+suggest where to put the articles.  `gnus-move-split-methods' is a
+variable that uses the same syntax as `gnus-split-methods' (*note
+Saving Articles::).  You may customize that variable to create
+suggestions you find reasonable.
+
+     (setq gnus-move-split-methods
+           '(("^From:.*Lars Magne" "nnml:junk")
+             ("^Subject:.*gnus" "nnfolder:important")
+             (".*" "nnml:misc")))
+
+
+File: gnus,  Node: Various Summary Stuff,  Next: Exiting the Summary Buffer,  Prev: Mail Group Commands,  Up: The Summary Buffer
+
+Various Summary Stuff
+=====================
+
+* Menu:
+
+* Summary Group Information::         Information oriented commands.
+* Searching for Articles::            Multiple article commands.
+* Summary Generation Commands::       (Re)generating the summary buffer.
+* Really Various Summary Commands::   Those pesky non-conformant commands.
+
+`gnus-summary-mode-hook'
+     This hook is called when creating a summary mode buffer.
+
+`gnus-summary-generate-hook'
+     This is called as the last thing before doing the threading and the
+     generation of the summary buffer.  It's quite convenient for
+     customizing the threading variables based on what data the
+     newsgroup has.  This hook is called from the summary buffer after
+     most summary buffer variables have been set.
+
+`gnus-summary-prepare-hook'
+     It is called after the summary buffer has been generated.  You
+     might use it to, for instance, highlight lines or modify the look
+     of the buffer in some other ungodly manner.  I don't care.
+
+`gnus-summary-ignore-duplicates'
+     When Gnus discovers two articles that have the same `Message-ID',
+     it has to do something drastic.  No articles are allowed to have
+     the same `Message-ID', but this may happen when reading mail from
+     some sources.  Gnus allows you to customize what happens with this
+     variable.  If it is `nil' (which is the default), Gnus will rename
+     the `Message-ID' (for display purposes only) and display the
+     article as any other article.  If this variable is `t', it won't
+     display the article--it'll be as if it never existed.
+
+
+File: gnus,  Node: Summary Group Information,  Next: Searching for Articles,  Up: Various Summary Stuff
+
+Summary Group Information
+-------------------------
+
+`H f'
+     Try to fetch the FAQ (list of frequently asked questions) for the
+     current group (`gnus-summary-fetch-faq').  Gnus will try to get the
+     FAQ from `gnus-group-faq-directory', which is usually a directory
+     on a remote machine.  This variable can also be a list of
+     directories.  In that case, giving a prefix to this command will
+     allow you to choose between the various sites.  `ange-ftp' or
+     `efs' will probably be used for fetching the file.
+
+`H d'
+     Give a brief description of the current group
+     (`gnus-summary-describe-group').  If given a prefix, force
+     rereading the description from the server.
+
+`H h'
+     Give an extremely brief description of the most important summary
+     keystrokes (`gnus-summary-describe-briefly').
+
+`H i'
+     Go to the Gnus info node (`gnus-info-find-node').
+
+
+File: gnus,  Node: Searching for Articles,  Next: Summary Generation Commands,  Prev: Summary Group Information,  Up: Various Summary Stuff
+
+Searching for Articles
+----------------------
+
+`M-s'
+     Search through all subsequent articles for a regexp
+     (`gnus-summary-search-article-forward').
+
+`M-r'
+     Search through all previous articles for a regexp
+     (`gnus-summary-search-article-backward').
+
+`&'
+     This command will prompt you for a header field, a regular
+     expression to match on this field, and a command to be executed if
+     the match is made (`gnus-summary-execute-command').  If given a
+     prefix, search backward instead.
+
+`M-&'
+     Perform any operation on all articles that have been marked with
+     the process mark (`gnus-summary-universal-argument').
+
+
+File: gnus,  Node: Summary Generation Commands,  Next: Really Various Summary Commands,  Prev: Searching for Articles,  Up: Various Summary Stuff
+
+Summary Generation Commands
+---------------------------
+
+`Y g'
+     Regenerate the current summary buffer (`gnus-summary-prepare').
+
+`Y c'
+     Pull all cached articles (for the current group) into the summary
+     buffer (`gnus-summary-insert-cached-articles').
+
+
+File: gnus,  Node: Really Various Summary Commands,  Prev: Summary Generation Commands,  Up: Various Summary Stuff
+
+Really Various Summary Commands
+-------------------------------
+
+`C-d'
+     If the current article is a collection of other articles (for
+     instance, a digest), you might use this command to enter a group
+     based on the that article (`gnus-summary-enter-digest-group').
+     Gnus will try to guess what article type is currently displayed
+     unless you give a prefix to this command, which forces a "digest"
+     interpretation.  Basically, whenever you see a message that is a
+     collection of other messages of some format, you `C-d' and read
+     these messages in a more convenient fashion.
+
+`M-C-d'
+     This command is very similar to the one above, but lets you gather
+     several documents into one biiig group
+     (`gnus-summary-read-document').  It does this by opening several
+     `nndoc' groups for each document, and then opening an `nnvirtual'
+     group on top of these `nndoc' groups.  This command understands
+     the process/prefix convention (*note Process/Prefix::).
+
+`C-t'
+     Toggle truncation of summary lines
+     (`gnus-summary-toggle-truncation').  This will probably confuse the
+     line centering function in the summary buffer, so it's not a good
+     idea to have truncation switched off while reading articles.
+
+`='
+     Expand the summary buffer window (`gnus-summary-expand-window').
+     If given a prefix, force an `article' window configuration.
+
+`M-C-e'
+     Edit the group parameters (*note Group Parameters::) of the current
+     group (`gnus-summary-edit-parameters').
+
+
+File: gnus,  Node: Exiting the Summary Buffer,  Next: Crosspost Handling,  Prev: Various Summary Stuff,  Up: The Summary Buffer
+
+Exiting the Summary Buffer
+==========================
+
+   Exiting from the summary buffer will normally update all info on the
+group and return you to the group buffer.
+
+`Z Z'
+`q'
+     Exit the current group and update all information on the group
+     (`gnus-summary-exit'). `gnus-summary-prepare-exit-hook' is called
+     before doing much of the exiting, which calls
+     `gnus-summary-expire-articles' by default.
+     `gnus-summary-exit-hook' is called after finishing the exit
+     process.  `gnus-group-no-more-groups-hook' is run when returning to
+     group mode having no more (unread) groups.
+
+`Z E'
+`Q'
+     Exit the current group without updating any information on the
+     group (`gnus-summary-exit-no-update').
+
+`Z c'
+`c'
+     Mark all unticked articles in the group as read and then exit
+     (`gnus-summary-catchup-and-exit').
+
+`Z C'
+     Mark all articles, even the ticked ones, as read and then exit
+     (`gnus-summary-catchup-all-and-exit').
+
+`Z n'
+     Mark all articles as read and go to the next group
+     (`gnus-summary-catchup-and-goto-next-group').
+
+`Z R'
+     Exit this group, and then enter it again
+     (`gnus-summary-reselect-current-group').  If given a prefix, select
+     all articles, both read and unread.
+
+`Z G'
+`M-g'
+     Exit the group, check for new articles in the group, and select the
+     group (`gnus-summary-rescan-group').  If given a prefix, select all
+     articles, both read and unread.
+
+`Z N'
+     Exit the group and go to the next group
+     (`gnus-summary-next-group').
+
+`Z P'
+     Exit the group and go to the previous group
+     (`gnus-summary-prev-group').
+
+`Z s'
+     Save the current number of read/marked articles in the dribble
+     buffer and then save the dribble buffer
+     (`gnus-summary-save-newsrc').  If given a prefix, also save the
+     `.newsrc' file(s).  Using this command will make exit without
+     updating (the `Q' command) worthless.
+
+   `gnus-exit-group-hook' is called when you exit the current group.
+
+   If you're in the habit of exiting groups, and then changing your mind
+about it, you might set `gnus-kill-summary-on-exit' to `nil'.  If you
+do that, Gnus won't kill the summary buffer when you exit it.  (Quelle
+surprise!)  Instead it will change the name of the buffer to something
+like `*Dead Summary ... *' and install a minor mode called
+`gnus-dead-summary-mode'.  Now, if you switch back to this buffer,
+you'll find that all keys are mapped to a function called
+`gnus-summary-wake-up-the-dead'.  So tapping any keys in a dead summary
+buffer will result in a live, normal summary buffer.
+
+   There will never be more than one dead summary buffer at any one
+time.
+
+   The data on the current group will be updated (which articles you
+have read, which articles you have replied to, etc.) when you exit the
+summary buffer.  If the `gnus-use-cross-reference' variable is `t'
+(which is the default), articles that are cross-referenced to this
+group and are marked as read, will also be marked as read in the other
+subscribed groups they were cross-posted to.  If this variable is
+neither `nil' nor `t', the article will be marked as read in both
+subscribed and unsubscribed groups (*note Crosspost Handling::).
+
+
+File: gnus,  Node: Crosspost Handling,  Next: Duplicate Suppression,  Prev: Exiting the Summary Buffer,  Up: The Summary Buffer
+
+Crosspost Handling
+==================
+
+   Marking cross-posted articles as read ensures that you'll never have
+to read the same article more than once.  Unless, of course, somebody
+has posted it to several groups separately.  Posting the same article to
+several groups (not cross-posting) is called "spamming", and you are by
+law required to send nasty-grams to anyone who perpetrates such a
+heinous crime.  You may want to try NoCeM handling to filter out spam
+(*note NoCeM::).
+
+   Remember: Cross-posting is kinda ok, but posting the same article
+separately to several groups is not.  Massive cross-posting (aka.
+"velveeta") is to be avoided at all costs, and you can even use the
+`gnus-summary-mail-crosspost-complaint' command to complain about
+excessive crossposting (*note Summary Mail Commands::).
+
+   One thing that may cause Gnus to not do the cross-posting thing
+correctly is if you use an NNTP server that supports XOVER (which is
+very nice, because it speeds things up considerably) which does not
+include the `Xref' header in its NOV lines.  This is Evil, but all too
+common, alas, alack.  Gnus tries to Do The Right Thing even with XOVER
+by registering the `Xref' lines of all articles you actually read, but
+if you kill the articles, or just mark them as read without reading
+them, Gnus will not get a chance to snoop the `Xref' lines out of these
+articles, and will be unable to use the cross reference mechanism.
+
+   To check whether your NNTP server includes the `Xref' header in its
+overview files, try `telnet your.nntp.server nntp', `MODE READER' on
+`inn' servers, and then say `LIST overview.fmt'.  This may not work,
+but if it does, and the last line you get does not read `Xref:full',
+then you should shout and whine at your news admin until she includes
+the `Xref' header in the overview files.
+
+   If you want Gnus to get the `Xref's right all the time, you have to
+set `gnus-nov-is-evil' to `t', which slows things down considerably.
+
+   C'est la vie.
+
+   For an alternative approach, *note Duplicate Suppression::.
+
+
+File: gnus,  Node: Duplicate Suppression,  Prev: Crosspost Handling,  Up: The Summary Buffer
+
+Duplicate Suppression
+=====================
+
+   By default, Gnus tries to make sure that you don't have to read the
+same article more than once by utilizing the crossposting mechanism
+(*note Crosspost Handling::).  However, that simple and efficient
+approach may not work satisfactory for some users for various reasons.
+
+  1. The NNTP server may fail to generate the `Xref' header.  This is
+     evil and not very common.
+
+  2. The NNTP server may fail to include the `Xref' header in the
+     `.overview' data bases.  This is evil and all too common, alas.
+
+  3. You may be reading the same group (or several related groups) from
+     different NNTP servers.
+
+  4. You may be getting mail that duplicates articles posted to groups.
+
+   I'm sure there are other situations where `Xref' handling fails as
+well, but these four are the most common situations.
+
+   If, and only if, `Xref' handling fails for you, then you may
+consider switching on "duplicate suppression".  If you do so, Gnus will
+remember the `Message-ID's of all articles you have read or otherwise
+marked as read, and then, as if by magic, mark them as read all
+subsequent times you see them--in _all_ groups.  Using this mechanism
+is quite likely to be somewhat inefficient, but not overly so.  It's
+certainly preferable to reading the same articles more than once.
+
+   Duplicate suppression is not a very subtle instrument.  It's more
+like a sledge hammer than anything else.  It works in a very simple
+fashion--if you have marked an article as read, it adds this Message-ID
+to a cache.  The next time it sees this Message-ID, it will mark the
+article as read with the `M' mark.  It doesn't care what group it saw
+the article in.
+
+`gnus-suppress-duplicates'
+     If non-`nil', suppress duplicates.
+
+`gnus-save-duplicate-list'
+     If non-`nil', save the list of duplicates to a file.  This will
+     make startup and shutdown take longer, so the default is `nil'.
+     However, this means that only duplicate articles read in a single
+     Gnus session are suppressed.
+
+`gnus-duplicate-list-length'
+     This variable says how many `Message-ID's to keep in the duplicate
+     suppression list.  The default is 10000.
+
+`gnus-duplicate-file'
+     The name of the file to store the duplicate suppression list in.
+     The default is `~/News/suppression'.
+
+   If you have a tendency to stop and start Gnus often, setting
+`gnus-save-duplicate-list' to `t' is probably a good idea.  If you
+leave Gnus running for weeks on end, you may have it `nil'.  On the
+other hand, saving the list makes startup and shutdown much slower, so
+that means that if you stop and start Gnus often, you should set
+`gnus-save-duplicate-list' to `nil'.  Uhm.  I'll leave this up to you
+to figure out, I think.
+
+
+File: gnus,  Node: The Article Buffer,  Next: Composing Messages,  Prev: The Summary Buffer,  Up: Top
+
+The Article Buffer
+******************
+
+   The articles are displayed in the article buffer, of which there is
+only one.  All the summary buffers share the same article buffer unless
+you tell Gnus otherwise.
+
+* Menu:
+
+* Hiding Headers::        Deciding what headers should be displayed.
+* Using MIME::            Pushing articles through MIME before reading them.
+* Customizing Articles::  Tailoring the look of the articles.
+* Article Keymap::        Keystrokes available in the article buffer.
+* Misc Article::          Other stuff.
+
+
+File: gnus,  Node: Hiding Headers,  Next: Using MIME,  Up: The Article Buffer
+
+Hiding Headers
+==============
+
+   The top section of each article is the "head".  (The rest is the
+"body", but you may have guessed that already.)
+
+   There is a lot of useful information in the head: the name of the
+person who wrote the article, the date it was written and the subject
+of the article.  That's well and nice, but there's also lots of
+information most people do not want to see--what systems the article
+has passed through before reaching you, the `Message-ID', the
+`References', etc. ad nauseum--and you'll probably want to get rid of
+some of those lines.  If you want to keep all those lines in the
+article buffer, you can set `gnus-show-all-headers' to `t'.
+
+   Gnus provides you with two variables for sifting headers:
+
+`gnus-visible-headers'
+     If this variable is non-`nil', it should be a regular expression
+     that says what headers you wish to keep in the article buffer.  All
+     headers that do not match this variable will be hidden.
+
+     For instance, if you only want to see the name of the person who
+     wrote the article and the subject, you'd say:
+
+          (setq gnus-visible-headers "^From:\\|^Subject:")
+
+     This variable can also be a list of regexps to match headers to
+     remain visible.
+
+`gnus-ignored-headers'
+     This variable is the reverse of `gnus-visible-headers'.  If this
+     variable is set (and `gnus-visible-headers' is `nil'), it should
+     be a regular expression that matches all lines that you want to
+     hide.  All lines that do not match this variable will remain
+     visible.
+
+     For instance, if you just want to get rid of the `References' line
+     and the `Xref' line, you might say:
+
+          (setq gnus-ignored-headers "^References:\\|^Xref:")
+
+     This variable can also be a list of regexps to match headers to be
+     removed.
+
+     Note that if `gnus-visible-headers' is non-`nil', this variable
+     will have no effect.
+
+   Gnus can also sort the headers for you.  (It does this by default.)
+You can control the sorting by setting the `gnus-sorted-header-list'
+variable.  It is a list of regular expressions that says in what order
+the headers are to be displayed.
+
+   For instance, if you want the name of the author of the article
+first, and then the subject, you might say something like:
+
+     (setq gnus-sorted-header-list '("^From:" "^Subject:"))
+
+   Any headers that are to remain visible, but are not listed in this
+variable, will be displayed in random order after all the headers
+listed in this variable.
+
+   You can hide further boring headers by entering
+`gnus-article-hide-boring-headers' into `gnus-article-display-hook'.
+What this function does depends on the `gnus-boring-article-headers'
+variable.  It's a list, but this list doesn't actually contain header
+names.  Instead is lists various "boring conditions" that Gnus can
+check and remove from sight.
+
+   These conditions are:
+`empty'
+     Remove all empty headers.
+
+`followup-to'
+     Remove the `Followup-To' header if it is identical to the
+     `Newsgroups' header.
+
+`reply-to'
+     Remove the `Reply-To' header if it lists the same address as the
+     `From' header.
+
+`newsgroups'
+     Remove the `Newsgroups' header if it only contains the current
+     group name.
+
+`date'
+     Remove the `Date' header if the article is less than three days
+     old.
+
+`long-to'
+     Remove the `To' header if it is very long.
+
+`many-to'
+     Remove all `To' headers if there are more than one.
+
+   To include the four three elements, you could say something like;
+
+     (setq gnus-boring-article-headers
+           '(empty followup-to reply-to))
+
+   This is also the default value for this variable.
+
+
+File: gnus,  Node: Using MIME,  Next: Customizing Articles,  Prev: Hiding Headers,  Up: The Article Buffer
+
+Using MIME
+==========
+
+   Mime is a standard for waving your hands through the air, aimlessly,
+while people stand around yawning.
+
+   MIME, however, is a standard for encoding your articles, aimlessly,
+while all newsreaders die of fear.
+
+   MIME may specify what character set the article uses, the encoding
+of the characters, and it also makes it possible to embed pictures and
+other naughty stuff in innocent-looking articles.
+
+   Gnus handles MIME by pushing the articles through
+`gnus-show-mime-method', which is `metamail-buffer' by default.  This
+function calls the external `metamail' program to actually do the work.
+One common problem with this program is that is thinks that it can't
+display 8-bit things in the Emacs buffer.  To tell it the truth, put
+something like the following in your `.bash_profile' file.  (You do use
+`bash', don't you?)
+
+     export MM_CHARSET="iso-8859-1"
+
+   For more information on `metamail', see its manual page.
+
+   Set `gnus-show-mime' to `t' if you want to use MIME all the time.
+However, if `gnus-strict-mime' is non-`nil', the MIME method will only
+be used if there are MIME headers in the article.  If you have
+`gnus-show-mime' set, then you'll see some unfortunate display glitches
+in the article buffer.  These can't be avoided.
+
+   It might be best to just use the toggling functions from the summary
+buffer to avoid getting nasty surprises. (For instance, you enter the
+group `alt.sing-a-long' and, before you know it, MIME has decoded the
+sound file in the article and some horrible sing-a-long song comes
+screaming out your speakers, and you can't find the volume button,
+because there isn't one, and people are starting to look at you, and
+you try to stop the program, but you can't, and you can't find the
+program to control the volume, and everybody else in the room suddenly
+decides to look at you disdainfully, and you'll feel rather stupid.)
+
+   Any similarity to real events and people is purely coincidental.
+Ahem.
+
+
+File: gnus,  Node: Customizing Articles,  Next: Article Keymap,  Prev: Using MIME,  Up: The Article Buffer
+
+Customizing Articles
+====================
+
+   The `gnus-article-display-hook' is called after the article has been
+inserted into the article buffer.  It is meant to handle all treatment
+of the article before it is displayed.
+
+   By default this hook just contains `gnus-article-maybe-hide-headers',
+`gnus-hide-boring-headers', `gnus-article-treat-overstrike', and
+`gnus-article-maybe-highlight' (and under XEmacs,
+`gnus-article-display-x-face'), but there are thousands, nay millions,
+of functions you can put in this hook.  For an overview of functions
+*note Article Highlighting::, *note Article Hiding::, *note Article
+Washing::, *note Article Buttons:: and *note Article Date::.  Note that
+the order of functions in this hook might affect things, so you may
+have to fiddle a bit to get the desired results.
+
+   You can, of course, write your own functions.  The functions are
+called from the article buffer, and you can do anything you like,
+pretty much.  There is no information that you have to keep in the
+buffer--you can change everything.  However, you shouldn't delete any
+headers.  Instead make them invisible if you want to make them go away.
+
+
+File: gnus,  Node: Article Keymap,  Next: Misc Article,  Prev: Customizing Articles,  Up: The Article Buffer
+
+Article Keymap
+==============
+
+   Most of the keystrokes in the summary buffer can also be used in the
+article buffer.  They should behave as if you typed them in the summary
+buffer, which means that you don't actually have to have a summary
+buffer displayed while reading.  You can do it all from the article
+buffer.
+
+   A few additional keystrokes are available:
+
+`SPACE'
+     Scroll forwards one page (`gnus-article-next-page').
+
+`DEL'
+     Scroll backwards one page (`gnus-article-prev-page').
+
+`C-c ^'
+     If point is in the neighborhood of a `Message-ID' and you press
+     `C-c ^', Gnus will try to get that article from the server
+     (`gnus-article-refer-article').
+
+`C-c C-m'
+     Send a reply to the address near point (`gnus-article-mail').  If
+     given a prefix, include the mail.
+
+`s'
+     Reconfigure the buffers so that the summary buffer becomes visible
+     (`gnus-article-show-summary').
+
+`?'
+     Give a very brief description of the available keystrokes
+     (`gnus-article-describe-briefly').
+
+`TAB'
+     Go to the next button, if any (`gnus-article-next-button').  This
+     only makes sense if you have buttonizing turned on.
+
+`M-TAB'
+     Go to the previous button, if any (`gnus-article-prev-button').
+
+
+File: gnus,  Node: Misc Article,  Prev: Article Keymap,  Up: The Article Buffer
+
+Misc Article
+============
+
+`gnus-single-article-buffer'
+     If non-`nil', use the same article buffer for all the groups.
+     (This is the default.)  If `nil', each group will have its own
+     article buffer.
+
+`gnus-article-prepare-hook'
+     This hook is called right after the article has been inserted into
+     the article buffer.  It is mainly intended for functions that do
+     something depending on the contents; it should probably not be
+     used for changing the contents of the article buffer.
+
+`gnus-article-display-hook'
+     This hook is called as the last thing when displaying an article,
+     and is intended for modifying the contents of the buffer, doing
+     highlights, hiding headers, and the like.
+
+`gnus-article-mode-hook'
+     Hook called in article mode buffers.
+
+`gnus-article-mode-syntax-table'
+     Syntax table used in article buffers.  It is initialized from
+     `text-mode-syntax-table'.
+
+`gnus-article-mode-line-format'
+     This variable is a format string along the same lines as
+     `gnus-summary-mode-line-format' (*note Mode Line Formatting::).  It
+     accepts the same format specifications as that variable, with one
+     extension:
+
+    `w'
+          The "wash status" of the article.  This is a short string
+          with one character for each possible article wash operation
+          that may have been performed.
+
+`gnus-break-pages'
+     Controls whether "page breaking" is to take place.  If this
+     variable is non-`nil', the articles will be divided into pages
+     whenever a page delimiter appears in the article.  If this
+     variable is `nil', paging will not be done.
+
+`gnus-page-delimiter'
+     This is the delimiter mentioned above.  By default, it is `^L'
+     (formfeed).
+
+
+File: gnus,  Node: Composing Messages,  Next: Select Methods,  Prev: The Article Buffer,  Up: Top
+
+Composing Messages
+******************
+
+   All commands for posting and mailing will put you in a message buffer
+where you can edit the article all you like, before you send the article
+by pressing `C-c C-c'.  *Note Top: (message)Top.  If you are in a
+foreign news group, and you wish to post the article using the foreign
+server, you can give a prefix to `C-c C-c' to make Gnus try to post
+using the foreign server.
+
+* Menu:
+
+* Mail::                 Mailing and replying.
+* Post::                 Posting and following up.
+* Posting Server::       What server should you post via?
+* Mail and Post::        Mailing and posting at the same time.
+* Archived Messages::    Where Gnus stores the messages you've sent.
+* Posting Styles::       An easier way to specify who you are.
+* Drafts::               Postponing messages and rejected messages.
+* Rejected Articles::    What happens if the server doesn't like your article?
+
+   Also see *note Canceling and Superseding:: for information on how to
+remove articles you shouldn't have posted.
+
+
+File: gnus,  Node: Mail,  Next: Post,  Up: Composing Messages
+
+Mail
+====
+
+   Variables for customizing outgoing mail:
+
+`gnus-uu-digest-headers'
+     List of regexps to match headers included in digested messages.
+     The headers will be included in the sequence they are matched.
+
+`gnus-add-to-list'
+     If non-`nil', add a `to-list' group parameter to mail groups that
+     have none when you do a `a'.
+
+
+File: gnus,  Node: Post,  Next: Posting Server,  Prev: Mail,  Up: Composing Messages
+
+Post
+====
+
+   Variables for composing news articles:
+
+`gnus-sent-message-ids-file'
+     Gnus will keep a `Message-ID' history file of all the mails it has
+     sent.  If it discovers that it has already sent a mail, it will
+     ask the user whether to re-send the mail.  (This is primarily
+     useful when dealing with SOUP packets and the like where one is
+     apt to send the same packet multiple times.)  This variable says
+     what the name of this history file is.  It is
+     `~/News/Sent-Message-IDs' by default.  Set this variable to `nil'
+     if you don't want Gnus to keep a history file.
+
+`gnus-sent-message-ids-length'
+     This variable says how many `Message-ID's to keep in the history
+     file.  It is 1000 by default.
+
+
+File: gnus,  Node: Posting Server,  Next: Mail and Post,  Prev: Post,  Up: Composing Messages
+
+Posting Server
+==============
+
+   When you press those magical `C-c C-c' keys to ship off your latest
+(extremely intelligent, of course) article, where does it go?
+
+   Thank you for asking.  I hate you.
+
+   It can be quite complicated.  Normally, Gnus will use the same native
+server.  However.  If your native server doesn't allow posting, just
+reading, you probably want to use some other server to post your
+(extremely intelligent and fabulously interesting) articles.  You can
+then set the `gnus-post-method' to some other method:
+
+     (setq gnus-post-method '(nnspool ""))
+
+   Now, if you've done this, and then this server rejects your article,
+or this server is down, what do you do then?  To override this variable
+you can use a non-zero prefix to the `C-c C-c' command to force using
+the "current" server for posting.
+
+   If you give a zero prefix (i.e., `C-u 0 C-c C-c') to that command,
+Gnus will prompt you for what method to use for posting.
+
+   You can also set `gnus-post-method' to a list of select methods.  If
+that's the case, Gnus will always prompt you for what method to use for
+posting.
+
+   Finally, if you want to always post using the same select method as
+you're reading from (which might be convenient if you're reading lots of
+groups from different private servers), you can set this variable to
+`current'.
+
+
+File: gnus,  Node: Mail and Post,  Next: Archived Messages,  Prev: Posting Server,  Up: Composing Messages
+
+Mail and Post
+=============
+
+   Here's a list of variables relevant to both mailing and posting:
+
+`gnus-mailing-list-groups'
+     If your news server offers groups that are really mailing lists
+     gatewayed to the NNTP server, you can read those groups without
+     problems, but you can't post/followup to them without some
+     difficulty.  One solution is to add a `to-address' to the group
+     parameters (*note Group Parameters::).  An easier thing to do is
+     set the `gnus-mailing-list-groups' to a regexp that matches the
+     groups that really are mailing lists.  Then, at least, followups
+     to the mailing lists will work most of the time.  Posting to these
+     groups (`a') is still a pain, though.
+
+   You may want to do spell-checking on messages that you send out.
+Or, if you don't want to spell-check by hand, you could add automatic
+spell-checking via the `ispell' package:
+
+     (add-hook 'message-send-hook 'ispell-message)
+
+
+File: gnus,  Node: Archived Messages,  Next: Posting Styles,  Prev: Mail and Post,  Up: Composing Messages
+
+Archived Messages
+=================
+
+   Gnus provides a few different methods for storing the mail and news
+you send.  The default method is to use the "archive virtual server" to
+store the messages.  If you want to disable this completely, the
+`gnus-message-archive-group' variable should be `nil', which is the
+default.
+
+   `gnus-message-archive-method' says what virtual server Gnus is to
+use to store sent messages.  The default is:
+
+     (nnfolder "archive"
+               (nnfolder-directory   "~/Mail/archive")
+               (nnfolder-active-file "~/Mail/archive/active")
+               (nnfolder-get-new-mail nil)
+               (nnfolder-inhibit-expiry t))
+
+   You can, however, use any mail select method (`nnml', `nnmbox',
+etc.).  `nnfolder' is a quite likeable select method for doing this
+sort of thing, though.  If you don't like the default directory chosen,
+you could say something like:
+
+     (setq gnus-message-archive-method
+           '(nnfolder "archive"
+                      (nnfolder-inhibit-expiry t)
+                      (nnfolder-active-file "~/News/sent-mail/active")
+                      (nnfolder-directory "~/News/sent-mail/")))
+
+   Gnus will insert `Gcc' headers in all outgoing messages that point
+to one or more group(s) on that server.  Which group to use is
+determined by the `gnus-message-archive-group' variable.
+
+   This variable can be used to do the following:
+
+   * a string Messages will be saved in that group.
+
+   * a list of strings Messages will be saved in all those groups.
+
+   * an alist of regexps, functions and forms When a key "matches", the
+     result is used.
+
+   * `nil' No message archiving will take place.  This is the default.
+
+   Let's illustrate:
+
+   Just saving to a single group called `MisK':
+     (setq gnus-message-archive-group "MisK")
+
+   Saving to two groups, `MisK' and `safe':
+     (setq gnus-message-archive-group '("MisK" "safe"))
+
+   Save to different groups based on what group you are in:
+     (setq gnus-message-archive-group
+           '(("^alt" "sent-to-alt")
+             ("mail" "sent-to-mail")
+             (".*" "sent-to-misc")))
+
+   More complex stuff:
+     (setq gnus-message-archive-group
+           '((if (message-news-p)
+                 "misc-news"
+               "misc-mail")))
+
+   How about storing all news messages in one file, but storing all mail
+messages in one file per month:
+
+     (setq gnus-message-archive-group
+           '((if (message-news-p)
+                 "misc-news"
+               (concat "mail." (format-time-string
+                                "%Y-%m" (current-time))))))
+
+   (XEmacs 19.13 doesn't have `format-time-string', so you'll have to
+use a different value for `gnus-message-archive-group' there.)
+
+   Now, when you send a message off, it will be stored in the
+appropriate group.  (If you want to disable storing for just one
+particular message, you can just remove the `Gcc' header that has been
+inserted.)  The archive group will appear in the group buffer the next
+time you start Gnus, or the next time you press `F' in the group
+buffer.  You can enter it and read the articles in it just like you'd
+read any other group.  If the group gets really big and annoying, you
+can simply rename if (using `G r' in the group buffer) to something
+nice--`misc-mail-september-1995', or whatever.  New messages will
+continue to be stored in the old (now empty) group.
+
+   That's the default method of archiving sent messages.  Gnus offers a
+different way for the people who don't like the default method.  In that
+case you should set `gnus-message-archive-group' to `nil'; this will
+disable archiving.
+
+`gnus-outgoing-message-group'
+     All outgoing messages will be put in this group.  If you want to
+     store all your outgoing mail and articles in the group
+     `nnml:archive', you set this variable to that value.  This
+     variable can also be a list of group names.
+
+     If you want to have greater control over what group to put each
+     message in, you can set this variable to a function that checks the
+     current newsgroup name and then returns a suitable group name (or
+     list of names).
+
+     This variable can be used instead of `gnus-message-archive-group',
+     but the latter is the preferred method.
+
+
+File: gnus,  Node: Posting Styles,  Next: Drafts,  Prev: Archived Messages,  Up: Composing Messages
+
+Posting Styles
+==============
+
+   All them variables, they make my head swim.
+
+   So what if you want a different `Organization' and signature based
+on what groups you post to?  And you post both from your home machine
+and your work machine, and you want different `From' lines, and so on?
+
+   One way to do stuff like that is to write clever hooks that change
+the variables you need to have changed.  That's a bit boring, so
+somebody came up with the bright idea of letting the user specify these
+things in a handy alist.  Here's an example of a `gnus-posting-styles'
+variable:
+
+     ((".*"
+       (signature "Peace and happiness")
+       (organization "What me?"))
+      ("^comp"
+       (signature "Death to everybody"))
+      ("comp.emacs.i-love-it"
+       (organization "Emacs is it")))
+
+   As you might surmise from this example, this alist consists of
+several "styles".  Each style will be applicable if the first element
+"matches", in some form or other.  The entire alist will be iterated
+over, from the beginning towards the end, and each match will be
+applied, which means that attributes in later styles that match override
+the same attributes in earlier matching styles.  So
+`comp.programming.literate' will have the `Death to everybody'
+signature and the `What me?' `Organization' header.
+
+   The first element in each style is called the `match'.  If it's a
+string, then Gnus will try to regexp match it against the group name.
+If it's a function symbol, that function will be called with no
+arguments.  If it's a variable symbol, then the variable will be
+referenced.  If it's a list, then that list will be `eval'ed.  In any
+case, if this returns a non-`nil' value, then the style is said to
+"match".
+
+   Each style may contain a arbitrary amount of "attributes".  Each
+attribute consists of a `(NAME . VALUE)' pair.  The attribute name can
+be one of `signature', `signature-file', `organization', `address',
+`name' or `body'.  The attribute name can also be a string.  In that
+case, this will be used as a header name, and the value will be
+inserted in the headers of the article.
+
+   The attribute value can be a string (used verbatim), a function (the
+return value will be used), a variable (its value will be used) or a
+list (it will be `eval'ed and the return value will be used).
+
+   If you wish to check whether the message you are about to compose is
+meant to be a news article or a mail message, you can check the values
+of the two dynamically bound variables `message-this-is-news' and
+`message-this-is-mail'.
+
+   So here's a new example:
+
+     (setq gnus-posting-styles
+           '((".*"
+              (signature-file "~/.signature")
+              (name "User Name")
+              ("X-Home-Page" (getenv "WWW_HOME"))
+              (organization "People's Front Against MWM"))
+             ("^rec.humor"
+              (signature my-funny-signature-randomizer))
+             ((equal (system-name) "gnarly")
+              (signature my-quote-randomizer))
+             (message-this-is-news
+              (signature my-news-signature))
+             (posting-from-work-p
+              (signature-file "~/.work-signature")
+              (address "user@bar.foo")
+              (body "You are fired.\n\nSincerely, your boss.")
+              (organization "Important Work, Inc"))
+             ("^nn.+:"
+              (signature-file "~/.mail-signature"))))
+
+
+File: gnus,  Node: Drafts,  Next: Rejected Articles,  Prev: Posting Styles,  Up: Composing Messages
+
+Drafts
+======
+
+   If you are writing a message (mail or news) and suddenly remember
+that you have a steak in the oven (or some pesto in the food processor,
+you craaazy vegetarians), you'll probably wish there was a method to
+save the message you are writing so that you can continue editing it
+some other day, and send it when you feel its finished.
+
+   Well, don't worry about it.  Whenever you start composing a message
+of some sort using the Gnus mail and post commands, the buffer you get
+will automatically associate to an article in a special "draft" group.
+If you save the buffer the normal way (`C-x C-s', for instance), the
+article will be saved there.  (Auto-save files also go to the draft
+group.)
+
+   The draft group is a special group (which is implemented as an
+`nndraft' group, if you absolutely have to know) called
+`nndraft:drafts'.  The variable `nndraft-directory' says where
+`nndraft' is to store its files.  What makes this group special is that
+you can't tick any articles in it or mark any articles as read--all
+articles in the group are permanently unread.
+
+   If the group doesn't exist, it will be created and you'll be
+subscribed to it.  The only way to make it disappear from the Group
+buffer is to unsubscribe it.
+
+   When you want to continue editing the article, you simply enter the
+draft group and push `D e' (`gnus-draft-edit-message') to do that.  You
+will be placed in a buffer where you left off.
+
+   Rejected articles will also be put in this draft group (*note
+Rejected Articles::).
+
+   If you have lots of rejected messages you want to post (or mail)
+without doing further editing, you can use the `D s' command
+(`gnus-draft-send-message').  This command understands the
+process/prefix convention (*note Process/Prefix::).  The `D S' command
+(`gnus-draft-send-all-messages') will ship off all messages in the
+buffer.
+
+   If you have some messages that you wish not to send, you can use the
+`D t' (`gnus-draft-toggle-sending') command to mark the message as
+unsendable.  This is a toggling command.
+
+
+File: gnus,  Node: Rejected Articles,  Prev: Drafts,  Up: Composing Messages
+
+Rejected Articles
+=================
+
+   Sometimes a news server will reject an article.  Perhaps the server
+doesn't like your face.  Perhaps it just feels miserable.  Perhaps
+_there be demons_.  Perhaps you have included too much cited text.
+Perhaps the disk is full.  Perhaps the server is down.
+
+   These situations are, of course, totally beyond the control of Gnus.
+(Gnus, of course, loves the way you look, always feels great, has angels
+fluttering around inside of it, doesn't care about how much cited text
+you include, never runs full and never goes down.)  So Gnus saves these
+articles until some later time when the server feels better.
+
+   The rejected articles will automatically be put in a special draft
+group (*note Drafts::).  When the server comes back up again, you'd then
+typically enter that group and send all the articles off.
+

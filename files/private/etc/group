@@ -1,0 +1,27 @@
+##
+# Group Database
+# 
+# Note that this file is consulted when the system is running in single-user
+# mode.  At other times this information is handled by lookupd.  By default,
+# lookupd gets information from NetInfo, so this file will not be consulted
+# unless you have changed lookupd's configuration.
+##
+nobody:*:-2:
+nogroup:*:-1:
+wheel:*:0:
+daemon:*:1:root
+kmem:*:2:root
+sys:*:3:root
+tty:*:4:root
+operator:*:5:root
+mail:*:6:
+bin:*:7:
+staff:*:20:root
+guest:*:31:root
+utmp:*:45:
+uucp:*:66:
+dialer:*:68:
+network:*:69:
+www:*:70:
+admin:*:80:
+unknown:*:99:

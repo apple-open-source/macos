@@ -1,0 +1,8 @@
+RPCFILES = _lu_types.x
+OTHER_OFILES = lookupUser.o _lu_types_xdr.o
+AFTER_PREBUILD = _lu_types.h lookupUser.c 
+NETINFO_HDRS = lookup.h _lu_types.h lookup_types.h lookup.defs _lu_types.x
+BEFORE_INSTALLHDRS += $(SFILE_DIR) $(NETINFO_HDRS)
+AFTER_INSTALLHDRS += netinfo_hdrs
+PUBLIC_HEADER_DIR_SUFFIX = 
+NETINFO_HEADER_DIR_SUFFIX = /netinfo

@@ -1,0 +1,10 @@
+{
+  Description     = "system cleanup";
+  Provides        = ("Cleanup");
+  OrderPreference = "Early";
+  Messages =
+  {
+    start = "Cleaning up";
+    stop  = "Cleaning up";
+  };
+}

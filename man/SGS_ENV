@@ -1,0 +1,50 @@
+# SGS_ENV file for version roots
+#
+# This SGS_ENV file should exist in the version root
+# of all version trees.  It will normally be placed in
+# the master version root and be cloned to all development
+# versions.
+#
+# BASIC definitions for the SGS tools
+#
+# The MASTER USER for this project.
+#	The master versions of the project software reside
+#	in the master user's tree and are owned by the master user.
+#
+# The PROJECT_NAME for this project.
+#	The project name is used searching either the master's or
+#	developer's home/SGS_ENV files to determine the project
+#	root or the list of project developers (see ~osdev/SGS_ENV)
+#
+MASTER_USER=rollie
+PROJECT_NAME=man
+#
+# DONT_DIFF is an egrep(1) pattern which should match all files that
+# not interesting to diff or integrate.
+#
+DONT_DIFF:/tags$|\.o$|/errs$|/make\.out$|\.a$
+#
+# cross(1) definitions
+#
+# These definitions control the behavior of the cross development
+# tool cross(1)
+#
+# SGS_VERBOSE says "echo all `translated' commands"
+# SGS_PATH is the path to search if a command which is linked to
+# cross(1) does not have a definition in this SGS_ENV file (i.e.
+# this is how to find the native version)
+#
+SGS_VERBOSE
+#SGS_PATH=/usr/ucb:/bin:/usr/bin:/etc
+#
+# LCLINC specifies local directories to prepend to the include files
+# search path.  ${LCLROOT} is defined in NeXT_ENV as ~/NeXT_root, and
+# is intended to be used as the base destination of the "local" makefile
+# target.  LCLROOT can then be used as a "pre-install" test area for
+# local builds.
+#
+# NOTE: Eventually, we should have /usr/include/bsd and /usr/include/mach
+# rather /usr/mach/include.
+LCLINC=-I${LCLROOT}/usr/mach/include -I${LCLROOT}/usr/include
+LCLLIB=-L${LCLROOT}/lib -L${LCLROOT}/usr/lib
+include /release/NeXT_ENV

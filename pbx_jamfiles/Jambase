@@ -1,0 +1,17 @@
+# ProjectBuilder Jambase
+# Copyright (c) 1999,2000 Apple Computer, Inc.
+# All rights reserved.
+
+CROSS_ROOT default = "" ;
+
+JAMBASE_DIR default = $(JAMBASE:D) ;
+
+OS default = macos ;
+if $(OS) = MACOS {
+    OS = macos ;
+}
+
+if OS != "" {
+    include $(JAMBASE_DIR)/platform-$(OS).jam ;
+}
+

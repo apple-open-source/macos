@@ -1,0 +1,6 @@
+dnl ../doc/m4.texinfo:3082: Origin of test
+define(`fatal_error', `errprint(`m4: '__file__: __line__`: fatal error: $*
+')m4exit(1)')
+dnl @result{}
+fatal_error(`This is a BAD one, buster')
+dnl @error{}m4: 57.m4exit: 5: fatal error: This is a BAD one, buster

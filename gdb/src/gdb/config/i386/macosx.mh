@@ -1,0 +1,65 @@
+# Host: IA86 running Mac OS X
+
+TERMCAP =
+
+SER_HARDWIRE = ser-unix.o ser-tcp.o
+
+XM_FILE = xm-i386-macosx.h
+
+XDEPFILES = \
+	nextstep-nat-cmds-load.o \
+	nextstep-nat-cmds-pb.o \
+	nextstep-nat-cmds-pbx.o \
+	nextstep-nat-utils-pb.o \
+	nextstep-xdep.o
+
+NEXT_FILES = \
+        nextstep-nat-watchpoint.o \
+        nextstep-nat-dyld.o \
+        nextstep-nat-dyld-path.o \
+        nextstep-nat-dyld-info.o \
+        nextstep-nat-dyld-process.o \
+        nextstep-nat-dyld-io.o \
+        nextstep-nat-inferior.o \
+        nextstep-nat-inferior-stubs.o \
+        nextstep-nat-inferior-util.o \
+        nextstep-nat-inferior-debug.o \
+        nextstep-nat-sigthread.o \
+        nextstep-nat-excthread.o \
+        nextstep-nat-mutils.o \
+        nextstep-nat-threads.o \
+	nextstep-nat-infthread.o \
+        nextstep-nat-info.o
+
+IA86_FILES = i386-next-nat-exec.o 
+
+MACOSX_FILES = excServer.o excUser.o
+
+NAT_FILE = nm-i386-next.h
+
+NATDEPFILES = \
+	fork-child.o \
+	inftarg.o \
+	$(IA86_FILES) \
+	$(NEXT_FILES) \
+	$(MACOSX_FILES)
+
+XM_CLIBS = 
+
+MH_CFLAGS = \
+	-DNS_TARGET_MAJOR=5 \
+	-I$(srcdir)/../gdb-next
+
+ifneq ("$(USE_CTHREADS)", "")
+MH_CFLAGS += -DUSE_CTHREADS=1
+else
+MH_CFLAGS += -DUSE_PTHREADS=1
+endif
+
+_all: all
+
+excServer.c excUser.c: macosx.defs
+	$(NEXT_ROOT)/usr/bin/mig $<
+
+clean::
+	rm -f excServer.c excUser.c exc.h

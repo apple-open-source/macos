@@ -1,0 +1,455 @@
+mailto(rsync-bugs@samba.org)
+manpage(rsyncd.conf)(5)(12 Feb 1999)()()
+manpagename(rsyncd.conf)(configuration file for rsync server)
+manpagesynopsis()
+
+rsyncd.conf
+
+manpagedescription()
+
+The rsyncd.conf file is the runtime configuration file for rsync when
+run with the --daemon option. When run in this way rsync becomes a
+rsync server listening on TCP port 873. Connections from rsync clients
+are accepted for either anonymous or authenticated rsync sessions. 
+
+The rsyncd.conf file controls authentication, access, logging and
+available modules.
+
+manpagesection(FILE FORMAT)
+
+The file consists of modules and parameters. A module begins with the 
+name of the module in square brackets and continues until the next
+module begins. Modules contain parameters of the form 'name = value'.
+
+The file is line-based - that is, each newline-terminated line represents
+either a comment, a module name or a parameter.
+
+Only the first equals sign in a parameter is significant. Whitespace before 
+or after the first equals sign is discarded. Leading, trailing and internal
+whitespace in module and parameter names is irrelevant. Leading and
+trailing whitespace in a parameter value is discarded. Internal whitespace
+within a parameter value is retained verbatim.
+
+Any line beginning with a hash (#) is ignored, as are lines containing 
+only whitespace.
+
+Any line ending in a \ is "continued" on the next line in the
+customary UNIX fashion.
+
+The values following the equals sign in parameters are all either a string
+(no quotes needed) or a boolean, which may be given as yes/no, 0/1 or
+true/false. Case is not significant in boolean values, but is preserved
+in string values. 
+
+manpagesection(LAUNCHING THE RSYNC DAEMON)
+
+The rsync daemon is launched by specifying the --daemon option to
+rsync. The daemon must run with root privileges.
+
+You can launch it either via inetd or as a stand-alone daemon. If run
+as a daemon then just run the command "rsync --daemon" from a suitable
+startup script.
+
+When run via inetd you should add a line like this to /etc/services:
+
+quote(rsync           873/tcp)
+
+and a single line something like this to /etc/inetd.conf:
+    
+quote(rsync   stream  tcp     nowait  root   /usr/bin/rsync rsyncd --daemon)
+
+You will then need to send inetd a HUP signal to tell it to reread its
+config file.
+
+Note that you should not send the rsync server a HUP signal to force
+it to reread the tt(/etc/rsyncd.conf). The file is re-read on each client
+connection. 
+
+manpagesection(GLOBAL OPTIONS)
+
+The first parameters in the file (before a [module] header) are the
+global parameters. 
+
+You may also include any module parameters in the global part of the
+config file in which case the supplied value will override the
+default for that parameter.
+
+startdit()
+dit(bf(motd file)) The "motd file" option allows you to specify a
+"message of the day" to display to clients on each connect. This
+usually contains site information and any legal notices. The default
+is no motd file.
+
+dit(bf(log file)) The "log file" option tells the rsync daemon to log
+messages to that file rather than using syslog. This is particularly
+useful on systems (such as AIX) where syslog() doesn't work for
+chrooted programs.
+
+dit(bf(pid file)) The "pid file" option tells the rsync daemon to write
+its process id to that file.
+
+dit(bf(syslog facility)) The "syslog facility" option allows you to
+specify the syslog facility name to use when logging messages from the
+rsync server. You may use any standard syslog facility name which is
+defined on your system. Common names are auth, authpriv, cron, daemon,
+ftp, kern, lpr, mail, news, security, syslog, user, uucp, local0,
+local1, local2, local3, local4, local5, local6 and local7. The default
+is daemon. 
+
+dit(bf(socket options)) This option can provide endless fun for people
+who like to tune their systems to the utmost degree. You can set all
+sorts of socket options which may make transfers faster (or
+slower!). Read the man page for the setsockopt() system call for
+details on some of the options you may be able to set. By default no
+special socket options are set.
+
+enddit()
+
+
+manpagesection(MODULE OPTIONS)
+
+After the global options you should define a number of modules, each
+module exports a directory tree as a symbolic name. Modules are
+exported by specifying a module name in square brackets [module]
+followed by the options for that module.
+
+startdit()
+
+dit(bf(comment)) The "comment" option specifies a description string
+that is displayed next to the module name when clients obtain a list
+of available modules. The default is no comment.
+
+dit(bf(path)) The "path" option specifies the directory in the servers
+filesystem to make available in this module.  You must specify this option
+for each module in tt(/etc/rsyncd.conf).
+
+dit(bf(use chroot)) If "use chroot" is true, the rsync server will chroot
+to the "path" before starting the file transfer with the client.  This has
+the advantage of extra protection against possible implementation security
+holes, but it has the disadvantages of requiring super-user privileges and
+of not being able to follow symbolic links outside of the new root path.
+The default is to use chroot.
+
+dit(bf(max connections)) The "max connections" option allows you to
+specify the maximum number of simultaneous connections you will allow
+to this module of your rsync server. Any clients connecting when the
+maximum has been reached will receive a message telling them to try
+later.  The default is 0 which means no limit.
+
+dit(bf(lock file)) The "lock file" option specifies the file to use to
+support the "max connections" option. The rsync server uses record
+locking on this file to ensure that the max connections limit is not
+exceeded. The default is tt(/var/run/rsyncd.lock).
+
+dit(bf(read only)) The "read only" option determines whether clients
+will be able to upload files or not. If "read only" is true then any
+attempted uploads will fail. If "read only" is false then uploads will
+be possible if file permissions on the server allow them. The default
+is for all modules to be read only.
+
+dit(bf(list)) The "list" option determines if this module should be
+listed when the client asks for a listing of available modules. By
+setting this to false you can create hidden modules. The default is
+for modules to be listable.
+
+dit(bf(uid)) The "uid" option specifies the user name or user id that
+file transfers to and from that module should take place as when the daemon
+was run as root. In combination with the "gid" option this determines what
+file permissions are available. The default is the user "nobody".
+
+dit(bf(gid)) The "gid" option specifies the group name or group id that
+file transfers to and from that module should take place as when the daemon
+was run as root. This complements the "uid" option. The default is the
+group "nobody".
+
+dit(bf(exclude)) The "exclude" option allows you to specify a space
+separated list of patterns to add to the exclude list. This is
+equivalent to the client specifying these patterns with the --exclude
+option except that the exclude list is not passed to the client and
+thus only apply on the server.  Only one "exclude" option may be
+specified, but you can use "-" and "+" before patterns to specify
+exclude/include.
+
+Note that this option is not designed with strong security in
+mind, it is quite possible that a client may find a way to bypass this
+exclude list. If you want to absolutely ensure that certain files
+cannot be accessed then use the uid/gid options in combination with
+file permissions.
+
+dit(bf(exclude from)) The "exclude from" option specifies a filename
+on the server that contains exclude patterns, one per line. This is
+equivalent to the client specifying the --exclude-from option with a
+equivalent file except that the resulting exclude patterns are not
+passed to the client and thus only apply on the server. See also the
+note about security for the exclude option above.
+
+dit(bf(include)) The "include" option allows you to specify a space
+separated list of patterns which rsync should not exclude. This is
+equivalent to the client specifying these patterns with the --include
+option.  This is useful as it allows you to build up quite complex
+exclude/include rules.  Only one "include" option may be specified, but you
+can use "+" and "-" before patterns to switch include/exclude.
+
+See the section of exclude patterns in the rsync man page for information
+on the syntax of this option.
+
+dit(bf(include from)) The "include from" option specifies a filename
+on the server that contains include patterns, one per line. This is
+equivalent to the client specifying the --include-from option with a
+equivalent file.
+
+dit(bf(auth users)) The "auth users" option specifies a comma
+and space separated list of usernames that will be allowed to connect
+to this module. The usernames do not need to exist on the local
+system. If "auth users" is set then the client will be challenged to
+supply a username and password to connect to the module. A challenge
+response authentication protocol is used for this exchange. The plain
+text usernames are passwords are stored in the file specified by the
+"secrets file" option. The default is for all users to be able to
+connect without a password (this is called "anonymous rsync").
+
+dit(bf(secrets file)) The "secrets file" option specifies the name of
+a file that contains the username:password pairs used for
+authenticating this module. This file is only consulted if the "auth
+users" option is specified. The file is line based and contains
+username:password pairs separated by a single colon. Any line starting
+with a hash (#) is considered a comment and is skipped. The passwords
+can contain any characters but be warned that many operating systems
+limit the length of passwords that can be typed at the client end, so
+you may find that passwords longer than 8 characters don't work. 
+
+There is no default for the "secrets file" option, you must choose a name
+(such as tt(/etc/rsyncd.secrets)).
+
+dit(bf(strict modes)) The "strict modes" option determines whether or not 
+the permissions on the secrets file will be checked.  If "strict modes" is
+true, then the secrets file must not be readable by any user id other
+than the one that the rsync daemon is running under.  If "strict modes" is
+false, the check is not performed.  The default is true.  This option
+was added to accommodate rsync running on the Windows operating system.
+
+dit(bf(hosts allow)) The "hosts allow" option allows you to specify a
+list of patterns that are matched against a connecting clients
+hostname and IP address. If none of the patterns match then the
+connection is rejected.
+
+Each pattern can be in one of five forms:
+
+itemize(
+  it() a dotted decimal IP address. In this case the incoming machines
+  IP address must match exactly.
+
+  it() a address/mask in the form a.b.c.d/n were n is the number of
+  one bits in in the netmask. All IP addresses which match the masked
+  IP address will be allowed in.
+
+  it() a address/mask in the form a.b.c.d/e.f.g.h where e.f.g.h is a
+  netmask in dotted decimal notation. All IP addresses which match the masked
+  IP address will be allowed in.
+
+  it() a hostname. The hostname as determined by a reverse lookup will
+  be matched (case insensitive) against the pattern. Only an exact
+  match is allowed in.
+
+  it() a hostname pattern using wildcards. These are matched using the
+  same rules as normal unix filename matching. If the pattern matches
+  then the client is allowed in.
+)
+
+You can also combine "hosts allow" with a separate "hosts deny"
+option. If both options are specified then the "hosts allow" option s
+checked first and a match results in the client being able to
+connect. The "hosts deny" option is then checked and a match means
+that the host is rejected. If the host does not match either the 
+"hosts allow" or the "hosts deny" patterns then it is allowed to
+connect.
+
+The default is no "hosts allow" option, which means all hosts can connect.
+
+dit(bf(hosts deny)) The "hosts deny" option allows you to specify a
+list of patterns that are matched against a connecting clients
+hostname and IP address. If the pattern matches then the connection is
+rejected. See the "hosts allow" option for more information.
+
+The default is no "hosts deny" option, which means all hosts can connect.
+
+dit(bf(transfer logging)) The "transfer logging" option enables per-file 
+logging of downloads and uploads in a format somewhat similar to that
+used by ftp daemons. If you want to customize the log formats look at
+the log format option.
+
+dit(bf(log format)) The "log format" option allows you to specify the
+format used for logging file transfers when transfer logging is
+enabled. The format is a text string containing embedded single
+character escape sequences prefixed with a percent (%) character.
+
+The prefixes that are understood are:
+
+itemize(
+  it() %h for the remote host name
+  it() %a for the remote IP address
+  it() %l for the length of the file in bytes
+  it() %p for the process id of this rsync session
+  it() %o for the operation, which is either "send" or "recv"
+  it() %f for the filename
+  it() %P for the module path
+  it() %m for the module name
+  it() %t for the current date time
+  it() %u for the authenticated username (or the null string)
+  it() %b for the number of bytes actually transferred 
+  it() %c when sending files this gives the number of checksum bytes
+    received for this file
+)
+
+The default log format is "%o %h [%a] %m (%u) %f %l", and a "%t [%p] "
+is always added to the beginning when using the "log file" option.
+
+A perl script called rsyncstats to summarize this format is included
+in the rsync source code distribution.
+
+dit(bf(timeout)) The "timeout" option allows you to override the
+clients choice for IO timeout for this module. Using this option you
+can ensure that rsync won't wait on a dead client forever. The timeout
+is specified in seconds. A value of zero means no timeout and is the
+default. A good choice for anonymous rsync servers may be 600 (giving
+a 10 minute timeout).
+
+dit(bf(refuse options)) The "refuse options" option allows you to
+specify a space separated list of rsync command line options that will
+be refused by your rsync server.  The full names of the options must be
+used (i.e., you must use "checksum" not "c" to disable checksumming).  
+When an option is refused, the server prints an error message and exits.
+To prevent all compression, you can use "dont compress = *" (see below)
+instead of "refuse options = compress" to avoid returning an error to a
+client that requests compression.
+
+dit(bf(dont compress)) The "dont compress" option allows you to select
+filenames based on wildcard patterns that should not be compressed
+during transfer. Compression is expensive in terms of CPU usage so it
+is usually good to not try to compress files that won't compress well,
+such as already compressed files. 
+
+The "dont compress" option takes a space separated list of
+case-insensitive wildcard patterns. Any source filename matching one
+of the patterns will not be compressed during transfer.
+
+The default setting is verb(*.gz *.tgz *.zip *.z *.rpm *.deb)
+
+enddit()
+
+manpagesection(AUTHENTICATION STRENGTH)
+
+The authentication protocol used in rsync is a 128 bit MD4 based
+challenge response system. Although I believe that no one has ever
+demonstrated a brute-force break of this sort of system you should
+realize that this is not a "military strength" authentication system.
+It should be good enough for most purposes but if you want really top
+quality security then I recommend that you run rsync over ssh.
+
+Also note that the rsync server protocol does not currently provide any
+encryption of the data that is transferred over the link. Only
+authentication is provided. Use ssh as the transport if you want
+encryption.
+
+Future versions of rsync may support SSL for better authentication and
+encryption, but that is still being investigated.
+
+manpagesection(EXAMPLES)
+
+A simple rsyncd.conf file that allow anonymous rsync to a ftp area at
+tt(/home/ftp) would be:
+
+verb(
+[ftp]
+        path = /home/ftp
+        comment = ftp export area
+)
+
+
+A more sophisticated example would be:
+
+uid = nobody nl()
+gid = nobody nl()
+use chroot = no nl()
+max connections = 4 nl()
+syslog facility = local5 nl()
+pid file = /etc/rsyncd.pid
+
+verb([ftp]
+        path = /var/ftp/pub
+        comment = whole ftp area (approx 6.1 GB)
+
+[sambaftp]
+        path = /var/ftp/pub/samba
+        comment = Samba ftp area (approx 300 MB)
+
+[rsyncftp]
+        path = /var/ftp/pub/rsync
+        comment = rsync ftp area (approx 6 MB)
+        
+[sambawww]
+        path = /public_html/samba
+        comment = Samba WWW pages (approx 240 MB)
+
+[cvs]
+        path = /data/cvs
+        comment = CVS repository (requires authentication)
+        auth users = tridge, susan
+        secrets file = /etc/rsyncd.secrets
+)
+
+The /etc/rsyncd.secrets file would look something like this:
+
+tridge:mypass nl()
+susan:herpass
+
+manpagefiles()
+
+/etc/rsyncd.conf
+
+manpageseealso()
+
+rsync(1)
+
+manpagediagnostics()
+
+manpagebugs()
+
+The rsync server does not send all types of error messages to the
+client. this means a client may be mystified as to why a transfer
+failed. The error will have been logged by syslog on the server.
+
+Please report bugs! The rsync bug tracking system is online at
+url(http://rsync.samba.org/)(http://rsync.samba.org/)
+
+manpagesection(VERSION)
+This man page is current for version 2.0 of rsync
+
+manpagesection(CREDITS)
+
+rsync is distributed under the GNU public license.  See the file
+COPYING for details.
+
+The primary ftp site for rsync is
+url(ftp://rsync.samba.org/pub/rsync)(ftp://rsync.samba.org/pub/rsync).
+
+A WEB site is available at
+url(http://rsync.samba.org/)(http://rsync.samba.org/)
+
+We would be delighted to hear from you if you like this program.
+
+This program uses the zlib compression library written by Jean-loup
+Gailly and Mark Adler.
+
+manpagesection(THANKS)
+
+Thanks to Warren Stanley for his original idea and patch for the rsync
+server. Thanks to Karsten Thygesen for his many suggestions and
+documentation! 
+
+manpageauthor()
+
+rsync was written by Andrew Tridgell and Paul Mackerras.  They may be
+contacted via email at tridge@samba.org and
+Paul.Mackerras@cs.anu.edu.au
+

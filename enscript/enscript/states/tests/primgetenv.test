@@ -1,0 +1,15 @@
+#!/bin/sh
+#
+# Test getenv() primitive.
+#
+
+. $srcdir/defs || exit 1
+
+STATES_DATA=ok
+export STATES_DATA
+
+result=`$states --state=test_primgetenv $srcdir/defs 2>&1`
+
+if test "X$result" != "X"; then
+  exit 1;
+fi

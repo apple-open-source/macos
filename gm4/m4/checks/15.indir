@@ -1,0 +1,7 @@
+dnl ../doc/m4.texinfo:1272: Origin of test
+define(`$$internal$macro', `Internal macro (name `$0')')
+dnl @result{}
+$$internal$macro
+dnl @result{}$$internal$macro
+indir(`$$internal$macro')
+dnl @result{}Internal macro (name $$internal$macro)

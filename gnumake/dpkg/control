@@ -1,0 +1,7 @@
+Package: gnumake
+Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
+Vendor: GNU Project
+Version: 3.78.1
+URL: ftp://prep.ai.mit.edu/pub/gnu/make/
+Description: GNU build driver
+Build-Depends: build-base, perl, texi2html, gnudiff, autoconf, gm4

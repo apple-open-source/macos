@@ -1,0 +1,1144 @@
+This is ../info/mh-e, produced by makeinfo version 4.0 from mh-e.texi.
+
+INFO-DIR-SECTION Editors
+START-INFO-DIR-ENTRY
+* MH-E: (mh-e).		Emacs interface to the MH mail system.
+END-INFO-DIR-ENTRY
+
+   This is Edition 1.2, last updated 22 August 1995, of `mh-e, The
+Emacs Interface to MH', for mh-e, Version 5.0.2.
+
+   Copyright 1995 Free Software Foundation, Inc.
+
+   Permission is granted to make and distribute verbatim copies of this
+manual provided the copyright notice and this permission notice are
+preserved on all copies.
+
+   Permission is granted to copy and distribute modified versions of
+this manual under the conditions for verbatim copying, provided also
+that the section entitled "Copying" is included exactly as in the
+original, and provided that the entire resulting derived work is
+distributed under the terms of a permission notice identical to this
+one.
+
+   Permission is granted to copy and distribute translations of this
+manual into another language, under the above conditions for modified
+versions, except that this permission notice may be stated in a
+translation approved by the Free Software Foundation.
+
+
+File: mh-e,  Node: Organizing,  Next: Printing,  Prev: Deleting,  Up: Moving Mail
+
+Organizing Your Mail with Folders
+---------------------------------
+
+   mh-e has analogies for each of the MH `folder' and `refile'
+commands.  To refile a message in another folder, use the `o'
+(`mh-refile-msg') (mnemonic: "output") command.  You are prompted for
+the folder name.
+
+   If you are refiling several messages into the same folder, you can
+use the `!' (`mh-refile-or-write-again') command to repeat the last
+refile or write (see the description of `C-o' in *Note Files and
+Pipes::).  Or, place the messages into a sequence (*Note Sequences::)
+and specify a prefix argument to `o', in which case you'll be prompted
+for the name of the sequence (for example, `C-u o search RET').
+
+   If you wish to copy a message to another folder, you can use the `c'
+(`mh-copy-msg') command (see the `-link' argument to `refile'(1)).  You
+are prompted for a folder, and you can specify a prefix argument if you
+want to copy a sequence into another folder.  In this case, you are
+then prompted for the sequence.  Note that unlike the `o' command, the
+copy takes place immediately.  The original copy remains in the current
+folder.
+
+   When you want to read the messages that you have refiled into
+folders, use the `M-f' (`mh-visit-folder') command to visit the folder.
+You are prompted for the folder name.
+
+   Other commands you can perform on folders include: `M-l'
+(`mh-list-folders'), to list all the folders in your mail directory;
+`M-k' (`mh-kill-folder'), to remove a folder; `M-x mh-sort-folder', to
+sort the messages by date (see `sortm'(1) to see how to sort by other
+criteria); `M-p' (`mh-pack-folder'), to pack a folder, removing gaps
+from the numbering sequence; and `M-r' (`mh-rescan-folder'), to rescan
+the folder, which is useful to grab all messages in your `+inbox' after
+processing your new mail for the first time.  If you don't want to
+rescan the entire folder, give `M-r' or `M-p' a prefix argument and
+you'll be prompted for a range of messages to display (for instance,
+`C-u M-r last:50 RET').
+
+
+File: mh-e,  Node: Printing,  Next: Files and Pipes,  Prev: Organizing,  Up: Moving Mail
+
+Printing Your Mail
+------------------
+
+   Printing mail is simple.  Enter `l' (`mh-print-msg') (for line
+printer or lpr).  The message is formatted with `mhl' and printed with
+the `lpr' command.  You can print all the messages in a sequence by
+specifying a prefix argument, in which case you are prompted for the
+name of the sequence (as in `C-u l frombob RET').
+
+
+File: mh-e,  Node: Files and Pipes,  Next: Finishing Up,  Prev: Printing,  Up: Moving Mail
+
+Files and Pipes
+---------------
+
+   mh-e does offer a couple of commands that are not a part of MH.  The
+first one, `C-o' (`mh-write-msg-to-file'), writes a message to a file
+(think of the `o' as in "output").  You are prompted for the filename.
+If the file already exists, the message is appended to it.  You can
+also write the message to the file without the header by specifying a
+prefix argument (such as `C-u C-o /tmp/foobar RET').  Subsequent writes
+to the same file can be made with the `!' command.
+
+   You can also pipe the message through a Unix shell command with the
+`|' (`mh-pipe-msg') command.  You are prompted for the Unix command
+through which you wish to run your message.  If you give an argument to
+this command, the message header is included in the text passed to the
+command (the contrived example `C-u | lpr' would be done with the `l'
+command instead).
+
+   If the message is a shell archive `shar' or has been run through
+`uuencode' use `M-n' (`mh-store-msg') to extract the body of the
+message.  The default directory for extraction is the current
+directory, and you have a chance to specify a different extraction
+directory.  The next time you use this command, the default directory is
+the last directory you used.
+
+
+File: mh-e,  Node: Finishing Up,  Prev: Files and Pipes,  Up: Moving Mail
+
+Finishing Up
+------------
+
+   If you've deleted a message or refiled it, but changed your mind, you
+can cancel the action before you've executed it.  Use `u' (`mh-undo')
+to undo a refile on or deletion of a single message.  You can also undo
+refiles and deletes for messages that belong to a given sequence by
+specifying a prefix argument.  You'll be prompted for the name of the
+sequence (as in `C-u u frombob RET').  Alternatively, you can use `M-u'
+(`mh-undo-folder') to undo all refiles or deletes in the current folder.
+
+   If you've marked messages to be deleted or refiled and you want to go
+ahead and delete or refile the messages, use `x'
+(`mh-execute-commands').  Many mh-e commands that may affect the
+numbering of the messages (such as `M-r' or `M-p') will ask if you want
+to process refiles or deletes first and then either run `x' for you or
+undo the pending refiles and deletes, which are lost.
+
+   When you want to quit using mh-e and go back to editing, you can use
+the `q' (`mh-quit') command.  This buries the buffers of the current
+mh-e folder and restores the buffers that were present when you first
+ran `M-x mh-rmail'.  You can later restore your mh-e session by
+selecting the `+inbox' buffer or by running `M-x mh-rmail' again.
+
+
+File: mh-e,  Node: Searching,  Next: Sequences,  Prev: Moving Mail,  Up: Using mh-e
+
+Searching Through Messages
+==========================
+
+   You can search a folder for messages to or from a particular person
+or about a particular subject.  In fact, you can also search for
+messages containing selected strings in any arbitrary header field or
+any string found within the messages.  Use the `M-s'
+(`mh-search-folder') command.  You are first prompted for the name of
+the folder to search and then placed in the following buffer in MH-Pick
+mode:
+
+     From: #
+     To:
+     Cc:
+     Date:
+     Subject:
+     --------
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     --**-Emacs: pick-pattern    (MH-Pick)------All----------------------------
+     Pick window
+
+   Edit this template by entering your search criteria in an appropriate
+header field that is already there, or create a new field yourself.  If
+the string you're looking for could be anywhere in a message, then place
+the string underneath the row of dashes.  The `M-s' command uses the MH
+command `pick' to do the real work, so read `pick'(1) to find out more
+about how to enter the criteria.
+
+   There are no semantics associated with the search criteria--they are
+simply treated as strings.  Case is ignored when all lowercase is used,
+and regular expressions (a la `ed') are available.  It is all right to
+specify several search criteria.  What happens then is that a logical
+_and_ of the various fields is performed.  If you prefer a logical _or_
+operation, run `M-s' multiple times.
+
+   As an example, let's say that we want to find messages from Ginnean
+about horseback riding in the Kosciusko National Park (Australia) during
+January, 1994.  Normally we would start with a broad search and narrow
+it down if necessary to produce a manageable amount of data, but we'll
+cut to the chase and create a fairly restrictive set of criteria as
+follows:
+
+     From: ginnean
+     To:
+     Cc:
+     Date: Jan 1994
+     Subject: horse.*kosciusko
+     --------
+
+   As with MH-Letter mode, MH-Pick provides commands like `C-c C-f C-t'
+to help you fill in the blanks.
+
+`C-c C-f C-t'
+     Move to `To:' header field (`mh-to-field').
+
+`C-c C-f C-c'
+     Move to `cc:' header field (`mh-to-field').
+
+`C-c C-f C-s'
+     Move to `Subject:' header field (`mh-to-field').
+
+`C-c C-f C-f'
+     Move to `From:' header field (`mh-to-field').
+
+`C-c C-f C-b'
+     Move to `Bcc:' header field (`mh-to-field').
+
+`C-c C-f C-f'
+     Move to `Fcc:' header field (`mh-to-field').
+
+`C-c C-f C-d'
+     Move to `Dcc:' header field (`mh-to-field').
+
+`C-c C-c'
+     Execute the search (`mh-do-pick-search').
+
+   To perform the search, type `C-c C-c' (`mh-do-pick-search').  The
+selected messages are placed in the search sequence, which you can use
+later in forwarding (*note Forwarding::), printing (*note Printing::),
+or narrowing your field of view (*note Sequences::).  Subsequent
+searches are appended to the search sequence.  If, however, you wish to
+start with a clean slate, first delete the search sequence (how to do
+this is discussed in *Note Sequences::).
+
+   If you're searching in a folder that is already displayed in a
+MH-Folder buffer, only those messages contained in the buffer are used
+for the search.  Therefore, if you want to search in all messages,
+first kill the folder's buffer with `C-x k' or scan the entire folder
+with `M-r'.
+
+
+File: mh-e,  Node: Sequences,  Next: Miscellaneous,  Prev: Searching,  Up: Using mh-e
+
+Using Sequences
+===============
+
+   For the whole scoop on MH sequences, refer to `mh-sequence'(5).  As
+you've read, several of the mh-e commands can operate on a sequence,
+which is a shorthand for a range or group of messages.  For example, you
+might want to forward several messages to a friend or colleague.  Here's
+how to manipulate sequences.
+
+`%'
+     Put message in a sequence (`mh-put-msg-in-seq').
+
+`?'
+     Display sequences that message belongs to (`mh-msg-is-in-seq').
+
+`M-q'
+     List all sequences in folder (`mh-list-sequences').
+
+`M-%'
+     Remove message from sequence (`mh-delete-msg-from-seq').
+
+`M-#'
+     Delete sequence (`mh-delete-seq').
+
+`C-x n'
+     Restrict display to messages in sequence (`mh-narrow-to-seq').
+
+`C-x w'
+     Remove restriction; display all messages (`mh-widen').
+
+`M-x mh-update-sequences'
+     Push mh-e's state out to MH.
+
+   To place a message in a sequence, use `%' (`mh-put-msg-in-seq') to
+do it manually, or use the MH command `pick' or the mh-e version of
+`pick' (*Note Searching::) which create a sequence automatically.  Give
+`%' a prefix argument and you can add all the messages in one sequence
+to another sequence (for example, `C-u % SourceSequence RET').
+
+   Once you've placed some messages in a sequence, you may wish to
+narrow the field of view to just those messages in the sequence you've
+created.  To do this, use `C-x n' (`mh-narrow-to-seq').  You are
+prompted for the name of the sequence.  What this does is show only
+those messages that are in the selected sequence in the MH-Folder
+buffer.  In addition, it limits further mh-e searches to just those
+messages.  When you want to widen the view to all your messages again,
+use `C-x w' (`mh-widen').
+
+   You can see which sequences a message is in with the `?'
+(`mh-msg-is-in-seq') command.  Or, you can list all sequences in a
+selected folder (default is current folder) with `M-q'
+(`mh-list-sequences').
+
+   If you want to remove a message from a sequence, use `M-%'
+(`mh-delete-msg-from-seq'), and if you want to delete an entire
+sequence, use `M-#' (`mh-delete-seq').  In the latter case you are
+prompted for the sequence to delete.  Note that this deletes only the
+sequence, not the messages in the sequence.  If you want to delete the
+messages, use `C-u d' (see *Note Deleting:: above).
+
+   Two sequences are maintained internally by mh-e and pushed out to MH
+when you type either the `x' or `q' command.  They are the sequence
+specified by your `Unseen-Sequence:' profile entry and cur.  However,
+you can also just update MH's state with the command `M-x
+mh-update-sequences'.  See *Note Customizing Viewing:: for an example
+of how this command might be used.
+
+   With the exceptions of `C-x n' and `C-x w', the underlying MH
+command dealing with sequences is `mark'.
+
+
+File: mh-e,  Node: Miscellaneous,  Prev: Sequences,  Up: Using mh-e
+
+Miscellaneous Commands
+======================
+
+   One other command worth noting is `M-x mh-version'.  Since there
+were a few changes in command letters between Versions 3 and 4, use
+this command to see which version you are running.  This command didn't
+exist before Version 4, so the message `[No match]' indicates that it's
+time to upgrade (*note Getting mh-e::).  In the meantime, use the older
+commands that are listed in *Note Changes to mh-e::.  The output of
+`M-x mh-version' should also be included with any bug report you send
+(*note Bug Reports::).
+
+
+File: mh-e,  Node: Customizing mh-e,  Next: Odds and Ends,  Prev: Using mh-e,  Up: Top
+
+Customizing mh-e
+****************
+
+   Until now, we've talked about the mh-e commands as they work "out of
+the box."  Of course, it is also possible to reconfigure mh-e beyond
+recognition.  The following sections describe all of the customization
+variables, show the defaults, and make recommendations for
+customization.  The outline of this chapter is identical to that of
+*Note Using mh-e::, to make it easier to find the variables you'd need
+to modify to affect a particular command.
+
+   However, when customizing your mail environment, first try to change
+what you want in MH, and only change mh-e if changing MH is not
+possible.  That way you will get the same behavior inside and outside
+GNU Emacs.  Note that mh-e does not provide hooks for customizations
+that can be done in MH; this omission is intentional.
+
+   Many string or integer variables are easy enough to modify using
+Emacs Lisp.  Any such modifications should be placed in a file called
+`.emacs' in your home directory (that is, `~/.emacs').  For example, to
+modify the variable that controls printing, you could add:
+
+     (setq mh-lpr-command-format "nenscript -G -r -2 -i'%s'")
+
+   *Note Customizing Printing:: talks more about this variable.
+
+   Variables can also hold Boolean values.  In Emacs Lisp, the Boolean
+values are `nil', which means false, and `t', which means true.
+Usually, variables are turned off by setting their value to `nil', as in
+
+     (setq mh-bury-show-buffer nil)
+
+   which keeps the MH-Show buffer at the top of the buffer stack.  To
+turn a variable on, you use
+
+     (setq mh-bury-show-buffer t)
+
+   which places the MH-Show buffer at the bottom of the buffer stack.
+However, the text says to turn on a variable by setting it to a
+_non-`nil'_ value, because sometimes values other than `t' are
+meaningful (for example, see `mhl-formfile', described in *Note
+Customizing Viewing::).  Other variables, such as hooks, involve a
+little more Emacs Lisp programming expertise.
+
+   You can also "preview" the effects of changing variables before
+committing the changes to `~/.emacs'.  Variables can be changed in the
+current Emacs session by using `M-x set-variable'.
+
+   In general, "commands" in this text refer to Emacs Lisp functions.
+Programs outside of Emacs are specifically called MH commands, shell
+commands, or Unix commands.
+
+   I hope I've included enough examples here to get you well on your
+way.  If you want to explore Emacs Lisp further, a programming manual
+does exist, (1) and you can look at the code itself for examples.  Look
+in the Emacs Lisp directory on your system (such as
+`/usr/local/lib/emacs/lisp') and find all the `mh-*.el' files there.
+When calling mh-e and other Emacs Lisp functions directly from Emacs
+Lisp code, you'll need to know the correct arguments.  Use the online
+help for this.  For example, try `C-h f mh-execute-commands RET'.  If
+you write your own functions, please do not prefix your symbols
+(variables and functions) with `mh-'.  This prefix is reserved for the
+mh-e package.  To avoid conflicts with existing mh-e symbols, use a
+prefix like `my-' or your initials.
+
+* Menu:
+
+* Customizing Reading::
+* Customizing Sending::
+* Customizing Draft Editing::
+* Customizing Moving Mail::
+* Customizing Searching::
+
+   ---------- Footnotes ----------
+
+   (1) Perhaps you can find the online version of *Note The GNU Emacs
+Lisp Reference Manual: (elisp)Top.  If not, you can order a printed
+manual, which has the desirable side-effect of helping to support the
+Free Software Foundation which made all this great software available.
+You can find an order form by running `C-h C-d', or you can request an
+order form from gnu@gnu.org.
+
+
+File: mh-e,  Node: Customizing Reading,  Next: Customizing Sending,  Prev: Customizing mh-e,  Up: Customizing mh-e
+
+Reading Your Mail
+=================
+
+   I'll start out by including a function that I use as a front end to
+mh-e.  (1) It toggles between your working window configuration, which
+may be quite involved--windows filled with source, compilation output,
+man pages, and other documentation--and your mh-e window configuration.
+Like the rest of the customization described in this chapter, simply
+add the following code to `~/.emacs'.  Don't be intimidated by the size
+of this example; most customizations are only one line.
+
+     Starting mh-e
+     
+     (defvar my-mh-screen-saved nil
+       "Set to non-`nil' when mh-e window configuration shown.")
+     (defvar my-normal-screen nil "Normal window configuration.")
+     (defvar my-mh-screen nil "mh-e window configuration.")
+     
+     (defun my-mh-rmail (&optional arg)
+       "Toggle between mh-e and normal screen configurations.
+     With non-`nil' or prefix argument, inc mailbox as well
+     when going into mail."
+       (interactive "P")                 ; user callable function, P=prefix arg
+       (setq my-mh-screen-saved          ; save state
+             (cond
+              ;; Bring up mh-e screen if arg or normal window configuration.
+              ;; If arg or +inbox buffer doesn't exist, run mh-rmail.
+              ((or arg (null my-mh-screen-saved))
+               (setq my-normal-screen (current-window-configuration))
+               (if (or arg (null (get-buffer "+inbox")))
+                   (mh-rmail)
+                 (set-window-configuration my-mh-screen))
+               t)                        ; set my-mh-screen-saved to `t'
+              ;; Otherwise, save mh-e screen and restore normal screen.
+              (t
+               (setq my-mh-screen (current-window-configuration))
+               (set-window-configuration my-normal-screen)
+               nil))))                   ; set my-mh-screen-saved to nil
+     
+     (global-set-key "\C-x\r" 'my-mh-rmail)  ; call with C-x RET
+
+   If you type an argument (`C-u') or if `my-mh-screen-saved' is `nil'
+(meaning a non-mh-e window configuration), the current window
+configuration is saved, either +inbox is displayed or `mh-rmail' is
+run, and the mh-e window configuration is shown.  Otherwise, the mh-e
+window configuration is saved and the original configuration is
+displayed.
+
+   Now to configure mh-e.  The following table lists general mh-e
+variables and variables that are used while reading mail.
+
+`mh-progs'
+     Directory containing MH programs (default: dynamic).
+
+`mh-lib'
+     Directory containing MH support files and programs (default:
+     dynamic).
+
+`mh-do-not-confirm'
+     Don't confirm on non-reversible commands (default: `nil').
+
+`mh-summary-height'
+     Number of scan lines to show (includes mode line) (default: 4).
+
+`mh-folder-mode-hook'
+     Functions to run in MH-Folder mode (default: `nil').
+
+`mh-clean-message-header'
+     Remove extraneous headers (default: `nil').
+
+`mh-invisible-headers'
+     Headers to hide (default: `"^Received: \\| ^Message-Id: \\|
+     ^Remailed-\\| ^Via: \\| ^Mail-from: \\| ^Return-Path: \\|
+     ^In-Reply-To: \\| ^Resent-"').
+
+`mh-visible-headers'
+     Headers to display (default: `nil').
+
+`mhl-formfile'
+     Format file for `mhl' (default: `nil').
+
+`mh-show-hook'
+     Functions to run when showing message (default: `nil').
+
+`mh-show-mode-hook'
+     Functions to run when showing message (default: `nil').
+
+`mh-bury-show-buffer'
+     Leave show buffer at bottom of stack (default: `t').
+
+`mh-show-buffer-mode-line-buffer-id'
+     Name of show buffer in mode line (default: `"{show-%s} %d"').
+
+   The two variables `mh-progs' and `mh-lib' are used to tell mh-e
+where the MH programs and supporting files are kept, respectively.
+mh-e does try to figure out where they are kept for itself by looking in
+common places and in the user's `PATH' environment variable, but if it
+cannot find the directories, or finds the wrong ones, you should set
+these variables.  The name of the directory should be placed in double
+quotes, and there should be a trailing slash (`/').  See the example in
+*Note Getting Started::.
+
+   If you never make mistakes, and you do not like confirmations for
+your actions, you can set `mh-do-not-confirm' to a non-`nil' value to
+disable confirmation for unrecoverable commands such as `M-k'
+(`mh-kill-folder') and `M-u' (`mh-undo-folder').  Here's how you set
+boolean values:
+
+     (setq mh-do-not-confirm t)
+
+   The variable `mh-summary-height' controls the number of scan lines
+displayed in the MH-Folder window, including the mode line.  The
+default value of 4 means that 3 scan lines are displayed.  Here's how
+you set numerical values:
+
+     (setq mh-summary-height 2)              ; only show the current scan line
+
+   Normally the buffer for displaying messages is buried at the bottom
+at the buffer stack.  You may wish to disable this feature by setting
+`mh-bury-show-buffer' to `nil'.  One advantage of not burying the show
+buffer is that one can delete the show buffer more easily in an
+electric buffer list because of its proximity to its associated
+MH-Folder buffer.  Try running `M-x electric-buffer-list' to see what I
+mean.
+
+   The hook `mh-folder-mode-hook' is called when a new folder is
+created with MH-Folder mode.  This could be used to set your own key
+bindings, for example:
+
+     Create additional key bindings via mh-folder-mode-hook
+     
+     (defvar my-mh-init-done nil "Non-`nil' when one-time mh-e settings made.")
+     
+     (defun my-mh-folder-mode-hook ()
+       "Hook to set key bindings in MH-Folder mode."
+       (if (not my-mh-init-done)             ; only need to bind the keys once 
+           (progn
+             (local-set-key "/" 'search-msg)
+             (local-set-key "b" 'mh-burst-digest)    ; better use of `b'
+             (setq my-mh-init-done t))))
+     
+     ;;; Emacs 19
+     (add-hook 'mh-folder-mode-hook 'my-mh-folder-mode-hook)
+     ;;; Emacs 18
+     ;;;   (setq mh-folder-mode-hook (cons 'my-mh-folder-mode-hook
+     ;;;                               mh-folder-mode-hook))
+     
+     (defun search-msg ()
+       "Search for a regexp in the current message."
+       (interactive)                         ; user function
+       (save-window-excursion
+         (other-window 1)                    ; go to next window
+         (isearch-forward-regexp)))          ; string search; hit return (ESC
+                                             ;   in Emacs 18) when done
+
+* Menu:
+
+* Customizing Viewing::
+* Customizing Moving Around::
+
+   ---------- Footnotes ----------
+
+   (1) Stephen Gildea's favorite binding is `(global-set-key "\C-cr"
+'mh-rmail)'.
+
+
+File: mh-e,  Node: Customizing Viewing,  Next: Customizing Moving Around,  Prev: Customizing Reading,  Up: Customizing Reading
+
+Viewing Your Mail
+-----------------
+
+   Several variables control what displayed messages look like.
+Normally messages are delivered with a handful of uninteresting header
+fields.  You can make them go away by setting `mh-clean-message-header'
+to a non-`nil' value.  The header can then be cleaned up in two ways.
+By default, the header fields in `mh-invisible-headers' are removed.
+On the other hand, you could set `mh-visible-headers' to the fields
+that you would like to see.  If this variable is set,
+`mh-invisible-headers' is ignored.  I suggest that you not set
+`mh-visible-headers' since if you use this variable, you might miss a
+lot of header fields that you'd rather not miss.  As an example of how
+to set a string variable, `mh-visible-headers' can be set to show a
+minimum set of header fields (see (*Note Syntax of Regular Expressions:
+(emacs)Regexps, for a description of the special characters in this
+string):
+
+     (setq mh-visible-headers "^From: \\|^Subject: \\|^Date: ")
+
+   Normally mh-e takes care of displaying messages itself (rather than
+calling an MH program to do the work).  If you'd rather have `mhl'
+display the message (within mh-e), set the variable `mhl-formfile' to a
+non-`nil' value.  You can set this variable either to `t' to use the
+default format file or to a filename if you have your own format file
+(`mhl'(1) tells you how to write one).  When writing your own format
+file, use a nonzero value for `overflowoffset' to ensure the header is
+RFC 822 compliant and parsable by mh-e.  `mhl' is always used for
+printing and forwarding; in this case, the value of `mhl-formfile' is
+consulted if it is a filename.
+
+   Two hooks can be used to control how messages are displayed.  The
+first hook, `mh-show-mode-hook', is called early on in the process of
+displaying of messages.  It is used to perform some actions on the
+contents of messages, such as highlighting the header fields.  If you're
+running Emacs 19 under the X Window System, the following example will
+highlight the `From:' and `Subject:' header fields.  This is a very
+nice feature indeed.
+
+     Emphasize header fields in different fonts via mh-show-mode-hook
+     
+     (defvar my-mh-keywords
+        '(("^From: \\(.*\\)" 1 'bold t)
+          ("^Subject: \\(.*\\)" 1 'highlight t))
+       "mh-e additions for font-lock-keywords.")
+     
+     (defun my-mh-show-mode-hook ()
+       "Hook to turn on and customize fonts."
+       (require 'font-lock)                 ; for font-lock-keywords below
+       (make-local-variable 'font-lock-mode-hook) ; don't affect other buffers
+       (add-hook 'font-lock-mode-hook       ; set a hook with inline function
+                 (function                  ; modifies font-lock-keywords when
+                  (lambda ()                ; font-lock-mode run
+                    (setq font-lock-keywords
+                          (append my-mh-keywords font-lock-keywords)))))
+       (font-lock-mode 1))                  ; change the typefaces
+     
+     (if window-system                      ; can't do this on ASCII terminal
+         (add-hook 'mh-show-mode-hook 'my-mh-show-mode-hook))
+
+   The second hook, `mh-show-hook', is the last thing called after
+messages are displayed.  It's used to affect the behavior of mh-e in
+general or when `mh-show-mode-hook' is too early.  For example, if you
+wanted to keep mh-e in sync with MH, you could use `mh-show-hook' as
+follows:
+
+     (add-hook 'mh-show-hook 'mh-update-sequences)
+
+   The function `mh-update-sequences' is documented in *Note Finishing
+Up::.  For those who like to modify their mode lines, use
+`mh-show-buffer-mode-line-buffer-id' to modify the mode line in the
+MH-Show buffers.  Place the two escape strings `%s' and `%d', which
+will display the folder name and the message number, respectively,
+somewhere in the string in that order.  The default value of
+`"{show-%s} %d"' yields a mode line of
+
+     -----{show-+inbox} 4      (MH-Show)--Bot----------------------------------
+
+
+File: mh-e,  Node: Customizing Moving Around,  Prev: Customizing Viewing,  Up: Customizing Reading
+
+Moving Around
+-------------
+
+   When you use `t' (`mh-toggle-showing') to toggle between show mode
+and scan mode, the MH-Show buffer is hidden and the MH-Folder buffer is
+left alone.  Setting `mh-recenter-summary-p' to a non-`nil' value
+causes the toggle to display as many scan lines as possible, with the
+cursor at the middle.  The effect of `mh-recenter-summary-p' is rather
+useful, but it can be annoying on a slow network connection.
+
+
+File: mh-e,  Node: Customizing Sending,  Next: Customizing Draft Editing,  Prev: Customizing Reading,  Up: Customizing mh-e
+
+Sending Mail
+============
+
+   You may wish to start off by adding the following useful key
+bindings to your `.emacs' file:
+
+     (global-set-key "\C-xm" 'mh-smail)
+     (global-set-key "\C-x4m" 'mh-smail-other-window)
+
+   In addition, several variables are useful when sending mail or
+replying to mail.  They are summarized in the following table.
+
+`mh-comp-formfile'
+     Format file for drafts (default: `"components"').
+
+`mh-repl-formfile'
+     Format file for replies (default: `"replcomps"').
+
+`mh-letter-mode-hook'
+     Functions to run in MH-Letter mode (default: `nil').
+
+`mh-compose-letter-function'
+     Functions to run when starting a new draft (default: `nil').
+
+`mh-reply-default-reply-to'
+     Whom reply goes to (default: `nil').
+
+`mh-forward-subject-format'
+     Format string for forwarded message subject (default: `"%s: %s"').
+
+`mh-redist-full-contents'
+     `send' requires entire message (default: `nil').
+
+`mh-new-draft-cleaned-headers'
+     Remove these header fields from re-edited draft (default:
+     `"^Date:\\| ^Received:\\| ^Message-Id:\\| ^From:\\| ^Sender:\\|
+     ^Delivery-Date:\\| ^Return-Path:"').
+
+   Since mh-e does not use `comp' to create the initial draft, you need
+to set `mh-comp-formfile' to the name of your components file if it
+isn't `components'.  This is the name of the file that contains the
+form for composing messages.  If it does not contain an absolute
+pathname, mh-e searches for the file first in your MH directory and
+then in the system MH library directory (such as `/usr/local/lib/mh').
+Replies, on the other hand, are built using `repl'.  You can change the
+location of the field file from the default of `replcomps' by modifying
+`mh-repl-formfile'.
+
+   Two hooks are provided to run commands on your freshly created draft.
+The first hook, `mh-letter-mode-hook', allows you to do some processing
+before editing a letter.  For example, you may wish to modify the
+header after `repl' has done its work, or you may have a complicated
+`components' file and need to tell mh-e where the cursor should go.
+Here's an example of how you would use this hook--all of the other
+hooks are set in this fashion as well.
+
+     Prepare draft for editing via mh-letter-mode-hook
+     
+     (defvar letter-mode-init-done nil
+       "Non-`nil' when one-time mh-e settings have made.")
+     
+     (defun my-mh-letter-mode-hook ()
+       "Hook to prepare letter for editing."
+       (if (not letter-mode-init-done)    ; only need to bind the keys once
+           (progn
+             (local-set-key "\C-ctb" 'add-enriched-text)
+             (local-set-key "\C-cti" 'add-enriched-text)
+             (local-set-key "\C-ctf" 'add-enriched-text)
+             (local-set-key "\C-cts" 'add-enriched-text)
+             (local-set-key "\C-ctB" 'add-enriched-text)
+             (local-set-key "\C-ctu" 'add-enriched-text)
+             (local-set-key "\C-ctc" 'add-enriched-text)
+             (setq letter-mode-init-done t)))
+       (setq fill-prefix "  ")            ; I find indented text easier to read
+       (save-excursion
+         (goto-char (point-max))          ; go to end of message to
+         (mh-insert-signature)))          ;   insert signature
+     
+     (add-hook 'mh-letter-mode-hook 'my-mh-letter-mode-hook)
+
+   The function, `add-enriched-text' is defined in the example in *Note
+Customizing Editing MIME::.
+
+   The second hook, a function really, is `mh-compose-letter-function'.
+Like `mh-letter-mode-hook', it is called just before editing a new
+message; however, it is the last function called before you edit your
+message.  The consequence of this is that you can write a function to
+write and send the message for you.  This function is passed three
+arguments: the contents of the `To:', `Subject:', and `cc:' header
+fields.
+
+* Menu:
+
+* Customizing Replying::
+* Customizing Forwarding::
+* Customizing Redistributing::
+* Customizing Old Drafts::
+
+
+File: mh-e,  Node: Customizing Replying,  Next: Customizing Forwarding,  Prev: Customizing Sending,  Up: Customizing Sending
+
+Replying to Mail
+----------------
+
+   If you find that most of the time that you specify `cc' when you
+reply to a message, set `mh-reply-default-reply-to' to `cc'.  This
+variable is normally set to `nil' so that you are prompted for the
+recipient of a reply.  It can be set to one of `from', `to', or `cc';
+you are then no longer prompted for the recipient(s) of your reply.
+
+
+File: mh-e,  Node: Customizing Forwarding,  Next: Customizing Redistributing,  Prev: Customizing Replying,  Up: Customizing Sending
+
+Forwarding Mail
+---------------
+
+   When forwarding a message, the format of the `Subject:' header field
+can be modified by the variable `mh-forward-subject-format'.  This
+variable is a string which includes two escapes (`%s').  The first `%s'
+is replaced with the sender of the original message, and the second one
+is replaced with the original `Subject:'.  The default value of `"%s:
+%s"' takes a message with the header:
+
+     To: Bill Wohler <wohler@newt.com>
+     Subject: Re: 49er football
+     From: Greg DesBrisay <gd@cellnet.com>
+
+   and creates a subject header field of:
+
+     Subject: Greg DesBrisay: Re: 49er football
+
+
+File: mh-e,  Node: Customizing Redistributing,  Next: Customizing Old Drafts,  Prev: Customizing Forwarding,  Up: Customizing Sending
+
+Redistributing Your Mail
+------------------------
+
+   The variable `mh-redist-full-contents' must be set to non-`nil' if
+`dist' requires the whole letter for redistribution, which is the case
+if `send' is compiled with the BERK (1)  option (which many people
+abhor).  If you find that MH will not allow you to redistribute a
+message that has been redistributed before, this variable should be set
+to `nil'.
+
+   ---------- Footnotes ----------
+
+   (1) To see which options your copy of MH was compiled with, use `M-x
+mh-version' (*Note Miscellaneous::).
+
+
+File: mh-e,  Node: Customizing Old Drafts,  Prev: Customizing Redistributing,  Up: Customizing Sending
+
+Editing Old Drafts and Bounced Messages
+---------------------------------------
+
+   The header fields specified by `mh-new-draft-cleaned-headers' are
+removed from an old draft that has been recreated with `M-e'
+(`mh-extract-rejected-mail') or `M-a' (`mh-edit-again').  If when you
+edit an old draft with these commands you find that there are header
+fields that you don't want included, you can append them to this
+variable.  For example,
+
+     (setq mh-new-draft-cleaned-headers
+           (concat mh-new-draft-cleaned-headers "\\|^Some-Field:"))
+
+   This appends the regular expression `\\|^Some-Field:' to the
+variable (*note Syntax of Regular Expressions: (emacs)Regexps.).  The
+`\\|' means _or_, and the `^' (caret) matches the beginning of the
+line.  This is done to be very specific about which fields match.  The
+literal `:' is appended for the same reason.
+
+
+File: mh-e,  Node: Customizing Draft Editing,  Next: Customizing Moving Mail,  Prev: Customizing Sending,  Up: Customizing mh-e
+
+Editing a Draft
+===============
+
+   There are several variables used during the draft editing phase.
+Examples include changing the name of the file that holds your signature
+or telling mh-e about new multimedia types.  They are:
+
+`mh-yank-from-start-of-msg'
+     How to yank when region not set (default: `t').
+
+`mh-ins-buf-prefix'
+     Indent for yanked messages (default: `"> "').
+
+`mail-citation-hook'
+     Functions to run on yanked messages (default: `nil').
+
+`mh-delete-yanked-msg-window'
+     Delete message window on yank (default: `nil').
+
+`mh-mime-content-types'
+     List of valid content types (default: `'(("text/plain")
+     ("text/richtext") ("multipart/mixed") ("multipart/alternative")
+     ("multipart/digest") ("multipart/parallel") ("message/rfc822")
+     ("message/partial") ("message/external-body")
+     ("application/octet-stream") ("application/postscript")
+     ("image/jpeg") ("image/gif") ("audio/basic") ("video/mpeg"))').
+
+`mh-mhn-args'
+     Additional arguments for `mhn' (default: `nil').
+
+`mh-signature-file-name'
+     File containing signature (default: `"~/.signature"').
+
+`mh-before-send-letter-hook'
+     Functions to run before sending draft (default: `nil').
+
+`mh-send-prog'
+     MH program used to send messages (default: `"send"').
+
+* Menu:
+
+* Customizing Editing Textual::
+* Customizing Editing MIME::
+* Customizing Sending Message::
+
+
+File: mh-e,  Node: Customizing Editing Textual,  Next: Customizing Editing MIME,  Prev: Customizing Draft Editing,  Up: Customizing Draft Editing
+
+Editing Textual Messages
+------------------------
+
+   The following two sections include variables that customize the way
+you edit a draft.  The discussion here applies to editing multimedia
+messages as well.
+
+* Menu:
+
+* Customizing Inserting Letter::
+* Customizing Signature::
+
+
+File: mh-e,  Node: Customizing Inserting Letter,  Next: Customizing Signature,  Prev: Customizing Editing Textual,  Up: Customizing Editing Textual
+
+Inserting letter to which you're replying
+.........................................
+
+   To control how much of the message to which you are replying is
+yanked by `C-c C-y' (`mh-yank-cur-msg') into your reply, modify
+`mh-yank-from-start-of-msg'.  The default value of `t' means that the
+entire message is copied.  If it is set to `'body' (don't forget the
+apostrophe), then only the message body is copied.  If it is set to
+`nil', only the part of the message following point (the current cursor
+position in the message's buffer) is copied.  In any case, this
+variable is ignored if a region is set in the message you are replying
+to.  The string contained in `mh-ins-buf-prefix' is inserted before
+each line of a message that is inserted into a draft with `C-c C-y'
+(`mh-yank-cur-msg').  I suggest that you not modify this variable.  The
+default value of `"> "' is the default string for many mailers and news
+readers: messages are far easier to read if several included messages
+have all been indented by the same string.  The variable
+`mail-citation-hook' is `nil' by default, which means that when a
+message is inserted into the letter, each line is prefixed by
+`mh-ins-buf-prefix'.  Otherwise, it can be set to a function that
+modifies an included citation.  (1) If you like to yank all the text
+from the message you're replying to in one go, set
+`mh-delete-yanked-msg-window' to non-`nil' to delete the window
+containing the original message after yanking it to make more room on
+your screen for your reply.
+
+   ---------- Footnotes ----------
+
+   (1) _Supercite_ is an example of a full-bodied, full-featured
+citation package.  It is in Emacs versions 19.15 and later, and can be
+found via anonymous `ftp' on `archive.cis.ohio-state.edu' in
+`/pub/gnu/emacs/elisp-archive/packages/sc3.1.tar.Z'
+
+
+File: mh-e,  Node: Customizing Signature,  Prev: Customizing Inserting Letter,  Up: Customizing Editing Textual
+
+Inserting your signature
+........................
+
+   You can change the name of the file inserted with `C-c C-s'
+(`mh-insert-signature') by changing `mh-signature-file-name' (default:
+`"~/.signature"').
+
+
+File: mh-e,  Node: Customizing Editing MIME,  Next: Customizing Sending Message,  Prev: Customizing Editing Textual,  Up: Customizing Draft Editing
+
+Editing Multimedia Messages
+---------------------------
+
+   The variable `mh-mime-content-types' contains a list of the
+currently valid content types.  They are listed in the table in *Note
+Customizing Draft Editing::.  If you encounter a new content type, you
+can add it like this:
+
+     (setq mh-mime-content-types (append mh-mime-content-types
+                                         '(("NEW/TYPE"))))
+
+   Emacs macros can be used to insert enriched text directives like
+`<bold>'.  The following code will make, for example, `C-c t b' insert
+the `<bold>' directive.
+
+     Emacs macros for entering enriched text
+     
+     (defvar enriched-text-types '(("b" . "bold") ("i" . "italic") ("f" . "fixed")
+                                   ("s" . "smaller") ("B" . "bigger")
+                                   ("u" . "underline") ("c" . "center"))
+       "Alist of (final-character . directive) choices for add-enriched-text.
+     Additional types can be found in RFC 1563.")
+     
+     (defun add-enriched-text (begin end)
+       "Add enriched text directives around region.
+     The directive used comes from the list enriched-text-types and is
+     specified by the last keystroke of the command.  When called from Lisp,
+     arguments are BEGIN and END."
+       (interactive "r")
+       ;; Set type to the directive indicated by the last keystroke.
+       (let ((type (cdr (assoc (char-to-string (logior last-input-char ?`))
+                               enriched-text-types))))
+         (save-restriction              ; restores state from narrow-to-region
+           (narrow-to-region begin end) ; narrow view to region
+           (goto-char (point-min))      ; move to beginning of text
+           (insert "<" type ">")        ; insert beginning directive
+           (goto-char (point-max))      ; move to end of text
+           (insert "</" type ">"))))    ; insert terminating directive
+
+   To use the function `add-enriched-text', first create keybindings
+for it (*note Customizing Sending::).  Then, set the mark with `C-@' or
+`C-SPC', type in the text to be highlighted, and type `C-c t b'.  This
+adds `<bold>' where you set the mark and adds `</bold>' at the location
+of your cursor, giving you something like: `You should be
+<bold>very</bold>'.  You may also be interested in investigating
+`sgml-mode'.
+
+* Menu:
+
+* Customizing Sending MIME::
+
+
+File: mh-e,  Node: Customizing Sending MIME,  Prev: Customizing Editing MIME,  Up: Customizing Editing MIME
+
+Readying multimedia messages for sending
+........................................
+
+   If you wish to pass additional arguments to `mhn' to affect how it
+builds your message, use the variable `mh-mhn-args'.  For example, you
+can build a consistency check into the message by setting `mh-mhn-args'
+to `-check'.  The recipient of your message can then run `mhn -check'
+on the message--`mhn' will complain if the message has been corrupted
+on the way.  The `C-c C-e' (`mh-mhn-edit') command only consults this
+variable when given a prefix argument.
+
+
+File: mh-e,  Node: Customizing Sending Message,  Prev: Customizing Editing MIME,  Up: Customizing Draft Editing
+
+Sending a Message
+-----------------
+
+   If you want to check your spelling in your message before sending,
+use `mh-before-send-letter-hook' like this:
+
+   Spell-check message via mh-before-send-letter-hook
+
+     (add-hook 'mh-before-send-letter-hook 'ispell-message)
+
+   In case the MH `send' program is installed under a different name,
+use `mh-send-prog' to tell mh-e the name.
+
+
+File: mh-e,  Node: Customizing Moving Mail,  Next: Customizing Searching,  Prev: Customizing Draft Editing,  Up: Customizing mh-e
+
+Moving Your Mail Around
+=======================
+
+   If you change the name of some of the MH programs or have your own
+printing programs, the following variables can help you.  They are
+described in detail in the subsequent sections.
+
+`mh-inc-prog'
+     Program to incorporate mail (default: `"inc"').
+
+`mh-inc-folder-hook'
+     Functions to run when incorporating mail (default: `nil').
+
+`mh-delete-msg-hook'
+     Functions to run when deleting messages (default: `nil').
+
+`mh-print-background'
+     Print in foreground or background (default: `nil').
+
+`mh-lpr-command-format'
+     Command used to print (default: `"lpr -J '%s'"').
+
+`mh-default-folder-for-message-function'
+     Function to generate a default folder (default: `nil').
+
+`mh-auto-folder-collect'
+     Collect folder names in background at startup (default: `t').
+
+`mh-recursive-folders'
+     Collect nested folders (default: `nil').
+
+`mh-refile-msg-hook'
+     Functions to run when refiling message (default: `nil').
+
+`mh-store-default-directory'
+     Default directory for storing files created by `uuencode' or `shar'
+     (default: `nil').
+
+`mh-sortm-args'
+     Additional arguments for `sortm' (default: `nil').
+
+`mh-scan-prog'
+     Program to scan messages (default: `"scan"').
+
+`mh-before-quit-hook'
+     Functions to run before quitting (default: `nil').  See also
+     `mh-quit-hook'.
+
+`mh-quit-hook'
+     Functions to run after quitting (default: `nil'). See also
+     `mh-before-quit-hook'.
+
+* Menu:
+
+* Customizing Incorporating::
+* Customizing Deleting::
+* Customizing Organizing::
+* Customizing Printing::
+* Customizing Files and Pipes::
+* Customizing Finishing Up::
+
+
+File: mh-e,  Node: Customizing Incorporating,  Next: Customizing Deleting,  Prev: Customizing Moving Mail,  Up: Customizing Moving Mail
+
+Incorporating Your Mail
+-----------------------
+
+   The name of the program that incorporates new mail is stored in
+`mh-inc-prog'; it is `"inc"' by default.  This program generates a
+one-line summary for each of the new messages.  Unless it is an
+absolute pathname, the file is assumed to be in the `mh-progs'
+directory.  You may also link a file to `inc' that uses a different
+format (see `mh-profile'(5)).  You'll then need to modify several
+variables appropriately; see `mh-scan-prog' below.  You can set the
+hook `mh-inc-folder-hook', which is called after new mail is
+incorporated by the `i' (`mh-inc-folder') command.  A good use of this
+hook is to rescan the whole folder either after running `M-x mh-rmail'
+the first time or when you've changed the message numbers from outside
+of mh-e.
+
+     Rescan folder after incorporating new mail via mh-inc-folder-hook
+     
+     (defun my-mh-inc-folder-hook ()
+       "Hook to rescan folder after incorporating mail."
+       (if (buffer-modified-p)            ; if outstanding refiles and deletes,
+           (mh-execute-commands))         ;   carry them out
+       (mh-rescan-folder)                 ; synchronize with +inbox
+       (mh-show))                         ; show the current message
+     
+     (add-hook 'mh-inc-folder-hook 'my-mh-inc-folder-hook)
+
+
+File: mh-e,  Node: Customizing Deleting,  Next: Customizing Organizing,  Prev: Customizing Incorporating,  Up: Customizing Moving Mail
+
+Deleting Your Mail
+------------------
+
+   The hook `mh-delete-msg-hook' is called after you mark a message for
+deletion.  For example, the current maintainer of mh-e used this once
+when he kept statistics on his mail usage.
+

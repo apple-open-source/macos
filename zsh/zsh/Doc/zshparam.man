@@ -1,0 +1,912 @@
+.\"
+.TH ZSHPARAM 1 "June 26, 1996" "zsh version 3.0"
+.SH NAME
+zshparam \- zsh parameters
+.SH DESCRIPTIONS
+A parameter has a name, a value, and a number of attributes.
+A name may be any sequence of alphanumeric
+characters and _'s, or the single characters
+*, @, #, ?, \-, $, or !.
+The value may be either a \fIscalar\fP (a string),
+an integer, or an array.
+To assign a scalar or integer value to a parameter,
+use the \fBtypeset\fP builtin.
+To assign an array value, use \fBset \-A\fP \fIname\fP \fIvalue\fP ....
+The value of a parameter may also be assigned by writing:
+.RS
+.PP
+\fIname\fP=\fIvalue\fP ...
+.RE
+.PP
+If the integer attribute, \-\fBi\fP, is set for \fIname\fP,
+the \fIvalue\fP is subject to arithmetic evaluation.
+.PP
+The value of an array parameter may be assigned by writing:
+.RS
+.PP
+\fIname\fP=(\fIvalue\fP ...) ...
+.RE
+Individual elements of an array may be selected using a 
+subscript.  A subscript of the form \fB[\fIexp\fB]\fR
+selects the single element \fIexp\fP, where \fIexp\fP is
+an arithmetic expression which will be subject to arithmetic
+expansion as if it were surrounded by "$((...))".  
+The elements are numbered beginning with 1 unless the
+\fBKSH_ARRAYS\fP option is set when they are numbered from zero.
+.PP
+A subscript of the form \fB[*]\fP or \fB[@]\fP evaluates to all
+elements of an array; there is no difference between the two
+except when they appear within double quotes.
+"$foo[*]" evaluates to "$foo[1] $foo[2] ...", while
+"$foo[@]" evaluates to "$foo[1]" "$foo[2]", etc.
+.PP
+A subscript of the form \fB[\fIexp1\fP,\fIexp2\fB]\fR
+selects all elements in the range \fIexp1\fP to \fIexp2\fP,
+inclusive.
+If one of the subscripts evaluates to a negative number,
+say \-\fIn\fP, then the \fIn\fPth element from the end
+of the array is used.  Thus "$foo[-3]" is the third element
+from the end of the array \fIfoo\fP, and
+"$foo[1,-1]" is the same as "$foo[*]".
+.PP
+Subscripting may also be performed on non-array values, in which
+case the subscripts specify a substring to be extracted.
+For example, if \fBFOO\fP is set to \fBfoobar\fP, then
+\fBecho $FOO[2,5]\fP prints \fBooba\fP.
+.PP
+Subscripts may be used inside braces used to delimit a parameter name, thus
+.B ${foo[2]}
+is equivalent to
+.BR $foo[2] .
+If the
+.B KSH_ARRAYS
+option is set, the braced form is the only one that will
+work, the subscript otherwise not being treated specially.
+.PP
+If a subscript is used on the left side of an assignment the selected
+range is replaced by the expression on the right side.
+.PP
+If the opening bracket or the comma is directly followed by an opening
+parentheses the string up to the matching closing one is considered to
+be a list of flags. The flags currently understood are:
+.PP
+.RS
+.PD
+.TP
+.B e
+this option has no effect and retained for backward compatibility only
+.TP
+.B w
+if the parameter subscripted is a scalar than this flag makes
+subscription work on a per-word basis instead of characters
+.TP
+.B s:\fIstring\fB:
+this gives the \fIstring\fP that separates words (for use with the
+\fBw\fP flag)
+.TP
+.B p
+Recognize the same escape sequences as the \fBprint\fP builtin in
+the string argument of a subsequent \fBs\fP flag.
+.TP
+.B f
+if the parameter subscripted is a scalar than this flag makes
+subscription work on a per-line basis instead of characters.
+This is a shorthand for \fBpws:\\n:\fP.
+.TP
+.B r
+if this flag is given the \fIexp\fP is taken as a pattern and the
+result is the first matching array element, substring or word (if the
+parameter is an array, if it is a scalar, or if it is a scalar and the
+\fBw\fP flag is given, respectively); note that this is like giving a
+number: \fB$foo[(r)??,3]\fP and \fB$foo[(r)??,(r)f*]\fP work
+.TP
+.B R
+like \fBr\fP, but gives the last match
+.TP
+.B i
+like \fBr\fP, but gives the index of the match instead; this may not
+be combined with a second argument
+.TP
+.B I
+like \fBi\fP, but gives the index of the last match
+.TP
+.B n:\fIexpr\fB:
+if combined with \fBr\fP, \fBR\fP, \fI\fP, or \fBI\fP, makes them give
+the \fIn\fP'th or \fIn\fP'th last match (if \fIexpr\fP evaluates to
+\fIn\fP)
+.PD
+.RE
+.SS Positional Parameters
+Positional parameters are set by the shell on invocation,
+by the \fBset\fP builtin, or by direct assignment.
+The parameter \fIn\fP, where \fIn\fP is a number,
+is the \fIn\fPth positional parameter.
+The parameters \fB*\fP, \fB@\fP, and \fBargv\fP are
+arrays containing all the positional parameters;
+thus \fBargv\fP[\fIn\fP], etc. is equivalent to simply \fIn\fP.
+.PP
+.SS Special Parameters
+The following parameters are automatically set by the shell:
+.PP
+.RS
+.PD 0
+.TP
+.B !
+The process id of the last background command invoked.
+.TP
+.B #
+The number of positional parameters in decimal.
+.TP
+.B ARGC
+Same as \fB#\fP. It has no special meaning in sh/ksh compatibility mode.
+.TP
+.B $
+The process id of this shell.
+.TP
+.B \-
+Flags supplied to the shell on invocation or by the \fBset\fP
+or \fBsetopt\fP commands.
+.TP
+.B *
+An array containing the positional parameters.
+.TP
+.B argv
+Same as \fB*\fP. It has no special meaning in sh/ksh compatibility mode.
+.TP
+.B @
+Same as \fBargv[@]\fP but it can be used in sh/ksh compatibility mode.
+.TP
+.B ?
+The exit value returned by the last command.
+.TP
+.B status
+Same as \fB?\fP. It has no special meaning in sh/ksh compatibility mode.
+.TP
+.B _
+The last argument of the previous command.
+Also, this parameter is set in the environment of every command
+executed to the full pathname of the command.
+.TP
+.B EGID
+The effective group id of the shell process.  If you have sufficient
+privileges, you may change the effective group id of the shell
+process by assigning to this parameter.  Also (assuming sufficient
+privileges), you may start a single command with a different
+effective group id by:
+.RS
+.PP
+.B (EGID=egid ; command)
+.RE
+.TP
+.B EUID
+The effective user id of the shell process.  If you have sufficient
+privileges, you may change the effective user id of the shell process
+by assigning to this parameter.  Also (assuming sufficient privileges),
+you may start a single command with a different effective user id by:
+.RS
+.PP
+.B (EUID=euid ; command)
+.RE
+.TP
+.B ERRNO
+The value of errno as set by the most recently failed system call.
+This value is system dependent and is intended for debugging
+purposes.
+.TP
+.B GID
+The group id of the shell process.  If you have sufficient privileges,
+you may change the group id of the shell process by assigning to this
+parameter.  Also (assuming sufficient privileges), you may start a single
+command under a different group id by:
+.RS
+.PP
+.B (GID=gid ; command)
+.RE
+.TP
+.B HOST
+The current hostname.
+.TP
+.B LINENO
+The line number of the current line within the current script
+being executed.
+.TP
+.B LOGNAME
+If the corresponding variable is not set in the environment of the
+shell, it is initialized to the login name corresponding to the
+current login session. This parameter is exported by default but
+this can be disabled using the \fBtypeset\fP builtin.
+.TP
+.B MACHTYPE
+The machine type (microprocessor class or machine model),
+as determined at compile time.
+.TP
+.B OLDPWD
+The previous working directory.
+.TP
+.B OPTARG
+The value of the last option argument processed by the \fBgetopts\fP
+command.
+.TP
+.B OPTIND
+The index of the last option argument processed by the \fBgetopts\fP
+command.
+.TP
+.B OSTYPE
+The operating system, as determined at compile time.
+.TP
+.B PPID
+The process id of the parent of the shell.
+.TP
+.B PWD
+The present working directory.
+.TP
+.B RANDOM
+A random integer from 0 to 32767, newly generated each time
+this parameter is referenced.  The random number generator
+can be seeded by assigning a numeric value to \fBRANDOM\fP.
+.TP
+.B SECONDS
+The number of seconds since shell invocation.  If this parameter
+is assigned a value, then the value returned upon reference
+will be the value that was assigned plus the number of seconds
+since the assignment.
+.TP
+.B SHLVL
+Incremented by one each time a new shell is started.
+.TP
+.B signals
+An array containing the names of the signals.
+.TP
+.B TTY
+The name of the tty associated with the shell, if any.
+.TP
+.B TTYIDLE
+The idle time of the tty associated with the shell in seconds or -1 if there
+is no such tty.
+.TP
+.B UID
+The user id of the shell process.  If you have sufficient privileges,
+you may change the user id of the shell by assigning to this parameter.
+Also (assuming sufficient privileges), you may start a single command
+under a different user id by:
+.RS
+.PP
+.B (UID=uid ; command)
+.RE
+.TP
+.B USERNAME
+The username corresponding to the user id of the shell process.  If you
+have sufficient privileges, you may change the username (and also the
+user id and group id) of the shell by assigning to this parameter.
+Also (assuming sufficient privileges), you may start a single command
+under a different username (and user id and group id) by:
+.RS
+.PP
+.B (USERNAME=username ; command)
+.RE
+.TP
+.B VENDOR
+The vendor, as determined at compile time.
+.TP
+.B ZSHNAME
+Expands to the basename of the command used to invoke this instance
+of \fBzsh\fP.
+.TP
+.B ZSH_NAME
+Expands to the basename of the command used to invoke this instance
+of \fBzsh\fP.
+.TP
+.B ZSH_VERSION
+The version number of this \fBzsh\fP.
+.PD
+.RE
+.PP
+The following parameters are used by the shell:
+.PP
+.RS
+.PD 0
+.TP
+.B ARGV0
+If exported, it's value is used as argv[0] of external commands.
+Usually used in constructs like 'ARGV0=emacs nethack'.
+.TP
+.B BAUD
+The baud rate of the current connection.  Used by the line editor
+update mechanism to compensate for a slow terminal by delaying
+updates until necessary.  This may be profitably set to a lower value
+in some circumstances, e.g.
+for slow modems dialing into a communications server which is connected
+to a host via a fast link; in this case, this variable
+would be set by default to the speed of the fast link, and not
+the modem.
+This parameter should be set to the baud
+rate of the slowest part of the link for best performance. The compensation
+mechanism can be turned off by setting the variable to zero.
+.TP
+.B cdpath (CDPATH)
+An array (colon-separated list)
+of directories specifying the search path for the \fBcd\fP command.
+.TP
+.B COLUMNS
+The number of columns for this terminal session.
+Used for printing select lists and for the line editor.
+.TP
+.B DIRSTACKSIZE
+The maximum size of the directory stack.  If the 
+stack gets larger than this, it will be truncated automatically.
+This is useful with the \fBAUTO_PUSHD\fP option.
+.TP
+.B FCEDIT
+The default editor for the \fBfc\fP builtin.
+.TP
+.B fignore (FIGNORE)
+An array (colon separated list)
+containing the suffixes of files to be ignored
+during filename completion.  However, if the completion generates only files 
+which would match if this variable would be ignored, than these files are
+completed anyway.
+.TP
+.B fpath (FPATH)
+An array (colon separated list)
+of directories specifying the search path for
+function definitions.  This path is searched when a function
+with the \-\fBu\fP attribute is referenced.  If an executable
+file is found, then it is read and executed in the current environment.
+.TP
+.B histchars
+Three characters used by the shell's history and lexical analysis
+mechanism.  The first character signals the start of a history
+substitution (default `!').  The second character signals the
+start of a quick history substitution (default `^').  The third
+character is the comment character (default `#').
+.TP
+.B HISTCHARS
+Same as \fBhistchars\bP.
+.TP
+.B HISTFILE
+The file to save the history in when an interactive shell exits.
+If unset, the history is not saved.
+.TP
+.B HISTSIZE
+The maximum size of the history list.
+.TP
+.B HOME
+The default argument for the \fBcd\fP command.
+.TP
+.B IFS
+Internal field separators, normally space, tab, and newline, that
+are used to separate words which result from
+command or parameter substitution and words read by
+the \fBread\fP builtin.  Any characters from the set space, tab and
+newline that appear in the IFS are called \fIIFS white space\fP.
+One or more IFS white space characters or one non-IFS white space
+character together with any adjacent IFS white space character delimit
+a field.  If an IFS white space character appears twice consecutively
+in the IFS, this character is treated as if it were not an IFS white
+space character.
+.TP
+.B KEYTIMEOUT
+The time the shell waits, in hundredths of seconds, for another key to
+be pressed when reading bound multi-character sequences.
+.TP
+.B LANG
+This variable determines the locale category for any category not
+specifically selected via a variable starting with
+.BR LC_ .
+.TP
+.B LC_ALL
+This variable overrides the value of the LANG variable and the value
+of any of the other variables starting with
+.BR LC_ .
+.TP
+.B LC_COLLATE
+This variable determines the locale category for character collation
+information within ranges in glob brackets and for sorting.
+.TP
+.B LC_CTYPE
+This variable determines the locale category for character handling
+functions.
+.TP
+.B LC_MESSAGES
+This variable determines the language in which messages should be
+written.  Note that zsh does not use message catalogs.
+.TP
+.B LC_TIME
+This variable determines the locale category for date and time
+formatting in promt escape sequences.
+.TP
+.B LINES
+The number of lines for this terminal session.
+Used for printing select lists and for the line editor.
+.TP
+.B LISTMAX
+In the line editor,
+the number of filenames to list without asking first.
+If set to zero, the shell asks only if the top of the listing would scroll
+off the screen.
+.TP
+.B LOGCHECK
+The interval in seconds between checks for login/logout activity
+using the \fBwatch\fP parameter.
+.TP
+.B MAIL
+If this parameter is set and \fBmailpath\fP is not set,
+the shell looks for mail in the specified file.
+.TP
+.B MAILCHECK
+The interval in seconds between checks for new mail. 
+.TP
+.B mailpath (MAILPATH)
+An array (colon-separated list) of filenames to check for
+new mail.  Each filename can be followed by a ? and a
+message that will be printed.  The message will undergo
+parameter expansion, command substitution and arithmetic
+substitution with the variable \fB$_\fP defined as the name
+of the file that has changed.  The default message is
+"\fIYou have new mail.\fP" If an element is a directory
+instead of a file the shell will recursively check every
+file in every subdirectory of the element.
+.TP
+.B manpath (MANPATH)
+An array (colon-separated list)
+whose value is not used by the shell.  The \fBmanpath\fP
+array can be useful, however, since setting it also sets
+\fBMANPATH\fP, and vice versa.
+.TP
+.B NULLCMD
+The command name to assume if a redirection is specified
+with no command.  Defaults to \fBcat\fP.  For sh/ksh-like
+behavior, change this to \fB:\fP.  For csh-like
+behavior, unset this parameter; the shell will print an
+error message if null commands are entered.
+.TP
+.B path (PATH)
+An array (colon-separated list)
+of directories to search for commands.
+When this parameter is set, each directory is scanned
+and all files found are put in a hash table.
+.TP
+.B POSTEDIT
+This string is output whenever the line editor exits.
+It usually contains termcap strings to reset the terminal.
+.TP
+.B PS1
+The primary prompt string, printed before a command is read;
+the default is "%m%# ".  If the escape sequence takes an optional
+integer, it should appear between the '%' and the next character of the
+sequence.  The following escape sequences are recognized:
+.PD
+.PP
+.PD 0
+.RS
+.TP
+.B %%
+A `%'.
+.TP
+.B %)
+A `)'.
+.TP
+.B %d
+.TP
+.B %/
+Present working directory ($PWD).
+.TP
+.B %~
+$PWD.
+If it has a named directory as its prefix, that part is replaced
+by a ~ followed by the name of the directory.
+If it starts with $HOME, that part is
+replaced by a ~.
+.TP
+.B %c
+.TP
+.B %.
+.TP
+.B %C
+Trailing component of $PWD.
+An integer may follow the '%' to get more than one component.
+Unless \fB%C\fP is used, tilde expansion is performed first.
+.TP
+.B %h
+.TP
+.B %!
+Current history event number
+.TP
+.B %L
+The current value of $SHLVL.
+.TP
+.B %M
+The full machine hostname.
+.TP
+.B %m
+The hostname up to the first '.'.
+An integer may follow the '%' to specify
+how many components of the hostname are desired.
+.TP
+.B %S (%s)
+Start (stop) standout mode.
+.TP
+.B %U (%u)
+Start (stop) underline mode.
+.TP
+.B %B (%b)
+Start (stop) boldface mode.
+.TP
+.B %t
+.TP
+.B %@
+Current time of day, in 12-hour, am/pm format.
+.TP
+.B %T
+Current time of day, in 24-hour format.
+.TP
+.B %*
+Current time of day in 24-hour format, with seconds.
+.TP
+.B %n
+\fB$USERNAME\fP.
+.TP
+.B %w
+The date in day\-dd format.
+.TP
+.B %W
+The date in mm/dd/yy format.
+.TP
+.B %D
+The date in yy\-mm\-dd format.
+.TP
+.B %D{\fIstring\fP}
+\fIstring\fP is formatted using the \fBstrftime\fP function.
+See \fBstrftime(3)\fP for more details, if your system has it.
+.TP
+.B %l
+The line (tty) the user is logged in on.
+.TP
+.B %?
+The return code of the last command executed just before the prompt.
+.TP
+.B %_
+The status of the parser, i.e. the shell constructs (like `if' and
+`for') that have been started on the command line. If given an integer
+number that many strings will be printed; zero or no integer means
+print as many as there are.
+.TP
+.B %E
+Clears to end of line.
+.TP
+.B %#
+A '#' if the shell is running as root, a '%' if not.
+Equivalent to %(#.#.%%).
+.TP
+.B %v
+The value of the first element of the $psvar array parameter.  Following
+the '%' with an integer gives that element of the array.
+.TP
+\fB%{\fP...\fB%}\fP
+Include a string as a literal escape sequence.
+The string within the braces should not change the cursor
+position.
+.TP
+.B %(x\fI.true-text.false-text\fB)\fP
+Specifies a ternary expression.  The character following the \fBx\fP is
+arbitrary; the same character is used to separate the text for the
+"true" result from that for the "false" result.
+This separator may not appear in the \fItrue-text\fP, except as part of a %
+sequence.  A `)' may appear in the \fIfalse-text\fP as `%)'.
+\fITrue-text\fP
+and \fIfalse-text\fP may both contain arbitrarily-nested escape
+sequences, including further ternary expressions.  The left
+parenthesis may be preceded or followed by a positive integer \fIn\fP,
+which defaults to zero.  The test character \fBx\fP may be any of the
+following:
+.PD
+.PP
+.PD 0
+.RS
+.B c
+.TP 
+.B .
+.TP
+.B ~
+True if the current path, with prefix replacement, has at least \fIn\fP
+elements.
+.TP
+.B /
+.TP
+.B C
+True if the current absolute path has at least \fIn\fP elements.
+.TP
+.B t
+True if the time in minutes is equal to \fIn\fP.
+.TP
+.B T
+True if the time in hours is equal to \fIn\fP.
+.TP
+.B d
+True if the day of the month is equal to \fIn\fP.
+.TP
+.B D
+True if the month is equal to \fIn\fP (January = 0).
+.TP
+.B w
+True if the day of the week is equal to \fIn\fP (Sunday = 0).
+.TP
+.B ?
+True if the exit status of the last command was \fIn\fP.
+.TP
+.B #
+True if the effective uid of the current process is \fIn\fP.
+.TP
+.B g
+True if the effective gid of the current process is \fIn\fP.
+.TP
+.B L
+True if the SHLVL parameter is at least \fIn\fP.
+.TP
+.B S
+True if the SECONDS parameter is at least \fIn\fP.
+.TP
+.B v
+True if the array psvar has at least \fIn\fP elements.
+.TP
+.B _
+True if at least \fIn\fP shell constructs were started.
+.RE
+.TP
+.B %<\fIstring\fB<\fP
+.TP
+.B %>\fIstring\fB>\fP
+.TP
+.B %[x\fIstring\fB]\fP
+Specifies truncation behaviour.
+The third form is equivalent to `%\fIxstringx\fP',
+i.e. \fIx\fP may be `<' or `>'.
+The numeric argument, which in the third form may appear immediately
+after the `[', specifies the maximum permitted length of
+the various strings that can be displayed in the prompt.  If this
+integer is zero, or missing, truncation is disabled.  Truncation is
+initially disabled.
+The forms with `<' truncate at the left of the string,
+and the forms with `>' truncate at the right of the string.
+For example, if the current directory is `/home/pike',
+the prompt `%8<..<%/' will expand to `..e/pike'.
+The \fIstring\fR will be displayed in
+place of the truncated portion of any string.
+In this string, the terminating character (`<', `>' or `]'),
+or in fact any character, may be quoted by a preceding `\e'.
+% sequences are \fInot\fP treated specially.
+If the \fIstring\fP is longer than the specified truncation length,
+it will appear in full, completely replacing the truncated string.
+.RE
+.PD
+.PP
+.PD 0
+.TP
+.B PS2
+The secondary prompt, printed when the shell needs more information
+to complete a command.
+Recognizes the same escape sequences as \fB$PS1\fP.
+The default is "%_> ", which displays any shell constructs or quotation
+marks which are currently being processed.
+.TP
+.B PS3
+Selection prompt used within a \fBselect\fP loop.
+Recognizes the same escape sequences as \fB$PS1\fP.
+The default is "?# ".
+.TP
+.B PS4
+The execution trace prompt.  Default is "+ ".
+.TP
+.B PROMPT
+.TP
+.B PROMPT2
+.TP
+.B PROMPT3
+.TP
+.B PROMPT4
+Same as \fBPS1\fP, \fBPS2\fP, \fBPS3\fP, and \fBPS4\fP,
+respectively.  These parameters do not have any special
+meaning in sh/ksh compatibility mode.
+.TP
+.B psvar (PSVAR)
+An array (colon-separated list) whose first nine values can be used in
+\fBPROMPT\fP strings.  Setting \fBpsvar\fP also sets \fBPSVAR\fP, and
+vice versa.
+.TP
+.B prompt
+Same as \fBPS1\fP. It has no special meaning in sh/ksh compatibility mode.
+.TP
+.B READNULLCMD
+The command name to assume if a single input redirection
+is specified with no command.  Defaults to \fBmore\fP.
+.TP
+.B REPORTTIME
+If nonnegative, commands whose combined user and system execution times
+(measured in seconds) are greater than this value have timing
+statistics printed for them.
+.TP
+.B RPROMPT
+.TP
+.B RPS1
+This prompt is displayed on the right-hand side of the screen
+when the primary prompt is being displayed on the left.
+This does not work if the \fBSINGLELINEZLE\fP option is set.
+Recognizes the same escape sequences as \fBPROMPT\fP.
+.TP
+.B SAVEHIST
+The maximum number of history events to save in the history file.
+.TP
+.B SPROMPT
+The prompt used for spelling correction.  The sequence
+\fB%R\fP expands to the string which presumably needs spelling
+correction, and \fB%r\fP expands to the proposed correction.
+All other \fBPROMPT\fP escapes are also allowed.
+.TP
+.B STTY
+If this parameter is set in a command's environment, the shell runs the
+\fBstty\fP command with the value of this parameter as arguments in order to
+set up the terminal before executing the command. The modes apply only to the
+command, and are reset when it finishes or is suspended. If the command is
+suspended and continued later with the \fBfg\fP or \fBwait\fP builtins it will
+see the modes specified by STTY, as if it were not suspended.  This
+(intentionally) does not apply if the command is continued via "kill -CONT".
+STTY is ignored if the command is run in the background, or if it is in the
+environment of the shell but not explicitly assigned to in the input line. This
+avoids running stty at every external command by accidentally exporting it.
+Also note that STTY should not be used for window size specifications; these
+will not be local to the command.
+.TP
+.B TIMEFMT
+The format of process time reports with the \fBtime\fP keyword.
+The default is "%E real  %U user  %S system  %P %J".
+Recognizes the following escape sequences:
+.PD
+.PP
+.PD 0
+.RS
+.TP
+.B %%
+A `%'.
+.TP
+.B %U
+CPU seconds spent in user mode.
+.TP
+.B %S
+CPU seconds spent in kernel mode.
+.TP
+.B %E
+Elapsed time in seconds.
+.TP
+.B %P
+The CPU percentage, computed as (%U+%S)/%E.
+.TP
+.B %J
+The name of this job.
+.RE
+.PD
+.PP
+.PD 0
+A star may be inserted between the percent sign and flags printing time.
+This cause the time to be printed in hh:mm:ss.ttt format (hours and
+minutes are only printed if they are not zero).
+.TP
+.B TMOUT
+If this parameter is nonzero, the shell will receive an \fBALRM\fP
+signal if a command is not entered within the specified number of
+seconds after issuing a prompt. If there is a trap on \fBSIGALRM\fP, it
+will be executed and a new alarm is scheduled using the value of the
+\fBTMOUT\fP parametr after exececuting the trap. If no trap is set, and
+the idle time of the terminal is not less than the value of the
+\fBTMOUT\fP parameter, zsh terminates. Otherwise a new alarm is
+scheduled to \fBTMOUT\fP seconds after the last keypress.
+.TP
+.B TMPPREFIX
+A pathname prefix which the shell will use for all temporary files.
+Note that this should include an initial part for the file name as
+well as any directory names.  The default is /tmp/zsh.
+.TP
+.B watch (WATCH)
+An array (colon-separated list) of login/logout events to report.
+If it contains the single word "all", then all login/logout events
+are reported.  If it contains the single word "notme", then all
+events are reported as with "all" except $USERNAME.
+An entry in this list may consist of a username,
+an `@' followed by a remote hostname,
+and a `%' followed by a line (tty).
+Any or all of these components may be present in an entry;
+if a login/logout event matches all of them,
+it is reported.
+.TP
+.B WATCHFMT
+The format of login/logout reports if the \fBwatch\fP parameter is set.
+Default is "%n has %a %l from %m."
+Recognizes the following escape sequences:
+.PD
+.PP
+.PD 0
+.RS
+.TP
+.B %n
+The name of the user that logged in/out.
+.TP
+.B %a
+The observed action, i.e. "logged on" or "logged off".
+.TP
+.B %l
+The line (tty) the user is logged in on.
+.TP
+.B %M
+The full hostname of the remote host.
+.TP
+.B %m
+The hostname up to the first ".".  If only the
+ip address is available or the utmp field contains
+the name of an X-windows display, the whole name is printed.
+.TP
+.B NOTE:
+The %m and %M escapes will work only if there is a host name
+field in the utmp on your machine.  Otherwise they are
+treated as ordinary strings.
+.TP
+.B %S (%s)
+Start (stop) standout mode.
+.TP
+.B %U (%u)
+Start (stop) underline mode.
+.TP
+.B %B (%b)
+Start (stop) boldface mode.
+.TP
+.B %t
+.TP
+.B %@
+The time, in 12-hour, am/pm format.
+.TP
+.B %T
+The time, in 24-hour format.
+.TP
+.B %w
+The date in day\-dd format.
+.TP
+.B %W
+The date in mm/dd/yy format.
+.TP
+.B %D
+The date in yy\-mm\-dd format.
+.TP
+.B %(x\fI:true-text:false-text\fB)\fP
+Specifies a ternary expression.
+The character following the \fBx\fP is
+arbitrary; the same character is used to separate the text
+for the "true" result from that for the "false" result.
+Both the separator and the right parenthesis may be escaped
+with a backslash.
+Ternary expressions may be nested.
+.sp
+The test character \fBx\fP may be any one of \fBl\fP, \fBn\fP, \fBm\fP,
+or \fBM\fP, which indicate a "true" result if the corresponding
+escape sequence would return a non-empty value; or may be \fBa\fP,
+which indicates a "true" result if the watched user has logged in,
+or "false" if he has logged out.
+Other characters evaluate to neither true nor false; the entire
+expression is omitted in this case.
+.sp
+If the result is "true", then the \fItrue-text\fP
+is formatted according to the rules above and printed,
+and the \fIfalse-text\fP is skipped.
+If "false", the \fItrue-text\fP is skipped and the \fIfalse-text\fP
+is formatted and printed.
+Either or both of the branches may be empty, but
+both separators must be present in any case.
+.RE
+.PD
+.PP
+.PD 0
+.TP
+.B WORDCHARS
+A list of nonalphanumeric characters considered part of a word
+by the line editor.
+.TP
+.B ZDOTDIR
+The directory to search for shell startup files (.zshrc, etc),
+if not \fB$HOME\fP.

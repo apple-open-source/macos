@@ -1,0 +1,479 @@
+#! /bin/sh
+:
+# Copyright (c) 1992-1999, S.R. van den Berg, The Netherlands
+#$Id: initmake,v 1.1.1.1 1999/09/23 17:30:06 wsanchez Exp $
+
+if test -z "$IFS"
+then IFS=" \
+	\
+
+"
+  export IFS
+fi
+
+PATH=.:$PATH
+BSHELL=$1
+
+O="cd ."
+if $O
+then
+:
+else
+  echo "Your BSHELL=$BSHELL seems to be severely handicapped."
+  case "$BSHELL" in
+     *zsh*) ;;
+     *) echo "(If I wouldn't know better, I'd say you're trying to sell"
+	echo "me an incompatible zsh :-)" ;;
+  esac
+  echo "Please edit the Makefile and try setting BSHELL to a shell which"
+  echo "is more backwards compatible with a Bourne, Korn or POSIX shell."
+  exit 1
+fi
+
+shift; MSHELL=$1
+shift; RM="$1"
+shift; MV="$1"
+shift; LN="$1"
+shift; SEARCHLIBS="$1"
+shift; LIBPATHS="$1"
+shift; DEVNULL=$1
+shift; MAKE="$1"
+shift; O=$1
+shift; CC="$1"
+shift; CFLAGS1="$1"
+shift; LDFLAGS1="$1"
+shift; BINSS="$1"
+shift; MANS1S="$1"
+shift; MANS5S="$1"
+shift; SUBDIRS="$1"
+shift; VISIBLE_BINDIR="$1"
+
+test 1 != $# &&
+ echo "Don't start this script directly, use \`make init'" && exit 1
+
+test -z "$MSHELL" || SHELL=$MSHELL
+case "$SHELL" in
+  *sh*)
+     case "$SHELL" in
+	*[zc]sh*) echo "Warning: really perverted make detected"; SHELL="";;
+     esac
+     if test ! -z "$SHELL"
+     then
+	$SHELL <<HERE
+	exec 2>$DEVNULL
+	echo test >src/_autotst
+	echo test >src/_autotst
+HERE
+	if test $? = 1
+	then
+	   echo "Warning: your $SHELL has noclobber turned on, avoiding it"
+	   SHELL=""
+	fi
+     fi
+     $RM src/_autotst;;
+  *) echo "Warning: perverted make detected"; SHELL="";;
+esac
+test -z "$SHELL" && SHELL=$BSHELL
+
+export SHELL PATH
+
+FGREP="fgrep"		# POSIX, or not POSIX, that is the question...
+if test \^hello = "`echo '^hello' | grep -F '^hello' 2>&1`"
+then FGREP="grep -F"				# and POSIX it is!
+fi
+
+echo hi | $FGREP hi >$DEVNULL
+t=$?
+echo ho | $FGREP hi >$DEVNULL
+f=$?
+if test 0 != $t -o 0 = $f
+then
+  echo "Your \"$FGREP\" program seems to be incapable of returning a proper"
+  echo "exitvalue depending on the success of the search.  This script can"
+  echo "not work without it."
+  exit 2
+fi
+
+case a in
+  [!a]) classok=no ;;		# This shell is *very* old
+  *) classok=yes ;;
+esac
+
+if test ! -z "$LD_LIBRARY_PATH"
+then
+  echo '***************************** WARNING *********************************'
+  echo '* You seem to have set the LD_LIBRARY_PATH variable, this might cause *'
+  echo '* some trouble during the compilation of this package.	If the make   *'
+  echo '* does not finish by itself, do a: "make clean", clear		      *'
+  echo '* LD_LIBRARY_PATH from the environment, and start over.		      *'
+  echo '***************************** WARNING *********************************'
+fi
+
+cd src				# diving into the source directory ######
+
+newln=""
+$RM _autotst.rrr ../man/core_ln
+echo hi >_autotst.rrr
+if $LN ../src/_autotst.rrr ../man/core_ln 2>$DEVNULL
+then
+:
+else
+   $RM ../man/core_ln
+   $LN -s ../src/_autotst.rrr ../man/core_ln && LN="$LN -s" && newln=yes
+fi
+
+cat >_autotst.c <<HERE
+main()
+{ return 0;
+}
+HERE
+$RM _autotst.rrr _autotst.$O _autotst ../man/core_ln
+
+cc=""
+
+for a in "$CC" cc gcc
+do
+  echo $a $CFLAGS1 _autotst.c -o _autotst $LDFLAGS1 >>_autotst.rrr
+  test -z "$cc" -a ! -z "$a" &&
+   (exec >>_autotst.rrr 2>&1; $a $CFLAGS1 _autotst.c -o _autotst $LDFLAGS1) &&
+   cc="$a"
+  echo "::::" >>_autotst.rrr
+done
+if test -z "$cc"
+then
+  echo 2>&1 "Whoeaaa!  There's something fishy going on here."
+  echo 2>&1 "You have a look and see if you detect anything uncanny:"
+  echo 2>&1 "*******************************************************"
+  cat 2>&1 _autotst.rrr
+  echo 2>&1 "*******************************************************"
+  echo 2>&1 "I suggest you take a look at the definition of CFLAGS* and CC"
+  echo 2>&1 "in the Makefile before you try make again."
+  exit 1
+fi
+$RM _autotst.rrr _autotst.$O _autotst
+echo "$cc seems to work fine, using that as the C-compiler"
+
+cat >_autotst.c <<HERE
+#include <sys/types.h>
+#include <stdio.h>
+#include <sys/stat.h>
+main()
+{ struct stat buf;return!&buf;
+}
+HERE
+
+CFLAGS=""
+
+case "$CFLAGS1" in
+  *-D_POSIX_SOURCE*);;
+  *)
+     if $cc -c $CFLAGS1 _autotst.c >$DEVNULL 2>&1
+     then
+     :
+     else
+	$RM _autotst.$O
+	$cc -c $CFLAGS1 -D_POSIX_SOURCE _autotst.c >$DEVNULL 2>&1 &&
+	 CFLAGS=" -D_POSIX_SOURCE"
+     fi;;
+esac
+
+LDFLAGSC=""
+
+if test -f _autotst.$O || $cc -c $CFLAGS1 $CFLAGS _autotst.c >_autotst.rrr 2>&1
+then
+:
+else
+  echo 2>&1 "Whoeaaa!  There's something fishy going on here."
+  echo 2>&1 "You have a look and see if you detect anything uncanny:"
+  echo 2>&1 "*******************************************************"
+  cat 2>&1 _autotst.rrr
+  echo 2>&1 "*******************************************************"
+  echo 2>&1 "I suggest you take a look at the definition of CC and CFLAGS*"
+  echo 2>&1 "in the Makefile before you try make again."
+  echo 2>&1 "Also: write me a mail showing the errorlog you just generated."
+  echo 2>&1 "The errorlog can still be found in src/_autotst.rrr"
+  echo 2>&1 "It would be helpful if you could mention what machine and OS"
+  echo 2>&1 "you are trying to compile this on (uname -a).  Thanks."
+  exit 1
+fi
+$cc $CFLAGS1 $CFLAGS _autotst.$O -o _autotst $LDFLAGS1 -lc >_autotst.rrr 2>&1 \
+ && if grep "[\"']c['\"]" _autotst.rrr >$DEVNULL ||
+   $FGREP libc _autotst.rrr >$DEVNULL
+  then
+  :
+  else
+     LDFLAGSC=" -lc"
+  fi
+
+LDFLAGS="$SEARCHLIBS"
+firstrun=yes
+checkpath=no
+runcombination=no
+
+while $RM _autotst
+ $cc $CFLAGS1 $CFLAGS _autotst.$O -o _autotst $LDFLAGS1 $LDFLAGS \
+  $LDFLAGSC >_autotst.rrr 2>&1 || firstrun=yes
+ test $firstrun = yes -o ! -f _autotst
+do
+  if test $runcombination = yes
+  then
+     LDFLAGS=""
+     read NEWLDFLAGS 0>&9
+     echo 2>&1 " ...trying $NEWLDFLAGS"
+  else
+     set dummy $LDFLAGS
+     shift
+     echo 2>&1 "	...scanning for $# libraries..."
+     NEWLDFLAGS=""
+  fi
+  for lib in `echo _dummy_ $LDFLAGS | sed -e s/-l//g`
+  do
+     if test _dummy_ != $lib
+     then
+	a=-l$lib
+	 ( exec <_autotst.rrr
+	   while read b
+	   do
+	      if test $classok = yes
+	      then
+		 case ":$b:" in
+		    *$cc*_autotst.$O*) ;;
+		    *"not used for resolving"*) ;;
+		    *lib$lib[!a-z_]*|*$a[!a-z_]*|*[!a-z]$lib[!a-z_]*) exit 1;;
+		 esac
+	      else
+		 case ":$b:" in
+		    *$cc*_autotst.$O*) ;;
+		    *"not used for resolving"*) ;;
+		    *) for c in $b
+		       do
+			  case ":$c:" in
+			     *lib$lib[a-z_]*|*$a[a-z_]*|\
+			      *[a-z]$lib*|*$lib[a-z_]*) ;;
+			     *$a*|*$lib*) exit 1;;
+			  esac
+		       done ;;
+		 esac
+	      fi
+	   done
+	   exit 0
+	 )
+	if test $? = 0
+	then
+	   found=yes
+	   if test $checkpath = yes
+	   then
+	      OLDIFS="$IFS"; IFS=":$IFS"
+	      found=no
+	      for libpath in $LIBPATHS $LD_LIBRARY_PATH
+	      do
+		 set $libpath/*lib$lib[A-Z.]*
+		 test -f $1 && found=yes
+	      done
+	      IFS="$OLDIFS"
+	   fi
+	   test yes = $found && NEWLDFLAGS="$NEWLDFLAGS $a"
+	fi
+     fi
+  done
+  if test a"$LDFLAGS" = a"$NEWLDFLAGS"
+  then
+     if test $checkpath = yes
+     then
+	if test $runcombination = yes
+	then
+	   echo 2>&1 "Whoeaaa!	There's something fishy going on here."
+	   echo 2>&1 "You have a look and see if you detect anything uncanny:"
+	   echo 2>&1 "*******************************************************"
+	   echo \ $cc $CFLAGS1 $CFLAGS _autotst.$O -o _autotst $LDFLAGS1\
+	    $LDFLAGS >>_autotst.rrr
+	   echo "	$LDFLAGSC" >>_autotst.rrr
+	   cat 2>&1 _autotst.rrr
+	   echo 2>&1 "*******************************************************"
+	   echo 2>&1 \
+       "I suggest you take a look at the definition of LDFLAGS* and SEARCHLIBS"
+	   echo 2>&1 "in the Makefile before you try make again."
+	   echo 2>&1 \
+	    "Also: write me a mail showing the errorlog you just generated."
+	   echo 2>&1 "The errorlog can still be found in src/_autotst.rrr"
+	   echo 2>&1 \
+	    "It would be helpful if you could mention what machine and OS"
+	   echo 2>&1 "you are trying to compile this on (uname -a).  Thanks."
+	   exit 1
+	fi
+	echo 2>&1 "Inconsistent libraries found, trying to accomodate..."
+	runcombination=yes
+	cat >_autotst <<\HERE
+#!/bin/sh
+
+exec awk '
+ { split($0,lib);
+   nf=0;
+   for(a in lib)
+      nf++;
+   p[0]=nf;
+   while(!p[nf-1])
+    { for(j=i=0;p[i];i++)
+	 while(++j<p[i])
+	    printf(" %s",lib[j]);
+      while(++j<=nf)
+	 printf(" %s",lib[j]);
+      printf("\n");
+      for(k=0;;k++)
+       { if(!p[k])
+	  { p[k]=nf;
+	    break;
+	  }
+	 if(p[k]!=k+1)
+	  { --p[k];
+	    break;
+	  }
+       }
+      while(--k>=0)
+	 p[k]=p[k+1]-1;
+    }
+   exit;
+ }'
+HERE
+	chmod 755 _autotst
+	echo " $LDFLAGS" | ./_autotst >_autotst.lst
+	echo "" >>_autotst.lst
+	exec 8<&0 <_autotst.lst 9<&0 0<&8 8<&-
+	read NEWLDFLAGS 0<&9
+	echo 2>&1 " ...trying $NEWLDFLAGS"
+     fi
+     checkpath=yes
+  else
+     checkpath=no
+  fi
+  LDFLAGS="$NEWLDFLAGS"
+  firstrun=no
+done
+
+$RM _autotst.$O _autotst.c _autotst _autotst.rrr _autotst.lst
+cd ..			# returning to the main procmail directory ######
+
+LDFLAGS="$LDFLAGS$LDFLAGSC"
+
+test -z "$CFLAGS" || echo "Added CFLAGS=$CFLAGS"
+test -z "$LDFLAGS" || echo "Added LDFLAGS=$LDFLAGS"
+
+for a in $SUBDIRS
+do
+  if test ! -f $a/Makefile.init
+  then
+     case "$LN" in
+	ln|*/ln|link|*/link) $LN $a/Makefile $a/Makefile.init
+	   $RM $a/Makefile
+	   $LN $a/Makefile.init $a/Makefile ;;
+	*) cp $a/Makefile $a/Makefile.init ;;
+     esac
+  fi
+done
+
+test -f Makefile.0 || sed -e '/^# Makefile - mark/,$ !d' <Makefile >Makefile.0
+sed -e '/^# Makefile - mark/,$ d' <Makefile >_Makefile
+echo "# Makefile.1 - mark, don't (re)move this, a sed script needs it
+" >>_Makefile
+
+test a$SHELL != a$MSHELL && echo  "SHELL	= $SHELL"	>>_Makefile
+echo "FGREP	= $FGREP"				>>_Makefile
+test -z "$newln" || echo "LN	= $LN"			>>_Makefile
+test -z "$MAKE" && echo "MAKE	= make"			>>_Makefile
+test a"$cc" != a"$CC" && echo "CC	= $cc"		>>_Makefile
+
+echo "CFLAGS	= \$(CFLAGS1)$CFLAGS"			>>_Makefile
+echo "LDFLAGS	= \$(LDFLAGS1)$LDFLAGS"			>>_Makefile
+echo							>>_Makefile
+
+MANSS=""
+MANS1=""
+MANS5=""
+MANS=""
+NMANS=""
+BINS=""
+NBINS=""
+for a in $MANS1S
+do
+  MANSS="$MANSS $a.1"
+  MANS1="$MANS1 $a.\$(MAN1SUFFIX)"
+done
+for a in $MANS5S
+do
+  MANSS="$MANSS $a.5"
+  MANS5="$MANS5 $a.\$(MAN5SUFFIX)"
+done
+for a in $MANSS
+do
+  MANS="$MANS new/$a"
+  NMANS="$NMANS ../new/$a"
+done
+for a in $BINSS
+do
+  BINS="$BINS new/$a"
+  NBINS="$NBINS ../new/$a"
+done
+
+echo "BINS=$BINS"					>>_Makefile
+echo "MANS=$MANS"					>>_Makefile
+echo "MANS1=$MANS1"					>>_Makefile
+echo "MANS5=$MANS5"					>>_Makefile
+echo "MANSS=$MANSS"					>>_Makefile
+echo "NBINS=$NBINS"					>>_Makefile
+echo "NMANS=$NMANS"					>>_Makefile
+echo							>>_Makefile
+
+for a in $SUBDIRS
+do
+  sed -e '1,/^# Makefile.0 - mark/ d' <_Makefile >$a/_Makefile
+  cat $a/Makefile.0 >>$a/_Makefile
+done
+
+echo "VISIBLE_BINDIR=$VISIBLE_BINDIR"			>>src/_Makefile
+
+for a in $BINSS
+do
+  echo							>>src/_Makefile
+  echo "../new/$a: $a ../config.check"			>>src/_Makefile
+  echo "	@test -d ../new || mkdir ../new"	>>src/_Makefile
+  echo "	@\$(RM) \$@"				>>src/_Makefile
+  echo "	\$(LN) ../src/$a \$@"			>>src/_Makefile
+done
+
+for a in $MANSS
+do
+  echo							>>man/_Makefile
+  echo "../new/$a: $a ../config.check"			>>man/_Makefile
+  echo "	@test -d ../new || mkdir ../new"	>>man/_Makefile
+  echo "	@\$(RM) \$@"				>>man/_Makefile
+  echo "	\$(LN) ../man/$a \$@"			>>man/_Makefile
+done
+
+for a in $MANS1S
+do
+  echo							>>man/_Makefile
+  echo "$a.1: $a.man man.sed mansed"			>>man/_Makefile
+  echo \
+   "	\$(SHELL) ./mansed \$(SHELL) $a.man \$@ \"\$(RM)\" \$(DEVNULL)" \
+   >>man/_Makefile
+done
+
+for a in $MANS5S
+do
+  echo							>>man/_Makefile
+  echo "$a.5: $a.man man.sed mansed"			>>man/_Makefile
+  echo \
+   "	\$(SHELL) ./mansed \$(SHELL) $a.man \$@ \"\$(RM)\" \$(DEVNULL)" \
+   >>man/_Makefile
+done
+
+cat Makefile.1 >>_Makefile
+$MV _Makefile Makefile
+
+sleep 1			# Some machines are just too speedy, make gets confused
+
+for a in $SUBDIRS
+do
+  echo "#" >>$a/_Makefile
+  $MV $a/_Makefile $a/Makefile
+done

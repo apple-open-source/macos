@@ -1,0 +1,121 @@
+#!/bin/sh
+#
+# restart-AppleTalk
+#
+
+AT_CFG_FILE=/etc/appletalk.cfg
+scutil_Commands=/tmp/.atUpdate-$$
+
+
+#
+# First, we identify all current state information
+# in the cache and generate "scutil" commands to remove
+# the old data.
+#
+echo "open"	>  ${scutil_Commands}
+echo "lock"	>> ${scutil_Commands}
+scutil << __END_OF_SCUTIL_COMMAND 2>/dev/null	| \
+	sed -n -e 's/.* = /remove /p'	>> ${scutil_Commands}
+open
+list ^State:/Network/Global/AppleTalk\$ regex
+list ^State:/Network/Interface/[^/]+/AppleTalk\$ regex
+close
+quit
+__END_OF_SCUTIL_COMMAND
+
+
+#
+# If running, shutdown current AppleTalk networking
+#
+appletalk -d >/dev/null 2>&1
+
+
+#
+# Check for AppleTalk networking configuration file
+#
+if [ ! -f ${AT_CFG_FILE} ]; then
+	#
+	# we have no configured interfaces and the AppleTalk stack
+	# has been shut down so simply remove any existing status
+	# from the cache.
+	#
+	echo "unlock"	>> ${scutil_Commands}
+	echo "close"	>> ${scutil_Commands}
+	echo "quit"	>> ${scutil_Commands}
+	if [ `cat ${scutil_Commands} | wc -l` -gt 5 ]; then
+		scutil < ${scutil_Commands}
+	fi
+	rm ${scutil_Commands}
+
+	exit 0
+fi
+
+
+#
+# Start AppleTalk networking based on the information in
+# the configuration file(s).
+#
+. /etc/rc.common
+
+ATO=""
+if [ "${APPLETALK_HOSTNAME:=-AUTOMATIC-}" != "-AUTOMATIC-" ]; then
+	APPLETALK_HOSTNAME=`echo "X${APPLETALK_HOSTNAME}" | sed -e 's/^X//' -e 's/"/\\\\"/g' -e '/[ <>]/s/\(.*\)/"\1"/'`
+	ATO="-C ${APPLETALK_HOSTNAME}"
+fi
+
+if [ "${APPLETALK:=-NO-}" != "-NO-" ]; then
+	case "${APPLETALK}" in
+	-ROUTER-)
+		# Router mode
+		eval appletalk ${ATO} -r -q
+		;;
+
+	-MULTIHOME-)
+		# Multihome non-routing mode
+		eval appletalk ${ATO} -x -q
+		;;
+
+	*)
+		# Single port on specified interface, non-routing
+		eval appletalk ${ATO} -u ${APPLETALK} -q
+		;;
+
+	esac
+fi
+
+
+#
+# Update status of all AppleTalk interfaces
+#
+appletalk -n 2>/dev/null | awk '
+/AppleTalk interface.............. / {
+	ifName=substr($0, 36);
+	printf "d.init\n";
+}
+/Network Number .................. / {
+	printf "d.add NetworkID # %d\n", $4;
+}
+/Node ID ......................... / {
+	printf "d.add NodeID    # %d\n", $4;
+}
+/Current Zone .................... / {
+	printf "d.add Zone        \"%s\"\n", substr($0, 36);
+	printf "add State:/Network/Interface/%s/AppleTalk\n", ifName;
+}
+'		>> ${scutil_Commands}
+
+echo "get Setup:/Network/Global/AppleTalk"			>> ${scutil_Commands}
+if [ -z "${ATO}" ]; then
+	echo "d.add ComputerName `uname -n`"			>> ${scutil_Commands}
+fi
+echo "set State:/Network/Global/AppleTalk"			>> ${scutil_Commands}
+
+echo "unlock"	>> ${scutil_Commands}
+echo "close"	>> ${scutil_Commands}
+echo "quit"	>> ${scutil_Commands}
+if [ `cat ${scutil_Commands} | wc -l` -gt 5 ]; then
+	scutil < ${scutil_Commands} > /dev/null 2>&1
+fi
+rm ${scutil_Commands}
+
+exit 0

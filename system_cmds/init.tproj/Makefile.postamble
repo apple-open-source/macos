@@ -1,0 +1,5 @@
+INSTALL_PERMISSIONS = 500  # If set, 'install' chmod's executable to this
+#CHFLAGS = /usr/bin/chflags
+#after_install::
+#	$(CHFLAGS) schg  $(DSTROOT)$(INSTALLDIR)/$(NAME)
+

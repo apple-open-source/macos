@@ -1,0 +1,23 @@
+# Please check if all the paths in PATH are reachable, remove the ones that
+# are not.
+
+PATH=$HOME/bin:/usr/bin:/usr/ucb:/bin:/usr/local/bin:.
+MAILDIR=$HOME/Mail	# You'd better make sure it exists
+DEFAULT=$MAILDIR/mbox
+LOGFILE=$MAILDIR/from
+LOCKFILE=$HOME/.lockmail
+
+:0				# Anything from thf
+* ^From.*thf@somewhere.someplace
+todd				# will go to $MAILDIR/todd
+
+:0				# Anything from people at uunet
+* ^From.*@uunet
+uunetbox			# will go to $MAILDIR/uunetbox
+
+:0				# Anything from Henry
+* ^From.*henry
+henries				# will go to $MAILDIR/henries
+
+# Anything that has not been delivered by now will go to $DEFAULT
+# using LOCKFILE=$DEFAULT$LOCKEXT

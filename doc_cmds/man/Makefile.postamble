@@ -1,0 +1,7 @@
+include $(CoreOSMakefiles)/ProjectBuilder/Makefile.Postamble.Common
+
+ETCDIR = /private/etc
+
+after_install::
+	$(INSTALL_DIRECTORY) $(DSTROOT)$(ETCDIR)
+	$(INSTALL_FILE) -c man.conf $(DSTROOT)$(ETCDIR)

@@ -1,0 +1,460 @@
+This is ../info/emacs, produced by makeinfo version 4.0 from emacs.texi.
+
+   This is the thirteenth edition of the `GNU Emacs Manual', updated
+for Emacs version 20.7.
+
+INFO-DIR-SECTION Editors
+START-INFO-DIR-ENTRY
+* Emacs: (emacs).	The extensible self-documenting text editor.
+END-INFO-DIR-ENTRY
+
+   Published by the Free Software Foundation 59 Temple Place, Suite 330
+Boston, MA  02111-1307 USA
+
+   Copyright (C) 1985, 1986, 1987, 1993, 1994, 1995, 1996, 1997, 1998,
+1999    Free Software Foundation, Inc.
+
+   Permission is granted to make and distribute verbatim copies of this
+manual provided the copyright notice and this permission notice are
+preserved on all copies.
+
+   Permission is granted to copy and distribute modified versions of
+this manual under the conditions for verbatim copying, provided also
+that the sections entitled "The GNU Manifesto", "Distribution" and "GNU
+General Public License" are included exactly as in the original, and
+provided that the entire resulting derived work is distributed under the
+terms of a permission notice identical to this one.
+
+   Permission is granted to copy and distribute translations of this
+manual into another language, under the above conditions for modified
+versions, except that the sections entitled "The GNU Manifesto",
+"Distribution" and "GNU General Public License" may be included in a
+translation approved by the Free Software Foundation instead of in the
+original English.
+
+
+File: emacs,  Node: Variable Index,  Next: Concept Index,  Prev: Command Index,  Up: Top
+
+Variable Index
+**************
+
+* Menu:
+
+* abbrev-all-caps:                       Expanding Abbrevs.
+* abbrev-file-name:                      Saving Abbrevs.
+* abbrev-mode:                           Abbrev Concepts.
+* adaptive-fill-first-line-regexp:       Adaptive Fill.
+* adaptive-fill-function:                Adaptive Fill.
+* adaptive-fill-mode:                    Adaptive Fill.
+* adaptive-fill-regexp:                  Adaptive Fill.
+* ange-ftp-default-user:                 Remote Files.
+* appt-display-diary:                    Appointments.
+* appt-issue-message:                    Appointments.
+* apropos-do-all:                        Apropos.
+* auto-coding-alist:                     Recognize Coding.
+* auto-mode-alist:                       Choosing Modes.
+* auto-save-default:                     Auto Save Control.
+* auto-save-interval:                    Auto Save Control.
+* auto-save-list-file-prefix:            Recover.
+* auto-save-timeout:                     Auto Save Control.
+* auto-save-visited-file-name:           Auto Save Files.
+* backup-by-copying:                     Backup Copying.
+* backup-by-copying-when-linked:         Backup Copying.
+* backup-by-copying-when-mismatch:       Backup Copying.
+* backup-enable-predicate:               Backup.
+* baud-rate:                             Display Vars.
+* blink-matching-delay:                  Matching.
+* blink-matching-paren:                  Matching.
+* blink-matching-paren-distance:         Matching.
+* bookmark-save-flag:                    Bookmarks.
+* bookmark-search-size:                  Bookmarks.
+* buffer-file-coding-system:             Recognize Coding.
+* buffer-read-only:                      Misc Buffer.
+* c-basic-offset:                        Variables for C Indent.
+* c-comment-only-line-offset:            Comments in C.
+* c-comment-start-regexp:                Comments in C.
+* c-default-style:                       C Indent Styles.
+* c-hanging-comment-ender-p:             Comments in C.
+* c-hanging-comment-starter-p:           Comments in C.
+* c-hungry-delete-key:                   Hungry Delete.
+* c-mode-hook:                           Program Modes.
+* c-mode-map:                            Local Keymaps.
+* c-offsets-alist:                       Variables for C Indent.
+* c-special-indent-hook:                 Variables for C Indent.
+* c-strict-syntax-p:                     Indentation Calculation.
+* c-style-alist:                         Variables for C Indent.
+* c-syntactic-context:                   Syntactic Analysis.
+* calendar-daylight-savings-ends:        Daylight Savings.
+* calendar-daylight-savings-ends-time:   Daylight Savings.
+* calendar-daylight-savings-starts:      Daylight Savings.
+* calendar-daylight-time-offset:         Daylight Savings.
+* calendar-daylight-time-zone-name:      Sunrise/Sunset.
+* calendar-latitude:                     Sunrise/Sunset.
+* calendar-location-name:                Sunrise/Sunset.
+* calendar-longitude:                    Sunrise/Sunset.
+* calendar-standard-time-zone-name:      Sunrise/Sunset.
+* calendar-time-zone:                    Sunrise/Sunset.
+* calendar-week-start-day:               Move to Beginning or End.
+* case-fold-search:                      Search Case.
+* case-replace:                          Replacement and Case.
+* change-major-mode-with-file-name:      Choosing Modes.
+* coding:                                Recognize Coding.
+* colon-double-space:                    Fill Commands.
+* comint-completion-addsuffix:           Shell Options.
+* comint-completion-autolist:            Shell Options.
+* comint-completion-fignore:             Shell Mode.
+* comint-completion-recexact:            Shell Options.
+* comint-input-autoexpand:               History References.
+* comint-input-ignoredups:               Shell Options.
+* comint-prompt-regexp:                  History References.
+* comint-scroll-show-maximum-output:     Shell Options.
+* comint-scroll-to-bottom-on-input:      Shell Options.
+* comint-scroll-to-bottom-on-output:     Shell Options.
+* command-history:                       Repetition.
+* command-line-args:                     Action Arguments.
+* comment-column:                        Options for Comments.
+* comment-end:                           Options for Comments.
+* comment-indent-function:               Options for Comments.
+* comment-line-start:                    Fortran Comments.
+* comment-line-start-skip:               Fortran Comments.
+* comment-multi-line:                    Options for Comments.
+* comment-padding:                       Multi-Line Comments.
+* comment-start:                         Options for Comments.
+* comment-start-skip:                    Options for Comments.
+* compare-ignore-case:                   Comparing Files.
+* compilation-scroll-output:             Compilation.
+* compile-command:                       Compilation.
+* completion-auto-help:                  Completion Options.
+* completion-ignored-extensions:         Completion Options.
+* ctl-arrow:                             Display Vars.
+* ctl-x-4-map:                           Prefix Keymaps.
+* ctl-x-map:                             Prefix Keymaps.
+* current-input-method:                  Select Input Method.
+* dabbrev-abbrev-char-regexp:            Dabbrev Customization.
+* dabbrev-abbrev-skip-leading-regexp:    Dabbrev Customization.
+* dabbrev-case-fold-search:              Dabbrev Customization.
+* dabbrev-case-replace:                  Dabbrev Customization.
+* dabbrev-check-all-buffers:             Dynamic Abbrevs.
+* dabbrev-limit:                         Dynamic Abbrevs.
+* dbx-mode-hook:                         GUD Customization.
+* default-buffer-file-coding-system:     Specify Coding.
+* default-directory:                     File Names.
+* default-enable-multibyte-characters:   Enabling Multibyte.
+* default-input-method:                  Select Input Method.
+* default-justification:                 Format Justification.
+* default-major-mode:                    Choosing Modes.
+* delete-auto-save-files:                Auto Save Files.
+* delete-old-versions:                   Backup Deletion.
+* desktop-enable:                        Saving Emacs Sessions.
+* desktop-files-not-to-save:             Saving Emacs Sessions.
+* diary-file:                            Format of Diary File.
+* diary-hook:                            Appointments.
+* diary-mail-days:                       Diary Commands.
+* diff-switches:                         Comparing Files.
+* dired-chown-program:                   Operating on Files.
+* dired-copy-preserve-time:              Operating on Files.
+* dired-garbage-files-regexp:            Flagging Many Files.
+* dired-kept-versions:                   Flagging Many Files.
+* dired-listing-switches:                Dired Enter.
+* dired-listing-switches (MS-DOS):       MS-DOS Processes.
+* display-time-24hr-format:              Optional Mode Line.
+* dos-codepage:                          MS-DOS and MULE.
+* dos-display-scancodes:                 MS-DOS Input.
+* dos-hyper-key:                         MS-DOS Input.
+* dos-keypad-mode:                       MS-DOS Input.
+* dos-printer:                           MS-DOS Printing.
+* dos-ps-printer:                        MS-DOS Printing.
+* dos-super-key:                         MS-DOS Input.
+* dos-unsupported-character-glyph:       MS-DOS and MULE.
+* double-click-time:                     Mouse Buttons.
+* echo-keystrokes:                       Display Vars.
+* emacs-lisp-mode-hook:                  Program Modes.
+* emerge-combine-versions-template:      Combining in Emerge.
+* emerge-startup-hook:                   Fine Points of Emerge.
+* enable-multibyte-characters <1>:       Enabling Multibyte.
+* enable-multibyte-characters:           Single-Byte European Support.
+* enable-recursive-minibuffers:          Minibuffer Edit.
+* enriched-fill-after-visiting:          Requesting Formatted Text.
+* enriched-translations:                 Requesting Formatted Text.
+* eol-mnemonic-dos:                      Mode Line.
+* eol-mnemonic-mac:                      Mode Line.
+* eol-mnemonic-undecided:                Mode Line.
+* eol-mnemonic-unix:                     Mode Line.
+* esc-map:                               Prefix Keymaps.
+* european-calendar-style:               Date Formats.
+* exit-language-environment-hook:        Language Environments.
+* explicit-shell-file-name:              Interactive Shell.
+* fast-lock-cache-directories:           Fast Lock Mode.
+* fast-lock-minimum-size:                Fast Lock Mode.
+* fast-lock-save-others:                 Fast Lock Mode.
+* file-coding-system-alist:              Recognize Coding.
+* file-name-buffer-file-type-alist:      Text and Binary.
+* file-name-coding-system:               Specify Coding.
+* file-name-handler-alist:               Remote Files.
+* fill-column:                           Fill Commands.
+* fill-prefix:                           Fill Prefix.
+* find-file-existing-other-name:         File Aliases.
+* find-file-hooks:                       Visiting.
+* find-file-not-found-hooks:             Visiting.
+* find-file-run-dired:                   Visiting.
+* find-file-visit-truename:              File Aliases.
+* find-ls-option:                        Dired and Find.
+* find-tag-marker-ring-length:           Find Tag.
+* font-lock-beginning-of-syntax-function: Font Lock.
+* font-lock-mark-block-function:         Font Lock.
+* font-lock-maximum-decoration:          Font Lock.
+* font-lock-maximum-size:                Font Lock.
+* font-lock-support-mode:                Fast or Lazy.
+* fortran-analyze-depth:                 ForIndent Cont.
+* fortran-break-before-delimiters:       Fortran Autofill.
+* fortran-check-all-num...:              ForIndent Vars.
+* fortran-column-ruler:                  Fortran Columns.
+* fortran-comment-indent-char:           Fortran Comments.
+* fortran-comment-indent-style:          Fortran Comments.
+* fortran-comment-line-extra-indent:     Fortran Comments.
+* fortran-comment-region:                Fortran Comments.
+* fortran-continuation-indent:           ForIndent Vars.
+* fortran-continuation-string:           ForIndent Cont.
+* fortran-do-indent:                     ForIndent Vars.
+* fortran-electric-line-number:          ForIndent Num.
+* fortran-if-indent:                     ForIndent Vars.
+* fortran-line-number-indent:            ForIndent Num.
+* fortran-minimum-statement-indent...:   ForIndent Vars.
+* fortran-structure-indent:              ForIndent Vars.
+* fortran-tab-mode-default:              ForIndent Cont.
+* gdb-mode-hook:                         GUD Customization.
+* gud-xdb-directories:                   Starting GUD.
+* help-map:                              Prefix Keymaps.
+* highlight-nonselected-windows:         Transient Mark.
+* highlight-wrong-size-font:             Fontsets.
+* history-length:                        Minibuffer History.
+* indent-tabs-mode:                      Just Spaces.
+* indent-tabs-mode (Fortran mode):       ForIndent Cont.
+* inferior-lisp-program:                 External Lisp.
+* inhibit-eol-conversion:                Recognize Coding.
+* initial-major-mode:                    Entering Emacs.
+* input-method-highlight-flag:           Input Methods.
+* input-method-verbose-flag:             Input Methods.
+* insert-default-directory:              File Names.
+* interpreter-mode-alist:                Choosing Modes.
+* inverse-video:                         Display Vars.
+* isearch-mode-map:                      Incremental Search.
+* ispell-dictionary:                     Spelling.
+* jdb-mode-hook:                         GUD Customization.
+* kept-new-versions:                     Backup Deletion.
+* kept-old-versions:                     Backup Deletion.
+* kill-buffer-hook:                      Kill Buffer.
+* kill-ring:                             Earlier Kills.
+* kill-ring-max:                         Earlier Kills.
+* kill-whole-line:                       Killing by Lines.
+* latex-block-names:                     LaTeX Editing.
+* latex-mode-hook:                       TeX Print.
+* latex-run-command:                     TeX Print.
+* lazy-lock-defer-contextually:          Lazy Lock Mode.
+* lazy-lock-defer-on-scrolling:          Lazy Lock Mode.
+* lazy-lock-defer-time:                  Lazy Lock Mode.
+* lazy-lock-minimum-size:                Lazy Lock Mode.
+* lazy-lock-stealth-lines:               Lazy Lock Mode.
+* lazy-lock-stealth-time:                Lazy Lock Mode.
+* lazy-lock-stealth-verbose:             Lazy Lock Mode.
+* line-number-display-limit:             Optional Mode Line.
+* lisp-body-indent:                      Lisp Indent.
+* lisp-indent-offset:                    Lisp Indent.
+* lisp-interaction-mode-hook:            Program Modes.
+* lisp-mode-hook:                        Program Modes.
+* lisp-mode-map:                         Local Keymaps.
+* list-directory-brief-switches:         Directories.
+* list-directory-verbose-switches:       Directories.
+* load-path:                             Lisp Libraries.
+* lpr-add-switches:                      Hardcopy.
+* lpr-command (MS-DOS):                  MS-DOS Printing.
+* lpr-commands:                          Hardcopy.
+* lpr-headers-switches:                  Hardcopy.
+* lpr-headers-switches (MS-DOS):         MS-DOS Printing.
+* lpr-switches:                          Hardcopy.
+* lpr-switches (MS-DOS):                 MS-DOS Printing.
+* mail-abbrevs:                          Mail Aliases.
+* mail-aliases:                          Mail Aliases.
+* mail-archive-file-name:                Mail Headers.
+* mail-default-reply-to:                 Mail Headers.
+* mail-from-style:                       Mail Headers.
+* mail-mode-hook:                        Mail Mode Misc.
+* mail-personal-alias-file:              Mail Aliases.
+* mail-self-blind:                       Mail Headers.
+* mail-setup-hook:                       Mail Mode Misc.
+* mail-signature:                        Mail Mode Misc.
+* mail-user-agent:                       Mail Methods.
+* mail-yank-prefix:                      Citing Mail.
+* make-backup-files:                     Backup.
+* Man-fontify-manpage-flag:              Documentation.
+* mark-even-if-inactive:                 Transient Mark.
+* mark-ring:                             Mark Ring.
+* mark-ring-max:                         Mark Ring.
+* message-log-max:                       Echo Area.
+* midnight-hook:                         Kill Buffer.
+* midnight-mode:                         Kill Buffer.
+* minibuffer-local-completion-map:       Minibuffer Maps.
+* minibuffer-local-map:                  Minibuffer Maps.
+* minibuffer-local-must-match-map:       Minibuffer Maps.
+* minibuffer-local-ns-map:               Minibuffer Maps.
+* minibuffer-scroll-overlap:             Minibuffer Edit.
+* mode-line-inverse-video:               Display Vars.
+* mode-specific-map:                     Prefix Keymaps.
+* mouse-scroll-min-lines:                Mouse Commands.
+* mouse-yank-at-point:                   Mouse Commands.
+* muddle-mode-hook:                      Program Modes.
+* next-line-add-newlines:                Moving Point.
+* next-screen-context-lines:             Scrolling.
+* no-redraw-on-reenter:                  Display Vars.
+* nroff-mode-hook:                       Nroff Mode.
+* outline-level:                         Outline Format.
+* outline-minor-mode-prefix:             Outline Mode.
+* outline-mode-hook:                     Outline Mode.
+* outline-regexp:                        Outline Format.
+* page-delimiter:                        Pages.
+* paragraph-separate:                    Paragraphs.
+* paragraph-start:                       Paragraphs.
+* parens-require-spaces:                 Balanced Editing.
+* pdb-mode-hook:                         GUD Customization.
+* perldb-mode-hook:                      GUD Customization.
+* picture-mode-hook:                     Picture.
+* picture-tab-chars:                     Tabs in Picture.
+* plain-tex-mode-hook:                   TeX Print.
+* print-region-function (MS-DOS):        MS-DOS Printing.
+* printer-name:                          Hardcopy.
+* printer-name (MS-DOS):                 MS-DOS Printing.
+* ps-font-family:                        Postscript Variables.
+* ps-font-info-database:                 Postscript Variables.
+* ps-font-size:                          Postscript Variables.
+* ps-landscape-mode:                     Postscript Variables.
+* ps-lpr-command:                        Postscript Variables.
+* ps-lpr-command (MS-DOS):               MS-DOS Printing.
+* ps-lpr-switches:                       Postscript Variables.
+* ps-lpr-switches (MS-DOS):              MS-DOS Printing.
+* ps-number-of-columns:                  Postscript Variables.
+* ps-page-dimensions-database:           Postscript Variables.
+* ps-paper-type:                         Postscript Variables.
+* ps-print-color-p:                      Postscript Variables.
+* ps-print-header:                       Postscript Variables.
+* ps-printer-name:                       Postscript Variables.
+* ps-printer-name (MS-DOS):              MS-DOS Printing.
+* read-quoted-char-radix:                Inserting Text.
+* require-final-newline:                 Saving.
+* revert-without-query:                  Reverting.
+* rlogin-explicit-args:                  Remote Host.
+* rmail-decode-mime-charset:             Recognize Coding.
+* rmail-delete-after-output:             Rmail Output.
+* rmail-delete-message-hook:             Rmail Deletion.
+* rmail-dont-reply-to-names:             Rmail Reply.
+* rmail-edit-mode-hook:                  Rmail Editing.
+* rmail-file-coding-system:              Recognize Coding.
+* rmail-file-name:                       Rmail Basics.
+* rmail-highlighted-headers:             Rmail Display.
+* rmail-ignored-headers:                 Rmail Display.
+* rmail-mail-new-frame:                  Rmail Reply.
+* rmail-mode-hook:                       Rmail.
+* rmail-movemail-flags:                  Movemail.
+* rmail-output-file-alist:               Rmail Output.
+* rmail-pop-password:                    Movemail.
+* rmail-pop-password-required:           Movemail.
+* rmail-preserve-inbox:                  Movemail.
+* rmail-primary-inbox-list:              Rmail Inbox.
+* rmail-redisplay-summary:               Rmail Summary Edit.
+* rmail-retry-ignored-headers:           Rmail Reply.
+* rmail-secondary-file-directory:        Rmail Files.
+* rmail-secondary-file-regexp:           Rmail Files.
+* rmail-summary-line-count-flag:         Rmail Make Summary.
+* rmail-summary-window-size:             Rmail Make Summary.
+* same-window-buffer-names:              Force Same Window.
+* same-window-regexps:                   Force Same Window.
+* save-abbrevs:                          Saving Abbrevs.
+* scheme-mode-hook:                      Program Modes.
+* scroll-conservatively:                 Scrolling.
+* scroll-margin:                         Scrolling.
+* scroll-preserve-screen-position:       Scrolling.
+* sdb-mode-hook:                         GUD Customization.
+* search-slow-speed:                     Incremental Search.
+* search-slow-window-lines:              Incremental Search.
+* selective-display-ellipses:            Selective Display.
+* sendmail-coding-system <1>:            Recognize Coding.
+* sendmail-coding-system:                Mail Sending.
+* sentence-end:                          Sentences.
+* sentence-end-double-space:             Fill Commands.
+* server-temp-file-regexp:               Emacs Server.
+* server-window:                         Emacs Server.
+* set-language-environment-hook:         Language Environments.
+* shell-cd-regexp:                       Interactive Shell.
+* shell-command-default-error-buffer:    Single Shell.
+* shell-command-execonly:                Shell Options.
+* shell-command-regexp:                  Shell Mode.
+* shell-completion-fignore:              Shell Mode.
+* shell-file-name:                       Single Shell.
+* shell-input-ring-file-name:            Shell Ring.
+* shell-popd-regexp:                     Interactive Shell.
+* shell-prompt-pattern:                  History References.
+* shell-pushd-regexp:                    Interactive Shell.
+* shell-set-directory-error-hook:        Interactive Shell.
+* slitex-mode-hook:                      TeX Print.
+* slitex-run-command:                    TeX Print.
+* sort-fold-case:                        Sorting.
+* special-display-buffer-names:          Special Buffer Frames.
+* special-display-frame-alist:           Special Buffer Frames.
+* special-display-regexps:               Special Buffer Frames.
+* split-window-keep-point:               Split Window.
+* standard-fontset-spec:                 Defining Fontsets.
+* standard-indent:                       Format Indentation.
+* suggest-key-bindings:                  M-x.
+* tab-stop-list:                         Tab Stops.
+* tab-width:                             Display Vars.
+* tags-file-name:                        Select Tags Table.
+* tags-table-list:                       Select Tags Table.
+* term-file-prefix:                      Terminal Init.
+* term-setup-hook:                       Terminal Init.
+* tex-bibtex-command:                    TeX Print.
+* tex-default-mode:                      TeX Mode.
+* tex-directory:                         TeX Print.
+* tex-dvi-print-command:                 TeX Print.
+* tex-dvi-view-command:                  TeX Print.
+* tex-main-file:                         TeX Print.
+* tex-mode-hook:                         TeX Print.
+* tex-run-command:                       TeX Print.
+* tex-shell-hook:                        TeX Print.
+* tex-show-queue-command:                TeX Print.
+* tex-start-options-string:              TeX Print.
+* text-mode-hook:                        Text Mode.
+* track-eol:                             Moving Point.
+* truncate-lines:                        Continuation Lines.
+* truncate-partial-width-windows:        Split Window.
+* undo-limit:                            Undo.
+* undo-strong-limit:                     Undo.
+* unibyte-display-via-language-environment: Single-Byte European Support.
+* user-mail-address:                     Init Examples.
+* vc-command-messages:                   VC Command Execution.
+* vc-comment-alist:                      Version Headers.
+* vc-consult-headers:                    VC Status Retrieval.
+* vc-default-back-end:                   Registering.
+* vc-default-init-version:               Registering.
+* vc-directory-exclusion-list:           VC Dired Mode.
+* vc-dired-recurse:                      VC Dired Mode.
+* vc-dired-terse-display:                VC Dired Mode.
+* vc-follow-symlinks:                    VC Workfile Handling.
+* vc-handle-cvs:                         Backend Options.
+* vc-header-alist:                       Version Headers.
+* vc-initial-comment:                    Registering.
+* vc-keep-workfiles:                     VC Workfile Handling.
+* vc-log-mode-hook:                      Log Buffer.
+* vc-make-backup-files <1>:              Backup.
+* vc-make-backup-files:                  VC Workfile Handling.
+* vc-mistrust-permissions:               VC Status Retrieval.
+* vc-path:                               VC Command Execution.
+* vc-static-header-alist:                Version Headers.
+* vc-suppress-confirm:                   VC Command Execution.
+* version-control:                       Backup Names.
+* visible-bell:                          Display Vars.
+* w32-pass-alt-to-system:                Windows System Menu.
+* which-func-modes:                      Which Function.
+* window-min-height:                     Change Window.
+* window-min-width:                      Change Window.
+* x-cut-buffer-max:                      Mouse Commands.
+* xdb-mode-hook:                         GUD Customization.
+

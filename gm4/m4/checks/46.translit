@@ -1,0 +1,7 @@
+dnl ../doc/m4.texinfo:2553: Origin of test
+translit(`GNUs not Unix', `A-Z')
+dnl @result{}s not nix
+translit(`GNUs not Unix', `a-z', `A-Z')
+dnl @result{}GNUS NOT UNIX
+translit(`GNUs not Unix', `A-Z', `z-a')
+dnl @result{}tmfs not fnix

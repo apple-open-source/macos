@@ -1,0 +1,18 @@
+dnl ../doc/m4.texinfo:2808: Origin of test
+eval(-3 * 5)
+dnl @result{}-15
+eval(index(`Hello world', `llo') >= 0)
+dnl @result{}1
+define(`square', `eval(($1)**2)')
+dnl @result{}
+square(9)
+dnl @result{}81
+square(square(5)+1)
+dnl @result{}676
+define(`foo', `666')
+dnl @result{}
+eval(`foo'/6)
+dnl @error{}51.eval:14: m4: Bad expression in eval: foo/6
+dnl @result{}
+eval(foo/6)
+dnl @result{}111

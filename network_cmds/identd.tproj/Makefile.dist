@@ -1,0 +1,10 @@
+#	$Id: Makefile.dist,v 1.1.1.1 1999/05/02 03:57:40 wsanchez Exp $
+
+PROG=	identd
+SRCS=	config.c identd.c netbsd.c parse.c proxy.c version.c
+MAN8=	identd.0
+
+LDADD=	-lkvm
+DPADD=	${LIBKVM}
+
+.include <bsd.prog.mk>

@@ -1,0 +1,27 @@
+#!/bin/sh
+
+##
+# Run the Internet super-server.
+##
+
+. /etc/rc.common
+
+ConsoleMessage "Starting TCP/IP services"
+
+inetd 
+
+##
+# Start up network boot cofiguration services.
+##
+
+if [ "${CONFIGSERVER:=-NO-}" = "-YES-" ]; then
+    ConsoleMessage "Starting host configuration services"
+
+    if [ "${NETBOOTSERVER:=-NO-}" = "-YES-" ]; then
+	bootpd -m
+    else
+	bootpd
+    fi
+
+    bootparamd
+fi

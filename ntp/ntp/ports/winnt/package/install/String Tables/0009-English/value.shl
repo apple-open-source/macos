@@ -1,0 +1,51 @@
+[Data]
+PRODUCT_VERSION=4.0.73a
+COMPANY_NAME=Freeware
+COMPANY_NAME16=Freeware
+ERROR_COMPONENT=Component:
+ERROR_FILE=File:
+ERROR_FILEGROUP=File Group:
+ERROR_MOVEDATA=An error occurred during the move data process: %d
+ERROR_NOT_NT=This template will only run on NT.
+ERROR_UNINSTSETUP=unInstaller setup failed to initialize.  You may not be able to uninstall this product.
+ERROR_VGARESOLUTION=This program requires VGA or better resolution.
+FOLDER_NAME=NetworkTimeProtocol
+PRODUCT_KEY=ntpd.exe
+PRODUCT_NAME=NetworkTimeProtocol
+PRODUCT_NAME16=Product
+SERVICE_FILE_NAME=IS_service.exe
+STR_ERROR_ACCESS_DENIED=You don't have the proper access to install the NT service.
+STR_ERROR_CIRCULAR_DEPENDENCY=The service cannot be installed because of file dependencies.
+STR_ERROR_DATABASE_DOES_NOT_EXIST=A database needed to proceed with the setup cannot be found.
+STR_ERROR_DUP_NAME=Duplicate name encountered.
+STR_ERROR_INVALID_HANDLE=Invalid handle encountered.
+STR_ERROR_INVALID_NAME=Invalid name encountered.
+STR_ERROR_INVALID_PARAMETER=Invalid parameter encountered.
+STR_ERROR_INVALID_SERVICE_ACCOUNT=Invalid service account encountered.
+STR_ERROR_PATH_NOT_FOUND=Specified path could not be found.
+STR_ERROR_SERVICE_ALREADY_RUNNING=The service is already running and cannot be shut down.
+STR_ERROR_SERVICE_DATABASE_LOCKED=A database needed to proceed with the setup is locked.
+STR_ERROR_SERVICE_DEPENDENCY_DELETED=The service cannot be installed because of a file dependency.
+STR_ERROR_SERVICE_DEPENDENCY_FAIL=The service cannot be installed because of a file dependency.
+STR_ERROR_SERVICE_DISABLED=The service has been disabled.
+STR_ERROR_SERVICE_EXISTS=The service already exists.
+STR_ERROR_SERVICE_LOGON_FAILED=The service failed to log on.
+STR_ERROR_SERVICE_MARKED_FOR_DELETE=The existing service is marked for deletion.
+STR_ERROR_SERVICE_NO_THREAD=The service cannot be installed.
+STR_ERROR_SERVICE_REQUEST_TIMEOUT=The service cannot be installed at this time.
+STR_ERROR_UNKNOWN=The service cannot be installed due to an unknown error.
+STR_IS_ERROR_INIT_VARS=Unable to initialize variables
+STR_IS_ERROR_SERVICE_FAILED_TO_STOP=The existing service could not be shut down.
+STR_IS_ERROR_STORE_UNINSTALL_INFO=The installation for the service failed to create the uninstallation information.
+STR_IS_ERROR_UPDATEUNINSTSTRING=The setup could not update the uninstallation string.
+TITLE_CAPTIONBAR=Network Time Protocol Setup
+TITLE_MAIN=Network Time Protocol
+UNINST_DISPLAY_NAME=NetworkTimeProtocol
+UNINST_DLL=uninst.dll
+UNINST_KEY=NetworkTimeProtocol
+
+[General]
+Language=0009
+Type=STRINGTABLESPECIFIC
+Version=1.00.000
+

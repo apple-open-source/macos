@@ -1,0 +1,10 @@
+#!/bin/sh
+#
+# Test binary file printing.
+#
+
+. $srcdir/defs || exit 1
+
+$enscript --quiet -G2r -p$output $binaryfiles
+
+rm $output

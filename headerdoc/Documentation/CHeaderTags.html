@@ -1,0 +1,286 @@
+<html>
+
+	<head>
+		<meta http-equiv="content-type" content="text/html;charset=iso-8859-1">
+		<title>Tags for C Headers</title>
+		<meta name="generator" content="GoLive CyberStudio 3">
+	</head>
+
+	<body bgcolor="white">
+		<a href="HeaderDoc.html">[Overview]</a>
+		<h1>Tags for C Headers</h1>
+		<ul>
+			<li><a href="#Anchor-Conventions-34807">Conventions</a>
+			<li><a href="#Anchor-Conventions-34807">Tags Common to All API Types</a>
+			<li><a href="#Anchor-Tags-30189">Function Tags</a>
+			<li><a href="#Anchor-Struct-38219">struct and union Tags</a>
+			<li><a href="#Anchor-Enum-54325">enum tags</a>
+			<li><a href="#Anchor-Typedef-58500">typedef tags</a>
+			<li><a href="#Anchor-42424">#define tags</a>
+		</ul>
+		<h2>&nbsp;</h2>
+		<h2><a name="Anchor-Conventions-34807"></a>Conventions</h2>
+		<p>Tags, depending on type, can introduce either one or two fields of information:</p>
+		<ul>
+			<p><tt>@function [FunctionName]</tt><tt><br>
+			@param [parameterName] [Some descriptive text...]</tt></p>
+		</ul>
+		<p>In the tables below, the &quot;Fields&quot; column indicates the number of textual fields each type of tag takes.</p>
+		<p>The tags highlighted in <font size="4" color="#660000"><b>RED</b></font> below are required.</p>
+		<p>&nbsp;</p>
+		<h2><a name="Anchor-Tags-30189"></a>Tags Common to All API Types</h2>
+		<p>The <b>@abstract</b> and <b>@discussion</b> tags can be used within any of the type-specific tags below. For example,:</p>
+		<pre>/*!
+  @enum Beverage Categories
+  @abstract Constants to group beverage types.
+  @discussion These constants (such as kSoda, kBeer, etc.) can be used...
+*/</pre>
+		<p>They are not required within any HeaderDoc comment, but can improve the formatting of the HTML output, and can help automate the importation of comments into the Inside Mac documentation database.</p>
+		<p>&nbsp;</p>
+		<h2><a name="Anchor-Function-59404"></a>Function Tags</h2>
+		<p>
+		<table border="1" cellpadding="0" cellspacing="2" width="92%">
+			<tr>
+				<td>
+					<center>
+						<b>Tag</b></center>
+				</td>
+				<td>
+					<center>
+						<b>Identifies</b></center>
+				</td>
+				<td><b>Fields</b></td>
+			</tr>
+			<tr>
+				<td><font color="#660000"><b>@function</b></font></td>
+				<td>The name of the function.</td>
+				<td>
+					<center>
+						1</center>
+				</td>
+			</tr>
+			<tr>
+				<td><b>@param</b></td>
+				<td>Each of the function's parameters.</td>
+				<td>
+					<center>
+						2</center>
+				</td>
+			</tr>
+			<tr>
+				<td><b>@result</b></td>
+				<td>The return value of the function. Don't include if the return value is void or OSERR</td>
+				<td>
+					<center>
+						1</center>
+				</td>
+			</tr>
+		</table>
+		</p>
+		<p><b>Example:</b></p>
+		<pre>/*! 
+  @function ConstructBLT
+  @discussion Creates a Sandwich structure from the supplied arguments.
+  @param b Top ingredient, typically protein-rich.
+  @param l Middle ingredient.
+  @param t Bottom ingredient, controls tartness.
+  @param mayo A flag controlling addition of condiment. Use YES for condiment,
+              HOLDTHE otherwise.
+  @result A pointer to a Sandwich structure. Caller is responsible for 
+          disposing of this structure.
+*/
+Sandwich *ConstructBLT (
+    Ingredient b;
+    Ingredient l;
+    Ingredient t;
+    Boolean mayo;
+);</pre>
+		<h2><a name="Anchor-Struct-38219"></a>Struct and Union Tags</h2>
+		<p>
+		<table border="1" cellpadding="0" cellspacing="2" width="92%">
+			<tr>
+				<td>
+					<center>
+						<b>Tag</b></center>
+				</td>
+				<td>
+					<center>
+						<b>Identifies</b></center>
+				</td>
+				<td><b>Fields</b></td>
+			</tr>
+			<tr>
+				<td><font color="#660000"><b>@struct </b></font><font color="#660000">/<b> @union</b></font></td>
+				<td>The name of the structure or union. (Also known as the struct or union's tag.)</td>
+				<td>
+					<center>
+						1</center>
+				</td>
+			</tr>
+			<tr>
+				<td><b>@field</b></td>
+				<td>A field in the structure.</td>
+				<td>
+					<center>
+						2</center>
+				</td>
+			</tr>
+		</table>
+		</p>
+		<p><b>Example:</b></p>
+		<pre>/*!
+  @struct TableOrigin
+  @discussion Locates lower-left corner of table in screen coordinates.
+  @field x Point on horizontal axis.
+  @field y Point on vertical axis
+*/
+struct TableOrigin {
+    int x;
+    int y;
+}</pre>
+		<h2><a name="Anchor-Enum-54325"></a>Enum Tags</h2>
+		<p>
+		<table border="1" cellpadding="0" cellspacing="2" width="92%">
+			<tr>
+				<td>
+					<center>
+						<b>Tag</b></center>
+				</td>
+				<td>
+					<center>
+						<b>Identifies</b></center>
+				</td>
+				<td><b>Fields</b></td>
+			</tr>
+			<tr>
+				<td><font color="#660000"><b>@enum</b></font></td>
+				<td>The name of the enumeration. This is the enum's tag, if it has one. Otherwise, supply a name you want to have the constants grouped under in the documentation.</td>
+				<td>
+					<center>
+						1</center>
+				</td>
+			</tr>
+			<tr>
+				<td><b>@constant</b></td>
+				<td>A constant within the enumeration.</td>
+				<td>
+					<center>
+						2</center>
+				</td>
+			</tr>
+		</table>
+		</p>
+		<p><b>Example:</b></p>
+		<pre>/*!
+  @enum Beverage Categories
+  @discussion Categorizes beverages into groups of similar types.
+  @constant kSoda Sweet, carbonated, non-alcoholic beverages.
+  @constant kBeer Light, grain-based, alcoholic beverages.
+  @constant kMilk Dairy beverages.
+  @constant kWater Unflavored, non-sweet, non-caloric, non-alcoholic beverages.
+*/
+enum {
+  kSoda = (1 &lt;&lt; 6),
+  kBeer = (1 &lt;&lt; 7),
+  kMilk = (1 &lt;&lt; 8),
+  kWater = (1 &lt;&lt; 9)
+}</pre>
+		<h2><a name="Anchor-Typedef-58500"></a>Typedef Tags</h2>
+		<p>
+		<table border="1" cellpadding="0" cellspacing="2" width="92%">
+			<tr>
+				<td>
+					<center>
+						<b>Tag</b></center>
+				</td>
+				<td>
+					<center>
+						<b>Identifies</b></center>
+				</td>
+				<td><b>Fields</b></td>
+			</tr>
+			<tr>
+				<td><font color="#660000"><b>@typedef</b></font></td>
+				<td>The name of the defined type.</td>
+				<td>
+					<center>
+						1</center>
+				</td>
+			</tr>
+			<tr>
+				<td><i><b>various</b></i></td>
+				<td>The tags that can appear after a &quot;@typedef&quot; tag depend on the definition of the new type. If the new type is a synonym for a structure, then @field tags are used. If the new type is a function pointer (a callback), the @param tags are used.</td>
+				<td></td>
+			</tr>
+		</table>
+		</p>
+		<p><b>Example 1 - Typedef for a struct:</b></p>
+		<pre>/*!
+  @typedef Sandwich
+  @discussion Defined type used by functions in the Repast Manager.
+  @field upper Bread for upper surface.
+  @field top First ingredient, from top to bottom.
+  @field middle Second ingredient, from top to bottom.
+  @field bottom Third ingredient, from top to bottom.
+  @field other Additional, optional, ingredient. 
+  @field upper Bread for lower surface.
+  */
+typedef struct sandwich {
+    Bread upper;
+    Ingredient top;
+    Ingredient middle;
+    Ingredient bottom;
+    Ingredient other;
+    Bread lower;
+} Sandwich;</pre>
+		<p>&nbsp;</p>
+		<p><b>Example 2 - Typedef for a function pointer:</b></p>
+		<pre>/*!
+     @typedef Action
+     @discussion Type and arguments of callout C function that is used when ...
+     @param owner Target of the function; can be used as a refcon. 
+     @param arg0 Argument to action from run operation.
+     @param arg1 Argument to action from run operation.
+     @param arg2 Argument to action from run operation.
+     @param arg3 Argument to action from run operation.
+*/
+     typedef IOReturn (*Action)(OSObject *owner,
+                                void *arg0, void *arg1,
+                                void *arg2, void *arg3);
+		</pre>
+		<p>&nbsp;</p>
+		<h2><tt><a name="Anchor-42424"></a>#define Tags</tt></h2>
+		<p><tt>
+		<table border="1" cellpadding="0" cellspacing="2" width="92%">
+			<tr>
+				<td>
+					<center>
+						<b>Tag</b></center>
+				</td>
+				<td>
+					<center>
+						<b>Identifies</b></center>
+				</td>
+				<td><b>Fields</b></td>
+			</tr>
+			<tr>
+				<td><font color="#660000"><b>@defined</b></font></td>
+				<td>Name of the symbolic constant.</td>
+				<td>
+					<center>
+						1</center>
+				</td>
+			</tr>
+		</table>
+		</tt></p>
+		<p><tt><b>Example:</b> </tt></p>
+		<pre>  /*!
+    @defined TRUE
+    @discussion Defines the boolean true value.
+  */
+  #define TRUE 1
+  </pre>
+		<p>&nbsp;
+	</body>
+
+</html>

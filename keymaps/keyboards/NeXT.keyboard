@@ -1,0 +1,154 @@
+##
+# Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+#
+# @APPLE_LICENSE_HEADER_START@
+# 
+# "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
+# Reserved.  This file contains Original Code and/or Modifications of
+# Original Code as defined in and that are subject to the Apple Public
+# Source License Version 1.0 (the 'License').  You may not use this file
+# except in compliance with the License.  Please obtain a copy of the
+# License at http://www.apple.com/publicsource and read it before using
+# this file.
+# 
+# The Original Code and all software distributed under the License are
+# distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+# EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+# INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+# License for the specific language governing rights and limitations
+# under the License."
+# 
+# @APPLE_LICENSE_HEADER_END@
+##
+#
+# NeXT.keyboard
+# - a keyboard layout description file
+# based on the NeXT keyboard with the loser return key
+#
+
+name NeXT ISO Keyboard
+interface 1
+handler_id 0
+
+# modifiers + space bar
+row 0.0 0.0
+key rectangle(48.0,24.0) 0x53	# left alternate
+key rectangle(48.0,24.0) 0x54	# left command
+key rectangle(168.0,24.0) 0x38	# space bar
+key rectangle(48.0,24.0) 0x55	# right command
+key rectangle(48.0,24.0) 0x56	# right alternate
+
+# row 1
+row 0.0 24.0
+key rectangle(60.0,24.0) 0x52	# left shift
+# row 1 alpha keys
+key square(24.0) 0x31
+key square(24.0) 0x32
+key square(24.0) 0x33
+key square(24.0) 0x34
+key square(24.0) 0x35
+key square(24.0) 0x37
+key square(24.0) 0x36
+key square(24.0) 0x2e
+key square(24.0) 0x2f
+key square(24.0) 0x30
+key rectangle(60.0,24.0) 0x57	# right shift
+
+# row 2
+row 0.0 48.0
+key rectangle(51.0,24.0) 0x51	# control
+# row 2 alpha keys
+key square(24.0) 0x39
+key square(24.0) 0x3a
+key square(24.0) 0x3b
+key square(24.0) 0x3c
+key square(24.0) 0x3d
+key square(24.0) 0x40
+key square(24.0) 0x3f
+key square(24.0) 0x3e
+key square(24.0) 0x2d
+key square(24.0) 0x2c
+key square(24.0) 0x2b
+key shape(U 24.0 R 21.0 U 24.0 R 24.0 D 48.0 L 45.0) 0x2a       # return key
+
+# row 3
+row 0.0 72.0
+key rectangle(48.0,24.0) 0x41	# tab
+# row 3 alpha keys
+key square(24.0) 0x42
+key square(24.0) 0x43
+key square(24.0) 0x44
+key square(24.0) 0x45
+key square(24.0) 0x48
+key square(24.0) 0x47
+key square(24.0) 0x46
+key square(24.0) 0x06
+key square(24.0) 0x07
+key square(24.0) 0x08
+key square(24.0) 0x05
+key square(24.0) 0x04
+
+# row 4 (the number keys)
+row 0.0 96.0
+key square(24.0) 0x49
+key square(24.0) 0x4a
+key square(24.0) 0x4b
+key square(24.0) 0x4c
+key square(24.0) 0x4d
+key square(24.0) 0x50
+key square(24.0) 0x4f
+key square(24.0) 0x4e
+key square(24.0) 0x1e
+key square(24.0) 0x1f
+key square(24.0) 0x20
+key square(24.0) 0x1d
+key square(24.0) 0x1c
+key rectangle(48.0,24.0) 0x1b	# backspace
+
+#
+# now, on to the right hand side of the keyboard
+#
+
+# arrow keys
+row 365.0 0.0
+key square(24.0) 0x09
+key square(24.0) 0x0f
+key square(24.0) 0x10
+row 389.0 24.0
+key square(24.0) 0x16
+
+# power/brightness/volume
+row 365.0 72.0
+key square(24.0) 0x02
+space 24.0
+key square(24.0) 0x01
+row 365.0 96.0
+key square(24.0) 0x1a
+key square(24.0) 0x58
+key square(24.0) 0x19
+
+# numeric keypad
+row 442 0.0
+key rectangle(48.0,24.0) 0x0b
+key square(24.0) 0x0c
+key rectangle(24.0,48.0) 0x0d
+row 442.0 24.0
+key square(24.0) 0x11
+key square(24.0) 0x17
+key square(24.0) 0x14
+row 442.0 48.0
+key square(24.0) 0x12
+key square(24.0) 0x18
+key square(24.0) 0x13
+key square(24.0) 0x15
+row 442.0 72.0
+key square(24.0) 0x21
+key square(24.0) 0x22
+key square(24.0) 0x23
+key square(24.0) 0x24
+row 442.0 96.0
+key square(24.0) 0x26
+key square(24.0) 0x27
+key square(24.0) 0x28
+key square(24.0) 0x25

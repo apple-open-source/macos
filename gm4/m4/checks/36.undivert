@@ -1,0 +1,13 @@
+dnl ../doc/m4.texinfo:2276: Origin of test
+divert(1)
+This text is diverted first.
+divert(0)undivert(1)dnl
+dnl @result{}
+dnl @result{}This text is diverted first.
+undivert(1)
+dnl @result{}
+divert(1)
+This text is also diverted but not appended.
+divert(0)undivert(1)dnl
+dnl @result{}
+dnl @result{}This text is also diverted but not appended.

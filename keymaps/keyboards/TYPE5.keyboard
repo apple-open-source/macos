@@ -1,0 +1,213 @@
+##
+# Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+#
+# @APPLE_LICENSE_HEADER_START@
+# 
+# "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
+# Reserved.  This file contains Original Code and/or Modifications of
+# Original Code as defined in and that are subject to the Apple Public
+# Source License Version 1.0 (the 'License').  You may not use this file
+# except in compliance with the License.  Please obtain a copy of the
+# License at http://www.apple.com/publicsource and read it before using
+# this file.
+# 
+# The Original Code and all software distributed under the License are
+# distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+# EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+# INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+# License for the specific language governing rights and limitations
+# under the License."
+# 
+# @APPLE_LICENSE_HEADER_END@
+##
+#
+# TYPE5.keyboard
+# - a keyboard layout description file
+# (based on the 119 key TYPE5 keyboard)
+#
+# 31-Oct-94	Kevin Schmidt (kschmidt) from Sun
+#	Added keyboard support for Sun/SPARC systems
+#
+
+name Sun Type5 Keyboard
+interface 7
+handler_id 120
+
+#
+# to begin, the left hand side of the keyboard
+#
+
+# option keys
+#  note: options keys on the type5 keyboard add 48 "points"
+#  plus 5 "points" of space to the left side of the keyboard.
+row 0.0 0.0
+key rectangle(22.0,24.0) 0x5f	# find
+key rectangle(22.0,24.0) 0x61	# cut
+row 0.0 24.0
+key rectangle(22.0,24.0) 0x48	# open
+key rectangle(22.0,24.0) 0x49	# paste
+row 0.0 48.0
+key rectangle(22.0,24.0) 0x31	# front
+key rectangle(22.0,24.0) 0x33	# copy
+row 0.0 72.0
+key rectangle(22.0,24.0) 0x19	# props
+key rectangle(22.0,24.0) 0x1a	# undo
+row 0.0 96.0
+key rectangle(22.0,24.0) 0x01	# stop
+key rectangle(22.0,24.0) 0x03	# again
+row 0.0 130.0
+key rectangle(44.0,24.0) 0x76	# help
+
+# modifiers + space bar
+row 48.0 0.0
+key rectangle(46.0,24.0) 0x77	# caps lock
+key rectangle(22.0,24.0) 0x13	# alternate
+key rectangle(22.0,24.0) 0x78	# left cmd
+key rectangle(174.0,24.0) 0x79	# space bar
+key rectangle(22.0,24.0) 0x7a	# right cmd
+key rectangle(22.0,24.0) 0x43	# compose
+key rectangle(22.0,24.0) 0x0d	# alt graph
+
+# row 1
+row 48.0 24.0
+key rectangle(55.0,24.0) 0x63	# left shift
+# row 1 alpha keys
+key rectangle(22.0,24.0) 0x64
+key rectangle(22.0,24.0) 0x65
+key rectangle(22.0,24.0) 0x66
+key rectangle(22.0,24.0) 0x67
+key rectangle(22.0,24.0) 0x68
+key rectangle(22.0,24.0) 0x69
+key rectangle(22.0,24.0) 0x6a
+key rectangle(22.0,24.0) 0x6b
+key rectangle(22.0,24.0) 0x6c
+key rectangle(22.0,24.0) 0x6d
+key rectangle(55.0,24.0) 0x6e	# right shift
+
+# row 2
+row 48.0 48.0
+key rectangle(46.0,24.0) 0x4c	# control
+# row 2 alpha keys
+key rectangle(22.0,24.0) 0x4d
+key rectangle(22.0,24.0) 0x4e
+key rectangle(22.0,24.0) 0x4f
+key rectangle(22.0,24.0) 0x50
+key rectangle(22.0,24.0) 0x51
+key rectangle(22.0,24.0) 0x52
+key rectangle(22.0,24.0) 0x53
+key rectangle(22.0,24.0) 0x54
+key rectangle(22.0,24.0) 0x55
+key rectangle(22.0,24.0) 0x56
+key rectangle(22.0,24.0) 0x57
+key rectangle(42.0,24.0) 0x59	# return key
+
+# row 3
+row 48.0 72.0
+key rectangle(33.0,24.0) 0x35	# tab
+# row 3 alpha keys
+key rectangle(22.0,24.0) 0x36
+key rectangle(22.0,24.0) 0x37
+key rectangle(22.0,24.0) 0x38
+key rectangle(22.0,24.0) 0x39
+key rectangle(22.0,24.0) 0x3a
+key rectangle(22.0,24.0) 0x3b
+key rectangle(22.0,24.0) 0x3c
+key rectangle(22.0,24.0) 0x3d
+key rectangle(22.0,24.0) 0x3e
+key rectangle(22.0,24.0) 0x3f
+key rectangle(22.0,24.0) 0x40
+key rectangle(22.0,24.0) 0x41
+key rectangle(33.0,24.0) 0x2b	# backspace
+
+# row 4 (the number keys)
+row 48.0 96.0
+key rectangle(22.0,24.0) 0x1d	# esc
+key rectangle(22.0,24.0) 0x1e
+key rectangle(22.0,24.0) 0x1f
+key rectangle(22.0,24.0) 0x20
+key rectangle(22.0,24.0) 0x21
+key rectangle(22.0,24.0) 0x22
+key rectangle(22.0,24.0) 0x23
+key rectangle(22.0,24.0) 0x24
+key rectangle(22.0,24.0) 0x25
+key rectangle(22.0,24.0) 0x26
+key rectangle(22.0,24.0) 0x27
+key rectangle(22.0,24.0) 0x28
+key rectangle(22.0,24.0) 0x29
+key rectangle(22.0,24.0) 0x58
+key rectangle(22.0,24.0) 0x2a	# tilde
+
+# row 5 (the function keys)
+row 48.0 130.0
+key rectangle(22.0,24.0) 0x0f
+space 20.0
+key rectangle(22.0,24.0) 0x05	# f1
+key rectangle(22.0,24.0) 0x06
+key rectangle(22.0,24.0) 0x08
+key rectangle(22.0,24.0) 0x0a
+space 12.0
+key rectangle(22.0,24.0) 0x0c
+key rectangle(22.0,24.0) 0x0e
+key rectangle(22.0,24.0) 0x10
+key rectangle(22.0,24.0) 0x11
+space 12.0
+key rectangle(22.0,24.0) 0x12
+key rectangle(22.0,24.0) 0x07
+key rectangle(22.0,24.0) 0x09
+key rectangle(22.0,24.0) 0x0b	# f12
+
+#
+# now, on to the right hand side of the keyboard
+#
+
+# arrow keys
+row 382.0 0.0
+key rectangle(22.0,24.0) 0x18	# <-
+key rectangle(22.0,24.0) 0x1b	# v
+key rectangle(22.0,24.0) 0x1c	# ->
+row 404.0 24.0
+key rectangle(22.0,24.0) 0x14	# ^
+
+# home/delete/insert/etc
+row 382.0 72.0
+key rectangle(22.0,24.0) 0x42	# del
+key rectangle(22.0,24.0) 0x4a	# end
+key rectangle(22.0,24.0) 0x7b	# page down
+row 382.0 96.0
+key rectangle(22.0,24.0) 0x2c	# insert
+key rectangle(22.0,24.0) 0x34	# home
+key rectangle(22.0,24.0) 0x60	# page up
+row 382.0 130.0
+key rectangle(22.0,24.0) 0x16	# print screen
+key rectangle(22.0,24.0) 0x17	# scroll lock
+key rectangle(22.0,24.0) 0x15	# pause
+
+# numeric keypad
+row 452 0.0
+key rectangle(44.0,24.0) 0x5e	# zero
+key rectangle(22.0,24.0) 0x32	# decimal pt
+key rectangle(22.0,48.0) 0x5a	# enter
+row 452.0 24.0
+key rectangle(22.0,24.0) 0x70
+key rectangle(22.0,24.0) 0x71
+key rectangle(22.0,24.0) 0x72
+row 452.0 48.0
+key rectangle(22.0,24.0) 0x5b
+key rectangle(22.0,24.0) 0x5c
+key rectangle(22.0,24.0) 0x5d
+key rectangle(22.0,48.0) 0x7d
+row 452.0 72.0
+key rectangle(22.0,24.0) 0x44
+key rectangle(22.0,24.0) 0x45
+key rectangle(22.0,24.0) 0x46
+row 452.0 96.0
+key rectangle(22.0,24.0) 0x62	# num lock
+key rectangle(22.0,24.0) 0x2e
+key rectangle(22.0,24.0) 0x2f
+key rectangle(22.0,24.0) 0x47
+row 452.0 130.0
+key rectangle(22.0,24.0) 0x2d
+key rectangle(22.0,24.0) 0x02	# volume -
+key rectangle(22.0,24.0) 0x04	# volume +
+key rectangle(22.0,24.0) 0x30	# power

@@ -1,0 +1,5 @@
+$ $Id: set21,v 1.1.1.1 1999/04/23 02:00:05 wsanchez Exp $
+$ tc.disc.c
+$set 21
+1 Kann lokale Sonderzeichen nicht auslesen.\n
+2 Kann lokale Sonderzeichen nicht setzen.\n

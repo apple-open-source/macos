@@ -1,0 +1,1199 @@
+This is ../info/emacs, produced by makeinfo version 4.0 from emacs.texi.
+
+   This is the thirteenth edition of the `GNU Emacs Manual', updated
+for Emacs version 20.7.
+
+INFO-DIR-SECTION Editors
+START-INFO-DIR-ENTRY
+* Emacs: (emacs).	The extensible self-documenting text editor.
+END-INFO-DIR-ENTRY
+
+   Published by the Free Software Foundation 59 Temple Place, Suite 330
+Boston, MA  02111-1307 USA
+
+   Copyright (C) 1985, 1986, 1987, 1993, 1994, 1995, 1996, 1997, 1998,
+1999    Free Software Foundation, Inc.
+
+   Permission is granted to make and distribute verbatim copies of this
+manual provided the copyright notice and this permission notice are
+preserved on all copies.
+
+   Permission is granted to copy and distribute modified versions of
+this manual under the conditions for verbatim copying, provided also
+that the sections entitled "The GNU Manifesto", "Distribution" and "GNU
+General Public License" are included exactly as in the original, and
+provided that the entire resulting derived work is distributed under the
+terms of a permission notice identical to this one.
+
+   Permission is granted to copy and distribute translations of this
+manual into another language, under the above conditions for modified
+versions, except that the sections entitled "The GNU Manifesto",
+"Distribution" and "GNU General Public License" may be included in a
+translation approved by the Free Software Foundation instead of in the
+original English.
+
+
+File: emacs,  Node: Special Diary Entries,  Prev: Adding to Diary,  Up: Diary
+
+Special Diary Entries
+---------------------
+
+   In addition to entries based on calendar dates, the diary file can
+contain "sexp entries" for regular events such as anniversaries.  These
+entries are based on Lisp expressions (sexps) that Emacs evaluates as
+it scans the diary file.  Instead of a date, a sexp entry contains `%%'
+followed by a Lisp expression which must begin and end with
+parentheses.  The Lisp expression determines which dates the entry
+applies to.
+
+   Calendar mode provides commands to insert certain commonly used sexp
+entries:
+
+`i a'
+     Add an anniversary diary entry for the selected date
+     (`insert-anniversary-diary-entry').
+
+`i b'
+     Add a block diary entry for the current region
+     (`insert-block-diary-entry').
+
+`i c'
+     Add a cyclic diary entry starting at the date
+     (`insert-cyclic-diary-entry').
+
+   If you want to make a diary entry that applies to the anniversary of
+a specific date, move point to that date and use the `i a' command.
+This displays the end of your diary file in another window and inserts
+the anniversary description; you can then type the rest of the diary
+entry.  The entry looks like this:
+
+     %%(diary-anniversary 10 31 1948) Arthur's birthday
+
+This entry applies to October 31 in any year after 1948; `10 31 1948'
+specifies the date.  (If you are using the European calendar style, the
+month and day are interchanged.)  The reason this expression requires a
+beginning year is that advanced diary functions can use it to calculate
+the number of elapsed years.
+
+   A "block" diary entry applies to a specified range of consecutive
+dates.  Here is a block diary entry that applies to all dates from June
+24, 1990 through July 10, 1990:
+
+     %%(diary-block 6 24 1990 7 10 1990) Vacation
+
+The `6 24 1990' indicates the starting date and the `7 10 1990'
+indicates the stopping date.  (Again, if you are using the European
+calendar style, the month and day are interchanged.)
+
+   To insert a block entry, place point and the mark on the two dates
+that begin and end the range, and type `i b'.  This command displays
+the end of your diary file in another window and inserts the block
+description; you can then type the diary entry.
+
+   "Cyclic" diary entries repeat after a fixed interval of days.  To
+create one, select the starting date and use the `i c' command.  The
+command prompts for the length of interval, then inserts the entry,
+which looks like this:
+
+     %%(diary-cyclic 50 3 1 1990) Renew medication
+
+This entry applies to March 1, 1990 and every 50th day following; `3 1
+1990' specifies the starting date.  (If you are using the European
+calendar style, the month and day are interchanged.)
+
+   All three of these commands make marking diary entries.  To insert a
+nonmarking entry, give a numeric argument to the command.  For example,
+`C-u i a' makes a nonmarking anniversary diary entry.
+
+   Marking sexp diary entries in the calendar is _extremely_
+time-consuming, since every date visible in the calendar window must be
+individually checked.  So it's a good idea to make sexp diary entries
+nonmarking (with `&') when possible.
+
+   Another sophisticated kind of sexp entry, a "floating" diary entry,
+specifies a regularly occurring event by offsets specified in days,
+weeks, and months.  It is comparable to a crontab entry interpreted by
+the `cron' utility.  Here is a nonmarking, floating diary entry that
+applies to the last Thursday in November:
+
+     &%%(diary-float 11 4 -1) American Thanksgiving
+
+The 11 specifies November (the eleventh month), the 4 specifies Thursday
+(the fourth day of the week, where Sunday is numbered zero), and the -1
+specifies "last" (1 would mean "first," 2 would mean "second," -2 would
+mean "second-to-last," and so on).  The month can be a single month or
+a list of months.  Thus you could change the 11 above to `'(1 2 3)' and
+have the entry apply to the last Thursday of January, February, and
+March.  If the month is `t', the entry applies to all months of the
+year.
+
+   Most generally, sexp diary entries can perform arbitrary
+computations to determine when they apply.  *Note Sexp Diary Entries:
+(elisp)Sexp Diary Entries.
+
+
+File: emacs,  Node: Appointments,  Next: Daylight Savings,  Prev: Diary,  Up: Calendar/Diary
+
+Appointments
+============
+
+   If you have a diary entry for an appointment, and that diary entry
+begins with a recognizable time of day, Emacs can warn you, several
+minutes beforehand, that that appointment is pending.  Emacs alerts you
+to the appointment by displaying a message in the mode line.
+
+   To enable appointment notification, you must enable the time display
+feature of Emacs, `M-x display-time' (*note Mode Line::).  You must
+also add the function `appt-make-list' to the `diary-hook', like this:
+
+     (add-hook 'diary-hook 'appt-make-list)
+
+Adding this text to your `.emacs' file does the whole job:
+
+     (display-time)
+     (add-hook 'diary-hook 'appt-make-list)
+     (diary 0)
+
+   With these preparations done, when you display the diary (either with
+the `d' command in the calendar window or with the `M-x diary'
+command), it sets up an appointment list of all the diary entries found
+with recognizable times of day, and reminds you just before each of
+them.
+
+   For example, suppose the diary file contains these lines:
+
+     Monday
+       9:30am Coffee break
+      12:00pm Lunch
+
+Then on Mondays, after you have displayed the diary, you will be
+reminded at 9:20am about your coffee break and at 11:50am about lunch.
+
+   You can write times in am/pm style (with `12:00am' standing for
+midnight and `12:00pm' standing for noon), or 24-hour European/military
+style.  You need not be consistent; your diary file can have a mixture
+of the two styles.
+
+   Emacs updates the appointments list automatically just after
+midnight.  This also displays the next day's diary entries in the diary
+buffer, unless you set `appt-display-diary' to `nil'.
+
+   You can also use the appointment notification facility like an alarm
+clock.  The command `M-x appt-add' adds entries to the appointment list
+without affecting your diary file.  You delete entries from the
+appointment list with `M-x appt-delete'.
+
+   You can turn off the appointment notification feature at any time by
+setting `appt-issue-message' to `nil'.
+
+
+File: emacs,  Node: Daylight Savings,  Prev: Appointments,  Up: Calendar/Diary
+
+Daylight Savings Time
+=====================
+
+   Emacs understands the difference between standard time and daylight
+savings time--the times given for sunrise, sunset, solstices,
+equinoxes, and the phases of the moon take that into account.  The rules
+for daylight savings time vary from place to place and have also varied
+historically from year to year.  To do the job properly, Emacs needs to
+know which rules to use.
+
+   Some operating systems keep track of the rules that apply to the
+place where you are; on these systems, Emacs gets the information it
+needs from the system automatically.  If some or all of this
+information is missing, Emacs fills in the gaps with the rules
+currently used in Cambridge, Massachusetts.  If the resulting rules are
+not what you want, you can tell Emacs the rules to use by setting
+certain variables: `calendar-daylight-savings-starts' and
+`calendar-daylight-savings-ends'.
+
+   These values should be Lisp expressions that refer to the variable
+`year', and evaluate to the Gregorian date on which daylight savings
+time starts or (respectively) ends, in the form of a list `(MONTH DAY
+YEAR)'.  The values should be `nil' if your area does not use daylight
+savings time.
+
+   Emacs uses these expressions to determine the starting date of
+daylight savings time for the holiday list and for correcting times of
+day in the solar and lunar calculations.
+
+   The values for Cambridge, Massachusetts are as follows:
+
+     (calendar-nth-named-day 1 0 4 year)
+     (calendar-nth-named-day -1 0 10 year)
+
+That is, the first 0th day (Sunday) of the fourth month (April) in the
+year specified by `year', and the last Sunday of the tenth month
+(October) of that year.  If daylight savings time were changed to start
+on October 1, you would set `calendar-daylight-savings-starts' to this:
+
+     (list 10 1 year)
+
+   If there is no daylight savings time at your location, or if you want
+all times in standard time, set `calendar-daylight-savings-starts' and
+`calendar-daylight-savings-ends' to `nil'.
+
+   The variable `calendar-daylight-time-offset' specifies the
+difference between daylight savings time and standard time, measured in
+minutes.  The value for Cambridge, Massachusetts is 60.
+
+   The two variables `calendar-daylight-savings-starts-time' and
+`calendar-daylight-savings-ends-time' specify the number of minutes
+after midnight local time when the transition to and from daylight
+savings time should occur.  For Cambridge, Massachusetts both variables'
+values are 120.
+
+
+File: emacs,  Node: Gnus,  Next: Shell,  Prev: Calendar/Diary,  Up: Top
+
+Gnus
+====
+
+   Gnus is an Emacs package primarily designed for reading and posting
+Usenet news.  It can also be used to read and respond to messages from a
+number of other sources--mail, remote directories, digests, and so on.
+
+   Here we introduce Gnus and describe several basic features.  For
+full details, see *Note Gnus: (gnus)Top.
+
+   To start Gnus, type `M-x gnus <RET>'.
+
+* Menu:
+
+* Buffers of Gnus::	The group, summary, and article buffers.
+* Gnus Startup::	What you should know about starting Gnus.
+* Summary of Gnus::	A short description of the basic Gnus commands.
+
+
+File: emacs,  Node: Buffers of Gnus,  Next: Gnus Startup,  Up: Gnus
+
+Gnus Buffers
+------------
+
+   As opposed to most normal Emacs packages, Gnus uses a number of
+different buffers to display information and to receive commands.  The
+three buffers users spend most of their time in are the "group buffer",
+the "summary buffer" and the "article buffer".
+
+   The "group buffer" contains a list of groups.  This is the first
+buffer Gnus displays when it starts up.  It normally displays only the
+groups to which you subscribe and that contain unread articles.  Use
+this buffer to select a specific group.
+
+   The "summary buffer" lists one line for each article in a single
+group.  By default, the author, the subject and the line number are
+displayed for each article, but this is customizable, like most aspects
+of Gnus display.  The summary buffer is created when you select a group
+in the group buffer, and is killed when you exit the group.  Use this
+buffer to select an article.
+
+   The "article buffer" displays the article.  In normal Gnus usage,
+you don't select this buffer--all useful article-oriented commands work
+in the summary buffer.  But you can select the article buffer, and
+execute all Gnus commands from that buffer, if you want to.
+
+
+File: emacs,  Node: Gnus Startup,  Next: Summary of Gnus,  Prev: Buffers of Gnus,  Up: Gnus
+
+When Gnus Starts Up
+-------------------
+
+   At startup, Gnus reads your `.newsrc' news initialization file and
+attempts to communicate with the local news server, which is a
+repository of news articles.  The news server need not be the same
+computer you are logged in on.
+
+   If you start Gnus and connect to the server, but do not see any
+newsgroups listed in the group buffer, type `L' or `A k' to get a
+listing of all the groups.  Then type `u' to toggle subscription to
+groups.
+
+   The first time you start Gnus, Gnus subscribes you to a few selected
+groups.  All other groups start out as "killed groups" for you; you can
+list them with `A k'.  All new groups that subsequently come to exist
+at the news server become "zombie groups" for you; type `A z' to list
+them.  You can subscribe to a group shown in these lists using the `u'
+command.
+
+   When you quit Gnus with `q', it automatically records in your
+`.newsrc' and `.newsrc.eld' initialization files the subscribed or
+unsubscribed status of all groups.  You should normally not edit these
+files manually, but you may if you know how.
+
+
+File: emacs,  Node: Summary of Gnus,  Prev: Gnus Startup,  Up: Gnus
+
+Summary of Gnus Commands
+------------------------
+
+   Reading news is a two step process:
+
+  1. Choose a group in the group buffer.
+
+  2. Select articles from the summary buffer.  Each article selected is
+     displayed in the article buffer in a large window, below the
+     summary buffer in its small window.
+
+   Each Gnus buffer has its own special commands; however, the meanings
+of any given key in the various Gnus buffers are usually analogous, even
+if not identical.  Here are commands for the group and summary buffers:
+
+`q'
+     In the group buffer, update your `.newsrc' initialization file and
+     quit Gnus.
+
+     In the summary buffer, exit the current group and return to the
+     group buffer.  Thus, typing `q' twice quits Gnus.
+
+`L'
+     In the group buffer, list all the groups available on your news
+     server (except those you have killed).  This may be a long list!
+
+`l'
+     In the group buffer, list only the groups to which you subscribe
+     and which contain unread articles.
+
+`u'
+     In the group buffer, unsubscribe from (or subscribe to) the group
+     listed in the line that point is on.  When you quit Gnus by typing
+     `q', Gnus lists in your `.newsrc' file which groups you have
+     subscribed to.  The next time you start Gnus, you won't see this
+     group, because Gnus normally displays only subscribed-to groups.
+
+`C-k'
+     In the group buffer, "kill" the current line's group--don't even
+     list it in `.newsrc' from now on.  This affects future Gnus
+     sessions as well as the present session.
+
+     When you quit Gnus by typing `q', Gnus writes information in the
+     file `.newsrc' describing all newsgroups except those you have
+     "killed."
+
+`<SPC>'
+     In the group buffer, select the group on the line under the cursor
+     and display the first unread article in that group.
+
+     In the summary buffer,
+
+        * Select the article on the line under the cursor if none is
+          selected.
+
+        * Scroll the text of the selected article (if there is one).
+
+        * Select the next unread article if at the end of the current
+          article.
+
+     Thus, you can move through all the articles by repeatedly typing
+     <SPC>.
+
+`<DEL>'
+     In the group buffer, move point to the previous group containing
+     unread articles.
+
+     In the summary buffer, scroll the text of the article backwards.
+
+`n'
+     Move point to the next unread group, or select the next unread
+     article.
+
+`p'
+     Move point to the previous unread group, or select the previous
+     unread article.
+
+`C-n'
+`C-p'
+     Move point to the next or previous item, even if it is marked as
+     read.  This does not select the article or group on that line.
+
+`s'
+     In the summary buffer, do an incremental search of the current
+     text in the article buffer, just as if you switched to the article
+     buffer and typed `C-s'.
+
+`M-s REGEXP <RET>'
+     In the summary buffer, search forward for articles containing a
+     match for REGEXP.
+
+
+File: emacs,  Node: Shell,  Next: Emacs Server,  Prev: Gnus,  Up: Top
+
+Running Shell Commands from Emacs
+=================================
+
+   Emacs has commands for passing single command lines to inferior shell
+processes; it can also run a shell interactively with input and output
+to an Emacs buffer named `*shell*'.
+
+`M-! CMD <RET>'
+     Run the shell command line CMD and display the output
+     (`shell-command').
+
+`M-| CMD <RET>'
+     Run the shell command line CMD with region contents as input;
+     optionally replace the region with the output
+     (`shell-command-on-region').
+
+`M-x shell'
+     Run a subshell with input and output through an Emacs buffer.  You
+     can then give commands interactively.
+
+* Menu:
+
+* Single Shell::           How to run one shell command and return.
+* Interactive Shell::      Permanent shell taking input via Emacs.
+* Shell Mode::             Special Emacs commands used with permanent shell.
+* History: Shell History.  Repeating previous commands in a shell buffer.
+* Options: Shell Options.  Options for customizing Shell mode.
+* Remote Host::            Connecting to another computer.
+
+
+File: emacs,  Node: Single Shell,  Next: Interactive Shell,  Up: Shell
+
+Single Shell Commands
+---------------------
+
+   `M-!' (`shell-command') reads a line of text using the minibuffer
+and executes it as a shell command in a subshell made just for that
+command.  Standard input for the command comes from the null device.
+If the shell command produces any output, the output goes into an Emacs
+buffer named `*Shell Command Output*', which is displayed in another
+window but not selected.  A numeric argument, as in `M-1 M-!', directs
+this command to insert any output into the current buffer.  In that
+case, point is left before the output and the mark is set after the
+output.
+
+   If the shell command line ends in `&', it runs asynchronously.  For
+a synchronous shell command, `shell-command' returns the command's exit
+status (0 means success), when it is called from a Lisp program.
+
+   `M-|' (`shell-command-on-region') is like `M-!' but passes the
+contents of the region as the standard input to the shell command,
+instead of no input.  If a numeric argument is used, meaning insert the
+output in the current buffer, then the old region is deleted first and
+the output replaces it as the contents of the region.  It returns the
+command's exit status when it is called from a Lisp program.
+
+   Both `M-!' and `M-|' use `shell-file-name' to specify the shell to
+use.  This variable is initialized based on your `SHELL' environment
+variable when Emacs is started.  If the file name does not specify a
+directory, the directories in the list `exec-path' are searched; this
+list is initialized based on the environment variable `PATH' when Emacs
+is started.  Your `.emacs' file can override either or both of these
+default initializations.
+
+   Both `M-!' and `M-|' wait for the shell command to complete.  To
+stop waiting, type `C-g' to quit; that terminates the shell command
+with the signal `SIGINT'--the same signal that `C-c' normally generates
+in the shell.  Emacs waits until the command actually terminates.  If
+the shell command doesn't stop (because it ignores the `SIGINT'
+signal), type `C-g' again; this sends the command a `SIGKILL' signal
+which is impossible to ignore.
+
+   To specify a coding system for `M-!' or `M-|', use the command `C-x
+<RET> c' immediately beforehand.  *Note Specify Coding::.
+
+   Error output from the command is normally intermixed with the regular
+output.  If you set the variable `shell-command-default-error-buffer'
+to a string, which is a buffer name, error output is inserted before
+point in the buffer of that name.
+
+
+File: emacs,  Node: Interactive Shell,  Next: Shell Mode,  Prev: Single Shell,  Up: Shell
+
+Interactive Inferior Shell
+--------------------------
+
+   To run a subshell interactively, putting its typescript in an Emacs
+buffer, use `M-x shell'.  This creates (or reuses) a buffer named
+`*shell*' and runs a subshell with input coming from and output going
+to that buffer.  That is to say, any "terminal output" from the subshell
+goes into the buffer, advancing point, and any "terminal input" for the
+subshell comes from text in the buffer.  To give input to the subshell,
+go to the end of the buffer and type the input, terminated by <RET>.
+
+   Emacs does not wait for the subshell to do anything.  You can switch
+windows or buffers and edit them while the shell is waiting, or while
+it is running a command.  Output from the subshell waits until Emacs
+has time to process it; this happens whenever Emacs is waiting for
+keyboard input or for time to elapse.
+
+   To make multiple subshells, rename the buffer `*shell*' to something
+different using `M-x rename-uniquely'.  Then type `M-x shell' again to
+create a new buffer `*shell*' with its own subshell.  If you rename
+this buffer as well, you can create a third one, and so on.  All the
+subshells run independently and in parallel.
+
+   The file name used to load the subshell is the value of the variable
+`explicit-shell-file-name', if that is non-`nil'.  Otherwise, the
+environment variable `ESHELL' is used, or the environment variable
+`SHELL' if there is no `ESHELL'.  If the file name specified is
+relative, the directories in the list `exec-path' are searched; this
+list is initialized based on the environment variable `PATH' when Emacs
+is started.  Your `.emacs' file can override either or both of these
+default initializations.
+
+   To specify a coding system for the shell, you can use the command
+`C-x <RET> c' immediately before `M-x shell'.  You can also specify a
+coding system after starting the shell by using `C-x <RET> p' in the
+shell buffer.  *Note Specify Coding::.
+
+   As soon as the subshell is started, it is sent as input the contents
+of the file `~/.emacs_SHELLNAME', if that file exists, where SHELLNAME
+is the name of the file that the shell was loaded from.  For example,
+if you use bash, the file sent to it is `~/.emacs_bash'.
+
+   `cd', `pushd' and `popd' commands given to the inferior shell are
+watched by Emacs so it can keep the `*shell*' buffer's default
+directory the same as the shell's working directory.  These commands
+are recognized syntactically by examining lines of input that are sent.
+If you use aliases for these commands, you can tell Emacs to recognize
+them also.  For example, if the value of the variable
+`shell-pushd-regexp' matches the beginning of a shell command line,
+that line is regarded as a `pushd' command.  Change this variable when
+you add aliases for `pushd'.  Likewise, `shell-popd-regexp' and
+`shell-cd-regexp' are used to recognize commands with the meaning of
+`popd' and `cd'.  These commands are recognized only at the beginning
+of a shell command line.
+
+   If Emacs gets an error while trying to handle what it believes is a
+`cd', `pushd' or `popd' command, it runs the hook
+`shell-set-directory-error-hook' (*note Hooks::).
+
+   If Emacs does not properly track changes in the current directory of
+the subshell, use the command `M-x dirs' to ask the shell what its
+current directory is.  This command works for shells that support the
+most common command syntax; it may not work for unusual shells.
+
+   You can also use `M-x dirtrack-mode' to enable (or disable) an
+alternative and more aggressive method of tracking changes in the
+current directory.
+
+   Emacs defines the environment variable `EMACS' in the subshell, with
+value `t'.  A shell script can check this variable to determine whether
+it has been run from an Emacs subshell.
+
+
+File: emacs,  Node: Shell Mode,  Next: Shell History,  Prev: Interactive Shell,  Up: Shell
+
+Shell Mode
+----------
+
+   Shell buffers use Shell mode, which defines several special keys
+attached to the `C-c' prefix.  They are chosen to resemble the usual
+editing and job control characters present in shells that are not under
+Emacs, except that you must type `C-c' first.  Here is a complete list
+of the special key bindings of Shell mode:
+
+`<RET>'
+     At end of buffer send line as input; otherwise, copy current line
+     to end of buffer and send it (`comint-send-input').  When a line is
+     copied, any text at the beginning of the line that matches the
+     variable `shell-prompt-pattern' is left out; this variable's value
+     should be a regexp string that matches the prompts that your shell
+     uses.
+
+`<TAB>'
+     Complete the command name or file name before point in the shell
+     buffer (`comint-dynamic-complete').  <TAB> also completes history
+     references (*note History References::) and environment variable
+     names.
+
+     The variable `shell-completion-fignore' specifies a list of file
+     name extensions to ignore in Shell mode completion.  The default
+     setting ignores file names ending in `~', `#' or `%'.  Other
+     related Comint modes use the variable `comint-completion-fignore'
+     instead.
+
+`M-?'
+     Display temporarily a list of the possible completions of the file
+     name before point in the shell buffer
+     (`comint-dynamic-list-filename-completions').
+
+`C-d'
+     Either delete a character or send EOF
+     (`comint-delchar-or-maybe-eof').  Typed at the end of the shell
+     buffer, `C-d' sends EOF to the subshell.  Typed at any other
+     position in the buffer, `C-d' deletes a character as usual.
+
+`C-c C-a'
+     Move to the beginning of the line, but after the prompt if any
+     (`comint-bol').  If you repeat this command twice in a row, the
+     second time it moves back to the process mark, which is the
+     beginning of the input that you have not yet sent to the subshell.
+     (Normally that is the same place--the end of the prompt on this
+     line--but after `C-c <SPC>' the process mark may be in a previous
+     line.)
+
+`C-c <SPC>'
+     Accumulate multiple lines of input, then send them together.  This
+     command inserts a newline before point, but does not send the
+     preceding text as input to the subshell--at least, not yet.  Both
+     lines, the one before this newline and the one after, will be sent
+     together (along with the newline that separates them), when you
+     type <RET>.
+
+`C-c C-u'
+     Kill all text pending at end of buffer to be sent as input
+     (`comint-kill-input').
+
+`C-c C-w'
+     Kill a word before point (`backward-kill-word').
+
+`C-c C-c'
+     Interrupt the shell or its current subjob if any
+     (`comint-interrupt-subjob').  This command also kills any shell
+     input pending in the shell buffer and not yet sent.
+
+`C-c C-z'
+     Stop the shell or its current subjob if any (`comint-stop-subjob').
+     This command also kills any shell input pending in the shell
+     buffer and not yet sent.
+
+`C-c C-\'
+     Send quit signal to the shell or its current subjob if any
+     (`comint-quit-subjob').  This command also kills any shell input
+     pending in the shell buffer and not yet sent.
+
+`C-c C-o'
+     Kill the last batch of output from a shell command
+     (`comint-kill-output').  This is useful if a shell command spews
+     out lots of output that just gets in the way.
+
+`C-c C-r'
+`C-M-l'
+     Scroll to display the beginning of the last batch of output at the
+     top of the window; also move the cursor there
+     (`comint-show-output').
+
+`C-c C-e'
+     Scroll to put the end of the buffer at the bottom of the window
+     (`comint-show-maximum-output').
+
+`C-c C-f'
+     Move forward across one shell command, but not beyond the current
+     line (`shell-forward-command').  The variable
+     `shell-command-regexp' specifies how to recognize the end of a
+     command.
+
+`C-c C-b'
+     Move backward across one shell command, but not beyond the current
+     line (`shell-backward-command').
+
+`C-c C-l'
+     Display the buffer's history of shell commands in another window
+     (`comint-dynamic-list-input-ring').
+
+`M-x dirs'
+     Ask the shell what its current directory is, so that Emacs can
+     agree with the shell.
+
+`M-x send-invisible <RET> TEXT <RET>'
+     Send TEXT as input to the shell, after reading it without echoing.
+     This is useful when a shell command runs a program that asks for
+     a password.
+
+     Alternatively, you can arrange for Emacs to notice password prompts
+     and turn off echoing for them, as follows:
+
+          (add-hook 'comint-output-filter-functions
+                    'comint-watch-for-password-prompt)
+
+`M-x comint-continue-subjob'
+     Continue the shell process.  This is useful if you accidentally
+     suspend the shell process.(1)
+
+`M-x comint-strip-ctrl-m'
+     Discard all control-M characters from the current group of shell
+     output.  The most convenient way to use this command is to make it
+     run automatically when you get output from the subshell.  To do
+     that, evaluate this Lisp expression:
+
+          (add-hook 'comint-output-filter-functions
+                    'comint-strip-ctrl-m)
+
+`M-x comint-truncate-buffer'
+     This command truncates the shell buffer to a certain maximum
+     number of lines, specified by the variable
+     `comint-buffer-maximum-size'.  Here's how to do this automatically
+     each time you get output from the subshell:
+
+          (add-hook 'comint-output-filter-functions
+                    'comint-truncate-buffer)
+
+   Shell mode also customizes the paragraph commands so that only shell
+prompts start new paragraphs.  Thus, a paragraph consists of an input
+command plus the output that follows it in the buffer.
+
+   Shell mode is a derivative of Comint mode, a general-purpose mode for
+communicating with interactive subprocesses.  Most of the features of
+Shell mode actually come from Comint mode, as you can see from the
+command names listed above.  The special features of Shell mode in
+particular include the choice of regular expression for detecting
+prompts, the directory tracking feature, and a few user commands.
+
+   Other Emacs features that use variants of Comint mode include GUD
+(*note Debuggers::) and `M-x run-lisp' (*note External Lisp::).
+
+   You can use `M-x comint-run' to execute any program of your choice
+in a subprocess using unmodified Comint mode--without the
+specializations of Shell mode.
+
+   ---------- Footnotes ----------
+
+   (1) You should not suspend the shell process.  Suspending a subjob
+of the shell is a completely different matter--that is normal practice,
+but you must use the shell to continue the subjob; this command won't
+do it.
+
+
+File: emacs,  Node: Shell History,  Next: Shell Options,  Prev: Shell Mode,  Up: Shell
+
+Shell Command History
+---------------------
+
+   Shell buffers support three ways of repeating earlier commands.  You
+can use the same keys used in the minibuffer; these work much as they do
+in the minibuffer, inserting text from prior commands while point
+remains always at the end of the buffer.  You can move through the
+buffer to previous inputs in their original place, then resubmit them or
+copy them to the end.  Or you can use a `!'-style history reference.
+
+* Menu:
+
+* Ring: Shell Ring.             Fetching commands from the history list.
+* Copy: Shell History Copying.  Moving to a command and then copying it.
+* History References::          Expanding `!'-style history references.
+
+
+File: emacs,  Node: Shell Ring,  Next: Shell History Copying,  Up: Shell History
+
+Shell History Ring
+..................
+
+`M-p'
+     Fetch the next earlier old shell command.
+
+`M-n'
+     Fetch the next later old shell command.
+
+`M-r REGEXP <RET>'
+`M-s REGEXP <RET>'
+     Search backwards or forwards for old shell commands that match
+     REGEXP.
+
+`C-c C-x (Shell mode)'
+     Fetch the next subsequent command from the history.
+
+   Shell buffers provide a history of previously entered shell
+commands.  To reuse shell commands from the history, use the editing
+commands `M-p', `M-n', `M-r' and `M-s'.  These work just like the
+minibuffer history commands except that they operate on the text at the
+end of the shell buffer, where you would normally insert text to send
+to the shell.
+
+   `M-p' fetches an earlier shell command to the end of the shell
+buffer.  Successive use of `M-p' fetches successively earlier shell
+commands, each replacing any text that was already present as potential
+shell input.  `M-n' does likewise except that it finds successively
+more recent shell commands from the buffer.
+
+   The history search commands `M-r' and `M-s' read a regular
+expression and search through the history for a matching command.  Aside
+from the choice of which command to fetch, they work just like `M-p'
+and `M-r'.  If you enter an empty regexp, these commands reuse the same
+regexp used last time.
+
+   When you find the previous input you want, you can resubmit it by
+typing <RET>, or you can edit it first and then resubmit it if you wish.
+
+   Often it is useful to reexecute several successive shell commands
+that were previously executed in sequence.  To do this, first find and
+reexecute the first command of the sequence.  Then type `C-c C-x'; that
+will fetch the following command--the one that follows the command you
+just repeated.  Then type <RET> to reexecute this command.  You can
+reexecute several successive commands by typing `C-c C-x <RET>' over
+and over.
+
+   These commands get the text of previous shell commands from a special
+history list, not from the shell buffer itself.  Thus, editing the shell
+buffer, or even killing large parts of it, does not affect the history
+that these commands access.
+
+   Some shells store their command histories in files so that you can
+refer to previous commands from previous shell sessions.  Emacs reads
+the command history file for your chosen shell, to initialize its own
+command history.  The file name is `~/.bash_history' for bash,
+`~/.sh_history' for ksh, and `~/.history' for other shells.
+
+
+File: emacs,  Node: Shell History Copying,  Next: History References,  Prev: Shell Ring,  Up: Shell History
+
+Shell History Copying
+.....................
+
+`C-c C-p'
+     Move point to the previous prompt (`comint-previous-prompt').
+
+`C-c C-n'
+     Move point to the following prompt (`comint-next-prompt').
+
+`C-c <RET>'
+     Copy the input command which point is in, inserting the copy at
+     the end of the buffer (`comint-copy-old-input').  This is useful
+     if you move point back to a previous command.  After you copy the
+     command, you can submit the copy as input with <RET>.  If you
+     wish, you can edit the copy before resubmitting it.
+
+   Moving to a previous input and then copying it with `C-c <RET>'
+produces the same results--the same buffer contents--that you would get
+by using `M-p' enough times to fetch that previous input from the
+history list.  However, `C-c <RET>' copies the text from the buffer,
+which can be different from what is in the history list if you edit the
+input text in the buffer after it has been sent.
+
+
+File: emacs,  Node: History References,  Prev: Shell History Copying,  Up: Shell History
+
+Shell History References
+........................
+
+   Various shells including csh and bash support "history references"
+that begin with `!' and `^'.  Shell mode can understand these
+constructs and perform the history substitution for you.  If you insert
+a history reference and type <TAB>, this searches the input history for
+a matching command, performs substitution if necessary, and places the
+result in the buffer in place of the history reference.  For example,
+you can fetch the most recent command beginning with `mv' with `! m v
+<TAB>'.  You can edit the command if you wish, and then resubmit the
+command to the shell by typing <RET>.
+
+   History references take effect only following a shell prompt.  The
+variable `shell-prompt-pattern' specifies how to recognize a shell
+prompt.  Comint modes in general use the variable
+`comint-prompt-regexp' to specify how to find a prompt; Shell mode uses
+`shell-prompt-pattern' to set up the local value of
+`comint-prompt-regexp'.
+
+   Shell mode can optionally expand history references in the buffer
+when you send them to the shell.  To request this, set the variable
+`comint-input-autoexpand' to `input'.
+
+   You can make <SPC> perform history expansion by binding <SPC> to the
+command `comint-magic-space'.
+
+
+File: emacs,  Node: Shell Options,  Next: Remote Host,  Prev: Shell History,  Up: Shell
+
+Shell Mode Options
+------------------
+
+   If the variable `comint-scroll-to-bottom-on-input' is non-`nil',
+insertion and yank commands scroll the selected window to the bottom
+before inserting.
+
+   If `comint-scroll-show-maximum-output' is non-`nil', then scrolling
+due to arrival of output tries to place the last line of text at the
+bottom line of the window, so as to show as much useful text as
+possible.  (This mimics the scrolling behavior of many terminals.)  The
+default is `nil'.
+
+   By setting `comint-scroll-to-bottom-on-output', you can opt for
+having point jump to the end of the buffer whenever output arrives--no
+matter where in the buffer point was before.  If the value is `this',
+point jumps in the selected window.  If the value is `all', point jumps
+in each window that shows the comint buffer.  If the value is `other',
+point jumps in all nonselected windows that show the current buffer.
+The default value is `nil', which means point does not jump to the end.
+
+   The variable `comint-input-ignoredups' controls whether successive
+identical inputs are stored in the input history.  A non-`nil' value
+means to omit an input that is the same as the previous input.  The
+default is `nil', which means to store each input even if it is equal
+to the previous input.
+
+   Three variables customize file name completion.  The variable
+`comint-completion-addsuffix' controls whether completion inserts a
+space or a slash to indicate a fully completed file or directory name
+(non-`nil' means do insert a space or slash).
+`comint-completion-recexact', if non-`nil', directs <TAB> to choose the
+shortest possible completion if the usual Emacs completion algorithm
+cannot add even a single character.  `comint-completion-autolist', if
+non-`nil', says to list all the possible completions whenever
+completion is not exact.
+
+   The command `comint-dynamic-complete-variable' does variable-name
+completion using the environment variables as set within Emacs.  The
+variables controlling file name completion apply to variable-name
+completion too.  This command is normally available through the menu
+bar.
+
+   Command completion normally considers only executable files.  If you
+set `shell-command-execonly' to `nil', it considers nonexecutable files
+as well.
+
+   You can configure the behavior of `pushd'.  Variables control
+whether `pushd' behaves like `cd' if no argument is given
+(`shell-pushd-tohome'), pop rather than rotate with a numeric argument
+(`shell-pushd-dextract'), and only add directories to the directory
+stack if they are not already on it (`shell-pushd-dunique').  The
+values you choose should match the underlying shell, of course.
+
+
+File: emacs,  Node: Remote Host,  Prev: Shell Options,  Up: Shell
+
+Remote Host Shell
+-----------------
+
+   Emacs provides two commands for logging in to another computer and
+communicating with it through an Emacs buffer.
+
+`M-x telnet <RET> HOSTNAME <RET>'
+     Set up a Telnet connection to the computer named HOSTNAME.
+
+`M-x rlogin <RET> HOSTNAME <RET>'
+     Set up an Rlogin connection to the computer named HOSTNAME.
+
+   Use `M-x telnet' to set up a Telnet connection to another computer.
+(Telnet is the standard Internet protocol for remote login.)  It reads
+the host name of the other computer as an argument with the minibuffer.
+Once the connection is established, talking to the other computer
+works like talking to a subshell: you can edit input with the usual
+Emacs commands, and send it a line at a time by typing <RET>.  The
+output is inserted in the Telnet buffer interspersed with the input.
+
+   Use `M-x rlogin' to set up an Rlogin connection.  Rlogin is another
+remote login communication protocol, essentially much like the Telnet
+protocol but incompatible with it, and supported only by certain
+systems.  Rlogin's advantages are that you can arrange not to have to
+give your user name and password when communicating between two machines
+you frequently use, and that you can make an 8-bit-clean connection.
+(To do that in Emacs, set `rlogin-explicit-args' to `("-8")' before you
+run Rlogin.)
+
+   `M-x rlogin' sets up the default file directory of the Emacs buffer
+to access the remote host via FTP (*note File Names::), and it tracks
+the shell commands that change the current directory, just like Shell
+mode.
+
+   There are two ways of doing directory tracking in an Rlogin
+buffer--either with remote directory names `/HOST:DIR/' or with local
+names (that works if the "remote" machine shares file systems with your
+machine of origin).  You can use the command
+`rlogin-directory-tracking-mode' to switch modes.  No argument means
+use remote directory names, a positive argument means use local names,
+and a negative argument means turn off directory tracking.
+
+
+File: emacs,  Node: Emacs Server,  Next: Hardcopy,  Prev: Shell,  Up: Top
+
+Using Emacs as a Server
+=======================
+
+   Various programs such as `mail' can invoke your choice of editor to
+edit a particular piece of text, such as a message that you are
+sending.  By convention, most of these programs use the environment
+variable `EDITOR' to specify which editor to run.  If you set `EDITOR'
+to `emacs', they invoke Emacs--but in an inconvenient fashion, by
+starting a new, separate Emacs process.  This is inconvenient because
+it takes time and because the new Emacs process doesn't share the
+buffers in the existing Emacs process.
+
+   You can arrange to use your existing Emacs process as the editor for
+programs like `mail' by using the Emacs client and Emacs server
+programs.  Here is how.
+
+   First, the preparation.  Within Emacs, call the function
+`server-start'.  (Your `.emacs' file can do this automatically if you
+add the expression `(server-start)' to it.)  Then, outside Emacs, set
+the `EDITOR' environment variable to `emacsclient'.  (Note that some
+programs use a different environment variable; for example, to make TeX
+use `emacsclient', you should set the `TEXEDIT' environment variable to
+`emacsclient +%d %s'.)
+
+   Then, whenever any program invokes your specified `EDITOR' program,
+the effect is to send a message to your principal Emacs telling it to
+visit a file.  (That's what the program `emacsclient' does.)  Emacs
+displays the buffer immediately and you can immediately begin editing
+it.
+
+   When you've finished editing that buffer, type `C-x #'
+(`server-edit').  This saves the file and sends a message back to the
+`emacsclient' program telling it to exit.  The programs that use
+`EDITOR' wait for the "editor" (actually, `emacsclient') to exit.  `C-x
+#' also checks for other pending external requests to edit various
+files, and selects the next such file.
+
+   You can switch to a server buffer manually if you wish; you don't
+have to arrive at it with `C-x #'.  But `C-x #' is the only way to say
+that you are "finished" with one.
+
+   If you set the variable `server-window' to a window or a frame, `C-x
+#' displays the server buffer in that window or in that frame.
+
+   While `mail' or another application is waiting for `emacsclient' to
+finish, `emacsclient' does not read terminal input.  So the terminal
+that `mail' was using is effectively blocked for the duration.  In
+order to edit with your principal Emacs, you need to be able to use it
+without using that terminal.  There are two ways to do this:
+
+   * Using a window system, run `mail' and the principal Emacs in two
+     separate windows.  While `mail' is waiting for `emacsclient', the
+     window where it was running is blocked, but you can use Emacs by
+     switching windows.
+
+   * Use Shell mode in Emacs to run the other program such as `mail';
+     then, `emacsclient' blocks only the subshell under Emacs, and you
+     can still use Emacs to edit the file.
+
+   Some programs write temporary files for you to edit.  After you edit
+the temporary file, the program reads it back and deletes it.  If the
+Emacs server is later asked to edit the same file name, it should assume
+this has nothing to do with the previous occasion for that file name.
+The server accomplishes this by killing the temporary file's buffer when
+you finish with the file.  Use the variable `server-temp-file-regexp'
+to specify which files are temporary in this sense; its value should be
+a regular expression that matches file names that are temporary.
+
+   If you run `emacsclient' with the option `--no-wait', it returns
+immediately without waiting for you to "finish" the buffer in Emacs.
+
+
+File: emacs,  Node: Hardcopy,  Next: Postscript,  Prev: Emacs Server,  Up: Top
+
+Hardcopy Output
+===============
+
+   The Emacs commands for making hardcopy let you print either an entire
+buffer or just part of one, either with or without page headers.  See
+also the hardcopy commands of Dired (*note Misc File Ops::) and the
+diary (*note Diary Commands::).
+
+`M-x print-buffer'
+     Print hardcopy of current buffer with page headings containing the
+     file name and page number.
+
+`M-x lpr-buffer'
+     Print hardcopy of current buffer without page headings.
+
+`M-x print-region'
+     Like `print-buffer' but print only the current region.
+
+`M-x lpr-region'
+     Like `lpr-buffer' but print only the current region.
+
+   The hardcopy commands (aside from the Postscript commands) pass extra
+switches to the `lpr' program based on the value of the variable
+`lpr-switches'.  Its value should be a list of strings, each string an
+option starting with `-'.  For example, to specify a line width of 80
+columns for all the printing you do in Emacs, set `lpr-switches' like
+this:
+
+     (setq lpr-switches '("-w80"))
+
+   You can specify the printer to use by setting the variable
+`printer-name'.
+
+   The variable `lpr-command' specifies the name of the printer program
+to run; the default value depends on your operating system type.  On
+most systems, the default is `"lpr"'.  The variable
+`lpr-headers-switches' similarly specifies the extra switches to use to
+make page headers.  The variable `lpr-add-switches' controls whether to
+supply `-T' and `-J' options (suitable for `lpr') to the printer
+program: `nil' means don't add them.  `lpr-add-switches' should be
+`nil' if your printer program is not compatible with `lpr'.
+
+
+File: emacs,  Node: Postscript,  Next: Postscript Variables,  Prev: Hardcopy,  Up: Top
+
+Postscript Hardcopy
+===================
+
+   These commands convert buffer contents to Postscript, either
+printing it or leaving it in another Emacs buffer.
+
+`M-x ps-print-buffer'
+     Print hardcopy of the current buffer in Postscript form.
+
+`M-x ps-print-region'
+     Print hardcopy of the current region in Postscript form.
+
+`M-x ps-print-buffer-with-faces'
+     Print hardcopy of the current buffer in Postscript form, showing
+     the faces used in the text by means of Postscript features.
+
+`M-x ps-print-region-with-faces'
+     Print hardcopy of the current region in Postscript form, showing
+     the faces used in the text.
+
+`M-x ps-spool-buffer'
+     Generate Postscript for the current buffer text.
+
+`M-x ps-spool-region'
+     Generate Postscript for the current region.
+
+`M-x ps-spool-buffer-with-faces'
+     Generate Postscript for the current buffer, showing the faces used.
+
+`M-x ps-spool-region-with-faces'
+     Generate Postscript for the current region, showing the faces used.
+
+   The Postscript commands, `ps-print-buffer' and `ps-print-region',
+print buffer contents in Postscript form.  One command prints the
+entire buffer; the other, just the region.  The corresponding
+`-with-faces' commands, `ps-print-buffer-with-faces' and
+`ps-print-region-with-faces', use Postscript features to show the faces
+(fonts and colors) in the text properties of the text being printed.
+
+   If you are using a color display, you can print a buffer of program
+code with color highlighting by turning on Font-Lock mode in that
+buffer, and using `ps-print-buffer-with-faces'.
+
+   The commands whose names have `spool' instead of `print' generate
+the Postscript output in an Emacs buffer instead of sending it to the
+printer.
+
+   The following section describes variables for customizing these
+commands.
+
+
+File: emacs,  Node: Postscript Variables,  Next: Sorting,  Prev: Postscript,  Up: Top
+
+Variables for Postscript Hardcopy
+=================================
+
+   All the Postscript hardcopy commands use the variables
+`ps-lpr-command' and `ps-lpr-switches' to specify how to print the
+output.  `ps-lpr-command' specifies the command name to run,
+`ps-lpr-switches' specifies command line options to use, and
+`ps-printer-name' specifies the printer.  If you don't set the first
+two variables yourself, they take their initial values from
+`lpr-command' and `lpr-switches'.  If `ps-printer-name' is `nil',
+`printer-name' is used.
+
+   The variable `ps-print-header' controls whether these commands add
+header lines to each page--set it to `nil' to turn headers off.  You
+can turn off color processing by setting `ps-print-color-p' to `nil'.
+
+   The variable `ps-paper-type' specifies which size of paper to format
+for; legitimate values include `a4', `a3', `a4small', `b4', `b5',
+`executive', `ledger', `legal', `letter', `letter-small', `statement',
+`tabloid'.  The default is `letter'.  You can define additional paper
+sizes by changing the variable `ps-page-dimensions-database'.
+
+   The variable `ps-landscape-mode' specifies the orientation of
+printing on the page.  The default is `nil', which stands for
+"portrait" mode.  Any non-`nil' value specifies "landscape" mode.
+
+   The variable `ps-number-of-columns' specifies the number of columns;
+it takes effect in both landscape and portrait mode.  The default is 1.
+
+   The variable `ps-font-family' specifies which font family to use for
+printing ordinary text.  Legitimate values include `Courier',
+`Helvetica', `NewCenturySchlbk', `Palatino' and `Times'.  The variable
+`ps-font-size' specifies the size of the font for ordinary text.  It
+defaults to 8.5 points.
+
+   Many other customization variables for these commands are defined and
+described in the Lisp file `ps-print.el'.
+

@@ -1,0 +1,120 @@
+##
+# Common ProjectBuilder-style Premable.
+#
+# Wilfredo Sanchez | wsanchez@apple.com
+# Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+#
+# @APPLE_LICENSE_HEADER_START@
+# 
+# Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
+# Reserved.  This file contains Original Code and/or Modifications of
+# Original Code as defined in and that are subject to the Apple Public
+# Source License Version 1.1 (the "License").  You may not use this file
+# except in compliance with the License.  Please obtain a copy of the
+# License at http://www.apple.com/publicsource and read it before using
+# this file.
+# 
+# The Original Code and all software distributed under the License are
+# distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+# EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+# INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE OR NON- INFRINGEMENT.  Please see the
+# License for the specific language governing rights and limitations
+# under the License.
+# 
+# @APPLE_LICENSE_HEADER_END@
+##
+
+##
+# Where to find Makefiles
+##
+ifndef CoreOSMakefiles
+CoreOSMakefiles = /$(MAKEFILEPATH)/CoreOS
+endif
+CoreOSMakefiles := $(shell cd $(CoreOSMakefiles) && pwd)
+
+##
+# Include the Classics
+##
+include $(CoreOSMakefiles)/Standard/Standard.make
+
+#############
+# Variables #
+#############
+
+##
+# Remember the name of the top-level project when using aggregates.
+##
+TOP_PROJECT = $(NAME)
+OTHER_RECURSIVE_VARIABLES += TOP_PROJECT CoreOSMakefiles
+
+##
+# Set some reasonable defaults for RC variables.
+##
+OBJROOT = /tmp/$(TOP_PROJECT)/Build
+SYMROOT = /tmp/$(TOP_PROJECT)/Debug
+DSTROOT = /tmp/$(TOP_PROJECT)/Release
+
+##
+# Add project version info to the binary.
+##
+OTHER_GENERATED_OFILES += $(VERS_OFILE)
+VERSIONING_SYSTEM = next-sgs
+
+##
+# Figure out if we have any man pages.
+##
+MANDIR    = /usr/share/man
+MAN0DIR   = $(MANDIR)/man0
+MAN1DIR   = $(MANDIR)/man1
+MAN2DIR   = $(MANDIR)/man2
+MAN3DIR   = $(MANDIR)/man3
+MAN4DIR   = $(MANDIR)/man4
+MAN5DIR   = $(MANDIR)/man5
+MAN6DIR   = $(MANDIR)/man6
+MAN7DIR   = $(MANDIR)/man7
+MAN8DIR   = $(MANDIR)/man8
+MAN9DIR   = $(MANDIR)/man9
+MAN0FILES = $(filter %.0,$(OTHERSRCS))
+MAN1FILES = $(filter %.1,$(OTHERSRCS))
+MAN2FILES = $(filter %.2,$(OTHERSRCS))
+MAN3FILES = $(filter %.3,$(OTHERSRCS))
+MAN4FILES = $(filter %.4,$(OTHERSRCS))
+MAN5FILES = $(filter %.5,$(OTHERSRCS))
+MAN6FILES = $(filter %.6,$(OTHERSRCS))
+MAN7FILES = $(filter %.7,$(OTHERSRCS))
+MAN8FILES = $(filter %.8,$(OTHERSRCS))
+MAN9FILES = $(filter %.9,$(OTHERSRCS))
+MANFILES  = $(MAN1FILES) \
+	    $(MAN2FILES) \
+	    $(MAN3FILES) \
+	    $(MAN4FILES) \
+	    $(MAN5FILES) \
+	    $(MAN6FILES) \
+	    $(MAN7FILES) \
+	    $(MAN8FILES) \
+	    $(MAN9FILES)
+
+###########
+# Targets #
+###########
+
+##
+# See postamble for info on these.
+##
+ifdef SHELLTOOL
+OTHERLINKEDOFILES      =
+OTHER_GENERATED_OFILES = 
+STRIP_ON_INSTALL       = NO
+endif
+
+AFTER_INSTALL += install-man install-source
+
+ifeq ($(PROJTYPE),LIBRARY)
+AFTER_INSTALL += install-ofilelist
+endif
+
+##
+# Default
+##
+default: all

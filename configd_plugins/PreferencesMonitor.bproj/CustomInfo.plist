@@ -1,0 +1,5 @@
+{
+	CFBundleName = "SystemConfiguration";
+	CFBundleIdentifier = "com.apple.SystemConfiguration.PreferencesMonitor";
+	CFBundleShortVersionString = "1.0.0";
+}

@@ -1,0 +1,17 @@
+#!/bin/sh
+#
+# Test case-insensitive regular expressions.
+#
+
+. $srcdir/defs || exit 1
+
+cat << EOF >data.in
+AaAa
+EOF
+
+result=`$states --state=test_case_insensitive_regexps data.in 2>&1`
+rm -f data.in
+
+if test "X$result" != "Xok"; then
+  exit 1;
+fi

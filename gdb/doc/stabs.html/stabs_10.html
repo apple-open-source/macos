@@ -1,0 +1,195 @@
+<HTML>
+<HEAD>
+<!-- This HTML file has been created by texi2html 1.51
+     from /mnt/apple/gdb/source/gdb.apple/source/gdb/gdb/doc/stabs.texinfo on 23 November 1999 -->
+
+<TITLE>STABS - Table of Type Descriptors</TITLE>
+</HEAD>
+<BODY>
+Go to the <A HREF="stabs_1.html">first</A>, <A HREF="stabs_9.html">previous</A>, <A HREF="stabs_11.html">next</A>, <A HREF="stabs_14.html">last</A> section, <A HREF="stabs_toc.html">table of contents</A>.
+<P><HR><P>
+
+
+<H1><A NAME="SEC71" HREF="stabs_toc.html#TOC71">Table of Type Descriptors</A></H1>
+
+<P>
+The type descriptor is the character which follows the type number and
+an equals sign.  It specifies what kind of type is being defined.
+See section <A HREF="stabs_1.html#SEC4">The String Field</A>, for more information about their use.
+
+</P>
+<DL COMPACT>
+
+<DT><CODE><VAR>digit</VAR></CODE>
+<DD>
+<DT><CODE>(</CODE>
+<DD>
+Type reference; see section <A HREF="stabs_1.html#SEC4">The String Field</A>.
+
+<DT><CODE>-</CODE>
+<DD>
+Reference to builtin type; see section <A HREF="stabs_5.html#SEC35">Negative Type Numbers</A>.
+
+<DT><CODE>#</CODE>
+<DD>
+Method (C++); see section <A HREF="stabs_7.html#SEC59">The <SAMP>`#'</SAMP> Type Descriptor</A>.
+
+<DT><CODE>*</CODE>
+<DD>
+Pointer; see section <A HREF="stabs_5.html#SEC36">Miscellaneous Types</A>.
+
+<DT><CODE>&#38;</CODE>
+<DD>
+Reference (C++).
+
+<DT><CODE>@</CODE>
+<DD>
+Type Attributes (AIX); see section <A HREF="stabs_1.html#SEC4">The String Field</A>.  Member (class and variable)
+type (GNU C++); see section <A HREF="stabs_7.html#SEC60">The <SAMP>`@'</SAMP> Type Descriptor</A>.
+
+<DT><CODE>a</CODE>
+<DD>
+Array; see section <A HREF="stabs_5.html#SEC39">Array Types</A>.
+
+<DT><CODE>A</CODE>
+<DD>
+Open array; see section <A HREF="stabs_5.html#SEC39">Array Types</A>.
+
+<DT><CODE>b</CODE>
+<DD>
+Pascal space type (AIX); see section <A HREF="stabs_5.html#SEC36">Miscellaneous Types</A>.  Builtin integer
+type (Sun); see section <A HREF="stabs_5.html#SEC34">Defining Builtin Types Using Builtin Type Descriptors</A>.  Const and volatile
+qualfied type (OS9000).
+
+<DT><CODE>B</CODE>
+<DD>
+Volatile-qualified type; see section <A HREF="stabs_5.html#SEC36">Miscellaneous Types</A>.
+
+<DT><CODE>c</CODE>
+<DD>
+Complex builtin type (AIX); see section <A HREF="stabs_5.html#SEC34">Defining Builtin Types Using Builtin Type Descriptors</A>.
+Const-qualified type (OS9000).
+
+<DT><CODE>C</CODE>
+<DD>
+COBOL Picture type.  See AIX documentation for details.
+
+<DT><CODE>d</CODE>
+<DD>
+File type; see section <A HREF="stabs_5.html#SEC36">Miscellaneous Types</A>.
+
+<DT><CODE>D</CODE>
+<DD>
+N-dimensional dynamic array; see section <A HREF="stabs_5.html#SEC39">Array Types</A>.
+
+<DT><CODE>e</CODE>
+<DD>
+Enumeration type; see section <A HREF="stabs_5.html#SEC41">Enumerations</A>.
+
+<DT><CODE>E</CODE>
+<DD>
+N-dimensional subarray; see section <A HREF="stabs_5.html#SEC39">Array Types</A>.
+
+<DT><CODE>f</CODE>
+<DD>
+Function type; see section <A HREF="stabs_5.html#SEC45">Function Types</A>.
+
+<DT><CODE>F</CODE>
+<DD>
+Pascal function parameter; see section <A HREF="stabs_5.html#SEC45">Function Types</A>
+
+<DT><CODE>g</CODE>
+<DD>
+Builtin floating point type; see section <A HREF="stabs_5.html#SEC34">Defining Builtin Types Using Builtin Type Descriptors</A>.
+
+<DT><CODE>G</CODE>
+<DD>
+COBOL Group.  See AIX documentation for details.
+
+<DT><CODE>i</CODE>
+<DD>
+Imported type (AIX); see section <A HREF="stabs_5.html#SEC37">Cross-References to Other Types</A>.  Volatile-qualified
+type (OS9000).
+
+<DT><CODE>k</CODE>
+<DD>
+Const-qualified type; see section <A HREF="stabs_5.html#SEC36">Miscellaneous Types</A>.
+
+<DT><CODE>K</CODE>
+<DD>
+COBOL File Descriptor.  See AIX documentation for details.
+
+<DT><CODE>M</CODE>
+<DD>
+Multiple instance type; see section <A HREF="stabs_5.html#SEC36">Miscellaneous Types</A>.
+
+<DT><CODE>n</CODE>
+<DD>
+String type; see section <A HREF="stabs_5.html#SEC40">Strings</A>.
+
+<DT><CODE>N</CODE>
+<DD>
+Stringptr; see section <A HREF="stabs_5.html#SEC40">Strings</A>.
+
+<DT><CODE>o</CODE>
+<DD>
+Opaque type; see section <A HREF="stabs_5.html#SEC43">Giving a Type a Name</A>.
+
+<DT><CODE>p</CODE>
+<DD>
+Procedure; see section <A HREF="stabs_5.html#SEC45">Function Types</A>.
+
+<DT><CODE>P</CODE>
+<DD>
+Packed array; see section <A HREF="stabs_5.html#SEC39">Array Types</A>.
+
+<DT><CODE>r</CODE>
+<DD>
+Range type; see section <A HREF="stabs_5.html#SEC38">Subrange Types</A>.
+
+<DT><CODE>R</CODE>
+<DD>
+Builtin floating type; see section <A HREF="stabs_5.html#SEC34">Defining Builtin Types Using Builtin Type Descriptors</A> (Sun).  Pascal
+subroutine parameter; see section <A HREF="stabs_5.html#SEC45">Function Types</A> (AIX).  Detecting this
+conflict is possible with careful parsing (hint: a Pascal subroutine
+parameter type will always contain a comma, and a builtin type
+descriptor never will).
+
+<DT><CODE>s</CODE>
+<DD>
+Structure type; see section <A HREF="stabs_5.html#SEC42">Structures</A>.
+
+<DT><CODE>S</CODE>
+<DD>
+Set type; see section <A HREF="stabs_5.html#SEC36">Miscellaneous Types</A>.
+
+<DT><CODE>u</CODE>
+<DD>
+Union; see section <A HREF="stabs_5.html#SEC44">Unions</A>.
+
+<DT><CODE>v</CODE>
+<DD>
+Variant record.  This is a Pascal and Modula-2 feature which is like a
+union within a struct in C.  See AIX documentation for details.
+
+<DT><CODE>w</CODE>
+<DD>
+Wide character; see section <A HREF="stabs_5.html#SEC34">Defining Builtin Types Using Builtin Type Descriptors</A>.
+
+<DT><CODE>x</CODE>
+<DD>
+Cross-reference; see section <A HREF="stabs_5.html#SEC37">Cross-References to Other Types</A>.
+
+<DT><CODE>Y</CODE>
+<DD>
+Used by IBM's xlC C++ compiler (for structures, I think).
+
+<DT><CODE>z</CODE>
+<DD>
+gstring; see section <A HREF="stabs_5.html#SEC40">Strings</A>.
+</DL>
+
+<P><HR><P>
+Go to the <A HREF="stabs_1.html">first</A>, <A HREF="stabs_9.html">previous</A>, <A HREF="stabs_11.html">next</A>, <A HREF="stabs_14.html">last</A> section, <A HREF="stabs_toc.html">table of contents</A>.
+</BODY>
+</HTML>

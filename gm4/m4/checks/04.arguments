@@ -1,0 +1,5 @@
+dnl ../doc/m4.texinfo:993: Origin of test
+define(`test', ``Macro name: $0'')
+dnl @result{}
+test
+dnl @result{}Macro name: test

@@ -1,0 +1,175 @@
+.\" Copyright (c) 1998 Apple Computer, Inc.
+.\"
+.TH FDISK 8 "Mar 30, 1998"
+.UC 4
+.de us
+\\$1\l'|0\(ul'
+..
+.SH NAME
+fdisk \- examine or change DOS partitioning information
+.SH SYNOPSIS
+.B /usr/etc/fdisk
+.B <raw-device>
+[
+inquiry
+]
+[
+action
+]
+[
+flags
+]
+.SH DESCRIPTION
+.I fdisk
+displays or changes the DOS partition table found in the bootsector of i386 bootable disks.  If no inquiry or action is specified, it is run in interactive mode, allowing multiple changes to the partition table to be made.  If an inquiry is specified, the result is displayed to standard output but no changes to the partition table are made.  If an action is requested, the partition table will usually be modified and 
+.I fdisk
+immediately returns.  When 
+.I fdisk
+is run in interactive mode, no changes to the partition table are effected until the user explicitly writes the changes.
+
+
+.I fdisk
+modifies only the bootsector and (unless the -bootsectorOnly flag is specified) the first sector of newly allocated partitions; it does not modify other contents of the disk in any way.  However, it is used to redefine the allocation of the disk; deleting a partition makes the partition inaccessible and should be considered tantamount to erasing the partition.
+
+Flags
+
+.TP 6
+.B \-useAllSectors
+For compatibility with the DOS version, 
+.I fdisk
+by default recognizes only those sectors that are bios-accessible.  However, if 
+.I fdisk
+is passed the -useAllSectors flag, it will recognize all sectors physically present.  Data allocated in the extra sectors may not be bios accessible, and certain fields in the partition table might overflow, which might cause problems with some operating systems.  Bios inaccessible sectors could prevent Darwin from booting, though once booted Darwin is unaffected by bios limitations or partition table overflows.
+
+.TP 6
+.B \-useBoot0
+Reads in /usr/standalone/i386/boot0 to be used as the partition boot program.  If this option is not specified, the existing boot program is retained.
+
+.TP 6
+.B \-bootsectorOnly
+Tells \fIfdisk\fR to modify only the bootsector when saving changes.  Otherwise, the default behavior is to zero the first sector of newly-created partitions to ensure that extant data is not treated as a boot program or meaningful partition information.
+
+.PP
+Interactive mode
+
+When 
+.I fdisk
+is run in interactive mode, it displays the defined partitions and unallocated disk space, then displays a menu.  Information on defined partitions includes:
+.TP 6
+.B \Type
+The type of data the partition is said to contain.
+.TP 6
+.B \Start
+The starting address of the partition, in megabytes.
+.TP 6
+.B \Size
+The size of the partition, in megabytes.
+.TP 6
+.B \Status
+If the partition is marked as active, the partition will be booted from when the selected device is the boot device.
+
+.PP
+All unused blocks on the disk are also displayed, with their sizes rounded to the nearest megabyte.
+
+Interactive mode main menu options
+
+.TP 6
+.B \Create a new partition
+Allocates space on the disk for use by Darwin or another operating system.  The space is allocated from the first adequate free block.  The partition table structure only allows for 4 partitions per disk.
+
+.TP 6
+.B \Delete partition
+Deallocates the space occupied by the specified partition.
+
+.TP 6
+.B \Set the active partition
+Specifies which partition is to be booted from if the selected device is the boot device.
+
+.TP 6
+.B \Show disk information
+Displays the layout of the disk, both according to the driver and accoring to the rom bios.  For compatibility with the DOS verstion, 
+.I fdisk
+by default only recognizes those sectors that are bios-accessible.  However, if 
+.I fdisk
+is passed the -useAllSectors flag, it will recognize all sectors physically present.
+
+.PP
+Non-interactive mode
+
+For the benefit of installation scripts, 
+.I fdisk
+can be given one inquiry or one action to effect partitioning.  Inquiries do not modify the partition table, but actions usually do.
+
+The following inquiries are allowed:
+
+.TP 6
+.B \-isDiskPartitioned
+Outputs "Yes" if the disk contains 1 or more valid partitions, "No" otherwise.
+
+.TP 6
+.B \-isThereExtendedPartition
+Outputs "Yes" if the disk has a DOS extended partition, "No" otherwise.
+
+.TP 6
+.B \-isThereUFSPartition
+Outputs "Yes" if the disk has a Apple UFS partition, "No" otherwise.
+
+.TP 6
+.B \-freeSpace
+Outputs the size (in megabytes) of the largest free block on the disk.
+
+.TP 6
+.B \-freeWOUFS
+Outputs the size (in megabytes) of the largest free block on the disk if the Apple UFS partition were deleted.
+
+.TP 6
+.B \-freeWOUFSorExt
+Outputs the size (in megabytes) of the largest free block on the disk if the Apple UFS and extended partitions were deleted.
+
+.TP 6
+.B \-sizeofExtended
+Outputs the size (in megabytes) of the extended partition.
+
+.TP 6
+.B \-diskSize
+Outputs the size of the disk in megabytes.
+
+.TP 6
+.B \-installSize
+Outputs the size that Darwin would install to on the current disk; effectively the size of the Apple UFS partition if the disk is partitioned, otherwise the size of the disk.
+
+
+.PP
+The following actions are allowed:
+
+.TP 6
+.B \-removePartitioning
+Zeros out the bootsector, eliminating the partition table and boot program.  Prepares the disk so that Darwin will install on the entire disk.
+
+.TP 6
+.B \-dosPlusUFS <megsForDos>
+Partitions the disk with <megsForDos> reserved for DOS and the remainder used for Darwin.
+
+.TP 6
+.B \-setAvailableToUFS
+Deletes the current Apple UFS partition, then reserves the largest free space for Darwin; doesn't destroy other partitions.
+
+.TP 6
+.B \-setExtAndAvailableToUFS
+Deletes the current Apple UFS and extended partitions, then reserves the largest free space for Darwin; doesn't destroy other partitions.
+
+.TP 6
+.B \-setExtendedToUFS
+Changes the current extended partition to Apple UFS.
+
+.TP 6
+.B \-setUFSActive
+Makes the Apple UFS partition active, but doesn't affect the size of any partition.
+.SH "SEE ALSO"
+disk(8)
+.SH BUGS
+When creating a partition, \fIfdisk\fR's idea of a megabyte is sometimes different than other versions; \fIfdisk\fR is not guaranteed to locate the partition where another version would.
+
+\fIfdisk\fR knows nothing about logical partitions, which are sub-partitions of an extended partition.
+
+\fIfdisk\fR does not tolerate inconsistent partitions; a partition that overlaps another will not be included in the partition table when it is written out, and the cylinder/head/sector bios values are derived from the absolute sector numbers.  Upon writing, the partition table entries are ordered the same as the actual partitions.

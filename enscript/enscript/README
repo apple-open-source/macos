@@ -1,0 +1,163 @@
+
+			     GNU Enscript
+			     ============
+
+GNU enscript is a drop-in replacement for the enscript program.
+Enscript converts ASCII files to PostScript and stores generated
+output to a file or sends it directly to the printer.
+
+Enscript is free software; you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the
+Free Software Foundation; either version 2, or (at your option) any
+later version.
+
+Enscript is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with enscript; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.
+
+
+* Supported Character Sets
+
+Enscript supports following character sets:
+
+  - ISO-8859-1		ISO Latin1 (default)
+  - ISO-8859-2		ISO Latin2
+  - ISO-8859-3		ISO Latin3
+  - ISO-8859-4		ISO Latin4
+  - ISO-8859-5		ISO Cyrillic
+  - ISO-8859-7		ISO Greek
+  - ascii		7 bit ascii
+  - ascii fi se		7 bit ascii with following encodings:
+			  '{'  = ä (adieresis)
+			  '|'  = ö (odieresis)
+			  '}'  = å (aring)
+			  '['  = Ä (Adieresis)
+			  '\\' = Ö (Odieresis)
+			  ']'  = Å (Aring)
+  - ascii dk no		7 bit ascii with following encodings:
+			  '{'  = æ (ae)
+			  '|'  = ø (oslash)
+			  '}'  = å (aring)
+			  '['  = Æ (AE)
+			  '\\' = Ø (Oslash)
+			  ']'  = Å (Aring)
+  - IBM/PC		standard PC/DOS character set
+  - Mac			Macintosh character set
+  - VMS			VMS multinational charset
+  - hp8			HP Roman-8 charset
+  - koi8		Adobe Standard Cyrillic Font KOI8 charset
+  - ps			PostScript font's default encoding
+  - pslatin1		PostScript interpreter's `ISOLatin1Encoding'
+
+
+* Special Escapes
+
+Enscript supports special escapes sequences that can be used to add
+simple page formatting commands to ASCII documents.  User can inline
+EPS files, change font on-the-fly insert comments and shade regions of
+text.  See file README.ESCAPES for details.
+
+
+* Language sensitive highlighting
+
+Enscript supports language sensitive code highlighting.  Highlighting
+is implemented by a special `states' program which processes the input
+files and annotates them with enscript's special escapes.  The states
+definition file `enscript.st' is a machine independent ASCII file and
+it can be updated without re-compilation of the enscript program.  The
+most recent version of this file can be downloaded from the GNU
+enscript WWW home page: <http://www.iki.fi/~mtr/genscript/>.
+
+New highlighting definitions for different languages are welcome,
+please send them directly to me: <mailto:mtr@iki.fi>.
+
+
+* PostScript font support
+
+** AFM files
+
+Enscript supports AFM (Adobe Font Metrics) files.  AFM files contain
+font metrics information (character widths, etc); if there is an AFM
+file for the current font, enscript can count line widths and tab
+stops correctly.  Enscript distribution contains AFM files for the
+most common PostScript fonts.  These AFM files are installed to the
+directory <prefix>/share/enscript/.
+
+** Fonts (.pfa or .pfb)
+
+Enscript supports also additional PostScript fonts which are defined
+in the `.pfa' or `.pfb' font files.  Enscript automatically
+down-loads font's description to your PostScript document whenever you
+use an external disk font.  Font down-loading requires that you have
+both the `.afm' and `.pf{a,b}' files for you extra fonts and you have
+created a font mapping file called `font.map' to your font directory.
+
+These are the steps that are needed to make your extra fonts usable in
+enscript:
+
+1) Install the `.afm' and `.pf{a,b}' files to some appropriate
+   directory.  Note! for a single font, both the .afm and .pf{a,b}
+   files must have  the same prefix, filenames can differ only from
+   the suffix part.  For example, if font `FooFont' is defined in the
+   file `foo.pfa', then the AFM file must be named `foo.afm'.
+
+2) Create a font map file for the font directory.  Enscript's
+   distribution has an utility called `mkafmmap' which does the job;
+   just give command:
+
+	mkafmmap *.afm
+
+   in your font directory.  This command creates a file called
+   `font.map' to your font directory.  File contains one row for each
+   .afm file, each row has two columns: font's PostScript name and
+   the prefix for the corresponding .afm file.
+
+3) Notify enscript that it has new fonts to play with.  This is done
+   by editing the global configuration file `enscript.cfg' or the
+   personal configuration file `$HOME/.enscriptrc'.  Global
+   configuration file has an entry called 'AFMPath' which contains the
+   current font search path.  Add your new font directory to this
+   path:
+
+	AFMPath: /usr/local/share/enscript/afm:/usr/local/lib/ps:/usr/lib/ps:/fonts/myfontdir
+
+  where `/fonts/myfontdir' is the new font directory.
+
+So how does the font down-loading work?  Enscript automatically
+down-loads font files for header and body fonts, if it can find the
+corresponding `.pfa' or `.pfb' files from the AFMPath.  Enscript do
+*not* down-load fonts that are specified in `^@font' escapes, however
+you can down-load these font by specifying command line option
+`--download-font=name' for each font.  You can also specify
+down-loadable fonts in the global configuration file `enscript.cfg'
+or in your personal configuration file `$HOME/.enscriptrc' by giving
+option `DownloadFont: name'.
+
+
+* What's different as compared to the Adobe's Enscript application?
+
+- Adobe enscript's option `-o' has been changed.  In Adobe enscript
+  option `-o' lists missing characters.  In GNU enscript `-o' is an
+  alias for `-p' and missing characters are listed with an option `-O'.
+
+
+* Misc
+
+I am dedicated to make the GNU enscript the best a2ps converter ever,
+this includes adding all the GNU features and cookies to it ;)
+
+Comments, suggestions, bug fixes, bug reports, etc. are welcome.
+
+
+	Markku Rossi
+
+	<mtr@iki.fi> <http://www.iki.fi/~mtr/>
+
+	GNU Enscript WWW home page:
+	<http://www.iki.fi/~mtr/genscript/>

@@ -1,0 +1,32 @@
+{
+    FILESTABLE = {
+        Documentation = (ChangeLog, README); 
+        Headers = (rcmd.h, tcpip.h, popen.h, pwd.h, os2inc.h, options.h, dirent.h, config.h); 
+        Makefiles = (Makefile.in); 
+        Resources = (); 
+        SUBPROJECTS = (); 
+        Sources = (
+            rcmd.c, 
+            stripslash.c, 
+            strippath.c, 
+            run.c, 
+            waitpid.c, 
+            porttcp.c, 
+            popen.c, 
+            pwd.c, 
+            mkdir.c, 
+            getpass.c, 
+            getdate.c, 
+            filesubr.c, 
+            dirent.c
+        ); 
+    }; 
+    LANGUAGE = English; 
+    LOCALIZABLE_FILES = {}; 
+    NEXTSTEP_BUILDTOOL = /bin/make; 
+    PDO_UNIX_BUILDTOOL = /bin/make; 
+    PROJECTNAME = os2; 
+    PROJECTTYPE = "GNU Source"; 
+    PROJECTVERSION = 2.6; 
+    WINDOWS_BUILDTOOL = "${NEXT_ROOT}/NextDeveloper/Executables/make"; 
+}

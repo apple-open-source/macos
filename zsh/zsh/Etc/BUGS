@@ -1,0 +1,60 @@
+-*- text -*-
+------------------------------------------------------------------------
+Completion has a habit of doing the wrong thing after a
+backslash/newline.
+------------------------------------------------------------------------
+If you suspend "man", zle seems to get into cooked mode.  It works ok
+for plain "less".
+This is specific neither to man nor to zsh.
+E.g. call the following program foo:
+#include <sys/wait.h>
+#include <unistd.h>
+
+int main(int argc, char *argv[])
+{
+    int status;
+
+    if (!fork())	/* child */
+	execvp(argv[1], argv + 1);
+    else		/* parent */
+	wait(&status);
+}
+Then if you suspend
+% foo less something
+from zsh/bash, zle/readline gets into cooked mode.
+------------------------------------------------------------------------
+% cat | while read line; do echo $line; done
+cannot be suspended with ^Z.  "cat" gets the signal and stops, but zsh
+ignores it while blocked in "read" because the interactive shell itself
+can't be suspended and it's not possible to resume the "read" correctly
+after forcing the while loop into a subshell.  In some previous versions
+this would hang the shell, but the loop is now interruptible with ^C.
+------------------------------------------------------------------------
+% zsh -c 'cat a_long_file | less ; :'
+can be interrupted with ^C. The prompt comes back and less is orphaned.
+If you go to the end of the file with less so that cat terminates, ^C
+no longer orphans less. The `; :' after less forces zsh to fork before
+executing less.
+------------------------------------------------------------------------
+The pattern %?* matches names beginning with %? instead of names with at
+least two characters beginning with %. This is a hack to allow %?foo job
+substitution without quoting. This behaviour is incompatible with sh
+and ksh and may be removed in the future. A good fix might be to keep
+such patterns unchanged if they do not match regardless of the state of
+the nonomatch and nullglob options.
+------------------------------------------------------------------------
+Username completion may cause SEGV on SunOS 4.1.3 and NIS.
+This is not a zsh bug.  See Etc/MACHINES for details.
+------------------------------------------------------------------------
+sed seems to be broken on HP-UX 10.20 which prevents prototype
+generation and the result is that zsh fails to compile.  sed in
+HP-UX 9.x works.  Get an older working sed, get GNU sed or try to
+get a fixed version from your OS vendor (or write a makepro.sed
+which works on all platforms where the current version works).
+------------------------------------------------------------------------
+Numeric ranges are still too greedy with using characters; for example,
+<1-1000>33 will not match 633 because the 633 matches the range.  Also,
+if a word starts with a digit followed by a numeric glob, the initial
+digit gets swallowed (provisionally treated as a file descriptor number
+and never restored).  Both of these are fixed in 3.1.7 and later.
+------------------------------------------------------------------------

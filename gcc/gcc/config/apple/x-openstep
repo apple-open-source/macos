@@ -1,0 +1,59 @@
+# Enable NeXT extensions to (gnu)make.
+USE_APPLE_PB_SUPPORT = all
+
+# Make assignments for compiling on NeXT with their compiler version.
+CC = cc -traditional-cpp
+X_CPPFLAGS = -DNEXT_RELEASE_MAJOR=$(shell \
+	       ((hostinfo | egrep 'NeXT|Rhapsody|Release';\
+	       echo $(RC_RELEASE)) | tr '\12' ' '; echo $(RC_OSVERSION)) \
+	       | sed -e 's/.*\([0-9]\)\.[0-9][JRm:].*/\1/') \
+	     -DNEXT_RELEASE_MINOR=$(shell \
+	       ((hostinfo | egrep 'NeXT|Rhapsody|Release';\
+	       echo $(RC_RELEASE)) | tr '\12' ' '; echo $(RC_OSVERSION)) \
+	       | sed -e 's/.*[0-9]\.\([0-9]\)[JRm:].*/\1/') \
+	     -DAPPLE_CC=$${APPLE_CC:-899}
+
+GCC_FOR_TARGET = ./xgcc -B./ -traditional-cpp
+
+GCC_CFLAGS = $(INTERNAL_CFLAGS) $(X_CFLAGS) $(T_CFLAGS) $(CFLAGS) -I./include -traditional-cpp
+
+# Default to /usr/bin/bison, but if this does not exist,
+# look for bison in /usr/local/bin, since the latter might not be in $PATH.
+ifneq ($(wildcard /usr/bin/bison),)
+BISON = /usr/bin/bison
+else
+ifneq ($(wildcard /usr/local/bin/bison),)
+BISON = /usr/local/bin/bison
+endif
+endif
+
+# There is no need to run fixproto.
+STMP_FIXPROTO =
+
+LIMITS_H_TEST = [ -f /usr/include/ansi/limits.h \
+-o -f $${NEXT_ROOT}/NextLibrary/Frameworks/System.framework/Headers/bsd/limits.h -o \
+-f $${NEXT_ROOT}/System/Library/Frameworks/System.framework/Headers/bsd/limits.h ]
+
+# When gcc is running on a NeXT, we want the make interaction in it.
+
+COMMON_OBJS = makeUser.o make-support.o apple-version.o
+
+makeUser.o: makeUser.c make.h
+	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) makeUser.c
+
+makeUser.c make.h: config/apple/make.defs
+	$${NEXT_ROOT}/usr/bin/mig \
+	  `if [ "$${RC_OS}" = macos ]; then echo -DMACOSX; fi` \
+	  $(srcdir)/config/apple/make.defs
+
+make-support.o: config/apple/make-support.c make.h
+	# Make sure the make.h that is #include'd is the one just generated,
+	# and not the one in $(srcdir)/config/apple.
+	rm -f make-support.c
+	ln -s $(srcdir)/config/apple/make-support.c .
+	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) make-support.c
+
+apple-version.c:
+	echo "const char *apple_version = "\"`cd $(srcdir);vers_string -f gcc`\" ";" > \
+		$@
+

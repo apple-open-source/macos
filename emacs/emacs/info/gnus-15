@@ -1,0 +1,1658 @@
+This is ../info/gnus, produced by makeinfo version 4.0 from gnus.texi.
+
+START-INFO-DIR-ENTRY
+* Gnus: (gnus).         The newsreader Gnus.
+END-INFO-DIR-ENTRY
+
+   This file documents Gnus, the GNU Emacs newsreader.
+
+   Copyright (C) 1995,96 Free Software Foundation, Inc.
+
+   Permission is granted to make and distribute verbatim copies of this
+manual provided the copyright notice and this permission notice are
+preserved on all copies.
+
+   Permission is granted to copy and distribute modified versions of
+this manual under the conditions for verbatim copying, provided also
+that the entire resulting derived work is distributed under the terms
+of a permission notice identical to this one.
+
+   Permission is granted to copy and distribute translations of this
+manual into another language, under the above conditions for modified
+versions.
+
+
+File: gnus,  Node: Index,  Next: Key Index,  Prev: Appendices,  Up: Top
+
+Index
+*****
+
+* Menu:
+
+* %:                                     Group Line Specification.
+* (ding) archive:                        Foreign Groups.
+* *:                                     Group Line Specification.
+* .newsrc:                               Startup Files.
+* .newsrc.el:                            Startup Files.
+* .newsrc.eld:                           Startup Files.
+* 1153 digest:                           Document Groups.
+* <:                                     Loose Threads.
+* >:                                     Loose Threads.
+* activating groups <1>:                 Terminology.
+* activating groups:                     Scanning New Messages.
+* active file <1>:                       The Active File.
+* active file:                           Terminology.
+* adapt file group parameter:            Group Parameters.
+* adaptive scoring:                      Adaptive Scoring.
+* adopting articles:                     Loose Threads.
+* Agent:                                 Gnus Unplugged.
+* Agent expire:                          Agent Expiry.
+* Alta Vista <1>:                        Web Searches.
+* Alta Vista:                            Foreign Groups.
+* ange-ftp:                              Group Information.
+* archive group:                         Foreign Groups.
+* archived messages:                     Archived Messages.
+* article:                               Terminology.
+* article backlog:                       Article Backlog.
+* article buffer:                        The Article Buffer.
+* article caching:                       Article Caching.
+* article customization:                 Customizing Articles.
+* article emphasis:                      Article Fontisizing.
+* article expiry:                        Expiring Mail.
+* article hiding:                        Article Hiding.
+* article history:                       Choosing Commands.
+* article marking:                       Marking Articles.
+* article pre-fetch:                     Asynchronous Fetching.
+* article scrolling:                     Paging the Article.
+* article series:                        Decoding Articles.
+* article signature:                     Article Signature.
+* article threading:                     Threading.
+* article ticking:                       Marking Articles.
+* article washing:                       Article Washing.
+* article-de-quoted-unreadable:          Washing Mail.
+* article-decode-rfc1522:                Mail Backend Variables.
+* asynchronous article fetching:         Asynchronous Fetching.
+* authentification:                      NNTP.
+* authinfo:                              NNTP.
+* auto-expire:                           Group Parameters.
+* auto-save:                             Auto Save.
+* babyl:                                 Document Groups.
+* backend:                               Terminology.
+* backlog:                               Article Backlog.
+* backup files:                          Mail Folders.
+* batch scoring:                         Group Score Commands.
+* bbb-summary-rate-article:              Rating Articles.
+* binary groups:                         Binary Groups.
+* body:                                  Terminology.
+* bogus groups <1>:                      Group Maintenance.
+* bogus groups:                          Terminology.
+* bookmarks:                             Other Marks.
+* bouncing mail:                         Summary Mail Commands.
+* broken-reply-to:                       Group Parameters.
+* browsing servers:                      Browse Foreign Server.
+* bugs <1>:                              Compatibility.
+* bugs:                                  Troubleshooting.
+* buttons <1>:                           Buttons.
+* buttons:                               Article Buttons.
+* byte-compilation:                      Compilation.
+* caching:                               Article Caching.
+* canceling articles:                    Canceling and Superseding.
+* CancelMoose[tm]:                       NoCeM.
+* changing servers:                      Changing Servers.
+* characters in file names:              Various Various.
+* child:                                 Terminology.
+* Chris Lewis:                           NoCeM.
+* ClariNet Briefs:                       Foreign Groups.
+* click:                                 Buttons.
+* colors:                                Faces and Fonts.
+* compatibility:                         Compatibility.
+* compilation:                           Compilation.
+* composing mail:                        Summary Mail Commands.
+* composing messages:                    Composing Messages.
+* composing news:                        Summary Post Commands.
+* contributors:                          Contributors.
+* converting kill files:                 Converting Kill Files.
+* copy mail:                             Mail Group Commands.
+* cross-posting:                         Crosspost Handling.
+* crosspost:                             Splitting Mail.
+* crosspost mail:                        Mail Group Commands.
+* crossposting:                          Summary Mail Commands.
+* crossposts:                            Scoring Tips.
+* customizing:                           Foreign Groups.
+* customizing threading:                 Customizing Threading.
+* daemons:                               Daemons.
+* date:                                  Score File Format.
+* decays:                                Score Decays.
+* decoding articles:                     Decoding Articles.
+* DejaNews <1>:                          Foreign Groups.
+* DejaNews:                              Web Searches.
+* delete-file:                           Mail Backend Variables.
+* deleting headers:                      Hiding Headers.
+* deleting incoming files:               Mail Backend Variables.
+* demons:                                Daemons.
+* describing groups:                     Group Information.
+* digest <1>:                            Terminology.
+* digest:                                Document Groups.
+* digests:                               Summary Post Commands.
+* ding mailing list:                     Troubleshooting.
+* directory groups:                      Directory Groups.
+* disk space:                            Little Disk Space.
+* display-time:                          Mode Lines.
+* documentation group:                   Document Groups.
+* drafts:                                Drafts.
+* dribble file:                          Auto Save.
+* duplicate mails:                       Duplicates.
+* elm:                                   Mail and Procmail.
+* Emacs:                                 Emacsen.
+* Emacsen <1>:                           Emacsen.
+* Emacsen:                               Emacs/XEmacs Code.
+* email spam:                            Thwarting Email Spam.
+* emphasis:                              Article Fontisizing.
+* ephemeral groups:                      Terminology.
+* excessive crossposting:                Summary Mail Commands.
+* exiting Gnus:                          Exiting Gnus.
+* exiting groups:                        Exiting the Summary Buffer.
+* expirable mark:                        Read Articles.
+* expiry:                                Agent Expiry.
+* expiry-wait:                           Group Parameters.
+* faces:                                 Faces and Fonts.
+* fancy mail splitting:                  Fancy Mail Splitting.
+* FAQ:                                   Group Information.
+* fetching a group:                      Fetching a Group.
+* fetching by Message-ID:                Finding the Parent.
+* file commands:                         File Commands.
+* file names:                            Various Various.
+* finding news:                          Finding the News.
+* first time usage:                      The First Time.
+* follow up:                             Terminology.
+* followup:                              Composing Messages.
+* fonts:                                 Faces and Fonts.
+* foreign:                               Terminology.
+* foreign groups <1>:                    Select Methods.
+* foreign groups:                        Foreign Groups.
+* foreign servers:                       Browse Foreign Server.
+* format-time-string:                    Article Date.
+* formatting variables:                  Formatting Variables.
+* forwarded messages:                    Document Groups.
+* functions:                             Gnus Utility Functions.
+* fuzzy article gathering:               Loose Threads.
+* fuzzy matching:                        Fuzzy Matching.
+* gateways:                              Mail-To-News Gateways.
+* Gcc:                                   Archived Messages.
+* gcc-self:                              Group Parameters.
+* general customization:                 Customization.
+* global score files:                    Global Score Files.
+* gnu.emacs.gnus:                        Troubleshooting.
+* gnus:                                  Starting Up.
+* Gnus Agent:                            Gnus Unplugged.
+* Gnus Agent expire:                     Agent Expiry.
+* Gnus Unplugged:                        Gnus Unplugged.
+* Gnus utility functions:                Gnus Utility Functions.
+* gnus-activate-all-groups:              Scanning New Messages.
+* gnus-activate-foreign-newsgroups:      Foreign Groups.
+* gnus-activate-level:                   Group Levels.
+* gnus-active:                           Gnus Utility Functions.
+* gnus-adaptive-file-suffix:             Adaptive Scoring.
+* gnus-adaptive-word-minimum:            Adaptive Scoring.
+* gnus-adaptive-word-syntax-table:       Adaptive Scoring.
+* gnus-add-configuration:                Windows Configuration.
+* gnus-add-current-to-buffer-list:       Gnus Utility Functions.
+* gnus-add-to-list <1>:                  Mail.
+* gnus-add-to-list:                      Group Parameters.
+* gnus-after-getting-new-news-hook:      Scanning New Messages.
+* gnus-agent-add-group:                  Group Agent Commands.
+* gnus-agent-add-server:                 Server Agent Commands.
+* gnus-agent-batch-fetch:                Agent Commands.
+* gnus-agent-catchup:                    Summary Agent Commands.
+* gnus-agent-directory:                  Agent Variables.
+* gnus-agent-expire:                     Agent Expiry.
+* gnus-agent-expire-all:                 Agent Expiry.
+* gnus-agent-expire-days:                Agent Expiry.
+* gnus-agent-fetch-groups:               Group Agent Commands.
+* gnus-agent-fetch-session:              Group Agent Commands.
+* gnus-agent-handle-level:               Agent Variables.
+* gnus-agent-high-score:                 Category Variables.
+* gnus-agent-long-article:               Category Variables.
+* gnus-agent-low-score:                  Category Variables.
+* gnus-agent-mark-article:               Summary Agent Commands.
+* gnus-agent-plugged-hook:               Agent Variables.
+* gnus-agent-remove-server:              Server Agent Commands.
+* gnus-agent-short-article:              Category Variables.
+* gnus-agent-toggle-mark:                Summary Agent Commands.
+* gnus-agent-unmark-article:             Summary Agent Commands.
+* gnus-agent-unplugged-hook:             Agent Variables.
+* gnus-alter-header-function:            Low-Level Threading.
+* gnus-always-force-window-configuration: Windows Configuration.
+* gnus-always-read-dribble-file:         Auto Save.
+* gnus-ancient-mark:                     Read Articles.
+* gnus-apply-kill-file:                  Kill Files.
+* gnus-apply-kill-file-unless-scored:    Kill Files.
+* gnus-apply-kill-hook:                  Kill Files.
+* gnus-article-add-buttons:              Article Washing.
+* gnus-article-add-buttons-to-head:      Article Washing.
+* gnus-article-button-face:              Article Buttons.
+* gnus-article-date-iso8601:             Article Date.
+* gnus-article-date-lapsed:              Article Date.
+* gnus-article-date-local:               Article Date.
+* gnus-article-date-original:            Article Date.
+* gnus-article-date-user:                Article Date.
+* gnus-article-date-ut:                  Article Date.
+* gnus-article-de-quoted-unreadable:     Article Washing.
+* gnus-article-describe-briefly:         Article Keymap.
+* gnus-article-display-hook <1>:         Customizing Articles.
+* gnus-article-display-hook <2>:         Hiding Headers.
+* gnus-article-display-hook <3>:         Misc Article.
+* gnus-article-display-hook:             Hard Picons.
+* gnus-article-display-picons:           Hard Picons.
+* gnus-article-display-x-face:           Article Washing.
+* gnus-article-emphasize:                Article Fontisizing.
+* gnus-article-fill-cited-article:       Article Washing.
+* gnus-article-hide:                     Article Hiding.
+* gnus-article-hide-boring-headers <1>:  Article Hiding.
+* gnus-article-hide-boring-headers:      Hiding Headers.
+* gnus-article-hide-citation:            Article Hiding.
+* gnus-article-hide-citation-in-followups: Article Hiding.
+* gnus-article-hide-citation-maybe:      Article Hiding.
+* gnus-article-hide-headers:             Article Hiding.
+* gnus-article-hide-pem:                 Article Hiding.
+* gnus-article-hide-pgp:                 Article Hiding.
+* gnus-article-hide-pgp-hook:            Article Hiding.
+* gnus-article-hide-signature:           Article Hiding.
+* gnus-article-highlight:                Article Highlighting.
+* gnus-article-highlight-citation:       Article Highlighting.
+* gnus-article-highlight-headers:        Article Highlighting.
+* gnus-article-highlight-signature:      Article Highlighting.
+* gnus-article-mail:                     Article Keymap.
+* gnus-article-maybe-hide-headers:       Customizing Articles.
+* gnus-article-maybe-highlight <1>:      Customizing Articles.
+* gnus-article-maybe-highlight:          Article Highlighting.
+* gnus-article-menu-hook:                Highlighting and Menus.
+* gnus-article-mode-hook:                Misc Article.
+* gnus-article-mode-line-format:         Misc Article.
+* gnus-article-mode-syntax-table:        Misc Article.
+* gnus-article-mouse-face:               Article Buttons.
+* gnus-article-next-button:              Article Keymap.
+* gnus-article-next-page:                Article Keymap.
+* gnus-article-prepare-hook:             Misc Article.
+* gnus-article-prev-button:              Article Keymap.
+* gnus-article-prev-page:                Article Keymap.
+* gnus-article-refer-article:            Article Keymap.
+* gnus-article-remove-cr:                Article Washing.
+* gnus-article-remove-trailing-blank-lines: Article Washing.
+* gnus-article-save-directory:           Saving Articles.
+* gnus-article-show-summary:             Article Keymap.
+* gnus-article-sort-by-author:           Sorting.
+* gnus-article-sort-by-date:             Sorting.
+* gnus-article-sort-by-number:           Sorting.
+* gnus-article-sort-by-score:            Sorting.
+* gnus-article-sort-by-subject:          Sorting.
+* gnus-article-sort-functions:           Sorting.
+* gnus-article-strip-all-blank-lines:    Article Washing.
+* gnus-article-strip-blank-lines:        Article Washing.
+* gnus-article-strip-leading-blank-lines: Article Washing.
+* gnus-article-strip-leading-space:      Article Washing.
+* gnus-article-strip-multiple-blank-lines: Article Washing.
+* gnus-article-time-format:              Article Date.
+* gnus-article-treat-dumbquotes:         Article Washing.
+* gnus-article-treat-overstrike:         Article Washing.
+* gnus-article-x-face-command:           Article Washing.
+* gnus-article-x-face-too-ugly:          Article Washing.
+* gnus-async-prefetch-article-p:         Asynchronous Fetching.
+* gnus-async-read-p:                     Asynchronous Fetching.
+* gnus-asynchronous:                     Asynchronous Fetching.
+* gnus-auto-center-summary:              Summary Maneuvering.
+* gnus-auto-expirable-newsgroups:        Expiring Mail.
+* gnus-auto-extend-newsgroup:            Choosing Variables.
+* gnus-auto-select-first:                Selecting a Group.
+* gnus-auto-select-next:                 Summary Maneuvering.
+* gnus-auto-select-same:                 Summary Maneuvering.
+* gnus-auto-subscribed-groups:           Filtering New Groups.
+* gnus-batch-score:                      Group Score Commands.
+* gnus-before-startup-hook:              Startup Variables.
+* gnus-binary-mode:                      Binary Groups.
+* gnus-binary-mode-hook:                 Binary Groups.
+* gnus-binary-show-article:              Binary Groups.
+* gnus-boring-article-headers:           Hiding Headers.
+* gnus-break-pages:                      Misc Article.
+* gnus-browse-describe-briefly:          Browse Foreign Server.
+* gnus-browse-exit:                      Browse Foreign Server.
+* gnus-browse-menu-hook:                 Highlighting and Menus.
+* gnus-browse-mode:                      Browse Foreign Server.
+* gnus-browse-read-group:                Browse Foreign Server.
+* gnus-browse-select-group:              Browse Foreign Server.
+* gnus-browse-unsubscribe-current-group: Browse Foreign Server.
+* gnus-buffer-configuration:             Windows Configuration.
+* gnus-bug <1>:                          Troubleshooting.
+* gnus-bug:                              Compatibility.
+* gnus-bug-create-help-buffer:           Compatibility.
+* gnus-build-sparse-threads:             Filling In Threads.
+* gnus-button-alist:                     Article Buttons.
+* gnus-button-url-regexp:                Article Buttons.
+* gnus-cache-active-file:                Article Caching.
+* gnus-cache-directory:                  Article Caching.
+* gnus-cache-enter-article:              Persistent Articles.
+* gnus-cache-enter-articles:             Article Caching.
+* gnus-cache-generate-active:            Article Caching.
+* gnus-cache-generate-nov-databases:     Article Caching.
+* gnus-cache-remove-article:             Persistent Articles.
+* gnus-cache-remove-articles:            Article Caching.
+* gnus-cacheable-groups:                 Article Caching.
+* gnus-cached-mark:                      Other Marks.
+* gnus-canceled-mark:                    Read Articles.
+* gnus-carpal:                           Buttons.
+* gnus-carpal-browse-buffer-buttons:     Buttons.
+* gnus-carpal-button-face:               Buttons.
+* gnus-carpal-group-buffer-buttons:      Buttons.
+* gnus-carpal-header-face:               Buttons.
+* gnus-carpal-mode-hook:                 Buttons.
+* gnus-carpal-server-buffer-buttons:     Buttons.
+* gnus-carpal-summary-buffer-buttons:    Buttons.
+* gnus-catchup-mark:                     Read Articles.
+* gnus-category-add:                     The Category Buffer.
+* gnus-category-copy:                    The Category Buffer.
+* gnus-category-edit-groups:             The Category Buffer.
+* gnus-category-edit-predicate:          The Category Buffer.
+* gnus-category-edit-score:              The Category Buffer.
+* gnus-category-exit:                    The Category Buffer.
+* gnus-category-kill:                    The Category Buffer.
+* gnus-category-line-format:             Category Variables.
+* gnus-category-list:                    The Category Buffer.
+* gnus-category-mode-hook:               Category Variables.
+* gnus-category-mode-line-format:        Category Variables.
+* gnus-change-server:                    Changing Servers.
+* gnus-check-backend-function:           Gnus Utility Functions.
+* gnus-check-bogus-newsgroups:           Startup Variables.
+* gnus-check-new-newsgroups:             New Groups.
+* gnus-cite-attribution-face:            Article Highlighting.
+* gnus-cite-attribution-prefix:          Article Highlighting.
+* gnus-cite-attribution-suffix:          Article Highlighting.
+* gnus-cite-face-list:                   Article Highlighting.
+* gnus-cite-hide-absolute:               Article Hiding.
+* gnus-cite-hide-percentage:             Article Hiding.
+* gnus-cite-max-prefix:                  Article Highlighting.
+* gnus-cite-minimum-match-count:         Article Highlighting.
+* gnus-cite-parse-max-size:              Article Highlighting.
+* gnus-cite-prefix-regexp:               Article Highlighting.
+* gnus-cited-closed-text-button-line-format: Article Hiding.
+* gnus-cited-lines-visible:              Article Hiding.
+* gnus-cited-opened-text-button-line-format: Article Hiding.
+* gnus-compile:                          Compilation.
+* gnus-configure-frame:                  Windows Configuration.
+* gnus-continuum-version:                Gnus Utility Functions.
+* gnus-crosspost-complaint:              Summary Mail Commands.
+* gnus-current-home-score-file:          Home Score File.
+* gnus-current-prefix-symbol:            Extended Interactive.
+* gnus-current-prefix-symbols:           Extended Interactive.
+* gnus-dead-summary-mode:                Exiting the Summary Buffer.
+* gnus-decay-score:                      Score Decays.
+* gnus-decay-score-function:             Score Decays.
+* gnus-decay-scores:                     Score Decays.
+* gnus-default-adaptive-score-alist:     Adaptive Scoring.
+* gnus-default-adaptive-word-score-alist: Adaptive Scoring.
+* gnus-default-article-saver:            Saving Articles.
+* gnus-default-directory:                Various Various.
+* gnus-default-ignored-adaptive-words:   Adaptive Scoring.
+* gnus-default-subscribed-newsgroups:    The First Time.
+* gnus-del-mark:                         Read Articles.
+* gnus-demon-add-disconnection:          Daemons.
+* gnus-demon-add-handler:                Daemons.
+* gnus-demon-add-nocem:                  Daemons.
+* gnus-demon-add-rescan:                 Daemons.
+* gnus-demon-add-scan-timestamps:        Daemons.
+* gnus-demon-add-scanmail:               Daemons.
+* gnus-demon-cancel:                     Daemons.
+* gnus-demon-handlers:                   Daemons.
+* gnus-demon-init:                       Daemons.
+* gnus-demon-timestep:                   Daemons.
+* gnus-directory:                        Various Various.
+* gnus-dormant-mark:                     Unread Articles.
+* gnus-draft-edit-message:               Drafts.
+* gnus-draft-send-all-messages:          Drafts.
+* gnus-draft-send-message:               Drafts.
+* gnus-dribble-directory:                Auto Save.
+* gnus-duplicate-file:                   Duplicate Suppression.
+* gnus-duplicate-list-length:            Duplicate Suppression.
+* gnus-duplicate-mark:                   Read Articles.
+* gnus-emphasis-alist:                   Article Fontisizing.
+* gnus-emphasis-bold:                    Article Fontisizing.
+* gnus-emphasis-bold-italic:             Article Fontisizing.
+* gnus-emphasis-italic:                  Article Fontisizing.
+* gnus-emphasis-underline:               Article Fontisizing.
+* gnus-emphasis-underline-bold:          Article Fontisizing.
+* gnus-emphasis-underline-bold-italic:   Article Fontisizing.
+* gnus-emphasis-underline-italic:        Article Fontisizing.
+* gnus-empty-thread-mark:                Other Marks.
+* gnus-enter-category-buffer:            Group Agent Commands.
+* gnus-ephemeral-group-p:                Gnus Utility Functions.
+* gnus-exit-gnus-hook:                   Exiting Gnus.
+* gnus-exit-group-hook:                  Exiting the Summary Buffer.
+* gnus-expert-user:                      Interactive.
+* gnus-expirable-mark:                   Read Articles.
+* gnus-extract-address-components:       Summary Buffer Format.
+* gnus-fetch-group:                      Fetching a Group.
+* gnus-fetch-old-headers:                Filling In Threads.
+* gnus-file-save-name:                   Saving Articles.
+* gnus-find-method-for-group:            Gnus Utility Functions.
+* gnus-Folder-save-name:                 Saving Articles.
+* gnus-folder-save-name:                 Saving Articles.
+* gnus-gather-threads-by-references:     Loose Threads.
+* gnus-gather-threads-by-subject:        Loose Threads.
+* gnus-generate-horizontal-tree:         Tree Display.
+* gnus-generate-tree-function:           Tree Display.
+* gnus-generate-vertical-tree:           Tree Display.
+* gnus-get-info:                         Gnus Utility Functions.
+* gnus-get-new-news-hook:                Scanning New Messages.
+* gnus-global-score-files:               Global Score Files.
+* gnus-goto-next-group-when-activating:  Scanning New Messages.
+* gnus-group-add-to-virtual:             Foreign Groups.
+* gnus-group-apropos:                    Listing Groups.
+* gnus-group-archive-directory:          Foreign Groups.
+* gnus-group-best-unread-group:          Group Maneuvering.
+* gnus-group-brew-soup:                  SOUP Commands.
+* gnus-group-browse-foreign-server <1>:  Browse Foreign Server.
+* gnus-group-browse-foreign-server:      Finding the News.
+* gnus-group-catchup-current:            Group Data.
+* gnus-group-catchup-current-all:        Group Data.
+* gnus-group-catchup-group-hook:         Group Data.
+* gnus-group-check-bogus-groups:         Group Maintenance.
+* gnus-group-clear-data:                 Group Data.
+* gnus-group-clear-data-on-native-groups <1>: Changing Servers.
+* gnus-group-clear-data-on-native-groups: Group Data.
+* gnus-group-customize:                  Foreign Groups.
+* gnus-group-default-list-level:         Group Levels.
+* gnus-group-delete-group:               Foreign Groups.
+* gnus-group-describe-all-groups:        Group Information.
+* gnus-group-describe-briefly:           Group Information.
+* gnus-group-describe-group:             Group Information.
+* gnus-group-description-apropos:        Listing Groups.
+* gnus-group-edit-global-kill:           Kill Files.
+* gnus-group-edit-group:                 Foreign Groups.
+* gnus-group-edit-group-method:          Foreign Groups.
+* gnus-group-edit-group-parameters:      Foreign Groups.
+* gnus-group-edit-local-kill:            Kill Files.
+* gnus-group-enter-directory:            Foreign Groups.
+* gnus-group-enter-server-mode:          Misc Group Stuff.
+* gnus-group-exit:                       Exiting Gnus.
+* gnus-group-expire-all-groups:          Group Maintenance.
+* gnus-group-expire-articles:            Group Maintenance.
+* gnus-group-faq-directory <1>:          Group Information.
+* gnus-group-faq-directory:              Summary Group Information.
+* gnus-group-fetch-faq:                  Group Information.
+* gnus-group-find-new-groups:            Group Maintenance.
+* gnus-group-first-unread-group:         Group Maneuvering.
+* gnus-group-foreign-p:                  Gnus Utility Functions.
+* gnus-group-get-new-news:               Scanning New Messages.
+* gnus-group-get-new-news-this-group:    Scanning New Messages.
+* gnus-group-goto-unread:                Group Maneuvering.
+* gnus-group-highlight:                  Group Highlighting.
+* gnus-group-highlight-line:             Group Highlighting.
+* gnus-group-jump-to-group:              Group Maneuvering.
+* gnus-group-kill-all-zombies:           Subscription Commands.
+* gnus-group-kill-group:                 Subscription Commands.
+* gnus-group-kill-level:                 Subscription Commands.
+* gnus-group-kill-region:                Subscription Commands.
+* gnus-group-line-format:                Group Line Specification.
+* gnus-group-list-active:                Listing Groups.
+* gnus-group-list-all-groups:            Listing Groups.
+* gnus-group-list-all-matching:          Listing Groups.
+* gnus-group-list-groups:                Listing Groups.
+* gnus-group-list-inactive-groups:       Group Levels.
+* gnus-group-list-killed:                Listing Groups.
+* gnus-group-list-level:                 Listing Groups.
+* gnus-group-list-matching:              Listing Groups.
+* gnus-group-list-zombies:               Listing Groups.
+* gnus-group-mail:                       Misc Group Stuff.
+* gnus-group-make-archive-group:         Foreign Groups.
+* gnus-group-make-directory-group:       Foreign Groups.
+* gnus-group-make-doc-group:             Foreign Groups.
+* gnus-group-make-empty-virtual:         Foreign Groups.
+* gnus-group-make-group:                 Foreign Groups.
+* gnus-group-make-help-group:            Foreign Groups.
+* gnus-group-make-kiboze-group:          Foreign Groups.
+* gnus-group-make-useful-group:          Foreign Groups.
+* gnus-group-make-web-group:             Foreign Groups.
+* gnus-group-mark-buffer:                Marking Groups.
+* gnus-group-mark-group:                 Marking Groups.
+* gnus-group-mark-regexp:                Marking Groups.
+* gnus-group-mark-region:                Marking Groups.
+* gnus-group-menu-hook:                  Highlighting and Menus.
+* gnus-group-mode-hook:                  Misc Group Stuff.
+* gnus-group-mode-line-format:           Group Modeline Specification.
+* gnus-group-move-group-to-server:       Changing Servers.
+* gnus-group-native-p:                   Gnus Utility Functions.
+* gnus-group-next-group <1>:             Browse Foreign Server.
+* gnus-group-next-group:                 Group Maneuvering.
+* gnus-group-next-unread-group:          Group Maneuvering.
+* gnus-group-next-unread-group-same-level: Group Maneuvering.
+* gnus-group-post-news:                  Misc Group Stuff.
+* gnus-group-prefixed-name:              Gnus Utility Functions.
+* gnus-group-prepare-hook:               Misc Group Stuff.
+* gnus-group-prev-group <1>:             Group Maneuvering.
+* gnus-group-prev-group:                 Browse Foreign Server.
+* gnus-group-prev-unread-group:          Group Maneuvering.
+* gnus-group-prev-unread-group-same-level: Group Maneuvering.
+* gnus-group-quick-select-group:         Selecting a Group.
+* gnus-group-quit:                       Exiting Gnus.
+* gnus-group-read-group:                 Selecting a Group.
+* gnus-group-read-init-file:             File Commands.
+* gnus-group-read-only-p:                Gnus Utility Functions.
+* gnus-group-real-name:                  Gnus Utility Functions.
+* gnus-group-recent-archive-directory:   Foreign Groups.
+* gnus-group-rename-group:               Foreign Groups.
+* gnus-group-restart:                    Scanning New Messages.
+* gnus-group-save-newsrc:                File Commands.
+* gnus-group-secondary-p:                Gnus Utility Functions.
+* gnus-group-select-group:               Selecting a Group.
+* gnus-group-select-group-ephemerally:   Selecting a Group.
+* gnus-group-send-drafts:                Group Agent Commands.
+* gnus-group-set-current-level:          Group Levels.
+* gnus-group-set-parameter:              Gnus Utility Functions.
+* gnus-group-sort-by-alphabet:           Sorting Groups.
+* gnus-group-sort-by-level:              Sorting Groups.
+* gnus-group-sort-by-method:             Sorting Groups.
+* gnus-group-sort-by-rank:               Sorting Groups.
+* gnus-group-sort-by-real-name:          Sorting Groups.
+* gnus-group-sort-by-score:              Sorting Groups.
+* gnus-group-sort-by-unread:             Sorting Groups.
+* gnus-group-sort-function:              Sorting Groups.
+* gnus-group-sort-groups:                Sorting Groups.
+* gnus-group-sort-groups-by-alphabet:    Sorting Groups.
+* gnus-group-sort-groups-by-level:       Sorting Groups.
+* gnus-group-sort-groups-by-method:      Sorting Groups.
+* gnus-group-sort-groups-by-rank:        Sorting Groups.
+* gnus-group-sort-groups-by-score:       Sorting Groups.
+* gnus-group-sort-groups-by-unread:      Sorting Groups.
+* gnus-group-sort-selected-groups-by-alphabet: Sorting Groups.
+* gnus-group-sort-selected-groups-by-level: Sorting Groups.
+* gnus-group-sort-selected-groups-by-method: Sorting Groups.
+* gnus-group-sort-selected-groups-by-rank: Sorting Groups.
+* gnus-group-sort-selected-groups-by-score: Sorting Groups.
+* gnus-group-sort-selected-groups-by-unread: Sorting Groups.
+* gnus-group-suspend:                    Exiting Gnus.
+* gnus-group-toolbar:                    Toolbar.
+* gnus-group-transpose-groups:           Subscription Commands.
+* gnus-group-uncollapsed-levels:         Group Line Specification.
+* gnus-group-universal-argument:         Marking Groups.
+* gnus-group-unmark-all-groups:          Marking Groups.
+* gnus-group-unmark-group:               Marking Groups.
+* gnus-group-unread:                     Gnus Utility Functions.
+* gnus-group-unsubscribe-current-group:  Subscription Commands.
+* gnus-group-unsubscribe-group:          Subscription Commands.
+* gnus-group-update-hook:                Group Highlighting.
+* gnus-group-use-permanent-levels:       Group Levels.
+* gnus-group-visible-select-group:       Selecting a Group.
+* gnus-group-yank-group:                 Subscription Commands.
+* gnus-grouplens-override-scoring:       Displaying Predictions.
+* gnus-header-button-alist:              Article Buttons.
+* gnus-header-face-alist:                Article Highlighting.
+* gnus-hidden-properties:                Various Various.
+* gnus-hierarchial-home-score-file:      Home Score File.
+* gnus-home-adapt-file:                  Home Score File.
+* gnus-home-score-file:                  Home Score File.
+* gnus-ignored-adaptive-words:           Adaptive Scoring.
+* gnus-ignored-headers:                  Hiding Headers.
+* gnus-ignored-newsgroups:               The Active File.
+* gnus-info-find-node <1>:               Summary Group Information.
+* gnus-info-find-node:                   Group Information.
+* gnus-info-group:                       Group Info.
+* gnus-info-level:                       Group Info.
+* gnus-info-marks:                       Group Info.
+* gnus-info-method:                      Group Info.
+* gnus-info-params:                      Group Info.
+* gnus-info-rank:                        Group Info.
+* gnus-info-read:                        Group Info.
+* gnus-info-score:                       Group Info.
+* gnus-info-set-group:                   Group Info.
+* gnus-info-set-level:                   Group Info.
+* gnus-info-set-marks:                   Group Info.
+* gnus-info-set-method:                  Group Info.
+* gnus-info-set-params:                  Group Info.
+* gnus-info-set-rank:                    Group Info.
+* gnus-info-set-read:                    Group Info.
+* gnus-info-set-score:                   Group Info.
+* gnus-inhibit-startup-message:          Startup Variables.
+* gnus-init-file <1>:                    Startup Files.
+* gnus-init-file:                        File Commands.
+* gnus-insert-pseudo-articles:           Viewing Files.
+* gnus-interactive:                      Extended Interactive.
+* gnus-interactive-catchup:              Interactive.
+* gnus-interactive-exit:                 Interactive.
+* gnus-jog-cache:                        Article Caching.
+* gnus-keep-backlog:                     Article Backlog.
+* gnus-keep-same-level:                  Group Levels.
+* gnus-kill-file-mark:                   Read Articles.
+* gnus-kill-file-mode-hook:              Kill Files.
+* gnus-kill-file-name:                   Kill Files.
+* gnus-kill-files-directory:             Score Variables.
+* gnus-kill-killed:                      Score Variables.
+* gnus-kill-save-kill-file:              Kill Files.
+* gnus-kill-summary-on-exit:             Exiting the Summary Buffer.
+* gnus-killed-mark:                      Read Articles.
+* gnus-large-newsgroup:                  Selecting a Group.
+* gnus-level-default-subscribed:         Group Levels.
+* gnus-level-default-unsubscribed:       Group Levels.
+* gnus-level-killed:                     Group Levels.
+* gnus-level-subscribed:                 Group Levels.
+* gnus-level-unsubscribed:               Group Levels.
+* gnus-level-zombie:                     Group Levels.
+* gnus-list-groups-with-ticked-articles: Listing Groups.
+* gnus-load-hook:                        Startup Variables.
+* gnus-low-score-mark:                   Read Articles.
+* gnus-mail-save-name:                   Saving Articles.
+* gnus-mailing-list-groups:              Mail and Post.
+* gnus-mark-article-hook <1>:            Choosing Variables.
+* gnus-mark-article-hook:                Expiring Mail.
+* gnus-mark-unpicked-articles-as-read:   Pick and Read.
+* gnus-message-archive-group:            Archived Messages.
+* gnus-message-archive-method:           Archived Messages.
+* gnus-mode-non-string-length:           Mode Lines.
+* gnus-mouse-face:                       Highlighting and Menus.
+* gnus-move-split-methods:               Mail Group Commands.
+* gnus-narrow-to-body:                   Gnus Utility Functions.
+* gnus-new-mail-mark:                    Group Line Specification.
+* gnus-news-group-p:                     Gnus Utility Functions.
+* gnus-newsgroup-name:                   Gnus Utility Functions.
+* gnus-nntp-server:                      Finding the News.
+* gnus-nntpserver-file:                  Finding the News.
+* gnus-no-groups-message:                Startup Variables.
+* gnus-no-server:                        The Server is Down.
+* gnus-nocem-directory:                  NoCeM.
+* gnus-nocem-expiry-wait:                NoCeM.
+* gnus-nocem-groups:                     NoCeM.
+* gnus-nocem-issuers:                    NoCeM.
+* gnus-nocem-verifyer:                   NoCeM.
+* gnus-not-empty-thread-mark:            Other Marks.
+* gnus-nov-is-evil:                      Crosspost Handling.
+* gnus-novice-user:                      Interactive.
+* gnus-numeric-save-name:                Saving Articles.
+* gnus-Numeric-save-name:                Saving Articles.
+* gnus-options-not-subscribe:            Filtering New Groups.
+* gnus-options-subscribe:                Filtering New Groups.
+* gnus-other-frame:                      Starting Up.
+* gnus-outgoing-message-group:           Archived Messages.
+* gnus-page-delimiter:                   Misc Article.
+* gnus-parse-headers-hook <1>:           Low-Level Threading.
+* gnus-parse-headers-hook:               Various Various.
+* gnus-permanently-visible-groups <1>:   Misc Group Stuff.
+* gnus-permanently-visible-groups:       Listing Groups.
+* gnus-pick-article-or-thread:           Pick and Read.
+* gnus-pick-display-summary:             Pick and Read.
+* gnus-pick-mode:                        Pick and Read.
+* gnus-pick-mode-hook:                   Pick and Read.
+* gnus-pick-next-page:                   Pick and Read.
+* gnus-pick-start-reading:               Pick and Read.
+* gnus-pick-unmark-article-or-thread.:   Pick and Read.
+* gnus-picons-clear-cache-on-shutdown:   Picon Useless Configuration.
+* gnus-picons-convert-x-face <1>:        Picon Requirements.
+* gnus-picons-convert-x-face:            Picon Useless Configuration.
+* gnus-picons-database <1>:              Picon Basics.
+* gnus-picons-database:                  Hard Picons.
+* gnus-picons-display-article-move-p:    Picon Useless Configuration.
+* gnus-picons-display-as-address:        Picon Useless Configuration.
+* gnus-picons-display-where:             Hard Picons.
+* gnus-picons-domain-directories:        Picon Useless Configuration.
+* gnus-picons-file-suffixes:             Picon Useless Configuration.
+* gnus-picons-group-excluded-groups:     Hard Picons.
+* gnus-picons-has-modeline-p:            Picon Useless Configuration.
+* gnus-picons-news-directories:          Picon Useless Configuration.
+* gnus-picons-piconsearch-url <1>:       Hard Picons.
+* gnus-picons-piconsearch-url:           Picon Basics.
+* gnus-picons-refresh-before-display:    Picon Useless Configuration.
+* gnus-picons-user-directories:          Picon Useless Configuration.
+* gnus-picons-x-face-file-name:          Picon Useless Configuration.
+* gnus-Plain-save-name:                  Saving Articles.
+* gnus-plain-save-name:                  Saving Articles.
+* gnus-play-startup-jingle:              Startup Variables.
+* gnus-post-method:                      Posting Server.
+* gnus-posting-styles:                   Posting Styles.
+* gnus-prefetched-article-deletion-strategy: Asynchronous Fetching.
+* gnus-process-mark:                     Other Marks.
+* gnus-prompt-before-saving:             Saving Articles.
+* gnus-ps-print-hook:                    Article Commands.
+* gnus-read-active-file:                 The Active File.
+* gnus-read-mark:                        Read Articles.
+* gnus-read-method:                      Gnus Utility Functions.
+* gnus-refer-article-method:             Finding the Parent.
+* gnus-refer-thread-limit:               Finding the Parent.
+* gnus-replied-mark:                     Other Marks.
+* gnus-rmail-save-name:                  Saving Articles.
+* gnus-save-all-headers:                 Saving Articles.
+* gnus-save-duplicate-list:              Duplicate Suppression.
+* gnus-save-killed-list:                 Startup Files.
+* gnus-save-newsrc-file:                 Startup Files.
+* gnus-save-newsrc-hook:                 Startup Files.
+* gnus-save-quick-newsrc-hook:           Startup Files.
+* gnus-save-score:                       Score Variables.
+* gnus-save-standard-newsrc-hook:        Startup Files.
+* gnus-saved-headers:                    Saving Articles.
+* gnus-saved-mark:                       Other Marks.
+* gnus-score-after-write-file-function:  Score Variables.
+* gnus-score-below-mark:                 Score Variables.
+* gnus-score-change-score-file:          Summary Score Commands.
+* gnus-score-customize:                  Summary Score Commands.
+* gnus-score-decay-constant:             Score Decays.
+* gnus-score-decay-scale:                Score Decays.
+* gnus-score-edit-current-scores:        Summary Score Commands.
+* gnus-score-edit-done:                  Score File Editing.
+* gnus-score-edit-file:                  Summary Score Commands.
+* gnus-score-edit-insert-date:           Score File Editing.
+* gnus-score-exact-adapt-limit:          Adaptive Scoring.
+* gnus-score-expiry-days:                Score Variables.
+* gnus-score-file-suffix:                Score Variables.
+* gnus-score-find-bnews:                 Score Variables.
+* gnus-score-find-hierarchical:          Score Variables.
+* gnus-score-find-score-files-function:  Score Variables.
+* gnus-score-find-single:                Score Variables.
+* gnus-score-find-trace:                 Summary Score Commands.
+* gnus-score-flush-cache <1>:            Summary Score Commands.
+* gnus-score-flush-cache:                Group Score Commands.
+* gnus-score-followup-article:           Followups To Yourself.
+* gnus-score-followup-thread:            Followups To Yourself.
+* gnus-score-interactive-default-score:  Score Variables.
+* gnus-score-menu-hook:                  Highlighting and Menus.
+* gnus-score-mimic-keymap:               Summary Score Commands.
+* gnus-score-mode-hook:                  Score File Editing.
+* gnus-score-over-mark:                  Score Variables.
+* gnus-score-pretty-print:               Score File Editing.
+* gnus-score-search-global-directories:  Global Score Files.
+* gnus-score-set-expunge-below:          Summary Score Commands.
+* gnus-score-set-mark-below:             Summary Score Commands.
+* gnus-score-thread-simplify:            Score Variables.
+* gnus-score-uncacheable-files:          Score Variables.
+* gnus-secondary-select-methods:         Finding the News.
+* gnus-secondary-servers:                Finding the News.
+* gnus-select-article-hook:              Choosing Variables.
+* gnus-select-group-hook:                Selecting a Group.
+* gnus-select-method:                    Finding the News.
+* gnus-selected-tree-face:               Tree Display.
+* gnus-sent-message-ids-file:            Post.
+* gnus-sent-message-ids-length:          Post.
+* gnus-server-add-server:                Server Commands.
+* gnus-server-close-all-servers:         Unavailable Servers.
+* gnus-server-close-server:              Unavailable Servers.
+* gnus-server-copy-server:               Server Commands.
+* gnus-server-deny-server:               Unavailable Servers.
+* gnus-server-edit-server:               Server Commands.
+* gnus-server-equal:                     Gnus Utility Functions.
+* gnus-server-exit:                      Server Commands.
+* gnus-server-kill-server:               Server Commands.
+* gnus-server-line-format:               Server Buffer Format.
+* gnus-server-list-servers:              Server Commands.
+* gnus-server-menu-hook:                 Highlighting and Menus.
+* gnus-server-mode-hook:                 The Server Buffer.
+* gnus-server-mode-line-format:          Server Buffer Format.
+* gnus-server-open-all-servers:          Unavailable Servers.
+* gnus-server-open-server:               Unavailable Servers.
+* gnus-server-read-server:               Server Commands.
+* gnus-server-regenerate-server:         Server Commands.
+* gnus-server-remove-denials:            Unavailable Servers.
+* gnus-server-scan-server:               Server Commands.
+* gnus-server-to-method:                 Gnus Utility Functions.
+* gnus-server-yank-server:               Server Commands.
+* gnus-set-active:                       Gnus Utility Functions.
+* gnus-shell-command-separator:          Various Various.
+* gnus-show-all-headers:                 Hiding Headers.
+* gnus-show-mime:                        Using MIME.
+* gnus-show-mime-method:                 Using MIME.
+* gnus-show-threads:                     More Threading.
+* gnus-signature-face:                   Article Highlighting.
+* gnus-signature-limit:                  Article Signature.
+* gnus-signature-separator <1>:          Article Signature.
+* gnus-signature-separator:              Article Highlighting.
+* gnus-simplify-ignored-prefixes:        Loose Threads.
+* gnus-simplify-subject-functions:       Loose Threads.
+* gnus-simplify-subject-fuzzy:           Loose Threads.
+* gnus-simplify-subject-fuzzy-regexp:    Loose Threads.
+* gnus-simplify-subject-re:              Loose Threads.
+* gnus-simplify-whitespace:              Loose Threads.
+* gnus-single-article-buffer:            Misc Article.
+* gnus-sorted-header-list:               Hiding Headers.
+* gnus-soup-add-article:                 SOUP Commands.
+* gnus-soup-directory:                   SOUP Commands.
+* gnus-soup-pack-packet:                 SOUP Commands.
+* gnus-soup-packer:                      SOUP Commands.
+* gnus-soup-packet-directory:            SOUP Commands.
+* gnus-soup-packet-regexp:               SOUP Commands.
+* gnus-soup-prefix-file:                 SOUP Commands.
+* gnus-soup-replies-directory:           SOUP Commands.
+* gnus-soup-save-areas:                  SOUP Commands.
+* gnus-soup-send-replies:                SOUP Commands.
+* gnus-soup-unpacker:                    SOUP Commands.
+* gnus-souped-mark:                      Read Articles.
+* gnus-sparse-mark:                      Read Articles.
+* gnus-split-methods:                    Saving Articles.
+* gnus-start-date-timer:                 Article Date.
+* gnus-started-hook:                     Startup Variables.
+* gnus-startup-file:                     Startup Files.
+* gnus-startup-hook:                     Startup Variables.
+* gnus-startup-jingle:                   Startup Variables.
+* gnus-stop-date-timer:                  Article Date.
+* gnus-strict-mime:                      Using MIME.
+* gnus-subscribe-alphabetically:         Subscription Methods.
+* gnus-subscribe-hierarchical-interactive: Subscription Methods.
+* gnus-subscribe-hierarchically:         Subscription Methods.
+* gnus-subscribe-interactively:          Subscription Methods.
+* gnus-subscribe-killed:                 Subscription Methods.
+* gnus-subscribe-newsgroup-method:       Subscription Methods.
+* gnus-subscribe-options-newsgroup-method: Filtering New Groups.
+* gnus-subscribe-randomly:               Subscription Methods.
+* gnus-subscribe-zombies:                Subscription Methods.
+* gnus-summary-article-posted-p:         Mail Group Commands.
+* gnus-summary-beginning-of-article:     Paging the Article.
+* gnus-summary-best-unread-article:      Choosing Commands.
+* gnus-summary-bubble-group:             Group Score.
+* gnus-summary-caesar-message:           Article Washing.
+* gnus-summary-cancel-article:           Canceling and Superseding.
+* gnus-summary-catchup:                  Setting Marks.
+* gnus-summary-catchup-all:              Setting Marks.
+* gnus-summary-catchup-all-and-exit:     Exiting the Summary Buffer.
+* gnus-summary-catchup-and-exit:         Exiting the Summary Buffer.
+* gnus-summary-catchup-and-goto-next-group: Exiting the Summary Buffer.
+* gnus-summary-catchup-to-here:          Setting Marks.
+* gnus-summary-check-current:            Summary Maneuvering.
+* gnus-summary-clear-above:              Setting Marks.
+* gnus-summary-clear-mark-forward:       Setting Marks.
+* gnus-summary-copy-article:             Mail Group Commands.
+* gnus-summary-crosspost-article:        Mail Group Commands.
+* gnus-summary-current-score:            Summary Score Commands.
+* gnus-summary-default-score:            Score Variables.
+* gnus-summary-delete-article:           Mail Group Commands.
+* gnus-summary-describe-briefly:         Summary Group Information.
+* gnus-summary-describe-group:           Summary Group Information.
+* gnus-summary-down-thread:              Thread Commands.
+* gnus-summary-dummy-line-format:        Loose Threads.
+* gnus-summary-edit-article:             Mail Group Commands.
+* gnus-summary-edit-global-kill:         Kill Files.
+* gnus-summary-edit-local-kill:          Kill Files.
+* gnus-summary-edit-parameters:          Really Various Summary Commands.
+* gnus-summary-end-of-article:           Paging the Article.
+* gnus-summary-enter-digest-group:       Really Various Summary Commands.
+* gnus-summary-execute-command:          Searching for Articles.
+* gnus-summary-exit:                     Exiting the Summary Buffer.
+* gnus-summary-exit-hook:                Exiting the Summary Buffer.
+* gnus-summary-exit-no-update:           Exiting the Summary Buffer.
+* gnus-summary-expand-window:            Really Various Summary Commands.
+* gnus-summary-expire-articles:          Mail Group Commands.
+* gnus-summary-expire-articles-now:      Mail Group Commands.
+* gnus-summary-expunge-below:            Score Variables.
+* gnus-summary-fetch-faq:                Summary Group Information.
+* gnus-summary-first-unread-article:     Choosing Commands.
+* gnus-summary-followup:                 Summary Post Commands.
+* gnus-summary-followup-to-mail:         Summary Post Commands.
+* gnus-summary-followup-to-mail-with-original: Summary Post Commands.
+* gnus-summary-followup-with-original:   Summary Post Commands.
+* gnus-summary-gather-exclude-subject:   Loose Threads.
+* gnus-summary-gather-subject-limit:     Loose Threads.
+* gnus-summary-generate-hook:            Various Summary Stuff.
+* gnus-summary-goto-article:             Summary Maneuvering.
+* gnus-summary-goto-last-article:        Choosing Commands.
+* gnus-summary-goto-subject:             Summary Maneuvering.
+* gnus-summary-goto-unread <1>:          Process/Prefix.
+* gnus-summary-goto-unread:              Setting Marks.
+* gnus-summary-hide-all-threads:         Thread Commands.
+* gnus-summary-hide-thread:              Thread Commands.
+* gnus-summary-highlight:                Summary Highlighting.
+* gnus-summary-ignore-duplicates:        Various Summary Stuff.
+* gnus-summary-import-article:           Mail Group Commands.
+* gnus-summary-increase-score:           Summary Score Commands.
+* gnus-summary-insert-cached-articles:   Summary Generation Commands.
+* gnus-summary-isearch-article:          Paging the Article.
+* gnus-summary-kill-below:               Setting Marks.
+* gnus-summary-kill-process-mark:        Setting Process Marks.
+* gnus-summary-kill-same-subject:        Setting Marks.
+* gnus-summary-kill-same-subject-and-select: Setting Marks.
+* gnus-summary-kill-thread:              Thread Commands.
+* gnus-summary-limit-exclude-childless-dormant: Limiting.
+* gnus-summary-limit-exclude-dormant:    Limiting.
+* gnus-summary-limit-include-cached:     Limiting.
+* gnus-summary-limit-include-dormant:    Limiting.
+* gnus-summary-limit-include-expunged:   Limiting.
+* gnus-summary-limit-include-thread:     Limiting.
+* gnus-summary-limit-mark-excluded-as-read: Limiting.
+* gnus-summary-limit-to-age:             Limiting.
+* gnus-summary-limit-to-articles:        Limiting.
+* gnus-summary-limit-to-author:          Limiting.
+* gnus-summary-limit-to-marks:           Limiting.
+* gnus-summary-limit-to-score:           Limiting.
+* gnus-summary-limit-to-subject:         Limiting.
+* gnus-summary-limit-to-unread:          Limiting.
+* gnus-summary-line-format:              Summary Buffer Lines.
+* gnus-summary-lower-score:              Summary Score Commands.
+* gnus-summary-lower-thread:             Thread Commands.
+* gnus-summary-mail-crosspost-complaint: Summary Mail Commands.
+* gnus-summary-mail-forward:             Summary Mail Commands.
+* gnus-summary-mail-other-window:        Summary Mail Commands.
+* gnus-summary-mail-toolbar:             Toolbar.
+* gnus-summary-make-false-root:          Loose Threads.
+* gnus-summary-mark-above:               Setting Marks.
+* gnus-summary-mark-as-dormant:          Setting Marks.
+* gnus-summary-mark-as-expirable:        Setting Marks.
+* gnus-summary-mark-as-processable:      Setting Process Marks.
+* gnus-summary-mark-as-read-backward:    Setting Marks.
+* gnus-summary-mark-as-read-forward:     Setting Marks.
+* gnus-summary-mark-below:               Scoring.
+* gnus-summary-mark-read-and-unread-as-read: Choosing Variables.
+* gnus-summary-mark-region-as-read:      Setting Marks.
+* gnus-summary-mark-unread-as-read:      Choosing Variables.
+* gnus-summary-menu-hook:                Highlighting and Menus.
+* gnus-summary-mode-hook:                Various Summary Stuff.
+* gnus-summary-mode-line-format:         Summary Buffer Mode Line.
+* gnus-summary-move-article:             Mail Group Commands.
+* gnus-summary-next-article:             Choosing Commands.
+* gnus-summary-next-group:               Exiting the Summary Buffer.
+* gnus-summary-next-page <1>:            Paging the Article.
+* gnus-summary-next-page:                Choosing Commands.
+* gnus-summary-next-same-subject:        Choosing Commands.
+* gnus-summary-next-thread:              Thread Commands.
+* gnus-summary-next-unread-article:      Choosing Commands.
+* gnus-summary-next-unread-subject:      Summary Maneuvering.
+* gnus-summary-pick-line-format:         Pick and Read.
+* gnus-summary-pipe-output:              Saving Articles.
+* gnus-summary-pop-article:              Choosing Commands.
+* gnus-summary-pop-limit:                Limiting.
+* gnus-summary-post-forward:             Summary Post Commands.
+* gnus-summary-post-news:                Summary Post Commands.
+* gnus-summary-prepare:                  Summary Generation Commands.
+* gnus-summary-prepare-exit-hook:        Exiting the Summary Buffer.
+* gnus-summary-prepare-hook:             Various Summary Stuff.
+* gnus-summary-prev-article:             Choosing Commands.
+* gnus-summary-prev-group:               Exiting the Summary Buffer.
+* gnus-summary-prev-page:                Paging the Article.
+* gnus-summary-prev-same-subject:        Choosing Commands.
+* gnus-summary-prev-thread:              Thread Commands.
+* gnus-summary-prev-unread-article:      Choosing Commands.
+* gnus-summary-prev-unread-subject:      Summary Maneuvering.
+* gnus-summary-print-article:            Article Commands.
+* gnus-summary-raise-thread:             Thread Commands.
+* gnus-summary-read-document:            Really Various Summary Commands.
+* gnus-summary-refer-article:            Finding the Parent.
+* gnus-summary-refer-parent-article:     Finding the Parent.
+* gnus-summary-refer-references:         Finding the Parent.
+* gnus-summary-refer-thread:             Finding the Parent.
+* gnus-summary-remove-bookmark:          Setting Marks.
+* gnus-summary-reparent-thread:          Thread Commands.
+* gnus-summary-reply:                    Summary Mail Commands.
+* gnus-summary-reply-with-original:      Summary Mail Commands.
+* gnus-summary-rescan-group:             Exiting the Summary Buffer.
+* gnus-summary-rescore:                  Summary Score Commands.
+* gnus-summary-reselect-current-group:   Exiting the Summary Buffer.
+* gnus-summary-resend-bounced-mail:      Summary Mail Commands.
+* gnus-summary-resend-message:           Summary Mail Commands.
+* gnus-summary-respool-article:          Mail Group Commands.
+* gnus-summary-respool-query:            Mail Group Commands.
+* gnus-summary-respool-trace:            Mail Group Commands.
+* gnus-summary-rethread-current:         Thread Commands.
+* gnus-summary-same-subject:             Summary Buffer Format.
+* gnus-summary-save-article:             Saving Articles.
+* gnus-summary-save-article-body-file:   Saving Articles.
+* gnus-summary-save-article-file:        Saving Articles.
+* gnus-summary-save-article-folder:      Saving Articles.
+* gnus-summary-save-article-mail:        Saving Articles.
+* gnus-summary-save-article-rmail:       Saving Articles.
+* gnus-summary-save-article-vm:          Saving Articles.
+* gnus-summary-save-body-in-file:        Saving Articles.
+* gnus-summary-save-in-file:             Saving Articles.
+* gnus-summary-save-in-folder:           Saving Articles.
+* gnus-summary-save-in-mail:             Saving Articles.
+* gnus-summary-save-in-rmail:            Saving Articles.
+* gnus-summary-save-in-vm:               Saving Articles.
+* gnus-summary-save-newsrc:              Exiting the Summary Buffer.
+* gnus-summary-save-process-mark:        Setting Process Marks.
+* gnus-summary-scroll-down:              Paging the Article.
+* gnus-summary-scroll-up:                Paging the Article.
+* gnus-summary-search-article-backward:  Searching for Articles.
+* gnus-summary-search-article-forward:   Searching for Articles.
+* gnus-summary-select-article-buffer:    Paging the Article.
+* gnus-summary-selected-face:            Summary Highlighting.
+* gnus-summary-set-bookmark:             Setting Marks.
+* gnus-summary-set-score:                Summary Score Commands.
+* gnus-summary-show-all-threads:         Thread Commands.
+* gnus-summary-show-article:             Paging the Article.
+* gnus-summary-show-thread:              Thread Commands.
+* gnus-summary-sort-by-author:           Summary Sorting.
+* gnus-summary-sort-by-date:             Summary Sorting.
+* gnus-summary-sort-by-lines:            Summary Sorting.
+* gnus-summary-sort-by-number:           Summary Sorting.
+* gnus-summary-sort-by-score:            Summary Sorting.
+* gnus-summary-sort-by-subject:          Summary Sorting.
+* gnus-summary-stop-page-breaking:       Article Washing.
+* gnus-summary-supersede-article:        Canceling and Superseding.
+* gnus-summary-thread-gathering-function: Loose Threads.
+* gnus-summary-tick-above:               Setting Marks.
+* gnus-summary-tick-article-forward:     Setting Marks.
+* gnus-summary-toggle-header:            Article Washing.
+* gnus-summary-toggle-mime:              Article Washing.
+* gnus-summary-toggle-threads:           Thread Commands.
+* gnus-summary-toggle-truncation:        Really Various Summary Commands.
+* gnus-summary-toolbar:                  Toolbar.
+* gnus-summary-top-thread:               Thread Commands.
+* gnus-summary-universal-argument:       Searching for Articles.
+* gnus-summary-unmark-all-processable:   Setting Process Marks.
+* gnus-summary-unmark-as-processable:    Setting Process Marks.
+* gnus-summary-up-thread:                Thread Commands.
+* gnus-summary-update-hook:              Summary Highlighting.
+* gnus-summary-verbose-header:           Article Washing.
+* gnus-summary-wake-up-the-dead:         Exiting the Summary Buffer.
+* gnus-summary-wide-reply:               Summary Mail Commands.
+* gnus-summary-wide-reply-with-original: Summary Mail Commands.
+* gnus-summary-write-article-file:       Saving Articles.
+* gnus-summary-yank-process-mark:        Setting Process Marks.
+* gnus-summary-zcore-fuzz:               Summary Buffer Lines.
+* gnus-supercite-regexp:                 Article Highlighting.
+* gnus-supercite-secondary-regexp:       Article Highlighting.
+* gnus-suppress-duplicates:              Duplicate Suppression.
+* gnus-suspend-gnus-hook:                Exiting Gnus.
+* gnus-symbolic-argument:                Symbolic Prefixes.
+* gnus-thread-expunge-below:             More Threading.
+* gnus-thread-hide-killed:               More Threading.
+* gnus-thread-hide-subtree:              More Threading.
+* gnus-thread-ignore-subject:            More Threading.
+* gnus-thread-indent-level:              More Threading.
+* gnus-thread-operation-ignore-subject:  Thread Commands.
+* gnus-thread-score-function:            Sorting.
+* gnus-thread-sort-by-author:            Sorting.
+* gnus-thread-sort-by-date:              Sorting.
+* gnus-thread-sort-by-number:            Sorting.
+* gnus-thread-sort-by-score:             Sorting.
+* gnus-thread-sort-by-subject:           Sorting.
+* gnus-thread-sort-by-total-score:       Sorting.
+* gnus-thread-sort-functions:            Sorting.
+* gnus-ticked-mark:                      Unread Articles.
+* gnus-topic-copy-group:                 Topic Commands.
+* gnus-topic-copy-matching:              Topic Commands.
+* gnus-topic-create-topic:               Topic Commands.
+* gnus-topic-delete:                     Topic Commands.
+* gnus-topic-display-empty-topics:       Topic Variables.
+* gnus-topic-edit-parameters:            Topic Commands.
+* gnus-topic-indent:                     Topic Commands.
+* gnus-topic-indent-level:               Topic Variables.
+* gnus-topic-kill-group:                 Topic Commands.
+* gnus-topic-line-format:                Topic Variables.
+* gnus-topic-list-active:                Topic Commands.
+* gnus-topic-mark-topic:                 Topic Commands.
+* gnus-topic-mode:                       Group Topics.
+* gnus-topic-mode-hook:                  Topic Variables.
+* gnus-topic-move-group:                 Topic Commands.
+* gnus-topic-move-matching:              Topic Commands.
+* gnus-topic-remove-group:               Topic Commands.
+* gnus-topic-rename:                     Topic Commands.
+* gnus-topic-select-group:               Topic Commands.
+* gnus-topic-sort-groups-by-alphabet:    Topic Sorting.
+* gnus-topic-sort-groups-by-level:       Topic Sorting.
+* gnus-topic-sort-groups-by-method:      Topic Sorting.
+* gnus-topic-sort-groups-by-rank:        Topic Sorting.
+* gnus-topic-sort-groups-by-score:       Topic Sorting.
+* gnus-topic-sort-groups-by-unread:      Topic Sorting.
+* gnus-topic-toggle-display-empty-topics: Topic Commands.
+* gnus-topic-topology:                   Topic Topology.
+* gnus-topic-unindent:                   Topic Commands.
+* gnus-topic-unmark-topic:               Topic Commands.
+* gnus-topic-yank-group:                 Topic Commands.
+* gnus-total-expirable-newsgroups:       Expiring Mail.
+* gnus-tree-brackets:                    Tree Display.
+* gnus-tree-line-format:                 Tree Display.
+* gnus-tree-minimize-window:             Tree Display.
+* gnus-tree-mode-hook:                   Tree Display.
+* gnus-tree-mode-line-format:            Tree Display.
+* gnus-tree-parent-child-edges:          Tree Display.
+* gnus-uncacheable-groups:               Article Caching.
+* gnus-undo:                             Undo.
+* gnus-undo-mode:                        Undo.
+* gnus-unload:                           Exiting Gnus.
+* gnus-unread-mark <1>:                  Choosing Variables.
+* gnus-unread-mark:                      Unread Articles.
+* gnus-update-format:                    Formatting Variables.
+* gnus-update-score-entry-dates:         Score Variables.
+* gnus-updated-mode-lines:               Mode Lines.
+* gnus-use-adaptive-scoring:             Adaptive Scoring.
+* gnus-use-article-prefetch:             Asynchronous Fetching.
+* gnus-use-cache:                        Article Caching.
+* gnus-use-cross-reference:              Exiting the Summary Buffer.
+* gnus-use-demon:                        Daemons.
+* gnus-use-dribble-file:                 Auto Save.
+* gnus-use-full-window:                  Windows Configuration.
+* gnus-use-grouplens:                    Using GroupLens.
+* gnus-use-long-file-name <1>:           Saving Articles.
+* gnus-use-long-file-name:               Article Caching.
+* gnus-use-nocem:                        NoCeM.
+* gnus-use-scoring:                      Score Variables.
+* gnus-use-toolbar:                      Toolbar.
+* gnus-use-trees:                        Tree Display.
+* gnus-use-undo:                         Undo.
+* gnus-useful-groups:                    Foreign Groups.
+* gnus-uu-be-dangerous:                  Other Decode Variables.
+* gnus-uu-correct-stripped-uucode:       Other Decode Variables.
+* gnus-uu-decode-binhex:                 Other Files.
+* gnus-uu-decode-postscript:             PostScript Files.
+* gnus-uu-decode-postscript-and-save:    PostScript Files.
+* gnus-uu-decode-postscript-and-save-view: PostScript Files.
+* gnus-uu-decode-postscript-view:        PostScript Files.
+* gnus-uu-decode-save:                   Other Files.
+* gnus-uu-decode-unshar:                 Shell Archives.
+* gnus-uu-decode-unshar-and-save:        Shell Archives.
+* gnus-uu-decode-unshar-and-save-view:   Shell Archives.
+* gnus-uu-decode-unshar-view:            Shell Archives.
+* gnus-uu-decode-uu:                     Uuencoded Articles.
+* gnus-uu-decode-uu-and-save:            Uuencoded Articles.
+* gnus-uu-decode-uu-and-save-view:       Uuencoded Articles.
+* gnus-uu-decode-uu-view:                Uuencoded Articles.
+* gnus-uu-digest-headers:                Mail.
+* gnus-uu-digest-mail-forward:           Summary Mail Commands.
+* gnus-uu-digest-post-forward:           Summary Post Commands.
+* gnus-uu-do-not-unpack-archives:        Other Decode Variables.
+* gnus-uu-grab-move:                     Other Decode Variables.
+* gnus-uu-grab-view:                     Other Decode Variables.
+* gnus-uu-grabbed-file-functions:        Other Decode Variables.
+* gnus-uu-ignore-default-archive-rules:  Other Decode Variables.
+* gnus-uu-ignore-default-view-rules:     Other Decode Variables.
+* gnus-uu-ignore-files-by-name:          Other Decode Variables.
+* gnus-uu-ignore-files-by-type:          Other Decode Variables.
+* gnus-uu-invert-processable:            Setting Process Marks.
+* gnus-uu-kill-carriage-return:          Other Decode Variables.
+* gnus-uu-mark-all:                      Setting Process Marks.
+* gnus-uu-mark-buffer:                   Setting Process Marks.
+* gnus-uu-mark-by-regexp:                Setting Process Marks.
+* gnus-uu-mark-over:                     Setting Process Marks.
+* gnus-uu-mark-region:                   Setting Process Marks.
+* gnus-uu-mark-series:                   Setting Process Marks.
+* gnus-uu-mark-sparse:                   Setting Process Marks.
+* gnus-uu-mark-thread <1>:               Setting Process Marks.
+* gnus-uu-mark-thread:                   Thread Commands.
+* gnus-uu-notify-files:                  Uuencoded Articles.
+* gnus-uu-post-include-before-composing: Uuencoding and Posting.
+* gnus-uu-post-length:                   Uuencoding and Posting.
+* gnus-uu-post-news:                     Summary Post Commands.
+* gnus-uu-post-separate-description:     Uuencoding and Posting.
+* gnus-uu-post-threaded:                 Uuencoding and Posting.
+* gnus-uu-pre-uudecode-hook:             Other Decode Variables.
+* gnus-uu-save-in-digest:                Other Decode Variables.
+* gnus-uu-tmp-dir:                       Other Decode Variables.
+* gnus-uu-unmark-articles-not-decoded:   Other Decode Variables.
+* gnus-uu-unmark-thread <1>:             Setting Process Marks.
+* gnus-uu-unmark-thread:                 Thread Commands.
+* gnus-uu-user-archive-rules:            Rule Variables.
+* gnus-uu-user-view-rules:               Rule Variables.
+* gnus-uu-user-view-rules-end:           Rule Variables.
+* gnus-uu-view-and-save:                 Other Decode Variables.
+* gnus-uu-view-with-metamail:            Other Decode Variables.
+* gnus-valid-select-methods:             Hooking New Backends Into Gnus.
+* gnus-verbose:                          Various Various.
+* gnus-verbose-backends:                 Various Various.
+* gnus-version:                          Group Information.
+* gnus-view-pseudo-asynchronously:       Viewing Files.
+* gnus-view-pseudos:                     Viewing Files.
+* gnus-view-pseudos-separately:          Viewing Files.
+* gnus-visible-headers:                  Hiding Headers.
+* gnus-visual:                           Highlighting and Menus.
+* gnus-visual-mark-article-hook:         Summary Highlighting.
+* gnus-window-min-height:                Windows Configuration.
+* gnus-window-min-width:                 Windows Configuration.
+* gnus-xmas-glyph-directory:             XVarious.
+* gnus-xmas-logo-color-alist:            XVarious.
+* gnus-xmas-logo-color-style:            XVarious.
+* gnus-xmas-modeline-glyph:              XVarious.
+* group buffer:                          The Group Buffer.
+* group buffer format:                   Group Line Specification.
+* group description:                     Group Information.
+* group highlighting:                    Group Highlighting.
+* group information:                     Group Information.
+* group level:                           Group Levels.
+* group listing:                         Listing Groups.
+* group modeline:                        Group Modeline Specification.
+* group movement:                        Group Maneuvering.
+* group parameters <1>:                  Topic Commands.
+* group parameters:                      Group Parameters.
+* group rank:                            Group Score.
+* group score:                           Group Score.
+* group score commands:                  Group Score Commands.
+* group selection:                       Selecting a Group.
+* group timestamps:                      Group Timestamp.
+* group-group-find-parameter:            Gnus Utility Functions.
+* GroupLens:                             GroupLens.
+* grouplens-best-unread-article:         Rating Articles.
+* grouplens-newsgroups:                  Using GroupLens.
+* grouplens-next-unread-article:         Rating Articles.
+* grouplens-prediction-display:          Displaying Predictions.
+* grouplens-pseudonym:                   Using GroupLens.
+* grouplens-score-thread:                Rating Articles.
+* head:                                  Terminology.
+* header:                                Terminology.
+* headers:                               Terminology.
+* help group <1>:                        Document Groups.
+* help group:                            Foreign Groups.
+* hiding headers:                        Hiding Headers.
+* highlighting <1>:                      Highlighting and Menus.
+* highlighting <2>:                      Group Highlighting.
+* highlighting <3>:                      Compatibility.
+* highlighting:                          Article Highlighting.
+* highlights:                            Various Various.
+* hilit19:                               Compatibility.
+* history <1>:                           Choosing Commands.
+* history:                               History.
+* ignored groups:                        The Active File.
+* incoming mail files:                   Mail Backend Variables.
+* incoming mail treatment:               Washing Mail.
+* info:                                  Group Information.
+* information on groups:                 Group Information.
+* InReference <1>:                       Web Searches.
+* InReference:                           Foreign Groups.
+* interaction:                           Interactive.
+* interactive:                           Extended Interactive.
+* internal variables:                    Gnus Utility Functions.
+* invalid characters in file names:      Various Various.
+* ISO 8601:                              Article Date.
+* ISO8601:                               Score File Format.
+* ispell:                                Mail and Post.
+* ispell-message:                        Mail and Post.
+* Jem:                                   NoCeM.
+* kibozing:                              Kibozed Groups.
+* kill files <1>:                        Converting Kill Files.
+* kill files:                            Kill Files.
+* killed groups:                         Terminology.
+* level:                                 Group Levels.
+* levels:                                Terminology.
+* limiting:                              Limiting.
+* links:                                 Splitting Mail.
+* LIST overview.fmt:                     Crosspost Handling.
+* list server brain damage:              Washing Mail.
+* local variables:                       Score File Format.
+* loose threads:                         Loose Threads.
+* mail <1>:                              Composing Messages.
+* mail <2>:                              Terminology.
+* mail <3>:                              Summary Mail Commands.
+* mail:                                  Getting Mail.
+* mail folders:                          Mail Folders.
+* mail group commands:                   Mail Group Commands.
+* mail message:                          Terminology.
+* mail NOV spool:                        Mail Spool.
+* mail splitting <1>:                    Fancy Mail Splitting.
+* mail splitting:                        Splitting Mail.
+* mail washing:                          Washing Mail.
+* mail-extract-address-components:       Summary Buffer Format.
+* mail-to-news gateways:                 Mail-To-News Gateways.
+* MAILHOST:                              Mail Backend Variables.
+* mailing lists:                         Mail and Post.
+* making digests:                        Summary Post Commands.
+* making groups:                         Foreign Groups.
+* manual:                                Group Information.
+* mark as unread:                        Setting Marks.
+* marking groups:                        Marking Groups.
+* marks:                                 Marking Articles.
+* max-lisp-eval-depth:                   Troubleshooting.
+* mbox:                                  Document Groups.
+* mbox folders:                          Mail Folders.
+* mc-verify:                             NoCeM.
+* menus:                                 Highlighting and Menus.
+* merging groups:                        Virtual Groups.
+* message:                               Terminology.
+* Message-ID:                            Finding the Parent.
+* message-sent-hook:                     Followups To Yourself.
+* message-this-is-mail:                  Posting Styles.
+* message-this-is-news:                  Posting Styles.
+* messages:                              Composing Messages.
+* metamail:                              Other Decode Variables.
+* metamail-buffer:                       Using MIME.
+* MH folders:                            Saving Articles.
+* mh-e mail spool:                       MH Spool.
+* MIME:                                  Using MIME.
+* MIME digest:                           Document Groups.
+* MMDF mail box:                         Document Groups.
+* mode lines <1>:                        Mode Lines.
+* mode lines:                            Various Various.
+* MODE READER:                           NNTP.
+* moderation:                            Moderation.
+* mouse:                                 Buttons.
+* move mail:                             Mail Group Commands.
+* movemail:                              Mail Backend Variables.
+* moving articles:                       Mail Group Commands.
+* Mule:                                  Emacsen.
+* native:                                Terminology.
+* new features:                          New Features.
+* new groups:                            New Groups.
+* new messages:                          Scanning New Messages.
+* news:                                  Terminology.
+* news backends:                         Getting News.
+* news spool:                            News Spool.
+* newsgroup:                             Group Parameters.
+* nnbabyl:                               Rmail Babyl.
+* nnbabyl-active-file:                   Rmail Babyl.
+* nnbabyl-get-new-mail <1>:              Rmail Babyl.
+* nnbabyl-get-new-mail:                  Not Reading Mail.
+* nnbabyl-mbox-file:                     Rmail Babyl.
+* nnchoke:                               Backend Interface.
+* nndir <1>:                             Foreign Groups.
+* nndir:                                 Directory Groups.
+* nndoc <1>:                             Foreign Groups.
+* nndoc:                                 Document Groups.
+* nndoc-article-type:                    Document Groups.
+* nndoc-post-type:                       Document Groups.
+* nndraft:                               Drafts.
+* nndraft-directory:                     Drafts.
+* nneething <1>:                         Anything Groups.
+* nneething:                             Foreign Groups.
+* nneething-exclude-files:               Anything Groups.
+* nneething-map-file:                    Anything Groups.
+* nneething-map-file-directory:          Anything Groups.
+* nnfolder:                              Mail Folders.
+* nnfolder-active-file:                  Mail Folders.
+* nnfolder-directory:                    Mail Folders.
+* nnfolder-generate-active-file:         Mail Folders.
+* nnfolder-get-new-mail <1>:             Mail Folders.
+* nnfolder-get-new-mail:                 Not Reading Mail.
+* nnfolder-newsgroups-file:              Mail Folders.
+* nnfolder-save-buffer-hook:             Mail Folders.
+* nngateway-address:                     Mail-To-News Gateways.
+* nngateway-header-transformation:       Mail-To-News Gateways.
+* nngateway-mail2news-header-transformation: Mail-To-News Gateways.
+* nngateway-simple-header-transformation: Mail-To-News Gateways.
+* nnheader-file-name-translation-alist:  Various Various.
+* nnheader-get-report:                   Error Messaging.
+* nnheader-head-chop-length:             Various Various.
+* nnheader-max-head-length:              Various Various.
+* nnheader-ms-strip-cr:                  Washing Mail.
+* nnheader-report:                       Error Messaging.
+* nnkiboze <1>:                          Kibozed Groups.
+* nnkiboze:                              Foreign Groups.
+* nnkiboze-directory:                    Kibozed Groups.
+* nnkiboze-generate-groups:              Kibozed Groups.
+* nnmail-cache-accepted-message-ids:     Mail Backend Variables.
+* nnmail-crash-box:                      Mail Backend Variables.
+* nnmail-crosspost:                      Splitting Mail.
+* nnmail-crosspost-link-function:        Splitting Mail.
+* nnmail-delete-file-function:           Mail Backend Variables.
+* nnmail-delete-incoming:                Mail Backend Variables.
+* nnmail-expiry-wait:                    Expiring Mail.
+* nnmail-expiry-wait-function <1>:       Group Parameters.
+* nnmail-expiry-wait-function:           Expiring Mail.
+* nnmail-keep-last-article <1>:          Expiring Mail.
+* nnmail-keep-last-article:              Mail and Procmail.
+* nnmail-message-id-cache-file:          Duplicates.
+* nnmail-message-id-cache-length:        Duplicates.
+* nnmail-movemail-program:               Mail Backend Variables.
+* nnmail-pop-password:                   Mail Backend Variables.
+* nnmail-pop-password-required:          Mail Backend Variables.
+* nnmail-post-get-new-mail-hook:         Mail Backend Variables.
+* nnmail-pre-get-new-mail-hook:          Mail Backend Variables.
+* nnmail-prepare-incoming-header-hook:   Washing Mail.
+* nnmail-prepare-incoming-hook <1>:      Washing Mail.
+* nnmail-prepare-incoming-hook:          Mail Backend Variables.
+* nnmail-prepare-incoming-message-hook:  Washing Mail.
+* nnmail-procmail-directory:             Mail and Procmail.
+* nnmail-procmail-suffix <1>:            Mail Backend Variables.
+* nnmail-procmail-suffix:                Mail and Procmail.
+* nnmail-read-incoming-hook:             Mail Backend Variables.
+* nnmail-remove-leading-whitespace:      Washing Mail.
+* nnmail-remove-list-identifiers:        Washing Mail.
+* nnmail-remove-tabs:                    Washing Mail.
+* nnmail-resplit-incoming:               Mail and Procmail.
+* nnmail-split-abbrev-alist:             Fancy Mail Splitting.
+* nnmail-split-fancy:                    Fancy Mail Splitting.
+* nnmail-split-fancy-syntax-table:       Fancy Mail Splitting.
+* nnmail-split-hook:                     Mail Backend Variables.
+* nnmail-split-methods:                  Splitting Mail.
+* nnmail-spool-file:                     Mail Backend Variables.
+* nnmail-tmp-directory:                  Mail Backend Variables.
+* nnmail-treat-duplicates:               Duplicates.
+* nnmail-use-long-file-names:            Mail Backend Variables.
+* nnmail-use-procmail <1>:               Mail Backend Variables.
+* nnmail-use-procmail:                   Mail and Procmail.
+* nnmbox:                                Unix Mail Box.
+* nnmbox-active-file:                    Unix Mail Box.
+* nnmbox-get-new-mail <1>:               Not Reading Mail.
+* nnmbox-get-new-mail:                   Unix Mail Box.
+* nnmbox-mbox-file:                      Unix Mail Box.
+* nnmh:                                  MH Spool.
+* nnmh-be-safe:                          MH Spool.
+* nnmh-directory:                        MH Spool.
+* nnmh-get-new-mail <1>:                 Not Reading Mail.
+* nnmh-get-new-mail:                     MH Spool.
+* nnml:                                  Mail Spool.
+* nnml-active-file:                      Mail Spool.
+* nnml-directory:                        Mail Spool.
+* nnml-generate-nov-databases:           Mail Spool.
+* nnml-get-new-mail <1>:                 Not Reading Mail.
+* nnml-get-new-mail:                     Mail Spool.
+* nnml-newsgroups-file:                  Mail Spool.
+* nnml-nov-file-name:                    Mail Spool.
+* nnml-nov-is-evil:                      Mail Spool.
+* nnml-prepare-save-mail-hook:           Mail Spool.
+* nnsoup:                                SOUP Groups.
+* nnsoup-active-file:                    SOUP Groups.
+* nnsoup-always-save:                    SOUP Groups.
+* nnsoup-directory:                      SOUP Groups.
+* nnsoup-pack-replies:                   SOUP Commands.
+* nnsoup-packer:                         SOUP Groups.
+* nnsoup-packet-directory:               SOUP Groups.
+* nnsoup-packet-regexp:                  SOUP Groups.
+* nnsoup-replies-directory:              SOUP Groups.
+* nnsoup-replies-format-type:            SOUP Groups.
+* nnsoup-replies-index-type:             SOUP Groups.
+* nnsoup-set-variables:                  SOUP Replies.
+* nnsoup-tmp-directory:                  SOUP Groups.
+* nnsoup-unpacker:                       SOUP Groups.
+* nnspool:                               News Spool.
+* nnspool-active-file:                   News Spool.
+* nnspool-active-times-file:             News Spool.
+* nnspool-history-file:                  News Spool.
+* nnspool-inews-program:                 News Spool.
+* nnspool-inews-switches:                News Spool.
+* nnspool-lib-dir:                       News Spool.
+* nnspool-newsgroups-file:               News Spool.
+* nnspool-nov-directory:                 News Spool.
+* nnspool-nov-is-evil:                   News Spool.
+* nnspool-sift-nov-with-sed:             News Spool.
+* nnspool-spool-directory:               News Spool.
+* nntp:                                  NNTP.
+* nntp authentification:                 NNTP.
+* NNTP server:                           Finding the News.
+* nntp-address:                          NNTP.
+* nntp-authinfo-file:                    NNTP.
+* nntp-authinfo-function:                NNTP.
+* nntp-buggy-select:                     NNTP.
+* nntp-connection-timeout:               NNTP.
+* nntp-end-of-line:                      NNTP.
+* nntp-maximum-request:                  NNTP.
+* nntp-nov-gap:                          NNTP.
+* nntp-nov-is-evil:                      NNTP.
+* nntp-open-connection-function:         NNTP.
+* nntp-open-network-stream:              NNTP.
+* nntp-open-rlogin:                      NNTP.
+* nntp-open-ssl-stream:                  NNTP.
+* nntp-open-telnet:                      NNTP.
+* nntp-open-telnet-envuser:              NNTP.
+* nntp-port-number:                      NNTP.
+* nntp-prepare-server-hook:              NNTP.
+* nntp-record-commands:                  NNTP.
+* nntp-rlogin-parameters:                NNTP.
+* nntp-rlogin-program:                   NNTP.
+* nntp-rlogin-user-name:                 NNTP.
+* nntp-send-authinfo:                    NNTP.
+* nntp-send-mode-reader:                 NNTP.
+* nntp-server-action-alist:              NNTP.
+* nntp-server-hook:                      NNTP.
+* nntp-server-opened-hook:               NNTP.
+* nntp-telnet-command:                   NNTP.
+* nntp-telnet-parameters:                NNTP.
+* nntp-telnet-passwd:                    NNTP.
+* nntp-telnet-shell-prompt:              NNTP.
+* nntp-telnet-switches:                  NNTP.
+* nntp-telnet-user-name:                 NNTP.
+* nntp-warn-about-losing-connection:     NNTP.
+* nntp-xover-commands:                   NNTP.
+* NNTPSERVER:                            Finding the News.
+* nnvirtual:                             Virtual Groups.
+* nnvirtual-always-rescan:               Virtual Groups.
+* nnweb <1>:                             Foreign Groups.
+* nnweb:                                 Web Searches.
+* nnweb-max-hits:                        Web Searches.
+* nnweb-search:                          Web Searches.
+* nnweb-type:                            Web Searches.
+* nnweb-type-definition:                 Web Searches.
+* nocem:                                 NoCeM.
+* nov <1>:                               NNTP.
+* nov:                                   Terminology.
+* NOV:                                   Crosspost Handling.
+* offline <1>:                           SOUP.
+* offline:                               Gnus Unplugged.
+* overview.fmt:                          Crosspost Handling.
+* parameters:                            Topic Commands.
+* parent:                                Terminology.
+* parent articles:                       Finding the Parent.
+* persistent articles:                   Persistent Articles.
+* pick and read:                         Pick and Read.
+* POP mail:                              Mail Backend Variables.
+* post <1>:                              Summary Post Commands.
+* post:                                  Composing Messages.
+* posting styles:                        Posting Styles.
+* PostScript <1>:                        PostScript Files.
+* PostScript:                            Article Commands.
+* pre-fetch:                             Asynchronous Fetching.
+* printing:                              Article Commands.
+* process mark:                          Other Marks.
+* process/prefix convention:             Process/Prefix.
+* procmail:                              Mail and Procmail.
+* pseudo-articles:                       Viewing Files.
+* rank:                                  Group Score.
+* rcvstore:                              Saving Articles.
+* reading init file:                     File Commands.
+* reading mail:                          Getting Mail.
+* reading news:                          Getting News.
+* referring articles:                    Finding the Parent.
+* rejected articles:                     Rejected Articles.
+* renaming groups:                       Foreign Groups.
+* reply <1>:                             Terminology.
+* reply:                                 Composing Messages.
+* reporting bugs <1>:                    Troubleshooting.
+* reporting bugs:                        Compatibility.
+* restarting:                            Scanning New Messages.
+* reverse scoring:                       Reverse Scoring.
+* RFC 1036:                              Conformity.
+* RFC 1153 digest:                       Document Groups.
+* RFC 341 digest:                        Document Groups.
+* RFC 822:                               Conformity.
+* RFC1522 decoding:                      Mail Backend Variables.
+* rmail mbox <1>:                        Document Groups.
+* rmail mbox:                            Rmail Babyl.
+* rnews batch files:                     Document Groups.
+* root:                                  Terminology.
+* rule variables:                        Rule Variables.
+* saving .newsrc:                        File Commands.
+* saving articles:                       Saving Articles.
+* scanning new news:                     Scanning New Messages.
+* score cache:                           Score Variables.
+* score commands:                        Summary Score Commands.
+* score decays:                          Score Decays.
+* Score File Atoms:                      Score File Format.
+* score file format:                     Score File Format.
+* score file group parameter:            Group Parameters.
+* score variables:                       Score Variables.
+* scoring:                               Scoring.
+* scoring crossposts:                    Scoring Tips.
+* scoring tips:                          Scoring Tips.
+* searching the Usenet:                  Web Searches.
+* secondary:                             Terminology.
+* sed:                                   News Spool.
+* select method:                         Terminology.
+* select methods:                        Select Methods.
+* selecting articles:                    Choosing Articles.
+* sending mail:                          Composing Messages.
+* sent messages:                         Archived Messages.
+* series:                                Decoding Articles.
+* server:                                Terminology.
+* server buffer format:                  Server Buffer Format.
+* server commands:                       Server Commands.
+* server errors:                         The Server is Down.
+* setting marks:                         Setting Marks.
+* setting process marks:                 Setting Process Marks.
+* shared articles:                       Shell Archives.
+* shell archives:                        Shell Archives.
+* signatures:                            Article Signature.
+* slave:                                 Slave Gnusae.
+* slocal:                                Mail and Procmail.
+* slow machine:                          Slow Machine.
+* smiley-circle-color:                   Smileys.
+* smiley-data-directory:                 Smileys.
+* smiley-deformed-regexp-alist:          Smileys.
+* smiley-features-color:                 Smileys.
+* smiley-flesh-color:                    Smileys.
+* smiley-mouse-face:                     Smileys.
+* smiley-nosey-regexp-alist:             Smileys.
+* smiley-tongue-color:                   Smileys.
+* smileys:                               Smileys.
+* solid groups:                          Terminology.
+* Son-of-RFC 1036:                       Conformity.
+* sorting groups:                        Sorting Groups.
+* SOUP:                                  SOUP.
+* sox:                                   Rule Variables.
+* spam <1>:                              Thwarting Email Spam.
+* spam:                                  NoCeM.
+* spamming:                              Crosspost Handling.
+* sparse articles:                       Terminology.
+* splitting mail:                        Splitting Mail.
+* starting up:                           Starting Up.
+* startup files:                         Startup Files.
+* styles:                                Posting Styles.
+* subscription <1>:                      Subscription Commands.
+* subscription:                          New Groups.
+* summary buffer:                        The Summary Buffer.
+* summary buffer format:                 Summary Buffer Format.
+* summary exit:                          Exiting the Summary Buffer.
+* summary movement:                      Summary Maneuvering.
+* summary sorting:                       Summary Sorting.
+* superseding articles:                  Canceling and Superseding.
+* symbolic prefixes:                     Symbolic Prefixes.
+* terminology:                           Terminology.
+* thread commands:                       Thread Commands.
+* thread root:                           Terminology.
+* threading <1>:                         Terminology.
+* threading:                             Threading.
+* timestamps:                            Group Timestamp.
+* to-address:                            Group Parameters.
+* to-group:                              Group Parameters.
+* to-list:                               Group Parameters.
+* todo:                                  Newest Features.
+* topic commands:                        Topic Commands.
+* topic parameters <1>:                  Topic Commands.
+* topic parameters:                      Topic Parameters.
+* topic sorting:                         Topic Sorting.
+* topic topology:                        Topic Topology.
+* topic variables:                       Topic Variables.
+* topics:                                Group Topics.
+* topology:                              Topic Topology.
+* total-expire:                          Group Parameters.
+* transient-mark-mode:                   Process/Prefix.
+* trees:                                 Tree Display.
+* troubleshooting:                       Troubleshooting.
+* UCE:                                   Thwarting Email Spam.
+* undo:                                  Undo.
+* unix mail box:                         Unix Mail Box.
+* Unix mbox:                             Document Groups.
+* unloading:                             Exiting Gnus.
+* unplugged:                             Gnus Unplugged.
+* unshar:                                Shell Archives.
+* unsolicited commercial email:          Thwarting Email Spam.
+* Usenet searches:                       Web Searches.
+* utility functions:                     Gnus Utility Functions.
+* uudecode:                              Uuencoded Articles.
+* uuencoded articles:                    Uuencoded Articles.
+* velveeta:                              Crosspost Handling.
+* version:                               Group Information.
+* viewing files:                         Viewing Files.
+* virtual groups:                        Virtual Groups.
+* virtual server:                        Terminology.
+* visible:                               Group Parameters.
+* visible group parameter:               Listing Groups.
+* visual:                                Highlighting and Menus.
+* washing <1>:                           Article Washing.
+* washing:                               Terminology.
+* window height:                         Windows Configuration.
+* window width:                          Windows Configuration.
+* windows configuration:                 Windows Configuration.
+* x-face:                                Article Washing.
+* XEmacs <1>:                            Emacs/XEmacs Code.
+* XEmacs <2>:                            Emacsen.
+* XEmacs:                                XEmacs Enhancements.
+* XOVER:                                 NNTP.
+* Xref:                                  Crosspost Handling.
+* zombie groups:                         Terminology.
+

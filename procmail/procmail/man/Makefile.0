@@ -1,0 +1,31 @@
+
+#$Id: Makefile.0,v 1.1.1.1 1999/09/23 17:30:07 wsanchez Exp $
+
+all: $(MANSS)
+
+make:
+	@$(SHELL) -c "exit 0"
+
+.PRECIOUS: Makefile
+
+../config.check:
+	@cd ..; $(MAKE) config.check
+
+man.sed: man_sed
+
+man_sed:
+	@cd ../src; $(MAKE) ../man/man.sed
+
+clean:
+	$(RM) $(MANSS) man.sed* _Makefile *core*
+
+Makefile: ../Makefile Makefile.0
+	@echo "You have made changes to the master Makefile, in order for"
+	@echo "these changes to show through, you will first have to do:"
+	@echo "$(MAKE) makefiles"
+
+makefiles Makefiles makefile:
+	cd ..; $(MAKE) makefiles
+
+init:
+	cd ..; $(MAKE) $@

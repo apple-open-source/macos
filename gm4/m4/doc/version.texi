@@ -1,0 +1,3 @@
+@set EDITION 1.4
+@set UPDATED November 1994
+@set VERSION 1.4

@@ -1,0 +1,42 @@
+{
+    BUNDLE_EXTENSION = projectType; 
+    DYNAMIC_CODE_GEN = YES; 
+    English_RESOURCES = {}; 
+    FILESTABLE = {
+        CLASSES = (KMod.m); 
+        English_OTHER_RESOURCES = (projectTemplate); 
+        FRAMEWORKS = (Foundation.framework, ProjectBuilder.framework); 
+        FRAMEWORKSEARCH = ("$(NEXT_ROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks"); 
+        H_FILES = (MDA_Debug.h); 
+        OTHER_RESOURCES = (CreateKModInfo.perl, Info.table); 
+        OTHER_SOURCES = (
+            Makefile.preamble, 
+            Makefile, 
+            Makefile.postamble, 
+            kmod.make, 
+            kmod.make.preamble, 
+            CustomInfo.plist
+        ); 
+        PRECOMPILED_HEADERS = (); 
+        PROJECT_HEADERS = (); 
+        PUBLIC_HEADERS = (); 
+        SUBPROJECTS = (); 
+    }; 
+    LANGUAGE = English; 
+    MAKEFILEDIR = "$(MAKEFILEPATH)/pb_makefiles"; 
+    NEXTSTEP_BUILDTOOL = /usr/bin/gnumake; 
+    NEXTSTEP_INSTALLDIR = "$(SYSTEM_DEVELOPER_DIR)/ProjectTypes"; 
+    NEXTSTEP_JAVA_COMPILER = /usr/bin/javac; 
+    NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc; 
+    PDO_UNIX_BUILDTOOL = $NEXT_ROOT/Developer/bin/make; 
+    PDO_UNIX_INSTALLDIR = /Library/Bundles; 
+    PDO_UNIX_JAVA_COMPILER = "$(JDKBINDIR)/javac"; 
+    PDO_UNIX_OBJCPLUS_COMPILER = "$(NEXTDEV_BIN)/gcc"; 
+    PROJECTNAME = KernelModule; 
+    PROJECTTYPE = "Loadable Bundle"; 
+    PROJECTVERSION = 2.8; 
+    WINDOWS_BUILDTOOL = $NEXT_ROOT/Developer/Executables/make; 
+    WINDOWS_INSTALLDIR = /Library/Bundles; 
+    WINDOWS_JAVA_COMPILER = "$(JDKBINDIR)/javac.exe"; 
+    WINDOWS_OBJCPLUS_COMPILER = "$(DEVDIR)/gcc"; 
+}

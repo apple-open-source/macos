@@ -1,0 +1,85 @@
+#!/bin/sh
+#
+# restart-lookupd
+#
+
+PIDFILE="/var/run/lookupd.pid"
+
+#
+# Check for a PID file. There's something wrong if
+# the file is missing.
+#
+if [ ! -f ${PIDFILE} ]; then
+	#
+	# "lookupd" PID file not found, exiting
+	#
+	logger -i -p daemon.notice -t restart-lookupd "${PIDFILE} missing"
+	exit 0
+fi
+oPID=`/bin/cat ${PIDFILE}`
+
+#
+# Send a SIGHUP to the "lookupd" process.
+#
+kill -HUP ${oPID}
+status=$?
+if [ $status -ne 0 ]; then
+	logger -i -p daemon.notice -t restart-lookupd "Could not SIGHUP lookupd, pid=${oPID}, status=${status}"
+	exit 0
+fi
+
+#
+# Wait a (short time) for "lookupd" to restart.
+#
+
+CHECK=1
+LIMIT=10
+
+while [ 1 ]
+do
+	#
+	# check status of "lookupd"
+	#
+	if [ -f ${PIDFILE} ]; then
+		nPID=`cat ${PIDFILE}`
+		if [ "X${oPID}" != "X${nPID}" ]; then
+			#
+			# new PID detected
+			#
+			break
+		fi
+	else
+		#
+		# "lookupd" PID file not found (yet), delay & retry
+		#
+	fi
+
+	CHECK=`expr ${CHECK} + 1`
+	if [ ${CHECK} -le ${LIMIT} ]; then
+		sleep 1
+	else
+		#
+		# We've waiting long enough, something's not right
+		#
+		logger -i -p daemon.notice -t restart-lookupd "lookupd restart failed"
+		exit 0
+	fi
+done
+
+#
+# Delay a bit to give lookupd a chance to initialize
+#
+sleep 3
+
+#
+# Touch the cache key to cause a notification
+#
+scutil << __END_OF_SCUTIL_COMMAND > /dev/null 2>&1
+open
+touch File:/var/run/lookupd.pid
+close
+quit
+__END_OF_SCUTIL_COMMAND
+
+
+exit 0

@@ -1,0 +1,1648 @@
+THINGS TO DO:
+WHEN RUNNING THE PATCH COMMAND ON cccp*.c, EXAMINE THE RESULT VERY CAREFULLY!
+ In some cases, only one section of #if ... #else ... #endif may be patched,
+ even when both sections need to be patched.  Other anomalies may also occur.
+At present, cccp*.c is based on the one from gcc 2.6.0, 2.6.1, or 2.6.3, since
+ it is not trivial to update to the one from gcc 2.7.x or later.
+cccp-{mach,pdo}.c should disappear.
+cccp-winnt.c should also disappear, but the diffs between it and cccp.c need to
+ be examined more carefully before getting rid of the former.  (Are these diffs
+ due to FSF's changes, maybe stemming from an old version of cccp.c, or did we
+ make these changes, or was it Convergent ... ?)
+The hack in gcc.c that allows -arch ppc to work should be removed once the
+ NXGetArchInfoFromName() function is fixed.
+All the special code to handle -dynamiclib-related options should be ripped
+ out, along with processing related to the %J addition to the specs syntax,
+ since there's no need to special case all this stuff - ordinary switch
+ handling is sufficient.
+This project should not build old-style (static) shlib versions of libgcc.a,
+ since they now come from the old_libgcc project.
+In libgcc2.c, perhaps there is a less kludgy way of making sure __DTOR_LIST__
+ gets initialized properly in the Windows NT compiler.
+We should revisit whether global destructors can be executed from
+ do_global_dtors, since this would reduce the maintenance burden when moving to
+ a new version of gcc.
+In Makefile.cc, OLDCC should NOT be gcc.
+Need to merge Makefile.pdo and Makefile.cc with top-level Makefile.
+When the compiler is built, it ought to always be bootstrapped if the build
+ host, host, and target are all identical.  Furthermore, the result ought to be
+ compared to verify that the compiler is actually bootstrapped.
+The differences between objc-act.c and obcp/obcp-act.c need to be understood;
+ these two files should be merged together.
+The machine description file for m68k (config/m68k/m68k.md) in cc-741.2 (and
+ earlier) has some similarities to the ones from gcc 2.7.0 (or is it gcc
+ 2.5.8?) and earlier.  We need to understand why there are significant
+ differences between our machine description file and the ones in gcc 2.7.1 and
+ later 2.7.x versions.  (Bootstrapping on an m68k machine seems to be
+ problematic if the differences are reduced.)
+-ObjC and -ObjC++ should be synonyms of -x objective-c and -x objective-c++,
+ respectively.
+The names of the flags -fobjc and -Wnoformat should be changed back to their
+ original FSF names of -lang-objc and -Wno-format, respectively.  There does
+ not appear to be any reason to diverge from FSF in this area.  It is not
+ clear why the divergence occurred (in cc-408 and cc-414, respectively).
+Gperf should be invoked to create the hash.h files.  (Of course, this cannot
+ happen until gperf becomes a standard local utility.)
+Winnt-pdo.h should not be part of this project.
+In cc-711, it shouldn't be necessary to list ld as an extra program or libgcc.a
+ as an extra part for PDO on Sun (Solaris and SunOS) (cf. cc-709).
+In ginclude/stdarg.h, there should be a better way to make sure va_list is
+ defined correctly for PDO, ditto for va_arg.  We may not need to define
+ ENDIAN'ness for any PDO platform.  We need to understand why we can't simply
+ use FSF's version of these files.
+We should change uses of the macro NEXT_SEMANTICS to APPLE_RHAPSODY whenever
+ the code is target specific, as opposed to host specific.
+The macro __GNU_CPP__ should never be predefined - it was never defined in all
+ cases in which it should have, and now that __NEXT_CPP__ is built in to
+ cpp-precomp, that macro can be checked instead of __GNU_CPP__.
+The compiler crashes when trying to generate trampolines.
+
+NOTES:
+cpp should NOT be installed in an architecture independent directory, since it
+ has built in predefined macros, such as __PTRDIFF_TYPE__, that may be
+ processor dependent.
+
+cc-792 (submitted on 9/14/99 to Beaker2N and Flask2N):
+(gcc.c) Fixed typo introduced in cc-791.6 in the fix for Radar bug 2367569.
+(cccp.c) Convert CR's and CR/LF pairs to line feed; this fixes Radar bug
+ 2308137:
+ Compiler can't read files with mac returns
+
+cc-791.7 (submitted on 9/1/99 to Beaker2L and Flask2L):
+(obcp/obcp-act.c) Incorporate the same ugly hack that was introduced in
+ objc-act.c for cc-791.
+(next/nextstep.h) When building for Flask, search the same directories that
+ would be searched in Mac OS X Server as well as Mac OS X; also, avoid spurious
+ warnings about unknown options.
+(pa/next-pdo.h, sparc/next-pdo-sol2.h) Don't search for libpdo to avoid
+ requiring this library to always be located in a fixed place.
+
+cc-791.6 (submitted on 8/27/99 to Beaker2L and Flask2L):
+(gcc.c, next/nextstep.h) Always invoke libtool with the -arch_only and
+ -install_name flags; pass the -init switch on to ld; this fixes the following
+ Radar bugs:
+ 2367569 - Need cc -dynamiclib to pass -init to libtool
+ 2368426 - Small problems with cc -dynamiclib in its use of libtool
+
+cc-791.5 (submitted on 8/22/99 to Beaker and Flask for a side world build):
+(gcc.c) Base the default value of __GNUC_MINOR__ on 2.8.1-egcs, which is now
+ the default gcc version; this fixes Radar bug 2368467:
+ Preprocessor for C++ reports wrong compiler version
+
+cc-791.4 (submitted to Beaker and Flask on 7/23/99):
+(Makefile) Make a symbolic link in /usr/libexec/<arch> pointing to
+ /usr/local/libexec/<arch>/2.7.2.1, since this is where Mac OS X Server's mig
+ expects to find cpp.
+
+cc-791.3.x were submitted to Hydra by the WebObjects team.
+
+cc-791.3 (submitted to Beaker, Flask, Hydra, and Cow on 7/15/99):
+(build_gcc) Don't install c++filt, since this is now provided by our egcs-based
+ compiler.
+(Makefile.cc) Build libgcc.a with the -dynamic switch on HP-UX so it can be
+ incorporated into shared libraries.
+
+cc-791.2.x were submitted to Hydra by the WebObjects team.
+
+cc-791.2 (submitted to Hydra on 7/9/99):
+(toplev.c) Ignore the -dynamic switch in our PDO compilers.
+(collect2.c) Don't scan libraries on HP-UX, since the Objective C runtime now
+ takes care of this.
+
+cc-791.1 (submitted to Beaker and Flask on 6/25/99):
+(Makefile) Make a symlink pointing to the (old) Objective C++ compiler, so gcc
+ driver can find it, regardless of what version it defaults to.
+(toplev.c, i386/next.h) Add the -foptimize-register-move and
+ -mschedule-prologue switches so the egcs specs file can be used when invoking
+ the (old) Objective C++ compiler.
+
+cc-791 (submitted to Beaker, Flask, and Hydra on 6/16/99):
+(Makefile) Install the compiler in /usr/local, but copy just the preprocessor
+ to /usr/libexec.
+(Makefile.{cc,pdo}) Replace "mkdirs" with "mkdir -p".
+(collect2.c) Incorporated Paul Haddad's fix for a Solaris bug (this fix hasn't
+ been examined very thoroughly).
+(fixincludes) Don't change C++-style comments; also contains a couple tweaks
+ for HP-UX 11.
+(gcc.c) Default to gcc version 2.8.1-egcs, rather than whatever version.c says;
+ prepend $NEXT_ROOT to the default framework search paths.
+(objc-act.c) Incorporated ugly hack to make it possible to build shared
+ libraries on HP-UX.
+(pa/next-pdo.h, sparc/next-pdo-sol2.h) Let the system prepend $NEXT_ROOT to the
+ default framework search paths, rather than assuming NEXT_ROOT is /opt/Apple.
+(pa/next-pdo.h) Tweaks for HP-UX 11 and to allow our compiler to generate
+ shared libraries.
+(winnt/ld.c) Incorporated Kevin Enderby's fix for Radar bug 2179522:
+ suggestion - ld.exe might be able to deal with spaces in paths
+
+cc-787 through cc-790 were submitted to Zeus by the WebObjects team.
+
+cc-786.6 (submitted to Beaker, Flask, Midas, and Zeus on 3/31/99):
+(build_gcc) Treat Beaker builds as cross builds, rather than as native builds.
+(cp/{decl2.c,lang-options.h}) Accept (but ignore) the -fsquangle switch.
+(rs6000/apple.h) Pass the -fsquangle switch to the C++ compiler by default.
+
+cc-786.5 (submitted to Beaker, Midas, and Zeus on 3/29/99):
+(Makefile) Move the i386 and Objective C++ compilers to /usr/local/libexec,
+ since we don't want to actually ship these to customers.
+(rs6000/apple.h) Remove the work around introduced in cc-786.2, since it wasn't
+ actually effective, and we've found the real fix for this bug.
+
+cc-786.4 (submitted to Beaker, Yum, Midas, and Zeus on 3/17/99):
+(cp/lang-options.h) Add -fexceptions and -fno-exceptions to the list of
+ switches.
+
+cc-786.3 (submitted to Beaker, Yum, Midas, and Zeus on 3/17/99):
+(cp/decl2.c) Make -fexceptions a synonym for -fhandle-exceptions, since our
+ egcs-based compiler complains about the latter.
+
+cc-786.2 (submitted to Beaker, Midas, and Zeus on 3/15/99):
+(rs6000/apple.h) Add a work around for a code gen bug in our egcs-based
+ compiler involving floating-point fields; this bug doesn't show up when
+ compiling with -O2.
+
+cc-786.1 (submitted to Beaker, Midas, and Zeus on 3/8/99):
+(rs6000/apple.h, i386/next.h) Stop predefining the obsolete macros ppc, __ppc,
+ i386, __i386, and __ARCHITECTURE__.
+
+cc-786 (submitted to Beaker, Midas, and Zeus on 3/5/99):
+(Makefile) Don't install the Objective C and C++ compilers for PowerPC; install
+ libcc*.a in /usr/local/lib instead of /usr/lib; this allows for the egcs-based
+ compiler to coexist with this compiler.
+(next/nextstep.h) Search for C++ header files in directories called c++ instead
+ of g++.
+(next/x-next) Make a symbolic link to the make-support.c in the source root so
+ the #include'd make.h is the one just generated, and not the one from the
+ source root (which is for Windows NT/PDO).
+
+cc-785 (not submitted):
+NOTE: This is the last version that is designed to function as the only
+ compiler on the system.
+(c-decl.c, c-typeck.c, cccp.c, gcc.c, libgcc2.c, obstack.h, next/nexstep.h)
+ Eliminate reliance on macros that are no longer predefined.
+(next/nextstep.h) Don't search the PrivateHeaders hierarchy on Mac OS X, and
+ add another directory to search for C++ header files.
+
+cc-784.2 (submitted to Midas and Zeus on 2/8/99):
+(winnt/x-winnt, pa/t-nextpdo, sparc/t-sol2-nextpdo) Reverted these files to how
+ they were in cc-784, since mig is not available on PDO platforms; made the
+ preprocessor search $(srcdir)/config/next when compiling make-support.c,
+ since the latter was changed in cc-776.6 to not look in this directory.
+(next/{make.h,makeUser.c}) Reinstated these files, which were removed in
+ cc-776.6, since mig is not available on PDO platforms.
+
+cc-784.1 (submitted to Midas and Zeus on 1/29/99):
+(next/x-next) Reinstate the code removed in cc-779, since it's needed when
+ building OPENSTEP compilers.
+(winnt/x-winnt, pa/t-nextpdo, sparc/t-sol2-nextpdo) Make changes analogous to
+ those in cc-776.6.
+
+cc-784 (submitted to BHX, Midas, and Zeus on 1/5/99):
+NOTE: This version incorporates the changes introduced in cc-776.6 through
+ cc-776.11.  It should build everywhere.
+
+cc-783.1 (submitted to Hera1K on 12/17/98):
+NOTE: This version incorporates the changes introduced in cc-776.5.
+(ginclude/varargs.h) Check whether the macro __APPLE__ is defined if the macro
+ __NeXT__ is not defined; this fixes Radar bug 2292297:
+ cctools: Get rid of #if NeXT in public headers
+
+cc-783 (submitted for an experimental world build on 11/3/98, and subsequently
+ to Burn and Hera):
+(rs6000/apple.h, i386/next.h) Put back the predefined macro __ARCHITECTURE__,
+ since it is still being used.
+(next/nextstep.h) Reinstate the code that was removed in cc-780 to search
+ PrivateHeaders by default, since some projects depend on this.
+
+cc-782 (submitted to Burn on 10/27/98):
+NOTE: This is the first version that incorporates the change introduced in
+ cc-780.1.
+(gcc.c) Reenable some code that had been erroneously disabled; this fixes Radar
+ bug ???:
+(toplev.c) Remove support for the -Wnoformat switch, since it's identical to
+ the -Wno-format switch.
+(rs6000/apple.h, i386/next.h) Remove all the obsolete predefined macros that
+ were put back in cc-781.3, except for ppc and i386; appropriate switches
+ should be used when necessary.
+(nextstep.h) Don't depend on the NeXT macro being defined as a nonzero integer.
+
+cc-781.3 (submitted to Burn on 9/11/98):
+(i386/next.h) Put back some obsolete predefined macros to minimize potential
+ disruption of builds.
+
+cc-781.2 (submitted to Burn on 9/10/98):
+(c-typeck.c) Same fix as for cc-781's cp/typeck2.c.
+
+cc-781.1 (submitted to Burn on 9/8/98):
+(libgcc2.c) Removed the need to predefine the NS_TARGET_MAJOR macro.
+(rs6000/apple.h) Put back some obsolete predefined macros to minimize potential
+ disruption of builds.
+
+cc-781 (submitted to Burn on 9/2/98):
+(c-decl.c) Removed support for the -Wnoformat switch, which is not used
+ internally, and is equivalent to -Wno-format.
+(gcc.c) Removed support for the -bsd switch, which simply turns on the
+ __STRICT_BSD__ macro.
+(cp/typeck2.c) Tweaked fix for Radar bug 2256827:
+ C++ compiler does not support Pascal strings
+
+cc-780.1 (submitted to Zeus on 9/22/98):
+(pa/next-pdo.h) Don't link with -lpdocma, since this file no longer exists.
+
+cc-780 (submitted to Zeus1V on 8/27/98):
+(Makefile.cc) Undo the change introduced in cc-779, since symbolic links from
+ $NEXT_ROOT/usr/[local/]include to /usr/[local/]include would cause problems
+ if PDO were installed on /.
+(c-gperf.h, c-lex.c, c-typeck.c) Minor changes to make them look more like the
+ official FSF versions.
+(c-common.c, cp/{tree.h,decl.c,decl2.c,lex.c}) Incorporated fix for Radar bug
+ 2256827:
+ C++ compiler does not support Pascal strings
+(i386/next.h) Predefine the macro __i386__ instead of the macro i386.
+(rs6000/apple.h) Predefine the macro __ppc__ instead of the macro ppc.
+(next/nextstep.h) Removed support for the -bsd, -posix, -posixstrict, and
+ -rel3compat switches, as well as the code that was reinstated in cc-777.1 to
+ search PrivateHeaders by default.
+(next/next-specs.h) Added support for the .cp file extension.
+(pa/next-pdo.h, sparc/next-pdo-sol2.h) Prepended /opt/Apple to the default
+ framework paths.
+
+cc-779 (submitted to Zeus1P on 7/31/98):
+NOTE: This version incorporates the changes introduced in cc-776.2 through
+ cc-776.4.
+(Makefile.cc) Make symbolic links from $NEXT_ROOT/usr/[local/]include to
+ /usr/[local/]include; this fixes Radar bug 2252676:
+ /usr/include not included?
+(sparc/next-pdo-sol2.h, pa/next-pdo.h) Same change as cc-764.7 and cc-763; this
+ fixes Radar bug 2259589:
+ C++ compiler mangling problem on PDO/SOLARIS/HPUX
+(next/x-next) Stop defining the NEXT_RELEASE_MAJOR and NEXT_RELEASE_MINOR
+ macros, since they are no longer needed.
+
+cc-778 (submitted for an experimental world build on 6/19/98):
+NOTE: This version incorporates the changes introduced in cc-776.1; this
+ reinstates NATURAL_ALIGNMENT as a predefined macro, which was mistakenly
+ removed in cc-777.
+
+cc-777.2 (submitted for an experimental world build on 6/16/98):
+(next/machopic.c) Incorporated Turlough O'Connor's fix for Radar bug 1680651
+ in response to some build failures, like libgpp and devkit, instead of the
+ experimental fix introduced in cc-777.
+
+cc-777.1 (submitted for an experimental world build on 6/4/98):
+(next/nextstep.h) Reinstated code to search PrivateHeaders by default; the
+ corresponding -I switches cannot be put into RC_CFLAGS because some projects
+ build with the -nostdinc switch, and it's too risky to stop searching
+ PrivateHeaders by default.
+
+cc-777 (submitted for an experimental world build on 6/3/98):
+NOTE: This version is missing the changes introduced in cc-776.x.
+(cp/decl2.c) Removed work around introduced in cc-756.1 for Radar bug 1680651.
+(next/machopic.c) Incorporated experimental fix for Radar bug 1680651:
+ Intel: grep -v option Bus errors on Intel Rhapsody
+(next/nextstep.h, rs6000/apple.h, i386/next.h) Removed some obsolete predefined
+ macros; this fixes Radar bug 2208381:
+ cpp pollutes namespace for #defines
+(rs6000/apple.h) Set BRANCH_COST to 1; this improves performance and fixes
+ Radar bug 2218511:
+ inlined struct operations can result in code paths being optimized out
+(rs6000/{apple.[ch],rs6000.{h,md}}) Incorporated fixes for the following Radar
+ bugs:
+ 1664992 - compiler should use r13
+ 1662795 - PowerPC compiler crashes when attempting to build libgcc with
+  -dynamic (fix is to make the PIC base register global, patch the .md file,
+  and turn on scheduling)
+ (not in Radar) - Compiler should use r31 as the PIC base register
+ (not in Radar) - No need to compute the PIC base when invoking Objective C
+  methods
+
+cc-776.11 (submitted to Beaker on 12/24/98):
+(Makefile) Pass TARGET_OS to build_gcc when doing fat builds of the compiler.
+(build_gcc) Treat Beaker builds as native, rather than as cross builds; fixed
+ a few typos.
+
+cc-776.10 (submitted to Beaker on 12/23/98):
+(Makefile) Treat Beaker builds the same as Rhapsody (aka teflon) builds.
+
+cc-776.9 (submitted to Beaker on 12/22/98):
+(next/make-support.c) Added a missing macro definition related to the new Mach
+ API.
+
+cc-776.8 (submitted to Beaker on 12/22/98):
+(next/x-next) Pass the -DMACOSX switch to /usr/bin/mig when doing Beaker
+ builds.
+(next/{make.defs,make-defs.h}) Reverted these files to how they were for
+ cc-776.5.
+
+cc-776.7 (submitted to Beaker on 12/22/98):
+(next/x-next) Invoke the /usr/bin/mig in $NEXT_ROOT, in case that's different
+ from the one installed on the system.
+
+cc-776.6 (submitted to Beaker on 12/21/98):
+(next/{make.h,makeUser.c}) Removed these files.
+(next/x-next) Cause the files above to be generated on the fly in case the
+ interfaces generated by mig change (as they did for Beaker); set the
+ NEXT_RELEASE_MAJOR and NEXT_RELEASE_MINOR macros correctly, even when building
+ on Mac OS X Server.
+(next/make-support.c) Reflect the fact that make.h is no longer in the config
+ directory.
+(next/{make.defs,make-defs.h}) Removed the definition of the macro port_t from
+ the former file and put it in the latter file to ensure this macro will be in
+ effect in the files mig generates (i.e., make.h and makeUser.c).
+
+cc-776.5 (submitted to Beaker on 12/14/98):
+(Makefile) Define the MACOSX macro when doing builds for Mac OS X.
+(next/{make-support.c,make.defs,make.h,makeUser.c}) Made changes related to the
+ new Mach API.
+
+cc-776.4 (submitted to Atlas1O on 7/28/98):
+(next/nextstep.h) Pass -F and -L flags to objcunique; this fixes Radar bug
+ 2257931:
+ objcunique does not use the same libs as ld, libtool do
+
+cc-776.3 (submitted to Midas1M on 7/10/98):
+(c-decl.c, cp/decl.c) Account for the possibility of stdcall function having
+ names that are longer than normal; this completes the fix in cc-776.1 for
+ Radar bug 2169194, and fixes Radar bug 2252439:
+ Windows: crash due to memory overrun for function declarations with __stdcall
+
+cc-776.2 (submitted to Atlas1J on 6/20/98):
+(rs6000/apple.h) Remove the fix for Radar bug 2244086 introduced in cc-776.1,
+ since cpp otherwise crashes when invoked from the command line (which the
+ mig command, among others, tries to do).
+(next/nextstep.h) Incorporated a fix that is less clean for above Radar bug.
+
+cc-776.1 (submitted to Atlas1J and Midas1J on 6/19/98):
+(c-decl.c, cp/decl.c, configure) Mangle function names in the export list if
+ they are marked as stdcall; this fixes Radar bug 2169194:
+ NT: __declspec(dllexport) __stdcall doesn't work
+(winnt/ld.c) Increased size of stack for NT executables from 1 MB to 4 MB; this
+ fixes Radar bug 1684729:
+ Windows: compiler crashes on NT -- stack overflow
+(rs6000/apple.h) Refrain from predefining the NATURAL_ALIGNMENT macro when the
+ -malign-mac68k or -mno-align-power switch is used; this fixes Radar bug
+ 2244086:
+ __NATURAL_ALIGNMENT__ macro predefined inappropriately
+
+cc-776 (submitted to Atlas1G on 5/29/98):
+(next/next-specs.h, next/nextstep.h) Added code to support passing through the
+ -precomp-trustfile switch to cpp-precomp; this fixes Radar bug 2239507:
+ cpp-precomp should not always stat files
+
+cc-775.2 (submitted to Atlas1F on 5/26/98):
+(rs6000/apple.h) Yet another minor hack, er tweak to fix for Radar bug 2235683:
+ Compiler causes PPC read-only reloc errors when compiling regex.c
+
+cc-775.1 (submitted to Atlas1F on 5/25/98):
+(rs6000/apple.c) Minor tweak to fix for Radar bug 2235683:
+ Compiler causes PPC read-only reloc errors when compiling regex.c
+
+cc-775 (submitted to Atlas1F on 5/21/98):
+(rs6000/apple.[ch]) Prevent invalid optimizations by uncommenting the
+ definition of the macro LEGITIMATE_PIC_OPERAND_P and implementing the function
+ symbolic_operand() to which this macro refers; this fixes Radar bug 2235683:
+ Compiler causes PPC read-only reloc errors when compiling regex.c
+(rs6000/apple.h) Implemented new command line switches to change the default
+ alignment of structs within fields; this fixes Radar bug 2238411:
+ Need compiler option to change default alignment to mac68k
+(next/machopic.c) Uncommented some code in machopic_operand_p() that determines
+ whether a given symbol reference has been PIC'ified.
+(next/nextstep.c) Fixed erroneous implementation introduced in cc-752 of
+ pragmas related to alignment of fields within structs.
+
+cc-774 (submitted to Midas and Vapor on 5/19/98):
+(objc-act.c, obcp/obcp-act.c) Generalize the code that decides what entry point
+ to call into the Objective C messenger so it is now based on macros that gcc
+ already uses, such as STRUCT_VALUE and RETURN_IN_MEMORY; the effect is that
+ now the NT compiler uses two extra entry points, depending on whether a method
+ returns a struct, similarly to Rhapsody for PPC.  This and the change below
+ fix Radar bug 2230900:
+ objc_msgSend crash if receiver is allocated above 0x80000000 (Win95)
+(calls.c, function.c) Remove NT-specific code that was setting the high bit of
+ the first argument when calling the Objective C messenger, and then unsetting
+ it within the called method.
+(c-decl.c) Incorporated fix for Radar bug 2209050:
+ A duplicate ivar in an Objective-C subclass causes cc1obj to die
+
+cc-773.1 (submitted to Atlas1A on 4/17/98):
+(explow.c) Add another special case to the hack (I mean, fix) for Radar bug
+ 2227870:
+ Array references don't get PIC'ified on Intel
+(integrate.c) Incorporated hack (I mean, partial fix) for Radar bug 2231232:
+ Array references don't get PIC'ified on Intel when inlining functions
+(cp/g++.c, next/nextstep.h) Incorporated fix for Radar bug 2231231:
+ The c++ command tries to link with -lm
+(pa/next-pdo.h, sparc/next-pdo-sol2.h) Search gcc-lib/`arch`/include in
+ addition to the gcc-version-specific include directory.
+
+cc-773 (submitted to Atlas1A on 4/10/98):
+NOTE: This version incorporates the changes introduced in cc-771.[345].
+(build_gcc) Actually verify that the compiler bootstrapped successfully.
+(Makefile) Use __arch__ macros instead of underscoreless macros in limits.h to
+ make it ISO C compatible.  This fixes Radar bug 1682766:
+ some ansi headers won't compile '-ansi'
+(gcc.c) Don't mention NeXT when displaying verbose output in the PDO compiler.
+(explow.c) Incorporated fix for Radar bug 2227870:
+ Array references don't get PIC'ified on Intel
+(cp/decl2.c) Correct the work around for Radar bug 1680651 that was introduced
+ in cc-756.1.
+(next/nextstep.h) Incorporated fix for Radar bug 2225190:
+ Symbols after .zerofill directives get put in the wrong section
+(sparc/next-pdo-sol2.h, pa/next-pdo.h) Incorporated fix for Radar bug 2225549
+ (which was fixed for Rhapsody in cc-768 and for Windows NT in cc-771.5):
+ C++ compiler on Pluto Creates Unresolved References
+
+cc-772 (submitted to Vapor on 3/17/98):
+NOTE: This version is missing the changes introduced in cc-771.3 through
+ cc-771.5.
+(Makefile{,.{pdo,cc}}, PB.project, cccp.c, gcc.c, pa/next-pdo.h,
+ sparc/next-pdo-sol2.h) Changes related to new PDO directory structure
+ (/Developer, /Local, etc.) and avoiding dependence on symbolic links in /usr.
+(cccp-pdo.c) Try removing this file, since it should no longer be needed.
+
+cc-771.5 (submitted to Pluto1T on 4/3/98):
+(i386/next-pdo.h) Incorporated fix for Radar bug 2225549 (which was fixed for
+ Rhapsody in cc-768):
+ C++ compiler on Pluto Creates Unresolved References
+
+cc-771.4 (submitted to Titan1R on 3/23/98):
+(next/nextstep.h) The command that invokes the compiler is cc, not gcc.
+
+cc-771.3 (submitted to Titan1R on 3/20/98):
+(final.c) Don't emit special labels when profiling, since we don't use them
+ for anything.
+(i386/next.h) Add a comment about why we don't use the FUNCTION_PROFILER macro
+ to generate calls to mcount.
+(i386/i386.c, next/machopic.c) Call the mcount stub rather than mcount
+ directly; this fixes Radar bug 2218745:
+ mcount references on intel are non-pic
+
+cc-771.2 (submitted to Titan1Q and Pluto1Q on 3/13/98):
+(build_gcc) Don't make gcc and g++ synonyms for cc and c++, respectively, since
+ users can easily create these synonyms on their own (for example by putting
+ links in /usr/local/bin), and since this reduces the perception that we intend
+ to support all the features that FSF's version of gcc provides; this is the
+ second attempt to fix Radar bug 2213219:
+ No c++
+(next/nextstep.h, i386/next-pdo.h) Reinstate the cc-771 versions of these
+ files, since the build failures will be addressed by fixing the libg++
+ project.
+
+cc-771.1 (submitted to Titan1P and Pluto1P on 3/9/98):
+(next/nextstep.h, i386/next-pdo.h) Temporarily remove the C++-specific paths
+ in the lists of header file directories searched; these caused build
+ failures in devkit, WrapIt, et al.
+
+cc-771 (submitted to Titan1P on 3/6/98):
+NOTE: This version is missing the experimental changes introduced in cc-770.3.
+(build_gcc) Install the g++ binary as c++, and make gcc and g++ synonyms for cc
+ and c++, respectively; this fixes Radar bug 2213219:
+ No c++
+(next/nextstep.h) Add a C++-specific path in the list of directories searched
+ automatically for header files; this fixes Radar bug 2004746:
+ iostream.h path should be in the normal search path for headers
+(cp/decl.c) Add a missing Objective C specific check that was causing the
+ Objective C++ compiler to crash when processing declarations of the form
+ "NSString foo=..." (no asterisk before foo); this fixes Radar bug 1664868:
+ ObjC++: type conversion error ==> internal compiler error 109
+
+cc-770.3 (submitted to Titan on 3/4/98 for a test world build):
+NOTE: This is the first version that enables instruction scheduling by
+default when targetting the PowerPC.
+(build_gcc) Don't put the compiler executables in a gcc version subdirectory
+(rs6000/{apple,rs6000}.h) Enable instruction scheduling by default.
+
+cc-770.2 (submitted to Titan1O on 3/2/98):
+(build_gcc) Really finish fixing Radar bug 2203973:
+ /lib/`arch` should be /usr/libexec/cc/`arch`
+
+cc-770.1 (submitted to Pluto1O on 2/27/98):
+(i386/next-pdo.h) Clean up the list of directories cpp searches for header
+ files; this fixes Radar bug 2215231:
+ Windows NT preprocessor searches bogus directories for header files
+
+cc-770 (submitted to Titan1O on 2/27/98):
+(i386/next.h, rs6000/apple.h, next/{nextstep.h,x-next}) Add the predefined
+ macros __APPLE__ and __APPLE_CC__; this fixes Radar bug 2215251:
+ The Rhapsody compiler should predefine additional macros
+
+cc-769.1 (submitted to Titan1N on 2/22/98):
+(gcc.c) Finish fixing Radar bug 2203973:
+ /lib/`arch` should be /usr/libexec/cc/`arch`
+
+cc-769 (submitted to Titan1N and Pluto1N on 2/20/98):
+(i386/next-pdo.h) Search the PrivateHeaders subdirectories before the Headers
+ subdirectories; this fixes Radar bug 2214212:
+ header search order wrong on Windows
+(build_gcc, gcc.c, next/nextstep.h) Install libcc*.a in /usr/lib, and the
+ binaries invoked by cc in /usr/libexec; this fixes Radar bug 2203973:
+ /lib/`arch` should be /usr/libexec/cc/`arch`
+(objc-act.c, obcp/obcp-act.c) Put only the basename of the input file name in
+ the Objective C segment; this fixes Radar bug 2213335:
+ Full pathname in the Module of the Objective-C segment
+
+cc-768.2 (submitted to Pluto1M on 2/10/98):
+(Makefile) Copy compiler and bison sources to $NEXT_ROOT/Developer, rather than
+ $NEXT_ROOT/NextDeveloper.
+
+cc-768.1 (submitted to Titan1L/M on 2/6/98):
+(ginclude/stddef.h) #define _BSD_SIZE_T_DEFINED_ in order to avoid build
+ failures due to trying to typedef size_t multiple times in different system
+ header files.
+
+cc-768 (submitted to Titan1K on 1/28/98):
+(Makefile) Don't install gcc's stddef.h, since cpp-precomp is otherwise unable
+ to precompile some header files; this is part of the fix for Radar bug 2208748
+ Header changes needed for precomps
+(cccp.c) Incorporated fix for Radar bug 2000454:
+ #pragma once generates lots of compiler warnings
+(expr.c) Incorporated fix for Radar bug 1673811 (CCC'd months ago):
+ forward:: is broken with pointer arguments
+(cp/{cp-tree.h,decl2.c,lex.c}) Incorporated fix for Radar bug 2200555:
+ -Wno-four-char-constants doesn't work on objc++
+(cp/except.c) Incorporated fix for Radar bug 2200596 (has to do with references
+ to unresolved symbols in generated code; the symbols are in the System
+ framework for now):
+ Problem with C++ exceptions and dynamic frameworks and more...
+(cp/typeck2.c) Incorporated fix for Radar bug 1677485:
+ Incorrect compiler message for bug reports
+(i386/next.h, rs6000/apple.h) Incorporated fix for Radar bug 2202124 (note that
+ in the case of rs6000/apple.h, this fix now enables inlining while processing
+ C++ code when the -fhandle-exceptions switch is not used):
+ -arch i386 crashs [sic] C++ compiler
+(rs6000/{apple,rs6000}.c) Incorporated fix for Radar bug 2207026:
+ Establishing the PIC base clobbers return address when profiling
+(next/nextstep.h) Search /usr/include instead of the directory it points to;
+ this helps in the obscure case of having a -I/usr/include switch, and then
+ running into problems because the header files found through this path are no
+ longer considered system header files.
+(next/float.h) Moved to the top level directory, since it is not used to build
+ the compiler, nor is it a by-product of building the compiler; also
+ incorporated Matt Watson's diffs for Radar bug 2208748:
+ Header changes needed for precomps
+
+cc-767.2 (submitted to Titan1I on 1/14/98):
+(Makefile) Modify the flags for the install command, since there is now a
+ different version of install.
+(toplev.c) Removed work around and incorporated fix for Radar bug 1675416:
+ -Wall complains about unused inline functions
+(next/nexstep.h) Incorporated fix for Radar bug 2205926:
+ Preprocessor should search /usr/local/include instead of /usr/include
+(next/next-specs.h) Incorporated fix for Radar bug 1665568:
+ The __GNU_CPP__ macro is not always defined when it should be
+(rs6000/apple.h) Don't do any inlining at all when compiling C++ code to avoid
+ exposing some compiler bugs.
+
+cc-767.1 (submitted to Titan1H on 1/7/98):
+NOTE: This version merges in the changes introduced in cc-764.7.
+(build_gcc) Modify the flags for the install command, since there is now a
+ different version of install.
+(rs6000/apple.h) Don't inline functions that are not marked with the inline
+ keyword when compiling with -O3 to avoid exposing some compiler bugs.
+
+cc-767 (submitted to Titan8F2 on 12/14/97 for a test world build):
+NOTE: This version merges the changes introduced in cc-764.3 through cc-764.6.
+(next/machopic.c) Same change as for cc-766, but for a case that was missed;
+ avoid generating a new pseudo reg superfluosly, especially during and after
+ reload phase; minor formatting and cleaning.
+(rs6000/apple.c) Minor formatting and cleaning.
+
+cc-766 (submitted to Orange on 11/26/97 for a test world build):
+(next/machopic.c) Add the upper half of a difference between two symbols
+ directly to the PIC base register, rather than putting this difference in a
+ register, and then adding it to the PIC base register.  This reduces the
+ number of instructions required to access global data from three to two.
+(rs6000/rs6000.md) Add new patterns to support the above, and bring over a
+ change from gcc 2.8 that performs a similar optimization for large integer
+ constants, as well as a fix for a bug affecting shifts that was partially
+ fixed in cc-753.
+
+cc-765.2 (submitted to Orange on 11/22/97 for a test world build):
+(rs6000/apple.h) Add one more name to the list of REGISTER_NAMES, since
+ FIRST_PSEUDO_REGISTER has now increased by one.
+
+cc-765.1 (submitted to Titan on 11/20/97 for a test world build):
+(next/nexstep.h) Fix accidental regression by bringing over fix incorporated
+ in cc-763.
+(rs6000/apple.h) Make TRAMPOLINE_SIZE a constant to avoid causing an unresolved
+ symbol when linking with libgcc.
+
+cc-765 (submitted to Titan on 10/29/97 for a test world build):
+NOTE: This is the first version with the MkLinux back end.
+(build_gcc) Don't try to extract members of a nonexistent libcc.a archive.
+(cccp-pdo.c) Don't predefine the __GNU__ macro.  (It's still mistakenly
+ predefined for other platforms.)
+(next/nextstep.h) Replace backslash with double backslash to prevent gcc from
+ interpreting the succeeding | specially (backslashes are special characters
+ inside C string literals).
+(expr.c, function.c varasm.c, rs6000/{apple.h,rs6000.{[ch],md}}) Merge in the
+ MkLinux back end.
+
+cc-764.7 (submitted to Pluto 12/17/97)
+(config/i386/next-pdo.h) Same as the config/next/nextstep.h fix (for
+ Radar #1673502) in cc-763. Of the 9 files that use INCLUDE_DEFAULTS,
+ this is the only other one that has a PrivateHeaders in it.  That directory
+ is, I believe, the only directory around which cpp automatically wraps an
+ ``extern "C"'' but which has C++ sources in it.  The actual change here was
+ to change "...PrivateHeaders", 0 }," to "...PrivateHeaders", 0, 1 },", thus
+ setting the "cxx_aware" flag for that directory.  Hard to see because this
+ file also had pathname-related changes in the same lines.
+(build_gcc,Makefile,PB.project,cccp-winnt.c,cccp.c,gcc.c,
+ config/{ i386/next-pdo.h,next/nextstep.h,winnt/ld.c } )
+ Changes for new system directory pathname layout.
+(Makefile) A Windows-NT build fix (mkdirs); also incorporated a fix for Radar
+ bug 2205924:
+ Compiler project should not copy bison source code
+
+cc-764.6 (submitted to Titan1F on 12/3/97):
+(build_gcc) Make the symbols in libcc.a private extern, and revert to putting
+ it in /lib instead of /usr/local/lib, since third party developers need it in
+ order to produce device drivers; this fixes the following Radar bugs:
+ 2005909 - libcc.a should be installed in /lib instead of /usr/local/lib
+ 2005913 - Symbols in libcc.a need to be private extern
+
+cc-764.5 (submitted to Titan on 11/26/97):
+(cccp.c, gcc.c) Add omitted framework path.
+(next/nexstep.h) Fix accidental regression by bringing over fix incorporated
+ in cc-763.
+
+cc-764.4 (submitted to Titan1E on 11/14/97):
+(Makefile, cccp.c, gcc.c, next/nextstep.h, next/x-next) Changes related to new
+ directory structure (/System, /Local, etc.)
+(build_gcc) Don't extract objects from archives that aren't built for Rhapsody
+
+cc-764.3 (submitted to Titan on 10/22/97):
+(Makefile, build_gcc, next/nextstep.h) Development tools that were in /bin are
+ now in /usr/bin; ld++ and cc++ are no longer installed on Rhapsody, since they
+ are not very useful.
+(build_gcc) libcc.a is now installed in /usr/local/lib, since it is not very
+ useful to customers.
+
+cc-764.2 (submitted to Titan on 10/15/97):
+(Makefile, build_gcc) Use gnutar instead of tar, since a bug in tar on Rhapsody
+ for PPC prevents native builds.
+(build_gcc) Don't build the dylib version of libgcc for Rhapsody.
+
+cc-764.1 (submitted to Titan on 10/13/97):
+(next/x-next) Fix a glitch that was preventing the build process from figuring
+ out for what version of the OS the build is being done.
+
+cc-764 (submitted to Titan on 10/9/97):
+(Makefile, build_gcc, cccp.c, i386/xm-next.h, next/{nextstep.h,x-next},
+ rs6000/xm-apple.h) Make the compiler project build natively under Rhapsody.
+(cp/decl2.c) Disable optimization only if the host is i386.
+
+cc-763.1 (Submitted under the table -- 9/19/97):
+(cp/decl2.c) Extend the CC_OPT_OFF workaround for "the grep bug" (Radar bug
+ 1680651) so that it will work for a Slick (4.2 to Rhapsody), intel to ppc
+ cross-compiler.  Required so that RC could build libg++.  Will not ship.
+
+cc-763 (submitted to Slick and Grail on 9/17/97):
+(config/next/nextstep.h) A better fix for Radar #1673502 -- comment
+ NO_IMPLICIT_EXTERN_C back out, since we still do have some header
+ files which need the extern "C"; and fix the initialization of the
+ INCLUDE_DEFAULTS flags for the system framework's PrivateHeaders
+ directory.
+
+cc-762 (submitted to Slick, Grail, and YellowWin32 on 9/12/97):
+(config/next/nextstep.h) Fix Radar #1673502 - Define NO_IMPLICIT_EXTERN_C
+ which had been commented out.  It's defined on all other platforms; it
+ prevents the C++ compiler from assuming ``extern "C"'' for some
+ system header files.
+
+cc-761 (submitted to Slick, Grail, and YellowWin32 on 9/3/97):
+(config/rs6000/apple.c) Fix Radar #1677369 - rename oballoc_str to
+ permalloc_str, and change the oballoc calls to call permalloc instead.
+
+cc-760.3 (submitted to YellowWin32 on 8/22/97):
+(gcc.c) Add default values for the macros PTRDIFF_TYPE, SIZE_TYPE, and
+ WCHAR_TYPE.
+
+cc-760.2 (submitted to Slick and Grail on 8/19/97):
+(Makefile) Make limits.h #include <arch/limits.h>, not ansi.h.
+
+cc-760.1 (submitted to Slick and Grail on 8/18/97):
+(Makefile) Make limits.h ISO C compliant.
+(cp/except.c, next/machopic.c, rs6000/apple.h, {i386,sparc}/next.h) Invoke a
+ macro to reestablish the PIC base, rather than call a wrapper function.
+ This allows cross compilers to be built when the target doesn't have a
+ corresponding function, as when building a compiler that runs on a SPARC
+ and produces code for m68k.
+
+cc-760 (submitted to Slick and Grail on 8/13/97):
+(objc-act.c, obcp/obcp-act.c) Restore OPENSTEP 4.0's check for null pointer;
+ this fixes Radar bug 1668737:
+ ObjC internal error on C-array ref to unimplemented interface
+(obcp/obcp-act.c) Move code from objc-act.c related to returning structs by
+ value on ppc to obcp/obcp-act.c; this fixes Radar bug 1672017:
+ Objective-C++ ppc struct return crashes
+(cp/except.c) Reestablish PIC base at appropriate places during exception
+ handling; this fixes Radar bug 1667689:
+ Exception Handling code trashes PIC base register
+(next/machopic.c, {i386,sparc}/next.c, rs6000/apple.c) Add wrapper function
+ reload_pic_register() and corresponding target-specific versions.
+(rs6000/rs6000.c) In current_file_function_operand(), make
+ reload_ppc_pic_register() easier to write by allowing a function call target
+ to be a local label (LABEL_REF) as well as a SYMBOL_REF.
+(rs6000/{rs6000.md,apple.h}) Work around 604e chip bug.
+
+cc-759.1 (submitted to Slick and Grail on 8/6/97):
+(next/nextstep.h) Change WCHAR_TYPE from short unsigned int to (32-bit) int,
+ since BSD 4.4 assumes this; this fixes Radar bug 1670083:
+ toupper and tolower are broken
+
+cc-759 (submitted to Slick and Grail on 7/23/97):
+(varasm.c, next/machopic.c, {pa,sparc}/next.c) Coalesce
+ machopic_validate_non_lazy_ptr() and machopic_validate_stub() into one
+ function; this fixes Radar bug 1667662:
+ Compiler makes reference to undefined symbols when addr. of member func. taken
+(i386/next.c) Incorporated fix for Radar bug 1662135:
+ PIC base is sometimes allocated to a volatile register
+(rs6000/{rs6000.md,apple.h}) Attempt to work around 604e chip bug; merge the
+ two definitions of the macro SUBTARGET_OVERRIDE_OPTIONS.
+
+cc-758.1 (submitted to Slick and Grail on 7/14/97):
+(rs6000/rs6000.md) Generate the addic mnemonic instead of ai, since the
+ assembler no longer accepts the ai mnemonic.
+
+cc-758 (submitted to Slick and Grail on 6/26/97):
+(gcc.c) Really fix Radar bug 1661225 by adding a special section called
+ builtin_predefines in the specs file.
+(build_gcc, next/nextstep.h) Don't pass in the *_TYPE__ macro switches, since
+ these are now in the builtin_predefines section of the specs file; don't
+ define the __NEXT_CPP__ macro, since this is now built in to cpp-precomp,
+ and don't define the __GNU_CPP__ macro, since this is now defined in
+ next/next-specs.h.
+(next/next-specs.h) Try to define the __GNU_CPP__ macro in all cases in which
+ cpp is invoked.  (This misses the case where cpp-precomp is not found, and
+ cpp is invoked instead.)
+(next/nextstep.c) Remove the register storage class for variable p, since the
+ address of p is taken at some point; this avoids a warning while building the
+ compiler.
+(next/machopic.c) Don't look at DECL_NOT_REALLY_EXTERN, since it's not a
+ reliable indicator of whether code for a function will be emitted.  This fixes
+ Radar bug 1661556.
+(rs6000/apple.h) Remove the definition for the macro CC1PLUS_SPEC (introduced
+ in cc-757), now that Radar bug 1661556 is fixed.
+(rs6000/apple.c) Don't return the address of a local automatic variable, and
+ avoid overrunning the buffer.  This fixes Radar bug 1665577.
+
+cc-757.1 (submitted to Slick and Grail on 6/20/97):
+(next/rs6000.c) Be sure to save and restore the register that is being used to
+ hold the PIC base on function entry and exit.
+(next/apple.c) Don't use -msoft-float when compiling C++ programs, since DevKit
+ makes use of the floating-point unit.
+
+cc-757 (submitted to Slick and Grail on 6/18/97):
+(next/machopic.c) Incorporated Landauer's fix for Radar bug 1661963, which has
+ to do with failure to generate code for C++ member functions.
+(next/nextstep.h) Rest of fix for Radar bug 1661225, which has to do with the
+ need for switches used when cpp-precomp is invoked corresponding to cpp's
+ predefined macros to be consistent with each other.
+(rs6000/apple.h) Work around Radar bug 1661556, which affects only C++ code.
+(rs6000/{apple.[ch],rs6000.md}) Implement the capability of calling functions
+ by name in a program compiled with -static and -mlong-branch, regardless of
+ where those functions are in (virtual) memory.
+
+cc-756.1 (submitted to Grail on 6/16/97):
+(build_gcc) Partially fix Radar bug 1661225 by separating words making up the
+ value for the *_TYPE__ macros with \ ; create the directory where the specs
+ files go before copying them there.
+(cp/decl2.c) Work around a compiler crash when processing certain compiler
+ switches by not optimizing lang_decode_option() - see Radar bug 1661346.
+
+cc-756 (submitted to Slick and Grail on 6/5/97):
+(Makefile) Make limits.h #include the processor-specific version of limits.h;
+ create a dummy machine/ansi.h since ginclude/stddef.h now #include's it.
+(build_gcc) Copy the builder's specs files when building a compiler for an OS
+ different from the one the builder is running.
+(ginclude/stddef.h) Be sure to #include <machine/ansi.h>.
+(next/nextstep.h) Make ptrdiff_t be int for all our Mach platforms, since this
+ seems to be what BSD-type systems tend to use; hard code values for the
+ __SIZE_TYPE__ et al macros for the benefit of cpp-precomp (THESE VALUES NEED
+ TO DEPEND ON THE CORRESPONDING *_TYPE MACROS! - fixed in cc-758).
+(rs6000/apple.c, next/machopic.c) Call mcount instead of _mcount.
+
+cc-755 (submitted to Slick and Grail on 5/27/97):
+NOTE: This version merges the changes introduced in cc-753.1 and cc-754.
+(Makefile) Export compiler-specific header files.
+(build_gcc) Strip the libcc*.a created for the lib_ofiles makefile target.
+(rs6000/apple.h) Turn on -fforce-mem whenever optimization is turned to work
+ around a bug in dynamic code gen.
+(rs6000/apple.[ch], rs6000/rs6000.c, next/machopic.c) Implement profiling code
+ generation.
+(next/float.h) New compiler-specific header file to be exported.
+(next/x-next) Don't run fixproto.
+
+cc-754 (submitted to Slick and Grail on 5/15/97):
+NOTE: This is the first version to incorporate Roland Besserer's changes, which
+ supports dynamic code gen (using r30 as the PIC base register).
+(Makefile) The build procedure for teflon is identical to that for nextstep.
+(objc-act.c) Fix modern syntax bugs related to #pragma SELECTOR_ALIAS --
+ super.aliased_selector() was broken, and the #pragma's were ignored when
+ preceding any use of the selector.
+(toplev.c) Remove the code introduced in cc-747 to disregard the -fpic flag,
+ since we now claim to support dynamic code gen.
+(next/nextstep.h) Enable code related to modern Objective C syntax by default.
+(rs6000/apple.h) Added the -fkeep-inline-functions to avoid crashing when
+ building AppKit.
+(rs6000/{apple.h,rs6000.md}) Remove code introduced in cc-747 to flag uses of
+ r12.  (Presumably, undesirable uses of r12, if any, would have been found by
+ now.)
+
+cc-753.1 (submitted to Slick and Grail on 5/21/97):
+NOTE: This version incorporates a few fixes from later versions.
+(Makefile) The build procedure for teflon is identical to that for nextstep.
+(rs6000/apple.h) Added the -fkeep-inline-functions to avoid crashing when
+ building AppKit.
+(rs6000/rs6000.md) Change remaining occurrences of four operand rlwnm and
+ rlwinm instructions to the more common five operand version.
+
+cc-753 (submitted to Slick and Grail on 5/7/97):
+NOTE: This is the first version that builds in the Teflon environment; it can
+ be used to produce a native PowerPC compiler.
+(Makefile) If the NEXT_ROOT environment variable is set, make gcc build as if
+ the builder is different from the host that actually has to run the resulting
+ compiler; never invoke the compiler with -dynamic, since this is the default
+ anyway, and it can't be overridden with -static.
+(build_gcc) Added support for building a compiler that runs on a Rhapsody/
+ Overture system; put back the code for building a dylib version of libgcc,
+ since it's still required for building libsys.
+(cccp.c) #include <stdarg.h> before #includ'ing "next/make-support.h"
+(configure, config.sub) Make *-rhapsody synonymous with *-nextstep.
+({i386,m68k,pa,sparc}/xm-next.h, rs6000/apple.h) #define HAVE_STRERROR, since
+ it's available in both OPENSTEP for Mach as well as Rhapsody/Overture, and
+ calling strerror() rather than accessing sys_errlist[] reduces the number of
+ warning messages when building gcc.
+(i386/xm-next.h, rs6000/apple.h) #define bsd4_4 if the host is Rhapsody/
+ Overture, although this is probably superfluous (though correct).
+(next/nextstep.h) Change the name of the macro STRINGIFY to STRINGIFY_THIS in
+ order to avoid a conflict with a macro with the same name in one of the BSD
+ header files.
+(rs6000/rs6000.[ch]) Change the name of the macro ALIGN to RS6000_ALIGN in
+ order to avoid a conflict with a macro with the same name in one of the BSD
+ header files.
+(rs6000/rs6000.md) Add a constraint to prevent the rlwimi instruction from
+ being erroneously used when doing the equivalent of a right shift in
+ combination with a bit field insertion.
+(rs6000/apple.h) As a temporary work around for some bugs, always invoke the
+ compiler with the -fno-inline and -mno-string switches.
+(sparc/next-pdo-sol2.h) Remove the definition of the macro CC1_SPEC, since it
+ is redundant - it is already defined in sparc/sparc.h.
+
+cc-752 (submitted to Slick, Grail, and Yellow on 4/30/97):
+(build_gcc) Build libcc.a in addition to libcc_dynamic.a for makefile target
+ lib_ofiles.
+(configure) Revert to using pa/pa.c, since pa/next-pdo.c simply #includes the
+ former.
+(pa/next-pdo.c) Removed - see above.
+(next/nextstep.[ch]) Process pragmas that control whether fields within structs
+ should be aligned as they would be on a 68k Mac compiler.
+(rs6000/apple.h) Put jump tables back in the .const section (cf. cc-747), now
+ that the assembler supports this.
+
+cc-751 (finalized on 4/22/97):
+NOTE: This version merges in the changes from cc-744.13.
+(build_gcc) Don't build a dylib version of libgcc, since the old_libgcc project
+ provides this; don't build libgcc with -static when the target is ppc - the
+ ppc compiler knows to ignore the -dynamic switch if present.
+(cccp{,-mach,-pdo,-winnt}.c) Fix the version that cpp reports on the screen,
+ but not the value of any predefined macros.
+(c-common.c, c-decl.c, c-lex.c, c-tree.h, toplev.c, cp/decl.c, i386/next-pdo.h,
+ next/nextstep.h, pa/next-pdo.h, sparc/next-pdo-sol2.h) Incorporated Landauer's
+ changes for Pascal strings and four-character constants.
+(c-parse.in, objc-act.[ch], objc-tree.def, toplev.c, cp/decl.c,
+ next/nextstep.[ch]) Incorporated Naroff's changes for "modern" Objective C
+ syntax.
+(obcp/obcp-act.c) Incorporated fix for Tracker entry 78005:
+ Objective C++ compiler crashes when processing category implementations
+(rs6000/apple.h) If a function returns a struct or union by value, always
+ return it in memory, regardless of how much storage space is required for the
+ return value.
+(next/nextstep.h) When looking for header files, also search
+ PrivateHeaders/bsd in System.framework; remove support for linking programs
+ compiled with -static, since we don't ship the requisite libraries, and almost
+ no one should be doing this anyway.
+
+cc-750 (submitted to Slick and Grail on 4/4/97):
+(Makefile) Fix the mechanism for taking the list of targets from the TARGETS
+ environment variable; the old mechanism doesn't work with gnumake.
+(build_gcc) Use gnumake on Mach.
+(c-typeck.c) Incorporated Landauer's fix for Tracker entry 78216:
+ Compiler doesn't warn about potentially wrong assignments
+(objc-act.c) Incorporated Landauer's implementation for dual entry points into
+ _objc_msgSend.
+(rs6000/apple.h) Don't call any functions in order to save and restore
+ floating-point registers.
+
+cc-749 (submitted to Slick and Grail on 4/1/97):
+(Makefile) Allow compiler to build with gnumake; don't erase OBJROOT if the
+ compiler isn't being built by RC.
+(build_gcc) Make the lib_ofiles target create a fat libcc_dynamic.a, and
+ nothing else.
+(next/nextstep.h) Remove extraneous paths for Teflon preprocessor.
+(next/x-next) Look for limits.h in two places.
+(rs6000/apple.h) Don't use r13 for anything; always define the __STATIC__
+ macro; don't do anything fancy in the STRIP_NAME_ENCODING macro.
+(rs6000/rs6000.md) Don't flag legitimate uses of register r12.
+
+cc-748.1 (submitted to Slick on 3/26/97):
+(Makefile) Copy PowerPC_Compiler.rtf to /usr/local/RelNotes.
+(build_gcc) First build all cross compilers where the host is the same as the
+ build host.  This gets around the bootstrap problem of needing a cross
+ compiler for a new target in order to build a C++ compiler for that target.
+(cc.info) New file used to create a package containing the ppc compiler.
+(rs6000/apple.h) Don't predefine the macro PPC; don't do anything fancy when
+ dumping labels to the assembly language file.
+
+cc-748 (submitted to Slick on 3/22/97):
+We should hopefully now be able to switch over from the old NRW compiler.
+(Makefile) Include ppc in the default list of targets when RC is building as
+ part of the Grail train.
+(build_gcc) Install the real cpp in /usr/local/lib for now, since some other
+ project installs a cpp in /lib.
+(PowerPC_Compiler.rtf) New file with information on the ppc compiler.
+(gcc.c) Remove a redundant path; replace a second redundant path with a more
+ useful one.
+(cccp.c) Build the merged Mach/NT/PDO preprocessor when RC is building as part
+ of the Grail train.
+(rs6000/apple.h) Put jump tables in the text section, and put relative
+ addresses in jump table entries.
+
+cc-747 (submitted to Slick on 3/19/97):
+This is the first fully functional compiler for the PowerPC.
+(Makefile) In order to make the compiler easier to build using ~rc/bin/buildit,
+ take the list of targets from the TARGET environment variable, if that is
+ defined, and add OTHER_CFLAGS to CFLAGS.
+(build_gcc) Always compile libgcc2.c with -static when the target is ppc, since
+ we don't yet support -dynamic code gen; only one copy of cc and c++filt are
+ needed per host (the same goes for cpp).
+(toplev.c) Disregard the -fpic flag, since we don't yet support dynamic code
+ gen.
+(rs6000/apple.h) Always eliminate references to the frame pointer; align the
+ stack on 16-byte boundaries.
+(rs6000/{apple.h,rs6000.c}) Prevent the compiler from using r2, r12, and r13,
+ and have the assembler flag any uses of r2 and r13 for debugging purposes.
+(rs6000/rs6000.{h,md}) Enable ELF's non-PIC scheme.
+(rs6000/rs6000.md) Copy the link register into r12 before calling through a
+ pointer.
+
+cc-746.1 (submitted to Bastion5R on 2/4/97):
+(libgcc2.c, i386/{next-pdo,win-nt}.h) Split the .dtor section into three parts:
+ beginning (containing the symbol ___DTOR_LIST__), middle (pointers to actual
+ global destructors), and end (containing a null pointer); also, use the atexit
+ function to make sure global destructors get called.  This fixes Tracker entry
+ 77405:
+ C++ destructors not called on OpenStep for NT hosts
+
+cc-746 (submitted to Boil5R on 2/4/97):
+This version merges cc-744.12 with cc-745.
+(Makefile.cc) Remove the hack introduced in cc-744.6; use the bison that was
+ just built.
+(build_gcc, next/x-next) Correct the fix for Tracker entry 73121:
+ Predefined macros should be updated for 4.1
+(crtstuff.c, libgcc2.c) Incorporated Manavendra Thakur's fix for Tracker entry
+ 77218:
+ C++ destructors are not being called on PDO hosts on Solaris
+(cccp-{mach,pdo}.c) Copy the files from cc-744.12, since only Rhapsody will use
+ the merged preprocessor.
+(cccp-{winnt,pdo}.c,gcc.c) Go ahead and invoke cpp if cpp-precomp is not found,
+ even if the -precomp flag is specified; issue a warning instead of an error in
+ this case.  This fixes Tracker bug 77069:
+ gcc -precomp reports "abnormal program termination" on NT
+(configure) Add configuration information for our port to the PowerPC.
+(rs6000/{apple.[ch],xm-apple.h}) New files.
+(rs6000/rs6000.{c,md}) Make the output of the compiler more compatible with our
+ assembler.
+(next/nextstep.h) #define WCHAR_TYPE_SIZE as simply 16, since it should be a
+ constant instead of depending on how many bits there are in a word.
+
+cc-745 (submitted to Slick on 1/27/97):
+(cccp.c) Merge the Mach, NT, and PDO preprocessors, and update to one based on
+ gcc 2.6.3's cccp.c.  (Although this preprocessor should work fine on NT, use
+ the old NT preprocessor for now until the diffs between that one and this one
+ are examined more carefully.)  On Mach (in addition to NT), change the search
+ paths for standard header files if the NEXT_ROOT environment variable is
+ defined.
+(cccp-{mach,pdo}.c) Remove these files, since they are no longer needed.
+
+cc-744.13 (submitted to 4.2mach on 4/11/97):
+NOTE: The changes in this version have not been merged into later versions
+ until cc-751.
+(cccp-mach.c) Report on the screen that the preprocessor is based on gcc 2.6.0.
+(obcp/obcp-act.c) Incorporated fix for Tracker bug 78005:
+ Objective C++ compiler crashes when processing category implementations
+
+cc-744.12 (submitted to 4.2mach on 2/12/97):
+(next/nextstep.h) Define an empty body for do_global_dtors() to avoid
+ referencing __DTOR_LIST__, since static apps may be linked with -all_load.
+
+cc-744.11 (submitted to 4.2mach and 4.2nt on 2/11/97):
+(next/nextstep.h) -read_only_relocs takes one argument.
+(i386/next-pdo.h, winnt/ld.c) Incorporated Kevin Enderby's fixes for the
+ following Tracker bugs:
+ 64213 - New -image_base flag for "dynamiclib" invocations
+ 75847 - Spurious? linker warnings on Windows
+(winnt/spawnv.c) Incorporated Grant Baillie's fix for Tracker bug 76664:
+ gcc doesn't work on Win95
+
+cc-744.10 (submitted to 4.2mach on 2/10/97):
+(build_gcc) Make libcc.a and libcc_dynamic.a fat, and install in /lib instead
+ of in /lib/`arch`.
+(next/nextstep.h) Don't spit out a list of default -L paths.
+
+cc-744.9 (submitted to 4.2mach on 2/8/97):
+(next/nextstep.h) Don't pass the -arch_only switch to libtool if no -arch or
+ -arch_only switches appeared on the command line.
+
+cc-744.8 (submitted to 4.2mach on 2/8/97):
+(gcc.c, next/nextstep.h) Pass the -image_base switch on to libtool or ld.
+
+cc-744.7 (submitted to 4.2mach on 2/7/97):
+(gcc.c) Fixed the following Tracker bugs:
+ 76841 - The compiler does not recognize -arch ppc
+ 76843 - The wrong library paths are passed to the linker when doing multi-arch
+  compiles
+(gcc.c, next/nextstep.h) Fixed the following Tracker bugs:
+ 62638 - -filelist not understood [in the Mach compiler]
+ 76844 - cc crashes when presented with -install_name, -current_version, or
+  -compatibility_version switches
+(next/nextstep.h) Fixed Tracker bug 76845:
+ The wrong libraries get linked in by default [in the Mach compiler]
+(libgcc2.c) Remove the function __set_new_handler(), since this function is now
+ in the old_libgcc project.
+(next/{t-next,libgcc2-258.c}) Remove libgcc2-258.c and any refereces to it,
+ since the function that was needed from this file is now in the old_libgcc
+ project.
+
+cc-744.6 (submitted to Boil5K on 1/28/97):
+(Makefile.cc) Introduce a hack to allow the compiler to be built twice in a row
+ and still have it be able to find the header files it needs the second time
+ around.  Also, don't put any header files in a directory whose name depends on
+ the version of gcc being built, so the PDO installation script can find them.
+
+cc-744.5 (submitted to Boil5K on 1/23/97):
+(alpha/t-nextpdo, sparc/t-{sol2,sunos4}-nextpdo, pa/t-pa-nextpdo) Change the
+ value of the macro TOOL_INCLUDE_DIR that is passed to the compiler when
+ compiling the preprocessor; change the name of the latter file to t-nextpdo.
+
+cc-744.4 (submitted to Boil5K on 1/22/97):
+({alpha,sparc,pa}/next-pdo.h,sparc/next-pdo-sol2.h) Search the TOOL_INCLUDE_DIR
+ in addition to the GCC_INCLUDE_DIR, since the former is where other PDO
+ projects should put their header files so they don't have make assumptions
+ about what version of gcc is installed on the system.
+
+cc-744.3 (submitted to Boil5K on 1/22/97):
+(libgcc2.c) Fix integration error when this file was merged with the one from
+ cc-730.8.
+
+cc-744.2 (submitted to Boil5K on 1/21/97):
+(Makefile.cc) Fix the work around bootstrap problem having to do with the
+ assembler binary being in a different directory from what gcc expects when
+ changing to a different version of gcc.  Now the assembler is assumed to be
+ in /NextDeveloper/lib/gcc-lib/`arch`, which is a directory that doesn't depend
+ on what version of gcc is or used to be installed, and that gcc can find
+ regardless of what the user's path is set to.
+Make another correction to Mike Monegan's PDO-specific changes for cpp-precomp.
+
+cc-744.1 (submitted to Boil5K on 1/21/97):
+(Makefile.cc) Work around bootstrap problem having to do with the assembler
+ binary being in a different directory from what gcc expects when changing to a
+ different version of gcc.
+Corrects Mike Monegan's PDO-specific changes for cpp-precomp.
+
+cc-744 (submitted on 1/20/97):
+Incorporates Mike Monegan's changes to enable cpp-precomp on NT and PDO.
+
+cc-743.2 (submitted to Boil5K on 1/18/97):
+(Makefile.cc) Work around the failure apparently having to do with bad paths
+ being used as targets.
+
+cc-743.1 (submitted to Boil5K on 1/18/97):
+(Makefile.cc) Correct the fix for not hard coding the version of gcc installed
+ on the machine.
+
+cc-743 (intended for Mach, Windows NT, and PDO submitted on 1/18/97):
+From now on, all submissions are intended for Mach, Windows NT, and PDO, unless
+ otherwise noted.
+(Makefile) Make allowance for the fact that NeXT's arch command may not be on
+ the path.
+(Makefile.cc) Don't hard code the version of gcc being built or already
+ installed on the machine; it should be OK to link gcc with libpdo; don't let
+ the list of languages default to one including proto, since we're not
+ interested in distributing protoize and friends.
+(Makefile.pdo) Invoke top level Makefile instead of Makefile.bison in order to
+ make bison.  This fixes Tracker bug 69618:
+ PDO cc project builds bison with hardwired path to bison.simple in binary
+  cache
+(Makefile.{bison,c++filt}) Remove these files, since they are no longer needed.
+(Makefile.in) On PDO, don't attempt to install-info since the command makeinfo
+ may not be available.
+(cccp-pdo.c) Hard code the version 2.6.0, since this is the true version of gcc
+ on which this file is based.
+(gcc.c) Merge in cc-730.8's gcc.c.
+(libgcc2.c) Initialize the floating-point unit before calling the global
+ constructors, in case the latter uses the floating-point unit.
+(obcp/hash-pdo.h) Generate a new hash file that doesn't make reference to any
+ NeXT-specific keywords.
+
+cc-742 (intended for Mach and Windows NT submitted on 12/21/96):
+(build_gcc) Do not compile the old libgcc2.c when building the dynamic archive
+ version of libcc.a.
+(build_gcc,next/nextstep.h) Change the name of the dynamic archive version of
+ libgcc to libcc_dynamic.a.
+(cccp.c,cccp-pdo.c) When creating a PDO compiler, compile the PDO version of
+ the preprocessor.
+(objc-act.c) Incorporated fix to Tracker bug 75850 (What happened to class
+ refs?), which makes this file slightly more similar to obcp/obcp-act.c.
+(cp/lex.c) Don't emit a warning about using C++ keywords if in an Objective C
+ context and the -Wmost switch is used.
+(cp/{decl,decl2}.c) Fix integration errors from cc-740.  (Some Objective C++
+ specific code was missing.)
+(next/nextstep.h) Pass in the -noall_load switch to libtool if -all_load is not
+ specified.
+(m68k/m68k.md) Make this file even more like the one in gcc 2.7.1 and later
+ 2.7.x versions.
+
+cc-741.3 (intended for Mach and Windows NT submitted on 12/18/96):
+(build_gcc) Derive directory name for executables from the gcc version number
+ rather than hard coding it in; don't overwrite the TEMP environment variable
+ if it's already set.
+(m68k/m68k.md) Make this file more similar to the one in gcc 2.7.1 and later
+ 2.7.x versions.  This fixes Tracker bug 75402:
+ Machine losing time drastically, and unable to set clock manually.
+(ginclude/va-{pa,sparc}.h) Make these files more like gcc 2.7.2.1's.
+
+cc-741.2 (intended for Mach and Windows NT submitted on 12/16/96):
+(build_gcc) Make sure quotes surround PRIVATE_EXTERN_ASM_OP.
+
+cc-741.1 (intended for Mach and Windows NT submitted on 12/15/96):
+(build_gcc,libgcc2.c) Fix the way private extern symbols are declared in
+ assembly language.
+(cp/{call,search,spew,tree,typeck}.c) The integrate command didn't notice these
+ files had been changed in cc-741.
+
+cc-741 (intended for Mach and Windows NT submitted on 12/14/96):
+(build_gcc) Build dynamic archive version of libgcc.
+(libgcc2.c) Make all functions private extern if the PRIVATE_EXTERN macro is
+ defined appropriately; remove code for function __lshldi3() from libgcc2.c,
+ since this function will eventually no longer be needed.
+(next/libgcc2-258.c) Copy libgcc2.c from cc-478, which has code for the
+ function __lshldi3().  This file should eventually be removed!
+(next/nextstep.h) #define LIBGCC_SPEC appropriately, depending on whether we're
+ building the compiler patch or not (in the former case, link with the dynamic
+ archive version of libgcc); actually use LIBGCC_SPEC.
+(next/next-specs.h) Pass -fobjc to the Objective C++ compiler; make -x c work
+ for NT.
+(i386/xm-i386.h) #undef TRUE and FALSE in case they have been defined
+ previously.
+({m68k,i386,sparc,hp}/[xt]-next) Keep just one copy of these files in
+ config/next.
+(configure) Make appropriate changes to reflect the change above.
+(function.c) Correct spelling of macro.
+
+cc-740 (intended for Mach and Windows NT submitted to 4.1machTest on 12/12/96):
+Updated to gcc 2.7.2.1 and removed hack in toplev.c to prevent higher levels of
+ optimization for m68k in the hopes that this is now fixed.
+Merged in some diffs from the obcp directory that are #ifdef'ed OBJCPLUS.
+Replaced several files in the obcp directory with a #include of the
+ corresponding file in the cp directory to reduce maintenance burden.
+(Makefile) Set the SHELL variable to ensure the correct shell is being used.
+
+cc-739.3 (intended for Mach and Windows NT, submitted on 12/10/96):
+(sparc/next.h) Remove definition for the macro ASM_GLOBALIZE_LABEL, which seems
+ to be mistakenly overriding the one in next/nextstep.h.
+(winnt/ld.c) Minor code rearrangement.
+
+cc-739.2 (intended for Mach and Windows NT, submitted on 12/9/96):
+(build_gcc) Remove the derived sources that were accidentally getting copied
+ into the dstroot.
+(objc-act.c) Made minor formatting changes.
+(tree.c) Cache the info as to what language we're compiling to speed up the
+ extra processing introduced in cc-739.
+(winnt/ld.c) Corrected Kevin Enderby's fix for Tracker bug 75480, and
+ incorporated fix for Tracker bug 72208:
+ When linker returns nonzero status, gcc should not behave as if it crashed
+
+cc-739.1 (intended for Mach and Windows NT, submitted on 12/6/96):
+(obcp/lex.c) Remove hack that allowed processing of C++-unaware headers.
+(i386/next-pdo.h) Clean up the list of predefined macros, which includes fix
+ for Tracker bug 62096:
+ NEXT_OBJC_RUNTIME should not be pre-defined
+(winnt/ld.c) Incorporated Kevin Enderby's fix for Tracker bug 75480:
+ ld.exe creates .lib files and can crash when used via gcc -bundle
+
+cc-739 (intended for Mach and Windows NT, submitted to 4.1machTest on 12/5/96):
+(function.c) Don't emit warnings about unused parameters in C++ and Objective
+ C++ when only -Wmost is specified.
+(toplev.c) When target is m68k, don't optimize beyond -O1, since higher levels
+ of optimization can be buggy.  (This might be fixed in gcc 2.7.2.1.)  Also,
+ don't emit -dll ever in .o files. This is a partial fix for Tracker bug 69087:
+ tries to build a library
+(tree.c) If the compiler is Objective C++, don't switch to the temporary
+ obstack in function build_parse_node().
+(cp/lex.c) Declare doing_objc_thang so it can be referenced in any compiler.
+({cp,obcp}/typeck2.c) Incorporated fix for Tracker bug 68122:
+ Wrong e-mail address given for reporting bugs
+(obcp/obcp-act.c) Remove extraneous #ifdef introduced in cc-723.
+
+cc-738 (intended for Mach and Windows NT, submitted on 11/25/96):
+(build_gcc) Preserve in the sym root the source files generated as a by-product
+ of building the compiler.
+({cp,obcp}/decl*.c) Added support for destructors that are compatible with the
+ -dynamic code gen style.
+(obcp/obcp-act.c) Output correct data structure for NSConstantString's; made it
+ more similar to objc-act.c.
+(next/next-specs.h) Process the specs for cc1plus when compiling C++ and
+ Objective C++ source files.
+(next/nextstep.h) Instead of aborting when asked to output a "dynamic"
+ destructor, don't do anything at all.
+(winnt/ld.c) Incorporated Kevin Enderby's fix for Tracker bug 73916:
+ NT:  link's 32k cmd line limit sucks!
+
+cc-737.1 (intended for Mach and Windows NT, submitted on 11/8/96):
+(fold-const.c) Corrected fix for Tracker bug 74738 by incorporating code from
+ FSF's latest gcc snapshot.
+(obcp/lex.c) Incorporated modification missed in previous fix for Tracker bug
+ 73545.
+
+cc-737 (intended for Mach and Windows NT, submitted on 11/6/96):
+(c-parse.in) Incorporated fix for Tracker bug 73916:
+ the syntax for forward declaring a protocol is not being parsed correctly
+(c-typeck.c) Enabled incorrectly disabled code; this fixes Tracker bug 68626:
+ Casting using protocols doesn't seem to work
+(objc-act.c) Incorporated fix for Tracker bug 68626 and for another bug having
+ to do with casting using protocols
+(cccp-winnt.c) Incorporated fixes for the following Tracker bugs:
+ 68025 - NT: #warnings are omitted from errors window
+ 72178 - RTF Source fails to compile
+(fold-const.c) Incorporated fix for Tracker bug 74738:
+ Compiler crashes when function returns a NaN
+(gcc.c) Incorporated fixes for the NT compiler for Tracker bug 67431:
+ gcc should pass -filelist to linkers
+(obcp/class.c) Incorporated fix for Tracker bug 73545:
+ ObjC++ compiler chokes on C++ code after a #import
+(i386/next-pdo.h) Incorporated fixes for the following Tracker bugs:
+ 73599 - cpp on NT does not identify C++ system headers
+ 74342 - On NT all system include paths are implict extern 'C' and two of them
+	 shouldn't be
+(winnt/ld.c) Incorporated fixes for the following Tracker bugs:
+ 67959 - NT:  link's 32k cmd line limit sucks!
+ 69515 - NT:  empty ofileLists cause problems
+ 74224 - link flags inconsistency on OPENSTEP 4.1 (Bastion4R)
+
+cc-736.6 (intended for Mach and Windows NT, submitted to 4.1machTest on 10/17/96):
+(next/nextstep.h) Corrected fix for Tracker bug 73121; libgcc2.c should now be
+ compilable.
+
+cc-736.5 (intended for Mach and Windows NT, submitted to 4.1machTest on 10/16/96):
+(build_gcc, next/next-specs.h, next/nextstep.h) Incorporated fix for Tracker
+ bug 73121, needed for the fix to libc's varargs.h to work:
+ Predefined macros should be updated for 4.1
+
+cc-736.4 (intended for Mach and Windows NT, submitted to 4.1machTest on 10/16/96):
+(libgcc2.c) Migrated code for function _lshldi3 in gcc 2.5.8 to satisfy
+ reference in 3.3 shlib.
+
+cc-736.3 (intended for Mach and Windows NT, submitted to 4.1machTest on 10/14/96):
+(libgcc2.c) Add function __set_new_handler to satisfy reference in 3.3 shlib.
+
+cc-736.2 (intended for Mach and Windows NT, submitted to 4.1machTest on 10/10/96):
+(libgcc2.c) Avoid referencing target_flags in the macro TRAMPOLINE_SIZE.
+
+cc-736.1 (intended for Mach and Windows NT, submitted to 4.1machTest on 10/4/96):
+(varasm.c) Add some missing code to handle private extern objects.
+
+cc-736 (intended for Mach and Windows NT, submitted to 4.1machTest on 9/20/96):
+(cccp*.c) Incorporated fix for Tracker bug 40491:
+ cc -MM (etc) Tax.cxx produces Tax.cxx.o
+(gcc.c) Partially merged in diffs from cc-730.7.
+(gcc.c, next/next-specs.h, next/nextstep.h) Implement -dynamic as the default
+ in a cleaner way.
+(gcc.c, i386/next-pdo.h) Incorporated fix for Tracker bug 70326:
+ -static option yields an executable that crashes on NT.
+ (The Windows NT compiler now ignores the -static switch.)
+(objc-act.c) Incorporated fix for Tracker bug 72283:
+ Fix for bug 51856 should be migrated over to the NT/PDO Objective-C compilers
+ (has to do with invoking super when posing involving categories)
+(toplev.c) Fixed spelling error in comment.
+({pa,sparc}/next-pdo.h) Merged in fix for Tracker bug 72851 from cc-730.7:
+ Constant @string fixup crashes program
+ (cc-730.7 did not incorporate this fix in the Solaris compiler.)
+
+cc-735.5, cc-736*:
+Submissions used to find the cause of Tracker bug 71798:
+ PDO: cc project has bad permissions on headers.
+
+cc-735.4 (intended for Mach and Windows NT, submitted to Bastion4O on 9/5/96):
+(cp/decl.c, obcp/decl.c) Initialize the region of memory malloc returns (and to
+ which exportNamesForDLL points) to the empty string.  This completes the fix
+ for Tracker bug 72521:
+  Compiler sometimes puts garbage in list of symbols to be exported
+
+cc-735.3 (intended for Mach and Windows NT, submitted to Bastion4N on 9/3/96):
+(c-decl.c, function.c) Initialize the region of memory malloc returns (and to
+ which exportNamesForDLL points) to the empty string.  This is a partial fix
+ for Tracker bug 72521:
+  Compiler sometimes puts garbage in list of symbols to be exported
+
+cc-735.2 (intended for Mach and Windows NT):
+(next/next-specs.h) Made -ObjC++ and -x <lang_name> work in the PDO compilers.
+
+cc-735.1 (intended for Mach and Windows NT):
+(i386/next-pdo.h) Added missing parenthesis.
+
+cc-735 (intended for Mach and Windows NT):
+(obcp/call.c) Incorporated fix for Tracker bug 39034:
+ Can't pass a staticly-typed pointer to Objective C sub-class to a member
+  function
+(obcp/lex.c) Incorporated fixes for the following Tracker bugs:
+ 57918 - name space collisions when mixing C++ and objective-C
+ 69469 - can't pass C++ objects by reference to Objective-C methods
+(obcp/obcp-act.c) Incorporated fixes for the following Tracker bugs:
+ 54963 - compiler chokes on improper use of references
+ 72016 - Warnings about type qualifier mismatch
+(i386/next-pdo.h) Incorporated fix for Tracker bug 71979:
+ NT: Objective C constant strings with format specifiers in C++ environment die
+  at runtime
+
+cc-734 (intended for Mach and Windows NT):
+(cccp.c, cccp-mach.c, cccp-winnt.c) cccp.c now #include's the appropriate code
+ for the preprocessor depending on the platform, pending completion of the
+ merged preprocessor, at which time cccp-mach.c and cccp-winnt.c will
+ disappear.
+(c-parse.in) Incorporated fix for Tracker bug 71675:
+ Merge errors in Objective-C grammar (involving square brackets)
+(obcp/class.c) Fixed merge error in function pop_lang_context().
+(obcp/obcp-act.c, i386/nextpdo.h) Incorporated fix for Tracker bug 70826:
+ NT: Objective-C const string (NSString *x = @"foo";) cause internal compiler
+  error in .M files
+(i386/c-gperf-winntpdo.h) Removed this file - it is an old version of the file
+ in the cc directory.
+(next/makeUser.c) #include string.h instead of strings.h when building on a
+ Unix PDO system.
+(next/next-specs.h) Add missing characters to Mach specs affecting header
+ precompilation and processing assembly language source files.
+(next/nextstep.h) Link with lib*crt0.o only once.
+
+cc-733 (intended for Mach):
+(build_gcc) Add /usr/ucb to the PATH, since this is where wc lives.
+(Makefile) Remove hppa from the list of default targets, since we cannot yet
+ generate code for this architecture; delete $(OBJROOT) as the very last step.
+(Makefile.in) Incorporated work around for /bin/sh creating file of fixed size
+ with null padding at end.
+(c-lex.c, c-parse.in) Include support for the Mach-specific keywords.
+(cccp.c) Use the Mach version.
+(gcc.c) Add support for fat compilations.
+(objc-act.c) Handle NXConstantString's as well as NSConstantString's;
+ initialize flag_selector_table and flag_static_objects as appropriate
+ depending on the platform.
+(obcp/error.c) Add "Objective-C" as one of the possible language strings.
+(sparc/next.h) Remove warning about -dynamic being experimental.
+(*/x-next) Add -traditional-cpp switch when invoking GCC_FOR_TARGET.
+(next/nextstep.h) Don't ever invoke ld++ twice on the same command line.
+
+cc-732.6 (intended for Windows NT, submitted on 8/12/96):
+(Makefile) Do not include top level directory in /NextDeveloper/Source; got rid
+ of extraneous $ near end of tar command
+(c-parse.in) Incorporated fix for Tracker bug 71455:
+ Parameters cannot be named id in Objective-C compiler
+
+cc-732.5 (intended for Windows NT):
+(i386/next-pdo.h) Incorporated Josh's fix for Tracker bug 71054:
+ NT: need -scatter flag in specs file
+
+cc-732.4 (intended for Windows NT):
+(i386/next-pdo.h) Incorporated Josh's fix for Tracker bug 70173:
+ NT compiler should use "penter" instead of "mcount" (for profiling).
+
+cc-732.3 (intended for Windows NT):
+(cccp.c) Use the version from 725.3 (which in that version was called
+ cccp-winnt.c), which is known to work.
+
+cc-732.2 (intended for Windows NT):
+(GNUmakefile) Invoke Makefile instead of Makefile.openstep.
+
+cc-732.1 (intended for Windows NT):
+Renamed Makefile to GNUmakefile and Makefile.openstep to Makefile so this
+ project can be processed with Mach's make utility.  (Actually, this change was
+ done in cc-732, but since cc-732 had already been submitted before making this
+ change, RC's source tree was inconsistent.)
+Moved this file to the top level directory.
+
+cc-732 (intended for Windows NT):
+Finished merging with cc-725.4 and jca's latest changes.
+Upgraded to the latest version of bison (version 1.25), and build it by default
+ on both Mach and NT.
+(build_gcc, Makefile, Makefile.openstep) Numerous changes to make it build
+ properly on both Mach and NT.
+Created separate c-gperf*.h, hash*.h, and gperf files for the various
+ platforms; modified appropriate makefiles to match.
+(cccp.c) Put back the old NT version to allow it to build in RC.
+(configure) Removed the macros TARGET_GPERF and objectdir, since they are no
+ longer needed.
+(fixincludes) Parameterize the null device to improve compatibility with NT.
+(gcc.c) Do not allow -ObjC or -ObjC++ to override -O*, and vice-versa; fix
+ processing for -ObjC and -ObjC++.
+(Makefile.in) Reduce the number of divergences from FSF's version.
+(protoize.c) Revert to FSF's version, since we don't really care about this
+ program.
+({ob,}cp/decl2.c) Make semantics of -Wmost consistent with that of cc1obj.
+(varasm.c, obcp/obcp-act.c) Be able to create unique global symbols, even if
+ only constants are declared in a file.
+(i386/next-pdo.h) Change the type of size_t to unsigned int, to match MS header
+ files; output final stab at end of file for gdb.
+Changed the name of the flag -fgen-decls back to -gen-decls, which is the
+ spelling used by FSF.
+Removed sparc/t-nextpdo, since it is no longer needed.
+
+cc-731:
+Merged with cc-725.4.
+Moved next-specific files to config/next.
+Improved support for multiple hash.h and parse.y files in cp and obcp.
+cccp-winnt.c doesn't compile due to problems with REPORT_EVENT macro; should be
+ easy to fix.
+
+cc-730.8 (intended for PDO only, submitted to Boil1L on 9/19/96):
+(collect2.c) Incorporated fix for Tracker bug 72990:
+ PDO: collect2 can't find nm
+(sparc/next-pdo-sol2.h) Incorporated fix for Tracker bug 73013:
+ cc shouldn't specify -lobjc on Solaris
+
+cc-730.7 (intended for PDO only, submitted to Boil1K on 9/17/96):
+(pa/next-pdo.h) Incorporated fix for Tracker bug 72851:
+ Constant @string fixup crashes program
+ Note that this is the same bug as 70826, which was fixed in the NT compiler in
+ cc-734.
+
+cc-730.6 (intended for PDO only, submitted on 9/14/96):
+(Makefile.pdo) Corrected syntax error.
+
+cc-730.5 (intended for PDO only, submitted on 9/13/96):
+(Makefile.pdo) Get rid of top level directory, which contains confidential
+ information.
+(collect2.c) Pass in correct size to realloc.
+
+cc-730.4 (intended for PDO only, submitted on 9/12/96):
+(gcc.c, collect2.c) Incorporated fix in HPUX compiler for Tracker bug 67431:
+ gcc should pass -filelist to linkers
+
+cc-730.3 (intended for PDO only, submitted on 9/6/96):
+Incorporated fixes recently approved by CCC that are in cc-735.2.
+
+cc-730.2 (intended for PDO only):
+(c-parse.in) Incorporated fix for Tracker bug 71455:
+ Parameters cannot be named id in Objective-C compiler
+
+cc-726:
+ Added -lobjc to Sparc specs file for shlibs. Upgraded bison to version 1.24.
+
+cc-725.4 (intended for Windows NT):
+Fixed the following tracker bugs:
+ 68692 - Some warnings still get flagged as errors when sent to PB;
+ 67895 - Mysterious crashes occur when dllimport'ed value used as initializer;
+ 67599 - Gcc driver doesn't send messages to PB
+(gcc.c, i386/next-pdo.h): Removed support for -fileList and @filename.
+(Makefile, build_gcc, */x-next): Allow compiler to be built manually from top
+ level makefile; don't require bison to be built first.
+Brought over relatively recent changes to the Mach compiler.
+Verified that all relatively recent changes to the NT compiler have already
+ been brought over.
+
+cc-725.3 (submitted for Windows NT [Bastion 3U]):
+Fixed the following tracker bugs:
+ 67992 - Garbled error messages sent to PB;
+ 67907 - Warnings get flagged as errors when sent to PB; and
+ 67627 - When there are errors in source file, gcc thinks cc1obj has crashed
+ 68034 - libgcc.a should not be built with symbols.
+(configure) Avoid invoking fixincludes.
+(cp/lex.h) Fix cc-725.2's fix for recognizing NT-specific keywords in the C++
+ compiler.
+
+cc-725.2 (submitted for Windows NT [Bastion 3T]):
+Copied the fix for tracker bug 65700 from cc-474.
+Recognize the NT-specific keywords in the C++ and Objective-C++ compilers.
+Refrain from dereferencing null pointers in some cases.
+(next-specs.h) Process .cpp files with the C++ compiler.
+(gcc.c objc-act.c) Minor changes to make the compiler buildable on Mach.
+
+cc-725.1 (submitted for Windows NT):
+Fixed the following tracker bugs:
+ 67145 - Pass -pdb:none to the MS linker when -gcodeview is specified;
+ 64259 - Send status messages to ProjectBuilder;
+ 63227 - gcc -framework crashes.
+(gcc.c) Removed warning about -arch being ignored if the argument is i386 or
+ `arch`.
+(toplev.c, c-decl.c) Removed warning about unused inline functions when
+ compiling without -O.
+(i386/next-pdo.h) Removed the following predefined macros: FOUNDATION_EXPORT,
+ unix, #system(unix); passes -nologo to the MS linker when -v is not specified.
+(cplus-dem.c, i386/next-pdo.h) Can no longer be compiled with the gcc 2.6.1-
+ based compiler because of malformed string constants.
+Objective C++ support (but not everything else) fully integrated with the PDO
+ compiler.
+
+cc-725:
+Corrected integration errors in cccp-pdo.c and objc-act.c; added execute
+ permission to the configure script.
+
+cc-724:
+First attempt to integrate the submitted versions of gcc for Windows NT and PDO
+ (cc-711.2 and cc-722 respectively).
+
+cc-712:
+(ginclude/stdarg.h) Small hack to avoid having an undefined va_arg.
+(cccp-pdo.c) Don't warn about /* in comments.
+(pa/next-pdo.h) Added another -lm to the specs file hppa.
+
+cc-711.2 (submitted for Windows NT):
+(c-lex.[ch]) Made RID_DIRECT an enumerator only when target is NEXTSTEP;
+ got rid of RID_THREAD and RID_NAKED, since they weren't being used;
+ ifdef'ed RID_UNUSED1 to keep the number of enumerators down to less than 34
+ (this allows an int to be sufficient for representing one bit per enumerator).
+(c-decl.c) Reverted specbits to a 32-bit int, since this is now big enough;
+ made ifdef's more specific (_WIN32 && NEXT_PDO); removed some superfluous
+ braces, parentheses, and white space.
+(winnt/ld.c) Fixed bug in processing of -L switch which was causing an
+ unexpected heap error; minor text formatting
+(i386/i386.c) Fixed i386_return_pops_args to return the correct number of bytes
+ to pop off the stack for stdcall functions
+(i386/next-pdo.h) Added definition for macro CPP_SPEC; added unix to
+ CPP_PREDEFINES (needed to build AppKit)
+Replaced all traces of the sdb->codeview converter (addcv.exe) with support for
+ the stabs->codeview converter (StabsToCodeview.exe) (see bug #65775).
+(objc-act.h) Eliminate two-pass linking (see bug #65773).
+(i386/next-pdo.h) Make constant data sharable (see bug #65772).
+Moved almost all the NeXT-specific stuff in {winnt,i386}/win-nt.h to
+ i386/next-pdo.h.
+Added support for the -undefined switch
+Removed all traces of collect2; renamed ld-winnt to ld (see bug #66505)
+Removed all traces of c++filt, except that the c++filt makefile was moved to
+ the top level directory for easy reference.
+
+cc-711.1:
+First Windows NT candidate for submission to RC.
+Fixes all known bugs preventing building Robin Hood projects.
+
+cc-711:
+(dbxout.c) removed hacks to suppress emission of OBJC meta data, since
+ compiling with -g would occasionally fail.
+(objc-act.c) Modified get_super_receiver() to fix bug in poseAs: when sending
+ messages to super from a category, per tracker 51846.
+(regclass.c and c-parse.in) Updated source to 2.7.2 base.
+(calls.c) Added a test in expand_call() to avoid dereferencing a null pointer.
+(c-decl.c) Eliminate warnings about unused inline static functions.
+
+cc-710:
+Bootstraps on all PDO platforms (alpha excepted).
+Fixed the byref keyword.
+Added c++ support for PDO/Unix.
+Solaris compiler assumes quad float math is done in hardware.
+Don't emit stabs for OBJC meta data.
+Added the -nopdolib switch to link without libpdo.a for PDO/Unix.
+Removed some temporary hacks in the sparc.md file.
+Included support for filelists on unix.
+
+cc-709:
+Should bootstrap smoothly on NEXTSTEP (except for HP) and on the major PDO
+ platforms.  Should be stable enough to test building major projects.
+
+cc-708:
+Integrated my (pre-Christmas) changes to fix a problem with protocol decls
+(objc-act.c) Modified gcc.c and next-specs.h to grok Framework directories.
+
+cc-707:
+Upgraded all files to gcc 2.7.2 base, except for collect2.c, config/winnt/ld.c,
+ and cccp-winnt.c (all based on 2.6.1), cccp.c (based on 2.5.8), and
+ config/m68k/m68k.md (based on 2.7.0 - haven't been successful in bootstrapping
+ with 2.7.2-based m68k.md file)
+List of files that are NOT identical to those in gcc 2.7.2:
+ Makefile.in c-common.c c-decl.c c-lang.c c-lex.[ch] c-parse.in c-typeck.c
+ calls.c cccp.c collect2.c config.sub configure cse.c expr.c final.c flags.h
+ function.c gcc.c integrate.c libgcc2.c objc-act.[ch] optabs.c recog.c
+ regclass.c reload.c reload1.c toplev.c tree.[ch] varasm.c
+ cp/Make-lang.in cp/g++.c
+ config/nextstep.[ch]
+ config/i386/i386.{[ch],md} config/i386/next.[ch] config/i386/[tx]-next
+  config/i386/t-winnt config/i386/win-nt.h config/i386/xm-next.h
+ config/m68k/m68k.{[ch],md} config/m68k/next.[ch] config/m68k/[tx]-next
+  config/m68k/xm-m68k.h
+ config/pa/pa.{[ch],md}
+ config/sparc/sparc.{[ch],md}
+ config/winnt/ld.c config/winnt/win-nt.h config/winnt/x-winnt
+  config/winnt/xm-winnt.h
+Catenated cc/codeview/codeview.[ch] and put result + addcv.c (aka main.c) into
+ cc/config/i386; removed cc/codeview directory
+Bootstraps on NEXTSTEP (i386, m68k, sparc) and on NT
+Still does NOT have jca's latest (pre-Christmas) changes
+
+cc-706:
+Bootstraps on NT (as well as NEXTSTEP) and is able to build all the pieces of
+ the NT compiler (ld, ld-winnt, etc.)
+Does NOT have jca's latest (pre-Christmas) changes, which fixed the protocol
+ problem, but introduced others
+
+cc-700:
+Bootstraps on i386 with -dynamic. Requires -mno-move switch and changes to
+Makefile (macros GCC_CFLAGS, FIXINCLUDES, GCC_PASSES; and targets libgcc2.a and native). Make command used:
+make bootstrap compare srcdir=~/compiler/cc-700/cc HOST_PREFIX="`arch`-" HOST_PREFIX_1="`arch`-" HOST_CC="cc -arch `arch` -traditional-cpp" CFLAGS="-g -traditional-cpp -mno-move" CC="cc -arch `arch` -traditional-cpp -O" LANGUAGES=objc

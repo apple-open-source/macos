@@ -1,0 +1,10 @@
+#!/bin/sh
+#
+# --indent
+#
+
+. $srcdir/defs || exit 1
+
+$enscript --quiet --indent=5 -p$output $asciifiles
+
+rm $output

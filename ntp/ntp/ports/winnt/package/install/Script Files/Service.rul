@@ -1,0 +1,914 @@
+////////////////////////////////////////////////////////////////////////////////
+//
+//    File Name: Service.rul
+//
+//  Description: Functions file for NTP Service install.
+//
+//     Comments: Contains function definitions for the NTP Service.
+//               Functions return 0 for success, less than 0 for failure.
+//
+//      Updated:  02 December, 1997
+//
+////////////////////////////////////////////////////////////////////////////////
+
+
+///////////////////////////////////////////////////////////////////////////////
+//                                                                           //
+// Function: ISInitializeVars                                               //
+//                                                                           //
+//  Purpose: Initializes the paramters for CreateService or                  //
+//           ChangeServiceConfig.  Modify as needed for your own service.    //
+//           You must call this function once before calling any other       //
+//           service functions.
+//                                                                           //
+///////////////////////////////////////////////////////////////////////////////
+
+function ISInitializeVars(szService)
+
+ STRING  svDesiredAccess;
+ STRING  svServiceType;
+ STRING  svStartType;
+ STRING  svErrorControl;
+begin
+
+
+// name of service
+  if (GetProfString ( szINIFileName , szService , "ServiceName" , szServiceName ) < 0) then
+     ISHandleServiceError(IS_ERROR_INIT_VARS);
+  else
+     if (szServiceName = "NULL") then
+        pszServiceName = NULL;
+     else
+        pszServiceName = &szServiceName;
+     endif;
+  endif;
+
+// name to display
+  if (GetProfString ( szINIFileName , szService , "DisplayName" , szDisplayName ) < 0) then
+     ISHandleServiceError(IS_ERROR_INIT_VARS);
+  else
+     if (szDisplayName = "NULL") then
+        pszDisplayName = NULL;
+     else
+        pszDisplayName = &szDisplayName;
+     endif;
+  endif;
+
+// desired access
+  if (GetProfString ( szINIFileName , szService , "DesiredAccess" , svDesiredAccess ) < 0) then
+     ISHandleServiceError(IS_ERROR_INIT_VARS);
+  else
+    ISConvertStringToConstant(svDesiredAccess, nDesiredAccess);
+  endif;
+
+// service type
+  if (GetProfString ( szINIFileName , szService , "ServiceType" , svServiceType ) < 0) then
+     ISHandleServiceError(IS_ERROR_INIT_VARS);
+  else
+    ISConvertStringToConstant(svServiceType, nServiceType);
+  endif;
+
+// start type
+  if (GetProfString ( szINIFileName , szService , "StartType" , svStartType ) < 0) then
+     ISHandleServiceError(IS_ERROR_INIT_VARS);
+  else
+    ISConvertStringToConstant(svStartType, nStartType);
+  endif;
+
+// error control type
+  if (GetProfString ( szINIFileName , szService , "ErrorControl" , svErrorControl ) < 0) then
+     ISHandleServiceError(IS_ERROR_INIT_VARS);
+  else
+    ISConvertStringToConstant(svErrorControl, nErrorControl);
+  endif;
+
+// path to the service binary
+  if (GetProfString ( szINIFileName , szService , "BinaryPathName" , szBinaryPathName ) < 0) then
+     ISHandleServiceError(IS_ERROR_INIT_VARS);
+  else
+     if (szBinaryPathName = "NULL") then
+        pszBinaryPathName = NULL;
+     else
+        ISReplacePathSymbols ( szBinaryPathName, szBinaryPathName, "", "" );
+        LongPathToQuote ( szBinaryPathName , TRUE );
+        pszBinaryPathName = &szBinaryPathName;
+     endif;
+  endif;
+
+// load ordering group
+  if (GetProfString ( szINIFileName , szService , "LoadOrderGroup" , szLoadOrderGroup ) < 0) then
+     ISHandleServiceError(IS_ERROR_INIT_VARS);
+  else
+     if (szLoadOrderGroup = "NULL") then
+        pszLoadOrderGroup = NULL;
+     else
+        pszLoadOrderGroup = &szLoadOrderGroup;
+     endif;
+  endif;
+
+// tag identifier
+  if (GetProfString ( szINIFileName , szService , "TagID" , szTagID ) < 0) then
+     ISHandleServiceError(IS_ERROR_INIT_VARS);
+  else
+     if (szTagID = "NULL") then
+        pszTagID = NULL;
+     else
+        pszTagID = &szTagID;
+     endif;
+  endif;
+
+// dependencies
+  if (GetProfString ( szINIFileName , szService , "Dependencies" , szDependencies ) < 0) then
+     ISHandleServiceError(IS_ERROR_INIT_VARS);
+  else
+     if (szDependencies = "NULL") then
+        pszDependencies = NULL;
+     else
+        pszDependencies = &szDependencies;
+     endif;
+  endif;
+
+// LocalSystem account
+  if (GetProfString ( szINIFileName, szService  , "ServiceStartName" , szServiceStartName ) < 0) then
+     ISHandleServiceError(IS_ERROR_INIT_VARS);
+  else
+     if (szServiceStartName = "NULL") then
+        pszServiceStartName = NULL;
+     else
+        pszServiceStartName = &szServiceStartName;
+     endif;
+  endif;
+
+// no password
+  if (GetProfString ( szINIFileName , szService , "Password" , szPassword ) < 0) then
+     ISHandleServiceError(IS_ERROR_INIT_VARS);
+  else
+     if (szPassword = "NULL") then
+        pszPassword = NULL;
+     else
+        pszPassword = &szPassword;
+     endif;
+  endif;
+
+// service exists
+  if (GetProfInt (szINIFileName, szService, "ServiceExists", bServiceExists) < 0) then
+    ISHandleServiceError(IS_ERROR_INIT_VARS);
+  endif;
+
+// component name
+  if (GetProfString ( szINIFileName , szService , "Component" , svServiceComponent ) < 0) then
+     ISHandleServiceError(IS_ERROR_INIT_VARS);
+  endif;
+
+end;
+
+///////////////////////////////////////////////////////////////////////////////
+//                                                                           //
+// Function:  ISConvertStringToConstant                                      //
+//                                                                           //
+//  Purpose:  This function converts the string stored in the InServ.ini file//
+//            into a predefined constant                                     //
+//                                                                           //
+///////////////////////////////////////////////////////////////////////////////
+
+function ISConvertStringToConstant(szConst, nvConst)
+ LIST   listID;
+ STRING svItem;
+ NUMBER nvTemp, nRes;
+
+begin
+    listID = ListCreate(STRINGLIST);
+    StrGetTokens ( listID , szConst , "|" );
+    nRes = ListGetFirstString(listID, svItem);
+
+    repeat
+        switch(svItem)
+//ControlService
+            case "SERVICE_CONTROL_STOP":
+                nvTemp = SERVICE_CONTROL_STOP;
+            case "SERVICE_CONTROL_PAUSE":
+                nvTemp = SERVICE_CONTROL_PAUSE;
+            case "SERVICE_CONTROL_CONTINUE":
+                nvTemp = SERVICE_CONTROL_CONTINUE;
+            case "SERVICE_CONTROL_INTERROGATE":
+                nvTemp = SERVICE_CONTROL_INTERROGATE;
+            case "SERVICE_CONTROL_SHUTDOWN":
+                nvTemp = SERVICE_CONTROL_SHUTDOWN;
+//OpenSCManager
+            case "SC_MANAGER_ALL_ACCESS":
+                nvTemp = SC_MANAGER_ALL_ACCESS;
+            case "SC_MANAGER_CONNECT":
+                nvTemp = SC_MANAGER_CONNECT;
+            case "SC_MANAGER_CREATE_SERVICE":
+                nvTemp = SC_MANAGER_CREATE_SERVICE;
+            case "SC_MANAGER_ENUMERATE_SERVICE":
+                nvTemp = SC_MANAGER_ENUMERATE_SERVICE;
+            case "SC_MANAGER_LOCK":
+                nvTemp = SC_MANAGER_LOCK;
+            case "SC_MANAGER_QUERY_LOCK_STATUS":
+                nvTemp = SC_MANAGER_QUERY_LOCK_STATUS;
+            case "GENERIC_READ":
+                nvTemp = GENERIC_READ;
+            case "GENERIC_WRITE":
+                nvTemp = GENERIC_WRITE;
+            case "GENERIC_EXECUTE":
+                nvTemp = GENERIC_EXECUTE;
+//CreateService
+//desired access
+            case "STANDARD_RIGHTS_REQUIRED":
+                nvTemp  = STANDARD_RIGHTS_REQUIRED;
+            case "DELETE":
+                nvTemp = DELETE;
+            case "READ_CONTROL":
+                nvTemp = READ_CONTROL;
+            case "SERVICE_ALL_ACCESS":
+                nvTemp = SERVICE_ALL_ACCESS;
+            case "SERVICE_CHANGE_CONFIG":
+                nvTemp = SERVICE_CHANGE_CONFIG;
+            case "SERVICE_ENUMERATE_DEPENDENTS":
+                nvTemp = SERVICE_ENUMERATE_DEPENDENTS;
+            case "SERVICE_INTERROGATE":
+                nvTemp = SERVICE_INTERROGATE;
+            case "SERVICE_PAUSE_CONTINUE":
+                nvTemp = SERVICE_PAUSE_CONTINUE;
+            case "SERVICE_QUERY_CONFIG":
+                nvTemp = SERVICE_QUERY_CONFIG;
+            case "SERVICE_QUERY_STATUS":
+                nvTemp = SERVICE_QUERY_STATUS;
+            case "SERVICE_START":
+                nvTemp = SERVICE_START;
+            case "SERVICE_STOP":
+                nvTemp = SERVICE_STOP;
+            case "SERVICE_USER_DEFINED_CONTROL":
+                nvTemp = SERVICE_USER_DEFINED_CONTROL;
+//service type
+            case "SERVICE_WIN32_OWN_PROCESS":
+                nvTemp = SERVICE_WIN32_OWN_PROCESS;
+            case "SERVICE_WIN32_SHARE_PROCESS":
+                nvTemp = SERVICE_WIN32_SHARE_PROCESS;
+            case "SERVICE_KERNEL_DRIVER":
+                nvTemp  = SERVICE_KERNEL_DRIVER;
+            case "SERVICE_FILE_SYSTEM_DRIVER":
+                nvTemp = SERVICE_FILE_SYSTEM_DRIVER;
+            case "SERVICE_INTERACTIVE_PROCESS":
+                nvTemp = SERVICE_INTERACTIVE_PROCESS;
+//start type
+            case "SERVICE_BOOT_START":
+                nvTemp = SERVICE_BOOT_START;
+            case "SERVICE_SYSTEM_START":
+                nvTemp = SERVICE_SYSTEM_START;
+            case "SERVICE_AUTO_START":
+                nvTemp = SERVICE_AUTO_START;
+            case "SERVICE_DEMAND_START":
+                nvTemp = SERVICE_DEMAND_START;
+            case "SERVICE_DISABLED":
+                nvTemp = SERVICE_DISABLED;
+//error control
+            case "SERVICE_ERROR_IGNORE":
+                nvTemp = SERVICE_ERROR_IGNORE;
+            case "SERVICE_ERROR_NORMAL":
+                nvTemp = SERVICE_ERROR_NORMAL;
+            case "SERVICE_ERROR_SEVERE":
+                nvTemp = SERVICE_ERROR_SEVERE;
+            case "SERVICE_ERROR_CRITICAL":
+                nvTemp = SERVICE_ERROR_CRITICAL;
+            default:
+                return -1;
+        endswitch;
+    nvConst = nvConst | nvTemp;
+    nRes = ListGetNextString(listID, svItem);
+until (nRes != 0);
+end;
+
+
+///////////////////////////////////////////////////////////////////////////////
+//                                                                           //
+// Function:  ISReplacePathSymbols                                           //
+//                                                                           //
+//  Purpose:  This function replaces all path symbols in szExpr with valid   //
+//            paths. You can specify a custom symbol and its substitution    //
+//            value in the last two parameters (pass null strings when you   //
+//            do not wish to specify a custom symbol).                       //
+//                                                                           //
+///////////////////////////////////////////////////////////////////////////////
+function ISReplacePathSymbols ( szExpr, svResultExpr, szCustSymbol, szCustSymbolVal )
+ NUMBER i, j, k, nLenExpr, nvResult;
+ STRING svTemp, svSymb, svSymbPath, svResult;
+begin
+
+    i = 0;
+    k = 0;
+    nLenExpr = StrLength ( szExpr );
+
+    // Step through entire expression (string) char by char.
+    while ( i < nLenExpr )
+        // If you find a symbol bracket, you've found a path symbol.
+        if ( szExpr[i] = '<' ) then
+            j = 0;
+            // Copy path symbol to svSymb
+            while ( szExpr[i] != '>' )
+                svSymb[j] = szExpr[i];
+                j = j + 1;
+                i = i + 1;
+            endwhile;
+            svSymb[j] = szExpr[i];
+            i = i + 1;
+            // Replace the symbol with its path expression, if known.
+            nvResult = ISSubstPathForSymbol ( svSymb, svResult,
+                                              szCustSymbol, szCustSymbolVal );
+            // If path symbol resolvable, add it to svResultExpr (to rebuild expression).
+            if ( nvResult = 0 ) then
+                j = 0;
+                while ( svResult[j] != '\0' )
+                    svResultExpr[k] = svResult[j];
+                    k = k + 1;
+                    j = j + 1;
+                endwhile;
+            // If symbol was not resolvable, must be error or user-defined variable,
+            // which are not supported. Return error.
+            else
+                return nvResult;
+            endif;
+        // Copy non-symbol parts of expression to svResultExpr.
+        else
+            svResultExpr[k] = szExpr[i];
+            i = i + 1;
+            k = k + 1;
+        endif;
+    endwhile;
+
+    svResultExpr[k] = '\0';
+    StrRemoveLastSlash ( svResultExpr );
+    return 0;
+
+end;
+
+
+///////////////////////////////////////////////////////////////////////////////
+//                                                                           //
+// Function:  ISSubstPathForSymbol                                           //
+//                                                                           //
+//  Purpose:  This function substitutes valid paths for path symbols         //
+//                                                                           //
+///////////////////////////////////////////////////////////////////////////////
+function ISSubstPathForSymbol ( szSymbol, svResult, szCustSymbol, szCustSymbolVal )
+begin
+
+    if ( szSymbol = IS_INI_WINSYSDIR ) then
+        svResult = WINSYSDIR;
+        return 0;
+    endif;
+    if ( szSymbol = IS_INI_TARGETDIR ) then
+        svResult = TARGETDIR;
+        return 0;
+    endif;
+    if ( szSymbol = IS_INI_WINDIR ) then
+        svResult = WINDIR;
+        return 0;
+    endif;
+    if ( szSymbol = IS_INI_PROGRAMFILES ) then
+        svResult = PROGRAMFILES;
+        return 0;
+    endif;
+    if ( szSymbol = IS_INI_COMMONFILES ) then
+        svResult = COMMONFILES;
+        return 0;
+    endif;
+    if ( szSymbol = szCustSymbol ) then
+        svResult = szCustSymbolVal;
+        return 0;
+    endif;
+
+    // Unknown symbol.
+    return IS_ERRNO_UNKNOWNSYMBOL;
+
+end;
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+//                                                                           //
+// Function: ISQueryServices                                                 //
+//                                                                           //
+//  Purpose: Gets a list of all services in InServ.ini and calls             //
+//           ISQueryServiceto see if it is running and if it is, shut        //
+//           it down.                                                        //
+//                                                                           //
+///////////////////////////////////////////////////////////////////////////////
+
+function ISQueryServices()
+ string szServices, svValue;
+ LIST   listID;
+ number nRes;
+begin
+//set global variable szINIFileName here
+  szINIFileName = SUPPORTDIR ^ "InServ.ini";
+  LongPathToQuote ( szINIFileName , TRUE );
+
+// name of service
+  if (GetProfString ( szINIFileName , "Services" , "" , szServices ) < 0) then
+    ISHandleServiceError(IS_ERROR_INIT_VARS);
+  else
+    listID = ListCreate(STRINGLIST);
+    StrGetTokens ( listID , szServices , "" );
+    nRes = ListGetFirstString(listID, svKey);
+    while nRes = 0
+        GetProfString(szINIFileName, "Services", svKey, svValue);
+        ISQueryService(svValue);
+        nRes = ListGetNextString(listID, svKey);
+    endwhile;
+  endif;
+end;
+
+
+///////////////////////////////////////////////////////////////////////////////
+//                                                                           //
+// Function: ISInstallServices                                               //
+//                                                                           //
+//  Purpose: Gets a list of all services in InServ.ini and calls             //
+//           ISInstallService for each one                                   //
+//                                                                           //
+///////////////////////////////////////////////////////////////////////////////
+
+function ISInstallServices()
+ string  szServices, svValue;
+ LIST    listID;
+ number  nRes;
+ BOOL    bServiceInstalled;
+begin
+
+bServiceInstalled = TRUE;
+
+// name of service
+  if (GetProfString ( szINIFileName , "Services" , "" , szServices ) < 0) then
+    ISHandleServiceError(IS_ERROR_INIT_VARS);
+  else
+    listID = ListCreate(STRINGLIST);
+    StrGetTokens ( listID , szServices , "" );
+    nRes = ListGetFirstString(listID, svKey);
+    while nRes = 0
+        GetProfString(szINIFileName, "Services", svKey, svValue);
+        if ISInstallService(svValue) = FALSE then
+            bServiceInstalled = FALSE;
+        endif;
+        nRes = ListGetNextString(listID, svKey);
+    endwhile;
+  endif;
+
+if bServiceInstalled then
+    ISUpdateUninstallString();
+endif;
+end;
+
+///////////////////////////////////////////////////////////////////////////////
+//                                                                           //
+// Function: ISQueryService                                                  //
+//                                                                           //
+//  Purpose: Checks if the specified service is running and if it is, shuts  //
+//           it down.                                                        //
+//                                                                           //
+///////////////////////////////////////////////////////////////////////////////
+
+function ISQueryService(szService)
+ HWND   schService;
+ HWND   schSCManager;
+ BOOL   bContinue;
+ NUMBER nRes;
+ SERVICE_STATUS ssStatus;
+begin
+  ISInitializeVars(szService);
+  if ComponentIsItemSelected ( MEDIA , svServiceComponent ) != TRUE then
+    return FALSE;
+  endif;
+  UseDLL(WINSYSDIR ^ "advapi32.dll");
+  //Open service manager
+  schSCManager = ISOpenServiceManager();
+  if ( schSCManager != NULL )then
+    //get handle to service
+    schService = ISOpenService(schSCManager);
+      if (schService != NULL)then  //service exists
+          WriteProfString ( szINIFileName , szService , "ServiceExists" , "1" );
+          bServiceExists = TRUE;
+          // try to stop the service
+          if ( ControlService( schService, SERVICE_CONTROL_STOP, &ssStatus ) ) then
+              Delay(1);
+              bContinue = QueryServiceStatus( schService, &ssStatus );
+              while( bContinue )
+                 if ( ssStatus.dwCurrentState == SERVICE_STOP_PENDING )then
+                   Delay(1);
+                 else
+                   bContinue = FALSE;
+                 endif;
+              endwhile;
+              if ( ssStatus.dwCurrentState != SERVICE_STOPPED )then
+                  ISHandleServiceError(IS_ERROR_SERVICE_FAILED_TO_STOP);
+             endif;
+          else //ControlService failed
+              nRes = GetLastError();
+              if (nRes != ERROR_SERVICE_NOT_ACTIVE)then
+                ISHandleServiceError(nRes);
+              endif;
+          endif;
+          CloseServiceHandle(schService);
+      endif;
+      CloseServiceHandle(schSCManager);
+  endif;
+  UnUseDLL("advapi32.dll");
+  Delay(4); //GMS - give it time for OS to free up EXE
+end;
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+//                                                                           //
+// Function: ISInstallService                                                //
+//                                                                           //
+//  Purpose: First we update the uninstall string to include the uninstall   //
+//           dll.  Then we store the name of the service in our service.ini  //
+//           file for uninstall.  If the service exists (as determined by    //
+//           previous call to ISQueryService) we call ChangeServiceConfig.   //
+//           If the service does not exist, we call CreateService.           //
+//                                                                           //
+///////////////////////////////////////////////////////////////////////////////
+
+function ISInstallService(szService)
+ HWND   schService;
+ HWND   schSCManager;
+ STRING s, szPath[512], szServiceName[256], szServiceDisplayName[256], szDependencies;
+ LONG nRes;
+ BOOL bDeleteService;
+begin
+
+ISInitializeVars(szService);
+if ComponentIsItemSelected ( MEDIA , svServiceComponent ) != TRUE then
+  return FALSE;
+endif;
+ISStoreUninstallInfo();
+
+UseDLL(WINSYSDIR ^ "advapi32.dll");
+//Open service manager
+schSCManager = ISOpenServiceManager();
+
+    if ( schSCManager != NULL )then
+      if (!bServiceExists)then //service does not exist, so we create it
+        schService = CreateServiceA(
+            schSCManager,               // SCManager database
+            pszServiceName,
+            pszDisplayName,
+            nDesiredAccess,
+            nServiceType,
+            nStartType,
+            nErrorControl,
+            pszBinaryPathName,
+            pszLoadOrderGroup,
+            pszTagID,
+            pszDependencies,
+            pszServiceStartName,
+            pszPassword);
+      else //service already exists, so we open it and change config
+        schService = ISOpenService(schSCManager);
+        if (schService != NULL)then
+          bDeleteService = DeleteServiceA(schService);
+          if (bDeleteService = TRUE) then
+          	schService = CreateServiceA(
+            	schSCManager,               // SCManager database
+            	pszServiceName,
+            	pszDisplayName,
+            	nDesiredAccess,
+            	nServiceType,
+            	nStartType,
+            	nErrorControl,
+            	pszBinaryPathName,
+            	pszLoadOrderGroup,
+            	pszTagID,
+            	pszDependencies,
+            	pszServiceStartName,
+            	pszPassword);
+          endif;
+          /*
+          nRes = ChangeServiceConfigA(
+            schService,                 // handle to service
+            nServiceType,
+            nStartType,
+            nErrorControl,
+            pszBinaryPathName,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+           &szServiceDisplayName); */
+           if (nRes = 0)then  //could not change service config
+              ISHandleServiceError (GetLastError());
+           endif;
+        endif;
+      endif;
+
+      if ( schService  != NULL)then
+           // ISStartService(szService, schService);
+           CloseServiceHandle(schService);
+      else //could not open or create service
+          ISHandleServiceError (GetLastError());
+      endif;
+
+      CloseServiceHandle(schSCManager);
+endif;
+UnUseDLL( "advapi32.dll");
+return TRUE;
+end;
+
+
+///////////////////////////////////////////////////////////////////////////////
+//                                                                           //
+// Function: ISOpenServiceManager                                            //
+//                                                                           //
+//  Purpose: This function is a wrapper for the API OpenSCManager            //
+//                                                                           //
+///////////////////////////////////////////////////////////////////////////////
+
+function ISOpenServiceManager()
+ HWND hTemp;
+ NUMBER nRes;
+begin
+    hTemp = OpenSCManagerA(
+                        NULL,                   // machine (NULL == local)
+                        NULL,                   // database (NULL == default)
+                        SC_MANAGER_ALL_ACCESS   // access required
+                        );
+    if (hTemp = NULL)then
+       ISHandleServiceError(GetLastError());
+    endif;
+    return hTemp;
+end;
+
+
+///////////////////////////////////////////////////////////////////////////////
+//                                                                           //
+// Function: ISOpenService                                                   //
+//                                                                           //
+//  Purpose: This function is a wrapper for the API OpenService              //
+//           actual data move operation.                                     //
+//                                                                           //
+///////////////////////////////////////////////////////////////////////////////
+
+function ISOpenService(schSCManager)
+ HWND hTemp;
+ number nRes;
+begin
+     hTemp = OpenServiceA(
+            schSCManager,               // SCManager database
+            pszServiceName,
+            nDesiredAccess);
+    if (hTemp = NULL)then
+      ISHandleServiceError(GetLastError());
+    endif;
+    return hTemp;
+end;
+
+
+///////////////////////////////////////////////////////////////////////////////
+//                                                                           //
+// Function: ISStartService                                                  //
+//                                                                           //
+//  Purpose: This function is a wrapper for the API StartService             //
+//           It reads the ini file for startup parameters. This is connected //
+//           to the SERVICE_ARGS structure.  For each argument, you must     //
+//           have a member in the structure(pszArgN), and a local string     //
+//           variable(svArgN)
+//           You will also need to add the following lines of code for each  //
+//           parameter:                                                      //
+//           nRes = ListGetNextString(listID, svArgN);                       //
+//           ServiceArgs.pszArgN = &svArgN;                                  //
+//           i++;                                                            //
+//                                                                           //
+///////////////////////////////////////////////////////////////////////////////
+
+function ISStartService(szService, schService)
+ SERVICE_ARGS ServiceArgs;
+ STRING       svArgs, svArg1, svArg2, svArg3, svArg4,
+              svArg5, svArg6, svArg7, svArg8, svArg9, svArg10;
+ BOOL         bStartService;
+ LIST         listID;
+ NUMBER       nRes, i;
+begin
+    if (GetProfInt (szINIFileName, szService, "StartService", bStartService) < 0) then
+      ISHandleServiceError(IS_ERROR_INIT_VARS);
+      return -1;
+    endif;
+    if bStartService = TRUE then
+      if (GetProfString ( szINIFileName , szService , "ServiceArgs" , svArgs ) < 0) then
+        ISHandleServiceError(IS_ERROR_INIT_VARS);
+      else
+        if (svArgs = "NULL") then
+          if (StartServiceA(schService, 0, NULL) = 0) then
+            ISHandleServiceError(GetLastError());
+          endif;
+        else //get parameters and put them in structure one at a time
+           i = 0;
+           listID = ListCreate(STRINGLIST);
+           StrGetTokens ( listID , svArgs , "|" );
+           nRes = ListGetFirstString(listID, svArg1);
+           ServiceArgs.pszArg1 = &svArg1;
+           i++;
+           nRes = ListGetNextString(listID, svArg2);
+           ServiceArgs.pszArg2 = &svArg2;
+           i++;
+           nRes = ListGetNextString(listID, svArg3);
+           ServiceArgs.pszArg3 = &svArg3;
+           i++;
+           nRes = ListGetNextString(listID, svArg4);
+           ServiceArgs.pszArg4 = &svArg4;
+           i++;
+           nRes = ListGetNextString(listID, svArg5);
+           ServiceArgs.pszArg5 = &svArg5;
+           i++;
+           nRes = ListGetNextString(listID, svArg6);
+           ServiceArgs.pszArg6 = &svArg6;
+           i++;
+           nRes = ListGetNextString(listID, svArg7);
+           ServiceArgs.pszArg7 = &svArg7;
+           i++;
+           nRes = ListGetNextString(listID, svArg8);
+           ServiceArgs.pszArg8 = &svArg8;
+           i++;
+           nRes = ListGetNextString(listID, svArg9);
+           ServiceArgs.pszArg9 = &svArg9;
+           i++;
+           nRes = ListGetNextString(listID, svArg10);
+           ServiceArgs.pszArg10 = &svArg10;
+           i++;
+           if (StartServiceA(schService, i, &ServiceArgs) = 0) then
+             ISHandleServiceError(GetLastError());
+           endif; //StartService
+        endif; //svArgs
+      endif; //GetProfString for svArgs
+    endif; //bStartService = TRUE
+end;
+
+///////////////////////////////////////////////////////////////////////////////
+//                                                                           //
+// Function: ISStoreUninstallInfo                                            //
+//                                                                           //
+//  Purpose: This function stores the information needed for the uninstall   //
+//           dll in service.ini which is installed to the same location as   //
+//           the uninstall dll.                                              //
+//                                                                           //
+///////////////////////////////////////////////////////////////////////////////
+
+function ISStoreUninstallInfo()
+ string szKey;
+begin
+  if (WriteProfString ( TARGETDIR ^ "service.ini" , "Services" , svKey , szServiceName ) < 0) then
+    ISHandleServiceError(IS_ERROR_STORE_UNINSTALL_INFO);
+  endif;
+end;
+
+
+///////////////////////////////////////////////////////////////////////////////
+//                                                                           //
+// Function: ISUpdateUninstallString                                         //
+//                                                                           //
+//  Purpose: This function updates the command line of the uninstaller.      //
+//           This adds the path to the uninstall dll used to remove the      //
+//           service.  The command line is stored in the registry under NT   //
+//           4.0 and in a program item under NT 3.51                         //
+//                                                                           //
+///////////////////////////////////////////////////////////////////////////////
+
+function ISUpdateUninstallString()
+ string szKey, szName, svValue, szDllPath, svCmdLine , svWrkDir , svIconPath , svShortCutKey ;
+ number nvType, nvSize, nvIconIndex, nvMinimizeFlag;
+begin
+  if (bIsShellExplorer)then
+    Disable(LOGGING);
+    RegDBSetDefaultRoot ( HKEY_LOCAL_MACHINE );
+    szKey = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\" + @PRODUCT_NAME;
+    szName = "UninstallString";
+    RegDBGetKeyValueEx ( szKey , szName , nvType , svValue , nvSize );
+    szDllPath = TARGETDIR ^ @UNINST_DLL;
+    LongPathToQuote ( szDllPath , TRUE );
+    svValue = svValue + " -c" + szDllPath;
+    RegDBSetKeyValueEx ( szKey , szName , nvType , svValue , -1 );
+    Enable(LOGGING);
+  endif;
+end;
+
+
+///////////////////////////////////////////////////////////////////////////////
+//                                                                           //
+// Function:  ISAddFolderIcon                                                //
+//                                                                           //
+//  Purpose:  This function appends the "-c<uninstller DLL>" expression to   //
+//            the uninstall string associated with the uninstall icon under  //
+//            Windows NT 3.51. When the target OS is NT 4.0,                 //
+//            the ISUpdateUninstallString is instead used to append the      //
+//            "-c<uninstller DLL>" expression to the uninstall string in the //
+//            registry.                                                      //
+//                                                                           //
+///////////////////////////////////////////////////////////////////////////////
+function ISAddFolderIcon ( szProgramFolder, szItemName, szCommandLine, szWorkingDir, szIconPath, nIcon, szShortCutKey, nFlag)
+ STRING szDllPath, svTemp, svResult;
+ NUMBER nLen, nPos, nStart, nChars, nvResult;
+begin
+
+    // Extract the location of the uninstall log file so we can use it to
+    // specify our uninstall DLL with the -c switch.
+    nLen = StrLength ( szCommandLine );
+    nPos = StrFind ( szCommandLine, "-f" );
+    nStart = nPos + 2;
+    nPos++;
+    nChars = nLen - nPos;
+    StrSub ( svTemp, szCommandLine, nStart, nChars );
+    LongPathToQuote ( svTemp, FALSE );
+    ParsePath ( svResult, svTemp, PATH );
+    StrRemoveLastSlash ( svResult );
+    // Target OS is Windows NT 3.51. Append to uninstall string associated with
+    // uninstall icon in program group.
+    szDllPath = TARGETDIR ^ @UNINST_DLL;
+    LongPathToQuote ( szDllPath, TRUE );
+    szDllPath = " -c" + szDllPath;
+    nvResult = AddFolderIcon ( szProgramFolder, szItemName,
+                               szCommandLine + szDllPath,
+                               szWorkingDir, szIconPath, nIcon,
+                               szShortCutKey, nFlag );
+    if ( nvResult < 0 ) then
+        ISHandleServiceError(IS_ERROR_UPDATEUNINSTSTRING);
+        return IS_ERROR_UPDATEUNINSTSTRING;
+    endif;
+
+    return 0;
+
+end;
+
+
+///////////////////////////////////////////////////////////////////////////////
+//                                                                           //
+// Function: ISHandleServiceError                                            //
+//                                                                           //
+//  Purpose: This function outputs all error messages.  The strings are      //
+//           stored in the stringtable.                                      //
+//                                                                           //
+///////////////////////////////////////////////////////////////////////////////
+
+function ISHandleServiceError(nError)
+begin
+  switch(nError)
+
+    case ERROR_ACCESS_DENIED:
+        MessageBox ( @STR_ERROR_ACCESS_DENIED , SEVERE );
+    case ERROR_DATABASE_DOES_NOT_EXIST:
+        MessageBox ( @STR_ERROR_DATABASE_DOES_NOT_EXIST , SEVERE );
+    case ERROR_INVALID_PARAMETER:
+        MessageBox ( @STR_ERROR_INVALID_PARAMETER , SEVERE );
+    case ERROR_CIRCULAR_DEPENDENCY:
+        MessageBox ( @STR_ERROR_CIRCULAR_DEPENDENCY , SEVERE );
+    case ERROR_DUP_NAME:
+        MessageBox ( @STR_ERROR_DUP_NAME , SEVERE );
+    case ERROR_INVALID_HANDLE:
+        MessageBox ( @STR_ERROR_INVALID_HANDLE , SEVERE );
+    case ERROR_INVALID_NAME:
+        MessageBox ( @STR_ERROR_INVALID_NAME, SEVERE );
+    case ERROR_INVALID_SERVICE_ACCOUNT:
+        MessageBox ( @STR_ERROR_INVALID_SERVICE_ACCOUNT , SEVERE );
+    case ERROR_SERVICE_EXISTS:
+        MessageBox ( @STR_ERROR_SERVICE_EXISTS , SEVERE );
+    case ERROR_PATH_NOT_FOUND:
+        MessageBox ( @STR_ERROR_PATH_NOT_FOUND , SEVERE );
+    case ERROR_SERVICE_ALREADY_RUNNING:
+        MessageBox ( @STR_ERROR_SERVICE_ALREADY_RUNNING , SEVERE );
+    case ERROR_SERVICE_DATABASE_LOCKED:
+        MessageBox ( @STR_ERROR_SERVICE_DATABASE_LOCKED , SEVERE );
+    case ERROR_SERVICE_DEPENDENCY_DELETED:
+        MessageBox ( @STR_ERROR_SERVICE_DEPENDENCY_DELETED , SEVERE );
+    case ERROR_SERVICE_DEPENDENCY_FAIL:
+        MessageBox ( @STR_ERROR_SERVICE_DEPENDENCY_FAIL , SEVERE );
+    case ERROR_SERVICE_DISABLED:
+        MessageBox ( @STR_ERROR_SERVICE_DISABLED , SEVERE );
+    case ERROR_SERVICE_LOGON_FAILED:
+        MessageBox ( @STR_ERROR_SERVICE_LOGON_FAILED , SEVERE );
+    case ERROR_SERVICE_MARKED_FOR_DELETE:
+        MessageBox ( @STR_ERROR_SERVICE_MARKED_FOR_DELETE , SEVERE );
+    case ERROR_SERVICE_NO_THREAD:
+        MessageBox ( @STR_ERROR_SERVICE_NO_THREAD , SEVERE );
+    case ERROR_SERVICE_REQUEST_TIMEOUT:
+        MessageBox ( @STR_ERROR_SERVICE_REQUEST_TIMEOUT , SEVERE );
+    case ERROR_SERVICE_DOES_NOT_EXIST:
+        bServiceExists = FALSE;
+    case IS_ERROR_SERVICE_FAILED_TO_STOP:
+        MessageBox (@STR_IS_ERROR_SERVICE_FAILED_TO_STOP, SEVERE);
+    case IS_ERROR_STORE_UNINSTALL_INFO:
+        MessageBox (@STR_IS_ERROR_STORE_UNINSTALL_INFO, SEVERE);
+    case IS_ERROR_UPDATEUNINSTSTRING:
+        MessageBox (@STR_IS_ERROR_UPDATEUNINSTSTRING, SEVERE);
+    case IS_ERROR_INIT_VARS:
+        MessageBox (@STR_IS_ERROR_INIT_VARS, SEVERE);
+    default:
+        MessageBox ( @STR_ERROR_UNKNOWN , SEVERE );
+  endswitch;
+end;
+
+
+
+
+
+

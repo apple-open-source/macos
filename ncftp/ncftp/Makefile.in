@@ -1,0 +1,202 @@
+# NcFTP Makefile
+PKGNAME=ncftp
+VERSION=2.4.3
+
+# List of .c files to compile:
+CFILES=\
+Bookmark.c  Cmdline.c   Cmdlist.c   Cmds.c      Complete.c  Cpp.c \
+DateSize.c  FTP.c       Get.c       GetPass.c   Getopt.c    Sio.c \
+Glob.c      Hostwin.c   LGets.c     LineList.c  List.c      Macro.c \
+Main.c      MakeArgv.c  Open.c      Prefs.c     Progress.c  Put.c \
+RCmd.c      Strn.c      Tips.c      Util.c      WGets.c     Win.c \
+Xfer.c
+
+# List of .o object files to generate:
+OFILES=${CFILES:.c=.o}
+
+HFILES=\
+Bookmark.h   Cmdline.h    Cmds.h       Complete.h \
+Cpp.h        Curses.h     DateSize.h   FTP.h        Get.h        Sio.h \
+GetPass.h    Getopt.h     Glob.h       Hostwin.h    LGets.h      LineList.h \
+List.h       Macro.h      Main.h       MakeArgv.h   Open.h       Poll.h \
+Prefs.h      Progress.h   Put.h        RCmd.h       Strn.h       Sys.h \
+Tips.h       Util.h       Version.h    WGets.h      Win.h        Xfer.h \
+acconfig.h
+
+# Compiled executable's pathname:
+PROGS=@PROGS@
+
+SHELL=/bin/sh
+.SUFFIXES: .c .o
+
+CC=@CC@
+CFLAGS=@CFLAGS@
+VPATH=@srcdir@
+CPPFLAGS=-I. -I@srcdir@ @CPPFLAGS@
+
+LIBS=@LIBS@
+SHARED_LDFLAGS=@LDFLAGS@
+STATIC_LDFLAGS=@LDFLAGS@ @SLDFLAGS@
+
+# Any -D definitions:
+DEFS=@DEFS@@RESOLV_CONF_DOMAIN@
+
+# File permissions for chmod:
+MODE=755
+
+DOCFILES=README COPYING ncftp.1 CHANGELOG
+CFGFILES=Config.h.in Config.h.top configure.in configure Makefile.in #aclocal.m4
+CFGJUNK=Config.h Makefile config.*
+
+# This is everything that is copied when you make a shar or tar.
+PACKAGE=$(DOCFILES) $(CFILES) $(HFILES) $(CFGFILES)
+
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+bindir=@bindir@
+mandir=@mandir@
+BINDIR=$(bindir)
+MANDIR=$(mandir)
+CATDIR=$(mandir)/man$(MANEXT)/../cat1
+MANEXT=1
+
+MKDIRS = install -d
+
+all: $(PROGS)
+	@chmod $(MODE) $(PROGS)
+	@/bin/ls -l $(PROGS)
+	@echo 'Done.'
+
+@PROG1@: $(OFILES)
+	$(CC) $(CFLAGS) $(OFILES) -o @PROG1@ $(SHARED_LDFLAGS) $(LIBS)
+
+@PROG2@: $(OFILES)
+	$(CC) $(CFLAGS) $(OFILES) -o @PROG2@ $(STATIC_LDFLAGS) $(LIBS)
+
+install:
+	$(MKDIRS) $(BINDIR)
+	$(MKDIRS) $(mandir)/man$(MANEXT)
+	rm -f $(BINDIR)/ncftp
+	cp ncftp $(BINDIR)/ncftp
+	strip $(BINDIR)/ncftp
+	chmod 555 $(BINDIR)/ncftp
+	rm -f $(mandir)/man$(MANEXT)/ncftp.1
+	cp @srcdir@/ncftp.1 $(mandir)/man$(MANEXT)/ncftp.1
+	chmod 444 $(mandir)/man$(MANEXT)/ncftp.1
+	rm -f $(CATDIR)/ncftp.1 
+
+install-strip:
+	$(MAKE) INSTALL_PROGRAM='$(INSTALL_PROGRAM) -s' install
+
+.c.o:
+	$(CC) $(CFLAGS) $(DEFS) $(CPPFLAGS) $< -c
+
+### Archiving #################################################################
+
+TARDIR=$(PKGNAME)-$(VERSION)
+TARFILE=$(TARDIR).tar
+TGZFILE=$(TARDIR).tar.gz
+
+tar: $(PACKAGE)
+	-@mkdir /usr/tmp/TAR
+	-@mkdir /usr/tmp/TAR/$(TARDIR)
+	-@chmod ga+r $(PACKAGE)
+	-@chmod 755 /usr/tmp/TAR/$(TARDIR)
+	cp -pr $(PACKAGE) /usr/tmp/TAR/$(TARDIR)
+	( cd /usr/tmp/TAR ; tar cf $(TARFILE) ./$(TARDIR) )
+	cp /usr/tmp/TAR/$(TARFILE) .
+	-@chmod 644 $(TARFILE)
+	-@rm -rf /usr/tmp/TAR
+	-@/bin/ls -l $(TARFILE)
+
+gz: tar
+	gzip -c $(TARFILE) > $(TGZFILE)
+	-@rm $(TARFILE)
+	-@chmod 644 $(TGZFILE)
+	-@/bin/ls -l $(TGZFILE)
+@Z31@
+
+### Cleaning supplies ########################################################
+
+clean:
+	-/bin/rm -f $(OFILES) $(PROGS) core
+
+distclean:	clean
+	-/bin/rm -f $(CFGJUNK)
+
+realclean mostlyclean: clean distclean
+
+### Dependencies #############################################################
+
+GLOBAL_H=Util.h Strn.h LineList.h Win.h Sys.h Config.h
+
+Cmdline.o: Cmdline.c $(GLOBAL_H) Cmdline.h Cmds.h Main.h MakeArgv.h
+
+Cmdlist.o: Cmdlist.c $(GLOBAL_H) Main.h Open.h Cmds.h List.h Get.h Put.h \
+	Prefs.h Cmdline.h Hostwin.h
+
+Cmds.o: Cmds.c $(GLOBAL_H) RCmd.h Cmdline.h MakeArgv.h Macro.h Main.h \
+	Glob.h Getopt.h FTP.h Bookmark.h Cpp.h Prefs.h Tips.h Cmds.h \
+	Version.h DateSize.h Open.h
+
+Cpp.o: Cpp.c $(GLOBAL_H) Curses.h Cpp.h
+
+DateSize.o: DateSize.c $(GLOBAL_H) RCmd.h Cmds.h Xfer.h List.h DateSize.h
+
+FTP.o: FTP.c $(GLOBAL_H) FTP.h RCmd.h
+
+Get.o: Get.c $(GLOBAL_H) RCmd.h Xfer.h Cmds.h Get.h Glob.h DateSize.h List.h \
+	Getopt.h
+
+Getopt.o: Getopt.c $(GLOBAL_H) Getopt.h
+
+GetPass.o: GetPass.c $(GLOBAL_H) GetPass.h
+
+Glob.o: Glob.c $(GLOBAL_H) List.h Glob.h RCmd.h Xfer.h Main.h
+
+Hostwin.o: Hostwin.c $(GLOBAL_H) Util.h Curses.h Hostwin.h Bookmark.h \
+		Open.h Cmds.h WGets.h
+
+LGets.o: LGets.c $(GLOBAL_H) LGets.h
+
+LineList.o: LineList.c $(GLOBAL_H) Sys.h Config.h LineList.h
+
+List.o: List.c $(GLOBAL_H) RCmd.h Xfer.h Cmds.h List.h
+
+Macro.o: Macro.c $(GLOBAL_H) Macro.h Cmdline.h MakeArgv.h
+
+Main.o: Main.c $(GLOBAL_H) Main.h Cmds.h Open.h Cmdline.h DateSize.h \
+	FTP.h Getopt.h Xfer.h Tips.h Version.h Bookmark.h Prefs.h
+
+MakeArgv.o: MakeArgv.c $(GLOBAL_H) MakeArgv.h
+
+Open.o: Open.c $(GLOBAL_H) Open.h GetPass.h Cmds.h RCmd.h Bookmark.h FTP.h \
+	Macro.h Hostwin.h Main.h Get.h Getopt.h
+
+Prefs.o: Prefs.c $(GLOBAL_H) Cmds.h Progress.h Hostwin.h Prefs.h RCmd.h \
+	WGets.h Main.h Bookmark.h Main.h
+
+Progress.o: Progress.c $(GLOBAL_H) Cmds.h Xfer.h Progress.h GetPass.h
+
+Put.o: Put.c $(GLOBAL_H) RCmd.h Xfer.h Cmds.h Get.h Put.h
+
+RCmd.o: RCmd.c $(GLOBAL_H) RCmd.h Open.h Main.h Xfer.h FTP.h
+
+Bookmark.o: Bookmark.c $(GLOBAL_H) Bookmark.h FTP.h
+
+Sio.o: Sio.c $(GLOBAL_H) Sio.h
+
+Strn.o: Strn.c $(GLOBAL_H) Strn.h
+
+Tips.o: Tips.c $(GLOBAL_H) Tips.h
+
+Util.o: Util.c $(GLOBAL_H) Main.h Bookmark.h
+
+Win.o: Win.c $(GLOBAL_H) Curses.h Main.h Bookmark.h RCmd.h LGets.h \
+	GetPass.h WGets.h Version.h
+
+WGets.o: WGets.c $(GLOBAL_H) Curses.h WGets.h
+
+Xfer.o: Xfer.c $(GLOBAL_H) Main.h Xfer.h RCmd.h FTP.h Progress.h Sio.h
+
+# eof

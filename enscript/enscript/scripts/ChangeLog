@@ -1,0 +1,26 @@
+1998-05-18  Markku Rossi  <mtr@ngs.fi>
+
+	* diffpp.in: Updated.  Thanks to Tait Cyrus <tait.cyrus@mci.com>
+	for the updated version.
+
+Thu Jul 17 12:38:34 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* Makefile.am: Updated changes needed by Automake-1.2.
+
+Fri Aug 23 20:32:28 1996  Markku Rossi  <mtr@ngs.ngs.fi>
+
+	* sliceprint.in: sliceprint - slice documents with long lines to
+	separate printouts.
+
+Sun Jul 28 01:41:04 1996  Markku Rossi  <mtr@ngs.ngs.fi>
+
+	* diffpp.in: Changed diamond <> to <STDIN> to make diffpp to work
+	with some older perls.
+
+Sun Jun 30 10:59:18 1996  Markku Rossi  <mtr@ngs.ngs.fi>
+
+	* diffpp.in: diffpp - pretty-print diff outputs.
+
+Thu Jun 13 14:08:21 1996  Markku Rossi  <mtr@ngs.ngs.fi>
+
+	* New directory to hold some handy utility scripts for enscript.

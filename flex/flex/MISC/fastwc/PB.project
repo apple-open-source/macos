@@ -1,0 +1,15 @@
+{
+    FILESTABLE = {
+        Documentation = (README); 
+        Headers = (); 
+        Resources = (); 
+        SUBPROJECTS = (); 
+        Sources = (mywc.c, wc1.l, wc2.l, wc3.l, wc4.l, wc5.l); 
+    }; 
+    NEXTSTEP_BUILDTOOL = /bin/make; 
+    PDO_UNIX_BUILDTOOL = /bin/make; 
+    PROJECTNAME = fastwc; 
+    PROJECTTYPE = "GNU Source"; 
+    PROJECTVERSION = 2.6; 
+    WINDOWS_BUILDTOOL = "${NEXT_ROOT}/NextDeveloper/Executables/make"; 
+}
