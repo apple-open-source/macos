@@ -6,12 +6,18 @@
  * forth in the LICENSE file which can be found at the top level of
  * the sendmail distribution.
  *
- *	$Id: sfsasl.h,v 1.1.1.1 2000/06/10 00:40:56 wsanchez Exp $"
+ *	$Id: sfsasl.h,v 1.1.1.2 2002/03/12 18:00:39 zarzycki Exp $"
  */
 
 #ifndef SFSASL_H
 # define SFSASL_H
 
+#if SASL
+extern int	sfdcsasl __P((SM_FILE_T **, SM_FILE_T **, sasl_conn_t *));
+#endif /* SASL */
 
+# if STARTTLS
+extern int	sfdctls __P((SM_FILE_T **, SM_FILE_T **, SSL *));
+# endif /* STARTTLS */
 
 #endif /* ! SFSASL_H */

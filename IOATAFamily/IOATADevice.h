@@ -33,10 +33,10 @@
 
 #include <IOKit/IOService.h>
 #include <IOKit/IOTypes.h>
-#include <IOKit/ata/IOATATypes.h>
-#include <IOKit/ata/IOATACommand.h>
-#include <IOKit/ata/IOATABusInfo.h>
-#include <IOKit/ata/IOATADevConfig.h>
+#include "IOATATypes.h"
+#include "IOATACommand.h"
+#include "IOATABusInfo.h"
+#include "IOATADevConfig.h"
 
 class IOATAController;
 

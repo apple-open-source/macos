@@ -758,31 +758,6 @@ void InitBTreeHeader (UInt32 fileSize, UInt32 clumpSize, UInt16 nodeSize, UInt16
 	*offsetPtr   = sizeof(BTNodeDescriptor);										// offset to BTH
 }
 
-
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	Routine:	HFSBlocksFromTotalSectors
-//
-//	Function:	Given the total number of sectors on the volume, calculate
-//				the 16Bit number of allocation blocks, and allocation block size.
-//
-// 	Result:		none
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-void	HFSBlocksFromTotalSectors( UInt32 totalSectors, UInt32 *blockSize, UInt16 *blockCount )
-{
-	UInt16	newBlockSizeInSectors	= 1;
-	UInt32	newBlockCount			= totalSectors;
-	
-	while ( newBlockCount > 0XFFFF )
-	{
-		newBlockSizeInSectors++;
-		newBlockCount	=  totalSectors / newBlockSizeInSectors;
-	}
-	
-	*blockSize	= newBlockSizeInSectors * 512;
-	*blockCount	= newBlockCount;
-}
-
-
 /*------------------------------------------------------------------------------
 
 Routine:	CalculateItemCount
@@ -1053,17 +1028,19 @@ OSErr	FlushVolumeControlBlock( SVCB *vcb )
 OSErr	FlushAlternateVolumeControlBlock( SVCB *vcb, Boolean isHFSPlus )
 {
 	OSErr  err;
-	UInt32  primaryBlockLocation;
-	UInt32  alternateBlockLocation;
+	UInt64  primaryBlockLocation;
+	UInt64  alternateBlockLocation;
 	BlockDescriptor  pri_block, alt_block;
 
 	err = FlushVolumeControlBlock( vcb );
 	
 	if ( isHFSPlus ) {
 		primaryBlockLocation = (vcb->vcbEmbeddedOffset / 512) + 2;
-		alternateBlockLocation = (vcb->vcbEmbeddedOffset / 512) + vcb->vcbTotalBlocks * (vcb->vcbBlockSize / 512) - 2;
+		alternateBlockLocation = ((UInt64)vcb->vcbEmbeddedOffset / 512) +
+			(UInt64)vcb->vcbTotalBlocks * (UInt64)(vcb->vcbBlockSize / 512) - 2;
 	} else {
-		UInt32 sectors, sectorSize;
+		UInt64 sectors;
+		UInt32 sectorSize;
 
 		err = GetDeviceSize( vcb->vcbDriveNumber, &sectors, &sectorSize );
 		ReturnIfError(err);
@@ -1112,7 +1089,7 @@ ConvertToHFSPlusExtent( const HFSExtentRecord oldExtents, HFSPlusExtentRecord ne
 OSErr	CacheWriteInPlace( SVCB *vcb, UInt32 fileRefNum,  HIOParam *iopb, UInt32 currentPosition, UInt32 maximumBytes, UInt32 *actualBytes )
 {
 	OSErr err;
-	UInt32 diskBlock;
+	UInt64 diskBlock;
 	UInt32 contiguousBytes;
 	void* buffer;
 	

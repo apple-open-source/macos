@@ -361,4 +361,16 @@ IOAudioFamily-1.1d25\
 \cf0 IOAudioFamily-1.1fc8\
 \pard\tx540\tx2880\tx4320\tx5760\tx7200\li540\fi-180\ql\qnatural
 \cf0 -	Added bounds checking of the firstSampleFrame parameter to IOAudioEngineUserClient::performClientIO()\
-}
+\
+\pard\tx1440\tx2880\tx4320\tx5760\tx7200\ql\qnatural
+\cf0 IOAudioFamily-1.2f1\
+\pard\tx540\tx2880\tx4320\tx5760\tx7200\li540\fi-180\ql\qnatural
+\cf0 -	Cleared out fields in clientBuffer in removeClient\
+\
+\pard\tx1440\tx2880\tx4320\tx5760\tx7200\ql\qnatural
+\cf0 IOAudioFamily-1.2.1b1\
+\pard\tx540\tx2880\tx4320\tx5760\tx7200\li540\fi-180\ql\qnatural
+\cf0 - 2761764 Hot unplugging/plugging iSub caused kernel panic caused by race condition around allocating commandGate.\
+- 2762544 panic when changing audio formats while playing audio caused by not bounds checking the erase head and having it go off the end of the buffer.  Fixed by not having the erase head run unless the audio device is active, and to check to make sure that it won't go past the end of the buffer.\
+- 2766259 IOAudioEngineUserClient::startClient() might remain online even if it fails, fixed to deal with errors returned from startClient()\
+- 2857905IOAudioFamily mix buffers not aligned, all buffers are not allocated with IOMallocAligned()}

@@ -98,12 +98,19 @@ private:
         kTime10ms =	durationMillisecond * 10,   // a delay of 10 ms is required after 
                                                     //starting clocks before doing a recalibrate
         kDefaultPowerObjectReg	= 0xF3000000,	// default base address
-        kPowerObjectOffset	= 0x00000038,	// offset to feature Object register
-        kPowerObjectMask	= 0x00300000,	// enable sound clock and power, endian swapped
-        kPowerOn		= 0x00200000,	// sound clock enable, sound power enable
-        kPowerOff		= 0x00100000,	// sound clock disable, sound power disable
-        kPowerPWDBit		= 0x00100000,	// sound PWD bit on/off (PWD asserted low)
-        kPowerClkBit	        = 0x00200000	// sound SND_CLK_EN bit on/off (clocks on high)
+        kPowerObjectOffset		= 0x00000038,	// offset to feature Object register
+        kPowerObjectMask		= 0x00003000,	// enable sound clock and power, big endian
+        kPowerOn				= 0x00002000,	// sound clock enable, sound power enable, big endian
+        kPowerOff				= 0x00001000,	// sound clock disable, sound power disable, big endian
+        kPowerPWDBit			= 0x00001000,	// sound PWD bit on/off (PWD asserted low), big endian
+        kPowerClkBit	        = 0x00002000	// sound SND_CLK_EN bit on/off (clocks on high), big endian
+
+/*		These are the original version of these values, don't know if we need to use the little endian or big endian constants
+        kPowerObjectMask		= 0x00300000,	// enable sound clock and power, little endian
+        kPowerOn				= 0x00200000,	// sound clock enable, sound power enable, little endian
+        kPowerOff				= 0x00100000,	// sound clock disable, sound power disable, little endian
+        kPowerPWDBit			= 0x00100000,	// sound PWD bit on/off (PWD asserted low), little endian
+        kPowerClkBit	        = 0x00200000	// sound SND_CLK_EN bit on/off (clocks on high), little endian */
     };
 };
 

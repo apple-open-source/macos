@@ -1,5 +1,5 @@
 # Created and modified by checkpoint; do not edit
-# $Id: CVSVersionInfo.txt,v 1.80 2001/07/25 23:02:23 mferris Exp $
-# $Name:  $
+# $Id: CVSVersionInfo.txt,v 1.80.4.1 2002/02/11 23:58:30 anders Exp $
+# $Name: pbx_jamfiles-71~1 $
 ProjectName: pbx_jamfiles
-ProjectVersion: 71
+ProjectVersion: 71.1

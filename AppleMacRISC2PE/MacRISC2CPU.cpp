@@ -20,15 +20,16 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 1999-2000 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 1999-2002 Apple Computer, Inc.  All rights reserved.
  *
- *  DRI: Tom Sherman
+ *  DRI: Dave Radcliffe
  *
  */
+#include <sys/cdefs.h>
 
-extern "C" {
+__BEGIN_DECLS
 #include <ppc/proc_reg.h>
-}
+__END_DECLS
 
 #include <IOKit/IODeviceTreeSupport.h>
 #include <IOKit/IOPlatformExpert.h>
@@ -60,7 +61,7 @@ bool MacRISC2CPU::start(IOService *provider)
     OSArray              *tmpArray;
     UInt32               maxCPUs, uniNVersion, physCPU;
     ml_processor_info_t  processor_info;
-
+	
     // callPlatformFunction symbols
     mpic_getProvider = OSSymbol::withCString("mpic_getProvider");
     mpic_getIPIVector= OSSymbol::withCString("mpic_getIPIVector");
@@ -73,12 +74,13 @@ bool MacRISC2CPU::start(IOService *provider)
     keyLargo_turnOffIO = OSSymbol::withCString("keyLargo_turnOffIO");
     keyLargo_writeRegUInt8 = OSSymbol::withCString("keyLargo_writeRegUInt8");
     keyLargo_getHostKeyLargo = OSSymbol::withCString("keyLargo_getHostKeyLargo");
+    keyLargo_setPowerSupply = OSSymbol::withCString("setPowerSupply");
 
     macRISC2PE = OSDynamicCast(MacRISC2PE, getPlatform());
     if (macRISC2PE == 0) return false;
   
     if (!super::start(provider)) return false;
-  
+
     // Get the Uni-N Version.
     uniNRegEntry = fromPath("/uni-n", gIODTPlane);
     if (uniNRegEntry == 0) return false;
@@ -102,6 +104,8 @@ bool MacRISC2CPU::start(IOService *provider)
     {
         if (numCPUs > maxCPUs) numCPUs = maxCPUs;
     }
+	
+	doSleep = false;
   
     // Get the "flush-on-lock" property from the first cpu node.
     flushOnLock = false;
@@ -116,14 +120,35 @@ bool MacRISC2CPU::start(IOService *provider)
     devicetreeRegEntry = fromPath("/", gIODTPlane);
     tmpData = OSDynamicCast(OSData, devicetreeRegEntry->getProperty("model"));
     if (tmpData == 0) return false;
+#if 0
     if(!strcmp((char *)tmpData->getBytesNoCopy(), "PowerMac3,5"))
         flushOnLock = true;
-  
+#endif
+
     // Get the physical CPU number from the "reg" property.
     tmpData = OSDynamicCast(OSData, provider->getProperty("reg"));
     if (tmpData == 0) return false;
     physCPU = *(long *)tmpData->getBytesNoCopy();
     setCPUNumber(physCPU);
+
+    // Get the gpio offset for soft reset from the "soft-reset" property.
+    tmpData = OSDynamicCast(OSData, provider->getProperty("soft-reset"));
+    if (tmpData == 0) 
+    {
+        if (physCPU == 0)
+            soft_reset_offset = 0x5B;
+        else
+            soft_reset_offset = 0x5C;
+    }
+    else
+        soft_reset_offset = *(long *)tmpData->getBytesNoCopy();
+   
+    // Get the gpio offset for timebase enable from the "timebase-enable" property.
+    tmpData = OSDynamicCast(OSData, provider->getProperty("timebase-enable"));
+    if (tmpData == 0) 
+        timebase_enable_offset = 0x73;
+    else
+        timebase_enable_offset = *(long *)tmpData->getBytesNoCopy();
   
     // Find out if this is the boot CPU.
     bootCPU = false;
@@ -205,35 +230,185 @@ bool MacRISC2CPU::start(IOService *provider)
     // Before to go to sleep we wish to disable the napping mode so that the PMU
     // will not shutdown the system while going to sleep:
     service = waitForService(serviceMatching("IOPMrootDomain"));
-    IOPMrootDomain *pmRootDomain = OSDynamicCast(IOPMrootDomain, service);
+    pmRootDomain = OSDynamicCast(IOPMrootDomain, service);
     if (pmRootDomain != 0)
     {
         kprintf("Register MacRISC2CPU %d to acknowledge power changes\n", getCPUNumber());
         pmRootDomain->registerInterestedDriver(this);
+        
+        // Join the Power Management Tree to receive setAggressiveness calls.
+        PMinit();
+        provider->joinPMtree(this);
     }
   
     registerService();
   
+    // Finds the PMU so in quiesce we can put the machine to sleep.
+    // I can not put this call there because quiesce runs in interrupt
+    // context and waitForService may block.
+    pmu = waitForService(serviceMatching("ApplePMU"));
+    if (pmu == 0) return false;
+    
     return true;
 }
 
 // This is called before to start the sleep process and after waking up before to
-// start the wake process. We wish to disble the CPU nap mode going down and
-// re-enable it before to go up:
+// start the wake process. We wish to disable the CPU nap mode going down and
+// re-enable it before to go up.  For machines that support speed changing, we do
+// some bookkeeping to make sure we end up in the right state coming out of sleep
 IOReturn MacRISC2CPU::powerStateWillChangeTo ( IOPMPowerFlags theFlags, unsigned long, IOService*)
 {
     if ( ! (theFlags & IOPMPowerOn) ) {
         // Sleep sequence:
         kprintf("MacRISC2CPU %d powerStateWillChangeTo to acknowledge power changes (DOWN) we set napping %d\n", getCPUNumber(), false);
         rememberNap = ml_enable_nap(getCPUNumber(), false);        // Disable napping (the function returns the previous state)
-    }
-    else
-    {
+
+		// If processor based and currently slow, kick it back up so we safely come out of sleep
+		if (macRISC2PE->processorSpeedChangeFlags & kProcessorBasedSpeedChange &&
+			!(macRISC2PE->processorSpeedChangeFlags & kProcessorFast)) {
+ 				setAggressiveness (kPMSetProcessorSpeed, 0);				// Make it so
+				macRISC2PE->processorSpeedChangeFlags &= ~kProcessorFast;	// Remember slow so we can set it after sleep
+			}
+   } else {
         // Wake sequence:
         kprintf("MacRISC2CPU %d powerStateWillChangeTo to acknowledge power changes (UP) we set napping %d\n", getCPUNumber(), rememberNap);
         ml_enable_nap(getCPUNumber(), rememberNap); 		   // Re-set the nap as it was before.
+		
+		if (macRISC2PE->processorSpeedChangeFlags & kEnvironmentalSpeedChange) {
+			// Coming out of sleep we will be slow, so go to fast if necessary
+			if (macRISC2PE->processorSpeedChangeFlags & kProcessorFast) {
+				macRISC2PE->processorSpeedChangeFlags &= ~kProcessorFast;	// Clear fast flag so we know to speed up
+				setAggressiveness (kPMSetProcessorSpeed, 0);				// Make it so
+			} else
+				doSleep = true;		// force delay on next call
+		}
+		
+		// If processor based and flag indicates slow, we boosted it before going to sleep,
+		// 		so set it back to slow
+		if (macRISC2PE->processorSpeedChangeFlags & kProcessorBasedSpeedChange &&
+			!(macRISC2PE->processorSpeedChangeFlags & kProcessorFast)) {
+				macRISC2PE->processorSpeedChangeFlags |= kProcessorFast;	// Set fast so we know to go slow
+ 				setAggressiveness (kPMSetProcessorSpeed, 1);				// Make it so
+			}
     }
     return IOPMAckImplied;
+}
+
+/*
+ * MacRISC2CPU::setAggressiveness - respond to messages regarding power conservation aggressiveness
+ *
+ * For the case we care about (kPMSetProcessorSpeed), newLevel means:
+ * 		newLevel == 0 => run fast => cache on => true
+ *		newLevel == 1 => run slow => cache off => false
+ */
+IOReturn MacRISC2CPU::setAggressiveness(unsigned long selector, unsigned long newLevel)
+{
+	bool		doChange = false;
+   IOReturn		result;
+    
+    result = super::setAggressiveness(selector, newLevel);
+	
+    if ((selector == kPMSetProcessorSpeed) && (macRISC2PE->processorSpeedChangeFlags != kNoSpeedChange)) {
+		
+		if (doSleep) {
+			IOSleep (1000);
+			doSleep = false;
+		}
+
+		// Enable/Disable L2 if needed.
+		if (macRISC2PE->processorSpeedChangeFlags & kDisableL2SpeedChange) {
+			if (!(macRISC2PE->processorSpeedChangeFlags & kClamshellClosedSpeedChange)) {
+				// newLevel == 0 => run fast => cache on => true
+				// newLevel == 1 => run slow => cache off => false
+				if (!newLevel) {
+					// See if cache is disabled
+					if (!(macRISC2PE->processorSpeedChangeFlags & kL2CacheEnabled)) {
+						// Enable it
+						ml_enable_cache_level(2, !newLevel);
+						macRISC2PE->processorSpeedChangeFlags |= kL2CacheEnabled;
+					}
+				} else if (macRISC2PE->processorSpeedChangeFlags & kL2CacheEnabled) {
+					// Disable it
+					ml_enable_cache_level(2, !newLevel);
+					macRISC2PE->processorSpeedChangeFlags &= ~kL2CacheEnabled;
+				}
+			}
+		}
+
+		// Enable/Disable L3 if needed.
+		if (macRISC2PE->processorSpeedChangeFlags & kDisableL3SpeedChange) {
+			if (!(macRISC2PE->processorSpeedChangeFlags & kClamshellClosedSpeedChange)) {
+				// newLevel == 0 => run fast => cache on => true
+				// newLevel == 1 => run slow => cache off => false
+				if (!newLevel) {
+					// See if cache is disabled
+					if (!(macRISC2PE->processorSpeedChangeFlags & kL3CacheEnabled)) {
+						// Enable it
+						ml_enable_cache_level(3, !newLevel);
+						macRISC2PE->processorSpeedChangeFlags |= kL3CacheEnabled;
+					}
+				} else if (macRISC2PE->processorSpeedChangeFlags & kL3CacheEnabled) {
+					// Disable it
+					ml_enable_cache_level(3, !newLevel);
+					macRISC2PE->processorSpeedChangeFlags &= ~kL3CacheEnabled;
+				}
+			}
+		}
+
+		if (!newLevel) {
+			// See if already running slow
+			if (!(macRISC2PE->processorSpeedChangeFlags & kProcessorFast)) {
+				// Signal to switch
+				doChange = true;
+				macRISC2PE->processorSpeedChangeFlags |= kProcessorFast;
+			}
+		} else if (macRISC2PE->processorSpeedChangeFlags & kProcessorFast) {
+			// Signal to switch
+			doChange = true;
+			macRISC2PE->processorSpeedChangeFlags &= ~kProcessorFast;
+		}
+
+		if (macRISC2PE->processorSpeedChangeFlags & kPMUBasedSpeedChange) {
+			if (doChange) {                                
+				// Note the current processor speed so quiesceCPU knows what to do
+				currentProcessorSpeed = newLevel;
+				
+				// Disable nap to prevent PMU doing reset too soon.
+				rememberNap = ml_enable_nap(getCPUNumber(), false);
+				
+				// Set flags for processor speed change.
+				processorSpeedChange = true;
+				
+				// Ask PM to do the processor speed change.
+				pmRootDomain->receivePowerNotification(kIOPMProcessorSpeedChange);
+				
+				// Set flags for system sleep.
+				processorSpeedChange = false;
+				
+				// Enable nap as needed.
+				ml_enable_nap(getCPUNumber(), rememberNap);
+			}
+		} 
+		
+		if (macRISC2PE->processorSpeedChangeFlags & kProcessorBasedSpeedChange && doChange) {
+			IOReturn cpfResult = kIOReturnSuccess;
+			
+			if (newLevel == 0)
+				cpfResult = keyLargo->callPlatformFunction (keyLargo_setPowerSupply, false,
+					(void *)1, (void *)0, (void *)0, (void *)0);
+			
+			if (cpfResult == kIOReturnSuccess) {  
+				// Set processor to new speed setting.
+				ml_set_processor_speed(newLevel ? 1 : 0);
+				
+				if (newLevel != 0)
+					cpfResult = keyLargo->callPlatformFunction (keyLargo_setPowerSupply, false,
+						(void *)0, (void *)0, (void *)0, (void *)0);
+			}
+		}
+	}
+	
+    return result;
 }
 
 void MacRISC2CPU::initCPU(bool boot)
@@ -246,17 +421,19 @@ void MacRISC2CPU::initCPU(bool boot)
         // Set the running state for HWInit.
         macRISC2PE->writeUniNReg(kUniNHWInitState, kUniNHWInitStateRunning);
     
-        // Restore the PCI-PCI Bridge.
-        if (decBridge) decBridge->restoreBridgeState();
-    
-        keyLargo->callPlatformFunction(keyLargo_restoreRegisterState, false, 0, 0, 0, 0);
-
-        // Disables the interrupts for this CPU.
-        if (macRISC2PE->getMachineType() == kMacRISC2TypePowerMac)
-        {
-            kprintf("MacRISC2CPU::initCPU %d -> mpic->setUpForSleep on", getCPUNumber());
-            mpic->callPlatformFunction(mpic_setUpForSleep, false, (void *)false, (void *)getCPUNumber(), 0, 0);
-        }
+        if (!processorSpeedChange) {
+			// Restore the PCI-PCI Bridge.
+			if (decBridge) decBridge->restoreBridgeState();
+		
+			keyLargo->callPlatformFunction(keyLargo_restoreRegisterState, false, 0, 0, 0, 0);
+	
+			// Disables the interrupts for this CPU.
+			if (macRISC2PE->getMachineType() == kMacRISC2TypePowerMac)
+			{
+				kprintf("MacRISC2CPU::initCPU %d -> mpic->setUpForSleep on", getCPUNumber());
+				mpic->callPlatformFunction(mpic_setUpForSleep, false, (void *)false, (void *)getCPUNumber(), 0, 0);
+			}
+		}
     }
 
     kprintf("MacRISC2CPU::initCPU %d Here!\n", getCPUNumber());
@@ -286,26 +463,30 @@ void MacRISC2CPU::quiesceCPU(void)
 {
     if (bootCPU)
     {
-        // Send PMU command to shutdown system before io is turned off
-        if (pmu != 0)
-            pmu->callPlatformFunction("sleepNow", false, 0, 0, 0, 0);
-        else
-            kprintf("MacRISC2CPU::quiesceCPU can't find ApplePMU\n");
-
-        // Enables the interrupts for this CPU.
-        if (macRISC2PE->getMachineType() == kMacRISC2TypePowerMac) 
-        {
-            kprintf("MacRISC2CPU::quiesceCPU %d -> mpic->setUpForSleep off", getCPUNumber());
-            mpic->callPlatformFunction(mpic_setUpForSleep, false, (void *)true, (void *)getCPUNumber(), 0, 0);
+        if (processorSpeedChange) {
+            // Send PMU command to speed the system
+            pmu->callPlatformFunction("setSpeedNow", false, (void *)currentProcessorSpeed, 0, 0, 0);
+        } else {
+			// Send PMU command to shutdown system before io is turned off
+				pmu->callPlatformFunction("sleepNow", false, 0, 0, 0, 0);
+	
+			// Enables the interrupts for this CPU.
+			if (macRISC2PE->getMachineType() == kMacRISC2TypePowerMac) 
+			{
+				kprintf("MacRISC2CPU::quiesceCPU %d -> mpic->setUpForSleep off", getCPUNumber());
+				mpic->callPlatformFunction(mpic_setUpForSleep, false, (void *)true, (void *)getCPUNumber(), 0, 0);
+			}
+	
+			kprintf("MacRISC2CPU::quiesceCPU %d -> keyLargo->saveRegisterState()\n", getCPUNumber());
+			// Save KeyLargo's register state.
+			keyLargo->callPlatformFunction(keyLargo_saveRegisterState, false, 0, 0, 0, 0);
+	
+			kprintf("MacRISC2CPU::quiesceCPU %d -> keyLargo->turnOffIO", getCPUNumber());
+			// Turn Off all KeyLargo I/O.
+			keyLargo->callPlatformFunction(keyLargo_turnOffIO, false, (void *)false, 0, 0, 0);
         }
-
-        kprintf("MacRISC2CPU::quiesceCPU %d -> keyLargo->saveRegisterState()\n", getCPUNumber());
-        // Save KeyLargo's register state.
-        keyLargo->callPlatformFunction(keyLargo_saveRegisterState, false, 0, 0, 0, 0);
-
-        kprintf("MacRISC2CPU::quiesceCPU %d -> keyLargo->turnOffIO", getCPUNumber());
-        // Turn Off all KeyLargo I/O.
-        keyLargo->callPlatformFunction(keyLargo_turnOffIO, false, (void *)false, 0, 0, 0);
+        
+        kprintf("MacRISC2CPU::quiesceCPU %d -> here\n", getCPUNumber());
 
         // Set the wake vector to point to the reset vector
         ml_phys_write(0x0080, 0x100);
@@ -314,7 +495,7 @@ void MacRISC2CPU::quiesceCPU(void)
         macRISC2PE->writeUniNReg(kUniNHWInitState, kUniNHWInitStateSleeping);
 
         // Tell Uni-N to enter sleep mode.
-        macRISC2PE->writeUniNReg(kUniNPowerMngmnt, kUniNSleep);
+        macRISC2PE->writeUniNReg(kUniNPowerMngmnt, processorSpeedChange ? kUniNIdle2 : kUniNSleep);
     }
 
     ml_ppc_sleep();
@@ -322,8 +503,9 @@ void MacRISC2CPU::quiesceCPU(void)
 
 kern_return_t MacRISC2CPU::startCPU(vm_offset_t /*start_paddr*/, vm_offset_t /*arg_paddr*/)
 {
-    long gpioOffset;
-  
+    long gpioOffset = soft_reset_offset;
+
+#if 0  
     switch (getCPUNumber())
     {
         case 0 : gpioOffset = 0x5B; break;
@@ -332,6 +514,7 @@ kern_return_t MacRISC2CPU::startCPU(vm_offset_t /*start_paddr*/, vm_offset_t /*a
         case 3 : gpioOffset = 0x68; break;
         default : return KERN_FAILURE;
     }
+#endif
   
     // Strobe the reset line for this CPU.
     keyLargo->callPlatformFunction(keyLargo_writeRegUInt8, false, (void *)&gpioOffset, (void *)4, 0, 0);
@@ -359,11 +542,6 @@ void MacRISC2CPU::haltCPU(void)
         }
     }
 
-   // Finds the PMU so in quience we can put the machine to sleep.
-   // I can not put this call there because quience runs in interrupt
-   // context and waitForService may block.
-   pmu = waitForService(serviceMatching("ApplePMU"));
-  
    kprintf("MacRISC2CPU::haltCPU %d Here!\n", getCPUNumber());
 
    processor_exit(machProcessor);
@@ -381,10 +559,10 @@ void MacRISC2CPU::signalCPU(IOCPU *target)
 
 void MacRISC2CPU::enableCPUTimeBase(bool enable)
 {
-    long gpioOffset;
+    long gpioOffset = timebase_enable_offset;
     UInt8 value;
   
-    gpioOffset = 0x73;
+    //gpioOffset = 0x73;
     value = enable ? 5 : 4;
 
     keyLargo->callPlatformFunction(keyLargo_writeRegUInt8, false, (void *)&gpioOffset, (void *)value, 0, 0);
@@ -400,7 +578,7 @@ const OSSymbol *MacRISC2CPU::getCPUName(void)
 {
     char tmpStr[256];
   
-    sprintf(tmpStr, "Primary%d", getCPUNumber());
+    sprintf(tmpStr, "Primary%ld", getCPUNumber());
   
     return OSSymbol::withCString(tmpStr);
 }

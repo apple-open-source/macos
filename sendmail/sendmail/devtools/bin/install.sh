@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# Copyright (c) 1998, 1999 Sendmail, Inc. and its suppliers.
+# Copyright (c) 1998, 1999, 2001 Sendmail, Inc. and its suppliers.
 #	All rights reserved.
 #
 # By using this file, you agree to the terms and conditions set
@@ -8,7 +8,7 @@
 # the sendmail distribution.
 #
 #
-#	$Id: install.sh,v 1.1.1.1 2000/06/10 00:40:47 wsanchez Exp $
+#	$Id: install.sh,v 1.1.1.2 2002/03/12 18:00:11 zarzycki Exp $
 
 # Set default program
 program=mv
@@ -82,7 +82,8 @@ then
 	exit 1
 elif [ -d $2 ]
 then
-	dst=$2/$src
+	srcfile=`basename $src`
+	dst=$2/$srcfile
 else
 	dst=$2
 fi

@@ -47,6 +47,9 @@
 #define MII_EXPANSION		6
 #define MII_NEXTPAGE		7
 
+#define MII_1000BASETCONTROL	0x09
+
+
 	/* MII Control register bits:	*/
 
 #define MII_CONTROL_RESET					0x8000
@@ -97,6 +100,11 @@
 #define MII_LPAR_10BASET_FD		0x40
 #define MII_LPAR_10BASET		0x20
 
+	/* 9 - MII 1000-BASET Control register bits:	*/
+
+#define MII_1000BASETCONTROL_FULLDUPLEXCAP	0x0200
+#define MII_1000BASETCONTROL_HALFDUPLEXCAP	0x0100
+
 
 	/*** MII BCM5201 Specific:	***/
 
@@ -122,7 +130,10 @@
 	/* Added 4/20/2000 by A.W. for power management	*/
 
 #define MII_BCM5201_INTERRUPT 				0x1A
-#define MII_BCM5201_INTERRUPT_INTENABLE		0x4000
+#define MII_BCM5201_INTERRUPT_INTREnable	0x4000
+#define MII_BCM5201_INTERRUPT_FDXChange		0x0008
+#define MII_BCM5201_INTERRUPT_SPDChange		0x0004
+#define MII_BCM5201_INTERRUPT_LINKChange	0x0002
 
 #define MII_BCM5201_AUXMODE2 				0x1B
 #define MII_BCM5201_AUXMODE2_LOWPOWER		0x0008
@@ -176,13 +187,6 @@
 
 	/* MII BCM5400 Regs:	*/
 
-#define MII_BCM5400_1000BASETCONTROL	0x09
-
-	/* MII BCM5400 1000-BASET Control register bits:	*/
-
-#define MII_BCM5400_1000BASETCONTROL_FULLDUPLEXCAP	0x0200
-
-
 #define MII_BCM5400_AUXCONTROL	0x18	// CAUTION - this reg is different on 5401
 
 	/* MII BCM5400 AUXCONTROL register bits:	*/
@@ -198,7 +202,49 @@
 #define MII_BCM5400_AUXSTATUS_LINKMODE_BIT	0x0100  
 
 
+	/**** Marvell Registers:	****/
 
+	/*** Marvell 88E1011 Specific:	***/
+
+	/* Marvell ID:	*/
+
+#define MII_MARVELL_ID		0x01410C20
+#define MII_MARVELL_ID_1	0x01410C60
+#define MII_MARVELL_MASK	0xFFFFFFF0
+
+	/* MII Marvell PHY Specific Control bits:	*/
+
+#define MII_MARVELL_PHY_SPECIFIC_CONTROL	0x10
+#define MII_MARVELL_PHY_SPECIFIC_CONTROL_AUTOL_MDIX		0x40	// Sense crossover cable
+#define MII_MARVELL_PHY_SPECIFIC_CONTROL_MANUAL_MDIX	0x20	// Crossover cable
+
+
+
+	/* MII Marvell PHY Specific Status bits:	*/
+
+#define MII_MARVELL_PHY_SPECIFIC_STATUS		0x11
+
+#define MII_MARVELL_PHY_SPECIFIC_STATUS_1000		0x8000
+#define MII_MARVELL_PHY_SPECIFIC_STATUS_100			0x4000
+#define MII_MARVELL_PHY_SPECIFIC_STATUS_10			0x0000
+#define MII_MARVELL_PHY_SPECIFIC_STATUS_RESOLVED	0x0800
+
+#define MII_MARVELL_PHY_SPECIFIC_STATUS_SPEED_MASK	(	MII_MARVELL_PHY_SPECIFIC_STATUS_1000 \
+													  | MII_MARVELL_PHY_SPECIFIC_STATUS_100  \
+													  | MII_MARVELL_PHY_SPECIFIC_STATUS_10)
+
+#define MII_MARVELL_PHY_SPECIFIC_STATUS_FULL_DUPLEX		0x2000
+
+
+#define MII_MARVELL_INT_ENABLE			0x12
+#define MII_MARVELL_INT_ENABLE_SPEED	0x4000
+#define MII_MARVELL_INT_ENABLE_DUPLEX	0x2000
+#define MII_MARVELL_INT_ENABLE_LINK		0x0400
+
+#define MII_MARVELL_INT_STATUS			0x13
+#define MII_MARVELL_INT_STATUS_SPEED	0x4000
+#define MII_MARVELL_INT_STATUS_DUPLEX	0x2000
+#define MII_MARVELL_INT_STATUS_LINK		0x0400
 
 
 	/* MII timeout:	*/
@@ -207,9 +253,10 @@
 #define MII_RESET_TIMEOUT	100
 #define MII_RESET_DELAY		10
 
-///#define MII_LINK_TIMEOUT	2500
-#define MII_LINK_TIMEOUT	5000	/// latest Marvell needs more than 2500
-#define MII_LINK_DELAY		20
+//#define MII_LINK_TIMEOUT	2500
+///#define MII_LINK_TIMEOUT	5000	/// latest Marvell needs more than 2.5 secs
+#define MII_LINK_TIMEOUT	10000	/// Broadcom 5421 needs more than 6.4 secs
+#define MII_LINK_DELAY		50
 
 		/* A few constants needed for miiWriteWord():	*/
 

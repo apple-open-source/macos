@@ -409,7 +409,7 @@ IOPCIATA::activateDMAEngine(void)
 	OSSynchronizeIO();
 	
 	// set the address pointer.
-	OSWriteLittleInt32(_bmPRDAddresReg, 0, (UInt32) _prdTablePhysical );
+	*_bmPRDAddresReg = OSSwapHostToLittleInt32((UInt32) _prdTablePhysical);
 	OSSynchronizeIO();
 
 	// active the DMA engine.

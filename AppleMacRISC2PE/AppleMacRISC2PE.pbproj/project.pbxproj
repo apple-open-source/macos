@@ -121,7 +121,6 @@
 			generatedFileNames = (
 			);
 			isa = PBXShellScriptBuildPhase;
-			name = "Shell Script";
 			neededFileNames = (
 			);
 			shellPath = /bin/sh;
@@ -153,7 +152,6 @@
 			generatedFileNames = (
 			);
 			isa = PBXShellScriptBuildPhase;
-			name = "Shell Script";
 			neededFileNames = (
 			);
 			shellPath = /bin/sh;
@@ -209,7 +207,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleMacRISC2PE;
-				MODULE_VERSION = 1.1d4;
+				MODULE_VERSION = 1.2.1d8;
 				OTHER_CFLAGS = "-fpermissive -D_BIG_ENDIAN";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -235,7 +233,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleMacRISC2PE</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleMacRISC2PE version 1.1, Copyright 2001 Apple Computer, Inc.</string>
+	<string>AppleMacRISC2PE version 1.2.1, Copyright 2002 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -247,11 +245,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1</string>
+	<string>1.2.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1d4</string>
+	<string>1.2.1d8</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>MacRISC2CPU</key>
@@ -308,7 +306,6 @@
 				067D03BFFFF08CF111CA2A1B,
 			);
 			isa = PBXHeadersBuildPhase;
-			name = Headers;
 		};
 		089C1675FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
@@ -316,7 +313,6 @@
 				089C1680FE841241C02AAC07,
 			);
 			isa = PBXResourcesBuildPhase;
-			name = "Bundle Resources";
 		};
 		089C1676FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
@@ -328,21 +324,18 @@
 				067D03C4FFF08CF111CA2A1B,
 			);
 			isa = PBXSourcesBuildPhase;
-			name = Sources;
 		};
 		089C1677FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
-			name = "Frameworks & Libraries";
 		};
 		089C1679FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
-			name = "ResourceManager Resources";
 		};
 		089C167CFE841241C02AAC07 = {
 			children = (

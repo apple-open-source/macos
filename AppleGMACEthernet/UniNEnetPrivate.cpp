@@ -20,7 +20,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 1998-1999 Apple Computer
+ * Copyright (c) 1998-2002 Apple Computer
  *
  * Implementation for hardware dependent (relatively) code 
  * for the Sun GEM Ethernet controller. 
@@ -34,7 +34,8 @@
 #include "UniNEnet.h"
 #include "UniNEnetMII.h"
 #include <libkern/OSByteOrder.h>
-
+#include <IOKit/IORegistryEntry.h>
+#include <IOKit/IOKitKeys.h>			// kIODeviceTreePlane
 
 	extern void			*kernel_pmap;
 
@@ -241,12 +242,6 @@ void UniNEnet::flushRings( bool flushTx, bool flushRx )
 }/* end flushRings */
 
 
-/*-------------------------------------------------------------------------
- *
- *
- *
- *-------------------------------------------------------------------------*/
-
 void UniNEnet::startChip()
 {
     UInt32  gemReg;
@@ -266,25 +261,18 @@ void UniNEnet::startChip()
 	gemReg |= kTxMACConfiguration_TxMac_Enable;
 	WRITE_REGISTER( TxMACConfiguration, gemReg  );
 
-	fRxMACConfiguration	= kRxMACConfiguration_Rx_Mac_Enable		// Rx MAC enable
-						| kRxMACConfiguration_Strip_FCS;
+	fRxMACConfiguration	= kRxMACConfiguration_Rx_Mac_Enable;// Rx MAC enable
 	if ( fIsPromiscuous )
-		fRxMACConfiguration |= kRxMACConfiguration_Promiscuous;
+		 fRxMACConfiguration |= kRxMACConfiguration_Promiscuous;
+	else fRxMACConfiguration |= kRxMACConfiguration_Strip_FCS;
+	WRITE_REGISTER( RxMACConfiguration, fRxMACConfiguration );
 
-	WRITE_REGISTER( RxMACConfiguration, fRxMACConfiguration  );
-
-	gemReg = ~(kStatus_TX_INT_ME | kStatus_RX_DONE);	/// add kStatus_MIF_Interrupt for WOL
+	gemReg = ~(kStatus_TX_INT_ME | kStatus_RX_DONE | kStatus_MIF_Interrupt);
 	WRITE_REGISTER( InterruptMask, gemReg );
 
 	return;
 }/* end startChip */
 
-
-/*-------------------------------------------------------------------------
- *
- *
- *
- *-------------------------------------------------------------------------*/
 
 void UniNEnet::stopChip()
 {
@@ -327,24 +315,35 @@ void UniNEnet::stopChip()
 
 	static MediumTable gMediumTable100[] =
 	{
-		{ kIOMediumEthernetNone                                  ,   0   },
-		{ kIOMediumEthernetAuto                                  ,   0   },
-		{ kIOMediumEthernet10BaseT    | kIOMediumOptionHalfDuplex,	10   },
-		{ kIOMediumEthernet10BaseT    | kIOMediumOptionFullDuplex,	10   },
-		{ kIOMediumEthernet100BaseTX  | kIOMediumOptionHalfDuplex,	100  },
-		{ kIOMediumEthernet100BaseTX  | kIOMediumOptionFullDuplex,	100  },
+		{ kIOMediumEthernetNone                                  									,	0		},
+		{ kIOMediumEthernetAuto                                  									,	0		},
+		{ kIOMediumEthernet10BaseT		| kIOMediumOptionHalfDuplex									,	10		},
+		{ kIOMediumEthernet10BaseT		| kIOMediumOptionHalfDuplex		| kIOMediumOptionLoopback	,	10		},
+		{ kIOMediumEthernet10BaseT		| kIOMediumOptionFullDuplex									,	10		},
+		{ kIOMediumEthernet10BaseT		| kIOMediumOptionFullDuplex		| kIOMediumOptionLoopback	,	10		},
+		{ kIOMediumEthernet100BaseTX	| kIOMediumOptionHalfDuplex									,	100		},
+		{ kIOMediumEthernet100BaseTX	| kIOMediumOptionHalfDuplex		| kIOMediumOptionLoopback	,	100		},
+		{ kIOMediumEthernet100BaseTX	| kIOMediumOptionFullDuplex									,	100		},
+		{ kIOMediumEthernet100BaseTX	| kIOMediumOptionFullDuplex		| kIOMediumOptionLoopback	,	100		}
 	};
 
 
 	static MediumTable gMediumTableGigabit[] =
 	{
-		{ kIOMediumEthernetNone                                  ,   0   },
-		{ kIOMediumEthernetAuto                                  ,   0   },
-		{ kIOMediumEthernet10BaseT    | kIOMediumOptionHalfDuplex,	10   },
-		{ kIOMediumEthernet10BaseT    | kIOMediumOptionFullDuplex,	10   },
-		{ kIOMediumEthernet100BaseTX  | kIOMediumOptionHalfDuplex,	100  },
-		{ kIOMediumEthernet100BaseTX  | kIOMediumOptionFullDuplex,	100  },
-		{ kIOMediumEthernet1000BaseTX | kIOMediumOptionFullDuplex,	1000 }
+		{ kIOMediumEthernetNone                                  																	,	0		},
+		{ kIOMediumEthernetAuto                                  																	,	0		},
+		{ kIOMediumEthernet10BaseT		| kIOMediumOptionHalfDuplex																	,	10		},
+		{ kIOMediumEthernet10BaseT		| kIOMediumOptionHalfDuplex		| kIOMediumOptionLoopback									,	10		},
+		{ kIOMediumEthernet10BaseT		| kIOMediumOptionFullDuplex																	,	10		},
+		{ kIOMediumEthernet10BaseT		| kIOMediumOptionFullDuplex		| kIOMediumOptionLoopback									,	10		},
+		{ kIOMediumEthernet100BaseTX	| kIOMediumOptionHalfDuplex																	,	100		},
+		{ kIOMediumEthernet100BaseTX	| kIOMediumOptionHalfDuplex		| kIOMediumOptionLoopback									,	100		},
+		{ kIOMediumEthernet100BaseTX	| kIOMediumOptionFullDuplex																	,	100		},
+		{ kIOMediumEthernet100BaseTX	| kIOMediumOptionFullDuplex		| kIOMediumOptionLoopback									,	100		},
+		{ kIOMediumEthernet1000BaseTX 	| kIOMediumOptionFullDuplex																	,	1000	},
+		{ kIOMediumEthernet1000BaseTX 	| kIOMediumOptionFullDuplex		| kIOMediumOptionLoopback									,	1000	},
+		{ kIOMediumEthernet1000BaseTX	| kIOMediumOptionFullDuplex									| kIOMediumOptionFlowControl	,	1000	},
+		{ kIOMediumEthernet1000BaseTX	| kIOMediumOptionFullDuplex		| kIOMediumOptionLoopback	| kIOMediumOptionFlowControl	,	1000	}
 	};
 
 
@@ -356,19 +355,6 @@ void UniNEnet::getPhyType()
 
 	ELG( this, phyId, 'gPhT', "getPhyType" );
 
-	if ( fBuiltin )
-	{
-		miiResetPHY( phyId );
-
-		pPhyType = (UInt16 *)&phyType;
-		miiReadWord( pPhyType,   MII_ID0, phyId );
-		miiReadWord( pPhyType+1, MII_ID1, phyId );
-
-		setProperty( "PHY ID", phyType, sizeof( phyType ) * 8 );
-
-		ELG( phyId, phyType, '=FyT', "UniNEnet::getPhyType" );
-	}
-
 	if ( !fBuiltin )
 	{
 		fPHYType = ' GEM';
@@ -376,8 +362,20 @@ void UniNEnet::getPhyType()
 		fpgMediumTable		= gMediumTableGEM;
 		fMediumTableCount	=  sizeof( gMediumTableGEM ) / sizeof( MediumTable ) ;
 		setProperty( "PHY type", "GEM integrated" );
+		return;
 	}
-	else if ( (phyType & MII_BCM5400_MASK) == MII_BCM5400_ID )
+
+	miiResetPHY( phyId );
+
+	pPhyType = (UInt16*)&phyType;
+	miiReadWord( pPhyType,   MII_ID0, phyId );
+	miiReadWord( pPhyType+1, MII_ID1, phyId );
+
+	setProperty( "PHY ID", phyType, sizeof( phyType ) * 8 );
+
+	ELG( phyId, phyType, '=FyT', "UniNEnet::getPhyType" );
+
+	if ( (phyType & MII_BCM5400_MASK) == MII_BCM5400_ID )
 	{
 		fPHYType = 0x5400;
 		ELG( this, phyId, '5400', "UniNEnet::getPhyType" );
@@ -387,13 +385,13 @@ void UniNEnet::getPhyType()
 		phyWord |= MII_BCM5400_AUXCONTROL_PWR10BASET;
 		miiWriteWord( phyWord, MII_BCM5400_AUXCONTROL, phyId );
 	  
-		miiReadWord( &phyWord, MII_BCM5400_1000BASETCONTROL, phyId );
-		phyWord |= MII_BCM5400_1000BASETCONTROL_FULLDUPLEXCAP;
-		miiWriteWord( phyWord, MII_BCM5400_1000BASETCONTROL, phyId );
+		miiReadWord( &phyWord, MII_1000BASETCONTROL, phyId );
+		phyWord |= MII_1000BASETCONTROL_FULLDUPLEXCAP;
+		miiWriteWord( phyWord, MII_1000BASETCONTROL, phyId );
 
 		IODelay(100);   
 					
-		miiResetPHY( 0x1F );
+		miiResetPHY( 0x1F );	/// ??? 0x1F --> phyId?
 
 		miiReadWord( &phyWord, MII_BCM5201_MULTIPHY, 0x1F );
 		phyWord |= MII_BCM5201_MULTIPHY_SERIALMODE;
@@ -405,7 +403,7 @@ void UniNEnet::getPhyType()
 
 		fpgMediumTable		= gMediumTableGigabit;
 		fMediumTableCount	=  sizeof( gMediumTableGigabit ) / sizeof( MediumTable ) ;
-	}
+	}/* end ELSE IF 5400 */
 	else if ( (phyType & MII_BCM5400_MASK) == MII_BCM5401_ID )
 	{
 		fPHYType = 0x5401;
@@ -435,13 +433,13 @@ void UniNEnet::getPhyType()
 			miiWriteWord( 0x0A20, 0x015, phyId );
 		}
 
-		miiReadWord( &phyWord, MII_BCM5400_1000BASETCONTROL, phyId );
-		phyWord |= MII_BCM5400_1000BASETCONTROL_FULLDUPLEXCAP;
-		miiWriteWord( phyWord, MII_BCM5400_1000BASETCONTROL, phyId );
+		miiReadWord( &phyWord, MII_1000BASETCONTROL, phyId );
+		phyWord |= MII_1000BASETCONTROL_FULLDUPLEXCAP;
+		miiWriteWord( phyWord, MII_1000BASETCONTROL, phyId );
 
 		IODelay( 10 );
 
-		miiResetPHY( 0x1F );
+		miiResetPHY( 0x1F );	/// ??? 0x1F --> phyId?
 
 		miiReadWord( &phyWord, MII_BCM5201_MULTIPHY, 0x1F );
 		phyWord |= MII_BCM5201_MULTIPHY_SERIALMODE;
@@ -460,17 +458,17 @@ void UniNEnet::getPhyType()
 		miiWriteWord( 0x8CA3, 0x01C, phyId );
 		miiWriteWord( 0x8C23, 0x01C, phyId );
 
-		miiWriteWord( 0x8000, 0x000, phyId );	// reset PHY
+		miiWriteWord( 0x8000, 0x000, phyId );	// reset PHY (MII_CONTROL_RESET, MII_CONTROL)
 
 		miiWriteWord( 0x1340, 0x000, phyId );	// advertise gigabit, full-duplex
 
-		miiReadWord( &phyWord, MII_BCM5400_1000BASETCONTROL, phyId );
-		phyWord |= MII_BCM5400_1000BASETCONTROL_FULLDUPLEXCAP;
-		miiWriteWord( phyWord, MII_BCM5400_1000BASETCONTROL, phyId );
+		miiReadWord( &phyWord, MII_1000BASETCONTROL, phyId );
+		phyWord |= MII_1000BASETCONTROL_FULLDUPLEXCAP;
+		miiWriteWord( phyWord, MII_1000BASETCONTROL, phyId );
 
 		IODelay( 10 );
 
-		miiResetPHY( 0x1F );
+		miiResetPHY( 0x1F );	/// ??? 0x1F --> phyId?
 
 		fpgMediumTable		= gMediumTableGigabit;
 		fMediumTableCount	=  sizeof( gMediumTableGigabit ) / sizeof( MediumTable ) ;
@@ -520,9 +518,10 @@ bool UniNEnet::initChip()
     UInt32          	i, temp;
     mach_timespec_t		timeStamp;
     UInt32          	rxFifoSize;
-    UInt32          	rxOff;
-    UInt32          	rxOn;
-    u_int16_t       	*p16;
+    UInt32          	rxOff, rxOn;
+    UInt16       		*p16;
+	UInt16				phyAdrToPoll, phyRegToPoll, phyBitsToMonitor;
+	UInt16				val16;
 
 
 	ELG( 0, phyId, 'ChpI', "initChip" );
@@ -554,9 +553,7 @@ bool UniNEnet::initChip()
 	WRITE_REGISTER( TxMACMask,				kTxMACMask_default );
 	WRITE_REGISTER( RxMACMask,				kRxMACMask_default );
 	WRITE_REGISTER( MACControlMask,			kMACControlMask_default );
-	WRITE_REGISTER( Configuration,			kConfiguration_TX_DMA_Limit
-										  | kConfiguration_RX_DMA_Limit
-										  | kConfiguration_Infinite_Burst );
+	WRITE_REGISTER( Configuration,			fConfiguration );
 
 	WRITE_REGISTER( InterPacketGap0,	kInterPacketGap0_default );
 	WRITE_REGISTER( InterPacketGap1,	kInterPacketGap1_default );
@@ -569,11 +566,11 @@ bool UniNEnet::initChip()
 	WRITE_REGISTER( AttemptLimit,		kAttemptLimit_default );
 	WRITE_REGISTER( MACControlType,		kMACControlType_default );
 
-    p16 = (u_int16_t *) myAddress.bytes;
-    for ( i=0; i < sizeof(IOEthernetAddress) / 2; i++ )
+    p16 = (UInt16*)myAddress.bytes;
+    for ( i = 0; i < sizeof( IOEthernetAddress ) / 2; i++ )
 		WRITE_REGISTER( MACAddress[ i ], p16[ 2 - i ] );
 
-    for ( i=0; i < 3; i ++ )
+    for ( i = 0; i < 3; i++ )
     {
 		WRITE_REGISTER( MACAddress[ i + 3 ],	0 );
 		WRITE_REGISTER( AddressFilter[ i  ],	0 );
@@ -586,7 +583,7 @@ bool UniNEnet::initChip()
 	WRITE_REGISTER( AddressFilter2_1Mask,	0 );
 	WRITE_REGISTER( AddressFilter0Mask,		0 );
 
-    for ( i=0; i < 16; i++ )
+    for ( i = 0; i < 16; i++ )
 		WRITE_REGISTER( HashTable[ i ], 0 );
 
 	WRITE_REGISTER( NormalCollisionCounter,					0 );
@@ -601,8 +598,8 @@ bool UniNEnet::initChip()
 	WRITE_REGISTER( FCSErrorCounter,						0 );
 	WRITE_REGISTER( RxCodeViolationErrorCounter,			0 );
 
-    IOGetTime(&timeStamp); 
-	WRITE_REGISTER( RandomNumberSeed, timeStamp.tv_nsec & 0xFFFF );
+    IOGetTime( &timeStamp );
+	WRITE_REGISTER( RandomNumberSeed, timeStamp.tv_nsec & 0x03FF );
 
 	WRITE_REGISTER( TxDescriptorBaseLow, fTxDescriptorRingPhys );
 	WRITE_REGISTER( TxDescriptorBaseHigh, 0 );
@@ -622,7 +619,7 @@ bool UniNEnet::initChip()
 	WRITE_REGISTER( RxKick, fRxRingElements - 4 );
 
 	temp	= kRxConfiguration_RX_DMA_Threshold
-	///		| kRxConfiguration_Batch_Disable	may cause 4x primary interrupts
+	//		| kRxConfiguration_Batch_Disable	may cause 4x primary interrupts
 			| fRxRingLengthFactor << kRxConfiguration_Rx_Desc_Ring_Size_Shift
 			| kRxConfiguration_Checksum_Start_Offset;
 	WRITE_REGISTER( RxConfiguration, temp );
@@ -649,6 +646,23 @@ bool UniNEnet::initChip()
 		 temp = kRxBlanking_default_66;
 	else temp = kRxBlanking_default_33;
 	WRITE_REGISTER( RxBlanking, temp );
+
+	if ( fPHYType == 0x5221 )
+	{
+		phyAdrToPoll	 = kPHYAddr0;				/// ??? kPHYAddr0 ---> phyId
+		phyRegToPoll	 = MII_BCM5201_INTERRUPT;
+		phyBitsToMonitor = ~(MII_BCM5201_INTERRUPT_LINKChange
+						 |   MII_BCM5201_INTERRUPT_SPDChange
+						 |   MII_BCM5201_INTERRUPT_FDXChange);
+		WRITE_REGISTER( MIFMask, phyBitsToMonitor );
+	
+		val16	= READ_REGISTER( MIFConfiguration )
+				| kMIFConfiguration_Poll_Enable
+				| phyAdrToPoll << kMIFConfiguration_Poll_Phy_Adr_Shift
+				| phyRegToPoll << kMIFConfiguration_Poll_Reg_Adr_Shift;
+		
+		WRITE_REGISTER( MIFConfiguration, val16 );
+	}
 
 	if ( fBuiltin )
 		WRITE_REGISTER( WOLWakeupCSR, 0 );	// Disable Wake on LAN
@@ -683,7 +697,16 @@ void UniNEnet::setDuplexMode( bool duplexMode )
     {
 		txMacConfig &= ~(kTxMACConfiguration_Ignore_Collisions | kTxMACConfiguration_Ignore_Carrier_Sense);
 		fXIFConfiguration |= kXIFConfiguration_Disable_Echo;
-    }
+#ifdef HALF_DUPLEX_TESTING
+txMacConfig |= kTxMACConfiguration_Never_Give_Up;
+txMacConfig |= kTxMACConfiguration_Never_Give_Up_Limit;
+///txMacConfig |= kTxMACConfiguration_Slow_Down;
+///txMacConfig |= kTxMACConfiguration_Enable_IPG0;
+///WRITE_REGISTER( InterPacketGap0, 0x10 );
+WRITE_REGISTER( InterPacketGap1, 0x05 );
+WRITE_REGISTER( InterPacketGap2, 0x20 );
+#endif // HALF_DUPLEX_TESTING
+	}
 
 	WRITE_REGISTER( TxMACConfiguration,	txMacConfig );
 	WRITE_REGISTER( XIFConfiguration,	fXIFConfiguration );
@@ -725,14 +748,13 @@ void UniNEnet::restartReceiver()
         {
             break;	// 'i' is always 0 or 1
         }
-        IODelay(1);
+        IODelay( 1 );
     }
 
-    // Update the MAC Config register. Watch out for the programming
-    // restrictions documented in the GEM specification!!!
-    //
-    // Disable MAC before setting any other bits in the MAC config
-    // register.
+	    // Update the MAC Config register. Watch out for the programming
+	    // restrictions documented in the GEM specification!!!
+
+	    // Disable MAC before setting any other bits in the MAC config register.
 
 	WRITE_REGISTER( RxMACConfiguration, 0 );
 
@@ -743,7 +765,7 @@ void UniNEnet::restartReceiver()
         {
             break;	// 'i' is always 0
         }
-        IODelay(1);
+        IODelay( 1 );
     }
 
 		/* Ensure all elements in the Rx ring have my ownership:	*/
@@ -773,11 +795,14 @@ bool UniNEnet::transmitPacket( struct mbuf *packet )
 
     for ( m = packet, i=1; m->m_next; m=m->m_next, i++ )
       ;
-      
-	ELG( i, packet, '  Tx', "UniNEnet::transmitPacket" );
-    
-	if ( i > fTxElementsAvail )  
+
+	ELG( fTxElementsAvail << 16 | i, packet, '  Tx', "UniNEnet::transmitPacket" );
+
+	if ( i > fTxElementsAvail )
+	{
+		ELG( fTxElementsAvail << 16 | i, packet, ' Tx-', "UniNEnet::transmitPacket - not enough elements avail." );
 		return false;
+	}
 
 	j = txCommandTail;
     
@@ -825,10 +850,10 @@ bool UniNEnet::transmitPacket( struct mbuf *packet )
 	}
 
     txCommandTail = j;
-          
+
 	OSSynchronizeIO();				// make sure ring updated before kicked.
 	WRITE_REGISTER( TxKick, j );
-     
+
     return true;          
 }/* end transmitPacket */
 
@@ -852,11 +877,11 @@ void UniNEnet::receivePacket( void *pkt, UInt32 *pkt_len, UInt32 timeout )
 	UInt32				elapsedTimeMS;
 
 
-///	ELG( 0, ready, 'kdRx', "receivePacket - kernel debugger routine" );
+///	ELG( 0, fReady, 'kdRx', "receivePacket - kernel debugger routine" );
 
     *pkt_len = 0;
 
-    if ( ready == false )
+    if ( fReady == false )
         return;
 
 #if USE_ELG
@@ -927,7 +952,7 @@ void UniNEnet::sendPacket( void *pkt, UInt32 pkt_len )
 
 ///	ELG( pkt, pkt_len, 'Send', "sendPacket" );
 
-    if ( !ready || !pkt || (pkt_len > ETHERMAXPACKET) )
+    if ( !fReady || !pkt || (pkt_len > (kIOEthernetMaxPacketSize - kIOEthernetCRCSize)) )
         return;
 
 #if USE_ELG
@@ -1064,6 +1089,7 @@ bool UniNEnet::receivePackets( bool debuggerParam )
 
 //	ELG( rxCommandTail, rxCommandHead, 'Rx I', "receivePackets" );
 
+///	for ( UInt32 loopLimit = fRxRingElements; loopLimit; --loopLimit )
     while ( 1 )
     {
         passPacketUp = false;
@@ -1083,13 +1109,13 @@ bool UniNEnet::receivePackets( bool debuggerParam )
 
 			/* Reject packets that are runts or that have other mutations.	*/
 
-		if ( receivedFrameSize < (ETHERMINPACKET - ETHERCRC)
-		 ||  receivedFrameSize > (ETHERMAXPACKET + ETHERCRC)
+		if ( receivedFrameSize < (kIOEthernetMinPacketSize - kIOEthernetCRCSize)
+		 ||  receivedFrameSize > (kIOEthernetMaxPacketSize)
 		 ||  rxPktStatus & kGEMRxDescFlags_BadCRC )
 		{
             reusePkt = true;
 			NETWORK_STAT_ADD( inputErrors );
-			if ( receivedFrameSize < (ETHERMINPACKET - ETHERCRC) )
+			if ( receivedFrameSize < (kIOEthernetMinPacketSize - kIOEthernetCRCSize) )
 				 ETHERNET_STAT_ADD( dot3RxExtraEntry.frameTooShorts );
 			else ETHERNET_STAT_ADD( dot3StatsEntry.frameTooLongs );
 			ELG( rxPktStatus, receivedFrameSize, '-Rx-', "receivePackets - mutant or bad CRC." );
@@ -1152,11 +1178,14 @@ bool UniNEnet::receivePackets( bool debuggerParam )
 			fRxDescriptorRing[i].frameDataSize = OSSwapHostToLittleConstInt16( NETWORK_BUFSIZE | kGEMRxDescFrameSize_Own );
         }
 
+
+		if ( (i & 3) == 3 )		// only kick modulo 4
+		{
+			OSSynchronizeIO();
+			WRITE_REGISTER( RxKick, (i - 3) );
+		}
         last = i;	/* Keep track of the last receive descriptor processed	*/
 		i = (i + 1) & (fRxRingElements - 1);
-
-		if ( (i & 3) == 0 )		// only kick modulo 4
-			WRITE_REGISTER( RxKick, (i - 4) & (fRxRingElements - 1) );
 
         if ( debuggerParam )
             break;
@@ -1168,7 +1197,7 @@ bool UniNEnet::receivePackets( bool debuggerParam )
             KERNEL_DEBUG(	DBG_UniN_RXCOMPLETE | DBG_FUNC_NONE, 
                 			(int)packet, (int)receivedFrameSize, 0, 0, 0 );
 
-			if ( (receivedFrameSize > 64) && (checksum != 0) )
+			if ( (receivedFrameSize > 64) && (checksum != 0) && !fIsPromiscuous )
 				setChecksumResult(	packet,
 									kChecksumFamilyTCPIP,
 									kChecksumTCPSum16,
@@ -1176,7 +1205,7 @@ bool UniNEnet::receivePackets( bool debuggerParam )
 									checksum,					// param0: actual cksum
 									kRxHwCksumStartOffset );	// param1: 1st byte cksum'd 
 
-			ELG( packet, receivedFrameSize, 'RxP+', "UniNEnet::receivePackets - packet up." );
+			ELG( packet, receivedFrameSize << 16 | last, 'RxP+', "UniNEnet::receivePackets - packet up." );
 			networkInterface->inputPacket( packet, receivedFrameSize, true );
 			NETWORK_STAT_ADD( inputPackets );
 			packetsQueued = true;
@@ -1192,12 +1221,6 @@ bool UniNEnet::receivePackets( bool debuggerParam )
     return packetsQueued;
 }/* end receivePackets */
 
-
-/*-------------------------------------------------------------------------
- *
- *
- *
- *-------------------------------------------------------------------------*/
 
 bool UniNEnet::transmitInterruptOccurred()
 {
@@ -1222,7 +1245,6 @@ bool UniNEnet::transmitInterruptOccurred()
 			//	ELG( txCommandHead, fTxMbuf[ txCommandHead ], 'TxPF', "UniNEnet::receivePackets - free the packet" );
 				freePacket( fTxMbuf[ txCommandHead ], kDelayFree );
 				fTxMbuf[ txCommandHead ] = 0;
-				NETWORK_STAT_ADD( outputPackets );	/// ??? move outside loop
 			}
 
 			txCommandHead = (txCommandHead + 1) & (fTxRingElements - 1);
@@ -1295,21 +1317,17 @@ void UniNEnet::debugTransmitInterruptOccurred()
 }/* end debugTransmitInterruptOccurred */
 
 
-/*-------------------------------------------------------------------------
- *
- *
- *
- *-------------------------------------------------------------------------*/
+	/* debugTransmitCleanup - this routine has no callers ??? */
 
 void UniNEnet::debugTransmitCleanup()
 {
-    // Debugger was active, clear all packets in the debugQueue, and
-    // issue a start(), just in case the debugger became active while the
-    // ring was full and the output queue stopped. Since the debugger
-    // does not restart the output queue, to avoid calling
-    // semaphore_signal() which may reenable interrupts, we need to
-    // make sure the output queue is not stalled after the debugger has
-    // flushed the ring.
+		// Debugger was active, clear all packets in the debugQueue, and
+		// issue a start(), just in case the debugger became active while the
+		// ring was full and the output queue stopped. Since the debugger
+		// does not restart the output queue, to avoid calling
+		// semaphore_signal() which may reenable interrupts, we need to
+		// make sure the output queue is not stalled after the debugger has
+		// flushed the ring.
     
     debugQueue->flush();
 
@@ -1342,15 +1360,15 @@ bool UniNEnet::genRxDescriptor( UInt32 i )
 
 void UniNEnet::monitorLinkStatus( bool firstPoll )
 {
-    UInt16          	phyStatus;
-    UInt16          	linkStatus;
-    UInt16          	linkMode;
-    UInt16          	lpAbility;
-    UInt16          	phyStatusChange;
-    bool            	fullDuplex = false;
-    bool				clockWasOff = false;
-	UInt32          	linkSpeed = 0;
-    IOMediumType    	mediumType = kIOMediumEthernetNone;
+    UInt16          phyStatus;
+    UInt16          linkStatus;
+    UInt16          linkMode;
+    UInt16          lpAbility;
+    UInt16          phyStatusChange;
+    bool            fullDuplex	= false;
+    bool			clockWasOff	= false;
+	UInt32          linkSpeed	= 0;
+    IOMediumType    mediumType	= kIOMediumEthernetNone;
     IONetworkMedium	*medium;
 
 
@@ -1358,322 +1376,356 @@ void UniNEnet::monitorLinkStatus( bool firstPoll )
 
     if ( firstPoll )
     {
-        phyStatusPrev  = 0;
-        linkStatusPrev = kLinkStatusUnknown;
+		fPHYStatus	= 0;
+		fLinkStatus	= kLinkStatusUnknown;
     }
 
-    if(enetClockOff)
+    if ( fBuiltin && fCellClockEnabled == false )
     {
-        // pangea ethernet clock is off, temporarily it on to get the phyStatus
-        OSSynchronizeIO();
-        callPlatformFunction("EnableUniNEthernetClock", true, (void*)true, 0, 0, 0);
-        OSSynchronizeIO();
-        enetClockOff = false;
-        clockWasOff = true;
+			/* Ethernet cell clock is disabled,				*/
+			/* temporarily enable it to get the phyStatus:	*/
+		ELG( 0, 0, '+Clk', "UniNEnet::monitorLinkStatus - turning on cell clock!!!" );
+	//	OSSynchronizeIO();
+		callPlatformFunction( "EnableUniNEthernetClock", true, (void*)true, 0, 0, 0 );
+		OSSynchronizeIO();
+		IODelay( 3 );		// Allow the cell some clock cycles before using it.
+		fCellClockEnabled	= true;
+		clockWasOff			= true;
     }
 
-    if ( phyId == 0xff )
-    {
+    if ( phyId == 0xFF )
+    {		// must be GEM card. Fix this to use fBuiltin instead of phyId == 0xFF.
+		phyStatus = READ_REGISTER( PCSMIIStatus ) & 0x0000FFFF; // read latched value
+		IODelay( 3 );
+		if ( firstPoll )
+			IOSleep( 5000 );	/// fake wait for AutoNegotiation
 		phyStatus = READ_REGISTER( PCSMIIStatus )				& 0x0000FFFF;
 		lpAbility = READ_REGISTER( PCSMIILinkPartnerAbility )	& 0x0000FFFF;
     }
     else 
     {
-        if ( miiReadWord( &phyStatus, MII_STATUS, phyId) != true )
+        if ( miiReadWord( &phyStatus, MII_STATUS, phyId ) != true )
             return;
 		miiReadWord( &lpAbility, MII_LINKPARTNER, phyId );
     }
-	ELG( lpAbility, phyStatus, ' mls', "monitorLinkStatus - LinkPartnerAbility and Status" );
+//	ELG( lpAbility, phyStatus, ' mls', "monitorLinkStatus - LinkPartnerAbility and Status" );
 
-    if(clockWasOff)
-    {
-        // if it was off in the first place, turn it back off
-        OSSynchronizeIO();
-        callPlatformFunction( "EnableUniNEthernetClock", true, (void*)false, 0, 0, 0 );
-        OSSynchronizeIO();
-        enetClockOff = true;
+    if ( clockWasOff )
+    {		// if it was off in the first place, turn it back off
+		ELG( 0, 0, '-Clk', "UniNEnet::monitorLinkStatus - turning off cell clock!!!" );
+		OSSynchronizeIO();
+		callPlatformFunction( "EnableUniNEthernetClock", true, (void*)false, 0, 0, 0 );
+		OSSynchronizeIO();
+		fCellClockEnabled = false;
     }
+		// see if Link UP, autonegotiation complete bits changed:
 
-    phyStatusChange = (phyStatusPrev ^ phyStatus) &
-                      ( MII_STATUS_LINK_STATUS |
-                        MII_STATUS_NEGOTIATION_COMPLETE );
+	phyStatusChange	= (fPHYStatus ^ phyStatus)
+					& (MII_STATUS_LINK_STATUS | MII_STATUS_NEGOTIATION_COMPLETE);
 
-    if ( phyStatusChange || firstPoll )
-    {
-        if ( firstPoll && fBuiltin )
-        {
-            // For the initial link status poll, wait a bit, then
-            // re-read the status register to clear any latched bits.
-            // Why wait? Well, the debugger can kick in shortly after
-            // this function returns, and we want the duplex setting
-            // on the MAC to match the PHY.
+	if ( fMediumType == 0 || fMediumType != kIOMediumEthernetAuto )
+		phyStatusChange &= ~MII_STATUS_NEGOTIATION_COMPLETE;	// no longer interesting
 
-            miiWaitForAutoNegotiation( phyId );
-            miiReadWord(&phyStatus, MII_STATUS, phyId);
-            miiReadWord(&phyStatus, MII_STATUS, phyId);
-        }
+	if ( firstPoll || phyStatusChange )
+		 ELG( fPHYStatus, phyStatusChange, 'LChg', "UniNEnet::monitorLinkStatus - initing or link status changed." );
+	else return;
 
-        // skip this is the clock is off
-        if(!enetClockOff)
-        {
-			fMACControlConfiguration  = READ_REGISTER( MACControlConfiguration );
-			fMACControlConfiguration |=  kMACControlConfiguration_Receive_Pause_Enable;
+	if ( firstPoll && fBuiltin )
+	{
+			// For the initial link status poll, wait a bit, then
+			// re-read the status register to clear any latched bits.
+			// Why wait? Well, the debugger can kick in shortly after
+			// this function returns, and we want the duplex setting
+			// on the MAC to match the PHY.
 
-			if ( lpAbility & MII_LPAR_PAUSE )
-				fMACControlConfiguration |=  kMACControlConfiguration_Send_Pause_Enable;
-			else fMACControlConfiguration &= ~kMACControlConfiguration_Send_Pause_Enable;
-	
-			WRITE_REGISTER( MACControlConfiguration, fMACControlConfiguration );
+		miiWaitForAutoNegotiation( phyId );
+		miiReadWord( &phyStatus, MII_STATUS, phyId );
+		miiReadWord( &phyStatus, MII_STATUS, phyId );
+	}
+
+		// skip this if the clock is disabled
+	if ( fCellClockEnabled )
+	{
+		fMACControlConfiguration = 0;	// Assume no Pause capability by LP
+
+		if ( (lpAbility & MII_LPAR_PAUSE) && isFullDuplex )
+		{
+			fMACControlConfiguration	= kMACControlConfiguration_Send_Pause_Enable
+										| kMACControlConfiguration_Receive_Pause_Enable;
 		}
-		
-        if ( (phyStatus & MII_STATUS_LINK_STATUS) &&
-             ( firstPoll || (phyStatus & MII_STATUS_NEGOTIATION_COMPLETE) ) )
-        {
-            // the link is up, turn the clock on
-            wakeUp(true);
+		WRITE_REGISTER( MACControlConfiguration, fMACControlConfiguration );
+	}
 
-            if ( phyId == 0xff )
-            {
-                linkSpeed  = 1000;
-                fullDuplex = true;
-                mediumType = kIOMediumEthernet1000BaseSX;
-            }
-            else if ( (phyType & MII_LXT971_MASK) == MII_LXT971_ID )
-            {
-                miiReadWord( &linkStatus, MII_LXT971_STATUS_2, phyId );
-                linkSpeed  = (linkStatus & MII_LXT971_STATUS_2_SPEED)  ?
-                              100 : 10;
-                fullDuplex = (linkStatus & MII_LXT971_STATUS_2_DUPLEX) ?
-                              true : false;
-                mediumType = (linkSpeed == 10) ? kIOMediumEthernet10BaseT : 
-                                                  kIOMediumEthernet100BaseTX;
-            }
-            else if ( (phyType & MII_BCM5201_MASK) == MII_BCM5201_ID )
-            {
-                miiReadWord( &linkStatus, MII_BCM5201_AUXSTATUS, phyId );
-                linkSpeed  = (linkStatus & MII_BCM5201_AUXSTATUS_SPEED)  ?
-                             100 : 10;
-                fullDuplex = (linkStatus & MII_BCM5201_AUXSTATUS_DUPLEX) ?
-                              true : false;
-                mediumType = (linkSpeed == 10) ? kIOMediumEthernet10BaseT : 
-                                                 kIOMediumEthernet100BaseTX;
-            }
-            else if ( ((phyType & MII_BCM5400_MASK) == MII_BCM5400_ID)
-				  ||  ((phyType & MII_BCM5400_MASK) == MII_BCM5401_ID)		/// mlj temporary quick fix
-				  ||  ((phyType & MII_BCM5400_MASK) == MII_BCM5411_ID)		/// mlj temporary quick fix
-				  ||  ((phyType & MII_BCM5400_MASK) == MII_BCM5421_ID) )	/// mlj temporary quick fix
-            {
-                miiReadWord( &linkStatus, MII_BCM5400_AUXSTATUS, phyId );
+	if ( (phyStatus & MII_STATUS_LINK_STATUS)
+	  && (firstPoll || (phyStatus & MII_STATUS_NEGOTIATION_COMPLETE)) )
+	{
+		wakeUp( true );				/* the link is up, enable the clock	*/
 
-                linkMode = (linkStatus & MII_BCM5400_AUXSTATUS_LINKMODE_MASK) /
-                           MII_BCM5400_AUXSTATUS_LINKMODE_BIT;
+		if ( phyId == 0xFF )
+		{
+			linkSpeed  = 1000;
+			fullDuplex = true;
+			mediumType = kIOMediumEthernet1000BaseSX;
+		}
+		else if ( (phyType & MII_LXT971_MASK) == MII_LXT971_ID )
+		{
+			miiReadWord( &linkStatus,  MII_LXT971_STATUS_2, phyId );
+			linkSpeed  = (linkStatus & MII_LXT971_STATUS_2_SPEED)  ?
+						  100 : 10;
+			fullDuplex = (linkStatus & MII_LXT971_STATUS_2_DUPLEX) ?
+						  true : false;
+			mediumType = (linkSpeed == 10)	? kIOMediumEthernet10BaseT
+											: kIOMediumEthernet100BaseTX;
+		}
+		else if ( (phyType & MII_BCM5221_MASK) == MII_BCM5221_ID )
+		{
+			miiReadWord( &linkStatus,  MII_BCM5201_AUXSTATUS, phyId );
+			linkSpeed  = (linkStatus & MII_BCM5201_AUXSTATUS_SPEED)  ?
+						  100 : 10;
+			fullDuplex = (linkStatus & MII_BCM5201_AUXSTATUS_DUPLEX) ?
+						  true : false;
+			mediumType = (linkSpeed == 10)	? kIOMediumEthernet10BaseT
+											: kIOMediumEthernet100BaseTX;
+		}
+		else if ( (phyType & MII_BCM5201_MASK) == MII_BCM5201_ID )
+		{
+			miiReadWord( &linkStatus,  MII_BCM5201_AUXSTATUS, phyId );
+			linkSpeed	= (linkStatus & MII_BCM5201_AUXSTATUS_SPEED)
+						? 100 : 10;
+			fullDuplex	= (linkStatus & MII_BCM5201_AUXSTATUS_DUPLEX)
+						? true : false;
+			mediumType = (linkSpeed == 10)	? kIOMediumEthernet10BaseT
+											: kIOMediumEthernet100BaseTX;
+		}
+		else if ( ((phyType & MII_BCM5400_MASK) == MII_BCM5400_ID)
+			  ||  ((phyType & MII_BCM5400_MASK) == MII_BCM5401_ID)		/// mlj temporary quick fix
+			  ||  ((phyType & MII_BCM5400_MASK) == MII_BCM5411_ID)		/// mlj temporary quick fix
+			  ||  ((phyType & MII_BCM5400_MASK) == MII_BCM5421_ID) )	/// mlj temporary quick fix
+		{
+			miiReadWord( &linkStatus, MII_BCM5400_AUXSTATUS, phyId );
 
-				if ( linkMode < 6 )
-					 fXIFConfiguration &= ~kXIFConfiguration_GMIIMODE;
-                else fXIFConfiguration |=  kXIFConfiguration_GMIIMODE;
-				WRITE_REGISTER( XIFConfiguration, fXIFConfiguration );
+			linkMode	= (linkStatus & MII_BCM5400_AUXSTATUS_LINKMODE_MASK)
+						/ MII_BCM5400_AUXSTATUS_LINKMODE_BIT;
 
-                if ( linkMode == 0 )
-                {
-                    linkSpeed = 0;
-                }
-                else if ( linkMode < 3 )
-                {
-                    linkSpeed   =  10;
-                    fullDuplex  =  ( linkMode < 2 ) ? false : true; 
-                    mediumType  =  kIOMediumEthernet10BaseT;                   
-                }
-                else if ( linkMode < 6 )
-                {
-                    linkSpeed   =  100;
-                    fullDuplex  =  ( linkMode < 5 ) ? false : true;
-                    mediumType  =  kIOMediumEthernet100BaseTX;  
-                }
-                else
-                {
-                    linkSpeed   = 1000;
-                    fullDuplex  = true;
-                    mediumType  =  kIOMediumEthernet1000BaseTX;
-                }                    
-            }
+			if ( linkMode < 6 )
+				 fXIFConfiguration &= ~kXIFConfiguration_GMIIMODE;
+			else fXIFConfiguration |=  kXIFConfiguration_GMIIMODE;
+			WRITE_REGISTER( XIFConfiguration, fXIFConfiguration );
 
-		///	if ( fullDuplex != isFullDuplex )
-                setDuplexMode( fullDuplex );    
+			if ( linkMode == 0 )
+			{
+				linkSpeed = 0;
+			}
+			else if ( linkMode < 3 )
+			{
+				linkSpeed   =  10;
+				fullDuplex  =  ( linkMode < 2 ) ? false : true; 
+				mediumType  =  kIOMediumEthernet10BaseT;                   
+			}
+			else if ( linkMode < 6 )
+			{
+				linkSpeed   =  100;
+				fullDuplex  =  ( linkMode < 5 ) ? false : true;
+				mediumType  =  kIOMediumEthernet100BaseTX;  
+			}
+			else
+			{
+				linkSpeed   = 1000;
+				fullDuplex  = true;
+				mediumType  =  kIOMediumEthernet1000BaseTX;
+			}                    
+		}
+		else if ( ((phyType & MII_MARVELL_MASK) == MII_MARVELL_ID)		// 0x01410C2x
+			   || ((phyType & MII_MARVELL_MASK) == MII_MARVELL_ID_1) )	// 0x01410C6x
+		{
+			miiReadWord( &linkStatus, MII_MARVELL_PHY_SPECIFIC_STATUS, phyId );
 
-            if ( ready == true )
-                startChip();
+			if ( !(linkStatus & MII_MARVELL_PHY_SPECIFIC_STATUS_RESOLVED) )
+			{
+				linkSpeed = 0;
+				fXIFConfiguration &= ~kXIFConfiguration_GMIIMODE;
+			}
+			else if ( linkStatus & MII_MARVELL_PHY_SPECIFIC_STATUS_1000 )
+			{
+				linkSpeed	= 1000;
+				mediumType	= kIOMediumEthernet1000BaseTX;
+				fXIFConfiguration |=  kXIFConfiguration_GMIIMODE;
+			}
+			else if ( linkStatus & MII_MARVELL_PHY_SPECIFIC_STATUS_100 )
+			{
+				linkSpeed	= 100;
+				mediumType	= kIOMediumEthernet100BaseTX;  
+				fXIFConfiguration &= ~kXIFConfiguration_GMIIMODE;
+			}
+			else
+			{
+				linkSpeed	= 10;
+				mediumType	= kIOMediumEthernet10BaseT;                   
+				fXIFConfiguration &= ~kXIFConfiguration_GMIIMODE;
+			}
 
-            if ( linkSpeed != 0 )
-            {
-                mediumType |= (fullDuplex == true)  ?
-                              kIOMediumOptionFullDuplex :
-                              kIOMediumOptionHalfDuplex;
-            }
+			WRITE_REGISTER( XIFConfiguration, fXIFConfiguration );
 
-            medium = IONetworkMedium::getMediumWithType( mediumDict,
-                                                         mediumType );
+			if ( linkStatus & MII_MARVELL_PHY_SPECIFIC_STATUS_FULL_DUPLEX )
+				 fullDuplex =  true;
+			else fullDuplex =  false;
+		}/* end ELSE IF Marvell */
 
-            setLinkStatus( kIONetworkLinkActive | kIONetworkLinkValid,
-                           medium,
-                           linkSpeed * 1000000 );
+	///	if ( fullDuplex != isFullDuplex )
+			setDuplexMode( fullDuplex );    
 
-			IOLog( "UniNEnet::monitorLinkStatus - Link is up at %ld Mbps - %s Duplex\n\r",
-						linkSpeed, fullDuplex ? "Full" : "Half" );
+		if ( fReady == true )
+			startChip();
 
-            linkStatusPrev = kLinkStatusUp;
-        }
-        else
-        {
-            if ( (linkStatusPrev == kLinkStatusUp)     ||
-                 (linkStatusPrev == kLinkStatusUnknown) )
-            {
-                stopChip();
+		if ( linkSpeed != 0 )
+		{
+			mediumType |= (fullDuplex == true)
+						? kIOMediumOptionFullDuplex
+						: kIOMediumOptionHalfDuplex;
+		}
 
-                medium = IONetworkMedium::getMediumWithType( mediumDict,
-                                                             mediumType );
+		medium = IONetworkMedium::getMediumWithType( fMediumDict, mediumType );
 
-                setLinkStatus( kIONetworkLinkValid,
-                               medium,
-                               0 );
-       
-                if ( linkStatusPrev != kLinkStatusUnknown )
-                {
-                   IOLog( "Ethernet(UniN): Link is down.\n\r" );
-                }
+		setLinkStatus( kIONetworkLinkActive | kIONetworkLinkValid,
+					   medium,
+					   linkSpeed * 1000000 );
 
-                txIntCnt = 0;
+		IOLog( "UniNEnet::monitorLinkStatus - Link is up at %ld Mbps - %s Duplex\n\r",
+					linkSpeed, fullDuplex ? "Full" : "Half" );
 
-                if ( txCommandHead != txCommandTail )
-                {
-                    initTxRing();
+		fLinkStatus = kLinkStatusUp;
+	}
+	else
+	{
+		if ( fCellClockEnabled
+		  && ((fLinkStatus == kLinkStatusUp) || (fLinkStatus == kLinkStatusUnknown)) )
+		{
+			stopChip();
 
-					txCommandHead = READ_REGISTER( TxCompletion );
-                    txCommandTail = txCommandHead;
-                }
-            }
+			medium = IONetworkMedium::getMediumWithType( fMediumDict, mediumType );
 
-            linkStatusPrev = kLinkStatusDown;
-        }
+			setLinkStatus( kIONetworkLinkValid, medium, 0 );
+   
+			if ( fLinkStatus != kLinkStatusUnknown )
+			   IOLog( "Ethernet(UniN): Link is down.\n\r" );
 
-        phyStatusPrev = phyStatus;
-    }
+			txIntCnt = 0;
+
+			if ( txCommandHead != txCommandTail )
+			{
+				initTxRing();
+
+				txCommandHead = READ_REGISTER( TxCompletion );
+				txCommandTail = txCommandHead;
+			}
+		}
+		fLinkStatus = kLinkStatusDown;
+	}
+	fPHYStatus = phyStatus;
+
 	return;
 }/* end monitorLinkStatus */
 
 
-/*-------------------------------------------------------------------------
- *
- *
- *
- *-------------------------------------------------------------------------*/
-
-IOReturn UniNEnet::getHardwareAddress(IOEthernetAddress *ea)
+IOReturn UniNEnet::getHardwareAddress( IOEthernetAddress *ea )
 {
     UInt32      i;
-    OSData	*macEntry;
+    OSData		*macEntry;
     UInt8       *macAddress;
     UInt32      len;
 
-    macEntry    = OSDynamicCast( OSData, nub->getProperty( "local-mac-address" ) );
-    if ( macEntry == 0 )
-    {
-        return kIOReturnError;
-    }
 
-    macAddress  = (UInt8 *)macEntry->getBytesNoCopy();
-    if ( macAddress == 0 )
-    {
+    macEntry = OSDynamicCast( OSData, nub->getProperty( "local-mac-address" ) );
+    if ( macEntry == 0 )
         return kIOReturnError;
-    }
+
+    macAddress  = (UInt8*)macEntry->getBytesNoCopy();
+    if ( macAddress == 0 )
+        return kIOReturnError;
+
 
     len = macEntry->getLength();
     if ( len != 6 )
-    {
         return kIOReturnError;
-    }
    
-    for (i = 0; i < sizeof(*ea); i++)   
-    {
+    for ( i = 0; i < sizeof( *ea ); i++ )
         ea->bytes[i] = macAddress[i];
-    }
+
+
     return kIOReturnSuccess;
 }/* end getHardwareAddress */
 
 
-/*-------------------------------------------------------------------------
- *
- *
- *
- *-------------------------------------------------------------------------*/
+IOReturn UniNEnet::setHardwareAddress( IOEthernetAddress *ea )
+{
+    int			i;
+    UInt16		*p16 = (UInt16*)ea;
+
+
+	ELG( p16[0], p16[1] << 16 | p16[2], 'SetA', "UniNEnet::setHardwareAddress" );
+
+    for ( i = 0; i < kIOEthernetAddressSize / 2; i++ )
+		WRITE_REGISTER( MACAddress[ i ], p16[ 2 - i ] );
+
+    return kIOReturnSuccess;
+}/* end setHardwareAddress */
+
 
 #define ENET_CRCPOLY 0x04c11db7
 
-static UInt32 crc416(UInt32 current, UInt16 nxtval )
+static UInt32 crc416( UInt32 current, UInt16 nxtval )
 {
-    register UInt32 counter;
-    register int highCRCBitSet, lowDataBitSet;
+	register UInt32		counter;
+	register int		highCRCBitSet, lowDataBitSet;
 
-    /* Swap bytes */
-    nxtval = ((nxtval & 0x00FF) << 8) | (nxtval >> 8);
 
-    /* Compute bit-by-bit */
-    for (counter = 0; counter != 16; ++counter)
-    {   /* is high CRC bit set? */
-      if ((current & 0x80000000) == 0)  
-        highCRCBitSet = 0;
-      else
-        highCRCBitSet = 1;
-        
-      current = current << 1;
-    
-      if ((nxtval & 0x0001) == 0)
-        lowDataBitSet = 0;
-      else
-    lowDataBitSet = 1;
+	nxtval = ((nxtval & 0x00FF) << 8) | (nxtval >> 8);	/* Swap bytes	*/
 
-      nxtval = nxtval >> 1;
-    
-      /* do the XOR */
-      if (highCRCBitSet ^ lowDataBitSet)
-        current = current ^ ENET_CRCPOLY;
-    }
-    return current;
-}
 
-/*-------------------------------------------------------------------------
- *
- *
- *
- *-------------------------------------------------------------------------*/
+	for ( counter = 0; counter != 16; ++counter )		/* Compute bit-by-bit	*/
+	{
+		if ( (current & 0x80000000) == 0 )  			/* is high CRC bit set?	*/
+			 highCRCBitSet = 0;
+		else highCRCBitSet = 1;
 
-static UInt32 mace_crc(UInt16 *address)
+		current = current << 1;
+
+		if ( (nxtval & 0x0001) == 0 )
+			 lowDataBitSet = 0;
+		else lowDataBitSet = 1;
+
+		nxtval = nxtval >> 1;
+
+		if ( highCRCBitSet ^ lowDataBitSet )	/* do the XOR */
+			current = current ^ ENET_CRCPOLY;
+	}/* end FOR */
+	return current;
+}/* end crc416 */
+
+
+static UInt32 mace_crc( UInt16 *address )
 {   
-    register UInt32 newcrc;
+    register UInt32		newcrc;
 
-    newcrc = crc416(0xffffffff, *address);  /* address bits 47 - 32 */
-    newcrc = crc416(newcrc, address[1]);    /* address bits 31 - 16 */
-    newcrc = crc416(newcrc, address[2]);    /* address bits 15 - 0  */
 
-    return(newcrc);
-}
+    newcrc = crc416( 0xFFFFFFFF, *address );  /* address bits 47 - 32 */
+    newcrc = crc416( newcrc, address[1] );    /* address bits 31 - 16 */
+    newcrc = crc416( newcrc, address[2] );    /* address bits 15 - 0  */
 
-/*-------------------------------------------------------------------------
- *
- *
- *
- *-------------------------------------------------------------------------*/
+    return newcrc;
+}/* end mace_crc */
 
-/*
- * Add requested mcast addr to UniN's hash table filter.  
- *  
- */
-void UniNEnet::addToHashTableMask(UInt8 *addr)
+
+	/* Add requested mcast addr to UniN's hash table filter. 	*/
+
+void UniNEnet::addToHashTableMask( UInt8 *addr )
 {   
-    UInt32   i,j;
+    UInt32   i, j;
     UInt32   crcBitIndex;
     UInt16   mask;
 
-    j = mace_crc((UInt16 *)addr) & 0xFF; /* Big-endian alert! */
+
+    j = mace_crc( (UInt16*)addr ) & 0xFF;		/* Big-endian alert! */
    
     for ( crcBitIndex = i = 0; i < 8; i++ )
     {
@@ -1683,39 +1735,29 @@ void UniNEnet::addToHashTableMask(UInt8 *addr)
     }
 
     crcBitIndex ^= 0xFF;
-            
-    if (hashTableUseCount[crcBitIndex]++)   
+
+    if ( hashTableUseCount[ crcBitIndex ]++ )
       return;           /* This bit is already set */
     mask = crcBitIndex % 16;
     mask = 1 << mask;
-    hashTableMask[crcBitIndex/16] |= mask;
-}
+    hashTableMask[ crcBitIndex / 16 ] |= mask;
+}/* end addToHashTableMask */
 
-/*-------------------------------------------------------------------------
- *
- *
- *
- *-------------------------------------------------------------------------*/
 
 void UniNEnet::resetHashTableMask()
 {
-    bzero(hashTableUseCount, sizeof(hashTableUseCount));
-    bzero(hashTableMask, sizeof(hashTableMask));
-}
+    bzero( hashTableUseCount, sizeof( hashTableUseCount ) );
+    bzero( hashTableMask,     sizeof( hashTableMask ) );
+	return;
+}/* end resetHashTableMask */
 
-/*-------------------------------------------------------------------------
- *
- *
- *
- *-------------------------------------------------------------------------*/
 
-/*
- * Sync the adapter with the software copy of the multicast mask
- *  (logical address filter).
- */
+	/* Sync the adapter with the software copy of	*/
+	/* the multicast mask (logical address filter).	*/
+
 void UniNEnet::updateHashTableMask()
 {
-    UInt32      i;
+    UInt32      i, x;
 
 
 	fRxMACConfiguration = READ_REGISTER( RxMACConfiguration );
@@ -1724,14 +1766,19 @@ void UniNEnet::updateHashTableMask()
 	WRITE_REGISTER( RxMACConfiguration,
 					fRxMACConfiguration & ~(kRxMACConfiguration_Rx_Mac_Enable
 										  | kRxMACConfiguration_Hash_Filter_Enable) );
-		/// Fix this to have a time limit around 3.2 ms
-	while ( READ_REGISTER( RxMACConfiguration )	& (kRxMACConfiguration_Rx_Mac_Enable
-												|  kRxMACConfiguration_Hash_Filter_Enable) )
-      ;
+		/* Time limit for bits to clear is around 3.2 ms	*/
+	for ( i = 0; i <= 3; ++i )
+	{
+		x = READ_REGISTER( RxMACConfiguration );
+		if ( (x & (kRxMACConfiguration_Rx_Mac_Enable | kRxMACConfiguration_Hash_Filter_Enable) ) == 0 )
+			break;
+		IOSleep( 1 );
+	}
 
-    for ( i= 0; i < 16; i++ )
+    for ( i = 0; i < 16; i++ )
 		WRITE_REGISTER( HashTable[ i ], hashTableMask[ 15 - i ] );
 
     fRxMACConfiguration |= kRxMACConfiguration_Hash_Filter_Enable;
 	WRITE_REGISTER( RxMACConfiguration, fRxMACConfiguration );
-}
+	return;
+}/* end updateHashTableMask */

@@ -67,7 +67,8 @@
             hidsystem.subproj, 
             kext.subproj, 
             cdb.subproj, 
-            hid.subproj
+            hid.subproj,
+            ups.subproj
         ); 
     }; 
     LANGUAGE = English; 

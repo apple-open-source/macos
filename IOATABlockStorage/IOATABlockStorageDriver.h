@@ -109,6 +109,16 @@ struct ATAClientData
 	UInt8						cylLow;				// Low bits of the cylinder register
 	UInt8						sectorNumber;		// Value of the sectorNumber register
 	UInt8						sectorCount;		// Value of the sectorCount register
+	
+	// added for 48-bit LBA support
+	bool						useExtendedLBA;
+	UInt16						lbaLow16;
+	UInt16						lbaMid16;
+	UInt16						lbaHigh16;
+	UInt16						sectorCount16;
+	UInt16						features16;
+	UInt8						device;
+	UInt16						command16;
 };
 typedef struct ATAClientData ATAClientData;
 
@@ -160,8 +170,13 @@ protected:
 	bool					fResetInProgress;
 	
 	// binary compatibility instance variable expansion
-	struct ExpansionData { };
+	struct ExpansionData
+	{
+		bool	fUseExtendedLBA;
+	};
 	ExpansionData * reserved;
+	
+	#define fUseExtendedLBA		reserved->fUseExtendedLBA
 	
 	//-----------------------------------------------------------------------
 	// Static member functions
@@ -281,7 +296,7 @@ protected:
 	virtual bool inspectDevice ( IOATADevice * device );
 		
 	//-----------------------------------------------------------------------
-	// Returns an IOATABlockStorageDeviceNub instance.
+	// Returns an IOATABlockStorageDevice instance.
 	
 	virtual IOService * instantiateNub ( void );
 	

@@ -158,12 +158,16 @@
                                     IOInterruptEventSource * evtSrc, int intCount );
     static void handleVBL(IOFramebuffer * inst, void * ref);
     static void connectChangeInterrupt( IOFramebuffer * inst, void * ref );
-    void checkConnectionChange( void );
+    void checkConnectionChange( bool message = true );
+    void postConnectionChange( void );
     void setNextDependent( IOFramebuffer * dependent );
+    IOFramebuffer * getNextDependent( void );
+    void setCaptured( bool captured );
     IOReturn notifyServer( UInt8 state );
     void notifyServerAll( UInt8 state );
     bool getIsUsable( void );
     static void sleepWork( void * arg );
+    static void clamshellWork( thread_call_param_t p0, thread_call_param_t p1 );
     IOOptionBits checkPowerWork( void );
     static IOReturn systemPowerChange( void * target, void * refCon,
                                     UInt32 messageType, IOService * service,
@@ -174,3 +178,8 @@
                     UInt32		type,
                     UInt32		refCon );
     IOReturn extAcknowledgeNotification( void );
+    IOReturn extSetProperties( OSDictionary * dict );
+public:
+    static void clamshellEnable( SInt32 delta );
+    static IOOptionBits clamshellState( void );
+protected:

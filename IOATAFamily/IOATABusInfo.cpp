@@ -127,6 +127,7 @@ IOATABusInfo::zeroData(void)
 	_Overlapped		= false;
 	_DMAQueued		= false;
 	_SocketType		= kUnknownSocket;
+	_maxBlocksExtended = 256;
 
 }
 
@@ -434,5 +435,21 @@ IOATABusInfo::setUnits( UInt8 inNumUnits )
 
 	_numUnits = inNumUnits;
 
+
+}
+
+
+void 
+IOATABusInfo::setMaxBlocksExtended( UInt16 inMaxBlocks)
+{
+	_maxBlocksExtended = inMaxBlocks;
+
+}
+
+UInt16 
+IOATABusInfo::maxBlocksExtended(void)
+{
+
+	return _maxBlocksExtended;
 
 }

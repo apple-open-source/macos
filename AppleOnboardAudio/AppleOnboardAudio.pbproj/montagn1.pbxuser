@@ -26,9 +26,6 @@
 	03254995FFDDD25B11CA29EB = {
 		activeExec = 0;
 	};
-	0325499AFFDDD25B11CA29EB = {
-		activeExec = 0;
-	};
 	089C1669FE841209C02AAC07 = {
 		activeBuildStyle = 06AA1265FFB2107B11CA28AA;
 		activeTarget = 089C1673FE841209C02AAC07;
@@ -40,12 +37,12 @@
 			PBXWorkspaceConfiguration = {
 				ContentSize = "{1255, 909}";
 				LeftSlideOut = {
-					ActiveTab = 0;
+					ActiveTab = 3;
 					Frame = "{{0, 23}, {1255, 886}}";
 					Split0 = {
-						Frame = "{{344, 0}, {911, 886}}";
+						Frame = "{{224, 0}, {1031, 886}}";
 						Split0 = {
-							Frame = "{{0, 25}, {911, 861}}";
+							Frame = "{{0, 24}, {1031, 862}}";
 						};
 						SplitCount = 1;
 						Tab0 = {
@@ -81,9 +78,9 @@
 							};
 						};
 						Tab2 = {
-							BuildMessageFrame = "{{0, 0}, {913, 127}}";
-							BuildTranscriptFrame = "{{0, 136}, {913, 51}}";
-							Frame = "{{0, 0}, {911, 185}}";
+							BuildMessageFrame = "{{0, 0}, {1033, 127}}";
+							BuildTranscriptFrame = "{{0, 136}, {1033, 51}}";
+							Frame = "{{0, 0}, {1031, 185}}";
 						};
 						Tab3 = {
 							Frame = "{{0, 0}, {969, 295}}";
@@ -118,7 +115,7 @@
 					};
 					TabCount = 5;
 				};
-				WindowLocation = "{-3, 28}";
+				WindowLocation = "{61, 182}";
 			};
 		};
 		wantsIndex = 1;
@@ -129,21 +126,6 @@
 	};
 	AD440DB0017FA6A304CE15E3 = {
 		activeExec = 0;
-	};
-	AD4D859C0163812904CE15E3 = {
-		uiCtxt = {
-			sepNavWindowFrame = "{{140, 4}, {810, 997}}";
-		};
-	};
-	AD4D859D0163812904CE15E3 = {
-		uiCtxt = {
-			sepNavWindowFrame = "{{61, 33}, {743, 922}}";
-		};
-	};
-	AD4D859F0163812904CE15E3 = {
-		uiCtxt = {
-			sepNavWindowFrame = "{{38, 474}, {750, 502}}";
-		};
 	};
 	F529B67D00CC983401000001 = {
 		uiCtxt = {
@@ -159,6 +141,9 @@
 		activeExec = 0;
 	};
 	F6635A3C017C901C01CE1665 = {
+		activeExec = 0;
+	};
+	F6AB50530188E72D01CE1665 = {
 		activeExec = 0;
 	};
 }

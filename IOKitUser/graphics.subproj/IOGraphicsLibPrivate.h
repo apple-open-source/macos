@@ -21,12 +21,27 @@
  */
 
 enum {
-    kDisplayAppleVendorID = 0x610
+    kDisplayAppleVendorID	= 0x610
 };
 
 enum {
     kOvrFlagDisableScaling	= 0x00000001,
     kOvrFlagDisableNonScaled	= 0x00000002,
+    kOvrFlagDisableGenerated	= 0x00000004
+};
+
+enum {
+    kScaleInstallAlways		= 0x00000001,
+    kScaleInstallNoStretch	= 0x00000002
+};
+
+enum {
+    kAppleNTSCManufacturerFlag	= 0x40,
+    kApplePALManufacturerFlag	= 0x20
+};
+
+enum {
+    kIOMirrorHint = 0x10000
 };
 
 struct EDIDDetailedTimingDesc {
@@ -86,6 +101,10 @@ typedef struct EDID EDID;
 struct IOFBConnect {
     io_service_t		framebuffer;
     io_connect_t		connect;
+    struct IOFBConnect *	next;
+    struct IOFBConnect *	nextDependent;
+    SInt64			dependentID;
+    SInt32			dependentIndex;
     CFMutableDictionaryRef	kernelInfo;
     CFMutableDictionaryRef	modes;
     CFMutableArrayRef		modesArray;
@@ -93,10 +112,20 @@ struct IOFBConnect {
     IONotificationPortRef	notifyPort;
     io_iterator_t		interestNotifier;
     IOOptionBits		state;
+    IOOptionBits		previousState;
     IODisplayModeID		defaultMode;
     IOIndex			defaultDepth;
+    IODisplayModeID		default4By3Mode;
     UInt32			ovrFlags;
+    UInt32			mirrorDefaultFlags;
+    IODisplayVendorID		displayVendor;
+    IODisplayProductID		displayProduct;
     Boolean			suppressRefresh;
+    Boolean			trimToDependent;
+    Boolean			defaultToDependent;
+    Boolean			make4By3;
+    Boolean			defaultNot4By3;
+    Boolean			relaunch;
 
     const IOFBMessageCallbacks * clientCallbacks;
     void *			 clientCallbackRef;
@@ -106,8 +135,10 @@ typedef struct IOFBConnect * IOFBConnectRef;
 
 IOFBConnectRef
 IOFBConnectToRef( io_connect_t connect );
+
 void
 IODisplayInstallDetailedTimings( IOFBConnectRef connectRef );
+
 kern_return_t
 IOFBInstallMode( IOFBConnectRef connectRef, IODisplayModeID mode,
                  IODisplayModeInformation * info, IOTimingInformation * timingInfo,
@@ -117,7 +148,9 @@ io_service_t
 IODisplayForFramebuffer(
 	io_service_t		framebuffer,
 	IOOptionBits		options );
-void IOFBCreateOverrides( IOFBConnectRef connectRef );
+
+void
+IOFBCreateOverrides( IOFBConnectRef connectRef );
 
 Boolean
 IOCheckTimingWithRange( const void * range,

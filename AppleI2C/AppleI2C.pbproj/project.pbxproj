@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 33;
+	objectVersion = 34;
 	objects = {
 		06AA1264FFB2107B11CA28AA = {
 			buildActionMask = 2147483647;
@@ -12,7 +12,6 @@
 			generatedFileNames = (
 			);
 			isa = PBXShellScriptBuildPhase;
-			name = "Shell Script";
 			neededFileNames = (
 			);
 			shellPath = /bin/sh;
@@ -23,7 +22,7 @@
 			);
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
-				OPTIMIZATION_CFLAGS = "";
+				OPTIMIZATION_CFLAGS = "-O0";
 			};
 			isa = PBXBuildStyle;
 			name = Development;
@@ -44,7 +43,6 @@
 			generatedFileNames = (
 			);
 			isa = PBXShellScriptBuildPhase;
-			name = "Shell Script";
 			neededFileNames = (
 			);
 			shellPath = /bin/sh;
@@ -101,8 +99,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleI2C;
-				MODULE_VERSION = 1.0.1d3;
-				OPTIMIZATION_CFLAGS = "";
+				MODULE_VERSION = 3.1.7;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -127,6 +124,8 @@
 	<string>English</string>
 	<key>CFBundleExecutable</key>
 	<string>AppleI2C</string>
+	<key>CFBundleGetInfoString</key>
+	<string>AppleI2C version 3.1.7, Copyright 2002 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -138,11 +137,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.1</string>
+	<string>3.1.7</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.0.1d3</string>
+	<string>3.1.7</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>MacIOAppleI2C</key>
@@ -153,6 +152,19 @@
 			<string>PPCI2CInterface</string>
 			<key>IONameMatch</key>
 			<string>i2c</string>
+			<key>IOProviderClass</key>
+			<string>AppleMacIODevice</string>
+		</dict>
+		<key>PmuAppleI2C</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleI2C</string>
+			<key>IOClass</key>
+			<string>PPCI2CInterface</string>
+			<key>IONameMatch</key>
+			<string>pmu-i2c</string>
+			<key>IOProbeScore</key>
+			<integer>10000</integer>
 			<key>IOProviderClass</key>
 			<string>AppleMacIODevice</string>
 		</dict>
@@ -177,6 +189,8 @@
 		<key>com.apple.kernel.mach</key>
 		<string>1.0.0b1</string>
 	</dict>
+	<key>OSBundleRequired</key>
+	<string>Root</string>
 </dict>
 </plist>
 ";
@@ -188,7 +202,6 @@
 				6CAA18FEFFF1ABBA11CA2CAD,
 			);
 			isa = PBXHeadersBuildPhase;
-			name = Headers;
 		};
 		089C1675FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
@@ -196,7 +209,6 @@
 				089C1680FE841241C02AAC07,
 			);
 			isa = PBXResourcesBuildPhase;
-			name = "Bundle Resources";
 		};
 		089C1676FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
@@ -204,21 +216,18 @@
 				6CAA18FFFFF1ABBA11CA2CAD,
 			);
 			isa = PBXSourcesBuildPhase;
-			name = Sources;
 		};
 		089C1677FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
-			name = "Frameworks & Libraries";
 		};
 		089C1679FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
-			name = "ResourceManager Resources";
 		};
 		089C167CFE841241C02AAC07 = {
 			children = (
@@ -361,7 +370,6 @@
 				70A66921FFF1B3B311CA2CAD,
 			);
 			buildSettings = {
-				OPTIMIZATION_CFLAGS = "";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -384,7 +392,6 @@
 			files = (
 			);
 			isa = PBXHeadersBuildPhase;
-			name = Headers;
 		};
 		70A6691EFFF1B3B311CA2CAD = {
 			buildActionMask = 8;
@@ -394,28 +401,24 @@
 				70A66923FFF1B3F911CA2CAD,
 			);
 			isa = PBXCopyFilesBuildPhase;
-			name = "Copy Files";
 		};
 		70A6691FFFF1B3B311CA2CAD = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXSourcesBuildPhase;
-			name = Sources;
 		};
 		70A66920FFF1B3B311CA2CAD = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
-			name = "Frameworks & Libraries";
 		};
 		70A66921FFF1B3B311CA2CAD = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
-			name = "ResourceManager Resources";
 		};
 		70A66923FFF1B3F911CA2CAD = {
 			fileRef = 6CAA18FDFFF1ABBA11CA2CAD;

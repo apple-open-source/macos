@@ -23,12 +23,16 @@ divert(0)dnl
 # in that directory has instructions.
 ###
 
-VERSIONID(`$Id: generic-darwin.mc,v 1.2 2000/08/05 00:40:35 wsanchez Exp $')
+VERSIONID(`$Id: generic-darwin.mc,v 1.3 2002/04/12 18:41:47 bbraun Exp $')
 OSTYPE(darwin)dnl
 DOMAIN(generic)dnl
 undefine(`ALIAS_FILE')
 define(`PROCMAIL_MAILER_PATH',`/usr/bin/procmail')
 FEATURE(`smrsh',`/usr/libexec/smrsh')
 FEATURE(local_procmail)
+FEATURE(`virtusertable',`hash -o /etc/mail/virtusertable')dnl
+FEATURE(`genericstable', `hash -o /etc/mail/genericstable')dnl 
+FEATURE(`mailertable',`hash -o /etc/mail/mailertable')dnl
+FEATURE(`access_db')dnl
 MAILER(smtp)
 MAILER(procmail)

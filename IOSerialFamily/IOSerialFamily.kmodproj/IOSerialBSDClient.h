@@ -56,6 +56,7 @@ public:
     virtual bool start(IOService *provider);
     virtual void stop(IOService *provider);
     virtual bool matchPropertyTable(OSDictionary *table);
+    virtual bool didTerminate(IOService *provider, IOOptionBits options, bool *defer);
 
     virtual IOReturn setProperties(OSObject *properties);
 

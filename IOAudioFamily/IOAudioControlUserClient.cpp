@@ -90,7 +90,7 @@ void IOAudioControlUserClient::free()
 #endif
     
     if (notificationMessage) {
-        IOFree(notificationMessage, sizeof(IOAudioNotificationMessage));
+        IOFreeAligned(notificationMessage, sizeof(IOAudioNotificationMessage));
         notificationMessage = 0;
     }
 
@@ -128,7 +128,7 @@ IOReturn IOAudioControlUserClient::registerNotificationPort(mach_port_t port,
 
     if (!isInactive()) {
         if (notificationMessage == 0) {
-            notificationMessage = (IOAudioNotificationMessage *)IOMalloc(sizeof(IOAudioNotificationMessage));
+            notificationMessage = (IOAudioNotificationMessage *)IOMallocAligned(sizeof(IOAudioNotificationMessage), sizeof (IOAudioNotificationMessage *));
             if (!notificationMessage) {
                 return kIOReturnNoMemory;
             }

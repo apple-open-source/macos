@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 1999-2000 Sendmail, Inc. and its suppliers.
+ *  Copyright (c) 1999-2001 Sendmail, Inc. and its suppliers.
  *	All rights reserved.
  *
  * By using this file, you agree to the terms and conditions set
@@ -8,28 +8,18 @@
  *
  */
 
-#ifndef lint
-static char id[] = "@(#)$Id: signal.c,v 1.1.1.1 2000/06/10 00:40:50 wsanchez Exp $";
-#endif /* ! lint */
+#include <sm/gen.h>
+SM_RCSID("@(#)$Id: signal.c,v 1.1.1.2 2002/03/12 18:00:18 zarzycki Exp $")
 
-#if _FFR_MILTER
 #include "libmilter.h"
 
 /*
-** thread to handle signals
+**  thread to handle signals
 */
-
-typedef pthread_mutex_t smutex_t;
-#define smutex_init(mp)		(pthread_mutex_init(mp, NULL) == 0)
-#define smutex_destroy(mp)	(pthread_mutex_destroy(mp) == 0)
-#define smutex_lock(mp)		(pthread_mutex_lock(mp) == 0)
-#define smutex_unlock(mp)	(pthread_mutex_unlock(mp) == 0)
-#define smutex_trylock(mp)	(pthread_mutex_trylock(mp) == 0)
 
 static smutex_t M_Mutex;
 
 static int MilterStop = MILTER_CONT;
-
 
 /*
 **  MI_STOP -- return value of MilterStop
@@ -44,10 +34,8 @@ static int MilterStop = MILTER_CONT;
 int
 mi_stop()
 {
-	return(MilterStop);
+	return MilterStop;
 }
-
-
 /*
 **  MI_STOP_MILTERS -- set value of MilterStop
 **
@@ -65,9 +53,11 @@ mi_stop_milters(v)
 	(void) smutex_lock(&M_Mutex);
 	if (MilterStop < v)
 		MilterStop = v;
+
+	/* close listen socket */
+	mi_closener();
 	(void) smutex_unlock(&M_Mutex);
 }
-
 /*
 **  MI_CLEAN_SIGNALS -- clean up signal handler thread
 **
@@ -83,9 +73,8 @@ mi_clean_signals()
 {
 	(void) smutex_destroy(&M_Mutex);
 }
-
 /*
-**  MI -- thread to deal with signals
+**  MI_SIGNAL_THREAD -- thread to deal with signals
 **
 **	Parameters:
 **		name -- name of milter
@@ -109,18 +98,18 @@ mi_signal_thread(name)
 	sigaddset(&set, SIGINT);
 	errs = 0;
 
-	while (TRUE)
+	while (true)
 	{
 		sig = 0;
-#ifdef SOLARIS
+#if defined(SOLARIS) || defined(__svr5__)
 		if ((sig = sigwait(&set)) < 0)
-#else /* SOLARIS */
+#else /* defined(SOLARIS) || defined(__svr5__) */
 		if (sigwait(&set, &sig) != 0)
-#endif /* SOLARIS */
+#endif /* defined(SOLARIS) || defined(__svr5__) */
 		{
 			smi_log(SMI_LOG_ERR,
-				"%s: sigwait returned error: %s",
-				(char *)name, strerror(errno));
+				"%s: sigwait returned error: %d",
+				(char *)name, errno);
 			if (++errs > MAX_FAILS_T)
 			{
 				mi_stop_milters(MILTER_ABRT);
@@ -147,7 +136,6 @@ mi_signal_thread(name)
 		}
 	}
 }
-
 /*
 **  MI_SPAWN_SIGNAL_THREAD -- spawn thread to handle signals
 **
@@ -162,8 +150,9 @@ static int
 mi_spawn_signal_thread(name)
 	char *name;
 {
+	sthread_t tid;
+	int r;
 	sigset_t set;
-	pthread_t tid;
 
 	/* Mask HUP and KILL signals */
 	sigemptyset(&set);
@@ -177,16 +166,16 @@ mi_spawn_signal_thread(name)
 			"%s: Couldn't mask HUP and KILL signals", name);
 		return MI_FAILURE;
 	}
-	if (pthread_create(&tid, NULL, mi_signal_thread, (void *)name)
-	    != MI_SUCCESS)
+	r = thread_create(&tid, mi_signal_thread, (void *)name);
+	if (r != 0)
 	{
 		smi_log(SMI_LOG_ERR,
-			"%s: Couldn't start signal thread", name);
+			"%s: Couldn't start signal thread: %d",
+			name, r);
 		return MI_FAILURE;
 	}
 	return MI_SUCCESS;
 }
-
 /*
 **  MI_CONTROL_STARTUP -- startup for thread to handle signals
 **
@@ -223,4 +212,3 @@ mi_control_startup(name)
 	}
 	return MI_SUCCESS;
 }
-#endif /* _FFR_MILTER */

@@ -381,9 +381,7 @@ int
 si_bind(struct socket *so, struct sockaddr *nam,
 	    register struct kextcb *kp)
 {
-    register struct ndrv_cb *np = sotondrvcb(so);
     register struct blueCtlBlock *ifb;
-    register struct ifnet *ifp;
 
     if ((ifb = _MALLOC(sizeof (struct blueCtlBlock), M_PCB, M_WAITOK)) == NULL) {
 #if SIP_DEBUG_ERR
@@ -392,32 +390,13 @@ si_bind(struct socket *so, struct sockaddr *nam,
         return(ENOBUFS);
     }
     bzero(ifb, sizeof(struct blueCtlBlock));
-    np = (struct ndrv_cb *)so->so_pcb;
     TAILQ_INIT(&ifb->fraglist);	/* In case... */
-    if (np == NULL) {
+    if (so->so_pcb == NULL) {
 #if SIP_DEBUG_ERR
         log(LOG_WARNING, "si_bind: np == NULL\n");
 #endif
         if (ifb->dev_media_addr)
             FREE(ifb->dev_media_addr, M_TEMP);
-        _FREE(ifb, M_PCB);
-        return(EINVAL); /* XXX */
-    }
-    if (np->nd_signature != NDRV_SIGNATURE) {
-#if SIP_DEBUG_ERR
-        log(LOG_WARNING, "si_bind: np->signature not NDRV_SIG\n");
-#endif
-        if (ifb->dev_media_addr)
-            FREE(ifb->dev_media_addr, M_TEMP);
-        _FREE(ifb, M_PCB);
-        return(EINVAL); /* XXX */
-    }
-    if ((ifp = np->nd_if) == NULL) { /* Set by ndrv_bind() */
-#if SIP_DEBUG_ERR
-        log(LOG_WARNING, "si_bind: np->nd_if is not set\n");
-#endif
-        if (ifb->dev_media_addr)
-                FREE(ifb->dev_media_addr, M_TEMP);
         _FREE(ifb, M_PCB);
         return(EINVAL); /* XXX */
     }
@@ -456,8 +435,8 @@ si_close(struct socket *so, register struct kextcb *kp)
     s = splnet();
     if ((retval = atalk_stop((struct blueCtlBlock *)kp->e_fcb)) == 0)
     	retval = ipv4_stop((struct blueCtlBlock *)kp->e_fcb);
-    if (retval == 0) {
-        if (ifb && !ifb->fraglist_timer_on)
+    if (retval == 0 && ifb != NULL) {
+        if (!ifb->fraglist_timer_on)
             release_ifb(ifb);
         else
             ifb->ClosePending = 1;
@@ -559,7 +538,7 @@ si_send(struct socket *so, struct sockaddr **addr, struct uio **uio,
      * Check that the interface is not NULL
      */
     if (so->so_pcb != NULL)
-        ifp = (struct ifnet *)((struct ndrv_cb *)so->so_pcb)->nd_if;
+        ifp = ndrv_get_ifp(so->so_pcb);
     else
         ifp = NULL;
     if (ifp == NULL)

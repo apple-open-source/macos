@@ -116,7 +116,7 @@ enable_atalk(struct BlueFilter *bf, void *data, struct blueCtlBlock *ifb)
      *  Can't just hang on to the 'ifa' or sockaddr pointer,
      *  because that might get thrown away in an update.
      */
-    ifp = sotondrvcb(ifb->ifb_so)->nd_if;
+    ifp = ndrv_get_ifp(ifb->ifb_so->so_pcb);
     bzero((caddr_t)&ifb->XAtalkAddr, sizeof (ifb->XAtalkAddr));
     
     /* Assume the first one is it, since AppleTalk only uses one */
@@ -433,7 +433,7 @@ si_send_eth_atalk(register struct mbuf **m_orig, struct blueCtlBlock *ifb)
                 p1 = mtod(m1, unsigned char *);   /* Point to destination media addr */
                 MDATA_ETHER_END(m1);
                 /* find the interface of the X AppleTalk stack to inject this packet on? */
-                m1->m_pkthdr.rcvif = sotondrvcb(ifb->ifb_so)->nd_if;
+                m1->m_pkthdr.rcvif = ndrv_get_ifp(ifb->ifb_so->so_pcb);
                 dlil_inject_pr_input(m1, (char *)p1, ifb->atalk_proto_filter_id);
             } else
                 ifb->no_bufs2++;
@@ -457,7 +457,7 @@ si_send_eth_atalk(register struct mbuf **m_orig, struct blueCtlBlock *ifb)
 #endif
                         MDATA_ETHER_END(m);
                         /* send this packet to the X AT stack, not the network */
-                        m->m_pkthdr.rcvif = sotondrvcb(ifb->ifb_so)->nd_if;
+		                m->m_pkthdr.rcvif = ndrv_get_ifp(ifb->ifb_so->so_pcb);
                         dlil_inject_pr_input(m, p, ifb->atalk_proto_filter_id);
                         return(EJUSTRETURN);
                     } else
@@ -474,7 +474,7 @@ si_send_eth_atalk(register struct mbuf **m_orig, struct blueCtlBlock *ifb)
                     {
                         p1 = mtod(m1, unsigned char *);   /* Point to destination media addr */
                         MDATA_ETHER_END(m1);
-                        m1->m_pkthdr.rcvif = sotondrvcb(ifb->ifb_so)->nd_if;
+                        m1->m_pkthdr.rcvif = ndrv_get_ifp(ifb->ifb_so->so_pcb);
                         dlil_inject_pr_input(m1, p1, ifb->atalk_proto_filter_id);
                     } else
                         ifb->no_bufs2++;

@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# Copyright (c) 1998-2000 Sendmail, Inc. and its suppliers.
+# Copyright (c) 1998-2001 Sendmail, Inc. and its suppliers.
 #	All rights reserved.
 #
 # By using this file, you agree to the terms and conditions set
@@ -8,7 +8,7 @@
 # the sendmail distribution.
 #
 #
-#	$Id: configure.sh,v 1.1.1.1 2000/06/10 00:40:46 wsanchez Exp $
+#	$Id: configure.sh,v 1.1.1.2 2002/03/12 18:00:11 zarzycki Exp $
 
 #
 #  Special script to autoconfigure for M4 generation of Makefile
@@ -17,7 +17,7 @@
 os=""
 resolver=""
 sflag=""
-bin_dir=`echo $0 | sed -e 's/\/[^/]*$//'`
+bin_dir=`echo $0 | sed -e 's%\/[^/]*$%%'`
 if [ ! -d $bin_dir ]
 then
 	bin_dir="."
@@ -180,3 +180,4 @@ in
 		echo "ifdef(\`confNROFF',,\`define(\`confNO_MAN_BUILD')')dnl"
 		;;
 esac
+

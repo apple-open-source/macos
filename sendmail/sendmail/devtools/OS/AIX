@@ -1,4 +1,4 @@
-#	$Id: AIX,v 1.1.1.1 2000/06/10 00:40:47 wsanchez Exp $
+#	$Id: AIX,v 1.1.1.2 2002/03/12 17:59:59 zarzycki Exp $
 define(`confMAPDEF', `-DNDBM -DNIS')
 define(`confENVDEF', `-D_AIX3')
 define(`confOPTIMIZE', `-g')
@@ -7,3 +7,4 @@ define(`confEBINDIR', `/usr/lib')
 define(`confSBINGRP', `system')
 define(`confINSTALL', `/usr/ucb/install')
 define(`confDEPEND_TYPE', `AIX')
+define(`confSM_OS_HEADER', `sm_os_aix')

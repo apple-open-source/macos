@@ -28,6 +28,8 @@
  
  
 #include<IOKit/IOTypes.h>
+#include <IOKit/IOLib.h>
+
 #include"IOATATypes.h"
 #include"IOATACommand.h"
 
@@ -48,8 +50,8 @@
 OSDefineMetaClass( IOATACommand, IOCommand )
 OSDefineAbstractStructors( IOATACommand, IOCommand )
 
-    OSMetaClassDefineReservedUnused(IOATACommand, 0)
-    OSMetaClassDefineReservedUnused(IOATACommand, 1)
+    OSMetaClassDefineReservedUsed(IOATACommand, 0)  //setendResult()
+    OSMetaClassDefineReservedUsed(IOATACommand, 1) // getExtendedLBAPtr()
     OSMetaClassDefineReservedUnused(IOATACommand, 2);
     OSMetaClassDefineReservedUnused(IOATACommand, 3);
     OSMetaClassDefineReservedUnused(IOATACommand, 4);
@@ -79,7 +81,10 @@ OSDefineAbstractStructors( IOATACommand, IOCommand )
 bool
 IOATACommand::init()
 {
-	if( ! super::init() )
+	fExpansionData = (ExpansionData*) IOMalloc( sizeof( ExpansionData) ); 
+	fExpansionData->extLBA = IOExtendedLBA::createIOExtendedLBA( this );
+	
+	if( ! super::init() || fExpansionData == NULL || fExpansionData->extLBA == NULL )
 		return false;
 
 	zeroCommand();
@@ -88,8 +93,19 @@ IOATACommand::init()
 
 }
 
+/*---------------------------------------------------------------------------
+ *	free() - the pseudo destructor. Let go of what we don't need anymore.
+ *
+ *
+ ---------------------------------------------------------------------------*/
+void
+IOATACommand::free()
+{
 
+	getExtendedLBA()->release();
+	IOFree( fExpansionData, sizeof( ExpansionData) );
 
+}
 /*-----------------------------------------------------------------------------
  *
  *
@@ -131,6 +147,8 @@ IOATACommand::zeroCommand(void)
 	}
 
 	_packet.atapiPacketSize = 0;
+	
+	getExtendedLBA()->zeroData();
 
 }
 
@@ -677,3 +695,219 @@ IOATACommand::setLBA28( UInt32 lba, ataUnitID inUnit)
 	return kATANoErr;
 
 }
+
+void 
+IOATACommand::setEndResult(UInt8 inStatus, UInt8 endError  )
+{
+	_status = inStatus;
+	_errReg = endError;
+}
+
+
+
+IOExtendedLBA* 
+IOATACommand::getExtendedLBA(void)
+{
+
+	return fExpansionData->extLBA;
+
+}
+
+
+
+////////////////////////////////////////////////////////////////////////
+#pragma mark IOExtendedLBA
+#undef super
+
+#define super OSObject
+OSDefineMetaClassAndStructors( IOExtendedLBA, OSObject )
+
+OSMetaClassDefineReservedUnused(IOExtendedLBA, 0)
+OSMetaClassDefineReservedUnused(IOExtendedLBA, 1)
+OSMetaClassDefineReservedUnused(IOExtendedLBA, 2);
+OSMetaClassDefineReservedUnused(IOExtendedLBA, 3);
+OSMetaClassDefineReservedUnused(IOExtendedLBA, 4);
+OSMetaClassDefineReservedUnused(IOExtendedLBA, 5);
+OSMetaClassDefineReservedUnused(IOExtendedLBA, 6);
+OSMetaClassDefineReservedUnused(IOExtendedLBA, 7);
+OSMetaClassDefineReservedUnused(IOExtendedLBA, 8);
+OSMetaClassDefineReservedUnused(IOExtendedLBA, 9);
+OSMetaClassDefineReservedUnused(IOExtendedLBA, 10);
+
+
+
+
+
+IOExtendedLBA* 
+IOExtendedLBA::createIOExtendedLBA(IOATACommand* inOwner)
+{
+
+	IOExtendedLBA* me = new IOExtendedLBA;
+	if( me == NULL)
+	{	
+		return NULL;
+	}
+	
+	me->owner = inOwner;
+	me->zeroData();
+	
+	return me;
+
+}
+
+
+	
+void 
+IOExtendedLBA::setLBALow16( UInt16 inLBALow)
+{
+	lbaLow =  inLBALow ;
+
+}
+
+
+UInt16 
+IOExtendedLBA::getLBALow16 (void)
+{
+
+	return lbaLow ;
+
+}
+	
+void 
+IOExtendedLBA::setLBAMid16 (UInt16 inLBAMid)
+{
+
+	lbaMid =  inLBAMid ;
+}
+
+
+UInt16 
+IOExtendedLBA::getLBAMid16( void )
+{
+
+	return lbaMid;
+
+
+}
+	
+void 
+IOExtendedLBA::setLBAHigh16( UInt16 inLBAHigh )
+{
+	lbaHigh =  inLBAHigh ;
+}
+
+
+UInt16 
+IOExtendedLBA::getLBAHigh16( void )
+{
+
+	return lbaHigh;
+
+}
+	
+void 
+IOExtendedLBA::setSectorCount16( UInt16 inSectorCount )
+{
+
+	sectorCount =  inSectorCount ;
+
+}
+
+UInt16 
+IOExtendedLBA::getSectorCount16( void )
+{
+	return sectorCount;
+}
+	
+void 
+IOExtendedLBA::setFeatures16( UInt16 inFeatures )
+{
+	features =  inFeatures;
+}
+
+UInt16 
+IOExtendedLBA::getFeatures16( void )
+{
+
+	return features;
+
+}
+
+void 
+IOExtendedLBA::setDevice( UInt8 inDevice )
+{
+
+	device = inDevice;
+
+}
+
+
+UInt8 
+IOExtendedLBA::getDevice( void )
+{
+
+
+	return device;
+
+}
+
+void 
+IOExtendedLBA::setCommand( UInt8 inCommand )
+{
+
+
+	command = inCommand;
+
+}
+
+
+UInt8 
+IOExtendedLBA::getCommand( void )
+{
+
+	return command;
+}
+
+
+	
+void 
+IOExtendedLBA::setExtendedLBA( UInt32 inLBAHi, UInt32 inLBALo, ataUnitID inUnit, UInt16 extendedCount, UInt8 extendedCommand )
+{
+
+	UInt8 lba7, lba15, lba23, lba31, lba39, lba47;
+	lba7 = (inLBALo & 0xff);
+	lba15 = (inLBALo & 0xff00) >> 8;
+	lba23 = (inLBALo & 0xff0000) >> 16;
+	lba31 = (inLBALo & 0xff000000) >> 24;
+	lba39 = (inLBAHi & 0xff);
+	lba47 = (inLBAHi & 0xff00) >> 8;
+
+	setLBALow16(  lba7 | (lba31 << 8) );
+	setLBAMid16(  lba15 | (lba39 << 8));
+	setLBAHigh16(  lba23 | (lba47 << 8));
+	
+	setSectorCount16( extendedCount );
+	setCommand( extendedCommand );
+	setDevice(   mATALBASelect |( ((UInt8) inUnit) << 4)); // set the LBA bit and device select bits. The rest are reserved in extended addressing.
+
+}
+
+void 
+IOExtendedLBA::getExtendedLBA( UInt32* outLBAHi, UInt32* outLBALo )
+{
+
+
+
+	*outLBALo = (getLBALow16() & 0xFF) | ( (getLBAMid16() & 0xff) << 8) | ((getLBAHigh16() & 0xff) << 16) | ((getLBALow16() & 0xff00) << 16) ; 
+	
+	*outLBAHi = getLBAHigh16() & 0xff00 | ((getLBAMid16() & 0xff00) >> 8) ; 
+
+}
+
+void 
+IOExtendedLBA::zeroData(void)
+{
+	lbaLow = lbaMid = lbaHigh = sectorCount = features = device = command = 0;
+}
+	
+

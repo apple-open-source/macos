@@ -1,0 +1,18 @@
+#	$Id: OpenUNIX.5.i386,v 1.1.1.1 2002/03/12 18:00:07 zarzycki Exp $
+#
+# System V Rel 5.x (a.k.a OpenUNIX)
+#
+define(`confSM_OS_HEADER', `sm_os_openunix')
+define(`confCC', `/usr/ccs/bin/cc')
+define(`confMAPDEF', `-DNDBM -DMAP_REGEX')
+define(`confENVDEF', `-D__svr5__')
+define(`confLIBS', `-lsocket -lnsl -lelf')
+define(`confSHELL', `/usr/bin/sh')
+define(`confMBINDIR', `/usr/lib')
+define(`confSBINDIR', `/etc/mail')
+define(`confUBINDIR', `/etc/mail')
+define(`confEBINDIR', `/usr/lib')
+define(`confSBINGRP', `mail')
+define(`confINSTALL', `/usr/ucb/install')
+define(`confMTCCOPTS', `-Kpthread')
+define(`confMTLDOPTS', `-lpthread')

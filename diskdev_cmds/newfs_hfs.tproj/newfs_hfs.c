@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -40,11 +40,12 @@
 #include <syslog.h>
 #include <unistd.h>
 
-#include <dev/disk.h>
 #include <sys/ioctl.h>
 #include <sys/mount.h>
 #include <sys/param.h>
 #include <sys/stat.h>
+
+#include <IOKit/storage/IOMediaBSDClient.h>
 
 #include <hfs/hfs_format.h>
 #include "newfs_hfs.h"
@@ -59,10 +60,11 @@
 static void getnodeopts __P((char* optlist));
 static void getclumpopts __P((char* optlist));
 static int hfs_newfs __P((char *device, int forceHFS));
-static void hfsplus_params __P((UInt32 sectorCount, UInt32 sectorSize, hfsparams_t *defaults));
+static void hfsplus_params __P((UInt64 sectorCount, UInt32 sectorSize, hfsparams_t *defaults));
 static void hfs_params __P((UInt32 sectorCount, UInt32 sectorSize, hfsparams_t *defaults));
 static UInt32 clumpsizecalc __P((UInt32 clumpblocks));
 static UInt32 CalcBTreeClumpSize __P((UInt32 blockSize, UInt32 nodeSize, UInt32 driveBlocks, int catalog));
+static UInt32 CalcHFSPlusBTreeClumpSize __P((UInt32 blockSize, UInt32 nodeSize, UInt64 sectors, int catalog));
 static void usage __P((void));
 
 
@@ -80,7 +82,7 @@ int	gUserCatNodeSize = FALSE;
 
 UInt32	catnodesiz = 8192;
 UInt32	extnodesiz = 4096;
-UInt32	atrnodesiz = 1024;
+UInt32	atrnodesiz = 4096;
 
 UInt32	catclumpblks = 0;
 UInt32	extclumpblks = 0;
@@ -297,6 +299,7 @@ hfs_newfs(char *device, int forceHFS)
 	int fso = 0;
 	int retval = 0;
 	hfsparams_t defaults;
+	u_int64_t maxSectorsPerIO;
 
 	/*
 	 * Check if target device is aready mounted
@@ -323,15 +326,19 @@ hfs_newfs(char *device, int forceHFS)
 	if (fstat( fso, &stbuf) < 0)
 		fatal("%s: %s", device, strerror(errno));
 
-	if (ioctl(fso, DKIOCNUMBLKS, &dip.totalSectors) < 0)
+	if (ioctl(fso, DKIOCGETBLOCKCOUNT, &dip.totalSectors) < 0)
 		fatal("%s: %s", device, strerror(errno));
 
-	if (ioctl(fso, DKIOCBLKSIZE, &dip.sectorSize) < 0)
+	if (ioctl(fso, DKIOCGETBLOCKSIZE, &dip.sectorSize) < 0)
 		fatal("%s: %s", device, strerror(errno));
 
-        /*
-        * adjust driveInfo sectorSize if != 512
-        */       
+	if (ioctl(fso, DKIOCGETMAXBLOCKCOUNTWRITE, &maxSectorsPerIO) < 0)
+		dip.sectorsPerIO = 128 * 1024 / dip.sectorSize;  /* use 128K as default */
+	else
+		dip.sectorsPerIO = maxSectorsPerIO;
+	/*
+         * Adjust driveInfo when sectorSize != 512
+         */       
         if (dip.sectorSize != kBytesPerSector) {
 
             if (stat(device, &stbuf) < 0)
@@ -343,13 +350,19 @@ hfs_newfs(char *device, int forceHFS)
             if ((dip.sectorSize % kBytesPerSector) != 0)
                 fatal("%d is an unsupported sector size\n", dip.sectorSize);
 
-            dip.totalSectors = dip.totalSectors * (dip.sectorSize / kBytesPerSector);
+            dip.totalSectors *= (dip.sectorSize / kBytesPerSector);
+            dip.sectorsPerIO *= (dip.sectorSize / kBytesPerSector);
             dip.sectorSize = kBytesPerSector;
         }
-               
+  
 	dip.fd = fso;
 	dip.sectorOffset = 0;
 	time(&createtime);
+
+	if (gWrapper && (dip.totalSectors >= kMaxWrapableSectors)) {
+		gWrapper = 0;
+		fprintf(stderr, "%s: WARNING: wrapper option ignored since volume size > 256GB\n", progname);
+	}
 
 	/* Make an HFS disk */
 	if (forceHFS || gWrapper) {
@@ -365,8 +378,8 @@ hfs_newfs(char *device, int forceHFS)
 				dip.totalSectors = totalSectors;
 				dip.sectorOffset = sectorOffset;
 			} else {
-				printf("Initialized %s as a %dMB HFS volume\n",
-					device, dip.totalSectors/2048);
+				printf("Initialized %s as a %ld MB HFS volume\n",
+					device, (long)(dip.totalSectors/2048));
 			}
 		}
 	}
@@ -381,23 +394,26 @@ hfs_newfs(char *device, int forceHFS)
 		if (gNoCreate == 0) {
 			retval = make_hfsplus(&dip, &defaults);
 			if (retval == 0)
-				printf("Initialized %s as a %dMB HFS Plus volume\n",
-					device, dip.totalSectors/2048);
+				printf("Initialized %s as a %ld %s HFS Plus volume\n",
+					device, (dip.totalSectors > 0x2000000) ?
+					(long)((dip.totalSectors + (1024*1024))/(2048*1024)) :
+					(long)((dip.totalSectors + 1024)/2048),
+					(dip.totalSectors > 0x2000000) ? "GB" : "MB");
 		}
 	}
 
 	if (retval)
 		fatal("%s: %s", device, strerror(errno));
 
-    if ( fso > 0 ) {
-        close(fso);
-    }
+	if ( fso > 0 ) {
+		close(fso);
+	}
 
 	return retval;
 }
 
 
-static void hfsplus_params (UInt32 sectorCount, UInt32 sectorSize, hfsparams_t *defaults)
+static void hfsplus_params (UInt64 sectorCount, UInt32 sectorSize, hfsparams_t *defaults)
 {
 	UInt32	totalBlocks;
 	UInt32	minClumpSize;
@@ -440,7 +456,7 @@ static void hfsplus_params (UInt32 sectorCount, UInt32 sectorSize, hfsparams_t *
 	}
 
 	if (catclumpblks == 0) {
-		clumpSize = CalcBTreeClumpSize(gBlockSize, catnodesiz, sectorCount, TRUE);
+		clumpSize = CalcHFSPlusBTreeClumpSize(gBlockSize, catnodesiz, sectorCount, TRUE);
 	}
 	else {
 		clumpSize = clumpsizecalc(catclumpblks);
@@ -454,7 +470,7 @@ static void hfsplus_params (UInt32 sectorCount, UInt32 sectorSize, hfsparams_t *
 		warnx("Warning: block size %ld is less than catalog b-tree node size %ld", gBlockSize, catnodesiz);
 
 	if (extclumpblks == 0) {
-		clumpSize = CalcBTreeClumpSize(gBlockSize, extnodesiz, sectorCount, FALSE);
+		clumpSize = CalcHFSPlusBTreeClumpSize(gBlockSize, extnodesiz, sectorCount, FALSE);
 	}
 	else {
 		clumpSize = clumpsizecalc(extclumpblks);
@@ -508,11 +524,11 @@ static void hfsplus_params (UInt32 sectorCount, UInt32 sectorSize, hfsparams_t *
 
 	if (gNoCreate) {
 		if (!gWrapper)
-			printf("%ld sectors (%ld bytes per sector)\n", sectorCount, sectorSize);
+			printf("%qd sectors (%ld bytes per sector)\n", sectorCount, sectorSize);
 		printf("HFS Plus format parameters:\n");
 		printf("\tvolume name: \"%s\"\n", gVolumeName);
 		printf("\tblock-size: %ld\n", defaults->blockSize);
-		printf("\ttotal blocks: %ld\n", totalBlocks);
+		printf("\ttotal blocks: %lu\n", totalBlocks);
 		printf("\tfirst free catalog node id: %ld\n", defaults->nextFreeFileID);
 		printf("\tcatalog b-tree node size: %ld\n", defaults->catalogNodeSize);
 		printf("\tinitial catalog file size: %ld\n", defaults->catalogClumpSize);
@@ -621,12 +637,12 @@ clumpsizecalc(UInt32 clumpblocks)
 {
 	UInt64 clumpsize;
 
-	clumpsize = (UInt64) clumpblocks * (UInt64) gBlockSize;
+	clumpsize = (UInt64)clumpblocks * (UInt64)gBlockSize;
 		
-	if (clumpsize & (UInt64) 0xFFFFFFFF00000000)
+	if (clumpsize & (UInt64)0xFFFFFFFF00000000)
 		fatal("=%ld: too many blocks for clump size!", clumpblocks);
 
-	return ((UInt32) clumpsize);
+	return ((UInt32)clumpsize);
 }
 
 
@@ -721,6 +737,67 @@ CalcBTreeClumpSize(UInt32 blockSize, UInt32 nodeSize, UInt32 driveBlocks, int ca
 }
 
 
+#define CLUMP_ENTRIES	15
+
+short clumptbl[CLUMP_ENTRIES * 2] = {
+/*
+ *	    Volume	 Catalog	 Extents
+ *	     Size	Clump (MB)	Clump (MB)
+ */
+	/*   1GB */	  4,		 4,
+	/*   2GB */	  6,		 4,
+	/*   4GB */	  8,		 4,
+	/*   8GB */	 11,		 5,
+	/*  16GB */	 14,		 5,
+	/*  32GB */	 19,		 6,
+	/*  64GB */	 25,		 7,
+	/* 128GB */	 34,		 8,
+	/* 256GB */	 45,		 9,
+	/* 512GB */	 60,		11,
+	/*   1TB */	 80,		14,
+	/*   2TB */	107,		16,
+	/*   4TB */	144,		20,
+	/*   8TB */	192,		25,
+	/*  16TB */	256,		32
+};
+
+/*
+ * CalcHFSPlusBTreeClumpSize
+ *	
+ * This routine calculates the file clump size for either
+ * the catalog file or the extents overflow file.
+ */
+static UInt32
+CalcHFSPlusBTreeClumpSize(UInt32 blockSize, UInt32 nodeSize, UInt64 sectors, int catalog)
+{
+	UInt32 mod = MAX(nodeSize, blockSize);
+	UInt32 clumpSize;
+	int i;
+
+	/*
+	 * The default clump size is 0.8% of the volume size. And
+	 * it must also be a multiple of the node and block size.
+	 */
+	if (sectors < 0x200000) {
+		clumpSize = sectors << 2;	/*  0.8 %  */
+	} else {
+		/* turn exponent into table index... */
+		for (i = 0, sectors = sectors >> 22;
+		     sectors && (i < CLUMP_ENTRIES);
+		     ++i, sectors = sectors >> 1);
+		
+		if (catalog)
+			clumpSize = clumptbl[0 + (i) * 2] * 1024 * 1024;
+		else
+			clumpSize = clumptbl[1 + (i) * 2] * 1024 * 1024;
+	}
+	clumpSize /= mod;
+	clumpSize *= mod;
+	
+	return (clumpSize);
+}
+
+
 /* VARARGS */
 void
 #if __STDC__
@@ -755,11 +832,10 @@ void usage()
 {
 	fprintf(stderr, "usage: %s [-h | -w] [-N] [hfsplus-options] special-device\n", progname);
 
-//	fprintf(stderr, "\t-D debug\n");
 	fprintf(stderr, "  options:\n");
 	fprintf(stderr, "\t-h create an HFS format filesystem (HFS Plus is the default)\n");
 	fprintf(stderr, "\t-N do not create file system, just print out parameters\n");
-	fprintf(stderr, "\t-w add a HFS wrapper (i.e. Mac OS 8/9 bootable)\n");
+	fprintf(stderr, "\t-w add a HFS wrapper (i.e. Native Mac OS 8/9 bootable)\n");
 
 	fprintf(stderr, "  where hfsplus-options are:\n");
 	fprintf(stderr, "\t-b allocation block size (4096 optimal)\n");

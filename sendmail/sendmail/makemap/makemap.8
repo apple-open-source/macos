@@ -1,4 +1,4 @@
-.\" Copyright (c) 1998, 1999 Sendmail, Inc. and its suppliers.
+.\" Copyright (c) 1998-2001 Sendmail, Inc. and its suppliers.
 .\"	 All rights reserved.
 .\" Copyright (c) 1988, 1991, 1993
 .\"	The Regents of the University of California.  All rights reserved.
@@ -8,11 +8,11 @@
 .\" the sendmail distribution.
 .\"
 .\"
-.\"     $Id: makemap.8,v 1.1.1.3 2000/06/10 00:40:53 wsanchez Exp $
+.\"     $Id: makemap.8,v 1.1.1.4 2002/03/12 18:00:25 zarzycki Exp $
 .\"
-.TH MAKEMAP 8 "November 16, 1992"
+.TH MAKEMAP 8 "$Date: 2002/03/12 18:00:25 $"
 .SH NAME
-.B makemap
+makemap
 \- create database maps for sendmail
 .SH SYNOPSIS
 .B makemap
@@ -21,7 +21,17 @@
 .RB [ \-N ]
 .RB [ \-c
 .IR cachesize ]
-.RB [ \-d "] [" \-e "] [" \-f "] [" \-l "] [" \-o "] [" \-r "] [" \-s "] [" \-u "] [" \-v ]
+.RB [ \-d ]
+.RB [ \-e ]
+.RB [ \-f ]
+.RB [ \-l ]
+.RB [ \-o ]
+.RB [ \-r ]
+.RB [ \-s ]
+.RB [ \-t
+.IR delim ]
+.RB [ \-u ]
+.RB [ \-v ]
 .I 
 maptype mapnam
 .SH DESCRIPTION
@@ -69,6 +79,15 @@ Literal percents should be doubled
 (``%%'').
 Blank lines and lines beginning with ``#'' are ignored.
 .PP
+Notice: do
+.B not
+use
+.B makemap
+to create the aliases data base, but
+.B newaliases
+which puts a special token into the data base that is required by
+.B sendmail.
+.PP
 If the
 .I TrustedUser
 option is set in the sendmail configuration file and
@@ -79,8 +98,9 @@ the specified
 .SS Flags
 .TP  
 .B \-C
-Use the specified sendmail configuration file for 
-looking up the TrustedUser option.
+Use the specified
+.B sendmail
+configuration file for looking up the TrustedUser option.
 .TP 
 .B \-N
 Include the null byte that terminates strings 
@@ -129,13 +149,16 @@ Ignore safety checks on maps being created.
 This includes checking for hard or symbolic 
 links in world writable directories.
 .TP
+.B \-t
+Use the specified delimiter instead of white space.
+.TP
 .B \-u
 dump (unmap) the content of the database to standard output.
 .TP
 .B \-v
 Verbosely print what it is doing.
 .SH SEE ALSO
-sendmail(8)
+sendmail(8), newaliases(1)
 .SH HISTORY
 The
 .B makemap

@@ -1,4 +1,4 @@
-#       $Id: Makefile,v 1.2 2000/07/25 04:43:51 wsanchez Exp $
+#       $Id: Makefile,v 1.3 2002/03/13 23:23:29 zarzycki Exp $
 
 SHELL= /bin/sh
 BUILD=   ./Build
@@ -12,9 +12,6 @@ install: FRC
 	$(SHELL) $(BUILD) $(OPTIONS) $@
 force-install: FRC
 	$(SHELL) $(BUILD) $(OPTIONS) $@
-
-strip:
-	$(SHELL) $(BUILD) $(OPTIONS) strip-mail.local
 
 fresh: FRC
 	$(SHELL) $(BUILD) $(OPTIONS) -c

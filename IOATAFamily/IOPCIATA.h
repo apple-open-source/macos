@@ -25,7 +25,7 @@
 
 #include <libkern/c++/OSObject.h>
 #include <IOKit/IOTypes.h>
-#include <IOKit/ata/IOATAController.h>
+#include "IOATAController.h"
 #include <IOKit/IOMemoryCursor.h>
 
 #include <IOKit/IOInterruptEventSource.h>

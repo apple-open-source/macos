@@ -292,7 +292,7 @@ IOSCSIPeripheralDeviceNub::message (	UInt32 		type,
 		case kSCSIProtocolNotification_VerifyDeviceState:
 		{
 			
-			messageClients ( kSCSIProtocolNotification_VerifyDeviceState, NULL, NULL );
+			messageClients ( kSCSIProtocolNotification_VerifyDeviceState );
 			status = kIOReturnSuccess;
 			
 		}

@@ -28,11 +28,6 @@
 #include "IOKit/pwr_mgt/IOPM.h"
 #include "IOKit/pci/IOPCIDevice.h"
 
-extern "C" {
-extern void kprintf(const char *, ...);
-}
-
-
 bool auxDriverHasRoot( OSObject * us, void *, IOService * yourDevice );
 
 #define number_of_power_states 3

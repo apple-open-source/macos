@@ -29,7 +29,7 @@
 
 
 #include <CoreFoundation/CoreFoundation.h>
-
+#include <assert.h>
 typedef struct {
     long       			idrefCount;
     CFMutableDictionaryRef	idrefDict;

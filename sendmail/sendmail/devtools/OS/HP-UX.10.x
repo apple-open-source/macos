@@ -1,7 +1,8 @@
-#	$Id: HP-UX.10.x,v 1.1.1.1 2000/06/10 00:40:47 wsanchez Exp $
+#	$Id: HP-UX.10.x,v 1.1.1.2 2002/03/12 18:00:01 zarzycki Exp $
 define(`confCC', `cc -Aa')
 define(`confMAPDEF', `-DNDBM -DNIS -DMAP_REGEX')
 define(`confENVDEF', `-D_HPUX_SOURCE -DV4FS')
+define(`confSM_OS_HEADER', `sm_os_hp')
 define(`confOPTIMIZE', `+O3')
 define(`confLIBS', `-lndbm')
 define(`confSHELL', `/usr/bin/sh')

@@ -34,9 +34,8 @@
 #include <libkern/OSByteOrder.h>
 
 
-/*
- * Read from MII/PHY registers.
- */
+	/* Read from MII/PHY registers.	 */
+
 bool UniNEnet::miiReadWord( UInt16 *dataPtr, UInt16 reg, UInt8 phy )
 {
     UInt32              i;
@@ -56,21 +55,20 @@ bool UniNEnet::miiReadWord( UInt16 *dataPtr, UInt16 reg, UInt8 phy )
 
         if ( miiReg & kMIFBitBangFrame_Output_TA_LSB )
         {
-//            IOLog("Phy = %d Reg = %d miiReg = %08x\n\r", phy, reg, miiReg );
-			ELG( reg << 16 | phy, miiReg, 'miRW', "miiReadWord" );
+			ELG( miiReg, phy << 16 | reg, 'miiR', "miiReadWord" );
             *dataPtr = (UInt16) miiReg;
             return true;
         }
-        IODelay(10);
+        IODelay( 10 );
     }
 
-	ELG( reg << 16 | phy, miiReg, 'miR-', "miiReadWord - failed" );
+	ELG( miiReg, phy << 16 | reg, 'miR-', "miiReadWord - failed" );
     return false;
-}
+}/* end miiReadWord */
 
-/*
- * Write to MII/PHY registers.
- */
+
+	/* Write to MII/PHY registers.	*/
+
 bool UniNEnet::miiWriteWord( UInt16 data, UInt16 reg, UInt8 phy )
 {
     UInt32              i;
@@ -91,15 +89,15 @@ bool UniNEnet::miiWriteWord( UInt16 data, UInt16 reg, UInt8 phy )
         
         if ( miiReg & kMIFBitBangFrame_Output_TA_LSB )
         {
-			ELG( reg << 16 | phy, data, 'miWW', "miiWriteWord" );
+			ELG( data, phy << 16 | reg, 'miiW', "miiWriteWord" );
             return true;
         }
-        IODelay(10);
+        IODelay( 10 );
     }
 
-	ELG( reg << 16 | phy, data, 'miW-', "miiWriteWord - failed" );
+	ELG( data, phy << 16 | reg, 'miW-', "miiWriteWord - failed" );
     return false;
-}
+}/* end miiWriteWord */
 
 
 bool UniNEnet::miiResetPHY( UInt8 phy )
@@ -110,75 +108,53 @@ bool UniNEnet::miiResetPHY( UInt8 phy )
 
 	ELG( i, phy, 'RstP', "miiResetPHY" );
 
-    // Set the reset bit
-    //
-    miiWriteWord( MII_CONTROL_RESET, MII_CONTROL, phy );
-        
-    IOSleep(MII_RESET_DELAY);
+    miiWriteWord( MII_CONTROL_RESET, MII_CONTROL, phy );	// Set the reset bit
+	IOSleep( MII_RESET_DELAY );
 
-    // Wait till reset process is complete (MII_CONTROL_RESET returns to zero)
-    //
+		// Wait till reset process is complete (MII_CONTROL_RESET returns to zero)
+
     while ( i > 0 ) 
     {
-        if ( miiReadWord( &mii_control, MII_CONTROL, phy) == false )
-                return false;
+		if ( miiReadWord( &mii_control, MII_CONTROL, phy ) == false )
+			return false;
 
-        if (!(mii_control & MII_CONTROL_RESET))
-        {
-            miiReadWord( &mii_control, MII_CONTROL, phy);
-            mii_control &= ~MII_CONTROL_ISOLATE;
-            miiWriteWord( mii_control, MII_CONTROL, phy );
-            return true;
-        }
+        if ( !(mii_control & MII_CONTROL_RESET) )
+		{
+			miiReadWord( &mii_control, MII_CONTROL, phy );
+			mii_control &= ~MII_CONTROL_ISOLATE;
+			miiWriteWord( mii_control, MII_CONTROL, phy );
+			return true;
+		}
 
-        IOSleep(MII_RESET_DELAY);
-        i -= MII_RESET_DELAY;
-    }
-    return false;
+		IOSleep( MII_RESET_DELAY );
+		i -= MII_RESET_DELAY;
+	}/* end WHILE */
+
+	return false;
 }/* end miiResetPHY */
 
 
-bool UniNEnet::miiWaitForLink( UInt8 phy )
-{
-    int i = MII_LINK_TIMEOUT;
-    unsigned short mii_status;
-        
-
-	ELG( i, phy, 'miWL', "miiWaitForLink" );
-
-    while (i > 0) 
-    {
-        if ( miiReadWord( &mii_status, MII_STATUS, phy ) == false)
-                return false;
-                
-        if (mii_status & MII_STATUS_LINK_STATUS)
-                return true;
-                
-        IOSleep(MII_LINK_DELAY);
-        i -= MII_LINK_DELAY;
-    }
-    return false;
-}
-
 bool UniNEnet::miiWaitForAutoNegotiation( UInt8 phy )
 {
-    int i = MII_LINK_TIMEOUT;
-    unsigned short mii_status;
-        
+	int			i = MII_LINK_TIMEOUT;
+	UInt16		mii_status;
+
+
 	ELG( i, phy, 'miWA', "miiWaitForAutoNegotiation" );
 
-    while (i > 0) 
-    {
-        if ( miiReadWord( &mii_status, MII_STATUS, phy ) == false)
-                return false;
-                
-        if (mii_status & MII_STATUS_NEGOTIATION_COMPLETE)
-                return true;
-                
-        IOSleep(MII_LINK_DELAY);
-        i -= MII_LINK_DELAY;
-    }
-    return false;
+	while ( i > 0 ) 
+	{
+		if ( miiReadWord( &mii_status, MII_STATUS, phy ) == false )
+			return false;
+	
+		if ( mii_status & MII_STATUS_NEGOTIATION_COMPLETE )
+			return true;
+	
+		IOSleep( MII_LINK_DELAY );
+		i -= MII_LINK_DELAY;
+	}/* end WHILE */
+
+	return false;
 }/* end miiWaitForAutoNegotiation */
 
 
@@ -235,6 +211,22 @@ bool UniNEnet::miiInitializePHY( UInt8 phy )
 			|	MII_ANAR_PAUSE;
 	miiWriteWord( phyWord, MII_ADVERTISEMENT, phy );
 
+	if ( fPHYType == 0x1011 )
+	{		// Marvell 88E1011:
+		ELG( 0, 0, 'mrvl', "miiInitializePHY" );
+		miiReadWord( &phyWord, MII_1000BASETCONTROL, phy );
+		phyWord |= MII_1000BASETCONTROL_FULLDUPLEXCAP
+				|  MII_1000BASETCONTROL_HALFDUPLEXCAP;
+		miiWriteWord( phyWord, MII_1000BASETCONTROL, phy );
+		
+		miiReadWord( &phyWord, MII_CONTROL, phy );
+		phyWord |= MII_CONTROL_AUTONEGOTIATION
+				|  MII_CONTROL_RESTART_NEGOTIATION
+				|  MII_CONTROL_RESET;
+		miiWriteWord( phyWord, MII_CONTROL, phy );
+		IOSleep( 1 );
+		return true;
+	}/* end IF Marvell */
 
 		// Set auto-negotiation-enable bit:
 
@@ -248,9 +240,9 @@ bool UniNEnet::miiInitializePHY( UInt8 phy )
 	phyWord |= MII_CONTROL_RESTART_NEGOTIATION;
 	miiWriteWord( phyWord, MII_CONTROL, phy );
 
+#if 0
 		/* If the system is not connected to the network, then			*/
 		/* auto-negotiation never completes and we hang in this loop!	*/
-#if 0
 	while ( 1 ) 
 	{
 		miiReadWord( &phyWord, MII_CONTROL, phy );

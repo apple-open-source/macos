@@ -1317,7 +1317,7 @@ IOATAController::asyncStatus(void)
 
 	}
 
-
+	 _currentCommand->setEndResult( status, error);
 
 	return err;	
 }	
@@ -1715,23 +1715,67 @@ IOATAController::issueCommand( void )
 	}
 
 	
-	ataTaskFile* tfRegs = _currentCommand->getTaskFilePtr();
 
-	OSSynchronizeIO();
+	if( _currentCommand->getFlags() & mATAFlag48BitLBA )
+	{
+		IOExtendedLBA* extLBA = _currentCommand->getExtendedLBA();
+		*_tfSDHReg = extLBA->getDevice();
+		OSSynchronizeIO();
+		
+		*_tfFeatureReg 	=	(extLBA->getFeatures16() & 0xFF00) >> 8 ;
+		OSSynchronizeIO();
 
-	*_tfSDHReg		= 	tfRegs->ataTFSDH;
+		*_tfFeatureReg 	=	extLBA->getFeatures16() & 0x00FF;
+		OSSynchronizeIO();
 
-	OSSynchronizeIO();
+		*_tfSCountReg 	=	(extLBA->getSectorCount16() & 0xFF00) >> 8 ;
+		OSSynchronizeIO();
 
-	*_tfFeatureReg 	=	tfRegs->ataTFFeatures;
-	*_tfSCountReg 	=	tfRegs->ataTFCount;
-	*_tfSectorNReg 	=	tfRegs->ataTFSector;
-	*_tfCylLoReg 	=	tfRegs->ataTFCylLo;
-	*_tfCylHiReg 	=	tfRegs->ataTFCylHigh;
+		*_tfSCountReg 	=	extLBA->getSectorCount16() & 0x00FF;
+		OSSynchronizeIO();
 
-	OSSynchronizeIO();
+		*_tfSectorNReg 	=	(extLBA->getLBALow16() & 0xFF00) >> 8 ;
+		OSSynchronizeIO();
 
-	*_tfStatusCmdReg =  tfRegs->ataTFCommand;
+		*_tfSectorNReg 	=	extLBA->getLBALow16() & 0x00FF;
+		OSSynchronizeIO();
+
+		*_tfCylLoReg 	=	(extLBA->getLBAMid16() & 0xFF00) >> 8 ;
+		OSSynchronizeIO();
+
+		*_tfCylLoReg 	=	extLBA->getLBAMid16() & 0x00FF;
+		OSSynchronizeIO();
+
+		*_tfCylHiReg 	=	(extLBA->getLBAHigh16() & 0xFF00) >> 8 ;
+		OSSynchronizeIO();
+
+		*_tfCylHiReg 	=	extLBA->getLBAHigh16() & 0x00FF;
+		OSSynchronizeIO();
+
+		*_tfStatusCmdReg =  extLBA->getCommand();
+		OSSynchronizeIO();
+
+	
+	} else {
+	
+		ataTaskFile* tfRegs = _currentCommand->getTaskFilePtr();
+	
+		OSSynchronizeIO();
+	
+		*_tfSDHReg		= 	tfRegs->ataTFSDH;
+	
+		OSSynchronizeIO();
+
+		*_tfFeatureReg 	=	tfRegs->ataTFFeatures;
+		*_tfSCountReg 	=	tfRegs->ataTFCount;
+		*_tfSectorNReg 	=	tfRegs->ataTFSector;
+		*_tfCylLoReg 	=	tfRegs->ataTFCylLo;
+		*_tfCylHiReg 	=	tfRegs->ataTFCylHigh;
+	
+		OSSynchronizeIO();
+	
+		*_tfStatusCmdReg =  tfRegs->ataTFCommand;
+	}
 
 	return kATANoErr;
 }
@@ -2283,7 +2327,7 @@ IOATAController::txDataIn (IOLogicalAddress buf, IOByteCount length)
 	
 	if (length)									// This is needed to handle odd byte transfer
 	{
-		*buf8++ = *((UInt8 *)_tfDataReg);
+		*buf8++ = *(IOATARegPtr8Cast(_tfDataReg));
 		OSSynchronizeIO();									
 		length --;								
 	}
@@ -2355,7 +2399,7 @@ IOATAController::txDataOut(IOLogicalAddress buf, IOByteCount length)
 
 	if (length)									
 	{
-		*((UInt8 *)_tfDataReg) = *((UInt8 *)*buf8++);
+		*(IOATARegPtr8Cast(_tfDataReg)) = *((UInt8 *)*buf8++);
 		OSSynchronizeIO(); 
 		length --;									
 	}
@@ -2474,6 +2518,33 @@ IOATAController::handleOverrun( IOByteCount length)
 	}
 }
 
+UInt16 
+IOATAController::readExtRegister( IOATARegPtr8 inRegister )
+{
+	// read in the lsb of the 16 bit fifo register
+	UInt16 result = (*inRegister);
+	OSSynchronizeIO();
+	// select the HOB bit in the dev ctrl register
+	*_tfAltSDevCReg = 0x80;
+	OSSynchronizeIO();
+	result |= ((UInt16) (*inRegister)) << 8;
+	OSSynchronizeIO();
+	*_tfAltSDevCReg = 0x00;
+	OSSynchronizeIO();
+	return result;
+}
+
+void 
+IOATAController::writeExtRegister( IOATARegPtr8 inRegister, UInt16 inValue )
+{
+	// read in the lsb of the 16 bit fifo register
+	*inRegister = (UInt8)((inValue & 0xFF00) >> 8);
+	OSSynchronizeIO();
+	*inRegister = (UInt8) (inValue & 0xFF);
+	OSSynchronizeIO();
+}
+
+
 /*---------------------------------------------------------------------------
  *
  *	registerAccess read or write the TF registers as indicated by the mask 
@@ -2486,18 +2557,32 @@ IOATAController::registerAccess(bool isWrite)
 {
 	UInt32	RegAccessMask = _currentCommand->getRegMask();
 	IOReturn	err = kATANoErr;
-	
+	bool isExtLBA =  _currentCommand->getFlags() & mATAFlag48BitLBA;
+	IOExtendedLBA* extLBA = _currentCommand->getExtendedLBA();
 	
 		/////////////////////////////////////////////////////////////////////////
 	if (RegAccessMask & mATAErrFeaturesValid)				// error/features register
 	{
 		if(isWrite)
 		{
-			*_tfFeatureReg	= _currentCommand->getErrorReg();
-		
+			if(isExtLBA )
+			{
+				writeExtRegister(_tfFeatureReg,extLBA->getFeatures16());
+			
+			} else {
+
+				*_tfFeatureReg	= _currentCommand->getErrorReg();
+			}
 		}else{
 		
-			_currentCommand->setFeatures( *_tfFeatureReg) ;
+			if(isExtLBA )
+			{
+				extLBA->setFeatures16( readExtRegister(_tfFeatureReg));
+			
+			} else {
+		
+				_currentCommand->setFeatures( *_tfFeatureReg) ;
+			}
 		}
 	}
 
@@ -2506,9 +2591,24 @@ IOATAController::registerAccess(bool isWrite)
 	{
 		if(isWrite)
 		{
-			*_tfSCountReg = _currentCommand->getSectorCount();
+			if(isExtLBA )
+			{
+				writeExtRegister( _tfSCountReg, extLBA->getSectorCount16());
+			
+			} else {
+
+				*_tfSCountReg = _currentCommand->getSectorCount();
+			
+			}
 		}else{
-			_currentCommand->setSectorCount( *_tfSCountReg );
+
+			if(isExtLBA )
+			{
+				extLBA->setSectorCount16( readExtRegister(_tfSCountReg) );
+			
+			} else {
+				_currentCommand->setSectorCount( *_tfSCountReg );
+			}
 		}
 	}
 
@@ -2517,9 +2617,23 @@ IOATAController::registerAccess(bool isWrite)
 	{
 		if(isWrite)
 		{
-			*_tfSectorNReg	= _currentCommand->getSectorNumber();
+			if(isExtLBA )
+			{
+				writeExtRegister( _tfSectorNReg, extLBA->getLBALow16());
+			
+			} else {
+				*_tfSectorNReg	= _currentCommand->getSectorNumber();
+			}
+			
 		}else{
-			_currentCommand->setSectorNumber( *_tfSectorNReg );
+		
+			if(isExtLBA )
+			{
+				extLBA->setLBALow16(readExtRegister(_tfSectorNReg));
+			
+			} else {
+				_currentCommand->setSectorNumber( *_tfSectorNReg );
+			}
 		}
 	}
 
@@ -2528,9 +2642,24 @@ IOATAController::registerAccess(bool isWrite)
 	{
 		if(isWrite)
 		{
-			*_tfCylLoReg	= _currentCommand->getCylLo();
+			if(isExtLBA )
+			{
+				writeExtRegister( _tfCylLoReg, extLBA->getLBAMid16());
+			
+			} else {
+
+				*_tfCylLoReg	= _currentCommand->getCylLo();
+			}
+
 		}else{
-			_currentCommand->setCylLo( *_tfCylLoReg );
+		
+			if(isExtLBA )
+			{
+				extLBA->setLBAMid16(readExtRegister(_tfCylLoReg));
+			
+			} else {
+				_currentCommand->setCylLo( *_tfCylLoReg );
+			}
 		}
 	}
 
@@ -2539,9 +2668,23 @@ IOATAController::registerAccess(bool isWrite)
 	{
 		if(isWrite)
 		{
-			*_tfCylHiReg	= _currentCommand->getCylHi();
+			if(isExtLBA )
+			{
+				writeExtRegister( _tfCylHiReg, extLBA->getLBAHigh16());
+			
+			} else {
+
+				*_tfCylHiReg	= _currentCommand->getCylHi();
+			}
 		}else{
-			_currentCommand->setCylHi( *_tfCylHiReg );
+		
+			if(isExtLBA )
+			{
+				extLBA->setLBAHigh16(readExtRegister(_tfCylHiReg));
+			
+			} else {
+				_currentCommand->setCylHi( *_tfCylHiReg );
+			}
 		}
 	}
 

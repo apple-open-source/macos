@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 1999-2000 Sendmail, Inc. and its suppliers.
+ *  Copyright (c) 1999-2001 Sendmail, Inc. and its suppliers.
  *	All rights reserved.
  *
  * By using this file, you agree to the terms and conditions set
@@ -8,20 +8,14 @@
  *
  */
 
-#ifndef lint
-static char id[] = "@(#)$Id: engine.c,v 1.1.1.1 2000/06/10 00:40:50 wsanchez Exp $";
-#endif /* ! lint */
+#include <sm/gen.h>
+SM_RCSID("@(#)$Id: engine.c,v 1.1.1.2 2002/03/12 18:00:17 zarzycki Exp $")
 
-#if _FFR_MILTER
 #include "libmilter.h"
-#include "sendmail/useful.h"
 
 #if NETINET || NETINET6
 # include <arpa/inet.h>
 #endif /* NETINET || NETINET6 */
-
-/* length of options: two 32bit integers */
-#define MILTER_OPTLEN	8
 
 /* generic argument for functions in the command table */
 struct arg_struct
@@ -87,7 +81,7 @@ static int	st_sender __P((genarg *));
 static int	st_rcpt __P((genarg *));
 static int	st_eoh __P((genarg *));
 static int	st_quit __P((genarg *));
-static int	sendreply __P((sfsistat, int, struct timeval *, SMFICTX_PTR));
+static int	sendreply __P((sfsistat, socket_t, struct timeval *, SMFICTX_PTR));
 static void	fix_stm __P((SMFICTX_PTR));
 static bool	trans_ok __P((int, int));
 static char	**dec_argv __P((char *, size_t));
@@ -110,6 +104,9 @@ static int	dec_arg2 __P((char *, size_t, char **, char **));
 #define ST_LAST	ST_ABRT
 #define ST_SKIP	15	/* not a state but required for the state table */
 
+/* in a mail transaction? must be before eom according to spec. */
+#define ST_IN_MAIL(st)	((st) >= ST_MAIL && (st) < ST_ENDM)
+
 /*
 **  set of next states
 **  each state (ST_*) corresponds to bit in an int value (1 << state)
@@ -118,13 +115,16 @@ static int	dec_arg2 __P((char *, size_t, char **, char **));
 **  is set in the NX_* value
 **  this function is coded in trans_ok(), see below.
 */
+
 #define MASK(x)	(0x0001 << (x))	/* generate a bit "mask" for a state */
 #define NX_INIT	(MASK(ST_OPTS))
 #define NX_OPTS	(MASK(ST_CONN))
 #define NX_CONN	(MASK(ST_HELO) | MASK(ST_MAIL))
-#define NX_HELO	(MASK(ST_MAIL))
+#define NX_HELO	(MASK(ST_HELO) | MASK(ST_MAIL))
 #define NX_MAIL	(MASK(ST_RCPT) | MASK(ST_ABRT))
-#define NX_RCPT	(MASK(ST_HDRS) | MASK(ST_EOHS) | MASK(ST_RCPT) | MASK(ST_ABRT))
+#define NX_RCPT	(MASK(ST_HDRS) | MASK(ST_EOHS) | \
+		 MASK(ST_BODY) | MASK(ST_ENDM) | \
+		 MASK(ST_RCPT) | MASK(ST_ABRT))
 #define NX_HDRS	(MASK(ST_EOHS) | MASK(ST_HDRS) | MASK(ST_ABRT))
 #define NX_EOHS	(MASK(ST_BODY) | MASK(ST_ENDM) | MASK(ST_ABRT))
 #define NX_BODY	(MASK(ST_ENDM) | MASK(ST_BODY) | MASK(ST_ABRT))
@@ -172,8 +172,9 @@ static cmdfct cmds[] =
 #define _SMFIS_OPTIONS	22
 #define _SMFIS_NOREPLY	23
 #define _SMFIS_FAIL	(-1)
+#define _SMFIS_NONE	(-2)
 
-/*
+/*
 **  MI_ENGINE -- receive commands and process them
 **
 **	Parameters:
@@ -187,11 +188,13 @@ mi_engine(ctx)
 	SMFICTX_PTR ctx;
 {
 	size_t len;
-	int i, fd;
+	int i;
+	socket_t sd;
 	int ret = MI_SUCCESS;
 	int ncmds = sizeof(cmds) / sizeof(cmdfct);
 	int curstate = ST_INIT;
 	int newstate;
+	bool call_abort;
 	sfsistat r;
 	char cmd;
 	char *buf = NULL;
@@ -199,29 +202,46 @@ mi_engine(ctx)
 	struct timeval timeout;
 	int (*f) __P((genarg *));
 	sfsistat (*fi_abort) __P((SMFICTX *));
+	sfsistat (*fi_close) __P((SMFICTX *));
 
 	arg.a_ctx = ctx;
-	fd = ctx->ctx_fd;
+	sd = ctx->ctx_sd;
 	fi_abort = ctx->ctx_smfi->xxfi_abort;
 	mi_clr_macros(ctx, 0);
 	fix_stm(ctx);
-	do {
+	r = _SMFIS_NONE;
+	do
+	{
+		/* call abort only if in a mail transaction */
+		call_abort = ST_IN_MAIL(curstate);
 		timeout.tv_sec = ctx->ctx_timeout;
 		timeout.tv_usec = 0;
 		if (mi_stop() == MILTER_ABRT)
 		{
 			if (ctx->ctx_dbg > 3)
-				dprintf("[%d] milter_abort\n",
+				sm_dprintf("[%d] milter_abort\n",
 					(int) ctx->ctx_id);
 			ret = MI_FAILURE;
 			break;
 		}
-		if ((buf = mi_rd_cmd(fd, &timeout, &cmd, &len,
+
+		/*
+		**  Notice: buf is allocated by mi_rd_cmd() and it will
+		**  usually be free()d after it has been used in f().
+		**  However, if the function returns _SMFIS_KEEP then buf
+		**  contains macros and will not be free()d.
+		**  Hence r must be set to _SMFIS_NONE if a new buf is
+		**  allocated to avoid problem with housekeeping, esp.
+		**  if the code "break"s out of the loop.
+		*/
+
+		r = _SMFIS_NONE;
+		if ((buf = mi_rd_cmd(sd, &timeout, &cmd, &len,
 				     ctx->ctx_smfi->xxfi_name)) == NULL &&
 		    cmd < SMFIC_VALIDCMD)
 		{
 			if (ctx->ctx_dbg > 5)
-				dprintf("[%d] error (%x)\n",
+				sm_dprintf("[%d] mi_engine: mi_rd_cmd error (%x)\n",
 					(int) ctx->ctx_id, (int) cmd);
 
 			/*
@@ -234,7 +254,7 @@ mi_engine(ctx)
 			break;
 		}
 		if (ctx->ctx_dbg > 4)
-			dprintf("[%d] got cmd '%c' len %d\n",
+			sm_dprintf("[%d] got cmd '%c' len %d\n",
 				(int) ctx->ctx_id, cmd, len);
 		for (i = 0; i < ncmds; i++)
 		{
@@ -245,7 +265,7 @@ mi_engine(ctx)
 		{
 			/* unknown command */
 			if (ctx->ctx_dbg > 1)
-				dprintf("[%d] cmd '%c' unknown\n",
+				sm_dprintf("[%d] cmd '%c' unknown\n",
 					(int) ctx->ctx_id, cmd);
 			ret = MI_FAILURE;
 			break;
@@ -254,7 +274,7 @@ mi_engine(ctx)
 		{
 			/* stop for now */
 			if (ctx->ctx_dbg > 1)
-				dprintf("[%d] cmd '%c' not impl\n",
+				sm_dprintf("[%d] cmd '%c' not impl\n",
 					(int) ctx->ctx_id, cmd);
 			ret = MI_FAILURE;
 			break;
@@ -263,19 +283,21 @@ mi_engine(ctx)
 		/* is new state ok? */
 		newstate = cmds[i].cm_next;
 		if (ctx->ctx_dbg > 5)
-			dprintf("[%d] cur %x new %x nextmask %x\n",
+			sm_dprintf("[%d] cur %x new %x nextmask %x\n",
 				(int) ctx->ctx_id,
 				curstate, newstate, next_states[curstate]);
 
 		if (newstate != ST_NONE && !trans_ok(curstate, newstate))
 		{
 			if (ctx->ctx_dbg > 1)
-				dprintf("[%d] abort: cur %d (%x) new %d (%x) next %x\n",
+				sm_dprintf("[%d] abort: cur %d (%x) new %d (%x) next %x\n",
 					(int) ctx->ctx_id,
 					curstate, MASK(curstate),
 					newstate, MASK(newstate),
 					next_states[curstate]);
-			if (fi_abort != NULL)
+
+			/* call abort only if in a mail transaction */
+			if (fi_abort != NULL && call_abort)
 				(void) (*fi_abort)(ctx);
 
 			/*
@@ -285,7 +307,11 @@ mi_engine(ctx)
 
 			curstate = ST_HELO;
 			if (!trans_ok(curstate, newstate))
+			{
+				free(buf);
+				buf = NULL;
 				continue;
+			}
 		}
 		arg.a_len = len;
 		arg.a_buf = buf;
@@ -303,12 +329,13 @@ mi_engine(ctx)
 			free(buf);
 			buf = NULL;
 		}
-		if (sendreply(r, fd, &timeout, ctx) != MI_SUCCESS)
+		if (sendreply(r, sd, &timeout, ctx) != MI_SUCCESS)
 		{
 			ret = MI_FAILURE;
 			break;
 		}
 
+		call_abort = ST_IN_MAIL(curstate);
 		if (r == SMFIS_ACCEPT)
 		{
 			/* accept mail, no further actions taken */
@@ -328,7 +355,7 @@ mi_engine(ctx)
 		else if (r == _SMFIS_ABORT)
 		{
 			if (ctx->ctx_dbg > 5)
-				dprintf("[%d] function returned abort\n",
+				sm_dprintf("[%d] function returned abort\n",
 					(int) ctx->ctx_id);
 			ret = MI_FAILURE;
 			break;
@@ -337,27 +364,25 @@ mi_engine(ctx)
 
 	if (ret != MI_SUCCESS)
 	{
-		if (fi_abort != NULL)
+		/* call abort only if in a mail transaction */
+		if (fi_abort != NULL && call_abort)
 			(void) (*fi_abort)(ctx);
 	}
-	else
-	{
-		sfsistat (*fi_close) __P((SMFICTX *));
 
-		if ((fi_close = ctx->ctx_smfi->xxfi_close) != NULL)
-			(void) (*fi_close)(ctx);
-	}
-	if (buf != NULL)
+	/* close must always be called */
+	if ((fi_close = ctx->ctx_smfi->xxfi_close) != NULL)
+		(void) (*fi_close)(ctx);
+	if (r != _SMFIS_KEEP && buf != NULL)
 		free(buf);
 	mi_clr_macros(ctx, 0);
 	return ret;
 }
-/*
+/*
 **  SENDREPLY -- send a reply to the MTA
 **
 **	Parameters:
 **		r -- reply code
-**		fd -- file descriptor
+**		sd -- socket descriptor
 **		timeout_ptr -- (ptr to) timeout to use for sending
 **		ctx -- context structure
 **
@@ -366,24 +391,24 @@ mi_engine(ctx)
 */
 
 static int
-sendreply(r, fd, timeout_ptr, ctx)
+sendreply(r, sd, timeout_ptr, ctx)
 	sfsistat r;
-	int fd;
+	socket_t sd;
 	struct timeval *timeout_ptr;
 	SMFICTX_PTR ctx;
 {
 	int ret = MI_SUCCESS;
 
-	switch(r)
+	switch (r)
 	{
 	  case SMFIS_CONTINUE:
-		ret = mi_wr_cmd(fd, timeout_ptr, SMFIR_CONTINUE, NULL, 0);
+		ret = mi_wr_cmd(sd, timeout_ptr, SMFIR_CONTINUE, NULL, 0);
 		break;
 	  case SMFIS_TEMPFAIL:
 	  case SMFIS_REJECT:
 		if (ctx->ctx_reply != NULL)
 		{
-			ret = mi_wr_cmd(fd, timeout_ptr, SMFIR_REPLYCODE,
+			ret = mi_wr_cmd(sd, timeout_ptr, SMFIR_REPLYCODE,
 					ctx->ctx_reply,
 					strlen(ctx->ctx_reply) + 1);
 			free(ctx->ctx_reply);
@@ -391,15 +416,15 @@ sendreply(r, fd, timeout_ptr, ctx)
 		}
 		else
 		{
-			ret = mi_wr_cmd(fd, timeout_ptr, r == SMFIS_REJECT ?
+			ret = mi_wr_cmd(sd, timeout_ptr, r == SMFIS_REJECT ?
 					SMFIR_REJECT : SMFIR_TEMPFAIL, NULL, 0);
 		}
 		break;
 	  case SMFIS_DISCARD:
-		ret = mi_wr_cmd(fd, timeout_ptr, SMFIR_DISCARD, NULL, 0);
+		ret = mi_wr_cmd(sd, timeout_ptr, SMFIR_DISCARD, NULL, 0);
 		break;
 	  case SMFIS_ACCEPT:
-		ret = mi_wr_cmd(fd, timeout_ptr, SMFIR_ACCEPT, NULL, 0);
+		ret = mi_wr_cmd(sd, timeout_ptr, SMFIR_ACCEPT, NULL, 0);
 		break;
 	  case _SMFIS_OPTIONS:
 		{
@@ -411,7 +436,10 @@ sendreply(r, fd, timeout_ptr, ctx)
 			v = htonl(ctx->ctx_smfi->xxfi_flags);
 			(void) memcpy(&(buf[MILTER_LEN_BYTES]), (void *) &v,
 				      MILTER_LEN_BYTES);
-			ret = mi_wr_cmd(fd, timeout_ptr, SMFIC_OPTNEG, buf,
+			v = htonl(ctx->ctx_pflags);
+			(void) memcpy(&(buf[MILTER_LEN_BYTES * 2]), (void *) &v,
+				      MILTER_LEN_BYTES);
+			ret = mi_wr_cmd(sd, timeout_ptr, SMFIC_OPTNEG, buf,
 				       MILTER_OPTLEN);
 		}
 		break;
@@ -452,7 +480,7 @@ mi_clr_macros(ctx, m)
 		}
 	}
 }
-/*
+/*
 **  ST_OPTIONNEG -- negotiate options
 **
 **	Parameters:
@@ -466,15 +494,17 @@ static int
 st_optionneg(g)
 	genarg *g;
 {
-	mi_int32 i, version;
+	mi_int32 i, v;
 
 	if (g == NULL || g->a_ctx->ctx_smfi == NULL)
 		return SMFIS_CONTINUE;
 	mi_clr_macros(g->a_ctx, g->a_idx + 1);
-	if (g->a_len != MILTER_OPTLEN)
+
+	/* check for minimum length */
+	if (g->a_len < MILTER_OPTLEN)
 	{
 		smi_log(SMI_LOG_ERR,
-			"%s: st_optionneg[%d]: len mismatch %d != %d",
+			"%s: st_optionneg[%d]: len too short %d < %d",
 			g->a_ctx->ctx_smfi->xxfi_name,
 			(int) g->a_ctx->ctx_id, g->a_len,
 			MILTER_OPTLEN);
@@ -483,27 +513,55 @@ st_optionneg(g)
 
 	(void) memcpy((void *) &i, (void *) &(g->a_buf[0]),
 		      MILTER_LEN_BYTES);
-	version = ntohl(i);
-	if (version != g->a_ctx->ctx_smfi->xxfi_version)
+	v = ntohl(i);
+	if (v < g->a_ctx->ctx_smfi->xxfi_version)
 	{
+		/* hard failure for now! */
 		smi_log(SMI_LOG_ERR,
-			"%s: st_optionneg[%d]: version mismatch %d != %d",
+			"%s: st_optionneg[%d]: version mismatch MTA: %d < milter: %d",
 			g->a_ctx->ctx_smfi->xxfi_name,
-			(int) g->a_ctx->ctx_id, (int) version,
+			(int) g->a_ctx->ctx_id, (int) v,
 			g->a_ctx->ctx_smfi->xxfi_version);
 		return _SMFIS_ABORT;
 	}
 
-#if 0
-	/* flags are currently ignored */
 	(void) memcpy((void *) &i, (void *) &(g->a_buf[MILTER_LEN_BYTES]),
 		      MILTER_LEN_BYTES);
-	flags = ntohl(i);
-#endif /* 0 */
+	v = ntohl(i);
+
+	/* no flags? set to default value for V1 actions */
+	if (v == 0)
+		v = SMFI_V1_ACTS;
+	i = g->a_ctx->ctx_smfi->xxfi_flags;
+	if ((v & i) != i)
+	{
+		smi_log(SMI_LOG_ERR,
+			"%s: st_optionneg[%d]: 0x%x does not fulfill action requirements 0x%x",
+			g->a_ctx->ctx_smfi->xxfi_name,
+			(int) g->a_ctx->ctx_id, v, i);
+		return _SMFIS_ABORT;
+	}
+
+	(void) memcpy((void *) &i, (void *) &(g->a_buf[MILTER_LEN_BYTES * 2]),
+		      MILTER_LEN_BYTES);
+	v = ntohl(i);
+
+	/* no flags? set to default value for V1 protocol */
+	if (v == 0)
+		v = SMFI_V1_PROT;
+	i = g->a_ctx->ctx_pflags;
+	if ((v & i) != i)
+	{
+		smi_log(SMI_LOG_ERR,
+			"%s: st_optionneg[%d]: 0x%x does not fulfill protocol requirements 0x%x",
+			g->a_ctx->ctx_smfi->xxfi_name,
+			(int) g->a_ctx->ctx_id, v, i);
+		return _SMFIS_ABORT;
+	}
 
 	return _SMFIS_OPTIONS;
 }
-/*
+/*
 **  ST_CONNECTINFO -- receive connection information
 **
 **	Parameters:
@@ -518,9 +576,9 @@ st_connectinfo(g)
 	genarg *g;
 {
 	size_t l;
-	int i;
+	size_t i;
 	char *s, family;
-	u_short port;
+	unsigned short port = 0;
 	_SOCK_ADDR sockaddr;
 	sfsistat (*fi_connect) __P((SMFICTX *, char *, _SOCK_ADDR *));
 
@@ -569,29 +627,33 @@ st_connectinfo(g)
 				return _SMFIS_ABORT;
 			}
 			sockaddr.sa.sa_family = AF_INET;
+			if (port > 0)
+				sockaddr.sin.sin_port = port;
 		}
 		else
 # endif /* NETINET */
 # if NETINET6
 		if (family == SMFIA_INET6)
 		{
-			if (inet_pton(AF_INET6, s + i,
-				      &sockaddr.sin6.sin6_addr) != 1)
+			if (mi_inet_pton(AF_INET6, s + i,
+					 &sockaddr.sin6.sin6_addr) != 1)
 			{
 				smi_log(SMI_LOG_ERR,
-					"%s: connect[%d]: inet_pton failed",
+					"%s: connect[%d]: mi_inet_pton failed",
 					g->a_ctx->ctx_smfi->xxfi_name,
 					(int) g->a_ctx->ctx_id);
 				return _SMFIS_ABORT;
 			}
 			sockaddr.sa.sa_family = AF_INET6;
+			if (port > 0)
+				sockaddr.sin6.sin6_port = port;
 		}
 		else
 # endif /* NETINET6 */
 # if NETUNIX
 		if (family == SMFIA_UNIX)
 		{
-			if (strlcpy(sockaddr.sunix.sun_path, s + i,
+			if (sm_strlcpy(sockaddr.sunix.sun_path, s + i,
 			    sizeof sockaddr.sunix.sun_path) >=
 			    sizeof sockaddr.sunix.sun_path)
 			{
@@ -616,7 +678,7 @@ st_connectinfo(g)
 	return (*fi_connect)(g->a_ctx, g->a_buf,
 			     family != SMFIA_UNKNOWN ? &sockaddr : NULL);
 }
-/*
+/*
 **  ST_EOH -- end of headers
 **
 **	Parameters:
@@ -639,7 +701,7 @@ st_eoh(g)
 		return (*fi_eoh)(g->a_ctx);
 	return SMFIS_CONTINUE;
 }
-/*
+/*
 **  ST_HELO -- helo/ehlo command
 **
 **	Parameters:
@@ -662,7 +724,7 @@ st_helo(g)
 		return (*fi_helo)(g->a_ctx, g->a_buf);
 	return SMFIS_CONTINUE;
 }
-/*
+/*
 **  ST_HEADER -- header line
 **
 **	Parameters:
@@ -690,24 +752,24 @@ st_header(g)
 		return _SMFIS_ABORT;
 }
 
-#define ARGV_FCT(lf, rf, idx) \
-	char **argv;	\
-	sfsistat (*lf) __P((SMFICTX *, char **));	\
-	int r;	\
-	\
-	if (g == NULL)	\
-		return _SMFIS_ABORT;	\
-	mi_clr_macros(g->a_ctx, g->a_idx + 1);	\
-	if (g->a_ctx->ctx_smfi == NULL ||	\
-	    (lf = g->a_ctx->ctx_smfi->rf) == NULL)	\
-		return SMFIS_CONTINUE;	\
+#define ARGV_FCT(lf, rf, idx)					\
+	char **argv;						\
+	sfsistat (*lf) __P((SMFICTX *, char **));		\
+	int r;							\
+								\
+	if (g == NULL)						\
+		return _SMFIS_ABORT;				\
+	mi_clr_macros(g->a_ctx, g->a_idx + 1);			\
+	if (g->a_ctx->ctx_smfi == NULL ||			\
+	    (lf = g->a_ctx->ctx_smfi->rf) == NULL)		\
+		return SMFIS_CONTINUE;				\
 	if ((argv = dec_argv(g->a_buf, g->a_len)) == NULL)	\
-		return _SMFIS_ABORT;	\
-	r = (*lf)(g->a_ctx, argv);	\
-	free(argv);	\
+		return _SMFIS_ABORT;				\
+	r = (*lf)(g->a_ctx, argv);				\
+	free(argv);						\
 	return r;
 
-/*
+/*
 **  ST_SENDER -- MAIL FROM command
 **
 **	Parameters:
@@ -723,7 +785,7 @@ st_sender(g)
 {
 	ARGV_FCT(fi_envfrom, xxfi_envfrom, CI_MAIL)
 }
-/*
+/*
 **  ST_RCPT -- RCPT TO command
 **
 **	Parameters:
@@ -739,7 +801,7 @@ st_rcpt(g)
 {
 	ARGV_FCT(fi_envrcpt, xxfi_envrcpt, CI_RCPT)
 }
-/*
+/*
 **  ST_MACROS -- deal with macros received from the MTA
 **
 **	Parameters:
@@ -763,7 +825,7 @@ st_macros(g)
 		return _SMFIS_FAIL;
 	if ((argv = dec_argv(g->a_buf + 1, g->a_len - 1)) == NULL)
 		return _SMFIS_FAIL;
-	switch(g->a_buf[0])
+	switch (g->a_buf[0])
 	{
 	  case SMFIC_CONNECT:
 		i = CI_CONN;
@@ -789,7 +851,7 @@ st_macros(g)
 	g->a_ctx->ctx_mac_buf[i] = g->a_buf;
 	return _SMFIS_KEEP;
 }
-/*
+/*
 **  ST_QUIT -- quit command
 **
 **	Parameters:
@@ -805,7 +867,7 @@ st_quit(g)
 {
 	return _SMFIS_NOREPLY;
 }
-/*
+/*
 **  ST_BODYCHUNK -- deal with a piece of the mail body
 **
 **	Parameters:
@@ -819,16 +881,17 @@ static int
 st_bodychunk(g)
 	genarg *g;
 {
-	sfsistat (*fi_body) __P((SMFICTX *, u_char *, size_t));
+	sfsistat (*fi_body) __P((SMFICTX *, unsigned char *, size_t));
 
 	if (g == NULL)
 		return _SMFIS_ABORT;
 	if (g->a_ctx->ctx_smfi != NULL &&
 	    (fi_body = g->a_ctx->ctx_smfi->xxfi_body) != NULL)
-		return (*fi_body)(g->a_ctx, (u_char *)g->a_buf, g->a_len);
+		return (*fi_body)(g->a_ctx, (unsigned char *)g->a_buf,
+				  g->a_len);
 	return SMFIS_CONTINUE;
 }
-/*
+/*
 **  ST_BODYEND -- deal with the last piece of the mail body
 **
 **	Parameters:
@@ -846,7 +909,7 @@ st_bodyend(g)
 	genarg *g;
 {
 	sfsistat r;
-	sfsistat (*fi_body) __P((SMFICTX *, u_char *, size_t));
+	sfsistat (*fi_body) __P((SMFICTX *, unsigned char *, size_t));
 	sfsistat (*fi_eom) __P((SMFICTX *));
 
 	if (g == NULL)
@@ -857,15 +920,16 @@ st_bodyend(g)
 		if ((fi_body = g->a_ctx->ctx_smfi->xxfi_body) != NULL &&
 		    g->a_len > 0)
 		{
-			int fd;
+			socket_t sd;
 			struct timeval timeout;
 
 			timeout.tv_sec = g->a_ctx->ctx_timeout;
 			timeout.tv_usec = 0;
-			fd = g->a_ctx->ctx_fd;
-			r = (*fi_body)(g->a_ctx, (u_char *)g->a_buf, g->a_len);
+			sd = g->a_ctx->ctx_sd;
+			r = (*fi_body)(g->a_ctx, (unsigned char *)g->a_buf,
+				       g->a_len);
 			if (r != SMFIS_CONTINUE &&
-			    sendreply(r, fd, &timeout, g->a_ctx) != MI_SUCCESS)
+			    sendreply(r, sd, &timeout, g->a_ctx) != MI_SUCCESS)
 				return _SMFIS_ABORT;
 		}
 	}
@@ -874,7 +938,7 @@ st_bodyend(g)
 		return (*fi_eom)(g->a_ctx);
 	return r;
 }
-/*
+/*
 **  ST_ABORTFCT -- deal with aborts
 **
 **	Parameters:
@@ -897,7 +961,7 @@ st_abortfct(g)
 		(void) (*fi_abort)(g->a_ctx);
 	return _SMFIS_NOREPLY;
 }
-/*
+/*
 **  TRANS_OK -- is the state transition ok?
 **
 **	Parameters:
@@ -915,16 +979,18 @@ trans_ok(old, new)
 	int s, n;
 
 	s = old;
-	do {
+	do
+	{
 		/* is this state transition allowed? */
 		if ((MASK(new) & next_states[s]) != 0)
-			return TRUE;
+			return true;
 
 		/*
 		**  no: try next state;
 		**  this works since the relevant states are ordered
 		**  strict sequentially
 		*/
+
 		n = s + 1;
 
 		/*
@@ -932,14 +998,15 @@ trans_ok(old, new)
 		**  see fix_stm() which sets this bit for those
 		**  states which the filter program is not interested in
 		*/
+
 		if (bitset(NX_SKIP, next_states[n]))
 			s = n;
 		else
-			return FALSE;
+			return false;
 	} while (s <= ST_LAST);
-	return FALSE;
+	return false;
 }
-/*
+/*
 **  FIX_STM -- add "skip" bits to the state transition table
 **
 **	Parameters:
@@ -956,28 +1023,27 @@ static void
 fix_stm(ctx)
 	SMFICTX_PTR ctx;
 {
-	u_long fl;
+	unsigned long fl;
 
 	if (ctx == NULL || ctx->ctx_smfi == NULL)
 		return;
-	fl = ctx->ctx_smfi->xxfi_flags;
-	if (bitset(SMFIF_NOCONNECT, fl))
+	fl = ctx->ctx_pflags;
+	if (bitset(SMFIP_NOCONNECT, fl))
 		next_states[ST_CONN] |= NX_SKIP;
-	if (bitset(SMFIF_NOHELO, fl))
+	if (bitset(SMFIP_NOHELO, fl))
 		next_states[ST_HELO] |= NX_SKIP;
-	if (bitset(SMFIF_NOMAIL, fl))
+	if (bitset(SMFIP_NOMAIL, fl))
 		next_states[ST_MAIL] |= NX_SKIP;
-	if (bitset(SMFIF_NORCPT, fl))
+	if (bitset(SMFIP_NORCPT, fl))
 		next_states[ST_RCPT] |= NX_SKIP;
-	if (bitset(SMFIF_NOHDRS, fl))
-	{
+	if (bitset(SMFIP_NOHDRS, fl))
 		next_states[ST_HDRS] |= NX_SKIP;
+	if (bitset(SMFIP_NOEOH, fl))
 		next_states[ST_EOHS] |= NX_SKIP;
-	}
-	if (bitset(SMFIF_NOBODY, fl))
+	if (bitset(SMFIP_NOBODY, fl))
 		next_states[ST_BODY] |= NX_SKIP;
 }
-/*
+/*
 **  DEC_ARGV -- split a buffer into a list of strings, NULL terminated
 **
 **	Parameters:
@@ -1019,9 +1085,9 @@ dec_argv(buf, len)
 
 	/* overwrite last entry */
 	s[elem] = NULL;
-	return (s);
+	return s;
 }
-/*
+/*
 **  DEC_ARG2 -- split a buffer into two strings
 **
 **	Parameters:
@@ -1040,7 +1106,7 @@ dec_arg2(buf, len, s1, s2)
 	char **s1;
 	char **s2;
 {
-	int i;
+	size_t i;
 
 	*s1 = buf;
 	for (i = 1; i < len && buf[i] != '\0'; i++)
@@ -1050,7 +1116,7 @@ dec_arg2(buf, len, s1, s2)
 	*s2 = buf + i + 1;
 	return MI_SUCCESS;
 }
-/*
+/*
 **  SENDOK -- is it ok for the filter to send stuff to the MTA?
 **
 **	Parameters:
@@ -1067,9 +1133,12 @@ mi_sendok(ctx, flag)
 	int flag;
 {
 	if (ctx == NULL || ctx->ctx_smfi == NULL)
-		return FALSE;
+		return false;
+
+	/* did the milter request this operation? */
 	if (flag != 0 && !bitset(flag, ctx->ctx_smfi->xxfi_flags))
-		return FALSE;
+		return false;
+
+	/* are we in the correct state? It must be "End of Message". */
 	return ctx->ctx_state == ST_ENDM;
 }
-#endif /* _FFR_MILTER */

@@ -1,9 +1,9 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
+ * "Portions Copyright (c) 1999-2002 Apple Computer, Inc.  All Rights
  * Reserved.  This file contains Original Code and/or Modifications of
  * Original Code as defined in and that are subject to the Apple Public
  * Source License Version 1.0 (the 'License').  You may not use this file
@@ -21,52 +21,8 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-/*
- * Copyright (c) 1998 Apple Computer, Inc. All Rights Reserved
- *
- */
  
- #include <CoreFoundation/CFBase.h>
-
-#if 0
-#define __MACOSTYPES__
-#define __CONDITIONALMACROS__
-#define __MACOSSTUBS__
-
-#define TARGET_CPU_PPC 1
-#define TARGET_CPU_68K 0
-
-#define TARGET_OS_RHAPSODY 1
-#define TARGET_OS_MAC 0
-
-#define PRAGMA_IMPORT 0
-
-
-#define PRAGMA_STRUCT_ALIGN 1
-#define PRAGMA_ONCE 0
-#define PRAGMA_STRUCT_PACK 0
-#define PRAGMA_STRUCT_PACKPUSH 0
-
-#define FOUR_CHAR_CODE(x)	x
-#define EXTERN_API_C(_type)	extern _type
-
-/* Mac OS base integer types */
-typedef unsigned char		UInt8;
-typedef signed char 		SInt8;
-typedef unsigned short 		UInt16;
-typedef signed short 		SInt16;
-typedef unsigned long 		UInt32;
-typedef signed long 		SInt32;
-typedef signed long long	SInt64;
-typedef unsigned long long	UInt64;
-
-
-/* Mac OS string types */
-typedef UInt16			UniChar;
-typedef UInt8			Str31[32];
-typedef UInt8			Str27[28];
-
-#endif
+#include <CoreFoundation/CFBase.h>
 
 /*
  * Mac OS Finder flags
@@ -127,7 +83,11 @@ enum {
 	kVolBitMapStart		= kHeaderBlocks,
 
 	/* Desktop DB, Desktop DF, Finder, System, ReadMe */
-	kWapperFileCount	= 5  
+	kWapperFileCount	= 5,
+	/* Maximum wrapper size is 32MB */
+	kMaxWrapperSize		= 1024 * 1024 * 32,
+	/* Maximum volume that can be wrapped is 256GB */
+	kMaxWrapableSectors	= (kMaxWrapperSize/8) * (65536/512)
 };
 
 /* B-tree key descriptor */
@@ -221,9 +181,10 @@ enum {
 
 struct DriveInfo {
 	int	fd;
-	int	totalSectors;
-	int	sectorSize;
-	int	sectorOffset;
+	UInt32	sectorSize;
+	UInt32	sectorOffset;
+	UInt32	sectorsPerIO;
+	UInt64	totalSectors;
 };
 typedef struct DriveInfo DriveInfo;
 

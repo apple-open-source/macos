@@ -241,20 +241,6 @@ RebuildBtrees:
 	//	we will update the following data structures regardless of whether we have done
 	//	major or minor repairs, so we might end up doing this multiple times. Look into this.
 	//
-
-	//
-	//	Update the MDB
-	//
- 	err = CheckForStop( GPtr ); ReturnIfError( err );				//	Permit the user to interrupt
-				
-	if ( (GPtr->VIStat & S_MDB) != 0 )								//	update MDB / VolumeHeader
-	{
-		MarkVCBDirty( calculatedVCB );
-		/* mark the volume as "clean" after repairs */
-		calculatedVCB->vcbAttributes |= kHFSVolumeUnmountedMask;
-		err = FlushAlternateVolumeControlBlock( calculatedVCB, isHFSPlus );	//	Writes real & alt blocks
-		ReturnIfError( err );
-	}
 	
 	//
 	//	Isolate and fix Overlapping Extents
@@ -272,25 +258,13 @@ RebuildBtrees:
 	}
 	
 	//
-	//	Update the volume bit map
-	//
- 	err = CheckForStop( GPtr ); ReturnIfError( err );				//	Permit the user to interrupt
-
-	if ( (GPtr->VIStat & S_VBM) != 0 )
-	{
-		err = UpdateVolumeBitMap( GPtr, false );							//	update VolumeBitMap
-		ReturnIfError( err );
-		InvalidateCalculatedVolumeBitMap( GPtr );					//	Invalidate our BitMap
-	}
-	
-	//
 	//	FixOrphanedFiles
 	//
  	err = CheckForStop( GPtr ); ReturnIfError( err );				//	Permit the user to interrupt
 				
-	if ( (GPtr->CBTStat & S_Orphan) != 0 )							//	update MDB / VolumeHeader
+	if ( (GPtr->CBTStat & S_Orphan) != 0 )
 	{
-		err = FixOrphanedFiles ( GPtr );
+		err = FixOrphanedFiles ( GPtr );							//	Orphaned file were found
 		ReturnIfError( err );
 	}
 
@@ -359,6 +333,37 @@ RebuildBtrees:
 	if ( (GPtr->CBTStat & S_ReservedNotZero) != 0 )
 	{
 		err = RepairReservedBTreeFields( GPtr );					//	update catalog fields
+		ReturnIfError( err );
+	}
+	
+	//
+	//	Update the volume bit map
+	//
+	// Note, moved volume bit map update to end after other repairs
+	// (except the MDB / VolumeHeader) have been completed
+	//
+ 	err = CheckForStop( GPtr ); ReturnIfError( err );				//	Permit the user to interrupt
+
+	if ( (GPtr->VIStat & S_VBM) != 0 )
+	{
+		err = UpdateVolumeBitMap( GPtr, false );					//	update VolumeBitMap
+		ReturnIfError( err );
+		InvalidateCalculatedVolumeBitMap( GPtr );					//	Invalidate our BitMap
+	}
+
+	//
+	//	Update the MDB / VolumeHeader
+	//
+	// Note, moved MDB / VolumeHeader update to end 
+	// after all other repairs have been completed
+	//
+ 	err = CheckForStop( GPtr ); ReturnIfError( err );				//	Permit the user to interrupt
+				
+	if ( ((GPtr->VIStat & S_MDB) != 0) || IsVCBDirty(calculatedVCB) )		//	update MDB / VolumeHeader
+	{
+		MarkVCBDirty(calculatedVCB);								// make sure its dirty
+		calculatedVCB->vcbAttributes |= kHFSVolumeUnmountedMask;
+		err = FlushAlternateVolumeControlBlock( calculatedVCB, isHFSPlus );	//	Writes real & alt blocks
 		ReturnIfError( err );
 	}
 
@@ -1112,6 +1117,7 @@ DeleteUnlinkedFile(SGlobPtr GPtr, RepairOrderPtr p)
 	(void) DeleteCatalogNode(GPtr->calculatedVCB, p->parid, cNameP, p->hint);
 
 	GPtr->VIStat |= S_MDB;
+	GPtr->VIStat |= S_VBM;
 
 	return (noErr);
 }
@@ -1233,7 +1239,7 @@ Output:		FixMDBdrAlBlSt	- 	function result:
 static	OSErr	FixEmbededVolDescription( SGlobPtr GPtr, RepairOrderPtr p )
 {
 	OSErr			err;
-	UInt32			totalSectors;
+	UInt64			totalSectors;
 	UInt32			sectorSize;
 	HFSMasterDirectoryBlock	*mdb;
 	EmbededVolDescription	*desc;
@@ -1299,7 +1305,7 @@ static	OSErr	FixWrapperExtents( SGlobPtr GPtr, RepairOrderPtr p )
 #pragma unused (p)
 
 	OSErr			err;
-	UInt32			totalSectors;
+	UInt64			totalSectors;
 	UInt32			sectorSize;
 	HFSMasterDirectoryBlock	*mdb;
 	SVCB			*vcb = GPtr->calculatedVCB;

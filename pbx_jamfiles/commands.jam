@@ -1191,6 +1191,9 @@ rule MasterObjectFile
         AppendToFileList $(LINK_FILE_LIST) : $(LINKED) ;
         DEPENDS $(LINK_FILE_LIST) : $(LINKED) ;
     }
+    if $(KEEP_PRIVATE_EXTERNS) != NO {
+        KEEP_PRIVATE_EXTERNS_FLAG on $(1) = -keep_private_externs ;
+    }
     if $(GLUE_FILE_LIST) {
         # !!! cmolick:20000602 making link file list depend on glue file list causes failure
         AppendFileToFileList $(LINK_FILE_LIST) : $(GLUE_FILE_LIST) ;
@@ -1209,7 +1212,7 @@ rule MasterObjectFile
 }
 actions MasterObjectFile.Combine
 {
-    $(CC) $(ARCH_FLAGS) -keep_private_externs $(GLOBAL_CFLAGS) "$(PRELINK_FLAGS)" -nostdlib -filelist "$(2)" -r -o "$(1)" "$(PRELINK_LIBS)"
+    $(CC) $(ARCH_FLAGS) $(KEEP_PRIVATE_EXTERNS_FLAG) $(GLOBAL_CFLAGS) "$(PRELINK_FLAGS)" -nostdlib -filelist "$(2)" -r -o "$(1)" "$(PRELINK_LIBS)"
 }
 actions MasterObjectFile.EditExports
 {

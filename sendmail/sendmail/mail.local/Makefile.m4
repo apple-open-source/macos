@@ -1,11 +1,15 @@
 include(confBUILDTOOLSDIR`/M4/switch.m4')
 
-bldPRODUCT_START(`executable', `mail.local')
-define(`bldNO_INSTALL')
-define(`bldINSTALL_DIR', `E')
-define(`bldSOURCES', `mail.local.c ')
-bldPUSH_SMLIB(`smutil')
+define(`confREQUIRE_LIBSM', `true')
+# sendmail dir
+SMSRCDIR=     ifdef(`confSMSRCDIR', `confSMSRCDIR', `${SRCDIR}/sendmail')
 PREPENDDEF(`confENVDEF', `confMAPDEF')
+PREPENDDEF(`confINCDIRS', `-I${SMSRCDIR} ')
+
+bldPRODUCT_START(`executable', `mail.local')
+define(`bldNO_INSTALL', `true')
+define(`bldSOURCES', `mail.local.c ')
+bldPUSH_SMLIB(`sm')
 bldPRODUCT_END
 
 bldPRODUCT_START(`manpage', `mail.local')
@@ -13,7 +17,7 @@ define(`bldSOURCES', `mail.local.8')
 bldPRODUCT_END
 
 divert(bldTARGETS_SECTION)
-install install-strip:
+install:
 	@echo "NOTE: This version of mail.local is not suited for some operating"
 	@echo "      systems such as HP-UX and Solaris.  Please consult the"
 	@echo "      README file in the mail.local directory.  You can force"
@@ -26,5 +30,3 @@ install-mail.local: mail.local
 divert
 
 bldFINISH
-
-

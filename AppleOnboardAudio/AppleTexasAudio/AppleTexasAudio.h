@@ -97,6 +97,7 @@ protected:
 	Boolean					dallasSpeakersConnected;
 	DRCInfo					drc;										// dynamic range compression info
 	UInt32					layoutID;									// The ID of the machine we're running on
+	UInt32					speakerID;									// The ID of the speakers that are plugged in
 	GpioPtr					hwResetGpio;
 	GpioPtr					hdpnMuteGpio;
 	GpioPtr					ampMuteGpio;
@@ -131,6 +132,10 @@ protected:
 	UInt64					savedNanos; 
 	Boolean					speakerConnectFailed;
 	IOAudioDevicePowerState previousPowerState;
+	Boolean					removeRightVolControl;
+	UInt32					lastLeftVol;
+	UInt32					lastRightVol;
+	Boolean					dallasSpeakersProbed;						// So we only probe the speakers once when they are plugged in
 
 	// information specific to the chip
 	Boolean					gModemSoundActive;
@@ -207,6 +212,8 @@ public:
 	static void DallasInterruptHandlerTimer (OSObject *owner, IOTimerEventSource *sender);
 	static bool	DallasDriverPublished (AppleTexasAudio * appleTexasAudio, void * refCon, IOService * newService);
 	static void DisplaySpeakersNotFullyConnected (OSObject *owner, IOTimerEventSource *sender);
+	static IOReturn DeviceInterruptServiceAction (OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4);
+
 
 	virtual IOReturn performDeviceIdleWake ();
 	virtual IOReturn performDeviceIdleSleep ();
@@ -274,14 +281,26 @@ protected:
 	inline UInt32 ReadWordLittleEndian(void *address, UInt32 offset);
 	inline void WriteWordLittleEndian(void *address, UInt32 offset, UInt32 value);
 	inline void I2SSetSerialFormatReg(UInt32 value);
+	inline UInt32 I2SGetSerialFormatReg(void);
 	inline void I2SSetDataWordSizeReg(UInt32 value);
 	inline UInt32 I2SGetDataWordSizeReg(void);
+	inline UInt32 FCR1GetReg(void);
+	inline UInt32 FCR3GetReg(void);
 
 	inline UInt32 I2SGetIntCtlReg();
 	bool setSampleParameters(UInt32 sampleRate, UInt32 mclkToFsRatio);
 	void setSerialFormatRegister(ClockSource clockSource, UInt32 mclkDivisor, UInt32 sclkDivisor, SoundFormat serialFormat);
 	bool setHWSampleRate(UInt rate);
 	UInt32 frameRate(UInt32 index);
+
+	UInt8 *	getGPIOAddress (UInt32 gpioSelector);
+	void	GpioWriteByte( UInt8* gpioAddress, UInt8 data );
+	UInt8	GpioReadByte( UInt8* gpioAddress );
+
+			// User Client calls
+	virtual UInt8	readGPIO (UInt32 selector);
+	virtual void	writeGPIO (UInt32 selector, UInt8 data);
+	virtual Boolean	getGPIOActiveState (UInt32 gpioSelector);
 };
 
 #endif

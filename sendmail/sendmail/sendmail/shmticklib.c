@@ -10,19 +10,17 @@
  *
  */
 
-#ifndef lint
-static char id[] = "@(#)$Id: shmticklib.c,v 1.1.1.1 2000/06/10 00:40:56 wsanchez Exp $";
-#endif /* ! lint */
+#include <sm/gen.h>
+SM_RCSID("@(#)$Id: shmticklib.c,v 1.1.1.2 2002/03/12 18:00:40 zarzycki Exp $")
 
 #if _FFR_SHM_STATUS
-#  include <stdio.h>
 # include <sys/types.h>
 # include <sys/ipc.h>
 # include <sys/shm.h>
 
 # include "statusd_shm.h"
 
-/*
+/*
 **  SHMTICK -- increment a shared memory variable
 **
 **	Parameters:
@@ -50,10 +48,10 @@ shmtick(inc_me, what)
 		if (shmid < 0)
 			return;
 	}
-	if ((unsigned long *)sp == (unsigned long *)-1)
+	if ((unsigned long *) sp == (unsigned long *)-1)
 	{
-		sp = (STATUSD_SHM *)shmat(shmid, NULL, 0);
-		if ((unsigned long *)sp == (unsigned long *)-1)
+		sp = (STATUSD_SHM *) shmat(shmid, NULL, 0);
+		if ((unsigned long *) sp == (unsigned long *) -1)
 			return;
 	}
 	if (sp->magic != STATUSD_MAGIC)

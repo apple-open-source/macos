@@ -21,7 +21,10 @@
  */
 
 #include <IOKit/scsi-commands/SCSITask.h>
+#include <IOKit/IOMessage.h>
+#include <IOKit/pwr_mgt/RootDomain.h>
 #include "IOSCSIBlockCommandsDevice.h"
+
 
 #define SCSI_SBC_DEVICE_DEBUGGING_LEVEL 0
 
@@ -61,6 +64,100 @@ static IOPMPowerState sPowerStates[kSBCNumPowerStates] =
 	{ kIOPMPowerStateVersion1, (IOPMDeviceUsable | kIOPMPreventIdleSleep), IOPMPowerOn, IOPMPowerOn, 0, 0, 0, 0, 0, 0, 0, 0 },
 	{ kIOPMPowerStateVersion1, (IOPMDeviceUsable | IOPMMaxPerformance | kIOPMPreventIdleSleep), IOPMPowerOn, IOPMPowerOn, 0, 0, 0, 0, 0, 0, 0, 0 }
 };
+
+
+// Static prototypes
+static IOReturn
+IOSCSIBlockCommandsDevicePowerDownHandler ( void * 			target,
+											void * 			refCon,
+											UInt32 			messageType,
+											IOService * 	provider,
+											void * 			messageArgument,
+											vm_size_t 		argSize );
+
+
+//---------------------------------------------------------------------------
+// ¥ IOSCSIBlockCommandsDevicePowerDownHandler -
+// C->C++ Glue code for Power Down Notifications.
+//---------------------------------------------------------------------------
+
+
+static IOReturn
+IOSCSIBlockCommandsDevicePowerDownHandler ( void * 			target,
+											void * 			refCon,
+											UInt32 			messageType,
+											IOService * 	provider,
+											void * 			messageArgument,
+											vm_size_t 		argSize )
+{
+	
+	return ( ( IOSCSIBlockCommandsDevice * ) target )->PowerDownHandler (
+														refCon,
+														messageType,
+														provider,
+														messageArgument,
+														argSize );
+	
+}
+
+
+//---------------------------------------------------------------------------
+// ¥ PowerDownHandler - Method called at sleep/restart/shutdown time.
+//---------------------------------------------------------------------------
+
+IOReturn
+IOSCSIBlockCommandsDevice::PowerDownHandler (	void * 			refCon,
+												UInt32 			messageType,
+												IOService * 	provider,
+												void * 			messageArgument,
+												vm_size_t 		argSize )
+{
+	
+	SCSIServiceResponse		serviceResponse;
+	IOReturn				status 		= kIOReturnUnsupported;
+	SCSITaskIdentifier		request		= NULL;
+	
+	switch ( messageType )
+	{
+		
+		case kIOMessageSystemWillPowerOff:
+			if ( fMediumPresent == true )
+			{
+				
+				// Media is present (but may be spinning). Make sure the drive is spun down.
+				if ( fCurrentPowerState > kSBCPowerStateSleep )
+				{
+					
+					request = GetSCSITask ( );
+					
+					// Make sure the drive is spun down
+					if ( START_STOP_UNIT ( request, 0, 0, 0, 0, 0 ) == true )
+					{
+						
+						serviceResponse = SendCommand ( request, 0 );
+						
+					}
+					
+					ReleaseSCSITask ( request );
+					
+				}
+				
+			}
+			break;
+			
+		case kIOMessageSystemWillSleep:
+		case kIOMessageSystemWillRestart:
+		default:
+			// We don't do anything at sleep or restart time. That is handled via
+			// standard power management functions. See HandlePowerChange() for more
+			// information.
+			break;
+		
+	}
+	
+	return status;
+	
+}
 
 
 //---------------------------------------------------------------------------
@@ -113,6 +210,11 @@ IOSCSIBlockCommandsDevice::InitializePowerManagement ( IOService * provider )
 	// Register ourselves as a "policy maker" for this device. We use
 	// the number of default power states defined by SBC-2.
 	registerPowerDriver ( this, sPowerStates, kSBCNumPowerStates );
+	
+	// Install handler for shutdown notifications
+	fPowerDownNotifier = registerPrioritySleepWakeInterest (
+					( IOServiceInterestHandler ) IOSCSIBlockCommandsDevicePowerDownHandler,
+					this );
 	
 	// Make sure we clamp the lowest power setting that we voluntarily go
 	// into is state kSBCPowerStateSleep. We only enter kSBCPowerStateSystemSleep

@@ -243,7 +243,7 @@ IODVDServices::message ( UInt32 		type,
 		{
 
 			ERROR_LOG ( ( "type = kIOMessageMediaStateHasChanged, nub = %p\n", nub ) );
-			status = messageClients ( type, arg, sizeof ( IOMediaState ) );
+			status = messageClients ( type, arg );
 			ERROR_LOG ( ( "status = %ld\n", ( UInt32 ) status ) );
 		
 		}

@@ -28,7 +28,8 @@
 #include <unistd.h>
 #include <errno.h>
 #include <sys/ioctl.h>
-#include <dev/disk.h>	/* driver kit stuff */
+
+#include <IOKit/storage/IOMediaBSDClient.h>
 
 #else
 
@@ -39,30 +40,29 @@
 #endif
 
 
-OSErr GetDeviceSize(int driveRefNum, UInt32 *numBlocks, UInt32 *blockSize)
+OSErr GetDeviceSize(int driveRefNum, UInt64 *numBlocks, UInt32 *blockSize)
 {
 #if BSD
-	int devBlockCount = 0;
+	UInt64 devBlockCount = 0;
 	int devBlockSize = 0;
 
-	if (ioctl(driveRefNum, DKIOCNUMBLKS, &devBlockCount) < 0) {
-		printf("ioctl(DKIOCNUMBLKS) for fd %d: %s\n", driveRefNum, strerror(errno));
+	if (ioctl(driveRefNum, DKIOCGETBLOCKCOUNT, &devBlockCount) < 0) {
+		printf("ioctl(DKIOCGETBLOCKCOUNT) for fd %d: %s\n", driveRefNum, strerror(errno));
 		return (-1);
 	}
 	
-	if (ioctl(driveRefNum, DKIOCBLKSIZE, &devBlockSize) < 0) {
-		printf("ioctl(DKIOCBLKSIZE) for fd %d: %s\n", driveRefNum, strerror(errno));
+	if (ioctl(driveRefNum, DKIOCGETBLOCKSIZE, &devBlockSize) < 0) {
+		printf("ioctl(DKIOCGETBLOCKSIZE) for fd %d: %s\n", driveRefNum, strerror(errno));
 		return (-1);
 	}
 
 	if (devBlockSize != 512) {
-		devBlockCount = ((UInt64)devBlockCount * (UInt64)devBlockSize) / 512;
-		devBlockSize = 512;
+		*numBlocks = (devBlockCount * (UInt64)devBlockSize) / 512;
+		*blockSize = 512;
+	} else {
+		*numBlocks = devBlockCount;
+		*blockSize = devBlockSize;
 	}
-
-	*numBlocks = devBlockCount;
-	*blockSize = devBlockSize;
-
 	return (0);
 #else
 	/* Various Mac OS device constants */

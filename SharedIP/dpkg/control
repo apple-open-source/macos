@@ -1,0 +1,5 @@
+Package: sharedip
+Maintainer: Darwin Developers <darwin-development@lists.apple.com>
+Vendor: Apple Computer, Inc.
+Build-Depends: build-base, jam, xnu
+Description: Share IP module (used primarily by Classic)

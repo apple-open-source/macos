@@ -20,9 +20,9 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 1999-2000 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 1999-2002 Apple Computer, Inc.  All rights reserved.
  *
- *  DRI: Tom Sherman
+ *  DRI: Dave Radcliffe
  *
  */
 
@@ -40,17 +40,23 @@ class MacRISC2CPU : public IOCPU
     OSDeclareDefaultStructors(MacRISC2CPU);
   
 private:
-    bool                         bootCPU;
-    bool                         flushOnLock;
-    UInt32                       l2crValue;
-    MacRISC2PE                   *macRISC2PE;
-    IOPCI2PCIBridge              *decBridge;
-    UInt32                       numCPUs;
-    bool                         rememberNap;
-    IOService                    *mpic;
-    IOService                    *keyLargo;
-    IOService                    *pmu;
-
+    bool				bootCPU;
+    bool				flushOnLock;
+    UInt32				l2crValue;
+    MacRISC2PE			*macRISC2PE;
+    IOPCI2PCIBridge		*decBridge;
+    UInt32				numCPUs;
+    bool				rememberNap;
+    IOService			*mpic;
+    IOService			*keyLargo;
+    IOService			*pmu;
+    UInt32				soft_reset_offset;
+    UInt32				timebase_enable_offset;
+    IOPMrootDomain		*pmRootDomain;
+	bool				doSleep;
+    bool				processorSpeedChange;
+    UInt32				currentProcessorSpeed;
+    
     virtual void ipiHandler(void *refCon, void *nub, int source);
 
     // callPlatformFunction symbols
@@ -65,16 +71,18 @@ private:
     const OSSymbol 		*keyLargo_turnOffIO;
     const OSSymbol 		*keyLargo_writeRegUInt8;
     const OSSymbol 		*keyLargo_getHostKeyLargo;
+    const OSSymbol 		*keyLargo_setPowerSupply;
 
 public:
     virtual const OSSymbol *getCPUName(void);
   
     virtual bool           start(IOService *provider);
     virtual IOReturn       powerStateWillChangeTo (IOPMPowerFlags, unsigned long, IOService*);
+    virtual IOReturn	   setAggressiveness(unsigned long selector, unsigned long newLevel);
+
     virtual void           initCPU(bool boot);
     virtual void           quiesceCPU(void);
-    virtual kern_return_t  startCPU(vm_offset_t start_paddr,
-				  vm_offset_t arg_paddr);
+    virtual kern_return_t  startCPU(vm_offset_t start_paddr, vm_offset_t arg_paddr);
     virtual void           haltCPU(void);
     virtual void           signalCPU(IOCPU *target);
     virtual void           enableCPUTimeBase(bool enable);

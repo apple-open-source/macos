@@ -21,7 +21,9 @@
  */
  
 #include <IOKit/scsi-commands/SCSITask.h>
-#include <IOKit/scsi-commands/IOSCSIReducedBlockCommandsDevice.h>
+#include <IOKit/IOMessage.h>
+#include <IOKit/pwr_mgt/RootDomain.h>
+#include "IOSCSIReducedBlockCommandsDevice.h"
 
 
 #if ( SCSI_RBC_DEVICE_DEBUGGING_LEVEL >= 1 )
@@ -59,6 +61,100 @@ static IOPMPowerState sPowerStates[kRBCNumPowerStates] =
 	{ kIOPMPowerStateVersion1, (IOPMDeviceUsable | kIOPMPreventIdleSleep), IOPMPowerOn, IOPMPowerOn, 0, 0, 0, 0, 0, 0, 0, 0 },
 	{ kIOPMPowerStateVersion1, (IOPMDeviceUsable | IOPMMaxPerformance | kIOPMPreventIdleSleep), IOPMPowerOn, IOPMPowerOn, 0, 0, 0, 0, 0, 0, 0, 0 }
 };
+
+
+// Static prototypes
+static IOReturn
+IOSCSIReducedBlockCommandsDevicePowerDownHandler ( void * 			target,
+												   void * 			refCon,
+												   UInt32 			messageType,
+												   IOService *		provider,
+												   void * 			messageArgument,
+												   vm_size_t 		argSize );
+
+
+//---------------------------------------------------------------------------
+// ¥ IOSCSIReducedBlockCommandsDevicePowerDownHandler -
+// C->C++ Glue code for Power Down Notifications.
+//---------------------------------------------------------------------------
+
+
+static IOReturn
+IOSCSIReducedBlockCommandsDevicePowerDownHandler ( void * 			target,
+												   void * 			refCon,
+												   UInt32 			messageType,
+												   IOService *		provider,
+												   void * 			messageArgument,
+												   vm_size_t 		argSize )
+{
+	
+	return ( ( IOSCSIReducedBlockCommandsDevice * ) target )->PowerDownHandler (
+														refCon,
+														messageType,
+														provider,
+														messageArgument,
+														argSize );
+	
+}
+
+
+//---------------------------------------------------------------------------
+// ¥ PowerDownHandler - Method called at sleep/restart/shutdown time.
+//---------------------------------------------------------------------------
+
+IOReturn
+IOSCSIReducedBlockCommandsDevice::PowerDownHandler ( void * 		refCon,
+													 UInt32 		messageType,
+													IOService * 	provider,
+													void * 			messageArgument,
+													vm_size_t 		argSize )
+{
+	
+	SCSIServiceResponse		serviceResponse;
+	IOReturn				status 		= kIOReturnUnsupported;
+	SCSITaskIdentifier		request		= NULL;
+	
+	switch ( messageType )
+	{
+		
+		case kIOMessageSystemWillPowerOff:
+			if ( fMediaPresent == true )
+			{
+				
+				// Media is present (but may be spinning). Make sure the drive is spun down.
+				if ( fCurrentPowerState > kRBCPowerStateSleep )
+				{
+					
+					request = GetSCSITask ( );
+					
+					// Make sure the drive is spun down
+					if ( START_STOP_UNIT ( request, 0, 0, 0, 0 ) == true )
+					{
+						
+						serviceResponse = SendCommand ( request, 0 );
+						
+					}
+					
+					ReleaseSCSITask ( request );
+					
+				}
+				
+			}
+			break;
+			
+		case kIOMessageSystemWillSleep:
+		case kIOMessageSystemWillRestart:
+		default:
+			// We don't do anything at sleep or restart time. That is handled via
+			// standard power management functions. See HandlePowerChange() for more
+			// information.
+			break;
+		
+	}
+	
+	return status;
+	
+}
 
 
 //---------------------------------------------------------------------------
@@ -108,7 +204,12 @@ IOSCSIReducedBlockCommandsDevice::InitializePowerManagement ( IOService * provid
 	// Register ourselves as a "policy maker" for this device. We use
 	// the number of default power states defined by RBC.
 	registerPowerDriver ( this, sPowerStates, kRBCNumPowerStates );
-
+	
+	// Install handler for shutdown notifications
+	fPowerDownNotifier = registerPrioritySleepWakeInterest (
+					( IOServiceInterestHandler ) IOSCSIReducedBlockCommandsDevicePowerDownHandler,
+					this );
+	
 	// Make sure we clamp the lowest power setting that we voluntarily go
 	// into is state kRBCPowerStateSleep. We only enter kRBCPowerStateSystemSleep
 	// if told by the power manager during a system sleep.

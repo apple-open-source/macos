@@ -39,8 +39,10 @@ io_service_t	obj = NULL;
     if( obj ) {
         kr = IOServiceOpen( obj,mach_task_self(), 0, &fb);
         if ( kr == kIOReturnSuccess ) {
-        return fb;
+            IOObjectRelease(obj);
+            return fb;
         }
+        IOObjectRelease(obj);
     }
     return 0;
 }

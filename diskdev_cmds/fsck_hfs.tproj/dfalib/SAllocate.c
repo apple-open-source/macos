@@ -372,7 +372,7 @@ static OSErr ReadBitmapBlock(
 	BlockDescriptor *block)
 {
 	OSErr err = noErr;
-	UInt32	blockNum;
+	UInt64	blockNum;
 
 	if (vcb->vcbSignature == kHFSSigWord) {
 		//
@@ -393,7 +393,7 @@ static OSErr ReadBitmapBlock(
 		//
 
 		//
-		//	Find out which physical block holds byte #block in allocation file.  Note that we
+		//	Find out which file block holds byte #block in allocation file.  Note that we
 		//	map only 1 sector.
 		//
 		err = MapFileBlockC(vcb, vcb->vcbAllocationFile, 1, bit/kBitsPerSector, &blockNum, &availableSectors);

@@ -1,6 +1,6 @@
 divert(-1)
 #
-# Copyright (c) 1998, 1999 Sendmail, Inc. and its suppliers.
+# Copyright (c) 1998-2000 Sendmail, Inc. and its suppliers.
 #	All rights reserved.
 #
 # By using this file, you agree to the terms and conditions set
@@ -10,7 +10,7 @@ divert(-1)
 #
 
 divert(0)
-VERSIONID(`$Id: local_lmtp.m4,v 1.1.1.3 2000/06/10 00:40:34 wsanchez Exp $')
+VERSIONID(`$Id: local_lmtp.m4,v 1.1.1.4 2002/03/12 17:59:48 zarzycki Exp $')
 divert(-1)
 
 ifdef(`_MAILER_local_',
@@ -24,3 +24,4 @@ define(`LOCAL_MAILER_PATH',
 define(`LOCAL_MAILER_FLAGS', `PSXfmnz9')
 define(`LOCAL_MAILER_ARGS', `mail.local -l')
 define(`LOCAL_MAILER_DSN_DIAGNOSTIC_CODE', `SMTP')
+define(`_LOCAL_LMTP_', `1')

@@ -27,6 +27,11 @@
 	018F9560FFDDC63011CA29EB = {
 		activeExec = 0;
 	};
+	028A11A200C715EF11CE168A = {
+		uiCtxt = {
+			sepNavWindowFrame = "{{15, 671}, {750, 502}}";
+		};
+	};
 	0325496CFFDDCAD711CA29EB = {
 		activeExec = 0;
 	};
@@ -46,14 +51,14 @@
 		);
 		perUserDictionary = {
 			PBXWorkspaceConfiguration = {
-				ContentSize = "{1284, 1063}";
+				ContentSize = "{1275, 975}";
 				LeftSlideOut = {
-					ActiveTab = 0;
-					Frame = "{{0, 23}, {1284, 1040}}";
+					ActiveTab = 3;
+					Frame = "{{0, 23}, {1275, 952}}";
 					Split0 = {
-						Frame = "{{341, 0}, {943, 1040}}";
+						Frame = "{{225, 0}, {1050, 952}}";
 						Split0 = {
-							Frame = "{{0, 25}, {943, 1015}}";
+							Frame = "{{0, 25}, {1050, 927}}";
 						};
 						SplitCount = 1;
 						Tab0 = {
@@ -89,18 +94,18 @@
 							};
 						};
 						Tab2 = {
-							BuildMessageFrame = "{{0, 0}, {1261, 186}}";
-							BuildTranscriptFrame = "{{0, 195}, {1261, 1}}";
-							Frame = "{{0, 0}, {1259, 194}}";
+							BuildMessageFrame = "{{0, 0}, {936, 165}}";
+							BuildTranscriptFrame = "{{0, 174}, {936, 0}}";
+							Frame = "{{0, 0}, {934, 172}}";
 						};
 						Tab3 = {
-							Frame = "{{0, 0}, {943, 295}}";
+							Frame = "{{0, 0}, {934, 295}}";
 						};
 						TabCount = 4;
 					};
 					SplitCount = 1;
 					Tab0 = {
-						Frame = "{{0, 0}, {316, 1040}}";
+						Frame = "{{0, 0}, {316, 952}}";
 					};
 					Tab1 = {
 						ClassesFrame = "{{0, 0}, {202, 56}}";
@@ -112,12 +117,12 @@
 						Frame = "{{0, 0}, {200, 100}}";
 					};
 					Tab3 = {
-						Frame = "{{0, 0}, {200, 1040}}";
+						Frame = "{{0, 0}, {200, 952}}";
 						Split0 = {
-							Frame = "{{0, 0}, {200, 724}}";
+							Frame = "{{0, 0}, {200, 662}}";
 						};
 						Split1 = {
-							Frame = "{{0, 733}, {200, 307}}";
+							Frame = "{{0, 671}, {200, 281}}";
 						};
 						SplitCount = 2;
 					};
@@ -126,7 +131,7 @@
 					};
 					TabCount = 5;
 				};
-				WindowLocation = "{315, 53}";
+				WindowLocation = "{56, 141}";
 			};
 		};
 		userBookmarkGroup = F629065201B2B55301CE1662;
@@ -184,6 +189,11 @@
 	F635ED2B0187708A01CE1665 = {
 		uiCtxt = {
 			sepNavWindowFrame = "{{61, 629}, {750, 502}}";
+		};
+	};
+	F635ED2C0187708A01CE1665 = {
+		uiCtxt = {
+			sepNavWindowFrame = "{{84, 608}, {750, 502}}";
 		};
 	};
 	F6635A27017C7E0C01CE1665 = {

@@ -11,32 +11,49 @@ ToolType = Services
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
 build::
+	mkdir -p $(DSTROOT)/usr/share/man/man1
+	mkdir -p $(DSTROOT)/usr/share/man/man5
+	mkdir -p $(DSTROOT)/usr/share/man/man8
+	mkdir -p $(DSTROOT)/usr/bin
+	mkdir -p $(DSTROOT)/usr/sbin
+	mkdir -p $(DSTROOT)/usr/libexec
+	mkdir -p $(DSTROOT)/private/etc/mail
+	mkdir -p $(DSTROOT)/private/var
+	ln -sf private/etc $(DSTROOT)/etc
+	ln -sf private/var $(DSTROOT)/var
 	$(_v) $(MAKE) -C $(Sources)/$(Project)	\
 		Extra_CC_Flags="$(CFLAGS)"	\
 		Extra_LD_Flags="$(LDFLAGS)"	\
 		OPTIONS='-O "$(OBJROOT)"'
 
-install:: install-sendmail install-cf install-doc install-contrib
+install:: install-sendmail install-cf install-doc
 
 install-sendmail:
 	$(_v) umask $(Install_Mask) ;				\
 	      $(MAKE) -C $(Sources)/$(Project)			\
-		install-strip					\
+		install						\
 		DESTDIR="$(DSTROOT)"				\
 		STDIR="/private/var/log"			\
 		OPTIONS='-O"$(OBJROOT)"'
 	$(_v) umask $(Install_Mask) ;				\
 	      $(MAKE) -C $(Sources)/$(Project)/mail.local	\
-		force-install strip				\
+		force-install 					\
 		DESTDIR="$(DSTROOT)"				\
 		STDIR="/private/var/log"			\
 		OPTIONS='-O"$(OBJROOT)"'
-	$(_v) umask $(Install_Mask) ;				\
-	      $(MAKE) -C $(Sources)/$(Project)/rmail		\
-		force-install strip				\
-		DESTDIR="$(DSTROOT)"				\
-		STDIR="/private/var/log"			\
-		OPTIONS='-O"$(OBJROOT)"'
+	strip -x $(DSTROOT)/usr/bin/vacation
+	strip -x $(DSTROOT)/usr/libexec/mail.local
+	strip -x $(DSTROOT)/usr/libexec/smrsh
+	strip -x $(DSTROOT)/usr/sbin/editmap
+	strip -x $(DSTROOT)/usr/sbin/mailstats
+	strip -x $(DSTROOT)/usr/sbin/makemap
+	strip -x $(DSTROOT)/usr/sbin/praliases
+	strip -x $(DSTROOT)/usr/sbin/sendmail
+	chown root.smmsp $(DSTROOT)/usr/sbin/sendmail
+	chmod 4555 $(DSTROOT)/usr/sbin/sendmail
+	echo "# sample access file" > $(DSTROOT)/private/etc/mail/access
+	makemap hash $(DSTROOT)/private/etc/mail/access < $(DSTROOT)/private/etc/mail/access
+
 
 DATADIR       = $(SHAREDIR)/sendmail
 CONFDIR       = $(DATADIR)/conf
@@ -73,6 +90,7 @@ install-cf:
 	$(INSTALL_FILE) -c $(Project)/cf/ostype/*.m4     $(DSTROOT)$(OSTYPEDIR)
 	$(INSTALL_FILE) -c $(Project)/cf/sh/*.sh         $(DSTROOT)$(SHDIR)
 	$(INSTALL_FILE) -c $(Project)/cf/siteconfig/*.m4 $(DSTROOT)$(SITECONFIGDIR)
+	$(INSTALL_FILE) -c $(SRCROOT)/README $(DSTROOT)/$(ETCDIR)/mail/
 	umask $(Install_Mask) ; $(INSTALL_DIRECTORY) $(DSTROOT)$(ETCDIR)/mail
 	$(M4) -D_CF_DIR_=$(DSTROOT)$(CONFDIR)/ $(DSTROOT)$(M4DIR)/cf.m4                         \
 		$(DSTROOT)$(CFDIR)/generic-darwin.mc > $(DSTROOT)$(ETCDIR)/mail/sendmail.cf
@@ -90,10 +108,3 @@ install-doc:
 	$(INSTALL_FILE) -c $(Project)/README		$(DSTROOT)$(DOCSDIR)
 	$(INSTALL_FILE) -c $(Project)/RELEASE_NOTES	$(DSTROOT)$(DOCSDIR)
 	$(INSTALL_FILE) -c $(Project)/doc/op/op.ps	$(DSTROOT)$(DOCSDIR)
-
-install-contrib:
-	@echo "Installing contrib files..."
-	umask $(Install_Mask) ; $(INSTALL_DIRECTORY) $(DSTROOT)$(USRBINDIR)
-	umask $(Install_Mask) ; $(INSTALL_DIRECTORY) $(DSTROOT)$(MANDIR)/man1
-	$(INSTALL_SCRIPT) -c $(Project)/contrib/expn.pl $(DSTROOT)$(USRBINDIR)/expn
-	$(LN) -fs $(USRBINDIR)/expn $(DSTROOT)$(MANDIR)/man1/expn.1

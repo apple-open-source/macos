@@ -447,7 +447,7 @@ OSString *IOAudioEngine::getGlobalUniqueID()
         uniqueIDSize += localID->getLength();
     }
         
-    uniqueIDStr = (char *)IOMalloc(uniqueIDSize);
+    uniqueIDStr = (char *)IOMallocAligned(uniqueIDSize, sizeof (char));
     bzero(uniqueIDStr, uniqueIDSize);
     
     if (uniqueIDStr) {
@@ -467,7 +467,7 @@ OSString *IOAudioEngine::getGlobalUniqueID()
         
         uniqueID = OSString::withCString(uniqueIDStr);
         
-        IOFree(uniqueIDStr, uniqueIDSize);
+        IOFreeAligned(uniqueIDStr, uniqueIDSize);
     }
 
     return uniqueID;
@@ -1021,11 +1021,11 @@ IOLog("IOAudioEngine[%p]::updateChannelNumbers() - o=%ld i=%ld\n", this, maxNumO
 #endif
 
     if (maxNumOutputChannels > 0) {
-        outputChannelNumbers = (SInt32 *)IOMalloc(maxNumOutputChannels * sizeof(SInt32));
+        outputChannelNumbers = (SInt32 *)IOMallocAligned(maxNumOutputChannels * sizeof(SInt32), sizeof (SInt32));
     }
     
     if (maxNumInputChannels > 0) {
-        inputChannelNumbers = (SInt32 *)IOMalloc(maxNumInputChannels * sizeof(SInt32));
+        inputChannelNumbers = (SInt32 *)IOMallocAligned(maxNumInputChannels * sizeof(SInt32), sizeof (SInt32));
     }
     
     currentChannelID = 1;
@@ -1176,11 +1176,11 @@ IOLog("IOAudioEngine[%p]::updateChannelNumbers() - o=%ld i=%ld\n", this, maxNumO
     }
     
     if (outputChannelNumbers && (maxNumOutputChannels > 0)) {
-        IOFree(outputChannelNumbers, maxNumOutputChannels * sizeof(SInt32));
+        IOFreeAligned(outputChannelNumbers, maxNumOutputChannels * sizeof(SInt32));
     }
     
     if (inputChannelNumbers && (maxNumInputChannels > 0)) {
-        IOFree(inputChannelNumbers, maxNumInputChannels * sizeof(SInt32));
+        IOFreeAligned(inputChannelNumbers, maxNumInputChannels * sizeof(SInt32));
     }
 }
 
@@ -1537,7 +1537,7 @@ void IOAudioEngine::performErase()
 
     assert(status);
     
-    if (getRunEraseHead()) {
+    if (getRunEraseHead() && getState() == kIOAudioEngineRunning) {
         OSCollectionIterator *outputIterator;
         IOAudioStream *outputStream;
         
@@ -1554,6 +1554,8 @@ void IOAudioEngine::performErase()
                 char *sampleBuf, *mixBuf;
                 UInt32 sampleBufferFrameSize, mixBufferFrameSize;
                 
+				outputStream->lockStreamForIO();
+
                 sampleBuf = (char *)outputStream->getSampleBuffer();
                 mixBuf = (char *)outputStream->getMixBuffer();
                 
@@ -1565,28 +1567,38 @@ void IOAudioEngine::performErase()
                     IOLog("IOAudioEngine[%p]::performErase() - erasing from frame: 0x%lx to 0x%lx\n", this, eraseHeadSampleFrame, numSampleFramesPerBuffer);
                     IOLog("IOAudioEngine[%p]::performErase() - erasing from frame: 0x%x to 0x%lx\n", this, 0, currentSampleFrame);
 #endif
-                    if (sampleBuf && (sampleBufferFrameSize > 0)) {
-                        bzero(sampleBuf, currentSampleFrame * sampleBufferFrameSize);
-                        bzero(sampleBuf + (eraseHeadSampleFrame * sampleBufferFrameSize), (numSampleFramesPerBuffer - eraseHeadSampleFrame) * sampleBufferFrameSize);
-                    }
-                    
-                    if (mixBuf && (mixBufferFrameSize > 0)) {
-                        bzero(mixBuf, currentSampleFrame * mixBufferFrameSize);
-                        bzero(mixBuf + (eraseHeadSampleFrame * mixBufferFrameSize), (numSampleFramesPerBuffer - eraseHeadSampleFrame) * mixBufferFrameSize);
-                    }
+					if ((currentSampleFrame * sampleBufferFrameSize <= outputStream->getSampleBufferSize()) &&
+						((eraseHeadSampleFrame * sampleBufferFrameSize) + (numSampleFramesPerBuffer - eraseHeadSampleFrame) * sampleBufferFrameSize) <= outputStream->getSampleBufferSize()) {
+						if (sampleBuf && (sampleBufferFrameSize > 0)) {
+							bzero(sampleBuf, currentSampleFrame * sampleBufferFrameSize);
+							bzero(sampleBuf + (eraseHeadSampleFrame * sampleBufferFrameSize), (numSampleFramesPerBuffer - eraseHeadSampleFrame) * sampleBufferFrameSize);
+						}
+					}
+					if ((currentSampleFrame * mixBufferFrameSize <= outputStream->getMixBufferSize()) &&
+						((eraseHeadSampleFrame * mixBufferFrameSize) + (numSampleFramesPerBuffer - eraseHeadSampleFrame) * mixBufferFrameSize) <= outputStream->getMixBufferSize()) {
+						if (mixBuf && (mixBufferFrameSize > 0)) {
+							bzero(mixBuf, currentSampleFrame * mixBufferFrameSize);
+							bzero(mixBuf + (eraseHeadSampleFrame * mixBufferFrameSize), (numSampleFramesPerBuffer - eraseHeadSampleFrame) * mixBufferFrameSize);
+						}
+					}
                 } else {
 #ifdef DEBUG_TIMER
                     IOLog("IOAudioEngine[%p]::performErase() - erasing from frame: 0x%lx to 0x%lx\n", this, eraseHeadSampleFrame, currentSampleFrame);
 #endif
 
-                    if (sampleBuf && (sampleBufferFrameSize > 0)) {
-                        bzero(sampleBuf + (eraseHeadSampleFrame * sampleBufferFrameSize), (currentSampleFrame - eraseHeadSampleFrame) * sampleBufferFrameSize);
-                    }
-                    
-                    if (mixBuf && (mixBufferFrameSize > 0)) {
-                        bzero(mixBuf + (eraseHeadSampleFrame * mixBufferFrameSize), (currentSampleFrame - eraseHeadSampleFrame) * mixBufferFrameSize);
-                    }
+					if ((eraseHeadSampleFrame * sampleBufferFrameSize + (currentSampleFrame - eraseHeadSampleFrame) * sampleBufferFrameSize) <= outputStream->getSampleBufferSize()) {
+						if (sampleBuf && (sampleBufferFrameSize > 0)) {
+							bzero(sampleBuf + (eraseHeadSampleFrame * sampleBufferFrameSize), (currentSampleFrame - eraseHeadSampleFrame) * sampleBufferFrameSize);
+						}
+					}
+					if ((eraseHeadSampleFrame * mixBufferFrameSize + (currentSampleFrame - eraseHeadSampleFrame) * mixBufferFrameSize) <= outputStream->getMixBufferSize()) {
+						if (mixBuf && (mixBufferFrameSize > 0)) {
+							bzero(mixBuf + (eraseHeadSampleFrame * mixBufferFrameSize), (currentSampleFrame - eraseHeadSampleFrame) * mixBufferFrameSize);
+						}
+					}
                 }
+
+				outputStream->unlockStreamForIO();
             }
             
             status->fEraseHeadSampleFrame = currentSampleFrame;

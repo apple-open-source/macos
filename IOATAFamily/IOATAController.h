@@ -28,7 +28,7 @@
 #include <IOKit/IOCommandGate.h>
 #include <IOKit/IOService.h>
 #include <IOKit/IOWorkLoop.h>
-#include <IOKit/ata/ATATimerEventSource.h>
+#include "ATATimerEventSource.h"
 
 class IOATADevice;
 class IOATABusCommand;
@@ -260,7 +260,10 @@ protected:
 	// convert a bit-significant indicator to a numeric value.
 	virtual UInt16 bitSigToNumeric( UInt16 binary);
 
-
+	// for 48 bit register reading and writing 
+	UInt16 readExtRegister( IOATARegPtr8 inRegister );
+	void writeExtRegister( IOATARegPtr8 inRegister, UInt16 inValue );
+	
 private:
 
 	// used called by the commandgate in executeCommand.

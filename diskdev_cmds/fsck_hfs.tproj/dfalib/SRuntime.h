@@ -355,7 +355,7 @@ struct SFCB {
 typedef struct SFCB SFCB;
 
 
-extern OSErr GetDeviceSize(int driveRefNum, UInt32 *numBlocks, UInt32 *blockSize);
+extern OSErr GetDeviceSize(int driveRefNum, UInt64 *numBlocks, UInt32 *blockSize);
 
 extern OSErr DeviceRead(int device, int drive, void* buffer, SInt64 offset, UInt32 reqBytes, UInt32 *actBytes);
 
@@ -367,7 +367,7 @@ extern OSErr DeviceWrite(int device, int drive, void* buffer, SInt64 offset, UIn
  */
 extern void      InitBlockCache(SVCB *volume);
 
-extern OSStatus  GetVolumeBlock (SVCB *volume, UInt32 blockNum, GetBlockOptions options,
+extern OSStatus  GetVolumeBlock (SVCB *volume, UInt64 blockNum, GetBlockOptions options,
 				BlockDescriptor *block);
 
 extern OSStatus  ReleaseVolumeBlock (SVCB *volume, BlockDescriptor *block,

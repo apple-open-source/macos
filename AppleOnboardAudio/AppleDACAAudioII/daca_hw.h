@@ -29,6 +29,8 @@
 #ifndef _DACA_HW_H
 #define _DACA_HW_H
 
+#define kDACASampleLatency		32
+
 /*
  * I2S registers:
  */

@@ -502,8 +502,12 @@ void AppleBurgundyAudio::sndHWInitialize(IOService *provider){
 	
     DEBUG_IOLOG("- AppleBurgundyAudio::sndHWInitialize\n");
 }
-    
-    
+
+void AppleBurgundyAudio::sndHWPostDMAEngineInit (IOService *provider) {
+	if (NULL != driverDMAEngine)
+		driverDMAEngine->setSampleLatencies (kBurgundySampleLatency, kBurgundySampleLatency);
+}
+
 UInt32 	AppleBurgundyAudio::sndHWGetInSenseBits(){
     UInt32 status, inSense;
     
@@ -778,6 +782,7 @@ IOReturn  AppleBurgundyAudio::sndHWSetSystemMute (bool mutestate){
 	IOReturn			result = kIOReturnSuccess;
 	UInt32				mutes;
 
+	mutes = 0;		// mute everything and keep the compiler happy
 	if (mutestate != mIsMute) {
 		mIsMute = mutestate;
 		if (mutestate) {

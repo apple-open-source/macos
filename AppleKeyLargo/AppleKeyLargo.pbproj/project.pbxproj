@@ -100,7 +100,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleKeyLargo;
-				MODULE_VERSION = 1.1.5d1;
+				MODULE_VERSION = 1.1.5d2;
 				OTHER_CFLAGS = "-fpermissive -D_BIG_ENDIAN";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -142,7 +142,7 @@
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1.5d1</string>
+	<string>1.1.5d2</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleKeyLargo</key>

@@ -1,6 +1,6 @@
 PUSHDIVERT(-1)
 #
-# Copyright (c) 1998, 1999 Sendmail, Inc. and its suppliers.
+# Copyright (c) 1998-2000 Sendmail, Inc. and its suppliers.
 #	All rights reserved.
 # Copyright (c) 1983 Eric P. Allman.  All rights reserved.
 # Copyright (c) 1988, 1993
@@ -12,19 +12,17 @@ PUSHDIVERT(-1)
 #
 #
 
-ifdef(`_MAILER_local_', `',
-	`errprint(`*** MAILER(`local') must appear before MAILER(`usenet')')')dnl
-
 ifdef(`USENET_MAILER_PATH',, `define(`USENET_MAILER_PATH', /usr/lib/news/inews)')
 _DEFIFNOT(`USENET_MAILER_FLAGS', `rsDFMmn')
 ifdef(`USENET_MAILER_ARGS',, `define(`USENET_MAILER_ARGS', `inews -m -h -n')')
+define(`_USENET_QGRP', `ifelse(defn(`USENET_MAILER_QGRP'),`',`', ` Q=USENET_MAILER_QGRP,')')dnl
 POPDIVERT
 ####################################
 ###  USENET Mailer specification ###
 ####################################
 
-VERSIONID(`$Id: usenet.m4,v 1.1.1.3 2000/06/10 00:40:39 wsanchez Exp $')
+VERSIONID(`$Id: usenet.m4,v 1.1.1.4 2002/03/12 17:59:52 zarzycki Exp $')
 
 Musenet,	P=USENET_MAILER_PATH, F=_MODMF_(USENET_MAILER_FLAGS, `USENET'), S=EnvFromL, R=EnvToL,
-		_OPTINS(`USENET_MAILER_MAX', `M=', `, ')T=X-Usenet/X-Usenet/X-Unix,
+		_OPTINS(`USENET_MAILER_MAX', `M=', `, ')T=X-Usenet/X-Usenet/X-Unix,USENET_MAILER_QGRP
 		A=USENET_MAILER_ARGS $u

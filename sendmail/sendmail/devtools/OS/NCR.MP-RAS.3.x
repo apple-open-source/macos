@@ -1,10 +1,8 @@
-#	$Id: NCR.MP-RAS.3.x,v 1.1.1.1 2000/06/10 00:40:47 wsanchez Exp $
+#	$Id: NCR.MP-RAS.3.x,v 1.1.1.2 2002/03/12 18:00:04 zarzycki Exp $
 define(`confMAPDEF', `-DNDBM -DMAP_REGEX')
 define(`confENVDEF', `-DNCR_MP_RAS3')
 define(`confOPTIMIZE', `-O2')
-APPENDDEF(`confINCDIRS', `-I/usr/include -I/usr/ucbinclude')
-define(`confLIBDIRS', `-L/usr/ucblib')
-define(`confLIBS', `-lsocket -lnsl -lelf -lc -lucb')
+define(`confLIBS', `-lsocket -lnsl -lelf -lc89')
 define(`confMBINDIR', `/usr/ucblib')
 define(`confSBINDIR', `/usr/ucbetc')
 define(`confUBINDIR', `/usr/ucb')

@@ -1,8 +1,9 @@
-#	$Id: SunOS.5.2,v 1.1.1.1 2000/06/10 00:40:48 wsanchez Exp $
+#	$Id: SunOS.5.2,v 1.1.1.2 2002/03/12 18:00:08 zarzycki Exp $
 define(`confCC', `gcc')
 define(`confBEFORE', `sysexits.h')
 define(`confMAPDEF', `-DNDBM -DNIS')
 define(`confENVDEF', `-DSOLARIS=20100')
+define(`confSM_OS_HEADER', `sm_os_sunos')
 define(`confLIBS', `-lsocket -lnsl -lelf')
 define(`confMBINDIR', `/usr/lib')
 define(`confSBINDIR', `/usr/etc')

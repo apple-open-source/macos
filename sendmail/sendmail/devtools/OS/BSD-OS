@@ -1,4 +1,4 @@
-#	$Id: BSD-OS,v 1.1.1.1 2000/06/10 00:40:47 wsanchez Exp $
+#	$Id: BSD-OS,v 1.1.1.2 2002/03/12 18:00:00 zarzycki Exp $
 define(`confMAPDEF', `-DNEWDB -DMAP_REGEX')
 define(`confENVDEF', `-DNETISO')
 define(`confLIBS', `-lutil -lkvm')
@@ -6,4 +6,3 @@ define(`confOPTIMIZE', `-O2')
 define(`confMAN1EXT', `0')
 define(`confMAN5EXT', `0')
 define(`confMAN8EXT', `0')
-define(`confSTDIO_TYPE', `torek')

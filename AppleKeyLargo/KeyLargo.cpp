@@ -117,6 +117,7 @@ bool KeyLargo::start(IOService *provider)
   keyLargo_modemResetHigh = OSSymbol::withCString("ModemResetHigh");
   keyLargo_getHostKeyLargo = OSSymbol::withCString("keyLargo_getHostKeyLargo");
   keyLargo_powerI2S = OSSymbol::withCString("keyLargo_powerI2S");
+  keyLargo_setPowerSupply = OSSymbol::withCString("setPowerSupply");
   
   // Call MacIO's start.
   if (!super::start(provider))
@@ -1315,6 +1316,11 @@ IOReturn KeyLargo::callPlatformFunction(const OSSymbol *functionName,
         return kIOReturnSuccess;
     }
 
+    if (functionName == keyLargo_setPowerSupply)
+    {
+        return SetPowerSupply((bool)param1);
+    }
+
     return super::callPlatformFunction(functionName, waitForFunction, param1, param2, param3, param4);
 }
 
@@ -1562,6 +1568,51 @@ void KeyLargo::PowerI2S (bool powerOn, UInt32 cellNum)
 	return;
 }
 
+/*
+ * set the power supply to hi or low power state.  This is used for processor
+ * speed cycling
+ */
+IOReturn KeyLargo::SetPowerSupply (bool powerHi)
+{
+	char			value;
+	UInt32			delay;
+    OSIterator 		*childIterator;
+    IORegistryEntry *childEntry;
+	OSData			*regData;
+	
+	if (!keyLargoCPUVCoreSelectGPIO) {
+		// locate the gpio node associated with cpu-vcore-select
+		if ((childIterator = getChildIterator (gIOServicePlane)) != NULL) {
+			while ((childEntry = (IORegistryEntry *)(childIterator->getNextObject ())) != NULL) {
+				if (!strcmp ("cpu-vcore-select", childEntry->getName(gIOServicePlane))) {
+					regData = OSDynamicCast( OSData, childEntry->getProperty( "reg" ));
+					if (regData) {
+						// get the GPIO offset from the reg property
+						keyLargoCPUVCoreSelectGPIO = *(UInt32 *) regData->getBytesNoCopy();
+						break;
+					}
+				}
+			}
+			childIterator->release();
+		}
+	
+		if (!keyLargoCPUVCoreSelectGPIO)		// If still unknown return unsupported
+			return (kIOReturnUnsupported);
+	}
+
+	// Set gpio for 1 for high voltage, 0 for low voltage
+	value = kKeyLargoGPIOOutputEnable | (powerHi ? kKeyLargoGPIOData : 0);
+	writeRegUInt8 (keyLargoCPUVCoreSelectGPIO, value);
+	
+	// Wait for power supply to ramp up.
+	delay = 200;
+	assert_wait(&delay, THREAD_UNINT);
+	thread_set_timer(delay, NSEC_PER_USEC);
+	thread_block(0);
+
+	return (kIOReturnSuccess);
+}
+
 void KeyLargo::resetUniNEthernetPhy(void)
 {
   // Uni-N Ethernet's Phy reset is controlled by GPIO16.
@@ -1571,8 +1622,8 @@ void KeyLargo::resetUniNEthernetPhy(void)
   // and bring it out of low-power mode.
   writeRegUInt8(kKeyLargoGPIOBase + 16, kKeyLargoGPIOOutputEnable);
   IOSleep(10);
-  writeRegUInt8(kKeyLargoGPIOBase + 16,
-		kKeyLargoGPIOOutputEnable | kKeyLargoGPIOData);
+  // Make direction an input so we don't continue to drive the data line
+  writeRegUInt8(kKeyLargoGPIOBase + 16, kKeyLargoGPIOData);
   IOSleep(10);
 }
 

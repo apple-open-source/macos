@@ -1,4 +1,4 @@
-#	$Id: NeXT.4.x,v 1.1.1.1 2000/06/10 00:40:47 wsanchez Exp $
+#	$Id: NeXT.4.x,v 1.1.1.2 2002/03/12 18:00:06 zarzycki Exp $
 PUSHDIVERT(1)
 # NEXTSTEP 3.1 and 3.2 only support m68k and i386
 #ARCH=  -arch m68k -arch i386 -arch hppa -arch sparc
@@ -6,6 +6,7 @@ PUSHDIVERT(1)
 #ARCH=   ${RC_CFLAGS}
 # For new sendmail Makefile structure, this must go in the ENVDEF and LDOPTS
 POPDIVERT
+define(`confSM_OS_HEADER', `sm_os_next')
 define(`confBEFORE', `unistd.h dirent.h')
 define(`confMAPDEF', `-DNDBM -DNIS -DNETINFO')
 define(`confENVDEF', `-DNeXT -Wno-precomp -pipe ${RC_CFLAGS}')
@@ -13,6 +14,8 @@ define(`confLDOPTS', `${RC_CFLAGS}')
 define(`confLIBS', `-ldbm')
 define(`confRANLIBOPTS', `-c')
 define(`confINSTALL_RAWMAN')
+define(`confMANROOT', `/usr/man/cat')
+define(`confMANROOTMAN', `/usr/man/man')
 define(`confMANOWN', `root')
 define(`confMANGRP', `wheel')
 define(`confUBINOWN', `root')

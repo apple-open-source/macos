@@ -61,6 +61,11 @@
 #define IOATARegPtr8 volatile UInt8* 
 #define IOATARegPtr16 volatile UInt16*
 #define IOATARegPtr32 volatile UInt32*
+#define IOATARegPtr8Cast(x) ((IOATARegPtr8)(x))
+#elif defined( __i386__ )
+#include <IOKit/ata/IOATARegI386.h>
+#else
+#error Unknown machine architecture
 #endif
 
 enum ataSocketType{
@@ -213,6 +218,9 @@ enum ataFlags{
 	bATAFlagTFAccess			= 0,							/* bit number of TF access */
 
 	mATAFlagUseNoIRQ			= 1 << bATAFlagNoIRQ,  			/* Special purpose! Avoid using! No-IRQ, polled synchronous protocol valid only for PIO commands*/
+	mATAFlag48BitLBA			= 1 << bATAFlag48BitLBA,		/* Use 48 bit extended LBA protocol on this command. Requires support from the controller.*/
+	mATAFlagDMAQueued			= 1 << bATAFlagDMAQueued,		/* Use tagged dma queuing protocol on this command. Requires support from the controller.*/
+	mATAFlagOverlapped			= 1 << bATAFlagOverlapped,		/* Use overllaped protocol on this command. Requires support from the controller.*/
 	mATAFlagUseConfigSpeed		= 1 << bATAFlagUseConfigSpeed,  /* Use the configured interface speed = true. False = use default PIO (slow) speed. valid only for PIO commands*/
 	mATAFlagByteSwap			= 1 << bATAFlagByteSwap,		/* Swap data bytes (read - after; write - before)*/
 	mATAFlagIORead				= 1 << bATAFlagIORead,			/* Read (in) operation*/
@@ -272,8 +280,12 @@ enum {
 	kATAcmdRecal				= 0x0010,						/* Recalibrate command */
 	kATAcmdRead					= 0x0020,						/* Read command */
 	kATAcmdReadLong				= 0x0022,						/* Read Long command*/
+	kATAcmdReadExtended			= 0x0024,						/* Read Extended (with retries)*/
+	kATAcmdReadDMAExtended		= 0x0025,						/* Read DMA Extended (with retries)*/
 	kATAcmdWrite				= 0x0030,						/* Write command */
 	kATAcmdWriteLong			= 0x0032,						/* Write Long*/
+	kATAcmdWriteExtended		= 0x0034,						/* Write Extended (with retries)*/
+	kATAcmdWriteDMAExtended		= 0x0035,						/* Write DMA Extended (with retries)*/
 	kATAcmdWriteVerify			= 0x003C,						/* Write verify*/
 	kATAcmdReadVerify			= 0x0040,						/* Read Verify command */
 	kATAcmdFormatTrack			= 0x0050,						/* Format Track command */
@@ -295,8 +307,10 @@ enum {
 	kATAcmdReadBuffer			= 0x00E4,						/* Read sector buffer command */
 	kATAcmdCheckPowerMode		= 0x00E5,						/* Check power mode command	<04/04/94>*/
 	kATAcmdSleep				= 0x00E6,						/* Sleep*/
+	kATAcmdFlushCache			= 0x00E7,						/* Flush Cache */
 	kATAcmdWriteBuffer			= 0x00E8,						/* Write sector buffer command */
 	kATAcmdWriteSame			= 0x00E9,						/* Write same data to multiple sectors*/
+	kATAcmdFlushCacheExtended	= 0x00EA,						/* Flush Cache Extended */
 	kATAcmdDriveIdentify		= 0x00EC,						/* Identify Drive command */
 	kATAcmdMediaEject			= 0x00ED,						/* Media Eject*/
 	kATAcmdSetFeatures			= 0x00EF						/* Set Features*/
@@ -305,9 +319,10 @@ enum {
 /* Set feature command opcodes*/
 enum {
 	kATAEnableWriteCache		= 0x02,							/*		Enable write cache*/
-	kATADisableWriteCache		= 0x82,							/*		disable write cache*/
 	kATASetTransferMode			= 0x03,							/*		Set transfer mode*/
+	kATAEnableAPM				= 0x05,							/* 		Enable Advanced Power Management*/
 	kATASetPIOMode				= 0x08,							/*		PIO Flow Control Tx Mode bit*/
+	kATADisableWriteCache		= 0x82,							/*		disable write cache*/
 	kATAEnableReadAhead			= 0xAA							/*		Read look-ahead enable*/
 };
 

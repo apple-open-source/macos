@@ -30,7 +30,7 @@ extern OSErr MapFileBlockC (
 	SFCB *   fcb,
 	UInt32   numberOfBytes,
 	UInt32   sectorOffset,
-	UInt32 * startSector,
+	UInt64 * startSector,
 	UInt32 * availableBytes
 );
 
@@ -55,7 +55,7 @@ InitBlockCache(SVCB *volume)
  *  kGetEmptyBlock
  */
 OSStatus
-GetVolumeBlock (SVCB *volume, UInt32 blockNum, GetBlockOptions options, BlockDescriptor *block)
+GetVolumeBlock (SVCB *volume, UInt64 blockNum, GetBlockOptions options, BlockDescriptor *block)
 {
 	UInt32  blockSize;
 	SInt64  offset;
@@ -121,7 +121,7 @@ ReleaseVolumeBlock (SVCB *volume, BlockDescriptor *block, ReleaseBlockOptions op
 OSStatus
 GetFileBlock (SFCB *file, UInt32 blockNum, GetBlockOptions options, BlockDescriptor *block)
 {
-	UInt32	diskBlock;
+	UInt64	diskBlock;
 	UInt32	contiguousBytes;
 	SInt64  offset;
 
@@ -215,7 +215,7 @@ SetFileBlockSize (SFCB *file, ByteCount blockSize)
 static OSStatus
 ReadFragmentedBlock (SFCB *file, UInt32 blockNum, BlockDescriptor *block)
 {
-	UInt32	sector;
+	UInt64	sector;
 	UInt32	fragSize, blockSize;
 	UInt32  fileOffset;
 	SInt64  diskOffset;
@@ -252,7 +252,7 @@ ReadFragmentedBlock (SFCB *file, UInt32 blockNum, BlockDescriptor *block)
 					&sector, &fragSize);
 		if (result) goto ErrorExit;
 
-		diskOffset = (SInt64) ((UInt64) sector) << kSectorShift;
+		diskOffset = (SInt64) (sector) << kSectorShift;
 		result = CacheRead (cache, diskOffset, fragSize, &bufs[i]);
 		if (result) goto ErrorExit;
 		

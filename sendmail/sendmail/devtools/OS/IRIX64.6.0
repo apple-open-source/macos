@@ -1,9 +1,13 @@
-#	$Id: IRIX64.6.0,v 1.1.1.1 2000/06/10 00:40:47 wsanchez Exp $
+#	$Id: IRIX64.6.0,v 1.1.1.2 2002/03/12 18:00:02 zarzycki Exp $
 define(`confMAPDEF', `-DNDBM')
 define(`confENVDEF', `-DIRIX64')
+define(`confSM_OS_HEADER', `sm_os_irix')
 define(`confLIBS', `-lelf -lmalloc')
+define(`confMANOWN', `root')         
+define(`confMANGRP', `sys')                
+define(`confUBINOWN', `root')         
+define(`confUBINGRP', `sys')                
 define(`confMBINDIR', `/usr/lib')
-define(`confSBINDIR', `/usr/etc')
 define(`confUBINDIR', `/usr/bsd')
 define(`confEBINDIR', `/usr/lib')
 define(`confSBINGRP', `sys')

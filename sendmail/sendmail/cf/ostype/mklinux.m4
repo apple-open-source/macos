@@ -15,7 +15,8 @@ divert(-1)
 #
 
 divert(0)
-VERSIONID(`$Id: mklinux.m4,v 1.1.1.3 2000/06/10 00:40:42 wsanchez Exp $')
+VERSIONID(`$Id: mklinux.m4,v 1.1.1.4 2002/03/12 17:59:54 zarzycki Exp $')
+define(`confEBINDIR', `/usr/sbin')
 ifdef(`STATUS_FILE',,
 	`define(`STATUS_FILE', `/var/log/sendmail.st')')
 ifdef(`PROCMAIL_MAILER_PATH',,

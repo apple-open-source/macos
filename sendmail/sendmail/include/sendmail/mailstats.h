@@ -10,10 +10,14 @@
  * the sendmail distribution.
  *
  *
- *	$Id: mailstats.h,v 1.1.1.1 2000/06/10 00:40:50 wsanchez Exp $
+ *	$Id: mailstats.h,v 1.1.1.2 2002/03/12 18:00:16 zarzycki Exp $
  */
 
-#define STAT_VERSION	3
+#if _FFR_QUARANTINE
+# define STAT_VERSION	4
+#else /* _FFR_QUARANTINE */
+# define STAT_VERSION	3
+#endif /* _FFR_QUARANTINE */
 #define STAT_MAGIC	0x1B1DE
 
 /*
@@ -35,4 +39,7 @@ struct statistics
 	long	stat_bt[MAXMAILERS];	/* kbytes to each mailer */
 	long	stat_nr[MAXMAILERS];	/* # rejects by each mailer */
 	long	stat_nd[MAXMAILERS];	/* # discards by each mailer */
+#if _FFR_QUARANTINE
+	long	stat_nq[MAXMAILERS];	/* # quarantines by each mailer */
+#endif /* _FFR_QUARANTINE */
 };

@@ -8,15 +8,14 @@
  *
  */
 
-#ifndef lint
-static char id[] = "@(#)$Id: handler.c,v 1.1.1.1 2000/06/10 00:40:50 wsanchez Exp $";
-#endif /* ! lint */
+#include <sm/gen.h>
+SM_RCSID("@(#)$Id: handler.c,v 1.1.1.2 2002/03/12 18:00:17 zarzycki Exp $")
 
-#if _FFR_MILTER
 #include "libmilter.h"
 
+
 /*
-**  HANDLE_SESSION -- Handle a connected session in it's own context
+**  HANDLE_SESSION -- Handle a connected session in its own context
 **
 **	Parameters:
 **		ctx -- context structure
@@ -33,7 +32,7 @@ mi_handle_session(ctx)
 
 	if (ctx == NULL)
 		return MI_FAILURE;
-	ctx->ctx_id = pthread_self();
+	ctx->ctx_id = (sthread_t) sthread_get_id();
 
 	/*
 	**  detach so resources are free when the thread returns
@@ -42,10 +41,16 @@ mi_handle_session(ctx)
 	if (pthread_detach(ctx->ctx_id) != 0)
 		return MI_FAILURE;
 	ret = mi_engine(ctx);
-	if (ctx->ctx_fd >= 0)
-		(void) close(ctx->ctx_fd);
+	if (ValidSocket(ctx->ctx_sd))
+	{
+		(void) closesocket(ctx->ctx_sd);
+		ctx->ctx_sd = INVALID_SOCKET;
+	}
 	if (ctx->ctx_reply != NULL)
+	{
 		free(ctx->ctx_reply);
+		ctx->ctx_reply = NULL;
+	}
 	if (ctx->ctx_privdata != NULL)
 	{
 		smi_log(SMI_LOG_WARN,
@@ -57,4 +62,3 @@ mi_handle_session(ctx)
 	ctx = NULL;
 	return ret;
 }
-#endif /* _FFR_MILTER */

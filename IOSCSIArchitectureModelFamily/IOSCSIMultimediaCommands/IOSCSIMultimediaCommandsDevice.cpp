@@ -56,16 +56,18 @@
 #endif
 
 
-#define	kMaxProfileSize						56
-#define kDiscInformationSize				32
-#define kATIPBufferSize						16
-#define kTrackInfoBufferSize				8
-#define kDVDPhysicalFormatInfoBufferSize	8
-#define	kProfileDataLengthFieldSize			4
-#define kProfileFeatureHeaderSize			8
-#define kProfileDescriptorSize				4
-#define kModeSenseParameterHeaderSize		8
-#define kSubChannelDataBufferSize			24
+#define	kMaxProfileSize							56
+#define kDiscInformationSize					32
+#define kATIPBufferSize							16
+#define kTrackInfoBufferSize					8
+#define kDVDPhysicalFormatInfoBufferSize		8
+#define	kProfileDataLengthFieldSize				4
+#define kProfileFeatureHeaderSize				8
+#define kProfileDescriptorSize					4
+#define kModeSenseParameterHeaderSize			8
+#define kMechanicalCapabilitiesMinBufferSize	4
+#define kSubChannelDataBufferSize				24
+#define kCDAudioModePageBufferSize				24
 
 #define kMaxRetryCount 8
 
@@ -1269,6 +1271,7 @@ IOSCSIMultimediaCommandsDevice::GetMechanicalCapabilitiesSize ( UInt32 * size )
 	SCSIServiceResponse				serviceResponse = kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
 	SCSITaskIdentifier				request;
 	IOReturn						status;
+	SCSICmdField1Bit				DBD;
 	
 	STATUS_LOG ( ( "%s::%s called.\n", getName ( ), __FUNCTION__ ) );
 	
@@ -1280,26 +1283,35 @@ IOSCSIMultimediaCommandsDevice::GetMechanicalCapabilitiesSize ( UInt32 * size )
 	
 	request = GetSCSITask ( );
 	
+	// ATAPI devices require DBD=1. Try it set to 1, if it doesn't work,
+	// it is most likely a legacy SCSI device, so we'll try again with DBD=0
+	
+	DBD = 1;	/* Disable block descriptors */
+	
+	
+LOOP:
+	
+	
 	if ( MODE_SENSE_10 ( 	request,
 							bufferDesc,
 							0x00,
-							0x01,	/* Disable block descriptors */
+							DBD,	
 							0x00,
 							0x2A,
 							kModeSenseParameterHeaderSize,
 							0 ) == true )
 	{
+		
 		// The command was successfully built, now send it
 		serviceResponse = SendCommand ( request, 0 );
+		
 	}
 	
 	else
 	{
 		PANIC_NOW ( ( "IOSCSIMultimediaCommandsDevice::GetMechanicalCapabilitiesSize malformed command" ) );
 	}
-	
-	bufferDesc->release ( );
-	
+		
 	if ( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
 		 ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD ) )
 	{
@@ -1322,12 +1334,24 @@ IOSCSIMultimediaCommandsDevice::GetMechanicalCapabilitiesSize ( UInt32 * size )
 	else
 	{
 		
+		// Something went wrong. Try again with DBD=0
+		if ( DBD == 1 )
+		{
+			
+			ERROR_LOG ( ( "Trying again with DBD=0\n" ) );
+			
+			DBD = 0;
+			goto LOOP;
+			
+		}
+		
 		ERROR_LOG ( ( "Modes sense returned error\n" ) );
 		*size 	= 0;
 		status 	= kIOReturnError;
 		
 	}
 	
+	bufferDesc->release ( );
 	ReleaseSCSITask ( request );
 	
 	return status;
@@ -1343,6 +1367,7 @@ IOSCSIMultimediaCommandsDevice::GetMechanicalCapabilities ( void )
 	IOBufferMemoryDescriptor *		bufferDesc;
 	SCSIServiceResponse				serviceResponse = kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
 	SCSITaskIdentifier				request;
+	SCSICmdField1Bit				DBD;
 	UInt32							actualSize = 0;
 	IOReturn						status;
 	
@@ -1366,10 +1391,19 @@ IOSCSIMultimediaCommandsDevice::GetMechanicalCapabilities ( void )
 	
 	request = GetSCSITask ( );
 	
+	// ATAPI devices require DBD=1. Try it set to 1, if it doesn't work,
+	// it is most likely a legacy SCSI device, so we'll try again with DBD=0
+	
+	DBD = 1;	/* Disable block descriptors */
+	
+	
+LOOP:
+	
+	
 	if ( MODE_SENSE_10 ( 	request,
 							bufferDesc,
 							0x00,
-							0x01,	/* Disable block descriptors */
+							DBD,
 							0x00,
 							0x2A,
 							actualSize,
@@ -1384,24 +1418,67 @@ IOSCSIMultimediaCommandsDevice::GetMechanicalCapabilities ( void )
 		PANIC_NOW ( ( "IOSCSIMultimediaCommandsDevice::GetMechanicalCapabilities malformed command" ) );
 	}
 	
-	ReleaseSCSITask ( request );
-	
-	if ( serviceResponse != kSCSIServiceResponse_TASK_COMPLETE )
+	if ( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
+		 ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD ) )
 	{
 		
-		status = kIOReturnError;
+		UInt16		blockDescriptorLength = 0;
+		
+		// We check to make sure there aren't any block descriptors. If there are, we skip over them.
+		blockDescriptorLength = OSReadBigInt16 ( mechanicalCapabilitiesPtr, 6 );
+		
+		// Ensure that our buffer is of the minimum correct size. We
+		// know we will inspect at least kMechanicalCapabilitiesMinBufferSize bytes
+		// of data in the page. We add this to the mode sense header, any block descriptors,
+		// and the size of the first two bytes (which include the PAGE CODE and PAGE LENGTH).
+		// Also, check that the first byte of the page is the correct PAGE_CODE (0x2A).
+		if ( ( actualSize >= ( UInt32 ) ( kModeSenseParameterHeaderSize + blockDescriptorLength + 2 + kMechanicalCapabilitiesMinBufferSize ) ) &&
+			( ( mechanicalCapabilitiesPtr[kModeSenseParameterHeaderSize + blockDescriptorLength] & 0x3F ) == 0x2A ) )
+		{
+			
+			// We're ok. Parse the capabilities now.
+			status = ParseMechanicalCapabilities ( 	mechanicalCapabilitiesPtr +
+													kModeSenseParameterHeaderSize +
+													blockDescriptorLength +
+													2 );
+			
+		}
+		
+		else
+		{
+			
+			ERROR_LOG ( ( "Buffer is not correct size (%ld), or PAGE_CODE (0x%02x) is incorrect\n",
+						  actualSize, mechanicalCapabilitiesPtr[kModeSenseParameterHeaderSize + blockDescriptorLength] & 0x3F ) );
+			ERROR_LOG ( ( "blockDescriptorLength = %ld\n", blockDescriptorLength ) );
+			
+			// Buffer is not of the correct size.
+			status = kIOReturnError;
+			
+		}
 		
 	}
 	
 	else
 	{
 		
-		mechanicalCapabilitiesPtr = &mechanicalCapabilitiesPtr[kModeSenseParameterHeaderSize + 2];
-		status = ParseMechanicalCapabilities ( mechanicalCapabilitiesPtr );
-				
+		// Something went wrong. Try again with DBD=0
+		if ( DBD == 1 )
+		{
+			
+			ERROR_LOG ( ( "Trying again with DBD=0\n" ) );
+			
+			DBD = 0;
+			goto LOOP;
+			
+		}
+		
+		// We tried both ways and failed.
+		status = kIOReturnError;
+		
 	}
 	
 	bufferDesc->release ( );
+	ReleaseSCSITask ( request );
 	
 	return status;
 	
@@ -1501,6 +1578,7 @@ IOSCSIMultimediaCommandsDevice::GetMediaAccessSpeed ( UInt16 * kilobytesPerSecon
 	UInt8 *					mechanicalCapabilitiesPtr 	= NULL;
 	SCSITaskIdentifier		request						= NULL;
 	SCSIServiceResponse		serviceResponse 			= kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
+	SCSICmdField1Bit		DBD;
 	
 	status = GetMechanicalCapabilitiesSize ( &mechanicalCapabilitiesSize );
 	if ( status == kIOReturnSuccess )
@@ -1517,17 +1595,28 @@ IOSCSIMultimediaCommandsDevice::GetMediaAccessSpeed ( UInt16 * kilobytesPerSecon
 		
 		request = GetSCSITask ( );
 		
+		// ATAPI devices require DBD=1. Try it set to 1, if it doesn't work,
+		// it is most likely a legacy SCSI device, so we'll try again with DBD=0
+		
+		DBD = 1;	/* Disable block descriptors */
+		
+		
+	LOOP:
+		
+		
 		if ( MODE_SENSE_10 ( 	request,
 								bufferDesc,
 								0x00,
-								0x01,	/* Disable block descriptors */
+								DBD,
 								0x00,
 								0x2A,
 								mechanicalCapabilitiesSize,
 								0 ) == true )
 		{
+			
 			// The command was successfully built, now send it
 			serviceResponse = SendCommand ( request, 0 );
+			
 		}
 		
 		else
@@ -1539,15 +1628,49 @@ IOSCSIMultimediaCommandsDevice::GetMediaAccessSpeed ( UInt16 * kilobytesPerSecon
 			 ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD ) )
 		{
 			
-			mechanicalCapabilitiesPtr = &mechanicalCapabilitiesPtr[kModeSenseParameterHeaderSize + 14];
-			*kilobytesPerSecond = OSReadBigInt16 ( mechanicalCapabilitiesPtr, 0 );
-			status = kIOReturnSuccess;
+			UInt16		blockDescriptorLength = 0;
+			
+			// We check to make sure there aren't any block descriptors. If there are, we skip over them.
+			blockDescriptorLength = OSReadBigInt16 ( mechanicalCapabilitiesPtr, 6 );
+			
+			// Ensure that our buffer is of the minimum correct size.
+			// Also, check that the first byte of the page is the correct PAGE_CODE (0x2A).
+			if ( ( mechanicalCapabilitiesSize >= ( UInt32 ) ( kModeSenseParameterHeaderSize + blockDescriptorLength + 16 ) ) &&
+				( mechanicalCapabilitiesPtr[kModeSenseParameterHeaderSize + blockDescriptorLength] & 0x3F == 0x2A ) )
+			{
+				
+				*kilobytesPerSecond = OSReadBigInt16 ( mechanicalCapabilitiesPtr, kModeSenseParameterHeaderSize + blockDescriptorLength + 16 );
+				status = kIOReturnSuccess;
+				
+			}
+			
+			else
+			{
+				
+				// Buffer is not of the proper size.
+				status = kIOReturnError;
+				
+			}
 			
 		}
 		
 		else
 		{
+			
+			// Something went wrong. Try again with DBD=0
+			if ( DBD == 1 )
+			{
+				
+				ERROR_LOG ( ( "Trying again with DBD=0\n" ) );
+				
+				DBD = 0;
+				goto LOOP;
+				
+			}
+			
+			// We tried both ways and failed.
 			status = kIOReturnError;
+			
 		}
 		
 		ReleaseSCSITask ( request );		
@@ -1569,7 +1692,7 @@ IOSCSIMultimediaCommandsDevice::SetMediaAccessSpeed ( UInt16 kilobytesPerSecond 
 	SCSIServiceResponse		serviceResponse = kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
 	
 	STATUS_LOG ( ( "IOSCSIMultimediaCommandsDevice::SetMediaAccessSpeed called\n" ) );
-			
+	
 	request = GetSCSITask ( );
 	
 	if ( request != NULL )
@@ -1843,9 +1966,7 @@ IOSCSIMultimediaCommandsDevice::PollForMedia ( void )
 	fPollingMode 	= kPollingMode_Suspended;
 	
 	// Message up the chain that we have media
-	messageClients ( kIOMessageMediaStateHasChanged,
-					 ( void * ) kIOMediaStateOnline,
-					 sizeof ( IOMediaState ) );
+	messageClients ( kIOMessageMediaStateHasChanged, ( void * ) kIOMediaStateOnline );
 	
 }
 
@@ -1862,9 +1983,13 @@ IOSCSIMultimediaCommandsDevice::CheckForLowPowerPollingSupport ( void )
 	
 	
 	if ( fDeviceSupportsLowPowerPolling )
+	{
+		
 		fDeviceSupportsLowPowerPolling = IsProtocolServiceSupported ( 
 												kSCSIProtocolFeature_ProtocolSpecificPolling,
 												NULL );
+		
+	}
 	
 	dict = GetProtocolCharacteristicsDictionary ( );
 	if ( dict != NULL )
@@ -1891,7 +2016,7 @@ IOSCSIMultimediaCommandsDevice::CheckForLowPowerPollingSupport ( void )
 	{
 		fDeviceSupportsPowerConditions = false;
 	}
-		
+	
 	if ( key != NULL )
 	{
 		key->release ( );
@@ -2452,9 +2577,7 @@ IOSCSIMultimediaCommandsDevice::AsyncReadWriteComplete ( SCSITaskIdentifier requ
 				{
 					
 					// Message up the chain that we do not have media
-					taskOwner->messageClients ( kIOMessageMediaStateHasChanged,
-												( void * ) kIOMediaStateOffline,
-												sizeof ( IOMediaState ) );
+					taskOwner->messageClients ( kIOMessageMediaStateHasChanged, ( void * ) kIOMediaStateOffline );
 					
 					taskOwner->ResetMediaCharacteristics ( );
 					taskOwner->EnablePolling ( );
@@ -3554,7 +3677,7 @@ IOSCSIMultimediaCommandsDevice::ReadTOC (	IOMemoryDescriptor *	buffer,
 					lastSessionNum = ptr[3];
 					
 					// Find the A2 point for the last session
-					for ( index = 4; index < ( sizeOfTOC - 4 ); index += 11 )
+					for ( index = 4; index < ( UInt32 ) ( sizeOfTOC - 4 ); index += 11 )
 					{
 						
 						// Check if this Track Descriptor is for the last session
@@ -3599,7 +3722,7 @@ IOSCSIMultimediaCommandsDevice::ReadTOC (	IOMemoryDescriptor *	buffer,
 						ptr 	= &ptr[4];
 						
 						// Loop over track descriptors finding the BCD values and change them to hex.
-						for ( index = 0; index < ( sizeOfTOC - 4 ); index += 11 )
+						for ( index = 0; index < ( UInt32 ) ( sizeOfTOC - 4 ); index += 11 )
 						{
 							
 							if ( ( ptr[index + 3] == 0xA0 ) || ( ptr[index + 3] == 0xA1 ) )
@@ -4086,26 +4209,36 @@ IOSCSIMultimediaCommandsDevice::GetAudioVolume ( UInt8 * leftVolume,
 	IOReturn				status = kIOReturnUnsupported;
 	SCSITaskIdentifier		request;
 	SCSIServiceResponse		serviceResponse = kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
+	SCSICmdField1Bit		DBD;
 	
 	if ( fSupportedCDFeatures & kCDFeaturesAnalogAudioMask )
 	{
 		
 		IOMemoryDescriptor *	bufferDesc;
-		UInt8					cdAudioModePageBuffer[24];
+		UInt8					cdAudioModePageBuffer[kCDAudioModePageBufferSize];
 		
 		bufferDesc = IOMemoryDescriptor::withAddress ( 	cdAudioModePageBuffer,
-														24,
+														kCDAudioModePageBufferSize,
 														kIODirectionIn );
 		
 		request = GetSCSITask ( );
 		
+		// ATAPI devices require DBD=1. Try it set to 1, if it doesn't work,
+		// it is most likely a legacy SCSI device, so we'll try again with DBD=0
+		
+		DBD = 1;	/* Disable block descriptors */
+		
+		
+	LOOP:
+		
+				
 		if ( MODE_SENSE_10 ( 	request,
 								bufferDesc,
 								0x00,
-								0x01,	/* Disable block descriptors */
+								DBD,
 								0x00,
 								0x0E,
-								24,
+								kCDAudioModePageBufferSize,
 								0 ) == true )
 		{
 			// The command was successfully built, now send it
@@ -4116,29 +4249,38 @@ IOSCSIMultimediaCommandsDevice::GetAudioVolume ( UInt8 * leftVolume,
 		{
 			PANIC_NOW ( ( "IOSCSIMultimediaCommandsDevice::GetAudioVolume malformed command" ) );
 		}
-		
-		bufferDesc->release ( );
-		
+				
 		if ( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
 			 ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD ) )
-		{
-			status = kIOReturnSuccess;
-		}
-		
-		else
-		{
-			status = kIOReturnError;
-		}
-		
-		ReleaseSCSITask ( request );
-		
-		if ( status == kIOReturnSuccess )
 		{
 			
 			*leftVolume 	= cdAudioModePageBuffer[17];
 			*rightVolume 	= cdAudioModePageBuffer[19];
+			status = kIOReturnSuccess;
 			
 		}
+		
+		else
+		{
+			
+			// Something went wrong. Try again with DBD=0
+			if ( DBD == 1 )
+			{
+				
+				ERROR_LOG ( ( "Trying again with DBD=0\n" ) );
+				
+				DBD = 0;
+				goto LOOP;
+				
+			}
+			
+			// We tried both ways and failed.
+			status = kIOReturnError;
+			
+		}
+		
+		ReleaseSCSITask ( request );
+		bufferDesc->release ( );
 		
 	}
 	
@@ -4155,32 +4297,44 @@ IOSCSIMultimediaCommandsDevice::SetAudioVolume ( UInt8 leftVolume,
 	IOReturn				status = kIOReturnUnsupported;
 	SCSITaskIdentifier		request;
 	SCSIServiceResponse		serviceResponse = kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
+	SCSICmdField1Bit		DBD;
 	
 	if ( fSupportedCDFeatures & kCDFeaturesAnalogAudioMask )
 	{
 		
 		IOMemoryDescriptor *	bufferDesc;
-		UInt8					cdAudioModePageBuffer[24];
+		UInt8					cdAudioModePageBuffer[kCDAudioModePageBufferSize];
 		
-		bzero ( cdAudioModePageBuffer, 24 );
+		bzero ( cdAudioModePageBuffer, kCDAudioModePageBufferSize );
 		
 		bufferDesc = IOMemoryDescriptor::withAddress ( 	cdAudioModePageBuffer,
-														24,
+														kCDAudioModePageBufferSize,
 														kIODirectionIn );
 		
 		request = GetSCSITask ( );
 		
+		// ATAPI devices require DBD=1. Try it set to 1, if it doesn't work,
+		// it is most likely a legacy SCSI device, so we'll try again with DBD=0
+		
+		DBD = 1;	/* Disable block descriptors */
+		
+		
+	LOOP:
+		
+				
 		if ( MODE_SENSE_10 ( 	request,
 								bufferDesc,
 								0x00,
-								0x01,	/* Disable block descriptors */
+								DBD,
 								0x00,
 								0x0E,
-								24,
+								kCDAudioModePageBufferSize,
 								0 ) == true )
 		{
+			
 			// The command was successfully built, now send it
 			serviceResponse = SendCommand ( request, 0 );
+			
 		}
 		
 		else
@@ -4188,17 +4342,34 @@ IOSCSIMultimediaCommandsDevice::SetAudioVolume ( UInt8 leftVolume,
 			PANIC_NOW ( ( "IOSCSIMultimediaCommandsDevice::SetAudioVolume malformed command" ) );
 		}
 		
-		bufferDesc->release ( );
-		
-		if ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE )
+		if ( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
+			 ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD ) )
 		{
+			
 			status = kIOReturnSuccess;
+			
 		}
 		
 		else
 		{
+			
+			// Something went wrong. Try again with DBD=0
+			if ( DBD == 1 )
+			{
+				
+				ERROR_LOG ( ( "Trying again with DBD=0\n" ) );
+				
+				DBD = 0;
+				goto LOOP;
+				
+			}
+			
+			// We tried both ways and failed.
 			status = kIOReturnError;
+			
 		}
+		
+		bufferDesc->release ( );
 		
 		if ( status != kIOReturnSuccess )
 		{
@@ -4206,7 +4377,7 @@ IOSCSIMultimediaCommandsDevice::SetAudioVolume ( UInt8 leftVolume,
 		}
 		
 		bufferDesc = IOMemoryDescriptor::withAddress ( 	cdAudioModePageBuffer,
-														24,
+														kCDAudioModePageBufferSize,
 														kIODirectionOut );
 		
 		cdAudioModePageBuffer[9]	= 0x0E;
@@ -4217,7 +4388,7 @@ IOSCSIMultimediaCommandsDevice::SetAudioVolume ( UInt8 leftVolume,
 								bufferDesc,
 								0x01,
 								0x00,
-								24,
+								kCDAudioModePageBufferSize,
 								0 ) == true )
 		{
 			// The command was successfully built, now send it
@@ -4258,7 +4429,7 @@ IOSCSIMultimediaCommandsDevice::GetMediaType ( void )
 {
 	
 	return fMediaType;
-		
+	
 }
 
 

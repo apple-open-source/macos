@@ -61,9 +61,14 @@ private:
 
 protected:
     // Reserve space for future expansion.
-    struct IOSCSIBlockCommandsDeviceExpansionData { };
-    IOSCSIBlockCommandsDeviceExpansionData *fIOSCSIBlockCommandsDeviceReserved;
-
+    struct IOSCSIBlockCommandsDeviceExpansionData
+	{
+		IONotifier *		fPowerDownNotifier;
+	};
+    IOSCSIBlockCommandsDeviceExpansionData * fIOSCSIBlockCommandsDeviceReserved;
+	
+	#define fPowerDownNotifier fIOSCSIBlockCommandsDeviceReserved->fPowerDownNotifier
+	
 	// ---- Device Characteristics ----
 	UInt8				fANSIVersion;			
 	bool				fMediaIsRemovable;
@@ -636,10 +641,17 @@ public:
     					SCSICmdField4Byte 			LOGICAL_BLOCK_ADDRESS, 
     					SCSICmdField2Byte 			TRANSFER_LENGTH, 
     					SCSICmdField1Byte 			CONTROL );
-
+	
+	OSMetaClassDeclareReservedUsed( IOSCSIBlockCommandsDevice, 1 );
+	
+	virtual IOReturn	PowerDownHandler(	void * 			refCon,
+											UInt32 			messageType,
+											IOService * 	provider,
+											void * 			messageArgument,
+											vm_size_t 		argSize );
+	
 private:
 	// Space reserved for future expansion.
-    OSMetaClassDeclareReservedUnused( IOSCSIBlockCommandsDevice, 1 );
     OSMetaClassDeclareReservedUnused( IOSCSIBlockCommandsDevice, 2 );
     OSMetaClassDeclareReservedUnused( IOSCSIBlockCommandsDevice, 3 );
     OSMetaClassDeclareReservedUnused( IOSCSIBlockCommandsDevice, 4 );

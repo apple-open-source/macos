@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -267,6 +267,7 @@ void AppleADBButtons::dispatchButtonEvent (unsigned int keycode, bool down )
 	case kBrightness_up:
 	case kBrightness_down:
 	case kNum_lock_on_laptops:
+	case kVideoMirror:
 	    dispatchKeyboardEvent(keycode, down, now);
 	    break;
 	case kEject:
@@ -291,7 +292,7 @@ void AppleADBButtons::dispatchButtonEvent (unsigned int keycode, bool down )
 		thread_call_cancel(_peject_timer);
 		dispatchKeyboardEvent(kEject, FALSE, now);
 	    }
-	default:  //Don't dispatch anything else	    
+	default:  //Don't dispatch anything else
 	    break;
     }
 }
@@ -320,14 +321,15 @@ const unsigned char *AppleADBButtons::defaultKeymapOfLength(UInt32 *length)
         0x00,		// no modifier keys
         0x00,		// no defs
         0x00,		// no seqs
-        0x07,		// 7 special keys
+        0x08,		// 8 special keys
         NX_KEYTYPE_SOUND_UP, kVolume_up,
         NX_KEYTYPE_SOUND_DOWN, kVolume_down,
         NX_KEYTYPE_MUTE, kMute,
         NX_KEYTYPE_BRIGHTNESS_UP, kBrightness_up,
         NX_KEYTYPE_BRIGHTNESS_DOWN, kBrightness_down,
         NX_KEYTYPE_NUM_LOCK, kNum_lock_on_laptops,
-        NX_KEYTYPE_EJECT, kEject
+        NX_KEYTYPE_EJECT, kEject,
+	NX_KEYTYPE_VIDMIRROR, kVideoMirror
     };
     
     *length = sizeof(appleADBButtonsKeyMap);

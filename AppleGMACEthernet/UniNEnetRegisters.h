@@ -31,14 +31,14 @@
 #define RX_RING_LENGTH_FACTOR	1	// valid from 0 to 8. Overridden by IORegistry value
 #define RX_RING_LENGTH			(32 * (1 << RX_RING_LENGTH_FACTOR))	// 64 pkt descs		/* Packet descriptors	*/
 
-#define TX_RING_LENGTH_FACTOR	2	// valid from 0 to 8. Overridden by IORegistry value
-#define TX_RING_LENGTH			(32 * (1 << TX_RING_LENGTH_FACTOR))	// 128 pkt descs
+#define TX_RING_LENGTH_FACTOR	3	// valid from 0 to 8. Overridden by IORegistry value
+#define TX_RING_LENGTH			(32 * (1 << TX_RING_LENGTH_FACTOR))	// 256 pkt descs
 
 #define TX_DESC_PER_INT         32
 
-#define NETWORK_BUFSIZE         (((ETHERMAXPACKET + ETHERCRC) + 7) & ~7)
+#define NETWORK_BUFSIZE         ((kIOEthernetMaxPacketSize + 7) & ~7)
 
-#define TRANSMIT_QUEUE_SIZE     256
+#define TRANSMIT_QUEUE_SIZE     256		// Overridden by IORegistry value
 
 #define WATCHDOG_TIMER_MS       300
 #define TX_KDB_TIMEOUT          1000
@@ -55,202 +55,202 @@
 	{
 			/* Global Resources:	*/								// 0x0000
 
-		UInt32	SEB_State;		//	3 bits for diagnostics
-		UInt32	Configuration;	//
-		UInt32	filler1;
-		UInt32	Status;
+		VU32	SEB_State;		//	3 bits for diagnostics
+		VU32	Configuration;	//
+		VU32	filler1;
+		VU32	Status;
 
-		UInt32	InterruptMask;										// 0x0010
-		UInt32	InterruptAck;
-		UInt32	filler2;
-		UInt32	StatusAlias;
+		VU32	InterruptMask;										// 0x0010
+		VU32	InterruptAck;
+		VU32	filler2;
+		VU32	StatusAlias;
 
 		UInt8	filler3[ 0x1000 - 0x20 ];
 
-		UInt32	PCIErrorStatus;										// 0x1000
-		UInt32	PCIErrorMask;
-		UInt32	BIFConfiguration;
-		UInt32	BIFDiagnostic;
+		VU32	PCIErrorStatus;										// 0x1000
+		VU32	PCIErrorMask;
+		VU32	BIFConfiguration;
+		VU32	BIFDiagnostic;
 
-		UInt32	SoftwareReset;										// 0x1010
+		VU32	SoftwareReset;										// 0x1010
 
 		UInt8	filler4[ 0x2000 - 0x1014 ];
 
 			/* Transmit DMA registers:	*/
 
-		UInt32	TxKick;												// 0x2000
-		UInt32	TxConfiguration;
-		UInt32	TxDescriptorBaseLow;
-		UInt32	TxDescriptorBaseHigh;
+		VU32	TxKick;												// 0x2000
+		VU32	TxConfiguration;
+		VU32	TxDescriptorBaseLow;
+		VU32	TxDescriptorBaseHigh;
 
-		UInt32	filler5;											// 0x2010
-		UInt32	TxFIFOWritePointer;
-		UInt32	TxFIFOShadowWritePointer;
-		UInt32	TxFIFOReadPointer;
+		VU32	filler5;											// 0x2010
+		VU32	TxFIFOWritePointer;
+		VU32	TxFIFOShadowWritePointer;
+		VU32	TxFIFOReadPointer;
 
-		UInt32	TxFIFOShadowReadPointer;							// 0x2020
-		UInt32	TxFIFOPacketCounter;
-		UInt32	TxStateMachine;
-		UInt32	filler6;
+		VU32	TxFIFOShadowReadPointer;							// 0x2020
+		VU32	TxFIFOPacketCounter;
+		VU32	TxStateMachine;
+		VU32	filler6;
 
-		UInt32	TxDataPointerLow;									// 0x2030
-		UInt32	TxDataPointerHigh;
+		VU32	TxDataPointerLow;									// 0x2030
+		VU32	TxDataPointerHigh;
 
 		UInt8	filler7[ 0x2100 - 0x2038 ];
 
-		UInt32	TxCompletion;										// 0x2100
-		UInt32	TxFIFOAddress;
-		UInt32	TxFIFOTag;
-		UInt32	TxFIFODataLow;
+		VU32	TxCompletion;										// 0x2100
+		VU32	TxFIFOAddress;
+		VU32	TxFIFOTag;
+		VU32	TxFIFODataLow;
 
-		UInt32	TxFIFODataHighT1;									// 0x2110
-		UInt32	TxFIFODataHighT0;
-		UInt32	TxFIFOSize;
+		VU32	TxFIFODataHighT1;									// 0x2110
+		VU32	TxFIFODataHighT0;
+		VU32	TxFIFOSize;
 
 		UInt8	filler8[ 0x3000 - 0x211C ];
 
 			/* WOL - WakeOnLan Registers:	*/
 
-		UInt32	WOLMagicMatch[ 3 ];			// 6 address bytes		// 0x3000
-		UInt32	WOLPatternMatchCount;
+		VU32	WOLMagicMatch[ 3 ];			// 6 address bytes		// 0x3000
+		VU32	WOLPatternMatchCount;
 
-		UInt32	WOLWakeupCSR;										// 0x3010
+		VU32	WOLWakeupCSR;										// 0x3010
 
 		UInt8	filler8plus[ 0x4000 - 0x3014 ];
 
 			/* Receive DMA registers: */
 
-		UInt32	RxConfiguration;									// 0x4000
-		UInt32	RxDescriptorBaseLow;
-		UInt32	RxDescriptorBaseHigh;
-		UInt32	RxFIFOWritePointer;
+		VU32	RxConfiguration;									// 0x4000
+		VU32	RxDescriptorBaseLow;
+		VU32	RxDescriptorBaseHigh;
+		VU32	RxFIFOWritePointer;
 
-		UInt32	RxFIFOShadowWritePointer;							// 0x4010
-		UInt32	RxFIFOReadPointer;
-		UInt32	RxFIFOPacketCounter;
-		UInt32	RxStateMachine;
+		VU32	RxFIFOShadowWritePointer;							// 0x4010
+		VU32	RxFIFOReadPointer;
+		VU32	RxFIFOPacketCounter;
+		VU32	RxStateMachine;
 
-		UInt32	PauseThresholds;									// 0x4020
-		UInt32	RxDataPointerLow;
-		UInt32	RxDataPointerHigh;
+		VU32	PauseThresholds;									// 0x4020
+		VU32	RxDataPointerLow;
+		VU32	RxDataPointerHigh;
 
 		UInt8	filler9[ 0x4100 - 0x402C ];
 
-		UInt32	RxKick;												// 0x4100
-		UInt32	RxCompletion;
-		UInt32	RxBlanking;
-		UInt32	RxFIFOAddress;
+		VU32	RxKick;												// 0x4100
+		VU32	RxCompletion;
+		VU32	RxBlanking;
+		VU32	RxFIFOAddress;
 
-		UInt32	RxFIFOTag;											// 0x4110
-		UInt32	RxFIFODataLow;
-		UInt32	RxFIFODataHighT0;
-		UInt32	RxFIFODataHighT1;
+		VU32	RxFIFOTag;											// 0x4110
+		VU32	RxFIFODataLow;
+		VU32	RxFIFODataHighT0;
+		VU32	RxFIFODataHighT1;
 
-		UInt32	RxFIFOSize;											// 0x4120
+		VU32	RxFIFOSize;											// 0x4120
 
 		UInt8	filler10[ 0x6000 - 0x4124 ];
 
 			/* MAC registers: */
 
-		UInt32	TxMACSoftwareResetCommand;							// 0x6000
-		UInt32	RxMACSoftwareResetCommand;
-		UInt32	SendPauseCommand;
-		UInt32	filler11;
+		VU32	TxMACSoftwareResetCommand;							// 0x6000
+		VU32	RxMACSoftwareResetCommand;
+		VU32	SendPauseCommand;
+		VU32	filler11;
 
-		UInt32	TxMACStatus;										// 0x6010
-		UInt32	RxMACStatus;
-		UInt32	MACControlStatus;
-		UInt32	filler12;
+		VU32	TxMACStatus;										// 0x6010
+		VU32	RxMACStatus;
+		VU32	MACControlStatus;
+		VU32	filler12;
 
-		UInt32	TxMACMask;											// 0x6020
-		UInt32	RxMACMask;
-		UInt32	MACControlMask;
-		UInt32	filler13;
+		VU32	TxMACMask;											// 0x6020
+		VU32	RxMACMask;
+		VU32	MACControlMask;
+		VU32	filler13;
 
-		UInt32	TxMACConfiguration;									// 0x6030
-		UInt32	RxMACConfiguration;
-		UInt32	MACControlConfiguration;
-		UInt32	XIFConfiguration;
+		VU32	TxMACConfiguration;									// 0x6030
+		VU32	RxMACConfiguration;
+		VU32	MACControlConfiguration;
+		VU32	XIFConfiguration;
 
-		UInt32	InterPacketGap0;									// 0x6040
-		UInt32	InterPacketGap1;
-		UInt32	InterPacketGap2;
-		UInt32	SlotTime;
+		VU32	InterPacketGap0;									// 0x6040
+		VU32	InterPacketGap1;
+		VU32	InterPacketGap2;
+		VU32	SlotTime;
 
-		UInt32	MinFrameSize;										// 0x6050
-		UInt32	MaxFrameSize;
-		UInt32	PASize;
-		UInt32	JamSize;
+		VU32	MinFrameSize;										// 0x6050
+		VU32	MaxFrameSize;
+		VU32	PASize;
+		VU32	JamSize;
 
-		UInt32	AttemptLimit;										// 0x6060
-		UInt32	MACControlType;
+		VU32	AttemptLimit;										// 0x6060
+		VU32	MACControlType;
 		UInt8	filler14[ 0x6080 - 0x6068 ];
 
-		UInt32	MACAddress[ 9 ];									// 0x6080
+		VU32	MACAddress[ 9 ];									// 0x6080
 
-		UInt32	AddressFilter[ 3 ];									// 0x60A4
+		VU32	AddressFilter[ 3 ];									// 0x60A4
 
-		UInt32	AddressFilter2_1Mask;								// 0x60B0
-		UInt32	AddressFilter0Mask;
-		UInt32	filler15[ 2 ];
+		VU32	AddressFilter2_1Mask;								// 0x60B0
+		VU32	AddressFilter0Mask;
+		VU32	filler15[ 2 ];
 
-		UInt32	HashTable[ 16 ];									// 0x60C0
+		VU32	HashTable[ 16 ];									// 0x60C0
 
 			/* Statistics registers:	*/
 
-		UInt32	NormalCollisionCounter;								// 0x6100
-		UInt32	FirstAttemptSuccessfulCollisionCounter;
-		UInt32	ExcessiveCollisionCounter;
-		UInt32	LateCollisionCounter;
+		VU32	NormalCollisionCounter;								// 0x6100
+		VU32	FirstAttemptSuccessfulCollisionCounter;
+		VU32	ExcessiveCollisionCounter;
+		VU32	LateCollisionCounter;
 
-		UInt32	DeferTimer;											// 0x6110
-		UInt32	PeakAttempts;
-		UInt32	ReceiveFrameCounter;
-		UInt32	LengthErrorCounter;
+		VU32	DeferTimer;											// 0x6110
+		VU32	PeakAttempts;
+		VU32	ReceiveFrameCounter;
+		VU32	LengthErrorCounter;
 
-		UInt32	AlignmentErrorCounter;								// 0x6120
-		UInt32	FCSErrorCounter;
-		UInt32	RxCodeViolationErrorCounter;
-		UInt32	filler16;
+		VU32	AlignmentErrorCounter;								// 0x6120
+		VU32	FCSErrorCounter;
+		VU32	RxCodeViolationErrorCounter;
+		VU32	filler16;
 
 			/* Miscellaneous registers:	*/
 
-		UInt32	RandomNumberSeed;									// 0x6130
-		UInt32	StateMachine;
+		VU32	RandomNumberSeed;									// 0x6130
+		VU32	StateMachine;
 
 		UInt8	filler17[ 0x6200 - 0x6138 ];
 
 			/* MIF registers: */
 
-		UInt32	MIFBitBangClock;									// 0x6200
-		UInt32	MIFBitBangData;
-		UInt32	MIFBitBangOutputEnable;
-		UInt32	MIFBitBangFrame_Output;
+		VU32	MIFBitBangClock;									// 0x6200
+		VU32	MIFBitBangData;
+		VU32	MIFBitBangOutputEnable;
+		VU32	MIFBitBangFrame_Output;
 
-		UInt32	MIFConfiguration;									// 0x6210
-		UInt32	MIFMask;
-		UInt32	MIFStatus;
-		UInt32	MIFStateMachine;
+		VU32	MIFConfiguration;									// 0x6210
+		VU32	MIFMask;
+		VU32	MIFStatus;
+		VU32	MIFStateMachine;
 
 		UInt8	filler18[ 0x9000 - 0x6220 ];
 
 			/* PCS/Serialink registers:	*/
 
-		UInt32	PCSMIIControl;										// 0x9000
-		UInt32	PCSMIIStatus;
-		UInt32	Advertisement;
-		UInt32	PCSMIILinkPartnerAbility;
+		VU32	PCSMIIControl;										// 0x9000
+		VU32	PCSMIIStatus;
+		VU32	Advertisement;
+		VU32	PCSMIILinkPartnerAbility;
 
-		UInt32	PCSConfiguration;									// 0x9010
-		UInt32	PCSStateMachine;
-		UInt32	PCSInterruptStatus;
+		VU32	PCSConfiguration;									// 0x9010
+		VU32	PCSStateMachine;
+		VU32	PCSInterruptStatus;
 
 		UInt8	filler19[ 0x9050 - 0x901C ];
 
-		UInt32	DatapathMode;										// 0x9050
-		UInt32	SerialinkControl;
-		UInt32	SharedOutputSelect;
-		UInt32	SerialinkState;
+		VU32	DatapathMode;										// 0x9050
+		VU32	SerialinkControl;
+		VU32	SharedOutputSelect;
+		VU32	SerialinkState;
 	};	/* end GMAC_Registers	*/
 
 
@@ -414,11 +414,13 @@
 #define kMIFBitBangFrame_Output_TA_MSB		0x00020000	// Turn Around MSB
 #define kMIFBitBangFrame_Output_TA_LSB		0x00010000	// Turn Around LSB
 
-#define kMIFConfiguration_PHY_Select	0x01
-#define kMIFConfiguration_Poll_Enable	0x02
-#define kMIFConfiguration_BB_Mode		0x04
-#define kMIFConfiguration_MDI_0			0x10
-#define kMIFConfiguration_MDI_1			0x20
+#define kMIFConfiguration_PHY_Select	0x0001
+#define kMIFConfiguration_Poll_Enable	0x0002
+#define kMIFConfiguration_BB_Mode		0x0004
+#define kMIFConfiguration_MDI_0			0x0010
+#define kMIFConfiguration_MDI_1			0x0020
+#define kMIFConfiguration_Poll_Reg_Adr_Shift	3
+#define kMIFConfiguration_Poll_Phy_Adr_Shift	10
 
 #define kPCSMIIControl_1000_Mbs_Speed_Select	0x0040
 #define kPCSMIIControl_Collision_Test			0x0080
@@ -465,11 +467,11 @@
 
 	struct RxDescriptor
 	{
-		UInt16		tcpPseudoChecksum;
-		UInt16		frameDataSize;
-		UInt32		flags;
-		UInt32		bufferAddrLo;
-		UInt32		bufferAddrHi;
+		VU16		tcpPseudoChecksum;
+		VU16		frameDataSize;			// Has ownership bit
+		VU32		flags;
+		VU32		bufferAddrLo;
+		VU32		bufferAddrHi;
 	};
 
 	/* Note: Own is in the high bit of frameDataSize field	*/
@@ -488,10 +490,10 @@
 
 	struct TxDescriptor
 	{
-		UInt32		flags0;
-		UInt32		flags1;
-		UInt32		bufferAddrLo;
-		UInt32		bufferAddrHi;
+		VU32		flags0;
+		VU32		flags1;
+		VU32		bufferAddrLo;
+		VU32		bufferAddrHi;
 	};
 
 

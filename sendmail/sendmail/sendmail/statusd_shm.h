@@ -1,22 +1,22 @@
 /*
- * Copyright (c) 1999 Sendmail, Inc. and its suppliers.
+ * Copyright (c) 1999-2000 Sendmail, Inc. and its suppliers.
  *	All rights reserved.
  *
  * By using this file, you agree to the terms and conditions set
  * forth in the LICENSE file which can be found at the top level of
  * the sendmail distribution.
  *
- *	$Id: statusd_shm.h,v 1.1.1.1 2000/06/10 00:40:56 wsanchez Exp $
+ *	$Id: statusd_shm.h,v 1.1.1.2 2002/03/12 18:00:41 zarzycki Exp $
  *
  * Contributed by Exactis.com, Inc.
  *
  */
 
 /*
-** The shared memory part of statusd.
+**  The shared memory part of statusd.
 **
-** Attach to STATUSD_SHM_KEY and update the counter appropriate
-** for your type of service.
+**  Attach to STATUSD_SHM_KEY and update the counter appropriate
+**  for your type of service.
 **
 */
 
@@ -24,7 +24,8 @@
 #define STATUSD_SHM_KEY	(key_t)(13)
 #define STATUSD_LONGS	(2)
 
-typedef struct {
+typedef struct
+{
 	unsigned long	magic;
 	unsigned long	ul[STATUSD_LONGS];
 } STATUSD_SHM;

@@ -23,6 +23,7 @@
 /*
  * IOSerialBSDClient.cpp
  *
+ * 2002-04-19	dreece	moved device node removal from free() to didTerminate()
  * 2001-11-30	gvdl	open/close pre-emptible arbitration for termios
  *			IOSerialStreams.
  * 2001-09-02	gvdl	Fixed hot unplug code now terminate cleanly.
@@ -774,20 +775,29 @@ void IOSerialBSDClient::free()
     {
 	AutoKernelFunnel funnel;	// Take kernel funnel
 
-	if ((dev_t) -1 != fBaseDev) {
+	if ((dev_t) -1 != fBaseDev)
 	    sBSDGlobals.registerTTY(fBaseDev, 0);
-	    sBSDGlobals.releaseUniqueTTYSuffix(
-                        (const OSSymbol *) getProperty(gIOTTYBaseNameKey),
-                        (const OSSymbol *) getProperty(gIOTTYSuffixKey));
-	}
-
-	if (fSessions[TTY_CALLOUT_INDEX].fCDevNode)
-	    devfs_remove(fSessions[TTY_CALLOUT_INDEX].fCDevNode);
-	if (fSessions[TTY_DIALIN_INDEX].fCDevNode)
-	    devfs_remove(fSessions[TTY_DIALIN_INDEX].fCDevNode);
     }
 
     super::free();
+}
+
+bool IOSerialBSDClient::didTerminate(IOService *provider, IOOptionBits options, bool *defer)
+{
+    {
+        AutoKernelFunnel funnel;	// Take kernel funnel
+    
+        if ((dev_t) -1 != fBaseDev) {
+            sBSDGlobals.releaseUniqueTTYSuffix((const OSSymbol *) getProperty(gIOTTYBaseNameKey),
+                                               (const OSSymbol *) getProperty(gIOTTYSuffixKey)	);
+        }
+    
+        if (fSessions[TTY_CALLOUT_INDEX].fCDevNode)
+            devfs_remove(fSessions[TTY_CALLOUT_INDEX].fCDevNode);
+        if (fSessions[TTY_DIALIN_INDEX].fCDevNode)
+            devfs_remove(fSessions[TTY_DIALIN_INDEX].fCDevNode);
+    }  
+    return super::didTerminate(provider, options, defer);
 }
 
 IOReturn IOSerialBSDClient::

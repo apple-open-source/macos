@@ -1,8 +1,8 @@
-#	$Id: UX4800,v 1.1.1.1 2000/06/10 00:40:48 wsanchez Exp $
+#	$Id: UX4800,v 1.1.1.2 2002/03/12 18:00:10 zarzycki Exp $
 define(`confCC', `/usr/abiccs/bin/cc -KOlimit=1000')
 define(`confBEFORE', `sysexits.h ndbm.h')
 define(`confMAPDEF', `-DNDBM -DNIS')
-define(`confENVDEF', `-DHASSNPRINTF=1')
+define(`confENVDEF', `')
 define(`confLIBS', `-lsocket -lnsl -lelf')
 define(`confMBINDIR', `/usr/ucblib')
 define(`confSBINDIR', `/usr/ucbetc')

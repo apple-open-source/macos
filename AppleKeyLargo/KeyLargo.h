@@ -465,6 +465,8 @@ private:
   UInt8			keyLargoExtIntGPIO[kKeyLargoExtIntGPIOCount];
   UInt8			keyLargoGPIO[kKeyLargoGPIOCount];
   
+  UInt32		keyLargoCPUVCoreSelectGPIO;
+  
   // Remember if the media bay needs to be turnedOn:
   bool		   	mediaIsOn;
   void			EnableSCC(bool state, UInt8 device, bool type);
@@ -472,6 +474,7 @@ private:
   void 			ModemResetLow();
   void 			ModemResetHigh();
   void			PowerI2S (bool powerOn, UInt32 cellNum);
+  IOReturn		SetPowerSupply (bool powerHi);
   void			AdjustBusSpeeds ( void );
   
   KeyLargoWatchDogTimer	*watchDogTimer;
@@ -500,6 +503,7 @@ private:
   const OSSymbol 	*keyLargo_modemResetHigh;
   const OSSymbol 	*keyLargo_getHostKeyLargo;
   const OSSymbol 	*keyLargo_powerI2S;
+  const OSSymbol 	*keyLargo_setPowerSupply;
   
   // Offsets for the registers we wish to save.
   // These come (almost) unchanged from the MacOS9 Power

@@ -1,8 +1,9 @@
-#	$Id: UnixWare.5.i386,v 1.1.1.1 2000/06/10 00:40:48 wsanchez Exp $
+#	$Id: UnixWare.5.i386,v 1.1.1.2 2002/03/12 18:00:10 zarzycki Exp $
 #
 # System V Rel 5.x (a.k.a Unixware7 w/o BSD-Compatiblity Libs ie. native)
 #	Contributed by Paul Gampe <paulg@apnic.net>
 #
+define(`confSM_OS_HEADER', `sm_os_unixware')
 define(`confCC', `/usr/ccs/bin/cc')
 define(`confMAPDEF', `-DNDBM -DMAP_REGEX')
 define(`confENVDEF', `-D__svr5__')

@@ -1,6 +1,6 @@
 divert(-1)
 #
-# Copyright (c) 1998, 1999 Sendmail, Inc. and its suppliers.
+# Copyright (c) 1998, 1999, 2001 Sendmail, Inc. and its suppliers.
 #	All rights reserved.
 # Copyright (c) 1983 Eric P. Allman.  All rights reserved.
 # Copyright (c) 1988, 1993
@@ -13,14 +13,14 @@ divert(-1)
 #
 
 #
-#  This is a generic configuration file for HP-UX 9.x.
+#  This is a generic configuration file for HP-UX 10.x.
 #  It has support for local and SMTP mail only.  If you want to
 #  customize it, copy it to a name appropriate for your environment
 #  and do the modifications there.
 #
 
 divert(0)dnl
-VERSIONID(`$Id: generic-hpux10.mc,v 1.1.1.3 2000/06/10 00:40:28 wsanchez Exp $')
+VERSIONID(`$Id: generic-hpux10.mc,v 1.1.1.4 2002/03/12 17:59:43 zarzycki Exp $')
 OSTYPE(hpux10)dnl
 DOMAIN(generic)dnl
 MAILER(local)dnl

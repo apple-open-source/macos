@@ -1,4 +1,14 @@
 /*
+ * Copyright (c) 1999 Sendmail, Inc. and its suppliers.
+ *	All rights reserved.
+ *
+ * By using this file, you agree to the terms and conditions set
+ * forth in the LICENSE file which can be found at the top level of
+ * the sendmail distribution.
+ *
+ */
+
+/*
 **  This program tests your system to see if you have the lovely
 **  security-defeating semantics that an open with O_CREAT|O_EXCL
 **  set will successfully open a file named by a symbolic link that
@@ -36,7 +46,7 @@
 #include <unistd.h>
 
 #ifndef lint
-static char id[] = "@(#)$Id: t_exclopen.c,v 1.1.1.2 2000/06/10 00:40:57 wsanchez Exp $";
+static char id[] = "@(#)$Id: t_exclopen.c,v 1.1.1.3 2002/03/12 18:00:44 zarzycki Exp $";
 #endif /* ! lint */
 
 static char Attacker[128];
