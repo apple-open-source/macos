@@ -354,7 +354,7 @@ print_symbolic(
 
     if (reloc_found && (r_extern == 1)) {
       if (symbols[r_symbolnum].n_un.n_strx < 0 ||
-	  (unsigned long)symbols[r_symbolnum].n_un.n_strx >= strings_size)
+	  symbols[r_symbolnum].n_un.n_strx >= strings_size)
 	name = "bad string offset";
       else
 	name = strings + symbols[r_symbolnum].n_un.n_strx;

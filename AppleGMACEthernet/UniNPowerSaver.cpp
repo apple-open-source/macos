@@ -130,7 +130,7 @@ unsigned long UniNEnet::initialPowerStateForDomainState( IOPMPowerFlags domainSt
 
 unsigned long UniNEnet::powerStateForDomainState(IOPMPowerFlags domainState )
 {
-	ELG( IOThreadSelf(), domainState, 'ps4d', "powerStateForDomainState" );
+	ELG( IOThreadSelf(), domainState, 'ps4d', "UniNEnet::powerStateForDomainState" );
 
 	if ( domainState & IOPMPowerOn )
 		return 1;						// This should answer What If?
@@ -144,7 +144,7 @@ unsigned long UniNEnet::powerStateForDomainState(IOPMPowerFlags domainState )
 IOReturn UniNEnet::setPowerState(	unsigned long	powerStateOrdinal,
 									IOService		*whatDevice )
 {
-	ELG( IOThreadSelf(), (currentPowerState << 16) | powerStateOrdinal, 'Pwr!', "setPowerState" );
+	ELG( IOThreadSelf(), (currentPowerState << 16) | powerStateOrdinal, 'Pwr!', "UniNEnet::setPowerState" );
 
 	if ( powerStateOrdinal >= kNumOfPowerStates )
 		return IOPMNoSuchState;						// Do nothing if state invalid
@@ -164,12 +164,10 @@ void UniNEnet::stopPHY()
 	UInt32	  val32;
 	UInt16	  i, val16;
 
-
-	ELG( fWOL, fPHYType, '-Phy', "stopPHY" );
+	ELG( fWOL, fPHYType, '-Phy', "UniNEnet::stopPHY" );
 
 	if ( !fBuiltin || (fPHYType == 0) )
 		return;
-
 
 	if ( fWOL == false )
 	{		// disabling MIF interrupts on the 5201 is explicit
@@ -233,7 +231,7 @@ void UniNEnet::stopPHY()
 			IODelay( 10 );
 			if ( i++ >= 100 )
 			{
-				ALRT( 0, val32, 'Sft-', "stopPHY - timeout on SoftwareReset" );
+				ALRT( 0, val32, 'Sft-', "UniNEnet::stopPHY - timeout on SoftwareReset" );
 				break;
 			}
 			val32 = READ_REGISTER( SoftwareReset );
@@ -313,18 +311,14 @@ void UniNEnet::startPHY()
 
 	ELG( this, fPHYType, 'Phy+', "startPHY" );
 
-//	if (netifClient)  // MacOS 9 uses numClients == 1?
-//	{
-//	IOLog( "UniN on restart phy = %d\n", fPHYType );
-
-	val32 = READ_REGISTER( TxConfiguration );
-	WRITE_REGISTER( TxConfiguration, val32 | kTxConfiguration_Tx_DMA_Enable );
+	fTxConfiguration |= kTxConfiguration_Tx_DMA_Enable;
+	WRITE_REGISTER( TxConfiguration, fTxConfiguration );
 
 	val32 = READ_REGISTER( RxConfiguration );
 	WRITE_REGISTER( RxConfiguration, val32 | kRxConfiguration_Rx_DMA_Enable );
 
-	val32 = READ_REGISTER( TxMACConfiguration );
-	WRITE_REGISTER( TxMACConfiguration, val32 | kTxMACConfiguration_TxMac_Enable );
+	fTxMACConfiguration |= kTxMACConfiguration_TxMac_Enable;
+	WRITE_REGISTER( TxMACConfiguration, fTxMACConfiguration );
 
 	val32  = READ_REGISTER( RxMACConfiguration );	/// ??? use fRxMACConfiguration?
 	val32 |= kRxMACConfiguration_Rx_Mac_Enable | kRxMACConfiguration_Hash_Filter_Enable;
@@ -384,7 +378,7 @@ bool UniNEnet::hardwareResetPHY()
 ///		return false;
 
 	phyId = fK2 ? 1 : 0;
-	if ( phyId != 0xFF )
+//	if ( phyId != 0xFF )
 	{		// If PHY location is known, clear Powerdown and reset:
 		miiWriteWord( MII_CONTROL_RESET, MII_CONTROL );
 		IOSleep( 10 );

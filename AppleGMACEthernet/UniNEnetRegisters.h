@@ -42,7 +42,7 @@
 #define MAX_SEGS_PER_TX_MBUF	32		// maximum number of segments per Transmit mbuf
 #define NETWORK_BUFSIZE         ((kIOEthernetMaxPacketSize + 7) & ~7)
 
-#define TRANSMIT_QUEUE_SIZE     256		// Overridden by IORegistry value
+#define TRANSMIT_QUEUE_SIZE     256		// Overridden by IORegistry value ???
 
 #define WATCHDOG_TIMER_MS       300
 #define TX_KDB_TIMEOUT          1000
@@ -332,8 +332,8 @@
 #define kTxMACSoftwareResetCommand_Reset	1	// 1 bit register
 #define kRxMACSoftwareResetCommand_Reset	1
 
-///#define kSendPauseCommand_default	0x1BF0	// SlotTime units 7152 ???
-#define kSendPauseCommand_default	0xFFFF	// SlotTime units
+#define kSendPauseCommand_default	0x1BF0	// SlotTime units 7152 ???
+//#define kSendPauseCommand_default	0xFFFF	// SlotTime units
 
 														// 0x6010:
 #define kTX_MAC_Status_Frame_Transmitted		0x001

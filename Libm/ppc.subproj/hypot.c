@@ -58,7 +58,7 @@
 *******************************************************************************/
 
 /*     the following fp.h functions are used:                                 */
-/*     fabs and sqrt;                                                	      */
+/*     __inf(), fabs and sqrt;                                                */
 /*     the following environmental functions are used:                        */
 /*     feclearexcept, _feprocentry and feupdateenv.                           */
 
@@ -67,7 +67,7 @@
 
 static hexdouble Huge = HEXDOUBLE(0x7FF00000, 0x00000000);
 
-#ifdef notdef
+double hypot ( double x, double y )
       {
         register double temp;
 	hexdouble OldEnvironment, CurrentEnvironment;
@@ -84,101 +84,36 @@ static hexdouble Huge = HEXDOUBLE(0x7FF00000, 0x00000000);
                 
         if ( ( x != x ) || ( y != y ) )
             {
-            x = __FABS ( x + y );
+            x = __fabs ( x + y );
             return x;
             }
             
-        FEGETENVD( OldEnvironment.d );              // save environment, set default
-        FESETENVD( 0.0 );
+        fegetenvd( OldEnvironment.d );              // save environment, set default
+        fesetenvd( 0.0 );
 
-        if ( ( x = __FABS ( x ) ) > ( y = __FABS ( y ) ) )  /* make sure |x| <= |y| */
+        if ( ( x = __fabs ( x ) ) > ( y = __fabs ( y ) ) )  /* make sure |x| <= |y| */
             {
             temp = x;
             x = y;
             y = temp;
             }
             
-        if ( ( y != 0.0 ) && ( y != INFINITY ) )
+        if ( ( y != 0.0 ) && ( y != __inf() ) )
             {
             temp = x / y;
             temp = sqrt ( 1.0 + temp * temp );
-            FEGETENVD( CurrentEnvironment.d );
+            fegetenvd( CurrentEnvironment.d );
             CurrentEnvironment.i.lo &= ~FE_UNDERFLOW;
-            FESETENVD( CurrentEnvironment.d );
+            fesetenvd( CurrentEnvironment.d );
             y = y * temp;
             }
             
-        FEGETENVD( CurrentEnvironment.d );
+        fegetenvd( CurrentEnvironment.d );
         OldEnvironment.i.lo |= CurrentEnvironment.i.lo;
-        FESETENVD( OldEnvironment.d );         //   restore caller's environment
+        fesetenvd( OldEnvironment.d );         //   restore caller's environment
 
         return y;
       }
-#else
-
-static hexdouble NegHuge = HEXDOUBLE(0xFFF00000, 0x00000000);
-
-double hypot ( double x, double y )
-{
-        register double temp;
-	hexdouble OldEnvironment, CurrentEnvironment;
-        
-        register double FPR_env, FPR_z, FPR_one, FPR_inf, FPR_Minf, 
-                        FPR_absx, FPR_absy, FPR_big, FPR_small;
-        
-        FPR_z = 0.0;					FPR_one = 1.0;
-        FPR_inf = Huge.d;				FPR_Minf = NegHuge.d;
-        FPR_absx = __FABS( x );				FPR_absy = __FABS( y );
-      
-/*******************************************************************************
-*     If argument is SNaN then a QNaN has to be returned and the invalid       *
-*     flag signaled.                                                           * 
-*******************************************************************************/
-	
-	if ( ( x == FPR_inf ) || ( y == FPR_inf ) || ( x == FPR_Minf ) || ( y == FPR_Minf ) )
-            return FPR_inf;
-                
-        if ( ( x != x ) || ( y != y ) )
-        {
-            x = __FABS ( x + y );
-            return x;
-        }
-            
-        if ( FPR_absx > FPR_absy )
-        {
-            FPR_big = FPR_absx;
-            FPR_small = FPR_absy;
-        }
-        else
-        {
-            FPR_big = FPR_absy;
-            FPR_small = FPR_absx;
-        }
-        
-        // Now +0.0 <= FPR_small <= FPR_big < INFINITY
-        
-        if ( FPR_small == FPR_z )
-            return FPR_big;
-            
-        FEGETENVD( FPR_env );				// save environment, set default
-        FESETENVD( FPR_z );
-
-        temp = FPR_small / FPR_big;			OldEnvironment.d = FPR_env;
-        temp = sqrt ( FPR_one + temp * temp );	   
-        
-        FEGETENVD( CurrentEnvironment.d );
-        CurrentEnvironment.i.lo &= ~FE_UNDERFLOW;	// Clear any inconsequential underflow
-        FESETENVD( CurrentEnvironment.d );
-        
-        temp = FPR_big * temp;				// Might raise UNDERFLOW or OVERFLOW
-            
-        FEGETENVD( CurrentEnvironment.d );
-        OldEnvironment.i.lo |= CurrentEnvironment.i.lo; // Pick up any UF or OF
-        FESETENVD( OldEnvironment.d );        		// restore caller's environment
-
-        return temp;
-}
-#endif
 
 #ifdef notdef
 static hexsingle HugeF = { 0x7F800000 };
@@ -193,46 +128,46 @@ float hypotf ( float x, float y)
 *     flag signaled.                                                           * 
 *******************************************************************************/
 	
-        FEGETENVD( OldEnvironment.d );               // save environment, set default
-        FESETENVD( 0.0 );
+        fegetenvd( OldEnvironment.d );               // save environment, set default
+        fesetenvd( 0.0 );
 
 	if ( ( x == HugeF.fval ) || ( y == HugeF.fval ) || ( x == - HugeF.fval ) || ( y == - HugeF.fval ) )
             {
-            FEGETENVD( CurrentEnvironment.d );
+            fegetenvd( CurrentEnvironment.d );
             OldEnvironment.i.lo |= CurrentEnvironment.i.lo;
-            FESETENVD( OldEnvironment.d );         //   restore caller's environment
+            fesetenvd( OldEnvironment.d );         //   restore caller's environment
             return HugeF.fval;
             }
                 
         if ( ( x != x ) || ( y != y ) )
             {
-            x = __FABSF ( x + y );
-            FEGETENVD( CurrentEnvironment.d );
+            x = __fabsf ( x + y );
+            fegetenvd( CurrentEnvironment.d );
             OldEnvironment.i.lo |= CurrentEnvironment.i.lo;
-            FESETENVD( OldEnvironment.d );         //   restore caller's environment
+            fesetenvd( OldEnvironment.d );         //   restore caller's environment
             return x;
             }
             
-        if ( ( x = __FABSF ( x ) ) > ( y = __FABSF ( y ) ) )  /* make sure |x| <= |y| */
+        if ( ( x = __fabsf ( x ) ) > ( y = __fabsf ( y ) ) )  /* make sure |x| <= |y| */
             {
             temp = x;
             x = y;
             y = temp;
             }
             
-      if ( ( y != 0.0 ) && ( y != INFINITY ) )
+      if ( ( y != 0.0 ) && ( y != __inff() ) )
             {
             temp = x / y;
             temp = sqrt ( 1.0 + temp * temp );
-            FEGETENVD( CurrentEnvironment.d );
+            fegetenvd( CurrentEnvironment.d );
             CurrentEnvironment.i.lo &= ~FE_UNDERFLOW;
-            FESETENVD( CurrentEnvironment.d );
+            fesetenvd( CurrentEnvironment.d );
             y = y * temp;
             }
             
-        FEGETENVD( CurrentEnvironment.d );
+        fegetenvd( CurrentEnvironment.d );
         OldEnvironment.i.lo |= CurrentEnvironment.i.lo;
-        FESETENVD( OldEnvironment.d );         //   restore caller's environment
+        fesetenvd( OldEnvironment.d );         //   restore caller's environment
 
         return y;
       }

@@ -23,14 +23,15 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#define	__APPLE_API_PRIVATE
-#include <machine/cpu_capabilities.h>
-#undef	__APPLE_API_PRIVATE
-
 #if defined(__ppc__)
 .text
-.align 5
+.align 2
 .globl _mach_absolute_time
 _mach_absolute_time:
-    ba	_COMM_PAGE_ABSOLUTE_TIME
+1:	mftbu	r3
+	mftb	r4
+	mftbu	r0
+	cmpw	r0,r3
+	bne-	1b
+	blr
 #endif

@@ -151,7 +151,7 @@ void)
 {
     nltype	*parentp, **timesortnlp;
     arctype	*arcp;
-    unsigned long index;
+    long	index;
 
 	/*
 	 * initialize various things:
@@ -244,7 +244,7 @@ void)
 	for(index = 0; index < nname; index++){
 	    timesortnlp[index] = &nl[index];
 	}
-	for(index = 1; index <= (unsigned long)ncycle; index++){
+	for(index = 1; index <= ncycle; index++){
 	    timesortnlp[nname + index - 1] = &cyclenl[index];
 	}
 	qsort(timesortnlp, nname + ncycle, sizeof(nltype *),
@@ -260,7 +260,7 @@ void
 dotime(
 void)
 {
-    unsigned long index;
+    int	index;
 
 	cycletime();
 	for(index = 0; index < nname; index += 1){
@@ -486,7 +486,7 @@ void
 doflags(
 void)
 {
-    long index;
+    int index;
     nltype *childp;
     nltype *oldhead;
 

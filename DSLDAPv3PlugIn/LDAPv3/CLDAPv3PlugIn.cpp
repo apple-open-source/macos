@@ -9923,7 +9923,7 @@ sInt32 CLDAPv3PlugIn::GetAuthAuthority ( sLDAPContextData *inContext, tDataBuffe
 								// TODO: return the right string
 								CShared::LogIt( 0x0F, "authauth found %s\n", authauthData ); 
 								
-								*outAuthAuthority[idx] = authauthData;
+								(*outAuthAuthority)[idx] = authauthData;
 							}
 							siResult = eDSNoErr;
 							

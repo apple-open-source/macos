@@ -22,6 +22,8 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
+
 #include <libkern/OSByteOrder.h>
 
 #include <IOKit/assert.h>
@@ -298,6 +300,11 @@ IOUSBDeviceUserClient::initWithTask(task_t owningTask,void *security_id , UInt32
 bool 
 IOUSBDeviceUserClient::start( IOService * provider )
 {
+    IOWorkLoop	*			workLoop = NULL;
+    IOCommandGate *			commandGate = NULL;
+
+    USBLog(7, "+%s[%p]::start(%p)", getName(), this, provider);
+
     IncrementOutstandingIO();		// make sure we don't close until start is done
 
     fOwner = OSDynamicCast(IOUSBDevice, provider);
@@ -308,45 +315,59 @@ IOUSBDeviceUserClient::start( IOService * provider )
 	goto ErrorExit;
     }
     
-    if(!super::start(provider))
+    if (!super::start(provider))
     {
  	USBError(1, "%s[%p]::start - super::start returned false!", getName(), this);
         goto ErrorExit;
     }
     
-    fGate = IOCommandGate::commandGate(this);
+    commandGate = IOCommandGate::commandGate(this);
 
-    if(!fGate)
+    if (!commandGate)
     {
 	USBError(1, "%s[%p]::start - unable to create command gate", getName(), this);
 	goto ErrorExit;
     }
 
-    fWorkLoop = getWorkLoop();
-    if (!fWorkLoop)
+    workLoop = getWorkLoop();
+    if (!workLoop)
     {
 	USBError(1, "%s[%p]::start - unable to find my workloop", getName(), this);
 	goto ErrorExit;
     }
-    fWorkLoop->retain();
+    workLoop->retain();
         
-    if (fWorkLoop->addEventSource(fGate) != kIOReturnSuccess)
+    if (workLoop->addEventSource(commandGate) != kIOReturnSuccess)
     {
 	USBError(1, "%s[%p]::start - unable to add gate to work loop", getName(), this);
 	goto ErrorExit;
     }
 
+    // Now that we have succesfully added our gate to the workloop, set our member variables
+    //
+    fGate = commandGate;
+    fWorkLoop = workLoop;
+    
     DecrementOutstandingIO();
+
+    USBLog(7, "-%s[%p]::start(%p)", getName(), this, provider);
+
     return true;
     
 ErrorExit:
     
-    if ( fGate != NULL )
+    if ( commandGate != NULL )
     {
-        fGate->release();
-        fGate = NULL;
+        commandGate->release();
+        commandGate = NULL;
     }
-        
+
+    if ( workLoop != NULL )
+    {
+        workLoop->release();
+        workLoop = NULL;
+    }
+
     DecrementOutstandingIO();
     return false;
 }
@@ -1027,15 +1048,16 @@ IOReturn
 IOUSBDeviceUserClient::ReEnumerateDevice(UInt32 options)
 {
     IOReturn 	ret;
-    
-    IncrementOutstandingIO();
+
+    retain();
     
     if (fOwner && !isInactive())
 	ret = fOwner->ReEnumerateDevice(options);
     else
 	ret = kIOReturnNotAttached;
 
-    DecrementOutstandingIO();
+    release();
+
     if (ret)
 	USBLog(3, "%s[%p]::ReEnumerateDevice - returning err %x", getName(), this, ret);
     return ret;

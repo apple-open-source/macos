@@ -84,10 +84,6 @@ lib${LIB}.a:: ${SOBJS}
 
 CLEANFILES += ${DOBJS} libc_static.a libc_profile.a libc_debug.a
 
-# XXX not used here yet, but used in Makefile
-SYSTEMFRAMEWORK = ${DESTDIR}/System/Library/Frameworks/System.framework
-PRIVHDRS = ${SYSTEMFRAMEWORK}/Versions/B/PrivateHeaders
-
 installhdrs: gen_mig_defs
 	mkdir -p ${DESTDIR}/usr/include/arpa
 	mkdir -p ${DESTDIR}/usr/include/protocols

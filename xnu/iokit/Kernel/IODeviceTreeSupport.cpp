@@ -191,7 +191,7 @@ IODeviceTreeAlloc( void * dtTop )
         // free original device tree
         DTInit(0);
         IODTFreeLoaderInfo( "DeviceTree",
-			(void *)dtMap[0], round_page_32(dtMap[1]) );
+			(void *)dtMap[0], round_page(dtMap[1]) );
     }
 
     // adjust tree

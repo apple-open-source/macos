@@ -33,8 +33,8 @@
 
 #include <mach_kdb.h>
 #include <mach/boolean.h>
-#include <mach/mach_types.h>
 #include <mach/exception_types.h>
+#include <mach/mach_types.h>
 #include <kern/cpu_data.h>
 #include <kern/debug.h>
 

@@ -2815,6 +2815,7 @@ IOReturn IONDRVFramebuffer::processConnectChange( UInt32 * value )
     __private->displayConnectFlags = 0;
     __private->i2cPowerState = 0;
     shouldDoI2CPower = 0;
+    cachedVDResolution.csDisplayModeID = kDisplayModeIDInvalid;
 
     do
     {

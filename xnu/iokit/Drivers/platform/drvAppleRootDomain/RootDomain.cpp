@@ -503,10 +503,10 @@ void IOPMrootDomain::powerChangeDone ( unsigned long previousState )
                 if ( propertyPtr ) {				// find out what woke us
                     theProperty = propertyPtr->unsigned16BitValue();
                     IOLog("Wake event %04x\n",theProperty);
-                    if ( (theProperty == 0x0008) ||	//lid
-                        (theProperty == 0x0800) ||	// front panel button
-                        (theProperty == 0x0020) ||	// external keyboard
-                        (theProperty == 0x0001) ) {	// internal keyboard
+                    if ( (theProperty & 0x0008) ||	//lid
+                        (theProperty & 0x0800) ||	// front panel button
+                        (theProperty & 0x0020) ||	// external keyboard
+                        (theProperty & 0x0001) ) {	// internal keyboard
                         reportUserInput();
                     }
                 }

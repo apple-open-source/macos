@@ -234,17 +234,6 @@ int  get_task_numacts(task_t t)
 	return(t->thr_act_count);
 }
 
-
-/* does this machine need  64bit register set for signal handler */
-int is_64signalregset(void)
-{
-	task_t t = current_task();
-	if(t->taskFeatures[0] & tf64BitData)
-		return(1);
-	else
-		return(0);
-}
-
 /*
  * Reset the current task's map by taking a reference
  * on the new map.  The old map reference is returned.

@@ -116,7 +116,7 @@ AppleUSBOHCI::CreateGeneralTransfer(
             {
             	pageCount = 1; // we can only do one page here
             	// must be a multiple of max packet size to avoid short packets
-           	if (physicalAddresses[0].length % ((USBToHostLong(queue->pShared->flags) & kOHCIEDControl_MPS) >> kOHCIEDControl_MPSPhase) != 0)
+            	if (physicalAddresses[0].length % ((USBToHostLong(queue->pShared->flags) & kOHCIEDControl_MPS) >> kOHCIEDControl_MPSPhase) != 0)
             	{
                         USBError(1, "%s[%p] CreateGeneralTransfer: non-multiple MPS transfer required -- giving up!", getName(), this);
 	                status = kIOReturnNoMemory;
@@ -1743,7 +1743,7 @@ AppleUSBOHCI::CheckEDListForTimeouts(AppleOHCIEndpointDescriptorPtr head, AppleO
 {
     AppleOHCIEndpointDescriptorPtr		pED = head;
     AppleOHCIGeneralTransferDescriptorPtr	pTD;
-    
+
     UInt32 				noDataTimeout;
     UInt32				completionTimeout;
     UInt32				rem;
@@ -1751,59 +1751,87 @@ AppleUSBOHCI::CheckEDListForTimeouts(AppleOHCIEndpointDescriptorPtr head, AppleO
 
     for (pED = pED->pLogicalNext; pED != tail; pED = pED->pLogicalNext)
     {
-	// get the top TD
+        // get the top TD
         pTD = (AppleOHCIGeneralTransferDescriptorPtr) (USBToHostLong(pED->pShared->tdQueueHeadPtr) & kOHCIHeadPMask);
-	// convert physical to logical
+        // convert physical to logical
         pTD = AppleUSBOHCIgtdMemoryBlock::GetGTDFromPhysical((IOPhysicalAddress)pTD);
-	if (!pTD)
-	    continue;
-	if (pTD == pED->pLogicalTailP)
-	    continue;
-	if (!pTD->command)
-	    continue;
-	    
-	noDataTimeout = pTD->command->GetNoDataTimeout();
-	completionTimeout = pTD->command->GetCompletionTimeout();
-	
-	if (completionTimeout)
-	{
-	    UInt32	firstActiveFrame = pTD->command->GetUIMScratch(kOHCIUIMScratchFirstActiveFrame);
-	    if (!firstActiveFrame)
-	    {
-		pTD->command->SetUIMScratch(kOHCIUIMScratchFirstActiveFrame, curFrame);
-		continue;
-	    }
-	    if ((curFrame - firstActiveFrame) >= completionTimeout)
-	    {
-		USBLog(2, "(%p)Found a transaction past the completion deadline, timing out! (%x - %x)", pTD, curFrame, firstActiveFrame);
-		ReturnOneTransaction(pTD, pED, kIOUSBTransactionTimeout);
-		continue;
-	    }
-	}
-	
-	if (!noDataTimeout)
-	    continue;
+        if (!pTD)
+            continue;
+        if (pTD == pED->pLogicalTailP)
+            continue;
+        if (!pTD->command)
+            continue;
 
-	if (!pTD->lastFrame || (pTD->lastFrame > curFrame))
-	{
-	    // this pTD is not a candidate yet, remember the frame number and go on
-	    pTD->lastFrame = curFrame;
-	    pTD->lastRemaining = findBufferRemaining(pTD);
-	    continue;
-	}
-	rem = findBufferRemaining(pTD);
-	if (pTD->lastRemaining != rem)
-	{
-	    // there has been some activity on this TD. update and move on
-	    pTD->lastRemaining = rem;
-	    continue;
-	}
-	if ((curFrame - pTD->lastFrame) >= noDataTimeout)
-	{
-	    USBLog(2, "(%p)Found a transaction which hasn't moved in 5 seconds, timing out! (%x - %x)", pTD, curFrame, pTD->lastFrame);
-	    ReturnOneTransaction(pTD, pED, kIOUSBTransactionTimeout);
-	    continue;
-	}
+        noDataTimeout = pTD->command->GetNoDataTimeout();
+        completionTimeout = pTD->command->GetCompletionTimeout();
+
+        if (completionTimeout)
+        {
+            UInt32	firstActiveFrame = pTD->command->GetUIMScratch(kOHCIUIMScratchFirstActiveFrame);
+            if (!firstActiveFrame)
+            {
+                pTD->command->SetUIMScratch(kOHCIUIMScratchFirstActiveFrame, curFrame);
+                continue;
+            }
+            if ((curFrame - firstActiveFrame) >= completionTimeout)
+            {
+                USBLog(2, "(%p)Found a transaction past the completion deadline, timing out! (%x - %x)", pTD, curFrame, firstActiveFrame);
+                ReturnOneTransaction(pTD, pED, kIOUSBTransactionTimeout);
+                continue;
+            }
+        }
+
+        if (!noDataTimeout)
+            continue;
+
+        if (!pTD->lastFrame || (pTD->lastFrame > curFrame))
+        {
+            // this pTD is not a candidate yet, remember the frame number and go on
+            pTD->lastFrame = curFrame;
+            pTD->lastRemaining = findBufferRemaining(pTD);
+            continue;
+        }
+        rem = findBufferRemaining(pTD);
+        if (pTD->lastRemaining != rem)
+        {
+            // there has been some activity on this TD. update and move on
+            pTD->lastRemaining = rem;
+            continue;
+        }
+        if ((curFrame - pTD->lastFrame) >= noDataTimeout)
+        {
+            USBLog(2, "(%p)Found a transaction which hasn't moved in 5 seconds, timing out! (%x - %x)", pTD, curFrame, pTD->lastFrame);
+            ReturnOneTransaction(pTD, pED, kIOUSBTransactionTimeout);
+            continue;
+        }
+    }
+}
+
+void
+AppleUSBOHCI::ReturnAllTransactionsInEndpoint(AppleOHCIEndpointDescriptorPtr head, AppleOHCIEndpointDescriptorPtr tail)
+{
+    AppleOHCIEndpointDescriptorPtr		pED = head;
+    AppleOHCIGeneralTransferDescriptorPtr	pTD;
+
+    UInt32				rem;
+
+    if (head == NULL)
+         return;
+         
+    for (pED = pED->pLogicalNext; pED != tail; pED = pED->pLogicalNext)
+    {
+        // get the top TD
+        pTD = (AppleOHCIGeneralTransferDescriptorPtr) (USBToHostLong(pED->pShared->tdQueueHeadPtr) & kOHCIHeadPMask);
+        // convert physical to logical
+        pTD = AppleUSBOHCIgtdMemoryBlock::GetGTDFromPhysical((IOPhysicalAddress)pTD);
+        if (!pTD)
+            continue;
+        if (pTD == pED->pLogicalTailP)
+            continue;
+        if (!pTD->command)
+            continue;
+
+        ReturnOneTransaction(pTD, pED, kIOReturnNotResponding);
     }
 }
 

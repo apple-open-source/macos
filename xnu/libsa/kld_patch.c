@@ -1853,13 +1853,13 @@ static Boolean growImage(struct fileRecord *file, vm_size_t delta)
     endMap   = (vm_address_t) file->fMap + file->fMapSize;
 
     // Do we have room in the current mapped image
-    if (endMachO < round_page_32(endMap)) {
+    if (endMachO < round_page(endMap)) {
 	file->fMachOSize += delta;
 	return true;
     }
 
     newsize = endMachO - startMachO;
-    if (newsize < round_page_32(file->fMapSize)) {
+    if (newsize < round_page(file->fMapSize)) {
         DEBUG_LOG(("Growing image %s by moving\n", file->fPath));
 
 	// We have room in the map if we shift the macho image within the

@@ -69,7 +69,6 @@ db_disasm(
 		db_task_printsym(db_disasm_symaddr, DB_STGY_ANY, task);
 		db_printf(">");
 	}
-	db_printf("\n");		/* Make sure we have a new line for multiline displays */
 	dis_done();
 	return (loc+4);
 }

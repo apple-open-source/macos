@@ -25,11 +25,6 @@
 
 #if defined(__ppc__)
 
-
-#define	__APPLE_API_PRIVATE
-#include <machine/cpu_capabilities.h>
-#undef	__APPLE_API_PRIVATE
-
 #import	<architecture/ppc/asm_help.h>
 #import	<architecture/ppc/pseudo_inst.h>
 
@@ -40,14 +35,37 @@
  */
 
 .text
+
 LEAF(__spin_lock_try)
-    ba		_COMM_PAGE_SPINLOCK_TRY
+1:
+	lwarx   r5,0,r3		// Read the lock
+	addi    r4,0,0x1	// Lock value
+	cmpwi   r5,0x0		// Is it busy?
+	bne-    2f		// Yes, return 0
+	stwcx.  r4,0,r3		// Try to lock the lock
+	bne-    1b		// Lost reservation, try again
+        addi	r3,0,1		// Got the lock
+	isync			// Sync instruction stream 
+	blr			// Return 1
+2:	addi	r3,0,0		// Could not get the lock
+	blr			// Return 0
 END(__spin_lock_try)
 
 .globl _spin_lock
 LEAF(__spin_lock)
 _spin_lock:
-    ba		_COMM_PAGE_SPINLOCK_LOCK
+1:
+	lwarx   r5,0,r3		// Read the lock
+	addi    r4,0,0x1	// Lock value
+	cmpwi   r5,0x0		// Is it busy?
+	bne-    2f		// Yes, goto retry logic
+	stwcx.  r4,0,r3		// Try to lock the lock
+	bne-    1b		// Lost reservation, try again
+	isync			// Sync instruction stream 
+	blr			// Return
+2:
+	CALL_EXTERN(__spin_lock_retry)
+	blr			// Return
 END(__spin_lock)
 
 /* void spin_unlock(int *p);
@@ -57,7 +75,10 @@ END(__spin_lock)
 .globl _spin_unlock
 LEAF(__spin_unlock)
 _spin_unlock:
-    ba		_COMM_PAGE_SPINLOCK_UNLOCK
+	sync
+	li32	r4,0
+	stw	r4,0(r3)
+	blr
 END(__spin_unlock)
 
 #elif defined(__i386__)

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1995-1999, 2000-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1995-1999, 2000-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -127,9 +127,6 @@ int	setpriority();
 int	socket();
 int	connect();
 int	getpriority();
-#ifdef __ppc__
-int	osigreturn();
-#endif
 int	sigreturn();
 int	bind();
 int	setsockopt();
@@ -429,11 +426,7 @@ struct sysent sysent[] = {
 	sysp(getpriority,2),	/* 100 = getpriority */
 	comaptnet(send,4),		/* 101 = old send */
 	comaptnet(recv,4),		/* 102 = old recv */
-#ifdef __ppc__
-	syss(osigreturn,1),		/* 103 = sigreturn ; compat for jaguar*/
-#else
-	syss(sigreturn,1),		/* 103 = sigreturn  */
-#endif
+	syss(sigreturn,1),		/* 103 = sigreturn */
 	sysnets(bind,3),		/* 104 = bind */
 	sysnets(setsockopt,5),	/* 105 = setsockopt */
 	sysnets(listen,2),		/* 106 = listen */
@@ -527,11 +520,7 @@ struct sysent sysent[] = {
 	syss(setgid,1),			/* 181 */
 	syss(setegid,1),		/* 182 */
 	syss(seteuid,1),		/* 183 */
-#ifdef __ppc__
-	syss(sigreturn, 2),		/* 184 = nosys */
-#else
 	syss(nosys,0),			/* 184 = nosys */
-#endif
 	syss(nosys,0),			/* 185 = nosys */
 	syss(nosys,0),			/* 186 = nosys */
 	syss(nosys,0),			/* 187 = nosys */

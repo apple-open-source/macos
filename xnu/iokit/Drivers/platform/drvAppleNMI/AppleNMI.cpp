@@ -136,12 +136,12 @@ IOReturn AppleNMI::powerStateWillChangeTo ( IOPMPowerFlags theFlags, unsigned lo
 
             // Mask NMI and change from edge to level whilst sleeping (copied directly from OS9 code)
             nmiIntSourceAddr = (volatile unsigned long *)kExtInt9_NMIIntSource;
-            nmiIntSource = ml_phys_read(nmiIntSourceAddr);
+            nmiIntSource = *nmiIntSourceAddr;
             nmiIntSource |= kNMIIntLevelMask;
-            ml_phys_write(nmiIntSourceAddr, nmiIntSource);
+            *nmiIntSourceAddr = nmiIntSource;
             eieio();
             nmiIntSource |= kNMIIntMask;
-            ml_phys_write(nmiIntSourceAddr, nmiIntSource);
+            *nmiIntSourceAddr = nmiIntSource;
             eieio();
         }
         else
@@ -150,12 +150,12 @@ IOReturn AppleNMI::powerStateWillChangeTo ( IOPMPowerFlags theFlags, unsigned lo
 
             // Unmask NMI and change back to edge (copied directly from OS9 code)
             nmiIntSourceAddr = (volatile unsigned long *)kExtInt9_NMIIntSource;
-            nmiIntSource = ml_phys_read(nmiIntSourceAddr);
+            nmiIntSource = *nmiIntSourceAddr;
             nmiIntSource &= ~kNMIIntLevelMask;
-            ml_phys_write(nmiIntSourceAddr, nmiIntSource);
+            *nmiIntSourceAddr = nmiIntSource;
             eieio();
             nmiIntSource &= ~kNMIIntMask;
-            ml_phys_write(nmiIntSourceAddr, nmiIntSource);
+            *nmiIntSourceAddr = nmiIntSource;
             eieio();
         }
     }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -128,11 +128,7 @@ char *syscallnames[] = {
 	"getpriority",		/* 100 = getpriority */
 	"old_send",			/* 101 = old send */
 	"old_recv",			/* 102 = old recv */
-#ifdef __ppc__
-	"osigreturn",		/* 103 = sigreturn */
-#else
 	"sigreturn",		/* 103 = sigreturn */
-#endif
 	"bind",				/* 104 = bind */
 	"setsockopt",		/* 105 = setsockopt */
 	"listen",			/* 106 = listen */
@@ -213,11 +209,7 @@ char *syscallnames[] = {
 	"setgid",			/* 181 = setgid */
 	"setegid",			/* 182 = setegid */
 	"seteuid",			/* 183 = seteuid */
-#ifdef __ppc__
-	"sigreturn",			/* 184 = sigreturn */
-#else
 	"#184",				/* 184 = nosys */
-#endif
 	"#185",				/* 185 = nosys */
 	"#186",				/* 186 = nosys */
 	"#187",				/* 187 = nosys */

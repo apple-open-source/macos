@@ -54,7 +54,7 @@ OSDefineMetaClassAndStructors(IOFDiskPartitionScheme, IOPartitionScheme);
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-bool IOFDiskPartitionScheme::init(OSDictionary * properties)
+bool IOFDiskPartitionScheme::init(OSDictionary * properties = 0)
 {
     //
     // Initialize this object's minimal state.

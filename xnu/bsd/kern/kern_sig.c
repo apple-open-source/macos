@@ -290,8 +290,6 @@ sigaction(p, uap, retval)
 			sa->sa_flags |= SA_SIGINFO;
 		if (ps->ps_signodefer & bit)
 			sa->sa_flags |= SA_NODEFER;
-		if (ps->ps_64regset & bit)
-			sa->sa_flags |= SA_64REGSET;
 		if ((signum == SIGCHLD) && (p->p_flag & P_NOCLDSTOP))
 			sa->sa_flags |= SA_NOCLDSTOP;
 		if ((signum == SIGCHLD) && (p->p_flag & P_NOCLDWAIT))
@@ -435,10 +433,6 @@ setsigvec(p, signum, sa)
 		ps->ps_siginfo |= bit;
 	else
 		ps->ps_siginfo &= ~bit;
-	if (sa->sa_flags & SA_64REGSET)
-		ps->ps_64regset |= bit;
-	else
-		ps->ps_64regset &= ~bit;
 	if ((sa->sa_flags & SA_RESTART) == 0)
 		ps->ps_sigintr |= bit;
 	else
@@ -2139,7 +2133,6 @@ issignal(p)
 				do_bsdexception(EXC_SOFTWARE, EXC_SOFT_SIGNAL, signum);
 				signal_lock(p);
 			} else {
-//				panic("Unsupportef gdb option \n");;
 				pp->si_pid = p->p_pid;
 				pp->si_status = p->p_xstat;
 				pp->si_code = CLD_TRAPPED;

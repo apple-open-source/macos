@@ -106,18 +106,6 @@ unsigned long address)
 	return(p(address));
 }
 
-struct mach_header *
-_dyld_get_image_header_containing_address(
-unsigned long address)
-{
-    static struct mach_header * (*p)(unsigned long) = NULL;
-
-	if(p == NULL)
-	    _dyld_func_lookup("__dyld_get_image_header_containing_address",
-			      (unsigned long *)&p);
-	return(p(address));
-}
-
 void _dyld_moninit(
 void (*monaddition)(char *lowpc, char *highpc))
 {
@@ -135,16 +123,5 @@ void)
 
 	if(p == NULL)
 	    _dyld_func_lookup("__dyld_launched_prebound", (unsigned long *)&p);
-	return(p());
-}
-
-enum bool _dyld_all_twolevel_modules_prebound(
-void)
-{
-    static enum bool (*p)(void) = NULL;
-
-	if(p == NULL)
-	    _dyld_func_lookup("__dyld_all_twolevel_modules_prebound",
-			      (unsigned long *)&p);
 	return(p());
 }

@@ -85,14 +85,15 @@ hfs_inactive(ap)
 		++forkcount;
 
 	/* If needed, get rid of any fork's data for a deleted file */
-	if ((vp->v_type == VREG) && (cp->c_flag & C_DELETED)) {
-		if (VTOF(vp)->ff_blocks != 0) {
-			error = VOP_TRUNCATE(vp, (off_t)0, IO_NDELAY, NOCRED, p);
-			if (error)
-				goto out;
-			truncated = 1;
-		}
+	if ((cp->c_flag & C_DELETED) &&
+	    vp->v_type == VREG &&
+	    (VTOF(vp)->ff_blocks != 0)) {			
+		error = VOP_TRUNCATE(vp, (off_t)0, IO_NDELAY, NOCRED, p);
+		truncated = 1;
+		// have to do this to prevent the lost ubc_info panic
+		SET(cp->c_flag, C_TRANSIT);
 		recycle = 1;
+		if (error) goto out;
 	}
 
 	/*

@@ -34,28 +34,25 @@
 
 #include <ppc/proc_reg.h>
 #include <ppc/pmap.h>
+#include <ppc/pmap_internals.h>
 #include <mach/vm_types.h>
 
-extern addr64_t hash_table_base;
+extern vm_offset_t hash_table_base;
 extern unsigned int hash_table_size;
 
 void hash_table_init(vm_offset_t base, vm_offset_t size);
 
 #define MAX_BAT		4
 
-#pragma pack(1)							/* Make sure the structure stays as we defined it */
 typedef struct ppcBAT {
 	unsigned int	upper;	/* Upper half of BAT */
 	unsigned int	lower;	/* Lower half of BAT */
 } ppcBAT;
-#pragma pack()
 
-#pragma pack(1)							/* Make sure the structure stays as we defined it */
 struct shadowBAT {
 	ppcBAT	IBATs[MAX_BAT];	/* Instruction BATs */
 	ppcBAT	DBATs[MAX_BAT];	/* Data BAT */
 };
-#pragma pack()
 
 extern struct shadowBAT shadow_BAT;     
 

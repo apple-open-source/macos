@@ -189,7 +189,6 @@ public:
     static IONDRV * instantiate( IORegistryEntry * regEntry,
                                  IOLogicalAddress container,
                                  IOByteCount containerSize,
-				 bool checkDate,
                                  IONDRVUndefinedSymbolHandler handler,
                                  void * self );
 

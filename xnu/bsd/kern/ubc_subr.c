@@ -590,9 +590,6 @@ ubc_getobject(struct vnode *vp, int flags)
 	if (UBCINVALID(vp))
 		return (0);
 
-	if (flags & UBC_FOR_PAGEOUT)
-	        return(vp->v_ubcinfo->ui_control);
-
 	if ((recursed = ubc_busy(vp)) == 0)
 		return (0);
 
@@ -1169,7 +1166,7 @@ ubc_page_op(
 	struct vnode 	*vp,
 	off_t		f_offset,
 	int		ops,
-	ppnum_t	*phys_entryp,
+	vm_offset_t	*phys_entryp,
 	int		*flagsp)
 {
 	memory_object_control_t		control;
@@ -1195,21 +1192,14 @@ ubc_create_upl(
 	int				uplflags)
 {
 	memory_object_control_t		control;
-	int				count;
-	int                             ubcflags;
-	off_t				file_offset;
-	kern_return_t			kr;
+	int							count;
+	off_t						file_offset;
+	kern_return_t				kr;
 	
 	if (bufsize & 0xfff)
 		return KERN_INVALID_ARGUMENT;
 
-	if (uplflags & UPL_FOR_PAGEOUT) {
-		uplflags &= ~UPL_FOR_PAGEOUT;
-	        ubcflags  =  UBC_FOR_PAGEOUT;
-	} else
-	        ubcflags = UBC_FLAGS_NONE;
-
-	control = ubc_getobject(vp, ubcflags);
+	control = ubc_getobject(vp, UBC_FLAGS_NONE);
 	if (control == MEMORY_OBJECT_CONTROL_NULL)
 		return KERN_INVALID_ARGUMENT;
 

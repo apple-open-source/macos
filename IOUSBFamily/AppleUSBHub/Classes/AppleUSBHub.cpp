@@ -22,6 +22,8 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
+
 #include <libkern/OSByteOrder.h>
 
 #include <IOKit/IOKitKeys.h>
@@ -1120,6 +1122,9 @@ AppleUSBHub::DoPortAction(UInt32 type, UInt32 portNumber, UInt32 options )
     IOReturn			err = kIOReturnSuccess;
 
     USBLog(5,"+%s[%p]::DoPortAction for port (%d), options (0x%x)", getName(), this, portNumber, options);
+
+    if ( _ports == NULL )
+        return kIOReturnNoDevice;
     
     port = _ports[portNumber - 1];
     if (port)
@@ -1401,42 +1406,40 @@ AppleUSBHub::ProcessStatusChanged()
         }
         else
         {
-            USBLog(5,"%s[%p]::ProcessStatusChanged found (0x%8.8x) in statusChangedBitmap", getName(), this, statusChangedBitmapPtr[0]);
-            for (portIndex = 1; portIndex <= _hubDescriptor.numPorts; portIndex++)
-            {
-                if ((statusChangedBitmapPtr[portByte] & portMask) != 0)
-                {
-                    port = _ports[portIndex-1];
-                    USBLog(5,"%s[%p]::ProcessStatusChanged port number %d, calling port->StatusChanged", getName(), this, portIndex);
-                    portSuccess = port->StatusChanged();
-                    if (! portSuccess )
-                    {
-                        USBLog(1,"%s[%p]::ProcessStatusChanged port->StatusChanged() returned false", getName(), this);
-                    }
-                }
-
-                portMask <<= 1;
-                if (portMask > 0x80)
-                {
-                    portMask = 1;
-                    portByte++;
-                }
-            }
-            
-        // hub status changed
             if ((statusChangedBitmapPtr[0] & 1) != 0)
             {
                 hubStatusSuccess = HubStatusChanged();
             }
+
+            if ( hubStatusSuccess )
+            {
+                USBLog(5,"%s[%p]::ProcessStatusChanged found (0x%8.8x) in statusChangedBitmap", getName(), this, statusChangedBitmapPtr[0]);
+                for (portIndex = 1; portIndex <= _hubDescriptor.numPorts; portIndex++)
+                {
+                    if ((statusChangedBitmapPtr[portByte] & portMask) != 0)
+                    {
+                        port = _ports[portIndex-1];
+                        USBLog(5,"%s[%p]::ProcessStatusChanged port number %d, calling port->StatusChanged", getName(), this, portIndex);
+                        portSuccess = port->StatusChanged();
+                        if (! portSuccess )
+                        {
+                            USBLog(1,"%s[%p]::ProcessStatusChanged port->StatusChanged() returned false", getName(), this);
+                        }
+                    }
+
+                    portMask <<= 1;
+                    if (portMask > 0x80)
+                    {
+                        portMask = 1;
+                        portByte++;
+                    }
+                }
+
+                // now re-arm the read
+                (void) RearmInterruptRead();
+            }
         }
     }
-    
-    if ( hubStatusSuccess )
-    {
-        // now re-arm the read 
-        (void) RearmInterruptRead();
-    }
-    
 }
 
 IOReturn
@@ -1444,6 +1447,9 @@ AppleUSBHub::RearmInterruptRead()
 {
     IOReturn		err = kIOReturnSuccess;
     IOUSBCompletion	comp;
+
+    if ( (_buffer == NULL) || ( _interruptPipe == NULL ) )
+        return err;
 
     IncrementOutstandingIO();			// retain myself for the callback
     comp.target = this;

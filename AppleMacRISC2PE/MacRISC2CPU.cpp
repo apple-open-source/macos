@@ -112,6 +112,7 @@ bool MacRISC2CPU::start(IOService *provider)
         if (numCPUs > maxCPUs) numCPUs = maxCPUs;
     }
 	
+	ignoreSpeedChange = false;
 	doSleep = false;
 	topLevelPCIBridgeCount = 0;
   
@@ -311,8 +312,25 @@ IOReturn MacRISC2CPU::powerStateWillChangeTo ( IOPMPowerFlags theFlags, unsigned
  				setAggressiveness (kPMSetProcessorSpeed, 0);				// Make it so
 				macRISC2PE->processorSpeedChangeFlags &= ~kProcessorFast;	// Remember slow so we can set it after sleep
 			}
+
+		// on machines that use the processor based speed change, once we start the sleep process, we don't want to change the 
+		// speed again until we wake. setting this true causes us to ignore all speed change requests.
+		if(macRISC2PE->processorSpeedChangeFlags & kProcessorBasedSpeedChange)
+		{	
+			//IOLog("*** setting ignoreSpeedChange = true\n");
+			ignoreSpeedChange = true;
+		}
+			
    } else {
         // Wake sequence:
+
+		// on machines that use the processor based speed change, now that we're awake, we can again start accepting speed change requests.
+		if(macRISC2PE->processorSpeedChangeFlags & kProcessorBasedSpeedChange)
+		{	
+			//IOLog("*** setting ignoreSpeedChange = false\n");
+			ignoreSpeedChange = false;
+		}
+
         kprintf("MacRISC2CPU %d powerStateWillChangeTo to acknowledge power changes (UP) we set napping %d\n", getCPUNumber(), rememberNap);
         ml_enable_nap(getCPUNumber(), rememberNap); 		   // Re-set the nap as it was before.
 		
@@ -333,7 +351,9 @@ IOReturn MacRISC2CPU::powerStateWillChangeTo ( IOPMPowerFlags theFlags, unsigned
 				macRISC2PE->processorSpeedChangeFlags |= kProcessorFast;	// Set fast so we know to go slow
  				setAggressiveness (kPMSetProcessorSpeed, 1);				// Make it so
 			}
-    }
+
+	}
+	
     return IOPMAckImplied;
 }
 
@@ -347,8 +367,17 @@ IOReturn MacRISC2CPU::powerStateWillChangeTo ( IOPMPowerFlags theFlags, unsigned
 IOReturn MacRISC2CPU::setAggressiveness(UInt32 selector, UInt32 newLevel)
 {
 	bool		doChange = false;
-   IOReturn		result;
+	IOReturn	result;
     
+	// on machines that use the processor based speed change, we check ignoreSpeedChange to see
+	// if we should ignore speed change requests. this is to avoid changing speed in the middle of
+	// a sleep/wake cycle.
+	if((selector == kPMSetProcessorSpeed) && (macRISC2PE->processorSpeedChangeFlags & kProcessorBasedSpeedChange) && (ignoreSpeedChange == true))
+	{	
+		//IOLog("*** ignoreSpeedChange == true, ignoring\n");
+		return IOPMNoErr;
+	}
+		
     result = super::setAggressiveness(selector, newLevel);
 	
     if ((selector == kPMSetProcessorSpeed) && (macRISC2PE->processorSpeedChangeFlags != kNoSpeedChange)) {

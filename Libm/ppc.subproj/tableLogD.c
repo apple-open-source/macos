@@ -40,7 +40,7 @@
 *                    changed i386 stub to call abort().                        *
 *     Nov   02 2001: added stub for i386 version of log2.                      *
 *     April 28 1997: port of the ibm/taligent log routines.                    *
-*     Sept  06 2001: replaced __setflm with FEGETENVD/FESETENVD.               *
+*     Sept  06 2001: replaced __setflm with fegetenvd/fesetenvd.               *
 *                    replaced DblInHex typedef with hexdouble.                 *
 *                    used standard exception symbols from fenv.h.              *
 *                    added #ifdef __ppc__.                                     *
@@ -116,8 +116,6 @@ struct logTableEntry
        hexdouble F;
        };
 
-static const hexdouble kConvDouble     = HEXDOUBLE(0x43300000, 0x80000000);
-
 #if !defined(BUILDING_FOR_CARBONCORE_LEGACY)
 
 /*******************************************************************************
@@ -126,11 +124,11 @@ static const hexdouble kConvDouble     = HEXDOUBLE(0x43300000, 0x80000000);
 *                                                                              *
 ********************************************************************************
 *                                                                              *
-*    calls the intrinsic functions __setflm, __FABS.                           *
+*    calls the intrinsic functions __setflm, __fabs.                           *
 *    raised exceptions are inexact, divide by zero and invalid.                *
 *                                                                              *
 *******************************************************************************/
-#ifdef notdef
+
 double log ( double x ) 
        {
        hexdouble yInHex, xInHex, OldEnvironment;
@@ -140,8 +138,8 @@ double log ( double x )
        struct logTableEntry *tablePointer = ( struct logTableEntry * ) logTable;
        
        xInHex.d = x;
-       FEGETENVD( OldEnvironment.d );
-       FESETENVD( 0.0 );
+       fegetenvd( OldEnvironment.d );
+       fesetenvd( 0.0 );
        xhead = xInHex.i.hi;
        
        if ( xhead < 0x7ff00000 ) 
@@ -185,7 +183,7 @@ double log ( double x )
                      {
                      OldEnvironment.i.lo |= FE_DIVBYZERO;
                      result = -infinity.d;
-                     FESETENVD( OldEnvironment.d );
+                     fesetenvd( OldEnvironment.d );
                      return result;
                      }
                      
@@ -196,7 +194,7 @@ double log ( double x )
                      {                                     // 0.75 <= x < 1.5
                      if ( x == 1.0 ) 
                             {
-                            FESETENVD( OldEnvironment.d );
+                            fesetenvd( OldEnvironment.d );
                             return +0.0;
                             }
                      temp1 = d8 * z2 + d6;
@@ -210,7 +208,7 @@ double log ( double x )
                      low = tablePointer[i].F.d - temp3 + z + ( zTail - z * zTail );
                      result = temp2 * z2 + low;
                      result += temp3;
-                     FESETENVD( OldEnvironment.d );
+                     fesetenvd( OldEnvironment.d );
                      return result;
                      }
               else if ( tablePointer[i].F.i.hi != 0 ) 
@@ -229,7 +227,7 @@ double log ( double x )
                      temp1 = ( temp1 - temp3 ) + high;
                      result = ( ( temp2 * z2 + low ) + temp1 ) + zTail;
                      result += temp3;
-                     FESETENVD( OldEnvironment.d );
+                     fesetenvd( OldEnvironment.d );
                      return result;
                      }
               else 
@@ -246,7 +244,7 @@ double log ( double x )
                      temp2 = temp1 * z + d2;
                      result = ( temp2 * z2 + low ) + z;
                      result += temp3;
-                     FESETENVD( OldEnvironment.d );
+                     fesetenvd( OldEnvironment.d );
                      return result;
                      }
               }
@@ -262,240 +260,10 @@ double log ( double x )
               x = nan ( LOGORITHMIC_NAN );
               }
               
-       FESETENVD( OldEnvironment.d );
+       fesetenvd( OldEnvironment.d );
        return x;
        
        }
-#else
-double log ( double x ) 
-{
-       hexdouble yInHex, xInHex, OldEnvironment;
-       register double n, zTail, high, low, z, z2, temp1, temp2, temp3, result;
-       register long int i;
-       unsigned long int xhead;
-       struct logTableEntry *tablePointer = ( struct logTableEntry * ) logTable;
-       
-       register double FPR_env, FPR_z, FPR_half, FPR_one, FPR_twoTo128, FPR_ln2, FPR_kConvDouble;
-       register double FPR_r, FPR_s, FPR_t, FPR_u, FPR_y;
-       register struct logTableEntry *pT;
-       register long nLong; // converted to double in two widely separated steps, avoiding LSU hazards
-       hexdouble nInHex;
-       
-       xInHex.d = x;						nInHex.i.hi = 0x43300000; // store upper half
-
-       FPR_z = 0.0;						FPR_half = 0.5;
-       FPR_one = 1.0;						FPR_u = 1.0;
-       FPR_twoTo128 = twoTo128;					FPR_ln2 = ln2;
-       
-       FEGETENVD( FPR_env );
-       __ENSURE( FPR_z, FPR_twoTo128, FPR_ln2 );		__ENSURE( FPR_u, FPR_half, FPR_one );		
-       FESETENVD( FPR_z );
-       
-       xhead = xInHex.i.hi;
-       
-       if ( FPR_z <= x && x < infinity.d ) 
-       {                                             // x is finite and non-negative
-              if ( x > largestDenorm )  
-              {                                      // x is normal
-                     i = xInHex.i.hi & 0x000fffff;
-                     yInHex.i.lo = xInHex.i.lo;
-                     yInHex.i.hi = i | 0x3ff00000;          // now 1.0 <= y < 2.0
-                     if ( yInHex.i.hi & 0x00080000 ) 
-                     {                               // 1.5 <= y < 2.0
-                            nLong = ((long) ( xInHex.i.hi >> 20 ) - 1022);
-                            nLong ^= 0x80000000; // flip sign bit
-                            nInHex.i.lo = nLong; // store lower half
-                            i = ( i >> 13 ) & 0x3f;         // table lookup index
-                            FPR_u = FPR_half;
-                     }
-                     else 
-                     {                               // 1.0 <= y < 1.5
-                            nLong = ((long) ( xInHex.i.hi >> 20 ) - 1023);
-                            nLong ^= 0x80000000; // flip sign bit
-                            nInHex.i.lo = nLong; // store lower half
-                            i = ( i >> 12 ) + 64;           // table lookup index
-                            // FPR_u = FPR_one; via initialization above
-                     }
-              }
-              else if ( x != FPR_z ) 
-              {                                      // x is nonzero, denormal
-                     xInHex.d = __FMUL( x, FPR_twoTo128 );
-                    __ORI_NOOP;
-                    __ORI_NOOP;
-                    __ORI_NOOP;
-                     i = xInHex.i.hi & 0x000fffff;
-                     yInHex.i.lo = xInHex.i.lo;
-                     yInHex.i.hi = i | 0x3ff00000;          // now 1.0 <= y < 2.0
-                     if ( yInHex.i.hi & 0x00080000 ) 
-                     {                               // 1.5 <= y < 2.0
-                            nLong = ((long) ( xInHex.i.hi >> 20 ) - 1150);
-                            nLong ^= 0x80000000; // flip sign bit
-                            nInHex.i.lo = nLong; // store lower half
-                            i = ( i >> 13 ) & 0x3f;         // table lookup index
-                            FPR_u = FPR_half;
-                     }
-                     else 
-                     {                               // 1.0 <= y < 1.5
-                            nLong = ((long) ( xInHex.i.hi >> 20 ) - 1151);
-                            nLong ^= 0x80000000; // flip sign bit
-                            nInHex.i.lo = nLong; // store lower half
-                            i = ( i >> 12 ) + 64;           // table lookup index
-                            // FPR_u = FPR_one; via initialization above
-                     }
-              }
-              else                                          // x is 0.0
-              {
-                     OldEnvironment.d = FPR_env;
-                     OldEnvironment.i.lo |= FE_DIVBYZERO;
-                     result = -infinity.d;
-                     FESETENVD( OldEnvironment.d );
-                     return result;
-              }
-              
-              pT = &(tablePointer[i]);
-              FPR_r = pT->X;					FPR_t = pT->G;
-              
-              FPR_y = yInHex.d;					
-              FPR_s = __FMSUB( FPR_u, FPR_y, FPR_r );		__ORI_NOOP;
-              
-              z = __FMUL( FPR_s, FPR_t );			
-              FPR_u = __FNMSUB( z, FPR_r, FPR_s );		z2 = __FMUL( z, z );
-              zTail = __FMUL( FPR_u, FPR_t);
-                            
-              if ( (unsigned long)nLong == 0x80000000ul /* iff n == 0.0 */ ) 
-              {                                     // 0.75 <= x < 1.5
-                     register double FPR_d2, FPR_d3, FPR_d4, FPR_d5, FPR_d6, FPR_d7, FPR_d8;
-                     
-                     if ( x == FPR_one ) 
-                     {
-                            FESETENVD( FPR_env );
-                            return FPR_z;
-                     }
-                     
-                     FPR_d8 = d8;				FPR_d6 = d6;
-                     
-                     FPR_d7 = d7;				FPR_d5 = d5;
-                     
-                     temp1 = __FMADD( FPR_d8, z2, FPR_d6 );	temp2 = __FMADD( FPR_d7, z2, FPR_d5);
-                     FPR_d4 = d4;				
-                     
-                     FPR_d3 = d3;
-                     temp1 = __FMADD( temp1, z2, FPR_d4 );	temp2 = __FMADD( temp2, z2, FPR_d3 );
-
-                     FPR_d2 = d2;				
-                     FPR_t = pT->F.d;				__ORI_NOOP;
-                     
-                     temp1 = __FMADD( temp1, z, temp2 );	temp3 = z + FPR_t;
-                     
-                     temp2 = __FMADD( temp1, z, FPR_d2 );	FPR_u = FPR_t - temp3;
-                     
-                     FPR_s = FPR_u + z;				FPR_r = __FNMSUB( z, zTail, zTail );
-                     
-                     low = FPR_s + FPR_r;
-                     
-                     result = __FMADD( temp2, z2, low );
-                     
-                     result += temp3;
-                     
-                     FESETENVD( FPR_env );
-                     __PROG_INEXACT( FPR_ln2 );
-                     
-                     return result;
-              }
-              else if ( pT->F.i.hi != 0 ) 
-              {                                     // n != 0, and y not close to 1
-                     register double FPR_c2, FPR_c3, FPR_c4, FPR_c5, FPR_c6;
-                     
-                     FPR_c6 = c6;				FPR_c4 = c4;
-                     
-                     FPR_c5 = c5;				FPR_c3 = c3;
-                     
-                     temp3 = __FMADD( FPR_c6, z2, FPR_c4 );	temp2 = __FMADD( FPR_c5, z2, FPR_c3 );
-                     FPR_kConvDouble = kConvDouble.d;	
-                     
-                     FPR_s = ln2Tail;
-                     n = nInHex.d;			// float load double 				
-                     n -= FPR_kConvDouble; 		// subtract magic value			
-                     
-                     __ORI_NOOP;				FPR_t = pT->F.d; 
-                     low = __FMADD( n, FPR_s, zTail );		high = z + FPR_t;
-                     
-                     temp3 = __FMUL( temp3, z2 );		FPR_u = FPR_t - high;
-                     		
-                     temp2 = __FMADD( temp2, z, temp3 );	zTail = FPR_u + z;
-
-                     FPR_c2 = c2;
-                     temp2 = temp2 + FPR_c2;			temp1 = __FMADD( n, FPR_ln2, low );
-                     
-                     FPR_t = __FMSUB( n, FPR_ln2, temp1 );	temp3 = high + temp1;
-                     
-                     FPR_s = temp1 - temp3;			low = FPR_t + low;				
-                     
-                     temp1 = FPR_s + high;			FPR_r = __FMADD( temp2, z2, low );
-                     
-                     result = ( FPR_r + temp1 ) + zTail;
-                     
-                     result += temp3;
-                     
-                     FESETENVD( FPR_env );
-                     __PROG_INEXACT( FPR_ln2 );
-                     
-                     return result;
-              }
-              else 
-              {                                     // n != 0 and y close to 1                     
-                     register double FPR_d2, FPR_d3, FPR_d4, FPR_d5, FPR_d6, FPR_d7, FPR_d8;
-                    
-                     FPR_d8 = d8;				FPR_d6 = d6;
-                     
-                     FPR_d7 = d7;				FPR_d5 = d5;
-                     
-                     temp1 = __FMADD( FPR_d8, z2, FPR_d6 );	temp2 = __FMADD( FPR_d7, z2, FPR_d5);
-                     FPR_kConvDouble = kConvDouble.d;	
-                                          
-                     FPR_t = ln2Tail;
-                     n = nInHex.d; 				
-                     n -= FPR_kConvDouble;			
-                     
-                     low = __FMADD( n, FPR_t, zTail );		__ORI_NOOP;
-                     FPR_d2 = d2;
-                     
-                     FPR_d4 = d4;				FPR_d3 = d3;
-                     
-                     temp1 = __FMADD( temp1, z2, FPR_d4 );	temp2 = __FMADD( temp2, z2, FPR_d3 );
-                     temp3 = __FMADD( n, FPR_ln2, low );	__ORI_NOOP;
-                     				
-                     temp1 = __FMADD( temp1, z, temp2 );	FPR_s = __FMSUB( n, FPR_ln2, temp3 );
-                     
-                     temp2 = __FMADD( temp1, z, FPR_d2 );	low = FPR_s + low;
-                                          
-                     result = __FMADD( temp2, z2, low ) + z;
-                     result += temp3;
-                     
-                     FESETENVD( FPR_env );
-                     __PROG_INEXACT( FPR_ln2 );
-                     
-                     return result;
-              }
-       }
-       
-       OldEnvironment.d = FPR_env;
-       if ( x == FPR_z )
-       {
-              OldEnvironment.i.lo |= FE_DIVBYZERO;
-              x = -infinity.d;
-       }
-       else if ( x < FPR_z )
-       {                                           // x < 0.0
-              OldEnvironment.i.lo |= SET_INVALID;
-              x = nan ( LOGORITHMIC_NAN );
-       }
-              
-       FESETENVD( OldEnvironment.d );
-       return x;
-       
-}
-#endif
 
 #ifdef notdef
 float logf ( float x )
@@ -509,7 +277,7 @@ float logf ( float x )
 *    The base 10 logorithm function.  CallerÕs rounding direction is honored.  *
 *                                                                              *
 *******************************************************************************/
-#ifdef notdef
+
 double log10 ( double x ) 
        {
        hexdouble yInHex, xInHex, OldEnvironment;
@@ -519,8 +287,8 @@ double log10 ( double x )
        struct logTableEntry *tablePointer = ( struct logTableEntry * ) logTable;
        
        xInHex.d = x;
-       FEGETENVD( OldEnvironment.d );
-       FESETENVD( 0.0 );
+       fegetenvd( OldEnvironment.d );
+       fesetenvd( 0.0 );
        xhead = xInHex.i.hi;
        
        if ( xhead < 0x7ff00000 ) 
@@ -564,7 +332,7 @@ double log10 ( double x )
                      {
                      OldEnvironment.i.lo |= FE_DIVBYZERO;
                      result = -infinity.d;
-                     FESETENVD( OldEnvironment.d );
+                     fesetenvd( OldEnvironment.d );
                      return result;
                      }
 
@@ -575,7 +343,7 @@ double log10 ( double x )
                      {                                     // 0.75 <= x < 1.5
                      if ( x == 1.0 ) 
                             {
-                            FESETENVD( OldEnvironment.d );
+                            fesetenvd( OldEnvironment.d );
                             return +0.0;
                             }
                      temp1 = d8 * z2 + d6;
@@ -591,7 +359,7 @@ double log10 ( double x )
                      resultLow = temp3 - result + ( temp2 * z2 + low );
                      resultLow = resultLow * log10e + result * log10eTail;
                      result = ( resultLow + result * log10e );
-                     FESETENVD( OldEnvironment.d );
+                     fesetenvd( OldEnvironment.d );
                      return result;
                      }
               else if ( tablePointer[i].F.i.hi != 0 ) 
@@ -612,7 +380,7 @@ double log10 ( double x )
                      resultLow = temp3 - result + zTail + temp1 + ( temp2 * z2 + low );
                      resultLow = resultLow * log10e + result * log10eTail;
                      result = ( resultLow + result * log10e ); 
-                     FESETENVD( OldEnvironment.d );
+                     fesetenvd( OldEnvironment.d );
                      return result;
                      }
               else 
@@ -631,7 +399,7 @@ double log10 ( double x )
                      resultLow = temp3 - result + z + ( temp2 * z2 + low );
                      resultLow = resultLow * log10e + result * log10eTail;
                      result = ( resultLow + result * log10e );
-                     FESETENVD( OldEnvironment.d );
+                     fesetenvd( OldEnvironment.d );
                      return result;
                      }
               }
@@ -647,251 +415,10 @@ double log10 ( double x )
               x = nan ( LOGORITHMIC_NAN );
               }
               
-       FESETENVD( OldEnvironment.d );
+       fesetenvd( OldEnvironment.d );
        return x;
        
        }
-#else
-double log10 ( double x ) 
-{
-       hexdouble yInHex, xInHex, OldEnvironment;
-       register double n, zTail, high, low, z, z2, temp1, temp2, temp3, result, resultLow;
-       register long int i;
-       unsigned long int xhead;
-       struct logTableEntry *tablePointer = ( struct logTableEntry * ) logTable;
-       
-       register double FPR_env, FPR_z, FPR_half, FPR_one, FPR_twoTo128, FPR_ln2, FPR_kConvDouble;
-       register double FPR_r, FPR_s, FPR_t, FPR_u, FPR_y;
-       register struct logTableEntry *pT;
-       register long nLong; // converted to double in two widely separated steps, avoiding LSU hazards
-       hexdouble nInHex;
-       
-       xInHex.d = x;						nInHex.i.hi = 0x43300000; // store upper half
-
-       FPR_z = 0.0;						FPR_half = 0.5;
-       FPR_one = 1.0;						FPR_u = 1.0;
-       FPR_twoTo128 = twoTo128;					FPR_ln2 = ln2;
-       
-       FEGETENVD( FPR_env );
-       __ENSURE( FPR_z, FPR_twoTo128, FPR_ln2 );		__ENSURE( FPR_u, FPR_half, FPR_one );		
-       FESETENVD( FPR_z );
-       
-       xhead = xInHex.i.hi;
-       
-       if ( FPR_z <= x && x < infinity.d ) 
-       {                                             // x is finite and non-negative
-              if ( x > largestDenorm )  
-              {                                      // x is normal
-                     i = xInHex.i.hi & 0x000fffff;
-                     yInHex.i.lo = xInHex.i.lo;
-                     yInHex.i.hi = i | 0x3ff00000;          // now 1.0 <= y < 2.0
-                     if ( yInHex.i.hi & 0x00080000 ) 
-                     {                               // 1.5 <= y < 2.0
-                            nLong = ((long) ( xInHex.i.hi >> 20 ) - 1022);
-                            nLong ^= 0x80000000; // flip sign bit
-                            nInHex.i.lo = nLong; // store lower half
-                            i = ( i >> 13 ) & 0x3f;         // table lookup index
-                            FPR_u = FPR_half;
-                     }
-                     else 
-                     {                               // 1.0 <= y < 1.5
-                            nLong = ((long) ( xInHex.i.hi >> 20 ) - 1023);
-                            nLong ^= 0x80000000; // flip sign bit
-                            nInHex.i.lo = nLong; // store lower half
-                            i = ( i >> 12 ) + 64;           // table lookup index
-                            // FPR_u = FPR_one; via initialization above
-                     }
-              }
-              else if ( x != FPR_z ) 
-              {                                      // x is nonzero, denormal
-                     xInHex.d = __FMUL( x, FPR_twoTo128 );
-                     i = xInHex.i.hi & 0x000fffff;
-                     yInHex.i.lo = xInHex.i.lo;
-                     yInHex.i.hi = i | 0x3ff00000;          // now 1.0 <= y < 2.0
-                     if ( yInHex.i.hi & 0x00080000 ) 
-                     {                               // 1.5 <= y < 2.0
-                            nLong = ((long) ( xInHex.i.hi >> 20 ) - 1150);
-                            nLong ^= 0x80000000; // flip sign bit
-                            nInHex.i.lo = nLong; // store lower half
-                            i = ( i >> 13 ) & 0x3f;         // table lookup index
-                            FPR_u = FPR_half;
-                     }
-                     else 
-                     {                               // 1.0 <= y < 1.5
-                            nLong = ((long) ( xInHex.i.hi >> 20 ) - 1151);
-                            nLong ^= 0x80000000; // flip sign bit
-                            nInHex.i.lo = nLong; // store lower half
-                            i = ( i >> 12 ) + 64;           // table lookup index
-                            // FPR_u = FPR_one; via initialization above
-                     }
-              }
-              else                                          // x is 0.0
-              {
-                     OldEnvironment.d = FPR_env;
-                     OldEnvironment.i.lo |= FE_DIVBYZERO;
-                     result = -infinity.d;
-                     FESETENVD( OldEnvironment.d );
-                     return result;
-              }
-              
-              pT = &(tablePointer[i]);
-              FPR_r = pT->X;					FPR_t = pT->G;
-              
-              FPR_y = yInHex.d;					
-              FPR_s = __FMSUB( FPR_u, FPR_y, FPR_r );		__ORI_NOOP;
-              
-              z = __FMUL( FPR_s, FPR_t );			
-              FPR_u = __FNMSUB( z, FPR_r, FPR_s );		z2 = __FMUL( z, z );
-              zTail = __FMUL( FPR_u, FPR_t);
-                            
-              if ( (unsigned long)nLong == 0x80000000ul /* iff n == 0.0 */ ) 
-              {                                     // 0.75 <= x < 1.5
-                     register double FPR_d2, FPR_d3, FPR_d4, FPR_d5, FPR_d6, FPR_d7, FPR_d8;
-                     
-                     if ( x == FPR_one ) 
-                     {
-                            FESETENVD( FPR_env );
-                            return FPR_z;
-                     }
-                     
-                     FPR_d8 = d8;				FPR_d6 = d6;
-                     
-                     FPR_d7 = d7;				FPR_d5 = d5;
-                     
-                     temp1 = __FMADD( FPR_d8, z2, FPR_d6 );	temp2 = __FMADD( FPR_d7, z2, FPR_d5);
-                     FPR_d4 = d4;				
-                     
-                     FPR_d3 = d3;
-                     temp1 = __FMADD( temp1, z2, FPR_d4 );	temp2 = __FMADD( temp2, z2, FPR_d3 );
-
-                     FPR_d2 = d2;				
-                     FPR_t = pT->F.d;				__ORI_NOOP;
-                     
-                     temp1 = __FMADD( temp1, z, temp2 );	temp3 = z + FPR_t;
-                     
-                     temp2 = __FMADD( temp1, z, FPR_d2 );	FPR_u = FPR_t - temp3;
-                     
-                     FPR_s = FPR_u + z;				FPR_r = __FNMSUB( z, zTail, zTail );
-                     
-                     low = FPR_s + FPR_r;
-
-                     FPR_r = __FMADD( temp2, z2, low );
-                     FPR_s = log10e;				FPR_t = log10eTail;
-                                          
-                     result = FPR_r + temp3;
-                     resultLow = temp3 - result + FPR_r;
-                     FPR_u = __FMUL( result, FPR_t );
-                     resultLow = __FMADD( resultLow, FPR_s, FPR_u );
-                     result = __FMADD( result, FPR_s, resultLow );
-
-                     FESETENVD( FPR_env );
-                     __PROG_INEXACT( FPR_ln2 );
-                     
-                     return result;
-              }
-              else if ( pT->F.i.hi != 0 ) 
-              {                                     // n != 0, and y not close to 1
-                     register double FPR_c2, FPR_c3, FPR_c4, FPR_c5, FPR_c6;
-                     
-                     FPR_c6 = c6;				FPR_c4 = c4;
-                     
-                     FPR_c5 = c5;				FPR_c3 = c3;
-                     
-                     temp3 = __FMADD( FPR_c6, z2, FPR_c4 );	temp2 = __FMADD( FPR_c5, z2, FPR_c3 );
-                     FPR_kConvDouble = kConvDouble.d;	
-                     
-                     FPR_s = ln2Tail;
-                     n = nInHex.d; 				// float load double				
-                     n -= FPR_kConvDouble; 			// subtract magic value			
-                     
-                     __ORI_NOOP;				FPR_t = pT->F.d;
-                     low = __FMADD( n, FPR_s, zTail );		high = z + FPR_t;
-                     
-                     temp3 = __FMUL( temp3, z2 );		FPR_u = FPR_t - high;
-                     		
-                     temp2 = __FMADD( temp2, z, temp3 );	zTail = FPR_u + z;
-
-                     FPR_c2 = c2;
-                     temp2 = temp2 + FPR_c2;			temp1 = __FMADD( n, FPR_ln2, low );
-                     
-                     FPR_t = __FMSUB( n, FPR_ln2, temp1 );	temp3 = high + temp1;
-                     
-                     FPR_s = temp1 - temp3;			low = FPR_t + low;				
-                     
-                     temp1 = FPR_s + high;			FPR_r = __FMADD( temp2, z2, low );
-                     FPR_s = log10e;				FPR_t = log10eTail;
-
-                     result = ( ( FPR_r + temp1 ) + zTail ) + temp3;
-                     resultLow = temp3 - result + zTail + temp1 + FPR_r;
-                     FPR_u = __FMUL( result, FPR_t );
-                     resultLow = __FMADD( resultLow, FPR_s, FPR_u );
-                     result = __FMADD( result, FPR_s, resultLow );
-                     
-                     FESETENVD( FPR_env );
-                     __PROG_INEXACT( FPR_ln2 );
-                     
-                     return result;
-              }
-              else
-              {                                     // n != 0 and y close to 1                     
-                     register double FPR_d2, FPR_d3, FPR_d4, FPR_d5, FPR_d6, FPR_d7, FPR_d8;
-                    
-                     FPR_d8 = d8;				FPR_d6 = d6;
-                     
-                     FPR_d7 = d7;				FPR_d5 = d5;
-                     
-                     temp1 = __FMADD( FPR_d8, z2, FPR_d6 );	temp2 = __FMADD( FPR_d7, z2, FPR_d5);
-                     FPR_kConvDouble = kConvDouble.d;	
-                                          
-                     FPR_t = ln2Tail;
-                     n = nInHex.d; 				
-                     n -= FPR_kConvDouble;			
-                     
-                     low = __FMADD( n, FPR_t, zTail );		__ORI_NOOP;
-                     FPR_d2 = d2;
-                     
-                     FPR_d4 = d4;				FPR_d3 = d3;
-                     
-                     temp1 = __FMADD( temp1, z2, FPR_d4 );	temp2 = __FMADD( temp2, z2, FPR_d3 );
-                     temp3 = __FMADD( n, FPR_ln2, low );	__ORI_NOOP;
-                     				
-                     temp1 = __FMADD( temp1, z, temp2 );	FPR_s = __FMSUB( n, FPR_ln2, temp3 );
-                     
-                     temp2 = __FMADD( temp1, z, FPR_d2 );	low = FPR_s + low;
-                     
-                     FPR_r = __FMADD( temp2, z2, low );
-                     FPR_s = log10e;				FPR_t = log10eTail;
-                                          
-                     result = ( FPR_r + z ) + temp3;
-                     resultLow = temp3 - result + z + FPR_r;
-                     FPR_u = __FMUL( result, FPR_t );
-                     resultLow = __FMADD( resultLow, FPR_s, FPR_u );
-                     result = __FMADD( result, FPR_s, resultLow );
-                     
-                     FESETENVD( FPR_env );
-                     __PROG_INEXACT( FPR_ln2 );
-                     
-                     return result;
-              }
-       }
-       
-       OldEnvironment.d = FPR_env;
-       if ( x == FPR_z )
-       {
-              OldEnvironment.i.lo |= FE_DIVBYZERO;
-              x = -infinity.d;
-       }
-       else if ( x < FPR_z )
-       {                                           // x < 0.0
-              OldEnvironment.i.lo |= SET_INVALID;
-              x = nan ( LOGORITHMIC_NAN );
-       }
-              
-       FESETENVD( OldEnvironment.d );
-       return x;
-       
-}
-#endif
 
 #ifdef notdef
 float log10f ( float x )
@@ -905,7 +432,7 @@ float log10f ( float x )
 *    The base e log(1+x) function.  CallerÕs rounding direction is honored.    *
 *                                                                              *
 *******************************************************************************/
-#ifdef notdef
+
 double log1p ( double x ) 
        {
        hexdouble yInHex, xInHex, OldEnvironment;
@@ -915,8 +442,8 @@ double log1p ( double x )
        
 //     N.B. x == NAN fails all comparisons and falls through to the return.
 
-       FEGETENVD( OldEnvironment.d );
-       FESETENVD( 0.0 );
+       fegetenvd( OldEnvironment.d );
+       fesetenvd( 0.0 );
        
        if ( ( x > -1.0 ) && ( x < infinity.d ) ) 
               {
@@ -949,12 +476,12 @@ double log1p ( double x )
                             {
                             if ( x != 0.0 ) 
                                    {
-                                   if ( __FABS( x ) <= largestDenorm )
+                                   if ( __fabs( x ) <= largestDenorm )
                                           OldEnvironment.i.lo |= FE_UNDERFLOW | FE_INEXACT; // set underflow/inexact flag
                                    else
                                           OldEnvironment.i.lo |= FE_INEXACT; // set inexact flag
                                    }
-                            FESETENVD( OldEnvironment.d );
+                            fesetenvd( OldEnvironment.d );
                             return x;
                             }
                      temp1 = d8 * z2 + d6;
@@ -997,7 +524,7 @@ double log1p ( double x )
                      }
               OldEnvironment.i.lo |= FE_INEXACT;       // set inexact flag
               result += temp3;
-              FESETENVD( OldEnvironment.d );
+              fesetenvd( OldEnvironment.d );
               return result;
               }
        
@@ -1012,200 +539,9 @@ double log1p ( double x )
               x = nan ( LOGORITHMIC_NAN );
               }
        
-       FESETENVD( OldEnvironment.d );
+       fesetenvd( OldEnvironment.d );
        return x;
        }
-#else
-double log1p ( double x ) 
-{
-       hexdouble yInHex, xInHex, OldEnvironment;
-       register double yLow, n, zTail, high, low, z, z2, temp1, temp2, temp3, result;
-       register long int i;
-       struct logTableEntry *tablePointer = ( struct logTableEntry * ) logTable;
-       
-       register double FPR_env, FPR_z, FPR_half, FPR_one, FPR_negOne, FPR_ln2, FPR_kConvDouble;
-       register double FPR_r, FPR_s, FPR_t, FPR_u, FPR_y;
-       register struct logTableEntry *pT;
-       register long nLong; // converted to double in two widely separated steps, avoiding LSU hazards
-       hexdouble nInHex;
-       
-       nInHex.i.hi = 0x43300000; // store upper half
-
-       FPR_z = 0.0;						FPR_half = 0.5;
-       FPR_one = 1.0;						FPR_u = 1.0;
-       FPR_ln2 = ln2;						FPR_negOne = -1.0;
-       
-       FEGETENVD( FPR_env );
-       __ENSURE( FPR_z, FPR_negOne, FPR_ln2 );			__ENSURE( FPR_u, FPR_half, FPR_one );		
-       FESETENVD( FPR_z );
-       
-//     N.B. x == NAN fails all comparisons and falls through to the return.
-
-       if ( ( x > FPR_negOne ) && ( x < infinity.d ) ) 
-       {
-              FPR_y = FPR_one + x;                          // yInHex.d cannot be a denormal number
-              yInHex.d = FPR_y;
-              yLow = ( x < FPR_one ) ? ( FPR_one - FPR_y ) + x : ( x - FPR_y ) + FPR_one; 
-              
-              i = yInHex.i.hi & 0x000fffff;
-              nLong = (long) ( yInHex.i.hi >> 20 ) - 1023;
-              xInHex.i.lo = 0x0;
-              xInHex.i.hi = 0x7fe00000 - ( yInHex.i.hi & 0x7ff00000 );
-              yInHex.i.hi = i | 0x3ff00000;                // now 1.0 <= y < 2.0
-              if ( yInHex.i.hi & 0x00080000 ) 
-              {                                     // 1.5 <= y < 2.0
-                     nLong += 1;
-                     FPR_u = FPR_half;
-                     i = ( i >> 13 ) & 0x3f;               // table lookup index
-              }
-              else 
-              {                                     // 1.0 <= y < 1.5
-                     i = ( i >> 12 ) + 64;                 // table lookupndex
-                     // FPR_u = FPR_one; via initialization above
-              }
-              
-              nLong ^= 0x80000000; // flip sign bit
-              nInHex.i.lo = nLong; // store lower half
-              
-              pT = &(tablePointer[i]);
-              FPR_r = pT->X;					FPR_t = pT->G;
-            
-              FPR_y = yInHex.d;					
-              FPR_s = __FMSUB( FPR_u, FPR_y, FPR_r );		yLow = __FMUL( yLow, xInHex.d );
-              
-              z = __FMUL( FPR_s, FPR_t );			yLow = __FMUL( yLow, FPR_u );
-              FPR_u = __FNMSUB( z, FPR_r, FPR_s );		z2 = __FMUL( z, z );
-              FPR_u = FPR_u + yLow;
-              zTail = __FMUL( FPR_u, FPR_t);
-
-              if ( (unsigned long)nLong == 0x80000000ul /* iff n == 0.0 */ ) 
-              {
-                     register double FPR_d2, FPR_d3, FPR_d4, FPR_d5, FPR_d6, FPR_d7, FPR_d8;
-
-                     if ( FPR_y == FPR_one )
-                     {
-                            FESETENVD( FPR_env );
-                            if ( x != FPR_z ) 
-                            {
-                                   if ( __FABS( x ) <= largestDenorm )
-                                        __PROG_UF_INEXACT( largestDenorm );
-                                   else
-                                        __PROG_INEXACT( FPR_ln2 );
-                            }
-                            return x;
-                     }
-                     
-                     FPR_d8 = d8;				FPR_d6 = d6;
-                     
-                     FPR_d7 = d7;				FPR_d5 = d5;
-                     
-                     temp1 = __FMADD( FPR_d8, z2, FPR_d6 );	temp2 = __FMADD( FPR_d7, z2, FPR_d5);
-                     FPR_d4 = d4;				
-                     
-                     FPR_d3 = d3;
-                     temp1 = __FMADD( temp1, z2, FPR_d4 );	temp2 = __FMADD( temp2, z2, FPR_d3 );
-
-                     FPR_d2 = d2;				
-                     FPR_t = pT->F.d;				__ORI_NOOP;
-                     
-                     temp1 = __FMADD( temp1, z, temp2 );	temp3 = z + FPR_t;
-                     
-                     temp2 = __FMADD( temp1, z, FPR_d2 );	FPR_u = FPR_t - temp3;
-                     
-                     FPR_s = FPR_u + z;				FPR_r = __FNMSUB( z, zTail, zTail );
-                     
-                     low = FPR_s + FPR_r;
-                     
-                     result = __FMADD( temp2, z2, low );
-              }
-              else if ( pT->F.i.hi != 0 ) 
-              {                                     // n != 0, and y not close to 1
-                     register double FPR_c2, FPR_c3, FPR_c4, FPR_c5, FPR_c6;
-                     
-                     FPR_c6 = c6;				FPR_c4 = c4;
-                     
-                     FPR_c5 = c5;				FPR_c3 = c3;
-                     
-                     temp3 = __FMADD( FPR_c6, z2, FPR_c4 );	temp2 = __FMADD( FPR_c5, z2, FPR_c3 );
-                     FPR_kConvDouble = kConvDouble.d;
-                     
-                     FPR_s = ln2Tail;
-                     n = nInHex.d; 				// float load double				
-                     n -= FPR_kConvDouble; 			// subtract magic value			
-                     
-                     __ORI_NOOP;				FPR_t = pT->F.d;
-                     low = __FMADD( n, FPR_s, zTail );		high = z + FPR_t;
-                     
-                     temp3 = __FMUL( temp3, z2 );		FPR_u = FPR_t - high;
-                     		
-                     temp2 = __FMADD( temp2, z, temp3 );	zTail = FPR_u + z;
-
-                     FPR_c2 = c2;
-                     temp2 = temp2 + FPR_c2;			temp1 = __FMADD( n, FPR_ln2, low );
-                     
-                     FPR_t = __FMSUB( n, FPR_ln2, temp1 );	temp3 = high + temp1;
-                     
-                     FPR_s = temp1 - temp3;			low = FPR_t + low;				
-                     
-                     temp1 = FPR_s + high;			FPR_r = __FMADD( temp2, z2, low );
-                     
-                     result = ( FPR_r + temp1 ) + zTail;
-              }
-              else 
-              {
-                     register double FPR_d2, FPR_d3, FPR_d4, FPR_d5, FPR_d6, FPR_d7, FPR_d8;
-                    
-                     FPR_d8 = d8;				FPR_d6 = d6;
-                     
-                     FPR_d7 = d7;				FPR_d5 = d5;
-                     
-                     temp1 = __FMADD( FPR_d8, z2, FPR_d6 );	temp2 = __FMADD( FPR_d7, z2, FPR_d5);
-                     FPR_kConvDouble = kConvDouble.d;	
-                                          
-                     FPR_t = ln2Tail;
-                     n = nInHex.d; 				
-                     n -= FPR_kConvDouble;			
-
-                     low = __FMADD( n, FPR_t, zTail );		__ORI_NOOP;
-                     FPR_d2 = d2;
-                     
-                     FPR_d4 = d4;				FPR_d3 = d3;
-
-                     temp1 = __FMADD( temp1, z2, FPR_d4 );	temp2 = __FMADD( temp2, z2, FPR_d3 );
-                     temp3 = __FMADD( n, FPR_ln2, low );	__ORI_NOOP;
-                                          				
-                     temp1 = __FMADD( temp1, z, temp2 );	FPR_s = __FMSUB( n, FPR_ln2, temp3 );
-                     
-                     temp2 = __FMADD( temp1, z, FPR_d2 );	low = FPR_s + low;
-
-                     low = low + yLow;
-                     result = __FMADD( temp2, z2, low ) + z;
-              }
-
-              result += temp3;
-            
-              FESETENVD( FPR_env );
-              __PROG_INEXACT( FPR_ln2 );
-            
-              return result;
-       }
-       
-       OldEnvironment.d = FPR_env;
-       if ( x == FPR_negOne ) 
-       {
-              OldEnvironment.i.lo |= FE_DIVBYZERO;
-              x = -infinity.d;
-       }
-       else if ( x < FPR_negOne )
-       {
-              OldEnvironment.i.lo |= SET_INVALID;
-              x = nan ( LOGORITHMIC_NAN );
-       }
-       
-       FESETENVD( OldEnvironment.d );
-       return x;
-}
-#endif
 
 #ifdef notdef
 float log1pf ( float x )
@@ -1221,7 +557,7 @@ float log1pf ( float x )
 *    The base 2 logorithm function.  CallerÕs rounding direction is honored.   *
 *                                                                              *
 *******************************************************************************/
-#ifdef notdef
+
 double log2 ( double x ) 
        {
        hexdouble yInHex, xInHex, OldEnvironment;
@@ -1231,8 +567,8 @@ double log2 ( double x )
        struct logTableEntry *tablePointer = ( struct logTableEntry * ) logTable;
        
        xInHex.d = x;
-       FEGETENVD( OldEnvironment.d );
-       FESETENVD( 0.0 );
+       fegetenvd( OldEnvironment.d );
+       fesetenvd( 0.0 );
        xhead = xInHex.i.hi;
        
        if ( xhead < 0x7ff00000 ) 
@@ -1276,7 +612,7 @@ double log2 ( double x )
                      {
                      OldEnvironment.i.lo |= FE_DIVBYZERO;
                      result = -infinity.d;
-                     FESETENVD( OldEnvironment.d );
+                     fesetenvd( OldEnvironment.d );
                      return result;
                      }
               
@@ -1299,7 +635,7 @@ double log2 ( double x )
               if ( n == 0.0 ) 
                      {
                      result =  temp3 + temp1 * log2e;
-                     FESETENVD( OldEnvironment.d );
+                     fesetenvd( OldEnvironment.d );
                      return result;
                      }
               else 
@@ -1307,7 +643,7 @@ double log2 ( double x )
                      result = n + temp1 * log2e;
                      temp3 = ( ( n - result ) + temp1 * log2e ) + temp3;
                      result += temp3;
-                     FESETENVD( OldEnvironment.d );
+                     fesetenvd( OldEnvironment.d );
                      return result;
                      }
               }
@@ -1323,179 +659,10 @@ double log2 ( double x )
               x = nan ( LOGORITHMIC_NAN );
               }
               
-       FESETENVD( OldEnvironment.d );
+       fesetenvd( OldEnvironment.d );
        return x;
        
        }
-#else
-double log2 ( double x ) 
-{
-       hexdouble yInHex, xInHex, OldEnvironment;
-       register double n, zTail, low, z, z2, temp1, temp2, temp3, result;
-       register long int i;
-       struct logTableEntry *tablePointer = ( struct logTableEntry * ) logTable;
-       
-       register double FPR_env, FPR_z, FPR_half, FPR_one, FPR_twoTo128, FPR_ln2, FPR_kConvDouble;
-       register double FPR_r, FPR_s, FPR_t, FPR_u, FPR_y;
-       register struct logTableEntry *pT;
-       register long nLong; // converted to double in two widely separated steps, avoiding LSU hazards
-       hexdouble nInHex;
-       
-       xInHex.d = x;						nInHex.i.hi = 0x43300000; // store upper half
-
-       FPR_z = 0.0;						FPR_half = 0.5;
-       FPR_one = 1.0;						FPR_u = 1.0;
-       FPR_twoTo128 = twoTo128;					FPR_ln2 = ln2;
-       
-       FEGETENVD( FPR_env );
-       __ENSURE( FPR_z, FPR_twoTo128, FPR_ln2 );		__ENSURE( FPR_u, FPR_half, FPR_one );		
-       FESETENVD( FPR_z );
-              
-       if ( FPR_z <= x && x < infinity.d ) 
-       {                                             // x is finite and non-negative
-              if ( x > largestDenorm )  
-              {                                      // x is normal
-                     i = xInHex.i.hi & 0x000fffff;
-                     yInHex.i.lo = xInHex.i.lo;
-                     yInHex.i.hi = i | 0x3ff00000;          // now 1.0 <= y < 2.0
-                     if ( yInHex.i.hi & 0x00080000 ) 
-                     {                               // 1.5 <= y < 2.0
-                            nLong = ((long) ( xInHex.i.hi >> 20 ) - 1022);
-                            nLong ^= 0x80000000; // flip sign bit
-                            nInHex.i.lo = nLong; // store lower half
-                            i = ( i >> 13 ) & 0x3f;         // table lookup index
-                            FPR_u = FPR_half;
-                     }
-                     else 
-                     {                               // 1.0 <= y < 1.5
-                            nLong = ((long) ( xInHex.i.hi >> 20 ) - 1023);
-                            nLong ^= 0x80000000; // flip sign bit
-                            nInHex.i.lo = nLong; // store lower half
-                            i = ( i >> 12 ) + 64;           // table lookup index
-                            // FPR_u = FPR_one; via initialization above
-                     }
-              }
-              else if ( x != FPR_z ) 
-              {                                      // x is nonzero, denormal
-                     xInHex.d = __FMUL( x, FPR_twoTo128 );
-                    __ORI_NOOP;
-                    __ORI_NOOP;
-                    __ORI_NOOP;
-                     i = xInHex.i.hi & 0x000fffff;
-                     yInHex.i.lo = xInHex.i.lo;
-                     yInHex.i.hi = i | 0x3ff00000;          // now 1.0 <= y < 2.0
-                     if ( yInHex.i.hi & 0x00080000 ) 
-                     {                               // 1.5 <= y < 2.0
-                            nLong = ((long) ( xInHex.i.hi >> 20 ) - 1150);
-                            nLong ^= 0x80000000; // flip sign bit
-                            nInHex.i.lo = nLong; // store lower half
-                            i = ( i >> 13 ) & 0x3f;         // table lookup index
-                            FPR_u = FPR_half;
-                     }
-                     else 
-                     {                               // 1.0 <= y < 1.5
-                            nLong = ((long) ( xInHex.i.hi >> 20 ) - 1151);
-                            nLong ^= 0x80000000; // flip sign bit
-                            nInHex.i.lo = nLong; // store lower half
-                            i = ( i >> 12 ) + 64;           // table lookup index
-                            // FPR_u = FPR_one; via initialization above
-                     }
-              }
-              else                                          // x is 0.0
-              {
-                     OldEnvironment.d = FPR_env;
-                     OldEnvironment.i.lo |= FE_DIVBYZERO;
-                     result = -infinity.d;
-                     FESETENVD( OldEnvironment.d );
-                     return result;
-              }
-              
-              {
-                register double FPR_d2, FPR_d3, FPR_d4, FPR_d5, FPR_d6, FPR_d7, FPR_d8;
-
-                FPR_d8 = d8;					FPR_d6 = d6;
-                
-                FPR_d7 = d7;					FPR_d5 = d5;
-
-                pT = &(tablePointer[i]);
-                FPR_r = pT->X;					FPR_t = pT->G;
-              
-                FPR_y = yInHex.d;					
-                FPR_s = __FMSUB( FPR_u, FPR_y, FPR_r );		FPR_kConvDouble = kConvDouble.d;
-              
-                z = __FMUL( FPR_s, FPR_t );			
-                FPR_u = __FNMSUB( z, FPR_r, FPR_s );		z2 = __FMUL( z, z );
-                zTail = __FMUL( FPR_u, FPR_t);
-              
-                
-                temp1 = __FMADD( FPR_d8, z2, FPR_d6 );		temp2 = __FMADD( FPR_d7, z2, FPR_d5);
-                FPR_d4 = d4;				
-                
-                FPR_d3 = d3;
-                temp1 = __FMADD( temp1, z2, FPR_d4 );		temp2 = __FMADD( temp2, z2, FPR_d3 );
-    
-                FPR_d2 = d2;				
-                FPR_t = pT->F.d;				n = nInHex.d;
-                
-                temp1 = __FMADD( temp1, z, temp2 );		temp3 = z + FPR_t;
-                
-                temp2 = __FMADD( temp1, z, FPR_d2 );		FPR_u = FPR_t - temp3;
-                
-                FPR_s = FPR_u + z;				FPR_r = __FNMSUB( z, zTail, zTail );
-                
-                low = FPR_s + FPR_r;
-    
-                FPR_r = __FMADD( temp2, z2, low );
-                FPR_s = log2e;					FPR_t = log2eTail;
-                
-                temp1 = FPR_r + temp3;				n -= FPR_kConvDouble;
-                temp2 = temp3 - temp1 + FPR_r;
-                FPR_u = __FMUL( temp1, FPR_t );		
-                temp3 = __FMADD( temp2, FPR_s, FPR_u );
-              }
-              
-              if ( (unsigned long)nLong == 0x80000000ul /* iff n == 0.0 */ ) 
-              {
-                     result =  __FMADD( temp1, FPR_s, temp3 );
-                     
-                     FESETENVD( FPR_env );
-                     if ( FPR_y != FPR_one )
-                        __PROG_INEXACT( FPR_ln2 );
-                        
-                     return result;
-              }
-              else 
-              {                                      // n != 0                     			
-                     result = __FMADD( temp1, FPR_s, n);
-                     FPR_t =  n - result;
-                     temp3 = __FMADD( temp1, FPR_s, FPR_t ) + temp3;
-                     result += temp3;
-                     
-                     FESETENVD( FPR_env );
-                     if ( FPR_y != FPR_one )
-                        __PROG_INEXACT( FPR_ln2 );
-                        
-                     return result;
-              }
-       }
-       
-       OldEnvironment.d = FPR_env;
-       if ( x == FPR_z )
-       {
-              OldEnvironment.i.lo |= FE_DIVBYZERO;
-              x = -infinity.d;
-       }
-       else if ( x < FPR_z )
-       {                                           
-              OldEnvironment.i.lo |= SET_INVALID;
-              x = nan ( LOGORITHMIC_NAN );
-       }
-              
-       FESETENVD( OldEnvironment.d );
-       return x;
-       
-}
-#endif
 
 #ifdef notdef
 float log2f ( float x )

@@ -22,8 +22,6 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-#ifndef __MATH_H__
-#define __MATH_H__
 
 #if defined (__ppc__)
 #include "architecture/ppc/math.h"
@@ -33,4 +31,3 @@
 #error Unknown architecture
 #endif
 
-#endif /* __MATH_H__ */

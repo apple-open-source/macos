@@ -1025,9 +1025,9 @@ struct proc *p, *curproc;
 		      kdbg_mapinit();
 		  break;
 		case KERN_KDSETBUF:
-		  /* We allow a maximum buffer size of 25% of either ram or max mapped address, whichever is smaller */
+		  /* We allow a maximum buffer size of 25% of memory */
 		  /* 'value' is the desired number of trace entries */
-		        max_entries = (sane_size/4) / sizeof(kd_buf);
+		        max_entries = (mem_size/4) / sizeof(kd_buf);
 			if (value <= max_entries)
 				nkdbufs = value;
 			else
@@ -1203,11 +1203,4 @@ kd_buf * my_kd_bufptr;
 		} /* end if KDBG_BUFINIT */		
 	} /* end if count */
 	return (EINVAL);
-}
-
-unsigned char *getProcName(struct proc *proc);
-unsigned char *getProcName(struct proc *proc) {
-
-	return &proc->p_comm;	/* Return pointer to the proc name */
-
 }

@@ -137,7 +137,7 @@ vnode_pageout(struct vnode *vp,
 
 		goto out;
 	}
-	ubc_create_upl(vp, f_offset, isize, &vpupl, &pl, UPL_FOR_PAGEOUT | UPL_COPYOUT_FROM);
+	ubc_create_upl(vp, f_offset, isize, &vpupl, &pl, UPL_COPYOUT_FROM);
 
 	if (vpupl == (upl_t) 0) {
 		result = error = PAGER_ABSENT;

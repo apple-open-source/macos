@@ -45,17 +45,7 @@ extern __inline__ thread_act_t current_act(void)
 	thread_act_t act;
 	__asm__ volatile("mfsprg %0,1" : "=r" (act));  
 	return act;
-};
-
-/*
- *	Note that the following function is ONLY guaranteed when preemption or interrupts are disabled
- */
-extern __inline__ struct per_proc_info *getPerProc(void) 
-{
-	struct per_proc_info *perproc;
-	__asm__ volatile("mfsprg %0,0" : "=r" (perproc));  
-	return perproc;
-};
+}
 
 #define	current_thread()	current_act()->thread
 

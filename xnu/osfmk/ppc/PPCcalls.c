@@ -32,8 +32,6 @@
 #include <ppc/Diagnostics.h>
 #include <ppc/vmachmon.h>
 #include <ppc/PseudoKernel.h>
-#include <ppc/misc_protos.h>
-#include <ppc/hw_perfmon.h>
 
 /*
  *	To add a new entry:

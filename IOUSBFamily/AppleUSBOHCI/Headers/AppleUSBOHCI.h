@@ -148,6 +148,7 @@ private:
     void print_control_list(void);
     void print_bulk_list(void);
     void print_int_list(void);
+    bool IsValidPhysicalAddress(IOPhysicalAddress pageAddr);
 
 protected:
 
@@ -331,9 +332,12 @@ protected:
 		IOReturn				err);
 
     void CheckEDListForTimeouts(
-		AppleOHCIEndpointDescriptorPtr 	head, 
-		AppleOHCIEndpointDescriptorPtr 	tail);
-    
+                                AppleOHCIEndpointDescriptorPtr 	head,
+                                AppleOHCIEndpointDescriptorPtr 	tail);
+    void ReturnAllTransactionsInEndpoint(
+                                AppleOHCIEndpointDescriptorPtr 	head,
+                                AppleOHCIEndpointDescriptorPtr 	tail);
+        
 public:
     virtual bool 	init(OSDictionary * propTable);
     virtual bool 	start( IOService * provider );

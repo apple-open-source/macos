@@ -54,7 +54,11 @@ private:
 			UInt32 value, const char * name );
 };
 
-#endif	__cplusplus
+#endif
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 enum {
 // loggage
@@ -75,16 +79,11 @@ enum {
     kIOLogMemory 	= 0x00004000ULL,
 
 // debug aids - change behaviour
-    kIONoFreeObjects 	= 0x00100000ULL,
-    kIOLogSynchronous   = 0x00200000ULL,	// IOLog completes synchrounsly
+    kIONoFreeObjects 	= 0x00100000ULL
 };
 
 extern SInt64	gIOKitDebug;
 extern char 	iokit_version[];
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 struct IORegistryPlane;
 extern void	IOPrintPlane( const struct IORegistryPlane * plane );

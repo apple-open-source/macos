@@ -165,7 +165,7 @@ routine memory_object_page_op(
 		memory_control	: memory_object_control_t;
 	in	offset		: memory_object_offset_t;
 	in	ops		: integer_t;
-	out	phys_entry	: uint32_t;
+	out	phys_entry	: vm_offset_t;
 	out	flags		: integer_t);
 
 routine memory_object_recover_named(

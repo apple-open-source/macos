@@ -911,7 +911,7 @@ IOSCSIMultimediaCommandsDevice::AsyncReadCD (
 		SetApplicationLayerReference ( request, clientData );
 		
 		// The command was successfully built, now send it
-		SendCommand ( request, fReadTimeoutDuration, &IOSCSIMultimediaCommandsDevice::AsyncReadWriteComplete );
+		SendCommand ( request, 0, &IOSCSIMultimediaCommandsDevice::AsyncReadWriteComplete );
 		status = kIOReturnSuccess;
 		
 	}
@@ -5103,7 +5103,7 @@ IOSCSIMultimediaCommandsDevice::IssueRead (
 					0 ) == true )
 	{
 		// The command was successfully built, now send it
-		serviceResponse = SendCommand ( request, fReadTimeoutDuration );
+		serviceResponse = SendCommand ( request, 0 );
 	}
 	
 	if ( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
@@ -5157,7 +5157,7 @@ IOSCSIMultimediaCommandsDevice::IssueWrite (
 					0 ) == true )
 	{
 		// The command was successfully built, now send it
-		serviceResponse = SendCommand ( request, fWriteTimeoutDuration );
+		serviceResponse = SendCommand ( request, 0 );
 	}
 	
 	if ( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
@@ -5215,7 +5215,7 @@ IOSCSIMultimediaCommandsDevice::IssueRead (
 		
 		// The command was successfully built, now send it
 		SendCommand ( request,
-					  fReadTimeoutDuration,
+					  0,
 					  &IOSCSIMultimediaCommandsDevice::AsyncReadWriteComplete );
 		
 		status = kIOReturnSuccess;
@@ -5273,7 +5273,7 @@ IOSCSIMultimediaCommandsDevice::IssueWrite (
 		
 		// The command was successfully built, now send it
 		SendCommand ( request,
-					  fWriteTimeoutDuration,
+					  0,
 					  &IOSCSIMultimediaCommandsDevice::AsyncReadWriteComplete );
 		
 		status = kIOReturnSuccess;
@@ -5443,6 +5443,8 @@ IOSCSIMultimediaCommandsDevice::AsyncReadWriteComplete (
 		
 	}
 	
+	taskOwner->ReleaseSCSITask ( request );
+	
 	if ( taskOwner->fSupportedDVDFeatures & kDVDFeaturesReadStructuresMask )
 	{
 		IODVDServices::AsyncReadWriteComplete ( clientData, status, actCount );
@@ -5452,8 +5454,6 @@ IOSCSIMultimediaCommandsDevice::AsyncReadWriteComplete (
 	{	
 		IOCompactDiscServices::AsyncReadWriteComplete ( clientData, status, actCount );
 	}
-	
-	taskOwner->ReleaseSCSITask ( request );
 	
 	
 ErrorExit:

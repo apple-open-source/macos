@@ -52,9 +52,8 @@
 
 
 
-	int		DoIt();
+	int		DoIt( int );
 	void	OutputBuffer();
-
 
 
 		// find this elsewhere ...
@@ -71,11 +70,12 @@
 
 	enum	/* request codes to send to the user client:	*/
 	{
-		kGMACUserCmd_GetLog		= 0x30,		// get entire GMAC ELG buffer
-		kGMACUserCmd_GetRegs	= 0x31,		// get GMAC registers
-		kGMACUserCmd_GetPHY		= 0x32,		// get PHY  registers
-		kGMACUserCmd_GetTxRing	= 0x33,		// get Tx DMA elements
-		kGMACUserCmd_GetRxRing	= 0x34,		// get Rx DMA elements
+		kGMACUserCmd_GetLog			= 0x30,		// get entire GMAC ELG buffer
+		kGMACUserCmd_GetRegs		= 0x31,		// get all GMAC registers
+		kGMACUserCmd_GetOneReg		= 0x32,		// get one particular GMAC register
+		kGMACUserCmd_GetTxRing		= 0x33,		// get Tx DMA elements
+		kGMACUserCmd_GetRxRing		= 0x34,		// get Rx DMA elements
+		kGMACUserCmd_WriteOneReg	= 0x35,		// write one particular GMAC register
 
 		kGMACUserCmd_ReadAllMII	= 0x50,		// read MII registers 0 thru 31
 		kGMACUserCmd_ReadMII	= 0x51,		// read one MII register
@@ -93,7 +93,7 @@
 
 		/* Globals:	*/
 
-	UCRequest		gUCRequest;
+	UCRequest		gInUCRequest;
 	UInt8			gBuffer[ 4096 ];		// a page should fit the returned data.
 
 
@@ -112,13 +112,65 @@
 
 int main( int argc, char **argv )
 {
-	if ( argc != 1 )
+	UInt32	regNum, regValue;
+	int		rc;
+
+
+	gInUCRequest.reqID		= 0;
+	gInUCRequest.pBuffer	= 0;
+	gInUCRequest.bufferSz	= 0;
+
+	if ( argc == 1 )
+		return DoIt( kGMACUserCmd_GetRegs );
+
+	if ( argc == 2 && strcmp( argv[1], "-r" ) == 0 )
+		return DoIt( kGMACUserCmd_GetRegs );
+
+	if ( argc == 3 && strcmp( argv[1], "-r" ) == 0 )
 	{
-		printf( "\nUsage: %s	# to dump UniNEnet registers.\n", argv[0] );
-		return 1;
+		rc = sscanf( argv[2], "%lx", &regNum );
+		if ( rc == 1 && regNum < 0x9060 )
+		{
+			gInUCRequest.pBuffer = (UInt8*)regNum;
+		//	printf( "Reading GMAC register %04lx\n", regNum );
+			return DoIt( kGMACUserCmd_GetOneReg );
+		}
+		else
+			printf( "Bad register number?\n" );
+		return 0;
 	}
 
-	return DoIt();
+	if ( argc == 4 && strcmp( argv[1], "-w" ) == 0 )
+	{
+		if ( strncmp( argv[2], "0x", 2) == 0 )		// skip over any leading 0x
+			argv[2] += 2;
+		rc = sscanf( argv[2], "%lx", &regNum );
+		if ( rc == 1 && regNum < 0x9060 )
+		{
+			if ( strncmp( argv[3], "0x", 2) == 0 )		// skip over any leading 0x
+				argv[3] += 2;
+			rc = sscanf( argv[3], "%lx", &regValue );
+			if ( rc == 1 )
+			{
+				gInUCRequest.pBuffer	= (UInt8*)regNum;
+				gInUCRequest.bufferSz	= regValue;
+				printf( "Writing GMAC register %04lx with 0x%lx\n", regNum, regValue );
+				return DoIt( kGMACUserCmd_WriteOneReg );
+			}
+			else
+				printf( "Bad value?\n" );
+		}
+		else
+			printf( "Bad register number?\n" );
+		return 0;
+	}
+
+	printf( "\n\t\t\tUsage:\n" );
+	printf( "%s\t\tto dump all GMAC registers.\n", argv[0] );
+	printf( "%s -r\t\t\t\tditto.\n", argv[0] );
+	printf( "%s -r 0xAAAA \t\tto dump  GMAC register AAAA.\n", argv[0] );
+	printf( "%s -w 0xAAAA VVVVVVVV\tto write GMAC register AAAA with VVVVVVVVV.\n", argv[0] );
+	return 1;
 }/* end main */
 
 
@@ -172,43 +224,55 @@ io_object_t getInterfaceWithName( mach_port_t masterPort, char *className )
 void OutputBuffer()
 {
 	UInt32			*pl = (UInt32*)gBuffer;			// pointer to LONG
-	UInt8			*pb;							// pointer to Byte
-	UInt32			i, length, offset;
-	UInt32			endianSwapped;
+	UInt32			i, j, length, offset;
+	char*			titles[] = 
+					{	"\n\t Global Resources:\n",
+						"\n\t Miscellaneous:\n",
+						"\n\t Transmit DMA Registers:\n",
+						"\n\t Transmit DMA Registers cont'd:\n",
+						"\n\t Wake On Magic Packet:\n",
+						"\n\t Receive DMA Registers:\n",
+						"\n\t Receive DMA Registers cont'd:\n",
+						"\n\t MAC Registers:\n",
+						"\n\t MAC Address Registers, Filters, Hash Table, Statistics:\n",
+						"\n\t MIF Registers:\n",
+						"\n\t PCS/Serialink:\n",
+						"\n\t PCS/Serialink cont'd:\n"
+					};
 
-
-	printf( "\n\t Start of GMAC register dump:\n\n" );
-
+	j = 0;
 	while ( (length = *pl++) )
 	{
+		printf( titles[ j ] );
+		j++;
 		offset	= *pl++;
 		for ( i = 0; i < length; i += sizeof( UInt32 ) )
 		{
-			pb = (UInt8*)pl;
-			endianSwapped = pb[3]<<24 | pb[2]<<16 | pb[1]<<8 | pb[0];
-			printf( "%4x\t%08x\n", (unsigned int)offset, (unsigned int)endianSwapped );
+			if ( (i & 0xF) == 0 )							/* 4 values per line	*/
+				printf( "\n%04x:", (unsigned int)offset );
+			printf( "\t%08lx", *pl );
 			offset += sizeof( UInt32 );
 			pl++;
 		}/* end FOR each register of set */
-		printf( "\n" );
+	///	if ( (length & 0xF) != 0 )
+			printf( "\n" );						/* To finish last line if short.	*/
 	}/* end WHILE have a set to dump */
 
-	printf( "\tEnd of GMAC register dump (%d bytes).\n\n", (UInt8*)pl - (UInt8*)gBuffer  );
+	printf( "\n\n\tEnd of GMAC register dump (%d bytes).\n\n", (UInt8*)pl - (UInt8*)gBuffer  );
 	return;
 }/* end OutputBuffer */
 
 
-int DoIt()
+int DoIt( int doWhat )
 {
-    mach_port_t				masterPort;
-    io_object_t				netif;		// network interface
-    io_connect_t			conObj;		// connection object
-    kern_return_t			kr;
-	UCRequest				inStruct;
-	UInt32					outSize = sizeof( gBuffer );
+    mach_port_t		masterPort;
+    io_object_t		netif;		// network interface
+    io_connect_t	conObj;		// connection object
+    kern_return_t	kr;
+	UInt32			outSize = sizeof( gBuffer );
 
 
-	    // Get master device port
+	    /* Get master device port	*/
 
     kr = IOMasterPort( bootstrap_port, &masterPort );
     if ( kr != KERN_SUCCESS )
@@ -234,15 +298,13 @@ int DoIt()
 
 //	printf( "open device succeeded.\n" );
 
-	inStruct.reqID		= kGMACUserCmd_GetRegs;
-	inStruct.pBuffer	= 0;	// unused
-	inStruct.bufferSz	= 0;	// unused
+	gInUCRequest.reqID	= doWhat;
 
 	kr = io_connect_method_structureI_structureO(
 			conObj,									/* connection object			*/
 			0,										/* method index for doRequest	*/
-			(void*)&inStruct,						/* input struct					*/
-			sizeof( inStruct ),						/* input size					*/
+			(void*)&gInUCRequest,					/* input struct					*/
+			sizeof( gInUCRequest ),					/* input size					*/
 			(void*)&gBuffer,						/* output buffer				*/
 			(mach_msg_type_number_t*)&outSize );	/* output size					*/
 
@@ -252,7 +314,21 @@ int DoIt()
 	}
 	else
 	{
-		OutputBuffer();
+		switch ( doWhat )
+		{
+		case kGMACUserCmd_GetRegs:
+			OutputBuffer();
+			break;
+
+		case kGMACUserCmd_GetOneReg:
+			printf( "Register %04lx: %08lx\n", (UInt32)gInUCRequest.pBuffer, *(UInt32*)gBuffer );
+			break;
+
+		case kGMACUserCmd_WriteOneReg:
+			printf( "Writing Register %08lx with %08lx.\n",
+					(UInt32)gInUCRequest.pBuffer,	gInUCRequest.bufferSz );
+			break;
+		}
 	}
 
 	IOServiceClose( conObj );

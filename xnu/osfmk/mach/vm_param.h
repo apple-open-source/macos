@@ -83,9 +83,7 @@
 
 #include <mach/machine/vm_param.h>
 
-#ifndef	ASSEMBLER
 #include <mach/vm_types.h>
-#endif	/* ASSEMBLER */
 
 /*
  *	The machine independent pages are refered to as PAGES.  A page
@@ -104,19 +102,11 @@
  *	virtual memory system implementation.
  */
 
-#ifdef	PAGE_SIZE_FIXED
-#define PAGE_SIZE	4096
-#define PAGE_SHIFT	12
-#define	PAGE_MASK	(PAGE_SIZE-1)
-#endif	/* PAGE_SIZE_FIXED */
-
-#ifndef	ASSEMBLER
-
+#ifndef	PAGE_SIZE_FIXED
 extern vm_size_t	page_size;
 extern vm_size_t	page_mask;
 extern int		page_shift;
 
-#ifndef	PAGE_SIZE_FIXED
 #define PAGE_SIZE	page_size 	/* pagesize in addr units */
 #define PAGE_SHIFT	page_shift	/* number of bits to shift for pages */
 #define PAGE_MASK	page_mask	/* mask for off in page */
@@ -124,10 +114,14 @@ extern int		page_shift;
 #define PAGE_SIZE_64 (unsigned long long)page_size /* pagesize in addr units */
 #define PAGE_MASK_64 (unsigned long long)page_mask /* mask for off in page */
 #else	/* PAGE_SIZE_FIXED */
-
+#define PAGE_SIZE	4096
+#define PAGE_SHIFT	12
+#define	PAGE_MASK	(PAGE_SIZE-1)
 #define PAGE_SIZE_64	(unsigned long long)4096
 #define PAGE_MASK_64	(PAGE_SIZE_64-1)
 #endif	/* PAGE_SIZE_FIXED */
+
+#ifndef	ASSEMBLER
 
 /*
  *	Convert addresses to pages and vice versa.  No rounding is used.
@@ -249,11 +243,8 @@ extern int		page_shift;
 
 #define	page_aligned(x)	((((vm_object_offset_t) (x)) & PAGE_MASK) == 0)
 
-extern vm_size_t	mem_size;		/* 32-bit size of memory - limited by maxmem - deprecated */
+extern vm_size_t	mem_size;	/* size of physical memory (bytes) */
 extern uint64_t	max_mem;			/* 64-bit size of memory - limited by maxmem */
-extern uint64_t	mem_actual;			/* 64-bit size of memory - not limited by maxmem */
-extern uint64_t	sane_size;			/* Memory size to use for defaults calculations */
-extern addr64_t 	vm_last_addr;	/* Highest kernel virtual address known to the VM system */
 
 #endif	/* ASSEMBLER */
 #endif	/* _MACH_VM_PARAM_H_ */

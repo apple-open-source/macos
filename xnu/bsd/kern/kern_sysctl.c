@@ -1116,20 +1116,20 @@ sysctl_procargs(name, namelen, where, sizep, cur_proc)
 		goto restart;
 	}
 
-	ret = kmem_alloc(kernel_map, &copy_start, round_page_32(arg_size));
+	ret = kmem_alloc(kernel_map, &copy_start, round_page(arg_size));
 	if (ret != KERN_SUCCESS) {
 		task_deallocate(task);
 		return(ENOMEM);
 	}
 
 	proc_map = get_task_map(task);
-	copy_end = round_page_32(copy_start + arg_size);
+	copy_end = round_page(copy_start + arg_size);
 
-	if( vm_map_copyin(proc_map, trunc_page(arg_addr), round_page_32(arg_size), 
+	if( vm_map_copyin(proc_map, trunc_page(arg_addr), round_page(arg_size), 
 			FALSE, &tmp) != KERN_SUCCESS) {
 			task_deallocate(task);
 			kmem_free(kernel_map, copy_start,
-					round_page_32(arg_size));
+					round_page(arg_size));
 			return (EIO);
 	}
 
@@ -1142,7 +1142,7 @@ sysctl_procargs(name, namelen, where, sizep, cur_proc)
 	if( vm_map_copy_overwrite(kernel_map, copy_start, 
 		tmp, FALSE) != KERN_SUCCESS) {
 			kmem_free(kernel_map, copy_start,
-					round_page_32(arg_size));
+					round_page(arg_size));
 			return (EIO);
 	}
 

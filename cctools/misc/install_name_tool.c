@@ -100,7 +100,7 @@ int argc,
 char **argv,
 char **envp)
 {
-    int i;
+    unsigned long i;
     struct arch *archs;
     unsigned long narchs;
     char *input;
@@ -282,7 +282,7 @@ char *input)
 		if(swap_object_headers(mh, lc) == FALSE)
 		    fatal("internal error: swap_object_headers() failed");
 
-	    if(write(fd, headers, size) != (int)size)
+	    if(write(fd, headers, size) != size)
 		system_error("can't write new headers in file: %s", input);
 
 	    free(headers);
@@ -596,7 +596,7 @@ unsigned long *header_size)
 	*header_size = sizeof(struct mach_header) +
 		       arch->object->mh->sizeofcmds;
 	if(new_sizeofcmds < arch->object->mh->sizeofcmds){
-	    memset(((char *)arch->object->load_commands) + new_sizeofcmds, '\0',
+	    memset(arch->object->load_commands + new_sizeofcmds, '\0',
 		   arch->object->mh->sizeofcmds - new_sizeofcmds);
 	}
 	memcpy(arch->object->load_commands, new_load_commands, new_sizeofcmds);

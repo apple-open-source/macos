@@ -53,11 +53,12 @@
 
 	enum	/* request codes to send to the user client:	*/
 	{
-		kGMACUserCmd_GetLog		= 0x30,		// get entire GMAC ELG buffer
-		kGMACUserCmd_GetRegs	= 0x31,		// get GMAC registers
-		kGMACUserCmd_GetPHY		= 0x32,		// get PHY  registers
-		kGMACUserCmd_GetTxRing	= 0x33,		// get Tx DMA elements
-		kGMACUserCmd_GetRxRing	= 0x34,		// get Rx DMA elements
+		kGMACUserCmd_GetLog			= 0x30,		// get entire GMAC ELG buffer
+		kGMACUserCmd_GetRegs		= 0x31,		// get all GMAC registers
+		kGMACUserCmd_GetOneReg		= 0x32,		// get one particular GMAC register
+		kGMACUserCmd_GetTxRing		= 0x33,		// get Tx DMA elements
+		kGMACUserCmd_GetRxRing		= 0x34,		// get Rx DMA elements
+		kGMACUserCmd_WriteOneReg	= 0x35,		// write one particular GMAC register
 
 		kGMACUserCmd_ReadAllMII	= 0x50,		// read MII registers 0 thru 31
 		kGMACUserCmd_ReadMII	= 0x51,		// read one MII register
@@ -194,7 +195,7 @@ int DoIt()
 ///	printf( "open device succeeded.\n" );
 
 	bzero( gBuffer, sizeof( gBuffer ) );
-((UInt32*)gBuffer)[0] = 0x8badf00d;
+((UInt32*)gBuffer)[0] = 0x8BadF00d;
 
 		/* dump the Tx ring 1st:	*/
 
@@ -258,24 +259,14 @@ int DoIt()
 
 void OutputBuffer()
 {
-	UInt32		*pe = (UInt32*)gBuffer;		// pointer to element
-	UInt8		*pb;						// pointer to BYTE
-	UInt32		*pl;						// pointer to LONG
-	UInt32		i, index = 0;
-	UInt8		swapBuf[ 16 ];				// buffer for endian swapping
+	UInt32		*pl = (UInt32*)gBuffer;		// pointer to element
+	UInt32		index = 0;
 
 
-	pl = (UInt32*)swapBuf;
-
-	while ( *pe )
-	{	pb = (UInt8*)pe;
-		for ( i = 0; i < 8; ++i )			// swap 1st 64 bit value
-			swapBuf[ 7 - i ] = *pb++;
-		for ( i = 0; i < 8; ++i )			// swap 2nd 64 bit value
-			swapBuf[ 15 - i ] = *pb++;
-
+	while ( pl[ 3 ] )
+	{
 		printf( "[%4lx]\t%8lx %8lx   %8lx %8lx\n",	index, pl[0], pl[1], pl[2], pl[3] );
-		pe += 4;
+		pl += 4;
 		index++;
 	}/* end WHILE have elements to dump */
 

@@ -107,7 +107,7 @@ fatfile_getarch(
 	/*
 	 * 	Round size of fat_arch structures up to page boundry.
 	 */
-	size = round_page_32(end_of_archs);
+	size = round_page(end_of_archs);
 	if (size <= 0)
 		return(LOAD_BADMACHO);
 

@@ -140,7 +140,7 @@ loop:
 			(void)tsleep((caddr_t)cp, PINOD, "hfs_chashget-2", 0);
 			goto loop;
 		}
-		if (cp->c_flag & (C_NOEXISTS | C_DELETED))
+		if (cp->c_flag & C_NOEXISTS)
 			continue;
 
 		/*

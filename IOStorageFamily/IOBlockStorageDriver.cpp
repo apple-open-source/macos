@@ -99,7 +99,7 @@ IOBlockStorageDevice * IOBlockStorageDriver::getProvider() const
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-bool IOBlockStorageDriver::init(OSDictionary * properties)
+bool IOBlockStorageDriver::init(OSDictionary * properties = 0)
 {
     //
     // Initialize this object's minimal state.

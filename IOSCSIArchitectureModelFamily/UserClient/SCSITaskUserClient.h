@@ -196,7 +196,6 @@ protected:
 	IOSCSIProtocolInterface *			fProtocolInterface;
 	SCSITask *							fArray[kMaxSCSITaskArraySize];
 	IOCommandGate *						fCommandGate;
-	IOWorkLoop *						fWorkLoop;
 	UInt32								fOutstandingCommands;
 	
 	virtual IOExternalAsyncMethod *		getAsyncTargetAndMethodForIndex ( IOService ** target, UInt32 index );	

@@ -212,9 +212,6 @@ typedef struct task {
 #endif  
 	vm_offset_t	system_shared_region;
 	vm_offset_t	dynamic_working_set;
-	uint32_t taskFeatures[2];		/* Special feature for this task */
-#define tf64BitAddr	0x80000000		/* Task has 64-bit addressing */
-#define tf64BitData	0x40000000		/* Task has 64-bit data registers */
 } Task;
 
 #define task_lock(task)		mutex_lock(&(task)->lock)

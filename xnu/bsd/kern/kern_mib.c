@@ -304,6 +304,12 @@ SYSCTL_NODE(_hw, OID_AUTO, optional, CTLFLAG_RW, NULL, "optional features");
 SYSCTL_INT(_hw_optional, OID_AUTO, floatingpoint, CTLFLAG_RD | CTLFLAG_KERN, 0, 1, "");	/* always set */
 
 /*
+ * Export of _cpu_capabilities to userspace, consumed by the pthread code
+ * only.
+ */
+SYSCTL_INT(_hw, OID_AUTO, _cpu_capabilities, CTLFLAG_RD, &_cpu_capabilities, 0, "");
+
+/*
  * Deprecated variables.  These are supported for backwards compatibility
  * purposes only.  The MASKED flag requests that the variables not be
  * printed by sysctl(8) and similar utilities.

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -139,9 +139,7 @@
 #define	SYS_getpriority	100
 				/* 101 is old send */
 				/* 102 is old recv */
-#ifndef __ppc__
 #define	SYS_sigreturn	103
-#endif
 #define	SYS_bind	104
 #define	SYS_setsockopt	105
 #define	SYS_listen	106
@@ -222,9 +220,7 @@
 #define	SYS_setgid	181
 #define	SYS_setegid	182
 #define	SYS_seteuid	183
-#ifdef __ppc__
-#define	SYS_sigreturn	184
-#endif
+				/* 184 is unused */
 				/* 185 is unused */
 				/* 186 is unused */
 				/* 187 is unused */

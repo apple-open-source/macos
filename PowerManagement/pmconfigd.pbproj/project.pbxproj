@@ -277,11 +277,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>6.31.2</string>
+	<string>6.31.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>6.31.2</string>
+	<string>6.31.3</string>
 </dict>
 </plist>
 ";

@@ -64,18 +64,6 @@ IOMemoryCursor::initWithSpecification(SegmentFunction  inSegFunc,
                                       IOPhysicalLength inMaxTransferSize,
                                       IOPhysicalLength inAlignment)
 {
-// @@@ gvdl: Remove me
-#if 1
-static UInt sMaxDBDMASegment;
-if (!sMaxDBDMASegment) {
-    sMaxDBDMASegment = (UInt) -1;
-    if (PE_parse_boot_arg("mseg", &sMaxDBDMASegment))
-        IOLog("Setting MaxDBDMASegment to %d\n", sMaxDBDMASegment);
-}
-
-if (inMaxSegmentSize > sMaxDBDMASegment) inMaxSegmentSize = sMaxDBDMASegment;
-#endif
-
     if (!super::init())
         return false;
 

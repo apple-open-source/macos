@@ -98,7 +98,6 @@ struct uio {
 #define UIO_SMALLIOV	8		/* 8 on stack, else malloc */
 
 extern int uiomove __P((caddr_t cp, int n, struct uio *uio));
-extern int uiomove64 __P((unsigned long long cp, int n, struct uio *uio));
 extern int ureadc __P((int c, struct uio *uio));
 extern int uwritec __P((struct uio *uio));
 

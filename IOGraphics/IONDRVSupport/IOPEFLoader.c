@@ -106,6 +106,70 @@ CFContStringHash    CFContHashName  ( BytePtr   nameText,
 }   // CFContHashName ()
 
 
+// ¤
+// ===========================================================================================
+// PCFM_CompareBytes ()
+// ====================
+
+
+Boolean PCFM_CompareBytes   ( const Byte *  left,
+                              const Byte *  right,
+                              ByteCount     count )
+{
+    // !!! Blechola!  Switch to a standard routine ASAP!
+
+    UInt32 *    wLeft;
+    UInt32 *    wRight;
+    UInt8 *     bLeft;
+    UInt8 *     bRight;
+
+    ByteCount   leftMiss    = (UInt32)left & 0x00000003;
+    ByteCount   rightMiss   = (UInt32)right & 0x00000003;
+
+
+    bLeft   = (UInt8 *) left;
+    bRight  = (UInt8 *) right;
+
+    if ((leftMiss != 0) && (rightMiss != 0))
+    {
+        ByteCount   align   = leftMiss;
+        if (align > count)
+            align = count;
+        while (align > 0)
+        {
+            if (*bLeft++ != *bRight++)
+                goto NoMatch;
+            align -= 1;
+            count -= 1;
+        }
+    }
+
+    wLeft   = (UInt32 *) bLeft;
+    wRight  = (UInt32 *) bRight;
+    while (count >= 4)
+    {
+        if (*wLeft++ != *wRight++)
+            goto NoMatch;
+        count -= 4;
+    }
+
+    bLeft   = (UInt8 *) wLeft;
+    bRight  = (UInt8 *) wRight;
+    while (count > 0)
+    {
+        if (*bLeft++ != *bRight++)
+            goto NoMatch;
+        count -= 1;
+    }
+
+    return true;
+
+
+NoMatch:
+    return false;
+
+}   // PCFM_CompareBytes ()
+
 // ===========================================================================================
 
 LogicalAddress PCodeAllocateMem( ByteCount size );
@@ -128,8 +192,7 @@ PCodeReleaseMem( LogicalAddress address )
 // ===========================================================================================
 
 OSStatus
-PCodeOpen( LogicalAddress container, ByteCount containerSize, 
-	    PCodeInstance * instance, UInt32 * createDate )
+PCodeOpen( LogicalAddress container, ByteCount containerSize, PCodeInstance * instance )
 {
     OSStatus            err;
     InstanceVars     *  inst;
@@ -138,11 +201,10 @@ PCodeOpen( LogicalAddress container, ByteCount containerSize,
     *instance = inst;
 
     inst->pef = (BytePtr) container;
-    // procID, name, 
-    err = PEF_OpenContainer( container, container, containerSize, 0 /*options*/,
+    // procID, name, options
+    err = PEF_OpenContainer( container, container, containerSize, 0, 0, 0,
                              PCodeAllocateMem, PCodeReleaseMem,
-                             &inst->cRef, &inst->cProcs,
-			     createDate );
+                             &inst->cRef, &inst->cProcs );
     if (err)
         LOG( "PEF_OpenContainer = %ld\n", err );
 

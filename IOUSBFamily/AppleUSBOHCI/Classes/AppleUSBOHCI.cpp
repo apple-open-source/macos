@@ -168,7 +168,7 @@ AppleUSBOHCI::UIMInitialize(IOService * provider)
              USBError(1,"%s[%p]: unable to get filterInterruptEventSource", getName(), this);
              continue;
         }
-        
+
         err = _workLoop->addEventSource(_filterInterruptSource);
         if ( err != kIOReturnSuccess )
         {
@@ -225,8 +225,8 @@ AppleUSBOHCI::UIMInitialize(IOService * provider)
         hcDoneHead = USBToHostLong(_pOHCIRegisters->hcDoneHead);
         if ( hcDoneHead != NULL )
         {
-            USBError(1,"%s[%p]::UIMInitialize Non-NULL hcDoneHead: %p", getName(), this, hcDoneHead ); 
-            
+            USBError(1,"%s[%p]::UIMInitialize Non-NULL hcDoneHead: %p", getName(), this, hcDoneHead );
+
             // Reset it now
             //
             _pOHCIRegisters->hcCommandStatus = USBToHostLong(kOHCIHcCommandStatus_HCR);  // Reset OHCI
@@ -285,7 +285,7 @@ AppleUSBOHCI::UIMInitialize(IOService * provider)
         {
             USBError(1, "%s[%p]::UIMInitialize error, turning off power to ports to clear", getName(), this);
             OHCIRootHubPower(0 /* kOff */);
-            
+
             // No need to turn the power back on here, the reset does that anyway.
         }
         
@@ -878,6 +878,8 @@ AppleUSBOHCI::AllocateED(void)
 	_pFreeED = _pLastFreeED;
 	_pFreeED->pPhysical = memBlock->GetSharedPhysicalPtr(0);
 	_pFreeED->pShared = memBlock->GetSharedLogicalPtr(0);
+        USBLog(7, "%s[%p]::AllocateED - _pFreeED (%p), _pFreeED->pPhysical(%p), _pFreeED->pShared (%p)",
+               getName(), this, _pFreeED, _pFreeED->pPhysical, _pFreeED->pShared);
 	for (i=1; i < numEDs; i++)
 	{
 	    freeED = memBlock->GetED(i);
@@ -1762,9 +1764,26 @@ AppleUSBOHCI::ReturnOneTransaction(
 IOReturn 
 AppleUSBOHCI::message( UInt32 type, IOService * provider,  void * argument )
 {
+    cs_event_t	pccardevent;
+
     // Let our superclass decide handle this method
     // messages
     //
+    if ( type == kIOPCCardCSEventMessage)
+    {
+        pccardevent = (UInt32) argument;
+
+        if ( pccardevent == CS_EVENT_CARD_REMOVAL )
+        {
+            USBLog(5,"%s[%p]: Received kIOPCCardCSEventMessage Need to return all transactions",getName(),this);
+            _pcCardEjected = true;
+            IOSleep(5);
+            ReturnAllTransactionsInEndpoint(_pControlHead, _pControlTail);
+            ReturnAllTransactionsInEndpoint(_pBulkHead, _pBulkTail);
+            IOSleep(5);
+        }
+    }
+
     USBLog(6, "%s[%p]::message type: 0x%x, isInactive = %d", getName(), this, type, isInactive());
     return super::message( type, provider, argument );
     
@@ -1828,7 +1847,7 @@ AppleUSBOHCI::UIMInitializeForPowerUp(void)
     if ( hcDoneHead != NULL )
     {
         USBError(1,"%s[%p]::UIMInitialize Non-NULL hcDoneHead: %p", getName(), this, hcDoneHead );
-        
+
         // Reset it now
         //
         _pOHCIRegisters->hcCommandStatus = USBToHostLong(kOHCIHcCommandStatus_HCR);  // Reset OHCI

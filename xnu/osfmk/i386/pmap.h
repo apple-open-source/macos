@@ -109,14 +109,7 @@ typedef unsigned int	pt_entry_t;
 #define PTEMASK		0x3ff	/* mask for page table index */
 
 
-#define	VM_WIMG_COPYBACK	VM_MEM_COHERENT
 #define	VM_WIMG_DEFAULT		VM_MEM_COHERENT
-/* ?? intel ?? */
-#define VM_WIMG_IO		(VM_MEM_COHERENT | 	\
-				VM_MEM_NOT_CACHEABLE | VM_MEM_GUARDED)
-#define VM_WIMG_WTHRU		(VM_MEM_WRITE_THROUGH | VM_MEM_COHERENT | VM_MEM_GUARDED)
-/* write combining mode, aka store gather */
-#define VM_WIMG_WCOMB		(VM_MEM_NOT_CACHEABLE | VM_MEM_COHERENT) 
 
 /*
  *	Convert kernel virtual address to linear address
@@ -158,7 +151,6 @@ typedef unsigned int	pt_entry_t;
 #define INTEL_PTE_MOD		0x00000040
 #define INTEL_PTE_WIRED		0x00000200
 #define INTEL_PTE_PFN		0xfffff000
-#define INTEL_PTE_PTA		0x00000080
 
 #define	pa_to_pte(a)		((a) & INTEL_PTE_PFN)
 #define	pte_to_pa(p)		((p) & INTEL_PTE_PFN)
@@ -534,6 +526,8 @@ extern void flush_dcache(vm_offset_t addr, unsigned count, int phys);
 #define	pmap_attribute(pmap,addr,size,attr,value) \
 					(KERN_INVALID_ADDRESS)
 #define	pmap_attribute_cache_sync(addr,size,attr,value) \
+					(KERN_INVALID_ADDRESS)
+#define pmap_sync_caches_phys(pa) \
 					(KERN_INVALID_ADDRESS)
 
 #endif	/* ASSEMBLER */

@@ -38,17 +38,12 @@
 #include <sys/syscall.h>
 #include <machine/vmparam.h>
 #include <mach/vm_statistics.h>
-#define	__APPLE_API_PRIVATE
-#include <machine/cpu_capabilities.h>
 
 #include "pthread_internals.h"
 
 /* Per-thread kernel support */
 extern void _pthread_set_self(pthread_t);
 extern void mig_init(int);
-
-/* Get CPU capabilities from the kernel */
-__private_extern__ void _init_cpu_capabilities(void);
 
 /* Needed to tell the malloc subsystem we're going multithreaded */
 extern void set_malloc_singlethreaded(int);
@@ -80,6 +75,9 @@ __private_extern__ void _spin_lock_retry(pthread_lock_t *lock)
 		tries = _spin_tries;
 	} while(!_spin_lock_try(lock));
 }
+
+/* Apparently, bcopy doesn't declare _cpu_has_altivec anymore */
+int _cpu_has_altivec = 0;
 
 extern mach_port_t thread_recycle_port;
 
@@ -1289,6 +1287,12 @@ pthread_setconcurrency(int new_level)
  * Perform package initialization - called automatically when application starts
  */
 
+extern int _cpu_capabilities;
+
+#define kHasAltivec     0x01                                            
+#define kCache32                0x04                                    
+#define kUseDcba                0x20                                    
+
 static int
 pthread_init(void)
 {
@@ -1304,6 +1308,9 @@ pthread_init(void)
 	int mib[2];
 	size_t len;
 	int numcpus;
+                                                                                
+	extern  int     _bcopy_initialize(void);
+                                                                                
 
         count = HOST_PRIORITY_INFO_COUNT;
 	info = (host_info_t)&priority_info;
@@ -1314,8 +1321,8 @@ pthread_init(void)
                 printf("host_info failed (%d); probably need privilege.\n", kr);
         else {
 		default_priority = priority_info.user_priority;
-		min_priority = priority_info.minimum_priority;
-		max_priority = priority_info.maximum_priority;
+            min_priority = priority_info.minimum_priority;
+            max_priority = priority_info.maximum_priority;
 	}
 	attrs = &_pthread_attr_default;
 	pthread_attr_init(attrs);
@@ -1343,26 +1350,18 @@ pthread_init(void)
 		else {
 			if (basic_info.avail_cpus > 1)
 				_spin_tries = MP_SPIN_TRIES;
+			/* This is a crude test */
+			if (basic_info.cpu_subtype >= CPU_SUBTYPE_POWERPC_7400) 
+				_cpu_has_altivec = 1;
 		}
 	}
-
 	mach_port_deallocate(mach_task_self(), host);
-    
-	_init_cpu_capabilities();	/* check for vector unit, cache line size etc */
 
-#if defined(__ppc__)
-	/* Use fsqrt instruction in sqrt() if available. */
-    if (_cpu_capabilities & kHasFsqrt) {
-        extern size_t hw_sqrt_len;
-        extern double sqrt( double );
-        extern double hw_sqrt( double );
-        extern void sys_icache_invalidate(void *, size_t);
+	len = sizeof(_cpu_capabilities);
+	sysctlbyname("hw._cpu_capabilities", &_cpu_capabilities, &len, NULL, 0);
 
-        memcpy ( (void *)sqrt, (void *)hw_sqrt, hw_sqrt_len );
-        sys_icache_invalidate((void *)sqrt, hw_sqrt_len);
-    }
-#endif
-    
+	_bcopy_initialize();
+
 	mig_init(1);		/* enable multi-threaded mig interfaces */
 	return 0;
 }

@@ -128,6 +128,10 @@ void PE_init_iokit(void)
     PE_init_kprintf(TRUE);
     PE_init_printf(TRUE);
 
+    // init this now to get mace debugger for iokit startup
+    PE_init_ethernet_debugger();
+
+    
     if( kSuccess == DTLookupEntry(0, "/chosen/memory-map", &entry)) {
 
 	boot_progress_element * bootPict;
@@ -200,7 +204,6 @@ void PE_create_console( void )
 int PE_current_console( PE_Video * info )
 {
     *info = PE_state.video;
-    info->v_baseAddr = 0;
     return( 0);
 }
 

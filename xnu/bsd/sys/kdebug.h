@@ -91,7 +91,6 @@ __BEGIN_DECLS
 #define	DBG_MACH_EXCP_DECI	0x09	/* Decrementer Interrupt */
 #define	DBG_MACH_EXCP_SC	0x0C	/* System Calls */
 #define	DBG_MACH_EXCP_TRACE	0x0D	/* Trace exception */
-#define	DBG_MACH_EXCP_EMUL	0x0E	/* Instruction emulated */
 #define	DBG_MACH_IHDLR		0x10	/* Interrupt Handlers */
 #define	DBG_MACH_IPC		0x20	/* Inter Process Comm */
 #define	DBG_MACH_VM		0x30	/* Virtual Memory */

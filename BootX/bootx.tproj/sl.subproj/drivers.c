@@ -32,8 +32,6 @@
 
 #include <sl.h>
 
-#define DRIVER_DEBUG 0
-
 enum {
   kTagTypeNone = 0,
   kTagTypeDict,
@@ -135,9 +133,7 @@ static TagPtr NewTag(void);
 static void FreeTag(TagPtr tag);
 static char *NewSymbol(char *string);
 static void FreeSymbol(char *string);
-#if DRIVER_DEBUG
 static void DumpTag(TagPtr tag, long depth);
-#endif
 
 static ModulePtr gModuleHead, gModuleTail;
 static TagPtr    gPersonalityHead, gPersonalityTail;
@@ -263,15 +259,12 @@ static long NetLoadDrivers(char *dirSpec)
 
 static long LoadDriverMKext(char *fileSpec)
 {
-  unsigned long  driversAddr, driversLength, length;
+  long           driversAddr, driversLength;
   char           segName[32];
   DriversPackage *package = (DriversPackage *)kLoadAddr;
   
   // Load the MKext.
-  length = LoadFile(fileSpec);
-  if (length == -1) return -1;
-  
-  ThinFatBinary((void **)&package, &length);
+  if (LoadFile(fileSpec) == -1) return -1;
   
   // Verify the MKext.
   if ((package->signature1 != kDriverPackageSignature1) ||
@@ -285,7 +278,7 @@ static long LoadDriverMKext(char *fileSpec)
   driversAddr = AllocateKernelMemory(driversLength);
   
   // Copy the MKext.
-  memcpy((void *)driversAddr, (void *)package, driversLength);
+  memcpy((void *)driversAddr, (void *)kLoadAddr, driversLength);
   
   // Add the MKext to the memory map.
   sprintf(segName, "DriversPackage-%x", driversAddr);
@@ -380,8 +373,7 @@ static long LoadMatchedModules(void)
   ModulePtr     module;
   char          *fileName, segName[32];
   DriverInfoPtr driver;
-  unsigned long length, driverAddr, driverLength;
-  void          *driverModuleAddr;
+  long          length, driverAddr, driverLength;
   
   module = gModuleHead;
   while (module != 0) {
@@ -393,11 +385,6 @@ static long LoadMatchedModules(void)
 	length = LoadFile(gFileSpec);
       } else length = 0;
       if (length != -1) {
-	if (length != 0) {
-	  driverModuleAddr = (void *)kLoadAddr;
-	  ThinFatBinary(&driverModuleAddr, &length);
-	}
-	
 	// Make make in the image area.
 	driverLength = sizeof(DriverInfo) + module->plistLength + length;
 	driverAddr = AllocateKernelMemory(driverLength);
@@ -418,7 +405,7 @@ static long LoadMatchedModules(void)
 	// Save the plist and module.
 	strcpy(driver->plistAddr, module->plistAddr);
 	if (length != 0) {
-	  memcpy(driver->moduleAddr, driverModuleAddr, driver->moduleLength);
+	  memcpy(driver->moduleAddr, (void *)kLoadAddr, driver->moduleLength);
 	}
 	
 	// Add an entry to the memory map.
@@ -1015,7 +1002,7 @@ static SymbolPtr FindSymbol(char *string, SymbolPtr *prevSymbol)
   return symbol;
 }
 
-#if DRIVER_DEBUG
+#if 0
 static void DumpTagDict(TagPtr tag, long depth);
 static void DumpTagKey(TagPtr tag, long depth);
 static void DumpTagString(TagPtr tag, long depth);

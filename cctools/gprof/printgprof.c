@@ -119,7 +119,7 @@ void)
 {
     nltype *np;
     nltype **sortednlp;
-    unsigned long index;
+    int index;
 
 	actime = 0.0;
 	printf("\f\n");
@@ -282,7 +282,7 @@ void
 printgprof(
 nltype **timesortnlp)
 {
-    unsigned long index;
+    int index;
     nltype *parentp;
 
 	/*
@@ -739,7 +739,7 @@ arctype *thatp)
 		thatp->arc_count, thatchildp->ncall);
 	    printf("\n");
 	}
-#endif /* DEBUG */
+#endif DEBUG
 	if(thisparentp == thischildp){
 	    /* this is a self call */
 	    return(LESSTHAN);
@@ -825,7 +825,7 @@ void)
 {
     nltype **namesortnlp;
     nltype *nlp;
-    unsigned long index, nnames, todo, i, j;
+    int index, nnames, todo, i, j;
     char peterbuffer[BUFSIZ];
 
 	/*
@@ -843,7 +843,7 @@ void)
 	}
 	qsort(namesortnlp, nnames, sizeof(nltype *),
 	      (int (*)(const void *, const void *))namecmp);
-	for(index = 1, todo = nnames; index <= (unsigned long)ncycle; index++){
+	for(index = 1, todo = nnames; index <= ncycle; index++){
 	    namesortnlp[todo++] = &cyclenl[index];
 	}
 	printf("\f\nIndex by function name\n\n");

@@ -24,8 +24,7 @@
  */
 extern void call_module_initializers(
     enum bool make_delayed_calls,
-    enum bool bind_now,
-    enum bool post_launch_libraries_only);
+    enum bool bind_now);
 
 extern void call_module_initializers_for_library(
     struct library_image *library_image,
@@ -38,8 +37,7 @@ extern void call_module_initializers_for_library(
 #endif /* !defined(__GONZO_BUNSEN_BEAKER__) && !defined(__HERA__) */
 #endif /* __ppc__ */
     enum bool make_delayed_calls,
-    enum bool bind_now,
-    enum bool post_launch_libraries_only);
+    enum bool bind_now);
 
 extern void call_module_terminator_for_object(
     struct object_image *object_image);

@@ -86,7 +86,7 @@ withCapacity(unsigned int capacity,
     OSOrderedSet *me = new OSOrderedSet;
 
     if (me && !me->initWithCapacity(capacity, ordering, orderingRef)) {
-        me->release();
+        me->free();
 	me = 0;
     }
 

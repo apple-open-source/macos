@@ -293,6 +293,7 @@ IOReturn IODisplayWrangler::getConnectFlagsForDisplayMode(
         err = display->getConnectFlagsForDisplayMode( mode, flags );
     else
     {
+        kprintf("%s: no display\n", connect->getFramebuffer()->getName());
         err = connect->getFramebuffer()->connectFlags(
                   connect->getConnection(), mode, flags );
     }
@@ -309,7 +310,10 @@ IOReturn IODisplayWrangler::getFlagsForDisplayMode(
     // should look at all connections
     connect = gIODisplayWrangler->getDisplayConnect( fb, 0 );
     if (!connect)
+    {
+        kprintf("%s: no display connect\n", fb->getName());
         return (fb->connectFlags(0, mode, flags));
+    }
 
     return (gIODisplayWrangler->
             getConnectFlagsForDisplayMode(connect, mode, flags));

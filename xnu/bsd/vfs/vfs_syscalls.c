@@ -954,7 +954,7 @@ chroot(p, uap, retval)
 		shared_regions_active = TRUE;
 	}
 
-	if(error = clone_system_shared_regions(shared_regions_active, nd.ni_vp)) {
+	if(error = clone_system_shared_regions(shared_regions_active)) {
 		vrele(nd.ni_vp);
 		return (error);
 	}

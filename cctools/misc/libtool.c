@@ -244,9 +244,9 @@ char **argv,
 char **envp)
 {
     char *p, *endp, *filelist, *dirname, *addr;
-    int fd, i;
+    int fd;
     struct stat stat_buf;
-    unsigned long j, temp, nfiles, maxfiles;
+    unsigned long i, j, temp, nfiles, maxfiles;
     int oumask, numask;
     kern_return_t r;
     enum bool lflags_seen, bad_flag_seen;
@@ -617,10 +617,7 @@ char **envp)
 		        strcmp(argv[i], "-dylib_file") == 0 ||
 		        strcmp(argv[i], "-final_output") == 0 ||
 		        strcmp(argv[i], "-headerpad") == 0 ||
-		        strcmp(argv[i], "-weak_reference_mismatches") == 0 ||
-		        strcmp(argv[i], "-u") == 0 ||
-		        strcmp(argv[i], "-exported_symbols_list") == 0 ||
-		        strcmp(argv[i], "-unexported_symbols_list") == 0){
+		        strcmp(argv[i], "-weak_reference_mismatches") == 0){
 		    if(cmd_flags.ranlib == TRUE){
 			error("unknown option: %s", argv[i]);
 			usage();
@@ -642,7 +639,6 @@ char **envp)
 		        strcmp(argv[i], "-Si") == 0 ||
 		        strcmp(argv[i], "-S") == 0 ||
 		        strcmp(argv[i], "-X") == 0 ||
-		        strcmp(argv[i], "-x") == 0 ||
 		        strcmp(argv[i], "-whatsloaded") == 0 ||
 			strcmp(argv[i], "-whyload") == 0 ||
 			strcmp(argv[i], "-arch_errors_fatal") == 0 ||
@@ -654,9 +650,7 @@ char **envp)
 			strcmp(argv[i], "-headerpad_max_install_names") == 0 ||
 			strcmp(argv[i], "-prebind_all_twolevel_modules") == 0 ||
 			strcmp(argv[i], "-ObjC") == 0 ||
-			strcmp(argv[i], "-M") == 0 ||
-			strcmp(argv[i], "-single_module") == 0 ||
-			strcmp(argv[i], "-multi_module") == 0){
+			strcmp(argv[i], "-M") == 0){
 		    if(cmd_flags.ranlib == TRUE){
 			error("unknown option: %s", argv[i]);
 			usage();
@@ -664,13 +658,6 @@ char **envp)
 		    cmd_flags.ldflags = reallocate(cmd_flags.ldflags,
 				sizeof(char *) * (cmd_flags.nldflags + 1));
 		    cmd_flags.ldflags[cmd_flags.nldflags++] = argv[i];
-		}
-		else if(strcmp(argv[i], "-no_arch_warnings") == 0){
-		    if(cmd_flags.ranlib == TRUE){
-			error("unknown option: %s", argv[i]);
-			usage();
-		    }
-		    /* ignore this flag */
 		}
 		else if(strcmp(argv[i], "-prebind") == 0){
 		    if(cmd_flags.ranlib == TRUE){
@@ -959,23 +946,23 @@ char **envp)
 	    if(cmd_flags.nldflags != 0){
 		fprintf(stderr, "%s: -dynamic not specified the following "
 			"flags are invalid: ", progname);
-		for(j = 0; j < cmd_flags.nldflags; j++)
-		    fprintf(stderr, "%s ", cmd_flags.ldflags[j]);
+		for(i = 0; i < cmd_flags.nldflags; i++)
+		    fprintf(stderr, "%s ", cmd_flags.ldflags[i]);
 		fprintf(stderr, "\n");
 	    }
 	    if(cmd_flags.nLdirs != 0){
 		/* Note: both -L and -F flags are in cmd_flags.Ldirs to keep the
 		   search order right. */
 		bad_flag_seen = FALSE;
-		for(j = 0; j < cmd_flags.nLdirs; j++){
-		    if(strncmp(cmd_flags.Ldirs[j], "-L", 2) == 0)
+		for(i = 0; i < cmd_flags.nLdirs; i++){
+		    if(strncmp(cmd_flags.Ldirs[i], "-L", 2) == 0)
 			continue;
 		    if(bad_flag_seen == FALSE){
 			fprintf(stderr, "%s: -dynamic not specified the "
 				"following flags are invalid: ", progname);
 			bad_flag_seen = TRUE;
 		    }
-		    fprintf(stderr, "%s ", cmd_flags.Ldirs[j]);
+		    fprintf(stderr, "%s ", cmd_flags.Ldirs[i]);
 		}
 		if(bad_flag_seen == TRUE)
 		    fprintf(stderr, "\n");
@@ -1407,8 +1394,7 @@ struct ofile *ofile)
 	     * library to be created fat unless there are object going into
 	     * the library that are fat.
 	     */
-	    if(ofile->mh->filetype == MH_DYLIB ||
-	       ofile->mh->filetype == MH_DYLIB_STUB){
+	    if(ofile->mh->filetype == MH_DYLIB){
 		/*
 		 * If we are building a static library we should not put a
 		 * dynamic library Mach-O file into the static library.  This
@@ -1465,18 +1451,7 @@ struct ofile *ofile)
 	 */
 	if(arch->arch_flag.cputype == 0 && ofile->mh != NULL){
 	    family_arch_flag = get_arch_family_from_cputype(ofile->mh->cputype);
-	    if(family_arch_flag != NULL){
-		arch->arch_flag = *family_arch_flag;
-	    }
-            else{
-                arch->arch_flag.name =
-                    savestr("cputype 1234567890 cpusubtype 1234567890");
-                if(arch->arch_flag.name != NULL)
-                    sprintf(arch->arch_flag.name, "cputype %u cpusubtype %u",  
-                            ofile->mh->cputype, ofile->mh->cpusubtype);
-                    arch->arch_flag.cputype = ofile->mh->cputype;
-                    arch->arch_flag.cpusubtype = ofile->mh->cpusubtype;
-	    }
+	    arch->arch_flag = *family_arch_flag;
 	}
 
 	/* create a member in this arch type for this member */
@@ -1961,7 +1936,7 @@ char *output)
 	    system_error("can't create output file: %s", output);
 	    return;
 	}
-	if(write(fd, library, library_size) != (int)library_size){
+	if(write(fd, library, library_size) != library_size){
 	    system_error("can't write output file: %s", output);
 	    return;
 	}
@@ -2343,8 +2318,7 @@ char *output)
 				   get_host_byte_sex());
 		    strings = member->object_addr + member->st->stroff;
 		    for(j = 0; j < member->st->nsyms; j++){
-			if((unsigned long)symbols[j].n_un.n_strx >
-			   member->st->strsize){
+			if(symbols[j].n_un.n_strx > member->st->strsize){
 			    warn_member(arch, member, "malformed object (symbol"
 					" %lu n_strx field extends past the "
 					"end of the string table)", j);
@@ -2395,7 +2369,7 @@ char *output)
 					       member->st->symoff);
 		    strings = member->object_addr + member->st->stroff;
 		    for(j = 0; j < member->st->nsyms; j++){
-			if(symbols[j].n_un.n_strx > (long)member->st->strsize)
+			if(symbols[j].n_un.n_strx > member->st->strsize)
 			    continue;
 			if(toc_symbol(symbols + j, member->sections) == TRUE){
 			    strcpy(arch->toc_strings + s, 
@@ -2580,19 +2554,17 @@ check_sort_ranlibs(
 struct arch *arch,
 char *output)
 {
-    unsigned long i;
+    long i;
     enum bool multiple_defs;
     struct member *member;
 
-	if(arch->toc_nranlibs == 0)
-	    return(TRUE);
 	/*
 	 * Since the symbol table is sorted by name look to any two adjcent
 	 * entries with the same name.  If such entries are found print them
 	 * only once (marked by changing the sign of their ran_off).
 	 */
 	multiple_defs = FALSE;
-	for(i = 0; i < arch->toc_nranlibs - 1; i++){
+	for(i = 0; i < (long)arch->toc_nranlibs - 1; i++){
 	    if(strcmp(arch->toc_ranlibs[i].ran_un.ran_name,
 		      arch->toc_ranlibs[i+1].ran_un.ran_name) == 0){
 		if(multiple_defs == FALSE){

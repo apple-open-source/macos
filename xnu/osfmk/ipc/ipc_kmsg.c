@@ -91,12 +91,6 @@
 
 #include <string.h>
 
-#ifdef ppc
-#include <ppc/Firmware.h>
-#include <ppc/low_trace.h>
-#endif
-
-
 extern vm_map_t		ipc_kernel_copy_map;
 extern vm_size_t	ipc_kmsg_max_vm_space;
 extern vm_size_t	msg_ool_size_small;
@@ -688,12 +682,7 @@ ipc_kmsg_get(
 	trailer->msgh_sender = current_thread()->top_act->task->sec_token;
 	trailer->msgh_trailer_type = MACH_MSG_TRAILER_FORMAT_0;
 	trailer->msgh_trailer_size = MACH_MSG_TRAILER_MINIMUM_SIZE;
-	
-#ifdef ppc
-	if(trcWork.traceMask) dbgTrace((unsigned int)kmsg->ikm_header.msgh_id, 
-		(unsigned int)kmsg->ikm_header.msgh_remote_port, 
-		(unsigned int)kmsg->ikm_header.msgh_local_port, 0); 
-#endif
+
 	*kmsgp = kmsg;
 	return MACH_MSG_SUCCESS;
 }
@@ -1405,7 +1394,7 @@ ipc_kmsg_copyin_body(
 		      	 * Out-of-line memory descriptor, accumulate kernel
 		      	 * memory requirements
 		      	 */
-		    	space_needed += round_page_32(sstart->out_of_line.size);
+		    	space_needed += round_page(sstart->out_of_line.size);
 		    	if (space_needed > ipc_kmsg_max_vm_space) {
 
 			    	/*
@@ -1512,7 +1501,7 @@ ipc_kmsg_copyin_body(
 			 */
 			if (!page_aligned(length)) {
 				(void) memset((void *) (paddr + length), 0,
-					round_page_32(length) - length);
+					round_page(length) - length);
 			}
 			if (vm_map_copyin(ipc_kernel_copy_map, paddr, length,
 					   TRUE, &copy) != KERN_SUCCESS) {
@@ -1521,8 +1510,8 @@ ipc_kmsg_copyin_body(
 			    return MACH_MSG_VM_KERNEL;
 		        }
 			dsc->address = (void *) copy;
-			paddr += round_page_32(length);
-			space_needed -= round_page_32(length);
+			paddr += round_page(length);
+			space_needed -= round_page(length);
 		} else {
 
 			/*

@@ -197,7 +197,7 @@ static int nfs_iosize(nmp)
 	iosize = max(nmp->nm_rsize, nmp->nm_wsize);
 	if (iosize < PAGE_SIZE)
 		iosize = PAGE_SIZE;
-	return (trunc_page_32(iosize));
+	return (trunc_page(iosize));
 }
 
 static void nfs_convert_oargs(args,oargs)

@@ -75,7 +75,7 @@ bool OSArray::initWithCapacity(unsigned int inCapacity)
 
 bool OSArray::initWithObjects(const OSObject *objects[],
                               unsigned int theCount,
-                              unsigned int theCapacity)
+                              unsigned int theCapacity = 0)
 {
     unsigned int capacity;
 
@@ -103,7 +103,7 @@ bool OSArray::initWithObjects(const OSObject *objects[],
 }
 
 bool OSArray::initWithArray(const OSArray *anArray,
-                            unsigned int theCapacity)
+                            unsigned int theCapacity = 0)
 {
     if ( !anArray )
         return false;
@@ -117,7 +117,7 @@ OSArray *OSArray::withCapacity(unsigned int capacity)
     OSArray *me = new OSArray;
 
     if (me && !me->initWithCapacity(capacity)) {
-        me->release();
+        me->free();
         return 0;
     }
 
@@ -126,12 +126,12 @@ OSArray *OSArray::withCapacity(unsigned int capacity)
 
 OSArray *OSArray::withObjects(const OSObject *objects[],
                               unsigned int count,
-                              unsigned int capacity)
+                              unsigned int capacity = 0)
 {
     OSArray *me = new OSArray;
 
     if (me && !me->initWithObjects(objects, count, capacity)) {
-        me->release();
+        me->free();
         return 0;
     }
 
@@ -139,12 +139,12 @@ OSArray *OSArray::withObjects(const OSObject *objects[],
 }
 
 OSArray *OSArray::withArray(const OSArray *array,
-                            unsigned int capacity)
+                            unsigned int capacity = 0)
 {
     OSArray *me = new OSArray;
 
     if (me && !me->initWithArray(array, capacity)) {
-        me->release();
+        me->free();
         return 0;
     }
 

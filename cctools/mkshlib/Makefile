@@ -1,4 +1,3 @@
-RC_OS = macos
 OFLAG = -O
 ifeq "macos" "$(RC_OS)"
   X_CFLAGS := $(shell if [ "$(RC_RELEASE)" != "Beaker" ] &&    \
@@ -12,7 +11,7 @@ endif
 ifeq "mwccppc" "$(notdir $(CC))"
   CFLAGS = $(OFLAG) -g -I../include
 else
-  CFLAGS = $(OFLAG) -g -Wall -I../include $(X_CFLAGS)
+  CFLAGS = $(OFLAG) -g -Wall -I../include -Wno-precomp $(X_CFLAGS)
 endif
 
 USE_DEPENDENCY_FILE := $(shell if [ "$(notdir $(CC))" != "mwccppc" ]; then \

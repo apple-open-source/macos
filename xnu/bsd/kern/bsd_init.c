@@ -120,6 +120,7 @@
 #include <mach/shared_memory_server.h>
 #include <vm/vm_shared_memory_server.h>
 
+extern shared_region_mapping_t       system_shared_region;
 extern int app_profile;		/* on/off switch for pre-heat cache */
 
 char    copyright[] =
@@ -530,7 +531,6 @@ bsdinit_task(void)
 	struct uthread *ut;
 	kern_return_t	kr;
 	thread_act_t th_act;
-	shared_region_mapping_t system_region;
 
 	proc_name("init", p);
 
@@ -560,14 +560,8 @@ bsdinit_task(void)
 	bsd_hardclockinit = 1;	/* Start bsd hardclock */
 	bsd_init_task = get_threadtask(th_act);
 	init_task_failure_data[0] = 0;
-	system_region = lookup_default_shared_region(
-			ENV_DEFAULT_ROOT, ENV_DEFAULT_SYSTEM);
-        if (system_region == NULL) {
-		shared_file_boot_time_init(
-			ENV_DEFAULT_ROOT, ENV_DEFAULT_SYSTEM);
-	} else {
-		vm_set_shared_region(get_threadtask(th_act), system_region);
-	}
+	shared_region_mapping_ref(system_shared_region);
+	vm_set_shared_region(get_threadtask(th_act), system_shared_region);
 	load_init_program(p);
 	/* turn on app-profiling i.e. pre-heating */
 	app_profile = 1;

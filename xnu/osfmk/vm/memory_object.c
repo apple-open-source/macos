@@ -135,7 +135,7 @@ vm_object_update(vm_object_t, vm_object_offset_t,
 
 #define	memory_object_should_return_page(m, should_return) \
     (should_return != MEMORY_OBJECT_RETURN_NONE && \
-     (((m)->dirty || ((m)->dirty = pmap_is_modified((m)->phys_page))) || \
+     (((m)->dirty || ((m)->dirty = pmap_is_modified((m)->phys_addr))) || \
       ((m)->precious && (should_return) == MEMORY_OBJECT_RETURN_ALL) || \
       (should_return) == MEMORY_OBJECT_RETURN_ANYTHING))
 
@@ -258,7 +258,7 @@ memory_object_lock_page(
 
 	if (prot != VM_PROT_NO_CHANGE) {
 		if ((m->page_lock ^ prot) & prot) {
-			pmap_page_protect(m->phys_page, VM_PROT_ALL & ~prot);
+			pmap_page_protect(m->phys_addr, VM_PROT_ALL & ~prot);
 		}
 #if 0
 		/* code associated with the vestigial 
@@ -303,7 +303,7 @@ memory_object_lock_page(
 		vm_page_unlock_queues();
 
 		if (!should_flush)
-			pmap_page_protect(m->phys_page, VM_PROT_NONE);
+			pmap_page_protect(m->phys_addr, VM_PROT_NONE);
 
 		if (m->dirty)
 			return(MEMORY_OBJECT_LOCK_RESULT_MUST_CLEAN);
@@ -409,7 +409,7 @@ memory_object_lock_request(
 	if ((prot & ~VM_PROT_ALL) != 0 && prot != VM_PROT_NO_CHANGE)
 		return (KERN_INVALID_ARGUMENT);
 
-	size = round_page_64(size);
+	size = round_page(size);
 
 	/*
 	 *	Lock the object, and acquire a paging reference to
@@ -963,7 +963,7 @@ vm_object_set_attributes_common(
 		temporary = TRUE;
 	if (cluster_size != 0) {
 		int	pages_per_cluster;
-		pages_per_cluster = atop_32(cluster_size);
+		pages_per_cluster = atop(cluster_size);
 		/*
 		 * Cluster size must be integral multiple of page size,
 		 * and be a power of 2 number of pages.
@@ -1099,7 +1099,7 @@ memory_object_change_attributes(
                 perf = (memory_object_perf_info_t) attributes;
 
 		may_cache = perf->may_cache;
-		cluster_size = round_page_32(perf->cluster_size);
+		cluster_size = round_page(perf->cluster_size);
 
 		break;
 	    }
@@ -1424,7 +1424,7 @@ host_default_memory_manager(
 			mutex_unlock(&memory_manager_default_lock);
 			return KERN_INVALID_ARGUMENT;
 #else
-			cluster_size = round_page_32(cluster_size);
+			cluster_size = round_page(cluster_size);
 #endif
 		}
 		memory_manager_default_cluster = cluster_size;
@@ -1551,12 +1551,12 @@ memory_object_deactivate_pages(
 				if ((m->wire_count == 0) && (!m->private) && (!m->gobbled) && (!m->busy)) {
 
 					m->reference = FALSE;
-					pmap_clear_reference(m->phys_page);
+					pmap_clear_reference(m->phys_addr);
 
 					if ((kill_page) && (object->internal)) {
 				        	m->precious = FALSE;
 					        m->dirty = FALSE;
-						pmap_clear_modify(m->phys_page);
+						pmap_clear_modify(m->phys_addr);
 						vm_external_state_clr(object->existence_map, offset);
 					}
 					VM_PAGE_QUEUES_REMOVE(m);
@@ -1610,7 +1610,7 @@ memory_object_page_op(
 	memory_object_control_t	control,
 	memory_object_offset_t	offset,
 	int			ops,
-	ppnum_t			*phys_entry,
+	vm_offset_t		*phys_entry,
 	int			*flags)
 {
 	vm_object_t		object;
@@ -1626,8 +1626,8 @@ memory_object_page_op(
 	if(ops & UPL_POP_PHYSICAL) {
 		if(object->phys_contiguous) {
 			if (phys_entry) {
-				*phys_entry = (ppnum_t)
-					(object->shadow_offset >> 12);
+				*phys_entry = (vm_offset_t)
+						object->shadow_offset;
 			}
 			vm_object_unlock(object);
 			return KERN_SUCCESS;
@@ -1678,7 +1678,7 @@ memory_object_page_op(
 			if(dst_page->busy) *flags |= UPL_POP_BUSY;
 		}
 		if (phys_entry)
-			*phys_entry = dst_page->phys_page;
+			*phys_entry = dst_page->phys_addr;
 	
 		/* The caller should have made a call either contingent with */
 		/* or prior to this call to set UPL_POP_BUSY */

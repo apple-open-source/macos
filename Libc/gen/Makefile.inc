@@ -9,11 +9,11 @@ CFLAGS+= -I${.CURDIR}/pthreads
 SRCS += NSSystemDirectories.c  getpagesize.c          siginterrupt.c \
 	alarm.c                getpass.c              siglist.c \
 	assert.c               getttyent.c            signal.c \
-	cache.c                getusershell.c         sigsetops.c \
+	                       getusershell.c         sigsetops.c \
 	clock.c                getvfsbyname.c         sleep.c \
 	closedir.c                                    stack_logging.c \
 	confstr.c                                     strchr.c \
-	crypt.c                OSSystemInfo.c         sysconf.c \
+	crypt.c                                       sysconf.c \
 	ctermid.c              isatty.c               sysctl.c \
 	                       isnan.c                sysctlbyname.c \
 	daemon.c               malloc.c               syslog.c \
@@ -34,7 +34,7 @@ SRCS += NSSystemDirectories.c  getpagesize.c          siginterrupt.c \
 	gethostname.c          seekdir.c              wait3.c \
 	getloadavg.c           sethostname.c          waitpid.c \
 	getlogin.c             setlogin.c             zone.c \
-	getmntinfo.c           setmode.c	      sysctlnametomib.c \
+	getmntinfo.c           setmode.c \
 	_rand48.c erand48.c lcong48.c mrand48.c seed48.c drand48.c jrand48.c \
 	nrand48.c srand48.c lrand48.c basename.c dirname.c arc4random.c \
 	strtofflags.c lockf.c readdir_r.c ulimit.c

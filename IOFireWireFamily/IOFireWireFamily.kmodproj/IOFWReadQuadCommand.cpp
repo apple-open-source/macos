@@ -169,12 +169,19 @@ IOReturn IOFWReadQuadCommand::execute()
     if(!fFailOnReset) {
         // Update nodeID and generation
         fDevice->getNodeIDGeneration(fGeneration, fNodeID);
+		fSpeed = fControl->FWSpeed( fNodeID ); 
     }
 
     transfer = fSize;
     if(transfer > fMaxPack)
-	transfer = fMaxPack;
+		transfer = fMaxPack;
 
+	int maxPack = (1 << fControl->maxPackLog(fWrite, fNodeID));
+	if( maxPack < transfer )
+	{
+		transfer = maxPack;
+	}
+	
     // Do this when we're in execute, not before,
     // so that Reset handling knows which commands are waiting a response.
     fTrans = fControl->allocTrans(this);

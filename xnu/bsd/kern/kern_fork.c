@@ -245,7 +245,6 @@ procdup(
 	thread_act_t		thread;
 	task_t			task;
  	kern_return_t	result;
- 	pmap_t			pmap;
 	extern task_t kernel_task;
 
 	if (parent->task == kernel_task)
@@ -259,7 +258,6 @@ procdup(
 	set_bsdtask_info(task, child);
 	if (child->p_nice != 0)
 		resetpriority(child);
-		
 	result = thread_create(task, &thread);
 	if (result != KERN_SUCCESS)
 	    printf("fork/procdup: thread_create failed. Code: 0x%x\n", result);

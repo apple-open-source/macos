@@ -47,7 +47,7 @@
 *     09 Sep 01   ali   added more comments.                                   *
 *     05 Sep 01   ram   added #ifdef __ppc__.                                  *
 *     16 Jul 01   ram   Moved exception flag symbols to fenv_private.h.        *
-*                       Replaced __setflm with FEGETENVD and FESETENVD.        *
+*                       Replaced __setflm with fegetenvd and fesetenvd.        *
 *     29 Sep 94   ali   use __setflm for generating INEXACT, INVALID and       *
 *                       DIVBYZERO in feraiseexecpt.                            *
 *     28 Sep 94   PAF   Modified to use __setflm                               *
@@ -98,7 +98,7 @@ static void _fegetexceptflag ( fexcept_t *flagp, int excepts )
    int mask;
    
    mask = excepts & FE_ALL_EXCEPT;
-   FEGETENVD( temp.d );
+   fegetenvd( temp.d );
    excstate = temp.i.lo & FE_ALL_FLAGS;
    mask &= excstate;
    if (mask == 0)
@@ -117,7 +117,7 @@ static void _fesetexceptflag ( const fexcept_t *flagp, int excepts )
    
    mask = excepts & FE_ALL_EXCEPT;
    if (mask != 0) {                     // take action if mask != 0
-      FEGETENVD( ifpscr.d );            // read current environment
+      fegetenvd( ifpscr.d );            // read current environment
       if (excepts & FE_INVALID)         // special case:  INVALID
          ifpscr.i.lo = (ifpscr.i.lo & FE_NO_INVALID) | (*flagp & FE_ALL_INVALID);
       ifpscr.i.lo = (ifpscr.i.lo & (~mask)) | (*flagp & mask);
@@ -125,7 +125,7 @@ static void _fesetexceptflag ( const fexcept_t *flagp, int excepts )
          ifpscr.i.lo |= FE_SET_FX;
       else
          ifpscr.i.lo &= FE_CLR_FX;
-      FESETENVD( ifpscr.d );
+      fesetenvd( ifpscr.d );
    }
 }
 
@@ -144,15 +144,14 @@ void feclearexcept ( int excepts )
    hexdouble ifpscr;
    long int mask;
    
-   mask = excepts & FE_ALL_EXCEPT; 
-   if (( excepts & FE_INVALID) != 0 ) mask |= FE_ALL_INVALID;     
-   FEGETENVD( ifpscr.d );
+   mask = excepts & FE_ALL_EXCEPT;      
+   fegetenvd( ifpscr.d );
    mask = ~mask;
-   //if (( excepts & FE_INVALID) != 0 ) mask &= FE_NO_INVALID;
+   if (( excepts & FE_INVALID) != 0 ) mask &= FE_NO_INVALID;
    ifpscr.i.lo &= mask;
    if (( ifpscr.i.lo & FE_ALL_EXCEPT ) == 0)
       ifpscr.i.lo &= FE_CLR_FX;
-   FESETENVD( ifpscr.d );
+   fesetenvd( ifpscr.d );
 }
 
 /****************************************************************************
@@ -167,7 +166,7 @@ void feraiseexcept ( int excepts )
    
    mask = excepts & FE_ALL_EXCEPT;
    
-   FEGETENVD( ifpscr.d );
+   fegetenvd( ifpscr.d );
    
    if ((mask & FE_INVALID) != 0)
    {
@@ -178,7 +177,7 @@ void feraiseexcept ( int excepts )
    if (( mask & ( FE_OVERFLOW | FE_UNDERFLOW | FE_DIVBYZERO | FE_INEXACT )) != 0)
        ifpscr.i.lo |= mask;
    
-   FESETENVD( ifpscr.d );
+   fesetenvd( ifpscr.d );
 }
 
 /****************************************************************************
@@ -191,7 +190,7 @@ int fetestexcept ( int excepts )
 {
    hexdouble temp;
    
-   FEGETENVD( temp.d );
+   fegetenvd( temp.d );
    return (int) ((excepts & FE_ALL_EXCEPT) & temp.i.lo);
 }
 
@@ -207,7 +206,7 @@ int fegetround ( void )
 {
    hexdouble temp;
    
-   FEGETENVD( temp.d );
+   fegetenvd( temp.d );
    return (int) (temp.i.lo & FE_ALL_RND);
 }
 
@@ -227,9 +226,9 @@ int fesetround ( int round )
    {
        hexdouble temp;
         
-       FEGETENVD( temp.d );
+       fegetenvd( temp.d );
        temp.i.lo = (temp.i.lo & FE_NO_RND) | round;
-       FESETENVD( temp.d );
+       fesetenvd( temp.d );
        return 0;
    }
 }
@@ -247,7 +246,7 @@ void fegetenv ( fenv_t *envp )
 {
    hexdouble temp;
    
-   FEGETENVD( temp.d );
+   fegetenvd( temp.d );
    *envp = temp.i.lo;
 }
 
@@ -263,10 +262,10 @@ int feholdexcept ( fenv_t *envp )
 {
    hexdouble ifpscr;
    
-   FEGETENVD( ifpscr.d );
+   fegetenvd( ifpscr.d );
    *envp = ifpscr.i.lo;
    ifpscr.i.lo &= (FE_NO_FLAGS & FE_NO_ENABLES);
-   FESETENVD( ifpscr.d );
+   fesetenvd( ifpscr.d );
    return 0;
 }
 
@@ -284,7 +283,7 @@ void fesetenv ( const fenv_t *envp )
    hexdouble temp;
    
    temp.i.lo = *envp;
-   FESETENVD( temp.d );
+   fesetenvd( temp.d );
 }
 
 
@@ -302,10 +301,10 @@ void feupdateenv ( const fenv_t *envp )
    int newexc;
    hexdouble temp;
    
-   FEGETENVD( temp.d );
+   fegetenvd( temp.d );
    newexc = temp.i.lo & FE_ALL_EXCEPT;
    temp.i.lo = *envp;
-   FESETENVD( temp.d );
+   fesetenvd( temp.d );
    feraiseexcept(newexc);
 }
 

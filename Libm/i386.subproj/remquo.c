@@ -53,7 +53,7 @@
 *        10 Sep 01   ali  added more comments.                                  *
 *        09 Sep 01   ali  added macros to detect PowerPC and correct compiler.  *
 *        06 Sep 01   ram  added #ifdef __ppc__.                                 *
-*        16 Jul 01   ram  Replaced __setflm with FEGETENVD/FESETENVD.           *
+*        16 Jul 01   ram  Replaced __setflm with fegetenvd/fesetenvd.           *
 *                          replaced DblInHex typedef with hexdouble.            *
 *        09 Oct 94   ali  made environmental changes to use __setflm            *
 *                         instead of _feprocentry.                              *
@@ -100,7 +100,7 @@ static const hexsingle HugeFHalved     = { 0x7f000000 };
    low quotient result to the location pointed to by the int pointer
    argument, quo:  -127 <= iquo <= +127.
    
-   This function calls:  __fpclassifyd, logb, scalbn, __FABS, signbitd.
+   This function calls:  __fpclassifyd, logb, scalbn, __fabs, signbitd.
 ***********************************************************************/
 
 #if defined(BUILDING_FOR_CARBONCORE_LEGACY)
@@ -131,7 +131,13 @@ static long int ___fpclassifyd ( double arg )
       }
 }
 
-extern double __logb ( double x );
+static double __logb ( double x )
+{
+    asm volatile ("fldl 4(%esp)");
+    asm volatile ("fxtract");
+    asm volatile ("fstp %st");
+    asm volatile ("ret");
+}
 
 static const double twoTo1023  = 8.988465674311579539e307;   // 0x1p1023
 static const double twoToM1022 = 2.225073858507201383e-308;  // 0x1p-1022
@@ -197,8 +203,8 @@ double remquo ( double x, double y, int *quo)
       iclx = ___fpclassifyd(x);
       icly = ___fpclassifyd(y);
       if ((iclx & icly) >= FP_NORMAL)    {            /* x,y both nonzero finite case */
-         x1 = __FABS(x);                              /* work with absolute values */
-         absy = __FABS(y);
+         x1 = __fabs(x);                              /* work with absolute values */
+         absy = __fabs(y);
          iquo = 0;                                    /* zero local quotient */
          iscx = (long int) __logb(x1);                /* get binary exponents */
          iscy = (long int) __logb(absy);
@@ -275,8 +281,8 @@ float remquof ( float x, float y, int *quo)
       iclx = __fpclassifyf(x);
       icly = __fpclassifyf(y);
       if ((iclx & icly) >= FP_NORMAL)    {            /* x,y both nonzero finite case */
-         x1 = __FABSF(x);                              /* work with absolute values */
-         absy = __FABSF(y);
+         x1 = __fabsf(x);                              /* work with absolute values */
+         absy = __fabsf(y);
          iquo = 0;                                    /* zero local quotient */
          iscx = (long int) logbf(x1);                  /* get binary exponents */
          iscy = (long int) logbf(absy);

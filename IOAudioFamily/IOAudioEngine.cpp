@@ -206,13 +206,6 @@ bool IOAudioEngine::init(OSDictionary *properties)
         return false;
     }
     
-	reserved = (ExpansionData *)IOMalloc (sizeof(struct ExpansionData));
-	if (!reserved) {
-		return false;
-	} else {
-		reserved->pauseCount = 0;
-	}
-
     duringStartup = true;
 
     sampleRate.whole = 0;
@@ -223,7 +216,7 @@ bool IOAudioEngine::init(OSDictionary *properties)
     
     numActiveUserClients = 0;
 
-    status = (IOAudioEngineStatus *)IOMallocAligned(round_page_32(sizeof(IOAudioEngineStatus)), PAGE_SIZE);
+    status = (IOAudioEngineStatus *)IOMallocAligned(round_page(sizeof(IOAudioEngineStatus)), PAGE_SIZE);
 
     if (!status) {
         return false;
@@ -249,7 +242,7 @@ bool IOAudioEngine::init(OSDictionary *properties)
         return false;
     }
     
-    bzero(status, round_page_32(sizeof(IOAudioEngineStatus)));
+    bzero(status, round_page(sizeof(IOAudioEngineStatus)));
     status->fVersion = kIOAudioEngineCurrentStatusStructVersion;
 
     setState(kIOAudioEngineStopped);
@@ -264,7 +257,7 @@ void IOAudioEngine::free()
 #endif
 
     if (status) {
-        IOFreeAligned(status, round_page_32(sizeof(IOAudioEngineStatus)));
+        IOFreeAligned(status, round_page(sizeof(IOAudioEngineStatus)));
         status = 0;
     }
 
@@ -303,10 +296,6 @@ void IOAudioEngine::free()
         workLoop = NULL;
     }
 
-	if (reserved) {
-		IOFree (reserved, sizeof(struct ExpansionData));
-	}
-    
     super::free();
 }
 
@@ -850,10 +839,6 @@ IOReturn IOAudioEngine::incrementActiveUserClients()
         result = startAudioEngine();
     }
     
-	if (result != kIOReturnSuccess) {
-		decrementActiveUserClients();
-	}
-	
     return result;
 }
 
@@ -1250,7 +1235,6 @@ IOReturn IOAudioEngine::startAudioEngine()
         case kIOAudioEngineResumed:
             resetStatusBuffer();
             
-			reserved->pauseCount = 0;
             result = performAudioEngineStart();
             if (result == kIOReturnSuccess) {
                 setState(kIOAudioEngineRunning);
@@ -1301,7 +1285,6 @@ IOReturn IOAudioEngine::pauseAudioEngine()
     IOLog("IOAudioEngine[%p]::pauseAudioEngine()\n", this);
 #endif
 
-	reserved->pauseCount++;
     switch(getState()) {
         case kIOAudioEngineRunning:
         case kIOAudioEngineResumed:
@@ -1333,13 +1316,11 @@ IOReturn IOAudioEngine::resumeAudioEngine()
 #ifdef DEBUG_CALLS
     IOLog("IOAudioEngine[%p]::resumeAudioEngine()\n", this);
 #endif
-
-	if (--reserved->pauseCount == 0) {
-		if (getState() == kIOAudioEnginePaused) {
-			setState(kIOAudioEngineResumed);
-			sendNotification(kIOAudioEngineResumedNotification);
-		}
-	}
+    
+    if (getState() == kIOAudioEnginePaused) {
+        setState(kIOAudioEngineResumed);
+        sendNotification(kIOAudioEngineResumedNotification);
+    }
     
     return result;
 }
@@ -1940,7 +1921,7 @@ IOReturn IOAudioEngine::addDefaultAudioControl(IOAudioControl *defaultAudioContr
 		}
         if (defaultAudioControl->attachAndStart(this)) {
             if (!defaultAudioControls) {
-                defaultAudioControls = OSSet::withObjects((const OSObject **)&defaultAudioControl, 1, 1);
+                defaultAudioControls = OSSet::withObjects(&(const OSObject *)defaultAudioControl, 1, 1);
             } else {
                 defaultAudioControls->setObject(defaultAudioControl);
             }

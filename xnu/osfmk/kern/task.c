@@ -115,11 +115,6 @@
 #include <kern/task_swap.h>
 #endif	/* TASK_SWAPPER */
 
-#ifdef __ppc__
-#include <ppc/exception.h>
-#include <ppc/hw_perfmon.h>
-#endif
-
 /*
  * Exported interfaces
  */
@@ -357,8 +352,8 @@ task_create_local(
 		new_task->map = vm_map_fork(parent_task->map);
 	else
 		new_task->map = vm_map_create(pmap_create(0),
-					round_page_32(VM_MIN_ADDRESS),
-					trunc_page_32(VM_MAX_ADDRESS), TRUE);
+					round_page(VM_MIN_ADDRESS),
+					trunc_page(VM_MAX_ADDRESS), TRUE);
 
 	mutex_init(&new_task->lock, ETAP_THREAD_TASK_NEW);
 	queue_init(&new_task->thr_acts);
@@ -379,8 +374,6 @@ task_create_local(
 	new_task->syscalls_mach = 0;
 	new_task->syscalls_unix=0;
 	new_task->csw=0;
-	new_task->taskFeatures[0] = 0;				/* Init task features */
-	new_task->taskFeatures[1] = 0;				/* Init task features */
 	new_task->dynamic_working_set = 0;
 	
 	task_working_set_create(new_task, TWS_SMALL_HASH_LINE_COUNT, 
@@ -389,10 +382,6 @@ task_create_local(
 #ifdef MACH_BSD
 	new_task->bsd_info = 0;
 #endif /* MACH_BSD */
-
-#ifdef __ppc__
-	if(per_proc_info[0].pf.Available & pf64Bit) new_task->taskFeatures[0] |= tf64BitData;	/* If 64-bit machine, show we have 64-bit registers at least */
-#endif
 
 #if	TASK_SWAPPER
 	new_task->swap_state = TASK_SW_IN;
@@ -738,10 +727,6 @@ task_terminate_internal(
 	 * the previous interruptible state.
 	 */
 	thread_interrupt_level(interrupt_save);
-
-#if __ppc__
-    perfmon_release_facility(task); // notify the perfmon facility
-#endif
 
 	/*
 	 * Get rid of the task active reference on itself.

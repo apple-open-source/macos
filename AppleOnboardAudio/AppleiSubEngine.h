@@ -10,13 +10,14 @@
 #define kMinimumiSubFrameOffset			1
 
 #define NUM_ISUB_FRAME_LISTS			20
-#define NUM_ISUB_FRAMES_PER_LIST		10
-#define NUM_ISUB_FRAME_LISTS_TO_QUEUE	10
+#define NUM_ISUB_FRAMES_PER_LIST			10
+#define NUM_ISUB_FRAME_LISTS_TO_QUEUE		10
+#define ABORT_PIPE_ON_START				1
 
 class AppleUSBAudioLevelControl;
 class AppleUSBAudioMuteControl;
 
-#include "iSubTypes.h"		
+#include "iSubTypes.h"	// aml 3.01.02 moved typedefs to .h
 
 class AppleiSubEngine : public IOService {
     OSDeclareDefaultStructors (AppleiSubEngine);

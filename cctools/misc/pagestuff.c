@@ -159,8 +159,7 @@ main(
 int argc,
 char *argv[])
 {
-    int i, start;
-    unsigned long j, page_number;
+    unsigned long i, start, page_number;
     char *endp;
 
 	progname = argv[0];
@@ -183,8 +182,8 @@ char *argv[])
 
 	if(strcmp(argv[start], "-a") == 0){
 	    page_number = (ofile.file_size + vm_page_size - 1) / vm_page_size;
-	    for(j = 0; j < page_number; j++){
-		print_parts_for_page(j);
+	    for(i = 0; i < page_number; i++){
+		print_parts_for_page(i);
 	    }
 	    start++;
 	}
@@ -575,15 +574,15 @@ struct file_part *fp)
 		    if(symbols[i].n_type & N_EXT ||
 		       (fp->mh->filetype == MH_EXECUTE &&
 		        symbols[i].n_type & N_PEXT)){
-			if((unsigned long)symbols[i].n_un.n_strx > ext_high)
+			if(symbols[i].n_un.n_strx > ext_high)
 			    ext_high = symbols[i].n_un.n_strx;
-			if((unsigned long)symbols[i].n_un.n_strx < ext_low)
+			if(symbols[i].n_un.n_strx < ext_low)
 			    ext_low = symbols[i].n_un.n_strx;
 		    }
 		    else{
-			if((unsigned long)symbols[i].n_un.n_strx > local_high)
+			if(symbols[i].n_un.n_strx > local_high)
 			    local_high = symbols[i].n_un.n_strx;
-			if((unsigned long)symbols[i].n_un.n_strx < local_low)
+			if(symbols[i].n_un.n_strx < local_low)
 			    local_low = symbols[i].n_un.n_strx;
 		    }
 		}

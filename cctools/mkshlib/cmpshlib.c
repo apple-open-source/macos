@@ -58,14 +58,14 @@ static void open_target(
     char *target,
     struct ofile *ofile,
     struct nlist **symbols,
-    unsigned long *nsyms,
+    long *nsyms,
     char **strings,
-    unsigned long *strsize,
+    long *strsize,
     char **text,
-    unsigned long *textaddr,
-    unsigned long *textsize,
-    unsigned long *text_nsect,
-    unsigned long *data_nsect);
+    long *textaddr,
+    long *textsize,
+    long *text_nsect,
+    long *data_nsect);
 
 static void make_sorted_text_symbols(
     struct nlist *symbols,
@@ -81,11 +81,11 @@ static void make_global_symbols(
     long *nglobal_symbols);
 
 static long get_target_addr(
-    unsigned long value,
+    long value,
     char *name,
     char *text,
-    unsigned long addr,
-    unsigned long size,
+    long addr,
+    long size,
     char *target);
 
 static int cmp_qsort(
@@ -104,7 +104,7 @@ struct ext {
     char *name;		  /* symbol name */
     long type;		  /* symbol type (n_type & N_TYPE) */
     long sect;		  /* symbol section (n_sect) */
-    unsigned long value;  /* symbol value */
+    long value;		  /* symbol value */
     char *branch_target;  /* if non-zero the branch target symbol name */
     struct ext *next;	  /* next ext on the hash chain */
 };
@@ -318,7 +318,7 @@ char *old_target)
 		extp = extp->next;
 	    }
 	}
-#endif /* DEBUG */
+#endif DEBUG
 }
 
 /*
@@ -525,16 +525,16 @@ open_target(
 char *target, 	       /* name of the target shared library to open */
 struct ofile *ofile,   /* pointer to the ofile struct to use for target */
 struct nlist **symbols,/* pointer to the symbol table to return */
-unsigned long *nsyms,  /* pointer to the number of symbols to return */
+long *nsyms,	       /* pointer to the number of symbols to return */
 char **strings,	       /* pointer to the string table to return */
-unsigned long *strsize,/* pointer to the string table size to return */
+long *strsize,	       /* pointer to the string table size to return */
 char **text,	       /* pointer to the text segment to return */
-unsigned long *textaddr,/* pointer to the text segment's address to return */
-unsigned long *textsize,/* pointer to the text segment's size to return */
-unsigned long *text_nsect,/* pointer to the text section number to return */
-unsigned long *data_nsect)/* pointer to the data section number to return */
+long *textaddr,	       /* pointer to the text segment's address to return */
+long *textsize,	       /* pointer to the text segment's size to return */
+long *text_nsect,      /* pointer to the text section number to return */
+long *data_nsect)      /* pointer to the data section number to return */
 {
-    unsigned long i, j, nsect;
+    long i, j, nsect;
     struct load_command *lcp;
     struct symtab_command *stp;
     struct segment_command *text_seg, *sgp;
@@ -689,7 +689,7 @@ unsigned long *data_nsect)/* pointer to the data section number to return */
 	    if(((*symbols)[i].n_type & N_EXT) != N_EXT)
 		continue;
 	    if((*symbols)[i].n_un.n_strx < 0 ||
-	       (unsigned long)((*symbols)[i].n_un.n_strx) > *strsize)
+	       (*symbols)[i].n_un.n_strx > *strsize)
 		fatal("Bad string table index (%ld) for symbol %ld in: %s", 
 	    	      (*symbols)[i].n_un.n_strx, i, target);
 	    (*symbols)[i].n_un.n_name = *strings + (*symbols)[i].n_un.n_strx;
@@ -773,14 +773,15 @@ long *nglobal_symbols)
 static
 long
 get_target_addr(
-unsigned long value,
+long value,
 char *name,
 char *text,
-unsigned long addr,
-unsigned long size,
+long addr,
+long size,
 char *target)
 {
-    unsigned long offset, target_addr;
+    long offset;
+    unsigned long target_addr;
 
 	offset = value - addr;
 	if(offset < 0 || offset > size)

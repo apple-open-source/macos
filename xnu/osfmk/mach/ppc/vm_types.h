@@ -58,15 +58,13 @@
  *	Author:	Avadis Tevanian, Jr.
  *	Date: 1985
  *
- *	Header file for VM data types.  PPC version.
+ *	Header file for VM data types.  I386 version.
  */
 
 #ifndef	_MACH_PPC_VM_TYPES_H_
 #define _MACH_PPC_VM_TYPES_H_
 
 #ifndef	ASSEMBLER
-
-#include <stdint.h>
 
 /*
  * A natural_t is the type for the native
@@ -102,6 +100,11 @@ typedef	natural_t	vm_offset_t;
  * vm_offset_t entities.
  */
 typedef	natural_t		vm_size_t;
+
+/*
+ * space_t is used in the pmap system
+ */
+typedef unsigned int	space_t;
 
 #endif	/* ndef ASSEMBLER */
 

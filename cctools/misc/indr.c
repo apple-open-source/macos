@@ -84,8 +84,8 @@ struct indr_object {
 #define INITIAL_LIST_SIZE	250
 struct list {
     struct indr_object **list;	/* the order list */
-    unsigned long used;		/* the number used in the list */
-    unsigned long size;		/* the current size of the list */
+    long used;			/* the number used in the list */
+    long size;			/* the current size of the list */
 };
 static struct list indr_list;
 
@@ -192,8 +192,7 @@ int argc,
 char *argv[],
 char *envp[])
 {
-    int i;
-    unsigned long j;
+    unsigned long i, j;
     enum bool no_flags_left;
     char *list_filename, *output_file, *input_file;
     struct arch_flag *arch_flags;
@@ -606,8 +605,7 @@ struct object *object)
     long new_nsyms;
     struct nlist *new_symbols;
 
-	if(object->mh->filetype == MH_DYLIB ||
-	   object->mh->filetype == MH_DYLIB_STUB){
+	if(object->mh->filetype == MH_DYLIB){
 	    if(member != NULL)
 		fatal_arch(arch, member, "is a dynamic library which is not "
 			   "allowed as a member of an archive");
@@ -648,7 +646,7 @@ struct object *object)
 	    if(nlistp->n_type & N_EXT){
 		if(nlistp->n_un.n_strx){
 		    if(nlistp->n_un.n_strx > 0 &&
-		       (unsigned long)nlistp->n_un.n_strx < strings_size){
+		       nlistp->n_un.n_strx < strings_size){
 			sp = lookup_symbol(strings + nlistp->n_un.n_strx);
 			if(sp != NULL){
 			    if(sp->type == N_UNDF)
@@ -670,7 +668,7 @@ struct object *object)
 	    else{
 		if(nlistp->n_un.n_strx){
 		    if(nlistp->n_un.n_strx > 0 && nlistp->n_un.n_strx <
-							    (long)strings_size)
+								strings_size)
 			nlistp->n_un.n_strx = add_to_string_table(
 				strings + nlistp->n_un.n_strx);
 		    else
@@ -891,7 +889,7 @@ struct object *object)
 	for(i = 0; i < nsyms; i++){
 	    if(symbols[i].n_un.n_strx != 0){
 		if(symbols[i].n_un.n_strx < 0 ||
-		   (unsigned long)symbols[i].n_un.n_strx > strsize){
+		   symbols[i].n_un.n_strx > strsize){
 		    error_arch(arch, NULL, "bad string index for symbol "
 			       "table entry %ld in: ", i);
 		    return;
@@ -1416,7 +1414,7 @@ void
 make_indr_objects(
 struct arch *arch)
 {
-    unsigned long i;
+    long i;
     cpu_type_t cputype;
     cpu_subtype_t cpusubtype;
     enum byte_sex target_byte_sex;

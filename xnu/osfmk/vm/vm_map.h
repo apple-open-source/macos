@@ -868,12 +868,6 @@ extern kern_return_t vm_map_region_replace(
 				vm_offset_t	start,  
 				vm_offset_t	end);
 
-extern boolean_t vm_map_check_protection(
-				vm_map_t	map,
-				vm_offset_t	start,
-				vm_offset_t	end,
-				vm_prot_t	protection);
-
 /*
  *	Macros to invoke vm_map_copyin_common.  vm_map_copyin is the
  *	usual form; it handles a copyin based on the current protection

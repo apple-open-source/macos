@@ -47,7 +47,9 @@ OSMetaClassDefineReservedUnused(OSData, 7);
 #define EXTERNAL ((unsigned int) -1)
 
 #if OSALLOCDEBUG
-extern int debug_container_malloc_size;
+extern "C" {
+    extern int debug_container_malloc_size;
+};
 #define ACCUMSIZE(s) do { debug_container_malloc_size += (s); } while(0)
 #else
 #define ACCUMSIZE(s)
@@ -58,26 +60,19 @@ bool OSData::initWithCapacity(unsigned int inCapacity)
     if (!super::init())
         return false;
 
-    if (data && (!inCapacity || capacity < inCapacity) ) {
-        // clean out old data's storage if it isn't big enough
-        kfree((vm_address_t) data, capacity);
-        data = 0;
-        ACCUMSIZE(-capacity);
-    }
-
-    if (inCapacity && !data) {
+    if(inCapacity) {
         data = (void *) kalloc(inCapacity);
         if (!data)
             return false;
-        capacity = inCapacity;
-        ACCUMSIZE(inCapacity);
     }
 
     length = 0;
-    if (inCapacity < 16)
+    capacity = inCapacity;
+    capacityIncrement = capacity;
+    if(!capacityIncrement)
         capacityIncrement = 16;
-    else
-        capacityIncrement = inCapacity;
+
+    ACCUMSIZE(capacity);
 
     return true;
 }
@@ -87,8 +82,7 @@ bool OSData::initWithBytes(const void *bytes, unsigned int inLength)
     if ((inLength && !bytes) || !initWithCapacity(inLength))
         return false;
 
-    if (bytes != data)
-	bcopy(bytes, data, inLength);
+    bcopy(bytes, data, inLength);
     length = inLength;
 
     return true;
@@ -127,7 +121,7 @@ OSData *OSData::withCapacity(unsigned int inCapacity)
     OSData *me = new OSData;
 
     if (me && !me->initWithCapacity(inCapacity)) {
-        me->release();
+        me->free();
         return 0;
     }
 
@@ -139,7 +133,7 @@ OSData *OSData::withBytes(const void *bytes, unsigned int inLength)
     OSData *me = new OSData;
 
     if (me && !me->initWithBytes(bytes, inLength)) {
-        me->release();
+        me->free();
         return 0;
     }
     return me;
@@ -150,7 +144,7 @@ OSData *OSData::withBytesNoCopy(void *bytes, unsigned int inLength)
     OSData *me = new OSData;
 
     if (me && !me->initWithBytesNoCopy(bytes, inLength)) {
-        me->release();
+        me->free();
         return 0;
     }
 
@@ -162,7 +156,7 @@ OSData *OSData::withData(const OSData *inData)
     OSData *me = new OSData;
 
     if (me && !me->initWithData(inData)) {
-        me->release();
+        me->free();
         return 0;
     }
 
@@ -175,7 +169,7 @@ OSData *OSData::withData(const OSData *inData,
     OSData *me = new OSData;
 
     if (me && !me->initWithData(inData, start, inLength)) {
-        me->release();
+        me->free();
         return 0;
     }
 
@@ -234,7 +228,7 @@ bool OSData::appendBytes(const void *bytes, unsigned int inLength)
 {
     unsigned int newSize;
 
-    if (!inLength)
+    if (inLength == 0)
         return true;
 
     if (capacity == EXTERNAL)
@@ -244,11 +238,7 @@ bool OSData::appendBytes(const void *bytes, unsigned int inLength)
     if ( (newSize > capacity) && newSize > ensureCapacity(newSize) )
         return false;
 
-    if (bytes)
-        bcopy(bytes, &((unsigned char *)data)[length], inLength);
-    else
-        bzero(&((unsigned char *)data)[length], inLength);
-
+    bcopy(bytes, &((unsigned char *)data)[length], inLength);
     length = newSize;
 
     return true;
@@ -258,7 +248,7 @@ bool OSData::appendByte(unsigned char byte, unsigned int inLength)
 {
     unsigned int newSize;
 
-    if (!inLength)
+    if (inLength == 0)
         return true;
 
     if (capacity == EXTERNAL)
@@ -281,7 +271,7 @@ bool OSData::appendBytes(const OSData *other)
 
 const void *OSData::getBytesNoCopy() const
 {
-    if (!length)
+    if (length == 0)
         return 0;
     else
         return data;
@@ -336,7 +326,7 @@ bool OSData::isEqualTo(const OSString *obj) const
     unsigned int checkLen = length;
     unsigned int stringLen;
 
-    if (!obj)
+    if (NULL == obj)
       return false;
 
     stringLen = obj->getLength ();

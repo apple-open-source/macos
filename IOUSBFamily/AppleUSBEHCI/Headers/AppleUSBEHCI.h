@@ -391,6 +391,7 @@ public:
     virtual bool 	init(OSDictionary * propTable);
     virtual bool 	start( IOService * provider );
     virtual void 	free();
+    virtual IOReturn 	message( UInt32 type, IOService * provider,  void * argument = 0 );
     IOReturn UIMInitialize(IOService * provider);
     IOReturn UIMFinalize();
     IOReturn UIMFinalizeForPowerDown();

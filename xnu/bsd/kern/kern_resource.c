@@ -353,14 +353,14 @@ dosetrlimit(p, which, limp)
 			
 			if (limp->rlim_cur > alimp->rlim_cur) {
 				/* grow stack */
-				size = round_page_64(limp->rlim_cur);
-				size -= round_page_64(alimp->rlim_cur);
+				size = round_page(limp->rlim_cur);
+				size -= round_page(alimp->rlim_cur);
 
 #if STACK_GROWTH_UP
 				/* go to top of current stack */
-				addr = trunc_page((unsigned int)(p->user_stack + alimp->rlim_cur));
+				addr = trunc_page(p->user_stack + alimp->rlim_cur);
 #else STACK_GROWTH_UP
-				addr = trunc_page_32((unsigned int)(p->user_stack - alimp->rlim_cur));
+				addr = trunc_page(p->user_stack - alimp->rlim_cur);
 				addr -= size;
 #endif /* STACK_GROWTH_UP */
 				if (vm_allocate(current_map(),

@@ -66,7 +66,7 @@ enum byte_sex target_byte_sex = UNKNOWN_BYTE_SEX;
  * Array to hold ld(1) flags.
  */
 char **ldflags = NULL;
-unsigned long nldflags = 0;
+long nldflags = 0;
 
 #define	MKSHLIBNAME	"mkshlib"	/* base name of this program */
 #define	ASNAME		"as"		/* base name of the assembler */

@@ -49,7 +49,7 @@ enum DYLD_BOOL {
  * The high level NS... API.
  */
 
-/* Object file image API */
+/* Object file image api */
 typedef enum {
     NSObjectFileImageFailure, /* for this a message is printed on stderr */
     NSObjectFileImageSuccess,
@@ -76,39 +76,41 @@ extern NSObjectFileImageReturnCode NSCreateObjectFileImageFromMemory(
 extern enum DYLD_BOOL NSDestroyObjectFileImage(
     NSObjectFileImage objectFileImage);
 /*
- * API on NSObjectFileImage's for:
+ * Need api on NSObjectFileImage's for:
  *   "for Each Symbol Definition In Object File Image" (for Dynamic Bundles)
- *   and the same thing for references
+ *   Could have the same thing for references
  */
+/* not yet implemented */
 extern unsigned long NSSymbolDefinitionCountInObjectFileImage(
     NSObjectFileImage objectFileImage);
+/* not yet implemented */
 extern const char * NSSymbolDefinitionNameInObjectFileImage(
     NSObjectFileImage objectFileImage,
     unsigned long ordinal);
+/* not yet implemented */
 extern unsigned long NSSymbolReferenceCountInObjectFileImage(
     NSObjectFileImage objectFileImage);
+/* not yet implemented */
 extern const char * NSSymbolReferenceNameInObjectFileImage(
     NSObjectFileImage objectFileImage,
     unsigned long ordinal,
     enum DYLD_BOOL *tentative_definition); /* can be NULL */
 /*
- * API on NSObjectFileImage:
+ * Other needed api on NSObjectFileImage:
  *   "does Object File Image define symbol name X" (using sorted symbol table)
- *   and a way to get the named objective-C section
+ *   a way to get the named objective-C section
  */
+/* not yet implemented */
 extern enum DYLD_BOOL NSIsSymbolDefinedInObjectFileImage(
     NSObjectFileImage objectFileImage,
     const char *symbolName);
+/* not yet implemented */
 extern void * NSGetSectionDataInObjectFileImage(
     NSObjectFileImage objectFileImage,
     const char *segmentName,
-    const char *sectionName,
-    unsigned long *size); /* can be NULL */
-/* SPI first appeared in Mac OS X 10.3 */
-extern enum DYLD_BOOL NSHasModInitObjectFileImage(
-    NSObjectFileImage objectFileImage);
+    const char *sectionName);
 
-/* module API */
+/* module api */
 typedef void * NSModule;
 extern const char * NSNameOfModule(
     NSModule m); 
@@ -124,8 +126,6 @@ extern NSModule NSLinkModule(
 #define NSLINKMODULE_OPTION_BINDNOW		0x1
 #define NSLINKMODULE_OPTION_PRIVATE		0x2
 #define NSLINKMODULE_OPTION_RETURN_ON_ERROR	0x4
-#define NSLINKMODULE_OPTION_DONT_CALL_MOD_INIT_ROUTINES 0x8
-#define NSLINKMODULE_OPTION_TRAILING_PHYS_NAME	0x10
 
 /* limited implementation, only modules loaded with NSLinkModule() can be
    unlinked */
@@ -142,7 +142,7 @@ extern NSModule NSReplaceModule(
     NSObjectFileImage newObjectFileImage, 
     unsigned long options);
 
-/* symbol API */
+/* symbol api */
 typedef void * NSSymbol;
 extern enum DYLD_BOOL NSIsSymbolNameDefined(
     const char *symbolName);
@@ -175,7 +175,7 @@ extern void * NSAddressOfSymbol(
 extern NSModule NSModuleForSymbol(
     NSSymbol symbol);
 
-/* error handling API */
+/* error handling api */
 typedef enum {
     NSLinkEditFileAccessError,
     NSLinkEditFileFormatError,
@@ -217,7 +217,7 @@ typedef struct {
 extern void NSInstallLinkEditErrorHandlers(
     NSLinkEditErrorHandlers *handlers);
 
-/* other API */
+/* other api */
 extern enum DYLD_BOOL NSAddLibrary(
     const char *pathName);
 extern enum DYLD_BOOL NSAddLibraryWithSearching(
@@ -274,18 +274,10 @@ extern void _dyld_bind_objc_module(
     void *objc_module);
 extern enum DYLD_BOOL _dyld_bind_fully_image_containing_address(
     unsigned long *address);
-extern enum DYLD_BOOL _dyld_image_containing_address(
-    unsigned long address);
-/* SPI first appeared in Mac OS X 10.3 */
-extern struct mach_header * _dyld_get_image_header_containing_address(
-    unsigned long address);
 
 extern void _dyld_moninit(
     void (*monaddition)(char *lowpc, char *highpc));
 extern enum DYLD_BOOL _dyld_launched_prebound(
-    void);
-/* SPI first appeared in Mac OS X 10.3 */
-extern enum DYLD_BOOL _dyld_all_twolevel_modules_prebound(
     void);
 
 extern void _dyld_lookup_and_bind(

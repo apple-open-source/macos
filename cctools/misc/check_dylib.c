@@ -64,8 +64,7 @@ int argc,
 char **argv,
 char **envp)
 {
-    int i;
-    unsigned long table_size;
+    unsigned long i, table_size;
     char *install_name, *image_file_name, *seg_addr_table_name,
          *seg_addr_table_filename;
     struct check_block block;

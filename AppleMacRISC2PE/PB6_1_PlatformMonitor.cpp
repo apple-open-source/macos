@@ -857,7 +857,6 @@ bool PB6_1_PlatformMonitor::adjustPlatformState ()
 IOReturn PB6_1_PlatformMonitor::registerConSensor (OSDictionary *dict, IOService *conSensor)
 {
 	UInt32 				csi, subsi, type, initialState, initialValue;
-	ThermalValue		initialThermalValue;
 	ConSensorInfo		*csInfo;
 		
 	if (!lookupConSensorInfo (dict, conSensor, &type, &csi, &subsi))
@@ -884,11 +883,12 @@ IOReturn PB6_1_PlatformMonitor::registerConSensor (OSDictionary *dict, IOService
 			if (!csInfo->sensorValid)
 				return kIOReturnUnsupported;		// Don't need this sensor - tell it to go away
 				
-			if (!retrieveCurrentValue (dict, &initialThermalValue))
-				return kIOReturnBadArgument;
+			//if (!retrieveCurrentValue (dict, &initialThermalValue))
+			//	return kIOReturnBadArgument;
 			
 			// Figure out our initial state
-			initialState = lookupThermalStateFromValue (subsi, initialThermalValue);
+                        // Just initialize the initial state/initial value to 0 for now and let the normal HandleThermalEvent get called if it needs to later...
+			//initialState = lookupThermalStateFromValue (subsi, initialThermalValue);
 			
 			if (!(csInfo->threshDict = OSDictionary::withCapacity(3)))
 				return kIOReturnNoMemory;
@@ -903,14 +903,6 @@ IOReturn PB6_1_PlatformMonitor::registerConSensor (OSDictionary *dict, IOService
 			conSensor->setProperties (csInfo->threshDict);
 			
 			csInfo->registered = true;
-			
-			// If this sensor's current state is higher then aggregate sensor state, boost state
-			if (initialState > conSensorArray[csi].state) {
-				// This needs to be on the workloop - maybe whole routine does
-				conSensorArray[csi].state = initialState;
-				adjustPlatformState ();							// Adjust for new thermal state
-			} else
-				initialState = conSensorArray[csi].state;		// Our effective state is same as worst thermal state
 			break;
 		
 		case kIOPMonPowerSensor:
@@ -937,8 +929,8 @@ IOReturn PB6_1_PlatformMonitor::registerConSensor (OSDictionary *dict, IOService
 			break;
 	}
 	
-	conSensorArray[csi].value = initialValue;
-	conSensorArray[csi].state = initialState;
+	csInfo->value = initialValue;
+	csInfo->state = initialState;
 
 	return kIOReturnSuccess;
 }

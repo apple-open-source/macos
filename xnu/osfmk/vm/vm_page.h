@@ -180,7 +180,7 @@ struct vm_page {
 					   /* a pageout candidate           */
         /* we've used up all 32 bits */
 
-	vm_offset_t	phys_page;	/* Physical address of page, passed
+	vm_offset_t	phys_addr;	/* Physical address of page, passed
 					 *  to pmap_enter (read-only) */
 };
 
@@ -276,8 +276,8 @@ extern void		vm_page_bootstrap(
 extern void		vm_page_module_init(void);
 
 extern void		vm_page_create(
-					ppnum_t		start,
-					ppnum_t		end);
+					vm_offset_t	start,
+					vm_offset_t	end);
 
 extern vm_page_t	vm_page_lookup(
 					vm_object_t		object,
@@ -316,7 +316,7 @@ extern vm_page_t	vm_page_alloc(
 
 extern void		vm_page_init(
 					vm_page_t	page,
-					ppnum_t		phys_page);
+					vm_offset_t	phys_addr);
 
 extern void		vm_page_free(
 					vm_page_t	page);

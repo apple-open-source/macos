@@ -1601,6 +1601,8 @@ thread_block_reason(
 
 	check_simple_locks();
 
+	machine_clock_assist();
+
 	s = splsched();
 
 	if ((thread->funnel_state & TH_FN_OWNED) && !(reason & AST_PREEMPT)) {
@@ -1680,6 +1682,8 @@ thread_run(
 	ast_t		handoff = AST_HANDOFF;
 
 	assert(old_thread == current_thread());
+
+	machine_clock_assist();
 
 	if (old_thread->funnel_state & TH_FN_OWNED) {
 		old_thread->funnel_state = TH_FN_REFUNNEL;
@@ -2418,6 +2422,8 @@ idle_thread_continue(void)
 #else
 				(void)spllo();
 #endif
+	        machine_clock_assist();
+
 			(void)splsched();
 		}
 
