@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: dl.c,v 1.1.1.4 2001/07/19 00:20:12 zarzycki Exp $ */
+/* $Id: dl.c,v 1.1.1.5 2001/12/14 22:13:19 zarzycki Exp $ */
 
 #include "php.h"
 #include "dl.h"
@@ -56,7 +56,6 @@
 PHP_FUNCTION(dl)
 {
 	pval **file;
-	PLS_FETCH();
 
 #ifdef ZTS
 	if (strcmp(sapi_module.name, "cgi")!=0) {
@@ -76,7 +75,8 @@ PHP_FUNCTION(dl)
 	} else if (PG(safe_mode)) {
 		php_error(E_ERROR, "Dynamically loaded extensions aren't allowed when running in SAFE MODE.");
 	} else {
-		php_dl(*file, MODULE_TEMPORARY, return_value);
+		php_dl(*file, MODULE_TEMPORARY, return_value TSRMLS_CC);
+		EG(full_tables_cleanup) = 1;
 	}
 }
 
@@ -91,17 +91,16 @@ PHP_FUNCTION(dl)
 #define USING_ZTS 0
 #endif
 
-void php_dl(pval *file, int type, pval *return_value)
+/* {{{ php_dl
+ */
+void php_dl(pval *file, int type, pval *return_value TSRMLS_DC)
 {
 	void *handle;
 	char *libpath;
-	zend_module_entry *module_entry,*tmp;
+	zend_module_entry *module_entry, *tmp;
 	zend_module_entry *(*get_module)(void);
 	int error_type;
 	char *extension_dir;
-	PLS_FETCH();
-	ELS_FETCH();
-
 
 	if (type==MODULE_PERSISTENT) {
 		/* Use the configuration hash directly, the INI mechanism is not yet initialized */
@@ -124,9 +123,9 @@ void php_dl(pval *file, int type, pval *return_value)
 		libpath = emalloc(extension_dir_len+file->value.str.len+2);
 
 		if (IS_SLASH(extension_dir[extension_dir_len-1])) {
-			sprintf(libpath,"%s%s", extension_dir, file->value.str.val); /* SAFE */
+			sprintf(libpath, "%s%s", extension_dir, file->value.str.val); /* SAFE */
 		} else {
-			sprintf(libpath,"%s/%s", extension_dir, file->value.str.val); /* SAFE */
+			sprintf(libpath, "%s/%s", extension_dir, file->value.str.val); /* SAFE */
 		}
 	} else {
 		libpath = estrndup(file->value.str.val, file->value.str.len);
@@ -175,7 +174,7 @@ void php_dl(pval *file, int type, pval *return_value)
 	module_entry->type = type;
 	module_entry->module_number = zend_next_free_module();
 	if (module_entry->module_startup_func) {
-		if (module_entry->module_startup_func(type, module_entry->module_number ELS_CC)==FAILURE) {
+		if (module_entry->module_startup_func(type, module_entry->module_number TSRMLS_CC)==FAILURE) {
 			php_error(error_type, "%s:  Unable to initialize module", module_entry->name);
 			DL_UNLOAD(handle);
 			RETURN_FALSE;
@@ -184,7 +183,7 @@ void php_dl(pval *file, int type, pval *return_value)
 	zend_register_module(module_entry);
 
 	if ((type == MODULE_TEMPORARY) && module_entry->request_startup_func) {
-		if (module_entry->request_startup_func(type, module_entry->module_number ELS_CC)) {
+		if (module_entry->request_startup_func(type, module_entry->module_number TSRMLS_CC)) {
 			php_error(error_type, "%s:  Unable to initialize module", module_entry->name);
 			DL_UNLOAD(handle);
 			RETURN_FALSE;
@@ -192,26 +191,26 @@ void php_dl(pval *file, int type, pval *return_value)
 	}
 	
 	/* update the .request_started property... */
-	if (zend_hash_find(&module_registry, module_entry->name, strlen(module_entry->name)+1,(void **) &tmp)==FAILURE) {
-		php_error(error_type,"%s:  Loaded module got lost", module_entry->name);
+	if (zend_hash_find(&module_registry, module_entry->name, strlen(module_entry->name)+1, (void **) &tmp)==FAILURE) {
+		php_error(error_type, "%s:  Loaded module got lost", module_entry->name);
 		RETURN_FALSE;
 	}
 	tmp->handle = handle;
 	
 	RETURN_TRUE;
 }
-
+/* }}} */
 
 PHP_MINFO_FUNCTION(dl)
 {
-        php_info_print_table_row(2, "Dynamic Library Support", "enabled");
+	php_info_print_table_row(2, "Dynamic Library Support", "enabled");
 }
 
 #else
 
 void php_dl(pval *file, int type, pval *return_value)
 {
-	php_error(E_WARNING,"Cannot dynamically load %s - dynamic modules are not supported", file->value.str.val);
+	php_error(E_WARNING, "Cannot dynamically load %s - dynamic modules are not supported", file->value.str.val);
 	RETURN_FALSE;
 }
 
@@ -227,4 +226,6 @@ PHP_MINFO_FUNCTION(dl)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
  */

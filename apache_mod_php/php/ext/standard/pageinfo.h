@@ -16,16 +16,18 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: pageinfo.h,v 1.1.1.3 2001/07/19 00:20:17 zarzycki Exp $ */
+/* $Id: pageinfo.h,v 1.1.1.4 2001/12/14 22:13:25 zarzycki Exp $ */
 
 #ifndef PAGEINFO_H
 #define PAGEINFO_H
 
 PHP_FUNCTION(getmyuid);
+PHP_FUNCTION(getmygid);
 PHP_FUNCTION(getmypid);
 PHP_FUNCTION(getmyinode);
 PHP_FUNCTION(getlastmod);
 
 extern long php_getuid(void);
+extern long php_getgid(void);
 
 #endif

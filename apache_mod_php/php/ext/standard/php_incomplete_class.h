@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_incomplete_class.h,v 1.1.1.3 2001/07/19 00:20:19 zarzycki Exp $ */
+/* $Id: php_incomplete_class.h,v 1.1.1.4 2001/12/14 22:13:26 zarzycki Exp $ */
 
 #ifndef PHP_INCOMPLETE_CLASS_H
 #define PHP_INCOMPLETE_CLASS_H
@@ -26,17 +26,14 @@
 #define PHP_IC_ENTRY \
 	BG(incomplete_class)
 
-#define PHP_IC_ENTRY_READ \
-	(PHP_IC_ENTRY ? PHP_IC_ENTRY : php_create_incomplete_class(BLS_C))
-
-
-#define PHP_SET_CLASS_ATTRIBUTES(struc) 				\
-	if ((struc)->value.obj.ce == BG(incomplete_class)) {				\
+#define PHP_SET_CLASS_ATTRIBUTES(struc) 								\
+	/* OBJECTS_FIXME: Fix for new object model */						\
+	if (Z_OBJCE_P(struc) == BG(incomplete_class)) {						\
 		class_name = php_lookup_class_name(struc, &name_len, 1);		\
 		free_class_name = 1;											\
 	} else {															\
-		class_name = (struc)->value.obj.ce->name;						\
-		name_len   = (struc)->value.obj.ce->name_length;				\
+		class_name = Z_OBJCE_P(struc)->name;							\
+		name_len   = Z_OBJCE_P(struc)->name_length;						\
 	}
 
 #define PHP_CLEANUP_CLASS_ATTRIBUTES()									\
@@ -53,7 +50,7 @@
 extern "C" {
 #endif
 
-zend_class_entry *php_create_incomplete_class(BLS_D);
+zend_class_entry *php_create_incomplete_class(TSRMLS_D);
 
 char *php_lookup_class_name(zval *object, size_t *nlen, zend_bool del);
 void  php_store_class_name(zval *object, const char *name, size_t len);

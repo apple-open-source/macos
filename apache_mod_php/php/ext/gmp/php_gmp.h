@@ -33,9 +33,9 @@ extern zend_module_entry gmp_module_entry;
 #define GMP_API
 #endif
 
-ZEND_MINIT_FUNCTION(gmp);
-ZEND_MSHUTDOWN_FUNCTION(gmp);
-ZEND_MINFO_FUNCTION(gmp);
+ZEND_MODULE_STARTUP_D(gmp);
+ZEND_MODULE_SHUTDOWN_D(gmp);
+ZEND_MODULE_INFO_D(gmp);
 
 ZEND_FUNCTION(gmp_init);
 ZEND_FUNCTION(gmp_intval);
@@ -93,11 +93,9 @@ ZEND_END_MODULE_GLOBALS(gmp)
 */
 
 #ifdef ZTS
-#define GMPG(v) (gmp_globals->v)
-#define GMPLS_FETCH() php_gmp_globals *gmp_globals = ts_resource(gmp_globals_id)
+#define GMPG(v) TSRMG(gmp_globals_id, php_gmp_globals *, v)
 #else
 #define GMPG(v) (gmp_globals.v)
-#define GMPLS_FETCH()
 #endif
 
 #else

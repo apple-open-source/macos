@@ -172,7 +172,7 @@ API_EXPORT(file_type_e) ap_get_win32_interpreter(const request_rec *, char **);
  * the code that cares really is in http_core.c.  Also, another accessor.
  */
 
-char *ap_response_code_string (request_rec *r, int error_index);
+API_EXPORT(char *) ap_response_code_string (request_rec *r, int error_index);
 
 extern API_VAR_EXPORT module core_module;
 
@@ -180,6 +180,21 @@ extern API_VAR_EXPORT module core_module;
 
 typedef unsigned char allow_options_t;
 typedef unsigned char overrides_t;
+/*
+ * Bits of info that go into making an ETag for a file
+ * document.  Why a long?  Because char historically
+ * proved too short for Options, and int can be different
+ * sizes on different platforms.
+ */
+typedef unsigned long etag_components_t;
+
+#define ETAG_UNSET 0
+#define ETAG_NONE  (1 << 0)
+#define ETAG_MTIME (1 << 1)
+#define ETAG_INODE (1 << 2)
+#define ETAG_SIZE  (1 << 3)
+#define ETAG_BACKWARD (ETAG_MTIME | ETAG_INODE | ETAG_SIZE)
+#define ETAG_ALL   (ETAG_MTIME | ETAG_INODE | ETAG_SIZE)
 
 typedef struct {
     /* path of the directory/regex/etc.  see also d_is_fnmatch below */
@@ -309,6 +324,13 @@ typedef struct {
 #endif
 #endif /* CHARSET_EBCDIC */
 
+    /*
+     * What attributes/data should be included in ETag generation?
+     */
+    etag_components_t etag_bits;
+    etag_components_t etag_add;
+    etag_components_t etag_remove;
+
 } core_dir_config;
 
 /* Per-server core configuration */
@@ -333,7 +355,7 @@ typedef struct {
 } core_server_config;
 
 /* for http_config.c */
-void ap_core_reorder_directories(pool *, server_rec *);
+CORE_EXPORT(void) ap_core_reorder_directories(pool *, server_rec *);
 
 /* for mod_perl */
 CORE_EXPORT(void) ap_add_per_dir_conf (server_rec *s, void *dir_config);

@@ -15,7 +15,7 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
-   $Header: /cvs/Darwin/Services/apache_mod_php/php/win32/pwd.h,v 1.1.1.2 2000/09/07 00:06:44 wsanchez Exp $
+   $Header: /cvs/Darwin/apache_mod_php/php/win32/pwd.h,v 1.1.1.2 2000/09/07 00:06:44 wsanchez Exp $
  */
 
 /* This 'implementation' is conjectured from the use of this functions in

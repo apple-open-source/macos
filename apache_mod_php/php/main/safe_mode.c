@@ -15,7 +15,7 @@
    | Authors: Rasmus Lerdorf <rasmus@lerdorf.on.ca>                       |
    +----------------------------------------------------------------------+
  */
-/* $Id: safe_mode.c,v 1.1.1.3 2001/07/19 00:20:39 zarzycki Exp $ */
+/* $Id: safe_mode.c,v 1.1.1.4 2001/12/14 22:13:52 zarzycki Exp $ */
 
 #include "php.h"
 
@@ -29,6 +29,7 @@
 #include "ext/standard/pageinfo.h"
 #include "safe_mode.h"
 #include "SAPI.h"
+#include "php_globals.h"
 
 
 /*
@@ -46,8 +47,10 @@ PHPAPI int php_checkuid(const char *filename, char *fopen_mode, int mode)
 {
 	struct stat sb;
 	int ret;
-	long uid=0L, duid=0L;
+	long uid=0L, gid=0L, duid=0L, dgid=0L;
+	char path[MAXPATHLEN];
 	char *s;
+	TSRMLS_FETCH();
 
 	if (!filename) {
 		return 0; /* path must be provided */
@@ -65,12 +68,16 @@ PHPAPI int php_checkuid(const char *filename, char *fopen_mode, int mode)
 	 * If given filepath is a URL, allow - safe mode stuff
 	 * related to URL's is checked in individual functions
      */	
-	if (!strncasecmp(filename,"http://",7) || !strncasecmp(filename,"ftp://",6)) {
+	if (!strncasecmp(filename,"http://", 7) || !strncasecmp(filename,"ftp://", 6)) {
 		return 1;
 	}
 		
+	/* First we see if the file is owned by the same user...
+	 * If that fails, passthrough and check directory...
+	 */
 	if (mode != CHECKUID_ALLOW_ONLY_DIR) {
-		ret = VCWD_STAT(filename, &sb);
+		VCWD_REALPATH(filename, path);
+		ret = VCWD_STAT(path, &sb);
 		if (ret < 0) {
 			if (mode == CHECKUID_DISALLOW_FILE_NOT_EXISTS) {
 				php_error(E_WARNING, "Unable to access %s", filename);
@@ -81,57 +88,67 @@ PHPAPI int php_checkuid(const char *filename, char *fopen_mode, int mode)
 			}
 		} else {
 			uid = sb.st_uid;
+			gid = sb.st_gid;
 			if (uid == php_getuid()) {
 				return 1;
+ 			} else if (PG(safe_mode_gid) && gid == php_getgid()) {
+ 				return 1;
 			}
 		}
-	}
-	s = strrchr(filename,'/');
 
-	/* This loop gets rid of trailing slashes which could otherwise be
-	 * used to confuse the function.
-	 */
-	while(s && *(s+1)=='\0' && s>filename) {
-		*s='\0';
-		s = strrchr(filename,'/');
-	}
+		/* Trim off filename */
+		if ((s = strrchr(path, DEFAULT_SLASH))) {
+			*s = '\0';
+		}
+	} else { /* CHECKUID_ALLOW_ONLY_DIR */
+		s = strrchr(filename, DEFAULT_SLASH);
 
-	if (s) {
-		*s='\0';
-		ret = VCWD_STAT(filename, &sb);
-		*s='/';
+		if (s) {
+			*s = '\0';
+			VCWD_REALPATH(filename, path);
+			*s = DEFAULT_SLASH;
+		} else {
+			VCWD_GETCWD(path, MAXPATHLEN);
+ 		}
+	} /* end CHECKUID_ALLOW_ONLY_DIR */
+	
+	if (mode != CHECKUID_ALLOW_ONLY_FILE) {
+		/* check directory */
+		ret = VCWD_STAT(path, &sb);
 		if (ret < 0) {
 			php_error(E_WARNING, "Unable to access %s", filename);
 			return 0;
 		}
 		duid = sb.st_uid;
-	} else {
-		char cwd[MAXPATHLEN];
-		if (!VCWD_GETCWD(cwd, MAXPATHLEN)) {
-			php_error(E_WARNING, "Unable to access current working directory");
-			return 0;
-		}
-		ret = VCWD_STAT(cwd, &sb);
-		if (ret < 0) {
-			php_error(E_WARNING, "Unable to access %s", cwd);
-			return 0;
-		}
-		duid = sb.st_uid;
-	}
-	if (duid == (uid=php_getuid())) {
-		return 1;
-	} else {
-		SLS_FETCH();
+		dgid = sb.st_gid;
+		if (duid == php_getuid()) {
+			return 1;
+ 		} else if (PG(safe_mode_gid) && dgid == php_getgid()) {
+ 			return 1;
+		} else {
+			TSRMLS_FETCH();
 
-		if (SG(rfc1867_uploaded_files)) {
-			if (zend_hash_exists(SG(rfc1867_uploaded_files), (char *) filename, strlen(filename)+1)) {
-				return 1;
+			if (SG(rfc1867_uploaded_files)) {
+				if (zend_hash_exists(SG(rfc1867_uploaded_files), (char *) filename, strlen(filename)+1)) {
+					return 1;
+				}
 			}
 		}
-
-		php_error(E_WARNING, "SAFE MODE Restriction in effect.  The script whose uid is %ld is not allowed to access %s owned by uid %ld", uid, filename, duid);
-		return 0;
 	}
+
+	if (mode == CHECKUID_ALLOW_ONLY_DIR) {
+		uid = duid;
+		gid = dgid;
+		if (s) {
+			*s = 0;
+		}
+	}
+	if (PG(safe_mode_gid)) {
+		php_error(E_WARNING, "SAFE MODE Restriction in effect.  The script whose uid/gid is %ld/%ld is not allowed to access %s owned by uid/gid %ld/%ld", php_getuid(), php_getgid(), filename, uid, gid);
+	} else {
+		php_error(E_WARNING, "SAFE MODE Restriction in effect.  The script whose uid is %ld is not allowed to access %s owned by uid %ld", php_getuid(), filename, uid);
+	}			
+	return 0;
 }
 
 
@@ -139,7 +156,7 @@ PHPAPI char *php_get_current_user()
 {
 	struct passwd *pwd;
 	struct stat *pstat;
-	SLS_FETCH();
+	TSRMLS_FETCH();
 
 	if (SG(request_info).current_user) {
 		return SG(request_info).current_user;
@@ -149,7 +166,7 @@ PHPAPI char *php_get_current_user()
 	USE_SAPI is defined, because cgi will also be
 	interfaced in USE_SAPI */
 
-	pstat = sapi_get_stat();
+	pstat = sapi_get_stat(TSRMLS_C);
 
 	if (!pstat) {
 		return empty_string;
@@ -163,3 +180,12 @@ PHPAPI char *php_get_current_user()
 	
 	return SG(request_info).current_user;		
 }	
+
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
+ */

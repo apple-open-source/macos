@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: ircg_scanner.re,v 1.1.1.1 2001/07/19 00:19:19 zarzycki Exp $ */
+/* $Id: ircg_scanner.re,v 1.1.1.2 2001/12/14 22:12:30 zarzycki Exp $ */
 
 #include <ext/standard/php_smart_str.h>
 #include <stdio.h>
@@ -56,6 +56,7 @@ typedef struct {
 	int font_tag_open;
 	int bold_tag_open;
 	int underline_tag_open;
+	int italic_tag_open;
 	
 	smart_str scheme;
 	smart_str *result;
@@ -72,26 +73,32 @@ scheme = alpha alnum*;
 coloresc = "";
 bold = "";
 underline = "\037";
+italic = "";
+ircnl = "\036";
 */
 
-#define YYFILL(n) { }
+#define YYFILL(n) do { } while (0)
 #define YYCTYPE unsigned char
 #define YYCURSOR xp
 #define YYLIMIT end
 #define YYMARKER q
-#define STATE mode
 
 #define STD_PARA ircg_msg_scanner *ctx, const char *start, const char *YYCURSOR
 #define STD_ARGS ctx, start, YYCURSOR
 
-static void handle_scheme(STD_PARA)
+static inline void passthru(STD_PARA)
+{
+	smart_str_appendl_ex(ctx->result, start, YYCURSOR - start, 1);
+}
+
+static inline void handle_scheme(STD_PARA)
 {
 	ctx->scheme.len = 0;
 	smart_str_appendl_ex(&ctx->scheme, start, YYCURSOR - start, 1);
 	smart_str_0(&ctx->scheme);
 }
 
-static void handle_url(STD_PARA)
+static inline void handle_url(STD_PARA)
 {
 	smart_str_appends_ex(ctx->result, "<a target=blank href=\"", 1);
 	smart_str_append_ex(ctx->result, &ctx->scheme, 1);
@@ -161,6 +168,20 @@ static void handle_underline(STD_PARA, int final)
 	ctx->underline_tag_open = 1 - ctx->underline_tag_open;
 }
 
+static void handle_italic(STD_PARA, int final)
+{
+	switch (ctx->italic_tag_open) {
+	case 0:
+		if (!final) smart_str_appends_ex(ctx->result, "<i>", 1);
+		break;
+	case 1:
+		smart_str_appends_ex(ctx->result, "</i>", 1);
+		break;
+	}
+
+	ctx->italic_tag_open = 1 - ctx->italic_tag_open;
+}
+
 static void commit_color_stuff(STD_PARA)
 {
 	finish_color_stuff(STD_ARGS);
@@ -173,91 +194,78 @@ static void commit_color_stuff(STD_PARA)
 	}
 }
 
-static void passthru(STD_PARA)
-{
-	smart_str_appendl_ex(ctx->result, start, YYCURSOR - start, 1);
-}
-
 static void add_entity(STD_PARA, const char *entity)
 {
 	smart_str_appends_ex(ctx->result, entity, 1);
 }
 
-void ircg_mirc_color(const char *msg, smart_str *result, size_t msg_len) {
-	int mode = STATE_PLAIN;
+void ircg_mirc_color(const char *msg, smart_str *result, size_t msg_len, int auto_links, int gen_br) 
+{
 	const char *end, *xp, *q, *start;
 	ircg_msg_scanner mctx, *ctx = &mctx;
 
 	mctx.result = result;
 	mctx.scheme.c = NULL;
-	mctx.font_tag_open = mctx.bold_tag_open = mctx.underline_tag_open = 0;
+	mctx.italic_tag_open = mctx.font_tag_open = mctx.bold_tag_open = mctx.underline_tag_open = 0;
 	
 	if (msg_len == -1)
 		msg_len = strlen(msg);
 	end = msg + msg_len;
 	xp = msg;
 	
-	while (1) {
-		start = YYCURSOR;
 
-		switch (STATE) {
-
-		case STATE_PLAIN:
+state_plain:
+	if (xp >= end) goto stop;
+	start = YYCURSOR;
 /*!re2c
-	scheme "://"	{ handle_scheme(STD_ARGS); STATE = STATE_URL; continue; }
-	coloresc 		{ mctx.fg_code = mctx.bg_code = -1; STATE = STATE_COLOR_FG; continue; }
-	"<"				{ add_entity(STD_ARGS, "&lt;"); continue; }
-	">"				{ add_entity(STD_ARGS, "&gt;"); continue; }
-	"&"				{ add_entity(STD_ARGS, "&amp;"); continue; }
-	bold			{ handle_bold(STD_ARGS, 0); continue; }
-	underline		{ handle_underline(STD_ARGS, 0); continue; }
-	anynoneof		{ passthru(STD_ARGS); continue; }
-	eof				{ goto stop; }
+	scheme "://"	{ if (auto_links) { handle_scheme(STD_ARGS); goto state_url; } else { passthru(STD_ARGS); goto state_plain; } }
+	coloresc 		{ mctx.fg_code = mctx.bg_code = -1; goto state_color_fg; }
+	"<"				{ add_entity(STD_ARGS, "&lt;"); goto state_plain; }
+	">"				{ add_entity(STD_ARGS, "&gt;"); goto state_plain; }
+	"&"				{ add_entity(STD_ARGS, "&amp;"); goto state_plain; }
+	ircnl			{ if (gen_br) smart_str_appendl_ex(ctx->result, "<br>", 4, 1); goto state_plain; }
+	bold			{ handle_bold(STD_ARGS, 0); goto state_plain; }
+	underline		{ handle_underline(STD_ARGS, 0); goto state_plain; }
+	italic			{ handle_italic(STD_ARGS, 0); goto state_plain; }
+	anynoneof		{ passthru(STD_ARGS); goto state_plain; }
 */
 
-			break;
-
-		case STATE_URL:	
-
-			
+state_url:		
+	start = YYCURSOR;
 /*!re2c
-  	[-a-zA-Z0-9~_?=.@&+/#:;!*'()%,$]+		{ handle_url(STD_ARGS); STATE = STATE_PLAIN; continue; }
-	any				{ passthru(STD_ARGS); STATE = STATE_PLAIN; continue; }
+  	[-a-zA-Z0-9~_?=.@&+/#:;!*'()%,$]+		{ handle_url(STD_ARGS); goto state_plain; }
+	any				{ passthru(STD_ARGS); goto state_plain; }
 */
 
-			break;
 
-		case STATE_COLOR_FG:
+state_color_fg:		
+	start = YYCURSOR;
+/*!re2c
+  	digit digit?		{ handle_color_digit(STD_ARGS, 0); goto state_color_comma; }
+	any					{ finish_color_stuff(STD_ARGS); passthru(STD_ARGS); goto state_plain; }
+*/
+
 		
+state_color_comma:	
+	start = YYCURSOR;
 /*!re2c
-  	digit digit?		{ handle_color_digit(STD_ARGS, 0); STATE = STATE_COLOR_COMMA; continue; }
-	any					{ finish_color_stuff(STD_ARGS); passthru(STD_ARGS); STATE = STATE_PLAIN; continue; }
+  ","					{ goto state_color_bg; }
+  any					{ YYCURSOR--; commit_color_stuff(STD_ARGS); goto state_plain; }
 */
 
-			break;
-		
-		case STATE_COLOR_COMMA:
-		
+
+state_color_bg:
+	start = YYCURSOR;
 /*!re2c
-  ","					{ STATE = STATE_COLOR_BG; continue; }
-  any					{ YYCURSOR--; commit_color_stuff(STD_ARGS); STATE = STATE_PLAIN; continue; }
+  	digit digit?		{ handle_color_digit(STD_ARGS, 1); commit_color_stuff(STD_ARGS); goto state_plain; }
+	any					{ commit_color_stuff(STD_ARGS); goto state_plain; }
 */
 
-			break;
-
-		case STATE_COLOR_BG:
-
-/*!re2c
-  	digit digit?		{ handle_color_digit(STD_ARGS, 1); commit_color_stuff(STD_ARGS); STATE = STATE_PLAIN; continue; }
-	any					{ commit_color_stuff(STD_ARGS); STATE = STATE_PLAIN; continue; }
-*/
-			break;
-		}
-	}
 stop:
 	smart_str_free_ex(&ctx->scheme, 1);
 
 	finish_color_stuff(STD_ARGS);
 	handle_bold(STD_ARGS, 1);
 	handle_underline(STD_ARGS, 1);
+	handle_italic(STD_ARGS, 1);
 }

@@ -43,7 +43,13 @@ if ($opts['help']) {
     exit;
 }
 */
-do_testing($argc, $argv);
+set_time_limit(280);
+
+if(!isset($_SERVER['argc'])) {
+	echo "\nWARNING: register_argc_argv seems to be set 'off' in php.ini\n\n";
+}
+        
+@do_testing($_SERVER['argc'], $_SERVER['argv']);
 
 exit;
 
@@ -102,6 +108,28 @@ function create_modules_2_test_list() {
 
 
 
+function in_path($program)
+{
+    global $HTTP_ENV_VARS;
+    if (substr(PHP_OS, 0, 3) == "WIN") {
+        $delim = ";";
+        $ext = ".exe";
+    } else {
+        $delim = ":";
+        $ext = "";
+    }
+    $slash = DIRECTORY_SEPARATOR;
+    $path_components = explode($delim, $HTTP_ENV_VARS['PATH']);
+    foreach ($path_components as $path) {
+        $test = "{$path}{$slash}php{$ext}";
+        if (@is_executable($test)) {
+            return $test;
+        }
+    }
+    return false;
+}
+
+
 function initialize()
 {
     global $term, $windows_p, $php, $skip, $testdirs, $tmpfile,
@@ -109,38 +137,41 @@ function initialize()
         $tests_in_dir;
 
     // XXX Should support HTML output as well.
-    $term = getenv("TERM");
-    if (preg_match('/^(xterm|vt220)/', $term)) {
-        $term_bold = sprintf("%c%c%c%c", 27, 91, 49, 109);
-        $term_norm = sprintf("%c%c%c", 27, 91, 109);
-    } elseif (preg_match('/^vt100/', $term)) {
-        $term_bold = sprintf("%c%c%c%c", 27, 91, 49, 109);
-        $term_norm = sprintf("%c%c%c", 27, 91, 109);
+    $php = "";
+    if((substr(PHP_OS, 0, 3) == "WIN")) {
+        $ext = ".exe";
+        $windows_p = true;
+        $term = getenv("COMSPEC");
     } else {
-        $term_bold = $term_norm = "";
-    }
-
-   if((substr(PHP_OS, 0, 3) == "WIN")) {
-       $windows_p = true;
-       $term = getenv("COMSPEC");
-       $null = getenv("TOP_BUILDDIR");
-       $php =  ($null ? $null : getcwd()) . "/php.exe";
-       unset($null);
-   } else {
-        if (isset($GLOBALS["TOP_BUILDDIR"])) {
-            $php = $GLOBALS["TOP_BUILDDIR"]."/php";
+        $ext = "";
+        $term = getenv("TERM");
+        if (ereg('^(xterm|vt220)', $term)) {
+            $term_bold = sprintf("%c%c%c%c", 27, 91, 49, 109);
+            $term_norm = sprintf("%c%c%c", 27, 91, 109);
+        } elseif (ereg('^vt100', $term)) {
+            $term_bold = sprintf("%c%c%c%c", 27, 91, 49, 109);
+            $term_norm = sprintf("%c%c%c", 27, 91, 109);
         } else {
-            $php = getcwd() . '/php';
+            $term_bold = $term_norm = "";
         }
     }
 
-    create_compiled_in_modules_list();
-
-    if (!is_executable($php) && !$windows_p) {
-        dowriteln("PHP CGI binary ($php) is not executable.");
-        dowriteln("Please compile PHP as a CGI executable and try again.");
+    if (isset($GLOBALS["TOP_BUILDDIR"]) && @is_executable($GLOBALS["TOP_BUILDDIR"]."/php{$ext}")) {
+        $php = $GLOBALS["TOP_BUILDDIR"]."/php{$ext}";
+    } elseif (@is_executable("./php{$ext}")) {
+        $php = getcwd() . "/php{$ext}";
+    }
+    if (empty($php)) {
+        $php = in_path("php");
+    }
+    if (empty($php)) {
+        dowriteln("Unable to find PHP executable (php{$ext}).");
+        dowriteln("Please build PHP as a CGI executable or make sure it is");
+        dowriteln("available in the PATH environment variable.");
         exit;
     }
+
+    create_compiled_in_modules_list();
 
     $skip = array(
         "CVS" => 1
@@ -163,7 +194,7 @@ function &parse_options(&$argc, &$argv)
         if ($arg == "--") {
             return $options;
         }
-        if (preg_match('/^--([^=]+)=(.*)$/', $opt, $matches)) {
+        if (ereg('^--([^=]+)=(.*)$', $opt, $matches)) {
             $opt = $matches[1];
             $arg = $matches[2];
         } else {
@@ -304,7 +335,7 @@ function run_tests_in_dir($dir = '.')
         else $skipped_extensions[$mod_name]=TRUE;
     }
 
-    if ($ext_found!==FALSE) {
+    if (!isset($ext_found) or $ext_found!==FALSE) {
         dowriteln("%bRunning tests in $dir%B");
         dowriteln("=================".str_repeat("=", strlen($dir)));
         sort($testfiles);
@@ -413,7 +444,7 @@ function run_test($file)
 
 
     while ($line = fgets($fp, 4096)) {
-        if (preg_match('/^--([A-Z]+)--/', $line, $matches)) {
+        if (ereg('^--([A-Z]+)--', $line, $matches)) {
             $var = $matches[1];
             if (isset($tmpfile[$var]) && $tmpfile[$var]) {
                 $fps[$var] = @fopen($tmpfile[$var], "w");
@@ -478,14 +509,14 @@ function run_test($file)
     }
     if (isset($fps["POST"])) {
         if(!$windows_p) {
-            $cmd = "$php -q $tmpfile[FILE] < $tmpfile[POST]";
+            $cmd = "2>&1 $php -q $tmpfile[FILE] < $tmpfile[POST]";
         }
         else {
             $cmd = "$term /c " . realpath($php) ." -q $tmpfile[FILE] < $tmpfile[POST]";
         }
     } else {
         if(!$windows_p) {
-            $cmd = "$php -q $tmpfile[FILE]";
+            $cmd = "2>&1 $php -q $tmpfile[FILE]";
         }
         else {
             $cmd = "$term /c " . realpath($php) ." -q $tmpfile[FILE]";;
@@ -511,9 +542,9 @@ function run_test($file)
     fclose($ofp);
     pclose($cp);
     $desc = isset($TEST)?trim($TEST):"";
-    $outfile = preg_replace('/\.phpt$/', '.out', $file);
-    $expectfile = preg_replace('/\.phpt$/', '.exp', $file);
-    $phpfile = preg_replace('/\.phpt$/', '.php', $file);
+    $outfile = ereg_replace('\.phpt$', '.out', $file);
+    $expectfile = ereg_replace('\.phpt$', '.exp', $file);
+    $phpfile = ereg_replace('\.phpt$', '.php', $file);
     if (compare_results($tmpfile["OUTPUT"], $tmpfile["EXPECT"])) {
         $status = TEST_PASSED;
         $text = "passed";

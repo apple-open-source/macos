@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: flock_compat.h,v 1.1.1.3 2001/07/19 00:20:13 zarzycki Exp $ */
+/* $Id: flock_compat.h,v 1.1.1.4 2001/12/14 22:13:21 zarzycki Exp $ */
 
 #ifndef FLOCK_COMPAT_H
 #define FLOCK_COMPAT_H
@@ -32,7 +32,7 @@ int flock(int fd, int operation);
 #ifdef PHP_WIN32
 #define EWOULDBLOCK WSAEWOULDBLOCK
 #	define fsync _commit
-#	define ftruncate(a,b) chsize(a,b)
+#	define ftruncate(a, b) chsize(a, b)
 #endif /* defined(PHP_WIN32) */
 
 #if !HAVE_INET_ATON

@@ -1,4 +1,4 @@
-$Source: /cvs/Darwin/Services/apache_mod_php/php/ext/mnogosearch/README,v $
+$Source: /cvs/Darwin/apache_mod_php/php/ext/mnogosearch/README,v $
 $Id: README,v 1.1.1.1 2001/07/19 00:19:24 zarzycki Exp $
 
 mnoGoSearch extension module for PHP4.

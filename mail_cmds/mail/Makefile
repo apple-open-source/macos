@@ -14,10 +14,10 @@ PROJECT_TYPE = Tool
 
 HFILES = def.h extern.h glob.h pathnames.h rcv.h
 
-CFILES = aux.c cmd1.c cmd2.c cmd3.c cmdtab.c collect.c dotlock.c\
+CFILES = aux.c cmd1.c cmd2.c cmd3.c cmdtab.c collect.c \
          edit.c fio.c getname.c head.c lex.c list.c main.c names.c\
          popen.c quit.c send.c strings.c temp.c tty.c v7.local.c\
-         vars.c version.c
+         vars.c version.c strlcpy.c
 
 OTHERSRCS = Makefile Makefile.preamble Makefile.postamble mail.1
 

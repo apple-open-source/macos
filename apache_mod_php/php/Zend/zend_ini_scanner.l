@@ -17,38 +17,35 @@
    +----------------------------------------------------------------------+
 */
 
+#define yyleng SCNG(yy_leng)
+#define yytext SCNG(yy_text)
+#define yytext_ptr SCNG(yy_text)
+#define yyin SCNG(yy_in)
+#define yyout SCNG(yy_out)
+#define yy_last_accepting_state SCNG(_yy_last_accepting_state)
+#define yy_last_accepting_cpos SCNG(_yy_last_accepting_cpos)
+#define yy_more_flag SCNG(_yy_more_flag)
+#define yy_more_len SCNG(_yy_more_len)
+
 #include "zend.h"
 #include "zend_globals.h"
 #include "zend_ini_parser.h"
 #include "zend_ini_scanner.h"
 
-#ifdef ZTS
-# ifdef HAVE_STDIOSTR_H
-#  include <stdiostr.h>
-# endif
-# ifdef HAVE_STDIOSTREAM_H
-#  include <stdiostream.h>
-# endif
-# ifdef ZEND_WIN32
-#  include <strstrea.h>
-# else
-#  include <strstream.h>
-# endif
-#endif
-
 #undef YYSTYPE
 #define YYSTYPE zval
 
+#define YY_DECL int ini_lex(zval *ini_lval TSRMLS_DC)
+
+/* Globals Macros */
+#define SCNG	INI_SCNG
 #ifdef ZTS
-#define YY_DECL int ZendIniFlexLexer::lex_scan(zval *ini_lval)
+ZEND_API ts_rsrc_id ini_scanner_globals_id;
 #else
-#define YY_DECL int ini_lex(zval *ini_lval)
+ZEND_API zend_scanner_globals ini_scanner_globals;
 #endif
 
-#include "zend_istdiostream.h"
 
-
-#ifndef ZTS
 static char *ini_filename;
 
 void init_ini_scanner()
@@ -57,60 +54,21 @@ void init_ini_scanner()
 }
 
 
-int zend_ini_scanner_get_lineno()
+int zend_ini_scanner_get_lineno(TSRMLS_D)
 {
 	return ini_lineno;
 }
 
 
-char *zend_ini_scanner_get_filename()
+char *zend_ini_scanner_get_filename(TSRMLS_D)
 {
 	return ini_filename;
 }
 
-#else /* ZTS */
 
-int zend_ini_scanner_get_lineno()
-{
-	CLS_FETCH();
-
-	return CG(ini_scanner)->lineno();
-}
-
-char *zend_ini_scanner_get_filename()
-{
-	CLS_FETCH();
-
-	return CG(ini_scanner)->filename;
-}
-
-int ini_lex(zval *ini_lval)
-{
-	CLS_FETCH();
-
-	return CG(ini_scanner)->lex_scan(ini_lval);
-}
-
-ZendIniFlexLexer::~ZendIniFlexLexer()
-{
-	if (yy_start_stack) {
-		yy_flex_free(yy_start_stack);
-	}
-}
-
-int yyFlexLexer::yylex()
-{
-	fprintf(stderr, "Error:  yyFlexLexer::yylex() called\n");
-	return -1;
-}
-
-#endif
-
-
-int zend_ini_open_file_for_scanning(zend_file_handle *fh)
+int zend_ini_open_file_for_scanning(zend_file_handle *fh TSRMLS_DC)
 {
 	FILE *fp;
-	CLS_FETCH();
 
 	switch (fh->type) {
 		case ZEND_HANDLE_FP:
@@ -124,39 +82,20 @@ int zend_ini_open_file_for_scanning(zend_file_handle *fh)
 			return FAILURE;
 	}
 
-#ifdef ZTS
-	if (!fp) {
-		return FAILURE;
-	}
-	fh->handle.is = new istdiostream(fp);
-	fh->type = ZEND_HANDLE_STDIOSTREAM;
-
-	CG(ini_scanner) = new ZendIniFlexLexer;
-	CG(ini_scanner)->switch_streams(fh->handle.is, &cout);
-	CG(ini_scanner)->filename = fh->filename;
-#else
 	init_ini_scanner();
 	yyin = fp;
-	yy_switch_to_buffer(yy_create_buffer(yyin, YY_BUF_SIZE));
+	yy_switch_to_buffer(yy_create_buffer(yyin, YY_BUF_SIZE TSRMLS_CC) TSRMLS_CC);
 	ini_filename = fh->filename;
-#endif
 	return SUCCESS;
 }
 
 
-void zend_ini_close_file(zend_file_handle *fh)
+void zend_ini_close_file(zend_file_handle *fh TSRMLS_DC)
 {
 	switch (fh->type) {
 		case ZEND_HANDLE_FP:
 			fclose(fh->handle.fp);
 			break;
-#ifdef ZTS
-		case ZEND_HANDLE_STDIOSTREAM: {
-				CLS_FETCH();
-				delete CG(ini_scanner);
-			}
-			break;
-#endif
 	}
 }
 
@@ -171,7 +110,7 @@ NEWLINE ("\r"|"\n"|"\r\n")
 
 
 <INITIAL>[ ]*("true"|"on"|"yes")[ ]* {
-	ini_lval->value.str.val = zend_strndup("1",1);
+	ini_lval->value.str.val = zend_strndup("1", 1);
 	ini_lval->value.str.len = 1;
 	ini_lval->type = IS_STRING;
 	return CFG_TRUE;
@@ -179,7 +118,7 @@ NEWLINE ("\r"|"\n"|"\r\n")
 
 
 <INITIAL>[ ]*("false"|"off"|"no"|"none")[ ]* {
-	ini_lval->value.str.val = zend_strndup("",0);
+	ini_lval->value.str.val = zend_strndup("", 0);
 	ini_lval->value.str.len = 0;
 	ini_lval->type = IS_STRING;
 	return CFG_FALSE;
@@ -198,7 +137,7 @@ NEWLINE ("\r"|"\n"|"\r\n")
 	yytext++;
 	yyleng--;
 
-	ini_lval->value.str.val = zend_strndup(yytext,yyleng);
+	ini_lval->value.str.val = zend_strndup(yytext, yyleng);
 	ini_lval->value.str.len = yyleng;
 	ini_lval->type = IS_STRING;
 	return SECTION;
@@ -248,7 +187,7 @@ NEWLINE ("\r"|"\n"|"\r\n")
 		}
 	}
 	if (yyleng!=0) {
-		ini_lval->value.str.val = zend_strndup(yytext,yyleng);
+		ini_lval->value.str.val = zend_strndup(yytext, yyleng);
 		ini_lval->value.str.len = yyleng;
 		ini_lval->type = IS_STRING;
 		return TC_STRING;
@@ -278,11 +217,11 @@ NEWLINE ("\r"|"\n"|"\r\n")
 
 <INITIAL>. {
 #if DEBUG
-	php_error(E_NOTICE,"Unexpected character on line %d:  '%s' (ASCII %d)\n",yylineno,yytext,yytext[0]);
+	php_error(E_NOTICE,"Unexpected character on line %d:  '%s' (ASCII %d)\n", yylineno, yytext, yytext[0]);
 #endif
 }
 
 <<EOF>> {
-	yy_delete_buffer(YY_CURRENT_BUFFER);
+	yy_delete_buffer(YY_CURRENT_BUFFER TSRMLS_CC);
 	yyterminate();
 }

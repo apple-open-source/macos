@@ -5,7 +5,7 @@ NAME
 
 SYNOPSIS
      sshd [-deiqtD46] [-b bits] [-f config_file] [-g login_grace_time]
-          [-h host_key_file] [-k key_gen_time] [-p port] [-u len]
+          [-h host_key_file] [-k key_gen_time] [-o option] [-p port] [-u len]
 
 DESCRIPTION
      sshd (SSH Daemon) is the daemon program for ssh(1).  Together these proM--
@@ -111,8 +111,8 @@ DESCRIPTION
 
      -f configuration_file
              Specifies the name of the configuration file.  The default is
-             /etc/sshd_config.  sshd refuses to start if there is no configuM--
-             ration file.
+             /etc/ssh/sshd_config.  sshd refuses to start if there is no conM--
+             figuration file.
 
      -g login_grace_time
              Gives the grace time for clients to authenticate themselves
@@ -121,10 +121,12 @@ DESCRIPTION
              A value of zero indicates no limit.
 
      -h host_key_file
-             Specifies the file from which the host key is read (default
-             /etc/ssh_host_key).  This option must be given if sshd is not run
-             as root (as the normal host file is normally not readable by anyM--
-             one but root).  It is possible to have multiple host key files
+             Specifies a file from which a host key is read.  This option must
+             be given if sshd is not run as root (as the normal host key files
+             are normally not readable by anyone but root).  The default is
+             /etc/ssh/ssh_host_key for protocol version 1, and
+             /etc/ssh/ssh_host_rsa_key and /etc/ssh/ssh_host_dsa_key for proM--
+             tocol version 2.  It is possible to have multiple host key files
              for the different protocol versions and host key algorithms.
 
      -i      Specifies that sshd is being run from inetd.  sshd is normally
@@ -143,9 +145,16 @@ DESCRIPTION
              if the machine is cracked into or physically seized.  A value of
              zero indicates that the key will never be regenerated.
 
+     -o option
+             Can be used to give options in the format used in the configuraM--
+             tion file.  This is useful for specifying options for which there
+             is no separate command-line flag.
+
      -p port
              Specifies the port on which the server listens for connections
-             (default 22).
+             (default 22).  Multiple port options are permitted.  Ports speciM--
+             fied in the configuration file are ignored when a command-line
+             port is specified.
 
      -q      Quiet mode.  Nothing is sent to the system log.  Normally the
              beginning, authentication, and termination of each connection is
@@ -166,7 +175,8 @@ DESCRIPTION
              requires it.  Authentication mechanisms that may require DNS
              include RhostsAuthentication, RhostsRSAAuthentication,
              HostbasedAuthentication and using a from="pattern-list" option in
-             a key file.
+             a key file.  Configuration options that require DNS include using
+             a USER@HOST pattern in AllowUsers or DenyUsers.
 
      -D      When this option is specified sshd will not detach and does not
              become a daemon.  This allows easy monitoring of sshd.
@@ -176,10 +186,10 @@ DESCRIPTION
      -6      Forces sshd to use IPv6 addresses only.
 
 CONFIGURATION FILE
-     sshd reads configuration data from /etc/sshd_config (or the file speciM--
-     fied with -f on the command line).  The file contains keyword-argument
-     pairs, one per line.  Lines starting with `#' and empty lines are interM--
-     preted as comments.
+     sshd reads configuration data from /etc/ssh/sshd_config (or the file
+     specified with -f on the command line).  The file contains keyword-arguM--
+     ment pairs, one per line.  Lines starting with `#' and empty lines are
+     interpreted as comments.
 
      The possible keywords and their meanings are as follows (note that keyM--
      words are case-insensitive and arguments are case-sensitive):
@@ -189,12 +199,12 @@ CONFIGURATION FILE
              Default is ``yes''.
 
      AllowGroups
-             This keyword can be followed by a list of group names, separated
-             by spaces.  If specified, login is allowed only for users whose
-             primary group or supplementary group list matches one of the patM--
-             terns.  `*' and `'?  can be used as wildcards in the patterns.
-             Only group names are valid; a numerical group ID is not recogM--
-             nized.  By default login is allowed regardless of the group list.
+             This keyword can be followed by a list of group name patterns,
+             separated by spaces.  If specified, login is allowed only for
+             users whose primary group or supplementary group list matches one
+             of the patterns.  `*' and `'?  can be used as wildcards in the
+             patterns.  Only group names are valid; a numerical group ID is
+             not recognized.  By default, login is allowed for all groups.
 
      AllowTcpForwarding
              Specifies whether TCP forwarding is permitted.  The default is
@@ -203,14 +213,14 @@ CONFIGURATION FILE
              always install their own forwarders.
 
      AllowUsers
-             This keyword can be followed by a list of user names, separated
-             by spaces.  If specified, login is allowed only for users names
-             that match one of the patterns.  `*' and `'?  can be used as
-             wildcards in the patterns.  Only user names are valid; a numeriM--
-             cal user ID is not recognized.  By default login is allowed
-             regardless of the user name.  If the pattern takes the form
-             USER@HOST then USER and HOST are separately checked, restricting
-             logins to particular users from particular hosts.
+             This keyword can be followed by a list of user name patterns,
+             separated by spaces.  If specified, login is allowed only for
+             users names that match one of the patterns.  `*' and `'?  can be
+             used as wildcards in the patterns.  Only user names are valid; a
+             numerical user ID is not recognized.  By default, login is
+             allowed for all users.  If the pattern takes the form USER@HOST
+             then USER and HOST are separately checked, restricting logins to
+             particular users from particular hosts.
 
      AuthorizedKeysFile
              Specifies the file that contains the public keys that can be used
@@ -221,7 +231,7 @@ CONFIGURATION FILE
              authenticated and %u is replaced by the username of that user.
              After expansion, AuthorizedKeysFile is taken to be an absolute
              path or one relative to the user's home directory.  The default
-             is ``.ssh/authorized_keys''
+             is ``.ssh/authorized_keys''.
 
      Banner  In some jurisdictions, sending a warning message before authentiM--
              cation may be relevant for getting legal protection.  The conM--
@@ -237,7 +247,9 @@ CONFIGURATION FILE
      Ciphers
              Specifies the ciphers allowed for protocol version 2.  Multiple
              ciphers must be comma-separated.  The default is
-             ``aes128-cbc,3des-cbc,blowfish-cbc,cast128-cbc,arcfour.''
+
+               ``aes128-cbc,3des-cbc,blowfish-cbc,cast128-cbc,arcfour,
+                 aes192-cbc,aes256-cbc''
 
      ClientAliveInterval
              Sets a timeout interval in seconds after which if no data has
@@ -264,20 +276,22 @@ CONFIGURATION FILE
              ssh clients will be disconnected after approximately 45 seconds.
 
      DenyGroups
-             This keyword can be followed by a number of group names, sepaM--
-             rated by spaces.  Users whose primary group or supplementary
-             group list matches one of the patterns aren't allowed to log in.
+             This keyword can be followed by a list of group name patterns,
+             separated by spaces.  Login is disallowed for users whose primary
+             group or supplementary group list matches one of the patterns.
              `*' and `'?  can be used as wildcards in the patterns.  Only
              group names are valid; a numerical group ID is not recognized.
-             By default login is allowed regardless of the group list.
+             By default, login is allowed for all groups.
 
      DenyUsers
-             This keyword can be followed by a number of user names, separated
-             by spaces.  Login is disallowed for user names that match one of
-             the patterns.  `*' and `'?  can be used as wildcards in the patM--
-             terns.  Only user names are valid; a numerical user ID is not
-             recognized.  By default login is allowed regardless of the user
-             name.
+             This keyword can be followed by a list of user name patterns,
+             separated by spaces.  Login is disallowed for user names that
+             match one of the patterns.  `*' and `'?  can be used as wildcards
+             in the patterns.  Only user names are valid; a numerical user ID
+             is not recognized.  By default, login is allowed for all users.
+             If the pattern takes the form USER@HOST then USER and HOST are
+             separately checked, restricting logins to particular users from
+             particular hosts.
 
      GatewayPorts
              Specifies whether remote hosts are allowed to connect to ports
@@ -297,12 +311,13 @@ CONFIGURATION FILE
              The default is ``no''.
 
      HostKey
-             Specifies the file containing the private host keys (default
-             /etc/ssh_host_key) used by SSH protocol versions 1 and 2.  Note
-             that sshd will refuse to use a file if it is group/world-accessiM--
-             ble.  It is possible to have multiple host key files.  ``rsa1''
-             keys are used for version 1 and ``dsa'' or ``rsa'' are used for
-             version 2 of the SSH protocol.
+             Specifies a file containing a private host key used by SSH.  The
+             default is /etc/ssh/ssh_host_key for protocol version 1, and
+             /etc/ssh/ssh_host_rsa_key and /etc/ssh/ssh_host_dsa_key for proM--
+             tocol version 2.  Note that sshd will refuse to use a file if it
+             is group/world-accessible.  It is possible to have multiple host
+             key files.  ``rsa1'' keys are used for version 1 and ``dsa'' or
+             ``rsa'' are used for version 2 of the SSH protocol.
 
      IgnoreRhosts
              Specifies that .rhosts and .shosts files will not be used in
@@ -318,8 +333,8 @@ CONFIGURATION FILE
              HostbasedAuthentication.  The default is ``no''.
 
      KeepAlive
-             Specifies whether the system should send keepalive messages to
-             the other side.  If they are sent, death of the connection or
+             Specifies whether the system should send TCP keepalive messages
+             to the other side.  If they are sent, death of the connection or
              crash of one of the machines will be properly noticed.  However,
              this means that connections will die if the route is down temM--
              porarily, and some people find it annoying.  On the other hand,
@@ -327,11 +342,10 @@ CONFIGURATION FILE
              server, leaving ``ghost'' users and consuming server resources.
 
              The default is ``yes'' (to send keepalives), and the server will
-             notice if the network goes down or the client host reboots.  This
+             notice if the network goes down or the client host crashes.  This
              avoids infinitely hanging sessions.
 
-             To disable keepalives, the value should be set to ``no'' in both
-             the server and the client configuration files.
+             To disable keepalives, the value should be set to ``no''.
 
      KerberosAuthentication
              Specifies whether Kerberos authentication is allowed.  This can
@@ -385,7 +399,9 @@ CONFIGURATION FILE
      LogLevel
              Gives the verbosity level that is used when logging messages from
              sshd.  The possible values are: QUIET, FATAL, ERROR, INFO, VERM--
-             BOSE and DEBUG.  The default is INFO.  Logging with level DEBUG
+             BOSE, DEBUG, DEBUG1, DEBUG2 and DEBUG3.  The default is INFO.
+             DEBUG and DEBUG1 are equivalent.  DEBUG2 and DEBUG3 each specify
+             higher levels of debugging output.  Logging with a DEBUG level
              violates the privacy of users and is not recommended.
 
      MACs    Specifies the available MAC (message authentication code) algoM--
@@ -467,11 +483,6 @@ CONFIGURATION FILE
              default is ``yes''.  Note that this option applies to protocol
              version 2 only.
 
-     ReverseMappingCheck
-             Specifies whether sshd should try to verify the remote host name
-             and check that the resolved host name for the remote IP address
-             maps back to the very same IP address.  The default is ``no''.
-
      RhostsAuthentication
              Specifies whether authentication using rhosts or /etc/hosts.equiv
              files is sufficient.  Normally, this method should not be permitM--
@@ -524,6 +535,11 @@ CONFIGURATION FILE
              enabled, X11Forwarding will be disabled because login(1) does not
              know how to handle xauth(1) cookies.
 
+     VerifyReverseMapping
+             Specifies whether sshd should try to verify the remote host name
+             and check that the resolved host name for the remote IP address
+             maps back to the very same IP address.  The default is ``no''.
+
      X11DisplayOffset
              Specifies the first display number available for sshd's X11 forM--
              warding.  This prevents sshd from interfering with real X11
@@ -535,6 +551,18 @@ CONFIGURATION FILE
              security in any way, as users can always install their own forM--
              warders.  X11 forwarding is automatically disabled if UseLogin is
              enabled.
+
+     X11UseLocalhost
+             Specifies whether sshd should bind the X11 forwarding server to
+             the loopback address or to the wildcard address.  By default,
+             sshd binds the forwarding server to the loopback address and sets
+             the hostname part of the DISPLAY environment variable to
+             ``localhost''.  This prevents remote hosts from connecting to the
+             fake display.  However, some older X11 clients may not function
+             with this configuration.  X11UseLocalhost may be set to ``no'' to
+             specify that the forwarding server should be bound to the wildM--
+             card address.  The argument must be ``yes'' or ``no''.  The
+             default is ``yes''.
 
      XAuthLocation
              Specifies the location of the xauth(1) program.  The default is
@@ -584,9 +612,10 @@ LOGIN PROCESS
 
            7.   Changes to user's home directory.
 
-           8.   If $HOME/.ssh/rc exists, runs it; else if /etc/sshrc exists,
-                runs it; otherwise runs xauth.  The ``rc'' files are given the
-                X11 authentication protocol and cookie in standard input.
+           8.   If $HOME/.ssh/rc exists, runs it; else if /etc/ssh/sshrc
+                exists, runs it; otherwise runs xauth.  The ``rc'' files are
+                given the X11 authentication protocol and cookie in standard
+                input.
 
            9.   Runs user's shell or command.
 
@@ -688,10 +717,10 @@ AUTHORIZED_KEYS FILE FORMAT
      permitopen="10.2.1.55:80",permitopen="10.2.1.56:25" 1024 33 23...2323
 
 SSH_KNOWN_HOSTS FILE FORMAT
-     The /etc/ssh_known_hosts, and $HOME/.ssh/known_hosts files contain host
-     public keys for all known hosts.  The global file should be prepared by
-     the administrator (optional), and the per-user file is maintained autoM--
-     matically: whenever the user connects from an unknown host its key is
+     The /etc/ssh/ssh_known_hosts, and $HOME/.ssh/known_hosts files contain
+     host public keys for all known hosts.  The global file should be prepared
+     by the administrator (optional), and the per-user file is maintained
+     automatically: whenever the user connects from an unknown host its key is
      added to the per-user file.
 
      Each line in these files contains the following fields: hostnames, bits,
@@ -705,7 +734,7 @@ SSH_KNOWN_HOSTS FILE FORMAT
      accepted (by that line) even if it matched another pattern on the line.
 
      Bits, exponent, and modulus are taken directly from the RSA host key;
-     they can be obtained, e.g., from /etc/ssh_host_key.pub.  The optional
+     they can be obtained, e.g., from /etc/ssh/ssh_host_key.pub.  The optional
      comment field continues to the end of the line, and is not used.
 
      Lines starting with `#' and empty lines are ignored as comments.
@@ -720,8 +749,8 @@ SSH_KNOWN_HOSTS FILE FORMAT
 
      Note that the lines in these files are typically hundreds of characters
      long, and you definitely don't want to type in the host keys by hand.
-     Rather, generate them by a script or by taking /etc/ssh_host_key.pub and
-     adding the host names at the front.
+     Rather, generate them by a script or by taking /etc/ssh/ssh_host_key.pub
+     and adding the host names at the front.
 
    Examples
 
@@ -729,19 +758,20 @@ SSH_KNOWN_HOSTS FILE FORMAT
      cvs.openbsd.org,199.185.137.3 ssh-rsa AAAA1234.....=
 
 FILES
-     /etc/sshd_config
+     /etc/ssh/sshd_config
              Contains configuration data for sshd.  This file should be
              writable by root only, but it is recommended (though not necesM--
              sary) that it be world-readable.
 
-     /etc/ssh_host_key, /etc/ssh_host_dsa_key, /etc/ssh_host_rsa_key
+     /etc/ssh/ssh_host_key, /etc/ssh/ssh_host_dsa_key,
+             /etc/ssh/ssh_host_rsa_key
              These three files contain the private parts of the host keys.
              These files should only be owned by root, readable only by root,
              and not accessible to others.  Note that sshd does not start if
              this file is group/world-accessible.
 
-     /etc/ssh_host_key.pub, /etc/ssh_host_dsa_key.pub,
-             /etc/ssh_host_rsa_key.pub
+     /etc/ssh/ssh_host_key.pub, /etc/ssh/ssh_host_dsa_key.pub,
+             /etc/ssh/ssh_host_rsa_key.pub
              These three files contain the public parts of the host keys.
              These files should be world-readable but writable only by root.
              Their contents should match the respective private parts.  These
@@ -769,14 +799,14 @@ FILES
              identity.pub, id_dsa.pub and/or id_rsa.pub files into this file,
              as described in ssh-keygen(1).
 
-     /etc/ssh_known_hosts and $HOME/.ssh/known_hosts
+     /etc/ssh/ssh_known_hosts and $HOME/.ssh/known_hosts
              These files are consulted when using rhosts with RSA host authenM--
              tication or protocol version 2 hostbased authentication to check
              the public key of the host.  The key must be listed in one of
              these files to be accepted.  The client uses the same files to
              verify that it is connecting to the correct remote host.  These
              files should be writable only by root/the owner.
-             /etc/ssh_known_hosts should be world-readable, and
+             /etc/ssh/ssh_known_hosts should be world-readable, and
              $HOME/.ssh/known_hosts can but need not be world-readable.
 
      /etc/nologin
@@ -862,13 +892,13 @@ FILES
                              echo add $DISPLAY $proto $cookie | xauth -q -
                      fi
 
-             If this file does not exist, /etc/sshrc is run, and if that does
-             not exist either, xauth is used to store the cookie.
+             If this file does not exist, /etc/ssh/sshrc is run, and if that
+             does not exist either, xauth is used to store the cookie.
 
              This file should be writable only by the user, and need not be
              readable by anyone else.
 
-     /etc/sshrc
+     /etc/ssh/sshrc
              Like $HOME/.ssh/rc.  This can be used to specify machine-specific
              login-time initializations globally.  This file should be
              writable only by root, and should be world-readable.

@@ -1,5 +1,7 @@
 --TEST--
 XML Parser: error class
+--SKIPIF--
+<?php if (!extension_loaded("xml")) echo 'skip'; ?>
 --FILE--
 <?php // -*- C++ -*-
 //

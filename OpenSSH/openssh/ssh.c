@@ -39,7 +39,7 @@
  */
 
 #include "includes.h"
-RCSID("$OpenBSD: ssh.c,v 1.149 2001/10/24 08:51:35 markus Exp $");
+RCSID("$OpenBSD: ssh.c,v 1.164 2002/02/14 23:28:00 markus Exp $");
 
 #include <openssl/evp.h>
 #include <openssl/err.h>
@@ -485,7 +485,7 @@ again:
 				    fwd_host_port);
 			else if (opt == 'R')
 				add_remote_forward(&options, fwd_port, buf,
-				     fwd_host_port);
+				    fwd_host_port);
 			break;
 
 		case 'D':
@@ -787,19 +787,36 @@ again:
 }
 
 static void
-x11_get_proto(char *proto, int proto_len, char *data, int data_len)
+x11_get_proto(char **_proto, char **_data)
 {
 	char line[512];
+	static char proto[512], data[512];
 	FILE *f;
 	int got_data = 0, i;
+	char *display;
 
-	if (options.xauth_location) {
+	*_proto = proto;
+	*_data = data;
+	proto[0] = data[0] = '\0';
+	if (options.xauth_location && (display = getenv("DISPLAY"))) {
 		/* Try to get Xauthority information for the display. */
-		snprintf(line, sizeof line, "%.100s list %.200s 2>" _PATH_DEVNULL,
-		    options.xauth_location, getenv("DISPLAY"));
+		if (strncmp(display, "localhost:", 10) == 0)
+			/*
+			 * Handle FamilyLocal case where $DISPLAY does
+			 * not match an authorization entry.  For this we
+			 * just try "xauth list unix:displaynum.screennum".
+			 * XXX: "localhost" match to determine FamilyLocal
+			 *      is not perfect.
+			 */
+			snprintf(line, sizeof line, "%.100s list unix:%s 2>"
+			    _PATH_DEVNULL, options.xauth_location, display+10);
+		else
+			snprintf(line, sizeof line, "%.100s list %.200s 2>"
+			    _PATH_DEVNULL, options.xauth_location, display);
+		debug2("x11_get_proto %s", line);
 		f = popen(line, "r");
 		if (f && fgets(line, sizeof(line), f) &&
-		    sscanf(line, "%*s %s %s", proto, data) == 2)
+		    sscanf(line, "%*s %511s %511s", proto, data) == 2)
 			got_data = 1;
 		if (f)
 			pclose(f);
@@ -815,11 +832,11 @@ x11_get_proto(char *proto, int proto_len, char *data, int data_len)
 	if (!got_data) {
 		u_int32_t rand = 0;
 
-		strlcpy(proto, "MIT-MAGIC-COOKIE-1", proto_len);
+		strlcpy(proto, "MIT-MAGIC-COOKIE-1", sizeof proto);
 		for (i = 0; i < 16; i++) {
 			if (i % 4 == 0)
 				rand = arc4random();
-			snprintf(data + 2 * i, data_len - 2 * i, "%02x", rand & 0xff);
+			snprintf(data + 2 * i, sizeof data - 2 * i, "%02x", rand & 0xff);
 			rand >>= 8;
 		}
 	}
@@ -837,7 +854,7 @@ ssh_init_forwarding(void)
 		    options.local_forwards[i].port,
 		    options.local_forwards[i].host,
 		    options.local_forwards[i].host_port);
-		success += channel_request_local_forwarding(
+		success += channel_setup_local_fwd_listener(
 		    options.local_forwards[i].port,
 		    options.local_forwards[i].host,
 		    options.local_forwards[i].host_port,
@@ -876,7 +893,6 @@ static int
 ssh_session(void)
 {
 	int type;
-	int plen;
 	int interactive = 0;
 	int have_tty = 0;
 	struct winsize ws;
@@ -894,7 +910,7 @@ ssh_session(void)
 		packet_put_int(options.compression_level);
 		packet_send();
 		packet_write_wait();
-		type = packet_read(&plen);
+		type = packet_read();
 		if (type == SSH_SMSG_SUCCESS)
 			packet_start_compression(options.compression_level);
 		else if (type == SSH_SMSG_FAILURE)
@@ -932,7 +948,7 @@ ssh_session(void)
 		packet_write_wait();
 
 		/* Read response from the server. */
-		type = packet_read(&plen);
+		type = packet_read();
 		if (type == SSH_SMSG_SUCCESS) {
 			interactive = 1;
 			have_tty = 1;
@@ -943,15 +959,15 @@ ssh_session(void)
 	}
 	/* Request X11 forwarding if enabled and DISPLAY is set. */
 	if (options.forward_x11 && getenv("DISPLAY") != NULL) {
-		char proto[512], data[512];
+		char *proto, *data;
 		/* Get reasonable local authentication information. */
-		x11_get_proto(proto, sizeof proto, data, sizeof data);
+		x11_get_proto(&proto, &data);
 		/* Request forwarding with authentication spoofing. */
 		debug("Requesting X11 forwarding with authentication spoofing.");
 		x11_request_forwarding_with_spoofing(0, proto, data);
 
 		/* Read response from the server. */
-		type = packet_read(&plen);
+		type = packet_read();
 		if (type == SSH_SMSG_SUCCESS) {
 			interactive = 1;
 		} else if (type == SSH_SMSG_FAILURE) {
@@ -971,8 +987,8 @@ ssh_session(void)
 		auth_request_forwarding();
 
 		/* Read response from the server. */
-		type = packet_read(&plen);
-		packet_integrity_check(plen, 0, type);
+		type = packet_read();
+		packet_check_eom();
 		if (type != SSH_SMSG_SUCCESS)
 			log("Warning: Remote host denied authentication agent forwarding.");
 	}
@@ -993,7 +1009,7 @@ ssh_session(void)
 		int len = buffer_len(&command);
 		if (len > 900)
 			len = 900;
-		debug("Sending command: %.*s", len, buffer_ptr(&command));
+		debug("Sending command: %.*s", len, (u_char *)buffer_ptr(&command));
 		packet_start(SSH_CMSG_EXEC_CMD);
 		packet_put_string(buffer_ptr(&command), buffer_len(&command));
 		packet_send();
@@ -1011,7 +1027,7 @@ ssh_session(void)
 }
 
 static void
-client_subsystem_reply(int type, int plen, void *ctxt)
+client_subsystem_reply(int type, u_int32_t seq, void *ctxt)
 {
 	int id, len;
 
@@ -1019,10 +1035,10 @@ client_subsystem_reply(int type, int plen, void *ctxt)
 	len = buffer_len(&command);
 	if (len > 900)
 		len = 900;
-	packet_done();
+	packet_check_eom();
 	if (type == SSH2_MSG_CHANNEL_FAILURE)
 		fatal("Request for subsystem '%.*s' failed on channel %d",
-		    len, buffer_ptr(&command), id);
+		    len, (u_char *)buffer_ptr(&command), id);
 }
 
 /* request pty/x11/agent/tcpfwd/shell for channel */
@@ -1059,9 +1075,9 @@ ssh_session2_setup(int id, void *arg)
 	}
 	if (options.forward_x11 &&
 	    getenv("DISPLAY") != NULL) {
-		char proto[512], data[512];
+		char *proto, *data;
 		/* Get reasonable local authentication information. */
-		x11_get_proto(proto, sizeof proto, data, sizeof data);
+		x11_get_proto(&proto, &data);
 		/* Request forwarding with authentication spoofing. */
 		debug("Requesting X11 forwarding with authentication spoofing.");
 		x11_request_forwarding_with_spoofing(id, proto, data);
@@ -1081,24 +1097,23 @@ ssh_session2_setup(int id, void *arg)
 		if (len > 900)
 			len = 900;
 		if (subsystem_flag) {
-			debug("Sending subsystem: %.*s", len, buffer_ptr(&command));
+			debug("Sending subsystem: %.*s", len, (u_char *)buffer_ptr(&command));
 			channel_request_start(id, "subsystem", /*want reply*/ 1);
 			/* register callback for reply */
 			/* XXX we asume that client_loop has already been called */
 			dispatch_set(SSH2_MSG_CHANNEL_FAILURE, &client_subsystem_reply);
 			dispatch_set(SSH2_MSG_CHANNEL_SUCCESS, &client_subsystem_reply);
 		} else {
-			debug("Sending command: %.*s", len, buffer_ptr(&command));
+			debug("Sending command: %.*s", len, (u_char *)buffer_ptr(&command));
 			channel_request_start(id, "exec", 0);
 		}
 		packet_put_string(buffer_ptr(&command), buffer_len(&command));
 		packet_send();
 	} else {
-		channel_request(id, "shell", 0);
+		channel_request_start(id, "shell", 0);
+		packet_send();
 	}
-	/* channel_callback(id, SSH2_MSG_OPEN_CONFIGMATION, client_init, 0); */
 
-	/* register different callback, etc. XXX */
 	packet_set_interactive(interactive);
 }
 
@@ -1130,24 +1145,20 @@ ssh_session2_open(void)
 
 	window = CHAN_SES_WINDOW_DEFAULT;
 	packetmax = CHAN_SES_PACKET_DEFAULT;
-	if (!tty_flag) {
-		window *= 2;
-		packetmax *=2;
+	if (tty_flag) {
+		window >>= 1;
+		packetmax >>= 1;
 	}
 	c = channel_new(
 	    "session", SSH_CHANNEL_OPENING, in, out, err,
 	    window, packetmax, CHAN_EXTENDED_WRITE,
 	    xstrdup("client-session"), /*nonblock*/0);
-	if (c == NULL)
-		fatal("ssh_session2_open: channel_new failed");
 
 	debug3("ssh_session2_open: channel_new: %d", c->self);
 
 	channel_send_open(c->self);
 	if (!no_shell_flag)
-		channel_register_callback(c->self,
-		     SSH2_MSG_CHANNEL_OPEN_CONFIRMATION,
-		     ssh_session2_setup, (void *)0);
+		channel_register_confirm(c->self, ssh_session2_setup);
 
 	return c->self;
 }

@@ -170,6 +170,9 @@
 /* Define if you have the flock function.  */
 #undef HAVE_FLOCK
 
+/* Define if you have the fork function.  */
+#undef HAVE_FORK
+
 /* Define if you have the fpclass function.  */
 #undef HAVE_FPCLASS
 
@@ -211,6 +214,9 @@
 
 /* Define if you have the getpassphrase function.  */
 #undef HAVE_GETPASSPHRASE
+
+/* Define if you have the getpgid function.  */
+#undef HAVE_GETPGID
 
 /* Define if you have the getpid function.  */
 #undef HAVE_GETPID
@@ -314,6 +320,9 @@
 /* Define if you have the mmap function.  */
 #undef HAVE_MMAP
 
+/* Define if you have the nl_langinfo function.  */
+#undef HAVE_NL_LANGINFO
+
 /* Define if you have the perror function.  */
 #undef HAVE_PERROR
 
@@ -352,6 +361,9 @@
 
 /* Define if you have the putenv function.  */
 #undef HAVE_PUTENV
+
+/* Define if you have the pwrite function.  */
+#undef HAVE_PWRITE
 
 /* Define if you have the rand_r function.  */
 #undef HAVE_RAND_R
@@ -406,6 +418,9 @@
 
 /* Define if you have the shutdown function.  */
 #undef HAVE_SHUTDOWN
+
+/* Define if you have the sigaction function.  */
+#undef HAVE_SIGACTION
 
 /* Define if you have the sighold function.  */
 #undef HAVE_SIGHOLD
@@ -515,6 +530,9 @@
 /* Define if you have the vsnprintf function.  */
 #undef HAVE_VSNPRINTF
 
+/* Define if you have the waitpid function.  */
+#undef HAVE_WAITPID
+
 /* Define if you have the <alloca.h> header file.  */
 #undef HAVE_ALLOCA_H
 
@@ -553,6 +571,9 @@
 
 /* Define if you have the <ieeefp.h> header file.  */
 #undef HAVE_IEEEFP_H
+
+/* Define if you have the <langinfo.h> header file.  */
+#undef HAVE_LANGINFO_H
 
 /* Define if you have the <limits.h> header file.  */
 #undef HAVE_LIMITS_H
@@ -595,6 +616,9 @@
 
 /* Define if you have the <signal.h> header file.  */
 #undef HAVE_SIGNAL_H
+
+/* Define if you have the <st.h> header file.  */
+#undef HAVE_ST_H
 
 /* Define if you have the <stdarg.h> header file.  */
 #undef HAVE_STDARG_H
@@ -674,6 +698,9 @@
 /* Define if you have the <sys/varargs.h> header file.  */
 #undef HAVE_SYS_VARARGS_H
 
+/* Define if you have the <sys/vfs.h> header file.  */
+#undef HAVE_SYS_VFS_H
+
 /* Define if you have the <sys/wait.h> header file.  */
 #undef HAVE_SYS_WAIT_H
 
@@ -692,6 +719,9 @@
 /* Define if you have the <termios.h> header file.  */
 #undef HAVE_TERMIOS_H
 
+/* Define if you have the <tuxmodule.h> header file.  */
+#undef HAVE_TUXMODULE_H
+
 /* Define if you have the <unistd.h> header file.  */
 #undef HAVE_UNISTD_H
 
@@ -701,17 +731,14 @@
 /* Define if you have the <utime.h> header file.  */
 #undef HAVE_UTIME_H
 
-/* Define if you have the C library (-lC).  */
-#undef HAVE_LIBC
+/* Define if you have the <xmlparse.h> header file.  */
+#undef HAVE_XMLPARSE_H
 
-/* Define if you have the cxx library (-lcxx).  */
-#undef HAVE_LIBCXX
+/* Define if you have the <xmltok.h> header file.  */
+#undef HAVE_XMLTOK_H
 
-/* Define if you have the cxxstd library (-lcxxstd).  */
-#undef HAVE_LIBCXXSTD
-
-/* Define if you have the g++ library (-lg++).  */
-#undef HAVE_LIBG__
+/* Define if you have the crypt library (-lcrypt).  */
+#undef HAVE_LIBCRYPT
 
 /* Define if you have the jpeg library (-ljpeg).  */
 #undef HAVE_LIBJPEG
@@ -727,9 +754,6 @@
 
 /* Define if you have the sqlcli library (-lsqlcli).  */
 #undef HAVE_LIBSQLCLI
-
-/* Define if you have the stdc++ library (-lstdc++).  */
-#undef HAVE_LIBSTDC__
 
 /* Define if you have the tiff library (-ltiff).  */
 #undef HAVE_LIBTIFF
@@ -787,6 +811,9 @@
 
 /* Whether to compile with Caudium support */
 #undef HAVE_CAUDIUM
+
+/* whether write(2) works */
+#undef PHP_WRITE_STDOUT
 
 /*   */
 #undef FORCE_CGI_REDIRECT
@@ -887,6 +914,9 @@
 /* Whether you have HP-UX 10.x */
 #undef PHP_HPUX_TIME_R
 
+/* Whether you have IRIX-style functions */
+#undef PHP_IRIX_TIME_R
+
 /* whether you have POSIX readdir_r */
 #undef HAVE_POSIX_READDIR_R
 
@@ -937,9 +967,6 @@
 
 /* Whether to use php streams */
 #undef HAVE_PHP_STREAM
-
-/*   */
-#undef HAVE_LIBCRYPT
 
 /*   */
 #undef HAVE_CRYPT
@@ -1025,6 +1052,12 @@
 /* Whether to build cybermut as dynamic module */
 #undef COMPILE_DL_CYBERMUT
 
+/*   */
+#undef HAVE_CYRUS
+
+/* Whether to build cyrus as dynamic module */
+#undef COMPILE_DL_CYRUS
+
 /* Whether you have GDBM */
 #undef GDBM
 
@@ -1081,6 +1114,12 @@
 
 /* Whether to build dbase as dynamic module */
 #undef COMPILE_DL_DBASE
+
+/*   */
+#undef HAVE_DBPLUSLIB
+
+/* Whether to build dbplus as dynamic module */
+#undef COMPILE_DL_DBPLUS
 
 /* Whether to build dbx as dynamic module */
 #undef COMPILE_DL_DBX
@@ -1155,7 +1194,10 @@
 #undef HAVE_GD_PNG
 
 /*   */
-#undef HAVE_GD_GIF
+#undef HAVE_GD_GIF_READ
+
+/*   */
+#undef HAVE_GD_GIF_CREATE
 
 /*   */
 #undef HAVE_GD_WBMP
@@ -1167,6 +1209,9 @@
 #undef HAVE_GD_XPM
 
 /*   */
+#undef HAVE_GD_GD2
+
+/*   */
 #undef HAVE_LIBGD20
 
 /*   */
@@ -1174,6 +1219,12 @@
 
 /*   */
 #undef HAVE_GD_IMAGESETBRUSH
+
+/*   */
+#undef HAVE_GD_STRINGTTF
+
+/*   */
+#undef HAVE_GD_STRINGFT
 
 /*   */
 #undef HAVE_GD_STRINGFTEX
@@ -1203,7 +1254,10 @@
 #undef HAVE_GD_PNG
 
 /*   */
-#undef HAVE_GD_GIF
+#undef HAVE_GD_GIF_READ
+
+/*   */
+#undef HAVE_GD_GIF_CREATE
 
 /*   */
 #undef HAVE_GD_WBMP
@@ -1215,6 +1269,9 @@
 #undef HAVE_GD_XPM
 
 /*   */
+#undef HAVE_GD_GD2
+
+/*   */
 #undef HAVE_LIBGD20
 
 /*   */
@@ -1222,6 +1279,12 @@
 
 /*   */
 #undef HAVE_GD_IMAGESETBRUSH
+
+/*   */
+#undef HAVE_GD_STRINGTTF
+
+/*   */
+#undef HAVE_GD_STRINGFT
 
 /*   */
 #undef HAVE_GD_STRINGFTEX
@@ -1269,6 +1332,9 @@
 #undef HAVE_ICONV
 
 /*   */
+#undef HAVE_LIBICONV
+
+/*   */
 #undef HAVE_ICONV
 
 /* Whether to build iconv as dynamic module */
@@ -1297,6 +1363,9 @@
 
 /*   */
 #undef HAVE_IMAP2000
+
+/*   */
+#undef HAVE_IMAP2001
 
 /*   */
 #undef HAVE_IMAP_KRB
@@ -1360,6 +1429,9 @@
 
 /*   */
 #undef HAVE_LDAP
+
+/* Whether to build mailparse as dynamic module */
+#undef COMPILE_DL_MAILPARSE
 
 /*   */
 #undef HAVE_MBSTRING
@@ -1485,6 +1557,12 @@
 #undef MYSQL_UNIX_ADDR
 
 /*   */
+#undef HAVE_NCURSESLIB
+
+/* Whether to build ncurses as dynamic module */
+#undef COMPILE_DL_NCURSES
+
+/*   */
 #undef HAVE_OCI8_TEMP_LOB
 
 /* Whether to build oci8 as dynamic module */
@@ -1545,7 +1623,7 @@
 #undef HAVE_UNIXODBC
 
 /*   */
-#undef HAVE_OPENLINK
+#undef HAVE_IODBC
 
 /* Whether you want DBMaker */
 #undef HAVE_DBMAKER
@@ -1573,6 +1651,18 @@
 
 /* Whether to build ovrimos as dynamic module */
 #undef COMPILE_DL_OVRIMOS
+
+/*   */
+#undef HAVE_FORK
+
+/*   */
+#undef HAVE_WAITPID
+
+/*   */
+#undef HAVE_SIGACTION
+
+/* Whether to build pcntl as dynamic module */
+#undef COMPILE_DL_PCNTL
 
 /* Whether to build pcre as dynamic module */
 #undef COMPILE_DL_PCRE
@@ -1664,23 +1754,11 @@
 /* Whether to build recode as dynamic module */
 #undef COMPILE_DL_RECODE
 
-/* Whether to build sablot as dynamic module */
-#undef COMPILE_DL_SABLOT
-
-/*   */
-#undef HAVE_LIBEXPAT2
-
-/*   */
-#undef HAVE_SABLOT_SET_ENCODING
-
-/*   */
-#undef HAVE_SABLOT
-
-/* CORBA support enabled via Satellite */
-#undef HAVE_SATELLITE
-
 /* Whether to build satellite as dynamic module */
 #undef COMPILE_DL_SATELLITE
+
+/*   */
+#undef HAVE_SATELLITE
 
 /* Whether you have libmm */
 #undef HAVE_LIBMM
@@ -1688,8 +1766,17 @@
 /* Whether you want transparent session id propagation */
 #undef TRANS_SID
 
+/* whether pwrite64 is default */
+#undef PHP_PWRITE_64
+
+/* whether pread64 is default */
+#undef PHP_PREAD_64
+
 /* Whether to build session as dynamic module */
 #undef COMPILE_DL_SESSION
+
+/*   */
+#undef HAVE_PHP_SESSION
 
 /*   */
 #undef HAVE_SHMOP
@@ -1760,11 +1847,11 @@
 /*   */
 #undef PHP_SYBASE_DBOPEN
 
-/* Whether to build sybase_ct as dynamic module */
-#undef COMPILE_DL_SYBASE_CT
-
 /*   */
 #undef HAVE_SYBASE_CT
+
+/* Whether to build sybase_ct as dynamic module */
+#undef COMPILE_DL_SYBASE_CT
 
 /* Whether to build sysvsem as dynamic module */
 #undef COMPILE_DL_SYSVSEM
@@ -1784,6 +1871,12 @@
 /* Whether to build sysvshm as dynamic module */
 #undef COMPILE_DL_SYSVSHM
 
+/* Whether vpopmail has vauth.h */
+#undef HAVE_VPOPMAIL_VAUTH
+
+/* Whether vpopmail has valias support */
+#undef HAVE_VPOPMAIL_VALIAS
+
 /* Whether you have vpopmail */
 #undef HAVE_VPOPMAIL
 
@@ -1799,20 +1892,32 @@
 /* Whether to build wddx as dynamic module */
 #undef COMPILE_DL_WDDX
 
+/*   */
+#undef HAVE_LIBEXPAT
+
+/*   */
+#undef HAVE_LIBEXPAT_BUNDLED
+
+/* Whether to build xml as dynamic module */
+#undef COMPILE_DL_XML
+
 /* Whether to build xml as dynamic module */
 #undef COMPILE_DL_XML
 
 /*   */
 #undef HAVE_LIBEXPAT
 
-/* Whether to build xml as dynamic module */
-#undef COMPILE_DL_XML
+/* Whether to build xmlrpc as dynamic module */
+#undef COMPILE_DL_XMLRPC
 
 /*   */
-#undef HAVE_LIBEXPAT
+#undef HAVE_XMLRPC
 
-/* Whether external expat libs are used */
+/*   */
 #undef HAVE_LIBEXPAT2
+
+/*   */
+#undef UNDEF_THREADS_HACK
 
 /* Whether to build xslt as dynamic module */
 #undef COMPILE_DL_XSLT
@@ -1844,8 +1949,8 @@
 /*   */
 #undef SOLARIS_YP
 
-/* Whether to build zziplib as dynamic module */
-#undef COMPILE_DL_ZZIPLIB
+/* Whether to build zip as dynamic module */
+#undef COMPILE_DL_ZIP
 
 /*   */
 #undef HAVE_ZZIPLIB
@@ -1883,12 +1988,6 @@
 /*   */
 #undef ZTS
 
-/* Whether you have stdiostream.h */
-#undef HAVE_STDIOSTREAM_H
-
-/* Whether you have class istdiostream */
-#undef HAVE_CLASS_ISTDIOSTREAM
-
 /* Memory limit */
 #undef MEMORY_LIMIT
 
@@ -1900,6 +1999,9 @@
 
 /* Whether you use GNU Pth */
 #undef GNUPTH
+
+/*   */
+#undef TSRM_ST
 
 /* Whether to use Pthreads */
 #undef PTHREADS

@@ -20,7 +20,7 @@
    +----------------------------------------------------------------------+
  */
  
-/* $Id: php_sybase_db.c,v 1.1.1.3 2001/07/19 00:20:26 zarzycki Exp $ */
+/* $Id: php_sybase_db.c,v 1.1.1.4 2001/12/14 22:13:32 zarzycki Exp $ */
 
 
 #ifdef HAVE_CONFIG_H
@@ -86,7 +86,8 @@ function_entry sybase_functions[] = {
 };
 
 zend_module_entry sybase_module_entry = {
-	"sybase", sybase_functions, PHP_MINIT(sybase), PHP_MSHUTDOWN(sybase), PHP_RINIT(sybase), PHP_RSHUTDOWN(sybase), PHP_MINFO(sybase), STANDARD_MODULE_PROPERTIES
+	STANDARD_MODULE_HEADER,
+	"sybase", sybase_functions, PHP_MINIT(sybase), PHP_MSHUTDOWN(sybase), PHP_RINIT(sybase), PHP_RSHUTDOWN(sybase), PHP_MINFO(sybase), NO_VERSION_YET, STANDARD_MODULE_PROPERTIES
 };
 
 #ifdef COMPILE_DL_SYBASE
@@ -125,7 +126,7 @@ static int php_sybase_message_handler(DBPROCESS *dbproc,DBINT msgno,int msgstate
 }
 
 
-static int _clean_invalid_results(list_entry *le)
+static int _clean_invalid_results(list_entry *le TSRMLS_DC)
 {
 	if (le->type == php_sybase_module.le_result) {
 		sybase_link *sybase_ptr = ((sybase_result *) le->ptr)->sybase_ptr;
@@ -138,7 +139,7 @@ static int _clean_invalid_results(list_entry *le)
 }
 
 
-static void _free_sybase_result(zend_rsrc_list_entry *rsrc)
+static void _free_sybase_result(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 {
 	sybase_result *result = (sybase_result *)rsrc->ptr;
 	int i,j;
@@ -164,10 +165,9 @@ static void _free_sybase_result(zend_rsrc_list_entry *rsrc)
 }
 
 
-static void _close_sybase_link(zend_rsrc_list_entry *rsrc)
+static void _close_sybase_link(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 {
 	sybase_link *sybase_ptr = (sybase_link *)rsrc->ptr;
-	ELS_FETCH();
 
 	sybase_ptr->valid = 0;
 
@@ -177,7 +177,7 @@ static void _close_sybase_link(zend_rsrc_list_entry *rsrc)
       will *not* be in a consistent state. thies@thieso.net
     */
 
-	zend_hash_apply(&EG(regular_list),(int (*)(void *))_clean_invalid_results);
+	zend_hash_apply(&EG(regular_list), (apply_func_t) _clean_invalid_results TSRMLS_CC);
 	dbclose(sybase_ptr->link);
 	dbloginfree(sybase_ptr->login);
 	efree(sybase_ptr);
@@ -185,9 +185,10 @@ static void _close_sybase_link(zend_rsrc_list_entry *rsrc)
 }
 
 
-static void _close_sybase_plink(zend_rsrc_list_entry *rsrc)
+static void _close_sybase_plink(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 {
 	sybase_link *sybase_ptr = (sybase_link *)rsrc->ptr;
+
 	dbclose(sybase_ptr->link);
 	dbloginfree(sybase_ptr->login);
 	free(sybase_ptr);
@@ -282,9 +283,9 @@ static void php_sybase_do_connect(INTERNAL_FUNCTION_PARAMETERS,int persistent)
 				}
 				convert_to_string(yyhost);
 				host = yyhost->value.str.val;
-				hashed_details_length = yyhost->value.str.len+6+3;
+				hashed_details_length = yyhost->value.str.len+6+4;
 				hashed_details = (char *) emalloc(hashed_details_length+1);
-				sprintf(hashed_details,"sybase_%s__",yyhost->value.str.val);
+				sprintf(hashed_details,"sybase_%s___",yyhost->value.str.val);
 			}
 			break;
 		case 2: {
@@ -297,9 +298,9 @@ static void php_sybase_do_connect(INTERNAL_FUNCTION_PARAMETERS,int persistent)
 				convert_to_string(yyuser);
 				host = yyhost->value.str.val;
 				user = yyuser->value.str.val;
-				hashed_details_length = yyhost->value.str.len+yyuser->value.str.len+6+3;
+				hashed_details_length = yyhost->value.str.len+yyuser->value.str.len+6+4;
 				hashed_details = (char *) emalloc(hashed_details_length+1);
-				sprintf(hashed_details,"sybase_%s_%s_",yyhost->value.str.val,yyuser->value.str.val);
+				sprintf(hashed_details,"sybase_%s_%s__",yyhost->value.str.val,yyuser->value.str.val);
 			}
 			break;
 		case 3: {
@@ -314,9 +315,9 @@ static void php_sybase_do_connect(INTERNAL_FUNCTION_PARAMETERS,int persistent)
 				host = yyhost->value.str.val;
 				user = yyuser->value.str.val;
 				passwd = yypasswd->value.str.val;
-				hashed_details_length = yyhost->value.str.len+yyuser->value.str.len+yypasswd->value.str.len+6+3;
+				hashed_details_length = yyhost->value.str.len+yyuser->value.str.len+yypasswd->value.str.len+6+4;
 				hashed_details = (char *) emalloc(hashed_details_length+1);
-				sprintf(hashed_details,"sybase_%s_%s_%s",yyhost->value.str.val,yyuser->value.str.val,yypasswd->value.str.val); /* SAFE */
+				sprintf(hashed_details,"sybase_%s_%s_%s_",yyhost->value.str.val,yyuser->value.str.val,yypasswd->value.str.val); /* SAFE */
 			}
 			break;
 		case 4: {
@@ -333,7 +334,7 @@ static void php_sybase_do_connect(INTERNAL_FUNCTION_PARAMETERS,int persistent)
 				user = yyuser->value.str.val;
 				passwd = yypasswd->value.str.val;
 				charset = yycharset->value.str.val;
-				hashed_details_length = yyhost->value.str.len+yyuser->value.str.len+yypasswd->value.str.len+yycharset->value.str.len+6+3;
+				hashed_details_length = yyhost->value.str.len+yyuser->value.str.len+yypasswd->value.str.len+yycharset->value.str.len+6+4;
 				hashed_details = (char *) emalloc(hashed_details_length+1);
 				sprintf(hashed_details,"sybase_%s_%s_%s_%s",yyhost->value.str.val,yyuser->value.str.val,yypasswd->value.str.val,yycharset->value.str.val); /* SAFE */
 			}
@@ -617,7 +618,7 @@ static void php_sybase_get_column_content(sybase_link *sybase_ptr,int offset,pva
 	*result_ptr = result;
 
 	if (dbdatlen(sybase_ptr->link,offset) == 0) {
-		var_reset(result);
+		ZVAL_FALSE(result);
 		return;
 	}
 
@@ -688,7 +689,7 @@ static void php_sybase_get_column_content(sybase_link *sybase_ptr,int offset,pva
 				result->type = IS_STRING;
 			} else {
 				php_error(E_WARNING,"Sybase:  column %d has unknown data type (%d)", offset, coltype(offset));
-				var_reset(result);
+				ZVAL_FALSE(result);
 			}
 		}
 	}
@@ -785,7 +786,7 @@ PHP_FUNCTION(sybase_query)
 
 				convert_to_string(cur_value);
 				if (PG(magic_quotes_runtime)) {
-					cur_value->value.str.val = php_addslashes(cur_value->value.str.val, cur_value->value.str.len, &cur_value->value.str.len,0);
+					cur_value->value.str.val = php_addslashes(cur_value->value.str.val, cur_value->value.str.len, &cur_value->value.str.len,0 TSRMLS_CC);
 				}
 			}
 		}
@@ -1009,8 +1010,8 @@ PHP_FUNCTION(sybase_fetch_object)
 	php_sybase_fetch_hash(INTERNAL_FUNCTION_PARAM_PASSTHRU);
 	if (return_value->type==IS_ARRAY) {
 		return_value->type=IS_OBJECT;
-		return_value->value.obj.properties = return_value->value.ht;
-		return_value->value.obj.ce = &zend_standard_class_def;
+		Z_OBJPROP_P(return_value) = return_value->value.ht;
+		Z_OBJCE_P(return_value) = &zend_standard_class_def;
 	}
 }
 /* }}} */
@@ -1306,7 +1307,7 @@ PHP_FUNCTION(sybase_affected_rows)
 
 PHP_MINFO_FUNCTION(sybase)
 {
-	char maxp[32],maxl[32];
+	char maxp[32], maxl[32];
 	
 	if (php_sybase_module.max_persistent==-1) {
 		snprintf(maxp, 31, "%ld/unlimited", php_sybase_module.num_persistent );

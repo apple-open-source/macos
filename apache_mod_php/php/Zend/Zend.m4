@@ -43,6 +43,7 @@ string.h \
 unistd.h \
 stdarg.h \
 sys/types.h \
+sys/time.h \
 signal.h \
 unix.h \
 dlfcn.h)
@@ -69,8 +70,6 @@ AC_CHECK_FUNCS(finite isfinite isinf isnan)
 
 ZEND_FP_EXCEPT
 	
-AC_SUBST(ZEND_SCANNER)
-
 ])
 
 
@@ -152,20 +151,16 @@ test -n "$DEBUG_CFLAGS" && CFLAGS="$CFLAGS $DEBUG_CFLAGS"
 
 if test "$ZEND_EXPERIMENTAL_ZTS" = "yes"; then
   AC_DEFINE(ZTS,1,[ ])
-  ZEND_SCANNER_TYPE=cc
-  CPPFLAGS="$CPPFLAGS -I../TSRM"
+  CFLAGS="$CFLAGS -DZTS"
   LIBZEND_CPLUSPLUS_CHECKS
-else
-  ZEND_SCANNER_TYPE=c
 fi  
-
-ZEND_SCANNER="libZend_${ZEND_SCANNER_TYPE}.la"
 
 if test "$ZEND_MEMORY_LIMIT" = "yes"; then
   AC_DEFINE(MEMORY_LIMIT, 1, [Memory limit])
 else
   AC_DEFINE(MEMORY_LIMIT, 0, [Memory limit])
 fi
+
 
 changequote({,})
 if test -n "$GCC" && test "$ZEND_INLINE_OPTIMIZATION" != "yes"; then
@@ -184,39 +179,5 @@ AC_SUBST(INLINE_CFLAGS)
 
 AC_DEFUN(LIBZEND_CPLUSPLUS_CHECKS,[
 
-dnl extra check to avoid C++ preprocessor testing if in non-ZTS mode
-		
-if test "$ZEND_EXPERIMENTAL_ZTS" = "yes"; then
-AC_PROG_CXX		
-AC_PROG_CXXCPP
-AC_LANG_CPLUSPLUS
-AC_CHECK_HEADER(stdiostream.h, [ AC_DEFINE(HAVE_STDIOSTREAM_H, [], Whether you have stdiostream.h) ])
-
-AC_CHECK_LIB(C, cin)
-AC_CHECK_LIB(g++, cin)
-AC_CHECK_LIB(stdc++, cin)
-dnl Digital Unix 4.0
-AC_CHECK_LIB(cxx, cin)
-AC_CHECK_LIB(cxxstd, __array_delete)
-
-AC_CACHE_CHECK(for class istdiostream,ac_cv_class_istdiostream,[
-AC_TRY_COMPILE([
-#include <sys/types.h>
-#include <unistd.h>
-#include <fstream.h>
-#include <stdiostream.h>
-],[
-istdiostream *foo = new istdiostream((FILE *) 0);
-],[
-  ac_cv_class_istdiostream=yes
-],[
-  ac_cv_class_istdiostream=no
-])
-])
-  if test "$ac_cv_class_istdiostream" = "yes"; then
-    AC_DEFINE(HAVE_CLASS_ISTDIOSTREAM, 1, [Whether you have class istdiostream])
-  fi
-AC_LANG_C
-fi
 ])
 

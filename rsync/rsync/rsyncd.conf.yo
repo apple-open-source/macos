@@ -44,7 +44,12 @@ in string values.
 manpagesection(LAUNCHING THE RSYNC DAEMON)
 
 The rsync daemon is launched by specifying the --daemon option to
-rsync. The daemon must run with root privileges.
+rsync. 
+
+The daemon must run with root privileges if you wish to use chroot, to
+bind to a port numbered under 1024 (as is the default 873), or to set
+file ownership.  Otherwise, it must just have permission to read and
+write the appropriate data, log, and lock files.
 
 You can launch it either via inetd or as a stand-alone daemon. If run
 as a daemon then just run the command "rsync --daemon" from a suitable
@@ -58,8 +63,9 @@ and a single line something like this to /etc/inetd.conf:
     
 quote(rsync   stream  tcp     nowait  root   /usr/bin/rsync rsyncd --daemon)
 
-You will then need to send inetd a HUP signal to tell it to reread its
-config file.
+Replace "/usr/bin/rsync" with the path to where you have rsync installed on
+your system.  You will then need to send inetd a HUP signal to tell it to
+reread its config file.
 
 Note that you should not send the rsync server a HUP signal to force
 it to reread the tt(/etc/rsyncd.conf). The file is re-read on each client
@@ -127,8 +133,11 @@ dit(bf(use chroot)) If "use chroot" is true, the rsync server will chroot
 to the "path" before starting the file transfer with the client.  This has
 the advantage of extra protection against possible implementation security
 holes, but it has the disadvantages of requiring super-user privileges and
-of not being able to follow symbolic links outside of the new root path.
-The default is to use chroot.
+of not being able to follow symbolic links outside of the new root path
+when reading.  When "use chroot" is false, for security reasons
+symlinks may only be relative paths pointing to other files within the
+root path, and leading slashes are removed from absolute paths.  The
+default for "use chroot" is true.
 
 dit(bf(max connections)) The "max connections" option allows you to
 specify the maximum number of simultaneous connections you will allow
@@ -155,12 +164,13 @@ for modules to be listable.
 dit(bf(uid)) The "uid" option specifies the user name or user id that
 file transfers to and from that module should take place as when the daemon
 was run as root. In combination with the "gid" option this determines what
-file permissions are available. The default is the user "nobody".
+file permissions are available. The default is uid -2, which is normally
+the user "nobody".
 
 dit(bf(gid)) The "gid" option specifies the group name or group id that
 file transfers to and from that module should take place as when the daemon
-was run as root. This complements the "uid" option. The default is the
-group "nobody".
+was run as root. This complements the "uid" option. The default is gid -2,
+which is normally the group "nobody".
 
 dit(bf(exclude)) The "exclude" option allows you to specify a space
 separated list of patterns to add to the exclude list. This is
@@ -198,13 +208,14 @@ on the server that contains include patterns, one per line. This is
 equivalent to the client specifying the --include-from option with a
 equivalent file.
 
-dit(bf(auth users)) The "auth users" option specifies a comma
-and space separated list of usernames that will be allowed to connect
-to this module. The usernames do not need to exist on the local
-system. If "auth users" is set then the client will be challenged to
-supply a username and password to connect to the module. A challenge
-response authentication protocol is used for this exchange. The plain
-text usernames are passwords are stored in the file specified by the
+dit(bf(auth users)) The "auth users" option specifies a comma and
+space separated list of usernames that will be allowed to connect to
+this module. The usernames do not need to exist on the local
+system. The usernames may also contain shell wildcard characters. If
+"auth users" is set then the client will be challenged to supply a
+username and password to connect to the module. A challenge response
+authentication protocol is used for this exchange. The plain text
+usernames are passwords are stored in the file specified by the
 "secrets file" option. The default is for all users to be able to
 connect without a password (this is called "anonymous rsync").
 
@@ -219,7 +230,8 @@ limit the length of passwords that can be typed at the client end, so
 you may find that passwords longer than 8 characters don't work. 
 
 There is no default for the "secrets file" option, you must choose a name
-(such as tt(/etc/rsyncd.secrets)).
+(such as tt(/etc/rsyncd.secrets)).  The file must normally not be readable
+by "other"; see "strict modes".
 
 dit(bf(strict modes)) The "strict modes" option determines whether or not 
 the permissions on the secrets file will be checked.  If "strict modes" is
@@ -272,6 +284,19 @@ hostname and IP address. If the pattern matches then the connection is
 rejected. See the "hosts allow" option for more information.
 
 The default is no "hosts deny" option, which means all hosts can connect.
+
+dit(bf(ignore errors)) The "ignore errors" option tells rsyncd to
+ignore IO errors on the server when deciding whether to run the delete
+phase of the transfer. Normally rsync skips the --delete step if any
+IO errors have occurred in order to prevent disasterous deletion due
+to a temporary resource shortage or other IO error. In some cases this
+test is counter productive so you can use this option to turn off this
+behaviour. 
+
+dit(bf(ignore nonreadable)) This tells the rsync server to completely
+ignore files that are not readable by the user. This is useful for
+public archives that may have some non-readable files among the
+directories, and the sysadmin doesn't want those files to be seen at all.
 
 dit(bf(transfer logging)) The "transfer logging" option enables per-file 
 logging of downloads and uploads in a format somewhat similar to that
@@ -333,7 +358,7 @@ The "dont compress" option takes a space separated list of
 case-insensitive wildcard patterns. Any source filename matching one
 of the patterns will not be compressed during transfer.
 
-The default setting is verb(*.gz *.tgz *.zip *.z *.rpm *.deb)
+The default setting is verb(*.gz *.tgz *.zip *.z *.rpm *.deb *.iso *.bz2 *.tbz)
 
 enddit()
 
@@ -373,7 +398,7 @@ gid = nobody nl()
 use chroot = no nl()
 max connections = 4 nl()
 syslog facility = local5 nl()
-pid file = /etc/rsyncd.pid
+pid file = /var/run/rsyncd.pid
 
 verb([ftp]
         path = /var/ftp/pub

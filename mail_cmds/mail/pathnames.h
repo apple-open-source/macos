@@ -1,5 +1,3 @@
-/*	$NetBSD: pathnames.h,v 1.4 1996/06/08 19:48:34 christos Exp $	*/
-
 /*
  * Copyright (c) 1989, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -33,13 +31,12 @@
  * SUCH DAMAGE.
  *
  *	@(#)pathnames.h	8.1 (Berkeley) 6/6/93
- *	$NetBSD: pathnames.h,v 1.4 1996/06/08 19:48:34 christos Exp $
+ *
+ * $FreeBSD: src/usr.bin/mail/pathnames.h,v 1.4 2001/05/27 20:26:22 mikeh Exp $
  */
-
-#include <paths.h>
 
 #define	_PATH_EX	"/usr/bin/ex"
 #define	_PATH_HELP	"/usr/share/misc/mail.help"
 #define	_PATH_TILDE	"/usr/share/misc/mail.tildehelp"
-#define	_PATH_MASTER_RC	"/etc/mail.rc"
+#define	_PATH_MASTER_RC	"/usr/share/misc/mail.rc:/usr/local/etc/mail.rc:/etc/mail.rc"
 #define	_PATH_MORE	"/usr/bin/more"

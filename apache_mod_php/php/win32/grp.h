@@ -15,7 +15,7 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
-   $Header: /cvs/Darwin/Services/apache_mod_php/php/win32/grp.h,v 1.1.1.1 2000/08/10 02:08:41 wsanchez Exp $
+   $Header: /cvs/Darwin/apache_mod_php/php/win32/grp.h,v 1.1.1.1 2000/08/10 02:08:41 wsanchez Exp $
  */
 
 /* This 'implementation' is conjectured from the use of this functions in

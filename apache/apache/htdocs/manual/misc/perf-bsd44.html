@@ -22,10 +22,21 @@
 
     <h1 align="CENTER">Running a High-Performance Web Server for
     BSD</h1>
-    Like other OS's, the listen queue is often the <strong>first
+
+    <p>This document assumes that you have read the appropriate
+    overview documentation for
+    <a href="http://www.FreeBSD.org/docs.html">FreeBSD</a>,
+    <a href="http://www.NetBSD.org/Documentation/">NetBSD</a>, or
+    <a href="http://www.OpenBSD.org/docum.html">OpenBSD</a>.
+    In addition, the FreeBSD
+    <a href="http://www.FreeBSD.org/cgi/man.cgi?query=tuning">tuning</a>
+    manual page contains lots of wisdom, especially regarding sysctl
+    options.</p>
+
+    <p>Like other OS's, the listen queue is often the <strong>first
     limit hit</strong>. The following are comments from "Aaron
     Gifford &lt;agifford@InfoWest.COM&gt;" on how to fix this on
-    BSDI 1.x, 2.x, and FreeBSD 2.0 (and earlier): 
+    BSDI 1.x, 2.x, and FreeBSD 2.0 (and earlier):</p>
 
     <p>Edit the following two files:</p>
 
@@ -226,15 +237,6 @@ MaxClients 150
     already available to be read) so there is less context
     switching.</p>
 
-    <p>There are two filters in FreeBSD at the time of writing:
-    "dataready" and "httpready". The former just waits for the
-    first packet to arrive from the client; the latter waits for
-    the end of the HTTP headers. Unfortunately the "httpready"
-    filter breaks support for HTTP/0.9 (which doesn't have headers)
-    so Apache doesn't use it, but the "dataready" filter gives the
-    same benefit in the majority of cases so Apache attempts to use
-    that instead.</p>
-
     <p>Accept filters provide the most benefit on servers that are
     already so busy that they are configured with "<code>KeepAlive
     Off</code>". <a href="../keepalive.html">HTTP KeepAlive (aka
@@ -250,32 +252,20 @@ MaxClients 150
 
     <p>To enable accept filtering, you must either load the
     appropriate accept filter module, e.g. with the command
-    <code>kldload accf_data</code>, or compile a kernel with
-    <code>options ACCEPT_FILTER_DATA</code>. Apache will then
+    <code>kldload accf_http</code>, or compile a kernel with
+    <code>options ACCEPT_FILTER_HTTP</code>. Apache will then
     enable filtering when it is restarted.</p>
 
-    <p>Accept filters ar compiled in if the symbol
-    <code>SO_ACCEPTFILTER</code> is defined on the machine apache
-    is build.</p>
-
-    <p>Additionally there is a directive <a
+    <p>Accept filters are compiled in if the symbol
+    <code>SO_ACCEPTFILTER</code> is defined on the machine on which
+    Apache is built. Additionally there is a directive <a
     href="../mod/core.html#acceptfilter">AcceptFilter</a> to switch
     the filters on or off. The default is on; except when apache is
     compiled with <code>-D AP_ACCEPTFILTER_ON</code>.</p>
 
-    <p>If you are more concerned about performance than
-    compatibility with absurdly obsolete HTTP/0.9 user agents then
-    you can recompile Apache to use the "httpready" filter. This
-    may be particularly helpful if your web site uses really big
-    cookies, for example. If you are using
-    <code>src/Configure</code> then add
-    <code>-DACCEPT_FILTER_NAME=\"httpready\"</code> to the
-    <code>EXTRA_CFLAGS</code> line in the
-    <code>src/Configuration</code> file. If you are using APACI
-    (aka <code>./configure</code>) then use the command
-    <code>CFLAGS=-DACCEPT_FILTER_NAME=\'\"httpready\"\'
-    ./configure</code> (with all the funky backslashed quotes).</p>
-    <hr />
+    <p>See the manual page
+    <a href="http://www.freebsd.org/cgi/man.cgi?query=accf_http">accf_http(9)</a>
+    for more information.</p>
 
     <h3>More welcome!</h3>
     If you have tips to contribute, send mail to <a

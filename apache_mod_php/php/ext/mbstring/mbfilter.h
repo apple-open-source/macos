@@ -1,4 +1,6 @@
-/* charset=UTF-8 */
+/* charset=UTF-8
+ * vim: encoding=utf-8:
+ * */
 
 /*
  * "streamable kanji code filter and converter"
@@ -84,7 +86,7 @@
  *
  */
 
-/* $Id: mbfilter.h,v 1.1.1.1 2001/07/19 00:19:21 zarzycki Exp $ */
+/* $Id: mbfilter.h,v 1.1.1.2 2001/12/14 22:12:33 zarzycki Exp $ */
 
 
 #ifndef MBFL_MBFILTER_H
@@ -123,6 +125,7 @@ enum mbfl_no_encoding {
 	mbfl_no_encoding_byte4be,
 	mbfl_no_encoding_byte4le,
 	mbfl_no_encoding_base64,
+	mbfl_no_encoding_uuencode,
 	mbfl_no_encoding_qprint,
 	mbfl_no_encoding_7bit,
 	mbfl_no_encoding_8bit,
@@ -150,6 +153,7 @@ enum mbfl_no_encoding {
 	mbfl_no_encoding_sjis_mac,
 	mbfl_no_encoding_jis,
 	mbfl_no_encoding_2022jp,
+	mbfl_no_encoding_cp1252,
 	mbfl_no_encoding_8859_1,
 	mbfl_no_encoding_8859_2,
 	mbfl_no_encoding_8859_3,
@@ -229,7 +233,6 @@ typedef struct _mbfl_encoding {
 #define MBFL_WCSPLANE_8859_15		0x70f00000		/*  00h - FFh */
 #define MBFL_WCSPLANE_KSC5601		0x70f10000		/*  2121h - 7E7Eh */
 #define MBFL_WCSPLANE_GB2312		0x70f20000		/*  2121h - 7E7Eh */
-
 #define MBFL_WCSGROUP_MASK			0xffffff
 #define MBFL_WCSGROUP_UCS4MAX		0x70000000
 #define MBFL_WCSGROUP_WCHARMAX		0x78000000

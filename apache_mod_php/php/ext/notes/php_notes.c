@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
  
-/* $Id: php_notes.c,v 1.1.1.1 2001/07/19 00:19:37 zarzycki Exp $ */
+/* $Id: php_notes.c,v 1.1.1.2 2001/12/14 22:12:51 zarzycki Exp $ */
 
 #ifdef COMPILE_DL_NOTES
 #define HAVE_NOTES 1
@@ -97,6 +97,7 @@ function_entry notes_functions[] = {
 };
 
 zend_module_entry notes_module_entry = {
+	STANDARD_MODULE_HEADER,
 	"notes", 
 	notes_functions, 
 	PHP_MINIT(notes), 
@@ -104,6 +105,7 @@ zend_module_entry notes_module_entry = {
 	PHP_RINIT(notes), 
 	PHP_RSHUTDOWN(notes), 
 	PHP_MINFO(notes), 
+        NO_VERSION_YET,
 	STANDARD_MODULE_PROPERTIES
 };
 
@@ -140,7 +142,6 @@ PHP_MINFO_FUNCTION(notes)
 {
 
 	php_info_print_table_start();
-
 	php_info_print_table_row(2, "Lotus Notes Database Support", "enabled");
 	php_info_print_table_end();
 }
@@ -477,7 +478,8 @@ STATUS UndoUnreadStatus (
    Mark a note_id as read for the User user_name 
    Note: user_name must be fully distinguished user name
 */
-PHP_FUNCTION(notes_mark_read){
+PHP_FUNCTION(notes_mark_read)
+{
 
 	int argc;
 	int ActionCount;
@@ -571,7 +573,8 @@ PHP_FUNCTION(notes_mark_read){
    Mark a note_id as unread for the User user_name
    Note: user_name must be fully distinguished user name
 */
-PHP_FUNCTION(notes_mark_unread){
+PHP_FUNCTION(notes_mark_unread)
+{
 
 	int argc;
 	int ActionCount;
@@ -899,7 +902,8 @@ STATUS UndoUnreadStatus (
 /* {{{ proto string notes_unread(string database_name, string user_name)
    Returns the unread note id's for the current User user_name 
    Note: user_name must be fully distinguished user name*/
-PHP_FUNCTION(notes_unread){
+PHP_FUNCTION(notes_unread)
+{
 
 	int argc;
 	pval *argv[2];
@@ -1021,7 +1025,8 @@ STATUS near pascal GetUniqueFileName(char *Drive, char *Ext, char *FileName);
 		priority H: High N: Normal L: Low
 		receipt 1: Yes 0: No
 		subject*/
-PHP_FUNCTION(notes_header_info){
+PHP_FUNCTION(notes_header_info)
+{
 
 	int argc;
 	pval *argv[3];
@@ -1255,7 +1260,8 @@ STATUS near pascal GetUniqueFileName(char *Drive, char *Ext,
 /* {{{ proto array notes_body(string server, string mailbox, int msg_number)
    Open the message msg_number in the specified mailbox on the specified server (leave server
 	blank for local) and returns an array of body text lines. */
-PHP_FUNCTION(notes_body){
+PHP_FUNCTION(notes_body)
+{
 
 	int argc;
 	pval *argv[3];
@@ -1455,7 +1461,8 @@ PHP_FUNCTION(notes_body){
 		FILTER
 		FIELD
 		*/
-PHP_FUNCTION(notes_find_note){
+PHP_FUNCTION(notes_find_note)
+{
 
 	int argc;
 	pval *argv[3];
@@ -1543,7 +1550,8 @@ PHP_FUNCTION(notes_find_note){
 
 /* {{{ proto bool notes_nav_create(string database_name, string name )
    Create a navigator name, in database_name  */
-PHP_FUNCTION(notes_nav_create){
+PHP_FUNCTION(notes_nav_create)
+{
 
 	int argc;
 	pval *argv[2];
@@ -1743,7 +1751,8 @@ STATUS LNPUBLIC file_action (void *, SEARCH_MATCH *, ITEM_TABLE *);
 STATUS LNPUBLIC print_file_summary (ITEM_TABLE *);
 
 
-PHP_FUNCTION(notes_search){
+PHP_FUNCTION(notes_search)
+{
 
 	int argc;
 	pval *argv[2];
@@ -2268,7 +2277,8 @@ char    ItemText[MAX_ITEM_LEN];     /* Text rendering of item value */
 char    ItemName[MAX_ITEM_NAME_LEN];/* Zero terminated item name */
 
 
-PHP_FUNCTION(notes_list_msgs){
+PHP_FUNCTION(notes_list_msgs)
+{
 
 	int argc;
 	pval *argv[1];

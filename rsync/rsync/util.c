@@ -1,6 +1,8 @@
-/* 
-   Copyright (C) Andrew Tridgell 1996
-   Copyright (C) Paul Mackerras 1996
+/*  -*- c-file-style: "linux" -*-
+    
+    Copyright (C) 1996-2000 by Andrew Tridgell 
+    Copyright (C) Paul Mackerras 1996
+    Copyright (C) 2001, 2002 by Martin Pool <mbp@samba.org>
    
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -26,102 +28,167 @@
 
 extern int verbose;
 
+
 /****************************************************************************
-Set a fd into nonblocking mode. Uses POSIX O_NONBLOCK if available,
-else
-if SYSV use O_NDELAY
-if BSD use FNDELAY
+Set a fd into nonblocking mode
 ****************************************************************************/
-int set_nonblocking(int fd)
+void set_nonblocking(int fd)
 {
 	int val;
-#ifdef O_NONBLOCK
-#define FLAG_TO_SET O_NONBLOCK
-#else
-#ifdef SYSV
-#define FLAG_TO_SET O_NDELAY
-#else /* BSD */
-#define FLAG_TO_SET FNDELAY
-#endif
-#endif
-	
+
 	if((val = fcntl(fd, F_GETFL, 0)) == -1)
-		return -1;
-	val |= FLAG_TO_SET;
-	return fcntl( fd, F_SETFL, val);
-#undef FLAG_TO_SET
+		return;
+	if (!(val & NONBLOCK_FLAG)) {
+		val |= NONBLOCK_FLAG;
+		fcntl(fd, F_SETFL, val);
+	}
+}
+
+/****************************************************************************
+Set a fd into blocking mode
+****************************************************************************/
+void set_blocking(int fd)
+{
+	int val;
+
+	if((val = fcntl(fd, F_GETFL, 0)) == -1)
+		return;
+	if (val & NONBLOCK_FLAG) {
+		val &= ~NONBLOCK_FLAG;
+		fcntl(fd, F_SETFL, val);
+	}
 }
 
 
-/* this is taken from CVS */
-int piped_child(char **command,int *f_in,int *f_out)
+/* create a file descriptor pair - like pipe() but use socketpair if
+   possible (because of blocking issues on pipes)
+
+   always set non-blocking
+ */
+int fd_pair(int fd[2])
 {
-  int pid;
-  int to_child_pipe[2];
-  int from_child_pipe[2];
+	int ret;
 
-  if (pipe(to_child_pipe) < 0 ||
-      pipe(from_child_pipe) < 0) {
-    rprintf(FERROR,"pipe: %s\n",strerror(errno));
-    exit_cleanup(RERR_IPC);
-  }
+#if HAVE_SOCKETPAIR
+	ret = socketpair(AF_UNIX, SOCK_STREAM, 0, fd);
+#else
+	ret = pipe(fd);
+#endif
 
-
-  pid = do_fork();
-  if (pid < 0) {
-    rprintf(FERROR,"fork: %s\n",strerror(errno));
-    exit_cleanup(RERR_IPC);
-  }
-
-  if (pid == 0)
-    {
-      extern int orig_umask;
-      if (dup2(to_child_pipe[0], STDIN_FILENO) < 0 ||
-	  close(to_child_pipe[1]) < 0 ||
-	  close(from_child_pipe[0]) < 0 ||
-	  dup2(from_child_pipe[1], STDOUT_FILENO) < 0) {
-	rprintf(FERROR,"Failed to dup/close : %s\n",strerror(errno));
-	exit_cleanup(RERR_IPC);
-      }
-      if (to_child_pipe[0] != STDIN_FILENO) close(to_child_pipe[0]);
-      if (from_child_pipe[1] != STDOUT_FILENO) close(from_child_pipe[1]);
-      umask(orig_umask);
-      execvp(command[0], command);
-      rprintf(FERROR,"Failed to exec %s : %s\n",
-	      command[0],strerror(errno));
-      exit_cleanup(RERR_IPC);
-    }
-
-  if (close(from_child_pipe[1]) < 0 ||
-      close(to_child_pipe[0]) < 0) {
-    rprintf(FERROR,"Failed to close : %s\n",strerror(errno));   
-    exit_cleanup(RERR_IPC);
-  }
-
-  *f_in = from_child_pipe[0];
-  *f_out = to_child_pipe[1];
-
-  set_nonblocking(*f_in);
-  set_nonblocking(*f_out);
-  
-  return pid;
+	if (ret == 0) {
+		set_nonblocking(fd[0]);
+		set_nonblocking(fd[1]);
+	}
+	
+	return ret;
 }
 
-int local_child(int argc, char **argv,int *f_in,int *f_out)
+
+void print_child_argv(char **cmd)
 {
-	int pid;
+	rprintf(FINFO, RSYNC_NAME ": open connection using ");
+	for (; *cmd; cmd++) {
+		/* Look for characters that ought to be quoted.  This
+		* is not a great quoting algorithm, but it's
+		* sufficient for a log message. */
+		if (strspn(*cmd, "abcdefghijklmnopqrstuvwxyz"
+			   "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+			   "0123456789"
+			   ",.-_=+@/") != strlen(*cmd)) {
+			rprintf(FINFO, "\"%s\" ", *cmd);
+		} else {
+			rprintf(FINFO, "%s ", *cmd);
+		}
+	}
+	rprintf(FINFO, "\n");
+}
+
+
+/* this is derived from CVS code 
+
+   note that in the child STDIN is set to blocking and STDOUT
+   is set to non-blocking. This is necessary as rsh relies on stdin being blocking
+   and ssh relies on stdout being non-blocking
+
+   if blocking_io is set then use blocking io on both fds. That can be
+   used to cope with badly broken rsh implementations like the one on
+   solaris.
+ */
+pid_t piped_child(char **command, int *f_in, int *f_out)
+{
+	pid_t pid;
 	int to_child_pipe[2];
 	int from_child_pipe[2];
+	extern int blocking_io;
+	
+	if (verbose > 0) {
+		print_child_argv(command);
+	}
 
-	if (pipe(to_child_pipe) < 0 ||
-	    pipe(from_child_pipe) < 0) {
+	if (fd_pair(to_child_pipe) < 0 || fd_pair(from_child_pipe) < 0) {
+		rprintf(FERROR, "pipe: %s\n", strerror(errno));
+		exit_cleanup(RERR_IPC);
+	}
+
+
+	pid = do_fork();
+	if (pid == -1) {
+		rprintf(FERROR, "fork: %s\n", strerror(errno));
+		exit_cleanup(RERR_IPC);
+	}
+
+	if (pid == 0) {
+		extern int orig_umask;
+		if (dup2(to_child_pipe[0], STDIN_FILENO) < 0 ||
+		    close(to_child_pipe[1]) < 0 ||
+		    close(from_child_pipe[0]) < 0 ||
+		    dup2(from_child_pipe[1], STDOUT_FILENO) < 0) {
+			rprintf(FERROR, "Failed to dup/close : %s\n",
+				strerror(errno));
+			exit_cleanup(RERR_IPC);
+		}
+		if (to_child_pipe[0] != STDIN_FILENO)
+			close(to_child_pipe[0]);
+		if (from_child_pipe[1] != STDOUT_FILENO)
+			close(from_child_pipe[1]);
+		umask(orig_umask);
+		set_blocking(STDIN_FILENO);
+		if (blocking_io) {
+			set_blocking(STDOUT_FILENO);
+		}
+		execvp(command[0], command);
+		rprintf(FERROR, "Failed to exec %s : %s\n",
+			command[0], strerror(errno));
+		exit_cleanup(RERR_IPC);
+	}
+
+	if (close(from_child_pipe[1]) < 0 || close(to_child_pipe[0]) < 0) {
+		rprintf(FERROR, "Failed to close : %s\n", strerror(errno));
+		exit_cleanup(RERR_IPC);
+	}
+
+	*f_in = from_child_pipe[0];
+	*f_out = to_child_pipe[1];
+
+	return pid;
+}
+
+pid_t local_child(int argc, char **argv,int *f_in,int *f_out)
+{
+	pid_t pid;
+	int to_child_pipe[2];
+	int from_child_pipe[2];
+	extern int read_batch;  /* dw */
+
+	if (fd_pair(to_child_pipe) < 0 ||
+	    fd_pair(from_child_pipe) < 0) {
 		rprintf(FERROR,"pipe: %s\n",strerror(errno));
 		exit_cleanup(RERR_IPC);
 	}
 
 
 	pid = do_fork();
-	if (pid < 0) {
+	if (pid == -1) {
 		rprintf(FERROR,"fork: %s\n",strerror(errno));
 		exit_cleanup(RERR_IPC);
 	}
@@ -130,7 +197,7 @@ int local_child(int argc, char **argv,int *f_in,int *f_out)
 		extern int am_sender;
 		extern int am_server;
 
-		am_sender = !am_sender;
+		am_sender = read_batch ? 0 : !am_sender;
 		am_server = 1;		
 
 		if (dup2(to_child_pipe[0], STDIN_FILENO) < 0 ||
@@ -229,7 +296,7 @@ int create_directory_path(char *fname)
 
    derived from GNU C's cccp.c.
 */
-static int full_write(int desc, char *ptr, int len)
+static int full_write(int desc, char *ptr, size_t len)
 {
 	int total_written;
 	
@@ -255,11 +322,11 @@ static int full_write(int desc, char *ptr, int len)
    for an error.  
 
    derived from GNU C's cccp.c. */
-static int safe_read(int desc, char *ptr, int len)
+static int safe_read(int desc, char *ptr, size_t len)
 {
 	int n_chars;
  
-	if (len <= 0)
+	if (len == 0)
 		return len;
  
 #ifdef EINTR
@@ -282,7 +349,7 @@ int copy_file(char *source, char *dest, mode_t mode)
 	char buf[1024 * 8];
 	int len;   /* Number of bytes read into `buf'. */
 
-	ifd = open(source, O_RDONLY);
+	ifd = do_open(source, O_RDONLY, 0);
 	if (ifd == -1) {
 		rprintf(FERROR,"open %s: %s\n",
 			source,strerror(errno));
@@ -397,17 +464,6 @@ int robust_rename(char *from, char *to)
 		return -1;
 	return do_rename(from, to);
 #endif
-    }
-
-
-/* sleep for a while via select */
-void u_sleep(int usec)
-{
-	struct timeval tv;
-
-	tv.tv_sec = 0;
-	tv.tv_usec = usec;
-	select(0, NULL, NULL, NULL, &tv);
 }
 
 
@@ -477,7 +533,7 @@ int lock_range(int fd, int offset, int len)
 }
 
 
-static void glob_expand_one(char *s, char **argv, int *argc, int maxargs, int sanitize_paths)
+static void glob_expand_one(char *s, char **argv, int *argc, int maxargs)
 {
 #if !(defined(HAVE_GLOB) && defined(HAVE_GLOB_H))
 	if (!*s) s = ".";
@@ -485,14 +541,16 @@ static void glob_expand_one(char *s, char **argv, int *argc, int maxargs, int sa
 	(*argc)++;
 	return;
 #else
+	extern int sanitize_paths;
 	glob_t globbuf;
 	int i;
 
 	if (!*s) s = ".";
 
-	s = strdup(s);
-	sanitize_path(s);
-	argv[*argc] = s;
+	argv[*argc] = strdup(s);
+	if (sanitize_paths) {
+		sanitize_path(argv[*argc], NULL);
+	}
 
 	memset(&globbuf, 0, sizeof(globbuf));
 	glob(argv[*argc], 0, NULL, &globbuf);
@@ -501,7 +559,7 @@ static void glob_expand_one(char *s, char **argv, int *argc, int maxargs, int sa
 		globfree(&globbuf);
 		return;
 	}
-	for (i=0; i<(maxargs - (*argc)) && i<globbuf.gl_pathc;i++) {
+	for (i=0; i<(maxargs - (*argc)) && i < (int) globbuf.gl_pathc;i++) {
 		if (i == 0) free(argv[*argc]);
 		argv[(*argc) + i] = strdup(globbuf.gl_pathv[i]);
 		if (!argv[(*argc) + i]) out_of_memory("glob_expand");
@@ -511,7 +569,7 @@ static void glob_expand_one(char *s, char **argv, int *argc, int maxargs, int sa
 #endif
 }
 
-void glob_expand(char *base1, char **argv, int *argc, int maxargs, int sanitize_paths)
+void glob_expand(char *base1, char **argv, int *argc, int maxargs)
 {
 	char *s = argv[*argc];
 	char *p, *q;
@@ -526,20 +584,17 @@ void glob_expand(char *base1, char **argv, int *argc, int maxargs, int sanitize_
 	s = strdup(s);
 	if (!s) out_of_memory("glob_expand");
 
-	base = (char *)malloc(strlen(base1)+3);
-	if (!base) out_of_memory("glob_expand");
-
-	sprintf(base," %s/", base1);
+	if (asprintf(&base," %s/", base1) <= 0) out_of_memory("glob_expand");
 
 	q = s;
 	while ((p = strstr(q,base)) && ((*argc) < maxargs)) {
 		/* split it at this point */
 		*p = 0;
-		glob_expand_one(q, argv, argc, maxargs, sanitize_paths);
+		glob_expand_one(q, argv, argc, maxargs);
 		q = p+strlen(base);
 	}
 
-	if (*q && (*argc < maxargs)) glob_expand_one(q, argv, argc, maxargs, sanitize_paths);
+	if (*q && (*argc < maxargs)) glob_expand_one(q, argv, argc, maxargs);
 
 	free(s);
 	free(base);
@@ -555,33 +610,6 @@ void strlower(char *s)
 		s++;
 	}
 }
-
-/* this is like vsnprintf but it always null terminates, so you
-   can fit at most n-1 chars in */
-int vslprintf(char *str, int n, const char *format, va_list ap)
-{
-	int ret = vsnprintf(str, n, format, ap);
-	if (ret >= n || ret < 0) {
-		str[n-1] = 0;
-		return -1;
-	}
-	str[ret] = 0;
-	return ret;
-}
-
-
-/* like snprintf but always null terminates */
-int slprintf(char *str, int n, char *format, ...)
-{
-	va_list ap;  
-	int ret;
-
-	va_start(ap, format);
-	ret = vslprintf(str,n,format,ap);
-	va_end(ap);
-	return ret;
-}
-
 
 void *Realloc(void *p, int size)
 {
@@ -635,19 +663,37 @@ void clean_fname(char *name)
 /*
  * Make path appear as if a chroot had occurred:
  *    1. remove leading "/" (or replace with "." if at end)
- *    2. remove leading ".." components
+ *    2. remove leading ".." components (except those allowed by "reldir")
  *    3. delete any other "<dir>/.." (recursively)
+ * Can only shrink paths, so sanitizes in place.
  * While we're at it, remove double slashes and "." components like
  *   clean_fname does(), but DON'T remove a trailing slash because that
  *   is sometimes significant on command line arguments.
- * Can only shrink paths, so sanitizes in place.
+ * If "reldir" is non-null, it is a sanitized directory that the path will be
+ *    relative to, so allow as many ".." at the beginning of the path as
+ *    there are components in reldir.  This is used for symbolic link targets.
+ *    If reldir is non-null and the path began with "/", to be completely like
+ *    a chroot we should add in depth levels of ".." at the beginning of the
+ *    path, but that would blow the assumption that the path doesn't grow and
+ *    it is not likely to end up being a valid symlink anyway, so just do
+ *    the normal removal of the leading "/" instead.
  * Contributed by Dave Dykstra <dwd@bell-labs.com>
  */
 
-void sanitize_path(char *p)
+void sanitize_path(char *p, char *reldir)
 {
 	char *start, *sanp;
+	int depth = 0;
+	int allowdotdot = 0;
 
+	if (reldir) {
+		depth++;
+		while (*reldir) {
+			if (*reldir++ == '/') {
+				depth++;
+			}
+		}
+	}
 	start = p;
 	sanp = p;
 	while (*p == '/') {
@@ -665,36 +711,55 @@ void sanitize_path(char *p)
 				/* skip following slashes */
 				;
 			}
-		} else if ((*p == '.') && (*(p+1) == '.') &&
+			continue;
+		}
+		allowdotdot = 0;
+		if ((*p == '.') && (*(p+1) == '.') &&
 			    ((*(p+2) == '/') || (*(p+2) == '\0'))) {
-			/* skip ".." component followed by slash or end */
-			p += 2;
-			if (*p == '/')
-				p++;
-			if (sanp != start) {
-				/* back up sanp one level */
-				--sanp; /* now pointing at slash */
-				while ((sanp > start) && (*(sanp - 1) != '/')) {
-					/* skip back up to slash */
-					sanp--;
-				}
-			}
-		} else {
-			while (1) {
-				/* copy one component through next slash */
-				*sanp++ = *p++;
-				if ((*p == '\0') || (*(p-1) == '/')) {
-					while (*p == '/') {
-						/* skip multiple slashes */
-						p++;
+			/* ".." component followed by slash or end */
+			if ((depth > 0) && (sanp == start)) {
+				/* allow depth levels of .. at the beginning */
+				--depth;
+				allowdotdot = 1;
+			} else {
+				p += 2;
+				if (*p == '/')
+					p++;
+				if (sanp != start) {
+					/* back up sanp one level */
+					--sanp; /* now pointing at slash */
+					while ((sanp > start) && (*(sanp - 1) != '/')) {
+						/* skip back up to slash */
+						sanp--;
 					}
-					break;
 				}
+				continue;
 			}
 		}
+		while (1) {
+			/* copy one component through next slash */
+			*sanp++ = *p++;
+			if ((*p == '\0') || (*(p-1) == '/')) {
+				while (*p == '/') {
+					/* skip multiple slashes */
+					p++;
+				}
+				break;
+			}
+		}
+		if (allowdotdot) {
+			/* move the virtual beginning to leave the .. alone */
+			start = sanp;
+		}
 	}
-	if (sanp == start) {
+	if ((sanp == start) && !allowdotdot) {
 		/* ended up with nothing, so put in "." component */
+		/*
+		 * note that the !allowdotdot doesn't prevent this from
+		 *  happening in all allowed ".." situations, but I didn't
+		 *  think it was worth putting in an extra variable to ensure
+		 *  it since an extra "." won't hurt in those situations.
+		 */
 		*sanp++ = '.';
 	}
 	*sanp = '\0';
@@ -767,28 +832,91 @@ int u_strcmp(const char *cs1, const char *cs2)
 	return (int)*s1 - (int)*s2;
 }
 
-static OFF_T last_ofs;
+static OFF_T  last_ofs;
+static struct timeval print_time;
+static struct timeval start_time;
+static OFF_T  start_ofs;
 
-void end_progress(void)
+static unsigned long msdiff(struct timeval *t1, struct timeval *t2)
+{
+    return (t2->tv_sec - t1->tv_sec) * 1000
+        + (t2->tv_usec - t1->tv_usec) / 1000;
+}
+
+
+/**
+ * @param ofs Current position in file
+ * @param size Total size of file
+ * @param is_last True if this is the last time progress will be
+ * printed for this file, so we should output a newline.  (Not
+ * necessarily the same as all bytes being received.)
+ **/
+static void rprint_progress(OFF_T ofs, OFF_T size, struct timeval *now,
+			    int is_last)
+{
+    int           pct  = (ofs == size) ? 100 : (int)((100.0*ofs)/size);
+    unsigned long diff = msdiff(&start_time, now);
+    double        rate = diff ? (double) (ofs-start_ofs) * 1000.0 / diff / 1024.0 : 0;
+    const char    *units;
+    double        remain = rate ? (double) (size-ofs) / rate / 1000.0: 0.0;
+    int 	  remain_h, remain_m, remain_s;
+
+    if (rate > 1024*1024) {
+	    rate /= 1024.0 * 1024.0;
+	    units = "GB/s";
+    } else if (rate > 1024) {
+	    rate /= 1024.0;
+	    units = "MB/s";
+    } else {
+	    units = "kB/s";
+    }
+
+    remain_s = (int) remain % 60;
+    remain_m = (int) (remain / 60.0) % 60;
+    remain_h = (int) (remain / 3600.0);
+    
+    rprintf(FINFO, "%12.0f %3d%% %7.2f%s %4d:%02d:%02d%s",
+	    (double) ofs, pct, rate, units,
+	    remain_h, remain_m, remain_s,
+	    is_last ? "\n" : "\r");
+}
+
+void end_progress(OFF_T size)
 {
 	extern int do_progress, am_server;
 
 	if (do_progress && !am_server) {
-		rprintf(FINFO,"\n");
+        	struct timeval now;
+                gettimeofday(&now, NULL);
+                rprint_progress(size, size, &now, True);
 	}
-	last_ofs = 0;
+	last_ofs   = 0;
+        start_ofs  = 0;
+        print_time.tv_sec  = print_time.tv_usec  = 0;
+        start_time.tv_sec  = start_time.tv_usec  = 0;
 }
 
 void show_progress(OFF_T ofs, OFF_T size)
 {
 	extern int do_progress, am_server;
+        struct timeval now;
 
-	if (do_progress && !am_server) {
-		if (ofs > last_ofs + 1000) {
-			int pct = (int)((100.0*ofs)/size);
-			rprintf(FINFO,"%.0f (%d%%)\r", (double)ofs, pct);
-			last_ofs = ofs;
-		}
+        gettimeofday(&now, NULL);
+
+        if (!start_time.tv_sec && !start_time.tv_usec) {
+        	start_time.tv_sec  = now.tv_sec;
+                start_time.tv_usec = now.tv_usec;
+                start_ofs          = ofs;
+        }
+
+	if (do_progress
+            && !am_server
+            && ofs > last_ofs + 1000
+            && msdiff(&print_time, &now) > 250) {
+        	rprint_progress(ofs, size, &now, False);
+                last_ofs = ofs;
+                print_time.tv_sec  = now.tv_sec;
+                print_time.tv_usec = now.tv_usec;
 	}
 }
 
@@ -861,3 +989,85 @@ char *timestring(time_t t)
 	return(TimeBuf);
 }
 
+
+/**
+ * Sleep for a specified number of milliseconds.
+ *
+ * Always returns TRUE.  (In the future it might return FALSE if
+ * interrupted.)
+ **/
+int msleep(int t)
+{
+	int tdiff=0;
+	struct timeval tval,t1,t2;  
+
+	gettimeofday(&t1, NULL);
+	gettimeofday(&t2, NULL);
+  
+	while (tdiff < t) {
+		tval.tv_sec = (t-tdiff)/1000;
+		tval.tv_usec = 1000*((t-tdiff)%1000);
+ 
+		errno = 0;
+		select(0,NULL,NULL, NULL, &tval);
+
+		gettimeofday(&t2, NULL);
+		tdiff = (t2.tv_sec - t1.tv_sec)*1000 + 
+			(t2.tv_usec - t1.tv_usec)/1000;
+	}
+
+	return True;
+}
+
+
+/*******************************************************************
+ Determine if two file modification times are equivalent (either exact 
+ or in the modification timestamp window established by --modify-window) 
+ Returns 0 if the times should be treated as the same, 1 if the 
+ first is later and -1 if the 2nd is later
+ *******************************************************************/
+int cmp_modtime(time_t file1, time_t file2)
+{
+	extern int modify_window;
+
+	if (file2 > file1) {
+		if (file2 - file1 <= modify_window) return 0;
+		return -1;
+	}
+	if (file1 - file2 <= modify_window) return 0;
+	return 1;
+}
+
+
+#ifdef __INSURE__XX
+#include <dlfcn.h>
+
+/*******************************************************************
+This routine is a trick to immediately catch errors when debugging
+with insure. A xterm with a gdb is popped up when insure catches
+a error. It is Linux specific.
+********************************************************************/
+int _Insure_trap_error(int a1, int a2, int a3, int a4, int a5, int a6)
+{
+	static int (*fn)();
+	int ret;
+	char *cmd;
+
+	asprintf(&cmd, "/usr/X11R6/bin/xterm -display :0 -T Panic -n Panic -e /bin/sh -c 'cat /tmp/ierrs.*.%d ; gdb /proc/%d/exe %d'", 
+		getpid(), getpid(), getpid());
+
+	if (!fn) {
+		static void *h;
+		h = dlopen("/usr/local/parasoft/insure++lite/lib.linux2/libinsure.so", RTLD_LAZY);
+		fn = dlsym(h, "_Insure_trap_error");
+	}
+
+	ret = fn(a1, a2, a3, a4, a5, a6);
+
+	system(cmd);
+
+	free(cmd);
+
+	return ret;
+}
+#endif

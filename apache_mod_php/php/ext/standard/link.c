@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: link.c,v 1.1.1.4 2001/07/19 00:20:16 zarzycki Exp $ */
+/* $Id: link.c,v 1.1.1.5 2001/12/14 22:13:23 zarzycki Exp $ */
 
 #include "php.h"
 #include "php_filestat.h"
@@ -70,7 +70,7 @@ PHP_FUNCTION(readlink)
 	}
 	/* Append NULL to the end of the string */
 	buff[ret] = '\0';
-	RETURN_STRING(buff,1);
+	RETURN_STRING(buff, 1);
 }
 /* }}} */
 
@@ -102,7 +102,6 @@ PHP_FUNCTION(symlink)
 {
 	pval **topath, **frompath;
 	int ret;
-	PLS_FETCH();
 
 	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2, &topath, &frompath) == FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -113,7 +112,7 @@ PHP_FUNCTION(symlink)
 	if (PG(safe_mode) && !php_checkuid((*topath)->value.str.val, NULL, CHECKUID_CHECK_FILE_AND_DIR)) {
 		RETURN_FALSE;
 	}
-	if (!strncasecmp((*topath)->value.str.val,"http://",7) || !strncasecmp((*topath)->value.str.val,"ftp://",6)) {
+	if (!strncasecmp((*topath)->value.str.val, "http://", 7) || !strncasecmp((*topath)->value.str.val, "ftp://", 6)) {
 		php_error(E_WARNING, "Unable to symlink to a URL");
 		RETURN_FALSE;
 	}
@@ -133,7 +132,6 @@ PHP_FUNCTION(link)
 {
 	pval **topath, **frompath;
 	int ret;
-	PLS_FETCH();
 
 	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2, &topath, &frompath) == FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -144,7 +142,7 @@ PHP_FUNCTION(link)
 	if (PG(safe_mode) && !php_checkuid((*topath)->value.str.val, NULL, CHECKUID_CHECK_FILE_AND_DIR)) {
 		RETURN_FALSE;
 	}
-	if (!strncasecmp((*topath)->value.str.val,"http://",7) || !strncasecmp((*topath)->value.str.val,"ftp://",6)) {
+	if (!strncasecmp((*topath)->value.str.val, "http://", 7) || !strncasecmp((*topath)->value.str.val, "ftp://", 6)) {
 		php_error(E_WARNING, "Unable to link to a URL");
 		RETURN_FALSE;
 	}
@@ -158,7 +156,6 @@ PHP_FUNCTION(link)
 }
 /* }}} */
 
-
 #endif
 
 /*
@@ -166,4 +163,6 @@ PHP_FUNCTION(link)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
  */

@@ -287,11 +287,11 @@ static const short yyrhs[] = {    -1,
 #if YYDEBUG != 0
 static const short yyrline[] = { 0,
    202,   203,   206,   209,   212,   215,   218,   221,   224,   230,
-   236,   245,   251,   263,   266,   269,   275,   279,   283,   289,
-   293,   311,   317,   323,   328,   332,   337,   341,   348,   356,
-   359,   362,   365,   368,   371,   374,   377,   380,   383,   386,
-   389,   392,   395,   398,   401,   404,   407,   410,   415,   448,
-   452
+   236,   245,   251,   266,   269,   272,   278,   282,   286,   292,
+   296,   314,   320,   326,   331,   335,   340,   344,   351,   359,
+   362,   365,   368,   371,   374,   377,   380,   383,   386,   389,
+   392,   395,   398,   401,   404,   407,   410,   413,   418,   451,
+   455
 };
 #endif
 
@@ -978,14 +978,17 @@ case 12:
     break;}
 case 13:
 {
+	    /* ISO 8601 format.  hh:mm:ss[+-][0-9]{2}([0-9]{2})?.  */
 	    yyHour = yyvsp[-5].Number;
 	    yyMinutes = yyvsp[-3].Number;
 	    yySeconds = yyvsp[-1].Number;
 	    yyMeridian = MER24;
 	    yyHaveZone++;
-	    yyTimezone = (yyvsp[0].Number < 0
-			  ? -yyvsp[0].Number % 100 + (-yyvsp[0].Number / 100) * 60
-			  : - (yyvsp[0].Number % 100 + (yyvsp[0].Number / 100) * 60));
+		if (yyvsp[0].Number <= -100 || yyvsp[0].Number >= 100) {
+			yyTimezone =  -yyvsp[0].Number % 100 + (-yyvsp[0].Number / 100) * 60;
+		} else {
+			yyTimezone =  -yyvsp[0].Number * 60;
+		}
 	;
     break;}
 case 14:

@@ -1,4 +1,4 @@
-dnl $Id: config.m4,v 1.1.1.4 2001/07/19 00:19:52 zarzycki Exp $
+dnl $Id: config.m4,v 1.1.1.5 2001/12/14 22:13:02 zarzycki Exp $
 
 AC_DEFUN(PGSQL_INC_CHK,[if test -r $i$1/libpq-fe.h; then PGSQL_DIR=$i; PGSQL_INCDIR=$i$1])
 
@@ -18,22 +18,22 @@ if test "$PHP_PGSQL" != "no"; then
   done
   
   if test -z "$PGSQL_DIR"; then
-    AC_MSG_RESULT(Cannot find libpq-fe.h. Please specify the installation path of PostgreSQL)
+    AC_MSG_ERROR(Cannot find libpq-fe.h. Please specify the installation path of PostgreSQL)
   fi
 
-  PGSQL_INCLUDE="-I$PGSQL_INCDIR"
+  PGSQL_INCLUDE=-I$PGSQL_INCDIR
   PGSQL_LIBDIR=$PGSQL_DIR/lib
   test -d $PGSQL_DIR/lib/pgsql && PGSQL_LIBDIR=$PGSQL_DIR/lib/pgsql
 
-  old_LIBS="$LIBS"
-  old_LDFLAGS="$LDFLAGS"
+  old_LIBS=$LIBS
+  old_LDFLAGS=$LDFLAGS
   LDFLAGS="$LDFLAGS -L$PGSQL_LIBDIR"
   AC_CHECK_LIB(pq, PQcmdTuples,AC_DEFINE(HAVE_PQCMDTUPLES,1,[ ]))
   AC_CHECK_LIB(pq, PQoidValue,AC_DEFINE(HAVE_PQOIDVALUE,1,[ ]))
   AC_CHECK_LIB(pq, PQclientEncoding,AC_DEFINE(HAVE_PQCLIENTENCODING,1,[ ]))
   AC_CHECK_LIB(pq, pg_encoding_to_char,AC_DEFINE(HAVE_PGSQL_WITH_MULTIBYTE_SUPPORT,1,[ ]))
-  LIBS="$old_LIBS"
-  LDFLAGS="$old_LDFLAGS"
+  LIBS=$old_LIBS
+  LDFLAGS=$old_LDFLAGS
   
   AC_DEFINE(HAVE_PGSQL,1,[ ])
 

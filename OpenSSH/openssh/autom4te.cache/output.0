@@ -697,8 +697,7 @@ Optional Packages:
   --with-cppflags         Specify additional flags to pass to preprocessor 
   --with-ldflags          Specify additional flags to pass to linker
   --with-libs             Specify additional libraries to link with
-  --with-pcre[=PATH]      Override built in regex library with pcre
-                            (optionally in PATH)
+  --without-rpath         Disable auto-added -R linker paths
   --with-zlib=PATH        Use zlib in PATH
   --with-skey[=PATH]      Enable S/Key support
                             (optionally in PATH)
@@ -706,14 +705,15 @@ Optional Packages:
                             (optionally in PATH)
   --with-pam              Enable PAM support 
   --with-ssl-dir=PATH     Specify path to OpenSSL installation 
+  --with-rand-helper      Use subprocess to gather strong randomness 
+  --with-prngd-port=PORT  read entropy from PRNGD/EGD TCP localhost:PORT
+  --with-prngd-socket=FILE read entropy from PRNGD/EGD socket FILE (default=/var/run/egd-pool)
+  --with-entropy-timeout  Specify entropy gathering command timeout (msec)
   --with-smartcard        Enable smartcard support
   --with-kerberos4=PATH   Enable Kerberos 4 support
   --with-afs=PATH         Enable AFS support
   --with-rsh=PATH         Specify path to remote shell program 
   --with-xauth=PATH       Specify path to xauth program 
-  --with-random=FILE      read entropy from FILE (default=/dev/urandom)
-  --with-prngd-port=PORT  read entropy from PRNGD/EGD localhost:PORT
-  --with-prngd-socket=FILE read entropy from PRNGD/EGD socket FILE (default=/var/run/egd-pool)
   --with-mantype=man|cat|doc  Set man page type
   --with-md5-passwords    Enable use of MD5 passwords
   --without-shadow        Disable shadow password support
@@ -724,7 +724,6 @@ Optional Packages:
   --with-bsd-auth         Enable BSD auth support
   --with-pid-dir=PATH     Specify location of ssh.pid file
   --with-lastlog=FILE|DIR specify lastlog location common locations
-  --with-entropy-timeout  Specify entropy gathering command timeout (msec)
 
 Some influential environment variables:
   CC          C compiler command
@@ -3317,9 +3316,13 @@ _ACEOF
 @%:@define DISABLE_LASTLOG 1
 _ACEOF
 
+	cat >>confdefs.h <<\_ACEOF
+@%:@define HAVE_BOGUS_SYS_QUEUE_H 1
+_ACEOF
+
 	;;
 *-*-cygwin*)
-	LIBS="$LIBS -lregex /usr/lib/textmode.o"
+	LIBS="$LIBS /usr/lib/textmode.o"
 	cat >>confdefs.h <<\_ACEOF
 @%:@define HAVE_CYGWIN 1
 _ACEOF
@@ -3516,6 +3519,10 @@ _ACEOF
 
 	cat >>confdefs.h <<\_ACEOF
 @%:@define PAM_TTY_KLUDGE 1
+_ACEOF
+
+	cat >>confdefs.h <<\_ACEOF
+@%:@define HAVE_BOGUS_SYS_QUEUE_H 1
 _ACEOF
 
 	inet6_default_4in6=yes
@@ -3765,6 +3772,10 @@ _ACEOF
 	LIBS="$LIBS -lc89"
 	cat >>confdefs.h <<\_ACEOF
 @%:@define HAVE_BOGUS_SYS_QUEUE_H 1
+_ACEOF
+
+	cat >>confdefs.h <<\_ACEOF
+@%:@define USE_PIPES 1
 _ACEOF
 
 	;;
@@ -4139,6 +4150,7 @@ if test "${with_libs+set}" = set; then
 
 fi; 
 
+# Checks for header files.
 
 echo "$as_me:__oline__: checking for ANSI C header files" >&5
 echo $ECHO_N "checking for ANSI C header files... $ECHO_C" >&6
@@ -4337,51 +4349,75 @@ done
 
 
 
-# Check whether --with-pcre or --without-pcre was given.
-if test "${with_pcre+set}" = set; then
-  withval="$with_pcre"
-  
-		case "$withval" in
-		no) ;;
-		*)
-			if test "x$withval" != "xyes"; then
-				if test -d "$withval/lib"; then
-					if test -n "${need_dash_r}"; then
-						LDFLAGS="-L${withval}/lib -R${withval}/lib ${LDFLAGS}"
-					else
-						LDFLAGS="-L${withval}/lib ${LDFLAGS}"
-					fi
-				else
-					if test -n "${need_dash_r}"; then
-						LDFLAGS="-L${withval} -R${withval} ${LDFLAGS}"
-					else
-						LDFLAGS="-L${withval} ${LDFLAGS}"
-					fi
-				fi
-				if test -d "$withval/include"; then
-					CPPFLAGS="-I${withval}/include ${CPPFLAGS}"
-				else
-					CPPFLAGS="-I${withval} ${CPPFLAGS}"
-				fi
-			fi
 
-			if test "${ac_cv_header_pcreposix_h+set}" = set; then
-  echo "$as_me:__oline__: checking for pcreposix.h" >&5
-echo $ECHO_N "checking for pcreposix.h... $ECHO_C" >&6
-if test "${ac_cv_header_pcreposix_h+set}" = set; then
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+for ac_header in bstring.h crypt.h endian.h floatingpoint.h \
+	getopt.h glob.h lastlog.h limits.h login.h \
+	login_cap.h maillock.h netdb.h netgroup.h \
+	netinet/in_systm.h paths.h poll.h pty.h \
+	security/pam_appl.h shadow.h stddef.h stdint.h \
+	strings.h sys/bitypes.h sys/bsdtty.h sys/cdefs.h \
+	sys/poll.h sys/queue.h sys/select.h sys/stat.h \
+	sys/stropts.h sys/sysmacros.h sys/time.h \
+	sys/ttcompat.h sys/un.h time.h ttyent.h usersec.h \
+	util.h utime.h utmp.h utmpx.h
+do
+as_ac_Header=`echo "ac_cv_header_$ac_header" | $as_tr_sh`
+if eval "test \"\${$as_ac_Header+set}\" = set"; then
+  echo "$as_me:__oline__: checking for $ac_header" >&5
+echo $ECHO_N "checking for $ac_header... $ECHO_C" >&6
+if eval "test \"\${$as_ac_Header+set}\" = set"; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 fi
-echo "$as_me:__oline__: result: $ac_cv_header_pcreposix_h" >&5
-echo "${ECHO_T}$ac_cv_header_pcreposix_h" >&6
+echo "$as_me:__oline__: result: `eval echo '${'$as_ac_Header'}'`" >&5
+echo "${ECHO_T}`eval echo '${'$as_ac_Header'}'`" >&6
 else
   # Is the header compilable?
-echo "$as_me:__oline__: checking pcreposix.h usability" >&5
-echo $ECHO_N "checking pcreposix.h usability... $ECHO_C" >&6
+echo "$as_me:__oline__: checking $ac_header usability" >&5
+echo $ECHO_N "checking $ac_header usability... $ECHO_C" >&6
 cat >conftest.$ac_ext <<_ACEOF
 #line __oline__ "configure"
 #include "confdefs.h"
 $ac_includes_default
-@%:@include <pcreposix.h>
+@%:@include <$ac_header>
 _ACEOF
 rm -f conftest.$ac_objext
 if { (eval echo "$as_me:__oline__: \"$ac_compile\"") >&5
@@ -4406,12 +4442,12 @@ echo "$as_me:__oline__: result: $ac_header_compiler" >&5
 echo "${ECHO_T}$ac_header_compiler" >&6
 
 # Is the header present?
-echo "$as_me:__oline__: checking pcreposix.h presence" >&5
-echo $ECHO_N "checking pcreposix.h presence... $ECHO_C" >&6
+echo "$as_me:__oline__: checking $ac_header presence" >&5
+echo $ECHO_N "checking $ac_header presence... $ECHO_C" >&6
 cat >conftest.$ac_ext <<_ACEOF
 #line __oline__ "configure"
 #include "confdefs.h"
-@%:@include <pcreposix.h>
+@%:@include <$ac_header>
 _ACEOF
 if { (eval echo "$as_me:__oline__: \"$ac_cpp conftest.$ac_ext\"") >&5
   (eval $ac_cpp conftest.$ac_ext) 2>conftest.er1
@@ -4443,111 +4479,38 @@ echo "${ECHO_T}$ac_header_preproc" >&6
 # So?  What about this header?
 case $ac_header_compiler:$ac_header_preproc in
   yes:no )
-    { echo "$as_me:__oline__: WARNING: pcreposix.h: accepted by the compiler, rejected by the preprocessor!" >&5
-echo "$as_me: WARNING: pcreposix.h: accepted by the compiler, rejected by the preprocessor!" >&2;}
-    { echo "$as_me:__oline__: WARNING: pcreposix.h: proceeding with the preprocessor's result" >&5
-echo "$as_me: WARNING: pcreposix.h: proceeding with the preprocessor's result" >&2;};;
+    { echo "$as_me:__oline__: WARNING: $ac_header: accepted by the compiler, rejected by the preprocessor!" >&5
+echo "$as_me: WARNING: $ac_header: accepted by the compiler, rejected by the preprocessor!" >&2;}
+    { echo "$as_me:__oline__: WARNING: $ac_header: proceeding with the preprocessor's result" >&5
+echo "$as_me: WARNING: $ac_header: proceeding with the preprocessor's result" >&2;};;
   no:yes )
-    { echo "$as_me:__oline__: WARNING: pcreposix.h: present but cannot be compiled." >&5
-echo "$as_me: WARNING: pcreposix.h: present but cannot be compiled." >&2;}
-    { echo "$as_me:__oline__: WARNING: pcreposix.h: check for missing prerequisite headers?" >&5
-echo "$as_me: WARNING: pcreposix.h: check for missing prerequisite headers?" >&2;}
-    { echo "$as_me:__oline__: WARNING: pcreposix.h: proceeding with the preprocessor's result" >&5
-echo "$as_me: WARNING: pcreposix.h: proceeding with the preprocessor's result" >&2;};;
+    { echo "$as_me:__oline__: WARNING: $ac_header: present but cannot be compiled." >&5
+echo "$as_me: WARNING: $ac_header: present but cannot be compiled." >&2;}
+    { echo "$as_me:__oline__: WARNING: $ac_header: check for missing prerequisite headers?" >&5
+echo "$as_me: WARNING: $ac_header: check for missing prerequisite headers?" >&2;}
+    { echo "$as_me:__oline__: WARNING: $ac_header: proceeding with the preprocessor's result" >&5
+echo "$as_me: WARNING: $ac_header: proceeding with the preprocessor's result" >&2;};;
 esac
-echo "$as_me:__oline__: checking for pcreposix.h" >&5
-echo $ECHO_N "checking for pcreposix.h... $ECHO_C" >&6
-if test "${ac_cv_header_pcreposix_h+set}" = set; then
+echo "$as_me:__oline__: checking for $ac_header" >&5
+echo $ECHO_N "checking for $ac_header... $ECHO_C" >&6
+if eval "test \"\${$as_ac_Header+set}\" = set"; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
-  ac_cv_header_pcreposix_h=$ac_header_preproc
+  eval "$as_ac_Header=$ac_header_preproc"
 fi
-echo "$as_me:__oline__: result: $ac_cv_header_pcreposix_h" >&5
-echo "${ECHO_T}$ac_cv_header_pcreposix_h" >&6
+echo "$as_me:__oline__: result: `eval echo '${'$as_ac_Header'}'`" >&5
+echo "${ECHO_T}`eval echo '${'$as_ac_Header'}'`" >&6
 
 fi
-if test $ac_cv_header_pcreposix_h = yes; then
-  echo "$as_me:__oline__: checking for pcre_info in -lpcre" >&5
-echo $ECHO_N "checking for pcre_info in -lpcre... $ECHO_C" >&6
-if test "${ac_cv_lib_pcre_pcre_info+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-lpcre  $LIBS"
-cat >conftest.$ac_ext <<_ACEOF
-#line __oline__ "configure"
-#include "confdefs.h"
-
-/* Override any gcc2 internal prototype to avoid an error.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-/* We use char because int might match the return type of a gcc2
-   builtin and then its argument prototype would still apply.  */
-char pcre_info ();
-#ifdef F77_DUMMY_MAIN
-#  ifdef __cplusplus
-     extern "C"
-#  endif
-   int F77_DUMMY_MAIN() { return 1; }
-#endif
-int
-main ()
-{
-pcre_info ();
-  ;
-  return 0;
-}
+if test `eval echo '${'$as_ac_Header'}'` = yes; then
+  cat >>confdefs.h <<_ACEOF
+@%:@define `echo "HAVE_$ac_header" | $as_tr_cpp` 1
 _ACEOF
-rm -f conftest.$ac_objext conftest$ac_exeext
-if { (eval echo "$as_me:__oline__: \"$ac_link\"") >&5
-  (eval $ac_link) 2>&5
-  ac_status=$?
-  echo "$as_me:__oline__: \$? = $ac_status" >&5
-  (exit $ac_status); } &&
-         { ac_try='test -s conftest$ac_exeext'
-  { (eval echo "$as_me:__oline__: \"$ac_try\"") >&5
-  (eval $ac_try) 2>&5
-  ac_status=$?
-  echo "$as_me:__oline__: \$? = $ac_status" >&5
-  (exit $ac_status); }; }; then
-  ac_cv_lib_pcre_pcre_info=yes
-else
-  echo "$as_me: failed program was:" >&5
-cat conftest.$ac_ext >&5
-ac_cv_lib_pcre_pcre_info=no
-fi
-rm -f conftest.$ac_objext conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-echo "$as_me:__oline__: result: $ac_cv_lib_pcre_pcre_info" >&5
-echo "${ECHO_T}$ac_cv_lib_pcre_pcre_info" >&6
-if test $ac_cv_lib_pcre_pcre_info = yes; then
-  
-					cat >>confdefs.h <<\_ACEOF
-@%:@define HAVE_LIBPCRE 1
-_ACEOF
-
-					LIBS="$LIBS -lpcreposix -lpcre"
-					no_comp_check=yes
-else
-  { { echo "$as_me:__oline__: error: *** unable to locate pcre library ***" >&5
-echo "$as_me: error: *** unable to locate pcre library ***" >&2;}
-   { (exit 1); exit 1; }; }
+ 
 fi
 
-else
-  { { echo "$as_me:__oline__: error: *** unable to locate pcreposix.h include file ***" >&5
-echo "$as_me: error: *** unable to locate pcreposix.h include file ***" >&2;}
-   { (exit 1); exit 1; }; }
-fi
+done
 
-
-			;;
-		esac
-		
-
-fi; 
 
 # Checks for libraries.
 echo "$as_me:__oline__: checking for yp_match" >&5
@@ -5013,10 +4976,30 @@ fi
 
 
 
+# Check whether --with-rpath or --without-rpath was given.
+if test "${with_rpath+set}" = set; then
+  withval="$with_rpath"
+  
+		if test "x$withval" = "xno" ; then	
+			need_dash_r=""
+		fi
+		if test "x$withval" = "xyes" ; then
+			need_dash_r=1
+		fi
+	
+
+fi; 
+
+
 # Check whether --with-zlib or --without-zlib was given.
 if test "${with_zlib+set}" = set; then
   withval="$with_zlib"
   
+		if test "x$withval" = "xno" ; then
+			{ { echo "$as_me:__oline__: error: *** zlib is required ***" >&5
+echo "$as_me: error: *** zlib is required ***" >&2;}
+   { (exit 1); exit 1; }; }
+		fi
 		if test -d "$withval/lib"; then
 			if test -n "${need_dash_r}"; then
 				LDFLAGS="-L${withval}/lib -R${withval}/lib ${LDFLAGS}"
@@ -5108,156 +5091,6 @@ echo "$as_me: error: *** zlib missing - please install first or check config.log
    { (exit 1); exit 1; }; }
 fi
 
-
-# We don't want to check if we did an pcre override.
-if test -z "$no_comp_check" ; then
-	echo "$as_me:__oline__: checking for regcomp" >&5
-echo $ECHO_N "checking for regcomp... $ECHO_C" >&6
-if test "${ac_cv_func_regcomp+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  cat >conftest.$ac_ext <<_ACEOF
-#line __oline__ "configure"
-#include "confdefs.h"
-/* System header to define __stub macros and hopefully few prototypes,
-    which can conflict with char regcomp (); below.  */
-#include <assert.h>
-/* Override any gcc2 internal prototype to avoid an error.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-/* We use char because int might match the return type of a gcc2
-   builtin and then its argument prototype would still apply.  */
-char regcomp ();
-char (*f) ();
-
-#ifdef F77_DUMMY_MAIN
-#  ifdef __cplusplus
-     extern "C"
-#  endif
-   int F77_DUMMY_MAIN() { return 1; }
-#endif
-int
-main ()
-{
-/* The GNU C library defines this for functions which it implements
-    to always fail with ENOSYS.  Some functions are actually named
-    something starting with __ and the normal name is an alias.  */
-#if defined (__stub_regcomp) || defined (__stub___regcomp)
-choke me
-#else
-f = regcomp;
-#endif
-
-  ;
-  return 0;
-}
-_ACEOF
-rm -f conftest.$ac_objext conftest$ac_exeext
-if { (eval echo "$as_me:__oline__: \"$ac_link\"") >&5
-  (eval $ac_link) 2>&5
-  ac_status=$?
-  echo "$as_me:__oline__: \$? = $ac_status" >&5
-  (exit $ac_status); } &&
-         { ac_try='test -s conftest$ac_exeext'
-  { (eval echo "$as_me:__oline__: \"$ac_try\"") >&5
-  (eval $ac_try) 2>&5
-  ac_status=$?
-  echo "$as_me:__oline__: \$? = $ac_status" >&5
-  (exit $ac_status); }; }; then
-  ac_cv_func_regcomp=yes
-else
-  echo "$as_me: failed program was:" >&5
-cat conftest.$ac_ext >&5
-ac_cv_func_regcomp=no
-fi
-rm -f conftest.$ac_objext conftest$ac_exeext conftest.$ac_ext
-fi
-echo "$as_me:__oline__: result: $ac_cv_func_regcomp" >&5
-echo "${ECHO_T}$ac_cv_func_regcomp" >&6
-if test $ac_cv_func_regcomp = yes; then
-   cat >>confdefs.h <<\_ACEOF
-@%:@define HAVE_REGCOMP 1
-_ACEOF
-
-else
-  
-			echo "$as_me:__oline__: checking for pcre_info in -lpcre" >&5
-echo $ECHO_N "checking for pcre_info in -lpcre... $ECHO_C" >&6
-if test "${ac_cv_lib_pcre_pcre_info+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-lpcre  $LIBS"
-cat >conftest.$ac_ext <<_ACEOF
-#line __oline__ "configure"
-#include "confdefs.h"
-
-/* Override any gcc2 internal prototype to avoid an error.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-/* We use char because int might match the return type of a gcc2
-   builtin and then its argument prototype would still apply.  */
-char pcre_info ();
-#ifdef F77_DUMMY_MAIN
-#  ifdef __cplusplus
-     extern "C"
-#  endif
-   int F77_DUMMY_MAIN() { return 1; }
-#endif
-int
-main ()
-{
-pcre_info ();
-  ;
-  return 0;
-}
-_ACEOF
-rm -f conftest.$ac_objext conftest$ac_exeext
-if { (eval echo "$as_me:__oline__: \"$ac_link\"") >&5
-  (eval $ac_link) 2>&5
-  ac_status=$?
-  echo "$as_me:__oline__: \$? = $ac_status" >&5
-  (exit $ac_status); } &&
-         { ac_try='test -s conftest$ac_exeext'
-  { (eval echo "$as_me:__oline__: \"$ac_try\"") >&5
-  (eval $ac_try) 2>&5
-  ac_status=$?
-  echo "$as_me:__oline__: \$? = $ac_status" >&5
-  (exit $ac_status); }; }; then
-  ac_cv_lib_pcre_pcre_info=yes
-else
-  echo "$as_me: failed program was:" >&5
-cat conftest.$ac_ext >&5
-ac_cv_lib_pcre_pcre_info=no
-fi
-rm -f conftest.$ac_objext conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-echo "$as_me:__oline__: result: $ac_cv_lib_pcre_pcre_info" >&5
-echo "${ECHO_T}$ac_cv_lib_pcre_pcre_info" >&6
-if test $ac_cv_lib_pcre_pcre_info = yes; then
-  
-				cat >>confdefs.h <<\_ACEOF
-@%:@define HAVE_LIBPCRE 1
-_ACEOF
-
-				LIBS="$LIBS -lpcreposix -lpcre"
-			
-else
-  
-				{ { echo "$as_me:__oline__: error: *** No regex library found." >&5
-echo "$as_me: error: *** No regex library found." >&2;}
-   { (exit 1); exit 1; }; }
-			
-fi
-
-		
-	
-fi
-
-fi
 
 echo "$as_me:__oline__: checking for strcasecmp" >&5
 echo $ECHO_N "checking for strcasecmp... $ECHO_C" >&6
@@ -5964,172 +5797,6 @@ fi
 done
 
 
-# Checks for header files.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-for ac_header in bstring.h crypt.h endian.h floatingpoint.h \
-	getopt.h glob.h lastlog.h limits.h login.h \
-	login_cap.h maillock.h netdb.h netgroup.h \
-	netinet/in_systm.h paths.h poll.h pty.h regex.h \
-	security/pam_appl.h shadow.h stddef.h stdint.h \
-	strings.h sys/bitypes.h sys/bsdtty.h sys/cdefs.h \
-	sys/poll.h sys/queue.h sys/select.h sys/stat.h \
-	sys/stropts.h sys/sysmacros.h sys/time.h \
-	sys/ttcompat.h sys/un.h time.h ttyent.h usersec.h \
-	util.h utime.h utmp.h utmpx.h
-do
-as_ac_Header=`echo "ac_cv_header_$ac_header" | $as_tr_sh`
-if eval "test \"\${$as_ac_Header+set}\" = set"; then
-  echo "$as_me:__oline__: checking for $ac_header" >&5
-echo $ECHO_N "checking for $ac_header... $ECHO_C" >&6
-if eval "test \"\${$as_ac_Header+set}\" = set"; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-fi
-echo "$as_me:__oline__: result: `eval echo '${'$as_ac_Header'}'`" >&5
-echo "${ECHO_T}`eval echo '${'$as_ac_Header'}'`" >&6
-else
-  # Is the header compilable?
-echo "$as_me:__oline__: checking $ac_header usability" >&5
-echo $ECHO_N "checking $ac_header usability... $ECHO_C" >&6
-cat >conftest.$ac_ext <<_ACEOF
-#line __oline__ "configure"
-#include "confdefs.h"
-$ac_includes_default
-@%:@include <$ac_header>
-_ACEOF
-rm -f conftest.$ac_objext
-if { (eval echo "$as_me:__oline__: \"$ac_compile\"") >&5
-  (eval $ac_compile) 2>&5
-  ac_status=$?
-  echo "$as_me:__oline__: \$? = $ac_status" >&5
-  (exit $ac_status); } &&
-         { ac_try='test -s conftest.$ac_objext'
-  { (eval echo "$as_me:__oline__: \"$ac_try\"") >&5
-  (eval $ac_try) 2>&5
-  ac_status=$?
-  echo "$as_me:__oline__: \$? = $ac_status" >&5
-  (exit $ac_status); }; }; then
-  ac_header_compiler=yes
-else
-  echo "$as_me: failed program was:" >&5
-cat conftest.$ac_ext >&5
-ac_header_compiler=no
-fi
-rm -f conftest.$ac_objext conftest.$ac_ext
-echo "$as_me:__oline__: result: $ac_header_compiler" >&5
-echo "${ECHO_T}$ac_header_compiler" >&6
-
-# Is the header present?
-echo "$as_me:__oline__: checking $ac_header presence" >&5
-echo $ECHO_N "checking $ac_header presence... $ECHO_C" >&6
-cat >conftest.$ac_ext <<_ACEOF
-#line __oline__ "configure"
-#include "confdefs.h"
-@%:@include <$ac_header>
-_ACEOF
-if { (eval echo "$as_me:__oline__: \"$ac_cpp conftest.$ac_ext\"") >&5
-  (eval $ac_cpp conftest.$ac_ext) 2>conftest.er1
-  ac_status=$?
-  egrep -v '^ *\+' conftest.er1 >conftest.err
-  rm -f conftest.er1
-  cat conftest.err >&5
-  echo "$as_me:__oline__: \$? = $ac_status" >&5
-  (exit $ac_status); } >/dev/null; then
-  if test -s conftest.err; then
-    ac_cpp_err=$ac_c_preproc_warn_flag
-  else
-    ac_cpp_err=
-  fi
-else
-  ac_cpp_err=yes
-fi
-if test -z "$ac_cpp_err"; then
-  ac_header_preproc=yes
-else
-  echo "$as_me: failed program was:" >&5
-  cat conftest.$ac_ext >&5
-  ac_header_preproc=no
-fi
-rm -f conftest.err conftest.$ac_ext
-echo "$as_me:__oline__: result: $ac_header_preproc" >&5
-echo "${ECHO_T}$ac_header_preproc" >&6
-
-# So?  What about this header?
-case $ac_header_compiler:$ac_header_preproc in
-  yes:no )
-    { echo "$as_me:__oline__: WARNING: $ac_header: accepted by the compiler, rejected by the preprocessor!" >&5
-echo "$as_me: WARNING: $ac_header: accepted by the compiler, rejected by the preprocessor!" >&2;}
-    { echo "$as_me:__oline__: WARNING: $ac_header: proceeding with the preprocessor's result" >&5
-echo "$as_me: WARNING: $ac_header: proceeding with the preprocessor's result" >&2;};;
-  no:yes )
-    { echo "$as_me:__oline__: WARNING: $ac_header: present but cannot be compiled." >&5
-echo "$as_me: WARNING: $ac_header: present but cannot be compiled." >&2;}
-    { echo "$as_me:__oline__: WARNING: $ac_header: check for missing prerequisite headers?" >&5
-echo "$as_me: WARNING: $ac_header: check for missing prerequisite headers?" >&2;}
-    { echo "$as_me:__oline__: WARNING: $ac_header: proceeding with the preprocessor's result" >&5
-echo "$as_me: WARNING: $ac_header: proceeding with the preprocessor's result" >&2;};;
-esac
-echo "$as_me:__oline__: checking for $ac_header" >&5
-echo $ECHO_N "checking for $ac_header... $ECHO_C" >&6
-if eval "test \"\${$as_ac_Header+set}\" = set"; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  eval "$as_ac_Header=$ac_header_preproc"
-fi
-echo "$as_me:__oline__: result: `eval echo '${'$as_ac_Header'}'`" >&5
-echo "${ECHO_T}`eval echo '${'$as_ac_Header'}'`" >&6
-
-fi
-if test `eval echo '${'$as_ac_Header'}'` = yes; then
-  cat >>confdefs.h <<_ACEOF
-@%:@define `echo "HAVE_$ac_header" | $as_tr_cpp` 1
-_ACEOF
- 
-fi
-
-done
-
-
 # Check for ALTDIRFUNC glob() extension
 echo "$as_me:__oline__: checking for GLOB_ALTDIRFUNC support" >&5
 echo $ECHO_N "checking for GLOB_ALTDIRFUNC support... $ECHO_C" >&6
@@ -6261,80 +5928,49 @@ _ACEOF
 			LIBS="-lskey $LIBS"
 			SKEY_MSG="yes" 
 	
-			echo "$as_me:__oline__: checking for skey_keyinfo" >&5
-echo $ECHO_N "checking for skey_keyinfo... $ECHO_C" >&6
-if test "${ac_cv_func_skey_keyinfo+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
+			echo "$as_me:__oline__: checking for s/key support" >&5
+echo $ECHO_N "checking for s/key support... $ECHO_C" >&6
+			if test "$cross_compiling" = yes; then
+  { { echo "$as_me:__oline__: error: cannot run test program while cross compiling" >&5
+echo "$as_me: error: cannot run test program while cross compiling" >&2;}
+   { (exit 1); exit 1; }; }
 else
   cat >conftest.$ac_ext <<_ACEOF
 #line __oline__ "configure"
 #include "confdefs.h"
-/* System header to define __stub macros and hopefully few prototypes,
-    which can conflict with char skey_keyinfo (); below.  */
-#include <assert.h>
-/* Override any gcc2 internal prototype to avoid an error.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-/* We use char because int might match the return type of a gcc2
-   builtin and then its argument prototype would still apply.  */
-char skey_keyinfo ();
-char (*f) ();
 
-#ifdef F77_DUMMY_MAIN
-#  ifdef __cplusplus
-     extern "C"
-#  endif
-   int F77_DUMMY_MAIN() { return 1; }
-#endif
-int
-main ()
-{
-/* The GNU C library defines this for functions which it implements
-    to always fail with ENOSYS.  Some functions are actually named
-    something starting with __ and the normal name is an alias.  */
-#if defined (__stub_skey_keyinfo) || defined (__stub___skey_keyinfo)
-choke me
-#else
-f = skey_keyinfo;
-#endif
-
-  ;
-  return 0;
-}
+#include <stdio.h>
+#include <skey.h>
+int main() { char *ff = skey_keyinfo(""); ff=""; return 0; }
+				
 _ACEOF
-rm -f conftest.$ac_objext conftest$ac_exeext
+rm -f conftest$ac_exeext
 if { (eval echo "$as_me:__oline__: \"$ac_link\"") >&5
   (eval $ac_link) 2>&5
   ac_status=$?
   echo "$as_me:__oline__: \$? = $ac_status" >&5
-  (exit $ac_status); } &&
-         { ac_try='test -s conftest$ac_exeext'
+  (exit $ac_status); } && { ac_try='./conftest$ac_exeext'
   { (eval echo "$as_me:__oline__: \"$ac_try\"") >&5
   (eval $ac_try) 2>&5
   ac_status=$?
   echo "$as_me:__oline__: \$? = $ac_status" >&5
   (exit $ac_status); }; }; then
-  ac_cv_func_skey_keyinfo=yes
+  echo "$as_me:__oline__: result: yes" >&5
+echo "${ECHO_T}yes" >&6
 else
-  echo "$as_me: failed program was:" >&5
+  echo "$as_me: program exited with status $ac_status" >&5
+echo "$as_me: failed program was:" >&5
 cat conftest.$ac_ext >&5
-ac_cv_func_skey_keyinfo=no
-fi
-rm -f conftest.$ac_objext conftest$ac_exeext conftest.$ac_ext
-fi
-echo "$as_me:__oline__: result: $ac_cv_func_skey_keyinfo" >&5
-echo "${ECHO_T}$ac_cv_func_skey_keyinfo" >&6
-if test $ac_cv_func_skey_keyinfo = yes; then
-  :
-else
-  
+
+					echo "$as_me:__oline__: result: no" >&5
+echo "${ECHO_T}no" >&6
 					{ { echo "$as_me:__oline__: error: ** Incomplete or missing s/key libraries." >&5
 echo "$as_me: error: ** Incomplete or missing s/key libraries." >&2;}
    { (exit 1); exit 1; }; }
 				
 fi
-
+rm -f core core.* *.core conftest$ac_exeext conftest.$ac_objext conftest.$ac_ext
+fi
 		fi
 	
 
@@ -6371,7 +6007,8 @@ if test "${with_tcp_wrappers+set}" = set; then
 					CPPFLAGS="-I${withval} ${CPPFLAGS}"
 				fi
 			fi
-			LIBS="-lwrap $LIBS"
+			LIBWRAP="-lwrap"
+			LIBS="$LIBWRAP $LIBS"
 			echo "$as_me:__oline__: checking for libwrap" >&5
 echo $ECHO_N "checking for libwrap... $ECHO_C" >&6
 			cat >conftest.$ac_ext <<_ACEOF
@@ -6414,6 +6051,7 @@ echo "${ECHO_T}yes" >&6
 @%:@define LIBWRAP 1
 _ACEOF
 
+					
 					TCPW_MSG="yes"
 				
 else
@@ -6427,6 +6065,7 @@ echo "$as_me: error: *** libwrap missing" >&2;}
 			
 fi
 rm -f conftest.$ac_objext conftest$ac_exeext conftest.$ac_ext
+			LIBS="$saved_LIBS"
 		fi
 	
 
@@ -8271,6 +7910,12 @@ done
 @%:@define USE_PAM 1
 _ACEOF
 
+			if test $ac_cv_lib_dl_dlopen = yes; then
+				LIBPAM="-lpam -ldl"
+			else
+				LIBPAM="-lpam"
+			fi
+			
 		fi
 	
 
@@ -8571,6 +8216,54 @@ echo "${ECHO_T}using RSAref" >&6
 	fi
 fi
 
+# Sanity check OpenSSL headers
+echo "$as_me:__oline__: checking whether OpenSSL's headers match the library" >&5
+echo $ECHO_N "checking whether OpenSSL's headers match the library... $ECHO_C" >&6
+if test "$cross_compiling" = yes; then
+  { { echo "$as_me:__oline__: error: cannot run test program while cross compiling" >&5
+echo "$as_me: error: cannot run test program while cross compiling" >&2;}
+   { (exit 1); exit 1; }; }
+else
+  cat >conftest.$ac_ext <<_ACEOF
+#line __oline__ "configure"
+#include "confdefs.h"
+
+#include <string.h>
+#include <openssl/opensslv.h>
+int main(void) { return(SSLeay() == OPENSSL_VERSION_NUMBER ? 0 : 1); }
+	
+_ACEOF
+rm -f conftest$ac_exeext
+if { (eval echo "$as_me:__oline__: \"$ac_link\"") >&5
+  (eval $ac_link) 2>&5
+  ac_status=$?
+  echo "$as_me:__oline__: \$? = $ac_status" >&5
+  (exit $ac_status); } && { ac_try='./conftest$ac_exeext'
+  { (eval echo "$as_me:__oline__: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:__oline__: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  
+		echo "$as_me:__oline__: result: yes" >&5
+echo "${ECHO_T}yes" >&6
+	
+else
+  echo "$as_me: program exited with status $ac_status" >&5
+echo "$as_me: failed program was:" >&5
+cat conftest.$ac_ext >&5
+
+		echo "$as_me:__oline__: result: no" >&5
+echo "${ECHO_T}no" >&6
+		{ { echo "$as_me:__oline__: error: Your OpenSSL headers do not match your library" >&5
+echo "$as_me: error: Your OpenSSL headers do not match your library" >&2;}
+   { (exit 1); exit 1; }; }
+	
+
+fi
+rm -f core core.* *.core conftest$ac_exeext conftest.$ac_objext conftest.$ac_ext
+fi
+
 # Some Linux systems (Slackware) need crypt() from libcrypt, *not* the 
 # version in OpenSSL. Skip this for PAM
 if test "x$PAM_MSG" = "xno" -a "x$check_for_libcrypt_later" = "x1"; then
@@ -8634,6 +8327,920 @@ if test $ac_cv_lib_crypt_crypt = yes; then
 fi
 
 fi
+
+
+### Configure cryptographic random number support
+
+# Check wheter OpenSSL seeds itself
+echo "$as_me:__oline__: checking whether OpenSSL's PRNG is internally seeded" >&5
+echo $ECHO_N "checking whether OpenSSL's PRNG is internally seeded... $ECHO_C" >&6
+if test "$cross_compiling" = yes; then
+  { { echo "$as_me:__oline__: error: cannot run test program while cross compiling" >&5
+echo "$as_me: error: cannot run test program while cross compiling" >&2;}
+   { (exit 1); exit 1; }; }
+else
+  cat >conftest.$ac_ext <<_ACEOF
+#line __oline__ "configure"
+#include "confdefs.h"
+
+#include <string.h>
+#include <openssl/rand.h>
+int main(void) { return(RAND_status() == 1 ? 0 : 1); }
+	
+_ACEOF
+rm -f conftest$ac_exeext
+if { (eval echo "$as_me:__oline__: \"$ac_link\"") >&5
+  (eval $ac_link) 2>&5
+  ac_status=$?
+  echo "$as_me:__oline__: \$? = $ac_status" >&5
+  (exit $ac_status); } && { ac_try='./conftest$ac_exeext'
+  { (eval echo "$as_me:__oline__: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:__oline__: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  
+		OPENSSL_SEEDS_ITSELF=yes
+		echo "$as_me:__oline__: result: yes" >&5
+echo "${ECHO_T}yes" >&6
+	
+else
+  echo "$as_me: program exited with status $ac_status" >&5
+echo "$as_me: failed program was:" >&5
+cat conftest.$ac_ext >&5
+
+		echo "$as_me:__oline__: result: no" >&5
+echo "${ECHO_T}no" >&6
+		# Default to use of the rand helper if OpenSSL doesn't
+		# seed itself
+		USE_RAND_HELPER=yes
+	
+
+fi
+rm -f core core.* *.core conftest$ac_exeext conftest.$ac_objext conftest.$ac_ext
+fi
+
+
+# Do we want to force the use of the rand helper?
+
+# Check whether --with-rand-helper or --without-rand-helper was given.
+if test "${with_rand_helper+set}" = set; then
+  withval="$with_rand_helper"
+  
+		if test "x$withval" = "xno" ; then
+			# Force use of OpenSSL's internal RNG, even if 
+			# the previous test showed it to be unseeded.
+			if test -z "$OPENSSL_SEEDS_ITSELF" ; then
+				{ echo "$as_me:__oline__: WARNING: *** Forcing use of OpenSSL's non-self-seeding PRNG" >&5
+echo "$as_me: WARNING: *** Forcing use of OpenSSL's non-self-seeding PRNG" >&2;}
+				OPENSSL_SEEDS_ITSELF=yes
+				USE_RAND_HELPER=""
+			fi
+		else
+			USE_RAND_HELPER=yes
+		fi
+	
+fi; 	
+
+# Which randomness source do we use?
+if test ! -z "$OPENSSL_SEEDS_ITSELF" -a -z "$USE_RAND_HELPER" ; then
+	# OpenSSL only
+	cat >>confdefs.h <<\_ACEOF
+@%:@define OPENSSL_PRNG_ONLY 1
+_ACEOF
+
+	RAND_MSG="OpenSSL internal ONLY"
+	INSTALL_SSH_RAND_HELPER=""
+elif test ! -z "$USE_RAND_HELPER" ; then
+	# install rand helper
+	RAND_MSG="ssh-rand-helper"
+	INSTALL_SSH_RAND_HELPER="yes"
+fi
+
+
+### Configuration of ssh-rand-helper
+
+# PRNGD TCP socket
+
+# Check whether --with-prngd-port or --without-prngd-port was given.
+if test "${with_prngd_port+set}" = set; then
+  withval="$with_prngd_port"
+  
+		case "$withval" in
+		no)
+			withval=""
+			;;
+		[0-9]*)
+			;;
+		*)
+			{ { echo "$as_me:__oline__: error: You must specify a numeric port number for --with-prngd-port" >&5
+echo "$as_me: error: You must specify a numeric port number for --with-prngd-port" >&2;}
+   { (exit 1); exit 1; }; }
+			;;
+		esac
+		if test ! -z "$withval" ; then
+			PRNGD_PORT="$withval"
+			cat >>confdefs.h <<_ACEOF
+@%:@define PRNGD_PORT $PRNGD_PORT
+_ACEOF
+
+		fi
+	
+
+fi; 
+
+# PRNGD Unix domain socket
+
+# Check whether --with-prngd-socket or --without-prngd-socket was given.
+if test "${with_prngd_socket+set}" = set; then
+  withval="$with_prngd_socket"
+  
+		case "$withval" in
+		yes)
+			withval="/var/run/egd-pool"
+			;;
+		no)
+			withval=""
+			;;
+		/*)
+			;;
+		*)
+			{ { echo "$as_me:__oline__: error: You must specify an absolute path to the entropy socket" >&5
+echo "$as_me: error: You must specify an absolute path to the entropy socket" >&2;}
+   { (exit 1); exit 1; }; }
+			;;
+		esac
+
+		if test ! -z "$withval" ; then
+			if test ! -z "$PRNGD_PORT" ; then
+				{ { echo "$as_me:__oline__: error: You may not specify both a PRNGD/EGD port and socket" >&5
+echo "$as_me: error: You may not specify both a PRNGD/EGD port and socket" >&2;}
+   { (exit 1); exit 1; }; }
+			fi
+			if test ! -r "$withval" ; then
+				{ echo "$as_me:__oline__: WARNING: Entropy socket is not readable" >&5
+echo "$as_me: WARNING: Entropy socket is not readable" >&2;}
+			fi
+			PRNGD_SOCKET="$withval"
+			cat >>confdefs.h <<_ACEOF
+@%:@define PRNGD_SOCKET "$PRNGD_SOCKET"
+_ACEOF
+
+		fi
+	
+else
+  
+		# Check for existing socket only if we don't have a random device already
+		if test "$USE_RAND_HELPER" = yes ; then
+			echo "$as_me:__oline__: checking for PRNGD/EGD socket" >&5
+echo $ECHO_N "checking for PRNGD/EGD socket... $ECHO_C" >&6
+			# Insert other locations here
+			for sock in /var/run/egd-pool /dev/egd-pool /etc/entropy; do
+				if test -r $sock && $TEST_MINUS_S_SH -c "test -S $sock -o -p $sock" ; then
+					PRNGD_SOCKET="$sock"
+					cat >>confdefs.h <<_ACEOF
+@%:@define PRNGD_SOCKET "$PRNGD_SOCKET"
+_ACEOF
+
+					break;
+				fi
+			done
+			if test ! -z "$PRNGD_SOCKET" ; then
+				echo "$as_me:__oline__: result: $PRNGD_SOCKET" >&5
+echo "${ECHO_T}$PRNGD_SOCKET" >&6
+			else
+				echo "$as_me:__oline__: result: not found" >&5
+echo "${ECHO_T}not found" >&6
+			fi
+		fi
+	
+
+fi; 
+
+# Change default command timeout for hashing entropy source
+entropy_timeout=200
+
+# Check whether --with-entropy-timeout or --without-entropy-timeout was given.
+if test "${with_entropy_timeout+set}" = set; then
+  withval="$with_entropy_timeout"
+  
+		if test "x$withval" != "xno" ; then
+			entropy_timeout=$withval
+		fi
+		
+
+fi; 
+
+cat >>confdefs.h <<_ACEOF
+@%:@define ENTROPY_TIMEOUT_MSEC $entropy_timeout
+_ACEOF
+
+
+# These programs are used by the command hashing source to gather entropy 
+
+	# Extract the first word of "ls", so it can be a program name with args.
+set dummy ls; ac_word=$2
+echo "$as_me:__oline__: checking for $ac_word" >&5
+echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
+if test "${ac_cv_path_PROG_LS+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  case $PROG_LS in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_PROG_LS="$PROG_LS" # Let the user override the test with a path.
+  ;;
+  *)
+  ac_save_IFS=$IFS; IFS=$ac_path_separator
+ac_dummy="$PATH"
+for ac_dir in $ac_dummy; do
+  IFS=$ac_save_IFS
+  test -z "$ac_dir" && ac_dir=.
+  if $as_executable_p "$ac_dir/$ac_word"; then
+   ac_cv_path_PROG_LS="$ac_dir/$ac_word"
+   echo "$as_me:__oline__: found $ac_dir/$ac_word" >&5
+   break
+fi
+done
+
+  ;;
+esac
+fi
+PROG_LS=$ac_cv_path_PROG_LS
+
+if test -n "$PROG_LS"; then
+  echo "$as_me:__oline__: result: $PROG_LS" >&5
+echo "${ECHO_T}$PROG_LS" >&6
+else
+  echo "$as_me:__oline__: result: no" >&5
+echo "${ECHO_T}no" >&6
+fi
+
+	if test -z "$PROG_LS" ; then
+		PROG_LS="undef"
+	fi
+	
+
+
+	# Extract the first word of "netstat", so it can be a program name with args.
+set dummy netstat; ac_word=$2
+echo "$as_me:__oline__: checking for $ac_word" >&5
+echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
+if test "${ac_cv_path_PROG_NETSTAT+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  case $PROG_NETSTAT in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_PROG_NETSTAT="$PROG_NETSTAT" # Let the user override the test with a path.
+  ;;
+  *)
+  ac_save_IFS=$IFS; IFS=$ac_path_separator
+ac_dummy="$PATH"
+for ac_dir in $ac_dummy; do
+  IFS=$ac_save_IFS
+  test -z "$ac_dir" && ac_dir=.
+  if $as_executable_p "$ac_dir/$ac_word"; then
+   ac_cv_path_PROG_NETSTAT="$ac_dir/$ac_word"
+   echo "$as_me:__oline__: found $ac_dir/$ac_word" >&5
+   break
+fi
+done
+
+  ;;
+esac
+fi
+PROG_NETSTAT=$ac_cv_path_PROG_NETSTAT
+
+if test -n "$PROG_NETSTAT"; then
+  echo "$as_me:__oline__: result: $PROG_NETSTAT" >&5
+echo "${ECHO_T}$PROG_NETSTAT" >&6
+else
+  echo "$as_me:__oline__: result: no" >&5
+echo "${ECHO_T}no" >&6
+fi
+
+	if test -z "$PROG_NETSTAT" ; then
+		PROG_NETSTAT="undef"
+	fi
+	
+
+
+	# Extract the first word of "arp", so it can be a program name with args.
+set dummy arp; ac_word=$2
+echo "$as_me:__oline__: checking for $ac_word" >&5
+echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
+if test "${ac_cv_path_PROG_ARP+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  case $PROG_ARP in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_PROG_ARP="$PROG_ARP" # Let the user override the test with a path.
+  ;;
+  *)
+  ac_save_IFS=$IFS; IFS=$ac_path_separator
+ac_dummy="$PATH"
+for ac_dir in $ac_dummy; do
+  IFS=$ac_save_IFS
+  test -z "$ac_dir" && ac_dir=.
+  if $as_executable_p "$ac_dir/$ac_word"; then
+   ac_cv_path_PROG_ARP="$ac_dir/$ac_word"
+   echo "$as_me:__oline__: found $ac_dir/$ac_word" >&5
+   break
+fi
+done
+
+  ;;
+esac
+fi
+PROG_ARP=$ac_cv_path_PROG_ARP
+
+if test -n "$PROG_ARP"; then
+  echo "$as_me:__oline__: result: $PROG_ARP" >&5
+echo "${ECHO_T}$PROG_ARP" >&6
+else
+  echo "$as_me:__oline__: result: no" >&5
+echo "${ECHO_T}no" >&6
+fi
+
+	if test -z "$PROG_ARP" ; then
+		PROG_ARP="undef"
+	fi
+	
+
+
+	# Extract the first word of "ifconfig", so it can be a program name with args.
+set dummy ifconfig; ac_word=$2
+echo "$as_me:__oline__: checking for $ac_word" >&5
+echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
+if test "${ac_cv_path_PROG_IFCONFIG+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  case $PROG_IFCONFIG in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_PROG_IFCONFIG="$PROG_IFCONFIG" # Let the user override the test with a path.
+  ;;
+  *)
+  ac_save_IFS=$IFS; IFS=$ac_path_separator
+ac_dummy="$PATH"
+for ac_dir in $ac_dummy; do
+  IFS=$ac_save_IFS
+  test -z "$ac_dir" && ac_dir=.
+  if $as_executable_p "$ac_dir/$ac_word"; then
+   ac_cv_path_PROG_IFCONFIG="$ac_dir/$ac_word"
+   echo "$as_me:__oline__: found $ac_dir/$ac_word" >&5
+   break
+fi
+done
+
+  ;;
+esac
+fi
+PROG_IFCONFIG=$ac_cv_path_PROG_IFCONFIG
+
+if test -n "$PROG_IFCONFIG"; then
+  echo "$as_me:__oline__: result: $PROG_IFCONFIG" >&5
+echo "${ECHO_T}$PROG_IFCONFIG" >&6
+else
+  echo "$as_me:__oline__: result: no" >&5
+echo "${ECHO_T}no" >&6
+fi
+
+	if test -z "$PROG_IFCONFIG" ; then
+		PROG_IFCONFIG="undef"
+	fi
+	
+
+
+	# Extract the first word of "jstat", so it can be a program name with args.
+set dummy jstat; ac_word=$2
+echo "$as_me:__oline__: checking for $ac_word" >&5
+echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
+if test "${ac_cv_path_PROG_JSTAT+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  case $PROG_JSTAT in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_PROG_JSTAT="$PROG_JSTAT" # Let the user override the test with a path.
+  ;;
+  *)
+  ac_save_IFS=$IFS; IFS=$ac_path_separator
+ac_dummy="$PATH"
+for ac_dir in $ac_dummy; do
+  IFS=$ac_save_IFS
+  test -z "$ac_dir" && ac_dir=.
+  if $as_executable_p "$ac_dir/$ac_word"; then
+   ac_cv_path_PROG_JSTAT="$ac_dir/$ac_word"
+   echo "$as_me:__oline__: found $ac_dir/$ac_word" >&5
+   break
+fi
+done
+
+  ;;
+esac
+fi
+PROG_JSTAT=$ac_cv_path_PROG_JSTAT
+
+if test -n "$PROG_JSTAT"; then
+  echo "$as_me:__oline__: result: $PROG_JSTAT" >&5
+echo "${ECHO_T}$PROG_JSTAT" >&6
+else
+  echo "$as_me:__oline__: result: no" >&5
+echo "${ECHO_T}no" >&6
+fi
+
+	if test -z "$PROG_JSTAT" ; then
+		PROG_JSTAT="undef"
+	fi
+	
+
+
+	# Extract the first word of "ps", so it can be a program name with args.
+set dummy ps; ac_word=$2
+echo "$as_me:__oline__: checking for $ac_word" >&5
+echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
+if test "${ac_cv_path_PROG_PS+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  case $PROG_PS in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_PROG_PS="$PROG_PS" # Let the user override the test with a path.
+  ;;
+  *)
+  ac_save_IFS=$IFS; IFS=$ac_path_separator
+ac_dummy="$PATH"
+for ac_dir in $ac_dummy; do
+  IFS=$ac_save_IFS
+  test -z "$ac_dir" && ac_dir=.
+  if $as_executable_p "$ac_dir/$ac_word"; then
+   ac_cv_path_PROG_PS="$ac_dir/$ac_word"
+   echo "$as_me:__oline__: found $ac_dir/$ac_word" >&5
+   break
+fi
+done
+
+  ;;
+esac
+fi
+PROG_PS=$ac_cv_path_PROG_PS
+
+if test -n "$PROG_PS"; then
+  echo "$as_me:__oline__: result: $PROG_PS" >&5
+echo "${ECHO_T}$PROG_PS" >&6
+else
+  echo "$as_me:__oline__: result: no" >&5
+echo "${ECHO_T}no" >&6
+fi
+
+	if test -z "$PROG_PS" ; then
+		PROG_PS="undef"
+	fi
+	
+
+
+	# Extract the first word of "sar", so it can be a program name with args.
+set dummy sar; ac_word=$2
+echo "$as_me:__oline__: checking for $ac_word" >&5
+echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
+if test "${ac_cv_path_PROG_SAR+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  case $PROG_SAR in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_PROG_SAR="$PROG_SAR" # Let the user override the test with a path.
+  ;;
+  *)
+  ac_save_IFS=$IFS; IFS=$ac_path_separator
+ac_dummy="$PATH"
+for ac_dir in $ac_dummy; do
+  IFS=$ac_save_IFS
+  test -z "$ac_dir" && ac_dir=.
+  if $as_executable_p "$ac_dir/$ac_word"; then
+   ac_cv_path_PROG_SAR="$ac_dir/$ac_word"
+   echo "$as_me:__oline__: found $ac_dir/$ac_word" >&5
+   break
+fi
+done
+
+  ;;
+esac
+fi
+PROG_SAR=$ac_cv_path_PROG_SAR
+
+if test -n "$PROG_SAR"; then
+  echo "$as_me:__oline__: result: $PROG_SAR" >&5
+echo "${ECHO_T}$PROG_SAR" >&6
+else
+  echo "$as_me:__oline__: result: no" >&5
+echo "${ECHO_T}no" >&6
+fi
+
+	if test -z "$PROG_SAR" ; then
+		PROG_SAR="undef"
+	fi
+	
+
+
+	# Extract the first word of "w", so it can be a program name with args.
+set dummy w; ac_word=$2
+echo "$as_me:__oline__: checking for $ac_word" >&5
+echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
+if test "${ac_cv_path_PROG_W+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  case $PROG_W in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_PROG_W="$PROG_W" # Let the user override the test with a path.
+  ;;
+  *)
+  ac_save_IFS=$IFS; IFS=$ac_path_separator
+ac_dummy="$PATH"
+for ac_dir in $ac_dummy; do
+  IFS=$ac_save_IFS
+  test -z "$ac_dir" && ac_dir=.
+  if $as_executable_p "$ac_dir/$ac_word"; then
+   ac_cv_path_PROG_W="$ac_dir/$ac_word"
+   echo "$as_me:__oline__: found $ac_dir/$ac_word" >&5
+   break
+fi
+done
+
+  ;;
+esac
+fi
+PROG_W=$ac_cv_path_PROG_W
+
+if test -n "$PROG_W"; then
+  echo "$as_me:__oline__: result: $PROG_W" >&5
+echo "${ECHO_T}$PROG_W" >&6
+else
+  echo "$as_me:__oline__: result: no" >&5
+echo "${ECHO_T}no" >&6
+fi
+
+	if test -z "$PROG_W" ; then
+		PROG_W="undef"
+	fi
+	
+
+
+	# Extract the first word of "who", so it can be a program name with args.
+set dummy who; ac_word=$2
+echo "$as_me:__oline__: checking for $ac_word" >&5
+echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
+if test "${ac_cv_path_PROG_WHO+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  case $PROG_WHO in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_PROG_WHO="$PROG_WHO" # Let the user override the test with a path.
+  ;;
+  *)
+  ac_save_IFS=$IFS; IFS=$ac_path_separator
+ac_dummy="$PATH"
+for ac_dir in $ac_dummy; do
+  IFS=$ac_save_IFS
+  test -z "$ac_dir" && ac_dir=.
+  if $as_executable_p "$ac_dir/$ac_word"; then
+   ac_cv_path_PROG_WHO="$ac_dir/$ac_word"
+   echo "$as_me:__oline__: found $ac_dir/$ac_word" >&5
+   break
+fi
+done
+
+  ;;
+esac
+fi
+PROG_WHO=$ac_cv_path_PROG_WHO
+
+if test -n "$PROG_WHO"; then
+  echo "$as_me:__oline__: result: $PROG_WHO" >&5
+echo "${ECHO_T}$PROG_WHO" >&6
+else
+  echo "$as_me:__oline__: result: no" >&5
+echo "${ECHO_T}no" >&6
+fi
+
+	if test -z "$PROG_WHO" ; then
+		PROG_WHO="undef"
+	fi
+	
+
+
+	# Extract the first word of "last", so it can be a program name with args.
+set dummy last; ac_word=$2
+echo "$as_me:__oline__: checking for $ac_word" >&5
+echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
+if test "${ac_cv_path_PROG_LAST+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  case $PROG_LAST in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_PROG_LAST="$PROG_LAST" # Let the user override the test with a path.
+  ;;
+  *)
+  ac_save_IFS=$IFS; IFS=$ac_path_separator
+ac_dummy="$PATH"
+for ac_dir in $ac_dummy; do
+  IFS=$ac_save_IFS
+  test -z "$ac_dir" && ac_dir=.
+  if $as_executable_p "$ac_dir/$ac_word"; then
+   ac_cv_path_PROG_LAST="$ac_dir/$ac_word"
+   echo "$as_me:__oline__: found $ac_dir/$ac_word" >&5
+   break
+fi
+done
+
+  ;;
+esac
+fi
+PROG_LAST=$ac_cv_path_PROG_LAST
+
+if test -n "$PROG_LAST"; then
+  echo "$as_me:__oline__: result: $PROG_LAST" >&5
+echo "${ECHO_T}$PROG_LAST" >&6
+else
+  echo "$as_me:__oline__: result: no" >&5
+echo "${ECHO_T}no" >&6
+fi
+
+	if test -z "$PROG_LAST" ; then
+		PROG_LAST="undef"
+	fi
+	
+
+
+	# Extract the first word of "lastlog", so it can be a program name with args.
+set dummy lastlog; ac_word=$2
+echo "$as_me:__oline__: checking for $ac_word" >&5
+echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
+if test "${ac_cv_path_PROG_LASTLOG+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  case $PROG_LASTLOG in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_PROG_LASTLOG="$PROG_LASTLOG" # Let the user override the test with a path.
+  ;;
+  *)
+  ac_save_IFS=$IFS; IFS=$ac_path_separator
+ac_dummy="$PATH"
+for ac_dir in $ac_dummy; do
+  IFS=$ac_save_IFS
+  test -z "$ac_dir" && ac_dir=.
+  if $as_executable_p "$ac_dir/$ac_word"; then
+   ac_cv_path_PROG_LASTLOG="$ac_dir/$ac_word"
+   echo "$as_me:__oline__: found $ac_dir/$ac_word" >&5
+   break
+fi
+done
+
+  ;;
+esac
+fi
+PROG_LASTLOG=$ac_cv_path_PROG_LASTLOG
+
+if test -n "$PROG_LASTLOG"; then
+  echo "$as_me:__oline__: result: $PROG_LASTLOG" >&5
+echo "${ECHO_T}$PROG_LASTLOG" >&6
+else
+  echo "$as_me:__oline__: result: no" >&5
+echo "${ECHO_T}no" >&6
+fi
+
+	if test -z "$PROG_LASTLOG" ; then
+		PROG_LASTLOG="undef"
+	fi
+	
+
+
+	# Extract the first word of "df", so it can be a program name with args.
+set dummy df; ac_word=$2
+echo "$as_me:__oline__: checking for $ac_word" >&5
+echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
+if test "${ac_cv_path_PROG_DF+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  case $PROG_DF in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_PROG_DF="$PROG_DF" # Let the user override the test with a path.
+  ;;
+  *)
+  ac_save_IFS=$IFS; IFS=$ac_path_separator
+ac_dummy="$PATH"
+for ac_dir in $ac_dummy; do
+  IFS=$ac_save_IFS
+  test -z "$ac_dir" && ac_dir=.
+  if $as_executable_p "$ac_dir/$ac_word"; then
+   ac_cv_path_PROG_DF="$ac_dir/$ac_word"
+   echo "$as_me:__oline__: found $ac_dir/$ac_word" >&5
+   break
+fi
+done
+
+  ;;
+esac
+fi
+PROG_DF=$ac_cv_path_PROG_DF
+
+if test -n "$PROG_DF"; then
+  echo "$as_me:__oline__: result: $PROG_DF" >&5
+echo "${ECHO_T}$PROG_DF" >&6
+else
+  echo "$as_me:__oline__: result: no" >&5
+echo "${ECHO_T}no" >&6
+fi
+
+	if test -z "$PROG_DF" ; then
+		PROG_DF="undef"
+	fi
+	
+
+
+	# Extract the first word of "vmstat", so it can be a program name with args.
+set dummy vmstat; ac_word=$2
+echo "$as_me:__oline__: checking for $ac_word" >&5
+echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
+if test "${ac_cv_path_PROG_VMSTAT+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  case $PROG_VMSTAT in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_PROG_VMSTAT="$PROG_VMSTAT" # Let the user override the test with a path.
+  ;;
+  *)
+  ac_save_IFS=$IFS; IFS=$ac_path_separator
+ac_dummy="$PATH"
+for ac_dir in $ac_dummy; do
+  IFS=$ac_save_IFS
+  test -z "$ac_dir" && ac_dir=.
+  if $as_executable_p "$ac_dir/$ac_word"; then
+   ac_cv_path_PROG_VMSTAT="$ac_dir/$ac_word"
+   echo "$as_me:__oline__: found $ac_dir/$ac_word" >&5
+   break
+fi
+done
+
+  ;;
+esac
+fi
+PROG_VMSTAT=$ac_cv_path_PROG_VMSTAT
+
+if test -n "$PROG_VMSTAT"; then
+  echo "$as_me:__oline__: result: $PROG_VMSTAT" >&5
+echo "${ECHO_T}$PROG_VMSTAT" >&6
+else
+  echo "$as_me:__oline__: result: no" >&5
+echo "${ECHO_T}no" >&6
+fi
+
+	if test -z "$PROG_VMSTAT" ; then
+		PROG_VMSTAT="undef"
+	fi
+	
+
+
+	# Extract the first word of "uptime", so it can be a program name with args.
+set dummy uptime; ac_word=$2
+echo "$as_me:__oline__: checking for $ac_word" >&5
+echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
+if test "${ac_cv_path_PROG_UPTIME+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  case $PROG_UPTIME in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_PROG_UPTIME="$PROG_UPTIME" # Let the user override the test with a path.
+  ;;
+  *)
+  ac_save_IFS=$IFS; IFS=$ac_path_separator
+ac_dummy="$PATH"
+for ac_dir in $ac_dummy; do
+  IFS=$ac_save_IFS
+  test -z "$ac_dir" && ac_dir=.
+  if $as_executable_p "$ac_dir/$ac_word"; then
+   ac_cv_path_PROG_UPTIME="$ac_dir/$ac_word"
+   echo "$as_me:__oline__: found $ac_dir/$ac_word" >&5
+   break
+fi
+done
+
+  ;;
+esac
+fi
+PROG_UPTIME=$ac_cv_path_PROG_UPTIME
+
+if test -n "$PROG_UPTIME"; then
+  echo "$as_me:__oline__: result: $PROG_UPTIME" >&5
+echo "${ECHO_T}$PROG_UPTIME" >&6
+else
+  echo "$as_me:__oline__: result: no" >&5
+echo "${ECHO_T}no" >&6
+fi
+
+	if test -z "$PROG_UPTIME" ; then
+		PROG_UPTIME="undef"
+	fi
+	
+
+
+	# Extract the first word of "ipcs", so it can be a program name with args.
+set dummy ipcs; ac_word=$2
+echo "$as_me:__oline__: checking for $ac_word" >&5
+echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
+if test "${ac_cv_path_PROG_IPCS+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  case $PROG_IPCS in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_PROG_IPCS="$PROG_IPCS" # Let the user override the test with a path.
+  ;;
+  *)
+  ac_save_IFS=$IFS; IFS=$ac_path_separator
+ac_dummy="$PATH"
+for ac_dir in $ac_dummy; do
+  IFS=$ac_save_IFS
+  test -z "$ac_dir" && ac_dir=.
+  if $as_executable_p "$ac_dir/$ac_word"; then
+   ac_cv_path_PROG_IPCS="$ac_dir/$ac_word"
+   echo "$as_me:__oline__: found $ac_dir/$ac_word" >&5
+   break
+fi
+done
+
+  ;;
+esac
+fi
+PROG_IPCS=$ac_cv_path_PROG_IPCS
+
+if test -n "$PROG_IPCS"; then
+  echo "$as_me:__oline__: result: $PROG_IPCS" >&5
+echo "${ECHO_T}$PROG_IPCS" >&6
+else
+  echo "$as_me:__oline__: result: no" >&5
+echo "${ECHO_T}no" >&6
+fi
+
+	if test -z "$PROG_IPCS" ; then
+		PROG_IPCS="undef"
+	fi
+	
+
+
+	# Extract the first word of "tail", so it can be a program name with args.
+set dummy tail; ac_word=$2
+echo "$as_me:__oline__: checking for $ac_word" >&5
+echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
+if test "${ac_cv_path_PROG_TAIL+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  case $PROG_TAIL in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_PROG_TAIL="$PROG_TAIL" # Let the user override the test with a path.
+  ;;
+  *)
+  ac_save_IFS=$IFS; IFS=$ac_path_separator
+ac_dummy="$PATH"
+for ac_dir in $ac_dummy; do
+  IFS=$ac_save_IFS
+  test -z "$ac_dir" && ac_dir=.
+  if $as_executable_p "$ac_dir/$ac_word"; then
+   ac_cv_path_PROG_TAIL="$ac_dir/$ac_word"
+   echo "$as_me:__oline__: found $ac_dir/$ac_word" >&5
+   break
+fi
+done
+
+  ;;
+esac
+fi
+PROG_TAIL=$ac_cv_path_PROG_TAIL
+
+if test -n "$PROG_TAIL"; then
+  echo "$as_me:__oline__: result: $PROG_TAIL" >&5
+echo "${ECHO_T}$PROG_TAIL" >&6
+else
+  echo "$as_me:__oline__: result: no" >&5
+echo "${ECHO_T}no" >&6
+fi
+
+	if test -z "$PROG_TAIL" ; then
+		PROG_TAIL="undef"
+	fi
+	
+
+
+# Where does ssh-rand-helper get its randomness from?
+INSTALL_SSH_PRNG_CMDS=""
+if test ! -z "$INSTALL_SSH_RAND_HELPER" ; then
+	if test ! -z "$PRNGD_PORT" ; then
+		RAND_HELPER_MSG="TCP localhost:$PRNGD_PORT"
+	elif test ! -z "$PRNGD_SOCKET" ; then
+		RAND_HELPER_MSG="Unix domain socket \"$PRNGD_SOCKET\""
+	else
+		RAND_HELPER_MSG="Command hashing (timeout $entropy_timeout)"
+		RAND_HELPER_CMDHASH=yes
+		INSTALL_SSH_PRNG_CMDS="yes"
+	fi
+fi
+
+
 
 # Cheap hack to ensure NEWS-OS libraries are arranged right.
 if test ! -z "$SONY" ; then
@@ -10285,6 +10892,57 @@ fi
 rm -f conftest.$ac_objext conftest.$ac_ext
 fi
 
+if test -z "$have_int64_t" ; then
+    echo "$as_me:__oline__: checking for int64_t type in sys/bitypes.h" >&5
+echo $ECHO_N "checking for int64_t type in sys/bitypes.h... $ECHO_C" >&6
+	cat >conftest.$ac_ext <<_ACEOF
+#line __oline__ "configure"
+#include "confdefs.h"
+ #include <sys/bitypes.h> 
+#ifdef F77_DUMMY_MAIN
+#  ifdef __cplusplus
+     extern "C"
+#  endif
+   int F77_DUMMY_MAIN() { return 1; }
+#endif
+int
+main ()
+{
+ int64_t a; a = 1
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:__oline__: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>&5
+  ac_status=$?
+  echo "$as_me:__oline__: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+         { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:__oline__: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:__oline__: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  
+			cat >>confdefs.h <<\_ACEOF
+@%:@define HAVE_INT64_T 1
+_ACEOF
+
+			echo "$as_me:__oline__: result: yes" >&5
+echo "${ECHO_T}yes" >&6
+		
+else
+  echo "$as_me: failed program was:" >&5
+cat conftest.$ac_ext >&5
+ echo "$as_me:__oline__: result: no" >&5
+echo "${ECHO_T}no" >&6 
+	
+fi
+rm -f conftest.$ac_objext conftest.$ac_ext
+fi
+
 echo "$as_me:__oline__: checking for u_intXX_t types" >&5
 echo $ECHO_N "checking for u_intXX_t types... $ECHO_C" >&6
 if test "${ac_cv_have_u_intxx_t+set}" = set; then
@@ -10446,6 +11104,57 @@ if test "x$ac_cv_have_u_int64_t" = "xyes" ; then
 _ACEOF
 
 	have_u_int64_t=1
+fi
+
+if test -z "$have_u_int64_t" ; then
+    echo "$as_me:__oline__: checking for u_int64_t type in sys/bitypes.h" >&5
+echo $ECHO_N "checking for u_int64_t type in sys/bitypes.h... $ECHO_C" >&6
+	cat >conftest.$ac_ext <<_ACEOF
+#line __oline__ "configure"
+#include "confdefs.h"
+ #include <sys/bitypes.h> 
+#ifdef F77_DUMMY_MAIN
+#  ifdef __cplusplus
+     extern "C"
+#  endif
+   int F77_DUMMY_MAIN() { return 1; }
+#endif
+int
+main ()
+{
+ u_int64_t a; a = 1
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:__oline__: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>&5
+  ac_status=$?
+  echo "$as_me:__oline__: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+         { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:__oline__: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:__oline__: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  
+			cat >>confdefs.h <<\_ACEOF
+@%:@define HAVE_U_INT64_T 1
+_ACEOF
+
+			echo "$as_me:__oline__: result: yes" >&5
+echo "${ECHO_T}yes" >&6
+		
+else
+  echo "$as_me: failed program was:" >&5
+cat conftest.$ac_ext >&5
+ echo "$as_me:__oline__: result: no" >&5
+echo "${ECHO_T}no" >&6 
+	
+fi
+rm -f conftest.$ac_objext conftest.$ac_ext
 fi
 
 if test -z "$have_u_intxx_t" ; then
@@ -10812,6 +11521,65 @@ _ACEOF
 
 fi
 
+
+
+echo "$as_me:__oline__: checking for sig_atomic_t" >&5
+echo $ECHO_N "checking for sig_atomic_t... $ECHO_C" >&6
+if test "${ac_cv_type_sig_atomic_t+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  cat >conftest.$ac_ext <<_ACEOF
+#line __oline__ "configure"
+#include "confdefs.h"
+#include <signal.h>
+
+#ifdef F77_DUMMY_MAIN
+#  ifdef __cplusplus
+     extern "C"
+#  endif
+   int F77_DUMMY_MAIN() { return 1; }
+#endif
+int
+main ()
+{
+if ((sig_atomic_t *) 0)
+  return 0;
+if (sizeof (sig_atomic_t))
+  return 0;
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:__oline__: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>&5
+  ac_status=$?
+  echo "$as_me:__oline__: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+         { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:__oline__: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:__oline__: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_type_sig_atomic_t=yes
+else
+  echo "$as_me: failed program was:" >&5
+cat conftest.$ac_ext >&5
+ac_cv_type_sig_atomic_t=no
+fi
+rm -f conftest.$ac_objext conftest.$ac_ext
+fi
+echo "$as_me:__oline__: result: $ac_cv_type_sig_atomic_t" >&5
+echo "${ECHO_T}$ac_cv_type_sig_atomic_t" >&6
+if test $ac_cv_type_sig_atomic_t = yes; then
+  
+cat >>confdefs.h <<_ACEOF
+@%:@define HAVE_SIG_ATOMIC_T 1
+_ACEOF
+
+
+fi
 
 
 echo "$as_me:__oline__: checking for size_t" >&5
@@ -13752,817 +14520,6 @@ fi
 
 # Options from here on. Some of these are preset by platform above
 
-# Check for user-specified random device, otherwise check /dev/urandom
-
-# Check whether --with-random or --without-random was given.
-if test "${with_random+set}" = set; then
-  withval="$with_random"
-  
-		if test "x$withval" != "xno" ; then
-			RANDOM_POOL="$withval";
-			cat >>confdefs.h <<_ACEOF
-@%:@define RANDOM_POOL "$RANDOM_POOL"
-_ACEOF
-
-		fi
-	
-else
-  
-		# Check for random device
-		echo "$as_me:__oline__: checking for \"/dev/urandom\"" >&5
-echo $ECHO_N "checking for \"/dev/urandom\"... $ECHO_C" >&6
-if test "${ac_cv_file___dev_urandom_+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  test "$cross_compiling" = yes &&
-  { { echo "$as_me:__oline__: error: cannot check for file existence when cross compiling" >&5
-echo "$as_me: error: cannot check for file existence when cross compiling" >&2;}
-   { (exit 1); exit 1; }; }
-if test -r ""/dev/urandom""; then
-  ac_cv_file___dev_urandom_=yes
-else
-  ac_cv_file___dev_urandom_=no
-fi
-fi
-echo "$as_me:__oline__: result: $ac_cv_file___dev_urandom_" >&5
-echo "${ECHO_T}$ac_cv_file___dev_urandom_" >&6
-if test $ac_cv_file___dev_urandom_ = yes; then
-  
-				RANDOM_POOL="/dev/urandom"; 
-				
-				cat >>confdefs.h <<_ACEOF
-@%:@define RANDOM_POOL "$RANDOM_POOL"
-_ACEOF
-
-			
-		
-fi
-
-	
-
-fi; 
-
-# Check for PRNGD/EGD pool file
-
-# Check whether --with-prngd-port or --without-prngd-port was given.
-if test "${with_prngd_port+set}" = set; then
-  withval="$with_prngd_port"
-  
-		if test ! -z "$withval" -a "x$withval" != "xno" ; then
-			PRNGD_PORT="$withval"
-			cat >>confdefs.h <<_ACEOF
-@%:@define PRNGD_PORT $PRNGD_PORT
-_ACEOF
-
-		fi
-	
-
-fi; 
-
-# Check for PRNGD/EGD pool file
-
-# Check whether --with-prngd-socket or --without-prngd-socket was given.
-if test "${with_prngd_socket+set}" = set; then
-  withval="$with_prngd_socket"
-  
-		if test "x$withval" != "xno" ; then
-			PRNGD_SOCKET="$withval"
-			cat >>confdefs.h <<_ACEOF
-@%:@define PRNGD_SOCKET "$PRNGD_SOCKET"
-_ACEOF
-
-		fi
-	
-else
-  
-		# Check for existing socket only if we don't have a random device already
-		if test -z "$RANDOM_POOL" ; then
-			echo "$as_me:__oline__: checking for PRNGD/EGD socket" >&5
-echo $ECHO_N "checking for PRNGD/EGD socket... $ECHO_C" >&6
-			# Insert other locations here
-			for sock in /var/run/egd-pool /dev/egd-pool /etc/entropy; do
-				if test -r $sock && $TEST_MINUS_S_SH -c "test -S $sock -o -p $sock" ; then
-					PRNGD_SOCKET="$sock"
-					cat >>confdefs.h <<_ACEOF
-@%:@define PRNGD_SOCKET "$PRNGD_SOCKET"
-_ACEOF
-
-					break;
-				fi
-			done
-			if test ! -z "$PRNGD_SOCKET" ; then
-				echo "$as_me:__oline__: result: $PRNGD_SOCKET" >&5
-echo "${ECHO_T}$PRNGD_SOCKET" >&6
-			else
-				echo "$as_me:__oline__: result: not found" >&5
-echo "${ECHO_T}not found" >&6
-			fi
-		fi
-	
-
-fi; 
-
-
-# detect pathnames for entropy gathering commands, if we need them
-INSTALL_SSH_PRNG_CMDS=""
-rm -f prng_commands
-if (test -z "$RANDOM_POOL" && test -z "$PRNGD") ; then
-	# Use these commands to collect entropy
-	
-	# Extract the first word of "ls", so it can be a program name with args.
-set dummy ls; ac_word=$2
-echo "$as_me:__oline__: checking for $ac_word" >&5
-echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
-if test "${ac_cv_path_PROG_LS+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  case $PROG_LS in
-  [\\/]* | ?:[\\/]*)
-  ac_cv_path_PROG_LS="$PROG_LS" # Let the user override the test with a path.
-  ;;
-  *)
-  ac_save_IFS=$IFS; IFS=$ac_path_separator
-ac_dummy="$PATH"
-for ac_dir in $ac_dummy; do
-  IFS=$ac_save_IFS
-  test -z "$ac_dir" && ac_dir=.
-  if $as_executable_p "$ac_dir/$ac_word"; then
-   ac_cv_path_PROG_LS="$ac_dir/$ac_word"
-   echo "$as_me:__oline__: found $ac_dir/$ac_word" >&5
-   break
-fi
-done
-
-  ;;
-esac
-fi
-PROG_LS=$ac_cv_path_PROG_LS
-
-if test -n "$PROG_LS"; then
-  echo "$as_me:__oline__: result: $PROG_LS" >&5
-echo "${ECHO_T}$PROG_LS" >&6
-else
-  echo "$as_me:__oline__: result: no" >&5
-echo "${ECHO_T}no" >&6
-fi
-
-	if test -z "$PROG_LS" ; then
-		PROG_LS="undef"
-	fi
-	
-
-	
-	# Extract the first word of "netstat", so it can be a program name with args.
-set dummy netstat; ac_word=$2
-echo "$as_me:__oline__: checking for $ac_word" >&5
-echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
-if test "${ac_cv_path_PROG_NETSTAT+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  case $PROG_NETSTAT in
-  [\\/]* | ?:[\\/]*)
-  ac_cv_path_PROG_NETSTAT="$PROG_NETSTAT" # Let the user override the test with a path.
-  ;;
-  *)
-  ac_save_IFS=$IFS; IFS=$ac_path_separator
-ac_dummy="$PATH"
-for ac_dir in $ac_dummy; do
-  IFS=$ac_save_IFS
-  test -z "$ac_dir" && ac_dir=.
-  if $as_executable_p "$ac_dir/$ac_word"; then
-   ac_cv_path_PROG_NETSTAT="$ac_dir/$ac_word"
-   echo "$as_me:__oline__: found $ac_dir/$ac_word" >&5
-   break
-fi
-done
-
-  ;;
-esac
-fi
-PROG_NETSTAT=$ac_cv_path_PROG_NETSTAT
-
-if test -n "$PROG_NETSTAT"; then
-  echo "$as_me:__oline__: result: $PROG_NETSTAT" >&5
-echo "${ECHO_T}$PROG_NETSTAT" >&6
-else
-  echo "$as_me:__oline__: result: no" >&5
-echo "${ECHO_T}no" >&6
-fi
-
-	if test -z "$PROG_NETSTAT" ; then
-		PROG_NETSTAT="undef"
-	fi
-	
-
-	
-	# Extract the first word of "arp", so it can be a program name with args.
-set dummy arp; ac_word=$2
-echo "$as_me:__oline__: checking for $ac_word" >&5
-echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
-if test "${ac_cv_path_PROG_ARP+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  case $PROG_ARP in
-  [\\/]* | ?:[\\/]*)
-  ac_cv_path_PROG_ARP="$PROG_ARP" # Let the user override the test with a path.
-  ;;
-  *)
-  ac_save_IFS=$IFS; IFS=$ac_path_separator
-ac_dummy="$PATH"
-for ac_dir in $ac_dummy; do
-  IFS=$ac_save_IFS
-  test -z "$ac_dir" && ac_dir=.
-  if $as_executable_p "$ac_dir/$ac_word"; then
-   ac_cv_path_PROG_ARP="$ac_dir/$ac_word"
-   echo "$as_me:__oline__: found $ac_dir/$ac_word" >&5
-   break
-fi
-done
-
-  ;;
-esac
-fi
-PROG_ARP=$ac_cv_path_PROG_ARP
-
-if test -n "$PROG_ARP"; then
-  echo "$as_me:__oline__: result: $PROG_ARP" >&5
-echo "${ECHO_T}$PROG_ARP" >&6
-else
-  echo "$as_me:__oline__: result: no" >&5
-echo "${ECHO_T}no" >&6
-fi
-
-	if test -z "$PROG_ARP" ; then
-		PROG_ARP="undef"
-	fi
-	
-
-	
-	# Extract the first word of "ifconfig", so it can be a program name with args.
-set dummy ifconfig; ac_word=$2
-echo "$as_me:__oline__: checking for $ac_word" >&5
-echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
-if test "${ac_cv_path_PROG_IFCONFIG+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  case $PROG_IFCONFIG in
-  [\\/]* | ?:[\\/]*)
-  ac_cv_path_PROG_IFCONFIG="$PROG_IFCONFIG" # Let the user override the test with a path.
-  ;;
-  *)
-  ac_save_IFS=$IFS; IFS=$ac_path_separator
-ac_dummy="$PATH"
-for ac_dir in $ac_dummy; do
-  IFS=$ac_save_IFS
-  test -z "$ac_dir" && ac_dir=.
-  if $as_executable_p "$ac_dir/$ac_word"; then
-   ac_cv_path_PROG_IFCONFIG="$ac_dir/$ac_word"
-   echo "$as_me:__oline__: found $ac_dir/$ac_word" >&5
-   break
-fi
-done
-
-  ;;
-esac
-fi
-PROG_IFCONFIG=$ac_cv_path_PROG_IFCONFIG
-
-if test -n "$PROG_IFCONFIG"; then
-  echo "$as_me:__oline__: result: $PROG_IFCONFIG" >&5
-echo "${ECHO_T}$PROG_IFCONFIG" >&6
-else
-  echo "$as_me:__oline__: result: no" >&5
-echo "${ECHO_T}no" >&6
-fi
-
-	if test -z "$PROG_IFCONFIG" ; then
-		PROG_IFCONFIG="undef"
-	fi
-	
-
-	
-	# Extract the first word of "jstat", so it can be a program name with args.
-set dummy jstat; ac_word=$2
-echo "$as_me:__oline__: checking for $ac_word" >&5
-echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
-if test "${ac_cv_path_PROG_JSTAT+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  case $PROG_JSTAT in
-  [\\/]* | ?:[\\/]*)
-  ac_cv_path_PROG_JSTAT="$PROG_JSTAT" # Let the user override the test with a path.
-  ;;
-  *)
-  ac_save_IFS=$IFS; IFS=$ac_path_separator
-ac_dummy="$PATH"
-for ac_dir in $ac_dummy; do
-  IFS=$ac_save_IFS
-  test -z "$ac_dir" && ac_dir=.
-  if $as_executable_p "$ac_dir/$ac_word"; then
-   ac_cv_path_PROG_JSTAT="$ac_dir/$ac_word"
-   echo "$as_me:__oline__: found $ac_dir/$ac_word" >&5
-   break
-fi
-done
-
-  ;;
-esac
-fi
-PROG_JSTAT=$ac_cv_path_PROG_JSTAT
-
-if test -n "$PROG_JSTAT"; then
-  echo "$as_me:__oline__: result: $PROG_JSTAT" >&5
-echo "${ECHO_T}$PROG_JSTAT" >&6
-else
-  echo "$as_me:__oline__: result: no" >&5
-echo "${ECHO_T}no" >&6
-fi
-
-	if test -z "$PROG_JSTAT" ; then
-		PROG_JSTAT="undef"
-	fi
-	
-
-	
-	# Extract the first word of "ps", so it can be a program name with args.
-set dummy ps; ac_word=$2
-echo "$as_me:__oline__: checking for $ac_word" >&5
-echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
-if test "${ac_cv_path_PROG_PS+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  case $PROG_PS in
-  [\\/]* | ?:[\\/]*)
-  ac_cv_path_PROG_PS="$PROG_PS" # Let the user override the test with a path.
-  ;;
-  *)
-  ac_save_IFS=$IFS; IFS=$ac_path_separator
-ac_dummy="$PATH"
-for ac_dir in $ac_dummy; do
-  IFS=$ac_save_IFS
-  test -z "$ac_dir" && ac_dir=.
-  if $as_executable_p "$ac_dir/$ac_word"; then
-   ac_cv_path_PROG_PS="$ac_dir/$ac_word"
-   echo "$as_me:__oline__: found $ac_dir/$ac_word" >&5
-   break
-fi
-done
-
-  ;;
-esac
-fi
-PROG_PS=$ac_cv_path_PROG_PS
-
-if test -n "$PROG_PS"; then
-  echo "$as_me:__oline__: result: $PROG_PS" >&5
-echo "${ECHO_T}$PROG_PS" >&6
-else
-  echo "$as_me:__oline__: result: no" >&5
-echo "${ECHO_T}no" >&6
-fi
-
-	if test -z "$PROG_PS" ; then
-		PROG_PS="undef"
-	fi
-	
-
-	
-	# Extract the first word of "sar", so it can be a program name with args.
-set dummy sar; ac_word=$2
-echo "$as_me:__oline__: checking for $ac_word" >&5
-echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
-if test "${ac_cv_path_PROG_SAR+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  case $PROG_SAR in
-  [\\/]* | ?:[\\/]*)
-  ac_cv_path_PROG_SAR="$PROG_SAR" # Let the user override the test with a path.
-  ;;
-  *)
-  ac_save_IFS=$IFS; IFS=$ac_path_separator
-ac_dummy="$PATH"
-for ac_dir in $ac_dummy; do
-  IFS=$ac_save_IFS
-  test -z "$ac_dir" && ac_dir=.
-  if $as_executable_p "$ac_dir/$ac_word"; then
-   ac_cv_path_PROG_SAR="$ac_dir/$ac_word"
-   echo "$as_me:__oline__: found $ac_dir/$ac_word" >&5
-   break
-fi
-done
-
-  ;;
-esac
-fi
-PROG_SAR=$ac_cv_path_PROG_SAR
-
-if test -n "$PROG_SAR"; then
-  echo "$as_me:__oline__: result: $PROG_SAR" >&5
-echo "${ECHO_T}$PROG_SAR" >&6
-else
-  echo "$as_me:__oline__: result: no" >&5
-echo "${ECHO_T}no" >&6
-fi
-
-	if test -z "$PROG_SAR" ; then
-		PROG_SAR="undef"
-	fi
-	
-
-	
-	# Extract the first word of "w", so it can be a program name with args.
-set dummy w; ac_word=$2
-echo "$as_me:__oline__: checking for $ac_word" >&5
-echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
-if test "${ac_cv_path_PROG_W+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  case $PROG_W in
-  [\\/]* | ?:[\\/]*)
-  ac_cv_path_PROG_W="$PROG_W" # Let the user override the test with a path.
-  ;;
-  *)
-  ac_save_IFS=$IFS; IFS=$ac_path_separator
-ac_dummy="$PATH"
-for ac_dir in $ac_dummy; do
-  IFS=$ac_save_IFS
-  test -z "$ac_dir" && ac_dir=.
-  if $as_executable_p "$ac_dir/$ac_word"; then
-   ac_cv_path_PROG_W="$ac_dir/$ac_word"
-   echo "$as_me:__oline__: found $ac_dir/$ac_word" >&5
-   break
-fi
-done
-
-  ;;
-esac
-fi
-PROG_W=$ac_cv_path_PROG_W
-
-if test -n "$PROG_W"; then
-  echo "$as_me:__oline__: result: $PROG_W" >&5
-echo "${ECHO_T}$PROG_W" >&6
-else
-  echo "$as_me:__oline__: result: no" >&5
-echo "${ECHO_T}no" >&6
-fi
-
-	if test -z "$PROG_W" ; then
-		PROG_W="undef"
-	fi
-	
-
-	
-	# Extract the first word of "who", so it can be a program name with args.
-set dummy who; ac_word=$2
-echo "$as_me:__oline__: checking for $ac_word" >&5
-echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
-if test "${ac_cv_path_PROG_WHO+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  case $PROG_WHO in
-  [\\/]* | ?:[\\/]*)
-  ac_cv_path_PROG_WHO="$PROG_WHO" # Let the user override the test with a path.
-  ;;
-  *)
-  ac_save_IFS=$IFS; IFS=$ac_path_separator
-ac_dummy="$PATH"
-for ac_dir in $ac_dummy; do
-  IFS=$ac_save_IFS
-  test -z "$ac_dir" && ac_dir=.
-  if $as_executable_p "$ac_dir/$ac_word"; then
-   ac_cv_path_PROG_WHO="$ac_dir/$ac_word"
-   echo "$as_me:__oline__: found $ac_dir/$ac_word" >&5
-   break
-fi
-done
-
-  ;;
-esac
-fi
-PROG_WHO=$ac_cv_path_PROG_WHO
-
-if test -n "$PROG_WHO"; then
-  echo "$as_me:__oline__: result: $PROG_WHO" >&5
-echo "${ECHO_T}$PROG_WHO" >&6
-else
-  echo "$as_me:__oline__: result: no" >&5
-echo "${ECHO_T}no" >&6
-fi
-
-	if test -z "$PROG_WHO" ; then
-		PROG_WHO="undef"
-	fi
-	
-
-	
-	# Extract the first word of "last", so it can be a program name with args.
-set dummy last; ac_word=$2
-echo "$as_me:__oline__: checking for $ac_word" >&5
-echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
-if test "${ac_cv_path_PROG_LAST+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  case $PROG_LAST in
-  [\\/]* | ?:[\\/]*)
-  ac_cv_path_PROG_LAST="$PROG_LAST" # Let the user override the test with a path.
-  ;;
-  *)
-  ac_save_IFS=$IFS; IFS=$ac_path_separator
-ac_dummy="$PATH"
-for ac_dir in $ac_dummy; do
-  IFS=$ac_save_IFS
-  test -z "$ac_dir" && ac_dir=.
-  if $as_executable_p "$ac_dir/$ac_word"; then
-   ac_cv_path_PROG_LAST="$ac_dir/$ac_word"
-   echo "$as_me:__oline__: found $ac_dir/$ac_word" >&5
-   break
-fi
-done
-
-  ;;
-esac
-fi
-PROG_LAST=$ac_cv_path_PROG_LAST
-
-if test -n "$PROG_LAST"; then
-  echo "$as_me:__oline__: result: $PROG_LAST" >&5
-echo "${ECHO_T}$PROG_LAST" >&6
-else
-  echo "$as_me:__oline__: result: no" >&5
-echo "${ECHO_T}no" >&6
-fi
-
-	if test -z "$PROG_LAST" ; then
-		PROG_LAST="undef"
-	fi
-	
-
-	
-	# Extract the first word of "lastlog", so it can be a program name with args.
-set dummy lastlog; ac_word=$2
-echo "$as_me:__oline__: checking for $ac_word" >&5
-echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
-if test "${ac_cv_path_PROG_LASTLOG+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  case $PROG_LASTLOG in
-  [\\/]* | ?:[\\/]*)
-  ac_cv_path_PROG_LASTLOG="$PROG_LASTLOG" # Let the user override the test with a path.
-  ;;
-  *)
-  ac_save_IFS=$IFS; IFS=$ac_path_separator
-ac_dummy="$PATH"
-for ac_dir in $ac_dummy; do
-  IFS=$ac_save_IFS
-  test -z "$ac_dir" && ac_dir=.
-  if $as_executable_p "$ac_dir/$ac_word"; then
-   ac_cv_path_PROG_LASTLOG="$ac_dir/$ac_word"
-   echo "$as_me:__oline__: found $ac_dir/$ac_word" >&5
-   break
-fi
-done
-
-  ;;
-esac
-fi
-PROG_LASTLOG=$ac_cv_path_PROG_LASTLOG
-
-if test -n "$PROG_LASTLOG"; then
-  echo "$as_me:__oline__: result: $PROG_LASTLOG" >&5
-echo "${ECHO_T}$PROG_LASTLOG" >&6
-else
-  echo "$as_me:__oline__: result: no" >&5
-echo "${ECHO_T}no" >&6
-fi
-
-	if test -z "$PROG_LASTLOG" ; then
-		PROG_LASTLOG="undef"
-	fi
-	
-
-	
-	# Extract the first word of "df", so it can be a program name with args.
-set dummy df; ac_word=$2
-echo "$as_me:__oline__: checking for $ac_word" >&5
-echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
-if test "${ac_cv_path_PROG_DF+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  case $PROG_DF in
-  [\\/]* | ?:[\\/]*)
-  ac_cv_path_PROG_DF="$PROG_DF" # Let the user override the test with a path.
-  ;;
-  *)
-  ac_save_IFS=$IFS; IFS=$ac_path_separator
-ac_dummy="$PATH"
-for ac_dir in $ac_dummy; do
-  IFS=$ac_save_IFS
-  test -z "$ac_dir" && ac_dir=.
-  if $as_executable_p "$ac_dir/$ac_word"; then
-   ac_cv_path_PROG_DF="$ac_dir/$ac_word"
-   echo "$as_me:__oline__: found $ac_dir/$ac_word" >&5
-   break
-fi
-done
-
-  ;;
-esac
-fi
-PROG_DF=$ac_cv_path_PROG_DF
-
-if test -n "$PROG_DF"; then
-  echo "$as_me:__oline__: result: $PROG_DF" >&5
-echo "${ECHO_T}$PROG_DF" >&6
-else
-  echo "$as_me:__oline__: result: no" >&5
-echo "${ECHO_T}no" >&6
-fi
-
-	if test -z "$PROG_DF" ; then
-		PROG_DF="undef"
-	fi
-	
-
-	
-	# Extract the first word of "vmstat", so it can be a program name with args.
-set dummy vmstat; ac_word=$2
-echo "$as_me:__oline__: checking for $ac_word" >&5
-echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
-if test "${ac_cv_path_PROG_VMSTAT+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  case $PROG_VMSTAT in
-  [\\/]* | ?:[\\/]*)
-  ac_cv_path_PROG_VMSTAT="$PROG_VMSTAT" # Let the user override the test with a path.
-  ;;
-  *)
-  ac_save_IFS=$IFS; IFS=$ac_path_separator
-ac_dummy="$PATH"
-for ac_dir in $ac_dummy; do
-  IFS=$ac_save_IFS
-  test -z "$ac_dir" && ac_dir=.
-  if $as_executable_p "$ac_dir/$ac_word"; then
-   ac_cv_path_PROG_VMSTAT="$ac_dir/$ac_word"
-   echo "$as_me:__oline__: found $ac_dir/$ac_word" >&5
-   break
-fi
-done
-
-  ;;
-esac
-fi
-PROG_VMSTAT=$ac_cv_path_PROG_VMSTAT
-
-if test -n "$PROG_VMSTAT"; then
-  echo "$as_me:__oline__: result: $PROG_VMSTAT" >&5
-echo "${ECHO_T}$PROG_VMSTAT" >&6
-else
-  echo "$as_me:__oline__: result: no" >&5
-echo "${ECHO_T}no" >&6
-fi
-
-	if test -z "$PROG_VMSTAT" ; then
-		PROG_VMSTAT="undef"
-	fi
-	
-
-	
-	# Extract the first word of "uptime", so it can be a program name with args.
-set dummy uptime; ac_word=$2
-echo "$as_me:__oline__: checking for $ac_word" >&5
-echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
-if test "${ac_cv_path_PROG_UPTIME+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  case $PROG_UPTIME in
-  [\\/]* | ?:[\\/]*)
-  ac_cv_path_PROG_UPTIME="$PROG_UPTIME" # Let the user override the test with a path.
-  ;;
-  *)
-  ac_save_IFS=$IFS; IFS=$ac_path_separator
-ac_dummy="$PATH"
-for ac_dir in $ac_dummy; do
-  IFS=$ac_save_IFS
-  test -z "$ac_dir" && ac_dir=.
-  if $as_executable_p "$ac_dir/$ac_word"; then
-   ac_cv_path_PROG_UPTIME="$ac_dir/$ac_word"
-   echo "$as_me:__oline__: found $ac_dir/$ac_word" >&5
-   break
-fi
-done
-
-  ;;
-esac
-fi
-PROG_UPTIME=$ac_cv_path_PROG_UPTIME
-
-if test -n "$PROG_UPTIME"; then
-  echo "$as_me:__oline__: result: $PROG_UPTIME" >&5
-echo "${ECHO_T}$PROG_UPTIME" >&6
-else
-  echo "$as_me:__oline__: result: no" >&5
-echo "${ECHO_T}no" >&6
-fi
-
-	if test -z "$PROG_UPTIME" ; then
-		PROG_UPTIME="undef"
-	fi
-	
-
-	
-	# Extract the first word of "ipcs", so it can be a program name with args.
-set dummy ipcs; ac_word=$2
-echo "$as_me:__oline__: checking for $ac_word" >&5
-echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
-if test "${ac_cv_path_PROG_IPCS+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  case $PROG_IPCS in
-  [\\/]* | ?:[\\/]*)
-  ac_cv_path_PROG_IPCS="$PROG_IPCS" # Let the user override the test with a path.
-  ;;
-  *)
-  ac_save_IFS=$IFS; IFS=$ac_path_separator
-ac_dummy="$PATH"
-for ac_dir in $ac_dummy; do
-  IFS=$ac_save_IFS
-  test -z "$ac_dir" && ac_dir=.
-  if $as_executable_p "$ac_dir/$ac_word"; then
-   ac_cv_path_PROG_IPCS="$ac_dir/$ac_word"
-   echo "$as_me:__oline__: found $ac_dir/$ac_word" >&5
-   break
-fi
-done
-
-  ;;
-esac
-fi
-PROG_IPCS=$ac_cv_path_PROG_IPCS
-
-if test -n "$PROG_IPCS"; then
-  echo "$as_me:__oline__: result: $PROG_IPCS" >&5
-echo "${ECHO_T}$PROG_IPCS" >&6
-else
-  echo "$as_me:__oline__: result: no" >&5
-echo "${ECHO_T}no" >&6
-fi
-
-	if test -z "$PROG_IPCS" ; then
-		PROG_IPCS="undef"
-	fi
-	
-
-	
-	# Extract the first word of "tail", so it can be a program name with args.
-set dummy tail; ac_word=$2
-echo "$as_me:__oline__: checking for $ac_word" >&5
-echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
-if test "${ac_cv_path_PROG_TAIL+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  case $PROG_TAIL in
-  [\\/]* | ?:[\\/]*)
-  ac_cv_path_PROG_TAIL="$PROG_TAIL" # Let the user override the test with a path.
-  ;;
-  *)
-  ac_save_IFS=$IFS; IFS=$ac_path_separator
-ac_dummy="$PATH"
-for ac_dir in $ac_dummy; do
-  IFS=$ac_save_IFS
-  test -z "$ac_dir" && ac_dir=.
-  if $as_executable_p "$ac_dir/$ac_word"; then
-   ac_cv_path_PROG_TAIL="$ac_dir/$ac_word"
-   echo "$as_me:__oline__: found $ac_dir/$ac_word" >&5
-   break
-fi
-done
-
-  ;;
-esac
-fi
-PROG_TAIL=$ac_cv_path_PROG_TAIL
-
-if test -n "$PROG_TAIL"; then
-  echo "$as_me:__oline__: result: $PROG_TAIL" >&5
-echo "${ECHO_T}$PROG_TAIL" >&6
-else
-  echo "$as_me:__oline__: result: no" >&5
-echo "${ECHO_T}no" >&6
-fi
-
-	if test -z "$PROG_TAIL" ; then
-		PROG_TAIL="undef"
-	fi
-	
-
-
-	INSTALL_SSH_PRNG_CMDS="yes"
-fi
-
-
-
-
 # Check whether --with-mantype or --without-mantype was given.
 if test "${with_mantype+set}" = set; then
   withval="$with_mantype"
@@ -14915,6 +14872,7 @@ echo "${ECHO_T}no (default)" >&6
 fi; 
 
 # Whether to enable BSD auth support
+BSD_AUTH_MSG=no
 
 # Check whether --with-bsd-auth or --without-bsd-auth was given.
 if test "${with_bsd_auth+set}" = set; then
@@ -14925,7 +14883,7 @@ if test "${with_bsd_auth+set}" = set; then
 @%:@define BSD_AUTH 1
 _ACEOF
 
-			bsd_auth=yes
+			BSD_AUTH_MSG=yes
 		fi
 	
 
@@ -15481,31 +15439,18 @@ _ACEOF
 fi	
 
 
-# Change default command timeout for builtin PRNG
-entropy_timeout=200
-
-# Check whether --with-entropy-timeout or --without-entropy-timeout was given.
-if test "${with_entropy_timeout+set}" = set; then
-  withval="$with_entropy_timeout"
-  
-		if test "x$withval" != "xno" ; then
-			entropy_timeout=$withval
-		fi
-		
-
-fi; 
-cat >>confdefs.h <<_ACEOF
-@%:@define ENTROPY_TIMEOUT_MSEC $entropy_timeout
-_ACEOF
-
-
-
 if test ! -z "$blibpath" ; then
 	LDFLAGS="$LDFLAGS -blibpath:$blibpath"
 	{ echo "$as_me:__oline__: WARNING: Please check and edit -blibpath in LDFLAGS in Makefile" >&5
 echo "$as_me: WARNING: Please check and edit -blibpath in LDFLAGS in Makefile" >&2;}
 fi
 
+if test "$PAM_MSG" = yes ; then
+	LIBS=`echo $LIBS | sed 's/-lpam //'`
+fi
+if test "$ac_cv_lib_pam_pam_set_item" = yes ; then
+	LIBS=`echo $LIBS | sed 's/-ldl //'`
+fi
 
 
 ac_config_files="$ac_config_files Makefile openbsd-compat/Makefile scard/Makefile ssh_prng_cmds"
@@ -15948,11 +15893,9 @@ s,@FILEPRIV@,$FILEPRIV,;t t
 s,@TEST_MINUS_S_SH@,$TEST_MINUS_S_SH,;t t
 s,@LOGIN_PROGRAM_FALLBACK@,$LOGIN_PROGRAM_FALLBACK,;t t
 s,@LD@,$LD,;t t
-s,@NO_SFTP@,$NO_SFTP,;t t
-s,@rsh_path@,$rsh_path,;t t
-s,@xauth_path@,$xauth_path,;t t
-s,@XAUTH_PATH@,$XAUTH_PATH,;t t
-s,@RANDOM_POOL@,$RANDOM_POOL,;t t
+s,@LIBWRAP@,$LIBWRAP,;t t
+s,@LIBPAM@,$LIBPAM,;t t
+s,@INSTALL_SSH_RAND_HELPER@,$INSTALL_SSH_RAND_HELPER,;t t
 s,@PROG_LS@,$PROG_LS,;t t
 s,@PROG_NETSTAT@,$PROG_NETSTAT,;t t
 s,@PROG_ARP@,$PROG_ARP,;t t
@@ -15970,6 +15913,10 @@ s,@PROG_UPTIME@,$PROG_UPTIME,;t t
 s,@PROG_IPCS@,$PROG_IPCS,;t t
 s,@PROG_TAIL@,$PROG_TAIL,;t t
 s,@INSTALL_SSH_PRNG_CMDS@,$INSTALL_SSH_PRNG_CMDS,;t t
+s,@NO_SFTP@,$NO_SFTP,;t t
+s,@rsh_path@,$rsh_path,;t t
+s,@xauth_path@,$xauth_path,;t t
+s,@XAUTH_PATH@,$XAUTH_PATH,;t t
 s,@NROFF@,$NROFF,;t t
 s,@MANTYPE@,$MANTYPE,;t t
 s,@mansubdir@,$mansubdir,;t t
@@ -16402,19 +16349,6 @@ fi
 
 # Print summary of options
 
-if test ! -z "$RANDOM_POOL" ; then
-	RAND_MSG="Device ($RANDOM_POOL)"
-else
-	if test ! -z "$PRNGD_PORT" ; then
-		RAND_MSG="PRNGD/EGD (port localhost:$PRNGD_PORT)"
-	elif test ! -z "$PRNGD_SOCKET" ; then
-		RAND_MSG="PRNGD/EGD (socket $PRNGD_SOCKET)"
-	else
-		RAND_MSG="Builtin (timeout $entropy_timeout)"
-		BUILTIN_RNG=1
-	fi
-fi
-
 # Someone please show me a better way :)
 A=`eval echo ${prefix}` ; A=`eval echo ${A}`
 B=`eval echo ${bindir}` ; B=`eval echo ${B}`
@@ -16434,7 +16368,6 @@ echo "               Askpass program: $E"
 echo "                  Manual pages: $F"
 echo "                      PID file: $G"
 echo "        sshd default user PATH: $H"
-echo "      Random number collection: $RAND_MSG"
 echo "                Manpage format: $MANTYPE"
 echo "                   PAM support: ${PAM_MSG}"
 echo "            KerberosIV support: $KRB4_MSG"
@@ -16446,9 +16379,10 @@ echo "          MD5 password support: $MD5_MSG"
 echo "   IP address in \$DISPLAY hack: $DISPLAY_HACK_MSG"
 echo "      Use IPv4 by default hack: $IPV4_HACK_MSG"
 echo "       Translate v4 in v6 hack: $IPV4_IN6_HACK_MSG"
-
-if test ! -z "$bsd_auth"; then
-	echo "              BSD Auth support: yes"
+echo "              BSD Auth support: $BSD_AUTH_MSG"
+echo "          Random number source: $RAND_MSG"
+if test ! -z "$USE_RAND_HELPER" ; then
+	echo " ssh-rand-helper collects from: $RAND_HELPER_MSG"
 fi
 
 echo ""
@@ -16458,27 +16392,29 @@ echo "          Compiler: ${CC}"
 echo "    Compiler flags: ${CFLAGS}"
 echo "Preprocessor flags: ${CPPFLAGS}"
 echo "      Linker flags: ${LDFLAGS}"
-echo "         Libraries: ${LIBS}"
+echo "         Libraries: ${LIBWRAP} ${LIBPAM} ${LIBS}"
 
 echo ""
 
 if test "x$PAM_MSG" = "xyes" ; then
-	echo "PAM is enabled. You may need to install a PAM control file for sshd,"
-	echo "otherwise password authentication may fail. Example PAM control files"
-	echo "can be found in the contrib/ subdirectory"
-	echo ""
-fi
-
-if test ! -z "$BUILTIN_RNG" ; then
-	echo "WARNING: you are using the builtin random number collection service."
-	echo "Please read WARNING.RNG and request that your OS vendor includes"
-	echo "/dev/random in future versions of their OS."
+	echo "PAM is enabled. You may need to install a PAM control file "
+	echo "for sshd, otherwise password authentication may fail. "
+	echo "Example PAM control files can be found in the contrib/ " 
+	echo "subdirectory"
 	echo ""
 fi
 
 if test ! -z "$NO_SFTP"; then
-	echo "sftp-server will be disabled.  Your compiler does not support"
-	echo "64bit integers."
+	echo "sftp-server will be disabled.  Your compiler does not "
+	echo "support 64bit integers."
+	echo ""
+fi
+
+if test ! -z "$RAND_HELPER_CMDHASH" ; then
+	echo "WARNING: you are using the builtin random number collection "
+	echo "service. Please read WARNING.RNG and request that your OS "
+	echo "vendor includes kernel-based random number collection in "
+	echo "future versions of your OS."
 	echo ""
 fi
 

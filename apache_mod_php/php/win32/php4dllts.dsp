@@ -45,7 +45,7 @@ RSC=rc.exe
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /MTd /W3 /Gm /GX /ZI /Od /D "WIN32" /D "_DEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "PHP4DLLTS_EXPORTS" /YX /FD /GZ /c
-# ADD CPP /nologo /MDd /W3 /Gm /GX /ZI /Od /I ".." /I "..\main" /I "..\regex" /I "..\..\bindlib_w32" /I "..\Zend" /I "..\TSRM" /I "..\ext\mysql\libmysql" /D "_DEBUG" /D ZEND_DEBUG=1 /D "_WINDOWS" /D "_USRDLL" /D "PHP4DLLTS_EXPORTS" /D "PHP_EXPORTS" /D "LIBZEND_EXPORTS" /D "TSRM_EXPORTS" /D "SAPI_EXPORTS" /D "MSVC5" /D "ZTS" /D "ZEND_WIN32" /D "PHP_WIN32" /D "WIN32" /D "_MBCS" /FR /YX /FD /GZ /c
+# ADD CPP /nologo /MDd /W3 /Gm /GX /ZI /Od /I ".." /I "..\main" /I "..\regex" /I "..\..\bindlib_w32" /I "..\Zend" /I "..\TSRM" /I "..\ext\mysql\libmysql" /I "..\ext\xml\expat" /D "_DEBUG" /D ZEND_DEBUG=1 /D "_WINDOWS" /D "_USRDLL" /D "PHP4DLLTS_EXPORTS" /D "PHP_EXPORTS" /D "LIBZEND_EXPORTS" /D "TSRM_EXPORTS" /D "SAPI_EXPORTS" /D "MSVC5" /D "ZTS" /D "ZEND_WIN32" /D "PHP_WIN32" /D "WIN32" /D "_MBCS" /FR /YX /FD /GZ /c
 # ADD BASE MTL /nologo /D "_DEBUG" /mktyplib203 /win32
 # ADD MTL /nologo /D "_DEBUG" /mktyplib203 /win32
 # ADD BASE RSC /l 0x40d /d "_DEBUG"
@@ -71,7 +71,7 @@ LINK32=link.exe
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /MT /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "PHP4DLLTS_EXPORTS" /YX /FD /c
-# ADD CPP /nologo /MD /W3 /GX /O2 /I ".." /I "..\main" /I "..\regex" /I "..\..\bindlib_w32" /I "..\Zend" /I "..\TSRM" /I "..\ext\mysql\libmysql" /D "NDEBUG" /D ZEND_DEBUG=0 /D "_WINDOWS" /D "_USRDLL" /D "PHP4DLLTS_EXPORTS" /D "PHP_EXPORTS" /D "LIBZEND_EXPORTS" /D "TSRM_EXPORTS" /D "SAPI_EXPORTS" /D "MSVC5" /D "ZTS" /D "ZEND_WIN32" /D "PHP_WIN32" /D "WIN32" /D "_MBCS" /FR /YX /FD /c
+# ADD CPP /nologo /MD /W3 /GX /O2 /I ".." /I "..\main" /I "..\regex" /I "..\..\bindlib_w32" /I "..\Zend" /I "..\TSRM" /I "..\ext\mysql\libmysql" /I "..\ext\xml\expat" /D "NDEBUG" /D ZEND_DEBUG=0 /D "_WINDOWS" /D "_USRDLL" /D "PHP4DLLTS_EXPORTS" /D "PHP_EXPORTS" /D "LIBZEND_EXPORTS" /D "TSRM_EXPORTS" /D "SAPI_EXPORTS" /D "MSVC5" /D "ZTS" /D "ZEND_WIN32" /D "PHP_WIN32" /D "WIN32" /D "_MBCS" /FR /YX /FD /c
 # ADD BASE MTL /nologo /D "NDEBUG" /mktyplib203 /win32
 # ADD MTL /nologo /D "NDEBUG" /mktyplib203 /win32
 # ADD BASE RSC /l 0x40d /d "NDEBUG"
@@ -98,7 +98,7 @@ LINK32=link.exe
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /MD /W3 /GX /O2 /I "." /I "regex" /I "..\bindlib_w32" /I "Zend" /I "tsrm" /D "NDEBUG" /D "_WINDOWS" /D "_USRDLL" /D "PHP4DLLTS_EXPORTS" /D "MSVC5" /D "PHP_EXPORTS" /D "LIBZEND_EXPORTS" /D "TSRM_EXPORTS" /D "SAPI_EXPORTS" /D "ZTS" /D "WIN32" /D "_MBCS" /D ZEND_DEBUG=0 /FR /YX /FD /c
-# ADD CPP /nologo /MD /W3 /GX /O2 /I ".." /I "..\main" /I "..\regex" /I "..\..\bindlib_w32" /I "..\Zend" /I "..\TSRM" /I "..\ext\mysql\libmysql" /D "NDEBUG" /D ZEND_DEBUG=0 /D "ZEND_WIN32_FORCE_INLINE" /D "_WINDOWS" /D "_USRDLL" /D "PHP4DLLTS_EXPORTS" /D "PHP_EXPORTS" /D "LIBZEND_EXPORTS" /D "TSRM_EXPORTS" /D "SAPI_EXPORTS" /D "MSVC5" /D "ZTS" /D "ZEND_WIN32" /D "PHP_WIN32" /D "WIN32" /D "_MBCS" /FR /YX /FD /c
+# ADD CPP /nologo /MD /W3 /GX /O2 /I ".." /I "..\main" /I "..\regex" /I "..\..\bindlib_w32" /I "..\Zend" /I "..\TSRM" /I "..\ext\mysql\libmysql" /I "..\ext\xml\expat" /D "NDEBUG" /D ZEND_DEBUG=0 /D "ZEND_WIN32_FORCE_INLINE" /D "_WINDOWS" /D "_USRDLL" /D "PHP4DLLTS_EXPORTS" /D "PHP_EXPORTS" /D "LIBZEND_EXPORTS" /D "TSRM_EXPORTS" /D "SAPI_EXPORTS" /D "MSVC5" /D "ZTS" /D "ZEND_WIN32" /D "PHP_WIN32" /D "WIN32" /D "_MBCS" /FR /YX /FD /c
 # ADD BASE MTL /nologo /D "NDEBUG" /mktyplib203 /win32
 # ADD MTL /nologo /D "NDEBUG" /mktyplib203 /win32
 # ADD BASE RSC /l 0x40d /d "NDEBUG"
@@ -125,7 +125,7 @@ LINK32=link.exe
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /MD /W3 /GX /O2 /I ".." /I "..\main" /I "..\regex" /I "..\..\bindlib_w32" /I "..\Zend" /I "..\TSRM" /I "..\ext\mysql\libmysql" /D "NDEBUG" /D ZEND_DEBUG=0 /D "_WINDOWS" /D "_USRDLL" /D "PHP4DLLTS_EXPORTS" /D "PHP_EXPORTS" /D "LIBZEND_EXPORTS" /D "TSRM_EXPORTS" /D "SAPI_EXPORTS" /D "MSVC5" /D "ZTS" /D "ZEND_WIN32" /D "PHP_WIN32" /D "WIN32" /D "_MBCS" /FR /YX /FD /c
-# ADD CPP /nologo /MD /W3 /GX /Zi /Od /I ".." /I "..\main" /I "..\regex" /I "..\..\bindlib_w32" /I "..\Zend" /I "..\TSRM" /I "..\ext\mysql\libmysql" /D "NDEBUG" /D ZEND_DEBUG=0 /D "_WINDOWS" /D "_USRDLL" /D "PHP4DLLTS_EXPORTS" /D "PHP_EXPORTS" /D "LIBZEND_EXPORTS" /D "TSRM_EXPORTS" /D "SAPI_EXPORTS" /D "MSVC5" /D "ZTS" /D "ZEND_WIN32" /D "PHP_WIN32" /D "WIN32" /D "_MBCS" /FR /YX /FD /c
+# ADD CPP /nologo /MD /W3 /GX /Zi /Od /I ".." /I "..\main" /I "..\regex" /I "..\..\bindlib_w32" /I "..\Zend" /I "..\TSRM" /I "..\ext\mysql\libmysql" /I "..\ext\xml\expat" /D "NDEBUG" /D ZEND_DEBUG=0 /D "_WINDOWS" /D "_USRDLL" /D "PHP4DLLTS_EXPORTS" /D "PHP_EXPORTS" /D "LIBZEND_EXPORTS" /D "TSRM_EXPORTS" /D "SAPI_EXPORTS" /D "MSVC5" /D "ZTS" /D "ZEND_WIN32" /D "PHP_WIN32" /D "WIN32" /D "_MBCS" /FR /YX /FD /D /c
 # ADD BASE MTL /nologo /D "NDEBUG" /mktyplib203 /win32
 # ADD MTL /nologo /D "NDEBUG" /mktyplib203 /win32
 # ADD BASE RSC /l 0x40d /d "NDEBUG"
@@ -175,6 +175,10 @@ SOURCE=..\main\mergesort.c
 # Begin Source File
 
 SOURCE=..\main\network.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\main\output.c
 # End Source File
 # Begin Source File
 
@@ -295,6 +299,10 @@ SOURCE=..\main\php_main.h
 # Begin Source File
 
 SOURCE=..\main\php_open_temporary_file.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\main\php_output.h
 # End Source File
 # Begin Source File
 
@@ -482,10 +490,6 @@ SOURCE=..\ext\session\mod_user.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\ext\standard\output.c
-# End Source File
-# Begin Source File
-
 SOURCE=..\ext\standard\pack.c
 # End Source File
 # Begin Source File
@@ -572,6 +576,10 @@ SOURCE=..\ext\standard\url_scanner_ex.c
 # Begin Source File
 
 SOURCE=..\ext\standard\var.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\ext\standard\versioning.c
 # End Source File
 # End Group
 # Begin Group "Header Files No. 1"
@@ -692,10 +700,6 @@ SOURCE=..\ext\mysql\php_mysql.h
 # Begin Source File
 
 SOURCE=..\ext\odbc\php_odbc.h
-# End Source File
-# Begin Source File
-
-SOURCE=..\ext\standard\php_output.h
 # End Source File
 # Begin Source File
 
@@ -885,126 +889,6 @@ SOURCE=..\ext\wddx\php_wddx_api.h
 
 SOURCE=..\ext\xml\php_xml.h
 # End Source File
-# End Group
-# Begin Group "expat"
-
-# PROP Default_Filter ""
-# Begin Group "Source Files No. 5"
-
-# PROP Default_Filter "cpp;c;cxx;rc;def;r;odl;idl;hpj;bat;for;f90"
-# Begin Source File
-
-SOURCE=..\ext\xml\expat\xmlparse\hashtable.c
-# ADD CPP /I "..\ext\xml\expat\xmltok"
-# End Source File
-# Begin Source File
-
-SOURCE=..\ext\xml\expat\xmlparse\xmlparse.c
-# ADD CPP /I "..\ext\xml\expat\xmltok"
-# End Source File
-# Begin Source File
-
-SOURCE=..\ext\xml\expat\xmltok\xmlrole.c
-# ADD CPP /I "..\ext\xml\expat\xmltok"
-# End Source File
-# Begin Source File
-
-SOURCE=..\ext\xml\expat\xmltok\xmltok.c
-# ADD CPP /I "..\ext\xml\expat\xmltok"
-# End Source File
-# End Group
-# Begin Group "Header Files No. 5"
-
-# PROP Default_Filter "h;hpp;hxx;hm;inl;fi;fd"
-# Begin Source File
-
-SOURCE=..\ext\xml\expat\xmltok\asciitab.h
-# End Source File
-# Begin Source File
-
-SOURCE=..\ext\xml\expat\xmltok\iasciitab.h
-# End Source File
-# Begin Source File
-
-SOURCE=..\ext\xml\expat\xmltok\latin1tab.h
-# End Source File
-# Begin Source File
-
-SOURCE=..\ext\xml\expat\xmltok\nametab.h
-# End Source File
-# Begin Source File
-
-SOURCE=..\ext\xml\expat\xmltok\utf8tab.h
-# End Source File
-# Begin Source File
-
-SOURCE=..\ext\xml\expat\xmltok\xmldef.h
-# End Source File
-# Begin Source File
-
-SOURCE=..\ext\xml\expat\xmlparse\xmlparse.h
-# End Source File
-# Begin Source File
-
-SOURCE=..\ext\xml\expat\xmltok\xmlrole.h
-# End Source File
-# Begin Source File
-
-SOURCE=..\ext\xml\expat\xmltok\xmltok.h
-# End Source File
-# Begin Source File
-
-SOURCE=..\ext\xml\expat\xmltok\xmltok_impl.c
-
-!IF  "$(CFG)" == "php4dllts - Win32 Debug_TS"
-
-# PROP Exclude_From_Build 1
-
-!ELSEIF  "$(CFG)" == "php4dllts - Win32 Release_TS"
-
-# PROP Exclude_From_Build 1
-
-!ELSEIF  "$(CFG)" == "php4dllts - Win32 Release_TS_inline"
-
-# PROP Exclude_From_Build 1
-
-!ELSEIF  "$(CFG)" == "php4dllts - Win32 Release_TSDbg"
-
-# PROP BASE Exclude_From_Build 1
-# PROP Exclude_From_Build 1
-
-!ENDIF 
-
-# End Source File
-# Begin Source File
-
-SOURCE=..\ext\xml\expat\xmltok\xmltok_impl.h
-# End Source File
-# Begin Source File
-
-SOURCE=..\ext\xml\expat\xmltok\xmltok_ns.c
-
-!IF  "$(CFG)" == "php4dllts - Win32 Debug_TS"
-
-# PROP Exclude_From_Build 1
-
-!ELSEIF  "$(CFG)" == "php4dllts - Win32 Release_TS"
-
-# PROP Exclude_From_Build 1
-
-!ELSEIF  "$(CFG)" == "php4dllts - Win32 Release_TS_inline"
-
-# PROP Exclude_From_Build 1
-
-!ELSEIF  "$(CFG)" == "php4dllts - Win32 Release_TSDbg"
-
-# PROP BASE Exclude_From_Build 1
-# PROP Exclude_From_Build 1
-
-!ENDIF 
-
-# End Source File
-# End Group
 # End Group
 # End Group
 # Begin Group "FTP"
@@ -1927,6 +1811,10 @@ SOURCE=..\ext\com\php_VARIANT.h
 # End Source File
 # Begin Source File
 
+SOURCE=..\ext\com\php_versioning.h
+# End Source File
+# Begin Source File
+
 SOURCE=..\win32\pwd.h
 # End Source File
 # Begin Source File
@@ -1948,6 +1836,10 @@ SOURCE=..\win32\time.h
 # Begin Source File
 
 SOURCE=..\win32\unistd.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\ext\com\variant.h
 # End Source File
 # Begin Source File
 
@@ -2035,7 +1927,7 @@ SOURCE="..\php.ini-dist"
 # End Source File
 # Begin Source File
 
-SOURCE="..\php.ini-optimized"
+SOURCE="..\php.ini-recommended"
 # End Source File
 # Begin Source File
 
@@ -2045,6 +1937,81 @@ SOURCE="..\README.CVS-RULES"
 
 SOURCE=..\TODO
 # End Source File
+# End Group
+# Begin Group "Support"
+
+# PROP Default_Filter ""
+# Begin Group "Expat"
+
+# PROP Default_Filter ""
+# Begin Group "Source Files No. 5"
+
+# PROP Default_Filter ".c"
+# Begin Source File
+
+SOURCE=..\ext\xml\expat\xmlparse.c
+# ADD CPP /D "COMPILED_FROM_DSP"
+# End Source File
+# Begin Source File
+
+SOURCE=..\ext\xml\expat\xmlrole.c
+# ADD CPP /D "COMPILED_FROM_DSP"
+# End Source File
+# Begin Source File
+
+SOURCE=..\ext\xml\expat\xmltok.c
+# ADD CPP /D "COMPILED_FROM_DSP"
+# End Source File
+# End Group
+# Begin Group "Header Files No. 5"
+
+# PROP Default_Filter ".h"
+# Begin Source File
+
+SOURCE=..\ext\xml\expat\ascii.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\ext\xml\expat\asciitab.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\ext\xml\expat\expat.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\ext\xml\expat\iasciitab.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\ext\xml\expat\latin1tab.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\ext\xml\expat\nametab.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\ext\xml\expat\utf8tab.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\ext\xml\expat\winconfig.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\ext\xml\expat\xmlrole.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\ext\xml\expat\xmltok.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\ext\xml\expat\xmltok_impl.h
+# End Source File
+# End Group
+# End Group
 # End Group
 # End Target
 # End Project

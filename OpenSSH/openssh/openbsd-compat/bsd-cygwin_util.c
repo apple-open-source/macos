@@ -15,7 +15,7 @@
 
 #include "includes.h"
 
-RCSID("$Id: bsd-cygwin_util.c,v 1.1.1.3 2001/11/03 18:14:14 bbraun Exp $");
+RCSID("$Id: bsd-cygwin_util.c,v 1.1.1.4 2002/03/08 21:07:46 wsanchez Exp $");
 
 #ifdef HAVE_CYGWIN
 
@@ -58,7 +58,7 @@ int binary_pipe(int fd[2])
 	return ret;
 }
 
-int check_nt_auth(int pwd_authenticated, uid_t uid)
+int check_nt_auth(int pwd_authenticated, struct passwd *pw)
 {
 	/*
 	* The only authentication which is able to change the user
@@ -73,6 +73,8 @@ int check_nt_auth(int pwd_authenticated, uid_t uid)
 	*/
 	static int has_create_token = -1;
 
+	if (pw == NULL)
+		return 0;
 	if (is_winnt) {
 		if (has_create_token < 0) {
 			struct utsname uts;
@@ -90,7 +92,7 @@ int check_nt_auth(int pwd_authenticated, uid_t uid)
 			}
 		}
 		if (has_create_token < 1 &&
-		    !pwd_authenticated && geteuid() != uid)
+		    !pwd_authenticated && geteuid() != pw->pw_uid)
 			return 0;
 	}
 	return 1;
@@ -137,6 +139,28 @@ int check_ntsec(const char *filename)
 		return allow_ntsec;
 
 	return 0;
+}
+
+void register_9x_service(void)
+{
+        HINSTANCE kerneldll;
+        DWORD (*RegisterServiceProcess)(DWORD, DWORD);
+
+	/* The service register mechanism in 9x/Me is pretty different from
+	 * NT/2K/XP.  In NT/2K/XP we're using a special service starter
+	 * application to register and control sshd as service.  This method
+	 * doesn't play nicely with 9x/Me.  For that reason we register here
+	 * as service when running under 9x/Me.  This function is only called
+	 * by the child sshd when it's going to daemonize.
+	 */
+	if (is_winnt)
+		return;
+	if (! (kerneldll = LoadLibrary("KERNEL32.DLL")))
+		return;
+	if (! (RegisterServiceProcess = (DWORD (*)(DWORD, DWORD))
+			  GetProcAddress(kerneldll, "RegisterServiceProcess")))
+		return;
+	RegisterServiceProcess(0, 1);
 }
 
 #endif /* HAVE_CYGWIN */

@@ -1,5 +1,6 @@
-/* 
-   Copyright (C) Andrew Tridgell 1996
+/* -*- c-file-style: "linux" -*-
+   
+   Copyright (C) 1996-2000 by Andrew Tridgell
    Copyright (C) Paul Mackerras 1996
    
    This program is free software; you can redistribute it and/or modify
@@ -36,13 +37,11 @@ extern char *compare_dest;
 extern int make_backups;
 extern char *backup_suffix;
 
-
 static struct delete_list {
-	dev_t dev;
-	INO_T inode;
+	DEV64_T dev;
+	INO64_T inode;
 } *delete_list;
 static int dlist_len, dlist_alloc_len;
-
 
 /* yuck! This function wouldn't have been necessary if I had the sorting
    algorithm right. Unfortunately fixing the sorting algorithm would introduce
@@ -84,14 +83,15 @@ static void delete_one(struct file_struct *f)
 {
 	if (!S_ISDIR(f->mode)) {
 		if (robust_unlink(f_name(f)) != 0) {
-			rprintf(FERROR,"unlink %s : %s\n",f_name(f),strerror(errno));
+			rprintf(FERROR,"delete_one: unlink %s: %s\n",f_name(f),strerror(errno));
 		} else if (verbose) {
 			rprintf(FINFO,"deleting %s\n",f_name(f));
 		}
 	} else {    
 		if (do_rmdir(f_name(f)) != 0) {
 			if (errno != ENOTEMPTY && errno != EEXIST)
-				rprintf(FERROR,"rmdir %s : %s\n",f_name(f),strerror(errno));
+				rprintf(FERROR,"delete_one: rmdir %s: %s\n",
+                                        f_name(f), strerror(errno));
 		} else if (verbose) {
 			rprintf(FINFO,"deleting directory %s\n",f_name(f));      
 		}
@@ -104,16 +104,20 @@ static void delete_one(struct file_struct *f)
 /* this deletes any files on the receiving side that are not present
    on the sending side. For version 1.6.4 I have changed the behaviour
    to match more closely what most people seem to expect of this option */
-static void delete_files(struct file_list *flist)
+void delete_files(struct file_list *flist)
 {
 	struct file_list *local_file_list;
 	int i, j;
 	char *name;
+	extern int module_id;
+	extern int ignore_errors;
+	extern int max_delete;
+	static int deletion_count;
 
 	if (cvs_exclude)
 		add_cvs_excludes();
 
-	if (io_error) {
+	if (io_error && !(lp_ignore_errors(module_id) || ignore_errors)) {
 		rprintf(FINFO,"IO error encountered - skipping file deletion\n");
 		return;
 	}
@@ -136,6 +140,7 @@ static void delete_files(struct file_list *flist)
 			rprintf(FINFO,"deleting in %s\n", name);
 
 		for (i=local_file_list->count-1;i>=0;i--) {
+			if (max_delete && deletion_count > max_delete) break;
 			if (!local_file_list->files[i]->basename) continue;
 			if (remote_version < 19 &&
 			    S_ISDIR(local_file_list->files[i]->mode))
@@ -143,10 +148,12 @@ static void delete_files(struct file_list *flist)
 			if (-1 == flist_find(flist,local_file_list->files[i])) {
 				char *f = f_name(local_file_list->files[i]);
 				int k = strlen(f) - strlen(backup_suffix);
+/* Hi Andrew, do we really need to play with backup_suffix here? */
 				if (make_backups && ((k <= 0) ||
 					    (strcmp(f+k,backup_suffix) != 0))) {
 					(void) make_backup(f);
 				} else {
+					deletion_count++;
 					delete_one(local_file_list->files[i]);
 				}
 			}
@@ -172,7 +179,7 @@ static int get_tmpname(char *fnametmp, char *fname)
 			rprintf(FERROR,"filename too long\n");
 			return 0;
 		}
-		slprintf(fnametmp,MAXPATHLEN, "%s/.%s.XXXXXX",tmpdir,f);
+		snprintf(fnametmp,MAXPATHLEN, "%s/.%s.XXXXXX",tmpdir,f);
 		return 1;
 	} 
 
@@ -185,11 +192,11 @@ static int get_tmpname(char *fnametmp, char *fname)
 
 	if (f) {
 		*f = 0;
-		slprintf(fnametmp,MAXPATHLEN,"%s/.%s.XXXXXX",
+		snprintf(fnametmp,MAXPATHLEN,"%s/.%s.XXXXXX",
 			 fname,f+1);
 		*f = '/';
 	} else {
-		slprintf(fnametmp,MAXPATHLEN,".%s.XXXXXX",fname);
+		snprintf(fnametmp,MAXPATHLEN,".%s.XXXXXX",fname);
 	}
 
 	return 1;
@@ -199,7 +206,8 @@ static int get_tmpname(char *fnametmp, char *fname)
 static int receive_data(int f_in,struct map_struct *buf,int fd,char *fname,
 			OFF_T total_size)
 {
-	int i,n,remainder,len,count;
+	int i;
+	unsigned int n,remainder,len,count;
 	OFF_T offset = 0;
 	OFF_T offset2;
 	char *data;
@@ -221,8 +229,8 @@ static int receive_data(int f_in,struct map_struct *buf,int fd,char *fname,
 			extern int cleanup_got_literal;
 
 			if (verbose > 3) {
-				rprintf(FINFO,"data recv %d at %d\n",
-					i,(int)offset);
+				rprintf(FINFO,"data recv %d at %.0f\n",
+					i,(double)offset);
 			}
 
 			stats.literal_data += i;
@@ -239,23 +247,25 @@ static int receive_data(int f_in,struct map_struct *buf,int fd,char *fname,
 		} 
 
 		i = -(i+1);
-		offset2 = i*n;
+		offset2 = i*(OFF_T)n;
 		len = n;
-		if (i == count-1 && remainder != 0)
+		if (i == (int) count-1 && remainder != 0)
 			len = remainder;
 		
 		stats.matched_data += len;
 		
 		if (verbose > 3)
-			rprintf(FINFO,"chunk[%d] of size %d at %d offset=%d\n",
-				i,len,(int)offset2,(int)offset);
+			rprintf(FINFO,"chunk[%d] of size %d at %.0f offset=%.0f\n",
+				i,len,(double)offset2,(double)offset);
 		
-		map = map_ptr(buf,offset2,len);
+		if (buf) {
+			map = map_ptr(buf,offset2,len);
 		
-		see_token(map, len);
-		sum_update(map,len);
+			see_token(map, len);
+			sum_update(map,len);
+		}
 		
-		if (fd != -1 && write_file(fd,map,len) != len) {
+		if (fd != -1 && write_file(fd,map,len) != (int) len) {
 			rprintf(FERROR,"write failed on %s : %s\n",
 				fname,strerror(errno));
 			exit_cleanup(RERR_FILEIO);
@@ -263,7 +273,7 @@ static int receive_data(int f_in,struct map_struct *buf,int fd,char *fname,
 		offset += len;
 	}
 
-	end_progress();
+	end_progress(total_size);
 
 	if (fd != -1 && offset > 0 && sparse_end(fd) != 0) {
 		rprintf(FERROR,"write failed on %s : %s\n",
@@ -287,12 +297,15 @@ static int receive_data(int f_in,struct map_struct *buf,int fd,char *fname,
 }
 
 
+/* main routine for receiver process. Receiver process runs on the
+	same host as the generator process. */
 
 int recv_files(int f_in,struct file_list *flist,char *local_name,int f_gen)
 {  
 	int fd1,fd2;
 	STRUCT_STAT st;
 	char *fname;
+	char template[MAXPATHLEN];
 	char fnametmp[MAXPATHLEN];
 	char *fnamecmp;
 	char fnamecmpbuf[MAXPATHLEN];
@@ -302,14 +315,12 @@ int recv_files(int f_in,struct file_list *flist,char *local_name,int f_gen)
 	int phase=0;
 	int recv_ok;
 	extern struct stats stats;		
+	extern int preserve_perms;
+	extern int delete_after;
 	struct stats initial_stats;
 
 	if (verbose > 2) {
 		rprintf(FINFO,"recv_files(%d) starting\n",flist->count);
-	}
-
-	if (recurse && delete_mode && !local_name && flist->count>0) {
-		delete_files(flist);
 	}
 
 	while (1) {      
@@ -358,14 +369,14 @@ int recv_files(int f_in,struct file_list *flist,char *local_name,int f_gen)
 		fnamecmp = fname;
 
 		/* open the file */  
-		fd1 = open(fnamecmp,O_RDONLY);
+		fd1 = do_open(fnamecmp, O_RDONLY, 0);
 
 		if ((fd1 == -1) && (compare_dest != NULL)) {
 			/* try the file at compare_dest instead */
-			slprintf(fnamecmpbuf,MAXPATHLEN,"%s/%s",
+			snprintf(fnamecmpbuf,MAXPATHLEN,"%s/%s",
 						compare_dest,fname);
 			fnamecmp = fnamecmpbuf;
-			fd1 = open(fnamecmp,O_RDONLY);
+			fd1 = do_open(fnamecmp, O_RDONLY, 0);
 		}
 
 		if (fd1 != -1 && do_fstat(fd1,&st) != 0) {
@@ -382,10 +393,17 @@ int recv_files(int f_in,struct file_list *flist,char *local_name,int f_gen)
 			continue;
 		}
 
+		if (fd1 != -1 && !preserve_perms) {
+			/* if the file exists already and we aren't perserving
+			   presmissions then act as though the remote end sent
+			   us the file permissions we already have */
+			file->mode = st.st_mode;
+		}
+
 		if (fd1 != -1 && st.st_size > 0) {
 			buf = map_file(fd1,st.st_size);
 			if (verbose > 2)
-				rprintf(FINFO,"recv mapped %s of size %d\n",fnamecmp,(int)st.st_size);
+				rprintf(FINFO,"recv mapped %s of size %.0f\n",fnamecmp,(double)st.st_size);
 		} else {
 			buf = NULL;
 		}
@@ -396,17 +414,7 @@ int recv_files(int f_in,struct file_list *flist,char *local_name,int f_gen)
 			continue;
 		}
 
-		/* mktemp is deliberately used here instead of mkstemp.
-		   because O_EXCL is used on the open, the race condition
-		   is not a problem or a security hole, and we want to
-		   control the access permissions on the created file. */
-		if (NULL == do_mktemp(fnametmp)) {
-			rprintf(FERROR,"mktemp %s failed\n",fnametmp);
-			receive_data(f_in,buf,-1,NULL,file->length);
-			if (buf) unmap_file(buf);
-			if (fd1 != -1) close(fd1);
-			continue;
-		}
+		strlcpy(template, fnametmp, sizeof(template));
 
 		/* we initially set the perms without the
 		   setuid/setgid bits to ensure that there is no race
@@ -414,16 +422,21 @@ int recv_files(int f_in,struct file_list *flist,char *local_name,int f_gen)
 		   the lchown. Thanks to snabb@epipe.fi for pointing
 		   this out.  We also set it initially without group
 		   access because of a similar race condition. */
-		fd2 = do_open(fnametmp,O_WRONLY|O_CREAT|O_EXCL,
-			      file->mode & INITACCESSPERMS);
+		fd2 = do_mkstemp(fnametmp, file->mode & INITACCESSPERMS);
+		if (fd2 == -1) {
+			rprintf(FERROR,"mkstemp %s failed\n",fnametmp);
+			receive_data(f_in,buf,-1,NULL,file->length);
+			if (buf) unmap_file(buf);
+			continue;
+		}
 
 		/* in most cases parent directories will already exist
 		   because their information should have been previously
 		   transferred, but that may not be the case with -R */
 		if (fd2 == -1 && relative_paths && errno == ENOENT && 
 		    create_directory_path(fnametmp) == 0) {
-			fd2 = do_open(fnametmp,O_WRONLY|O_CREAT|O_EXCL,
-				      file->mode & INITACCESSPERMS);
+			strlcpy(fnametmp, template, sizeof(fnametmp));
+			fd2 = do_mkstemp(fnametmp, file->mode & INITACCESSPERMS);
 		}
 		if (fd2 == -1) {
 			rprintf(FERROR,"cannot create %s : %s\n",fnametmp,strerror(errno));
@@ -456,7 +469,7 @@ int recv_files(int f_in,struct file_list *flist,char *local_name,int f_gen)
 		finish_transfer(fname, fnametmp, file);
 
 		cleanup_disable();
-				
+
 		if (!recv_ok) {
 			if (csum_length == SUM_LENGTH) {
 				rprintf(FERROR,"ERROR: file corruption in %s. File changed during transfer?\n",
@@ -469,8 +482,14 @@ int recv_files(int f_in,struct file_list *flist,char *local_name,int f_gen)
 		}
 	}
 
+	if (delete_after) {
+		if (recurse && delete_mode && !local_name && flist->count>0) {
+			delete_files(flist);
+		}
+	}
+
 	if (preserve_hard_links)
-		do_hard_links(flist);
+		do_hard_links();
 
 	/* now we need to fix any directory permissions that were 
 	   modified during the transfer */

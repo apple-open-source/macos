@@ -1,5 +1,5 @@
-dnl $Source: /cvs/Darwin/Services/apache_mod_php/php/ext/mnogosearch/config.m4,v $
-dnl $Id: config.m4,v 1.1.1.1 2001/07/19 00:19:24 zarzycki Exp $
+dnl $Source: /cvs/Darwin/apache_mod_php/php/ext/mnogosearch/config.m4,v $
+dnl $Id: config.m4,v 1.1.1.2 2001/12/14 22:12:37 zarzycki Exp $
 
 PHP_ARG_WITH(mnogosearch,for mnoGoSearch support,
 [  --with-mnogosearch[=DIR]

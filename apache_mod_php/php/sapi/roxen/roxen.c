@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: roxen.c,v 1.1.1.4 2001/07/19 00:21:02 zarzycki Exp $ */
+/* $Id: roxen.c,v 1.1.1.6 2002/03/20 03:28:17 zarzycki Exp $ */
 
 #include "php.h"
 #ifdef HAVE_ROXEN
@@ -211,15 +211,13 @@ INLINE static int lookup_integer_header(char *headername, int default_value)
  */
 
 static int
-php_roxen_low_ub_write(const char *str, uint str_length) {
+php_roxen_low_ub_write(const char *str, uint str_length TSRMLS_DC) {
   int sent_bytes = 0;
   struct pike_string *to_write = NULL;
-#ifdef ZTS
-  PLS_FETCH();
-#endif
 #ifdef ROXEN_USE_ZTS
   GET_THIS();
 #endif
+
   if(!MY_FD_OBJ->prog) {
     PG(connection_status) = PHP_CONNECTION_ABORTED;
     zend_bailout();
@@ -244,14 +242,12 @@ php_roxen_low_ub_write(const char *str, uint str_length) {
  */
 
 static int
-php_roxen_sapi_ub_write(const char *str, uint str_length)
+php_roxen_sapi_ub_write(const char *str, uint str_length TSRMLS_DC)
 {
-#ifdef ZTS
-  PLS_FETCH();
-#endif
 #ifdef ROXEN_USE_ZTS
   GET_THIS();
 #endif
+
   int sent_bytes = 0, fd = MY_FD;
   if(fd)
   {
@@ -278,7 +274,7 @@ php_roxen_sapi_ub_write(const char *str, uint str_length)
       }
     }
   } else {
-    THREAD_SAFE_RUN(sent_bytes = php_roxen_low_ub_write(str, str_length),
+    THREAD_SAFE_RUN(sent_bytes = php_roxen_low_ub_write(str, str_length TSRMLS_CC),
 		    "write");
   }
   return sent_bytes;
@@ -328,7 +324,7 @@ static void php_roxen_set_header(char *header_name, char *value, char *p)
  */
 static int
 php_roxen_sapi_header_handler(sapi_header_struct *sapi_header,
-			      sapi_headers_struct *sapi_headers SLS_DC)
+			      sapi_headers_struct *sapi_headers TSRMLS_DC)
 {
   char *header_name, *header_content, *p;
   header_name = sapi_header->header;
@@ -350,16 +346,14 @@ php_roxen_sapi_header_handler(sapi_header_struct *sapi_header,
  */
 
 static int
-php_roxen_low_send_headers(sapi_headers_struct *sapi_headers SLS_DC)
+php_roxen_low_send_headers(sapi_headers_struct *sapi_headers TSRMLS_DC)
 {
-#ifdef ZTS
-  PLS_FETCH();
-#endif
   struct pike_string *ind;
   struct svalue *s_headermap;
 #ifdef ROXEN_USE_ZTS
   GET_THIS();
 #endif
+
   if(!MY_FD_OBJ->prog) {
     PG(connection_status) = PHP_CONNECTION_ABORTED;
     zend_bailout();
@@ -381,10 +375,10 @@ php_roxen_low_send_headers(sapi_headers_struct *sapi_headers SLS_DC)
 }
 
 static int
-php_roxen_sapi_send_headers(sapi_headers_struct *sapi_headers SLS_DC)
+php_roxen_sapi_send_headers(sapi_headers_struct *sapi_headers TSRMLS_DC)
 {
   int res = 0;
-  THREAD_SAFE_RUN(res = php_roxen_low_send_headers(sapi_headers SLS_CC), "send headers");
+  THREAD_SAFE_RUN(res = php_roxen_low_send_headers(sapi_headers TSRMLS_CC), "send headers");
   return res;
 }
 
@@ -399,9 +393,7 @@ INLINE static int php_roxen_low_read_post(char *buf, uint count_bytes)
 #ifdef ROXEN_USE_ZTS
   GET_THIS();
 #endif
-#ifdef ZTS
-  PLS_FETCH();
-#endif
+  TSRMLS_FETCH();
   
   if(!MY_FD_OBJ->prog)
   {
@@ -422,7 +414,7 @@ INLINE static int php_roxen_low_read_post(char *buf, uint count_bytes)
 }
 
 static int
-php_roxen_sapi_read_post(char *buf, uint count_bytes SLS_DC)
+php_roxen_sapi_read_post(char *buf, uint count_bytes TSRMLS_DC)
 {
   uint total_read = 0;
   THREAD_SAFE_RUN(total_read = php_roxen_low_read_post(buf, count_bytes), "read post");
@@ -435,7 +427,7 @@ php_roxen_sapi_read_post(char *buf, uint count_bytes SLS_DC)
  */
 	
 static char *
-php_roxen_sapi_read_cookies(SLS_D)
+php_roxen_sapi_read_cookies(TSRMLS_D)
 {
   char *cookies;
   cookies = lookup_string_header("HTTP_COOKIE", NULL);
@@ -446,7 +438,7 @@ static void php_info_roxen(ZEND_MODULE_INFO_FUNC_ARGS)
 {
   /*  char buf[512]; */
   php_info_print_table_start();
-  php_info_print_table_row(2, "SAPI module version", "$Id: roxen.c,v 1.1.1.4 2001/07/19 00:21:02 zarzycki Exp $");
+  php_info_print_table_row(2, "SAPI module version", "$Id: roxen.c,v 1.1.1.6 2002/03/20 03:28:17 zarzycki Exp $");
   /*  php_info_print_table_row(2, "Build date", Ns_InfoBuildDate());
       php_info_print_table_row(2, "Config file path", Ns_InfoConfigFile());
       php_info_print_table_row(2, "Error Log path", Ns_InfoErrorLog());
@@ -467,6 +459,7 @@ static void php_info_roxen(ZEND_MODULE_INFO_FUNC_ARGS)
 }
 
 static zend_module_entry php_roxen_module = {
+  STANDARD_MODULE_HEADER,
   "Roxen",
   NULL,
   NULL,
@@ -474,6 +467,7 @@ static zend_module_entry php_roxen_module = {
   NULL,
   NULL,
   php_info_roxen,
+  NULL,
   STANDARD_MODULE_PROPERTIES
 };
 
@@ -528,7 +522,7 @@ static sapi_module_struct roxen_sapi_module = {
 			&pval, sizeof(zval *), NULL)
 
 static void
-php_roxen_hash_environment(CLS_D ELS_DC PLS_DC SLS_DC)
+php_roxen_hash_environment(TSRMLS_D)
 {
   int i;
   char buf[512];
@@ -578,18 +572,13 @@ php_roxen_hash_environment(CLS_D ELS_DC PLS_DC SLS_DC)
  * "executes" the script
  */
 
-static int php_roxen_module_main(SLS_D)
+static int php_roxen_module_main(TSRMLS_D)
 {
   int res, len;
   char *dir;
   zend_file_handle file_handle;
-#ifdef ZTS
-  CLS_FETCH();
-  PLS_FETCH();
-  ELS_FETCH();
 #ifdef ROXEN_USE_ZTS
   GET_THIS();
-#endif
 #endif
 
   file_handle.type = ZEND_HANDLE_FILENAME;
@@ -598,14 +587,14 @@ static int php_roxen_module_main(SLS_D)
   file_handle.opened_path = NULL;
 
   THREADS_ALLOW();
-  res = php_request_startup(CLS_C ELS_CC PLS_CC SLS_CC);
+  res = php_request_startup(TSRMLS_C);
   THREADS_DISALLOW();
   if(res == FAILURE) {
     return 0;
   }
-  php_roxen_hash_environment(CLS_C ELS_CC PLS_CC SLS_CC);
+  php_roxen_hash_environment(TSRMLS_C);
   THREADS_ALLOW();
-  php_execute_script(&file_handle CLS_CC ELS_CC PLS_CC);
+  php_execute_script(&file_handle TSRMLS_CC);
   php_request_shutdown(NULL);
   THREADS_DISALLOW();
   return 1;
@@ -623,18 +612,18 @@ void f_php_roxen_request_handler(INT32 args)
   struct svalue *done_callback, *raw_fd;
   struct pike_string *script, *ind;
   int status = 1;
-  SLS_FETCH();
 #ifdef ROXEN_USE_ZTS
   GET_THIS();
 #endif
+  TSRMLS_FETCH();
 
   if(current_thread == th_self())
-    error("PHP4.Interpreter->run: Tried to run a PHP-script from a PHP "
+    php_error(E_WARNING, "PHP4.Interpreter->run: Tried to run a PHP-script from a PHP "
 	  "callback!");
   get_all_args("PHP4.Interpreter->run", args, "%S%m%O%*", &script,
 	       &request_data, &my_fd_obj, &done_callback);
   if(done_callback->type != PIKE_T_FUNCTION) 
-    error("PHP4.Interpreter->run: Bad argument 4, expected function.\n");
+    php_error(E_WARNING, "PHP4.Interpreter->run: Bad argument 4, expected function.\n");
   PHP_LOCK(THIS); /* Need to lock here or reusing the same object might cause
 		       * problems in changing stuff in that object */
 #ifndef ROXEN_USE_ZTS
@@ -670,12 +659,12 @@ void f_php_roxen_request_handler(INT32 args)
   {
     int fd = fd_from_object(raw_fd->u.object);
     if(fd == -1)
-      error("PHP4.Interpreter->run: my_fd object not open or not an FD.\n");
+      php_error(E_WARNING, "PHP4.Interpreter->run: my_fd object not open or not an FD.\n");
     THIS->my_fd = fd;
   } else
     THIS->my_fd = 0;
   
-  status = php_roxen_module_main(SLS_C);
+  status = php_roxen_module_main(TSRMLS_C);
   current_thread = -1;
   
   apply_svalue(done_callback, 0);
@@ -705,7 +694,7 @@ void pike_module_init( void )
 #ifdef ZTS
     tsrm_startup(1, 1, 0, NULL);
 #ifdef ROXEN_USE_ZTS
-    roxen_globals_id = ts_allocate_id(sizeof(php_roxen_request), NULL, NULL);
+    ts_allocate_id(&roxen_globals_id, sizeof(php_roxen_request), NULL, NULL);
 #endif	 
 #endif
     sapi_startup(&roxen_sapi_module);
@@ -717,7 +706,7 @@ void pike_module_init( void )
   ADD_STORAGE(php_roxen_request);
   set_init_callback(clear_struct);
   pike_add_function("run", f_php_roxen_request_handler,
-		    "function(string,mapping,object,function:int)", 0);
+		    "function(string, mapping, object, function:int)", 0);
   add_program_constant("Interpreter", (php_program = end_program()), 0);
 }
 

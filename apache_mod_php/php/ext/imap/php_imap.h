@@ -1,12 +1,43 @@
+/*
+   +----------------------------------------------------------------------+
+   | PHP version 4.0                                                      |
+   +----------------------------------------------------------------------+
+   | Copyright (c) 1997, 1998, 1999, 2000, 2001 The PHP Group             |
+   +----------------------------------------------------------------------+
+   | This source file is subject to version 2.02 of the PHP license,      |
+   | that is bundled with this package in the file LICENSE, and is        |
+   | available at through the world-wide-web at                           |
+   | http://www.php.net/license/2_02.txt.                                 |
+   | If you did not receive a copy of the PHP license and are unable to   |
+   | obtain it through the world-wide-web, please send a note to          |
+   | license@php.net so we can mail you a copy immediately.               |
+   +----------------------------------------------------------------------+
+   | Authors: Rex Logan           <veebert@dimensional.com>               |
+   |          Mark Musone         <musone@afterfive.com>                  |
+   |          Brian Wang          <brian@vividnet.com>                    |
+   |          Kaj-Michael Lang    <milang@tal.org>                        |
+   |          Antoni Pamies Olive <toni@readysoft.net>                    |
+   |          Rasmus Lerdorf      <rasmus@lerdorf.on.ca>                  |
+   |          Chuck Hagenbuch     <chuck@horde.org>                       |
+   |          Andrew Skalski      <askalski@chekinc.com>                  |
+   |          Hartmut Holzgraefe  <hartmut@six.de>                        |
+   |          Jani Taskinen       <sniper@iki.fi>                         |
+   | PHP 4.0 updates:  Zeev Suraski <zeev@zend.com>                       |
+   +----------------------------------------------------------------------+
+ */
+
+/* $Id: php_imap.h,v 1.1.1.5 2001/12/14 22:12:26 zarzycki Exp $ */
+
 #ifndef PHP_IMAP_H
 #define PHP_IMAP_H
 
+#if HAVE_IMAP
 
 #ifndef PHP_WIN32
 #include "build-defs.h"
 #endif
 
-#ifdef HAVE_IMAP2000
+#if defined(HAVE_IMAP2000) || defined(HAVE_IMAP2001)
  /* these are used for quota support */
  #include "c-client.h"	/* includes mail.h and rfc822.h */
  #include "imap4r1.h"	/* location of c-client quota functions */
@@ -14,8 +45,6 @@
  #include "mail.h"
  #include "rfc822.h" 
 #endif
-
-#include "zend_modules.h"
 
 extern zend_module_entry imap_module_entry;
 #define imap_module_ptr &imap_module_entry
@@ -70,13 +99,11 @@ typedef struct php_imap_error_struct {
 	struct php_imap_error_struct *next;
 } ERRORLIST;
 
-
 typedef struct _php_imap_message_struct {
 	unsigned long msgid;
 	struct _php_imap_message_struct *next;
 } MESSAGELIST;
  
-
 
 /* Functions */
 
@@ -84,6 +111,7 @@ PHP_MINIT_FUNCTION(imap);
 PHP_RINIT_FUNCTION(imap);
 PHP_RSHUTDOWN_FUNCTION(imap);
 PHP_MINFO_FUNCTION(imap);
+
 PHP_FUNCTION(imap_open);
 PHP_FUNCTION(imap_popen);
 PHP_FUNCTION(imap_reopen);
@@ -107,10 +135,6 @@ PHP_FUNCTION(imap_renamemailbox);
 PHP_FUNCTION(imap_deletemailbox);
 PHP_FUNCTION(imap_listmailbox);
 PHP_FUNCTION(imap_scanmailbox);
-#ifdef HAVE_IMAP2000
-PHP_FUNCTION(imap_get_quota);
-PHP_FUNCTION(imap_set_quota);
-#endif
 PHP_FUNCTION(imap_subscribe);
 PHP_FUNCTION(imap_unsubscribe);
 PHP_FUNCTION(imap_append);
@@ -149,6 +173,14 @@ PHP_FUNCTION(imap_utf8);
 PHP_FUNCTION(imap_utf7_decode);
 PHP_FUNCTION(imap_utf7_encode);
 PHP_FUNCTION(imap_mime_header_decode);
+PHP_FUNCTION(imap_thread);
+
+#if defined(HAVE_IMAP2000) || defined(HAVE_IMAP2001)
+PHP_FUNCTION(imap_get_quota);
+PHP_FUNCTION(imap_set_quota);
+PHP_FUNCTION(imap_setacl);
+#endif
+
 
 ZEND_BEGIN_MODULE_GLOBALS(imap)
 	char *imap_user;
@@ -158,6 +190,7 @@ ZEND_BEGIN_MODULE_GLOBALS(imap)
 	STRINGLIST *imap_alertstack;
 	ERRORLIST *imap_errorstack;
 	MESSAGELIST *imap_messages;
+	MESSAGELIST *imap_messages_tail;
 	FOBJECTLIST *imap_folder_objects;
 	FOBJECTLIST *imap_sfolder_objects;
 	folderlist_style_t folderlist_style;
@@ -167,29 +200,24 @@ ZEND_BEGIN_MODULE_GLOBALS(imap)
 	unsigned long status_unseen;
 	unsigned long status_uidnext;
 	unsigned long status_uidvalidity;
-#ifdef HAVE_IMAP2000
+#if defined(HAVE_IMAP2000) || defined(HAVE_IMAP2001)
 	unsigned long quota_usage;
 	unsigned long quota_limit;
 #endif
 ZEND_END_MODULE_GLOBALS(imap)
 
-
 #ifdef ZTS
-# define IMAPLS_D	zend_imap_globals *imap_globals
-# define IMAPLS_DC	, IMAPLS_D
-# define IMAPLS_C	imap_globals
-# define IMAPLS_CC , IMAPLS_C
-# define IMAPG(v) (imap_globals->v)
-# define IMAPLS_FETCH()	zend_imap_globals *imap_globals = ts_resource(imap_globals_id)
+# define IMAPG(v) TSRMG(imap_globals_id, zend_imap_globals *, v)
 #else
-# define IMAPLS_D
-# define IMAPLS_DC
-# define IMAPLS_C
-# define IMAPLS_CC
 # define IMAPG(v) (imap_globals.v)
-# define IMAPLS_FETCH()
+#endif
+
+#else
+
+#define imap_module_ptr NULL
+
 #endif
 
 #define phpext_imap_ptr imap_module_ptr
 
-#endif
+#endif /* PHP_IMAP_H */

@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_ldap.h,v 1.1.1.4 2001/07/19 00:19:21 zarzycki Exp $ */
+/* $Id: php_ldap.h,v 1.1.1.5 2001/12/14 22:12:32 zarzycki Exp $ */
 
 #ifndef PHP_LDAP_H
 #define PHP_LDAP_H
@@ -52,9 +52,6 @@ PHP_FUNCTION(ldap_count_entries);
 PHP_FUNCTION(ldap_first_entry);
 PHP_FUNCTION(ldap_next_entry);
 PHP_FUNCTION(ldap_get_entries);
-#if 0
-PHP_FUNCTION(ldap_free_entry);
-#endif
 PHP_FUNCTION(ldap_first_attribute);
 PHP_FUNCTION(ldap_next_attribute);
 PHP_FUNCTION(ldap_get_attributes);
@@ -98,24 +95,15 @@ PHP_FUNCTION(ldap_8859_to_t61);
 
 ZEND_BEGIN_MODULE_GLOBALS(ldap)
 	long default_link;
-	long num_links, max_links;
+	long num_links;
+	long max_links;
 	char *base_dn;
 ZEND_END_MODULE_GLOBALS(ldap)
 
 #ifdef ZTS
-# define LDAPLS_D	zend_ldap_globals *ldap_globals
-# define LDAPLS_DC	, LDAPLS_D
-# define LDAPLS_C	ldap_globals
-# define LDAPLS_CC , LDAPLS_C
-# define LDAPG(v) (ldap_globals->v)
-# define LDAPLS_FETCH()	zend_ldap_globals *ldap_globals = ts_resource(ldap_globals_id)
+# define LDAPG(v) TSRMG(ldap_globals_id, zend_ldap_globals *, v)
 #else
-# define LDAPLS_D
-# define LDAPLS_DC
-# define LDAPLS_C
-# define LDAPLS_CC
 # define LDAPG(v) (ldap_globals.v)
-# define LDAPLS_FETCH()
 #endif
 
 

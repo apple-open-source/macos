@@ -1,0 +1,316 @@
+-*- indented-text -*-
+
+URGENT ---------------------------------------------------------------
+
+
+IMPORTANT ------------------------------------------------------------
+
+Cross-test versions
+
+  Part of the regression suite should be making sure that we don't
+  break backwards compatibility: old clients vs new servers and so
+  on.  Ideally we would test the cross product of versions.  
+
+  It might be sufficient to test downloads from well-known public
+  rsync servers running different versions of rsync.  This will give
+  some testing and also be the most common case for having different
+  versions and not being able to upgrade.
+
+use chroot
+
+  If the platform doesn't support it, then don't even try.
+
+  If running as non-root, then don't fail, just give a warning.
+  (There was a thread about this a while ago?)
+
+    http://lists.samba.org/pipermail/rsync/2001-August/thread.html
+    http://lists.samba.org/pipermail/rsync/2001-September/thread.html
+
+--files-from
+
+  Avoids traversal.  Better option than a pile of --include statements
+  for people who want to generate the file list using a find(1)
+  command or a script.
+
+File list structure in memory
+
+  Rather than one big array, perhaps have a tree in memory mirroring
+  the directory tree.  
+
+  This might make sorting much faster!  (I'm not sure it's a big CPU
+  problem, mind you.)  
+
+  It might also reduce memory use in storing repeated directory names
+  -- again I'm not sure this is a problem.
+
+Performance
+
+  Traverse just one directory at a time.  Tridge says it's possible.
+
+  At the moment rsync reads the whole file list into memory at the
+  start, which makes us use a lot of memory and also not pipeline
+  network access as much as we could.
+
+
+Handling duplicate names
+
+  We need to be careful of duplicate names getting into the file list.
+  See clean_flist().  This could happen if multiple arguments include
+  the same file.  Bad.
+
+  I think duplicates are only a problem if they're both flowing
+  through the pipeline at the same time.  For example we might have
+  updated the first occurrence after reading the checksums for the
+  second.  So possibly we just need to make sure that we don't have
+  both in the pipeline at the same time.  
+
+  Possibly if we did one directory at a time that would be sufficient.
+
+  Alternatively we could pre-process the arguments to make sure no
+  duplicates will ever be inserted.  There could be some bad cases
+  when we're collapsing symlinks.
+
+  We could have a hash table.
+
+  The root of the problem is that we do not want more than one file
+  list entry referring to the same file.  At first glance there are
+  several ways this could happen: symlinks, hardlinks, and repeated
+  names on the command line.
+
+  If names are repeated on the command line, they may be present in
+  different forms, perhaps by traversing directory paths in different
+  ways, traversing paths including symlinks.  Also we need to allow
+  for expansion of globs by rsync.
+
+  At the moment, clean_flist() requires having the entire file list in
+  memory.  Duplicate names are detected just by a string comparison.
+
+  We don't need to worry about hard links causing duplicates because
+  files are never updated in place.  Similarly for symlinks.
+
+  I think even if we're using a different symlink mode we don't need
+  to worry.
+
+  Unless we're really clever this will introduce a protocol
+  incompatibility, so we need to be able to accept the old format as
+  well.
+
+
+Memory accounting
+
+  At exit, show how much memory was used for the file list, etc.
+
+  Also we do a wierd exponential-growth allocation in flist.c.  I'm
+  not sure this makes sense with modern mallocs.  At any rate it will
+  make us allocate a huge amount of memory for large file lists.
+
+
+Hard-link handling
+
+  At the moment hardlink handling is very expensive, so it's off by
+  default.  It does not need to be so.  
+
+  Since most of the solutions are rather intertwined with the file
+  list it is probably better to fix that first, although fixing
+  hardlinks is possibly simpler.
+
+  We can rule out hardlinked directories since they will probably
+  screw us up in all kinds of ways.  They simply should not be used.
+
+  At the moment rsync only cares about hardlinks to regular files.  I
+  guess you could also use them for sockets, devices and other beasts,
+  but I have not seen them.
+
+  When trying to reproduce hard links, we only need to worry about
+  files that have more than one name (nlinks>1 && !S_ISDIR). 
+
+  The basic point of this is to discover alternate names that refer to
+  the same file.  All operations, including creating the file and
+  writing modifications to it need only to be done for the first name.
+  For all later names, we just create the link and then leave it
+  alone.
+
+  If hard links are to be preserved:
+
+    Before the generator/receiver fork, the list of files is received
+    from the sender (recv_file_list), and a table for detecting hard
+    links is built.
+
+    The generator looks for hard links within the file list and does
+    not send checksums for them, though it does send other metadata.
+
+    The sender sends the device number and inode with file entries, so
+    that files are uniquely identified.
+
+    The receiver goes through and creates hard links (do_hard_links)
+    after all data has been written, but before directory permissions
+    are set.
+
+  At the moment device and inum are sent as 4-byte integers, which
+  will probably cause problems on large filesystems.  On Linux the
+  kernel uses 64-bit ino_t's internally, and people will soon have
+  filesystems big enough to use them.  We ought to follow NFS4 in
+  using 64-bit device and inode identification, perhaps with a
+  protocol version bump.
+
+  Once we've seen all the names for a particular file, we no longer
+  need to think about it and we can deallocate the memory.
+
+  We can also have the case where there are links to a file that are
+  not in the tree being transferred.  There's nothing we can do about
+  that.  Because we rename the destination into place after writing,
+  any hardlinks to the old file are always going to be orphaned.  In
+  fact that is almost necessary because otherwise we'd get really
+  confused if we were generating checksums for one name of a file and
+  modifying another.
+
+  At the moment the code seems to make a whole second copy of the file
+  list, which seems unnecessary.
+
+  We should have a test case that exercises hard links.  Since it
+  might be hard to compare ./tls output where the inodes change we
+  might need a little program to check whether several names refer to
+  the same file.
+
+IPv6
+
+  Implement suggestions from http://www.kame.net/newsletter/19980604/
+  and ftp://ftp.iij.ad.jp/pub/RFC/rfc2553.txt
+
+  If a host has multiple addresses, then listen try to connect to all
+  in order until we get through.  (getaddrinfo may return multiple
+  addresses.)  This is kind of implemented already.
+
+  Possibly also when starting as a server we may need to listen on
+  multiple passive addresses.  This might be a bit harder, because we
+  may need to select on all of them.  Hm.
+
+  Define a syntax for IPv6 literal addresses.  Since they include
+  colons, they tend to break most naming systems, including ours.
+  Based on the HTTP IPv6 syntax, I think we should use
+ 
+     rsync://[::1]/foo/bar
+     [::1]::bar
+
+  which should just take a small change to the parser code.
+
+Errors
+
+  If we hang or get SIGINT, then explain where we were up to.  Perhaps
+  have a static buffer that contains the current function name, or
+  some kind of description of what we were trying to do.  This is a
+  little easier on people than needing to run strace/truss.
+
+  "The dungeon collapses!  You are killed."  Rather than "unexpected
+  eof" give a message that is more detailed if possible and also more
+  helpful.  
+
+File attributes
+
+  Device major/minor numbers should be at least 32 bits each.  See
+  http://lists.samba.org/pipermail/rsync/2001-November/005357.html
+
+  Transfer ACLs.  Need to think of a standard representation.
+  Probably better not to even try to convert between NT and POSIX.
+  Possibly can share some code with Samba.
+
+Empty directories
+
+  With the current common --include '*/' --exclude '*' pattern, people
+  can end up with many empty directories.  We might avoid this by
+  lazily creating such directories.
+
+zlib
+
+  Perhaps don't use our own zlib.  Will we actually be incompatible,
+  or just be slightly less efficient?
+
+logging
+
+  Perhaps flush stdout after each filename, so that people trying to
+  monitor progress in a log file can do so more easily.  See
+  http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=48108
+
+  At the connections that just get a list of modules are not logged,
+  but they should be.
+
+rsyncd over ssh
+
+  There are already some patches to do this.
+
+proxy authentication
+
+  Allow RSYNC_PROXY to be http://user:pass@proxy.foo:3128/, and do
+  HTTP Basic Proxy-Authentication.  
+
+  Multiple schemes are possible, up to and including the insanity that
+  is NTLM, but Basic probably covers most cases.
+
+SOCKS
+
+  Add --with-socks, and then perhaps a command-line option to put them
+  on or off.  This might be more reliable than LD_PRELOAD hacks.
+
+PLATFORMS ------------------------------------------------------------
+
+Win32
+
+  Don't detach, because this messes up --srvany.
+
+  http://sources.redhat.com/ml/cygwin/2001-08/msg00234.html
+
+  According to "Effective TCP/IP Programming" (??) close() on a socket
+  has incorrect behaviour on Windows -- it sends a RST packet to the
+  other side, which gives a "connection reset by peer" error.  On that
+  platform we should probably do shutdown() instead.  However, on Unix
+  we are correct to call close(), because shutdown() discards
+  untransmitted data.
+
+DOCUMENTATION --------------------------------------------------------
+
+Update README
+
+BUILD FARM -----------------------------------------------------------
+
+Add machines
+
+  AMDAHL UTS (Dave Dykstra)
+
+  Cygwin (on different versions of Win32?)
+
+  HP-UX variants (via HP?)
+
+  SCO
+
+NICE -----------------------------------------------------------------
+
+--no-detach and --no-fork options
+
+  Very useful for debugging.  Also good when running under a
+  daemon-monitoring process that tries to restart the service when the
+  parent exits.
+
+hang/timeout friendliness
+
+verbose output
+  
+  Indicate whether files are new, updated, or deleted
+
+internationalization
+
+  Change to using gettext().  Probably need to ship this for platforms
+  that don't have it.  
+
+  Solicit translations.
+
+  Does anyone care?
+
+rsyncsh 
+
+   Write a small emulation of interactive ftp as a Pythonn program
+   that calls rsync.  Commands such as "cd", "ls", "ls *.c" etc map
+   fairly directly into rsync commands: it just needs to remember the
+   current host, directory and so on.  We can probably even do
+   completion of remote filenames.
+
+%K%

@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors:                                                             |
+   | Authors: Rasmus Lerdorf <rasmus@php.net>                             |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: mail.c,v 1.1.1.3 2001/07/19 00:20:16 zarzycki Exp $ */
+/* $Id: mail.c,v 1.1.1.4 2001/12/14 22:13:24 zarzycki Exp $ */
 
 #include <stdlib.h>
 #include <ctype.h>
@@ -34,6 +34,8 @@
 #endif
 #include "php_mail.h"
 #include "php_ini.h"
+#include "safe_mode.h"
+#include "exec.h"
 
 #if HAVE_SENDMAIL
 #ifdef PHP_WIN32
@@ -70,6 +72,7 @@ PHP_FUNCTION(ezmlm_hash)
 	
 	RETURN_LONG((int) h);
 }
+/* }}} */
 
 /* {{{ proto int mail(string to, string subject, string message [, string additional_headers [, string additional_parameters]])
    Send an email message */
@@ -95,7 +98,7 @@ PHP_FUNCTION(mail)
 	/* Subject: */
 	convert_to_string_ex(argv[1]);
 	if ((*argv[1])->value.str.val) {
-		subject = (*argv[1])->value.str.val;
+		subject = Z_STRVAL_PP(argv[1]);
 	} else {
 		php_error(E_WARNING, "No subject field in mail command");
 		RETURN_FALSE;
@@ -104,7 +107,7 @@ PHP_FUNCTION(mail)
 	/* message body */
 	convert_to_string_ex(argv[2]);
 	if ((*argv[2])->value.str.val) {
-		message = (*argv[2])->value.str.val;
+		message = Z_STRVAL_PP(argv[2]);
 	} else {
 		/* this is not really an error, so it is allowed. */
 		php_error(E_WARNING, "No message string in mail command");
@@ -113,41 +116,46 @@ PHP_FUNCTION(mail)
 
 	if (argc >= 4) {			/* other headers */
 		convert_to_string_ex(argv[3]);
-		headers = (*argv[3])->value.str.val;
+		headers = Z_STRVAL_PP(argv[3]);
 	}
 	
 	if (argc == 5) {			/* extra options that get passed to the mailer */
 		convert_to_string_ex(argv[4]);
-		extra_cmd = (*argv[4])->value.str.val;
+		extra_cmd = php_escape_shell_arg(Z_STRVAL_PP(argv[4]));
 	}
 	
 	if (php_mail(to, subject, message, headers, extra_cmd)) {
-		RETURN_TRUE;
+		RETVAL_TRUE;
 	} else {
-		RETURN_FALSE;
+		RETVAL_FALSE;
 	}
+	if (extra_cmd) efree (extra_cmd);
 }
 /* }}} */
 
-int php_mail(char *to, char *subject, char *message, char *headers, char *extra_cmd)
+/* {{{ php_mail
+ */
+PHPAPI int php_mail(char *to, char *subject, char *message, char *headers, char *extra_cmd)
 {
 #ifdef PHP_WIN32
 	int tsm_err;
-#else
+#endif
 	FILE *sendmail;
 	int ret;
 	char *sendmail_path = INI_STR("sendmail_path");
 	char *sendmail_cmd = NULL;
-#endif
 
-#ifdef PHP_WIN32
-	if (TSendMail(INI_STR("SMTP"), &tsm_err, headers, subject, to, message) != SUCCESS){
-		php_error(E_WARNING, GetSMErrorText(tsm_err));
-		return 0;
-	}
-#else
 	if (!sendmail_path) {
+#ifdef PHP_WIN32
+		/* handle old style win smtp sending */
+		if (TSendMail(INI_STR("SMTP"), &tsm_err, headers, subject, to, message) != SUCCESS){
+			php_error(E_WARNING, GetSMErrorText(tsm_err));
+			return 0;
+		}
+		return 1;
+#else
 		return 0;
+#endif
 	}
 	if (extra_cmd != NULL) {
 		sendmail_cmd = emalloc (strlen (sendmail_path) + strlen (extra_cmd) + 2);
@@ -158,7 +166,11 @@ int php_mail(char *to, char *subject, char *message, char *headers, char *extra_
 		sendmail_cmd = sendmail_path;
 	}
 
+#ifdef PHP_WIN32
+	sendmail = popen(sendmail_cmd, "wb");
+#else
 	sendmail = popen(sendmail_cmd, "w");
+#endif
 	if (extra_cmd != NULL)
 		efree (sendmail_cmd);
 
@@ -170,11 +182,16 @@ int php_mail(char *to, char *subject, char *message, char *headers, char *extra_
 		}
 		fprintf(sendmail, "\n%s\n", message);
 		ret = pclose(sendmail);
-#if defined(EX_TEMPFAIL)
-		if ((ret != EX_OK)&&(ret != EX_TEMPFAIL)) {
+#ifdef PHP_WIN32
+		if (ret == -1)
 #else
-		if (ret != EX_OK) {
+#if defined(EX_TEMPFAIL)
+		if ((ret != EX_OK)&&(ret != EX_TEMPFAIL)) 
+#else
+		if (ret != EX_OK) 
 #endif
+#endif
+		{
 			return 0;
 		} else {
 			return 1;
@@ -183,18 +200,27 @@ int php_mail(char *to, char *subject, char *message, char *headers, char *extra_
 		php_error(E_WARNING, "Could not execute mail delivery program");
 		return 0;
 	}
-#endif
 	return 1;
 }
+/* }}} */
 
+/* {{{ PHP_MINFO_FUNCTION
+ */
 PHP_MINFO_FUNCTION(mail)
 {
+	char *sendmail_path = INI_STR("sendmail_path");
+
 #ifdef PHP_WIN32
-        php_info_print_table_row(2, "Internal Sendmail Support for Windows 4", "enabled");
+	if (!sendmail_path) {
+        php_info_print_table_row(2, "Internal Sendmail Support for Windows", "enabled");
+	} else {
+        php_info_print_table_row(2, "Path to sendmail", sendmail_path);
+	}
 #else
-        php_info_print_table_row(2, "Path to sendmail", INI_STR("sendmail_path") );
+    php_info_print_table_row(2, "Path to sendmail", sendmail_path);
 #endif
 }
+/* }}} */
 
 #else
 
@@ -203,9 +229,11 @@ PHP_MINFO_FUNCTION(mail) {}
 
 #endif
 
-
 /*
  * Local variables:
  * tab-width: 4
+ * c-basic-offset: 4
  * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
  */

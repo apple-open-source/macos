@@ -361,6 +361,7 @@ API_EXPORT(int) ap_set_byterange(request_rec *r)
 	else {
 	    ap_table_setn(r->headers_out, "Content-Range",
 		ap_psprintf(r->pool, "bytes */%ld", r->clength));
+	    ap_set_content_length(r, 0);			  
 	    r->boundary = NULL;
 	    r->range = range;
 	    r->header_only = 1;
@@ -649,7 +650,15 @@ API_EXPORT(char *) ap_make_etag(request_rec *r, int force_weak)
 {
     char *etag;
     char *weak;
+    core_dir_config *cfg;
+    etag_components_t etag_bits;
 
+    cfg = (core_dir_config *)ap_get_module_config(r->per_dir_config,
+                                                  &core_module);
+    etag_bits = (cfg->etag_bits & (~ cfg->etag_remove)) | cfg->etag_add;
+    if (etag_bits == ETAG_UNSET) {
+        etag_bits = ETAG_BACKWARD;
+    }
     /*
      * Make an ETag header out of various pieces of information. We use
      * the last-modified date and, if we have a real file, the
@@ -666,11 +675,43 @@ API_EXPORT(char *) ap_make_etag(request_rec *r, int force_weak)
     weak = ((r->request_time - r->mtime > 1) && !force_weak) ? "" : "W/";
 
     if (r->finfo.st_mode != 0) {
-        etag = ap_psprintf(r->pool,
-                    "%s\"%lx-%lx-%lx\"", weak,
-                    (unsigned long) r->finfo.st_ino,
-                    (unsigned long) r->finfo.st_size,
-                    (unsigned long) r->mtime);
+        char **ent;
+        array_header *components;
+        int i;
+
+        /*
+         * If it's a file (or we wouldn't be here) and no ETags
+         * should be set for files, return an empty string and
+         * note it for ap_send_header_field() to ignore.
+         */
+        if (etag_bits & ETAG_NONE) {
+            ap_table_setn(r->notes, "no-etag", "omit");
+            return "";
+        }
+
+        components = ap_make_array(r->pool, 4, sizeof(char *));
+        if (etag_bits & ETAG_INODE) {
+            ent = (char **) ap_push_array(components);
+            *ent = ap_psprintf(r->pool, "%lx",
+                               (unsigned long) r->finfo.st_ino);
+        }
+        if (etag_bits & ETAG_SIZE) {
+            ent = (char **) ap_push_array(components);
+            *ent = ap_psprintf(r->pool, "%lx",
+                               (unsigned long) r->finfo.st_size);
+        }
+        if (etag_bits & ETAG_MTIME) {
+            ent = (char **) ap_push_array(components);
+            *ent = ap_psprintf(r->pool, "%lx", (unsigned long) r->mtime);
+        }
+        ent = (char **) components->elts;
+        etag = ap_pstrcat(r->pool, weak, "\"", NULL);
+        for (i = 0; i < components->nelts; ++i) {
+            etag = ap_psprintf(r->pool, "%s%s%s", etag,
+                               (i == 0 ? "" : "-"),
+                               ent[i]);
+        }
+        etag = ap_pstrcat(r->pool, etag, "\"", NULL);
     }
     else {
         etag = ap_psprintf(r->pool, "%s\"%lx\"", weak,
@@ -1020,7 +1061,7 @@ static void get_mime_headers(request_rec *r)
     char *value;
     char *copy;
     int len;
-    unsigned int fields_read = 0;
+    int fields_read = 0;
     table *tmp_headers;
 
     /* We'll use ap_overlap_tables later to merge these into r->headers_in. */
@@ -1073,7 +1114,7 @@ static void get_mime_headers(request_rec *r)
     ap_overlap_tables(r->headers_in, tmp_headers, AP_OVERLAP_TABLES_MERGE);
 }
 
-request_rec *ap_read_request(conn_rec *conn)
+API_EXPORT(request_rec *) ap_read_request(conn_rec *conn)
 {
     request_rec *r;
     pool *p;
@@ -1234,7 +1275,7 @@ request_rec *ap_read_request(conn_rec *conn)
  * *someone* has to set the protocol-specific fields...
  */
 
-void ap_set_sub_req_protocol(request_rec *rnew, const request_rec *r)
+API_EXPORT(void) ap_set_sub_req_protocol(request_rec *rnew, const request_rec *r)
 {
     rnew->the_request     = r->the_request;  /* Keep original request-line */
 
@@ -1260,7 +1301,7 @@ void ap_set_sub_req_protocol(request_rec *rnew, const request_rec *r)
     rnew->main = (request_rec *) r;
 }
 
-void ap_finalize_sub_req_protocol(request_rec *sub)
+API_EXPORT(void) ap_finalize_sub_req_protocol(request_rec *sub)
 {
     SET_BYTES_SENT(sub->main);
 }
@@ -1458,8 +1499,14 @@ API_EXPORT(int) ap_index_of_response(int status)
  * It returns true unless there was a write error of some kind.
  */
 API_EXPORT_NONSTD(int) ap_send_header_field(request_rec *r,
-    const char *fieldname, const char *fieldval)
+                                            const char *fieldname,
+                                            const char *fieldval)
 {
+    if (strcasecmp(fieldname, "ETag") == 0) {
+        if (ap_table_get(r->notes, "no-etag") != NULL) {
+            return 1;
+        }
+    }
     return (0 < ap_rvputs(r, fieldname, ": ", fieldval, CRLF, NULL));
 }
 
@@ -1473,12 +1520,10 @@ API_EXPORT(void) ap_basic_http_header(request_rec *r)
     if (!r->status_line)
         r->status_line = status_lines[ap_index_of_response(r->status)];
 
-    /* mod_proxy is only HTTP/1.0, so avoid sending HTTP/1.1 error response;
-     * kluge around broken browsers when indicated by force-response-1.0
+    /* kluge around broken browsers when indicated by force-response-1.0
      */
-    if (r->proxyreq != NOT_PROXY
-        || (r->proto_num == HTTP_VERSION(1,0)
-            && ap_table_get(r->subprocess_env, "force-response-1.0"))) {
+    if (r->proto_num == HTTP_VERSION(1,0)
+       && ap_table_get(r->subprocess_env, "force-response-1.0")) {
 
         protocol = "HTTP/1.0";
         r->connection->keepalive = -1;
@@ -1588,7 +1633,7 @@ API_EXPORT(int) ap_send_http_trace(request_rec *r)
     return OK;
 }
 
-int ap_send_http_options(request_rec *r)
+API_EXPORT(int) ap_send_http_options(request_rec *r)
 {
     const long int zero = 0L;
 
@@ -1923,7 +1968,8 @@ API_EXPORT(int) ap_setup_client_block(request_rec *r, int read_policy)
     }
 
     max_body = ap_get_limit_req_body(r);
-    if (max_body && (r->remaining > max_body)) {
+    if (max_body && ((unsigned long)r->remaining > max_body)
+                 && (r->remaining >= 0)) {
         ap_log_rerror(APLOG_MARK, APLOG_NOERRNO|APLOG_ERR, r,
           "Request content-length of %s is larger than the configured "
           "limit of %lu", lenp, max_body);
@@ -2031,7 +2077,8 @@ API_EXPORT(long) ap_get_client_block(request_rec *r, char *buffer, int bufsiz)
      * length requests and nobody cares if it goes over by one buffer.
      */
     max_body = ap_get_limit_req_body(r);
-    if (max_body && (r->read_length > max_body)) {
+    if (max_body && ((unsigned long) r->read_length > max_body)
+                 && (r->read_length >= 0)) {
         ap_log_rerror(APLOG_MARK, APLOG_NOERRNO|APLOG_ERR, r,
             "Chunked request body is larger than the configured limit of %lu",
             max_body);
@@ -2522,7 +2569,7 @@ API_EXPORT(int) ap_vrprintf(request_rec *r, const char *fmt, va_list ap)
     return n;
 }
 
-API_EXPORT(int) ap_rprintf(request_rec *r, const char *fmt,...)
+API_EXPORT_NONSTD(int) ap_rprintf(request_rec *r, const char *fmt,...)
 {
     va_list vlist;
     int n;
@@ -2859,7 +2906,7 @@ API_EXPORT(void) ap_send_error_response(request_rec *r, int recursive_error)
 		      "This indicates a configuration error.<P>\n", NULL);
 	    break;
 	case HTTP_REQUEST_TIME_OUT:
-	    ap_rputs("I'm tired of waiting for your request.\n", r);
+	    ap_rputs("Server timeout waiting for the HTTP request from the client.\n", r);
 	    break;
 	case HTTP_GONE:
 	    ap_rvputs(r, "The requested resource<BR>",

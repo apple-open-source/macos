@@ -1,5 +1,3 @@
-/*	$OpenBSD: ssh-agent.c,v 1.72 2001/08/03 10:31:30 jakob Exp $	*/
-
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
  * Copyright (c) 1995 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
@@ -36,7 +34,13 @@
  */
 
 #include "includes.h"
-RCSID("$OpenBSD: ssh-agent.c,v 1.72 2001/08/03 10:31:30 jakob Exp $");
+RCSID("$OpenBSD: ssh-agent.c,v 1.82 2002/03/04 17:27:39 stevesk Exp $");
+
+#if defined(HAVE_SYS_QUEUE_H) && !defined(HAVE_BOGUS_SYS_QUEUE_H)
+#include <sys/queue.h>
+#else
+#include "openbsd-compat/fake-queue.h"
+#endif
 
 #include <openssl/evp.h>
 #include <openssl/md5.h>
@@ -46,13 +50,9 @@ RCSID("$OpenBSD: ssh-agent.c,v 1.72 2001/08/03 10:31:30 jakob Exp $");
 #include "buffer.h"
 #include "bufaux.h"
 #include "xmalloc.h"
-#include "packet.h"
 #include "getput.h"
-#include "mpaux.h"
 #include "key.h"
 #include "authfd.h"
-#include "cipher.h"
-#include "kex.h"
 #include "compat.h"
 #include "log.h"
 
@@ -61,11 +61,15 @@ RCSID("$OpenBSD: ssh-agent.c,v 1.72 2001/08/03 10:31:30 jakob Exp $");
 #include "scard.h"
 #endif
 
+typedef enum {
+	AUTH_UNUSED,
+	AUTH_SOCKET,
+	AUTH_CONNECTION
+} sock_type;
+
 typedef struct {
 	int fd;
-	enum {
-		AUTH_UNUSED, AUTH_SOCKET, AUTH_CONNECTION
-	} type;
+	sock_type type;
 	Buffer input;
 	Buffer output;
 } SocketEntry;
@@ -73,14 +77,15 @@ typedef struct {
 u_int sockets_alloc = 0;
 SocketEntry *sockets = NULL;
 
-typedef struct {
+typedef struct identity {
+	TAILQ_ENTRY(identity) next;
 	Key *key;
 	char *comment;
 } Identity;
 
 typedef struct {
 	int nentries;
-	Identity *identities;
+	TAILQ_HEAD(idqueue, identity) idlist;
 } Idtab;
 
 /* private key table, one per protocol version */
@@ -105,8 +110,8 @@ static void
 idtab_init(void)
 {
 	int i;
-	for (i = 0; i <=2; i++){
-		idtable[i].identities = NULL;
+	for (i = 0; i <=2; i++) {
+		TAILQ_INIT(&idtable[i].idlist);
 		idtable[i].nentries = 0;
 	}
 }
@@ -121,19 +126,25 @@ idtab_lookup(int version)
 }
 
 /* return matching private key for given public key */
-static Key *
-lookup_private_key(Key *key, int *idx, int version)
+static Identity *
+lookup_identity(Key *key, int version)
 {
-	int i;
+	Identity *id;
+
 	Idtab *tab = idtab_lookup(version);
-	for (i = 0; i < tab->nentries; i++) {
-		if (key_equal(key, tab->identities[i].key)) {
-			if (idx != NULL)
-				*idx = i;
-			return tab->identities[i].key;
-		}
+	TAILQ_FOREACH(id, &tab->idlist, next) {
+		if (key_equal(key, id->key))
+			return (id);
 	}
-	return NULL;
+	return (NULL);
+}
+
+static void
+free_identity(Identity *id)
+{
+	key_free(id->key);
+	xfree(id->comment);
+	xfree(id);
 }
 
 /* send list of supported public keys to 'client' */
@@ -142,14 +153,13 @@ process_request_identities(SocketEntry *e, int version)
 {
 	Idtab *tab = idtab_lookup(version);
 	Buffer msg;
-	int i;
+	Identity *id;
 
 	buffer_init(&msg);
 	buffer_put_char(&msg, (version == 1) ?
 	    SSH_AGENT_RSA_IDENTITIES_ANSWER : SSH2_AGENT_IDENTITIES_ANSWER);
 	buffer_put_int(&msg, tab->nentries);
-	for (i = 0; i < tab->nentries; i++) {
-		Identity *id = &tab->identities[i];
+	TAILQ_FOREACH(id, &tab->idlist, next) {
 		if (id->key->type == KEY_RSA1) {
 			buffer_put_int(&msg, BN_num_bits(id->key->rsa->n));
 			buffer_put_bignum(&msg, id->key->rsa->e);
@@ -172,7 +182,8 @@ process_request_identities(SocketEntry *e, int version)
 static void
 process_authentication_challenge1(SocketEntry *e)
 {
-	Key *key, *private;
+	Identity *id;
+	Key *key;
 	BIGNUM *challenge;
 	int i, len;
 	Buffer msg;
@@ -182,7 +193,8 @@ process_authentication_challenge1(SocketEntry *e)
 
 	buffer_init(&msg);
 	key = key_new(KEY_RSA1);
-	challenge = BN_new();
+	if ((challenge = BN_new()) == NULL)
+		fatal("process_authentication_challenge1: BN_new failed");
 
 	buffer_get_int(&e->input);				/* ignored */
 	buffer_get_bignum(&e->input, key->rsa->e);
@@ -192,13 +204,14 @@ process_authentication_challenge1(SocketEntry *e)
 	/* Only protocol 1.1 is supported */
 	if (buffer_len(&e->input) == 0)
 		goto failure;
-	buffer_get(&e->input, (char *) session_id, 16);
+	buffer_get(&e->input, session_id, 16);
 	response_type = buffer_get_int(&e->input);
 	if (response_type != 1)
 		goto failure;
 
-	private = lookup_private_key(key, NULL, 1);
-	if (private != NULL) {
+	id = lookup_identity(key, 1);
+	if (id != NULL) {
+		Key *private = id->key;
 		/* Decrypt the challenge using the private key. */
 		if (rsa_private_decrypt(challenge, challenge, private->rsa) <= 0)
 			goto failure;
@@ -239,7 +252,7 @@ static void
 process_sign_request2(SocketEntry *e)
 {
 	extern int datafellows;
-	Key *key, *private;
+	Key *key;
 	u_char *blob, *data, *signature = NULL;
 	u_int blen, dlen, slen = 0;
 	int flags;
@@ -257,9 +270,9 @@ process_sign_request2(SocketEntry *e)
 
 	key = key_from_blob(blob, blen);
 	if (key != NULL) {
-		private = lookup_private_key(key, NULL, 2);
-		if (private != NULL)
-			ok = key_sign(private, &signature, &slen, data, dlen);
+		Identity *id = lookup_identity(key, 2);
+		if (id != NULL)
+			ok = key_sign(id->key, &signature, &slen, data, dlen);
 	}
 	key_free(key);
 	buffer_init(&msg);
@@ -283,13 +296,13 @@ process_sign_request2(SocketEntry *e)
 static void
 process_remove_identity(SocketEntry *e, int version)
 {
-	Key *key = NULL, *private;
+	Key *key = NULL;
 	u_char *blob;
 	u_int blen;
 	u_int bits;
 	int success = 0;
 
-	switch(version){
+	switch (version) {
 	case 1:
 		key = key_new(KEY_RSA1);
 		bits = buffer_get_int(&e->input);
@@ -307,9 +320,8 @@ process_remove_identity(SocketEntry *e, int version)
 		break;
 	}
 	if (key != NULL) {
-		int idx;
-		private = lookup_private_key(key, &idx, version);
-		if (private != NULL) {
+		Identity *id = lookup_identity(key, version);
+		if (id != NULL) {
 			/*
 			 * We have this key.  Free the old key.  Since we
 			 * don\'t want to leave empty slots in the middle of
@@ -318,19 +330,12 @@ process_remove_identity(SocketEntry *e, int version)
 			 * of the array.
 			 */
 			Idtab *tab = idtab_lookup(version);
-			key_free(tab->identities[idx].key);
-			xfree(tab->identities[idx].comment);
 			if (tab->nentries < 1)
 				fatal("process_remove_identity: "
 				    "internal error: tab->nentries %d",
 				    tab->nentries);
-			if (idx != tab->nentries - 1) {
-				int i;
-				for (i = idx; i < tab->nentries - 1; i++)
-					tab->identities[i] = tab->identities[i+1];
-			}
-			tab->identities[tab->nentries - 1].key = NULL;
-			tab->identities[tab->nentries - 1].comment = NULL;
+			TAILQ_REMOVE(&tab->idlist, id, next);
+			free_identity(id);
 			tab->nentries--;
 			success = 1;
 		}
@@ -344,13 +349,14 @@ process_remove_identity(SocketEntry *e, int version)
 static void
 process_remove_all_identities(SocketEntry *e, int version)
 {
-	u_int i;
 	Idtab *tab = idtab_lookup(version);
+	Identity *id;
 
 	/* Loop over all identities and clear the keys. */
-	for (i = 0; i < tab->nentries; i++) {
-		key_free(tab->identities[i].key);
-		xfree(tab->identities[i].comment);
+	for (id = TAILQ_FIRST(&tab->idlist); id;
+	    id = TAILQ_FIRST(&tab->idlist)) {
+		TAILQ_REMOVE(&tab->idlist, id, next);
+		free_identity(id);
 	}
 
 	/* Mark that there are no identities. */
@@ -391,7 +397,7 @@ process_add_identity(SocketEntry *e, int version)
 		type_name = buffer_get_string(&e->input, NULL);
 		type = key_type_from_name(type_name);
 		xfree(type_name);
-		switch(type) {
+		switch (type) {
 		case KEY_DSA:
 			k = key_new_private(type);
 			buffer_get_bignum2(&e->input, k->dsa->p);
@@ -424,14 +430,11 @@ process_add_identity(SocketEntry *e, int version)
 		goto send;
 	}
 	success = 1;
-	if (lookup_private_key(k, NULL, version) == NULL) {
-		if (tab->nentries == 0)
-			tab->identities = xmalloc(sizeof(Identity));
-		else
-			tab->identities = xrealloc(tab->identities,
-			    (tab->nentries + 1) * sizeof(Identity));
-		tab->identities[tab->nentries].key = k;
-		tab->identities[tab->nentries].comment = comment;
+	if (lookup_identity(k, version) == NULL) {
+		Identity *id = xmalloc(sizeof(Identity));
+		id->key = k;
+		id->comment = comment;
+		TAILQ_INSERT_TAIL(&tab->idlist, id, next);
 		/* Increment the number of identities. */
 		tab->nentries++;
 	} else {
@@ -453,7 +456,7 @@ process_add_smartcard_key (SocketEntry *e)
 	Key *n = NULL, *k = NULL;
 	char *sc_reader_id = NULL;
 	int success = 0;
-	
+
 	sc_reader_id = buffer_get_string(&e->input, NULL);
 	k = sc_get_key(sc_reader_id);
 	xfree(sc_reader_id);
@@ -466,36 +469,28 @@ process_add_smartcard_key (SocketEntry *e)
 
 	tab = idtab_lookup(1);
 	k->type = KEY_RSA1;
-	if (lookup_private_key(k, NULL, 1) == NULL) {
-		if (tab->nentries == 0)
-			tab->identities = xmalloc(sizeof(Identity));
-		else
-			tab->identities = xrealloc(tab->identities,
-			    (tab->nentries + 1) * sizeof(Identity));
+	if (lookup_identity(k, 1) == NULL) {
+		Identity *id = xmalloc(sizeof(Identity));
 		n = key_new(KEY_RSA1);
 		BN_copy(n->rsa->n, k->rsa->n);
 		BN_copy(n->rsa->e, k->rsa->e);
 		RSA_set_method(n->rsa, sc_get_engine());
-		tab->identities[tab->nentries].key = n;
-		tab->identities[tab->nentries].comment =
-		    xstrdup("rsa1 smartcard");
+		id->key = n;
+		id->comment = xstrdup("rsa1 smartcard");
+		TAILQ_INSERT_TAIL(&tab->idlist, id, next);
 		tab->nentries++;
 	}
 	k->type = KEY_RSA;
 	tab = idtab_lookup(2);
-	if (lookup_private_key(k, NULL, 2) == NULL) {
-		if (tab->nentries == 0)
-			tab->identities = xmalloc(sizeof(Identity));
-		else
-			tab->identities = xrealloc(tab->identities,
-			    (tab->nentries + 1) * sizeof(Identity));
+	if (lookup_identity(k, 2) == NULL) {
+		Identity *id = xmalloc(sizeof(Identity));
 		n = key_new(KEY_RSA);
 		BN_copy(n->rsa->n, k->rsa->n);
 		BN_copy(n->rsa->e, k->rsa->e);
 		RSA_set_method(n->rsa, sc_get_engine());
-		tab->identities[tab->nentries].key = n;
-		tab->identities[tab->nentries].comment =
-		    xstrdup("rsa smartcard");
+		id->key = n;
+		id->comment = xstrdup("rsa smartcard");
+		TAILQ_INSERT_TAIL(&tab->idlist, id, next);
 		tab->nentries++;
 	}
 	key_free(k);
@@ -508,8 +503,7 @@ send:
 static void
 process_remove_smartcard_key(SocketEntry *e)
 {
-	Key *k = NULL, *private;
-	int idx;
+	Key *k = NULL;
 	int success = 0;
 	char *sc_reader_id = NULL;
 
@@ -520,25 +514,22 @@ process_remove_smartcard_key(SocketEntry *e)
 	if (k == NULL) {
 		error("sc_get_pubkey failed");
 	} else {
+		Identity *id;
 		k->type = KEY_RSA1;
-		private = lookup_private_key(k, &idx, 1);
-		if (private != NULL) {
+		id = lookup_identity(k, 1);
+		if (id != NULL) {
 			Idtab *tab = idtab_lookup(1);
-			key_free(tab->identities[idx].key);
-			xfree(tab->identities[idx].comment);
-			if (idx != tab->nentries)
-				tab->identities[idx] = tab->identities[tab->nentries];
+			TAILQ_REMOVE(&tab->idlist, id, next);
+			free_identity(id);
 			tab->nentries--;
 			success = 1;
 		}
 		k->type = KEY_RSA;
-		private = lookup_private_key(k, &idx, 2);
-		if (private != NULL) {
+		id = lookup_identity(k, 2);
+		if (id != NULL) {
 			Idtab *tab = idtab_lookup(2);
-			key_free(tab->identities[idx].key);
-			xfree(tab->identities[idx].comment);
-			if (idx != tab->nentries)
-				tab->identities[idx] = tab->identities[tab->nentries];
+			TAILQ_REMOVE(&tab->idlist, id, next);
+			free_identity(id);
 			tab->nentries--;
 			success = 1;
 		}
@@ -561,7 +552,7 @@ process_message(SocketEntry *e)
 	u_char *cp;
 	if (buffer_len(&e->input) < 5)
 		return;		/* Incomplete message. */
-	cp = (u_char *) buffer_ptr(&e->input);
+	cp = buffer_ptr(&e->input);
 	msg_len = GET_32BIT(cp);
 	if (msg_len > 256 * 1024) {
 		shutdown(e->fd, SHUT_RDWR);
@@ -611,10 +602,10 @@ process_message(SocketEntry *e)
 #ifdef SMARTCARD
 	case SSH_AGENTC_ADD_SMARTCARD_KEY:
 		process_add_smartcard_key(e);
-		break; 
+		break;
 	case SSH_AGENTC_REMOVE_SMARTCARD_KEY:
 		process_remove_smartcard_key(e);
-		break; 
+		break;
 #endif /* SMARTCARD */
 	default:
 		/* Unknown message.  Respond with failure. */
@@ -627,7 +618,7 @@ process_message(SocketEntry *e)
 }
 
 static void
-new_socket(int type, int fd)
+new_socket(sock_type type, int fd)
 {
 	u_int i, old_alloc;
 	if (fcntl(fd, F_SETFL, O_NONBLOCK) < 0)
@@ -728,7 +719,8 @@ after_select(fd_set *readset, fd_set *writeset)
 				sock = accept(sockets[i].fd,
 				    (struct sockaddr *) &sunaddr, &slen);
 				if (sock < 0) {
-					perror("accept from AUTH_SOCKET");
+					error("accept from AUTH_SOCKET: %s",
+					    strerror(errno));
 					break;
 				}
 				new_socket(AUTH_CONNECTION, sock);
@@ -782,7 +774,7 @@ after_select(fd_set *readset, fd_set *writeset)
 }
 
 static void
-cleanup_socket(void)
+cleanup_socket(void *p)
 {
 	if (socket_name[0])
 		unlink(socket_name);
@@ -793,14 +785,14 @@ cleanup_socket(void)
 static void
 cleanup_exit(int i)
 {
-	cleanup_socket();
+	cleanup_socket(NULL);
 	exit(i);
 }
 
 static void
 cleanup_handler(int sig)
 {
-	cleanup_socket();
+	cleanup_socket(NULL);
 	_exit(2);
 }
 
@@ -971,7 +963,7 @@ main(int ac, char **av)
 	pid = fork();
 	if (pid == -1) {
 		perror("fork");
-		exit(1);
+		cleanup_exit(1);
 	}
 	if (pid != 0) {		/* Parent - execute the given command. */
 		close(sock);
@@ -994,9 +986,11 @@ main(int ac, char **av)
 		perror(av[0]);
 		exit(1);
 	}
+	/* child */
+	log_init(__progname, SYSLOG_LEVEL_INFO, SYSLOG_FACILITY_AUTH, 0);
 
 	if (setsid() == -1) {
-		perror("setsid");
+		error("setsid: %s", strerror(errno));
 		cleanup_exit(1);
 	}
 
@@ -1009,16 +1003,13 @@ main(int ac, char **av)
 	/* deny core dumps, since memory contains unencrypted private keys */
 	rlim.rlim_cur = rlim.rlim_max = 0;
 	if (setrlimit(RLIMIT_CORE, &rlim) < 0) {
-		perror("setrlimit rlimit_core failed");
+		error("setrlimit RLIMIT_CORE: %s", strerror(errno));
 		cleanup_exit(1);
 	}
 #endif
 
 skip:
-	if (atexit(cleanup_socket) < 0) {
-		perror("atexit");
-		cleanup_exit(1);
-	}
+	fatal_add_cleanup(cleanup_socket, NULL);
 	new_socket(AUTH_SOCKET, sock);
 	if (ac > 0) {
 		signal(SIGALRM, check_parent_exists);
@@ -1037,7 +1028,7 @@ skip:
 		if (select(max_fd + 1, readsetp, writesetp, NULL, NULL) < 0) {
 			if (errno == EINTR)
 				continue;
-			exit(1);
+			fatal("select: %s", strerror(errno));
 		}
 		after_select(readsetp, writesetp);
 	}

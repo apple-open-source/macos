@@ -38,7 +38,6 @@ static request_rec *php_apache_lookup_uri(INTERNAL_FUNCTION_PARAMETERS)
 {
 	zval **p1;
 	php_struct *ctx;
-	SLS_FETCH();
 	
 	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &p1) == FAILURE)
 		return NULL;
@@ -110,7 +109,6 @@ PHP_FUNCTION(get_all_headers)
 	php_struct *ctx;
 	apr_array_header_t *arr;
 	char *key, *val;
-	SLS_FETCH();
 
 	if (array_init(return_value) == FAILURE) {
 		RETURN_FALSE;
@@ -137,6 +135,7 @@ static function_entry apache_functions[] = {
 };
 
 static zend_module_entry php_apache_module = {
+	STANDARD_MODULE_HEADER,
 	"Apache 2.0",
 	apache_functions,
 	NULL,
@@ -144,6 +143,7 @@ static zend_module_entry php_apache_module = {
 	NULL,
 	NULL,
 	PHP_MINFO(apache),
+	NULL,
 	STANDARD_MODULE_PROPERTIES
 };
 

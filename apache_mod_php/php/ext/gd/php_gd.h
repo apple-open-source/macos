@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_gd.h,v 1.1.1.4 2001/07/19 00:19:12 zarzycki Exp $ */
+/* $Id: php_gd.h,v 1.1.1.5 2001/12/14 22:12:21 zarzycki Exp $ */
 
 #ifndef PHP_GD_H
 #define PHP_GD_H
@@ -36,20 +36,22 @@
 #include "gdt1.h"
 #endif
 
-#define PHP_GDIMG_TYPE_GIF 1
-#define PHP_GDIMG_TYPE_PNG 2
-#define PHP_GDIMG_TYPE_JPG 3
-#define PHP_GDIMG_TYPE_WBM 4
-#define PHP_GDIMG_TYPE_XBM 5
-#define PHP_GDIMG_TYPE_XPM 6
-#define PHP_GDIMG_CONVERT_WBM 7
+#define PHP_GDIMG_TYPE_GIF      1
+#define PHP_GDIMG_TYPE_PNG      2
+#define PHP_GDIMG_TYPE_JPG      3
+#define PHP_GDIMG_TYPE_WBM      4
+#define PHP_GDIMG_TYPE_XBM      5
+#define PHP_GDIMG_TYPE_XPM      6
+#define PHP_GDIMG_CONVERT_WBM   7
+#define PHP_GDIMG_TYPE_GD       8
+#define PHP_GDIMG_TYPE_GD2      9
+#define PHP_GDIMG_TYPE_GD2PART 10
 
 #ifdef PHP_WIN32
 #define PHP_GD_API __declspec(dllexport)
 #else
 #define PHP_GD_API
 #endif
-
 
 PHPAPI extern const char php_sig_gif[3];
 PHPAPI extern const char php_sig_jpg[3];
@@ -58,22 +60,13 @@ PHPAPI extern const char php_sig_png[3];
 extern zend_module_entry gd_module_entry;
 #define phpext_gd_ptr &gd_module_entry
 
-typedef struct {
-	int le_gd;
-	int le_gd_font;
-#if HAVE_LIBT1
-	int le_ps_font;
-	int le_ps_enc;
-#endif
-} php_gd_globals;
-
 /* gd.c functions */
 PHP_MINFO_FUNCTION(gd);
-extern PHP_MINIT_FUNCTION(gd);
-extern PHP_MSHUTDOWN_FUNCTION(gd);
+PHP_MINIT_FUNCTION(gd);
+PHP_MSHUTDOWN_FUNCTION(gd);
 
 #ifndef HAVE_GDIMAGECOLORRESOLVE
-extern int gdImageColorResolve(gdImagePtr, int, int, int);
+static int gdImageColorResolve(gdImagePtr, int, int, int);
 #endif
 PHP_FUNCTION(imagearc);
 PHP_FUNCTION(imagechar);
@@ -95,6 +88,8 @@ PHP_FUNCTION(imagecopymerge);
 PHP_FUNCTION(imagecopyresized);
 PHP_FUNCTION(imagetypes);
 PHP_FUNCTION(imagecreate);
+PHP_FUNCTION(imageftbbox);
+PHP_FUNCTION(imagefttext);
 
 PHP_FUNCTION(imagecreatetruecolor);
 PHP_FUNCTION(imagetruecolortopalette);
@@ -119,6 +114,12 @@ PHP_FUNCTION(imagecreatefromgif);
 PHP_FUNCTION(imagecreatefromjpeg);
 PHP_FUNCTION(imagecreatefromxbm);
 PHP_FUNCTION(imagecreatefromxpm);
+PHP_FUNCTION(imagecreatefrompng);
+PHP_FUNCTION(imagecreatefromwbmp);
+PHP_FUNCTION(imagecreatefromgd);
+PHP_FUNCTION(imagecreatefromgd2);
+PHP_FUNCTION(imagecreatefromgd2part);
+
 PHP_FUNCTION(imagegammacorrect);
 PHP_FUNCTION(imagedestroy);
 PHP_FUNCTION(imagefill);
@@ -127,8 +128,14 @@ PHP_FUNCTION(imagefilledrectangle);
 PHP_FUNCTION(imagefilltoborder);
 PHP_FUNCTION(imagefontwidth);
 PHP_FUNCTION(imagefontheight);
+
 PHP_FUNCTION(imagegif );
 PHP_FUNCTION(imagejpeg );
+PHP_FUNCTION(imagepng);
+PHP_FUNCTION(imagewbmp);
+PHP_FUNCTION(imagegd);
+PHP_FUNCTION(imagegd2);
+
 PHP_FUNCTION(imageinterlace);
 PHP_FUNCTION(imageline);
 PHP_FUNCTION(imageloadfont);
@@ -139,11 +146,6 @@ PHP_FUNCTION(imagestring);
 PHP_FUNCTION(imagestringup);
 PHP_FUNCTION(imagesx);
 PHP_FUNCTION(imagesy);
-PHP_FUNCTION(imagecreatefrompng);
-PHP_FUNCTION(imagepng);
-PHP_FUNCTION(imagecreatefromwbmp);
-PHP_FUNCTION(imagewbmp);
-void php_gdimagecharup(gdImagePtr, gdFontPtr, int, int, int, int);
 PHP_FUNCTION(imagedashedline);
 PHP_FUNCTION(imagettfbbox);
 PHP_FUNCTION(imagettftext);
@@ -162,21 +164,11 @@ PHP_FUNCTION(jpeg2wbmp);
 PHP_FUNCTION(png2wbmp);
 PHP_FUNCTION(image2wbmp);
 
-PHPAPI int phpi_get_le_gd(void);
+PHP_GD_API int phpi_get_le_gd(void);
 
 /* This is missing from gd.h */
 #if HAVE_COLORCLOSESTHWB
 int gdImageColorClosestHWB(gdImagePtr im, int r, int g, int b);
-#endif
-
-#ifdef ZTS
-#define GDLS_D php_gd_globals *gd_globals
-#define GDG(v) (gd_globals->v)
-#define GDLS_FETCH() php_gd_globals *gd_globals = ts_resource(gd_globals_id)
-#else
-#define GDLS_D
-#define GDG(v) (gd_globals.v)
-#define GDLS_FETCH()
 #endif
 
 #else

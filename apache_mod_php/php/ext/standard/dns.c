@@ -16,8 +16,10 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: dns.c,v 1.1.1.3 2001/07/19 00:20:12 zarzycki Exp $ */
+/* $Id: dns.c,v 1.1.1.4 2001/12/14 22:13:19 zarzycki Exp $ */
 
+/* {{{ includes
+ */
 #include "php.h"
 #if HAVE_SYS_SOCKET_H
 #include <sys/socket.h>
@@ -59,57 +61,68 @@
 #endif
 
 #include "dns.h"
+/* }}} */
 
-char *php_gethostbyaddr(char *ip);
-char *php_gethostbyname(char *name);
+static char *php_gethostbyaddr(char *ip);
+static char *php_gethostbyname(char *name);
 
 /* {{{ proto string gethostbyaddr(string ip_address)
    Get the Internet host name corresponding to a given IP address */
 PHP_FUNCTION(gethostbyaddr)
 {
-	pval **arg;
+	zval **arg;
+	char *addr;	
 	
 	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &arg) == FAILURE) {
-		WRONG_PARAM_COUNT;
+		ZEND_WRONG_PARAM_COUNT();
 	}
-	convert_to_string_ex(arg);
 
-	RETVAL_STRING(php_gethostbyaddr(Z_STRVAL_PP(arg)), 0);
+	convert_to_string_ex(arg);
+	
+	addr = php_gethostbyaddr(Z_STRVAL_PP(arg));
+
+	if(addr == NULL) {
+		php_error(E_WARNING, "Address is not in a.b.c.d form");
+		RETVAL_FALSE;
+	} else {
+		RETVAL_STRING(addr, 0);
+	}
 }
 /* }}} */
 
-
-char *php_gethostbyaddr(char *ip)
+/* {{{ php_gethostbyaddr
+ */
+static char *php_gethostbyaddr(char *ip)
 {
 	struct in_addr addr;
 	struct hostent *hp;
 
 	addr.s_addr = inet_addr(ip);
+
 	if (addr.s_addr == -1) {
-#if PHP_DEBUG
-		php_error(E_WARNING, "address not in a.b.c.d form");
-#endif
-		return estrdup(ip);
+		return NULL;
 	}
+
 	hp = gethostbyaddr((char *) &addr, sizeof(addr), AF_INET);
+
 	if (!hp) {
-#if PHP_DEBUG
-		php_error(E_WARNING, "Unable to resolve %s\n", ip);
-#endif
 		return estrdup(ip);
 	}
+
 	return estrdup(hp->h_name);
 }
+/* }}} */
 
 /* {{{ proto string gethostbyname(string hostname)
    Get the IP address corresponding to a given Internet host name */
 PHP_FUNCTION(gethostbyname)
 {
-	pval **arg;
+	zval **arg;
 	
 	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &arg) == FAILURE) {
-		WRONG_PARAM_COUNT;
+		ZEND_WRONG_PARAM_COUNT();
 	}
+
 	convert_to_string_ex(arg);
 
 	RETVAL_STRING(php_gethostbyname(Z_STRVAL_PP(arg)), 0);
@@ -120,13 +133,13 @@ PHP_FUNCTION(gethostbyname)
    Return a list of IP addresses that a given hostname resolves to. */
 PHP_FUNCTION(gethostbynamel)
 {
-	pval **arg;
+	zval **arg;
 	struct hostent *hp;
 	struct in_addr in;
 	int i;
 
 	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &arg) == FAILURE) {
-		WRONG_PARAM_COUNT;
+		ZEND_WRONG_PARAM_COUNT();
 	}
 	convert_to_string_ex(arg);
 
@@ -136,36 +149,34 @@ PHP_FUNCTION(gethostbynamel)
 
 	hp = gethostbyname(Z_STRVAL_PP(arg));
 	if (hp == NULL || hp->h_addr_list == NULL) {
-#if PHP_DEBUG
-		php_error(E_WARNING, "Unable to resolve %s\n", Z_STRVAL_PP(arg));
-#endif
-		return;
+		RETURN_FALSE;
 	}
 
 	for (i = 0 ; hp->h_addr_list[i] != 0 ; i++) {
 		in = *(struct in_addr *) hp->h_addr_list[i];
 		add_next_index_string(return_value, inet_ntoa(in), 1);
 	}
-
-	return;
 }
 /* }}} */
 
-char *php_gethostbyname(char *name)
+/* {{{ php_gethostbyname
+ */
+static char *php_gethostbyname(char *name)
 {
 	struct hostent *hp;
 	struct in_addr in;
 
 	hp = gethostbyname(name);
+
 	if (!hp || !hp->h_addr_list) {
-#if PHP_DEBUG
-		php_error(E_WARNING, "Unable to resolve %s\n", name);
-#endif
 		return estrdup(name);
 	}
+
 	memcpy(&in.s_addr, *(hp->h_addr_list), sizeof(in.s_addr));
+
 	return estrdup(inet_ntoa(in));
 }
+/* }}} */
 
 #if HAVE_RES_SEARCH && !(defined(__BEOS__)||defined(PHP_WIN32))
 
@@ -173,8 +184,8 @@ char *php_gethostbyname(char *name)
    Check DNS records corresponding to a given Internet host name or IP address */
 PHP_FUNCTION(checkdnsrr)
 {
-	pval **arg1,**arg2;
-	int type,i;
+	zval **arg1, **arg2;
+	int type, i;
 #ifndef MAXPACKET
 #define MAXPACKET  8192 /* max packet size used internally by BIND */
 #endif
@@ -194,22 +205,22 @@ PHP_FUNCTION(checkdnsrr)
 		}
 		convert_to_string_ex(arg1);
 		convert_to_string_ex(arg2);
-		if ( !strcasecmp("A",Z_STRVAL_PP(arg2)) ) type = T_A;
-		else if ( !strcasecmp("NS",Z_STRVAL_PP(arg2)) ) type = T_NS;
-		else if ( !strcasecmp("MX",Z_STRVAL_PP(arg2)) ) type = T_MX;
-		else if ( !strcasecmp("PTR",Z_STRVAL_PP(arg2)) ) type = T_PTR;
-		else if ( !strcasecmp("ANY",Z_STRVAL_PP(arg2)) ) type = T_ANY;
-		else if ( !strcasecmp("SOA",Z_STRVAL_PP(arg2)) ) type = T_SOA;
-		else if ( !strcasecmp("CNAME",Z_STRVAL_PP(arg2)) ) type = T_CNAME;
+		if ( !strcasecmp("A", Z_STRVAL_PP(arg2)) ) type = T_A;
+		else if ( !strcasecmp("NS", Z_STRVAL_PP(arg2)) ) type = T_NS;
+		else if ( !strcasecmp("MX", Z_STRVAL_PP(arg2)) ) type = T_MX;
+		else if ( !strcasecmp("PTR", Z_STRVAL_PP(arg2)) ) type = T_PTR;
+		else if ( !strcasecmp("ANY", Z_STRVAL_PP(arg2)) ) type = T_ANY;
+		else if ( !strcasecmp("SOA", Z_STRVAL_PP(arg2)) ) type = T_SOA;
+		else if ( !strcasecmp("CNAME", Z_STRVAL_PP(arg2)) ) type = T_CNAME;
 		else {
-			php_error(E_WARNING,"Type '%s' not supported",Z_STRVAL_PP(arg2));
+			php_error(E_WARNING, "Type '%s' not supported", Z_STRVAL_PP(arg2));
 			RETURN_FALSE;
 		}
 		break;
 	default:
 		WRONG_PARAM_COUNT;
 	}
-	i = res_search(Z_STRVAL_PP(arg1),C_IN,type,ans,sizeof(ans));
+	i = res_search(Z_STRVAL_PP(arg1), C_IN, type, ans, sizeof(ans));
 	if ( i < 0 ) {
 		RETURN_FALSE;
 	}
@@ -235,12 +246,12 @@ PHP_FUNCTION(getmxrr)
 {
 	pval *host, *mx_list, *weight_list;
 	int need_weight = 0;
-	int count,qdc;
-	u_short type,weight;
+	int count, qdc;
+	u_short type, weight;
 	u_char ans[MAXPACKET];
 	char buf[MAXHOSTNAMELEN];
 	HEADER *hp;
-	u_char *cp,*end;
+	u_char *cp, *end;
 	int i;
 
 	switch(ZEND_NUM_ARGS()) {
@@ -248,18 +259,10 @@ PHP_FUNCTION(getmxrr)
 		if (zend_get_parameters(ht, 2, &host, &mx_list) == FAILURE) {
 			WRONG_PARAM_COUNT;
 		}
-		if (!ParameterPassedByReference(ht, 2)) {
-			php_error(E_WARNING, "Array to be filled with values must be passed by reference.");
-			RETURN_FALSE;
-		}
         break;
     case 3:
 		if (zend_get_parameters(ht, 3, &host, &mx_list, &weight_list) == FAILURE) {
 			WRONG_PARAM_COUNT;
-		}
-		if (!ParameterPassedByReference(ht, 2) || !ParameterPassedByReference(ht, 3)) {
-			php_error(E_WARNING, "Array to be filled with values must be passed by reference.");
-			RETURN_FALSE;
 		}
         need_weight = 1;
 		pval_destructor(weight_list); /* start with clean array */
@@ -278,7 +281,7 @@ PHP_FUNCTION(getmxrr)
     }
 
 	/* Go! */
-	i = res_search(Z_STRVAL_P(host),C_IN,T_MX,(u_char *)&ans,sizeof(ans));
+	i = res_search(Z_STRVAL_P(host), C_IN, T_MX, (u_char *)&ans, sizeof(ans));
 	if ( i < 0 ) {
 		RETURN_FALSE;
 	}
@@ -287,25 +290,25 @@ PHP_FUNCTION(getmxrr)
 	cp = (u_char *)&ans + HFIXEDSZ;
 	end = (u_char *)&ans +i;
 	for ( qdc = ntohs((unsigned short)hp->qdcount); qdc--; cp += i + QFIXEDSZ) {
-		if ( (i = dn_skipname(cp,end)) < 0 ) {
+		if ( (i = dn_skipname(cp, end)) < 0 ) {
 			RETURN_FALSE;
 		}
 	}
 	count = ntohs((unsigned short)hp->ancount);
 	while ( --count >= 0 && cp < end ) {
-		if ( (i = dn_skipname(cp,end)) < 0 ) {
+		if ( (i = dn_skipname(cp, end)) < 0 ) {
 			RETURN_FALSE;
 		}
 		cp += i;
-		GETSHORT(type,cp);
+		GETSHORT(type, cp);
 		cp += INT16SZ + INT32SZ;
-		GETSHORT(i,cp);
+		GETSHORT(i, cp);
 		if ( type != T_MX ) {
 			cp += i;
 			continue;
 		}
-		GETSHORT(weight,cp);
-		if ( (i = dn_expand(ans,end,cp,buf,sizeof(buf)-1)) < 0 ) {
+		GETSHORT(weight, cp);
+		if ( (i = dn_expand(ans, end, cp, buf, sizeof(buf)-1)) < 0 ) {
 			RETURN_FALSE;
 		}
 		cp += i;
@@ -324,4 +327,6 @@ PHP_FUNCTION(getmxrr)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
  */

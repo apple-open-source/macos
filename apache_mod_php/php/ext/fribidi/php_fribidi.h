@@ -12,8 +12,7 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors:                                                             |
-   |                                                                      |
+   | Authors: Onn Ben-Zvi <onn@zend.com>                                  |
    +----------------------------------------------------------------------+
  */
 
@@ -68,11 +67,9 @@ ZEND_END_MODULE_GLOBALS(fribidi)
 */
 
 #ifdef ZTS
-#define FRIBIDIG(v) (fribidi_globals->v)
-#define FRIBIDILS_FETCH() php_fribidi_globals *fribidi_globals = ts_resource(fribidi_globals_id)
+#define FRIBIDIG(v) TSRMG(fribidi_globals_id, php_fribidi_globals *, v)
 #else
 #define FRIBIDIG(v) (fribidi_globals.v)
-#define FRIBIDILS_FETCH()
 #endif
 
 #else

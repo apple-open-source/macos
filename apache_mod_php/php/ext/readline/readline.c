@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: readline.c,v 1.1.1.4 2001/07/19 00:19:56 zarzycki Exp $ */
+/* $Id: readline.c,v 1.1.1.5 2001/12/14 22:13:05 zarzycki Exp $ */
 
 /* {{{ includes & prototypes */
 
@@ -57,7 +57,7 @@ static zend_function_entry php_readline_functions[] = {
 	PHP_FE(readline_info,  	            NULL)
 	PHP_FE(readline_add_history, 		NULL)
 	PHP_FE(readline_clear_history, 		NULL)
-#ifdef HAVE_READLINE
+#ifdef HAVE_LIBREADLINE
 	PHP_FE(readline_list_history, 		NULL)
 #else
 	PHP_FALIAS(readline_list_history, warn_not_available,			NULL)
@@ -69,6 +69,7 @@ static zend_function_entry php_readline_functions[] = {
 };
 
 zend_module_entry readline_module_entry = { 
+	STANDARD_MODULE_HEADER,
 	"readline", 
 	php_readline_functions, 
 	PHP_MINIT(readline), 
@@ -76,6 +77,7 @@ zend_module_entry readline_module_entry = {
 	NULL,
 	PHP_RSHUTDOWN(readline),
 	NULL, 
+    NO_VERSION_YET,
 	STANDARD_MODULE_PROPERTIES
 };
 
@@ -147,7 +149,7 @@ PHP_FUNCTION(readline_info)
 		add_assoc_string(return_value,"line_buffer",SAFE_STRING(rl_line_buffer),1);
 		add_assoc_long(return_value,"point",rl_point);
 		add_assoc_long(return_value,"end",rl_end);
-#ifdef HAVE_READLINE
+#ifdef HAVE_LIBREADLINE
 		add_assoc_long(return_value,"mark",rl_mark);
 		add_assoc_long(return_value,"done",rl_done);
 		add_assoc_long(return_value,"pending_input",rl_pending_input);
@@ -174,7 +176,7 @@ PHP_FUNCTION(readline_info)
 			RETVAL_LONG(rl_point);
 		} else if (! strcasecmp((*what)->value.str.val,"end")) {
 			RETVAL_LONG(rl_end);
-#ifdef HAVE_READLINE
+#ifdef HAVE_LIBREADLINE
 		} else if (! strcasecmp((*what)->value.str.val,"mark")) {
 			RETVAL_LONG(rl_mark);
 		} else if (! strcasecmp((*what)->value.str.val,"done")) {
@@ -256,7 +258,7 @@ PHP_FUNCTION(readline_clear_history)
 /* }}} */
 /* {{{ proto array readline_list_history(void) 
    Lists the history */
-#ifdef HAVE_READLINE
+#ifdef HAVE_LIBREADLINE
 PHP_FUNCTION(readline_list_history)
 {
 	HIST_ENTRY **history;
@@ -387,14 +389,14 @@ static char **_readline_completion_cb(char *text, int start, int end)
 	zval *params[4];
 	int i;
 	char **matches = NULL;
-	CLS_FETCH();
+	TSRMLS_FETCH();
 
 	params[0]=_readline_string_zval(_readline_completion);
 	params[1]=_readline_string_zval(text);
 	params[2]=_readline_long_zval(start);
 	params[3]=_readline_long_zval(end);
 
-	if (call_user_function(CG(function_table), NULL, params[0], &_readline_array, 3, params+1) == SUCCESS) {
+	if (call_user_function(CG(function_table), NULL, params[0], &_readline_array, 3, params+1 TSRMLS_CC) == SUCCESS) {
 		if (_readline_array.type == IS_ARRAY) {
 			matches = completion_matches(text,_readline_command_generator);
 		}

@@ -21,7 +21,7 @@
 #ifndef ZEND_H
 #define ZEND_H
 
-#define ZEND_VERSION "1.0.6"
+#define ZEND_VERSION "1.1.1"
 
 #ifdef __cplusplus
 #define BEGIN_EXTERN_C() extern "C" {
@@ -39,6 +39,9 @@
 
 #ifdef ZEND_WIN32
 # include "zend_config.w32.h"
+# define ZEND_PATHS_SEPARATOR		';'
+#elif defined(__riscos__)
+# include "zend_config.h"
 # define ZEND_PATHS_SEPARATOR		';'
 #else
 # include "zend_config.h"
@@ -161,14 +164,19 @@ typedef unsigned short zend_ushort;
 #include "zend_hash.h"
 #include "zend_llist.h"
 
-#define INTERNAL_FUNCTION_PARAMETERS int ht, zval *return_value, zval *this_ptr, int return_value_used ELS_DC
-#define INTERNAL_FUNCTION_PARAM_PASSTHRU ht, return_value, this_ptr, return_value_used ELS_CC
+#define INTERNAL_FUNCTION_PARAMETERS int ht, zval *return_value, zval *this_ptr, int return_value_used TSRMLS_DC
+#define INTERNAL_FUNCTION_PARAM_PASSTHRU ht, return_value, this_ptr, return_value_used TSRMLS_CC
 
 /*
  * zval
  */
 typedef struct _zval_struct zval;
 typedef struct _zend_class_entry zend_class_entry;
+
+typedef struct _zend_object {
+	zend_class_entry *ce;
+	HashTable *properties;
+} zend_object;
 
 typedef union _zvalue_value {
 	long lval;					/* long value */
@@ -178,10 +186,7 @@ typedef union _zvalue_value {
 		int len;
 	} str;
 	HashTable *ht;				/* hash table value */
-	struct {
-		zend_class_entry *ce;
-		HashTable *properties;
-	} obj;
+	zend_object obj;
 } zvalue_value;
 
 
@@ -262,10 +267,10 @@ typedef int (*zend_write_func_t)(const char *str, uint str_length);
 
 #undef MIN
 #undef MAX
-#define MAX(a,b)  (((a)>(b))?(a):(b))
-#define MIN(a,b)  (((a)<(b))?(a):(b))
+#define MAX(a, b)  (((a)>(b))?(a):(b))
+#define MIN(a, b)  (((a)<(b))?(a):(b))
 #define ZEND_STRL(str)		(str), (sizeof(str)-1)
-#define ZEND_STRS(str)		(str), (sizeof(str)
+#define ZEND_STRS(str)		(str), (sizeof(str))
 #define ZEND_NORMALIZE_BOOL(n)			\
 	((n) ? (((n)>0) ? 1 : -1) : 0)
 
@@ -285,6 +290,10 @@ typedef int (*zend_write_func_t)(const char *str, uint str_length);
 /* Special data type to temporarily mark large numbers */
 #define FLAG_IS_BC	10 /* for parser internal use only */
 
+/* Ugly hack to support constants as static array indices */
+#define IS_CONSTANT_INDEX	0x80
+
+
 /* overloaded elements data types */
 #define OE_IS_ARRAY	(1<<0)
 #define OE_IS_OBJECT	(1<<1)
@@ -298,21 +307,40 @@ typedef int (*zend_write_func_t)(const char *str, uint str_length);
 #define BYREF_FORCE_REST 3
 
 int zend_startup(zend_utility_functions *utility_functions, char **extensions, int start_builtin_functions);
-void zend_shutdown(void);
+void zend_shutdown(TSRMLS_D);
 
 void zend_set_utility_values(zend_utility_values *utility_values);
-BEGIN_EXTERN_C()
-ZEND_API void zend_bailout(void);
-END_EXTERN_C()
-ZEND_API char *get_zend_version(void);
 
+BEGIN_EXTERN_C()
+ZEND_API void _zend_bailout(char *filename, uint lineno);
+END_EXTERN_C()
+
+#define zend_bailout()		_zend_bailout(__FILE__, __LINE__)
+
+#define zend_try												\
+	{															\
+		jmp_buf orig_bailout;									\
+		zend_bool orig_bailout_set=EG(bailout_set);				\
+																\
+		EG(bailout_set) = 1;									\
+		memcpy(&orig_bailout, &EG(bailout), sizeof(jmp_buf));	\
+		if (setjmp(EG(bailout))==0)
+#define zend_catch												\
+		else
+#define zend_end_try()											\
+		memcpy(&EG(bailout), &orig_bailout, sizeof(jmp_buf));	\
+		EG(bailout_set) = orig_bailout_set;						\
+	}
+#define zend_first_try		EG(bailout_set)=0;	zend_try
+
+ZEND_API char *get_zend_version(void);
 ZEND_API void zend_make_printable_zval(zval *expr, zval *expr_copy, int *use_copy);
 ZEND_API int zend_print_zval(zval *expr, int indent);
 ZEND_API int zend_print_zval_ex(zend_write_func_t write_func, zval *expr, int indent);
 ZEND_API void zend_print_zval_r(zval *expr, int indent);
 ZEND_API void zend_print_zval_r_ex(zend_write_func_t write_func, zval *expr, int indent);
-
 ZEND_API void zend_output_debug_string(zend_bool trigger_break, char *format, ...);
+
 #if ZEND_DEBUG
 #define Z_DBG(expr)		(expr)
 #else
@@ -437,15 +465,15 @@ ZEND_API int zend_get_configuration_directive(char *name, uint name_length, zval
 	}										\
 	INIT_PZVAL(&(zv));
 
-#define REPLACE_ZVAL_VALUE(ppzv_dest,pzv_src,copy) {	\
-	int is_ref,refcount;						\
+#define REPLACE_ZVAL_VALUE(ppzv_dest, pzv_src, copy) {	\
+	int is_ref, refcount;						\
 												\
 	SEPARATE_ZVAL_IF_NOT_REF(ppzv_dest);		\
 	is_ref = (*ppzv_dest)->is_ref;				\
 	refcount = (*ppzv_dest)->refcount;			\
 	zval_dtor(*ppzv_dest);						\
 	**ppzv_dest = *pzv_src;						\
-	if (copy) {                                  \
+	if (copy) {                                 \
 		zval_copy_ctor(*ppzv_dest);				\
     }		                                    \
 	(*ppzv_dest)->is_ref = is_ref;				\

@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_interbase.h,v 1.1.1.4 2001/07/19 00:19:18 zarzycki Exp $ */
+/* $Id: php_interbase.h,v 1.1.1.5 2001/12/14 22:12:29 zarzycki Exp $ */
 
 #ifndef PHP_INTERBASE_H
 #define PHP_INTERBASE_H
@@ -34,10 +34,10 @@ extern zend_module_entry ibase_module_entry;
 #define PHP_IBASE_API
 #endif
 
-extern PHP_MINIT_FUNCTION(ibase);
-extern PHP_RINIT_FUNCTION(ibase);
-extern PHP_MSHUTDOWN_FUNCTION(ibase);
-extern PHP_RSHUTDOWN_FUNCTION(ibase);
+PHP_MINIT_FUNCTION(ibase);
+PHP_RINIT_FUNCTION(ibase);
+PHP_MSHUTDOWN_FUNCTION(ibase);
+PHP_RSHUTDOWN_FUNCTION(ibase);
 PHP_MINFO_FUNCTION(ibase);
 
 PHP_FUNCTION(ibase_connect);
@@ -159,15 +159,9 @@ enum php_interbase_option {
 };
 
 #ifdef ZTS
-#define IBLS_D zend_ibase_globals *ibase_globals
-#define IBLS_C ibase_globals
-#define IBG(v) (ibase_globals->v)
-#define IBLS_FETCH() zend_ibase_globals *ibase_globals = ts_resource(ibase_globals_id)
+#define IBG(v) TSRMG(ibase_globals_id, zend_ibase_globals *, v)
 #else
-#define IBLS_D
-#define IBLS_C
 #define IBG(v) (ibase_globals.v)
-#define IBLS_FETCH()
 #endif
 
 #else

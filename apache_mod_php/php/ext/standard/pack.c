@@ -15,7 +15,7 @@
    | Authors: Chris Schneider <cschneid@relog.ch>                         |
    +----------------------------------------------------------------------+
  */
-/* $Id: pack.c,v 1.1.1.4 2001/07/19 00:20:17 zarzycki Exp $ */
+/* $Id: pack.c,v 1.1.1.5 2001/12/14 22:13:24 zarzycki Exp $ */
 
 #include "php.h"
 
@@ -68,7 +68,8 @@ static int machine_endian_long_map[4];
 static int big_endian_long_map[4];
 static int little_endian_long_map[4];
 
-
+/* {{{ php_pack
+ */
 static void php_pack(pval **val, int size, int *map, char *output)
 {
 	int i;
@@ -81,10 +82,10 @@ static void php_pack(pval **val, int size, int *map, char *output)
 		*(output++) = v[map[i]];
 	}
 }
-
+/* }}} */
 
 /* pack() idea stolen from Perl (implemented formats behave the same as there)
- * Implemented formats are A,a,h,H,c,C,s,S,i,I,l,L,n,N,f,d,x,X,@.
+ * Implemented formats are A, a, h, H, c, C, s, S, i, I, l, L, n, N, f, d, x, X, @.
  */
 /* {{{ proto string pack(string format, mixed arg1 [, mixed arg2 [, mixed ...]])
    Takes one or more arguments and packs them into a binary string according to the format argument */
@@ -287,7 +288,7 @@ PHP_FUNCTION(pack)
 				memset(&output[outputpos], (code == 'a') ? '\0' : ' ', arg);
 				val = argv[currentarg++];
 				convert_to_string_ex(val);
-				memcpy(&output[outputpos],(*val)->value.str.val,
+				memcpy(&output[outputpos], (*val)->value.str.val,
 					   ((*val)->value.str.len < arg) ? (*val)->value.str.len : arg);
 				outputpos += arg;
 				break;
@@ -303,7 +304,7 @@ PHP_FUNCTION(pack)
 				v = (*val)->value.str.val;
 				outputpos--;
 				if(arg > (*val)->value.str.len) {
-					php_error(E_WARNING,"pack type %c: not enough characters in string",code);
+					php_error(E_WARNING, "pack type %c: not enough characters in string", code);
 					arg = (*val)->value.str.len;
 				}
 
@@ -443,7 +444,8 @@ PHP_FUNCTION(pack)
 }
 /* }}} */
 
-
+/* {{{ php_unpack
+ */
 static long php_unpack(char *data, int size, int issigned, int *map)
 {
 	long result;
@@ -458,7 +460,7 @@ static long php_unpack(char *data, int size, int issigned, int *map)
 
 	return result;
 }
-
+/* }}} */
 
 /* unpack() is based on Perl's unpack(), but is modified a bit from there.
  * Rather than depending on error-prone ordered lists or syntactically
@@ -470,7 +472,7 @@ static long php_unpack(char *data, int size, int issigned, int *map)
  * chars1, chars2, and ints.
  * Numeric pack types will return numbers, a and A will return strings,
  * f and d will return doubles.
- * Implemented formats are A,a,h,H,c,C,s,S,i,I,l,L,n,N,f,d,x,X,@.
+ * Implemented formats are A, a, h, H, c, C, s, S, i, I, l, L, n, N, f, d, x, X, @.
  */
 /* {{{ proto array unpack(string format, string input)
    Unpack binary string into named array elements according to format argument */
@@ -484,7 +486,7 @@ PHP_FUNCTION(unpack)
 	int inputpos, inputlen;
 	int i;
 
-	if ((ZEND_NUM_ARGS() != 2) || zend_get_parameters_ex(2,&formatarg,&inputarg) == FAILURE) {
+	if ((ZEND_NUM_ARGS() != 2) || zend_get_parameters_ex(2, &formatarg, &inputarg) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -791,7 +793,8 @@ PHP_FUNCTION(unpack)
 }
 /* }}} */
 
-
+/* {{{ PHP_MINIT_FUNCTION
+ */
 PHP_MINIT_FUNCTION(pack)
 {
 	int machine_endian_check = 1;
@@ -862,11 +865,13 @@ PHP_MINIT_FUNCTION(pack)
 
 	return SUCCESS;
 }
-
-
+/* }}} */
 
 /*
  * Local variables:
  * tab-width: 4
+ * c-basic-offset: 4
  * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
  */

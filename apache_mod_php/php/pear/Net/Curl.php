@@ -16,7 +16,7 @@
 // | Authors: Sterling Hughes <sterling@php.net>                          |
 // +----------------------------------------------------------------------+
 //
-// $Id: Curl.php,v 1.1.1.1 2001/07/19 00:20:50 zarzycki Exp $
+// $Id: Curl.php,v 1.1.1.2 2001/12/14 22:14:59 zarzycki Exp $
 //
 // A nice friendly OO interface for CURL
 //
@@ -58,6 +58,14 @@ class Net_Curl extends PEAR
 	 * @access public
 	 */
 	var $sslCertPasswd;
+
+	/**
+	 * User Agent string when making an HTTP request
+	 *
+	 * @var string $userAgent
+	 * @access public
+	 */
+	var $userAgent;
 	
 	/**
 	 * Whether or not to include the header in the results
@@ -92,6 +100,22 @@ class Net_Curl extends PEAR
 	 */
 	var $mute = 1;
 	
+	/**
+	 * Whether or not to follow HTTP Location headers.
+	 *
+	 * @var boolean $follow_location
+	 * @access public
+	 */
+	var $follow_location = 1;
+
+	/**
+	 * Time allowed for current transfer, in seconds.  0 means no limit
+	 *
+	 * @var int $timeout
+	 * @access public
+	 */
+	var $timeout = 0;
+
 	/**
 	 * Whether or not to return the results of the
 	 * current transfer
@@ -228,7 +252,7 @@ class Net_Curl extends PEAR
 		$ret = curl_setopt($ch, CURLOPT_HEADER, $this->header);
 		
 		// Whether or not to return the transfer contents
-		if ($this->return_transfer && !$this->file) {
+		if ($this->return_transfer && !isset($this->file)) {
 			$ret = curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
 		}
 
@@ -307,14 +331,27 @@ class Net_Curl extends PEAR
 		if (!$this->mute) {
 			$ret = curl_setopt($ch, CURLOPT_MUTE, 0);
 		}
+
+		// Other stuff
+
+		$ret = curl_setopt($ch, CURLOPT_FOLLOWLOCATION, $this->follow_location);
+
+		if ($this->timeout) {
+			$ret = curl_setopt($ch, CURLOPT_TIMEOUT, $this->timeout);
+		}
+
+		if (isset($this->userAgent)) {
+			$ret = curl_setopt($ch, CURLOPT_USERAGENT, $this->userAgent);
+		}
+
+
 		
 		
 		// Cookies and the such
 		
 		if (isset($this->cookies)) {
 			foreach ($this->cookies as $name => $value) {
-				$cookie_data .= urlencode($name) . ": " . urlencode($value);
-				$cookie_data .= "\n";
+				$cookie_data .= urlencode($name) . ": " . urlencode($value) . ";";
 			}
 		
 			$ret = curl_setopt($ch, CURLOPT_COOKIE, $cookie_data);

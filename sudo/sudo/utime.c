@@ -1,6 +1,6 @@
 /*
- * Copyright (c) 1996, 1998, 1999 Todd C. Miller <Todd.Miller@courtesan.com>
- * All rights reserved.
+ * Copyright (c) 1996, 1998, 1999, 2001
+ *	Todd C. Miller <Todd.Miller@courtesan.com>.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,19 +34,18 @@
 
 #include "config.h"
 
-#include <stdio.h>
-#ifdef HAVE_UNISTD_H
-#include <unistd.h>
-#endif /* HAVE_UNISTD_H */
 #include <sys/types.h>
 #include <sys/time.h>
+#include <stdio.h>
+#ifdef HAVE_UNISTD_H
+# include <unistd.h>
+#endif /* HAVE_UNISTD_H */
 
-#include <pathnames.h>
 #include "compat.h"
 #include "emul/utime.h"
 
 #ifndef lint
-static const char rcsid[] = "$Sudo: utime.c,v 1.34 1999/07/31 16:19:48 millert Exp $";
+static const char rcsid[] = "$Sudo: utime.c,v 1.35 2001/12/14 19:52:48 millert Exp $";
 #endif /* lint */
 
 

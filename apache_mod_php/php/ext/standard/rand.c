@@ -19,7 +19,7 @@
    | Based on code from: Shawn Cokus <Cokus@math.washington.edu>          |
    +----------------------------------------------------------------------+
  */
-/* $Id: rand.c,v 1.1.1.3 2001/07/19 00:20:21 zarzycki Exp $ */
+/* $Id: rand.c,v 1.1.1.4 2001/12/14 22:13:27 zarzycki Exp $ */
 
 #include <stdlib.h>
 
@@ -94,7 +94,9 @@
 
 #define MT_RAND_MAX ((long)(0x7FFFFFFF)) /* (1<<31) - 1 */
 
-static void seedMT(php_uint32 seed BLS_DC)
+/* {{{ seedMT
+ */
+static void seedMT(php_uint32 seed TSRMLS_DC)
 {
     /*
        We initialize state[0..(N-1)] via the generator
@@ -148,15 +150,15 @@ static void seedMT(php_uint32 seed BLS_DC)
     for(BG(left)=0, *s++=x, j=N; --j;
         *s++ = (x*=69069U) & 0xFFFFFFFFU);
 }
+/* }}} */
 
-
-static php_uint32 reloadMT(BLS_D)
+static php_uint32 reloadMT(TSRMLS_D)
 {
     register php_uint32 *p0=BG(state), *p2=BG(state)+2, *pM=BG(state)+M, s0, s1;
     register int    j;
 
     if(BG(left) < -1)
-        seedMT(4357U BLS_CC);
+        seedMT(4357U TSRMLS_CC);
 
     BG(left)=N-1, BG(next)=BG(state)+1;
 
@@ -177,10 +179,10 @@ static php_uint32 reloadMT(BLS_D)
 static inline php_uint32 randomMT(void)
 {
     php_uint32 y;
-	BLS_FETCH();
+	TSRMLS_FETCH();
 
     if(--BG(left) < 0)
-        return(reloadMT(BLS_C));
+        return(reloadMT(TSRMLS_C));
 
     y  = *BG(next)++;
     y ^= (y >> 11);
@@ -208,13 +210,12 @@ PHP_FUNCTION(srand)
 PHP_FUNCTION(mt_srand)
 {
 	pval **arg;
-	BLS_FETCH();
 
 	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &arg) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_long_ex(arg);
-	seedMT((*arg)->value.lval BLS_CC);
+	seedMT((*arg)->value.lval TSRMLS_CC);
 }
 /* }}} */
 
@@ -234,9 +235,9 @@ PHP_FUNCTION(rand)
 			convert_to_long_ex(p_min);
 			convert_to_long_ex(p_max);
 			if ((*p_max)->value.lval-(*p_min)->value.lval < 0) {
-				php_error(E_WARNING,"rand():  Invalid range:  %ld..%ld", (*p_min)->value.lval, (*p_max)->value.lval);
-			}else if ((*p_max)->value.lval-(*p_min)->value.lval > PHP_RAND_MAX){
-				php3_error(E_WARNING,"rand():  Invalid range:  %ld..%ld", (*p_min)->value.lval, (*p_max)->value.lval);
+				php_error(E_WARNING, "rand():  Invalid range:  %ld..%ld", (*p_min)->value.lval, (*p_max)->value.lval);
+			} else if ((*p_max)->value.lval-(*p_min)->value.lval > PHP_RAND_MAX){
+				php3_error(E_WARNING, "rand():  Invalid range:  %ld..%ld", (*p_min)->value.lval, (*p_max)->value.lval);
 			}
 			break;
 		default:
@@ -296,9 +297,9 @@ PHP_FUNCTION(mt_rand)
 			convert_to_long_ex(p_min);
 			convert_to_long_ex(p_max);
 			if ((*p_max)->value.lval-(*p_min)->value.lval <= 0) {
-				php_error(E_WARNING,"mt_rand():  Invalid range:  %ld..%ld", (*p_min)->value.lval, (*p_max)->value.lval);
+				php_error(E_WARNING, "mt_rand():  Invalid range:  %ld..%ld", (*p_min)->value.lval, (*p_max)->value.lval);
 			}else if ((*p_max)->value.lval-(*p_min)->value.lval > MT_RAND_MAX){
-				php3_error(E_WARNING,"mt_rand():  Invalid range:  %ld..%ld",(*p_min)->value.lval, (*p_max)->value.lval);
+				php3_error(E_WARNING, "mt_rand():  Invalid range:  %ld..%ld", (*p_min)->value.lval, (*p_max)->value.lval);
 			}
 			break;
 		default:
@@ -328,16 +329,23 @@ PHP_FUNCTION(mt_rand)
    Returns the maximum value a random number can have */
 PHP_FUNCTION(getrandmax)
 {
+	if (ZEND_NUM_ARGS() != 0) {
+		WRONG_PARAM_COUNT;
+	}
+
 	return_value->type = IS_LONG;
 	return_value->value.lval = PHP_RAND_MAX;
 }
 /* }}} */
 
-
 /* {{{ proto int mt_getrandmax(void)
    Returns the maximum value a random number from Mersenne Twister can have */
 PHP_FUNCTION(mt_getrandmax)
 {
+	if (ZEND_NUM_ARGS() != 0) {
+		WRONG_PARAM_COUNT;
+	}
+
 	return_value->type = IS_LONG;
 	/*
 	 * Melo: it could be 2^^32 but we only use 2^^31 to maintain
@@ -346,9 +354,12 @@ PHP_FUNCTION(mt_getrandmax)
   	return_value->value.lval = MT_RAND_MAX;	/* 2^^31 */
 }
 /* }}} */
+
 /*
  * Local variables:
  * tab-width: 4
  * c-basic-offset: 4
  * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
  */

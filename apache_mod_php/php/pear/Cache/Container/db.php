@@ -17,7 +17,7 @@
 // |          Chuck Hagenbuch <chuck@horde.org>                           |
 // +----------------------------------------------------------------------+
 //
-// $Id: db.php,v 1.1.1.1 2001/07/19 00:20:43 zarzycki Exp $
+// $Id: db.php,v 1.1.1.2 2001/12/14 22:14:09 zarzycki Exp $
 
 require_once 'DB.php';
 require_once 'Cache/Container.php';
@@ -52,7 +52,7 @@ require_once 'Cache/Container.php';
 * )
 *
 * @author   Sebastian Bergmann <sb@sebastian-bergmann.de>
-* @version  $Id: db.php,v 1.1.1.1 2001/07/19 00:20:43 zarzycki Exp $
+* @version  $Id: db.php,v 1.1.1.2 2001/12/14 22:14:09 zarzycki Exp $
 * @package  Cache
 */
 class Cache_Container_db extends Cache_Container {
@@ -159,7 +159,7 @@ class Cache_Container_db extends Cache_Container {
         }
     }
 
-    function delete($id, $group)
+    function remove($id, $group)
     {
         $this->flushPreload($id, $group);
 
@@ -175,7 +175,7 @@ class Cache_Container_db extends Cache_Container {
             return new Cache_Error('DB::query failed: ' . DB::errorMessage($res), __FILE__, __LINE__);
     }
 
-    function flush($group = "")
+    function flush($group = '')
     {
         $this->flushPreload();
 

@@ -1,5 +1,6 @@
-/* 
-   Copyright (C) Andrew Tridgell 1996
+/* -*- c-file-style: "linux" -*-
+   
+   Copyright (C) 1996-2000 by Andrew Tridgell
    Copyright (C) Paul Mackerras 1996
    
    This program is free software; you can redistribute it and/or modify
@@ -32,13 +33,26 @@ static struct map_struct *cleanup_buf;
 static int cleanup_pid = 0;
 extern int io_error;
 
+pid_t cleanup_child_pid = -1;
+
+/*
+ * Code is one of the RERR_* codes from errcode.h.
+ */
 void _exit_cleanup(int code, const char *file, int line)
 {
 	extern int keep_partial;
-
-	if (code == 0 && io_error) code = RERR_FILEIO;
+	extern int log_got_error;
 
 	signal(SIGUSR1, SIG_IGN);
+	signal(SIGUSR2, SIG_IGN);
+
+	if (cleanup_child_pid != -1) {
+		int status;
+		if (waitpid(cleanup_child_pid, &status, WNOHANG) == cleanup_child_pid) {
+			status = WEXITSTATUS(status);
+			if (status > code) code = status;
+		}
+	}
 
 	if (cleanup_got_literal && cleanup_fname && keep_partial) {
 		char *fname = cleanup_fname;
@@ -59,6 +73,10 @@ void _exit_cleanup(int code, const char *file, int line)
 		if (pidf && *pidf) {
 			unlink(lp_pid_file());
 		}
+	}
+
+	if (code == 0 && (io_error || log_got_error)) {
+		code = RERR_PARTIAL;
 	}
 
 	if (code) log_exit(code, file, line);

@@ -17,7 +17,7 @@
 // | Authors: Andrei Zmievski <andrei@ispi.net>                           |
 // +----------------------------------------------------------------------+
 //
-// $Id: Getopt.php,v 1.1.1.1 2001/07/19 00:20:44 zarzycki Exp $
+// $Id: Getopt.php,v 1.1.1.2 2001/12/14 22:14:13 zarzycki Exp $
 
 require_once 'PEAR.php';
 
@@ -53,7 +53,7 @@ class Console_Getopt {
      * Long and short options can be mixed.
      *
      * Most of the semantics of this function are based on GNU getopt_long().
-     * 
+     *
      * @param $args array an array of command-line arguments
      * @param $short_options string specifies the list of allowed short options
      * @param $long_options array specifies the list of allowed long options
@@ -75,7 +75,7 @@ class Console_Getopt {
             sort($long_options);
 
         reset($args);
-        while (list(, $arg) = each($args)) {
+        while (list($i, $arg) = each($args)) {
 
             /* The special element '--' means explicit end of options. Treat the
                rest of the arguments as non-options and end the loop. */
@@ -84,9 +84,9 @@ class Console_Getopt {
                 break;
             }
 
-            if ($arg{0} != '-' || ($arg{1} == '-' && !$long_options)) {
+            if ($arg{0} != '-' || (strlen($arg) > 1 && $arg{1} == '-' && !$long_options)) {
                 $non_opts[] = $arg;
-            } else if ($arg{1} == '-') {
+            } else if (strlen($arg) > 1 && $arg{1} == '-') {
                 $error = Console_Getopt::_parseLongOption(substr($arg, 2), $long_options, $opts, $args);
                 if (PEAR::isError($error))
                     return $error;
@@ -116,8 +116,8 @@ class Console_Getopt {
                 return new Getopt_Error("unrecognized option -- $opt\n");
             }
 
-            if ($spec{1} == ':') {
-                if ($spec{2} == ':') {
+            if (strlen($spec) > 1 && $spec{1} == ':') {
+                if (strlen($spec) > 2 && $spec{2} == ':') {
                     if ($i + 1 < strlen($arg)) {
                         /* Option takes an optional argument. Use the remainder of
                            the arg string if there is anything left. */
@@ -147,13 +147,13 @@ class Console_Getopt {
      */
     function _parseLongOption($arg, $long_options, &$opts, &$args)
     {
-        list($opt, $opt_arg) = explode('=', $arg);
+        @list($opt, $opt_arg) = explode('=', $arg);
         $opt_len = strlen($opt);
 
         for ($i = 0; $i < count($long_options); $i++) {
             $long_opt  = $long_options[$i];
             $opt_start = substr($long_opt, 0, $opt_len);
-            
+
             /* Option doesn't match. Go on to the next one. */
             if ($opt_start != $opt)
                 continue;
@@ -180,7 +180,7 @@ class Console_Getopt {
                 return new Getopt_Error("option --$opt doesn't allow an argument\n");
             }
 
-            $opts[] = array('--' . substr($long_opt, 0, strpos($long_opt, '=')), $opt_arg);
+            $opts[] = array('--' . $opt, $opt_arg);
             return;
         }
 

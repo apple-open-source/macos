@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_pdf.h,v 1.1.1.3 2001/07/19 00:19:51 zarzycki Exp $ */
+/* $Id: php_pdf.h,v 1.1.1.4 2001/12/14 22:13:02 zarzycki Exp $ */
 
 #ifndef PHP_PDF_H
 #define PHP_PDF_H
@@ -32,9 +32,9 @@
 extern zend_module_entry pdf_module_entry;
 #define pdf_module_ptr &pdf_module_entry
 
-extern PHP_MINFO_FUNCTION(pdf);
-extern PHP_MINIT_FUNCTION(pdf);
-extern PHP_MSHUTDOWN_FUNCTION(pdf);
+PHP_MINFO_FUNCTION(pdf);
+PHP_MINIT_FUNCTION(pdf);
+PHP_MSHUTDOWN_FUNCTION(pdf);
 PHP_FUNCTION(pdf_new);		/* new function */
 PHP_FUNCTION(pdf_delete);	/* new function */
 PHP_FUNCTION(pdf_open_file);
@@ -168,11 +168,9 @@ PHP_FUNCTION(pdf_setmatrix);
 #endif /* PDFlib >= V4 */
 
 #ifdef ZTS
-#define PDFG(v) (pdf_globals->v)
-#define PDFLS_FETCH() php_pdf_globals *pdf_globals = ts_resource(pdf_globals_id)
+#define PDFG(v) TSRMG(pdf_globals_id, php_pdf_globals *, v)
 #else
 #define PDFG(v) (pdf_globals.v)
-#define PDFLS_FETCH()
 #endif
 
 

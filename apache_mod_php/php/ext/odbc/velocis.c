@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: velocis.c,v 1.1.1.3 2001/07/19 00:19:42 zarzycki Exp $ */
+/* $Id: velocis.c,v 1.1.1.4 2001/12/14 22:12:53 zarzycki Exp $ */
 
 /*
  * TODO:
@@ -65,8 +65,10 @@ function_entry velocis_functions[] = {
 };
 
 zend_module_entry velocis_module_entry = {
+	STANDARD_MODULE_HEADER,
 	"velocis", velocis_functions, PHP_MINIT(velocis), PHP_MSHUTDOWN(velocis),
-		PHP_RINIT(velocis), NULL, PHP_MINFO(velocis), STANDARD_MODULE_PROPERTIES
+		PHP_RINIT(velocis), NULL, PHP_MINFO(velocis), NO_VERSION_YET,
+        STANDARD_MODULE_PROPERTIES
 };
 
 
@@ -77,17 +79,19 @@ ZEND_GET_MODULE(velocis)
 THREAD_LS velocis_module php_velocis_module;
 THREAD_LS static HENV henv;
 
-static void _close_velocis_link(zend_rsrc_list_entry *rsrc)
+static void _close_velocis_link(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 {
 	VConn *conn = (VConn *)rsrc->ptr;
+
 	if ( conn ) {
 		efree(conn);
 	}
 }
 
-static void _free_velocis_result(zend_rsrc_list_entry *rsrc)
+static void _free_velocis_result(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 {
 	Vresult *res = (Vresult *)rsrc->ptr;
+
 	if ( res && res->values ) {
 		register int i;
 		for ( i=0; i < res->numcols; i++ ) {
@@ -104,6 +108,7 @@ static void _free_velocis_result(zend_rsrc_list_entry *rsrc)
 PHP_MINIT_FUNCTION(velocis)
 {
 	SQLAllocEnv(&henv);
+
 	if ( cfg_get_long("velocis.max_links",&php_velocis_module.max_links) == FAILURE ) {
 		php_velocis_module.max_links = -1;
 	}

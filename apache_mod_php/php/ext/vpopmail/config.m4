@@ -1,4 +1,4 @@
-dnl $Id: config.m4,v 1.1.1.1 2001/07/19 00:20:28 zarzycki Exp $
+dnl $Id: config.m4,v 1.1.1.2 2001/12/14 22:13:34 zarzycki Exp $
 dnl config.m4 for extension vpopmail
 
 PHP_ARG_WITH(vpopmail, for vpopmail support,
@@ -37,6 +37,14 @@ if test "$PHP_VPOPMAIL" != "no"; then
 	done
 
 	AC_MSG_RESULT($VPOPMAIL_DIR)
+
+	dnl newer versions of vpopmail have include/vauth.h defining valias functions
+	if test -r $VPOPMAIL_INC_DIR/vauth.h; then
+		AC_DEFINE(HAVE_VPOPMAIL_VAUTH,1,[Whether vpopmail has vauth.h])
+	fi
+	dnl check for valias functions in the -lvpopmail
+	AC_CHECK_LIB(vpopmail, valias_select, 
+		[ AC_DEFINE(HAVE_VPOPMAIL_VALIAS,1,[Whether vpopmail has valias support]) ],[],[ -L$VPOPMAIL_LIB_DIR ])
 
 	PHP_ADD_INCLUDE($VPOPMAIL_INC_DIR)
 

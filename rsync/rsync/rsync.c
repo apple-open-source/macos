@@ -30,7 +30,6 @@ extern int preserve_uid;
 extern int preserve_gid;
 extern int preserve_perms;
 extern int make_backups;
-extern char *backup_suffix;
 
 
 /*
@@ -44,7 +43,7 @@ void free_sums(struct sum_struct *s)
 
 
 /*
- * delete a file or directory. If force_delet is set then delete 
+ * delete a file or directory. If force_delete is set then delete 
  * recursively 
  */
 int delete_file(char *fname)
@@ -57,34 +56,32 @@ int delete_file(char *fname)
 	int ret;
 	extern int recurse;
 
-	if (robust_unlink(fname) == 0 || errno == ENOENT) return 0;
-
 #if SUPPORT_LINKS
 	ret = do_lstat(fname, &st);
 #else
 	ret = do_stat(fname, &st);
 #endif
 	if (ret) {
-		rprintf(FERROR,"stat(%s) : %s\n", fname, strerror(errno));
 		return -1;
 	}
 
 	if (!S_ISDIR(st.st_mode)) {
-		rprintf(FERROR,"unlink(%s) : %s\n", fname, strerror(errno));
+		if (robust_unlink(fname) == 0 || errno == ENOENT) return 0;
+		rprintf(FERROR,"delete_file: unlink(%s) : %s\n", fname, strerror(errno));
 		return -1;
 	}
 
 	if (do_rmdir(fname) == 0 || errno == ENOENT) return 0;
 	if (!force_delete || !recurse || 
 	    (errno != ENOTEMPTY && errno != EEXIST)) {
-		rprintf(FERROR,"rmdir(%s) : %s\n", fname, strerror(errno));
+		rprintf(FERROR,"delete_file: rmdir(%s) : %s\n", fname, strerror(errno));
 		return -1;
 	}
 
 	/* now we do a recsursive delete on the directory ... */
 	d = opendir(fname);
 	if (!d) {
-		rprintf(FERROR,"opendir(%s): %s\n",
+		rprintf(FERROR,"delete_file: opendir(%s): %s\n",
 			fname,strerror(errno));
 		return -1;
 	}
@@ -94,7 +91,7 @@ int delete_file(char *fname)
 		if (strcmp(dname,".")==0 ||
 		    strcmp(dname,"..")==0)
 			continue;
-		slprintf(buf, sizeof(buf), "%s/%s", fname, dname);
+		snprintf(buf, sizeof(buf), "%s/%s", fname, dname);
 		if (verbose > 0)
 			rprintf(FINFO,"deleting %s\n", buf);
 		if (delete_file(buf) != 0) {
@@ -106,7 +103,7 @@ int delete_file(char *fname)
 	closedir(d);
 	
 	if (do_rmdir(fname) != 0) {
-		rprintf(FERROR,"rmdir(%s) : %s\n", fname, strerror(errno));
+		rprintf(FERROR,"delete_file: rmdir(%s) : %s\n", fname, strerror(errno));
 		return -1;
 	}
 
@@ -153,7 +150,6 @@ int set_perms(char *fname,struct file_struct *file,STRUCT_STAT *st,
 	int updated = 0;
 	STRUCT_STAT st2;
 	int change_uid, change_gid;
-	extern int am_daemon;
 
 	if (dry_run) return 0;
 
@@ -166,7 +162,7 @@ int set_perms(char *fname,struct file_struct *file,STRUCT_STAT *st,
 	}
 
 	if (preserve_times && !S_ISLNK(st->st_mode) &&
-	    st->st_mtime != file->modtime) {
+	    cmp_modtime(st->st_mtime, file->modtime) != 0) {
 		/* don't complain about not setting times on directories
 		   because some filesystems can't do it */
 		if (set_modtime(fname,file->modtime) != 0 &&
@@ -180,7 +176,7 @@ int set_perms(char *fname,struct file_struct *file,STRUCT_STAT *st,
 	}
 
 	change_uid = am_root && preserve_uid && st->st_uid != file->uid;
-	change_gid = !am_daemon && preserve_gid && file->gid != (gid_t) -1 && \
+	change_gid = preserve_gid && file->gid != (gid_t) -1 && \
 				st->st_gid != file->gid;
 	if (change_gid && !am_root) {
 		/* enforce bsd-style group semantics: non-root can only
@@ -196,19 +192,20 @@ int set_perms(char *fname,struct file_struct *file,STRUCT_STAT *st,
 			rprintf(FERROR,"chown %s : %s\n", fname,strerror(errno));
 			return 0;
 		}
+		/* a lchown had been done - we have to re-stat if the
+                   destination had the setuid or setgid bits set due
+                   to the side effect of the chown call */
+		if (st->st_mode & (S_ISUID | S_ISGID)) {
+			link_stat(fname, st);
+		}
 		updated = 1;
 	}
 
 #ifdef HAVE_CHMOD
 	if (!S_ISLNK(st->st_mode)) {
-		int file_mode;
-		if (preserve_perms)
-			file_mode = file->mode;
-		else
-			file_mode = file->mode & ACCESSPERMS;
 		if (st->st_mode != file->mode) {
 			updated = 1;
-			if (do_chmod(fname,file_mode) != 0) {
+			if (do_chmod(fname,file->mode) != 0) {
 				rprintf(FERROR,"failed to set permissions on %s : %s\n",
 					fname,strerror(errno));
 				return 0;
@@ -230,27 +227,6 @@ int set_perms(char *fname,struct file_struct *file,STRUCT_STAT *st,
 void sig_int(void)
 {
 	exit_cleanup(RERR_SIGNAL);
-}
-
-int make_backup(char *fname)
-{
-	char fnamebak[MAXPATHLEN];
-	if (strlen(fname) + strlen(backup_suffix) > (MAXPATHLEN-1)) {
-		rprintf(FERROR,"backup filename too long\n");
-		return 0;
-	}
-
-	slprintf(fnamebak,sizeof(fnamebak),"%s%s",fname,backup_suffix);
-	if (do_rename(fname,fnamebak) != 0) {
-		/* cygwin (at least version b19) reports EINVAL */
-		if (errno != ENOENT && errno != EINVAL) {
-			rprintf(FERROR,"rename %s %s : %s\n",fname,fnamebak,strerror(errno));
-			return 0;
-		}
-	} else if (verbose > 1) {
-		rprintf(FINFO,"backed up %s to %s\n",fname,fnamebak);
-	}
-	return 1;
 }
 
 
@@ -281,6 +257,3 @@ void finish_transfer(char *fname, char *fnametmp, struct file_struct *file)
 		set_perms(fname,file,NULL,0);
 	}
 }
-
-
-

@@ -1,13 +1,18 @@
+#include "php_gd.h"
+
+
 #define CTX_PUTC(c,ctx) ctx->putC(ctx, c)
 	
 static void _php_image_output_putc(struct gdIOCtx *ctx, int c)
 {
-	php_write(&c, 1);
+	TSRMLS_FETCH();
+	php_write(&c, 1 TSRMLS_CC);
 }
 
 static int _php_image_output_putbuf(struct gdIOCtx *ctx, const void* buf, int l)
 {
-	return php_write((void *)buf, l);
+	TSRMLS_FETCH();
+	return php_write((void *)buf, l TSRMLS_CC);
 }
 
 static void _php_image_output_ctxfree(struct gdIOCtx *ctx)
@@ -26,7 +31,6 @@ static void _php_image_output_ctx(INTERNAL_FUNCTION_PARAMETERS, int image_type, 
 	int argc = ZEND_NUM_ARGS();
 	int q = -1, i;
 	gdIOCtx *ctx;
-	GDLS_FETCH();
 
 	/* The quality parameter for Wbmp stands for the threshold when called from image2wbmp() */
 	
@@ -35,7 +39,7 @@ static void _php_image_output_ctx(INTERNAL_FUNCTION_PARAMETERS, int image_type, 
 		WRONG_PARAM_COUNT;
 	}
 
-	ZEND_FETCH_RESOURCE(im, gdImagePtr, imgind, -1, "Image", le_gd);
+	ZEND_FETCH_RESOURCE(im, gdImagePtr, imgind, -1, "Image", phpi_get_le_gd());
 
 	if (argc > 1) {
 		convert_to_string_ex(file);
@@ -47,14 +51,14 @@ static void _php_image_output_ctx(INTERNAL_FUNCTION_PARAMETERS, int image_type, 
 	}
 
 	if ((argc == 2) || (argc == 3 && Z_STRLEN_PP(file))) {
-		if (!fn || fn == empty_string || php_check_open_basedir(fn)) {
-			php_error(E_WARNING, "%s: invalid filename '%s'", get_active_function_name(), fn);
+		if (!fn || fn == empty_string || php_check_open_basedir(fn TSRMLS_CC)) {
+			php_error(E_WARNING, "%s: invalid filename '%s'", get_active_function_name(TSRMLS_C), fn);
 			RETURN_FALSE;
 		}
 
 		fp = VCWD_FOPEN(fn, "wb");
 		if (!fp) {
-			php_error(E_WARNING, "%s: unable to open '%s' for writing", get_active_function_name(), fn);
+			php_error(E_WARNING, "%s: unable to open '%s' for writing", get_active_function_name(TSRMLS_C), fn);
 			RETURN_FALSE;
 		}
 
@@ -67,7 +71,6 @@ static void _php_image_output_ctx(INTERNAL_FUNCTION_PARAMETERS, int image_type, 
 
 #if APACHE && defined(CHARSET_EBCDIC)
 		/* XXX this is unlikely to work any more thies@thieso.net */
-		SLS_FETCH();
 		/* This is a binary file already: avoid EBCDIC->ASCII conversion */
 		ap_bsetflag(php3_rqst->connection->client, B_EBCDIC2ASCII, 0);
 #endif
@@ -76,7 +79,7 @@ static void _php_image_output_ctx(INTERNAL_FUNCTION_PARAMETERS, int image_type, 
 	switch(image_type) {
 		case PHP_GDIMG_CONVERT_WBM:
 			if(q<0||q>255) {
-				php_error(E_WARNING, "%s: invalid threshold value '%d'. It must be between 0 and 255",get_active_function_name(), q);
+				php_error(E_WARNING, "%s: invalid threshold value '%d'. It must be between 0 and 255",get_active_function_name(TSRMLS_C), q);
 			}
 		case PHP_GDIMG_TYPE_JPG:
 			(*func_p)(im, ctx, q);

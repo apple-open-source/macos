@@ -7,7 +7,7 @@
  */
 
 #include "includes.h"
-RCSID("$OpenBSD: ssh-keyscan.c,v 1.30 2001/10/08 19:05:05 markus Exp $");
+RCSID("$OpenBSD: ssh-keyscan.c,v 1.35 2002/03/04 18:30:23 stevesk Exp $");
 
 #if defined(HAVE_SYS_QUEUE_H) && !defined(HAVE_BOGUS_SYS_QUEUE_H)
 #include <sys/queue.h>
@@ -493,8 +493,9 @@ static void
 congreet(int s)
 {
 	char buf[256], *cp;
+	char remote_version[sizeof buf];
 	size_t bufsiz;
-	int n = 0;
+	int remote_major, remote_minor, n = 0;
 	con *c = &fdcon[s];
 
 	bufsiz = sizeof(buf);
@@ -510,26 +511,32 @@ congreet(int s)
 		conrecycle(s);
 		return;
 	}
+	if (n == 0) {
+		error("%s: Connection closed by remote host", c->c_name);
+		conrecycle(s);
+		return;
+	}
 	if (*cp != '\n' && *cp != '\r') {
 		error("%s: bad greeting", c->c_name);
 		confree(s);
 		return;
 	}
 	*cp = '\0';
+	if (sscanf(buf, "SSH-%d.%d-%[^\n]\n",
+	    &remote_major, &remote_minor, remote_version) == 3)
+		compat_datafellows(remote_version);
+	else
+		datafellows = 0;
 	if (c->c_keytype != KT_RSA1) {
-		int remote_major, remote_minor;
-		char remote_version[sizeof buf];
-
-		if (sscanf(buf, "SSH-%d.%d-%[^\n]\n",
-		    &remote_major, &remote_minor, remote_version) == 3)
-			compat_datafellows(remote_version);
-		else
-			datafellows = 0;
 		if (!ssh2_capable(remote_major, remote_minor)) {
 			debug("%s doesn't support ssh2", c->c_name);
 			confree(s);
 			return;
 		}
+	} else if (remote_major != 1) {
+		debug("%s doesn't support ssh1", c->c_name);
+		confree(s);
+		return;
 	}
 	fprintf(stderr, "# %s %s\n", c->c_name, chop(buf));
 	n = snprintf(buf, sizeof buf, "SSH-%d.%d-OpenSSH-keyscan\r\n",
@@ -647,6 +654,8 @@ do_host(char *host)
 	char *name = strnnsep(&host, " \t\n");
 	int j;
 
+	if (name == NULL)
+		return;
 	for (j = KT_RSA1; j <= KT_RSA; j *= 2) {
 		if (get_keytypes & j) {
 			while (ncon >= MAXCON)
@@ -656,11 +665,17 @@ do_host(char *host)
 	}
 }
 
-static void
-fatal_callback(void *arg)
+void
+fatal(const char *fmt,...)
 {
+	va_list args;
+	va_start(args, fmt);
+	do_log(SYSLOG_LEVEL_FATAL, fmt, args);
+	va_end(args);
 	if (nonfatal_fatal)
 		longjmp(kexjmp, -1);
+	else
+		fatal_cleanup();
 }
 
 static void
@@ -673,9 +688,9 @@ usage(void)
 	fprintf(stderr, "  -p port     Connect to the specified port.\n");
 	fprintf(stderr, "  -t keytype  Specify the host key type.\n");
 	fprintf(stderr, "  -T timeout  Set connection timeout.\n");
-        fprintf(stderr, "  -v          Verbose; display verbose debugging messages.\n");
-        fprintf(stderr, "  -4          Use IPv4 only.\n");
-        fprintf(stderr, "  -6          Use IPv6 only.\n");
+	fprintf(stderr, "  -v          Verbose; display verbose debugging messages.\n");
+	fprintf(stderr, "  -4          Use IPv4 only.\n");
+	fprintf(stderr, "  -6          Use IPv6 only.\n");
 	exit(1);
 }
 
@@ -742,7 +757,7 @@ main(int argc, char **argv)
 					get_keytypes |= KT_RSA;
 					break;
 				case KEY_UNSPEC:
-					fatal("unknown key type %s\n", tname);
+					fatal("unknown key type %s", tname);
 				}
 				tname = strtok(NULL, ",");
 			}
@@ -762,7 +777,6 @@ main(int argc, char **argv)
 		usage();
 
 	log_init("ssh-keyscan", log_level, SYSLOG_FACILITY_USER, 1);
-	fatal_add_cleanup(fatal_callback, NULL);
 
 	maxfd = fdlim_get(1);
 	if (maxfd < 0)

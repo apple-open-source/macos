@@ -16,7 +16,7 @@
 // |          Sebastian Bergmann <sb@sebastian-bergmann.de>               |
 // +----------------------------------------------------------------------+
 //
-// $Id: file.php,v 1.1.1.1 2001/07/19 00:20:43 zarzycki Exp $
+// $Id: file.php,v 1.1.1.2 2001/12/14 22:14:11 zarzycki Exp $
 
 require_once 'Cache/Container.php';
 
@@ -24,7 +24,7 @@ require_once 'Cache/Container.php';
 * Stores cache contents in a file.
 *
 * @author   Ulf Wendel  <ulf.wendel@phpdoc.de>
-* @version  $Id: file.php,v 1.1.1.1 2001/07/19 00:20:43 zarzycki Exp $
+* @version  $Id: file.php,v 1.1.1.2 2001/12/14 22:14:11 zarzycki Exp $
 */
 class Cache_Container_file extends Cache_Container {
 
@@ -33,7 +33,7 @@ class Cache_Container_file extends Cache_Container {
     *
     * @var  string  Make sure to add a trailing slash
     */
-    var $cache_dir = "";
+    var $cache_dir = '';
 
     /**
     * Filename prefix for cache files.
@@ -52,7 +52,7 @@ class Cache_Container_file extends Cache_Container {
     *
     * @var  string
     */
-    var $filename_prefix = "";
+    var $filename_prefix = '';
     
     
     /**
@@ -74,20 +74,25 @@ class Cache_Container_file extends Cache_Container {
     *
     * @param    array   Config options: ["cache_dir" => ..., "filename_prefix" => ...]
     */
-    function Cache_Container_file($options = "") {
+     function Cache_Container_file($options = '') {
         if (is_array($options))
-            $this->setOptions($options, array_merge($this->allowed_options, array("cache_dir", "filename_prefix")));
+            $this->setOptions($options, array_merge($this->allowed_options, array('cache_dir', 'filename_prefix')));
         
         clearstatcache();
+        if ($this->cache_dir)
+        {
+            // make relative paths absolute for use in deconstructor.
+            // it looks like the deconstructor has problems with relative paths
+            if ('/' != $this->cache_dir{0}  )
+                $this->cache_dir = realpath( getcwd() . '/' . $this->cache_dir) . '/';
 
-        // make relative paths absolute for use in deconstructor.
-        // it looks like the deconstructor has problems with relative paths
-        if ("." == $this->cache_dir{0})
-            $this->cache_dir = realpath( getcwd() . "/" . $this->cache_dir) . "/";
+            // check if a trailing slash is in cache_dir
+            if (!substr($this->cache_dir,-1) ) 
+                 $this->cache_dir .= '/';
 
-        if (!file_exists($this->cache_dir) || !is_dir($this->cache_dir))
-            mkdir($this->cache_dir, 0755);
-            
+            if  (!file_exists($this->cache_dir) || !is_dir($this->cache_dir))
+                mkdir($this->cache_dir, 0755);
+        }
         $this->entries = array();
                     
     } // end func contructor
@@ -98,14 +103,14 @@ class Cache_Container_file extends Cache_Container {
             return array(NULL, NULL, NULL);
 
         // retrive the content
-        if (!($fh = @fopen($file, "rb")))
+        if (!($fh = @fopen($file, 'rb')))
             return new Cache_Error("Can't access cache file '$file'. Check access rights and path.", __FILE__, __LINE__);
 
         // file format:
         // 1st line: expiration date
         // 2nd line: user data
         // 3rd+ lines: cache data
-        $expire = trim(fgets($fh, 11));
+        $expire = trim(fgets($fh, 12));
         $userdata = trim(fgets($fh, 257));
         $cachedata = $this->decode(fread($fh, filesize($file)));
         fclose($fh);
@@ -127,7 +132,7 @@ class Cache_Container_file extends Cache_Container {
         $this->flushPreload($id, $group);
 
         $file = $this->getFilename($id, $group);
-        if (!($fh = @fopen($file, "wb")))
+        if (!($fh = @fopen($file, 'wb')))
             return new Cache_Error("Can't access '$file' to store cache data. Check access rights and path.", __FILE__, __LINE__);
 
         // file format:
@@ -147,7 +152,7 @@ class Cache_Container_file extends Cache_Container {
         return true;
     } // end func save
 
-    function delete($id, $group) {
+    function remove($id, $group) {
         $this->flushPreload($id, $group);
 
         $file = $this->getFilename($id, $group);
@@ -160,11 +165,11 @@ class Cache_Container_file extends Cache_Container {
         }
 
         return false;
-    } // end func delete
+    } // end func remove
 
     function flush($group) {
         $this->flushPreload();
-        $dir = ($group) ? $this->cache_dir . $group . "/" : $this->cache_dir;
+        $dir = ($group) ? $this->cache_dir . $group . '/' : $this->cache_dir;
 
         $num_removed = $this->deleteDir($dir);
         clearstatcache();
@@ -204,8 +209,8 @@ class Cache_Container_file extends Cache_Container {
             reset($this->entries);
             
             while ($this->total_size > $this->lowwater && list($lastmod, $entry) = each($this->entries)) {
-                if (@unlink($entry["file"]))
-                    $this->total_size -= $entry["size"];
+                if (@unlink($entry['file']))
+                    $this->total_size -= $entry['size'];
                 else
                     new CacheError("Can't delete {$entry["file"]}. Check the permissions.");
             }
@@ -232,17 +237,17 @@ class Cache_Container_file extends Cache_Container {
             return new Cache_Error("Can't access cache directory '$dir'. Check permissions and path.", __FILE__, __LINE__);
 
         while ($file = readdir($dh)) {
-            if ("." == $file || ".." == $file)
+            if ('.' == $file || '..' == $file)
                 continue;
 
             $file = $dir . $file;
             if (is_dir($file)) {
-                $this->doGarbageCollection($maxlifetime,$file . "/");
+                $this->doGarbageCollection($maxlifetime,$file . '/');
                 continue;
             }
 
             // skip trouble makers but inform the user
-            if (!($fh = @fopen($file, "rb"))) {
+            if (!($fh = @fopen($file, 'rb'))) {
                 new Cache_Error("Can't access cache file '$file', skipping it. Check permissions and path.", __FILE__, __LINE__);
                 continue;
             }
@@ -251,7 +256,7 @@ class Cache_Container_file extends Cache_Container {
             fclose($fh);
             $lastused = filemtime($file);
             
-            $this->entries[$lastused] = array("file" => $file, "size" => filesize($file));
+            $this->entries[$lastused] = array('file' => $file, 'size' => filesize($file));
             $this->total_size += filesize($file);
             
             // remove if expired
@@ -280,7 +285,7 @@ class Cache_Container_file extends Cache_Container {
         if (isset($group_dirs[$group]))
             return $group_dirs[$group] . $this->filename_prefix . $id;
 
-        $dir = $this->cache_dir . $group . "/";
+        $dir = $this->cache_dir . $group . '/';
         if (!file_exists($dir)) {
             mkdir($dir, 0755);
             clearstatcache();
@@ -305,13 +310,13 @@ class Cache_Container_file extends Cache_Container {
         $num_removed = 0;
 
         while ($file = readdir($dh)) {
-            if ("." == $file || ".." == $file)
+            if ('.' == $file || '..' == $file)
                 continue;
 
             $file = $dir . $file;
             if (is_dir($file)) {
-                $file .= "/";
-                $num = $this->deleteDir($file . "/");
+                $file .= '/';
+                $num = $this->deleteDir($file . '/');
                 if (is_int($num))
                     $num_removed += $num;
             } else {

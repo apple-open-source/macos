@@ -17,19 +17,19 @@
 // |          Bertrand Mansion <bmansion@mamasam.com>                     |
 // +----------------------------------------------------------------------+
 //
-// $Id: Table.php,v 1.1.1.1 2001/07/19 00:20:49 zarzycki Exp $
+// $Id: Table.php,v 1.1.1.2 2001/12/14 22:14:55 zarzycki Exp $
 
 require_once "PEAR.php";
 require_once "HTML/Common.php";
 
 /**
- * Builds an HTML table
- *
- * @author        Adam Daniel <adaniel1@eesus.jnj.com>
- * @author        Bertrand Mansion <bmansion@mamasam.com>
- * @version       1.5
- * @since         PHP 4.0.3pl1
- */
+* Builds an HTML table
+*
+* @author        Adam Daniel <adaniel1@eesus.jnj.com>
+* @author        Bertrand Mansion <bmansion@mamasam.com>
+* @version       1.5
+* @since         PHP 4.0.3pl1
+*/
 class HTML_Table extends HTML_Common {
 
     /**
@@ -234,22 +234,12 @@ class HTML_Table extends HTML_Common {
      */
     function setCellAttributes($row, $col, $attributes)
     {
-        if ($this->_structure[$row][$col] == "SPANNED") return;
-        if ($row >= $this->_rows) {
-            if ($this->_autoGrow) {
-                $this->_rows = $row+1;
-            } else {
-                return new PEAR_Error("Invalid table row reference[$row] in HTML_Table::setCellAttributes");
-            }
-        }
-        if ($col >= $this->_cols) {
-            if ($this->_autoGrow) {
-                $this->_cols = $col+1;
-            } else {
-                return new PEAR_Error("Invalid table column reference[$col] in HTML_Table::setCellAttributes");
-            }
-        }
+        if (isset($this->_structure[$row][$col]) && $this->_structure[$row][$col] == "__SPANNED__") return;
         $attributes = $this->_parseAttributes($attributes);
+        $err = $this->_adjustEnds($row, $col, 'setCellAttributes', $attributes);
+        if (PEAR::isError($err)) {
+            return $err;
+        }
         $this->_structure[$row][$col]["attr"] = $attributes;
         $this->_updateSpanGrid($row, $col);
     } // end func setCellAttributes
@@ -263,8 +253,12 @@ class HTML_Table extends HTML_Common {
      */
     function updateCellAttributes($row, $col, $attributes)
     {
-        if ($this->_structure[$row][$col] == "SPANNED") return;
+        if (isset($this->_structure[$row][$col]) && $this->_structure[$row][$col] == "__SPANNED__") return;
         $attributes = $this->_parseAttributes($attributes);
+        $err = $this->_adjustEnds($row, $col, 'updateCellAttributes', $attributes);
+        if (PEAR::isError($err)) {
+            return $err;
+        }
         $this->_updateAttrArray($this->_structure[$row][$col]["attr"], $attributes);
         $this->_updateSpanGrid($row, $col);
     } // end func updateCellAttributes
@@ -284,20 +278,10 @@ class HTML_Table extends HTML_Common {
      */
     function setCellContents($row, $col, $contents, $type='TD')
     {
-        if ($this->_structure[$row][$col] == "SPANNED") return;
-        if ($row >= $this->_rows) {
-            if ($this->_autoGrow) {
-                $this->_rows = $row+1;
-            } else {
-                return new PEAR_Error("Invalid table row reference[$row] in HTML_Table::setCellContents");
-            }
-        }
-        if ($col >= $this->_cols) {
-            if ($this->_autoGrow) {
-                $this->_cols = $col+1;
-            } else {
-                return new PEAR_Error("Invalid table column reference[$col] in HTML_Table::setCellContents");
-            }
+        if(isset($this->_structure[$row][$col]) && $this->_structure[$row][$col] == "__SPANNED__") return;
+        $err = $this->_adjustEnds($row, $col, 'setCellContents');
+        if (PEAR::isError($err)) {
+            return $err;
         }
         $this->_structure[$row][$col]["contents"] = $contents;
         $this->_structure[$row][$col]["type"] = $type;
@@ -312,7 +296,7 @@ class HTML_Table extends HTML_Common {
      */
     function getCellContents($row, $col)
     {        
-        if ($this->_structure[$row][$col] == "SPANNED") return;
+        if (isset($this->_structure[$row][$col]) && $this->_structure[$row][$col] == "__SPANNED__") return;
         return $this->_structure[$row][$col]["contents"];
     } // end func getCellContents
 
@@ -456,7 +440,7 @@ class HTML_Table extends HTML_Common {
         }
         $strHtml .= 
             $tabs . "<TABLE" . $this->_getAttrString($this->_attributes) . ">\n";
-        if ($this->_structure["caption"]) {
+        if (!empty($this->_structure["caption"])) {
             $attr = $this->_structure["caption"]["attr"];
             $contents = $this->_structure["caption"]["contents"];
             $strHtml .= $tabs . "\t<CAPTION" . $this->_getAttrString($attr) . ">";
@@ -467,13 +451,30 @@ class HTML_Table extends HTML_Common {
         for ($i = 0 ; $i < $this->_rows ; $i++) {
             $strHtml .= $tabs ."\t<TR>\n";
             for ($j = 0 ; $j < $this->_cols ; $j++) {
-                if ($this->_structure[$i][$j] == "SPANNED") {
+                if (isset($this -> _structure[$i][$j]) && $this->_structure[$i][$j] == "__SPANNED__") {
                     $strHtml .= $tabs ."\t\t<!-- span -->\n";
                     continue;
                 }
-                $type = ($this->_structure[$i][$j]["type"] == "TH" ? "TH" : "TD");
-                $attr = $this->_structure[$i][$j]["attr"];
-                $contents = $this->_structure[$i][$j]["contents"];
+                if (isset($this->_structure[$i][$j]["type"])) {
+                    $type = ($this->_structure[$i][$j]["type"] == "TH" ? "TH" : "TD");
+                } else {
+                    $type = "TD";
+                }
+                if (isset($this->_structure[$i][$j]["attr"])) {
+                    $attr = $this->_structure[$i][$j]["attr"];
+                } else {
+                    $attr = "";
+                }
+                if (isset($this->_structure[$i][$j]["attr"])) {
+                    $attr = $this->_structure[$i][$j]["attr"];
+                } else {
+                    $attr = "";
+                }
+                if (isset($this->_structure[$i][$j]["contents"])) {
+                    $contents = $this->_structure[$i][$j]["contents"];
+                } else {
+                    $contents = "";
+                }
                 $strHtml .= $tabs . "\t\t<$type" . $this->_getAttrString($attr) . ">";
                 if (is_object($contents)) {
                     if (is_subclass_of($contents, "html_common")) {
@@ -486,8 +487,10 @@ class HTML_Table extends HTML_Common {
                         $contents = $contents->toString();
                     }
                 }
-                if (is_array($contents)) $contents = implode(", ",$contents);
-                if (isset($this->_autoFill) && $contents == "") $contents = $this->_autoFill;
+                if (is_array($contents))
+                    $contents = implode(", ",$contents);
+                if (isset($this->_autoFill) && $contents == "")
+                    $contents = $this->_autoFill;
                 $strHtml .= $contents;
                 $strHtml .= "</$type>\n";
             }
@@ -506,26 +509,63 @@ class HTML_Table extends HTML_Common {
      */
     function _updateSpanGrid($row, $col)
     {
-        $colspan = $this->_structure[$row][$col]["attr"]["colspan"];
-        $rowspan = $this->_structure[$row][$col]["attr"]["rowspan"];
-        if ($colspan) {
+        if (isset($this->_structure[$row][$col]["attr"]["colspan"])) {
+            $colspan = $this->_structure[$row][$col]["attr"]["colspan"];
+        }
+        if (isset($this->_structure[$row][$col]["attr"]["rowspan"])) {
+            $rowspan = $this->_structure[$row][$col]["attr"]["rowspan"];
+        }
+        if (isset($colspan)) {
             for ($j = $col+1; (($j < $this->_cols) && ($j <= ($col + $colspan - 1))); $j++) {
-                $this->_structure[$row][$j] = "SPANNED";
+                $this->_structure[$row][$j] = "__SPANNED__";
             }
         }
-        if ($rowspan) {
+        if (isset($rowspan)) {
             for ($i = $row+1; (($i < $this->_rows) && ($i <= ($row + $rowspan - 1))); $i++) {
-                $this->_structure[$i][$col] = "SPANNED";
+                $this->_structure[$i][$col] = "__SPANNED__";
             }
         }
-        if ($colspan && $rowspan) {
+        if (isset($colspan) && isset($rowspan)) {
             for ($i = $row+1; (($i < $this->_rows) && ($i <= ($row + $rowspan - 1))); $i++) {
                 for ($j = $col+1; (($j <= $this->_cols) && ($j <= ($col + $colspan - 1))); $j++) {
-                    $this->_structure[$i][$j] = "SPANNED";
+                    $this->_structure[$i][$j] = "__SPANNED__";
                 }
             }
         }
     } // end func _updateSpanGrid
+
+    /**
+    * Adjusts ends (total number of rows and columns)
+    * @param	int	    $row		Row index
+    * @param	int	    $col		Column index
+    * @param	string	$method		Method name of caller
+    *                           	Used to populate PEAR_Error if thrown.
+    * @param	array	$attributes	Assoc array of attributes
+    *	                            Default is an empty array.
+    * @access	private
+    * @throws	PEAR_Error
+    */
+    function _adjustEnds($row, $col, $method, $attributes = array())
+    {
+        $colspan = isset($attributes['colspan']) ? $attributes['colspan'] : 1;
+        $rowspan = isset($attributes['rowspan']) ? $attributes['rowspan'] : 1;
+        if (($row + $rowspan - 1) >= $this->_rows) {
+            if ($this->_autoGrow) {
+                $this->_rows = $row + $rowspan;
+            } else {
+                return new PEAR_Error('Invalid table row reference[' .
+                    $row . '] in HTML_Table::' . $method);
+            }
+        }
+        if (($col + $colspan - 1) >= $this->_cols) {
+            if ($this->_autoGrow) {
+                $this->_cols = $col + $colspan;
+            } else {
+                return new PEAR_Error('Invalid table column reference[' .
+                    $col . '] in HTML_Table::' . $method);
+            }
+        }
+    }
 
 } // end class HTML_Table
 ?>

@@ -1,19 +1,43 @@
 --TEST--
-PEAR_Error test
+PEAR_Error: basic test
 --SKIPIF--
 --FILE--
-<?php // -*- C++ -*-
+<?php // -*- PHP -*-
 
 // Test for: PEAR.php
 // Parts tested: - PEAR_Error class
 //               - PEAR::isError static method
-// testing PEAR_Error
 
-require_once "PEAR.php";
+require "../PEAR.php";
 
-error_reporting(4095);
+function test_error_handler($errno, $errmsg, $file, $line, $vars) {
+	$errortype = array (
+		1   =>  "Error",
+		2   =>  "Warning",
+		4   =>  "Parsing Error",
+		8   =>  "Notice",
+		16  =>  "Core Error",
+		32  =>  "Core Warning",
+		64  =>  "Compile Error",
+		128 =>  "Compile Warning",
+		256 =>  "User Error",
+		512 =>  "User Warning",
+		1024=>  "User Notice"
+	);
+	if (preg_match('/^The call_user_method.. function is deprecated/',
+	    $errmsg)) {
+	    return;
+	}
+	$prefix = $errortype[$errno];
+	$file = basename($file);
+	print "\n$prefix: $errmsg in $file on line $line\n";
+}
 
-class Foo_Error extends PEAR_Error {
+error_reporting(E_ALL);
+set_error_handler("test_error_handler");
+
+class Foo_Error extends PEAR_Error
+{
     function Foo_Error($message = "unknown error", $code = null,
                        $mode = null, $options = null, $userinfo = null)
     {
@@ -37,7 +61,7 @@ function errorhandler(&$obj) {
 
 class errorclass {
     function errorhandler(&$obj) {
-	print "errorhandler method called, obj=".$obj->toString()."\n";
+		print "errorhandler method called, obj=".$obj->toString()."\n";
     }
 }
 
@@ -82,19 +106,19 @@ print "mode=print&trigger: ";
 $err = new PEAR_Error("test error", -42, PEAR_ERROR_PRINT|PEAR_ERROR_TRIGGER);
 print $err->toString() . "\n";
 
-print "mode=trigger: ";
+print "mode=trigger:";
 $err = new PEAR_Error("test error", -42, PEAR_ERROR_TRIGGER);
 print $err->toString() . "\n";
 
-print "mode=trigger,level=notice: ";
+print "mode=trigger,level=notice:";
 $err = new PEAR_Error("test error", -42, PEAR_ERROR_TRIGGER, E_USER_NOTICE);
 print $err->toString() . "\n";
 
-print "mode=trigger,level=warning: ";
+print "mode=trigger,level=warning:";
 $err = new PEAR_Error("test error", -42, PEAR_ERROR_TRIGGER, E_USER_WARNING);
 print $err->toString() . "\n";
 
-print "mode=trigger,level=error: ";
+print "mode=trigger,level=error:";
 $err = new PEAR_Error("test error", -42, PEAR_ERROR_TRIGGER, E_USER_ERROR);
 print $err->toString() . "\n";
 
@@ -102,27 +126,28 @@ print $err->toString() . "\n";
 --GET--
 --POST--
 --EXPECT--
-specify error class: [foo_error: message="test error" code=0 mode=return level=notice prefix="Foo_Error prefix" prepend="" append="" info=""]
-default PEAR_Error: [pear_error: message="unknown error" code=0 mode=return level=notice prefix="" prepend="" append="" info=""]
+specify error class: [foo_error: message="test error" code=0 mode=return level=notice prefix="Foo_Error prefix" info=""]
+default PEAR_Error: [pear_error: message="unknown error" code=0 mode=return level=notice prefix="" info=""]
 Testing it: bool(true)
 This is not an error: bool(false)
 Now trying a bunch of variations...
-different message: [pear_error: message="test error" code=0 mode=return level=notice prefix="" prepend="" append="" info=""]
-different message,code: [pear_error: message="test error" code=-42 mode=return level=notice prefix="" prepend="" append="" info=""]
-mode=print: test error[pear_error: message="test error" code=-42 mode=print level=notice prefix="" prepend="" append="" info=""]
-mode=callback(function): errorhandler function called, obj=[pear_error: message="test error" code=-42 mode=callback callback=errorhandler prefix="" prepend="" append="" info=""]
-mode=callback(method): errorhandler method called, obj=[pear_error: message="test error" code=-42 mode=callback callback=errorclass::errorhandler prefix="" prepend="" append="" info=""]
-mode=print&trigger: test error<br>
-<b>Notice</b>:  test error in <b>/usr/local/share/php/pear/PEAR.php</b> on line <b>401</b><br>
-[pear_error: message="test error" code=-42 mode=print|trigger level=notice prefix="" prepend="" append="" info=""]
-mode=trigger: <br>
-<b>Notice</b>:  test error in <b>/usr/local/share/php/pear/PEAR.php</b> on line <b>401</b><br>
-[pear_error: message="test error" code=-42 mode=trigger level=notice prefix="" prepend="" append="" info=""]
-mode=trigger,level=notice: <br>
-<b>Notice</b>:  test error in <b>/usr/local/share/php/pear/PEAR.php</b> on line <b>401</b><br>
-[pear_error: message="test error" code=-42 mode=trigger level=notice prefix="" prepend="" append="" info=""]
-mode=trigger,level=warning: <br>
-<b>Warning</b>:  test error in <b>/usr/local/share/php/pear/PEAR.php</b> on line <b>401</b><br>
-[pear_error: message="test error" code=-42 mode=trigger level=warning prefix="" prepend="" append="" info=""]
-mode=trigger,level=error: <br>
-<b>Fatal error</b>:  test error in <b>/usr/local/share/php/pear/PEAR.php</b> on line <b>401</b><br>
+different message: [pear_error: message="test error" code=0 mode=return level=notice prefix="" info=""]
+different message,code: [pear_error: message="test error" code=-42 mode=return level=notice prefix="" info=""]
+mode=print: test error[pear_error: message="test error" code=-42 mode=print level=notice prefix="" info=""]
+mode=callback(function): errorhandler function called, obj=[pear_error: message="test error" code=-42 mode=callback callback=errorhandler prefix="" info=""]
+mode=callback(method): errorhandler method called, obj=[pear_error: message="test error" code=-42 mode=callback callback=errorclass::errorhandler prefix="" info=""]
+mode=print&trigger: test error
+User Notice: test error in PEAR.php on line 595
+[pear_error: message="test error" code=-42 mode=print|trigger level=notice prefix="" info=""]
+mode=trigger:
+User Notice: test error in PEAR.php on line 595
+[pear_error: message="test error" code=-42 mode=trigger level=notice prefix="" info=""]
+mode=trigger,level=notice:
+User Notice: test error in PEAR.php on line 595
+[pear_error: message="test error" code=-42 mode=trigger level=notice prefix="" info=""]
+mode=trigger,level=warning:
+User Warning: test error in PEAR.php on line 595
+[pear_error: message="test error" code=-42 mode=trigger level=warning prefix="" info=""]
+mode=trigger,level=error:
+User Error: test error in PEAR.php on line 595
+[pear_error: message="test error" code=-42 mode=trigger level=error prefix="" info=""]

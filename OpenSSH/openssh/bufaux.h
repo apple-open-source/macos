@@ -1,3 +1,5 @@
+/*	$OpenBSD: bufaux.h,v 1.16 2002/03/04 17:27:39 stevesk Exp $	*/
+
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
  * Copyright (c) 1995 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
@@ -10,8 +12,6 @@
  * called by a name other than "ssh" or "Secure Shell".
  */
 
-/* RCSID("$OpenBSD: bufaux.h,v 1.13 2001/06/26 17:27:22 markus Exp $"); */
-
 #ifndef BUFAUX_H
 #define BUFAUX_H
 
@@ -20,11 +20,10 @@
 
 void    buffer_put_bignum(Buffer *, BIGNUM *);
 void    buffer_put_bignum2(Buffer *, BIGNUM *);
+void	buffer_get_bignum(Buffer *, BIGNUM *);
+void	buffer_get_bignum2(Buffer *, BIGNUM *);
 
-int     buffer_get_bignum(Buffer *, BIGNUM *);
-int	buffer_get_bignum2(Buffer *, BIGNUM *);
-
-u_int buffer_get_int(Buffer *);
+u_int	buffer_get_int(Buffer *);
 void    buffer_put_int(Buffer *, u_int);
 
 #ifdef HAVE_U_INT64_T
@@ -33,11 +32,9 @@ void	buffer_put_int64(Buffer *, u_int64_t);
 #endif
 
 int     buffer_get_char(Buffer *);
-
 void    buffer_put_char(Buffer *, int);
 
-char   *buffer_get_string(Buffer *, u_int *);
-
+void   *buffer_get_string(Buffer *, u_int *);
 void    buffer_put_string(Buffer *, const void *, u_int);
 void	buffer_put_cstring(Buffer *, const char *);
 

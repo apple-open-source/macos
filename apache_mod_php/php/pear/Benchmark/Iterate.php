@@ -16,7 +16,7 @@
 // | Authors: Sebastian Bergmann <sb@sebastian-bergmann.de>               |
 // +----------------------------------------------------------------------+
 //
-// $Id: Iterate.php,v 1.1.1.2 2001/07/19 00:20:43 zarzycki Exp $
+// $Id: Iterate.php,v 1.1.1.3 2001/12/14 22:14:03 zarzycki Exp $
 //
 
 require_once 'Benchmark/Timer.php';
@@ -29,56 +29,92 @@ require_once 'Benchmark/Timer.php';
 *     Benchmarking
 * 
 * Example:
-* 
-*     require_once "Benchmark/Iterate.php";
+*   a) 
+*     require_once 'Benchmark/Iterate.php';
 *     $benchmark = new Benchmark_Iterate;
 * 
-*     function foo($string)
-*     {
-*         print $string."<br>";
+*     function foo($string) {
+*         print $string . '<br>';
 *     }
 * 
 *     $benchmark->run(100, 'foo', 'test');
 *     $result = $benchmark->get();
+*
+*   b)
+*     require_once 'Benchmark/Iterate.php';
+*     $benchmark = new Benchmark_Iterate;
 * 
+*     class myclass{
+*
+*       function foo($string) {
+*             print $string . '<br>';
+*       }
+*     }
+* 
+*     $benchmark->run(100, 'myclass::foo', 'test');
+*     $result = $benchmark->get();
+*
+*   c)
+*     require_once 'Benchmark/Iterate.php';
+*     $benchmark = new Benchmark_Iterate;
+* 
+*     class myclass{
+*
+*       function foo($string) {
+*             print $string . '<br>';
+*       }
+*     }
+*
+*     $myobj = new myclass();
+* 
+*     $benchmark->run(100, 'myobj->foo', 'test');
+*     $result = $benchmark->get();
+*
 * @author   Sebastian Bergmann <sb@sebastian-bergmann.de>
-* @version  $Revision: 1.1.1.2 $
+* @version  $Revision: 1.1.1.3 $
 * @access   public
 */
 
-class Benchmark_Iterate extends Benchmark_Timer
-{
-    // {{{ run()
-
+class Benchmark_Iterate extends Benchmark_Timer {
     /**
     * Benchmarks a function.
     *
     * @access public
     */
 
-    function run()
-    {
-        // get arguments
-        $arguments = func_get_args();
-        $iterations = array_shift($arguments);
+    function run() {
+        $arguments     = func_get_args();
+
+        $iterations    = array_shift($arguments);
         $function_name = array_shift($arguments);
+    
+        if (strstr($function_name, '::')) {
+          $function_name = explode('::', $function_name);
+          $objectmethod = $function_name[1];
+        }
 
-        // main loop
-        for ($i = 1; $i <= $iterations; $i++)
-        {
-            // set 'start' marker for current iteration
-            $this->setMarker('start_'.$i);
+        // If we're calling a method on an object use call_user_method
+        if (strstr($function_name, '->')) {
+            $function_name = explode('->', $function_name);
+            $objectname = $function_name[0];
 
-            // call function to be benchmarked
+            global ${$objectname};
+            $objectmethod = $function_name[1];
+
+            for ($i = 1; $i <= $iterations; $i++) {
+                $this->setMarker('start_' . $i);
+                call_user_method_array($function_name[1], ${$objectname}, $arguments);
+                $this->setMarker('end_' . $i);
+            }
+            return(0);
+        }
+
+        for ($i = 1; $i <= $iterations; $i++) {
+            $this->setMarker('start_' . $i);
             call_user_func_array($function_name, $arguments);
-
-            // set 'end' marker for current iteration
-            $this->setMarker('end_'.$i);
+            $this->setMarker('end_' . $i);
         }
     }
-
-    // }}}
-    // {{{ get()
 
     /**
     * Returns benchmark result.
@@ -91,47 +127,33 @@ class Benchmark_Iterate extends Benchmark_Timer
     * @access public
     */
 
-    function get()
-    {
-        // init result array
+    function get() {
         $result = array();
-
-        // init variable
-        $total = 0;
+        $total  = 0;
 
         $iterations = count($this->markers)/2;
 
-        // loop through iterations
-        for ($i = 1; $i <= $iterations; $i++)
-        {
-            // get elapsed time for current iteration
+        for ($i = 1; $i <= $iterations; $i++) {
             $time = $this->timeElapsed('start_'.$i , 'end_'.$i);
 
-            // sum up total time spent
             if (extension_loaded('bcmath')) {
                 $total = bcadd($total, $time, 6);
             } else {
                 $total = $total + $time;
             }
             
-            // store time
             $result[$i] = $time;
         }
 
-        // calculate and store mean time
         if (extension_loaded('bcmath')) {
             $result['mean'] = bcdiv($total, $iterations, 6);
         } else {
             $result['mean'] = $total / $iterations;
         }
 
-        // store iterations
         $result['iterations'] = $iterations;
 
-        // return result array
         return $result;
     }
-
-    // }}}
 }
 ?>

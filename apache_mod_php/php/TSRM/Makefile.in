@@ -65,6 +65,8 @@ CC = @CC@
 CXX = @CXX@
 CXXCPP = @CXXCPP@
 DLLTOOL = @DLLTOOL@
+ECHO = @ECHO@
+EXEEXT = @EXEEXT@
 EXPANDED_BINDIR = @EXPANDED_BINDIR@
 EXPANDED_DATADIR = @EXPANDED_DATADIR@
 EXPANDED_EXTENSION_DIR = @EXPANDED_EXTENSION_DIR@
@@ -82,12 +84,13 @@ LN_S = @LN_S@
 MAINT = @MAINT@
 MAKEINFO = @MAKEINFO@
 OBJDUMP = @OBJDUMP@
+OBJEXT = @OBJEXT@
 PACKAGE = @PACKAGE@
 PROG_SENDMAIL = @PROG_SENDMAIL@
 RANLIB = @RANLIB@
+STRIP = @STRIP@
 VERSION = @VERSION@
 YACC = @YACC@
-ZEND_SCANNER = @ZEND_SCANNER@
 
 AUTOMAKE_OPTIONS = foreign
 noinst_LTLIBRARIES = libtsrm.la
@@ -122,7 +125,7 @@ OBJECTS = $(libtsrm_la_OBJECTS)
 
 all: all-redirect
 .SUFFIXES:
-.SUFFIXES: .S .c .lo .o .s
+.SUFFIXES: .S .c .lo .o .obj .s
 $(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ Makefile.am $(top_srcdir)/configure.in $(ACLOCAL_M4) 
 	cd $(top_srcdir) && $(AUTOMAKE) --foreign --include-deps TSRM/Makefile
 
@@ -143,6 +146,11 @@ maintainer-clean-noinstLTLIBRARIES:
 .c.o:
 	$(COMPILE) -c $<
 
+# FIXME: We should only use cygpath when building on Windows,
+# and only if it is available.
+.c.obj:
+	$(COMPILE) -c `cygpath -w $<`
+
 .s.o:
 	$(COMPILE) -c $<
 
@@ -151,6 +159,7 @@ maintainer-clean-noinstLTLIBRARIES:
 
 mostlyclean-compile:
 	-rm -f *.o core *.core
+	-rm -f *.$(OBJEXT)
 
 clean-compile:
 

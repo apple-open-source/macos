@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_yaz.h,v 1.1.1.3 2001/07/19 00:20:33 zarzycki Exp $ */
+/* $Id: php_yaz.h,v 1.1.1.4 2001/12/14 22:13:42 zarzycki Exp $ */
 
 #ifndef PHP_YAZ_H
 #define PHP_YAZ_H
@@ -49,6 +49,27 @@ PHP_FUNCTION(yaz_present);
 PHP_FUNCTION(yaz_ccl_conf);
 PHP_FUNCTION(yaz_ccl_parse);
 PHP_FUNCTION(yaz_database);
+PHP_FUNCTION(yaz_sort);
+
+ZEND_BEGIN_MODULE_GLOBALS(yaz)
+    int assoc_seq;
+ZEND_END_MODULE_GLOBALS(yaz)
+
+#ifdef ZTS
+# define YAZSLS_D	zend_mysql_globals *yaz_globals
+# define YAZSLS_DC	, YAZSLS_D
+# define YAZSLS_C	yaz_globals
+# define YAZSLS_CC , YAZSLS_C
+# define YAZSG(v) (yaz_globals->v)
+# define YAZSLS_FETCH()	zend_yaz_globals *yaz_globals = ts_resource(yaz_globals_id)
+#else
+# define YAZSLS_D
+# define YAZSLS_DC
+# define YAZSLS_C
+# define YAZSLS_CC
+# define YAZSG(v) (yaz_globals.v)
+# define YAZSLS_FETCH()
+#endif
 
 #else
 

@@ -6,7 +6,7 @@ $sth2 = $dbh->prepare("INSERT INTO phptest (a,b) VALUES(?,?)");
 $sth3 = $dbh->prepare("INSERT INTO phptest (a,b,c) VALUES(?,?,&)");
 print "sth1,sth2,sth3 created\n";
 $tmpfile = tempnam("/tmp", "phptmp");
-register_shutdown_function("shutdown");
+register_shutdown_function("my_shutdown");
 $fp = fopen($tmpfile, "w");
 fwrite($fp, "opaque\nplaceholder\ntest");
 fclose($fp);
@@ -25,7 +25,7 @@ while ($row = $sth->fetchRow(DB_FETCHMODE_ORDERED)) {
     print implode(" - ", $row) . "\n";
 }
 
-function shutdown() {
+function my_shutdown() {
     global $tmpfile;
     unlink($tmpfile);
 }

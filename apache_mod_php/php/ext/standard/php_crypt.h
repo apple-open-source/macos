@@ -18,15 +18,15 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_crypt.h,v 1.1.1.3 2001/07/19 00:20:18 zarzycki Exp $ */
+/* $Id: php_crypt.h,v 1.1.1.4 2001/12/14 22:13:25 zarzycki Exp $ */
 
 #ifndef PHP_CRYPT_H
 #define PHP_CRYPT_H
 
 PHP_FUNCTION(crypt);
 #if HAVE_CRYPT
-extern PHP_MINIT_FUNCTION(crypt);
-extern PHP_RINIT_FUNCTION(crypt);
+PHP_MINIT_FUNCTION(crypt);
+PHP_RINIT_FUNCTION(crypt);
 #endif
 
 #endif

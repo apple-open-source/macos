@@ -17,7 +17,7 @@
  */
 
 /*
- * $Id: class.c,v 1.1.1.2 2001/07/19 00:19:58 zarzycki Exp $
+ * $Id: class.c,v 1.1.1.3 2001/12/14 22:13:06 zarzycki Exp $
  * vim: syntax=c tabstop=2 shiftwidth=2
  */
 
@@ -51,6 +51,12 @@ void orbit_class_function_call(
 	if (getParametersArray(ht, ZEND_NUM_ARGS(), arguments) == FAILURE)
 	{
 		/* TODO: handle error */
+	}
+
+	if (!object)
+	{
+		zend_error(E_WARNING, "Invalid Satellite class");\
+		return;
 	}
 
 	/* constructor or normal function? */
@@ -132,7 +138,7 @@ void orbit_save_data(zval * php_object, int type, void * data)
 	INIT_PZVAL(orbit_data_handle);	/* set reference count */
 
 	zend_hash_index_update(
-			php_object->value.obj.properties, /* hashtable */
+			Z_OBJPROP_P(php_object), 					/* hashtable */
 			0, 																/* hash??? */
 			&orbit_data_handle,								/* data */
 			sizeof(pval *),										/* data size */
@@ -149,9 +155,12 @@ void * orbit_retrieve_data(const zval * php_object, int wanted_type)
 	pval ** orbit_data_handle = NULL;
 	int type = 0;
 
+	if (!php_object)
+		return NULL;
+	
 	/* get handle to corba data */
 	zend_hash_index_find(										
-			php_object->value.obj.properties,		/* hash table */	
+			Z_OBJPROP_P(php_object),						/* hash table */	
 			0, 																	/* hash??? */
 			(void **)&orbit_data_handle					/* data */
 			);

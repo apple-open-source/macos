@@ -45,7 +45,6 @@ static PHP_INI_MH(OnUpdateTags)
 	char *key;
 	char *lasts;
 	char *tmp;
-	BLS_FETCH();
 	
 	ctx = &BG(url_adapt_state_ex);
 	
@@ -87,30 +86,37 @@ PHP_INI_BEGIN()
 	STD_PHP_INI_ENTRY("url_rewriter.tags", "a=href,area=href,frame=src,form=fakeentry", PHP_INI_ALL, OnUpdateTags, url_adapt_state_ex, php_basic_globals, basic_globals)
 PHP_INI_END()
 
+/*!re2c
+any = [\000-\377];
+N = (any\[<]);
+alpha = [a-zA-Z];
+*/
+
+#define YYFILL(n) goto done
+#define YYCTYPE unsigned char
+#define YYCURSOR p
+#define YYLIMIT q
+#define YYMARKER r
+	
 static inline void append_modified_url(smart_str *url, smart_str *dest, smart_str *name, smart_str *val, const char *separator)
 {
-	register const char *p, *q;
+	register const char *p, *q, *r;
 	const char *bash = NULL;
 	const char *sep = "?";
 	
-	q = url->c + url->len;
-	
-	for (p = url->c; p < q; p++) {
-		switch(*p) {
-			case ':':
-				smart_str_append(dest, url);
-				return;
-			case '?':
-				sep = separator;
-				break;
-			case '#':
-				bash = p;
-				break;
-		}
-	}
+	q = (p = url->c) + url->len;
 
+scan:
+/*!re2c
+  ":"		{ smart_str_append(dest, url); return; }
+  "?"		{ sep = separator; goto scan; }
+  "#"		{ bash = p - 1; goto done; }
+  (any\[:?#])+		{ goto scan; }
+*/
+done:
+  
 	/* Don't modify URLs of the format "#mark" */
-	if (bash - url->c == 0) {
+	if (bash && bash - url->c == 0) {
 		smart_str_append(dest, url);
 		return;
 	}
@@ -129,7 +135,13 @@ static inline void append_modified_url(smart_str *url, smart_str *dest, smart_st
 		smart_str_appendl(dest, bash, q - bash);
 }
 
-static inline void tag_arg(url_adapt_state_ex_t *ctx, char quote PLS_DC)
+#undef YYFILL
+#undef YYCTYPE
+#undef YYCURSOR
+#undef YYLIMIT
+#undef YYMARKER
+
+static inline void tag_arg(url_adapt_state_ex_t *ctx, char quote TSRMLS_DC)
 {
 	char f = 0;
 
@@ -146,7 +158,7 @@ static inline void tag_arg(url_adapt_state_ex_t *ctx, char quote PLS_DC)
 }
 
 enum {
-	STATE_PLAIN,
+	STATE_PLAIN = 0,
 	STATE_TAG,
 	STATE_NEXT_ARG,
 	STATE_ARG,
@@ -161,8 +173,8 @@ enum {
 #define YYMARKER q
 #define STATE ctx->state
 
-#define STD_PARA url_adapt_state_ex_t *ctx, char *start, char *YYCURSOR PLS_DC
-#define STD_ARGS ctx, start, xp PLS_CC
+#define STD_PARA url_adapt_state_ex_t *ctx, char *start, char *YYCURSOR TSRMLS_DC
+#define STD_ARGS ctx, start, xp TSRMLS_CC
 
 static inline void passthru(STD_PARA) 
 {
@@ -210,7 +222,7 @@ static inline void handle_arg(STD_PARA)
 static inline void handle_val(STD_PARA, char quotes, char type) 
 {
 	smart_str_setl(&ctx->val, start + quotes, YYCURSOR - start - quotes * 2);
-	tag_arg(ctx, type PLS_CC);
+	tag_arg(ctx, type TSRMLS_CC);
 }
 
 #ifdef SCANNER_DEBUG
@@ -219,81 +231,84 @@ static inline void handle_val(STD_PARA, char quotes, char type)
 #define scdebug(x)
 #endif
 
-static inline void mainloop(url_adapt_state_ex_t *ctx, const char *newdata, size_t newlen)
+static inline void mainloop(url_adapt_state_ex_t *ctx, const char *newdata, size_t newlen TSRMLS_DC)
 {
 	char *end, *q;
 	char *xp;
 	char *start;
 	int rest;
-	PLS_FETCH();
 
 	smart_str_appendl(&ctx->buf, newdata, newlen);
 	
 	YYCURSOR = ctx->buf.c;
 	YYLIMIT = ctx->buf.c + ctx->buf.len;
 
-/*!re2c
-any = [\000-\377];
-alpha = [a-zA-Z];
-*/
+	switch (STATE) {
+		case STATE_PLAIN: goto state_plain;
+		case STATE_TAG: goto state_tag;
+		case STATE_NEXT_ARG: goto state_next_arg;
+		case STATE_ARG: goto state_arg;
+		case STATE_BEFORE_VAL: goto state_before_val;
+		case STATE_VAL: goto state_val;
+	}
 	
-	while(1) {
-		start = YYCURSOR;
-		scdebug(("state %d at %s\n", STATE, YYCURSOR));
-	switch(STATE) {
-		
-		case STATE_PLAIN:
-/*!re2c
-  [<]			{ passthru(STD_ARGS); STATE = STATE_TAG; continue; }
-  (any\[<])		{ passthru(STD_ARGS); continue; }
-*/
-			break;
-			
-		case STATE_TAG:
-/*!re2c
-  alpha+	{ handle_tag(STD_ARGS); /* Sets STATE */; passthru(STD_ARGS); continue; }
-  any		{ passthru(STD_ARGS); STATE = STATE_PLAIN; continue; }
-*/
-  			break;
-			
-		case STATE_NEXT_ARG:
-/*!re2c
-  ">"		{ passthru(STD_ARGS); handle_form(STD_ARGS); STATE = STATE_PLAIN; continue; }
-  [ \n]		{ passthru(STD_ARGS); continue; }
-  alpha		{ YYCURSOR--; STATE = STATE_ARG; continue; }
-  any		{ passthru(STD_ARGS); STATE = STATE_PLAIN; continue; }
-*/
- 	 		break;
 
-		case STATE_ARG:
+state_plain_begin:
+	STATE = STATE_PLAIN;
+	
+state_plain:
+	start = YYCURSOR;
 /*!re2c
-  alpha+	{ passthru(STD_ARGS); handle_arg(STD_ARGS); STATE = STATE_BEFORE_VAL; continue; }
-  any		{ passthru(STD_ARGS); STATE = STATE_NEXT_ARG; continue; }
+  "<"				{ passthru(STD_ARGS); STATE = STATE_TAG; goto state_tag; }
+  N+ 				{ passthru(STD_ARGS); goto state_plain; }
 */
 
-		case STATE_BEFORE_VAL:
+state_tag:	
+	start = YYCURSOR;
 /*!re2c
-  [ ]* "=" [ ]*		{ passthru(STD_ARGS); STATE = STATE_VAL; continue; }
-  any				{ YYCURSOR--; STATE = STATE_NEXT_ARG; continue; }
+  alpha+	{ handle_tag(STD_ARGS); /* Sets STATE */; passthru(STD_ARGS); if (STATE == STATE_PLAIN) goto state_plain; else goto state_next_arg; }
+  any		{ passthru(STD_ARGS); goto state_plain_begin; }
 */
-			break;
 
-		case STATE_VAL:
+state_next_arg_begin:
+	STATE = STATE_NEXT_ARG;
+	
+state_next_arg:
+	start = YYCURSOR;
 /*!re2c
-  ["] (any\[">])* ["]	{ handle_val(STD_ARGS, 1, '"');  STATE = STATE_NEXT_ARG; continue; }
-  ['] (any\['>])* [']	{ handle_val(STD_ARGS, 1, '\''); STATE = STATE_NEXT_ARG; continue; }
-  (any\[ \n>"])+		{ handle_val(STD_ARGS, 0, '"');  STATE = STATE_NEXT_ARG; continue; }
-  any					{ passthru(STD_ARGS); STATE = STATE_NEXT_ARG; continue; }
+  ">"		{ passthru(STD_ARGS); handle_form(STD_ARGS); goto state_plain_begin; }
+  [ \v\t\n]+	{ passthru(STD_ARGS); goto state_next_arg; }
+  alpha		{ --YYCURSOR; STATE = STATE_ARG; goto state_arg; }
+  any		{ passthru(STD_ARGS); goto state_plain_begin; }
 */
-			break;
-	}
-	}
+
+state_arg:
+	start = YYCURSOR;
+/*!re2c
+  alpha+	{ passthru(STD_ARGS); handle_arg(STD_ARGS); STATE = STATE_BEFORE_VAL; goto state_before_val; }
+  any		{ passthru(STD_ARGS); STATE = STATE_NEXT_ARG; goto state_next_arg; }
+*/
+
+state_before_val:
+	start = YYCURSOR;
+/*!re2c
+  [ ]* "=" [ ]*		{ passthru(STD_ARGS); STATE = STATE_VAL; goto state_val; }
+  any				{ --YYCURSOR; goto state_next_arg_begin; }
+*/
+
+
+state_val:
+	start = YYCURSOR;
+/*!re2c
+  ["] (any\[">])* ["]	{ handle_val(STD_ARGS, 1, '"'); goto state_next_arg_begin; }
+  ['] (any\['>])* [']	{ handle_val(STD_ARGS, 1, '\''); goto state_next_arg_begin; }
+  (any\[ \n>"'])+		{ handle_val(STD_ARGS, 0, '"'); goto state_next_arg_begin; }
+  any					{ passthru(STD_ARGS); goto state_next_arg_begin; }
+*/
 
 stop:
-	scdebug(("stopped in state %d at pos %d (%d:%c)\n", STATE, YYCURSOR - ctx->buf.c, *YYCURSOR, *YYCURSOR));
-
 	rest = YYLIMIT - start;
-
+	scdebug(("stopped in state %d at pos %d (%d:%c) %d\n", STATE, YYCURSOR - ctx->buf.c, *YYCURSOR, *YYCURSOR, rest));
 	/* XXX: Crash avoidance. Need to work with reporter to figure out what goes wrong */	
 	if (rest < 0) rest = 0;
 	
@@ -301,13 +316,29 @@ stop:
 	ctx->buf.len = rest;
 }
 
-char *url_adapt_single_url(const char *url, size_t urllen, const char *name, const char *value, size_t *newlen)
+char *url_adapt_flush(size_t *newlen TSRMLS_DC)
+{
+	char *ret = NULL;
+	url_adapt_state_ex_t *ctx;
+	
+	ctx = &BG(url_adapt_state_ex);
+	
+	if (ctx->buf.len) {
+		ret = ctx->buf.c;
+		*newlen = ctx->buf.len;
+		ctx->buf.c = 0;
+		ctx->buf.len = 0;
+	}
+
+	return ret;
+}
+
+char *url_adapt_single_url(const char *url, size_t urllen, const char *name, const char *value, size_t *newlen TSRMLS_DC)
 {
 	smart_str surl = {0};
 	smart_str buf = {0};
 	smart_str sname = {0};
 	smart_str sval = {0};
-	PLS_FETCH();
 
 	smart_str_setl(&surl, url, urllen);
 	smart_str_sets(&sname, name);
@@ -321,19 +352,20 @@ char *url_adapt_single_url(const char *url, size_t urllen, const char *name, con
 	return buf.c;
 }
 
-char *url_adapt_ext(const char *src, size_t srclen, const char *name, const char *value, size_t *newlen)
+char *url_adapt_ext(const char *src, size_t srclen, const char *name, const char *value, size_t *newlen TSRMLS_DC)
 {
 	char *ret;
 	url_adapt_state_ex_t *ctx;
-	BLS_FETCH();
 
 	ctx = &BG(url_adapt_state_ex);
 
 	smart_str_sets(&ctx->q_name, name);
 	smart_str_sets(&ctx->q_value, value);
-	mainloop(ctx, src, srclen);
+	mainloop(ctx, src, srclen TSRMLS_CC);
 
 	*newlen = ctx->result.len;
+	if (!ctx->result.c) 
+		smart_str_appendl(&ctx->result, "", 0);
 	smart_str_0(&ctx->result);
 	ctx->result.len = 0;
 	return ctx->result.c;
@@ -342,7 +374,6 @@ char *url_adapt_ext(const char *src, size_t srclen, const char *name, const char
 PHP_RINIT_FUNCTION(url_scanner)
 {
 	url_adapt_state_ex_t *ctx;
-	BLS_FETCH();
 	
 	ctx = &BG(url_adapt_state_ex);
 
@@ -354,7 +385,6 @@ PHP_RINIT_FUNCTION(url_scanner)
 PHP_RSHUTDOWN_FUNCTION(url_scanner)
 {
 	url_adapt_state_ex_t *ctx;
-	BLS_FETCH();
 	
 	ctx = &BG(url_adapt_state_ex);
 
@@ -369,7 +399,6 @@ PHP_RSHUTDOWN_FUNCTION(url_scanner)
 PHP_MINIT_FUNCTION(url_scanner)
 {
 	url_adapt_state_ex_t *ctx;
-	BLS_FETCH();
 	
 	ctx = &BG(url_adapt_state_ex);
 
@@ -381,8 +410,6 @@ PHP_MINIT_FUNCTION(url_scanner)
 
 PHP_MSHUTDOWN_FUNCTION(url_scanner)
 {
-	BLS_FETCH();
-
 	UNREGISTER_INI_ENTRIES();
 	zend_hash_destroy(BG(url_adapt_state_ex).tags);
 	free(BG(url_adapt_state_ex).tags);

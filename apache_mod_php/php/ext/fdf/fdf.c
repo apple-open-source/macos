@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: fdf.c,v 1.1.1.4 2001/07/19 00:19:07 zarzycki Exp $ */
+/* $Id: fdf.c,v 1.1.1.5 2001/12/14 22:12:18 zarzycki Exp $ */
 
 /* FdfTk lib 2.0 is a Complete C/C++ FDF Toolkit available from
    http://beta1.adobe.com/ada/acrosdk/forms.html. */
@@ -42,6 +42,8 @@ static int le_fdf;
 
 SAPI_POST_HANDLER_FUNC(fdf_post_handler);
 
+/* {{{ fdf_functions[]
+ */
 function_entry fdf_functions[] = {
 	PHP_FE(fdf_open,								NULL)
 	PHP_FE(fdf_create,								NULL)
@@ -60,10 +62,13 @@ function_entry fdf_functions[] = {
 	PHP_FE(fdf_set_opt,								NULL)
 	PHP_FE(fdf_set_submit_form_action,				NULL)
 	PHP_FE(fdf_set_javascript_action,				NULL)
+	PHP_FE(fdf_set_encoding,						NULL)
 	{NULL, NULL, NULL}
 };
+/* }}} */
 
 zend_module_entry fdf_module_entry = {
+    STANDARD_MODULE_HEADER,
 	"fdf", 
 	fdf_functions, 
 	PHP_MINIT(fdf), 
@@ -71,6 +76,7 @@ zend_module_entry fdf_module_entry = {
 	NULL, 
 	NULL,
 	PHP_MINFO(fdf), 
+    NO_VERSION_YET,
 	STANDARD_MODULE_PROPERTIES
 };
 
@@ -79,9 +85,10 @@ ZEND_GET_MODULE(fdf)
 #endif
 
 
-static void phpi_FDFClose(zend_rsrc_list_entry *rsrc)
+static void phpi_FDFClose(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 {
 	FDFDoc fdf = (FDFDoc)rsrc->ptr;
+
 	(void) FDFClose(fdf);
 }
 
@@ -95,7 +102,8 @@ static sapi_post_entry php_fdf_post_entry =	{
 	fdf_post_handler
 };
 
-
+/* {{{ PHP_MINIT_FUNCTION
+ */
 PHP_MINIT_FUNCTION(fdf)
 {
 	FDFErc err;
@@ -140,7 +148,10 @@ PHP_MINIT_FUNCTION(fdf)
 	if((err = FDFInitialize()) == FDFErcOK) return SUCCESS;
 	return FAILURE;
 }
+/* }}} */
 
+/* {{{ PHP_MINFO_FUNCTION
+ */
 PHP_MINFO_FUNCTION(fdf)
 {
 	/* need to use a PHPAPI function here because it is external module in windows */
@@ -149,7 +160,10 @@ PHP_MINFO_FUNCTION(fdf)
 	php_info_print_table_row(2, "FdfTk Version", FDFGetVersion() );
 	php_info_print_table_end();
 }
+/* }}} */
 
+/* {{{ PHP_MSHUTDOWN_FUNCTION
+ */
 PHP_MSHUTDOWN_FUNCTION(fdf)
 {
 	FDFErc err;
@@ -163,7 +177,7 @@ PHP_MSHUTDOWN_FUNCTION(fdf)
 	if((err = FDFFinalize()) == FDFErcOK) return SUCCESS;
 	return FAILURE;
 }
-
+/* }}} */
 
 /* {{{ proto int fdf_open(string filename)
    Opens a new FDF document */
@@ -190,13 +204,16 @@ PHP_FUNCTION(fdf_open)
 } 
 /* }}} */
 
-
 /* {{{ proto int fdf_create(void)
    Creates a new FDF document */
 PHP_FUNCTION(fdf_create) 
 {
 	FDFDoc fdf;
 	FDFErc err;
+
+	if (ZEND_NUM_ARGS() != 0) {
+		WRONG_PARAM_COUNT;
+	}
 
 	err = FDFCreate(&fdf);
 
@@ -208,7 +225,6 @@ PHP_FUNCTION(fdf_create)
 	ZEND_REGISTER_RESOURCE(return_value, fdf, le_fdf);
 }
 /* }}} */
-
 
 /* {{{ proto bool fdf_close(int fdfdoc)
    Closes the FDF document */
@@ -225,7 +241,6 @@ PHP_FUNCTION(fdf_close)
 	zend_list_delete(Z_RESVAL_PP(fdfp));
 } 
 /* }}} */
-
 
 /* {{{ proto string fdf_get_value(int fdfdoc, string fieldname)
    Gets the value of a field as string */
@@ -248,7 +263,7 @@ PHP_FUNCTION(fdf_get_value)
 	buffer = emalloc(size);
 	err = FDFGetValue(fdf, Z_STRVAL_PP(fieldname), buffer, size-1, &nr);
 	if(err == FDFErcBufTooShort && nr > 0 ) {
-		buffer = erealloc(buffer,nr+1); 
+		buffer = erealloc(buffer, nr+1); 
 		err = FDFGetValue(fdf, Z_STRVAL_PP(fieldname), buffer, nr, &nr);
 	} 
 
@@ -262,7 +277,6 @@ PHP_FUNCTION(fdf_get_value)
 	efree(buffer);
 }
 /* }}} */
-
 
 /* {{{ proto bool fdf_set_value(int fdfdoc, string fieldname, string value, int isname)
    Sets the value of a field */
@@ -291,7 +305,6 @@ PHP_FUNCTION(fdf_set_value)
 }
 /* }}} */
 
-
 /* {{{ proto string fdf_next_field_name(int fdfdoc [, string fieldname])
    Gets the name of the next field name or the first field name */
 PHP_FUNCTION(fdf_next_field_name) 
@@ -318,8 +331,8 @@ PHP_FUNCTION(fdf_next_field_name)
 	err = FDFNextFieldName(fdf, fieldname, buffer, length-1, &nr);
 
 	if(err == FDFErcBufTooShort && nr > 0 ) {
-		buffer = erealloc(buffer,nr+1); 
-		err = FDFNextFieldName(fdf, fieldname, buffer, length-1,&nr);
+		buffer = erealloc(buffer, nr+1); 
+		err = FDFNextFieldName(fdf, fieldname, buffer, length-1, &nr);
 	} 
 
 	if(err != FDFErcOK) {
@@ -332,7 +345,6 @@ PHP_FUNCTION(fdf_next_field_name)
 	efree(buffer);
 }
 /* }}} */
-
 
 /* {{{ proto bool fdf_set_ap(int fdfdoc, string fieldname, int face, string filename, int pagenr)
    Sets the appearence of a field */
@@ -383,7 +395,6 @@ PHP_FUNCTION(fdf_set_ap)
 }
 /* }}} */
 
-
 /* {{{ proto bool fdf_set_status(int fdfdoc, string status)
    Sets the value of /Status key */
 PHP_FUNCTION(fdf_set_status) 
@@ -410,7 +421,6 @@ PHP_FUNCTION(fdf_set_status)
 }
 /* }}} */
 
-
 /* {{{ proto string fdf_get_status(int fdfdoc)
    Gets the value of /Status key */
 PHP_FUNCTION(fdf_get_status) 
@@ -431,7 +441,7 @@ PHP_FUNCTION(fdf_get_status)
 	err = FDFGetStatus(fdf, buf, size-1,  &nr);
 
 	if(err == FDFErcBufTooShort && nr > 0 ) {
-		buf = erealloc(buf,nr+1); 
+		buf = erealloc(buf, nr+1); 
 		err = FDFGetStatus(fdf, buf, size-1,  &nr);
 	}
 	
@@ -445,7 +455,6 @@ PHP_FUNCTION(fdf_get_status)
 	efree(buf);
 }
 /* }}} */
-
 
 /* {{{ proto bool fdf_set_file(int fdfdoc, string filename)
    Sets the value of /F key */
@@ -473,7 +482,6 @@ PHP_FUNCTION(fdf_set_file)
 }
 /* }}} */
 
-
 /* {{{ proto string fdf_get_file(int fdfdoc)
    Gets the value of /F key */
 PHP_FUNCTION(fdf_get_file) 
@@ -494,7 +502,7 @@ PHP_FUNCTION(fdf_get_file)
 	err = FDFGetFile(fdf, buf, size-1,  &nr);
 
 	if(err == FDFErcBufTooShort && nr > 0 ) {
-		buf = erealloc(buf,nr+1); 
+		buf = erealloc(buf, nr+1); 
 		err = FDFGetFile(fdf, buf, size-1,  &nr);
 	}
 	
@@ -508,7 +516,6 @@ PHP_FUNCTION(fdf_get_file)
 	efree(buf);
 }
 /* }}} */
-
 
 /* {{{ proto bool fdf_save(int fdfdoc, string filename)
    Writes out the FDF file */
@@ -535,7 +542,6 @@ PHP_FUNCTION(fdf_save)
 
 } 
 /* }}} */
-
 
 /* {{{ proto bool fdf_add_template(int fdfdoc, int newpage, string filename, string template, int rename)
    Adds a template into the FDF document */
@@ -576,7 +582,6 @@ PHP_FUNCTION(fdf_add_template)
 }
 /* }}} */
 
-
 /* {{{ proto bool fdf_set_flags(int fdfdoc, string fieldname, int whichflags, int newflags)
    Sets flags for a field in the FDF document */
 PHP_FUNCTION(fdf_set_flags) 
@@ -595,7 +600,7 @@ PHP_FUNCTION(fdf_set_flags)
 	convert_to_long_ex(flags);
 	convert_to_long_ex(newflags);	
 
-	err=FDFSetFlags(fdf,Z_STRVAL_PP(fieldname), Z_LVAL_PP(flags), Z_LVAL_PP(newflags));
+	err=FDFSetFlags(fdf, Z_STRVAL_PP(fieldname), Z_LVAL_PP(flags), Z_LVAL_PP(newflags));
 	if(err != FDFErcOK) {
 		php_error(E_WARNING,"Error setting flags for field: %s", Z_STRVAL_PP(fieldname));
 		RETURN_FALSE;
@@ -604,7 +609,6 @@ PHP_FUNCTION(fdf_set_flags)
 	RETURN_TRUE;
 }
 /* }}} */
-
 
 /* {{{ proto bool fdf_set_opt(int fdfdoc, string fieldname, int element, string value, string name)
    Sets a value in the opt array for a field */
@@ -625,7 +629,7 @@ PHP_FUNCTION(fdf_set_opt)
 	convert_to_string_ex(value);
 	convert_to_string_ex(name);
 
-	err = FDFSetOpt(fdf,Z_STRVAL_PP(fieldname), Z_LVAL_PP(element), Z_STRVAL_PP(value), Z_STRVAL_PP(name));
+	err = FDFSetOpt(fdf, Z_STRVAL_PP(fieldname), Z_LVAL_PP(element), Z_STRVAL_PP(value), Z_STRVAL_PP(name));
 	if(err != FDFErcOK) {
 		php_error(E_WARNING,"Error setting FDF option for field: %s", Z_STRVAL_PP(fieldname));
 		RETURN_FALSE;
@@ -633,7 +637,6 @@ PHP_FUNCTION(fdf_set_opt)
 	RETURN_TRUE;
 }
 /* }}} */
-
 
 /* {{{ proto bool fdf_set_submit_form_action(int fdfdoc, string fieldname, int whichtrigger, string url, int flags)
    Sets the submit form action for a field */
@@ -663,7 +666,6 @@ PHP_FUNCTION(fdf_set_submit_form_action)
 }
 /* }}} */
 
-
 /* {{{ proto bool fdf_set_javascript_action(int fdfdoc, string fieldname, int whichtrigger, string script)
    Sets the javascript action for a field */
 PHP_FUNCTION(fdf_set_javascript_action) 
@@ -691,43 +693,68 @@ PHP_FUNCTION(fdf_set_javascript_action)
 }
 /* }}} */
 
-/* SAPI post handler for FDF forms */
+/* {{{ fdf_set_encoding(int fdf_document, string encoding)
+   Sets FDF encoding (either "Shift-JIS" or "Unicode") */  
+PHP_FUNCTION(fdf_set_encoding) 
+{
+	zval **fdfp, **enc;
+	FDFDoc fdf;
+	FDFErc err;
+
+	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2, &fdfp, &enc) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
+
+	ZEND_FETCH_RESOURCE(fdf, FDFDoc *, fdfp, -1, "fdf", le_fdf);
+
+	convert_to_string_ex(enc);
+
+	err = FDFSetEncoding(fdf, Z_STRVAL_PP(enc));
+    
+	if(err != FDFErcOK) {
+		php_error(E_WARNING,"Error setting FDF encoding: %s", Z_STRVAL_PP(enc));
+		RETURN_FALSE;
+	}
+	RETURN_TRUE;
+}
+/* }}} */
+
+/* {{{ SAPI_POST_HANDLER_FUNC
+ * SAPI post handler for FDF forms */
 SAPI_POST_HANDLER_FUNC(fdf_post_handler)
 {
 	FILE *fp;
 	FDFDoc theFDF;
-	char *name=NULL,*value=NULL,*p, *data;
-	int name_len=0,value_len=0;
+	char *name=NULL, *value=NULL, *p, *data;
+	int name_len=0, value_len=0;
 	char *lastfieldname =NULL;
 	char *filename = NULL;
 	FDFErc err;
 	ASInt32 nBytes;
 	zval *array_ptr = (zval *) arg;
-	ELS_FETCH();
-	PLS_FETCH();
 	
-	fp=php_open_temporary_file(NULL,"fdfdata.",&filename);
+	fp=php_open_temporary_file(NULL, "fdfdata.", &filename TSRMLS_CC);
 	if(!fp) {
 		if(filename) efree(filename);
 		return;
 	}
-	fwrite(SG(request_info).post_data,SG(request_info).post_data_length,1,fp);
+	fwrite(SG(request_info).post_data, SG(request_info).post_data_length, 1, fp);
 	fclose(fp);
 
 	/* Set HTTP_FDF_DATA variable */
-	data = estrndup(SG(request_info).post_data,SG(request_info).post_data_length);
+	data = estrndup(SG(request_info).post_data, SG(request_info).post_data_length);
 	SET_VAR_STRINGL("HTTP_FDF_DATA", data, SG(request_info).post_data_length);
 
- 	err = FDFOpen(filename,0,&theFDF);
+ 	err = FDFOpen(filename, 0, &theFDF);
 
 	if(err==FDFErcOK){	
 		name = emalloc(name_len=256);
 		value= emalloc(value_len=256);
 		while (1) {
-			err = FDFNextFieldName(theFDF,lastfieldname,name,name_len-1,&nBytes);
+			err = FDFNextFieldName(theFDF, lastfieldname, name, name_len-1, &nBytes);
 			if(err == FDFErcBufTooShort && nBytes >0 ) {
-				name = erealloc(name,name_len=(nBytes+1)); 
-				err = FDFNextFieldName(theFDF,lastfieldname,name,name_len-1,&nBytes);
+				name = erealloc(name, name_len=(nBytes+1)); 
+				err = FDFNextFieldName(theFDF, lastfieldname, name, name_len-1, &nBytes);
 			} 
 			
 			if(err != FDFErcOK || nBytes == 0) break; 
@@ -735,18 +762,18 @@ SAPI_POST_HANDLER_FUNC(fdf_post_handler)
 			if(lastfieldname) efree(lastfieldname);
 			lastfieldname = estrdup(name);		
 
-			err = FDFGetValue(theFDF,name,NULL,0,&nBytes);			
+			err = FDFGetValue(theFDF, name, NULL, 0, &nBytes);			
 			if(err != FDFErcOK && err != FDFErcNoValue ) break; 
 
-			if(value_len<nBytes+1) value = erealloc(value,value_len=(nBytes+1));
+			if(value_len<nBytes+1) value = erealloc(value, value_len=(nBytes+1));
 			
 			if(nBytes>0) {
-				err = FDFGetValue(theFDF,name,value,value_len-1,&nBytes);
+				err = FDFGetValue(theFDF, name, value, value_len-1, &nBytes);
 				if(err == FDFErcOK && nBytes != 0) {
 					for(p=value;*p;p++) if(*p=='\r') *p='\n';
 					if(lastfieldname) efree(lastfieldname);
 					lastfieldname = estrdup(name);		
-					php_register_variable(name, value, array_ptr ELS_CC PLS_CC);
+					php_register_variable(name, value, array_ptr TSRMLS_CC);
 				} 
 			}
 		}   
@@ -760,6 +787,8 @@ SAPI_POST_HANDLER_FUNC(fdf_post_handler)
 		if(lastfieldname) efree(lastfieldname);
 	} 
 }
+/* }}} */
+
 
 #endif
 
@@ -768,4 +797,6 @@ SAPI_POST_HANDLER_FUNC(fdf_post_handler)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
  */

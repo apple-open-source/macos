@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: fsock.h,v 1.1.1.3 2001/07/19 00:20:14 zarzycki Exp $ */
+/* $Id: fsock.h,v 1.1.1.4 2001/12/14 22:13:22 zarzycki Exp $ */
 
 /* Synced with php 3.0 revision 1.24 1999-06-18 [ssb] */
 
@@ -72,7 +72,7 @@ PHPAPI int php_sockdestroy(int socket);
 PHPAPI int php_sock_close(int socket);
 PHPAPI size_t php_sock_set_def_chunk_size(size_t size);
 PHPAPI void php_msock_destroy(int *data);
-PHPAPI void php_cleanup_sockbuf(int persistent FLS_DC);
+PHPAPI void php_cleanup_sockbuf(int persistent TSRMLS_DC);
 
 PHPAPI struct php_sockbuf *php_get_socket(int socket);
 

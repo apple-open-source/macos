@@ -25,19 +25,11 @@
 #include "zend_ptr_stack.h"
 #include "zend_globals.h"
 
-#ifndef ZTS
-extern char *zendtext;
-extern int zendleng;
-#else
-#define zendtext ((char *) zend_get_zendtext(CLS_C))
-#define zendleng zend_get_zendleng(CLS_C)
-#endif
-
 ZEND_API void zend_html_putc(char c)
 {
 	switch (c) {
 		case '\n':
-			ZEND_PUTS("<br>");
+			ZEND_PUTS("<br />");
 			break;
 		case '<':
 			ZEND_PUTS("&lt;");
@@ -81,20 +73,19 @@ ZEND_API void zend_html_puts(char *s, uint len)
 
 
 
-ZEND_API void zend_highlight(zend_syntax_highlighter_ini *syntax_highlighter_ini)
+ZEND_API void zend_highlight(zend_syntax_highlighter_ini *syntax_highlighter_ini TSRMLS_DC)
 {
 	zval token;
 	int token_type;
 	char *last_color = syntax_highlighter_ini->highlight_html;
 	char *next_color;
 	int in_string=0;
-	CLS_FETCH();
 
 	zend_printf("<code>");
 	zend_printf("<font color=\"%s\">\n", last_color);
 	/* highlight stuff coming back from zendlex() */
 	token.type = 0;
-	while ((token_type=lex_scan(&token CLS_CC))) {
+	while ((token_type=lex_scan(&token TSRMLS_CC))) {
 		switch (token_type) {
 			case T_INLINE_HTML:
 				next_color = syntax_highlighter_ini->highlight_html;
@@ -117,7 +108,7 @@ ZEND_API void zend_highlight(zend_syntax_highlighter_ini *syntax_highlighter_ini
 				in_string = !in_string;
 				break;				
 			case T_WHITESPACE:
-				zend_html_puts(zendtext, zendleng);  /* no color needed */
+				zend_html_puts(LANG_SCNG(yy_text), LANG_SCNG(yy_leng));  /* no color needed */
 				token.type = 0;
 				continue;
 				break;
@@ -148,7 +139,7 @@ ZEND_API void zend_highlight(zend_syntax_highlighter_ini *syntax_highlighter_ini
 				zend_html_puts(token.value.str.val, token.value.str.len);
 				break;
 			default:
-				zend_html_puts(zendtext, zendleng);
+				zend_html_puts(LANG_SCNG(yy_text), LANG_SCNG(yy_leng));
 				break;
 		}
 
@@ -170,7 +161,7 @@ ZEND_API void zend_highlight(zend_syntax_highlighter_ini *syntax_highlighter_ini
 			efree(token.value.str.val);
 			if (has_semicolon) {
 				/* the following semicolon was unput(), ignore it */
-				lex_scan(&token CLS_CC);
+				lex_scan(&token TSRMLS_CC);
 			}
 		}
 		token.type = 0;

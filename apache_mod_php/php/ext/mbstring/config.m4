@@ -1,4 +1,4 @@
-dnl $Id: config.m4,v 1.1.1.1 2001/07/19 00:19:21 zarzycki Exp $
+dnl $Id: config.m4,v 1.1.1.2 2001/12/14 22:12:32 zarzycki Exp $
 dnl config.m4 for extension mbstring
 
 PHP_ARG_ENABLE(mbstring, whether to enable multibyte string support,

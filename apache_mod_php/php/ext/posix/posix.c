@@ -1,34 +1,22 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP HTML Embedded Scripting Language Version 3.0                     |
+   | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-1999 PHP Development Team (See Credits file)      |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
-   | This program is free software; you can redistribute it and/or modify |
-   | it under the terms of one of the following licenses:                 |
-   |                                                                      |
-   |  A) the GNU General Public License as published by the Free Software |
-   |     Foundation; either version 2 of the License, or (at your option) |
-   |     any later version.                                               |
-   |                                                                      |
-   |  B) the PHP License as published by the PHP Development Team and     |
-   |     included in the distribution in the file: LICENSE                |
-   |                                                                      |
-   | This program is distributed in the hope that it will be useful,      |
-   | but WITHOUT ANY WARRANTY; without even the implied warranty of       |
-   | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the        |
-   | GNU General Public License for more details.                         |
-   |                                                                      |
-   | You should have received a copy of both licenses referred to here.   |
-   | If you did not, or have any questions about PHP licensing, please    |
-   | contact core@php.net.                                                |
+   | This source file is subject to version 2.02 of the PHP license,      |
+   | that is bundled with this package in the file LICENSE, and is        |
+   | available at through the world-wide-web at                           |
+   | http://www.php.net/license/2_02.txt.                                 |
+   | If you did not receive a copy of the PHP license and are unable to   |
+   | obtain it through the world-wide-web, please send a note to          |
+   | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
    | Authors: Kristian Koehntopp <kris@koehntopp.de>                      |
    +----------------------------------------------------------------------+
  */
  
-/* $Id: posix.c,v 1.1.1.4 2001/07/19 00:19:53 zarzycki Exp $ */
-
+/* $Id: posix.c,v 1.1.1.5 2001/12/14 22:13:03 zarzycki Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -36,20 +24,15 @@
 
 #include "php.h"
 #include "ext/standard/info.h"
-#if !defined(PHP_API_VERSION) || PHP_API_VERSION < 19990421
-#include "internal_functions.h"
-#endif
-#if PHP_31 || PHP_API_VERSION >= 19990421
-# include "ext/standard/php_string.h"
-#else
-# include "php_string.h"
-#endif
+#include "ext/standard/php_string.h"
 #include "php_posix.h"
 
 #if HAVE_POSIX
+
 #ifdef HAVE_SYS_TIME_H
 #include <sys/time.h>
 #endif
+
 #include <unistd.h>
 #include <sys/resource.h>
 #include <sys/utsname.h>
@@ -60,12 +43,11 @@
 #include <errno.h>
 #include <grp.h>
 #include <pwd.h>
-#if !defined(PHP_API_VERSION) || PHP_API_VERSION < 19990421
-#include "php3_list.h"
-#endif
 
 #define SAFE_STRING(s) ((s)?(s):"")
 
+/* {{{ posix_functions[]
+ */
 function_entry posix_functions[] = {
     /* POSIX.1, 3.3 */
 	PHP_FE(posix_kill,		NULL)
@@ -121,10 +103,14 @@ function_entry posix_functions[] = {
 
 	{NULL, NULL, NULL}
 };
+/* }}} */
 
 static PHP_MINFO_FUNCTION(posix);
 
+/* {{{ posix_module_entry
+ */
 zend_module_entry posix_module_entry = {
+	STANDARD_MODULE_HEADER,
 	"posix", 
 	posix_functions, 
 	NULL,
@@ -132,19 +118,24 @@ zend_module_entry posix_module_entry = {
 	NULL,
 	NULL, 
 	PHP_MINFO(posix),
+    NO_VERSION_YET,
 	STANDARD_MODULE_PROPERTIES
 };
+/* }}} */
 
 #ifdef COMPILE_DL_POSIX
 ZEND_GET_MODULE(posix)
 #endif
 
+/* {{{ PHP_MINFO_FUNCTION
+ */
 static PHP_MINFO_FUNCTION(posix)
 {
 	php_info_print_table_start();
-	php_info_print_table_row(2, "Revision", "$Revision: 1.1.1.4 $");
+	php_info_print_table_row(2, "Revision", "$Revision: 1.1.1.5 $");
 	php_info_print_table_end();
 }
+/* }}} */
 
 /* {{{ proto int posix_kill(int pid, int sig)
    Send a signal to a process (POSIX.1, 3.3.2) */
@@ -348,7 +339,6 @@ PHP_FUNCTION(posix_setegid)
 #endif
 }
 /* }}} */
-
 
 /* {{{ proto long posix_getgroups(void) 
    Get supplementary group id's (POSIX.1, 4.2.3) */
@@ -661,7 +651,6 @@ PHP_FUNCTION(posix_mkfifo)
 	pval   *path;
 	pval   *mode;
 	int     result;
-	PLS_FETCH();
 	
 	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters(ht, 2, &path, &mode) == FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -685,6 +674,7 @@ PHP_FUNCTION(posix_mkfifo)
 	RETURN_FALSE;
 #endif
 }    
+/* }}} */
 
 /*
 	POSIX.1, 5.5.1 unlink()
@@ -734,7 +724,6 @@ PHP_FUNCTION(posix_getgrnam)
 	add_assoc_long(return_value, "members", count);
 }
 /* }}} */
-
 
 /* {{{ proto array posix_getgrgid(long gid) 
    Group database access (POSIX.1, 9.2.1) */
@@ -840,6 +829,8 @@ PHP_FUNCTION(posix_getpwuid)
 
 #define UNLIMITED_STRING "unlimited"
 
+/* {{{ posix_addlimit
+ */
 static int posix_addlimit(int limit, char *name, pval *return_value) {
 	int result;
 	struct rlimit rl;
@@ -869,7 +860,10 @@ static int posix_addlimit(int limit, char *name, pval *return_value) {
 
 	return SUCCESS;
 }
+/* }}} */
 
+/* {{{ limits[]
+ */
 struct limitlist {
 	int limit;
 	char *name;
@@ -924,6 +918,7 @@ struct limitlist {
 
 	{ 0, NULL }
 };
+/* }}} */
 
 #endif /* HAVE_GETRLIMIT */
 
@@ -948,7 +943,6 @@ PHP_FUNCTION(posix_getrlimit)
 }
 /* }}} */
 
-
 #endif
 
 /*
@@ -956,4 +950,6 @@ PHP_FUNCTION(posix_getrlimit)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
  */

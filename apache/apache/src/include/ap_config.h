@@ -290,7 +290,9 @@ typedef int rlim_t;
 #ifdef USEBCOPY
 #define memmove(a,b,c) bcopy(b,a,c)
 #endif
-#if AIX >= 42
+#if AIX >= 51
+#define NET_SIZE_T socklen_t
+#elif AIX >= 42
 #define NET_SIZE_T size_t
 #endif
 
@@ -629,10 +631,12 @@ extern char *crypt();
 #endif /*_OSD_POSIX*/
 
 #elif defined(UW)
-#if UW < 700
 #define HAVE_FCNTL_SERIALIZED_ACCEPT
+#if UW < 700
 #define NO_LINGCLOSE
 #define NO_KILLPG
+#else
+#define SINGLE_LISTEN_UNSERIALIZED_ACCEPT
 #endif
 #undef  NO_SETSID
 #undef NEED_STRDUP
@@ -891,6 +895,10 @@ typedef int rlim_t;
 #undef PLATFORM
 #define PLATFORM "BeOS"
 #include <stddef.h>
+#include <kernel/OS.h>
+
+#define HAVE_BEOS_SERIALIZED_ACCEPT
+#define SINGLE_LISTEN_UNSERIALIZED_ACCEPT
 
 #define NO_WRITEV
 #define NO_KILLPG
@@ -901,9 +909,13 @@ typedef int rlim_t;
 #elif defined(BONE)
 #undef PLATFORM
 #define PLATFORM "BeOS BONE"
+#include <kernel/OS.h>
+
 #define NO_KILLPG
 #define NEED_INITGROUPS
 #define S_IEXEC S_IXUSR
+#define HAVE_BEOS_SERIALIZED_ACCEPT
+#define SINGLE_LISTEN_UNSERIALIZED_ACCEPT
 
 #elif defined(_CX_SX)
 #define JMP_BUF sigjmp_buf
@@ -1000,7 +1012,11 @@ typedef int rlim_t;
 #define USE_MMAP_FILES
 #define HAVE_SYSLOG 1
 #define HAVE_FCNTL_SERIALIZED_ACCEPT
+#define HAVE_PTHREAD_SERIALIZED_ACCEPT
 #define SINGLE_LISTEN_UNSERIALIZED_ACCEPT
+#if !defined(USE_FNCTL_SERIALIZED_ACCEPT)
+#define USE_PTHREAD_SERIALIZED_ACCEPT
+#endif
 
 
 #else
@@ -1220,6 +1236,9 @@ int setrlimit(int, struct rlimit *);
 #endif
 #if defined(USE_TPF_CORE_SERIALIZED_ACCEPT) && !defined(HAVE_TPF_CORE_SERIALIZED_ACCEPT)
 #define HAVE_TPF_CORE_SERIALIZED_ACCEPT
+#endif
+#if defined(USE_BEOS_SERIALIZED_ACCEPT) && !defined(HAVE_BEOS_SERIALIZED_ACCEPT)
+#define HAVE_BEOS_SERIALIZED_ACCEPT
 #endif
 #if defined(USE_NONE_SERIALIZED_ACCEPT) && !defined(HAVE_NONE_SERIALIZED_ACCEPT)
 #define HAVE_NONE_SERIALIZED_ACCEPT

@@ -19,7 +19,7 @@
    | Stig Bakken <ssb@fast.no>                                            |
    +----------------------------------------------------------------------+
  */
-/* $Id: sapi_apache.c,v 1.1.1.4 2001/07/19 00:20:57 zarzycki Exp $ */
+/* $Id: sapi_apache.c,v 1.1.1.5 2001/12/14 22:15:16 zarzycki Exp $ */
 
 #define NO_REGEX_EXTRA_H
 #ifdef WIN32
@@ -56,14 +56,15 @@
 #include "ext/standard/php_standard.h"
 #include "util_script.h"
 #include "php_version.h"
-/*#include "mod_php4.h"*/
+#include "mod_php4.h"
 
-
-int apache_php_module_main(request_rec *r, int display_source_mode CLS_DC ELS_DC PLS_DC SLS_DC)
+/* {{{ apache_php_module_main
+ */
+int apache_php_module_main(request_rec *r, int display_source_mode TSRMLS_DC)
 {
 	zend_file_handle file_handle;
 
-	if (php_request_startup(CLS_C ELS_CC PLS_CC SLS_CC) == FAILURE) {
+	if (php_request_startup(TSRMLS_C) == FAILURE) {
 		return FAILURE;
 	}
 	/* sending a file handle to another dll is not working
@@ -74,7 +75,7 @@ int apache_php_module_main(request_rec *r, int display_source_mode CLS_DC ELS_DC
 		zend_syntax_highlighter_ini syntax_highlighter_ini;
 
 		php_get_highlight_struct(&syntax_highlighter_ini);
-		if (highlight_file(SG(request_info).path_translated,&syntax_highlighter_ini)){
+		if (highlight_file(SG(request_info).path_translated, &syntax_highlighter_ini TSRMLS_CC)){
 			return OK;
 		} else {
 			return NOT_FOUND;
@@ -86,20 +87,24 @@ int apache_php_module_main(request_rec *r, int display_source_mode CLS_DC ELS_DC
 		file_handle.opened_path = NULL;
 		file_handle.free_filename = 0;
 
-		(void) php_execute_script(&file_handle CLS_CC ELS_CC PLS_CC);
+		(void) php_execute_script(&file_handle TSRMLS_CC);
 	}
+
+	AP(in_request) = 0;
 	
-        if (setjmp(EG(bailout))!=0) {
-		return OK;
-	}
-	php_end_ob_buffers(1);
-	php_header();			/* Make sure headers have been sent */
+	zend_try {
+		php_request_shutdown(NULL);
+	} zend_end_try();
+	
 	return (OK);
 }
+/* }}} */
 
 /*
  * Local variables:
  * tab-width: 4
  * c-basic-offset: 4
  * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
  */

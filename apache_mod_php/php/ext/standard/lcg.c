@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: lcg.c,v 1.1.1.3 2001/07/19 00:20:16 zarzycki Exp $ */
+/* $Id: lcg.c,v 1.1.1.4 2001/12/14 22:13:23 zarzycki Exp $ */
 
 #include "php.h"
 #include "php_lcg.h"
@@ -29,31 +29,30 @@
 int lcg_globals_id;
 #else
 static php_lcg_globals lcg_globals;
-#endif
-
 static int php_lcg_initialized = 0;
+#endif
+ 
 
 #ifdef PHP_WIN32
 #include <process.h>
 #endif
 
 /*
- * combinedLCG() returns a pseudo random number in the range of (0,1).
+ * combinedLCG() returns a pseudo random number in the range of (0, 1).
  * The function combines two CGs with periods of 
  * 2^31 - 85 and 2^31 - 249. The period of this function
  * is equal to the product of both primes.
  */
 
-#define MODMULT(a,b,c,m,s) q = s/a;s=b*(s-a*q)-c*q;if(s<0)s+=m
+#define MODMULT(a, b, c, m, s) q = s/a;s=b*(s-a*q)-c*q;if(s<0)s+=m
 
-double php_combined_lcg(void)
+double php_combined_lcg(TSRMLS_D)
 {
-	long q;
-	long z;
-	LCGLS_FETCH();
+	php_int32 q;
+	php_int32 z;
 
-	MODMULT(53668,40014,12211,2147483563L, LCG(s1));
-	MODMULT(52774,40692,3791, 2147483399L, LCG(s2));
+	MODMULT(53668, 40014, 12211, 2147483563L, LCG(s1));
+	MODMULT(52774, 40692, 3791, 2147483399L, LCG(s2));
 
 	z = LCG(s1) - LCG(s2);
 	if(z < 1) {
@@ -63,7 +62,7 @@ double php_combined_lcg(void)
 	return z * 4.656613e-10;
 }
 
-static void lcg_init_globals(LCGLS_D)
+static void lcg_init_globals(php_lcg_globals *lcg_globals_p TSRMLS_DC)
 {
 	LCG(s1) = 1;
 #ifdef ZTS
@@ -76,14 +75,14 @@ static void lcg_init_globals(LCGLS_D)
 #ifdef ZTS
 PHP_MINIT_FUNCTION(lcg)
 {
-	lcg_globals_id = ts_allocate_id(sizeof(php_lcg_globals), (ts_allocate_ctor) lcg_init_globals, NULL);
+	ts_allocate_id(&lcg_globals_id, sizeof(php_lcg_globals), (ts_allocate_ctor) lcg_init_globals, NULL);
 	return SUCCESS;
 }
 #else 
 PHP_RINIT_FUNCTION(lcg)
 {
 	if (!php_lcg_initialized) {
-		lcg_init_globals();
+		lcg_init_globals(&lcg_globals TSRMLS_CC);
 		php_lcg_initialized = 1;
 	}
 	return SUCCESS;
@@ -94,6 +93,15 @@ PHP_RINIT_FUNCTION(lcg)
    Returns a value from the combined linear congruential generator */
 PHP_FUNCTION(lcg_value)
 {
-	RETURN_DOUBLE(php_combined_lcg());
+	RETURN_DOUBLE(php_combined_lcg(TSRMLS_C));
 }
 /* }}} */
+
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
+ */

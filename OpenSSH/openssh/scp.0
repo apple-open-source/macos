@@ -71,6 +71,9 @@ DESCRIPTION
 
      -6      Forces scp to use IPv6 addresses only.
 
+DIAGNOSTICS
+     scp exits with 0 on success or >0 if an error occurred.
+
 AUTHORS
      Timo Rinne <tri@iki.fi> and Tatu Ylonen <ylo@cs.hut.fi>
 

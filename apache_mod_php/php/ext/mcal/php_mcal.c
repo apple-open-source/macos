@@ -45,7 +45,7 @@
 #include "winsock.h"
 #endif
 
-void cal_close_it(zend_rsrc_list_entry *rsrc);
+static void cal_close_it(zend_rsrc_list_entry *rsrc TSRMLS_DC);
 
 typedef struct _php_mcal_le_struct {
 	CALSTREAM *mcal_stream;
@@ -111,7 +111,16 @@ function_entry mcal_functions[] = {
 };
 
 zend_module_entry php_mcal_module_entry = {
-	"mcal", mcal_functions, PHP_MINIT(mcal), NULL, NULL, NULL, PHP_MINFO(mcal), STANDARD_MODULE_PROPERTIES
+	STANDARD_MODULE_HEADER,
+	"mcal",
+        mcal_functions,
+        PHP_MINIT(mcal),
+        NULL,
+        NULL,
+        NULL,
+        PHP_MINFO(mcal),
+        NO_VERSION_YET,
+        STANDARD_MODULE_PROPERTIES
 };
 
 #ifdef COMPILE_DL_MCAL
@@ -123,14 +132,16 @@ ZEND_GET_MODULE(php_mcal)
    and nothing will link to this module, we can use the simple 
    thread local_ storage
 */
-int le_mcal;
+static int le_mcal;
 char *mcal_user;
 char *mcal_password;
 
-void cal_close_it (zend_rsrc_list_entry *rsrc)
+
+static void cal_close_it (zend_rsrc_list_entry *rsrc TSRMLS_DC)
 {
 	pils *mcal_le_struct = (pils *)rsrc->ptr;
-	cal_close (mcal_le_struct->mcal_stream,0);
+
+	cal_close(mcal_le_struct->mcal_stream,0);
 	efree(mcal_le_struct);
 }
 
@@ -139,8 +150,8 @@ PHP_MINFO_FUNCTION(mcal)
 {
 	char tmp[128];
 
-        php_info_print_table_start();
-        php_info_print_table_row(2, "MCAL Support", "enabled" );
+	php_info_print_table_start();
+	php_info_print_table_row(2, "MCAL Support", "enabled" );
 #ifdef MCALVER
 	snprintf(tmp, 128, "%s<BR>%d", CALVER, MCALVER);
 #else
@@ -201,14 +212,14 @@ static int add_assoc_object(zval *arg, char *key, zval *tmp)
 	HashTable *symtable;
 	
 	if (arg->type == IS_OBJECT) {
-		symtable = arg->value.obj.properties;
+		symtable = Z_OBJPROP_P(arg);
 	} else {
 		symtable = arg->value.ht;
 	}
 	return zend_hash_update(symtable, key, strlen(key)+1, (void *)&tmp, sizeof(zval *), NULL);
 }
 
-void php_mcal_do_open(INTERNAL_FUNCTION_PARAMETERS, int persistent)
+static void php_mcal_do_open(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 {
 	zval **calendar, **user, **passwd, **options;
 	CALSTREAM *mcal_stream;
@@ -247,13 +258,13 @@ void php_mcal_do_open(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 	RETURN_LONG(ind);
 }
 
-void php_mcal_event_init(struct _php_mcal_le_struct *mystruct)
+static void php_mcal_event_init(struct _php_mcal_le_struct *mystruct)
 {
 	calevent_free(mystruct->event);
 	mystruct->event=calevent_new();
 }
 
-void _php_make_event_object(zval *myzvalue, CALEVENT *event)
+static void _php_make_event_object(zval *myzvalue, CALEVENT *event TSRMLS_DC)
 {
 	zval *start, *end, *recurend, *attrlist;
 	CALATTR *attr;
@@ -468,7 +479,7 @@ PHP_FUNCTION(mcal_fetch_event)
 	}
 	calevent_free(mcal_le_struct->event);
 	mcal_le_struct->event = myevent;
-	_php_make_event_object(return_value, mcal_le_struct->event);
+	_php_make_event_object(return_value, mcal_le_struct->event TSRMLS_CC);
 }
 /* }}} */
 
@@ -491,7 +502,7 @@ PHP_FUNCTION(mcal_fetch_current_stream_event)
 		php_error(E_WARNING, "Unable to find stream pointer");
 		RETURN_FALSE;
     }
-	_php_make_event_object(return_value, mcal_le_struct->event);
+	_php_make_event_object(return_value, mcal_le_struct->event TSRMLS_CC);
 }
 /* }}} */
 

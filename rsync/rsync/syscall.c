@@ -76,12 +76,17 @@ int do_rmdir(char *pathname)
 
 int do_open(char *pathname, int flags, mode_t mode)
 {
-	if (dry_run) return -1;
+	if (flags != O_RDONLY) {
+	    if (dry_run) return -1;
+	    CHECK_RO
+	}
 #ifdef O_BINARY
 	/* for Windows */
 	flags |= O_BINARY;
 #endif
-	CHECK_RO
+	/* some systems can't handle a double / */
+	if (pathname[0] == '/' && pathname[1] == '/') pathname++;
+
 	return open(pathname, flags, mode);
 }
 
@@ -108,11 +113,27 @@ int do_mkdir(char *fname, mode_t mode)
 	return mkdir(fname, mode);
 }
 
-char *do_mktemp(char *template)
+/* like mkstemp but forces permissions */
+int do_mkstemp(char *template, mode_t perms)
 {
-	if (dry_run) return NULL;
-	if (read_only) {errno = EROFS; return NULL;}
-	return mktemp(template);
+	if (dry_run) return -1;
+	if (read_only) {errno = EROFS; return -1;}
+
+#if defined(HAVE_SECURE_MKSTEMP) && defined(HAVE_FCHMOD)
+	{
+		int fd = mkstemp(template);
+		if (fd == -1) return -1;
+		if (fchmod(fd, perms) != 0) {
+			close(fd);
+			unlink(template);
+			return -1;
+		}
+		return fd;
+	}
+#else
+	if (!mktemp(template)) return -1;
+	return do_open(template, O_RDWR|O_EXCL|O_CREAT, perms);
+#endif
 }
 
 int do_stat(const char *fname, STRUCT_STAT *st)

@@ -1,13 +1,13 @@
-dnl $Id: config.m4,v 1.1.1.3 2001/07/19 00:19:43 zarzycki Exp $
+dnl $Id: config.m4,v 1.1.1.4 2001/12/14 22:12:54 zarzycki Exp $
 
 AC_DEFUN(AC_ORACLE_VERSION,[
   AC_MSG_CHECKING([Oracle version])
   if test -s "$ORACLE_DIR/orainst/unix.rgs"; then
   	ORACLE_VERSION=`grep '"ocommon"' $ORACLE_DIR/orainst/unix.rgs | sed 's/[ ][ ]*/:/g' | cut -d: -f 6 | cut -c 2-4`
 	test -z "$ORACLE_VERSION" && ORACLE_VERSION=7.3
-  elif test -f $ORACLE_DIR/lib/libclntsh.s?.8.0; then
+  elif test -f $ORACLE_DIR/lib/libclntsh.$SHLIB_SUFFIX_NAME.8.0; then
     ORACLE_VERSION=8.1
-  elif test -f $ORACLE_DIR/lib/libclntsh.s?.1.0; then
+  elif test -f $ORACLE_DIR/lib/libclntsh.$SHLIB_SUFFIX_NAME.1.0; then
     ORACLE_VERSION=8.0
   elif test -f $ORACLE_DIR/lib/libclntsh.a; then
     if test -f $ORACLE_DIR/lib/libcore4.a; then
@@ -28,20 +28,11 @@ PHP_ARG_WITH(oracle, for Oracle-ORACLE support,
 if test "$PHP_ORACLE" != "no"; then
   AC_MSG_CHECKING([Oracle Install-Dir])
   if test "$PHP_ORACLE" = "yes"; then
-  	ORACLE_DIR="$ORACLE_HOME"
+  	ORACLE_DIR=$ORACLE_HOME
   else
-  	ORACLE_DIR="$PHP_ORACLE"
+  	ORACLE_DIR=$PHP_ORACLE
   fi
   AC_MSG_RESULT($ORACLE_DIR)
-
-  if test "$PHP_SIGCHILD" != "yes"; then
-    echo "+--------------------------------------------------------------------+"
-    echo "| Notice:                                                            |"
-    echo "| If you encounter <defunc> processes when using a local Oracle-DB   |"
-    echo "| please recompile PHP and specify --enable-sigchild when configuring|"
-    echo "| (This problem has been reported un Linux using Oracle >= 8.1.5)    |"
-    echo "+--------------------------------------------------------------------+"
-  fi                                                                                          
 
   if test -d "$ORACLE_DIR/rdbms/public"; then
   	PHP_ADD_INCLUDE($ORACLE_DIR/rdbms/public)
@@ -65,7 +56,7 @@ if test "$PHP_ORACLE" != "no"; then
   AC_ORACLE_VERSION($ORACLE_DIR)
   case $ORACLE_VERSION in
 	7.0|7.1)
-	  if test -f $ORACLE_DIR/lib/liboracle.s?; then
+	  if test -f $ORACLE_DIR/lib/liboracle.$SHLIB_SUFFIX_NAME; then
 	    PHP_ADD_LIBRARY_WITH_PATH(oracle, $ORACLE_DIR/lib, ORACLE_SHARED_LIBADD)
 	  else
 	    PHP_ADD_LIBRARY_WITH_PATH(core, $ORACLE_DIR/lib, ORACLE_SHARED_LIBADD)
@@ -94,7 +85,7 @@ if test "$PHP_ORACLE" != "no"; then
 	  ;;
 
 	7.2)
-	  if test -f $ORACLE_DIR/lib/libclntsh.s?; then
+	  if test -f $ORACLE_DIR/lib/libclntsh.$SHLIB_SUFFIX_NAME; then
 	    PHP_ADD_LIBRARY_WITH_PATH(clntsh, $ORACLE_DIR/lib, ORACLE_SHARED_LIBADD)
 	  else
 	    PHP_ADD_LIBRARY_WITH_PATH(core3, $ORACLE_DIR/lib, ORACLE_SHARED_LIBADD)
@@ -115,7 +106,7 @@ if test "$PHP_ORACLE" != "no"; then
 	  ;;
 
 	7.3)
-	  if test -f $ORACLE_DIR/lib/libclntsh.s?; then
+	  if test -f $ORACLE_DIR/lib/libclntsh.$SHLIB_SUFFIX_NAME; then
 	    PHP_ADD_LIBRARY_WITH_PATH(clntsh, $ORACLE_DIR/lib, ORACLE_SHARED_LIBADD)
 	  else
 	    PHP_ADD_LIBRARY_WITH_PATH(core3, $ORACLE_DIR/lib, ORACLE_SHARED_LIBADD)

@@ -1,4 +1,4 @@
-dnl $Id: config.m4,v 1.1.1.3 2001/07/19 00:19:00 zarzycki Exp $
+dnl $Id: config.m4,v 1.1.1.4 2001/12/14 22:12:05 zarzycki Exp $
 dnl config.m4 for extension CURL
 
 PHP_ARG_WITH(curl, for CURL support,
@@ -24,19 +24,19 @@ if test "$PHP_CURL" != "no"; then
   fi
 
   CURL_CONFIG="curl-config"
-  AC_MSG_CHECKING(for cURL greater than or equal to 7.8)
+  AC_MSG_CHECKING(for cURL greater than 7.8.1)
 
   if ${CURL_DIR}/bin/curl-config --libs print > /dev/null 2>&1; then
     CURL_CONFIG=${CURL_DIR}/bin/curl-config
   fi
 
   curl_version_full=`$CURL_CONFIG --version`
-  curl_version=`$CURL_CONFIG --vernum 2>/dev/null`
-  if test "$curl_version" -ge 70800; then
+  curl_version=`echo ${curl_version_full} | sed -e 's/libcurl //' | awk 'BEGIN { FS = "."; } { printf "%d", ($1 * 1000 + $2) * 1000 + $3;}'`
+  if test "$curl_version" -ge 7008001; then
     AC_MSG_RESULT($curl_version_full)
     CURL_LIBS=`$CURL_CONFIG --libs`
   else
-    AC_MSG_ERROR(cURL version 7.8 or later is required to compile php with cURL support)
+    AC_MSG_ERROR(cURL version 7.8.1 or later is required to compile php with cURL support)
   fi
 
   PHP_ADD_INCLUDE($CURL_DIR/include)
@@ -48,6 +48,8 @@ if test "$PHP_CURL" != "no"; then
     AC_DEFINE(HAVE_CURL,1,[ ])
   ],[
     AC_MSG_ERROR(There is something wrong. Please check config.log for more information.)
+  ],[
+    $CURL_LIBS -L$CURL_DIR/lib
   ])
 
   PHP_EXTENSION(curl, $ext_shared)

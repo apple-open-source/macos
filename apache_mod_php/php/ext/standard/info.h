@@ -17,14 +17,14 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: info.h,v 1.1.1.4 2001/07/19 00:20:15 zarzycki Exp $ */
+/* $Id: info.h,v 1.1.1.5 2001/12/14 22:13:23 zarzycki Exp $ */
 
 #ifndef INFO_H
 #define INFO_H
 
-#define PHP_ENTRY_NAME_COLOR "#CCCCFF"
-#define PHP_CONTENTS_COLOR "#CCCCCC"
-#define PHP_HEADER_COLOR "#9999CC"
+#define PHP_ENTRY_NAME_COLOR "#ccccff"
+#define PHP_CONTENTS_COLOR "#cccccc"
+#define PHP_HEADER_COLOR "#9999cc"
 
 #define PHP_INFO_GENERAL			(1<<0)
 #define PHP_INFO_CREDITS			(1<<1)
@@ -63,7 +63,7 @@ PHP_FUNCTION(zend_logo_guid);
 PHP_FUNCTION(php_egg_logo_guid);
 PHP_FUNCTION(php_sapi_name);
 PHP_FUNCTION(php_uname);
-PHPAPI void php_print_info(int flag);
+PHPAPI void php_print_info(int flag TSRMLS_DC);
 PHPAPI void php_print_style(void);
 PHPAPI void php_info_print_style(void);
 PHPAPI void php_info_print_table_colspan_header(int num_cols, char *header);

@@ -56,6 +56,27 @@ static MUTEX_T reentrant_locks[NUMBER_OF_LOCKS];
 
 #endif
 
+#if defined(PHP_IRIX_TIME_R)
+
+#define HAVE_CTIME_R 1
+#define HAVE_ASCTIME_R 1
+
+PHPAPI char *php_ctime_r(const time_t *clock, char *buf)
+{
+	if (ctime_r(clock, buf, 26) == buf)
+		return (buf);
+	return (NULL);
+}
+
+PHPAPI char *php_asctime_r(const struct tm *tm, char *buf)
+{
+	if (asctime_r(tm, buf, 26) == buf)
+		return (buf);
+	return (NULL);
+}
+
+#endif
+
 #if defined(PHP_HPUX_TIME_R)
 
 #define HAVE_LOCALTIME_R 1
@@ -409,3 +430,12 @@ cont:
 }
 
 #endif
+
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
+ */

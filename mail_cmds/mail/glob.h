@@ -1,5 +1,3 @@
-/*	$NetBSD: glob.h,v 1.4 1996/06/08 19:48:25 christos Exp $	*/
-
 /*
  * Copyright (c) 1980, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -32,8 +30,9 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- *	from: @(#)glob.h	8.1 (Berkeley) 6/6/93
- *	$NetBSD: glob.h,v 1.4 1996/06/08 19:48:25 christos Exp $
+ *	@(#)glob.h	8.1 (Berkeley) 6/6/93
+ *
+ * $FreeBSD: src/usr.bin/mail/glob.h,v 1.2 2001/03/25 04:57:04 mikeh Exp $
  */
 
 /*
@@ -76,15 +75,15 @@ EXTERN struct	message	*message;		/* The actual message structure */
 EXTERN struct	var	*variables[HSHSIZE];	/* Pointer to active var list */
 EXTERN struct	grouphead	*groups[HSHSIZE];/* Pointer to active groups */
 EXTERN struct	ignoretab	ignore[2];	/* ignored and retained fields
-						   0 is ignore, 1 is retain */
+					   0 is ignore, 1 is retain */
 EXTERN struct	ignoretab	saveignore[2];	/* ignored and retained fields
-						   on save to folder */
+					   on save to folder */
 EXTERN struct	ignoretab	ignoreall[2];	/* special, ignore all headers */
 EXTERN char	**altnames;			/* List of alternate names for user */
 EXTERN int	debug;				/* Debug flag set */
 EXTERN int	screenwidth;			/* Screen width, or best guess */
 EXTERN int	screenheight;			/* Screen height, or best guess,
-						   for "header" command */
+					   for "header" command */
 EXTERN int	realscreenheight;		/* the real screen height */
 
 #include <setjmp.h>

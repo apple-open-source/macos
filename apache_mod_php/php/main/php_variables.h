@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_variables.h,v 1.1.1.4 2001/07/19 00:20:39 zarzycki Exp $ */
+/* $Id: php_variables.h,v 1.1.1.5 2001/12/14 22:13:51 zarzycki Exp $ */
 
 #ifndef PHP_VARIABLES_H
 #define PHP_VARIABLES_H
@@ -30,12 +30,12 @@
 #define PARSE_COOKIE 2
 #define PARSE_STRING 3
 
-void php_treat_data(int arg, char *str, zval* destArray ELS_DC PLS_DC SLS_DC);
-PHPAPI void php_import_environment_variables(zval *array_ptr ELS_DC PLS_DC);
-PHPAPI void php_register_variable(char *var, char *val, pval *track_vars_array ELS_DC PLS_DC);
+void php_treat_data(int arg, char *str, zval* destArray TSRMLS_DC);
+PHPAPI void php_import_environment_variables(zval *array_ptr TSRMLS_DC);
+PHPAPI void php_register_variable(char *var, char *val, pval *track_vars_array TSRMLS_DC);
 /* binary-safe version */
-PHPAPI void php_register_variable_safe(char *var, char *val, int val_len, pval *track_vars_array ELS_DC PLS_DC);
-PHPAPI void php_register_variable_ex(char *var, zval *val, pval *track_vars_array ELS_DC PLS_DC);
+PHPAPI void php_register_variable_safe(char *var, char *val, int val_len, pval *track_vars_array TSRMLS_DC);
+PHPAPI void php_register_variable_ex(char *var, zval *val, pval *track_vars_array TSRMLS_DC);
 
 
 #endif /* PHP_VARIABLES_H */

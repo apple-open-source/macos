@@ -15,7 +15,7 @@
    | Author: Jim Winstead (jimw@php.net)                                  |
    +----------------------------------------------------------------------+
  */
-/* $Id: url.c,v 1.1.1.4 2001/07/19 00:20:23 zarzycki Exp $ */
+/* $Id: url.c,v 1.1.1.5 2001/12/14 22:13:29 zarzycki Exp $ */
 
 #include <stdlib.h>
 #include <string.h>
@@ -36,8 +36,9 @@
 #endif /*APACHE*/
 #endif /*_OSD_POSIX*/
 
-
-void free_url(php_url * theurl)
+/* {{{ free_url
+ */
+PHPAPI void php_url_free(php_url *theurl)
 {
 	if (theurl->scheme)
 		efree(theurl->scheme);
@@ -55,8 +56,11 @@ void free_url(php_url * theurl)
 		efree(theurl->fragment);
 	efree(theurl);
 }
+/* }}} */
 
-php_url *url_parse(char *str)
+/* {{{ url_parse
+ */
+PHPAPI php_url *php_url_parse(char *str)
 {
 	regex_t re;
 	regmatch_t subs[11];
@@ -66,7 +70,7 @@ php_url *url_parse(char *str)
 
 	php_url *ret = (php_url *) emalloc(sizeof(php_url));
 	if (!ret) {
-		/*php_error(E_WARNING,"Unable to allocate memory\n");*/
+		/*php_error(E_WARNING, "Unable to allocate memory\n");*/
 		return NULL;
 	}
 	memset(ret, 0, sizeof(php_url));
@@ -75,13 +79,13 @@ php_url *url_parse(char *str)
 	   http://www.ics.uci.edu/~fielding/url/url.txt */
 	err = regcomp(&re, "^(([^:/?#]+):)?(//([^/?#]*))?([^?#]*)(\\?([^#]*))?(#(.*))?", REG_EXTENDED);
 	if (err) {
-		/*php_error(E_WARNING,"Unable to compile regex: %d\n", err);*/
+		/*php_error(E_WARNING, "Unable to compile regex: %d\n", err);*/
 		efree(ret);
 		return NULL;
 	}
 	err = regexec(&re, str, 10, subs, 0);
 	if (err) {
-		/*php_error(E_WARNING,"Error with regex\n");*/
+		/*php_error(E_WARNING, "Error with regex\n");*/
 		efree(ret);
 		regfree(&re);
 		return NULL;
@@ -124,7 +128,7 @@ php_url *url_parse(char *str)
 			STR_FREE(ret->fragment);
 			efree(ret);
 			efree(result);
-			/*php_error(E_WARNING,"Unable to compile regex: %d\n", err);*/
+			/*php_error(E_WARNING, "Unable to compile regex: %d\n", err);*/
 			if (!cerr) regfree(&re); 
 			return NULL;
 		}
@@ -157,6 +161,7 @@ php_url *url_parse(char *str)
 	regfree(&re);
 	return ret;
 }
+/* }}} */
 
 /* {{{ proto array parse_url(string url)
    Parse a URL and return its components */
@@ -170,7 +175,7 @@ PHP_FUNCTION(parse_url)
 	}
 	convert_to_string_ex(str);
 
-	resource = url_parse((*str)->value.str.val);
+	resource = php_url_parse((*str)->value.str.val);
 
 	if (resource == NULL) {
 		php_error(E_WARNING, "unable to parse url (%s)", (*str)->value.str.val);
@@ -178,7 +183,7 @@ PHP_FUNCTION(parse_url)
 	}
 	/* allocate an array for return */
 	if (array_init(return_value) == FAILURE) {
-		free_url(resource);
+		php_url_free(resource);
 		RETURN_FALSE;
 	}
 	/* add the various elements to the array */
@@ -198,10 +203,12 @@ PHP_FUNCTION(parse_url)
 		add_assoc_string(return_value, "query", resource->query, 1);
 	if (resource->fragment != NULL)
 		add_assoc_string(return_value, "fragment", resource->fragment, 1);
-	free_url(resource);
+	php_url_free(resource);
 }
 /* }}} */
 
+/* {{{ php_htoi
+ */
 static int php_htoi(char *s)
 {
 	int value;
@@ -219,6 +226,7 @@ static int php_htoi(char *s)
 
 	return (value);
 }
+/* }}} */
 
 /* rfc1738:
 
@@ -235,12 +243,14 @@ static int php_htoi(char *s)
 
 static unsigned char hexchars[] = "0123456789ABCDEF";
 
-char *php_url_encode(char *s, int len)
+/* {{{ php_url_encode
+ */
+PHPAPI char *php_url_encode(char *s, int len, int *new_length)
 {
 	register int x, y;
 	unsigned char *str;
 
-	str = (unsigned char *) emalloc(3 * strlen(s) + 1);
+	str = (unsigned char *) emalloc(3 * len + 1);
 	for (x = 0, y = 0; len--; x++, y++) {
 		str[y] = (unsigned char) s[x];
 		if (str[y] == ' ') {
@@ -264,8 +274,12 @@ char *php_url_encode(char *s, int len)
 #endif /*CHARSET_EBCDIC*/
 	}
 	str[y] = '\0';
+	if (new_length) {
+		*new_length = y;
+	}
 	return ((char *) str);
 }
+/* }}} */
 
 /* {{{ proto string urlencode(string str)
    URL-encodes string */
@@ -273,6 +287,7 @@ PHP_FUNCTION(urlencode)
 {
 	pval **arg;
 	char *str;
+	int str_len;
 
 	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &arg) == FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -280,12 +295,11 @@ PHP_FUNCTION(urlencode)
 	convert_to_string_ex(arg);
 
 	if (!(*arg)->value.str.len) {
-		var_reset(return_value);
+		ZVAL_FALSE(return_value);
 		return;
 	}
-	str = php_url_encode((*arg)->value.str.val, (*arg)->value.str.len);
-	RETVAL_STRING(str, 1);
-	efree(str);
+	str = php_url_encode((*arg)->value.str.val, (*arg)->value.str.len, &str_len);
+	RETVAL_STRINGL(str, str_len, 0);
 }
 /* }}} */
 
@@ -302,7 +316,7 @@ PHP_FUNCTION(urldecode)
 	convert_to_string_ex(arg);
 
 	if (!(*arg)->value.str.len) {
-		var_reset(return_value);
+		ZVAL_FALSE(return_value);
 		return;
 	}
 
@@ -314,7 +328,9 @@ PHP_FUNCTION(urldecode)
 }
 /* }}} */
 
-int php_url_decode(char *str, int len)
+/* {{{ php_url_decode
+ */
+PHPAPI int php_url_decode(char *str, int len)
 {
 	char *dest = str;
 	char *data = str;
@@ -338,8 +354,11 @@ int php_url_decode(char *str, int len)
 	*dest = '\0';
 	return dest - str;
 }
+/* }}} */
 
-char *php_raw_url_encode(char *s, int len)
+/* {{{ php_raw_url_encode
+ */
+PHPAPI char *php_raw_url_encode(char *s, int len, int *new_length)
 {
 	register int x, y;
 	unsigned char *str;
@@ -364,8 +383,12 @@ char *php_raw_url_encode(char *s, int len)
 		}
 	}
 	str[y] = '\0';
+	if (new_length) {
+		*new_length = y;
+	}
 	return ((char *) str);
 }
+/* }}} */
 
 /* {{{ proto string rawurlencode(string str)
    URL-encodes string */
@@ -373,6 +396,7 @@ PHP_FUNCTION(rawurlencode)
 {
 	pval **arg;
 	char *str;
+	int new_len;
 
 	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &arg) == FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -382,9 +406,8 @@ PHP_FUNCTION(rawurlencode)
 	if (!(*arg)->value.str.len) {
 		RETURN_FALSE;
 	}
-	str = php_raw_url_encode((*arg)->value.str.val, (*arg)->value.str.len);
-	RETVAL_STRING(str, 1);
-	efree(str);
+	str = php_raw_url_encode((*arg)->value.str.val, (*arg)->value.str.len, &new_len);
+	RETVAL_STRINGL(str, new_len, 0);
 }
 /* }}} */
 
@@ -411,7 +434,9 @@ PHP_FUNCTION(rawurldecode)
 }
 /* }}} */
 
-int php_raw_url_decode(char *str, int len)
+/* {{{ php_raw_url_decode
+ */
+PHPAPI int php_raw_url_decode(char *str, int len)
 {
 	char *dest = str;
 	char *data = str;
@@ -433,10 +458,13 @@ int php_raw_url_decode(char *str, int len)
 	*dest = '\0';
 	return dest - str;
 }
+/* }}} */
 
 /*
  * Local variables:
  * tab-width: 4
  * c-basic-offset: 4
  * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
  */

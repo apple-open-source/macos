@@ -25,20 +25,10 @@
 typedef struct _php_core_globals php_core_globals;
 
 #ifdef ZTS
-# define PLS_D	php_core_globals *core_globals
-# define PLS_DC	, PLS_D
-# define PLS_C	core_globals
-# define PLS_CC , PLS_C
-# define PG(v) (core_globals->v)
-# define PLS_FETCH()	php_core_globals *core_globals = ts_resource(core_globals_id)
+# define PG(v) TSRMG(core_globals_id, php_core_globals *, v)
 extern PHPAPI int core_globals_id;
 #else
-# define PLS_D
-# define PLS_DC
-# define PLS_C
-# define PLS_CC
 # define PG(v) (core_globals.v)
-# define PLS_FETCH()
 extern ZEND_API struct _php_core_globals core_globals;
 #endif
 
@@ -62,12 +52,15 @@ struct _php_core_globals {
 	zend_bool magic_quotes_runtime;
 	zend_bool magic_quotes_sybase;
 
+	zend_bool safe_mode;
+
 	zend_bool allow_call_time_pass_reference;
-	zend_bool zend_set_utility_values;
-	zend_bool output_buffering;
 	zend_bool implicit_flush;
 
-	zend_bool safe_mode;
+	int output_buffering;
+
+	char *safe_mode_include_dir;
+	zend_bool safe_mode_gid;
 	zend_bool sql_safe_mode;
 	zend_bool enable_dl;
 
@@ -122,6 +115,10 @@ struct _php_core_globals {
 	zend_bool y2k_compliance;
 
 	zend_bool html_errors;
+	zend_bool xmlrpc_errors;
+
+	long xmlrpc_error_number;
+
 
 	zend_bool modules_activated;
 
@@ -130,6 +127,8 @@ struct _php_core_globals {
 	zend_bool during_request_startup;
 
 	zend_bool allow_url_fopen;
+
+	zend_bool always_populate_raw_post_data;
 };
 
 

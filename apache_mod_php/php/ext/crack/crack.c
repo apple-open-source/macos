@@ -1,3 +1,21 @@
+/*
+   +----------------------------------------------------------------------+
+   | PHP version 4.0                                                      |
+   +----------------------------------------------------------------------+
+   | Copyright (c) 1997-2001 The PHP Group                                |
+   +----------------------------------------------------------------------+
+   | This source file is subject to version 2.02 of the PHP license,      |
+   | that is bundled with this package in the file LICENSE, and is        |
+   | available at through the world-wide-web at                           |
+   | http://www.php.net/license/2_02.txt.                                 |
+   | If you did not receive a copy of the PHP license and are unable to   |
+   | obtain it through the world-wide-web, please send a note to          |
+   | license@php.net so we can mail you a copy immediately.               |
+   +----------------------------------------------------------------------+
+   | Authors:                                                             |
+   +----------------------------------------------------------------------+
+ */
+/* $Id: crack.c,v 1.1.1.2 2001/12/14 22:12:04 zarzycki Exp $ */
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
@@ -25,13 +43,15 @@ function_entry crack_functions[] = {
 };
 
 zend_module_entry crack_module_entry = {
+	STANDARD_MODULE_HEADER,
 	"crack",
 	crack_functions,
-	ZEND_MINIT(crack),
-	ZEND_MSHUTDOWN(crack),
-	ZEND_RINIT(crack),
-	ZEND_RSHUTDOWN(crack),
-	PHP_MINFO(crack),
+	ZEND_MODULE_STARTUP_N(crack),
+	ZEND_MODULE_SHUTDOWN_N(crack),
+	ZEND_MODULE_ACTIVATE_N(crack),
+	ZEND_MODULE_DEACTIVATE_N(crack),
+	ZEND_MODULE_INFO_N(crack),
+    NO_VERSION_YET,
 	STANDARD_MODULE_PROPERTIES
 };
 
@@ -43,12 +63,10 @@ PHP_INI_BEGIN()
 	STD_PHP_INI_ENTRY("crack.default_dictionary", NULL, PHP_INI_SYSTEM, OnUpdateString, default_dictionary, zend_crack_globals, crack_globals)
 PHP_INI_END()
 
-long _crack_open_dict(char *dictpath)
+long _crack_open_dict(char *dictpath TSRMLS_DC)
 {
 	PWDICT *pwdict;
 	long resource;
-
-	CRACKLS_FETCH();
 
 	if (CRACKG(current_id) != -1) {
 		zend_error(E_WARNING, "Can not use more than one open dictionary with this implementation of libcrack");
@@ -75,7 +93,7 @@ void _close_crack_dict(PWDICT *pwdict)
 	PWClose(pwdict);
 }
 
-ZEND_MINIT_FUNCTION(crack)
+ZEND_MODULE_STARTUP_D(crack)
 {
 	REGISTER_INI_ENTRIES();
 
@@ -84,35 +102,29 @@ ZEND_MINIT_FUNCTION(crack)
 	return SUCCESS;
 }
 
-ZEND_MSHUTDOWN_FUNCTION(crack)
+ZEND_MODULE_SHUTDOWN_D(crack)
 {
 	UNREGISTER_INI_ENTRIES();
-
 	return SUCCESS;
 }
 
-ZEND_RINIT_FUNCTION(crack)
+ZEND_MODULE_ACTIVATE_D(crack)
 {
-	CRACKLS_FETCH();
-
 	CRACKG(last_message) = NULL;
 	CRACKG(current_id) = -1;
 
 	return SUCCESS;
 }
 
-ZEND_RSHUTDOWN_FUNCTION(crack)
+ZEND_MODULE_DEACTIVATE_D(crack)
 {
-	CRACKLS_FETCH();
-
 	if (NULL != CRACKG(last_message)) {
 		efree(CRACKG(last_message));
 	}
-
 	return SUCCESS;
 }
 
-PHP_MINFO_FUNCTION(crack)
+ZEND_MODULE_INFO_D(crack)
 {
 	php_info_print_table_start();
 	php_info_print_table_header(2, "crack support", "enabled");
@@ -134,7 +146,7 @@ ZEND_FUNCTION(crack_opendict)
 
 	convert_to_string_ex(dictpath);
 
-	if (-1 == (resource = _crack_open_dict(Z_STRVAL_PP(dictpath)))) {
+	if (-1 == (resource = _crack_open_dict(Z_STRVAL_PP(dictpath) TSRMLS_CC))) {
 		RETURN_FALSE;
 	}
 	
@@ -149,8 +161,6 @@ ZEND_FUNCTION(crack_closedict)
 	PWDICT *pwdict;
 	zval **dictionary;
 	long id;
-
-	CRACKLS_FETCH();
 
 	switch (ZEND_NUM_ARGS()) {
 		case 0:
@@ -177,7 +187,7 @@ ZEND_FUNCTION(crack_closedict)
 }
 /* }}} */
 
-/* {{{ proto string crack_check([int dictionary,] string password)
+/* {{{ proto string crack_check([int dictionary, ] string password)
    Performs an obscure check with the given password */
 ZEND_FUNCTION(crack_check)
 {
@@ -187,15 +197,13 @@ ZEND_FUNCTION(crack_check)
 	PWDICT *pwdict;
 	long id;
 
-	CRACKLS_FETCH();
-
 	switch (ZEND_NUM_ARGS()) {
 		case 1:
 			if (zend_get_parameters_ex(1, &password) == FAILURE) {
 				RETURN_FALSE;
 			}
 			if (NULL != CRACKG(default_dictionary) && CRACKG(current_id) == -1) {
-				_crack_open_dict(CRACKG(default_dictionary));
+				_crack_open_dict(CRACKG(default_dictionary) TSRMLS_CC);
 			}
 			id = CRACKG(current_id);
 			break;
@@ -236,8 +244,6 @@ ZEND_FUNCTION(crack_check)
    Returns the message from the last obscure check. */
 ZEND_FUNCTION(crack_getlastmessage)
 {
-	CRACKLS_FETCH();
-
 	if (ZEND_NUM_ARGS() != 0) {
 		WRONG_PARAM_COUNT;
 	}
@@ -259,4 +265,6 @@ ZEND_FUNCTION(crack_getlastmessage)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
  */

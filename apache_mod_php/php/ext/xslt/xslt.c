@@ -16,12 +16,18 @@
    +----------------------------------------------------------------------+
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include "php.h"
 #include "php_xslt.h"
 
 #if HAVE_XSLT
 
+#include <stdio.h>
 #include <string.h>
+#include <stdarg.h>
 
 static int debug = 0;
 
@@ -75,15 +81,16 @@ extern void xslt_make_array(zval **zarr, char ***carr)
 	zval      **current;
 	HashTable  *arr;
 	int         idx = 0;
+	TSRMLS_FETCH();
 
 	arr = HASH_OF(*zarr);
 	if (! arr) {
 		php_error(E_WARNING, "Invalid argument or parameter array to %s",
-		          get_active_function_name());
+		          get_active_function_name(TSRMLS_C));
 		return;
 	}
 
-	*carr = emalloc((zend_hash_num_elements(arr) * 2) + 1);
+	*carr = emalloc(((zend_hash_num_elements(arr) * 2) + 1) * sizeof(char *));
 	
 	for (zend_hash_internal_pointer_reset(arr);
 	     zend_hash_get_current_data(arr, (void **) &current) == SUCCESS;
@@ -98,7 +105,7 @@ extern void xslt_make_array(zval **zarr, char ***carr)
 		type = zend_hash_get_current_key(arr, &string_key, &num_key, 0);
 		if (type == HASH_KEY_IS_LONG) {
 			php_error(E_WARNING, "Invalid argument or parameter array to %s",
-			          get_active_function_name());
+			          get_active_function_name(TSRMLS_C));
 			return;
 		}
 
@@ -202,92 +209,46 @@ extern void xslt_free_arguments(xslt_args *to_free)
 /* {{{ call_xslt_function()
    Call an XSLT handler */
 extern void xslt_call_function(char *name, 
-                               struct xslt_function *fptr, 
+                               zval *function, 
                                int argc, 
-                               zval **argv, 
+                               zval **user_args, 
                                zval **retval)
 {
-	int    error;  /* Error container */
-	int    idx;    /* Idx, when looping through and free'ing the arguments */
-	ELS_FETCH();   /* For TS mode, fetch the executor globals */
+	zval   ***argv;   /* Argument container, maps around for call_user_function_ex() */
+	int       error;  /* Error container */
+	int       idx;    /* Idx, when looping through and free'ing the arguments */
+	TSRMLS_FETCH();      /* For TS mode, fetch the executor globals */
 
-	/* Allocate and initialize return value from the function */
-	MAKE_STD_ZVAL(*retval);
-
+	argv = emalloc(argc * sizeof(zval **));
+	for (idx = 0; idx < argc; idx++) {
+		argv[idx] = &user_args[idx];
+	}
+	
 	/* Call the function */
-	error = call_user_function(EG(function_table),
-	                           XSLT_OBJ(fptr),
-							   XSLT_FUNC(fptr),
-							   *retval, argc, argv);
+	error = call_user_function_ex(EG(function_table),
+	                              NULL, function,
+							      retval, argc, argv, 0, NULL TSRMLS_CC);
 	if (error == FAILURE) {
 		php_error(E_WARNING, "Cannot call the %s handler: %s", 
-		          name, Z_STRVAL_P(XSLT_FUNC(fptr)));
+		          name, Z_STRVAL_P(function));
 	}
 
 	/* Cleanup arguments */
 	for (idx = 0; idx < argc; idx++) {
 		/* Decrease refcount and free if refcount is <= 0 */
-		zval_ptr_dtor(&argv[idx]);
+		zval_ptr_dtor(argv[idx]);
 	}
+	efree(argv);
 }
 /* }}} */
 
-
-extern void xslt_free_handler(struct xslt_function *func)
-{
-	if (!func) {
-		return;
-	}
-
-	if (func->obj) {
-		efree(func->obj);
-	}
-
-	if (func->func) {
-		efree(func->func);
-	}
-
-	efree(func);
-}
-
-extern void xslt_assign_handler(struct xslt_function **func, zval **zfunc)
-{
-	char error[] = "Invalid function passed to %s";
-
-	*func = emalloc(sizeof(struct xslt_function));
-
-	if (Z_TYPE_PP(zfunc) == IS_STRING) {
-		(*func)->obj = NULL;
-		
-		zval_add_ref(zfunc);
-		(*func)->func = *zfunc;
-	}
-	else if (Z_TYPE_PP(zfunc) == IS_ARRAY) {
-		zval **obj;
-		zval **function;
-
-		if (zend_hash_index_find(Z_ARRVAL_PP(zfunc), 0, (void **) &obj) == FAILURE) {
-			efree(*func);
-			php_error(E_WARNING, error, get_active_function_name());
-			return;
-		}
-
-		if (zend_hash_index_find(Z_ARRVAL_PP(zfunc), 1, (void **) &function) == FAILURE) {
-			efree(*func);
-			php_error(E_WARNING, error, get_active_function_name());
-			return;
-		}
-
-		zval_add_ref(obj);
-		zval_add_ref(function);
-
-		(*func)->obj  = *obj;
-		(*func)->func = *function;
-	}
-	else {
-		efree(*func);
-		php_error(E_WARNING, error, get_active_function_name());
-	}
-}
-
 #endif
+
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
+ */

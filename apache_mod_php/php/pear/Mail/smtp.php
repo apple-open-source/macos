@@ -21,6 +21,9 @@ require_once 'Mail.php';
 /**
  * SMTP implementation of the PEAR Mail:: interface. Requires the PEAR
  * Net_SMTP:: class.
+ * @access public
+ * @package Mail
+ * @version $Revision: 1.1.1.3 $ 
  */
 class Mail_smtp extends Mail {
     
@@ -32,7 +35,7 @@ class Mail_smtp extends Mail {
     
 	/**
      * The port the SMTP server is on.
-     * @var	int
+     * @var	integer
      */
     var $port = 25;
     
@@ -70,6 +73,7 @@ class Mail_smtp extends Mail {
      *
      * @param array Hash containing any parameters different from the
      *              defaults.
+     * @access public
      */	
     function Mail_smtp($params)
     {
@@ -83,20 +87,20 @@ class Mail_smtp extends Mail {
 	/**
      * Implements Mail::send() function using SMTP.
      * 
-     * @param mixed Either a comma-seperated list of recipients
+     * @param mixed $recipients Either a comma-seperated list of recipients
      *              (RFC822 compliant), or an array of recipients,
      *              each RFC822 valid. This may contain recipients not
      *              specified in the headers, for Bcc:, resending
      *              messages, etc.
      *
-     * @param array The array of headers to send with the mail, in an
+     * @param array $headers The array of headers to send with the mail, in an
      *              associative array, where the array key is the
      *              header name (ie, 'Subject'), and the array value
      *              is the header value (ie, 'test'). The header
      *              produced from those values would be 'Subject:
      *              test'.
      *
-     * @param string The full text of the message body, including any
+     * @param string $body The full text of the message body, including any
      *               Mime parts, etc.
      *
      * @return mixed Returns true on success, or a PEAR_Error
@@ -109,11 +113,11 @@ class Mail_smtp extends Mail {
         include_once 'Net/SMTP.php';
         
         if (!($smtp = new Net_SMTP($this->host, $this->port))) { return new PEAR_Error('unable to instantiate Net_SMTP object'); }
-        if (!$smtp->connect()) { return new PEAR_Error('unable to connect to smtp server ' . $this->host . ':' . $this->port); }
+        if (PEAR::isError($smtp->connect())) { return new PEAR_Error('unable to connect to smtp server ' . $this->host . ':' . $this->port); }
         
         if ($this->auth) {
-            if (!$smtp->auth($this->username, $this->password)) { return new PEAR_Error('unable to authenticate to smtp server'); }
-            if (!$smtp->identifySender()) { return new PEAR_Error('unable to identify smtp server'); }
+            if (PEAR::isError($smtp->auth($this->username, $this->password))) { return new PEAR_Error('unable to authenticate to smtp server'); }
+            if (PEAR::isError($smtp->identifySender())) { return new PEAR_Error('unable to identify smtp server'); }
         }
         
         list($from, $text_headers) = $this->prepareHeaders($headers);
@@ -121,14 +125,14 @@ class Mail_smtp extends Mail {
             return new PEAR_Error('No from address given');
         }
         
-        if (!($smtp->mailFrom($from))) { return new PEAR_Error('unable to set sender to [' . $from . ']'); }
+        if (PEAR::isError($smtp->mailFrom($from))) { return new PEAR_Error('unable to set sender to [' . $from . ']'); }
         
         $recipients = $this->parseRecipients($recipients);
         foreach($recipients as $recipient) {
-            if (!$smtp->rcptTo($recipient)) { return new PEAR_Error('unable to add recipient [' . $recipient . ']'); }
+            if (PEAR::isError($res = $smtp->rcptTo($recipient))) { return new PEAR_Error('unable to add recipient [' . $recipient . ']: ' . $res->getMessage()); }
         }
 		
-        if (!$smtp->data($text_headers . "\n" . $body)) { return new PEAR_Error('unable to send data'); }
+        if (PEAR::isError($smtp->data($text_headers . "\n" . $body))) { return new PEAR_Error('unable to send data'); }
         
         $smtp->disconnect();
         return true;

@@ -16,7 +16,7 @@
    |          Fredrik Ohrn                                                |
    +----------------------------------------------------------------------+
  */
-/* $Id: yp.c,v 1.1.1.2 2001/07/19 00:20:33 zarzycki Exp $ */
+/* $Id: yp.c,v 1.1.1.3 2001/12/14 22:13:42 zarzycki Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -56,6 +56,7 @@ function_entry yp_functions[] = {
 };
 
 zend_module_entry yp_module_entry = {
+    STANDARD_MODULE_HEADER,
 	"yp",
 	yp_functions,
 	PHP_MINIT(yp),
@@ -63,6 +64,7 @@ zend_module_entry yp_module_entry = {
 	PHP_RINIT(yp),
 	NULL,
 	PHP_MINFO(yp),
+    NO_VERSION_YET,
 	STANDARD_MODULE_PROPERTIES
 };
 
@@ -72,11 +74,11 @@ ZEND_GET_MODULE(yp)
 
 /* {{{ proto string yp_get_default_domain(void)
    Returns the domain or false */
-PHP_FUNCTION(yp_get_default_domain) {
+PHP_FUNCTION(yp_get_default_domain)
+{
 	char *outdomain;
-	YPLS_FETCH();
 
-	if(YP(error) = yp_get_default_domain(&outdomain)) {
+	if((YP(error) = yp_get_default_domain(&outdomain))) {
 		php_error(E_WARNING, yperr_string (YP(error)));
 		RETURN_FALSE;
 	}
@@ -86,7 +88,8 @@ PHP_FUNCTION(yp_get_default_domain) {
 
 /* {{{ proto int yp_order(string domain, string map)            
    Returns the order number or false */
-PHP_FUNCTION(yp_order) {
+PHP_FUNCTION(yp_order)
+{
 	pval **domain, **map;
 
 #if SOLARIS_YP
@@ -95,8 +98,6 @@ PHP_FUNCTION(yp_order) {
 	int outval;
 #endif
 
-	YPLS_FETCH();
-
 	if((ZEND_NUM_ARGS() != 2) || zend_get_parameters_ex(2,&domain,&map) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
@@ -104,7 +105,7 @@ PHP_FUNCTION(yp_order) {
 	convert_to_string_ex(domain);
 	convert_to_string_ex(map);
 
-	if(YP(error) = yp_order(Z_STRVAL_PP (domain), Z_STRVAL_PP (map), &outval)) {
+	if((YP(error) = yp_order(Z_STRVAL_PP (domain), Z_STRVAL_PP (map), &outval))) {
 		php_error(E_WARNING, yperr_string (YP(error)));
 		RETURN_FALSE;
 	}
@@ -115,10 +116,10 @@ PHP_FUNCTION(yp_order) {
 
 /* {{{ proto string yp_master(string domain, string map)
    Returns the machine name of the master */
-PHP_FUNCTION(yp_master) {
+PHP_FUNCTION(yp_master)
+{
 	pval **domain, **map;
 	char *outname;
-	YPLS_FETCH();
 
 	if((ZEND_NUM_ARGS() != 2) || zend_get_parameters_ex(2,&domain,&map) == FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -127,7 +128,7 @@ PHP_FUNCTION(yp_master) {
 	convert_to_string_ex(domain);
 	convert_to_string_ex(map);
 
-	if(YP(error) = yp_master(Z_STRVAL_PP (domain), Z_STRVAL_PP (map), &outname)) {
+	if((YP(error) = yp_master(Z_STRVAL_PP (domain), Z_STRVAL_PP (map), &outname))) {
 		php_error(E_WARNING, yperr_string (YP(error)));
 		RETURN_FALSE;
 	}
@@ -138,11 +139,11 @@ PHP_FUNCTION(yp_master) {
 
 /* {{{ proto string yp_match(string domain, string map, string key)
    Returns the matched line or false */
-PHP_FUNCTION(yp_match) {
+PHP_FUNCTION(yp_match)
+{
 	pval **domain, **map, **key;
 	char *outval;
 	int outvallen;
-	YPLS_FETCH();
 
 	if((ZEND_NUM_ARGS() != 3) || zend_get_parameters_ex(3,&domain,&map,&key) == FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -152,7 +153,7 @@ PHP_FUNCTION(yp_match) {
 	convert_to_string_ex(map);
 	convert_to_string_ex(key);
 
-	if(YP(error) = yp_match(Z_STRVAL_PP (domain), Z_STRVAL_PP (map), Z_STRVAL_PP (key), Z_STRLEN_PP (key), &outval, &outvallen)) {
+	if((YP(error) = yp_match(Z_STRVAL_PP (domain), Z_STRVAL_PP (map), Z_STRVAL_PP (key), Z_STRLEN_PP (key), &outval, &outvallen))) {
 		php_error(E_WARNING, yperr_string (YP(error)));
 		RETURN_FALSE;
 	}
@@ -163,11 +164,11 @@ PHP_FUNCTION(yp_match) {
 
 /* {{{ proto array yp_first(string domain, string map)
    Returns the first key as array with $var[$key] and the the line as the value */
-PHP_FUNCTION(yp_first) {
+PHP_FUNCTION(yp_first)
+{
 	pval **domain, **map;
 	char *outval, *outkey;
 	int outvallen, outkeylen;
-	YPLS_FETCH();
 
 	if((ZEND_NUM_ARGS() != 2) || zend_get_parameters_ex(2,&domain,&map) == FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -176,7 +177,7 @@ PHP_FUNCTION(yp_first) {
 	convert_to_string_ex(domain);
 	convert_to_string_ex(map);
 
-	if(YP(error) = yp_first(Z_STRVAL_PP (domain), Z_STRVAL_PP (map), &outkey, &outkeylen, &outval, &outvallen)) {
+	if((YP(error) = yp_first(Z_STRVAL_PP (domain), Z_STRVAL_PP (map), &outkey, &outkeylen, &outval, &outvallen))) {
 		php_error(E_WARNING, yperr_string (YP(error)));
 		RETURN_FALSE;
 	}
@@ -191,11 +192,11 @@ PHP_FUNCTION(yp_first) {
 
 /* {{{ proto array yp_next(string domain, string map, string key)
    Returns an array with $var[$key] and the the line as the value */
-PHP_FUNCTION(yp_next) {
+PHP_FUNCTION(yp_next)
+{
 	pval **domain, **map, **key;
 	char *outval, *outkey;
 	int outvallen, outkeylen;
-	YPLS_FETCH();
 
 	if((ZEND_NUM_ARGS() != 3) || zend_get_parameters_ex(3,&domain,&map,&key) == FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -205,7 +206,7 @@ PHP_FUNCTION(yp_next) {
 	convert_to_string_ex(map);
 	convert_to_string_ex(key);
 
-	if(YP(error) = yp_next(Z_STRVAL_PP (domain), Z_STRVAL_PP (map), Z_STRVAL_PP (key), Z_STRLEN_PP (key), &outkey, &outkeylen, &outval, &outvallen)) {
+	if((YP(error) = yp_next(Z_STRVAL_PP (domain), Z_STRVAL_PP (map), Z_STRVAL_PP (key), Z_STRLEN_PP (key), &outkey, &outkeylen, &outval, &outvallen))) {
 		php_error(E_WARNING, yperr_string (YP(error)));
 		RETURN_FALSE;
 	}
@@ -215,13 +216,15 @@ PHP_FUNCTION(yp_next) {
 }
 /* }}} */
 
+/* {{{ php_foreach_all
+ */
 static int php_foreach_all (int instatus, char *inkey, int inkeylen, char *inval, int invallen, char *indata)
 {
 	int r;
 	zval *status, *key, *value;
 	zval **args [3];
 	zval *retval;
-	CLS_FETCH();
+	TSRMLS_FETCH();
 
 	args[0] = &status;
 	args[1] = &key;
@@ -236,7 +239,7 @@ static int php_foreach_all (int instatus, char *inkey, int inkeylen, char *inval
 	MAKE_STD_ZVAL (value);
 	ZVAL_STRINGL (value, inval, invallen, 1);
 
-	if(call_user_function_ex(CG(function_table), NULL, *((zval **)indata), &retval, 3, args, 0, NULL) != SUCCESS)
+	if(call_user_function_ex(CG(function_table), NULL, *((zval **)indata), &retval, 3, args, 0, NULL TSRMLS_CC) != SUCCESS)
 	{
 		zend_error(E_ERROR, "Function call failed");
 		return 1;
@@ -253,10 +256,12 @@ static int php_foreach_all (int instatus, char *inkey, int inkeylen, char *inval
 
 	return r;
 }
+/* }}} */
 
 /* {{{ proto void yp_all(string domain, string map, string callback)
    Traverse the map and call a function on each entry */
-PHP_FUNCTION(yp_all) {
+PHP_FUNCTION(yp_all)
+{
 	pval **domain, **map, **php_callback;
 	struct ypall_callback callback;
 
@@ -276,6 +281,8 @@ PHP_FUNCTION(yp_all) {
 }
 /* }}} */
 
+/* {{{ php_foreach_cat
+ */
 static int php_foreach_cat (int instatus, char *inkey, int inkeylen, char *inval, int invallen, char *indata)
 {
 	int err;
@@ -292,17 +299,20 @@ static int php_foreach_cat (int instatus, char *inkey, int inkeylen, char *inval
 
 	if (err != YPERR_NOMORE)
 	{
-		YPLS_FETCH();
+		TSRMLS_FETCH();
+
 		YP(error) = err;
 		php_error(E_WARNING, yperr_string (err));
 	}
 
 	return 0;
 }
+/* }}} */
 
 /* {{{ proto array yp_cat(string domain, string map)
    Return an array containing the entire map */
-PHP_FUNCTION(yp_cat) {
+PHP_FUNCTION(yp_cat)
+{
 	pval **domain, **map;
 	struct ypall_callback callback;
 
@@ -324,9 +334,8 @@ PHP_FUNCTION(yp_cat) {
 
 /* {{{ proto int yp_errno()
    Returns the error code from the last call or 0 if no error occured */
-PHP_FUNCTION(yp_errno) {
-	YPLS_FETCH();
-
+PHP_FUNCTION(yp_errno)
+{
 	if((ZEND_NUM_ARGS() != 0)) {
 		WRONG_PARAM_COUNT;
 	}
@@ -337,7 +346,8 @@ PHP_FUNCTION(yp_errno) {
 
 /* {{{ proto string yp_err_string(int errorcode)
    Returns the corresponding error string for the given error code */
-PHP_FUNCTION(yp_err_string) {
+PHP_FUNCTION(yp_err_string)
+{
 	pval **error;
 	char *string;
 
@@ -355,10 +365,12 @@ PHP_FUNCTION(yp_err_string) {
 }
 /* }}} */
 
+/* {{{ PHP_MINIT_FUNCTION
+ */
 PHP_MINIT_FUNCTION(yp)
 {
 #ifdef ZTS
-	yp_globals_id = ts_allocate_id(sizeof(php_yp_globals), NULL, NULL);
+	ts_allocate_id(&yp_globals_id, sizeof(php_yp_globals), NULL, NULL);
 #endif
 
 	REGISTER_LONG_CONSTANT("YPERR_BADARGS", YPERR_BADARGS, CONST_CS | CONST_PERSISTENT);
@@ -379,16 +391,28 @@ PHP_MINIT_FUNCTION(yp)
 
 	return SUCCESS;
 }
+/* }}} */
 
 PHP_RINIT_FUNCTION(yp)
 {
-	YPLS_FETCH();
 	YP(error) = 0;
+	
+	return SUCCESS;
 }
 
-PHP_MINFO_FUNCTION(yp) {
+PHP_MINFO_FUNCTION(yp)
+{
 	php_info_print_table_start();
 	php_info_print_table_row(2, "YP Support", "enabled");
 	php_info_print_table_end();
 }
 #endif /* HAVE_YP */
+
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
+ */

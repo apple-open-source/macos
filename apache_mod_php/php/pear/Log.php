@@ -1,5 +1,5 @@
 <?php
-// $Id: Log.php,v 1.1.1.1 2001/07/19 00:20:41 zarzycki Exp $
+// $Id: Log.php,v 1.1.1.2 2001/12/14 22:13:59 zarzycki Exp $
 // $Horde: horde/lib/Log.php,v 1.15 2000/06/29 23:39:45 jon Exp $
 
 /**
@@ -8,7 +8,7 @@
  *
  * @author  Chuck Hagenbuch <chuck@horde.org>
  * @author  Jon Parise <jon@csh.rit.edu>
- * @version $Revision: 1.1.1.1 $
+ * @version $Revision: 1.1.1.2 $
  * @since   Horde 1.3
  */
 class Log {
@@ -51,11 +51,13 @@ class Log {
      * @return          The newly created concrete Log instance, or an
      *                  false on an error.
      */
-    function factory ($log_type, $log_name = '', $ident = '', $conf = array()) {
+    function &factory($log_type, $log_name = '', $ident = '', $conf = array())
+    {
         $log_type = strtolower($log_type);
         $classfile = 'Log/' . $log_type . '.php';
-	if (@include_once $classfile) {
-            $class = 'Log_' . $log_type;
+        @include_once $classfile;
+        $class = 'Log_' . $log_type;
+        if (class_exists($class)) {
             return new $class($log_name, $ident, $conf);
         } else {
             return false;
@@ -101,7 +103,7 @@ class Log {
         
         $signature = md5($log_type . '][' . $log_name . '][' . $ident . '][' . implode('][', $conf));
         if (!isset($instances[$signature])) {
-            $instances[$signature] = Log::factory($log_type, $log_name, $ident, $conf);
+            $instances[$signature] = &Log::factory($log_type, $log_name, $ident, $conf);
         }
         return $instances[$signature];
     }

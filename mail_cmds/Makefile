@@ -12,7 +12,7 @@ NAME = mail_cmds
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Aggregate
 
-TOOLS = biff comsat from mail msgs vacation
+TOOLS = biff comsat from mail msgs 
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble
 

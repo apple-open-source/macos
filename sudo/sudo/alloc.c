@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Todd C. Miller <Todd.Miller@courtesan.com>
+ * Copyright (c) 1999-2002 Todd C. Miller <Todd.Miller@courtesan.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -34,36 +34,35 @@
 
 #include "config.h"
 
+#include <sys/types.h>
+#include <sys/param.h>
 #include <stdio.h>
 #ifdef STDC_HEADERS
-#include <stdlib.h>
+# include <stdlib.h>
+# include <stddef.h>
+#else
+# ifdef HAVE_STDLIB_H
+#  include <stdlib.h>
+# endif
 #endif /* STDC_HEADERS */
 #ifdef HAVE_STRING_H
-#include <string.h>
+# include <string.h>
+#else
+# ifdef HAVE_STRINGS_H
+#  include <strings.h>
+# endif
 #endif /* HAVE_STRING_H */
-#ifdef HAVE_STRINGS_H
-#include <strings.h>
-#endif /* HAVE_STRINGS_H */
 #if defined(HAVE_MALLOC_H) && !defined(STDC_HEADERS)
-#include <malloc.h>
+# include <malloc.h>
 #endif /* HAVE_MALLOC_H && !STDC_HEADERS */
-#include <sys/param.h>
-#include <sys/types.h>
 
 #include "sudo.h"
 
-#ifndef STDC_HEADERS
-#if !defined(__GNUC__) && !defined(HAVE_MALLOC_H)
-extern VOID *malloc	__P((size_t));
-#endif /* !__GNUC__ && !HAVE_MALLOC_H */
-#endif /* !STDC_HEADERS */
-
-extern char **Argv;		/* from sudo.c */
-
 #ifndef lint
-static const char rcsid[] = "$Sudo: alloc.c,v 1.8 1999/07/31 16:19:44 millert Exp $";
+static const char rcsid[] = "$Sudo: alloc.c,v 1.11 2002/01/09 16:56:04 millert Exp $";
 #endif /* lint */
 
+extern char **Argv;		/* from sudo.c */
 
 /*
  * emalloc() calls the system malloc(3) and exits with an error if
@@ -75,7 +74,7 @@ emalloc(size)
 {
     VOID *ptr;
 
-    if ((ptr = malloc(size)) == NULL) {
+    if ((ptr = (VOID *) malloc(size)) == NULL) {
 	(void) fprintf(stderr, "%s: cannot allocate memory!\n", Argv[0]);
 	exit(1);
     }
@@ -93,7 +92,8 @@ erealloc(ptr, size)
     size_t size;
 {
 
-    if ((ptr = ptr ? realloc(ptr, size) : malloc(size)) == NULL) {
+    ptr = ptr ? (VOID *) realloc(ptr, size) : (VOID *) malloc(size);
+    if (ptr == NULL) {
 	(void) fprintf(stderr, "%s: cannot allocate memory!\n", Argv[0]);
 	exit(1);
     }

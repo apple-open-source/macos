@@ -1,5 +1,6 @@
-/* 
-   Copyright (C) Andrew Tridgell 1998
+/* -*- c-file-style: "linux"; -*-
+   
+   Copyright (C) 1998-2000 by Andrew Tridgell 
    
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -56,7 +57,7 @@ static void gen_challenge(char *addr, char *challenge)
 	memset(input, 0, sizeof(input));
 
 	strlcpy((char *)input, addr, 17);
-	gettimeofday(&tv, NULL);
+	sys_gettimeofday(&tv);
 	SIVAL(input, 16, tv.tv_sec);
 	SIVAL(input, 20, tv.tv_usec);
 	SIVAL(input, 24, getpid());
@@ -85,7 +86,7 @@ static int get_secret(int module, char *user, char *secret, int len)
 	if (fd == -1) return 0;
 
 	if (do_stat(fname, &st) == -1) {
-		rprintf(FERROR,"stat(%s) : %s\n", fname, strerror(errno));
+		rsyserr(FERROR, errno, "stat(%s)", fname);
 		ok = 0;
 	} else if (lp_strict_modes(module)) {
 		if ((st.st_mode & 06) != 0) {
@@ -104,8 +105,8 @@ static int get_secret(int module, char *user, char *secret, int len)
 
 	while (!found) {
 		int i = 0;
-		memset(line, 0, sizeof(line));
-		while (i<(sizeof(line)-1)) {
+		memset(line, 0, sizeof line);
+		while ((size_t) i < (sizeof(line)-1)) {
 			if (read(fd, &line[i], 1) != 1) {
 				memset(line, 0, sizeof(line));
 				close(fd);
@@ -135,7 +136,6 @@ static int get_secret(int module, char *user, char *secret, int len)
 static char *getpassf(char *filename)
 {
 	char buffer[100];
-	int len=0;
 	int fd=0;
 	STRUCT_STAT st;
 	int ok = 1;
@@ -145,13 +145,13 @@ static char *getpassf(char *filename)
 	if (!filename) return NULL;
 
 	if ( (fd=open(filename,O_RDONLY)) == -1) {
-		rprintf(FERROR,"could not open password file \"%s\"\n",filename);
+		rsyserr(FERROR, errno, "could not open password file \"%s\"",filename);
 		if (envpw) rprintf(FERROR,"falling back to RSYNC_PASSWORD environment variable.\n");	
 		return NULL;
 	}
 	
 	if (do_stat(filename, &st) == -1) {
-		rprintf(FERROR,"stat(%s) : %s\n", filename, strerror(errno));
+		rsyserr(FERROR, errno, "stat(%s)", filename);
 		ok = 0;
 	} else if ((st.st_mode & 06) != 0) {
 		rprintf(FERROR,"password file must not be other-accessible\n");
@@ -170,7 +170,7 @@ static char *getpassf(char *filename)
 	if (envpw) rprintf(FERROR,"RSYNC_PASSWORD environment variable ignored\n");
 
 	buffer[sizeof(buffer)-1]='\0';
-	if ( (len=read(fd,buffer,sizeof(buffer)-1)) > 0)
+	if (read(fd,buffer,sizeof(buffer)-1) > 0)
 	{
 		char *p = strtok(buffer,"\n\r");
 		close(fd);
@@ -234,12 +234,12 @@ char *auth_server(int fd, int module, char *addr, char *leader)
 	if (sscanf(line,"%99s %29s", user, pass) != 2) {
 		return NULL;
 	}
-
+	
 	users = strdup(users);
 	if (!users) return NULL;
 
 	for (tok=strtok(users," ,\t"); tok; tok = strtok(NULL," ,\t")) {
-		if (strcmp(tok, user) == 0) break;
+		if (fnmatch(tok, user, 0) == 0) break;
 	}
 	free(users);
 
@@ -272,6 +272,9 @@ void auth_client(int fd, char *user, char *challenge)
 	if (!user || !*user) return;
 
 	if (!(pass=getpassf(password_file)) && !(pass=getenv("RSYNC_PASSWORD"))) {
+		/* XXX: cyeoh says that getpass is deprecated, because
+		   it may return a truncated password on some systems,
+		   and it is not in the LSB. */
 		pass = getpass("Password: ");
 	}
 

@@ -94,3 +94,4 @@ if [ -f "${archive}" ] &&
 fi
 
 ar $*;
+ranlib $2;

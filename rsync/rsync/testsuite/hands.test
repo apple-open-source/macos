@@ -1,0 +1,30 @@
+#!/bin/sh
+
+# Copyright (C) 1998,1999 Philip Hands <phil@hands.com>
+# Copyright (C) 2001 by Martin Pool <mbp@samba.org>
+#
+# This program is distributable under the terms of the GNU GPL (see COPYING)
+
+. "$suitedir/rsync.fns"
+
+hands_setup
+
+# Main script starts here
+
+runtest "basic operation" 'checkit "$RSYNC -av ${FROM}/ ${TO}" ${FROM}/ ${TO}'
+
+ln ${FROM}/filelist ${FROM}/dir
+runtest "hard links" 'checkit "$RSYNC -avH ${FROM}/ ${TO}" ${FROM}/ ${TO}'
+
+rm ${TO}/text
+runtest "one file" 'checkit "$RSYNC -avH ${FROM}/ ${TO}" ${FROM}/ ${TO}'
+
+echo "extra line" >> ${TO}/text
+runtest "extra data" 'checkit "$RSYNC -avH ${FROM}/ ${TO}" ${FROM}/ ${TO}'
+
+cp ${FROM}/text ${TO}/ThisShouldGo
+runtest " --delete" 'checkit "$RSYNC --delete -avH ${FROM}/ ${TO}" ${FROM}/ ${TO}'
+
+checkforlogs ${LOG}.?
+
+hands_cleanup

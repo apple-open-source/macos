@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: hg_comm.h,v 1.1.1.4 2001/07/19 00:19:13 zarzycki Exp $ */
+/* $Id: hg_comm.h,v 1.1.1.5 2001/12/14 22:12:23 zarzycki Exp $ */
 
 #ifndef HG_COMM_H
 #define HG_COMM_H
@@ -226,13 +226,13 @@ extern int send_incollections(int sockfd, int retcol, int cobjids, hw_objectID *
 extern int send_getsrcbydest(int sockfd, hw_objectID objid, char ***childrec, int *count);
 extern int send_mapid(int sockfd, int servid, hw_objectID id, int *virtid);
 extern int send_dummy(int sockfd, hw_objectID objectID, int msgid, char **attributes);
-extern send_insertanchors(char **text, int *count, char **anchors, char **destrec, int ancount, char **urlprefix, char **bodytag);
+extern int send_insertanchors(char **text, int *count, char **anchors, char **destrec, int ancount, char **urlprefix, char **bodytag);
 extern char *get_hw_info(hw_connection *conn);
 
-#define send_mvcpdocscoll(sockfd,objectIDs,count,from,dest,mvcp) \
-		send_mvcpdocscollscoll(sockfd,objectIDs,count,from,dest,mvcp,DOCUMENT)
-#define send_mvcpcollscoll(sockfd,objectIDs,count,from,dest,mvcp) \
-		send_mvcpdocscollscoll(sockfd,objectIDs,count,from,dest,mvcp,COLLECTION)
+#define send_mvcpdocscoll(sockfd, objectIDs, count, from, dest, mvcp) \
+		send_mvcpdocscollscoll(sockfd, objectIDs, count, from, dest, mvcp, DOCUMENT)
+#define send_mvcpcollscoll(sockfd, objectIDs, count, from, dest, mvcp) \
+		send_mvcpdocscollscoll(sockfd, objectIDs, count, from, dest, mvcp, COLLECTION)
 
 #endif
 #endif

@@ -17,9 +17,9 @@
 // |          Christian Stocker <chregu@nomad.ch>                         |
 // +----------------------------------------------------------------------+
 //
-// $Id: Container.php,v 1.1.1.1 2001/07/19 00:20:43 zarzycki Exp $
+// $Id: Container.php,v 1.1.1.2 2001/12/14 22:14:04 zarzycki Exp $
 
-require_once "Cache/Error.php";
+require_once 'Cache/Error.php';
 
 /**
 * Common base class of all cache storage container.
@@ -39,7 +39,7 @@ require_once "Cache/Error.php";
 * not recommended!
 * 
 * @author   Ulf Wendel <ulf.wendel@phpdoc.de>
-* @version  $Id: Container.php,v 1.1.1.1 2001/07/19 00:20:43 zarzycki Exp $
+* @version  $Id: Container.php,v 1.1.1.2 2001/12/14 22:14:04 zarzycki Exp $
 * @package  Cache
 * @access   public
 * @abstract
@@ -60,14 +60,14 @@ class Cache_Container {
     *
     * @var  string
     */
-    var $id = "";
+    var $id = '';
 
     /**
     * Cache group of a preloaded dataset
     *
     * @var  string
     */
-    var $group = "";
+    var $group = '';
 
     /**
     * Expiration timestamp of a preloaded dataset.
@@ -81,14 +81,14 @@ class Cache_Container {
     * 
     * @var  string
     */
-    var $cachedata = "";
+    var $cachedata = '';
 
     /**
     * Preloaded userdata field.
     * 
     * @var  string
     */
-    var $userdata = "";
+    var $userdata = '';
 
     /**
     * Flag indicating that the dataset requested for preloading is unknown.
@@ -102,7 +102,7 @@ class Cache_Container {
     *
     * @var  string  base64 or slash
     */
-    var $encoding_mode = "base64";
+    var $encoding_mode = 'base64';
     
     /**
     * Highwater mark - maximum space required by all cache entries.
@@ -132,7 +132,7 @@ class Cache_Container {
     * 
     * @var  array
     */
-    var $allowed_options = array("encoding_mode", "highwater", "lowwater");
+    var $allowed_options = array('encoding_mode', 'highwater', 'lowwater');
     
     
     /**
@@ -207,7 +207,7 @@ class Cache_Container {
         // you feel fine, Ulf?
         if ($expired  = ($this->expires <= time() || ($max_age && ($this->expires <= $max_age))) ) {
 
-           $this->delete($id, $group);
+           $this->remove($id, $group);
            $this->flushPreload();
         }
         return $expired;
@@ -270,7 +270,7 @@ class Cache_Container {
     } // end func save
 
     /**
-    * Deletes a dataset.
+    * Removes a dataset.
     * 
     * @param    string  dataset ID
     * @param    string  cache group
@@ -278,10 +278,10 @@ class Cache_Container {
     * @access   public
     * @abstract
     */     
-    function delete($id, $group) {
+    function remove($id, $group) {
         $this->flushPreload($id, $group);
         return NULL;
-    } // end func delete
+    } // end func remove
 
     /**
     * Flushes the cache - removes all caches datasets from the cache.
@@ -348,7 +348,7 @@ class Cache_Container {
     /**
     * Flushes the internal preload buffer.
     *
-    * save(), delete() and flush() must call this method
+    * save(), remove() and flush() must call this method
     * to preevent differences between the preloaded values and 
     * the real cache contents.
     *
@@ -358,13 +358,13 @@ class Cache_Container {
     * @param    string  cache group
     * @see  preload()
     */
-    function flushPreload($id = "", $group = "default") {
+    function flushPreload($id = '', $group = 'default') {
         if (!$id || ($this->id == $id && $this->group == $group)) {
             // clear the internal preload values
-            $this->id = "";
-            $this->group = "";
-            $this->cachedata = "";
-            $this->userdata = "";
+            $this->id = '';
+            $this->group = '';
+            $this->cachedata = '';
+            $this->userdata = '';
             $this->expires = -1;
             $this->unknown = true;
         }
@@ -389,7 +389,7 @@ class Cache_Container {
     * @var  mixed data to encode
     */
     function encode($data) {
-        if ("base64" == $this->encoding_mode) 
+        if ('base64' == $this->encoding_mode) 
             return base64_encode(serialize($data));
         else 
             return serialize($data);
@@ -402,7 +402,7 @@ class Cache_Container {
     * @var  mixed
     */
     function decode($data) {
-        if ("base64" == $this->encoding_mode)
+        if ('base64' == $this->encoding_mode)
             return unserialize(base64_decode($data));
         else
             return unserialize($data);

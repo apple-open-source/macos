@@ -17,7 +17,7 @@
  */
 
 
-/* $Id: php_recode.h,v 1.1.1.3 2001/07/19 00:19:56 zarzycki Exp $ */
+/* $Id: php_recode.h,v 1.1.1.4 2001/12/14 22:13:06 zarzycki Exp $ */
 
 #ifndef PHP_RECODE_H
 #define PHP_RECODE_H
@@ -54,31 +54,21 @@
 extern zend_module_entry recode_module_entry;
 #define phpext_recode_ptr &recode_module_entry
 
-extern PHP_MINIT_FUNCTION(recode);
-extern PHP_MSHUTDOWN_FUNCTION(recode);
-extern PHP_MINFO_FUNCTION(recode);
+PHP_MINIT_FUNCTION(recode);
+PHP_MSHUTDOWN_FUNCTION(recode);
+PHP_MINFO_FUNCTION(recode);
 
-extern PHP_FUNCTION(recode_string);
-extern PHP_FUNCTION(recode_file);
+PHP_FUNCTION(recode_string);
+PHP_FUNCTION(recode_file);
 
 typedef struct {
 	RECODE_OUTER   outer;
 } php_recode_globals;
 
 #ifdef ZTS
-# define ReSLS_D	php_recode_globals *recode_globals
-# define ReSLS_DC	, ReSLS_D
-# define ReSLS_C	recode_globals
-# define ReSLS_CC , ReSLS_C
-# define ReSG(v) (recode_globals->v)
-# define ReSLS_FETCH()	php_recode_globals *recode_globals = ts_resource(recode_globals_id)
+# define ReSG(v) TSRMG(recode_globals_id, php_recode_globals *, v)
 #else
-# define ReSLS_D
-# define ReSLS_DC
-# define ReSLS_C
-# define ReSLS_CC
 # define ReSG(v) (recode_globals.v)
-# define ReSLS_FETCH()
 extern PHP_MYSQL_API php_recode_globals recode_globals;
 #endif
 

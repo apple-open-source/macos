@@ -17,15 +17,14 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_zlib.h,v 1.1.1.4 2001/07/19 00:20:34 zarzycki Exp $ */
+/* $Id: php_zlib.h,v 1.1.1.5 2001/12/14 22:13:43 zarzycki Exp $ */
 
 #ifndef PHP_ZLIB_H
 #define PHP_ZLIB_H
 
 #include <zlib.h>
 
-
-typedef struct {
+ZEND_BEGIN_MODULE_GLOBALS(zlib)
 	int gzgetss_state;
 
 	/* variables for transparent gzip encoding */
@@ -35,7 +34,7 @@ typedef struct {
 	int ob_gzhandler_status;
 	int ob_gzip_coding;
 	int output_compression;
-} php_zlib_globals;
+ZEND_END_MODULE_GLOBALS(zlib)
 
 extern zend_module_entry php_zlib_module_entry;
 #define zlib_module_ptr &php_zlib_module_entry
@@ -65,24 +64,14 @@ PHP_FUNCTION(gzinflate);
 PHP_FUNCTION(gzencode);
 PHP_FUNCTION(ob_gzhandler);
 
-FILE *zlib_fopen_wrapper(char *path, char *mode, int options, int *issock, int *socketd, char **opened_path);
-int php_enable_output_compression(int buffer_size);
+FILE *zlib_fopen_wrapper(const char *path, char *mode, int options, int *issock, int *socketd, char **opened_path TSRMLS_DC);
+int php_enable_output_compression(int buffer_size TSRMLS_DC);
 
 
 #ifdef ZTS
-#define ZLIBLS_D php_zlib_globals *zlib_globals
-#define ZLIBLS_DC , ZLIBLS_D
-#define ZLIBLS_C zlib_globals
-#define ZLIBLS_CC , ZLIBLS_C
-#define ZLIBG(v) (zlib_globals->v)
-#define ZLIBLS_FETCH() php_zlib_globals *zlib_globals = ts_resource(zlib_globals_id)
+#define ZLIBG(v) TSRMG(zlib_globals_id, zend_zlib_globals *, v)
 #else
-#define ZLIBLS_D
-#define ZLIBLS_DC
-#define ZLIBLS_C
-#define ZLIBLS_CC
 #define ZLIBG(v) (zlib_globals.v)
-#define ZLIBLS_FETCH()
 #endif
 
 #define phpext_zlib_ptr zlib_module_ptr

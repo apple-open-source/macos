@@ -4,21 +4,24 @@
 *              All rights reserved.
 *
 * Filename:    $RCSfile: debug.h,v $
-* Version:    $Revision: 1.1.1.2 $
+* Version:    $Revision: 1.1.1.3 $
 *
 * Language:    ANSI C
 * Environment:  any
 *
 * Description:  General header file for portable code.
 *
-* $Id: debug.h,v 1.1.1.2 2000/09/07 00:05:29 wsanchez Exp $
+* $Id: debug.h,v 1.1.1.3 2001/12/14 22:12:22 zarzycki Exp $
 *
 * Revision History:
 * -----------------
 *
 * $Log: debug.h,v $
-* Revision 1.1.1.2  2000/09/07 00:05:29  wsanchez
-* Import of PHP 4.0.2
+* Revision 1.1.1.3  2001/12/14 22:12:22  zarzycki
+* Import of php-4.1
+*
+* Revision 1.3  2001/08/11 16:38:30  zeev
+* Whitespace
 *
 * Revision 1.2  2000/07/02 23:46:41  sas
 * Change header protection macros to conform to standard.
@@ -153,35 +156,35 @@
 #define  NUMELE(a)    (sizeof(a)/sizeof(*(a)))
 #define  LASTELE(a)    ((a) + (NUMELE(a)-1))
 #ifdef  LDATA
-#define  TOOHIGH(a,p)  ((long)PHYS(p) - (long)PHYS(a) > (long)(NUMELE(a)-1))
-#define  TOOLOW(a,p)    ((long)PHYS(p) - (long)PHYS(a) < 0)
+#define  TOOHIGH(a, p)  ((long)PHYS(p) - (long)PHYS(a) > (long)(NUMELE(a)-1))
+#define  TOOLOW(a, p)    ((long)PHYS(p) - (long)PHYS(a) < 0)
 #else
-#define  TOOHIGH(a,p)  ((long)(p) - (long)(a) > (long)(NUMELE(a)-1))
-#define  TOOLOW(a,p)    ((long)(p) - (long)(a) < 0)
+#define  TOOHIGH(a, p)  ((long)(p) - (long)(a) > (long)(NUMELE(a)-1))
+#define  TOOLOW(a, p)    ((long)(p) - (long)(a) < 0)
 #endif
-#define  INBOUNDS(a,p)  ( ! (TOOHIGH(a,p) || TOOLOW(a,p)) )
+#define  INBOUNDS(a, p)  ( ! (TOOHIGH(a, p) || TOOLOW(a, p)) )
 
-#define  _IS(t,x) (((t)1 << (x)) != 0)  /* Evaluates true if the width of */
+#define  _IS(t, x) (((t)1 << (x)) != 0)  /* Evaluates true if the width of */
                     /* variable of type t is < x.    */
                     /* The != 0 assures that the      */
                     /* answer is 1 or 0          */
 
-#define  NBITS(t) (4 * (1 + _IS(t,4) + _IS(t,8) + _IS(t,12) + _IS(t,16) \
-             + _IS(t,20) + _IS(t,24) + _IS(t,28) + _IS(t,32)))
+#define  NBITS(t) (4 * (1 + _IS(t, 4) + _IS(t, 8) + _IS(t, 12) + _IS(t, 16) \
+             + _IS(t, 20) + _IS(t, 24) + _IS(t, 28) + _IS(t, 32)))
 
 #define  MAXINT      (((unsigned)~0) >> 1)
 
 #ifndef  MAX
-#    define MAX(a,b)  ( ((a) > (b)) ? (a) : (b))
+#    define MAX(a, b)  ( ((a) > (b)) ? (a) : (b))
 #endif
 #ifndef  MIN
-#    define MIN(a,b) ( ((a) < (b)) ? (a) : (b))
+#    define MIN(a, b) ( ((a) < (b)) ? (a) : (b))
 #endif
 #ifndef  ABS
 #    define ABS(a)  ((a) >= 0 ? (a) : -(a))
 #endif
 
-#define  RANGE(a,b,c)  ( (a) <= (b) && (b) <= (c) )
+#define  RANGE(a, b, c)  ( (a) <= (b) && (b) <= (c) )
 
 /* General typedefs  */
 

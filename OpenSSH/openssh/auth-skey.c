@@ -22,7 +22,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 #include "includes.h"
-RCSID("$OpenBSD: auth-skey.c,v 1.12 2001/05/18 14:13:28 markus Exp $");
+RCSID("$OpenBSD: auth-skey.c,v 1.16 2002/01/12 13:10:29 markus Exp $");
 
 #ifdef SKEY
 
@@ -40,7 +40,7 @@ skey_init_ctx(Authctxt *authctxt)
 #define PROMPT "\nS/Key Password: "
 
 static int
-skey_query(void *ctx, char **name, char **infotxt, 
+skey_query(void *ctx, char **name, char **infotxt,
     u_int* numprompts, char ***prompts, u_int **echo_on)
 {
 	Authctxt *authctxt = ctx;
@@ -60,8 +60,7 @@ skey_query(void *ctx, char **name, char **infotxt,
 
 	len = strlen(challenge) + strlen(PROMPT) + 1;
 	p = xmalloc(len);
-	p[0] = '\0';
-	strlcat(p, challenge, len);
+	strlcpy(p, challenge, len);
 	strlcat(p, PROMPT, len);
 	(*prompts)[0] = p;
 
@@ -72,9 +71,9 @@ static int
 skey_respond(void *ctx, u_int numresponses, char **responses)
 {
 	Authctxt *authctxt = ctx;
- 
+
 	if (authctxt->valid &&
-	    numresponses == 1 && 
+	    numresponses == 1 &&
 	    skey_haskey(authctxt->pw->pw_name) == 0 &&
 	    skey_passcheck(authctxt->pw->pw_name, responses[0]) != -1)
 	    return 0;

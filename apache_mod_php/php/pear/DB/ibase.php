@@ -16,7 +16,7 @@
 // | Authors: Sterling Hughes <sterling@php.net>                          |
 // +----------------------------------------------------------------------+
 //
-// $Id: ibase.php,v 1.1.1.3 2001/07/19 00:20:44 zarzycki Exp $
+// $Id: ibase.php,v 1.1.1.4 2001/12/14 22:14:20 zarzycki Exp $
 //
 // Database independent query interface definition for PHP's Interbase
 // extension.
@@ -39,19 +39,25 @@ class DB_ibase extends DB_common
         $this->features = array(
             'prepare' => true,
             'pconnect' => true,
-            'transactions' => true
+            'transactions' => true,
+            'limit' => false
         );
     }
 
     function connect($dsninfo, $persistent = false)
     {
+        if (!DB::assertExtension('interbase'))
+            return $this->raiseError(DB_ERROR_EXTENSION_NOT_FOUND);
+
         $this->dsn = $dsninfo;
         $user = $dsninfo['username'];
         $pw = $dsninfo['password'];
         $dbhost = $dsninfo['hostspec'] ?
                   ($dsninfo['hostspec'] . ':/' . $dsninfo['database']) :
                   $dsninfo['database'];
+
         $connect_function = $persistent ? 'ibase_pconnect' : 'ibase_connect';
+
         if ($dbhost && $user && $pw) {
             $conn = $connect_function($dbhost, $user, $pw);
         } elseif ($dbhost && $user) {
@@ -70,18 +76,21 @@ class DB_ibase extends DB_common
 
     function disconnect()
     {
-        return @ibase_close($this->connection);
+        $ret = @ibase_close($this->connection);
+        $this->connection = null;
+        return $ret;
     }
 
     function simpleQuery($query)
     {
+        $ismanip = DB::isManip($query);
         $this->last_query = $query;
         $query = $this->modifyQuery($query);
         $result = @ibase_query($this->connection, $query);
         if (!$result) {
             return $this->raiseError();
         }
-        if ($this->autocommit) {
+        if ($this->autocommit && $ismanip) {
             ibase_commit($this->connection);
         }
         // Determine which queries that should return data, and which
@@ -89,7 +98,25 @@ class DB_ibase extends DB_common
         return DB::isManip($query) ? DB_OK : $result;
     }
 
-    function &fetchRow($result, $fetchmode=DB_FETCHMODE_DEFAULT)
+    // {{{ nextResult()
+
+    /**
+     * Move the internal ibase result pointer to the next available result
+     *
+     * @param a valid fbsql result resource
+     *
+     * @access public
+     *
+     * @return true if a result is available otherwise return false
+     */
+    function nextResult($result)
+    {
+        return false;
+    }
+
+    // }}}
+
+    function &fetchRow($result, $fetchmode = DB_FETCHMODE_DEFAULT)
     {
         if ($fetchmode == DB_FETCHMODE_DEFAULT) {
             $fetchmode = $this->fetchmode;
@@ -109,7 +136,7 @@ class DB_ibase extends DB_common
         return $row;
     }
 
-    function fetchInto($result, &$ar, $fetchmode=DB_FETCHMODE_DEFAULT, $rownum=null)
+    function fetchInto($result, &$ar, $fetchmode = DB_FETCHMODE_DEFAULT, $rownum = null)
     {
         if ($rownum !== NULL) {
             return $this->raiseError(DB_ERROR_NOT_CAPABLE);
@@ -118,7 +145,7 @@ class DB_ibase extends DB_common
             $fetchmode = $this->fetchmode;
         }
         if ($fetchmode & DB_FETCHMODE_ASSOC) {
-            return $this->raiseError(DB_ERROR_NOT_CAPABLE);
+            $ar = (array)ibase_fetch_object($result);
         } else {
             $ar = ibase_fetch_row($result);
         }
@@ -170,7 +197,7 @@ class DB_ibase extends DB_common
         if ($this->autocommit) {
             ibase_commit($this->connection);
         }
-        return DB::isManip($this->manip_query[(int)$stmt]) ? DB_OK : $result;
+        return DB::isManip($this->manip_query[(int)$stmt]) ? DB_OK : new DB_result($this, $result);
     }
 
     function autoCommit($onoff = false)
@@ -193,7 +220,27 @@ class DB_ibase extends DB_common
     {
         return $trans_args ? ibase_trans($trans_args, $this->connection) : ibase_trans();
     }
+
+    // {{{ getSpecialQuery()
+
+    /**
+    * Returns the query needed to get some backend info
+    * @param string $type What kind of info you want to retrieve
+    * @return string The SQL query string
+    */
+    function getSpecialQuery($type)
+    {
+        switch ($type) {
+            case 'tables':
+            default:
+                return null;
+        }
+        return $sql;
+    }
+
+    // }}}
 }
+
 
 /*
  * Local variables:

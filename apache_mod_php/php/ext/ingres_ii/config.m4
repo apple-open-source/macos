@@ -1,4 +1,4 @@
-dnl $Id: config.m4,v 1.1.1.3 2001/07/19 00:19:17 zarzycki Exp $
+dnl $Id: config.m4,v 1.1.1.4 2001/12/14 22:12:27 zarzycki Exp $
 dnl config.m4 for extension ingres_ii
 
 PHP_ARG_WITH(ingres, for Ingres II support,

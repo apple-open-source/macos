@@ -17,6 +17,8 @@
 // |                                                                      |
 // +----------------------------------------------------------------------+
 //
+// $Id: oci8.php,v 1.1.1.4 2001/12/14 22:14:25 zarzycki Exp $
+//
 // Database independent query interface definition for PHP's Oracle 8
 // call-interface extension.
 //
@@ -52,7 +54,8 @@ class DB_oci8 extends DB_common
         $this->features = array(
             'prepare' => false,
             'pconnect' => true,
-            'transactions' => true
+            'transactions' => true,
+            'limit' => 'alter'
         );
         $this->errorcode_map = array(
             900 => DB_ERROR_SYNTAX,
@@ -82,13 +85,16 @@ class DB_oci8 extends DB_common
      */
     function connect($dsninfo, $persistent = false)
     {
+        if (!DB::assertExtension("oci8"))
+            return $this->raiseError(DB_ERROR_EXTENSION_NOT_FOUND);
+
         $this->dsn = $dsninfo;
         $user = $dsninfo['username'];
         $pw = $dsninfo['password'];
         $hostspec = $dsninfo['hostspec'];
 
-        DB::assertExtension("oci8");
         $connect_function = $persistent ? 'OCIPLogon' : 'OCILogon';
+
         if ($hostspec) {
             $conn = @$connect_function($user,$pw,$hostspec);
         } elseif ($user || $pw) {
@@ -113,7 +119,9 @@ class DB_oci8 extends DB_common
      */
     function disconnect()
     {
-        return @OCILogOff($this->connection);
+        $ret = @OCILogOff($this->connection);
+        $this->connection = null;
+        return $ret;
     }
 
     // }}}
@@ -149,6 +157,23 @@ class DB_oci8 extends DB_common
         // Determine which queries that should return data, and which
         // should return an error code only.
         return DB::isManip($query) ? DB_OK : $result;
+    }
+
+    // }}}
+    // {{{ nextResult()
+
+    /**
+     * Move the internal oracle result pointer to the next available result
+     *
+     * @param a valid fbsql result resource
+     *
+     * @access public
+     *
+     * @return true if a result is available otherwise return false
+     */
+    function nextResult($result)
+    {
+        return false;
     }
 
     // }}}
@@ -243,7 +268,7 @@ class DB_oci8 extends DB_common
         // emulate numRows for Oracle.  yuck.
         if ($this->options['optimize'] == 'portability' &&
             $result === $this->last_stmt) {
-            $countquery = preg_replace('/^\s*SELECT\s+(.*)\s+FROM\s+/i',
+            $countquery = preg_replace('/^\s*SELECT\s+(.*?)[,\s].*\s+FROM\s+/is',
                                        'SELECT COUNT(\1) FROM ',
                                        $this->last_query);
             $save_query = $this->last_query;
@@ -363,10 +388,10 @@ class DB_oci8 extends DB_common
         }
         for ($i = 0; $i < $size; $i++) {
             if (is_array($data)) {
-                $pdata[$i] = $data[$i];
+                $pdata[$i] = &$data[$i];
             }
             else {
-                $pdata[$i] = $data;
+                $pdata[$i] = &$data;
             }
             if ($types[$i] == DB_PARAM_OPAQUE) {
                 $fp = fopen($pdata[$i], "r");
@@ -392,9 +417,9 @@ class DB_oci8 extends DB_common
         }
         $this->last_stmt = $stmt;
         if ($this->manip_query[(int)$stmt]) {
-            return $DB_OK;
+            return DB_OK;
         } else {
-            return $stmt;
+            return new DB_result($this, $stmt);
         }
     }
 
@@ -481,11 +506,67 @@ class DB_oci8 extends DB_common
     }
 
     // }}}
-    // {{{ quoteString()
+    // {{{ modifyLimitQuery()
 
-    function quoteString($string)
+    /**
+    * Emulate the row limit support altering the query
+    *
+    * @param string $query The query to treat
+    * @param int    $from  The row to start to fetch from
+    * @param int    $count The offset
+    * @return string The modified query
+    *
+    * @author Tomas V.V.Cox <cox@idecnet.com>
+    */
+    function modifyLimitQuery($query, $from, $count)
     {
-        return str_replace("'", "''", $string);
+        // Find fields (supports UNIONs also)
+        $t = preg_split('/\s+FROM\s+/is', $query);
+        $f = preg_replace('/^\s*SELECT\s+/is', '', $t[0]);
+
+        // Put the "Order by" statement at the end of the final query
+        if (preg_match('/\s+ORDER\s+BY\s+.*/is', $query, $match)) {
+            $orderby = $match[0];
+            $query = substr($query, 0, -1 * strlen($orderby));
+        } else {
+            $orderby = '';
+        }
+
+        // Field parsing: Try to find final column names
+        $fa = array();
+        $grab = true;
+        $tmpbuff = '';
+        for ($i = 0; $i < strlen($f); $i++) {
+            // Probably doesn't work if the query contains a funcion without
+            // alias ("AS"), for ex: to_char(...) as date
+            if ($f{$i} == '(') { //don't parse commas acting as func params
+                $grab = false;
+            } elseif ($f{$i} == ')') {
+                $grab = true;
+            }
+            if (preg_match('/\sAS\s/i', substr($tmpbuff, -4))) {
+                $tmpbuff = '';
+            }
+            if ($f{$i} == ',' && $grab) {
+                $fa[] = $tmpbuff;
+                $tmpbuff = '';
+                continue;
+            }
+            $tmpbuff .= $f{$i};
+        }
+        $fa[] = $tmpbuff;
+        $fields = implode(', ', $fa);
+
+        // Construct the query
+        // more at: http://marc.theaimsgroup.com/?l=php-db&m=99831958101212&w=2
+        $query = "SELECT $fields FROM".
+                 "  (SELECT rownum as linenum, $fields FROM".
+                 "      ($query)".
+                 "  ) ".
+                 "WHERE linenum BETWEEN $from AND ". ($from + $count) .
+                 "$orderby";
+
+        return $query;
     }
 
     // }}}
@@ -564,6 +645,27 @@ class DB_oci8 extends DB_common
     }
 
     // }}}
+    // {{{ getSpecialQuery()
+
+    /**
+    * Returns the query needed to get some backend info
+    * @param string $type What kind of info you want to retrieve
+    * @return string The SQL query string
+    */
+    function getSpecialQuery($type)
+    {
+        switch ($type) {
+            case 'tables':
+                $sql = "SELECT table_name FROM user_tables";
+                break;
+            default:
+                return null;
+        }
+        return $sql;
+    }
+
+    // }}}
+
 }
 
 // Local variables:

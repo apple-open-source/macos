@@ -15,7 +15,7 @@
    | Authors: Jim Winstead (jimw@php.net)                                 |
    +----------------------------------------------------------------------+
  */
-/* $Id: url.h,v 1.1.1.3 2001/07/19 00:20:23 zarzycki Exp $ */
+/* $Id: url.h,v 1.1.1.4 2001/12/14 22:13:29 zarzycki Exp $ */
 
 #ifndef URL_H
 #define URL_H
@@ -31,12 +31,12 @@ typedef struct php_url {
 	char *fragment;
 } php_url;
 
-void free_url(php_url *);
-extern php_url *url_parse(char *);
-extern int php_url_decode(char *, int); /* return value: length of decoded string */
-extern char *php_url_encode(char *, int);
-extern int php_raw_url_decode(char *, int); /* return value: length of decoded string */
-extern char *php_raw_url_encode(char *, int);
+PHPAPI void php_url_free(php_url *theurl);
+PHPAPI php_url *php_url_parse(char *str);
+PHPAPI int php_url_decode(char *str, int len); /* return value: length of decoded string */
+PHPAPI int php_raw_url_decode(char *str, int len); /* return value: length of decoded string */
+PHPAPI char *php_url_encode(char *s, int len, int *new_length);
+PHPAPI char *php_raw_url_encode(char *s, int len, int *new_length);
 
 PHP_FUNCTION(parse_url);
 PHP_FUNCTION(urlencode);

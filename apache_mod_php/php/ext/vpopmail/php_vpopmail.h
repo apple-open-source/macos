@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_vpopmail.h,v 1.1.1.1 2001/07/19 00:20:28 zarzycki Exp $ */
+/* $Id: php_vpopmail.h,v 1.1.1.2 2001/12/14 22:13:35 zarzycki Exp $ */
 
 #ifndef PHP_VPOPMAIL_H
 #define PHP_VPOPMAIL_H
@@ -53,6 +53,14 @@ PHP_FUNCTION(vpopmail_del_user);
 PHP_FUNCTION(vpopmail_passwd);
 PHP_FUNCTION(vpopmail_set_user_quota);
 PHP_FUNCTION(vpopmail_auth_user);
+/* alias management */
+#if HAVE_VPOPMAIL_VALIAS
+PHP_FUNCTION(vpopmail_alias_add);
+PHP_FUNCTION(vpopmail_alias_del);
+PHP_FUNCTION(vpopmail_alias_del_domain);
+PHP_FUNCTION(vpopmail_alias_get);
+PHP_FUNCTION(vpopmail_alias_get_all);
+#endif
 /* error handling */
 PHP_FUNCTION(vpopmail_error);
 
@@ -67,11 +75,9 @@ ZEND_BEGIN_MODULE_GLOBALS(vpopmail)
 ZEND_END_MODULE_GLOBALS(vpopmail)
 
 #ifdef ZTS
-#define VPOPMAILG(v) (vpopmail_globals->v)
-#define VPOPMAILLS_FETCH() php_vpopmail_globals *vpopmail_globals = ts_resource(gd_vpopmail_id)
+#define VPOPMAILG(v) TSRMG(vpopmail_globals_id, zend_vpopmail_globals *, v)
 #else
 #define VPOPMAILG(v) (vpopmail_globals.v)
-#define VPOPMAILLS_FETCH()
 #endif
 
 #else

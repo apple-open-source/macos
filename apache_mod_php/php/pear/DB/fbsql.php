@@ -17,6 +17,8 @@
 // |                                                                      |
 // +----------------------------------------------------------------------+
 //
+// $Id: fbsql.php,v 1.1.1.2 2001/12/14 22:14:19 zarzycki Exp $
+//
 // Database independent query interface definition for PHP's FrontBase
 // extension.
 //
@@ -58,7 +60,8 @@ class DB_fbsql extends DB_common
         $this->features = array(
             'prepare' => false,
             'pconnect' => true,
-            'transactions' => true
+            'transactions' => true,
+            'limit' => 'emulate'
         );
         $this->errorcode_map = array(
             1004 => DB_ERROR_CANNOT_CREATE,
@@ -94,12 +97,14 @@ class DB_fbsql extends DB_common
 
     function connect($dsninfo, $persistent = false)
     {
+        if (!DB::assertExtension('fbsql'))
+            return $this->raiseError(DB_ERROR_EXTENSION_NOT_FOUND);
+
         $this->dsn = $dsninfo;
         $dbhost = $dsninfo['hostspec'] ? $dsninfo['hostspec'] : 'localhost';
         $user = $dsninfo['username'];
         $pw = $dsninfo['password'];
 
-        DB::assertExtension('fbsql');
         $connect_function = $persistent ? 'fbsql_pconnect' : 'fbsql_connect';
 
         ini_set('track_errors', true);
@@ -144,7 +149,9 @@ class DB_fbsql extends DB_common
      */
     function disconnect()
     {
-        return fbsql_close($this->connection);
+        $ret = fbsql_close($this->connection);
+        $this->connection = null;
+        return $ret;
     }
 
     // }}}
@@ -181,6 +188,23 @@ class DB_fbsql extends DB_common
         }
         $this->num_rows[$result] = $numrows;
         return $result;
+    }
+
+    // }}}
+    // {{{ nextResult()
+
+    /**
+     * Move the internal fbsql result pointer to the next available result
+     *
+     * @param a valid fbsql result resource
+     *
+     * @access public
+     *
+     * @return true if a result is available otherwise return false
+     */
+    function nextResult($result)
+    {
+        return @fbsql_next_result($result);
     }
 
     // }}}
@@ -223,9 +247,7 @@ class DB_fbsql extends DB_common
     function fetchInto($result, &$arr, $fetchmode, $rownum=null)
     {
         if ($rownum !== null) {
-            if (($rownum > 0) && ($rownum <= $this->num_rows[$result])) {
-                @fbsql_data_seek($result, $rownum);
-            } else {
+            if (!@fbsql_data_seek($result, $rownum)) {
                 return null;
             }
         }
@@ -437,7 +459,7 @@ class DB_fbsql extends DB_common
     function dropSequence($seq_name)
     {
         $sqn = preg_replace('/[^a-z0-9_]/i', '_', $seq_name);
-        return $this->query("DROP TABLE ${sqn}_seq");
+        return $this->query("DROP TABLE ${sqn}_seq RESTRICT");
     }
 
     // }}}
@@ -558,19 +580,37 @@ class DB_fbsql extends DB_common
         }
 
         // free the result only if we were called on a table
-        if ($table) {
+        if (is_string($result)) {
             @fbsql_free_result($id);
         }
         return $res;
     }
 
     // }}}
+    // {{{ getSpecialQuery()
 
-    // TODO/wishlist:
-    // simpleFetch
-    // simpleGet
-    // longReadlen
-    // binmode
+    /**
+    * Returns the query needed to get some backend info
+    * @param string $type What kind of info you want to retrieve
+    * @return string The SQL query string
+    */
+    function getSpecialQuery($type)
+    {
+        switch ($type) {
+            case 'tables':
+                $sql = 'select "table_name" from information_schema.tables';
+                break;
+            default:
+                return null;
+        }
+        return $sql;
+    }
+
+    // }}}
 }
+
+// TODO/wishlist:
+// longReadlen
+// binmode
 
 ?>

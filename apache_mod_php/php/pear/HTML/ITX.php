@@ -16,7 +16,7 @@
 // | Authors: Ulf Wendel <ulf.wendel@phpdoc.de>                           |
 // +----------------------------------------------------------------------+
 //
-// $Id: ITX.php,v 1.1.1.1 2001/07/19 00:20:49 zarzycki Exp $
+// $Id: ITX.php,v 1.1.1.2 2001/12/14 22:14:54 zarzycki Exp $
 //
 
 require_once "HTML/IT.php";
@@ -28,14 +28,14 @@ require_once "HTML/IT.php";
 * You may have one file with blocks in it but you have as well one main file 
 * and multiple files one for each block. This is quite usefull when you have
 * user configurable websites. Using blocks not in the main template allows
-* you to some parts of your layout easily. 
+* you to modify some parts of your layout easily. 
 *
-* Note that you can replace an existing block and add new blocks add runtime.
+* Note that you can replace an existing block and add new blocks at runtime.
 * Adding new blocks means changing a variable placeholder to a block.
 *
 * @author   Ulf Wendel <uw@netuse.de>
 * @access   public
-* @version  $Id: ITX.php,v 1.1.1.1 2001/07/19 00:20:49 zarzycki Exp $
+* @version  $Id: ITX.php,v 1.1.1.2 2001/12/14 22:14:54 zarzycki Exp $
 * @package  IT[X]
 */
 class IntegratedTemplateExtension extends IntegratedTemplate {
@@ -109,7 +109,7 @@ class IntegratedTemplateExtension extends IntegratedTemplate {
     /**
     * Builds some complex regexps and calls the constructor of the parent class.
     *
-    * Make sure that you call this constructor if you derive you own 
+    * Make sure that you call this constructor if you derive your own 
     * template class from this one.
     *
     * @see    IntegratedTemplate()
@@ -211,7 +211,7 @@ class IntegratedTemplateExtension extends IntegratedTemplate {
     * @access   public
     */    
     function addBlock($placeholder, $blockname, $template) {
-    
+
         // Don't trust any user even if it's a programmer or yourself...
         if ("" == $placeholder) {
         
@@ -219,7 +219,6 @@ class IntegratedTemplateExtension extends IntegratedTemplate {
             
         } else if ("" == $blockname || !preg_match($this->checkblocknameRegExp, $blockname) ) {
             
-            print $this->checkblocknameRegExp;
             return new IT_Error("No or invalid blockname '$blockname' given.", __FILE__, __LINE__);
             
         } else if ("" == $template) {
@@ -231,8 +230,7 @@ class IntegratedTemplateExtension extends IntegratedTemplate {
             return new IT_Error("The block already exists.", __FILE__, __LINE__);
             
         }
-        
-        // Hmm, we should do some more tests.
+
         $parents = $this->findPlaceholderBlocks($placeholder);
         if (0 == count($parents)) {
         
@@ -253,16 +251,22 @@ class IntegratedTemplateExtension extends IntegratedTemplate {
         $this->findBlocks($template);
         if ($this->flagBlocktrouble) 
             return false;    // findBlocks() already throws an exception
-        
+      
         $this->blockinner[$parents[0]][] = $blockname;
-        $this->blocklist[$parents[0]] = preg_replace(   "@" . $this->openingDelimiter . $placeholder . $this->closingDelimiter . "@", 
-                                                        $this->openingDelimiter . "__" . $blockname . "__" . $this->closingDelimiter, 
-                                                        $this->blocklist[$parents[0]]
-                                                      );
-                                                                                                
+        $this->blocklist[$parents[0]] = preg_replace("@".$this->openingDelimiter.$placeholder.$this->closingDelimiter."@", 
+                                                     $this->openingDelimiter."__".$blockname."__".$this->closingDelimiter, 
+                                                     $this->blocklist[$parents[0]]
+                                                     );
+
         $this->deleteFromBlockvariablelist($parents[0], $placeholder);
         $this->updateBlockvariablelist($blockname);
-        
+        // check if any inner blocks were found
+        if(is_array($this->blockinner[$blockname]) and count($this->blockinner[$blockname]) > 0) {
+            // loop through inner blocks, registering the variable placeholders in each
+            foreach($this->blockinner[$blockname] as $childBlock) {
+                $this->updateBlockvariablelist($childBlock);
+            }
+        }
         return true;
     } // end func addBlock
     
@@ -474,9 +478,10 @@ class IntegratedTemplateExtension extends IntegratedTemplate {
             return array();
             
         $variables = array();
-        foreach ($this->blockvariables as $variable => $v)
+        foreach ($this->blockvariables[$block] as $variable => $v) {
             $variables[$variable] = $variable;
-            
+        }
+
         return $variables;
     } // end func getBlockvariables
     
@@ -584,10 +589,10 @@ class IntegratedTemplateExtension extends IntegratedTemplate {
             $variables = array($variables => true);
             
         reset($this->blockvariables[$block]);
-        while (list($k, $varname) = each($this->blockvariables[$block])) 
+        while (list($varname, $val) = each($this->blockvariables[$block])) 
             if (isset($variables[$varname])) 
-                unset($this->blockvariables[$block][$k]);
-                    
+                unset($this->blockvariables[$block][$varname]);
+        
     } // end deleteFromBlockvariablelist
 
     /**
@@ -596,10 +601,16 @@ class IntegratedTemplateExtension extends IntegratedTemplate {
     * @param    string    Blockname
     */    
     function updateBlockvariablelist($block) {
-        
+
         preg_match_all( $this->variablesRegExp, $this->blocklist[$block], $regs );
-        $this->blockvariables[$block] = $regs[1];
-            
+
+        if (0 != count($regs[1])) {
+            foreach ($regs[1] as $k => $var) {
+                $this->blockvariables[$block][$var] = true;
+            }
+        } else {
+            $this->blockvariables[$block] = array();
+        }
     } // end func updateBlockvariablelist
     
     /**
@@ -609,18 +620,17 @@ class IntegratedTemplateExtension extends IntegratedTemplate {
     * @return    array    $parents    parents[0..n] = blockname
     */
     function findPlaceholderBlocks($variable) {
-        
         $parents = array();
-        
         reset($this->blocklist);
         while (list($blockname, $content) = each($this->blocklist)) {
-            
             reset($this->blockvariables[$blockname]);
-            while (list($k, $varname) = each($this->blockvariables[$blockname]))
-                if ($variable == $varname) 
+            while (list($varname, $val) = each($this->blockvariables[$blockname])) {
+                if ($variable == $varname) {
                     $parents[] = $blockname;
+                }
+            }
         }
-            
+
         return $parents;
     } // end func findPlaceholderBlocks
     

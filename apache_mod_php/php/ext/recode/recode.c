@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
  
-/* $Id: recode.c,v 1.1.1.3 2001/07/19 00:19:56 zarzycki Exp $ */
+/* $Id: recode.c,v 1.1.1.4 2001/12/14 22:13:06 zarzycki Exp $ */
 
 /* {{{ includes & prototypes */
 
@@ -54,13 +54,15 @@ static zend_function_entry php_recode_functions[] = {
 };
 
 zend_module_entry recode_module_entry = {
-	"Recode", 
+    STANDARD_MODULE_HEADER,
+	"recode", 
 	php_recode_functions, 
 	PHP_MINIT(recode), 
 	PHP_MSHUTDOWN(recode), 
 	NULL,
 	NULL, 
 	PHP_MINFO(recode), 
+    NO_VERSION_YET,
 	STANDARD_MODULE_PROPERTIES
 };
 
@@ -74,7 +76,6 @@ ZEND_GET_MODULE(recode)
 
 PHP_MINIT_FUNCTION(recode)
 {
-	ReSLS_FETCH();
 	ReSG(outer)	  = recode_new_outer(true);
 	if (ReSG(outer) == NULL)
 		return FAILURE;
@@ -85,22 +86,18 @@ PHP_MINIT_FUNCTION(recode)
 
 PHP_MSHUTDOWN_FUNCTION(recode)
 {
-	ReSLS_FETCH();
-
-	if (ReSG(outer))
+	if (ReSG(outer)) {
 		recode_delete_outer(ReSG(outer));
-
+	}
 	return SUCCESS;
 }
 
 
 PHP_MINFO_FUNCTION(recode)
 {
-	ReSLS_FETCH();
-
 	php_info_print_table_start();
 	php_info_print_table_row(2, "Recode Support", "enabled");
-	php_info_print_table_row(2, "Revision", "$Revision: 1.1.1.3 $");
+	php_info_print_table_row(2, "Revision", "$Revision: 1.1.1.4 $");
 	php_info_print_table_end();
 
 }
@@ -116,8 +113,7 @@ PHP_FUNCTION(recode_string)
 	pval **req;
 	bool success;
 	int r_len=0, r_alen =0;
-	
-	ReSLS_FETCH();
+
 	if (ZEND_NUM_ARGS() != 2
 	 || zend_get_parameters_ex(2, &req, &str) == FAILURE) {
 	 	WRONG_PARAM_COUNT;
@@ -169,20 +165,19 @@ PHP_FUNCTION(recode_file)
 	FILE  *in_fp,  *out_fp;
 	int    in_type, out_type;
 
-	ReSLS_FETCH();
 	if (ZEND_NUM_ARGS() != 3
 	 || zend_get_parameters_ex(3, &req, &input, &output) == FAILURE) {
 	 	WRONG_PARAM_COUNT;
 	}
 
-	in_fp = zend_fetch_resource(input,-1, "File-Handle", &in_type, 
+	in_fp = zend_fetch_resource(input TSRMLS_CC,-1, "File-Handle", &in_type, 
 		2, php_file_le_fopen(), php_file_le_popen());
 	if (!in_fp) {
 		php_error(E_WARNING,"Unable to find input file identifier");
 		RETURN_FALSE;
 	}
 
-	out_fp = zend_fetch_resource(output,-1, "File-Handle", &out_type,
+	out_fp = zend_fetch_resource(output TSRMLS_CC,-1, "File-Handle", &out_type,
 		2, php_file_le_fopen(), php_file_le_popen());
 	if (!out_fp) {
 		php_error(E_WARNING,"Unable to find output file identifier");

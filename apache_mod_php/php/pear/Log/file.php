@@ -6,7 +6,7 @@
  * abstract class which writes message to a text file.
  * 
  * @author  Jon Parise <jon@csh.rit.edu>
- * @version $Revision: 1.1.1.1 $
+ * @version $Revision: 1.1.1.2 $
  * @since   Horde 1.3
  */
 class Log_file extends Log {
@@ -82,8 +82,15 @@ class Log_file extends Log {
         $entry = sprintf("%s %s [%s] %s\n", strftime("%b %d %T"),
             $this->ident, Log::priorityToString($priority), $message);
 
-        if ($this->fp)
+        if ($this->fp) {
             fwrite($this->fp, $entry);
+
+            /*
+             * The file must be closed immediately, or we will run into
+             * concurrency blocking issues.
+             */
+            $this->close();
+        }
 
         $this->notifyAll(array('priority' => $priority, 'message' => $message));
     }

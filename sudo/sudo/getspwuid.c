@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1996, 1998, 1999 Todd C. Miller <Todd.Miller@courtesan.com>
+ * Copyright (c) 1996, 1998-2001 Todd C. Miller <Todd.Miller@courtesan.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -34,22 +34,31 @@
 
 #include "config.h"
 
-#include <stdio.h>
-#ifdef STDC_HEADERS
-# include <stdlib.h>
-#endif /* STDC_HEADERS */
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif /* HAVE_STRING_H */
-#ifdef HAVE_STRINGS_H
-# include <strings.h>
-#endif /* HAVE_STRINGS_H */
-#ifdef HAVE_UNISTD_H
-# include <unistd.h>
-#endif /* HAVE_UNISTD_H */
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/param.h>
+#include <stdio.h>
+#ifdef STDC_HEADERS
+# include <stdlib.h>
+# include <stddef.h>
+#else
+# ifdef HAVE_STDLIB_H
+#  include <stdlib.h>
+# endif
+#endif /* STDC_HEADERS */
+#ifdef HAVE_STRING_H
+# if defined(HAVE_MEMORY_H) && !defined(STDC_HEADERS)
+#  include <memory.h>
+# endif
+# include <string.h>
+#else
+# ifdef HAVE_STRINGS_H
+#  include <strings.h>
+# endif
+#endif /* HAVE_STRING_H */
+#ifdef HAVE_UNISTD_H
+# include <unistd.h>
+#endif /* HAVE_UNISTD_H */
 #include <pwd.h>
 #ifdef HAVE_GETSPNAM
 # include <shadow.h>
@@ -75,12 +84,8 @@
 #include "sudo.h"
 
 #ifndef lint
-static const char rcsid[] = "$Sudo: getspwuid.c,v 1.56 2000/02/18 17:56:26 millert Exp $";
+static const char rcsid[] = "$Sudo: getspwuid.c,v 1.62 2002/01/15 23:43:59 millert Exp $";
 #endif /* lint */
-
-#ifndef STDC_HEADERS
-extern char *getenv     __P((const char *));
-#endif /* !STDC_HEADERS */
 
 /*
  * Global variables (yuck)
@@ -93,99 +98,97 @@ int crypt_type = INT_MAX;
 /*
  * Local functions not visible outside getspwuid.c
  */
-static char *sudo_getshell		__P((struct passwd *));
 static struct passwd *sudo_pwdup	__P((struct passwd *));
 
 
 /*
- * Return the user's shell based on either the SHELL
- * environment variable or the passwd(5) entry (in that order).
- */
-static char *
-sudo_getshell(pw)
-    struct passwd *pw;
-{
-    char *pw_shell;
-
-    if ((pw_shell = getenv("SHELL")) == NULL)
-	pw_shell = pw->pw_shell;
-
-#ifdef _PATH_BSHELL
-    /* empty string "" means bourne shell */
-    if (*pw_shell == '\0')
-	pw_shell = _PATH_BSHELL;
-#endif /* _PATH_BSHELL */
-
-    return(pw_shell);
-}
-
-/*
- * Return the encrypted password for the user described by pw.  If shadow
- * passwords are in use, look in the shadow file.
+ * Return a copy of the encrypted password for the user described by pw.
+ * If shadow passwords are in use, look in the shadow file.
  */
 char *
 sudo_getepw(pw)
     struct passwd *pw;
 {
+    char *epw;
 
     /* If there is a function to check for shadow enabled, use it... */
 #ifdef HAVE_ISCOMSEC
     if (!iscomsec())
-	return(pw->pw_passwd);
+	return(estrdup(pw->pw_passwd));
 #endif /* HAVE_ISCOMSEC */
 #ifdef HAVE_ISSECURE
     if (!issecure())
-	return(pw->pw_passwd);
+	return(estrdup(pw->pw_passwd));
 #endif /* HAVE_ISSECURE */
 
+    epw = NULL;
 #ifdef HAVE_GETPRPWNAM
     {
 	struct pr_passwd *spw;
 
-	spw = getprpwnam(pw->pw_name);
-	if (spw != NULL && spw->ufld.fd_encrypt != NULL) {
+	setprpwent();
+	if ((spw = getprpwnam(pw->pw_name)) && spw->ufld.fd_encrypt) {
 # ifdef __alpha
 	    crypt_type = spw->ufld.fd_oldcrypt;
 # endif /* __alpha */
-	    return(spw->ufld.fd_encrypt);
+	    epw = estrdup(spw->ufld.fd_encrypt);
 	}
+	endprpwent();
+	if (epw)
+	    return(epw);
     }
 #endif /* HAVE_GETPRPWNAM */
 #ifdef HAVE_GETSPNAM
     {
 	struct spwd *spw;
 
+	setspent();
 	if ((spw = getspnam(pw->pw_name)) && spw->sp_pwdp)
-	    return(spw->sp_pwdp);
+	    epw = estrdup(spw->sp_pwdp);
+	endspent();
+	if (epw)
+	    return(epw);
     }
 #endif /* HAVE_GETSPNAM */
 #ifdef HAVE_GETSPWUID
     {
 	struct s_passwd *spw;
 
+	setspwent();
 	if ((spw = getspwuid(pw->pw_uid)) && spw->pw_passwd)
-	    return(spw->pw_passwd);
+	    epw = estrdup(spw->pw_passwd);
+	endspwent();
+	if (epw)
+	    return(epw);
     }
 #endif /* HAVE_GETSPWUID */
 #ifdef HAVE_GETPWANAM
     {
 	struct passwd_adjunct *spw;
 
+	setpwaent();
 	if ((spw = getpwanam(pw->pw_name)) && spw->pwa_passwd)
-	    return(spw->pwa_passwd);
+	    epw = estrdup(spw->pwa_passwd);
+	endpwaent();
+	if (epw)
+	    return(epw);
     }
 #endif /* HAVE_GETPWANAM */
 #ifdef HAVE_GETAUTHUID
     {
 	AUTHORIZATION *spw;
 
+	setauthent();
 	if ((spw = getauthuid(pw->pw_uid)) && spw->a_password)
-	    return(spw->a_password);
+	    epw = estrdup(spw->a_password);
+	endauthent();
+	if (epw)
+	    return(epw);
     }
 #endif /* HAVE_GETAUTHUID */
 
     /* Fall back on normal password. */
-    return(pw->pw_passwd);
+    return(estrdup(pw->pw_passwd));
 }
 
 /*
@@ -207,12 +210,19 @@ sudo_pwdup(pw)
     (void) memcpy(local_pw, pw, sizeof(struct passwd));
     local_pw->pw_name = estrdup(pw->pw_name);
     local_pw->pw_dir = estrdup(pw->pw_dir);
+    local_pw->pw_gecos = estrdup(pw->pw_gecos);
+#ifdef HAVE_LOGIN_CAP_H
+    local_pw->pw_class = estrdup(pw->pw_class);
+#endif
 
-    /* pw_shell is a special case since we overide with $SHELL */
-    local_pw->pw_shell = estrdup(sudo_getshell(pw));
+    /* If shell field is empty, expand to _PATH_BSHELL. */
+    if (local_pw->pw_shell[0] == '\0')
+	local_pw->pw_shell = _PATH_BSHELL;
+    else
+	local_pw->pw_shell = estrdup(pw->pw_shell);
 
     /* pw_passwd gets a shadow password if applicable */
-    local_pw->pw_passwd = estrdup(sudo_getepw(pw));
+    local_pw->pw_passwd = sudo_getepw(pw);
 
     return(local_pw);
 }

@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: syslog.c,v 1.1.1.3 2001/07/19 00:20:22 zarzycki Exp $ */
+/* $Id: syslog.c,v 1.1.1.4 2001/12/14 22:13:28 zarzycki Exp $ */
 
 #include "php.h"
 
@@ -36,8 +36,10 @@
 #include "basic_functions.h"
 #include "php_ext_syslog.h"
 
-static void start_syslog(BLS_D);
+static void start_syslog(TSRMLS_D);
 
+/* {{{ PHP_MINIT_FUNCTION
+ */
 PHP_MINIT_FUNCTION(syslog)
 {
 	/* error levels */
@@ -98,14 +100,12 @@ PHP_MINIT_FUNCTION(syslog)
 
 	return SUCCESS;
 }
-
+/* }}} */
 
 PHP_RINIT_FUNCTION(syslog)
 {
-	BLS_FETCH();
-
 	if (INI_INT("define_syslog_variables")) {
-		start_syslog(BLS_C);
+		start_syslog(TSRMLS_C);
 	} else {
 		BG(syslog_started)=0;
 	}
@@ -116,19 +116,16 @@ PHP_RINIT_FUNCTION(syslog)
 
 PHP_RSHUTDOWN_FUNCTION(syslog)
 {
-	BLS_FETCH();
-	
 	if (BG(syslog_device)) {
 		efree(BG(syslog_device));
 	}
 	return SUCCESS;
 }
 
-
-static void start_syslog(BLS_D)
+/* {{{ start_syslog
+ */
+static void start_syslog(TSRMLS_D)
 {
-	ELS_FETCH();
-	
 	/* error levels */
 	SET_VAR_LONG("LOG_EMERG", LOG_EMERG); /* system unusable */
 	SET_VAR_LONG("LOG_ALERT", LOG_ALERT); /* immediate action required */
@@ -188,17 +185,17 @@ static void start_syslog(BLS_D)
 
 	BG(syslog_started)=1;
 }
+/* }}} */
 
 /* {{{ proto void define_syslog_variables(void)
    Initializes all syslog-related variables */
 PHP_FUNCTION(define_syslog_variables)
 {
-	BLS_FETCH();
-
 	if (!BG(syslog_started)) {
-		start_syslog(BLS_C);
+		start_syslog(TSRMLS_C);
 	}
 }
+/* }}} */
 
 /* {{{ proto int openlog(string ident, int option, int facility)
    Open connection to system logger */
@@ -210,7 +207,6 @@ PHP_FUNCTION(define_syslog_variables)
 PHP_FUNCTION(openlog)
 {
 	pval **ident, **option, **facility;
-	BLS_FETCH();
 
 	if (ZEND_NUM_ARGS() != 3 || zend_get_parameters_ex(3, &ident, &option, &facility) == FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -221,7 +217,7 @@ PHP_FUNCTION(openlog)
 	if (BG(syslog_device)) {
 		efree(BG(syslog_device));
 	}
-	BG(syslog_device) = estrndup((*ident)->value.str.val,(*ident)->value.str.len);
+	BG(syslog_device) = estrndup((*ident)->value.str.val, (*ident)->value.str.len);
 	openlog(BG(syslog_device), (*option)->value.lval, (*facility)->value.lval);
 	RETURN_TRUE;
 }
@@ -231,8 +227,6 @@ PHP_FUNCTION(openlog)
    Close connection to system logger */
 PHP_FUNCTION(closelog)
 {
-	BLS_FETCH();
-
 	closelog();
 	if (BG(syslog_device)) {
 		efree(BG(syslog_device));
@@ -259,7 +253,7 @@ PHP_FUNCTION(syslog)
 	 * this will cause problems.
 	 */
 
-	php_syslog((*priority)->value.lval, "%.500s",(*message)->value.str.val);
+	php_syslog((*priority)->value.lval, "%.500s", (*message)->value.str.val);
 	RETURN_TRUE;
 }
 /* }}} */
@@ -271,4 +265,6 @@ PHP_FUNCTION(syslog)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
  */

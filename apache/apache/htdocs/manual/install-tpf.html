@@ -107,15 +107,9 @@
         case preserved. &nbsp;</p>
       </li>
 
-      <li>Decompress the tarball on OS/390 UNIX:
-      <b><tt>gunzip&nbsp;<i>os390_unix_filename</i>.tar.Z</tt></b>&nbsp;<br />
-       Note that the <i>.tar.Z</i> file will be replaced by the
-      decompressed <i>.tar</i> archive file.&nbsp;<br />
-       &nbsp;</li>
-
-      <li>Extract the archived files necessary for compiling
+      <li>Decompress and extract the archived files necessary for compiling
       Apache:
-      <b><tt>pax&nbsp;-rvkf&nbsp;<i>os390_unix_filename</i>.tar&nbsp;-o&nbsp;from=ISO8859-1,to=IBM-1047&nbsp;"*/src"</tt></b><br />
+      <b><tt>pax&nbsp;-rvzkf&nbsp;<i>os390_unix_filename</i>.tar.Z&nbsp;-o&nbsp;from=ISO8859-1,to=IBM-1047&nbsp;"*/src"</tt></b><br />
        &nbsp;</li>
 
       <li>
@@ -566,8 +560,7 @@
         <div style="margin-left: 2em">
           If you're running a PUT10 or higher version of TPF make
           the directory using the <b><tt>zfile
-          mkdir&nbsp;/usr/local/apache/logs</tt></b> functional
-          entry.<br />
+          mkdir&nbsp;/usr/local/apache/logs</tt></b> command.<br />
           <br />
            If you're running TPF version PUT09 TFTP an empty file
           into the logs subdirectory to create it.&nbsp;<br />

@@ -16,6 +16,8 @@
    +----------------------------------------------------------------------+
  */
 
+/* $Id: dbase.c,v 1.1.1.6 2002/03/20 03:20:20 zarzycki Exp $ */
+
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
@@ -59,9 +61,10 @@ static int le_dbhead;
 #include <errno.h>
 
 
-static void _close_dbase(zend_rsrc_list_entry *rsrc)
+static void _close_dbase(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 {
 	dbhead_t *dbhead = (dbhead_t *)rsrc->ptr;
+
 	close(dbhead->db_fd);
 	free_dbf_head(dbhead);
 }
@@ -72,7 +75,7 @@ PHP_MINIT_FUNCTION(dbase)
 #if defined(THREAD_SAFE)
 	dbase_global_struct *dbase_globals;
 #ifdef COMPILE_DL_DBASE
-	CREATE_MUTEX(dbase_mutex,"DBase_TLS");
+	CREATE_MUTEX(dbase_mutex, "DBase_TLS");
 	SET_MUTEX(dbase_mutex);
 	numthreads++;
 	if (numthreads==1){
@@ -113,14 +116,14 @@ static PHP_MSHUTDOWN_FUNCTION(dbase)
 
 /* {{{ proto int dbase_open(string name, int mode)
    Opens a dBase-format database file */
-PHP_FUNCTION(dbase_open) {
+PHP_FUNCTION(dbase_open)
+{
 	pval *dbf_name, *options;
 	dbhead_t *dbh;
 	int handle;
-	PLS_FETCH();
 	DBase_TLS_VARS;
 
-	if (ZEND_NUM_ARGS() != 2 || getParameters(ht,2,&dbf_name,&options)==FAILURE) {
+	if (ZEND_NUM_ARGS() != 2 || getParameters(ht, 2, &dbf_name, &options)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_string(dbf_name);
@@ -130,11 +133,11 @@ PHP_FUNCTION(dbase_open) {
 		RETURN_FALSE;
 	}
 	
-	if (php_check_open_basedir(dbf_name->value.str.val)) {
+	if (php_check_open_basedir(dbf_name->value.str.val TSRMLS_CC)) {
 		RETURN_FALSE;
 	}
 
-	dbh = dbf_open(dbf_name->value.str.val, options->value.lval);
+	dbh = dbf_open(dbf_name->value.str.val, options->value.lval TSRMLS_CC);
 	if (dbh == NULL) {
 		php_error(E_WARNING, "unable to open database %s", dbf_name->value.str.val);
 		RETURN_FALSE;
@@ -147,13 +150,14 @@ PHP_FUNCTION(dbase_open) {
 
 /* {{{ proto bool dbase_close(int identifier)
    Closes an open dBase-format database file */
-PHP_FUNCTION(dbase_close) {
+PHP_FUNCTION(dbase_close)
+{
 	pval *dbh_id;
 	dbhead_t *dbh;
 	int dbh_type;
 	DBase_TLS_VARS;
 
-	if (ZEND_NUM_ARGS() != 1 || getParameters(ht,1,&dbh_id)==FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || getParameters(ht, 1, &dbh_id)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_long(dbh_id);
@@ -170,13 +174,14 @@ PHP_FUNCTION(dbase_close) {
 
 /* {{{ proto int dbase_numrecords(int identifier)
    Returns the number of records in the database */
-PHP_FUNCTION(dbase_numrecords) {
+PHP_FUNCTION(dbase_numrecords)
+{
 	pval *dbh_id;
 	dbhead_t *dbh;
 	int dbh_type;
 	DBase_TLS_VARS;
 
-	if (ZEND_NUM_ARGS() != 1 || getParameters(ht,1,&dbh_id)==FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || getParameters(ht, 1, &dbh_id)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_long(dbh_id);
@@ -192,13 +197,14 @@ PHP_FUNCTION(dbase_numrecords) {
 
 /* {{{ proto int dbase_numfields(int identifier)
    Returns the number of fields (columns) in the database */
-PHP_FUNCTION(dbase_numfields) {
+PHP_FUNCTION(dbase_numfields)
+{
 	pval *dbh_id;
 	dbhead_t *dbh;
 	int dbh_type;
 	DBase_TLS_VARS;
 
-	if (ZEND_NUM_ARGS() != 1 || getParameters(ht,1,&dbh_id)==FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || getParameters(ht, 1, &dbh_id)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_long(dbh_id);
@@ -214,13 +220,14 @@ PHP_FUNCTION(dbase_numfields) {
 
 /* {{{ proto bool dbase_pack(int identifier)
    Packs the database (deletes records marked for deletion) */
-PHP_FUNCTION(dbase_pack) {
+PHP_FUNCTION(dbase_pack)
+{
 	pval *dbh_id;
 	dbhead_t *dbh;
 	int dbh_type;
 	DBase_TLS_VARS;
 
-	if (ZEND_NUM_ARGS() != 1 || getParameters(ht,1,&dbh_id)==FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || getParameters(ht, 1, &dbh_id)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_long(dbh_id);
@@ -238,7 +245,8 @@ PHP_FUNCTION(dbase_pack) {
 
 /* {{{ proto bool dbase_add_record(int identifier, array data)
    Adds a record to the database */
-PHP_FUNCTION(dbase_add_record) {
+PHP_FUNCTION(dbase_add_record)
+{
 	pval *dbh_id, *fields, **field;
 	dbhead_t *dbh;
 	int dbh_type;
@@ -249,7 +257,7 @@ PHP_FUNCTION(dbase_add_record) {
 	int i;
 	DBase_TLS_VARS;
 
-	if (ZEND_NUM_ARGS() != 2 || getParameters(ht,2,&dbh_id,&fields)==FAILURE) {
+	if (ZEND_NUM_ARGS() != 2 || getParameters(ht, 2, &dbh_id, &fields)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_long(dbh_id);
@@ -313,7 +321,7 @@ PHP_FUNCTION(dbase_add_record) {
    Replaces a record to the database */
 PHP_FUNCTION(dbase_replace_record)
 {
-	pval *dbh_id, *fields, *field, *recnum;
+	pval *dbh_id, *fields, **field, *recnum;
 	dbhead_t *dbh;
 	int dbh_type;
 
@@ -323,7 +331,7 @@ PHP_FUNCTION(dbase_replace_record)
 	int i;
 	DBase_TLS_VARS;
 
-	if (ZEND_NUM_ARGS() != 3 || getParameters(ht,3,&dbh_id,&fields,&recnum)==FAILURE) {
+	if (ZEND_NUM_ARGS() != 3 || getParameters(ht, 3, &dbh_id, &fields, &recnum)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_long(dbh_id);
@@ -360,8 +368,8 @@ PHP_FUNCTION(dbase_replace_record)
 			efree(cp);
 			RETURN_FALSE;
 		}
-		convert_to_string(field);
-		sprintf(t_cp, cur_f->db_format, field->value.str.val); 
+		convert_to_string_ex(field);
+		sprintf(t_cp, cur_f->db_format, Z_STRVAL_PP(field)); 
 		t_cp += cur_f->db_flen;
 	}
 
@@ -380,13 +388,14 @@ PHP_FUNCTION(dbase_replace_record)
 
 /* {{{ proto bool dbase_delete_record(int identifier, int record)
    Marks a record to be deleted */
-PHP_FUNCTION(dbase_delete_record) {
+PHP_FUNCTION(dbase_delete_record)
+{
 	pval *dbh_id, *record;
 	dbhead_t *dbh;
 	int dbh_type;
 	DBase_TLS_VARS;
 
-	if (ZEND_NUM_ARGS() != 2 || getParameters(ht,2,&dbh_id,&record)==FAILURE) {
+	if (ZEND_NUM_ARGS() != 2 || getParameters(ht, 2, &dbh_id, &record)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_long(dbh_id);
@@ -414,16 +423,19 @@ PHP_FUNCTION(dbase_delete_record) {
 
 /* {{{ proto array dbase_get_record(int identifier, int record)
    Returns an array representing a record from the database */
-PHP_FUNCTION(dbase_get_record) {
+PHP_FUNCTION(dbase_get_record)
+{
 	pval *dbh_id, *record;
 	dbhead_t *dbh;
 	int dbh_type;
 	dbfield_t *dbf, *cur_f;
 	char *data, *fnp, *str_value;
 	size_t cursize = 0;
+	long overflow_test;
+	int errno_save;
 	DBase_TLS_VARS;
 
-	if (ZEND_NUM_ARGS() != 2 || getParameters(ht,2,&dbh_id,&record)==FAILURE) {
+	if (ZEND_NUM_ARGS() != 2 || getParameters(ht, 2, &dbh_id, &record)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_long(dbh_id);
@@ -461,14 +473,35 @@ PHP_FUNCTION(dbase_get_record) {
 	        switch (cur_f->db_type) {
 		case 'C':
 		case 'D':
-			add_next_index_string(return_value,str_value,1);
+			add_next_index_string(return_value, str_value, 1);
 			break;
-		case 'N':	/* FALLS THROUGH */
-		case 'L':	/* FALLS THROUGH */
+		case 'N':
 			if (cur_f->db_fdc == 0) {
-				add_next_index_long(return_value, strtol(str_value, NULL, 10));
+				/* Large integers in dbase can be larger than long */
+				errno_save = errno;
+				overflow_test = strtol(str_value, NULL, 10);
+				if (errno == ERANGE) {
+				    /* If the integer is too large, keep it as string */
+				    add_next_index_string(return_value, str_value, 1);
+				} else {
+				    add_next_index_long(return_value, overflow_test);
+				}
+				errno = errno_save;
 			} else {
 				add_next_index_double(return_value, atof(str_value));
+			}
+			break;
+		case 'L':	/* we used to FALL THROUGH, but now we check for T/Y and F/N
+					   and insert 1 or 0, respectively.  db_fdc is the number of
+					   decimals, which we don't care about.      3/14/2001 LEW */
+			if ((*str_value == 'T') || (*str_value == 'Y')) {
+				add_next_index_long(return_value, strtol("1", NULL, 10));
+			} else {
+				if ((*str_value == 'F') || (*str_value == 'N')) {
+					add_next_index_long(return_value, strtol("0", NULL, 10));
+				} else {
+					add_next_index_long(return_value, strtol(" ", NULL, 10));
+				}
 			}
 			break;
 		case 'M':
@@ -485,10 +518,10 @@ PHP_FUNCTION(dbase_get_record) {
 
 	/* mark whether this record was deleted */
 	if (data[0] == '*') {
-		add_assoc_long(return_value,"deleted",1);
+		add_assoc_long(return_value, "deleted", 1);
 	}
 	else {
-		add_assoc_long(return_value,"deleted",0);
+		add_assoc_long(return_value, "deleted", 0);
 	}
 
 	free(data);
@@ -498,15 +531,18 @@ PHP_FUNCTION(dbase_get_record) {
 /* From Martin Kuba <makub@aida.inet.cz> */
 /* {{{ proto array dbase_get_record_with_names(int identifier, int record)
    Returns an associative array representing a record from the database */
-PHP_FUNCTION(dbase_get_record_with_names) {
+PHP_FUNCTION(dbase_get_record_with_names)
+{
 	pval *dbh_id, *record;
 	dbhead_t *dbh;
 	int dbh_type;
 	dbfield_t *dbf, *cur_f;
 	char *data, *fnp, *str_value;
+	long overflow_test;
+	int errno_save;
 	DBase_TLS_VARS;
 
-	if (ZEND_NUM_ARGS() != 2 || getParameters(ht,2,&dbh_id,&record)==FAILURE) {
+	if (ZEND_NUM_ARGS() != 2 || getParameters(ht, 2, &dbh_id, &record)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_long(dbh_id);
@@ -539,14 +575,35 @@ PHP_FUNCTION(dbase_get_record_with_names) {
 		switch (cur_f->db_type) {
 			case 'C':
 			case 'D':
-				add_assoc_string(return_value,cur_f->db_fname,str_value,1);
+				add_assoc_string(return_value, cur_f->db_fname, str_value, 1);
 				break;
-			case 'N':       /* FALLS THROUGH */
-			case 'L':       /* FALLS THROUGH */
+			case 'N':
 				if (cur_f->db_fdc == 0) {
-					add_assoc_long(return_value,cur_f->db_fname,strtol(str_value, NULL, 10));
+					/* Large integers in dbase can be larger than long */
+					errno_save = errno;
+					overflow_test = strtol(str_value, NULL, 10);
+					if (errno == ERANGE) {
+					    /* If the integer is too large, keep it as string */
+					    add_assoc_string(return_value, cur_f->db_fname, str_value, 1);
+					} else {
+					    add_assoc_long(return_value, cur_f->db_fname, overflow_test);
+					}
+					errno = errno_save;
 				} else {
-					add_assoc_double(return_value,cur_f->db_fname,atof(str_value));
+					add_assoc_double(return_value, cur_f->db_fname, atof(str_value));
+				}
+				break;
+			case 'L':	/* we used to FALL THROUGH, but now we check for T/Y and F/N
+						   and insert 1 or 0, respectively.  db_fdc is the number of
+						   decimals, which we don't care about.      3/14/2001 LEW */
+				if ((*str_value == 'T') || (*str_value == 'Y')) {
+					add_assoc_long(return_value, cur_f->db_fname,strtol("1", NULL, 10));
+				} else {
+					if ((*str_value == 'F') || (*str_value == 'N')) {
+						add_assoc_long(return_value, cur_f->db_fname,strtol("0", NULL, 10));
+					} else {
+						add_assoc_long(return_value, cur_f->db_fname,strtol(" ", NULL, 10));
+					}
 				}
 				break;
 			case 'M':
@@ -562,9 +619,9 @@ PHP_FUNCTION(dbase_get_record_with_names) {
 
 	/* mark whether this record was deleted */
 	if (data[0] == '*') {
-		add_assoc_long(return_value,"deleted",1);
+		add_assoc_long(return_value, "deleted", 1);
 	} else {
-		add_assoc_long(return_value,"deleted",0);
+		add_assoc_long(return_value, "deleted", 0);
 	}
 
 	free(data);
@@ -573,7 +630,8 @@ PHP_FUNCTION(dbase_get_record_with_names) {
 
 /* {{{ proto bool dbase_create(string filename, array fields)
    Creates a new dBase-format database file */
-PHP_FUNCTION(dbase_create) {
+PHP_FUNCTION(dbase_create)
+{
 	pval *filename, *fields, **field, **value;
 	int fd;
 	dbhead_t *dbh;
@@ -581,10 +639,9 @@ PHP_FUNCTION(dbase_create) {
 	int num_fields;
 	dbfield_t *dbf, *cur_f;
 	int i, rlen, handle;
-	PLS_FETCH();
 	DBase_TLS_VARS;
 
-	if (ZEND_NUM_ARGS() != 2 || getParameters(ht,2,&filename,&fields)==FAILURE) {
+	if (ZEND_NUM_ARGS() != 2 || getParameters(ht, 2, &filename, &fields)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_string(filename);
@@ -598,11 +655,11 @@ PHP_FUNCTION(dbase_create) {
 		RETURN_FALSE;
 	}
 	
-	if (php_check_open_basedir(Z_STRVAL_P(filename))) {
+	if (php_check_open_basedir(Z_STRVAL_P(filename) TSRMLS_CC)) {
 		RETURN_FALSE;
 	}
 
-	if ((fd = VCWD_OPEN((Z_STRVAL_P(filename), O_BINARY|O_RDWR|O_CREAT, 0644))) < 0) {
+	if ((fd = VCWD_OPEN_MODE(Z_STRVAL_P(filename), O_BINARY|O_RDWR|O_CREAT, 0644)) < 0) {
 		php_error(E_WARNING, "Unable to create database (%d): %s", errno, strerror(errno));
 		RETURN_FALSE;
 	}
@@ -671,7 +728,7 @@ PHP_FUNCTION(dbase_create) {
 		copy_crimp(cur_f->db_fname, (*value)->value.str.val, (*value)->value.str.len);
 
 		/* field type */
-		if (zend_hash_index_find(Z_ARRVAL_PP (field), 1,(void **)&value) == FAILURE) {
+		if (zend_hash_index_find(Z_ARRVAL_PP (field), 1, (void **)&value) == FAILURE) {
 			php_error(E_WARNING, "expected field type as sececond element of list in field %d", i);
 			RETURN_FALSE;
 		}
@@ -696,7 +753,7 @@ PHP_FUNCTION(dbase_create) {
 		case 'N':
 		case 'C':
 			/* field length */
-			if (zend_hash_index_find(Z_ARRVAL_PP (field), 2,(void **)&value) == FAILURE) {
+			if (zend_hash_index_find(Z_ARRVAL_PP (field), 2, (void **)&value) == FAILURE) {
 				php_error(E_WARNING, "expected field length as third element of list in field %d", i);
 				free_dbf_head(dbh);
 				RETURN_FALSE;
@@ -731,6 +788,8 @@ PHP_FUNCTION(dbase_create) {
 }
 /* }}} */
 
+/* {{{ dbase_functions[]
+ */
 function_entry dbase_functions[] = {
 	PHP_FE(dbase_open,								NULL)
 	PHP_FE(dbase_create,							NULL)
@@ -745,9 +804,11 @@ function_entry dbase_functions[] = {
 	PHP_FE(dbase_pack,								NULL)
 	{NULL, NULL, NULL}
 };
+/* }}} */
 
 zend_module_entry dbase_module_entry = {
-	"dbase", dbase_functions, PHP_MINIT(dbase), PHP_MSHUTDOWN(dbase), NULL, NULL, NULL, STANDARD_MODULE_PROPERTIES
+	STANDARD_MODULE_HEADER,
+	"dbase", dbase_functions, PHP_MINIT(dbase), PHP_MSHUTDOWN(dbase), NULL, NULL, NULL, NO_VERSION_YET, STANDARD_MODULE_PROPERTIES
 };
 
 
@@ -768,9 +829,12 @@ BOOL WINAPI DllMain(HANDLE hModule,
 #endif
 
 #endif
+
 /*
  * Local variables:
  * tab-width: 4
  * c-basic-offset: 4
  * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
  */

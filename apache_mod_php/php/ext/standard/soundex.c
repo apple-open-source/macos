@@ -15,7 +15,7 @@
    | Author: Bjørn Borud - Guardian Networks AS <borud@guardian.no>       |
    +----------------------------------------------------------------------+
  */
-/* $Id: soundex.c,v 1.1.1.2 2001/07/19 00:20:22 zarzycki Exp $ */
+/* $Id: soundex.c,v 1.1.1.3 2001/12/14 22:13:28 zarzycki Exp $ */
 
 #include "php.h"
 #include <stdlib.h>
@@ -117,4 +117,6 @@ PHP_FUNCTION(soundex)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
  */

@@ -36,12 +36,6 @@
 /*#undef ZTS*/
 
 #ifdef ZTS
-#include "../TSRM/TSRM.h"
-
-#ifdef __cplusplus
-class ZendFlexLexer;
-class ZendIniFlexLexer;
-#endif
 
 BEGIN_EXTERN_C()
 ZEND_API extern int compiler_globals_id;
@@ -73,10 +67,12 @@ struct _zend_compiler_globals {
 	zend_stack declare_stack;
 
 	zend_class_entry class_entry, *active_class_entry;
+	zval active_ce_parent_class_name;
 
 	/* variables for list() compilation */
 	zend_llist list_llist;
 	zend_llist dimension_llist;
+	zend_stack list_stack;
 
 	zend_stack function_call_stack;
 
@@ -94,6 +90,8 @@ struct _zend_compiler_globals {
 
 	HashTable filenames_table;
 
+	HashTable *auto_globals;
+
 	zend_bool in_compilation;
 	zend_bool short_tags;
 	zend_bool asp_tags;
@@ -110,13 +108,12 @@ struct _zend_compiler_globals {
 	zend_bool ini_parser_unbuffered_errors;
 
 	zend_llist open_files;
-#if defined(ZTS) && defined(__cplusplus)
-	ZendFlexLexer *ZFL;
-	ZendIniFlexLexer *ini_scanner;
-#else
-	void *ZFL;
-	void *ini_parser;
-#endif
+
+	struct _zend_ini_parser_param *ini_parser_param;
+
+	int interactive;
+
+	zend_bool increment_lineno;
 };
 
 
@@ -131,9 +128,6 @@ struct _zend_executor_globals {
 
 	zend_function_state *function_state_ptr;
 	zend_ptr_stack arg_types_stack;
-
-	/* for global return() support */
-	zval *global_return_value_ptr;
 
 	/* symbol table cache */
 	HashTable *symtable_cache[SYMTABLE_CACHE_SIZE];
@@ -164,6 +158,8 @@ struct _zend_executor_globals {
 	int ticks_count;
 
 	zend_bool in_execution;
+	zend_bool bailout_set;
+	zend_bool full_tables_cleanup;
 
 	/* for extended information support */
 	zend_bool no_extensions;
@@ -178,9 +174,9 @@ struct _zend_executor_globals {
 	zend_ptr_stack argument_stack;
 	int free_op1, free_op2;
 	int (*unary_op)(zval *result, zval *op1);
-	int (*binary_op)(zval *result, zval *op1, zval *op2);
+	int (*binary_op)(zval *result, zval *op1, zval *op2 TSRMLS_DC);
 
-	zval *garbage[4];
+	zval *garbage[2];
 	int garbage_ptr;
 
 	zval *user_error_handler;
@@ -194,9 +190,6 @@ struct _zend_executor_globals {
 	HashTable ini_directives;
 
 	void *reserved[ZEND_MAX_RESERVED_RESOURCES];
-#if SUPPORT_INTERACTIVE
-	int interactive;
-#endif
 };
 
 
@@ -207,6 +200,10 @@ struct _zend_alloc_globals {
 	unsigned int cache_count[MAX_CACHED_MEMORY];
 	void *fast_cache_list_head[MAX_FAST_CACHE_TYPES];
 
+#ifdef ZEND_WIN32
+	HANDLE memory_heap;
+#endif
+
 #if ZEND_DEBUG
 	/* for performance tuning */
 	int cache_stats[MAX_CACHED_MEMORY][2];
@@ -215,8 +212,29 @@ struct _zend_alloc_globals {
 #if MEMORY_LIMIT
 	unsigned int memory_limit;
 	unsigned int allocated_memory;
+	unsigned int allocated_memory_peak;
 	unsigned char memory_exhausted;
 #endif
+};
+
+struct _zend_scanner_globals {
+	FILE *yy_in;
+	FILE *yy_out;
+	int yy_leng;
+	char *yy_text;
+	struct yy_buffer_state *current_buffer;
+	char *c_buf_p;
+	int init;
+	int start;
+	char _yy_hold_char;
+	int yy_n_chars;
+	int _yy_did_buffer_switch_on_eof;
+	int _yy_last_accepting_state; /* Must be of the same type as yy_state_type,
+								   * if for whatever reason it's no longer int!
+								   */
+	char *_yy_last_accepting_cpos;
+	int _yy_more_flag;
+	int _yy_more_len;
 };
 
 #endif /* ZEND_GLOBALS_H */

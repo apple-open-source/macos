@@ -16,7 +16,7 @@
 // | Authors: Sterling Hughes <sterling@php.net>                          |
 // +----------------------------------------------------------------------+
 //
-// $Id: msql.php,v 1.1.1.4 2001/07/19 00:20:44 zarzycki Exp $
+// $Id: msql.php,v 1.1.1.5 2001/12/14 22:14:22 zarzycki Exp $
 //
 // Database independent query interface definition for PHP's Mini-SQL
 // extension.
@@ -39,17 +39,23 @@ class DB_msql extends DB_common
         $this->features = array(
             'prepare' => false,
             'pconnect' => true,
-            'transactions' => false
+            'transactions' => false,
+            'limit' => 'emulate'
         );
     }
 
     function connect($dsninfo, $persistent = false)
     {
+        if (!DB::assertExtension('msql'))
+            return $this->raiseError(DB_ERROR_EXTENSION_NOT_FOUND);
+
         $this->dsn = $dsninfo;
         $user = $dsninfo['username'];
         $pw = $dsninfo['password'];
         $dbhost = $dsninfo['hostspec'] ? $dsninfo['hostspec'] : 'localhost';
+
         $connect_function = $persistent ? 'msql_pconnect' : 'msql_connect';
+
         if ($dbhost && $user && $pw) {
             $conn = $connect_function($dbhost, $user, $pw);
         } elseif ($dbhost && $user) {
@@ -69,7 +75,9 @@ class DB_msql extends DB_common
 
     function disconnect()
     {
-        return @msql_close($this->connection);
+        $ret = @msql_close($this->connection);
+        $this->connection = null;
+        return $ret;
     }
 
     function simpleQuery($query)
@@ -84,6 +92,24 @@ class DB_msql extends DB_common
         // should return an error code only.
         return DB::isManip($query) ? DB_OK : $result;
     }
+
+    // {{{ nextResult()
+
+    /**
+     * Move the internal msql result pointer to the next available result
+     *
+     * @param a valid fbsql result resource
+     *
+     * @access public
+     *
+     * @return true if a result is available otherwise return false
+     */
+    function nextResult($result)
+    {
+        return false;
+    }
+
+    // }}}
 
     function fetchRow($result, $fetchmode = DB_FETCHMODE_DEFAULT, $rownum=null)
     {
@@ -149,6 +175,36 @@ class DB_msql extends DB_common
         }
         return $rows;
     }
-}
 
+    /**
+     * Gets the number of rows affected by a query.
+     *
+     * @return number of rows affected by the last query
+     */
+
+    function affectedRows()
+    {
+        return @msql_affected_rows($this->connection);
+    }
+
+    // {{{ getSpecialQuery()
+
+    /**
+    * Returns the query needed to get some backend info
+    * @param string $type What kind of info you want to retrieve
+    * @return string The SQL query string
+    */
+    function getSpecialQuery($type)
+    {
+        switch ($type) {
+            case 'tables':
+            default:
+                return null;
+        }
+        return $sql;
+    }
+
+    // }}}
+
+}
 ?>

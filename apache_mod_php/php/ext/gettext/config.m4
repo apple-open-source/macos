@@ -1,4 +1,4 @@
-dnl $Id: config.m4,v 1.1.1.2 2001/07/19 00:19:12 zarzycki Exp $
+dnl $Id: config.m4,v 1.1.1.3 2001/12/14 22:12:21 zarzycki Exp $
 dnl config.m4 for extension gettext
 dnl don't forget to call PHP_EXTENSION(gettext)
 
@@ -20,14 +20,14 @@ if test "$PHP_GETTEXT" != "no"; then
   GETTEXT_LIBDIR=$GETTEXT_DIR/lib
   GETTEXT_INCDIR=$GETTEXT_DIR/include
   
-  O_LDFLAGS="$LDFLAGS"
+  O_LDFLAGS=$LDFLAGS
   LDFLAGS="$LDFLAGS -L$GETTEXT_LIBDIR"
-  AC_CHECK_LIB(intl, bindtextdomain, GETTEXT_LIBS="intl",[
+  AC_CHECK_LIB(intl, bindtextdomain, GETTEXT_LIBS=intl,[
       AC_CHECK_LIB(c, bindtextdomain, GETTEXT_LIBS= ,[
           AC_MSG_ERROR(Unable to find required gettext library)
       ])
   ])
-  LDFLAGS="$O_LDFLAGS"
+  LDFLAGS=$O_LDFLAGS
 
   AC_DEFINE(HAVE_LIBINTL,1,[ ])
   PHP_EXTENSION(gettext, $ext_shared)

@@ -10,11 +10,12 @@ SYNOPSIS
 
 DESCRIPTION
      ssh-add adds RSA or DSA identities to the authentication agent,
-     ssh-agent(1).  When run without arguments, it adds the file
-     $HOME/.ssh/identity.  Alternative file names can be given on the command
-     line.  If any file requires a passphrase, ssh-add asks for the passphrase
-     from the user.  The passphrase is read from the user's tty.  ssh-add
-     retries the last passphrase if multiple identity files are given.
+     ssh-agent(1).  When run without arguments, it adds the files
+     $HOME/.ssh/id_rsa, $HOME/.ssh/id_dsa and $HOME/.ssh/identity.  AlternaM--
+     tive file names can be given on the command line.  If any file requires a
+     passphrase, ssh-add asks for the passphrase from the user.  The
+     passphrase is read from the user's tty.  ssh-add retries the last
+     passphrase if multiple identity files are given.
 
      The authentication agent must be running and must be an ancestor of the
      current process for ssh-add to work.
@@ -41,12 +42,7 @@ DESCRIPTION
 FILES
      $HOME/.ssh/identity
              Contains the protocol version 1 RSA authentication identity of
-             the user.  This file should not be readable by anyone but the
-             user.  Note that ssh-add ignores this file if it is accessible by
-             others.  It is possible to specify a passphrase when generating
-             the key; that passphrase will be used to encrypt the private part
-             of this file.  This is the default file added by ssh-add when no
-             other files have been specified.
+             the user.
 
      $HOME/.ssh/id_dsa
              Contains the protocol version 2 DSA authentication identity of
@@ -55,6 +51,9 @@ FILES
      $HOME/.ssh/id_rsa
              Contains the protocol version 2 RSA authentication identity of
              the user.
+
+     Identity files should not be readable by anyone but the user.  Note that
+     ssh-add ignores identity files if they are accessible by others.
 
 ENVIRONMENT
      DISPLAY and SSH_ASKPASS
@@ -66,6 +65,10 @@ ENVIRONMENT
              is particularly useful when calling ssh-add from a .Xsession or
              related script.  (Note that on some machines it may be necessary
              to redirect the input from /dev/null to make this work.)
+
+DIAGNOSTICS
+     Exit status is 0 on success, 1 if the specified command fails, and 2 if
+     ssh-add is unable to contact the authentication agent.
 
 AUTHORS
      OpenSSH is a derivative of the original and free ssh 1.2.12 release by

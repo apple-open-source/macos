@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Todd C. Miller <Todd.Miller@courtesan.com>
+ * Copyright (c) 1999, 2001 Todd C. Miller <Todd.Miller@courtesan.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,12 +35,8 @@
 #include <stdio.h>
 #include <errno.h>
 
-#include "config.h"
-
-#ifndef HAVE_STRERROR
-
 #ifndef lint
-static const char rcsid[] = "$Sudo: strerror.c,v 1.3 1999/07/31 16:19:47 millert Exp $";
+static const char rcsid[] = "$Sudo: strerror.c,v 1.5 2001/12/14 19:56:48 millert Exp $";
 #endif /* lint */
 
 /*
@@ -55,8 +51,6 @@ strerror(n)
 
     if (n > 0 && n < sys_nerr)
 	return(sys_errlist[n]);
-    else
-	return("Unknown error");
+    errno = EINVAL;
+    return("Unknown error");
 }
-
-#endif /* HAVE_STRERROR */

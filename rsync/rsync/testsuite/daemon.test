@@ -1,0 +1,32 @@
+#!/bin/sh
+
+# Copyright (C) 2001 by Martin Pool <mbp@samba.org>
+
+# This program is distributable under the terms of the GNU GPL (see
+# COPYING)
+
+# We don't really want to start the server listening, because that
+# might interfere with the security or operation of the test machine.
+# Instead we use the fake-connect feature to dynamically assign a pair
+# of ports.
+
+# Having started the server we try some basic operations against it:
+
+# getting a list of module
+# listing files in a module
+# retrieving a module
+# uploading to a module
+# checking the log file
+# password authentication
+
+# TODO: Put the common framework in a common file, so that we can have
+# subtests fail and keep going.
+
+. "$suitedir/rsync.fns"
+
+build_rsyncd_conf
+
+RSYNC_CONNECT_PROG="$rsync_bin --config=$conf --daemon"
+export RSYNC_CONNECT_PROG
+
+$rsync_bin -v localhost::

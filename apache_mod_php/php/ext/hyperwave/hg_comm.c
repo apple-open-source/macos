@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: hg_comm.c,v 1.1.1.3 2001/07/19 00:19:13 zarzycki Exp $ */
+/* $Id: hg_comm.c,v 1.1.1.4 2001/12/14 22:12:23 zarzycki Exp $ */
 
 /* #define HW_DEBUG */
 
@@ -35,7 +35,7 @@
 # define EWOULDBLOCK WSAEWOULDBLOCK
 # define ETIMEDOUT WSAETIMEDOUT
 # define bcopy memcpy
-# define bzero(a,b) memset(a,0,b)
+# define bzero(a, b) memset(a, 0, b)
 #else
 # include <sys/socket.h>
 # include <netinet/in.h>
@@ -71,10 +71,10 @@
 #define hw_less_server_stress
 
 static int set_nonblocking(int fd);
-static int set_blocking(int fd);
+/* static int set_blocking(int fd); */
 
 static int hg_read_exact(int sockfd, char *buf, int size);
-static int hg_read(int sockfd, char *buf, int size);
+/* static int hg_read(int sockfd, char *buf, int size); */
 static int hg_write(int sockfd, char *buf, int size);
 
 static int   send_hg_msg(int sockfd, hg_msg *msg, int length);
@@ -375,7 +375,7 @@ DLIST *fnCreateAnchorList(hw_objectID objID, char **anchors, char **docofanchorr
 			   In such a case the Position has the value 'invisible' */
 			str = strstr(object, "Position");
 			str += 9;
-			if((str != 9) && (0 != strncmp(str, "invisible", 9))) {
+			if(((int) str != 9) && (0 != strncmp(str, "invisible", 9))) {
 				sscanf(str, "0x%X 0x%X", &start, &end);
 		
 				/* Determine ObjectID */
@@ -632,7 +632,7 @@ char *fnInsAnchorsIntoText(char *text, DLIST *pAnchorList, char **bodytag, char 
 	int laststart=0;
 	char emptystring[BUFFERLEN];
 	int i;
-	ELS_FETCH();
+	TSRMLS_FETCH();
 	
 	emptystring[0] = '\0';
 
@@ -1318,6 +1318,7 @@ static int set_nonblocking(int fd)
 }
 
 
+/*
 static int set_blocking(int fd)
 {
 #ifdef PHP_WIN32
@@ -1331,7 +1332,7 @@ static int set_blocking(int fd)
 #endif
 	return(0);
 }
-
+*/
 
 static int hg_read_exact(int sockfd, char *buf, int size)
 {
@@ -1343,7 +1344,7 @@ static int hg_read_exact(int sockfd, char *buf, int size)
 	return(len);
 }
 
-
+/*
 static int hg_read(int sockfd, char *buf, int size)
 {
 	int try = 0;
@@ -1364,7 +1365,7 @@ static int hg_read(int sockfd, char *buf, int size)
 	}
 	return(len);
 }
-
+*/
 
 static int hg_write(int sockfd, char *buf, int size)
 {
@@ -1829,7 +1830,7 @@ int send_insertobject(int sockfd, char *objrec, char *parms, hw_objectID *object
 
 	tmp = build_msg_str(msg.buf, objrec);
 	tmp = build_msg_str(tmp, parms);
-/*fprintf(stderr,"objrec = %s, parms = %s\n", objrec, parms); */
+/*fprintf(stderr, "objrec = %s, parms = %s\n", objrec, parms); */
 
 	if ( send_hg_msg(sockfd, &msg, length) == -1 )  {
 		efree(msg.buf);
@@ -2190,7 +2191,7 @@ int send_gettext(int sockfd, hw_objectID objectID, int mode, int rootid, char **
 	return(0);
 }
 
-send_insertanchors(char **text, int *count, char **anchors, char **destrec, int ancount, char **urlprefix, char **bodytag) {
+int send_insertanchors(char **text, int *count, char **anchors, char **destrec, int ancount, char **urlprefix, char **bodytag) {
 	char **reldestrec = NULL;
 	int mode = 0;
 	hw_objectID objectID = 0;
@@ -2621,7 +2622,7 @@ int send_mvcpdocscollscoll(int sockfd, hw_objectID *objectIDs, int count, int fr
 	tmp = build_msg_int(tmp, dest);
 	tmp = build_msg_int(tmp, count);
 	for(i=0; i<count;i++)
-		tmp = build_msg_int(tmp,objectIDs[i]);
+		tmp = build_msg_int(tmp, objectIDs[i]);
 
 	if ( send_hg_msg(sockfd, &msg, length) == -1 )  {
 		efree(msg.buf);
@@ -2789,7 +2790,7 @@ int send_childrenobj(int sockfd, hw_objectID objectID, char ***childrec, int *co
 {
 	hg_msg msg, *retmsg;
 	int  length, i, error;
-	char *tmp, **objptr;
+	char *tmp;
 	int *childIDs = NULL;
 	int *ptr;
 
@@ -2968,7 +2969,7 @@ int send_getchildcollobj(int sockfd, hw_objectID objectID, char ***childrec, int
 {
 	hg_msg msg, *retmsg;
 	int  length, i, error;
-	char *tmp, **objptr;
+	char *tmp;
 	int *childIDs = NULL;
 	int *ptr;
 
@@ -3146,8 +3147,8 @@ int send_getchilddoccoll(int sockfd, hw_objectID objectID, hw_objectID **childID
 int send_getchilddoccollobj(int sockfd, hw_objectID objectID, hw_objrec ***childrec, int *count)
 {
 	hg_msg msg, *retmsg;
-	int  length, i, error;
-	char *tmp, **objptr;
+	int  length, error;
+	char *tmp;
 	int *childIDs = NULL;
 
 	length = HEADER_LENGTH + sizeof(hw_objectID);
@@ -3322,7 +3323,6 @@ int send_getanchorsobj(int sockfd, hw_objectID objectID, char ***childrec, int *
 	char *tmp;
 	int *ptr, i, *ptr1;
 	int *anchorIDs = NULL;
-	char **objptr;
 
 	length = HEADER_LENGTH + sizeof(hw_objectID);
 
@@ -3536,12 +3536,12 @@ int send_getreldestforanchorsobj(int sockfd, char **anchorrec, char ***reldestre
 /*
 fprintf(stderr, "%d: ", thisID);
 for(k=0; k<countthis; k++)
-	fprintf(stderr,"%d, ", retthisIDs[k]);
-fprintf(stderr,"\n");
-fprintf(stderr,"%d: ", destdocid);
+	fprintf(stderr, "%d, ", retthisIDs[k]);
+fprintf(stderr, "\n");
+fprintf(stderr, "%d: ", destdocid);
 for(k=0; k<countdest; k++)
-	fprintf(stderr,"%d: %d, ", destdocid, retdestIDs[k]);
-fprintf(stderr,"\n");
+	fprintf(stderr, "%d: %d, ", destdocid, retdestIDs[k]);
+fprintf(stderr, "\n");
 */
 
 				mincount = (countthis < countdest) ? countthis : countdest;
@@ -3666,12 +3666,12 @@ int getrellink(int sockfd, int rootID, int thisID, int destID, char **reldeststr
 
 fprintf(stderr, "%d: ", thisID);
 for(k=0; k<countthis; k++)
-	fprintf(stderr,"%d, ", retthisIDs[k]);
-fprintf(stderr,"\n");
-fprintf(stderr,"%d: ", destID);
+	fprintf(stderr, "%d, ", retthisIDs[k]);
+fprintf(stderr, "\n");
+fprintf(stderr, "%d: ", destID);
 for(k=0; k<countdest; k++)
-	fprintf(stderr,"%d, ", retdestIDs[k]);
-fprintf(stderr,"\n");
+	fprintf(stderr, "%d, ", retdestIDs[k]);
+fprintf(stderr, "\n");
 
 	/*
 	** The message incollections returned a list of collections
@@ -3680,7 +3680,7 @@ fprintf(stderr,"\n");
 	** a sorted list of collection IDs. If for example you are
 	** looking for an ID 20 which has a path 1 -> 5 -> 4 -> 20
 	** (this means: 20 is child of 4, 4 is child of 5, 5 is child
-	** of 1) it will return 1,4,5 instead of 1,5,4
+	** of 1) it will return 1, 4, 5 instead of 1, 5, 4
 	** Consequently, we have to create the correct path, by checking
 	** for the parents and identifying it in the list.
 	** But there is another problem. If the id for which the list of
@@ -3712,7 +3712,7 @@ fprintf(stderr,"\n");
 	}
 
 	mincount = (countthis < countdest) ? countthis : countdest;
-fprintf(stderr,"mincount = %d\n", mincount);
+fprintf(stderr, "mincount = %d\n", mincount);
 	for(j=0; (j<mincount) && (retthisIDs[j]==retdestIDs[j]); j++)
 		;
 	equaltill = j;
@@ -3812,9 +3812,9 @@ int send_identify(int sockfd, char *name, char *passwd, char **userdata) {
 int send_objectbyidquery(int sockfd, hw_objectID *IDs, int *count, char *query, char ***objrecs)
 {
 	hg_msg msg, *retmsg;
-	int  length, error;
+	int  length;
 	char *tmp, *str;
-	int *ptr, i, *ptr1;
+	int *ptr, i;
 	int *offsets, *childIDs;
 	char **childrec;
 
@@ -4056,7 +4056,6 @@ int send_getobjbyqueryobj(int sockfd, char *query, int maxhits, char ***childrec
 	int length, i, error;
 	char *tmp;
 	int *childIDs = NULL;
-	char **objptr;
 	int *ptr, *ptr1;
 
 	length = HEADER_LENGTH + strlen(query) + 1;
@@ -4239,7 +4238,6 @@ int send_getobjbyquerycollobj(int sockfd, hw_objectID collID, char *query, int m
 	int length, i, error;
 	char *tmp;
 	hw_objectID *childIDs = NULL;
-	char **objptr;
 	int *ptr, *ptr1;
 
 	length = HEADER_LENGTH + strlen(query) + 1 + sizeof(int) + sizeof(hw_objectID);
@@ -4445,7 +4443,6 @@ int send_getobjbyftqueryobj(int sockfd, char *query, int maxhits, char ***childr
 	int length, i, error;
 	char *tmp;
 	int *childIDs = NULL;
-	char **objptr;
 	int *ptr, *ptr1;
 	float *ptr2;
 
@@ -4679,7 +4676,6 @@ int send_getobjbyftquerycollobj(int sockfd, hw_objectID collID, char *query, int
 	int length, i, error;
 	char *tmp;
 	hw_objectID *childIDs = NULL;
-	char **objptr;
 	int *ptr, *ptr1;
 	float *ptr2;
 
@@ -4890,7 +4886,6 @@ int send_getparentsobj(int sockfd, hw_objectID objectID, char ***childrec, int *
 	int length, i, error;
 	char *tmp;
 	hw_objectID *childIDs = NULL;
-	char **objptr;
 	int *ptr;
 
 	length = HEADER_LENGTH + sizeof(hw_objectID);

@@ -17,6 +17,8 @@
 // |          Stig Bakken <ssb@fast.no>                                   |
 // +----------------------------------------------------------------------+
 //
+// $Id: pgsql.php,v 1.1.1.6 2002/03/20 03:27:11 zarzycki Exp $
+//
 // Database independent query interface definition for PHP's PostgreSQL
 // extension.
 //
@@ -57,7 +59,8 @@ class DB_pgsql extends DB_common
         $this->features = array(
             'prepare' => false,
             'pconnect' => true,
-            'transactions' => true
+            'transactions' => true,
+            'limit' => 'alter'
         );
         $this->errorcode_map = array(
         );
@@ -77,19 +80,22 @@ class DB_pgsql extends DB_common
      */
     function connect($dsninfo, $persistent = false)
     {
+        if (!DB::assertExtension('pgsql'))
+            return $this->raiseError(DB_ERROR_EXTENSION_NOT_FOUND);
+
         $this->dsn = $dsninfo;
         $host = $dsninfo['hostspec'];
         $protocol = (isset($dsninfo['protocol'])) ? $dsninfo['protocol'] : '';
         $connstr = '';
         if (($host !== false) && ($protocol != 'unix')){
-            if (($pos = strpos(':', $host)) !== false) {
+            if (($pos = strpos($host, ':')) !== false) {
                 $dbhost = substr($host, 0, $pos);
                 $port = substr($host, $pos + 1);
             } else {
                 $dbhost = $host;
                 $port = '5432';
             }
-            $connstr = 'host=' . $dsninfo['hostspec'] . ' port=' . $port;
+            $connstr = 'host=' . $dbhost . ' port=' . $port;
         }
 
         if (isset($dsninfo['database'])) {
@@ -109,10 +115,14 @@ class DB_pgsql extends DB_common
         }
 
         $connect_function = $persistent ? 'pg_pconnect' : 'pg_connect';
-
-        $conn = @$connect_function($connstr);
+        // catch error
+        ob_start();
+        $conn = $connect_function($connstr);
+        $error = ob_get_contents();
+        ob_end_clean();
         if ($conn == false) {
-            return $this->raiseError(DB_ERROR_CONNECT_FAILED);
+            return $this->raiseError(DB_ERROR_CONNECT_FAILED, null,
+                                     null, null, strip_tags($error));
         }
         $this->connection = $conn;
         return DB_OK;
@@ -128,7 +138,9 @@ class DB_pgsql extends DB_common
      */
     function disconnect()
     {
-        return @pg_close($this->connection); // XXX ERRORMSG
+        $ret = @pg_close($this->connection); // XXX ERRORMSG
+        $this->connection = null;
+        return $ret;
     }
 
     // }}}
@@ -191,6 +203,23 @@ class DB_pgsql extends DB_common
     }
 
     // }}}
+    // {{{ nextResult()
+
+    /**
+     * Move the internal pgsql result pointer to the next available result
+     *
+     * @param a valid fbsql result resource
+     *
+     * @access public
+     *
+     * @return true if a result is available otherwise return false
+     */
+    function nextResult($result)
+    {
+        return false;
+    }
+
+    // }}}
     // {{{ errorCode()
 
     /**
@@ -210,12 +239,13 @@ class DB_pgsql extends DB_common
         static $error_regexps;
         if (empty($error_regexps)) {
             $error_regexps = array(
-                '/(Table does not exist\.|Relation \'.*\' does not exist|sequence does not exist)$/' => DB_ERROR_NOSUCHTABLE,
-                '/Relation \'.*\' already exists/' => DB_ERROR_ALREADY_EXISTS,
-                '/divide by zero$/' => DB_ERROR_DIVZERO,
+                '/(Table does not exist\.|Relation [\"\'].*[\"\'] does not exist|sequence does not exist|class ".+" not found)$/' => DB_ERROR_NOSUCHTABLE,
+                '/Relation [\"\'].*[\"\'] already exists|Cannot insert a duplicate key into a unique index/'      => DB_ERROR_ALREADY_EXISTS,
+                '/divide by zero$/'                     => DB_ERROR_DIVZERO,
                 '/pg_atoi: error in .*: can\'t parse /' => DB_ERROR_INVALID_NUMBER,
-                '/attribute \'.*\' not found$/' => DB_ERROR_NOSUCHFIELD,
-                '/parser: parse error at or near \"/' => DB_ERROR_SYNTAX
+                '/ttribute [\"\'].*[\"\'] not found$|Relation [\"\'].*[\"\'] does not have attribute [\"\'].*[\"\']/' => DB_ERROR_NOSUCHFIELD,
+                '/parser: parse error at or near \"/'   => DB_ERROR_SYNTAX,
+                '/referential integrity violation/'     => DB_ERROR_CONSTRAINT
             );
         }
         foreach ($error_regexps as $regexp => $code) {
@@ -288,7 +318,7 @@ class DB_pgsql extends DB_common
     /**
      * Free the internal resources associated with $result.
      *
-     * @param $result PostgreSQL result identifier or DB statement identifier
+     * @param $result int PostgreSQL result identifier or DB statement identifier
      *
      * @return bool TRUE on success, FALSE if $result is invalid
      */
@@ -309,12 +339,36 @@ class DB_pgsql extends DB_common
     }
 
     // }}}
+    // {{{ quote()
+    /**
+    * Quote the given string so it can be safely used within string delimiters
+    * in a query.
+    * @param $string mixed Data to be quoted
+    * @return mixed "NULL" string, quoted string or original data
+    */
+    function quote($str = null)
+    {
+        switch (strtolower(gettype($str))) {
+            case 'null':
+                return 'NULL';
+            case 'integer':
+            case 'double' :
+                return $str;
+            case 'string':
+            default:
+                $str = str_replace("'", "''", $str);
+                //PostgreSQL treats a backslash as an escape character.
+                $str = str_replace('\\', '\\\\', $str);
+                return "'$str'";
+        }
+    }
+    // }}}
     // {{{ numCols()
 
     /**
      * Get the number of columns in a result set.
      *
-     * @param $result PostgreSQL result identifier
+     * @param $result resource PostgreSQL result identifier
      *
      * @return int the number of columns per row in $result
      */
@@ -333,7 +387,7 @@ class DB_pgsql extends DB_common
     /**
      * Get the number of rows in a result set.
      *
-     * @param $result PostgreSQL result identifier
+     * @param $result resource PostgreSQL result identifier
      *
      * @return int the number of rows in $result
      */
@@ -419,7 +473,7 @@ class DB_pgsql extends DB_common
      * Gets the number of rows affected by the last query.
      * if the last query was a select, returns 0.
      *
-     * @return number of rows affected by the last query or DB_ERROR
+     * @return int number of rows affected by the last query or DB_ERROR
      */
     function affectedRows()
     {
@@ -444,20 +498,22 @@ class DB_pgsql extends DB_common
         $sqn = preg_replace('/[^a-z0-9_]/i', '_', $seq_name);
         $repeat = 0;
         do {
+            $this->pushErrorHandling(PEAR_ERROR_RETURN);
             $result = $this->query("SELECT NEXTVAL('${sqn}_seq')");
+            $this->popErrorHandling();
             if ($ondemand && DB::isError($result) &&
                 $result->getCode() == DB_ERROR_NOSUCHTABLE) {
                 $repeat = 1;
                 $result = $this->createSequence($seq_name);
                 if (DB::isError($result)) {
-                    return $result;
+                    return $this->raiseError($result);
                 }
             } else {
                 $repeat = 0;
             }
         } while ($repeat);
         if (DB::isError($result)) {
-            return $result;
+            return $this->raiseError($result);
         }
         $arr = $result->fetchRow(DB_FETCHMODE_ORDERED);
         $result->free();
@@ -471,13 +527,16 @@ class DB_pgsql extends DB_common
      * Create the sequence
      *
      * @param string $seq_name the name of the sequence
-     * @return DB error
+     * @return mixed DB_OK on success or DB error on error
      * @access public
      */
     function createSequence($seq_name)
     {
         $sqn = preg_replace('/[^a-z0-9_]/i', '_', $seq_name);
-        return $this->query("CREATE SEQUENCE ${sqn}_seq");
+        $this->pushErrorHandling(PEAR_ERROR_RETURN);
+        $result = $this->query("CREATE SEQUENCE ${sqn}_seq");
+        $this->popErrorHandling();
+        return $result;
     }
 
     // }}}
@@ -487,13 +546,22 @@ class DB_pgsql extends DB_common
      * Drop a sequence
      *
      * @param string $seq_name the name of the sequence
-     * @return DB error
+     * @return mixed DB_OK on success or DB error on error
      * @access public
      */
     function dropSequence($seq_name)
     {
         $sqn = preg_replace('/[^a-z0-9_]/i', '_', $seq_name);
         return $this->query("DROP SEQUENCE ${sqn}_seq");
+    }
+
+    // }}}
+    // {{{ modifyLimitQuery()
+
+    function modifyLimitQuery($query, $from, $count)
+    {
+        $query = $query . " LIMIT $count, $from";
+        return $query;
     }
 
     // }}}
@@ -511,6 +579,229 @@ class DB_pgsql extends DB_common
     }
 
     // }}}
+    // {{{ _pgFieldFlags()
+
+    /**
+     * Flags of a Field
+     *
+     * @param int $resource PostgreSQL result identifier
+     * @param int $num_field the field number
+     *
+     * @return string The flags of the field ("not_null", "default_xx", "primary_key",
+     *                "unique" and "multiple_key" are supported)
+     * @access private
+     */
+    function _pgFieldFlags($resource, $num_field, $table_name)
+    {
+        $field_name = @pg_fieldname($resource, $num_field);
+
+        $result = pg_exec($this->connection, "SELECT f.attnotnull, f.atthasdef
+                                FROM pg_attribute f, pg_class tab, pg_type typ
+                                WHERE tab.relname = typ.typname
+                                AND typ.typrelid = f.attrelid
+                                AND f.attname = '$field_name'
+                                AND tab.relname = '$table_name'");
+        $row = pg_fetch_row($result, 0);
+        $flags  = ($row[0] == 't') ? 'not_null ' : '';
+
+        if ($row[1] == 't') {
+            $result = pg_exec($this->connection, "SELECT a.adsrc
+                                FROM pg_attribute f, pg_class tab, pg_type typ, pg_attrdef a
+                                WHERE tab.relname = typ.typname AND typ.typrelid = f.attrelid
+                                AND f.attrelid = a.adrelid AND f.attname = '$field_name'
+                                AND tab.relname = '$table_name'");
+            $row = pg_fetch_row($result, 0);
+            $num = str_replace('\'', '', $row[0]);
+
+            $flags .= "default_$num ";
+        }
+
+        $result = pg_exec($this->connection, "SELECT i.indisunique, i.indisprimary, i.indkey
+                                FROM pg_attribute f, pg_class tab, pg_type typ, pg_index i
+                                WHERE tab.relname = typ.typname
+                                AND typ.typrelid = f.attrelid
+                                AND f.attrelid = i.indrelid
+                                AND f.attname = '$field_name'
+                                AND tab.relname = '$table_name'");
+        $count = pg_numrows($result);
+
+        for ($i = 0; $i < $count ; $i++) {
+            $row = pg_fetch_row($result, $i);
+            $keys = explode(" ", $row[2]);
+
+            if (in_array($num_field + 1, $keys)) {
+                $flags .= ($row[0] == 't') ? 'unique ' : '';
+                $flags .= ($row[1] == 't') ? 'primary ' : '';
+                if (count($keys) > 1)
+                    $flags .= 'multiple_key ';
+            }
+        }
+
+        return trim($flags);
+    }
+
+    // }}}
+    // {{{ tableInfo()
+
+    /**
+     * Returns information about a table or a result set
+     *
+     * NOTE: doesn't support table name and flags if called from a db_result
+     *
+     * @param  mixed $resource PostgreSQL result identifier or table name
+     * @param  int $mode A valid tableInfo mode (DB_TABLEINFO_ORDERTABLE or
+     *                   DB_TABLEINFO_ORDER)
+     *
+     * @return array An array with all the information
+     */
+    function tableInfo($result, $mode = null)
+    {
+        $count = 0;
+        $id    = 0;
+        $res   = array();
+
+        /*
+         * depending on $mode, metadata returns the following values:
+         *
+         * - mode is false (default):
+         * $result[]:
+         *   [0]["table"]  table name
+         *   [0]["name"]   field name
+         *   [0]["type"]   field type
+         *   [0]["len"]    field length
+         *   [0]["flags"]  field flags
+         *
+         * - mode is DB_TABLEINFO_ORDER
+         * $result[]:
+         *   ["num_fields"] number of metadata records
+         *   [0]["table"]  table name
+         *   [0]["name"]   field name
+         *   [0]["type"]   field type
+         *   [0]["len"]    field length
+         *   [0]["flags"]  field flags
+         *   ["order"][field name]  index of field named "field name"
+         *   The last one is used, if you have a field name, but no index.
+         *   Test:  if (isset($result['meta']['myfield'])) { ...
+         *
+         * - mode is DB_TABLEINFO_ORDERTABLE
+         *    the same as above. but additionally
+         *   ["ordertable"][table name][field name] index of field
+         *      named "field name"
+         *
+         *      this is, because if you have fields from different
+         *      tables with the same field name * they override each
+         *      other with DB_TABLEINFO_ORDER
+         *
+         *      you can combine DB_TABLEINFO_ORDER and
+         *      DB_TABLEINFO_ORDERTABLE with DB_TABLEINFO_ORDER |
+         *      DB_TABLEINFO_ORDERTABLE * or with DB_TABLEINFO_FULL
+         */
+
+        // if $result is a string, then we want information about a
+        // table without a resultset
+
+        if (is_string($result)) {
+            $id = pg_exec($this->connection,"SELECT * FROM $result");
+            if (empty($id)) {
+                return $this->pgsqlRaiseError();
+            }
+        } else { // else we want information about a resultset
+            $id = $result;
+            if (empty($id)) {
+                return $this->pgsqlRaiseError();
+            }
+        }
+
+        $count = @pg_numfields($id);
+
+        // made this IF due to performance (one if is faster than $count if's)
+        if (empty($mode)) {
+
+            for ($i=0; $i<$count; $i++) {
+                $res[$i]['table'] = (is_string($result)) ? $result : '';
+                $res[$i]['name']  = @pg_fieldname ($id, $i);
+                $res[$i]['type']  = @pg_fieldtype ($id, $i);
+                $res[$i]['len']   = @pg_fieldsize ($id, $i);
+                $res[$i]['flags'] = (is_string($result)) ? $this->_pgFieldflags($id, $i, $result) : '';
+            }
+
+        } else { // full
+            $res["num_fields"]= $count;
+
+            for ($i=0; $i<$count; $i++) {
+                $res[$i]['table'] = (is_string($result)) ? $result : '';
+                $res[$i]['name']  = @pg_fieldname ($id, $i);
+                $res[$i]['type']  = @pg_fieldtype ($id, $i);
+                $res[$i]['len']   = @pg_fieldsize ($id, $i);
+                $res[$i]['flags'] = (is_string($result)) ? $this->_pgFieldFlags($id, $i, $result) : '';
+                if ($mode & DB_TABLEINFO_ORDER) {
+                    $res['order'][$res[$i]['name']] = $i;
+                }
+                if ($mode & DB_TABLEINFO_ORDERTABLE) {
+                    $res['ordertable'][$res[$i]['table']][$res[$i]['name']] = $i;
+                }
+            }
+        }
+
+        // free the result only if we were called on a table
+        if (is_resource($id)) {
+            @pg_freeresult($id);
+        }
+        return $res;
+    }
+
+    // }}}
+    // {{{ getTablesQuery()
+
+    /**
+    * Returns the query needed to get some backend info
+    * @param string $type What kind of info you want to retrieve
+    * @return string The SQL query string
+    */
+    function getSpecialQuery($type)
+    {
+        switch ($type) {
+            case 'tables': {
+                $sql = "SELECT c.relname as \"Name\"
+                        FROM pg_class c, pg_user u
+                        WHERE c.relowner = u.usesysid AND c.relkind = 'r'
+                        AND not exists (select 1 from pg_views where viewname = c.relname)
+                        AND c.relname !~ '^pg_'
+                        UNION
+                        SELECT c.relname as \"Name\"
+                        FROM pg_class c
+                        WHERE c.relkind = 'r'
+                        AND not exists (select 1 from pg_views where viewname = c.relname)
+                        AND not exists (select 1 from pg_user where usesysid = c.relowner)
+                        AND c.relname !~ '^pg_'";
+                break;
+            }
+            case 'views': {
+                // Table cols: viewname | viewowner | definition
+                $sql = "SELECT viewname FROM pg_views";
+                break;
+            }
+            case 'users': {
+                // cols: usename |usesysid|usecreatedb|usetrace|usesuper|usecatupd|passwd  |valuntil
+                $sql = 'SELECT usename FROM pg_user';
+                break;
+            }
+            case 'databases': {
+                $sql = 'SELECT datname FROM pg_database';
+                break;
+            }
+            case 'functions': {
+                $sql = 'SELECT proname FROM pg_proc';
+                break;
+            }
+            default:
+                return null;
+        }
+        return $sql;
+    }
+
+    // }}}
+
 }
 
 // Local variables:

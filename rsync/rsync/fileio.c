@@ -1,5 +1,6 @@
 /* 
    Copyright (C) Andrew Tridgell 1998
+   Copyright (C) 2002 by Martin Pool
    
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -36,9 +37,9 @@ int sparse_end(int f)
 }
 
 
-static int write_sparse(int f,char *buf,int len)
+static int write_sparse(int f,char *buf,size_t len)
 {
-	int l1=0,l2=0;
+	size_t l1=0, l2=0;
 	int ret;
 
 	for (l1=0;l1<len && buf[l1]==0;l1++) ;
@@ -56,10 +57,11 @@ static int write_sparse(int f,char *buf,int len)
 	if (l1 == len) 
 		return len;
 
-	if ((ret=write(f,buf+l1,len-(l1+l2))) != len-(l1+l2)) {
-		if (ret == -1 || ret == 0) return ret;
+	ret = write(f, buf + l1, len - (l1+l2));
+	if (ret == -1 || ret == 0)
+		return ret;
+	else if (ret != (int) (len - (l1+l2))) 
 		return (l1+ret);
-	}
 
 	if (l2 > 0)
 		do_lseek(f,l2,SEEK_CUR);
@@ -69,7 +71,7 @@ static int write_sparse(int f,char *buf,int len)
 
 
 
-int write_file(int f,char *buf,int len)
+int write_file(int f,char *buf,size_t len)
 {
 	int ret = 0;
 

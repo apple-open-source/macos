@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: info.c,v 1.1.1.4 2001/07/19 00:20:15 zarzycki Exp $ */
+/* $Id: info.c,v 1.1.1.5 2001/12/14 22:13:23 zarzycki Exp $ */
 
 #include "php.h"
 #include "php_ini.h"
@@ -33,29 +33,32 @@
 #include "zend_globals.h"		/* needs ELS */
 #include "zend_highlight.h"
 
-
-#define SECTION(name)  PUTS("<H2 align=\"center\">" name "</H2>\n")
+#define SECTION(name)  PUTS("<h2 align=\"center\">" name "</h2>\n")
 
 PHPAPI extern char *php_ini_opened_path;
 
-static int _display_module_info(zend_module_entry *module, void *arg)
+/* {{{ _display_module_info
+ */
+static int _display_module_info(zend_module_entry *module, void *arg TSRMLS_DC)
 {
 	int show_info_func = *((int *) arg);
 
 	if (show_info_func && module->info_func) {
-		php_printf("<H2 align=\"center\"><A NAME=\"module_%s\">%s</A></H2>\n", module->name, module->name);
-		module->info_func(module);
+		php_printf("<h2 align=\"center\"><a name=\"module_%s\">%s</a></h2>\n", module->name, module->name);
+		module->info_func(module TSRMLS_CC);
 	} else if (!show_info_func && !module->info_func) {
-		php_printf("<TR VALIGN=\"baseline\" BGCOLOR=\"" PHP_CONTENTS_COLOR "\">");
-		php_printf("<TD>");
+		php_printf("<tr valign=\"baseline\" bgcolor=\"" PHP_CONTENTS_COLOR "\">");
+		php_printf("<td>");
 		php_printf("%s", module->name);
-		php_printf("</TD></TR>\n");
+		php_printf("</td></tr>\n");
 	}
 	return 0;
 }
+/* }}} */
 
-
-static void php_print_gpcse_array(char *name, uint name_length ELS_DC)
+/* {{{ php_print_gpcse_array
+ */
+static void php_print_gpcse_array(char *name, uint name_length TSRMLS_DC)
 {
 	zval **data, **tmp, tmp2;
 	char *string_key;
@@ -65,8 +68,8 @@ static void php_print_gpcse_array(char *name, uint name_length ELS_DC)
 		&& ((*data)->type==IS_ARRAY)) {
 		zend_hash_internal_pointer_reset((*data)->value.ht);
 		while (zend_hash_get_current_data((*data)->value.ht, (void **) &tmp) == SUCCESS) {
-			PUTS("<TR VALIGN=\"baseline\" BGCOLOR=\"" PHP_CONTENTS_COLOR "\">");
-			PUTS("<TD BGCOLOR=\"" PHP_ENTRY_NAME_COLOR "\"><B>");
+			PUTS("<tr valign=\"baseline\" bgcolor=\"" PHP_CONTENTS_COLOR "\">");
+			PUTS("<td bgcolor=\"" PHP_ENTRY_NAME_COLOR "\"><b>");
 			PUTS(name);
 			PUTS("[\"");
 			switch (zend_hash_get_current_key((*data)->value.ht, &string_key, &num_key, 0)) {
@@ -74,14 +77,14 @@ static void php_print_gpcse_array(char *name, uint name_length ELS_DC)
 					zend_html_puts(string_key, strlen(string_key));
 					break;
 				case HASH_KEY_IS_LONG:
-					php_printf("%ld",num_key);
+					php_printf("%ld", num_key);
 					break;
 			}
-			PUTS("\"]</B></TD><TD>");
+			PUTS("\"]</b></td><td>");
 			if ((*tmp)->type == IS_ARRAY) {
-				PUTS("<PRE>");
+				PUTS("<pre>");
 				zend_print_zval_r(*tmp, 0);
-				PUTS("</PRE>");
+				PUTS("</pre>");
 			} else if ((*tmp)->type != IS_STRING) {
 				tmp2 = **tmp;
 				zval_copy_ctor(&tmp2);
@@ -91,25 +94,30 @@ static void php_print_gpcse_array(char *name, uint name_length ELS_DC)
 			} else {
 				zend_html_puts((*tmp)->value.str.val, (*tmp)->value.str.len);
 			}
-			PUTS("&nbsp;</TD></TR>\n");
+			PUTS("&nbsp;</td></tr>\n");
 			zend_hash_move_forward((*data)->value.ht);
 		}
 	}
 }
+/* }}} */
 
+/* {{{ php_info_print_style
+ */
 void php_info_print_style(void)
 {
-	php_printf("<STYLE TYPE=\"text/css\"><!--\n");
-	php_printf("A { text-decoration: none; }\n");
-	php_printf("A:hover { text-decoration: underline; }\n");
-	php_printf("H1 { font-family: arial,helvetica,sans-serif; font-size: 18pt; font-weight: bold;}\n");
-	php_printf("H2 { font-family: arial,helvetica,sans-serif; font-size: 14pt; font-weight: bold;}\n");
-	php_printf("BODY,TD { font-family: arial,helvetica,sans-serif; font-size: 10pt; }\n");
-	php_printf("TH { font-family: arial,helvetica,sans-serif; font-size: 11pt; font-weight: bold; }\n");
-	php_printf("//--></STYLE>\n");
+	php_printf("<style type=\"text/css\"><!--\n");
+	php_printf("a { text-decoration: none; }\n");
+	php_printf("a:hover { text-decoration: underline; }\n");
+	php_printf("h1 { font-family: arial, helvetica, sans-serif; font-size: 18pt; font-weight: bold;}\n");
+	php_printf("h2 { font-family: arial, helvetica, sans-serif; font-size: 14pt; font-weight: bold;}\n");
+	php_printf("body, td { font-family: arial, helvetica, sans-serif; font-size: 10pt; }\n");
+	php_printf("th { font-family: arial, helvetica, sans-serif; font-size: 11pt; font-weight: bold; }\n");
+	php_printf("//--></style>\n");
 }
+/* }}} */
 
-
+/* {{{ php_get_uname
+ */
 PHPAPI char *php_get_uname()
 {
 	char *php_uname;
@@ -123,9 +131,9 @@ PHPAPI char *php_get_uname()
 	/* Get build numbers for Windows NT or Win95 */
 	if (dwVersion < 0x80000000){
 		dwBuild = (DWORD)(HIWORD(dwVersion));
-		snprintf(php_windows_uname,255,"%s %d.%d build %d","Windows NT",dwWindowsMajorVersion,dwWindowsMinorVersion,dwBuild);
+		snprintf(php_windows_uname, 255, "%s %d.%d build %d", "Windows NT", dwWindowsMajorVersion, dwWindowsMinorVersion, dwBuild);
 	} else {
-		snprintf(php_windows_uname,255,"%s %d.%d","Windows 95/98",dwWindowsMajorVersion,dwWindowsMinorVersion);
+		snprintf(php_windows_uname, 255, "%s %d.%d", "Windows 95/98", dwWindowsMajorVersion, dwWindowsMinorVersion);
 	}
 	php_uname = php_windows_uname;
 #else
@@ -133,21 +141,22 @@ PHPAPI char *php_get_uname()
 #endif
 	return estrdup(php_uname);
 }
+/* }}} */
 
-PHPAPI void php_print_info(int flag)
+/* {{{ php_print_info
+ */
+PHPAPI void php_print_info(int flag TSRMLS_DC)
 {
-	char **env,*tmp1,*tmp2;
+	char **env, *tmp1, *tmp2;
 	char *php_uname;
 	int expose_php = INI_INT("expose_php");
 	time_t the_time;
 	struct tm *ta, tmbuf;
-	ELS_FETCH();
-	SLS_FETCH();
 
 	the_time = time(NULL);
 	ta = php_localtime_r(&the_time, &tmbuf);
 
-	PUTS("<!DOCTYPE html PUBLIC \"-//W3C//DTD HTML 3.2//EN\">\n<html>\n");
+	PUTS("<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\">\n<html>\n");
 
 	if (flag & PHP_INFO_GENERAL) {
 		char *zend_version = get_zend_version();
@@ -169,7 +178,7 @@ PHPAPI void php_print_info(int flag)
 				PUTS("?="PHP_LOGO_GUID"\" border=0 align=\"right\" alt=\"PHP Logo\"></a>");
 			}
 		}
-		php_printf("<H1>PHP Version %s</H1>\n", PHP_VERSION);
+		php_printf("<h1>PHP Version %s</h1>\n", PHP_VERSION);
 		php_info_print_box_end();
 		php_info_print_table_start();
 		php_info_print_table_row(2, "System", php_uname );
@@ -216,9 +225,8 @@ PHPAPI void php_print_info(int flag)
 			}
 			PUTS("?="ZEND_LOGO_GUID"\" border=\"0\" align=\"right\" alt=\"Zend logo\"></a>\n");
 		}
-		php_printf("This program makes use of the Zend scripting language engine:<BR>");
+		php_printf("This program makes use of the Zend Scripting Language Engine:<br>");
 		zend_html_puts(zend_version, strlen(zend_version));
-		php_printf("</BR>\n");
 		php_info_print_box_end();
 		efree(php_uname);
 	}
@@ -234,7 +242,7 @@ PHPAPI void php_print_info(int flag)
 		PUTS("</a></h1>\n");
 	}
 
-	zend_ini_sort_entries(ELS_C);
+	zend_ini_sort_entries(TSRMLS_C);
 
 	if (flag & PHP_INFO_CONFIGURATION) {
 		php_info_print_hr();
@@ -247,12 +255,12 @@ PHPAPI void php_print_info(int flag)
 		int show_info_func;
 
 		show_info_func = 1;
-		zend_hash_apply_with_argument(&module_registry, (int (*)(void *, void *)) _display_module_info, &show_info_func);
+		zend_hash_apply_with_argument(&module_registry, (apply_func_arg_t) _display_module_info, &show_info_func TSRMLS_CC);
 
 		SECTION("Additional Modules");
 		php_info_print_table_start();
 		show_info_func = 0;
-		zend_hash_apply_with_argument(&module_registry, (int (*)(void *, void *)) _display_module_info, &show_info_func);
+		zend_hash_apply_with_argument(&module_registry, (apply_func_arg_t) _display_module_info, &show_info_func TSRMLS_CC);
 		php_info_print_table_end();
 	}
 
@@ -293,48 +301,49 @@ PHPAPI void php_print_info(int flag)
 		if (zend_hash_find(&EG(symbol_table), "PHP_AUTH_PW", sizeof("PHP_AUTH_PW"), (void **) &data) != FAILURE) {
 			php_info_print_table_row(2, "PHP_AUTH_PW", (*data)->value.str.val);
 		}
-		php_print_gpcse_array("HTTP_GET_VARS", sizeof("HTTP_GET_VARS")-1 ELS_CC);
-		php_print_gpcse_array("HTTP_POST_VARS", sizeof("HTTP_POST_VARS")-1 ELS_CC);
-		php_print_gpcse_array("HTTP_POST_FILES", sizeof("HTTP_POST_FILES")-1 ELS_CC);
-		php_print_gpcse_array("HTTP_COOKIE_VARS", sizeof("HTTP_COOKIE_VARS")-1 ELS_CC);
-		php_print_gpcse_array("HTTP_SERVER_VARS", sizeof("HTTP_SERVER_VARS")-1 ELS_CC);
-		php_print_gpcse_array("HTTP_ENV_VARS", sizeof("HTTP_ENV_VARS")-1 ELS_CC);
+		php_print_gpcse_array("_FORM", sizeof("_FORM")-1 TSRMLS_CC);
+		php_print_gpcse_array("_GET", sizeof("_GET")-1 TSRMLS_CC);
+		php_print_gpcse_array("_POST", sizeof("_POST")-1 TSRMLS_CC);
+		php_print_gpcse_array("_FILES", sizeof("_FILES")-1 TSRMLS_CC);
+		php_print_gpcse_array("_COOKIE", sizeof("_COOKIE")-1 TSRMLS_CC);
+		php_print_gpcse_array("_SERVER", sizeof("_SERVER")-1 TSRMLS_CC);
+		php_print_gpcse_array("_ENV", sizeof("_ENV")-1 TSRMLS_CC);
 		php_info_print_table_end();
 	}
 
 	if (flag & PHP_INFO_LICENSE) {
 		SECTION("PHP License");
 		php_info_print_box_start(0);
-		PUTS("<P>\n");
+		PUTS("<p>\n");
 		PUTS("This program is free software; you can redistribute it and/or modify ");
 		PUTS("it under the terms of the PHP License as published by the PHP Group ");
 		PUTS("and included in the distribution in the file:  LICENSE\n");
-		PUTS("</P>\n");
-		PUTS("<P>");
+		PUTS("</p>\n");
+		PUTS("<p>");
 		PUTS("This program is distributed in the hope that it will be useful, ");
 		PUTS("but WITHOUT ANY WARRANTY; without even the implied warranty of ");
 		PUTS("MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n");
-		PUTS("</P>\n");
-		PUTS("<P>");
+		PUTS("</p>\n");
+		PUTS("<p>");
 		PUTS("If you did not receive a copy of the PHP license, or have any questions about ");
 		PUTS("PHP licensing, please contact license@php.net.\n");
-		PUTS("</P>\n");
+		PUTS("</p>\n");
 		php_info_print_box_end();
 	}
 
-	PUTS("</BODY></HTML>");
+	PUTS("</body></html>");
 }
-
+/* }}} */
 
 
 PHPAPI void php_info_print_table_start()
 {
-	php_printf("<TABLE BORDER=0 CELLPADDING=3 CELLSPACING=1 WIDTH=600 BGCOLOR=\"#000000\" ALIGN=\"CENTER\">\n");
+	php_printf("<table border=\"0\" cellpadding=\"3\" cellspacing=\"1\" width=\"600\" bgcolor=\"#000000\" align=\"center\">\n");
 }
 
 PHPAPI void php_info_print_table_end()
 {
-	php_printf("</TABLE><BR>\n");
+	php_printf("</table><br>\n");
 
 }
 
@@ -342,29 +351,30 @@ PHPAPI void php_info_print_box_start(int flag)
 {
 	php_info_print_table_start();
 	if (flag) {
-		php_printf("<TR VALIGN=\"middle\" BGCOLOR=\"" PHP_HEADER_COLOR "\"><TD ALIGN=\"left\">\n");
+		php_printf("<tr valign=\"middle\" bgcolor=\"" PHP_HEADER_COLOR "\"><td align=\"left\">\n");
 	} else {
-		php_printf("<TR VALIGN=\"top\" BGCOLOR=\"" PHP_CONTENTS_COLOR "\"><TD ALIGN=\"left\">\n");
+		php_printf("<tr valign=\"top\" bgcolor=\"" PHP_CONTENTS_COLOR "\"><td align=\"left\">\n");
 	}
 }
 
 PHPAPI void php_info_print_box_end()
 {
-	php_printf("</TD></TR>\n");
+	php_printf("</td></tr>\n");
 	php_info_print_table_end();
 }
 
 PHPAPI void php_info_print_hr()
 {
-	php_printf("<HR NOSHADE SIZE=1 WIDTH=600>\n");
+	php_printf("<hr noshade size=\"1\" width=\"600\">\n");
 }
 
 PHPAPI void php_info_print_table_colspan_header(int num_cols, char *header)
 {
-	php_printf("<TR BGCOLOR=\"" PHP_HEADER_COLOR "\"><TH COLSPAN=%d>%s</TH></TR>\n", num_cols, header );
+	php_printf("<tr bgcolor=\"" PHP_HEADER_COLOR "\"><th colspan=\"%d\">%s</th></tr>\n", num_cols, header );
 }
 
-
+/* {{{ php_info_print_table_header
+ */
 PHPAPI void php_info_print_table_header(int num_cols, ...)
 {
 	int i;
@@ -373,20 +383,22 @@ PHPAPI void php_info_print_table_header(int num_cols, ...)
 
 	va_start(row_elements, num_cols);
 
-	php_printf("<TR VALIGN=\"middle\" bgcolor=\"" PHP_HEADER_COLOR "\">");
+	php_printf("<tr valign=\"middle\" bgcolor=\"" PHP_HEADER_COLOR "\">");
 	for (i=0; i<num_cols; i++) {
 		row_element = va_arg(row_elements, char *);
 		if (!row_element || !*row_element) {
 			row_element = "&nbsp;";
 		}
-		php_printf("<TH>%s</TH>", row_element);
+		php_printf("<th>%s</th>", row_element);
 	}
-	php_printf("</TR>\n");
+	php_printf("</tr>\n");
 
 	va_end(row_elements);
 }
+/* }}} */
 
-
+/* {{{ php_info_print_table_row
+ */
 PHPAPI void php_info_print_table_row(int num_cols, ...)
 {
 	int i;
@@ -395,11 +407,11 @@ PHPAPI void php_info_print_table_row(int num_cols, ...)
 
 	va_start(row_elements, num_cols);
 
-	php_printf("<TR VALIGN=\"baseline\" BGCOLOR=\"" PHP_CONTENTS_COLOR "\">");
+	php_printf("<tr valign=\"baseline\" bgcolor=\"" PHP_CONTENTS_COLOR "\">");
 	for (i=0; i<num_cols; i++) {
-		php_printf("<TD %s>%s",
-			(i==0?"BGCOLOR=\"" PHP_ENTRY_NAME_COLOR "\" ":"ALIGN=\"left\""),
-			(i==0?"<B>":""));
+		php_printf("<td %s>%s",
+			(i==0?"bgcolor=\"" PHP_ENTRY_NAME_COLOR "\" ":"align=\"left\""),
+			(i==0?"<b>":""));
 
 		row_element = va_arg(row_elements, char *);
 		if (!row_element || !*row_element) {
@@ -408,15 +420,16 @@ PHPAPI void php_info_print_table_row(int num_cols, ...)
 			zend_html_puts(row_element, strlen(row_element));
 		}
 
-		php_printf("%s</td>", (i==0?"</B>":""));
+		php_printf("%s</td>", (i==0?"</b>":""));
 	}
-	php_printf("</TR>\n");
+	php_printf("</tr>\n");
 
 	va_end(row_elements);
 }
+/* }}} */
 
-
-
+/* {{{ register_phpinfo_constants
+ */
 void register_phpinfo_constants(INIT_FUNC_ARGS)
 {
 	REGISTER_LONG_CONSTANT("INFO_GENERAL", PHP_INFO_GENERAL, CONST_PERSISTENT|CONST_CS);
@@ -436,80 +449,81 @@ void register_phpinfo_constants(INIT_FUNC_ARGS)
 	REGISTER_LONG_CONSTANT("CREDITS_QA",	PHP_CREDITS_QA, CONST_PERSISTENT|CONST_CS);
 	REGISTER_LONG_CONSTANT("CREDITS_ALL",	PHP_CREDITS_ALL, CONST_PERSISTENT|CONST_CS);
 }
-
+/* }}} */
 
 /* {{{ proto void phpinfo([int what])
    Output a page of useful information about PHP and the current request */
 PHP_FUNCTION(phpinfo)
 {
-	int flag;
-	zval **flag_arg;
+	int argc = ZEND_NUM_ARGS();
+	long flag;
 
-
-	switch (ZEND_NUM_ARGS()) {
-		case 0:
-			flag = 0xFFFFFFFF;
-			break;
-		case 1:
-			if (zend_get_parameters_ex(1, &flag_arg)==FAILURE) {
-				RETURN_FALSE;
-			}
-			convert_to_long_ex(flag_arg);
-			flag = (*flag_arg)->value.lval;
-			break;
-		default:
-			WRONG_PARAM_COUNT;
-			break;
+	if (zend_parse_parameters(argc TSRMLS_CC, "|l", &flag) == FAILURE) {
+		return;
 	}
-	php_print_info(flag);
+
+	if(!argc) {
+		flag = 0xFFFFFFFF;
+	}
+
+	php_print_info(flag TSRMLS_CC);
+
 	RETURN_TRUE;
 }
 
 /* }}} */
 
-/* {{{ proto string phpversion(void)
+/* {{{ proto string phpversion([string extension])
    Return the current PHP version */
 PHP_FUNCTION(phpversion)
 {
-    RETURN_STRING(PHP_VERSION,1);
+    zval **arg;
+    int argc = ZEND_NUM_ARGS();
+
+	if (argc == 0) {
+    RETURN_STRING(PHP_VERSION, 1);
+	} else if (argc == 1 && zend_get_parameters_ex(1, &arg) == SUCCESS) {
+        char *version;
+        convert_to_string_ex(arg);
+        version = zend_get_module_version(Z_STRVAL_PP(arg));
+        if (version == NULL) {
+            RETURN_FALSE;
+        }
+        RETURN_STRING(version, 1);
+    } else {
+		WRONG_PARAM_COUNT;
+    }
 }
 /* }}} */
-
 
 /* {{{ proto void phpcredits([int flag])
    Prints the list of people who've contributed to the PHP project */
 PHP_FUNCTION(phpcredits)
 {
-	int flag;
-	zval **flag_arg;
+	int argc = ZEND_NUM_ARGS();
+	long flag;
 
-
-	switch (ZEND_NUM_ARGS()) {
-		case 0:
-			flag = 0xFFFFFFFF;
-			break;
-		case 1:
-			if (zend_get_parameters_ex(1, &flag_arg)==FAILURE) {
-				RETURN_FALSE;
-			}
-			convert_to_long_ex(flag_arg);
-			flag = (*flag_arg)->value.lval;
-			break;
-		default:
-			WRONG_PARAM_COUNT;
-			break;
+	if (zend_parse_parameters(argc TSRMLS_CC, "|l", &flag) == FAILURE) {
+		return;
 	}
+
+	if(!argc) {
+		flag = 0xFFFFFFFF;
+	} 
+
 	php_print_credits(flag);
 	RETURN_TRUE;
 }
-
 /* }}} */
-
 
 /* {{{ proto string php_logo_guid(void)
    Return the special ID used to request the PHP logo in phpinfo screens*/
 PHP_FUNCTION(php_logo_guid)
 {
+	if (ZEND_NUM_ARGS() != 0) {
+		WRONG_PARAM_COUNT;
+	}
+
 	RETURN_STRINGL(PHP_LOGO_GUID, sizeof(PHP_LOGO_GUID)-1, 1);
 }
 /* }}} */
@@ -518,15 +532,22 @@ PHP_FUNCTION(php_logo_guid)
    Return the special ID used to request the PHP logo in phpinfo screens*/
 PHP_FUNCTION(php_egg_logo_guid)
 {
+	if (ZEND_NUM_ARGS() != 0) {
+		WRONG_PARAM_COUNT;
+	}
+
 	RETURN_STRINGL(PHP_EGG_LOGO_GUID, sizeof(PHP_EGG_LOGO_GUID)-1, 1);
 }
 /* }}} */
-
 
 /* {{{ proto string zend_logo_guid(void)
    Return the special ID used to request the Zend logo in phpinfo screens*/
 PHP_FUNCTION(zend_logo_guid)
 {
+	if (ZEND_NUM_ARGS() != 0) {
+		WRONG_PARAM_COUNT;
+	}
+
 	RETURN_STRINGL(ZEND_LOGO_GUID, sizeof(ZEND_LOGO_GUID)-1, 1);
 }
 /* }}} */
@@ -535,8 +556,12 @@ PHP_FUNCTION(zend_logo_guid)
    Return the current SAPI module name */
 PHP_FUNCTION(php_sapi_name)
 {
+	if (ZEND_NUM_ARGS() != 0) {
+		WRONG_PARAM_COUNT;
+	}
+
 	if (sapi_module.name) {
-		RETURN_STRING(sapi_module.name,1);
+		RETURN_STRING(sapi_module.name, 1);
 	} else {
 		RETURN_FALSE;
 	}
@@ -548,6 +573,10 @@ PHP_FUNCTION(php_sapi_name)
    Return information about the system PHP was built on */
 PHP_FUNCTION(php_uname)
 {
+    if (ZEND_NUM_ARGS() != 0) {
+		WRONG_PARAM_COUNT;
+	}
+
 	RETURN_STRING(php_get_uname(), 0);
 }
 
@@ -558,4 +587,6 @@ PHP_FUNCTION(php_uname)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
  */

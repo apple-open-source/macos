@@ -1,4 +1,4 @@
-.\" $OpenBSD: ssh-agent.1,v 1.28 2001/09/05 06:23:07 deraadt Exp $
+.\" $OpenBSD: ssh-agent.1,v 1.31 2002/02/04 20:41:16 stevesk Exp $
 .\"
 .\" Author: Tatu Ylonen <ylo@cs.hut.fi>
 .\" Copyright (c) 1995 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
@@ -94,9 +94,11 @@ Keys are added using
 .Xr ssh-add 1 .
 When executed without arguments,
 .Xr ssh-add 1
-adds the
-.Pa $HOME/.ssh/identity
-file.
+adds the files
+.Pa $HOME/.ssh/id_rsa ,
+.Pa $HOME/.ssh/id_dsa 
+and
+.Pa $HOME/.ssh/identity .
 If the identity has a passphrase,
 .Xr ssh-add 1
 asks for the passphrase (using a small X11 application if running
@@ -127,6 +129,11 @@ Later
 .Xr ssh 1
 looks at these variables and uses them to establish a connection to the agent.
 .Pp
+The agent will never send a private key over its request channel.
+Instead, operations that require a private key will be performed
+by the agent, and the result will be returned to the requester.
+This way, private keys are not exposed to clients using the agent.
+.Pp
 A unix-domain socket is created
 .Pq Pa /tmp/ssh-XXXXXXXX/agent.<pid> ,
 and the name of this socket is stored in the
@@ -147,15 +154,6 @@ line terminates.
 .Bl -tag -width Ds
 .It Pa $HOME/.ssh/identity
 Contains the protocol version 1 RSA authentication identity of the user.
-This file should not be readable by anyone but the user.
-It is possible to
-specify a passphrase when generating the key; that passphrase will be
-used to encrypt the private part of this file.
-This file is not used by
-.Nm
-but is normally added to the agent using
-.Xr ssh-add 1
-at login time.
 .It Pa $HOME/.ssh/id_dsa
 Contains the protocol version 2 DSA authentication identity of the user.
 .It Pa $HOME/.ssh/id_rsa

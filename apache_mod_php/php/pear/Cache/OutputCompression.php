@@ -23,7 +23,7 @@ require_once 'Cache/Output.php';
 *
 * Based upon a case study from Christian Stocker and inspired by jpcache.
 *
-* @version  $Id: OutputCompression.php,v 1.1.1.1 2001/07/19 00:20:43 zarzycki Exp $
+* @version  $Id: OutputCompression.php,v 1.1.1.2 2001/12/14 22:14:08 zarzycki Exp $
 * @author   Ulf Wendel <ulf.wendel@phpdoc.de>, Christian Stocker <chregu@nomad.ch>
 * @access   public
 * @package  Cache
@@ -38,7 +38,7 @@ class Cache_OutputCompression extends Cache_Output {
     * @var  string
     * @see  Cache_OutputCompression(), setEncoding()
     */
-    var $encoding = "auto";
+    var $encoding = 'auto';
  
     
     /**
@@ -47,20 +47,20 @@ class Cache_OutputCompression extends Cache_Output {
     * @var  string
     * @see  isCompressed()
     */ 
-    var $compression = "";
+    var $compression = '';
 
     
     /**
     * Sets the storage details and the content encoding used (if not autodetection)
     * 
-    * @param    string  name of the storage container to use
-    * @param    array   storage container options
+    * @param    string  Name of container class
+    * @param    array   Array with container class options
     * @param    string  content encoding mode - auto => test which encoding the user accepts
     */    
-    function Cache_OutputCompression($storage_driver, $storage_options = "", $encoding = "auto") {
+    function Cache_OutputCompression($container, $container_options = '', $encoding = 'auto') {
     
         $this->setEncoding($encoding);
-        $this->Cache($storage_driver, $storage_options);
+        $this->Cache($container, $container_options);
         
     } // end constructor
 
@@ -82,10 +82,10 @@ class Cache_OutputCompression extends Cache_Output {
 
     
     function get($id, $group) {
-        $this->content = "";
+        $this->content = '';
         
         if (!$this->caching)
-            return "";
+            return '';
         
         if ($this->isCached($id, $group) && !$this->isExpired($id, $group))
             $this->content = $this->load($id, $group);
@@ -100,7 +100,7 @@ class Cache_OutputCompression extends Cache_Output {
     * If you need the uncompressed content for further procession before
     * it's saved in the cache use endGet(). endGet() does _not compress_.
     */    
-    function end($expire = 0, $userdata = "") {
+    function end($expire = 0, $userdata = '') {
         $content = ob_get_contents();
         ob_end_clean();
 
@@ -114,7 +114,7 @@ class Cache_OutputCompression extends Cache_Output {
     } // end func end()
     
     
-    function endPrint($expire = 0, $userdata = "") {
+    function endPrint($expire = 0, $userdata = '') {
         $this->printContent($this->end($expire, $userdata));
     } // end func endPrint
 
@@ -123,7 +123,7 @@ class Cache_OutputCompression extends Cache_Output {
     * Saves the given data to the cache.
     * 
     */   
-    function extSave($id, $cachedata, $userdata, $expires = 0, $group = "default") {
+    function extSave($id, $cachedata, $userdata, $expires = 0, $group = 'default') {
         if (!$this->caching)
             return true;
 
@@ -132,7 +132,7 @@ class Cache_OutputCompression extends Cache_Output {
             $len = strlen($cachedata);            
             $crc = crc32($cachedata);
             $cachedata = gzcompress($cachedata, 9);
-            $this->content = substr($cachedata, 0, strlen($cachedata) - 4) . pack("V", $crc) . pack("V", $len);
+            $this->content = substr($cachedata, 0, strlen($cachedata) - 4) . pack('V', $crc) . pack('V', $len);
             
         } else {
             
@@ -149,25 +149,25 @@ class Cache_OutputCompression extends Cache_Output {
     * @access   public
     * @global   $HTTP_SERVER_VARS
     */    
-    function printContent($content = "") {
+    function printContent($content = '') {
         global $HTTP_SERVER_VARS;
 
-        if ("" == $content)
+        if ('' == $content)
             $content = &$this->content;
          
         if ($this->compression && $this->caching) {
    
             $etag = 'PEAR-Cache-' . md5(substr($content, -40));
             header("ETag: $etag");
-            if (strstr(stripslashes($HTTP_SERVER_VARS["HTTP_IF_NONE_MATCH"]), $etag)) {
+            if (strstr(stripslashes($HTTP_SERVER_VARS['HTTP_IF_NONE_MATCH']), $etag)) {
                 // not modified
-                header("HTTP/1.0 304");
+                header('HTTP/1.0 304');
                 return;
             } else {
    
                 // client acceppts some encoding - send headers & data
                 header("Content-Encoding: {$this->compression}");
-                header("Vary: Accept-Encoding");
+                header('Vary: Accept-Encoding');
                 print "\x1f\x8b\x08\x00\x00\x00\x00\x00";
             }
         
@@ -194,7 +194,7 @@ class Cache_OutputCompression extends Cache_Output {
     * @access   public
     * @see      $encoding
     */
-    function setEncoding($encoding = "auto") {
+    function setEncoding($encoding = 'auto') {
         $this->encoding = $encoding;
     } // end func setEncoding
     
@@ -209,17 +209,17 @@ class Cache_OutputCompression extends Cache_Output {
         global $HTTP_ACCEPT_ENCODING;
         
         // encoding set by user    
-        if ("auto" != $this->encoding)
+        if ('auto' != $this->encoding)
             return $this->encoding;
         
         // check what the client accepts
-        if (false !== strpos($HTTP_ACCEPT_ENCODING, "x-gzip"))
-            return "x-gzip";
-        if (false !== strpos($HTTP_ACCEPT_ENCODING, "gzip"))
-            return "gzip";
+        if (false !== strpos($HTTP_ACCEPT_ENCODING, 'x-gzip'))
+            return 'x-gzip';
+        if (false !== strpos($HTTP_ACCEPT_ENCODING, 'gzip'))
+            return 'gzip';
             
         // no compression
-        return "";
+        return '';
         
     } // end func getEncoding
 

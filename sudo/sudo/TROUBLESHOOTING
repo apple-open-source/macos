@@ -1,5 +1,12 @@
-FAQ and troubleshooting tips for Sudo
+Troubleshooting tips and FAQ for Sudo
 =====================================
+
+Q) When I run configure, it says "C compiler cannot create executables".
+A) This usually means you either don't have a working compiler.  This
+   could be due to the lack of a license or that some component of the
+   compiler suite could not be found.  Check config.log for clues as
+   to why this is happening.  On many systems, compiler components live
+   in /usr/ccs/bin which may not be in your PATH environment variable.
 
 Q) Sudo compiles but when I run it I get "Sorry, sudo must be setuid root."
    and sudo quits.
@@ -9,6 +16,13 @@ A) Sudo must be setuid root to do its work.  You need to do something like
    not be able to work.  Another possibility is you may have '.' in
    your $PATH before the directory containing sudo.  If you are going
    to have '.' in your path you should make sure it is at the end.
+
+Q) Sudo compiles but when I run it I get "seteuid(0) failed, your operating
+   system may have broken POSIX saved ID support\nTry running configure with
+   --disable-saved-ids" and sudo quits.
+A) The operating system you are running probably has broken support for
+   POSIX saved IDs.  You should run configure with the "--disable-saved-ids"
+   option and rebuild sudo.
 
 Q) Sudo never gives me a chance to enter a password using PAM, it just
    says 'Sorry, try again.' three times and quits.
@@ -70,14 +84,28 @@ A) Sudo removes the following "dangerous" environment variables
      LOCALDOMAIN
      RES_OPTIONS
      HOSTALIASES
+     NLSPATH
+     PATH_LOCALE
+     TERMINFO
+     TERMINFO_DIRS
+     TERMPATH
+     TERMCAP
      ENV
      BASH_ENV
+     LC_ (if it contains a '/' or '%')
+     LANG (if it contains a '/' or '%')
+     LANGUAGE (if it contains a '/' or '%')
      LD_*
      _RLD_*
      SHLIB_PATH (HP-UX only)
-     LIB_PATH (AIX only)
+     LIBPATH (AIX only)
      KRB_CONF (kerb4 only)
+     KRBCONFDIR (kerb4 only)
+     KRBTKFILE (kerb4 only)
      KRB5_CONFIG (kerb5 only)
+     VAR_ACE (SecurID only)
+     USR_ACE (SecurID only)
+     DLC_ACE (SecurID only)
 
 Q) How can I keep sudo from asking for a password?
 A) To specify this on a per-user (and per-command) basis, use the 'NOPASSWD'
@@ -130,6 +158,18 @@ Q) When I try to use "cd" with sudo the command completes without
 A) Some SVR4-derived OS's include a /usr/bin/cd command for reasons
    unfathomable.  A "cd" command is totally useless since a child process
    cannot affect the current working directory of the parent (your shell).
+
+Q) When I run sudo it says I am not alllowed to run the command as root
+   but I don't want to run it as root, I want to run it as another user.
+   My sudoers file entry looks like:
+    bob	ALL=(oracle) ALL
+A) The default user sudo tries to run things as is always root, even if
+   the invoking user can only run commands as a single, specific user.
+   This may change in the future but at the present time you have to
+   work around this using the 'runas_default' option in sudoers.
+   For example:
+    Defaults:bob	runas_default=oracle
+   would achieve the desired result ofr the preceding sudoers fragment.
 
 Q) How do you pronounce `sudo'?
 A) soo-doo (for superuser do).

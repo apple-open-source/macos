@@ -1,4 +1,4 @@
-/* $Id: base64.h,v 1.1.1.1 2001/02/25 20:54:30 zarzycki Exp $ */
+/* $Id: base64.h,v 1.1.1.2 2002/03/08 21:07:45 wsanchez Exp $ */
 
 #ifndef _BSD_BASE64_H
 #define _BSD_BASE64_H
@@ -15,4 +15,4 @@ int b64_pton(char const *src, u_char *target, size_t targsize);
 # define __b64_pton b64_pton
 #endif /* HAVE___B64_NTOP */
 
-#endif /* _BSD_BINRESVPORT_H */
+#endif /* _BSD_BASE64_H */

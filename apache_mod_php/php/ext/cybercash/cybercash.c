@@ -1,32 +1,23 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP HTML Embedded Scripting Language Version 3.0                     |
+   | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997,1998 PHP Development Team (See Credits file)      |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
-   | This program is free software; you can redistribute it and/or modify |
-   | it under the terms of one of the following licenses:                 |
-   |                                                                      |
-   |  A) the GNU General Public License as published by the Free Software |
-   |     Foundation; either version 2 of the License, or (at your option) |
-   |     any later version.                                               |
-   |                                                                      |
-   |  B) the PHP License as published by the PHP Development Team and     |
-   |     included in the distribution in the file: LICENSE                |
-   |                                                                      |
-   | This program is distributed in the hope that it will be useful,      |
-   | but WITHOUT ANY WARRANTY; without even the implied warranty of       |
-   | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the        |
-   | GNU General Public License for more details.                         |
-   |                                                                      |
-   | You should have received a copy of both licenses referred to here.   |
-   | If you did not, or have any questions about PHP licensing, please    |
-   | contact core@php.net.                                                |
+   | This source file is subject to version 2.02 of the PHP license,      |
+   | that is bundled with this package in the file LICENSE, and is        |
+   | available at through the world-wide-web at                           |
+   | http://www.php.net/license/2_02.txt.                                 |
+   | If you did not receive a copy of the PHP license and are unable to   |
+   | obtain it through the world-wide-web, please send a note to          |
+   | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
    | Authors: Evan Klinger <evan715@sirius.com>                           |
    |          Timothy Whitfield <timothy@ametro.net>                      |
    +----------------------------------------------------------------------+
  */
+
+/* $Id: cybercash.c,v 1.1.1.4 2001/12/14 22:12:06 zarzycki Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -40,6 +31,8 @@
 #include "mckcrypt.h"
 #include "base64.h"
 
+/* {{{ cybercash_functions[]
+ */
 function_entry cybercash_functions[] = {
 	PHP_FE(cybercash_encr, NULL)
 	PHP_FE(cybercash_decr, NULL)
@@ -47,8 +40,12 @@ function_entry cybercash_functions[] = {
 	PHP_FE(cybercash_base64_decode, NULL)
 	{NULL, NULL, NULL}
 };
+/* }}} */
 
+/* {{{ cybercash_module_entry
+ */
 zend_module_entry cybercash_module_entry = {
+    STANDARD_MODULE_HEADER,
 	"cybercash",
 	cybercash_functions,
 	NULL,
@@ -56,20 +53,27 @@ zend_module_entry cybercash_module_entry = {
 	NULL,
 	NULL,
 	PHP_MINFO(cybercash),
+    NO_VERSION_YET,
 	STANDARD_MODULE_PROPERTIES,
 };
+/* }}} */
 
 #ifdef COMPILE_DL_CYBERCASH
 ZEND_GET_MODULE(cybercash)
 #endif
 
+/* {{{ PHP_MINFO_FUNCTION
+ */
 PHP_MINFO_FUNCTION(cybercash)
 {
 	php_info_print_table_start();
 	php_info_print_table_row(2, "Cybercash Support", "enabled");
 	php_info_print_table_end();
 }
+/* }}} */
 
+/* {{{ proto cybercash_encr(string wmk, string sk, string data)
+   Cybercash encrypt */
 PHP_FUNCTION(cybercash_encr)
 {
 	zval **wmk, **sk, **inbuff;
@@ -109,17 +113,20 @@ PHP_FUNCTION(cybercash_encr)
 
 	if (!errcode) {
 		add_assoc_stringl(return_value, "outbuff", outbuff, outLth, 0);
-		add_assoc_long(return_value,"outLth",outLth);
-		add_assoc_stringl(return_value,"macbuff",macbuff,20,0);
+		add_assoc_long(return_value,"outLth", outLth);
+		add_assoc_stringl(return_value,"macbuff", macbuff, 20, 0);
 	} else {
 		efree(outbuff);
 		efree(macbuff);
 	}
 }
+/* }}} */
 
+/* {{{ proto array cybercash_decr(string wmp, string sk, string data)
+   Cybercash decrypt */
 PHP_FUNCTION(cybercash_decr)
 {
-	zval **wmk,**sk,**inbuff;
+	zval **wmk, **sk, **inbuff;
 	unsigned char *outbuff, *macbuff;
 	unsigned int outAlloc, outLth;
 	long errcode;
@@ -164,7 +171,10 @@ PHP_FUNCTION(cybercash_decr)
 		efree(macbuff);
 	}
 }
+/* }}} */
 
+/* {{{ proto string cybercash_base64_encode(string data)
+   base64 encode data for cybercash */
 PHP_FUNCTION(cybercash_base64_encode)
 {
 	zval **inbuff;
@@ -185,7 +195,10 @@ PHP_FUNCTION(cybercash_base64_encode)
 
 	RETURN_STRINGL(outbuff, ret_length, 0);
 }
+/* }}} */
 
+/* {{{ proto string cybercash_base64_decode(string data)
+   base64 decode data for cybercash */
 PHP_FUNCTION(cybercash_base64_decode)
 {
 	zval **inbuff;
@@ -204,4 +217,14 @@ PHP_FUNCTION(cybercash_base64_decode)
 
 	RETURN_STRINGL(outbuff, ret_length, 0);
 }
+/* }}} */
 #endif
+
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
+ */

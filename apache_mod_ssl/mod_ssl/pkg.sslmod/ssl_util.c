@@ -435,3 +435,15 @@ void ssl_util_thread_setup(void)
     return;
 }
 
+void ssl_util_thread_cleanup(void)
+{
+#ifdef WIN32
+    int i;
+
+    CRYPTO_set_locking_callback(NULL);
+    for (i = 0; i < CRYPTO_NUM_LOCKS; i++)
+        CloseHandle(lock_cs[i]);
+#endif /* WIN32 */
+    return;
+}
+

@@ -1,5 +1,3 @@
-/*	$NetBSD: main.c,v 1.8 1997/10/19 05:03:38 lukem Exp $	*/
-
 /*
  * Copyright (c) 1980, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -33,27 +31,24 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
-__COPYRIGHT("@(#) Copyright (c) 1980, 1993\n\
-	The Regents of the University of California.  All rights reserved.\n");
+static char copyright[] =
+"@(#) Copyright (c) 1980, 1993\n\
+	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
 
 #ifndef lint
 #if 0
 static char sccsid[] = "@(#)main.c	8.2 (Berkeley) 4/20/95";
-#else
-__RCSID("$NetBSD: main.c,v 1.8 1997/10/19 05:03:38 lukem Exp $");
 #endif
+static const char rcsid[] =
+  "$FreeBSD: src/usr.bin/mail/main.c,v 1.12 2001/12/18 20:52:09 mikeh Exp $";
 #endif /* not lint */
 
 #define EXTERN
 #include "rcv.h"
-#undef EXTERN
-
+#include <fcntl.h>
 #include "extern.h"
-
-int	main __P((int, char **));
 
 /*
  * Mail -- a mail program
@@ -63,6 +58,8 @@ int	main __P((int, char **));
 
 jmp_buf	hdrjmp;
 
+extern const char *version;
+
 int
 main(argc, argv)
 	int argc;
@@ -70,18 +67,17 @@ main(argc, argv)
 {
 	int i;
 	struct name *to, *cc, *bcc, *smopts;
-	char *subject;
-	char *ef;
+	char *subject, *replyto;
+	char *ef, *rc;
 	char nosrc = 0;
 	sig_t prevint;
-	char *rc;
 
 	/*
 	 * Set up a reasonable environment.
 	 * Figure out whether we are being run interactively,
 	 * start the SIGCHLD catcher, and so forth.
 	 */
-	(void) signal(SIGCHLD, sigchild);
+	(void)signal(SIGCHLD, sigchild);
 	if (isatty(0))
 		assign("interactive", "");
 	image = -1;
@@ -92,13 +88,13 @@ main(argc, argv)
 	 * of users to mail to.  Argp will be set to point to the
 	 * first of these users.
 	 */
-	ef = NOSTR;
-	to = NIL;
-	cc = NIL;
-	bcc = NIL;
-	smopts = NIL;
-	subject = NOSTR;
-	while ((i = getopt(argc, argv, "INT:b:c:dfins:u:v")) != -1) {
+	ef = NULL;
+	to = NULL;
+	cc = NULL;
+	bcc = NULL;
+	smopts = NULL;
+	subject = NULL;
+	while ((i = getopt(argc, argv, "EINT:b:c:dfins:u:v")) != -1) {
 		switch (i) {
 		case 'T':
 			/*
@@ -106,17 +102,17 @@ main(argc, argv)
 			 * articles have been read/deleted for netnews.
 			 */
 			Tflag = optarg;
-			if ((i = creat(Tflag, 0600)) < 0) {
-				perror(Tflag);
-				exit(1);
-			}
-			close(i);
+			if ((i = open(Tflag, O_CREAT | O_TRUNC | O_WRONLY,
+			    0600)) < 0)
+				err(1, "%s", Tflag);
+			(void)close(i);
 			break;
 		case 'u':
 			/*
 			 * Next argument is person to pretend to be.
 			 */
 			myname = optarg;
+			unsetenv("MAIL");
 			break;
 		case 'i':
 			/*
@@ -145,7 +141,7 @@ main(argc, argv)
 			 * getopt() can't handle optional arguments, so here
 			 * is an ugly hack to get around it.
 			 */
-			if ((argv[optind]) && (argv[optind][0] != '-'))
+			if ((argv[optind] != NULL) && (argv[optind][0] != '-'))
 				ef = argv[optind++];
 			else
 				ef = "&";
@@ -186,47 +182,60 @@ main(argc, argv)
 			 */
 			bcc = cat(bcc, nalloc(optarg, GBCC));
 			break;
+		case 'E':
+			/*
+			 * Don't send empty files.
+			 */
+			assign("dontsendempty", "");
+			break;
 		case '?':
-			fputs("\
-Usage: mail [-iInv] [-s subject] [-c cc-addr] [-b bcc-addr] to-addr ...\n\
-            [- sendmail-options ...]\n\
-       mail [-iInNv] -f [name]\n\
-       mail [-iInNv] [-u user]\n",
-				stderr);
+			fprintf(stderr, "\
+Usage: %s [-EiInv] [-s subject] [-c cc-addr] [-b bcc-addr] to-addr ...\n\
+       %*s [- sendmail-options ...]\n\
+       %s [-EiInNv] -f [name]\n\
+       %s [-EiInNv] [-u user]\n",__progname, strlen(__progname), "",
+			    __progname, __progname);
 			exit(1);
 		}
 	}
-	for (i = optind; (argv[i]) && (*argv[i] != '-'); i++)
+	for (i = optind; (argv[i] != NULL) && (*argv[i] != '-'); i++)
 		to = cat(to, nalloc(argv[i], GTO));
-	for (; argv[i]; i++)
+	for (; argv[i] != NULL; i++)
 		smopts = cat(smopts, nalloc(argv[i], 0));
 	/*
 	 * Check for inconsistent arguments.
 	 */
-	if (to == NIL && (subject != NOSTR || cc != NIL || bcc != NIL)) {
-		fputs("You must specify direct recipients with -s, -c, or -b.\n", stderr);
-		exit(1);
-	}
-	if (ef != NOSTR && to != NIL) {
-		fprintf(stderr, "Cannot give -f and people to send to.\n");
-		exit(1);
-	}
+	if (to == NULL && (subject != NULL || cc != NULL || bcc != NULL))
+		errx(1, "You must specify direct recipients with -s, -c, or -b.");
+	if (ef != NULL && to != NULL)
+		errx(1, "Cannot give -f and people to send to.");
 	tinit();
 	setscreensize();
 	input = stdin;
 	rcvmode = !to;
 	spreserve();
-	if (!nosrc)
-		load(_PATH_MASTER_RC);
+	if (!nosrc) {
+		char *s, *path_rc;
+
+		if ((path_rc = malloc(sizeof(_PATH_MASTER_RC))) == NULL)
+			err(1, "malloc(path_rc) failed");
+
+		strcpy(path_rc, _PATH_MASTER_RC);
+		while ((s = strsep(&path_rc, ":")) != NULL)
+			if (*s != '\0')
+				load(s);
+	}
 	/*
 	 * Expand returns a savestr, but load only uses the file name
 	 * for fopen, so it's safe to do this.
 	 */
-	if ((rc = getenv("MAILRC")) == 0)
+	if ((rc = getenv("MAILRC")) == NULL)
 		rc = "~/.mailrc";
 	load(expand(rc));
+
+	replyto = value("REPLYTO");
 	if (!rcvmode) {
-		mail(to, cc, bcc, smopts, subject);
+		mail(to, cc, bcc, smopts, subject, replyto);
 		/*
 		 * why wait?
 		 */
@@ -237,26 +246,24 @@ Usage: mail [-iInv] [-s subject] [-c cc-addr] [-b bcc-addr] to-addr ...\n\
 	 * Decide whether we are editing a mailbox or reading
 	 * the system mailbox, and open up the right stuff.
 	 */
-	if (ef == NOSTR)
+	if (ef == NULL)
 		ef = "%";
 	if (setfile(ef) < 0)
 		exit(1);		/* error already reported */
 	if (setjmp(hdrjmp) == 0) {
-		extern char *version;
-
 		if ((prevint = signal(SIGINT, SIG_IGN)) != SIG_IGN)
-			signal(SIGINT, hdrstop);
-		if (value("quiet") == NOSTR)
+			(void)signal(SIGINT, hdrstop);
+		if (value("quiet") == NULL)
 			printf("Mail version %s.  Type ? for help.\n",
 				version);
 		announce();
-		fflush(stdout);
-		signal(SIGINT, prevint);
+		(void)fflush(stdout);
+		(void)signal(SIGINT, prevint);
 	}
 	commands();
-	signal(SIGHUP, SIG_IGN);
-	signal(SIGINT, SIG_IGN);
-	signal(SIGQUIT, SIG_IGN);
+	(void)signal(SIGHUP, SIG_IGN);
+	(void)signal(SIGINT, SIG_IGN);
+	(void)signal(SIGQUIT, SIG_IGN);
 	quit();
 	exit(0);
 }
@@ -264,12 +271,13 @@ Usage: mail [-iInv] [-s subject] [-c cc-addr] [-b bcc-addr] to-addr ...\n\
 /*
  * Interrupt printing of the headers.
  */
+/*ARGSUSED*/
 void
 hdrstop(signo)
 	int signo;
 {
 
-	fflush(stdout);
+	(void)fflush(stdout);
 	fprintf(stderr, "\nInterrupt\n");
 	longjmp(hdrjmp, 1);
 }
@@ -287,17 +295,17 @@ setscreensize()
 {
 	struct termios tbuf;
 	struct winsize ws;
-	speed_t ospeed;
+	speed_t speed;
 
-	if (ioctl(1, TIOCGWINSZ, (char *) &ws) < 0)
+	if (ioctl(1, TIOCGWINSZ, (char *)&ws) < 0)
 		ws.ws_col = ws.ws_row = 0;
 	if (tcgetattr(1, &tbuf) < 0)
-		ospeed = 9600;
+		speed = B9600;
 	else
-		ospeed = cfgetospeed(&tbuf);
-	if (ospeed < 1200)
+		speed = cfgetospeed(&tbuf);
+	if (speed < B1200)
 		screenheight = 9;
-	else if (ospeed == 1200)
+	else if (speed == B1200)
 		screenheight = 14;
 	else if (ws.ws_row != 0)
 		screenheight = ws.ws_row;

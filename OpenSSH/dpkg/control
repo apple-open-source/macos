@@ -1,7 +1,7 @@
 Package: openssh
 Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
 Vendor: OpenSSH Project
-Version: 3.0.2p1
+Version: 3.1p1
 URL: http://www.openssh.com/portable.html
 Build-Depends: build-base, openssl, zlib, perl, libinfo
 Description: Secure Shell

@@ -26,13 +26,8 @@
 #include "zend_compile.h"
 #include "zend_indent.h"
 
-#ifndef ZTS
-extern char *zendtext;
-extern int zendleng;
-#else
-#define zendtext ((char *) zend_get_zendtext(CLS_C))
-#define zendleng zend_get_zendleng(CLS_C)
-#endif
+#define zendtext LANG_SCNG(yy_text)
+#define zendleng LANG_SCNG(yy_leng)
 
 
 static void handle_whitespace(int *emit_whitespace)
@@ -59,22 +54,22 @@ ZEND_API void zend_indent()
 	int nest_level=0;
 	int emit_whitespace[256];
 	int i;
-	CLS_FETCH();
+	TSRMLS_FETCH();
 
 	memset(emit_whitespace, 0, sizeof(int)*256);
 
 	/* highlight stuff coming back from zendlex() */
 	token.type = 0;
-	while ((token_type=lex_scan(&token CLS_CC))) {
+	while ((token_type=lex_scan(&token TSRMLS_CC))) {
 		switch (token_type) {
 			case T_INLINE_HTML:
-				zend_write(zendtext, zendleng);
+				zend_write(LANG_SCNG(yy_text), LANG_SCNG(yy_leng));
 				break;
 			case T_WHITESPACE: {
 					token.type = 0;
 					/* eat whitespace, emit newlines */
-					for (i=0; i<zendleng; i++) {
-						emit_whitespace[(unsigned char) zendtext[i]]++;
+					for (i=0; i<LANG_SCNG(yy_leng); i++) {
+						emit_whitespace[(unsigned char) LANG_SCNG(yy_text)[i]]++;
 					}
 					continue;
 				}
@@ -122,16 +117,16 @@ dflt_printout:
 							} else {
 								handle_whitespace(emit_whitespace);
 							}
-							zend_write(zendtext, zendleng);
+							zend_write(LANG_SCNG(yy_text), LANG_SCNG(yy_leng));
 							break;
 					}
 				} else {
 					handle_whitespace(emit_whitespace);
 					if (in_string) {
-						zend_write(zendtext, zendleng);
+						zend_write(LANG_SCNG(yy_text), LANG_SCNG(yy_leng));
 						/* a part of a string */
 					} else {
-						zend_write(zendtext, zendleng);
+						zend_write(LANG_SCNG(yy_text), LANG_SCNG(yy_leng));
 					}
 				}
 				break;

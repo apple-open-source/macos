@@ -1,4 +1,4 @@
-dnl $Id: config.m4,v 1.1.1.3 2001/07/19 00:19:25 zarzycki Exp $
+dnl $Id: config.m4,v 1.1.1.4 2001/12/14 22:12:41 zarzycki Exp $
 
 sinclude(ext/mysql/libmysql/acinclude.m4)
 sinclude(ext/mysql/libmysql/mysql.m4)
@@ -9,7 +9,7 @@ AC_DEFUN(MYSQL_LIB_CHK,[
   str="$MYSQL_DIR/$1/libmysqlclient.*"
   for j in `echo $str`; do
     if test -r $j; then
-      MYSQL_LIB_DIR="$MYSQL_DIR/$1"
+      MYSQL_LIB_DIR=$MYSQL_DIR/$1
       break 2
     fi
   done
@@ -23,6 +23,7 @@ AC_DEFUN(PHP_MYSQL_SOCK,[
       /var/tmp/mysql.sock \
       /var/lib/mysql/mysql.sock \
       /var/mysql/mysql.sock \
+      /Private/tmp/mysql.sock \
       ; do
     if test -r $i; then
       MYSQL_SOCK=$i
@@ -52,7 +53,7 @@ if test "$PHP_MYSQL" = "yes"; then
   PHP_SUBST(MYSQL_SUBDIRS)
   LIB_BUILD($ext_builddir/libmysql,$ext_shared,yes)
   PHP_ADD_INCLUDE($ext_srcdir/libmysql)
-  MYSQL_MODULE_TYPE="builtin"
+  MYSQL_MODULE_TYPE=builtin
 elif test "$PHP_MYSQL" != "no"; then
   for i in $PHP_MYSQL; do
     if test -r $i/include/mysql/mysql.h; then
@@ -68,7 +69,7 @@ elif test "$PHP_MYSQL" != "no"; then
     AC_MSG_ERROR(Cannot find header files under $PHP_MYSQL)
   fi
 
-  MYSQL_MODULE_TYPE="external"
+  MYSQL_MODULE_TYPE=external
 
   for i in lib lib/mysql; do
     MYSQL_LIB_CHK($i)
@@ -80,7 +81,7 @@ elif test "$PHP_MYSQL" != "no"; then
 
   if test "$PHP_ZLIB_DIR" != "no"; then
     PHP_ADD_LIBRARY(z,, MYSQL_SHARED_LIBADD)
-    MYSQL_LIBS="-L$PHP_ZLIB_DIR -z"
+    MYSQL_LIBS="-L$PHP_ZLIB_DIR/lib -z"
   fi
 
   PHP_ADD_LIBRARY_WITH_PATH(mysqlclient, $MYSQL_LIB_DIR, MYSQL_SHARED_LIBADD)
@@ -91,7 +92,7 @@ elif test "$PHP_MYSQL" != "no"; then
   PHP_MYSQL_SOCK
 
 else
-  MYSQL_MODULE_TYPE="none"
+  MYSQL_MODULE_TYPE=none
 fi
 
 PHP_SUBST(MYSQL_SHARED_LIBADD)

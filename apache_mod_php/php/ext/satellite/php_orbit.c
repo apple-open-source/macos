@@ -17,7 +17,7 @@
  */
 
 /*
- * $Id: php_orbit.c,v 1.1.1.2 2001/07/19 00:20:00 zarzycki Exp $
+ * $Id: php_orbit.c,v 1.1.1.3 2001/12/14 22:13:10 zarzycki Exp $
  * vim: syntax=c tabstop=2 shiftwidth=2
  */
 
@@ -27,7 +27,7 @@
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
- 
+
 #include <php.h>
 #include <php_ini.h>	 /* for DISPLAY_INI_ENTRIES() */
 #include <ext/standard/info.h>	/* for php_info_print_table_*() */
@@ -42,9 +42,7 @@
 #include "struct.h"
 
 
-#ifdef HAVE_CONFIG_H
 #include "php_config.h"	/* for COMPILE_DL_ORBIT */
-#endif
 
 /* see php4/README.SELF-CONTAINED-EXTENSIONS */
 #if COMPILE_DL_SATELLITE
@@ -66,6 +64,7 @@ static function_entry satellite_functions[] = {
 	PHP_FE(satellite_caught_exception, 	NULL)
 	PHP_FE(satellite_exception_id, 			NULL)
 	PHP_FE(satellite_exception_value, 	NULL)
+	PHP_FE(satellite_object_to_string, 	NULL)
 
 	/* support the old prefix orbit_ */
  	PHP_FALIAS(orbit_load_idl, 					satellite_load_idl, 					NULL)
@@ -82,14 +81,16 @@ static function_entry satellite_functions[] = {
  * module entry
  */
 zend_module_entry satellite_module_entry = {
-  "satellite",
-  satellite_functions,
-  PHP_MINIT(satellite),			/* module startup */
-  PHP_MSHUTDOWN(satellite),	/* module shutdown */
-  NULL,											/* request startup */
-  NULL,											/* request shutdown */
-  PHP_MINFO(satellite),			/* module info */
-  STANDARD_MODULE_PROPERTIES
+	STANDARD_MODULE_HEADER,
+	"satellite",
+	satellite_functions,
+	PHP_MINIT(satellite),			/* module startup */
+	PHP_MSHUTDOWN(satellite),	/* module shutdown */
+	NULL,											/* request startup */
+	NULL,											/* request shutdown */
+	PHP_MINFO(satellite),			/* module info */
+	NO_VERSION_YET,
+	STANDARD_MODULE_PROPERTIES
 };
 
 /*
@@ -117,10 +118,8 @@ PHP_MINIT_FUNCTION(satellite)
 PHP_MSHUTDOWN_FUNCTION(satellite)
 {
 	TypeManager_Shutdown();
-	orbit_corba_shutdown();
-	
+	orbit_corba_shutdown();	
 	UNREGISTER_INI_ENTRIES();
-	
 	return SUCCESS;
 }
 
@@ -134,7 +133,7 @@ PHP_MINFO_FUNCTION(satellite)
 	php_info_print_table_header(2, "CORBA support via Satellite", "enabled");
 	php_info_print_table_end();
 
-  DISPLAY_INI_ENTRIES();
+	DISPLAY_INI_ENTRIES();
 }
 
 /* instruct the type manager to load an IDL file if not already loaded */

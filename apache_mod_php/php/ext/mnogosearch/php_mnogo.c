@@ -1,5 +1,5 @@
-/* $Source: /cvs/Darwin/Services/apache_mod_php/php/ext/mnogosearch/php_mnogo.c,v $ */
-/* $Id: php_mnogo.c,v 1.1.1.1 2001/07/19 00:19:24 zarzycki Exp $ */
+/* $Source: /cvs/Darwin/apache_mod_php/php/ext/mnogosearch/php_mnogo.c,v $ */
+/* $Id: php_mnogo.c,v 1.1.1.2 2001/12/14 22:12:38 zarzycki Exp $ */
 
 /*
    +----------------------------------------------------------------------+
@@ -15,7 +15,7 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: 								  |
+   | Authors:                                                             |
    |  Initial version     by  Alex Barkov <bar@izhcom.ru>                 |
    |                      and Ramil Kalimullin <ram@izhcom.ru>            |
    |  Further development by  Sergey Kartashoff <gluke@biosys.net>        |
@@ -64,6 +64,7 @@
 #define UDM_PARAM_MAX_WORD_LEN		13
 #define UDM_PARAM_ISPELL_PREFIXES	14
 #define UDM_PARAM_CROSS_WORDS		15
+#define UDM_PARAM_VARDIR		16
 
 /* udm_add_search_limit constants */
 #define UDM_LIMIT_URL		1
@@ -108,6 +109,8 @@ static int le_link,le_res;
 #include <udm_config.h>
 #include <udmsearch.h>
 
+/* {{{ mnogosearch_functions[]
+ */
 function_entry mnogosearch_functions[] = {
 	PHP_FE(udm_api_version,		NULL)
 
@@ -139,9 +142,10 @@ function_entry mnogosearch_functions[] = {
 	
 	{NULL, NULL, NULL}
 };
-
+/* }}} */
 
 zend_module_entry mnogosearch_module_entry = {
+	STANDARD_MODULE_HEADER,
 	"mnogosearch", 
 	mnogosearch_functions, 
 	PHP_MINIT(mnogosearch), 
@@ -149,6 +153,7 @@ zend_module_entry mnogosearch_module_entry = {
 	PHP_RINIT(mnogosearch), 
 	NULL,
 	PHP_MINFO(mnogosearch), 
+    NO_VERSION_YET,
 	STANDARD_MODULE_PROPERTIES
 };
 
@@ -157,17 +162,21 @@ zend_module_entry mnogosearch_module_entry = {
 ZEND_GET_MODULE(mnogosearch)
 #endif
 
-static void _free_udm_agent(zend_rsrc_list_entry *rsrc){
+static void _free_udm_agent(zend_rsrc_list_entry *rsrc TSRMLS_DC)
+{
 	UDM_AGENT * Agent = (UDM_AGENT *)rsrc->ptr;
 	UdmFreeEnv(Agent->Conf);
 	UdmFreeAgent(Agent);
 }
 
-static void _free_udm_res(zend_rsrc_list_entry *rsrc){
+static void _free_udm_res(zend_rsrc_list_entry *rsrc TSRMLS_DC)
+{
 	UDM_RESULT * Res = (UDM_RESULT *)rsrc->ptr;
 	UdmFreeResult(Res);	
 }
 
+/* {{{ PHP_MINIT_FUNCTION
+ */
 DLEXPORT PHP_MINIT_FUNCTION(mnogosearch)
 {
 	UdmInit();
@@ -221,6 +230,9 @@ DLEXPORT PHP_MINIT_FUNCTION(mnogosearch)
 	
 	REGISTER_LONG_CONSTANT("UDM_PARAM_CROSS_WORDS",	UDM_PARAM_CROSS_WORDS,CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("UDM_PARAM_CROSSWORDS",	UDM_PARAM_CROSS_WORDS,CONST_CS | CONST_PERSISTENT);	
+	
+	REGISTER_LONG_CONSTANT("UDM_PARAM_VARDIR",	UDM_PARAM_VARDIR,CONST_CS | CONST_PERSISTENT);	
+	REGISTER_LONG_CONSTANT("UDM_PARAM_DATADIR",	UDM_PARAM_VARDIR,CONST_CS | CONST_PERSISTENT);	
 	
 	/* udm_add_search_limit constants */
 	REGISTER_LONG_CONSTANT("UDM_LIMIT_CAT",		UDM_LIMIT_CAT,CONST_CS | CONST_PERSISTENT);
@@ -288,7 +300,7 @@ DLEXPORT PHP_MINIT_FUNCTION(mnogosearch)
 	
 	return SUCCESS;
 }
-
+/* }}} */
 
 DLEXPORT PHP_MSHUTDOWN_FUNCTION(mnogosearch)
 {
@@ -372,7 +384,6 @@ DLEXPORT PHP_FUNCTION(udm_alloc_agent)
 	}
 }
 /* }}} */
-
 
 /* {{{ proto int udm_set_agent_param(int agent, int var, string val)
    Set mnoGoSearch agent session parameters */
@@ -596,6 +607,15 @@ DLEXPORT PHP_FUNCTION(udm_set_agent_param)
 			break;
 			
 #endif
+
+#if UDM_VERSION_ID > 30112
+
+		case UDM_PARAM_VARDIR:
+			udm_snprintf(Agent->Conf->vardir,sizeof(Agent->Conf->vardir)-1,"%s%s",val,UDMSLASHSTR);
+
+			break;
+			
+#endif
 			
 		default:
 			php_error(E_WARNING,"Udm_Set_Agent_Param: Unknown agent session parameter");
@@ -605,7 +625,6 @@ DLEXPORT PHP_FUNCTION(udm_set_agent_param)
 	RETURN_TRUE;
 }
 /* }}} */
-
 
 /* {{{ proto int udm_load_ispell_data(int agent, int var, string val1, string val2, int flag)
    Load ispell data */
@@ -707,7 +726,6 @@ DLEXPORT PHP_FUNCTION(udm_load_ispell_data)
 }
 /* }}} */
 
-
 /* {{{ proto int udm_free_ispell_data(int agent)
    Free memory allocated for ispell data */
 DLEXPORT PHP_FUNCTION(udm_free_ispell_data)
@@ -734,7 +752,6 @@ DLEXPORT PHP_FUNCTION(udm_free_ispell_data)
 	RETURN_TRUE;
 }
 /* }}} */
-
 
 /* {{{ proto int udm_add_search_limit(int agent, int var, string val)
    Add mnoGoSearch search restrictions */
@@ -811,7 +828,6 @@ DLEXPORT PHP_FUNCTION(udm_add_search_limit)
 }
 /* }}} */
 
-
 /* {{{ proto int udm_clear_search_limits(int agent)
    Clear all mnoGoSearch search restrictions */
 DLEXPORT PHP_FUNCTION(udm_clear_search_limits)
@@ -836,7 +852,6 @@ DLEXPORT PHP_FUNCTION(udm_clear_search_limits)
 	RETURN_TRUE;
 }
 /* }}} */
-
 
 /* {{{ proto int udm_find(int agent, string query)
    Perform search */
@@ -869,10 +884,10 @@ DLEXPORT PHP_FUNCTION(udm_find)
 }
 /* }}} */
 
-
 /* {{{ proto string udm_get_res_field(int res, int row, int field)
    Fetch mnoGoSearch result field */
-DLEXPORT PHP_FUNCTION(udm_get_res_field){
+DLEXPORT PHP_FUNCTION(udm_get_res_field)
+{
 	pval **yyres, **yyrow_num, **yyfield_name;
 
 	UDM_RESULT * Res;
@@ -960,7 +975,6 @@ DLEXPORT PHP_FUNCTION(udm_get_res_field){
 }
 /* }}} */
 
-
 /* {{{ proto string udm_get_res_param(int res, int param)
    Get mnoGoSearch result parameters */
 DLEXPORT PHP_FUNCTION(udm_get_res_param)
@@ -1015,7 +1029,6 @@ DLEXPORT PHP_FUNCTION(udm_get_res_param)
 }
 /* }}} */
 
-
 /* {{{ proto int udm_free_res(int res)
    mnoGoSearch free result */
 DLEXPORT PHP_FUNCTION(udm_free_res)
@@ -1039,7 +1052,6 @@ DLEXPORT PHP_FUNCTION(udm_free_res)
 	RETURN_TRUE;
 }
 /* }}} */
-
 
 /* {{{ proto int udm_free_agent(int agent)
    Free mnoGoSearch session */
@@ -1065,7 +1077,6 @@ DLEXPORT PHP_FUNCTION(udm_free_agent)
 }
 /* }}} */
 
-
 /* {{{ proto int udm_errno(int agent)
    Get mnoGoSearch error number */
 DLEXPORT PHP_FUNCTION(udm_errno)
@@ -1087,7 +1098,6 @@ DLEXPORT PHP_FUNCTION(udm_errno)
 	RETURN_LONG(UdmDBErrorCode(Agent->db));
 }
 /* }}} */
-
 
 /* {{{ proto string udm_error(int agent)
    Get mnoGoSearch error message */
@@ -1112,7 +1122,6 @@ DLEXPORT PHP_FUNCTION(udm_error)
 }
 /* }}} */
 
-
 /* {{{ proto int udm_api_version()
    Get mnoGoSearch API version */
 DLEXPORT PHP_FUNCTION(udm_api_version)
@@ -1120,7 +1129,6 @@ DLEXPORT PHP_FUNCTION(udm_api_version)
 	RETURN_LONG(UDM_VERSION_ID);
 }
 /* }}} */
-
 
 /* {{{ proto array udm_cat_list(int agent, string category)
    Get mnoGoSearch categories list with the same root */
@@ -1171,7 +1179,6 @@ DLEXPORT PHP_FUNCTION(udm_cat_list)
 }
 /* }}} */
 
-
 /* {{{ proto array udm_cat_path(int agent, string category)
    Get mnoGoSearch categories path from the root to the given catgory */
 DLEXPORT PHP_FUNCTION(udm_cat_path)
@@ -1221,7 +1228,6 @@ DLEXPORT PHP_FUNCTION(udm_cat_path)
 }
 /* }}} */
 
-
 #if UDM_VERSION_ID > 30110
 /* {{{ proto int udm_get_doc_count(int agent)
    Get total number of documents in database */
@@ -1251,9 +1257,11 @@ DLEXPORT PHP_FUNCTION(udm_get_doc_count)
 
 #endif
 
-
 /*
  * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
  * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
  */
-

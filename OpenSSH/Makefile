@@ -15,7 +15,7 @@ Extra_Configure_Flags = --sysconfdir="/etc" --disable-suid-ssh --with-ssl-dir=/u
 Extra_Install_Flags   = sysconfdir="$(DSTROOT)$(ETCDIR)" MANPAGES=""
 Extra_Environment     = AR="$(SRCROOT)/ar.sh"
 
-GnuAfterInstall = install-startup-item
+GnuAfterInstall = install-startup-item undo-damage-to-sshd_config
 
 # It's a GNU Source project
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
@@ -26,6 +26,11 @@ build::
 	$(_v) $(MAKE) -C $(BuildDirectory) $(Environment)
 
 StartupItemDir = $(NSLIBRARYDIR)/StartupItems/SSH
+
+undo-damage-to-sshd_config:
+	$(_v) cp $(DSTROOT)/$(ETCDIR)/sshd_config $(DSTROOT)/$(ETCDIR)/sshd_config.tmp
+	$(_v) sed "s,$(DSTROOT),,g" < $(DSTROOT)/$(ETCDIR)/sshd_config.tmp > $(DSTROOT)/$(ETCDIR)/sshd_config
+	$(_v) rm $(DSTROOT)/$(ETCDIR)/sshd_config.tmp
 
 install-startup-item:
 	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)$(StartupItemDir)/Resources/English.lproj

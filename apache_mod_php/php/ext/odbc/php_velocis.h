@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_velocis.h,v 1.1.1.3 2001/07/19 00:19:41 zarzycki Exp $ */
+/* $Id: php_velocis.h,v 1.1.1.4 2001/12/14 22:12:53 zarzycki Exp $ */
 
 #ifndef PHP_VELOCIS_H
 #define PHP_VELOCIS_H
@@ -57,10 +57,10 @@ extern zend_module_entry velocis_module_entry;
 #define velocis_module_ptr &velocis_module_entry
 
 /* velocis.c functions */
-extern PHP_MINIT_FUNCTION(velocis);
-extern PHP_RINIT_FUNCTION(velocis);
+PHP_MINIT_FUNCTION(velocis);
+PHP_RINIT_FUNCTION(velocis);
 PHP_MINFO_FUNCTION(velocis);
-extern PHP_MSHUTDOWN_FUNCTION(velocis);
+PHP_MSHUTDOWN_FUNCTION(velocis);
 
 PHP_FUNCTION(velocis_connect);
 PHP_FUNCTION(velocis_close);

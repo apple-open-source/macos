@@ -23,8 +23,6 @@
 
 extern int am_server;
 
-extern int csum_length;
-
 extern int preserve_links;
 extern int preserve_perms;
 extern int preserve_devices;
@@ -37,6 +35,9 @@ extern int checksum_seed;
 
 extern int remote_version;
 extern int verbose;
+
+extern int read_batch;  /* dw */
+extern int write_batch;  /* dw */
 
 void setup_protocol(int f_out,int f_in)
 {
@@ -57,12 +58,11 @@ void setup_protocol(int f_out,int f_in)
 		exit_cleanup(RERR_PROTOCOL);
 	}	
 	
-	if (verbose > 2)
-		rprintf(FINFO, "local_version=%d remote_version=%d\n",
-			PROTOCOL_VERSION, remote_version);
-	
 	if (remote_version >= 12) {
 		if (am_server) {
+		    if (read_batch || write_batch) /* dw */
+			checksum_seed = 32761;
+		    else
 			checksum_seed = time(NULL);
 			write_int(f_out,checksum_seed);
 		} else {

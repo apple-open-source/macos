@@ -1,4 +1,4 @@
-# Mac OS X 10.1.3 5Q45
+# Mac OS X 10.1.4 5Q125
 AppleADBButtons	2.2	Other
 AppleADBDisplay	1.1	Other
 AppleADBKeyboard	2.3.2d1	Other
@@ -22,7 +22,7 @@ AppleOnboardAudio	172.3	Other
 ApplePS2Controller	2	Other
 ApplePS2Keyboard	3	Other
 ApplePS2Mouse	3	Other
-AppleSym8xx	1.0.1f1.2	Other
+AppleSym8xx	110.0.2	Other
 AppleTalk	66.3	Other
 AppleUSBProKeyboard	1.9.5	Other
 AppleVIA	1.1	Other
@@ -65,19 +65,19 @@ Libstreams	23	Other
 Libsystem	55	Other
 Liby	10	Other
 NKEMgr	5.3	Other
-OpenSSH	13	Other
+OpenSSH	16	Other
 OpenSSL	7.1	Other
 Security	30.1	Other
 SharedIP	27	Other
 Startup	78	Other
-SystemKEXT	13	Other
+SystemKEXT	17	Other
 UserNotification	11	Other
 adv_cmds	36	Other
-apache	649	Other
+apache	650	Other
 apache_mod_dav	7	Other
 apache_mod_hfs_apple	3	Other
-apache_mod_php	6.2	Other
-apache_mod_ssl	7	Other
+apache_mod_php	7	Other
+apache_mod_ssl	8	Other
 architecture	229	Other
 at_cmds	42	Other
 autoconf	8	Other
@@ -118,7 +118,7 @@ gnumake	104	Other
 gnutar	410.1	Other
 gnuzip	11	Other
 grep	6.1	Other
-groff	10	Other
+groff	11	Other
 headerdoc	5.1	Other
 hfs	110	Other
 isoutil	19	Other
@@ -128,7 +128,7 @@ less	3	Other
 libpcap	2.1	Other
 libtelnet	1	Other
 m4	4	Other
-mail_cmds	10	Other
+mail_cmds	12.1.1	Other
 man	151	Other
 misc_cmds	6	Other
 ncftp	6	Other
@@ -145,10 +145,10 @@ ppp	57.3	Other
 procmail	2	Other
 project_makefiles	124.4	Other
 rcs	10	Other
-rsync	5.1	Other
+rsync	8.1	Other
 sendmail	26.2	Other
 shell_cmds	18	Other
-sudo	4	Other
+sudo	5.1	Other
 system_cmds	196	Other
 tcl	3.1	Other
 tcp_wrappers	4	Other
@@ -160,7 +160,7 @@ usertemplate	8	Other
 usrtemplate	10	Other
 vi	5.1	Other
 volfs	23	Other
-xnu	201.19	Other
+xnu	201.19.3	Other
 yacc	4	Other
 zlib	5	Other
 zsh	28	Other

@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_curl.h,v 1.1.1.3 2001/07/19 00:19:01 zarzycki Exp $ */
+/* $Id: php_curl.h,v 1.1.1.4 2001/12/14 22:12:05 zarzycki Exp $ */
 
 #ifndef _PHP_CURL_H
 #define _PHP_CURL_H
@@ -69,8 +69,8 @@ typedef struct {
 
 typedef struct {
 	php_curl_write *write;
+	php_curl_write *write_header;
 	php_curl_read  *read;
-	zval           *write_header;
 	zval           *passwd;
 } php_curl_handlers;
 
@@ -91,6 +91,7 @@ typedef struct {
 	struct _php_curl_error   err;
 	struct _php_curl_free    to_free;
 	long                     id;
+    int                      performed;
 } php_curl;
 
 

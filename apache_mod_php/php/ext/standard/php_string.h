@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_string.h,v 1.1.1.4 2001/07/19 00:20:20 zarzycki Exp $ */
+/* $Id: php_string.h,v 1.1.1.5 2001/12/14 22:13:27 zarzycki Exp $ */
 
 /* Synced with php 3.0 revision 1.43 1999-06-16 [ssb] */
 
@@ -57,6 +57,8 @@ PHP_FUNCTION(hebrev);
 PHP_FUNCTION(hebrevc);
 PHP_FUNCTION(user_sprintf);
 PHP_FUNCTION(user_printf);
+PHP_FUNCTION(vprintf);
+PHP_FUNCTION(vsprintf);
 PHP_FUNCTION(addcslashes);
 PHP_FUNCTION(addslashes);
 PHP_FUNCTION(stripcslashes);
@@ -66,6 +68,7 @@ PHP_FUNCTION(ord);
 PHP_FUNCTION(nl2br);
 PHP_FUNCTION(setlocale);
 PHP_FUNCTION(localeconv);
+PHP_FUNCTION(nl_langinfo);
 PHP_FUNCTION(stristr);
 PHP_FUNCTION(chunk_split);
 PHP_FUNCTION(parse_str);
@@ -88,6 +91,9 @@ PHP_FUNCTION(strcoll);
 PHP_MINIT_FUNCTION(localeconv);
 PHP_MSHUTDOWN_FUNCTION(localeconv);
 #endif
+#if HAVE_NL_LANGINFO
+PHP_MINIT_FUNCTION(nl_langinfo);
+#endif
 
 #define strnatcmp(a, b) \
 	strnatcmp_ex(a, strlen(a), b, strlen(b), 0)
@@ -98,16 +104,17 @@ PHPAPI int strnatcmp_ex(char const *a, size_t a_len, char const *b, size_t b_len
 PHPAPI char *php_strtoupper(char *s, size_t len);
 PHPAPI char *php_strtolower(char *s, size_t len);
 PHPAPI char *php_strtr(char *str, int len, char *str_from, char *str_to, int trlen);
-PHPAPI char *php_addslashes(char *str, int length, int *new_length, int freeit);
-PHPAPI char *php_addcslashes(char *str, int length, int *new_length, int freeit, char *what, int wlength);
-PHPAPI void php_stripslashes(char *str, int *len);
+PHPAPI char *php_addslashes(char *str, int length, int *new_length, int freeit TSRMLS_DC);
+PHPAPI char *php_addcslashes(char *str, int length, int *new_length, int freeit, char *what, int wlength TSRMLS_DC);
+PHPAPI void php_stripslashes(char *str, int *len TSRMLS_DC);
 PHPAPI void php_stripcslashes(char *str, int *len);
-PHPAPI char *php_basename(char *str, size_t  len);
+PHPAPI char *php_basename(char *str, size_t  len , char *suffix, size_t sufflen);
 PHPAPI void php_dirname(char *str, int len);
 PHPAPI char *php_stristr(unsigned char *s, unsigned char *t, size_t s_len, size_t t_len);
 PHPAPI char *php_str_to_str(char *haystack, int length, char *needle,
 		int needle_len, char *str, int str_len, int *_new_length);
-PHPAPI void php_trim(pval *str, pval *return_value, int mode);
+PHPAPI void php_trim(pval *str, pval *return_value, int mode TSRMLS_DC);
+PHPAPI void php_trim2(zval *str, zval *what, zval *return_value, int mode TSRMLS_DC);
 PHPAPI void php_strip_tags(char *rbuf, int len, int state, char *allow, int allow_len);
 
 PHPAPI void php_char_to_str(char *str, uint len, char from, char *to, int to_len, pval *result);
@@ -119,12 +126,18 @@ static inline char *
 php_memnstr(char *haystack, char *needle, int needle_len, char *end)
 {
 	char *p = haystack;
-	char *s = NULL;
+	char first = *needle;
 
-	for(; p <= end - needle_len && 
-			(s = (char*)memchr(p, *needle, end - p - needle_len + 1)); p = s + 1) {
-		if(memcmp(s, needle, needle_len) == 0)
-			return s;
+	/* let end point to the last character where needle may start */
+	end -= needle_len;
+	
+	while (p <= end) {
+		while (*p != first)
+			if (++p > end)
+				return NULL;
+		if (memcmp(p, needle, needle_len) == 0)
+			return p;
+		p++;
 	}
 	return NULL;
 }
@@ -138,5 +151,6 @@ PHPAPI char *php_strerror(int errnum);
 #endif
 
 void register_string_constants(INIT_FUNC_ARGS);
+int php_charmask(unsigned char *input, int len, char *mask TSRMLS_DC);
 
 #endif /* PHP_STRING_H */

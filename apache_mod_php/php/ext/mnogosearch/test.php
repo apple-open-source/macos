@@ -1,6 +1,6 @@
 <!-- 
-    $Source: /cvs/Darwin/Services/apache_mod_php/php/ext/mnogosearch/test.php,v $
-    $Id: test.php,v 1.1.1.1 2001/07/19 00:19:24 zarzycki Exp $ 
+    $Source: /cvs/Darwin/apache_mod_php/php/ext/mnogosearch/test.php,v $
+    $Id: test.php,v 1.1.1.2 2001/12/14 22:12:39 zarzycki Exp $ 
 -->
 
 <html>
@@ -47,6 +47,7 @@
 	Udm_Set_Agent_Param($udm,UDM_PARAM_MIN_WORD_LEN,2);
 	Udm_Set_Agent_Param($udm,UDM_PARAM_MAX_WORD_LEN,16);
 	Udm_Set_Agent_Param($udm,UDM_PARAM_PREFIX,UDM_PREFIX_DISABLED);
+	Udm_Set_Agent_Param($udm,UDM_PARAM_VARDIR,"/opt/mnogo/install/var");
 	
 	if (Udm_Api_Version() >= 30111) {
 		Udm_Set_Agent_Param($udm,UDM_PARAM_CROSS_WORDS,UDM_CROSS_WORDS_DISABLED);

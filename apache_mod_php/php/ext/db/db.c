@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: db.c,v 1.1.1.3 2001/07/19 00:19:02 zarzycki Exp $ */
+/* $Id: db.c,v 1.1.1.4 2001/12/14 22:12:08 zarzycki Exp $ */
 #define IS_EXT_MODULE
 
 #if 1
@@ -103,6 +103,8 @@
 #define DBM_FIRSTKEY(dbf) dbm_firstkey(dbf)
 #define DBM_NEXTKEY(dbf, key) dbm_nextkey(dbf)
 
+/* {{{ php_dbm_key_exists
+ */
 static int php_dbm_key_exists(DBM *dbf, datum key_datum) {
 	datum value_datum;
 	int ret;
@@ -114,6 +116,7 @@ static int php_dbm_key_exists(DBM *dbf, datum key_datum) {
 		ret = 0;
 	return ret;
 }
+/* }}} */
 #endif
 
 #if !NDBM && !GDBM
@@ -163,13 +166,14 @@ static int numthreads=0;
 /*needed for blocking calls in windows*/
 void *dbm_mutex;
 
-dbm_info *php_find_dbm(pval *id)
+/* {{{ php_find_dbm
+ */
+dbm_info *php_find_dbm(pval *id TSRMLS_DC)
 {
 	list_entry *le;
 	dbm_info *info;
 	int numitems, i;
 	int info_type;
-	ELS_FETCH();
 
 	if (Z_TYPE_P(id) == IS_STRING) {
 		numitems = zend_hash_num_elements(&EG(regular_list));
@@ -193,7 +197,10 @@ dbm_info *php_find_dbm(pval *id)
 		return NULL;
 	return info;
 }
+/* }}} */
 
+/* {{{ php_get_info_db
+ */
 static char *php_get_info_db(void)
 {
 	static char temp1[128];
@@ -203,33 +210,35 @@ static char *php_get_info_db(void)
 	temp[0]='\0';
 
 #ifdef DB_VERSION_STRING /* using sleepycat dbm */
-	strcat(temp,DB_VERSION_STRING);
+	strcat(temp, DB_VERSION_STRING);
 #endif
 
 #if GDBM
-	sprintf(temp1,"%s",gdbm_version);
-	strcat(temp,temp1);
+	sprintf(temp1, "%s", gdbm_version);
+	strcat(temp, temp1);
 #endif
 
 #if NDBM && !GDBM
-	strcat(temp,"ndbm support enabled");
+	strcat(temp, "ndbm support enabled");
 #endif	
 
 #if !GDBM && !NDBM
-	strcat(temp,"flat file support enabled");
+	strcat(temp, "flat file support enabled");
 #endif	
 
 #if NFS_HACK
-	strcat(temp,"NFS hack in effect");
+	strcat(temp, "NFS hack in effect");
 #endif
 
 	if (!*temp)
-		strcat(temp,"No database support");
+		strcat(temp, "No database support");
 
 	return temp;
 }
+/* }}} */
 
-
+/* {{{ PHP_MINFO_FUNCTION
+ */
 PHP_MINFO_FUNCTION(db)
 {
 	/* this isn't pretty ... should break out the info a bit more (cmv) */
@@ -237,31 +246,39 @@ PHP_MINFO_FUNCTION(db)
 	php_printf(php_get_info_db());
 	php_info_print_box_end();
 }
+/* }}} */
 
 /* {{{ proto string dblist(void)
    Describes the dbm-compatible library being used */ 
 PHP_FUNCTION(dblist)
 {
-	char *str = php_get_info_db();
-	RETURN_STRING(str,1);
+	char *str;
+
+	if (ZEND_NUM_ARGS() != 0) {
+		WRONG_PARAM_COUNT;
+	}
+
+	str = php_get_info_db();
+	RETURN_STRING(str, 1);
 }
 /* }}} */
 
 /* {{{ proto int dbmopen(string filename, string mode)
    Opens a dbm database */
-PHP_FUNCTION(dbmopen) {
+PHP_FUNCTION(dbmopen)
+{
 	pval *filename, *mode;
 	dbm_info *info=NULL;
 	int ret;
 
-	if (ZEND_NUM_ARGS()!=2 || zend_get_parameters(ht,2,&filename,&mode)==FAILURE) {
+	if (ZEND_NUM_ARGS()!=2 || zend_get_parameters(ht, 2, &filename, &mode)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
 	convert_to_string(filename);
 	convert_to_string(mode);
 	
-	info = php_dbm_open(Z_STRVAL_P(filename), Z_STRVAL_P(mode));
+	info = php_dbm_open(Z_STRVAL_P(filename), Z_STRVAL_P(mode) TSRMLS_CC);
 	if (info) {
 		ret = zend_list_insert(info, le_db);
 		RETURN_LONG(ret);
@@ -271,22 +288,21 @@ PHP_FUNCTION(dbmopen) {
 }
 /* }}} */
 
-
-dbm_info *php_dbm_open(char *filename, char *mode) {
+/* {{{ php_dbm_open
+ */
+dbm_info *php_dbm_open(char *filename, char *mode TSRMLS_DC)
+{
 	dbm_info *info;
 	int ret, lock=0;
 	char *lockfn = NULL;
 	int lockfd = 0;
-
 #if NFS_HACK
 	int last_try = 0;
 	struct stat sb;
 	int retries = 0;
 #endif
-
 	DBM_TYPE dbf=NULL;
 	DBM_MODE_TYPE imode;
-	PLS_FETCH();
 
 	if (filename == NULL) {
 		php_error(E_WARNING, "NULL filename passed to php_dbm_open()");
@@ -297,7 +313,7 @@ dbm_info *php_dbm_open(char *filename, char *mode) {
 		return NULL;
 	}
 
-	if (php_check_open_basedir(filename)) {
+	if (php_check_open_basedir(filename TSRMLS_CC)) {
 		return NULL;
 	}
 
@@ -326,27 +342,27 @@ dbm_info *php_dbm_open(char *filename, char *mode) {
 		strcat(lockfn, ".lck");
 
 #if NFS_HACK 
-		while((last_try = VCWD_STAT(lockfn,&sb))==0) {
+		while((last_try = VCWD_STAT(lockfn, &sb))==0) {
 			retries++;
 			php_sleep(1);
 			if (retries>30) break;
 		}	
 		if (last_try!=0) {
-			lockfd = open(lockfn,O_RDWR|O_CREAT,0644);
+			lockfd = open(lockfn, O_RDWR|O_CREAT, 0644);
 			close(lockfd);
 		} else {
-			php_error(E_WARNING, "File appears to be locked [%s]\n",lockfn);
+			php_error(E_WARNING, "File appears to be locked [%s]\n", lockfn);
 			return -1;
 		}
 #else /* NFS_HACK */
 
-		lockfd = VCWD_OPEN((lockfn,O_RDWR|O_CREAT,0644));
+		lockfd = VCWD_OPEN_MODE(lockfn, O_RDWR|O_CREAT, 0644);
 
 		if (lockfd) {
-			flock(lockfd,LOCK_EX);
+			flock(lockfd, LOCK_EX);
 			close(lockfd);
 		} else {
-			php_error(E_WARNING, "Unable to establish lock: %s",filename);
+			php_error(E_WARNING, "Unable to establish lock: %s", filename);
 		}
 #endif /* else NFS_HACK */
 
@@ -375,7 +391,7 @@ dbm_info *php_dbm_open(char *filename, char *mode) {
 		return info;
 	} else {
 #if GDBM 
-		php_error(E_WARNING, "dbmopen_gdbm(%s): %d [%s], %d [%s]",filename,gdbm_errno,gdbm_strerror(gdbm_errno),errno,strerror(errno));
+		php_error(E_WARNING, "dbmopen_gdbm(%s): %d [%s], %d [%s]", filename, gdbm_errno, gdbm_strerror(gdbm_errno), errno, strerror(errno));
 		if (gdbm_errno)
 			ret = gdbm_errno;
 		else if (errno)
@@ -385,13 +401,13 @@ dbm_info *php_dbm_open(char *filename, char *mode) {
 #else 
 #if NDBM 
 #if PHP_DEBUG
-		php_error(E_WARNING, "dbmopen_ndbm(%s): errno = %d [%s]\n",filename,errno,strerror(errno));
+		php_error(E_WARNING, "dbmopen_ndbm(%s): errno = %d [%s]\n", filename, errno, strerror(errno));
 #endif
 		if (errno) ret=errno;
 		else ret = -1;
 #else
 #if PHP_DEBUG
-		php_error(E_WARNING, "dbmopen_flatfile(%s): errno = %d [%s]\n",filename,errno,strerror(errno));
+		php_error(E_WARNING, "dbmopen_flatfile(%s): errno = %d [%s]\n", filename, errno, strerror(errno));
 #endif
 		if (errno) ret=errno;
 		else ret = -1;
@@ -408,13 +424,15 @@ dbm_info *php_dbm_open(char *filename, char *mode) {
 
 	return NULL;
 }
+/* }}} */
 
 /* {{{ proto bool dbmclose(int dbm_identifier)
    Closes a dbm database */
-PHP_FUNCTION(dbmclose) {
+PHP_FUNCTION(dbmclose)
+{
 	pval *id;
 
-	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters(ht,1,&id)==FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters(ht, 1, &id)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_long(id);
@@ -427,7 +445,10 @@ PHP_FUNCTION(dbmclose) {
 }
 /* }}} */
 
-int php_dbm_close(zend_rsrc_list_entry *rsrc) {
+/* {{{ php_dbm_close
+ */
+int php_dbm_close(zend_rsrc_list_entry *rsrc TSRMLS_DC)
+{
 	int ret = 0;
 	dbm_info *info = (dbm_info *)rsrc->ptr;
 	DBM_TYPE dbf;
@@ -439,8 +460,8 @@ int php_dbm_close(zend_rsrc_list_entry *rsrc) {
 	VCWD_UNLINK(info->lockfn);
 #else
 	if (info->lockfn) {
-		lockfd = VCWD_OPEN((info->lockfn,O_RDWR,0644));
-		flock(lockfd,LOCK_UN);
+		lockfd = VCWD_OPEN_MODE(info->lockfn, O_RDWR, 0644);
+		flock(lockfd, LOCK_UN);
 		close(lockfd);
 	}
 #endif
@@ -454,7 +475,8 @@ int php_dbm_close(zend_rsrc_list_entry *rsrc) {
 	efree(info);
 
 	return(ret);
-}	
+}
+/* }}} */
 
 /*
  * ret = -1 means that database was opened for read-only
@@ -469,32 +491,33 @@ PHP_FUNCTION(dbminsert)
 	dbm_info *info;
 	int ret;
 
-	if (ZEND_NUM_ARGS()!=3||zend_get_parameters(ht,3,&id,&key,&value) == FAILURE) {
+	if (ZEND_NUM_ARGS()!=3||zend_get_parameters(ht, 3, &id, &key, &value) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_string(key);
 	convert_to_string(value);
 
-	info = php_find_dbm(id);
+	info = php_find_dbm(id TSRMLS_CC);
 	if (!info) {
 		php_error(E_WARNING, "not a valid database identifier %d", Z_LVAL_P(id));
 		RETURN_FALSE;
 	}
 	
-	ret = php_dbm_insert(info, Z_STRVAL_P(key), Z_STRVAL_P(value));
+	ret = php_dbm_insert(info, Z_STRVAL_P(key), Z_STRVAL_P(value) TSRMLS_CC);
 	RETURN_LONG(ret);
 }
 /* }}} */
 
 
-
-int php_dbm_insert(dbm_info *info, char *key, char *value) {
+/* {{{ php_dbm_insert
+ */
+int php_dbm_insert(dbm_info *info, char *key, char *value TSRMLS_DC) {
 	datum key_datum, value_datum;
 	int ret;
 	DBM_TYPE dbf;
 
-	php_stripslashes(key,NULL);
-	php_stripslashes(value,NULL);
+	php_stripslashes(key, NULL TSRMLS_CC);
+	php_stripslashes(value, NULL TSRMLS_CC);
 
 	value_datum.dptr = estrdup(value);
 	value_datum.dsize = strlen(value);
@@ -517,7 +540,8 @@ int php_dbm_insert(dbm_info *info, char *key, char *value) {
 	efree(key_datum.dptr); efree(value_datum.dptr);
 
 	return(ret);	
-}	
+}
+/* }}} */
 
 /* {{{ proto int dbmreplace(int dbm_identifier, string key, string value)
    Replaces the value for a key in a dbm database */
@@ -527,32 +551,34 @@ PHP_FUNCTION(dbmreplace)
 	dbm_info *info;
 	int ret;
 
-	if (ZEND_NUM_ARGS()!=3||zend_get_parameters(ht,3,&id,&key,&value) == FAILURE) {
+	if (ZEND_NUM_ARGS()!=3||zend_get_parameters(ht, 3, &id, &key, &value) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_string(key);
 	convert_to_string(value);
 
-	info = php_find_dbm(id);
+	info = php_find_dbm(id TSRMLS_CC);
 	if (!info) {
 		php_error(E_WARNING, "not a valid database identifier %d", Z_LVAL_P(id));
 		RETURN_FALSE;
 	}
 	
-	ret = php_dbm_replace(info, Z_STRVAL_P(key), Z_STRVAL_P(value));
+	ret = php_dbm_replace(info, Z_STRVAL_P(key), Z_STRVAL_P(value) TSRMLS_CC);
 	RETURN_LONG(ret);
 }
 /* }}} */
 
-int php_dbm_replace(dbm_info *info, char *key, char *value) {
+/* {{{ php_dbm_replace
+ */
+int php_dbm_replace(dbm_info *info, char *key, char *value TSRMLS_DC)
+{
 	DBM_TYPE dbf;
 	int ret;
 	datum key_datum, value_datum;
-	PLS_FETCH();
 
 	if (PG(magic_quotes_runtime)) {
-		php_stripslashes(key,NULL);
-		php_stripslashes(value,NULL);
+		php_stripslashes(key, NULL TSRMLS_CC);
+		php_stripslashes(value, NULL TSRMLS_CC);
 	}
 
 	value_datum.dptr = estrdup(value);
@@ -576,7 +602,8 @@ int php_dbm_replace(dbm_info *info, char *key, char *value) {
 	efree(key_datum.dptr); efree(value_datum.dptr);
 
 	return(ret);	
-}	
+}
+/* }}} */
 
 /* {{{ proto string dbmfetch(int dbm_identifier, string key)
    Fetches a value for a key from a dbm database */
@@ -586,18 +613,18 @@ PHP_FUNCTION(dbmfetch)
 	dbm_info *info;
 	char *ret;
 
-	if (ZEND_NUM_ARGS()!=2||zend_get_parameters(ht,2,&id,&key)==FAILURE) {
+	if (ZEND_NUM_ARGS()!=2||zend_get_parameters(ht, 2, &id, &key)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_string(key);
 
-	info = php_find_dbm(id);
+	info = php_find_dbm(id TSRMLS_CC);
 	if (!info) {
 		php_error(E_WARNING, "not a valid database identifier %d", Z_LVAL_P(id));
 		RETURN_FALSE;
 	}
 
-	ret = php_dbm_fetch(info, Z_STRVAL_P(key));
+	ret = php_dbm_fetch(info, Z_STRVAL_P(key) TSRMLS_CC);
 	if (ret) {
 		RETVAL_STRING(ret, 0);
 	} else {
@@ -606,11 +633,13 @@ PHP_FUNCTION(dbmfetch)
 }
 /* }}} */
 
-char *php_dbm_fetch(dbm_info *info, char *key) {
+/* {{{ php_dbm_fetch
+ */
+char *php_dbm_fetch(dbm_info *info, char *key TSRMLS_DC)
+{
 	datum key_datum, value_datum;
 	char *ret;
 	DBM_TYPE dbf;
-	PLS_FETCH();
 
 	key_datum.dptr = key;
 	key_datum.dsize = strlen(key);
@@ -646,10 +675,11 @@ char *php_dbm_fetch(dbm_info *info, char *key) {
 		ret = NULL;
 
 	if (ret && PG(magic_quotes_runtime)) {
-		ret = php_addslashes(ret, value_datum.dsize, NULL, 1);
+		ret = php_addslashes(ret, value_datum.dsize, NULL, 1 TSRMLS_CC);
 	}
 	return(ret);
 }
+/* }}} */
 
 /* {{{ proto int dbmexists(int dbm_identifier, string key)
    Tells if a value exists for a key in a dbm database */
@@ -659,12 +689,12 @@ PHP_FUNCTION(dbmexists)
 	dbm_info *info;
 	int ret;
 
-	if (ZEND_NUM_ARGS()!=2||zend_get_parameters(ht,2,&id,&key)==FAILURE) {
+	if (ZEND_NUM_ARGS()!=2||zend_get_parameters(ht, 2, &id, &key)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_string(key);
 
-	info = php_find_dbm(id);
+	info = php_find_dbm(id TSRMLS_CC);
 	if (!info) {
 		php_error(E_WARNING, "not a valid database identifier %d", Z_LVAL_P(id));
 		RETURN_FALSE;
@@ -675,6 +705,8 @@ PHP_FUNCTION(dbmexists)
 }
 /* }}} */
 
+/* {{{ php_dbm_exists
+ */
 int php_dbm_exists(dbm_info *info, char *key) {
 	datum key_datum;
 	int ret;
@@ -696,6 +728,7 @@ int php_dbm_exists(dbm_info *info, char *key) {
 
 	return(ret);
 }
+/* }}} */
 
 /* {{{ proto int dbmdelete(int dbm_identifier, string key)
    Deletes the value for a key from a dbm database */ 		
@@ -705,12 +738,12 @@ PHP_FUNCTION(dbmdelete)
 	dbm_info *info;
 	int ret;
 
-	if (ZEND_NUM_ARGS()!=2||zend_get_parameters(ht,2,&id,&key)==FAILURE) {
+	if (ZEND_NUM_ARGS()!=2||zend_get_parameters(ht, 2, &id, &key)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_string(key);
 
-	info = php_find_dbm(id);
+	info = php_find_dbm(id TSRMLS_CC);
 	if (!info) {
 		php_error(E_WARNING, "not a valid database identifier %d", Z_LVAL_P(id));
 		RETURN_FALSE;
@@ -721,6 +754,8 @@ PHP_FUNCTION(dbmdelete)
 }
 /* }}} */
 
+/* {{{ php_dbm_delete
+ */
 int php_dbm_delete(dbm_info *info, char *key) {
 	datum key_datum;
 	int ret;
@@ -741,6 +776,7 @@ int php_dbm_delete(dbm_info *info, char *key) {
 	ret = DBM_DELETE(dbf, key_datum);
 	return(ret);
 }
+/* }}} */
 
 /* {{{ proto string dbmfirstkey(int dbm_identifier)
    Retrieves the first key from a dbm database */
@@ -750,11 +786,11 @@ PHP_FUNCTION(dbmfirstkey)
 	dbm_info *info;
 	char *ret;
 
-	if (ZEND_NUM_ARGS()!=1||zend_get_parameters(ht,1,&id)==FAILURE) {
+	if (ZEND_NUM_ARGS()!=1||zend_get_parameters(ht, 1, &id)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
-	info = php_find_dbm(id);
+	info = php_find_dbm(id TSRMLS_CC);
 	if (!info) {
 		php_error(E_WARNING, "not a valid database identifier %d", Z_LVAL_P(id));
 		RETURN_FALSE;
@@ -769,6 +805,8 @@ PHP_FUNCTION(dbmfirstkey)
 }
 /* }}} */
 
+/* {{{ php_dbm_first_key
+ */
 char *php_dbm_first_key(dbm_info *info) {
 	datum ret_datum;
 	char *ret;
@@ -799,6 +837,7 @@ char *php_dbm_first_key(dbm_info *info) {
 
 	return (ret);
 }
+/* }}} */
 
 /* {{{ proto string dbmnextkey(int dbm_identifier, string key)
    Retrieves the next key from a dbm database */
@@ -808,18 +847,18 @@ PHP_FUNCTION(dbmnextkey)
 	dbm_info *info;
 	char *ret;
 
-	if (ZEND_NUM_ARGS()!=2||zend_get_parameters(ht,2,&id,&key)==FAILURE) {
+	if (ZEND_NUM_ARGS()!=2||zend_get_parameters(ht, 2, &id, &key)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_string(key);
 
-	info = php_find_dbm(id);
+	info = php_find_dbm(id TSRMLS_CC);
 	if (!info) {
 		php_error(E_WARNING, "not a valid database identifier %d", Z_LVAL_P(id));
 		RETURN_FALSE;
 	}
 
-	ret = php_dbm_nextkey(info, Z_STRVAL_P(key));
+	ret = php_dbm_nextkey(info, Z_STRVAL_P(key) TSRMLS_CC);
 	if (!ret) {
 		RETURN_FALSE;
 	} else {
@@ -828,12 +867,13 @@ PHP_FUNCTION(dbmnextkey)
 }
 /* }}} */
 
-
-char *php_dbm_nextkey(dbm_info *info, char *key) {
+/* {{{ php_dbm_nextkey
+ */
+char *php_dbm_nextkey(dbm_info *info, char *key TSRMLS_DC)
+{
 	datum key_datum, ret_datum;
 	char *ret;
 	DBM_TYPE dbf;
-	PLS_FETCH();
 
 	key_datum.dptr = key;
 	key_datum.dsize = strlen(key);
@@ -869,15 +909,16 @@ char *php_dbm_nextkey(dbm_info *info, char *key) {
 	else ret=NULL;
 
 	if (ret && PG(magic_quotes_runtime)) {
-		ret = php_addslashes(ret, ret_datum.dsize, NULL, 1);
+		ret = php_addslashes(ret, ret_datum.dsize, NULL, 1 TSRMLS_CC);
 	}
 	return(ret);
 }
-
+/* }}} */
 
 #if !GDBM && !NDBM
 static long CurrentFlatFilePos = 0L;
-
+/* {{{ flatfile_store
+ */
 int flatfile_store(FILE *dbf, datum key_datum, datum value_datum, int mode) {
 	int ret;
 
@@ -885,33 +926,36 @@ int flatfile_store(FILE *dbf, datum key_datum, datum value_datum, int mode) {
 		if (flatfile_findkey(dbf, key_datum)) {
 			return 1;
 		}
-		fseek(dbf,0L,SEEK_END);
-		fprintf(dbf,"%d\n",key_datum.dsize);
+		fseek(dbf, 0L, SEEK_END);
+		fprintf(dbf, "%d\n", key_datum.dsize);
 		fflush(dbf);
-		ret = write(fileno(dbf),key_datum.dptr,key_datum.dsize);
-		fprintf(dbf,"%d\n",value_datum.dsize);
+		ret = write(fileno(dbf), key_datum.dptr, key_datum.dsize);
+		fprintf(dbf, "%d\n", value_datum.dsize);
 		fflush(dbf);
-		ret = write(fileno(dbf),value_datum.dptr,value_datum.dsize);
+		ret = write(fileno(dbf), value_datum.dptr, value_datum.dsize);
 	} else { /* DBM_REPLACE */
-		flatfile_delete(dbf,key_datum);
-		fprintf(dbf,"%d\n",key_datum.dsize);
+		flatfile_delete(dbf, key_datum);
+		fprintf(dbf, "%d\n", key_datum.dsize);
 		fflush(dbf);
-		ret = write(fileno(dbf),key_datum.dptr,key_datum.dsize);
-		fprintf(dbf,"%d\n",value_datum.dsize);
-		ret = write(fileno(dbf),value_datum.dptr,value_datum.dsize);
+		ret = write(fileno(dbf), key_datum.dptr, key_datum.dsize);
+		fprintf(dbf, "%d\n", value_datum.dsize);
+		ret = write(fileno(dbf), value_datum.dptr, value_datum.dsize);
 	}
 
 	if (ret>0)
 		ret=0;
 	return ret;
 }
+/* }}} */
 
+/* {{{ flatfile_fetch
+ */
 datum flatfile_fetch(FILE *dbf, datum key_datum) {
 	datum value_datum = {NULL, 0};
 	int num=0, buf_size=1024;
 	char *buf;	
 
-	if (flatfile_findkey(dbf,key_datum)) {
+	if (flatfile_findkey(dbf, key_datum)) {
 		buf = emalloc((buf_size+1) * sizeof(char));
 		if (fgets(buf, 15, dbf)) {
 			num = atoi(buf);
@@ -919,14 +963,17 @@ datum flatfile_fetch(FILE *dbf, datum key_datum) {
 				buf_size+=num;
 				buf = emalloc((buf_size+1)*sizeof(char));
 			}
-			read(fileno(dbf),buf,num);
+			read(fileno(dbf), buf, num);
 			value_datum.dptr = buf;
 			value_datum.dsize = num;
 		}
 	}
 	return value_datum;
 }
+/* }}} */
 
+/* {{{ flatfile_delete
+ */
 int flatfile_delete(FILE *dbf, datum key_datum) {
 	char *key = key_datum.dptr;
 	int size = key_datum.dsize;
@@ -965,7 +1012,7 @@ int flatfile_delete(FILE *dbf, datum key_datum) {
 		}	
 
 		/* read in the length of the value */
-		if (!fgets(buf,15,dbf))
+		if (!fgets(buf, 15, dbf))
 			break;
 		num = atoi(buf);
 		if (num > buf_size) {
@@ -981,7 +1028,10 @@ int flatfile_delete(FILE *dbf, datum key_datum) {
 	if (buf) efree(buf);
 	return FAILURE;
 }	
+/* }}} */
 
+/* {{{ flatfile_findkey
+ */
 int flatfile_findkey(FILE *dbf, datum key_datum) {
 	char *buf = NULL;
 	int num;
@@ -993,7 +1043,7 @@ int flatfile_findkey(FILE *dbf, datum key_datum) {
 	rewind(dbf);
 	buf = emalloc((buf_size+1)*sizeof(char));
 	while (!feof(dbf)) {
-		if (!fgets(buf,15,dbf)) break;
+		if (!fgets(buf, 15, dbf)) break;
 		num = atoi(buf);
 		if (num > buf_size) {
 			if (buf) efree(buf);
@@ -1004,12 +1054,12 @@ int flatfile_findkey(FILE *dbf, datum key_datum) {
 		if (num<0) break;
 		*(buf+num) = '\0';
 		if (size == num) {
-			if (!memcmp(buf,key,size)) {
+			if (!memcmp(buf, key, size)) {
 				ret = 1;
 				break;
 			}
 		}	
-		if (!fgets(buf,15,dbf))
+		if (!fgets(buf, 15, dbf))
 			break;
 		num = atoi(buf);
 		if (num > buf_size) {
@@ -1023,8 +1073,11 @@ int flatfile_findkey(FILE *dbf, datum key_datum) {
 	}
 	if (buf) efree(buf);
 	return(ret);
-}	
+}
+/* }}} */
 
+/* {{{ flatfile_firstkey
+ */
 datum flatfile_firstkey(FILE *dbf) {
 	datum buf;
 	int num;
@@ -1033,60 +1086,63 @@ datum flatfile_firstkey(FILE *dbf) {
 	rewind(dbf);
 	buf.dptr = emalloc((buf_size+1)*sizeof(char));
 	while(!feof(dbf)) {
-		if (!fgets(buf.dptr,15,dbf)) break;
+		if (!fgets(buf.dptr, 15, dbf)) break;
 		num = atoi(buf.dptr);
 		if (num > buf_size) {
 			buf_size+=num;
 			if (buf.dptr) efree(buf.dptr);
 			buf.dptr = emalloc((buf_size+1)*sizeof(char));
 		}
-		num=read(fileno(dbf),buf.dptr,num);
+		num=read(fileno(dbf), buf.dptr, num);
 		if (num<0) break;
 		buf.dsize = num;
 		if (*(buf.dptr)!=0) {
 			CurrentFlatFilePos = ftell(dbf);
 			return(buf);
 		}
-		if (!fgets(buf.dptr,15,dbf)) break;
+		if (!fgets(buf.dptr, 15, dbf)) break;
 		num = atoi(buf.dptr);
 		if (num > buf_size) {
 			buf_size+=num;
 			if (buf.dptr) efree(buf.dptr);
 			buf.dptr = emalloc((buf_size+1)*sizeof(char));
 		}
-		num=read(fileno(dbf),buf.dptr,num);
+		num=read(fileno(dbf), buf.dptr, num);
 		if (num<0) break;
 	}
 	if (buf.dptr) efree(buf.dptr);
 	buf.dptr = NULL;
 	return(buf);
-}	
+}
+/* }}} */
 
+/* {{{ latfile_nextkey
+ */
 datum flatfile_nextkey(FILE *dbf) {
 	datum buf;
 	int num;
 	int buf_size=1024;
 
-	fseek(dbf,CurrentFlatFilePos,SEEK_SET);
+	fseek(dbf, CurrentFlatFilePos, SEEK_SET);
 	buf.dptr = emalloc((buf_size+1)*sizeof(char));
 	while(!feof(dbf)) {
-		if (!fgets(buf.dptr,15,dbf)) break;
+		if (!fgets(buf.dptr, 15, dbf)) break;
 		num = atoi(buf.dptr);
 		if (num > buf_size) {
 			buf_size+=num;
 			if (buf.dptr) efree(buf.dptr);
 			buf.dptr = emalloc((buf_size+1)*sizeof(char));
 		}
-		num=read(fileno(dbf),buf.dptr,num);
+		num=read(fileno(dbf), buf.dptr, num);
 		if (num<0) break;
-		if (!fgets(buf.dptr,15,dbf)) break;
+		if (!fgets(buf.dptr, 15, dbf)) break;
 		num = atoi(buf.dptr);
 		if (num > buf_size) {
 			buf_size+=num;
 			if (buf.dptr) efree(buf.dptr);
 			buf.dptr = emalloc((buf_size+1)*sizeof(char));
 		}
-		num=read(fileno(dbf),buf.dptr,num);
+		num=read(fileno(dbf), buf.dptr, num);
 		if (num<0) break;
 		buf.dsize = num;
 		if (*(buf.dptr)!=0) {
@@ -1098,9 +1154,11 @@ datum flatfile_nextkey(FILE *dbf) {
 	buf.dptr = NULL;
 	return(buf);
 }	
+/* }}} */
 #endif
 
-
+/* {{{ PHP_MINIT_FUNCTION
+ */
 PHP_MINIT_FUNCTION(db)
 {
 #if defined(THREAD_SAFE)
@@ -1116,7 +1174,7 @@ PHP_MINIT_FUNCTION(db)
 		}
 	}
 	PHP_MUTEX_UNLOCK(dbm_mutex);
-	if(!PHP3_TLS_THREAD_INIT(DbmTls,dbm_globals,dbm_global_struct)){
+	if(!PHP3_TLS_THREAD_INIT(DbmTls, dbm_globals, dbm_global_struct)){
 		PHP_MUTEX_FREE(dbm_mutex);
 		return FAILURE;
 	}
@@ -1125,7 +1183,10 @@ PHP_MINIT_FUNCTION(db)
 	le_db = zend_register_list_destructors_ex(php_dbm_close, NULL, "dbm", module_number);
 	return SUCCESS;
 }
+/* }}} */
 
+/* {{{ PHP_MSHUTDOWN_FUNCTION
+ */
 static PHP_MSHUTDOWN_FUNCTION(db)
 {
 #ifdef THREAD_SAFE
@@ -1142,7 +1203,10 @@ static PHP_MSHUTDOWN_FUNCTION(db)
 #endif
 	return SUCCESS;
 }
+/* }}} */
 
+/* {{{ PHP_RINIT_FUNCTION
+ */
 PHP_RINIT_FUNCTION(db)
 {
 #if !GDBM && !NDBM
@@ -1150,8 +1214,10 @@ PHP_RINIT_FUNCTION(db)
 #endif
 	return SUCCESS;
 }
+/* }}} */
 
-
+/* {{{ dbm_functions[]
+ */
 function_entry dbm_functions[] = {
 	PHP_FE(dblist,									NULL)
 	PHP_FE(dbmopen,									NULL)
@@ -1163,11 +1229,21 @@ function_entry dbm_functions[] = {
 	PHP_FE(dbmdelete,								NULL)
 	PHP_FE(dbmfirstkey,								NULL)
 	PHP_FE(dbmnextkey,								NULL)
-	{NULL,NULL,NULL}
+	{NULL, NULL, NULL}
 };
+/* }}} */
 
 zend_module_entry dbm_module_entry = {
-	"db", dbm_functions, PHP_MINIT(db), PHP_MSHUTDOWN(db), PHP_RINIT(db), NULL, PHP_MINFO(db), STANDARD_MODULE_PROPERTIES
+    STANDARD_MODULE_HEADER,
+	"db",
+    dbm_functions,
+    PHP_MINIT(db),
+    PHP_MSHUTDOWN(db),
+    PHP_RINIT(db),
+    NULL,
+    PHP_MINFO(db),
+    NO_VERSION_YET,
+    STANDARD_MODULE_PROPERTIES
 };
 
 #ifdef COMPILE_DL_DB
@@ -1181,4 +1257,6 @@ ZEND_GET_MODULE(dbm)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
  */

@@ -71,7 +71,7 @@ static void build_hash_table(struct sum_struct *s)
   if (!tag_table || !targets) 
     out_of_memory("build_hash_table");
 
-  for (i=0;i<s->count;i++) {
+  for (i=0;i<(int) s->count;i++) {
     targets[i].i = i;
     targets[i].t = gettag(s->sums[i].sum1);
   }
@@ -97,8 +97,8 @@ static void matched(int f,struct sum_struct *s,struct map_struct *buf,
 	OFF_T j;
 
 	if (verbose > 2 && i >= 0)
-		rprintf(FINFO,"match at %d last_match=%d j=%d len=%d n=%d\n",
-			(int)offset,(int)last_match,i,(int)s->sums[i].len,(int)n);
+		rprintf(FINFO,"match at %.0f last_match=%.0f j=%d len=%d n=%.0f\n",
+			(double)offset,(double)last_match,i,s->sums[i].len,(double)n);
 
 	send_token(f,i,buf,last_match,n,i<0?0:s->sums[i].len);
 	data_transfer += n;
@@ -119,19 +119,19 @@ static void matched(int f,struct sum_struct *s,struct map_struct *buf,
 	else
 		last_match = offset;
 
-	if (buf)
+	if (buf) {
 		show_progress(last_match, buf->file_size);
 
-	if (i == -1) end_progress();
+		if (i == -1) end_progress(buf->file_size);
+	}
 }
 
 
 static void hash_search(int f,struct sum_struct *s,
 			struct map_struct *buf,OFF_T len)
 {
-	OFF_T offset;
+	OFF_T offset, end;
 	int j,k, last_i;
-	int end;
 	char sum2[SUM_LENGTH];
 	uint32 s1, s2, sum; 
 	schar *map;
@@ -141,7 +141,7 @@ static void hash_search(int f,struct sum_struct *s,
 	last_i = -1;
 
 	if (verbose > 2)
-		rprintf(FINFO,"hash search b=%d len=%d\n",s->n,(int)len);
+		rprintf(FINFO,"hash search b=%d len=%.0f\n",s->n,(double)len);
 
 	k = MIN(len, s->n);
 	
@@ -158,8 +158,8 @@ static void hash_search(int f,struct sum_struct *s,
 	end = len + 1 - s->sums[s->count-1].len;
 	
 	if (verbose > 3)
-		rprintf(FINFO,"hash search s->n=%d len=%d count=%d\n",
-			s->n,(int)len,s->count);
+		rprintf(FINFO,"hash search s->n=%d len=%.0f count=%d\n",
+			s->n,(double)len,s->count);
 	
 	do {
 		tag t = gettag2(s1,s2);
@@ -167,7 +167,7 @@ static void hash_search(int f,struct sum_struct *s,
 			
 		j = tag_table[t];
 		if (verbose > 4)
-			rprintf(FINFO,"offset=%d sum=%08x\n",(int)offset,sum);
+			rprintf(FINFO,"offset=%.0f sum=%08x\n",(double)offset,sum);
 		
 		if (j == NULL_TAG) {
 			goto null_tag;
@@ -175,7 +175,7 @@ static void hash_search(int f,struct sum_struct *s,
 
 		sum = (s1 & 0xffff) | (s2 << 16);
 		tag_hits++;
-		for (; j<s->count && targets[j].t == t; j++) {
+		for (; j < (int) s->count && targets[j].t == t; j++) {
 			int l, i = targets[j].i;
 			
 			if (sum != s->sums[i].sum1) continue;
@@ -185,8 +185,8 @@ static void hash_search(int f,struct sum_struct *s,
 			if (l != s->sums[i].len) continue;			
 
 			if (verbose > 3)
-				rprintf(FINFO,"potential match at %d target=%d %d sum=%08x\n",
-					(int)offset,j,i,sum);
+				rprintf(FINFO,"potential match at %.0f target=%d %d sum=%08x\n",
+					(double)offset,j,i,sum);
 			
 			if (!done_csum2) {
 				map = (schar *)map_ptr(buf,offset,l);
@@ -201,7 +201,7 @@ static void hash_search(int f,struct sum_struct *s,
 
 			/* we've found a match, but now check to see
                            if last_i can hint at a better match */
-			for (j++; j<s->count && targets[j].t == t; j++) {
+			for (j++; j < (int) s->count && targets[j].t == t; j++) {
 				int i2 = targets[j].i;
 				if (i2 == last_i + 1) {
 					if (sum != s->sums[i2].sum1) break;
@@ -260,6 +260,7 @@ static void hash_search(int f,struct sum_struct *s,
 void match_sums(int f,struct sum_struct *s,struct map_struct *buf,OFF_T len)
 {
 	char file_sum[MD4_SUM_LENGTH];
+	extern int write_batch;  /*  dw */
 
 	last_match = 0;
 	false_alarms = 0;
@@ -295,6 +296,8 @@ void match_sums(int f,struct sum_struct *s,struct map_struct *buf,OFF_T len)
 		if (verbose > 2)
 			rprintf(FINFO,"sending file_sum\n");
 		write_buf(f,file_sum,MD4_SUM_LENGTH);
+		if (write_batch) /* dw */
+		    write_batch_delta_file(file_sum, MD4_SUM_LENGTH);
 	}
 
 	if (targets) {

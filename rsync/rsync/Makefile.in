@@ -9,6 +9,8 @@ mandir=@mandir@
 LIBS=@LIBS@
 CC=@CC@
 CFLAGS=@CFLAGS@
+CPPFLAGS=@CPPFLAGS@
+LDFLAGS=@LDFLAGS@
 
 INSTALLCMD=@INSTALL@
 
@@ -16,23 +18,34 @@ srcdir=@srcdir@
 VPATH=$(srcdir)
 SHELL=/bin/sh
 
+VERSION=@VERSION@
 
 .SUFFIXES:
 .SUFFIXES: .c .o
 
-LIBOBJ=lib/getopt.o lib/fnmatch.o lib/compat.o lib/snprintf.o lib/mdfour.o
+LIBOBJ=lib/fnmatch.o lib/compat.o lib/snprintf.o lib/mdfour.o \
+	lib/permstring.o \
+	@LIBOBJS@
 ZLIBOBJ=zlib/deflate.o zlib/infblock.o zlib/infcodes.o zlib/inffast.o \
 	zlib/inflate.o zlib/inftrees.o zlib/infutil.o zlib/trees.o \
 	zlib/zutil.o zlib/adler32.o 
-OBJS1=rsync.o generator.o receiver.o cleanup.o sender.o exclude.o util.o main.o checksum.o match.o syscall.o log.o
-OBJS2=options.o flist.o io.o compat.o hlink.o token.o uidlist.o socket.o fileio.o
+OBJS1=rsync.o generator.o receiver.o cleanup.o sender.o exclude.o util.o main.o checksum.o match.o syscall.o log.o backup.o
+OBJS2=options.o flist.o io.o compat.o hlink.o token.o uidlist.o socket.o fileio.o batch.o \
+	clientname.o
 DAEMON_OBJ = params.o loadparm.o clientserver.o access.o connection.o authenticate.o
-OBJS=$(OBJS1) $(OBJS2) $(DAEMON_OBJ) $(LIBOBJ) $(ZLIBOBJ)
+popt_OBJS=popt/findme.o  popt/popt.o  popt/poptconfig.o \
+	popt/popthelp.o popt/poptparse.o
+OBJS=$(OBJS1) $(OBJS2) $(DAEMON_OBJ) $(LIBOBJ) $(ZLIBOBJ) @BUILD_POPT@
+
+tls_OBJ = tls.o syscall.o lib/permstring.o 
+
+# Programs we must have to run the test cases
+CHECK_PROGS = rsync tls
 
 # note that the -I. is needed to handle config.h when using VPATH
 .c.o:
 @OBJ_SAVE@
-	$(CC) -I. -I$(srcdir) $(CFLAGS) -c $< @CC_SHOBJ_FLAG@
+	$(CC) -I. -I$(srcdir) -I$(srcdir)/popt $(CPPFLAGS) $(CFLAGS) -c $< @CC_SHOBJ_FLAG@
 @OBJ_RESTORE@
 
 all: rsync
@@ -51,7 +64,20 @@ install-strip:
 	$(MAKE) INSTALLCMD='$(INSTALLCMD) -s' install
 
 rsync: $(OBJS)
-	$(CC) $(CFLAGS) $(LDFLAGS) -o rsync $(OBJS) $(LIBS)
+	@echo "Please ignore warnings below about mktemp -- it is used in a safe way"
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -o rsync $(OBJS) $(LIBS)
+
+$(OBJS): config.h
+
+tls: $(tls_OBJ)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -o $@ $(tls_OBJ) $(LIBS)
+
+Makefile: Makefile.in configure config.status
+	echo "WARNING: You need to run ./config.status --recheck"
+
+# don't actually run autoconf, just issue a warning
+configure: configure.in
+	echo "WARNING: you need to rerun autoconf"
 
 rsync.1: rsync.yo
 	yodl2man -o rsync.1 rsync.yo
@@ -60,13 +86,15 @@ rsyncd.conf.5: rsyncd.conf.yo
 	yodl2man -o rsyncd.conf.5 rsyncd.conf.yo
 
 proto:
-	cat *.c | awk -f mkproto.awk > proto.h
+	cat *.c lib/compat.c | awk -f mkproto.awk > proto.h
 
 clean:
-	rm -f *~ $(OBJS) rsync 
+	rm -f *~ $(OBJS) rsync $(TLS_OBJ) tls
+	rm -rf ./testtmp
+	rm -f config.cache 
 
 distclean: clean
-	rm -f config.h config.cache config.status Makefile
+	rm -f Makefile config.h config.status
 
 # this target is really just for my use. It only works on a limited
 # range of machines and is used to produce a list of potentially
@@ -75,3 +103,34 @@ finddead:
 	nm *.o */*.o |grep 'U ' | awk '{print $$2}' | sort -u > nmused.txt
 	nm *.o */*.o |grep 'T ' | awk '{print $$3}' | sort -u > nmfns.txt
 	comm -13 nmused.txt nmfns.txt 
+
+# 'check' is the GNU name, 'test' is the name for everybody else :-)
+.PHONY: check test
+
+test: check
+
+
+# There seems to be no standard way to specify some variables as
+# exported from a Makefile apart from listing them like this.
+
+# TODO: Tests that depend on built test aide programs like tls need to
+# know where the build directory is.
+
+# This depends on building rsync; if we need any helper programs it
+# should depend on them too.
+
+# We try to run the scripts with POSIX mode on, in the hope that will
+# catch Bash-isms earlier even if we're running on GNU.  Of course, we
+# might lose in the future where POSIX diverges from old sh.
+
+check: all $(CHECK_PROGS)
+	POSIXLY_CORRECT=1 TLS=`pwd`/tls rsync_bin=`pwd`/rsync srcdir="$(srcdir)" $(srcdir)/runtests.sh
+
+# This does *not* depend on building or installing: you can use it to
+# check a version installed from a binary or some other source tree,
+# if you want.
+
+installcheck: $(CHECK_PROGS)
+	POSIXLY_CORRECT=1 TLS=`pwd`/tls rsync_bin="$(bindir)/rsync" srcdir="$(srcdir)" $(srcdir)/runtests.sh
+
+# TODO: Add 'dist' target; need to know which files will be included

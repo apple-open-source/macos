@@ -3,21 +3,68 @@
 
 #if PHP_WIN32
 
-#include "oleauto.h"
+BEGIN_EXTERN_C()
 
-typedef struct i_dispatch_ {
-	int typelib;
+#include <oleauto.h>
+
+typedef struct comval_ {
+#ifdef _DEBUG
+	int resourceindex;
+#endif	
+	BOOL typelib;
+	BOOL enumeration;
+	int refcount;
 	struct {
 		IDispatch *dispatch;
 		ITypeInfo *typeinfo;
+		IEnumVARIANT *enumvariant;
 	} i;
-} i_dispatch;
+} comval;
 
-PHPAPI HRESULT php_COM_invoke(i_dispatch *obj, DISPID dispIdMember, WORD wFlags, DISPPARAMS FAR*  pDispParams, VARIANT FAR*  pVarResult);
-PHPAPI HRESULT php_COM_get_ids_of_names(i_dispatch *obj, OLECHAR FAR* FAR* rgszNames, DISPID FAR* rgDispId);
-PHPAPI HRESULT php_COM_release(i_dispatch *obj);
-PHPAPI HRESULT php_COM_set(i_dispatch *obj, IDispatch FAR* pDisp, int cleanup);
-PHPAPI HRESULT php_COM_clone(i_dispatch *obj, i_dispatch *clone, int cleanup);
+END_EXTERN_C()
+
+#define ZVAL_COM(z,o) {																\
+			zval *handle;															\
+			HashTable *properties;													\
+																					\
+			ALLOC_HASHTABLE(properties);											\
+			zend_hash_init(properties, 0, NULL, ZVAL_PTR_DTOR, 0);					\
+																					\
+			ALLOC_ZVAL(handle);														\
+			INIT_PZVAL(handle);														\
+			ZVAL_LONG(handle, zend_list_insert((o), IS_COM));						\
+																					\
+			zval_copy_ctor(handle);													\
+			zend_hash_index_update(properties, 0, &handle, sizeof(zval *), NULL);	\
+			object_and_properties_init(z, &COM_class_entry, properties);			\
+		}
+
+#define RETVAL_COM(o)	ZVAL_COM(&return_value, o);
+#define RETURN_COM(o)	RETVAL_COM(o)												\
+						return;
+
+#define ALLOC_COM(z)	(z) = (comval *) emalloc(sizeof(comval));					\
+						C_REFCOUNT(z) = 0;
+
+#define FREE_COM(z)		efree(z);
+
+#define IS_COM			php_COM_get_le_comval()
+
+#define C_HASTLIB(x)	((x)->typelib)
+#define C_HASENUM(x)	((x)->enumeration)
+#define C_REFCOUNT(x)	((x)->refcount)
+#define C_ISREFD(x)		C_REFCOUNT(x)
+
+#define C_ADDREF(x)		(++((x)->refcount))
+#define C_RELEASE(x)	(--((x)->refcount))
+
+#define C_DISPATCH(x)		((x)->i.dispatch)
+#define C_TYPEINFO(x)		((x)->i.typeinfo)
+#define C_ENUMVARIANT(x)	((x)->i.enumvariant)
+
+#define C_DISPATCH_VT(x)	(C_DISPATCH(x)->lpVtbl)
+#define C_TYPEINFO_VT(x)	(C_TYPEINFO(x)->lpVtbl)
+#define C_ENUMVARIANT_VT(x)	(C_ENUMVARIANT(x)->lpVtbl)
 
 #endif  /* PHP_WIN32 */
 

@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_aspell.h,v 1.1.1.3 2001/07/19 00:18:53 zarzycki Exp $ */
+/* $Id: php_aspell.h,v 1.1.1.4 2001/12/14 22:11:56 zarzycki Exp $ */
 
 #ifndef PHP_ASPELL_H
 #define PHP_ASPELL_H
@@ -24,8 +24,8 @@
 extern zend_module_entry aspell_module_entry;
 #define aspell_module_ptr &aspell_module_entry
 
-extern PHP_MINIT_FUNCTION(aspell);
-extern PHP_MINFO_FUNCTION(aspell);
+PHP_MINIT_FUNCTION(aspell);
+PHP_MINFO_FUNCTION(aspell);
 
 PHP_FUNCTION(aspell_new);
 PHP_FUNCTION(aspell_check);

@@ -10,6 +10,7 @@ include $(top_srcdir)/build/rules.mk
 peardir=$(PEAR_INSTALLDIR)
 
 PEAR_SUBDIRS = \
+	Archive \
 	Benchmark \
 	Cache \
 	Cache/Container \
@@ -29,24 +30,25 @@ PEAR_SUBDIRS = \
 	Payment \
 	PEAR \
 	Schedule \
-	XML \
-	XML/RPC
+	XML 
 
 PEAR_FILES = \
+	Archive/Tar.php \
 	Benchmark/Iterate.php \
 	Benchmark/Timer.php \
 	Cache.php \
-	Cache/Container.php \
-	Cache/Function.php \
-	Cache/Graphics.php \
-	Cache/Output.php \
 	Cache/Error.php \
-	Cache/OutputCompression.php \
+	Cache/Container.php \
 	Cache/Container/db.php \
 	Cache/Container/dbx.php \
 	Cache/Container/file.php \
 	Cache/Container/phplib.php \
 	Cache/Container/shm.php \
+	Cache/DB.php \
+	Cache/Function.php \
+	Cache/Graphics.php \
+	Cache/Output.php \
+	Cache/OutputCompression.php \
 	Console/Getopt.php \
 	Crypt/CBC.php \
 	Crypt/HCEMD5.php \
@@ -54,6 +56,7 @@ PEAR_FILES = \
 	Date/Human.php \
 	DB.php \
 	DB/common.php \
+	DB/fbsql.php \
 	DB/ibase.php \
 	DB/ifx.php \
 	DB/msql.php \
@@ -71,6 +74,7 @@ PEAR_FILES = \
 	HTML/Form.php \
 	HTML/IT.php \
 	HTML/ITX.php \
+	HTML/IT_Error.php \
 	HTML/Page.php \
 	HTML/Processor.php \
 	HTML/Select.php \
@@ -82,13 +86,14 @@ PEAR_FILES = \
 	Log/composite.php \
 	Log/file.php \
 	Log/mcal.php \
-	Log/observer.php \
+	Log/Observer.php \
 	Log/sql.php \
 	Log/syslog.php \
 	Mail.php \
 	Mail/RFC822.php \
 	Mail/sendmail.php \
 	Mail/smtp.php \
+	Mail/mime.php \
 	Math/Fraction.php \
 	Math/Util.php \
 	Net/Curl.php \
@@ -98,23 +103,26 @@ PEAR_FILES = \
 	Numbers/Roman.php \
 	PEAR.php \
 	PEAR/Common.php \
+	PEAR/Config.php \
 	PEAR/Installer.php \
 	PEAR/Packager.php \
+	PEAR/Remote.php \
 	PEAR/Uploader.php \
+	PEAR/Registry.php \
 	Payment/Verisign.php \
 	Schedule/At.php \
-	XML/Parser.php \
-	XML/RPC.php \
-	XML/RPC/Server.php
+	System.php \
+	XML/Parser.php 
 
 install-data-local:
 	@if $(mkinstalldirs) $(INSTALL_ROOT)$(peardir); then \
 		for i in $(PEAR_SUBDIRS); do \
-			(set -x;$(mkinstalldirs) $(INSTALL_ROOT)$(peardir)/$$i); \
+			$(mkinstalldirs) $(INSTALL_ROOT)$(peardir)/$$i; \
 		done; \
 		for i in $(PEAR_FILES); do \
+			echo "Installing $$i"; \
 			dir=`echo $$i|sed 's%[^/][^/]*$$%%'`; \
-			(set -x;$(INSTALL_DATA) $(srcdir)/$$i $(INSTALL_ROOT)$(peardir)/$$dir); \
+			$(INSTALL_DATA) $(srcdir)/$$i $(INSTALL_ROOT)$(peardir)/$$dir; \
 		done; \
 	else \
 		cat $(srcdir)/install-pear.txt; \
@@ -139,17 +147,20 @@ BUILD_FILES = \
 	dynlib.m4 \
 	acinclude.m4
 
-bin_SCRIPTS = phpize php-config pear
+bin_SCRIPTS = phpize php-config pear pearize phptar
 
 install-build:
-	$(mkinstalldirs) $(INSTALL_ROOT)$(phpbuilddir) $(INSTALL_ROOT)$(bindir) && \
+	@echo "Installing build environment"
+	@$(mkinstalldirs) $(INSTALL_ROOT)$(phpbuilddir) $(INSTALL_ROOT)$(bindir) && \
 	(cd $(top_srcdir) && cp $(BUILD_FILES) $(INSTALL_ROOT)$(phpbuilddir))
 
 install-programs:
-	for prog in $(bin_SCRIPTS); do \
+	@for prog in $(bin_SCRIPTS); do \
+		echo "Installing program: $$prog"; \
 		$(INSTALL) -m 755 scripts/$$prog $(INSTALL_ROOT)$(bindir)/$$prog; \
 	done; \
 	for prog in phpextdist; do \
+		echo "Installing program: $$prog"; \
 		$(INSTALL) -m 755 $(srcdir)/scripts/$$prog $(INSTALL_ROOT)$(bindir)/$$prog; \
 	done
 
@@ -169,7 +180,7 @@ install-headers:
 		paths="$$paths $(INSTALL_ROOT)$(phpincludedir)/$$i"; \
 	done; \
 	$(mkinstalldirs) $$paths && \
-	echo "creating header file hierarchy" && \
+	echo "Installing header files" && \
 	for i in $(HEADER_DIRS); do \
 		(cd $(top_srcdir)/$$i && cp -p *.h $(INSTALL_ROOT)$(phpincludedir)/$$i; \
 		cd $(top_builddir)/$$i && cp -p *.h $(INSTALL_ROOT)$(phpincludedir)/$$i) 2>/dev/null || true; \
@@ -183,6 +194,12 @@ scripts/pear: scripts/pear.in $(top_builddir)/config.status
 
 scripts/phpize: scripts/phpize.in $(top_builddir)/config.status
 	(cd ..;CONFIG_FILES=pear/scripts/phpize CONFIG_HEADERS= $(top_builddir)/config.status)
+
+scripts/phptar: scripts/phptar.in $(top_builddir)/config.status
+	(cd ..;CONFIG_FILES=pear/scripts/phptar CONFIG_HEADERS= $(top_builddir)/config.status)
+
+scripts/pearize: scripts/pearize.in $(top_builddir)/config.status
+	(cd ..;CONFIG_FILES=pear/scripts/pearize CONFIG_HEADERS= $(top_builddir)/config.status)
 
 scripts/php-config: scripts/php-config.in $(top_builddir)/config.status
 	(cd ..;CONFIG_FILES=pear/scripts/php-config CONFIG_HEADERS= $(top_builddir)/config.status)

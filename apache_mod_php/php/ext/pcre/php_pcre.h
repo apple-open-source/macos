@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
  
-/* $Id: php_pcre.h,v 1.1.1.3 2001/07/19 00:19:44 zarzycki Exp $ */
+/* $Id: php_pcre.h,v 1.1.1.4 2001/12/14 22:12:56 zarzycki Exp $ */
 
 #ifndef PHP_PCRE_H
 #define PHP_PCRE_H
@@ -41,6 +41,9 @@ PHP_FUNCTION(preg_split);
 PHP_FUNCTION(preg_quote);
 PHP_FUNCTION(preg_grep);
 
+char *php_pcre_replace(char *regex,   int regex_len, char *subject, int subject_len,
+                       zval *replace_val, int is_callable_replace, int *result_len, int limit TSRMLS_DC);
+
 extern zend_module_entry pcre_module_entry;
 #define pcre_module_ptr &pcre_module_entry
 
@@ -54,25 +57,14 @@ typedef struct {
 #endif
 } pcre_cache_entry;
 
-typedef struct {
+ZEND_BEGIN_MODULE_GLOBALS(pcre)
 	HashTable pcre_cache;
-} php_pcre_globals;
+ZEND_END_MODULE_GLOBALS(pcre)
 
 #ifdef ZTS
-# define PCRE_LS_D 	php_pcre_globals *pcre_globals
-# define PCRE_LS_DC , PCRE_LS_D
-# define PCRE_LS_C	pcre_globals
-# define PCRE_LS_CC	, PCRE_LS_C
-# define PCRE_G(v) 	(pcre_globals->v)
-# define PCRE_LS_FETCH() php_pcre_globals *pcre_globals = ts_resource(pcre_globals_id);
+# define PCRE_G(v) TSRMG(pcre_globals_id, zend_pcre_globals *, v)
 #else
-# define PCRE_LS_D
-# define PCRE_LS_DC
-# define PCRE_LS_C
-# define PCRE_LS_CC
 # define PCRE_G(v)	(pcre_globals.v)
-# define PCRE_LS_FETCH()
-extern ZEND_API php_pcre_globals pcre_globals;
 #endif
 
 #else

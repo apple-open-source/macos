@@ -22,7 +22,7 @@
     <h1 align="CENTER">Apache Server Frequently Asked
     Questions</h1>
 
-    <p>$Revision: 1.1.1.8 $ ($Date: 2001/10/18 04:25:42 $)</p>
+    <p>$Revision: 1.1.1.9 $ ($Date: 2002/03/18 21:58:50 $)</p>
 
     <p>The latest version of this FAQ is always available from the
     main Apache web site, at &lt;<a
@@ -307,6 +307,16 @@
           Windows, I get a message like "<code>System error 1067
           has occurred. The process terminated
           unexpectedly.</code>" What does this mean?</a></li>
+
+          <li><a href="#suseFDN">On a SuSE Linux system, I try and 
+          configure access control using basic authentication.
+	  Although I follow the example exactly, authentication
+	  fails, and an error message "<code>admin: not a valid
+	  FDN: ....</code>" is logged.</a></li>
+
+          <li><a href="#codered">Why do I have weird entries in my
+          logs asking for <code>default.ida</code> and
+          <code>cmd.exe</code>?</a></li>
         </ol>
       </li>
       
@@ -388,6 +398,15 @@
           <li><a href="#ie-ignores-mime">Why do my files appear
           correctly in Internet Explorer, but show up as source or
           trigger a save window with Netscape?</a></li>
+
+	  <li><a href="#canonical-hostnames">My site is accessible
+          under many different hostnames; how do I redirect clients
+          so that they see only a single name?</a></li>
+
+          <li><a href="#firewall">Why can I access my website from the
+          server or from my local network, but I can't access it from
+          elsewhere on the Internet?</a></li>
+
         </ol>
       </li>
       
@@ -790,8 +809,8 @@
         Apache compare to other servers?</strong></a> 
 
         <p>For an independent assessment, see <a
-        href="http://webcompare.internet.com/chart.html">Web
-        Compare</a>'s comparison chart.</p>
+        href="http://webcompare.internet.com/">Web
+        Compare</a>.</p>
 
         <p>Apache has been shown to be substantially faster, more
         stable, and more feature-full than many other web servers.
@@ -851,6 +870,8 @@
         suggestions should be sent <em>via</em> <a
         href="http://httpd.apache.org/bug_report.html">the bug
         report page</a>. Other questions should be directed to the
+        <a href="http://httpd.apache.org/userslist.html">Apache HTTP
+        Server Users List</a> or the
         <a
         href="news:comp.infosystems.www.servers.unix">comp.infosystems.www.servers.unix</a>
         or <a
@@ -907,7 +928,7 @@
 
           <li>You may use the aforementioned 'Powered by Apache'
           graphic or the <a
-          href="http://www.apache.org/foundation/images/asf_logo.gif">
+          href="http://www.apache.org/images/asf_logo.gif">
           Apache Software Foundation logo</a> in product
           description and promotional material <b>IF and ONLY
           IF</b> such use can in no way be interpreted as anything
@@ -993,25 +1014,23 @@
           </li>
 
           <li>
-            <strong>Ask in the
-            <samp>comp.infosystems.www.servers.unix</samp> or
-            <samp>comp.infosystems.www.servers.ms-windows</samp>
-            USENET newsgroup (as appropriate for the platform you
-            use).</strong> 
+            <strong>Ask in a user support group.</strong> 
 
             <p>A lot of common problems never make it to the bug
             database because there's already high Q&amp;A traffic
-            about them in <a
+            about them in the <a
+            href="http://httpd.apache.org/userslist.html">Users
+            mailing list</a> or <a
             href="news:comp.infosystems.www.servers.unix"><samp>comp.infosystems.www.servers.unix</samp></a>
             and related newsgroups. These newsgroups are also
             available via <a
             href="http://groups.google.com/groups?group=comp.infosystems.www.servers">
-            Google</a>. Many Apache users, and some of the
-            developers, can be found roaming its virtual halls, so
-            it is suggested that you seek wisdom there. The chances
-            are good that you'll get a faster answer there than
-            from the bug database, even if you <em>don't</em> see
-            your question already posted.</p>
+            Google</a>. Many Apache users, and some of the developers,
+            can be found roaming their virtual halls, so it is suggested
+            that you seek wisdom there. The chances are good that
+            you'll get a faster answer there than from the bug
+            database, even if you <em>don't</em> see your question
+            already posted.</p>
           </li>
 
           <li>
@@ -1829,6 +1848,37 @@
         Apache error log.</p>
         <hr />
       </li>
+
+      <li><a id="suseFDN" name="suseFDN"><b>On a SuSE Linux system, I try and 
+          configure access control using basic authentication.
+	  Although I follow the example exactly, authentication
+	  fails, and an error message "<code>admin: not a valid
+	  FDN: ....</code>" is logged.</b></a>
+
+          <p>
+	  In the SuSE distribution, additional 3rd party authentication
+	  modules have been added and activated by default. These modules
+	  interfere with the Apache standard modules and cause Basic
+	  authentication to fail. Our recommendation is to comment all
+	  those modules in <code>/etc/httpd/suse_addmodule.conf</code>
+	  and <code>/etc/httpd/suse_loadmodule.conf</code> which are not
+	  actually required for running your server.
+          </p><hr />
+      </li>
+
+     <li><a id="codered" name="codered"><b>Why do I have weird entries in my
+          logs asking for <code>default.ida</code> and
+          <code>cmd.exe</code>?</b></a>
+      
+          <p>The host requesting pages from your website and creating
+          those entries is a Windows machine running IIS that has been
+          infected by an Internet worm such as Nimda or Code Red. You
+          can safely ignore these error messages as they do not affect
+          Apache.  ApacheWeek has an <a
+          href="http://www.apacheweek.com/features/codered">article</a>
+          with more information.</p>
+     </li>
+
     </ol>
     
     
@@ -2360,6 +2410,67 @@
         directive in the Apache configuration files.</p>
         <hr />
       </li>
+      <li>
+	<a name="canonical-hostnames"><strong>My site is accessible
+        under many different hostnames; how do I redirect clients
+        so that they see only a single name?</strong></a>
+
+        <p>Many sites map a variety of hostnames to the same content.
+        For example, <code>www.example.com</code>,
+        <code>example.com</code> and <code>www.example.net</code> may
+        all refer to the same site.  It is best to make sure that,
+        regardless of the name clients use to access the site, they
+        will be redirected to a single, canonical hostname.  This
+        makes the site easier to maintain and assures that there will
+        be only one version of the site in proxy caches and search
+        engines.</p>
+
+        <p>There are two techniques to implement canonical hostnames:</p>
+
+        <ol>
+          <li>Use <a href="../mod/mod_rewrite.html">mod_rewrite</a>
+          as described in the "Canonical Hostnames" section of the
+          <a href="rewriteguide.html">URL Rewriting Guide</a>.</li>
+
+          <li>Use <a href="../vhosts/name-based.html">name-based
+          virtual hosting</a>:
+
+<blockquote><code>
+NameVirtualHost *<br />
+<br />
+&lt;VirtualHost *&gt;<br />
+&nbsp;&nbsp;ServerName www.example.net<br />
+&nbsp;&nbsp;ServerAlias example.com<br />
+&nbsp;&nbsp;Redirect permanent / http://www.example.com/<br />
+&lt;/VirtualHost&gt;<br />
+<br />
+&lt;VirtualHost *&gt;<br />
+&nbsp;&nbsp;ServerName www.example.com<br />
+&nbsp;&nbsp;DocumentRoot /usr/local/apache/htdocs<br />
+&lt;/VirtualHost&gt;
+</code></blockquote>
+          </li></ol>
+        <hr /></li>
+
+         <li><a id="firewall" name="firewall"><strong>Why can I access my
+         website from the server or from my local network, but I
+         can't access it from elsewhere on the Internet?</strong></a>
+
+         <p>There are many possible reasons for this, and almost all
+         of them are related to the configuration of your network, not
+         the configuration of the Apache HTTP Server.  One of the most
+         common problems is that a firewall blocks access to the
+         default HTTP port 80.  In particular, many consumer ISPs
+         block access to this port.  You can see if this is the case
+         by changing any <code>Port</code> and <code>Listen</code>
+         directives in <code>httpd.conf</code> to use port 8000 and
+         then request your site using
+         <code>http://yourhost.example.com:8000/</code>.  (Of course,
+         a very restrictive firewall may block this port as well.)</p>
+
+        <hr /></li>
+
+
     </ol>
     
     

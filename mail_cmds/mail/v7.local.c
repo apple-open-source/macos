@@ -1,5 +1,3 @@
-/*	$NetBSD: v7.local.c,v 1.10 1998/07/26 22:07:27 mycroft Exp $	*/
-
 /*
  * Copyright (c) 1980, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -33,13 +31,12 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
 #if 0
 static char sccsid[] = "@(#)v7.local.c	8.1 (Berkeley) 6/6/93";
-#else
-__RCSID("$NetBSD: v7.local.c,v 1.10 1998/07/26 22:07:27 mycroft Exp $");
 #endif
+static const char rcsid[] =
+  "$FreeBSD: src/usr.bin/mail/v7.local.c,v 1.4 2001/05/27 20:26:22 mikeh Exp $";
 #endif /* not lint */
 
 /*
@@ -51,6 +48,7 @@ __RCSID("$NetBSD: v7.local.c,v 1.10 1998/07/26 22:07:27 mycroft Exp $");
  */
 
 #include "rcv.h"
+#include <fcntl.h>
 #include "extern.h"
 
 /*
@@ -58,17 +56,16 @@ __RCSID("$NetBSD: v7.local.c,v 1.10 1998/07/26 22:07:27 mycroft Exp $");
  * mail is queued).
  */
 void
-findmail(user, buf)
+findmail(user, buf, buflen)
 	char *user, *buf;
+	int buflen;
 {
-	char *mbox;
+	char *tmp = getenv("MAIL");
 
-	if (!(mbox = getenv("MAIL")))
-		(void)snprintf(buf, PATHSIZE, "%s/%s", _PATH_MAILDIR, user);
-	else {
-		(void)strncpy(buf, mbox, PATHSIZE - 1);
-		buf[PATHSIZE - 1] = '\0';
-	}
+	if (tmp == NULL)
+		(void)snprintf(buf, buflen, "%s/%s", _PATH_MAILDIR, user);
+	else
+		(void)strlcpy(buf, tmp, buflen);
 }
 
 /*
@@ -78,23 +75,25 @@ void
 demail()
 {
 
-	if (value("keep") != NOSTR || rm(mailname) < 0)
-		(void)close(creat(mailname, 0600));
+	if (value("keep") != NULL || rm(mailname) < 0)
+		(void)close(open(mailname, O_CREAT | O_TRUNC | O_WRONLY, 0600));
 }
 
 /*
  * Discover user login name.
  */
-const char *
+char *
 username()
 {
-	const char *np;
+	char *np;
 	uid_t uid;
 
-	if ((np = getenv("USER")) != NOSTR)
-		return np;
-	if ((np = getname(uid = getuid())) != NOSTR)
-		return np;
+	if ((np = getenv("USER")) != NULL)
+		return (np);
+	if ((np = getenv("LOGNAME")) != NULL)
+		return (np);
+	if ((np = getname(uid = getuid())) != NULL)
+		return (np);
 	printf("Cannot associate a name with uid %u\n", (unsigned)uid);
-	return NOSTR;
+	return (NULL);
 }

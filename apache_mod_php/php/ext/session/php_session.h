@@ -1,27 +1,16 @@
 /* 
    +----------------------------------------------------------------------+
-   | PHP HTML Embedded Scripting Language Version 4.0                     |
+   | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997,1998 PHP Development Team (See Credits file)      |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
-   | This program is free software; you can redistribute it and/or modify |
-   | it under the terms of one of the following licenses:                 |
-   |                                                                      |
-   |  A) the GNU General Public License as published by the Free Software |
-   |     Foundation; either version 2 of the License, or (at your option) |
-   |     any later version.                                               |
-   |                                                                      |
-   |  B) the PHP License as published by the PHP Development Team and     |
-   |     included in the distribution in the file: LICENSE                |
-   |                                                                      |
-   | This program is distributed in the hope that it will be useful,      |
-   | but WITHOUT ANY WARRANTY; without even the implied warranty of       |
-   | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the        |
-   | GNU General Public License for more details.                         |
-   |                                                                      |
-   | You should have received a copy of both licenses referred to here.   |
-   | If you did not, or have any questions about PHP licensing, please    |
-   | contact core@php.net.                                                |
+   | This source file is subject to version 2.02 of the PHP license,      |
+   | that is bundled with this package in the file LICENSE, and is        |
+   | available at through the world-wide-web at                           |
+   | http://www.php.net/license/2_02.txt.                                 |
+   | If you did not receive a copy of the PHP license and are unable to   |
+   | obtain it through the world-wide-web, please send a note to          |
+   | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
    | Authors: Sascha Schumann <sascha@schumann.cx>                        |
    +----------------------------------------------------------------------+
@@ -70,6 +59,12 @@ typedef struct ps_module_struct {
 	#x, ps_open_##x, ps_close_##x, ps_read_##x, ps_write_##x, \
 	 ps_delete_##x, ps_gc_##x 
 
+typedef enum {
+	php_session_disabled,
+	php_session_none,
+	php_session_active,
+} php_session_status;
+
 typedef struct {
 	char *save_path;
 	char *session_name;
@@ -81,11 +76,11 @@ typedef struct {
 	long cookie_lifetime;
 	char *cookie_path;
 	char *cookie_domain;
-    zend_bool  cookie_secure;
+	zend_bool  cookie_secure;
 	ps_module *mod;
 	void *mod_data;
 	HashTable vars;
-	int nr_open_sessions;
+	php_session_status session_status;
 	long gc_probability;
 	long gc_maxlifetime;
 	int module_number;
@@ -119,23 +114,13 @@ PHP_FUNCTION(session_get_cookie_params);
 PHP_FUNCTION(session_write_close);
 
 #ifdef ZTS
-#define PSLS_D php_ps_globals *ps_globals
-#define PSLS_DC , PSLS_D
-#define PSLS_C ps_globals
-#define PSLS_CC , PSLS_C
-#define PS(v) (ps_globals->v)
-#define PSLS_FETCH() php_ps_globals *ps_globals = ts_resource(ps_globals_id)
+#define PS(v) TSRMG(ps_globals_id, php_ps_globals *, v)
 #else
-#define PSLS_D	void
-#define PSLS_DC
-#define PSLS_C
-#define PSLS_CC
 #define PS(v) (ps_globals.v)
-#define PSLS_FETCH()
 #endif
 
-#define PS_SERIALIZER_ENCODE_ARGS char **newstr, int *newlen PSLS_DC
-#define PS_SERIALIZER_DECODE_ARGS const char *val, int vallen PSLS_DC
+#define PS_SERIALIZER_ENCODE_ARGS char **newstr, int *newlen TSRMLS_DC
+#define PS_SERIALIZER_DECODE_ARGS const char *val, int vallen TSRMLS_DC
 
 typedef struct ps_serializer_struct {
 	const char *name;
@@ -159,15 +144,17 @@ typedef struct ps_serializer_struct {
 	{ #x, PS_SERIALIZER_ENCODE_NAME(x), PS_SERIALIZER_DECODE_NAME(x) }
 
 #ifdef TRANS_SID
-void session_adapt_uris(const char *, size_t, char **, size_t *);
-void session_adapt_url(const char *, size_t, char **, size_t *);
+void session_adapt_uris(const char *, size_t, char **, size_t * TSRMLS_DC);
+void session_adapt_url(const char *, size_t, char **, size_t * TSRMLS_DC);
+void session_adapt_flush(int (*)(const char *, uint TSRMLS_DC) TSRMLS_DC);
 #else
-#define session_adapt_uris(a,b,c,d)
-#define session_adapt_url(a,b,c,d)
+#define session_adapt_uris(a,b,c,d) do { } while(0)
+#define session_adapt_url(a,b,c,d) do { } while(0)
+#define session_adapt_flush(a) do { } while(0)
 #endif
 
-void php_set_session_var(char *name, size_t namelen, zval *state_val PSLS_DC);
-int php_get_session_var(char *name, size_t namelen, zval ***state_var PLS_DC PSLS_DC ELS_DC);
+void php_set_session_var(char *name, size_t namelen, zval *state_val,HashTable *var_hash TSRMLS_DC);
+int php_get_session_var(char *name, size_t namelen, zval ***state_var TSRMLS_DC);
 
 int php_session_register_module(ps_module *);
 
@@ -176,29 +163,31 @@ int php_session_register_serializer(const char *name,
 	        int (*decode)(PS_SERIALIZER_DECODE_ARGS));
 
 #define PS_ADD_VARL(name,namelen) \
-	zend_hash_update(&PS(vars), name, namelen + 1, 0, 0, NULL)
+	zend_hash_add_empty_element(&PS(vars), name, namelen + 1)
 
 #define PS_ADD_VAR(name) PS_ADD_VARL(name, strlen(name))
 
-#define PS_DEL_VARL(name,namelen) \
-	zend_hash_del(&PS(vars), name, namelen + 1);
+#define PS_DEL_VARL(name,namelen)											\
+	zend_hash_del(&PS(vars), name, namelen+1);								\
+	if (PS(http_session_vars)) {											\
+		zend_hash_del(Z_ARRVAL_P(PS(http_session_vars)), name, namelen+1);	\
+	}
+
 
 #define PS_DEL_VAR(name) PS_DEL_VARL(name, strlen(name))
 
 #define PS_ENCODE_VARS 											\
 	char *key;													\
-	ulong key_length;											\
+	uint key_length;											\
 	ulong num_key;												\
-	zval **struc;												\
-	ELS_FETCH();												\
-	PLS_FETCH()
+	zval **struc;
 
 #define PS_ENCODE_LOOP(code)										\
 	for (zend_hash_internal_pointer_reset(&PS(vars));			\
 			zend_hash_get_current_key_ex(&PS(vars), &key, &key_length, &num_key, 0, NULL) == HASH_KEY_IS_STRING; \
 			zend_hash_move_forward(&PS(vars))) {				\
 			key_length--;										\
-		if (php_get_session_var(key, key_length, &struc PLS_CC PSLS_CC ELS_CC) == SUCCESS) { \
+		if (php_get_session_var(key, key_length, &struc TSRMLS_CC) == SUCCESS) { \
 			code;		 										\
 		} 														\
 	}

@@ -1,5 +1,15 @@
 [PHP]
-; $Id: php.ini-dist,v 1.1.1.4 2001/07/19 00:18:51 zarzycki Exp $
+
+;;;;;;;;;;;
+; WARNING ;
+;;;;;;;;;;;
+; This is the default settings file for new PHP installations.
+; By default, PHP installs itself with a configuration suitable for
+; development purposes, and *NOT* for production purposes.
+; For several security-oriented considerations that should be taken
+; before going online with your site, please consult php.ini-recommended
+; and http://php.net/manual/en/security.php.
+
 
 ;;;;;;;;;;;;;;;;;;;
 ; About this file ;
@@ -9,7 +19,7 @@
 ; working directory, in the path designated by the environment variable
 ; PHPRC, and in the path that was defined in compile time (in that order).
 ; Under Windows, the compile-time path is the Windows directory.  The
-; path in which the php.ini file is looked for can be overriden using
+; path in which the php.ini file is looked for can be overridden using
 ; the -c argument in command line mode.
 ;
 ; The syntax of the file is extremely simple.  Whitespace and Lines
@@ -73,7 +83,9 @@ y2k_compliance = Off
 ; after you send body content, at the price of slowing PHP's output layer a
 ; bit.  You can enable output buffering during runtime by calling the output
 ; buffering functions.  You can also enable output buffering for all files by
-; setting this directive to On.
+; setting this directive to On.  If you wish to limit the size of the buffer
+; to a certain size - you can use a maximum number of bytes instead of 'On', as
+; a value for this directive (e.g., output_buffering=4096).
 output_buffering = Off
 
 ; You can redirect all of the output of your scripts to a function.  For
@@ -111,7 +123,26 @@ allow_call_time_pass_reference = On
 ;
 safe_mode = Off
 
+; By default, Safe Mode does a UID compare check when
+; opening files. If you want to relax this to a GID compare,
+; then turn on safe_mode_gid.
+safe_mode_gid = Off
+
+; When safe_mode is on, UID/GID checks are bypassed when
+; including files from this directory and its subdirectories.
+; (directory must also be in include_path or full path must
+; be used when including)
+safe_mode_include_dir =								
+
+; When safe_mode is on, only executables located in the safe_mode_exec_dir
+; will be allowed to be executed via the exec family of functions.
 safe_mode_exec_dir =
+
+; open_basedir, if set, limits all file operations to the defined directory
+; and below.  This directive makes most sense if used in a per-directory
+; or per-virtualhost web server configuration file.
+;
+;open_basedir =
 
 ; Setting certain environment variables may be a potential security breach.
 ; This directive contains a comma-delimited list of prefixes.  In Safe Mode,
@@ -129,7 +160,7 @@ safe_mode_allowed_env_vars = PHP_
 safe_mode_protected_env_vars = LD_LIBRARY_PATH
 
 ; This directive allows you to disable certain functions for security reasons.
-; It receives a comma-deliminated list of function names.  This directive is
+; It receives a comma-delimited list of function names.  This directive is
 ; *NOT* affected by whether Safe Mode is turned On or Off.
 disable_functions =
 
@@ -219,6 +250,9 @@ log_errors = Off
 ; Store the last error/warning message in $php_errormsg (boolean).
 track_errors = Off
 
+; Disable the inclusion of HTML tags in error messages.
+;html_errors = Off
+  
 ; String to output before an error message.
 ;error_prepend_string = "<font color=ff0000>"
 
@@ -354,11 +388,12 @@ allow_url_fopen = On
 ; Define the anonymous ftp password (your email address)
 ;from="john@doe.com"
 
+
 ;;;;;;;;;;;;;;;;;;;;;;
 ; Dynamic Extensions ;
 ;;;;;;;;;;;;;;;;;;;;;;
 ;
-; If you wish to have an extension loaded automaticly, use the following
+; If you wish to have an extension loaded automatically, use the following
 ; syntax:
 ;
 ;   extension=modulename.extension
@@ -391,6 +426,7 @@ allow_url_fopen = On
 ;extension=php_domxml.dll
 ;extension=php_dotnet.dll
 ;extension=php_exif.dll
+;extension=php_fbsql.dll
 ;extension=php_fdf.dll
 ;extension=php_filepro.dll
 ;extension=php_gd.dll
@@ -404,6 +440,7 @@ allow_url_fopen = On
 ;extension=php_interbase.dll
 ;extension=php_java.dll
 ;extension=php_ldap.dll
+;extension=php_mbstring.dll
 ;extension=php_mcrypt.dll
 ;extension=php_mhash.dll
 ;extension=php_ming.dll
@@ -415,8 +452,11 @@ allow_url_fopen = On
 ;extension=php_pgsql.dll
 ;extension=php_printer.dll
 ;extension=php_sablot.dll
+;extension=php_shmop.dll
 ;extension=php_snmp.dll
+;extension=php_sockets.dll
 ;extension=php_sybase_ct.dll
+;extension=php_xslt.dll
 ;extension=php_yaz.dll
 ;extension=php_zlib.dll
 
@@ -625,7 +665,8 @@ ifx.nullformat = 0
 session.save_handler = files
 
 ; Argument passed to save_handler.  In the case of files, this is the path
-; where data files are stored.
+; where data files are stored. Note: Windows users have to change this 
+; variable in order to use PHP's session functions.
 session.save_path = /tmp
 
 ; Whether to use cookies.
@@ -707,7 +748,7 @@ mssql.compatability_mode = Off
 ; Valid range 0 - 2147483647.  Default = 4096.
 ;mssql.textsize = 4096
 
-; Limits the number of records in each bach.  0 = all records in one batch.
+; Limits the number of records in each batch.  0 = all records in one batch.
 ;mssql.batchsize = 0
 
 [Assertion]
@@ -747,8 +788,8 @@ ingres.default_user =
 ingres.default_password =
 
 [Verisign Payflow Pro]
-; Default Signio server.
-pfpro.defaulthost = "test.signio.com"
+; Default Payflow Pro server.
+pfpro.defaulthost = "test-payflow.verisign.com"
 
 ; Default port to connect to.
 pfpro.defaultport = 443
@@ -777,9 +818,37 @@ sockets.use_system_read = On
 ;com.typelib_file = 
 ; allow Distributed-COM calls
 ;com.allow_dcom = true
+; autoregister constants of a components typlib on com_load()
+;com.autoregister_typelib = true
+; register constants casesensitive
+;com.autoregister_casesensitive = false
+; show warnings on duplicate constat registrations
+;com.autoregister_verbose = true
 
 [Printer]
 ;printer.default_printer = ""
+
+[mbstring]
+;mbstring.internal_encoding = EUC-JP
+;mbstring.http_input = auto
+;mbstring.http_output = SJIS
+;mbstring.detect_order = auto
+;mbstring.substitute_character = none;
+
+[FrontBase]
+;fbsql.allow_persistant = On
+;fbsql.autocommit = On
+;fbsql.default_database = 
+;fbsql.default_database_password =
+;fbsql.default_host =
+;fbsql.default_password =
+;fbsql.default_user = "_SYSTEM"
+;fbsql.generate_warnings = Off
+;fbsql.max_connections = 128
+;fbsql.max_links = 128
+;fbsql.max_persistent = -1
+;fbsql.max_results = 128
+;fbsql.mbatchSize = 1000
 
 ; Local Variables:
 ; tab-width: 4

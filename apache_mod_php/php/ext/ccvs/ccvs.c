@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 /*
-*	cvvs.c $Revision: 1.1.1.3 $ - PHP4 Interface to the RedHat CCVS API
+*	cvvs.c $Revision: 1.1.1.4 $ - PHP4 Interface to the RedHat CCVS API
 *	 -------
 *	 Interfaces RedHat's CCVS [Credit Card Verification System] <http://www.redhat.com/products/ccvs/>
 *	 This code is ported from an original php3 interface written by RedHat's Doug DeJulio <ddj@redhat.com>
@@ -27,10 +27,10 @@
 
 /*
 *	Code started on 2000.07.24@09.04.EST by Brendan W. McAdams <bmcadams@php.net>
-*	$Revision: 1.1.1.3 $
+*	$Revision: 1.1.1.4 $
 */
 
-static char const cvsid[] = "$Id: ccvs.c,v 1.1.1.3 2001/07/19 00:18:58 zarzycki Exp $";
+static char const cvsid[] = "$Id: ccvs.c,v 1.1.1.4 2001/12/14 22:12:01 zarzycki Exp $";
 
 #include <php.h>
 #include <stdlib.h>
@@ -56,39 +56,39 @@ static char const cvsid[] = "$Id: ccvs.c,v 1.1.1.3 2001/07/19 00:18:58 zarzycki 
 	*/
 
 	function_entry ccvs_functions[] = {
-		PHP_FE(ccvs_init,NULL)
-		PHP_FALIAS(cv_init,ccvs_init,NULL)
-		PHP_FE(ccvs_done,NULL)
-		PHP_FALIAS(cv_done,ccvs_done,NULL)
-		PHP_FE(ccvs_new,NULL)
-		PHP_FALIAS(cv_new,ccvs_new,NULL)
-		PHP_FE(ccvs_add,NULL)
-		PHP_FALIAS(cv_add,ccvs_add,NULL)
-		PHP_FE(ccvs_delete,NULL)
-		PHP_FALIAS(cv_delete,ccvs_delete,NULL)
-		PHP_FE(ccvs_auth,NULL)
-		PHP_FALIAS(cv_auth,ccvs_auth,NULL)
-		PHP_FE(ccvs_return,NULL)
-		PHP_FALIAS(cv_return,ccvs_return,NULL)
-		PHP_FE(ccvs_reverse,NULL)
-		PHP_FALIAS(cv_reverse,ccvs_reverse,NULL)
-		PHP_FE(ccvs_sale,NULL)
-		PHP_FALIAS(cv_sale,ccvs_sale,NULL)
-		PHP_FE(ccvs_void,NULL)
-		PHP_FALIAS(cv_void,ccvs_void,NULL)
-		PHP_FE(ccvs_status,NULL)
-		PHP_FALIAS(cv_status,ccvs_status,NULL)
-		PHP_FE(ccvs_count,NULL)
-		PHP_FALIAS(cv_count,ccvs_count,NULL)
-		PHP_FE(ccvs_lookup,NULL)
-		PHP_FALIAS(cv_lookup,ccvs_lookup,NULL)
-		PHP_FE(ccvs_report,NULL)
-		PHP_FALIAS(cv_report,ccvs_report,NULL)
-		PHP_FE(ccvs_command,NULL)
-		PHP_FALIAS(cv_command,ccvs_command,NULL)
-		PHP_FE(ccvs_textvalue,NULL)
-		PHP_FALIAS(cv_textvalue,ccvs_textvalue,NULL)
-		{NULL,NULL,NULL}
+		PHP_FE(ccvs_init, NULL)
+		PHP_FALIAS(cv_init, ccvs_init, NULL)
+		PHP_FE(ccvs_done, NULL)
+		PHP_FALIAS(cv_done, ccvs_done, NULL)
+		PHP_FE(ccvs_new, NULL)
+		PHP_FALIAS(cv_new, ccvs_new, NULL)
+		PHP_FE(ccvs_add, NULL)
+		PHP_FALIAS(cv_add, ccvs_add, NULL)
+		PHP_FE(ccvs_delete, NULL)
+		PHP_FALIAS(cv_delete, ccvs_delete, NULL)
+		PHP_FE(ccvs_auth, NULL)
+		PHP_FALIAS(cv_auth, ccvs_auth, NULL)
+		PHP_FE(ccvs_return, NULL)
+		PHP_FALIAS(cv_return, ccvs_return, NULL)
+		PHP_FE(ccvs_reverse, NULL)
+		PHP_FALIAS(cv_reverse, ccvs_reverse, NULL)
+		PHP_FE(ccvs_sale, NULL)
+		PHP_FALIAS(cv_sale, ccvs_sale, NULL)
+		PHP_FE(ccvs_void, NULL)
+		PHP_FALIAS(cv_void, ccvs_void, NULL)
+		PHP_FE(ccvs_status, NULL)
+		PHP_FALIAS(cv_status, ccvs_status, NULL)
+		PHP_FE(ccvs_count, NULL)
+		PHP_FALIAS(cv_count, ccvs_count, NULL)
+		PHP_FE(ccvs_lookup, NULL)
+		PHP_FALIAS(cv_lookup, ccvs_lookup, NULL)
+		PHP_FE(ccvs_report, NULL)
+		PHP_FALIAS(cv_report, ccvs_report, NULL)
+		PHP_FE(ccvs_command, NULL)
+		PHP_FALIAS(cv_command, ccvs_command, NULL)
+		PHP_FE(ccvs_textvalue, NULL)
+		PHP_FALIAS(cv_textvalue, ccvs_textvalue, NULL)
+		{NULL, NULL, NULL}
 	};
 
 /* End function declarations */
@@ -97,13 +97,18 @@ static char const cvsid[] = "$Id: ccvs.c,v 1.1.1.3 2001/07/19 00:18:58 zarzycki 
 
 	/* Declare our module to the Zend engine */
 	zend_module_entry ccvs_module_entry = {
+        STANDARD_MODULE_HEADER,
 		"CCVS",
 		ccvs_functions,
-		NULL,NULL,NULL,NULL,
+		NULL, NULL, NULL, NULL,
 		PHP_MINFO(ccvs),
+        NO_VERSION_YET,
 		STANDARD_MODULE_PROPERTIES
 	};
 
+#ifdef COMPILE_DL_CCVS
+ZEND_GET_MODULE(ccvs)
+#endif
 
 /* Full Functions (The actual CCVS functions and any internal php hooked functions such as MINFO) */
 
@@ -577,9 +582,9 @@ PHP_MINFO_FUNCTION(ccvs)
 {
     php_info_print_table_start();
     php_info_print_table_header(2, "RedHat CCVS support", "enabled");
-    php_info_print_table_row(2,"CCVS Support by","Brendan W. McAdams &lt;bmcadams@php.net&gt;<br>&amp; Doug DeJulio &lt;ddj@redhat.com&gt;");
-    php_info_print_table_row(2,"Release ID",cvsid);
-    php_info_print_table_row(2,"This Release Certified For CCVS Versions","3.0 and greater");
+    php_info_print_table_row(2, "CCVS Support by", "Brendan W. McAdams &lt;bmcadams@php.net&gt;<br>&amp; Doug DeJulio &lt;ddj@redhat.com&gt;");
+    php_info_print_table_row(2, "Release ID", cvsid);
+    php_info_print_table_row(2, "This Release Certified For CCVS Versions", "3.0 and greater");
     php_info_print_table_end();
 
     /*  DISPLAY_INI_ENTRIES(); */
@@ -590,3 +595,13 @@ PHP_MINFO_FUNCTION(ccvs)
     */
 
 }
+
+
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
+ */

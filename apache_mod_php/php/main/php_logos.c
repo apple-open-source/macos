@@ -67,23 +67,32 @@ int php_shutdown_info_logos(void)
 }
 
 #define CONTENT_TYPE_HEADER "Content-Type: "
-int php_info_logos(const char *logo_string)
+int php_info_logos(const char *logo_string TSRMLS_DC)
 {
 	php_info_logo *logo_image;
 	char *content_header;
 	int len;
 
-	if(FAILURE==zend_hash_find(&phpinfo_logo_hash,(char *) logo_string,strlen(logo_string),(void **)&logo_image))
+	if(FAILURE==zend_hash_find(&phpinfo_logo_hash, (char *) logo_string, strlen(logo_string), (void **)&logo_image))
 		return 0;
 
 	len=strlen(CONTENT_TYPE_HEADER)+logo_image->mimelen;
 	content_header=malloc(len+1);
 	if(!content_header) return 0;
-	strcpy(content_header,CONTENT_TYPE_HEADER);
-	strcat(content_header,logo_image->mimetype);
+	strcpy(content_header, CONTENT_TYPE_HEADER);
+	strcat(content_header, logo_image->mimetype);
 	sapi_add_header(content_header, len, 1);
 	free(content_header);
 
 	PHPWRITE(logo_image->data, logo_image->size);
 	return 1;
 }
+
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
+ */

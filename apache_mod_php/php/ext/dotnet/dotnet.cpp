@@ -13,6 +13,7 @@
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
    | Author: Sam Ruby <rubys@us.ibm.com>                                  |
+   |         Harald Radi <h.radi@nme.at>                                  |
    +----------------------------------------------------------------------+
  */
 
@@ -33,15 +34,15 @@
 #include <math.h>
 #include <comdef.h>
 
-extern "C" {  /* this should be included in the includes itself !! */
-
+extern "C"
+{
 #include "php.h"
 #include "ext/standard/info.h"
-
 }
 
-#include "../com/conversion.h"
-#include "../com/php_COM.h"
+#include "ext/com/conversion.h"
+#include "ext/com/php_COM.h"
+
 #include "Mscoree.h"
 #include "mscorlib.h"
 
@@ -75,7 +76,7 @@ HRESULT dotnet_init() {
   return ERROR_SUCCESS;
 }
 
-HRESULT dotnet_create(OLECHAR *assembly, OLECHAR *datatype, i_dispatch *object) {
+HRESULT dotnet_create(OLECHAR *assembly, OLECHAR *datatype, comval *obj TSRMLS_DC) {
   HRESULT hr;
 
   _ObjectHandle *pHandle;
@@ -88,7 +89,7 @@ HRESULT dotnet_create(OLECHAR *assembly, OLECHAR *datatype, i_dispatch *object) 
   pHandle->Release();
   if (FAILED(hr)) return hr;
  
-  php_COM_set(object, unwrapped.pdispVal, TRUE);
+  php_COM_set(obj, &unwrapped.pdispVal, TRUE TSRMLS_CC);
   return ERROR_SUCCESS;
 }
   
@@ -101,48 +102,59 @@ void dotnet_term() {
   pDomain = 0;
 }
 
-/* {{{ proto int dotnet_load(string module_name)
+/* {{{ proto int dotnet_load(string assembly_name [, string datatype_name, int codepage])
    Loads a DOTNET module */
-PHP_FUNCTION(DOTNET_load)
+PHP_FUNCTION(dotnet_load)
 {
 	HRESULT hr;
-	pval *assembly_name, *datatype_name;
+	pval *assembly_name, *datatype_name, *code_page;
 	OLECHAR *assembly, *datatype;
-	i_dispatch *obj;
+	comval *obj;
 
-	if (ZEND_NUM_ARGS() != 2) WRONG_PARAM_COUNT;
+	switch(ZEND_NUM_ARGS())
+	{
+		case 2:
+			getParameters(ht, 2, &assembly_name, &datatype_name);
+			codepage = CP_ACP;
+			break;
+		case 3:
+			getParameters(ht, 3, &assembly_name, &datatype_name, &code_page);
 
-	/* should be made configurable like in ext/com */
-	codepage = CP_ACP;
+			convert_to_long(code_page);
+			codepage = Z_LVAL_P(code_page);
+			break;
+		default:
+			WRONG_PARAM_COUNT;
+			break;
+	}
 
-	getParameters(ht, 2, &assembly_name, &datatype_name);
 	convert_to_string(assembly_name);
-	assembly = php_char_to_OLECHAR(assembly_name->value.str.val, assembly_name->value.str.len, codepage);
+	assembly = php_char_to_OLECHAR(Z_STRVAL_P(assembly_name), Z_STRLEN_P(assembly_name), codepage TSRMLS_CC);
 
 	convert_to_string(datatype_name);
-	datatype = php_char_to_OLECHAR(datatype_name->value.str.val, datatype_name->value.str.len, codepage);
+	datatype = php_char_to_OLECHAR(Z_STRVAL_P(datatype_name), Z_STRLEN_P(datatype_name), codepage TSRMLS_CC);
 
-	obj = (i_dispatch *) emalloc(sizeof(i_dispatch));
+	ALLOC_COM(obj);
 
 	/* obtain IDispatch */
-	hr=dotnet_create(assembly, datatype, obj);
+	hr = dotnet_create(assembly, datatype, obj TSRMLS_CC);
 	efree(assembly);
 	efree(datatype);
 	if (FAILED(hr)) {
 		char *error_message;
-		error_message = php_COM_error_message(hr);
-		php_error(E_WARNING,"Error obtaining .Net class for %s in assembly %s: %s",datatype_name->value.str.val,assembly_name->value.str.val,error_message);
+		error_message = php_COM_error_message(hr TSRMLS_CC);
+		php_error(E_WARNING, "Error obtaining .Net class for %s in assembly %s: %s", datatype_name->value.str.val, assembly_name->value.str.val, error_message);
 		LocalFree(error_message);
 		efree(obj);
 		RETURN_FALSE;
 	}
-	if (!obj->i.dispatch) {
-		php_error(E_WARNING,"Unable to locate %s in assembly %s",datatype_name->value.str.val,assembly_name->value.str.val);
+	if (C_DISPATCH(obj) == NULL) {
+		php_error(E_WARNING, "Unable to locate %s in assembly %s", datatype_name->value.str.val, assembly_name->value.str.val);
 		efree(obj);
 		RETURN_FALSE;
 	}
 
-	RETURN_LONG(zend_list_insert(obj, php_COM_get_le_idispatch()));
+	RETURN_LONG(zend_list_insert(obj, IS_COM));
 }
 /* }}} */
 
@@ -153,33 +165,33 @@ void php_DOTNET_call_function_handler(INTERNAL_FUNCTION_PARAMETERS, zend_propert
 	zend_overloaded_element *function_name = (zend_overloaded_element *) property_reference->elements_list->tail->data;
 
 	if (zend_llist_count(property_reference->elements_list)==1
-		&& !strcmp(function_name->element.value.str.val, "dotnet")) { /* constructor */
+		&& !strcmp(Z_STRVAL(function_name->element), "dotnet")) { /* constructor */
 		pval *object_handle;
 
-		PHP_FN(DOTNET_load)(INTERNAL_FUNCTION_PARAM_PASSTHRU);
-		if (!zend_is_true(return_value)) {
-			var_reset(object);
+		PHP_FN(dotnet_load)(INTERNAL_FUNCTION_PARAM_PASSTHRU);
+		if (!Z_LVAL_P(return_value)) {
+			ZVAL_FALSE(object);
 			return;
 		}
 		ALLOC_ZVAL(object_handle);
 		*object_handle = *return_value;
 		pval_copy_constructor(object_handle);
 		INIT_PZVAL(object_handle);
-		zend_hash_index_update(object->value.obj.properties, 0, &object_handle, sizeof(pval *), NULL);
+		zend_hash_index_update(Z_OBJPROP_P(object), 0, &object_handle, sizeof(pval *), NULL);
 		pval_destructor(&function_name->element);
 	} else {
 		php_COM_call_function_handler(INTERNAL_FUNCTION_PARAM_PASSTHRU, property_reference);
 	}
 }
 
-void php_register_DOTNET_class()
+void php_register_DOTNET_class(TSRMLS_D)
 {
 	INIT_OVERLOADED_CLASS_ENTRY(dotnet_class_entry, "DOTNET", NULL,
 								php_DOTNET_call_function_handler,
 								php_COM_get_property_handler,
 								php_COM_set_property_handler);
 
-	zend_register_internal_class(&dotnet_class_entry);
+	zend_register_internal_class(&dotnet_class_entry TSRMLS_CC);
 }
 
 function_entry DOTNET_functions[] = {
@@ -195,13 +207,13 @@ static PHP_MINFO_FUNCTION(DOTNET)
 
 PHP_MINIT_FUNCTION(DOTNET)
 {
-
 	HRESULT hr;
-	CoInitialize(0);
-	hr = dotnet_init();
-	if (FAILED(hr)) return hr;
 
-	php_register_DOTNET_class();
+	if (FAILED(hr = dotnet_init())) {
+		return hr;
+	}
+
+	php_register_DOTNET_class(TSRMLS_C);
 	return SUCCESS;
 }
 
@@ -209,13 +221,13 @@ PHP_MINIT_FUNCTION(DOTNET)
 PHP_MSHUTDOWN_FUNCTION(DOTNET)
 {
 	dotnet_term();
-	CoUninitialize();
 	return SUCCESS;
 }
 
 
 zend_module_entry dotnet_module_entry = {
-	"dotnet", DOTNET_functions, PHP_MINIT(DOTNET), PHP_MSHUTDOWN(DOTNET), NULL, NULL, PHP_MINFO(DOTNET), STANDARD_MODULE_PROPERTIES
+	STANDARD_MODULE_HEADER,
+	"dotnet", DOTNET_functions, PHP_MINIT(DOTNET), PHP_MSHUTDOWN(DOTNET), NULL, NULL, PHP_MINFO(DOTNET), NO_VERSION_YET, STANDARD_MODULE_PROPERTIES
 };
 
 BEGIN_EXTERN_C()

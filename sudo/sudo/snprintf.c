@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Todd C. Miller <Todd.Miller@courtesan.com>
+ * Copyright (c) 1999, 2001 Todd C. Miller <Todd.Miller@courtesan.com>
  * Copyright (c) 1990, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -40,18 +40,28 @@
 
 #include "config.h"
 
+#include <sys/types.h>
 #include <sys/param.h>
 
 #include <stdio.h>
 #ifdef STDC_HEADERS
 # include <stdlib.h>
+# include <stddef.h>
+#else
+# ifdef HAVE_STDLIB_H
+#  include <stdlib.h>
+# endif
 #endif /* STDC_HEADERS */
 #ifdef HAVE_STRING_H
+# if defined(HAVE_MEMORY_H) && !defined(STDC_HEADERS)
+#  include <memory.h>
+# endif
 # include <string.h>
+#else
+# ifdef HAVE_STRINGS_H
+#  include <strings.h>
+# endif
 #endif /* HAVE_STRING_H */
-#ifdef HAVE_STRINGS_H
-# include <strings.h>
-#endif /* HAVE_STRINGS_H */
 #if defined(HAVE_MALLOC_H) && !defined(STDC_HEADERS)
 # include <malloc.h>
 #endif /* HAVE_MALLOC_H && !STDC_HEADERS */
@@ -66,7 +76,7 @@
 #include "compat.h"
 
 #ifndef lint
-static const char rcsid[] = "$Sudo: snprintf.c,v 1.12 2000/01/20 16:15:41 millert Exp $";
+static const char rcsid[] = "$Sudo: snprintf.c,v 1.14 2001/12/14 22:15:56 millert Exp $";
 #endif /* lint */
 
 static int xxxprintf	 __P((char **, size_t, int, const char *, va_list));
