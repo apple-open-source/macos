@@ -31,7 +31,7 @@
 */
 
 
-static const char rcsid[] = "#(@) $Id: xmlrpc.c,v 1.1.1.3 2003/03/11 01:09:35 zarzycki Exp $";
+static const char rcsid[] = "#(@) $Id: xmlrpc.c,v 1.4.4.2 2004/04/27 17:34:05 iliaa Exp $";
 
 
 /****h* ABOUT/xmlrpc
@@ -43,8 +43,11 @@ static const char rcsid[] = "#(@) $Id: xmlrpc.c,v 1.1.1.3 2003/03/11 01:09:35 za
  *   9/1999 - 10/2000
  * HISTORY
  *   $Log: xmlrpc.c,v $
- *   Revision 1.1.1.3  2003/03/11 01:09:35  zarzycki
- *   Import of php-4.3.1
+ *   Revision 1.4.4.2  2004/04/27 17:34:05  iliaa
+ *   MFH: Removed C++ style comments.
+ *
+ *   Revision 1.4.4.1  2003/12/16 21:00:36  sniper
+ *   MFH: fix compile warnings
  *
  *   Revision 1.4  2002/07/05 04:43:53  danda
  *   merged in updates from SF project.  bring php repository up to date with xmlrpc-epi version 0.51
@@ -125,6 +128,7 @@ static const char rcsid[] = "#(@) $Id: xmlrpc.c,v 1.1.1.3 2003/03/11 01:09:35 za
 #include <string.h>
 #include <stdarg.h>
 #include <time.h>
+#include <ctype.h>
 
 #include "queue.h"
 #include "xmlrpc.h"
@@ -223,7 +227,7 @@ static int date_from_ISO8601 (const char *text, time_t * value) {
 static int date_to_ISO8601 (time_t value, char *buf, int length) {
    struct tm *tm;
    tm = localtime(&value);
-#if 0  // TODO: soap seems to favor this method. xmlrpc the latter.
+#if 0  /* TODO: soap seems to favor this method. xmlrpc the latter. */
 	return strftime (buf, length, "%Y-%m-%dT%H:%M:%SZ", tm);
 #else
    return strftime(buf, length, "%Y%m%dT%H:%M:%S", tm);
@@ -707,7 +711,7 @@ static XMLRPC_VALUE map_expat_errors(XML_ELEM_ERROR error) {
       XMLRPC_ERROR_CODE code;
       char buf[1024];
       snprintf(buf, sizeof(buf), 
-               "error occurred at line %i, column %i, byte index %i", 
+               "error occurred at line %ld, column %ld, byte index %ld", 
 					 error->line, error->column, error->byte_index);
 
       /* expat specific errors */
@@ -816,13 +820,6 @@ XMLRPC_VALUE XMLRPC_CreateValueEmpty() {
       simplestring_init(&v->str);
    }
    return v;
-}
-
-static const char* get_string(const char* buf, int bDup) {
-   if(bDup) {
-      return strdup(buf);
-   }
-   return buf;
 }
 
 /*******/
@@ -996,7 +993,7 @@ int XMLRPC_SetIsVector(XMLRPC_VALUE value, XMLRPC_VECTOR_TYPE type) {
    int bSuccess = 0;
 
 	if (value) {
-		// we can change the type so long as nothing is currently stored.
+		/* we can change the type so long as nothing is currently stored. */
 		if(value->type == xmlrpc_vector) {
 			if(value->v) {
 				if(!Q_Size(value->v->q)) {
@@ -1050,8 +1047,6 @@ XMLRPC_VALUE XMLRPC_CreateVector(const char* id, XMLRPC_VECTOR_TYPE type) {
 
    val = XMLRPC_CreateValueEmpty();
    if(val) {
-      XMLRPC_VECTOR *pSIV = NULL;
-
       if(XMLRPC_SetIsVector(val, type)) {
          if(id) {
             const char *pSVI = NULL;
@@ -1611,6 +1606,8 @@ XMLRPC_VALUE XMLRPC_DupValueNew (XMLRPC_VALUE xSource) {
 					qi = Q_Iter_Next_F (qi);
 				}
 			}
+			break;
+		default:
 			break;
 		}
 	}
@@ -2450,6 +2447,7 @@ const char* type_to_str(XMLRPC_VALUE_TYPE type, XMLRPC_VECTOR_TYPE vtype) {
                 return "struct";
           }
     }
+    return "unknown";
 }
 
 /****f* VALUE/XMLRPC_ServerFindMethod

@@ -16,7 +16,7 @@
    |          Fredrik Ohrn                                                |
    +----------------------------------------------------------------------+
  */
-/* $Id: yp.c,v 1.1.1.5 2003/07/18 18:07:47 zarzycki Exp $ */
+/* $Id: yp.c,v 1.31.8.6 2004/05/31 21:01:20 iliaa Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -77,6 +77,10 @@ ZEND_GET_MODULE(yp)
 PHP_FUNCTION(yp_get_default_domain)
 {
 	char *outdomain;
+
+	if (ZEND_NUM_ARGS()) {
+		WRONG_PARAM_COUNT;
+	}
 
 	if((YP(error) = yp_get_default_domain(&outdomain))) {
 		php_error(E_WARNING, yperr_string (YP(error)));
@@ -182,7 +186,7 @@ PHP_FUNCTION(yp_first)
 		RETURN_FALSE;
 	}
 	array_init(return_value);
-	add_assoc_stringl_ex(return_value,outkey,outkeylen,outval,outvallen,1);
+	add_assoc_stringl_ex(return_value,outkey,outkeylen+1,outval,outvallen,1);
 
 	/* Deprecated */
 	add_assoc_stringl(return_value,"key",outkey,outkeylen,1);
@@ -212,7 +216,7 @@ PHP_FUNCTION(yp_next)
 	}
 	
 	array_init(return_value);
-	add_assoc_stringl_ex(return_value,outkey,outkeylen,outval,outvallen,1);
+	add_assoc_stringl_ex(return_value,outkey,outkeylen+1,outval,outvallen,1);
 }
 /* }}} */
 
@@ -298,7 +302,7 @@ static int php_foreach_cat (int instatus, char *inkey, int inkeylen, char *inval
 				add_assoc_stringl_ex((zval *) indata, key, inkeylen+1, inval, invallen, 1);
 				efree(key);
 			} else {
-				php_error(E_WARNING, "Can't allocate %d bytes for key buffer in yp_cat()");
+				php_error(E_WARNING, "Can't allocate %d bytes for key buffer in yp_cat()", inkeylen+1);
 			}
 		}
 

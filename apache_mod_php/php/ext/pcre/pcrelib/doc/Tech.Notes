@@ -6,14 +6,14 @@ suggested by Martin Richards. These were not Unix-like in form, and were quite
 restricted in what they could do by comparison with Perl. The interesting part
 about the algorithm was that the amount of space required to hold the compiled
 form of an expression was known in advance. The code to apply an expression did
-not operate by backtracking, as the Henry Spencer and Perl code does, but
-instead checked all possibilities simultaneously by keeping a list of current
-states and checking all of them as it advanced through the subject string. (In
-the terminology of Jeffrey Friedl's book, it was a "DFA algorithm".) When the
-pattern was all used up, all remaining states were possible matches, and the
-one matching the longest subset of the subject string was chosen. This did not
-necessarily maximize the individual wild portions of the pattern, as is
-expected in Unix and Perl-style regular expressions.
+not operate by backtracking, as the original Henry Spencer code and current
+Perl code does, but instead checked all possibilities simultaneously by keeping
+a list of current states and checking all of them as it advanced through the
+subject string. (In the terminology of Jeffrey Friedl's book, it was a "DFA
+algorithm".) When the pattern was all used up, all remaining states were
+possible matches, and the one matching the longest subset of the subject string
+was chosen. This did not necessarily maximize the individual wild portions of
+the pattern, as is expected in Unix and Perl-style regular expressions.
 
 By contrast, the code originally written by Henry Spencer and subsequently
 heavily modified for Perl actually compiles the expression twice: once in a
@@ -28,14 +28,13 @@ mentioned above), I tried at first to invent an algorithm that used an amount
 of store bounded by a multiple of the number of characters in the pattern, to
 save on compiling time. However, because of the greater complexity in Perl
 regular expressions, I couldn't do this. In any case, a first pass through the
-pattern is needed, in order to find internal flag settings like (?i) at top
-level. So PCRE works by running a very degenerate first pass to calculate a
-maximum store size, and then a second pass to do the real compile - which may
-use a bit less than the predicted amount of store. The idea is that this is
-going to turn out faster because the first pass is degenerate and the second
-pass can just store stuff straight into the vector. It does make the compiling
-functions bigger, of course, but they have got quite big anyway to handle all
-the Perl stuff.
+pattern is needed, for a number of reasons. PCRE works by running a very
+degenerate first pass to calculate a maximum store size, and then a second pass
+to do the real compile - which may use a bit less than the predicted amount of
+store. The idea is that this is going to turn out faster because the first pass
+is degenerate and the second pass can just store stuff straight into the
+vector. It does make the compiling functions bigger, of course, but they have
+got quite big anyway to handle all the Perl stuff.
 
 The compiled form of a pattern is a vector of bytes, containing items of
 variable length. The first byte in an item is an opcode, and the length of the
@@ -49,7 +48,9 @@ These items are all just one byte long
 
   OP_END                 end of pattern
   OP_ANY                 match any character
+  OP_ANYBYTE             match any single byte, even in UTF-8 mode 
   OP_SOD                 match start of data: \A
+  OP_SOM,                start of match (subject + offset): \G
   OP_CIRC                ^ (start of data, or after \n in multiline)
   OP_NOT_WORD_BOUNDARY   \W
   OP_WORD_BOUNDARY       \w
@@ -62,7 +63,6 @@ These items are all just one byte long
   OP_EODN                match end of data or \n at end: \Z
   OP_EOD                 match end of data: \z
   OP_DOLL                $ (end of data, or before \n in multiline)
-  OP_RECURSE             match the pattern recursively
 
 
 Repeating single characters
@@ -120,16 +120,29 @@ instances of OP_CHARS are used.
 Character classes
 -----------------
 
-OP_CLASS is used for a character class, provided there are at least two
-characters in the class. If there is only one character, OP_CHARS is used for a
-positive class, and OP_NOT for a negative one (that is, for something like
-[^a]). Another set of repeating opcodes (OP_NOTSTAR etc.) are used for a
-repeated, negated, single-character class. The normal ones (OP_STAR etc.) are
-used for a repeated positive single-character class.
+If there is only one character, OP_CHARS is used for a positive class,
+and OP_NOT for a negative one (that is, for something like [^a]). However, in 
+UTF-8 mode, this applies only to characters with values < 128, because OP_NOT 
+is confined to single bytes.
 
-OP_CLASS is followed by a 32-byte bit map containing a 1 bit for every
-character that is acceptable. The bits are counted from the least significant
-end of each byte.
+Another set of repeating opcodes (OP_NOTSTAR etc.) are used for a repeated,
+negated, single-character class. The normal ones (OP_STAR etc.) are used for a
+repeated positive single-character class.
+
+When there's more than one character in a class and all the characters are less
+than 256, OP_CLASS is used for a positive class, and OP_NCLASS for a negative 
+one. In either case, the opcode is followed by a 32-byte bit map containing a 1
+bit for every character that is acceptable. The bits are counted from the least
+significant end of each byte.
+
+The reason for having both OP_CLASS and OP_NCLASS is so that, in UTF-8 mode, 
+subject characters with values greater than 256 can be handled correctly. For 
+OP_CLASS they don't match, whereas for OP_NCLASS they do.
+
+For classes containing characters with values > 255, OP_XCLASS is used. It
+optionally uses a bit map (if any characters lie within it), followed by a list
+of pairs and single characters. There is a flag character than indicates 
+whether it's a positive or a negative class.
 
 
 Back references
@@ -236,6 +249,21 @@ same scheme is used, with a "reference number" of 0xffff. Otherwise, a
 conditional subpattern always starts with one of the assertions.
 
 
+Recursion
+---------
+
+Recursion either matches the current regex, or some subexpression. The opcode
+OP_RECURSE is followed by an value which is the offset to the starting bracket
+from the start of the whole pattern.
+
+
+Callout
+-------
+
+OP_CALLOUT is followed by one byte of data that holds a callout number in the 
+range 0 to 255.
+
+
 Changing options
 ----------------
 
@@ -250,4 +278,4 @@ at compile time, and so does not cause anything to be put into the compiled
 data.
 
 Philip Hazel
-August 2002
+August 2003

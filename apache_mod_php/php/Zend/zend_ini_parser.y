@@ -18,7 +18,7 @@
 */
 
 
-/* $Id: zend_ini_parser.y,v 1.1.1.7 2003/07/18 18:07:26 zarzycki Exp $ */
+/* $Id: zend_ini_parser.y,v 1.18.2.8 2003/10/17 02:48:24 iliaa Exp $ */
 
 #define DEBUG_CFG_PARSER 0
 #include "zend.h"
@@ -140,7 +140,7 @@ static void ini_error(char *str)
 		fprintf(stderr, "PHP:  %s", error_buf);
 #endif
 	} else {
-		zend_error(E_WARNING, error_buf);
+		zend_error(E_WARNING, "%s", error_buf);
 	}
 	efree(error_buf);
 }
@@ -212,7 +212,7 @@ string_or_value:
 	|	CFG_TRUE { $$ = $1; }
 	|	CFG_FALSE { $$ = $1; }
 	|	'\n' { $$.value.str.val = strdup(""); $$.value.str.len=0; $$.type = IS_STRING; }
-	|	'\0' { $$.value.str.val = strdup(""); $$.value.str.len=0; $$.type = IS_STRING; }
+	|	/* empty */ { $$.value.str.val = strdup(""); $$.value.str.len=0; $$.type = IS_STRING; }
 ;
 
 expr:

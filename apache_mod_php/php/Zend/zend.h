@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend.h,v 1.1.1.9 2003/07/18 18:07:25 zarzycki Exp $ */
+/* $Id: zend.h,v 1.164.2.22 2004/07/28 19:06:48 andi Exp $ */
 
 #ifndef ZEND_H
 #define ZEND_H
@@ -79,7 +79,7 @@ const char *zend_mh_bundle_error(void);
 #endif /* HAVE_MACH_O_DYLD_H */
 
 
-#if defined(HAVE_LIBDL)
+#if defined(HAVE_LIBDL) && !defined(HAVE_MACH_O_DYLD_H)
 
 # ifndef RTLD_LAZY
 #  define RTLD_LAZY 1    /* Solaris 1, FreeBSD's (2.1.7.1 and older) */
@@ -89,7 +89,11 @@ const char *zend_mh_bundle_error(void);
 #  define RTLD_GLOBAL 0
 # endif
 
-# define DL_LOAD(libname)			dlopen(libname, RTLD_LAZY | RTLD_GLOBAL)
+# if defined(RTLD_GROUP) && defined(RTLD_WORLD) && defined(RTLD_PARENT)
+#  define DL_LOAD(libname)			dlopen(libname, RTLD_LAZY | RTLD_GLOBAL | RTLD_GROUP | RTLD_WORLD | RTLD_PARENT)
+# else
+#  define DL_LOAD(libname)			dlopen(libname, RTLD_LAZY | RTLD_GLOBAL)
+# endif
 # define DL_UNLOAD					dlclose
 # if DLSYM_NEEDS_UNDERSCORE
 #  define DL_FETCH_SYMBOL(h,s)		dlsym((h), "_" s)
@@ -125,7 +129,7 @@ const char *zend_mh_bundle_error(void);
 #ifndef __GNUC__
 # ifndef HAVE_ALLOCA_H
 #  ifdef _AIX
- #pragma alloca
+#pragma alloca
 #  else
 #   ifndef alloca /* predefined by HP cc +Olibcalls */
 char *alloca ();
@@ -134,7 +138,33 @@ char *alloca ();
 # endif
 #endif
 
-#if (HAVE_ALLOCA || (defined (__GNUC__) && __GNUC__ >= 2)) && !(defined(ZTS) && defined(ZEND_WIN32)) && !(defined(ZTS) && defined(NETWARE))
+/* GCC x.y.z supplies __GNUC__ = x and __GNUC_MINOR__ = y */
+#ifdef __GNUC__
+# define ZEND_GCC_VERSION (__GNUC__ * 1000 + __GNUC_MINOR__)
+#else
+# define ZEND_GCC_VERSION 0 
+#endif
+
+#if ZEND_GCC_VERSION >= 2096
+# define ZEND_ATTRIBUTE_MALLOC __attribute__ ((__malloc__))
+#else
+# define ZEND_ATTRIBUTE_MALLOC
+#endif
+
+#if ZEND_GCC_VERSION >= 2007
+# define ZEND_ATTRIBUTE_FORMAT(type, idx, first) __attribute__ ((format(type, idx, first)))
+#else
+# define ZEND_ATTRIBUTE_FORMAT(type, idx, first)
+#endif
+
+#if ZEND_GCC_VERSION >= 3001
+# define ZEND_ATTRIBUTE_PTR_FORMAT(type, idx, first) __attribute__ ((format(type, idx, first)))
+#else
+# define ZEND_ATTRIBUTE_PTR_FORMAT(type, idx, first)
+#endif
+
+
+#if (HAVE_ALLOCA || (defined (__GNUC__) && __GNUC__ >= 2)) && !(defined(ZTS) && defined(ZEND_WIN32)) && !(defined(ZTS) && defined(NETWARE)) && !(defined(ZTS) && defined(HPUX)) && !defined(__darwin__) && !defined(__APPLE__)
 # define do_alloca(p) alloca(p)
 # define free_alloca(p)
 #else
@@ -279,11 +309,12 @@ struct _zend_class_entry {
 	int (*handle_property_set)(zend_property_reference *property_reference, zval *value);
 };
 
+struct _zend_file_handle;
 
 
 typedef struct _zend_utility_functions {
-	void (*error_function)(int type, const char *error_filename, const uint error_lineno, const char *format, va_list args);
-	int (*printf_function)(const char *format, ...);
+	void (*error_function)(int type, const char *error_filename, const uint error_lineno, const char *format, va_list args) ZEND_ATTRIBUTE_PTR_FORMAT(printf, 4, 0);
+	int (*printf_function)(const char *format, ...) ZEND_ATTRIBUTE_PTR_FORMAT(printf, 1, 2);
 	int (*write_function)(const char *str, uint str_length);
 	FILE *(*fopen_function)(const char *filename, char **opened_path);
 	void (*message_handler)(long message, void *data);
@@ -292,6 +323,7 @@ typedef struct _zend_utility_functions {
 	int (*get_configuration_directive)(char *name, uint name_length, zval *contents);
 	void (*ticks_function)(int ticks);
 	void (*on_timeout)(int seconds TSRMLS_DC);
+	zend_bool (*open_function)(const char *filename, struct _zend_file_handle *);
 } zend_utility_functions;
 
 		
@@ -384,7 +416,7 @@ ZEND_API int zend_print_zval(zval *expr, int indent);
 ZEND_API int zend_print_zval_ex(zend_write_func_t write_func, zval *expr, int indent);
 ZEND_API void zend_print_zval_r(zval *expr, int indent);
 ZEND_API void zend_print_zval_r_ex(zend_write_func_t write_func, zval *expr, int indent);
-ZEND_API void zend_output_debug_string(zend_bool trigger_break, char *format, ...);
+ZEND_API void zend_output_debug_string(zend_bool trigger_break, char *format, ...) ZEND_ATTRIBUTE_FORMAT(printf, 2, 3);
 
 #if ZEND_DEBUG
 #define Z_DBG(expr)		(expr)
@@ -414,17 +446,18 @@ ZEND_API void free_estring(char **str_p);
 
 
 BEGIN_EXTERN_C()
-extern ZEND_API int (*zend_printf)(const char *format, ...);
+extern ZEND_API int (*zend_printf)(const char *format, ...) ZEND_ATTRIBUTE_PTR_FORMAT(printf, 1, 2);
 extern ZEND_API zend_write_func_t zend_write;
 extern ZEND_API FILE *(*zend_fopen)(const char *filename, char **opened_path);
+extern ZEND_API zend_bool (*zend_open)(const char *filename, struct _zend_file_handle *fh);
 extern ZEND_API void (*zend_block_interruptions)(void);
 extern ZEND_API void (*zend_unblock_interruptions)(void);
 extern ZEND_API void (*zend_ticks_function)(int ticks);
-extern ZEND_API void (*zend_error_cb)(int type, const char *error_filename, const uint error_lineno, const char *format, va_list args);
+extern ZEND_API void (*zend_error_cb)(int type, const char *error_filename, const uint error_lineno, const char *format, va_list args) ZEND_ATTRIBUTE_PTR_FORMAT(printf, 4, 0);
 extern void (*zend_on_timeout)(int seconds TSRMLS_DC);
 
 
-ZEND_API void zend_error(int type, const char *format, ...);
+ZEND_API void zend_error(int type, const char *format, ...) ZEND_ATTRIBUTE_PTR_FORMAT(printf, 2, 3);
 
 void zenderror(char *error);
 

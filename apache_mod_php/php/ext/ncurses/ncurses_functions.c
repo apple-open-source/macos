@@ -1421,7 +1421,7 @@ PHP_FUNCTION(ncurses_mvdelch)
 {
 	long y,x;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "lls",&y,&x)==FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ll",&y,&x)==FAILURE) {
 	        return;
 	}
 	IS_NCURSES_INITIALIZED();	
@@ -1436,7 +1436,7 @@ PHP_FUNCTION(ncurses_mvgetch)
 {
 	long y,x;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "lls",&y,&x)==FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ll",&y,&x)==FAILURE) {
 	        return;
 	}
 	IS_NCURSES_INITIALIZED();	
@@ -1450,7 +1450,7 @@ PHP_FUNCTION(ncurses_mvinch)
 {
 	long y,x;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "lls",&y,&x)==FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ll",&y,&x)==FAILURE) {
 	        return;
 	}
 	IS_NCURSES_INITIALIZED();
@@ -2278,14 +2278,13 @@ PHP_FUNCTION(ncurses_new_panel)
 PHP_FUNCTION(ncurses_del_panel)
 {
 	zval **handle;
-	PANEL **panel;
 
 	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &handle) == FAILURE)
 		WRONG_PARAM_COUNT;
 
-	FETCH_PANEL(panel, handle);
+	zend_list_delete(Z_RESVAL_PP(handle));
 
-	RETURN_LONG(del_panel(*panel));
+	RETURN_TRUE;
 }
 /* }}} */
 

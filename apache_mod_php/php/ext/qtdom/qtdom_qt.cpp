@@ -1,5 +1,5 @@
 // 
-// $Id: qtdom_qt.cpp,v 1.1.1.2 2001/07/19 00:19:55 zarzycki Exp $
+// $Id: qtdom_qt.cpp,v 1.2 2001/01/04 12:30:19 amos Exp $
 //
 // Jan Borsodi <jb@ez.no>
 // Created on: <09-Nov-2000 11:18:46 root>

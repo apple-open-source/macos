@@ -431,6 +431,8 @@ void AppleUniN::uniNSetPowerState (UInt32 state)
 		// Set the running state for HWInit.
 		safeWriteRegUInt32(kUniNHWInitState, ~0UL, kUniNHWInitStateRunning);
 
+		safeWriteRegUInt32(kUniNVSPSoftReset, ~0UL, saveVSPSoftReset);
+
 		// On Intrepid, take the UATA bus out of reset
 		if (uataBusWasReset) {
 			uataBusWasReset = false;
@@ -444,6 +446,8 @@ void AppleUniN::uniNSetPowerState (UInt32 state)
 
         // Tell Uni-N to enter sleep mode.
         safeWriteRegUInt32(kUniNPowerMngmnt, ~0UL, kUniNIdle2);
+	} else if (state == kUniNSave) {		// save state
+            saveVSPSoftReset = safeReadRegUInt32(kUniNVSPSoftReset);
 	} else if (state == kUniNSleep) {
 		// On Intrepid, put the UATA bus in reset for notebooks
 		if ((uniNVersion == kUniNVersionIntrepid) && hostIsMobile && uATABaseAddress) {

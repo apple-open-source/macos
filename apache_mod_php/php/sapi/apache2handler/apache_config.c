@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: apache_config.c,v 1.1.1.1 2003/07/18 18:07:50 zarzycki Exp $ */
+/* $Id: apache_config.c,v 1.1.2.3 2003/03/10 03:17:03 sniper Exp $ */
 
 #include "php.h"
 #include "php_ini.h"

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2003 The PHP Group                                |
+   | Copyright (c) 1997-2004 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
 */
 
 
-/* $Id: php_mysql.h,v 1.1.1.8 2003/07/18 18:07:37 zarzycki Exp $ */
+/* $Id: php_mysql.h,v 1.33.2.2 2004/01/05 14:42:26 georg Exp $ */
 
 #ifndef PHP_MYSQL_H
 #define PHP_MYSQL_H

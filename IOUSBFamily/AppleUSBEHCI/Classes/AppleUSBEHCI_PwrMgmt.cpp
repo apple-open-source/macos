@@ -29,6 +29,7 @@
 
 #include <IOKit/IOPlatformExpert.h>
 #include <IOKit/platform/ApplePlatformExpert.h>
+#include <IOKit/pwr_mgt/RootDomain.h>
 
 #include <IOKit/usb/IOUSBRootHubDevice.h>
 #include <IOKit/usb/IOUSBLog.h>
@@ -324,6 +325,13 @@ AppleUSBEHCI::setPowerState( unsigned long powerStateOrdinal, IOService* whatDev
         {
             USBLog(2, "%s[%p] setPowerState powering on USB", getName(), this);
 	
+	    // at this point, interrupts are disabled, and we are waking up. If the Port Change interrupt is active
+	    // then it is likely that we are responsible for the system issuing the wakeup
+	    if (USBToHostLong(_pEHCIRegisters->USBSTS) & kEHCIPortChangeIntBit)
+	    {
+		IOLog("USB caused wake event (EHCI)\n");
+	    }
+	    
             _remote_wakeup_occurred = true;	//doesn't matter how we woke up
 
             if (_hasPCIPwrMgmt)

@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.1.1.6 2003/03/11 01:09:34 zarzycki Exp $
+dnl $Id: config.m4,v 1.12 2002/03/12 16:35:59 sas Exp $
 dnl
 
 PHP_ARG_WITH(swf, for libswf support,

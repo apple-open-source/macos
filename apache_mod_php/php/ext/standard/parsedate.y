@@ -8,7 +8,7 @@
 **  This code is in the public domain and has no copyright.
 */
 
-/* $Id: parsedate.y,v 1.1.1.9 2003/07/18 18:07:43 zarzycki Exp $ */
+/* $Id: parsedate.y,v 1.34.2.7 2004/04/08 19:21:46 derick Exp $ */
 
 #include "php.h"
 
@@ -150,8 +150,8 @@ typedef union _date_ll {
 
 %}
 
-/* This grammar has 14 shift/reduce conflicts. */
-%expect 14
+/* This grammar has 40 shift/reduce conflicts. */
+%expect 40
 %pure_parser
 
 %token	tAGO tDAY tDAY_UNIT tDAYZONE tDST tHOUR_UNIT tID
@@ -192,12 +192,26 @@ time	: tUNUMBER tMERIDIAN {
 	    ((struct date_yy *)parm)->yyMinutes = 0;
 	    ((struct date_yy *)parm)->yySeconds = 0;
 	    ((struct date_yy *)parm)->yyMeridian = $2;
+#ifdef PHP_DEBUG_PARSE_DATE_PARSER
+		printf("[U M]\n");
+#endif
 	}
 	| tUNUMBER ':' tUNUMBER o_merid {
 	    ((struct date_yy *)parm)->yyHour = $1;
 	    ((struct date_yy *)parm)->yyMinutes = $3;
 	    ((struct date_yy *)parm)->yySeconds = 0;
 	    ((struct date_yy *)parm)->yyMeridian = $4;
+#ifdef PHP_DEBUG_PARSE_DATE_PARSER
+		printf("[U:U M]\n");
+#endif
+	}
+	| tUNUMBER ':' tUNUMBER rel {
+	    ((struct date_yy *)parm)->yyHour = $1;
+	    ((struct date_yy *)parm)->yyMinutes = $3;
+	    ((struct date_yy *)parm)->yyMeridian = MER24;
+#ifdef PHP_DEBUG_PARSE_DATE_PARSER
+		printf("[U:U rel]\n");
+#endif
 	}
 	| tUNUMBER ':' tUNUMBER tSNUMBER {
 	    ((struct date_yy *)parm)->yyHour = $1;
@@ -207,12 +221,27 @@ time	: tUNUMBER tMERIDIAN {
 	    ((struct date_yy *)parm)->yyTimezone = ($4 < 0
 			  ? -$4 % 100 + (-$4 / 100) * 60
 			  : - ($4 % 100 + ($4 / 100) * 60));
+#ifdef PHP_DEBUG_PARSE_DATE_PARSER
+		printf("[U:U S]\n");
+#endif
 	}
 	| tUNUMBER ':' tUNUMBER ':' tUNUMBER o_merid {
 	    ((struct date_yy *)parm)->yyHour = $1;
 	    ((struct date_yy *)parm)->yyMinutes = $3;
 	    ((struct date_yy *)parm)->yySeconds = $5;
 	    ((struct date_yy *)parm)->yyMeridian = $6;
+#ifdef PHP_DEBUG_PARSE_DATE_PARSER
+		printf("[U:U:U M]\n");
+#endif
+	}
+	| tUNUMBER ':' tUNUMBER ':' tUNUMBER rel {
+	    /* ISO 8601 format.  hh:mm:ss[+-][0-9]{2}([0-9]{2})?.  */
+	    ((struct date_yy *)parm)->yyHour = $1;
+	    ((struct date_yy *)parm)->yyMinutes = $3;
+	    ((struct date_yy *)parm)->yySeconds = $5;
+#ifdef PHP_DEBUG_PARSE_DATE_PARSER
+		printf("[U:U:U rel]\n");
+#endif
 	}
 	| tUNUMBER ':' tUNUMBER ':' tUNUMBER tSNUMBER {
 	    /* ISO 8601 format.  hh:mm:ss[+-][0-9]{2}([0-9]{2})?.  */
@@ -227,6 +256,9 @@ time	: tUNUMBER tMERIDIAN {
 		} else {
 			((struct date_yy *)parm)->yyTimezone =  -$6 * 60;
 		}
+#ifdef PHP_DEBUG_PARSE_DATE_PARSER
+		printf("[U:U:U S]\n");
+#endif
 	}
 	;
 
@@ -259,6 +291,17 @@ day	: tDAY {
 date	: tUNUMBER '/' tUNUMBER {
 	    ((struct date_yy *)parm)->yyMonth = $1;
 	    ((struct date_yy *)parm)->yyDay = $3;
+	}
+	| tMONTH tUNUMBER tUNUMBER ':' tUNUMBER ':' tUNUMBER tUNUMBER {
+		((struct date_yy *)parm)->yyYear = $8;
+		((struct date_yy *)parm)->yyMonth = $1;
+		((struct date_yy *)parm)->yyDay = $2;
+
+		((struct date_yy *)parm)->yyHour = $3;
+		((struct date_yy *)parm)->yyMinutes = $5;
+		((struct date_yy *)parm)->yySeconds = $7;
+
+		((struct date_yy *)parm)->yyHaveTime = 1;
 	}
 	| tUNUMBER '/' tUNUMBER '/' tUNUMBER {
 	  /* Interpret as YYYY/MM/DD if $1 >= 1000, otherwise as MM/DD/YY.
@@ -297,7 +340,11 @@ date	: tUNUMBER '/' tUNUMBER {
 	}
 	| tMONTH tUNUMBER {
 	    ((struct date_yy *)parm)->yyMonth = $1;
-	    ((struct date_yy *)parm)->yyDay = $2;
+	    if ($2 > 1000) {
+		((struct date_yy *)parm)->yyYear = $2;
+	    } else {
+		((struct date_yy *)parm)->yyDay = $2;
+	    }
 	}
 	| tMONTH tUNUMBER ',' tUNUMBER {
 	    ((struct date_yy *)parm)->yyMonth = $1;
@@ -306,7 +353,11 @@ date	: tUNUMBER '/' tUNUMBER {
 	}
 	| tUNUMBER tMONTH {
 	    ((struct date_yy *)parm)->yyMonth = $2;
-	    ((struct date_yy *)parm)->yyDay = $1;
+	    if ($1 > 1000) {
+		((struct date_yy *)parm)->yyYear = $1;
+	    } else {
+		((struct date_yy *)parm)->yyDay = $1;
+	    }
 	}
 	| tUNUMBER tMONTH tUNUMBER {
 	    ((struct date_yy *)parm)->yyMonth = $2;
@@ -494,7 +545,7 @@ static TABLE const OtherTable[] = {
     { "today",		tDAY_UNIT,	0 },
     { "now",		tDAY_UNIT,	0 },
     { "last",		tUNUMBER,	-1 },
-    { "this",		tMINUTE_UNIT,	0 },
+    { "this",		tUNUMBER,	0 },
     { "next",		tUNUMBER,	2 },
     { "first",		tUNUMBER,	1 },
 /*  { "second",		tUNUMBER,	2 }, */
@@ -553,6 +604,7 @@ static TABLE const TimezoneTable[] = {
     { "nt",	tZONE,     HOUR (11) },	/* Nome */
     { "idlw",	tZONE,     HOUR (12) },	/* International Date Line West */
     { "cet",	tZONE,     -HOUR (1) },	/* Central European */
+    { "cest",	tDAYZONE,  -HOUR (1) },	/* Central European Summer */
     { "met",	tZONE,     -HOUR (1) },	/* Middle European */
     { "mewt",	tZONE,     -HOUR (1) },	/* Middle European Winter */
     { "mest",	tDAYZONE,  -HOUR (1) },	/* Middle European Summer */
@@ -601,30 +653,30 @@ static TABLE const TimezoneTable[] = {
 
 /* Military timezone table. */
 static TABLE const MilitaryTable[] = {
-    { "a",	tZONE,	HOUR (  1) },
-    { "b",	tZONE,	HOUR (  2) },
-    { "c",	tZONE,	HOUR (  3) },
-    { "d",	tZONE,	HOUR (  4) },
-    { "e",	tZONE,	HOUR (  5) },
-    { "f",	tZONE,	HOUR (  6) },
-    { "g",	tZONE,	HOUR (  7) },
-    { "h",	tZONE,	HOUR (  8) },
-    { "i",	tZONE,	HOUR (  9) },
-    { "k",	tZONE,	HOUR ( 10) },
-    { "l",	tZONE,	HOUR ( 11) },
-    { "m",	tZONE,	HOUR ( 12) },
-    { "n",	tZONE,	HOUR (- 1) },
-    { "o",	tZONE,	HOUR (- 2) },
-    { "p",	tZONE,	HOUR (- 3) },
-    { "q",	tZONE,	HOUR (- 4) },
-    { "r",	tZONE,	HOUR (- 5) },
-    { "s",	tZONE,	HOUR (- 6) },
-    { "t",	tZONE,	HOUR (- 7) },
-    { "u",	tZONE,	HOUR (- 8) },
-    { "v",	tZONE,	HOUR (- 9) },
-    { "w",	tZONE,	HOUR (-10) },
-    { "x",	tZONE,	HOUR (-11) },
-    { "y",	tZONE,	HOUR (-12) },
+    { "a",	tZONE,	HOUR (- 1) },
+    { "b",	tZONE,	HOUR (- 2) },
+    { "c",	tZONE,	HOUR (- 3) },
+    { "d",	tZONE,	HOUR (- 4) },
+    { "e",	tZONE,	HOUR (- 5) },
+    { "f",	tZONE,	HOUR (- 6) },
+    { "g",	tZONE,	HOUR (- 7) },
+    { "h",	tZONE,	HOUR (- 8) },
+    { "i",	tZONE,	HOUR (- 9) },
+    { "k",	tZONE,	HOUR (-10) },
+    { "l",	tZONE,	HOUR (-11) },
+    { "m",	tZONE,	HOUR (-12) },
+    { "n",	tZONE,	HOUR (  1) },
+    { "o",	tZONE,	HOUR (  2) },
+    { "p",	tZONE,	HOUR (  3) },
+    { "q",	tZONE,	HOUR (  4) },
+    { "r",	tZONE,	HOUR (  5) },
+    { "s",	tZONE,	HOUR (  6) },
+    { "t",	tZONE,	HOUR (  7) },
+    { "u",	tZONE,	HOUR (  8) },
+    { "v",	tZONE,	HOUR (  9) },
+    { "w",	tZONE,	HOUR ( 10) },
+    { "x",	tZONE,	HOUR ( 11) },
+    { "y",	tZONE,	HOUR ( 12) },
     { "z",	tZONE,	HOUR (  0) },
     { NULL, 0, 0 }
 };
@@ -848,6 +900,9 @@ yylex (YYSTYPE *lvalp, void *parm)
 	      date->yyInput--;
 	    }
 	  }
+#ifdef PHP_DEBUG_PARSE_DATE_PARSER
+	  printf ("T: %s\n", sign ? "tS" : "tU");
+#endif
 	  return sign ? tSNUMBER : tUNUMBER;
 	}
       if (ISALPHA (c))
@@ -857,16 +912,27 @@ yylex (YYSTYPE *lvalp, void *parm)
 	      *p++ = c;
 	  *p = '\0';
 	  date->yyInput--;
+#ifdef PHP_DEBUG_PARSE_DATE_PARSER
+	  printf ("T: LW\n");
+#endif
 	  return LookupWord (lvalp, buff);
 	}
-      if (c != '(')
+      if (c != '(') {
+#ifdef PHP_DEBUG_PARSE_DATE_PARSER
+	printf ("T: %c\n", *date->yyInput);
+#endif
 	return *date->yyInput++;
+	  }
       Count = 0;
       do
 	{
 	  c = *date->yyInput++;
-	  if (c == '\0')
+	  if (c == '\0') {
+#ifdef PHP_DEBUG_PARSE_DATE_PARSER
+	printf ("T: %c\n", c);
+#endif
 	    return c;
+	  }
 	  if (c == '(')
 	    Count++;
 	  else if (c == ')')

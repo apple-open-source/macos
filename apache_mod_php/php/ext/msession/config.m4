@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.1.1.2 2003/03/11 01:09:25 zarzycki Exp $
+dnl $Id: config.m4,v 1.8 2002/03/12 16:25:11 sas Exp $
 dnl
 
 PHP_ARG_WITH(msession, for msession support,

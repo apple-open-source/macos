@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_interbase.h,v 1.1.1.8 2003/07/18 18:07:34 zarzycki Exp $ */
+/* $Id: php_interbase.h,v 1.28.2.8 2003/09/02 15:35:11 abies Exp $ */
 
 #ifndef PHP_INTERBASE_H
 #define PHP_INTERBASE_H
@@ -39,7 +39,6 @@ extern zend_module_entry ibase_module_entry;
  #define ISC_INT64_FORMAT "ll"
 #endif
 #endif
-
 
 PHP_MINIT_FUNCTION(ibase);
 PHP_RINIT_FUNCTION(ibase);
@@ -103,7 +102,7 @@ ZEND_BEGIN_MODULE_GLOBALS(ibase)
 	char *cfg_dateformat;
 	char *timeformat;
 	char *cfg_timeformat;
-	char *errmsg;
+	char errmsg[MAX_ERRMSG];
 ZEND_END_MODULE_GLOBALS(ibase)
 
 typedef struct {
@@ -150,6 +149,7 @@ typedef struct {
 	int drop_stmt;
 	XSQLDA *out_sqlda;
 	ibase_array *out_array;
+	unsigned char has_more_rows;
 } ibase_result;
 
 typedef struct _php_ibase_varchar {
@@ -160,16 +160,22 @@ typedef struct _php_ibase_varchar {
 /* extern ibase_module php_ibase_module; */
 
 enum php_interbase_option {
-	PHP_IBASE_DEFAULT = 0,
-	PHP_IBASE_TEXT = 1,
-	PHP_IBASE_UNIXTIME = 2,
-	PHP_IBASE_READ = 4,
-	PHP_IBASE_COMMITTED = 8,
-	PHP_IBASE_CONSISTENCY = 16,
-	PHP_IBASE_NOWAIT = 32,
-	PHP_IBASE_TIMESTAMP = 64,
-	PHP_IBASE_DATE = 128,
-	PHP_IBASE_TIME = 256
+	PHP_IBASE_DEFAULT 			= 0,
+	PHP_IBASE_TEXT 				= 1,
+	PHP_IBASE_UNIXTIME 			= 2,
+	PHP_IBASE_TIMESTAMP 			= 4,
+	PHP_IBASE_DATE 				= 8,
+	PHP_IBASE_TIME 				= 16,
+	/* transactions  */	
+	PHP_IBASE_WRITE 				= 2,
+	PHP_IBASE_READ 				= 4,
+	PHP_IBASE_COMMITTED 			= 8,
+	PHP_IBASE_CONSISTENCY 		= 16,
+	PHP_IBASE_CONCURRENCY 		= 32,
+	PHP_IBASE_REC_VERSION 		= 64,
+	PHP_IBASE_REC_NO_VERSION 	= 128,
+	PHP_IBASE_NOWAIT 				= 256,
+	PHP_IBASE_WAIT 				= 512
 };
 
 #ifdef ZTS

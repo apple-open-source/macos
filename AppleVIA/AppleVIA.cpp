@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -46,6 +43,8 @@ extern void PE_Determine_Clock_Speeds(unsigned int via_addr,
 				      unsigned long *speed_list);
 }
 
+static IOService * privCreateNub( IORegistryEntry * from);
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 #define super IOService
@@ -63,15 +62,33 @@ bool AppleVIA::start(IOService *provider)
   OSSymbol           *interruptControllerName;
   int                numSpeeds = 0;
   unsigned long      *speedList = 0;
-  
+  OSIterator		 *childIterator = NULL;
+  childEntry 		 = NULL;
+  pmuExists 		 = false;
+      
   // Call super's start.
   if (!super::start(provider))
     return false;
   
-//jml:added
+   // see if 'pmu' already in device tree (newer machines)
+  childIterator = provider->getChildIterator(gIODTPlane);
+  if( childIterator != NULL )
+	{
+  	while ((childEntry = (IORegistryEntry *)(childIterator->getNextObject ())) != NULL) 
+		{
+		if (!strcmp ("pmu", childEntry->getName(gIOServicePlane))) 
+			{
+ 			pmuExists = true;
+			break;
+			}
+		}
+	}
+ // Do the mac-io-publishChildren the old low-risk way if no pmu in device tree
+ if (!pmuExists)
+	{
 	if (provider->getProperty("preserveIODeviceTree") != 0)
 		provider->callPlatformFunction ("mac-io-publishChildren", 0, (void*)this, (void*)0, (void*)0, (void*)0);
-//jml:end
+	}
 
   // Figure out what kind of via device nub to make.
   if (IODTMatchNubWithKeys(provider, "'via-cuda'"))
@@ -116,11 +133,41 @@ bool AppleVIA::start(IOService *provider)
   if (nub == 0) return false;
   
   nub->attach(this);
+        
+  //Do the mac-io-publishChildren with privCreateNub if pmuExists
+  if (pmuExists)
+	{
+	if (provider->getProperty("preserveIODeviceTree") != 0)
+		provider->callPlatformFunction ("mac-io-publishChildren", 0, (void*)this, 
+                                                    (void*)privCreateNub, (void*)0, (void*)0);
+        }
   nub->registerService();
   
   return true;
 }
 
+static IOService * privCreateNub( IORegistryEntry * from)
+{
+    IOService * nub = 0;
+        
+    if (!strcmp ("pmu", from->getName(gIOServicePlane))) 
+            {
+            //IOLog("AppleVIA privCreateNub  FOUND PMU NUB skipping ...\n");
+            }
+    else
+            {
+            nub = new AppleVIADevice;
+    
+            if (nub && (!nub->init(from, gIODTPlane)))
+                {
+                nub->free();
+                nub = 0;
+                }
+            }
+    
+    return( nub);
+}
+	
 AppleVIADevice *AppleVIA::createNub(void)
 {
   int               cnt;
@@ -179,13 +226,27 @@ AppleVIADevice *AppleVIA::createNub(void)
     // Create the viaDevice nub
     nub = new AppleVIADevice;
     if (nub == 0) continue;
-    
-    if (!nub->init(dict)) {
-      nub->release();
-      nub = 0;
-      continue;
-    }
-    
+		
+    if (pmuExists && childEntry)
+        {
+        if(!nub->init(childEntry, gIODTPlane) )   //nub is IOService ptr
+            {
+            //IOLog("AppleVIA PMU CHILD DID NOT INIT\n");
+                    nub->free();
+                    nub = 0;
+                    continue;
+            }
+        else  
+            nub->setPropertyTable(dict);
+        }
+	else if (!nub->init(dict)) 
+		{
+                //IOLog("AppleVIA NUB DID NOT INIT\n");
+                nub->release();
+                nub = 0;
+                continue;
+		}
+		    
     // set the nub's name.
     nub->setName(name);
     

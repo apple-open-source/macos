@@ -34,7 +34,7 @@
  * SUCH DAMAGE.
  */
 
-/* $Id: glob.c,v 1.1.1.2 2003/07/18 18:07:52 zarzycki Exp $ */
+/* $Id: glob.c,v 1.3.4.2 2003/09/20 03:22:54 sniper Exp $ */
 
 /*
  * glob(3) -- a superset of the one defined in POSIX 1003.2.
@@ -72,7 +72,7 @@
 #endif
 #endif
 
-#include <php.h>
+#include "php.h"
 #include <sys/stat.h>
 
 #include <ctype.h>
@@ -510,7 +510,7 @@ glob0(pattern, pglob)
 	}
 	if (!(pglob->gl_flags & GLOB_NOSORT))
 		qsort(pglob->gl_pathv + pglob->gl_offs + oldpathc,
-			pglob->gl_pathc - oldpathc, sizeof(char *), compare);
+			pglob->gl_pathc - oldpathc, sizeof(char *), (const void *) compare);
 	return(0);
 }
 

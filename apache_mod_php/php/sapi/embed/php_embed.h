@@ -15,7 +15,7 @@
    | Author: Edin Kadribasic <edink@php.net>                              |
    +----------------------------------------------------------------------+
 */
-/* $Id: php_embed.h,v 1.1.1.2 2003/07/18 18:07:51 zarzycki Exp $ */
+/* $Id: php_embed.h,v 1.1.2.2 2003/01/28 10:54:17 edink Exp $ */
 
 #ifndef _PHP_EMBED_H_
 #define _PHP_EMBED_H_

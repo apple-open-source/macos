@@ -1,5 +1,8 @@
 
 $Log: PlatformPlugin-README,v $
+Revision 1.7  2004/08/13 22:04:41  eem
+Dummy checkin to test change to commit messages.
+
 Revision 1.6  2004/06/07 21:28:48  eem
 Dummy checkin to test commit email messages.
 
@@ -18,7 +21,6 @@ section headings.
 
 Revision 1.1  2003/09/16 19:00:33  eem
 Initial checkin of Platform Plugin README file.
-
 
 --------------------------------------------------------------------------------
 MacRISC4 Platform Plugin README

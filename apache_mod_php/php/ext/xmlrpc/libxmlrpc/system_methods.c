@@ -36,9 +36,6 @@
  *   Dan Libby, aka danda  (dan@libby.com)
  * HISTORY
  *   $Log: system_methods.c,v $
- *   Revision 1.1.1.2  2003/03/11 01:09:35  zarzycki
- *   Import of php-4.3.1
- *
  *   Revision 1.2  2002/07/05 04:43:53  danda
  *   merged in updates from SF project.  bring php repository up to date with xmlrpc-epi version 0.51
  *

@@ -306,6 +306,7 @@ AppleUSBHubPort::AddDevice(void)
 {
     IOReturn		err = kIOReturnSuccess;
     bool		checkingForDeadHub = false;
+    IOUSBHubPortStatus	status;
 
     USBLog(5, "***** AppleUSBHubPort[%p]::AddDevice - port %d on hub %p - start", this, _portNum, _hub);
     do
@@ -333,7 +334,14 @@ AppleUSBHubPort::AddDevice(void)
         if (err)
         {
             USBLog(3, "***** AppleUSBHubPort[%p]::AddDevice - port %d on hub %p - unable (err = %x) to reset port", this, _portNum, _hub, err);
-            FatalError(err, "set feature (resetting port)");
+	    
+	    // Used to call "FatalError" here, but we don't want the message being displayed
+	    if (_portDevice != 0)
+	    {
+		USBLog(2,"AppleUSBHubPort: Removing %s from port %d", _portDevice->getName(), _portNum);
+		RemoveDevice();	
+	    }
+
 	    if (err == kIOUSBTransactionTimeout)
 	    {
 		_hub->CallCheckForDeadHub();			// pull the plug if it isn't already
@@ -343,6 +351,7 @@ AppleUSBHubPort::AddDevice(void)
         }
         USBLog(5, "***** AppleUSBHubPort[%p]::AddDevice - port %d on hub %p - sleeping 100 ms", this, _portNum, _hub);
         IOSleep(100);
+
     } while(false);
 
     if (err && _devZero)
@@ -1871,6 +1880,25 @@ AppleUSBHubPort::DetachDevice()
     }
     else
     {
+        // Get the PortStatus to see if the device is still there.
+        if ((err = _hub->GetPortStatus(&status, _portNum)))
+        {
+            FatalError(err, "getting port status (4)");
+            goto ErrorExit;
+        }
+        
+        // If the device is not here, then bail out
+        //
+        if ( !(status.statusFlags & kHubPortConnection) )
+        {
+            // We don't have a connection on this port anymore.
+            //
+            USBLog(5, "AppleUSBHubPort[%p]::DetachDevice - port %d - device has gone away", this, _portNum);
+            _state = hpsDeadDeviceZero;
+            err = kIOReturnNoDevice;
+            goto ErrorExit;
+        }
+
         IOSleep(300);
         
         // Get the PortStatus to see if the device is still there.
@@ -1908,6 +1936,7 @@ AppleUSBHubPort::GetDevZeroDescriptorWithRetries()
     UInt32 	delay = 30;
     UInt32 	retries = 4;
     IOReturn	err = kIOReturnSuccess;
+    IOUSBHubPortStatus	status;
     
     do 
     {
@@ -1923,6 +1952,25 @@ AppleUSBHubPort::GetDevZeroDescriptorWithRetries()
         
         if ( err )
         {
+            // Let's make sure that the device is still here.  Maybe it has gone away and we won't process the notification 'cause we're in PSCH
+            // Get the PortStatus to see if the device is still there.
+            err = _hub->GetPortStatus(&status, _portNum);
+            if (err != kIOReturnSuccess)
+            {
+                FatalError(err, "getting port status (4)");
+                break;
+            }
+            
+            if ( !(status.statusFlags & kHubPortConnection) )
+            {
+                // We don't have a connection on this port anymore.
+                //
+                USBLog(5, "AppleUSBHubPort[%p]::GetDevZeroDescriptorWithRetries - port %d - device has gone away", this, _portNum);
+                _state = hpsDeadDeviceZero;
+                err = kIOReturnNoDevice;
+                break;
+            }
+            
             if ( retries == 2)
                 delay = 3;
             else if ( retries == 1 )
@@ -1934,7 +1982,7 @@ AppleUSBHubPort::GetDevZeroDescriptorWithRetries()
         }
     }
     while ( err && retries > 0 );
-    
+
     return err;
 }
 

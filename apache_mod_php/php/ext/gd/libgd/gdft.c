@@ -60,8 +60,9 @@ gdImageStringFT (gdImage * im, int *brect, int fg, char *fontlist,
 #else
 
 #include "gdcache.h"
-#include "freetype/freetype.h"
-#include "freetype/ftglyph.h"
+#include <ft2build.h>
+#include FT_FREETYPE_H
+#include FT_GLYPH_H
 
 /* number of fonts cached before least recently used is replaced */
 #define FONTCACHESIZE 6
@@ -78,9 +79,9 @@ gdImageStringFT (gdImage * im, int *brect, int fg, char *fontlist,
 
 /*
  * The character (space) used to separate alternate fonts in the
- * fontlist parameter to gdImageStringFT.
+ * fontlist parameter to gdImageStringFT. 2.0.18: space was a oor choice for this.
  */
-#define LISTSEPARATOR " "
+#define LISTSEPARATOR ";"
 
 /*
  * DEFAULT_FONTPATH and PATHSEPARATOR are host type dependent and
@@ -89,7 +90,11 @@ gdImageStringFT (gdImage * im, int *brect, int fg, char *fontlist,
  * if building this version of gd separate from graphviz.
  */
 #ifndef DEFAULT_FONTPATH
+#if defined(__APPLE__) || (defined(__MWERKS__) && defined(macintosh))
+#define DEFAULT_FONTPATH "/usr/share/fonts/truetype:/System/Library/Fonts:/Library/Fonts"
+#else
 #define DEFAULT_FONTPATH "/usr/share/fonts/truetype"
+#endif
 #endif
 #ifndef PATHSEPARATOR
 #define PATHSEPARATOR ":"
@@ -357,7 +362,7 @@ static void *fontFetch (char **error, void *key)
 	int font_found = 0;
 	unsigned short platform, encoding;
 	char *fontsearchpath, *fontlist;
-	char *fullname = NULL;
+	char fullname[MAXPATHLEN], cur_dir[MAXPATHLEN];
 	char *name, *path=NULL, *dir;
 	char *strtok_ptr;
 	FT_Error err;
@@ -383,42 +388,40 @@ static void *fontFetch (char **error, void *key)
 	for (name = gd_strtok_r (fontlist, LISTSEPARATOR, &strtok_ptr); name; name = gd_strtok_r (0, LISTSEPARATOR, &strtok_ptr)) {
 		/* make a fresh copy each time - strtok corrupts it. */
 		path = gdEstrdup (fontsearchpath);
-	
-		/*
-		* Allocate an oversized buffer that is guaranteed to be
-		* big enough for all paths to be tested.
-		*/
-		fullname = gdRealloc (fullname, strlen (fontsearchpath) + strlen (name) + 6);
-	
+
 		/* if name is an absolute filename then test directly */ 
 		if (*name == '/' || (name[0] != 0 && name[1] == ':' && (name[2] == '/' || name[2] == '\\'))) {
-			sprintf(fullname, "%s", name);
+			snprintf(fullname, sizeof(fullname) - 1, "%s", name);
 			if (access(fullname, R_OK) == 0) {
 				font_found++;
 				break;
 			}
 		}
 		for (dir = strtok (path, PATHSEPARATOR); dir; dir = strtok (0, PATHSEPARATOR)) {
-			sprintf(fullname, "%s/%s", dir, name);
-			if (access (fullname, R_OK) == 0) {
-				font_found++;
-				break;
+			if (!strcmp(dir, ".")) {
+				TSRMLS_FETCH();
+#if HAVE_GETCWD
+				dir = VCWD_GETCWD(cur_dir, MAXPATHLEN);
+#elif HAVE_GETWD
+				dir = VCWD_GETWD(cur_dir);
+#endif
+				if (!dir) {
+					continue;
+				}
 			}
-			sprintf(fullname, "%s/%s.ttf", dir, name);
-			if (access (fullname, R_OK) == 0) {
-				font_found++;
-				break;
-			}
-			sprintf(fullname, "%s/%s.pfa", dir, name);
-			if (access(fullname, R_OK) == 0) {
-				font_found++;
-				break;
-			}
-			sprintf (fullname, "%s/%s.pfb", dir, name);
-			if (access(fullname, R_OK) == 0) {
-				font_found++;
-				break;
-			}
+
+#define GD_CHECK_FONT_PATH(ext)	\
+	snprintf(fullname, sizeof(fullname) - 1, "%s/%s%s", dir, name, ext);	\
+	if (access(fullname, R_OK) == 0) {	\
+		font_found++;	\
+		break;	\
+	}	\
+
+			GD_CHECK_FONT_PATH("");
+			GD_CHECK_FONT_PATH(".ttf");
+			GD_CHECK_FONT_PATH(".pfa");
+			GD_CHECK_FONT_PATH(".pfb");
+			GD_CHECK_FONT_PATH(".dfont");
 		}
 		gdFree(path);
 		path = NULL;
@@ -436,9 +439,6 @@ static void *fontFetch (char **error, void *key)
 	if (!font_found) {
 		gdPFree(a->fontlist);
 		gdPFree(a);
-		if (fullname) {
-			gdFree(fullname);
-		}
 		*error = "Could not find/open font";
 		return NULL;
 	}
@@ -447,15 +447,21 @@ static void *fontFetch (char **error, void *key)
 	if (err) {
 		gdPFree(a->fontlist);
 		gdPFree(a);
-		if (fullname) {
-			gdFree(fullname);
-		}
 		*error = "Could not read font";
 		return NULL;
 	}
-	gdFree(fullname);
 
 	/* FIXME - This mapping stuff is imcomplete - where is the spec? */
+	/* EAM   - It's worse than that. It's pointless to match character encodings here.
+	 *         As currently written, the stored a->face->charmap only matches one of
+	 *         the actual charmaps and we cannot know at this stage if it is the right
+	 *         one. We should just skip all this stuff, and check in gdImageStringFTEx
+	 *         if some particular charmap is preferred and if so whether it is held in
+	 *         one of the a->face->charmaps[0..num_charmaps].
+	 *         And why is it so bad not to find any recognized charmap?  The user may
+	 *         still know what mapping to use, even if we do not.  In that case we can
+	 *         just use the map in a->face->charmaps[num_charmaps] and be done with it.
+	 */
 
 	a->have_char_map_unicode = 0;
 	a->have_char_map_big5 = 0;
@@ -465,6 +471,20 @@ static void *fontFetch (char **error, void *key)
 		charmap = a->face->charmaps[n];
 		platform = charmap->platform_id;
 		encoding = charmap->encoding_id;
+
+/* EAM DEBUG - Newer versions of libfree2 make it easier by defining encodings */
+#if (defined(FREETYPE_MAJOR) && ((FREETYPE_MAJOR == 2 && ((FREETYPE_MINOR == 1 && FREETYPE_PATCH >= 3) || FREETYPE_MINOR > 1) || FREETYPE_MAJOR > 2)))
+	if (charmap->encoding == FT_ENCODING_MS_SYMBOL
+		|| charmap->encoding == FT_ENCODING_ADOBE_CUSTOM
+		|| charmap->encoding == FT_ENCODING_ADOBE_STANDARD) {
+		a->have_char_map_unicode = 1;
+		found = charmap;
+		a->face->charmap = charmap;
+		return (void *)a;
+	}
+#endif /* Freetype 2.1.3 or better */
+/* EAM DEBUG */
+
 		if ((platform == 3 && encoding == 1)		/* Windows Unicode */
 			|| (platform == 3 && encoding == 0)	/* Windows Symbol */
 			|| (platform == 2 && encoding == 1)	/* ISO Unicode */
@@ -509,16 +529,12 @@ static void fontRelease (void *element)
 /********************************************************************/
 /* tweencolor cache functions                                            */
 
-static int
-tweenColorTest (void *element, void *key)
+static int tweenColorTest (void *element, void *key)
 {
-  tweencolor_t *a = (tweencolor_t *) element;
-  tweencolorkey_t *b = (tweencolorkey_t *) key;
+	tweencolor_t *a = (tweencolor_t *) element;
+	tweencolorkey_t *b = (tweencolorkey_t *) key;
 
-  return (a->pixel == b->pixel
-	  && a->bgcolor == b->bgcolor
-	  && a->fgcolor == b->fgcolor
-	  && a->im == b->im);
+	return (a->pixel == b->pixel && a->bgcolor == b->bgcolor && a->fgcolor == b->fgcolor && a->im == b->im);
 }
 
 /*
@@ -608,7 +624,8 @@ gdft_draw_bitmap (gdCache_head_t *tc_cache, gdImage * im, int fg, FT_Bitmap bitm
         pcr = pc;
         y = pen_y + row;
         /* clip if out of bounds */
-        if (y >= im->sy || y < 0)
+        /* 2.0.16: clipping rectangle, not image bounds */		
+	if ((y > im->cy2) || (y < im->cy1))
 	  continue;
       for (col = 0; col < bitmap.width; col++, pc++)
 	{
@@ -643,7 +660,8 @@ gdft_draw_bitmap (gdCache_head_t *tc_cache, gdImage * im, int fg, FT_Bitmap bitm
           level = gdAlphaMax - level;  
           x = pen_x + col;
 	      /* clip if out of bounds */
-	      if (x >= im->sx || x < 0)
+	      /* 2.0.16: clip to clipping rectangle, Matt McNabb */
+		if ((x > im->cx2) || (x < im->cx1))
 		continue;
 	      /* get pixel location in gd buffer */
 	    tpixel = &im->tpixels[y][x];
@@ -743,30 +761,51 @@ gdroundupdown (FT_F26Dot6 v1, int updown)
 extern int any2eucjp (char *, char *, unsigned int);
 
 /* Persistent font cache until explicitly cleared */
-/*     Fonts can be used across multiple images */
+/* Fonts can be used across multiple images */
+ 
+/* 2.0.16: thread safety (the font cache is shared) */
+gdMutexDeclare(gdFontCacheMutex);
 static gdCache_head_t *fontCache = NULL;
 static FT_Library library;
 
-void
-gdFreeFontCache()
+void gdFontCacheShutdown()
 {
-  if (fontCache)
-    {
-      gdCacheDelete(fontCache);
-	  fontCache=NULL;
-      FT_Done_FreeType(library);
-    }
+	if (fontCache) {
+ 		gdMutexShutdown(gdFontCacheMutex);
+ 		gdCacheDelete(fontCache);
+		fontCache = NULL;
+ 		FT_Done_FreeType(library);
+	}
+}
+
+void gdFreeFontCache()
+{
+	gdFontCacheShutdown();
+}
+  
+int gdFontCacheSetup(void)
+{
+	if (fontCache) {
+		/* Already set up */
+		return 0;
+	}
+	gdMutexSetup(gdFontCacheMutex);
+	if (FT_Init_FreeType(&library)) {
+		gdMutexShutdown(gdFontCacheMutex);
+		return -1;
+	}
+	fontCache = gdCacheCreate (FONTCACHESIZE, fontTest, fontFetch, fontRelease);
+	return 0;
 }
 
 /********************************************************************/
 /* gdImageStringFT -  render a utf8 string onto a gd image          */
 
 char *
-gdImageStringFT (gdImage * im, int *brect, int fg, char *fontlist,
-		 double ptsize, double angle, int x, int y, char *string)
+gdImageStringFT (gdImage * im, int *brect, int fg, char *fontlist, 
+  		 double ptsize, double angle, int x, int y, char *string)
 {
-	return gdImageStringFTEx(im, brect, fg, fontlist,
-		ptsize, angle, x, y, string, 0);
+	return gdImageStringFTEx(im, brect, fg, fontlist, ptsize, angle, x, y, string, 0);
 }
 
 char *
@@ -790,7 +829,8 @@ gdImageStringFTEx (gdImage * im, int *brect, int fg, char *fontlist, double ptsi
 	char *tmpstr = NULL;
 	int render = (im && (im->trueColor || (fg <= 255 && fg >= -255)));
 	FT_BitmapGlyph bm;
-	int render_mode = FT_LOAD_RENDER | FT_LOAD_FORCE_AUTOHINT;
+	/* 2.0.13: Bob Ostermann: don't force autohint, that's just for testing freetype and doesn't look as good */
+	int render_mode = FT_LOAD_DEFAULT;
 	int m, mfound;
 	/* Now tuneable thanks to Wez Furlong */
 	double linespace = LINESPACE;
@@ -803,6 +843,8 @@ gdImageStringFTEx (gdImage * im, int *brect, int fg, char *fontlist, double ptsi
 	*   colorindexes.          -- 27.06.2001 <krisku@arrak.fi>
 	*/
 	gdCache_head_t  *tc_cache;
+	/* Tuneable horizontal and vertical resolution in dots per inch */
+	int hdpi, vdpi;
 
 	if (strex && ((strex->flags & gdFTEX_LINESPACE) == gdFTEX_LINESPACE)) {
 		linespace = strex->linespacing;
@@ -812,27 +854,41 @@ gdImageStringFTEx (gdImage * im, int *brect, int fg, char *fontlist, double ptsi
 	/***** initialize font library and font cache on first call ******/
 
 	if (!fontCache) {
-		if (FT_Init_FreeType (&library)) {
-			gdCacheDelete( tc_cache );
+		if (gdFontCacheSetup() != 0) {
+			gdCacheDelete(tc_cache);
 			return "Failure to initialize font library";
 		}
-		fontCache = gdCacheCreate(FONTCACHESIZE, fontTest, fontFetch, fontRelease);
 	}
 	/*****/
-
+	
+	gdMutexLock(gdFontCacheMutex);
 	/* get the font (via font cache) */
 	fontkey.fontlist = fontlist;
 	fontkey.library = &library;
 	font = (font_t *) gdCacheGet (fontCache, &fontkey);
 	if (!font) {
 		gdCacheDelete(tc_cache);
+		gdMutexUnlock(gdFontCacheMutex);
 		return fontCache->error;
 	}
 	face = font->face;		/* shortcut */
 	slot = face->glyph;		/* shortcut */
 
-	if (FT_Set_Char_Size (face, 0, (FT_F26Dot6) (ptsize * 64), GD_RESOLUTION, GD_RESOLUTION)) {
+	/*
+	 * Added hdpi and vdpi to support images at non-screen resolutions, i.e. 300 dpi TIFF,
+	 * or 100h x 50v dpi FAX format. 2.0.23.
+	 * 2004/02/27 Mark Shackelford, mark.shackelford@acs-inc.com
+	 */
+	hdpi = GD_RESOLUTION;
+	vdpi = GD_RESOLUTION;
+	if (strex && (strex->flags & gdFTEX_RESOLUTION)) {
+		hdpi = strex->hdpi;
+		vdpi = strex->vdpi;
+	}
+
+	if (FT_Set_Char_Size(face, 0, (FT_F26Dot6) (ptsize * 64), hdpi, vdpi)) {
 		gdCacheDelete(tc_cache);
+		gdMutexUnlock(gdFontCacheMutex);
 		return "Could not set character size";
 	}
 
@@ -884,19 +940,24 @@ gdImageStringFTEx (gdImage * im, int *brect, int fg, char *fontlist, double ptsi
 	}
 	if (!mfound) {
 		/* No character set found! */
+		gdMutexUnlock(gdFontCacheMutex);
 		return "No character set found";
 	}
 
 #ifndef JISX0208
-	if (!font->have_char_map_sjis) {
-		next = string;
-	} else
+	if (font->have_char_map_sjis) {
 #endif
 		tmpstr = (char *) gdMalloc(BUFSIZ);
+		any2eucjp(tmpstr, string, BUFSIZ);
+		next = tmpstr;
+#ifndef JISX0208
+	} else {
+		next = string;
+	}
+#endif
 
 	while (*next) {
 		ch = *next;
-
 		/* carriage returns */
 		if (ch == '\r') {
 			penf.x = 0;
@@ -909,6 +970,8 @@ gdImageStringFTEx (gdImage * im, int *brect, int fg, char *fontlist, double ptsi
 		}
 		/* newlines */
 		if (ch == '\n') {
+			/* 2.0.13: reset penf.x. Christopher J. Grayce */
+			penf.x = 0;
 			  penf.y -= (long)(face->size->metrics.height * linespace);
 			  penf.y = (penf.y - 32) & -64;		/* round to next pixel row */
 			  x1 = (int)(penf.x * cos_a - penf.y * sin_a + 32) / 64;
@@ -918,6 +981,22 @@ gdImageStringFTEx (gdImage * im, int *brect, int fg, char *fontlist, double ptsi
 			  next++;
 			  continue;
 		}
+
+/* EAM DEBUG */
+#if (defined(FREETYPE_MAJOR) && ((FREETYPE_MAJOR == 2 && ((FREETYPE_MINOR == 1 && FREETYPE_PATCH >= 3) || FREETYPE_MINOR > 1) || FREETYPE_MAJOR > 2)))
+		if (font->face->charmap->encoding == FT_ENCODING_MS_SYMBOL && strcmp(font->face->family_name, "Symbol") == 0) {
+			/* I do not know the significance of the constant 0xf000.
+			 * It was determined by inspection of the character codes
+			 * stored in Microsoft font symbol.
+			 */
+			/* Convert to the Symbol glyph range only for a Symbol family member */ 
+			len = gdTcl_UtfToUniChar (next, &ch);
+			ch |= 0xf000;
+			next += len;
+		} else
+#endif /* Freetype 2.1 or better */
+/* EAM DEBUG */
+
 		switch (m) {
 			case gdFTEX_Unicode:
 				if (font->have_char_map_unicode) {
@@ -981,7 +1060,7 @@ gdImageStringFTEx (gdImage * im, int *brect, int fg, char *fontlist, double ptsi
 		FT_Set_Transform(face, &matrix, NULL);
 		/* Convert character code to glyph index */
 		glyph_index = FT_Get_Char_Index(face, ch);
-
+		
 		/* retrieve kerning distance and move pen position */
 		if (use_kerning && previous && glyph_index) {
 			FT_Get_Kerning(face, previous, glyph_index, ft_kerning_default, &delta);
@@ -995,6 +1074,7 @@ gdImageStringFTEx (gdImage * im, int *brect, int fg, char *fontlist, double ptsi
 				gdFree(tmpstr);
 			}
 			gdCacheDelete(tc_cache);
+			gdMutexUnlock(gdFontCacheMutex);
 			return "Problem loading glyph";
 		}
 
@@ -1037,6 +1117,7 @@ gdImageStringFTEx (gdImage * im, int *brect, int fg, char *fontlist, double ptsi
 					gdFree(tmpstr);
 				}
 				gdCacheDelete(tc_cache);
+				gdMutexUnlock(gdFontCacheMutex);
 				return "Problem rendering glyph";
 			}
 
@@ -1087,6 +1168,7 @@ gdImageStringFTEx (gdImage * im, int *brect, int fg, char *fontlist, double ptsi
 		gdFree(tmpstr);
 	}
 	gdCacheDelete(tc_cache);
+	gdMutexUnlock(gdFontCacheMutex);
 	return (char *) NULL;
 }
 

@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_ext_syslog.h,v 1.1.1.5 2003/07/18 18:07:43 zarzycki Exp $ */
+/* $Id: php_ext_syslog.h,v 1.7.8.1 2002/12/31 16:35:33 sebastian Exp $ */
 
 #ifndef PHP_EXT_SYSLOG_H
 #define PHP_EXT_SYSLOG_H

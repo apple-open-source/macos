@@ -31,7 +31,7 @@
 */
 
 
-static const char rcsid[] = "#(@) $Id: simplestring.c,v 1.1.1.3 2003/03/11 01:09:35 zarzycki Exp $";
+static const char rcsid[] = "#(@) $Id: simplestring.c,v 1.3.4.1 2003/12/16 21:00:35 sniper Exp $";
 
 
 #define SIMPLESTRING_INCR 32
@@ -45,8 +45,8 @@ static const char rcsid[] = "#(@) $Id: simplestring.c,v 1.1.1.3 2003/03/11 01:09
  *   06/2000
  * HISTORY
  *   $Log: simplestring.c,v $
- *   Revision 1.1.1.3  2003/03/11 01:09:35  zarzycki
- *   Import of php-4.3.1
+ *   Revision 1.3.4.1  2003/12/16 21:00:35  sniper
+ *   MFH: fix compile warnings
  *
  *   Revision 1.3  2002/08/22 01:25:50  sniper
  *   kill some compile warnings
@@ -82,6 +82,7 @@ static const char rcsid[] = "#(@) $Id: simplestring.c,v 1.1.1.3 2003/03/11 01:09
  ******/
 
 #include <stdlib.h>
+#include <string.h>
 #include "simplestring.h"
 
 #define my_free(thing)  if(thing) {free(thing); thing = 0;}

@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: formatter.java,v 1.1.1.4 2002/07/22 18:16:04 zarzycki Exp $ */
+/* $Id: formatter.java,v 1.5 2001/12/11 15:32:08 sebastian Exp $ */
 
 package net.php;
 

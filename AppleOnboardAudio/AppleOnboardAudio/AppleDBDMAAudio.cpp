@@ -197,16 +197,18 @@ bool AppleDBDMAAudio::init (OSDictionary *			properties,
 	//	platform interface instance (i.e. K2 Platform Interface or Keylargo Platform Interface).
 	
 	ioBaseDMAOutput = hasOutput ? mPlatformObject->GetOutputChannelRegistersVirtualAddress ( mDeviceProvider ) : NULL ;
-	if ( NULL == ioBaseDMAOutput && hasOutput ) {
-		debugIOLog (3,  "ioBaseDMAOutput = NULL" );
+	if ( ( NULL == ioBaseDMAOutput ) && hasOutput ) {
+		debugIOLog (3,  "  ioBaseDMAOutput = NULL" );
 		FailIf ( true, Exit );
 	}
 
 	ioBaseDMAInput = hasInput ? mPlatformObject->GetInputChannelRegistersVirtualAddress ( mDeviceProvider ) : NULL ;
-	if ( NULL == ioBaseDMAInput && hasInput ) {
-		debugIOLog (3,  "ioBaseDMAInput = NULL" );
+	if ( ( NULL == ioBaseDMAInput ) && hasInput ) {
+		debugIOLog (3,  "  ioBaseDMAInput = NULL" );
 		FailIf ( true, Exit );
 	}
+	debugIOLog (3,  "  ioBaseDMAOutput = %p", ioBaseDMAOutput );
+	debugIOLog (3,  "  ioBaseDMAInput =  %p", ioBaseDMAInput );
 
 	dmaCommandBufferIn = 0;
 	dmaCommandBufferOut = 0;
@@ -315,7 +317,12 @@ Exit:
 }
 
 AudioHardwareObjectInterface* AppleDBDMAAudio::getCurrentOutputPlugin () {
-	return ourProvider->getCurrentOutputPlugin ();
+	AudioHardwareObjectInterface *		result = 0;
+	
+	FailIf ( 0 == ourProvider, Exit );
+	result = ourProvider->getCurrentOutputPlugin ();
+Exit:
+	return result;
 }
 
 UInt32 AppleDBDMAAudio::GetEncodingFormat (OSString * theEncoding) {
@@ -376,20 +383,29 @@ bool AppleDBDMAAudio::updateOutputStreamFormats ()
 	
 	haveNonMixableFormat = FALSE;
 
-	debugIOLog (3,  "numFormats = %ld", numFormats );
 	numFormats = deviceFormats->getCount ();
+	debugIOLog (3,  "  numFormats = %ld", numFormats );
 	for (formatIndex = 0; formatIndex < numFormats; formatIndex++) {
-		debugIOLog (3, "format index [%ld] --------------------", formatIndex);
+		debugIOLog (3, "  format index [%ld] --------------------", formatIndex);
 
 		formatDict = OSDynamicCast (OSDictionary, deviceFormats->getObject (formatIndex));
 		FailIf (NULL == formatDict, Exit);
 		
 		dbdmaFormat.fSampleFormat = GetEncodingFormat ((OSString *)formatDict->getObject (kEncoding));
 
-		if ((kIOAudioStreamSampleFormat1937AC3 == dbdmaFormat.fSampleFormat) && (kGPIO_Unknown != mPlatformObject->getComboOutJackTypeConnected() && kGPIO_Connected != mPlatformObject->getDigitalOutConnected())) {
-			// skip publishing encoded format as it is not an option
-			debugIOLog (3, "skipping encoded format");
-			continue;
+		if ( kIOAudioStreamSampleFormat1937AC3 == dbdmaFormat.fSampleFormat)
+		{
+			debugIOLog ( 6, "  evaluating AC3 format" );
+			if ( kGPIO_Unknown != mPlatformObject->getComboOutJackTypeConnected () )
+			{
+				debugIOLog ( 6, "  has a COMBO OUT jack" );
+				if ( kGPIO_Connected != mPlatformObject->getDigitalOutConnected () )
+				{
+					// skip publishing encoded format as it is not an option
+					debugIOLog (3, "  COMBO OUT jack is analog - skipping encoded format");
+					continue;
+				}
+			}
 		}
 
 		dbdmaFormat.fNumChannels = ((OSNumber *)formatDict->getObject(kChannels))->unsigned32BitValue ();
@@ -399,33 +415,39 @@ bool AppleDBDMAAudio::updateOutputStreamFormats ()
 		dbdmaFormatExtension.fFramesPerPacket = 1;
 		dbdmaFormatExtension.fBytesPerPacket = dbdmaFormat.fNumChannels * (dbdmaFormat.fBitWidth / 8);
 
-		debugIOLog (3, "dbdmaFormat: fNumChannels = %d, fBitDepth = %d, fBitWidth = %d", (unsigned int)dbdmaFormat.fNumChannels, (unsigned int)dbdmaFormat.fBitDepth, (unsigned int)dbdmaFormat.fBitWidth);
+		debugIOLog (3, "  dbdmaFormat: fNumChannels = %d, fBitDepth = %d, fBitWidth = %d", (unsigned int)dbdmaFormat.fNumChannels, (unsigned int)dbdmaFormat.fBitDepth, (unsigned int)dbdmaFormat.fBitWidth);
 		sampleRatesArray = OSDynamicCast (OSArray, formatDict->getObject (kSampleRates));
 		FailIf (NULL == sampleRatesArray, Exit);
 		numSampleRates = sampleRatesArray->getCount ();
-		debugIOLog (4,  "numSampleRates = %ld", numSampleRates );
+		debugIOLog (4,  "  numSampleRates = %ld", numSampleRates );
 
-		if (kIOAudioStreamSampleFormat1937AC3 == dbdmaFormat.fSampleFormat) {
-			debugIOLog (3, "sample format is kIOAudioStreamSampleFormat1937AC3");
+		if ( kIOAudioStreamSampleFormat1937AC3 == dbdmaFormat.fSampleFormat ) {
+			debugIOLog (3, "  sample format is kIOAudioStreamSampleFormat1937AC3");
 			dbdmaFormatExtension.fFramesPerPacket = 1536;
 			dbdmaFormatExtension.fBytesPerPacket = dbdmaFormatExtension.fFramesPerPacket * dbdmaFormat.fNumChannels * (dbdmaFormat.fBitWidth / 8);
 		}
 
 		for (rateIndex = 0; rateIndex < numSampleRates; rateIndex++) {
 			sampleRate.whole = ((OSNumber *)sampleRatesArray->getObject(rateIndex))->unsigned32BitValue ();
-			debugIOLog (4, "dbdmaFormat: sampleRate.whole = %d", (unsigned int)sampleRate.whole);
-			if (mOutputStream) {
+			debugIOLog (4, "  dbdmaFormat: sampleRate.whole = %d", (unsigned int)sampleRate.whole);
+			if ( mOutputStream ) {
 				mOutputStream->addAvailableFormat (&dbdmaFormat, &dbdmaFormatExtension, &sampleRate, &sampleRate);
 			}
-			if (mInputStream && kIOAudioStreamSampleFormatLinearPCM == dbdmaFormat.fSampleFormat) {
+			if ( mInputStream && kIOAudioStreamSampleFormatLinearPCM == dbdmaFormat.fSampleFormat ) {
 				mInputStream->addAvailableFormat (&dbdmaFormat, &sampleRate, &sampleRate);
 			}
 
 			// [3730722] used cached values from previous format change recover our settings (which are lost when we clear the available formats to republish them when digital out connectors come and go)
 			if (dbdmaFormat.fNumChannels == mPreviousDBDMAFormat.fNumChannels && dbdmaFormat.fBitDepth == mPreviousDBDMAFormat.fBitDepth && sampleRate.whole == mPreviousSampleRate && dbdmaFormat.fSampleFormat == mPreviousDBDMAFormat.fSampleFormat) {
-				debugIOLog (4, "using mPreviousDBDMAFormat");
-				if (mOutputStream) { mOutputStream->setFormat (&dbdmaFormat); }
-				if (mInputStream) { mInputStream->setFormat (&dbdmaFormat); }
+				debugIOLog (4, "  using mPreviousDBDMAFormat");
+				if ( mOutputStream)
+				{
+					mOutputStream->setFormat (&dbdmaFormat);
+				}
+				if ( mInputStream)
+				{
+					mInputStream->setFormat (&dbdmaFormat);
+				}
 				setSampleRate (&sampleRate);
 				ourProvider->formatChangeRequest (NULL, &sampleRate);
 			} 
@@ -433,7 +455,10 @@ bool AppleDBDMAAudio::updateOutputStreamFormats ()
 			// [3306295] all mixable formats get duplicated as non-mixable for hog mode
 			if (dbdmaFormat.fIsMixable) {
 				dbdmaFormat.fIsMixable = false;
-				if (mOutputStream) { mOutputStream->addAvailableFormat (&dbdmaFormat, &dbdmaFormatExtension, &sampleRate, &sampleRate); }
+				if (mOutputStream)
+				{
+					mOutputStream->addAvailableFormat (&dbdmaFormat, &dbdmaFormatExtension, &sampleRate, &sampleRate);
+				}
 				dbdmaFormat.fIsMixable = true;
 			}
 		}
@@ -514,22 +539,22 @@ bool AppleDBDMAAudio::publishStreamFormats (void) {
 
 	sampleRate.fraction = 0;
 
-	debugIOLog (3,  "  numFormats = %ld", numFormats );
 	numFormats = deviceFormats->getCount ();
+	debugIOLog (3,  "  numFormats = %ld", numFormats );
 	for (formatIndex = 0; formatIndex < numFormats; formatIndex++) {
-		debugIOLog (3, "format index [%ld] --------------------", formatIndex);
+		debugIOLog (3, "  format index [%ld] --------------------", formatIndex);
 
 		formatDict = OSDynamicCast (OSDictionary, deviceFormats->getObject (formatIndex));
 		FailIf (NULL == formatDict, Exit);
 
-		debugIOLog (3, "kGPIO_Unknown != mPlatformObject->getComboOutJackTypeConnected() = %d", kGPIO_Unknown != mPlatformObject->getComboOutJackTypeConnected());
-		debugIOLog (3, "kGPIO_Connected != mPlatformObject->getDigitalOutConnected() = %d", kGPIO_Connected != mPlatformObject->getDigitalOutConnected());
+		debugIOLog (3, "  kGPIO_Unknown != mPlatformObject->getComboOutJackTypeConnected() = %d", kGPIO_Unknown != mPlatformObject->getComboOutJackTypeConnected());
+		debugIOLog (3, "  kGPIO_Connected != mPlatformObject->getDigitalOutConnected() = %d", kGPIO_Connected != mPlatformObject->getDigitalOutConnected());
 		
 		dbdmaFormat.fSampleFormat = GetEncodingFormat ((OSString *)formatDict->getObject (kEncoding));
 
 		if ((kIOAudioStreamSampleFormat1937AC3 == dbdmaFormat.fSampleFormat) && (kGPIO_Unknown != mPlatformObject->getComboOutJackTypeConnected() && kGPIO_Connected != mPlatformObject->getDigitalOutConnected())) {
 			// skip publishing encoded format as it is not an option
-			debugIOLog (3, "skipping encoded format");
+			debugIOLog (3, "  skipping encoded format");
 			continue;
 		}
 
@@ -562,7 +587,8 @@ bool AppleDBDMAAudio::publishStreamFormats (void) {
 				mInputStream->addAvailableFormat (&dbdmaFormat, &sampleRate, &sampleRate);
 			}
 			// TO DO: Remove hardcoding of default format. Should be indicated in format plist entry.
-			if (dbdmaFormat.fNumChannels == 2 && dbdmaFormat.fBitDepth == 16 && sampleRate.whole == 44100 && kIOAudioStreamSampleFormatLinearPCM == dbdmaFormat.fSampleFormat) {
+			if ( dbdmaFormat.fNumChannels == 2 && dbdmaFormat.fBitDepth == 16 && sampleRate.whole == 44100 && kIOAudioStreamSampleFormatLinearPCM == dbdmaFormat.fSampleFormat )
+			{
 				debugIOLog (3, "  dbdmaFormat: mOutputStream->setFormat to 2, 16, 44100");
 				if (mOutputStream) { mOutputStream->setFormat (&dbdmaFormat); }
 				if (mInputStream) { mInputStream->setFormat (&dbdmaFormat); }
@@ -573,7 +599,10 @@ bool AppleDBDMAAudio::publishStreamFormats (void) {
 			// [3306295] all mixable formats get duplicated as non-mixable for hog mode
 			if (dbdmaFormat.fIsMixable) {
 				dbdmaFormat.fIsMixable = false;
-				if (mOutputStream) { mOutputStream->addAvailableFormat (&dbdmaFormat, &dbdmaFormatExtension, &sampleRate, &sampleRate); }
+				if (mOutputStream)
+				{
+					mOutputStream->addAvailableFormat (&dbdmaFormat, &dbdmaFormatExtension, &sampleRate, &sampleRate);
+				}
 				dbdmaFormat.fIsMixable = true;
 			}
 		}
@@ -636,29 +665,29 @@ void AppleDBDMAAudio::deallocateDMAMemory () {
 
 void AppleDBDMAAudio::allocateDMABuffers (void) {
 
-	debugIOLog (3, "allocateDMABuffers: buffer size = %ld", numBlocks * mMaxBlockSize);
+	debugIOLog (3, "  allocateDMABuffers: buffer size = %ld", numBlocks * mMaxBlockSize);
 
 	if(ioBaseDMAOutput) {
 		// integer sample buffer
 		if (NULL == mOutputSampleBuffer) {
 			mOutputSampleBuffer = IOMallocAligned(numBlocks * mMaxBlockSize, PAGE_SIZE);
-			debugIOLog (3, "allocated mOutputSampleBuffer");
+			debugIOLog ( 3, "  allocated mOutputSampleBuffer %p", mOutputSampleBuffer );
 		}
 		// floating point copy buffer
 		if (NULL == mIntermediateOutputSampleBuffer) {
 			mIntermediateOutputSampleBuffer = IOMallocAligned(numBlocks * mMaxBlockSize, PAGE_SIZE);
-			debugIOLog (3, "allocated mIntermediateOutputSampleBuffer");
+			debugIOLog ( 3, "  allocated mIntermediateOutputSampleBuffer %p", mIntermediateOutputSampleBuffer );
 		}
 	}
 	if(ioBaseDMAInput) {
 		if (NULL == mInputSampleBuffer) {
 			mInputSampleBuffer = IOMallocAligned(numBlocks * mMaxBlockSize, PAGE_SIZE);
-			debugIOLog (3, "allocated mInputSampleBuffer");
+			debugIOLog ( 3, "  allocated mInputSampleBuffer %p", mInputSampleBuffer );
 		}
 		// floating point copy buffer
 		if (NULL == mIntermediateInputSampleBuffer) {
 			mIntermediateInputSampleBuffer = IOMallocAligned(numBlocks * mMaxBlockSize, PAGE_SIZE);
-			debugIOLog (3, "allocated mIntermediateInputSampleBuffer");
+			debugIOLog ( 3, "  allocated mIntermediateInputSampleBuffer", mIntermediateInputSampleBuffer );
 		}
 	}
 }
@@ -668,20 +697,30 @@ bool AppleDBDMAAudio::allocateOutputDMADescriptors (void) {
 
 	result = FALSE;
 
+	debugIOLog ( 6, "+ AppleDBDMAAudio::allocateOutputDMADescriptors ()" );
+	
     commandBufferSize = (numBlocks + 1) * sizeof(IODBDMADescriptor);
+	debugIOLog ( 6, "  commandBufferSize %d", commandBufferSize );
     dmaCommandBufferOut = (IODBDMADescriptor *)IOMallocAligned(commandBufferSize, 32);	// needs to be more than 4 byte aligned
     FailIf (!dmaCommandBufferOut, Exit);
+	debugIOLog ( 6, "  dmaCommandBufferOut %p", dmaCommandBufferOut );
 
 	dmaCommandBufferOutMemDescriptor = IOMemoryDescriptor::withAddress (dmaCommandBufferOut, commandBufferSize, kIODirectionOutIn);
 	FailIf (NULL == dmaCommandBufferOutMemDescriptor, Exit);
+	debugIOLog ( 6, "  dmaCommandBufferOutMemDescriptor %p", dmaCommandBufferOutMemDescriptor );
+
 	sampleBufferOutMemDescriptor = IOMemoryDescriptor::withAddress (mOutputSampleBuffer, numBlocks * blockSize, kIODirectionOutIn);
 	FailIf (NULL == sampleBufferOutMemDescriptor, Exit);
+	debugIOLog ( 6, "  sampleBufferOutMemDescriptor %p", sampleBufferOutMemDescriptor );
+
 	stopCommandOutMemDescriptor = IOMemoryDescriptor::withAddress (&dmaCommandBufferOut[numBlocks], sizeof (IODBDMADescriptor *), kIODirectionOutIn);
 	FailIf (NULL == stopCommandOutMemDescriptor, Exit);
+	debugIOLog ( 6, "  stopCommandOutMemDescriptor %p", stopCommandOutMemDescriptor );
 
 	result = TRUE;
 
 Exit:
+	debugIOLog ( 6, "- AppleDBDMAAudio::allocateOutputDMADescriptors () returns %d", result );
 	return result;
 }
 
@@ -690,23 +729,32 @@ bool AppleDBDMAAudio::allocateInputDMADescriptors (void) {
 
 	result = FALSE;
 
+	debugIOLog ( 6, "+ AppleDBDMAAudio::allocateInputDMADescriptors ()" );
 	if(ioBaseDMAInput) {
 		commandBufferSize = (numBlocks + 1) * sizeof(IODBDMADescriptor);	// needs to be more than 4 byte aligned
+		debugIOLog ( 6, "  commandBufferSize %d", commandBufferSize );
 		
 		dmaCommandBufferIn = (IODBDMADescriptor *)IOMallocAligned(commandBufferSize, 32);	// needs to be more than 4 byte aligned
         FailIf (!dmaCommandBufferIn, Exit);
+		debugIOLog ( 6, "  dmaCommandBufferIn %d", dmaCommandBufferIn );
 
 		dmaCommandBufferInMemDescriptor = IOMemoryDescriptor::withAddress (dmaCommandBufferIn, commandBufferSize, kIODirectionOutIn);
 		FailIf (NULL == dmaCommandBufferInMemDescriptor, Exit);
+		debugIOLog ( 6, "  dmaCommandBufferInMemDescriptor %d", dmaCommandBufferInMemDescriptor );
+
 		sampleBufferInMemDescriptor = IOMemoryDescriptor::withAddress (mInputSampleBuffer, numBlocks * blockSize, kIODirectionOutIn);
 		FailIf (NULL == sampleBufferInMemDescriptor, Exit);
+		debugIOLog ( 6, "  sampleBufferInMemDescriptor %d", sampleBufferInMemDescriptor );
+
 		stopCommandInMemDescriptor = IOMemoryDescriptor::withAddress (&dmaCommandBufferIn[numBlocks], sizeof (IODBDMADescriptor *), kIODirectionOutIn);
 		FailIf (NULL == stopCommandInMemDescriptor, Exit);
+		debugIOLog ( 6, "  stopCommandInMemDescriptor %d", stopCommandInMemDescriptor );
 	}
 
 	result = TRUE;
 
 Exit:
+	debugIOLog ( 6, "- AppleDBDMAAudio::allocateInputDMADescriptors () returns %d", result );
 	return result;
 }
 
@@ -722,6 +770,7 @@ bool AppleDBDMAAudio::createDMAPrograms ( void ) {
 
 	result = FALSE;			// Didn't successfully create DMA program
 
+	debugIOLog ( 6, "+ AppleDBDMAAudio::createDMAPrograms ()" );
 	if ( NULL != ioBaseDMAOutput ) {
 		offset = 0;
 		dmaCommand = kdbdmaOutputMore;
@@ -732,10 +781,15 @@ bool AppleDBDMAAudio::createDMAPrograms ( void ) {
 	
 		commandBufferPhys = dmaCommandBufferOutMemDescriptor->getPhysicalAddress ();
 		FailIf (NULL == commandBufferPhys, Exit);
+		debugIOLog ( 6, "  commandBufferPhys %p", commandBufferPhys );
+
 		sampleBufferPhys = sampleBufferOutMemDescriptor->getPhysicalAddress ();
 		FailIf (NULL == sampleBufferPhys, Exit);
+		debugIOLog ( 6, "  sampleBufferPhys %p", sampleBufferPhys );
+
 		stopCommandPhys = stopCommandOutMemDescriptor->getPhysicalAddress ();
 		FailIf (NULL == stopCommandPhys, Exit);
+		debugIOLog ( 6, "  stopCommandPhys %p", stopCommandPhys );
 	
 		for (blockNum = 0; blockNum < numBlocks; blockNum++) {
 			IOPhysicalAddress	cmdDest;
@@ -874,6 +928,7 @@ bool AppleDBDMAAudio::createDMAPrograms ( void ) {
 	result = TRUE;
 
 Exit:
+	debugIOLog ( 6, "- AppleDBDMAAudio::createDMAPrograms () returns %d", result );
 	return result;
 }
 
@@ -909,6 +964,21 @@ IOReturn AppleDBDMAAudio::performAudioEngineStart()
 	
     FailIf (!interruptEventSource, Exit);
 
+	if ( kIOAudioDeviceActive != ourProvider->getPowerState () )
+	{
+		//	THE FOLLOWING 'IOLog' IS REQUIRED AND SHOULD NOT BE MOVED.  POWER MANAGEMENT
+		//	VERIFICATION CAN ONLY BE PERFORMED USING THE SYSTEM LOG!  AOA Viewer can be 
+		//	used to enable or disable kprintf power management logging messages.
+		if ( ourProvider->getDoKPrintfPowerState () )
+		{
+			IOLog ( "AppleDBDMAAudio::performAudioEngineStart ( %d, 0 ) setting power state to ACTIVE\n", TRUE );
+		}
+		// [3960444] only wake if needed - always running through this code puts QT out of sync on Q88
+		debugIOLog (3, "  AppleDBDMAAudio::performAudioEngineStart() calling doLocalChangeToActiveState");
+		result = ourProvider->doLocalChangeToActiveState ( TRUE, 0 );
+		FailIf ( kIOReturnSuccess != result, Exit );
+	}
+	
 	if (ioBaseDMAOutput && dmaCommandBufferOut) {
 		flush_dcache((vm_offset_t)dmaCommandBufferOut, commandBufferSize, false);
 	}
@@ -1641,7 +1711,7 @@ IOReturn AppleDBDMAAudio::convertAppleDBDMAFromInputStream16(const void *sampleB
 
 		samplesToConvert = (targetSampleFrame - mLastSampleFrameConverted) * streamFormat->fNumChannels;		
 
-		debugIOLog (7, "- convert:\t%p\t%ld\t%p\t%ld\t%ld", inputBuf16, inputBuf16 - (SInt16 *)sampleBuf, convertAtPointer, convertAtPointer - (float *)mIntermediateInputSampleBuffer, samplesToConvert);
+		debugIOLog (7, "  convert:\t%p\t%ld\t%p\t%ld\t%ld", inputBuf16, inputBuf16 - (SInt16 *)sampleBuf, convertAtPointer, convertAtPointer - (float *)mIntermediateInputSampleBuffer, samplesToConvert);
 
 		NativeInt16ToFloat32(inputBuf16, convertAtPointer, samplesToConvert, 16);
 		inputProcessing (convertAtPointer, samplesToConvert); 
@@ -1650,7 +1720,7 @@ IOReturn AppleDBDMAAudio::convertAppleDBDMAFromInputStream16(const void *sampleB
 
 		samplesToConvert = (numSampleFramesPerBuffer - mLastSampleFrameConverted) * streamFormat->fNumChannels;		
 
-		debugIOLog (7, "* convert:\t%p\t%ld\t%p\t%ld\t%ld\n", inputBuf16, inputBuf16 - (SInt16 *)sampleBuf, convertAtPointer, convertAtPointer - (float *)mIntermediateInputSampleBuffer, samplesToConvert);
+		debugIOLog (7, "  convert:\t%p\t%ld\t%p\t%ld\t%ld\n", inputBuf16, inputBuf16 - (SInt16 *)sampleBuf, convertAtPointer, convertAtPointer - (float *)mIntermediateInputSampleBuffer, samplesToConvert);
 
 		NativeInt16ToFloat32(inputBuf16, convertAtPointer, samplesToConvert, 16);
 		inputProcessing (convertAtPointer, samplesToConvert); 
@@ -1659,13 +1729,13 @@ IOReturn AppleDBDMAAudio::convertAppleDBDMAFromInputStream16(const void *sampleB
 		inputBuf16 = (SInt16 *)sampleBuf;
 		convertAtPointer = (float *)mIntermediateInputSampleBuffer;
 
-		debugIOLog (7, "* convert:\t%p\t%ld\t%p\t%ld\t%ld\n", inputBuf16, inputBuf16 - (SInt16 *)sampleBuf, convertAtPointer, convertAtPointer - (float *)mIntermediateInputSampleBuffer, samplesToConvert);
+		debugIOLog (7, "  convert:\t%p\t%ld\t%p\t%ld\t%ld\n", inputBuf16, inputBuf16 - (SInt16 *)sampleBuf, convertAtPointer, convertAtPointer - (float *)mIntermediateInputSampleBuffer, samplesToConvert);
 
 		NativeInt16ToFloat32(inputBuf16, convertAtPointer, samplesToConvert, 16);
 		inputProcessing (convertAtPointer, samplesToConvert); 
 	}
 	
-	debugIOLog (7, "copy:\t\t%ld\t\t%ld\t\t%ld\n", firstSampleFrame, firstSampleFrame + numSampleFrames - 1, numSampleFrames);
+	debugIOLog (7, "  copy:\t\t%ld\t\t%ld\t\t%ld\n", firstSampleFrame, firstSampleFrame + numSampleFrames - 1, numSampleFrames);
 
     floatDestBuf = (float *)destBuf;
 	copyFromPointer = &(((float *)mIntermediateInputSampleBuffer)[firstSampleFrame * streamFormat->fNumChannels]);
@@ -1705,7 +1775,7 @@ IOReturn AppleDBDMAAudio::convertAppleDBDMAFromInputStream16CopyR2L(const void *
 
 		samplesToConvert = (targetSampleFrame - mLastSampleFrameConverted) * streamFormat->fNumChannels;		
 
-		debugIOLog (7, "- convert:\t%p\t%ld\t%p\t%ld\t%ld", inputBuf16, inputBuf16 - (SInt16 *)sampleBuf, convertAtPointer, convertAtPointer - (float *)mIntermediateInputSampleBuffer, samplesToConvert);
+		debugIOLog (7, "  convert:\t%p\t%ld\t%p\t%ld\t%ld", inputBuf16, inputBuf16 - (SInt16 *)sampleBuf, convertAtPointer, convertAtPointer - (float *)mIntermediateInputSampleBuffer, samplesToConvert);
 
 		NativeInt16ToFloat32CopyRightToLeft(inputBuf16, convertAtPointer, samplesToConvert, 16);
 		inputProcessing (convertAtPointer, samplesToConvert); 
@@ -1714,7 +1784,7 @@ IOReturn AppleDBDMAAudio::convertAppleDBDMAFromInputStream16CopyR2L(const void *
 
 		samplesToConvert = (numSampleFramesPerBuffer - mLastSampleFrameConverted) * streamFormat->fNumChannels;		
 
-		debugIOLog (7, "* convert:\t%p\t%ld\t%p\t%ld\t%ld\n", inputBuf16, inputBuf16 - (SInt16 *)sampleBuf, convertAtPointer, convertAtPointer - (float *)mIntermediateInputSampleBuffer, samplesToConvert);
+		debugIOLog (7, "  convert:\t%p\t%ld\t%p\t%ld\t%ld\n", inputBuf16, inputBuf16 - (SInt16 *)sampleBuf, convertAtPointer, convertAtPointer - (float *)mIntermediateInputSampleBuffer, samplesToConvert);
 
 		NativeInt16ToFloat32CopyRightToLeft(inputBuf16, convertAtPointer, samplesToConvert, 16);
 		inputProcessing (convertAtPointer, samplesToConvert); 
@@ -1723,13 +1793,13 @@ IOReturn AppleDBDMAAudio::convertAppleDBDMAFromInputStream16CopyR2L(const void *
 		inputBuf16 = (SInt16 *)sampleBuf;
 		convertAtPointer = (float *)mIntermediateInputSampleBuffer;
 
-		debugIOLog (7, "* convert:\t%p\t%ld\t%p\t%ld\t%ld\n", inputBuf16, inputBuf16 - (SInt16 *)sampleBuf, convertAtPointer, convertAtPointer - (float *)mIntermediateInputSampleBuffer, samplesToConvert);
+		debugIOLog (7, "  convert:\t%p\t%ld\t%p\t%ld\t%ld\n", inputBuf16, inputBuf16 - (SInt16 *)sampleBuf, convertAtPointer, convertAtPointer - (float *)mIntermediateInputSampleBuffer, samplesToConvert);
 
 		NativeInt16ToFloat32CopyRightToLeft(inputBuf16, convertAtPointer, samplesToConvert, 16);
 		inputProcessing (convertAtPointer, samplesToConvert); 
 	}
 	
-	debugIOLog (7, "copy:\t\t%ld\t\t%ld\t\t%ld\n", firstSampleFrame, firstSampleFrame + numSampleFrames - 1, numSampleFrames);
+	debugIOLog (7, "  copy:\t\t%ld\t\t%ld\t\t%ld\n", firstSampleFrame, firstSampleFrame + numSampleFrames - 1, numSampleFrames);
 
     floatDestBuf = (float *)destBuf;
 	copyFromPointer = &(((float *)mIntermediateInputSampleBuffer)[firstSampleFrame * streamFormat->fNumChannels]);
@@ -1767,7 +1837,7 @@ IOReturn AppleDBDMAAudio::convertAppleDBDMAFromInputStream16WithGain(const void 
 
 		samplesToConvert = (targetSampleFrame - mLastSampleFrameConverted) * streamFormat->fNumChannels;		
 
-		debugIOLog (7, "- convert:\t%p\t%ld\t%p\t%ld\t%ld", inputBuf16, inputBuf16 - (SInt16 *)sampleBuf, convertAtPointer, convertAtPointer - (float *)mIntermediateInputSampleBuffer, samplesToConvert);
+		debugIOLog (7, "  convert:\t%p\t%ld\t%p\t%ld\t%ld", inputBuf16, inputBuf16 - (SInt16 *)sampleBuf, convertAtPointer, convertAtPointer - (float *)mIntermediateInputSampleBuffer, samplesToConvert);
 
 		NativeInt16ToFloat32Gain(inputBuf16, convertAtPointer, samplesToConvert, 16, mInputGainLPtr, mInputGainRPtr);
 		inputProcessing (convertAtPointer, samplesToConvert); 
@@ -1776,7 +1846,7 @@ IOReturn AppleDBDMAAudio::convertAppleDBDMAFromInputStream16WithGain(const void 
 
 		samplesToConvert = (numSampleFramesPerBuffer - mLastSampleFrameConverted) * streamFormat->fNumChannels;		
 
-		debugIOLog (7, "* convert:\t%p\t%ld\t%p\t%ld\t%ld\n", inputBuf16, inputBuf16 - (SInt16 *)sampleBuf, convertAtPointer, convertAtPointer - (float *)mIntermediateInputSampleBuffer, samplesToConvert);
+		debugIOLog (7, "  convert:\t%p\t%ld\t%p\t%ld\t%ld\n", inputBuf16, inputBuf16 - (SInt16 *)sampleBuf, convertAtPointer, convertAtPointer - (float *)mIntermediateInputSampleBuffer, samplesToConvert);
 
 		NativeInt16ToFloat32Gain(inputBuf16, convertAtPointer, samplesToConvert, 16, mInputGainLPtr, mInputGainRPtr);
 		inputProcessing (convertAtPointer, samplesToConvert); 
@@ -1785,13 +1855,13 @@ IOReturn AppleDBDMAAudio::convertAppleDBDMAFromInputStream16WithGain(const void 
 		inputBuf16 = (SInt16 *)sampleBuf;
 		convertAtPointer = (float *)mIntermediateInputSampleBuffer;
 
-		debugIOLog (7, "* convert:\t%p\t%ld\t%p\t%ld\t%ld\n", inputBuf16, inputBuf16 - (SInt16 *)sampleBuf, convertAtPointer, convertAtPointer - (float *)mIntermediateInputSampleBuffer, samplesToConvert);
+		debugIOLog (7, "  convert:\t%p\t%ld\t%p\t%ld\t%ld\n", inputBuf16, inputBuf16 - (SInt16 *)sampleBuf, convertAtPointer, convertAtPointer - (float *)mIntermediateInputSampleBuffer, samplesToConvert);
 
 		NativeInt16ToFloat32Gain(inputBuf16, convertAtPointer, samplesToConvert, 16, mInputGainLPtr, mInputGainRPtr);
 		inputProcessing (convertAtPointer, samplesToConvert); 
 	}
 	
-	debugIOLog (7, "copy:\t\t%ld\t\t%ld\t\t%ld\n", firstSampleFrame, firstSampleFrame + numSampleFrames - 1, numSampleFrames);
+	debugIOLog (7, "  copy:\t\t%ld\t\t%ld\t\t%ld\n", firstSampleFrame, firstSampleFrame + numSampleFrames - 1, numSampleFrames);
 
     floatDestBuf = (float *)destBuf;
 	copyFromPointer = &(((float *)mIntermediateInputSampleBuffer)[firstSampleFrame * streamFormat->fNumChannels]);
@@ -1829,7 +1899,7 @@ IOReturn AppleDBDMAAudio::convertAppleDBDMAFromInputStream32(const void *sampleB
 
 		samplesToConvert = (targetSampleFrame - mLastSampleFrameConverted) * streamFormat->fNumChannels;		
 
-		debugIOLog (7, "- convert:\t%p\t%ld\t%p\t%ld\t%ld", inputBuf32, inputBuf32 - (SInt32 *)sampleBuf, convertAtPointer, convertAtPointer - (float *)mIntermediateInputSampleBuffer, samplesToConvert);
+		debugIOLog (7, "  convert:\t%p\t%ld\t%p\t%ld\t%ld", inputBuf32, inputBuf32 - (SInt32 *)sampleBuf, convertAtPointer, convertAtPointer - (float *)mIntermediateInputSampleBuffer, samplesToConvert);
 
 		NativeInt32ToFloat32(inputBuf32, convertAtPointer, samplesToConvert, 32);
 		inputProcessing (convertAtPointer, samplesToConvert); 
@@ -1838,7 +1908,7 @@ IOReturn AppleDBDMAAudio::convertAppleDBDMAFromInputStream32(const void *sampleB
 
 		samplesToConvert = (numSampleFramesPerBuffer - mLastSampleFrameConverted) * streamFormat->fNumChannels;		
 
-		debugIOLog (7, "* convert:\t%p\t%ld\t%p\t%ld\t%ld\n", inputBuf32, inputBuf32 - (SInt32 *)sampleBuf, convertAtPointer, convertAtPointer - (float *)mIntermediateInputSampleBuffer, samplesToConvert);
+		debugIOLog (7, "  convert:\t%p\t%ld\t%p\t%ld\t%ld\n", inputBuf32, inputBuf32 - (SInt32 *)sampleBuf, convertAtPointer, convertAtPointer - (float *)mIntermediateInputSampleBuffer, samplesToConvert);
 
 		NativeInt32ToFloat32(inputBuf32, convertAtPointer, samplesToConvert, 32);
 		inputProcessing (convertAtPointer, samplesToConvert); 
@@ -1847,13 +1917,13 @@ IOReturn AppleDBDMAAudio::convertAppleDBDMAFromInputStream32(const void *sampleB
 		inputBuf32 = (SInt32 *)sampleBuf;
 		convertAtPointer = (float *)mIntermediateInputSampleBuffer;
 
-		debugIOLog (7, "* convert:\t%p\t%ld\t%p\t%ld\t%ld\n", inputBuf32, inputBuf32 - (SInt32 *)sampleBuf, convertAtPointer, convertAtPointer - (float *)mIntermediateInputSampleBuffer, samplesToConvert);
+		debugIOLog (7, "  convert:\t%p\t%ld\t%p\t%ld\t%ld\n", inputBuf32, inputBuf32 - (SInt32 *)sampleBuf, convertAtPointer, convertAtPointer - (float *)mIntermediateInputSampleBuffer, samplesToConvert);
 
 		NativeInt32ToFloat32(inputBuf32, convertAtPointer, samplesToConvert, 32);
 		inputProcessing (convertAtPointer, samplesToConvert); 
 	}
 	
-	debugIOLog (7, "copy:\t\t%ld\t\t%ld\t\t%ld\n", firstSampleFrame, firstSampleFrame + numSampleFrames - 1, numSampleFrames);
+	debugIOLog (7, "  copy:\t\t%ld\t\t%ld\t\t%ld\n", firstSampleFrame, firstSampleFrame + numSampleFrames - 1, numSampleFrames);
 
     floatDestBuf = (float *)destBuf;
 	copyFromPointer = &(((float *)mIntermediateInputSampleBuffer)[firstSampleFrame * streamFormat->fNumChannels]);
@@ -1891,7 +1961,7 @@ IOReturn AppleDBDMAAudio::convertAppleDBDMAFromInputStream32WithGain(const void 
 
 		samplesToConvert = (targetSampleFrame - mLastSampleFrameConverted) * streamFormat->fNumChannels;		
 
-		debugIOLog (7, "- convert:\t%p\t%ld\t%p\t%ld\t%ld", inputBuf32, inputBuf32 - (SInt32 *)sampleBuf, convertAtPointer, convertAtPointer - (float *)mIntermediateInputSampleBuffer, samplesToConvert);
+		debugIOLog (7, "  convert:\t%p\t%ld\t%p\t%ld\t%ld", inputBuf32, inputBuf32 - (SInt32 *)sampleBuf, convertAtPointer, convertAtPointer - (float *)mIntermediateInputSampleBuffer, samplesToConvert);
 
 		NativeInt32ToFloat32Gain(inputBuf32, convertAtPointer, samplesToConvert, 32, mInputGainLPtr, mInputGainRPtr);
 		inputProcessing (convertAtPointer, samplesToConvert); 
@@ -1900,7 +1970,7 @@ IOReturn AppleDBDMAAudio::convertAppleDBDMAFromInputStream32WithGain(const void 
 
 		samplesToConvert = (numSampleFramesPerBuffer - mLastSampleFrameConverted) * streamFormat->fNumChannels;		
 
-		debugIOLog (7, "* convert:\t%p\t%ld\t%p\t%ld\t%ld\n", inputBuf32, inputBuf32 - (SInt32 *)sampleBuf, convertAtPointer, convertAtPointer - (float *)mIntermediateInputSampleBuffer, samplesToConvert);
+		debugIOLog (7, "  convert:\t%p\t%ld\t%p\t%ld\t%ld\n", inputBuf32, inputBuf32 - (SInt32 *)sampleBuf, convertAtPointer, convertAtPointer - (float *)mIntermediateInputSampleBuffer, samplesToConvert);
 
 		NativeInt32ToFloat32Gain(inputBuf32, convertAtPointer, samplesToConvert, 32, mInputGainLPtr, mInputGainRPtr);
 		inputProcessing (convertAtPointer, samplesToConvert); 
@@ -1909,13 +1979,13 @@ IOReturn AppleDBDMAAudio::convertAppleDBDMAFromInputStream32WithGain(const void 
 		inputBuf32 = (SInt32 *)sampleBuf;
 		convertAtPointer = (float *)mIntermediateInputSampleBuffer;
 
-		debugIOLog (7, "* convert:\t%p\t%ld\t%p\t%ld\t%ld\n", inputBuf32, inputBuf32 - (SInt32 *)sampleBuf, convertAtPointer, convertAtPointer - (float *)mIntermediateInputSampleBuffer, samplesToConvert);
+		debugIOLog (7, "  convert:\t%p\t%ld\t%p\t%ld\t%ld\n", inputBuf32, inputBuf32 - (SInt32 *)sampleBuf, convertAtPointer, convertAtPointer - (float *)mIntermediateInputSampleBuffer, samplesToConvert);
 
 		NativeInt32ToFloat32Gain(inputBuf32, convertAtPointer, samplesToConvert, 32, mInputGainLPtr, mInputGainRPtr);
 		inputProcessing (convertAtPointer, samplesToConvert); 
 	}
 	
-	debugIOLog (7, "copy:\t\t%ld\t\t%ld\t\t%ld\n", firstSampleFrame, firstSampleFrame + numSampleFrames - 1, numSampleFrames);
+	debugIOLog (7, "  copy:\t\t%ld\t\t%ld\t\t%ld\n", firstSampleFrame, firstSampleFrame + numSampleFrames - 1, numSampleFrames);
 
     floatDestBuf = (float *)destBuf;
 	copyFromPointer = &(((float *)mIntermediateInputSampleBuffer)[firstSampleFrame * streamFormat->fNumChannels]);
@@ -2141,20 +2211,27 @@ Exit:
 
 //	[3305011]	begin {
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-IOReturn AppleDBDMAAudio::copyInputChannelCommands ( void * inputChannelCommands ) {
+IOReturn AppleDBDMAAudio::copyInputChannelCommands ( void * inputChannelCommands )
+{
 	IOReturn						result;
 	UInt32							indexLimit;
 	UCIODBDMAChannelCommandsPtr		ptr;
 	
 	result = kIOReturnError;
-	if ( NULL != inputChannelCommands ) {
-		if ( NULL != dmaCommandBufferIn ) {
+	if ( NULL != inputChannelCommands )
+	{
+		if ( NULL != dmaCommandBufferIn )
+		{
 			//	Limit size of transfer to user client buffer size
 			ptr = (UCIODBDMAChannelCommandsPtr)inputChannelCommands;
 			ptr->numBlocks = numBlocks;
 			indexLimit = ( kUserClientStateStructSize - sizeof ( UInt32 ) ) / sizeof ( IODBDMADescriptor );
-			if ( numBlocks < indexLimit ) { indexLimit = numBlocks; }
-			for ( UInt32 index = 0; index < indexLimit; index++ ) {
+			if ( numBlocks < indexLimit )
+			{
+				indexLimit = numBlocks;
+			}
+			for ( UInt32 index = 0; index < indexLimit; index++ )
+			{
 				ptr->channelCommands[index].operation = dmaCommandBufferIn[index].operation;
 				ptr->channelCommands[index].address = dmaCommandBufferIn[index].address;
 				ptr->channelCommands[index].cmdDep = dmaCommandBufferIn[index].cmdDep;
@@ -2168,20 +2245,105 @@ IOReturn AppleDBDMAAudio::copyInputChannelCommands ( void * inputChannelCommands
 
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-IOReturn AppleDBDMAAudio::copyOutputChannelCommands ( void * outputChannelCommands ) {
+IOReturn AppleDBDMAAudio::copyInputChannelCommands1 ( void * inputChannelCommands )
+{
+	IOReturn						result;
+	UInt32							indexLimit;
+	IODBDMADescriptor *				ptr;
+	
+	result = kIOReturnError;
+	if ( numBlocks >= 255 )
+	{
+		if ( NULL != inputChannelCommands )
+		{
+			if ( NULL != dmaCommandBufferIn )
+			{
+				//	Limit size of transfer to user client buffer size
+				ptr = (IODBDMADescriptor*)inputChannelCommands;
+				indexLimit = ( kUserClientStateStructSize / sizeof ( IODBDMADescriptor ) );
+				if ( ( numBlocks - 255 ) < indexLimit )
+				{
+					indexLimit = ( numBlocks - 255 );
+				}
+				for ( UInt32 index = 0; index < indexLimit; index++ )
+				{
+					ptr[index].operation = dmaCommandBufferIn[index].operation;
+					ptr[index].address = dmaCommandBufferIn[index].address;
+					ptr[index].cmdDep = dmaCommandBufferIn[index].cmdDep;
+					ptr[index].result = dmaCommandBufferIn[index].result;
+				}
+				result = kIOReturnSuccess;
+			}
+		}
+	}
+	return result;
+}
+
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//	NOTE:  The DBDMA channel commands consist of four 32 bit words per command
+//			as follows...
+//
+//			 ___________________
+//			|                   |
+//			| OPERATION         |
+//			|___________________|
+//			|                   |
+//			| ADDRESS           |
+//			|___________________|
+//			|                   |
+//			| COMMAND DEPENDENT |
+//			|___________________|
+//			|                   |
+//			| RESULT            |
+//			|___________________|
+//
+//	A typical implementation of the channel commands consists of 512 channel
+//	commands while the maximum buffer size that can be transacted across the
+//	user / client boundary is 4096 bytes.  This creates a situation where the
+//	channel commands, plus the prefixed 32 bit integer representing a count of
+//	channel commands, requires 8196 bytes.  Three separate user client transactions
+//	are required to transact the channel commands.  This method only transacts
+//	the count of channel commands and the first 255.75 commands.  Additional
+//	methods are provided for acquiring the remainder of the channel command buffer.
+//
+//	The 'Operation' field consists of:
+//	 _____ ___ _____ ___ ___ ___ ___ __________
+//	|     |   |     |   |   |   |   |          |
+//	| cmd | r | key | r | I | B | W | reqCount |
+//	|  4  | 1 |  3  | 2 | 2 | 2 | 2 |    16    |
+//	|_____|___|_____|___|___|___|___|__________|
+//
+//	The 'Result' field consists of:
+//	 _____________ ______________
+//	|             |              |
+//	| Xfer Status | Result Count |
+//	|      16     |       16     |
+//	|_____________|______________|
+//
+//	Note that the 'operation' field is Little Endian
+//
+IOReturn AppleDBDMAAudio::copyOutputChannelCommands ( void * outputChannelCommands )
+{
 	IOReturn			result;
 	UInt32				indexLimit;
 	UCIODBDMAChannelCommandsPtr		ptr;
 	
 	result = kIOReturnError;
-	if ( NULL != outputChannelCommands ) {
-		if ( NULL != dmaCommandBufferOut ) {
+	if ( NULL != outputChannelCommands )
+	{
+		if ( NULL != dmaCommandBufferOut )
+		{
 			//	Limit size of transfer to user client buffer size
 			ptr = (UCIODBDMAChannelCommandsPtr)outputChannelCommands;
 			ptr->numBlocks = numBlocks;
 			indexLimit = ( kUserClientStateStructSize - sizeof ( UInt32 ) ) / sizeof ( IODBDMADescriptor );
-			if ( numBlocks < indexLimit ) { indexLimit = numBlocks; }
-			for ( UInt32 index = 0; index < indexLimit; index++ ) {
+			if ( numBlocks < indexLimit )
+			{
+				indexLimit = numBlocks;
+			}
+			for ( UInt32 index = 0; index < indexLimit; index++ )
+			{
 				ptr->channelCommands[index].operation = dmaCommandBufferOut[index].operation;
 				ptr->channelCommands[index].address = dmaCommandBufferOut[index].address;
 				ptr->channelCommands[index].cmdDep = dmaCommandBufferOut[index].cmdDep;
@@ -2195,12 +2357,51 @@ IOReturn AppleDBDMAAudio::copyOutputChannelCommands ( void * outputChannelComman
 
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-IOReturn AppleDBDMAAudio::copyInputChannelRegisters (void * outState) {
+IOReturn AppleDBDMAAudio::copyOutputChannelCommands1 ( void * outputChannelCommands )
+{
+	IOReturn			result;
+	UInt32				indexLimit;
+	IODBDMADescriptor *	ptr;
+	
+	result = kIOReturnError;
+	if ( numBlocks >= 255 )
+	{
+		if ( NULL != outputChannelCommands )
+		{
+			if ( NULL != dmaCommandBufferOut )
+			{
+				//	Limit size of transfer to user client buffer size
+				ptr = (IODBDMADescriptor*)outputChannelCommands;
+				indexLimit = ( kUserClientStateStructSize / sizeof ( IODBDMADescriptor ) );
+				if ( ( numBlocks - 255 ) < indexLimit )
+				{
+					indexLimit = ( numBlocks - 255 );
+				}
+				for ( UInt32 index = 0; index < indexLimit; index++ )
+				{
+					ptr[index].operation = dmaCommandBufferOut[index+255].operation;
+					ptr[index].address = dmaCommandBufferOut[index+255].address;
+					ptr[index].cmdDep = dmaCommandBufferOut[index+255].cmdDep;
+					ptr[index].result = dmaCommandBufferOut[index+255].result;
+				}
+				result = kIOReturnSuccess;
+			}
+		}
+	}
+	return result;
+}
+
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+IOReturn AppleDBDMAAudio::copyInputChannelRegisters (void * outState)
+{
 	IOReturn			result;
 	
 	result = kIOReturnError;
-	if ( NULL != outState ) {
-		if ( NULL != ioBaseDMAInput ) {
+	if ( NULL != outState )
+	{
+		if ( NULL != ioBaseDMAInput )
+		{
 			((IODBDMAChannelRegisters*)outState)->channelControl = OSReadLittleInt32( &ioBaseDMAInput->channelControl, 0 );
 			((IODBDMAChannelRegisters*)outState)->channelStatus = OSReadLittleInt32( &ioBaseDMAInput->channelStatus, 0 );
 			((IODBDMAChannelRegisters*)outState)->commandPtrHi = OSReadLittleInt32( &ioBaseDMAInput->commandPtrHi, 0 );
@@ -2220,12 +2421,15 @@ IOReturn AppleDBDMAAudio::copyInputChannelRegisters (void * outState) {
 
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-IOReturn AppleDBDMAAudio::copyOutputChannelRegisters (void * outState) {
+IOReturn AppleDBDMAAudio::copyOutputChannelRegisters (void * outState)
+{
 	IOReturn			result;
 	
 	result = kIOReturnError;
-	if ( NULL != outState ) {
-		if ( NULL != ioBaseDMAOutput ) {
+	if ( NULL != outState )
+	{
+		if ( NULL != ioBaseDMAOutput )
+		{
 			((IODBDMAChannelRegisters*)outState)->channelControl = OSReadLittleInt32( &ioBaseDMAOutput->channelControl, 0 );
 			((IODBDMAChannelRegisters*)outState)->channelStatus = OSReadLittleInt32( &ioBaseDMAOutput->channelStatus, 0 );
 			((IODBDMAChannelRegisters*)outState)->commandPtrHi = OSReadLittleInt32( &ioBaseDMAOutput->commandPtrHi, 0 );
@@ -2286,11 +2490,30 @@ bool AppleDBDMAAudio::getDmaState (void )
 
 IOReturn AppleDBDMAAudio::performFormatChange(IOAudioStream *audioStream, const IOAudioStreamFormat *newFormat, const IOAudioSampleRate *newSampleRate)
 {
+	Boolean						wasPoweredDown;
 	IOReturn					result;
 	
 	result = kIOReturnError;
 	
 	debugIOLog (3, "+ AppleDBDMAAudio::performFormatChange (%p, %p, %p)", audioStream, newFormat, newSampleRate);	
+	
+	FailIf ( 0 == ourProvider, Exit );
+	
+	//	[3945202]	If 'performFormatChange' is invoked then the hardware must be awakened.  This is especially true
+	//	of the TAS3004 which cannot have the format applied if in sleep mode.
+	
+	if ( kIOAudioDeviceActive != ourProvider->getPowerState () )
+	{
+		//	THE FOLLOWING 'IOLog' IS REQUIRED AND SHOULD NOT BE MOVED.  POWER MANAGEMENT
+		//	VERIFICATION CAN ONLY BE PERFORMED USING THE SYSTEM LOG!  AOA Viewer can be 
+		//	used to enable or disable kprintf power management logging messages.
+		if ( ourProvider->getDoKPrintfPowerState () )
+		{
+			IOLog ( "AppleDBDMAAudio::performFormatChange ( %d, %p ) setting power state to ACTIVE\n", TRUE, &wasPoweredDown );
+		}
+	}
+	result = ourProvider->doLocalChangeToActiveState ( TRUE, &wasPoweredDown );
+	FailIf ( kIOReturnSuccess != result, Exit );
 	
 	// [3656784] verify that this is a valid format change before updating everything below - right now this just checks
 	// if an encoded format is valid based on digital out connection states.  Other format info is validated by IOAudioFamily
@@ -2310,7 +2533,7 @@ IOReturn AppleDBDMAAudio::performFormatChange(IOAudioStream *audioStream, const 
 				mPreviousDBDMAFormat.fBitDepth = mDBDMAOutputFormat.fBitDepth;
 				mPreviousDBDMAFormat.fSampleFormat = mDBDMAOutputFormat.fSampleFormat;
 				mPreviousSampleRate = sampleRate.whole; 
-				debugIOLog (4, "mPrevious format set to : %ld, %ld, %4s, %ld", mPreviousDBDMAFormat.fNumChannels, mPreviousDBDMAFormat.fBitDepth, &(mPreviousDBDMAFormat.fSampleFormat), mPreviousSampleRate);
+				debugIOLog (4, "  mPrevious format set to : %ld, %ld, %4s, %ld", mPreviousDBDMAFormat.fNumChannels, mPreviousDBDMAFormat.fBitDepth, &(mPreviousDBDMAFormat.fSampleFormat), mPreviousSampleRate);
 			} else {
 				mPreviousDBDMAFormat.fNumChannels = newFormat->fNumChannels;
 				mPreviousDBDMAFormat.fBitDepth = newFormat->fBitDepth;
@@ -2318,11 +2541,13 @@ IOReturn AppleDBDMAAudio::performFormatChange(IOAudioStream *audioStream, const 
 				if (NULL != newSampleRate) {
 					mPreviousSampleRate = newSampleRate->whole; 
 				}
-				debugIOLog (4, "mPrevious format set to : %ld, %ld, %4s, %ld", mPreviousDBDMAFormat.fNumChannels, mPreviousDBDMAFormat.fBitDepth, &(mPreviousDBDMAFormat.fSampleFormat), mPreviousSampleRate);
+				debugIOLog (4, "  mPrevious format set to : %ld, %ld, %4s, %ld", mPreviousDBDMAFormat.fNumChannels, mPreviousDBDMAFormat.fBitDepth, &(mPreviousDBDMAFormat.fSampleFormat), mPreviousSampleRate);
 			}
 			
 			if (audioStream == mOutputStream)
+			{
 				mDBDMAOutputFormat.fSampleFormat = newFormat->fSampleFormat;
+			}
 
 			mDBDMAOutputFormat.fNumChannels = newFormat->fNumChannels;
 			mDBDMAOutputFormat.fNumericRepresentation = newFormat->fNumericRepresentation;
@@ -2384,7 +2609,7 @@ IOReturn AppleDBDMAAudio::performFormatChange(IOAudioStream *audioStream, const 
 			if (newSampleRate->whole != sampleRate.whole) {
 				UInt32			newSampleOffset;
 
-				debugIOLog (3, "changing sample rate");
+				debugIOLog (3, "  changing sample rate");
 				updateDSPForSampleRate (newSampleRate->whole);
 				// update iSub coefficients for new sample rate
 				if ((NULL != iSubBufferMemory) && (NULL != iSubEngine)) {
@@ -2410,6 +2635,12 @@ IOReturn AppleDBDMAAudio::performFormatChange(IOAudioStream *audioStream, const 
 		chooseInputConversionRoutinePtr();
 	}
 Exit:
+	//	[3945202]	If 'performFormatChange' is invoked then the hardware must be awakened.  This is especially true
+	//	of the TAS3004 which cannot have the format applied if in sleep mode.
+	
+	result = ourProvider->doLocalChangeScheduleIdle ( wasPoweredDown );
+	FailMessage ( kIOReturnSuccess != result );
+	
 	debugIOLog (3, "- AppleDBDMAAudio::performFormatChange (%p, %p, %p) returns %lX", audioStream, newFormat, newSampleRate, result);	
     return result;
 }
@@ -2440,7 +2671,7 @@ IOReturn AppleDBDMAAudio::iSubAttachChangeHandler (IOService *target, IOAudioCon
 			if (NULL != audioDMAEngine->iSubBufferMemory) {
 				// it looks like the notifier could be called before iSubEngineNotifier is set, 
 				// so if it was called, then iSubBufferMemory would no longer be NULL and we can remove the notifier
-				debugIOLog (3, "iSub was already attached");
+				debugIOLog (3, "  iSub was already attached");
 				audioDMAEngine->iSubEngineNotifier->remove ();
 				audioDMAEngine->iSubEngineNotifier = NULL;
 			}

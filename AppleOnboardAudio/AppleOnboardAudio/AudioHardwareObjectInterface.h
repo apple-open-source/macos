@@ -29,6 +29,7 @@ protected:
 	Boolean					mAnalogMuteState;
 	Boolean					mDigitalMuteState;
 	Boolean					mInitialized;
+	UInt32					mPluginCurrentPowerState;
 
 public:
 
@@ -85,8 +86,7 @@ public:
 	virtual	void			disableProcessing (Boolean inRealtime) {return;}
 	virtual	void			enableProcessing (void) {return;}
 	
-	virtual IOReturn		performDeviceSleep () {return kIOReturnError;}
-	virtual IOReturn		performDeviceWake () {return kIOReturnError;}
+	virtual IOReturn		performSetPowerState ( UInt32 currentPowerState, UInt32 pendingPowerState ) { return kIOReturnSuccess; }
 
 	virtual IOReturn		setSampleRate ( UInt32 sampleRate ) { return kIOReturnError; }
 	virtual IOReturn		setSampleDepth ( UInt32 sampleDepth ) { return kIOReturnError; }
@@ -105,6 +105,8 @@ public:
 	
 	virtual void			poll ( void ) { return; }
 	virtual bool			getClockLockStatus ( void ) { return FALSE; }
+	
+	virtual IOReturn		requestSleepTime ( UInt32 * microsecondsUntilComplete ) = 0;
 
 	//	
 	//	User Client Support

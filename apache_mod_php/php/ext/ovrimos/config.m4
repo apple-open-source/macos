@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.1.1.4 2003/03/11 01:09:28 zarzycki Exp $
+dnl $Id: config.m4,v 1.4.4.2 2003/10/01 02:54:02 sniper Exp $
 dnl
 
 PHP_ARG_WITH(ovrimos, for Ovrimos SQL Server support,
@@ -7,10 +7,8 @@ PHP_ARG_WITH(ovrimos, for Ovrimos SQL Server support,
                           Ovrimos libsqlcli install directory.])
 
 if test "$PHP_OVRIMOS" != "no"; then
-  for i in /usr/local /usr $PHP_OVRIMOS; do
-    if test -f $i/include/sqlcli.h; then
-      OVRIMOS_DIR=$i
-    fi
+  for i in $PHP_OVRIMOS /usr/local /usr; do
+    test -f $i/include/sqlcli.h && OVRIMOS_DIR=$i && break
   done
 
   if test -z "$OVRIMOS_DIR"; then
@@ -18,11 +16,11 @@ if test "$PHP_OVRIMOS" != "no"; then
   fi
 
   PHP_ADD_INCLUDE($OVRIMOS_DIR/include)
-  PHP_SUBST(OVRIMOS_SHARED_LIBADD)
   LDFLAGS="$LDFLAGS $ld_runpath_switch$OVRIMOS_DIR/lib -L$OVRIMOS_DIR/lib"
   AC_CHECK_LIB(sqlcli, main)
   PHP_ADD_LIBRARY_WITH_PATH(sqlcli, $OVRIMOS_DIR/lib, OVRIMOS_SHARED_LIBADD)
-  AC_DEFINE(HAVE_LIBSQLCLI,1,[ ])
 
   PHP_NEW_EXTENSION(ovrimos, ovrimos.c, $ext_shared)
+  PHP_SUBST(OVRIMOS_SHARED_LIBADD)
+  AC_DEFINE(HAVE_LIBSQLCLI,1,[ ])
 fi

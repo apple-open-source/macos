@@ -54,6 +54,7 @@
 #include "zend_constants.h"
 #include "zend_variables.h"
 #include "zend_operators.h"
+#include "zend_strtod.h"
 
 #ifdef HAVE_STDARG_H
 # include <stdarg.h>
@@ -61,6 +62,10 @@
 
 #ifdef HAVE_UNISTD_H
 # include <unistd.h>
+#endif
+
+#ifdef ZEND_WIN32
+#include <io.h>
 #endif
 
 #define YY_DECL int lex_scan(zval *zendlval TSRMLS_DC)
@@ -71,6 +76,11 @@
 #  define MY_INPUT yyinput
 #else
 #  define MY_INPUT input
+#endif
+
+
+#ifndef STDIN_FILENO
+# define STDIN_FILENO 0
 #endif
 
 
@@ -113,7 +123,7 @@ do {																			\
 
 void zend_fatal_scanner_error(char *message)
 {
-	zend_error(E_COMPILE_ERROR, message);
+	zend_error(E_COMPILE_ERROR, "%s", message);
 }
 
 BEGIN_EXTERN_C()
@@ -123,6 +133,12 @@ void startup_scanner(TSRMLS_D)
 	CG(heredoc_len)=0;
 	SCNG(yy_start_stack_ptr) = 0;
 	SCNG(yy_start_stack_depth) = 0;
+#ifdef ZEND_MULTIBYTE
+	SCNG(code) = NULL;
+	SCNG(code_size) = 0;
+	SCNG(current_code) = NULL;
+	SCNG(current_code_size) = 0;
+#endif /* ZEND_MULTIBYTE */
 }
 
 
@@ -135,9 +151,11 @@ void shutdown_scanner(TSRMLS_D)
 #ifdef ZEND_MULTIBYTE
 	if (SCNG(code)) {
 		efree(SCNG(code));
+		SCNG(code) = NULL;
 	}
 	if (SCNG(current_code)) {
 		efree(SCNG(current_code));
+		SCNG(current_code) = NULL;
 	}
 #endif /* ZEND_MULTIBYTE */
 }
@@ -198,6 +216,15 @@ BEGIN_EXTERN_C()
 ZEND_API void zend_file_handle_dtor(zend_file_handle *fh)
 {
 	switch (fh->type) {
+		case ZEND_HANDLE_SOCKET_FD:
+#ifdef ZEND_WIN32
+			closesocket(fh->handle.fd);
+			break;
+#endif
+		/* fall-through */ 
+		case ZEND_HANDLE_FD:
+			close(fh->handle.fd);
+			break;
 		case ZEND_HANDLE_FP:
 			fclose(fh->handle.fp);
 			break;
@@ -209,9 +236,11 @@ ZEND_API void zend_file_handle_dtor(zend_file_handle *fh)
 	}
 	if (fh->opened_path) {
 		efree(fh->opened_path);
+		fh->opened_path = NULL;
 	}
 	if (fh->free_filename && fh->filename) {
 		efree(fh->filename);
+		fh->filename = NULL;
 	}
 }
 
@@ -224,6 +253,10 @@ int zend_compare_file_handles(zend_file_handle *fh1, zend_file_handle *fh2)
 	switch (fh1->type) {
 		case ZEND_HANDLE_FP:
 			return fh1->handle.fp==fh2->handle.fp;
+			break;
+		case ZEND_HANDLE_SOCKET_FD:
+		case ZEND_HANDLE_FD:
+			return fh1->handle.fd==fh2->handle.fd;
 			break;
 	}
 	return 0;
@@ -239,28 +272,28 @@ ZEND_API void zend_destroy_file_handle(zend_file_handle *file_handle TSRMLS_DC)
 ZEND_API int open_file_for_scanning(zend_file_handle *file_handle TSRMLS_DC)
 {
 	char *file_path=NULL;
+	int do_add = 1;
 
 	switch (file_handle->type) {
 		case ZEND_HANDLE_FILENAME:
-			file_handle->handle.fp = zend_fopen(file_handle->filename, &file_handle->opened_path);
+			if (zend_open(file_handle->filename, file_handle) != SUCCESS)
+				return FAILURE;
 			break;
-		case ZEND_HANDLE_FD:
-			file_handle->handle.fp = fdopen(file_handle->handle.fd, "r");
-			break;
-		case ZEND_HANDLE_FP:
-			file_handle->handle.fp = file_handle->handle.fp;
-			break;
-	}
-	if (!file_handle->handle.fp) {
-		return FAILURE;
 	}
 
-	file_handle->type = ZEND_HANDLE_FP;	
-	if (file_handle->handle.fp != stdin) {
+	if (!ZEND_IS_VALID_FILE_HANDLE(file_handle))
+			return FAILURE;
+	
+	if (file_handle->type == ZEND_HANDLE_FP && file_handle->handle.fp == stdin)
+		do_add = 0;
+	else if (file_handle->type == ZEND_HANDLE_FD && file_handle->handle.fd == STDIN_FILENO)
+		do_add = 0;
+	
+	if (do_add) {
 		zend_llist_add_element(&CG(open_files), file_handle);
 	}
 	/* Reset the scanner for scanning the new file */
-	SCNG(yy_in) = file_handle->handle.fp;
+	SCNG(yy_in) = file_handle;
 #ifdef ZEND_MULTIBYTE
 	if (zend_read_file(TSRMLS_C) != 0) {
 		return FAILURE;
@@ -275,9 +308,6 @@ ZEND_API int open_file_for_scanning(zend_file_handle *file_handle TSRMLS_DC)
 
 	if (!SCNG(input_filter)) {
 		SCNG(current_code) = (char*)emalloc(SCNG(code_size)+1);
-		if (!SCNG(current_code)) {
-			return FAILURE;
-		}
 		memcpy(SCNG(current_code), SCNG(code), SCNG(code_size)+1);
 		SCNG(current_code_size) = SCNG(code_size);
 	} else {
@@ -289,9 +319,6 @@ ZEND_API int open_file_for_scanning(zend_file_handle *file_handle TSRMLS_DC)
 	
 	/* we need two nulls so that ralloc... */
 	SCNG(current_code) = (char*)erealloc(SCNG(current_code), SCNG(current_code_size)+2);
-	if (!SCNG(current_code)) {
-		return FAILURE;
-	}
 	*(SCNG(current_code)+SCNG(current_code_size)) = (char)NULL;
 	*(SCNG(current_code)+SCNG(current_code_size)+1) = (char)NULL;
 	yy_scan_buffer(SCNG(current_code), SCNG(current_code_size)+2 TSRMLS_CC);
@@ -357,8 +384,7 @@ ZEND_API zend_op_array *compile_file(zend_file_handle *file_handle, int type TSR
 		zend_do_return(&retval_znode, 0 TSRMLS_CC);
 		CG(in_compilation) = original_in_compilation;
 		if (compiler_result==1) { /* parser error */
-			CG(unclean_shutdown) = 1;
-			retval = NULL;
+			zend_bailout();
 		}
 		compilation_successful=1;
 #ifdef ZEND_MULTIBYTE
@@ -368,7 +394,7 @@ ZEND_API zend_op_array *compile_file(zend_file_handle *file_handle, int type TSR
 		}
 		if (SCNG(current_code)) {
 			efree(SCNG(current_code));
-			SCNG(code) = NULL;
+			SCNG(current_code) = NULL;
 		}
 #endif /* ZEND_MULTIBYTE */
 	}
@@ -391,7 +417,7 @@ ZEND_API zend_op_array *compile_file(zend_file_handle *file_handle, int type TSR
 
 zend_op_array *compile_filename(int type, zval *filename TSRMLS_DC)
 {
-	zend_file_handle file_handle;
+	zend_file_handle file_handle = {0};
 	zval tmp;
 	zend_op_array *retval;
 	char *opened_path = NULL;
@@ -407,9 +433,8 @@ zend_op_array *compile_filename(int type, zval *filename TSRMLS_DC)
 	file_handle.type = ZEND_HANDLE_FILENAME;
 	file_handle.opened_path = NULL;
 
-
 	retval = zend_compile_file(&file_handle, type TSRMLS_CC);
-	if (retval && file_handle.handle.fp) {
+	if (retval && ZEND_IS_VALID_FILE_HANDLE(&file_handle)) {
 		int dummy = 1;
 	
 		if (!file_handle.opened_path) {
@@ -441,18 +466,12 @@ ZEND_API int zend_prepare_string_for_scanning(zval *str, char *filename TSRMLS_D
 #ifdef ZEND_MULTIBYTE
 	/* instead of zend_readfile() */
 	SCNG(code) = estrdup(str->value.str.val);
-	if (!SCNG(code)) {
-		return FAILURE;
-	}
 	SCNG(code_size) = str->value.str.len;
 
 	zend_multibyte_set_filter(CG(internal_encoding) TSRMLS_CC);
 
 	if (!SCNG(input_filter)) {
 		SCNG(current_code) = (char*)emalloc(SCNG(code_size)+1);
-		if (!SCNG(current_code)) {
-			return FAILURE;
-		}
 		memcpy(SCNG(current_code), SCNG(code), SCNG(code_size)+1);
 		SCNG(current_code_size) = SCNG(code_size);
 	} else {
@@ -463,9 +482,6 @@ ZEND_API int zend_prepare_string_for_scanning(zval *str, char *filename TSRMLS_D
 	}
 
 	SCNG(current_code) = (char*)erealloc(SCNG(current_code), SCNG(current_code_size)+2);
-	if (!SCNG(current_code)) {
-		return FAILURE;
-	}
 	*(SCNG(current_code)+SCNG(current_code_size)) = (char)NULL;
 	*(SCNG(current_code)+SCNG(current_code_size)+1) = (char)NULL;
 	yy_scan_buffer(SCNG(current_code), SCNG(current_code_size)+2 TSRMLS_CC);
@@ -518,7 +534,7 @@ zend_op_array *compile_string(zval *source_string, char *filename TSRMLS_DC)
 		}
 		if (SCNG(current_code)) {
 			efree(SCNG(current_code));
-			SCNG(code) = NULL;
+			SCNG(current_code) = NULL;
 		}
 #endif /* ZEND_MULTIBYTE */
 		
@@ -544,7 +560,7 @@ BEGIN_EXTERN_C()
 int highlight_file(char *filename, zend_syntax_highlighter_ini *syntax_highlighter_ini TSRMLS_DC)
 {
 	zend_lex_state original_lex_state;
-	zend_file_handle file_handle;
+	zend_file_handle file_handle = {0};
 
 	file_handle.type = ZEND_HANDLE_FILENAME;
 	file_handle.filename = filename;
@@ -563,7 +579,7 @@ int highlight_file(char *filename, zend_syntax_highlighter_ini *syntax_highlight
 	}
 	if (SCNG(current_code)) {
 		efree(SCNG(current_code));
-		SCNG(code) = NULL;
+		SCNG(current_code) = NULL;
 	}
 #endif /* ZEND_MULTIBYTE */
 	zend_destroy_file_handle(&file_handle TSRMLS_CC);
@@ -590,7 +606,7 @@ int highlight_string(zval *str, zend_syntax_highlighter_ini *syntax_highlighter_
 	}
 	if (SCNG(current_code)) {
 		efree(SCNG(current_code));
-		SCNG(code) = NULL;
+		SCNG(current_code) = NULL;
 	}
 #endif /* ZEND_MULTIBYTE */
 	zend_restore_lexical_state(&original_lex_state TSRMLS_CC);
@@ -666,27 +682,35 @@ ZEND_API int zend_read_file(TSRMLS_D)
 	SCNG(code) = NULL;
 	SCNG(code_size) = 0;
 
-	do {
-		n = fread(buf, 1, 8192, SCNG(yy_in));
-		if (n) {
-			SCNG(code_size) += n;
-			if (SCNG(code)) {
-				SCNG(code) = (char*)erealloc(SCNG(code), SCNG(code_size)+1);
-				if (!SCNG(code)) {
-					return -1;
-				}
-			} else {
-				SCNG(code) = (char*)emalloc(SCNG(code_size)+1);
-				if (!SCNG(code)) {
-					return -1;
-				}
-			}
-			memcpy(SCNG(code)+SCNG(code_size)-n, buf, n);
+	for (;;) {
+		switch (SCNG(yy_in)->type) {
+			case ZEND_HANDLE_FD:
+				n = read(SCNG(yy_in)->handle.fd, buf, sizeof(buf));
+				break;
+			case ZEND_HANDLE_FP:
+				n = fread(buf, sizeof(buf[0]), sizeof(buf) / sizeof(buf[0]), SCNG(yy_in)->handle.fp);
+				break;
+			case ZEND_HANDLE_SOCKET_FD:
+				n =	recv(SCNG(yy_in)->handle.fd, buf, sizeof(buf), 0);
 		}
-	} while(n);
-	if (ferror(SCNG(yy_in))) {
+
+		if (n <= 0) {
+			break;
+		}
+
+		SCNG(code_size) += n;
+		if (SCNG(code)) {
+			SCNG(code) = (char*)erealloc(SCNG(code), SCNG(code_size)+1);
+		} else {
+			SCNG(code) = (char*)emalloc(SCNG(code_size)+1);
+		}
+		memcpy(SCNG(code)+SCNG(code_size)-n, buf, n);
+	}
+
+	if (n < 0) {
 		return -1;
 	}
+
 	if (!SCNG(code)) {
 		SCNG(code) = emalloc(SCNG(code_size)+1);
 	}
@@ -1114,7 +1138,7 @@ NEWLINE ("\r"|"\n"|"\r\n")
 	errno = 0;
 	zendlval->value.lval = strtol(yytext, NULL, 0);
 	if (errno == ERANGE) { /* overflow */
-		zendlval->value.dval = strtod(yytext, NULL);
+		zendlval->value.dval = zend_strtod(yytext, NULL);
 		zendlval->type = IS_DOUBLE;
 		return T_DNUMBER;
 	} else {
@@ -1151,7 +1175,7 @@ NEWLINE ("\r"|"\n"|"\r\n")
 }
 
 <ST_IN_SCRIPTING>{DNUM}|{EXPONENT_DNUM} {
-	zendlval->value.dval = strtod(yytext, NULL);
+	zendlval->value.dval = zend_strtod(yytext, NULL);
 	zendlval->type = IS_DOUBLE;
 	return T_DNUMBER;
 }
@@ -1595,8 +1619,8 @@ NEWLINE ("\r"|"\n"|"\r\n")
 	}
 
 	if (label_len==CG(heredoc_len) && !memcmp(yytext, CG(heredoc), label_len)) {
-		zendlval->value.str.val = estrndup(yytext, yyleng); /* unput destroys yytext */
-		zendlval->value.str.len = yyleng;
+		zendlval->value.str.val = estrndup(yytext, label_len); /* unput destroys yytext */
+		zendlval->value.str.len = label_len;
 		if (unput_semicolon) {
 			unput(';');
 		}

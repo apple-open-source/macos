@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: pwd.c,v 1.1.1.4 2003/07/18 18:07:52 zarzycki Exp $ */
+/* $Id: pwd.c,v 1.5.4.3 2004/10/21 23:43:41 edink Exp $ */
 
 #include "php.h"				/*php specific */
 #define WIN32_LEAN_AND_MEAN
@@ -28,10 +28,7 @@
 #include <lmapibuf.h>
 #include "pwd.h"
 #include "grp.h"
-
-#ifndef THREAD_SAFE
-static struct passwd pwd;
-#endif
+#include "php_win32_globals.h"
 
 static char *home_dir = ".";
 static char *login_shell = "not command.com!";
@@ -46,21 +43,26 @@ getpwnam(char *name)
 char *
 getlogin()
 {
-	static char name[256];
+	char name[256];
 	DWORD max_len = 256;
+	TSRMLS_FETCH();
 
+	STR_FREE(PW32G(login_name));	
 	GetUserName(name, &max_len);
-	return name;
+	name[max_len] = '\0';
+	PW32G(login_name) = estrdup(name);
+	return PW32G(login_name);
 }
 
 struct passwd *
 getpwuid(int user_id)
 {
-	pwd.pw_name = getlogin();
-	pwd.pw_dir = home_dir;
-	pwd.pw_shell = login_shell;
-	pwd.pw_uid = 0;
+	TSRMLS_FETCH();
+	PW32G(pwd).pw_name = getlogin();
+	PW32G(pwd).pw_dir = home_dir;
+	PW32G(pwd).pw_shell = login_shell;
+	PW32G(pwd).pw_uid = 0;
 
-	return &pwd;
+	return &PW32G(pwd);
 }
 

@@ -233,7 +233,7 @@ public:
     virtual void			free ( void );
 	
 	void					initPlugin ( PlatformInterface* inPlatformObject );
-	void					initPlugin ( PlatformInterface* inPlatformObject, IOService * provider, UInt8 i2cAddress, TOPAZ_CODEC_TYPES codecID );
+	void					initPlugin ( PlatformInterface* inPlatformObject, IOService * provider, HardwarePluginType codecID );
 	virtual bool			preDMAEngineInit ( void ) { return false; }
 	
 	virtual IOReturn		initCodecRegisterCache ( void ) { return kIOReturnError; }
@@ -247,7 +247,6 @@ public:
 	virtual void			setRunMode ( UInt8 mode ) { return; }
 	virtual UInt8			setStopMode ( void ) { return 0; }
 	virtual UInt32			getClockLock ( void ) { return 0; }
-	virtual IOReturn		getCodecErrorStatus ( UInt32 * dataPtr ) { return kIOReturnError; }
 	virtual void			disableReceiverError ( void ) { return; }
 	virtual IOReturn		flushControlRegisters ( void ) { return kIOReturnError; }
 	virtual void			useExternalCLK ( void ) { return; }
@@ -273,17 +272,13 @@ public:
 	
 	IOReturn 				CODEC_ReadRegister ( UInt8 regAddr, UInt8 * registerData, UInt32 size );	//	in base class only
 	IOReturn 				CODEC_WriteRegister ( UInt8 regAddr, UInt8 registerData );					//	in base class only
-	UInt8					getMemoryAddressPointer ( void );											//	in base class only
-	IOReturn				setMemoryAddressPointer ( UInt8 map );										//	in base class only
 	
 protected:
 
-	TOPAZ_CODEC_TYPES		mCodecID;
-	UInt8					mTopaz_I2C_Address; //  [3648867]
+	HardwarePluginType		mCodecID;
 	bool					mRecoveryInProcess;
 	bool					mMuteState;
 	AppleOnboardAudio *		mAudioDeviceProvider;
-	UInt8					mCurrentMAP;
 	UInt8					mShadowRegs[256];	//	write through shadow registers for AppleTopazPlugin
 	PlatformInterface *		mPlatformInterface;
 	

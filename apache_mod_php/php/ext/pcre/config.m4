@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.1.1.6 2003/07/18 18:07:39 zarzycki Exp $
+dnl $Id: config.m4,v 1.29.2.5 2003/12/16 22:14:55 andrei Exp $
 dnl
 
 dnl By default we'll compile and link against the bundled PCRE library
@@ -13,7 +13,7 @@ PHP_ARG_WITH(pcre-regex,for PCRE support,
 
 if test "$PHP_PCRE_REGEX" != "no"; then
   if test "$PHP_PCRE_REGEX" = "yes"; then
-    PHP_NEW_EXTENSION(pcre, pcrelib/maketables.c pcrelib/get.c pcrelib/study.c pcrelib/pcre.c php_pcre.c, $ext_shared,,-DSUPPORT_UTF8 -DLINK_SIZE=2 -I@ext_srcdir@/pcrelib)
+    PHP_NEW_EXTENSION(pcre, pcrelib/maketables.c pcrelib/get.c pcrelib/study.c pcrelib/pcre.c php_pcre.c, $ext_shared,,-DSUPPORT_UTF8 -DLINK_SIZE=2 -DPOSIX_MALLOC_THRESHOLD=10 -I@ext_srcdir@/pcrelib)
     PHP_ADD_BUILD_DIR($ext_builddir/pcrelib)
     AC_DEFINE(HAVE_BUNDLED_PCRE, 1, [ ])
   else
@@ -50,7 +50,7 @@ if test "$PHP_PCRE_REGEX" != "no"; then
     
     AC_DEFINE(HAVE_PCRE, 1, [ ])
     PHP_ADD_INCLUDE($PCRE_INCDIR)
-    PHP_NEW_EXTENSION(pcre, php_pcre.c, $ext_shared,,-DSUPPORT_UTF8 -DLINK_SIZE=2)
+    PHP_NEW_EXTENSION(pcre, php_pcre.c, $ext_shared,,-DSUPPORT_UTF8 -DLINK_SIZE=2 -DPOSIX_MALLOC_THRESHOLD=10)
   fi
   PHP_SUBST(PCRE_SHARED_LIBADD)
 fi

@@ -18,7 +18,7 @@
  */
 
 
-/* $Id: internal_functions_registry.h,v 1.1.1.5 2003/07/18 18:07:47 zarzycki Exp $ */
+/* $Id: internal_functions_registry.h,v 1.12.8.1 2002/12/31 16:25:14 sebastian Exp $ */
 
 #ifndef INTERNAL_FUNCTIONS_REGISTRY_H
 #define INTERNAL_FUNCTIONS_REGISTRY_H

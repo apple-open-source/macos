@@ -114,7 +114,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBCDCACMControl;
-				MODULE_VERSION = 3.0.1;
+				MODULE_VERSION = 3.0.2;
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = AppleUSBCDCACMControl;
@@ -138,7 +138,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleUSBCDCACMControl</string>
 	<key>CFBundleGetInfoString</key>
-	<string>3.0.1, USB CDC ACM driver Control Interface</string>
+	<string>3.0.2b1, USB CDC ACM driver Control Interface</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -150,11 +150,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>3.0.1</string>
+	<string>3.0.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>3.0.1</string>
+	<string>3.0.2</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleUSBCDCACMControl</key>
@@ -242,7 +242,7 @@
 //0B3
 //0B4
 		0B81C263FFB7832611CA28AA = {
-			expectedFileType = wrapper.cfbundle;
+			explicitFileType = wrapper.cfbundle;
 			isa = PBXFileReference;
 			path = AppleUSBCDCACMControl.kext;
 			refType = 3;
@@ -346,9 +346,9 @@
 			sourceTree = "<group>";
 		};
 		D20F00F105DD9E7A00AA2BC5 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = AppleUSBCDCCommon.h;
 			path = Common/AppleUSBCDCCommon.h;
 			refType = 4;
@@ -379,9 +379,9 @@
 			};
 		};
 		D223633C05EC2B9F00C17DDB = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = AppleUSBCDCACM.h;
 			path = AppleUSBCDCACM/Common/AppleUSBCDCACM.h;
 			refType = 4;
@@ -400,9 +400,9 @@
 			};
 		};
 		D223633F05EC2BD600C17DDB = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = AppleUSBCDCACMControl.h;
 			path = AppleUSBCDCACM/ControlDriver/Headers/AppleUSBCDCACMControl.h;
 			refType = 4;
@@ -415,9 +415,9 @@
 			};
 		};
 		D223634105EC2C0F00C17DDB = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = AppleUSBCDCACMData.h;
 			path = AppleUSBCDCACM/DataDriver/Headers/AppleUSBCDCACMData.h;
 			refType = 4;
@@ -430,9 +430,9 @@
 			};
 		};
 		D223634305EC333900C17DDB = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = AppleUSBCDCACMControl.cpp;
 			path = AppleUSBCDCACM/ControlDriver/Classes/AppleUSBCDCACMControl.cpp;
 			refType = 4;
@@ -445,9 +445,9 @@
 			};
 		};
 		D223634505EC336D00C17DDB = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = AppleUSBCDCACMData.cpp;
 			path = AppleUSBCDCACM/DataDriver/Classes/AppleUSBCDCACMData.cpp;
 			refType = 4;
@@ -460,9 +460,9 @@
 			};
 		};
 		D223634705EC33B200C17DDB = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = AppleUSBCDCWMC.h;
 			path = AppleUSBCDCWMC/Common/AppleUSBCDCWMC.h;
 			refType = 4;
@@ -481,9 +481,9 @@
 			};
 		};
 		D223634A05EC33E400C17DDB = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = AppleUSBCDCWMCControl.h;
 			path = AppleUSBCDCWMC/ControlDriver/Headers/AppleUSBCDCWMCControl.h;
 			refType = 4;
@@ -496,9 +496,9 @@
 			};
 		};
 		D223634C05EC341700C17DDB = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = AppleUSBCDCWMCData.h;
 			path = AppleUSBCDCWMC/DataDriver/Headers/AppleUSBCDCWMCData.h;
 			refType = 4;
@@ -511,9 +511,9 @@
 			};
 		};
 		D223634E05EC343D00C17DDB = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = AppleUSBCDCWMCControl.cpp;
 			path = AppleUSBCDCWMC/ControlDriver/Classes/AppleUSBCDCWMCControl.cpp;
 			refType = 4;
@@ -526,9 +526,9 @@
 			};
 		};
 		D223635305EC346300C17DDB = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = AppleUSBCDCWMCData.cpp;
 			path = AppleUSBCDCWMC/DataDriver/Classes/AppleUSBCDCWMCData.cpp;
 			refType = 4;
@@ -561,9 +561,9 @@
 			sourceTree = "<group>";
 		};
 		D24E98EB0680E74E005360D4 = {
-			expectedFileType = text.plist.strings;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = text.plist.strings;
 			name = English;
 			path = English.lproj/InfoPlist.strings;
 			refType = 4;
@@ -580,9 +580,9 @@
 			sourceTree = "<group>";
 		};
 		D24E98F10680E7BD005360D4 = {
-			expectedFileType = text.plist.strings;
 			fileEncoding = 10;
 			isa = PBXFileReference;
+			lastKnownFileType = text.plist.strings;
 			name = English;
 			path = English.lproj/Localizable.strings;
 			refType = 4;
@@ -686,7 +686,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBCDCWMCControl;
-				MODULE_VERSION = 3.0.1;
+				MODULE_VERSION = 3.0.2;
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = AppleUSBCDCWMCControl;
@@ -710,7 +710,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleUSBCDCWMCControl</string>
 	<key>CFBundleGetInfoString</key>
-	<string>3.0.1, USB CDC WMC driver Control Interface</string>
+	<string>3.0.2b1, USB CDC WMC driver Control Interface</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -722,11 +722,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>3.0.1</string>
+	<string>3.0.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>3.0.1</string>
+	<string>3.0.2</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleUSBCDCWMCControl1</key>
@@ -844,7 +844,7 @@
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
 		D2732A0C05EC155400ADE63B = {
-			expectedFileType = wrapper.cfbundle;
+			explicitFileType = wrapper.cfbundle;
 			isa = PBXFileReference;
 			path = AppleUSBCDCWMCControl.kext;
 			refType = 3;
@@ -923,7 +923,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBCDC;
-				MODULE_VERSION = 3.0.1;
+				MODULE_VERSION = 3.0.2;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -948,7 +948,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleUSBCDC</string>
 	<key>CFBundleGetInfoString</key>
-	<string>3.0.1, USB CDC driver</string>
+	<string>3.0.2b1, USB CDC driver</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -960,11 +960,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>3.0.1</string>
+	<string>3.0.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>3.0.1</string>
+	<string>3.0.2</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleUSBCDCDevice</key>
@@ -1062,6 +1062,50 @@
 			<key>idVendor</key>
 			<integer>1221</integer>
 		</dict>
+		<key>InternalUSBModem#0</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleUSBMergeNub</string>
+			<key>IOClass</key>
+			<string>AppleUSBMergeNub</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBInterface</string>
+			<key>IOProviderMergeProperties</key>
+			<dict>
+				<key>kDoNotClassMatchThisInterface</key>
+				<true/>
+			</dict>
+			<key>bConfigurationValue</key>
+			<integer>1</integer>
+			<key>bInterfaceNumber</key>
+			<integer>0</integer>
+			<key>idProduct</key>
+			<integer>33282</integer>
+			<key>idVendor</key>
+			<integer>1452</integer>
+		</dict>
+		<key>InternalUSBModem#1</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleUSBMergeNub</string>
+			<key>IOClass</key>
+			<string>AppleUSBMergeNub</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBInterface</string>
+			<key>IOProviderMergeProperties</key>
+			<dict>
+				<key>kDoNotClassMatchThisInterface</key>
+				<true/>
+			</dict>
+			<key>bConfigurationValue</key>
+			<integer>1</integer>
+			<key>bInterfaceNumber</key>
+			<integer>1</integer>
+			<key>idProduct</key>
+			<integer>33282</integer>
+			<key>idVendor</key>
+			<integer>1452</integer>
+		</dict>
 		<key>Sharp Zaurus #0</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
@@ -1117,7 +1161,7 @@
 ";
 		};
 		D280586805DD924C0074F1E7 = {
-			expectedFileType = wrapper.cfbundle;
+			explicitFileType = wrapper.cfbundle;
 			isa = PBXFileReference;
 			path = AppleUSBCDC.kext;
 			refType = 3;
@@ -1129,9 +1173,9 @@
 			targetProxy = D26750E8065AB6DD00A91064;
 		};
 		D280586B05DD92C40074F1E7 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = AppleUSBCDC.h;
 			path = AppleUSBCDC/Headers/AppleUSBCDC.h;
 			refType = 4;
@@ -1144,9 +1188,9 @@
 			};
 		};
 		D280586D05DD92D80074F1E7 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = AppleUSBCDC.cpp;
 			path = AppleUSBCDC/Classes/AppleUSBCDC.cpp;
 			refType = 4;
@@ -1159,9 +1203,9 @@
 			};
 		};
 		D29459980618E83F00449123 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = AppleUSBCDCPrivate.h;
 			path = AppleUSBCDC/Headers/AppleUSBCDCPrivate.h;
 			refType = 4;
@@ -1193,7 +1237,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBCDCWMCData;
-				MODULE_VERSION = 3.0.1;
+				MODULE_VERSION = 3.0.2;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1218,7 +1262,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleUSBCDCWMCData</string>
 	<key>CFBundleGetInfoString</key>
-	<string>3.0.1, USB CDC WMC driver Data Interface</string>
+	<string>3.0.2b1, USB CDC WMC driver Data Interface</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1230,11 +1274,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>3.0.1</string>
+	<string>3.0.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>3.0.1</string>
+	<string>3.0.2</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleUSBCDCWMCData</key>
@@ -1320,7 +1364,7 @@
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
 		D296DC5B05EC1E64000B5278 = {
-			expectedFileType = wrapper.cfbundle;
+			explicitFileType = wrapper.cfbundle;
 			isa = PBXFileReference;
 			path = AppleUSBCDCWMCData.kext;
 			refType = 3;
@@ -1384,7 +1428,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBCDCECMData;
-				MODULE_VERSION = 3.0.1;
+				MODULE_VERSION = 3.0.2;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1409,7 +1453,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleUSBCDCECMData</string>
 	<key>CFBundleGetInfoString</key>
-	<string>3.0.1, USB CDC ECM driver Data Interface</string>
+	<string>3.0.2b1, USB CDC ECM driver Data Interface</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1421,11 +1465,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>3.0.1</string>
+	<string>3.0.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>3.0.1</string>
+	<string>3.0.2</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleUSBCDCECMData</key>
@@ -1515,7 +1559,7 @@
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
 		D2A076D505EC44F300F5DA5F = {
-			expectedFileType = wrapper.cfbundle;
+			explicitFileType = wrapper.cfbundle;
 			isa = PBXFileReference;
 			path = AppleUSBCDCECMData.kext;
 			refType = 3;
@@ -1554,9 +1598,9 @@
 			sourceTree = "<group>";
 		};
 		D2A076DA05EC45B700F5DA5F = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = AppleUSBCDCECM.h;
 			path = AppleUSBCDCECM/Common/AppleUSBCDCECM.h;
 			refType = 4;
@@ -1569,9 +1613,9 @@
 			};
 		};
 		D2A076DC05EC45E800F5DA5F = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = AppleUSBCDCECMData.h;
 			path = AppleUSBCDCECM/DataDriver/Headers/AppleUSBCDCECMData.h;
 			refType = 4;
@@ -1584,9 +1628,9 @@
 			};
 		};
 		D2A076DE05EC460700F5DA5F = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = AppleUSBCDCECMData.cpp;
 			path = AppleUSBCDCECM/DataDriver/Classes/AppleUSBCDCECMData.cpp;
 			refType = 4;
@@ -1619,7 +1663,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBCDCECMControl;
-				MODULE_VERSION = 3.0.1;
+				MODULE_VERSION = 3.0.2;
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = AppleUSBCDCECMControl;
@@ -1643,7 +1687,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleUSBCDCECMControl</string>
 	<key>CFBundleGetInfoString</key>
-	<string>3.0.1, USB CDC ECM driver Control Interface</string>
+	<string>3.0.2b1, USB CDC ECM driver Control Interface</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1655,11 +1699,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>3.0.1</string>
+	<string>3.0.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>3.0.1</string>
+	<string>3.0.2</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleUSBCDCECMControl</key>
@@ -1753,16 +1797,16 @@
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
 		D2A076EE05EC464300F5DA5F = {
-			expectedFileType = wrapper.cfbundle;
+			explicitFileType = wrapper.cfbundle;
 			isa = PBXFileReference;
 			path = AppleUSBCDCECMControl.kext;
 			refType = 3;
 			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		D2A076F005EC46BB00F5DA5F = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = AppleUSBCDCECMControl.h;
 			path = AppleUSBCDCECM/ControlDriver/Headers/AppleUSBCDCECMControl.h;
 			refType = 4;
@@ -1775,9 +1819,9 @@
 			};
 		};
 		D2A076F205EC46FB00F5DA5F = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = AppleUSBCDCECMControl.cpp;
 			path = AppleUSBCDCECM/ControlDriver/Classes/AppleUSBCDCECMControl.cpp;
 			refType = 4;
@@ -1860,7 +1904,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBCDCACMData;
-				MODULE_VERSION = 3.0.1;
+				MODULE_VERSION = 3.0.2;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1885,7 +1929,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleUSBCDCACMData</string>
 	<key>CFBundleGetInfoString</key>
-	<string>3.0.1, USB CDC ACM driver Data Interface</string>
+	<string>3.0.2b1, USB CDC ACM driver Data Interface</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1897,11 +1941,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>3.0.1</string>
+	<string>3.0.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>3.0.1</string>
+	<string>3.0.2</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleUSBCDCACMData</key>
@@ -1951,7 +1995,7 @@
 ";
 		};
 		D2D691AC05ACCD46005BAA00 = {
-			expectedFileType = wrapper.cfbundle;
+			explicitFileType = wrapper.cfbundle;
 			isa = PBXFileReference;
 			path = AppleUSBCDCACMData.kext;
 			refType = 3;
@@ -2002,8 +2046,8 @@
 //F53
 //F54
 		F59C308D02C2AF4001000102 = {
-			expectedFileType = wrapper.framework;
 			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
 			name = Kernel.framework;
 			path = /System/Library/Frameworks/Kernel.framework;
 			refType = 0;

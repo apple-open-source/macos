@@ -17,7 +17,7 @@
  */
 
 #ifndef lint
-static const char rcsid[] = "$Id: os_unix.c,v 1.1.1.1 2003/03/11 01:09:38 zarzycki Exp $";
+static const char rcsid[] = "$Id: os_unix.c,v 1.2.2.3 2003/12/07 12:57:26 stas Exp $";
 #endif /* not lint */
 
 #include "fcgi_config.h"
@@ -102,6 +102,11 @@ static int volatile maxFd = -1;
 
 static int shutdownPending = FALSE;
 static int shutdownNow = FALSE;
+
+#ifndef HAVE_STRLCPY
+#define strlcpy php_strlcpy
+#endif
+size_t strlcpy(char *dst, const char *src, size_t siz);
 
 void OS_ShutdownPending()
 {
@@ -283,17 +288,17 @@ union SockAddrUnion {
  *
  *----------------------------------------------------------------------
  */
-int OS_CreateLocalIpcFd(const char *bindPath, int backlog, int bCreateMutex)
+int OS_CreateLocalIpcFd(const char *bindPath, int backlog)
 {
     int listenSock, servLen;
-    union   SockAddrUnion sa;
+    union   SockAddrUnion sa;  
     int	    tcp = FALSE;
     unsigned long tcp_ia = 0;
     char    *tp;
     short   port = 0;
     char    host[MAXPATHLEN];
 
-    strcpy(host, bindPath);
+    strlcpy(host, bindPath, MAXPATHLEN-1);
     if((tp = strchr(host, ':')) != 0) {
 	*tp++ = 0;
 	if((port = atoi(tp)) == 0) {
@@ -396,7 +401,7 @@ int OS_FcgiConnect(char *bindPath)
     short   port = 0;
     int	    tcp = FALSE;
 
-    strcpy(host, bindPath);
+    strlcpy(host, bindPath, MAXPATHLEN-1);
     if((tp = strchr(host, ':')) != 0) {
 	*tp++ = 0;
 	if((port = atoi(tp)) == 0) {
@@ -639,7 +644,7 @@ int OS_AsyncRead(int fd, int offset, void *buf, int len,
     if(fd > maxFd)
         maxFd = fd;
 
-    if(index >= asyncIoTableSize) {
+    while (index >= asyncIoTableSize) {
         GrowAsyncTable();
     }
 
@@ -688,7 +693,7 @@ int OS_AsyncWrite(int fd, int offset, void *buf, int len,
     if(fd > maxFd)
         maxFd = fd;
 
-    if(index >= asyncIoTableSize) {
+    while (index >= asyncIoTableSize) {
         GrowAsyncTable();
     }
 
@@ -720,7 +725,7 @@ int OS_AsyncWrite(int fd, int offset, void *buf, int len,
  *
  *--------------------------------------------------------------
  */
-int OS_Close(int fd)
+int OS_Close(int fd, int shutdown_ok)
 {
     if (fd == -1)
         return 0;
@@ -745,6 +750,37 @@ int OS_Close(int fd)
             maxFd--;
         }
     }
+
+    /*
+     * shutdown() the send side and then read() from client until EOF
+     * or a timeout expires.  This is done to minimize the potential
+     * that a TCP RST will be sent by our TCP stack in response to 
+     * receipt of additional data from the client.  The RST would
+     * cause the client to discard potentially useful response data.
+     */
+
+    if (shutdown_ok)
+    {
+        if (shutdown(fd, 1) == 0)
+        {
+            struct timeval tv;
+            fd_set rfds;
+            int rv;
+            char trash[1024];
+
+            FD_ZERO(&rfds);
+
+            do 
+            {
+                FD_SET(fd, &rfds);
+                tv.tv_sec = 2;
+                tv.tv_usec = 0;
+                rv = select(fd + 1, &rfds, NULL, NULL, &tv);
+            }
+            while (rv > 0 && read(fd, trash, sizeof(trash)) > 0);
+        }
+    }
+
     return close(fd);
 }
 
@@ -1204,9 +1240,9 @@ int OS_Accept(int listen_sock, int fail_on_intr, const char *webServerAddrs)
  *
  *----------------------------------------------------------------------
  */
-int OS_IpcClose(int ipcFd)
+int OS_IpcClose(int ipcFd, int shutdown)
 {
-    return OS_Close(ipcFd);
+    return OS_Close(ipcFd, shutdown);
 }
 
 /*

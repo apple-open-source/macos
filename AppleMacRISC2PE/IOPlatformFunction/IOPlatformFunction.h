@@ -154,15 +154,34 @@ enum {
 	kCommandReadReg16MaskShRtXORLength	= 4,	// 4 longwords of data
 	kCommandReadReg8MaskShRtXOR		= 28,	// [0x1C] Read 8 bit register, them mask, shift right and XOR
 	kCommandReadReg8MaskShRtXORLength	= 4,	// 4 longwords of data
+	// vers 0.7
 	kCommandWriteReg32ShLtMask		= 29,	// [0x1D] Write 32 bit register, with shift left and mask
 	kCommandWriteReg32ShLtMaskLength	= 3,	// 3 longwords of data
 	kCommandWriteReg16ShLtMask		= 30,	// [0x1E] Write 16 bit register, with shift left and mask
 	kCommandWriteReg16ShLtMaskLength	= 3,	// 3 longwords of data
 	kCommandWriteReg8ShLtMask		= 31,	// [0x1F] Write 8 bit register, with shift left and mask
 	kCommandWriteReg8ShLtMaskLength		= 3,	// 4 longwords of data
+	// vers 0.71
 	kCommandMaskandCompare		= 32,	// [0x20] Apply mask to byte stream and compare
 	kCommandMaskandCompareLength		= 1,	// 1 longword of data + mask array + compare value array
-	kCommandMaxCommand				= kCommandMaskandCompare
+	// vers 0.72
+	kCommandShiftBitStreamRight				= 0x21,	// [0x21] Shift bit stream right
+	kCommandShiftBitStreamRightLength		= 2,	// 2 longwords of data: {number of bytes in bytes stream + number of bits to shift by}
+	kCommandShiftBitStreamLeft				= 0x22,	// [0x22] Shift bit stream left
+	kCommandShiftBitStreamLeftLength		= 2,	// 2 longwords of data: {number of bytes in bytes stream + number of bits to shift by}
+	kCommandMaskByteStream					= 0x23,	// [0x23] Mask byte stream
+	kCommandMaskByteStreamLength			= 1,	// 1 longword of data + array of mask data bytes
+	kCommandXorByteStream					= 0x24,	// [0x24] XOR byte stream
+	kCommandXorByteStreamLength				= 1,	// 1 longword of data + array of XOR data bytes
+	kCommandWriteI2CValueToSubAddr			= 0x25,	// [0x25] I2C Write Supplied Value to SubAddress
+	kCommandWriteI2CValueToSubAddrLength	= 2,	// 2 longwords of data
+	// vers 0.73
+	kCommandXORValueToByteStream			= 0x26,	// [0x26] XOR Supplied Value to Byte Stream
+	kCommandXORValueToByteStreamLength		= 1,	// 1 longword of data
+	// vers 0.76
+	kCommandImplementationSpecific			= 0x27,	// [0x27] Implementation Specific Command
+	kCommandImplementationSpecificLength	= 0,	// No data
+	kCommandMaxCommand				= kCommandImplementationSpecific
 };
 
 enum {

@@ -1,13 +1,12 @@
 dnl
-dnl $Source: /cvs/root/apache_mod_php/php/ext/mnogosearch/config.m4,v $
-dnl $Id: config.m4,v 1.1.1.4 2003/03/11 01:09:25 zarzycki Exp $
+dnl $Source: /repository/php-src/ext/mnogosearch/config.m4,v $
+dnl $Id: config.m4,v 1.10.4.2 2004/08/29 14:18:11 gluke Exp $
 dnl
 
 PHP_ARG_WITH(mnogosearch,for mnoGoSearch support,
 [  --with-mnogosearch[=DIR]
                           Include mnoGoSearch support.  DIR is the mnoGoSearch 
-                          base install directory, defaults to 
-                          /usr/local/mnogosearch.])
+                          base install directory, defaults to /usr/local/mnogosearch.])
 
   if test "$PHP_MNOGOSEARCH" != "no"; then
   
@@ -48,7 +47,7 @@ PHP_ARG_WITH(mnogosearch,for mnoGoSearch support,
     
     AC_DEFINE(HAVE_MNOGOSEARCH,1,[ ])
     
-    PHP_SUBST(MNOGOSEARCH_SHARED_LIBADD)
     PHP_NEW_EXTENSION(mnogosearch, php_mnogo.c, $ext_shared)
+    PHP_SUBST(MNOGOSEARCH_SHARED_LIBADD)
     
   fi

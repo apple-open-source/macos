@@ -35,7 +35,7 @@ bool		I2STransportInterface::init ( PlatformInterface * inPlatformInterface ) {
 	success = super::init ( inPlatformInterface );
 	FailIf ( !success, Exit );	
 
-	success = false;
+	success = FALSE;
 	
 	FailIf ( NULL == mPlatformObject, Exit );
 	
@@ -88,13 +88,16 @@ IOReturn	I2STransportInterface::restartTransport ( void ) {
 
 	debugIOLog (3,  "+ I2STransportInterface[%ld]::restartTransport (), serialFormat = 0x%0.8X, dataWordSize = 0x%0.8X", mInstanceIndex, mSerialFormat, mDataWordSize );
 	
-	result = mPlatformObject->setI2SCellEnable ( true );
+	result = mPlatformObject->setI2SEnable ( TRUE );
+	FailIf ( kIOReturnSuccess != result, Exit );
+	
+	result = mPlatformObject->setI2SCellEnable ( TRUE );
 	FailIf ( kIOReturnSuccess != result, Exit );
 
 	//	Set the I2S cell to a clocks stopped mode so that the clocks
 	//	stop low and then tristate so that a new format can be applied.
 	mPlatformObject->setI2SIOMIntControl ( 1 << kClocksStoppedPendingShift );	//	Clear the clock stop status
-	result = mPlatformObject->setI2SClockEnable ( false );
+	result = mPlatformObject->setI2SClockEnable ( FALSE );
 	FailIf ( kIOReturnSuccess != result, Exit );
 	
 	waitForClocksStopped ();
@@ -105,10 +108,7 @@ IOReturn	I2STransportInterface::restartTransport ( void ) {
 	result = mPlatformObject->setDataWordSizes ( mDataWordSize );
 	FailIf ( kIOReturnSuccess != result, Exit );
 	
-	result = mPlatformObject->setI2SEnable ( true );
-	FailIf ( kIOReturnSuccess != result, Exit );
-	
-	result = mPlatformObject->setI2SClockEnable ( true );
+	result = mPlatformObject->setI2SClockEnable ( TRUE );
 	FailIf ( kIOReturnSuccess != result, Exit );
 Exit:		
 	debugIOLog (3,  "- I2STransportInterface[%ld]::restartTransport () returns %lX", mInstanceIndex, result );
@@ -159,14 +159,14 @@ IOReturn	I2STransportInterface::transportSetSampleWidth ( UInt32 sampleDepth, UI
 	} else if ( 24 == sampleDepth && 32 == dmaWidth ) {
 		mDataWordSize = ( kDataIn24 << kDataInSizeShift ) | ( kDataOut24 << kDataOutSizeShift );
 	} else {
-		FailIf ( true, Exit );
+		FailIf ( TRUE, Exit );
 	}
 	mDataWordSize |= ( ( kI2sStereoChannels << kNumChannelsOutShift ) | ( kI2sStereoChannels << kNumChannelsInShift ) );
 
 	//	Set the I2S cell to a clocks stopped mode so that the clocks
 	//	stop low and then tristate so a new data word size can be applied
 	mPlatformObject->setI2SIOMIntControl ( 1 << kClocksStoppedPendingShift );	//	Clear the clock stop status
-	result = mPlatformObject->setI2SClockEnable ( false );
+	result = mPlatformObject->setI2SClockEnable ( FALSE );
 	FailIf ( kIOReturnSuccess != result, Exit );
 	
 	waitForClocksStopped ();
@@ -174,10 +174,10 @@ IOReturn	I2STransportInterface::transportSetSampleWidth ( UInt32 sampleDepth, UI
 	result = mPlatformObject->setDataWordSizes ( mDataWordSize );
 	FailIf ( kIOReturnSuccess != result, Exit );
 	
-	result = mPlatformObject->setI2SEnable ( true );
+	result = mPlatformObject->setI2SEnable ( TRUE );
 	FailIf ( kIOReturnSuccess != result, Exit );
 	
-	result = mPlatformObject->setI2SClockEnable ( true );
+	result = mPlatformObject->setI2SClockEnable ( TRUE );
 	FailIf ( kIOReturnSuccess != result, Exit );
 
 	result = super::transportSetSampleWidth ( sampleDepth, dmaWidth );
@@ -205,12 +205,12 @@ IOReturn	I2STransportInterface::performTransportSleep ( void ) {
 	//	Set the I2S cell to a clocks stopped mode so that the clocks
 	//	stop low and then tristate.
 	mPlatformObject->setI2SIOMIntControl ( 1 << kClocksStoppedPendingShift );	//	Clear the clock stop status
-	result = mPlatformObject->setI2SClockEnable ( false );
+	result = mPlatformObject->setI2SClockEnable ( FALSE );
 	FailIf ( kIOReturnSuccess != result, Exit );
 
 	waitForClocksStopped ();
 	
-	result = mPlatformObject->setI2SCellEnable ( false );		
+	result = mPlatformObject->setI2SCellEnable ( FALSE );		
 	FailIf ( kIOReturnSuccess != result, Exit );
 	
 	result = mPlatformObject->releaseI2SClockSource ( mClockSelector );
@@ -235,13 +235,13 @@ IOReturn	I2STransportInterface::performTransportWake ( void ) {
 	result = mPlatformObject->setDataWordSizes ( mDataWordSize );
 	FailIf (kIOReturnSuccess != result, Exit);
 
-	result = mPlatformObject->setI2SCellEnable ( true );		
+	result = mPlatformObject->setI2SCellEnable ( TRUE );		
 	FailIf ( kIOReturnSuccess != result, Exit );
 
 	result = transportSetSampleRate ( mTransportState.transportSampleRate );
 	FailIf (kIOReturnSuccess != result, Exit);
 
-	result = mPlatformObject->setI2SClockEnable ( true );
+	result = mPlatformObject->setI2SClockEnable ( TRUE );
 	FailIf ( kIOReturnSuccess != result, Exit );
 
 	debugIOLog (3,  "- I2STransportInterface[%ld]::performTransportWake () = %d", mInstanceIndex, (unsigned int)result );
@@ -306,7 +306,7 @@ IOReturn	I2STransportInterface::transportBreakClockSelect ( UInt32 clockSource )
 	//	Set the I2S cell to a clocks stopped mode so that the clocks
 	//	stop low and then tristate.  This performs the 'break'!!!
 	mPlatformObject->setI2SIOMIntControl ( 1 << kClocksStoppedPendingShift );	//	Clear the clock stop status
-	result = mPlatformObject->setI2SClockEnable ( false );
+	result = mPlatformObject->setI2SClockEnable ( FALSE );
 
 	FailIf ( kIOReturnSuccess != result, Exit );
 	waitForClocksStopped ();
@@ -327,7 +327,7 @@ IOReturn	I2STransportInterface::transportBreakClockSelect ( UInt32 clockSource )
 			}
 			break;
 		default:
-			FailIf ( true, Exit );
+			FailIf ( TRUE, Exit );
 			break;
 	}
 	
@@ -395,12 +395,12 @@ IOReturn	I2STransportInterface::transportMakeClockSelect ( UInt32 clockSource ) 
 			result = kIOReturnSuccess;
 			break;
 		default:
-			FailIf ( true, Exit );
+			FailIf ( TRUE, Exit );
 			break;
 	}
 
 Exit:
-	result = mPlatformObject->setI2SClockEnable ( true );
+	result = mPlatformObject->setI2SClockEnable ( TRUE );
 	
 	debugIOLog ( 5,  "- I2STransportInterface[%ld]::transportMakeClockSelect ( %d ) = %X", mInstanceIndex, (unsigned int)clockSource, (unsigned int)result );
 	return result;
@@ -539,7 +539,7 @@ IOReturn I2STransportInterface::requestClockSources () {
 		result = kIOReturnSuccess;
 	}
 
-	debugIOLog ( 3, "- I2STransportInterface[%ld]::requestClockSources () returns 0x%0.8X", result );
+	debugIOLog ( 3, "- I2STransportInterface[%ld]::requestClockSources () returns 0x%0.8X", mInstanceIndex, result );
 	return result;
 }
 

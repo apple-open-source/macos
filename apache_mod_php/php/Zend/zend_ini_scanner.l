@@ -33,6 +33,10 @@
 #include "zend_ini_parser.h"
 #include "zend_ini_scanner.h"
 
+#ifdef HAVE_UNISTD_H
+# include <unistd.h>
+#endif
+
 #undef YYSTYPE
 #define YYSTYPE zval
 
@@ -46,6 +50,9 @@ ZEND_API ts_rsrc_id ini_scanner_globals_id;
 ZEND_API zend_scanner_globals ini_scanner_globals;
 #endif
 
+#ifdef ZEND_WIN32
+#include <io.h>
+#endif
 
 static char *ini_filename;
 
@@ -69,36 +76,41 @@ char *zend_ini_scanner_get_filename(TSRMLS_D)
 
 int zend_ini_open_file_for_scanning(zend_file_handle *fh TSRMLS_DC)
 {
-	FILE *fp;
-
 	switch (fh->type) {
-		case ZEND_HANDLE_FP:
-			fp = fh->handle.fp;
-			break;
 		case ZEND_HANDLE_FILENAME:
-			fp = zend_fopen(fh->filename, NULL);
 			fh->type = ZEND_HANDLE_FP;
+			fh->handle.fp = zend_fopen(fh->filename, NULL);
 			break;
-		default:
-			return FAILURE;
 	}
 
+	if (!ZEND_IS_VALID_FILE_HANDLE(fh))
+		return FAILURE;
+
 	init_ini_scanner(TSRMLS_C);
-	yyin = fp;
+	yyin = fh;
 	yy_switch_to_buffer(yy_create_buffer(yyin, YY_BUF_SIZE TSRMLS_CC) TSRMLS_CC);
 	ini_filename = fh->filename;
 	return SUCCESS;
 }
 
-
 void zend_ini_close_file(zend_file_handle *fh TSRMLS_DC)
 {
-	switch (fh->type) {
-		case ZEND_HANDLE_FP:
-			fclose(fh->handle.fp);
-			break;
-	}
+    switch (fh->type) {
+        case ZEND_HANDLE_SOCKET_FD:
+#ifdef ZEND_WIN32
+            closesocket(fh->handle.fd);
+            break;
+#endif
+        /* fall-through */
+        case ZEND_HANDLE_FD:
+            close(fh->handle.fd);
+            break;
+        case ZEND_HANDLE_FP:
+            fclose(fh->handle.fp);
+            break;
+    }
 }
+
 
 %}
 

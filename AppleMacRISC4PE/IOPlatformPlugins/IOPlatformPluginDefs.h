@@ -150,6 +150,9 @@
 // place this needs to be handled is in the registration handler.
 #define kIOPPluginControlTypeKey			"control-type"
 
+// Cpu ID key
+#define kIOPPluginCpuIDKey					"cpu-id"
+
 /*
  * Control loop keys
  */
@@ -180,6 +183,24 @@
 
 // the dynamic power step processor speed.  OSNumber value.
 #define kIOPPluginEnvDynamicPowerStep		"dynamic-power-step"
+
+// the user has set the processor performance to "Automatic" = Boolean value
+#define kIOPPluginEnvUserPowerAuto			"user-power-auto"
+
+// A/C plugged in.  Boolean value.
+#define kIOPPluginEnvACPresent				"ac-present"
+
+// battery present.  Boolean value.
+#define kIOPPluginEnvBatteryPresent			"battery-present"
+
+// battery overcurrent condition.  Boolean value.
+#define kIOPPluginEnvBatteryOvercurrent		"battery-overcurrent"
+
+// clamshell closed condition.  Boolean value.
+#define kIOPPluginEnvClamshellClosed		"clamshell-closed"
+
+// Power status for portables.  32-bit OSNumber value.
+#define kIOPPluginEnvPowerStatus			"power-status"
 
 // if a control failed it will be flagged here.  OSArray value.
 #define kIOPPluginEnvControlFailed			"control-failed"
@@ -250,6 +271,10 @@ typedef union SensorValue {
 	SInt32			sensValue;
 	ThermalValue	thermValue;
 };
+
+// Sensor value comparison functions
+inline bool operator==(SensorValue a, SensorValue b) { return a.sensValue == b.sensValue; };
+inline bool operator!=(SensorValue a, SensorValue b) { return a.sensValue != b.sensValue; };
 
 // Control's current-value and target-value are UInt32 type
 typedef UInt32 ControlValue;

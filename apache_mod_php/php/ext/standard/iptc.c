@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: iptc.c,v 1.1.1.7 2003/07/18 18:07:43 zarzycki Exp $ */
+/* $Id: iptc.c,v 1.41.4.5 2004/06/22 20:27:50 iliaa Exp $ */
 
 /*
  * Functions to parse & compse IPTC data.
@@ -208,6 +208,10 @@ PHP_FUNCTION(iptcembed)
         break;
     }
 
+    if (PG(safe_mode) && (!php_checkuid(Z_STRVAL_PP(jpeg_file), NULL, CHECKUID_CHECK_FILE_AND_DIR))) {
+		RETURN_FALSE;
+	}
+
     if (php_check_open_basedir(Z_STRVAL_PP(jpeg_file) TSRMLS_CC)) {
 		RETURN_FALSE;
 	}
@@ -320,7 +324,7 @@ PHP_FUNCTION(iptcparse)
 	tagsfound = 0; /* number of tags already found */
 
 	while (inx < length) { /* find 1st tag */
-		if ((buffer[inx] == 0x1c) && (buffer[inx+1] == 0x02)){ 
+		if ((buffer[inx] == 0x1c) && ((buffer[inx+1] == 0x01) || (buffer[inx+1] == 0x02))){
 			break;
 		} else {
 			inx++;
@@ -347,7 +351,7 @@ PHP_FUNCTION(iptcparse)
 			inx += 2;
 		}
 
-		sprintf(key, "%d#%03d", (unsigned int) dataset, (unsigned int) recnum);
+		snprintf(key, sizeof(key), "%d#%03d", (unsigned int) dataset, (unsigned int) recnum);
 
 		if ((len > length) || (inx + len) > length)
 			break;

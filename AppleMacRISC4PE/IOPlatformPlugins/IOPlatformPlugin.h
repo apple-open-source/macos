@@ -32,6 +32,7 @@
 
 #include <IOKit/IOLib.h>
 #include <IOKit/IOService.h>
+#include <IOKit/IOCPU.h>
 //#include <IOKit/IOWorkLoop.h>
 //#include <IOKit/IOCommandGate.h>
 #include <IOKit/pwr_mgt/RootDomain.h>
@@ -69,6 +70,17 @@ enum {
 	kIOPPluginSleeping,
 	kIOPPluginRunning,
 	kIOPPluginNumPowerStates
+};
+
+// setAggressiveness flags - UInt32
+enum {
+	kSetAggrUserAuto	= 0x80000000,				// setAggressiveness call generated automatically
+	kSetAggrSourceMask	= ~kSetAggrUserAuto
+};
+
+// Maximum number of cpus we support
+enum {
+	kMaxCpus	= 16
 };
 
 /*!
@@ -157,6 +169,9 @@ enum {
 
 	/* an array of pointers to the IOPlatformCtrlLoop::infoDict dictionaries of all control loops.  This array is published in the I/O registry */
 	OSArray *			ctrlLoopInfoDicts;
+	
+	/* simple array of references to registered cpus */
+	IOCPU				*cpus[kMaxCpus];
 
 	/* a flag to record whether or not the environment dictionary has changed during the current pass through handleEvent().  This flag is cleared after every invocation of handleEvent().  If it is set during a pass, then all the control loops are notified of the environment change and allowed a chance to react immediately */
 	bool				envChanged;
@@ -268,6 +283,24 @@ public:
 	virtual IOPlatformCtrlLoop * lookupCtrlLoopByID( const OSNumber * ctrlLoopID ) const;
 
 /*!
+	@function lookupCpuByID
+	@abstract Search the list of known cpus and return the one with the given ID
+	@param cpuID The cpu-id number of the desired cpu */
+	virtual IOCPU * lookupCpuByID( const UInt32 cpuID ) const;
+
+/*!
+	@function lookupSensorByKey
+	@abstract Search the list of known sensors and return the first one whose Desc_Key matches the given key */
+	virtual IOPlatformSensor * lookupSensorByKey( const OSString * sensorKey ) const;
+	virtual IOPlatformSensor * lookupSensorByKey( const char * sensorDesc ) const;
+
+/*!
+	@function lookupControlByKey
+	@abstract Search the list of known controls and return the first one whose Desc_Key matches the given key */
+	virtual IOPlatformControl * lookupControlByKey( const OSString * controlKey ) const;
+	virtual IOPlatformControl * lookupControlByKey( const char * controlDesc ) const;
+
+/*!
 	@function setEnv
 	@abstract environmental dictionary accessors with OSDictionary semantics */
 	virtual bool		setEnv(const OSString *aKey, const OSMetaClassBase *anObject);
@@ -308,6 +341,11 @@ public:
     static void			timerEventOccured( void * self );
 
 	virtual void		sleepSystem( void );
+
+/*!
+	@function coreDump
+	@abstract Sends current state description to IOLog. */
+	void 				coreDump(void);
 
 };
 

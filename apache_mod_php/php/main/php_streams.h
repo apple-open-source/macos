@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_streams.h,v 1.1.1.5 2003/07/18 18:07:49 zarzycki Exp $ */
+/* $Id: php_streams.h,v 1.61.2.17 2004/06/21 19:33:48 pollita Exp $ */
 
 #ifndef PHP_STREAMS_H
 #define PHP_STREAMS_H
@@ -96,6 +96,7 @@ typedef struct _php_stream php_stream;
 typedef struct _php_stream_wrapper php_stream_wrapper;
 typedef struct _php_stream_context php_stream_context;
 typedef struct _php_stream_filter php_stream_filter;
+typedef struct _php_stream_notifier php_stream_notifier;
 
 /* callback for status notifications */
 typedef void (*php_stream_notification_func)(php_stream_context *context,
@@ -119,12 +120,13 @@ typedef struct _php_stream_dirent {
 
 #define PHP_STREAM_NOTIFIER_PROGRESS	1
 
-typedef struct _php_stream_notifier {
+struct _php_stream_notifier {
 	php_stream_notification_func func;
+	void (*dtor)(php_stream_notifier *notifier);
 	void *ptr;
 	int mask;
 	size_t progress, progress_max; /* position for progress notification */
-} php_stream_notifier;
+};
 
 struct _php_stream_context {
 	php_stream_notifier *notifier;
@@ -331,11 +333,14 @@ PHPAPI int php_stream_from_persistent_id(const char *persistent_id, php_stream *
 #define PHP_STREAM_FREE_RELEASE_STREAM		2 /* pefree(stream) */
 #define PHP_STREAM_FREE_PRESERVE_HANDLE		4 /* tell ops->close to not close it's underlying handle */
 #define PHP_STREAM_FREE_RSRC_DTOR			8 /* called from the resource list dtor */
+#define PHP_STREAM_FREE_PERSISTENT			16 /* manually freeing a persistent connection */
 #define PHP_STREAM_FREE_CLOSE				(PHP_STREAM_FREE_CALL_DTOR | PHP_STREAM_FREE_RELEASE_STREAM)
 #define PHP_STREAM_FREE_CLOSE_CASTED		(PHP_STREAM_FREE_CLOSE | PHP_STREAM_FREE_PRESERVE_HANDLE)
+#define PHP_STREAM_FREE_CLOSE_PERSISTENT	(PHP_STREAM_FREE_CLOSE | PHP_STREAM_FREE_PERSISTENT)
 PHPAPI int _php_stream_free(php_stream *stream, int close_options TSRMLS_DC);
 #define php_stream_free(stream, close_options)	_php_stream_free((stream), (close_options) TSRMLS_CC)
 #define php_stream_close(stream)	_php_stream_free((stream), PHP_STREAM_FREE_CLOSE TSRMLS_CC)
+#define php_stream_pclose(stream)	_php_stream_free((stream), PHP_STREAM_FREE_CLOSE_PERSISTENT TSRMLS_CC)
 
 PHPAPI int _php_stream_seek(php_stream *stream, off_t offset, int whence TSRMLS_DC);
 #define php_stream_rewind(stream)	_php_stream_seek((stream), 0L, SEEK_SET TSRMLS_CC)
@@ -525,6 +530,7 @@ PHP_RSHUTDOWN_FUNCTION(streams);
 
 PHPAPI int php_register_url_stream_wrapper(char *protocol, php_stream_wrapper *wrapper TSRMLS_DC);
 PHPAPI int php_unregister_url_stream_wrapper(char *protocol TSRMLS_DC);
+PHPAPI int php_register_url_stream_wrapper_volatile(char *protocol, php_stream_wrapper *wrapper TSRMLS_DC);
 PHPAPI php_stream *_php_stream_open_wrapper_ex(char *path, char *mode, int options, char **opened_path, php_stream_context *context STREAMS_DC TSRMLS_DC);
 PHPAPI php_stream_wrapper *php_stream_locate_url_wrapper(const char *path, char **path_for_open, int options TSRMLS_DC);
 PHPAPI char *php_stream_locate_eol(php_stream *stream, char *buf, size_t buf_len TSRMLS_DC);
@@ -553,6 +559,9 @@ PHPAPI int _php_stream_make_seekable(php_stream *origstream, php_stream **newstr
 PHPAPI FILE * _php_stream_open_wrapper_as_file(char * path, char * mode, int options, char **opened_path STREAMS_DC TSRMLS_DC);
 #define php_stream_open_wrapper_as_file(path, mode, options, opened_path) _php_stream_open_wrapper_as_file((path), (mode), (options), (opened_path) STREAMS_CC TSRMLS_CC)
 
+
+PHPAPI zend_bool _php_stream_open_wrapper_as_file_handle(char * path, char * mode, int options, zend_file_handle * STREAMS_DC TSRMLS_DC);
+#define php_stream_open_wrapper_as_file_handle(path, mode, options, fh) _php_stream_open_wrapper_as_file_handle((path), (mode), (options), (fh) STREAMS_CC TSRMLS_CC)
 
 /* for user-space streams */
 PHPAPI extern php_stream_ops php_stream_userspace_ops;
@@ -619,7 +628,8 @@ PHPAPI php_stream_context *php_stream_context_set(php_stream *stream, php_stream
 	
 
 /* Give other modules access to the url_stream_wrappers_hash */
-PHPAPI HashTable *php_stream_get_url_stream_wrappers_hash();
+PHPAPI HashTable *_php_stream_get_url_stream_wrappers_hash(TSRMLS_D);
+#define php_stream_get_url_stream_wrappers_hash()	_php_stream_get_url_stream_wrappers_hash(TSRMLS_C)
 
 #endif
 

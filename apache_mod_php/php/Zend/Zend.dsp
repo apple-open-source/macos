@@ -211,6 +211,10 @@ SOURCE=.\zend_stack.c
 # End Source File
 # Begin Source File
 
+SOURCE=.\zend_strtod.c
+# End Source File
+# Begin Source File
+
 SOURCE=.\zend_variables.c
 # End Source File
 # End Group
@@ -324,6 +328,10 @@ SOURCE=.\zend_qsort.h
 # Begin Source File
 
 SOURCE=.\zend_stack.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\zend_strtod.h
 # End Source File
 # Begin Source File
 

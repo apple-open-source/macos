@@ -1,15 +1,13 @@
 dnl
-dnl $Id: config.m4,v 1.1.1.5 2003/03/11 01:09:20 zarzycki Exp $
+dnl $Id: config.m4,v 1.11.4.2 2003/10/01 02:53:58 sniper Exp $
 dnl
 
 PHP_ARG_WITH(gettext,for GNU gettext support,
 [  --with-gettext[=DIR]    Include GNU gettext support.])
 
 if test "$PHP_GETTEXT" != "no"; then
-  for i in /usr /usr/local $PHP_GETTEXT; do
-    if test -r $i/include/libintl.h; then
-	  GETTEXT_DIR=$i
-    fi
+  for i in $PHP_GETTEXT /usr/local /usr; do
+    test -r $i/include/libintl.h && GETTEXT_DIR=$i && break
   done
 
   if test -z "$GETTEXT_DIR"; then

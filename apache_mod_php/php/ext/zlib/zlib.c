@@ -18,7 +18,7 @@
    |          Jade Nicoletti <nicoletti@nns.ch>                           |
    +----------------------------------------------------------------------+
  */
-/* $Id: zlib.c,v 1.1.1.8 2003/07/18 18:07:47 zarzycki Exp $ */
+/* $Id: zlib.c,v 1.153.2.16 2003/09/10 01:23:38 sniper Exp $ */
 #define IS_EXT_MODULE
 
 #ifdef HAVE_CONFIG_H
@@ -330,7 +330,6 @@ PHP_FUNCTION(gzopen)
 {
 	pval **arg1, **arg2, **arg3;
 	php_stream *stream;
-	char *p;
 	int use_include_path = 0;
 	
 	switch(ZEND_NUM_ARGS()) {
@@ -351,13 +350,12 @@ PHP_FUNCTION(gzopen)
 	}
 	convert_to_string_ex(arg1);
 	convert_to_string_ex(arg2);
-	p = estrndup(Z_STRVAL_PP(arg2),Z_STRLEN_PP(arg2));
 	
-	stream = php_stream_gzopen(NULL, Z_STRVAL_PP(arg1), p, use_include_path|ENFORCE_SAFE_MODE|REPORT_ERRORS, NULL, NULL STREAMS_CC TSRMLS_CC);
+	stream = php_stream_gzopen(NULL, Z_STRVAL_PP(arg1), Z_STRVAL_PP(arg2), use_include_path|ENFORCE_SAFE_MODE|REPORT_ERRORS, NULL, NULL STREAMS_CC TSRMLS_CC);
+
 	if (!stream) {
 		RETURN_FALSE;
 	}
-	efree(p);
 	php_stream_to_zval(stream, return_value);
 }	
 /* }}} */
@@ -689,7 +687,7 @@ static int php_do_deflate(uint str_length, Bytef **p_buffer, uint *p_buffer_len,
 	Bytef *buffer;
 	uInt prev_outlen, outlen;
 	int err;
-	int start_offset = (do_start?10:0);
+	int start_offset = ((do_start && ZLIBG(compression_coding) == CODING_GZIP) ? 10 : 0);
 	int end_offset = (do_end?8:0);
 
 	outlen = (uint)(sizeof(char) * (str_length * 1.001f + 12) + 1); /* leave some room for a trailing \0 */
@@ -766,14 +764,14 @@ int php_deflate_string(const char *str, uint str_length, char **newstr, uint *ne
 	ZLIBG(stream).next_in = (Bytef*) str;
 	ZLIBG(stream).avail_in = (uInt) str_length;
 
-	if (ZLIBG(compression_coding) == 1) {
+	if (ZLIBG(compression_coding) == CODING_GZIP) {
 		ZLIBG(crc) = crc32(ZLIBG(crc), (const Bytef *) str, str_length);
 	}
 
 	err = php_do_deflate(str_length, (Bytef **) newstr, new_length, do_start, do_end TSRMLS_CC);
 	/* TODO: error handling (err may be Z_STREAM_ERROR, Z_BUF_ERROR, ?) */
 
-	if (do_start) {
+	if (do_start && ZLIBG(compression_coding) == CODING_GZIP) {
 		/* Write a very simple .gz header: */
 		(*newstr)[0] = gz_magic[0];
 		(*newstr)[1] = gz_magic[1];
@@ -783,7 +781,7 @@ int php_deflate_string(const char *str, uint str_length, char **newstr, uint *ne
 		*new_length += 10;
 	}
 	if (do_end) {
-		if (ZLIBG(compression_coding) == 1) {
+		if (ZLIBG(compression_coding) == CODING_GZIP) {
 			char *trailer = (*newstr)+(*new_length);
 
 			/* write crc & stream.total_in in LSB order */
@@ -820,7 +818,7 @@ PHP_FUNCTION(gzencode)
 	}
 
 	if((level<-1)||(level>9)) {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "compression level(%d) must be within -1..9", level);
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "compression level(%ld) must be within -1..9", level);
 		RETURN_FALSE;
 	}
 
@@ -980,7 +978,7 @@ PHP_FUNCTION(ob_gzhandler)
 					if (sapi_add_header("Content-Encoding: gzip", sizeof("Content-Encoding: gzip") - 1, 1)==FAILURE) {
 						return_original = 1;
 					}
-					if (sapi_add_header("Vary: Accept-Encoding", sizeof("Vary: Accept-Encoding") - 1, 1)==FAILURE) {
+					if (sapi_add_header_ex("Vary: Accept-Encoding", sizeof("Vary: Accept-Encoding") - 1, 1, 0 TSRMLS_CC)==FAILURE) {
 						return_original = 1;
 					}
 					break;
@@ -988,7 +986,7 @@ PHP_FUNCTION(ob_gzhandler)
 					if (sapi_add_header("Content-Encoding: deflate", sizeof("Content-Encoding: deflate") - 1, 1)==FAILURE) {
 						return_original = 1;
 					}
-					if (sapi_add_header("Vary: Accept-Encoding", sizeof("Vary: Accept-Encoding") - 1, 1)==FAILURE) {
+					if (sapi_add_header_ex("Vary: Accept-Encoding", sizeof("Vary: Accept-Encoding") - 1, 1, 0 TSRMLS_CC)==FAILURE) {
 						return_original = 1;
 					}
 					break;

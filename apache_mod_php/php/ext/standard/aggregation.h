@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: aggregation.h,v 1.1.1.3 2003/07/18 18:07:42 zarzycki Exp $ */
+/* $Id: aggregation.h,v 1.2.6.1 2002/12/31 16:35:23 sebastian Exp $ */
 
 #ifndef AGGREGATION_H
 #define AGGREGATION_H

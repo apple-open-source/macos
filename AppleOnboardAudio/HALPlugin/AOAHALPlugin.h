@@ -43,12 +43,16 @@ properties : we will define the following enhancement
 
 #include <CoreAudio/AudioDriverPlugIn.h>
 
-//#include <CoreAudio/AudioDriverPlugin.h>
 enum {
 	kAOAPropertySelectionsReference				= 'selr',
 	kAOAPropertyPowerState						= 'powr',
 	kAOAPropertyAvailableInputsBitmap			= 'inbm',
 	kAOAPropertyAvailableOutputsBitmap			= 'otbm'
 };
+
+#define	FailIf( cond, handler )										\
+	if( cond ){														\
+		goto handler; 												\
+	}
 
 #endif

@@ -62,6 +62,9 @@
 #define SOCK_UNSPEC 0
 #define IPPROTO_UNSPEC 0
 
+#define WAIT_FOR_PARALLEL_REPLY 100
+#define forever for(;;)
+
 static unsigned int
 milliseconds_since(struct timeval t)
 {
@@ -71,7 +74,7 @@ milliseconds_since(struct timeval t)
 	gettimeofday(&now, NULL);
 
 	delta.tv_sec = now.tv_sec - t.tv_sec;
-	
+
 	if (t.tv_usec > now.tv_usec)
 	{
 		now.tv_usec += 1000000;
@@ -129,7 +132,7 @@ is_a_number(char *s)
 	order = [cdict valuesForKey:"LookupOrder"];
 	return order;
 }
-			
+
 - (LUServer *)init
 {
 	[super init];
@@ -458,7 +461,7 @@ appendDomainName(char *h, char *d)
 			return l;
 		}
 	}
-			
+
 	return l;
 }
 
@@ -549,10 +552,10 @@ appendDomainName(char *h, char *d)
 			currentAgent = nil;
 
 			sysTime = milliseconds_since(sysStart);
-	
+
 			[self recordSearch:caller infoSystem:sname time:sysTime hit:(sub != nil)];
 		}
-	
+
 		if (sub != nil)
 		{
 			/* Merge validation info from this agent into "all" array */
@@ -895,7 +898,7 @@ appendDomainName(char *h, char *d)
 		currentCall = NULL;
 		return nil;
 	}
-	
+
 	group = [[LUDictionary alloc] initTimeStamped];
 	[group setValue:name forKey:"name"];
 	sprintf(scratch, "LUServer: netgroup %s", name);
@@ -1013,13 +1016,13 @@ appendDomainName(char *h, char *d)
 				[self recordCall:currentCall time:allTime hit:YES];
 				currentCall = NULL;
 			}
-			
+
 			if ([item isNegative])
 			{
 				[item release];
 				return nil;
 			}
-			
+
 			return item;
 		}
 	}
@@ -1038,16 +1041,16 @@ appendDomainName(char *h, char *d)
 	{
 		agent = [self agentNamed:lookupOrder[len - 1]];
 		if (agent == nil) return nil;
-		
+
 		if (streq([agent shortName], "NIL"))
 		{
 			item = [agent itemWithKey:key value:val category:LUCategoryGroup];
 			return [self stamp:item key:key agent:agent category:LUCategoryGroup];
 		}
-		
+
 		return nil;
 	}
-	
+
 	item = [[LUDictionary alloc] initTimeStamped];
 	[item setCategory:LUCategoryGroup];
 	sprintf(scratch, "LUServer: group %s %s", key, val);
@@ -1118,12 +1121,43 @@ appendDomainName(char *h, char *d)
 	return item;
 }
 
+- (BOOL)isLocalInterfaceAddress:(char *)val
+{
+	static char **myaddrs = NULL;
+	int i;
+
+	if (myaddrs == NULL) myaddrs = [controller netAddrList];
+	if (myaddrs == NULL) return NO;
+
+	for (i = 0; myaddrs[i] != NULL; i++)
+	{
+		if (streq(myaddrs[i], val)) return YES;
+	}
+
+	return NO;
+}
+
+- (LUDictionary *)localInterfaceItem:(char *)key value:(char *)val
+{
+	LUAgent *agent;
+	LUDictionary *item;
+
+	agent = [self agentNamed:"NIL"];
+	
+	item = [[LUDictionary alloc] initTimeStamped];
+	[item setValue:val forKey:key];
+	[item setValue:"localhost" forKey:"name"];
+	[item setValue:"NIL" forKey:"_lookup_agent"];
+	[item setValue:"NIL" forKey:"_lookup_info_system"];
+	[item setValue:"-1" forKey:"_lookup_NIL_best_before"];
+
+	return [self stamp:item key:key agent:agent category:LUCategoryHost];
+}
+
 /* 
  * This is the search routine for itemWithKey:value:category
  */
-- (LUDictionary *)findItemWithKey:(char *)key
-	value:(char *)val
-	category:(LUCategory)cat
+- (LUDictionary *)findItemWithKey:(char *)key value:(char *)val category:(LUCategory)cat
 {
 	char **lookupOrder;
 	const char *sname;
@@ -1136,7 +1170,7 @@ appendDomainName(char *h, char *d)
 	unsigned int sysTime;
 	unsigned int allTime;
 	char str[1024];
-	BOOL tryRealName, isEtherAddr;
+	BOOL tryRealName, isEtherAddr, isHostByIP;
 	struct in_addr a4;
 	struct in6_addr a6;
 	char paddr[64];
@@ -1149,6 +1183,8 @@ appendDomainName(char *h, char *d)
 	len = listLength(lookupOrder);
 	tryRealName = NO;
 	if ((cat == LUCategoryUser) && (streq(key, "name"))) tryRealName = YES;
+
+	isHostByIP = NO;
 
 	isEtherAddr = NO;
 	if (streq(key, "en_address")) isEtherAddr = YES;
@@ -1163,6 +1199,7 @@ appendDomainName(char *h, char *d)
 	{
 		if (streq(key, "ip_address"))
 		{
+			isHostByIP = YES;
 			if (inet_aton(val, &a4) == 1)
 			{
 				if (inet_ntop(AF_INET, &a4, paddr, 64) != NULL) val = paddr;
@@ -1170,6 +1207,7 @@ appendDomainName(char *h, char *d)
 		}
 		else if (streq(key, "ipv6_address"))
 		{
+			isHostByIP = YES;
 			if (inet_pton(AF_INET6, val, &a6) == 1)
 			{
 				if (inet_ntop(AF_INET6, &a6, paddr, 64) != NULL) val = paddr;
@@ -1177,6 +1215,11 @@ appendDomainName(char *h, char *d)
 		}
 	}
 
+	if (isHostByIP && (lookup_local_interfaces == NO))
+	{
+		if ([self isLocalInterfaceAddress:val]) return [self localInterfaceItem:key value:val];
+	}
+			
 	if (statistics_enabled) gettimeofday(&allStart, (struct timezone *)NULL);
 
 	for (i = 0; i < len; i++)
@@ -1222,7 +1265,7 @@ appendDomainName(char *h, char *d)
 		{
 			state = ServerStateActive;
 			currentAgent = nil;
-	
+
 			sysTime = milliseconds_since(sysStart);
 			sname = [agent shortName];
 			[self recordSearch:currentCall infoSystem:sname time:sysTime hit:(item != nil)];
@@ -1239,6 +1282,24 @@ appendDomainName(char *h, char *d)
 
 			return [self stamp:item key:key agent:agent category:cat];
 		}
+	}
+
+	/*
+	 * If we failed to find a name for a local interface
+	 * we return a record with the name "localhost".
+	 */
+	if (isHostByIP && [self isLocalInterfaceAddress:val])
+	{
+		if (statistics_enabled)
+		{
+			allTime = milliseconds_since(allStart);
+			[self recordSearch:currentCall infoSystem:"NIL" time:allTime hit:YES];
+			[self recordCall:currentCall time:allTime hit:NO];
+
+			currentCall = NULL;
+		}
+
+		return [self localInterfaceItem:key value:val];
 	}
 
 	if (statistics_enabled)
@@ -1320,7 +1381,7 @@ appendDomainName(char *h, char *d)
 	}
 
 	if (streq(key, "en_address")) val = [LUAgent canonicalEthernetAddress:val];
-	
+
 	item = [self findItemWithKey:key value:val category:cat];
 	if ((cat == LUCategoryBootp) && (item != nil))
 	{
@@ -1393,7 +1454,7 @@ appendDomainName(char *h, char *d)
 		[g release];
 		return YES;
 	}
-	
+
 	members = [g valuesForKey:"netgroups"];
 	len = [g countForKey:"netgroups"];
 	for (i = 0; i < len; i++)
@@ -1820,7 +1881,7 @@ new_addrinfo(uint32_t flags, uint32_t sock, uint32_t proto, uint32_t family, uin
 		item = [res objectAtIndex:0];
 		if ([item valueForKey:"canonname"] == NULL) [item setValue:cname forKey:"canonname"];
 	}
-	
+
 	if (cname != NULL) free(cname);
 }
 
@@ -1978,7 +2039,7 @@ new_addrinfo(uint32_t flags, uint32_t sock, uint32_t proto, uint32_t family, uin
 	{
 		[[res objectAtIndex:0] setValue:"localhost" forKey:"canonname"];
 	}
-	
+
 	return res;
 }
 
@@ -2000,13 +2061,13 @@ new_addrinfo(uint32_t flags, uint32_t sock, uint32_t proto, uint32_t family, uin
 
 	proto = [dict intForKey:"protocol"];
 	if (proto == 0) proto = IPPROTO_UNSPEC;
-	
+
 	socktype = [dict intForKey:"socktype"];
 	if (socktype == 0) socktype = SOCK_UNSPEC;
-	
+
 	if (socktype == SOCK_DGRAM) proto = IPPROTO_UDP;
 	if (socktype == SOCK_STREAM) proto = IPPROTO_TCP;
-	
+
 	family = [dict intForKey:"family"];
 	if (family == 0) family = PF_UNSPEC;
 
@@ -2055,7 +2116,7 @@ new_addrinfo(uint32_t flags, uint32_t sock, uint32_t proto, uint32_t family, uin
 					{
 						[res addObject:new_addrinfo(0, SOCK_DGRAM, IPPROTO_UDP, PF_INET, port, paddr, 0, NULL)];
 					}
-				
+
 					if ((proto == IPPROTO_UNSPEC) || (proto == IPPROTO_TCP))
 					{
 						[res addObject:new_addrinfo(0, SOCK_STREAM, IPPROTO_TCP, PF_INET, port, paddr, 0, NULL)];
@@ -2091,7 +2152,7 @@ new_addrinfo(uint32_t flags, uint32_t sock, uint32_t proto, uint32_t family, uin
 					{
 						[res addObject:new_addrinfo(0, SOCK_DGRAM, IPPROTO_UDP, PF_INET6, port, paddr, scopeid, NULL)];
 					}
-				
+
 					if ((proto == IPPROTO_UNSPEC) || (proto == IPPROTO_TCP))
 					{
 						[res addObject:new_addrinfo(0, SOCK_STREAM, IPPROTO_TCP, PF_INET6, port, paddr, scopeid, NULL)];
@@ -2147,7 +2208,7 @@ new_addrinfo(uint32_t flags, uint32_t sock, uint32_t proto, uint32_t family, uin
 					{
 						[res addObject:new_addrinfo(0, SOCK_DGRAM, IPPROTO_UDP, PF_INET, port, addrs[i], 0, NULL)];
 					}
-				
+
 					if ((proto == IPPROTO_UNSPEC) || (proto == IPPROTO_TCP))
 					{
 						[res addObject:new_addrinfo(0, SOCK_STREAM, IPPROTO_TCP, PF_INET, port, addrs[i], 0, NULL)];
@@ -2204,7 +2265,7 @@ new_addrinfo(uint32_t flags, uint32_t sock, uint32_t proto, uint32_t family, uin
 		[[res objectAtIndex:0] setValue:cname forKey:"canonname"];
 		free(cname);
 	}
-	
+
 	return res;
 }
 
@@ -2447,7 +2508,7 @@ new_addrinfo(uint32_t flags, uint32_t sock, uint32_t proto, uint32_t family, uin
 			item = [res objectAtIndex:0];
 			if ([item valueForKey:"canonname"] == NULL) [item setValue:cname forKey:"canonname"];
 		}
-	
+
 		if (cname != NULL) free(cname);
 		return res;
 	}
@@ -2464,7 +2525,7 @@ new_addrinfo(uint32_t flags, uint32_t sock, uint32_t proto, uint32_t family, uin
 	else if (proto == IPPROTO_TCP) [pattern setValue:"tcp" forKey:"protocol"];
 
 	all = [self query:pattern];
-	
+
 	if (proto == IPPROTO_UNSPEC)
 	{
 		[pattern setValue:"tcp" forKey:"protocol"];
@@ -2508,7 +2569,7 @@ new_addrinfo(uint32_t flags, uint32_t sock, uint32_t proto, uint32_t family, uin
 
 		[self gaiPP:str port:port protocol:proto family:family setcname:setcname result:res];
 	}
-	
+
 	count = [res count];
 	if (count > 0)
 	{
@@ -2569,7 +2630,7 @@ new_addrinfo(uint32_t flags, uint32_t sock, uint32_t proto, uint32_t family, uin
 			[res release];
 			return nil;
 		}
-		
+
 		return res;
 	}
 
@@ -2652,11 +2713,183 @@ new_addrinfo(uint32_t flags, uint32_t sock, uint32_t proto, uint32_t family, uin
 	return res;
 }
 
+- (void)gai_async
+{
+	LUDictionary *dict;
+	LUArray **res, *list;
+	Thread *me;
+	LUServer *s;
+
+	me = [Thread currentThread];
+	[me setState:ThreadStateActive];
+
+	dict = (LUDictionary *)[me data];
+	res = [me server];
+
+	s = [controller checkOutServer];
+	list = [s getaddrinfo:dict];
+	[controller checkInServer:s];
+
+	if (list != nil) *res = list;
+
+	/* Signal the fact that we've finished */
+	[dict setNegative:YES];
+
+	/*
+	 * Wait for the "main" thread to tell us to clean up and exit.
+	 * The main thread will have copied out our results if it wanted
+	 * them.  We are responsible for releasing our result list and
+	 * our input dict.
+	 */
+	[me setState:ThreadStateIdle];
+	while (![me shouldTerminate])
+	{
+		[me sleep:1];
+	}
+
+	if (list != nil) [list release];
+	[dict release];
+	free(res);
+	[me terminateSelf];
+}
+
 - (LUArray *)getaddrinfo:(LUDictionary *)dict
 {
 	char *nodename, *servname;
+	uint32_t i, count, family, wait, parallel, delta;
+	Thread *main_thread, *worker4, *worker6;
+	LUArray *res, **res4, **res6;
+	LUDictionary *dict4, *dict6;
+	struct timeval start;
+	BOOL finished4, finished6;
 
 	/* N.B. Hints are checked in Libinfo. */
+
+	family = [dict intForKey:"family"];
+	parallel = [dict intForKey:"parallel"];
+
+	if ((family == 0) && (parallel_gai || (parallel != 0)))
+	{
+		/*
+		 * Parallel search for INET and INET6, with an adaptive
+		 * timeout for the second search to deliver results.
+		 *
+		 * We spin off threads to do independent searches for each address family.
+		 * The results are passed back here through res4 and res6.  The addresses
+		 * for these are passed to the threads using the "server" variable (kludge #1).
+		 * The search args (dict) is passed to the thread as its "data" variable
+		 * (only a half-kludge, #1.5).  The threads use the "isNegative" setting of
+		 * their dicts as a signal to inform this thread that they've finished
+		 * (kludge #2.5).  After that they sleep.  This thread signals them to exit
+		 * using shouldTerminate: so that we can copy out the data from res4 and res6.
+		 * That allows us to abandon the second threads if it is taking too long.
+		 * It will clean up after itself when it finishes its search.
+		 */
+		main_thread = [Thread currentThread];
+		res = nil;
+
+		worker4 = [[Thread alloc] init];
+		[worker4 setName:"GAI 4"];
+		res4 = (LUArray **)malloc(sizeof(LUArray *));
+		*res4 = nil;
+		dict4 = [dict copy];
+		[dict4 setInt:PF_INET forKey:"family"];
+		[worker4 setServer:res4];
+		[worker4 setData:dict4];
+		finished4 = NO;
+
+		worker6 = [[Thread alloc] init];
+		[worker6 setName:"GAI 6"];
+		res6 = (LUArray **)malloc(sizeof(LUArray *));
+		*res6 = nil;
+		dict6 = [dict copy];
+		[dict6 setInt:PF_INET6 forKey:"family"];
+		[worker6 setServer:res6];
+		[worker6 setData:dict6];
+		finished6 = NO;
+
+		delta = 0;
+		gettimeofday(&start, (struct timezone *)NULL);
+
+		[worker4 run:@selector(gai_async) context:self];
+		[worker6 run:@selector(gai_async) context:self];
+
+		/*
+		 * Now wait for data to appear.  When we get a positive result from either
+		 * thread, we wait for a while to let the other thread return its results.
+		 * The second thread gets an extra 2 * (time delta for first thread) to return
+		 * an answer, then we give up.
+		 *
+		 * We poll for results (checking isNegative), sleeping WAIT_FOR_PARALLEL_REPLY
+		 * milliseconds each time through the polling loop.  The 2*delta timeout
+		 * for the second thread is also rounded up when we calculate the number of
+		 * loop iterations to wait for more data.  This gives the second thread
+		 * up to WAIT_FOR_PARALLEL_REPLY-1 extra milliseconds to complete.
+		 */
+		wait = 0;
+		forever
+		{
+			/* Avoid re-checking isNegative */
+			if ((finished4 == NO) && [dict4 isNegative]) finished4 = YES;
+			if ((finished6 == NO) && [dict6 isNegative]) finished6 = YES;
+
+			if (finished4 && finished6) break;
+
+			if (finished4 || finished6)
+			{
+				if (delta == 0)
+				{
+					delta = milliseconds_since(start);
+					wait = ((delta * 2) + (WAIT_FOR_PARALLEL_REPLY - 1)) / WAIT_FOR_PARALLEL_REPLY;
+				}
+
+				if (wait == 0) break;
+				wait--;
+			}
+
+			[main_thread usleep:WAIT_FOR_PARALLEL_REPLY];
+		}
+
+		/* Merge results */
+		if (finished4)
+		{
+			count = 0;
+
+			if (*res4 != nil)
+			{
+				count = [*res4 count];
+				if (res == nil) res = [[LUArray alloc] init];
+			}
+
+			for (i = 0; i < count; i++)
+			{
+				[res addObject:[*res4 objectAtIndex:i]];
+			}
+		}
+
+		if (finished6)
+		{
+			count = 0;
+
+			if (*res6 != nil)
+			{
+				count = [*res6 count];
+				if (res == nil) res = [[LUArray alloc] init];
+			}
+
+			for (i = 0; i < count; i++)
+			{
+				[res addObject:[*res6 objectAtIndex:i]];
+			}
+		}
+
+		[worker4 shouldTerminate:YES];
+		[worker6 shouldTerminate:YES];
+
+		return res;
+	}
+
+	/* Normal getaddrinfo begins here */
 
 	nodename = [dict valueForKey:"name"];
 	servname = [dict valueForKey:"service"];

@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: sapi_apache2.c,v 1.1.1.6 2003/07/18 18:07:50 zarzycki Exp $ */
+/* $Id: sapi_apache2.c,v 1.91.2.25 2004/06/18 00:37:02 iliaa Exp $ */
 
 #include <fcntl.h>
 
@@ -86,7 +86,7 @@ php_apache_sapi_ub_write(const char *str, uint str_length TSRMLS_DC)
 	APR_BRIGADE_INSERT_TAIL(bb, b);
 #endif
 	
-	if (ap_pass_brigade(f->next, bb) != APR_SUCCESS) {
+	if (ap_pass_brigade(f->next, bb) != APR_SUCCESS || ctx->r->connection->aborted) {
 		php_handle_aborted_connection();
 	}
 	
@@ -166,6 +166,7 @@ php_apache_sapi_get_stat(TSRMLS_D)
 
 	ctx->finfo.st_uid = ctx->r->finfo.user;
 	ctx->finfo.st_gid = ctx->r->finfo.group;
+	ctx->finfo.st_dev = ctx->r->finfo.device;
 	ctx->finfo.st_ino = ctx->r->finfo.inode;
 	ctx->finfo.st_atime = ctx->r->finfo.atime/1000000;
 	ctx->finfo.st_mtime = ctx->r->finfo.mtime/1000000;
@@ -229,6 +230,7 @@ php_apache_sapi_flush(void *server_context)
 	apr_bucket_alloc_t *ba;
 	apr_bucket *b;
 	ap_filter_t *f; /* output filters */
+	TSRMLS_FETCH();
 
 	ctx = server_context;
 
@@ -236,7 +238,12 @@ php_apache_sapi_flush(void *server_context)
 	 * then don't bother flushing. */
 	if (!server_context)
 		return;
-    
+
+	sapi_send_headers(TSRMLS_C);
+
+	ctx->r->status = SG(sapi_headers).http_response_code;
+	SG(headers_sent) = 1;
+
 	f = ctx->f;
 
 	/* Send a flush bucket down the filter chain. The current default
@@ -248,7 +255,7 @@ php_apache_sapi_flush(void *server_context)
 	bb = apr_brigade_create(ctx->r->pool, ba);
 	b = apr_bucket_flush_create(ba);
 	APR_BRIGADE_INSERT_TAIL(bb, b);
-	if (ap_pass_brigade(f->next, bb) != APR_SUCCESS) {
+	if (ap_pass_brigade(f->next, bb) != APR_SUCCESS || ctx->r->connection->aborted) {
 		php_handle_aborted_connection();
 	}
 }
@@ -373,6 +380,7 @@ static int php_input_filter(ap_filter_t *f, apr_bucket_brigade *bb,
 static void php_apache_request_ctor(ap_filter_t *f, php_struct *ctx TSRMLS_DC)
 {
 	char *content_type;
+	char *content_length;
 	const char *auth;
 	
 	PG(during_request_startup) = 0;
@@ -390,11 +398,14 @@ static void php_apache_request_ctor(ap_filter_t *f, php_struct *ctx TSRMLS_DC)
 	SG(request_info).post_data = ctx->post_data;
 	SG(request_info).post_data_length = ctx->post_len;
 	efree(content_type);
+
+	content_length = (char *) apr_table_get(f->r->headers_in, "Content-Length");
+	SG(request_info).content_length = (content_length ? atoi(content_length) : 0);
+	
 	apr_table_unset(f->r->headers_out, "Content-Length");
 	apr_table_unset(f->r->headers_out, "Last-Modified");
 	apr_table_unset(f->r->headers_out, "Expires");
 	apr_table_unset(f->r->headers_out, "ETag");
-	apr_table_unset(f->r->headers_in, "Connection");
 	if (!PG(safe_mode) || (PG(safe_mode) && !ap_auth_type(f->r))) {
 		auth = apr_table_get(f->r->headers_in, "Authorization");
 		php_handle_auth_data(auth TSRMLS_CC);
@@ -427,32 +438,50 @@ static int php_output_filter(ap_filter_t *f, apr_bucket_brigade *bb)
 	TSRMLS_FETCH();
 
 	if (f->r->proxyreq) {
+		zend_try {
+			zend_ini_deactivate(TSRMLS_C);
+		} zend_end_try();
 		return ap_pass_brigade(f->next, bb);
 	}
 	
 	/* handle situations where user turns the engine off */
 	if (*p == '0') {
+		zend_try {
+			zend_ini_deactivate(TSRMLS_C);
+		} zend_end_try();
 		return ap_pass_brigade(f->next, bb);
 	}
 
-	/* setup standard CGI variables */
-	ap_add_common_vars(f->r);
-	ap_add_cgi_vars(f->r);
-
+	/* Setup the CGI variables if this is the main request.. */
+	if (f->r->main == NULL || 
+		/* .. or if the sub-request envinronment differs from the main-request. */
+		f->r->subprocess_env != f->r->main->subprocess_env
+	) {
+		/* setup standard CGI variables */
+		ap_add_common_vars(f->r);
+		ap_add_cgi_vars(f->r);
+	}
+	
 	ctx = SG(server_context);
 	if (ctx == NULL) {
 		ap_log_rerror(APLOG_MARK, APLOG_ERR|APLOG_NOERRNO, 0, f->r,
 					 "php failed to get server context");
+		zend_try {
+			zend_ini_deactivate(TSRMLS_C);
+		} zend_end_try();
         return HTTP_INTERNAL_SERVER_ERROR;
 	}
 	ctx->f = f; /* save whatever filters are after us in the chain. */
 
 	if (ctx->request_processed) {
+		zend_try {
+			zend_ini_deactivate(TSRMLS_C);
+		} zend_end_try();
 		return ap_pass_brigade(f->next, bb);
 	}
 
 	for (b = APR_BRIGADE_FIRST(bb); b != APR_BRIGADE_SENTINEL(bb); b = APR_BUCKET_NEXT(b)) {
-		zend_file_handle zfd;
+		zend_file_handle zfd = {0};
 
 		if (!ctx->request_processed && APR_BUCKET_IS_FILE(b)) {
 			const char *path;
@@ -471,7 +500,7 @@ static int php_output_filter(ap_filter_t *f, apr_bucket_brigade *bb)
 				rv = ap_pass_brigade(f->next, prebb);
 				/* XXX: destroy the prebb, since we know we're
 				 * done with it? */
-				if (rv != APR_SUCCESS) {
+				if (rv != APR_SUCCESS || ctx->r->connection->aborted) {
 					php_handle_aborted_connection();
 				}
 			}

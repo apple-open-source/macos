@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: flock_compat.h,v 1.1.1.7 2003/07/18 18:07:43 zarzycki Exp $ */
+/* $Id: flock_compat.h,v 1.16.2.1 2002/12/31 16:35:27 sebastian Exp $ */
 
 #ifndef FLOCK_COMPAT_H
 #define FLOCK_COMPAT_H

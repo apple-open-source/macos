@@ -135,7 +135,7 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib wsock32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib ZendTS.lib TSRM.lib resolv.lib libmysql.lib /nologo /version:4.0 /dll /machine:I386 /nodefaultlib:"libc.lib" /nodefaultlib:"libcmt.lib" /out:"..\Release_TS\php4ts.dll" /libpath:"..\TSRM\Release_TS" /libpath:"..\Zend\Release_TS" /libpath:"..\..\bindlib_w32\Release" /libpath:"..\ext\mysql\libmysql\Release_TS" /libpath:"Release_TS"
-# ADD LINK32 kernel32.lib user32.lib gdi32.lib wsock32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib ZendTS.lib TSRM.lib resolv.lib libmysql.lib zlib.lib Urlmon.lib /nologo /version:4.0 /dll /debug /machine:I386 /nodefaultlib:"libcmt" /out:"..\Release_TSDbg\php4ts.dll" /libpath:"..\TSRM\Release_TSDbg" /libpath:"..\Zend\Release_TSDbg" /libpath:"..\..\bindlib_w32\Release" /libpath:"..\ext\mysql\libmysql\Release_TSDbg" /libpath:"Release_TSDbg"
+# ADD LINK32 kernel32.lib user32.lib gdi32.lib wsock32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib ZendTS.lib TSRM.lib resolv.lib libmysql.lib zlib.lib Urlmon.lib /nologo /version:4.0 /dll /debug /machine:I386 /nodefaultlib:"libcmt" /out:"..\Release_TSDbg\php4ts.dll" /libpath:"..\TSRM\Release_TSDbg" /libpath:"..\Zend\Release_TSDbg" /libpath:"..\..\bindlib_w32\Release" /libpath:"..\ext\mysql\libmysql\Release_TSDbg" /libpath:"Release_TSDbg" /libpath:"..\..\zlib\Release"
 
 !ENDIF 
 
@@ -214,6 +214,10 @@ SOURCE=..\main\php_scandir.c
 # End Source File
 # Begin Source File
 
+SOURCE=..\main\php_sprintf.c
+# End Source File
+# Begin Source File
+
 SOURCE=..\main\php_ticks.c
 # End Source File
 # Begin Source File
@@ -274,7 +278,7 @@ SOURCE=..\ext\standard\aggregation.h
 # End Source File
 # Begin Source File
 
-SOURCE=..\ext\standard\config.w32.h
+SOURCE=..\main\config.w32.h
 # End Source File
 # Begin Source File
 
@@ -346,11 +350,11 @@ SOURCE=..\main\php_output.h
 # End Source File
 # Begin Source File
 
-SOURCE=..\main\php_scandir.h
+SOURCE=..\main\php_regex.h
 # End Source File
 # Begin Source File
 
-SOURCE=..\main\php_regex.h
+SOURCE=..\main\php_scandir.h
 # End Source File
 # Begin Source File
 
@@ -1905,6 +1909,10 @@ SOURCE=.\glob.c
 # End Source File
 # Begin Source File
 
+SOURCE=.\globals.c
+# End Source File
+# Begin Source File
+
 SOURCE=.\md5crypt.c
 # End Source File
 # Begin Source File
@@ -1966,6 +1974,10 @@ SOURCE=..\win32\param.h
 # Begin Source File
 
 SOURCE=..\win32\php_registry.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\php_win32_globals.h
 # End Source File
 # Begin Source File
 

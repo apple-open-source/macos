@@ -560,7 +560,7 @@
 
 2002-05-13  Sterling Hughes  <sterling@bumblebury.com>
 
-    * zend_qsort.c: add $Id: ChangeLog,v 1.1.1.2 2003/03/11 01:09:14 zarzycki Exp $ tag
+    * zend_qsort.c: add $Id: ChangeLog,v 1.97 2002/11/03 01:34:09 changelog Exp $ tag
 
 2002-05-13  Derick Rethans  <d.rethans@jdimedia.nl>
 

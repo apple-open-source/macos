@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_output.h,v 1.1.1.4 2003/07/18 18:07:48 zarzycki Exp $ */
+/* $Id: php_output.h,v 1.47.2.1 2002/12/31 16:26:19 sebastian Exp $ */
 
 #ifndef PHP_OUTPUT_H
 #define PHP_OUTPUT_H

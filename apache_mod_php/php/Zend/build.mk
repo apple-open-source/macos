@@ -5,7 +5,7 @@
 #
 # Written by Sascha Schumann
 #
-# $Id: build.mk,v 1.1.1.1 2000/08/10 02:08:41 wsanchez Exp $ 
+# $Id: build.mk,v 1.2 1999/10/10 02:02:13 sascha Exp $ 
 
 
 LT_TARGETS = ltmain.sh ltconfig
@@ -25,7 +25,7 @@ clean:
 
 $(LT_TARGETS):
 	rm -f $(LT_TARGETS)
-	libtoolize --automake $(AMFLAGS) -f
+	glibtoolize --automake $(AMFLAGS) -f
 
 $(makefile_in_files): $(makefile_am_files)
 	automake -a -i $(AMFLAGS) $(makefile_files)

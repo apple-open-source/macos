@@ -17,7 +17,7 @@
 */
 
 
-/* $Id: php_notes.h,v 1.1.1.4 2003/07/18 18:07:38 zarzycki Exp $ */
+/* $Id: php_notes.h,v 1.5.8.1 2002/12/31 16:35:03 sebastian Exp $ */
 
 extern zend_module_entry notes_module_entry;
 

@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: uint32.c,v 1.1.1.2 2003/07/18 18:07:30 zarzycki Exp $ */
+/* $Id: uint32.c,v 1.1.2.2 2002/12/31 16:34:19 sebastian Exp $ */
 
 /* incorporated from D.J.Bernstein's cdb-0.75 (http://cr.yp.to/cdb.html)*/
 

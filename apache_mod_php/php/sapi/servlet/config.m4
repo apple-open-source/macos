@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.1.1.5 2003/07/18 18:07:51 zarzycki Exp $
+dnl $Id: config.m4,v 1.13.4.3 2003/10/03 05:25:48 sniper Exp $
 dnl
 
 AC_MSG_CHECKING(for Servlet support)

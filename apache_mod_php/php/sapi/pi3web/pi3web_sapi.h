@@ -3,8 +3,7 @@
 
 #ifdef PHP_WIN32
 #	include <windows.h>
-#	include <httpext.h>
-#	ifdef SAPI_EXPORTS
+#	ifdef PHP4PI3WEB_EXPORTS
 #		define MODULE_API __declspec(dllexport) 
 #	else
 #		define MODULE_API __declspec(dllimport) 
@@ -15,7 +14,6 @@
 
 	typedef int BOOL;
 	typedef void far *LPVOID;
-	typedef LPVOID HCONN;
 	typedef unsigned long DWORD;
 	typedef DWORD far *LPDWORD;
 	typedef char CHAR;
@@ -23,6 +21,8 @@
 	typedef unsigned char BYTE;
 	typedef BYTE far *LPBYTE;
 #endif
+
+	typedef LPVOID HCONN;
 
 #ifdef __cplusplus
 extern "C" {
@@ -59,17 +59,19 @@ typedef struct _CONTROL_BLOCK {
     LPSTR     lpszContentType;        // Content type of client data
 	DWORD     dwBehavior;			  // PHP behavior (standard, highlight, intend
 
+    LPVOID (* GetVariableNames) (HCONN      hConn);
+
     BOOL (* GetServerVariable) ( HCONN       hConn,
                                  LPSTR       lpszVariableName,
                                  LPVOID      lpvBuffer,
                                  LPDWORD     lpdwSize );
 
-    BOOL (* WriteClient)  ( HCONN      ConnID,
-                            LPVOID     Buffer,
+    BOOL (* WriteClient)  ( HCONN      hConn,
+                            LPVOID     lpvBuffer,
                             LPDWORD    lpdwBytes,
                             DWORD      dwReserved );
 
-    BOOL (* ReadClient)  ( HCONN      ConnID,
+    BOOL (* ReadClient)  ( HCONN      hConn,
                            LPVOID     lpvBuffer,
                            LPDWORD    lpdwSize );
 
@@ -79,9 +81,9 @@ typedef struct _CONTROL_BLOCK {
 
 } CONTROL_BLOCK, *LPCONTROL_BLOCK;
 
-DWORD PHP4_wrapper(LPCONTROL_BLOCK lpCB);
-BOOL PHP4_startup();
-BOOL PHP4_shutdown();
+MODULE_API DWORD PHP4_wrapper(LPCONTROL_BLOCK lpCB);
+MODULE_API BOOL PHP4_startup();
+MODULE_API BOOL PHP4_shutdown();
 
 // the following type declaration is for the server side
 typedef DWORD ( * PFN_WRAPPERFUNC )( CONTROL_BLOCK *pCB );

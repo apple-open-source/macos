@@ -22,7 +22,7 @@
 /*
  * Copyright (c) 2003-2004 Apple Computer, Inc.  All rights reserved.
  *
- *  File: $Id: RackMac3_1_CPUFanCtrlLoop.cpp,v 1.8 2004/03/18 02:18:52 eem Exp $
+ *  File: $Id: RackMac3_1_CPUFanCtrlLoop.cpp,v 1.9 2004/09/27 17:46:59 jlehrer Exp $
  */
 
 
@@ -1024,6 +1024,7 @@ void RackMac3_1_CPUFanCtrlLoop::deadlinePassed( void )
                 tempHistory[tempIndex].sensValue >> 16, inputMax.sensValue >> 16,
                 tMaxExceededNowCritical ? "TRUE" : "FALSE", secondsAtMaxCooling);
 
+            platformPlugin->coreDump();
             platformPlugin->sleepSystem();
         }
     }

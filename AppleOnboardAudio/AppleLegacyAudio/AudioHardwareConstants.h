@@ -153,8 +153,16 @@ typedef enum {
 	kRemoteIdle,												//  [3515371]
 	kRemoteSleep,												//  [3515371]
 	kSetEnableSPDIFOut,
+	kRequestSleepTime,											//	[3787193]
+	kRemoteChildActive,											//	[3938771]
+	kRemoteChildIdle,											//	[3938771]
+	kRemoteChildSleep,											//	[3938771]
+	kAOAPowerParent,											//	[3938771]
 	kNumberOfActionSelectors									//	ALWAYS MAKE THIS LAST!!!!
 } ActionSelector;
+
+
+#define	kRecoverFromIdleOrSleep			0x3F3F3F3F				/*	[3922678]	*/
 
 //	================================================================================
 //	Machine layout constants. All NewWorld machines have a device-id property
@@ -219,6 +227,20 @@ enum{
     kTexas3001HardwareType,
     kTexas3004HardwareType
 };
+
+
+typedef enum i2sReference {
+	kUseI2SCell0			=	0,
+	kUseI2SCell1			=	1,
+	kUseI2SCell2			=	2,
+	kUseI2SCell3			=	3,
+	kUseI2SCell4			=	4,
+	kUseI2SCell5			=	5,
+	kUseI2SCell6			=	6,
+	kUseI2SCell7			=	7,
+	kNoI2SCell				=	0xFFFFFFFF
+} I2SCell;
+
 
 //	[3435307]	rbm
 enum {

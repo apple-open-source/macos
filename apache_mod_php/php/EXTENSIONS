@@ -31,6 +31,11 @@ EXTENSION:           aolserver
 MAINTENANCE:         Unknown
 STATUS:              Unknown
 -------------------------------------------------------------------------------
+EXTENSION:           activescript
+PRIMARY MAINTAINER:  Wez Furlong <wez@php.net>
+MAINTENANCE:         Odd Fixes
+STATUS:              Experimental
+-------------------------------------------------------------------------------
 EXTENSION:           apache
 PRIMARY MAINTAINER:  Rasmus Lerdorf <rasmus@php.net>
 MAINTENANCE:         Maintained
@@ -45,6 +50,10 @@ EXTENSION:           cgi
 MAINTENANCE:         Unknown
 STATUS:              Working
 -------------------------------------------------------------------------------
+EXTENSION:           cli
+MAINTENANCE:         Unknown
+STATUS:              Working
+-------------------------------------------------------------------------------
 EXTENSION:           fhttpd
 MAINTENANCE:         Unknown
 STATUS:              Unknown
@@ -54,8 +63,9 @@ MAINTENANCE:         Unknown
 STATUS:              Working
 -------------------------------------------------------------------------------
 EXTENSION:           nsapi
-MAINTENANCE:         Unknown
-STATUS:              Unknown
+PRIMARY MAINTAINER:  Uwe Schindler <thetaphi@php.net>
+MAINTENANCE:         Maintained
+STATUS:              Working
 -------------------------------------------------------------------------------
 EXTENSION:           phttpd
 MAINTENANCE:         Unknown
@@ -126,7 +136,7 @@ STATUS:              Experimental
 SINCE:               4.0.2
 -------------------------------------------------------------------------------
 EXTENSION:           interbase
-PRIMARY MAINTAINER:  Jouni Ahto <jouni.ahto@exdec.fi>
+PRIMARY MAINTAINER:  Jouni Ahto <jouni.ahto@exdec.fi>, Ard Biesheuvel <ard@ard.nu>
 MAINTENANCE:         Odd Fixes
 STATUS:              Working
 -------------------------------------------------------------------------------
@@ -166,7 +176,7 @@ MAINTENANCE:         Unknown
 STATUS:              Working
 -------------------------------------------------------------------------------
 EXTENSION:           oci8
-PRIMARY MAINTAINER:  Thies C. Arntzen <thies@thieso.net>
+PRIMARY MAINTAINER:  Antony Dovgal <tony2001@php.net>
 MAINTENANCE:         Maintained
 STATUS:              Working
 -------------------------------------------------------------------------------
@@ -177,8 +187,7 @@ STATUS:              Working
 COMMENT:             Working 
 -------------------------------------------------------------------------------
 EXTENSION:           oracle
-PRIMARY MAINTAINER:  Thies C. Arntzen <thies@thieso.net>
-MAINTENANCE:         Maintained
+MAINTENANCE:         Orphaned
 STATUS:              Working
 COMMENT:             Using the new OCI8 driver is encouraged where possible.
 -------------------------------------------------------------------------------
@@ -253,7 +262,7 @@ STATUS:              Unknown
 EXTENSION:           domxml
 PRIMARY MAINTAINER:  Uwe Steinmann <steinm@php.net>
 MAINTENANCE:         Maintained
-STATUS:              Experimental
+STATUS:              Working
 -------------------------------------------------------------------------------
 EXTENSION:           dotnet
 PRIMARY MAINTAINER:  Sam Ruby <rubys@us.ibm.com>
@@ -330,7 +339,7 @@ MAINTENANCE:         Odd Fixes
 STATUS:              Working
 -------------------------------------------------------------------------------
 EXTENSION:           mcrypt
-PRIMARY MAINTAINER:  Derick Rethans <d.rethans@jdimedia.nl>
+PRIMARY MAINTAINER:  Derick Rethans <derick@derickrethans.nl>
 MAINTENANCE:         Maintained
 STATUS:              Working
 -------------------------------------------------------------------------------

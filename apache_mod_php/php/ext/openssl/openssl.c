@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: openssl.c,v 1.1.1.6 2003/07/18 18:07:39 zarzycki Exp $ */
+/* $Id: openssl.c,v 1.52.2.19 2004/10/27 11:11:24 wez Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -118,7 +118,7 @@ zend_module_entry openssl_module_entry = {
 	"openssl",
 	openssl_functions,
 	PHP_MINIT(openssl),
-	NULL,
+	PHP_MSHUTDOWN(openssl),
 	NULL,
 	NULL,
 	PHP_MINFO(openssl),
@@ -1424,20 +1424,21 @@ PHP_FUNCTION(openssl_csr_export)
 }
 /* }}} */
 
-/* {{{ proto resource openssl_csr_sign(mixed csr, mixed x509, mixed priv_key, long days)
+/* {{{ proto resource openssl_csr_sign(mixed csr, mixed x509, mixed priv_key, long days [, array config_args [, long serial]])
    Signs a cert with another CERT */
 PHP_FUNCTION(openssl_csr_sign)
 {
 	zval * zcert = NULL, *zcsr, *zpkey, *args = NULL;
 	long num_days;
+	long serial = 0L;
 	X509 * cert = NULL, *new_cert = NULL;
 	X509_REQ * csr;
-	EVP_PKEY * key = NULL, *priv_key;
+	EVP_PKEY * key = NULL, *priv_key = NULL;
 	long csr_resource, certresource, keyresource;
 	int i;
 	struct php_x509_request req;
 	
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zz!zl|a!", &zcsr, &zcert, &zpkey, &num_days, &args) == FAILURE)
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zz!zl|a!l", &zcsr, &zcert, &zpkey, &num_days, &args, &serial) == FAILURE)
 		return;
 
 	RETVAL_FALSE;
@@ -1493,11 +1494,10 @@ PHP_FUNCTION(openssl_csr_sign)
 		goto cleanup;
 	}
 	/* Version 3 cert */
-	if (!X509_set_version(new_cert, 3))
+	if (!X509_set_version(new_cert, 2))
 		goto cleanup;
 
-	/* TODO: Allow specifying */
-	ASN1_INTEGER_set(X509_get_serialNumber(new_cert), 0L);
+	ASN1_INTEGER_set(X509_get_serialNumber(new_cert), serial);
 	
 	X509_set_subject_name(new_cert, X509_REQ_get_subject_name(csr));
 
@@ -1611,9 +1611,16 @@ PHP_FUNCTION(openssl_csr_new)
 						if (we_made_the_key) {
 							/* and a resource for the private key */
 							ZVAL_RESOURCE(out_pkey, zend_list_insert(req.priv_key, le_key));
+							req.priv_key = NULL; /* make sure the cleanup code doesn't zap it! */
 						}
 						else if (key_resource != -1)	
 							req.priv_key = NULL; /* make sure the cleanup code doesn't zap it! */
+					}
+				}
+				else {
+					if (!we_made_the_key) {
+						/* if we have not made the key we are not supposed to zap it by calling dispose! */
+						req.priv_key = NULL;
 					}
 				}
 			}
@@ -1689,15 +1696,21 @@ static EVP_PKEY * php_openssl_evp_from_zval(zval ** val, int public_key, char * 
 			free_cert = 0;
 		}
 		else if (type == le_key) {
+			int is_priv;
+
+			is_priv = php_openssl_is_private_key((EVP_PKEY*)what TSRMLS_CC);
 			/* check whether it is actually a private key if requested */
-			if (!public_key && !php_openssl_is_private_key((EVP_PKEY*)what TSRMLS_CC))
-			{
+			if (!public_key && !is_priv) {
 				php_error_docref(NULL TSRMLS_CC, E_WARNING, "supplied key param is a public key");
 				return NULL;
 			}
-			
-			/* got the key - return it */
-			return (EVP_PKEY*)what;
+			if (public_key && is_priv) {
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "Don't know how to get public key from this private key (the documentation lied)");
+				return NULL;
+			} else {
+				/* got the key - return it */
+				return (EVP_PKEY*)what;
+			}
 		}
 
 		/* other types could be used here - eg: file pointers and read in the data from them */
@@ -1913,7 +1926,7 @@ PHP_FUNCTION(openssl_pkey_export_to_file)
 		bio_out = BIO_new_file(filename, "w");
 
 		if (passphrase && req.priv_key_encrypt)
-			cipher = EVP_des_ede3_cbc();
+			cipher = (EVP_CIPHER *) EVP_des_ede3_cbc();
 		else
 			cipher = NULL;
 		
@@ -1964,7 +1977,7 @@ PHP_FUNCTION(openssl_pkey_export)
 		bio_out = BIO_new(BIO_s_mem());
 
 		if (passphrase && req.priv_key_encrypt)
-			cipher = EVP_des_ede3_cbc();
+			cipher = (EVP_CIPHER *) EVP_des_ede3_cbc();
 		else
 			cipher = NULL;
 		
@@ -2224,7 +2237,7 @@ PHP_FUNCTION(openssl_pkcs7_encrypt)
 	}
 
 	/* TODO: allow user to choose a different cipher */
-	cipher = EVP_rc2_40_cbc();
+	cipher = (EVP_CIPHER *) EVP_rc2_40_cbc();
 	if (cipher == NULL)
 		goto clean_exit;
 

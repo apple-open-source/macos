@@ -1,15 +1,13 @@
 dnl
-dnl $Id: config.m4,v 1.1.1.8 2003/07/18 18:07:36 zarzycki Exp $
+dnl $Id: config.m4,v 1.24.4.3 2003/10/01 02:54:00 sniper Exp $
 dnl 
 
 PHP_ARG_WITH(mcrypt, for mcrypt support,
 [  --with-mcrypt[=DIR]     Include mcrypt support.])
 
 if test "$PHP_MCRYPT" != "no"; then
-  for i in /usr/local /usr $PHP_MCRYPT; do
-    if test -f $i/include/mcrypt.h; then
-      MCRYPT_DIR=$i
-    fi
+  for i in $PHP_MCRYPT /usr/local /usr; do
+    test -f $i/include/mcrypt.h && MCRYPT_DIR=$i && break
   done
 
   if test -z "$MCRYPT_DIR"; then
@@ -57,8 +55,8 @@ if test "$PHP_MCRYPT" != "no"; then
 
   PHP_ADD_LIBRARY_WITH_PATH(mcrypt, $MCRYPT_DIR/lib, MCRYPT_SHARED_LIBADD)
   PHP_ADD_INCLUDE($MCRYPT_DIR/include)
-  AC_DEFINE(HAVE_LIBMCRYPT,1,[ ])
 
-  PHP_SUBST(MCRYPT_SHARED_LIBADD)
   PHP_NEW_EXTENSION(mcrypt, mcrypt.c, $ext_shared)
+  PHP_SUBST(MCRYPT_SHARED_LIBADD)
+  AC_DEFINE(HAVE_LIBMCRYPT,1,[ ])
 fi

@@ -114,6 +114,8 @@
 				7E62863B05AD5AB500A3C040,
 				7E608CDF0607BA1400FFAA0C,
 				7E1C943706150B5B00E58CAC,
+				70E8ED1E073056C300FE3AEA,
+				70CE02610731CCB90030A3F1,
 			);
 		};
 		089C166AFE841209C02AAC07 = {
@@ -147,13 +149,13 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleMacRISC4PE;
-				MODULE_VERSION = 1.4.0b1;
-				OTHER_CFLAGS = "-D_BIG_ENDIAN -mno-string";
+				MODULE_VERSION = 1.5.1d3;
+				OTHER_CFLAGS = "-D_BIG_ENDIAN";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = AppleMacRISC4PE;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = ppc;
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = kext;
 			};
@@ -165,6 +167,8 @@
 				2EACB479053B352E00912AE3,
 				7E608CE10607BA8400FFAA0C,
 				7E1C943906150B6900E58CAC,
+				70E8ED200730588900FE3AEA,
+				70CE028F0736ED010030A3F1,
 			);
 			isa = PBXBundleTarget;
 			name = AppleMacRISC4PE;
@@ -180,7 +184,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleMacRISC4PE</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleMacRISC4PE version 1.4.0, Copyright 2003-2004 Apple Computer, Inc.</string>
+	<string>AppleMacRISC4PE version 1.5.1, Copyright 2003-2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -192,11 +196,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.4.0</string>
+	<string>1.5.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.4.0b1</string>
+	<string>1.5.1d3</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>MacRISC4CPU</key>
@@ -944,6 +948,8 @@
 				7E62863C05AD5AB500A3C040,
 				7E608CE00607BA1400FFAA0C,
 				7E1C943806150B5B00E58CAC,
+				70E8ED1F073056C300FE3AEA,
+				70CE02620731CCB90030A3F1,
 			);
 			isa = PBXGroup;
 			name = Products;
@@ -1186,13 +1192,12 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.RackMac3_1_PlatformPlugin;
-				MODULE_VERSION = 1.4.0b1;
-				OTHER_CFLAGS = "-mno-string";
+				MODULE_VERSION = 1.5.1d3;
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = RackMac3_1_PlatformPlugin;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = ppc;
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = kext;
 			};
@@ -1212,7 +1217,7 @@
 	<key>CFBundleExecutable</key>
 	<string>RackMac3_1_PlatformPlugin</string>
 	<key>CFBundleGetInfoString</key>
-	<string>RackMac3_1_PlatformPlugin version 1.4.0, Copyright 2003-2004 Apple Computer, Inc.</string>
+	<string>RackMac3_1_PlatformPlugin version 1.5.1, Copyright 2003-2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1224,11 +1229,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.4.0</string>
+	<string>1.5.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.4.0b1</string>
+	<string>1.5.1d3</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>RackMac3_1_PlatformPlugin</key>
@@ -3426,6 +3431,948 @@
 //2E2
 //2E3
 //2E4
+//700
+//701
+//702
+//703
+//704
+		7083CE620752C7E2001ABBE0 = {
+			fileRef = 709332B3075279C500C2CC3B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7083CE630752C7E3001ABBE0 = {
+			fileRef = 709332B4075279E900C2CC3B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		709332B3075279C500C2CC3B = {
+			fileEncoding = 4;
+			indentWidth = 4;
+			isa = PBXFileReference;
+			name = PBG4_ThermalProfile.cpp;
+			path = ThermalProfiles/PBG4_ThermalProfile.cpp;
+			refType = 4;
+			usesTabs = 1;
+		};
+		709332B4075279E900C2CC3B = {
+			fileEncoding = 4;
+			indentWidth = 4;
+			isa = PBXFileReference;
+			name = PBG4_ThermalProfile.h;
+			path = ThermalProfiles/PBG4_ThermalProfile.h;
+			refType = 4;
+			usesTabs = 1;
+		};
+		709E66390736F11300B0320B = {
+			fileRef = 70E8ED1F073056C300FE3AEA;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		70CE02490731B5EE0030A3F1 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = PBG4_PlatformPlugin.cpp;
+			path = IOPlatformPlugins/PBG4_PlatformPlugin/PBG4_PlatformPlugin.cpp;
+			refType = 4;
+		};
+		70CE024A0731B5EE0030A3F1 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = PBG4_PlatformPlugin.h;
+			path = IOPlatformPlugins/PBG4_PlatformPlugin/PBG4_PlatformPlugin.h;
+			refType = 4;
+		};
+		70CE024B0731B5EE0030A3F1 = {
+			fileRef = 70CE02490731B5EE0030A3F1;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		70CE024C0731B5EE0030A3F1 = {
+			fileRef = 70CE024A0731B5EE0030A3F1;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		70CE025B0731CCB90030A3F1 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		70CE025C0731CCB90030A3F1 = {
+			buildActionMask = 2147483647;
+			files = (
+				7083CE630752C7E3001ABBE0,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		70CE025D0731CCB90030A3F1 = {
+			buildActionMask = 2147483647;
+			files = (
+				7083CE620752C7E2001ABBE0,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		70CE025E0731CCB90030A3F1 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		70CE025F0731CCB90030A3F1 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		70CE02600731CCB90030A3F1 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		70CE02610731CCB90030A3F1 = {
+			buildPhases = (
+				70CE025B0731CCB90030A3F1,
+				70CE025C0731CCB90030A3F1,
+				70CE025D0731CCB90030A3F1,
+				70CE025E0731CCB90030A3F1,
+				70CE025F0731CCB90030A3F1,
+				70CE02600731CCB90030A3F1,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.PBG4_ThermalProfile;
+				MODULE_VERSION = 1.5.1d3;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = PBG4_ThermalProfile;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = PBG4_ThermalProfile;
+			productName = PBG4_ThermalProfile;
+			productReference = 70CE02620731CCB90030A3F1;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>PBG4_ThermalProfile</string>
+	<key>CFBundleGetInfoString</key>
+	<string>PBG4_ThermalProfile version 1.5.1, Copyright 2004 Apple Computer, Inc.</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.PBG4_ThermalProfile</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>PBG4_ThermalProfile</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.5.1</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.5.1d3</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>PowerBook5_6_ThermalProfile</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.PBG4_ThermalProfile</string>
+			<key>IOClass</key>
+			<string>PBG4_ThermalProfile</string>
+			<key>IONameMatch</key>
+			<string>ThermalProfile_PowerBook5,6</string>
+			<key>IOPlatformThermalProfile</key>
+			<dict>
+				<key>ConfigArray</key>
+				<array>
+					<dict>
+						<key>Desc-Key</key>
+						<string>CFG_SINGLE</string>
+						<key>Description</key>
+						<string>Single Processor</string>
+					</dict>
+				</array>
+				<key>CreationDate</key>
+				<string>Thu Oct 28 18:04:16 PDT 2004</string>
+				<key>CtrlLoopArray</key>
+				<array>
+					<dict>
+						<key>Description</key>
+						<string>Dynamic Power Step</string>
+						<key>IOClass</key>
+						<string>PBG4_DPSCtrlLoop</string>
+						<key>MetaStateArray</key>
+						<array>
+							<dict>
+								<key>Description</key>
+								<string>Full Power</string>
+							</dict>
+							<dict>
+								<key>Description</key>
+								<string>Reduced Power</string>
+							</dict>
+							<dict>
+								<key>Description</key>
+								<string>Full Power - SP</string>
+							</dict>
+							<dict>
+								<key>Description</key>
+								<string>Reduced Power - SP</string>
+							</dict>
+						</array>
+						<key>SensorIDArray</key>
+						<array>
+							<integer>1</integer>
+							<integer>3</integer>
+							<integer>4</integer>
+							<integer>0</integer>
+							<integer>2</integer>
+						</array>
+						<key>ctrlloop-id</key>
+						<integer>0</integer>
+						<key>is-state-driven</key>
+						<integer>1</integer>
+						<key>power-adapter-baseline</key>
+						<integer>65</integer>
+					</dict>
+				</array>
+				<key>SensorArray</key>
+				<array>
+					<dict>
+						<key>Desc-Key</key>
+						<string>CPU_TEMP</string>
+						<key>IOClass</key>
+						<string>IOPlatformStateSensor</string>
+						<key>ThresholdArray</key>
+						<array>
+							<dict>
+								<key>high-threshold</key>
+								<integer>4915200</integer>
+								<key>low-threshold</key>
+								<integer>0</integer>
+							</dict>
+							<dict>
+								<key>high-threshold</key>
+								<integer>7208960</integer>
+								<key>low-threshold</key>
+								<integer>4784128</integer>
+							</dict>
+							<dict>
+								<key>high-threshold</key>
+								<integer>7536640</integer>
+								<key>low-threshold</key>
+								<integer>7077888</integer>
+							</dict>
+							<dict>
+								<key>high-threshold</key>
+								<integer>7667712</integer>
+								<key>low-threshold</key>
+								<integer>7405568</integer>
+							</dict>
+						</array>
+						<key>sensor-id</key>
+						<integer>1</integer>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>BATT_TEMP</string>
+						<key>IOClass</key>
+						<string>IOPlatformStateSensor</string>
+						<key>ThresholdArray</key>
+						<array>
+							<dict>
+								<key>high-threshold</key>
+								<integer>2752512</integer>
+								<key>low-threshold</key>
+								<integer>0</integer>
+							</dict>
+							<dict>
+								<key>high-threshold</key>
+								<integer>7208960</integer>
+								<key>low-threshold</key>
+								<integer>2424832</integer>
+							</dict>
+							<dict>
+								<key>high-threshold</key>
+								<integer>7536640</integer>
+								<key>low-threshold</key>
+								<integer>7077888</integer>
+							</dict>
+							<dict>
+								<key>high-threshold</key>
+								<integer>7667712</integer>
+								<key>low-threshold</key>
+								<integer>7405568</integer>
+							</dict>
+						</array>
+						<key>sensor-id</key>
+						<integer>3</integer>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>TPAD_TEMP</string>
+						<key>IOClass</key>
+						<string>IOPlatformStateSensor</string>
+						<key>ThresholdArray</key>
+						<array>
+							<dict>
+								<key>high-threshold</key>
+								<integer>3145728</integer>
+								<key>low-threshold</key>
+								<integer>0</integer>
+							</dict>
+							<dict>
+								<key>high-threshold</key>
+								<integer>7208960</integer>
+								<key>low-threshold</key>
+								<integer>3014656</integer>
+							</dict>
+							<dict>
+								<key>high-threshold</key>
+								<integer>7536640</integer>
+								<key>low-threshold</key>
+								<integer>7077888</integer>
+							</dict>
+							<dict>
+								<key>high-threshold</key>
+								<integer>7667712</integer>
+								<key>low-threshold</key>
+								<integer>7405568</integer>
+							</dict>
+						</array>
+						<key>sensor-id</key>
+						<integer>4</integer>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>UNIN_TEMP</string>
+						<key>IOClass</key>
+						<string>IOPlatformStateSensor</string>
+						<key>ThresholdArray</key>
+						<array>
+							<dict>
+								<key>high-threshold</key>
+								<integer>4980736</integer>
+								<key>low-threshold</key>
+								<integer>0</integer>
+							</dict>
+							<dict>
+								<key>high-threshold</key>
+								<integer>7208960</integer>
+								<key>low-threshold</key>
+								<integer>4849664</integer>
+							</dict>
+							<dict>
+								<key>high-threshold</key>
+								<integer>7536640</integer>
+								<key>low-threshold</key>
+								<integer>7077888</integer>
+							</dict>
+							<dict>
+								<key>high-threshold</key>
+								<integer>7667712</integer>
+								<key>low-threshold</key>
+								<integer>7405568</integer>
+							</dict>
+						</array>
+						<key>sensor-id</key>
+						<integer>0</integer>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>PWR_SUP_TEMP</string>
+						<key>IOClass</key>
+						<string>IOPlatformStateSensor</string>
+						<key>ThresholdArray</key>
+						<array>
+							<dict>
+								<key>high-threshold</key>
+								<integer>5373952</integer>
+								<key>low-threshold</key>
+								<integer>0</integer>
+							</dict>
+							<dict>
+								<key>high-threshold</key>
+								<integer>7208960</integer>
+								<key>low-threshold</key>
+								<integer>5242880</integer>
+							</dict>
+							<dict>
+								<key>high-threshold</key>
+								<integer>7536640</integer>
+								<key>low-threshold</key>
+								<integer>7077888</integer>
+							</dict>
+							<dict>
+								<key>high-threshold</key>
+								<integer>7667712</integer>
+								<key>low-threshold</key>
+								<integer>7405568</integer>
+							</dict>
+						</array>
+						<key>sensor-id</key>
+						<integer>2</integer>
+					</dict>
+				</array>
+			</dict>
+			<key>IOProviderClass</key>
+			<string>IOService</string>
+		</dict>
+		<key>PowerBook5_7_ThermalProfile</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.PBG4_ThermalProfile</string>
+			<key>IOClass</key>
+			<string>PBG4_ThermalProfile</string>
+			<key>IONameMatch</key>
+			<string>ThermalProfile_PowerBook5,7</string>
+			<key>IOPlatformThermalProfile</key>
+			<dict>
+				<key>ConfigArray</key>
+				<array>
+					<dict>
+						<key>Desc-Key</key>
+						<string>CFG_SINGLE</string>
+						<key>Description</key>
+						<string>Single Processor</string>
+					</dict>
+				</array>
+				<key>CreationDate</key>
+				<string>Thu Oct 28 18:04:16 PDT 2004</string>
+				<key>CtrlLoopArray</key>
+				<array>
+					<dict>
+						<key>Description</key>
+						<string>Dynamic Power Step</string>
+						<key>IOClass</key>
+						<string>PBG4_DPSCtrlLoop</string>
+						<key>MetaStateArray</key>
+						<array>
+							<dict>
+								<key>Description</key>
+								<string>Full Power</string>
+							</dict>
+							<dict>
+								<key>Description</key>
+								<string>Reduced Power</string>
+							</dict>
+							<dict>
+								<key>Description</key>
+								<string>Full Power - SP</string>
+							</dict>
+							<dict>
+								<key>Description</key>
+								<string>Reduced Power - SP</string>
+							</dict>
+						</array>
+						<key>SensorIDArray</key>
+						<array>
+							<integer>1</integer>
+							<integer>3</integer>
+							<integer>4</integer>
+							<integer>0</integer>
+							<integer>2</integer>
+						</array>
+						<key>ctrlloop-id</key>
+						<integer>0</integer>
+						<key>is-state-driven</key>
+						<integer>1</integer>
+						<key>power-adapter-baseline</key>
+						<integer>65</integer>
+					</dict>
+				</array>
+				<key>SensorArray</key>
+				<array>
+					<dict>
+						<key>Desc-Key</key>
+						<string>CPU_TEMP</string>
+						<key>IOClass</key>
+						<string>IOPlatformStateSensor</string>
+						<key>ThresholdArray</key>
+						<array>
+							<dict>
+								<key>high-threshold</key>
+								<integer>4390912</integer>
+								<key>low-threshold</key>
+								<integer>0</integer>
+							</dict>
+							<dict>
+								<key>high-threshold</key>
+								<integer>7208960</integer>
+								<key>low-threshold</key>
+								<integer>4259840</integer>
+							</dict>
+							<dict>
+								<key>high-threshold</key>
+								<integer>7536640</integer>
+								<key>low-threshold</key>
+								<integer>7077888</integer>
+							</dict>
+							<dict>
+								<key>high-threshold</key>
+								<integer>7667712</integer>
+								<key>low-threshold</key>
+								<integer>7405568</integer>
+							</dict>
+						</array>
+						<key>sensor-id</key>
+						<integer>1</integer>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>BATT_TEMP</string>
+						<key>IOClass</key>
+						<string>IOPlatformStateSensor</string>
+						<key>ThresholdArray</key>
+						<array>
+							<dict>
+								<key>high-threshold</key>
+								<integer>3276800</integer>
+								<key>low-threshold</key>
+								<integer>0</integer>
+							</dict>
+							<dict>
+								<key>high-threshold</key>
+								<integer>7208960</integer>
+								<key>low-threshold</key>
+								<integer>2949120</integer>
+							</dict>
+							<dict>
+								<key>high-threshold</key>
+								<integer>7536640</integer>
+								<key>low-threshold</key>
+								<integer>7077888</integer>
+							</dict>
+							<dict>
+								<key>high-threshold</key>
+								<integer>7667712</integer>
+								<key>low-threshold</key>
+								<integer>7405568</integer>
+							</dict>
+						</array>
+						<key>sensor-id</key>
+						<integer>3</integer>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>TPAD_TEMP</string>
+						<key>IOClass</key>
+						<string>IOPlatformStateSensor</string>
+						<key>ThresholdArray</key>
+						<array>
+							<dict>
+								<key>high-threshold</key>
+								<integer>3211264</integer>
+								<key>low-threshold</key>
+								<integer>0</integer>
+							</dict>
+							<dict>
+								<key>high-threshold</key>
+								<integer>7208960</integer>
+								<key>low-threshold</key>
+								<integer>3080192</integer>
+							</dict>
+							<dict>
+								<key>high-threshold</key>
+								<integer>7536640</integer>
+								<key>low-threshold</key>
+								<integer>7077888</integer>
+							</dict>
+							<dict>
+								<key>high-threshold</key>
+								<integer>7667712</integer>
+								<key>low-threshold</key>
+								<integer>7405568</integer>
+							</dict>
+						</array>
+						<key>sensor-id</key>
+						<integer>4</integer>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>UNIN_TEMP</string>
+						<key>IOClass</key>
+						<string>IOPlatformStateSensor</string>
+						<key>ThresholdArray</key>
+						<array>
+							<dict>
+								<key>high-threshold</key>
+								<integer>4390912</integer>
+								<key>low-threshold</key>
+								<integer>0</integer>
+							</dict>
+							<dict>
+								<key>high-threshold</key>
+								<integer>7208960</integer>
+								<key>low-threshold</key>
+								<integer>4259840</integer>
+							</dict>
+							<dict>
+								<key>high-threshold</key>
+								<integer>7536640</integer>
+								<key>low-threshold</key>
+								<integer>7077888</integer>
+							</dict>
+							<dict>
+								<key>high-threshold</key>
+								<integer>7667712</integer>
+								<key>low-threshold</key>
+								<integer>7405568</integer>
+							</dict>
+						</array>
+						<key>sensor-id</key>
+						<integer>0</integer>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>PWR_SUP_TEMP</string>
+						<key>IOClass</key>
+						<string>IOPlatformStateSensor</string>
+						<key>ThresholdArray</key>
+						<array>
+							<dict>
+								<key>high-threshold</key>
+								<integer>4390912</integer>
+								<key>low-threshold</key>
+								<integer>0</integer>
+							</dict>
+							<dict>
+								<key>high-threshold</key>
+								<integer>7208960</integer>
+								<key>low-threshold</key>
+								<integer>4259840</integer>
+							</dict>
+							<dict>
+								<key>high-threshold</key>
+								<integer>7536640</integer>
+								<key>low-threshold</key>
+								<integer>7077888</integer>
+							</dict>
+							<dict>
+								<key>high-threshold</key>
+								<integer>7667712</integer>
+								<key>low-threshold</key>
+								<integer>7405568</integer>
+							</dict>
+						</array>
+						<key>sensor-id</key>
+						<integer>2</integer>
+					</dict>
+				</array>
+			</dict>
+			<key>IOProviderClass</key>
+			<string>IOService</string>
+		</dict>
+	</dict>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.driver.IOPlatformPluginFamily</key>
+		<string>1.1.0d2</string>
+		<key>com.apple.driver.PBG4_PlatformPlugin</key>
+		<string>1.5.1d1</string>
+	</dict>
+	<key>OSBundleRequired</key>
+	<string>Safe Boot</string>
+</dict>
+</plist>
+";
+		};
+		70CE02620731CCB90030A3F1 = {
+			isa = PBXBundleReference;
+			path = PBG4_ThermalProfile.kext;
+			refType = 3;
+		};
+		70CE02640732F7C00030A3F1 = {
+			children = (
+				70CE02670732F83F0030A3F1,
+				70CE02650732F8310030A3F1,
+			);
+			isa = PBXGroup;
+			name = CtrlLoops;
+			refType = 4;
+		};
+		70CE02650732F8310030A3F1 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			name = PBG4_DPSCtrlLoop.cpp;
+			path = IOPlatformPlugins/PBG4_PlatformPlugin/CtrlLoops/PBG4_DPSCtrlLoop.cpp;
+			refType = 4;
+		};
+		70CE02660732F8310030A3F1 = {
+			fileRef = 70CE02650732F8310030A3F1;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		70CE02670732F83F0030A3F1 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			name = PBG4_DPSCtrlLoop.h;
+			path = IOPlatformPlugins/PBG4_PlatformPlugin/CtrlLoops/PBG4_DPSCtrlLoop.h;
+			refType = 4;
+		};
+		70CE02680732F83F0030A3F1 = {
+			fileRef = 70CE02670732F83F0030A3F1;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		70CE028E0736ECCA0030A3F1 = {
+			fileRef = 70CE02620731CCB90030A3F1;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		70CE028F0736ED010030A3F1 = {
+			isa = PBXTargetDependency;
+			target = 70CE02610731CCB90030A3F1;
+		};
+		70E8ED130730532900FE3AEA = {
+			children = (
+				70CE024A0731B5EE0030A3F1,
+				70CE02490731B5EE0030A3F1,
+				70CE02640732F7C00030A3F1,
+			);
+			isa = PBXGroup;
+			name = PBG4_PlatformPlugin;
+			path = "";
+			refType = 4;
+		};
+		70E8ED18073056C300FE3AEA = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		70E8ED19073056C300FE3AEA = {
+			buildActionMask = 2147483647;
+			files = (
+				70E8ED23073058C000FE3AEA,
+				70E8ED24073058C000FE3AEA,
+				70E8ED25073058C100FE3AEA,
+				70CE024C0731B5EE0030A3F1,
+				70CE02680732F83F0030A3F1,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		70E8ED1A073056C300FE3AEA = {
+			buildActionMask = 2147483647;
+			files = (
+				70CE024B0731B5EE0030A3F1,
+				70CE02660732F8310030A3F1,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		70E8ED1B073056C300FE3AEA = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		70E8ED1C073056C300FE3AEA = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		70E8ED1D073056C300FE3AEA = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		70E8ED1E073056C300FE3AEA = {
+			buildPhases = (
+				70E8ED18073056C300FE3AEA,
+				70E8ED19073056C300FE3AEA,
+				70E8ED1A073056C300FE3AEA,
+				70E8ED1B073056C300FE3AEA,
+				70E8ED1C073056C300FE3AEA,
+				70E8ED1D073056C300FE3AEA,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.PBG4_PlatformPlugin;
+				MODULE_VERSION = 1.5.1d3;
+				OPTIMIZATION_CFLAGS = "-mno-string";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = PBG4_PlatformPlugin;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = PBG4_PlatformPlugin;
+			productName = PBG4_PlatformPlugin;
+			productReference = 70E8ED1F073056C300FE3AEA;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>PBG4_PlatformPlugin</string>
+	<key>CFBundleGetInfoString</key>
+	<string>PBG4_PlatformPlugin version 1.5.1, Copyright 2004 Apple Computer, Inc.</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.PBG4_PlatformPlugin</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>PBG4_PlatformPlugin</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.5.1</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.5.1d3</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>PBG4_PlatformPlugin</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.PBG4_PlatformPlugin</string>
+			<key>IOClass</key>
+			<string>PBG4_PlatformPlugin</string>
+			<key>IONameMatch</key>
+			<string>PBG4_PlatformPlugin</string>
+			<key>IOPlatformThermalProfile</key>
+			<dict>
+				<key>ConfigArray</key>
+				<array>
+					<dict>
+						<key>Desc-Key</key>
+						<string>CFG-GENERIC</string>
+						<key>Description</key>
+						<string>PowerBook5,8 Generic</string>
+					</dict>
+				</array>
+			</dict>
+			<key>IOProviderClass</key>
+			<string>IOPlatformDevice</string>
+		</dict>
+	</dict>
+	<key>OSBundleCompatibleVersion</key>
+	<string>1.0.0</string>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.driver.IOPlatformPluginFamily</key>
+		<string>1.1.0d2</string>
+		<key>com.apple.kernel.iokit</key>
+		<string>6.5</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>6.5</string>
+	</dict>
+	<key>OSBundleRequired</key>
+	<string>Safe Boot</string>
+</dict>
+</plist>
+";
+		};
+		70E8ED1F073056C300FE3AEA = {
+			isa = PBXBundleReference;
+			path = PBG4_PlatformPlugin.kext;
+			refType = 3;
+		};
+		70E8ED200730588900FE3AEA = {
+			isa = PBXTargetDependency;
+			target = 70E8ED1E073056C300FE3AEA;
+		};
+		70E8ED23073058C000FE3AEA = {
+			fileRef = B4490BC40472E45F00CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		70E8ED24073058C000FE3AEA = {
+			fileRef = B4A5CF65046BB3C000CE0F51;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		70E8ED25073058C100FE3AEA = {
+			fileRef = B0ED8C5003BA2EF905A80123;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//700
+//701
+//702
+//703
+//704
 //7E0
 //7E1
 //7E2
@@ -3520,13 +4467,12 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.SMU.PowerMac9_1_ThermalProfile;
-				MODULE_VERSION = 1.4.0b1;
-				OTHER_CFLAGS = "-mno-string";
+				MODULE_VERSION = 1.5.1d3;
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = PowerMac9_1_ThermalProfile;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = ppc;
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = kext;
 			};
@@ -3545,7 +4491,7 @@
 	<key>CFBundleExecutable</key>
 	<string>PowerMac9_1_ThermalProfile</string>
 	<key>CFBundleGetInfoString</key>
-	<string>PowerMac9_1_ThermalProfile version 1.4.0, Copyright 2004 Apple Computer, Inc.</string>
+	<string>PowerMac9_1_ThermalProfile version 1.5.1, Copyright 2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -3557,11 +4503,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.4.0</string>
+	<string>1.5.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.4.0b1</string>
+	<string>1.5.1d3</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>PowerMac9_1_ThermalProfile</key>
@@ -3901,7 +4847,7 @@
 		<key>com.apple.driver.IOPlatformPluginFamily</key>
 		<string>1.1.0d2</string>
 		<key>com.apple.driver.SMU_Neo2_PlatformPlugin</key>
-		<string>1.3.0b12</string>
+		<string>1.4.0d9</string>
 	</dict>
 	<key>OSBundleRequired</key>
 	<string>Safe Boot</string>
@@ -4177,13 +5123,12 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.SMU.PowerMac8_1_ThermalProfile;
-				MODULE_VERSION = 1.4.0b1;
-				OTHER_CFLAGS = "-mno-string";
+				MODULE_VERSION = 1.5.1d3;
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = PowerMac8_1_ThermalProfile;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = ppc;
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = kext;
 			};
@@ -4202,7 +5147,7 @@
 	<key>CFBundleExecutable</key>
 	<string>PowerMac8_1_ThermalProfile</string>
 	<key>CFBundleGetInfoString</key>
-	<string>PowerMac8_1_ThermalProfile version 1.4.0, Copyright 2004 Apple Computer, Inc.</string>
+	<string>PowerMac8_1_ThermalProfile version 1.5.1, Copyright 2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -4214,11 +5159,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.4.0</string>
+	<string>1.5.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.4.0b1</string>
+	<string>1.5.1d3</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>PowerMac8_1_ThermalProfile</key>
@@ -4681,7 +5626,7 @@
 		<key>com.apple.driver.IOPlatformPluginFamily</key>
 		<string>1.1.0d2</string>
 		<key>com.apple.driver.SMU_Neo2_PlatformPlugin</key>
-		<string>1.3.0b12</string>
+		<string>1.4.0d9</string>
 	</dict>
 	<key>OSBundleRequired</key>
 	<string>Safe Boot</string>
@@ -4704,6 +5649,8 @@
 				7E608CE70607BB0300FFAA0C,
 				7E1C944706150EC300E58CAC,
 				7E1C944606150EC300E58CAC,
+				709332B3075279C500C2CC3B,
+				709332B4075279E900C2CC3B,
 			);
 			isa = PBXGroup;
 			name = ThermalProfiles;
@@ -4839,13 +5786,12 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.SMU_Neo2_PlatformPlugin;
-				MODULE_VERSION = 1.4.0b1;
-				OTHER_CFLAGS = "-mno-string";
+				MODULE_VERSION = 1.5.1d3;
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = SMU_Neo2_PlatformPlugin;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = ppc;
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = kext;
 			};
@@ -4865,7 +5811,7 @@
 	<key>CFBundleExecutable</key>
 	<string>SMU_Neo2_PlatformPlugin</string>
 	<key>CFBundleGetInfoString</key>
-	<string>SMU_Neo2_PlatformPlugin version 1.4.0, Copyright 2004 Apple Computer, Inc.</string>
+	<string>SMU_Neo2_PlatformPlugin version 1.5.1, Copyright 2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -4877,11 +5823,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.4.0</string>
+	<string>1.5.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.4.0b1</string>
+	<string>1.5.1d3</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>SMU_Neo2_PlatformPlugin</key>
@@ -5151,6 +6097,42 @@
 //7E2
 //7E3
 //7E4
+//A60
+//A61
+//A62
+//A63
+//A64
+		A68CDCD8074EC6D700CDD5C9 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = PowerMac7_2_U3TwinsPIDCtrlLoop.cpp;
+			path = IOPlatformPlugins/PowerMac7_2_PlatformPlugin/PowerMac7_2_U3TwinsPIDCtrlLoop.cpp;
+			refType = 4;
+		};
+		A68CDCD9074EC6D700CDD5C9 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = PowerMac7_2_U3TwinsPIDCtrlLoop.h;
+			path = IOPlatformPlugins/PowerMac7_2_PlatformPlugin/PowerMac7_2_U3TwinsPIDCtrlLoop.h;
+			refType = 4;
+		};
+		A68CDCDA074EC6D700CDD5C9 = {
+			fileRef = A68CDCD8074EC6D700CDD5C9;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A68CDCDB074EC6D700CDD5C9 = {
+			fileRef = A68CDCD9074EC6D700CDD5C9;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//A60
+//A61
+//A62
+//A63
+//A64
 //B00
 //B01
 //B02
@@ -5174,6 +6156,8 @@
 				7E3F3C1C05AE3249004238D5,
 				7E608CE60607BAD200FFAA0C,
 				7E1C944506150B8100E58CAC,
+				709E66390736F11300B0320B,
+				70CE028E0736ECCA0030A3F1,
 			);
 			isa = PBXCopyFilesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -5247,6 +6231,7 @@
 				B40E15C004140F1500CE0E5B,
 				2EACB47A053B356D00912AE3,
 				7E62863505AD5A7A00A3C040,
+				70E8ED130730532900FE3AEA,
 			);
 			isa = PBXGroup;
 			name = IOPlatformPlugins;
@@ -5359,13 +6344,12 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.MacRISC4_PlatformPlugin;
-				MODULE_VERSION = 1.4.0b1;
-				OTHER_CFLAGS = "-mno-string";
+				MODULE_VERSION = 1.5.1d3;
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = MacRISC4_PlatformPlugin;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = ppc;
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = kext;
 			};
@@ -5384,7 +6368,7 @@
 	<key>CFBundleExecutable</key>
 	<string>MacRISC4_PlatformPlugin</string>
 	<key>CFBundleGetInfoString</key>
-	<string>MacRISC4_PlatformPlugin version 1.4.0, Copyright 2003-2004 Apple Computer, Inc.</string>
+	<string>MacRISC4_PlatformPlugin version 1.5.1, Copyright 2003-2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -5396,11 +6380,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.4.0</string>
+	<string>1.5.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.4.0b1</string>
+	<string>1.5.1d3</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>MacRISC4_PlatformPlugin</key>
@@ -6099,6 +7083,8 @@
 				B443D8DB047E9F1800CE0E5B,
 				F299766905C58E15003209A6,
 				F299766805C58E15003209A6,
+				A68CDCD9074EC6D700CDD5C9,
+				A68CDCD8074EC6D700CDD5C9,
 			);
 			isa = PBXGroup;
 			name = CtrlLoops;
@@ -6268,13 +7254,12 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.IOPlatformPluginFamily;
-				MODULE_VERSION = 1.4.0b1;
-				OTHER_CFLAGS = "-mno-string";
+				MODULE_VERSION = 1.5.1d3;
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = IOPlatformPluginFamily;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = ppc;
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = kext;
 			};
@@ -6294,7 +7279,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOPlatformPluginFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>IOPlatformPluginFamily version 1.4.0, Copyright 2003-2004 Apple Computer, Inc.</string>
+	<string>IOPlatformPluginFamily version 1.5.1, Copyright 2003-2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -6306,11 +7291,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.4.0</string>
+	<string>1.5.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.4.0b1</string>
+	<string>1.5.1d3</string>
 	<key>IOKitPersonalities</key>
 	<dict/>
 	<key>OSBundleCompatibleVersion</key>
@@ -6424,6 +7409,7 @@
 				B425599A0510DE9200CE0E6C,
 				B425599B0510DE9300CE0E6C,
 				F299766B05C58E15003209A6,
+				A68CDCDB074EC6D700CDD5C9,
 			);
 			isa = PBXHeadersBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -6442,6 +7428,7 @@
 				B418455E04B4F27A00CE0E5B,
 				B418456204B4F86900CE0E5B,
 				F299766A05C58E15003209A6,
+				A68CDCDA074EC6D700CDD5C9,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -6490,13 +7477,12 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.PowerMac7_2_PlatformPlugin;
-				MODULE_VERSION = 1.4.0b1;
-				OTHER_CFLAGS = "-mno-string";
+				MODULE_VERSION = 1.5.1d3;
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = PowerMac7_2_PlatformPlugin;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = ppc;
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = kext;
 			};
@@ -6515,7 +7501,7 @@
 	<key>CFBundleExecutable</key>
 	<string>PowerMac7_2_PlatformPlugin</string>
 	<key>CFBundleGetInfoString</key>
-	<string>PowerMac7_2_PlatformPlugin version 1.4.0, Copyright 2003-2004 Apple Computer, Inc.</string>
+	<string>PowerMac7_2_PlatformPlugin version 1.5.1, Copyright 2003-2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -6527,11 +7513,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.4.0</string>
+	<string>1.5.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.4.0b1</string>
+	<string>1.5.1d3</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>PowerMac7_2_PlatformPlugin</key>
@@ -6789,7 +7775,7 @@
 					</dict>
 				</array>
 				<key>CreationDate</key>
-				<string>Wed Jul 23 17:28:56 PDT 2003</string>
+				<string>Tue Nov 30 15:06:29 PST 2004</string>
 				<key>CtrlLoopArray</key>
 				<array>
 					<dict>
@@ -6800,7 +7786,7 @@
 						<key>Description</key>
 						<string>U3/Backside Fan</string>
 						<key>IOClass</key>
-						<string>PowerMac7_2_PIDCtrlLoop</string>
+						<string>PowerMac7_2_U3TwinsPIDCtrlLoop</string>
 						<key>MetaStateArray</key>
 						<array>
 							<dict>
@@ -6808,11 +7794,11 @@
 								<string>Normal</string>
 								<key>G_d</key>
 								<data>
-								AUAAAA==
+								AFAAAA==
 								</data>
 								<key>G_p</key>
 								<data>
-								AFAAAA==
+								AAQAAA==
 								</data>
 								<key>G_r</key>
 								<data>
@@ -6823,9 +7809,9 @@
 								<key>input-target</key>
 								<integer>4915200</integer>
 								<key>interval</key>
-								<integer>5</integer>
+								<integer>1</integer>
 								<key>output-max</key>
-								<integer>100</integer>
+								<integer>80</integer>
 								<key>output-min</key>
 								<integer>20</integer>
 							</dict>
@@ -6833,7 +7819,7 @@
 								<key>Description</key>
 								<string>Failsafe</string>
 								<key>interval</key>
-								<integer>5</integer>
+								<integer>1</integer>
 								<key>output-override</key>
 								<integer>100</integer>
 							</dict>
@@ -6876,7 +7862,7 @@
 								<key>Description</key>
 								<string></string>
 								<key>interval</key>
-								<integer>5</integer>
+								<integer>1</integer>
 								<key>output-override</key>
 								<integer>3200</integer>
 							</dict>
@@ -7003,7 +7989,7 @@
 								<key>Description</key>
 								<string>Failsafe</string>
 								<key>interval</key>
-								<integer>5</integer>
+								<integer>1</integer>
 								<key>output-override</key>
 								<integer>3700</integer>
 							</dict>
@@ -7263,7 +8249,7 @@
 								<key>Description</key>
 								<string>Failsafe</string>
 								<key>interval</key>
-								<integer>5</integer>
+								<integer>1</integer>
 								<key>output-override</key>
 								<integer>3700</integer>
 							</dict>

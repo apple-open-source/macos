@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_ldap.h,v 1.1.1.7 2003/07/18 18:07:35 zarzycki Exp $ */
+/* $Id: php_ldap.h,v 1.25.8.1 2002/12/31 16:34:50 sebastian Exp $ */
 
 #ifndef PHP_LDAP_H
 #define PHP_LDAP_H

@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.1.1.3 2003/03/11 01:09:35 zarzycki Exp $
+dnl $Id: config.m4,v 1.18.2.3 2003/10/03 05:25:43 sniper Exp $
 dnl
 
 sinclude(ext/xmlrpc/libxmlrpc/acinclude.m4)
@@ -11,10 +11,10 @@ PHP_ARG_WITH(xmlrpc, for XMLRPC-EPI support,
 [  --with-xmlrpc[=DIR]     Include XMLRPC-EPI support.])
 
 PHP_ARG_WITH(expat-dir, libexpat dir for XMLRPC-EPI,
-[  --with-expat-dir=DIR      XMLRPC-EPI: libexpat dir for XMLRPC-EPI.],yes,no)
+[  --with-expat-dir=<DIR>    XMLRPC-EPI: libexpat dir for XMLRPC-EPI.],yes,no)
 
 PHP_ARG_WITH(iconv-dir, iconv dir for XMLRPC-EPI,
-[  --with-iconv-dir=DIR      XMLRPC-EPI: iconv dir for XMLRPC-EPI.],yes,no)
+[  --with-iconv-dir=<DIR>    XMLRPC-EPI: iconv dir for XMLRPC-EPI.],yes,no)
 
 if test "$PHP_XMLRPC" != "no"; then
 
@@ -22,12 +22,13 @@ if test "$PHP_XMLRPC" != "no"; then
   AC_DEFINE(HAVE_XMLRPC,1,[ ])
 
   testval=no
-  for i in /usr /usr/local $PHP_EXPAT_DIR $XMLRPC_DIR; do
+  for i in $PHP_EXPAT_DIR $XMLRPC_DIR /usr/local /usr; do
     if test -f $i/lib/libexpat.a -o -f $i/lib/libexpat.$SHLIB_SUFFIX_NAME; then
       AC_DEFINE(HAVE_LIBEXPAT2,1,[ ])
       PHP_ADD_LIBRARY_WITH_PATH(expat, $i/lib, XMLRPC_SHARED_LIBADD)
       PHP_ADD_INCLUDE($i/include)
       testval=yes
+      break
     fi
   done
 
@@ -76,6 +77,7 @@ dnl for xmlrpc-epi because of this.
       if test -r $i/include/xmlrpc.h; then
         XMLRPC_DIR=$i/include
         AC_MSG_RESULT(found in $i)
+        break
       fi
     done
   fi
@@ -87,7 +89,4 @@ dnl for xmlrpc-epi because of this.
 
   PHP_ADD_INCLUDE($XMLRPC_DIR)
   PHP_ADD_LIBRARY_WITH_PATH(xmlrpc, $XMLRPC_DIR/lib, XMLRPC_SHARED_LIBADD)
-  
 fi
-
-

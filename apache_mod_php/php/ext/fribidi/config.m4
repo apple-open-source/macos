@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.1.1.5 2003/03/11 01:09:19 zarzycki Exp $
+dnl $Id: config.m4,v 1.11 2002/10/12 01:14:42 sniper Exp $
 dnl
 
 PHP_ARG_WITH(fribidi, for FriBidi support,

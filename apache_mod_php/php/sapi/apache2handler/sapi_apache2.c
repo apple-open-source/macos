@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: sapi_apache2.c,v 1.1.1.1 2003/07/18 18:07:50 zarzycki Exp $ */
+/* $Id: sapi_apache2.c,v 1.1.2.36 2004/12/06 18:55:16 stas Exp $ */
 
 #include <fcntl.h>
 
@@ -53,7 +53,7 @@
 
 /* UnixWare and Netware define shutdown to _shutdown, which causes problems later
  * on when using a structure member named shutdown. Since this source
- * file does not use the system call shutdown, it is safe to #undef it.
+ * file does not use the system call shutdown, it is safe to #undef it.K
  */
 #undef shutdown
  
@@ -67,30 +67,15 @@ char *apache2_php_ini_path_override = NULL;
 static int
 php_apache_sapi_ub_write(const char *str, uint str_length TSRMLS_DC)
 {
-	apr_bucket *bucket;
-	apr_bucket_brigade *brigade;
 	request_rec *r;
 	php_struct *ctx;
-	char *copy_str;
-
-	if (str_length == 0) {
-		return 0;
-	}
 
 	ctx = SG(server_context);
 	r = ctx->r;
-	brigade = ctx->brigade;
 	
-	copy_str = apr_pmemdup( r->pool, str, str_length+1);
-	bucket = apr_bucket_pool_create(copy_str, str_length, r->pool, r->connection->bucket_alloc);
-						 
-	APR_BRIGADE_INSERT_TAIL(brigade, bucket);
-
-	if (ap_pass_brigade(r->output_filters, brigade) != APR_SUCCESS) {
+	if (ap_rwrite(str, str_length, r) < 0) {
 		php_handle_aborted_connection();
 	}
-	/* Ensure this brigade is empty for the next usage. */
-	apr_brigade_cleanup(brigade);
 	
 	return str_length; /* we always consume all the data passed to us. */
 }
@@ -179,6 +164,7 @@ php_apache_sapi_get_stat(TSRMLS_D)
 
 	ctx->finfo.st_uid = ctx->r->finfo.user;
 	ctx->finfo.st_gid = ctx->r->finfo.group;
+	ctx->finfo.st_dev = ctx->r->finfo.device;
 	ctx->finfo.st_ino = ctx->r->finfo.inode;
 #if defined(NETWARE) && defined(CLIB_STAT_PATCH)
 	ctx->finfo.st_atime.tv_sec = ctx->r->finfo.atime/1000000;
@@ -245,9 +231,8 @@ static void
 php_apache_sapi_flush(void *server_context)
 {
 	php_struct *ctx;
-	apr_bucket_brigade *brigade;
-	apr_bucket *bucket;
 	request_rec *r;
+	TSRMLS_FETCH();
 
 	ctx = server_context;
 
@@ -258,15 +243,15 @@ php_apache_sapi_flush(void *server_context)
 	}
 
 	r = ctx->r;
-	brigade = ctx->brigade;
 
-	/* Send a flush bucket down the filter chain. */
-	bucket = apr_bucket_flush_create(r->connection->bucket_alloc);
-	APR_BRIGADE_INSERT_TAIL(brigade, bucket);
-	if (ap_pass_brigade(r->output_filters, brigade) != APR_SUCCESS) {
+	sapi_send_headers(TSRMLS_C);
+
+	r->status = SG(sapi_headers).http_response_code;
+	SG(headers_sent) = 1;
+
+	if (ap_rflush(r) < 0 || r->connection->aborted) {
 		php_handle_aborted_connection();
 	}
-	apr_brigade_cleanup(brigade);
 }
 
 static void php_apache_sapi_log_message(char *msg)
@@ -282,11 +267,18 @@ static void php_apache_sapi_log_message(char *msg)
 	 * with Apache 1.3 -- rbb
 	 */
 	if (ctx == NULL) { /* we haven't initialized our ctx yet, oh well */
-		ap_log_error(APLOG_MARK, APLOG_ERR | APLOG_NOERRNO | APLOG_STARTUP,
-					 0, NULL, "%s", msg);
+		ap_log_error(APLOG_MARK, APLOG_ERR | APLOG_STARTUP, 0, NULL, "%s", msg);
 	} else {
-		ap_log_rerror(APLOG_MARK, APLOG_ERR | APLOG_NOERRNO | APLOG_STARTUP,
-					 0, ctx->r, "%s", msg);
+		ap_log_rerror(APLOG_MARK, APLOG_ERR | APLOG_STARTUP, 0, ctx->r, "%s", msg);
+	}
+}
+
+static void php_apache_sapi_log_message_ex(char *msg, request_rec *r)
+{
+	if (r) {
+		ap_log_rerror(APLOG_MARK, APLOG_ERR | APLOG_STARTUP, 0, r, msg, r->filename);
+	} else {
+		php_apache_sapi_log_message(msg);
 	}
 }
 
@@ -407,9 +399,10 @@ static apr_status_t php_server_context_cleanup(void *data_)
 	return APR_SUCCESS;
 }
 
-static void php_apache_request_ctor(request_rec *r, php_struct *ctx TSRMLS_DC)
+static int php_apache_request_ctor(request_rec *r, php_struct *ctx TSRMLS_DC)
 {
 	char *content_type;
+	char *content_length;
 	const char *auth;
 
 	SG(sapi_headers).http_response_code = !r->status ? HTTP_OK : r->status;
@@ -424,11 +417,13 @@ static void php_apache_request_ctor(request_rec *r, php_struct *ctx TSRMLS_DC)
 	ap_set_content_type(r, apr_pstrdup(r->pool, content_type));
 	efree(content_type);
 
+	content_length = (char *) apr_table_get(r->headers_in, "Content-Length");
+	SG(request_info).content_length = (content_length ? atoi(content_length) : 0);
+
 	apr_table_unset(r->headers_out, "Content-Length");
 	apr_table_unset(r->headers_out, "Last-Modified");
 	apr_table_unset(r->headers_out, "Expires");
 	apr_table_unset(r->headers_out, "ETag");
-	apr_table_unset(r->headers_in, "Connection");
 	if (!PG(safe_mode) || (PG(safe_mode) && !ap_auth_type(r))) {
 		auth = apr_table_get(r->headers_in, "Authorization");
 		php_handle_auth_data(auth TSRMLS_CC);
@@ -437,7 +432,7 @@ static void php_apache_request_ctor(request_rec *r, php_struct *ctx TSRMLS_DC)
 		SG(request_info).auth_user = NULL;
 		SG(request_info).auth_password = NULL;
 	}
-	php_request_startup(TSRMLS_C);
+	return php_request_startup(TSRMLS_C);
 }
 
 static void php_apache_request_dtor(request_rec *r TSRMLS_DC)
@@ -461,18 +456,47 @@ static int php_handler(request_rec *r)
 	if (strcmp(r->handler, PHP_MAGIC_TYPE) && strcmp(r->handler, PHP_SOURCE_MAGIC_TYPE) && strcmp(r->handler, PHP_SCRIPT)) {
 		/* Check for xbithack in this case. */
 		if (!AP2(xbithack) || strcmp(r->handler, "text/html") || !(r->finfo.protection & APR_UEXECUTE)) {
+			zend_try {
+				zend_ini_deactivate(TSRMLS_C);
+			} zend_end_try();
 			return DECLINED;
 		}
 	}
 
 	/* handle situations where user turns the engine off */
 	if (!AP2(engine)) {
+		zend_try {
+			zend_ini_deactivate(TSRMLS_C);
+		} zend_end_try();
 		return DECLINED;
 	}
 
-	/* setup standard CGI variables */
-	ap_add_common_vars(r);
-	ap_add_cgi_vars(r);
+	if (r->finfo.filetype == 0) {
+		php_apache_sapi_log_message_ex("script '%s' not found or unable to stat", r);
+		zend_try {
+				zend_ini_deactivate(TSRMLS_C);
+		} zend_end_try();
+		return HTTP_NOT_FOUND;
+	}
+	if (r->finfo.filetype == APR_DIR) {
+		php_apache_sapi_log_message_ex("attempt to invoke directory '%s' as script", r);
+		zend_try {
+			zend_ini_deactivate(TSRMLS_C);
+		} zend_end_try();
+		return HTTP_FORBIDDEN;
+	}
+
+	/* Setup the CGI variables if this is the main request */
+	if (r->main == NULL || 
+		/* .. or if the sub-request envinronment differs from the main-request. */ 
+		r->subprocess_env != r->main->subprocess_env
+	) {
+		/* setup standard CGI variables */
+		ap_add_common_vars(r);
+		ap_add_cgi_vars(r);
+	}
+
+zend_first_try {
 
 	ctx = SG(server_context);
 	if (ctx == NULL) {
@@ -487,20 +511,13 @@ static int php_handler(request_rec *r)
 		brigade = apr_brigade_create(r->pool, r->connection->bucket_alloc);
 		ctx->brigade = brigade;
 
-		php_apache_request_ctor(r, ctx TSRMLS_CC);
+		if (php_apache_request_ctor(r, ctx TSRMLS_CC)!=SUCCESS) {
+			zend_bailout();
+		}
 	} else {
 		parent_req = ctx->r;
 		ctx->r = r;
 		brigade = ctx->brigade;
-	}
-
-	if (r->finfo.filetype == 0) {
-		php_apache_sapi_log_message("script not found or unable to stat");
-		return HTTP_NOT_FOUND;
-	}
-	if (r->finfo.filetype == APR_DIR) {
-		php_apache_sapi_log_message("attempt to invoke directory as script");
-		return HTTP_FORBIDDEN;
 	}
 
 	if (AP2(last_modified)) {
@@ -514,7 +531,7 @@ static int php_handler(request_rec *r)
 		php_get_highlight_struct(&syntax_highlighter_ini);
 		highlight_file((char *)r->filename, &syntax_highlighter_ini TSRMLS_CC);
 	} else {
-		zend_file_handle zfd;
+		zend_file_handle zfd = {0};
 
 		zfd.type = ZEND_HANDLE_FILENAME;
 		zfd.filename = (char *) r->filename;
@@ -529,13 +546,14 @@ static int php_handler(request_rec *r)
 #if MEMORY_LIMIT
 		{
 			char *mem_usage;
-
+			
 			mem_usage = apr_psprintf(ctx->r->pool, "%u", AG(allocated_memory_peak));
-			AG(allocated_memory_peak) = 0;
 			apr_table_set(r->notes, "mod_php_memory_usage", mem_usage);
 		}
 #endif
 	}
+
+} zend_end_try();
 
 	if (!parent_req) {
 		php_apache_request_dtor(r TSRMLS_CC);
@@ -544,8 +562,10 @@ static int php_handler(request_rec *r)
 		APR_BRIGADE_INSERT_TAIL(brigade, bucket);
 
 		rv = ap_pass_brigade(r->output_filters, brigade);
-		if (rv != APR_SUCCESS) {
+		if (rv != APR_SUCCESS || r->connection->aborted) {
+zend_first_try {
 			php_handle_aborted_connection();
+} zend_end_try();
 		}
 		apr_brigade_cleanup(brigade);
 	} else {

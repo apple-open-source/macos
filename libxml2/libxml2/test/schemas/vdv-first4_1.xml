@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- $Header: /cvs/root/libxml2/libxml2/test/schemas/vdv-first4_1.xml,v 1.1.1.1 2004/02/05 20:17:15 rbraun Exp $ -->
+<!-- $Header: /cvs/root/libxml2/libxml2/test/schemas/Attic/vdv-first4_1.xml,v 1.1.1.1 2004/02/05 20:17:15 rbraun Exp $ -->
 <library>
 	<book id="b0836217462" available="true">
 		<isbn>0836217462</isbn>

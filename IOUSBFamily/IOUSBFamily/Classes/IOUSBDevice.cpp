@@ -930,8 +930,8 @@ IOUSBDevice::GetFullConfigurationDescriptor(UInt8 index)
     IOBufferMemoryDescriptor * 	localConfigPointer = NULL;
     
     if (!_configList || (index >= _descriptor.bNumConfigurations))
-	return NULL;
-
+		return NULL;
+	
     // it is possible that we could end up in a race condition with multiple drivers trying to get a config descriptor.
     // we are not able to fix that by running this code through the command gate, because then the actual bus command 
     // would not be able to complete with us holding the gate. so we have a device specific lock instead
@@ -946,29 +946,72 @@ IOUSBDevice::GetFullConfigurationDescriptor(UInt8 index)
         IOUSBConfigurationDescHeader	temp;
         UInt16				idVendor = USBToHostWord(_descriptor.idVendor);
         UInt16				idProduct = USBToHostWord(_descriptor.idProduct);
-	
-	// 2755742 - workaround for a ill behaved device
+		
+		// 2755742 - workaround for a ill behaved device
         // Also do this for Fujitsu scanner VID = 0x4C5 PID = 0x1040
-	if ( ((idVendor == 0x3f0) && (idProduct == 0x1001)) || ((idVendor == 0x4c5) && (idProduct == 0x1040)) )
-	{
-	    USBLog(3, "%s[%p]::GetFullConfigurationDescriptor - assuming config desc length of 39", getName(), this);
-	    len = 39;
-	}
-	else
-	{
-	    USBLog(5, "%s[%p]::GetFullConfigurationDescriptor - Index (%x) - getting first %d bytes of config descriptor", getName(), this, index, sizeof(temp));
-	    err = GetConfigDescriptor(index, &temp, sizeof(temp));
-	    if (err) 
-	    {
-		USBError(1, "%s[%p]::GetFullConfigurationDescriptor - Error (%x) getting first %d bytes of config descriptor", getName(), this, err, sizeof(temp));
-                IORecursiveLockUnlock(_getConfigLock);
-		return NULL;
-	    }
-	    len = USBToHostWord(temp.wTotalLength);
-	}
-
+		if ( ((idVendor == 0x3f0) && (idProduct == 0x1001)) || ((idVendor == 0x4c5) && (idProduct == 0x1040)) )
+		{
+			USBLog(3, "%s[%p]::GetFullConfigurationDescriptor - assuming config desc length of 39", getName(), this);
+			len = 39;
+		}
+		else
+		{
+            // Get the head for the configuration descriptor
+            //
+            temp.bLength = 0;
+            temp.bDescriptorType = 0;
+            temp.wTotalLength = 0;
+            
+            USBLog(5, "%s[%p]::GetFullConfigurationDescriptor - Index (%x) - getting first %d bytes of config descriptor", getName(), this, index, sizeof(temp));
+            err = GetConfigDescriptor(index, &temp, sizeof(temp));
+			
+			// If we get an error, try getting the first 9 bytes of the config descriptor.  Note that the structure IOUSBConfigurationDescriptor is 10 bytes long
+			// because of padding (and we can't change it), so hardcode the value to 9 bytes.
+			//
+			if ( err != kIOReturnSuccess)
+			{
+				IOUSBConfigurationDescriptor	confDesc;
+				
+				bzero( &confDesc, 9);
+				
+				USBLog(5, "%s[%p]::GetFullConfigurationDescriptor - Index (%x) - Got error (0x%x), trying first %d bytes of config descriptor", getName(), this, index, err, 9);
+				err = GetConfigDescriptor(index, &confDesc, 9);
+				if ( (kIOReturnSuccess != err) && ( kIOReturnOverrun != err ) )
+				{
+					USBError(1, "%s[%p]::GetFullConfigurationDescriptor - Error (%x) getting first %d bytes of config descriptor", getName(), this, err, 9);
+					IORecursiveLockUnlock(_getConfigLock);
+					return NULL;
+				}
+				
+				USBError(1, "USB Device %s is violating Section 9.3.5 of the USB Specification -- Error in GetConfigDescriptor( wLength = 4)", getName());
+				if ( kIOReturnOverrun == err )
+				{
+					// If we get more data than we requested, then verify that the config descriptor header makes sense
+					//
+					if ( !((confDesc.bLength == 9) && (confDesc.bDescriptorType == kUSBConfDesc) && (confDesc.wTotalLength != 0)) )
+					{
+						USBError(1, "%s[%p]::GetFullConfigurationDescriptor - Overrun error and data returned is not correct (%d, %d, %d)", getName(), this, temp.bLength, temp.bDescriptorType, USBToHostWord(temp.wTotalLength));
+						IORecursiveLockUnlock(_getConfigLock);
+						return NULL;
+					}
+					USBError(1, "USB Device %s is violating Section 9.3.5 of the USB Specification -- Error in GetConfigDescriptor( wLength = 9)", getName());
+				}
+				// Save our length for our next request
+				//
+				len = USBToHostWord(confDesc.wTotalLength);
+			}
+			else
+			{
+				// Save our length for our next request
+				//
+				len = USBToHostWord(temp.wTotalLength);
+			}
+        }
+        
+		// Allocate a buffer to read in the whole descriptor
+		//
         localConfigPointer = IOBufferMemoryDescriptor::withCapacity(len, kIODirectionIn);
-
+        
         if(!localConfigPointer)
         {
             USBError(1, "%s[%p]::GetFullConfigurationDescriptor - unable to get memory buffer (capacity requested: %d)", getName(), this, len);
@@ -979,7 +1022,7 @@ IOUSBDevice::GetFullConfigurationDescriptor(UInt8 index)
         USBLog(5, "%s[%p]::GetFullConfigurationDescriptor - Index (%x) - getting full %d bytes of config descriptor", getName(), this, index, len);
         err = GetConfigDescriptor(index, localConfigPointer->getBytesNoCopy(), len);
         if (err) 
-	{
+		{
             USBError(1, "%s[%p]::GetFullConfigurationDescriptor - Error (%x) getting full %d bytes of config descriptor", getName(), this, err, len);
             
             if ( localConfigPointer )

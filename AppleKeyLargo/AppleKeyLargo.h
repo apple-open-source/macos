@@ -37,6 +37,17 @@
 #include "KeyLargoWatchDogTimer.h"
 #include "KeyLargo.h"
 
+
+class AppleK2Device : public AppleMacIODevice
+{
+    OSDeclareDefaultStructors(AppleK2Device);
+    
+public:
+    bool compareName( OSString * name, OSString ** matched = 0 ) const;
+    IOReturn getResources( void );
+};
+
+
 class AppleKeyLargo : public KeyLargo
 {
 	OSDeclareDefaultStructors(AppleKeyLargo);
@@ -49,7 +60,7 @@ private:
 	
 	// remember if we need to keep the SCC enabled during sleep
 	bool			keepSCCenabledInSleep;
-	
+		
 	void			EnableSCC(bool state, UInt8 device, bool type);
 	void			PowerModem(bool state);
 	void 			ModemResetLow();
@@ -57,7 +68,10 @@ private:
 	void			PowerI2S (bool powerOn, UInt32 cellNum);
 	IOReturn		SetPowerSupply (bool powerHi);
     void			EnableI2SModem(bool enable);
-    
+ 
+	IOService		*fProvider;
+    UInt32			fPHandle;
+   
 	// callPlatformFunction symbols
 	const OSSymbol 	*keyLargo_resetUniNEthernetPhy;
 	const OSSymbol 	*keyLargo_restoreRegisterState;
@@ -76,6 +90,9 @@ private:
 	const OSSymbol 	*keyLargo_setPowerSupply;
     const OSSymbol	*keyLargo_EnableI2SModem;
     
+    const OSSymbol	*mac_io_publishChildren;
+    const OSSymbol	*mac_io_publishChild;
+
 	// Power Management support functions and data structures:
 	// These come (almost) unchanged from the MacOS9 Power
 	// Manager plug-in (p99powerplugin.c)
@@ -177,24 +194,42 @@ private:
 	void saveKeyLargoState();
 	void restoreKeyLargoState();
 
+	IOSimpleLock *mutex;
+
 	// Reference counts for shared hardware
 	long clk31RefCount;			// 31.3 MHz clock - SCC & VIA
 	long clk45RefCount;			// 45.1 MHz clock - Audio, I2S & SCC
 	long clk49RefCount;			// 49.1 MHz clock - Audio & I2S
 	long clk32RefCount;			// 32.0 MHz clock - SCC & VIA (Pangea only)
     bool fI2SState[2];			// Power state of I2S
+  
+    OSArray *fPlatformFuncArray;	// The array of IOPlatformFunction objects
+
 	void resetUniNEthernetPhy(void);
+
+    bool performFunction(IOPlatformFunction *func, void *pfParam1 = 0,
+			void *pfParam2 = 0, void *pfParam3 = 0, void *pfParam4 = 0);
   
 public:
 	virtual bool      init(OSDictionary *);
 	virtual bool      start(IOService *provider);
 	virtual void      stop(IOService *provider);
-    virtual void	  processNub(IOService * nub);
+ 
+    // Override to publish just immediate children
+    virtual void publishBelow( IORegistryEntry * root );
     
+    // Override to remove 'k2-' frame nub name
+    virtual void processNub( IOService * nub );
+
+    // Override to create AppleK2Device nubs
+    virtual IOService * createNub( IORegistryEntry * from );
+
 	virtual IOReturn callPlatformFunction(const OSSymbol *functionName,
-					bool waitForFunction, void *param1, void *param2,
-					void *param3, void *param4);
-  
+										  bool waitForFunction, void *param1, void *param2,
+										  void *param3, void *param4);
+					
+	bool			gPreserveIODeviceTree;
+	
 	virtual long long syncTimeBase(void);
 	virtual void	  recalibrateBusSpeeds(void);
 

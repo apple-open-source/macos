@@ -1,5 +1,5 @@
 dnl
-dnl $Id: Zend.m4,v 1.1.1.7 2003/07/18 18:07:25 zarzycki Exp $
+dnl $Id: Zend.m4,v 1.35.2.7 2004/11/15 13:40:30 derick Exp $
 dnl
 dnl This file contains Zend specific autoconf functions.
 dnl
@@ -10,7 +10,7 @@ if test "$YACC" != "bison -y"; then
     AC_MSG_WARN(You will need bison if you want to regenerate the Zend parser.)
 else
     AC_MSG_CHECKING(bison version)
-    set `bison --version| grep 'GNU Bison' | cut -d ' ' -f 4 | sed -e 's/\./ /'`
+    set `bison --version| grep 'GNU Bison' | cut -d ' ' -f 4 | sed -e 's/\./ /' | tr -d 'a-z'`
     if test "${1}" = "1" -a "${2}" -lt "28"; then
         AC_MSG_WARN(You will need bison 1.28 if you want to regenerate the Zend parser (found ${1}.${2}).)
     fi
@@ -50,6 +50,7 @@ sys/types.h \
 sys/time.h \
 signal.h \
 unix.h \
+mach-o/dyld.h \
 dlfcn.h)
 
 AC_TYPE_SIZE_T
@@ -65,7 +66,7 @@ AC_FUNC_VPRINTF
 AC_FUNC_MEMCMP
 AC_FUNC_ALLOCA
 AC_CHECK_FUNCS(memcpy strdup getpid kill strtod strtol finite fpclass)
-AC_ZEND_BROKEN_SPRINTF
+dnl AC_ZEND_BROKEN_SPRINTF
 
 AC_CHECK_FUNCS(finite isfinite isinf isnan)
 
@@ -120,15 +121,16 @@ AC_ARG_ENABLE(debug,
 AC_DEFUN(LIBZEND_OTHER_CHECKS,[
 
 AC_ARG_ENABLE(experimental-zts,
-[  --enable-experimental-zts   This will most likely break your build],[
+[  --enable-experimental-zts   
+                          This will most likely break your build],[
   ZEND_EXPERIMENTAL_ZTS=$enableval
 ],[
   ZEND_EXPERIMENTAL_ZTS=no
 ])  
 
 AC_ARG_ENABLE(inline-optimization,
-[  --disable-inline-optimization If building zend_execute.lo fails, try
-                                this switch.],[
+[  --disable-inline-optimization 
+                          If building zend_execute.lo fails, try this switch.],[
   ZEND_INLINE_OPTIMIZATION=$enableval
 ],[
   ZEND_INLINE_OPTIMIZATION=yes

@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_link.h,v 1.1.1.5 2003/07/18 18:07:44 zarzycki Exp $ */
+/* $Id: php_link.h,v 1.8.8.1 2002/12/31 16:35:33 sebastian Exp $ */
 
 #ifndef PHP_LINK_H
 #define PHP_LINK_H

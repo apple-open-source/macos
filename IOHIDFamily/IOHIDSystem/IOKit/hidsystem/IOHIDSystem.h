@@ -444,6 +444,9 @@ private:
                                     short      deltaAxis1,
                                     short      deltaAxis2,
                                     short      deltaAxis3,
+                                    IOFixed    fixedDelta1,
+                                    IOFixed    fixedDelta2,
+                                    IOFixed    fixedDelta3,
                                     AbsoluteTime ts,
                                     OSObject * sender,
                                     void *     refcon);
@@ -564,6 +567,9 @@ void absolutePointerEvent(          int        buttons,
 void scrollWheelEvent(	        short 	       deltaAxis1,
                                 short          deltaAxis2,
                                 short          deltaAxis3,
+                                IOFixed        fixedDelta1,
+                                IOFixed        fixedDelta2,
+                                IOFixed        fixedDelta3,
                                 AbsoluteTime   ts,
                                 OSObject *     sender);
 
@@ -645,6 +651,9 @@ static	IOReturn	doScrollWheelEvent(IOHIDSystem *self, void * args);
         void		scrollWheelEventGated (short deltaAxis1,
                                                 short deltaAxis2,
                                                 short deltaAxis3,
+                                               IOFixed  fixedDelta1,
+                                               IOFixed  fixedDelta2,
+                                               IOFixed  fixedDelta3,
                                                 AbsoluteTime ts,
                                                 OSObject * sender);
 

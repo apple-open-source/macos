@@ -15,7 +15,7 @@
    | Author: Rasmus Lerdorf <rasmus@php.net>                              |
    +----------------------------------------------------------------------+
  */
-/* $Id: mod_php4.h,v 1.1.1.6 2003/07/18 18:07:50 zarzycki Exp $ */
+/* $Id: mod_php4.h,v 1.17.8.1 2002/12/31 16:26:57 sebastian Exp $ */
 
 #ifndef MOD_PHP4_H
 #define MOD_PHP4_H

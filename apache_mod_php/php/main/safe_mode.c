@@ -15,7 +15,7 @@
    | Author: Rasmus Lerdorf <rasmus@lerdorf.on.ca>                        |
    +----------------------------------------------------------------------+
  */
-/* $Id: safe_mode.c,v 1.1.1.7 2003/07/18 18:07:49 zarzycki Exp $ */
+/* $Id: safe_mode.c,v 1.51.2.5 2004/12/01 22:37:59 sesser Exp $ */
 
 #include "php.h"
 
@@ -54,12 +54,14 @@ PHPAPI int php_checkuid_ex(const char *filename, char *fopen_mode, int mode, int
 	php_stream_wrapper *wrapper = NULL;
 	TSRMLS_FETCH();
 
-	strlcpy(filenamecopy, filename, MAXPATHLEN);
-	filename=(char *)&filenamecopy;
-
 	if (!filename) {
 		return 0; /* path must be provided */
 	}
+
+	if (strlcpy(filenamecopy, filename, MAXPATHLEN)>=MAXPATHLEN) {
+		return 0;
+	}
+	filename=(char *)&filenamecopy;
 
 	if (fopen_mode) {
 		if (fopen_mode[0] == 'r') {

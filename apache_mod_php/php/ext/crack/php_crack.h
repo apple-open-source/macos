@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_crack.h,v 1.1.1.3 2002/07/22 18:11:37 zarzycki Exp $ */
+/* $Id: php_crack.h,v 1.5 2002/02/28 08:25:48 sebastian Exp $ */
 
 #ifndef ZEND_CRACK_H
 #define ZEND_CRACK_H

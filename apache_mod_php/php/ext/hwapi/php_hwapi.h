@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_hwapi.h,v 1.1.1.1 2003/03/11 01:09:20 zarzycki Exp $ */
+/* $Id: php_hwapi.h,v 1.1 2002/07/11 06:35:24 steinm Exp $ */
 
 #ifndef PHP_HWAPI_H
 #define PHP_HWAPI_H

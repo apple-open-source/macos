@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: dispatch.c,v 1.1.1.2 2003/07/18 18:07:30 zarzycki Exp $ */
+/* $Id: dispatch.c,v 1.3.6.2 2004/04/27 17:34:05 iliaa Exp $ */
 
 /* 
  * This module is used to export PHP objects to COM and DOTNET by exposing
@@ -280,7 +280,7 @@ static HRESULT STDMETHODCALLTYPE disp_invokeex(
 					ZVAL_NULL(zarg);
 				}
 			} else {
-				// arg can't be an idispatch, so we don't care for the implicit AddRef() call here
+				/* arg can't be an idispatch, so we don't care for the implicit AddRef() call here */
 				if (FAILURE == php_variant_to_pval(arg, zarg, codepage TSRMLS_CC)) {
 					trace("failed to convert arg %d to zval\n", i);
 					ZVAL_NULL(zarg);

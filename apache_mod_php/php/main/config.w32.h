@@ -2,7 +2,7 @@
 	Build Configuration for Win32.
 	This has only been tested with MS VisualC++ 6 (and later).
 
-	$Id: config.w32.h,v 1.3 2003/07/22 19:56:30 zarzycki Exp $
+	$Id: config.w32.h,v 1.61.2.6 2004/03/29 19:03:59 helly Exp $
 */
 
 /* Default PHP / PEAR directories */
@@ -64,7 +64,7 @@
 #define HAVE_PCRE 1
 
 /* Enable / Disable SESSION extension (default: enabled) */
-#define HAVE_SESSION 1
+#define HAVE_PHP_SESSION 1
 
 /* Enable / Disable TOKENIZER extension (default: enabled) */
 #define HAVE_TOKENIZER 1
@@ -169,6 +169,12 @@
 #define SIZEOF_INT 4
 #define HAVE_GLOB
 #define PHP_SHLIB_SUFFIX "dll"
+#define HAVE_SQLDATASOURCES
+#define POSIX_MALLOC_THRESHOLD 10
 
 /* Win32 supports strcoll */
 #define HAVE_STRCOLL 1
+
+#undef HAVE_ATOF_ACCEPTS_NAN
+#undef HAVE_ATOF_ACCEPTS_INF
+#define HAVE_HUGE_VAL_NAN 1

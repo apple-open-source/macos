@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
  
-/* $Id: php_notes.c,v 1.1.1.4 2003/07/18 18:07:38 zarzycki Exp $ */
+/* $Id: php_notes.c,v 1.15.8.3 2004/04/27 17:34:05 iliaa Exp $ */
 
 #ifdef COMPILE_DL_NOTES
 #define HAVE_NOTES 1
@@ -1912,14 +1912,14 @@ PHP_FUNCTION(notes_search)
    pNoteID = (NOTEID *) (((char *) pSearchResults)
            + sizeof(FT_SEARCH_RESULTS));
    
-   //pSearchResults->NumHits
+   /* pSearchResults->NumHits */
    array_init(return_value);
 
    pScores = (BYTE *) (pNoteID + pSearchResults->NumHits);
    for (i = 0; i < pSearchResults->NumHits; i++, pNoteID++, pScores++){
 
 	    add_next_index_long(return_value, (long) *pNoteID );
-		//RETVAL_LONG( (long) *pNoteID );
+		/* RETVAL_LONG( (long) *pNoteID ); */
    }
 
    OSUnlockObject (SearchResults_handle);

@@ -474,9 +474,6 @@
 /* Define if you have the sin function.  */
 #undef HAVE_SIN
 
-/* Define if you have the snmp_parse_oid function.  */
-#undef HAVE_SNMP_PARSE_OID
-
 /* Define if you have the snprintf function.  */
 #undef HAVE_SNPRINTF
 
@@ -711,6 +708,9 @@
 /* Define if you have the <synch.h> header file.  */
 #undef HAVE_SYNCH_H
 
+/* Define if you have the <sys/bitypes.h> header file.  */
+#undef HAVE_SYS_BITYPES_H
+
 /* Define if you have the <sys/dir.h> header file.  */
 #undef HAVE_SYS_DIR_H
 
@@ -819,20 +819,11 @@
 /* Define if you have the <xmltok.h> header file.  */
 #undef HAVE_XMLTOK_H
 
-/* Define if you have the crypt library (-lcrypt).  */
-#undef HAVE_LIBCRYPT
-
-/* Define if you have the jpeg library (-ljpeg).  */
-#undef HAVE_LIBJPEG
-
 /* Define if you have the m library (-lm).  */
 #undef HAVE_LIBM
 
 /* Define if you have the nsl library (-lnsl).  */
 #undef HAVE_LIBNSL
-
-/* Define if you have the pam library (-lpam).  */
-#undef HAVE_LIBPAM
 
 /* Define if you have the socket library (-lsocket).  */
 #undef HAVE_LIBSOCKET
@@ -840,8 +831,8 @@
 /* Define if you have the sqlcli library (-lsqlcli).  */
 #undef HAVE_LIBSQLCLI
 
-/* Define if you have the tiff library (-ltiff).  */
-#undef HAVE_LIBTIFF
+/* Enabling BIND8 compatibility for Panther */
+#undef BIND_8_COMPAT
 
 /* Whether you have AOLserver */
 #undef HAVE_AOLSERVER
@@ -900,7 +891,7 @@
 /*   */
 #undef WITH_ZEUS
 
-/* Whether you have a Netscape Server */
+/* Whether you have a Netscape/iPlanet/SunONE Server */
 #undef HAVE_NSAPI
 
 /* Whether you have phttpd */
@@ -1126,18 +1117,6 @@
 /* Define if you have the getaddrinfo function */
 #undef HAVE_GETADDRINFO
 
-/* Whether sprintf is C99 conform */
-#undef PHP_BROKEN_SPRINTF
-
-/* Whether sprintf is C99 conform */
-#undef PHP_BROKEN_SPRINTF
-
-/* Whether snprintf is C99 conform */
-#undef PHP_BROKEN_SNPRINTF
-
-/* Whether snprintf is C99 conform */
-#undef PHP_BROKEN_SNPRINTF
-
 /* Whether system headers declare timezone */
 #undef HAVE_DECLARED_TIMEZONE
 
@@ -1197,6 +1176,15 @@
 
 /* Whether to enable IPv6 support */
 #undef HAVE_IPV6
+
+/* Whether to build openssl as dynamic module */
+#undef COMPILE_DL_OPENSSL
+
+/*   */
+#undef HAVE_OPENSSL_SHARED_EXT
+
+/*   */
+#undef HAVE_OPENSSL_EXT
 
 /* Whether to build zlib as dynamic module */
 #undef COMPILE_DL_ZLIB
@@ -1337,6 +1325,12 @@
 #undef DBA_CDB
 
 /*   */
+#undef DBA_INIFILE
+
+/*   */
+#undef DBA_INIFILE
+
+/*   */
 #undef DBA_FLATFILE
 
 /*   */
@@ -1475,6 +1469,15 @@
 #undef HAVE_GD_GIF_READ
 
 /*   */
+#undef HAVE_GD_GIF_CREATE
+
+/*   */
+#undef HAVE_GD_IMAGEELLIPSE
+
+/*   */
+#undef HAVE_GD_DYNAMIC_CTX_EX
+
+/*   */
 #undef HAVE_GD_JPG
 
 /*   */
@@ -1568,6 +1571,12 @@
 #undef HAVE_GD_CACHE_CREATE
 
 /*   */
+#undef HAVE_GD_THREAD_SAFE
+
+/*   */
+#undef HAVE_GD_DYNAMIC_CTX_EX
+
+/*   */
 #undef HAVE_LIBGD204
 
 /* Whether to build gd as dynamic module */
@@ -1621,12 +1630,6 @@
 /*   */
 #undef HAVE_ICONV
 
-/* Whether iconv supports error no or not */
-#undef ICONV_SUPPORTS_ERRNO
-
-/* Whether iconv supports error no or not */
-#undef ICONV_SUPPORTS_ERRNO
-
 /* Which iconv implementation to use */
 #undef PHP_ICONV_IMPL
 
@@ -1641,6 +1644,15 @@
 
 /* Which iconv implementation to use */
 #undef PHP_ICONV_IMPL
+
+/* Whether iconv supports error no or not */
+#undef ICONV_SUPPORTS_ERRNO
+
+/* Whether iconv supports error no or not */
+#undef ICONV_SUPPORTS_ERRNO
+
+/* Path to iconv.h */
+#undef PHP_ICONV_H_PATH
 
 /* Whether to build iconv as dynamic module */
 #undef COMPILE_DL_ICONV
@@ -1671,6 +1683,12 @@
 
 /*   */
 #undef HAVE_IMAP2001
+
+/*   */
+#undef HAVE_LIBPAM
+
+/*   */
+#undef HAVE_LIBCRYPT
 
 /*   */
 #undef HAVE_IMAP_KRB
@@ -1750,41 +1768,11 @@
 /* whether to have multibyte string support */
 #undef HAVE_MBSTRING
 
-/* whether to have japanese support */
-#undef HAVE_MBSTR_JA
-
-/* whether to have simplified chinese support */
-#undef HAVE_MBSTR_CN
-
-/* whether to have traditional chinese support */
-#undef HAVE_MBSTR_TW
-
-/* whether to have korean support */
-#undef HAVE_MBSTR_KR
-
-/* whether to have russian support */
-#undef HAVE_MBSTR_RU
-
-/* whether to have japanese support */
-#undef HAVE_MBSTR_JA
-
-/* whether to have simplified chinese support */
-#undef HAVE_MBSTR_CN
-
-/* whether to have traditional chinese support */
-#undef HAVE_MBSTR_TW
-
-/* whether to have korean support */
-#undef HAVE_MBSTR_KR
-
-/* whether to have russian support */
-#undef HAVE_MBSTR_RU
+/* whether to have multibyte regex support */
+#undef HAVE_MBREGEX
 
 /* Whether to build mbstring as dynamic module */
 #undef COMPILE_DL_MBSTRING
-
-/* whether to have multibyte regex support */
-#undef HAVE_MBREGEX
 
 /*   */
 #undef HAVE_MCAL
@@ -1807,20 +1795,26 @@
 /*   */
 #undef HAVE_LIBMCRYPT22
 
+/* Whether to build mcrypt as dynamic module */
+#undef COMPILE_DL_MCRYPT
+
 /*   */
 #undef HAVE_LIBMCRYPT
 
-/* Whether to build mcrypt as dynamic module */
-#undef COMPILE_DL_MCRYPT
+/* Whether or not we're using libmonetra 4.2 or higher  */
+#undef LIBMONETRA_BELOW_4_2
+
+/*   */
+#undef HAVE_MCVE
 
 /* Whether to build mcve as dynamic module */
 #undef COMPILE_DL_MCVE
 
-/*   */
-#undef HAVE_LIBMHASH
-
 /* Whether to build mhash as dynamic module */
 #undef COMPILE_DL_MHASH
+
+/*   */
+#undef HAVE_LIBMHASH
 
 /* Whether to build mime_magic as dynamic module */
 #undef COMPILE_DL_MIME_MAGIC
@@ -1833,6 +1827,12 @@
 
 /*   */
 #undef HAVE_DESTROY_SWF_BLOCK
+
+/*   */
+#undef HAVE_NEW_MING
+
+/*   */
+#undef HAVE_MING_ZLIB
 
 /* Whether to build ming as dynamic module */
 #undef COMPILE_DL_MING
@@ -1961,6 +1961,9 @@
 #undef COMPILE_DL_MYSQL
 
 /*   */
+#undef HAVE_NCURSES_H
+
+/*   */
 #undef HAVE_NCURSESLIB
 
 /*   */
@@ -1988,7 +1991,10 @@
 #undef HAVE_OCI8_ATTR_STATEMENT
 
 /*   */
-#undef HAVE_OCI8_SHARED_MODE
+#undef HAVE_OCI_9_2
+
+/*   */
+#undef HAVE_OCI8_ATTR_STATEMENT
 
 /*   */
 #undef HAVE_OCI_9_2
@@ -2051,13 +2057,13 @@
 #undef HAVE_IODBC
 
 /*   */
+#undef HAVE_ODBC2
+
+/*   */
 #undef HAVE_ESOOB
 
 /*   */
 #undef HAVE_UNIXODBC
-
-/*   */
-#undef HAVE_IODBC
 
 /* Whether you want DBMaker */
 #undef HAVE_DBMAKER
@@ -2071,12 +2077,6 @@
 /* Whether to build odbc as dynamic module */
 #undef COMPILE_DL_ODBC
 
-/* Whether to build openssl as dynamic module */
-#undef COMPILE_DL_OPENSSL
-
-/*   */
-#undef HAVE_OPENSSL_EXT
-
 /* Whether to build oracle as dynamic module */
 #undef COMPILE_DL_ORACLE
 
@@ -2089,11 +2089,11 @@
 /* Whether to build overload as dynamic module */
 #undef COMPILE_DL_OVERLOAD
 
-/*   */
-#undef HAVE_LIBSQLCLI
-
 /* Whether to build ovrimos as dynamic module */
 #undef COMPILE_DL_OVRIMOS
+
+/*   */
+#undef HAVE_LIBSQLCLI
 
 /*   */
 #undef HAVE_FORK
@@ -2182,6 +2182,9 @@
 /* Whether you have qtdom */
 #undef HAVE_QTDOM
 
+/* Whether to build readline as dynamic module */
+#undef COMPILE_DL_READLINE
+
 /*   */
 #undef HAVE_LIBREADLINE
 
@@ -2190,9 +2193,6 @@
 
 /*   */
 #undef HAVE_LIBEDIT
-
-/* Whether to build readline as dynamic module */
-#undef COMPILE_DL_READLINE
 
 /* Whether we have librecode 3.5 */
 #undef HAVE_BROKEN_RECODE
@@ -2234,6 +2234,9 @@
 #undef HAVE_NET_SNMP
 
 /*   */
+#undef HAVE_SNMP_PARSE_OID
+
+/*   */
 #undef HAVE_SNMP
 
 /* Whether to build snmp as dynamic module */
@@ -2272,8 +2275,32 @@
 /* Define if flush should be called explicitly after a buffered io. */
 #undef HAVE_FLUSHIO
 
+/*   */
+#undef HSREGEX
+
+/*   */
+#undef REGEX
+
+/*   */
+#undef REGEX
+
+/*  see #24142  */
+#undef PHP_ROUND_FUZZ
+
 /* Whether to enable chroot() function */
 #undef ENABLE_CHROOT_FUNC
+
+/* whether atof() accepts NAN */
+#undef HAVE_ATOF_ACCEPTS_NAN
+
+/* whether atof() accepts INF */
+#undef HAVE_ATOF_ACCEPTS_INF
+
+/* whether HUGE_VAL == INF */
+#undef HAVE_HUGE_VAL_INF
+
+/* whether HUGE_VAL + -HUGEVAL == NAN */
+#undef HAVE_HUGE_VAL_NAN
 
 /* Whether to build standard as dynamic module */
 #undef COMPILE_DL_STANDARD
@@ -2344,8 +2371,17 @@
 /*   */
 #undef HAVE_LIBEXPAT
 
-/*   */
+/* Bundled libexpat is used. */
 #undef HAVE_LIBEXPAT_BUNDLED
+
+/* Define to make XML Namespaces functionality available. */
+#undef XML_NS
+
+/* Define to make parameter entity parsing functionality available. */
+#undef XML_DTD
+
+/* Define to specify how much context to retain around the current parse point. */
+#undef XML_CONTEXT_BYTES
 
 /* Whether to build xml as dynamic module */
 #undef COMPILE_DL_XML
@@ -2419,18 +2455,6 @@
 /* Whether to build zip as dynamic module */
 #undef COMPILE_DL_ZIP
 
-/*   */
-#undef HSREGEX
-
-/*   */
-#undef REGEX
-
-/*   */
-#undef REGEX
-
-/* Whether sprintf is broken */
-#undef ZEND_BROKEN_SPRINTF
-
 /* whether floatingpoint.h defines fp_except */
 #undef HAVE_FP_EXCEPT
 
@@ -2502,19 +2526,13 @@
 # include <strings.h>
 #endif
 
-#if ZEND_BROKEN_SPRINTF
 int zend_sprintf(char *buffer, const char *format, ...);
-#else
-# define zend_sprintf sprintf
-#endif
 
 #include <math.h>
 
 #ifndef zend_isnan
 #ifdef HAVE_ISNAN
 #define zend_isnan(a) isnan(a)
-#elif defined(NAN)
-#define zend_isnan(a) (((a)==NAN)?1:0)
 #elif defined(HAVE_FPCLASS)
 #define zend_isnan(a) ((fpclass(a) == FP_SNAN) || (fpclass(a) == FP_QNAN))
 #else

@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_pcntl.h,v 1.1.1.4 2003/07/18 18:07:39 zarzycki Exp $ */
+/* $Id: php_pcntl.h,v 1.11.4.2 2003/06/05 23:48:17 iliaa Exp $ */
 
 #ifndef PHP_PCNTL_H
 #define PHP_PCNTL_H
@@ -50,10 +50,6 @@ PHP_FUNCTION(pcntl_wtermsig);
 PHP_FUNCTION(pcntl_wstopsig);
 PHP_FUNCTION(pcntl_signal);
 PHP_FUNCTION(pcntl_exec);
-
-static void pcntl_signal_handler(int);
-static void pcntl_tick_handler();
-
 
 ZEND_BEGIN_MODULE_GLOBALS(pcntl)
 	HashTable php_signal_table;

@@ -3,12 +3,12 @@
 // +----------------------------------------------------------------------+
 // | PHP Version 4                                                        |
 // +----------------------------------------------------------------------+
-// | Copyright (c) 1997-2003 The PHP Group                                |
+// | Copyright (c) 1997-2004 The PHP Group                                |
 // +----------------------------------------------------------------------+
-// | This source file is subject to version 2.02 of the PHP license,      |
+// | This source file is subject to version 3.0 of the PHP license,       |
 // | that is bundled with this package in the file LICENSE, and is        |
-// | available at through the world-wide-web at                           |
-// | http://www.php.net/license/2_02.txt.                                 |
+// | available through the world-wide-web at the following url:           |
+// | http://www.php.net/license/3_0.txt.                                  |
 // | If you did not receive a copy of the PHP license and are unable to   |
 // | obtain it through the world-wide-web, please send a note to          |
 // | license@php.net so we can mail you a copy immediately.               |
@@ -16,7 +16,7 @@
 // | Author: Stig Bakken <ssb@php.net>                                    |
 // +----------------------------------------------------------------------+
 //
-// $Id: Config.php,v 1.1.1.4 2003/07/18 18:07:49 zarzycki Exp $
+// $Id: Config.php,v 1.35.2.16 2004/01/26 01:26:46 pajoye Exp $
 
 require_once 'PEAR.php';
 require_once 'System.php';
@@ -26,6 +26,11 @@ require_once 'System.php';
  * @var object
  */
 $GLOBALS['_PEAR_Config_instance'] = null;
+if (!defined('PEAR_INSTALL_DIR') || !PEAR_INSTALL_DIR) {
+    $PEAR_INSTALL_DIR = PHP_LIBDIR . DIRECTORY_SEPARATOR . 'pear';
+} else {
+    $PEAR_INSTALL_DIR = PEAR_INSTALL_DIR;
+}
 
 // Below we define constants with default values for all configuration
 // parameters except username/password.  All of them can have their
@@ -61,11 +66,11 @@ if (getenv('PHP_PEAR_HTTP_PROXY')) {
 if (getenv('PHP_PEAR_INSTALL_DIR')) {
     define('PEAR_CONFIG_DEFAULT_PHP_DIR', getenv('PHP_PEAR_INSTALL_DIR'));
 } else {
-    if (@is_dir(PEAR_INSTALL_DIR.DIRECTORY_SEPARATOR.'lib')) {
+    if (@is_dir($PEAR_INSTALL_DIR)) {
         define('PEAR_CONFIG_DEFAULT_PHP_DIR',
-               PEAR_INSTALL_DIR.DIRECTORY_SEPARATOR.'lib');
+               $PEAR_INSTALL_DIR);
     } else {
-        define('PEAR_CONFIG_DEFAULT_PHP_DIR', PEAR_INSTALL_DIR);
+        define('PEAR_CONFIG_DEFAULT_PHP_DIR', $PEAR_INSTALL_DIR);
     }
 }
 
@@ -73,7 +78,15 @@ if (getenv('PHP_PEAR_INSTALL_DIR')) {
 if (getenv('PHP_PEAR_EXTENSION_DIR')) {
     define('PEAR_CONFIG_DEFAULT_EXT_DIR', getenv('PHP_PEAR_EXTENSION_DIR'));
 } else {
-    define('PEAR_CONFIG_DEFAULT_EXT_DIR', ini_get('extension_dir'));
+    if (ini_get('extension_dir')) {
+        define('PEAR_CONFIG_DEFAULT_EXT_DIR', ini_get('extension_dir'));
+    } elseif (defined('PEAR_EXTENSION_DIR') && @is_dir(PEAR_EXTENSION_DIR)) {
+        define('PEAR_CONFIG_DEFAULT_EXT_DIR', PEAR_EXTENSION_DIR);
+    } elseif (defined('PHP_EXTENSION_DIR')) {
+        define('PEAR_CONFIG_DEFAULT_EXT_DIR', PHP_EXTENSION_DIR);
+    } else {
+        define('PEAR_CONFIG_DEFAULT_EXT_DIR', '.');
+    }
 }
 
 // Default for doc_dir
@@ -81,7 +94,7 @@ if (getenv('PHP_PEAR_DOC_DIR')) {
     define('PEAR_CONFIG_DEFAULT_DOC_DIR', getenv('PHP_PEAR_DOC_DIR'));
 } else {
     define('PEAR_CONFIG_DEFAULT_DOC_DIR',
-           PEAR_INSTALL_DIR.DIRECTORY_SEPARATOR.'docs');
+           $PEAR_INSTALL_DIR.DIRECTORY_SEPARATOR.'docs');
 }
 
 // Default for bin_dir
@@ -96,7 +109,7 @@ if (getenv('PHP_PEAR_DATA_DIR')) {
     define('PEAR_CONFIG_DEFAULT_DATA_DIR', getenv('PHP_PEAR_DATA_DIR'));
 } else {
     define('PEAR_CONFIG_DEFAULT_DATA_DIR',
-           PEAR_INSTALL_DIR.DIRECTORY_SEPARATOR.'data');
+           $PEAR_INSTALL_DIR.DIRECTORY_SEPARATOR.'data');
 }
 
 // Default for test_dir
@@ -104,7 +117,7 @@ if (getenv('PHP_PEAR_TEST_DIR')) {
     define('PEAR_CONFIG_DEFAULT_TEST_DIR', getenv('PHP_PEAR_TEST_DIR'));
 } else {
     define('PEAR_CONFIG_DEFAULT_TEST_DIR',
-           PEAR_INSTALL_DIR.DIRECTORY_SEPARATOR.'tests');
+           $PEAR_INSTALL_DIR.DIRECTORY_SEPARATOR.'tests');
 }
 
 // Default for cache_dir
@@ -545,11 +558,11 @@ class PEAR_Config extends PEAR
      *
      * @access public.
      */
-    function writeConfigFile($file = null, $layer = 'user')
+    function writeConfigFile($file = null, $layer = 'user', $data = null)
     {
         if ($layer == 'both' || $layer == 'all') {
             foreach ($this->files as $type => $file) {
-                $err = $this->writeConfigFile($file, $type);
+                $err = $this->writeConfigFile($file, $type, $data);
                 if (PEAR::isError($err)) {
                     return $err;
                 }
@@ -562,9 +575,10 @@ class PEAR_Config extends PEAR
         if ($file === null) {
             $file = $this->files[$layer];
         }
-        $data = $this->configuration[$layer];
+        $data = ($data === null) ? $this->configuration[$layer] : $data;
         $this->_encodeOutput($data);
-        if (!@System::mkDir("-p " . dirname($file))) {
+        $opt = array('-p', dirname($file));
+        if (!@System::mkDir($opt)) {
             return $this->raiseError("could not create directory: " . dirname($file));
         }
         if (@is_file($file) && !@is_writeable($file)) {
@@ -601,7 +615,10 @@ class PEAR_Config extends PEAR
             return $this->raiseError("PEAR_Config::readConfigFile fopen('$file','r') failed");
         }
         $size = filesize($file);
+        $rt = get_magic_quotes_runtime();
+        set_magic_quotes_runtime(0);
         $contents = fread($fp, $size);
+        set_magic_quotes_runtime($rt);
         fclose($fp);
         $version = '0.1';
         if (preg_match('/^#PEAR_Config\s+(\S+)\s+/si', $contents, $matches)) {
@@ -626,6 +643,19 @@ class PEAR_Config extends PEAR
             return $this->raiseError("$file: unknown version `$version'");
         }
         return $data;
+    }
+
+    // }}}
+    // {{{ getConfFile(layer)
+    /**
+    * Gets the file used for storing the config for a layer
+    *
+    * @param string $layer 'user' or 'system'
+    */
+
+    function getConfFile($layer)
+    {
+        return $this->files[$layer];
     }
 
     // }}}
@@ -995,7 +1025,7 @@ class PEAR_Config extends PEAR
     function removeLayer($layer)
     {
         if (isset($this->configuration[$layer])) {
-            unset($this->configuration[$layer]);
+            $this->configuration[$layer] = array();
             return true;
         }
         return false;
@@ -1013,9 +1043,9 @@ class PEAR_Config extends PEAR
      *
      * @access public
      */
-    function store($layer = 'user')
+    function store($layer = 'user', $data = null)
     {
-        return $this->writeConfigFile(null, $layer);
+        return $this->writeConfigFile(null, $layer, $data);
     }
 
     // }}}

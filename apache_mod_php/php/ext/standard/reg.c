@@ -17,7 +17,7 @@
    |          Jaakko Hyvätti <jaakko@hyvatti.iki.fi>                      | 
    +----------------------------------------------------------------------+
  */
-/* $Id: reg.c,v 1.1.1.7 2003/07/18 18:07:44 zarzycki Exp $ */
+/* $Id: reg.c,v 1.66.2.7 2003/04/22 01:38:36 iliaa Exp $ */
 
 #include <stdio.h>
 #include <ctype.h>

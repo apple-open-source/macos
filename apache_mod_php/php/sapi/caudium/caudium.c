@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: caudium.c,v 1.1.1.6 2003/07/18 18:07:50 zarzycki Exp $ */
+/* $Id: caudium.c,v 1.28.2.4 2003/05/31 01:37:44 sniper Exp $ */
 
 #include "php.h"
 #ifdef HAVE_CAUDIUM
@@ -444,7 +444,7 @@ static void php_info_caudium(ZEND_MODULE_INFO_FUNC_ARGS)
 {
   /*  char buf[512]; */
   php_info_print_table_start();
-  php_info_print_table_row(2, "SAPI module version", "$Id: caudium.c,v 1.1.1.6 2003/07/18 18:07:50 zarzycki Exp $");
+  php_info_print_table_row(2, "SAPI module version", "$Id: caudium.c,v 1.28.2.4 2003/05/31 01:37:44 sniper Exp $");
   /*  php_info_print_table_row(2, "Build date", Ns_InfoBuildDate());
       php_info_print_table_row(2, "Config file path", Ns_InfoConfigFile());
       php_info_print_table_row(2, "Error Log path", Ns_InfoErrorLog());
@@ -564,7 +564,7 @@ static sapi_module_struct caudium_sapi_module = {
 static void php_caudium_module_main(php_caudium_request *ureq)
 {
   int res;
-  zend_file_handle file_handle;
+  zend_file_handle file_handle = {0};
 #ifndef USE_PIKE_LEVEL_THREADS
   struct thread_state *state;
   extern struct program *thread_id_prog;

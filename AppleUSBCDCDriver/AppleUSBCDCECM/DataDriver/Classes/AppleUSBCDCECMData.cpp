@@ -668,7 +668,7 @@ void AppleUSBCDCECMData::dataWriteComplete(void *obj, void *param, IOReturn rc, 
 bool AppleUSBCDCECMData::init(OSDictionary *properties)
 {
     UInt32	i;
-        
+	
 #if USE_ELG
     XTraceLogInfo	*logInfo;
     
@@ -691,7 +691,7 @@ bool AppleUSBCDCECMData::init(OSDictionary *properties)
         XTRACE(this, 0, 0, "init - initialize super failed");
         return false;
     }
-    
+	
     for (i=0; i<kMaxOutBufPool; i++)
     {
         fPipeOutBuff[i].pipeOutMDP = NULL;
@@ -720,6 +720,38 @@ bool AppleUSBCDCECMData::init(OSDictionary *properties)
 
 /****************************************************************************************************/
 //
+//		Method:		AppleUSBCDCECMData::probe
+//
+//		Inputs:		provider - my provider
+//
+//		Outputs:	IOService - from super::probe, score - probe score
+//
+//		Desc:		Modify the probe score if necessary (we don't at the moment)
+//
+/****************************************************************************************************/
+
+IOService* AppleUSBCDCECMData::probe(IOService *provider, SInt32 *score)
+{ 
+    IOService   *res;
+	
+		// If our IOUSBInterface has a "do not match" property, it means that we should not match and need 
+		// to bail.  See rdar://3716623
+    
+    OSBoolean *boolObj = OSDynamicCast(OSBoolean, provider->getProperty("kDoNotClassMatchThisInterface"));
+    if (boolObj && boolObj->isTrue())
+    {
+        ALERT(0, 0, "probe - provider doesn't want us to match");
+        return NULL;
+    }
+
+    res = super::probe(provider, score);
+    
+    return res;
+    
+}/* end probe */
+
+/****************************************************************************************************/
+//
 //		Method:		AppleUSBCDCECMData::start
 //
 //		Inputs:		provider - my provider
@@ -738,13 +770,7 @@ bool AppleUSBCDCECMData::start(IOService *provider)
 
     XTRACE(this, 0, provider, "start");
     
-    if(!super::start(provider))
-    {
-        ALERT(0, 0, "start - start super failed");
-        return false;
-    }
-
-	// Get my USB provider - the interface
+		// Get my USB provider - the interface
 
     fDataInterface = OSDynamicCast(IOUSBInterface, provider);
     if(!fDataInterface)
@@ -753,22 +779,19 @@ bool AppleUSBCDCECMData::start(IOService *provider)
         return false;
     }
     
-    // If our IOUSBInterface has a "do not match" property, it means that we should not match and need 
-    // to bail.  See rdar://3716623
-    
-    OSBoolean * boolObj = OSDynamicCast( OSBoolean, provider->getProperty("kDoNotClassMatchThisInterface") );
-    if ( boolObj && boolObj->isTrue() )
-    {
-        ALERT(0, 0, "start - provider doesn't want us to match");
-        return false;
-    }
-
     fDataInterfaceNumber = fDataInterface->GetInterfaceNumber();
     
     if (findCDCDriverED(fDataInterface->GetDevice(), this, fDataInterfaceNumber) != kIOReturnSuccess)
     {
         XTRACE(this, 0, 0, "start - Find CDC driver failed");
-		super::stop(provider);
+        return false;
+    }
+	
+		// Now we can start for real
+	
+	if(!super::start(provider))
+    {
+        ALERT(0, 0, "start - start super failed");
         return false;
     }
     
@@ -953,8 +976,6 @@ bool AppleUSBCDCECMData::configureData()
     if (!fDataInterface->open(this))
     {
         XTRACE(this, 0, 0, "configureData - open data interface failed");
-        fDataInterface->release();
-        fDataInterface = NULL;
         return false;
     }
         

@@ -351,7 +351,7 @@ enum CS8416_ID_Version {
 
 #define kUnlockFilterCounterSeed		 4												/*  [3678605]   */
 
-#define	kIRQ_HARDWARE_ACK_SEED_COUNT	 2												/*	[3800414]	*/
+#define	kIRQ_HARDWARE_ACK_SEED_COUNT	 2
 
 class AppleTopazPluginCS8416 : public AppleTopazPlugin {
     OSDeclareDefaultStructors ( AppleTopazPluginCS8416 );
@@ -374,7 +374,6 @@ public:
 	virtual void			setRunMode ( UInt8 mode );
 	virtual UInt8			setStopMode ( void );
 	virtual UInt32			getClockLock ( void );
-	virtual IOReturn		getCodecErrorStatus ( UInt32 * dataPtr );
 	virtual void			disableReceiverError ( void );
 
 	virtual void			useExternalCLK ( void );

@@ -10,9 +10,9 @@
 #ifndef __APPLEONBOARDAUDIO__
 #define __APPLEONBOARDAUDIO__
 
-#include <IOKit/IOInterruptEventSource.h>
-#include <IOKit/IOUserClient.h>
-#include <IOKit/IOSyncer.h>
+#include <IOKit/IOInterruptEventSource.h>		//	from:	Kernel.framework/Headers/IOKit/
+#include <IOKit/IOUserClient.h>					//	from:	Kernel.framework/Headers/IOKit/
+#include <IOKit/IOSyncer.h>						//	from:	Kernel.framework/Headers/IOKit/
 
 #include "AudioHardwareCommon.h"
 #include "AudioHardwareConstants.h"
@@ -28,6 +28,7 @@ enum invokeInternalFunctionSelectors {
 	kInvokeSpeakerInterruptHandler
 };
 		
+#define kChangeHandlerDownDelayTime		3000000000ULL				/* 3 seconds					*/
 #define kBatteryPowerDownDelayTime		30000000000ULL				/* 30 seconds					*/
 #define kACPowerDownDelayTime			300000000000ULL				/* 300 seconds == 5 minutes		*/
 #define kiSubMaxVolume					60
@@ -101,10 +102,10 @@ typedef struct AOAStateUserClientStruct {
 	UInt32				uc_IOAudioStreamFormatExtension_fFramesPerPacket;		//	(for AOAViewer v3.0.1, 18 Aug. 2004 - RBM)
 	UInt32				uc_IOAudioStreamFormatExtension_fBytesPerPacket;		//	(for AOAViewer v3.0.1, 18 Aug. 2004 - RBM)
 	UInt32				uc_IOAudioEngine_sampleOffset;							//	(for AOAViewer v3.0.1, 18 Aug. 2004 - RBM)
-	UInt32				ucReserved_15;
-	UInt32				ucReserved_16;
-	UInt32				ucReserved_17;
-	UInt32				ucReserved_18;
+	UInt32				uc_mDoKPrintfPowerState;
+	UInt32				uc_sTotalNumAOAEnginesRunning;
+	UInt32				uc_numRunningAudioEngines;
+	UInt32				uc_currentAggressivenessLevel;
 	UInt32				ucReserved_19;
 	UInt32				ucReserved_20;
 	UInt32				ucReserved_21;
@@ -135,15 +136,13 @@ typedef struct AOAStateUserClientStruct {
 
 #define kSoundEntry						"sound"
 #define	kLayoutID						"layout-id"
-#if 0
-#define kDmaCanStall					"dmaCanStall"					/*  [3514709]	*/
-#endif
 #define	kCompatible						"compatible"
 #define kLayouts						"Layouts"
 #define kLayoutIDInfoPlist				"LayoutID"
 #define kHardwareObjects				"HardwareObjects"
 #define kPlatformObject					"PlatformObject"
 #define kAmpRecoveryTime				"AmpRecoveryTime"
+#define kMicrosecsToSleep				"microsecsToSleep"				/*	[3938771]		*/
 #define kExternalClockSelect			"ExternalClockSelect"
 #define kExternalClockSelectAuto		"ExternalClockSelectAuto"		/*  For S/DIF input with no hardware Sample Rate Converter	*/
 #define kTransportObject				"TransportObject"
@@ -155,6 +154,10 @@ typedef struct AOAStateUserClientStruct {
 #define kClockUnLockIntMessage			"ClockUnLock"
 #define kDigitalInInsertIntMessage		"DigitalInDetectInsert"
 #define kDigitalInRemoveIntMessage		"DigitalInDetectRemove"
+#define kRemoteChildActiveMessage		"RemoteChildActive"				/*	[3938771]	*/
+#define kRemoteChildIdleMessage			"RemoteChildIdle"				/*	[3938771]	*/
+#define kRemoteChildSleepMessage		"RemoteChildSleep"				/*	[3938771]	*/
+#define	kAOAPowerParentMessage			"AOAPowerParent"				/*	[3938771]	*/
 #define kRemoteActiveMessage			"RemoteActive"					/*  [3515371]   */
 #define kRemoteIdleMessage				"RemoteIdle"					/*  [3515371]   */
 #define kRemoteSleepMessage				"RemoteSleep"					/*  [3515371]   */
@@ -181,6 +184,8 @@ typedef struct AOAStateUserClientStruct {
 #define kTransportIndex					"TransportIndex"				/*  [3648867]   Provides an association between the 'i2s' IO Module and the I2C address of device attached to it.	*/
 																		/*				Used as a <key>TransportIndex</key><integer></integer> value pair where values represent:			*/
 																		/*				0 = 'i2s-a', 1 = 'i2s-b', 2 = 'i2s-c', etc...			13 May 2004 rbm								*/
+
+#define	kPlatformInterfaceSupport		"PlatformInterfaceSupport"		/*	bit mapped array passed to PlatformInterface::init	*/
 
 #define kLeftVolControlString			"Left"
 #define kRightVolControlString			"Right"
@@ -229,10 +234,39 @@ typedef struct AOAStateUserClientStruct {
 
 #define kDelayPollAfterWakeFromSleep	8		/*  [3686032]   */
 
+#define	kPlatformDBDMANoIOString						"DBDMA_NoIO"
+#define	kPlatformDBDMAMappedString						"DBDMA_Mapped"
+#define	kPlatformDBDMAPlatformFunctionString			"DBDMA_PlatformFunction"
+#define	kPlatformDBDMAPlatformFunctionK2String			"DBDMA_PlatformFunctionK2"
+
+#define	kPlatformFCRNoIOString							"FCR_NoIO"
+#define	kPlatformFCRMappedString						"FCR_Mapped"
+#define	kPlatformFCRPlatformFunctionString				"FCR_PlatformFunction"
+
+#define	kPlatformGPIONoIOString							"GPIO_NoIO"
+#define	kPlatformGPIOMappedString						"GPIO_Mapped"
+#define	kPlatformGPIOPlatformFunctionString				"GPIO_PlatformFunction"
+
+#define	kPlatformI2CNoIOString							"I2C_NoIO"
+#define	kPlatformI2CMappedString						"I2C_Mapped"
+#define	kPlatformI2CPlatformFunctionString				"I2C_PlatformFunction"
+
+#define	kPlatformI2SNoIOString							"I2S_NoIO"
+#define	kPlatformI2SMappedString						"I2S_Mapped"
+#define	kPlatformI2SPlatformFunctionString				"I2S_PlatformFunction"
+
+
 enum {
 	kClockSourceSelectionInternal	= 'int ',
 	kClockSourceSelectionExternal	= 'ext '
 };
+
+
+enum {
+	kLOG_ENTRY_TO_AOA_METHOD		=	0,
+	kLOG_EXIT_FROM_AOA_METHOD
+};
+
 
 class AppleOnboardAudio : public IOAudioDevice
 {
@@ -298,13 +332,11 @@ protected:
 	
 	UInt32								mOutputLatency;
 	
-	unsigned long long					idleSleepDelayTime;
 	IOTimerEventSource *				idleTimer;
 	IOTimerEventSource *				pollTimer;
 	UInt32								mCurrentOutputSelection;		//	[3581695]
     Boolean								mIsMute;
     Boolean								mAutoUpdatePRAM;
-	IOAudioDevicePowerState				ourPowerState;
 	Boolean								shuttingDown;
 
     OSArray	*							AudioSoftDSPFeatures;
@@ -351,6 +383,7 @@ public:
 	UInt16								mInterruptConsumed[kNumberOfActionSelectors];
 
 	static bool 			aoaPublished (AppleOnboardAudio * aoaObject, void * refCon, IOService * newService);
+	virtual bool			aoaPublishedAction ( void * refCon, IOService * newService );
 	static void				softwareInterruptHandler (OSObject *, IOInterruptEventSource *, int count);
 	virtual UInt32			getLayoutID ( void ) { return mLayoutID; }												//	[3515371]	rbm		19 Dec 2003
 
@@ -405,11 +438,15 @@ public:
     virtual IOReturn		performPowerStateChange (IOAudioDevicePowerState oldPowerState, IOAudioDevicePowerState newPowerState, UInt32 * microsecondsUntilComplete);
 	static void 			performPowerStateChangeThread (AppleOnboardAudio * aoa, void * newPowerState);
 	static IOReturn			performPowerStateChangeThreadAction (OSObject * owner, void * newPowerState, void * us, void * arg3, void * arg4);
+	virtual	IOReturn		performPowerStateAction ( OSObject * owner, void * newPowerState, void * arg2, void * arg3, void * arg4 );
 	virtual IOReturn		performPowerStateChangeAction ( void * newPowerState );
+	virtual IOReturn		performPowerStateChangeAction_requestActive ( bool allowDetectIRQDispatch );
+	virtual IOReturn		performPowerStateChangeAction_requestIdle ( void );
+	virtual IOReturn		performPowerStateChangeAction_requestSleep ( void );
+	virtual IOReturn		doLocalChangeToActiveState ( bool allowDetectIRQDispatch, Boolean * wasPoweredDown );		//	[3933529]
+	virtual IOReturn		doLocalChangeScheduleIdle ( Boolean wasPoweredDown );										//	[3945202]
 
-	virtual void			setTimerForSleep ();
-	static void				sleepHandlerTimer (OSObject * owner, IOTimerEventSource * sender);
-    
+
 	virtual IOReturn		newUserClient (task_t 			inOwningTask,
 							void *			inSecurityID,
 							UInt32 			inType,
@@ -422,6 +459,10 @@ public:
 	virtual void			interruptEventHandler (UInt32 statusSelector, UInt32 newValue);
 	static	IOReturn		interruptEventHandlerAction (OSObject * owner, void * arg1, void * arg2, void * arg3, void * arg4);
 	virtual void			protectedInterruptEventHandler (UInt32 statusSelector, UInt32 newValue);
+	virtual bool			executeProtectedInterruptEventHandlerWhenInactive ( UInt32 selector );
+
+	virtual void			startDetectInterruptService ( void );
+	virtual void			endDetectInterruptService ( void );
 	virtual bool			broadcastSoftwareInterruptMessage ( UInt32 actionSelector );
 
 	virtual PlatformInterface * getPlatformInterfaceObject (void);
@@ -432,8 +473,6 @@ public:
 	
 	UInt32					getAOAInstanceIndex () { return mInstanceIndex; }
 
-	virtual IOAudioDevicePowerState			getPowerState () { return ourPowerState; }
-	
 	virtual UInt32			getTransportIndex ( void ) { return mTransportInterfaceIndex; }					//  [3648867]
 
 	// Functions DBDMAAudio calls on AppleOnboardAudio
@@ -470,10 +509,15 @@ public:
 	
 	virtual void			notifyStreamFormatsPublished ( void );		//  [3743041]
 	
+	bool					getDoKPrintfPowerState () { return mDoKPrintfPowerState; }
+	
 protected:
 	// Do the link to the IOAudioFamily 
 	// These will help to create the port config through the OF Device Tree
             
+	void				audioEngineStopped ();
+	void				audioEngineStarting ();
+	
     IOReturn			configureDMAEngines(IOService *provider);
     IOReturn			parseAndActivateInit(IOService *provider);
     IOReturn			configureAudioDetects(IOService *provider);
@@ -481,6 +525,9 @@ protected:
     IOReturn			configureAudioInputs(IOService *provider);
     IOReturn			configurePowerObject(IOService *provider);
 
+	IOReturn			outputControlChangeHandlerAction ( IOService *target, IOAudioControl *volumeControl, SInt32 oldValue, SInt32 newValue );	//	static handlers dispatch here in virtual space
+	IOReturn			inputControlChangeHandlerAction ( IOService *target, IOAudioControl *control, SInt32 oldValue, SInt32 newValue );			//	static handlers dispatch here in virtual space
+	
 	AudioHardwareObjectInterface * getIndexedPluginObject (UInt32 index);
 	OSObject * 			getLayoutEntry (const char * entryID, AppleOnboardAudio * theAOA);
 	bool				hasMasterVolumeControl (const char * outputEntry);
@@ -507,6 +554,7 @@ protected:
 	UInt32				setClipRoutineForInput (const char * inSelectedInput);
 
 	static IOReturn		sysPowerDownHandler (void * target, void * refCon, UInt32 messageType, IOService * provider, void * messageArgument, vm_size_t argSize);
+	virtual IOReturn	sysPowerDownHandlerAction ( UInt32 messageType );
 
     void				setCurrentDevices(sndHWDeviceSpec devices);
 
@@ -530,6 +578,7 @@ protected:
 	void				removeMasterGainControl ();
 
 	void				initializeDetectCollection ( void );
+	UInt32				getValueForDetectCollection ( UInt32 currentDetectCollection );
 	UInt32				parseOutputDetectCollection (void);
 	void				updateOutputDetectCollection (UInt32 statusSelector, UInt32 newValue);
 	UInt32				parseInputDetectCollection (void);
@@ -556,18 +605,34 @@ protected:
 	UInt32				mSleepsLayoutIDAOAInstance;											//	[3515371]	rbm		26 May 2004
 	bool				mSpressBootChimeLevelControl;										//  [3730863]   rbm		 4 Aug 2004
 	
-protected:
     // The PRAM utility
 	UInt32				PRAMToVolumeValue (void);
     UInt8				VolumeToPRAMValue (UInt32 leftVol, UInt32 rightVol);
     void				WritePRAMVol (UInt32 volLeft, UInt32 volRight);
 	UInt8				ReadPRAMVol (void);
 	
+	//	Logging utilities
+	void				logPerformPowerStateChangeAction ( UInt32 mInstanceIndex, UInt32 newPowerState, UInt32 curPowerState, bool flag, IOReturn resultCode );
+	
 	IOTimerEventSource *	theTimerEvent;
 	
 	UInt32				mTransportInterfaceIndex;											//  [3648867]   rbm		12 May 2004
 	bool				mNeedsLockStatusUpdateToUnmute;										//  [3678605]
 	UInt32				mDelayPollAfterWakeFromSleep;										//  [3686032]
+	UInt32				mPlatformInterfaceSupport;
+	UInt32				mNumberOfAOAPowerParents;
+	
+	bool				mDoKPrintfPowerState;					//	used for SQA/SQE verification
+	bool				mAllowDetectIrqDispatchesOnWake;
+	bool				mJoinAOAPMTree;														//	[3938771]
+	
+	UInt32				mCurrentAggressivenessLevel;
+	UInt32				mMicrosecsToSleep;													//	[3938771]
+
+	static UInt32		sTotalNumAOAEnginesRunning;											//	[3935620],[3942561]
+	bool				mRemoteDetectInterruptEnabled;										//	[3935620],[3942561]
+	bool				mRemoteNonDetectInterruptEnabled;									//	[3935620],[3942561]
+
 };
 
 class ConfigChangeHelper {

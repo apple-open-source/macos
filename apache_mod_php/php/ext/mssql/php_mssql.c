@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Author: Frank M. Kromann <frank@frontbase.com>                       |
+   | Author: Frank M. Kromann <frank@kromann.info>                        |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_mssql.c,v 1.1.1.7 2003/07/18 18:07:37 zarzycki Exp $ */
+/* $Id: php_mssql.c,v 1.86.2.41 2004/12/14 17:22:10 iliaa Exp $ */
 
 #ifdef COMPILE_DL_MSSQL
 #define HAVE_MSSQL 1
@@ -162,6 +162,7 @@ static int php_mssql_message_handler(DBPROCESS *dbproc, DBINT msgno,int msgstate
 	}
 	if (MS_SQL_G(server_message)) {
 		STR_FREE(MS_SQL_G(server_message));
+		MS_SQL_G(server_message) = NULL;
 	}
 	MS_SQL_G(server_message) = estrdup(msgtext);
 	return 0;
@@ -269,14 +270,11 @@ static void php_mssql_init_globals(zend_mssql_globals *mssql_globals)
 	long compatability_mode;
 
 	mssql_globals->num_persistent = 0;
+	mssql_globals->get_column_content = php_mssql_get_column_content_with_type;
 	if (cfg_get_long("mssql.compatability_mode", &compatability_mode) == SUCCESS) {
 		if (compatability_mode) {
 			mssql_globals->get_column_content = php_mssql_get_column_content_without_type;	
-		} else {
-			mssql_globals->get_column_content = php_mssql_get_column_content_with_type;
 		}
-	} else {
-		mssql_globals->get_column_content = php_mssql_get_column_content_with_type;
 	}
 }
 
@@ -335,7 +333,7 @@ PHP_RINIT_FUNCTION(mssql)
 	dbsetlogintime(MS_SQL_G(connect_timeout));
 	if (MS_SQL_G(timeout) < 0) MS_SQL_G(timeout) = 60;
 	dbsettime(MS_SQL_G(timeout));
-	dbsetmaxprocs((SHORT)MS_SQL_G(max_procs));
+	dbsetmaxprocs((TDS_SHORT)MS_SQL_G(max_procs));
 
 	return SUCCESS;
 }
@@ -343,8 +341,10 @@ PHP_RINIT_FUNCTION(mssql)
 PHP_RSHUTDOWN_FUNCTION(mssql)
 {
 	STR_FREE(MS_SQL_G(appname));
+	MS_SQL_G(appname) = NULL;
 	if (MS_SQL_G(server_message)) {
 		STR_FREE(MS_SQL_G(server_message));
+		MS_SQL_G(server_message) = NULL;
 	}
 	return SUCCESS;
 }
@@ -483,13 +483,13 @@ static void php_mssql_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 			list_entry new_le;
 
 			if (MS_SQL_G(max_links) != -1 && MS_SQL_G(num_links) >= MS_SQL_G(max_links)) {
-				php_error_docref(NULL TSRMLS_CC, E_WARNING, "Too many open links (%d)", MS_SQL_G(num_links));
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "Too many open links (%ld)", MS_SQL_G(num_links));
 				efree(hashed_details);
 				dbfreelogin(mssql.login);
 				RETURN_FALSE;
 			}
 			if (MS_SQL_G(max_persistent) != -1 && MS_SQL_G(num_persistent) >= MS_SQL_G(max_persistent)) {
-				php_error_docref(NULL TSRMLS_CC, E_WARNING, "Too many open persistent links (%d)", MS_SQL_G(num_persistent));
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "Too many open persistent links (%ld)", MS_SQL_G(num_persistent));
 				efree(hashed_details);
 				dbfreelogin(mssql.login);
 				RETURN_FALSE;
@@ -514,6 +514,7 @@ static void php_mssql_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 				if (DBSETOPT(mssql.link, DBTEXTLIMIT, buffer)==FAIL) {
 					efree(hashed_details);
 					dbfreelogin(mssql.login);
+					dbclose(mssql.link);
 					RETURN_FALSE;
 				}
 			}
@@ -533,6 +534,7 @@ static void php_mssql_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 				free(mssql_ptr);
 				efree(hashed_details);
 				dbfreelogin(mssql.login);
+				dbclose(mssql.link);
 				RETURN_FALSE;
 			}
 			MS_SQL_G(num_persistent)++;
@@ -543,22 +545,25 @@ static void php_mssql_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 				log_error("PHP/MS SQL:  Hashed persistent link is not a MS SQL link!",php_rqst->server);
 #endif
 				php_error_docref(NULL TSRMLS_CC, E_WARNING, "Hashed persistent link is not a MS SQL link!");
+				efree(hashed_details);
 				RETURN_FALSE;
 			}
 			
 			mssql_ptr = (mssql_link *) le->ptr;
 			/* test that the link hasn't died */
 			if (DBDEAD(mssql_ptr->link) == TRUE) {
+				dbclose(mssql_ptr->link);
 #if BROKEN_MSSQL_PCONNECTS
 				log_error("PHP/MS SQL:  Persistent link died, trying to reconnect...",php_rqst->server);
 #endif
-				if ((mssql_ptr->link=dbopen(mssql_ptr->login,host))==FAIL) {
+				if ((mssql_ptr->link=dbopen(mssql_ptr->login,host))==NULL) {
 #if BROKEN_MSSQL_PCONNECTS
 					log_error("PHP/MS SQL:  Unable to reconnect!",php_rqst->server);
 #endif
 					php_error_docref(NULL TSRMLS_CC, E_WARNING, "Link to server lost, unable to reconnect");
 					zend_hash_del(&EG(persistent_list), hashed_details, hashed_details_length+1);
 					efree(hashed_details);
+					dbfreelogin(mssql_ptr->login);
 					RETURN_FALSE;
 				}
 #if BROKEN_MSSQL_PCONNECTS
@@ -570,6 +575,8 @@ static void php_mssql_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 #endif
 					zend_hash_del(&EG(persistent_list), hashed_details, hashed_details_length + 1);
 					efree(hashed_details);
+					dbfreelogin(mssql_ptr->login);
+					dbclose(mssql_ptr->link);
 					RETURN_FALSE;
 				}
 			}
@@ -588,6 +595,8 @@ static void php_mssql_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 			void *ptr;
 
 			if (Z_TYPE_P(index_ptr) != le_index_ptr) {
+				efree(hashed_details);
+				dbfreelogin(mssql.login);
 				RETURN_FALSE;
 			}
 			link = (int) index_ptr->ptr;
@@ -597,6 +606,7 @@ static void php_mssql_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 				Z_LVAL_P(return_value) = link;
 				php_mssql_set_default_link(link TSRMLS_CC);
 				Z_TYPE_P(return_value) = IS_RESOURCE;
+				dbfreelogin(mssql.login);
 				efree(hashed_details);
 				return;
 			} else {
@@ -604,14 +614,16 @@ static void php_mssql_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 			}
 		}
 		if (MS_SQL_G(max_links) != -1 && MS_SQL_G(num_links) >= MS_SQL_G(max_links)) {
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Too many open links (%d)", MS_SQL_G(num_links));
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Too many open links (%ld)", MS_SQL_G(num_links));
 			efree(hashed_details);
+			dbfreelogin(mssql.login);
 			RETURN_FALSE;
 		}
 		
 		if ((mssql.link=dbopen(mssql.login, host))==NULL) {
 			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to connect to server:  %s", host);
 			efree(hashed_details);
+			dbfreelogin(mssql.login);
 			RETURN_FALSE;
 		}
 
@@ -627,6 +639,7 @@ static void php_mssql_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 			if (DBSETOPT(mssql.link, DBTEXTLIMIT, buffer)==FAIL) {
 				efree(hashed_details);
 				dbfreelogin(mssql.login);
+				dbclose(mssql.link);
 				RETURN_FALSE;
 			}
 		}
@@ -683,7 +696,7 @@ PHP_FUNCTION(mssql_pconnect)
 
 /* }}} */
 
-/* {{{ proto int mssql_close([int connectionid])
+/* {{{ proto bool mssql_close([resource conn_id])
    Closes a connection to a MS-SQL server */
 PHP_FUNCTION(mssql_close)
 {
@@ -718,7 +731,7 @@ PHP_FUNCTION(mssql_close)
 
 /* }}} */
 
-/* {{{ proto bool mssql_select_db(string database_name [, int conn_id])
+/* {{{ proto bool mssql_select_db(string database_name [, resource conn_id])
    Select a MS-SQL database */
 PHP_FUNCTION(mssql_select_db)
 {
@@ -784,9 +797,11 @@ static void php_mssql_get_column_content_with_type(mssql_link *mssql_ptr,int off
 			char *data = charcol(offset);
 
 			length=dbdatlen(mssql_ptr->link,offset);
+#if ilia_0
 			while (length>0 && data[length-1] == ' ') { /* nuke trailing whitespace */
 				length--;
 			}
+#endif
 			Z_STRVAL_P(result) = estrndup(data,length);
 			Z_STRLEN_P(result) = length;
 			Z_TYPE_P(result) = IS_STRING;
@@ -796,10 +811,28 @@ static void php_mssql_get_column_content_with_type(mssql_link *mssql_ptr,int off
 			Z_DVAL_P(result) = (double) floatcol4(offset);
 			Z_TYPE_P(result) = IS_DOUBLE;
 			break;
+		case SQLMONEY:
+		case SQLMONEY4:
+		case SQLMONEYN: {
+			DBFLT8 res_buf;
+			dbconvert(NULL, column_type, dbdata(mssql_ptr->link,offset), 8, SQLFLT8, (LPBYTE)&res_buf, -1);
+			Z_DVAL_P(result) = res_buf;
+			Z_TYPE_P(result) = IS_DOUBLE;
+			}
+			break;
 		case SQLFLT8:
 			Z_DVAL_P(result) = (double) floatcol8(offset);
 			Z_TYPE_P(result) = IS_DOUBLE;
 			break;
+#ifdef SQLUNIQUE
+		case SQLUNIQUE: {
+			char *data = charcol(offset);
+
+			/* uniqueidentifier is a 16-byte binary number */
+			ZVAL_STRINGL(result, data, 16, 1);
+			}
+			break;
+#endif
 		case SQLVARBINARY:
 		case SQLBINARY:
 		case SQLIMAGE: {
@@ -825,11 +858,25 @@ static void php_mssql_get_column_content_with_type(mssql_link *mssql_ptr,int off
 
 				if ((column_type != SQLDATETIME && column_type != SQLDATETIM4) || MS_SQL_G(datetimeconvert)) {
 
-					if (column_type == SQLDATETIM4) res_length += 14;
-					if (column_type == SQLDATETIME) res_length += 10;
+					switch (column_type) {
+						case SQLDATETIM4 :
+							res_length += 14;
+							break;
+						case SQLDATETIME :
+							res_length += 10;
+							break;
+						case SQLMONEY :
+						case SQLMONEY4 :
+						case SQLMONEYN :
+						case SQLDECIMAL :
+						case SQLNUMERIC :
+							res_length += 5;
+							break;
+					}
 			
 					res_buf = (unsigned char *) emalloc(res_length+1);
 					res_length = dbconvert(NULL,coltype(offset),dbdata(mssql_ptr->link,offset), res_length, SQLCHAR,res_buf,-1);
+					res_buf[res_length] = '\0';
 				} else {
 					if (column_type == SQLDATETIM4) {
 						DBDATETIME temp;
@@ -885,12 +932,25 @@ static void php_mssql_get_column_content_without_type(mssql_link *mssql_ptr,int 
 
 		if ((column_type != SQLDATETIME && column_type != SQLDATETIM4) || MS_SQL_G(datetimeconvert)) {
 
-			if (column_type == SQLDATETIM4) res_length += 14;
-			if (column_type == SQLDATETIME) res_length += 10;
+			switch (column_type) {
+				case SQLDATETIM4 :
+					res_length += 14;
+					break;
+				case SQLDATETIME :
+					res_length += 10;
+					break;
+				case SQLMONEY :
+				case SQLMONEY4 :
+				case SQLMONEYN :
+				case SQLDECIMAL :
+				case SQLNUMERIC :
+					res_length += 5;
+					break;
+			}
 			
 			res_buf = (unsigned char *) emalloc(res_length+1);
 			res_length = dbconvert(NULL,coltype(offset),dbdata(mssql_ptr->link,offset), res_length, SQLCHAR, res_buf, -1);
-
+			res_buf[res_length] = '\0';
 		} else {
 			if (column_type == SQLDATETIM4) {
 				DBDATETIME temp;
@@ -937,12 +997,16 @@ static void _mssql_get_sp_result(mssql_link *mssql_ptr, mssql_statement *stateme
 						case SQLINT2:
 						case SQLINT4:
 							convert_to_long_ex(&bind->zval);
+							/* FIXME this works only on little endian machine !!! */
 							Z_LVAL_P(bind->zval) = *((int *)(dbretdata(mssql_ptr->link,i)));
 							break;
 			
 						case SQLFLT4:
 						case SQLFLT8:
 						case SQLFLTN:
+						case SQLMONEY4:
+						case SQLMONEY:
+						case SQLMONEYN:
 							convert_to_double_ex(&bind->zval);
 							Z_DVAL_P(bind->zval) = *((double *)(dbretdata(mssql_ptr->link,i)));
 							break;
@@ -954,6 +1018,7 @@ static void _mssql_get_sp_result(mssql_link *mssql_ptr, mssql_statement *stateme
 							Z_STRLEN_P(bind->zval) = dbretlen(mssql_ptr->link,i);
 							Z_STRVAL_P(bind->zval) = estrndup(dbretdata(mssql_ptr->link,i),Z_STRLEN_P(bind->zval));
 							break;
+						/* TODO binary */
 					}
 				}
 				else {
@@ -983,6 +1048,7 @@ static int _mssql_fetch_batch(mssql_link *mssql_ptr, mssql_result *result, int r
 
 	column_types = (int *) emalloc(sizeof(int) * result->num_fields);
 	for (i=0; i<result->num_fields; i++) {
+		char *source = NULL;
 		char *fname = (char *)dbcolname(mssql_ptr->link,i+1);
 
 		if (*fname) {
@@ -997,8 +1063,11 @@ static int _mssql_fetch_batch(mssql_link *mssql_ptr, mssql_result *result, int r
 			j++;
 		}
 		result->fields[i].max_length = dbcollen(mssql_ptr->link,i+1);
-		result->fields[i].column_source = estrdup(dbcolsource(mssql_ptr->link,i+1));
-		if (!result->fields[i].column_source) {
+		source = (char *)dbcolsource(mssql_ptr->link,i+1);
+		if (source) {
+			result->fields[i].column_source = estrdup(source);
+		}
+		else {
 			result->fields[i].column_source = empty_string;
 		}
 
@@ -1050,6 +1119,9 @@ static int _mssql_fetch_batch(mssql_link *mssql_ptr, mssql_result *result, int r
 		result->lastresult = retvalue;
 	}
 	efree(column_types);
+	if (result->statement && (retvalue == NO_MORE_RESULTS || retvalue == NO_MORE_RPC_RESULTS)) {
+		_mssql_get_sp_result(mssql_ptr, result->statement TSRMLS_CC);
+	}
 	return i;
 }
 
@@ -1078,7 +1150,7 @@ PHP_FUNCTION(mssql_fetch_batch)
 }
 /* }}} */
 
-/* {{{ proto int mssql_query(string query [, int conn_id [, int batch_size]])
+/* {{{ proto resource mssql_query(string query [, resource conn_id [, int batch_size]])
    Perform an SQL query on a MS-SQL server database */
 PHP_FUNCTION(mssql_query)
 {
@@ -1134,6 +1206,9 @@ PHP_FUNCTION(mssql_query)
 	while ((num_fields = dbnumcols(mssql_ptr->link)) <= 0 && retvalue == SUCCEED) {
 		retvalue = dbresults(mssql_ptr->link);
 	}
+	if (retvalue != SUCCEED) {
+		RETURN_FALSE;
+	}
 	if ((num_fields = dbnumcols(mssql_ptr->link)) <= 0) {
 		RETURN_TRUE;
 	}
@@ -1154,18 +1229,14 @@ PHP_FUNCTION(mssql_query)
 	result->mssql_ptr = mssql_ptr;
 	result->cur_field=result->cur_row=result->num_rows=0;
 
-	if (num_fields > 0) {
-		result->fields = (mssql_field *) emalloc(sizeof(mssql_field)*result->num_fields);
-		result->num_rows = _mssql_fetch_batch(mssql_ptr, result, retvalue TSRMLS_CC);
-	}
-	else
-		result->fields = NULL;
+	result->fields = (mssql_field *) emalloc(sizeof(mssql_field)*result->num_fields);
+	result->num_rows = _mssql_fetch_batch(mssql_ptr, result, retvalue TSRMLS_CC);
 	
 	ZEND_REGISTER_RESOURCE(return_value, result, le_result);
 }
 /* }}} */
 
-/* {{{ proto int mssql_rows_affected(int conn_id)
+/* {{{ proto int mssql_rows_affected(resource conn_id)
    Returns the number of records affected by the query */
 PHP_FUNCTION(mssql_rows_affected)
 {
@@ -1182,7 +1253,7 @@ PHP_FUNCTION(mssql_rows_affected)
 /* }}} */
 
 
-/* {{{ proto int mssql_free_result(resource result_index)
+/* {{{ proto bool mssql_free_result(resource result_index)
    Free a MS-SQL result index */
 PHP_FUNCTION(mssql_free_result)
 {
@@ -1224,7 +1295,7 @@ PHP_FUNCTION(mssql_get_last_message)
 
 /* }}} */
 
-/* {{{ proto int mssql_num_rows(int mssql_result_index)
+/* {{{ proto int mssql_num_rows(resource mssql_result_index)
    Returns the number of rows fetched in from the result id specified */
 PHP_FUNCTION(mssql_num_rows)
 {
@@ -1243,7 +1314,7 @@ PHP_FUNCTION(mssql_num_rows)
 
 /* }}} */
 
-/* {{{ proto int mssql_num_fields(int mssql_result_index)
+/* {{{ proto int mssql_num_fields(resource mssql_result_index)
    Returns the number of fields fetched in from the result id specified */
 PHP_FUNCTION(mssql_num_fields)
 {
@@ -1262,11 +1333,15 @@ PHP_FUNCTION(mssql_num_fields)
 
 /* }}} */
 
-static void php_mssql_fetch_hash(INTERNAL_FUNCTION_PARAMETERS, int result_type)
+static void php_mssql_fetch_hash(INTERNAL_FUNCTION_PARAMETERS, int result_type, int expected_args)
 {
 	zval **mssql_result_index, **resulttype = NULL;
 	mssql_result *result;
 	int i;
+
+	if (ZEND_NUM_ARGS() > expected_args) {
+		WRONG_PARAM_COUNT;
+	}
 
 	switch (ZEND_NUM_ARGS()) {
 		case 1:
@@ -1357,20 +1432,20 @@ static void php_mssql_fetch_hash(INTERNAL_FUNCTION_PARAMETERS, int result_type)
 	result->cur_row++;
 }
 
-/* {{{ proto array mssql_fetch_row(int result_id [, int result_type])
+/* {{{ proto array mssql_fetch_row(resource result_id)
    Returns an array of the current row in the result set specified by result_id */
 PHP_FUNCTION(mssql_fetch_row)
 {
-	php_mssql_fetch_hash(INTERNAL_FUNCTION_PARAM_PASSTHRU, MSSQL_NUM);
+	php_mssql_fetch_hash(INTERNAL_FUNCTION_PARAM_PASSTHRU, MSSQL_NUM, 1);
 }
 
 /* }}} */
 
-/* {{{ proto object mssql_fetch_object(int result_id [, int result_type])
+/* {{{ proto object mssql_fetch_object(resource result_id [, int result_type])
    Returns a psuedo-object of the current row in the result set specified by result_id */
 PHP_FUNCTION(mssql_fetch_object)
 {
-	php_mssql_fetch_hash(INTERNAL_FUNCTION_PARAM_PASSTHRU, MSSQL_ASSOC);
+	php_mssql_fetch_hash(INTERNAL_FUNCTION_PARAM_PASSTHRU, MSSQL_ASSOC, 2);
 	if (Z_TYPE_P(return_value)==IS_ARRAY) {
 		object_and_properties_init(return_value, ZEND_STANDARD_CLASS_DEF_PTR, Z_ARRVAL_P(return_value));
 	}
@@ -1378,25 +1453,25 @@ PHP_FUNCTION(mssql_fetch_object)
 
 /* }}} */
 
-/* {{{ proto array mssql_fetch_array(int result_id [, int result_type])
+/* {{{ proto array mssql_fetch_array(resource result_id [, int result_type])
    Returns an associative array of the current row in the result set specified by result_id */
 PHP_FUNCTION(mssql_fetch_array)
 {
-	php_mssql_fetch_hash(INTERNAL_FUNCTION_PARAM_PASSTHRU, MSSQL_BOTH);
+	php_mssql_fetch_hash(INTERNAL_FUNCTION_PARAM_PASSTHRU, MSSQL_BOTH, 2);
 }
 
 /* }}} */
 
-/* {{{ proto array mssql_fetch_assoc(int result_id [, int result_type])
+/* {{{ proto array mssql_fetch_assoc(resource result_id)
    Returns an associative array of the current row in the result set specified by result_id */
 PHP_FUNCTION(mssql_fetch_assoc)
 {
-	php_mssql_fetch_hash(INTERNAL_FUNCTION_PARAM_PASSTHRU, MSSQL_ASSOC);
+	php_mssql_fetch_hash(INTERNAL_FUNCTION_PARAM_PASSTHRU, MSSQL_ASSOC, 1);
 }
 
 /* }}} */
 
-/* {{{ proto int mssql_data_seek(int result_id, int offset)
+/* {{{ proto bool mssql_data_seek(resource result_id, int offset)
    Moves the internal row pointer of the MS-SQL result associated with the specified result identifier to pointer to the specified row number */
 PHP_FUNCTION(mssql_data_seek)
 {
@@ -1466,13 +1541,18 @@ static char *php_mssql_get_field_name(int type)
 		case SQLIMAGE:
 			return "image";
 			break;
+#ifdef SQLUNIQUE
+		case SQLUNIQUE:
+			return "uniqueidentifier";
+			break;
+#endif
 		default:
 			return "unknown";
 			break;
 	}
 }
 
-/* {{{ proto object mssql_fetch_field(int result_id [, int offset])
+/* {{{ proto object mssql_fetch_field(resource result_id [, int offset])
    Gets information about certain fields in a query result */
 PHP_FUNCTION(mssql_fetch_field)
 {
@@ -1525,7 +1605,7 @@ PHP_FUNCTION(mssql_fetch_field)
 
 /* }}} */
 
-/* {{{ proto int mssql_field_length(int result_id [, int offset])
+/* {{{ proto int mssql_field_length(resource result_id [, int offset])
    Get the length of a MS-SQL field */
 PHP_FUNCTION(mssql_field_length)
 {
@@ -1572,7 +1652,7 @@ PHP_FUNCTION(mssql_field_length)
 
 /* }}} */
 
-/* {{{ proto string mssql_field_name(int result_id [, int offset])
+/* {{{ proto string mssql_field_name(resource result_id [, int offset])
    Returns the name of the field given by offset in the result set given by result_id */
 PHP_FUNCTION(mssql_field_name)
 {
@@ -1620,7 +1700,7 @@ PHP_FUNCTION(mssql_field_name)
 
 /* }}} */
 
-/* {{{ proto string mssql_field_type(int result_id [, int offset])
+/* {{{ proto string mssql_field_type(resource result_id [, int offset])
    Returns the type of a field */
 PHP_FUNCTION(mssql_field_type)
 {
@@ -1696,7 +1776,7 @@ PHP_FUNCTION(mssql_field_seek)
 
 /* }}} */
 
-/* {{{ proto string mssql_result(int result_id, int row, mixed field)
+/* {{{ proto string mssql_result(resource result_id, int row, mixed field)
    Returns the contents of one cell from a MS-SQL result set */
 PHP_FUNCTION(mssql_result)
 {
@@ -1712,7 +1792,7 @@ PHP_FUNCTION(mssql_result)
 	
 	convert_to_long_ex(row);
 	if (Z_LVAL_PP(row) < 0 || Z_LVAL_PP(row) >= result->num_rows) {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Bad row offset (%d)", Z_LVAL_PP(row));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Bad row offset (%ld)", Z_LVAL_PP(row));
 		RETURN_FALSE;
 	}
 
@@ -1743,11 +1823,11 @@ PHP_FUNCTION(mssql_result)
 	}
 
 	*return_value = result->data[Z_LVAL_PP(row)][field_offset];
-	ZVAL_COPY_CTOR(return_value);
+	zval_copy_ctor(return_value);
 }
 /* }}} */
 
-/* {{{ proto bool mssql_next_result(int result_id)
+/* {{{ proto bool mssql_next_result(resource result_id)
    Move the internal result pointer to the next result */
 PHP_FUNCTION(mssql_next_result)
 {
@@ -1769,7 +1849,7 @@ PHP_FUNCTION(mssql_next_result)
 	}
 	else if (retvalue == NO_MORE_RESULTS || retvalue == NO_MORE_RPC_RESULTS) {
 		if (result->statement) {
-			_mssql_get_sp_result(result->mssql_ptr, result->statement TSRMLS_CC);
+			_mssql_get_sp_result(mssql_ptr, result->statement TSRMLS_CC);
 		}
 		RETURN_FALSE;
 	}
@@ -1818,7 +1898,7 @@ PHP_FUNCTION(mssql_min_message_severity)
 }
 /* }}} */
 
-/* {{{ proto int mssql_init(string sp_name [, int conn_id])
+/* {{{ proto int mssql_init(string sp_name [, resource conn_id])
    Initializes a stored procedure or a remote stored procedure  */
 PHP_FUNCTION(mssql_init)
 {
@@ -1875,7 +1955,7 @@ PHP_FUNCTION(mssql_init)
 }
 /* }}} */
 
-/* {{{ proto int mssql_bind(int stmt, string param_name, mixed var, int type 
+/* {{{ proto bool mssql_bind(resource stmt, string param_name, mixed var, int type 
 		[, int is_output[, int is_null[, int maxlen]]])
    Adds a parameter to a stored procedure or a remote stored procedure  */
 PHP_FUNCTION(mssql_bind)
@@ -1885,7 +1965,7 @@ PHP_FUNCTION(mssql_bind)
 	mssql_link *mssql_ptr;
 	mssql_statement *statement;
 	mssql_bind bind,*bindp;
-	int id = 0, status = 0;
+	int status = 0;
 	LPBYTE value = NULL;
 
 	/* BEGIN input validation */
@@ -2033,7 +2113,7 @@ PHP_FUNCTION(mssql_bind)
 }
 /* }}} */
 
-/* {{{ proto int mssql_execute(int stmt [, bool skip_results = false])
+/* {{{ proto mixed mssql_execute(resource stmt [, bool skip_results = false])
    Executes a stored procedure on a MS-SQL server database */
 PHP_FUNCTION(mssql_execute)
 {
@@ -2044,7 +2124,6 @@ PHP_FUNCTION(mssql_execute)
 	mssql_statement *statement;
 	mssql_result *result;
 	int num_fields;
-	int blocks_initialized=1;
 	int batchsize;
 	int ac = ZEND_NUM_ARGS();
 
@@ -2082,8 +2161,6 @@ PHP_FUNCTION(mssql_execute)
 				dbcanquery(mssql_ptr->link);
 				retval_results = dbresults(mssql_ptr->link);
 			} while (retval_results == SUCCEED);
-
-			_mssql_get_sp_result(mssql_ptr, statement TSRMLS_CC);
 		}
 		else {
 			/* Skip results not returning any columns */
@@ -2101,15 +2178,12 @@ PHP_FUNCTION(mssql_execute)
 				result->num_fields = num_fields;
 
 				result->fields = (mssql_field *) emalloc(sizeof(mssql_field)*num_fields);
-				result->num_rows = _mssql_fetch_batch(mssql_ptr, result, retvalue TSRMLS_CC);
 				result->statement = statement;
-			}
-			else {
-				_mssql_get_sp_result(mssql_ptr, statement TSRMLS_CC);
+				result->num_rows = _mssql_fetch_batch(mssql_ptr, result, retvalue TSRMLS_CC);
 			}
 		}
 	}
-	else if (retval_results == NO_MORE_RESULTS || retval_results == NO_MORE_RPC_RESULTS) {
+	if (retval_results == NO_MORE_RESULTS || retval_results == NO_MORE_RPC_RESULTS) {
 		_mssql_get_sp_result(mssql_ptr, statement TSRMLS_CC);
 	}
 	
@@ -2122,7 +2196,7 @@ PHP_FUNCTION(mssql_execute)
 }
 /* }}} */
 
-/* {{{ proto int mssql_free_statement(resource result_index)
+/* {{{ proto bool mssql_free_statement(resource result_index)
    Free a MS-SQL statement index */
 PHP_FUNCTION(mssql_free_statement)
 {
@@ -2180,7 +2254,7 @@ PHP_FUNCTION(mssql_guid_string)
 			break;
 	}
 
-	dbconvert(NULL, SQLBINARY, (BYTE*)Z_STRVAL_PP(binary), 16, SQLCHAR, buffer, -1);
+	dbconvert(NULL, SQLBINARY, (BYTE*)Z_STRVAL_PP(binary), MIN(16, Z_STRLEN_PP(binary)), SQLCHAR, buffer, -1);
 
 	if (sf) {
 		php_strtoupper(buffer, 32);
@@ -2188,6 +2262,7 @@ PHP_FUNCTION(mssql_guid_string)
 	}
 	else {
 		int i;
+		/* FIXME this works only on little endian machine */
 		for (i=0; i<4; i++) {
 			buffer2[2*i] = buffer[6-2*i];
 			buffer2[2*i+1] = buffer[7-2*i];

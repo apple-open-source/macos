@@ -42,7 +42,7 @@ IMAGES_DIR_FULL=$(SHARE_DIR_FULL)/images
 TMP_FILE=$(OBJROOT)/tmp-file
 SETUP_DIR_FULL=$(DSTROOT)/$(SYSTEM_LIBRARY_DIR)/ServerSetup/SetupExtras
 SETUP_FILE=squirrelmailsetup
-PROJECT_FILES=Makefile $(LOGO) $(HTTPD_CONF_FILE) $(SETUP_FILE)
+PROJECT_FILES=Makefile $(LOGO) $(HTTPD_CONF_FILE) $(SETUP_FILE) sm143a-xss.diff
 
 # These includes provide the proper paths to system utilities
 
@@ -72,6 +72,7 @@ do_untar:
 	$(SILENT) $(ECHO) "Untarring $(PROJECT_NAME)..."
 	$(SILENT) if [ ! -e $(PROJECT_DIR)/README ]; then\
 		$(GNUTAR) -xzf $(PROJECT_ARCHIVE);\
+		cd $(PROJECT_DIR); patch -p0 -i ../sm143a-xss.diff; \
 	fi
 
 

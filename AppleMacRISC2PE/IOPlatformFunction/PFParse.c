@@ -5,7 +5,7 @@
 #include <string.h>
 
 #include <libkern/OSTypes.h>
-#include <bsd/c.h>
+#include <c.h>
 
 #include "IOPlatformFunction.h"
 
@@ -50,6 +50,14 @@ static char *gPFTests[] = {
 	"platform-do-CommandWriteReg16ShLtMask		0x0000001e 0x0c000000 0x0000001e 0x0000001e 0x0000000c 0x0000000d",
 	"platform-do-CommandWriteReg8ShLtMask		0x0000001f 0x0c000000 0x0000001f 0x0000001f 0x0000000e 0x0000000f",
 	"platform-do-CommandMaskandCompare			0x00000020 0x0c000000 0x00000020 0x00000006 0x12345678 0x9abccba9 0x87654321",
+	"platform-do-CommandShiftBitStreamRight		0x00000021 0x0c000000 0x00000021 0x00000008 0x00000001",
+	"platform-do-CommandShiftBitStreamLeft		0x00000022 0x0c000000 0x00000022 0x00000008 0x00000001",
+	"platform-do-CommandMaskByteStream			0x00000023 0x0c000000 0x00000023 0x00000008 0x12345678 0x9abcdef0",
+	"platform-do-CommandXorByteStream			0x00000024 0x0c000000 0x00000024 0x00000008 0x12345678 0x9abcdef0",
+	"platform-do-CommandWriteI2CValueToSubAddr	0x00000025 0x0c000000 0x00000025 0x0000007f 0x00000002",
+	"platform-do-CommandORValueToByteStream		0x00000026 0x0c000000 0x00000026 0x00000002",
+	"platform-do-CommandImplementationSpecific	0x00000027 0x0c000000 0x00000027",
+	
 
 	// Complex tests - command lists; values must be fully enumerated because they represent a byte stream
 	"platform-do-CmdLWriteReadGPIO 				0x00000201 0x0c000000 0x00000000 0x00000002 0x00000001 0x00000001 0xfffffffe 0x00000002 0x00000002 0x00000001 0xfffffffd",
@@ -433,6 +441,39 @@ UInt32 *scanThisCommand (UInt32 *cmdArray, UInt32 cmdLength)
 				printf ("             Mask array: %s\n", tmpString);
 				FormatByteArray (tmpString, (UInt8 *)param3, param1);
 				printf ("          Compare array: %s\n", tmpString);
+				break;
+
+			case kCommandShiftBitStreamRight:
+				printf ("      Shift bit stream right - Parameters: \n");
+				printf ("             number of bytes in bytes stream: %ld\n", param1);
+				printf ("             number of bits to shift by: %ld\n", param2);
+				break;
+			case kCommandShiftBitStreamLeft:
+				printf ("      Shift bit stream left - Parameters: \n");
+				printf ("             number of bytes in bytes stream: %ld\n", param1);
+				printf ("             number of bits to shift by: %ld\n", param2);
+				break;
+			case kCommandMaskByteStream:
+				printf ("      Mask byte stream - Parameters: \n");
+				FormatByteArray (tmpString, (UInt8 *)param2, param1);
+				printf ("             Mask array: %s\n", tmpString);
+				break;
+			case kCommandXorByteStream:
+				printf ("      Xor byte stream - Parameters: \n");
+				FormatByteArray (tmpString, (UInt8 *)param2, param1);
+				printf ("             Xor array: %s\n", tmpString);
+				break;
+			case kCommandWriteI2CValueToSubAddr:
+				printf ("      Write supplied value to I2C subaddress - Parameters: \n");
+				printf ("             subaddress: 0x%lx\n", param1);
+				printf ("             number of bytes: %ld\n", param2);
+				break;
+			case kCommandXORValueToByteStream:
+				printf ("      XOR supplied value to byte stream - Parameters: \n");
+				printf ("             number of bytes in supplied value: %ld\n", param1);
+				break;
+			case kCommandImplementationSpecific:
+				printf ("      Implementation specific function - NOP\n");
 				break;
 			default: 
 				printf (" Unknown command %ld\n", cmd);

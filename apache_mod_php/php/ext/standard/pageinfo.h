@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: pageinfo.h,v 1.1.1.6 2003/07/18 18:07:43 zarzycki Exp $ */
+/* $Id: pageinfo.h,v 1.10.8.1 2002/12/31 16:35:32 sebastian Exp $ */
 
 #ifndef PAGEINFO_H
 #define PAGEINFO_H

@@ -18,7 +18,7 @@
  */
 
 
-/* $Id: internal_functions.c.in,v 1.1.1.5 2003/03/11 01:09:35 zarzycki Exp $ */
+/* $Id: internal_functions.c.in,v 1.22.4.2 2003/09/23 16:04:55 sniper Exp $ */
 
 #include "php.h"
 #include "php_main.h"
@@ -28,12 +28,6 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <stdio.h>
-
-#if HAVE_OPENSSL_EXT
-/* zlib typedefs free_func which causes problems if the SSL includes happen
- * after zlib.h is included */
-# include <openssl/ssl.h>
-#endif
 
 @EXT_INCLUDE_CODE@
 

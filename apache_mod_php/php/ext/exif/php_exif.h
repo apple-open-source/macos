@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_exif.h,v 1.1.1.5 2003/07/18 18:07:31 zarzycki Exp $ */
+/* $Id: php_exif.h,v 1.10.4.1 2002/12/31 16:34:28 sebastian Exp $ */
 
 #if HAVE_EXIF
 extern zend_module_entry exif_module_entry;

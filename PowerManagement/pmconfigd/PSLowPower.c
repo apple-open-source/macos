@@ -73,7 +73,6 @@ static  void        _getUPSShutdownThresholdsFromDisk(threshold_struct *thresho)
 static  void        _itIsLaterNow(CFRunLoopTimerRef tmr, void *info);
 static  void        _reEvaluatePowerSourcesLater(int seconds);
 static  void        _doPowerEmergencyShutdown(CFNumberRef ups_id);
-static  IOReturn    _setRootDomainProperty(CFStringRef key, CFTypeRef val);
 
 enum {
     _kIOUPSInternalPowerBit,
@@ -275,33 +274,6 @@ PSLowPowerPSChange(CFTypeRef ps_blob)
     
     return;
 }
-
-
-static IOReturn 
-_setRootDomainProperty(
-    CFStringRef                 key, 
-    CFTypeRef                   val) 
-{
-    mach_port_t                 masterPort;
-    io_iterator_t               it;
-    io_registry_entry_t         root_domain;
-    IOReturn                    ret;
-
-    IOMasterPort(bootstrap_port, &masterPort);
-    if(!masterPort) return kIOReturnError;
-    IOServiceGetMatchingServices(masterPort, IOServiceNameMatching("IOPMrootDomain"), &it);
-    if(!it) return kIOReturnError;
-    root_domain = (io_registry_entry_t)IOIteratorNext(it);
-    if(!root_domain) return kIOReturnError;
- 
-    ret = IORegistryEntrySetCFProperty(root_domain, key, val);
-
-    IOObjectRelease(root_domain);
-    IOObjectRelease(it);
-    IOObjectRelease(masterPort);
-    return ret;
-}
-
  
 /* _doPowerEmergencyShutdown()
  *

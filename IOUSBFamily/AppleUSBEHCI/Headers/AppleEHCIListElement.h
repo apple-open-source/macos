@@ -131,7 +131,7 @@ public:
     AppleEHCIIsochListElement *		doneQueueLink;			// linkage used by done queue processing
 
     // pure virtual methods which must be implemented by descendants
-    virtual IOReturn				UpdateFrameList(void) = 0;
+    virtual IOReturn				UpdateFrameList(AbsoluteTime timeStamp) = 0;
     virtual IOReturn				Deallocate(AppleUSBEHCI *uim) = 0;
 };
 
@@ -147,7 +147,7 @@ public:
     virtual void 				SetPhysicalLink(IOPhysicalAddress next);
     virtual IOPhysicalAddress			GetPhysicalLink(void);
     virtual IOPhysicalAddress			GetPhysicalAddrWithType(void);
-    virtual IOReturn				UpdateFrameList(void);
+    virtual IOReturn				UpdateFrameList(AbsoluteTime timeStamp);
     virtual IOReturn				Deallocate(AppleUSBEHCI *uim);
     virtual void				print(int level);
     
@@ -173,7 +173,7 @@ public:
     virtual void 					SetPhysicalLink(IOPhysicalAddress next);
     virtual IOPhysicalAddress				GetPhysicalLink(void);
     virtual IOPhysicalAddress				GetPhysicalAddrWithType(void);
-    virtual IOReturn					UpdateFrameList(void);
+    virtual IOReturn					UpdateFrameList(AbsoluteTime timeStamp);
     virtual IOReturn					Deallocate(AppleUSBEHCI *uim);
     virtual void					print(int level);
 

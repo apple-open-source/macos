@@ -90,27 +90,6 @@ enum {
  * So to minimize disk access we only purge when we think the disk is "up" anyway.
  */
 
-static IOReturn setRootDomainProperty(CFStringRef key, CFTypeRef val) {
-    mach_port_t                 masterPort;
-    io_iterator_t               it;
-    io_registry_entry_t         root_domain;
-    IOReturn                    ret;
-    
-    IOMasterPort(bootstrap_port, &masterPort);
-    if(!masterPort) return kIOReturnError;
-    IOServiceGetMatchingServices(masterPort, IOServiceNameMatching("IOPMrootDomain"), &it);
-    if(!it) return kIOReturnError;
-    root_domain = (io_registry_entry_t)IOIteratorNext(it);
-    if(!root_domain) return kIOReturnError;
-    
-    ret = IORegistryEntrySetCFProperty(root_domain, key, val);
-    
-    IOObjectRelease(root_domain);
-    IOObjectRelease(it);
-    IOObjectRelease(masterPort);
-    return ret;
-}
-
 // isEntryValidAndFuturistic
 // Returns true if the CFDictionary is validly formed
 //     AND if the date is in the future
@@ -275,7 +254,7 @@ tellSettingsController(CFDictionaryRef   dat, CFStringRef command)
     seconds_delta = CFNumberCreate(0, kCFNumberLongType, &diff_secs);
     if(!seconds_delta) goto exit;
     
-    ret = setRootDomainProperty(command, seconds_delta);
+    ret = _setRootDomainProperty(command, seconds_delta);
     if(kIOReturnSuccess != ret)
     {
         return_val = false;

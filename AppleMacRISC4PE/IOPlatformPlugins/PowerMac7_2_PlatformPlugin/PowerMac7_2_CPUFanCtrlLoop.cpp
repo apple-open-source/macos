@@ -164,6 +164,11 @@ IOReturn PowerMac7_2_CPUFanCtrlLoop::initPlatformCtrlLoop( const OSDictionary *d
 
 	//CTRLLOOP_DLOG("PowerMac7_2_CPUFanCtrlLoop::initPlatformCtrlLoop ENTERED\n");
 
+	if (kGPUL_10s)
+	{
+		tMaxAverageSampleCount = kPM72CPU_DEFAULT_slewAverageSampleCount;
+	}
+
 	return(status);
 }
 
@@ -174,6 +179,7 @@ bool PowerMac7_2_CPUFanCtrlLoop::choosePIDDataset( const OSDictionary * ctrlLoop
 	OSArray * metaStateArray;
 	OSDictionary * eepromDataset, * plistDataset = NULL, * chosenDataset;
 	const OSData * binID, * plistBinID;
+	const OSNumber * cpuTypeID;
 
 	if (!ctrlLoopDict) return(false);
 
@@ -198,6 +204,28 @@ bool PowerMac7_2_CPUFanCtrlLoop::choosePIDDataset( const OSDictionary * ctrlLoop
 	{
 		CTRLLOOP_DLOG("PowerMac7_2_CPUFanCtrlLoop::choosePIDDataset failed to fetch processor bin id\n");
 		return(false);
+	}
+
+	if ((cpuTypeID = OSDynamicCast(OSNumber, eepromDataset->getObject( kPM72ProcessorTypeKey ))) == NULL)
+	{
+		CTRLLOOP_DLOG("PowerMac7_2_CPUFanCtrlLoop::choosePIDDataset failed to fetch processor type id\n");
+		return(false);
+	}
+
+	UInt8 cpuType = cpuTypeID->unsigned8BitValue();
+	if ((cpuType == 0x02) || (cpuType == 0x23))
+	{
+#ifdef kLOG_ENABLED
+		IOLog("PowerMac7_2_CPUFanCtrlLoop::choosePIDDataset - Found 10s processor\n");
+#endif // kLOG_ENABLED
+		kGPUL_10s = true;
+	}
+	else
+	{
+#ifdef kLOG_ENABLED
+		IOLog("PowerMac7_2_CPUFanCtrlLoop::choosePIDDataset - Found 9s processor\n");
+#endif // kLOG_ENABLED
+		kGPUL_10s = false;
 	}
 
 	// Search the plist for a dataset that matches this CPU's bin ID
@@ -524,6 +552,17 @@ OSDictionary *PowerMac7_2_CPUFanCtrlLoop::fetchPIDDatasetFromROM( void ) const
 	dataset->setObject( kPM72MaxPowerAdjustmentKey, tmp_number );
 	tmp_number->release();
 
+	// Processor type identifier
+	if (!PM72Plugin->readProcROM( procID, 0x0E, 1, tmp_bytebuf ))
+	{
+		CTRLLOOP_DLOG("PowerMac7_2_CPUFanCtrlLoop::fetchPIDDatasetFromROM failed to fetch processor Type ID\n");
+		goto failReleaseDataset;
+	}
+
+	tmp_number = OSNumber::withNumber( tmp_bytebuf[0], 8 );
+	dataset->setObject( kPM72ProcessorTypeKey, tmp_number );
+	tmp_number->release();
+
 	// The iteration interval is not stored in the ROM, it is always set to 1 second
 	dataset->setObject( kIOPPIDCtrlLoopIntervalKey, gIOPPluginOne );
 
@@ -551,10 +590,9 @@ bool PowerMac7_2_CPUFanCtrlLoop::updateMetaState( void )
 	}
 
 	// Check for overtemp condition
-//	if ((platformPlugin->envArrayCondIsTrue(gIOPPluginEnvInternalOvertemp)) ||
-//	    (platformPlugin->envArrayCondIsTrue(gIOPPluginEnvExternalOvertemp)))
-	if ((platformPlugin->envArrayCondIsTrue(gIOPPluginEnvExternalOvertemp)) ||
-	    (platformPlugin->getEnv(gPM72EnvSystemUncalibrated)) != NULL)
+	if ((kGPUL_10s && (platformPlugin->envArrayCondIsTrue(gIOPPluginEnvInternalOvertemp))) ||
+		(platformPlugin->envArrayCondIsTrue(gIOPPluginEnvExternalOvertemp)) ||
+		(platformPlugin->getEnv(gPM72EnvSystemUncalibrated) != NULL))
 	{
 		CTRLLOOP_DLOG("PowerMac7_2_CPUFanCtrlLoop::updateMetaState Entering Overtemp Mode\n");
 
@@ -620,6 +658,55 @@ bool PowerMac7_2_CPUFanCtrlLoop::acquireSample( void )
 	curValue = getAggregateSensorValue();
 
 	tempHistory[tempIndex].sensValue = curValue.sensValue;
+
+	if (kGPUL_10s)
+	{
+
+#define fract16(x) ((((UInt32)(x)>>13)&7)*128)
+		int i;
+		if (tMaxAverageHistory) // Get another sample and calculate new average...
+		{
+			tMaxAverageHistory[tMaxAverageIndex] = curValue.sensValue;
+			tMaxAverage = 0;
+			if (tMaxAverageSampleCount > 0)
+			{
+				for (i = 0; i < tMaxAverageSampleCount; i++)
+					tMaxAverage += tMaxAverageHistory[i];
+				tMaxAverage /= tMaxAverageSampleCount;
+			}
+
+#ifdef kLOG_ENABLED
+			IOLog("PM72: N:%ld Avg:%ld.%03lu Temp[%ld]=%ld.%03lu\n",
+				tMaxAverageSampleCount, tMaxAverage>>16, fract16(tMaxAverage), tMaxAverageIndex,
+				tMaxAverageSampleCount?tMaxAverageHistory[tMaxAverageIndex]>>16:0,
+				tMaxAverageSampleCount?fract16(tMaxAverageHistory[tMaxAverageIndex]):0);
+#endif // kLOG_ENABLED
+			if (++tMaxAverageIndex >= tMaxAverageSampleCount)
+				tMaxAverageIndex = 0;
+		}
+		else
+		if (tMaxAverageSampleCount >= 2) // Re-Initialize the sample history.
+		{
+			tMaxAverageHistory = (SInt32 *)IOMalloc(tMaxAverageSampleCount * sizeof(SInt32));
+
+			// Initialize all samples to the current value.
+			for (i = 0; i < tMaxAverageSampleCount; i++)
+				tMaxAverageHistory[i] = curValue.sensValue;
+			tMaxAverage = curValue.sensValue;
+
+			tMaxAverageIndex = 1;
+
+#ifdef kLOG_ENABLED
+			IOLog("Changing number of samples:%ld Temp[0]=%ld.%03lu\n",
+					tMaxAverageSampleCount, tMaxAverage>>16, fract16(tMaxAverage));
+#endif // kLOG_ENABLED
+		}
+		else // No sample history? and Number of samples is less than two?
+		{
+			// Disable averaging...  average = current value.
+			tMaxAverage = curValue.sensValue;
+		}
+	}
 
 	// move the top of the power array to the next spot -- it's circular
 	if (latestSample == 0)
@@ -977,6 +1064,98 @@ void PowerMac7_2_CPUFanCtrlLoop::deadlinePassed( void )
 		CTRLLOOP_DLOG("PowerMac7_2_CPUFanCtrlLoop::deadlinePassed FAILED TO ACQUIRE INPUT SAMPLE!!!\n");
 	}
 
+	if (kGPUL_10s)
+	{
+		SInt32 slewOffset = kPM72CPU_DEFAULT_slewOffset;
+		SInt32 sleepOffset = kPM72CPU_DEFAULT_sleepOffset;
+		SInt32 slewAverageOffset = kPM72CPU_DEFAULT_slewAverageOffset;
+		SInt32 latestTemperature;
+		bool isSlewing;
+
+#ifdef kLOG_ENABLED
+		char log[4096], *plog = log;
+#endif // kLOG_ENABLED
+
+		// Check condition for slew...
+
+		latestTemperature = tempHistory[tempIndex].sensValue;
+		isSlewing = platformPlugin->envArrayCondIsTrueForObject(this, gIOPPluginEnvInternalOvertemp);
+
+//		IOLog("PM72 [%2d] Temp:%2ld.%09ld Tmax:%ld  ", tempIndex, (latestTemperature>>16), ((latestTemperature>>8)&0xff)*390625, inputMax.sensValue>>16);
+
+		// convert offset to 16.16 fixed point
+		bool overtempAverage = (tMaxAverage >= (inputMax.sensValue + (slewAverageOffset<<16)))?true:false;
+		bool overtempImmediate = (latestTemperature >= (inputMax.sensValue + (slewOffset<<16)))?true:false;
+
+#ifdef kLOG_ENABLED
+	sprintf(plog, "PM72: tgt:%ld %c %c Tavg:%ld.%03lu %c %ld, Tcur:%ld.%03lu %c %ld",
+		(SInt32)outputControl->getTargetValue(),
+		isSlewing?'S':' ',
+		fOvertempAverage?'O':' ',
+		tMaxAverage>>16, fract16(tMaxAverage),
+		overtempAverage?'*':' ',
+		(inputMax.sensValue>>16) + slewAverageOffset,
+		latestTemperature>>16, fract16(latestTemperature),
+		overtempImmediate?'*':' ',
+		(inputMax.sensValue>>16) + slewOffset);
+	plog += strlen(plog);
+#endif // kLOG_ENABLED
+
+		if ((fOvertempAverage == false) && (overtempAverage || overtempImmediate))
+		{
+			if (isSlewing == false)
+			{
+				if (overtempAverage)
+					fOvertempAverage = true;
+#ifdef kLOG_ENABLED
+				sprintf(plog, " ->low");
+				plog += strlen(plog);
+#endif // kLOG_ENABLED
+				platformPlugin->setEnvArray(gIOPPluginEnvInternalOvertemp, this, true);
+				didSetEnv = true;
+			}
+		}
+		else
+		{
+			if (isSlewing == true)
+			{
+			// If previously slewing low because the overtempAverage limit was excceded...
+			// then slew high only after the immediate temperature falls below the average limit.
+			// otherwise slew high when (average >= aveOffset) and (immed >= immOffset).
+			if ((fOvertempAverage == false) || (latestTemperature < (inputMax.sensValue + (slewAverageOffset<<16))))
+				{
+#ifdef kLOG_ENABLED
+					sprintf(plog, " ->high");
+					plog += strlen(plog);
+#endif // kLOG_ENABLED
+					fOvertempAverage = false;
+					platformPlugin->setEnvArray(gIOPPluginEnvInternalOvertemp, this, false);
+					didSetEnv = true;
+					delayToReleaseFanAfterSlew = 1; // intervals to force fans on full after slewing
+				}
+			}
+		}
+
+#ifdef kLOG_ENABLED
+		sprintf(plog, "\n");
+		IOLog(log);
+#endif // kLOG_ENABLED
+
+		// Check condition for sleep...
+
+		if (latestTemperature >= (inputMax.sensValue + (sleepOffset<<16))) // convert offset to 16.16 fixed point
+		{
+			IOLog("PowerMac7,2 Thermal Manager: Thermal Runaway Detected: System Will Sleep\n");
+			IOLog("PM72 T_cur=%ld >= (T_max:%ld + sleepOffset:%ld)\n",
+					latestTemperature >> 16, inputMax.sensValue >> 16, sleepOffset);
+	
+			platformPlugin->coreDump();
+			platformPlugin->sleepSystem();
+		}
+	}
+	else // 9s
+	{
+
 	// check to see if we've exceeded the critical temperature
 	temperatureDiff.sensValue = tempHistory[tempIndex].sensValue - inputMax.sensValue;
 
@@ -1013,6 +1192,7 @@ void PowerMac7_2_CPUFanCtrlLoop::deadlinePassed( void )
 					tempHistory[tempIndex].sensValue >> 16, inputMax.sensValue >> 16,
 					tMaxExceededNowCritical ? "TRUE" : "FALSE", secondsAtMaxCooling);
 	
+			platformPlugin->coreDump();
 			platformPlugin->sleepSystem();
 		}
 	}
@@ -1029,6 +1209,8 @@ void PowerMac7_2_CPUFanCtrlLoop::deadlinePassed( void )
 		platformPlugin->setEnvArray(gIOPPluginEnvInternalOvertemp, this, true);
 		didSetEnv = true;
 	}
+
+	} // endif 9s
 
 	// If we changed the environment, the platform plugin will invoke updateMetaState()
 	// and adjustControls().  If not, then we just need to call adjustControls()
@@ -1058,7 +1240,7 @@ void PowerMac7_2_CPUFanCtrlLoop::deadlinePassed( void )
 		ADD_ABSOLUTETIME(&deadline, &interval);
 	}
 
-	timerCallbackActive = false;
+//	timerCallbackActive = false; // force adjustControls() to call calculateNewTarget + sendNewTarget always!
 }
 
 void PowerMac7_2_CPUFanCtrlLoop::sendNewTarget( ControlValue newTarget )

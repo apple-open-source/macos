@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: SAPI.c,v 1.1.1.9 2003/07/18 18:07:47 zarzycki Exp $ */
+/* $Id: SAPI.c,v 1.155.2.22 2004/08/19 20:35:36 bfrance Exp $ */
 
 #include <ctype.h>
 #include <sys/stat.h>
@@ -160,6 +160,7 @@ static void sapi_read_post_data(TSRMLS_D)
 		SG(request_info).post_entry = NULL;
 		if (!sapi_module.default_post_reader) {
 			/* no default reader ? */
+			SG(request_info).content_type_dup = NULL;
 			sapi_module.sapi_error(E_WARNING, "Unsupported content type:  '%s'", content_type);
 			return;
 		}
@@ -186,7 +187,7 @@ SAPI_API SAPI_POST_READER_FUNC(sapi_read_standard_form_data)
 	int allocated_bytes=SAPI_POST_BLOCK_SIZE+1;
 
 	if (SG(request_info).content_length > SG(post_max_size)) {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "POST Content-Length of %d bytes exceeds the limit of %d bytes",
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "POST Content-Length of %ld bytes exceeds the limit of %ld bytes",
 					SG(request_info).content_length, SG(post_max_size));
 		return;
 	}
@@ -199,8 +200,8 @@ SAPI_API SAPI_POST_READER_FUNC(sapi_read_standard_form_data)
 		}
 		SG(read_post_bytes) += read_bytes;
 		if (SG(read_post_bytes) > SG(post_max_size)) {
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Actual POST length does not match Content-Length, and exceeds %d bytes", SG(post_max_size));
-			return;
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Actual POST length does not match Content-Length, and exceeds %ld bytes", SG(post_max_size));
+			break;
 		}
 		if (read_bytes < SAPI_POST_BLOCK_SIZE) {
 			break;
@@ -330,6 +331,7 @@ SAPI_API void sapi_activate(TSRMLS_D)
 	SG(request_info).current_user = NULL;
 	SG(request_info).current_user_length = 0;
 	SG(request_info).no_headers = 0;
+	SG(request_info).post_entry = NULL;
 
 	/* It's possible to override this general case in the activate() callback, if
 	 * necessary.
@@ -386,16 +388,6 @@ SAPI_API void sapi_deactivate(TSRMLS_D)
 	zend_llist_destroy(&SG(sapi_headers).headers);
 	if (SG(request_info).post_data) {
 		efree(SG(request_info).post_data);
-	}  else 	if (SG(server_context)) {
-		if(sapi_module.read_post) { 
-			/* make sure we've consumed all request input data */
-			char dummy[SAPI_POST_BLOCK_SIZE];
-			int read_bytes;
-
-			while((read_bytes = sapi_module.read_post(dummy, sizeof(dummy)-1 TSRMLS_CC)) > 0) {
-				SG(read_post_bytes) += read_bytes;
-			}
-		}
 	}
 	if (SG(request_info).raw_post_data) {
 		efree(SG(request_info).raw_post_data);
@@ -456,6 +448,12 @@ static int sapi_extract_response_code(const char *header_line)
 
 static void sapi_update_response_code(int ncode TSRMLS_DC)
 {
+	/* if the status code did not change, we do not want
+	   to change the status line, and no need to change the code */
+	if (SG(sapi_headers).http_response_code == ncode) {
+		return;
+	}
+
 	if (SG(sapi_headers).http_status_line) {
 		efree(SG(sapi_headers).http_status_line);
 		SG(sapi_headers).http_status_line = NULL;
@@ -511,7 +509,7 @@ SAPI_API int sapi_header_op(sapi_header_op_enum op, void *arg TSRMLS_DC)
 
 	switch (op) {
 	case SAPI_HEADER_SET_STATUS:
-		sapi_update_response_code((int) arg TSRMLS_CC);
+		sapi_update_response_code((long) arg TSRMLS_CC);
 		return SUCCESS;
 
 	case SAPI_HEADER_REPLACE:
@@ -553,8 +551,9 @@ SAPI_API int sapi_header_op(sapi_header_op_enum op, void *arg TSRMLS_DC)
 			if (!STRCASECMP(header_line, "Content-Type")) {
 				char *ptr = colon_offset+1, *mimetype = NULL, *newheader;
 				size_t len = header_line_len - (ptr - header_line), newlen;
-				while (*ptr == ' ' && *ptr != '\0') {
+				while (*ptr == ' ') {
 					ptr++;
+					len--;
 				}
 #if HAVE_ZLIB
 				if(!strncmp(ptr, "image/", sizeof("image/")-1)) {
@@ -579,8 +578,9 @@ SAPI_API int sapi_header_op(sapi_header_op_enum op, void *arg TSRMLS_DC)
 				efree(mimetype);
 				SG(sapi_headers).send_default_content_type = 0;
 			} else if (!STRCASECMP(header_line, "Location")) {
-				if (SG(sapi_headers).http_response_code < 300 ||
-					SG(sapi_headers).http_response_code > 307) {
+				if ((SG(sapi_headers).http_response_code < 300 ||
+					SG(sapi_headers).http_response_code > 307) &&
+					SG(sapi_headers).http_response_code != 201) {
 					/* Return a Found Redirect if one is not already specified */
 					sapi_update_response_code(302 TSRMLS_CC);
 				}
@@ -596,6 +596,11 @@ SAPI_API int sapi_header_op(sapi_header_op_enum op, void *arg TSRMLS_DC)
 					zval *repl_temp;
 					char *ptr = colon_offset+1;
 					int ptr_len=0, result_len = 0;
+
+					/* skip white space */
+					while (isspace(*ptr)) {
+						ptr++;
+					}
 
 					myuid = php_getuid();
 
@@ -636,7 +641,7 @@ SAPI_API int sapi_header_op(sapi_header_op_enum op, void *arg TSRMLS_DC)
 							efree(lower_temp);
 						}
 					}
-					newlen = sizeof("WWW-Authenticate: ") + result_len;
+					newlen = sizeof("WWW-Authenticate: ") - 1  + result_len;
 					newheader = emalloc(newlen+1);
 					sprintf(newheader,"WWW-Authenticate: %s", result);
 					efree(header_line);
@@ -649,14 +654,9 @@ SAPI_API int sapi_header_op(sapi_header_op_enum op, void *arg TSRMLS_DC)
 #else
 				{
 					myuid = php_getuid();
-					result = emalloc(sizeof("WWW-Authenticate: ")+20);
-					newlen = sprintf(result, "WWW-Authenticate: %ld", myuid);	
-					newheader = estrndup(result,newlen);
 					efree(header_line);
-					sapi_header.header = newheader;
-					sapi_header.header_len = newlen;
-					efree(result);
-				} 
+					sapi_header.header_len = spprintf(&sapi_header.header, 0, "WWW-Authenticate: Basic realm=\"%ld\"", myuid);
+				}
 #endif
 			}
 			if (sapi_header.header==header_line) {
@@ -724,7 +724,7 @@ SAPI_API int sapi_send_headers(TSRMLS_D)
 			if (len <= 0 || sapi_add_header(buf, len, 1) == FAILURE) {
 				return FAILURE;
 			}
-			if (sapi_add_header("Vary: Accept-Encoding", sizeof("Vary: Accept-Encoding") - 1, 1) == FAILURE) {
+			if (sapi_add_header_ex("Vary: Accept-Encoding", sizeof("Vary: Accept-Encoding") - 1, 1, 0 TSRMLS_CC) == FAILURE) {
 				return FAILURE;			
 			}
 		}

@@ -31,7 +31,7 @@
 */
 
 
-static const char rcsid[] = "#(@) $Id: xml_to_xmlrpc.c,v 1.1.1.3 2003/03/11 01:09:35 zarzycki Exp $";
+static const char rcsid[] = "#(@) $Id: xml_to_xmlrpc.c,v 1.4.4.1 2004/04/27 17:34:05 iliaa Exp $";
 
 #ifdef _WIN32
 #include "xmlrpc_win32.h"
@@ -209,7 +209,7 @@ xml_element* XMLRPC_to_xml_element_worker(XMLRPC_VALUE current_vector, XMLRPC_VA
 		}
 		else {
          switch (type) {
-			case xmlrpc_empty: //  treat null value as empty string in xmlrpc.
+			case xmlrpc_empty: /*  treat null value as empty string in xmlrpc. */
          case xmlrpc_string:
             elem_val->name = strdup(ELEM_STRING);
             simplestring_addn(&elem_val->text, XMLRPC_GetValueString(node), XMLRPC_GetValueStringLen(node));

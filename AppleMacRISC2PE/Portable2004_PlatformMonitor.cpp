@@ -50,6 +50,8 @@ static	Portable2004_PlatformMonitor	*gIOPMon;
 static 	IOService			*provider;
 
 static	bool				gUseBusSlewing;
+static  bool				gUsePowerPlay;
+static  UInt32				gCurrentGPUState;
 
 // Possible platform actions
 
@@ -137,7 +139,7 @@ static ConSensorInfo subSensorArray[kMaxSensorIndex];
  */
 static SmallerThresholdInfo  thermalThresholdInfoArray[kMaxMachineTypes][kMaxSensorIndex][kNumClamshellStates][kMaxThermalStates] =
 {
-    {
+    {	// PowerBook6,4 values	( Q54A )
             {	// Sensor 0
                     {	// Clamshell open
                             //	 thresholdLow,			thresholdHigh,			// currentState
@@ -219,7 +221,7 @@ static SmallerThresholdInfo  thermalThresholdInfoArray[kMaxMachineTypes][kMaxSen
                     },
             },
     },
-    {
+    {	// PowerBook6,5 values ( Q72 / Q73 )
             {	// Sensor 0
                     {	// Clamshell open
                             //	 thresholdLow,			thresholdHigh,			// currentState
@@ -301,7 +303,7 @@ static SmallerThresholdInfo  thermalThresholdInfoArray[kMaxMachineTypes][kMaxSen
                     },
             },
     },
-    {
+    {	// PowerBook5,4 values (Q16a)
             {	// Sensor 0
                     {	// Clamshell open
                             //	 thresholdLow,			thresholdHigh,			// currentState
@@ -383,7 +385,7 @@ static SmallerThresholdInfo  thermalThresholdInfoArray[kMaxMachineTypes][kMaxSen
                     },
             },
     },
-    {
+    {	// PowerBook5,5 values (Q41a)
             {	// Sensor 0
                     {	// Clamshell open
                             //	 thresholdLow,			thresholdHigh,			// currentState
@@ -465,7 +467,7 @@ static SmallerThresholdInfo  thermalThresholdInfoArray[kMaxMachineTypes][kMaxSen
                     },
             },
     },
-    {
+    {	// PowerBook5,6 values (Q16b)
             {	// Sensor 0
                     {	// Clamshell open
                             //	 thresholdLow,			thresholdHigh,			// currentState
@@ -514,7 +516,7 @@ static SmallerThresholdInfo  thermalThresholdInfoArray[kMaxMachineTypes][kMaxSen
                             {	 TEMP_SENSOR_FMT(113),		TEMP_SENSOR_FMT(117)	},	// kThermalState3 
                     },
             },
-            {	// Sensor 3
+            {	// Sensor 3 (Battery sensor)
                     {	// Clamshell open
                             //	 thresholdLow,			thresholdHigh,			// currentState
                             {	 TEMP_SENSOR_FMT(0),		TEMP_SENSOR_FMT(42)	},	// kThermalState0 
@@ -530,24 +532,24 @@ static SmallerThresholdInfo  thermalThresholdInfoArray[kMaxMachineTypes][kMaxSen
                             {	 TEMP_SENSOR_FMT(113),		TEMP_SENSOR_FMT(117)	},	// kThermalState3 
                     },
             },
-            {	// Sensor 4
+            {	// Sensor 4 (Trackpad flex sensor)
                     {	// Clamshell open
                             //	 thresholdLow,			thresholdHigh,			// currentState
-                            {	 TEMP_SENSOR_FMT(0),		TEMP_SENSOR_FMT(110)	},	// kThermalState0 
-                            {	 TEMP_SENSOR_FMT(68),		TEMP_SENSOR_FMT(110)	},	// kThermalState1 
-                            {	 TEMP_SENSOR_FMT(78),		TEMP_SENSOR_FMT(93)	},	// kThermalState2 
-                            {	 TEMP_SENSOR_FMT(88),		TEMP_SENSOR_FMT(117)	},	// kThermalState3 
+                            {	 TEMP_SENSOR_FMT(0),		TEMP_SENSOR_FMT(48)	},	// kThermalState0 
+                            {	 TEMP_SENSOR_FMT(46),		TEMP_SENSOR_FMT(110)	},	// kThermalState1 
+                            {	 TEMP_SENSOR_FMT(108),		TEMP_SENSOR_FMT(115)	},	// kThermalState2 
+                            {	 TEMP_SENSOR_FMT(113),		TEMP_SENSOR_FMT(117)	},	// kThermalState3 
                     },
                     {	// Clamshell closed
                             //	 thresholdLow,			thresholdHigh,			// currentState
-                            {	 TEMP_SENSOR_FMT(0),		TEMP_SENSOR_FMT(110)	},	// kThermalState0 
-                            {	 TEMP_SENSOR_FMT(68),		TEMP_SENSOR_FMT(110)	},	// kThermalState1 
-                            {	 TEMP_SENSOR_FMT(78),		TEMP_SENSOR_FMT(93)	},	// kThermalState2 
-                            {	 TEMP_SENSOR_FMT(88),		TEMP_SENSOR_FMT(117)	},	// kThermalState3 
+                            {	 TEMP_SENSOR_FMT(0),		TEMP_SENSOR_FMT(48)	},	// kThermalState0 
+                            {	 TEMP_SENSOR_FMT(46),		TEMP_SENSOR_FMT(110)	},	// kThermalState1 
+                            {	 TEMP_SENSOR_FMT(108),		TEMP_SENSOR_FMT(115)	},	// kThermalState2 
+                            {	 TEMP_SENSOR_FMT(113),		TEMP_SENSOR_FMT(117)	},	// kThermalState3 
                     },
             },
     },
-    {
+    {	// PowerBook5,7 values (Q41b)
             {	// Sensor 0
                     {	// Clamshell open
                             //	 thresholdLow,			thresholdHigh,			// currentState
@@ -680,6 +682,7 @@ static bool actionFullPower ( )
 	if ((conSensorArray[kGPUController].state != kGPUPowerState0) &&
 		(serv = conSensorArray[kGPUController].conSensor)) {
 		conSensorArray[kGPUController].state = kGPUPowerState0;
+                gCurrentGPUState = kGPUPowerState0;
 		//debug_msg ("IOPMon::actionFullPower - sending GPU aggressiveness 0\n");
 		serv->setAggressiveness (kIOFBLowPowerAggressiveness, 0);
 		provider->setProperty (gIOPMonGPUActionKey, (OSObject *)gIOPMonFull);
@@ -723,12 +726,20 @@ static bool actionPower1 ( )
         }
 	
 	// GPU is still at full power
-	if ((conSensorArray[kGPUController].state != kGPUPowerState0) &&
+	if ((conSensorArray[kGPUController].state != kGPUPowerState1) &&
 		(serv = conSensorArray[kGPUController].conSensor)) {
-		conSensorArray[kGPUController].state = kGPUPowerState0;
-		//debug_msg ("IOPMon::actionPower1 - sending GPU aggressiveness 0\n");
-		serv->setAggressiveness (kIOFBLowPowerAggressiveness, 0);
-		provider->setProperty (gIOPMonGPUActionKey, (OSObject *)gIOPMonFull);
+                if (gUsePowerPlay) {
+                    conSensorArray[kGPUController].state = kGPUPowerState1;
+                    gCurrentGPUState = kGPUPowerState1;
+                    serv->setAggressiveness (kIOFBLowPowerAggressiveness, 3);
+                    provider->setProperty (gIOPMonGPUActionKey, (OSObject *)gIOPMonReduced);
+                }
+                else {
+                    conSensorArray[kGPUController].state = kGPUPowerState0;
+                    //debug_msg ("IOPMon::actionPower1 - sending GPU aggressiveness 0\n");
+                    serv->setAggressiveness (kIOFBLowPowerAggressiveness, 0);
+                    provider->setProperty (gIOPMonGPUActionKey, (OSObject *)gIOPMonFull);
+                }
 	}
 
 	return true;
@@ -838,6 +849,20 @@ bool Portable2004_PlatformMonitor::start ( IOService * nub )
         else
             gUseBusSlewing = false;
         
+        // check if we need to enable the GPU "PowerPlay" feature...
+        if (macRISC2PE->processorSpeedChangeFlags & kSupportsPowerPlay)
+        {
+            debug_msg("Portable2004_PlatformMonitor::start - this machine supports PowerPlay\n");
+            // Even though the BootROM indicates this machine supports PowerPlay we are disabling it for 
+            // all machines that Portable2004 support, which is Q16A and Q41A.  This is due to performance issues
+            // seen when playing games in "Automatic" mode 
+            gUsePowerPlay = false;
+        }
+        else {
+            debug_msg("Portable2004_PlatformMonitor::start - this machine does NOT support PowerPlay\n");
+            gUsePowerPlay = false;
+        }
+        
         // For now, these machines lack PMU based Speed changing as well.
 	// macRISC2PE->processorSpeedChangeFlags |= kPMUBasedSpeedChange;
         
@@ -901,6 +926,7 @@ bool Portable2004_PlatformMonitor::start ( IOService * nub )
 
 	conSensorArray[kGPUController].conSensorType = kIOPMonGPUController;			// gpu controller
 	conSensorArray[kGPUController].state = kGPUPowerState0;
+    gCurrentGPUState = kGPUPowerState0;									// initialize our global to indicate GPU boots fast as well
 	conSensorArray[kGPUController].registered = true;					// built-in
 
 	conSensorArray[kSlewController].conSensorType = kIOPMonSlewController;			// slew controller
@@ -1003,23 +1029,11 @@ IOReturn Portable2004_PlatformMonitor::powerStateWillChangeTo (IOPMPowerFlags th
 {	
     if ( ! (theFlags & IOPMPowerOn) ) {
         // Sleep sequence:
+                goingToSleep = true;
 		debug_msg ("Portable2004_PlatformMonitor::powerStateWillChangeTo - sleep\n");
 		savePlatformState();
                 
-                if ( macRISC2PE->processorSpeedChangeFlags & kBusSlewBasedSpeedChange )
-                {
-                    if (conSensorArray[kSlewController].registered) {
-                        conSensorArray[kSlewController].state = kCPUPowerState0;
-                        gIOPMon->setBusSlew ((UInt32) 0);
-                        goingToSleep = true;
-                        debug_msg ("Portable2004_PlatformMonitor::bus slew fast - sleep\n");
-                    }
-                }
-                else
-                {
-                    actionFullPower();
-                    goingToSleep = true;
-                }
+                actionFullPower();
     }
     
     return IOPMAckImplied;
@@ -1033,10 +1047,10 @@ IOReturn Portable2004_PlatformMonitor::powerStateDidChangeTo (IOPMPowerFlags the
 {	
     if (theFlags & IOPMPowerOn) {
         // Wake sequence:
-                goingToSleep = false;
 		debug_msg ("Portable2004_PlatformMonitor::powerStateDidChangeTo - wake\n");
                 // we don't want to remember any prior actions and start "fresh" after a wake from sleep
 		restorePlatformState();
+                goingToSleep = false;
     }
      
     return IOPMAckImplied;
@@ -1064,9 +1078,11 @@ IOReturn Portable2004_PlatformMonitor::setAggressiveness(unsigned long selector,
 
         result = super::setAggressiveness(selector, newLevel);
 
+        newLevel &= 0x7FFFFFFF;		// mask off high bit... upcoming kernel change will use the high bit to indicate whether setAggressiveness call
+                                        // was user induced (Energy Saver) or not.  Currently not using this info so mask it off.
 	if (selector == kPMSetProcessorSpeed) {
             // IOLog ("Portable2004_PlatformMonitor::setAggressiveness - newLevel %ld, currentPowerState %ld\n", newLevel, currentPowerState);
-            if ((newLevel != currentPowerState) && (newLevel < 2)){	// This only works if we have two power states
+            if (((newLevel != currentPowerState) || (gCurrentGPUState != currentPowerState)) && (newLevel < 2)){	// This only works if we have two power states
                 // create and transmit internal event
                 event.event = kIOPMonMessageStateChanged;
                 event.conSensor = this;
@@ -1178,13 +1194,13 @@ bool Portable2004_PlatformMonitor::restoreThermalState ()
 	// need to get updated info from sensors
 	for (i = 0; i < kMaxSensorIndex; i++) {
 		if (subSensorArray[i].registered) { // Is sensor registered?
-			subSensorArray[i].state = kMaxThermalStates;	//Set indeterminate state
+			subSensorArray[i].state = kThermalState0;	//Set indeterminate state
 			
-			// Set low thresholds - this will cause sensor to update info
+			// Set to "normal"/non-overtemp thresholds - this will cause sensor to update info if overtemp is reached
 			threshLow = (OSNumber *)subSensorArray[i].threshDict->getObject (gIOPMonLowThresholdKey);
-			threshLow->setValue((long long)0);
+			threshLow->setValue((long long)thermalThresholdInfoArray[machineType][i][kClamshellStateOpen][kThermalState0].thresholdLow);
 			threshHigh = (OSNumber *)subSensorArray[i].threshDict->getObject (gIOPMonHighThresholdKey);
-			threshHigh->setValue((long long)0);
+			threshHigh->setValue((long long)thermalThresholdInfoArray[machineType][i][kClamshellStateOpen][kThermalState0].thresholdHigh);
 			// Send thresholds to sensor
 			subSensorArray[i].conSensor->setProperties (subSensorArray[i].threshDict);
 		}
@@ -1454,6 +1470,10 @@ bool Portable2004_PlatformMonitor::adjustPlatformState ()
 		lastPowerState = currentPowerState;
 		updateIOPMonStateInfo(kIOPMonPowerSensor, currentPowerState);
 	}
+    else
+    	if (currentPowerState != gCurrentGPUState)
+        	lastAction = 0;
+                
 	if (lastThermalState != currentThermalState) {
                 lastAction = 0;
 		lastThermalState = currentThermalState;
@@ -1572,7 +1592,10 @@ IOReturn Portable2004_PlatformMonitor::registerConSensor (OSDictionary *dict, IO
 			break;
 		
 		case kIOPMonGPUController:
-			initialState = kGPUPowerState0;			// GPU starts out fast
+			if (gUsePowerPlay)
+				initialState = kGPUPowerState1;			// GPU starts out slow if we support PowerPlay
+			else
+				initialState = kGPUPowerState0;			// otherwise, GPU starts out fast
 			break;
                         
                 case kIOPMonSlewController:
@@ -1719,7 +1742,7 @@ bool Portable2004_PlatformMonitor::handlePowerEvent (IOPMonEventData *eventData)
 		return false;
 		
 	result = true;
-	if (currentPowerState != nextPowerState) {
+	if ((currentPowerState != nextPowerState) || (currentPowerState != gCurrentGPUState)) {
 		currentPowerState = nextPowerState;
 		result = adjustPlatformState ();
 	}

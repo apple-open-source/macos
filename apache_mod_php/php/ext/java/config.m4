@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.7 2003/07/22 19:56:27 zarzycki Exp $
+dnl $Id: config.m4,v 1.46.4.3 2003/04/04 17:43:13 sniper Exp $
 dnl
 AC_DEFUN(JAVA_FIND_JAR, [
  AC_MSG_CHECKING([Java Jar location])

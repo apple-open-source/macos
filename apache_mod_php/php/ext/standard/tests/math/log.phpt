@@ -3,7 +3,7 @@ log() tests
 --POST--
 --GET--
 --FILE--
-<?php // $Id: log.phpt,v 1.1.1.1 2003/03/11 01:09:34 zarzycki Exp $
+<?php // $Id: log.phpt,v 1.2 2002/11/11 05:21:35 jason Exp $
 echo "On failure, please mail result to php-dev@lists.php.net\n";
 for ($x = 0, $count= 0; $x < 200; $x++) {
     $x2 = (int) exp(log($x));

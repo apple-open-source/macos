@@ -3,6 +3,22 @@
 	
 	$Source: /cvs/root/IOUSBFamily/USBProberV2/KLog/KLog.cpp,v $
 	$Log: KLog.cpp,v $
+	Revision 1.1.34.1  2004/10/25 15:36:04  nano
+	Bring in TOT fixes to PantherUpdate.
+	
+	Revision 1.1.98.1  2004/10/20 15:27:41  nano
+	Potential submissions to Sandbox -- create their own branch
+	
+	Bug #:
+	<rdar://problem/3826068> USB devices on a P30 attached to Q88 do not function after restart
+	<rdar://problem/3779852> Q16B EVT Build run in fail Checkconfig Bluetooth *2
+	<rdar://problem/3816739>IOUSBFamily needs to support polling interval for High Speed devices
+	<rdar://problem/3816743> Low latency for hi-speed API do not fill frTimeStamp.hi and low in completion.
+	<rdar://problem/3816749> Low latency for hi-speed API incorrectly treats buffer striding across mem-page
+	
+	Submitted by:
+	Reviewed by:
+	
 	Revision 1.1  2003/08/22 05:15:54  nano
 	Added KLog.kext sources
 	
@@ -42,20 +58,20 @@
 	
 */
 
+extern "C" {
+#include <sys/time.h>
+#include <pexpert/pexpert.h>
+}
+
+#include <sys/unistd.h>
+#include <sys/systm.h>
 
 #include <IOKit/IOLib.h>
 #include <IOKit/IOLocks.h>
-#include <sys/unistd.h>
 
 #include "KLog.h"
 #include "KLogClient.h"
 
-extern "C" {
-    #include <sys/time.h>
-    #include <pexpert/pexpert.h>
-    #include "/usr/include/stdio.h"
-    #include "/usr/include/string.h"
-}
 
 //================================================================================================
 //   Defines

@@ -472,6 +472,39 @@ void AppleUSBCDCWMCControl::merWriteComplete(void *obj, void *param, IOReturn rc
 
 /****************************************************************************************************/
 //
+//		Method:		AppleUSBCDCWMCControl::probe
+//
+//		Inputs:		provider - my provider
+//
+//		Outputs:	IOService - from super::probe, score - probe score
+//
+//		Desc:		Modify the probe score if necessary (we don't  at the moment)
+//
+/****************************************************************************************************/
+
+IOService* AppleUSBCDCWMCControl::probe( IOService *provider, SInt32 *score )
+{ 
+    IOService   *res;
+	
+		// If our IOUSBInterface has a "do not match" property, it means that we should not match and need 
+		// to bail.  See rdar://3716623
+    
+    OSBoolean *boolObj = OSDynamicCast(OSBoolean, provider->getProperty("kDoNotClassMatchThisInterface"));
+    if (boolObj && boolObj->isTrue())
+    {
+        ALERT(0, 0, "probe - provider doesn't want us to match");
+        return NULL;
+    }
+
+    res = super::probe(provider, score);
+    
+//    return res;
+	return NULL;
+    
+}/* end probe */
+
+/****************************************************************************************************/
+//
 //		Method:		AppleUSBCDCWMCControl::start
 //
 //		Inputs:		provider - my provider
@@ -510,8 +543,6 @@ bool AppleUSBCDCWMCControl::start(IOService *provider)
 
     XTRACE(this, 0, provider, "start - provider.");
     
-    return false;
-    
     if(!super::start(provider))
     {
         ALERT(0, 0, "start - super failed");
@@ -524,16 +555,6 @@ bool AppleUSBCDCWMCControl::start(IOService *provider)
     if(!fControlInterface)
     {
         ALERT(0, 0, "start - provider invalid");
-        return false;
-    }
-            
-    // If our IOUSBInterface has a "do not match" property, it means that we should not match and need 
-    // to bail.  See rdar://3716623
-    
-    OSBoolean * boolObj = OSDynamicCast( OSBoolean, provider->getProperty("kDoNotClassMatchThisInterface") );
-    if ( boolObj && boolObj->isTrue() )
-    {
-        ALERT(0, 0, "start - provider doesn't want us to match");
         return false;
     }
 

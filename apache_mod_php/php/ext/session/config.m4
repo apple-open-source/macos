@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.1.1.5 2003/03/11 01:09:32 zarzycki Exp $
+dnl $Id: config.m4,v 1.23.2.2 2003/10/01 02:54:06 sniper Exp $
 dnl
 
 PHP_ARG_ENABLE(session, whether to enable PHP sessions,
@@ -17,10 +17,8 @@ if test "$PHP_SESSION" != "no"; then
 fi
 
 if test "$PHP_MM" != "no"; then
-  for i in /usr/local /usr $PHP_MM; do
-    if test -f "$i/include/mm.h"; then
-      MM_DIR=$i
-    fi
+  for i in $PHP_MM /usr/local /usr; do
+    test -f "$i/include/mm.h" && MM_DIR=$i && break
   done
 
   if test -z "$MM_DIR" ; then

@@ -32,6 +32,7 @@
 
     static unsigned char			buf[256];
     static unsigned char			buf2[256];
+	static unsigned char			dump[256];
     auto AudioCtrlHdrDescriptorPtr		pAudioHdrDesc;
     auto AudioCtrlInTermDescriptorPtr		pAudioInTermDesc;
     auto AudioCtrlOutTermDescriptorPtr		pAudioOutTermDesc;
@@ -46,6 +47,7 @@
     UInt16					i,n,ch, freqIndex, tempIndex;
     UInt8					*p, *srcIdPtr;
     char					*s;
+	bool					addedAttribute;
     UInt16					srcIndex;
     GenericAudioDescriptorPtr			desc = (GenericAudioDescriptorPtr) descriptor;
 
@@ -470,58 +472,79 @@
                 p=&pAudioFeatureDesc->descControls[0];
                 for ( tempIndex = 0; tempIndex <= ch; tempIndex++ )
                 {
+                    buf[0] = 0;
                     s = (char*)buf;
                     switch( tempIndex )
                     {
-                        case 0:		s += sprintf((char *)s,	"Master Channel:......................... ( " );	break;
-                        case 1:		s += sprintf((char *)s, "Left Front:............................. ( " );	break;
-                        case 2:		s += sprintf((char *)s, "Right Front:............................ ( " );	break;
-                        case 3:		s += sprintf((char *)s, "Center Front:........................... ( " );	break;
-                        case 4:		s += sprintf((char *)s, "Low Frequency Enhancement:.............. ( " );	break;
-                        case 5:		s += sprintf((char *)s, "Left Surround:.......................... ( " );	break;
-                        case 6:		s += sprintf((char *)s, "Right Surround:......................... ( " );	break;
-                        case 7:		s += sprintf((char *)s, "Left of Center:......................... ( " );	break;
-                        case 8:		s += sprintf((char *)s, "Right of Center:........................ ( " );	break;
-                        case 9:		s += sprintf((char *)s, "Surround:............................... ( " );	break;
-                        case 10:	s += sprintf((char *)s, "Side Left:.............................. ( " );	break;
-                        case 11:	s += sprintf((char *)s, "Side Right:............................. ( " );	break;
-                        case 12:	s += sprintf((char *)s, "Side Left:.............................. ( " );	break;
-                        default:	s += sprintf((char *)s, "Unknown spatial relation:............... ( " );	break;
+                        case 0:		strcat (s, "Master Channel:......................... ( " );	break;
+                        case 1:		strcat (s, "Left Front:............................. ( " );	break;
+                        case 2:		strcat (s, "Right Front:............................ ( " );	break;
+                        case 3:		strcat (s, "Center Front:........................... ( " );	break;
+                        case 4:		strcat (s, "Low Frequency Enhancement:.............. ( " );	break;
+                        case 5:		strcat (s, "Left Surround:.......................... ( " );	break;
+                        case 6:		strcat (s, "Right Surround:......................... ( " );	break;
+                        case 7:		strcat (s, "Left of Center:......................... ( " );	break;
+                        case 8:		strcat (s, "Right of Center:........................ ( " );	break;
+                        case 9:		strcat (s, "Surround:............................... ( " );	break;
+                        case 10:	strcat (s, "Side Left:.............................. ( " );	break;
+                        case 11:	strcat (s, "Side Right:............................. ( " );	break;
+                        case 12:	strcat (s, "Side Left:.............................. ( " );	break;
+                        default:	strcat (s, "Unknown spatial relation:............... ( " );	break;
                     }
 
                     // The number of bytes for each field is indicated by descCtrlSize.
                     n = pAudioFeatureDesc->descCtrlSize;
+					addedAttribute = FALSE;
                     switch( n )
                     {
                         case 2:		//	10 attribute bits supported by Audio Class 1.0 specification…
-                            if ( p[1] & (~((1<<0)|(1<<1))) ) s += sprintf((char *)s,	"Reserved, " ); 	// D15-D10
-                            if ( p[1] & (1<<1) ) s += sprintf((char *)s,			"Loudness, " );		// D9
-                            if ( p[1] & (1<<0) ) s += sprintf((char *)s,			"Bass Boost, " );	// D8
+                            if ( p[1] & (~((1<<0)|(1<<1))) ) strcat (s,	"Reserved, " ); 	// D15-D10
+                            if ( p[1] & (1<<1) ) strcat (s,	"Loudness, " );		// D9
+                            if ( p[1] & (1<<0) ) strcat (s, "Bass Boost, " );	// D8
                                         //	FALL THROUGH!!!!!
                         case 1:		//	10 attribute bits supported by Audio Class 1.0 specification…
-                            if ( p[0] & (1<<7) ) s += sprintf((char *)s,	"Delay, " );		// D7
-                            if ( p[0] & (1<<6) ) s += sprintf((char *)s,	"Automatic Gain, " );	// D6
-                            if ( p[0] & (1<<5) ) s += sprintf((char *)s,	"Graphic Equalizer, " );// D5
-                            if ( p[0] & (1<<4) ) s += sprintf((char *)s,	"Treble, " ); 		// D4
-                            if ( p[0] & (1<<3) ) s += sprintf((char *)s,	"Midi, " ); 		// D3
-                            if ( p[0] & (1<<2) ) s += sprintf((char *)s,	"Bass, " ); 		// D2
-                            if ( p[0] & (1<<1) ) s += sprintf((char *)s,	"Volume, " );  		// D1
-                            if ( p[0] & (1<<0) ) s += sprintf((char *)s,	"Mute, " );		// D0
+                            if ( ( 0 != p[1] || 0 != p[0] ) ) addedAttribute = TRUE;
+							if ( p[0] & (1<<7) ) strcat (s, "Delay, " );		// D7
+                            if ( p[0] & (1<<6) ) strcat (s, "Automatic Gain, " );	// D6
+                            if ( p[0] & (1<<5) ) strcat (s, "Graphic Equalizer, " );// D5
+                            if ( p[0] & (1<<4) ) strcat (s, "Treble, " ); 		// D4
+                            if ( p[0] & (1<<3) ) strcat (s, "Midi, " ); 		// D3
+                            if ( p[0] & (1<<2) ) strcat (s, "Bass, " ); 		// D2
+                            if ( p[0] & (1<<1) ) strcat (s, "Volume, " );  		// D1
+                            if ( p[0] & (1<<0) ) strcat (s, "Mute, " );		// D0
                             break;
                         default:
-                            sprintf((char *)s, "•• UNDEFINED ATTRIBUTES •• )" );
+                            strcat (s, "•• UNDEFINED ATTRIBUTES ••  " );
                             break;
                     }
                     p += n;
-                    //s--; // Get rid of extra space added in above sprintf's.
-                    sprintf((char *)s, ")" );
+					
+					// Destroy trailing comma or spaces by terminating string early if necessary
+                    if (addedAttribute)
+					{
+						*(s + strlen(s) - 2) = 0;
+                    }
+					strcat (s, " )" );
+					[thisDevice addProperty:" " withValue:s atDepth:INTERFACE_LEVEL+1];
                     // AddStringChild(item, buf);
-                    // Note •••• we need to add above to ouptput of prober ••• (Nano 12/6/2002)
                 }
 
                     // p points to the next descriptor byte.
                     sprintf((char *)buf, "%u", *p );
                 [thisDevice addProperty:"Feature Unit Name String Index:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+
+				// Dump hex values for Audio Class Specific Feature
+				
+				dump[0] = 0;
+				for (tempIndex = 0; tempIndex < pAudioFeatureDesc->descLen; tempIndex++)
+				{
+					buf2[0] = ((char *)pAudioFeatureDesc)[tempIndex];
+					buf2[1] = '\0';
+					sprintf ((char *)buf, "%02X ", buf2[0]);
+					strcat ((char *)dump, (char *)buf);
+				}
+				
+				[thisDevice addProperty:"Dump Contents (hex):" withValue:dump atDepth:INTERFACE_LEVEL+1];
 
                 break;
             case ACS_EXTENSION_UNIT:

@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.1.1.5 2003/07/18 18:07:34 zarzycki Exp $
+dnl $Id: config.m4,v 1.14.4.2 2003/01/21 05:09:33 sniper Exp $
 dnl
 
 PHP_ARG_WITH(ircg, for IRCG support,

@@ -1,5 +1,5 @@
-/* $Source: /cvs/root/apache_mod_php/php/ext/mnogosearch/php_mnogo.c,v $ */
-/* $Id: php_mnogo.c,v 1.1.1.5 2003/07/18 18:07:37 zarzycki Exp $ */
+/* $Source: /repository/php-src/ext/mnogosearch/php_mnogo.c,v $ */
+/* $Id: php_mnogo.c,v 1.66.2.14 2004/11/28 20:30:08 gluke Exp $ */
 
 /*
    +----------------------------------------------------------------------+
@@ -7,10 +7,10 @@
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 2.02 of the PHP license,      |
+   | This source file is subject to version 3.0 of the PHP license,       |
    | that is bundled with this package in the file LICENSE, and is        |
-   | available at through the world-wide-web at                           |
-   | http://www.php.net/license/2_02.txt.                                 |
+   | available through the world-wide-web at the following url:           |
+   | http://www.php.net/license/3_0.txt.                                  |
    | If you did not receive a copy of the PHP license and are unable to   |
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
@@ -85,6 +85,10 @@
 #define UDM_PARAM_GROUPBYSITE		27
 #define UDM_PARAM_SITEID		28
 #define UDM_PARAM_DETECT_CLONES		29
+#define UDM_PARAM_SORT_ORDER		30
+#define UDM_PARAM_RESULTS_LIMIT		31
+#define UDM_PARAM_EXCERPT_SIZE		32
+#define UDM_PARAM_EXCERPT_PADDING	33
 
 /* udm_add_search_limit constants */
 #define UDM_LIMIT_URL		1
@@ -163,6 +167,12 @@ function_entry mnogosearch_functions[] = {
 #if UDM_VERSION_ID >= 30204
 	PHP_FE(udm_parse_query_string,	NULL)
 	PHP_FE(udm_make_excerpt,	NULL)
+	PHP_FE(udm_set_agent_param_ex,	NULL)
+	PHP_FE(udm_get_res_field_ex,	NULL)
+#endif
+#if UDM_VERSION_ID >= 30211
+	PHP_FE(udm_hash32,		NULL)
+	PHP_FE(udm_alloc_agent_array,	NULL)
 #endif
 #endif
 
@@ -316,6 +326,11 @@ DLEXPORT PHP_MINIT_FUNCTION(mnogosearch)
 	REGISTER_LONG_CONSTANT("UDM_PARAM_QUERY",	UDM_PARAM_QUERY,CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("UDM_PARAM_SITEID",	UDM_PARAM_SITEID,CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("UDM_PARAM_DETECT_CLONES",UDM_PARAM_DETECT_CLONES,CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("UDM_PARAM_SORT_ORDER",UDM_PARAM_SORT_ORDER,CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("UDM_PARAM_RESULTS_LIMIT",UDM_PARAM_RESULTS_LIMIT,CONST_CS | CONST_PERSISTENT);
+	
+	REGISTER_LONG_CONSTANT("UDM_PARAM_EXCERPT_SIZE",UDM_PARAM_EXCERPT_SIZE,CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("UDM_PARAM_EXCERPT_PADDING",UDM_PARAM_EXCERPT_PADDING,CONST_CS | CONST_PERSISTENT);
 	
 	/* udm_add_search_limit constants */
 	REGISTER_LONG_CONSTANT("UDM_LIMIT_CAT",		UDM_LIMIT_CAT,CONST_CS | CONST_PERSISTENT);
@@ -454,9 +469,13 @@ DLEXPORT PHP_FUNCTION(udm_alloc_agent)
 #if UDM_VERSION_ID >= 30204
 				Env=UdmEnvInit(NULL);
 				UdmVarListReplaceStr(&Env->Vars,"SyslogFacility","local7");
+#if UDM_VERSION_ID >= 30215
+				UdmSetLogLevel(NULL,0);
+#else
 				UdmSetLogLevel(Env,0);
+#endif
 				UdmOpenLog("mnoGoSearch-php",Env,0);
-
+#if UDM_VERSION_ID <= 30210
 				if(!memcmp(dbaddr,"searchd:",8)){
 					UDM_URL	Url;
 					UdmURLParse(&Url,dbaddr);
@@ -464,13 +483,18 @@ DLEXPORT PHP_FUNCTION(udm_alloc_agent)
 				}
 				
 				UdmVarListReplaceStr(&Env->Vars,"DBAddr",dbaddr);
+				
 				if(UDM_OK!=UdmDBSetAddr(Env->db,dbaddr,UDM_OPEN_MODE_READ)){
 				    sprintf(Env->errstr,"Invalid DBAddr: '%s'",dbaddr);
+#if UDM_VERSION_ID <= 30207
 				    Env->errcode=1;
-				    php_error(E_WARNING,"%s(): Invalid DBAddr", get_active_function_name(TSRMLS_C));
+#endif
+				    php_error_docref(NULL TSRMLS_CC, E_WARNING,"Invalid DBAddr");
 				    RETURN_FALSE;
 				}
-				
+#else
+				UdmDBListAdd(&Env->dbl,dbaddr, UDM_OPEN_MODE_WRITE);
+#endif
 				Agent=UdmAgentInit(NULL,Env,0);
 #elif UDM_VERSION_ID >= 30200
 				Env=UdmAllocEnv();
@@ -506,9 +530,13 @@ DLEXPORT PHP_FUNCTION(udm_alloc_agent)
 #if UDM_VERSION_ID >= 30204
 				Env=UdmEnvInit(NULL);
 				UdmVarListReplaceStr(&Env->Vars,"SyslogFacility","local7");
+#if UDM_VERSION_ID >= 30215
+				UdmSetLogLevel(NULL,0);
+#else
 				UdmSetLogLevel(Env,0);
+#endif
 				UdmOpenLog("mnoGoSearch-php",Env,0);
-
+#if UDM_VERSION_ID <= 30210
 				if(!memcmp(dbaddr,"searchd:",8)){
 					UDM_URL	Url;
 					UdmURLParse(&Url,dbaddr);
@@ -517,10 +545,15 @@ DLEXPORT PHP_FUNCTION(udm_alloc_agent)
 				UdmVarListReplaceStr(&Env->Vars,"DBAddr",dbaddr);
 				if(UDM_OK!=UdmDBSetAddr(Env->db,dbaddr,UDM_OPEN_MODE_READ)){
 				    sprintf(Env->errstr,"Invalid DBAddr: '%s'",dbaddr);
+#if UDM_VERSION_ID <= 30207
 				    Env->errcode=1;
-				    php_error(E_WARNING,"%s(): Invalid DBAddr", get_active_function_name(TSRMLS_C));
+#endif
+				    php_error_docref(NULL TSRMLS_CC, E_WARNING,"Invalid DBAddr");
 				    RETURN_FALSE;
 				}
+#else
+				UdmDBListAdd(&Env->dbl,dbaddr, UDM_OPEN_MODE_WRITE);
+#endif
 				Agent=UdmAgentInit(NULL,Env,0);
 #elif UDM_VERSION_ID >= 30200
 				Env=UdmAllocEnv();
@@ -620,7 +653,7 @@ DLEXPORT PHP_FUNCTION(udm_set_agent_param)
 
 					case UDM_MODE_PHRASE: 
 #if UDM_VERSION_ID >= 30200
-    						php_error(E_WARNING,"%s(): Unknown search mode", get_active_function_name(TSRMLS_C));
+    						php_error_docref(NULL TSRMLS_CC, E_WARNING,"Unknown search mode");
 						RETURN_FALSE;
 #else
 						Agent->search_mode=UDM_MODE_PHRASE;
@@ -633,7 +666,7 @@ DLEXPORT PHP_FUNCTION(udm_set_agent_param)
 #else
 						Agent->search_mode=UDM_MODE_ALL;
 #endif						
-						php_error(E_WARNING,"%s(): Unknown search mode", get_active_function_name(TSRMLS_C));
+						php_error_docref(NULL TSRMLS_CC, E_WARNING,"Unknown search mode");
 						RETURN_FALSE;
 						break;
 			}
@@ -679,7 +712,7 @@ DLEXPORT PHP_FUNCTION(udm_set_agent_param)
 #else
 						Agent->word_match=UDM_MATCH_WORD;
 #endif						
-						php_error(E_WARNING,"%s(): Unknown word match mode", get_active_function_name(TSRMLS_C));
+						php_error_docref(NULL TSRMLS_CC, E_WARNING,"Unknown word match mode");
 						RETURN_FALSE;
 						break;
 			}
@@ -714,7 +747,7 @@ DLEXPORT PHP_FUNCTION(udm_set_agent_param)
 #else									
 					UdmReplaceStrVar(Agent->Conf->vars,"Cache","no",UDM_VARSRC_GLOBAL);
 #endif						
-					php_error(E_WARNING,"%s(): Unknown cache mode", get_active_function_name(TSRMLS_C));
+					php_error_docref(NULL TSRMLS_CC, E_WARNING,"Unknown cache mode");
 					RETURN_FALSE;
 					break;
 			}
@@ -752,7 +785,7 @@ DLEXPORT PHP_FUNCTION(udm_set_agent_param)
 #else
 					UdmReplaceStrVar(Agent->Conf->vars,"TrackQuery","no",UDM_VARSRC_GLOBAL);
 #endif				
-					php_error(E_WARNING,"%s(): Unknown track mode", get_active_function_name(TSRMLS_C));
+					php_error_docref(NULL TSRMLS_CC, E_WARNING,"Unknown track mode");
 					RETURN_FALSE;
 					break;
 			}
@@ -771,7 +804,7 @@ DLEXPORT PHP_FUNCTION(udm_set_agent_param)
 					break;
 					
 				default:
-					php_error(E_WARNING,"%s(): Unknown phrase mode", get_active_function_name(TSRMLS_C));
+					php_error_docref(NULL TSRMLS_CC, E_WARNING,"Unknown phrase mode");
 					RETURN_FALSE;
 					break;
 			}
@@ -809,7 +842,7 @@ DLEXPORT PHP_FUNCTION(udm_set_agent_param)
 #else
 					UdmAddIntVar(Agent->Conf->vars, "IspellUsePrefixes", 1, UDM_VARSRC_GLOBAL);					
 #endif												
-					php_error(E_WARNING,"%s(): Unknown ispell prefixes mode", get_active_function_name(TSRMLS_C));
+					php_error_docref(NULL TSRMLS_CC, E_WARNING,"Unknown ispell prefixes mode");
 					RETURN_FALSE;
 					break;
 			}
@@ -866,7 +899,7 @@ DLEXPORT PHP_FUNCTION(udm_set_agent_param)
 			
 		case UDM_PARAM_SYNONYM:
 			if (UdmSynonymListLoad(Agent->Conf,val)) {
-				php_error(E_WARNING, "%s(): %s", get_active_function_name(TSRMLS_C),Agent->Conf->errstr);
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s",Agent->Conf->errstr);
 				RETURN_FALSE;
 #if UDM_VERSION_ID >= 30204
 			} else UdmSynonymListSort(&(Agent->Conf->Synonyms));
@@ -918,7 +951,7 @@ DLEXPORT PHP_FUNCTION(udm_set_agent_param)
 #else
 			if (UdmFileLoadStopList(Agent->Conf,val)) {
 #endif
-				php_error(E_WARNING, "%s(): %s", Agent->Conf->errstr, get_active_function_name(TSRMLS_C));
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s", Agent->Conf->errstr);
 				RETURN_FALSE;
 			}
 			break;
@@ -985,7 +1018,7 @@ DLEXPORT PHP_FUNCTION(udm_set_agent_param)
 					break;
 					
 				default:
-					php_error(E_WARNING,"%s(): Unknown crosswords mode", get_active_function_name(TSRMLS_C));
+					php_error_docref(NULL TSRMLS_CC, E_WARNING,"Unknown crosswords mode");
 					RETURN_FALSE;
 					break;
 			}
@@ -997,6 +1030,8 @@ DLEXPORT PHP_FUNCTION(udm_set_agent_param)
 		case UDM_PARAM_VARDIR:
 #if UDM_VERSION_ID < 30200
 			udm_snprintf(Agent->Conf->vardir,sizeof(Agent->Conf->vardir)-1,"%s%s",val,UDMSLASHSTR);
+#elif UDM_VERSION_ID >= 30208
+			UdmVarListReplaceStr(&Agent->Conf->Vars,"Vardir",val);
 #elif UDM_VERSION_ID >= 30204
 			UdmVarListReplaceStr(&Agent->Conf->Vars,"Vardir",val);
 			snprintf(Agent->Conf->vardir,sizeof(Agent->Conf->vardir)-1,"%s%s",val,UDMSLASHSTR);
@@ -1032,7 +1067,7 @@ DLEXPORT PHP_FUNCTION(udm_set_agent_param)
 					break;
 					
 				default:
-					php_error(E_WARNING,"%s(): Unknown groupbysite mode", get_active_function_name(TSRMLS_C));
+					php_error_docref(NULL TSRMLS_CC, E_WARNING,"Unknown groupbysite mode");
 					RETURN_FALSE;
 					break;
 			}
@@ -1057,7 +1092,7 @@ DLEXPORT PHP_FUNCTION(udm_set_agent_param)
 					break;
 					
 				default:
-					php_error(E_WARNING,"%s(): Unknown clones mode", get_active_function_name(TSRMLS_C));
+					php_error_docref(NULL TSRMLS_CC, E_WARNING,"Unknown clones mode");
 					RETURN_FALSE;
 					break;
 			}
@@ -1065,8 +1100,32 @@ DLEXPORT PHP_FUNCTION(udm_set_agent_param)
 			break;
 #endif
 
+#if UDM_VERSION_ID >= 30214
+		case UDM_PARAM_SORT_ORDER: 
+			UdmVarListReplaceStr(&Agent->Conf->Vars,"s",val);
+		
+			break;
+#endif
+
+#if UDM_VERSION_ID >= 30215
+		case UDM_PARAM_RESULTS_LIMIT: 
+			UdmVarListReplaceStr(&Agent->Conf->Vars,"ResultsLimit",val);
+		
+			break;
+#endif
+
+#if UDM_VERSION_ID >= 30216
+		case UDM_PARAM_EXCERPT_SIZE: 
+			UdmVarListReplaceStr(&Agent->Conf->Vars,"ExcerptSize",val);
+		
+			break;
+		case UDM_PARAM_EXCERPT_PADDING: 
+			UdmVarListReplaceStr(&Agent->Conf->Vars,"ExcerptPadding",val);
+		
+			break;
+#endif
 		default:
-			php_error(E_WARNING,"%s(): Unknown agent session parameter", get_active_function_name(TSRMLS_C));
+			php_error_docref(NULL TSRMLS_CC, E_WARNING,"Unknown agent session parameter");
 			RETURN_FALSE;
 			break;
 	}
@@ -1160,12 +1219,12 @@ DLEXPORT PHP_FUNCTION(udm_load_ispell_data)
 #endif
 			
 			if (UdmImportAffixes(Agent->Conf,val1,val2,NULL,0)) {
-				php_error(E_WARNING,"%s(): Cannot load affix file %s", get_active_function_name(TSRMLS_C),val2);
+				php_error_docref(NULL TSRMLS_CC, E_WARNING,"Cannot load affix file %s",val2);
 				RETURN_FALSE;
 			}
 #else
 			if (UdmImportAffixes(Agent->Conf,val1,charset,val2)) {
-				php_error(E_WARNING,"%s(): Cannot load affix file %s", get_active_function_name(TSRMLS_C),val2);
+				php_error_docref(NULL TSRMLS_CC, E_WARNING,"Cannot load affix file %s",val2);
 				RETURN_FALSE;
 			}
     
@@ -1181,12 +1240,12 @@ DLEXPORT PHP_FUNCTION(udm_load_ispell_data)
 #endif
 			
 			if (UdmImportDictionary(Agent->Conf,val1,val2,1,"")) {
-				php_error(E_WARNING,"%s(): Cannot load spell file %s", get_active_function_name(TSRMLS_C),val2);
+				php_error_docref(NULL TSRMLS_CC, E_WARNING,"Cannot load spell file %s",val2);
 				RETURN_FALSE;
 			}
 #else
 			if (UdmImportDictionary(Agent->Conf,val1,charset,val2,0,"")) {
-				php_error(E_WARNING,"%s(): Cannot load spell file %s", get_active_function_name(TSRMLS_C),val2);
+				php_error_docref(NULL TSRMLS_CC, E_WARNING,"Cannot load spell file %s",val2);
 				RETURN_FALSE;
 			}
 #endif
@@ -1194,7 +1253,7 @@ DLEXPORT PHP_FUNCTION(udm_load_ispell_data)
 
 
 		default:
-			php_error(E_WARNING,"%s(): Unknown ispell type parameter", get_active_function_name(TSRMLS_C));
+			php_error_docref(NULL TSRMLS_CC, E_WARNING,"Unknown ispell type parameter");
 			RETURN_FALSE;
 			break;
 	}
@@ -1328,17 +1387,59 @@ DLEXPORT PHP_FUNCTION(udm_add_search_limit)
 				Z_TYPE(stl_info)=2;
 				stl_info.t2=(time_t)(atol(edate+1));
 			} else {
-				php_error(E_WARNING,"%s(): Incorrect date limit format", get_active_function_name(TSRMLS_C));
+				php_error_docref(NULL TSRMLS_CC, E_WARNING,"Incorrect date limit format");
 				RETURN_FALSE;
 			}			
 			
 			stl_info.t1=(time_t)(atol(val+1));
 			UdmAddTimeLimit(Agent->Conf,&stl_info);
 			}
+#elif UDM_VERSION_ID >= 30210
+                        {
+                    	    struct tm       *d_tm;
+                            time_t          d_t;
+                            char            *d_val2;
+                            char            d_db[20], d_de[20];
+                            d_t = atol (val+1);
+                            d_tm = localtime (&d_t);
+                            if (val[0] == '>') {
+                        	UdmVarListReplaceStr(&Agent->Conf->Vars,"dt","er");
+                                UdmVarListReplaceStr(&Agent->Conf->Vars,"dx","1");
+                                sprintf (d_db, "%d", d_tm->tm_mday);
+                                UdmVarListReplaceStr(&Agent->Conf->Vars,"dd",d_db);
+                                sprintf (d_db, "%d", d_tm->tm_mon);
+                                UdmVarListReplaceStr(&Agent->Conf->Vars,"dm",d_db);
+                                sprintf (d_db, "%d", d_tm->tm_year+1900);
+                                UdmVarListReplaceStr(&Agent->Conf->Vars,"dy",d_db);
+                                RETURN_TRUE;
+                            } else if (val[0] == '<') {
+                                UdmVarListReplaceStr(&Agent->Conf->Vars,"dt","er");
+                                UdmVarListReplaceStr(&Agent->Conf->Vars,"dx","-1");
+                                sprintf (d_db, "%d", d_tm->tm_mday);
+                                UdmVarListReplaceStr(&Agent->Conf->Vars,"dd",d_db);
+                                sprintf (d_db, "%d", d_tm->tm_mon);
+                                UdmVarListReplaceStr(&Agent->Conf->Vars,"dm",d_db);
+                                sprintf (d_db, "%d", d_tm->tm_year+1900);
+                                UdmVarListReplaceStr(&Agent->Conf->Vars,"dy",d_db);
+                                RETURN_TRUE;
+                            } else if ( (val[0]=='#') && (d_val2 = strchr(val,',')) ){
+                                UdmVarListReplaceStr(&Agent->Conf->Vars,"dt","range");
+                                sprintf (d_db, "%d/%d/%d", d_tm->tm_mday, d_tm->tm_mon+1, d_tm->tm_year+1900);
+                                d_t = atol (d_val2+1);
+                                d_tm = localtime (&d_t);
+                                sprintf (d_de, "%d/%d/%d", d_tm->tm_mday, d_tm->tm_mon+1, d_tm->tm_year+1900);
+                                UdmVarListReplaceStr(&Agent->Conf->Vars,"db",d_db);
+                                UdmVarListReplaceStr(&Agent->Conf->Vars,"de",d_de);
+                                RETURN_TRUE;
+                            } else {
+                                php_error_docref(NULL TSRMLS_CC, E_WARNING,"Incorrect date limit format");
+                                RETURN_FALSE;
+                            }
+                       }
 #endif
 			break;
 		default:
-			php_error(E_WARNING,"%s(): Unknown search limit parameter", get_active_function_name(TSRMLS_C));
+			php_error_docref(NULL TSRMLS_CC, E_WARNING,"Unknown search limit parameter");
 			RETURN_FALSE;
 			break;
 	}
@@ -1641,28 +1742,235 @@ DLEXPORT PHP_FUNCTION(udm_make_excerpt)
 		char		*al;
 		char		*Excerpt;
 		
+#if UDM_VERSION_ID >= 30216
+		size_t		ExcerptSize, ExcerptPadding;
+		
+		ExcerptSize = (size_t)UdmVarListFindInt(&Agent->Conf->Vars, "ExcerptSize", 256);
+		ExcerptPadding = (size_t)UdmVarListFindInt(&Agent->Conf->Vars, "ExcerptPadding", 40);
+#endif	
+	
 		al = (char *)MyRemoveHiLightDup((const char *)(UdmVarListFindStr(&(Res->Doc[row].Sections), "URL", "")));
 		UdmVarListReplaceInt(&(Res->Doc[row].Sections), "STORED_ID", UdmCRC32(al, strlen(al)));
 		free(al);
 		
+#if UDM_VERSION_ID >= 30216
+		Excerpt = UdmExcerptDoc(Agent, Res, &(Res->Doc[row]), ExcerptSize, ExcerptPadding);
+#else
 		Excerpt = UdmExcerptDoc(Agent, Res, &(Res->Doc[row]), 256);
+#endif
 		
-		if (Excerpt != NULL) {
+		if ((Excerpt != NULL) && (strlen(Excerpt) > 6)) {
 			char *HlExcerpt = UdmHlConvert(&Res->WWList, Excerpt, Agent->Conf->lcs, Agent->Conf->bcs);
-			UdmVarListReplaceInt(&(Res->Doc[row].Sections),"ST",1);
 			UdmVarListReplaceStr(&(Res->Doc[row].Sections),"Body",HlExcerpt);
 			UDM_FREE(HlExcerpt);
+		}
+		if (Excerpt != NULL && (UdmVarListFindStr(&(Res->Doc[row].Sections), "Z", NULL) == NULL)) {
+			UdmVarListReplaceInt(&(Res->Doc[row].Sections),"ST",1);
 			UDM_FREE(Excerpt);
 		} else {
 		        UdmVarListReplaceInt(&(Res->Doc[row].Sections),"ST",0);
 			RETURN_FALSE;
 		}
 	}else{
-		php_error(E_WARNING,"%s(): row number too large", get_active_function_name(TSRMLS_C));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING,"row number too large");
 		RETURN_FALSE;
 	}
 	
 	RETURN_TRUE;
+}
+/* }}} */
+
+/* {{{ proto int udm_set_agent_param_ex(int agent, string var, string val)
+   Set mnoGoSearch agent session parameters extended */
+DLEXPORT PHP_FUNCTION(udm_set_agent_param_ex)
+{
+	pval **yyagent, **yyvar, **yyval;
+	char *val, *var;
+	UDM_AGENT * Agent;
+
+	switch(ZEND_NUM_ARGS()){
+	
+		case 3: 		
+			if(zend_get_parameters_ex(3,&yyagent,&yyvar,&yyval)==FAILURE){
+				RETURN_FALSE;
+			}
+			convert_to_string_ex(yyvar);
+			convert_to_string_ex(yyval);
+			ZEND_FETCH_RESOURCE(Agent, UDM_AGENT *, yyagent, -1, "mnoGoSearch-agent", le_link);
+			var = Z_STRVAL_PP(yyvar);
+			val = Z_STRVAL_PP(yyval);
+			
+			break;
+			
+		default:
+			WRONG_PARAM_COUNT;
+			break;
+	}
+	
+	UdmVarListReplaceStr(&Agent->Conf->Vars,var,val);
+	
+	if (!strcasecmp(var,"LocalCharset")) {
+		const char * charset=UdmVarListFindStr(&Agent->Conf->Vars,"LocalCharset","iso-8859-1");
+		Agent->Conf->lcs=UdmGetCharSet(charset);
+	} else if (!strcasecmp(var,"BrowserCharset")) {
+		const char * charset=UdmVarListFindStr(&Agent->Conf->Vars,"BrowserCharset","iso-8859-1");
+		Agent->Conf->bcs=UdmGetCharSet(charset);
+	} else if (!strcasecmp(var,"Synonym")) {
+		if (UdmSynonymListLoad(Agent->Conf,val)) {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s",Agent->Conf->errstr);
+			RETURN_FALSE;
+		} else UdmSynonymListSort(&(Agent->Conf->Synonyms));
+	} else if (!strcasecmp(var,"Stopwordfile")) {
+		if (UdmStopListLoad(Agent->Conf,val)) {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s", Agent->Conf->errstr);
+			RETURN_FALSE;
+		}
+	} else if (!strcasecmp(var,"MinWordLen")) {
+		Agent->Conf->WordParam.min_word_len=atoi(val);
+	} else if (!strcasecmp(var,"MaxWordLen")) {
+		Agent->Conf->WordParam.max_word_len=atoi(val);
+#if UDM_VERSION_ID <= 30207
+	} else if (!strcasecmp(var,"VarDir")) {
+		snprintf(Agent->Conf->vardir,sizeof(Agent->Conf->vardir)-1,"%s%s",val,UDMSLASHSTR);
+#endif
+	}
+
+	RETURN_TRUE;
+}
+
+/* {{{ proto string udm_get_res_field_ex(int res, int row, string field)
+   Fetch mnoGoSearch result field */
+DLEXPORT PHP_FUNCTION(udm_get_res_field_ex)
+{
+	pval **yyres, **yyrow_num, **yyfield_name;
+
+	UDM_RESULT * Res;
+	int row;
+	char *field;
+	
+	switch(ZEND_NUM_ARGS()){
+		case 3: {
+				if (zend_get_parameters_ex(3, &yyres,&yyrow_num,&yyfield_name)==FAILURE){
+					RETURN_FALSE;
+				}
+				convert_to_string_ex(yyrow_num);
+				convert_to_string_ex(yyfield_name);
+				field = Z_STRVAL_PP(yyfield_name);
+				row = atoi(Z_STRVAL_PP(yyrow_num));
+			}
+			break;
+		default:
+			WRONG_PARAM_COUNT;
+			break;
+	}
+	
+	ZEND_FETCH_RESOURCE(Res, UDM_RESULT *, yyres, -1, "mnoGoSearch-Result", le_res);
+	if(row<Res->num_rows){
+		if (!strcasecmp(field,"URL")) {
+		    char	*al;
+		    al = (char *)MyRemoveHiLightDup((const char *)(UdmVarListFindStr(&(Res->Doc[row].Sections), field, "")));
+		    UdmVarListReplaceStr(&Res->Doc[row].Sections,field,al);
+		    free(al);
+		}
+		RETURN_STRING((char *)UdmVarListFindStr(&Res->Doc[row].Sections,field,""),1);
+	} else {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING,"row number too large");
+		RETURN_FALSE;
+	}
+}
+/* }}} */
+#endif
+
+#if UDM_VERSION_ID >= 30211
+/* {{{ proto int udm_alloc_agent_array(array dbaddr)
+   Allocate mnoGoSearch session */
+DLEXPORT PHP_FUNCTION(udm_alloc_agent_array)
+{
+	switch(ZEND_NUM_ARGS()){
+
+		case 1: {
+				pval **yydbaddr;
+				zval **tmp;
+				char *dbaddr;
+				UDM_ENV   * Env;
+				UDM_AGENT * Agent;
+				HashPosition   pos;
+				
+				if(zend_get_parameters_ex(1,&yydbaddr)==FAILURE){
+					RETURN_FALSE;
+				}
+				
+				if (Z_TYPE_PP(yydbaddr) != IS_ARRAY) {
+				    	php_error_docref(NULL TSRMLS_CC, E_WARNING, "Argument DBAddr must be an array.");
+					RETURN_FALSE;
+				}
+				convert_to_array_ex(yydbaddr);
+				
+				Env=UdmEnvInit(NULL);
+				UdmVarListReplaceStr(&Env->Vars,"SyslogFacility","local7");
+#if UDM_VERSION_ID >= 30215
+				UdmSetLogLevel(NULL,0);
+#else
+				UdmSetLogLevel(Env,0);
+#endif
+				UdmOpenLog("mnoGoSearch-php",Env,0);
+				
+				zend_hash_internal_pointer_reset_ex(HASH_OF(*yydbaddr), &pos);
+				
+				while (zend_hash_get_current_data_ex(HASH_OF(*yydbaddr), (void **)&tmp, &pos) == SUCCESS) {
+				    convert_to_string_ex(tmp);
+				    dbaddr = Z_STRVAL_PP(tmp);
+				    UdmDBListAdd(&Env->dbl,dbaddr, UDM_OPEN_MODE_WRITE);
+				    
+				    zend_hash_move_forward_ex(HASH_OF(*yydbaddr), &pos);
+				}
+				
+				Agent=UdmAgentInit(NULL,Env,0);
+				ZEND_REGISTER_RESOURCE(return_value,Agent,le_link);
+			}
+			break;
+			
+		default:
+			WRONG_PARAM_COUNT;
+			break;
+	}
+}
+/* }}} */
+
+/* {{{ proto int udm_hash32(int agent, string str)
+   Return Hash32 checksum of gived string */
+DLEXPORT PHP_FUNCTION(udm_hash32)
+{
+	pval ** yystr, ** yyagent;
+	char *str;
+	udmhash32_t hash32;
+	char buf[32];
+	UDM_AGENT * Agent;
+	int id=-1;
+
+	switch(ZEND_NUM_ARGS()){
+		case 2: {
+				if (zend_get_parameters_ex(2, &yyagent,&yystr)==FAILURE) {
+					RETURN_FALSE;
+				}
+			}
+			break;
+		default:				
+			WRONG_PARAM_COUNT;
+			break;
+	}
+	ZEND_FETCH_RESOURCE(Agent, UDM_AGENT *, yyagent, id, "mnoGoSearch-Agent", le_link);
+	convert_to_string_ex(yystr);
+	str = Z_STRVAL_PP(yystr);
+
+	hash32=UdmHash32((str),strlen(str));
+#if UDM_VERSION_ID >= 30215
+	snprintf(buf,sizeof(buf)-1,"%i",hash32);
+#else
+	snprintf(buf,sizeof(buf)-1,"%u",hash32);
+#endif
+	
+	RETURN_STRING(buf,1);
 }
 /* }}} */
 #endif
@@ -1677,10 +1985,19 @@ DLEXPORT PHP_FUNCTION(udm_find)
 	int id=-1;
 
 	switch(ZEND_NUM_ARGS()){
+#if UDM_VERSION_ID >= 30213
+		case 1: {
+				if (zend_get_parameters_ex(1, &yyagent)==FAILURE) {
+					RETURN_FALSE;
+				}
+			}
+			break;
+#endif
 		case 2: {
 				if (zend_get_parameters_ex(2, &yyagent,&yyquery)==FAILURE) {
 					RETURN_FALSE;
 				}
+				convert_to_string_ex(yyquery);
 			}
 			break;
 		default:
@@ -1688,12 +2005,15 @@ DLEXPORT PHP_FUNCTION(udm_find)
 			break;
 	}
 	ZEND_FETCH_RESOURCE(Agent, UDM_AGENT *, yyagent, id, "mnoGoSearch-Agent", le_link);
-	convert_to_string_ex(yyquery);
 	
 #if UDM_VERSION_ID < 30200
 	if ((Res=UdmFind(Agent,UdmTolower(Z_STRVAL_PP(yyquery),Agent->charset)))) {
 #else
+#if UDM_VERSION_ID >= 30213
+	if ((Res=UdmFind(Agent))) {
+#else
 	if ((Res=UdmFind(Agent,Z_STRVAL_PP(yyquery)))) {
+#endif
 #endif	
 	    ZEND_REGISTER_RESOURCE(return_value,Res,le_res);
 	} else {
@@ -1876,12 +2196,12 @@ DLEXPORT PHP_FUNCTION(udm_get_res_field)
 #endif
 				
 			default: 
-				php_error(E_WARNING,"%s(): Unknown mnoGoSearch field name", get_active_function_name(TSRMLS_C));
+				php_error_docref(NULL TSRMLS_CC, E_WARNING,"Unknown mnoGoSearch field name");
 				RETURN_FALSE;
 				break;
 		}
 	}else{
-		php_error(E_WARNING,"%s(): row number too large", get_active_function_name(TSRMLS_C));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING,"row number too large");
 		RETURN_FALSE;
 	}
 }
@@ -1922,17 +2242,17 @@ DLEXPORT PHP_FUNCTION(udm_get_res_param)
 			{
 			    int len,i;
 			    for(len = i = 0; i < Res->WWList.nwords; i++) 
-				len += Res->WWList.Word[i].len;
+				len += Res->WWList.Word[i].len + 64;
 			    {	
-				size_t wsize=(1+len*15)*sizeof(char);
+				size_t wsize=(1+len)*sizeof(char);
 				char *wordinfo = (char*) malloc(wsize);
-				int corder = -1, ccount = 0;
 	  
 				*wordinfo = '\0';
 	  
 				for(i = 0; i < Res->WWList.nwords; i++){
-				    if ((Res->WWList.Word[i].count > 0) || (Res->WWList.Word[i].origin == UDM_WORD_ORIGIN_QUERY)) {
-				    if(wordinfo[0]) strcat(wordinfo,", ");
+				    if ((Res->WWList.Word[i].count > 0) || 
+				        (Res->WWList.Word[i].origin == UDM_WORD_ORIGIN_QUERY)) {
+					if(wordinfo[0]) strcat(wordinfo,", ");
 					sprintf(UDM_STREND(wordinfo)," %s : %d", Res->WWList.Word[i].word, Res->WWList.Word[i].count);
 				    } else if (Res->WWList.Word[i].origin == UDM_WORD_ORIGIN_STOP) {
 					if(wordinfo[0]) strcat(wordinfo,", ");
@@ -1950,34 +2270,29 @@ DLEXPORT PHP_FUNCTION(udm_get_res_param)
 #if UDM_VERSION_ID >= 30204
 		case UDM_PARAM_WORDINFO_ALL: 
 			{
-			    int len,i;
+			    int len,i,j;
 			    for(len = i = 0; i < Res->WWList.nwords; i++) 
-				len += Res->WWList.Word[i].len;
+				len += Res->WWList.Word[i].len + 64;
 			    {	
-				size_t wsize=(1+len*15)*sizeof(char);
+				size_t wsize=(1+len)*sizeof(char);
 				char *wordinfo = (char*) malloc(wsize);
-				int corder = -1, ccount = 0;
+				int corder = (size_t)-1, ccount = 0;
 	  
 				*wordinfo = '\0';
 				
-				for(i = 0; i < Res->WWList.nwords; i++){
-				    if (Res->WWList.Word[i].order != corder) {
-					if(wordinfo[0]) {
-					    sprintf(UDM_STREND(wordinfo)," / %d, ", ccount);
-					}
-					ccount = Res->WWList.Word[i].count;
-					if (Res->WWList.Word[i].origin == UDM_WORD_ORIGIN_STOP) {
-					    sprintf(UDM_STREND(wordinfo)," %s : stopword", Res->WWList.Word[i].word);
-					} else {
-					    sprintf(UDM_STREND(wordinfo)," %s : %d", Res->WWList.Word[i].word, Res->WWList.Word[i].count);
-					    corder = Res->WWList.Word[i].order; 
-					}
-				    } else {
-					ccount += Res->WWList.Word[i].count;
+				for(i = 0; i < Res->WWList.nwords; i++) {
+				    corder = Res->WWList.Word[i].order;
+				    ccount = 0;
+				    for(j = 0; j < Res->WWList.nwords; j++) {
+					if (Res->WWList.Word[j].order == corder) {
+					    ccount += Res->WWList.Word[j].count;
+				        }
 				    }
-				}
-				if (Res->WWList.nwords) {
-				    sprintf(UDM_STREND(wordinfo)," / %d", ccount);
+				    if (Res->WWList.Word[i].origin == UDM_WORD_ORIGIN_STOP) {
+					sprintf(UDM_STREND(wordinfo),"%s%s : stopword", (*wordinfo) ? ", " : "",  Res->WWList.Word[i].word);
+				    } else if (Res->WWList.Word[i].origin == UDM_WORD_ORIGIN_QUERY) {
+					sprintf(UDM_STREND(wordinfo),"%s%s : %d / %d", (*wordinfo) ? ", " : "", Res->WWList.Word[i].word, Res->WWList.Word[i].count, ccount);
+				    } else continue;
 				}
 				RETURN_STRING(wordinfo,1);
 			    }
@@ -1998,7 +2313,7 @@ DLEXPORT PHP_FUNCTION(udm_get_res_param)
 			break;
 
 		default:
-			php_error(E_WARNING,"%s(): Unknown mnoGoSearch param name", get_active_function_name(TSRMLS_C));
+			php_error_docref(NULL TSRMLS_CC, E_WARNING,"Unknown mnoGoSearch param name");
 			RETURN_FALSE;
 			break;
 	}
@@ -2071,7 +2386,13 @@ DLEXPORT PHP_FUNCTION(udm_errno)
 			break;
 	}
 	ZEND_FETCH_RESOURCE(Agent, UDM_AGENT *, yyagent, -1, "mnoGoSearch-Agent", le_link);
-#if UDM_VERSION_ID >= 30204
+#if UDM_VERSION_ID >= 30208
+	if (UdmEnvErrMsg(Agent->Conf) && strlen(UdmEnvErrMsg(Agent->Conf))) {
+	    RETURN_LONG(1);
+	} else {
+	    RETURN_LONG(0);
+	}
+#elif UDM_VERSION_ID >= 30204
 	RETURN_LONG(UdmEnvErrCode(Agent->Conf));
 #else
 	RETURN_LONG(UdmDBErrorCode(Agent->db));
@@ -2147,13 +2468,15 @@ DLEXPORT PHP_FUNCTION(udm_cat_list)
 #if UDM_VERSION_ID >= 30204
 	bzero(&C,sizeof(C));
 	strncpy(C.addr,cat,sizeof(C.addr)-1);
+#if UDM_VERSION_ID <= 30210
 	if(!UdmCatAction(Agent,&C,UDM_CAT_ACTION_LIST,Agent->Conf->db)){
+#else
+	if(UDM_OK == UdmCatAction(Agent,&C,UDM_CAT_ACTION_LIST)){
+#endif
 #else
 	if((c=UdmCatList(Agent,cat))){
 #endif
-		if (array_init(return_value)==FAILURE) {
-			RETURN_FALSE;
-		}
+		array_init(return_value);
 		
 		if (!(buf=calloc(1,UDMSTRSIZ+1))) {
 			RETURN_FALSE;
@@ -2164,11 +2487,9 @@ DLEXPORT PHP_FUNCTION(udm_cat_list)
 		    int i;
 		    if (C.ncategories) {
 			for(i=0;i<C.ncategories;i++){
-			    snprintf(buf, UDMSTRSIZ, "%s%s",C.Category[i].link[0]?"@ ":"", C.Category[i].name);
-			    add_next_index_string(return_value, C.Category[i].link[0]?C.Category[i].link:C.Category[i].path, 1);
-			    add_next_index_string(return_value, buf, 1);
+			    add_next_index_stringl(return_value, C.Category[i].path,strlen(C.Category[i].path),1);
+			    add_next_index_stringl(return_value, C.Category[i].name,strlen(C.Category[i].name),1);
 			}
-			free(C.Category);
 		    } else {
 			RETURN_FALSE;
 		    }
@@ -2221,13 +2542,15 @@ DLEXPORT PHP_FUNCTION(udm_cat_path)
 #if UDM_VERSION_ID >= 30204
 	bzero(&C,sizeof(C));
 	strncpy(C.addr,cat,sizeof(C.addr)-1);
+#if UDM_VERSION_ID <= 30210
 	if(!UdmCatAction(Agent,&C,UDM_CAT_ACTION_PATH,Agent->Conf->db)){
+#else
+	if(UDM_OK == UdmCatAction(Agent,&C,UDM_CAT_ACTION_PATH)){
+#endif
 #else
 	if((c=UdmCatPath(Agent,cat))){
 #endif
-		if (array_init(return_value)==FAILURE) {
-			RETURN_FALSE;
-		}
+		array_init(return_value);
 		
 		if (!(buf=calloc(1,UDMSTRSIZ+1))) {
 			RETURN_FALSE;
@@ -2238,11 +2561,9 @@ DLEXPORT PHP_FUNCTION(udm_cat_path)
 		    int i;
 		    if (C.ncategories) {
 			for(i=0;i<C.ncategories;i++){			
-			    snprintf(buf, UDMSTRSIZ, "%s%s",C.Category[i].link[0]?"@ ":"", C.Category[i].name);
-			    add_next_index_string(return_value, C.Category[i].link[0]?C.Category[i].link:C.Category[i].path, 1);
-			    add_next_index_string(return_value, buf, 1);
+			    add_next_index_stringl(return_value, C.Category[i].path,strlen(C.Category[i].path),1);
+			    add_next_index_stringl(return_value, C.Category[i].name,strlen(C.Category[i].name),1);
 			}
-			free(C.Category);
 		    } else {
 			RETURN_FALSE;
 		    }
@@ -2284,7 +2605,11 @@ DLEXPORT PHP_FUNCTION(udm_get_doc_count)
 	}
 	ZEND_FETCH_RESOURCE(Agent, UDM_AGENT *, yyagent, id, "mnoGoSearch-Agent", le_link);
 #if UDM_VERSION_ID >= 30204
+#if UDM_VERSION_ID <= 30210
 	if (!Agent->doccount) UdmURLAction(Agent,NULL,UDM_URL_ACTION_DOCCOUNT,Agent->Conf->db);
+#else
+	if (!Agent->doccount) UdmURLAction(Agent,NULL,UDM_URL_ACTION_DOCCOUNT);
+#endif
 	RETURN_LONG(Agent->doccount);
 #else
 	RETURN_LONG(UdmGetDocCount(Agent));

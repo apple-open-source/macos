@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: basic_functions.c,v 1.1.1.8 2003/07/18 18:07:42 zarzycki Exp $ */
+/* $Id: basic_functions.c,v 1.543.2.42 2004/11/15 23:26:40 fmk Exp $ */
 
 #include "php.h"
 #include "php_streams.h"
@@ -31,6 +31,10 @@
 #include "ext/standard/info.h"
 #include "ext/session/php_session.h"
 #include "zend_operators.h"
+
+#ifdef PHP_WIN32
+#include "win32/php_win32_globals.h"
+#endif
 
 #include <stdarg.h>
 #include <stdlib.h>
@@ -81,6 +85,10 @@
 
 #ifdef PHP_WIN32
 # include "win32/unistd.h"
+#endif
+
+#ifndef INADDR_NONE
+#define INADDR_NONE ((unsigned long int) -1)
 #endif
 
 #include "zend_globals.h"
@@ -267,6 +275,7 @@ void test_class_startup(void)
 }
 #endif
 
+#undef sprintf
 
 function_entry basic_functions[] = {
 	PHP_FE(constant,														NULL)
@@ -490,7 +499,9 @@ function_entry basic_functions[] = {
 	PHP_FE(log,																NULL)
 	PHP_FE(log10,															NULL)
 	PHP_FE(sqrt,															NULL)
+#ifdef HAVE_HYPOT
 	PHP_FE(hypot,															NULL)
+#endif	
 	PHP_FE(deg2rad,															NULL)
 	PHP_FE(rad2deg,															NULL)
 	PHP_FE(bindec,															NULL)
@@ -655,7 +666,7 @@ function_entry basic_functions[] = {
 	PHP_FE(stream_filter_prepend,											NULL)
 	PHP_FE(stream_filter_append,											NULL)
 	PHP_FE(fgetcsv,															NULL)
-	PHP_FE(flock,															NULL)
+	PHP_FE(flock,											 third_arg_force_ref)
 	PHP_FE(get_meta_tags,													NULL)
 	PHP_FE(stream_set_write_buffer,											NULL)
 	PHP_FALIAS(set_file_buffer, stream_set_write_buffer,					NULL)
@@ -675,7 +686,7 @@ function_entry basic_functions[] = {
 
 	PHP_FALIAS(socket_get_status, stream_get_meta_data,						NULL)
 
-#if (!defined(PHP_WIN32) && !defined(__BEOS__) && !defined(NETWARE) && HAVE_REALPATH) || defined(ZTS)
+#if (!defined(__BEOS__) && !defined(NETWARE) && HAVE_REALPATH) || defined(ZTS)
 	PHP_FE(realpath,														NULL)
 #endif
 
@@ -937,6 +948,8 @@ static void php_putenv_destructor(putenv_entry *pe)
 	} else {
 # if HAVE_UNSETENV
 		unsetenv(pe->key);
+# elif defined(PHP_WIN32)
+		SetEnvironmentVariable(pe->key, NULL);
 # else
 		char **env;
 
@@ -948,6 +961,14 @@ static void php_putenv_destructor(putenv_entry *pe)
 		}
 # endif
 	}
+#ifdef HAVE_TZSET
+	/* don't forget to reset the various libc globals that
+	 * we might have changed by an earlier call to tzset(). */
+	if (!strncmp(pe->key, "TZ", pe->key_len)) {
+		tzset();
+	}
+#endif
+		
 	efree(pe->putenv_string);
 	efree(pe->key);
 }
@@ -956,6 +977,9 @@ static void php_putenv_destructor(putenv_entry *pe)
 
 static void basic_globals_ctor(php_basic_globals *basic_globals_p TSRMLS_DC)
 {
+	BG(rand_is_seeded) = 0;
+	BG(mt_rand_is_seeded) = 0;
+	
 	BG(next) = NULL;
 	BG(left) = -1;
 	BG(user_tick_functions) = NULL;
@@ -979,12 +1003,53 @@ static void basic_globals_dtor(php_basic_globals *basic_globals_p TSRMLS_DC)
 }
 
 
+#define PHP_DOUBLE_INFINITY_HIGH       0x7ff00000
+#define PHP_DOUBLE_QUIET_NAN_HIGH      0xfff80000
+
+PHPAPI double php_get_nan(void)
+{
+#if HAVE_HUGE_VAL_NAN
+	return HUGE_VAL + -HUGE_VAL;
+#elif defined(__i386__) || defined(_X86_) || defined(ALPHA) || defined(_ALPHA) || defined(__alpha)
+	double val = 0.0;
+	((php_uint32*)&val)[1] = PHP_DOUBLE_QUIET_NAN_HIGH;
+	((php_uint32*)&val)[0] = 0;
+	return val;
+#elif HAVE_ATOF_ACCEPTS_NAN
+	return atof("NAN");
+#else
+	return 0.0/0.0;
+#endif
+}
+
+PHPAPI double php_get_inf(void)
+{
+#if HAVE_HUGE_VAL_INF
+	return HUGE_VAL;
+#elif defined(__i386__) || defined(_X86_) || defined(ALPHA) || defined(_ALPHA) || defined(__alpha)
+	double val = 0.0;
+	((php_uint32*)&val)[1] = PHP_DOUBLE_INFINITY_HIGH;
+	((php_uint32*)&val)[0] = 0;
+	return val;
+#elif HAVE_ATOF_ACCEPTS_INF
+	return atof("INF");
+#else
+	return 1.0/0.0;
+#endif
+}
+
 PHP_MINIT_FUNCTION(basic)
 {
 #ifdef ZTS
 	ts_allocate_id(&basic_globals_id, sizeof(php_basic_globals), (ts_allocate_ctor) basic_globals_ctor, (ts_allocate_dtor) basic_globals_dtor);
+#ifdef PHP_WIN32
+	ts_allocate_id(&php_win32_core_globals_id, sizeof(php_win32_core_globals), (ts_allocate_ctor)php_win32_core_globals_ctor, NULL);
+#endif
 #else
 	basic_globals_ctor(&basic_globals TSRMLS_CC);
+#ifdef PHP_WIN32
+	php_win32_core_globals_ctor(&php_win32_core_globals TSRMLS_CC);
+#endif
 #endif
 
 	REGISTER_LONG_CONSTANT("CONNECTION_ABORTED", PHP_CONNECTION_ABORTED, CONST_CS | CONST_PERSISTENT);
@@ -1010,6 +1075,8 @@ PHP_MINIT_FUNCTION(basic)
 	REGISTER_MATH_CONSTANT(M_2_SQRTPI);
 	REGISTER_MATH_CONSTANT(M_SQRT2);
 	REGISTER_MATH_CONSTANT(M_SQRT1_2);
+	REGISTER_DOUBLE_CONSTANT("INF", php_get_inf(), CONST_CS | CONST_PERSISTENT);
+	REGISTER_DOUBLE_CONSTANT("NAN", php_get_nan(), CONST_CS | CONST_PERSISTENT);
 
 #if ENABLE_TEST_CLASS
 	test_class_startup();
@@ -1055,7 +1122,7 @@ PHP_MINIT_FUNCTION(basic)
 #ifndef PHP_CURL_URL_WRAPPERS
 	php_register_url_stream_wrapper("http", &php_stream_http_wrapper TSRMLS_CC);
 	php_register_url_stream_wrapper("ftp", &php_stream_ftp_wrapper TSRMLS_CC);
-# if HAVE_OPENSSL_EXT
+# ifdef HAVE_OPENSSL_EXT
 	php_register_url_stream_wrapper("https", &php_stream_http_wrapper TSRMLS_CC);
 	php_register_url_stream_wrapper("ftps", &php_stream_ftp_wrapper TSRMLS_CC);
 # endif
@@ -1069,6 +1136,9 @@ PHP_MSHUTDOWN_FUNCTION(basic)
 {
 #ifdef ZTS
 	ts_free_id(basic_globals_id);
+#ifdef PHP_WIN32
+	ts_free_id(php_win32_core_globals_id);
+#endif
 #else
 	basic_globals_dtor(&basic_globals TSRMLS_CC);
 #endif
@@ -1077,7 +1147,7 @@ PHP_MSHUTDOWN_FUNCTION(basic)
 #ifndef PHP_CURL_URL_WRAPPERS
 	php_unregister_url_stream_wrapper("http" TSRMLS_CC);
 	php_unregister_url_stream_wrapper("ftp" TSRMLS_CC);
-# if HAVE_OPENSSL_EXT
+# ifdef HAVE_OPENSSL_EXT
 	php_unregister_url_stream_wrapper("https" TSRMLS_CC);
 	php_unregister_url_stream_wrapper("ftps" TSRMLS_CC);
 # endif
@@ -1122,10 +1192,6 @@ PHP_RINIT_FUNCTION(basic)
 #endif
 	BG(user_shutdown_function_names) = NULL;
 
-#if HAVE_CRYPT
-	PHP_RINIT(crypt) (INIT_FUNC_ARGS_PASSTHRU);
-#endif
-
 	PHP_RINIT(lcg) (INIT_FUNC_ARGS_PASSTHRU);
 
 	PHP_RINIT(filestat) (INIT_FUNC_ARGS_PASSTHRU);
@@ -1135,6 +1201,9 @@ PHP_RINIT_FUNCTION(basic)
 
 	/* Reset magic_quotes_runtime */
 	PG(magic_quotes_runtime) = INI_BOOL("magic_quotes_runtime");
+
+	/* Default to global wrappers only */
+	FG(stream_wrappers) = NULL;
 
 	return SUCCESS;
 }
@@ -1158,6 +1227,12 @@ PHP_RSHUTDOWN_FUNCTION(basic)
 		setlocale(LC_CTYPE, "");
 	}
 	STR_FREE(BG(locale_string));
+
+	if (FG(stream_wrappers)) {
+		zend_hash_destroy(FG(stream_wrappers));
+		efree(FG(stream_wrappers));
+		FG(stream_wrappers) = NULL;
+ 	}
 
 	PHP_RSHUTDOWN(fsock) (SHUTDOWN_FUNC_ARGS_PASSTHRU);
 	PHP_RSHUTDOWN(filestat) (SHUTDOWN_FUNC_ARGS_PASSTHRU);
@@ -1223,6 +1298,7 @@ PHP_FUNCTION(constant)
 PHP_FUNCTION(ip2long)
 {
 	zval **str;
+	unsigned long int ip;
 
 	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &str) == FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -1230,7 +1306,11 @@ PHP_FUNCTION(ip2long)
 
 	convert_to_string_ex(str);
 
-	RETURN_LONG(ntohl(inet_addr(Z_STRVAL_PP(str))));
+	if (Z_STRLEN_PP(str) == 0 || (ip = inet_addr(Z_STRVAL_PP(str))) == INADDR_NONE) {
+		RETURN_LONG(-1);
+	}
+
+	RETURN_LONG(ntohl(ip));
 }
 /* }}} */
 
@@ -1349,7 +1429,7 @@ PHP_FUNCTION(putenv)
 		if (putenv(pe.putenv_string) == 0) {	/* success */
 			zend_hash_add(&BG(putenv_ht), pe.key, pe.key_len+1, (void **) &pe, sizeof(putenv_entry), NULL);
 #ifdef HAVE_TZSET
-			if (!strncmp(pe.key, "TZ", 2)) {
+			if (!strncmp(pe.key, "TZ", pe.key_len)) {
 				tzset();
 			}
 #endif
@@ -1424,8 +1504,8 @@ PHP_FUNCTION(getopt)
 	 * in order to be on the safe side, even though it is also available
 	 * from the symbol table.
 	 */
-	if (zend_hash_find(HASH_OF(PG(http_globals)[TRACK_VARS_SERVER]), "argv", sizeof("argv"),
-					   (void **) &args) != FAILURE) {
+	if (zend_hash_find(HASH_OF(PG(http_globals)[TRACK_VARS_SERVER]), "argv", sizeof("argv"), (void **) &args) != FAILURE ||
+	    zend_hash_find(&EG(symbol_table), "argv", sizeof("argv"), (void **) &args) != FAILURE) {
 		int pos = 0;
 		zval **arg;
 
@@ -2311,7 +2391,7 @@ static int php_ini_check_path(char *option_name, int option_len, char *new_optio
 		return 0;
 	}
 	
-	return strncmp(option_name, new_option_name, option_len);
+	return !strncmp(option_name, new_option_name, option_len);
 }
 
 /* {{{ proto string ini_set(string varname, string newvalue)
@@ -2783,7 +2863,12 @@ static void php_simple_ini_parser_cb(zval *arg1, zval *arg2, int callback_type, 
 			*element = *arg2;
 			zval_copy_ctor(element);
 			INIT_PZVAL(element);
-			zend_hash_update(Z_ARRVAL_P(arr), Z_STRVAL_P(arg1), Z_STRLEN_P(arg1)+1, &element, sizeof(zval *), NULL);
+			if (is_numeric_string(Z_STRVAL_P(arg1), Z_STRLEN_P(arg1), NULL, NULL, 0) != IS_LONG) { 
+				zend_hash_update(Z_ARRVAL_P(arr), Z_STRVAL_P(arg1), Z_STRLEN_P(arg1)+1, &element, sizeof(zval *), NULL);
+			} else {
+				ulong key = (ulong) zend_atoi(Z_STRVAL_P(arg1), Z_STRLEN_P(arg1));
+				zend_hash_index_update(Z_ARRVAL_P(arr), key, &element, sizeof(zval *), NULL);
+			}
 			break;
 
 		case ZEND_INI_PARSER_SECTION:
@@ -2816,20 +2901,27 @@ static void php_ini_parser_cb_with_sections(zval *arg1, zval *arg2, int callback
 			*element = *arg2;
 			zval_copy_ctor(element);
 			INIT_PZVAL(element);
-			zend_hash_update(Z_ARRVAL_P(active_arr), Z_STRVAL_P(arg1),
+			if (is_numeric_string(Z_STRVAL_P(arg1), Z_STRLEN_P(arg1), NULL, NULL, 0) != IS_LONG) {
+				zend_hash_update(Z_ARRVAL_P(active_arr), Z_STRVAL_P(arg1),
 							 Z_STRLEN_P(arg1)+1, &element,
 							 sizeof(zval *), NULL);
+			} else {
+				ulong key = (ulong) zend_atoi(Z_STRVAL_P(arg1), Z_STRLEN_P(arg1));
+				zend_hash_index_update(Z_ARRVAL_P(active_arr), key, &element, sizeof(zval *), NULL);
+			}
 		}
 		break;
 
 		case ZEND_INI_PARSER_SECTION:
 			MAKE_STD_ZVAL(BG(active_ini_file_section));
 			array_init(BG(active_ini_file_section));
-			zend_hash_update(	Z_ARRVAL_P(arr),
-								Z_STRVAL_P(arg1),
-								Z_STRLEN_P(arg1)+1,
-								&BG(active_ini_file_section),
-								sizeof(zval *), NULL);
+			if (is_numeric_string(Z_STRVAL_P(arg1), Z_STRLEN_P(arg1), NULL, NULL, 0) != IS_LONG) {
+				zend_hash_update(Z_ARRVAL_P(arr), Z_STRVAL_P(arg1), Z_STRLEN_P(arg1)+1,
+							&BG(active_ini_file_section), sizeof(zval *), NULL);
+			} else {
+				ulong key = (ulong) zend_atoi(Z_STRVAL_P(arg1), Z_STRLEN_P(arg1));
+				zend_hash_index_update(Z_ARRVAL_P(arr), key, &BG(active_ini_file_section), sizeof(zval *), NULL);
+			}
 			break;
 	}
 }
@@ -2840,7 +2932,7 @@ static void php_ini_parser_cb_with_sections(zval *arg1, zval *arg2, int callback
 PHP_FUNCTION(parse_ini_file)
 {
 	zval **filename, **process_sections;
-	zend_file_handle fh;
+	zend_file_handle fh = {0};
 	zend_ini_parser_cb_t ini_parser_cb;
 
 	switch (ARG_COUNT(ht)) {

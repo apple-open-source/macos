@@ -23,6 +23,7 @@
 #include <IOKit/audio/IOAudioLevelControl.h>
 #include <IOKit/audio/IOAudioTypes.h>
 #include <IOKit/audio/IOAudioDefines.h>
+#include <IOKit/audio/IOAudioDebug.h>
 
 #define super IOAudioControl
 
@@ -297,11 +298,15 @@ IOReturn IOAudioLevelControl::validateValue(OSObject *newValue)
     OSNumber *number;
     
     number = OSDynamicCast(OSNumber, newValue);
-    
+	
+	audioDebugIOLog(3, "IOAudioLevelControl::validateValue[%p] (%p)", this, newValue);
+   
     if (number) {
         SInt32 newIntValue;
         
         newIntValue = (SInt32)number->unsigned32BitValue();
+
+		audioDebugIOLog(3, "IOAudioLevelControl::validateValue[%p] - newIntValue = %ld, min = %ld, max = %ld", this, newIntValue, minValue, maxValue);
         
         if ((newIntValue >= minValue) && (newIntValue <= maxValue)) {
             result = kIOReturnSuccess;

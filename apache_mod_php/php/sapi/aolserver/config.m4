@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.6 2003/03/11 17:04:43 zarzycki Exp $
+dnl $Id: config.m4,v 1.15 2002/03/07 14:19:47 sas Exp $
 dnl
 
 AC_MSG_CHECKING(for AOLserver support)

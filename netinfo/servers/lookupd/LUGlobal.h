@@ -46,5 +46,7 @@ extern BOOL shutting_down;
 extern BOOL debug_enabled;
 extern BOOL statistics_enabled;
 extern BOOL coredump_enabled;
+extern BOOL parallel_gai;
+extern BOOL lookup_local_interfaces;
 
 #define DefaultName "lookup daemon v2"

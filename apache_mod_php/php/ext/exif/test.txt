@@ -4,7 +4,7 @@
  *
  * (c) Marcus Boerger, 2002
  *
- * $Id: test.txt,v 1.1.1.2 2003/03/11 01:09:18 zarzycki Exp $
+ * $Id: test.txt,v 1.8 2002/03/12 16:43:29 helly Exp $
  *
  * Rename the file to test.php and read the instructions. If the
  * script cannot be executed or does not generate any output check

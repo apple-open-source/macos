@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: html.c,v 1.1.1.8 2003/07/18 18:07:43 zarzycki Exp $ */
+/* $Id: html.c,v 1.63.2.19 2004/07/13 17:15:13 wez Exp $ */
 
 /*
  * HTML entity resources:
@@ -136,13 +136,13 @@ static entity_table_t ent_uni_spacing[] = {
 static entity_table_t ent_uni_greek[] = {
 	/* 913 */
 	"Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Eta", "Theta",
-	"Iota", "Kappa", "Lambda", "Mu", "Nu", "X1", "Omicron", "P1", "Rho",
-	NULL, "Sigma", "Tau", "Upsilon", "Ph1", "Ch1", "Ps1", "Omega",
+	"Iota", "Kappa", "Lambda", "Mu", "Nu", "Xi", "Omicron", "Pi", "Rho",
+	NULL, "Sigma", "Tau", "Upsilon", "Phi", "Chi", "Psi", "Omega",
 	/* 938 - 944 are not mapped */
 	NULL, NULL, NULL, NULL, NULL, NULL, NULL,
 	"alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta", "theta",
-	"iota", "kappa", "lambda", "mu", "nu", "x1", "omicron", "p1", "rho",
-	"sigmaf", "sigma", "tau", "upsilon", "ph1", "ch1", "ps1", "omega",
+	"iota", "kappa", "lambda", "mu", "nu", "xi", "omicron", "pi", "rho",
+	"sigmaf", "sigma", "tau", "upsilon", "phi", "chi", "psi", "omega",
 	/* 970 - 976 are not mapped */
 	NULL, NULL, NULL, NULL, NULL, NULL, NULL,
 	"thetasym", "ups1h",
@@ -415,12 +415,12 @@ static const struct {
 	int entitylen;
 	int flags;
 } basic_entities[] = {
-	{ '&',	"&amp;",	5,	0 },
 	{ '"',	"&quot;",	6,	ENT_HTML_QUOTE_DOUBLE },
 	{ '\'',	"&#039;",	6,	ENT_HTML_QUOTE_SINGLE },
 	{ '\'',	"&#39;",	5,	ENT_HTML_QUOTE_SINGLE },
 	{ '<',	"&lt;",		4,	0 },
 	{ '>',	"&gt;",		4,	0 },
+	{ '&',	"&amp;",	5,	0 }, /* this should come last */
 	{ 0, NULL, 0, 0 }
 };
 	
@@ -505,6 +505,7 @@ inline static unsigned short get_next_char(enum entity_charset charset,
 							case 0x50:	/* 6, 2nd */
 								utf |= ((this_char & 0x3f) << 24);
 								stat++;
+								break;
 							default:
 								/* invalid */
 								more = 0;
@@ -544,10 +545,10 @@ inline static unsigned short get_next_char(enum entity_charset charset,
 		case cs_big5hkscs:
 			{
 				/* check if this is the first of a 2-byte sequence */
-				if (this_char >= 0xa1 && this_char <= 0xf9) {
+				if (this_char >= 0xa1 && this_char <= 0xfe) {
 					/* peek at the next char */
 					unsigned char next_char = str[pos];
-					if ((next_char >= 0x40 && next_char <= 0x73) ||
+					if ((next_char >= 0x40 && next_char <= 0x7e) ||
 							(next_char >= 0xa1 && next_char <= 0xfe)) {
 						/* yes, this a wide char */
 						this_char <<= 8;

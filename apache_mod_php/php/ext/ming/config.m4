@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.1.1.4 2003/03/11 01:09:25 zarzycki Exp $
+dnl $Id: config.m4,v 1.19.2.1 2003/07/11 07:48:33 sniper Exp $
 dnl
 
 PHP_ARG_WITH(ming, for MING support,
@@ -56,6 +56,21 @@ int main() {
   ],[
     AC_MSG_RESULT([unknown])
   ]) 
+
+  dnl Check Ming version (FIXME: if/when ming has some better way to detect the version..)
+  old_CPPFLAGS=$CPPFLAGS
+  CPPFLAGS=-I$MING_INC_DIR
+  AC_EGREP_CPP(yes, [
+#include <ming.h>
+#ifdef SWF_SOUND_COMPRESSION
+yes
+#endif
+  ], [
+    AC_DEFINE(HAVE_NEW_MING,  1, [ ]) 
+    dnl FIXME: This is now unconditional..better check coming later.
+    AC_DEFINE(HAVE_MING_ZLIB, 1, [ ])
+  ])
+  CPPFLAGS=$old_CPPFLAGS
 
   PHP_NEW_EXTENSION(ming, ming.c, $ext_shared)
   PHP_SUBST(MING_SHARED_LIBADD)

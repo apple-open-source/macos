@@ -121,7 +121,6 @@ export deferred INSTALL_MODE_FLAG = "ugo-w,o+rX" ;
        deferred JAVA_FRAMEWORK_RESOURCES_DIRS = Resources ;
        deferred JAVA_FRAMEWORK_JARS = ;
        deferred JAVA_USE_DEPENDENCIES = YES ;
-       deferred JAVA_FORCE_FILE_LIST = NO ;
        deferred JAVA_ZIP_FLAGS = -urg ;
        deferred JAVAC_SOURCE_FILE_ENCODING = MACINTOSH ;
 
@@ -1821,7 +1820,6 @@ JAVA_SOURCE_SUBDIR default = . ;
 JAVA_FRAMEWORK_RESOURCES_DIRS default = Resources ;
 export JAVA_FRAMEWORK_JARS default = ;
 JAVA_USE_DEPENDENCIES default = YES ;
-JAVA_FORCE_FILE_LIST default = NO ;
 JAVA_ZIP_FLAGS default = -urg ;
 
 JAVA_COMPILER_DEBUGGING_SYMBOLS default = YES ;
@@ -3821,11 +3819,9 @@ rule ProcessFrameworksAndLibraries
                     INNER_PRODUCT default = $(1:G=)$(/)Versions$(/)$(FRAMEWORK_VERSION)$(/)$(1:BG=) ;
                     INNER_PRODUCT_$(VARIANT) default = $(INNER_PRODUCT)$(VARIANT_SUFFIX_$(VARIANT))$(DYNAMIC_LIBRARY_SUFFIX) ;
                     INNER_PRODUCT_LINK default = $(1:G=)$(/)$(1:BG=) ;
-                    if $(VARIANT) = normal {
-                        INNER_PRODUCT_LINK_$(VARIANT) default = $(INNER_PRODUCT_LINK)$(VARIANT_SUFFIX_$(VARIANT))$(DYNAMIC_LIBRARY_SUFFIX) ;
-                        INNER_PRODUCT_LINK_PATH default = Versions$(/)Current$(/)$(1:BG=) ;
-                        INNER_PRODUCT_LINK_PATH_$(VARIANT) default = $(INNER_PRODUCT_LINK_PATH)$(VARIANT_SUFFIX_$(VARIANT))$(DYNAMIC_LIBRARY_SUFFIX) ;
-                    }
+                    INNER_PRODUCT_LINK_$(VARIANT) default = $(INNER_PRODUCT_LINK)$(VARIANT_SUFFIX_$(VARIANT))$(DYNAMIC_LIBRARY_SUFFIX) ;
+                    INNER_PRODUCT_LINK_PATH default = Versions$(/)Current$(/)$(1:BG=) ;
+                    INNER_PRODUCT_LINK_PATH_$(VARIANT) default = $(INNER_PRODUCT_LINK_PATH)$(VARIANT_SUFFIX_$(VARIANT))$(DYNAMIC_LIBRARY_SUFFIX) ;
                 }
                 else {
                     # standard bundle
@@ -4677,10 +4673,6 @@ rule ProcessUsingJavaCompiler
         }
     }
     
-    if $(JAVA_COMPILER_SOURCE_VERSION) {
-        JAVAC_FLAGS += "-source "$(JAVA_COMPILER_SOURCE_VERSION) ;
-    }
-    
     if $(JAVA_COMPILER_DEBUGGING_SYMBOLS) = YES {
         JAVAC_FLAGS += "-g" ;
     }
@@ -4689,7 +4681,7 @@ rule ProcessUsingJavaCompiler
         JAVAC_FLAGS += -encoding "$(JAVAC_SOURCE_FILE_ENCODING)" ;
     }
 
-    if $(JAVA_FORCE_FILE_LIST) = "NO" && ( $(JAVA_USE_DEPENDENCIES) = "NO" || ( ! $($(2)_JAVA_IMPORTS) && empty$($(2)_JAVA_IMPORTS) != empty ) ) {
+    if $(JAVA_USE_DEPENDENCIES) = "NO" || ( ! $($(2)_JAVA_IMPORTS) && empty$($(2)_JAVA_IMPORTS) != empty ) {
         # With no dependence, or dependence info usage off
         # build with combinded compiler invocations but no file list
         DEPENDS $(JAVA_COMPILE_TARGET) : $(2) ;

@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: pcntl.c,v 1.1.1.4 2003/07/18 18:07:39 zarzycki Exp $ */
+/* $Id: pcntl.c,v 1.28.4.5 2004/06/30 01:12:09 iliaa Exp $ */
 
 #define PCNTL_DEBUG 0
 
@@ -69,6 +69,9 @@ zend_module_entry pcntl_module_entry = {
 #ifdef COMPILE_DL_PCNTL
 ZEND_GET_MODULE(pcntl)
 #endif
+
+static void pcntl_signal_handler(int);
+static void pcntl_tick_handler();
   
 void php_register_signal_constants(INIT_FUNC_ARGS)
 {
@@ -383,7 +386,7 @@ PHP_FUNCTION(pcntl_exec)
 		args_hash = HASH_OF(args);
 		argc = zend_hash_num_elements(args_hash);
 		
-		argv = alloca((argc+2) * sizeof(char *));
+		argv = safe_emalloc((argc + 2), sizeof(char *), 0);
 		*argv = path;
 		for ( zend_hash_internal_pointer_reset(args_hash), current_arg = argv+1; 
 			(argi < argc && (zend_hash_get_current_data(args_hash, (void **) &element) == SUCCESS));
@@ -394,7 +397,7 @@ PHP_FUNCTION(pcntl_exec)
 		}
 		*(current_arg) = NULL;
 	} else {
-		argv = alloca(2 * sizeof(char *));
+		argv = emalloc(2 * sizeof(char *));
 		*argv = path;
 		*(argv+1) = NULL;
 	}
@@ -404,13 +407,13 @@ PHP_FUNCTION(pcntl_exec)
 		envs_hash = HASH_OF(envs);
 		envc = zend_hash_num_elements(envs_hash);
 		
-		envp = alloca((envc+1) * sizeof(char *));
+		envp = safe_emalloc((envc + 1), sizeof(char *), 0);
 		for ( zend_hash_internal_pointer_reset(envs_hash), pair = envp; 
 			(envi < envc && (zend_hash_get_current_data(envs_hash, (void **) &element) == SUCCESS));
 			(envi++, pair++, zend_hash_move_forward(envs_hash)) ) {
 			switch (return_val = zend_hash_get_current_key_ex(envs_hash, &key, &key_length, &key_num, 0, NULL)) {
 				case HASH_KEY_IS_LONG:
-					key = alloca(101);
+					key = emalloc(101);
 					snprintf(key, 100, "%ld", key_num);
 					key_length = strlen(key);
 					break;
@@ -429,7 +432,7 @@ PHP_FUNCTION(pcntl_exec)
 			strlcat(*pair, Z_STRVAL_PP(element), pair_length);
 			
 			/* Cleanup */
-			if (return_val == HASH_KEY_IS_LONG) free_alloca(key);
+			if (return_val == HASH_KEY_IS_LONG) efree(key);
 		}
 		*(pair) = NULL;
 	}
@@ -442,10 +445,10 @@ PHP_FUNCTION(pcntl_exec)
 	/* Cleanup */
 	if (envp != NULL) {
 		for (pair = envp; *pair != NULL; pair++) efree(*pair);
-		free_alloca(envp);
+		efree(envp);
 	}
 
-	free_alloca(argv);
+	efree(argv);
 	
 	RETURN_FALSE;
 }
@@ -470,7 +473,7 @@ PHP_FUNCTION(pcntl_signal)
 			php_error(E_WARNING, "Invalid value for handle argument specifEied in %s", get_active_function_name(TSRMLS_C));
 		}
 		if (php_signal(signo, (Sigfunc *) Z_LVAL_P(handle), (int) restart_syscalls) == SIG_ERR) {
-			php_error(E_WARNING, "Error assigning singal in %s", get_active_function_name(TSRMLS_C));
+			php_error(E_WARNING, "Error assigning signal in %s", get_active_function_name(TSRMLS_C));
 			RETURN_FALSE;
 		}
 		RETURN_TRUE;
@@ -488,7 +491,7 @@ PHP_FUNCTION(pcntl_signal)
 	if (dest_handle) zval_add_ref(dest_handle);
 	
 	if (php_signal(signo, pcntl_signal_handler, (int) restart_syscalls) == SIG_ERR) {
-		php_error(E_WARNING, "Error assigning singal in %s", get_active_function_name(TSRMLS_C));
+		php_error(E_WARNING, "Error assigning signal in %s", get_active_function_name(TSRMLS_C));
 		RETURN_FALSE;
 	}
 	RETURN_TRUE;
@@ -544,7 +547,7 @@ void pcntl_tick_handler()
 
 		ZVAL_LONG(param, *signal_num);
 		
-		/* Call php singal handler - Note that we do not report errors, and we ignore the eturn value */
+		/* Call php signal handler - Note that we do not report errors, and we ignore the eturn value */
 		call_user_function(EG(function_table), NULL, *handle, retval, 1, &param TSRMLS_CC);
 	}
 	/* Clear */

@@ -31,6 +31,7 @@
 #include "zend_list.h"
 #include "zend_fast_cache.h"
 #include "zend_API.h"
+#include "zend_strtod.h"
 
 #if 0&&WITH_BCMATH
 #include "ext/bcmath/number.h"
@@ -184,6 +185,7 @@ ZEND_API void convert_scalar_to_number(zval *op TSRMLS_DC)
 
 #define DVAL_TO_LVAL(d, l) (l) = (d) > LONG_MAX ? (unsigned long) (d) : (long) (d)
 
+
 #define zendi_convert_to_long(op, holder, result)					\
 	if (op==result) {												\
 		convert_to_long(op);										\
@@ -333,7 +335,7 @@ ZEND_API void convert_to_double(zval *op)
 		case IS_STRING:
 			strval = op->value.str.val;
 
-			op->value.dval = strtod(strval, NULL);
+			op->value.dval = zend_strtod(strval, NULL);
 			STR_FREE(strval);
 			break;
 		case IS_ARRAY:
@@ -460,16 +462,16 @@ ZEND_API void _convert_to_string(zval *op ZEND_FILE_LINE_DC)
 			break;
 		}
 		case IS_ARRAY:
+			zend_error(E_NOTICE, "Array to string conversion");
 			zval_dtor(op);
 			op->value.str.val = estrndup_rel("Array", sizeof("Array")-1);
 			op->value.str.len = sizeof("Array")-1;
-			zend_error(E_NOTICE, "Array to string conversion");
 			break;
 		case IS_OBJECT:
+			zend_error(E_NOTICE, "Object to string conversion");
 			zval_dtor(op);
 			op->value.str.val = estrndup_rel("Object", sizeof("Object")-1);
 			op->value.str.len = sizeof("Object")-1;
-			zend_error(E_NOTICE, "Object to string conversion");
 			break;
 		default:
 			zval_dtor(op);
@@ -621,15 +623,17 @@ ZEND_API int add_function(zval *result, zval *op1, zval *op2 TSRMLS_DC)
 	zendi_convert_scalar_to_number(op1, op1_copy, result);
 	zendi_convert_scalar_to_number(op2, op2_copy, result);
 
-
 	if (op1->type == IS_LONG && op2->type == IS_LONG) {
-		double dval = (double) op1->value.lval + (double) op2->value.lval;
+		long lval = op1->value.lval + op2->value.lval;
 
-		if ((dval > (double) LONG_MAX) || (dval < (double) LONG_MIN)) {
-			result->value.dval = dval;
+		/* check for overflow by comparing sign bits */
+		if ( (op1->value.lval & LONG_MIN) == (op2->value.lval & LONG_MIN)
+			&& (op1->value.lval & LONG_MIN) != (lval & LONG_MIN)) {
+
+			result->value.dval = (double) op1->value.lval + (double) op2->value.lval;
 			result->type = IS_DOUBLE;
 		} else {
-			result->value.lval = op1->value.lval + op2->value.lval;
+			result->value.lval = lval;
 			result->type = IS_LONG;
 		}
 		return SUCCESS;
@@ -655,18 +659,21 @@ ZEND_API int add_function(zval *result, zval *op1, zval *op2 TSRMLS_DC)
 ZEND_API int sub_function(zval *result, zval *op1, zval *op2 TSRMLS_DC)
 {
 	zval op1_copy, op2_copy;
-	
+
 	zendi_convert_scalar_to_number(op1, op1_copy, result);
 	zendi_convert_scalar_to_number(op2, op2_copy, result);
 
 	if (op1->type == IS_LONG && op2->type == IS_LONG) {
-		double dval = (double) op1->value.lval - (double) op2->value.lval;
+		long lval = op1->value.lval - op2->value.lval;
 
-		if ((dval < (double) LONG_MIN) || (dval > (double) LONG_MAX)) {
-			result->value.dval = dval;
+		/* check for overflow by comparing sign bits */
+		if ( (op1->value.lval & LONG_MIN) != (op2->value.lval & LONG_MIN)
+			&& (op1->value.lval & LONG_MIN) != (lval & LONG_MIN)) {
+
+			result->value.dval = (double) op1->value.lval - (double) op2->value.lval;
 			result->type = IS_DOUBLE;
 		} else {
-			result->value.lval = op1->value.lval - op2->value.lval;
+			result->value.lval = lval;
 			result->type = IS_LONG;
 		}
 		return SUCCESS;
@@ -784,6 +791,11 @@ ZEND_API int mod_function(zval *result, zval *op1, zval *op2 TSRMLS_DC)
 	if (op2->value.lval == 0) {
 		ZVAL_BOOL(result, 0);
 		return FAILURE;			/* modulus by zero */
+	}
+
+	if (abs(op2->value.lval) == 1) {
+		ZVAL_LONG(result, 0);
+		return SUCCESS;
 	}
 
 	result->type = IS_LONG;
@@ -1608,8 +1620,8 @@ ZEND_API int zend_binary_strcasecmp(char *s1, uint len1, char *s2, uint len2)
 	len = MIN(len1, len2);
 
 	while (len--) {
-		c1 = tolower(*s1++);
-		c2 = tolower(*s2++);
+		c1 = tolower((int)*(unsigned char *)s1++);
+		c2 = tolower((int)*(unsigned char *)s2++);
 		if (c1 != c2) {
 			return c1 - c2;
 		}
@@ -1627,8 +1639,8 @@ ZEND_API int zend_binary_strncasecmp(char *s1, uint len1, char *s2, uint len2, u
 	len = MIN(length, MIN(len1, len2));
 
 	while (len--) {
-		c1 = tolower(*s1++);
-		c2 = tolower(*s2++);
+		c1 = tolower((int)*(unsigned char *)s1++);
+		c2 = tolower((int)*(unsigned char *)s2++);
 		if (c1 != c2) {
 			return c1 - c2;
 		}
@@ -1687,9 +1699,9 @@ ZEND_API void zendi_smart_strcmp(zval *result, zval *s1, zval *s2)
 #endif
 		if ((ret1==IS_DOUBLE) || (ret2==IS_DOUBLE)) {
 			if (ret1!=IS_DOUBLE) {
-				dval1 = strtod(s1->value.str.val, NULL);
+				dval1 = zend_strtod(s1->value.str.val, NULL);
 			} else if (ret2!=IS_DOUBLE) {
-				dval2 = strtod(s2->value.str.val, NULL);
+				dval2 = zend_strtod(s2->value.str.val, NULL);
 			}
 			result->value.dval = dval1 - dval2;
 			result->value.lval = ZEND_NORMALIZE_BOOL(result->value.dval);
@@ -1753,11 +1765,4 @@ ZEND_API void zend_locale_sprintf_double(zval *op ZEND_FILE_LINE_DC)
 	op->value.str.val = (char *) emalloc_rel(MAX_LENGTH_OF_DOUBLE + EG(precision) + 1);
 	sprintf(op->value.str.val, "%.*G", (int) EG(precision), dval);
 	op->value.str.len = strlen(op->value.str.val);
-
-	if (EG(float_separator)[0] != '.') { 
-		char *p = op->value.str.val;
-		if ((p = strchr(p, '.'))) {
-			*p = EG(float_separator)[0];
-		}	
-	}
 }

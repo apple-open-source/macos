@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_ticks.c,v 1.1.1.6 2003/07/18 18:07:49 zarzycki Exp $ */
+/* $Id: php_ticks.c,v 1.15.8.1 2002/12/31 16:26:22 sebastian Exp $ */
 
 #include "php.h"
 #include "php_ticks.h"

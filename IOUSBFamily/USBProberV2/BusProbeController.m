@@ -121,7 +121,7 @@
     } else if ([item class] == [BusProbeDevice class]) {
         return [[(BusProbeDevice *)item rootNode] childAtIndex:index];
     }
-    return [item childAtIndex:index];
+    return [(OutlineViewNode *)item childAtIndex:index];
 }
 
 - (BOOL)outlineView:(NSOutlineView *)ov isItemExpandable:(id)item

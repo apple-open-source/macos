@@ -61,6 +61,7 @@ class MacRISC4CPU : public IOCPU
 private:
     bool				bootCPU;
     bool				flushOnLock;
+    bool				haveSleptMPIC;
     UInt32				l2crValue;
     MacRISC4PE			*macRISC4PE;
 	IOService			*uniN;
@@ -110,7 +111,6 @@ public:
     virtual const OSSymbol *getCPUName(void);
   
     virtual bool           start(IOService *provider);
-	virtual void		   performPMUSpeedChange (UInt32 newLevel);
 
     virtual void           initCPU(bool boot);
     virtual void           quiesceCPU(void);

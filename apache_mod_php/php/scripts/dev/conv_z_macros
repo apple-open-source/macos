@@ -16,7 +16,7 @@
 #  | Author: Sascha Schumann <sascha@schumann.cx>                         |
 #  +----------------------------------------------------------------------+
 #
-# $Id: conv_z_macros,v 1.1.1.1 2003/07/18 18:07:51 zarzycki Exp $
+# $Id: conv_z_macros,v 1.1.2.1 2003/01/28 15:02:08 sniper Exp $
 
 for i in $@; do
 	echo -n "Processing $i... "

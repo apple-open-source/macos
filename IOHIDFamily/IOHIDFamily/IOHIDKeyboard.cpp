@@ -766,7 +766,7 @@ bool IOHIDKeyboard::filterSecondaryNumPadKey(int * usage, bool down, AbsoluteTim
 
             *usage = _secondaryKeys[*usage].numPadUsage;
         }
-        else
+        else if ( down )
             return true;
     }
 

@@ -1,3 +1,77 @@
+=== WebCore-125.8.13 ===
+
+2005-01-12  Maciej Stachowiak  <mjs@apple.com>
+
+	- fix for the following bug was incomplete, fixed error in one particular case
+
+	<rdar://problem/3939324> *SecUpd: Panther* frame naming allows malicious site to bring up a window when you click on a link in another
+
+2005-01-12  Maciej Stachowiak  <mjs@apple.com>
+
+	<rdar://problem/3939324> *SecUpd: Panther* frame naming allows malicious site to bring up a window when you click on a link in another
+
+	- merged fix for this from Tiger:
+
+    2004-12-21  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Darin.
+
+	<rdar://problem/3888931> frame naming allows malicious site to bring up a window when you click on a link in another
+        
+	Added opener bridge method to help WebKit implement security check
+	for named frame visibility.
+	
+	* khtml/khtml_part.h:
+        * kwq/WebCoreBridge.h:
+        * kwq/WebCoreBridge.mm:
+        (-[WebCoreBridge opener]):
+
+2005-01-12  Maciej Stachowiak  <mjs@apple.com>
+
+	<rdar://problem/3943553> *SecUpd: Panther* WebKit needs to restrict access to certain window operations by domain
+	
+	- merged the following fix from Tiger to fix this
+
+    2004-12-21  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by John.
+
+	<rdar://problem/3929187> WebKit needs to restrict access to certain window operations by domain
+        
+	* khtml/ecma/kjs_window.cpp:
+        (Window::get): Change most window functions to be restricted by
+	XSS domain check.
+
+2005-01-12  Maciej Stachowiak  <mjs@apple.com>
+
+	<rdar://problem/3939485> *SecUpd: Panther* scripts can cause other frames/windows to execute arbitrary script using javascript: URLs
+
+	- merged the following fix from Tiger to fix this
+
+    2004-12-06  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by John.
+
+	- fixed <rdar://problem/3903797> scripts can cause other frames/windows to execute arbitrary script using javascript: URLs
+        
+	I changed all unprotected places that can navigate a different
+	window or frame from script to check for a javascript: URL, and if
+	found, to check for safety using cross-site-script rules. 
+
+	I considered a few other possible exploits and made no change:
+
+	- document.location is already protected because the document
+	object itself is protected
+
+	- frame.src, frame.location, iframe.src and targetted links are
+	all safe because setting the URL of a frame to a javascript: URL
+	executes the script in the context of the parent
+
+	* khtml/ecma/kjs_window.cpp:
+        (WindowFunc::tryCall):
+        (Location::put):
+        (LocationFunc::tryCall):
+
 === WebCore-125.8.12 ===
 
 2004-11-19  Adele Amchan  <adele@apple.com>
@@ -7,6 +81,8 @@
     2004-11-19  Maciej Stachowiak  <mjs@apple.com>
 
         Reviewed by Darin.
+
+2004-12-06  Ken Kocienda  <kocienda@apple.com>
 
         <rdar://problem/3864151> REGRESSION (125-167): Chrysler.com never stops loading
 	

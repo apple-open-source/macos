@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_mbregex.c,v 1.1.1.3 2003/07/18 18:07:35 zarzycki Exp $ */
+/* $Id: php_mbregex.c,v 1.18.2.11 2003/10/02 07:50:19 moriyoshi Exp $ */
 
 
 #ifdef HAVE_CONFIG_H
@@ -94,7 +94,8 @@ static int _php_mb_regex_name2mbctype(const char *pname)
 		    || strcasecmp("X-EUC-JP", pname) == 0
 		    || strcasecmp("UJIS", pname) == 0
 		    || strcasecmp("EUCJP", pname) == 0
-		    || strcasecmp("EUC_JP", pname) == 0) {
+		    || strcasecmp("EUC_JP", pname) == 0
+		    || strcasecmp("EUCJP-WIN", pname) == 0) {
 			mbctype = MBCTYPE_EUC;
 		} else if (strcasecmp("UTF-8", pname) == 0
 		           || strcasecmp("UTF8", pname) == 0) {
@@ -102,7 +103,8 @@ static int _php_mb_regex_name2mbctype(const char *pname)
 		} else if (strcasecmp("SJIS", pname) == 0
 		           || strcasecmp("CP932", pname) == 0
 		           || strcasecmp("MS932", pname) == 0
-		           || strcasecmp("SHIFT_JIS", pname) == 0 ) {
+		           || strcasecmp("SHIFT_JIS", pname) == 0
+		           || strcasecmp("SJIS-WIN", pname) == 0) {
 			mbctype = MBCTYPE_SJIS;
 		} else if (strcasecmp("ASCII", pname) == 0) {
 			mbctype = MBCTYPE_ASCII;
@@ -507,7 +509,7 @@ _php_mb_regex_ereg_replace_exec(INTERNAL_FUNCTION_PARAMETERS, int option)
 		}
 		if (err >= 0) {
 #if moriyoshi_0
-			if ( regs.beg[0] == regs.end[0] ) {
+			if (regs.beg[0] == regs.end[0]) {
 				php_error_docref(NULL TSRMLS_CC, E_WARNING, "Empty regular expression");
 				break;
 			}
@@ -552,12 +554,16 @@ _php_mb_regex_ereg_replace_exec(INTERNAL_FUNCTION_PARAMETERS, int option)
 			if (pos < n) {
 				pos = n;
 			} else {
-				_php_mb_regex_strbuf_ncat(&outdev, (const unsigned char *)&string[pos], 1 ); 
+				if (pos < string_len) {
+					_php_mb_regex_strbuf_ncat(&outdev, (const unsigned char *)&string[pos], 1);
+				}
 				pos++;
 			}
 		} else { /* nomatch */
 			/* stick that last bit of string on our output */
-			_php_mb_regex_strbuf_ncat(&outdev, (const unsigned char *)&string[pos], string_len - pos);
+			if (pos < string_len) {
+				_php_mb_regex_strbuf_ncat(&outdev, (const unsigned char *)&string[pos], string_len - pos);
+			}
 		}
 	}
 
@@ -1083,3 +1089,12 @@ PHP_FUNCTION(mb_regex_set_options)
 /* }}} */
 
 #endif	/* HAVE_MBREGEX */
+
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * End:
+ * vim600: fdm=marker
+ * vim: noet sw=4 ts=4
+ */

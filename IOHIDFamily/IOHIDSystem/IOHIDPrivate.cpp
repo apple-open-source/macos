@@ -40,17 +40,22 @@ void _DispatchKeyboardSpecialEvent(int key, bool down)
     
     matchingDictionary  = IOService::serviceMatching( "IOHIKeyboard" );
     
-    iterator = IOService::getMatchingServices( matchingDictionary );
-    if( !iterator )
+    if ( matchingDictionary )
     {
-        while( (keyboard = (IOHIKeyboard*) iterator->getNextObject()) )
-        {		
-            flags |= keyboard->deviceFlags();
+        iterator = IOService::getMatchingServices( matchingDictionary );
+        
+        if( iterator )
+        {
+            while( (keyboard = (IOHIKeyboard*) iterator->getNextObject()) )
+            {		
+                flags |= keyboard->deviceFlags();
+            }
+            
+            iterator->release();
         }
-    }
     
-    if( matchingDictionary ) matchingDictionary->release();
-    if( iterator ) iterator->release(); 
+        matchingDictionary->release();
+    }
 
     clock_get_uptime( &timeStamp );
 

@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.1.1.7 2003/03/11 01:09:30 zarzycki Exp $
+dnl $Id: config.m4,v 1.34 2002/06/26 13:07:40 derick Exp $
 dnl
 
 AC_DEFUN(PHP_PGSQL_CHECK_FUNCTIONS,[

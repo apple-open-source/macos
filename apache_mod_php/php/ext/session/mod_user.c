@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: mod_user.c,v 1.1.1.7 2003/07/18 18:07:41 zarzycki Exp $ */
+/* $Id: mod_user.c,v 1.25.8.1 2002/12/31 16:35:20 sebastian Exp $ */
 
 #include "php.h"
 #include "php_session.h"

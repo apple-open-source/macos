@@ -43,14 +43,14 @@ restrictions:
 
 /* Corresponding tables of PCRE error messages and POSIX error codes. */
 
-static const char *estring[] = {
+static const char *const estring[] = {
   ERR1,  ERR2,  ERR3,  ERR4,  ERR5,  ERR6,  ERR7,  ERR8,  ERR9,  ERR10,
   ERR11, ERR12, ERR13, ERR14, ERR15, ERR16, ERR17, ERR18, ERR19, ERR20,
   ERR21, ERR22, ERR23, ERR24, ERR25, ERR26, ERR27, ERR29, ERR29, ERR30,
   ERR31, ERR32, ERR33, ERR34, ERR35, ERR36, ERR37, ERR38, ERR39, ERR40,
-  ERR41, ERR42, ERR43 };
+  ERR41, ERR42, ERR43, ERR44 };
 
-static int eint[] = {
+static const int eint[] = {
   REG_EESCAPE, /* "\\ at end of pattern" */
   REG_EESCAPE, /* "\\c at end of pattern" */
   REG_EESCAPE, /* "unrecognized character follows \\" */
@@ -83,7 +83,7 @@ static int eint[] = {
   REG_ECTYPE,  /* "unknown POSIX class name" */
   REG_BADPAT,  /* "POSIX collating elements are not supported" */
   REG_INVARG,  /* "this version of PCRE is not compiled with PCRE_UTF8 support" */
-  REG_BADPAT,  /* "characters with values > 255 are not yet supported in classes" */
+  REG_BADPAT,  /* "spare error" */
   REG_BADPAT,  /* "character value in \x{...} sequence is too large" */
   REG_BADPAT,  /* "invalid condition (?(0)" */
   REG_BADPAT,  /* "\\C not allowed in lookbehind assertion" */
@@ -93,12 +93,13 @@ static int eint[] = {
   REG_BADPAT,  /* "recursive call could loop indefinitely" */
   REG_BADPAT,  /* "unrecognized character after (?P" */
   REG_BADPAT,  /* "syntax error after (?P" */
-  REG_BADPAT   /* "two named groups have the same name" */
+  REG_BADPAT,  /* "two named groups have the same name" */
+  REG_BADPAT   /* "invalid UTF-8 string" */
 };
 
 /* Table of texts corresponding to POSIX error codes */
 
-static const char *pstring[] = {
+static const char *const pstring[] = {
   "",                                /* Dummy for value 0 */
   "internal error",                  /* REG_ASSERT */
   "invalid repeat counts in {}",     /* BADBR      */
@@ -144,7 +145,7 @@ return REG_ASSERT;
 *          Translate error code to string        *
 *************************************************/
 
-size_t
+EXPORT size_t
 regerror(int errcode, const regex_t *preg, char *errbuf, size_t errbuf_size)
 {
 const char *message, *addmessage;
@@ -179,7 +180,7 @@ return length + addlength;
 *           Free store held by a regex           *
 *************************************************/
 
-void
+EXPORT void
 regfree(regex_t *preg)
 {
 (pcre_free)(preg->re_pcre);
@@ -202,7 +203,7 @@ Returns:      0 on success
               various non-zero codes on failure
 */
 
-int
+EXPORT int
 regcomp(regex_t *preg, const char *pattern, int cflags)
 {
 const char *errorptr;
@@ -217,7 +218,7 @@ preg->re_erroffset = erroffset;
 
 if (preg->re_pcre == NULL) return pcre_posix_error_code(errorptr);
 
-preg->re_nsub = pcre_info(preg->re_pcre, NULL, NULL);
+preg->re_nsub = pcre_info((const pcre *)preg->re_pcre, NULL, NULL);
 return 0;
 }
 
@@ -235,8 +236,8 @@ ints. However, if the number of possible capturing brackets is small, use a
 block of store on the stack, to reduce the use of malloc/free. The threshold is
 in a macro that can be changed at configure time. */
 
-int
-regexec(regex_t *preg, const char *string, size_t nmatch,
+EXPORT int
+regexec(const regex_t *preg, const char *string, size_t nmatch,
   regmatch_t pmatch[], int eflags)
 {
 int rc;
@@ -248,7 +249,7 @@ BOOL allocated_ovector = FALSE;
 if ((eflags & REG_NOTBOL) != 0) options |= PCRE_NOTBOL;
 if ((eflags & REG_NOTEOL) != 0) options |= PCRE_NOTEOL;
 
-preg->re_erroffset = (size_t)(-1);   /* Only has meaning after compile */
+((regex_t *)preg)->re_erroffset = (size_t)(-1);  /* Only has meaning after compile */
 
 if (nmatch > 0)
   {
@@ -264,8 +265,8 @@ if (nmatch > 0)
     }
   }
 
-rc = pcre_exec(preg->re_pcre, NULL, string, (int)strlen(string), 0, options,
-  ovector, nmatch * 3);
+rc = pcre_exec((const pcre *)preg->re_pcre, NULL, string, (int)strlen(string),
+  0, options, ovector, nmatch * 3);
 
 if (rc == 0) rc = nmatch;    /* All captured slots were filled in */
 
@@ -293,6 +294,9 @@ else
     case PCRE_ERROR_BADMAGIC: return REG_INVARG;
     case PCRE_ERROR_UNKNOWN_NODE: return REG_ASSERT;
     case PCRE_ERROR_NOMEMORY: return REG_ESPACE;
+    case PCRE_ERROR_MATCHLIMIT: return REG_ESPACE;
+    case PCRE_ERROR_BADUTF8: return REG_INVARG;
+    case PCRE_ERROR_BADUTF8_OFFSET: return REG_INVARG;
     default: return REG_ASSERT;
     }
   }

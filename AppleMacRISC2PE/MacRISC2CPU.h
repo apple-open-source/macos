@@ -81,6 +81,7 @@ class MacRISC2CPU : public IOCPU
 private:
     bool				bootCPU;
     bool				flushOnLock;
+    bool				haveSleptMPIC;
     UInt32				l2crValue;
     MacRISC2PE			*macRISC2PE;
 	IOService			*uniN;

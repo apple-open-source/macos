@@ -43,6 +43,10 @@ typedef enum {
 #define kMinimumSupportedCS84xxSampleRate				 31200		/*  [3864994]   32.000 kHz - 2.5%   */
 #define kMaximumSupportedCS84xxSampleRate				196800		/*  [3864994]   32.000 kHz - 2.5%   */
 
+
+//	[3787193]
+#define	kTOPAZ_SLEEP_TIME_MICROSECONDS	20000	/*	reset of 750 µS + codec flush + margin	*/
+
 class AppleTopazAudio : public AudioHardwareObjectInterface
 {
     OSDeclareDefaultStructors(AppleTopazAudio);
@@ -64,6 +68,8 @@ public:
 	virtual bool			setCodecVolume (UInt32 leftVolume, UInt32 rightVolume) { return false; }	//	[3435307]	rbm
 	virtual IOReturn		setPlayThrough (bool playthroughState) { return kIOReturnError; }
 	virtual IOReturn		setInputGain (UInt32 leftGain, UInt32 rightGain) { return kIOReturnError; }
+
+	virtual IOReturn		performSetPowerState ( UInt32 currentPowerState, UInt32 pendingPowerState );	//	[3933529]
 	virtual IOReturn		performDeviceSleep ();
 	virtual IOReturn		performDeviceWake ();
 
@@ -87,6 +93,8 @@ public:
 	void					stateMachine1 ( void );
 	void					stateMachine2 ( void );
 	
+	virtual IOReturn		requestSleepTime ( UInt32 * microsecondsUntilComplete );	//	[3787193]
+
 	//	
 	//	User Client Support
 	//
@@ -105,7 +113,7 @@ private:
 	void					generalRecovery ( void );
 	
 	PlatformInterface* 		mPlatformObject;	// pointer to platform object class
-	TOPAZ_CODEC_TYPES		mCodecID;
+	HardwarePluginType		mCodecID;
 	
 	UInt32					mUnlockErrorCount;
 	UInt32					mI2CinProcess;

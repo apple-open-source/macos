@@ -55,6 +55,7 @@
 #define kACSleepOnPowerButton           1
 #define kACWakeOnClamshell              1
 #define kACWakeOnACChange               0
+#define kACMobileMotionModule           1
 
 /*
  *      Battery
@@ -67,9 +68,10 @@
 #define kBatteryWakeOnLAN               0
 #define kBatteryReduceProcessorSpeed	0
 #define kBatteryDynamicPowerStep        1
-#define kBatterySleepOnPowerButton	0
+#define kBatterySleepOnPowerButton      0
 #define kBatteryWakeOnClamshell         1
 #define kBatteryWakeOnACChange          0
+#define kBatteryMobileMotionModule      1
 
 /*
  *      UPS
@@ -85,9 +87,9 @@
 #define kUPSSleepOnPowerButton           kACSleepOnPowerButton
 #define kUPSWakeOnClamshell              kACWakeOnClamshell
 #define kUPSWakeOnACChange               kACWakeOnACChange
+#define kUPSMobileMotionModule           kACMobileMotionModule
 
-
-#define kIOPMNumPMFeatures		11
+#define kIOPMNumPMFeatures		12
 
 static char *energy_features_array[kIOPMNumPMFeatures] = {
     kIOPMDisplaySleepKey, 
@@ -100,7 +102,8 @@ static char *energy_features_array[kIOPMNumPMFeatures] = {
     kIOPMDynamicPowerStepKey,
     kIOPMSleepOnPowerButtonKey,
     kIOPMWakeOnClamshellKey,
-    kIOPMWakeOnACChangeKey
+    kIOPMWakeOnACChangeKey,
+    kIOPMMobileMotionModuleKey
 };
 
 static const unsigned int battery_defaults_array[] = {
@@ -114,7 +117,8 @@ static const unsigned int battery_defaults_array[] = {
     kBatteryDynamicPowerStep,
     kBatterySleepOnPowerButton,
     kBatteryWakeOnClamshell,
-    kBatteryWakeOnACChange
+    kBatteryWakeOnACChange,
+    kBatteryMobileMotionModule
 };
 
 static const unsigned int ac_defaults_array[] = {
@@ -128,7 +132,8 @@ static const unsigned int ac_defaults_array[] = {
     kACDynamicPowerStep,
     kACSleepOnPowerButton,
     kACWakeOnClamshell,
-    kACWakeOnACChange
+    kACWakeOnACChange,
+    kACMobileMotionModule
 };
 
 static const unsigned int ups_defaults_array[] = {
@@ -142,7 +147,8 @@ static const unsigned int ups_defaults_array[] = {
     kUPSDynamicPowerStep,
     kUPSSleepOnPowerButton,
     kUPSWakeOnClamshell,
-    kUPSWakeOnACChange
+    kUPSWakeOnACChange,
+    kUPSMobileMotionModule
 };
 
 
@@ -171,6 +177,7 @@ typedef struct {
     unsigned int        fSleepOnPowerButton;
     unsigned int        fWakeOnClamshell;
     unsigned int        fWakeOnACChange;
+    unsigned int        fMobileMotionModule;
 } IOPMAggressivenessFactors;
 
 
@@ -420,9 +427,7 @@ static int sendEnergySettingsToKernel(IOPMAggressivenessFactors *p)
         type = kPMEthernetWakeOnLANSettings;
         err = IOPMSetAggressiveness(PM_connection, type, p->fWakeOnLAN);
     }
-    
-    IOServiceClose(PM_connection);
-    
+        
     // Wake On Ring
     if(true == IOPMFeatureIsAvailable(CFSTR(kIOPMWakeOnRingKey), NULL))
     {
@@ -533,6 +538,14 @@ static int sendEnergySettingsToKernel(IOPMAggressivenessFactors *p)
         }
     }    
        
+    // Mobile Motion Module
+    // Default is true == wakeup when the clamshell opens
+    if(true == IOPMFeatureIsAvailable(CFSTR(kIOPMMobileMotionModuleKey), NULL))
+    {
+        type = 7; // kPMMotionSensor;
+        IOPMSetAggressiveness(PM_connection, type, p->fMobileMotionModule);
+    }
+
     /* PowerStep and Reduce Processor Speed are handled by a separate configd plugin that's
        watching the SCDynamicStore key State:/IOKit/PowerManagement/CurrentSettings. Changes
        to the settings notify the configd plugin, which then activates th processor speed settings.
@@ -541,23 +554,27 @@ static int sendEnergySettingsToKernel(IOPMAggressivenessFactors *p)
     */
     CFRelease(number0);
     CFRelease(number1);
+    IOServiceClose(PM_connection);
     IOObjectRelease(PMRootDomain);
     return 0;
 }
 
-/* RY: Added macro to make sure we are using
-   the appropriate object */
-#define GetAggressivenessValue(obj, type, ret)	\
-do {						\
-    if (isA_CFNumber(obj)){			\
-        CFNumberGetValue(obj, type, &ret);	\
-        break;					\
-    }						\
-    else if (isA_CFBoolean(obj)){		\
-        ret = CFBooleanGetValue(obj);		\
-        break;					\
-    }						\
-} while (false);
+static void GetAggressivenessValue(
+    CFTypeRef           obj,
+    CFNumberType        type,
+    int                 *ret)
+{
+    if (isA_CFNumber(obj))
+    {            
+        CFNumberGetValue(obj, type, ret);
+        return;
+    } 
+    else if (isA_CFBoolean(obj))
+    {
+        *ret = CFBooleanGetValue(obj);
+        return;
+    }
+}
 
 /* For internal use only */
 static int getAggressivenessFactorsFromProfile(CFDictionaryRef System, CFStringRef prof, IOPMAggressivenessFactors *agg)
@@ -578,41 +595,43 @@ static int getAggressivenessFactorsFromProfile(CFDictionaryRef System, CFStringR
     
     // dim
     GetAggressivenessValue(CFDictionaryGetValue(p, CFSTR(kIOPMDisplaySleepKey)),
-                           kCFNumberSInt32Type, agg->fMinutesToDim);
+                           kCFNumberSInt32Type, &agg->fMinutesToDim);
     
     // spin down
     GetAggressivenessValue(CFDictionaryGetValue(p, CFSTR(kIOPMDiskSleepKey)),
-                           kCFNumberSInt32Type, agg->fMinutesToSpin);
+                           kCFNumberSInt32Type, &agg->fMinutesToSpin);
 
     // sleep
     GetAggressivenessValue(CFDictionaryGetValue(p, CFSTR(kIOPMSystemSleepKey)),
-                           kCFNumberSInt32Type, agg->fMinutesToSleep);
+                           kCFNumberSInt32Type, &agg->fMinutesToSleep);
 
     // Wake On Magic Packet
     GetAggressivenessValue(CFDictionaryGetValue(p, CFSTR(kIOPMWakeOnLANKey)),
-                           kCFNumberSInt32Type, agg->fWakeOnLAN);
+                           kCFNumberSInt32Type, &agg->fWakeOnLAN);
 
     // Wake On Ring
     GetAggressivenessValue(CFDictionaryGetValue(p, CFSTR(kIOPMWakeOnRingKey)),
-                           kCFNumberSInt32Type, agg->fWakeOnRing);
+                           kCFNumberSInt32Type, &agg->fWakeOnRing);
 
     // AutomaticRestartOnPowerLoss
     GetAggressivenessValue(CFDictionaryGetValue(p, CFSTR(kIOPMRestartOnPowerLossKey)),
-                           kCFNumberSInt32Type, agg->fAutomaticRestart);
+                           kCFNumberSInt32Type, &agg->fAutomaticRestart);
     
     // Disable Power Button Sleep
     GetAggressivenessValue(CFDictionaryGetValue(p, CFSTR(kIOPMSleepOnPowerButtonKey)),
-                           kCFNumberSInt32Type, agg->fSleepOnPowerButton);    
+                           kCFNumberSInt32Type, &agg->fSleepOnPowerButton);    
 
     // Disable Clamshell Wakeup
     GetAggressivenessValue(CFDictionaryGetValue(p, CFSTR(kIOPMWakeOnClamshellKey)),
-                           kCFNumberSInt32Type, agg->fWakeOnClamshell);    
+                           kCFNumberSInt32Type, &agg->fWakeOnClamshell);    
 
     // Wake on AC Change
     GetAggressivenessValue(CFDictionaryGetValue(p, CFSTR(kIOPMWakeOnACChangeKey)),
-                           kCFNumberSInt32Type, agg->fWakeOnACChange);    
+                           kCFNumberSInt32Type, &agg->fWakeOnACChange);    
 
-
+    // MMM
+    GetAggressivenessValue(CFDictionaryGetValue(p, CFSTR(kIOPMMobileMotionModuleKey)),
+                           kCFNumberSInt32Type, &agg->fMobileMotionModule);    
     return 0;
 }
 
@@ -626,10 +645,10 @@ static int getAggressivenessFactorsFromProfile(CFDictionaryRef System, CFStringR
  ***/
 extern bool IOPMFeatureIsAvailable(CFStringRef f, CFStringRef power_source)
 {
-    CFDictionaryRef		        supportedFeatures = NULL;
+    CFDictionaryRef             supportedFeatures = NULL;
     CFArrayRef                  tmp_array;
-    io_registry_entry_t		    registry_entry;
-    io_iterator_t		        tmp;
+    io_registry_entry_t            registry_entry;
+    io_iterator_t                tmp;
     mach_port_t                 masterPort;
     bool                        ret = false;
 
@@ -713,7 +732,7 @@ extern bool IOPMFeatureIsAvailable(CFStringRef f, CFStringRef power_source)
     // Wake on AC change
     if(CFEqual(f, CFSTR(kIOPMWakeOnACChangeKey)))
     {
-    	// Not a typo, ApplePMU has "ACchange" not "ACChange" :
+        // Not a typo, ApplePMU has "ACchange" not "ACChange" :
         if(supportedFeatures && CFDictionaryGetValue(supportedFeatures, CFSTR("WakeOnACchange")))
         {
             ret = true;
@@ -748,6 +767,16 @@ extern bool IOPMFeatureIsAvailable(CFStringRef f, CFStringRef power_source)
         else ret = false;
         goto IOPMFeatureIsAvailable_exitpoint;
     }
+
+    // Mobile Motion Module hard drive protector
+    if(CFEqual(f, CFSTR(kIOPMMobileMotionModuleKey)))
+    {
+        if(!supportedFeatures) return false;
+        if(CFDictionaryGetValue(supportedFeatures, CFSTR("MobileMotionModule")))
+            ret = true;
+        else ret = false;
+        goto IOPMFeatureIsAvailable_exitpoint;
+    }
         
  IOPMFeatureIsAvailable_exitpoint:
     if(supportedFeatures) CFRelease(supportedFeatures);
@@ -763,13 +792,13 @@ extern bool IOPMFeatureIsAvailable(CFStringRef f, CFStringRef power_source)
  ***/
 static void IOPMRemoveIrrelevantProperties(CFMutableDictionaryRef energyPrefs)
 {
-    int			profile_count = 0;
+    int            profile_count = 0;
     int         dict_count = 0;
-    CFStringRef		*profile_keys = NULL;
-    CFDictionaryRef	*profile_vals = NULL;
-    CFStringRef		*dict_keys    = NULL;
-    CFDictionaryRef	*dict_vals    = NULL;
-    CFMutableDictionaryRef	this_profile;
+    CFStringRef        *profile_keys = NULL;
+    CFDictionaryRef    *profile_vals = NULL;
+    CFStringRef        *dict_keys    = NULL;
+    CFDictionaryRef    *dict_vals    = NULL;
+    CFMutableDictionaryRef    this_profile;
     CFTypeRef               ps_snapshot;
     
     ps_snapshot = IOPSCopyPowerSourcesInfo();
@@ -877,10 +906,10 @@ static int getCheetahPumaEnergySettings(CFMutableDictionaryRef energyPrefs)
 
 extern CFMutableDictionaryRef IOPMCopyPMPreferences(void)
 {
-    CFMutableDictionaryRef	        energyDict = NULL;
-    SCPreferencesRef	            	energyPrefs = NULL;
-    CFDictionaryRef	                batterySettings = NULL;
-    CFDictionaryRef	                ACSettings = NULL;
+    CFMutableDictionaryRef            energyDict = NULL;
+    SCPreferencesRef                    energyPrefs = NULL;
+    CFDictionaryRef                    batterySettings = NULL;
+    CFDictionaryRef                    ACSettings = NULL;
     CFDictionaryRef                 UPSSettings = NULL;    
 
 
@@ -912,7 +941,7 @@ extern CFMutableDictionaryRef IOPMCopyPMPreferences(void)
         getDefaultEnergySettings(energyDict);
 
     } else {
-	// If com.apple.PowerManagement.xml was not read, start with defaults
+    // If com.apple.PowerManagement.xml was not read, start with defaults
         getDefaultEnergySettings(energyDict);
         // If Cheetah settings exist, merge those
         getCheetahPumaEnergySettings(energyDict);
@@ -927,7 +956,7 @@ extern CFMutableDictionaryRef IOPMCopyPMPreferences(void)
 
 extern IOReturn IOPMActivatePMPreference(CFDictionaryRef SystemProfiles, CFStringRef profile)
 {
-    IOPMAggressivenessFactors	*agg = NULL;
+    IOPMAggressivenessFactors   *agg = NULL;
     CFDictionaryRef                 activePMPrefs = NULL;
     CFDictionaryRef                 newPMPrefs = NULL;
     SCDynamicStoreRef               dynamic_store = NULL;
@@ -971,11 +1000,11 @@ extern IOReturn IOPMActivatePMPreference(CFDictionaryRef SystemProfiles, CFStrin
 
 extern IOReturn IOPMSetPMPreferences(CFDictionaryRef ESPrefs)
 {
-    SCPreferencesRef	        energyPrefs = NULL;
-    int			                i;
-    int			                dict_count = 0;
-    CFStringRef		            *dict_keys;
-    CFDictionaryRef	            *dict_vals;
+    SCPreferencesRef            energyPrefs = NULL;
+    int                            i;
+    int                            dict_count = 0;
+    CFStringRef                    *dict_keys;
+    CFDictionaryRef                *dict_vals;
     
     energyPrefs = SCPreferencesCreate( kCFAllocatorDefault, kIOPMAppName, kIOPMPrefsPath );
     if(!energyPrefs) return kIOReturnError;
@@ -1018,20 +1047,21 @@ extern IOReturn IOPMSetPMPreferences(CFDictionaryRef ESPrefs)
 /***
  Support structures and functions for IOPMPrefsNotificationCreateRunLoopSource
 ***/
+
 typedef struct {
-    IOPMPrefsCallbackType	callback;
-    void			*context;
+    IOPMPrefsCallbackType    callback;
+    void            *context;
 } user_callback_context;
 
 typedef struct {
-    SCDynamicStoreRef		store;
-    CFRunLoopSourceRef		SCDSrls;
+    SCDynamicStoreRef        store;
+    CFRunLoopSourceRef        SCDSrls;
     user_callback_context   *user_callback;
 } my_cfrls_context;
 
 /* SCDynamicStoreCallback */
 static void my_dynamic_store_call(SCDynamicStoreRef store, CFArrayRef keys, void *ctxt) {
-    user_callback_context	*c = (user_callback_context *)ctxt;
+    user_callback_context    *c = (user_callback_context *)ctxt;
     IOPowerSourceCallbackType cb;
 
     // Check that the callback is a valid pointer
@@ -1046,24 +1076,24 @@ static void my_dynamic_store_call(SCDynamicStoreRef store, CFArrayRef keys, void
 static void
 rlsSchedule(void *info, CFRunLoopRef rl, CFStringRef mode)
 {
-	my_cfrls_context	*c = (my_cfrls_context *)info;
+    my_cfrls_context    *c = (my_cfrls_context *)info;
     CFRunLoopAddSource(CFRunLoopGetCurrent(), c->SCDSrls, mode);
-	return;
+    return;
 }
 
 
 static void
 rlsCancel(void *info, CFRunLoopRef rl, CFStringRef mode)
 {
-	my_cfrls_context	*c = (my_cfrls_context *)info;
+    my_cfrls_context    *c = (my_cfrls_context *)info;
     CFRunLoopRemoveSource(CFRunLoopGetCurrent(), c->SCDSrls, mode);
-	return;
+    return;
 }
 
 static void
 rlsRelease(void *info)
 {
-	my_cfrls_context	*c = (my_cfrls_context *)info;
+    my_cfrls_context    *c = (my_cfrls_context *)info;
 
     if(!c) return;
     if(c->SCDSrls) CFRelease(c->SCDSrls);
@@ -1071,7 +1101,7 @@ rlsRelease(void *info)
     if(c->user_callback) free(c->user_callback);
     free(c);
         
-	return;
+    return;
 }
 
 
@@ -1090,12 +1120,12 @@ CFRunLoopSourceRef IOPMPrefsNotificationCreateRunLoopSource(IOPMPrefsCallbackTyp
     CFStringRef         EnergyPrefsKey = NULL;
     CFRunLoopSourceRef  SCDrls = NULL;
     // For the source we're creating:
-    CFRunLoopSourceRef	ourSource = NULL;
+    CFRunLoopSourceRef    ourSource = NULL;
     CFRunLoopSourceContext  rlsContext;
-    SCDynamicStoreContext	scdsctxt;
+    SCDynamicStoreContext    scdsctxt;
 
-    user_callback_context		*callback_state = NULL;
-    my_cfrls_context			*runloop_state = NULL;
+    user_callback_context        *callback_state = NULL;
+    my_cfrls_context            *runloop_state = NULL;
     
     // Save the state of the user's callback
     callback_state = malloc(sizeof(user_callback_context));

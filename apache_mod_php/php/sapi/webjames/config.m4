@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.1.1.2 2003/03/11 01:09:39 zarzycki Exp $
+dnl $Id: config.m4,v 1.5 2002/03/24 22:57:00 alexwaugh Exp $
 dnl
 
 AC_ARG_WITH(webjames,

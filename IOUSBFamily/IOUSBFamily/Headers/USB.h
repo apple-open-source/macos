@@ -190,9 +190,15 @@ enum {
 
 /*!
 @defined kCallInterfaceOpenWithGate
- @discussion If the USB Device has this property, drivers for any of its interfaces will have their handleOpen method called while holding the workloop gate.
+ @discussion If the USB Device Nub has this property, drivers for any of its interfaces will have their handleOpen method called while holding the workloop gate.
  */
 #define kCallInterfaceOpenWithGate	"kCallInterfaceOpenWithGate"
+
+/*!
+@defined kCallInterfaceCloseWithGate
+ @discussion If the USB Device Nub has this property, drivers for any of its interfaces will have their handleclose method called while holding the workloop gate.
+ */
+#define kCallInterfaceCloseWithGate	"kCallInterfaceCloseWithGate"
 
 // TYPES
 
@@ -245,6 +251,22 @@ typedef void (*IOUSBCompletionAction)(
                 UInt32			bufferSizeRemaining);
 
 /*!
+@typedef IOUSBCompletionActionWithTimeStamp
+ @discussion Function called when USB I/O completes.
+ @param target The target specified in the IOUSBCompletion struct.
+ @param parameter The parameter specified in the IOUSBCompletion struct.
+ @param status Completion status.
+ @param bufferSizeRemaining Bytes left to be transferred.
+ @param timeStamp Time at which the transaction was processed.
+ */
+typedef void (*IOUSBCompletionActionWithTimeStamp)(
+                                      void *		target,
+                                      void *		parameter,
+                                      IOReturn		status,
+                                      UInt32		bufferSizeRemaining,
+                                      AbsoluteTime	timeStamp);
+
+/*!
     @typedef IOUSBIsocCompletionAction
     @discussion Function called when Isochronous USB I/O completes.
     @param target The target specified in the IOUSBIsocCompletionn struct.
@@ -284,6 +306,19 @@ typedef struct IOUSBCompletion {
     IOUSBCompletionAction	action;
     void *			parameter;
 } IOUSBCompletion;
+
+/*!
+@typedef IOUSBCompletionWithTimeStamp
+ @discussion Struct specifying action to perform when a USB I/O completes.
+ @param target The target to pass to the action function.
+ @param action The function to call.
+ @param parameter The parameter to pass to the action function.
+ */
+typedef struct IOUSBCompletionWithTimeStamp {
+    void * 				target;
+    IOUSBCompletionActionWithTimeStamp	action;
+    void *				parameter;
+} IOUSBCompletionWithTimeStamp;
 
 /*!
     @typedef IOUSBIsocCompletion
@@ -331,6 +366,7 @@ typedef struct IOUSBLowLatencyIsocCompletion {
 #define kIOUSBLowLatencyBufferNotPreviouslyAllocated        iokit_usb_err(77)  // 0xe000404d  Attempted to use user land low latency isoc calls w/out calling PrepareBuffer (on the data buffer) first 
 #define kIOUSBLowLatencyFrameListNotPreviouslyAllocated     iokit_usb_err(76)  // 0xe000404c  Attempted to use user land low latency isoc calls w/out calling PrepareBuffer (on the frame list) first
 #define kIOUSBHighSpeedSplitError     iokit_usb_err(75) // 0xe000404b Error to hub on high speed bus trying to do split transaction
+#define kIOUSBSyncRequestOnWLThread	iokit_usb_err(74)	// 0xe000404a  A synchronous USB request was made on the workloop thread (from a callback?).  Only async requests are permitted in that case
 
 /*!
 @defined IOUSBFamily hardware error codes
@@ -374,6 +410,7 @@ Completion Code         Error Returned              Description
 #define kIOUSBMessagePortHasBeenResumed     iokit_usb_msg(11)  // 0xe0000400b  Message sent to a device indicating that the port it is attached to has been resumed
 #define kIOUSBMessageHubPortClearTT         iokit_usb_msg(12)  // 0xe0000400c  Message sent to a hub to clear the transaction translator
 #define kIOUSBMessagePortHasBeenSuspended   iokit_usb_msg(13)  // 0xe0000400d  Message sent to a device indicating that the port it is attached to has been suspended
+#define kIOUSBMessageFromThirdParty         iokit_usb_msg(14)  // 0xe0000400d  Message send from a third party.  Uses IOUSBThirdPartyParam to encode the sender's ID
 
 // Obsolete
 //
@@ -931,6 +968,17 @@ enum {
 #define kUSBDevicePropertyBusPowerAvailable     "Bus Power Available"
 #define kUSBDevicePropertyAddress               "USB Address"
 #define kUSBDevicePropertyLocationID            "locationID"
+
+/*!
+@enum USBReEnumerateOptions
+ @discussion Options used when calling ReEnumerateDevice. 
+ @constant	kUSBAddExtraResetTimeBit	Setting this bit will cause the Hub driver to wait 100ms before addressing the device after the reset following the re-enumeration.
+ */
+typedef enum {
+    kUSBAddExtraResetTimeBit 		= 31,
+    kUSBAddExtraResetTimeMask		= ( 1 << kUSBAddExtraResetTimeBit)
+} USBReEnumerateOptions;
+
 
 #ifdef __cplusplus
 }       

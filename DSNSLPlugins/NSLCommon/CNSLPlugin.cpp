@@ -2848,6 +2848,7 @@ sInt16 CNSLPlugin::NumOutstandingSearches( void )
 
 Boolean	 CNSLPlugin::OKToStartNewSearch( void )
 {
+#ifdef RESTRICT_NUMBER_OF_SEARCHES
     pthread_mutex_lock(&gOutstandingSearchesLock);
 
     Boolean		okToStartNewSearch = NumOutstandingSearches() < kMaxNumOutstandingSearches;
@@ -2860,6 +2861,9 @@ Boolean	 CNSLPlugin::OKToStartNewSearch( void )
         DBGLOG( "CNSLPlugin::OKToStartNewSearch is returning false (%d current searches)\n", gOutstandingSearches );
 
     return okToStartNewSearch; 
+#else
+	return true;
+#endif
 }
 
 void CNSLPlugin::StartSubNodeLookup( char* parentNodeName )

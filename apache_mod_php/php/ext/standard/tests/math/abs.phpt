@@ -3,7 +3,7 @@ Simple math tests
 --POST--
 --GET--
 --FILE--
-<?php // $Id: abs.phpt,v 1.1.1.2 2002/07/22 18:14:28 zarzycki Exp $
+<?php // $Id: abs.phpt,v 1.2.8.1 2003/09/24 02:29:12 iliaa Exp $
 
 define('LONG_MAX', is_int(5000000000)? 9223372036854775807 : 0x7FFFFFFF);
 define('LONG_MIN', -LONG_MAX - 1);
@@ -20,7 +20,7 @@ $tests = <<<TESTS
 -(LONG_MIN+1) === abs(LONG_MIN+1)
 TESTS;
 
-include('tests/quicktester.inc');
+include(dirname(__FILE__) . '/../../../../tests/quicktester.inc');
 --EXPECT--
 1,1,0,0
 OK

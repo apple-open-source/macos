@@ -54,6 +54,12 @@ PHP_FUNCTION(ircg_nickname_escape);
 PHP_FUNCTION(ircg_nickname_unescape);
 PHP_FUNCTION(ircg_get_username);
 PHP_FUNCTION(ircg_eval_ecmascript_params);
+PHP_FUNCTION(ircg_list);
+PHP_FUNCTION(ircg_who);
+PHP_FUNCTION(ircg_invite);
+PHP_FUNCTION(ircg_names);
+PHP_FUNCTION(ircg_lusers);
+PHP_FUNCTION(ircg_oper);
 
 PHP_MINIT_FUNCTION(ircg);
 PHP_MSHUTDOWN_FUNCTION(ircg);

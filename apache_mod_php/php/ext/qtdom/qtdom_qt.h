@@ -1,6 +1,6 @@
 // -*- Mode: C++ -*-
 //
-// $Id: qtdom_qt.h,v 1.1.1.2 2001/07/19 00:19:55 zarzycki Exp $
+// $Id: qtdom_qt.h,v 1.2 2001/01/04 12:29:07 amos Exp $
 //
 // Created on: <09-Nov-2000 12:00:24 root>
 //

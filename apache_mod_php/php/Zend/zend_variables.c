@@ -114,27 +114,31 @@ ZEND_API int _zval_copy_ctor(zval *zvalue ZEND_FILE_LINE_DC)
 		case IS_CONSTANT_ARRAY: {
 				zval *tmp;
 				HashTable *original_ht = zvalue->value.ht;
+				HashTable *tmp_ht = NULL;
 				TSRMLS_FETCH();
 
 				if (zvalue->value.ht == &EG(symbol_table)) {
 					return SUCCESS; /* do nothing */
 				}
-				ALLOC_HASHTABLE_REL(zvalue->value.ht);
-				zend_hash_init(zvalue->value.ht, 0, NULL, ZVAL_PTR_DTOR, 0);
-				zend_hash_copy(zvalue->value.ht, original_ht, (copy_ctor_func_t) zval_add_ref, (void *) &tmp, sizeof(zval *));
+				ALLOC_HASHTABLE_REL(tmp_ht);
+				zend_hash_init(tmp_ht, 0, NULL, ZVAL_PTR_DTOR, 0);
+				zend_hash_copy(tmp_ht, original_ht, (copy_ctor_func_t) zval_add_ref, (void *) &tmp, sizeof(zval *));
+				zvalue->value.ht = tmp_ht;
 			}
 			break;
 		case IS_OBJECT: {
 				zval *tmp;
 				HashTable *original_ht = zvalue->value.obj.properties;
+				HashTable *tmp_ht = NULL;
 				TSRMLS_FETCH();
 
 				if (zvalue->value.obj.properties == &EG(symbol_table)) {
 					return SUCCESS; /* do nothing */
 				}
-				ALLOC_HASHTABLE_REL(zvalue->value.obj.properties);
-				zend_hash_init(zvalue->value.obj.properties, 0, NULL, ZVAL_PTR_DTOR, 0);
-				zend_hash_copy(zvalue->value.obj.properties, original_ht, (copy_ctor_func_t) zval_add_ref, (void *) &tmp, sizeof(zval *));
+				ALLOC_HASHTABLE_REL(tmp_ht);
+				zend_hash_init(tmp_ht, 0, NULL, ZVAL_PTR_DTOR, 0);
+				zend_hash_copy(tmp_ht, original_ht, (copy_ctor_func_t) zval_add_ref, (void *) &tmp, sizeof(zval *));
+				zvalue->value.obj.properties = tmp_ht;
 			}
 			break;
 	}

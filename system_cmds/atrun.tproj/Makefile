@@ -16,7 +16,9 @@ HFILES = atrun.h
 
 CFILES = atrun.c
 
-OTHERSRCS = Makefile.preamble Makefile Makefile.dist atrun.8
+OTHERSRCS = Makefile.preamble Makefile Makefile.dist atrun.8 Makefile.postamble
+
+NEXTSTEP_PB_CFLAGS += -DDAEMON_UID=1 -DDAEMON_GID=1
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
@@ -30,7 +32,7 @@ DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
 
-HEADER_PATHS = -I../at
+HEADER_PATHS = -I../at.tproj
 
 
 NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc

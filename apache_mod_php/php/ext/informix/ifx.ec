@@ -21,7 +21,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: ifx.ec,v 1.1.1.8 2003/07/18 18:07:34 zarzycki Exp $ */
+/* $Id: ifx.ec,v 1.69.2.27 2004/06/01 00:52:14 abies Exp $ */
 
 /* -------------------------------------------------------------------
  * if you want a function reference : "grep '^\*\*' ifx.ec" will give
@@ -37,6 +37,10 @@
 /* prevent mod_ssl.h's header file from being included. */
 #define AP_HOOK_H
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include "php.h"
 #include "php_globals.h"
 #include "ext/standard/php_standard.h"
@@ -48,6 +52,12 @@
 
 #ifdef PHP_WIN32
 #include <winsock.h>
+#endif
+
+#ifdef ZTS
+#define IFX_THRD_ID tsrm_thread_id()
+#else
+#define IFX_THRD_ID 0
 #endif
 
 #if HAVE_SYS_TYPES_H
@@ -122,8 +132,10 @@ typedef char IFX[128];
 #define PHP_IFX_CHECK_CONNECTION(ifx)       \
         {                                   \
             if (ifx_check() < 0) {          \
+                char *ifx_err = ifx_error(ifx); \
                 IFXG(sv_sqlcode) = SQLCODE; \
-                php_error_docref(NULL TSRMLS_CC, E_WARNING, "Set connection %s fails (%s)", ifx, ifx_error(ifx)); \
+                php_error_docref(NULL TSRMLS_CC, E_WARNING, "Set connection %s fails (%s)", ifx, ifx_err); \
+                efree(ifx_err);		    \
                 RETURN_FALSE;               \
             }                               \
         }    
@@ -278,36 +290,75 @@ EXEC SQL END DECLARE SECTION;
 	return(ifx_err_msg);
 }
 
+static void ifx_do_close(link)
+EXEC SQL BEGIN DECLARE SECTION;
+	PARAMETER char *link;
+EXEC SQL END DECLARE SECTION;
+{
+	char *ifx_err = NULL;
+	TSRMLS_FETCH();
+
+	EXEC SQL SET CONNECTION :link;
+                
+	if (ifx_check() >= 0) {
+		EXEC SQL DISCONNECT :link;
+
+		/* check if were in a transaction */
+		if (SQLCODE == -1800)   {
+			EXEC SQL SET CONNECTION :link;
+			EXEC SQL ROLLBACK WORK;
+			if (ifx_check() == 0)   {
+				/* DISCONNECT again, after rollback */
+				EXEC SQL DISCONNECT :link;
+				if (ifx_check() < 0)   {
+					IFXG(sv_sqlcode) = SQLCODE;
+					php_error_docref(NULL TSRMLS_CC, E_WARNING, "Disconnect link %s after Automatic Rollback fails (%s)", link, (ifx_err = ifx_error(link)));
+				}
+			}
+			if (ifx_check() < 0)   {
+				/* CLOSE database if rollback or disconnect fails */
+				EXEC SQL CLOSE DATABASE;
+				if (ifx_check() < 0)   {
+					IFXG(sv_sqlcode) = SQLCODE;
+					php_error_docref(NULL TSRMLS_CC, E_WARNING, "Close database fails %s (%s)", link, (ifx_err = ifx_error(link)));
+				}
+			}
+		}
+		else if (SQLCODE < 0)   {
+			IFXG(sv_sqlcode) = SQLCODE;
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Disconnect link %s fails (%s)", link, (ifx_err = ifx_error(link)));
+		}
+	}       
+	else   {
+		IFXG(sv_sqlcode) = SQLCODE;
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Set connection %s fails (%s)", link, (ifx_err = ifx_error(link)));
+	}
+
+	if (ifx_err) {
+		efree(ifx_err);
+	}
+}
+
 static void _close_ifx_link(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 {
-EXEC SQL BEGIN DECLARE SECTION;
 	char *link;
-EXEC SQL END DECLARE SECTION;
 
 	link=(char *)rsrc->ptr;
 
-	EXEC SQL SET CONNECTION :link;
-	if (ifx_check() >= 0) {
-		EXEC SQL close database;
-		EXEC SQL DISCONNECT CURRENT;
-	}
+	ifx_do_close(link);
+
 	efree(link);
 	IFXG(num_links)--;
 }
 
 static void _close_ifx_plink(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 {
-EXEC SQL BEGIN DECLARE SECTION;
 	char *link;
-EXEC SQL END DECLARE SECTION;
 
 	link = (char *)rsrc->ptr;
 
-	EXEC SQL SET CONNECTION :link;
-	if (ifx_check() >= 0) {
-		EXEC SQL close database;
-		EXEC SQL DISCONNECT CURRENT;
-	}
+	ifx_do_close(link);
+
 	free(link);
 	IFXG(num_persistent)--;
 	IFXG(num_links)--;
@@ -497,13 +548,15 @@ EXEC SQL END DECLARE SECTION;
 			/* create the link */
 			ifx = (char *) malloc(sizeof(IFX));
 			IFXG(connectionid)++;
-			sprintf(ifx, "%s%x", SAFE_STRING(user), IFXG(connectionid));
+			sprintf(ifx, "%s%x_%x", SAFE_STRING(user), IFX_THRD_ID,IFXG(connectionid));
 			
 			EXEC SQL CONNECT TO :host AS :ifx USER :user USING :passwd WITH CONCURRENT TRANSACTION;  
 	
 			if (ifx_check() == IFX_ERROR) {
+				char *ifx_err = ifx_error(ifx);
 				IFXG(sv_sqlcode) = SQLCODE;
-				php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s", ifx_error(ifx));
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s", ifx_err);
+				efree(ifx_err);
 				free(ifx);
 				efree(hashed_details);
 				RETURN_FALSE;
@@ -531,9 +584,11 @@ EXEC SQL END DECLARE SECTION;
 				EXEC SQL CONNECT TO :host AS :ifx USER :user USING :passwd WITH CONCURRENT TRANSACTION;  
 				
 				if (ifx_check() == IFX_ERROR) {
+					char *ifx_err = ifx_error(ifx);
 					IFXG(sv_sqlcode) = SQLCODE;
-					php_error_docref(NULL TSRMLS_CC, E_WARNING, "Link to server lost, unable to reconnect (%s)", ifx_error(ifx));
+					php_error_docref(NULL TSRMLS_CC, E_WARNING, "Link to server lost, unable to reconnect (%s)", ifx_err);
 					zend_hash_del(&EG(persistent_list), hashed_details, hashed_details_length + 1);
+					efree(ifx_err);
 					efree(hashed_details);
 					RETURN_FALSE;
 				}
@@ -569,10 +624,12 @@ EXEC SQL END DECLARE SECTION;
 					EXEC SQL CONNECT TO :host AS :ifx USER :user USING :passwd WITH CONCURRENT TRANSACTION;  
 
 					if (ifx_check() == IFX_ERROR) {
+						char *ifx_err = ifx_error(ifx);
 						IFXG(sv_sqlcode) = SQLCODE;
-						php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to connect (%s)", ifx_error(ifx));
+						php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to connect (%s)", ifx_err);
 						zend_hash_del(&EG(regular_list), hashed_details, hashed_details_length + 1);
 						efree(hashed_details);
+						efree(ifx_err);
 						RETURN_FALSE;
 					}
 				}
@@ -594,13 +651,15 @@ EXEC SQL END DECLARE SECTION;
 
 		ifx = (char *) emalloc(sizeof(IFX));
 		IFXG(connectionid)++;
-		sprintf(ifx, "connec%x", IFXG(connectionid));
+		sprintf(ifx, "connec%x_%x", IFX_THRD_ID, IFXG(connectionid));
 		
 		EXEC SQL CONNECT TO :host AS :ifx USER :user USING :passwd WITH CONCURRENT TRANSACTION;
 
 		if (ifx_check() == IFX_ERROR) {
+			char *ifx_err = ifx_error(ifx);
 			IFXG(sv_sqlcode) = SQLCODE;
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s", ifx_error(ifx));
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s", ifx_err);
+			efree(ifx_err);
 			efree(hashed_details);
 			efree(ifx);
 			RETURN_FALSE;
@@ -622,7 +681,7 @@ EXEC SQL END DECLARE SECTION;
 	php_ifx_set_default_link(return_value->value.lval TSRMLS_CC);
 }
 
-/* {{{ proto int ifx_connect([string database [, string userid [, string password]]])
+/* {{{ proto resource ifx_connect([string database [, string userid [, string password]]])
    Connects to database using userid/password, returns connection id */
 PHP_FUNCTION(ifx_connect)
 {
@@ -630,7 +689,7 @@ PHP_FUNCTION(ifx_connect)
 }
 /* }}} */
 
-/* {{{ proto int ifx_pconnect([string database [, string userid [, string password]]])
+/* {{{ proto resource ifx_pconnect([string database [, string userid [, string password]]])
    Connects to database using userid/password, returns connection id */
 PHP_FUNCTION(ifx_pconnect)
 {
@@ -646,7 +705,7 @@ PHP_FUNCTION(ifx_pconnect)
 ** ----------------------------------------------------------------------
 */
 
-/* {{{ proto int ifx_close([int connid])
+/* {{{ proto bool ifx_close([resource connid])
    Close informix connection */
 PHP_FUNCTION(ifx_close)
 {
@@ -711,7 +770,7 @@ EXEC SQL END DECLARE SECTION;
 ** ----------------------------------------------------------------------
 */
 
-/* {{{ proto int ifx_query(string query, int connid [, int cursortype] [, array idarray])
+/* {{{ proto resource ifx_query(string query, resource connid [, int cursortype] [, array idarray])
    Perform a query on a given connection */
 PHP_FUNCTION(ifx_query)
 {
@@ -765,18 +824,20 @@ EXEC SQL END DECLARE SECTION;
 	statement = Z_STRVAL_PP(query);
 
 	IFXG(cursorid)++;
-	sprintf(statemid, "statem%x", IFXG(cursorid)); 
-	sprintf(cursorid, "cursor%x", IFXG(cursorid)); 
-	sprintf(descrpid, "descrp%x", IFXG(cursorid)); 
-	sprintf(i_descrpid, "i_descrp%x", IFXG(cursorid));
+	sprintf(statemid, "statem%x_%x", IFX_THRD_ID, IFXG(cursorid));
+	sprintf(cursorid, "cursor%x_%x", IFX_THRD_ID, IFXG(cursorid));
+	sprintf(descrpid, "descrp%x_%x", IFX_THRD_ID, IFXG(cursorid));
+	sprintf(i_descrpid, "i_descrp%x_%x", IFX_THRD_ID,IFXG(cursorid));
 
 	EXEC SQL set connection :ifx;
 	PHP_IFX_CHECK_CONNECTION(ifx);
 
 	EXEC SQL PREPARE :statemid FROM :statement;
 	if (ifx_check() < 0) {
+		char *ifx_err = ifx_error(ifx);
 		IFXG(sv_sqlcode) = SQLCODE;
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Prepare fails (%s)", ifx_error(ifx));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Prepare fails (%s)", ifx_err);
+		efree(ifx_err);
 		RETURN_FALSE;
 	}
 
@@ -807,10 +868,12 @@ EXEC SQL END DECLARE SECTION;
 	}
 
 	if (!php_intifx_alloc_ibind(Ifx_Result, num_params TSRMLS_CC))   {
+		char *ifx_err = ifx_error(ifx);
 		IFXG(sv_sqlcode) = SQLCODE;
 		EXEC SQL free :statemid;
 		efree(Ifx_Result);
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Allocate i_desciptor <%s> fails (%s)", i_descrpid, ifx_error(ifx));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Allocate i_desciptor <%s> fails (%s)", i_descrpid, ifx_err);
+		efree(ifx_err);
 		RETURN_FALSE;
 	}
 
@@ -821,18 +884,22 @@ EXEC SQL END DECLARE SECTION;
 
 	EXEC SQL ALLOCATE DESCRIPTOR :descrpid WITH MAX :desc_count;
 	if (ifx_check() < 0) {
+		char *ifx_err = ifx_error(ifx);
 		IFXG(sv_sqlcode) = SQLCODE;
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Allocate desciptor <%s> fails (%s)", descrpid, ifx_error(ifx));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Allocate desciptor <%s> fails (%s)", descrpid, ifx_err);
 		EXEC SQL free :statemid;
+		efree(ifx_err);
 		RETURN_FALSE;
 	}
 
 	EXEC SQL DESCRIBE :statemid USING SQL DESCRIPTOR :descrpid;
 	if (ifx_check() < 0) {
+		char *ifx_err = ifx_error(ifx);
 		IFXG(sv_sqlcode) = SQLCODE;
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Describe fails (%s)", ifx_error(ifx));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Describe fails (%s)", ifx_err);
 		EXEC SQL DEALLOCATE DESCRIPTOR :descrpid;
 		EXEC SQL free :statemid;
+		efree(ifx_err);
 		RETURN_FALSE;
 	}
 
@@ -923,7 +990,7 @@ EXEC SQL END DECLARE SECTION;
 						}
 						len++;
 
-						EXEC SQL SET DESCRIPTOR :descrpid VALUE :i 
+						EXEC SQL SET DESCRIPTOR :i_descrpid VALUE :i 
 							DATA= :char_tmp, 
 							LENGTH= :len, 
 							INDICATOR= :indicator, 
@@ -932,11 +999,13 @@ EXEC SQL END DECLARE SECTION;
 				}
 
 				if (ifx_check() < 0)   {
+					char *ifx_err = ifx_error(ifx);
 					IFXG(sv_sqlcode) = SQLCODE;
 					EXEC SQL DEALLOCATE DESCRIPTOR :i_descrpid;
 					EXEC SQL free :statemid;
 					efree(Ifx_Result);
-					php_error_docref(NULL TSRMLS_CC, E_WARNING, "Execute immediate fails : %s", ifx_error(ifx));
+					php_error_docref(NULL TSRMLS_CC, E_WARNING, "Execute immediate fails : %s", ifx_err);
+					efree(ifx_err);
 					RETURN_FALSE;
 				}
 
@@ -957,13 +1026,15 @@ EXEC SQL END DECLARE SECTION;
 		}
 
 		if (ifx_check() < 0) {
+			char *ifx_err = ifx_error(ifx);
 			IFXG(sv_sqlcode) = SQLCODE;
 			if (Ifx_Result->numicols > 0)   {
 				EXEC SQL DEALLOCATE DESCRIPTOR :i_descrpid;
 			}
 			EXEC SQL free :statemid;
 			efree(Ifx_Result);
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Execute immediate fails : %s", ifx_error(ifx));
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Execute immediate fails : %s", ifx_err);
+			efree(ifx_err);
 			RETURN_FALSE;
 		}
 		Ifx_Result->affected_rows = sqlca.sqlerrd[2]; /* really affected */
@@ -1000,11 +1071,13 @@ EXEC SQL END DECLARE SECTION;
 		
 		EXEC SQL GET DESCRIPTOR :descrpid :fieldcount = COUNT;
 		if (ifx_check() < 0) {
+			char *ifx_err = ifx_error(ifx);
 			IFXG(sv_sqlcode) = SQLCODE;
 			EXEC SQL DEALLOCATE DESCRIPTOR :descrpid;
 			EXEC SQL free :statemid;
 			efree(Ifx_Result);
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Can not get descriptor %s (%s)", descrpid, ifx_error(ifx));
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Can not get descriptor %s (%s)", descrpid, ifx_err);
+			efree(ifx_err);
 			RETURN_FALSE;
 		}
 
@@ -1037,22 +1110,26 @@ EXEC SQL END DECLARE SECTION;
 		}
 
 		if (ifx_check() < 0) {
+			char *ifx_err = ifx_error(ifx);
 			IFXG(sv_sqlcode) = SQLCODE;
 			EXEC SQL DEALLOCATE DESCRIPTOR :descrpid;
 			EXEC SQL free :statemid;
 			efree(Ifx_Result);
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Declare cursor fails (%s)", ifx_error(ifx));
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Declare cursor fails (%s)", ifx_err);
+			efree(ifx_err);
 			RETURN_FALSE;
 		}
 
 		EXEC SQL OPEN :cursorid;
 		if (ifx_check() < 0) {
+			char *ifx_err = ifx_error(ifx);
 			IFXG(sv_sqlcode) = SQLCODE;
 			EXEC SQL DEALLOCATE DESCRIPTOR :descrpid;
 			EXEC SQL free :statemid;
 			EXEC SQL free :cursorid;
 			efree(Ifx_Result);
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Open cursor fails (%s)", ifx_error(ifx));
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Open cursor fails (%s)", ifx_err);
+			efree(ifx_err);
 			RETURN_FALSE;
 		}
 
@@ -1123,7 +1200,7 @@ $endif;
 ** ----------------------------------------------------------------------
 */
 
-/* {{{ proto int ifx_prepare(string query, int connid [, int cursortype] [, array idarray])
+/* {{{ proto resource ifx_prepare(string query, resource connid [, int cursortype] [, array idarray])
    Prepare a query on a given connection */
 PHP_FUNCTION(ifx_prepare)
 {
@@ -1171,10 +1248,10 @@ EXEC SQL END DECLARE SECTION;
 	statement = Z_STRVAL_PP(query);
 
 	IFXG(cursorid)++;
-	sprintf(statemid, "statem%x", IFXG(cursorid)); 
-	sprintf(cursorid, "cursor%x", IFXG(cursorid)); 
-	sprintf(descrpid, "descrp%x", IFXG(cursorid)); 
-	sprintf(i_descrpid, "i_descrp%x", IFXG(cursorid));
+	sprintf(statemid, "statem%x_%x", IFX_THRD_ID, IFXG(cursorid));
+	sprintf(cursorid, "cursor%x_%x", IFX_THRD_ID, IFXG(cursorid));
+	sprintf(descrpid, "descrp%x_%x", IFX_THRD_ID, IFXG(cursorid));
+	sprintf(i_descrpid, "i_descrp%x_%x", IFX_THRD_ID,IFXG(cursorid));
 
 	EXEC SQL set connection :ifx;
 	PHP_IFX_CHECK_CONNECTION(ifx);
@@ -1215,10 +1292,12 @@ EXEC SQL END DECLARE SECTION;
 	}
 
 	if (!php_intifx_alloc_ibind(Ifx_Result, num_params TSRMLS_CC))   {
+		char *ifx_err = ifx_error(ifx);
 		IFXG(sv_sqlcode) = SQLCODE;
 		EXEC SQL free :statemid;
 		efree(Ifx_Result);
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Allocate i_desciptor <%s> fails (%s)", i_descrpid, ifx_error(ifx));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Allocate i_desciptor <%s> fails (%s)", i_descrpid, ifx_err);
+		efree(ifx_err);
 		RETURN_FALSE;
 	}
 
@@ -1229,18 +1308,22 @@ EXEC SQL END DECLARE SECTION;
 	
 	EXEC SQL ALLOCATE DESCRIPTOR :descrpid WITH MAX :desc_count;
 	if (ifx_check() < 0) {
+		char *ifx_err = ifx_error(ifx);
 		IFXG(sv_sqlcode) = SQLCODE;
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Allocate desciptor <%s> fails (%s)", descrpid, ifx_error(ifx));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Allocate desciptor <%s> fails (%s)", descrpid, ifx_err);
 		EXEC SQL free :statemid;
+		efree(ifx_err);
 		RETURN_FALSE;
 	}
 	
 	EXEC SQL DESCRIBE :statemid USING SQL DESCRIPTOR :descrpid;
 	if (ifx_check() < 0) {
+		char *ifx_err = ifx_error(ifx);
 		IFXG(sv_sqlcode) = SQLCODE;
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Describe fails (%s)", ifx_error(ifx));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Describe fails (%s)", ifx_err);
 		EXEC SQL DEALLOCATE DESCRIPTOR :descrpid;
 		EXEC SQL free :statemid;
+		efree(ifx_err);
 		RETURN_FALSE;
 	}
 
@@ -1342,11 +1425,13 @@ EXEC SQL END DECLARE SECTION;
 				}
 
 				if (ifx_check() < 0)   {
+					char *ifx_err = ifx_error(ifx);
 					IFXG(sv_sqlcode) = SQLCODE;
 					EXEC SQL DEALLOCATE DESCRIPTOR :i_descrpid;
 					EXEC SQL free :statemid;
 					efree(Ifx_Result);
-					php_error_docref(NULL TSRMLS_CC, E_WARNING, "Prepare fails : %s", ifx_error(ifx));
+					php_error_docref(NULL TSRMLS_CC, E_WARNING, "Prepare fails : %s", ifx_err);
+					efree(ifx_err);
 					RETURN_FALSE;
 				}
 
@@ -1399,11 +1484,13 @@ EXEC SQL END DECLARE SECTION;
 
 		EXEC SQL GET DESCRIPTOR :descrpid :fieldcount = COUNT;
 		if (ifx_check() < 0) {
+			char *ifx_err;
 			IFXG(sv_sqlcode) = SQLCODE;
 			EXEC SQL DEALLOCATE DESCRIPTOR :descrpid;
 			EXEC SQL free :statemid;
 			efree(Ifx_Result);
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Can not get descriptor %s (%s)", descrpid, ifx_error(ifx));
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Can not get descriptor %s (%s)", descrpid, (ifx_err = ifx_error(ifx)));
+			efree(ifx_err);
 			RETURN_FALSE;
 		}
 		Ifx_Result->numcols = fieldcount;
@@ -1434,7 +1521,7 @@ EXEC SQL END DECLARE SECTION;
 ** ----------------------------------------------------------------------
 */
 
-/* {{{ proto int ifx_do(int resultid)
+/* {{{ proto bool ifx_do(resource resultid)
    Executes a previously prepared query or opens a cursor for it */
 PHP_FUNCTION(ifx_do)
 {
@@ -1489,8 +1576,10 @@ EXEC SQL END DECLARE SECTION;
 			EXEC SQL EXECUTE :statemid;
 		}
 		if (ifx_check() < 0) {
+			char *ifx_err = ifx_error(ifx);
 			IFXG(sv_sqlcode) = SQLCODE;
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Execute immediate fails: %s", ifx_error(ifx));
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Execute immediate fails: %s", ifx_err);
+			efree(ifx_err);
 			RETURN_FALSE;
 		}
 		Ifx_Result->affected_rows = sqlca.sqlerrd[2]; /* really affected */
@@ -1513,15 +1602,19 @@ EXEC SQL END DECLARE SECTION;
 		}
 
 		if (ifx_check() < 0) {
+			char *ifx_err = ifx_error(ifx);
 			IFXG(sv_sqlcode) = SQLCODE;
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Declare cursor fails (%s)", ifx_error(ifx));
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Declare cursor fails (%s)", ifx_err);
+			efree(ifx_err);
 			RETURN_FALSE;
 		}
 
 		EXEC SQL OPEN :cursorid;
 		if (ifx_check() < 0) {
+			char *ifx_err = ifx_error(ifx);
 			IFXG(sv_sqlcode) = SQLCODE;
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Open cursor fails (%s)", ifx_error(ifx));
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Open cursor fails (%s)", ifx_err);
+			efree(ifx_err);
 			RETURN_FALSE;
 		}
 
@@ -1585,7 +1678,7 @@ $endif;
 ** ----------------------------------------------------------------------
 */
 
-/* {{{ proto string ifx_error([int connection_id])
+/* {{{ proto string ifx_error([resource connection_id])
    Returns the Informix error codes (SQLSTATE & SQLCODE) */
 PHP_FUNCTION(ifx_error)
 {
@@ -1681,7 +1774,7 @@ PHP_FUNCTION(ifx_errormsg)
 ** ---------------------------------------------------------------
 */
 
-/* {{{ proto int ifx_affected_rows(int resultid)
+/* {{{ proto int ifx_affected_rows(resource resultid)
    Returns the number of rows affected by query identified by resultid */
 PHP_FUNCTION(ifx_affected_rows)
 {
@@ -1712,7 +1805,7 @@ PHP_FUNCTION(ifx_affected_rows)
 ** ----------------------------------------------------------------------
 */
 
-/* {{{ proto array ifx_fetch_row(int resultid [, mixed position])
+/* {{{ proto array ifx_fetch_row(resource resultid [, mixed position])
    Fetches the next row or <position> row if using a scroll cursor */
 PHP_FUNCTION(ifx_fetch_row)
 {
@@ -1858,8 +1951,12 @@ EXEC SQL END DECLARE SECTION;
 		switch (ifx_check()) {
 			case IFX_ERROR:
 				IFXG(sv_sqlcode) = SQLCODE;
-				php_error_docref(NULL TSRMLS_CC, E_WARNING, "Can not fetch row on cursor %s (%s)", ifx_error(ifx), cursorid);
-				RETURN_FALSE;
+				{
+					char *ifx_err = ifx_error(ifx);
+					php_error_docref(NULL TSRMLS_CC, E_WARNING, "Can not fetch row on cursor %s (%s)", ifx_err, cursorid);
+					efree(ifx_err);
+					RETURN_FALSE;
+				}
 				break;
 			case IFX_NODATA:
 				RETURN_FALSE;
@@ -1882,8 +1979,10 @@ EXEC SQL END DECLARE SECTION;
 			:indicator = INDICATOR;
 
 		if (ifx_check() < 0) {
+			char *ifx_err = ifx_error(ifx);
 			IFXG(sv_sqlcode) = SQLCODE;
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Get descriptor (field # %d) fails (%s)", i, ifx_error(ifx));
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Get descriptor (field # %d) fails (%s)", i, ifx_err);
+			efree(ifx_err);
 			RETURN_FALSE;
 		}
 
@@ -2121,7 +2220,7 @@ $endif;
 ** ----------------------------------------------------------------------
 */
 
-/* {{{ proto int ifx_htmltbl_result(int resultid [, string htmltableoptions])
+/* {{{ proto int ifx_htmltbl_result(resource resultid [, string htmltableoptions])
    Formats all rows of the resultid query into a html table */
 PHP_FUNCTION(ifx_htmltbl_result)
 {
@@ -2208,7 +2307,11 @@ EXEC SQL END DECLARE SECTION;
 	switch (ifx_check()) {
 		case IFX_ERROR:
 			IFXG(sv_sqlcode) = SQLCODE;
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Can not fetch next row on cursor %s (%s)", ifx_error(ifx), cursorid);
+			{
+				char *ifx_err = ifx_error(ifx);
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "Can not fetch next row on cursor %s (%s)", ifx_err, cursorid);
+				efree(ifx_err);
+			}
 			RETURN_FALSE;
 			break;
 		case IFX_NODATA:
@@ -2237,8 +2340,10 @@ EXEC SQL END DECLARE SECTION;
 	for (i = 1; i <= num_fields; i++) {
 		EXEC SQL GET DESCRIPTOR :descrpid VALUE :i :fieldname = NAME;
 		if (ifx_check() < 0) {
+			char *ifx_err = ifx_error(ifx);
 			IFXG(sv_sqlcode) = SQLCODE;
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Get descriptor (field # %d) fails (%s)", i, ifx_error(ifx));
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Get descriptor (field # %d) fails (%s)", i, ifx_err);
+			efree(ifx_err);
 			RETURN_FALSE;
 		}
 
@@ -2264,8 +2369,10 @@ EXEC SQL END DECLARE SECTION;
 				:indicator = INDICATOR;
 
 			if (ifx_check() < 0) {
+				char *ifx_err = ifx_error(ifx);
 				IFXG(sv_sqlcode) = SQLCODE;
-				php_error_docref(NULL TSRMLS_CC, E_WARNING, "Get descriptor (field # %d) fails (%s)", i, ifx_error(ifx));
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "Get descriptor (field # %d) fails (%s)", i, ifx_err);
+				efree(ifx_err);
 				RETURN_FALSE;
 			}
 		
@@ -2436,7 +2543,11 @@ $endif;
 		switch (ifx_check()) {
 			case IFX_ERROR:
 				IFXG(sv_sqlcode) = SQLCODE;
-				php_error_docref(NULL TSRMLS_CC, E_WARNING, "Can not fetch next row on cursor %s (%s)", ifx_error(ifx), cursorid);
+				{
+					char *ifx_err = ifx_error(ifx);
+					php_error_docref(NULL TSRMLS_CC, E_WARNING, "Can not fetch next row on cursor %s (%s)", ifx_err, cursorid);
+					efree(ifx_err);
+				}
 				RETURN_FALSE;
 				break;
 			case IFX_NODATA:
@@ -2462,7 +2573,7 @@ $endif;
 ** ----------------------------------------------------------------------
 */
 
-/* {{{ proto array ifx_fieldtypes(int resultid)
+/* {{{ proto array ifx_fieldtypes(resource resultid)
    Returns an associative array with fieldnames as key for query <resultid> */
 PHP_FUNCTION(ifx_fieldtypes)
 {
@@ -2486,9 +2597,9 @@ EXEC SQL END DECLARE SECTION;
 	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &result) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
-    
+
 	IFXG(sv_sqlcode) = 0;
-    
+
 	ZEND_FETCH_RESOURCE(Ifx_Result, IFX_RES *, result, -1, "Informix Result", le_result);
 
 	if (strcmp(Ifx_Result->cursorid, "") == 0) {
@@ -2510,8 +2621,10 @@ EXEC SQL END DECLARE SECTION;
 	for (i = 1; i <= num_fields; i++) {
 		EXEC SQL GET DESCRIPTOR :descrpid VALUE :i :fieldname = NAME, :fieldtype = TYPE;
 		if (ifx_check() < 0) {
+			char *ifx_err = ifx_error(ifx);
 			IFXG(sv_sqlcode) = SQLCODE;
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Get descriptor (field # %d) fails (%s)", i, ifx_error(ifx));
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Get descriptor (field # %d) fails (%s)", i, ifx_err);
+			efree(ifx_err);
 			RETURN_FALSE;
 		}
 
@@ -2613,7 +2726,7 @@ $endif;
 ** ----------------------------------------------------------------------
 */
 
-/* {{{ proto array ifx_fieldproperties(int resultid)
+/* {{{ proto array ifx_fieldproperties(resource resultid)
    Returns an associative for query <resultid> array with fieldnames as key */
 PHP_FUNCTION(ifx_fieldproperties)
 {
@@ -2673,8 +2786,10 @@ EXEC SQL END DECLARE SECTION;
 													:isnullable = NULLABLE;
 
 		if (ifx_check() < 0) {
+			char *ifx_err = ifx_error(ifx);
 			IFXG(sv_sqlcode) = SQLCODE;
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Get descriptor (field # %d) fails (%s)", i, ifx_error(ifx));
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Get descriptor (field # %d) fails (%s)", i, ifx_err);
+			efree(ifx_err);
 			RETURN_FALSE;
 		}
 		
@@ -2771,7 +2886,7 @@ $endif;
 ** ---------------------------------------------------------------
 */
 
-/* {{{ proto int ifx_num_rows(int resultid)
+/* {{{ proto int ifx_num_rows(resource resultid)
    Returns the number of rows already fetched for query identified by resultid */
 PHP_FUNCTION(ifx_num_rows)
 {
@@ -2799,7 +2914,7 @@ PHP_FUNCTION(ifx_num_rows)
 ** ---------------------------------------------------------------
 */
 
-/* {{{ proto int ifx_getsqlca(int resultid)
+/* {{{ proto array ifx_getsqlca(resource resultid)
    Returns the sqlerrd[] fields of the sqlca struct for query resultid */
 PHP_FUNCTION(ifx_getsqlca)
 {
@@ -2836,7 +2951,7 @@ PHP_FUNCTION(ifx_getsqlca)
 ** ----------------------------------------------------------------------
 */
 
-/* {{{ proto int ifx_num_fields(int resultid)
+/* {{{ proto int ifx_num_fields(resource resultid)
    Returns the number of columns in query resultid */
 PHP_FUNCTION(ifx_num_fields)
 {
@@ -2864,7 +2979,7 @@ PHP_FUNCTION(ifx_num_fields)
 ** ----------------------------------------------------------------------
 */
 
-/* {{{ proto int ifx_free_result(int resultid)
+/* {{{ proto bool ifx_free_result(resource resultid)
    Releases resources for query associated with resultid */
 PHP_FUNCTION(ifx_free_result)
 {
@@ -2883,7 +2998,7 @@ EXEC SQL END DECLARE SECTION;
 	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &result) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
-    
+
 	IFXG(sv_sqlcode = 0);
 
 	ZEND_FETCH_RESOURCE(Ifx_Result, IFX_RES *, result, -1, "Informix Result", le_result);
@@ -2899,8 +3014,8 @@ EXEC SQL END DECLARE SECTION;
 	cursorid   = Ifx_Result->cursorid;
 	statemid   = Ifx_Result->statemid;
 	descrpid   = Ifx_Result->descrpid;
-    
-    EXEC SQL set connection :ifx;
+
+	EXEC SQL set connection :ifx;
 	PHP_IFX_CHECK_CONNECTION(ifx);
 
 	EXEC SQL free :statemid;
@@ -3043,20 +3158,19 @@ static long php_intifx_create_blob(long type, long mode, char* param, long len, 
 
 		if (*param && param != "") {
 
-			char *filename;
-
+			/* 
+			 * copy the filename in param to filename in loc_fname 
+			 * otherwise we'll unlink non-temporary files
+			 * 
+			 * loc_fname gets filled by php_intifx_init_blob_infile
+			 */
 			if (Ifx_blob->BLOB.blob_data.loc_fname != NULL) {
-				unlink(Ifx_blob->BLOB.blob_data.loc_fname);
-				efree(Ifx_blob->BLOB.blob_data.loc_fname);
+				if (php_copy_file(param, Ifx_blob->BLOB.blob_data.loc_fname TSRMLS_CC) == FAILURE)   {
+					php_error_docref(NULL TSRMLS_CC, E_WARNING, "Could not create blob-resource file. File copy failed: %s", param);
+					return -1;
+				}
+				Ifx_blob->BLOB.blob_data.loc_size = -1;
 			}
-			if ((filename = emalloc(len + 1)) == NULL)  {
-				php_error_docref(NULL TSRMLS_CC, E_WARNING, "Can't create blob-resource");
-				return -1;
-			}
-			memcpy(filename, param, len);
-			filename[len] = 0;
-			Ifx_blob->BLOB.blob_data.loc_fname = filename;
-			Ifx_blob->BLOB.blob_data.loc_size = -1;
 		}
 	}
 
@@ -3102,6 +3216,8 @@ static long php_intifx_init_blob_inmem(loc_t *blob, long new TSRMLS_DC)
 static long php_intifx_init_blob_infile(loc_t *blob, long new TSRMLS_DC)
 {
 	char *filename;
+
+	blob->loc_loctype = LOCFNAME;
 
 	if (new) {
 
@@ -3646,7 +3762,7 @@ static long php_intifx_count_descriptors(char *p_statemid TSRMLS_DC)
 	if (ifx_check() >= 0)   {
 
 		ret = s_da->sqld;
-               
+
 		/*
 		 * Thanks to DBD-Informix
 		 */
@@ -3671,7 +3787,7 @@ static long php_intifx_count_descriptors(char *p_statemid TSRMLS_DC)
 ** ----------------------------------------------------------------------
 */
 
-/* {{{ proto void ifx_blobinfile_mode(int mode)
+/* {{{ proto bool ifx_blobinfile_mode(int mode)
    Sets the default blob-mode for all select-queries  */
 PHP_FUNCTION(ifx_blobinfile_mode) 
 {
@@ -3697,7 +3813,7 @@ PHP_FUNCTION(ifx_blobinfile_mode)
 ** ----------------------------------------------------------------------
 */
 
-/* {{{ proto void ifx_textasvarchar(int mode)
+/* {{{ proto bool ifx_textasvarchar(int mode)
    Sets the default text-mode for all select-queries */
 PHP_FUNCTION(ifx_textasvarchar) 
 {
@@ -3723,7 +3839,7 @@ PHP_FUNCTION(ifx_textasvarchar)
 ** ----------------------------------------------------------------------
 */
 
-/* {{{ proto void ifx_byteasvarchar(int mode)
+/* {{{ proto bool ifx_byteasvarchar(int mode)
    Sets the default byte-mode for all select-queries  */
 PHP_FUNCTION(ifx_byteasvarchar) 
 {
@@ -3748,7 +3864,7 @@ PHP_FUNCTION(ifx_byteasvarchar)
 ** ----------------------------------------------------------------------
 */
 
-/* {{{ proto void ifx_nullformat(int mode)
+/* {{{ proto bool ifx_nullformat(int mode)
    Sets the default return value of a NULL-value on a fetch-row  */
 PHP_FUNCTION(ifx_nullformat)
 {
@@ -3920,7 +4036,7 @@ static long php_intifx_get_char(long bid, HashTable *list, char** content TSRMLS
 ** ----------------------------------------------------------------------
 */
 
-/* {{{ proto int ifx_free_char(int bid)
+/* {{{ proto bool ifx_free_char(int bid)
    Deletes the char-object */
 PHP_FUNCTION(ifx_free_char) 
 {
@@ -3978,7 +4094,7 @@ static long php_intifx_free_char(long bid, HashTable *list TSRMLS_DC)
 ** ----------------------------------------------------------------------
 */
 
-/* {{{ proto int ifx_update_char(int bid, string content)
+/* {{{ proto bool ifx_update_char(int bid, string content)
    Updates the content of the char-object */
 PHP_FUNCTION(ifx_update_char)
 {
@@ -4142,7 +4258,7 @@ static long php_intifxus_create_slob(long create_mode, HashTable *list TSRMLS_DC
 ** ----------------------------------------------------------------------
 */
 
-/* {{{ proto int ifxus_free_slob(int bid)
+/* {{{ proto bool ifxus_free_slob(int bid)
    Deletes the slob-object */
 PHP_FUNCTION(ifxus_free_slob) 
 {
@@ -4204,7 +4320,7 @@ static long php_intifxus_free_slob(long bid, HashTable *list TSRMLS_DC)
 ** ----------------------------------------------------------------------
 */
 
-/* {{{ proto int ifxus_close_slob(int bid)
+/* {{{ proto bool ifxus_close_slob(int bid)
    Deletes the slob-object */
 PHP_FUNCTION(ifxus_close_slob)
 {
@@ -4267,7 +4383,7 @@ static long php_intifxus_close_slob(long bid, HashTable *list TSRMLS_DC)
 ** ----------------------------------------------------------------------
 */
 
-/* {{{ proto int ifxus_open_slob(long bid, int mode)
+/* {{{ proto int ifxus_open_slob(int bid, int mode)
    Opens an slob-object */
 PHP_FUNCTION(ifxus_open_slob)
 {
@@ -4397,7 +4513,7 @@ static ifx_lo_t *php_intifxus_get_slobloc(long bid, HashTable *list TSRMLS_DC)
 ** ----------------------------------------------------------------------
 */
 
-/* {{{ proto int ifxus_tell_slob(long bid)
+/* {{{ proto int ifxus_tell_slob(int bid)
    Returns the current file or seek position of an open slob-object */
 PHP_FUNCTION(ifxus_tell_slob)
 {
@@ -4444,7 +4560,7 @@ PHP_FUNCTION(ifxus_tell_slob)
 ** ----------------------------------------------------------------------
 */
 
-/* {{{ proto int ifxus_seek_slob(long bid, int mode, long offset)
+/* {{{ proto int ifxus_seek_slob(int bid, int mode, long offset)
    Sets the current file or seek position of an open slob-object */
 PHP_FUNCTION(ifxus_seek_slob)
 {
@@ -4500,7 +4616,7 @@ PHP_FUNCTION(ifxus_seek_slob)
 ** ----------------------------------------------------------------------
 */
 
-/* {{{ proto int ifxus_read_slob(long bid, long nbytes)
+/* {{{ proto string ifxus_read_slob(int bid, int nbytes)
    Reads nbytes of the slob-object */
 PHP_FUNCTION(ifxus_read_slob) 
 {
@@ -4545,7 +4661,7 @@ PHP_FUNCTION(ifxus_read_slob)
 ** ----------------------------------------------------------------------
 */
 
-/* {{{ proto int ifxus_write_slob(long bid, string content)
+/* {{{ proto int ifxus_write_slob(int bid, string content)
    Writes a string into the slob-object */
 PHP_FUNCTION(ifxus_write_slob) 
 {

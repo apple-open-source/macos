@@ -1,9 +1,12 @@
 dnl
-dnl $Id: config.m4,v 1.1.1.8 2003/07/18 18:07:41 zarzycki Exp $
+dnl $Id: config.m4,v 1.28.2.3 2003/09/23 08:16:47 sniper Exp $
 dnl
 
 PHP_ARG_WITH(snmp,for SNMP support,
 [  --with-snmp[=DIR]       Include SNMP support.])
+
+PHP_ARG_WITH(openssl-dir,OpenSSL dir for SNMP,
+[  --with-openssl-dir[=DIR]  SNMP: openssl install prefix.], no, no)
 
 if test "$PHP_SNMP" != "no"; then
 
@@ -77,13 +80,18 @@ if test "$PHP_SNMP" != "no"; then
     AC_MSG_RESULT($SNMP_SSL)
   
     if test "$SNMP_SSL" = "yes"; then
-      if test "$PHP_OPENSSL" != "no"; then
-        PHP_ADD_LIBRARY(ssl,   1, SNMP_SHARED_LIBADD)
-        PHP_ADD_LIBRARY(crypto,1, SNMP_SHARED_LIBADD)
-      else
-        AC_MSG_ERROR(The UCD-SNMP in this system is built with SSL support. 
+      if test "$PHP_OPENSSL_DIR" != "no"; then
+        PHP_OPENSSL=$PHP_OPENSSL_DIR
+      fi
+      
+      if test "$PHP_OPENSSL" = "no"; then
+        AC_MSG_ERROR([The UCD-SNMP in this system is built with SSL support. 
 
-        Add --with-openssl<=DIR> to your configure line.)
+        Add --with-openssl-dir=DIR to your configure line.])
+      else
+        PHP_SETUP_OPENSSL(SNMP_SHARED_LIBADD, [], [
+          AC_MSG_ERROR([SNMP: OpenSSL check failed. Please check config.log for more information.])
+        ])
       fi
     fi
 
@@ -93,8 +101,15 @@ if test "$PHP_SNMP" != "no"; then
     SNMP_LIBNAME=snmp
   fi
 
-  AC_CHECK_FUNCS(snmp_parse_oid)
+  dnl Check whether snmp_parse_oid() exists.
+  PHP_CHECK_LIBRARY($SNMP_LIBNAME, snmp_parse_oid,
+  [
+    AC_DEFINE(HAVE_SNMP_PARSE_OID, 1, [ ])
+  ], [], [
+    $SNMP_SHARED_LIBADD
+  ])
 
+  dnl Test build.
   PHP_CHECK_LIBRARY($SNMP_LIBNAME, init_snmp,
   [
     AC_DEFINE(HAVE_SNMP,1,[ ])

@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.1.1.3 2003/03/11 01:09:27 zarzycki Exp $
+dnl $Id: config.m4,v 1.13.2.4 2003/12/09 20:33:22 sniper Exp $
 dnl
 
 PHP_ARG_WITH(ncurses, for ncurses support,
@@ -7,21 +7,24 @@ PHP_ARG_WITH(ncurses, for ncurses support,
 
 if test "$PHP_NCURSES" != "no"; then
 
-   # --with-ncurses -> check with-path
-   SEARCH_PATH="/usr/local /usr"     
-   SEARCH_FOR="/include/curses.h"
+   SEARCH_PATH="$PHP_NCURSES /usr/local /usr"     
 
-   if test -r $PHP_NCURSES/; then # path given as parameter
-     NCURSES_DIR=$PHP_NCURSES
-   else # search default path list
-     AC_MSG_CHECKING(for ncurses files in default path)
-     for i in $SEARCH_PATH ; do
-       if test -r $i/$SEARCH_FOR; then
-         NCURSES_DIR=$i
-         AC_MSG_RESULT(found in $i)
+   for dir in $SEARCH_PATH; do
+    for subdir in include/ncurses include; do
+     if test -d $dir/$subdir; then
+       if test -r $dir/$subdir/ncurses.h; then
+         NCURSES_DIR=$dir
+         NCURSES_INCDIR=$dir/$subdir
+         AC_DEFINE(HAVE_NCURSES_H,1,[ ])
+         break 2
+       elif test -r $dir/$subdir/curses.h; then
+         NCURSES_DIR=$dir
+         NCURSES_INCDIR=$dir/$subdir
+         break 2
        fi
-     done
-   fi
+     fi
+    done
+   done
   
    if test -z "$NCURSES_DIR"; then
      AC_MSG_RESULT(not found)
@@ -29,7 +32,7 @@ if test "$PHP_NCURSES" != "no"; then
    fi
 
    # --with-ncurses -> add include path
-   PHP_ADD_INCLUDE($NCURSES_DIR/include)
+   PHP_ADD_INCLUDE($NCURSES_INCDIR)
 
    # --with-ncurses -> chech for lib and symbol presence
    LIBNAME=ncurses 
@@ -37,17 +40,14 @@ if test "$PHP_NCURSES" != "no"; then
 
    PHP_CHECK_LIBRARY($LIBNAME, $LIBSYMBOL, [
      AC_DEFINE(HAVE_NCURSESLIB,1,[ ])
-	 
-	 PHP_ADD_LIBRARY_WITH_PATH($LIBNAME, $NCURSES_DIR/lib, NCURSES_SHARED_LIBADD)
+     PHP_ADD_LIBRARY_WITH_PATH($LIBNAME, $NCURSES_DIR/lib, NCURSES_SHARED_LIBADD)
 
      PHP_CHECK_LIBRARY(panel, new_panel, [
-   	   AC_DEFINE(HAVE_NCURSES_PANEL,1,[ ])
-	   PHP_ADD_LIBRARY_WITH_PATH(panel, $NCURSES_DIR/lib, NCURSES_SHARED_LIBADD)
-     ], [
-     ], [ -L$NCURSES_DIR/lib -l$LIBNAME -lm
+       AC_DEFINE(HAVE_NCURSES_PANEL,1,[ ])
+       PHP_ADD_LIBRARY_WITH_PATH(panel, $NCURSES_DIR/lib, NCURSES_SHARED_LIBADD)
+     ], [], [ 
+       -L$NCURSES_DIR/lib -l$LIBNAME -lm
      ])
-	
-
    ], [
      AC_MSG_ERROR(Wrong ncurses lib version or lib not found)
    ], [
@@ -56,7 +56,7 @@ if test "$PHP_NCURSES" != "no"; then
  
    AC_CHECK_LIB($LIBNAME, color_set,   [AC_DEFINE(HAVE_NCURSES_COLOR_SET,  1, [ ])])
    AC_CHECK_LIB($LIBNAME, slk_color,   [AC_DEFINE(HAVE_NCURSES_SLK_COLOR,  1, [ ])])
-   AC_CHECK_LIB($LIBNAME, asume_default_colors,   [AC_DEFINE(HAVE_NCURSES_ASSUME_DEFAULT_COLORS,  1, [ ])])
+   AC_CHECK_LIB($LIBNAME, assume_default_colors,   [AC_DEFINE(HAVE_NCURSES_ASSUME_DEFAULT_COLORS,  1, [ ])])
    AC_CHECK_LIB($LIBNAME, use_extended_names,   [AC_DEFINE(HAVE_NCURSES_USE_EXTENDED_NAMES,  1, [ ])])
 
    PHP_NEW_EXTENSION(ncurses, ncurses.c ncurses_fe.c ncurses_functions.c, $ext_shared, cli)

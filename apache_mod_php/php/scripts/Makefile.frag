@@ -10,8 +10,8 @@ BUILD_FILES = \
 	scripts/phpize.m4 \
 	build/mkdep.awk \
 	build/shtool \
+	build/scan_makefile_in.awk \
 	Makefile.global \
-	scan_makefile_in.awk \
 	acinclude.m4
 
 bin_SCRIPTS = phpize php-config
@@ -20,7 +20,7 @@ bin_src_SCRIPTS = phpextdist
 install-build:
 	@echo "Installing build environment:     $(INSTALL_ROOT)$(phpbuilddir)/"
 	@$(mkinstalldirs) $(INSTALL_ROOT)$(phpbuilddir) $(INSTALL_ROOT)$(bindir) && \
-	(cd $(top_srcdir) && cp $(BUILD_FILES) $(INSTALL_ROOT)$(phpbuilddir))
+	(cd $(top_srcdir) && $(INSTALL) $(BUILD_FILES) $(INSTALL_ROOT)$(phpbuilddir))
 
 HEADER_DIRS = \
 	/ \
@@ -32,6 +32,8 @@ HEADER_DIRS = \
 	ext/xml/expat \
 	main \
 	ext/mbstring \
+	ext/mbstring/libmbfl \
+	ext/mbstring/libmbfl/mbfl \
 	ext/pgsql \
 	regex
 
@@ -42,20 +44,20 @@ install-headers:
 	$(mkinstalldirs) $$paths && \
 	echo "Installing header files:          $(INSTALL_ROOT)$(phpincludedir)/" && \
 	for i in $(HEADER_DIRS); do \
-		(cd $(top_srcdir)/$$i && cp -p *.h $(INSTALL_ROOT)$(phpincludedir)/$$i; \
-		cd $(top_builddir)/$$i && cp -p *.h $(INSTALL_ROOT)$(phpincludedir)/$$i) 2>/dev/null || true; \
+		(cd $(top_srcdir)/$$i && $(INSTALL_DATA) *.h $(INSTALL_ROOT)$(phpincludedir)/$$i; \
+		cd $(top_builddir)/$$i && $(INSTALL_DATA) *.h $(INSTALL_ROOT)$(phpincludedir)/$$i) 2>/dev/null || true; \
 	done; \
-	cd $(top_srcdir)/sapi/embed && cp -p *.h $(INSTALL_ROOT)$(phpincludedir)/main
+	cd $(top_srcdir)/sapi/embed && $(INSTALL_DATA) *.h $(INSTALL_ROOT)$(phpincludedir)/main
 
-install-programs:
+install-programs: $(builddir)/phpize $(builddir)/php-config 
 	@echo "Installing helper programs:       $(INSTALL_ROOT)$(bindir)/"
 	@for prog in $(bin_SCRIPTS); do \
-		echo "  program: $$prog"; \
-		$(INSTALL) -m 755 $(builddir)/$$prog $(INSTALL_ROOT)$(bindir)/$$prog; \
+		echo "  program: $(program_prefix)$$prog$(program_suffix)"; \
+		$(INSTALL) -m 755 $(builddir)/$$prog $(INSTALL_ROOT)$(bindir)/$(program_prefix)$$prog$(program_suffix); \
 	done
 	@for prog in $(bin_src_SCRIPTS); do \
-		echo "  program: $$prog"; \
-		$(INSTALL) -m 755 $(top_srcdir)/scripts/$$prog $(INSTALL_ROOT)$(bindir)/$$prog; \
+		echo "  program: $(program_prefix)$$prog$(program_suffix)"; \
+		$(INSTALL) -m 755 $(top_srcdir)/scripts/$$prog $(INSTALL_ROOT)$(bindir)/$(program_prefix)$$prog$(program_suffix); \
 	done
 
 $(builddir)/phpize: $(srcdir)/phpize.in $(top_builddir)/config.status

@@ -33,7 +33,9 @@
 #include <IOKit/IODeviceMemory.h>
 #include <IOKit/IOPlatformExpert.h>
 #include <IOKit/ppc/IODBDMA.h>
+#include <IOKit/pci/IOPCIDevice.h>
 
+#include "IOPlatformFunction.h"
 #include "KeyLargo.h"
 #include "AppleKeyLargo.h"
 
@@ -62,13 +64,29 @@ bool AppleKeyLargo::start(IOService *provider)
 {
 	OSData          *tmpData;
 
+	const OSSymbol	*instantiate = OSSymbol::withCString("InstantiatePlatformFunctions");
+	IOReturn		retval;
+	UInt32			flags;
+	IOPlatformFunction *func;
+	UInt32			i;
+
+	fProvider = provider;
+	tmpData = (OSData *) fProvider->getProperty( "AAPL,phandle" );
+	if(tmpData)
+		fPHandle = *((UInt32 *) tmpData->getBytesNoCopy());
+	
 	// if this is mac-io (as opposed to ext-mac-io) save a reference to it
 	tmpData = OSDynamicCast(OSData, provider->getProperty("name"));
 	if (tmpData == 0) return false;
   
 	if (tmpData->isEqualTo ("mac-io", strlen ("mac-io")))
 	gHostKeyLargo = this;
-	
+
+	if (OSDynamicCast(OSData, provider->getProperty("include-k2-support")) == 0)
+		gPreserveIODeviceTree = FALSE;
+	else
+		gPreserveIODeviceTree = TRUE;
+
 	// callPlatformFunction symbols
 	keyLargo_resetUniNEthernetPhy = OSSymbol::withCString("keyLargo_resetUniNEthernetPhy");
 	keyLargo_restoreRegisterState = OSSymbol::withCString("keyLargo_restoreRegisterState");
@@ -86,7 +104,10 @@ bool AppleKeyLargo::start(IOService *provider)
 	keyLargo_powerI2S = OSSymbol::withCString("keyLargo_powerI2S");
 	keyLargo_setPowerSupply = OSSymbol::withCString("setPowerSupply");
 	keyLargo_EnableI2SModem = OSSymbol::withCString("EnableI2SModem");
- 
+
+	mac_io_publishChildren = OSSymbol::withCString("mac-io-publishChildren");
+	mac_io_publishChild = OSSymbol::withCString("mac-io-publishChild");
+
 	// Call KeyLargo's start.
 	if (!super::start(provider))
 		return false;
@@ -96,6 +117,9 @@ bool AppleKeyLargo::start(IOService *provider)
   
 	enableCells();
 
+	// initialize for Power Management
+	initForPM(provider);
+  
 	// Make nubs for the children.
 	publishBelow(provider);
 
@@ -108,11 +132,7 @@ bool AppleKeyLargo::start(IOService *provider)
 	registerService();
   
   
-	// initialize for Power Management
-	initForPM(provider);
-  
 	// creates the USBPower handlers:
-	UInt32 i;
 	for (i = 0; i < fNumUSB; i++) {
 		usbBus[i] = new USBKeyLargo;
     
@@ -124,6 +144,39 @@ bool AppleKeyLargo::start(IOService *provider)
 		}
 	}
 
+	if (gPreserveIODeviceTree == TRUE)	{
+		// Scan for platform-do-xxx functions
+		fPlatformFuncArray = NULL;
+		UInt32 count;
+	
+		retval = provider->getPlatform()->callPlatformFunction(instantiate, true,
+					(void *)provider, (void *)&fPlatformFuncArray, (void *)0, (void *)0);
+
+		if (retval == kIOReturnSuccess && (fPlatformFuncArray != NULL)) {
+         	if ((count = fPlatformFuncArray->getCount()) > 0) {
+				for (i = 0; i < count; i++) {
+					if (func = OSDynamicCast(IOPlatformFunction, fPlatformFuncArray->getObject(i))) {
+						flags = func->getCommandFlags();
+
+						// If this function is flagged to be performed at initialization, do it
+						if (flags & kIOPFFlagOnInit) {
+							performFunction(func, (void *)1, (void *)0, (void *)0, (void *)0);
+						}
+
+						if ((flags & kIOPFFlagOnDemand) || ((flags & kIOPFFlagIntGen))) {
+							// On-Demand and IntGen functions need to have a resource published
+							func->publishPlatformFunction(this);
+						}
+					}
+					else {
+						// This function won't be used -- generate a warning
+						kprintf("AppleKeyLargo::start() - functionCheck - not an IOPlatformFunction object\n");
+					}
+				}
+			}
+    	}
+	}
+	
 	return true;
 }
 
@@ -1096,6 +1149,21 @@ IOReturn AppleKeyLargo::callPlatformFunction(const OSSymbol *functionName,
                                         void *param1, void *param2,
                                         void *param3, void *param4)
 {  
+	if ((fPlatformFuncArray) && (gPreserveIODeviceTree == TRUE))	{
+		UInt32 i;
+		IOPlatformFunction *pfFunc;
+		UInt32 count = fPlatformFuncArray->getCount();
+		
+		for (i = 0; i < count; i++) {
+			if (pfFunc = OSDynamicCast(IOPlatformFunction, fPlatformFuncArray->getObject(i))) {
+				// Check for on-demand case
+				if (pfFunc->platformFunctionMatch (functionName, kIOPFFlagOnDemand, NULL)) {
+					return (performFunction (pfFunc, param1, param2, param3, param4) ? kIOReturnSuccess : kIOReturnBadArgument);
+				}
+			}
+		}
+    }
+    
     if (functionName == keyLargo_resetUniNEthernetPhy)
     {
         resetUniNEthernetPhy();
@@ -1230,6 +1298,23 @@ IOReturn AppleKeyLargo::callPlatformFunction(const OSSymbol *functionName,
         return kIOReturnSuccess;
     }
 
+    if (gPreserveIODeviceTree == TRUE) {
+        if (functionName == mac_io_publishChildren) {
+            if (publishChildren((IOService *)param1,(IOService *(*)(IORegistryEntry *))param2)) {
+                return kIOReturnSuccess;
+            }
+            return kIOReturnError;
+        }
+
+        if (functionName == mac_io_publishChild) {
+            if (publishChild((IOService *)param1, (IORegistryEntry *)param2,
+                             (IOService *(*)(IORegistryEntry *))param3)) {
+                return kIOReturnSuccess;
+            }
+            return kIOReturnError;
+        }
+	}
+    
     if (functionName == keyLargo_EnableI2SModem)
     {
         EnableI2SModem((bool)param1);
@@ -1460,22 +1545,22 @@ void AppleKeyLargo::PowerModem(bool state)
 
 void AppleKeyLargo::ModemResetLow()
 {
-	*(UInt8*)(keyLargoBaseAddress + kKeyLargoGPIOBase + 0x3) |= 0x04;	// Set GPIO3_DDIR to output
-	eieio();
-	*(UInt8*)(keyLargoBaseAddress + kKeyLargoGPIOBase + 0x3) &= ~0x01;	// Set GPIO3_DataOut output to zero
-	eieio();
-	
-	return;
+    *(UInt8*)(keyLargoBaseAddress + kKeyLargoGPIOBase + 0x3) |= 0x04;	// Set GPIO3_DDIR to output
+    eieio();
+    *(UInt8*)(keyLargoBaseAddress + kKeyLargoGPIOBase + 0x3) &= ~0x01;	// Set GPIO3_DataOut output to zero
+    eieio();
+
+    return;
 }
 
 void AppleKeyLargo::ModemResetHigh()
 {
-	*(UInt8*)(keyLargoBaseAddress + kKeyLargoGPIOBase + 0x3) |= 0x04;	// Set GPIO3_DDIR to output
-	eieio();
-	*(UInt8*)(keyLargoBaseAddress + kKeyLargoGPIOBase + 0x3) |= 0x01;	// Set GPIO3_DataOut output to 1
-	eieio();
-	
-	return;
+    *(UInt8*)(keyLargoBaseAddress + kKeyLargoGPIOBase + 0x3) |= 0x04;	// Set GPIO3_DDIR to output
+    eieio();
+    *(UInt8*)(keyLargoBaseAddress + kKeyLargoGPIOBase + 0x3) |= 0x01;	// Set GPIO3_DataOut output to 1
+    eieio();
+    
+    return;
 }
 
 void AppleKeyLargo::PowerI2S (bool powerOn, UInt32 cellNum)
@@ -1545,24 +1630,49 @@ IOReturn AppleKeyLargo::SetPowerSupply (bool powerHi)
     IORegistryEntry *childEntry;
 	OSData			*regData;
 	
-	if (!keyLargoCPUVCoreSelectGPIO) {
-		// locate the gpio node associated with cpu-vcore-select
-		if ((childIterator = getChildIterator (gIOServicePlane)) != NULL) {
-			while ((childEntry = (IORegistryEntry *)(childIterator->getNextObject ())) != NULL) {
-				if (!strcmp ("cpu-vcore-select", childEntry->getName(gIOServicePlane))) {
-					regData = OSDynamicCast( OSData, childEntry->getProperty( "reg" ));
-					if (regData) {
-						// get the GPIO offset from the reg property
-						keyLargoCPUVCoreSelectGPIO = *(UInt32 *) regData->getBytesNoCopy();
-						break;
+	if (gPreserveIODeviceTree == TRUE) {	// this should use the platform-do-xxxx mechanism
+		IORegistryIterator 		*recursiveChildIterator;
+		IORegistryEntry *recursiveChildEntry = IORegistryEntry::fromPath("mac-io/gpio", gIODTPlane);
+	
+		if (!keyLargoCPUVCoreSelectGPIO) {
+			// locate the gpio node associated with cpu-vcore-select
+			if ((recursiveChildIterator = IORegistryIterator::iterateOver (recursiveChildEntry, gIOServicePlane, kIORegistryIterateRecursively)) != NULL) {
+				while ((recursiveChildEntry = (IORegistryEntry *)(recursiveChildIterator->getNextObject ())) != NULL) {
+					if (!strcmp ("cpu-vcore-select", recursiveChildEntry->getName(gIOServicePlane))) {
+						regData = OSDynamicCast( OSData, recursiveChildEntry->getProperty( "reg" ));
+						if (regData) {
+							// get the GPIO offset from the reg property
+							keyLargoCPUVCoreSelectGPIO = *(UInt32 *) regData->getBytesNoCopy();
+							break;
+						}
 					}
 				}
+				recursiveChildIterator->release();
 			}
-			childIterator->release();
+			if (!keyLargoCPUVCoreSelectGPIO)		// If still unknown return unsupported
+				return (kIOReturnUnsupported);
 		}
+	}
+	else {
+		if (!keyLargoCPUVCoreSelectGPIO) {
+			// locate the gpio node associated with cpu-vcore-select
+			if ((childIterator = getChildIterator (gIOServicePlane)) != NULL) {
+				while ((childEntry = (IORegistryEntry *)(childIterator->getNextObject ())) != NULL) {
+					if (!strcmp ("cpu-vcore-select", childEntry->getName(gIOServicePlane))) {
+						regData = OSDynamicCast( OSData, childEntry->getProperty( "reg" ));
+						if (regData) {
+							// get the GPIO offset from the reg property
+							keyLargoCPUVCoreSelectGPIO = *(UInt32 *) regData->getBytesNoCopy();
+							break;
+						}
+					}
+				}
+				childIterator->release();
+			}
 	
-		if (!keyLargoCPUVCoreSelectGPIO)		// If still unknown return unsupported
-			return (kIOReturnUnsupported);
+			if (!keyLargoCPUVCoreSelectGPIO)		// If still unknown return unsupported
+				return (kIOReturnUnsupported);
+		}
 	}
 
 	// Set gpio for 1 for high voltage, 0 for low voltage
@@ -1631,4 +1741,125 @@ void AppleKeyLargo::processNub(IOService * nub)
         else if(strcmp("power-mgt", name) == 0)
             nub->removeProperty("clock-spreading-info");
     }
+    
+    if (gPreserveIODeviceTree == TRUE)
+    	nub->setProperty("preserveIODeviceTree", true);
 }
+
+void AppleKeyLargo::publishBelow( IORegistryEntry * root )
+{
+	if (gPreserveIODeviceTree == TRUE)
+		publishChildren( this );
+	else
+		super::publishBelow( root );
+}
+
+IOService * AppleKeyLargo::createNub( IORegistryEntry * from )
+{
+    IOService *	nub;
+
+	if (gPreserveIODeviceTree == true) {
+        nub = new AppleK2Device;
+
+        if( nub && !nub->init( from, gIODTPlane )) {
+            nub->free();
+            nub = 0;
+        }
+    }
+    else
+		nub = super::createNub(from);
+        
+    return( nub);
+}
+
+// Note that this is an overload of performFunction.  The other, extant performFunction
+// should go away once this version is fully supported
+bool AppleKeyLargo::performFunction(IOPlatformFunction *func, void *pfParam1,
+			void *pfParam2, void *pfParam3, void *pfParam4)
+{
+	IOPlatformFunctionIterator 	*iter;
+	UInt32 						cmd, cmdLen, result, param1, param2, param3, param4, param5, 
+									param6, param7, param8, param9, param10;
+	
+	if (!func)
+		return false;
+	
+	if (!(iter = func->getCommandIterator()))
+		return false;
+	
+	while (iter->getNextCommand (&cmd, &cmdLen, &param1, &param2, &param3, &param4, 
+		&param5, &param6, &param7, &param8, &param9, &param10, &result)) {
+		if (result != kIOPFNoError) {
+			iter->release();
+			return false;
+		}
+
+		switch (cmd) {
+            case kCommandWriteReg32:
+                safeWriteRegUInt32(param1, param3, param2);
+                break;
+                
+            case kCommandReadReg32:
+                *(UInt32 *)pfParam1 = safeReadRegUInt32(param1);
+                break;
+                
+            case kCommandWriteReg8:
+                safeWriteRegUInt8(param1, param3, param2);
+                break;
+                
+            case kCommandReadReg8:
+                *(UInt8 *)pfParam1 = safeReadRegUInt8(param1);
+                break;
+                
+            case kCommandReadReg32MaskShRtXOR:
+                *(UInt32 *)pfParam1 = ((safeReadRegUInt32(param1) & param2) >> param3) ^ param4;
+                break;
+                
+            case kCommandReadReg8MaskShRtXOR:
+                 *(UInt8 *)pfParam1 = ((safeReadRegUInt8(param1) & param2) >> param3) ^ param4;
+                 break;
+                 
+            case kCommandWriteReg32ShLtMask:
+                safeWriteRegUInt32(param1, param3, ((UInt32)pfParam1)<<param2);
+                break;
+                
+            case kCommandWriteReg8ShLtMask:
+                safeWriteRegUInt8(param1, param3, ((UInt32)pfParam1)<<param2);
+                break;
+                
+			default:
+				kprintf ("AppleKeyLargo::performFunction - bad command %ld\n", cmd);
+				return false;   		        	    
+		}
+	}
+    iter->release();
+	return true;
+}
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+OSDefineMetaClassAndStructors(AppleK2Device, AppleMacIODevice);
+bool AppleK2Device::compareName( OSString * name,
+					OSString ** matched ) const
+{
+    return( IODTCompareNubName( this, name, matched )
+         ||  IORegistryEntry::compareName( name, matched ) );
+}
+
+IOReturn AppleK2Device::getResources( void )
+{
+	IOService *mac_io = this;
+	if( getDeviceMemory())
+        return( kIOReturnSuccess );
+ 
+    while (mac_io && ((mac_io = mac_io->getProvider()) != 0))
+        if (strcmp("mac-io", mac_io->getName()) == 0)
+            break;
+    if (mac_io == 0)
+        return kIOReturnError;
+    IODTResolveAddressing( this, "reg", mac_io->getDeviceMemoryWithIndex(0) );
+
+    return( kIOReturnSuccess);
+}
+

@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.1.1.1 2003/07/18 18:07:50 zarzycki Exp $
+dnl $Id: config.m4,v 1.1.2.8 2004/10/21 19:41:55 jorton Exp $
 dnl
 
 AC_MSG_CHECKING(for Apache 2.0 handler-module support via DSO through APXS)
@@ -27,20 +27,34 @@ AC_ARG_WITH(apxs2,
     AC_MSG_RESULT([3. Apache was not built using --enable-so (the apxs usage page is displayed)])
     AC_MSG_RESULT()
     AC_MSG_RESULT([The output of $APXS follows:])
-    $APXS
+    $APXS -q CFLAGS
     AC_MSG_ERROR([Aborting])
   fi 
 
   APXS_INCLUDEDIR=`$APXS -q INCLUDEDIR`
+  APXS_BINDIR=`$APXS -q BINDIR`
   APXS_HTTPD=`$APXS -q SBINDIR`/`$APXS -q TARGET`
   APXS_CFLAGS=`$APXS -q CFLAGS`
   APXS_MPM=`$APXS -q MPM_NAME`
+  APU_BINDIR=`$APXS -q APU_BINDIR`
+  APR_BINDIR=`$APXS -q APR_BINDIR`
+
+  # Pick up ap[ru]-N-config if using httpd >=2.1
+  APR_CONFIG=`$APXS -q APR_CONFIG 2>/dev/null ||
+    echo $APR_BINDIR/apr-config`
+  APU_CONFIG=`$APXS -q APU_CONFIG 2>/dev/null ||
+    echo $APU_BINDIR/apu-config`
+
+  APR_CFLAGS="`$APR_CONFIG --cppflags --includes`"
+  APU_CFLAGS="`$APU_CONFIG --includes`"
 
   for flag in $APXS_CFLAGS; do
     case $flag in
-    -D*) CPPFLAGS="$CPPFLAGS $flag";;
+    -D*) APACHE_CPPFLAGS="$APACHE_CPPFLAGS $flag";;
     esac
   done
+
+  APACHE_CFLAGS="$APACHE_CPPFLAGS -I$APXS_INCLUDEDIR $APR_CFLAGS $APU_CFLAGS"
 
   # Test that we're trying to configure with apache 2.x
   PHP_AP_EXTRACT_VERSION($APXS_HTTPD)
@@ -67,7 +81,7 @@ AC_ARG_WITH(apxs2,
   case $host_alias in
   *aix*)
     EXTRA_LDFLAGS="$EXTRA_LDFLAGS -Wl,-brtl -Wl,-bI:$APXS_LIBEXECDIR/httpd.exp"
-    PHP_SELECT_SAPI(apache2handler, shared, sapi_apache2.c apache_config.c php_functions.c)
+    PHP_SELECT_SAPI(apache2handler, shared, sapi_apache2.c apache_config.c php_functions.c, $APACHE_CFLAGS)
     INSTALL_IT="$INSTALL_IT $SAPI_LIBTOOL" 
     ;;
   *darwin*)
@@ -75,43 +89,40 @@ AC_ARG_WITH(apxs2,
     dnl the linker does not recursively look at the bundle loader and
     dnl pull in its dependencies.  Therefore, we must pull in the APR
     dnl and APR-util libraries.
-    APXS_BINDIR=`$APXS -q BINDIR`
-    if test -f $APXS_BINDIR/apr-config; then
-        MH_BUNDLE_FLAGS="`$APXS_BINDIR/apr-config --ldflags --link-ld --libs`"
+    if test -x "$APR_BINDIR/apr-config"; then
+        MH_BUNDLE_FLAGS="`$APR_BINDIR/apr-config --ldflags --link-ld --libs`"
     fi
-    if test -f $APXS_BINDIR/apu-config; then
-        MH_BUNDLE_FLAGS="`$APXS_BINDIR/apu-config --ldflags --link-ld --libs` $MH_BUNDLE_FLAGS"
+    if test -x "$APU_BINDIR/apu-config"; then
+        MH_BUNDLE_FLAGS="`$APU_BINDIR/apu-config --ldflags --link-ld --libs` $MH_BUNDLE_FLAGS"
     fi
     MH_BUNDLE_FLAGS="-bundle -bundle_loader $APXS_HTTPD $MH_BUNDLE_FLAGS"
     PHP_SUBST(MH_BUNDLE_FLAGS)
-    PHP_SELECT_SAPI(apache2handler, bundle, sapi_apache2.c apache_config.c php_functions.c)
+    PHP_SELECT_SAPI(apache2handler, bundle, sapi_apache2.c apache_config.c php_functions.c, $APACHE_CFLAGS)
     SAPI_SHARED=libs/libphp4.so
     INSTALL_IT="$INSTALL_IT $SAPI_SHARED"
     ;;
   *beos*)
-    APXS_BINDIR=`$APXS -q BINDIR`
     if test -f _APP_; then `rm _APP_`; fi
     `ln -s $APXS_BINDIR/httpd _APP_`
     EXTRA_LIBS="$EXTRA_LIBS _APP_"
-    PHP_SELECT_SAPI(apache2handler, shared, sapi_apache2.c apache_config.c php_functions.c)
+    PHP_SELECT_SAPI(apache2handler, shared, sapi_apache2.c apache_config.c php_functions.c, $APACHE_CFLAGS)
     INSTALL_IT="$INSTALL_IT $SAPI_LIBTOOL" 
     ;;
   *)
-    PHP_SELECT_SAPI(apache2handler, shared, sapi_apache2.c apache_config.c php_functions.c) 
+    PHP_SELECT_SAPI(apache2handler, shared, sapi_apache2.c apache_config.c php_functions.c, $APACHE_CFLAGS) 
     INSTALL_IT="$INSTALL_IT $SAPI_LIBTOOL"
     ;;
   esac
 
-  PHP_ADD_INCLUDE($APXS_INCLUDEDIR)
   if test "$APXS_MPM" != "prefork"; then
     PHP_BUILD_THREAD_SAFE
   fi
   AC_MSG_RESULT(yes)
+ 
+  PHP_SUBST(APXS)
 ],[
   AC_MSG_RESULT(no)
 ])
-
-PHP_SUBST(APXS)
 
 dnl ## Local Variables:
 dnl ## tab-width: 4

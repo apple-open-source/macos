@@ -361,8 +361,19 @@ void AppleU3::uniNSetPowerState (UInt32 state)
 
 		// Set the running state for HWInit.
 		safeWriteRegUInt32(kUniNHWInitState, ~0UL, kUniNHWInitStateRunning);
+
+		safeWriteRegUInt32(kU3DARTCntlRegister, ~0UL, saveDARTCntl);
+		safeWriteRegUInt32(kU3PMClockControl, ~0UL, saveClockCntl);
+		safeWriteRegUInt32(kUniNVSPSoftReset, ~0UL, saveVSPSoftReset);
+
 	} else if (state == kUniNIdle2) {
 		IOLog ("AppleU3: Idle 2 state not supported\n");
+
+	} else if (state == kUniNSave) {		// save state
+		saveDARTCntl = safeReadRegUInt32(kU3DARTCntlRegister);
+		saveClockCntl = safeReadRegUInt32(kU3PMClockControl);
+		saveVSPSoftReset = safeReadRegUInt32(kUniNVSPSoftReset);
+
 	} else if (state == kUniNSleep) {		// sleep
 		if (spu)	// Only call spu if present [3448210]
 			spu->callPlatformFunction (symSetSPUSleep, false, (void *)false, (void *)0, (void *)0, (void *)0);

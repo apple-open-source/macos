@@ -79,28 +79,32 @@ enum {
 
 enum
 {
-    kPowerBookModel		= 0x00010000,
-    kPowerMacModel		= 0x00020000,
-    kRackMacModel		= 0x00040000,
+    kPowerBookModel			= 0x00010000,
+    kPowerMacModel			= 0x00020000,
+    kRackMacModel			= 0x00040000,
+	kUsesIOPlatformPlugin	= 0x00080000,	// Flag to indicate machine uses IOPlatformPlugin architecture
 
-    kPB51MachineModel	= kPowerBookModel + 0x00000501,
+    kPB51MachineModel		= kPowerBookModel + 0x00000501,
 
-    kPB61MachineModel	= kPowerBookModel + 0x00000601,
+    kPB61MachineModel		= kPowerBookModel + 0x00000601,
 
-    kPB52MachineModel	= kPowerBookModel + 0x00000502,
-    kPB53MachineModel	= kPowerBookModel + 0x00000503,
-    kPB62MachineModel	= kPowerBookModel + 0x00000602,
-    kPB63MachineModel	= kPowerBookModel + 0x00000603,
+    kPB52MachineModel		= kPowerBookModel + 0x00000502,
+    kPB53MachineModel		= kPowerBookModel + 0x00000503,
+    kPB62MachineModel		= kPowerBookModel + 0x00000602,
+    kPB63MachineModel		= kPowerBookModel + 0x00000603,
 
-    kPB64MachineModel	= kPowerBookModel + 0x00000604,
-    kPB65MachineModel	= kPowerBookModel + 0x00000605,
-    kPB54MachineModel	= kPowerBookModel + 0x00000504,
-    kPB55MachineModel	= kPowerBookModel + 0x00000505,
+    kPB64MachineModel		= kPowerBookModel + 0x00000604,
+    kPB65MachineModel		= kPowerBookModel + 0x00000605,
+    kPB54MachineModel		= kPowerBookModel + 0x00000504,
+    kPB55MachineModel		= kPowerBookModel + 0x00000505,
     
-    kPB66MachineModel	= kPowerBookModel + 0x00000606,
+    kPB66MachineModel		= kPowerBookModel + 0x00000606,
 
-    kPB56MachineModel	= kPowerBookModel + 0x00000506,
-    kPB57MachineModel	= kPowerBookModel + 0x00000507
+    kPB67MachineModel		= kPowerBookModel + 0x00000607,
+    kPB68MachineModel		= kPowerBookModel + 0x00000608,
+
+    kPB56MachineModel		= kPowerBookModel + 0x00000506 + kUsesIOPlatformPlugin,
+    kPB57MachineModel		= kPowerBookModel + 0x00000507 + kUsesIOPlatformPlugin
 };
 
 // Thermal sensor values and thresholds are 16.16 fixed point format

@@ -3,12 +3,12 @@
 // +----------------------------------------------------------------------+
 // | PHP Version 4                                                        |
 // +----------------------------------------------------------------------+
-// | Copyright (c) 1997-2003 The PHP Group                                |
+// | Copyright (c) 1997-2004 The PHP Group                                |
 // +----------------------------------------------------------------------+
-// | This source file is subject to version 2.02 of the PHP license,      |
+// | This source file is subject to version 3.0 of the PHP license,       |
 // | that is bundled with this package in the file LICENSE, and is        |
-// | available at through the world-wide-web at                           |
-// | http://www.php.net/license/2_02.txt.                                 |
+// | available through the world-wide-web at the following url:           |
+// | http://www.php.net/license/3_0.txt.                                  |
 // | If you did not receive a copy of the PHP license and are unable to   |
 // | obtain it through the world-wide-web, please send a note to          |
 // | license@php.net so we can mail you a copy immediately.               |
@@ -16,11 +16,10 @@
 // | Author: Stig Sæther Bakken <ssb@php.net>                             |
 // +----------------------------------------------------------------------+
 //
-// $Id: Install.php,v 1.1.1.3 2003/07/18 18:07:49 zarzycki Exp $
+// $Id: Install.php,v 1.38.2.14 2004/01/25 23:19:59 pajoye Exp $
 
 require_once "PEAR/Command/Common.php";
 require_once "PEAR/Installer.php";
-require_once "Console/Getopt.php";
 
 /**
  * PEAR commands for installation or deinstallation/upgrading of
@@ -68,6 +67,14 @@ class PEAR_Command_Install extends PEAR_Command_Common
                     ),
                 'ignore-errors' => array(
                     'doc' => 'force install even if there were errors',
+                    ),
+                'alldeps' => array(
+                    'shortopt' => 'a',
+                    'doc' => 'install all required and optional dependencies',
+                    ),
+                'onlyreqdeps' => array(
+                    'shortopt' => 'o',
+                    'doc' => 'install all required dependencies',
                     ),
                 ),
             'doc' => '<package> ...
@@ -122,6 +129,14 @@ four ways of specifying packages.
                     ),
                 'ignore-errors' => array(
                     'doc' => 'force install even if there were errors',
+                    ),
+                'alldeps' => array(
+                    'shortopt' => 'a',
+                    'doc' => 'install all required and optional dependencies',
+                    ),
+                'onlyreqdeps' => array(
+                    'shortopt' => 'o',
+                    'doc' => 'install all required dependencies',
                     ),
                 ),
             'doc' => '<package> ...
@@ -196,7 +211,25 @@ more stable.
 Uninstalls one or more PEAR packages.  More than one package may be
 specified at once.
 '),
-
+        'bundle' => array(
+            'summary' => 'Unpacks a Pecl Package',
+            'function' => 'doBundle',
+            'shortcut' => 'bun',
+            'options' => array(
+                'destination' => array(
+                   'shortopt' => 'd',
+                    'arg' => 'DIR',
+                    'doc' => 'Optional destination directory for unpacking (defaults to current path or "ext" if exists)',
+                    ),
+                'force' => array(
+                    'shortopt' => 'f',
+                    'doc' => 'Force the unpacking even if there were errors in the package',
+                ),
+            ),
+            'doc' => '<package>
+Unpacks a Pecl Package into the selected location. It will download the
+package if needed.
+'),
     );
 
     // }}}
@@ -218,16 +251,17 @@ specified at once.
 
     function doInstall($command, $options, $params)
     {
+        require_once 'PEAR/Downloader.php';
         if (empty($this->installer)) {
             $this->installer = &new PEAR_Installer($this->ui);
         }
         if ($command == 'upgrade') {
-            $options[$command] = true;
+            $options['upgrade'] = true;
         }
         if ($command == 'upgrade-all') {
             include_once "PEAR/Remote.php";
             $options['upgrade'] = true;
-            $remote = new PEAR_Remote($this->config);
+            $remote = &new PEAR_Remote($this->config);
             $state = $this->config->get('preferred_state');
             if (empty($state) || $state == 'any') {
                 $latest = $remote->call("package.listLatestReleases");
@@ -241,6 +275,7 @@ specified at once.
             $installed = array_flip($reg->listPackages());
             $params = array();
             foreach ($latest as $package => $info) {
+                $package = strtolower($package);
                 if (!isset($installed[$package])) {
                     // skip packages we don't have installed
                     continue;
@@ -251,12 +286,25 @@ specified at once.
                     continue;
                 }
                 $params[] = $package;
-                $this->ui->outputData("will upgrade $package", $command);
+                $this->ui->outputData(array('data' => "Will upgrade $package"), $command);
             }
         }
-        foreach ($params as $pkg) {
-            $bn = basename($pkg);
-            $info = $this->installer->install($pkg, $options, $this->config);
+        $this->downloader = &new PEAR_Downloader($this->ui, $options, $this->config);
+        $errors = array();
+        $downloaded = array();
+        $this->downloader->download($params);
+        $errors = $this->downloader->getErrorMsgs();
+        if (count($errors)) {
+            $err['data'] = array($errors);
+            $err['headline'] = 'Install Errors';
+            $this->ui->outputData($err);
+            return $this->raiseError("$command failed");
+        }
+        $downloaded = $this->downloader->getDownloadedPackages();
+        $this->installer->sortPkgDeps($downloaded);
+        foreach ($downloaded as $pkg) {
+            $bn = basename($pkg['file']);
+            $info = $this->installer->install($pkg['file'], $options, $this->config);
             if (is_array($info)) {
                 if ($this->config->get('verbose') > 0) {
                     $label = "$info[package] $info[version]";
@@ -284,6 +332,24 @@ specified at once.
         if (sizeof($params) < 1) {
             return $this->raiseError("Please supply the package(s) you want to uninstall");
         }
+        include_once 'PEAR/Registry.php';
+        $reg = new PEAR_Registry($this->config->get('php_dir'));
+        $newparams = array();
+        $badparams = array();
+        foreach ($params as $pkg) {
+            $info = $reg->packageInfo($pkg);
+            if ($info === null) {
+                $badparams[] = $pkg;
+            } else {
+                $newparams[] = $info;
+            }
+        }
+        $this->installer->sortPkgDeps($newparams, true);
+        $params = array();
+        foreach($newparams as $info) {
+            $params[] = $info['info']['package'];
+        }
+        $params = array_merge($params, $badparams);
         foreach ($params as $pkg) {
             if ($this->installer->uninstall($pkg, $options)) {
                 if ($this->config->get('verbose') > 0) {
@@ -297,6 +363,103 @@ specified at once.
     }
 
     // }}}
-}
 
+
+    // }}}
+    // {{{ doBundle()
+    /*
+    (cox) It just downloads and untars the package, does not do
+            any check that the PEAR_Installer::_installFile() does.
+    */
+
+    function doBundle($command, $options, $params)
+    {
+        if (empty($this->installer)) {
+            $this->installer = &new PEAR_Downloader($this->ui);
+        }
+        $installer = &$this->installer;
+        if (sizeof($params) < 1) {
+            return $this->raiseError("Please supply the package you want to bundle");
+        }
+        $pkgfile = $params[0];
+        $need_download = false;
+        if (preg_match('#^(http|ftp)://#', $pkgfile)) {
+            $need_download = true;
+        } elseif (!@is_file($pkgfile)) {
+            if ($installer->validPackageName($pkgfile)) {
+                $pkgfile = $installer->getPackageDownloadUrl($pkgfile);
+                $need_download = true;
+            } else {
+                if (strlen($pkgfile)) {
+                    return $this->raiseError("Could not open the package file: $pkgfile");
+                } else {
+                    return $this->raiseError("No package file given");
+                }
+            }
+        }
+
+        // Download package -----------------------------------------------
+        if ($need_download) {
+            $downloaddir = $installer->config->get('download_dir');
+            if (empty($downloaddir)) {
+                if (PEAR::isError($downloaddir = System::mktemp('-d'))) {
+                    return $downloaddir;
+                }
+                $installer->log(2, '+ tmp dir created at ' . $downloaddir);
+            }
+            $callback = $this->ui ? array(&$installer, '_downloadCallback') : null;
+            $file = $installer->downloadHttp($pkgfile, $this->ui, $downloaddir, $callback);
+            if (PEAR::isError($file)) {
+                return $this->raiseError($file);
+            }
+            $pkgfile = $file;
+        }
+
+       // Parse xml file -----------------------------------------------
+        $pkginfo = $installer->infoFromTgzFile($pkgfile);
+        if (PEAR::isError($pkginfo)) {
+            return $this->raiseError($pkginfo);
+        }
+        $installer->validatePackageInfo($pkginfo, $errors, $warnings);
+        // XXX We allow warnings, do we have to do it?
+        if (count($errors)) {
+             if (empty($options['force'])) {
+                return $this->raiseError("The following errors where found:\n".
+                                                 implode("\n", $errors));
+            } else {
+                $this->log(0, "warning : the following errors were found:\n".
+                           implode("\n", $errors));
+            }
+        }
+        $pkgname = $pkginfo['package'];
+
+        // Unpacking -------------------------------------------------
+
+        if (isset($options['destination'])) {
+            if (!is_dir($options['destination'])) {
+                System::mkdir('-p ' . $options['destination']);
+            }
+            $dest = realpath($options['destination']);
+        } else {
+            $pwd = getcwd();
+            if (is_dir($pwd . DIRECTORY_SEPARATOR . 'ext')) {
+                $dest = $pwd . DIRECTORY_SEPARATOR . 'ext';
+            } else {
+                $dest = $pwd;
+            }
+        }
+        $dest .= DIRECTORY_SEPARATOR . $pkgname;
+        $orig = $pkgname . '-' . $pkginfo['version'];
+
+        $tar = new Archive_Tar($pkgfile);
+        if (!@$tar->extractModify($dest, $orig)) {
+            return $this->raiseError("unable to unpack $pkgfile");
+        }
+        $this->ui->outputData("Package ready at '$dest'");
+    // }}}
+    }
+
+    // }}}
+
+}
 ?>

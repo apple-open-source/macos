@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: dir.c,v 1.1.1.8 2003/07/18 18:07:42 zarzycki Exp $ */
+/* $Id: dir.c,v 1.109.2.18 2004/06/07 18:31:15 iliaa Exp $ */
 
 /* {{{ includes/startup/misc */
 
@@ -86,7 +86,7 @@ static zend_class_entry *dir_class_entry_ptr;
 		WRONG_PARAM_COUNT; \
 	} else { \
 		dirp = (php_stream *) zend_fetch_resource(id TSRMLS_CC, -1, "Directory", NULL, 1, php_file_le_stream()); \
-		if(!dirp) \
+		if (!dirp) \
 			RETURN_FALSE; \
 	} 
 
@@ -128,19 +128,18 @@ PHP_MINIT_FUNCTION(dir)
 #ifdef ZTS
 	ts_allocate_id(&dir_globals_id, sizeof(php_dir_globals), NULL, NULL);
 #endif
+
 	dirsep_str[0] = DEFAULT_SLASH;
 	dirsep_str[1] = '\0';
 	REGISTER_STRING_CONSTANT("DIRECTORY_SEPARATOR", dirsep_str, CONST_CS|CONST_PERSISTENT);
-    pathsep_str[0] = ZEND_PATHS_SEPARATOR;
-    pathsep_str[1] = '\0';
+
+	pathsep_str[0] = ZEND_PATHS_SEPARATOR;
+	pathsep_str[1] = '\0';
 	REGISTER_STRING_CONSTANT("PATH_SEPARATOR", pathsep_str, CONST_CS|CONST_PERSISTENT);
 
 #ifdef HAVE_GLOB
 #ifdef GLOB_BRACE
 	REGISTER_LONG_CONSTANT("GLOB_BRACE", GLOB_BRACE, CONST_CS | CONST_PERSISTENT);
-#endif
-#ifdef GLOB_ONLYDIR
-	REGISTER_LONG_CONSTANT("GLOB_ONLYDIR", GLOB_ONLYDIR, CONST_CS | CONST_PERSISTENT);
 #endif
 #ifdef GLOB_MARK
 	REGISTER_LONG_CONSTANT("GLOB_MARK", GLOB_MARK, CONST_CS | CONST_PERSISTENT);
@@ -154,14 +153,24 @@ PHP_MINIT_FUNCTION(dir)
 #ifdef GLOB_NOESCAPE
 	REGISTER_LONG_CONSTANT("GLOB_NOESCAPE", GLOB_NOESCAPE, CONST_CS | CONST_PERSISTENT);
 #endif
+
+#ifndef GLOB_ONLYDIR
+#define GLOB_ONLYDIR (1<<30)
+#define GLOB_EMULATE_ONLYDIR
+#define GLOB_FLAGMASK (~GLOB_ONLYDIR)
+#else
+#define GLOB_FLAGMASK (~0)
 #endif
+
+	REGISTER_LONG_CONSTANT("GLOB_ONLYDIR", GLOB_ONLYDIR, CONST_CS | CONST_PERSISTENT);
+
+#endif /* HAVE_GLOB */
 
 	return SUCCESS;
 }
-
 /* }}} */
-/* {{{ internal functions */
 
+/* {{{ internal functions */
 static void _php_do_opendir(INTERNAL_FUNCTION_PARAMETERS, int createobject)
 {
 	pval **arg;
@@ -189,29 +198,26 @@ static void _php_do_opendir(INTERNAL_FUNCTION_PARAMETERS, int createobject)
 		php_stream_to_zval(dirp, return_value);
 	}
 }
-
 /* }}} */
+
 /* {{{ proto mixed opendir(string path)
    Open a directory and return a dir_handle */
-
 PHP_FUNCTION(opendir)
 {
 	_php_do_opendir(INTERNAL_FUNCTION_PARAM_PASSTHRU, 0);
 }
-
 /* }}} */
+
 /* {{{ proto object dir(string directory)
    Directory class with properties, handle and class and methods read, rewind and close */
-
 PHP_FUNCTION(getdir)
 {
 	_php_do_opendir(INTERNAL_FUNCTION_PARAM_PASSTHRU, 1);
 }
-
 /* }}} */
+
 /* {{{ proto void closedir([resource dir_handle])
    Close directory connection identified by the dir_handle */
-
 PHP_FUNCTION(closedir)
 {
 	pval **id, **tmp, *myself;
@@ -225,13 +231,11 @@ PHP_FUNCTION(closedir)
 
 	zend_list_delete(dirp->rsrc_id);
 }
-
 /* }}} */
 
 #if defined(HAVE_CHROOT) && !defined(ZTS) && ENABLE_CHROOT_FUNC
 /* {{{ proto bool chroot(string directory)
    Change root directory */
-
 PHP_FUNCTION(chroot)
 {
 	char *str;
@@ -257,13 +261,11 @@ PHP_FUNCTION(chroot)
 
 	RETURN_TRUE;
 }
-
 /* }}} */
 #endif
 
 /* {{{ proto bool chdir(string directory)
    Change the current directory */
-
 PHP_FUNCTION(chdir)
 {
 	char *str;
@@ -273,7 +275,7 @@ PHP_FUNCTION(chdir)
 		RETURN_FALSE;
 	}
 
-	if (PG(safe_mode) && !php_checkuid(str, NULL, CHECKUID_ALLOW_ONLY_FILE)) {
+	if (PG(safe_mode) && !php_checkuid(str, NULL, CHECKUID_CHECK_FILE_AND_DIR)) {
 		RETURN_FALSE;
 	}
 	ret = VCWD_CHDIR(str);
@@ -285,11 +287,10 @@ PHP_FUNCTION(chdir)
 
 	RETURN_TRUE;
 }
-
 /* }}} */
+
 /* {{{ proto mixed getcwd(void)
    Gets the current directory */
-
 PHP_FUNCTION(getcwd)
 {
 	char path[MAXPATHLEN];
@@ -303,11 +304,6 @@ PHP_FUNCTION(getcwd)
 	ret = VCWD_GETCWD(path, MAXPATHLEN);
 #elif HAVE_GETWD
 	ret = VCWD_GETWD(path);
-/*
- * #warning is not ANSI C
- * #else
- * #warning no proper getcwd support for your site
- */
 #endif
 
 	if (ret) {
@@ -316,11 +312,10 @@ PHP_FUNCTION(getcwd)
 		RETURN_FALSE;
 	}
 }
-
 /* }}} */
+
 /* {{{ proto void rewinddir([resource dir_handle])
    Rewind dir_handle back to the start */
-
 PHP_FUNCTION(rewinddir)
 {
 	pval **id, **tmp, *myself;
@@ -334,7 +329,6 @@ PHP_FUNCTION(rewinddir)
 
 /* {{{ proto string readdir([resource dir_handle])
    Read directory entry from dir_handle */
-
 PHP_NAMED_FUNCTION(php_if_readdir)
 {
 	pval **id, **tmp, *myself;
@@ -348,7 +342,6 @@ PHP_NAMED_FUNCTION(php_if_readdir)
 	}
 	RETURN_FALSE;
 }
-
 /* }}} */
 
 #ifdef HAVE_GLOB
@@ -372,48 +365,79 @@ PHP_FUNCTION(glob)
 		return;
 
 #ifdef ZTS 
-	if(!IS_ABSOLUTE_PATH(pattern, pattern_len)) {
+	if (!IS_ABSOLUTE_PATH(pattern, pattern_len)) {
 		result = VCWD_GETCWD(cwd, MAXPATHLEN);	
 		if (!result) {
 			cwd[0] = '\0';
 		}
+#ifdef PHP_WIN32
+		if (IS_SLASH(*pattern)) {
+			cwd[2] = '\0';
+		}
+#endif
 		cwd_skip = strlen(cwd)+1;
+
 		snprintf(work_pattern, MAXPATHLEN, "%s%c%s", cwd, DEFAULT_SLASH, pattern);
 		pattern = work_pattern;
 	} 
 #endif
 
 	globbuf.gl_offs = 0;
-	if (0 != (ret = glob(pattern, flags, NULL, &globbuf))) {
+	if (0 != (ret = glob(pattern, flags & GLOB_FLAGMASK, NULL, &globbuf))) {
 #ifdef GLOB_NOMATCH
 		if (GLOB_NOMATCH == ret) {
 			/* Linux handles no matches as an error condition, but FreeBSD
 			 * doesn't. This ensure that if no match is found, an empty array
 			 * is always returned so it can be used without worrying in e.g.
 			 * foreach() */
+#ifndef __linux__
+			RETURN_FALSE;
+#else
 			array_init(return_value);
 			return;
+#endif
 		}
 #endif
 		RETURN_FALSE;
 	}
 
+	/* now catch the FreeBSD style of "no matches" */
+	if (!globbuf.gl_pathc || !globbuf.gl_pathv) {
+		array_init(return_value);
+		return;
+	}
+
 	/* we assume that any glob pattern will match files from one directory only
 	   so checking the dirname of the first match should be sufficient */
-	if (!globbuf.gl_pathv) {
-		RETURN_FALSE;
-	}
 	strncpy(cwd, globbuf.gl_pathv[0], MAXPATHLEN);
 	if (PG(safe_mode) && (!php_checkuid(cwd, NULL, CHECKUID_CHECK_FILE_AND_DIR))) {
 		RETURN_FALSE;
 	}
-	if(php_check_open_basedir(cwd TSRMLS_CC)) {
+	if (php_check_open_basedir(cwd TSRMLS_CC)) {
 		RETURN_FALSE;
 	}
 
-
 	array_init(return_value);
 	for (n = 0; n < globbuf.gl_pathc; n++) {
+		/* we need to this everytime since GLOB_ONLYDIR does not guarantee that
+		 * all directories will be filtered. GNU libc documentation states the
+		 * following: 
+		 * If the information about the type of the file is easily available 
+		 * non-directories will be rejected but no extra work will be done to 
+		 * determine the information for each file. I.e., the caller must still be 
+		 * able to filter directories out. 
+		 */
+		if (flags & GLOB_ONLYDIR) {
+			struct stat s;
+
+			if (0 != VCWD_STAT(globbuf.gl_pathv[n], &s)) {
+				continue;
+			}
+
+			if (S_IFDIR != (s.st_mode & S_IFMT)) {
+				continue;
+			}
+		}
 		add_next_index_string(return_value, globbuf.gl_pathv[n]+cwd_skip, 1);
 	}
 

@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.6 2003/07/22 19:56:27 zarzycki Exp $
+dnl $Id: config.m4,v 1.55.2.8 2003/11/25 08:08:30 sniper Exp $
 dnl
 
 dnl
@@ -373,6 +373,7 @@ AC_ARG_WITH(iodbc,
     ODBC_LFLAGS=-L$withval/lib
     ODBC_LIBS=-liodbc
     AC_DEFINE(HAVE_IODBC,1,[ ])
+    AC_DEFINE(HAVE_ODBC2,1,[ ])
     AC_MSG_RESULT(yes)
   else
     AC_MSG_RESULT(no)
@@ -438,38 +439,6 @@ AC_ARG_WITH(unixODBC,
 fi
 
 if test -z "$ODBC_TYPE"; then
-AC_MSG_CHECKING(for OpenLink ODBC support)
-AC_ARG_WITH(openlink,
-[  --with-openlink[=DIR]   Include OpenLink ODBC support.  DIR is the
-                          OpenLink base install directory, defaults to
-                          /usr/local.  This is the same as iODBC.],
-[
-  PHP_WITH_SHARED
-  if test "$withval" = "yes"; then
-    withval=/usr/local
-  fi
-  if test "$withval" != "no"; then
-    PHP_ADD_LIBRARY_WITH_PATH(iodbc, $withval/lib)
-    PHP_ADD_INCLUDE($withval/include, 1)
-    ODBC_TYPE=iodbc
-    ODBC_INCLUDE=-I$withval/include
-    ODBC_LFLAGS=-L$withval/lib
-    ODBC_LIBS=-liodbc
-    AC_DEFINE(HAVE_IODBC,1,[ ])
-    AC_MSG_RESULT(yes)
-    echo "****************************************************************"
-    echo "  --with-openlink will not be valid in future releases.  Please "
-    echo " update your configure script to use --with-iodbc instead.      "
-    echo "****************************************************************"
-  else
-    AC_MSG_RESULT(no)
-  fi
-],[
-  AC_MSG_RESULT(no)
-])
-fi
-
-if test -z "$ODBC_TYPE"; then
 AC_MSG_CHECKING(for DBMaker support)
 AC_ARG_WITH(dbmaker,
 [  --with-dbmaker[=DIR]    Include DBMaker support.  DIR is the DBMaker base
@@ -485,11 +454,9 @@ AC_ARG_WITH(dbmaker,
     # check DBMaker version (from 5.0 to 2.0)
     DBMAKER_VERSION=5.0
 
-    while test test ! -d $DBMAKER_HOME/$DBMAKER_VERSION -a \
-                 "$DBMAKER_VERSION" != "2.9"; do
+    while test ! -d $DBMAKER_HOME/$DBMAKER_VERSION -a "$DBMAKER_VERSION" != "2.9"; do
         DM_VER=`echo $DBMAKER_VERSION | sed -e 's/\.//' | awk '{ print $1-1;}'`
-        MAJOR_V=`echo $DM_VER | awk '{ print $1/10; }' \
-                 | awk  -F. '{ print $1; }'`
+        MAJOR_V=`echo $DM_VER | awk '{ print $1/10; }'  | awk  -F. '{ print $1; }'`
         MINOR_V=`echo $DM_VER | awk '{ print $1%10; }'`
         DBMAKER_VERSION=$MAJOR_V.$MINOR_V
     done

@@ -42,6 +42,10 @@ __END_DECLS
 
 #define kMacRISC_GPIO_DIRECTION_BIT	2
 
+#ifndef kIOHibernateStateKey
+#define kIOHibernateStateKey	"IOHibernateState"
+#endif
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 #define super IOCPU
@@ -50,7 +54,10 @@ OSDefineMetaClassAndStructors(MacRISC2CPU, IOCPU);
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-static IOCPUInterruptController *gCPUIC;
+static IOCPUInterruptController 	*gCPUIC;
+static UInt32	 					*gPHibernateState;
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 bool MacRISC2CPU::start(IOService *provider)
 {
@@ -297,6 +304,29 @@ bool MacRISC2CPU::start(IOService *provider)
             }
     }
 
+    if (macRISC2PE->hasPPlugin) {
+		IOService		*ioPPlugin;
+		OSDictionary	*ioPPluginDict;
+		
+		// Find the platform plugin, if present
+		service = waitForService(resourceMatching("IOPlatformPlugin"));
+		ioPPlugin = OSDynamicCast (IOService, service->getProperty("IOPlatformPlugin"));
+		if (!ioPPlugin) 
+			return false;
+		
+		ioPPluginDict = OSDictionary::withCapacity(2);
+		if (ioPPluginDict) {
+			ioPPluginDict->setObject ("cpu-id", OSNumber::withNumber ((long long)getCPUNumber(), 32));
+
+			// Register with the plugin - same API as for platform monitor
+			if (messageClient (kIOPMonMessageRegister, ioPPlugin, (void *)ioPPluginDict) != kIOReturnSuccess) {
+				// ioPPlugin doesn't need to know about us, so don't bother with it
+				IOLog ("MacRISC2CPU::start - failed to register cpu with IOPlatformPlugin\n");
+			}
+			ioPPluginDict->release();	// Not needed any more
+		}
+    }
+
 #if enableUserClientInterface    
 //   
 // UserClient stuff...
@@ -324,6 +354,13 @@ bool MacRISC2CPU::start(IOService *provider)
 // some bookkeeping to make sure we end up in the right state coming out of sleep
 IOReturn MacRISC2CPU::powerStateWillChangeTo ( IOPMPowerFlags theFlags, unsigned long, IOService*)
 {
+
+    if (!gPHibernateState) {
+		OSData * data = OSDynamicCast(OSData, getPMRootDomain()->getProperty(kIOHibernateStateKey));
+		if (data)
+			gPHibernateState = (UInt32 *) data->getBytesNoCopy();
+    }
+
     if ( ! (theFlags & IOPMPowerOn) ) {
         // Sleep sequence:
         kprintf("MacRISC2CPU %d powerStateWillChangeTo to acknowledge power changes (DOWN) we set napping %d\n", getCPUNumber(), false);
@@ -402,7 +439,14 @@ IOReturn MacRISC2CPU::setAggressiveness(UInt32 selector, UInt32 newLevel)
 	}
 		
     result = super::setAggressiveness(selector, newLevel);
+    
+    // If we're using MacRISC4 style plugins, ignore this call
+    if (macRISC2PE->hasPPlugin) {
+		return IOPMNoErr;
+	}
 	
+    newLevel &= 0x7FFFFFFF;		// mask off high bit... upcoming kernel change will use the high bit to indicate whether setAggressiveness call
+                                        // was user induced (Energy Saver) or not.  Currently not using this info so mask it off.
     if ((selector == kPMSetProcessorSpeed) && (macRISC2PE->processorSpeedChangeFlags != kNoSpeedChange))
     {
 		/*
@@ -575,10 +619,10 @@ void MacRISC2CPU::initCPU(bool boot)
 
 			keyLargo->callPlatformFunction(keyLargo_restoreRegisterState, false, 0, 0, 0, 0);
 	
-			// Disables the interrupts for this CPU.
-			if (macRISC2PE->getMachineType() == kMacRISC2TypePowerMac)
-			{
-				kprintf("MacRISC2CPU::initCPU %d -> mpic->setUpForSleep on", getCPUNumber());
+			// Enables the interrupts for this CPU.
+			if (macRISC2PE->getMachineType() == kMacRISC2TypePowerMac) {
+				haveSleptMPIC = false;
+				kprintf("MacRISC2CPU::initCPU %d -> mpic->setUpForSleep off", getCPUNumber());
 				mpic->callPlatformFunction(mpic_setUpForSleep, false, (void *)false, (void *)getCPUNumber(), 0, 0);
 			}
 		}
@@ -614,15 +658,16 @@ void MacRISC2CPU::quiesceCPU(void)
         if (processorSpeedChange) {
             // Send PMU command to speed the system
             pmu->callPlatformFunction("setSpeedNow", false, (void *)currentProcessorSpeed, 0, 0, 0);
-        }
-        else
-        {
+        } else {
 			// Send PMU command to shutdown system before io is turned off
+
+			if (!gPHibernateState || !*gPHibernateState)
 				pmu->callPlatformFunction("sleepNow", false, 0, 0, 0, 0);
 	
-			// Enables the interrupts for this CPU.
-			if (macRISC2PE->getMachineType() == kMacRISC2TypePowerMac) 
+			// Disables the interrupts for this CPU.
+			if (!haveSleptMPIC && (macRISC2PE->getMachineType() == kMacRISC2TypePowerMac))
 			{
+				haveSleptMPIC = true;
 				kprintf("MacRISC2CPU::quiesceCPU %d -> mpic->setUpForSleep off", getCPUNumber());
 				mpic->callPlatformFunction(mpic_setUpForSleep, false, (void *)true, (void *)getCPUNumber(), 0, 0);
 			}
@@ -631,9 +676,12 @@ void MacRISC2CPU::quiesceCPU(void)
 			// Save KeyLargo's register state.
 			keyLargo->callPlatformFunction(keyLargo_saveRegisterState, false, 0, 0, 0, 0);
 	
-			kprintf("MacRISC2CPU::quiesceCPU %d -> keyLargo->turnOffIO", getCPUNumber());
 			// Turn Off all KeyLargo I/O.
-			keyLargo->callPlatformFunction(keyLargo_turnOffIO, false, (void *)false, 0, 0, 0);
+			if (!gPHibernateState || !*gPHibernateState)
+			{
+			    kprintf("MacRISC2CPU::quiesceCPU %d -> keyLargo->turnOffIO\n", getCPUNumber());
+				keyLargo->callPlatformFunction(keyLargo_turnOffIO, false, (void *)false, 0, 0, 0);
+			}
         }
         
         kprintf("MacRISC2CPU::quiesceCPU %d -> here\n", getCPUNumber());
@@ -641,11 +689,17 @@ void MacRISC2CPU::quiesceCPU(void)
         // Set the wake vector to point to the reset vector
         ml_phys_write(0x0080, 0x100);
 
-        // Set the sleeping state for HWInit.
-		// Tell Uni-N to enter normal mode.
-		uniN->callPlatformFunction (uniN_setPowerState, false, 
-			(void *)(processorSpeedChange ? kUniNIdle2 : kUniNSleep),
-			(void *)0, (void *)0, (void *)0);
+        uniN->callPlatformFunction (uniN_setPowerState, false, 
+                (void *)(kUniNSave),
+                (void *)0, (void *)0, (void *)0);
+
+        if (processorSpeedChange || (!gPHibernateState || !*gPHibernateState)) {
+        	// Set the sleeping state for HWInit.
+			// Tell Uni-N to enter normal mode.
+			uniN->callPlatformFunction (uniN_setPowerState, false, 
+				(void *)(processorSpeedChange ? kUniNIdle2 : kUniNSleep),
+				(void *)0, (void *)0, (void *)0);
+		}
     }
 
     ml_ppc_sleep();

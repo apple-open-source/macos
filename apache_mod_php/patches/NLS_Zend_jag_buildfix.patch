@@ -1,0 +1,14 @@
+diff -Naur /Volumes/StorageFW/tmp/php-4.3.10-patched-nonlspatch/Zend/zend_strtod
+.c ./Zend/zend_strtod.c
+--- /Volumes/StorageFW/tmp/php-4.3.10-patched-nonlspatch/Zend/zend_strtod.c     
+Thu Jan 13 12:45:33 2005
++++ ./Zend/zend_strtod.c        Thu Jan 13 17:40:17 2005
+@@ -101,6 +101,8 @@
+     defined(__hppa__) || defined(__x86_64__) || (defined(__arm__) && \
+     defined(__VFP_FP__))
+ #include <sys/types.h>
++#include <stdint.h>
++ 
+ #if BYTE_ORDER == BIG_ENDIAN
+ #define IEEE_BIG_ENDIAN
+ #else

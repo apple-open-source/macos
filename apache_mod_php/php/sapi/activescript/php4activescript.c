@@ -15,7 +15,7 @@
    | Authors: Wez Furlong <wez@thebrainroom.com>                          |
    +----------------------------------------------------------------------+
  */
-/* $Id: php4activescript.c,v 1.1.1.2 2003/07/18 18:07:50 zarzycki Exp $ */
+/* $Id: php4activescript.c,v 1.2.2.1 2002/12/31 16:26:36 sebastian Exp $ */
 
 #include "php.h"
 #include "php_main.h"

@@ -1,0 +1,14 @@
+#!/bin/sh
+
+echo "source package path: $1"
+echo "package destination: $2"
+echo "mount point of dest: $3"
+echo "installer framework: $4"
+
+/usr/sbin/chown -R root:wheel "$2"
+
+"$3/bin/rm" -rf "$3/System/Library/Caches/com.apple.kernelcaches"
+"$3/bin/rm" -rf "$3/System/Library/Extensions.kextcache"
+"$3/bin/rm" -rf "$3/System/Library/Extensions.mkext"
+
+exit 0

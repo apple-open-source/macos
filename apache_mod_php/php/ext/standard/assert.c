@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: assert.c,v 1.1.1.8 2003/07/18 18:07:42 zarzycki Exp $ */
+/* $Id: assert.c,v 1.50.2.3 2003/08/28 16:01:49 sas Exp $ */
 
 /* {{{ includes/startup/misc */
 
@@ -56,12 +56,9 @@ static PHP_INI_MH(OnChangeCallback)
 		zval_ptr_dtor(&ASSERTG(callback));
 	}
 
-	MAKE_STD_ZVAL(ASSERTG(callback));
-
-	if (new_value) {
+	if (new_value && (ASSERTG(callback) || new_value_length)) {
+		MAKE_STD_ZVAL(ASSERTG(callback));
 		ZVAL_STRINGL(ASSERTG(callback), new_value, new_value_length, 1);
-	} else {
-		ZVAL_EMPTY_STRING(ASSERTG(callback));
 	}
 
 	return SUCCESS;
@@ -103,6 +100,7 @@ PHP_MSHUTDOWN_FUNCTION(assert)
 {
 	if (ASSERTG(callback)) {
 		zval_ptr_dtor(&ASSERTG(callback));
+		ASSERTG(callback) = NULL;
 	}
 	return SUCCESS;
 }
@@ -282,7 +280,7 @@ PHP_FUNCTION(assert_options)
 		break;
 
 	default:
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unknown value %d", Z_LVAL_PP(what));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unknown value %ld", Z_LVAL_PP(what));
 		break;
 	}
 

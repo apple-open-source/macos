@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.1.1.5 2003/03/11 01:09:31 zarzycki Exp $
+dnl $Id: config.m4,v 1.10.2.1 2002/11/18 05:06:37 sniper Exp $
 dnl
 
 PHP_ARG_WITH(qtdom, for QtDOM support,

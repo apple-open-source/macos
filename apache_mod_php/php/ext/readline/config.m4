@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.1.1.6 2003/07/18 18:07:41 zarzycki Exp $
+dnl $Id: config.m4,v 1.17.4.3 2003/10/01 02:54:04 sniper Exp $
 dnl
 
 PHP_ARG_WITH(libedit,for libedit readline replacement, 
@@ -9,10 +9,8 @@ PHP_ARG_WITH(readline,for readline support,
 [  --with-readline[=DIR]   Include readline support (CLI/CGI only).])
 
 if test "$PHP_READLINE" != "no"; then
-  for i in /usr/local /usr $PHP_READLINE; do
-    if test -f $i/include/readline/readline.h; then
-      READLINE_DIR=$i
-    fi
+  for i in $PHP_READLINE /usr/local /usr; do
+    test -f $i/include/readline/readline.h && READLINE_DIR=$i && break
   done
 
   if test -z "$READLINE_DIR"; then
@@ -49,17 +47,14 @@ if test "$PHP_READLINE" != "no"; then
     -L$READLINE_DIR/lib 
   ])
 
-  PHP_SUBST(READLINE_SHARED_LIBADD)
-
-  AC_DEFINE(HAVE_LIBREADLINE, 1, [ ])
   PHP_NEW_EXTENSION(readline, readline.c, $ext_shared, cli)
+  PHP_SUBST(READLINE_SHARED_LIBADD)
+  AC_DEFINE(HAVE_LIBREADLINE, 1, [ ])
 
 elif test "$PHP_LIBEDIT" != "no"; then
 
-  for i in /usr/local /usr $PHP_LIBEDIT; do
-    if test -f $i/include/readline/readline.h; then
-      LIBEDIT_DIR=$i
-    fi
+  for i in $PHP_LIBEDIT /usr/local /usr; do
+    test -f $i/include/readline/readline.h && LIBEDIT_DIR=$i && break
   done
 
   if test -z "$LIBEDIT_DIR"; then
@@ -87,8 +82,7 @@ elif test "$PHP_LIBEDIT" != "no"; then
     -L$READLINE_DIR/lib 
   ])
 
-  PHP_SUBST(READLINE_SHARED_LIBADD)
-
-  AC_DEFINE(HAVE_LIBEDIT, 1, [ ])
   PHP_NEW_EXTENSION(readline, readline.c, $ext_shared, cli)
+  PHP_SUBST(READLINE_SHARED_LIBADD)
+  AC_DEFINE(HAVE_LIBEDIT, 1, [ ])
 fi

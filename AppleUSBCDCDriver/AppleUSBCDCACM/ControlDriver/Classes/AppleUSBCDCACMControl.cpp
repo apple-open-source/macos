@@ -396,6 +396,38 @@ void AppleUSBCDCACMControl::merWriteComplete(void *obj, void *param, IOReturn rc
 
 /****************************************************************************************************/
 //
+//		Method:		AppleUSBCDCACMControl::probe
+//
+//		Inputs:		provider - my provider
+//
+//		Outputs:	IOService - from super::probe, score - probe score
+//
+//		Desc:		Modify the probe score if necessary (we don't  at the moment)
+//
+/****************************************************************************************************/
+
+IOService* AppleUSBCDCACMControl::probe( IOService *provider, SInt32 *score )
+{ 
+    IOService   *res;
+	
+		// If our IOUSBInterface has a "do not match" property, it means that we should not match and need 
+		// to bail.  See rdar://3716623
+    
+    OSBoolean *boolObj = OSDynamicCast(OSBoolean, provider->getProperty("kDoNotClassMatchThisInterface"));
+    if (boolObj && boolObj->isTrue())
+    {
+        ALERT(0, 0, "probe - provider doesn't want us to match");
+        return NULL;
+    }
+
+    res = super::probe(provider, score);
+    
+    return res;
+    
+}/* end probe */
+
+/****************************************************************************************************/
+//
 //		Method:		AppleUSBCDCACMControl::start
 //
 //		Inputs:		provider - my provider
@@ -447,16 +479,6 @@ bool AppleUSBCDCACMControl::start(IOService *provider)
     if(!fControlInterface)
     {
         ALERT(0, 0, "start - provider invalid");
-        return false;
-    }
-
-    // If our IOUSBInterface has a "do not match" property, it means that we should not match and need 
-    // to bail.  See rdar://3716623
-    
-    OSBoolean * boolObj = OSDynamicCast( OSBoolean, provider->getProperty("kDoNotClassMatchThisInterface") );
-    if ( boolObj && boolObj->isTrue() )
-    {
-        ALERT(0, 0, "start - provider doesn't want us to match");
         return false;
     }
     
@@ -529,16 +551,18 @@ void AppleUSBCDCACMControl::stop(IOService *provider)
 
 bool AppleUSBCDCACMControl::configureACM()
 {
-    UInt8	protocol;
+//    UInt8	protocol;
     
     XTRACE(this, 0, 0, "configureACM");
-    
+
+#if 0    
     protocol = fControlInterface->GetInterfaceProtocol();
     if (protocol != kUSBv25)
     {
         XTRACE(this, 0, protocol, "configureACM - Unsupported ACM protocol");
         return false;
     }
+#endif
     
     fCommInterfaceNumber = fControlInterface->GetInterfaceNumber();
     XTRACE(this, 0, fCommInterfaceNumber, "configureACM - Comm interface number.");
@@ -546,7 +570,6 @@ bool AppleUSBCDCACMControl::configureACM()
     if (!getFunctionalDescriptors())
     {
         XTRACE(this, 0, 0, "configureACM - getFunctionalDescriptors failed");
-//        releaseResources();
         return false;
     }
     
@@ -763,7 +786,10 @@ void AppleUSBCDCACMControl::dataReleased()
     
     XTRACE(this, 0, 0, "dataReleased");
     
-    fCommPipe->Abort();
+	if (fCommPipe)
+	{
+		fCommPipe->Abort();
+	}
     fdataAcquired = false;
     
 }/* end dataReleased */
@@ -1028,8 +1054,6 @@ bool AppleUSBCDCACMControl::allocateResources()
     if (!fControlInterface->open(this))
     {
         XTRACE(this, 0, 0, "allocateResources - open comm interface failed.");
-        fControlInterface->release();
-        fControlInterface = NULL;
         return false;
     }
         // Interrupt pipe
@@ -1040,8 +1064,6 @@ bool AppleUSBCDCACMControl::allocateResources()
     if (!fCommPipe)
     {
         XTRACE(this, 0, 0, "allocateResources - no comm pipe.");
-		fControlInterface->release();
-        fControlInterface = NULL;
         return false;
     }
     XTRACE(this, epReq.maxPacketSize << 16 |epReq.interval, fCommPipe, "allocateResources - comm pipe.");
@@ -1052,8 +1074,6 @@ bool AppleUSBCDCACMControl::allocateResources()
     if (!fCommPipeMDP)
     {
         XTRACE(this, 0, 0, "allocateResources - Couldn't allocate MDP for interrupt pipe");
-		fControlInterface->release();
-        fControlInterface = NULL;
         return false;
     }
 
@@ -1164,13 +1184,16 @@ void AppleUSBCDCACMControl::resetDevice(void)
 
     XTRACE(this, 0, 0, "resetDevice");
 	
-	if ((fStopping) || (fControlInterface == NULL))
+	if ((fStopping) || (fControlInterface == NULL) || (fTerminate))
 	{
+		XTRACE(this, 0, 0, "resetDevice - returning early");
 		return;
 	}
 	
-	IOSleep(100);										// Don't hit him too soon after the resume
-    
+		// Let everything settle down first
+	
+//	IOSleep(100);
+	    
     rtn = fControlInterface->GetDevice()->GetDeviceStatus(&status);
     if (rtn != kIOReturnSuccess)
     {
@@ -1179,7 +1202,7 @@ void AppleUSBCDCACMControl::resetDevice(void)
     } else {
         status = USBToHostWord(status);
         XTRACE(this, 0, status, "resetDevice - Device status");
-        if (status & kDeviceSelfPowered)				// Self powered devices will be reset
+        if (status & kDeviceSelfPowered)			// Self powered devices will be reset
         {
             reset = true;
         }
@@ -1188,12 +1211,12 @@ void AppleUSBCDCACMControl::resetDevice(void)
     if (reset)
     {
         XTRACE(this, 0, 0, "resetDevice - Device is being reset");
-        if (fCommPipe)
-        {
-//            fCommPipe->Abort();
-        }
-        fControlInterface->GetDevice()->ResetDevice();
-		IOSleep(100);
+        rtn = fControlInterface->GetDevice()->ResetDevice();
+		if (rtn != kIOReturnSuccess)
+		{
+			XTRACE(this, 0, rtn, "resetDevice - ResetDevice failed");
+		}
+//		IOSleep(100);
     }
     
 }/* end resetDevice */
@@ -1360,7 +1383,7 @@ IOReturn AppleUSBCDCACMControl::setPowerState(unsigned long powerStateOrdinal, I
         if (fPowerState == kCDCPowerOnState)
         {
 			resetDevice();
-        }
+		}
     
         return IOPMNoErr;
     }

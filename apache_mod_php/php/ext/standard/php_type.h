@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_type.h,v 1.1.1.2 2003/07/18 18:07:44 zarzycki Exp $ */
+/* $Id: php_type.h,v 1.2.8.1 2002/12/31 16:35:33 sebastian Exp $ */
 
 #ifndef PHP_TYPE_H
 #define PHP_TYPE_H

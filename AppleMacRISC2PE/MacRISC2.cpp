@@ -55,6 +55,10 @@ static unsigned long macRISC2Speed[] = { 0, 1 };
 
 extern char *gIOMacRISC2PMTree;
 
+#ifndef kIOHibernateFeatureKey
+#define kIOHibernateFeatureKey	"Hibernation"
+#endif
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 #define super ApplePlatformExpert
@@ -112,7 +116,11 @@ bool MacRISC2PE::start(IOService *provider)
         platformOptions = *((UInt32 *)(tmpData->getBytesNoCopy()));
     
     hasEmbededThermals = ((platformOptions & 0x00000001) != 0);
-    hasPMon = (pMonPlatformNumber != 0) || hasEmbededThermals;
+
+    if ( (pMonPlatformNumber & kUsesIOPlatformPlugin) != 0 )
+        hasPPlugin = true;
+    else
+        hasPMon = (pMonPlatformNumber != 0) || hasEmbededThermals;
     
 	// get uni-N version for use by platformAdjustService
 	uniNRegEntry = provider->childFromPath("uni-n", gIODTPlane);
@@ -157,7 +165,7 @@ bool MacRISC2PE::start(IOService *provider)
     if (machineType == kMacRISC2TypePowerBook)
     {
 		OSIterator 		*childIterator;
-		IORegistryEntry *cpuEntry, *powerPCEntry;
+                IORegistryEntry 		*cpuEntry, *powerPCEntry, *devicetreeRegEntry;
 		OSData			*cpuSpeedData, *stepTypeData;
 
 		// locate the first PowerPC,xx cpu node so we can get clock properties
@@ -236,6 +244,13 @@ bool MacRISC2PE::start(IOService *provider)
 			}
 			childIterator->release();
 		}
+		
+		// check if this machine supports PowerPlay....
+		devicetreeRegEntry = fromPath("/", gIODTPlane);
+		tmpData = OSDynamicCast(OSData, devicetreeRegEntry->getProperty("graphics-setagressiveness"));
+		if (tmpData) 
+			// found property that says we support PowerPlay so set a bit to indicate this
+			processorSpeedChangeFlags |= kSupportsPowerPlay;
 	}
 	
 	// Create PlatformFunction nub
@@ -277,42 +292,70 @@ bool MacRISC2PE::start(IOService *provider)
 	 */
 	result = super::start(provider);
 	
-	// Create PlatformMonitor nub
-	if (hasPMon) {
+	// Create PlatformMonitor or IOPlatformPlugin nub, as appropriate
+	if (hasPMon || hasPPlugin) {
 		OSDictionary *dict = OSDictionary::withCapacity(2);
 		
 		if (dict) {
 			const OSSymbol *nameKey, *compatKey, *nameValueSymbol;
-			const OSData *nameValueData, *compatValueData;
+			const OSData *nameValueData, *compatValueData, *pHandle;
 			char tmpName[32], tmpCompat[128];
 			
-			nameKey = OSSymbol::withCStringNoCopy("name");
-			strcpy(tmpName, "IOPlatformMonitor");
-			nameValueSymbol = OSSymbol::withCString(tmpName);
-			nameValueData = OSData::withBytes(tmpName, strlen(tmpName)+1);
-			dict->setObject (nameKey, nameValueData);
-			compatKey = OSSymbol::withCStringNoCopy("compatible");
- 
-			if ( pMonPlatformNumber == kPB51MachineModel )
- 			{
- 				strcpy (tmpCompat, "PB5_1");
- 			}
- 			else if (( pMonPlatformNumber == kPB52MachineModel ) ||
- 					 ( pMonPlatformNumber == kPB53MachineModel ))
- 			{
- 				strcpy (tmpCompat, "Portable2003");
- 			}
- 			else if (( pMonPlatformNumber == kPB54MachineModel ) ||
- 					 ( pMonPlatformNumber == kPB55MachineModel ) ||
- 					 ( pMonPlatformNumber == kPB56MachineModel ) ||
- 					 ( pMonPlatformNumber == kPB57MachineModel ))
- 			{
- 				strcpy (tmpCompat, "Portable2004");
- 			}
- 			else 
-            	strcpy (tmpCompat, "Portable");
- 			
- 			strcat (tmpCompat, "_PlatformMonitor");
+            nameKey = OSSymbol::withCStringNoCopy("name");
+            compatKey = OSSymbol::withCStringNoCopy("compatible");
+            if ( hasPPlugin ) {
+                // Create MacRISC4 style PlatformPlugin nub
+                const OSString	*modelString;
+                const OSSymbol	*modelKey;
+                const OSSymbol	*pHandleKey;
+                
+                modelString = OSString::withCString( provider_name );
+                modelKey = OSSymbol::withCStringNoCopy("model");
+                dict->setObject (modelKey, modelString);
+                modelString->release();
+                modelKey->release();
+                
+                // Add AAPL,phandle for "platform-" function use
+                pHandleKey = OSSymbol::withCStringNoCopy("AAPL,phandle");
+                if (pHandle = OSDynamicCast (OSData, provider->getProperty (pHandleKey)))
+                    dict->setObject (pHandleKey, pHandle);
+                pHandleKey->release();
+
+                strcpy (tmpName, "IOPlatformPlugin");
+                if (( pMonPlatformNumber == kPB56MachineModel ) ||
+                    ( pMonPlatformNumber == kPB57MachineModel )) {
+                    strcpy (tmpCompat, "PBG4");
+                } else
+                    strcpy (tmpCompat, "MacRISC4");		// Generic plugin
+                strcat (tmpCompat, "_PlatformPlugin");
+           } else {
+                strcpy(tmpName, "IOPlatformMonitor");
+    
+                if ( pMonPlatformNumber == kPB51MachineModel )
+                {
+                    strcpy (tmpCompat, "PB5_1");
+                }
+                else if (( pMonPlatformNumber == kPB52MachineModel ) ||
+                        ( pMonPlatformNumber == kPB53MachineModel ))
+                {
+                    strcpy (tmpCompat, "Portable2003");
+                }
+                else if (( pMonPlatformNumber == kPB54MachineModel ) ||
+                        ( pMonPlatformNumber == kPB55MachineModel ) ||
+                        ( pMonPlatformNumber == kPB56MachineModel ) ||
+                        ( pMonPlatformNumber == kPB57MachineModel ))
+                {
+                    strcpy (tmpCompat, "Portable2004");
+                }
+                else 
+                    strcpy (tmpCompat, "Portable");
+                
+                strcat (tmpCompat, "_PlatformMonitor");
+            }
+            
+            nameValueSymbol = OSSymbol::withCString(tmpName);
+            nameValueData = OSData::withBytes(tmpName, strlen(tmpName)+1);
+            dict->setObject (nameKey, nameValueData);
                                                
 			compatValueData = OSData::withBytes(tmpCompat, strlen(tmpCompat)+1);
 			dict->setObject (compatKey, compatValueData);
@@ -329,13 +372,56 @@ bool MacRISC2PE::start(IOService *provider)
 			nameValueData->release();
 			compatKey->release();
 			compatValueData->release();
+            
+            // Propagate platform- function properties to plugin nub
+            // NOTE - this assumes *all* such properties need to be moved to the plugin nub
+            //   as the properties in our nub will get deleted
+            if (hasPPlugin) {
+                OSDictionary			*propTable;
+                OSCollectionIterator	*propIter;
+                OSSymbol				*propKey;
+                OSData					*propData;
+
+                propTable = NULL;
+                if ( ((propTable = provider->dictionaryWithProperties()) == 0) ||
+                    ((propIter = OSCollectionIterator::withCollection(propTable)) == 0) ) {
+                    if (propTable) propTable->release();
+                    propTable = NULL;
+                }
+
+                if (propTable) {
+                    while ((propKey = OSDynamicCast(OSSymbol, propIter->getNextObject())) != 0) {
+                        if (strncmp(kFunctionRequiredPrefix,		// Check for "platform-"
+                            propKey->getCStringNoCopy(),
+                            strlen(kFunctionRequiredPrefix)) == 0) {
+                            
+                            if (strncmp(kFunctionProvidedPrefix,	// Check for "platform-do"
+                                propKey->getCStringNoCopy(),
+                                strlen(kFunctionProvidedPrefix)) == 0) continue; // Don't copy "platform-do"s
+                                
+                            propData = OSDynamicCast(OSData, propTable->getObject(propKey));
+                            if (propData) {
+                                if (ioPMonNub->setProperty (propKey, propData))
+                                    // Successfully copied to plugin nub so remove our copy
+                                    provider->removeProperty (propKey);
+                            }
+                        }
+                    }
+                }
+                if (propTable) propTable->release();
+                if (propIter) propIter->release();
+                
+                // If the plugin needs to support PowerPlay tell it so.
+                if ( processorSpeedChangeFlags & kSupportsPowerPlay )
+                    ioPMonNub->setProperty ("UsePowerPlay", kOSBooleanTrue);
+            }
 		}
     }
 
     
 	// Init power monitor states.  This should be driven by data in the device-tree
-	if (doPlatformPowerMonitor) {
-		
+	if (doPlatformPowerMonitor)
+    {
 		bitsSet = kIOPMACInstalled | kIOPMACnoChargeCapability;
 		bitsClear = 0;
 		powerMonWeakCharger.bitsXor = bitsSet & ~bitsClear;
@@ -410,6 +496,8 @@ void MacRISC2PE::determinePlatformNumber( void )
     else if (!strcmp(provider_name, "PowerBook6,4")) pMonPlatformNumber = kPB64MachineModel;
     else if	(!strcmp(provider_name, "PowerBook6,5")) pMonPlatformNumber = kPB65MachineModel;
     else if	(!strcmp(provider_name, "PowerBook6,6")) pMonPlatformNumber = kPB66MachineModel;
+    else if	(!strcmp(provider_name, "PowerBook6,7")) pMonPlatformNumber = kPB67MachineModel;
+    else if	(!strcmp(provider_name, "PowerBook6,8")) pMonPlatformNumber = kPB68MachineModel;
     else pMonPlatformNumber = 0;
 }
 
@@ -469,6 +557,16 @@ bool MacRISC2PE::platformAdjustService(IOService *service)
 			
 	*/
 	
+    if (IODTMatchNubWithKeys(service, "kauai-ata"))
+	{
+        UInt32 		hibEnable;
+
+        if (PE_parse_boot_arg("hib", &hibEnable) && hibEnable)
+            service->setProperty("has-safe-sleep", (void *) 0, (unsigned int) 0);
+
+        return true;
+    }
+    
     if(!strcmp(service->getName(), "sound"))
 	{
 		OSObject			*hasAndedReset;
@@ -810,7 +908,10 @@ IOReturn MacRISC2PE::callPlatformFunction(const OSSymbol *functionName,
     }
   
     if (functionName->isEqualTo("PlatformPowerMonitor")) {
-		return platformPowerMonitor ((UInt32 *) param1);
+        if (hasPPlugin)
+            return platformPluginPowerMonitor ((UInt32 *) param1);
+        else
+            return platformPowerMonitor ((UInt32 *) param1);
     }
 	
     if (functionName->isEqualTo("PerformPMUSpeedChange")) {
@@ -893,6 +994,73 @@ IOReturn MacRISC2PE::accessUniN15PerformanceRegister(bool write, long regNumber,
 
 
 //*********************************************************************************
+// platformPluginPowerMonitor
+//
+// A call platform function call called by the ApplePMU driver.  ApplePMU call us
+// with a set of power flags.  We examine those flags and modify the state
+// according to the characteristics of the platform. 
+//
+// If necessary, we force an immediate change in the power state
+// This call is only used for MacRISC4 style plugins.  PlatformMonitor plugins.  
+// use the platformPowerMonitor call
+//*********************************************************************************
+IOReturn MacRISC2PE::platformPluginPowerMonitor(UInt32 *powerFlags)
+{
+    static UInt32 			i = 0;
+    static OSDictionary 	*dict;
+    static OSNumber			*powerBits;
+    static const OSSymbol	*gIOPPluginCurrentValueKey;
+    
+	if (!gIOPPluginCurrentValueKey)	gIOPPluginCurrentValueKey		= OSSymbol::withCString (kIOPMonCurrentValueKey);
+
+    if (!dict)
+        dict = OSDictionary::withCapacity(2);
+
+    // the first time we're called is on the ApplePMU start thread and we don't
+    // want to block it, so just skip the first few events
+    if (i < 10) {
+        i++;
+        return kIOReturnSuccess;
+    }
+
+    if ((i == 10) && !ioPPlugin) {
+        IOService *serv;
+        
+        i = 11;
+        serv = waitForService(resourceMatching("IOPlatformPlugin"));
+        ioPPlugin = OSDynamicCast (IOService, serv->getProperty("IOPlatformPlugin"));
+    }
+
+    if (ioPPlugin) {	// If there's an ioPPlugin, use it
+        powerBits = OSNumber::withNumber ((long long)*powerFlags, 32);
+        dict->setObject (gIOPPluginCurrentValueKey, powerBits);
+        powerBits->release();
+
+        // Send the current value to the Platform Plugin
+        messageClient (kIOPMonMessagePowerMonitor, ioPPlugin, (void *)dict);
+
+        /*
+         * Here we differ from how PlatformMonitor style plugins work.  They
+         * would retrieve the (possibly) modified value determined by the plugin
+         * and return that to PMU, which would, in turn pass that to the Power
+         * Manager.  If the forced reduced speed bit was set (kIOPMForceLowSpeed),
+         * this would trigger a setAggressiveness call to reduce the processor speed.
+         *
+         * With the PlatformPlugin style plugins they will take immediate action,
+         * if necessary, to reduce speed.  Nobody else has to be involved.
+         *
+         * Therefore, we return the value to PMU unmodified, except for clearing
+         * the kIOPMForceLowSpeed.
+         */
+        *powerFlags &= ~kIOPMForceLowSpeed;  		// Clear low speed bit
+
+    }
+	i++;
+	
+	return kIOReturnSuccess;
+}
+
+//*********************************************************************************
 // platformPowerMonitor
 //
 // A call platform function call called by the ApplePMU driver.  ApplePMU call us
@@ -900,6 +1068,9 @@ IOReturn MacRISC2PE::accessUniN15PerformanceRegister(bool write, long regNumber,
 // according to the characteristics of the platform. 
 //
 // If necessary, we force an immediate change in the power state
+//
+// This call is only used for PlatformMonitor plugins.  MacRISC4 style plugins
+// use the platformPluginPowerMonitor call
 //*********************************************************************************
 IOReturn MacRISC2PE::platformPowerMonitor(UInt32 *powerFlags)
 {
@@ -1033,9 +1204,10 @@ IOReturn MacRISC2PE::platformPowerMonitor(UInt32 *powerFlags)
 
 void MacRISC2PE::PMInstantiatePowerDomains ( void )
 {    
-	const OSSymbol *desc = OSSymbol::withCString("powertreedesc");
-    IOPMUSBMacRISC2 * usbMacRISC2;
-
+	const OSSymbol 			*desc = OSSymbol::withCString("powertreedesc");
+    IOPMUSBMacRISC2 		*usbMacRISC2;
+	UInt32 					hibEnable;
+    
 	// Move our power tree description from our driver (where it's a property in the driver)
 	// to our provider
 	kprintf ("MacRISC2PE::PMInstantiatePowerDomains - getting pmtree property\n");
@@ -1054,6 +1226,13 @@ void MacRISC2PE::PMInstantiatePowerDomains ( void )
 	removeProperty(desc);
     		
     root = IOPMrootDomain::construct();
+
+    if (NULL == root)
+    {
+        kprintf ("PMInstantiatePowerDomains - null ROOT\n");
+        return;
+    }
+
     root->attach(this);
     root->start(this);
 
@@ -1063,10 +1242,9 @@ void MacRISC2PE::PMInstantiatePowerDomains ( void )
 
     root->setSleepSupported(kRootDomainSleepSupported);
    
-    if (NULL == root)
+    if (PE_parse_boot_arg("hib", &hibEnable) && hibEnable)
     {
-        kprintf ("PMInstantiatePowerDomains - null ROOT\n");
-        return;
+        root->publishFeature(kIOHibernateFeatureKey);
     }
 
     PMRegisterDevice (NULL, root);

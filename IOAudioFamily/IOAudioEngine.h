@@ -421,7 +421,7 @@ public:
 
     /*!
      * @function start
-     * @abstract Standard IOKit start() routine called to start an IOService
+     * @abstract Standard IOKit start() routine called to start an IOService.
      * @discussion This function is called in order to prepare the IOAudioEngine for use.  It does NOT
      *  mean that the audio I/O engine itself should be started.  This implementation gets the IOWorkLoop
      *  from the IOAudioDevice and allocates an IOCommandGate.  Finally it calls initHardware() in which
@@ -518,7 +518,6 @@ public:
     /*!
      * @function getCurrentSampleFrame
      * @abstract Gets the current sample frame from the IOAudioEngine subclass.
-     * @discussion
      * @result
      */
     virtual UInt32 getCurrentSampleFrame() = 0;
@@ -530,7 +529,7 @@ public:
      *  This must be overridden by the subclass.  No call to the superclass's implementation is
      *  necessary.  The subclass's implementation must start up the audio I/O engine.  This includes any audio
      *  engine that needs to be started as well as any interrupts that need to be enabled.  Upon successfully
-     *  starting the engine, the subclass's implementation must call _setState(kAudioEngineRunning).  If
+     *  starting the engine, the subclass's implementation must call setState(kAudioEngineRunning).  If
      *  it has also checked the state using getState() earlier in the implementation, the stateLock must be
      *  acquired for the entire initialization process (using IORecursiveLockLock(stateLock) and
      *  IORecursiveLockUnlock(stateLock)) to ensure that the state remains consistent.  See the general class
@@ -546,7 +545,7 @@ public:
      *  It must be overridden by the subclass.  No call to the superclass's implementation is necessary.
      *  The subclass's implementation must stop the audio I/O engine.  The audio engine (if it exists) should
      *  be stopped and any interrupts disabled.  Upon successfully stopping the engine, the subclass must call
-     *  _setState(kAudioEngineStopped).  If it has also checked the state using getState() earlier in the
+     *  setState(kAudioEngineStopped).  If it has also checked the state using getState() earlier in the
      *  implementation, the stateLock must be acquired for the entire initialization process (using
      *  IORecursiveLockLock(stateLock) and IORecursiveLockUnlock(stateLock)) to ensure that the state remains
      *  consistent.
@@ -581,8 +580,8 @@ public:
     /*! 
      * @function getState
      * @abstract Returns the current state of the IOAudioEngine.
-     * @discussion If this method is called in preparation for calling _setState(), the stateLock must
-     *  be acquired before the first call to getState() and held until after the last call to _setState().
+     * @discussion If this method is called in preparation for calling setState(), the stateLock must
+     *  be acquired before the first call to getState() and held until after the last call to setState().
      *  Be careful not to return from the code acquiring the lock while the lock is being held.  That
      *  will cause a deadlock situation.
      * @result The current state of the IOAudioEngine: kAudioEngineRunning, kAudioEngineStopped.
@@ -598,7 +597,7 @@ public:
     virtual IOReturn hardwareSampleRateChanged(const IOAudioSampleRate *sampleRate);
 
     /*!
-     * @function getErases 
+     * @function getRunEraseHead 
      * @abstract Returns true if the audio engine will run the erase head when the audio engine is running.
      */
     virtual bool getRunEraseHead();
@@ -694,7 +693,7 @@ protected:
     virtual UInt32 getNumSampleFramesPerBuffer();
 
     /*!
-     * @function _setState
+     * @function setState
      * @abstract Indicates that the audio engine is in the specified state.
      * @discussion This method simply sets the internal state of the audio engine to the specified state.  It does not
      *  affect a change to the state.  It does however keep other internal state-related attributes consistent.
@@ -716,7 +715,7 @@ protected:
     virtual void setSampleRate(const IOAudioSampleRate *newSampleRate);
 
     /*!
-     * @function _setSampleLatency
+     * @function setSampleLatency
      * @abstract Sets the sample latency for the audio engine.
      * @discussion The sample latency represents the number of samples ahead of the playback head
      *  that it is safe to write into the sample buffer.  The audio device API will never write
@@ -729,10 +728,10 @@ protected:
     virtual void setSampleOffset(UInt32 numSamples);
 
     /*!
-     * @function _setErases
+     * @function setErases
      * @abstract Tells the audio engine whether or not to run the erase head.
      * @discussion By default, output audio engines run the erase head and input audio engines do not.  This method can
-     *  be called after _setDirection() is called in order to change the default behavior.
+     *  be called after setDirection() is called in order to change the default behavior.
      * @param runEraseHead The audio engine will run the erase head if this value is true.
      */
     virtual void setRunEraseHead(bool runEraseHead);
@@ -752,7 +751,7 @@ protected:
      * @discussion There is a timer event needed by the IOAudioEngine for processing the erase head
      *  and performing flushing operations. When the timer fires, the method timerFired() is ultimately
      *  called which in turn calls performErase() and performFlush().  This is called automatically
-     *  to enable the timer event for this audio engine.  It is called by _setState() when the audio engine state
+     *  to enable the timer event for this audio engine.  It is called by setState() when the audio engine state
      *  is set to kAudioEngineRunning.  When the timer is no longer needed, removeTimer() is called.
      *  There is no need to call this directly.  
      */
@@ -762,7 +761,7 @@ protected:
      * @function removeTimer
      * @abstract Disables the timer event for the audio engine.
      * @discussion  This method is called automatically to disable the timer event for this audio engine.
-     *  There is need to call it directly.  This method is called by _setState() when the audio engine state
+     *  There is need to call it directly.  This method is called by setState() when the audio engine state
      *  is changed from kAudioEngineRunning to one of the stopped states.
      */
     virtual void removeTimer();

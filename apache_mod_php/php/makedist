@@ -24,7 +24,7 @@
 #
 # Written by Stig Bakken <ssb@guardian.no> 1997-05-28.
 #
-# $Id: makedist,v 1.1.1.6 2003/07/18 18:07:25 zarzycki Exp $
+# $Id: makedist,v 1.28.2.2 2003/07/30 13:21:15 iliaa Exp $
 #
 
 if test "$#" != "2"; then
@@ -46,7 +46,7 @@ IFS="$old_IFS"
 
 PHPROOT=:pserver:cvsread@cvs.php.net:/repository
 ZENDROOT=:pserver:cvsread@cvs.php.net:/repository
-PHPMOD=php4
+PHPMOD=php-src
 ZENDMOD=Zend
 TSRMMOD=TSRM
 LT_TARGETS='ltconfig ltmain.sh config.guess config.sub'

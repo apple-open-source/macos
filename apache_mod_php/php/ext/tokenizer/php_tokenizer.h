@@ -16,6 +16,8 @@
    +----------------------------------------------------------------------+
  */
 
+/* $Id: php_tokenizer.h,v 1.4.2.2 2003/07/24 02:53:45 sniper Exp $ */
+
 #ifndef PHP_TOKENIZER_H
 #define PHP_TOKENIZER_H
 

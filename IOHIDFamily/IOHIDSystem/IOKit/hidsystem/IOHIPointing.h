@@ -83,6 +83,9 @@ typedef void (*ScrollWheelEventCallback)(
                         /* delta1 */       short      deltaAxis1,
                         /* delta2 */       short      deltaAxis2,
                         /* delta3 */       short      deltaAxis3,
+                        /* fixedDelta1 */  IOFixed    fixedDelta1,
+                        /* fixedDelta2 */  IOFixed    fixedDelta2,
+                        /* fixedDelta3 */  IOFixed    fixedDelta3,
                         /* atTime */       AbsoluteTime ts,
                         /* sender */       OSObject * sender,
                         /* refcon */       void *     refcon);
@@ -132,9 +135,12 @@ private:
         UInt8 		scrollTimeDeltaIndex1;
         UInt8 		scrollTimeDeltaIndex2;
         UInt8 		scrollTimeDeltaIndex3;
-        int		scrollLastDeltaAxis1;
-        int		scrollLastDeltaAxis2;
-        int		scrollLastDeltaAxis3;
+        IOFixed		scrollLastDeltaAxis1;
+        IOFixed		scrollLastDeltaAxis2;
+        IOFixed		scrollLastDeltaAxis3;
+        IOFixed		scrollFixedDeltaAxis1;
+        IOFixed		scrollFixedDeltaAxis2;
+        IOFixed		scrollFixedDeltaAxis3;        
         AbsoluteTime	scrollLastEventTime1;
         AbsoluteTime	scrollLastEventTime2;
         AbsoluteTime	scrollLastEventTime3;
@@ -146,7 +152,7 @@ private:
         bool		isSeized;
     };
 
-    void *  _reserved;
+    ExpansionData *  _reserved;
     
 protected:
   virtual void dispatchRelativePointerEvent(int        dx,
@@ -219,7 +225,7 @@ private:
   // Unfortunately, we don't have any padding, so these
   // are going to be non-virtual.
   /*virtual*/ bool 	resetScroll();
-  /*virtual*/ void 	scaleScrollAxes(int * axis1p, int * axis2p, int * axis3p);
+  /*virtual*/ void 	scaleScrollAxes(IOFixed * axis1p, IOFixed * axis2p, IOFixed * axis3p);
   /*virtual*/ void 	setupScrollForAcceleration(IOFixed accl);
   
   // RY: We have to make sure that subclasses that will 

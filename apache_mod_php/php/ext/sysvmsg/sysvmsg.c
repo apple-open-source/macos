@@ -15,7 +15,7 @@
    | Authors: Wez Furlong <wez@thebrainroom.com                           |
    +----------------------------------------------------------------------+
  */
-/* $Id: sysvmsg.c,v 1.1.1.2 2003/07/18 18:07:46 zarzycki Exp $ */
+/* $Id: sysvmsg.c,v 1.4.2.3 2003/09/22 23:28:08 iliaa Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -120,7 +120,7 @@ PHP_MINFO_FUNCTION(sysvmsg)
 {
 	php_info_print_table_start();
 	php_info_print_table_header(2, "sysvmsg support", "enabled");
-	php_info_print_table_row(2, "Revision", "$Revision: 1.1.1.2 $");
+	php_info_print_table_row(2, "Revision", "$Revision: 1.4.2.3 $");
 	php_info_print_table_end();
 }
 /* }}} */
@@ -223,7 +223,7 @@ PHP_FUNCTION(msg_get_queue)
 		/* doesn't already exist; create it */
 		mq->id = msgget(key, IPC_CREAT|IPC_EXCL|perms);
 		if (mq->id < 0)	{
-			zend_error(E_WARNING, "%s: msgget() failed for key 0x%x: %s",
+			zend_error(E_WARNING, "%s: msgget() failed for key 0x%lx: %s",
 					get_active_function_name(TSRMLS_C), key, strerror(errno));
 			efree(mq);
 			RETURN_FALSE;

@@ -22,7 +22,7 @@
 /*
  * Copyright (c) 2004 Apple Computer, Inc.  All rights reserved.
  *
- *  File: $Id: SMU_Neo2_PIDCtrlLoop.h,v 1.4.6.2 2004/07/30 00:26:24 dirty Exp $
+ *  File: $Id: SMU_Neo2_PIDCtrlLoop.h,v 1.6 2004/07/30 00:18:04 dirty Exp $
  *
  */
 

@@ -1,4 +1,4 @@
-dnl     $Id: libfcgi.m4,v 1.1.1.1 2003/03/11 01:09:38 zarzycki Exp $
+dnl     $Id: libfcgi.m4,v 1.1.2.1 2002/12/01 23:11:14 shane Exp $
 dnl
 dnl     This file is an input file used by the GNU "autoconf" program to
 dnl     generate the file "configure", which is run during the build

@@ -17,7 +17,7 @@
    |          David Sklar <sklar@student.net>                             |
    +----------------------------------------------------------------------+
  */
-/* $Id: php_apache.c,v 1.1.1.8 2003/07/18 18:07:50 zarzycki Exp $ */
+/* $Id: php_apache.c,v 1.69.2.5 2003/09/09 21:42:57 sniper Exp $ */
 
 #include "php_apache_http.h"
 
@@ -44,6 +44,7 @@ PHP_FUNCTION(apache_note);
 PHP_FUNCTION(apache_lookup_uri);
 PHP_FUNCTION(apache_child_terminate);
 PHP_FUNCTION(apache_setenv);
+PHP_FUNCTION(apache_get_version);
 
 PHP_MINFO_FUNCTION(apache);
 
@@ -55,6 +56,7 @@ function_entry apache_functions[] = {
 	PHP_FE(apache_child_terminate,					NULL)
 	PHP_FE(apache_setenv,							NULL)
 	PHP_FE(apache_response_headers,					NULL)
+	PHP_FE(apache_get_version,						NULL)
 	PHP_FALIAS(getallheaders, apache_request_headers, NULL)
 	{NULL, NULL, NULL}
 };
@@ -73,7 +75,6 @@ static void php_apache_globals_ctor(php_apache_info_struct *apache_globals TSRML
 {
 	apache_globals->in_request = 0;
 }
-
 
 static PHP_MINIT_FUNCTION(apache)
 {
@@ -158,6 +159,7 @@ PHP_FUNCTION(apache_note)
  */
 PHP_MINFO_FUNCTION(apache)
 {
+	char *apv = (char *) ap_get_server_version();
 	module *modp = NULL;
 	char output_buf[128];
 #if !defined(WIN32) && !defined(WINNT)
@@ -174,7 +176,6 @@ PHP_MINFO_FUNCTION(apache)
 
 	serv = ((request_rec *) SG(server_context))->server;
 
-
 	php_info_print_table_start();
 
 #ifdef PHP_WIN32
@@ -190,7 +191,9 @@ PHP_MINFO_FUNCTION(apache)
 	php_info_print_table_row(2, "APACHE_TARGET", PHP_APACHE_TARGET);
 #endif
 
-	php_info_print_table_row(2, "Apache Version", SERVER_VERSION);
+	if (apv && *apv) {
+		php_info_print_table_row(2, "Apache Version", apv);
+	} 
 
 #ifdef APACHE_RELEASE
 	sprintf(output_buf, "%d", APACHE_RELEASE);
@@ -415,7 +418,7 @@ PHP_FUNCTION(apache_lookup_uri)
 	convert_to_string_ex(filename);
 
 	if(!(rr = sub_req_lookup_uri((*filename)->value.str.val, ((request_rec *) SG(server_context))))) {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "URI lookup failed", (*filename)->value.str.val);
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "URI lookup failed '%s'", (*filename)->value.str.val);
 		RETURN_FALSE;
 	}
 	object_init(return_value);
@@ -474,6 +477,19 @@ PHP_FUNCTION(apache_lookup_uri)
 }
 /* }}} */
 
+/* {{{ proto string apache_get_version(void)
+   Fetch Apache version */
+PHP_FUNCTION(apache_get_version)
+{       
+	char *apv = (char *) ap_get_server_version();
+
+	if (apv && *apv) {
+		RETURN_STRING(apv, 1);
+	} else {
+		RETURN_FALSE;
+	}
+}
+/* }}} */
 
 #if 0
 This function is most likely a bad idea.  Just playing with it for now.

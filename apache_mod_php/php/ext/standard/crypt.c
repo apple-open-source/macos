@@ -17,7 +17,7 @@
    |          Rasmus Lerdorf <rasmus@php.net>                             |
    +----------------------------------------------------------------------+
  */
-/* $Id: crypt.c,v 1.1.1.7 2003/07/18 18:07:42 zarzycki Exp $ */
+/* $Id: crypt.c,v 1.55.8.3 2004/01/19 03:16:04 sniper Exp $ */
 #include <stdlib.h>
 
 #include "php.h"
@@ -89,8 +89,6 @@ extern char *crypt(char *__key, char *__salt);
 
 #define PHP_CRYPT_RAND php_rand(TSRMLS_C)
 
-static int php_crypt_rand_seeded=0;
-
 PHP_MINIT_FUNCTION(crypt)
 {
 	REGISTER_LONG_CONSTANT("CRYPT_SALT_LENGTH", PHP_MAX_SALT_LEN, CONST_CS | CONST_PERSISTENT);
@@ -99,16 +97,6 @@ PHP_MINIT_FUNCTION(crypt)
 	REGISTER_LONG_CONSTANT("CRYPT_MD5", PHP_MD5_CRYPT, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("CRYPT_BLOWFISH", PHP_BLOWFISH_CRYPT, CONST_CS | CONST_PERSISTENT);
 
-	return SUCCESS;
-}
-
-
-PHP_RINIT_FUNCTION(crypt)
-{
-	if(!php_crypt_rand_seeded) {
-		php_srand(time(0) * getpid() * (unsigned long) (php_combined_lcg(TSRMLS_C) * 10000.0) TSRMLS_CC);
-		php_crypt_rand_seeded=1;
-	} 
 	return SUCCESS;
 }
 

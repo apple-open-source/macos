@@ -208,12 +208,12 @@ public:
     @param highSpeedPort   If highSpeedHub is non zero, the hub port to address split transactions to
 */
     virtual IOReturn 		UIMCreateIsochEndpoint(
-                                                        short		functionAddress,
-                                                        short		endpointNumber,
-                                                        UInt32		maxPacketSize,
-                                                        UInt8		direction,
-                                                        USBDeviceAddress highSpeedHub,
-                                                        int      highSpeedPort) = 0;
+                                                        short				functionAddress,
+                                                        short				endpointNumber,
+                                                        UInt32				maxPacketSize,
+                                                        UInt8				direction,
+                                                        USBDeviceAddress	highSpeedHub,
+                                                        int					highSpeedPort) = 0;
 
     OSMetaClassDeclareReservedUsed(IOUSBControllerV2,  0);
     virtual IOReturn		AddHSHub(USBDeviceAddress highSpeedHub, UInt32 flags);
@@ -240,8 +240,48 @@ public:
     OSMetaClassDeclareReservedUsed(IOUSBControllerV2,  6);
     virtual void ClearTT(USBDeviceAddress addr, UInt8 endpt, Boolean IN);
 
-    OSMetaClassDeclareReservedUnused(IOUSBControllerV2,  7);
-    OSMetaClassDeclareReservedUnused(IOUSBControllerV2,  8);
+    
+    OSMetaClassDeclareReservedUsed(IOUSBControllerV2,  7);
+    /*!
+        @function Read
+     Read from an interrupt or bulk endpoint
+     @param buffer place to put the transferred data
+     @param address Address of the device on the USB bus
+     @param endpoint description of endpoint
+     @param completion describes action to take when buffer has been filled
+     @param noDataTimeout number of milliseconds of no data movement before the request is aborted
+     @param completionTimeout number of milliseonds after the command is on the bus in which it must complete
+     @param reqCount number of bytes requested for the transfer (must not be greater than the length of the buffer)
+     */
+    virtual IOReturn ReadV2( IOMemoryDescriptor *			buffer,
+                           USBDeviceAddress					address,
+                           Endpoint *						endpoint,
+                           IOUSBCompletionWithTimeStamp *	completion,
+                           UInt32							noDataTimeout,
+                           UInt32							completionTimeout,
+                           IOByteCount						reqCount );
+    
+    OSMetaClassDeclareReservedUsed(IOUSBControllerV2,  8);
+/*!
+	@function UIMCreateIsochEndpoint
+    @abstract Create an endpoint in the controller to do Isochronous transactions.
+    @param functionAddress USB device ID of device
+    @param endpointNumber  endpoint address of the endpoint in the device
+    @param maxPacketSize   maximum packet size of this endpoint
+    @param highSpeedHub    If non zero, this is a full speed device, the address of the high speed hub to
+                           address split transactions to.
+    @param highSpeedPort   If highSpeedHub is non zero, the hub port to address split transactions to
+*/
+    virtual IOReturn 		UIMCreateIsochEndpoint(
+                                                        short				functionAddress,
+                                                        short				endpointNumber,
+                                                        UInt32				maxPacketSize,
+                                                        UInt8				direction,
+                                                        USBDeviceAddress	highSpeedHub,
+                                                        int					highSpeedPort,
+														UInt8				interval);
+
+
     OSMetaClassDeclareReservedUnused(IOUSBControllerV2,  9);
     OSMetaClassDeclareReservedUnused(IOUSBControllerV2,  10);
     OSMetaClassDeclareReservedUnused(IOUSBControllerV2,  11);

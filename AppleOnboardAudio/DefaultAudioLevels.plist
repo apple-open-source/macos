@@ -1,0 +1,318 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<!--
+====================================================================================================
+
+	IMPORTANT:	DO NOT ADD NEW CPU ENTRIES INTO THIS LIST UNTIL GM CANDIDATE.
+	
+	This file containst the default volume settings, expressed in dB, to be set
+	by applications needing to set the volume early in the boot process.  The
+	values encoded are derived from testing target hardware and applying a volume
+	setting that will produce a specified Sound Pressure Level (SPL).
+	
+	The file is to contain a series of named arrays where the array name will
+	represent the CPU name as defined in the IOService plane.
+	
+	Each named array will contain one or more dictionaries to describe the default
+	volume setting for a given analog output port.  A dictionary entry will exist
+	for each supported analog output port.  Each dictionary describing a volume
+	setting will have a key to describe the output port and a real number to describe
+	the volume setting expressed in dB.
+	
+	PLEASE MAINTAIN THE ENTRIES IN ALPHABETICAL ORDER AS THAT WILL STREAMLINE VERIFICATION PROCESSES
+	
+====================================================================================================
+-->
+    <dict>
+        <key>PowerBook3,2</key>
+        <array>
+            <dict>
+                <key>Internal Speaker</key>
+                <real>-7.0</real>
+            </dict>
+        </array>
+    </dict>
+    <dict>
+        <key>PowerBook3,3</key>
+        <array>
+            <dict>
+                <key>Internal Speaker</key>
+                <real>-7.0</real>
+            </dict>
+        </array>
+    </dict>
+    <dict>
+        <key>PowerBook3,4</key>
+        <array>
+            <dict>
+                <key>Internal Speaker</key>
+                <real>-7.0</real>
+            </dict>
+        </array>
+    </dict>
+    <dict>
+        <key>PowerBook3,5</key>
+        <array>
+            <dict>
+                <key>Internal Speaker</key>
+                <real>-7.0</real>
+            </dict>
+        </array>
+    </dict>
+    <dict>
+        <key>PowerBook4,1</key>
+        <array>
+            <dict>
+                <key>Internal Speaker</key>
+                <real>-10.0</real>
+            </dict>
+        </array>
+    </dict>
+    <dict>
+        <key>PowerBook4,3</key>
+        <array>
+            <dict>
+                <key>Internal Speaker</key>
+                <real>-10.0</real>
+            </dict>
+        </array>
+    </dict>
+    <dict>
+        <key>PowerBook5,1</key>
+        <array>
+            <dict>
+                <key>Internal Speaker</key>
+                <real>-13.0</real>
+            </dict>
+        </array>
+    </dict>
+    <dict>
+        <key>PowerBook5,2</key>
+        <array>
+            <dict>
+                <key>Internal Speaker</key>
+                <real>-12.0</real>
+            </dict>
+        </array>
+    </dict>
+    <dict>
+        <key>PowerBook5,3</key>
+        <array>
+            <dict>
+                <key>Internal Speaker</key>
+                <real>-13.0</real>
+            </dict>
+        </array>
+    </dict>
+    <dict>
+        <key>PowerBook5,4</key>
+        <array>
+            <dict>
+                <key>Internal Speaker</key>
+                <real>-12.0</real>
+            </dict>
+        </array>
+    </dict>
+    <dict>
+        <key>PowerBook6,1</key>
+        <array>
+            <dict>
+                <key>Internal Speaker</key>
+                <real>-12.5</real>
+            </dict>
+        </array>
+    </dict>
+    <dict>
+        <key>PowerBook6,2</key>
+        <array>
+            <dict>
+                <key>Internal Speaker</key>
+                <real>-12.5</real>
+            </dict>
+        </array>
+    </dict>
+    <dict>
+        <key>PowerBook6,3</key>
+        <array>
+            <dict>
+                <key>Internal Speaker</key>
+                <real>-10.0</real>
+            </dict>
+        </array>
+    </dict>
+    <dict>
+        <key>PowerBook6,4</key>
+        <array>
+            <dict>
+                <key>Internal Speaker</key>
+                <real>-12.5</real>
+            </dict>
+        </array>
+    </dict>
+    <dict>
+        <key>PowerBook6,5</key>
+        <array>
+            <dict>
+                <key>Internal Speaker</key>
+                <real>-10.0</real>
+            </dict>
+        </array>
+    </dict>
+    <dict>
+        <key>PowerMac3,5</key>
+        <array>
+            <dict>
+                <key>External Speaker</key>
+                <real>-14.5</real>
+            </dict>
+
+            <dict>
+                <key>Internal Speaker</key>
+                <real>-7.5</real>
+            </dict>
+        </array>
+    </dict>
+    <dict>
+        <key>PowerMac3,6</key>
+        <array>
+            <dict>
+                <key>External Speaker</key>
+                <real>-17.0</real>
+            </dict>
+
+            <dict>
+                <key>Internal Speaker</key>
+                <real>-8.0</real>
+            </dict>
+        </array>
+    </dict>
+    <dict>
+        <key>PowerMac4,1</key>
+        <array>
+            <dict>
+                <key>Internal Speaker</key>
+                <real>-17.0</real>
+            </dict>
+        </array>
+    </dict>
+    <dict>
+        <key>PowerMac4,2</key>
+        <array>
+            <dict>
+                <key>External Speaker</key>
+                <real>-17.0</real>
+            </dict>
+
+            <dict>
+                <key>Internal Speaker</key>
+                <real>-9.0</real>
+            </dict>
+        </array>
+    </dict>
+    <dict>
+        <key>PowerMac4,4</key>
+        <array>
+            <dict>
+                <key>Internal Speaker</key>
+                <real>-14.5</real>
+            </dict>
+        </array>
+    </dict>
+    <dict>
+        <key>PowerMac4,5</key>
+        <array>
+            <dict>
+                <key>External Speaker</key>
+                <real>-17.0</real>
+            </dict>
+
+            <dict>
+                <key>Internal Speaker</key>
+                <real>-9.0</real>
+            </dict>
+        </array>
+    </dict>
+    <dict>
+        <key>PowerMac5,6</key>
+        <array>
+            <dict>
+                <key>External Speaker</key>
+                <real>-17.0</real>
+            </dict>
+
+            <dict>
+                <key>Internal Speaker</key>
+                <real>-9.0</real>
+            </dict>
+        </array>
+    </dict>
+    <dict>
+        <key>PowerMac6,1</key>
+        <array>
+            <dict>
+                <key>External Speaker</key>
+                <real>-17.0</real>
+            </dict>
+
+            <dict>
+                <key>Internal Speaker</key>
+                <real>-9.0</real>
+            </dict>
+        </array>
+    </dict>
+    <dict>
+        <key>PowerMac6,4</key>
+        <array>
+            <dict>
+                <key>Internal Speaker</key>
+                <real>-10.5</real>
+            </dict>
+        </array>
+    </dict>
+    <dict>
+        <key>PowerMac7,2</key>
+        <array>
+            <dict>
+                <key>Internal Speaker</key>
+                <real>-10.0</real>
+            </dict>
+        </array>
+    </dict>
+    <dict>
+        <key>PowerMac7,3</key>
+        <array>
+            <dict>
+                <key>Internal Speaker</key>
+                <real>-10.0</real>
+            </dict>
+        </array>
+    </dict>
+    <dict>
+        <key>PowerMac8,1</key>
+        <array>
+            <dict>
+                <key>Internal Speaker</key>
+                <real>-11.5</real>
+            </dict>
+        </array>
+    </dict>
+    <dict>
+        <key>PowerMac9,1</key>
+        <array>
+            <dict>
+                <key>Internal Speaker</key>
+                <real>-10.0</real>
+            </dict>
+        </array>
+    </dict>
+    <dict>
+        <key>PowerMac10,1</key>
+        <array>
+            <dict>
+                <key>Internal Speaker</key>
+                <real>-3.0</real>
+            </dict>
+        </array>
+    </dict>
+</plist>

@@ -17,7 +17,7 @@
    | PHP 4.0 patches by Zeev Suraski <zeev@zend.com>                      |
    +----------------------------------------------------------------------+
  */
-/* $Id: mod_php4.c,v 1.1.1.8 2003/07/18 18:07:50 zarzycki Exp $ */
+/* $Id: mod_php4.c,v 1.146.2.14 2004/07/21 16:25:28 sesser Exp $ */
 
 #include "php_apache_http.h"
 #include "http_conf_globals.h"
@@ -380,6 +380,7 @@ static int sapi_apache_force_http_10(TSRMLS_D)
 	
 	return SUCCESS;
 }
+/* }}} */
 
 /* {{{ sapi_apache_get_target_uid
  */
@@ -388,6 +389,7 @@ static int sapi_apache_get_target_uid(uid_t *obj TSRMLS_DC)
 	*obj = ap_user_id;
 	return SUCCESS;
 }
+/* }}} */
 
 /* {{{ sapi_apache_get_target_gid
  */
@@ -396,6 +398,7 @@ static int sapi_apache_get_target_gid(gid_t *obj TSRMLS_DC)
 	*obj = ap_group_id;
 	return SUCCESS;
 }
+/* }}} */
 
 /* {{{ sapi_module_struct apache_sapi_module
  */
@@ -462,7 +465,7 @@ static void init_request_info(TSRMLS_D)
 	request_rec *r = ((request_rec *) SG(server_context));
 	char *content_length = (char *) table_get(r->subprocess_env, "CONTENT_LENGTH");
 	const char *authorization=NULL;
-	char *tmp;
+	char *tmp, *tmp_user;
 
 	SG(request_info).query_string = r->args;
 	SG(request_info).path_translated = r->filename;
@@ -479,15 +482,16 @@ static void init_request_info(TSRMLS_D)
 		&& (!PG(safe_mode) || (PG(safe_mode) && !auth_type(r)))
 		&& !strcasecmp(getword(r->pool, &authorization, ' '), "Basic")) {
 		tmp = uudecode(r->pool, authorization);
-		SG(request_info).auth_user = getword_nulls_nc(r->pool, &tmp, ':');
-		if (SG(request_info).auth_user) {
-			r->connection->user = pstrdup(r->connection->pool, SG(request_info).auth_user);
+		tmp_user = getword_nulls_nc(r->pool, &tmp, ':');
+		SG(request_info).auth_user = NULL;
+		if (tmp_user) {
+			r->connection->user = pstrdup(r->connection->pool, tmp_user);
 			r->connection->ap_auth_type = "Basic";
-			SG(request_info).auth_user = estrdup(SG(request_info).auth_user);
+			SG(request_info).auth_user = estrdup(tmp_user);
 		}
-		SG(request_info).auth_password = tmp;
-		if (SG(request_info).auth_password) {
-			SG(request_info).auth_password = estrdup(SG(request_info).auth_password);
+		SG(request_info).auth_password = NULL;
+		if (tmp) {
+			SG(request_info).auth_password = estrdup(tmp);
 		}
 	} else {
 		SG(request_info).auth_user = NULL;
@@ -534,7 +538,7 @@ static int send_php(request_rec *r, int display_source_mode, char *filename)
 	TSRMLS_FETCH();
 
 	if (AP(in_request)) {
-		zend_file_handle fh;
+		zend_file_handle fh = {0};
 
 		fh.filename = r->filename;
 		fh.opened_path = NULL;
@@ -827,6 +831,9 @@ static int php_xbithack_handler(request_rec * r)
 	}
 	if(!AP(xbithack)) {
 		r->allowed |= (1 << METHODS) - 1;
+		zend_try {
+			zend_ini_deactivate(TSRMLS_C);
+		} zend_end_try();
 		return DECLINED;
 	}
 	return send_parsed_php(r);

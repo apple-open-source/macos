@@ -28,9 +28,11 @@
 #if HAVE_GMP
 
 #include <gmp.h>
-/* If you declare any globals in php_gmp.h uncomment this:
-ZEND_DECLARE_MODULE_GLOBALS(gmp)
-*/
+
+/* Needed for gmp_random() */
+#include "ext/standard/php_rand.h"
+#include "ext/standard/php_lcg.h"
+#define GMP_ABS(x) ((x) >= 0 ? (x) : -(x))
 
 /* True global resources - no need for thread safety here */
 static int le_gmp;
@@ -92,12 +94,14 @@ zend_module_entry gmp_module_entry = {
 	ZEND_MODULE_STARTUP_N(gmp),
 	ZEND_MODULE_SHUTDOWN_N(gmp),
 	NULL,
-	NULL,
+	ZEND_MODULE_DEACTIVATE_N(gmp),
 	ZEND_MODULE_INFO_N(gmp),
 	NO_VERSION_YET,
 	STANDARD_MODULE_PROPERTIES
 };
 /* }}} */
+
+ZEND_DECLARE_MODULE_GLOBALS(gmp)
 
 #ifdef COMPILE_DL_GMP
 ZEND_GET_MODULE(gmp)
@@ -135,16 +139,39 @@ static void gmp_efree(void *ptr, size_t size)
 }
 /* }}} */
 
+/* {{{ php_gmp_init_globals
+ */
+static void php_gmp_init_globals(zend_gmp_globals *gmp_globals)
+{
+	gmp_globals->rand_initialized = 0;
+}
+/* }}} */
+
 /* {{{ ZEND_MINIT_FUNCTION
  */
 ZEND_MODULE_STARTUP_D(gmp)
 {
+    ZEND_INIT_MODULE_GLOBALS(gmp, php_gmp_init_globals, NULL);
+
 	le_gmp = zend_register_list_destructors_ex(_php_gmpnum_free, NULL, GMP_RESOURCE_NAME, module_number);
 	REGISTER_LONG_CONSTANT("GMP_ROUND_ZERO", GMP_ROUND_ZERO, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("GMP_ROUND_PLUSINF", GMP_ROUND_PLUSINF, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("GMP_ROUND_MINUSINF", GMP_ROUND_MINUSINF, CONST_CS | CONST_PERSISTENT);
 
 	mp_set_memory_functions(gmp_emalloc, gmp_erealloc, gmp_efree);
+
+	return SUCCESS;
+}
+/* }}} */
+
+/* {{{ ZEND_RSHUTDOWN_FUNCTION
+ */
+ZEND_MODULE_DEACTIVATE_D(gmp)
+{
+	if (GMPG(rand_initialized)) {
+		gmp_randclear(GMPG(rand_state));
+		GMPG(rand_initialized) = 0;
+	}
 
 	return SUCCESS;
 }
@@ -282,6 +309,10 @@ static inline void gmp_zval_binary_ui_op_ex(zval *return_value, zval **a_arg, zv
 		FETCH_GMP_ZVAL(gmpnum_b, b_arg);
 	}
 
+	if (!Z_LVAL_PP(b_arg)) {
+		RETURN_FALSE;
+	}
+
 	INIT_GMP_NUM(gmpnum_result);
 	if(use_ui && gmp_ui_op) {
 		if(allow_ui_return) {
@@ -311,7 +342,7 @@ static inline void gmp_zval_binary_ui_op2_ex(zval *return_value, zval **a_arg, z
 	mpz_t *gmpnum_a, *gmpnum_b, *gmpnum_result1, *gmpnum_result2;
 	zval r;
 	int use_ui=0;
-	unsigned long long_result;
+	unsigned long long_result = 0;
 
 	FETCH_GMP_ZVAL(gmpnum_a, a_arg);
 	if(gmp_ui_op && Z_TYPE_PP(b_arg) == IS_LONG && Z_LVAL_PP(b_arg) >= 0) {
@@ -319,6 +350,10 @@ static inline void gmp_zval_binary_ui_op2_ex(zval *return_value, zval **a_arg, z
 		use_ui=1;
 	} else {
 		FETCH_GMP_ZVAL(gmpnum_b, b_arg);
+	}
+
+	if (!Z_LVAL_PP(b_arg)) {
+		RETURN_FALSE;
 	}
 
 	INIT_GMP_NUM(gmpnum_result1);
@@ -795,6 +830,10 @@ ZEND_FUNCTION(gmp_powm)
 	}
 	FETCH_GMP_ZVAL(gmpnum_mod, mod_arg);
 
+	if (!mpz_cmp_ui(*gmpnum_mod, 0)) {
+		RETURN_FALSE;
+	}
+
 	INIT_GMP_NUM(gmpnum_result);
 	if(use_ui) {
 		mpz_powm_ui(*gmpnum_result, *gmpnum_base, (unsigned long)Z_LVAL_PP(exp_arg), *gmpnum_mod);
@@ -1031,19 +1070,27 @@ ZEND_FUNCTION(gmp_random)
 
 	argc = ZEND_NUM_ARGS();
 
-	if (argc < 0  || argc > 1 || zend_get_parameters_ex(1, &limiter_arg) == FAILURE){
-		WRONG_PARAM_COUNT;
-	}
-
-	if(argc) {
+	if (argc == 0) {
+		limiter = 20;
+	} else if (argc == 1 && zend_get_parameters_ex(1, &limiter_arg) == SUCCESS) {
 		convert_to_long_ex(limiter_arg);
 		limiter = Z_LVAL_PP(limiter_arg);
 	} else {
-		limiter = 20;
+		WRONG_PARAM_COUNT;
 	}
 
 	INIT_GMP_NUM(gmpnum_result);
-	mpz_random(*gmpnum_result, limiter);
+
+	if (!GMPG(rand_initialized)) {
+		/* Initialize */
+		gmp_randinit_lc_2exp_size(GMPG(rand_state), 32L);
+
+		/* Seed */
+		gmp_randseed_ui(GMPG(rand_state), GENERATE_SEED());
+
+		GMPG(rand_initialized) = 1;
+	}
+	mpz_urandomb(*gmpnum_result, GMPG(rand_state), GMP_ABS (limiter) * __GMP_BITS_PER_MP_LIMB);
 
 	ZEND_REGISTER_RESOURCE(return_value, gmpnum_result, le_gmp);
 }
@@ -1184,7 +1231,7 @@ ZEND_FUNCTION(gmp_hamdist)
 	zval **a_arg, **b_arg;
 	mpz_t *gmpnum_a, *gmpnum_b;
 
-	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(1, &a_arg, &b_arg) == FAILURE){
+	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2, &a_arg, &b_arg) == FAILURE){
 		WRONG_PARAM_COUNT;
 	}
 	

@@ -12,13 +12,13 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Stig Sæther Bakken <ssb@fast.no>                            |
+   | Authors: Stig Sæther Bakken <ssb@php.net>                            |
    |          Andreas Karajannis <Andreas.Karajannis@gmd.de>              |
-   |	        Kevin N. Shallow <kshallow@tampabay.rr.com> Birdstep Support |
+   |	      Kevin N. Shallow <kshallow@tampabay.rr.com> (Birdstep)      |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_odbc.h,v 1.1.1.8 2003/07/18 18:07:39 zarzycki Exp $ */
+/* $Id: php_odbc.h,v 1.48.4.5 2003/07/14 16:13:30 sniper Exp $ */
 
 #ifndef PHP_ODBC_H
 #define PHP_ODBC_H

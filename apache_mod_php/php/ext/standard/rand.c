@@ -20,7 +20,7 @@
    | Based on code from: Shawn Cokus <Cokus@math.washington.edu>          |
    +----------------------------------------------------------------------+
  */
-/* $Id: rand.c,v 1.1.1.7 2003/07/18 18:07:44 zarzycki Exp $ */
+/* $Id: rand.c,v 1.60.2.3 2004/01/19 03:16:04 sniper Exp $ */
 
 #include <stdlib.h>
 
@@ -60,6 +60,9 @@ PHPAPI void php_srand(long seed TSRMLS_DC)
 	srand((unsigned int) seed);
 # endif
 #endif
+
+	/* Seed only once */
+	BG(rand_is_seeded) = 1;
 }
 /* }}} */
 
@@ -68,6 +71,10 @@ PHPAPI void php_srand(long seed TSRMLS_DC)
 PHPAPI long php_rand(TSRMLS_D)
 {
 	long ret;
+
+	if (!BG(rand_is_seeded)) {
+		php_srand(GENERATE_SEED() TSRMLS_CC);
+	}
 
 #ifdef ZTS
 	ret = php_rand_r(&BG(rand_seed));
@@ -205,6 +212,9 @@ PHPAPI void php_mt_srand(php_uint32 seed TSRMLS_DC)
 	
 	for (BG(left) = 0, *s++ = x, j = N; --j;
 		*s++ = (x *= 69069U) & 0xFFFFFFFFU);
+
+	/* Seed only once */
+	BG(mt_rand_is_seeded) = 1;
 }
 /* }}} */
 
@@ -253,12 +263,6 @@ PHPAPI php_uint32 php_mt_rand(TSRMLS_D)
 }
 /* }}} */
 
-#ifdef PHP_WIN32
-#define GENERATE_SEED() ((long) (time(0) * GetCurrentProcessId() * 1000000 * php_combined_lcg(TSRMLS_C)))
-#else
-#define GENERATE_SEED() ((long) (time(0) * getpid() * 1000000 * php_combined_lcg(TSRMLS_C)))
-#endif
-
 /* {{{ proto void srand([int seed])
    Seeds random number generator */
 PHP_FUNCTION(srand)
@@ -272,7 +276,6 @@ PHP_FUNCTION(srand)
 		seed = GENERATE_SEED();
 
 	php_srand(seed TSRMLS_CC);
-	BG(rand_is_seeded) = 1;
 }
 /* }}} */
 
@@ -289,7 +292,6 @@ PHP_FUNCTION(mt_srand)
 		seed = GENERATE_SEED();
 
 	php_mt_srand(seed TSRMLS_CC);
-	BG(mt_rand_is_seeded) = 1;
 }
 /* }}} */
 
@@ -331,10 +333,6 @@ PHP_FUNCTION(rand)
 
 	if (argc != 0 && zend_parse_parameters(argc TSRMLS_CC, "ll", &min, &max) == FAILURE)
 		return;
-
-	if (!BG(rand_is_seeded)) {
-		php_srand(GENERATE_SEED() TSRMLS_CC);
-	}
 
 	number = php_rand(TSRMLS_C);
 	if (argc == 2) {

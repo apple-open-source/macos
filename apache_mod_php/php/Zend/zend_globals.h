@@ -207,9 +207,6 @@ struct _zend_executor_globals {
 
 	HashTable *ini_directives;
 
-	/* locale stuff */
-	char float_separator[1];
-
 	void *reserved[ZEND_MAX_RESERVED_RESOURCES];
 };
 
@@ -238,8 +235,8 @@ struct _zend_alloc_globals {
 };
 
 struct _zend_scanner_globals {
-	FILE *yy_in;
-	FILE *yy_out;
+	zend_file_handle *yy_in;
+	zend_file_handle *yy_out;
 	int yy_leng;
 	char *yy_text;
 	struct yy_buffer_state *current_buffer;

@@ -18,7 +18,7 @@
  */
 
 
-/* $Id: php_main.h,v 1.1.1.8 2003/07/18 18:07:48 zarzycki Exp $ */
+/* $Id: php_main.h,v 1.23.2.1 2002/12/31 16:26:17 sebastian Exp $ */
 
 
 #ifndef PHP_MAIN_H

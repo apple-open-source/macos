@@ -22,27 +22,6 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#ifndef __OPEN_SOURCE__
-/*
- *
- *	$Log: USBCDCEthernet.cpp,v $
- *	Revision 1.1.1.1  2004/04/01 22:18:05  russw
- *	First check in for new USB CDC driver
- *	
- *	Revision 1.4  2004/02/03 22:09:42  nano
- *	Fix <rdar://problem/3548194>: Remove $ Id $ from source files to prevent conflicts
- *	
- *	Revision 1.3  2004/01/21 16:46:21  nano
- *	Latest update from the unreleased sources.
- *	
- *	Revision 1.1.2.2  2004/01/20 23:47:24  russw
- *	Fix for Ethernet address
- *	
- *	Revision 1.1.2.1  2004/01/20 13:59:15  nano
- *	First checkin of USB CDC Ethernet files
- *	
- */
-#endif
 /*
  File:		USBCDCEthernet.cpp
 

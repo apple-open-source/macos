@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: info.c,v 1.1.1.8 2003/07/18 18:07:43 zarzycki Exp $ */
+/* $Id: info.c,v 1.218.2.16 2004/06/09 15:10:19 iliaa Exp $ */
 
 #include "php.h"
 #include "php_ini.h"
@@ -81,7 +81,7 @@ static int _display_module_info(zend_module_entry *module, void *arg TSRMLS_DC)
 			php_printf("%s", module->name);
 			php_printf("</td></tr>\n");
 		} else {
-			php_printf(module->name);
+			php_printf("%s", module->name);
 			php_printf("\n");
 		}
 	}
@@ -411,7 +411,7 @@ PHPAPI void php_print_info(int flag TSRMLS_DC)
 				PUTS(SG(request_info).request_uri);
 			}
 			if ((ta->tm_mon==3) && (ta->tm_mday==1)) {
-				PUTS("?="PHP_EGG_LOGO_GUID"\" alt=\"Thies!\" /></a>");
+				PUTS("?="PHP_EGG_LOGO_GUID"\" alt=\"Nadia!\" /></a>");
 			} else {
 				PUTS("?="PHP_LOGO_GUID"\" alt=\"PHP Logo\" /></a>");
 			}
@@ -473,10 +473,11 @@ PHPAPI void php_print_info(int flag TSRMLS_DC)
 			HashTable *url_stream_wrappers_hash;
 			char *stream_protocol, *stream_protocols_buf = NULL;
 			int stream_protocol_len, stream_protocols_buf_len = 0;
+			ulong num_key;
 
 			if ((url_stream_wrappers_hash = php_stream_get_url_stream_wrappers_hash())) {
 				for (zend_hash_internal_pointer_reset(url_stream_wrappers_hash);
-						zend_hash_get_current_key_ex(url_stream_wrappers_hash, &stream_protocol, &stream_protocol_len, NULL, 0, NULL) == HASH_KEY_IS_STRING;
+						zend_hash_get_current_key_ex(url_stream_wrappers_hash, &stream_protocol, &stream_protocol_len, &num_key, 0, NULL) == HASH_KEY_IS_STRING;
 						zend_hash_move_forward(url_stream_wrappers_hash)) {
 					if (NULL == (stream_protocols_buf = erealloc(stream_protocols_buf,
 									stream_protocols_buf_len + stream_protocol_len + 2 /* ", " */ + 1 /* 0 byte at end */))) {
@@ -973,7 +974,7 @@ PHP_FUNCTION(php_uname)
 /* {{{ proto string php_ini_scanned_files(void)
    Return comma-separated string of .ini files parsed from the additional ini dir */
 PHP_FUNCTION(php_ini_scanned_files) {
-	if(strlen(PHP_CONFIG_FILE_SCAN_DIR)) {
+	if(strlen(PHP_CONFIG_FILE_SCAN_DIR) && php_ini_scanned_files) {
 		RETURN_STRING(php_ini_scanned_files,1);
 	} else RETURN_FALSE;
 }

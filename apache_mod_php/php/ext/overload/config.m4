@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.1.1.2 2003/03/11 01:09:28 zarzycki Exp $
+dnl $Id: config.m4,v 1.5 2002/03/12 16:27:22 sas Exp $
 dnl
 
 PHP_ARG_ENABLE(overload,whether to enable user-space object overloading support,

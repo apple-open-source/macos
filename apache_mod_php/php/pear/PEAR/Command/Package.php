@@ -3,12 +3,12 @@
 // +----------------------------------------------------------------------+
 // | PHP Version 4                                                        |
 // +----------------------------------------------------------------------+
-// | Copyright (c) 1997-2003 The PHP Group                                |
+// | Copyright (c) 1997-2004 The PHP Group                                |
 // +----------------------------------------------------------------------+
-// | This source file is subject to version 2.02 of the PHP license,      |
+// | This source file is subject to version 3.0 of the PHP license,       |
 // | that is bundled with this package in the file LICENSE, and is        |
-// | available at through the world-wide-web at                           |
-// | http://www.php.net/license/2_02.txt.                                 |
+// | available through the world-wide-web at the following url:           |
+// | http://www.php.net/license/3_0.txt.                                  |
 // | If you did not receive a copy of the PHP license and are unable to   |
 // | obtain it through the world-wide-web, please send a note to          |
 // | license@php.net so we can mail you a copy immediately.               |
@@ -17,7 +17,7 @@
 // |          Martin Jansen <mj@php.net>                                  |
 // +----------------------------------------------------------------------+
 //
-// $Id: Package.php,v 1.1.1.3 2003/07/18 18:07:49 zarzycki Exp $
+// $Id: Package.php,v 1.42.2.17 2004/06/08 18:26:32 cellog Exp $
 
 require_once 'PEAR/Common.php';
 require_once 'PEAR/Command/Common.php';
@@ -251,10 +251,7 @@ Wrote: /usr/src/redhat/RPMS/i386/PEAR::Net_Socket-1.0-1.i386.rpm
         $this->output = '';
         include_once 'PEAR/Packager.php';
         $pkginfofile = isset($params[0]) ? $params[0] : 'package.xml';
-        $packager =& new PEAR_Packager($this->config->get('php_dir'),
-                                       $this->config->get('ext_dir'),
-                                       $this->config->get('doc_dir'));
-        $packager->debug = $this->config->get('verbose');
+        $packager =& new PEAR_Packager();
         $err = $warn = array();
         $dir = dirname($pkginfofile);
         $compress = empty($options['nocompress']) ? true : false;
@@ -438,20 +435,33 @@ Wrote: /usr/src/redhat/RPMS/i386/PEAR::Net_Socket-1.0-1.i386.rpm
     function doRunTests($command, $options, $params)
     {
         $cwd = getcwd();
-        $php = PHP_BINDIR . '/php' . (OS_WINDOWS ? '.exe' : '');
+        $php = $this->config->get('php_bin');
         putenv("TEST_PHP_EXECUTABLE=$php");
+        // all core PEAR tests use this constant to determine whether they should be run or not
+        putenv("PHP_PEAR_RUNTESTS=1");
         $ip = ini_get("include_path");
         $ps = OS_WINDOWS ? ';' : ':';
-        $run_tests = $this->config->get('php_dir') . DIRECTORY_SEPARATOR . 'run-tests.php';
+        $run_tests = $rtsts = $this->config->get('php_dir') . DIRECTORY_SEPARATOR . 'run-tests.php';
         if (!file_exists($run_tests)) {
             $run_tests = PEAR_INSTALL_DIR . DIRECTORY_SEPARATOR . 'run-tests.php';
             if (!file_exists($run_tests)) {
-                return $this->raiseError("No `run-tests.php' file found");
+                return $this->raiseError("No run-tests.php file found. Please copy this ".
+                                                "file from the sources of your PHP distribution to $rtsts");
             }
         }
-        $plist = implode(" ", $params);
-        $cmd = "$php -C -d include_path=$cwd$ps$ip -f $run_tests -- $plist";
-        system($cmd);
+        if (OS_WINDOWS) {
+            // note, this requires a slightly modified version of run-tests.php
+            // for some setups
+            // unofficial download location is in the pear-dev archives
+            $argv = $params;
+            array_unshift($argv, $run_tests);
+            $argc = count($argv);
+            include $run_tests;
+        } else {
+            $plist = implode(' ', $params);
+            $cmd = "$php -d include_path=$cwd$ps$ip -f $run_tests -- $plist";
+            system($cmd);
+        }
         return true;
     }
 
@@ -561,6 +571,26 @@ Wrote: /usr/src/redhat/RPMS/i386/PEAR::Net_Socket-1.0-1.i386.rpm
     // }}}
     // {{{ doMakeRPM()
 
+    /*
+
+    (cox)
+
+    TODO:
+
+        - Fill the rpm dependencies in the template file.
+
+    IDEAS:
+
+        - Instead of mapping the role to rpm vars, perhaps it's better
+
+          to use directly the pear cmd to install the files by itself
+
+          in %postrun so:
+
+          pear -d php_dir=%{_libdir}/php/pear -d test_dir=.. <package>
+
+    */
+
     function doMakeRPM($command, $options, $params)
     {
         if (sizeof($params) != 1) {
@@ -582,22 +612,14 @@ Wrote: /usr/src/redhat/RPMS/i386/PEAR::Net_Socket-1.0-1.i386.rpm
                                     array('installroot' => $instroot,
                                           'nodeps' => true));
         $pkgdir = "$info[package]-$info[version]";
-//        print "instroot=$instroot\n";
-//        print_r($info);
-//        return true;
-
         $info['rpm_xml_dir'] = '/var/lib/pear';
         $this->config->set('verbose', $tmp);
-        if (!$tar->extractList("$pkgdir/package.xml", $tmpdir, $pkgdir)) {
+        if (!$tar->extractList("package.xml", $tmpdir, $pkgdir)) {
             return $this->raiseError("failed to extract $params[0]");
         }
         if (!file_exists("$tmpdir/package.xml")) {
             return $this->raiseError("no package.xml found in $params[0]");
         }
-//        System::mkdir("-p $instroot$info[rpm_xml_dir]");
-//        if (!@copy("$tmpdir/package.xml", "$instroot$info[rpm_xml_dir]/$info[package].xml")) {
-//            return $this->raiseError("could not copy package.xml file: $php_errormsg");
-//        }
         if (isset($options['spec-template'])) {
             $spec_template = $options['spec-template'];
         } else {
@@ -616,12 +638,52 @@ Wrote: /usr/src/redhat/RPMS/i386/PEAR::Net_Socket-1.0-1.i386.rpm
         $info['rpm_package'] = sprintf($rpm_pkgname_format, $info['package']);
         $srcfiles = 0;
         foreach ($info['filelist'] as $name => $attr) {
+
+            if (!isset($attr['role'])) {
+                continue;
+            }
             if ($attr['role'] == 'doc') {
                 $info['doc_files'] .= " $name";
-            } elseif ($attr['role'] == 'src') {
-                $srcfiles++;
+
+            // Map role to the rpm vars
+            } else {
+
+                $c_prefix = '%{_libdir}/php/pear';
+
+                switch ($attr['role']) {
+
+                    case 'php':
+
+                        $prefix = $c_prefix; break;
+
+                    case 'ext':
+
+                        $prefix = '%{_libdir}/php'; break; // XXX good place?
+
+                    case 'src':
+
+                        $srcfiles++;
+
+                        $prefix = '%{_includedir}/php'; break; // XXX good place?
+
+                    case 'test':
+
+                        $prefix = "$c_prefix/tests/" . $info['package']; break;
+
+                    case 'data':
+
+                        $prefix = "$c_prefix/data/" . $info['package']; break;
+
+                    case 'script':
+
+                        $prefix = '%{_bindir}'; break;
+
+                }
+
+                $name = str_replace('\\', '/', $name);
+                $info['files'] .= "$prefix/$name\n";
+
             }
-            $info['files'] .= "$attr[installed_as]\n";
         }
         if ($srcfiles > 0) {
             include_once "OS/Guess.php";
@@ -630,7 +692,7 @@ Wrote: /usr/src/redhat/RPMS/i386/PEAR::Net_Socket-1.0-1.i386.rpm
         } else {
             $arch = 'noarch';
         }
-        $cfk = array('master_server', 'php_dir', 'ext_dir', 'doc_dir',
+        $cfg = array('master_server', 'php_dir', 'ext_dir', 'doc_dir',
                      'bin_dir', 'data_dir', 'test_dir');
         foreach ($cfg as $k) {
             $info[$k] = $this->config->get($k);
@@ -643,14 +705,14 @@ Wrote: /usr/src/redhat/RPMS/i386/PEAR::Net_Socket-1.0-1.i386.rpm
         $spec_contents = preg_replace('/@([a-z0-9_-]+)@/e', '$info["\1"]', fread($fp, filesize($spec_template)));
         fclose($fp);
         $spec_file = "$info[rpm_package]-$info[version].spec";
-        $wp = fopen($spec_file, "w");
+        $wp = fopen($spec_file, "wb");
         if (!$wp) {
             return $this->raiseError("could not write RPM spec file $spec_file: $php_errormsg");
         }
         fwrite($wp, $spec_contents);
         fclose($wp);
         $this->ui->outputData("Wrote RPM spec file $spec_file", $command);
-        
+
         return true;
     }
 

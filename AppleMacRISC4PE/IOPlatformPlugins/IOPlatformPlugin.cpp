@@ -118,6 +118,15 @@ const OSSymbol * gIOPPluginThermalValidConfigsKey;
 const OSSymbol * gIOPPluginThermalMetaStatesKey;
 const OSSymbol * gIOPPluginPlatformID;
 
+// These are currently portable only
+const OSSymbol * gIOPPluginEnvUserPowerAuto;
+const OSSymbol * gIOPPluginEnvACPresent;
+const OSSymbol * gIOPPluginEnvBatteryPresent;
+const OSSymbol * gIOPPluginEnvBatteryOvercurrent;
+const OSSymbol * gIOPPluginEnvClamshellClosed;
+const OSSymbol * gIOPPluginEnvPowerStatus;
+
+// Handy numbers
 const OSNumber * gIOPPluginZero;
 const OSNumber * gIOPPluginOne;
 const OSNumber * gIOPPluginTwo;
@@ -187,7 +196,9 @@ bool IOPlatformPlugin::start(IOService *nub)
 	setEnv(gIOPPluginEnvCtrlLoopOutputAtMax, (tempArray = OSArray::withCapacity(0)));
 	tempArray->release();
 	setEnv(gIOPPluginEnvDynamicPowerStep, gIOPPluginZero);	// assume fast boot
-
+        if (gIOPPluginEnvUserPowerAuto)
+            setEnv (gIOPPluginEnvUserPowerAuto, kOSBooleanTrue);	// and user power auto
+	
 	// ensure that the chassis-switch environment condition is present. The value will
 	// be kOSBooleanFalse until later on, when we poll the sensor properly.
 	setEnv( gIOPPluginEnvChassisSwitch, IOPlatformPlugin::pollChassisSwitch() );
@@ -207,7 +218,8 @@ bool IOPlatformPlugin::start(IOService *nub)
 			waitForService(serviceMatching("IOPMrootDomain"), &waitTimeout));
 
 	// parse in all the info for this machine
-	initThermalProfile(nub);
+	if (!initThermalProfile(nub))
+		goto failReleaseSymbols;
 
 	// set the timer starting.  Do this before we register with PM, I/O Kit, and
 	// IOResources cause we need to guarantee that no one has already grabbed
@@ -311,6 +323,13 @@ void IOPlatformPlugin::free( void )
 		ctrlLoopInfoDicts->release();
 		ctrlLoopInfoDicts = NULL;
 	}
+	
+	for (int i = 0; i < kMaxCpus; i++) {
+		if (cpus[i]) {
+			cpus[i]->release();
+			cpus[i] = NULL;
+		}
+	}
 
 	if (envInfo) { envInfo->release(); envInfo = NULL; }
 
@@ -324,6 +343,12 @@ void IOPlatformPlugin::free( void )
 
 void IOPlatformPlugin::initSymbols( void )
 {
+    bool isPortable;
+    
+    isPortable = false;
+    getProvider()->callPlatformFunction ("PlatformIsPortable", false, (void *)&isPortable, 0, 0, 0);
+    
+    
 	gIOPPluginForceUpdateKey			= OSSymbol::withCString( kIOPPluginForceUpdateKey );
 	gIOPPluginForceUpdateAllKey			= OSSymbol::withCString( kIOPPluginForceUpdateAllKey );
 	gIOPPluginForceSensorCurValKey		= OSSymbol::withCString( kIOPPluginForceSensorCurValKey );
@@ -377,6 +402,16 @@ void IOPlatformPlugin::initSymbols( void )
 	gIOPPluginThermalValidConfigsKey	= OSSymbol::withCString( kIOPPluginThermalValidConfigsKey );
 	gIOPPluginThermalMetaStatesKey		= OSSymbol::withCString( kIOPPluginThermalMetaStatesKey );
 	gIOPPluginPlatformID				= OSSymbol::withCString( kIOPPluginPlatformIDValue );
+        
+	if (isPortable) {
+		// Don't create symbols unnecessarily
+		gIOPPluginEnvUserPowerAuto			= OSSymbol::withCString( kIOPPluginEnvUserPowerAuto );
+		gIOPPluginEnvACPresent				= OSSymbol::withCString( kIOPPluginEnvACPresent );
+		gIOPPluginEnvBatteryPresent			= OSSymbol::withCString( kIOPPluginEnvBatteryPresent );
+		gIOPPluginEnvBatteryOvercurrent		= OSSymbol::withCString( kIOPPluginEnvBatteryOvercurrent );
+		gIOPPluginEnvClamshellClosed		= OSSymbol::withCString( kIOPPluginEnvClamshellClosed );
+		gIOPPluginEnvPowerStatus			= OSSymbol::withCString( kIOPPluginEnvPowerStatus );
+	}
 }
 
 bool IOPlatformPlugin::initThermalProfile(IOService *nub)
@@ -462,6 +497,7 @@ bool IOPlatformPlugin::initThermalProfile(IOService *nub)
 		DLOG("IOPlatformPlugin::initThermalProfile failure while parsing ctrlloop array\n");
 		return(false);
 	}
+
 
 	// done
 	//DLOG("IOPlatformPlugin::initThermalProfile - done\n");
@@ -810,6 +846,91 @@ IOPlatformCtrlLoop *IOPlatformPlugin::lookupCtrlLoopByID( const OSNumber * ctrlL
 	}
 
 	return(result);
+}
+
+IOCPU *IOPlatformPlugin::lookupCpuByID( const UInt32 cpuID ) const
+{
+	if (cpuID < kMaxCpus)
+		return cpus[cpuID];
+
+	return NULL;
+}
+
+// Lookup routines for sensors and controls by Desc_Key
+IOPlatformSensor *IOPlatformPlugin::lookupSensorByKey( const OSString * sensorKey ) const
+{
+	IOPlatformSensor *tmpSensor, *result = NULL;
+
+	if (sensorKey && sensors)
+	{
+		unsigned int i, count;
+
+		count = sensors->getCount();
+		for (i=0; i<count; i++)
+		{
+			tmpSensor = OSDynamicCast(IOPlatformSensor, sensors->getObject(i));
+				
+			if (tmpSensor && sensorKey->isEqualTo( tmpSensor->getSensorDescKey() ))
+			{
+				result = tmpSensor;
+				break;
+			}
+		}
+	}
+
+	return(result);
+}
+
+IOPlatformSensor *IOPlatformPlugin::lookupSensorByKey( const char * sensorDesc ) const
+{
+	OSString			*sensorKey;
+	IOPlatformSensor	*result = NULL;
+	
+	sensorKey = OSString::withCStringNoCopy (sensorDesc);
+	if (sensorKey) {
+		result = lookupSensorByKey (sensorKey);
+		sensorKey->release();
+	}
+	
+	return result;
+}
+
+IOPlatformControl *IOPlatformPlugin::lookupControlByKey( const OSString * controlKey ) const
+{
+	IOPlatformControl *tmpControl, *result = NULL;
+
+	if (controlKey && controls)
+	{
+		unsigned int i, count;
+
+		count = controls->getCount();
+		for (i=0; i<count; i++)
+		{
+			tmpControl = OSDynamicCast(IOPlatformControl, controls->getObject(i));
+
+			if (tmpControl && controlKey->isEqualTo( tmpControl->getControlDescKey() ))
+			{
+				result = tmpControl;
+				break;
+			}
+		}
+	}
+
+	return(result);
+}
+
+IOPlatformControl *IOPlatformPlugin::lookupControlByKey( const char * controlDesc ) const
+{
+	OSString			*controlKey;
+	IOPlatformControl	*result = NULL;
+	
+	controlKey = OSString::withCStringNoCopy (controlDesc);
+	if (controlKey) {
+		result = lookupControlByKey (controlKey);
+		controlKey->release();
+	}
+	
+	return result;
 }
 
 #pragma mark
@@ -1170,6 +1291,14 @@ IOReturn IOPlatformPlugin::dispatchEvent(IOPPluginEventData *event)
 {
 	IOReturn status;
 
+#ifdef PLUGIN_DEBUG
+	// Diagnostic check that we don't already have the lock on the current thread.
+	// If we do it means we've dispatched an event behind the gate.  
+	// This may be intended but you better be sure.
+	if (IORecursiveLockHaveLock (gate))
+		DLOG ("IOPlatformPlugin::dispatchEvent - WARNING: dispatchEvent when the gate is closed!\n");
+#endif
+
 	// close the gate
 	IORecursiveLockLock(gate);
 
@@ -1295,6 +1424,14 @@ IOReturn IOPlatformPlugin::setAggressivenessHandler(unsigned long selector, unsi
 		const OSNumber * speed;
 
 		DLOG("IOPlatformPlugin::setAggressivenessHandler Dynamic Power Step = %lx\n", newLevel);
+		
+		/*
+		 *	High bit (kSetAggrUserAuto) is set if user has selected "Automatic" in Energy Saver Preferences
+		 *	If bit is zero, user explicitly chose "Highest" or "Reduced" as indicated by remaining bits
+		 */
+		setEnv(gIOPPluginEnvUserPowerAuto, (newLevel & kSetAggrUserAuto) ? kOSBooleanTrue : kOSBooleanFalse);
+
+		newLevel &= kSetAggrSourceMask;        	// mask off any user setting in high bit
 
 		speed = OSNumber::withNumber( (unsigned long long) newLevel, 32 );
 		setEnv(gIOPPluginEnvDynamicPowerStep, speed);
@@ -1339,6 +1476,26 @@ IOReturn IOPlatformPlugin::messageHandler(UInt32 type, IOService *sender, OSDict
 			return kIOReturnSuccess;
 
 			break;
+		
+		case kIOPPluginMessagePowerMonitor:
+			if ( dict && gIOPPluginEnvPowerStatus)
+			{
+				OSNumber *newVal, *oldVal;
+				
+				newVal = OSDynamicCast (OSNumber, dict->getObject (gIOPPluginCurrentValueKey));
+				oldVal = OSDynamicCast (OSNumber, getEnv (gIOPPluginEnvPowerStatus));
+				
+				// Update the value and notify control loops if the value has changed
+				if (newVal && (!(oldVal && oldVal->isEqualTo(newVal)))) {						
+					DLOG("IOPlatformPlugin::messageHandler - kIOPPluginMessagePowerMonitor setting power status 0x%x\n",
+						newVal->unsigned32BitValue());
+						
+					// Make the value available for control loops
+					setEnv (gIOPPluginEnvPowerStatus, newVal);
+				}
+				return kIOReturnSuccess;
+			} else
+				return kIOReturnUnsupported;
 
 		default:
 			if ((s = OSSerialize::withCapacity(2048)) != NULL &&
@@ -1545,11 +1702,36 @@ IOReturn IOPlatformPlugin::registrationHandler( IOService *sender, OSDictionary 
 			return(status);
 		}
 	}
+	else if ((id = OSDynamicCast(OSNumber, dict->getObject(kIOPPluginCpuIDKey))) != NULL) {
+		UInt32 cpuIndex;
+		
+		cpuIndex = id->unsigned32BitValue();
+		if (cpuIndex >= kMaxCpus) {
+			DLOG("IOPlatformPlugin::registrationHandler registering cpu-id out of range: 0x%lx\n", cpuIndex);
+			status = kIOReturnError;
+		} else if (cpus[cpuIndex] == NULL) {
+			if (cpus[cpuIndex] = OSDynamicCast (IOCPU, sender)) {
+				// Register this CPU driver
+				cpus[cpuIndex]->retain();
+				status = kIOReturnSuccess;
+			} else {
+				DLOG("IOPlatformPlugin::registrationHandler registration from non-CPU entity '%s'!!\n", sender->getName());
+				status = kIOReturnError;
+			}
+		} else {
+			DLOG("IOPlatformPlugin::registrationHandler cpu with id 0x%lx already registered!!\n", cpuIndex);
+			status = kIOReturnPortExists;
+		}
+		return status;
+	}
 	else
 	{
 		IOLog("IOPlatformPlugin got registration from unknown entity %s\n", sender->getName());
 		return(kIOReturnUnsupported);
 	}
+	
+	/* NOTREACHED */
+	return(kIOReturnUnsupported);
 }
 
 IOReturn IOPlatformPlugin::setPropertiesHandler( OSObject * properties )
@@ -1656,3 +1838,220 @@ IOReturn IOPlatformPlugin::restartHandler(void)
 
 	return(IOPMAckImplied);
 }
+
+void IOPlatformPlugin::coreDump(void)
+{
+	IOLog("%s core dump:\n", getName());
+
+	OSDictionary *dict, *properties;
+	OSArray *array;
+	unsigned int count, i;
+	OSString *osstr;
+	OSNumber *osnum;
+	char buf[4096];
+	char *p;
+	IOPlatformSensor * sensor;
+	IOPlatformControl * control;
+
+	if (sensors)
+	{
+		count = sensors->getCount();
+		for (i=0; i<count; i++)
+		{
+			//DLOG("IOPlatformPlugin::setProperties sensor %d\n", i);
+
+			if ((sensor = OSDynamicCast(IOPlatformSensor, sensors->getObject(i))) != NULL)
+			{
+				sensor->setCurrentValue( sensor->forceAndFetchCurrentValue() );
+			}
+		}
+	}
+
+	if (controls)
+	{
+		count = controls->getCount();
+		for (i=0; i<count; i++)
+		{
+			//DLOG("IOPlatformPlugin::setProperties control %d\n", i);
+
+			if ((control = OSDynamicCast(IOPlatformControl, controls->getObject(i))) != NULL)
+			{
+				control->setCurrentValue( control->forceAndFetchCurrentValue() );
+			}
+		}
+	}
+
+	if (properties = dictionaryWithProperties())
+	{
+		int type;
+		if (array = OSDynamicCast(OSArray, properties->getObject("IOHWControls")))
+		{
+			IOLog("IOHWControls:\n");
+			count = array->getCount();
+			for (i = 0; i < count; i++)
+			{
+				if (dict = OSDynamicCast(OSDictionary, array->getObject(i)))
+				{
+					sprintf(buf, "[%d]", i);
+					p = (buf + strlen(buf));
+					if (osstr = OSDynamicCast(OSString, dict->getObject("location")))
+					{
+						sprintf(p, " \"%s\"", osstr->getCStringNoCopy());
+						p += strlen(p);
+					}
+					if (osstr = OSDynamicCast(OSString, dict->getObject("type")))
+					{
+						const char *tstr = osstr->getCStringNoCopy();
+						if (0 == strcmp(tstr, "fan-pwm"))
+							type = 1;
+						else
+							type = 0;
+						sprintf(p, " Type:\"%s\"", tstr);
+						p += strlen(p);
+					}
+					else
+						type = 0; // unknown type? use integer format.
+
+					if (osnum = OSDynamicCast(OSNumber, dict->getObject("control-id")))
+					{
+						sprintf(p, " Id:%d", osnum->unsigned32BitValue());
+						p += strlen(p);
+					}
+					if (osnum = OSDynamicCast(OSNumber, dict->getObject("target-value")))
+					{
+						UInt32 val = osnum->unsigned32BitValue();
+						if (type == 1) // PWM fan
+							sprintf(p, " TGT:%d", (val*100)/255);
+						else // slew, RPM, or unknown
+							sprintf(p, " TGT:%d", val);
+						p += strlen(p);
+					}
+					if (osnum = OSDynamicCast(OSNumber, dict->getObject("current-value")))
+					{
+						sprintf(p, " CUR:%d", osnum->unsigned32BitValue());
+						p += strlen(p);
+					}
+					if (osnum = OSDynamicCast(OSNumber, dict->getObject("force-control-target-value")))
+					{
+						UInt32 val = osnum->unsigned32BitValue();
+						if (type == 1) // PWM fan
+							sprintf(p, " Forced:%d", (val*100)/255);
+						else // slew, RPM, or unknown
+							sprintf(p, " Forced:%d", val);
+						p += strlen(p);
+					}
+					sprintf(p, "\n");
+					IOLog(buf);
+				}
+			}
+		}
+		if (array = OSDynamicCast(OSArray, properties->getObject("IOHWSensors")))
+		{
+			IOLog("IOHWSensors:\n");
+			count = array->getCount();
+			for (i = 0; i < count; i++)
+			{
+				if (dict = OSDynamicCast(OSDictionary, array->getObject(i)))
+				{
+					sprintf(buf, "[%d]", i);
+					p = (buf + strlen(buf));
+					if (osstr = OSDynamicCast(OSString, dict->getObject("location")))
+					{
+						sprintf(p, " \"%s\"", osstr->getCStringNoCopy());
+						p += strlen(p);
+					}
+					if (osstr = OSDynamicCast(OSString, dict->getObject("type")))
+					{
+						const char *tstr = osstr->getCStringNoCopy();
+						if (0 == strcmp(tstr, "power"))
+							type = 1;
+						else
+						if (0 == strncmp(tstr, "temp", 4))
+							type = 2;
+						else
+						if (0 == strcmp(tstr, "voltage"))
+							type = 3;
+						else
+						if (0 == strcmp(tstr, "current"))
+							type = 4;
+						else // adc or unknown
+							type = 0;
+						sprintf(p, " Type:\"%s\"", osstr->getCStringNoCopy());
+						p += strlen(p);
+					}
+					else
+						type = 0;
+
+					if (osnum = OSDynamicCast(OSNumber, dict->getObject("sensor-id")))
+					{
+						sprintf(p, " Id:%d", osnum->unsigned32BitValue());
+						p += strlen(p);
+					}
+					if (osnum = OSDynamicCast(OSNumber, dict->getObject("current-value")))
+					{
+						UInt32 val = osnum->unsigned32BitValue();
+						if (type == 0)
+							sprintf(p, " CUR:%d", val);
+						else
+							sprintf(p, " CUR:%d.%d %s", val>>16, val&0xffff, type==1?"W":type==2?"C":type==3?"V":"A");
+
+						p += strlen(p);
+					}
+					sprintf(p, "\n");
+					IOLog(buf);
+				}
+			}
+		}
+		if (array = OSDynamicCast(OSArray, properties->getObject("IOHWCtrlLoops")))
+		{
+			IOLog("IOHWCtrlLoops:\n");
+			count = array->getCount();
+			for (i = 0; i < count; i++)
+			{
+				if (dict = OSDynamicCast(OSDictionary, array->getObject(i)))
+				{
+					sprintf(buf, "[%d]", i);
+					p = (buf + strlen(buf));
+					if (osstr = OSDynamicCast(OSString, dict->getObject("Description")))
+					{
+						sprintf(p, " \"%s\"", osstr->getCStringNoCopy());
+						p += strlen(p);
+					}
+					if (osnum = OSDynamicCast(OSNumber, dict->getObject("ctrlloop-id")))
+					{
+						sprintf(p, " Id:%d", osnum->unsigned32BitValue());
+						p += strlen(p);
+					}
+					if (osnum = OSDynamicCast(OSNumber, dict->getObject("current-meta-state")))
+					{
+						int				metaIndex;
+						OSArray			*metaArray;
+						OSDictionary	*metaDict;
+
+						metaIndex = osnum->unsigned32BitValue();
+						sprintf(p, " MetaState:%d", metaIndex);
+						p += strlen(p);
+
+						if (metaArray = OSDynamicCast(OSArray, dict->getObject("MetaStateArray")))
+						{
+							if (metaDict = OSDynamicCast(OSDictionary, metaArray->getObject(metaIndex)))
+							{
+								if (osstr = OSDynamicCast(OSString, metaDict->getObject("Description")))
+								{
+									sprintf(p, " \"%s\"", osstr->getCStringNoCopy());
+									p += strlen(p);
+								}
+							}
+						}
+					}
+					sprintf(p, "\n");
+					IOLog(buf);
+				}
+			}
+		}
+//"IOPlatformThermalProfile"
+		properties->release();
+	}
+	IOLog("---------------------------------\n");
+}
+

@@ -874,7 +874,11 @@ AppleUSBHub::HubStatusChanged(void)
             // Set an error so that we cause our port to be reset. The overcurrent and power status changes might disable the ports downstream
             // so we need a reset to recover.
             //
+            if ( _hubStatus.statusFlags & ( kUSBHubLocalPowerChangeFeature || kHubOverCurrentIndicatorChange) )
+            {
+            USBLog(3, "%s [%p]: Hub status was a change to ON (0x%x)", getName(), this, _hubStatus.statusFlags);
             err = kIOReturnBusy;
+            }
         }
 
     } while(false);
@@ -1075,7 +1079,7 @@ AppleUSBHub::GetPortStatus(IOUSBHubPortStatus *status, UInt16 port)
 
     if ( err == kIOReturnSuccess)
     {
-        USBLog( 5, "%s[%p]::GetPortStatus for port %d, status: 0x%8x, change: 0x%8x - returning kIOReturnSuccess", getName(), this, port, status->statusFlags, status->changeFlags);
+        USBLog( 5, "%s[%p]::GetPortStatus for port %d, status: 0x%4.4x, change: 0x%4.4x - returning kIOReturnSuccess", getName(), this, port, status->statusFlags, status->changeFlags);
     }
     
     return(err);
@@ -1907,16 +1911,6 @@ AppleUSBHub::ResetMyPort()
     //
     willTerminate(this, 0);
 
-    // Abort any pending transactions in the interrupt pipe.  Null the pipe because the
-    // device reset is going to end up terminating the interface from under us.  (Need 
-    // to review that once we change device reset to not terminate interfaces)
-    //
-    if ( _interruptPipe )
-    {
-        _interruptPipe->Abort();
-        // _interruptPipe = NULL;
-    }
-    
     // If our timerSource is going, cancel it, as we don't need to
     // timeout our ports anymore
     //
@@ -1959,7 +1953,6 @@ AppleUSBHub::willTerminate( IOService * provider, IOOptionBits options )
             USBLog(1, "%s[%p]::willTerminate interruptPipe->Abort returned 0x%x", getName(), this, err);
         }
            
-	// _interruptPipe = NULL;
     }
 
     // JRH 09/19/2003 rdar://problem/3290312
