@@ -2790,6 +2790,6 @@ SCSIBlockCommands *
 SCSIBlockCommands::CreateSCSIBlockCommandObject ( void )
 {
 
-	return new SCSIBlockCommands;
+	return OSTypeAlloc ( SCSIBlockCommands );
 
 }

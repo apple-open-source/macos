@@ -182,7 +182,7 @@ IOReducedBlockServices::doAsyncReadWrite (
 	
 	// Allocated data for clientData. Eventually this should be moved to a pooling
 	// method of some sort (allocations on paging path seem bad...)
-	clientData = ( BlockServicesClientData * ) IOMalloc ( sizeof ( BlockServicesClientData ) );
+	clientData = IONew ( BlockServicesClientData, 1 );
 	require_nonzero_action ( clientData, ErrorExit, status = kIOReturnNoResources );
 	
 	// Make sure we don't go away while the command is being executed.
@@ -214,7 +214,7 @@ ReleaseClientDataAndRetain:
 	
 	
 	require_nonzero ( clientData, ErrorExit );
-	IOFree ( clientData, sizeof ( BlockServicesClientData ) );
+	IODelete ( clientData, BlockServicesClientData, 1 );
 	clientData = NULL;
 	
 	// Release the retain for this command.	
@@ -760,7 +760,7 @@ IOReducedBlockServices::AsyncReadWriteComplete (
 	if ( commandComplete == true )
 	{
 		
-		IOFree ( clientData, sizeof ( BlockServicesClientData ) );
+		IODelete ( clientData, BlockServicesClientData, 1 );
 		
 		// Release the retains for this command.
 		owner->fProvider->release ( );	

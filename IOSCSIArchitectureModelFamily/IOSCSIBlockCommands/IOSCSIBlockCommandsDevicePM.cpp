@@ -152,7 +152,7 @@ IOSCSIBlockCommandsDevice::PowerDownHandler (	void * 			refCon,
 		
 		case kIOMessageSystemWillPowerOff:
 			
-			if (( fMediumPresent == true ) && ( fDeviceIsShared == false ))
+			if ( ( fMediumPresent == true ) && ( fDeviceIsShared == false ) )
 			{
 				
 				// Media is present (but may be spinning). Make sure the drive is spun down.
@@ -322,15 +322,17 @@ IOSCSIBlockCommandsDevice::HandlePowerChange ( void )
 		{
 			
 			STATUS_LOG ( ( "We think we're in sleep\n" ) );
-
+			
 			if ( fDeviceIsShared == false )	
 			{		
+				
 				if ( START_STOP_UNIT ( request, 0x00, 0x00, 0x00, 0x01, 0x00 ) == true )
 				{
 					
 					serviceResponse = SendCommand ( request, 0 );
 					
 				}
+				
 			}
 			
 			// First, if we were in sleep mode ( fCurrentPowerState <= kSBCPowerStateSleep )
@@ -451,8 +453,10 @@ IOSCSIBlockCommandsDevice::HandlePowerChange ( void )
 				// put it to sleep using the START_STOP_UNIT command, issue one to the drive.
 				if ( previousPowerState != kSBCPowerStateSleep )
 				{
+					
 					if ( fDeviceIsShared == false )
 					{
+						
 						if ( fDeviceSupportsPowerConditions )
 						{
 						
@@ -481,7 +485,9 @@ IOSCSIBlockCommandsDevice::HandlePowerChange ( void )
 							}
 							
 						}
+						
 					}
+					
 				}
 				
 				fCurrentPowerState = kSBCPowerStateSystemSleep;
@@ -540,7 +546,7 @@ IOSCSIBlockCommandsDevice::HandlePowerChange ( void )
 				STATUS_LOG ( ( "At minimum, make sure drive is spun down.\n" ) );
 				if ( ( fCurrentPowerState > kSBCPowerStateStandby ) && ( fDeviceIsShared == false ) )
 				{
-
+					
 					// At a minimum, make sure the drive is spun down
 					if ( START_STOP_UNIT ( request, 0, 0, 0, 0, 0 ) == true )
 					{
@@ -548,7 +554,7 @@ IOSCSIBlockCommandsDevice::HandlePowerChange ( void )
 						serviceResponse = SendCommand ( request, 0 );
 						
 					}
-				
+					
 				}
 				
 				fCurrentPowerState = kSBCPowerStateStandby;
@@ -569,15 +575,17 @@ IOSCSIBlockCommandsDevice::HandlePowerChange ( void )
 			{
 				
 				STATUS_LOG ( ( "case kSBCPowerStateActive\n" ) );
-
+				
 				if ( fDeviceIsShared == false )
 				{
+					
 					if ( START_STOP_UNIT ( request, 0, 0, 0, 1, 0 ) == true )
 					{
-								
+						
 						serviceResponse = SendCommand ( request, 0 );
-								
+						
 					}
+					
 				}
 				
 				fCurrentPowerState = kSBCPowerStateActive;
@@ -601,7 +609,7 @@ IOSCSIBlockCommandsDevice::HandlePowerChange ( void )
 		fCommandGate->commandWakeup ( &fCurrentPowerState, false );
 		
 	}
-
+	
 	ReleaseSCSITask ( request );
 	
 }

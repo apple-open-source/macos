@@ -254,7 +254,7 @@ IODVDServices::message ( UInt32 		type,
 		
 		case kSCSIServicesNotification_ExclusivityChanged:
 		case kIOMessageMediaStateHasChanged:
-		case kIOMessageTrayStateHasChanged:
+		case kIOMessageTrayStateChange:
 		case kIOMessageMediaAccessChange:
 		{
 			
@@ -304,9 +304,12 @@ IODVDServices::setProperties ( OSObject * properties )
 	
 	// The user client is active, reject this call.
 	userClientActive = fProvider->GetUserClientExclusivityState ( );
-	require_action ( ( userClientActive == false ),
-					 ReleaseProvider,
-					 status = kIOReturnExclusiveAccess );
+	require_action (
+		( userClientActive == false ),
+		ReleaseProvider,
+		status = kIOReturnExclusiveAccess;
+		messageClients ( kIOMessageTrayStateChange,
+						 ( void * ) kMessageTrayStateChangeRequestRejected ) );
 	
 	fProvider->CheckPowerState ( );
 	
@@ -359,12 +362,12 @@ IODVDServices::doAsyncReadCD ( 	IOMemoryDescriptor *	buffer,
 		if ( fDataCacheBlockCount != 0 )
 		{
 			
-			// Check to see if this request could possibly fulfilled by the data
+			// Check to see if this request could possibly be fulfilled by the data
 			// that is currently in the cache.
-			// This is possible if the following conditions appply:
+			// This is possible if the following conditions apply:
 			// 1. The request is the same or smaller than the number of blocks that currently
 			// resides in the cache.
-			// 2. The starting request block is greater than the startiing block of the cache.
+			// 2. The starting request block is greater than the starting block of the cache.
 			// 3. The ending request block is the same or less than the end block in the cache.
 			if ( ( nblks <= fDataCacheBlockCount ) && ( block >= fDataCacheStartBlock ) && 
 				( block + nblks <= fDataCacheStartBlock + fDataCacheBlockCount) )
@@ -394,7 +397,7 @@ IODVDServices::doAsyncReadCD ( 	IOMemoryDescriptor *	buffer,
 	}
 #endif
 	
-	clientData = ( BlockServicesClientData * ) IOMalloc ( sizeof ( BlockServicesClientData ) );
+	clientData = IONew ( BlockServicesClientData, 1 );
 	require_nonzero_action ( clientData, ErrorExit, status = kIOReturnNoResources );
 	
 	// Make sure we don't go away while the command in being executed.
@@ -510,8 +513,8 @@ IODVDServices::doAsyncReadCD ( 	IOMemoryDescriptor *	buffer,
 	// avoid doing any cache operations in the completion.
 	clientData->transferSegBuffer 	= NULL;
 	clientData->transferSegDesc 	= NULL;
-	clientData->transferStart 		= 0;
-	clientData->transferCount		= 0;
+	clientData->transferStart 		= block;
+	clientData->transferCount		= nblks;
 #endif
 	
 	status = fProvider->AsyncReadCD ( buffer,
@@ -547,7 +550,7 @@ IODVDServices::doAsyncReadWrite ( IOMemoryDescriptor *	buffer,
 	
 	require ( ( isInactive ( ) == false ), ErrorExit );
 	
-	clientData = ( BlockServicesClientData * ) IOMalloc ( sizeof ( BlockServicesClientData ) );
+	clientData = IONew ( BlockServicesClientData, 1 );
 	require_nonzero_action ( clientData, ErrorExit, status = kIOReturnNoResources );
 	
 	// Make sure we don't go away while the command in being executed.
@@ -1744,16 +1747,38 @@ IODVDServices::AsyncReadWriteComplete ( void * 			clientData,
 		bsClientData->retriesLeft--;
 		if ( bsClientData->clientReadCDCall == true )
 		{
-		
+			
 #if (_DVD_USE_DATA_CACHING_)
-			requestStatus = owner->fProvider->AsyncReadCD (
+			
+			if ( ( bsClientData->transferSegDesc != NULL ) &&
+				 ( bsClientData->transferCount != 0 ) )
+			{
+				
+				requestStatus = owner->fProvider->AsyncReadCD (
 									bsClientData->transferSegDesc,
 									bsClientData->transferStart,
 									bsClientData->transferCount,
 									bsClientData->clientSectorArea,
 									bsClientData->clientSectorType,
 									clientData );
-#else
+				
+			}
+			
+			else
+			{
+				
+				requestStatus = owner->fProvider->AsyncReadCD (
+									bsClientData->clientBuffer,
+									bsClientData->clientStartingBlock,
+									bsClientData->clientRequestedBlockCount,
+									bsClientData->clientSectorArea,
+									bsClientData->clientSectorType,
+									clientData );
+				
+			}
+
+#else	/* !_DVD_USE_DATA_CACHING_ */
+			
 			requestStatus = owner->fProvider->AsyncReadCD (
 									bsClientData->clientBuffer,
 									bsClientData->clientStartingBlock,
@@ -1761,8 +1786,9 @@ IODVDServices::AsyncReadWriteComplete ( void * 			clientData,
 									bsClientData->clientSectorArea,
 									bsClientData->clientSectorType,
 									clientData );
-#endif
-		
+			
+#endif	/* _DVD_USE_DATA_CACHING_ */
+			
 		}
 		
 		else
@@ -1855,7 +1881,7 @@ IODVDServices::AsyncReadWriteComplete ( void * 			clientData,
 		}
 #endif
 		
-		IOFree ( clientData, sizeof ( BlockServicesClientData ) );
+		IODelete ( clientData, BlockServicesClientData, 1 );
 		
 		// Release the retain for this command.	
 		owner->fProvider->release ( );

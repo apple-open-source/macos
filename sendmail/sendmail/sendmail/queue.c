@@ -13,7 +13,7 @@
 
 #include <sendmail.h>
 
-SM_RCSID("@(#)$Id: queue.c,v 1.1.1.2 2002/03/12 18:00:37 zarzycki Exp $")
+SM_RCSID("@(#)$Id: queue.c,v 1.1.1.3 2002/10/15 02:38:31 zarzycki Exp $")
 
 #include <dirent.h>
 
@@ -71,13 +71,11 @@ static WORK	*WorkQ;		/* queue of things to be done */
 static int	NumWorkGroups;	/* number of work groups */
 
 /*
-**  use of DoQueueRun:
-**	NumQueue: indicates that a queue run is needed, look at individual bits
-**	0 - NumQueue-1: indicates that a queue run for this queue group
-**		is needed.
+**  DoQueueRun indicates that a queue run is needed.
+**	Notice: DoQueueRun is modified in a signal handler!
 */
 
-static BITMAP256	volatile DoQueueRun;	/* non-interrupt time queue run needed */
+static bool	volatile DoQueueRun;	/* non-interrupt time queue run needed */
 
 /*
 **  Work group definition structure.
@@ -124,7 +122,7 @@ static void	printctladdr __P((ADDRESS *, SM_FILE_T *));
 static bool	readqf __P((ENVELOPE *, bool));
 static void	restart_work_group __P((int));
 static void	runner_work __P((ENVELOPE *, int, bool, int, int));
-static void	schedule_queue_runs __P((bool, int));
+static void	schedule_queue_runs __P((bool, int, bool));
 static char	*strrev __P((char *));
 static ADDRESS	*setctluser __P((char *, int, ENVELOPE *));
 #if _FFR_RHS
@@ -282,7 +280,7 @@ hash_q(p, h)
 **	I	data file's inode number
 **	K	time of last delivery attempt
 **	L	Solaris Content-Length: header (obsolete)
-**	M	message (obsolete)
+**	M	message
 **	N	number of delivery attempts
 **	P	message priority
 **	q	quarantine reason (_FFR_QUARANTINE)
@@ -371,7 +369,7 @@ queueup(e, announce, msync)
 					if (LogLevel > 0 && (i % 32) == 0)
 						sm_syslog(LOG_ALERT, e->e_id,
 							  "queueup: cannot create %s, uid=%d: %s",
-							  tf, geteuid(),
+							  tf, (int) geteuid(),
 							  sm_errstring(errno));
 				}
 			}
@@ -407,7 +405,7 @@ queueup(e, announce, msync)
 			printopenfds(true);
 			errno = save_errno;
 			syserr("!queueup: cannot create queue temp file %s, uid=%d",
-				tf, geteuid());
+				tf, (int) geteuid());
 		}
 	}
 
@@ -451,7 +449,7 @@ queueup(e, announce, msync)
 		    errno != EINVAL)
 		{
 			syserr("!queueup: cannot commit data file %s, uid=%d",
-			       queuename(e, DATAFL_LETTER), geteuid());
+			       queuename(e, DATAFL_LETTER), (int) geteuid());
 		}
 		if (e->e_dfp != NULL &&
 		    SuperSafe == SAFE_INTERACTIVE && msync)
@@ -492,7 +490,7 @@ queueup(e, announce, msync)
 						 (void *) &dfd, SM_IO_WRONLY,
 						 NULL)) == NULL)
 			syserr("!queueup: cannot create data temp file %s, uid=%d",
-				df, geteuid());
+				df, (int) geteuid());
 		if (fstat(dfd, &stbuf) < 0)
 			e->e_dfino = -1;
 		else
@@ -526,7 +524,7 @@ queueup(e, announce, msync)
 
 		if (sm_io_close(dfp, SM_TIME_DEFAULT) < 0)
 			syserr("!queueup: cannot save data temp file %s, uid=%d",
-				df, geteuid());
+				df, (int) geteuid());
 		e->e_putbody = putbody;
 	}
 
@@ -833,7 +831,7 @@ queueup(e, announce, msync)
 				  sizeof qf);
 		if (rename(tf, qf) < 0)
 			syserr("cannot rename(%s, %s), uid=%d",
-				tf, qf, geteuid());
+				tf, qf, (int) geteuid());
 # if _FFR_QUARANTINE
 		else
 		{
@@ -1217,6 +1215,7 @@ restart_work_group(wgrp)
 **	Parameters:
 **		runall -- schedule even if individual bit is not set.
 **		wgrp -- the work group id to schedule.
+**		didit -- the queue run was performed for this work group.
 **
 **	Returns:
 **		nothing
@@ -1227,22 +1226,35 @@ restart_work_group(wgrp)
 			else
 
 static void
-schedule_queue_runs(runall, wgrp)
+schedule_queue_runs(runall, wgrp, didit)
 	bool runall;
 	int wgrp;
+	bool didit;
 {
 	int qgrp, cgrp, endgrp;
+#if _FFR_QUEUE_SCHED_DBG
+	time_t lastsched;
+	bool sched;
+#endif /* _FFR_QUEUE_SCHED_DBG */
+	time_t now;
+	time_t minqintvl;
 
 	/*
 	**  This is a bit ugly since we have to duplicate the
 	**  code that "walks" through a work queue group.
 	*/
 
+	now = curtime();
+	minqintvl = 0;
 	cgrp = endgrp = WorkGrp[wgrp].wg_curqgrp;
 	do
 	{
 		time_t qintvl;
 
+#if _FFR_QUEUE_SCHED_DBG
+		lastsched = 0;
+		sched = false;
+#endif /* _FFR_QUEUE_SCHED_DBG */
 		qgrp = WorkGrp[wgrp].wg_qgs[cgrp]->qg_index;
 		if (Queue[qgrp]->qg_queueintvl > 0)
 			qintvl = Queue[qgrp]->qg_queueintvl;
@@ -1250,21 +1262,97 @@ schedule_queue_runs(runall, wgrp)
 			qintvl = QueueIntvl;
 		else
 			qintvl = (time_t) 0;
-		if ((runall || bitnset(qgrp, DoQueueRun)) && qintvl > 0)
-			(void) sm_setevent(qintvl, runqueueevent, qgrp);
+#if _FFR_QUEUE_SCHED_DBG
+		lastsched = Queue[qgrp]->qg_nextrun;
+#endif /* _FFR_QUEUE_SCHED_DBG */
+		if ((runall || Queue[qgrp]->qg_nextrun <= now) && qintvl > 0)
+		{
+#if _FFR_QUEUE_SCHED_DBG
+			sched = true;
+#endif /* _FFR_QUEUE_SCHED_DBG */
+			if (minqintvl == 0 || qintvl < minqintvl)
+				minqintvl = qintvl;
+
+			/*
+			**  Only set a new time if a queue run was performed
+			**  for this queue group.  If the queue was not run,
+			**  we could starve it by setting a new time on each
+			**  call.
+			*/
+
+			if (didit)
+				Queue[qgrp]->qg_nextrun += qintvl;
+		}
 #if _FFR_QUEUE_SCHED_DBG
 		if (tTd(69, 10))
 			sm_syslog(LOG_INFO, NOQID,
-				"sqr: wgrp=%d, cgrp=%d, qgrp=%d, intvl=%ld, QI=%ld, runall=%d, bit=%d, sched=%d",
+				"sqr: wgrp=%d, cgrp=%d, qgrp=%d, intvl=%ld, QI=%ld, runall=%d, lastrun=%ld, nextrun=%ld, sched=%d",
 				wgrp, cgrp, qgrp, Queue[qgrp]->qg_queueintvl,
-				QueueIntvl, runall, bitnset(qgrp, DoQueueRun),
-				(runall || bitnset(qgrp, DoQueueRun)) &&
-				qintvl > 0);
+				QueueIntvl, runall, lastsched,
+				Queue[qgrp]->qg_nextrun, sched);
 #endif /* _FFR_QUEUE_SCHED_DBG */
-		clrbitn(qgrp, DoQueueRun);
 		INCR_MOD(cgrp, WorkGrp[wgrp].wg_numqgrp);
 	} while (endgrp != cgrp);
+	if (minqintvl > 0)
+		(void) sm_setevent(minqintvl, runqueueevent, 0);
 }
+
+#if _FFR_QUEUE_RUN_PARANOIA
+/*
+**  CHECKQUEUERUNNER -- check whether a queue group hasn't been run.
+**
+**	Use this if events may get lost and hence queue runners may not
+**	be started and mail will pile up in a queue.
+**
+**	Parameters:
+**		none.
+**
+**	Returns:
+**		true if a queue run is necessary.
+**
+**	Side Effects:
+**		may schedule a queue run.
+*/
+
+bool
+checkqueuerunner()
+{
+	int qgrp;
+	time_t now, minqintvl;
+
+	now = curtime();
+	minqintvl = 0;
+	for (qgrp = 0; qgrp < NumQueue && Queue[qgrp] != NULL; qgrp++)
+	{
+		time_t qintvl;
+
+		if (Queue[qgrp]->qg_queueintvl > 0)
+			qintvl = Queue[qgrp]->qg_queueintvl;
+		else if (QueueIntvl > 0)
+			qintvl = QueueIntvl;
+		else
+			qintvl = (time_t) 0;
+		if (Queue[qgrp]->qg_nextrun <= now - qintvl)
+		{
+			if (minqintvl == 0 || qintvl < minqintvl)
+				minqintvl = qintvl;
+			if (LogLevel > 1)
+				sm_syslog(LOG_WARNING, NOQID,
+					"checkqueuerunner: queue %d should have been run at %s, queue interval %ld",
+					qgrp,
+					arpadate(ctime(&Queue[qgrp]->qg_nextrun)),
+					qintvl);
+		}
+	}
+	if (minqintvl > 0)
+	{
+		(void) sm_setevent(minqintvl, runqueueevent, 0);
+		return true;
+	}
+	return false;
+}
+#endif /* _FFR_QUEUE_RUN_PARANOIA */
+
 /*
 **  RUNQUEUE -- run the jobs in the queue.
 **
@@ -1286,7 +1374,6 @@ schedule_queue_runs(runall, wgrp)
 **	Side Effects:
 **		runs things in the mail queue using run_work_group().
 **		maybe schedules next queue run.
-**
 */
 
 static ENVELOPE	QueueEnvelope;		/* the queue run envelope */
@@ -1322,7 +1409,7 @@ runqueue(forkflag, verbose, persistent, runall)
 #endif /* SM_HEAP_CHECK */
 
 	/* queue run has been started, don't do any more this time */
-	clrbitn(NumQueue, DoQueueRun);
+	DoQueueRun = false;
 
 	/* more than one queue or more than one directory per queue */
 	if (!forkflag && !verbose &&
@@ -1376,23 +1463,38 @@ runqueue(forkflag, verbose, persistent, runall)
 		**  Pick up where we left off (curnum), in case we
 		**  used up all the children last time without finishing.
 		**  This give a round-robin fairness to queue runs.
+		**
+		**  Increment CurRunners before calling run_work_group()
+		**  to avoid a "race condition" with proc_list_drop() which
+		**  decrements CurRunners if the queue runners terminate.
+		**  This actually doesn't cause any harm, but CurRunners
+		**  might become negative which is at least confusing.
+		**
+		**  Notice: CurRunners is an upper limit, in some cases
+		**  (too few jobs in the queue) this value is larger than
+		**  the actual number of queue runners. The discrepancy can
+		**  increase if some queue runners "hang" for a long time.
 		*/
 
+		CurRunners += WorkGrp[curnum].wg_maxact;
 		ret = run_work_group(curnum, forkflag, verbose, persistent,
 				     runall);
 
 		/*
 		**  Failure means a message was printed for ETRN
 		**  and subsequent queues are likely to fail as well.
+		**  Decrement CurRunners in that case because
+		**  none have been started.
 		*/
 
 		if (!ret)
+		{
+			CurRunners -= WorkGrp[curnum].wg_maxact;
 			break;
+		}
 
-		/* Success means the runner count needs to be updated. */
-		CurRunners += WorkGrp[curnum].wg_maxact;
 		if (!persistent)
-			schedule_queue_runs(runall, curnum);
+			schedule_queue_runs(runall, curnum, true);
 		INCR_MOD(curnum, NumWorkGroups);
 	}
 
@@ -1403,7 +1505,7 @@ runqueue(forkflag, verbose, persistent, runall)
 
 		for (h = curnum; i < NumWorkGroups; i++)
 		{
-			schedule_queue_runs(runall, h);
+			schedule_queue_runs(runall, h, false);
 			INCR_MOD(h, NumWorkGroups);
 		}
 	}
@@ -1638,7 +1740,7 @@ run_work_group(wgrp, forkflag, verbose, persistent, runall)
 	int njobs, qdir;
 	int sequenceno = 1;
 	int qgrp, endgrp, h, i;
-	time_t current_la_time;
+	time_t current_la_time, now;
 	bool full, more;
 	SM_RPOOL_T *rpool;
 	extern void rmexpstab __P((void));
@@ -1809,6 +1911,7 @@ run_work_group(wgrp, forkflag, verbose, persistent, runall)
 	**  runall is set or the bit for this group is set.
 	*/
 
+	now = curtime();
 	for (;;)
 	{
 		/*
@@ -1819,7 +1922,9 @@ run_work_group(wgrp, forkflag, verbose, persistent, runall)
 		qgrp = WorkGrp[wgrp].wg_qgs[WorkGrp[wgrp].wg_curqgrp]->qg_index;
 		WorkGrp[wgrp].wg_curqgrp++; /* advance */
 		WorkGrp[wgrp].wg_curqgrp %= WorkGrp[wgrp].wg_numqgrp; /* wrap */
-		if (runall || bitnset(qgrp, DoQueueRun))
+		if (runall ||
+		    (Queue[qgrp]->qg_nextrun <= now &&
+		     Queue[qgrp]->qg_nextrun != (time_t) -1))
 			break;
 		if (endgrp == WorkGrp[wgrp].wg_curqgrp)
 		{
@@ -1910,6 +2015,24 @@ run_work_group(wgrp, forkflag, verbose, persistent, runall)
 			maxrunners = njobs;
 		for (loop = 0; loop < maxrunners; loop++)
 		{
+#if _FFR_NONSTOP_PERSISTENCE
+			/*
+			**  Require a free "slot" before processing
+			**  this queue runner.
+			*/
+
+			while (MaxQueueChildren > 0 &&
+			       CurChildren > MaxQueueChildren)
+			{
+				int status;
+				pid_t ret;
+
+				while ((ret = sm_wait(&status)) <= 0)
+					continue;
+				proc_list_drop(ret, status, NULL);
+			}
+#endif /* _FFR_NONSTOP_PERSISTENCE */
+
 			/*
 			**  Since the delivery may happen in a child and the
 			**  parent does not wait, the parent may close the
@@ -1993,6 +2116,7 @@ run_work_group(wgrp, forkflag, verbose, persistent, runall)
 
 		sm_releasesignal(SIGCHLD);
 
+#if !_FFR_NONSTOP_PERSISTENCE
 		/*
 		**  Wait until all of the runners have completed before
 		**  seeing if there is another queue group in the
@@ -2011,6 +2135,7 @@ run_work_group(wgrp, forkflag, verbose, persistent, runall)
 				continue;
 			proc_list_drop(ret, status, NULL);
 		}
+#endif /* !_FFR_NONSTOP_PERSISTENCE */
 	}
 	else
 	{
@@ -2039,8 +2164,6 @@ run_work_group(wgrp, forkflag, verbose, persistent, runall)
 	/* No more queues in work group to process. Now check persistent. */
 	if (persistent)
 	{
-		time_t now;
-
 		sequenceno = 1;
 		sm_setproctitle(true, CurEnv, "running queue: %s",
 				qid_printqueue(qgrp, qdir));
@@ -2134,25 +2257,19 @@ run_work_group(wgrp, forkflag, verbose, persistent, runall)
 bool
 doqueuerun()
 {
-	return bitnset(NumQueue, DoQueueRun);
+	return DoQueueRun;
 }
 
 /*
-**  RUNQUEUEEVENT -- stub for use in sm_setevent
-**
-**  Sets the bit to indicate that on the next run this queue should be
-**  processed. The work group that the queue group is a member of has its
-**  count of queue's to process updated.
+**  RUNQUEUEEVENT -- Sets a flag to indicate that a queue run should be done.
 **
 **	Parameters:
-**		qgrp -- the index of the queue group.
+**		none.
 **
 **	Returns:
 **		none.
 **
 **	Side Effects:
-**		The work group that the queue group is a member of has its
-**		count of queues to process updated.
 **		The invocation of this function via an alarm may interrupt
 **		a set of actions. Thus errno may be set in that context.
 **		We need to restore errno at the end of this function to ensure
@@ -2168,10 +2285,8 @@ doqueuerun()
 */
 
 void
-runqueueevent(qgrp)
-	int qgrp;
+runqueueevent()
 {
-	int i;
 	int save_errno = errno;
 
 	/*
@@ -2179,23 +2294,12 @@ runqueueevent(qgrp)
 	**  tested in doqueuerun()
 	*/
 
-	setbitn(NumQueue, DoQueueRun);
+	DoQueueRun = true;
+#if _FFR_QUEUE_SCHED_DBG
+	if (tTd(69, 10))
+		sm_syslog(LOG_INFO, NOQID, "rqe: done");
+#endif /* _FFR_QUEUE_SCHED_DBG */
 
-	/* if it is a specific group: set that bit */
-	if (qgrp != NOQGRP)
-	{
-		setbitn(qgrp, DoQueueRun);
-		goto ret;
-	}
-
-	/* for all others: set the bit if it doesn't have a queue interval */
-	for (i = 0; i < NumQueue; i++)
-	{
-		if (Queue[i]->qg_queueintvl <= 0)
-			setbitn(i, DoQueueRun);
-	}
-
-  ret:
 	errno = save_errno;
 	if (errno == EINTR)
 		errno = ETIMEDOUT;
@@ -2374,7 +2478,7 @@ gatherq(qgrp, qdir, doall, full, more)
 		check = QueueLimitId;
 		while (check != NULL)
 		{
-			if (strcontainedin(true, check->queue_match,
+			if (strcontainedin(false, check->queue_match,
 					   d->d_name) != check->queue_negate)
 				break;
 			else
@@ -3689,6 +3793,7 @@ readqf(e, openonly)
 	bool nomore = false;
 	bool bogus = false;
 	MODE_T qsafe;
+	char *err;
 	char qf[MAXPATHLEN];
 	char buf[MAXLINE];
 
@@ -3934,13 +4039,8 @@ readqf(e, openonly)
   hackattack:
 			syserr("SECURITY ALERT: extra or bogus data in queue file: %s",
 			       bp);
-			(void) sm_io_close(qfp, SM_TIME_DEFAULT);
-
-			/* the file is already on disk */
-			e->e_flags |= EF_INQUEUE;
-			loseqfile(e, "bogus queue line");
-			RELEASE_QUEUE;
-			return false;
+			err = "bogus queue line";
+			goto fail;
 		}
 		switch (bp[0])
 		{
@@ -3992,9 +4092,8 @@ readqf(e, openonly)
 						}
 					}
 				}
-				loseqfile(e, "bogus queue file directory");
-				RELEASE_QUEUE;
-				return false;
+				err = "bogus queue file directory";
+				goto fail;
 			  done:
 				break;
 			}
@@ -4008,10 +4107,8 @@ readqf(e, openonly)
 			{
 				/* we are being spoofed! */
 				syserr("SECURITY ALERT: bogus qf line %s", bp);
-				(void) sm_io_close(qfp, SM_TIME_DEFAULT);
-				loseqfile(e, "bogus queue line");
-				RELEASE_QUEUE;
-				return false;
+				err = "bogus queue line";
+				goto fail;
 			}
 			for (p = &bp[1]; *p != '\0'; p++)
 			{
@@ -4063,8 +4160,15 @@ readqf(e, openonly)
 #endif /* _FFR_QUARANTINE */
 
 		  case 'H':		/* header */
+
+			/*
+			**  count size before chompheader() destroys the line.
+			**  this isn't accurate due to macro expansion, but
+			**  better than before. "+3" to skip H?? at least.
+			*/
+
+			hdrsize += strlen(bp + 3);
 			(void) chompheader(&bp[1], CHHDR_QUEUE, NULL, e);
-			hdrsize += strlen(&bp[1]);
 			break;
 
 		  case 'I':		/* data file's inode number */
@@ -4134,7 +4238,7 @@ readqf(e, openonly)
 			orcpt = sm_rpool_strdup_x(e->e_rpool, &bp[1]);
 			break;
 
-		  case 'r':		/* original recipient */
+		  case 'r':		/* final recipient */
 			frcpt = sm_rpool_strdup_x(e->e_rpool, &bp[1]);
 			break;
 
@@ -4184,6 +4288,9 @@ readqf(e, openonly)
 				      true);
 			if (q != NULL)
 			{
+				/* make sure we keep the current qgrp */
+				if (ISVALIDQGRP(e->e_qgrp))
+					q->q_qgrp = e->e_qgrp;
 				q->q_alias = ctladdr;
 				if (qfver >= 1)
 					q->q_flags &= ~Q_PINGFLAGS;
@@ -4215,10 +4322,8 @@ readqf(e, openonly)
 				break;
 			syserr("Version number in queue file (%d) greater than max (%d)",
 				qfver, QF_VERSION);
-			(void) sm_io_close(qfp, SM_TIME_DEFAULT);
-			loseqfile(e, "unsupported queue file version");
-			RELEASE_QUEUE;
-			return false;
+			err = "unsupported queue file version";
+			goto fail;
 			/* NOTREACHED */
 			break;
 
@@ -4260,10 +4365,8 @@ readqf(e, openonly)
 		  default:
 			syserr("readqf: %s: line %d: bad line \"%s\"",
 				qf, LineNumber, shortenstring(bp, MAXSHORTSTR));
-			(void) sm_io_close(qfp, SM_TIME_DEFAULT);
-			loseqfile(e, "unrecognized line");
-			RELEASE_QUEUE;
-			return false;
+			err = "unrecognized line";
+			goto fail;
 		}
 
 		if (bp != buf)
@@ -4323,11 +4426,33 @@ readqf(e, openonly)
 			e->e_msgsize = st.st_size + hdrsize;
 			e->e_dfdev = st.st_dev;
 			e->e_dfino = ST_INODE(st);
+			(void) sm_snprintf(buf, sizeof buf, "%ld",
+					   e->e_msgsize);
+			macdefine(&e->e_macro, A_TEMP, macid("{msg_size}"),
+				  buf);
 		}
 	}
 
 	RELEASE_QUEUE;
 	return true;
+
+  fail:
+	/*
+	**  There was some error reading the qf file (reason is in err var.)
+	**  Cleanup:
+	**	close file; clear e_lockfp since it is the same as qfp,
+	**	hence it is invalid (as file) after qfp is closed;
+	**	the qf file is on disk, so set the flag to avoid calling
+	**	queueup() with bogus data.
+	*/
+
+	if (qfp != NULL)
+		(void) sm_io_close(qfp, SM_TIME_DEFAULT);
+	e->e_lockfp = NULL;
+	e->e_flags |= EF_INQUEUE;
+	loseqfile(e, err);
+	RELEASE_QUEUE;
+	return false;
 }
 /*
 **  PRTSTR -- print a string, "unprintable" characters are shown as \oct
@@ -4987,7 +5112,8 @@ queuename(e, type)
 		}
 	}
 
-	if (e->e_qdir == NOQDIR)
+	/* xf files always have a valid qd and qg picked above */
+	if (e->e_qdir == NOQDIR && type != XSCRPT_LETTER)
 		(void) sm_strlcpyn(buf, sizeof buf, 2, pref, e->e_id);
 	else
 	{
@@ -5315,7 +5441,7 @@ loseqfile(e, why)
 		p = queuename(e, LOSEQF_LETTER);
 		if (rename(buf, p) < 0)
 			syserr("cannot rename(%s, %s), uid=%d",
-			       buf, p, geteuid());
+			       buf, p, (int) geteuid());
 		else if (LogLevel > 0)
 			sm_syslog(LOG_ALERT, e->e_id,
 				  "Losing %s: %s", buf, why);
@@ -5541,21 +5667,33 @@ setnewqueue(e)
 	/* not set somewhere else */
 	if (e->e_qgrp == NOQGRP)
 	{
+		ADDRESS *q;
+
 		/*
-		**  Use the queue group of the first recipient, as set by
+		**  Use the queue group of the "first" recipient, as set by
 		**  the "queuegroup" rule set.  If that is not defined, then
 		**  use the queue group of the mailer of the first recipient.
 		**  If that is not defined either, then use the default
 		**  queue group.
+		**  Notice: "first" depends on the sorting of sendqueue
+		**  in recipient().
+		**  To avoid problems with "bad" recipients look
+		**  for a valid address first.
 		*/
 
-		if (e->e_sendqueue == NULL)
+		q = e->e_sendqueue;
+		while (q != NULL &&
+		       (QS_IS_BADADDR(q->q_state) || QS_IS_DEAD(q->q_state)))
+		{
+			q = q->q_next;
+		}
+		if (q == NULL)
 			e->e_qgrp = 0;
-		else if (e->e_sendqueue->q_qgrp >= 0)
-			e->e_qgrp = e->e_sendqueue->q_qgrp;
-		else if (e->e_sendqueue->q_mailer != NULL &&
-			 ISVALIDQGRP(e->e_sendqueue->q_mailer->m_qgrp))
-			e->e_qgrp = e->e_sendqueue->q_mailer->m_qgrp;
+		else if (q->q_qgrp >= 0)
+			e->e_qgrp = q->q_qgrp;
+		else if (q->q_mailer != NULL &&
+			 ISVALIDQGRP(q->q_mailer->m_qgrp))
+			e->e_qgrp = q->q_mailer->m_qgrp;
 		else
 			e->e_qgrp = 0;
 		e->e_dfqgrp = e->e_qgrp;
@@ -5655,9 +5793,18 @@ chkqdir(name, sff)
 	/* Print a warning if unsafe (but still use it) */
 	/* XXX do this only if we want the warning? */
 	i = safedirpath(name, RunAsUid, RunAsGid, NULL, sff, 0, 0);
-	if (i != 0 && tTd(41, 2))
-		sm_dprintf("chkqdir: \"%s\": Not safe: %s\n",
-			   name, sm_errstring(i));
+	if (i != 0)
+	{
+		if (tTd(41, 2))
+			sm_dprintf("chkqdir: \"%s\": Not safe: %s\n",
+				   name, sm_errstring(i));
+#if _FFR_CHK_QUEUE
+		if (LogLevel > 8)
+			sm_syslog(LOG_WARNING, NOQID,
+				  "queue directory \"%s\": Not safe: %s",
+				  name, sm_errstring(i));
+#endif /* _FFR_CHK_QUEUE */
+	}
 	return true;
 }
 /*
@@ -5722,6 +5869,11 @@ multiqueue_cache(basedir, blen, qg, qn, phash)
 	/* If running as root, allow safedirpath() checks to use privs */
 	if (RunAsUid == 0)
 		sff |= SFF_ROOTOK;
+#if _FFR_CHK_QUEUE
+	sff |= SFF_SAFEDIRPATH|SFF_NOWWFILES;
+	if (!UseMSP)
+		sff |= SFF_NOGWFILES;
+#endif /* _FFR_CHK_QUEUE */
 
 	if (!SM_IS_DIR_START(qg->qg_qdir))
 	{
@@ -6289,6 +6441,98 @@ upd_qs(e, delete, avail)
 		FILE_SYS_AVAIL(fidx) -= s;
 
 }
+
+#if _FFR_SELECT_SHM
+
+static bool write_key_file __P((char *, long));
+static long read_key_file __P((char *, long));
+
+/*
+**  WRITE_KEY_FILE -- record some key into a file.
+**
+**	Parameters:
+**		keypath -- file name.
+**		key -- key to write.
+**
+**	Returns:
+**		true iff file could be written.
+**
+**	Side Effects:
+**		writes file.
+*/
+
+static bool
+write_key_file(keypath, key)
+	char *keypath;
+	long key;
+{
+	bool ok;
+	long sff;
+	SM_FILE_T *keyf;
+
+	ok = false;
+	if (keypath == NULL || *keypath == '\0')
+		return ok;
+	sff = SFF_NOLINK|SFF_ROOTOK|SFF_REGONLY|SFF_CREAT;
+	if (TrustedUid != 0 && RealUid == TrustedUid)
+		sff |= SFF_OPENASROOT;
+	keyf = safefopen(keypath, O_WRONLY|O_TRUNC, 0644, sff);
+	if (keyf == NULL)
+	{
+		sm_syslog(LOG_ERR, NOQID, "unable to write %s: %s",
+			  keypath, sm_errstring(errno));
+	}
+	else
+	{
+		ok = sm_io_fprintf(keyf, SM_TIME_DEFAULT, "%ld\n", key) !=
+		     SM_IO_EOF;
+		ok = ok && (sm_io_close(keyf, SM_TIME_DEFAULT) != SM_IO_EOF);
+	}
+	return ok;
+}
+
+/*
+**  READ_KEY_FILE -- read a key from a file.
+**
+**	Parameters:
+**		keypath -- file name.
+**		key -- default key.
+**
+**	Returns:
+**		key.
+*/
+
+static long
+read_key_file(keypath, key)
+	char *keypath;
+	long key;
+{
+	int r;
+	long sff, n;
+	SM_FILE_T *keyf;
+
+	if (keypath == NULL || *keypath == '\0')
+		return key;
+	sff = SFF_NOLINK|SFF_ROOTOK|SFF_REGONLY;
+	if (TrustedUid != 0 && RealUid == TrustedUid)
+		sff |= SFF_OPENASROOT;
+	keyf = safefopen(keypath, O_RDONLY, 0644, sff);
+	if (keyf == NULL)
+	{
+		sm_syslog(LOG_ERR, NOQID, "unable to read %s: %s",
+			  keypath, sm_errstring(errno));
+	}
+	else
+	{
+		r = sm_io_fscanf(keyf, SM_TIME_DEFAULT, "%ld", &n);
+		if (r == 1)
+			key = n;
+		(void) sm_io_close(keyf, SM_TIME_DEFAULT);
+	}
+	return key;
+}
+#endif /* _FFR_SELECT_SHM */
+
 /*
 **  INIT_SHM -- initialize shared memory structure
 **
@@ -6316,9 +6560,17 @@ init_shm(qn, owner, hash)
 	unsigned int hash;
 {
 	int i;
+#if _FFR_SELECT_SHM
+	bool keyselect;
+#endif /* _FFR_SELECT_SHM */
 
 	PtrFileSys = &FileSys[0];
 	PNumFileSys = &Numfilesys;
+#if _FFR_SELECT_SHM
+/* if this "key" is specified: select one yourself */
+# define SEL_SHM_KEY	((key_t) -1)
+# define FIRST_SHM_KEY	25
+#endif /* _FFR_SELECT_SHM */
 
 	/* This allows us to disable shared memory at runtime. */
 	if (ShmKey != 0)
@@ -6329,6 +6581,21 @@ init_shm(qn, owner, hash)
 
 		count = 0;
 		shms = SM_T_SIZE + qn * sizeof(QUEUE_SHM_T);
+#if _FFR_SELECT_SHM
+		keyselect = ShmKey == SEL_SHM_KEY;
+		if (keyselect)
+		{
+			if (owner)
+				ShmKey = FIRST_SHM_KEY;
+			else
+			{
+				ShmKey = read_key_file(ShmKeyFile, ShmKey);
+				keyselect = false;
+				if (ShmKey == SEL_SHM_KEY)
+					goto error;
+			}
+		}
+#endif /* _FFR_SELECT_SHM */
 		for (;;)
 		{
 			/* XXX: maybe allow read access for group? */
@@ -6338,13 +6605,34 @@ init_shm(qn, owner, hash)
 			if (Pshm != NULL || save_errno != EEXIST)
 				break;
 			if (++count >= 3)
+			{
+#if _FFR_SELECT_SHM
+				if (keyselect)
+				{
+					++ShmKey;
+
+					/* back where we started? */
+					if (ShmKey == SEL_SHM_KEY)
+						break;
+					continue;
+				}
+#endif /* _FFR_SELECT_SHM */
 				break;
+			}
+#if _FFR_SELECT_SHM
+			/* only sleep if we are at the first key */
+			if (!keyselect || ShmKey == SEL_SHM_KEY)
+#endif /* _FFR_SELECT_SHM */
 			sleep(count);
 		}
 		if (Pshm != NULL)
 		{
 			int *p;
 
+#if _FFR_SELECT_SHM
+			if (keyselect)
+				(void) write_key_file(ShmKeyFile, (long) ShmKey);
+#endif /* _FFR_SELECT_SHM */
 			p = (int *) Pshm;
 			if (owner)
 			{
@@ -6425,6 +6713,7 @@ setup_queues(owner)
 {
 	int i, qn, len;
 	unsigned int hashval;
+	time_t now;
 	char basedir[MAXPATHLEN];
 	struct stat st;
 
@@ -6494,8 +6783,11 @@ setup_queues(owner)
 	hashval = hash_q(basedir, hashval);
 #endif /* SM_CONF_SHM */
 
-	/* initialize map for queue runs */
-	clrbitmap(DoQueueRun);
+	/* initialize for queue runs */
+	DoQueueRun = false;
+	now = curtime();
+	for (i = 0; i < NumQueue && Queue[i] != NULL; i++)
+		Queue[i]->qg_nextrun = now;
 
 
 	if (UseMSP && OpMode != MD_TEST)
@@ -6598,7 +6890,7 @@ cleanup_shm(owner)
 	if (ShmId != SM_SHM_NO_ID)
 	{
 		if (sm_shmstop(Pshm, ShmId, owner) < 0 && LogLevel > 8)
-			sm_syslog(LOG_INFO, NOQID, "sh_shmstop failed=%s",
+			sm_syslog(LOG_INFO, NOQID, "sm_shmstop failed=%s",
 				  sm_errstring(errno));
 		Pshm = NULL;
 		ShmId = SM_SHM_NO_ID;
@@ -6645,9 +6937,9 @@ set_def_queueval(qg, all)
 		return;
 	if (all)
 		qg->qg_qdir = QueueDir;
-#if 0
+#if _FFR_QUEUE_GROUP_SORTORDER
 	qg->qg_sortorder = QueueSortOrder;
-#endif /* 0 */
+#endif /* _FFR_QUEUE_GROUP_SORTORDER */
 	qg->qg_maxqrun = all ? MaxRunnersPerQueue : -1;
 	qg->qg_nice = NiceQueueRun;
 }
@@ -6788,7 +7080,7 @@ makequeue(line, qdef)
 			qg->qg_maxrcpt = atoi(p);
 			break;
 
-#if 0
+#if _FFR_QUEUE_GROUP_SORTORDER
 		  case 'S':		/* queue sorting order */
 			switch (*p)
 			{
@@ -6814,14 +7106,26 @@ makequeue(line, qdef)
 
 			  case 'm':	/* Modification time */
 			  case 'M':
-				qgrp->qg_sortorder = QSO_BYMODTIME;
+				qg->qg_sortorder = QSO_BYMODTIME;
 				break;
+
+			  case 'r':	/* Random */
+			  case 'R':
+				qg->qg_sortorder = QSO_RANDOM;
+				break;
+
+# if _FFR_RHS
+			  case 's':	/* Shuffled host name */
+			  case 'S':
+				qg->qg_sortorder = QSO_BYSHUFFLE;
+				break;
+# endif /* _FFR_RHS */
 
 			  default:
 				syserr("Invalid queue sort order \"%s\"", p);
 			}
 			break;
-#endif /* 0 */
+#endif /* _FFR_QUEUE_GROUP_SORTORDER */
 
 		  default:
 			syserr("Q%s: unknown queue equate %c=",
@@ -7117,12 +7421,16 @@ makeworkgroups()
 			dir = 1;
 		}
 
-		WorkGrp[j].wg_qgs = (QUEUEGRP **)sm_realloc(WorkGrp[j].wg_qgs,
-						sizeof(QUEUEGRP *) *
-						(WorkGrp[j].wg_numqgrp + 1));
+		if (WorkGrp[j].wg_qgs == NULL)
+			WorkGrp[j].wg_qgs = (QUEUEGRP **)sm_malloc(sizeof(QUEUEGRP *) *
+							(WorkGrp[j].wg_numqgrp + 1));
+		else
+			WorkGrp[j].wg_qgs = (QUEUEGRP **)sm_realloc(WorkGrp[j].wg_qgs,
+							sizeof(QUEUEGRP *) *
+							(WorkGrp[j].wg_numqgrp + 1));
 		if (WorkGrp[j].wg_qgs == NULL)
 		{
-			syserr("@cannot allocate memory for work queues, need %d bytes",
+			syserr("!cannot allocate memory for work queues, need %d bytes",
 			       (int) (sizeof(QUEUEGRP *) *
 				      (WorkGrp[j].wg_numqgrp + 1)));
 		}
@@ -7203,7 +7511,15 @@ dup_df(old, new)
 	char opath[MAXPATHLEN];
 	char npath[MAXPATHLEN];
 
-	SM_REQUIRE(bitset(EF_HAS_DF, old->e_flags));
+	if (!bitset(EF_HAS_DF, old->e_flags))
+	{
+		/*
+		**  this can happen if: SuperSafe != True
+		**  and a bounce mail is sent that is split.
+		*/
+
+		queueup(old, false, true);
+	}
 	SM_REQUIRE(ISVALIDQGRP(old->e_qgrp) && ISVALIDQDIR(old->e_qdir));
 	SM_REQUIRE(ISVALIDQGRP(new->e_qgrp) && ISVALIDQDIR(new->e_qdir));
 
@@ -7305,6 +7621,11 @@ split_env(e, sendqueue, qgrp, qdir)
 	ee->e_lockfp = NULL;
 	if (e->e_xfp != NULL)
 		ee->e_xfp = sm_io_dup(e->e_xfp);
+
+	/* failed to dup e->e_xfp, start a new transcript */
+	if (ee->e_xfp == NULL)
+		openxscript(ee);
+
 	ee->e_qgrp = ee->e_dfqgrp = qgrp;
 	ee->e_qdir = ee->e_dfqdir = qdir;
 	ee->e_errormode = EM_MAIL;
@@ -7317,7 +7638,7 @@ split_env(e, sendqueue, qgrp, qdir)
 
 	/*
 	**  XXX Not sure if this copying is necessary.
-	**  sendall() does this copying, but I don't know if that is
+	**  sendall() does this copying, but I (dm) don't know if that is
 	**  because of the storage management discipline we were using
 	**  before rpools were introduced, or if it is because these lists
 	**  can be modified later.
@@ -7396,6 +7717,7 @@ split_across_queue_groups(e)
 	ENVELOPE *e;
 {
 	int naddrs, nsplits, i;
+	bool changed;
 	char **pvp;
 	ADDRESS *q, **addrs;
 	ENVELOPE *ee, *es;
@@ -7406,6 +7728,7 @@ split_across_queue_groups(e)
 
 	/* Count addresses and assign queue groups. */
 	naddrs = 0;
+	changed = false;
 	for (q = e->e_sendqueue; q != NULL; q = q->q_next)
 	{
 		if (QS_IS_DEAD(q->q_state))
@@ -7430,6 +7753,7 @@ split_across_queue_groups(e)
 				if (ISVALIDQGRP(i))
 				{
 					q->q_qgrp = i;
+					changed = true;
 					if (tTd(20, 4))
 						sm_syslog(LOG_INFO, NOQID,
 							"queue group name %s -> %d",
@@ -7443,14 +7767,19 @@ split_across_queue_groups(e)
 			}
 			if (q->q_mailer != NULL &&
 			    ISVALIDQGRP(q->q_mailer->m_qgrp))
+			{
+				changed = true;
 				q->q_qgrp = q->q_mailer->m_qgrp;
+			}
+			else if (ISVALIDQGRP(e->e_qgrp))
+				q->q_qgrp = e->e_qgrp;
 			else
 				q->q_qgrp = 0;
 		}
 	}
 
 	/* only one address? nothing to split. */
-	if (naddrs <= 1)
+	if (naddrs <= 1 && !changed)
 		return SM_SPLIT_NONE;
 
 	/* sort the addresses by queue group */
@@ -7988,7 +8317,7 @@ quarantine_queue_item(qgrp, qdir, e, reason)
 			}
 			break;
 
-		  case 'R':
+		  case 'S':
 			/*
 			**  If we are quarantining an unquarantined item,
 			**  need to put in a new 'q' line before it's

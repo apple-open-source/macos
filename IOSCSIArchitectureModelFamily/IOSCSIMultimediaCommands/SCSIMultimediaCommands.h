@@ -73,6 +73,7 @@
 #define		C2_ERROR_BLOCK_DATA_SIZE			294
 #define		C2_AND_BLOCK_ERROR_BITS_SIZE		296
 #define		SUBCHANNEL_DATA_SIZE				96
+#define		SUBCHANNELQ_DATA_SIZE				16
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ

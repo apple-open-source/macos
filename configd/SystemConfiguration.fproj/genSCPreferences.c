@@ -207,6 +207,7 @@ typedef enum {
 #define MACADDRESS		"MACAddress"
 #define MANUAL			"Manual"
 #define MEDIA			"Media"
+#define OPTIONS			"Options"
 #define MODEM			"Modem"
 #define MRU			"MRU"
 #define MTU			"MTU"
@@ -400,6 +401,9 @@ struct {
     { COMMENT, "", NULL, NULL, NULL },
 
     { COMMENT, "/*\n * " KEY_PREFIX NETENT ETHERNET " (Hardware) Entity Keys\n */", NULL, NULL, NULL },
+    { DEFINE , NETPROP ETHERNET, MEDIA SUBTYPE, NULL, CFSTRING },
+    { DEFINE , NETPROP ETHERNET, MEDIA OPTIONS, NULL, CFARRAY_CFSTRING },
+    { DEFINE , NETPROP ETHERNET, MTU, NULL, CFNUMBER },
     { COMMENT, "", NULL, NULL, NULL },
 
     { COMMENT, "/*\n * " KEY_PREFIX NETENT INTERFACE " Entity Keys\n */", NULL },

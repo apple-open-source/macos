@@ -86,6 +86,7 @@ struct BC_history_entry {
 #define	BC_HE_MISS	0		/* read was not satisfied from cache */
 #define	BC_HE_HIT	1		/* read was satisfied from cache */
 #define BC_HE_TAG	2		/* userland-set tag */
+#define BC_HE_WRITE	3		/* write-through operation */
 };
 
 

@@ -1,5 +1,5 @@
 /*
-** Copyright (c) 1999-2001 Sendmail, Inc. and its suppliers.
+** Copyright (c) 1999-2002 Sendmail, Inc. and its suppliers.
 **	All rights reserved.
 **
 ** By using this file, you agree to the terms and conditions set
@@ -8,7 +8,7 @@
 */
 
 #include <sm/gen.h>
-SM_RCSID("@(#)$Id: smdb.c,v 1.1.1.2 2002/03/12 18:00:21 zarzycki Exp $")
+SM_RCSID("@(#)$Id: smdb.c,v 1.1.1.3 2002/10/15 02:38:16 zarzycki Exp $")
 
 #include <fcntl.h>
 #include <stdlib.h>
@@ -119,15 +119,14 @@ smdb_lockfile(fd, type)
 	if (!bitset(LOCK_NB, type) ||
 	    (save_errno != EACCES && save_errno != EAGAIN))
 	{
-		int omode = -1;
-# ifdef F_GETFL
-		(void) fcntl(fd, F_GETFL, &omode);
-		errno = save_errno;
-# endif /* F_GETFL */
 # if 0
+		int omode = fcntl(fd, F_GETFL, NULL);
+		int euid = (int) geteuid();
+
 		syslog(LOG_ERR, "cannot lockf(%s%s, fd=%d, type=%o, omode=%o, euid=%d)",
-		       filename, ext, fd, type, omode, (int) geteuid());
+		       filename, ext, fd, type, omode, euid);
 # endif /* 0 */
+		errno = save_errno;
 		return false;
 	}
 #else /* !HASFLOCK */
@@ -140,15 +139,14 @@ smdb_lockfile(fd, type)
 
 	if (!bitset(LOCK_NB, type) || save_errno != EWOULDBLOCK)
 	{
-		int omode = -1;
-# ifdef F_GETFL
-		(void) fcntl(fd, F_GETFL, &omode);
-		errno = save_errno;
-# endif /* F_GETFL */
 # if 0
+		int omode = fcntl(fd, F_GETFL, NULL);
+		int euid = (int) geteuid();
+
 		syslog(LOG_ERR, "cannot flock(%s%s, fd=%d, type=%o, omode=%o, euid=%d)",
-		       filename, ext, fd, type, omode, (int) geteuid());
+		       filename, ext, fd, type, omode, euid);
 # endif /* 0 */
+		errno = save_errno;
 		return false;
 	}
 #endif /* !HASFLOCK */
@@ -321,14 +319,14 @@ smdb_lock_file(lock_fd, db_name, mode, sff, extension)
 	char *extension;
 {
 	int result;
-	char file_name[SMDB_MAX_NAME_LEN];
+	char file_name[MAXPATHLEN];
 
-	result = smdb_add_extension(file_name, SMDB_MAX_NAME_LEN, db_name,
+	result = smdb_add_extension(file_name, sizeof file_name, db_name,
 				    extension);
 	if (result != SMDBE_OK)
 		return result;
 
-	*lock_fd = safeopen(file_name, mode & ~O_TRUNC, 0644, sff);
+	*lock_fd = safeopen(file_name, mode & ~O_TRUNC, DBMMODE, sff);
 	if (*lock_fd < 0)
 		return errno;
 
@@ -437,9 +435,9 @@ smdb_setup_file(db_name, extension, mode_mask, sff, user_info, stat_info)
 {
 	int st;
 	int result;
-	char db_file_name[SMDB_MAX_NAME_LEN];
+	char db_file_name[MAXPATHLEN];
 
-	result = smdb_add_extension(db_file_name, SMDB_MAX_NAME_LEN, db_name,
+	result = smdb_add_extension(db_file_name, sizeof db_file_name, db_name,
 				    extension);
 	if (result != SMDBE_OK)
 		return result;
@@ -476,9 +474,9 @@ smdb_filechanged(db_name, extension, db_fd, stat_info)
 	struct stat *stat_info;
 {
 	int result;
-	char db_file_name[SMDB_MAX_NAME_LEN];
+	char db_file_name[MAXPATHLEN];
 
-	result = smdb_add_extension(db_file_name, SMDB_MAX_NAME_LEN, db_name,
+	result = smdb_add_extension(db_file_name, sizeof db_file_name, db_name,
 				    extension);
 	if (result != SMDBE_OK)
 		return result;

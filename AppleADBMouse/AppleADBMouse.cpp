@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -81,7 +81,7 @@ bool AppleADBMouse::start(IOService * provider)
 {
 //kprintf("ADB Mouse super is starting\n");
   if(!super::start(provider)) return false;
-  
+ 
   if(!adbDevice->seizeForClient(this, NewMouseData)) {
     IOLog("%s: Seize failed\n", getName());
     return false;
@@ -279,6 +279,8 @@ bool AppleADBMouseType4::start(IOService * provider)
 
   _buttonCount = deviceNumButtons;
   _notifierA = _notifierT = NULL;  //Only used by trackpad, but inspected by all type 4 mice
+  _gettime = OSSymbol::withCString("get_last_keydown");
+  _mouseLock = IOLockAlloc(); 
 
   adbDevice->readRegister(1, adbdata, &adblength);
   if( (adbdata[0] == 't') && (adbdata[1] = 'p') && (adbdata[2] == 'a') && (adbdata[3] == 'd') )
@@ -332,6 +334,23 @@ void AppleADBMouseType4::free( void )
 	_notifierT = NULL;
     }
     _ignoreTrackpad = false;
+    
+    if (_gettime)
+	_gettime->release();
+    
+    if (_mouseLock)
+    {
+	IOLock * lock;
+
+	IOLockLock(_mouseLock);
+
+	lock = _mouseLock;
+	_mouseLock = NULL;
+
+	IOLockUnlock(lock);
+	IOLockFree(lock);
+    }
+
     super::free();
 }
 
@@ -429,14 +448,12 @@ void AppleADBMouseType4::packet(UInt8 /*adbCommand*/, IOByteCount length, UInt8 
     {
 	if ((_jitterclick) && (_pADBKeyboard))
 	{
-	    const OSSymbol 	*gettime;
 	    AbsoluteTime	keyboardtime; 
 	    UInt64		nowtime64, keytime64;
 
-	    gettime = OSSymbol::withCString("get_last_keydown");
 	    keyboardtime.hi = 0;
 	    keyboardtime.lo = 0;
-	    _pADBKeyboard->callPlatformFunction(gettime, false, 
+	    _pADBKeyboard->callPlatformFunction(_gettime, false, 
 		(void *)&keyboardtime, 0, 0, 0);
 	    clock_get_uptime(&now);
 	    absolutetime_to_nanoseconds(now, &nowtime64);
@@ -477,14 +494,12 @@ void AppleADBMouseType4::packet(UInt8 /*adbCommand*/, IOByteCount length, UInt8 
 	{
 	    if (_pADBKeyboard)
 	    {
-		const OSSymbol 	*gettime;
 		AbsoluteTime	keyboardtime; 
 		UInt64		nowtime64, keytime64;
 
-		gettime = OSSymbol::withCString("get_last_keydown");
 		keyboardtime.hi = 0;
 		keyboardtime.lo = 0;
-		_pADBKeyboard->callPlatformFunction(gettime, false, (void *)&keyboardtime, 0, 0, 0);
+		_pADBKeyboard->callPlatformFunction(_gettime, false, (void *)&keyboardtime, 0, 0, 0);
 		absolutetime_to_nanoseconds(now, &nowtime64);
 		absolutetime_to_nanoseconds(keyboardtime, &keytime64);
 		if (nowtime64 - keytime64 < _jitterclicktime64)
@@ -520,8 +535,12 @@ OSData * AppleADBMouseType4::copyAccelerationTable()
     keyName[7] = (deviceSignature >> 0);
     keyName[8] = 0;
 
+    IOLockLock( _mouseLock);
+    
     OSData * data = OSDynamicCast( OSData,
                 getProperty( keyName ));
+    IOLockUnlock( _mouseLock);
+    
     if( data)
     {
         data->retain();
@@ -623,6 +642,7 @@ IOReturn AppleADBMouseType4::setParamProperties( OSDictionary * dict )
     UInt8       adbdata[8];
     IOByteCount adblength;
     
+    IOLockLock (_mouseLock);
     if( (data = OSDynamicCast(OSData, dict->getObject("Clicking"))) && (typeTrackpad == TRUE) )
     {
         adblength = sizeof(adbdata);
@@ -723,6 +743,8 @@ IOReturn AppleADBMouseType4::setParamProperties( OSDictionary * dict )
     IOLog("adbdata[7] = 0x%x\n", adbdata[7]);
 #endif
 
+    IOLockUnlock( _mouseLock);
+    
     if (err == kIOReturnSuccess)
     {
         return super::setParamProperties(dict);

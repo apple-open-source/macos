@@ -9,7 +9,7 @@
  * the sendmail distribution.
  *
  *
- *	$Id: pathnames.h,v 1.1.1.2 2002/03/12 18:00:16 zarzycki Exp $
+ *	$Id: pathnames.h,v 1.1.1.3 2002/10/15 02:37:53 zarzycki Exp $
  */
 
 #ifndef SM_PATHNAMES_H
@@ -37,7 +37,7 @@
 #  endif /* ! _PATH_SENDMAIL */
 
 #  ifndef _PATH_MAILDIR
-#   define _PATH_MAILDIR		"/var/spool/mail"
+#   define _PATH_MAILDIR	"/var/spool/mail"
 #  endif /* ! _PATH_MAILDIR */
 
 #  ifndef _PATH_LOCTMP

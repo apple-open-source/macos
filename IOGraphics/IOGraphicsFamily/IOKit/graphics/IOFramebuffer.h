@@ -114,7 +114,7 @@ enum {
 // ddcFlags constants
 enum {
     // Force a new read of the EDID.
-    kIODDCForceRead			= 0x00000001,
+    kIODDCForceRead			= 0x00000001
 };
 
 enum {
@@ -146,6 +146,9 @@ enum {
 
     kIOFBNotifyWillPowerOff	= 7,
     kIOFBNotifyDidPowerOn	= 8,
+
+    kIOFBNotifyWillChangeSpeed	= 9,
+    kIOFBNotifyDidChangeSpeed	= 10
 };
 
 enum {
@@ -306,14 +309,21 @@ private:
 public:
     static void initialize();
 
+    virtual bool requestTerminate( IOService * provider, IOOptionBits options );
+    virtual IOService * IOFramebuffer::probe( IOService * provider, SInt32 * score );
+    virtual bool start( IOService * provider );
+    virtual void stop( IOService * provider );
+    virtual void free();
+
     virtual IOReturn powerStateWillChangeTo ( IOPMPowerFlags, unsigned long, IOService* );
     virtual IOReturn powerStateDidChangeTo ( IOPMPowerFlags, unsigned long, IOService* );
     virtual IOReturn setPowerState( unsigned long powerStateOrdinal, IOService * device);
+    virtual IOReturn setAggressiveness( unsigned long type, unsigned long newLevel );
+    virtual IOReturn getAggressiveness( unsigned long type, unsigned long * currentLevel );
     virtual IOReturn newUserClient( task_t		owningTask,
                                     void * 		security_id,
                                     UInt32  		type,
                                     IOUserClient **	handler );
-
 
     virtual void hideCursor( void );
     virtual void showCursor( Point * cursorLoc, int frame );
@@ -324,8 +334,6 @@ public:
     virtual void getVBLTime( AbsoluteTime * time, AbsoluteTime * delta );
 
     virtual void getBoundingRect ( Bounds ** bounds );
-
-    virtual bool start( IOService * provider );
 
     virtual IOReturn open( void );
     

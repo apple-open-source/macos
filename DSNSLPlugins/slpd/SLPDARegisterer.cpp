@@ -1,0 +1,474 @@
+/*
+ *  SLPDARegisterer.cpp
+ *  NSLPlugins
+ *
+ *  Created by karnold on Mon Mar 19 2001.
+ *  Copyright (c) 2001 __CompanyName__. All rights reserved.
+ *
+ */
+#include "mslp_sd.h"
+#include "slp.h"
+#include "mslp.h"
+#include "mslpd_store.h"
+#include "mslp_dat.h"
+#include "mslpd.h"
+#include "slpipc.h"
+
+#include <Carbon/Carbon.h>
+
+#include "SLPDefines.h"
+#include "URLUtilities.h"
+#include "SLPDARegisterer.h"
+
+static SLPDARegisterer*	gRegisterer = NULL;
+
+static void store_free(SAStore store);
+
+struct RegCookie {
+	SLPInternalError	errCode;
+	Boolean		regFinished;
+};
+
+typedef struct RegCookie RegCookie;
+
+void SLPHandleRegReport(
+     SLPHandle       hSLP,
+     SLPInternalError        errCode,
+    void           *pvCookie);
+
+void SLPHandleRegReport(
+     SLPHandle       hSLP,
+     SLPInternalError        errCode,
+     void           *pvCookie)
+{
+    ((RegCookie*)pvCookie)->errCode = errCode;
+    ((RegCookie*)pvCookie)->regFinished = true;
+}
+
+void InitializeSLPDARegisterer( SLPHandle serverState )
+{
+    SLP_LOG( SLP_LOG_MSG, "InitializeSLPDARegisterer called" );
+
+    if ( !gRegisterer )
+    {
+        gRegisterer = new SLPDARegisterer( serverState );
+        
+        if ( gRegisterer )
+            gRegisterer->Resume();
+    }
+}
+
+void RegisterAllServicesWithDA( SLPHandle serverState, struct sockaddr_in sinDA, const char *pcScopes )
+{
+    SLP_LOG( SLP_LOG_MSG, "RegisterAllServicesWithDA called" );
+
+    if ( !gRegisterer )
+    {
+        gRegisterer = new SLPDARegisterer( serverState );
+        
+        if ( gRegisterer )
+            gRegisterer->Resume();
+
+    }
+
+    RegistrationObject*		newTask = new RegistrationObject();
+    
+    DAInfoObj*			newObj = new DAInfoObj;
+    
+    newObj->sinDA = sinDA;
+    newObj->scopeList = safe_malloc( strlen(pcScopes)+1, pcScopes, strlen(pcScopes) );
+    
+    assert(newObj->scopeList);
+    
+    newTask->action = kRegisterAllServicesWithNewDA;
+    newTask->data = newObj;
+    
+    gRegisterer->AddTask( newTask );
+}
+
+void RegisterAllServicesWithKnownDAs( SLPHandle serverState )
+{
+    SLP_LOG( SLP_LOG_MSG, "RegisterAllServicesWithKnownDAs called" );
+
+    if ( !gRegisterer )
+    {
+        gRegisterer = new SLPDARegisterer( serverState );
+        
+        if ( gRegisterer )
+            gRegisterer->Resume();
+    }
+ 
+    gRegisterer->RegisterAllServices();
+}
+
+void RegisterNewService( RegData* newReg )
+{
+    SLP_LOG( SLP_LOG_MSG, "RegisterNewService called, %s in (%s) with attributes: %s", newReg->mURLPtr, newReg->mScopeListPtr, newReg->mAttributeListPtr );
+    
+    if ( gRegisterer )
+    {
+        RegistrationObject*		newTask = new RegistrationObject();
+        
+        newTask->action = kRegLocalService;
+        newTask->data = newReg;
+        
+        gRegisterer->AddTask( newTask );
+    }
+    else
+    {
+        SLP_LOG( SLP_LOG_DEBUG, "RegisterNewService ignoring service since our Registerer hasn't been created!" );
+        delete( newReg );
+    }
+}
+
+void DeregisterService( RegData* newReg )
+{
+    SLP_LOG( SLP_LOG_MSG, "DeregisterService called, %s in (%s) with attributes: %s", newReg->mURLPtr, newReg->mScopeListPtr, newReg->mAttributeListPtr );
+    
+    if ( gRegisterer )
+    {
+        RegistrationObject*		newTask = new RegistrationObject();
+        
+        newTask->action = kDeregLocalService;
+        newTask->data = newReg;
+        
+        gRegisterer->AddTask( newTask );
+    }
+    else
+    {
+        SLP_LOG( SLP_LOG_DEBUG, "DeregisterService ignoring service since our Registerer hasn't been created!" );
+        delete( newReg );
+    }
+}
+
+RegData::RegData( const char* urlPtr, UInt32 urlLen, const char* scopeListPtr, UInt32 scopeListLen, const char* attributeListPtr, UInt32 attributeListLen )
+{
+    if ( urlPtr && urlLen > 0 )
+    {
+        mURLPtr = (char*)malloc( urlLen + 1 );
+        memcpy( mURLPtr, urlPtr, urlLen );
+        mURLPtr[urlLen] = '\0';
+    }
+    else
+        mURLPtr = NULL;
+        
+    if ( scopeListPtr  )
+    {
+        mScopeListPtr = (char*)malloc( scopeListLen + 1 );
+        memcpy( mScopeListPtr, scopeListPtr, scopeListLen );
+        mScopeListPtr[scopeListLen] = '\0';
+    }
+    else
+    {
+        mScopeListPtr = (char*)malloc( 1 );
+        mScopeListPtr[0] = '\0';
+    }
+       
+    if ( attributeListPtr )
+    {
+        mAttributeListPtr = (char*)malloc( attributeListLen + 1 );
+        memcpy( mAttributeListPtr, attributeListPtr, attributeListLen );
+        mAttributeListPtr[attributeListLen] = '\0';
+    }
+    else
+    {
+        mAttributeListPtr = (char*)malloc( 1 );
+        mAttributeListPtr[0] = '\0';
+    }
+}
+
+RegData::~RegData()
+{
+    if ( mURLPtr )
+        free( mURLPtr );
+    
+    if ( mScopeListPtr )
+        free ( mScopeListPtr );
+        
+    if ( mAttributeListPtr )
+        free( mAttributeListPtr );
+}
+
+pthread_mutex_t	SLPDARegisterer::mQueueLock;
+
+CFStringRef SLPDARegistererCopyDesctriptionCallback ( const void *item )
+{
+    return CFSTR("SLPDARegisterer Task");
+}
+
+Boolean SLPDARegistererEqualCallback ( const void *item1, const void *item2 )
+{
+    return item1 == item2;
+}
+
+SLPDARegisterer::SLPDARegisterer( SLPHandle serverState )
+	: LThread(threadOption_Default)
+{
+	CFArrayCallBacks	callBack;
+    
+	mSLPSA = NULL;
+    mServerState = (SAState*)serverState;
+    LOG( SLP_LOG_NOTIFICATIONS, "SLPDARegisterer Created" );
+    callBack.version = 0;
+    callBack.retain = NULL;
+    callBack.release = NULL;
+    callBack.copyDescription = SLPDARegistererCopyDesctriptionCallback;
+    callBack.equal = SLPDARegistererEqualCallback;
+
+    mCanceled = false;
+    mActionQueue = ::CFArrayCreateMutable ( NULL, 0, &callBack );
+    
+    pthread_mutex_init( &mQueueLock, NULL );
+    mClearQueue = false;
+    mRegFileNeedsProcessing = false;
+    mRegisterAllServices = false;
+}
+
+SLPDARegisterer::~SLPDARegisterer()
+{
+    SLP_LOG( SLP_LOG_MSG, "~SLPDARegisterer called" );
+    
+    if ( mActionQueue )
+        CFRelease( mActionQueue );
+        
+    mActionQueue = NULL;
+
+    if ( mSLPSA )
+        SLPClose( mSLPSA );
+}
+
+void SLPDARegisterer::AddTask( RegistrationObject* newTask )
+{
+    QueueLock();
+
+    if ( mActionQueue )
+    {
+        ::CFArrayAppendValue( mActionQueue, newTask );
+        
+        SLP_LOG( SLP_LOG_MSG, "SLPDARegisterer, Task #%d Added to Queue", CFArrayGetCount(mActionQueue) );
+    }
+
+    QueueUnlock();
+}
+
+void* SLPDARegisterer::Run()
+{
+    RegistrationObject*	task = NULL;
+    
+    while ( !mCanceled )
+    {
+        try {
+            if ( mClearQueue )
+            {
+                QueueLock();
+                SLP_LOG( SLP_LOG_MSG, "SLPDARegisterer clearing queue" );
+                mClearQueue = false;
+                ::CFArrayRemoveAllValues( mActionQueue );
+                QueueUnlock();
+            }
+            else
+            {
+                // grab next element off the queue and process
+                QueueLock();
+                if ( mActionQueue && ::CFArrayGetCount( mActionQueue ) > 0 )
+                {
+                    task = (RegistrationObject*)::CFArrayGetValueAtIndex( mActionQueue, 0 );		// grab the first one
+                    ::CFArrayRemoveValueAtIndex( mActionQueue, 0 );
+                    QueueUnlock();
+                }
+                else
+                {
+                    QueueUnlock();
+                    
+                    if ( mRegFileNeedsProcessing )
+                    {
+                        SAStore st;
+    
+                        SDLock( mServerState->pvMutex );
+                        mRegFileNeedsProcessing = false;
+                        SLP_LOG( SLP_LOG_MSG, "SLPDARegisterer: process changed reg file" );
+    
+                        if ( process_regfile( &st, SLPGetProperty("com.sun.slp.regfile") ) < 0 )
+                        {
+                            SLP_LOG( SLP_LOG_ERR, "SLPDARegisterer: changed reg file unparsable, use old one" );
+                        }
+                        else
+                        {
+                            store_free( mServerState->store );              /* prevent leaks     */
+                            mServerState->store = st;
+                            SLP_LOG( SLP_LOG_MSG, "SLPDARegisterer: read changed reg file, mServerState->store updated" );
+                        }
+            
+                        if ( mServerState->store.size > 0 )
+                        {
+                            StartSLPUDPListener( mServerState );
+                            StartSLPTCPListener( mServerState );
+                        }
+    //                   mRegisterAllServices = true;		// don't set this explicitly now that we can propigate particular registrations...                    
+                        SDUnlock( mServerState->pvMutex );
+                    }
+                    else if ( mRegisterAllServices )
+                    {
+                        mRegisterAllServices = false;
+                        SLP_LOG( SLP_LOG_MSG, "SLPDARegisterer propigating all services" );
+                        propogate_all_advertisements( (SAState*)mServerState );
+                    }
+                }
+                
+                if ( task )
+                {
+                    RegCookie	regCookie = {SLP_OK,0};
+                    
+                // handle task
+                    if ( task->action == kRegLocalService && task->data )
+                    {
+                        RegData*		regData = (RegData*)task->data;
+                        char			serviceType[255];
+                        char*			ignore = NULL;
+                        OSStatus		status = noErr;
+                        
+                        SLP_LOG( SLP_LOG_MSG, "Handling a kRegLocalService task" );
+    
+                        if ( !mSLPSA )
+                        {
+                            SLPSetProperty("com.sun.slp.isSA", "true");					// need to let the lib know that we are an SA
+                            
+                            status = (OSStatus)SLPOpen( "en", SLP_FALSE, &mSLPSA );
+                        }
+    
+                        if ( regData->mURLPtr && regData->mAttributeListPtr )
+                        {
+                            if ( !IsURL( regData->mURLPtr, strlen(regData->mURLPtr), &ignore ) )
+                            {
+                                SLP_LOG( SLP_LOG_DEBUG, "Tried to register a bad URL: %s", regData->mURLPtr );
+                            }
+                            else
+                            {
+                                GetServiceTypeFromURL( regData->mURLPtr, strlen(regData->mURLPtr), serviceType );
+                                
+                                status = (OSStatus)SLPReg( mSLPSA, regData->mURLPtr, CONFIG_INTERVAL_1, serviceType, regData->mAttributeListPtr, SLP_TRUE, SLPHandleRegReport, &regCookie );
+                                
+                                if (!list_subset(regData->mScopeListPtr,SLPGetProperty("net.slp.useScopes"))) 
+                                {
+                                    char		newScopeList[2*kMaxSizeOfParam];		// this has GOT to be big enough... (I know, shoot me later)
+                                    
+                                    sprintf( newScopeList, "%s,%s", SLPGetProperty("net.slp.useScopes"), regData->mScopeListPtr );
+                            
+                                    SLPSetProperty("net.slp.useScopes", newScopeList );		// update our scopelist
+                                } 
+                                
+                                propogate_registration( mServerState, "en", serviceType, regData->mURLPtr, regData->mScopeListPtr, regData->mAttributeListPtr, CONFIG_INTERVAL_1 );
+                                
+                                mRegFileNeedsProcessing = true;
+                            }
+                        }
+                        else
+                            SLP_LOG( SLP_LOG_DEBUG, "Tried to register a bad url/attribute combo" );
+                            
+                        delete regData;
+                    }
+                    else if ( task->action == kDeregLocalService && task->data )
+                    {
+                        RegData*			regData = (RegData*)task->data;
+                        char			serviceType[255];
+                        char*			ignore = NULL;
+                        OSStatus	 		status = noErr;
+                        
+                        SLP_LOG( SLP_LOG_MSG, "Handling a kDeregLocalService task" );
+    
+                        if ( regData->mURLPtr && regData->mScopeListPtr )
+                        {
+                            if ( !IsURL( regData->mURLPtr, strlen(regData->mURLPtr), &ignore ) )
+                            {
+                                SLP_LOG( SLP_LOG_DEBUG, "Tried to deregister a bad URL: %s", regData->mURLPtr );
+                            }
+                            else
+                            {
+                                if ( !mSLPSA )
+                                {
+                                    SLPSetProperty("com.sun.slp.isSA", "true");					// need to let the lib know that we are an SA
+                                    
+                                    status = (OSStatus)SLPOpen( "en", SLP_FALSE, &mSLPSA );
+                                }
+            
+                                GetServiceTypeFromURL( regData->mURLPtr, strlen(regData->mURLPtr), serviceType );
+                                
+                                status = (OSStatus)SLPDereg( mSLPSA, regData->mURLPtr, regData->mScopeListPtr, SLPHandleRegReport, &regCookie );
+                                propogate_deregistration( mServerState, "en", serviceType, regData->mURLPtr, regData->mScopeListPtr, regData->mAttributeListPtr, CONFIG_INTERVAL_1 );
+                                
+                                mRegFileNeedsProcessing = true;				// we need to clear out the deregistered item
+                                
+                            }
+                        }
+                        else
+                            SLP_LOG( SLP_LOG_DEBUG, "Tried to deregister a bad url/scope combo" );
+                        
+                        delete regData;
+                    }
+                    else if ( task->action == kRegisterAllServices )		// we might have multiple of these so we just keep setting this
+                        mRegisterAllServices = true;						// and only process when we are done with the other stuff
+                    else if ( task->action == kRegisterAllServicesWithNewDA )
+                    {
+                        DAInfoObj*	daObj = (DAInfoObj*)task->data;
+                        
+                        propogate_registrations( mServerState, daObj->sinDA, daObj->scopeList );
+                        
+						if ( daObj->scopeList )
+							free( daObj->scopeList );
+							
+                        delete daObj;
+                    }
+                        
+                    delete(task);	// this is just the struct object, if anything was in the data portion, it should have been freed above
+                    task = NULL;
+                }
+                else
+                sleep(1);
+            }
+        }
+        
+        catch ( int inErr )
+        {
+            SLP_LOG( SLP_LOG_ERR, "SLPDARegisterer caught an error" );
+        }
+    }
+    
+    return NULL;
+}
+
+static void store_free(SAStore store) {
+  /* free the store, so that we can see where we leak in store reading */
+  int i,j,k;
+  if (store.size <= 0) return;
+  
+  for (i = 0; store.url[i] != NULL ; i++) {
+    SLPFree(store.url[i]);
+    SLPFree(store.srvtype[i]);
+    SLPFree(store.attrlist[i]);
+    SLPFree(store.lang[i]);
+    SLPFree(store.scope[i]);
+    if (store.tag[i]) {
+      for (j=0;store.tag[i][j];j++) {
+	SLPFree(store.tag[i][j]);
+	if (store.values[i][j].pval) {
+	  if (store.values[i][j].type == TYPE_OPAQUE ||
+	      store.values[i][j].type == TYPE_STR)
+	    for (k=0;k<store.values[i][j].numvals; k++)
+	      SLPFree(store.values[i][j].pval[k].v_pc);
+	  SLPFree(store.values[i][j].pval);
+	}
+      }
+      SLPFree(store.values[i]);
+      SLPFree(store.tag[i]);
+    }
+  }
+  SLPFree(store.srvtype);
+  SLPFree(store.scope);
+  SLPFree(store.url);
+  SLPFree(store.life);
+  SLPFree(store.lang);
+  SLPFree(store.tag);
+  SLPFree(store.values);
+  SLPFree(store.attrlist);
+}    
+

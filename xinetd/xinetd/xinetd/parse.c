@@ -224,7 +224,7 @@ void parse_conf_file( int fd, struct configuration *confp )
          parsemsg( LOG_DEBUG,func,
             "Reading included configuration file: %s",service_name);
          parse_conf_file(incfd, confp);
-         Sclose(incfd);
+         close(incfd);
          break;
       case INCLUDEDIR_ENTRY:
          handle_includedir(service_name, confp);

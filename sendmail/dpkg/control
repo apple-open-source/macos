@@ -1,7 +1,7 @@
 Package: sendmail
 Maintainer: Darwin Developers <darwin-development@lists.apple.com>
 Vendor: Sendmail
-Version: 8.12.2
+Version: 8.12.6
 URL: http://www.sendmail.org/
 Description: Mail server and tranport agent
 Build-Depends: build-base, m4, libinfo-hdrs, groff

@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 1999-2001 Sendmail, Inc. and its suppliers.
+ *  Copyright (c) 1999-2002 Sendmail, Inc. and its suppliers.
  *	All rights reserved.
  *
  * By using this file, you agree to the terms and conditions set
@@ -9,7 +9,7 @@
  */
 
 #include <sm/gen.h>
-SM_RCSID("@(#)$Id: main.c,v 1.1.1.2 2002/03/12 18:00:18 zarzycki Exp $")
+SM_RCSID("@(#)$Id: main.c,v 1.1.1.3 2002/10/15 02:37:59 zarzycki Exp $")
 
 #define _DEFINE	1
 #include "libmilter.h"
@@ -93,7 +93,29 @@ smfi_stop()
 static int dbg = 0;
 static char *conn = NULL;
 static int timeout = MI_TIMEOUT;
-static int backlog= MI_SOMAXCONN;
+static int backlog = MI_SOMAXCONN;
+
+#if _FFR_SMFI_OPENSOCKET
+/*
+**  SMFI_OPENSOCKET -- try the socket setup to make sure we'll be
+**                     able to start up
+**
+**  	Parameters:
+**  		None.
+**
+**  	Return:
+**  		MI_SUCCESS/MI_FAILURE
+*/
+
+int
+smfi_opensocket()
+{
+	if (smfi == NULL || conn == NULL)
+		return MI_FAILURE;
+
+	return mi_opensocket(conn, backlog, dbg, smfi);
+}
+#endif /* _FFR_SMFI_OPENSOCKET */
 
 /*
 **  SMFI_SETDBG -- set debug level.
@@ -161,7 +183,7 @@ smfi_setconn(oconn)
 **  SMFI_SETBACKLOG -- set backlog
 **
 **	Parameters:
-**		odbg -- new backlog.
+**		obacklog -- new backlog.
 **
 **	Returns:
 **		MI_SUCCESS/MI_FAILURE

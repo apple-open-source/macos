@@ -29,6 +29,9 @@
  */
 /*
 	$Log: IOFireWireFamilyCommon.h,v $
+	Revision 1.39  2002/12/05 19:08:37  niels
+	remove trailing commas from enums in IOFireWireFamilyCommon.h
+	
 	Revision 1.38  2002/11/01 20:45:57  collin
 	add enhanced IRM with support for the BROADCAST_CHANNEL register
 	
@@ -514,7 +517,7 @@ enum
 	kFWBIBGeneration					= FWBitRange (24, 27),
 	kFWBIBGenerationPhase				= FWBitRangePhase (24, 27),
 	kFWBIBLinkSpeed						= FWBitRange (29, 31),
-	kFWBIBLinkSpeedPhase				= FWBitRangePhase (29, 31),
+	kFWBIBLinkSpeedPhase				= FWBitRangePhase (29, 31)
 };
 
 // =================================================================
@@ -588,7 +591,7 @@ enum
 	kDCLSetTagSyncBitsOp				= 11,
 	kDCLUpdateDCLListOp					= 12,
 	kDCLTimeStampOp						= 13,
-	kDCLPtrTimeStampOp					= 14,
+	kDCLPtrTimeStampOp					= 14
 };
 
 #ifdef FW_OLD_DCL_DEFS

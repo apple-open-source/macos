@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 1999-2000 Sendmail, Inc. and its suppliers.
+ *  Copyright (c) 1999-2002 Sendmail, Inc. and its suppliers.
  *	All rights reserved.
  *
  * By using this file, you agree to the terms and conditions set
@@ -9,7 +9,7 @@
  */
 
 #include <sm/gen.h>
-SM_RCSID("@(#)$Id: handler.c,v 1.1.1.2 2002/03/12 18:00:17 zarzycki Exp $")
+SM_RCSID("@(#)$Id: handler.c,v 1.1.1.3 2002/10/15 02:37:58 zarzycki Exp $")
 
 #include "libmilter.h"
 
@@ -38,9 +38,11 @@ mi_handle_session(ctx)
 	**  detach so resources are free when the thread returns
 	**  if we ever "wait" for threads, this call must be removed
 	*/
+
 	if (pthread_detach(ctx->ctx_id) != 0)
-		return MI_FAILURE;
-	ret = mi_engine(ctx);
+		ret = MI_FAILURE;
+	else
+		ret = mi_engine(ctx);
 	if (ValidSocket(ctx->ctx_sd))
 	{
 		(void) closesocket(ctx->ctx_sd);

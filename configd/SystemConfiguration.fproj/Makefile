@@ -21,7 +21,7 @@ HFILES = SystemConfiguration.h SCPrivate.h SCDPlugin.h config_types.h\
          SCValidation.h ppp_msg.h ppp.h v1Compatibility.h SCD.h\
          SCDKeys.h SCP.h SCPPath.h SCDConsoleUser.h SCDHostName.h\
          DHCPClientPreferences.h SCDynamicStoreCopyDHCPInfo.h moh_msg.h\
-         moh.h DeviceOnHold.h
+         moh.h DeviceOnHold.h LinkConfiguration.h dy_framework.h
 
 CFILES = SCD.c SCDKeys.c SCDPrivate.c SCDPlugin.c SCDOpen.c SCDLock.c\
          SCDUnlock.c SCDList.c SCDAdd.c SCDAddSession.c SCDGet.c\
@@ -34,7 +34,8 @@ CFILES = SCD.c SCDKeys.c SCDPrivate.c SCDPlugin.c SCDOpen.c SCDLock.c\
          SCPUnlock.c SCPList.c SCPGet.c SCPAdd.c SCPSet.c SCPRemove.c\
          SCPCommit.c SCPApply.c SCPPath.c SCDConsoleUser.c\
          SCDHostName.c SCLocation.c SCNetwork.c SCProxies.c ppp.c\
-         v1Compatibility.c DHCP.c moh.c DeviceOnHold.c
+         v1Compatibility.c DHCP.c moh.c DeviceOnHold.c\
+         LinkConfiguration.c dy_framework.c
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble m.template\
             h.template config.defs genSCPreferences.c CustomInfo.plist

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2001 Sendmail, Inc. and its suppliers.
+ * Copyright (c) 1998-2002 Sendmail, Inc. and its suppliers.
  *	All rights reserved.
  * Copyright (c) 1983, 1995-1997 Eric P. Allman.  All rights reserved.
  * Copyright (c) 1988, 1993
@@ -13,7 +13,7 @@
 
 #include <sendmail.h>
 
-SM_RCSID("@(#)$Id: daemon.c,v 1.1.1.2 2002/03/12 18:00:30 zarzycki Exp $")
+SM_RCSID("@(#)$Id: daemon.c,v 1.1.1.3 2002/10/15 02:38:26 zarzycki Exp $")
 
 #if defined(SOCK_STREAM) || defined(__GNU_LIBRARY__)
 # define USE_SOCK_STREAM	1
@@ -154,6 +154,9 @@ getrequests(e)
 	char status[MAXLINE];
 	SOCKADDR sa;
 	SOCKADDR_LEN_T len = sizeof sa;
+#if _FFR_QUEUE_RUN_PARANOIA
+	time_t lastrun;
+#endif /* _FFR_QUEUE_RUN_PARANOIA */
 # if NETUNIX
 	extern int ControlSocket;
 # endif /* NETUNIX */
@@ -388,7 +391,28 @@ getrequests(e)
 
 			curdaemon = -1;
 			if (doqueuerun())
+			{
 				(void) runqueue(true, false, false, false);
+#if _FFR_QUEUE_RUN_PARANOIA
+				lastrun = now;
+#endif /* _FFR_QUEUE_RUN_PARANOIA */
+			}
+#if _FFR_QUEUE_RUN_PARANOIA
+			else if (QueueIntvl > 0 &&
+				 lastrun + QueueIntvl + 60 < now)
+			{
+
+				/*
+				**  set lastrun unconditionally to avoid
+				**  calling checkqueuerunner() all the time.
+				**  That's also why we currently ignore the
+				**  result of the function call.
+				*/
+
+				(void) checkqueuerunner();
+				lastrun = now;
+			}
+#endif /* _FFR_QUEUE_RUN_PARANOIA */
 
 			if (t <= 0)
 			{
@@ -759,6 +783,7 @@ getrequests(e)
 				macdefine(&BlankEnvelope.e_macro, A_PERM,
 					macid("{client_resolve}"), "OK");
 			sm_setproctitle(true, e, "startup with %s", p);
+			markstats(e, NULL, STATS_CONNECT);
 
 			if ((inchannel = sm_io_open(SmFtStdiofd,
 						    SM_TIME_DEFAULT,
@@ -1685,6 +1710,58 @@ setsockaddroptions(p, d)
 
 #define DEF_LISTENQUEUE	10
 
+struct dflags
+{
+	char	*d_name;
+	int	d_flag;
+};
+
+static struct dflags	DaemonFlags[] =
+{
+	{ "AUTHREQ",		D_AUTHREQ	},
+	{ "BINDIF",		D_BINDIF	},
+	{ "CANONREQ",		D_CANONREQ	},
+	{ "IFNHELO",		D_IFNHELO	},
+	{ "FQMAIL",		D_FQMAIL	},
+	{ "FQRCPT",		D_FQRCPT	},
+#if _FFR_SMTP_SSL
+	{ "SMTPS",		D_SMTPS		},
+#endif /* _FFR_SMTP_SSL */
+	{ "UNQUALOK",		D_UNQUALOK	},
+	{ "NOAUTH",		D_NOAUTH	},
+	{ "NOCANON",		D_NOCANON	},
+	{ "NOETRN",		D_NOETRN	},
+	{ "NOTLS",		D_NOTLS		},
+	{ "ETRNONLY",		D_ETRNONLY	},
+	{ "OPTIONAL",		D_OPTIONAL	},
+	{ "DISABLE",		D_DISABLE	},
+	{ "ISSET",		D_ISSET		},
+	{ NULL,			0		}
+};
+
+static void
+printdaemonflags(d)
+	DAEMON_T *d;
+{
+	register struct dflags *df;
+	bool first = true;
+
+	for (df = DaemonFlags; df->d_name != NULL; df++)
+	{
+		if (!bitnset(df->d_flag, d->d_flags))
+			continue;
+		if (first)
+			(void) sm_io_fprintf(smioout, SM_TIME_DEFAULT, "<%s",
+					     df->d_name);
+		else
+			(void) sm_io_fprintf(smioout, SM_TIME_DEFAULT, ",%s",
+					     df->d_name);
+		first = false;
+	}
+	if (!first)
+		(void) sm_io_fprintf(smioout, SM_TIME_DEFAULT, ">");
+}
+
 bool
 setdaemonoptions(p)
 	register char *p;
@@ -1716,10 +1793,7 @@ setdaemonoptions(p)
 	if (tTd(37, 1))
 	{
 		sm_dprintf("Daemon %s flags: ", Daemons[NDaemons].d_name);
-		if (bitnset(D_ETRNONLY, Daemons[NDaemons].d_flags))
-			sm_dprintf("ETRNONLY ");
-		if (bitnset(D_NOETRN, Daemons[NDaemons].d_flags))
-			sm_dprintf("NOETRN ");
+		printdaemonflags(&Daemons[NDaemons]);
 		sm_dprintf("\n");
 	}
 	++NDaemons;
@@ -2504,6 +2578,9 @@ gothostent:
 		else
 			save_errno = errno;
 
+		/* couldn't connect.... figure out why */
+		(void) close(s);
+
 		/* if running demand-dialed connection, try again */
 		if (DialDelay > 0 && firstconnect &&
 		    bitnset(M_DIALDELAY, mci->mci_mailer->m_flags))
@@ -2515,9 +2592,6 @@ gothostent:
 			(void) sleep(DialDelay);
 			continue;
 		}
-
-		/* couldn't connect.... figure out why */
-		(void) close(s);
 
 		if (LogLevel > 13)
 			sm_syslog(LOG_INFO, e->e_id,
@@ -2931,6 +3005,9 @@ restart_daemon()
 			  reason == NULL ? "implicit call" : reason);
 
 	closecontrolsocket(true);
+#if SM_CONF_SHM
+	cleanup_shm(DaemonPid == getpid());
+#endif /* SM_CONF_SHM */
 
 	/*
 	**  Want to drop to the user who started the process in all cases
@@ -2960,9 +3037,6 @@ restart_daemon()
 		if ((j = fcntl(i, F_GETFD, 0)) != -1)
 			(void) fcntl(i, F_SETFD, j | FD_CLOEXEC);
 	}
-#if SM_CONF_SHM
-	cleanup_shm(DaemonPid == getpid());
-#endif /* SM_CONF_SHM */
 
 	/*
 	**  Need to allow signals before execve() to make them "harmless".
@@ -2980,6 +3054,8 @@ restart_daemon()
 #ifdef SIGUSR1
 	SM_NOOP_SIGNAL(SIGUSR1, ousr1);
 #endif /* SIGUSR1 */
+
+	/* Turn back on signals */
 	sm_allsignals(false);
 
 	(void) execve(SaveArgv[0], (ARGV_T) SaveArgv, (ARGV_T) ExternalEnviron);

@@ -110,36 +110,48 @@ DHCPLeases_reclaim(DHCPLeases_t * leases, interface_t * if_p,
     PLCacheEntry_t *	scan;
 
     for (scan = leases->list.tail; scan; scan = scan->prev) {
-	dhcp_time_secs_t	expiry;
+	dhcp_time_secs_t	expiry = 0;
 	struct in_addr		iaddr;
 	int			ip_index;
 	ni_namelist *		ip_nl_p;
 	int			lease_index;
-	ni_namelist *		lease_nl_p;
 
+	/* check the IP address */
 	ip_index = ni_proplist_match(scan->pl, NIPROP_IPADDR, NULL);
-	lease_index = ni_proplist_match(scan->pl, NIPROP_DHCP_LEASE, NULL);
-	if (ip_index == NI_INDEX_NULL || lease_index == NI_INDEX_NULL)
-	    continue;
-	ip_nl_p = &scan->pl.nipl_val[ip_index].nip_val;
-	lease_nl_p = &scan->pl.nipl_val[lease_index].nip_val;
-	if (ip_nl_p->ninl_len == 0 || lease_nl_p->ninl_len == 0)
-	    continue;
-	if (inet_aton(ip_nl_p->ninl_val[0], &iaddr) == 0)
-	    continue;
-	expiry = strtol(lease_nl_p->ninl_val[0], NULL, NULL);
-	if (expiry == LONG_MAX && errno == ERANGE) {
+	if (ip_index == NI_INDEX_NULL) {
 	    continue;
 	}
-	if (time_in_p->tv_sec > expiry
-	    && ip_address_reachable(iaddr, giaddr, if_p)) {
+	ip_nl_p = &scan->pl.nipl_val[ip_index].nip_val;
+	if (ip_nl_p->ninl_len == 0) {
+	    continue;
+	}
+	if (inet_aton(ip_nl_p->ninl_val[0], &iaddr) == 0) {
+	    continue;
+	}
+	if (!ip_address_reachable(iaddr, giaddr, if_p)) {
+	    /* not applicable to this network */
+	    continue;
+	}
+	/* check the lease expiration */
+	lease_index = ni_proplist_match(scan->pl, NIPROP_DHCP_LEASE, NULL);
+	if (lease_index != NI_INDEX_NULL) {
+	    ni_namelist *		lease_nl_p;
+	    lease_nl_p = &scan->pl.nipl_val[lease_index].nip_val;
+	    if (lease_nl_p->ninl_len == 0) {
+		continue;
+	    }
+	    expiry = strtol(lease_nl_p->ninl_val[0], NULL, NULL);
+	    if (expiry == LONG_MAX && errno == ERANGE) {
+		continue;
+	    }
+	}
+	if (lease_index == NI_INDEX_NULL || time_in_p->tv_sec > expiry) {
 	    if (S_remove_host(&scan)) {
 		my_log(LOG_DEBUG, "dhcp: reclaimed address %s",
 		       inet_ntoa(iaddr));
 		*client_ip = iaddr;
 		return (TRUE);
 	    }
-	    
 	}
     }
     return (FALSE);
@@ -1119,10 +1131,10 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
 
 	  if (binding == dhcp_binding_temporary_e
 	      && iaddr.s_addr == req_ip->s_addr) {
-	      ni_delete_prop(&entry->pl, NIPROP_NAME, &modified);
 	      ni_delete_prop(&entry->pl, NIPROP_IDENTIFIER, &modified);
-	      ni_delete_prop(&entry->pl, NIPROP_HWADDR, &modified);
-	      ni_delete_prop(&entry->pl, NIPROP_DHCP_LEASE, &modified);
+	      S_set_lease(&entry->pl, 
+			  request->time_in_p->tv_sec + DHCP_DECLINE_WAIT_SECS,
+			  &modified);
 	      ni_set_prop(&entry->pl, NIPROP_DHCP_DECLINED, 
 			  idstr, &modified);
 	      my_log(LOG_INFO, "dhcpd: IP %s declined by %s",

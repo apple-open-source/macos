@@ -759,19 +759,19 @@ IOReturn clipAppleDBDMAToOutputStreamMixRightChannel(const void *mixBuf, void *s
 // aml 3.1.02 added iSub format struct
 // aml 3.5.02 added src phase
 // aml 3.5.02 added src state
-IOReturn clipAppleDBDMAToOutputStreamiSub(const void *mixBuf, void *sampleBuf, PreviousValues *filterState, PreviousValues *filterState2, PreviousValues *phaseCompState, float *low, float *high, UInt32 firstSampleFrame, UInt32 numSampleFrames, UInt32 sampleRate, const IOAudioStreamFormat *streamFormat, SInt16 * iSubBufferMemory, UInt32 *loopCount, SInt32 *iSubBufferOffset, UInt32 iSubBufferLen, iSubAudioFormatType* iSubFormat, float* srcPhase, float* srcState);
+IOReturn clipAppleDBDMAToOutputStreamiSub(const void *mixBuf, void *sampleBuf, PreviousValues *filterState, PreviousValues *filterState2, PreviousValues *phaseCompState, float *low, float *high, UInt32 firstSampleFrame, UInt32 numSampleFrames, UInt32 sampleRate, const IOAudioStreamFormat *streamFormat, SInt16 * iSubBufferMemory, UInt32 *loopCount, SInt32 *iSubBufferOffset, UInt32 iSubBufferLen, iSubAudioFormatType* iSubFormat, float* srcPhase, float* srcState, UInt32 adaptiveSampleRate);
 
 // aml 2.18.02 changed to 4th order phase compensator version
 // aml 3.1.02 added iSub format struct
 // aml 3.5.02 added src phase
 // aml 3.5.02 added src state
-IOReturn clipAppleDBDMAToOutputStreamiSubInvertRightChannel(const void *mixBuf, void *sampleBuf, PreviousValues *filterState, PreviousValues *filterState2, PreviousValues *phaseCompState, float *low, float *high, UInt32 firstSampleFrame, UInt32 numSampleFrames, UInt32 sampleRate, const IOAudioStreamFormat *streamFormat, SInt16 * iSubBufferMemory, UInt32 *loopCount, SInt32 *iSubBufferOffset, UInt32 iSubBufferLen, iSubAudioFormatType* iSubFormat, float* srcPhase, float* srcState);
+IOReturn clipAppleDBDMAToOutputStreamiSubInvertRightChannel(const void *mixBuf, void *sampleBuf, PreviousValues *filterState, PreviousValues *filterState2, PreviousValues *phaseCompState, float *low, float *high, UInt32 firstSampleFrame, UInt32 numSampleFrames, UInt32 sampleRate, const IOAudioStreamFormat *streamFormat, SInt16 * iSubBufferMemory, UInt32 *loopCount, SInt32 *iSubBufferOffset, UInt32 iSubBufferLen, iSubAudioFormatType* iSubFormat, float* srcPhase, float* srcState, UInt32 adaptiveSampleRate);
 
 // aml 2.18.02 changed to 4th order phase compensator version
 // aml 3.1.02 added iSub format struct
 // aml 3.5.02 added src phase
 // aml 3.5.02 added src state
-IOReturn clipAppleDBDMAToOutputStreamiSubMixRightChannel(const void *mixBuf, void *sampleBuf, PreviousValues *filterState, PreviousValues *filterState2, PreviousValues *phaseCompState, float *low, float *high, UInt32 firstSampleFrame, UInt32 numSampleFrames, UInt32 sampleRate, const IOAudioStreamFormat *streamFormat, SInt16 * iSubBufferMemory, UInt32 *loopCount, SInt32 *iSubBufferOffset, UInt32 iSubBufferLen, iSubAudioFormatType* iSubFormat, float* srcPhase, float* srcState);
+IOReturn clipAppleDBDMAToOutputStreamiSubMixRightChannel(const void *mixBuf, void *sampleBuf, PreviousValues *filterState, PreviousValues *filterState2, PreviousValues *phaseCompState, float *low, float *high, UInt32 firstSampleFrame, UInt32 numSampleFrames, UInt32 sampleRate, const IOAudioStreamFormat *streamFormat, SInt16 * iSubBufferMemory, UInt32 *loopCount, SInt32 *iSubBufferOffset, UInt32 iSubBufferLen, iSubAudioFormatType* iSubFormat, float* srcPhase, float* srcState, UInt32 adaptiveSampleRate);
 
 // aml 6.17.02, added dual mono mode parameter
 IOReturn convertAppleDBDMAFromInputStream(const void *sampleBuf, void *destBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat, DualMonoModeType inDualMonoMode);
@@ -834,8 +834,9 @@ IOReturn AppleDBDMAAudioDMAEngine::clipOutputSamples(const void *mixBuf, void *s
 	SInt32						offsetDelta;
 	SInt32						safetyOffset;
 	UInt32						iSubBufferLen = 0;
-	UInt32						sampleRate;
 	iSubAudioFormatType			iSubFormat;	// aml 3.1.02
+	UInt32						distance;
+	static UInt32				oldiSubBufferOffset;
  
 	// if the DMA went bad restart it
 	if (fBadCmd && fBadResult)
@@ -846,18 +847,46 @@ IOReturn AppleDBDMAAudioDMAEngine::clipOutputSamples(const void *mixBuf, void *s
 	}
         
 	if ((NULL != iSubBufferMemory) && (NULL != iSubEngine)) {
+		UInt32						adaptiveSampleRate;
+		UInt32						sampleRate;
+
  		iSubBufferLen = iSubBufferMemory->getLength ();
 		iSubBuffer = (void*)iSubBufferMemory->getVirtualSegment (0, &iSubBufferLen);
 		// (iSubBufferLen / 2) is because iSubBufferOffset is in UInt16s so convert iSubBufferLen to UInt16 length
 		iSubBufferLen = iSubBufferLen / 2;
 
 		sampleRate = getSampleRate()->whole;
+		adaptiveSampleRate = sampleRate;
 
 		// aml 3.1.02
 		iSubFormat.altInterface = iSubEngine->GetAltInterface();
 		iSubFormat.numChannels = iSubEngine->GetNumChannels();
 		iSubFormat.bytesPerSample = iSubEngine->GetBytesPerSample();
 		iSubFormat.outputSampleRate = iSubEngine->GetSampleRate();
+
+		if (needToSync == FALSE) {
+			UInt32			wrote;
+			wrote = iSubBufferOffset - oldiSubBufferOffset;
+//			IOLog ("wrote %ld iSub samples\n", wrote);
+			if (iSubLoopCount == iSubEngine->GetCurrentLoopCount () && iSubBufferOffset > (SInt32)(iSubEngine->GetCurrentByteCount () / 2)) {
+				distance = iSubBufferOffset - (iSubEngine->GetCurrentByteCount () / 2);
+			} else if (iSubLoopCount == (iSubEngine->GetCurrentLoopCount () + 1) && iSubBufferOffset < (SInt32)(iSubEngine->GetCurrentByteCount () / 2)) {
+				distance = iSubBufferLen - (iSubEngine->GetCurrentByteCount () / 2) + iSubBufferOffset;
+			}
+			if (distance < (initialiSubLead / 2)) {
+				// Write more samples into the iSub's buffer
+//				IOLog ("speed up! %ld, %ld, %ld\n", initialiSubLead, distance, iSubEngine->GetCurrentByteCount () / 2);
+				adaptiveSampleRate = sampleRate - (sampleRate >> 4);
+			} else if (distance > (initialiSubLead + (initialiSubLead / 2))) {
+				// Write fewer samples into the iSub's buffer
+//				IOLog ("slow down! %ld, %ld, %ld\n", initialiSubLead, distance, iSubEngine->GetCurrentByteCount () / 2);
+				adaptiveSampleRate = sampleRate + (sampleRate >> 4);
+			} else {
+				// The sample rate is just right
+//				IOLog ("just right %ld, %ld, %ld\n", initialiSubLead, distance, iSubEngine->GetCurrentByteCount () / 2);
+				adaptiveSampleRate = sampleRate;
+			}
+		}
 
 		// Detect being out of sync with the iSub
 #if ABORT_PIPE_ON_START
@@ -873,7 +902,9 @@ IOReturn AppleDBDMAAudioDMAEngine::clipOutputSamples(const void *mixBuf, void *s
 			}
 			if (iSubLoopCount == iSubEngine->GetCurrentLoopCount () && safetyOffset < (SInt32)(iSubEngine->GetCurrentByteCount () / 2)) {
 				#if DEBUGLOG
+				distance = iSubBufferOffset - (iSubEngine->GetCurrentByteCount () / 2);
 				IOLog ("****iSub is in front of write head safetyOffset = %ld, iSubEngine->GetCurrentByteCount () / 2 = %ld\n", safetyOffset, iSubEngine->GetCurrentByteCount () / 2);
+//				IOLog ("distance = %ld\n", distance);
 				#endif
 				needToSync = TRUE;
 				startiSub = TRUE;
@@ -1008,8 +1039,6 @@ IOReturn AppleDBDMAAudioDMAEngine::clipOutputSamples(const void *mixBuf, void *s
 				}
 #if DEBUGLOG
 				IOLog ("clipOutput: need to sync: 44.1kHz offsetDelta = %ld\n", offsetDelta);
-#endif
-#if DEBUGLOG
 				if (offsetDelta < kMinimumLatency) {
 					IOLog ("clipOutput: no sync: 44.1 offsetDelta < min, offsetDelta=%ld\n", offsetDelta); 
 				}                
@@ -1055,14 +1084,15 @@ IOReturn AppleDBDMAAudioDMAEngine::clipOutputSamples(const void *mixBuf, void *s
 		// aml 3.5.02 added src phase to calls below
 		// aml 3.6.02 added src state to calls below
 		// this will be true on a slot load iMac that has the built in speakers enabled
+		oldiSubBufferOffset = iSubBufferOffset;
 		if (TRUE == fNeedsPhaseInversion) {
-            result = clipAppleDBDMAToOutputStreamiSubInvertRightChannel (mixBuf, sampleBuf, &filterState, &filterState2, &phaseCompState, lowFreqSamples, highFreqSamples, firstSampleFrame, numSampleFrames, sampleRate, streamFormat, (SInt16*)iSubBuffer, &iSubLoopCount, &iSubBufferOffset, iSubBufferLen, &iSubFormat, &srcPhase, &srcState);
+            result = clipAppleDBDMAToOutputStreamiSubInvertRightChannel (mixBuf, sampleBuf, &filterState, &filterState2, &phaseCompState, lowFreqSamples, highFreqSamples, firstSampleFrame, numSampleFrames, sampleRate, streamFormat, (SInt16*)iSubBuffer, &iSubLoopCount, &iSubBufferOffset, iSubBufferLen, &iSubFormat, &srcPhase, &srcState, adaptiveSampleRate);
 		} else if (TRUE == fNeedsRightChanMixed) {
-            result = clipAppleDBDMAToOutputStreamiSubMixRightChannel (mixBuf, sampleBuf, &filterState, &filterState2, &phaseCompState, lowFreqSamples, highFreqSamples, firstSampleFrame, numSampleFrames, sampleRate, streamFormat, (SInt16*)iSubBuffer, &iSubLoopCount, &iSubBufferOffset, iSubBufferLen, &iSubFormat, &srcPhase, &srcState);
+            result = clipAppleDBDMAToOutputStreamiSubMixRightChannel (mixBuf, sampleBuf, &filterState, &filterState2, &phaseCompState, lowFreqSamples, highFreqSamples, firstSampleFrame, numSampleFrames, sampleRate, streamFormat, (SInt16*)iSubBuffer, &iSubLoopCount, &iSubBufferOffset, iSubBufferLen, &iSubFormat, &srcPhase, &srcState, adaptiveSampleRate);
 		} else {
-            result = clipAppleDBDMAToOutputStreamiSub (mixBuf, sampleBuf, &filterState, &filterState2, &phaseCompState, lowFreqSamples, highFreqSamples, firstSampleFrame, numSampleFrames, sampleRate, streamFormat, (SInt16*)iSubBuffer, &iSubLoopCount, &iSubBufferOffset, iSubBufferLen, &iSubFormat, &srcPhase, &srcState);
+            result = clipAppleDBDMAToOutputStreamiSub (mixBuf, sampleBuf, &filterState, &filterState2, &phaseCompState, lowFreqSamples, highFreqSamples, firstSampleFrame, numSampleFrames, sampleRate, streamFormat, (SInt16*)iSubBuffer, &iSubLoopCount, &iSubBufferOffset, iSubBufferLen, &iSubFormat, &srcPhase, &srcState, adaptiveSampleRate);
 		}
-            
+
 		if (TRUE == startiSub) {
 			iSubEngine->StartiSub ();
 			startiSub = FALSE;

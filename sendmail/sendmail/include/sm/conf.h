@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2001 Sendmail, Inc. and its suppliers.
+ * Copyright (c) 1998-2002 Sendmail, Inc. and its suppliers.
  *	All rights reserved.
  * Copyright (c) 1983, 1995-1997 Eric P. Allman.  All rights reserved.
  * Copyright (c) 1988, 1993
@@ -10,7 +10,7 @@
  * the sendmail distribution.
  *
  *
- *	$Id: conf.h,v 1.1.1.1 2002/03/12 18:00:16 zarzycki Exp $
+ *	$Id: conf.h,v 1.1.1.2 2002/10/15 02:37:54 zarzycki Exp $
  */
 
 /*
@@ -105,6 +105,7 @@
 #   define SMRSH_CMDDIR		"/var/adm/sm.bin"
 #  endif /* HPUX10 */
 #  ifdef HPUX11
+#   define HASSETREUID	1	/* setreuid(2) works on HP-UX 11.x */
 #   define HASFCHOWN	1	/* has fchown(2) */
 #   ifndef BROKEN_RES_SEARCH
 #    define BROKEN_RES_SEARCH 1	/* res_search(unknown) returns h_errno=0 */
@@ -608,7 +609,12 @@ extern long	dgux_inet_addr();
 #  define GIDSET_T	gid_t
 #  define SM_INT32	int	/* 32bit integer */
 #  ifndef HASFLOCK
-#   define HASFLOCK	1	/* has flock(2) call */
+#   include <standards.h>
+#   if _XOPEN_SOURCE+0 >= 400
+#    define HASFLOCK	0	/* 5.0 and later has bad flock(2) call */
+#   else /* _XOPEN_SOURCE+0 >= 400 */
+#    define HASFLOCK	1	/* has flock(2) call */
+#   endif /* _XOPEN_SOURCE+0 >= 400 */
 #  endif /* ! HASFLOCK */
 #  define LA_TYPE	LA_ALPHAOSF
 #  define SFS_TYPE	SFS_STATVFS	/* use <sys/statvfs.h> statfs() impl */
@@ -618,6 +624,15 @@ extern long	dgux_inet_addr();
 #  ifndef _PATH_SENDMAILPID
 #   define _PATH_SENDMAILPID	"/var/run/sendmail.pid"
 #  endif /* ! _PATH_SENDMAILPID */
+#  if _FFR_DIGUNIX_SAFECHOWN
+/*
+**  Testing on a Digital UNIX 4.0a system showed this to be the correct
+**  setting but given the security consequences, more testing and
+**  verification is needed.  Unfortunately, the man page offers no
+**  assistance.
+*/
+#   define IS_SAFE_CHOWN >= 0
+#  endif /* _FFR_DIGUNIX_SAFECHOWN */
 # endif /* __osf__ */
 
 
@@ -706,6 +721,7 @@ typedef int		pid_t;
 #  define HASSTRERROR	1	/* has strerror(3) */
 #  define HASGETDTABLESIZE	1
 #  define HASGETUSERSHELL	1
+#  define HAS_IN_H	1
 #  define SM_CONF_GETOPT	0	/* need a replacement for getopt(3) */
 #  define BSD4_4_SOCKADDR	/* has sa_len */
 #  define NETLINK	1	/* supports AF_LINK */
@@ -716,6 +732,10 @@ typedef int		pid_t;
 #  define SPT_TYPE	SPT_PSSTRINGS
 #  define SPT_PADCHAR	'\0'	/* pad process title with nulls */
 #  define ERRLIST_PREDEFINED	/* don't declare sys_errlist */
+#  ifndef NOT_SENDMAIL
+#   define sleep		sleepX
+extern unsigned int sleepX __P((unsigned int seconds));
+#  endif /* ! NOT_SENDMAIL */
 # endif /* defined(DARWIN) */
 
 
@@ -1340,6 +1360,9 @@ extern void		*malloc();
 #  ifndef TZ_TYPE
 #   define TZ_TYPE	TZ_NONE		/* no standard for Linux */
 #  endif /* ! TZ_TYPE */
+#  if (__GLIBC__ >= 2)
+#   include <paths.h>
+#  endif /* (__GLIBC__ >= 2) */
 #  ifndef _PATH_SENDMAILPID
 #   define _PATH_SENDMAILPID	"/var/run/sendmail.pid"
 #  endif /* ! _PATH_SENDMAILPID */

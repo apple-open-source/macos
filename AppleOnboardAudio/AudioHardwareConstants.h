@@ -149,7 +149,9 @@ enum {
 	layoutP99					=	31,
 	layoutQ25					=	32,
 	layoutQ26					=	33,
-	layoutP86					=	34
+	layoutP86					=	34,
+	layoutQ16					=	35,
+	layoutQ37					=	36
 };
 
 // Hardware type 

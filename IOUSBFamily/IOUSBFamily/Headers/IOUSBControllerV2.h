@@ -24,6 +24,15 @@
 
 #include <IOKit/usb/IOUSBController.h>
 
+enum
+{
+    kUSBHSHubCommandAddHub	= 1,
+    kUSBHSHubCommandRemoveHub	= 2,
+    
+    kUSBHSHubFlagsMultiTT	= 1
+};
+
+
 /*!
     @class IOUSBControllerV2
     @abstract subclass of the IOUSBController to provide support for high speed 
@@ -195,12 +204,28 @@ public:
                                                         USBDeviceAddress highSpeedHub,
                                                         int      highSpeedPort) = 0;
 
-    OSMetaClassDeclareReservedUnused(IOUSBControllerV2,  0);
-    OSMetaClassDeclareReservedUnused(IOUSBControllerV2,  1);
-    OSMetaClassDeclareReservedUnused(IOUSBControllerV2,  2);
-    OSMetaClassDeclareReservedUnused(IOUSBControllerV2,  3);
-    OSMetaClassDeclareReservedUnused(IOUSBControllerV2,  4);
-    OSMetaClassDeclareReservedUnused(IOUSBControllerV2,  5);
+    OSMetaClassDeclareReservedUsed(IOUSBControllerV2,  0);
+    virtual IOReturn		AddHSHub(USBDeviceAddress highSpeedHub, UInt32 flags);
+    
+    static IOReturn DOHSHubMaintenance(OSObject *owner, void *arg0, void *arg1, void *arg2, void *arg3);
+    
+    OSMetaClassDeclareReservedUsed(IOUSBControllerV2,  1);
+    virtual IOReturn 		UIMHubMaintenance(USBDeviceAddress highSpeedHub, UInt32 highSpeedPort, UInt32 command, UInt32 flags);
+    
+    OSMetaClassDeclareReservedUsed(IOUSBControllerV2,  2);
+    virtual IOReturn		RemoveHSHub(USBDeviceAddress highSpeedHub);
+    
+    static IOReturn DOSetTestMode(OSObject *owner, void *arg0, void *arg1, void *arg2, void *arg3);
+
+    OSMetaClassDeclareReservedUsed(IOUSBControllerV2,  3);
+    virtual IOReturn		SetTestMode(UInt32 mode, UInt32 port);
+    
+    OSMetaClassDeclareReservedUsed(IOUSBControllerV2,  4);
+    virtual IOReturn		UIMSetTestMode(UInt32 mode, UInt32 port);
+    
+    OSMetaClassDeclareReservedUsed(IOUSBControllerV2,  5);
+    virtual UInt64		GetMicroFrameNumber( void );
+    
     OSMetaClassDeclareReservedUnused(IOUSBControllerV2,  6);
     OSMetaClassDeclareReservedUnused(IOUSBControllerV2,  7);
     OSMetaClassDeclareReservedUnused(IOUSBControllerV2,  8);

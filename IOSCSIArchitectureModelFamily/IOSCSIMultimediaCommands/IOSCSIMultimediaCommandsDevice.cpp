@@ -48,6 +48,9 @@
 #include "SCSIBlockCommands.h"
 #include "SCSIMultimediaCommands.h"
 
+// Temporary definition until the actual one is available in IODVDTypes.h
+#define kDVDMediaTypePlusR 0x0207
+
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //	Macros
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
@@ -108,6 +111,9 @@ OSDefineAbstractStructors ( IOSCSIMultimediaCommandsDevice, IOSCSIPrimaryCommand
 #define kSubChannelDataBufferSize				24
 #define kCDAudioModePageBufferSize				24
 
+// Offsets into the CD Mechanical Capabilities mode page
+#define kMediaAccessSpeedOffset					14
+
 #define kMaxRetryCount							8
 #define	kDefaultMaxBlocksPerIO					65535
 #define kMechanicalCapabilitiesModePageCode		0x2A
@@ -127,6 +133,8 @@ enum
 	kGetConfigurationProfileList						= 0x0000, /* Profile List */
 	kGetConfigurationProfileRandomWrite					= 0x0020, /* Random Write Profile */
 	kGetConfigurationProfileIncrementalStreamedWrite	= 0x0021, /* Incremental Streamed Writing Profile */
+	kGetConfigurationProfileDVDPlusRW					= 0x002A, /* DVD+RW Profile */
+	kGetConfigurationProfileDVDPlusR					= 0x002B, /* DVD+R Profile */
 	kGetConfigurationProfileCDTAO						= 0x002D, /* CD Track At Once Profile */
 	kGetConfigurationProfileCDMastering					= 0x002E, /* CD Mastering Profile */
 	kGetConfigurationProfileDVDWrite					= 0x002F, /* DVD-R Write Profile */
@@ -142,8 +150,10 @@ enum
 	kGetConfigurationCDRW_Feature		= 0x000A,
 	kGetConfigurationDVDROM_Feature		= 0x0010,
 	kGetConfigurationDVDR_Feature		= 0x0011,
-	kGetConfigurationDVDRAM_Feature		= 0x0012,	// DVD-RAM and DVD+RW
-	kGetConfigurationDVDRW_Feature		= 0x0014
+	kGetConfigurationDVDRAM_Feature		= 0x0012,
+	kGetConfigurationDVDRW_Feature		= 0x0014,
+	kGetConfigurationDVDPlusRW_Feature	= 0x001A,
+	kGetConfigurationDVDPlusR_Feature	= 0x001B
 };
 
 // Mechanical Capabilities flags
@@ -361,7 +371,8 @@ IOSCSIMultimediaCommandsDevice::EjectTheMedia ( void )
 		}
 		
 		ResetMediaCharacteristics ( );
-		messageClients ( kIOMessageTrayStateHasChanged, NULL, NULL );
+		messageClients ( kIOMessageTrayStateChange,
+						 ( void * ) kMessageTrayStateChangeRequestAccepted );
 		
 		if ( fLowPowerPollingEnabled == false )
 		{
@@ -568,7 +579,7 @@ IOSCSIMultimediaCommandsDevice::ReportMaxReadTransfer (
 										UInt64 * 	max )
 {
 	
-	UInt64	maxBlockCount 	= kDefaultMaxBlocksPerIO;
+	UInt32	maxBlockCount 	= kDefaultMaxBlocksPerIO;
 	UInt64	maxByteCount	= 0;
 	bool	supported		= false;
 	
@@ -611,7 +622,7 @@ IOSCSIMultimediaCommandsDevice::ReportMaxWriteTransfer ( UInt64 	blockSize,
 														 UInt64 * 	max )
 {
 	
-	UInt64	maxBlockCount 	= kDefaultMaxBlocksPerIO;
+	UInt32	maxBlockCount 	= kDefaultMaxBlocksPerIO;
 	UInt64	maxByteCount	= 0;
 	bool	supported		= false;
 	
@@ -845,8 +856,8 @@ IOSCSIMultimediaCommandsDevice::SetTrayState ( UInt8 trayState )
 	}
 	
 	ReleaseSCSITask ( request );
-	
-	messageClients ( kIOMessageTrayStateHasChanged, NULL, NULL );
+	messageClients ( kIOMessageTrayStateChange,
+					 ( void * ) kMessageTrayStateChangeRequestAccepted );
 	
 	
 ErrorExit:
@@ -885,12 +896,12 @@ IOSCSIMultimediaCommandsDevice::AsyncReadCD (
 					0,
 					startBlock, 
 					blockCount, 
-					( ( sectorArea & ~kCDSectorAreaSubChannel ) >> 7 ) & 0x1,
-					( ( sectorArea & ~kCDSectorAreaSubChannel ) >> 5 ) & 0x3,
-					( ( sectorArea & ~kCDSectorAreaSubChannel ) >> 4 ) & 0x1,
-					( ( sectorArea & ~kCDSectorAreaSubChannel ) >> 3 ) & 0x1,
-					( ( sectorArea & ~kCDSectorAreaSubChannel ) >> 1 ) & 0x3,
-					sectorArea & kCDSectorAreaSubChannel,
+					( ( sectorArea & kCDSectorAreaSync        ) ? 0x1 : 0x0 ),
+					( ( sectorArea & kCDSectorAreaHeader      ) ? 0x1 : 0x0 ) | ( ( sectorArea & kCDSectorAreaSubHeader   ) ? 0x2 : 0x0 ),
+					( ( sectorArea & kCDSectorAreaUser        ) ? 0x1 : 0x0 ),
+					( ( sectorArea & kCDSectorAreaAuxiliary   ) ? 0x1 : 0x0 ),
+					( ( sectorArea & kCDSectorAreaErrorFlags  ) ? 0x1 : 0x0 ),
+					( ( sectorArea & kCDSectorAreaSubChannel  ) ? 0x1 : 0x0 ) | ( ( sectorArea & kCDSectorAreaSubChannelQ ) ? 0x2 : 0x0 ),
 					0 ) == true )
 	{
 		
@@ -899,6 +910,15 @@ IOSCSIMultimediaCommandsDevice::AsyncReadCD (
 		// The command was successfully built, now send it
 		SendCommand ( request, 0, &IOSCSIMultimediaCommandsDevice::AsyncReadWriteComplete );
 		status = kIOReturnSuccess;
+		
+	}
+	
+	else
+	{
+		
+		status = kIOReturnBadArgument;
+		ReleaseSCSITask ( request );
+		request = NULL;
 		
 	}
 	
@@ -2194,7 +2214,7 @@ IOSCSIMultimediaCommandsDevice::GetMediaAccessSpeed (
 	// Ensure that our buffer is of the minimum correct size.
 	// Also, check that the first byte of the page is the
 	// correct PAGE_CODE (kMechanicalCapabilitiesModePageCode).
-	minBufferSize = headerSize + blockDescriptorLength + 16;
+	minBufferSize = headerSize + blockDescriptorLength + kMediaAccessSpeedOffset + sizeof ( UInt16 );
 	
 	require_action ( ( actualSize >= minBufferSize ),
 					 ReleaseDescriptor,
@@ -2208,7 +2228,7 @@ IOSCSIMultimediaCommandsDevice::GetMediaAccessSpeed (
 		
 	*kilobytesPerSecond = OSReadBigInt16 (
 								mechanicalCapabilities,
-								headerSize + blockDescriptorLength + 16 );
+								headerSize + blockDescriptorLength + kMediaAccessSpeedOffset );
 	status = kIOReturnSuccess;
 	
 	
@@ -2328,9 +2348,7 @@ IOSCSIMultimediaCommandsDevice::InitializeDeviceSupport ( void )
 	STATUS_LOG ( ( "IOSCSIMultimediaCommandsDevice::InitializeDeviceSupport called\n" ) );
 	
 	fIOSCSIMultimediaCommandsDeviceReserved =
-		( IOSCSIMultimediaCommandsDeviceExpansionData * ) IOMalloc (
-					sizeof ( IOSCSIMultimediaCommandsDeviceExpansionData ) );
-	
+			IONew ( IOSCSIMultimediaCommandsDeviceExpansionData, 1 );
 	require_nonzero ( fIOSCSIMultimediaCommandsDeviceReserved, ErrorExit );
 	
 	bzero ( fIOSCSIMultimediaCommandsDeviceReserved,
@@ -2367,8 +2385,7 @@ ReleaseExpansionData:
 	
 	
 	require_nonzero_quiet ( fIOSCSIMultimediaCommandsDeviceReserved, ErrorExit );
-	IOFree ( fIOSCSIMultimediaCommandsDeviceReserved,
-			 sizeof ( IOSCSIMultimediaCommandsDeviceExpansionData ) );
+	IODelete ( fIOSCSIMultimediaCommandsDeviceReserved, IOSCSIMultimediaCommandsDeviceExpansionData, 1 );
 	fIOSCSIMultimediaCommandsDeviceReserved = NULL;
 	
 	
@@ -2560,8 +2577,7 @@ IOSCSIMultimediaCommandsDevice::FreeCommandSetObjects ( void )
 	if ( fIOSCSIMultimediaCommandsDeviceReserved != NULL )
 	{
 		
-		IOFree ( fIOSCSIMultimediaCommandsDeviceReserved,
-				 sizeof ( IOSCSIMultimediaCommandsDeviceExpansionData ) );
+		IODelete ( fIOSCSIMultimediaCommandsDeviceReserved, IOSCSIMultimediaCommandsDeviceExpansionData, 1 );
 		fIOSCSIMultimediaCommandsDeviceReserved = NULL;
 		
 	}
@@ -2867,7 +2883,7 @@ IOSCSIMultimediaCommandsDevice::HandleSetUserClientExclusivityState (
 	{
 		
 		status = message ( kSCSIServicesNotification_Resume, NULL, NULL );
-		messageClients ( kSCSIServicesNotification_ExclusivityChanged, NULL, NULL );
+		messageClients ( kSCSIServicesNotification_ExclusivityChanged );
 		
 	}
 	
@@ -2933,7 +2949,7 @@ IOSCSIMultimediaCommandsDevice::HandleSetUserClientExclusivityState (
 								
 								message ( kSCSIServicesNotification_Suspend, NULL, NULL );
 								ResetMediaCharacteristics ( );
-								messageClients ( kSCSIServicesNotification_ExclusivityChanged, NULL, NULL );
+								messageClients ( kSCSIServicesNotification_ExclusivityChanged );
 								
 							}
 							
@@ -3000,7 +3016,7 @@ IOSCSIMultimediaCommandsDevice::CreateStorageServiceNub ( void )
 	{
 		
 		// We support DVD structure reads, so create the DVD nub
-		nub = new IODVDServices;
+		nub = OSTypeAlloc ( IODVDServices );
 	
 	}
 	
@@ -3008,7 +3024,7 @@ IOSCSIMultimediaCommandsDevice::CreateStorageServiceNub ( void )
 	{
 		
 		// Create a CD nub instead
-		nub = new IOCompactDiscServices;
+		nub = OSTypeAlloc ( IOCompactDiscServices );
 	
 	}
 	require_nonzero ( nub, ErrorExit );
@@ -3679,9 +3695,20 @@ IOSCSIMultimediaCommandsDevice::ParseFeatureList (
 			case kGetConfigurationDVDRW_Feature:
 				STATUS_LOG ( ( "device supports DVD-RW\n" ) );
 				fSupportedDVDFeatures |= kDVDFeaturesReWriteableMask;
+				break;
+			
+			case kGetConfigurationDVDPlusRW_Feature:
+				STATUS_LOG ( ( "device supports DVD+RW\n" ) );
+				fSupportedDVDFeatures |= kDVDFeaturesPlusRWMask;
+				break;
+			
+			case kGetConfigurationDVDPlusR_Feature:
+				STATUS_LOG ( ( "device supports DVD+R\n" ) );
+				fSupportedDVDFeatures |= kDVDFeaturesPlusRMask;
+				break;
 			
 			default:
-				STATUS_LOG ( ( "%s::%s unknown drive type\n", getName ( ), __FUNCTION__ ) );
+				STATUS_LOG ( ( "unknown drive type\n" ) );
 				break;
 			
 		}
@@ -4147,7 +4174,8 @@ IOSCSIMultimediaCommandsDevice::PollForMedia ( void )
 					{
 						
 						// Message clients that the unit is attempting find out if media is really there.
-						messageClients ( kIOMessageMediaAccessChange, ( void * ) kMessageDeterminingMediaPresence, NULL );
+						messageClients ( kIOMessageMediaAccessChange,
+										 ( void * ) kMessageDeterminingMediaPresence );
 						
 						// Don't eject the disc
 						break;
@@ -4221,7 +4249,20 @@ IOSCSIMultimediaCommandsDevice::PollForMedia ( void )
 		ERROR_LOG ( ( "IOSCSIMultimediaCommandsDevice::PollForMedia error occurred, ASC = 0x%02x, ASCQ = 0x%02x\n",
 					   senseBuffer.ADDITIONAL_SENSE_CODE, senseBuffer.ADDITIONAL_SENSE_CODE_QUALIFIER ) );
 		
-		EjectTheMedia ( );
+		if ( START_STOP_UNIT ( request, 0, 0, 1, 0, 0 ) == true )
+		{
+			
+			// The command was successfully built, now send it
+			( void ) SendCommand ( request, kTenSecondTimeoutInMS );
+			
+		}
+		
+		// Bail out after ejecting the disc and notifying the user and anyone listening
+		// for tray state change message. Also, make sure that mediaFound is set to
+		// false so that we clean up properly.
+		mediaFound = false;
+		messageClients ( kIOMessageTrayStateChange,
+						 ( void * ) kMessageTrayStateChangeRequestAccepted );
 		
 		#if NOT_READY_FOR_PRIMETIME
 		
@@ -4231,11 +4272,11 @@ IOSCSIMultimediaCommandsDevice::PollForMedia ( void )
 	    // that if the KEXT moves, this path is changed!
 	    result = KUNCUserNotificationDisplayNotice ( 0,							// Timeout in seconds
 	    											 0,							// Flags (for later usage)
-	    											 kEmptyString,				// iconPath (not supported yet)
-	    											 kEmptyString,				// soundPath (not supported yet)
-	    											 kLocalizationPath,			// localizationPath
-	    											 kMediaEjectHeaderString,	// the header
-	    											 kMediaEjectNoticeString,	// the notice - look in Localizable.strings
+	    											 kEmptyString,				// IconPath (not supported yet)
+	    											 kEmptyString,				// SoundPath (not supported yet)
+	    											 kLocalizationPath,			// LocalizationPath
+	    											 kMediaEjectHeaderString,	// The header
+	    											 kMediaEjectNoticeString,	// The notice - look in Localizable.strings
 	    											 kOKButtonString );
 		
 		#endif
@@ -4244,7 +4285,8 @@ IOSCSIMultimediaCommandsDevice::PollForMedia ( void )
 	
 	require_quiet ( mediaFound, ReleaseTask );
 	
-	messageClients ( kIOMessageMediaAccessChange, ( void * ) kMessageFoundMedia, NULL );
+	messageClients ( kIOMessageMediaAccessChange,
+					 ( void * ) kMessageFoundMedia );
 	
 	// If we got here, then we have found media
 	if ( fMediaIsRemovable == true )
@@ -4303,7 +4345,7 @@ IOSCSIMultimediaCommandsDevice::PollForMedia ( void )
 			
 		}
 		
-		STATUS_LOG ( ( "%s: Media capacity: 0x%x and block size: 0x%x\n",
+		STATUS_LOG ( ( "%s: Media blocks: 0x%x and block size: 0x%x\n",
 						getName ( ), fMediaBlockCount, fMediaBlockSize ) );
 		
 	}
@@ -4340,8 +4382,7 @@ IOSCSIMultimediaCommandsDevice::PollForMedia ( void )
 	
 	// Message up the chain that we have media
 	messageClients ( kIOMessageMediaStateHasChanged,
-					 ( void * ) kIOMediaStateOnline,
-					 0 );
+					 ( void * ) kIOMediaStateOnline );
 	
 	
 ReleaseTask:
@@ -4501,8 +4542,7 @@ IOSCSIMultimediaCommandsDevice::DetermineMediaType ( void )
 	}
 	
 	messageClients ( kIOMessageMediaAccessChange,
-					( void * ) kMessageMediaTypeDetermined,
-					NULL );
+					( void * ) kMessageMediaTypeDetermined );
 	
 	// Set to maximum speed
 	SetMediaAccessSpeed ( 0xFFFF );
@@ -4519,23 +4559,25 @@ bool
 IOSCSIMultimediaCommandsDevice::CheckForDVDMediaType ( void )
 {
 	
-	SCSITaskIdentifier		request				= NULL;
-	SCSIServiceResponse		serviceResponse		= kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
-	IOMemoryDescriptor *	bufferDesc			= NULL;
-	bool					mediaTypeFound		= false;
-	DVDPhysicalFormatInfo	physicalFormatInfo;
+	SCSITaskIdentifier			request				= NULL;
+	SCSIServiceResponse			serviceResponse		= kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
+	IOBufferMemoryDescriptor *	bufferDesc			= NULL;
+	bool						mediaTypeFound		= false;
+	UInt8 *						buffer				= NULL;
+	UInt32						bufferSize			= 0;
 	
-	bzero ( &physicalFormatInfo, sizeof ( DVDPhysicalFormatInfo ) );
+	STATUS_LOG ( ( "IOSCSIMultimediaCommandsDevice::CheckForDVDMediaType ENTER\n" ) );
 	
 	// If device supports READ_DVD_STRUCTURE, issue one to find
 	// out if the media is a DVD media type
 	require_quiet ( ( fSupportedDVDFeatures & kDVDFeaturesReadStructuresMask ), Exit );
 	
-	bufferDesc = IOMemoryDescriptor::withAddress (
-							( void * ) &physicalFormatInfo,
-							kDVDPhysicalFormatInfoBufferSize,
-							kIODirectionIn );
+	bufferSize = max ( kDVDPhysicalFormatInfoBufferSize, kProfileFeatureHeaderSize + kProfileDescriptorSize );
+	bufferDesc = IOBufferMemoryDescriptor::withCapacity ( bufferSize, kIODirectionIn );
 	require_nonzero ( bufferDesc, Exit );
+	
+	buffer = ( UInt8 * ) bufferDesc->getBytesNoCopy ( );
+	bzero ( buffer, bufferSize );
 	
 	request = GetSCSITask ( );
 	require_nonzero ( request, ReleaseDescriptor );
@@ -4544,7 +4586,7 @@ IOSCSIMultimediaCommandsDevice::CheckForDVDMediaType ( void )
 								bufferDesc,
 								0x00,
 								0x00,
-								0x00, /* kDVDStructureFormatPhysicalFormatInfo */
+								kDVDStructureFormatPhysicalFormatInfo,
 								kDVDPhysicalFormatInfoBufferSize,
 								0x00,
 								0x00 ) == true )
@@ -4557,7 +4599,9 @@ IOSCSIMultimediaCommandsDevice::CheckForDVDMediaType ( void )
 		 ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD ) )
 	{
 		
-		switch ( physicalFormatInfo.bookType )
+		DVDPhysicalFormatInfo *	physicalFormatInfo = ( DVDPhysicalFormatInfo * ) buffer;
+		
+		switch ( physicalFormatInfo->bookType )
 		{
 			
 			case 0:
@@ -4580,13 +4624,103 @@ IOSCSIMultimediaCommandsDevice::CheckForDVDMediaType ( void )
 				fMediaType = kDVDMediaTypeRW;
 				break;
 				
+			case 8:
+				STATUS_LOG ( ( "fMediaType = DVD+R\n" ) );
+				fMediaType = kDVDMediaTypePlusR;
+				break;
+				
 			case 9:
 				STATUS_LOG ( ( "fMediaType = DVD+RW\n" ) );
 				fMediaType = kDVDMediaTypePlusRW;
 				break;
 				
+			default:
+				STATUS_LOG ( ( "physicalFormatInfo.bookType = %d\n", physicalFormatInfo.bookType ) );
+				STATUS_LOG ( ( "fMediaType = kCDMediaTypeUnknown\n" ) );
+				break;
+				
 		}
 			
+	}
+	
+	if ( ( fMediaType == kCDMediaTypeUnknown ) &&
+		 ( fSupportedDVDFeatures & kDVDFeaturesPlusRWMask ) )
+	{
+		
+		STATUS_LOG ( ( "Check for DVD+RW media\n" ) );
+		
+		bzero ( buffer, bufferSize );
+		
+		if ( GET_CONFIGURATION ( 	request,
+									bufferDesc,
+									0x02, // Only one feature descriptor
+									kGetConfigurationProfileDVDPlusRW,
+									kProfileFeatureHeaderSize + kProfileDescriptorSize,
+									0 ) == true )
+		
+		{
+			// The command was successfully built, now send it
+			serviceResponse = SendCommand ( request, kThirtySecondTimeoutInMS );
+		}
+		
+		if ( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
+			( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD ) )
+		{
+			
+			UInt8 *		profilePtr;
+			
+			profilePtr = buffer + kProfileFeatureHeaderSize;
+			
+			if ( profilePtr[2] & 0x01 )
+			{
+				
+				STATUS_LOG ( ( "fMediaType = DVD+RW\n" ) );
+				fMediaType = kDVDMediaTypePlusRW;
+				
+			}
+			
+		}
+		
+	}
+	
+	if ( ( fMediaType == kCDMediaTypeUnknown ) &&
+		 ( fSupportedDVDFeatures & kDVDFeaturesPlusRMask ) )
+	{
+		
+		STATUS_LOG ( ( "Check for DVD+R media\n" ) );
+		
+		bzero ( buffer, bufferSize );
+		
+		if ( GET_CONFIGURATION ( 	request,
+									bufferDesc,
+									0x02, // Only one feature descriptor
+									kGetConfigurationProfileDVDPlusR,
+									kProfileFeatureHeaderSize + kProfileDescriptorSize,
+									0 ) == true )
+		
+		{
+			// The command was successfully built, now send it
+			serviceResponse = SendCommand ( request, kThirtySecondTimeoutInMS );
+		}
+		
+		if ( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
+			 ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD ) )
+		{
+			
+			UInt8 *		profilePtr;
+			
+			profilePtr = buffer + kProfileFeatureHeaderSize;
+			
+			if ( profilePtr[2] & 0x01 )
+			{
+				
+				STATUS_LOG ( ( "fMediaType = DVD+R\n" ) );
+				fMediaType = kDVDMediaTypePlusR;
+				
+			}
+			
+		}
+		
 	}
 	
 	if ( fMediaType != kCDMediaTypeUnknown )
@@ -4607,6 +4741,7 @@ ReleaseDescriptor:
 	
 Exit:
 	
+	STATUS_LOG ( ( "IOSCSIMultimediaCommandsDevice::CheckForDVDMediaType EXIT\n" ) );
 	
 	return mediaTypeFound;
 	
@@ -5088,6 +5223,8 @@ IOSCSIMultimediaCommandsDevice::IssueRead (
 	{
 		
 		status = kIOReturnBadArgument;
+		ReleaseSCSITask ( request );
+		request = NULL;
 		
 	}
 	
@@ -5101,7 +5238,7 @@ ErrorExit:
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ IssueRead - Issues an asynchronous write request.				[PROTECTED]
+//	¥ IssueWrite - Issues an asynchronous write request.			[PROTECTED]
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 IOReturn
@@ -5144,6 +5281,8 @@ IOSCSIMultimediaCommandsDevice::IssueWrite (
 	{
 		
 		status = kIOReturnBadArgument;
+		ReleaseSCSITask ( request );
+		request = NULL;
 		
 	}
 	
@@ -5265,8 +5404,7 @@ IOSCSIMultimediaCommandsDevice::AsyncReadWriteComplete (
 					
 					// Message up the chain that we do not have media
 					taskOwner->messageClients ( kIOMessageMediaStateHasChanged,
-												( void * ) kIOMediaStateOffline,
-												0 );
+												( void * ) kIOMediaStateOffline );
 					
 					taskOwner->ResetMediaCharacteristics ( );
 					taskOwner->fPollingMode = kPollingMode_NewMedia;

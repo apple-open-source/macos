@@ -766,7 +766,7 @@ This file describes the changes to xinetd. The base version is 2.0.0.
 	Make sure we byteswap the value returned by time services.
 	Fix an omission with the tcpmux integration.
 	Fixed a race when there's 1 service configured and it is a wait service.
-devel
+2.3.10
 	Close the service descriptors on fork.  This only matters for internal
 		forking services, since anything that calls exec() will get
 		those closed automagically.  This will help reduce the file
@@ -800,3 +800,12 @@ devel
 	Fixed a bug with reconfiguring services using the interface attribute.
 		-- Adam Lukosek
 	Fixed a bug with deallocating dns registrations.
+	Fixed a bug where tcp_wrappers would not identify an internal service
+		since the internal service has no executable.  -Steve Grubb
+	Sclose was being used on the config file descriptor.  Since sio
+		never touches the descriptor, it failed to close it.
+		- Steve Grubb
+	Fix a potential memory leak with bind_addr and service reconfig.
+		- Andrey Alekseyev
+	Fix a reconfig timing issue.
+		- Andrey Alekseyev

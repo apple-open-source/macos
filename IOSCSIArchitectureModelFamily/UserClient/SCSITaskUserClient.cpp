@@ -655,7 +655,7 @@ SCSITaskUserClient::CreateTask ( SInt32 * taskReference )
 	require_string ( task->ResetForNewTask ( ), INIT_FAILED_ERR,
 					 "task->ResetForNewTask ( ) == false, memory allocation failed\n" );
 	
-	refCon = ( SCSITaskRefCon * ) IOMalloc ( sizeof ( SCSITaskRefCon ) );
+	refCon = IONew ( SCSITaskRefCon, 1 );
 	require_nonzero_string ( refCon, INIT_FAILED_ERR,
 							 "refCon == NULL, memory allocation failed\n" );
 	
@@ -680,7 +680,7 @@ ACTION_ERR:
 	
 	
 	require_nonzero ( refCon, INIT_FAILED_ERR );
-	IOFree ( refCon, sizeof ( SCSITaskRefCon ) );
+	IODelete ( refCon, SCSITaskRefCon, 1 );
 	refCon = NULL;
 	
 	
@@ -739,7 +739,7 @@ SCSITaskUserClient::ReleaseTask ( SInt32 taskReference )
 			
 		}
 		
-		IOFree ( refCon, sizeof ( SCSITaskRefCon ) );
+		IODelete ( refCon, SCSITaskRefCon, 1 );
 		task->SetApplicationLayerReference ( NULL );
 		
 	}

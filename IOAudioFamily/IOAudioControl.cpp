@@ -234,9 +234,6 @@ bool IOAudioControl::start(IOService *provider)
     if (!super::start(provider)) {
         return false;
     }
-    
-	// for 2761764, allocate the command gate early to avoid race condition later
-	(void)getCommandGate();
 
     isStarted = true;
 
@@ -257,7 +254,7 @@ bool IOAudioControl::attachAndStart(IOService *provider)
     } else {
         result = false;
     }
-    
+
     return result;
 }
 
@@ -272,7 +269,9 @@ void IOAudioControl::stop(IOService *provider)
         
         cg = getCommandGate();
         
-        cg->runAction(detachUserClientsAction);
+		if (cg) {
+			cg->runAction(detachUserClientsAction);
+		}
     }
     
     if (valueChangeTarget) {
@@ -293,32 +292,28 @@ bool IOAudioControl::getIsStarted()
 
 IOWorkLoop *IOAudioControl::getWorkLoop()
 {
-    if (!workLoop) {
-        workLoop = super::getWorkLoop();
-        
-        if (workLoop) {
-            workLoop->retain();
-        }
-    }
-    
     return workLoop;
+}
+
+void IOAudioControl::setWorkLoop(IOWorkLoop *wl)
+{
+	if (!workLoop) {
+		workLoop = wl;
+	
+		if (workLoop) {
+			workLoop->retain();
+	
+			commandGate = IOCommandGate::commandGate(this);
+	
+			if (commandGate) {
+				workLoop->addEventSource(commandGate);
+			}
+		}
+	}
 }
 
 IOCommandGate *IOAudioControl::getCommandGate()
 {
-    if (!commandGate) {
-        IOWorkLoop *wl;
-        
-        wl = getWorkLoop();
-        if (wl) {
-            commandGate = IOCommandGate::commandGate(this);
-            
-            if (commandGate) {
-                wl->addEventSource(commandGate);
-            }
-        }
-    }
-    
     return commandGate;
 }
 
@@ -705,7 +700,7 @@ void IOAudioControl::clientClosed(IOAudioControlUserClient *client)
 
         if (cg) {
             cg->runAction(removeUserClientAction, client);
-        }
+		}
     }
 }
 

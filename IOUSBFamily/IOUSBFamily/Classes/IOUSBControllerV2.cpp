@@ -168,12 +168,88 @@ IOUSBControllerV2::ConfigureDeviceZero(UInt8 maxPacketSize, UInt8 speed, USBDevi
     return (super::ConfigureDeviceZero(maxPacketSize, speed));
 }
 
-OSMetaClassDefineReservedUnused(IOUSBControllerV2,  0);
-OSMetaClassDefineReservedUnused(IOUSBControllerV2,  1);
-OSMetaClassDefineReservedUnused(IOUSBControllerV2,  2);
-OSMetaClassDefineReservedUnused(IOUSBControllerV2,  3);
-OSMetaClassDefineReservedUnused(IOUSBControllerV2,  4);
-OSMetaClassDefineReservedUnused(IOUSBControllerV2,  5);
+
+
+
+IOReturn
+IOUSBControllerV2::DOHSHubMaintenance(OSObject *owner, void *arg0, void *arg1, void *arg2, void *arg3)
+{
+    IOUSBControllerV2 *me = (IOUSBControllerV2 *)owner;
+    USBDeviceAddress highSpeedHub = (USBDeviceAddress)(UInt32)arg0;
+    UInt32 command = (UInt32)arg1;
+    UInt32 flags = (UInt32)arg2;
+
+    USBLog(5,"%s[%p]::DOHSHubMaintenance, command: %d, flags: %d", me->getName(), me, command, flags);
+
+    return me->UIMHubMaintenance(highSpeedHub, 0, command, flags);
+}
+
+
+
+IOReturn
+IOUSBControllerV2::DOSetTestMode(OSObject *owner, void *arg0, void *arg1, void *arg2, void *arg3)
+{
+    IOUSBControllerV2 *me = (IOUSBControllerV2 *)owner;
+    UInt32 mode = (UInt32)arg0;
+    UInt32 port = (UInt32)arg1;
+
+    USBLog(5,"%s[%p]::DOSetTestMode, mode: %d, port: %d", me->getName(), me, mode, port);
+
+    return me->UIMSetTestMode(mode, port);
+}
+
+
+
+OSMetaClassDefineReservedUsed(IOUSBControllerV2,  0);
+IOReturn		
+IOUSBControllerV2::AddHSHub(USBDeviceAddress highSpeedHub, UInt32 flags)
+{
+    return _commandGate->runAction(DOHSHubMaintenance, (void *)(UInt32)highSpeedHub,
+			(void *)(UInt32)kUSBHSHubCommandAddHub, (void *)flags);
+}
+
+
+
+OSMetaClassDefineReservedUsed(IOUSBControllerV2,  1);
+IOReturn 		
+IOUSBControllerV2::UIMHubMaintenance(USBDeviceAddress highSpeedHub, UInt32 highSpeedPort, UInt32 command, UInt32 flags)
+{
+    return kIOReturnIPCError;			// not implemented
+}
+
+
+
+OSMetaClassDefineReservedUsed(IOUSBControllerV2,  2);
+IOReturn		
+IOUSBControllerV2::RemoveHSHub(USBDeviceAddress highSpeedHub)
+{
+    return _commandGate->runAction(DOHSHubMaintenance, (void *)(UInt32)highSpeedHub,
+			(void *)(UInt32)kUSBHSHubCommandRemoveHub, NULL);
+}
+
+    
+
+OSMetaClassDefineReservedUsed(IOUSBControllerV2,  3);
+IOReturn		
+IOUSBControllerV2::SetTestMode(UInt32 mode, UInt32 port)
+{
+    return _commandGate->runAction(DOSetTestMode, (void *)mode, (void *)port);
+}
+
+OSMetaClassDefineReservedUsed(IOUSBControllerV2,  4);
+IOReturn 		
+IOUSBControllerV2::UIMSetTestMode(UInt32 mode, UInt32 port)
+{
+    return kIOReturnIPCError;			// not implemented
+}
+
+OSMetaClassDefineReservedUsed(IOUSBControllerV2,  5);
+UInt64
+IOUSBControllerV2::GetMicroFrameNumber(void)
+{
+    return 0;			// not implemented
+}
+
 OSMetaClassDefineReservedUnused(IOUSBControllerV2,  6);
 OSMetaClassDefineReservedUnused(IOUSBControllerV2,  7);
 OSMetaClassDefineReservedUnused(IOUSBControllerV2,  8);

@@ -24,12 +24,7 @@
 #define	_IOCDTYPES_H
 
 #include <IOKit/IOTypes.h>
-
-#ifdef KERNEL
 #include <libkern/OSByteOrder.h>
-#else /* !KERNEL */
-#include <architecture/byte_order.h>
-#endif /* !KERNEL */
 
 #pragma pack(1)                              /* (enable 8-bit struct packing) */
 
@@ -125,11 +120,7 @@ typedef struct
 
 static UInt32 __inline CDTOCGetDescriptorCount(CDTOC * toc)
 {
-#ifdef KERNEL
     UInt32 tocSize = OSSwapBigToHostInt16(toc->length) + sizeof(toc->length);
-#else /* !KERNEL */
-    UInt32 tocSize = NXSwapBigShortToHost(toc->length) + sizeof(toc->length);
-#endif /* !KERNEL */
 
     return (tocSize < sizeof(CDTOC)) ? 0 : 
            (tocSize - sizeof(CDTOC)) / sizeof(CDTOCDescriptor);
@@ -207,39 +198,41 @@ static CDMSF __inline CDConvertTrackNumberToMSF(UInt8 track, CDTOC * toc)
  * Auxiliary       | 0        | 288      | 0        | 280      | 0        |
  * ErrorFlags      | 294      | 294      | 294      | 294      | 294      |
  * SubChannel      | 96       | 96       | 96       | 96       | 96       |
+ * SubChannelQ     | 16       | 16       | 16       | 16       | 16       |
  *                 +----------+----------+----------+----------+----------+
  */
 
 typedef enum
 {
-    kCDSectorAreaSync       = 0x80,
-    kCDSectorAreaHeader     = 0x20,
-    kCDSectorAreaSubHeader  = 0x40,
-    kCDSectorAreaUser       = 0x10,
-    kCDSectorAreaAuxiliary  = 0x08,
-    kCDSectorAreaErrorFlags = 0x02,
-    kCDSectorAreaSubChannel = 0x01
+    kCDSectorAreaSync        = 0x80,
+    kCDSectorAreaHeader      = 0x20,
+    kCDSectorAreaSubHeader   = 0x40,
+    kCDSectorAreaUser        = 0x10,
+    kCDSectorAreaAuxiliary   = 0x08,
+    kCDSectorAreaErrorFlags  = 0x02,
+    kCDSectorAreaSubChannel  = 0x01,
+    kCDSectorAreaSubChannelQ = 0x04
 } CDSectorArea;
 
 typedef enum
 {
-    kCDSectorTypeUnknown    = 0x00,
-    kCDSectorTypeCDDA       = 0x01,
-    kCDSectorTypeMode1      = 0x02,
-    kCDSectorTypeMode2      = 0x03,
-    kCDSectorTypeMode2Form1 = 0x04,
-    kCDSectorTypeMode2Form2 = 0x05,
-    kCDSectorTypeCount      = 0x06
+    kCDSectorTypeUnknown     = 0x00,
+    kCDSectorTypeCDDA        = 0x01,
+    kCDSectorTypeMode1       = 0x02,
+    kCDSectorTypeMode2       = 0x03,
+    kCDSectorTypeMode2Form1  = 0x04,
+    kCDSectorTypeMode2Form2  = 0x05,
+    kCDSectorTypeCount       = 0x06
 } CDSectorType;
 
 typedef enum
 {
-    kCDSectorSizeCDDA       = 2352,
-    kCDSectorSizeMode1      = 2048,
-    kCDSectorSizeMode2      = 2336,
-    kCDSectorSizeMode2Form1 = 2048,
-    kCDSectorSizeMode2Form2 = 2328,
-    kCDSectorSizeWhole      = 2352
+    kCDSectorSizeCDDA        = 2352,
+    kCDSectorSizeMode1       = 2048,
+    kCDSectorSizeMode2       = 2336,
+    kCDSectorSizeMode2Form1  = 2048,
+    kCDSectorSizeMode2Form2  = 2328,
+    kCDSectorSizeWhole       = 2352
 } CDSectorSize;
 
 /*
@@ -248,13 +241,13 @@ typedef enum
 
 typedef enum
 {
-    kCDMediaTypeUnknown     = 0x0100,
-    kCDMediaTypeROM         = 0x0102, /* CD-ROM */
-    kCDMediaTypeR           = 0x0104, /* CD-R   */
-    kCDMediaTypeRW          = 0x0105, /* CD-RW  */
+    kCDMediaTypeUnknown      = 0x0100,
+    kCDMediaTypeROM          = 0x0102, /* CD-ROM */
+    kCDMediaTypeR            = 0x0104, /* CD-R   */
+    kCDMediaTypeRW           = 0x0105, /* CD-RW  */
 
-    kCDMediaTypeMin         = 0x0100,
-    kCDMediaTypeMax         = 0x01FF
+    kCDMediaTypeMin          = 0x0100,
+    kCDMediaTypeMax          = 0x01FF
 } CDMediaType;
 
 /*

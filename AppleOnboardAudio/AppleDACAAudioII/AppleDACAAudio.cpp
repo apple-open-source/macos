@@ -586,7 +586,6 @@ IOReturn   AppleDACAAudio::sndHWSetActiveOutputExclusive(UInt32 outputPort )
             tmpConfigReg = setBitsGCFGShadowReg(kInvertRightAmpGCFG, kInvertRightAmpGCFG) ;
             myReturn = sndHWSetRegister(i2cBusSubaddrGCFG, tmpConfigReg);
 			if (NULL != driverDMAEngine) {
-				driverDMAEngine->setRightChanMixed (TRUE);
 				useMasterVolumeControl = TRUE;
 			}
             break;
@@ -595,7 +594,6 @@ IOReturn   AppleDACAAudio::sndHWSetActiveOutputExclusive(UInt32 outputPort )
             tmpConfigReg = setBitsGCFGShadowReg(!kInvertRightAmpGCFG, kInvertRightAmpGCFG) ;
             myReturn = sndHWSetRegister(i2cBusSubaddrGCFG, tmpConfigReg);
 			if (NULL != driverDMAEngine) {
-				driverDMAEngine->setRightChanMixed (FALSE);
 				useMasterVolumeControl = FALSE;
 			}
             break;

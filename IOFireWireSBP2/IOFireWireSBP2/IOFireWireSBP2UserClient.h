@@ -25,7 +25,9 @@
 
 #include <IOKit/IOUserClient.h>
 
+#define FIREWIREPRIVATE
 #include <IOKit/firewire/IOFireWireController.h>
+#undef FIREWIREPRIVATE
 
 #include <IOKit/sbp2/IOFireWireSBP2UserClientCommon.h>
 #include <IOKit/sbp2/IOFireWireSBP2LUN.h>

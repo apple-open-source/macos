@@ -502,9 +502,11 @@ PPCI2CInterface::i2cStandardSubModeInterrupts(UInt8 interruptStatus)
 
                         if (nBytes == 0)			// read operation completed
                             currentState = ki2cStateWaitingForISTOP;
-                        else 					// if next byte is last byte, clear AAK bit, and state remains unchanged
-                            setControl(kClrCNTRL);
-                    }
+                        else if (nBytes > 1)
+                            setControl((I2CControl)(getControl() | kAakCNTRL));
+                        else //if (nBytes == 1)			// if next byte is last byte, clear AAK bit, and state remains unchanged
+                            setControl(kClrCNTRL);		// clears ALL control bits (bits other than AAK bit are "don't cares")
+                     }
                     else {
                         // write operation
                         if (getStatus() & kLastAakSTATUS) {
@@ -750,23 +752,36 @@ PPCI2CInterface::start(IOService *provider)
     //see if we are attached to pmu-i2c node, and if so return i2cPMU = TRUE.
     retrieveProperty(provider);
 
+    // Creates the mutex lock to provide atomic access to the services of the I2C bus:
+    mutexLock = IORecursiveLockAlloc();
+    if (mutexLock == NULL) {
+#ifdef DEBUGMODE
+        IOLog("PPCI2CInterface::start  can not create the IORecursiveLock so we bail off\n");
+#endif
+        return false;
+    }
+    IORecursiveLockLock(mutexLock);  //Keep clients from accessing until start is complete
+
     // publish children for Uni-N's i2c bus only, KeyLargo will handle the others (PMU and Mac-IO).
     if (i2cUniN == TRUE)
-    {    
+      {    
         if( (iterator = provider->getChildIterator(gIODTPlane)) )
         {
-            while( registryEntry = (IORegistryEntry *)iterator->getNextObject() )
+            while( (registryEntry = (IORegistryEntry *)iterator->getNextObject()) != 0)
             {
-                if(nub = new PPCI2CInterface)
-                {
-                    if( !nub->init(registryEntry, gIODTPlane) )
-                        nub->free();
-                    else
-                    {
-                        nub->attach(this);
-                        nub->registerService();                                
-                    }
-                }
+                if ((nub = new PPCI2CInterface) !=0)
+				{
+					if(!nub->init(registryEntry, gIODTPlane) )   //nub is IOService ptr
+						{
+							nub->free();
+							nub = 0;
+						}
+					else
+						{
+							nub->attach(this);
+							nub->registerService();                                
+						}
+				}
             }    
             iterator->release();
         }
@@ -776,15 +791,6 @@ PPCI2CInterface::start(IOService *provider)
     IOLog("PPCI2CInterface::start(%s)\n", provider->getName());
 #endif
     
-    // Creates the mutex lock to provide atomic access to the services of the I2C bus:
-    mutexLock = IORecursiveLockAlloc();
-    if (mutexLock == NULL) {
-#ifdef DEBUGMODE
-        IOLog("PPCI2CInterface::start  can not create the IORecursiveLock so we bail off");
-#endif
-        return false;
-    }
-
     // sets up the interface:
 #if 1
 
@@ -857,6 +863,7 @@ PPCI2CInterface::start(IOService *provider)
 
     // Makes sure that other drivers can use it:
     publishResource(getResourceName(), this );
+    IORecursiveLockUnlock(mutexLock);
 
     return true;
 }

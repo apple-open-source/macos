@@ -74,6 +74,7 @@ public:
     virtual IOReturn			SetDebuggingType(KernelDebuggingOutputType inType);
     virtual IOReturn			GetDebuggingLevel(KernelDebugLevel * inLevel);
     virtual IOReturn			GetDebuggingType(KernelDebuggingOutputType * inType);
+    virtual IOReturn			SetTestMode(UInt32 mode, UInt32 port);
 };
 
 

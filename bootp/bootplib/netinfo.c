@@ -56,8 +56,6 @@
 /*
  * External Routines
  */
-char *  	ether_ntoa(struct ether_addr *e);
-
 
 /*
  * Exported routines

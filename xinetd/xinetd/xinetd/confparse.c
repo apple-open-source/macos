@@ -12,6 +12,7 @@
 #include <netinet/in.h>
 #include <stdlib.h>
 #include <fcntl.h>
+#include <unistd.h>
 
 #ifdef HAVE_RPC_RPC_H
 #include <rpc/rpc.h>
@@ -786,19 +787,19 @@ status_e cnf_get( struct configuration *confp )
 
    else if ( get_conf( config_fd, confp ) == FAILED )
    {
-      Sclose( config_fd ) ;
+      close( config_fd ) ;
       cnf_free( confp ) ;
       psi_destroy( iter ) ;
       return( FAILED ) ;
    }
 
-   Sclose( config_fd ) ;
+   close( config_fd ) ;
    if( inetd_compat ) {
       config_fd = open("/etc/inetd.conf", O_RDONLY);
       if( config_fd >= 0 ) {
          parse_inet_conf_file( config_fd, confp );
          parse_end() ;
-         Sclose(config_fd);
+         close(config_fd);
       }
    }
 

@@ -1,0 +1,574 @@
+// !$*UTF8*$!
+{
+	089C1669FE841209C02AAC07 = {
+		activeBuildStyle = 06AA1265FFB2107B11CA28AA;
+		activeTarget = 089C1673FE841209C02AAC07;
+		perUserDictionary = {
+			PBXPerProjectTemplateStateSaveDate = 61345062;
+			PBXWorkspaceContents = (
+				{
+					LeftSlideOut = {
+						Split0 = {
+							Split0 = {
+								NavContent0 = {
+									bookmark = 650ADD8F03A80D440DCE1A69;
+									history = (
+										650ADD5503A7D79F0DCE1A69,
+										650ADD5603A7D79F0DCE1A69,
+										650ADD5703A7D79F0DCE1A69,
+										650ADD5803A7D79F0DCE1A69,
+										650ADD6E03A7EDE70DCE1A69,
+										650ADD6F03A7EDE70DCE1A69,
+										650ADD7003A7EDE70DCE1A69,
+										650ADD8B03A80C140DCE1A69,
+										650ADD8D03A80C140DCE1A69,
+									);
+									prevStack = (
+										65641BE3038B503E0DCE1A69,
+										65641BE4038B503E0DCE1A69,
+										65F566C4039C52300DCE1A69,
+										65EB09FF03A7D15C0DCE1A69,
+										65EB0A0003A7D15C0DCE1A69,
+										65EB0A0103A7D15C0DCE1A69,
+										65EB0A0203A7D15C0DCE1A69,
+										650ADD4F03A7D72C0DCE1A69,
+										650ADD5A03A7D79F0DCE1A69,
+										650ADD5B03A7D79F0DCE1A69,
+										650ADD5C03A7D79F0DCE1A69,
+										650ADD5D03A7D79F0DCE1A69,
+										650ADD5E03A7D79F0DCE1A69,
+										650ADD5F03A7D79F0DCE1A69,
+										650ADD6003A7D79F0DCE1A69,
+										650ADD6103A7D79F0DCE1A69,
+										650ADD6503A7E4600DCE1A69,
+										650ADD6A03A7ECF60DCE1A69,
+										650ADD6B03A7ECF60DCE1A69,
+										650ADD7203A7EDE70DCE1A69,
+										650ADD7303A7EDE70DCE1A69,
+										650ADD7403A7EDE70DCE1A69,
+										650ADD8C03A80C140DCE1A69,
+									);
+								};
+								NavCount = 1;
+								NavGeometry0 = {
+									Frame = "{{0, 0}, {868, 880}}";
+									NavBarVisible = YES;
+								};
+							};
+							SplitCount = 1;
+							Tab0 = {
+								Debugger = {
+									Split0 = {
+										SplitCount = 2;
+									};
+									SplitCount = 1;
+									TabCount = 2;
+								};
+								LauncherConfigVersion = 7;
+							};
+							Tab1 = {
+								LauncherConfigVersion = 3;
+								Runner = {
+								};
+							};
+							TabCount = 4;
+						};
+						SplitCount = 1;
+						Tab1 = {
+							OptionsSetName = "Hierarchy, all classes";
+						};
+						TabCount = 5;
+					};
+				},
+			);
+			PBXWorkspaceGeometries = (
+				{
+					ContentSize = "{1083, 1054}";
+					LeftSlideOut = {
+						ActiveTab = 3;
+						Collapsed = NO;
+						Frame = "{{0, 23}, {1083, 1031}}";
+						Split0 = {
+							ActiveTab = 2;
+							Collapsed = NO;
+							Frame = "{{215, 0}, {868, 1031}}";
+							Split0 = {
+								Frame = "{{0, 151}, {868, 880}}";
+							};
+							SplitCount = 1;
+							Tab0 = {
+								Debugger = {
+									Collapsed = NO;
+									Frame = "{{0, 0}, {572, 214}}";
+									Split0 = {
+										Frame = "{{0, 24}, {572, 190}}";
+										Split0 = {
+											Frame = "{{0, 0}, {279, 190}}";
+										};
+										Split1 = {
+											DebugVariablesTableConfiguration = (
+												Name,
+												123,
+												Value,
+												85,
+												Summary,
+												62.123,
+											);
+											Frame = "{{288, 0}, {284, 190}}";
+										};
+										SplitCount = 2;
+									};
+									SplitCount = 1;
+									Tab0 = {
+										Frame = "{{0, 0}, {100, 50}}";
+									};
+									Tab1 = {
+										Frame = "{{0, 0}, {100, 50}}";
+									};
+									TabCount = 2;
+									TabsVisible = YES;
+								};
+								Frame = "{{0, 0}, {572, 214}}";
+								LauncherConfigVersion = 7;
+							};
+							Tab1 = {
+								Frame = "{{0, 0}, {572, 125}}";
+								LauncherConfigVersion = 3;
+								Runner = {
+									Frame = "{{0, 0}, {572, 125}}";
+								};
+							};
+							Tab2 = {
+								BuildMessageFrame = "{{0, 0}, {870, 120}}";
+								BuildTranscriptFrame = "{{0, 129}, {870, 0}}";
+								Frame = "{{0, 0}, {868, 127}}";
+							};
+							Tab3 = {
+								Frame = "{{0, 0}, {572, 265}}";
+							};
+							TabCount = 4;
+							TabsVisible = YES;
+						};
+						SplitCount = 1;
+						Tab0 = {
+							Frame = "{{0, 0}, {260, 1031}}";
+							GroupTreeTableConfiguration = (
+								TargetStatusColumn,
+								18,
+								MainColumn,
+								227,
+							);
+						};
+						Tab1 = {
+							ClassesFrame = "{{0, 0}, {247, 330}}";
+							ClassesTreeTableConfiguration = (
+								PBXBookColumnIdentifier,
+								20,
+								PBXClassColumnIdentifier,
+								204,
+							);
+							Frame = "{{0, 0}, {245, 549}}";
+							MembersFrame = "{{0, 339}, {247, 210}}";
+							MembersTreeTableConfiguration = (
+								PBXBookColumnIdentifier,
+								20,
+								PBXMethodColumnIdentifier,
+								203,
+							);
+						};
+						Tab2 = {
+							Frame = "{{0, 0}, {226, 549}}";
+						};
+						Tab3 = {
+							Frame = "{{0, 0}, {191, 1031}}";
+							TargetTableConfiguration = (
+								ActiveObject,
+								16,
+								ObjectNames,
+								202.296,
+							);
+						};
+						Tab4 = {
+							BreakpointsTreeTableConfiguration = (
+								breakpointColumn,
+								138,
+								enabledColumn,
+								31,
+							);
+							Frame = "{{0, 0}, {191, 1030}}";
+						};
+						TabCount = 5;
+						TabsVisible = YES;
+					};
+					StatusViewVisible = YES;
+					Template = F5F68CF101725D4C0D7A8F4C;
+					ToolbarVisible = YES;
+					WindowLocation = "{503, 62}";
+				},
+			);
+			PBXWorkspaceStateSaveDate = 61345062;
+		};
+		perUserProjectItems = {
+			650ADD4F03A7D72C0DCE1A69 = 650ADD4F03A7D72C0DCE1A69;
+			650ADD5503A7D79F0DCE1A69 = 650ADD5503A7D79F0DCE1A69;
+			650ADD5603A7D79F0DCE1A69 = 650ADD5603A7D79F0DCE1A69;
+			650ADD5703A7D79F0DCE1A69 = 650ADD5703A7D79F0DCE1A69;
+			650ADD5803A7D79F0DCE1A69 = 650ADD5803A7D79F0DCE1A69;
+			650ADD5A03A7D79F0DCE1A69 = 650ADD5A03A7D79F0DCE1A69;
+			650ADD5B03A7D79F0DCE1A69 = 650ADD5B03A7D79F0DCE1A69;
+			650ADD5C03A7D79F0DCE1A69 = 650ADD5C03A7D79F0DCE1A69;
+			650ADD5D03A7D79F0DCE1A69 = 650ADD5D03A7D79F0DCE1A69;
+			650ADD5E03A7D79F0DCE1A69 = 650ADD5E03A7D79F0DCE1A69;
+			650ADD5F03A7D79F0DCE1A69 = 650ADD5F03A7D79F0DCE1A69;
+			650ADD6003A7D79F0DCE1A69 = 650ADD6003A7D79F0DCE1A69;
+			650ADD6103A7D79F0DCE1A69 = 650ADD6103A7D79F0DCE1A69;
+			650ADD6503A7E4600DCE1A69 = 650ADD6503A7E4600DCE1A69;
+			650ADD6A03A7ECF60DCE1A69 = 650ADD6A03A7ECF60DCE1A69;
+			650ADD6B03A7ECF60DCE1A69 = 650ADD6B03A7ECF60DCE1A69;
+			650ADD6E03A7EDE70DCE1A69 = 650ADD6E03A7EDE70DCE1A69;
+			650ADD6F03A7EDE70DCE1A69 = 650ADD6F03A7EDE70DCE1A69;
+			650ADD7003A7EDE70DCE1A69 = 650ADD7003A7EDE70DCE1A69;
+			650ADD7203A7EDE70DCE1A69 = 650ADD7203A7EDE70DCE1A69;
+			650ADD7303A7EDE70DCE1A69 = 650ADD7303A7EDE70DCE1A69;
+			650ADD7403A7EDE70DCE1A69 = 650ADD7403A7EDE70DCE1A69;
+			650ADD8B03A80C140DCE1A69 = 650ADD8B03A80C140DCE1A69;
+			650ADD8C03A80C140DCE1A69 = 650ADD8C03A80C140DCE1A69;
+			650ADD8D03A80C140DCE1A69 = 650ADD8D03A80C140DCE1A69;
+			650ADD8F03A80D440DCE1A69 = 650ADD8F03A80D440DCE1A69;
+			65641BE3038B503E0DCE1A69 = 65641BE3038B503E0DCE1A69;
+			65641BE4038B503E0DCE1A69 = 65641BE4038B503E0DCE1A69;
+			65EB09FF03A7D15C0DCE1A69 = 65EB09FF03A7D15C0DCE1A69;
+			65EB0A0003A7D15C0DCE1A69 = 65EB0A0003A7D15C0DCE1A69;
+			65EB0A0103A7D15C0DCE1A69 = 65EB0A0103A7D15C0DCE1A69;
+			65EB0A0203A7D15C0DCE1A69 = 65EB0A0203A7D15C0DCE1A69;
+			65F566C4039C52300DCE1A69 = 65F566C4039C52300DCE1A69;
+		};
+		projectwideBuildSettings = {
+		};
+		wantsIndex = 1;
+		wantsSCM = -1;
+	};
+	089C1673FE841209C02AAC07 = {
+		activeExec = 0;
+	};
+	650ADD4F03A7D72C0DCE1A69 = {
+		fRef = 0160FD76FFE08B1E11CE15B4;
+		isa = PBXTextBookmark;
+		name = "IOUSBMassStorageClass.h: 1";
+		rLen = 0;
+		rLoc = 0;
+		rType = 0;
+		vrLen = 2192;
+		vrLoc = 0;
+	};
+	650ADD5503A7D79F0DCE1A69 = {
+		fRef = 0160FD78FFE08B2711CE15B4;
+		isa = PBXTextBookmark;
+		name = "USBMassStorageClassBulkOnly.cpp: 681";
+		rLen = 0;
+		rLoc = 22150;
+		rType = 0;
+		vrLen = 1516;
+		vrLoc = 20917;
+	};
+	650ADD5603A7D79F0DCE1A69 = {
+		fRef = 0160FD7AFFE08B5011CE15B4;
+		isa = PBXTextBookmark;
+		name = "USBMassStorageClassCBI.cpp: 287";
+		rLen = 51;
+		rLoc = 9958;
+		rType = 0;
+		vrLen = 1832;
+		vrLoc = 14153;
+	};
+	650ADD5703A7D79F0DCE1A69 = {
+		fRef = 44BA14D2013F496804CE15B4;
+		isa = PBXTextBookmark;
+		name = "IOUFIStorageServices.h: 1";
+		rLen = 0;
+		rLoc = 0;
+		rType = 0;
+		vrLen = 1703;
+		vrLoc = 902;
+	};
+	650ADD5803A7D79F0DCE1A69 = {
+		fRef = 44BA14D1013F496804CE15B4;
+		isa = PBXTextBookmark;
+		name = "IOUFIStorageServices.cpp: 1";
+		rLen = 0;
+		rLoc = 0;
+		rType = 0;
+		vrLen = 2025;
+		vrLoc = 107;
+	};
+	650ADD5A03A7D79F0DCE1A69 = {
+		isa = PBXTargetBookmark;
+		trg = 089C1673FE841209C02AAC07;
+	};
+	650ADD5B03A7D79F0DCE1A69 = {
+		fRef = 0160FD76FFE08B1E11CE15B4;
+		isa = PBXTextBookmark;
+		name = "IOUSBMassStorageClass.h: 1";
+		rLen = 0;
+		rLoc = 0;
+		rType = 0;
+		vrLen = 2192;
+		vrLoc = 0;
+	};
+	650ADD5C03A7D79F0DCE1A69 = {
+		fRef = 0160FD74FFE08B0F11CE15B4;
+		isa = PBXTextBookmark;
+		name = "IOUSBMassStorageClass.cpp: 1041";
+		rLen = 36;
+		rLoc = 30790;
+		rType = 0;
+		vrLen = 2090;
+		vrLoc = 30423;
+	};
+	650ADD5D03A7D79F0DCE1A69 = {
+		fRef = 0160FD78FFE08B2711CE15B4;
+		isa = PBXTextBookmark;
+		name = "USBMassStorageClassBulkOnly.cpp: 681";
+		rLen = 0;
+		rLoc = 22150;
+		rType = 0;
+		vrLen = 1516;
+		vrLoc = 20917;
+	};
+	650ADD5E03A7D79F0DCE1A69 = {
+		fRef = 0160FD7AFFE08B5011CE15B4;
+		isa = PBXTextBookmark;
+		name = "USBMassStorageClassCBI.cpp: 287";
+		rLen = 51;
+		rLoc = 9958;
+		rType = 0;
+		vrLen = 1832;
+		vrLoc = 14153;
+	};
+	650ADD5F03A7D79F0DCE1A69 = {
+		fRef = 014FCB6400351BCC11CE15B4;
+		isa = PBXTextBookmark;
+		name = "IOUSBMassStorageUFISubclass.h: 1";
+		rLen = 0;
+		rLoc = 0;
+		rType = 0;
+		vrLen = 2051;
+		vrLoc = 0;
+	};
+	650ADD6003A7D79F0DCE1A69 = {
+		fRef = 44BA14D2013F496804CE15B4;
+		isa = PBXTextBookmark;
+		name = "IOUFIStorageServices.h: 1";
+		rLen = 0;
+		rLoc = 0;
+		rType = 0;
+		vrLen = 1703;
+		vrLoc = 902;
+	};
+	650ADD6103A7D79F0DCE1A69 = {
+		fRef = 44BA14D1013F496804CE15B4;
+		isa = PBXTextBookmark;
+		name = "IOUFIStorageServices.cpp: 1";
+		rLen = 0;
+		rLoc = 0;
+		rType = 0;
+		vrLen = 2025;
+		vrLoc = 107;
+	};
+	650ADD6503A7E4600DCE1A69 = {
+		fRef = 014FCB6400351BCC11CE15B4;
+		isa = PBXTextBookmark;
+		name = "IOUSBMassStorageUFISubclass.h: 1";
+		rLen = 0;
+		rLoc = 0;
+		rType = 0;
+		vrLen = 2051;
+		vrLoc = 0;
+	};
+	650ADD6A03A7ECF60DCE1A69 = {
+		isa = PBXTargetBookmark;
+		trg = 089C1673FE841209C02AAC07;
+	};
+	650ADD6B03A7ECF60DCE1A69 = {
+		fRef = 014FCB6200351B8D11CE15B4;
+		isa = PBXTextBookmark;
+		name = "IOUSBMassStorageUFISubclass.cpp: free";
+		rLen = 2;
+		rLoc = 3146;
+		rType = 0;
+		vrLen = 1750;
+		vrLoc = 2231;
+	};
+	650ADD6E03A7EDE70DCE1A69 = {
+		fRef = 014FCB6400351BCC11CE15B4;
+		isa = PBXTextBookmark;
+		name = "IOUSBMassStorageUFISubclass.h: 144";
+		rLen = 0;
+		rLoc = 4831;
+		rType = 0;
+		vrLen = 1856;
+		vrLoc = 3824;
+	};
+	650ADD6F03A7EDE70DCE1A69 = {
+		fRef = 0160FD76FFE08B1E11CE15B4;
+		isa = PBXTextBookmark;
+		name = "IOUSBMassStorageClass.h: 1";
+		rLen = 0;
+		rLoc = 0;
+		rType = 0;
+		vrLen = 2192;
+		vrLoc = 0;
+	};
+	650ADD7003A7EDE70DCE1A69 = {
+		fRef = 0160FD74FFE08B0F11CE15B4;
+		isa = PBXTextBookmark;
+		name = "IOUSBMassStorageClass.cpp: 1041";
+		rLen = 36;
+		rLoc = 30790;
+		rType = 0;
+		vrLen = 2098;
+		vrLoc = 30415;
+	};
+	650ADD7203A7EDE70DCE1A69 = {
+		fRef = 014FCB6400351BCC11CE15B4;
+		isa = PBXTextBookmark;
+		name = "IOUSBMassStorageUFISubclass.h: 144";
+		rLen = 0;
+		rLoc = 4831;
+		rType = 0;
+		vrLen = 1856;
+		vrLoc = 3824;
+	};
+	650ADD7303A7EDE70DCE1A69 = {
+		fRef = 0160FD76FFE08B1E11CE15B4;
+		isa = PBXTextBookmark;
+		name = "IOUSBMassStorageClass.h: 1";
+		rLen = 0;
+		rLoc = 0;
+		rType = 0;
+		vrLen = 2192;
+		vrLoc = 0;
+	};
+	650ADD7403A7EDE70DCE1A69 = {
+		fRef = 0160FD74FFE08B0F11CE15B4;
+		isa = PBXTextBookmark;
+		name = "IOUSBMassStorageClass.cpp: 1041";
+		rLen = 36;
+		rLoc = 30790;
+		rType = 0;
+		vrLen = 2098;
+		vrLoc = 30415;
+	};
+	650ADD8B03A80C140DCE1A69 = {
+		fRef = 014FCB6200351B8D11CE15B4;
+		isa = PBXTextBookmark;
+		name = "IOUSBMassStorageUFISubclass.cpp: 100";
+		rLen = 2;
+		rLoc = 3146;
+		rType = 0;
+		vrLen = 1750;
+		vrLoc = 2231;
+	};
+	650ADD8C03A80C140DCE1A69 = {
+		fRef = 014FCB6200351B8D11CE15B4;
+		isa = PBXTextBookmark;
+		name = "IOUSBMassStorageUFISubclass.cpp: 100";
+		rLen = 2;
+		rLoc = 3146;
+		rType = 0;
+		vrLen = 1750;
+		vrLoc = 2231;
+	};
+	650ADD8D03A80C140DCE1A69 = {
+		isa = PBXTargetBookmark;
+		trg = 089C1673FE841209C02AAC07;
+	};
+	650ADD8F03A80D440DCE1A69 = {
+		isa = PBXTargetBookmark;
+		trg = 089C1673FE841209C02AAC07;
+		uiCtxt = {
+			TOCViewDetailVisibleRect = "{{0, 0}, {593, 233}}";
+			TOCViewExpandedItems = (
+				"com.apple.target-editor-pane.settings",
+				"com.apple.target-editor-pane.settings.simple",
+				"com.apple.target-editor-pane.info-plist",
+				"com.apple.target-editor-pane.info-plist.simple",
+				"com.apple.target-editor-pane.buildphases",
+			);
+			TOCViewMasterVisibleRect = "{{0, 0}, {236, 826}}";
+			TOCViewSelectedItems = (
+				PBXTargetSummarySettingsModule,
+			);
+		};
+	};
+	65641BE3038B503E0DCE1A69 = {
+		fRef = 0160FD78FFE08B2711CE15B4;
+		isa = PBXTextBookmark;
+		name = "USBMassStorageClassBulkOnly.cpp: 335";
+		rLen = 32;
+		rLoc = 11403;
+		rType = 0;
+		vrLen = 2038;
+		vrLoc = 10903;
+	};
+	65641BE4038B503E0DCE1A69 = {
+		fRef = 0160FD74FFE08B0F11CE15B4;
+		isa = PBXTextBookmark;
+		name = "IOUSBMassStorageClass.cpp: 811";
+		rLen = 0;
+		rLoc = 24029;
+		rType = 0;
+		vrLen = 2030;
+		vrLoc = 23683;
+	};
+	65EB09FF03A7D15C0DCE1A69 = {
+		fRef = 0160FD74FFE08B0F11CE15B4;
+		isa = PBXTextBookmark;
+		name = "IOUSBMassStorageClass.cpp: 1251";
+		rLen = 89;
+		rLoc = 36150;
+		rType = 0;
+		vrLen = 1698;
+		vrLoc = 35507;
+	};
+	65EB0A0003A7D15C0DCE1A69 = {
+		fRef = 0160FD7AFFE08B5011CE15B4;
+		isa = PBXTextBookmark;
+		name = "USBMassStorageClassCBI.cpp: 1";
+		rLen = 0;
+		rLoc = 0;
+		rType = 0;
+		vrLen = 2142;
+		vrLoc = 0;
+	};
+	65EB0A0103A7D15C0DCE1A69 = {
+		fRef = 014FCB6200351B8D11CE15B4;
+		isa = PBXTextBookmark;
+		name = "IOUSBMassStorageUFISubclass.cpp: 1946";
+		rLen = 0;
+		rLoc = 54814;
+		rType = 0;
+		vrLen = 1822;
+		vrLoc = 54339;
+	};
+	65EB0A0203A7D15C0DCE1A69 = {
+		fRef = 0160FD74FFE08B0F11CE15B4;
+		isa = PBXTextBookmark;
+		name = "IOUSBMassStorageClass.cpp: 1255";
+		rLen = 0;
+		rLoc = 36332;
+		rType = 0;
+		vrLen = 1719;
+		vrLoc = 35984;
+	};
+	65F566C4039C52300DCE1A69 = {
+		fRef = 0160FD78FFE08B2711CE15B4;
+		isa = PBXTextBookmark;
+		name = "USBMassStorageClassBulkOnly.cpp: 681";
+		rLen = 0;
+		rLoc = 22150;
+		rType = 0;
+		vrLen = 1563;
+		vrLoc = 20917;
+	};
+}

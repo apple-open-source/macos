@@ -3,20 +3,23 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *  
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -220,6 +223,31 @@ IOATAController::start(IOService *provider)
     return true;
 }
 
+/*---------------------------------------------------------------------------
+ *	free() - the pseudo destructor. Let go of what we don't need anymore.
+ *
+ *
+ ---------------------------------------------------------------------------*/
+void
+IOATAController::free()
+{
+
+	if( _doubleBuffer.logicalBuffer )
+	{
+	
+		IOFreeContiguous( (void*) _doubleBuffer.logicalBuffer, _doubleBuffer.bufferSize );
+		_doubleBuffer.bufferSize = 0;
+		_doubleBuffer.logicalBuffer = 0;
+		_doubleBuffer.physicalBuffer = 0;	
+	
+	}
+	
+	super::free();
+
+
+}
+
+
 #pragma mark -initialization-
 
 /*---------------------------------------------------------------------------
@@ -236,13 +264,12 @@ IOATAController::allocateDoubleBuffer( void )
 
     DLOG("IOATAController::allocateDoubleBuffer() started\n");
 
-	_doubleBuffer.logicalBuffer = (IOLogicalAddress) IOMalloc( kATADefaultSectorSize * 8);  // 4096 bytes
+	_doubleBuffer.logicalBuffer = (IOLogicalAddress) IOMallocContiguous( ( kATADefaultSectorSize * 8),
+												4096, &_doubleBuffer.physicalBuffer) ;  // 4096 bytes
 
 	if( _doubleBuffer.logicalBuffer == 0L)
 		return false;
-		
-	_doubleBuffer.physicalBuffer = (IOPhysicalAddress) pmap_extract( kernel_pmap, (vm_offset_t) _doubleBuffer.logicalBuffer );
-	
+
 	_doubleBuffer.bufferSize = kATADefaultSectorSize * 8;
  
    DLOG("IOATAController::allocateDoubleBuffer() done\n");
@@ -1196,11 +1223,11 @@ IOATAController::synchronousIO(void)
 	
 	// spin on status until the next phase
 	
-		for( UInt32 i = 0; i< 30000; i++)
+		for( UInt32 i = 0; i< 3000; i++)
 		{
 			if( waitForU8Status( mATABusy, 0x00	) )
 				break;
-			IOSleep(1); //allow other threads to run.
+			IOSleep(10); //allow other threads to run.
 		}
 	
 	}
@@ -1601,7 +1628,7 @@ IOATAController::selectIOTiming( ataUnitID unit )
 IOReturn
 IOATAController::selectDevice( ataUnitID unit )
 {
-	UInt32 msLoops = _currentCommand->getTimeoutMS();	
+	UInt32 msLoops = _currentCommand->getTimeoutMS()/10;	
 
 	// do a reality check
 	if( ! (  (kATADevice0DeviceID == unit) 
@@ -1644,7 +1671,7 @@ IOATAController::selectDevice( ataUnitID unit )
 			
 			}
 			msLoops--;
-			IOSleep(1);  // allow other threads to run.
+			IOSleep(10);  // allow other threads to run.
 		}
 
 		// invalide the currently selected device in case there's an error
@@ -1675,7 +1702,7 @@ IOATAController::selectDevice( ataUnitID unit )
 	}
 	
 	// wait for BSY to clear
-	msLoops = 0;
+	msLoops = 10;
 	 
 	while( !waitForU8Status( (mATABusy ), 0x00 ))
 	{
@@ -1690,7 +1717,7 @@ IOATAController::selectDevice( ataUnitID unit )
 		
 		}
 		msLoops--;
-		IOSleep(1);  // allow other threads to run.
+		IOSleep(10);  // allow other threads to run.
 	}
 
 	// enable device interrupt
@@ -1730,32 +1757,16 @@ IOATAController::issueCommand( void )
 		OSSynchronizeIO();
 		
 		*_tfFeatureReg 	=	(extLBA->getFeatures16() & 0xFF00) >> 8 ;
-		OSSynchronizeIO();
-
-		*_tfFeatureReg 	=	extLBA->getFeatures16() & 0x00FF;
-		OSSynchronizeIO();
-
 		*_tfSCountReg 	=	(extLBA->getSectorCount16() & 0xFF00) >> 8 ;
-		OSSynchronizeIO();
-
-		*_tfSCountReg 	=	extLBA->getSectorCount16() & 0x00FF;
-		OSSynchronizeIO();
-
 		*_tfSectorNReg 	=	(extLBA->getLBALow16() & 0xFF00) >> 8 ;
-		OSSynchronizeIO();
-
-		*_tfSectorNReg 	=	extLBA->getLBALow16() & 0x00FF;
-		OSSynchronizeIO();
-
 		*_tfCylLoReg 	=	(extLBA->getLBAMid16() & 0xFF00) >> 8 ;
-		OSSynchronizeIO();
-
-		*_tfCylLoReg 	=	extLBA->getLBAMid16() & 0x00FF;
-		OSSynchronizeIO();
-
 		*_tfCylHiReg 	=	(extLBA->getLBAHigh16() & 0xFF00) >> 8 ;
 		OSSynchronizeIO();
 
+		*_tfFeatureReg 	=	extLBA->getFeatures16() & 0x00FF;
+		*_tfSCountReg 	=	extLBA->getSectorCount16() & 0x00FF;
+		*_tfSectorNReg 	=	extLBA->getLBALow16() & 0x00FF;
+		*_tfCylLoReg 	=	extLBA->getLBAMid16() & 0x00FF;
 		*_tfCylHiReg 	=	extLBA->getLBAHigh16() & 0x00FF;
 		OSSynchronizeIO();
 
@@ -1812,9 +1823,16 @@ IOATAController::writePacket( void )
 	UInt8 status = 0x00;
 		
 	// While the drive is busy, wait for it to set DRQ.
+	// limit the amount of time we will wait for a drive to set DRQ
+	// ATA specs imply that all devices should set DRQ within 3ms. 
+	// we will allow up to 30ms.
+	
+	UInt32  breakDRQ = 3;
+
 		
 	while ( !waitForU8Status( (mATABusy | mATADataRequest), mATADataRequest)
-			&& !checkTimeout()  ) 
+			&& !checkTimeout()
+			&& (breakDRQ != 0)  ) 
 	{
 		// check for a device abort - not legal under ATA standards,
 		// but it could happen		
@@ -1827,14 +1845,17 @@ IOATAController::writePacket( void )
 		{
 			return kATADeviceError;
 		}
-					
-		IOSleep( 1 );  // allow other threads to run
+		
+		breakDRQ--;
+		IOSleep( 10 );  // allow other threads to run
 	 }
 
 	// let the timeout through
-	if ( checkTimeout() )			
+	if ( checkTimeout() 
+			|| breakDRQ == 0)
+	{
 		return kATATimeoutErr;
-
+	}
 	// write the packet
 	UInt32 packetLength = 6;
 	
@@ -1914,7 +1935,7 @@ IOATAController::softResetBus( bool doATAPI )
 
 	// ATA-4 and ATA-5 require the host to wait for >2ms 
 	// after a sRST before sampling the drive status register.
-	IOSleep(5);
+	IOSleep(50);
 
 	// ATA and ATAPI devices indicate reset completion somewhat differently
 	// for ATA, wait for BSY=0 and RDY=1. For ATAPI, wait for BSY=0 only.
@@ -1934,7 +1955,7 @@ IOATAController::softResetBus( bool doATAPI )
 	// loop for up to 31 seconds following a reset to allow 
 	// drives to come on line. Most devices take 50-100ms, a sleeping drive 
 	// may need to spin up and touch media to respond. This may take several seconds.
-	for( int i = 0; i < 31000; i++)
+	for( int i = 0; i < 3100; i++)
 	{
 		
 		// read the status register - helps deal with devices which errantly 
@@ -1952,7 +1973,7 @@ IOATAController::softResetBus( bool doATAPI )
 			break;
 		}
 		
-		IOSleep( 1 );  // sleep thread for another 1 ms
+		IOSleep( 10 );  // sleep thread for another 10 ms
 	
 	}
 
@@ -2119,8 +2140,8 @@ IOATAController::ATAPISlaveExists( void )
 			return true;		
 		}
 		
-		// OK, sleep for a mil and try again.
-		IOSleep(1);			
+		// OK, sleep for 10 ms and try again.
+		IOSleep(10);			
 	}
 
 	// In the ugly case, a drive set BSY, and didn't respond within 10 seconds with data.
@@ -2164,14 +2185,14 @@ IOATAController::scanForDrives( void )
 	
 	// wait for a not busy bus
 	// should be ready, but some devices may be slow to wake or spin up.
-	for( int loopMils = 0; milsSpent < 31000; loopMils++ )
+	for( int loopMils = 0; milsSpent < 3100; loopMils++ )
 	{
 		OSSynchronizeIO();
 		status = *_tfStatusCmdReg;
 		if( (status & mATABusy) == 0x00 )
 			break;
 		
-		IOSleep( 1 );	
+		IOSleep( 10 );	
 		milsSpent++;
 	}
 
@@ -2187,7 +2208,7 @@ IOATAController::scanForDrives( void )
 	{
 
 		// wait for a not busy bus
-		for( int loopMils = 0; milsSpent < 31000; loopMils++ )
+		for( int loopMils = 0; milsSpent < 3100; loopMils++ )
 		{
 			// write the selection bit
 			OSSynchronizeIO();
@@ -2201,12 +2222,12 @@ IOATAController::scanForDrives( void )
 				break;	
 			}
 			
-			IOSleep( 1 );	
+			IOSleep( 10 );	
 			milsSpent++;
 		}
 
 		// spun on BSY too long, probably bad device
-		if( ! (milsSpent < 31000) )
+		if( ! (milsSpent < 3100) )
 			goto AllDone;
 
 		// check for ATAPI device signature first

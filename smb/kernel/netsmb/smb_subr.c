@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smb_subr.c,v 1.11 2002/03/12 22:06:10 lindak Exp $
+ * $Id: smb_subr.c,v 1.11.84.1 2003/01/08 03:24:41 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -261,6 +261,26 @@ smb_maperror(int eclass, int eno)
 		    case ERRnofids:
 			return EMFILE;
 		    case ERRnoaccess:
+			/*
+			 * XXX CSM Reported on samba-technical 12/7/2002
+			 *
+			 * There is a case for which server(s) return
+			 * ERRnoaccess but should return ERRdiskfull: When
+			 * the offset for a write is exactly the server
+			 * file size limit then Samba (at least) thinks
+			 * the reason for zero bytes having been written
+			 * must have been "access denied" from the local
+			 * filesystem.  This cannot be easily worked
+			 * around since the server behaviour is
+			 * indistinguishable from actual access denied.
+			 * An incomplete workaround: attempt a 2 byte write
+			 * from "offset-1".  (That may require reading at
+			 * offset-1 first.)  The flaw is that reading or
+			 * writing at offset-1 could cause an
+			 * unrelated error (due to a byte range lock
+			 * for instance) and we can't presume the
+			 * order servers check errors in.
+			 */
 		    case ERRbadshare:
 			return EACCES;
 		    case ERRbadfid:
@@ -330,6 +350,8 @@ smb_maperror(int eclass, int eno)
 			return ETXTBSY;
 		    case ERRlock:
 			return EDEADLK;
+		    case ERRdiskfull:
+			return EFBIG;
 		}
 		break;
 	}

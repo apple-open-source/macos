@@ -1,0 +1,37 @@
+#! /bin/sh
+
+##
+# Start samba
+##
+
+. /etc/rc.common
+
+if [ "${SMBSERVER:=-NO-}" = "-YES-" ]; then
+    ConsoleMessage "Starting SMB server"
+
+    TEXT_ENCODING="${HOME:=/}"/.CFUserTextEncoding
+    if [ "${HOME}" = / -o ! -f "${TEXT_ENCODING}" ]; then
+	if [ -f /etc/smb.conf ]; then
+	    code=`awk '/client code page/ {print $5}' /etc/smb.conf`
+        else
+            code=437
+        fi
+    else
+        case `cat ${TEXT_ENCODING}` in
+            1:14) code=932 ;;
+	    25:52) code=936 ;;
+	    3:51) code=949 ;;
+	    2:53) code=950 ;;
+	    *) code=437 ;;
+        esac
+    fi
+
+    if [ ! -f /etc/smb.conf -a -r /etc/smb.conf.template ]; then
+	sed -e "s/client code page = [0-9]*/client code page = $code/" < /etc/smb.conf.template > /etc/smb.conf
+    elif [ -r /etc/smb.conf ]; then
+        sed -e "s/client code page = [0-9]*/client code page = $code/" < /etc/smb.conf > /etc/smb.conf.$$ && mv /etc/smb.conf.$$ /etc/smb.conf
+    fi
+
+    /usr/sbin/smbd -D
+    /usr/sbin/nmbd -D
+fi

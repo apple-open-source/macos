@@ -15,6 +15,27 @@ To Do:
   could have been set otherwise and does not print the next line.
 - Maybe add fat support for segedit(1)
 
+Changes for the 5.10 release (the cctools-435.4 release):
+- Fixed the bug fix done for Radar bug #3124262 below in the redo_prebinding
+  code. The copied code from the above loop was wrong as it changed this:
+                   if(libs[i].module_states[j] == LINKED)
+  to this:
+                   if(libs[j].module_states[k] == LINKED ||
+                      (prebind_all_twolevel_modules == TRUE &&
+                       (libs[j].ofile->mh->flags & MH_TWOLEVEL) ==
+                                MH_TWOLEVEL))
+  which should have been this:
+                   if(libs[i].module_states[j] == LINKED ||
+                      (prebind_all_twolevel_modules == TRUE &&
+                       (libs[i].ofile->mh->flags & MH_TWOLEVEL) ==
+                                MH_TWOLEVEL))
+  which used the correct index variables.  Radar bug #3133589.
+
+Changes for the 5.10 release (the cctools-435.3 release):
+- Fixed a bug in the redo_prebinding code that did not set the all the bits
+  in the linked_modules bit vector for any new LC_PREBOUND_DYLIB load commands
+  when prebind_all_twolevel_modules was TRUE.  Radar bug #3124262.
+
 Changes for the 5.10 release (the cctools-435 release):
 - Fixed bugs in the libredo_prebinding API's of object_file_type() and
   get_prebind_cksums() that were not calling setjmp() to set up for handling

@@ -99,6 +99,7 @@ private:
         OSSet *                 clientSet;
         IOService *		displayManager;
         IONotifier *		publishNotify;
+        thread_call_t		activityTickleCall;
     };
     /*! @var reserved
         Reserved for future use.  (Internal use only)  */
@@ -108,6 +109,7 @@ private:
     #define _pointingNub	_reserved->pointingNub
     #define _displayManager	_reserved->displayManager
     #define _publishNotify	_reserved->publishNotify
+    #define _activityTickleCall	_reserved->activityTickleCall
 
     // HID report descriptor parsing support.
 

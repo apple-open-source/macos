@@ -126,6 +126,8 @@ bool
 IOSCSIProtocolServices::start ( IOService * provider )
 {
 	
+	OSDictionary *  dict = NULL;	
+	
 	if ( !super::start ( provider ) )
 	{
 		return false;
@@ -140,6 +142,20 @@ IOSCSIProtocolServices::start ( IOService * provider )
 	// Allocate the mutex for accessing the SCSI Task Queue.
 	fQueueLock = IOSimpleLockAlloc ( );
 	require ( fQueueLock, PanicNow );
+	
+	// If the provider has a Protocol Characteristics dictionary, copy
+	// it to the Protocol Services object.
+	dict = OSDynamicCast ( OSDictionary, provider->getProperty ( kIOPropertyProtocolCharacteristicsKey ) );
+	if ( dict != NULL )
+	{
+		
+		OSDictionary *	protocolDict = NULL;
+		
+		protocolDict = OSDictionary::withDictionary ( dict );
+		setProperty ( kIOPropertyProtocolCharacteristicsKey, protocolDict );
+		protocolDict->release ( );
+		
+	}
 	
 	return true;
 	
@@ -1205,7 +1221,7 @@ IOSCSIProtocolServices::CreateSCSITargetDevice ( void )
 	IOSCSITargetDevice *	newDevice = NULL;
 	
 	// Create the IOSCSIParallelInterfaceDevice object
-	newDevice = new IOSCSITargetDevice;
+	newDevice = OSTypeAlloc ( IOSCSITargetDevice );
 	if ( newDevice == NULL )
 	{
 		

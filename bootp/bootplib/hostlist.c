@@ -51,8 +51,6 @@
 #import <syslog.h>
 #import "hostlist.h"
 
-char *  	ether_ntoa(struct ether_addr *e);
-
 void
 hostinsert(struct hosts * * hosts, struct hosts * hp)
 {

@@ -140,19 +140,25 @@ void USBKeyLargo::turnOffUSB(UInt32 busNumber)
     // changes, and should probably be broken out separately. However,
     // I will hack in the necessary USB changes here.
 
-    // USB requires the FCR4 bits before any of the other registers are
-    // touched. Since FCR4 is ALL USB, then I moved it to the top of
-    // the programming list
+    // USB for KeyLargo requires the FCR4 bits before any of the other registers are
+    // touched. Since FCR4 is ALL USB, then I moved it to the top of the programming list
+	// USB for Intrepid also supports a third bus that uses FCR3
 
-    if (busNumber == 0) {
-		regMask = kKeyLargoFCR4USB0SleepBitsSet | kKeyLargoFCR4USB0SleepBitsClear;
-		regData = kKeyLargoFCR4USB0SleepBitsSet & ~kKeyLargoFCR4USB0SleepBitsClear;
-    } else {
-		regMask = kKeyLargoFCR4USB1SleepBitsSet | kKeyLargoFCR4USB1SleepBitsClear;
-		regData = kKeyLargoFCR4USB1SleepBitsSet & ~kKeyLargoFCR4USB1SleepBitsClear;
-    }
-    
-    provider->safeWriteRegUInt32(kKeyLargoFCR4, regMask, regData);
+	if (busNumber != 2) {
+		if (busNumber == 0) {
+			regMask = kKeyLargoFCR4USB0SleepBitsSet | kKeyLargoFCR4USB0SleepBitsClear;
+			regData = kKeyLargoFCR4USB0SleepBitsSet & ~kKeyLargoFCR4USB0SleepBitsClear;
+		} else {
+			regMask = kKeyLargoFCR4USB1SleepBitsSet | kKeyLargoFCR4USB1SleepBitsClear;
+			regData = kKeyLargoFCR4USB1SleepBitsSet & ~kKeyLargoFCR4USB1SleepBitsClear;
+		}
+		
+		provider->safeWriteRegUInt32(kKeyLargoFCR4, regMask, regData);
+	} else {	// USB2 on Intrepid only
+		regMask = kIntrepidFCR3USB2SleepBitsSet | kIntrepidFCR3USB2SleepBitsClear;
+		regData = kIntrepidFCR3USB2SleepBitsSet & ~kIntrepidFCR3USB2SleepBitsClear;
+		provider->safeWriteRegUInt32(kKeyLargoFCR3, regMask, regData);
+	}
 
     // WE SHOULD HAVE A 1 MICROSECOND DELAY IN HERE
     IODelay(1); // Marco changed this from IOSleep because I do not want other threads run at this time
@@ -161,20 +167,32 @@ void USBKeyLargo::turnOffUSB(UInt32 busNumber)
 
     // clear the Cell Enable bits for USB (turns off the 48 MHz clocks)
 
-	regData = 0;
-	regMask = (busNumber == 0) ? kKeyLargoFCR0USB0CellEnable : kKeyLargoFCR0USB1CellEnable;
+	if (busNumber != 2) {
+		regData = 0;
+		regMask = (busNumber == 0) ? kKeyLargoFCR0USB0CellEnable : kKeyLargoFCR0USB1CellEnable;
         
-    provider->safeWriteRegUInt32(kKeyLargoFCR0, regMask, regData);
-    //regTemp = provider->readRegUInt32(kKeyLargoFCR0);
+		provider->safeWriteRegUInt32(kKeyLargoFCR0, regMask, regData);
+	} else {	// Intrepid only
+		regData = 0;
+		regMask = kIntrepidFCR1USB2CellEnable;
+        
+		provider->safeWriteRegUInt32(kKeyLargoFCR1, regMask, regData);
+	}
 
     // NEED A 600 nanosecond delay in here
     IODelay(1); // Marco changed this from IOSleep because I do not want other threads run at this time
 
     // now set the pad suspend bits
-	regData = regMask = (busNumber == 0) ? (kKeyLargoFCR0USB0PadSuspend0 | kKeyLargoFCR0USB0PadSuspend1 ) :
-		(kKeyLargoFCR0USB1PadSuspend0 | kKeyLargoFCR0USB1PadSuspend1);
+	if (busNumber != 2) {
+		regData = regMask = (busNumber == 0) ? (kKeyLargoFCR0USB0PadSuspend0 | kKeyLargoFCR0USB0PadSuspend1 ) :
+			(kKeyLargoFCR0USB1PadSuspend0 | kKeyLargoFCR0USB1PadSuspend1);
     
-    provider->safeWriteRegUInt32(kKeyLargoFCR0, regMask, regData);
+		provider->safeWriteRegUInt32(kKeyLargoFCR0, regMask, regData);
+	} else {	// Intrepid only
+		regData = regMask = (kIntrepidFCR1USB2PadSuspend0 | kIntrepidFCR1USB2PadSuspend1);
+    
+		provider->safeWriteRegUInt32(kKeyLargoFCR1, regMask, regData);
+	}
 
     // NEED A 600 nanosecond delay in here
     IODelay(1); // Marco changed this from IOSleep because I do not want other threads run at this time
@@ -194,29 +212,48 @@ void USBKeyLargo::turnOnUSB(UInt32 busNumber)
 
     // now we clear the individual pad suspend bits
     // now set the pad suspend bits
-	regData = 0;		// Clear the bits
-	regMask = (busNumber == 0) ? (kKeyLargoFCR0USB0PadSuspend0 | kKeyLargoFCR0USB0PadSuspend1) :
-    	(kKeyLargoFCR0USB1PadSuspend0 | kKeyLargoFCR0USB1PadSuspend1);
+	if (busNumber != 2) {
+		regData = 0;		// Clear the bits
+		regMask = (busNumber == 0) ? (kKeyLargoFCR0USB0PadSuspend0 | kKeyLargoFCR0USB0PadSuspend1) :
+			(kKeyLargoFCR0USB1PadSuspend0 | kKeyLargoFCR0USB1PadSuspend1);
 
-    provider->safeWriteRegUInt32(kKeyLargoFCR0, regMask, regData);
+		provider->safeWriteRegUInt32(kKeyLargoFCR0, regMask, regData);
+	} else {	// Intrepid only
+		regData = 0;		// Clear the bits
+		regMask = (kIntrepidFCR1USB2PadSuspend0 | kIntrepidFCR1USB2PadSuspend1);
+
+		provider->safeWriteRegUInt32(kKeyLargoFCR1, regMask, regData);
+	}
 
     IODelay(1000);
 
     // now we go ahead and turn on the USB cell clocks
-    regData = regMask = (busNumber == 0) ? (kKeyLargoFCR0USB0CellEnable) : (kKeyLargoFCR0USB1CellEnable);
-    
-    provider->safeWriteRegUInt32(kKeyLargoFCR0, regMask, regData);
-
-    // now turn off the remote wakeup bits
-    if (busNumber == 0) {
-		regMask = kKeyLargoFCR4USB0SleepBitsSet | kKeyLargoFCR4USB0SleepBitsClear;
-        regData = ~kKeyLargoFCR4USB0SleepBitsSet & kKeyLargoFCR4USB0SleepBitsClear;        
-    } else {
-        regMask = kKeyLargoFCR4USB1SleepBitsSet | kKeyLargoFCR4USB1SleepBitsClear;
-        regData = ~kKeyLargoFCR4USB1SleepBitsSet & kKeyLargoFCR4USB1SleepBitsClear;    
-    }
-    
-    provider->safeWriteRegUInt32(kKeyLargoFCR4, regMask, regData);
+	if (busNumber != 2) {
+		regData = regMask = (busNumber == 0) ? (kKeyLargoFCR0USB0CellEnable) : (kKeyLargoFCR0USB1CellEnable);
+		
+		provider->safeWriteRegUInt32(kKeyLargoFCR0, regMask, regData);
+	
+		// now turn off the remote wakeup bits
+		if (busNumber == 0) {
+			regMask = kKeyLargoFCR4USB0SleepBitsSet | kKeyLargoFCR4USB0SleepBitsClear;
+			regData = ~kKeyLargoFCR4USB0SleepBitsSet & kKeyLargoFCR4USB0SleepBitsClear;        
+		} else {
+			regMask = kKeyLargoFCR4USB1SleepBitsSet | kKeyLargoFCR4USB1SleepBitsClear;
+			regData = ~kKeyLargoFCR4USB1SleepBitsSet & kKeyLargoFCR4USB1SleepBitsClear;    
+		}
+		
+		provider->safeWriteRegUInt32(kKeyLargoFCR4, regMask, regData);
+	} else {	// Intrepid only
+		regData = regMask = kIntrepidFCR1USB2CellEnable;
+		
+		provider->safeWriteRegUInt32(kKeyLargoFCR1, regMask, regData);
+	
+		// now turn off the remote wakeup bits
+		regMask = kIntrepidFCR3USB2SleepBitsSet | kIntrepidFCR3USB2SleepBitsClear;
+		regData = ~kIntrepidFCR3USB2SleepBitsSet & kIntrepidFCR3USB2SleepBitsClear;        
+		
+		provider->safeWriteRegUInt32(kKeyLargoFCR3, regMask, regData);
+	}
     
 	return;
 }

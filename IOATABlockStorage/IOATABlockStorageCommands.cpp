@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -21,7 +21,7 @@
  */
  
 /*
- * Copyright (c) 1999-2001 Apple Computer, Inc.  All rights reserved. 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All rights reserved. 
  *
  * IOATABlockStorageCommands.cpp - Performs ATA command processing.
  *
@@ -554,9 +554,10 @@ IOATABlockStorageDriver::asyncExecute (
 	status = fATADevice->executeCommand ( cmd );
 	if ( status != kATANoErr )
 	{
-	
-		ERROR_LOG ( ( "IOATABlockStorageDriver::asyncExecute executeCommand returned error = %ld.\n", ( UInt32 ) status ) );
-	
+		
+		bzero ( clientData, sizeof ( ATAClientData ) );
+		returnATACommandObject ( cmd );
+		
 	}
 	
 	return status;
@@ -1273,6 +1274,17 @@ IOATABlockStorageDriver::resetATADevice ( void )
 	fResetCommand->refCon = ( void * ) this;
 	
 	status = fATADevice->executeCommand ( fResetCommand );
+	if ( status != kATANoErr )
+	{
+		
+		// There was a problem selecting the device for reset. This is
+		// where we panic the system and let them know that the ATA
+		// device has wedged. Eventually, we will make this better so
+		// that non-backing store devices will be able to tear down the
+		// driver stack instead of panic'ing the system.
+		panic ( "ATA Disk: Error when attempting to reset device, status = 0x%08x\n", status );
+		
+	}
 	
 	fResetInProgress = false;
 	
@@ -1294,15 +1306,14 @@ void
 IOATABlockStorageDriver::sHandleCommandCompletion ( IOATACommand * cmd )
 {
 	
-	ATAClientData *		clientData 	= NULL;
-	UInt32				result		= kATANoErr;
+	ATAClientData		clientData 			= { 0 };
+	UInt32				result				= kATANoErr;
 	
 	STATUS_LOG ( ( "IOATABlockStorageDriver::sHandleCommandCompletion entering.\n" ) );
 	
 	assert ( cmd != NULL );
 	
-	clientData = ( ATAClientData * ) cmd->refCon;
-	assert ( clientData != NULL );
+	bcopy ( cmd->refCon, &clientData, sizeof ( clientData ) );
 	
 	result = cmd->getResult ( );
 	
@@ -1312,14 +1323,14 @@ IOATABlockStorageDriver::sHandleCommandCompletion ( IOATACommand * cmd )
 		
 		case kATANoErr:
 			STATUS_LOG ( ( "IOATABlockStorageDriver::sHandleCommandCompletion actual xfer = %ld.\n", ( UInt32 ) cmd->getActualTransfer ( ) ) );
-			clientData->returnCode = kIOReturnSuccess;
+			clientData.returnCode = kIOReturnSuccess;
 			break;
 			
 		case kATATimeoutErr:
 		case kATAErrDevBusy:
 			
 			// Reset the device because the device is hung
-			clientData->self->resetATADevice ( );			
+			clientData.self->resetATADevice ( );			
 			
 			// Intentional fall through
 		
@@ -1329,7 +1340,7 @@ IOATABlockStorageDriver::sHandleCommandCompletion ( IOATACommand * cmd )
 			
 			// Reissue the command if the max number of retries is greater
 			// than zero, else return an error
-			if ( clientData->maxRetries > 0 )
+			if ( clientData.maxRetries > 0 )
 			{
 				sReissueCommandFromClientData ( cmd );
 				return;
@@ -1341,28 +1352,37 @@ IOATABlockStorageDriver::sHandleCommandCompletion ( IOATACommand * cmd )
 		
 	}
 	
-	clientData->self->fNumCommandsOutstanding--;
+	clientData.self->fNumCommandsOutstanding--;
 	
-	if ( clientData->isSync )
+	if ( clientData.isSync )
 	{
 		
-		clientData->returnCode = result;
+		clientData.returnCode = result;
 		// For sync commands, unblock the client thread.
-		assert ( clientData->completion.syncLock );
-		clientData->completion.syncLock->signal ( );
+		assert ( clientData.completion.syncLock );
+		clientData.completion.syncLock->signal ( );
 		
 	}
 	
 	else
 	{
 		
-		// Signal the completion routine that the request has been completed.
-		IOStorage::complete ( clientData->completion.async,
-							  result,
-							  ( UInt64 ) cmd->getActualTransfer ( ) );
+		UInt64	bytesTransferred = 0;
+		
+		if ( clientData.self == NULL )
+		{
+			panic ( "ATA controller called me and my completion data is NULL" );
+		}
+		
+		bytesTransferred = ( UInt64 ) cmd->getActualTransfer ( );
 		
 		// Async command processing is complete, re-enqueue command
-		clientData->self->returnATACommandObject ( cmd );
+		clientData.self->returnATACommandObject ( cmd );
+		
+		// Signal the completion routine that the request has been completed.
+		IOStorage::complete ( clientData.completion.async,
+							  result,
+							  bytesTransferred );
 		
 	}
 	
@@ -1581,7 +1601,7 @@ IOATABlockStorageDriver::sValidateIdentifyData ( UInt8 * deviceIdentifyData )
 		if ( checkSum != 0 )
 		{
 			
-			IOLog ( "Identify data is incorrect - bad checksum\n" );
+			IOLog ( "ATA Disk: Identify data is incorrect - bad checksum\n" );
 			
 		}
 		

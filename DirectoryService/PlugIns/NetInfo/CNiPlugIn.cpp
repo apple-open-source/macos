@@ -5096,20 +5096,24 @@ sInt32 CNiPlugIn::DoAuthentication ( sDoDirNodeAuth *inData )
 		{
 			// first call
 			siResult = GetAuthMethod( inData->fInAuthMethod, &uiAuthMethod );
-			if ( siResult == eDSNoErr )
+			
+			// unsupported auth methods are allowed if the user is on password server
+			// otherwise, unsupported auth methods are rejected in their handlers
+			if ( siResult == eDSNoErr || siResult == eDSAuthMethodNotSupported )
 			{
-				if ( uiAuthMethod != kAuth2WayRandom )
-				{
-					siResult = GetUserNameFromAuthBuffer( inData->fInAuthStepData, 1, &userName );
-					if ( siResult != eDSNoErr ) throw( siResult );
-				}
-				else
+				if ( uiAuthMethod == kAuth2WayRandom )
 				{
 					// for 2way random the first buffer is the username
 					if ( inData->fInAuthStepData->fBufferLength > inData->fInAuthStepData->fBufferSize ) throw( (sInt32)eDSInvalidBuffFormat );
 					userName = (char*)calloc( inData->fInAuthStepData->fBufferLength + 1, 1 );
 					strncpy( userName, inData->fInAuthStepData->fBufferData, inData->fInAuthStepData->fBufferLength );
 				}
+				else
+				{
+					siResult = GetUserNameFromAuthBuffer( inData->fInAuthStepData, 1, &userName );
+					if ( siResult != eDSNoErr ) throw( siResult );
+				}
+				
 				//printf("username: %s\n", userName);
 				// get the auth authority
 				siResult = IsValidRecordName ( userName, "/users", pContext->fDomain, niDirID );
@@ -5839,9 +5843,11 @@ sInt32 CNiPlugIn::DoPasswordServerAuth ( tDirNodeReference inNodeRef, tDataNodeP
             // advance past the colon
             serverAddr++;
             
+			// try any method to the password server, even if unknown
             error = GetAuthMethod( inAuthMethod, &authMethod );
-            if ( error ) throw ( error );
-            
+			if ( error != eDSNoErr && error != eDSAuthMethodNotSupported )
+				throw( error );
+			
             switch( authMethod )
             {
                 case kAuth2WayRandom:
@@ -8165,11 +8171,7 @@ sInt32 CNiPlugIn::GetAuthMethod ( tDataNode *inData, uInt32 *outAuthMethod )
 		else
 		{
 			*outAuthMethod = kAuthUnknowMethod;
-#ifdef DEBUG
 			siResult = eDSAuthMethodNotSupported;
-#else
-			siResult = eDSAuthFailed;
-#endif
 		}
 	}
 

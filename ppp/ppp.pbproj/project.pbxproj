@@ -78,6 +78,7 @@
 				013F9758001901697F000001,
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		013F9720001901317F000001 = {
 			buildActionMask = 2147483647;
@@ -86,6 +87,7 @@
 				013F976B001901697F000001,
 			);
 			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		013F9721001901317F000001 = {
 			buildActionMask = 2147483647;
@@ -94,6 +96,7 @@
 				013F9772001901697F000001,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		013F9722001901317F000001 = {
 			buildActionMask = 2147483647;
@@ -102,12 +105,14 @@
 				F540B8DC0298B01701CA2D7A,
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		013F9723001901317F000001 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		013F9724001901697F000001 = {
 			children = (
@@ -632,6 +637,7 @@
 				0151E1EB0073C6DD7F000001,
 			);
 			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0151E1EB0073C6DD7F000001 = {
 			fileRef = 7129A4D1FFF956F311CA2CDC;
@@ -727,6 +733,7 @@
 				071EC57400988BCD7F000001,
 			);
 			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		071EC564009888F57F000001 = {
 			isa = PBXFileReference;
@@ -814,6 +821,7 @@
 			files = (
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		071EC56D00988A547F000001 = {
 			buildActionMask = 2147483647;
@@ -822,6 +830,7 @@
 				018CF3A000BDC8447F000001,
 			);
 			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		071EC56E00988A547F000001 = {
 			buildActionMask = 2147483647;
@@ -829,6 +838,7 @@
 				071EC57100988AF67F000001,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		071EC56F00988A547F000001 = {
 			buildActionMask = 2147483647;
@@ -836,12 +846,14 @@
 				FAAA1C1C00D5475E04CA2CDC,
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		071EC57000988A547F000001 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		071EC57100988AF67F000001 = {
 			fileRef = 071EC564009888F57F000001;
@@ -1012,6 +1024,7 @@
 			files = (
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		2D5033C100725AB07F000001 = {
 			buildActionMask = 2147483647;
@@ -1020,6 +1033,7 @@
 				F51EFEA801E823CA01000118,
 			);
 			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		2D5033C200725AB07F000001 = {
 			buildActionMask = 2147483647;
@@ -1027,6 +1041,7 @@
 				01451894007262CE7F000001,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		2D5033C300725AB07F000001 = {
 			buildActionMask = 2147483647;
@@ -1034,12 +1049,14 @@
 				FA52167600D572B104CA2CDC,
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		2D5033C400725AB07F000001 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		2D5033CC00725D927F000001 = {
 			children = (
@@ -1460,6 +1477,7 @@
 				7129A4EBFFF956F311CA2CDC,
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		7129A4E3FFF956F311CA2CDC = {
 			fileRef = 7129A445FFF956F311CA2CDC;
@@ -1506,6 +1524,7 @@
 				0D977A4600C8596D7F000001,
 			);
 			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		7129A4EDFFF956F311CA2CDC = {
 			buildActionMask = 2147483647;
@@ -1519,6 +1538,7 @@
 				01A345D700C4684A7F000001,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		7129A4F9FFF956F311CA2CDC = {
 			fileRef = 7129A45AFFF956F311CA2CDC;
@@ -1576,12 +1596,14 @@
 				FA43F57B00F2A22504CA2CDC,
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		7129A504FFF956F311CA2CDC = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		7129A505FFF956F311CA2CDC = {
 			isa = PBXTargetDependency;
@@ -1673,6 +1695,7 @@
 			isa = PBXShellScriptBuildPhase;
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
@@ -1693,12 +1716,14 @@
 				F526A6FD01911B0201CA2DD5,
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		7129A50FFFF956F311CA2CDC = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		7129A510FFF956F311CA2CDC = {
 			buildActionMask = 2147483647;
@@ -1714,18 +1739,21 @@
 				014A7C7C00754CF87F000001,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		7129A517FFF956F311CA2CDC = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		7129A518FFF956F311CA2CDC = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		7129A519FFF956F311CA2CDC = {
 			buildActionMask = 2147483647;
@@ -1736,6 +1764,7 @@
 			isa = PBXShellScriptBuildPhase;
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
@@ -1787,7 +1816,7 @@
 				MODULE_NAME = com.apple.nke.pppoe;
 				MODULE_START = pppoe_domain_module_start;
 				MODULE_STOP = pppoe_domain_module_stop;
-				MODULE_VERSION = 1.2;
+				MODULE_VERSION = 1.2.1;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PPPoE;
@@ -1822,11 +1851,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2</string>
+	<string>1.2.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2</string>
+	<string>1.2.1</string>
 	<key>IOKitPersonalities</key>
 	<dict/>
 	<key>OSBundleLibraries</key>
@@ -1850,6 +1879,7 @@
 			isa = PBXShellScriptBuildPhase;
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
@@ -1863,12 +1893,14 @@
 				014A7C8B00754E8E7F000001,
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		7129A525FFF956F311CA2CDC = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		7129A526FFF956F311CA2CDC = {
 			buildActionMask = 2147483647;
@@ -1880,18 +1912,21 @@
 				014A7C9000754E8E7F000001,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		7129A52CFFF956F311CA2CDC = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		7129A52DFFF956F311CA2CDC = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		7129A52EFFF956F311CA2CDC = {
 			buildActionMask = 2147483647;
@@ -1902,6 +1937,7 @@
 			isa = PBXShellScriptBuildPhase;
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
@@ -1913,6 +1949,7 @@
 				7129A53BFFF956F311CA2CDC,
 			);
 			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		7129A53BFFF956F311CA2CDC = {
 			fileRef = 7129A4D1FFF956F311CA2CDC;
@@ -2014,6 +2051,7 @@
 				7129A544FFF956F311CA2CDC,
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		7129A544FFF956F311CA2CDC = {
 			fileRef = 7129A4C2FFF956F311CA2CDC;
@@ -2027,6 +2065,7 @@
 				7129A546FFF956F311CA2CDC,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		7129A546FFF956F311CA2CDC = {
 			fileRef = 7129A4C4FFF956F311CA2CDC;
@@ -2043,12 +2082,14 @@
 				0146347E0067EFD67F000001,
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		7129A549FFF956F311CA2CDC = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		7129A54AFFF956F311CA2CDC = {
 			buildActionMask = 2147483647;
@@ -2058,6 +2099,7 @@
 				7129A54BFFF956F311CA2CDC,
 			);
 			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		7129A54BFFF956F311CA2CDC = {
 			fileRef = 7129A4D3FFF956F311CA2CDC;
@@ -2075,6 +2117,7 @@
 				F52DB5450194EC9F01DBB4AA,
 			);
 			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		7129A54DFFF956F311CA2CDC = {
 			fileRef = 7129A4CFFFF956F311CA2CDC;
@@ -2089,6 +2132,7 @@
 			files = (
 			);
 			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		7129A553FFF9579D11CA2CDC = {
 			buildActionMask = 2147483647;
@@ -2099,6 +2143,7 @@
 			isa = PBXShellScriptBuildPhase;
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "mkdir -m 755 -p $DSTROOT/Library/Modem\\ Scripts\nmkdir -m 755 -p $DSTROOT/System/Library/Modem\\ Scripts\n\n# essential system scripts\nfor CCL in \\\n    \"Apple Internal 56K Modem (v.34)\" \\\n    \"Apple Internal 56K Modem (v.90)\" \\\n    \"Apple Internal 56K Modem (v.92)\"     \ndo\n    cp \"Helpers/Modems/${CCL}\" \"$DSTROOT/System/Library/Modem Scripts\"\n    ln \"$DSTROOT/System/Library/Modem Scripts/${CCL}\" \"$DSTROOT/Library/Modem Scripts/${CCL}\"\ndone\n    \n# third parties or non essential scripts\nfor CCL in \\\n    \"3Com Impact Analog 14.4\" \\\n    \"3Com Impact ISDN 56K\" \\\n    \"3Com Impact ISDN 56K MLPPP\" \\\n    \"3Com Impact ISDN 64K\" \\\n    \"3Com Impact ISDN 64K MLPPP\" \\\n    \"AT&T Dataport 288\" \\\n    \"AT&T KeepInTouch\" \\\n    \"Apple Personal Modem\" \\\n    \"Apple:GV 56k\" \\\n    \"Best Data Smart One 28.8:33.6\" \\\n    \"Dayna CommuniCard 28800\" \\\n    \"Ericsson Infrared\" \\\n    \"Ericsson Infrared V110\" \\\n    \"Ericsson R520 14.4\" \\\n    \"Ericsson R520 14.4 V110\" \\\n    \"Ericsson R520 19.2\" \\\n    \"Ericsson R520 19.2 V110\" \\\n    \"Ericsson R520 28.8\" \\\n    \"Ericsson R520 28.8 V110\" \\\n    \"Ericsson R520 9.6\" \\\n    \"Ericsson R520 9.6 V110\" \\\n    \"Ericsson T39 14.4\" \\\n    \"Ericsson T39 14.4 V110\" \\\n    \"Ericsson T39 19.2\" \\\n    \"Ericsson T39 19.2 V110\" \\\n    \"Ericsson T39 28.8\" \\\n    \"Ericsson T39 28.8 V110\" \\\n    \"Ericsson T39 9.6\" \\\n    \"Ericsson T39 9.6 V110\" \\\n    \"Farallon ISDN PC Card ARA 56K\" \\\n    \"Farallon ISDN PC Card ARA 64K\" \\\n    \"Farallon ISDN PC Card PPP 56K\" \\\n    \"Farallon ISDN PC Card PPP 64K\" \\\n    \"Farallon LAN:Modem PC Card\" \\\n    \"Farallon Netopia 56K\" \\\n    \"Farallon Netopia 56K MLPPP\" \\\n    \"Farallon Netopia 64K\" \\\n    \"Farallon Netopia 64K MLPPP\" \\\n    \"GV flex:V.90\" \\\n    \"GV x2:V.90\" \\\n    \"GeoPort:Express Modem\" \\\n    \"GeoPort:Express Modem CNG\" \\\n    \"Global Village 28.8-K56\" \\\n    \"Global Village Gold:Silver:Merc\" \\\n    \"Global Village Platinum:Gold II\" \\\n    \"Global Village x2\" \\\n    \"Hayes Accura 288\" \\\n    \"Hayes Accura 56K\" \\\n    \"Hayes Optima 288\" \\\n    \"Megahertz CruiseCard 14.4\" \\\n    \"Megahertz CruiseCard 28.8\" \\\n    \"Metricom Ricochet Wireless\" \\\n    \"Microcom DeskPorte Fast:288\" \\\n    \"Microcom QX:4232bis\" \\\n    \"Microcom QX:4232bis\" \\\n    \"Motorola BitSURFR 56K\" \\\n    \"Motorola BitSURFR 56K MLPPP\" \\\n    \"Motorola BitSURFR 64K\" \\\n    \"Motorola BitSURFR 64K MLPPP\" \\\n    \"Motorola ModemSURFR 28.8\" \\\n    \"Motorola iR TimePort (2x0)\" \\\n    \"Motorola iR TimePort (7089)\" \\\n    \"Motorola Power:Lifestyle 28.8\" \\\n    \"MultiTech MT2834\" \\\n    \"MultiTech MT3334\" \\\n    \"MultiTech MT5600\" \\\n    \"MultiTech MT5634\" \\\n    \"MultiTech MTA128NT ML-PPP\" \\\n    \"MultiTech MTA128NT ML-PPP w:DBA\" \\\n    \"MultiTech MTA128NT PPP\" \\\n    \"MultiTech MTA128ST ML-PPP\" \\\n    \"MultiTech MTA128ST ML-PPP w:DBA\" \\\n    \"MultiTech MTA128ST PPP\" \\\n    \"Nokia Infrared\" \\\n    \"Nokia iR 6210 _ 8xxx\" \\\n    \"Nokia iR 7110\" \\\n    \"Null Modem 115200\" \\\n    \"Null Modem 19200\" \\\n    \"Null Modem 57600\" \\\n    \"Null Modem 9600\" \\\n    \"Practical Peripherals V.34\" \\\n    \"Sprint PCS Vision\" \\\n    \"Supra 144\" \\\n    \"Supra 288:336\" \\\n    \"Supra 336v+:336e:56e\" \\\n    \"Supra 56 V90\" \\\n    \"SupraExpress V.90 USB\" \\\n    \"TDK DF2814\" \\\n    \"Telebit QBlazer\" \\\n    \"U.S. Robotics High Speed\" \\\n    \"US Robotics Universal\" \\\n    \"Zoom ISDN 56K\" \\\n    \"Zoom ISDN 56K MLPPP\" \\\n    \"Zoom ISDN 64K\" \\\n    \"Zoom ISDN 64K MLPPP\" \\\n    \"Zoom V-Series\" \ndo\n    cp \"Helpers/Modems/${CCL}\" \"$DSTROOT/Library/Modem Scripts\"\ndone\n";
 		};
@@ -2240,6 +2285,7 @@
 				F51AB1380235C7110160DF93,
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		F51AB0D70235C6660160DF93 = {
 			buildActionMask = 2147483647;
@@ -2266,6 +2312,7 @@
 				F51AB1390235C7110160DF93,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		F51AB0D80235C6660160DF93 = {
 			buildActionMask = 2147483647;
@@ -2276,12 +2323,14 @@
 				F517DE950237250601E059DF,
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		F51AB0D90235C6660160DF93 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		F51AB0DA0235C6660160DF93 = {
 			buildPhases = (
@@ -2791,6 +2840,7 @@
 			files = (
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		F51AB1740235CB820160DF93 = {
 			buildActionMask = 2147483647;
@@ -2798,18 +2848,21 @@
 				F51AB1830235CC1C0160DF93,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		F51AB1750235CB820160DF93 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		F51AB1760235CB820160DF93 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		F51AB1770235CB820160DF93 = {
 			buildPhases = (
@@ -2972,6 +3025,7 @@
 				F5B797E80194F1FC01DBB4AA,
 			);
 			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		F540B7FD0298B01601CA2D7A = {
 			isa = PBXFrameworkReference;
@@ -3096,6 +3150,7 @@
 			files = (
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		F5592B7A01E2B33501EA6C3B = {
 			buildActionMask = 2147483647;
@@ -3105,6 +3160,7 @@
 				F52C515A01F3540C01CA2DE5,
 			);
 			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		F5592B7B01E2B33501EA6C3B = {
 			buildActionMask = 2147483647;
@@ -3112,6 +3168,7 @@
 				F5592B8301E2B47B01EA6C3B,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		F5592B7C01E2B33501EA6C3B = {
 			buildActionMask = 2147483647;
@@ -3120,12 +3177,14 @@
 				F5B18828029348A701FE750F,
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		F5592B7D01E2B33501EA6C3B = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		F5592B7E01E2B47B01EA6C3B = {
 			isa = PBXFileReference;
@@ -3235,7 +3294,7 @@
 				MODULE_NAME = com.apple.nke.pptp;
 				MODULE_START = pptp_domain_module_start;
 				MODULE_STOP = pptp_domain_module_stop;
-				MODULE_VERSION = 1.2;
+				MODULE_VERSION = 1.2.1;
 				OTHER_CFLAGS = "-I/System/Library/Frameworks/System.framework/PrivateHeaders";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PPTP;
@@ -3270,11 +3329,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2</string>
+	<string>1.2.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2</string>
+	<string>1.2.1</string>
 	<key>IOKitPersonalities</key>
 	<dict/>
 	<key>OSBundleLibraries</key>
@@ -3298,6 +3357,7 @@
 			isa = PBXShellScriptBuildPhase;
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
@@ -3312,6 +3372,7 @@
 				F582B56E018FBC5201DBB4AA,
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		F5899BF7018A666201CA2DD5 = {
 			buildActionMask = 2147483647;
@@ -3324,18 +3385,21 @@
 				F582B56F018FBC5201DBB4AA,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		F5899BF8018A666201CA2DD5 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		F5899BF9018A666201CA2DD5 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		F5899BFA018A666201CA2DD5 = {
 			buildActionMask = 2147483647;
@@ -3346,6 +3410,7 @@
 			isa = PBXShellScriptBuildPhase;
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
@@ -3426,6 +3491,7 @@
 				FAD305DE029D629504CA2CDC,
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		F5899C00018A66A701CA2DD5 = {
 			buildActionMask = 2147483647;
@@ -3434,6 +3500,7 @@
 				FAF1E54802620BC204CA2CDC,
 			);
 			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		F5899C01018A66A701CA2DD5 = {
 			buildActionMask = 2147483647;
@@ -3442,6 +3509,7 @@
 				FAD305DF029D629504CA2CDC,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		F5899C02018A66A701CA2DD5 = {
 			buildActionMask = 2147483647;
@@ -3450,12 +3518,14 @@
 				F52A28FC0198692101DBB4AA,
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		F5899C03018A66A701CA2DD5 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		F58FB650018A69D701CA2DD5 = {
 			isa = PBXFileReference;
@@ -3649,6 +3719,7 @@
 				FAAAD5FE023EA4CE04CA2CDC,
 			);
 			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 1;
 		};
 		FA6C468000D5AA6C04CA2CDC = {
 			fileRef = FAAA1C1B00D5475E04CA2CDC;
@@ -3665,6 +3736,7 @@
 			isa = PBXShellScriptBuildPhase;
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
 			shellScript = "/bin/mkdir -m 755 -p $DSTROOT/private/etc/ppp\n/bin/chmod 444 $DSTROOT/usr/share/man/man8/pppd.8";
 		};
@@ -3724,6 +3796,7 @@
 				FAAAD600023EA51504CA2CDC,
 			);
 			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 1;
 		};
 		FAAAD600023EA51504CA2CDC = {
 			fileRef = FAAAD5FA023EA44604CA2CDC;
@@ -3740,6 +3813,7 @@
 			isa = PBXShellScriptBuildPhase;
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
 			shellScript = "/bin/chmod 444 $DSTROOT/usr/share/man/man8/pppstats.8";
 		};
@@ -3752,6 +3826,7 @@
 			isa = PBXShellScriptBuildPhase;
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
 			shellScript = "/bin/mkdir -m 755 -p $DSTROOT/private/var/log/ppp";
 		};
@@ -3760,24 +3835,28 @@
 			files = (
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		FACB5F39025CE11604CA2CDC = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		FACB5F3A025CE11604CA2CDC = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		FACB5F3B025CE11604CA2CDC = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		FACB5F3C025CE11604CA2CDC = {
 			buildPhases = (
@@ -3823,6 +3902,7 @@
 				FACB5F45025D0C5404CA2CDC,
 			);
 			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 1;
 		};
 		FACB5F41025CE19D04CA2CDC = {
 			fileRef = 7129A448FFF956F311CA2CDC;

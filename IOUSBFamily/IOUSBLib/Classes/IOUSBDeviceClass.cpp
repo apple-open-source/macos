@@ -71,7 +71,7 @@ IOUSBDeviceClass::IOUSBDeviceClass()
   fIsOpen(false),
   fConfigurations(NULL)
 {
-    fUSBDevice.pseudoVTable = (IUnknownVTbl *)  &sUSBDeviceInterfaceV187;
+    fUSBDevice.pseudoVTable = (IUnknownVTbl *)  &sUSBDeviceInterfaceV197;
     fUSBDevice.obj = this;
 }
 
@@ -110,7 +110,8 @@ IOUSBDeviceClass::queryInterface(REFIID iid, void **ppv)
         *ppv = &iunknown;
         addRef();
     }
-    else if (CFEqual(uuid, kIOUSBDeviceInterfaceID) || CFEqual(uuid, kIOUSBDeviceInterfaceID182) || CFEqual(uuid, kIOUSBDeviceInterfaceID187) ) 
+    else if (CFEqual(uuid, kIOUSBDeviceInterfaceID) || CFEqual(uuid, kIOUSBDeviceInterfaceID182) ||
+             CFEqual(uuid, kIOUSBDeviceInterfaceID187) || CFEqual(uuid, kIOUSBDeviceInterfaceID197) ) 
     {
         *ppv = &fUSBDevice;
         addRef();
@@ -830,6 +831,101 @@ IOUSBDeviceClass::USBDeviceGetSerialNumberStringIndex(UInt8 *snsi)
 }
 
 
+IOReturn
+IOUSBDeviceClass::GetBusMicroFrameNumber(UInt64 *microFrame, AbsoluteTime *atTime)
+{
+    IOUSBGetFrameStruct 	stuff;
+    mach_msg_type_number_t 	outSize = sizeof(stuff);
+    IOReturn 			ret;
+
+    connectCheck();
+
+    ret = io_connect_method_scalarI_structureO(fConnection, kUSBDeviceUserClientGetMicroFrameNumber, NULL, 0, (char *)&stuff, &outSize);
+    if(kIOReturnSuccess == ret)
+    {
+        *microFrame = stuff.frame;
+        *atTime = stuff.timeStamp;
+    }
+    if (ret == MACH_SEND_INVALID_DEST)
+    {
+        fIsOpen = false;
+        fConnection = MACH_PORT_NULL;
+        ret = kIOReturnNoDevice;
+    }
+    return ret;
+}
+
+
+IOReturn
+IOUSBDeviceClass::GetIOUSBLibVersion(NumVersion *ioUSBLibVersion, NumVersion *usbFamilyVersion)
+{
+    CFURLRef    bundleURL;
+    CFBundleRef myBundle;
+    UInt32  	usbFamilyBundleVersion;
+    UInt32  	usbLibBundleVersion;
+    UInt32 * 	tmp;
+
+    connectCheck();
+
+    // Make a CFURLRef from the CFString representation of the
+    // bundle's path. See the Core Foundation URL Services chapter
+    // for details.
+    bundleURL = CFURLCreateWithFileSystemPath(
+                                              kCFAllocatorDefault,
+                                              CFSTR("/System/Library/Extensions/IOUSBFamily.kext"),
+                                              kCFURLPOSIXPathStyle,
+                                              true );
+
+    // Make a bundle instance using the URLRef.
+    myBundle = CFBundleCreate( kCFAllocatorDefault, bundleURL );
+
+    // Look for the bundle's version number.
+    usbFamilyBundleVersion = CFBundleGetVersionNumber( myBundle );
+
+    // Any CF objects returned from functions with "create" or
+    // "copy" in their names must be released by us!
+    CFRelease( bundleURL );
+    CFRelease( myBundle );
+
+    // Make a CFURLRef from the CFString representation of the
+    // bundle's path. See the Core Foundation URL Services chapter
+    // for details.
+    bundleURL = CFURLCreateWithFileSystemPath(
+                                              kCFAllocatorDefault,
+                                              CFSTR("/System/Library/Extensions/IOUSBFamily.kext/Contents/PlugIns/IOUSBLib.bundle"),
+                                              kCFURLPOSIXPathStyle,
+                                              true );
+
+    // Make a bundle instance using the URLRef.
+    myBundle = CFBundleCreate( kCFAllocatorDefault, bundleURL );
+
+    // Look for the bundle's version number.
+    usbLibBundleVersion = CFBundleGetVersionNumber( myBundle );
+
+    // Any CF objects returned from functions with "create" or
+    // "copy" in their names must be released by us!
+    CFRelease( bundleURL );
+    CFRelease( myBundle );
+
+    // Cast the NumVersion to a UInt32 so we can just copy the data directly in.
+    //
+    if ( ioUSBLibVersion )
+    {
+        tmp = (UInt32 *) ioUSBLibVersion;
+        *tmp = usbLibBundleVersion;
+    }
+
+    if ( usbFamilyVersion )
+    {
+        tmp = (UInt32 *) usbFamilyVersion;
+        *tmp = usbFamilyBundleVersion;
+    }
+    
+    return kIOReturnSuccess;
+
+}
+
+
 IOCFPlugInInterface 
 IOUSBDeviceClass::sIOCFPlugInInterfaceV1 = {
     0,
@@ -843,8 +939,8 @@ IOUSBDeviceClass::sIOCFPlugInInterfaceV1 = {
 };
 
 
-IOUSBDeviceStruct187 
-IOUSBDeviceClass::sUSBDeviceInterfaceV187 = {
+IOUSBDeviceStruct197 
+IOUSBDeviceClass::sUSBDeviceInterfaceV197 = {
     0,
     &IOUSBIUnknown::genericQueryInterface,
     &IOUSBIUnknown::genericAddRef,
@@ -885,6 +981,9 @@ IOUSBDeviceClass::sUSBDeviceInterfaceV187 = {
     &IOUSBDeviceClass::deviceGetSerialNumberStringIndex,
     // ----------new with 1.8.7
     &IOUSBDeviceClass::deviceReEnumerateDevice,
+    // ----------new with 1.9.7
+    &IOUSBDeviceClass::deviceGetBusMicroFrameNumber,
+    &IOUSBDeviceClass::deviceGetIOUSBLibVersion
 };
 
 
@@ -1069,8 +1168,16 @@ IOReturn
 IOUSBDeviceClass::deviceGetSerialNumberStringIndex(void *self, UInt8 *snsi)
     { return getThis(self)->USBDeviceGetSerialNumberStringIndex(snsi); }
 
-IOReturn 
+IOReturn
 IOUSBDeviceClass::deviceReEnumerateDevice(void *self, UInt32 options)
-    { return getThis(self)->USBDeviceReEnumerate(options); }
+{ return getThis(self)->USBDeviceReEnumerate(options); }
+
+IOReturn
+IOUSBDeviceClass::deviceGetBusMicroFrameNumber(void *self, UInt64 *microFrame, AbsoluteTime *atTime)
+{ return getThis(self)->GetBusMicroFrameNumber(microFrame, atTime); }
+
+IOReturn
+IOUSBDeviceClass::deviceGetIOUSBLibVersion( void *self, NumVersion *ioUSBLibVersion, NumVersion *usbFamilyVersion)
+{ return getThis(self)->GetIOUSBLibVersion(ioUSBLibVersion, usbFamilyVersion); }
 
 

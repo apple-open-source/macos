@@ -41,6 +41,8 @@ enum {
     kUSBDeviceUserClientAbortPipeZero,
     // new with 1.8.7
     kUSBDeviceUserClientReEnumerateDevice,
+    // new with 1.9.7
+    kUSBDeviceUserClientGetMicroFrameNumber,
     kNumUSBDeviceMethods
     };
 
@@ -79,6 +81,9 @@ enum {
     // new with 1.9.2
     kUSBInterfaceUserClientLowLatencyPrepareBuffer,
     kUSBInterfaceUserClientLowLatencyReleaseBuffer,
+    // new with 1.9.7
+    kUSBInterfaceUserClientGetMicroFrameNumber,
+    kUSBInterfaceUserClientGetFrameListTime,
     kNumUSBInterfaceMethods
     };
 

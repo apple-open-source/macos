@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -38,19 +38,25 @@
 #include <IOKit/scsi-commands/SCSICmds_INQUIRY_Definitions.h>
 #include <IOKit/scsi-commands/IOSCSIPeripheralDeviceNub.h>
 
+
+#if defined(KERNEL) && defined(__cplusplus)
+
+
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //	Class Declarations
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 // ¥¥¥¥¥ The current implmentation of IOSCSITargetDevice is not designed to be
 // ¥¥¥¥¥ subclassed and any object subclassed from this version will definitely
 // ¥¥¥¥¥ not be compatible in future system releases.
+
 class IOSCSITargetDevice : public IOSCSIPrimaryCommandsDevice
 {
 	
 	OSDeclareDefaultStructors ( IOSCSITargetDevice )
 	
 protected:
-
+	
 	bool		InitializeDeviceSupport ( void );
 	void		StartDeviceSupport ( void );
 	void		SuspendDeviceSupport ( void );
@@ -59,33 +65,33 @@ protected:
 	void 		TerminateDeviceSupport ( void );
 	UInt32		GetNumberOfPowerStateTransitions ( void );
 	bool		ClearNotReadyStatus ( void );
+	
+	void 	RetrieveCharacteristicsFromProvider ( void );
 
-	void 	RetrieveCharacteristicsFromProvider( void );
-
-	bool	DetermineTargetCharacteristics( void );
-	bool	VerifyTargetPresence( void );
-	bool	SetCharacteristicsFromINQUIRY( SCSICmd_INQUIRY_StandardDataAll * inquiryBuffer );
-	bool	RetrieveReportLUNsData(
+	bool	DetermineTargetCharacteristics ( void );
+	bool	VerifyTargetPresence ( void );
+	bool	SetCharacteristicsFromINQUIRY ( SCSICmd_INQUIRY_StandardDataAll * inquiryBuffer );
+	bool	RetrieveReportLUNsData (
 						SCSILogicalUnitNumber					logicalUnit,
 						UInt8 * 								dataBuffer,  
 						UInt8									dataSize );
-	UInt64	DetermineMaximumLogicalUnitNumber( void );
-	bool	VerifyLogicalUnitPresence( SCSILogicalUnitNumber theLogicalUnit );
-	bool	CreateLogicalUnit( SCSILogicalUnitNumber theLogicalUnit );
-
+	UInt64	DetermineMaximumLogicalUnitNumber ( void );
+	bool	VerifyLogicalUnitPresence ( SCSILogicalUnitNumber theLogicalUnit );
+	bool	CreateLogicalUnit ( SCSILogicalUnitNumber theLogicalUnit );
+	
 	// INQUIRY utility member routines
-	bool 	RetrieveDefaultINQUIRYData( 
+	bool 	RetrieveDefaultINQUIRYData ( 
 						SCSILogicalUnitNumber					logicalUnit,
 						UInt8 * 								inquiryBuffer,  
 						UInt8									inquirySize );
-
-	bool	RetrieveINQUIRYDataPage( 
+	
+	bool	RetrieveINQUIRYDataPage ( 
 						SCSILogicalUnitNumber					logicalUnit,
 						UInt8 * 								inquiryBuffer,  
 						UInt8									inquiryPage,
 						UInt8									inquirySize );
-						
-	void	PublishDeviceIdentification( void );
+	
+	void	PublishDeviceIdentification ( void );
 	
 	// Power management overrides
 	virtual UInt32		GetInitialPowerState ( void );
@@ -94,11 +100,11 @@ protected:
 	virtual void		TicklePowerManager ( void );
 	
 private:
-
+	
 	// Reserve space for future expansion.
 	struct IOSCSITargetDeviceExpansionData { };
 	IOSCSITargetDeviceExpansionData * fIOSCSITargetDeviceReserved;
-
+	
 	OSSet *	fClients;
 	
 	// Target Characteristics determined from LUN 0 INQUIRY data.
@@ -110,15 +116,15 @@ private:
 	bool							fTargetHasMultiPorts;
 	bool							fTargetHasMChanger;
 	
-	bool		handleOpen( IOService *		client,
-							IOOptionBits		options,
-							void *			arg );
+	bool		handleOpen ( IOService *		client,
+							 IOOptionBits		options,
+							 void *				arg );
+	
+	void		handleClose ( IOService *		client,
+							  IOOptionBits		options );
 							
-	void		handleClose( IOService *		client,
-							IOOptionBits	options );
-							
-	bool		handleIsOpen( const IOService * client ) const;
-							
+	bool		handleIsOpen ( const IOService * client ) const;
+	
 	// Space reserved for future expansion.
 	OSMetaClassDeclareReservedUnused ( IOSCSITargetDevice,  1 );
 	OSMetaClassDeclareReservedUnused ( IOSCSITargetDevice,  2 );
@@ -139,5 +145,6 @@ private:
 	
 };
 
+#endif /* defined(KERNEL) && defined(__cplusplus) */
 
 #endif /* _IOKIT_IO_SCSI_TARGET_DEVICE_H_ */

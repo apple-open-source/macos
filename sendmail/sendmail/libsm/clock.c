@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2001 Sendmail, Inc. and its suppliers.
+ * Copyright (c) 1998-2002 Sendmail, Inc. and its suppliers.
  *	All rights reserved.
  * Copyright (c) 1983, 1995-1997 Eric P. Allman.  All rights reserved.
  * Copyright (c) 1988, 1993
@@ -12,7 +12,7 @@
  */
 
 #include <sm/gen.h>
-SM_RCSID("@(#)$Id: clock.c,v 1.1.1.1 2002/03/12 18:00:19 zarzycki Exp $")
+SM_RCSID("@(#)$Id: clock.c,v 1.1.1.2 2002/10/15 02:38:03 zarzycki Exp $")
 #include <unistd.h>
 #include <time.h>
 #include <errno.h>
@@ -160,6 +160,8 @@ sm_sigsafe_seteventm(intvl, func, arg)
 	timersub(&SmEventQueue->ev_time, &now, &itime.it_value);
 	itime.it_interval.tv_sec = 0;
 	itime.it_interval.tv_usec = 0;
+	if (itime.it_value.tv_sec < 0)
+		itime.it_value.tv_sec = 0;
 	if (itime.it_value.tv_sec == 0 && itime.it_value.tv_usec == 0)
 		itime.it_value.tv_usec = 1000;
 	(void) setitimer(ITIMER_REAL, &itime, NULL);
@@ -255,9 +257,6 @@ sm_clear_events()
 #endif /* SM_CONF_SETITIMER */
 	int wasblocked;
 
-	if (SmEventQueue == NULL)
-		return;
-
 	/* nothing will be left in event queue, no need for an alarm */
 #if SM_CONF_SETITIMER
 	clr.it_interval.tv_sec = 0;
@@ -268,6 +267,10 @@ sm_clear_events()
 #else /* SM_CONF_SETITIMER */
 	(void) alarm(0);
 #endif /* SM_CONF_SETITIMER */
+
+	if (SmEventQueue == NULL)
+		return;
+
 	wasblocked = sm_blocksignal(SIGALRM);
 
 	/* find the end of the EventQueue */
@@ -412,6 +415,11 @@ sm_tick(sig)
 					 &clr.it_value);
 				clr.it_interval.tv_sec = 0;
 				clr.it_interval.tv_usec = 0;
+				if (clr.it_value.tv_sec < 0)
+					clr.it_value.tv_sec = 0;
+				if (clr.it_value.tv_sec == 0 &&
+				    clr.it_value.tv_usec == 0)
+					clr.it_value.tv_usec = 1000;
 				(void) setitimer(ITIMER_REAL, &clr, NULL);
 			}
 			else
@@ -452,6 +460,10 @@ sm_tick(sig)
 		timersub(&SmEventQueue->ev_time, &now, &clr.it_value);
 		clr.it_interval.tv_sec = 0;
 		clr.it_interval.tv_usec = 0;
+		if (clr.it_value.tv_sec < 0)
+			clr.it_value.tv_sec = 0;
+		if (clr.it_value.tv_sec == 0 && clr.it_value.tv_usec == 0)
+			clr.it_value.tv_usec = 1000;
 		(void) setitimer(ITIMER_REAL, &clr, NULL);
 #else /* SM_CONF_SETITIMER */
 		(void) alarm((unsigned) (SmEventQueue->ev_time - now));

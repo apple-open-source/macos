@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 34;
+	objectVersion = 38;
 	objects = {
 		015488CC00BAFF6C11CA2A5F = {
 			buildStyles = (
@@ -95,8 +95,8 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOGraphicsFamily;
-				MODULE_VERSION = 1.2.2;
-				OTHER_CFLAGS = "";
+				MODULE_VERSION = 1.2.4;
+				OTHER_CFLAGS = "-DIOGRAPHICS_F1=1";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOGraphicsFamily;
@@ -112,15 +112,15 @@
 			productName = IOGraphicsFamily;
 			productReference = 015488D000BB003811CA2A5F;
 			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
-<plist version=\"0.9\">
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleExecutable</key>
 	<string>IOGraphicsFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.2.2, Copyright Apple Computer, Inc. 2000-2001</string>
+	<string>1.2.4, Copyright Apple Computer, Inc. 2000-2001</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -132,11 +132,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.2</string>
+	<string>1.2.4</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.2</string>
+	<string>1.2.4</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleBacklightDisplay</key>
@@ -198,9 +198,9 @@
 			generatedFileNames = (
 			);
 			isa = PBXShellScriptBuildPhase;
-			name = "Shell Script";
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
@@ -227,7 +227,7 @@
 				16E5BDFF00BEE42611CA2A5F,
 			);
 			isa = PBXHeadersBuildPhase;
-			name = Headers;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		015488D600BB003811CA2A5F = {
 			buildActionMask = 2147483647;
@@ -243,21 +243,21 @@
 				03F3AC4901BD482403CA2A5F,
 			);
 			isa = PBXSourcesBuildPhase;
-			name = Sources;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		015488D700BB003811CA2A5F = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXResourcesBuildPhase;
-			name = "Bundle Resources";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		015488D800BB003811CA2A5F = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
-			name = "Frameworks & Libraries";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		015488D900BB003811CA2A5F = {
 			buildActionMask = 2147483647;
@@ -266,9 +266,9 @@
 			generatedFileNames = (
 			);
 			isa = PBXShellScriptBuildPhase;
-			name = "Shell Script";
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
@@ -293,8 +293,8 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IONDRVSupport;
-				MODULE_VERSION = 1.2.2;
-				OTHER_CFLAGS = "";
+				MODULE_VERSION = 1.2.4;
+				OTHER_CFLAGS = "-DIOGRAPHICS_F1=1";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IONDRVSupport;
@@ -310,15 +310,15 @@
 			productName = IONDRVSupport;
 			productReference = 015488D100BB003811CA2A5F;
 			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
-<plist version=\"0.9\">
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleExecutable</key>
 	<string>IONDRVSupport</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.2.2, Copyright Apple Computer, Inc. 2000-2001</string>
+	<string>1.2.4, Copyright Apple Computer, Inc. 2000-2001</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -330,11 +330,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.2</string>
+	<string>1.2.4</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.2</string>
+	<string>1.2.4</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>1</key>
@@ -408,9 +408,9 @@
 			generatedFileNames = (
 			);
 			isa = PBXShellScriptBuildPhase;
-			name = "Shell Script";
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
@@ -428,7 +428,7 @@
 				03F3AC4A01BD482403CA2A5F,
 			);
 			isa = PBXHeadersBuildPhase;
-			name = Headers;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		015488DE00BB003811CA2A5F = {
 			buildActionMask = 2147483647;
@@ -441,21 +441,21 @@
 				03F3AC4B01BD482403CA2A5F,
 			);
 			isa = PBXSourcesBuildPhase;
-			name = Sources;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		015488DF00BB003811CA2A5F = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXResourcesBuildPhase;
-			name = "Bundle Resources";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		015488E000BB003811CA2A5F = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
-			name = "Frameworks & Libraries";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		015488E100BB003811CA2A5F = {
 			buildActionMask = 2147483647;
@@ -464,9 +464,9 @@
 			generatedFileNames = (
 			);
 			isa = PBXShellScriptBuildPhase;
-			name = "Shell Script";
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
@@ -805,7 +805,7 @@
 				03308FB501C181FF03CA2A5F,
 			);
 			isa = PBXCopyFilesBuildPhase;
-			name = "Copy Files";
+			runOnlyForDeploymentPostprocessing = 1;
 		};
 		03308FB401C181FF03CA2A5F = {
 			fileRef = 03E63E0301BD474F03CA2A5F;
@@ -844,7 +844,7 @@
 				0347EDAB01BC52DB03CA2A5F,
 			);
 			isa = PBXCopyFilesBuildPhase;
-			name = "Copy Files";
+			runOnlyForDeploymentPostprocessing = 1;
 		};
 		0347EDAB01BC52DB03CA2A5F = {
 			fileRef = 0347EDA701BC52A103CA2A5F;
@@ -1221,28 +1221,28 @@
 				03E63E0601BD474F03CA2A5F,
 			);
 			isa = PBXHeadersBuildPhase;
-			name = Headers;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		221BC5AB00BC8D3D11CA2A5F = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXSourcesBuildPhase;
-			name = Sources;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		221BC5AC00BC8D3D11CA2A5F = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
-			name = "Frameworks & Libraries";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		221BC5AD00BC8D3D11CA2A5F = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
-			name = "ResourceManager Resources";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		221BC5AF00BC8D5211CA2A5F = {
 			isa = PBXTargetDependency;
@@ -1266,7 +1266,7 @@
 				16E5BE0200BEE46711CA2A5F,
 			);
 			isa = PBXCopyFilesBuildPhase;
-			name = "Copy Files";
+			runOnlyForDeploymentPostprocessing = 1;
 		};
 		221BC5B100BC8ED611CA2A5F = {
 			fileRef = 0154891800BB054811CA2A5F;
@@ -1343,7 +1343,7 @@
 				16E5BE0100BEE45C11CA2A5F,
 			);
 			isa = PBXCopyFilesBuildPhase;
-			name = "Copy Files";
+			runOnlyForDeploymentPostprocessing = 1;
 		};
 		221BC5BD00BC98E311CA2A5F = {
 			fileRef = 0154891800BB054811CA2A5F;
@@ -1389,7 +1389,7 @@
 				0347EDA901BC52DB03CA2A5F,
 			);
 			isa = PBXCopyFilesBuildPhase;
-			name = "Copy Files";
+			runOnlyForDeploymentPostprocessing = 1;
 		};
 		221BC5C900BC9B5611CA2A5F = {
 			isa = PBXExecutableFileReference;
@@ -1434,28 +1434,28 @@
 			files = (
 			);
 			isa = PBXHeadersBuildPhase;
-			name = Headers;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		221BC5CD00BC9B5611CA2A5F = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXSourcesBuildPhase;
-			name = Sources;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		221BC5CE00BC9B5611CA2A5F = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
-			name = "Frameworks & Libraries";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		221BC5CF00BC9B5611CA2A5F = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
-			name = "ResourceManager Resources";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		221BC5D000BC9B5611CA2A5F = {
 			buildActionMask = 8;
@@ -1468,7 +1468,7 @@
 				221BC5D500BC9BA811CA2A5F,
 			);
 			isa = PBXCopyFilesBuildPhase;
-			name = "Copy Files";
+			runOnlyForDeploymentPostprocessing = 1;
 		};
 		221BC5D200BC9BA811CA2A5F = {
 			fileRef = 221BC4E700BB072011CA2A5F;
@@ -1503,7 +1503,7 @@
 				221BC5D800BC9BC911CA2A5F,
 			);
 			isa = PBXCopyFilesBuildPhase;
-			name = "Copy Files";
+			runOnlyForDeploymentPostprocessing = 1;
 		};
 		221BC5D700BC9BC911CA2A5F = {
 			fileRef = 221BC4E700BB072011CA2A5F;

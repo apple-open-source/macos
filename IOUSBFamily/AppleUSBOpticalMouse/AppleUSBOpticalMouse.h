@@ -32,7 +32,9 @@ class AppleUSBOpticalMouse : public IOUSBHIDDriver
 
 private:
     IONotifier * 		_notifier;
-
+    bool			_switchTo800dpiFlag;
+    bool			_switchTo2000fpsFlag;
+    
     // IOKit methods
     bool		willTerminate(IOService * provider, IOOptionBits options);
     

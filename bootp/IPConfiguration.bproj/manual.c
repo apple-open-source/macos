@@ -93,6 +93,7 @@ manual_cancel_pending_events(Service_t * service_p)
 static void
 manual_inactive(Service_t * service_p)
 {
+    manual_cancel_pending_events(service_p);
     service_remove_address(service_p);
     service_publish_failure(service_p, ipconfig_status_media_inactive_e,
 			    NULL);
@@ -277,6 +278,35 @@ manual_thread(Service_t * service_p, IFEventID_t evid, void * event_data)
 	      /* publish new mask */
 	      service_publish_success(service_p, NULL, 0);
 	  }
+	  break;
+      }
+      case IFEventID_arp_collision_e: {
+	  arp_collision_data_t *	arpc;
+	  char				msg[128];
+
+	  arpc = (arp_collision_data_t *)event_data;
+
+	  if (manual == NULL) {
+	      return (ipconfig_status_internal_error_e);
+	  }
+	  if (arpc->ip_addr.s_addr != manual->our_ip.s_addr) {
+	      break;
+	  }
+	  snprintf(msg, sizeof(msg), 
+		   IP_FORMAT " in use by " EA_FORMAT,
+		   IP_LIST(&arpc->ip_addr), 
+		   EA_LIST(arpc->hwaddr));
+	  service_report_conflict(service_p,
+				  &arpc->ip_addr,
+				  arpc->hwaddr,
+				  NULL);
+	  my_log(LOG_ERR, "MANUAL %s: %s", 
+		 if_name(if_p), msg);
+	  service_remove_address(service_p);
+	  service_publish_failure(service_p, 
+				  ipconfig_status_address_in_use_e,
+				  msg);
+	  manual_cancel_pending_events(service_p);
 	  break;
       }
       case IFEventID_media_e: {

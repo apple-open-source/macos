@@ -30,6 +30,7 @@
 #import "USBClass.h"
 #import "DecodeHIDReport.h"
 #import "NodeOutput.h"
+#import "DecodeAudioInterfaceDescriptor.h"
 
 #define RETURNNUM(obj, fld, integer) \
 [self returnNum:(obj.fld) size:(sizeof(obj.fld)) asInt:integer];
@@ -43,8 +44,6 @@
 #define RETURNSTR(obj, fld) \
 [self ReturnStr:deviceIntf strIndex:(UInt8)obj.fld];
 
-#define CS_INTERFACE					0x24
-#define CS_ENDPOINT						0x25
 #define HID_DESCRIPTOR					0x21
 #define DFU_FUNCTIONAL_DESCRIPTOR		0x21
 
@@ -58,14 +57,18 @@
 #define HUB_DESCRIPTOR_LEVEL			ROOT_LEVEL + 1
 #define DEVICE_QUAL_DESCRIPTOR_LEVEL			ROOT_LEVEL + 1
 
+enum ClassSpecific {
+    CS_INTERFACE		= 0x24,
+    CS_ENDPOINT			= 0x25
+};
 struct IOUSBHubDescriptor {
-	UInt8 	length;
-	UInt8 	hubType;
-	UInt8 	numPorts;
-        UInt16 	characteristics __attribute__((packed));
-	UInt8 	powerOnToGood;	/* Port settling time, in 2ms */
-	UInt8 	hubCurrent;
-
+    UInt8 	length;
+    UInt8 	hubType;
+    UInt8 	numPorts;
+    UInt16 	characteristics __attribute__((packed));
+    UInt8 	powerOnToGood;	/* Port settling time, in 2ms */
+    UInt8 	hubCurrent;
+    
 	/* These are received packed, will have to be unpacked */
 	UInt8 	removablePortFlags[8];
 	UInt8 	pwrCtlPortFlags[8];

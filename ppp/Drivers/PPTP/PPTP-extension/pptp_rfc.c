@@ -237,7 +237,7 @@ void pptp_rfc_fasttimer()
             p->flags = PPTP_GRE_FLAGS_K;
             p->flags_vers = PPTP_GRE_VER | PPTP_GRE_FLAGS_A;
             p->proto_type = htons(PPTP_GRE_TYPE);
-            p->payload_len = htons(len); 
+            p->payload_len = 0; 
             p->call_id = htons(rfc->peer_call_id);
             /* XXX use seq_num in the structure to put the ack */
             p->seq_num = htonl(rfc->peer_last_seq);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2001 Sendmail, Inc. and its suppliers.
+ * Copyright (c) 1999-2002 Sendmail, Inc. and its suppliers.
  *	All rights reserved.
  *
  * By using this file, you agree to the terms and conditions set
@@ -9,12 +9,11 @@
  */
 
 #include <sm/gen.h>
-SM_RCSID("@(#)$Id: sfsasl.c,v 1.1.1.2 2002/03/12 18:00:39 zarzycki Exp $")
+SM_RCSID("@(#)$Id: sfsasl.c,v 1.1.1.3 2002/10/15 02:38:34 zarzycki Exp $")
 #include <stdlib.h>
 #include <sendmail.h>
 #include <errno.h>
 #if SASL
-# include <sasl.h>
 # include "sfsasl.h"
 
 /* Structure used by the "sasl" file type */
@@ -152,7 +151,7 @@ sasl_close(fp)
 
 /* how to deallocate a buffer allocated by SASL */
 extern void	sm_sasl_free __P((void *));
-# define SASL_DEALLOC(b)	sm_sasl_free(b)
+#  define SASL_DEALLOC(b)	sm_sasl_free(b)
 
 /*
 **  SASL_READ -- read encrypted information and decrypt it for the caller
@@ -177,7 +176,11 @@ sasl_read(fp, buf, size)
 {
 	int result;
 	ssize_t len;
+# if SASL >= 20000
+	const char *outbuf = NULL;
+# else /* SASL >= 20000 */
 	static char *outbuf = NULL;
+# endif /* SASL >= 20000 */
 	static unsigned int outlen = 0;
 	static unsigned int offset = 0;
 	struct sasl_obj *so = (struct sasl_obj *) fp->f_cookie;
@@ -225,7 +228,9 @@ sasl_read(fp, buf, size)
 		/* return the rest of the buffer */
 		len = outlen - offset;
 		(void) memcpy(buf, outbuf + offset, (size_t) len);
+# if SASL < 20000
 		SASL_DEALLOC(outbuf);
+# endif /* SASL < 20000 */
 		outbuf = NULL;
 		offset = 0;
 		outlen = 0;
@@ -255,7 +260,11 @@ sasl_write(fp, buf, size)
 	size_t size;
 {
 	int result;
+# if SASL >= 20000
+	const char *outbuf;
+# else /* SASL >= 20000 */
 	char *outbuf;
+# endif /* SASL >= 20000 */
 	unsigned int outlen;
 	size_t ret = 0, total = 0;
 	struct sasl_obj *so = (struct sasl_obj *) fp->f_cookie;
@@ -270,12 +279,15 @@ sasl_write(fp, buf, size)
 	{
 		while (outlen > 0)
 		{
+			/* XXX result == 0? */
 			ret = sm_io_write(so->fp, SM_TIME_DEFAULT,
 					  &outbuf[total], outlen);
 			outlen -= ret;
 			total += ret;
 		}
+# if SASL < 20000
 		SASL_DEALLOC(outbuf);
+# endif /* SASL < 20000 */
 	}
 	return size;
 }
@@ -545,19 +557,31 @@ tls_read(fp, buf, size)
 */
 		break;
 	  case SSL_ERROR_SSL:
+#if _FFR_DEAL_WITH_ERROR_SSL
+		if (r == 0 && errno == 0) /* out of protocol EOF found */
+			break;
+#endif /* _FFR_DEAL_WITH_ERROR_SSL */
 		err = "generic SSL error";
 		if (LogLevel > 9)
 			tlslogerr("read");
+
+#if _FFR_DEAL_WITH_ERROR_SSL
+		/* avoid repeated calls? */
+		if (r == 0)
+			r = -1;
+#endif /* _FFR_DEAL_WITH_ERROR_SSL */
 		break;
 	}
 	if (err != NULL)
 	{
+		int save_errno;
+
+		save_errno = (errno == 0) ? EIO : errno;
 		again = MAX_TLS_IOS;
-		if (errno == 0)
-			errno = EIO;
 		if (LogLevel > 7)
 			sm_syslog(LOG_WARNING, NOQID,
 				  "STARTTLS: read error=%s (%d)", err, r);
+		errno = save_errno;
 	}
 	return r;
 }
@@ -632,16 +656,24 @@ tls_write(fp, buf, size)
 */
 		if (LogLevel > 9)
 			tlslogerr("write");
+
+#if _FFR_DEAL_WITH_ERROR_SSL
+		/* avoid repeated calls? */
+		if (r == 0)
+			r = -1;
+#endif /* _FFR_DEAL_WITH_ERROR_SSL */
 		break;
 	}
 	if (err != NULL)
 	{
+		int save_errno;
+
+		save_errno = (errno == 0) ? EIO : errno;
 		again = MAX_TLS_IOS;
-		if (errno == 0)
-			errno = EIO;
 		if (LogLevel > 7)
 			sm_syslog(LOG_WARNING, NOQID,
 				  "STARTTLS: write error=%s (%d)", err, r);
+		errno = save_errno;
 	}
 	return r;
 }

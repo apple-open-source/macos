@@ -1,5 +1,5 @@
 /*
- * "$Id: ipp.c,v 1.6 2002/06/10 23:47:32 jlovell Exp $"
+ * "$Id: ipp.c,v 1.6.2.2 2002/12/19 00:23:57 jlovell Exp $"
  *
  *   IPP routines for the Common UNIX Printing System (CUPS) scheduler.
  *
@@ -1093,7 +1093,25 @@ add_printer(client_t        *con,	/* I - Client connection */
                  &port, resource);
     methodlen = strlen(method);
 
-    if (strcmp(method, "file") != 0)
+    if (strcmp(method, "file") == 0)
+    {
+     /*
+      * See if the administrator has enabled file devices...
+      */
+
+      if (!FileDevice && strcmp(attr->values[0].string.text, "file:///dev/null") != 0)
+      {
+       /*
+        * Could not find device in list!
+	*/
+
+	LogMessage(L_ERROR, "add_printer: File device URIs have been disabled! "
+	                    "To enable, see the FileDevice directive in cupsd.conf.");
+	send_ipp_error(con, IPP_NOT_POSSIBLE);
+	return;
+      }
+    }
+    else
     {
      /*
       * See if the backend is listed as a device...
@@ -5731,5 +5749,5 @@ validate_user(client_t   *con,		/* I - Client connection */
 
 
 /*
- * End of "$Id: ipp.c,v 1.6 2002/06/10 23:47:32 jlovell Exp $".
+ * End of "$Id: ipp.c,v 1.6.2.2 2002/12/19 00:23:57 jlovell Exp $".
  */

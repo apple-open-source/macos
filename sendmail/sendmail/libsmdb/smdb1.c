@@ -1,5 +1,5 @@
 /*
-** Copyright (c) 1999-2001 Sendmail, Inc. and its suppliers.
+** Copyright (c) 1999-2002 Sendmail, Inc. and its suppliers.
 **	All rights reserved.
 **
 ** By using this file, you agree to the terms and conditions set
@@ -8,7 +8,7 @@
 */
 
 #include <sm/gen.h>
-SM_RCSID("@(#)$Id: smdb1.c,v 1.1.1.2 2002/03/12 18:00:21 zarzycki Exp $")
+SM_RCSID("@(#)$Id: smdb1.c,v 1.1.1.3 2002/10/15 02:38:17 zarzycki Exp $")
 
 #include <unistd.h>
 #include <stdlib.h>
@@ -434,6 +434,7 @@ smdb_db_open(database, db_name, mode, mode_mask, sff, type, user_info,
 	SMDB_USER_INFO *user_info;
 	SMDB_DBPARAMS *db_params;
 {
+	bool lockcreated = false;
 	int db_fd;
 	int lock_fd;
 	int result;
@@ -445,14 +446,14 @@ smdb_db_open(database, db_name, mode, mode_mask, sff, type, user_info,
 	BTREEINFO btree_info;
 	DBTYPE db_type;
 	struct stat stat_info;
-	char db_file_name[SMDB_MAX_NAME_LEN];
+	char db_file_name[MAXPATHLEN];
 
 	if (type == NULL ||
 	    (strncmp(SMDB_TYPE_HASH, type, SMDB_TYPE_HASH_LEN) != 0 &&
 	     strncmp(SMDB_TYPE_BTREE, type, SMDB_TYPE_BTREE_LEN) != 0))
 		return SMDBE_UNKNOWN_DB_TYPE;
 
-	result = smdb_add_extension(db_file_name, SMDB_MAX_NAME_LEN,
+	result = smdb_add_extension(db_file_name, sizeof db_file_name,
 				    db_name, SMDB1_FILE_EXTENSION);
 	if (result != SMDBE_OK)
 		return result;
@@ -462,15 +463,21 @@ smdb_db_open(database, db_name, mode, mode_mask, sff, type, user_info,
 	if (result != SMDBE_OK)
 		return result;
 
+	if (stat_info.st_mode == ST_MODE_NOFILE &&
+	    bitset(mode, O_CREAT))
+		lockcreated = true;
+
 	lock_fd = -1;
-# if O_EXLOCK
-	mode |= O_EXLOCK;
-# else /* O_EXLOCK */
 	result = smdb_lock_file(&lock_fd, db_name, mode, sff,
 				SMDB1_FILE_EXTENSION);
 	if (result != SMDBE_OK)
 		return result;
-# endif /* O_EXLOCK */
+
+	if (lockcreated)
+	{
+		mode |= O_TRUNC;
+		mode &= ~(O_CREAT|O_EXCL);
+	}
 
 	*database = NULL;
 
@@ -501,7 +508,7 @@ smdb_db_open(database, db_name, mode, mode_mask, sff, type, user_info,
 	}
 
 	db_type = smdb_type_to_db1_type(type);
-	db = dbopen(db_file_name, mode, 0644, db_type, params);
+	db = dbopen(db_file_name, mode, DBMMODE, db_type, params);
 	if (db != NULL)
 	{
 		db_fd = db->fd(db);

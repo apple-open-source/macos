@@ -242,6 +242,12 @@ void
 AppleUSBKeyboard::stop(IOService * provider)
 {
 
+    if (_buffer) 
+    {
+	_buffer->release();
+        _buffer = NULL;
+    }
+
     if (_deviceDeadCheckThread)
     {
         thread_call_cancel(_deviceDeadCheckThread);
@@ -782,32 +788,50 @@ AppleUSBKeyboard::handlerID ( void )
 
     //New feature for hardware identification using Gestalt.h values
     if (_device->GetVendorID() == kIOUSBVendorIDAppleComputer)
-    switch (ret_id)
-    {
-	case kprodUSBCosmoANSIKbd:  //Cosmo ANSI is 0x201
-		ret_id = kgestUSBCosmoANSIKbd; //0xc6
-		break;
-	case kprodUSBCosmoISOKbd:  //Cosmo ISO
-		ret_id = kgestUSBCosmoISOKbd; //0xc7
-		break;
-	case kprodUSBCosmoJISKbd:  //Cosmo JIS
-		ret_id = kgestUSBCosmoJISKbd;  //0xc8
-		break;
-	case kprodUSBAndyANSIKbd:  //Andy ANSI is 0x204
-		ret_id = kgestUSBAndyANSIKbd; //0xcc
-		break;
-	case kprodUSBAndyISOKbd:  //Andy ISO
-		ret_id = kgestUSBAndyISOKbd; //0xcd
-		break;
-	case kprodUSBAndyJISKbd:  //Andy JIS is 0x206
-		ret_id = kgestUSBAndyJISKbd; //0xce
-		break;
-	default:  // No Gestalt.h values, but still is Apple keyboard,
-		  //   so return a generic Cosmo ANSI
-		ret_id = kgestUSBCosmoANSIKbd;  
-		break;
-    }
-
+        switch (ret_id)
+        {
+            case kprodUSBCosmoANSIKbd:  //Cosmo ANSI is 0x201
+                ret_id = kgestUSBCosmoANSIKbd; //0xc6
+                break;
+            case kprodUSBCosmoISOKbd:  //Cosmo ISO
+                ret_id = kgestUSBCosmoISOKbd; //0xc7
+                break;
+            case kprodUSBCosmoJISKbd:  //Cosmo JIS
+                ret_id = kgestUSBCosmoJISKbd;  //0xc8
+                break;
+            case kprodUSBAndyANSIKbd:  //Andy ANSI is 0x204
+                ret_id = kgestUSBAndyANSIKbd; //0xcc
+                break;
+            case kprodUSBAndyISOKbd:  //Andy ISO
+                ret_id = kgestUSBAndyISOKbd; //0xcd
+                break;
+            case kprodUSBAndyJISKbd:  //Andy JIS is 0x206
+                ret_id = kgestUSBAndyJISKbd; //0xce
+                break;
+            case kprodQ6ANSIKbd:  //Q6 ANSI
+                ret_id = kgestQ6ANSIKbd;
+                break;
+            case kprodQ6ISOKbd:  //Q6 ISO
+                ret_id = kgestQ6ISOKbd;
+                break;
+            case kprodQ6JISKbd:  //Q6 JIS
+                ret_id = kgestQ6JISKbd;
+                break;
+            case kprodUSBProF16ANSIKbd:
+                ret_id = kgestUSBProF16ANSIKbd;
+                break;
+            case kprodUSBProF16ISOKbd:
+                ret_id = kgestUSBProF16ISOKbd;
+                break;
+            case kprodUSBProF16JISKbd:
+                ret_id = kgestUSBProF16JISKbd;
+                break;
+            default:  // No Gestalt.h values, but still is Apple keyboard,
+                      //   so return a generic Cosmo ANSI
+                ret_id = kgestUSBCosmoANSIKbd;
+                break;
+        }
+            
     return ret_id;  //non-Apple USB keyboards should all return "2"
 }
 
@@ -1278,11 +1302,6 @@ AppleUSBKeyboard::willTerminate( IOService * provider, IOOptionBits options )
     // isInactive flag is set, so we really are marked as being done. we will do in here
     // what we used to do in the message method (this happens first)
     USBLog(5, "%s[%p]::willTerminate isInactive = %d", getName(), this, isInactive());
-    if (_buffer) 
-    {
-	_buffer->release();
-        _buffer = NULL;
-    }
     if (_interruptPipe)
     {
 	_interruptPipe->Abort();

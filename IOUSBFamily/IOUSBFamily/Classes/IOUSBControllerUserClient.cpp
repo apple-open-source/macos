@@ -26,6 +26,7 @@
 #include <IOKit/IOMessage.h>
 
 #include <IOKit/usb/IOUSBController.h>
+#include <IOKit/usb/IOUSBControllerV2.h>
 #include <IOKit/usb/IOUSBLog.h>
 
 #include "IOUSBControllerUserClient.h"
@@ -99,6 +100,13 @@ IOUSBControllerUserClient::sMethods[kNumUSBControllerMethods] =
 		kIOUCScalarIScalarO,					// flags
 		0,							// # of params in
 		1							// # of params out
+	},
+	{	// kUSBControllerUserClientSetTestMode
+		(IOService*)kMethodObjectThis,				// object
+		( IOMethod )&IOUSBControllerUserClient::SetTestMode,	// func
+		kIOUCScalarIScalarO,					// flags
+		2,							// # of params in
+		0							// # of params out
 	}
 };
 
@@ -252,7 +260,7 @@ IOUSBControllerUserClient::GetDebuggingLevel(KernelDebugLevel * inLevel)
 IOReturn
 IOUSBControllerUserClient::GetDebuggingType(KernelDebuggingOutputType * inType)
 {
-     IOLog("+IOUSBControllerUserClient::GetDebuggingLevel\n");
+    IOLog("+IOUSBControllerUserClient::GetDebuggingLevel\n");
     if (!fOwner)
         return kIOReturnNotAttached;
     
@@ -260,6 +268,21 @@ IOUSBControllerUserClient::GetDebuggingType(KernelDebuggingOutputType * inType)
 
     return kIOReturnSuccess;
 }
+
+
+IOReturn
+IOUSBControllerUserClient::SetTestMode(UInt32 mode, UInt32 port)
+{
+    // this method only available for v2 controllers
+    IOUSBControllerV2	*v2 = OSDynamicCast(IOUSBControllerV2, fOwner);
+
+    IOLog("+IOUSBControllerUserClient::SetTestMode");
+    if (!v2)
+        return kIOReturnNotAttached;
+    
+    return v2->SetTestMode(mode, port);
+}
+
 
 void 
 IOUSBControllerUserClient::stop( IOService * provider )

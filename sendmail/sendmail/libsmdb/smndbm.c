@@ -1,5 +1,5 @@
 /*
-** Copyright (c) 1999-2001 Sendmail, Inc. and its suppliers.
+** Copyright (c) 1999-2002 Sendmail, Inc. and its suppliers.
 **	All rights reserved.
 **
 ** By using this file, you agree to the terms and conditions set
@@ -8,7 +8,7 @@
 */
 
 #include <sm/gen.h>
-SM_RCSID("@(#)$Id: smndbm.c,v 1.1.1.2 2002/03/12 18:00:21 zarzycki Exp $")
+SM_RCSID("@(#)$Id: smndbm.c,v 1.1.1.3 2002/10/15 02:38:17 zarzycki Exp $")
 
 #include <fcntl.h>
 #include <stdlib.h>
@@ -492,6 +492,7 @@ smdb_ndbm_open(database, db_name, mode, mode_mask, sff, type, user_info,
 	SMDB_USER_INFO *user_info;
 	SMDB_DBPARAMS *db_params;
 {
+	bool lockcreated = false;
 	int result;
 	int lock_fd;
 	SMDB_DATABASE *smdb_db;
@@ -516,15 +517,34 @@ smdb_ndbm_open(database, db_name, mode, mode_mask, sff, type, user_info,
 	if (result != SMDBE_OK)
 		return result;
 
+	if ((dir_stat_info.st_mode == ST_MODE_NOFILE ||
+	     pag_stat_info.st_mode == ST_MODE_NOFILE) &&
+	    bitset(mode, O_CREAT))
+		lockcreated = true;
+
 	lock_fd = -1;
-# if O_EXLOCK
-	mode |= O_EXLOCK;
-# else /* O_EXLOCK */
 	result = smdb_lock_file(&lock_fd, db_name, mode, sff,
 				SMNDB_DIR_FILE_EXTENSION);
 	if (result != SMDBE_OK)
 		return result;
-# endif /* O_EXLOCK */
+
+	if (lockcreated)
+	{
+		int pag_fd;
+
+		/* Need to pre-open the .pag file as well with O_EXCL */
+		result = smdb_lock_file(&pag_fd, db_name, mode, sff,
+					SMNDB_PAG_FILE_EXTENSION);
+		if (result != SMDBE_OK)
+		{
+			(void) close(lock_fd);
+			return result;
+		}
+		(void) close(pag_fd);
+
+		mode |= O_TRUNC;
+		mode &= ~(O_CREAT|O_EXCL);
+	}
 
 	smdb_db = smdb_malloc_database();
 	if (smdb_db == NULL)
@@ -540,7 +560,7 @@ smdb_ndbm_open(database, db_name, mode, mode_mask, sff, type, user_info,
 		db->smndbm_lock_fd = lock_fd;
 
 		errno = 0;
-		dbm = dbm_open(db_name, mode, 0644);
+		dbm = dbm_open(db_name, mode, DBMMODE);
 		if (dbm == NULL)
 		{
 			if (errno == 0)

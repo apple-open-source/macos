@@ -13,7 +13,7 @@
 
 #include <sendmail.h>
 
-SM_RCSID("@(#)$Id: headers.c,v 1.1.1.2 2002/03/12 18:00:32 zarzycki Exp $")
+SM_RCSID("@(#)$Id: headers.c,v 1.1.1.3 2002/10/15 02:38:28 zarzycki Exp $")
 
 static size_t	fix_mime_header __P((char *));
 static int	priencode __P((char *));
@@ -285,23 +285,27 @@ hse:
 
 	if (bitset(pflag, CHHDR_CHECK))
 	{
-		bool stripcom = false;
+		int rscheckflags;
 		char *rs;
 
 		/* no ruleset? look for default */
 		rs = hi->hi_ruleset;
+		rscheckflags = RSF_COUNT;
+		if (!bitset(hi->hi_flags, H_FROM|H_RCPT))
+			rscheckflags |= RSF_UNSTRUCTURED;
 		if (rs == NULL)
 		{
 			s = stab("*", ST_HEADER, ST_FIND);
 			if (s != NULL)
 			{
 				rs = (&s->s_header)->hi_ruleset;
-				stripcom = bitset((&s->s_header)->hi_flags,
-						  H_STRIPCOMM);
+				if (bitset((&s->s_header)->hi_flags,
+					   H_STRIPCOMM))
+					rscheckflags |= RSF_RMCOMM;
 			}
 		}
-		else
-			stripcom = bitset(hi->hi_flags, H_STRIPCOMM);
+		else if (bitset(hi->hi_flags, H_STRIPCOMM))
+			rscheckflags |= RSF_RMCOMM;
 		if (rs != NULL)
 		{
 			int l, k;
@@ -366,7 +370,7 @@ hse:
 #endif /* _FFR_HDR_TYPE */
 				macdefine(&e->e_macro, A_PERM,
 					macid("{addr_type}"), "h");
-			(void) rscheck(rs, fvalue, NULL, e, stripcom, true, 3,
+			(void) rscheck(rs, fvalue, NULL, e, rscheckflags, 3,
 				       NULL, e->e_id);
 		}
 	}

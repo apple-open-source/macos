@@ -19,7 +19,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
- 
+
 
 #include <IOKit/graphics/IOGraphicsDevice.h>
 #include <libkern/c++/OSContainers.h>

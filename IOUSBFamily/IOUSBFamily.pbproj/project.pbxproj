@@ -114,8 +114,8 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBKeyboard;
-				MODULE_VERSION = 1.9;
-				OTHER_CFLAGS = "-fno-default-inline -W -Wall -Wno-unused";
+				MODULE_VERSION = 1.9.8;
+				OTHER_CFLAGS = "-W -Wall -Wno-unused";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = AppleUSBKeyboard;
@@ -138,7 +138,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleUSBKeyboard</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.9, Copyright Apple Computer, Inc. 2000-2002</string>
+	<string>1.9.8, Copyright Apple Computer, Inc. 2000-2003</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -150,11 +150,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.9</string>
+	<string>1.9.8</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.9</string>
+	<string>1.9.8</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleUSBKeyboard</key>
@@ -473,13 +473,13 @@
 			);
 			buildSettings = {
 				INSTALL_GROUP = wheel;
-				INSTALL_MODE = "\"a-w, u+w, a+rX\"";
+				INSTALL_MODE = "a-w,u+w, a+rX";
 				INSTALL_OWNER = root;
 				KERNEL_EXTENSION = YES;
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBComposite;
-				MODULE_VERSION = 1.9.5;
+				MODULE_VERSION = 1.9.7;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -503,7 +503,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleUSBComposite</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.9.5, Copyright Apple Computer, Inc. 2000-2002</string>
+	<string>1.9.7, Copyright Apple Computer, Inc. 2000-2002</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -515,11 +515,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.9.5</string>
+	<string>1.9.7</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.9.5</string>
+	<string>1.9.7</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleUSBComposite</key>
@@ -945,8 +945,8 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBOHCI;
-				MODULE_VERSION = 1.9.4;
-				OTHER_CFLAGS = "-fno-default-inline -W -Wall -Wno-unused";
+				MODULE_VERSION = 1.9.8;
+				OTHER_CFLAGS = "-W -Wall -Wno-unused";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = AppleUSBOHCI;
@@ -969,7 +969,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleUSBOHCI</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.9.4, Copyright Apple Computer, Inc. 2000-2002</string>
+	<string>1.9.8, Copyright Apple Computer, Inc. 2000-2003</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -981,11 +981,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.9.4</string>
+	<string>1.9.8</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.9.4</string>
+	<string>1.9.8</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleUSBOHCI</key>
@@ -1029,7 +1029,7 @@
 		0179BA6FFFBA2B817F000001 = {
 			buildActionMask = 2147483647;
 			files = (
-				F547620C016D5CE601573190,
+				F590EEF2034A864601000105,
 			);
 			isa = PBXResourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1249,7 +1249,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOUSBFamily;
-				MODULE_VERSION = 1.9.5;
+				MODULE_VERSION = 1.9.7;
 				OTHER_CFLAGS = "-fno-default-inline";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1270,7 +1270,7 @@
 				0179BA6CFFBA2B817F000001,
 				F560429D02109AD801573190,
 				0E7B26F6007E0F087F000001,
-				F5E9E7D3038160B801000164,
+				F549D3710226FF5E010162FA,
 				F5C6E0DB0300612F01000164,
 			);
 			isa = PBXBundleTarget;
@@ -1287,7 +1287,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOUSBFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.9.5, Copyright Apple Computer, Inc. 2000-2002</string>
+	<string>1.9.7, Copyright Apple Computer, Inc. 2000-2002</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1299,11 +1299,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.9.5</string>
+	<string>1.9.7</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.9.5</string>
+	<string>1.9.7</string>
 	<key>IOKitPersonalities</key>
 	<dict/>
 	<key>OSBundleCompatibleVersion</key>
@@ -1703,13 +1703,13 @@
 			);
 			buildSettings = {
 				INSTALL_GROUP = wheel;
-				INSTALL_MODE = "\"a-w, u+w, a+rX\"";
+				INSTALL_MODE = "a-w,u+w,a+rX";
 				INSTALL_OWNER = root;
 				KERNEL_EXTENSION = YES;
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBHub;
-				MODULE_VERSION = 1.9.5;
+				MODULE_VERSION = 1.9.7;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1733,7 +1733,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleUSBHub</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.9.5, Copyright Apple Computer, Inc. 2000-2002</string>
+	<string>1.9.7, Copyright Apple Computer, Inc. 2000-2002</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1745,11 +1745,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.9.5</string>
+	<string>1.9.7</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.9.5</string>
+	<string>1.9.7</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleUSBHub0</key>
@@ -1985,14 +1985,14 @@
 			);
 			buildSettings = {
 				INSTALL_GROUP = wheel;
-				INSTALL_MODE = "\"a-w, u+w, a+rX\"";
+				INSTALL_MODE = "a-w,u+w,a+rX";
 				INSTALL_OWNER = root;
 				KERNEL_EXTENSION = YES;
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOUSBUserClient;
-				MODULE_VERSION = 1.9.5;
-				OTHER_CFLAGS = "-fno-default-inline -W -Wall -Wno-unused";
+				MODULE_VERSION = 1.9.7;
+				OTHER_CFLAGS = "-W -Wall -Wno-unused";
 				OTHER_LDFLAGS = " ";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOUSBUserClient;
@@ -2015,7 +2015,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOUSBUserClient</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.9.5, Copyright Apple Computer, Inc. 2000-2002</string>
+	<string>1.9.7, Copyright Apple Computer, Inc. 2000-2002</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -2027,11 +2027,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.9.5</string>
+	<string>1.9.7</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.9.5</string>
+	<string>1.9.7</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOUSBDeviceUserClientInit</key>
@@ -2527,8 +2527,8 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBCDCDriver;
-				MODULE_VERSION = 1.9.5;
-				OTHER_CFLAGS = "-fno-default-inline -W -Wall -Wno-unused";
+				MODULE_VERSION = 1.9.7;
+				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = AppleUSBCDCDriver;
@@ -2552,7 +2552,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleUSBCDCDriver</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.9.5, Copyright Apple Computer, Inc. 2000-2002</string>
+	<string>1.9.7, Copyright Apple Computer, Inc. 2000-2002</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -2564,11 +2564,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.9.5</string>
+	<string>1.9.7</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.9.5</string>
+	<string>1.9.7</string>
 	<key>Date</key>
 	<string>Fri Dec 01 2000</string>
 	<key>IOKitPersonalities</key>
@@ -2790,9 +2790,9 @@
 				F5366A7602E8C85401000164,
 				F5430C670210912501573190,
 				19C28FB6FE9D52B211CA2CBB,
+				3E9D8265033AC7C000000164,
 				F5E6DDDD01206E6801000001,
 				F5F1994F01209AE401000001,
-				3E20590A034E3DD000000164,
 			);
 			isa = PBXGroup;
 			name = IOUSBFamily;
@@ -2820,7 +2820,7 @@
 				FRAMEWORK_SEARCH_PATHS = "";
 				HEADER_SEARCH_PATHS = "";
 				LIBRARY_SEARCH_PATHS = "";
-				OTHER_CFLAGS = "-fno-default-inline -W -Wall -Wno-unused";
+				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOUSBLib;
@@ -2843,7 +2843,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOUSBLib</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.9.4, Copyright Apple Computer, Inc. 2000-2002</string>
+	<string>1.9.7, Copyright Apple Computer, Inc. 2000-2002</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -2855,11 +2855,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.9.4</string>
+	<string>1.9.7</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.9.4</string>
+	<string>1.9.7</string>
 	<key>CFPlugInDynamicRegisterFunction</key>
 	<string></string>
 	<key>CFPlugInDynamicRegistration</key>
@@ -2941,7 +2941,7 @@
 			refType = 4;
 		};
 		089C167EFE841241C02AAC07 = {
-			fileEncoding = 4;
+			fileEncoding = 10;
 			isa = PBXFileReference;
 			name = English;
 			path = InfoPlist.strings;
@@ -3008,13 +3008,13 @@
 			);
 			buildSettings = {
 				INSTALL_GROUP = wheel;
-				INSTALL_MODE = "\"a-w, u+w, a+rX\"";
+				INSTALL_MODE = "a-w,u+w,a+rX";
 				INSTALL_OWNER = root;
 				KERNEL_EXTENSION = YES;
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOUSBHIDDriver;
-				MODULE_VERSION = 1.9.5;
+				MODULE_VERSION = 1.9.7;
 				OTHER_CFLAGS = "-fno-default-inline";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -3038,7 +3038,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOUSBHIDDriver</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.9.5, Copyright Apple Computer, Inc. 2000-2002</string>
+	<string>1.9.7, Copyright Apple Computer, Inc. 2000-2002</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -3050,11 +3050,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.9.5</string>
+	<string>1.9.7</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.9.5</string>
+	<string>1.9.7</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>Generic Mouse</key>
@@ -3290,8 +3290,8 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBMergeNub;
-				MODULE_VERSION = 1.9;
-				OTHER_CFLAGS = "-fno-default-inline -W -Wall -Wno-unused";
+				MODULE_VERSION = 1.9.7;
+				OTHER_CFLAGS = "-W -Wall -Wno-unused";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = AppleUSBMergeNub;
@@ -3314,7 +3314,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleUSBMergeNub</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.9.2, Copyright Apple Computer, Inc. 2000-2002</string>
+	<string>1.9.7, Copyright Apple Computer, Inc. 2000-2002</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -3326,11 +3326,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.9</string>
+	<string>1.9.7</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.9</string>
+	<string>1.9.7</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>Apple1</key>
@@ -3567,6 +3567,24 @@
 			<key>idVendor</key>
 			<integer>2828</integer>
 		</dict>
+		<key>USB-CFADP</key>
+		<dict>
+			<key>CFBundleIndentifier</key>
+			<string>com.apple.driver.AppleUSBMergeNub</string>
+			<key>IOClass</key>
+			<string>AppleUSBMergeNub</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBDevice</string>
+			<key>IOProviderMergeProperties</key>
+			<dict>
+				<key>kDoNotSuspend</key>
+				<true/>
+			</dict>
+			<key>idProduct</key>
+			<integer>2333</integer>
+			<key>idVendor</key>
+			<integer>1211</integer>
+		</dict>
 		<key>uConnect0</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
@@ -3758,11 +3776,14 @@
 //3E2
 //3E3
 //3E4
-		3E20590A034E3DD000000164 = {
-			isa = PBXFrameworkReference;
-			name = Kernel.framework;
-			path = /System/Library/Frameworks/Kernel.framework;
-			refType = 0;
+		3E9D8265033AC7C000000164 = {
+			children = (
+				F5C2AE73032E5BA501000164,
+			);
+			isa = PBXGroup;
+			name = Frameworks;
+			path = "";
+			refType = 2;
 		};
 //3E0
 //3E1
@@ -3911,6 +3932,30 @@
 			name = IOUSBHIDDriver;
 			refType = 4;
 		};
+		F51191B1039D214F01000164 = {
+			isa = PBXFileReference;
+			name = DecodeAudioInterfaceDescriptor.h;
+			path = USBProber/DecodeAudioInterfaceDescriptor.h;
+			refType = 4;
+		};
+		F51191B2039D214F01000164 = {
+			isa = PBXFileReference;
+			name = DecodeAudioInterfaceDescriptor.m;
+			path = USBProber/DecodeAudioInterfaceDescriptor.m;
+			refType = 4;
+		};
+		F51191B3039D214F01000164 = {
+			fileRef = F51191B1039D214F01000164;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F51191B4039D214F01000164 = {
+			fileRef = F51191B2039D214F01000164;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
 		F517150D022D3AE7010162FA = {
 			includeInIndex = 0;
 			isa = PBXFolderReference;
@@ -3948,6 +3993,7 @@
 				F5366AB102E8C97801000164,
 				F5366AB302E8C97801000164,
 				F5366AB502E8C97801000164,
+				F51191B3039D214F01000164,
 			);
 			isa = PBXHeadersBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -3978,6 +4024,7 @@
 				F5366AB202E8C97801000164,
 				F5366AB402E8C97801000164,
 				F5366AB602E8C97801000164,
+				F51191B4039D214F01000164,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -4009,7 +4056,7 @@
 				F5366A7202E8C77501000164,
 			);
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 2.0.3f1;
+				CURRENT_PROJECT_VERSION = 2.0.4;
 				INSTALL_PATH = "$(SYSTEM_DEVELOPER_APPS_DIR)";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -4036,7 +4083,7 @@
 	<key>CFBundleExecutable</key>
 	<string>USB Prober</string>
 	<key>CFBundleGetInfoString</key>
-	<string>2.0.3, Copyright Apple Computer, Inc. 2002</string>
+	<string>2.0.4, Copyright Apple Computer, Inc. 2002</string>
 	<key>CFBundleIconFile</key>
 	<string>USBProberIcon.icns</string>
 	<key>CFBundleIdentifier</key>
@@ -4048,11 +4095,11 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.0.3</string>
+	<string>2.0.4</string>
 	<key>CFBundleSignature</key>
 	<string>USBP</string>
 	<key>CFBundleVersion</key>
-	<string>2.0.3f1</string>
+	<string>2.0.4</string>
 	<key>NSMainNibFile</key>
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
@@ -4143,6 +4190,8 @@
 				F5366A9002E8C97801000164,
 				F5366A9C02E8C97801000164,
 				F5366A9D02E8C97801000164,
+				F51191B1039D214F01000164,
+				F51191B2039D214F01000164,
 			);
 			isa = PBXGroup;
 			name = "Bus Probe";
@@ -4184,126 +4233,147 @@
 			refType = 4;
 		};
 		F5366A8B02E8C97801000164 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = Authorization.h;
 			path = USBProber/Authorization.h;
 			refType = 4;
 		};
 		F5366A8C02E8C97801000164 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = Authorization.m;
 			path = USBProber/Authorization.m;
 			refType = 4;
 		};
 		F5366A8D02E8C97801000164 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = BusProbeClass.h;
 			path = USBProber/BusProbeClass.h;
 			refType = 4;
 		};
 		F5366A8E02E8C97801000164 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = BusProbeClass.m;
 			path = USBProber/BusProbeClass.m;
 			refType = 4;
 		};
 		F5366A8F02E8C97801000164 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = DecodeHIDReport.h;
 			path = USBProber/DecodeHIDReport.h;
 			refType = 4;
 		};
 		F5366A9002E8C97801000164 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = DecodeHIDReport.m;
 			path = USBProber/DecodeHIDReport.m;
 			refType = 4;
 		};
 		F5366A9102E8C97801000164 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IORegistryClass.h;
 			path = USBProber/IORegistryClass.h;
 			refType = 4;
 		};
 		F5366A9202E8C97801000164 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IORegistryClass.m;
 			path = USBProber/IORegistryClass.m;
 			refType = 4;
 		};
 		F5366A9302E8C97801000164 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = Main.m;
 			path = USBProber/Main.m;
 			refType = 4;
 		};
 		F5366A9402E8C97801000164 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = MainController.h;
 			path = USBProber/MainController.h;
 			refType = 4;
 		};
 		F5366A9502E8C97801000164 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = MainController.m;
 			path = USBProber/MainController.m;
 			refType = 4;
 		};
 		F5366A9602E8C97801000164 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = Node.h;
 			path = USBProber/Node.h;
 			refType = 4;
 		};
 		F5366A9702E8C97801000164 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = Node.m;
 			path = USBProber/Node.m;
 			refType = 4;
 		};
 		F5366A9802E8C97801000164 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = NodeOutput.h;
 			path = USBProber/NodeOutput.h;
 			refType = 4;
 		};
 		F5366A9902E8C97801000164 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = NodeOutput.m;
 			path = USBProber/NodeOutput.m;
 			refType = 4;
 		};
 		F5366A9A02E8C97801000164 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = SystemCommands.h;
 			path = USBProber/SystemCommands.h;
 			refType = 4;
 		};
 		F5366A9B02E8C97801000164 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = SystemCommands.m;
 			path = USBProber/SystemCommands.m;
 			refType = 4;
 		};
 		F5366A9C02E8C97801000164 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = USBClass.h;
 			path = USBProber/USBClass.h;
 			refType = 4;
 		};
 		F5366A9D02E8C97801000164 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = USBClass.m;
 			path = USBProber/USBClass.m;
 			refType = 4;
 		};
 		F5366A9E02E8C97801000164 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = USBLoggerClass.h;
 			path = USBProber/USBLoggerClass.h;
 			refType = 4;
 		};
 		F5366A9F02E8C97801000164 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = USBLoggerClass.m;
 			path = USBProber/USBLoggerClass.m;
@@ -4316,6 +4386,7 @@
 			refType = 4;
 		};
 		F5366AA102E8C97801000164 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = USBVendors.txt;
 			path = USBProber/USBVendors.txt;
@@ -4469,6 +4540,7 @@
 			refType = 4;
 		};
 		F5366ABA02E8CA2201000164 = {
+			fileEncoding = 10;
 			isa = PBXFileReference;
 			name = English;
 			path = USBProber/English.lproj/InfoPlist.strings;
@@ -4484,6 +4556,7 @@
 			refType = 4;
 		};
 		F5366ABC02E8CA2201000164 = {
+			fileEncoding = 10;
 			isa = PBXFileReference;
 			name = English;
 			path = USBProber/English.lproj/LaunchTime.strings;
@@ -4642,7 +4715,7 @@
 			refType = 4;
 		};
 		F5395F90016D59DB01573190 = {
-			fileEncoding = 4;
+			fileEncoding = 10;
 			isa = PBXFileReference;
 			name = InfoPlist.strings;
 			path = AppleUSBKeyboard/Strings/English.lproj/InfoPlist.strings;
@@ -4671,7 +4744,7 @@
 			refType = 4;
 		};
 		F5395F94016D5A6B01573190 = {
-			fileEncoding = 4;
+			fileEncoding = 10;
 			isa = PBXFileReference;
 			name = InfoPlist.strings;
 			path = AppleUSBMergeNub/Strings/English.lproj/InfoPlist.strings;
@@ -4692,6 +4765,7 @@
 			refType = 4;
 		};
 		F5395F97016D5AF201573190 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = InfoPlist.strings;
 			path = AppleUSBMouse/Strings/English.lproj/InfoPlist.strings;
@@ -4699,7 +4773,7 @@
 		};
 		F5395F99016D5B4601573190 = {
 			children = (
-				F547620B016D5CE601573190,
+				F590EEF1034A864601000105,
 			);
 			isa = PBXGroup;
 			name = Strings;
@@ -4708,9 +4782,9 @@
 		F5395F9A016D5B4601573190 = {
 			fileEncoding = 10;
 			isa = PBXFileReference;
-			name = InfoPlist.strings;
-			path = AppleUSBOHCI/Strings/English.lproj/InfoPlist.strings;
+			path = InfoPlist.strings;
 			refType = 4;
+			usesTabs = 1;
 		};
 		F5395F9C016D5B9001573190 = {
 			children = (
@@ -4846,8 +4920,8 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBOpticalMouse;
-				MODULE_VERSION = 1.9;
-				OTHER_CFLAGS = "-fno-default-inline -W -Wall -Wno-unused";
+				MODULE_VERSION = 1.9.7;
+				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = AppleUSBOpticalMouse;
@@ -4870,7 +4944,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleUSBOpticalMouse</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.9, Copyright Apple Computer, Inc. 2000-2002</string>
+	<string>1.9.7, Copyright Apple Computer, Inc. 2000-2002</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -4882,13 +4956,73 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.9</string>
+	<string>1.9.7</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.9</string>
+	<string>1.9.7</string>
 	<key>IOKitPersonalities</key>
 	<dict>
+		<key>Apple 2000FPS Mouse</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleUSBOpticalMouse</string>
+			<key>HIDDefaultBehavior</key>
+			<string>Mouse</string>
+			<key>HIDPointerAccelerationTable</key>
+			<data>
+			AACAAFVTQioABwAAAAAAAQABAAAAAQAAAAAgAAAQAABxOwAATOMA
+			BE7FAA03BAAFRAAAFIAAAAcsAAAj4AAACQAAADSwAAAK2AAARfAA
+			AA0IAABXkAAAD2AAAGkAAAASEAAAeoAAABUAAACJAAAAF8AAAJEA
+			AAAawAAAlrAAAB2QAACZsAAAIKAAAJswAAAj8AAAnDAAACewAACc
+			MAAAAIAAABIAAHE7AABWfwAESgAADqAAAAY6AAAfQAAABygAACkA
+			AAAI2AAAPGAAAAm4AABHQAAACrAAAFMwAAALwAAAYDAAAAzAAABs
+			IAAADuAAAIQgAAARYAAAnSAAABQAAAC0AAAAFsAAAMcAAAAZoAAA
+			1AAAABzgAADbAAAAIIAAAOAAAAAkQAAA4wAAACegAADjAAAAALAA
+			ABQAAHE7AABhTgAESgAAD2AAAAUyAAAXYAAABjIAACCgAAAHLAAA
+			LCAAAAgIAAA3oAAACOQAAENAAAAJwAAAUIAAAAqgAABfIgAAC5AA
+			AG1wAAAMcAAAewAAAA6AAACYoAAAEMAAALYAAAATQAAA0gAAABZg
+			AADpAAAAGiAAAPoAAAAdoAABAwAAACEgAAEHAAAAJIAAAQoAAAAn
+			oAABDAAAAADgAAARAABxOwAAbXcABBoAABHwAAAFGgAAG/AAAAXw
+			AAAmYAAABvwAADQAAAAITAAAT+AAAAlsAABt4AAACngAAI3AAAAL
+			sAAAtkAAAA1QAADZgAAAEQAAAPeAAAAVwAABEQAAABlgAAEgAAAA
+			HUAAASgAAAAhAAABLgAAACSAAAEyAAAAJ4AAATUAAAAAUAAAEgAA
+			cTsAAEuwAARMAAAOAAAABUAAABVQAAAHJAAAJiAAAAi0AAA1wAAA
+			CpAAAEmAAAAL6AAAVoAAAA0gAABiAAAADhgAAGrQAAAPGAAAdAAA
+			ABGQAACHgAAAFFAAAJoAAAAXYAAAqYAAABpgAAC0AAAAHVAAALkA
+			AAAg0AAAvIAAACQgAAC9gAAAJ7AAAL6AAAABAAAAEAAAcTsAAFZ/
+			AAO4AAASoAAABSAAACVAAAAGCAAAN4AAAAbwAABfAAAAB/AAAIoA
+			AAAJKAAAyyAAAArwAAD3gAAADSAAARyAAAAQAAABOAAAABRAAAFK
+			AAAAGQAAAVMAAAAc0AABVwAAACDgAAFbgAAAJCAAAV2AAAAnoAAB
+			XgAAAFJwAAAJlNEAWTAAAAoSaQBf8AAACpAAAGawAAAA4AAAHAAB
+			GFUAATAAAAGyKAAC8AAAAlNpAAagAAADb0oAENAAAAOteAAUWAAA
+			A+ulABfgAAAEKdMAG2gAAARoAAAe8AAABKIBACKYAAAE2VYAJiAA
+			AAUUqwApaAAABVAAACywAAAFgAEAMcgAAAW1VgA2QAAABeqrADq4
+			AAAGIAAAPzAAAAZiAABD3AAABp6rAEh4AAAG21YATRQAAAcYAABR
+			sAAAB3oBAFbcAAAH2VYAW/gAAAg4qwBhFAAACJgAAGYwAAAJFgEA
+			bAAAAAmRVgBx0AAACgyrAHegAAAKiAAAfXAAAAEAAAATAAEYVQAB
+			MAAAAbIoAAMQAAACU2kABxAAAAMvSgARgAAAA6z7AByIAAAEOqsA
+			KOAAAASBVgAwiAAABMgAADgwAAAFDVYAQJgAAAVQAABI8AAABcar
+			AFKwAAAGOAAAXHAAAAbxVgBnwAAAB0yrAG1YAAAHqAAAcvAAAAhM
+			AAB5BAAACPAAAH8YAAAJlAAAhSwAAAo4AACLQAA=
+			</data>
+			<key>IOClass</key>
+			<string>AppleUSBOpticalMouse</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBInterface</string>
+			<key>IOUserClientClass</key>
+			<string>IOUSBHIDDriverUserClient</string>
+			<key>SwitchTo2000FPS</key>
+			<true/>
+			<key>bConfigurationValue</key>
+			<integer>1</integer>
+			<key>bInterfaceNumber</key>
+			<integer>0</integer>
+			<key>idProduct</key>
+			<integer>775</integer>
+			<key>idVendor</key>
+			<integer>1452</integer>
+		</dict>
 		<key>Apple 800 DPI Mouse</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
@@ -4938,6 +5072,8 @@
 			<string>IOUSBInterface</string>
 			<key>IOUserClientClass</key>
 			<string>IOUSBHIDDriverUserClient</string>
+			<key>SwitchTo800DPI</key>
+			<true/>
 			<key>bConfigurationValue</key>
 			<integer>1</integer>
 			<key>bInterfaceNumber</key>
@@ -5022,20 +5158,6 @@
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
-		F547620B016D5CE601573190 = {
-			children = (
-				F5395F9A016D5B4601573190,
-			);
-			isa = PBXVariantGroup;
-			name = InfoPlist.strings;
-			refType = 4;
-		};
-		F547620C016D5CE601573190 = {
-			fileRef = F547620B016D5CE601573190;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		F547620D016D5D1101573190 = {
 			children = (
 				F5395F84016D58FD01573190,
@@ -5111,6 +5233,10 @@
 			path = USBUPSSupport.bundle;
 			refType = 3;
 		};
+		F549D3710226FF5E010162FA = {
+			isa = PBXTargetDependency;
+			target = F549D3720226FF5E010162FA;
+		};
 		F549D3720226FF5E010162FA = {
 			buildPhases = (
 				F549D3730226FF5E010162FA,
@@ -5121,7 +5247,6 @@
 			);
 			buildSettings = {
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
-				OTHER_CFLAGS = "-W -Wall -Wno-unused";
 				OTHER_LDFLAGS = "-bundle";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = USBUPSSupport;
@@ -5145,7 +5270,7 @@
 	<key>CFBundleExecutable</key>
 	<string>USBUPSSupport</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.9.5, Copyright Apple Computer, Inc. 2000-2002</string>
+	<string>1.9.7, Copyright Apple Computer, Inc. 2000-2002</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -5157,11 +5282,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.9.5</string>
+	<string>1.9.7</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.9.5</string>
+	<string>1.9.7</string>
 </dict>
 </plist>
 ";
@@ -5278,6 +5403,7 @@
 			refType = 4;
 		};
 		F573C3D3016D730C01573190 = {
+			fileEncoding = 10;
 			isa = PBXFileReference;
 			name = Localizable.strings;
 			path = IOUSBFamily/Strings/English.lproj/Localizable.strings;
@@ -5285,6 +5411,21 @@
 		};
 		F573C3D4016D730C01573190 = {
 			fileRef = F573C3D2016D730C01573190;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F590EEF1034A864601000105 = {
+			children = (
+				F5395F9A016D5B4601573190,
+			);
+			isa = PBXVariantGroup;
+			name = InfoPlist.strings;
+			path = AppleUSBOHCI/Strings/English.lproj;
+			refType = 4;
+		};
+		F590EEF2034A864601000105 = {
+			fileRef = F590EEF1034A864601000105;
 			isa = PBXBuildFile;
 			settings = {
 			};
@@ -5400,6 +5541,12 @@
 			isa = PBXBuildFile;
 			settings = {
 			};
+		};
+		F5C2AE73032E5BA501000164 = {
+			isa = PBXFrameworkReference;
+			name = Kernel.framework;
+			path = /System/Library/Frameworks/Kernel.framework;
+			refType = 0;
 		};
 		F5C6E0DB0300612F01000164 = {
 			isa = PBXTargetDependency;
@@ -5556,10 +5703,6 @@
 			isa = PBXBuildFile;
 			settings = {
 			};
-		};
-		F5E9E7D3038160B801000164 = {
-			isa = PBXTargetDependency;
-			target = F549D3720226FF5E010162FA;
 		};
 		F5ED525400B2F5BF01000001 = {
 			fileRef = 0179BA33FFBA18947F000001;

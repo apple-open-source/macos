@@ -1,5 +1,4 @@
-#	$Id: TRACEFLAGS,v 1.1.1.2 2002/03/12 18:00:28 zarzycki Exp $
-0, 1	main.c		main	skip background fork
+#	$Id: TRACEFLAGS,v 1.1.1.3 2002/10/15 02:38:23 zarzycki Exp $
 0, 4	main.c		main	canonical name, UUCP node name, a.k.a.s
 0, 15	main.c		main	print configuration
 0, 44	util.c		printav	print address of each string
@@ -53,7 +52,7 @@
 41	queue.c		orderq
 42	mci.c		mci_get
 43	mime.c		mime8to7
-44	recipient.c	writeable
+44	recipient.c	writable
 44	safefile.c	safefile, safedirpath, filechanged
 45	envelope.c	setsender
 46	envelope.c	openxscript
@@ -77,16 +76,18 @@
 64	multiple	Milter
 65	main.c		permission checks
 66	srvrsmtp.c	conformance checks
-67	conf.c		signals
 69	queue.c		scheduling
 #if _FFR_QUARANTINE
 70	queue.c		quarantining
 #endif /* _FFR_QUARANTINE */
+71,>99	milter.c	quarantine on errors
 80			content length
 81			sun remote mode
 91	mci.c		syslogging of MCI cache information
 94,>99	srvrsmtp.c	cause commands to fail (for protocol testing)
 95	srvrsmtp.c	AUTH
 95	usersmtp.c	AUTH
+96	tls.c		Activate SSL_CTX_set_info_callback()
+97	srvrsmtp.c	Trace automode settings for I/O
 98	*		timers
 99	main.c		avoid backgrounding (no printed output)

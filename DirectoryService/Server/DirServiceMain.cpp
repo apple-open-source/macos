@@ -623,6 +623,10 @@ int main ( int argc, char * const *argv )
 
 	try
 	{
+		//set the environment variable for the SMB plugin in this single thread
+		//so that nmblookup will pass back encoded strings
+		setenv( "__APPLE_NMBLOOKUP_HACK_2987131", "", 0 );
+		
 		// Open the log files
 		CLog::Initialize( kLogEverything, kLogEverything, debugOpts, profileOpts, bDebug, bProfiling );
 		SRVRLOG( kLogApplication, "\n\n" );

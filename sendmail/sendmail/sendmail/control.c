@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2001 Sendmail, Inc. and its suppliers.
+ * Copyright (c) 1998-2002 Sendmail, Inc. and its suppliers.
  *	All rights reserved.
  *
  * By using this file, you agree to the terms and conditions set
@@ -10,7 +10,7 @@
 
 #include <sendmail.h>
 
-SM_RCSID("@(#)$Id: control.c,v 1.1.1.2 2002/03/12 18:00:30 zarzycki Exp $")
+SM_RCSID("@(#)$Id: control.c,v 1.1.1.3 2002/10/15 02:38:26 zarzycki Exp $")
 
 /* values for cmd_code */
 #define CMDERROR	0	/* bad command */

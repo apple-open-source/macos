@@ -31,6 +31,7 @@
 #include <IOKit/usb/IOUSBPipe.h>
 #include <IOKit/usb/IOUSBLog.h>
 #include <IOKit/IOCommandPool.h>
+#include <IOKit/usb/IOUSBControllerV2.h>
 
 #include "IOUSBInterfaceUserClient.h"
 
@@ -248,6 +249,20 @@ IOUSBInterfaceUserClient::sMethods[kNumUSBInterfaceMethods] = {
 	kIOUCStructIStructO,
 	sizeof(LowLatencyUserBufferInfo),
 	0
+    },
+    { //    kUSBInterfaceUserClientGetMicroFrameNumber
+        (IOService*)kMethodObjectThis,
+        (IOMethod) &IOUSBInterfaceUserClient::GetMicroFrameNumber,
+        kIOUCScalarIStructO,
+        0,
+        0xffffffff
+    },
+    { //    kUSBInterfaceUserClientGetFrameListTime
+        (IOService*)kMethodObjectThis,
+        (IOMethod) &IOUSBInterfaceUserClient::GetFrameListTime,
+        kIOUCScalarIScalarO,
+        0,
+        1
     }
 };
 
@@ -739,7 +754,47 @@ IOUSBInterfaceUserClient::GetFrameNumber(IOUSBGetFrameStruct *data, UInt32 *size
 
 
 
-IOReturn 
+IOReturn
+IOUSBInterfaceUserClient::GetMicroFrameNumber(IOUSBGetFrameStruct *data, UInt32 *size)
+{
+    // This method only available for v2 controllers
+    //
+    IOUSBControllerV2	*v2 = OSDynamicCast(IOUSBControllerV2, fOwner->GetDevice()->GetBus());
+    IOReturn		ret = kIOReturnSuccess;
+
+    if (!v2)
+    {
+        USBLog(3, "%s[%p]::GetMicroFrameNumber - Not a USB 2.0 controller!  Returning 0x%x", getName(), this, kIOReturnNotAttached);
+        return kIOReturnNotAttached;
+    }
+
+    if (*size != sizeof(IOUSBGetFrameStruct))
+    {
+        USBLog(3, "%s[%p]::GetMicroFrameNumber - *size is not sizeof(IOUSBGetFrameStruct): %ld, %ld", getName(), this, *size, sizeof(IOUSBGetFrameStruct) );
+        return kIOReturnBadArgument;
+    }
+
+    IncrementOutstandingIO();
+    if (fOwner && !isInactive())
+    {
+        clock_get_uptime(&data->timeStamp);
+        data->frame = v2->GetMicroFrameNumber();
+    }
+    else
+    {
+        USBLog(3, "%s[%p]::GetMicroFrameNumber - no fOwner(%p) or isInactive", getName(), this, fOwner);
+        ret = kIOReturnNotAttached;
+    }
+
+    DecrementOutstandingIO();
+    if (ret)
+        USBLog(3, "%s[%p]::GetFrameNumber - returning err %x", getName(), this, ret);
+    return ret;
+}
+
+
+
+IOReturn
 IOUSBInterfaceUserClient::GetBandwidthAvailable(UInt32 *bandwidth)
 {
     IOReturn		ret = kIOReturnSuccess;
@@ -748,17 +803,55 @@ IOUSBInterfaceUserClient::GetBandwidthAvailable(UInt32 *bandwidth)
 
     if (fOwner && !isInactive())
     {
-	*bandwidth = fOwner->GetDevice()->GetBus()->GetBandwidthAvailable();
+        *bandwidth = fOwner->GetDevice()->GetBus()->GetBandwidthAvailable();
     }
     else
         ret = kIOReturnNotAttached;
 
     if (ret)
-	USBLog(3, "%s[%p]::GetBandwidthAvailable - returning err %x", getName(), this, ret);
-	
+        USBLog(3, "%s[%p]::GetBandwidthAvailable - returning err %x", getName(), this, ret);
+
     return ret;
 }
 
+
+
+IOReturn
+IOUSBInterfaceUserClient::GetFrameListTime(UInt32 *microsecondsInFrame)
+{
+    IOReturn		ret = kIOReturnSuccess;
+
+    USBLog(7, "+%s[%p]::GetFrameListTime", getName(), this);
+
+    if (fOwner && !isInactive())
+    {
+        UInt8	speed;
+        // Find the speed of the device and return the appropriate microseconds
+        // depending on the speed
+        //
+        speed  = fOwner->GetDevice()->GetSpeed();
+
+        if ( speed == kUSBDeviceSpeedHigh )
+        {
+            // High Speed Device
+            //
+            *microsecondsInFrame = kUSBHighSpeedMicrosecondsInFrame;
+        }
+        else
+        {
+            // Low and Full Speed
+            //
+            *microsecondsInFrame = kUSBFullSpeedMicrosecondsInFrame;
+        }
+    }
+    else
+        ret = kIOReturnNotAttached;
+
+    if (ret)
+        USBLog(3, "%s[%p]::GetFrameListTime - returning err %x", getName(), this, ret);
+
+    return ret;
+}
 
 
 IOReturn 
@@ -2372,6 +2465,7 @@ IOUSBInterfaceUserClient::free()
     {
        //  USBLog(5, "+%s[%p]::free releasing fFreeUSBLowLatencyCommandPool", getName(), this);
         fFreeUSBLowLatencyCommandPool->release();
+        fFreeUSBLowLatencyCommandPool = NULL;
     }
 
     if (fGate)

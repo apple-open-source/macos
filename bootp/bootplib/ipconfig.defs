@@ -32,11 +32,11 @@ type port_t = mach_port_t;
 type ip_address_t = MACH_MSG_TYPE_INTEGER_32;
 type ipconfig_method_t = MACH_MSG_TYPE_INTEGER_32;
 type ipconfig_status_t = MACH_MSG_TYPE_INTEGER_32;
-#else MOSX
+#else
 type ip_address_t = MSG_TYPE_INTEGER_32;
 type ipconfig_method_t = MSG_TYPE_INTEGER_32;
 type ipconfig_status_t = MSG_TYPE_INTEGER_32;
-#endif MOSX
+#endif
 
 type if_name_t = array[32] of char;
 type ooline_data_t = ^ array [] of char;

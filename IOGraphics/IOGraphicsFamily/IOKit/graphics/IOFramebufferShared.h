@@ -138,11 +138,11 @@ struct bm38Cursor {
 
 enum {
     kIOFBCursorImageNew		= 0x01,
-    kIOFBCursorHWCapable	= 0x02,
+    kIOFBCursorHWCapable	= 0x02
 };
 enum {
     kIOFBHardwareCursorActive	= 0x01,
-    kIOFBHardwareCursorInVRAM	= 0x02,
+    kIOFBHardwareCursorInVRAM	= 0x02
 };
 
 /*! @struct StdFBShmem_t

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 1998-2001 Sendmail, Inc. and its suppliers.
+# Copyright (c) 1998-2002 Sendmail, Inc. and its suppliers.
 #	All rights reserved.
 # Copyright (c) 1983, 1995 Eric P. Allman.  All rights reserved.
 # Copyright (c) 1988, 1993
@@ -119,8 +119,10 @@ define(`_CPO_',`')
 define(`CLIENT_OPTIONS', `define(`_CPO_', defn(`_CPO_')
 O ClientPortOptions=`$1')')
 define(`_MAIL_FILTERS_', `')
+define(`_MAIL_FILTERS_DEF', `')
 define(`MAIL_FILTER', `define(`_MAIL_FILTERS_', defn(`_MAIL_FILTERS_')
-X`'$1`, '`$2')')
+X`'$1`, '`$2')
+define(`_MAIL_FILTERS_DEF', defn(`_MAIL_FILTERS_DEF')`X')')
 define(`INPUT_MAIL_FILTER', `MAIL_FILTER(`$1', `$2')
 ifelse(defn(`confINPUT_MAIL_FILTERS')X, `X',
 `define(`confINPUT_MAIL_FILTERS', $1)',
@@ -301,4 +303,4 @@ define(`confMILTER_MACROS_ENVRCPT', ``{rcpt_mailer}, {rcpt_host}, {rcpt_addr}'')
 
 
 divert(0)dnl
-VERSIONID(`$Id: cfhead.m4,v 1.1.1.4 2002/03/12 17:59:50 zarzycki Exp $')
+VERSIONID(`$Id: cfhead.m4,v 1.1.1.5 2002/10/15 02:37:20 zarzycki Exp $')

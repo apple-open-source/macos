@@ -128,10 +128,12 @@
     static void deferredMoveCursor(IOFramebuffer * inst);
     static void deferredInterrupt( OSObject * owner,
                                     IOInterruptEventSource * evtSrc, int intCount );
+    static void deferredCLUTSetInterrupt( OSObject * owner,
+                                          IOInterruptEventSource * evtSrc, int intCount );
+    void IOFramebuffer::checkDeferredCLUTSet( void );
     static void handleVBL(IOFramebuffer * inst, void * ref);
     static void connectChangeInterrupt( IOFramebuffer * inst, void * ref );
     void checkConnectionChange( bool message = true );
-    void postConnectionChange( void );
     void setNextDependent( IOFramebuffer * dependent );
     IOFramebuffer * getNextDependent( void );
     void setCaptured( bool captured );

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 1998-2001 Sendmail, Inc. and its suppliers.
+# Copyright (c) 1998-2002 Sendmail, Inc. and its suppliers.
 #	All rights reserved.
 # Copyright (c) 1983, 1995 Eric P. Allman.  All rights reserved.
 # Copyright (c) 1988, 1993
@@ -24,15 +24,15 @@
 ######################################################################
 ######################################################################
 
-#####  $Id: submit.cf,v 1.1.1.1 2002/03/12 17:59:45 zarzycki Exp $  #####
-#####  $Id: submit.cf,v 1.1.1.1 2002/03/12 17:59:45 zarzycki Exp $  #####
-#####  $Id: submit.cf,v 1.1.1.1 2002/03/12 17:59:45 zarzycki Exp $  #####
-#####  $Id: submit.cf,v 1.1.1.1 2002/03/12 17:59:45 zarzycki Exp $  #####
+#####  $Id: submit.cf,v 1.1.1.2 2002/10/15 02:37:16 zarzycki Exp $  #####
+#####  $Id: submit.cf,v 1.1.1.2 2002/10/15 02:37:16 zarzycki Exp $  #####
+#####  $Id: submit.cf,v 1.1.1.2 2002/10/15 02:37:16 zarzycki Exp $  #####
+#####  $Id: submit.cf,v 1.1.1.2 2002/10/15 02:37:16 zarzycki Exp $  #####
 
-#####  $Id: submit.cf,v 1.1.1.1 2002/03/12 17:59:45 zarzycki Exp $  #####
+#####  $Id: submit.cf,v 1.1.1.2 2002/10/15 02:37:16 zarzycki Exp $  #####
 
 
-#####  $Id: submit.cf,v 1.1.1.1 2002/03/12 17:59:45 zarzycki Exp $  #####
+#####  $Id: submit.cf,v 1.1.1.2 2002/10/15 02:37:16 zarzycki Exp $  #####
 
 # level 10 config file format
 V10/Berkeley
@@ -106,11 +106,11 @@ Kdequote dequote
 DnMAILER-DAEMON
 
 
-D{MTAHost}localhost
+D{MTAHost}[localhost]
 
 
 # Configuration version number
-DZ8.12.2/Submit
+DZ8.12.6/Submit
 
 
 ###############
@@ -127,7 +127,7 @@ O SevenBitInput=False
 O AliasWait=10
 
 # location of alias file
-O AliasFile
+#O AliasFile=/etc/mail/aliases
 
 # minimum number of free blocks on filesystem
 O MinFreeBlocks=100
@@ -259,6 +259,8 @@ O QueueDirectory=/var/spool/clientmqueue
 # key for shared memory; 0 to turn off
 #O SharedMemoryKey=0
 
+
+
 # timeouts (many of these)
 #O Timeout.initial=5m
 #O Timeout.connect=5m
@@ -312,7 +314,7 @@ O StatusFile=/var/spool/clientmqueue/sm-client.st
 #  if undefined, use system default
 #  if defined but null, use TZ envariable passed in
 #  if defined and non-null, use that info
-#O TimeZoneSpec=
+O TimeZoneSpec=
 
 # default UID (can be username or userid:groupid)
 #O DefaultUser=mailnull
@@ -336,7 +338,7 @@ O StatusFile=/var/spool/clientmqueue/sm-client.st
 #O DelayLA=0
 
 # maximum number of children we allow at one time
-#O MaxDaemonChildren=12
+#O MaxDaemonChildren=0
 
 # maximum number of new connections per second
 #O ConnectionRateThrottle=0
@@ -475,7 +477,6 @@ O PidFile=/var/spool/clientmqueue/sm-client.pid
 
 # Input mail filters
 #O InputMailFilters
-
 
 
 # CA directory
@@ -947,7 +948,7 @@ R$* $| $* $| $*		$@ $>"Basic_check_relay" $1 $| $2
 
 SBasic_check_relay
 # check for deferred delivery mode
-R$*			$: < ${deliveryMode} > $1
+R$*			$: < $&{deliveryMode} > $1
 R< d > $*		$@ deferred
 R< $* > $*		$: $2
 
@@ -966,7 +967,7 @@ R$* $| $*		$@ $>"Basic_check_mail" $1
 
 SBasic_check_mail
 # check for deferred delivery mode
-R$*			$: < ${deliveryMode} > $1
+R$*			$: < $&{deliveryMode} > $1
 R< d > $*		$@ deferred
 R< $* > $*		$: $2
 
@@ -998,7 +999,8 @@ R<?> $*			$: $1
 R$*			$: <?> $>CanonAddr $1		canonify sender address and mark it
 R<?> $* < @ $+ . >	<?> $1 < @ $2 >			strip trailing dots
 # handle non-DNS hostnames (*.bitnet, *.decnet, *.uucp, etc)
-R<?> $* < @ $* $=P >	$: <OK> $1 < @ $2 $3 >
+R<?> $* < @ $* $=P >	$: <OKR> $1 < @ $2 $3 >
+R<?> $* < @ $j >	$: <OKR> $1 < @ $j >
 R<?> $* < @ $+ >	$: <? $(resolve $2 $: $2 <PERM> $) > $1 < @ $2 >
 R<? $* <$->> $* < @ $+ >
 			$: <$2> $3 < @ $4 >
@@ -1009,7 +1011,7 @@ R<?> $*			$: $&{daemon_flags} $| <?> $1
 R$* u $* $| <?> $*	$: <OKR> $3
 R$* $| $*		$: $2
 R<?> $*			$: < ? $&{client_name} > $1
-R<?> $*			$@ <OK>				...local unqualed ok
+R<?> $*			$@ <OKR>			...local unqualed ok
 R<? $+> $*		$#error $@ 5.5.4 $: "553 Domain name required for sender address " $&f
 							...remote is not
 # check results
@@ -1033,7 +1035,7 @@ SBasic_check_rcpt
 R<>			$#error $@ nouser $: "553 User address required"
 R$@			$#error $@ nouser $: "553 User address required"
 # check for deferred delivery mode
-R$*			$: < ${deliveryMode} > $1
+R$*			$: < $&{deliveryMode} > $1
 R< d > $*		$@ deferred
 R< $* > $*		$: $2
 
@@ -1227,7 +1229,7 @@ R$*			$#relay $@ ${MTAHost} $: $1 < @ $j >
 ###   Local and Program Mailer specification   ###
 ##################################################
 
-#####  $Id: submit.cf,v 1.1.1.1 2002/03/12 17:59:45 zarzycki Exp $  #####
+#####  $Id: submit.cf,v 1.1.1.2 2002/10/15 02:37:16 zarzycki Exp $  #####
 
 #
 #  Envelope sender rewriting
@@ -1279,7 +1281,7 @@ Mprog,		P=[IPC], F=lmDFMuXk5, S=EnvFromL/HdrFromL, R=EnvToL/HdrToL, D=$z:/,
 ###   SMTP Mailer specification   ###
 #####################################
 
-#####  $Id: submit.cf,v 1.1.1.1 2002/03/12 17:59:45 zarzycki Exp $  #####
+#####  $Id: submit.cf,v 1.1.1.2 2002/10/15 02:37:16 zarzycki Exp $  #####
 
 #
 #  common sender and masquerading recipient rewriting
@@ -1351,19 +1353,19 @@ SMasqRelay
 R$+			$: $>MasqSMTP $1
 R$+			$: $>MasqHdr $1
 
-Msmtp,		P=[IPC], F=mDFMuXk05, S=EnvFromSMTP/HdrFromSMTP, R=EnvToSMTP, E=\r\n, L=990,
+Msmtp,		P=[IPC], F=mDFMuXk5, S=EnvFromSMTP/HdrFromSMTP, R=EnvToSMTP, E=\r\n, L=990,
 		T=DNS/RFC822/SMTP,
 		A=TCP $h
-Mesmtp,		P=[IPC], F=mDFMuXak05, S=EnvFromSMTP/HdrFromSMTP, R=EnvToSMTP, E=\r\n, L=990,
+Mesmtp,		P=[IPC], F=mDFMuXak5, S=EnvFromSMTP/HdrFromSMTP, R=EnvToSMTP, E=\r\n, L=990,
 		T=DNS/RFC822/SMTP,
 		A=TCP $h
-Msmtp8,		P=[IPC], F=mDFMuX8k05, S=EnvFromSMTP/HdrFromSMTP, R=EnvToSMTP, E=\r\n, L=990,
+Msmtp8,		P=[IPC], F=mDFMuX8k5, S=EnvFromSMTP/HdrFromSMTP, R=EnvToSMTP, E=\r\n, L=990,
 		T=DNS/RFC822/SMTP,
 		A=TCP $h
-Mdsmtp,		P=[IPC], F=mDFMuXa%k05, S=EnvFromSMTP/HdrFromSMTP, R=EnvToSMTP, E=\r\n, L=990,
+Mdsmtp,		P=[IPC], F=mDFMuXa%k5, S=EnvFromSMTP/HdrFromSMTP, R=EnvToSMTP, E=\r\n, L=990,
 		T=DNS/RFC822/SMTP,
 		A=TCP $h
-Mrelay,		P=[IPC], F=mDFMuXa8k0, S=EnvFromSMTP/HdrFromSMTP, R=MasqSMTP, E=\r\n, L=2040,
+Mrelay,		P=[IPC], F=mDFMuXa8k, S=EnvFromSMTP/HdrFromSMTP, R=MasqSMTP, E=\r\n, L=2040,
 		T=DNS/RFC822/SMTP,
 		A=TCP $h
 

@@ -13,7 +13,7 @@
 
 #include <sendmail.h>
 
-SM_RCSID("@(#)$Id: conf.c,v 1.1.1.2 2002/03/12 18:00:29 zarzycki Exp $")
+SM_RCSID("@(#)$Id: conf.c,v 1.1.1.3 2002/10/15 02:38:25 zarzycki Exp $")
 
 #include <sendmail/pathnames.h>
 
@@ -524,9 +524,15 @@ setupmaps()
 
 #if NAMED_BIND
 # if DNSMAP
+#  if _FFR_DNSMAP_ALIASABLE
+	MAPDEF("dns", NULL, MCF_ALIASOK,
+	       dns_map_parseargs, dns_map_open, null_map_close,
+	       dns_map_lookup, null_map_store);
+#  else /* _FFR_DNSMAP_ALIASABLE */
 	MAPDEF("dns", NULL, 0,
 	       dns_map_parseargs, dns_map_open, null_map_close,
 	       dns_map_lookup, null_map_store);
+#  endif /* _FFR_DNSMAP_ALIASABLE */
 # endif /* DNSMAP */
 #endif /* NAMED_BIND */
 
@@ -2321,6 +2327,25 @@ typedef unsigned int	*pt_entry_t;
 # define SPT_BUFSIZE	MAXLINE
 #endif /* ! SPT_BUFSIZE */
 
+#if _FFR_SPT_ALIGN
+
+/*
+**  It looks like the Compaq Tru64 5.1A now aligns argv and envp to
+**  64 bit alignment, so unless each piece of argv and envp is a multiple
+**  of 8 bytes (including terminating NULL), initsetproctitle() won't use
+**  any of the space beyond argv[0].  Be sure to set SPT_ALIGN_SIZE if
+**  you use this FFR.
+*/
+
+# ifdef SPT_ALIGN_SIZE
+#  define SPT_ALIGN(x, align)	(((((x) + SPT_ALIGN_SIZE) >> (align)) << (align)) - 1)
+# else /* SPT_ALIGN_SIZE */
+#  define SPT_ALIGN(x, align)	(x)
+# endif /* SPT_ALIGN_SIZE */
+#else /* _FFR_SPT_ALIGN */
+# define SPT_ALIGN(x, align)	(x)
+#endif /* _FFR_SPT_ALIGN */
+
 /*
 **  Pointers for setproctitle.
 **	This allows "ps" listings to give more useful information.
@@ -2339,6 +2364,7 @@ initsetproctitle(argc, argv, envp)
 	char **envp;
 {
 	register int i;
+	int align;
 	extern char **environ;
 
 	/*
@@ -2346,12 +2372,15 @@ initsetproctitle(argc, argv, envp)
 	**  the top of memory.
 	*/
 
-	for (i = 0; envp[i] != NULL; i++)
-		continue;
-	environ = (char **) xalloc(sizeof (char *) * (i + 1));
-	for (i = 0; envp[i] != NULL; i++)
-		environ[i] = newstr(envp[i]);
-	environ[i] = NULL;
+	if (envp != NULL)
+	{
+		for (i = 0; envp[i] != NULL; i++)
+			continue;
+		environ = (char **) xalloc(sizeof (char *) * (i + 1));
+		for (i = 0; envp[i] != NULL; i++)
+			environ[i] = newstr(envp[i]);
+		environ[i] = NULL;
+	}
 
 	/*
 	**  Save start and extent of argv for setproctitle.
@@ -2363,15 +2392,24 @@ initsetproctitle(argc, argv, envp)
 	**  Determine how much space we can use for setproctitle.
 	**  Use all contiguous argv and envp pointers starting at argv[0]
 	*/
+
+	align = -1;
+#if _FFR_SPT_ALIGN
+# ifdef SPT_ALIGN_SIZE
+	for (i = SPT_ALIGN_SIZE; i > 0; i >>= 1)
+		align++;
+# endif /* SPT_ALIGN_SIZE */
+#endif /* _FFR_SPT_ALIGN */
+
 	for (i = 0; i < argc; i++)
 	{
 		if (i == 0 || LastArgv + 1 == argv[i])
-			LastArgv = argv[i] + strlen(argv[i]);
+			LastArgv = argv[i] + SPT_ALIGN(strlen(argv[i]), align);
 	}
-	for (i = 0; LastArgv != NULL && envp[i] != NULL; i++)
+	for (i = 0; LastArgv != NULL && envp != NULL && envp[i] != NULL; i++)
 	{
 		if (LastArgv + 1 == envp[i])
-			LastArgv = envp[i] + strlen(envp[i]);
+			LastArgv = envp[i] + SPT_ALIGN(strlen(envp[i]), align);
 	}
 }
 
@@ -2617,7 +2655,6 @@ SIGFUNC_DECL
 reapchild(sig)
 	int sig;
 {
-	int m = 0;
 	int save_errno = errno;
 	int st;
 	pid_t pid;
@@ -2655,7 +2692,6 @@ reapchild(sig)
 # endif /* HASWAITPID */
 		/* Drop PID and check if it was a control socket child */
 		proc_list_drop(pid, st, NULL);
-		CurRunners -= m; /* Update */
 	}
 	FIX_SYSV_SIGNAL(sig, reapchild);
 	errno = save_errno;
@@ -2736,7 +2772,8 @@ uname(name)
 	{
 		char buf[MAXLINE];
 
-		while (sm_io_fgets(file, SM_TIME_DEFAULT, buf, MAXLINE) != NULL)
+		while (sm_io_fgets(file, SM_TIME_DEFAULT,
+				   buf, sizeof buf) != NULL)
 		{
 			if (sm_io_sscanf(buf, "#define sysname \"%*[^\"]\"",
 					NODE_LENGTH, name->nodename) > 0)
@@ -3012,6 +3049,7 @@ static char	*DefaultUserShells[] =
 	"/bin/pam",
 	"/usr/bin/keysh",	/* key shell (extended Korn shell) */
 	"/bin/posix/sh",
+	"/sbin/sh"
 #  endif /* V4FS */
 # endif /* __hpux */
 # if defined(_AIX3) || defined(_AIX4)
@@ -3028,11 +3066,21 @@ static char	*DefaultUserShells[] =
 # endif /* defined(__svr4__) || defined(__svr5__) */
 # ifdef sgi
 	"/sbin/sh",		/* SGI's shells really live in /sbin */
-	"/sbin/csh",
+	"/usr/bin/sh",
+	"/sbin/bsh",		/* classic borne shell */
+	"/bin/bsh",
+	"/usr/bin/bsh",
+	"/sbin/csh",		/* standard csh */
+	"/bin/csh",
+	"/usr/bin/csh",
+	"/sbin/jsh",		/* classic borne shell w/ job control*/
+	"/bin/jsh",
+	"/usr/bin/jsh",
 	"/bin/ksh",		/* Korn shell */
 	"/sbin/ksh",
 	"/usr/bin/ksh",
-	"/bin/tcsh",		/* Extended csh */
+	"/sbin/tcsh",		/* Extended csh */
+	"/bin/tcsh",
 	"/usr/bin/tcsh",
 # endif /* sgi */
 	NULL
@@ -3482,13 +3530,12 @@ lockfile(fd, filename, ext, type)
 	if (!bitset(LOCK_NB, type) ||
 	    (save_errno != EACCES && save_errno != EAGAIN))
 	{
-		int omode = -1;
-#  ifdef F_GETFL
-		(void) fcntl(fd, F_GETFL, &omode);
+		int omode = fcntl(fd, F_GETFL, 0);
+		uid_t euid = geteuid();
+
 		errno = save_errno;
-#  endif /* F_GETFL */
 		syserr("cannot lockf(%s%s, fd=%d, type=%o, omode=%o, euid=%d)",
-			filename, ext, fd, type, omode, geteuid());
+		       filename, ext, fd, type, omode, euid);
 		dumpfd(fd, true, true);
 	}
 # else /* !HASFLOCK */
@@ -3513,13 +3560,12 @@ lockfile(fd, filename, ext, type)
 
 	if (!bitset(LOCK_NB, type) || save_errno != EWOULDBLOCK)
 	{
-		int omode = -1;
-#  ifdef F_GETFL
-		(void) fcntl(fd, F_GETFL, &omode);
+		int omode = fcntl(fd, F_GETFL, 0);
+		uid_t euid = geteuid();
+
 		errno = save_errno;
-#  endif /* F_GETFL */
 		syserr("cannot flock(%s%s, fd=%d, type=%o, omode=%o, euid=%d)",
-			filename, ext, fd, type, omode, geteuid());
+			filename, ext, fd, type, omode, euid);
 		dumpfd(fd, true, true);
 	}
 # endif /* !HASFLOCK */
@@ -3895,7 +3941,7 @@ validate_connection(sap, hostname, e)
 			hostname, anynet_ntoa(sap));
 
 	if (rscheck("check_relay", hostname, anynet_ntoa(sap),
-		    e, true, true, 3, NULL, NOQID) != EX_OK)
+		    e, RSF_RMCOMM|RSF_COUNT, 3, NULL, NOQID) != EX_OK)
 	{
 		static char reject[BUFSIZ*2];
 		extern char MsgBuf[];
@@ -5416,7 +5462,7 @@ link(source, target)
 			left -= writelen;
 			p += writelen;
 		}
-		if (writeln < 0)
+		if (writelen < 0)
 			break;
 	}
 
@@ -5549,7 +5595,11 @@ char	*CompileOptions[] =
 	"PIPELINING",
 #endif /* PIPELINING */
 #if SASL
+# if SASL >= 20000
+	"SASLv2",
+# else /* SASL >= 20000 */
 	"SASL",
+# endif /* SASL >= 20000 */
 #endif /* SASL */
 #if SCANF
 	"SCANF",
@@ -5575,6 +5625,9 @@ char	*CompileOptions[] =
 #if USERDB
 	"USERDB",
 #endif /* USERDB */
+#if USE_LDAP_INIT
+	"USE_LDAP_INIT",
+#endif /* USE_LDAP_INIT */
 #if XDEBUG
 	"XDEBUG",
 #endif /* XDEBUG */
@@ -5804,6 +5857,9 @@ char	*FFRCompileOptions[] =
 #if _FFR_ALLOW_SASLINFO
 	"_FFR_ALLOW_SASLINFO",
 #endif /* _FFR_ALLOW_SASLINFO */
+#if _FFR_ALLOW_S0_ERROR_4XX
+	"_FFR_ALLOW_S0_ERROR_4XX",
+#endif /* _FFR_ALLOW_S0_ERROR_4XX */
 #if _FFR_BESTMX_BETTER_TRUNCATION
 	"_FFR_BESTMX_BETTER_TRUNCATION",
 #endif /* _FFR_BESTMX_BETTER_TRUNCATION */
@@ -5814,9 +5870,15 @@ char	*FFRCompileOptions[] =
 #if _FFR_CATCH_BROKEN_MTAS
 	"_FFR_CATCH_BROKEN_MTAS",
 #endif /* _FFR_CATCH_BROKEN_MTAS */
+#if _FFR_CATCH_LONG_STRINGS
+	"_FFR_CATCH_LONG_STRINGS",
+#endif /* _FFR_CATCH_LONG_STRINGS */
 #if _FFR_CHECK_EOM
 	"_FFR_CHECK_EOM",
 #endif /* _FFR_CHECK_EOM */
+#if _FFR_CHK_QUEUE
+	"_FFR_CHK_QUEUE",
+#endif /* _FFR_CHK_QUEUE */
 #if _FFR_CONTROL_MSTAT
 	"_FFR_CONTROL_MSTAT",
 #endif /* _FFR_CONTROL_MSTAT */
@@ -5826,6 +5888,14 @@ char	*FFRCompileOptions[] =
 #if _FFR_DEPRECATE_MAILER_FLAG_I
 	"_FFR_DEPRECATE_MAILER_FLAG_I",
 #endif /* _FFR_DEPRECATE_MAILER_FLAG_I */
+#if _FFR_DIGUNIX_SAFECHOWN
+/* Problem noted by Anne Bennett of Concordia University */
+	"_FFR_DIGUNIX_SAFECHOWN",
+#endif /* _FFR_DIGUNIX_SAFECHOWN */
+#if _FFR_DNSMAP_ALIASABLE
+/* Don Lewis of TDK */
+	"_FFR_DNSMAP_ALIASABLE",
+#endif /* _FFR_DNSMAP_ALIASABLE */
 #if _FFR_DNSMAP_BASE
 	"_FFR_DNSMAP_BASE",
 #endif /* _FFR_DNSMAP_BASE */
@@ -5838,6 +5908,10 @@ char	*FFRCompileOptions[] =
 #if _FFR_DONTLOCKFILESFORREAD_OPTION
 	"_FFR_DONTLOCKFILESFORREAD_OPTION",
 #endif /* _FFR_DONTLOCKFILESFORREAD_OPTION */
+# if _FFR_DONT_STOP_LOOKING
+/* Noted by Neil Rickert of Northern Illinois University */
+	"_FFR_DONT_STOP_LOOKING",
+# endif /* _FFR_DONT_STOP_LOOKING */
 #if _FFR_DOTTED_USERNAMES
 	"_FFR_DOTTED_USERNAMES",
 #endif /* _FFR_DOTTED_USERNAMES */
@@ -5856,6 +5930,10 @@ char	*FFRCompileOptions[] =
 #if _FFR_GROUPREADABLEAUTHINFOFILE
 	"_FFR_GROUPREADABLEAUTHINFOFILE",
 #endif /* _FFR_GROUPREADABLEAUTHINFOFILE */
+#if _FFR_HANDLE_ISO8859_GECOS
+/* Peter Eriksson of Linkopings universitet */
+	"_FFR_HANDLE_ISO8859_GECOS",
+#endif /* _FFR_HANDLE_ISO8859_GECOS */
 #if _FFR_HDR_TYPE
 	"_FFR_HDR_TYPE",
 #endif /* _FFR_HDR_TYPE */
@@ -5866,8 +5944,15 @@ char	*FFRCompileOptions[] =
 	"_FFR_IGNORE_EXT_ON_HELO",
 #endif /* _FFR_IGNORE_EXT_ON_HELO */
 #if _FFR_LDAP_RECURSION
+/* Andrew Baucom */
 	"_FFR_LDAP_RECURSION",
 #endif /* _FFR_LDAP_RECURSION */
+#if _FFR_LDAP_SETVERSION
+	"_FFR_LDAP_SETVERSION",
+#endif /* _FFR_LDAP_SETVERSION */
+#if _FFR_LDAP_URI
+	"_FFR_LDAP_URI",
+#endif /* _FFR_LDAP_URI */
 #if _FFR_MAX_FORWARD_ENTRIES
 /* Randall S. Winchester of the University of Maryland */
 	"_FFR_MAX_FORWARD_ENTRIES",
@@ -5881,6 +5966,10 @@ char	*FFRCompileOptions[] =
 /* Steven Pitzl */
 	"_FFR_NODELAYDSN_ON_HOLD",
 #endif /* _FFR_NODELAYDSN_ON_HOLD */
+#if _FFR_NONSTOP_PERSISTENCE
+/* Suggested by Jan Krueger of digitalanswers communications consulting gmbh. */
+	"_FFR_NONSTOP_PERSISTENCE",
+#endif /* _FFR_NONSTOP_PERSISTENCE */
 #if _FFR_NO_PIPE
 	"_FFR_NO_PIPE",
 #endif /* _FFR_NO_PIPE */
@@ -5890,9 +5979,16 @@ char	*FFRCompileOptions[] =
 #if _FFR_QUEUEDELAY
 	"_FFR_QUEUEDELAY",
 #endif /* _FFR_QUEUEDELAY */
+#if _FFR_QUEUE_GROUP_SORTORDER
+/* XXX: Still need to actually use qgrp->qg_sortorder */
+	"_FFR_QUEUE_GROUP_SORTORDER",
+#endif /* _FFR_QUEUE_GROUP_SORTORDER */
 #if _FFR_QUEUE_MACRO
 	"_FFR_QUEUE_MACRO",
 #endif /* _FFR_QUEUE_MACRO */
+#if _FFR_QUEUE_RUN_PARANOIA
+	"_FFR_QUEUE_RUN_PARANOIA",
+#endif /* _FFR_QUEUE_RUN_PARANOIA */
 #if _FFR_QUEUE_SCHED_DBG
 	"_FFR_QUEUE_SCHED_DBG",
 #endif /* _FFR_QUEUE_SCHED_DBG */
@@ -5902,18 +5998,35 @@ char	*FFRCompileOptions[] =
 #if _FFR_RESET_MACRO_GLOBALS
 	"_FFR_RESET_MACRO_GLOBALS",
 #endif /* _FFR_RESET_MACRO_GLOBALS */
+#if _FFR_RESPOND_ALL
+	/* in vacation */
+	"_FFR_RESPOND_ALL",
+#endif /* _FFR_RESPOND_ALL */
 #if _FFR_RHS
 	"_FFR_RHS",
 #endif /* _FFR_RHS */
+#if _FFR_SASL_OPT_M
+	"_FFR_SASL_OPT_M",
+#endif /* _FFR_SASL_OPT_M */
+#if _FFR_SELECT_SHM
+	"_FFR_SELECT_SHM",
+#endif /* _FFR_SELECT_SHM */
 #if _FFR_SHM_STATUS
 	"_FFR_SHM_STATUS",
 #endif /* _FFR_SHM_STATUS */
+#if _FFR_SMFI_OPENSOCKET
+	"_FFR_SMFI_OPENSOCKET",
+#endif /* _FFR_SMFI_OPENSOCKET */
 #if _FFR_SMTP_SSL
 	"_FFR_SMTP_SSL",
 #endif /* _FFR_SMTP_SSL */
 #if _FFR_SOFT_BOUNCE
 	"_FFR_SOFT_BOUNCE",
 #endif /* _FFR_SOFT_BOUNCE */
+#if _FFR_SPT_ALIGN
+/* Chris Adams of HiWAAY Informations Services */
+	"_FFR_SPT_ALIGN",
+#endif /* _FFR_SPT_ALIGN */
 #if _FFR_TIMERS
 	"_FFR_TIMERS",
 #endif /* _FFR_TIMERS */
@@ -5923,6 +6036,10 @@ char	*FFRCompileOptions[] =
 #if _FFR_TRUSTED_QF
 	"_FFR_TRUSTED_QF",
 #endif /* _FFR_TRUSTED_QF */
+#if _FFR_USE_SETLOGIN
+/* Peter Philipp */
+	"_FFR_USE_SETLOGIN",
+#endif /* _FFR_USE_SETLOGIN */
 	NULL
 };
 

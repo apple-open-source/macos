@@ -1,0 +1,204 @@
+/*
+ * mslp_mcast.c : Minimal SLP v2 multicast utilities used by mslpd and mslplib.
+ *
+ * Version: 1.4
+ * Date:    03/07/99
+ *
+ * Licensee will, at its expense,  defend and indemnify Sun Microsystems,
+ * Inc.  ("Sun")  and  its  licensors  from  and  against any third party
+ * claims, including costs and reasonable attorneys' fees,  and be wholly
+ * responsible for  any liabilities  arising  out  of  or  related to the
+ * Licensee's use of the Software or Modifications.   The Software is not
+ * designed  or intended for use in  on-line  control  of  aircraft,  air
+ * traffic,  aircraft navigation,  or aircraft communications;  or in the
+ * design, construction, operation or maintenance of any nuclear facility
+ * and Sun disclaims any express or implied warranty of fitness  for such
+ * uses.  THE SOFTWARE IS PROVIDED TO LICENSEE "AS IS" AND ALL EXPRESS OR
+ * IMPLIED CONDITION AND WARRANTIES, INCLUDING  ANY  IMPLIED  WARRANTY OF
+ * MERCHANTABILITY,   FITNESS  FOR  WARRANTIES,   INCLUDING  ANY  IMPLIED
+ * WARRANTY  OF  MERCHANTABILITY,  FITNESS FOR PARTICULAR PURPOSE OR NON-
+ * INFRINGEMENT, ARE DISCLAIMED. IN NO EVENT WILL SUN BE LIABLE HEREUNDER
+ * FOR ANY DIRECT DAMAGES OR ANY INDIRECT, PUNITIVE, SPECIAL, INCIDENTAL
+ * OR CONSEQUENTIAL DAMAGES OF ANY KIND.
+ *
+ * (c) Sun Microsystems, 1998, All Rights Reserved.
+ * Author: Erik Guttman
+ */
+
+#include <stdio.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <sys/ioctl.h>
+
+#include "mslp_sd.h"
+#include "slp.h"
+#include "mslp.h"
+
+EXPORT SLPInternalError join_group(SOCKET sdUDP, struct in_addr iaMC, struct in_addr iaInterf);
+EXPORT int		mcast_join( SOCKET sockfd, const struct sockaddr* sa, int salen, const char* ifname );
+EXPORT int 		mcast_set_if(int sockfd, const char *ifname);
+
+EXPORT SLPInternalError set_multicast_sender_interf(SOCKET sd) 
+{
+    struct in_addr iaMC;
+    struct in_addr ia;
+    int iErr;
+    SLPInternalError err = SLP_OK;
+    unsigned char	ttl;
+    u_char			loop = 1;		// enable;
+    char*		endPtr = NULL;
+    
+//    ttl = (unsigned char) atoi(SLPGetProperty("net.slp.multicastTTL"));
+    ttl = (unsigned char) strtol(SLPGetProperty("net.slp.multicastTTL"), &endPtr, 10);
+    iErr = setsockopt( sd, IPPROTO_IP, IP_MULTICAST_TTL, (char*)&ttl, sizeof(ttl) );
+    
+    if (iErr < 0)
+        mslplog(SLP_LOG_DEBUG,"set_multicast_sender_interf: Could not set multicast TTL",strerror(errno));
+
+    iErr = setsockopt( sd, IPPROTO_IP, IP_MULTICAST_LOOP, &loop, sizeof(loop) );
+    
+    if (iErr < 0)
+        mslplog(SLP_LOG_DEBUG,"set_multicast_sender_interf: Could not set ip multicast loopback option",strerror(errno));
+
+    iErr = GetOurIPAdrs( &ia, NULL );
+
+    if (iErr < 0) 
+    {
+        SLP_LOG( SLP_LOG_DEBUG, "an error occurred trying to get our IP Address" );
+        err = SLP_NETWORK_INIT_FAILED;
+    } 
+    else 
+    {
+        memset(&iaMC, 0, sizeof iaMC);
+        iaMC.s_addr = SLP_MCAST;
+        
+        err = join_group( 	sd,
+                            iaMC,               /* group to send to */
+                            ia);  				/* interf to send on */
+
+        if ( err == SLP_OK )
+        {
+            if ((iErr= setsockopt(sd,IPPROTO_IP,IP_MULTICAST_IF,
+                        (char*)&ia, sizeof(struct in_addr))) != 0) 
+            {
+                SLP_LOG( SLP_LOG_DEBUG, "an error occurred calling setsockopt default mc interface",strerror(iErr));
+                //LOG( SLP_LOG_FAIL, "an error occurred calling setsockopt default mc interface" );
+                err = SLP_NETWORK_INIT_FAILED;
+            }
+        }
+
+/*        if ( mcast_set_if( sd, ifName ) < 0 )
+        {
+            SLP_LOG( SLP_LOG_DEBUG, "an error occurred calling mcast_set_if: %s", strerror(errno) );
+            err = SLP_NETWORK_INIT_FAILED;
+        } 
+*/
+    }
+    
+    return err;
+}
+
+int mcast_set_if(int sockfd, const char *ifname)
+{
+    struct in_addr		inaddr;
+    struct ifreq		ifreq;
+
+    if (ifname != NULL) 
+    {
+        strncpy(ifreq.ifr_name, ifname, IFNAMSIZ);
+
+        if (ioctl(sockfd, SIOCGIFADDR, &ifreq) < 0)
+            return(-1);
+            
+        memcpy(&inaddr, &((struct sockaddr_in *) &ifreq.ifr_addr)->sin_addr, sizeof(struct in_addr));
+    }
+    else
+        inaddr.s_addr = htonl(INADDR_ANY);	/* remove prev. set default */
+
+    return(setsockopt(sockfd, IPPROTO_IP, IP_MULTICAST_IF,
+                        &inaddr, sizeof(struct in_addr)));
+}
+
+EXPORT SLPInternalError join_group(SOCKET sdUDP, struct in_addr iaMC, struct in_addr iaInterf) 
+{
+    struct ip_mreq 	mreq;
+	char*			endptr = NULL;
+    unsigned char	ttl = (unsigned char) strtol(SLPGetProperty("net.slp.multicastTTL"), &endptr, 10);
+//    unsigned char	ttl = (unsigned char) atoi(SLPGetProperty("net.slp.multicastTTL"));
+    int 			err = 0;
+    SLPInternalError		returnErr = SLP_OK;
+    
+    memset(&mreq,0,sizeof mreq);
+    mreq.imr_multiaddr = iaMC;
+    mreq.imr_interface = iaInterf;
+    err = setsockopt(sdUDP,IPPROTO_IP,IP_ADD_MEMBERSHIP, (char*)&mreq,sizeof(mreq));
+    if (err < 0) 
+    {
+//        mslplog(SLP_LOG_DEBUG, "Could not join multicast group",strerror(errno));
+//        mslplog(SLP_LOG_DEBUG, "We were trying to use interface:", inet_ntoa(iaInterf) );
+        
+        SLP_LOG( SLP_LOG_DEBUG, "Received an error trying to setsockopt IP_ADD_MEMBERSHIP" );
+//        returnErr = SLP_NETWORK_INIT_FAILED;
+    }
+    
+    if ( returnErr == SLP_OK )
+    {
+        err = setsockopt(sdUDP,IPPROTO_IP,IP_MULTICAST_TTL,(char*)&ttl,sizeof(ttl));
+        if (err < 0) 
+        {
+            mslplog(SLP_LOG_DEBUG, "join_group: Could not set multicast TTL",strerror(errno));
+            //SLP_LOG( SLP_LOG_FAIL, "join_group: Could not set multicast TTL" );
+            returnErr = SLP_NETWORK_INIT_FAILED;
+        }
+    }
+    
+    if ( returnErr == SLP_OK )
+    {
+        u_char	loop = 1;	// enable
+        err = setsockopt( sdUDP, IPPROTO_IP, IP_MULTICAST_LOOP, &loop, sizeof(loop) );
+        
+        if (err < 0)
+        {
+            mslplog(SLP_LOG_DEBUG,"join_group: Could not set ip multicast loopback option",strerror(errno));
+        }
+    }
+    
+    return returnErr;
+}
+
+int mcast_join( SOCKET sockfd, const struct sockaddr* sa, int salen, const char* ifname )
+{
+    switch (sa->sa_family)
+    {
+        case AF_INET:
+        {
+            struct ip_mreq 	mreq;
+            struct ifreq	ifreq;
+            
+            bzero( &ifreq, sizeof(ifreq) );
+            memcpy( &mreq.imr_multiaddr, &((struct sockaddr_in*)sa)->sin_addr, sizeof(struct in_addr) );
+            
+            if ( ifname != NULL )
+            {
+                strncpy( ifreq.ifr_name, ifname, IFNAMSIZ );
+
+                if ( ioctl( sockfd, SIOCGIFADDR, &ifreq ) < 0 )
+                {
+                    SLP_LOG( SLP_LOG_DEBUG, "Error trying to set interface name %s for multicasting: %s", ifname, strerror(errno) );
+                    return -1;
+                }
+                    
+                memcpy( &mreq.imr_interface, &((struct sockaddr_in*) &ifreq.ifr_addr)->sin_addr, sizeof(struct in_addr) );
+            }
+            else
+                mreq.imr_interface.s_addr = htonl(INADDR_ANY);
+        
+            return ( setsockopt( sockfd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq) ) );
+        }
+        
+        case AF_INET6:
+        default:
+            errno = EPROTONOSUPPORT;
+            return (-1);
+    }
+}

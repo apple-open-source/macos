@@ -37,7 +37,16 @@
 
 
 // Message constants
-#define kIOMessageTrayStateHasChanged		0x69000035
+#define kIOMessageTrayStateChange			0x69000035
+#define kIOMessageTrayStateHasChanged		kIOMessageTrayStateChange // DEPRECATED, use kIOMessageTrayStateChange instead
+
+// Message values for kIOMessageTrayStateChange
+enum
+{
+	kMessageTrayStateChangeRequestAccepted	= 0,
+	kMessageTrayStateChangeRequestRejected	= 1
+};
+
 #define kIOMessageMediaAccessChange			0x69000036
 
 // Message values for kIOMessageMediaAccessChange
@@ -93,7 +102,9 @@ enum
 	kDVDFeaturesRandomWriteableBit	= 3,	// DVD-RAM
 	kDVDFeaturesReWriteableBit		= 4,	// DVD-RW
 	kDVDFeaturesTestWriteBit		= 5,	// DVD-R Write - Test Write
-	kDVDFeaturesBUFWriteBit			= 6		// DVD-R Write - Buffer Underrun Free
+	kDVDFeaturesBUFWriteBit			= 6,	// DVD-R Write - Buffer Underrun Free
+	kDVDFeaturesPlusRBit			= 7,	// DVD+R
+	kDVDFeaturesPlusRWBit			= 8		// DVD+RW (implies backgound format support)
 };
 
 enum
@@ -104,7 +115,9 @@ enum
 	kDVDFeaturesRandomWriteableMask	= (1 << kDVDFeaturesRandomWriteableBit),
 	kDVDFeaturesReWriteableMask		= (1 << kDVDFeaturesReWriteableBit),
 	kDVDFeaturesTestWriteMask		= (1 << kDVDFeaturesTestWriteBit),
-	kDVDFeaturesBUFWriteMask		= (1 << kDVDFeaturesBUFWriteBit)
+	kDVDFeaturesBUFWriteMask		= (1 << kDVDFeaturesBUFWriteBit),
+	kDVDFeaturesPlusRMask			= (1 << kDVDFeaturesPlusRBit),
+	kDVDFeaturesPlusRWMask			= (1 << kDVDFeaturesPlusRWBit)
 };
 
 enum

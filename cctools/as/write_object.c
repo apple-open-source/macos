@@ -136,6 +136,7 @@ char *out_file_name)
     long count;
     char *fill_literal;
     long fill_size;
+    long num_bytes;
     char *symbol_name;
     int fd;
 
@@ -415,7 +416,18 @@ char *out_file_name)
 		fill_literal = fragP->fr_literal + fragP->fr_fix;
 		fill_size = fragP->fr_var;
 		know(fragP->fr_offset >= 0);
-		for(count = fragP->fr_offset; count != 0;  count--){
+		if(fill_size != 0)
+		    num_bytes = fragP->fr_offset % fill_size;
+		else
+		    num_bytes = 0;
+		if (num_bytes){
+		    long zero = 0;
+		    memcpy(output_addr + offset, &zero, num_bytes);
+		    offset += num_bytes;
+		}
+		for(count = fragP->fr_offset-num_bytes;
+		    count > 0;
+		    count -= fill_size){
 		    memcpy(output_addr + offset, fill_literal, fill_size);
 		    offset += fill_size;
 		}
@@ -1190,10 +1202,28 @@ struct relocation_info *riP)
 		    fixP->fx_r_type == PPC_RELOC_LO14)
 		riP->r_address = 0xffff & (fixP->fx_value >> 16);
 	    else if (fixP->fx_r_type == PPC_RELOC_JBSR){
-		if((symbolP->sy_type & N_TYPE) == N_UNDF)
-		    riP->r_address = fixP->fx_value & 0xffffff;
-		else
-		    riP->r_address = (fixP->fx_value - sect_addr) & 0xffffff;
+		/*
+		 * To allow the "true target address" to use the full 32 bits
+		 * we convert this PAIR relocation entry to a scattered
+		 * relocation entry if the true target address has the
+		 * high bit (R_SCATTERED) set and store the "true target
+		 * address" in the r_value field.  Or for an external relocation
+		 * entry if the "offset" to the symbol has the high bit set
+		 * we also use a scattered relocation entry.
+		 */
+		if((fixP->fx_value & R_SCATTERED) == 0){
+		    riP->r_address = fixP->fx_value;
+		}
+		else{
+		    memset(&sri, '\0',sizeof(struct scattered_relocation_info));
+		    sri.r_scattered = 1;
+		    sri.r_pcrel     = riP->r_pcrel;
+		    sri.r_length    = riP->r_length;
+		    sri.r_type      = riP->r_type;
+		    sri.r_address   = 0;
+		    sri.r_value     = fixP->fx_value;
+		    *riP = *((struct relocation_info *)&sri);
+		}
 	    }
 #endif
 #ifdef HPPA

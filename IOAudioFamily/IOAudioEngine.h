@@ -678,6 +678,7 @@ protected:
     virtual IOReturn decrementActiveUserClients();
     
     virtual void detachAudioStreams();
+	void setWorkLoopOnAllAudioControls(IOWorkLoop *wl);
 };
 
 #endif /* _IOKIT_IOAUDIOENGINE_H */

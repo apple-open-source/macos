@@ -480,6 +480,6 @@ SCSIReducedBlockCommands *
 SCSIReducedBlockCommands::CreateSCSIReducedBlockCommandObject ( void )
 {
 	
-	return new SCSIReducedBlockCommands;
+	return OSTypeAlloc ( SCSIReducedBlockCommands );
 	
 }

@@ -72,25 +72,27 @@ enum {
 	kAuthNativeNoClearText	= 135,
 	kAuthSMB_NT_Key			= 136,
 	kAuthSMB_LM_Key			= 137,
-    kAuthCRAM_MD5			= 138,
+    kAuthDIGEST_MD5			= 138,
+    kAuthCRAM_MD5			= 139,
     
-    kAuthGetPolicy			= 139,
-    kAuthSetPolicy			= 140,
-    kAuthGetGlobalPolicy	= 141,
-    kAuthSetGlobalPolicy	= 142,
-    kAuthGetUserName		= 143,
-    kAuthSetUserName		= 144,
-    kAuthGetUserData		= 145,
-    kAuthSetUserData		= 146,
-    kAuthDeleteUser			= 147,
-    kAuthNewUser			= 148,
+    kAuthGetPolicy			= 140,
+    kAuthSetPolicy			= 141,
+    kAuthGetGlobalPolicy	= 142,
+    kAuthSetGlobalPolicy	= 143,
+    kAuthGetUserName		= 144,
+    kAuthSetUserName		= 145,
+    kAuthGetUserData		= 146,
+    kAuthSetUserData		= 147,
+    kAuthDeleteUser			= 148,
+    kAuthNewUser			= 149,
     
-    kAuthSetPasswdAsRoot	= 149,
-    kAuthGetIDByName		= 150,
+    kAuthSetPasswdAsRoot	= 150,
+    kAuthGetIDByName		= 151,
     
-	kAuth2WayRandomChangePass	= 151,
+	kAuth2WayRandomChangePass	= 152,
+	kAuthDIGEST_MD5_Reauth		= 153,
 	
-	kAuthNativeMethod		= 152
+	kAuthNativeMethod		= 154
 };
 
 // Reposonse Codes (used numerically)
@@ -236,10 +238,11 @@ protected:
     
 	sInt32				DoSASLAuth					(	sPSContextData *inContext,
 														const char *userName,
-                                                        const char *password,
-                                                        long inPasswordLen,
-                                                        const char *inChallenge,
-                                                        const char *inMechName );
+														const char *password,
+														long inPasswordLen,
+														const char *inChallenge,
+														const char *inMechName, 
+														char **outStepData );
 	
 	sInt32				DoSASLTwoWayRandAuth		(	sPSContextData *inContext,
 														const char *userName,

@@ -28,26 +28,48 @@
 enum {
     // options for IOServiceRequestProbe()
     kIOFBForceReadEDID			= 0x00000100,
+    kIOFBAVProbe			= 0x00000200
 };
 
 enum {
-    // flags for IOHardwareCursorDescriptor flags
-    // kIOFBHardwareCursorInVRAM	= 0x00000002,	// IOFramebufferShared.h defines
-    kIOFBCursorWidthRoundMask		= 0x00ff0000,
-    kIOFBCursorWidthRoundShift		= 16,
-};
-
-enum {
-    kFramebufferAGPFastWriteAccess	= 0x00100000,
+    kFramebufferAGPFastWriteAccess	= 0x00100000
 };
 
 enum {
     // Controller attributes
     kIOSystemPowerAttribute		= 'spwr',
     kIOVRAMSaveAttribute		= 'vrsv',
+    kIODeferCLUTSetAttribute		= 'vclt',
+
+    kIOFBSpeedAttribute			= ' dgs',
+
     // Connection attributes
-    kConnectionPostWake			= 'pwak'
+    kConnectionPostWake			= 'pwak',
+
+    kConnectionInTVMode			= 'tvmd',
+
+    kConnectionDisplayParameterCount	= 'pcnt',
+    kConnectionDisplayParameters	= 'parm',
+
+    kConnectionOverscan			= 'oscn',
+    kConnectionVideoBest		= 'vbst',
+    kConnectionWSSB			= 'wssb'
 };
+
+enum {
+    // kConnectionInTVMode values
+    kConnectionNonTVMode		= 0,
+    kConnectionNTSCMode			= 1,
+    kConnectionPALMode			= 2
+};
+
+#define kIOFBGammaWidthKey		"IOFBGammaWidth"
+#define kIOFBGammaCountKey		"IOFBGammaCount"
+#define kIOFBGammaHeaderSizeKey		"IOFBGammaHeaderSize"
+
+#define kIOFBCLUTDeferKey		"IOFBCLUTDefer"
+
+#define kIONDRVFramebufferGenerationKey "IONDRVFramebufferGeneration"
 
 #endif /* ! _IOKIT_IOGRAPHICSTYPESPRIVATE_H */
 

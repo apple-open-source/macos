@@ -49,7 +49,7 @@ CCOOMMPPIILLAATTIIOONN
        Compilation  should  be  trivial on most systems.  You may
        need to use -DSMRSH_PATH=\"_p_a_t_h\" to  adjust  the  default
        search   path   (defaults  to  ``/bin:/usr/bin:/usr/ucb'')
-       and/or -DSMRSH_CMDBIN=\"_d_i_r\" to change the  default  pro-
+       and/or -DSMRSH_CMDDIR=\"_d_i_r\" to change the  default  pro-
        gram directory (defaults to ``/usr/adm/sm.bin'').
 
 FFIILLEESS
@@ -61,6 +61,6 @@ SSEEEE AALLSSOO
 
 
 
-                   $Date: 2002/03/12 18:00:43 $                 1
+                   $Date: 2002/10/15 02:38:37 $                 1
 
 

@@ -39,6 +39,8 @@ __END_DECLS
 
 #include "MacRISC2CPU.h"
 
+#define kMacRISC_GPIO_DIRECTION_BIT	2
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 #define super IOCPU
@@ -75,7 +77,8 @@ bool MacRISC2CPU::start(IOService *provider)
     keyLargo_writeRegUInt8 = OSSymbol::withCString("keyLargo_writeRegUInt8");
     keyLargo_getHostKeyLargo = OSSymbol::withCString("keyLargo_getHostKeyLargo");
     keyLargo_setPowerSupply = OSSymbol::withCString("setPowerSupply");
-
+    UniNSetPowerState = OSSymbol::withCString(kUniNSetPowerState);
+    
     macRISC2PE = OSDynamicCast(MacRISC2PE, getPlatform());
     if (macRISC2PE == 0) return false;
   
@@ -240,15 +243,44 @@ bool MacRISC2CPU::start(IOService *provider)
         PMinit();
         provider->joinPMtree(this);
     }
-  
+
+	if (macRISC2PE->ioPMonNub) {
+		
+		// Find the platform monitor, if present
+		service = waitForService(resourceMatching("IOPlatformMonitor"));
+		ioPMon = OSDynamicCast (IOPlatformMonitor, service->getProperty("IOPlatformMonitor"));
+		if (!ioPMon) 
+			return false;
+		
+		ioPMonDict = OSDictionary::withCapacity(2);
+		if (!ioPMonDict) {
+			ioPMon = NULL;
+		} else {
+			ioPMonDict->setObject (kIOPMonTypeKey, OSSymbol::withCString (kIOPMonTypeCPUCon));
+			ioPMonDict->setObject (kIOPMonCPUIDKey, OSNumber::withNumber ((long long)getCPUNumber(), 32));
+
+			if (messageClient (kIOPMonMessageRegister, ioPMon, (void *)ioPMonDict) != kIOReturnSuccess) {
+				// IOPMon doesn't need to know about us, so don't bother with it
+				IOLog ("MacRISC2CPU::start - failed to register cpu with IOPlatformMonitor\n");
+				ioPMonDict->release();
+				ioPMon = NULL;
+			}
+		}
+	}
+
     registerService();
   
-    // Finds the PMU so in quiesce we can put the machine to sleep.
-    // I can not put this call there because quiesce runs in interrupt
+    // Finds PMU and UniN so in quiesce we can put the machine to sleep.
+    // I can not put these calls there because quiesce runs in interrupt
     // context and waitForService may block.
     pmu = waitForService(serviceMatching("ApplePMU"));
-    if (pmu == 0) return false;
-    
+	uniN = waitForService(serviceMatching("AppleUniN"));
+    if ((pmu == 0) || (uniN == 0)) return false;
+	
+	// Some systems require special handling of Ultra-ATA at sleep.
+	// Call UniN to prepare for that, if necessary
+	uniN->callPlatformFunction ("setupUATAforSleep", false, (void *)0, (void *)0, (void *)0, (void *)0);
+
     return true;
 }
 
@@ -274,7 +306,8 @@ IOReturn MacRISC2CPU::powerStateWillChangeTo ( IOPMPowerFlags theFlags, unsigned
         kprintf("MacRISC2CPU %d powerStateWillChangeTo to acknowledge power changes (UP) we set napping %d\n", getCPUNumber(), rememberNap);
         ml_enable_nap(getCPUNumber(), rememberNap); 		   // Re-set the nap as it was before.
 		
-		if (macRISC2PE->processorSpeedChangeFlags & kEnvironmentalSpeedChange) {
+		// If we have an ioPMon, it will handle this
+		if (!ioPMon && (macRISC2PE->processorSpeedChangeFlags & kEnvironmentalSpeedChange)) {
 			// Coming out of sleep we will be slow, so go to fast if necessary
 			if (macRISC2PE->processorSpeedChangeFlags & kProcessorFast) {
 				macRISC2PE->processorSpeedChangeFlags &= ~kProcessorFast;	// Clear fast flag so we know to speed up
@@ -301,7 +334,7 @@ IOReturn MacRISC2CPU::powerStateWillChangeTo ( IOPMPowerFlags theFlags, unsigned
  * 		newLevel == 0 => run fast => cache on => true
  *		newLevel == 1 => run slow => cache off => false
  */
-IOReturn MacRISC2CPU::setAggressiveness(unsigned long selector, unsigned long newLevel)
+IOReturn MacRISC2CPU::setAggressiveness(UInt32 selector, UInt32 newLevel)
 {
 	bool		doChange = false;
    IOReturn		result;
@@ -309,85 +342,82 @@ IOReturn MacRISC2CPU::setAggressiveness(unsigned long selector, unsigned long ne
     result = super::setAggressiveness(selector, newLevel);
 	
     if ((selector == kPMSetProcessorSpeed) && (macRISC2PE->processorSpeedChangeFlags != kNoSpeedChange)) {
-		
-		if (doSleep) {
-			IOSleep (1000);
-			doSleep = false;
-		}
-
-		// Enable/Disable L2 if needed.
-		if (macRISC2PE->processorSpeedChangeFlags & kDisableL2SpeedChange) {
-			if (!(macRISC2PE->processorSpeedChangeFlags & kClamshellClosedSpeedChange)) {
-				// newLevel == 0 => run fast => cache on => true
-				// newLevel == 1 => run slow => cache off => false
-				if (!newLevel) {
-					// See if cache is disabled
-					if (!(macRISC2PE->processorSpeedChangeFlags & kL2CacheEnabled)) {
-						// Enable it
+		/*
+		 * If we're using the platform monitor, then we let the platform monitor handle the standard
+		 * call (i.e., newLevel = 0 or 1).  If it wants a speed change, the platform monitor will
+		 * call us directly with newLevel = 2 or newLevel = 3 (corresponding to 0 and 1) and then
+		 * we will do the actual speed change
+		 */
+		if (ioPMon) {
+			if (newLevel < 2)
+				return result;		// Nothing to do just yet
+			
+			// OK, this is a call from the platform monitor, so adjust it to standard levels and carry on
+			newLevel -= 2;
+			doChange = true;		// Change should always be true under control of ioPMon
+		} else {
+			// do it the old way
+			if (doSleep) {
+				IOSleep (1000);
+				doSleep = false;
+			}
+	
+			// Enable/Disable L2 if needed.
+			if (macRISC2PE->processorSpeedChangeFlags & kDisableL2SpeedChange) {
+				if (!(macRISC2PE->processorSpeedChangeFlags & kClamshellClosedSpeedChange)) {
+					// newLevel == 0 => run fast => cache on => true
+					// newLevel == 1 => run slow => cache off => false
+					if (!newLevel) {
+						// See if cache is disabled
+						if (!(macRISC2PE->processorSpeedChangeFlags & kL2CacheEnabled)) {
+							// Enable it
+							ml_enable_cache_level(2, !newLevel);
+							macRISC2PE->processorSpeedChangeFlags |= kL2CacheEnabled;
+						}
+					} else if (macRISC2PE->processorSpeedChangeFlags & kL2CacheEnabled) {
+						// Disable it
 						ml_enable_cache_level(2, !newLevel);
-						macRISC2PE->processorSpeedChangeFlags |= kL2CacheEnabled;
+						macRISC2PE->processorSpeedChangeFlags &= ~kL2CacheEnabled;
 					}
-				} else if (macRISC2PE->processorSpeedChangeFlags & kL2CacheEnabled) {
-					// Disable it
-					ml_enable_cache_level(2, !newLevel);
-					macRISC2PE->processorSpeedChangeFlags &= ~kL2CacheEnabled;
 				}
 			}
-		}
-
-		// Enable/Disable L3 if needed.
-		if (macRISC2PE->processorSpeedChangeFlags & kDisableL3SpeedChange) {
-			if (!(macRISC2PE->processorSpeedChangeFlags & kClamshellClosedSpeedChange)) {
-				// newLevel == 0 => run fast => cache on => true
-				// newLevel == 1 => run slow => cache off => false
-				if (!newLevel) {
-					// See if cache is disabled
-					if (!(macRISC2PE->processorSpeedChangeFlags & kL3CacheEnabled)) {
-						// Enable it
+	
+			// Enable/Disable L3 if needed.
+			if (macRISC2PE->processorSpeedChangeFlags & kDisableL3SpeedChange) {
+				if (!(macRISC2PE->processorSpeedChangeFlags & kClamshellClosedSpeedChange)) {
+					// newLevel == 0 => run fast => cache on => true
+					// newLevel == 1 => run slow => cache off => false
+					if (!newLevel) {
+						// See if cache is disabled
+						if (!(macRISC2PE->processorSpeedChangeFlags & kL3CacheEnabled)) {
+							// Enable it
+							ml_enable_cache_level(3, !newLevel);
+							macRISC2PE->processorSpeedChangeFlags |= kL3CacheEnabled;
+						}
+					} else if (macRISC2PE->processorSpeedChangeFlags & kL3CacheEnabled) {
+						// Disable it
 						ml_enable_cache_level(3, !newLevel);
-						macRISC2PE->processorSpeedChangeFlags |= kL3CacheEnabled;
+						macRISC2PE->processorSpeedChangeFlags &= ~kL3CacheEnabled;
 					}
-				} else if (macRISC2PE->processorSpeedChangeFlags & kL3CacheEnabled) {
-					// Disable it
-					ml_enable_cache_level(3, !newLevel);
-					macRISC2PE->processorSpeedChangeFlags &= ~kL3CacheEnabled;
 				}
 			}
-		}
-
-		if (!newLevel) {
-			// See if already running slow
-			if (!(macRISC2PE->processorSpeedChangeFlags & kProcessorFast)) {
+			if (!newLevel) {
+				// See if already running slow
+				if (!(macRISC2PE->processorSpeedChangeFlags & kProcessorFast)) {
+					// Signal to switch
+					doChange = true;
+					macRISC2PE->processorSpeedChangeFlags |= kProcessorFast;
+				}
+			} else if (macRISC2PE->processorSpeedChangeFlags & kProcessorFast) {
 				// Signal to switch
 				doChange = true;
-				macRISC2PE->processorSpeedChangeFlags |= kProcessorFast;
+				macRISC2PE->processorSpeedChangeFlags &= ~kProcessorFast;
 			}
-		} else if (macRISC2PE->processorSpeedChangeFlags & kProcessorFast) {
-			// Signal to switch
-			doChange = true;
-			macRISC2PE->processorSpeedChangeFlags &= ~kProcessorFast;
 		}
 
 		if (macRISC2PE->processorSpeedChangeFlags & kPMUBasedSpeedChange) {
-			if (doChange) {                                
-				// Note the current processor speed so quiesceCPU knows what to do
-				currentProcessorSpeed = newLevel;
-				
-				// Disable nap to prevent PMU doing reset too soon.
-				rememberNap = ml_enable_nap(getCPUNumber(), false);
-				
-				// Set flags for processor speed change.
-				processorSpeedChange = true;
-				
-				// Ask PM to do the processor speed change.
-				pmRootDomain->receivePowerNotification(kIOPMProcessorSpeedChange);
-				
-				// Set flags for system sleep.
-				processorSpeedChange = false;
-				
-				// Enable nap as needed.
-				ml_enable_nap(getCPUNumber(), rememberNap);
-			}
+			if (doChange) 
+				performPMUSpeedChange (newLevel);
 		} 
 		
 		if (macRISC2PE->processorSpeedChangeFlags & kProcessorBasedSpeedChange && doChange) {
@@ -411,6 +441,29 @@ IOReturn MacRISC2CPU::setAggressiveness(unsigned long selector, unsigned long ne
     return result;
 }
 
+void MacRISC2CPU::performPMUSpeedChange (UInt32 newLevel)
+{
+	// Note the current processor speed so quiesceCPU knows what to do
+	currentProcessorSpeed = newLevel;
+	
+	// Disable nap to prevent PMU doing reset too soon.
+	rememberNap = ml_enable_nap(getCPUNumber(), false);
+	
+	// Set flags for processor speed change.
+	processorSpeedChange = true;
+	
+	// Ask PM to do the processor speed change.
+	pmRootDomain->receivePowerNotification(kIOPMProcessorSpeedChange);
+	
+	// Set flags for system sleep.
+	processorSpeedChange = false;
+	
+	// Enable nap as needed.
+	ml_enable_nap(getCPUNumber(), rememberNap);
+	
+	return;
+}
+
 void MacRISC2CPU::initCPU(bool boot)
 {
 	OSIterator 		*childIterator;
@@ -419,11 +472,9 @@ void MacRISC2CPU::initCPU(bool boot)
 	OSData			*deviceTypeString;
 
     if (!boot && bootCPU) {
-        // Tell Uni-N to enter normal mode.
-        macRISC2PE->writeUniNReg(kUniNPowerMngmnt, kUniNNormal);
-    
-        // Set the running state for HWInit.
-        macRISC2PE->writeUniNReg(kUniNHWInitState, kUniNHWInitStateRunning);
+		// Tell Uni-N to enter normal mode.
+		uniN->callPlatformFunction (UniNSetPowerState, false, (void *)kUniNNormal,
+			(void *)0, (void *)0, (void *)0);
     
         if (!processorSpeedChange) {
 			// Notify our pci children to restore their state
@@ -444,6 +495,7 @@ void MacRISC2CPU::initCPU(bool boot)
 						}
 					}
 				}
+				childIterator->release();
 			}
 
 			keyLargo->callPlatformFunction(keyLargo_restoreRegisterState, false, 0, 0, 0, 0);
@@ -513,10 +565,10 @@ void MacRISC2CPU::quiesceCPU(void)
         ml_phys_write(0x0080, 0x100);
 
         // Set the sleeping state for HWInit.
-        macRISC2PE->writeUniNReg(kUniNHWInitState, kUniNHWInitStateSleeping);
-
-        // Tell Uni-N to enter sleep mode.
-        macRISC2PE->writeUniNReg(kUniNPowerMngmnt, processorSpeedChange ? kUniNIdle2 : kUniNSleep);
+		// Tell Uni-N to enter normal mode.
+		uniN->callPlatformFunction (UniNSetPowerState, false, 
+			(void *)(processorSpeedChange ? kUniNIdle2 : kUniNSleep),
+			(void *)0, (void *)0, (void *)0);
     }
 
     ml_ppc_sleep();
@@ -524,23 +576,33 @@ void MacRISC2CPU::quiesceCPU(void)
 
 kern_return_t MacRISC2CPU::startCPU(vm_offset_t /*start_paddr*/, vm_offset_t /*arg_paddr*/)
 {
-    long gpioOffset = soft_reset_offset;
+    long            gpioOffset = soft_reset_offset;
+    unsigned long   strobe_value;
 
-#if 0  
-    switch (getCPUNumber())
-    {
-        case 0 : gpioOffset = 0x5B; break;
-        case 1 : gpioOffset = 0x5C; break;
-        case 2 : gpioOffset = 0x67; break;
-        case 3 : gpioOffset = 0x68; break;
-        default : return KERN_FAILURE;
-    }
-#endif
-  
     // Strobe the reset line for this CPU.
-    keyLargo->callPlatformFunction(keyLargo_writeRegUInt8, false, (void *)&gpioOffset, (void *)4, 0, 0);
-    keyLargo->callPlatformFunction(keyLargo_writeRegUInt8, false, (void *)&gpioOffset, (void *)5, 0, 0);
-  
+    //
+    // This process is not nearly as obvious as it seems.
+    // This GPIO is supposed to be managed as an open collector.
+    // Furthermore, the SRESET(0,1) is an active LOW signal.
+    // And just complicate things more because they're not already,
+    // the GPIO wants to be written with the INVERTED value of what you want to set things to.
+    // 
+    // According to our GPIO expert, when using this GPIO to invoke a soft reset,
+    // you write a 1 to the DATA DIRECTION bit (bit 2) to make the GPIO be an output,
+    // and leave the DATA VALUE bit 0.  This causes SRESET(0,1)_L to be strobed,
+    // as SRESET(0,1) is an active low signal.
+    // To complete the strobe, you make the DATA DIRECTION bit 0 to make it an open collector,
+    // leaving the DATA VALUE bit 0.  The data bit value will then float to a 1 value
+    // and the reset signal removed.
+    strobe_value = ( 1 << kMacRISC_GPIO_DIRECTION_BIT );
+    keyLargo->callPlatformFunction(keyLargo_writeRegUInt8, false,
+                                    (void *)&gpioOffset, (void *)strobe_value, 0, 0);
+    // Mac OS 9.x actually reads this value back to make sure it "takes".
+    // Should we do that here?  It (appears to) work without doing that.
+    strobe_value = ( 0 << kMacRISC_GPIO_DIRECTION_BIT );
+    keyLargo->callPlatformFunction(keyLargo_writeRegUInt8, false,
+                                    (void *)&gpioOffset, (void *)strobe_value, 0, 0);
+
     return KERN_SUCCESS;
 }
 
@@ -574,6 +636,7 @@ void MacRISC2CPU::haltCPU(void)
 					}
 				}
 			}
+			childIterator->release();
 		}
     }
 
@@ -594,13 +657,67 @@ void MacRISC2CPU::signalCPU(IOCPU *target)
 
 void MacRISC2CPU::enableCPUTimeBase(bool enable)
 {
-    long gpioOffset = timebase_enable_offset;
-    UInt8 value;
-  
-    //gpioOffset = 0x73;
-    value = enable ? 5 : 4;
+    long			gpioOffset = timebase_enable_offset;
 
-    keyLargo->callPlatformFunction(keyLargo_writeRegUInt8, false, (void *)&gpioOffset, (void *)value, 0, 0);
+    // the time-base enable GPIO is 8 bits, but will be passed to ->callPlatformFunction()
+    // as a void *-sized value so we make it an unsigned long just to not get an annoying
+    // compiler warning from passing in differently-sized arguments.
+
+    unsigned long	value;
+  
+    // According to our GPIO expert, when modifying this GPIO to enable the time base,
+    // you write a 1 to the DATA DIRECTION bit (bit 2) to make the GPIO be an output,
+    // and leave the DATA VALUE bit 0.
+    // To disable the time base, you make the DATA DIRECTION bit 0 to make it an open collector,
+    // leaving the DATA VALUE bit 0.  The data bit value will then float to a 1 value.
+    //
+    // However, this is not how Mac OS 9 does it, nor does the operation described
+    // work in practice. What IS done on Mac OS 9, and what appears to work in practice is
+    // to set the DATA DIRECTION and the DATA VALUE bits to 0 to enable the time base.
+    // To disable, set the DATA DIRECTION bit to 1 (output) and the DATA VALUE bit remains 0.
+    //
+    // This sounds a lot like TIMEBASE_EN is not an active low signal to me ...
+
+#if 0
+// What Mac OS 9 does, as performed in a Mac OS X context.
+// Mac OS 9 actually does the I/Os to the GPIOs directly without having to call KeyLargo to do it.
+    if ( enable )
+    {
+        keyLargo->callPlatformFunction(keyLargo_safeReadRegUInt8, false, (void *)&gpioOffset, (void *)&value,
+                                        (void *)0, (void *)0);
+        // set DATA DIRECTION bit to 0 (open collector) and set the DATA VALUE bit to 0 as well
+        // (actually, in Mac OS 9, the disabling and enabling all happens in the same routine, SynchClock(),
+        // so in the enabling, I believe their assumption is that the DATA VALUE bit is already 0.
+        // I include the DATA VALUE zeroing in the below code just to be explicit about what's expected.
+        value = ( 0 << kMacRISC_GPIO_DIRECTION_BIT );	// DATA_VALUE bit (0) is also zero implicitly
+        keyLargo->callPlatformFunction(keyLargo_writeRegUInt8, false, (void *)&gpioOffset, (void *)value,
+                                        (void *)0, (void *)0);
+        // eieio();             // done in writeRegUInt8()
+    }
+    else        // disable
+    {
+        // this seems like overkill, but perhaps this is done this way due to the way KeyLargo works
+        // (or for a given machine, it must be done this way and the other machines don't mind/care?).
+        keyLargo->callPlatformFunction(keyLargo_safeReadRegUInt8, false,
+                                        (void *)&gpioOffset, (void *)&value, (void *)0, (void *)0);
+        value &= ~ 0x01;		// set DATA VALUE bit to 0
+        keyLargo->callPlatformFunction(keyLargo_writeRegUInt8, false, (void *)&gpioOffset, (void *)value,
+                                        (void *)0, (void *)0);
+        // eieio();             // done in writeRegUInt8()
+        value |= ( 1 << kMacRISC_GPIO_DIRECTION_BIT );		// set DATA DIRECTION bit to 1 (output)
+        keyLargo->callPlatformFunction(keyLargo_writeRegUInt8, false, (void *)&gpioOffset, (void *)value,
+                                        (void *)0, (void *)0);
+       // eieio();              // done in writeRegUInt8()
+        sync();
+    }
+#endif
+
+    value = ( enable )?  ( 0 << kMacRISC_GPIO_DIRECTION_BIT )   // enable
+                      :  ( 1 << kMacRISC_GPIO_DIRECTION_BIT );  // disable
+    keyLargo->callPlatformFunction( keyLargo_writeRegUInt8, false,
+                        (void *)&gpioOffset, (void *)value, (void *)0, (void *)0);
+    if ( ! enable )	// let the processor instruction stream catch up
+        sync();
 }
 
 void MacRISC2CPU::ipiHandler(void *refCon, void *nub, int source)

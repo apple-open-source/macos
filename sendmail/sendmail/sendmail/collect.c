@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2001 Sendmail, Inc. and its suppliers.
+ * Copyright (c) 1998-2002 Sendmail, Inc. and its suppliers.
  *	All rights reserved.
  * Copyright (c) 1983, 1995-1997 Eric P. Allman.  All rights reserved.
  * Copyright (c) 1988, 1993
@@ -13,7 +13,7 @@
 
 #include <sendmail.h>
 
-SM_RCSID("@(#)$Id: collect.c,v 1.1.1.2 2002/03/12 18:00:29 zarzycki Exp $")
+SM_RCSID("@(#)$Id: collect.c,v 1.1.1.3 2002/10/15 02:38:24 zarzycki Exp $")
 
 static void	collecttimeout __P((time_t));
 static void	dferror __P((SM_FILE_T *volatile, char *, ENVELOPE *));
@@ -60,8 +60,8 @@ collect_eoh(e, numhdrs, hdrslen)
 	if (tTd(30, 10))
 		sm_dprintf("collect: rscheck(\"check_eoh\", \"%s $| %s\")\n",
 			   hnum, hsize);
-	(void) rscheck("check_eoh", hnum, hsize, e, false, true, 3, NULL,
-			e->e_id);
+	(void) rscheck("check_eoh", hnum, hsize, e, RSF_UNSTRUCTURED|RSF_COUNT,
+			3, NULL, e->e_id);
 
 	/*
 	**  Process the header,
@@ -103,10 +103,6 @@ collect_doheader(e)
 
 	if (GrabTo && e->e_sendqueue == NULL)
 		usrerr("No recipient addresses found in header");
-
-	/* collect statistics */
-	if (OpMode != MD_VERIFY)
-		markstats(e, (ADDRESS *) NULL, STATS_NORMAL);
 
 	/*
 	**  If we have a Return-Receipt-To:, turn it into a DSN.
@@ -431,10 +427,12 @@ collect(fp, smtpmode, hdrp, e)
 					istate = IS_DOTCR;
 					continue;
 				}
-				else if (c != '.' ||
-					 (OpMode != MD_SMTP &&
+				else if (ignrdot ||
+					 (c != '.' &&
+					  OpMode != MD_SMTP &&
 					  OpMode != MD_DAEMON &&
 					  OpMode != MD_ARPAFTP))
+
 				{
 					*pbp++ = c;
 					c = '.';
@@ -448,8 +446,15 @@ collect(fp, smtpmode, hdrp, e)
 				{
 					/* push back the ".\rx" */
 					*pbp++ = c;
-					*pbp++ = '\r';
-					c = '.';
+					if (OpMode != MD_SMTP &&
+					    OpMode != MD_DAEMON &&
+					    OpMode != MD_ARPAFTP)
+					{
+						*pbp++ = '\r';
+						c = '.';
+					}
+					else
+						c = '\r';
 				}
 				break;
 
@@ -760,6 +765,7 @@ readerr:
 	{
 		char *host;
 		char *problem;
+		ADDRESS *q;
 
 		host = RealHostName;
 		if (host == NULL)
@@ -789,6 +795,14 @@ readerr:
 		e->e_to = NULL;
 		e->e_flags &= ~EF_FATALERRS;
 		e->e_flags |= EF_CLRQUEUE;
+
+		/* Don't send any message notification to sender */
+		for (q = e->e_sendqueue; q != NULL; q = q->q_next)
+		{
+			if (QS_IS_DEAD(q->q_state))
+				continue;
+			q->q_state = QS_FATALERR;
+		}
 
 		finis(true, true, ExitStat);
 		/* NOTREACHED */
@@ -851,6 +865,10 @@ readerr:
 	}
 	else
 		e->e_dfp = df;
+
+	/* collect statistics */
+	if (OpMode != MD_VERIFY)
+		markstats(e, (ADDRESS *) NULL, STATS_NORMAL);
 }
 
 static void
@@ -971,7 +989,7 @@ dferror(df, msg, e)
 	}
 	else
 		syserr("421 4.3.0 collect: Cannot write %s (%s, uid=%d, gid=%d)",
-			dfname, msg, geteuid(), getegid());
+			dfname, msg, (int) geteuid(), (int) getegid());
 	if (sm_io_reopen(SmFtStdio, SM_TIME_DEFAULT, SM_PATH_DEVNULL,
 			 SM_IO_WRONLY, NULL, df) == NULL)
 		sm_syslog(LOG_ERR, e->e_id,

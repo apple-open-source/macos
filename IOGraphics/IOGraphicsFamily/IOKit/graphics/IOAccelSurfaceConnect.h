@@ -61,7 +61,7 @@ typedef struct
 ** kIOAccelNumSurfaceMemoryTypes.
 */
 enum eIOAccelSurfaceMemoryTypes {
-	kIOAccelNumSurfaceMemoryTypes,
+	kIOAccelNumSurfaceMemoryTypes
 };
 
 
@@ -91,7 +91,7 @@ enum eIOAccelSurfaceMethods {
 	kIOAccelSurfaceWriteLock,
 	kIOAccelSurfaceWriteUnlock,
 
-	kIOAccelNumSurfaceMethods,
+	kIOAccelNumSurfaceMethods
 };
 
 
@@ -133,7 +133,7 @@ typedef enum {
 */
 typedef enum {
 	kIOAccelSurfaceStateNone    = 0x00000000,
-	kIOAccelSurfaceStateIdleBit = 0x00000001,
+	kIOAccelSurfaceStateIdleBit = 0x00000001
 } eIOAccelSurfaceStateBits;
 
 /*
@@ -146,7 +146,7 @@ typedef enum {
 	kIOAccelSurfaceFiltering     = 0x000000f0,
 	kIOAccelSurfaceFilterDefault = 0x00000000,
 	kIOAccelSurfaceFilterNone    = 0x00000010,
-	kIOAccelSurfaceFilterLinear  = 0x00000020,
+	kIOAccelSurfaceFilterLinear  = 0x00000020
 
 } eIOAccelSurfaceScaleBits;
 

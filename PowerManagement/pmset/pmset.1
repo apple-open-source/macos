@@ -1,7 +1,7 @@
 .\"
 .\" Copyright (c) 2002 Apple Computer, Inc.  All rights reserved.
 .\"
-.Dd January 7, 2002
+.Dd Augest 19, 2002
 .Dt PMSET 1
 .Os Darwin
 .Sh NAME
@@ -9,12 +9,21 @@
 .Nd modify power management settings
 .Sh SYNOPSIS
 .Nm
-.Op Fl a b c
+.Op Fl a | b | c
 .Op dim Ar minutes
 .Op spindown Ar minutes
 .Op sleep Ar minutes
 .Op womp Ar 1/0
+.Op ring Ar 1/0
+.Op autorestart Ar 1/0
+.Op dps Ar 1/0
+.Op reduce Ar 1/0
 .Op boot
+.Op powerbutton Ar 1/0
+
+.Nm
+.Fl g 
+.Op disk | live | cap
 
 .\.Nm
 .\.Op Fl a b c
@@ -22,30 +31,85 @@
 .\.Op spindown
 .\.Op sleep
 .\.Op womp
+.\.Op ring
+.\.Op autorestart
+.\.Op dps
+.\.Op reduce
 
 .Sh DESCRIPTION
 .Nm
-changes power management settings such as idle sleep timing and wake on LAN. The
+changes and reads power management settings such as idle sleep timing, wake on administrative access, automatic restart on power loss, etc. 
+
+.Sh SETTING
+The
 .Fl a,
 .Fl b,
 .Fl c
-flags determine whether the settings apply to battery (-b), charger (-c), or all (-a). womp means Wake on Magic Packet. Use a minutes argument of 0 to set the idle time to never. Must be run as root.
+flags determine whether the settings apply to battery (-b), charger (wall power) (-c), or all (-a). 
 .Pp
-The boot argument tells Power Management that system bootup is complete. Loginwindow handles this on a normal Mac OS X system.
+Use a minutes argument of 0 to set the idle time to never. 
+.Pp
+.Nm 
+must be run as root.
+.Pp
+The boot argument tells power management that system bootup is complete. Loginwindow handles this on a normal Mac OS X system.
+
+.Sh GETTING
+The
+.Fl g 
+flag outputs the settings currently in use (same as 
+.Fl g 
+live
+). 
+.Fl g 
+disk 
+will tell you the settings on disk.  
+.Fl g 
+cap 
+will tell you which power management features the machine supports.
+
+.Sh ARGUMENTS
+dim - display dim timer (value in minutes)
+.br
+spindown - disk spindown timer (value in minutes)
+.br
+sleep - system sleep timer (value in minutes)
+.br
+womp - wake on ethernet magic packet (value = 0/1)
+.br
+ring - wake on modem ring (value = 0/1)
+.br
+autorestart - automatic restart on power loss (value = 0/1)
+.br
+dps - dynamically change processor speed based on load (value = 0/1)
+.br
+reduce - reduce processor speed (value = 0/1)
+
+.Sh OTHER ARGUMENTS
+These arguments don't directly affect power management settings:
+.br
+  boot - tell the kernel that system boot is complete
+.br
+  powerbutton - if set, ignores power button sleep requests (value = 0/1)
 
 .Sh EXAMPLES
 .Nm
 .Fl b 
 dim 5
-.Fl c
-dim 10
 .Pp
 .Nm
 .Fl a
-dim 10 spin 10 sleep 30 womp 1
+dim 10 spindown 10 sleep 30 womp 1
+.Pp
+.Nm 
+.Fl g 
+live
 .Pp 
 .Sh FILES
 All changes made through
 .Nm
 are saved in a persistent preferences file (per-system, not per-user) at 
-.Pa /var/db/SystemConfiguration/com.apple.PowerManagement.xml 
+.Pa /var/db/SystemConfiguration/com.apple.PowerManagement.xml
+.Pp
+.Nm
+modifies the same file that System Preferences Energy Saver modifies.

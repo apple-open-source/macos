@@ -50,6 +50,7 @@ dhcp_bootp_allocate(char * idstr, char * hwstr, struct dhcp * rq,
 
 #define DHCP_MIN_LEASE	((dhcp_lease_t)60 * 60) /* one hour */
 #define DHCP_MAX_LEASE	((dhcp_lease_t)60 * 60 * 24 * 30) /* one month */
+#define DHCP_DECLINE_WAIT_SECS (60 * 10)		/* 10 minutes */
 
 #define SUBNETPROP_LEASE_MIN		"lease_min"
 #define SUBNETPROP_LEASE_MAX		"lease_max"

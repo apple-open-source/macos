@@ -56,7 +56,7 @@ IOReturn AppleUSBOHCI::GetRootHubDeviceDescriptor(IOUSBDeviceDescriptor *desc)
         8,				// UInt8 maxPacketSize;
         USB_CONSTANT16(kAppleVendorID),	// UInt16 vendor:  Use the Apple Vendor ID from USB-IF
         USB_CONSTANT16(kPrdRootHubApple),	// UInt16 product:  All our root hubs are the same
-        USB_CONSTANT16(0x0190),		// UInt16 bcdDevice
+        USB_CONSTANT16(0x0198),		// UInt16 bcdDevice
         2,				// UInt8 manuIdx;
         1,				// UInt8 prodIdx;
         0,				// UInt8 serialIdx;
@@ -705,14 +705,24 @@ AppleUSBOHCI::RootHubAreAllPortsDisconnected( )
     UInt32	portStatus;
     
     OHCIGetNumberOfPorts( &numPorts );
-    
+
+    if ( numPorts == 0 )
+        return false;
+
     while ( numPorts )
     {
-        portStatus = HostToUSBLong( _pOHCIRegisters->hcRhPortStatus[--numPorts] );
-        if ( (portStatus & kOHCIHcRhPortStatus_CCS) != 0 )
+        if ( _ohciBusState == kOHCIBusStateOff )
+        {
             return false;
+        }
+        else
+        {
+            portStatus = HostToUSBLong( _pOHCIRegisters->hcRhPortStatus[--numPorts] );
+            if ( (portStatus & kOHCIHcRhPortStatus_CCS) != 0 )
+                return false;
+        }
     }
-    
+
     return true;
 }
 
@@ -720,9 +730,16 @@ void
 AppleUSBOHCI::OHCIGetNumberOfPorts( UInt8 * numPorts )
 {
     UInt32		descriptorA;
-	    
-    descriptorA = USBToHostLong(_pOHCIRegisters->hcRhDescriptorA);
-    *numPorts = ( (descriptorA & kOHCIHcRhDescriptorA_NDP) >> kOHCIHcRhDescriptorA_NDPPhase );
+
+    if ( _ohciBusState == kOHCIBusStateOff )
+    {
+       *numPorts = 0;
+    }
+    else
+    {
+        descriptorA = USBToHostLong(_pOHCIRegisters->hcRhDescriptorA);
+        *numPorts = ( (descriptorA & kOHCIHcRhDescriptorA_NDP) >> kOHCIHcRhDescriptorA_NDPPhase );
+    }
 }
 
 OSMetaClassDefineReservedUsed(IOUSBController,  14);
@@ -817,5 +834,6 @@ AppleUSBOHCI::GetRootHubStringDescriptor(UInt8	index, OSData *desc)
     
     return kIOReturnSuccess;
 }
+
 
     

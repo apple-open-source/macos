@@ -632,7 +632,6 @@ void	AppleTexas2Audio::sndHWInitialize(IOService *provider)
 
 	layoutID = GetDeviceID ();
 	debug2IOLog ("layoutID = %ld\n", layoutID);
-	ExcludeHPMuteRelease (layoutID);				//	GENERALLY EXCLUDES PORTABLES from releasing headphone mute
 	
 	i2sSerialFormat = ( kClockSource45MHz | ( 1 << kMClkDivisorShift ) | ( 1 << kSClkDivisorShift ) | kSClkMaster | kSerialFormat64x );
 
@@ -1392,7 +1391,7 @@ IOReturn AppleTexas2Audio::sndHWSetPowerState(IOAudioDevicePowerState theState)
 {
 	IOReturn							result;
 
-	DEBUG_IOLOG("+ AppleTexas2Audio::sndHWSetPowerState\n");
+	debug2IOLog("+ AppleTexas2Audio::sndHWSetPowerState (%d)\n", theState);
 
 	result = kIOReturnSuccess;
 	switch (theState) {
@@ -3110,6 +3109,7 @@ void AppleTexas2Audio::DeviceInterruptService (void) {
 		if (kSndHWInternalSpeaker == GetDeviceMatch ()) {
 			// when it's just the internal speaker, figure out if we have to mute the right channel
 			switch (layoutID) {
+				case layoutQ26:					//	[3084945]	rbm		18 Nov 2002		Fall through to layoutP58
 				case layoutP58:
 					driverDMAEngine->setRightChanMixed (TRUE);
 					useMasterVolumeControl = TRUE;
@@ -3173,32 +3173,6 @@ void AppleTexas2Audio::DeviceInterruptService (void) {
 
 	debugIOLog ("- OutputPorts::DeviceInterruptService\n");
 	return;
-}
-
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-//	This routine will set the global Boolean dontReleaseHPMute to 'true' if
-//	the layout references a system where the hardware implements a headphone
-//	mute circuit that deviates from the standard TAS3001 implementation and
-//	requires a behavior that the Headphone Mute remain asserted when the 
-//	headphone is muted.	 This is a deviation from the standard behavior where
-//	the headphone mute is released after 250 milliseconds.	Just add new 
-//	'case' for each system to be excluded from the default behavior above
-//	the 'case layoutP29' with no 'break' and let the code fall through to
-//	the 'case layoutP29' statement.	 Standard hardware implementations that
-//	adhere to the default behavior do not require any code change.	[2660341]
-void AppleTexas2Audio::ExcludeHPMuteRelease (UInt32 layout) {
-	switch (layout) {
-		case layoutQ26:		/*	Fall through to set dontReleaseHPMute = true	*/
-		case layoutP99:		/*	Fall through to set dontReleaseHPMute = true	*/
-		case layoutP73:		/*	Fall through to set dontReleaseHPMute = true	*/
-		case layoutP72:		/*	Fall through to set dontReleaseHPMute = true	*/
-		case layoutP59:		/*	Fall through to set dontReleaseHPMute = true	*/
-		case layoutP92:		/*	Fall through to set dontReleaseHPMute = true	*/
-		case layoutP54:		/*	Fall through to set dontReleaseHPMute = true	*/
-		case layoutP29:		dontReleaseHPMute = true;			break;
-		default:			dontReleaseHPMute = false;			break;
-	}
-	debug3IOLog ( "ExcludeHPMuteRelease ( %d ) returns %d\n", (unsigned int)layout, (unsigned int)dontReleaseHPMute );
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -3596,9 +3570,6 @@ IOReturn AppleTexas2Audio::SelectLineOutAmplifier( void )
 			SetAmplifierMuteState (kHEADPHONE_AMP, ASSERT_GPIO (ampActiveState));		//	mute
 			SetAmplifierMuteState (kLINEOUT_AMP, NEGATE_GPIO (lineOutMuteActiveState));	//	unmute
 			IOSleep (kAmpRecoveryMuteDuration);
-			if (!dontReleaseHPMute) {													//	[2660341] unmute if std hw
-				SetAmplifierMuteState (kHEADPHONE_AMP, NEGATE_GPIO (hdpnActiveState));	// unmute
-            }
         }
     }
 	if ( kIOReturnSuccess != err ) {
@@ -3626,9 +3597,6 @@ IOReturn AppleTexas2Audio::SelectSpeakerAmplifier( void )
 			SetAmplifierMuteState (kHEADPHONE_AMP, ASSERT_GPIO (hdpnActiveState));		//	mute
 			SetAmplifierMuteState (kLINEOUT_AMP, NEGATE_GPIO (lineOutMuteActiveState));	//	unmute
 			IOSleep (kAmpRecoveryMuteDuration);
-			if (!dontReleaseHPMute && ( NULL == masterMuteGpio ) ) {					//	[2660341, 2933090] unmute if std hw
-				SetAmplifierMuteState (kHEADPHONE_AMP, NEGATE_GPIO (hdpnActiveState));	// unmute
-            }
         }
     }
 	if ( kIOReturnSuccess != err ) {

@@ -1,0 +1,11 @@
+{
+  Description     = "SMB server";
+  Provides        = ("SMB");
+  Requires        = ("Resolver");
+  OrderPreference = "None";
+  Messages =
+  {
+    start = "Starting SMB server";
+    stop  = "Stopping SMB server";
+  };
+}

@@ -150,7 +150,10 @@ private:
     virtual IOReturn GetDevice(io_service_t *device);
     virtual IOReturn SetAlternateInterface(UInt8 altInterface);
     virtual IOReturn GetFrameNumber(IOUSBGetFrameStruct *data, UInt32 *size);
+    virtual IOReturn GetMicroFrameNumber(IOUSBGetFrameStruct *data, UInt32 *size);
     virtual IOReturn GetBandwidthAvailable(UInt32 *bandwidth);
+    virtual IOReturn GetFrameListTime(UInt32 *microsecondsInFrame);
+    
     virtual IOReturn GetEndpointProperties(UInt8 alternateSetting, UInt8 endpointNumber, UInt8 direction, UInt32 *transferType, UInt32 *maxPacketSize, UInt32 *interval);
     
     // working with pipes

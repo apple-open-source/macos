@@ -1402,6 +1402,11 @@ sInt32 CLDAPv3PlugIn::CleanContextData ( sLDAPContextData *inContext )
             free( inContext->fAuthType );
 			inContext->fAuthType	= nil;
         }
+		
+        if ( inContext->fPWSNodeRef != 0 )
+            dsCloseDirNode(inContext->fPWSNodeRef);
+        if ( inContext->fPWSRef != 0 )
+            dsCloseDirService(inContext->fPWSRef);
    }
 
     return( siResult );
@@ -8128,92 +8133,82 @@ sInt32 CLDAPv3PlugIn::DoAuthentication ( sDoDirNodeAuth *inData )
 		}
 		else
 		{
+			unsigned long idx = 0;
+			unsigned long aaCount = 0;
+			char **aaArray;
+			
 			// first call
+			// note: if GetAuthMethod() returns eDSAuthMethodNotSupported we want to keep going
+			// because password server users may still be able to use the method with PSPlugin
 			siResult = GetAuthMethod( inData->fInAuthMethod, &uiAuthMethod );
-			if ( siResult == eDSNoErr )
+			if ( siResult != eDSNoErr && siResult != eDSAuthMethodNotSupported )
+				throw( siResult );
+			
+			if ( siResult == eDSNoErr && uiAuthMethod == kAuth2WayRandom )
 			{
-				unsigned long idx = 0;
-                unsigned long aaCount = 0;
-                char **aaArray;
-                
-                if ( uiAuthMethod != kAuth2WayRandom )
+				// for 2way random the first buffer is the username
+				if ( inData->fInAuthStepData->fBufferLength > inData->fInAuthStepData->fBufferSize ) throw( (sInt32)eDSInvalidBuffFormat );
+				userName = (char*)calloc( inData->fInAuthStepData->fBufferLength + 1, 1 );
+				strncpy( userName, inData->fInAuthStepData->fBufferData, inData->fInAuthStepData->fBufferLength );
+			}
+			else
+			{
+				siResult = GetUserNameFromAuthBuffer( inData->fInAuthStepData, 1, &userName );
+				if ( siResult != eDSNoErr ) throw( siResult );
+			}
+			
+			//printf("username: %s\n", userName);
+			// get the auth authority
+			siResult = GetAuthAuthority( pContext,
+											inData->fInAuthStepData,
+											pConfigFromXML,
+											fLDAPSessionMgr,
+											&aaCount,
+											&aaArray );
+			
+			if ( siResult == eDSNoErr ) 
+			{
+				// loop through all possibilities for set
+				// do first auth authority that supports the method for check password
+				//bool bLoopAll = IsWriteAuthRequest(uiAuthMethod);
+				bool bLoopAll = false;
+				char* aaVersion = NULL;
+				char* aaTag = NULL;
+				char* aaData = NULL;
+				siResult = eDSAuthMethodNotSupported;
+				
+				while ( idx < aaCount &&
+						(siResult == eDSAuthMethodNotSupported || (bLoopAll && siResult == eDSNoErr)) )
 				{
-					siResult = GetUserNameFromAuthBuffer( inData->fInAuthStepData, 1, &userName );
-					if ( siResult != eDSNoErr ) throw( siResult );
-				}
-				else
-				{
-					// for 2way random the first buffer is the username
-					if ( inData->fInAuthStepData->fBufferLength > inData->fInAuthStepData->fBufferSize ) throw( (sInt32)eDSInvalidBuffFormat );
-					userName = (char*)calloc( inData->fInAuthStepData->fBufferLength + 1, 1 );
-					strncpy( userName, inData->fInAuthStepData->fBufferData, inData->fInAuthStepData->fBufferLength );
-				}
-				//printf("username: %s\n", userName);
-				// get the auth authority
-				siResult = GetAuthAuthority( pContext,
-                                             inData->fInAuthStepData,
-                                             pConfigFromXML,
-                                             fLDAPSessionMgr,
-                                             &aaCount,
-                                             &aaArray );
-                
-                if ( siResult == eDSNoErr ) 
-				{
-					// loop through all possibilities for set
-					// do first auth authority that supports the method for check password
-					//bool bLoopAll = IsWriteAuthRequest(uiAuthMethod);
-                    bool bLoopAll = false;
-					char* aaVersion = NULL;
-					char* aaTag = NULL;
-					char* aaData = NULL;
-					siResult = eDSAuthMethodNotSupported;
-                    
-					while ( idx < aaCount &&
-                            (siResult == eDSAuthMethodNotSupported || (bLoopAll && siResult == eDSNoErr)) )
-                    {
-						//parse this value of auth authority
-						siResult = ParseAuthAuthority( aaArray[idx], &aaVersion, &aaTag, &aaData );
-                        if ( aaArray[idx] )
-                            free( aaArray[idx] );
-                        
-						// JT need to check version
-						if (siResult != eDSNoErr) {
-							siResult = eDSAuthFailed;
+					//parse this value of auth authority
+					siResult = ParseAuthAuthority( aaArray[idx], &aaVersion, &aaTag, &aaData );
+					if ( aaArray[idx] )
+						free( aaArray[idx] );
+					
+					// JT need to check version
+					if (siResult != eDSNoErr) {
+						siResult = eDSAuthFailed;
+						break;
+					}
+					handlerProc = GetAuthAuthorityHandler( aaTag );
+					if (handlerProc != NULL) {
+						siResult = (handlerProc)(inData->fInNodeRef, inData->fInAuthMethod, pContext, 
+												&pContinueData, 
+												inData->fInAuthStepData, 
+												inData->fOutAuthStepDataResponse,
+												inData->fInDirNodeAuthOnlyFlag,aaData,
+												pConfigFromXML, fLDAPSessionMgr);
+						if (pContinueData != NULL && siResult == eDSNoErr)
+						{
+							// we are supposed to return continue data
+							// remember the proc we used
+							pContinueData->fAuthHandlerProc = (void*)handlerProc;
+							pContinueData->fAuthAuthorityData = aaData;
+							aaData = NULL;
 							break;
 						}
-						handlerProc = GetAuthAuthorityHandler( aaTag );
-						if (handlerProc != NULL) {
-							siResult = (handlerProc)(inData->fInNodeRef, inData->fInAuthMethod, pContext, 
-													&pContinueData, 
-													inData->fInAuthStepData, 
-													inData->fOutAuthStepDataResponse,
-													inData->fInDirNodeAuthOnlyFlag,aaData,
-                                                    pConfigFromXML, fLDAPSessionMgr);
-							if (pContinueData != NULL && siResult == eDSNoErr)
-							{
-								// we are supposed to return continue data
-								// remember the proc we used
-								pContinueData->fAuthHandlerProc = (void*)handlerProc;
-								pContinueData->fAuthAuthorityData = aaData;
-								aaData = NULL;
-								break;
-							}
-						} else {
-							siResult = eDSAuthMethodNotSupported;
-						}
-						if (aaVersion != NULL) {
-							free(aaVersion);
-							aaVersion = NULL;
-						}
-						if (aaTag != NULL) {
-							free(aaTag);
-							aaTag = NULL;
-						}
-						if (aaData != NULL) {
-							free(aaData);
-							aaData = NULL;
-						}
-						++idx;
+					} else {
+						siResult = eDSAuthMethodNotSupported;
 					}
 					if (aaVersion != NULL) {
 						free(aaVersion);
@@ -8227,26 +8222,39 @@ sInt32 CLDAPv3PlugIn::DoAuthentication ( sDoDirNodeAuth *inData )
 						free(aaData);
 						aaData = NULL;
 					}
-                    
-                    if (aaArray != NULL) {
-                        free( aaArray );
-                        aaArray = NULL;
-                    }
+					++idx;
 				}
-				else
+				if (aaVersion != NULL) {
+					free(aaVersion);
+					aaVersion = NULL;
+				}
+				if (aaTag != NULL) {
+					free(aaTag);
+					aaTag = NULL;
+				}
+				if (aaData != NULL) {
+					free(aaData);
+					aaData = NULL;
+				}
+				
+				if (aaArray != NULL) {
+					free( aaArray );
+					aaArray = NULL;
+				}
+			}
+			else
+			{
+				//revert to basic
+				siResult = DoBasicAuth(inData->fInNodeRef,inData->fInAuthMethod, pContext, 
+										&pContinueData, inData->fInAuthStepData,
+										inData->fOutAuthStepDataResponse,
+										inData->fInDirNodeAuthOnlyFlag,NULL,
+										pConfigFromXML, fLDAPSessionMgr);
+				if (pContinueData != NULL && siResult == eDSNoErr)
 				{
-					//revert to basic
-					siResult = DoBasicAuth(inData->fInNodeRef,inData->fInAuthMethod, pContext, 
-										   &pContinueData, inData->fInAuthStepData,
-										   inData->fOutAuthStepDataResponse,
-										   inData->fInDirNodeAuthOnlyFlag,NULL,
-                                           pConfigFromXML, fLDAPSessionMgr);
-					if (pContinueData != NULL && siResult == eDSNoErr)
-					{
-						// we are supposed to return continue data
-						// remember the proc we used
-						pContinueData->fAuthHandlerProc = (void*)CLDAPv3PlugIn::DoBasicAuth;
-					}
+					// we are supposed to return continue data
+					// remember the proc we used
+					pContinueData->fAuthHandlerProc = (void*)CLDAPv3PlugIn::DoBasicAuth;
 				}
 			}
 		}
@@ -8321,8 +8329,6 @@ sInt32 CLDAPv3PlugIn::DoPasswordServerAuth(
             serverAddr++;
             
             error = GetAuthMethod( inAuthMethod, &authMethod );
-            if ( error ) throw ( error );
-            
             switch( authMethod )
             {
                 case kAuth2WayRandom:

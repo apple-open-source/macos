@@ -29,6 +29,12 @@
  */
 /*
 	$Log: IOFireWireLibPriv.h,v $
+	Revision 1.23  2003/01/09 22:58:12  niels
+	radar 3061582: change kCFRunLoopDefaultMode to kCFRunLoopCommonModes
+	
+	Revision 1.22  2002/12/12 22:44:04  niels
+	fixed radar 3126316: panic with Hamamatsu driver
+	
 	Revision 1.21  2002/09/25 00:27:35  niels
 	flip your world upside-down
 	
@@ -147,8 +153,11 @@ namespace IOFireWireLib {
 	
 		public:
 			IOFireWireIUnknown( IUnknownVTbl* interface ) ;
+#if IOFIREWIRELIBDEBUG
+			virtual ~IOFireWireIUnknown() ;
+#else
 			virtual ~IOFireWireIUnknown() {}
-			
+#endif			
 			virtual HRESULT 					QueryInterface( REFIID iid, LPVOID* ppv ) = 0;
 			virtual ULONG 						AddRef() ;
 			virtual ULONG 						Release() ;
@@ -226,7 +235,7 @@ namespace IOFireWireLib {
 			//
 			// notification methods
 			//
-			const IOReturn			AddCallbackDispatcherToRunLoop(CFRunLoopRef inRunLoop)	{ return AddCallbackDispatcherToRunLoopForMode( inRunLoop, kCFRunLoopDefaultMode ) ; }
+			const IOReturn			AddCallbackDispatcherToRunLoop(CFRunLoopRef inRunLoop)	{ return AddCallbackDispatcherToRunLoopForMode( inRunLoop, kCFRunLoopCommonModes ) ; }
 			IOReturn				AddCallbackDispatcherToRunLoopForMode(	// v3+
 											CFRunLoopRef 				inRunLoop,
 											CFStringRef					inRunLoopMode ) ;
@@ -427,7 +436,7 @@ namespace IOFireWireLib {
 											CFDataRef*&			data) ;
 			// --- isoch related ----------
 			IOReturn				AddIsochCallbackDispatcherToRunLoop(
-											CFRunLoopRef		inRunLoop)			{ return AddIsochCallbackDispatcherToRunLoopForMode( inRunLoop, kCFRunLoopDefaultMode ) ; }
+											CFRunLoopRef		inRunLoop)			{ return AddIsochCallbackDispatcherToRunLoopForMode( inRunLoop, kCFRunLoopCommonModes ) ; }
 			IOReturn				AddIsochCallbackDispatcherToRunLoopForMode( // v3+
 											CFRunLoopRef			inRunLoop,
 											CFStringRef 			inRunLoopMode ) ;

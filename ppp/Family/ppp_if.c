@@ -314,8 +314,7 @@ int ppp_if_input(struct ifnet *ifp, struct mbuf *m, u_int16_t proto, u_int16_t h
             case PPP_COMP:
                 if (ppp_comp_decompress(wan, &m) != DECOMP_OK) {
                     LOGDBG(ifp, (LOGVAL, "ppp%d: decompression error\n", ifp->if_unit));
-                    m_freem(m);
-                    return 1; 
+                    goto free; 
                 }
                 p = mtod(m, u_char *);
                 proto = p[0];
@@ -342,8 +341,7 @@ int ppp_if_input(struct ifnet *ifp, struct mbuf *m, u_int16_t proto, u_int16_t h
         
             if (!wan->vjcomp) {
                 LOGDBG(ifp, (LOGVAL, "ppp%d: VJ structure not allocated\n", ifp->if_unit));
-                m_freem(m);
-                return 1; 
+                goto free; 
             }
     
             inlen = m->m_pkthdr.len;
@@ -355,14 +353,12 @@ int ppp_if_input(struct ifnet *ifp, struct mbuf *m, u_int16_t proto, u_int16_t h
 
                 if (vjlen <= 0) {
                     LOGDBG(ifp, (LOGVAL, "ppp%d: VJ uncompress failed on type PPP_VJC_COMP\n", ifp->if_unit));
-                    m_freem(m);
-                    return 1; 
+                    goto free; 
                 }
 
                 // we must move data in the buffer, to add the uncompressed TCP/IP header...
                 if (M_TRAILINGSPACE(m) < (hlen - vjlen)) {
-                    m_freem(m);
-                    return 1; 
+                    goto free; 
                 }
                 bcopy(p + vjlen, p + hlen, inlen - vjlen);
                 bcopy(iphdr, p, hlen);
@@ -375,8 +371,7 @@ int ppp_if_input(struct ifnet *ifp, struct mbuf *m, u_int16_t proto, u_int16_t h
 
                 if (vjlen < 0) {
                     LOGDBG(ifp, (LOGVAL, "ppp%d: VJ uncompress failed on type TYPE_UNCOMPRESSED_TCP\n", ifp->if_unit));
-                    m_freem(m);
-                    return 1; 
+                    goto free; 
                 }
             }
             *(u_char *)m->m_pkthdr.header = PPP_IP; // change the protocol, use 1 byte
@@ -404,6 +399,8 @@ int ppp_if_input(struct ifnet *ifp, struct mbuf *m, u_int16_t proto, u_int16_t h
     }
 
     getmicrotime(&ifp->if_lastchange);
+    ifp->if_ibytes += m->m_pkthdr.len;
+    ifp->if_ipackets++;
     m->m_pkthdr.rcvif = ifp;
     wan->last_recv = clock_get_system_value().tv_sec;
 
@@ -416,6 +413,11 @@ reject:
     M_PREPEND(m, hdrlen, M_DONTWAIT);	// just reput the header before to send it to pppd
     ppp_proto_input(wan->host, m);
     return 0;
+
+free:
+    m_free(m);
+    ifp->if_ierrors++;
+    return ENOMEM;
 }
 
 /* -----------------------------------------------------------------------------
@@ -551,7 +553,6 @@ int ppp_if_ioctl(struct ifnet *ifp, u_long cmd, void *data)
     int 		error = 0;
     struct ppp_stats 	*psp;
     struct in_ifaddr 	*ia = (struct in_ifaddr *)data;
-    struct ppp_link	*link;
 
     //LOGDBG(ifp, (LOGVAL, "ppp_if_ioctl, cmd = 0x%x\n", cmd));
     if (!wan->in_use)
@@ -599,15 +600,6 @@ int ppp_if_ioctl(struct ifnet *ifp, u_long cmd, void *data)
             psp->p.ppp_opackets = ifp->if_opackets;
             psp->p.ppp_ierrors = ifp->if_ierrors;
             psp->p.ppp_oerrors = ifp->if_oerrors;
-            TAILQ_FOREACH(link, &wan->link_head, lk_bdl_next) {
-                // add current stats for existing links
-                psp->p.ppp_ibytes += link->lk_ibytes;
-                psp->p.ppp_obytes += link->lk_obytes;
-                psp->p.ppp_ipackets += link->lk_ipackets;
-                psp->p.ppp_opackets += link->lk_opackets;
-                psp->p.ppp_ierrors += link->lk_ierrors;
-                psp->p.ppp_oerrors += link->lk_oerrors;
-            }
 
 #if 0
             if (sc->sc_comp) {
@@ -690,6 +682,8 @@ int ppp_if_output(struct ifnet *ifp, struct mbuf *m)
     // Update interface statistics.
     getmicrotime(&ifp->if_lastchange);
     wan->last_xmit = clock_get_system_value().tv_sec;
+    ifp->if_obytes += m->m_pkthdr.len - 2; // don't count protocol header
+    ifp->if_opackets++;
 
     if (wan->sc_flags & SC_LOOP_TRAFFIC) {
         ppp_proto_input(wan->host, m);
@@ -701,6 +695,7 @@ int ppp_if_output(struct ifnet *ifp, struct mbuf *m)
 
 bad:
     m_freem(m);
+    ifp->if_oerrors++;
     return error;
 }
 
@@ -741,13 +736,6 @@ int ppp_if_detachlink(struct ppp_link *link)
     // check if this is the last link, when multilink is coded
     wan->net.if_flags &= ~IFF_RUNNING;
     wan->net.if_baudrate -= link->lk_baudrate;
-    // update stats counters
-    wan->net.if_ibytes += link->lk_ibytes;
-    wan->net.if_ipackets += link->lk_ipackets;
-    wan->net.if_ierrors += link->lk_ierrors;
-    wan->net.if_obytes += link->lk_obytes;
-    wan->net.if_opackets += link->lk_opackets;
-    wan->net.if_oerrors += link->lk_oerrors;
     
     TAILQ_REMOVE(&wan->link_head, link, lk_bdl_next);
     wan->nblinks--;
@@ -808,8 +796,10 @@ int ppp_if_send(struct ifnet *ifp, struct mbuf *m)
 
         if (ppp_comp_compress(wan, &m) == COMP_OK) {
             M_PREPEND(m, 2, M_DONTWAIT);
-            if (m == 0)
+            if (m == 0) {
+                ifp->if_oerrors++;
                 return ENOBUFS;
+            }
             *mtod(m, u_int16_t *) = PPP_COMP; // update protocol
         } 
     } 
@@ -876,12 +866,7 @@ int ppp_if_xmit(struct ifnet *ifp, struct mbuf *m)
             IF_PREPEND(&ifp->if_snd, m);
             return err;
         }
-            
-        // Update interface statistics.
-        getmicrotime(&ifp->if_lastchange);
-        wan->last_xmit = clock_get_system_value().tv_sec;
-        ifp->if_opackets++;
-        ifp->if_obytes += len - 2;	// remove the 2 protocol bytes from the stats
+
         IF_DEQUEUE(&ifp->if_snd, m);
     }
      

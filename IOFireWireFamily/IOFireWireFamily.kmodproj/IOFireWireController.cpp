@@ -1329,7 +1329,10 @@ IORegistryEntry * IOFireWireController::createDummyRegistryEntry( IOFWNodeScan *
 			newPhy->release();	
 			newPhy = NULL;
 		}
-
+        if(getSecurityMode() == kIOFWSecurityModeNormal) {
+            // enable physical access for FireBug and other debug tools without a ROM
+            setNodeIDPhysicalFilter( scan->fAddr.nodeID & 0x3f, true );
+        }
         if(propTable)
             propTable->release();
 	}
@@ -1563,19 +1566,31 @@ void IOFireWireController::buildTopology(bool doFWPlane)
             int parentNodeNum, scanNodeNum;
             parentNodeNum = (level-1)->nodeID;
             if(doFWPlane)
+            {
                 node->attachToParent((level-1)->node, gIOFireWirePlane);
-            for (scanNodeNum = i + 1; scanNodeNum <= fRootNodeID; scanNodeNum++) {
-                UInt8 scanSpeedCode;
-                // Get speed code between parent and scan node.
-                scanSpeedCode =
-                        fSpeedCodes[(kFWMaxNodesPerBus + 1)*parentNodeNum + scanNodeNum];
-
-                // Set speed map entry to minimum of scan speed and node's speed.
-                if ( (speedCode & ~kFWSpeedUnknownMask) < (scanSpeedCode & ~kFWSpeedUnknownMask) )
-                        scanSpeedCode = speedCode;
-                fSpeedCodes[(kFWMaxNodesPerBus + 1)*i + scanNodeNum] = scanSpeedCode;
-                fSpeedCodes[(kFWMaxNodesPerBus + 1)*scanNodeNum + i] = scanSpeedCode;
             }
+           	else
+           	{
+				for (scanNodeNum = i + 1; scanNodeNum <= fRootNodeID; scanNodeNum++)
+				{
+					UInt8 scanSpeedCode;
+					// Get speed code between parent and scan node.
+					scanSpeedCode =
+							fSpeedCodes[(kFWMaxNodesPerBus + 1)*parentNodeNum + scanNodeNum];
+	
+					// Set speed map entry to minimum of scan speed and node's speed.
+					if ( (speedCode & ~kFWSpeedUnknownMask) < (scanSpeedCode & ~kFWSpeedUnknownMask) )
+					{
+						scanSpeedCode = speedCode;
+					}
+					if( (speedCode & kFWSpeedUnknownMask) || (scanSpeedCode & kFWSpeedUnknownMask) )
+					{
+						scanSpeedCode |= kFWSpeedUnknownMask;
+					}
+					fSpeedCodes[(kFWMaxNodesPerBus + 1)*i + scanNodeNum] = scanSpeedCode;
+					fSpeedCodes[(kFWMaxNodesPerBus + 1)*scanNodeNum + i] = scanSpeedCode;
+				}
+			}
         }
         // Find next child port.
         if (i > 0) {

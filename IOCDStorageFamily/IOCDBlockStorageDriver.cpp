@@ -446,12 +446,12 @@ IOCDBlockStorageDriver::getMediaBlockSize(CDSectorArea area,CDSectorType type)
 
     const SInt16 areaSize[kCDSectorTypeCount][8] =
     {                  /* 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80 */
-       /* Unknown    */ {   96,  294,   -1,  280, 2048,    4,    8,   12 },
-       /* CDDA       */ {   96,  294,   -1,    0, 2352,    0,    0,    0 },
-       /* Mode1      */ {   96,  294,   -1,  288, 2048,    4,    0,   12 },
-       /* Mode2      */ {   96,  294,   -1,    0, 2336,    4,    0,   12 },
-       /* Mode2Form1 */ {   96,  294,   -1,  280, 2048,    4,    8,   12 },
-       /* Mode2Form2 */ {   96,  294,   -1,    0, 2328,    4,    8,   12 },
+       /* Unknown    */ {   96,  294,   16,  280, 2048,    4,    8,   12 },
+       /* CDDA       */ {   96,  294,   16,    0, 2352,    0,    0,    0 },
+       /* Mode1      */ {   96,  294,   16,  288, 2048,    4,    0,   12 },
+       /* Mode2      */ {   96,  294,   16,    0, 2336,    4,    0,   12 },
+       /* Mode2Form1 */ {   96,  294,   16,  280, 2048,    4,    8,   12 },
+       /* Mode2Form2 */ {   96,  294,   16,    0, 2328,    4,    8,   12 },
     };
 
     if ( type >= kCDSectorTypeCount )  return 0;
@@ -678,7 +678,7 @@ IOCDBlockStorageDriver::prepareRequest(UInt64 byteStart,
 
     // Determine whether an undefined sector area or sector type was specified.
 
-    if (sectorType >= kCDSectorTypeCount || (sectorArea & 0x04) == 0x04)
+    if (sectorType >= kCDSectorTypeCount || (sectorArea & 0x05) == 0x05)
     {
         complete(completion, kIOReturnBadArgument);
         return;

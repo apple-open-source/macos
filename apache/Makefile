@@ -168,6 +168,7 @@ install-local:
 		  $(APXS) -A -n $${module} $${file}.so;	\
 	      done
 	$(APXS) -a -n hfs_apple mod_hfs_apple.so
+	$(APXS) -a -n rendezvous_apple mod_rendezvous_apple.so
 	$(_v) perl -i -pe 's|^(User\s+).*$$|$${1}www|'							$(DSTROOT)$(ConfigFile)
 	$(_v) perl -i -pe 's|^(Group\s+).*$$|$${1}www|'							$(DSTROOT)$(ConfigFile)
 	$(_v) perl -i -pe 's|^(MinSpareServers\s+)\d+$$|$${1}1|'					$(DSTROOT)$(ConfigFile)
@@ -185,3 +186,8 @@ install-local:
 	$(_v) $(RM)    $(DSTROOT)$(ConfigDir)/access.conf*
 	$(_v) $(RM)    $(DSTROOT)$(ConfigDir)/srm.conf*
 	$(_v) $(MKDIR) $(DSTROOT)$(ConfigDir)/users
+	$(_v) perl -i -pe 's|/usr/local/apache/conf|/etc/httpd|'				$(DSTROOT)/usr/share/man/man8/httpd.8
+	$(_v) perl -i -pe 's|/usr/local/apache/logs|/var/log/httpd|'				$(DSTROOT)/usr/share/man/man8/httpd.8
+	$(_v) perl -i -pe 's|/var/log/httpd/httpd.pid|/var/run/httpd.pid|'			$(DSTROOT)/usr/share/man/man8/httpd.8
+	$(_v) rm $(DSTROOT)/Library/WebServer/CGI-Executables/printenv
+	$(_v) rm $(DSTROOT)/Library/WebServer/CGI-Executables/test-cgi

@@ -105,10 +105,14 @@ Boolean
 IOFWUserIsochPortProxy::init(
 	IOFireWireUserClient*	inUserClient)
 {
+	fLock					= IORecursiveLockAlloc() ;
+	if (!fLock)
+		return false ;
+
 	fUserClient 			= inUserClient ;	
 	fPortStarted			= false ;
 	fPortAllocated			= false ;
-	fPort = NULL ;
+	fPort 					= NULL ;
 	
 	IOFireWireUserClientLog_("IOFWUserIsochPortProxy::init: this=%p, fPort %p, fUserClient %p\n", this, fPort, fUserClient) ;
 	
@@ -120,12 +124,16 @@ IOFWUserIsochPortProxy::getSupported(IOFWSpeed &maxSpeed, UInt64 &chanSupported)
 {
 	IOReturn	result = kIOReturnSuccess ;
 
+	lock() ;
+	
 	if (!fPort)
 		result = createPort() ;
 
 	if ( result == kIOReturnSuccess )
 		result = fPort->getSupported(maxSpeed, chanSupported) ;
-	
+
+	unlock() ;
+		
 	return result ;
 }
 
@@ -133,6 +141,9 @@ IOReturn
 IOFWUserIsochPortProxy::allocatePort(IOFWSpeed speed, UInt32 chan)
 {
 	IOReturn	result		= kIOReturnSuccess ;
+
+	lock() ;
+	
 	if (!fPortAllocated)
 	{
 		if (!fPort)
@@ -144,6 +155,8 @@ IOFWUserIsochPortProxy::allocatePort(IOFWSpeed speed, UInt32 chan)
 		fPortAllocated = (kIOReturnSuccess == result) ;
 	}
 	
+	unlock() ;
+	
 	return result ;
 }
 
@@ -151,6 +164,8 @@ IOReturn
 IOFWUserIsochPortProxy::releasePort()
 {
 	IOReturn	result		= kIOReturnSuccess ;
+	
+	lock() ;
 	
 	if ( fPortStarted )
 	{
@@ -176,6 +191,8 @@ IOFWUserIsochPortProxy::releasePort()
 		fPortAllocated = false ;
 	}
 	
+	unlock() ;
+	
 	return result ;
 }
 
@@ -183,6 +200,9 @@ IOReturn
 IOFWUserIsochPortProxy::start()
 {
 	IOReturn	result		= kIOReturnSuccess ;
+
+	lock() ;
+
 	if (fPortAllocated && !fPortStarted)
 	{
 		if (!fPort)
@@ -198,6 +218,8 @@ IOFWUserIsochPortProxy::start()
 		fPortStarted = (kIOReturnSuccess == result) ;
 	}
 
+	unlock() ;
+	
 	return result ;
 }
 
@@ -205,6 +227,9 @@ IOReturn
 IOFWUserIsochPortProxy::stop()
 {
 	IOReturn	result		= kIOReturnSuccess ;
+
+	lock() ;
+
 	if (fPortStarted)
 	{
 		IOFireWireUserClientLog_("IOFWUserIsochPortProxy::stop: stopping port %p\n", fPort) ;
@@ -221,6 +246,8 @@ IOFWUserIsochPortProxy::stop()
 		fPortStarted = false ;
 	}
 	
+	unlock() ;
+	
 	return result ;
 }
 
@@ -228,11 +255,19 @@ void
 IOFWUserIsochPortProxy::free()
 {
 	IOFireWireUserClientLog_("IOFWUserIsochPortProxy::free: this=%p, releasing fPort @ %p\n", this, fPort) ;
+
+	lock() ;
+
 	if (fPort)
 	{
 		fPort->release() ;
 		fPort = NULL ;
 	}
+	
+	unlock() ;
+	
+	if ( fLock )
+		IORecursiveLockFree( fLock ) ;
 	
 	OSObject::free() ;
 }
@@ -251,6 +286,7 @@ IOFWUserIsochPortProxy::createPort()
 		IOLog("%s %u: couldn't make newPort!\n", __FILE__, __LINE__) ;
 	}
 	
+	// no need to take lock... this funcion is always called with lock held
 	fPort = newPort ;
 	
 	return result ;
@@ -278,7 +314,7 @@ IOFWUserLocalIsochPortProxy::initWithUserDCLProgram( LocalIsochPortAllocateParam
 	fStartMask				= inParams->startMask ;
 	fUserObj				= inParams->userObj ;
 	fTaskInfo.fTask 		= fUserClient->getOwningTask();
-
+		
 	//
 	// Note: The ranges passed in must be sorted. (Should be if user space code doesn't change)
 	//zzz is this still true?
@@ -686,12 +722,14 @@ IOFWUserLocalIsochPortProxy::free()
 IOReturn
 IOFWUserLocalIsochPortProxy::getSupported(IOFWSpeed &maxSpeed, UInt64 &chanSupported)
 {
+	lock() ;
+	
 	if (!fPort)
 		createPort() ;
 
-	IOReturn result = IOFWUserIsochPortProxy::getSupported( maxSpeed, chanSupported ) ;
+	unlock() ;
 	
-	return result ;
+	return IOFWUserIsochPortProxy::getSupported( maxSpeed, chanSupported ) ;
 }
 
 IOReturn
@@ -699,9 +737,11 @@ IOFWUserLocalIsochPortProxy::allocatePort(IOFWSpeed speed, UInt32 chan)
 {
 	IOReturn	result = kIOReturnSuccess ;
 
+	lock() ;
+	
 	if (!fPort)
 		result = createPort() ;
-		
+			
 	if ( result == kIOReturnSuccess && fUserBufferMem && !fUserBufferMemPrepared )
 	{
 		result = fUserBufferMem->prepare() ;
@@ -722,6 +762,8 @@ IOFWUserLocalIsochPortProxy::allocatePort(IOFWSpeed speed, UInt32 chan)
 		fPort->release() ;
 		fPort = NULL ;
 	}
+
+	unlock() ;
 			
 	return result ;
 }
@@ -730,6 +772,8 @@ IOReturn
 IOFWUserLocalIsochPortProxy::releasePort()
 {
 	IOReturn	result = kIOReturnSuccess ;
+	
+	lock() ;
 	
 	if (fPort)
 	{
@@ -750,6 +794,8 @@ IOFWUserLocalIsochPortProxy::releasePort()
 		fPort->release() ;
 		fPort = NULL ;
 	}
+	
+	unlock() ;
 	
 	return result ;
 }
@@ -1264,10 +1310,16 @@ IOFWUserLocalIsochPortProxy::modifyJumpDCL( UInt32 inJumpDCLCompilerData, UInt32
 	if (!pJumpDCL->compilerData)
 		return kIOReturnSuccess ;
 
+	IOReturn result = kIOReturnSuccess ;
+	
+	lock() ;
+	
 	if (fPort)
-		return ((IOFWLocalIsochPort*)fPort)->notify(kFWDCLModifyNotification, (DCLCommand**) &pJumpDCL, 1) ;
+		result = ((IOFWLocalIsochPort*)fPort)->notify(kFWDCLModifyNotification, (DCLCommand**) &pJumpDCL, 1) ;
 
-	return kIOReturnSuccess ;
+	unlock() ;
+	
+	return result ;
 }
 
 IOReturn
@@ -1284,13 +1336,18 @@ IOFWUserLocalIsochPortProxy::modifyJumpDCLSize( UInt32 dclCompilerData, IOByteCo
 	}
 		
 	DCLTransferPacket*	dcl = (DCLTransferPacket*)( fUserToKernelDCLLookupTable[ dclCompilerData ] ) ;
+	IOReturn			result = kIOReturnSuccess ;
+	lock() ;
 	
 	if (fPort)
-		return ((IOFWLocalIsochPort*)fPort)->notify(kFWDCLModifyNotification, (DCLCommand**)&dcl, 1) ;
+		result = ((IOFWLocalIsochPort*)fPort)->notify(kFWDCLModifyNotification, (DCLCommand**)&dcl, 1) ;
 
-	return kIOReturnSuccess ;
+	unlock() ;
+	
+	return result ;
 }
 
+// should be called with lock held...
 IOReturn
 IOFWUserLocalIsochPortProxy::createPort()
 {
@@ -1303,7 +1360,7 @@ IOFWUserLocalIsochPortProxy::createPort()
 	}
 	
 	if ( result == kIOReturnSuccess )
-	{        
+	{   		
 		fPort = fUserClient->getOwner()->getController()->createLocalIsochPort(
 																fTalking,
 																fKernDCLProgramStart,
@@ -1315,9 +1372,9 @@ IOFWUserLocalIsochPortProxy::createPort()
 		if (!fPort)
 		{
 			IOLog("%s %u: no fPort", __FILE__, __LINE__) ;
-			return kIOReturnNoMemory ;
+			result = kIOReturnNoMemory ;
 		}
 	}
 	
-	return kIOReturnSuccess ;
+	return result ;
 }

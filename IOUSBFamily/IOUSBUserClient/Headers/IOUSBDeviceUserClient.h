@@ -24,6 +24,7 @@
 
 #include <IOKit/IOUserClient.h>
 #include <IOKit/usb/IOUSBUserClient.h>
+#include <IOKit/usb/IOUSBControllerV2.h>
 
 class IOUSBDevice;
 class OSSet;
@@ -80,6 +81,7 @@ private:
     virtual IOReturn GetConfigDescriptor(UInt8 configIndex, IOUSBConfigurationDescriptorPtr desc, UInt32 *size);
     virtual IOReturn CreateInterfaceIterator(IOUSBFindInterfaceRequest *reqIn, io_object_t *iterOut, IOByteCount inCount, IOByteCount *outCount);
     virtual IOReturn GetFrameNumber(IOUSBGetFrameStruct *data, UInt32 *size);
+    virtual IOReturn GetMicroFrameNumber(IOUSBGetFrameStruct *data, UInt32 *size);
 
     // transactions on pipe zero
     virtual IOReturn DeviceReqIn(UInt16 param1, UInt32 param2, UInt32 noDataTimeout, UInt32 completionTimeout, void *buf, UInt32 *size);

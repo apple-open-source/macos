@@ -30,8 +30,8 @@
 #warning VERIFY the version string before each distinct build submission
 static const char	*sysStrList [] =
 {
-	/* 01 */	"1.5",
-	/* 02 */	"197.1"
+	/* 01 */	"1.5.2",
+	/* 02 */	"197.5"
 };
 
 /*

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Sendmail, Inc. and its suppliers.
+ * Copyright (c) 2000-2002 Sendmail, Inc. and its suppliers.
  *      All rights reserved.
  * Copyright (c) 1990, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -13,7 +13,7 @@
  */
 
 #include <sm/gen.h>
-SM_RCSID("@(#)$Id: fclose.c,v 1.1.1.1 2002/03/12 18:00:19 zarzycki Exp $")
+SM_RCSID("@(#)$Id: fclose.c,v 1.1.1.2 2002/10/15 02:38:04 zarzycki Exp $")
 #include <errno.h>
 #include <stdlib.h>
 #include <sys/time.h>
@@ -86,6 +86,7 @@ sm_io_close(fp, timeout)
 
 	SM_REQUIRE_ISA(fp, SmFileMagic);
 
+	/* XXX this won't be reached if above macro is active */
 	if (fp->sm_magic == NULL)
 	{
 		/* not open! */
@@ -140,8 +141,6 @@ sm_io_close(fp, timeout)
 	}
 	if (HASUB(fp))
 		FREEUB(fp);
-	if (HASLB(fp))
-		FREELB(fp);
 	fp->f_flags = 0;	/* clear flags */
 	fp->sm_magic = NULL;	/* Release this SM_FILE_T for reuse. */
 	fp->f_r = fp->f_w = 0;	/* Mess up if reaccessed. */

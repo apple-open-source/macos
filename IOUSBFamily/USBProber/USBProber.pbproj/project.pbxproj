@@ -101,7 +101,6 @@
 				4A9504CCFFE6A4B311CA0CBA,
 				4A9504CDFFE6A4B311CA0CBA,
 			);
-			hasScannedForEncodings = 1;
 			isa = PBXProject;
 			mainGroup = 29B97314FDCFA39411CA2CEA;
 			projectDirPath = "";
@@ -165,11 +164,10 @@
 				29B9732DFDCFA39411CA2CEA,
 			);
 			buildSettings = {
-				DEBUGGING_SYMBOLS = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
 				HEADER_SEARCH_PATHS = "";
 				INSTALL_PATH = "$(HOME)/Applications";
-				LIBRARY_SEARCH_PATHS = /usr/lib/gcc/darwin/2.95.2;
+				LIBRARY_SEARCH_PATHS = "";
 				OTHER_CFLAGS = "-W -Wall -Wno-unused";
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = "USB Prober";
@@ -193,7 +191,7 @@
 	<key>CFBundleExecutable</key>
 	<string>USB Prober</string>
 	<key>CFBundleGetInfoString</key>
-	<string>2.0.2, Copyright Apple Computer, Inc. 2002</string>
+	<string>2.0.4, Copyright Apple Computer, Inc. 2002</string>
 	<key>CFBundleIconFile</key>
 	<string>USBProberIcon.icns</string>
 	<key>CFBundleIdentifier</key>
@@ -205,11 +203,11 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.0.2</string>
+	<string>2.0.4</string>
 	<key>CFBundleSignature</key>
 	<string>USBP</string>
 	<key>CFBundleVersion</key>
-	<string>108</string>
+	<string>2.0.4b1</string>
 	<key>NSMainNibFile</key>
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
@@ -231,6 +229,7 @@
 				F5ACABB102E7380E01000164,
 				F5ACABB702E7383101000164,
 				F5ACABB902E7383101000164,
+				F5355B2B039C6C0F01000164,
 			);
 			isa = PBXHeadersBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -261,6 +260,7 @@
 				F5ACABB802E7383101000164,
 				F5ACABBA02E7383101000164,
 				F5ACABBC02E7386201000164,
+				F5355B2C039C6C0F01000164,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -349,6 +349,28 @@
 			path = "";
 			refType = 4;
 		};
+		F5355B29039C6C0F01000164 = {
+			isa = PBXFileReference;
+			path = DecodeAudioInterfaceDescriptor.h;
+			refType = 4;
+		};
+		F5355B2A039C6C0F01000164 = {
+			isa = PBXFileReference;
+			path = DecodeAudioInterfaceDescriptor.m;
+			refType = 4;
+		};
+		F5355B2B039C6C0F01000164 = {
+			fileRef = F5355B29039C6C0F01000164;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5355B2C039C6C0F01000164 = {
+			fileRef = F5355B2A039C6C0F01000164;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
 		F545462A02768FE401000166 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
@@ -426,6 +448,8 @@
 				F556C3DD0207251E01CE14C9,
 				F556D5EC0290C947015A0A51,
 				F556D5ED0290C947015A0A51,
+				F5355B29039C6C0F01000164,
+				F5355B2A039C6C0F01000164,
 			);
 			isa = PBXGroup;
 			name = "Bus Probe";

@@ -390,7 +390,7 @@ IOReturn clipAppleDBDMAToOutputStreamMixRightChannel(const void *mixBuf, void *s
 // aml 2.14.02 added second filter state for 4th order filter
 // aml 2.18.02 added more filter state for phase compensator
 // aml 3.5.02 added src phase parameter
-IOReturn clipAppleDBDMAToOutputStreamiSub(const void *mixBuf, void *sampleBuf, PreviousValues * filterState, PreviousValues * filterState2, PreviousValues * phaseCompState, Float32 *low, Float32 *high, UInt32 firstSampleFrame, UInt32 numSampleFrames, UInt32 sampleRate, const IOAudioStreamFormat *streamFormat, SInt16 *iSubBufferMemory, UInt32 *loopCount, SInt32 *iSubBufferOffset, UInt32 iSubBufferLen, iSubAudioFormatType* iSubFormat, float* srcPhase, float* srcState)
+IOReturn clipAppleDBDMAToOutputStreamiSub(const void *mixBuf, void *sampleBuf, PreviousValues * filterState, PreviousValues * filterState2, PreviousValues * phaseCompState, Float32 *low, Float32 *high, UInt32 firstSampleFrame, UInt32 numSampleFrames, UInt32 sampleRate, const IOAudioStreamFormat *streamFormat, SInt16 *iSubBufferMemory, UInt32 *loopCount, SInt32 *iSubBufferOffset, UInt32 iSubBufferLen, iSubAudioFormatType* iSubFormat, float* srcPhase, float* srcState, UInt32 adaptiveSampleRate)
 {
     UInt32 sampleIndex, maxSampleIndex;
     float *	floatMixBuf;
@@ -402,7 +402,7 @@ IOReturn clipAppleDBDMAToOutputStreamiSub(const void *mixBuf, void *sampleBuf, P
     float 	x0, x1, temp;
 
     // aml 3.6.02 src variables - should calculate phaseInc somewhere else, change only if the SR changes
-    float 	phaseInc = ((float)sampleRate)/((float)(iSubFormat->outputSampleRate));		// phase increment = Fs_in/Fs_out
+    float 	phaseInc = ((float)adaptiveSampleRate)/((float)(iSubFormat->outputSampleRate));		// phase increment = Fs_in/Fs_out
     float 	phase = *srcPhase;								// current phase location
 
     floatMixBuf = (float *)mixBuf;
@@ -412,11 +412,12 @@ IOReturn clipAppleDBDMAToOutputStreamiSub(const void *mixBuf, void *sampleBuf, P
 
     // Filter out the highs and lows for use with the iSub
     if (1 == streamFormat->fNumChannels) {
-            MonoFilter (&floatMixBuf[firstSampleFrame * streamFormat->fNumChannels], &low[firstSampleFrame * streamFormat->fNumChannels], &high[firstSampleFrame * streamFormat->fNumChannels], numSampleFrames, sampleRate);
+		MonoFilter (&floatMixBuf[firstSampleFrame * streamFormat->fNumChannels], &low[firstSampleFrame * streamFormat->fNumChannels], &high[firstSampleFrame * streamFormat->fNumChannels], numSampleFrames, sampleRate);
     } else if (2 == streamFormat->fNumChannels) {
-            // aml 2.15.02 changed to 4th order version
-            // aml 2.18.02 changed to 4th order version with phase compensation
-            StereoFilter4thOrderPhaseComp (&floatMixBuf[firstSampleFrame * streamFormat->fNumChannels], &low[firstSampleFrame * streamFormat->fNumChannels], &high[firstSampleFrame * streamFormat->fNumChannels], numSampleFrames, sampleRate, filterState, filterState2, phaseCompState);
+		// aml 2.15.02 changed to 4th order version
+		// aml 2.18.02 changed to 4th order version with phase compensation
+//		StereoFilter4thOrderPhaseComp (&floatMixBuf[firstSampleFrame * streamFormat->fNumChannels], &low[firstSampleFrame * streamFormat->fNumChannels], &high[firstSampleFrame * streamFormat->fNumChannels], numSampleFrames, sampleRate, filterState, filterState2, phaseCompState);
+		StereoFilter4thOrderPhaseComp (&floatMixBuf[firstSampleFrame * streamFormat->fNumChannels], &low[firstSampleFrame * streamFormat->fNumChannels], &high[firstSampleFrame * streamFormat->fNumChannels], numSampleFrames, sampleRate, filterState, filterState2, phaseCompState);
     }
     //
     // high side loop 
@@ -527,7 +528,7 @@ IOReturn clipAppleDBDMAToOutputStreamiSub(const void *mixBuf, void *sampleBuf, P
 // aml 2.14.02 added second filter state for 4th order filter
 // aml 2.18.02 changed to 4th order version with phase compensation
 // aml 3.5.02 added src phase parameter
-IOReturn clipAppleDBDMAToOutputStreamiSubInvertRightChannel(const void *mixBuf, void *sampleBuf, PreviousValues * filterState, PreviousValues * filterState2, PreviousValues * phaseCompState, Float32 *low, Float32 *high, UInt32 firstSampleFrame, UInt32 numSampleFrames, UInt32 sampleRate, const IOAudioStreamFormat *streamFormat, SInt16 *iSubBufferMemory, UInt32 *loopCount, SInt32 *iSubBufferOffset, UInt32 iSubBufferLen, iSubAudioFormatType* iSubFormat, float* srcPhase, float* srcState)
+IOReturn clipAppleDBDMAToOutputStreamiSubInvertRightChannel(const void *mixBuf, void *sampleBuf, PreviousValues * filterState, PreviousValues * filterState2, PreviousValues * phaseCompState, Float32 *low, Float32 *high, UInt32 firstSampleFrame, UInt32 numSampleFrames, UInt32 sampleRate, const IOAudioStreamFormat *streamFormat, SInt16 *iSubBufferMemory, UInt32 *loopCount, SInt32 *iSubBufferOffset, UInt32 iSubBufferLen, iSubAudioFormatType* iSubFormat, float* srcPhase, float* srcState, UInt32 adaptiveSampleRate)
 {
     UInt32 sampleIndex, maxSampleIndex;
     float *floatMixBuf;
@@ -540,7 +541,7 @@ IOReturn clipAppleDBDMAToOutputStreamiSubInvertRightChannel(const void *mixBuf, 
     float 	x0, x1, temp;
 
     // aml 3.6.02 src variables - should calculate phaseInc somewhere else, change only if the SR changes
-    float 	phaseInc = ((float)sampleRate)/((float)(iSubFormat->outputSampleRate));		// phase increment = Fs_in/Fs_out
+    float 	phaseInc = ((float)adaptiveSampleRate)/((float)(iSubFormat->outputSampleRate));		// phase increment = Fs_in/Fs_out
     float 	phase = *srcPhase;								// current phase location
 
     floatMixBuf = (float *)mixBuf;
@@ -626,8 +627,8 @@ IOReturn clipAppleDBDMAToOutputStreamiSubInvertRightChannel(const void *mixBuf, 
                 
                 // check for end of buffer condition
                 if (*iSubBufferOffset >= (SInt32)iSubBufferLen) {
-                        *iSubBufferOffset = 0;
-                        (*loopCount)++;
+					*iSubBufferOffset = 0;
+					(*loopCount)++;
                 }
                 
                 // byteswap to USB format and copy to iSub buffer
@@ -661,8 +662,8 @@ IOReturn clipAppleDBDMAToOutputStreamiSubInvertRightChannel(const void *mixBuf, 
             iSubSampleInt = (SInt16) (iSubSampleFloat * 32767.0);
 
             if (*iSubBufferOffset >= iSubBufferLen) {
-                    *iSubBufferOffset = 0;
-                    (*loopCount)++;
+				*iSubBufferOffset = 0;
+				(*loopCount)++;
             }
 
             iSubBufferMemory[(*iSubBufferOffset)++] = ((((UInt16)iSubSampleInt) << 8) & 0xFF00) | ((((UInt16)iSubSampleInt) >> 8) & 0x00FF);
@@ -673,7 +674,7 @@ IOReturn clipAppleDBDMAToOutputStreamiSubInvertRightChannel(const void *mixBuf, 
 // aml 2.14.02 added second filter state for 4th order filter
 // aml 2.18.02 changed to 4th order version with phase compensation
 // aml 3.5.02 added src phase parameter
-IOReturn clipAppleDBDMAToOutputStreamiSubMixRightChannel(const void *mixBuf, void *sampleBuf, PreviousValues * filterState, PreviousValues * filterState2, PreviousValues * phaseCompState, Float32 *low, Float32 *high, UInt32 firstSampleFrame, UInt32 numSampleFrames, UInt32 sampleRate, const IOAudioStreamFormat *streamFormat, SInt16 *iSubBufferMemory, UInt32 *loopCount, SInt32 *iSubBufferOffset, UInt32 iSubBufferLen, iSubAudioFormatType* iSubFormat, float* srcPhase, float* srcState)
+IOReturn clipAppleDBDMAToOutputStreamiSubMixRightChannel(const void *mixBuf, void *sampleBuf, PreviousValues * filterState, PreviousValues * filterState2, PreviousValues * phaseCompState, Float32 *low, Float32 *high, UInt32 firstSampleFrame, UInt32 numSampleFrames, UInt32 sampleRate, const IOAudioStreamFormat *streamFormat, SInt16 *iSubBufferMemory, UInt32 *loopCount, SInt32 *iSubBufferOffset, UInt32 iSubBufferLen, iSubAudioFormatType* iSubFormat, float* srcPhase, float* srcState, UInt32 adaptiveSampleRate)
 {
     UInt32 sampleIndex, maxSampleIndex;
     float *floatMixBuf;
@@ -685,7 +686,7 @@ IOReturn clipAppleDBDMAToOutputStreamiSubMixRightChannel(const void *mixBuf, voi
     float 	x0, x1, temp;
 
     // aml 3.6.02 src variables - should calculate phaseInc somewhere else, change only if the SR changes
-    float 	phaseInc = ((float)sampleRate)/((float)(iSubFormat->outputSampleRate));		// phase increment = Fs_in/Fs_out
+    float 	phaseInc = ((float)adaptiveSampleRate)/((float)(iSubFormat->outputSampleRate));		// phase increment = Fs_in/Fs_out
     float 	phase = *srcPhase;								// current phase location
 
     floatMixBuf = (float *)mixBuf;

@@ -472,8 +472,8 @@ protected:
 	bool					fUnsolicitedStatusEnableRequested;
 	
 	IOFWDelayCommand *		fReconnectRetryTimeoutCommand;
-    bool					fReconnectRetryTimeoutTimerSet;
-	
+    bool					fReconnectRetryTimeoutTimerSet;	
+
 	// init / destroy
     virtual IOReturn getUnitInformation( void );
     virtual IOReturn allocateResources( void );
@@ -610,7 +610,12 @@ protected:
 	IOFWWriteQuadCommand *			fSetBusyTimeoutCommand;
 	
 	bool							fInCriticalSection;
-	
+
+	UInt16					fLocalNodeID;
+	bool					fFastStartSupported;
+	UInt32					fFastStartOffset;
+	UInt32					fFastStartMaxPayload;
+		
 	virtual IOReturn executeSetBusyTimeout( void );
 	static void setBusyTimeoutCompleteStatic( void *refcon, IOReturn status, IOFireWireNub *device, IOFWCommand *fwCmd );
 	virtual void setBusyTimeoutComplete( IOReturn status, IOFireWireNub *device, IOFWCommand *fwCmd );

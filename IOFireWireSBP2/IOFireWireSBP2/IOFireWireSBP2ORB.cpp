@@ -25,7 +25,9 @@
 #include <IOKit/sbp2/IOFireWireSBP2LUN.h>
 #include "FWDebugging.h"
 
+#define FIREWIREPRIVATE
 #include <IOKit/firewire/IOFireWireController.h>
+#undef FIREWIREPRIVATE
 
 OSDefineMetaClassAndStructors( IOFireWireSBP2ORB, IOCommand );
 
@@ -88,7 +90,7 @@ IOReturn IOFireWireSBP2ORB::allocateResources( void )
     {	
 		// calculate orb size
 		UInt32 orbSize = sizeof(FWSBP2ORB) - 4 + fLogin->getMaxCommandBlockSize();
-        status = allocateORB( orbSize );
+		status = allocateORB( orbSize );
 	}
 
 	//
@@ -314,6 +316,10 @@ void IOFireWireSBP2ORB::prepareORBForExecution( void )
     IOFWSpeed speed = fUnit->FWSpeed();
     switch( speed )
     {
+		case kFWSpeed800MBit:
+			fORBBuffer->options |= 0x0300;
+			break;
+
         case kFWSpeed400MBit:
             fORBBuffer->options |= 0x0200;
              break;
@@ -331,7 +337,7 @@ void IOFireWireSBP2ORB::prepareORBForExecution( void )
     // calculate transfer size
     //
 
-    UInt32 transferSizeBytes = 2048; // start at max packet size
+    UInt32 transferSizeBytes = 4096; // start at max packet size
 
     // trim by max payload sizes
     UInt32 loginMaxPayloadSize = fLogin->getMaxPayloadSize();
@@ -357,6 +363,64 @@ void IOFireWireSBP2ORB::prepareORBForExecution( void )
 
     // set transfer size, actual max is 2 ^ (size + 2) bytes (or 2 ^ size quads)
     fORBBuffer->options |= transferSizeLog << 4;
+}
+
+// prepareFastStartPacket
+//
+//
+
+void IOFireWireSBP2ORB::prepareFastStartPacket( IOBufferMemoryDescriptor * descriptor )
+{
+	UInt32 offset = 16;
+	UInt32 length = descriptor->getLength();
+	
+	//
+	// write orb
+	//
+	
+	UInt32 orbLength = fORBDescriptor->getLength();
+	if( length < (offset + orbLength) )
+	{
+		IOLog( "IOFireWireSBP2ORB<0x%08lx>::prepareFastStartPacket - fast start packet length (%d) < orblength (%d) + 16\n", this, length, orbLength );
+	}
+	descriptor->writeBytes( offset, fORBBuffer, orbLength );
+
+	offset += orbLength;
+	
+	//
+	// write page table
+	//
+		
+	FWSBP2PTE pte;
+	UInt32 pageTableOffset = 0;
+	UInt32 pageTableSize = fPTECount * sizeof(FWSBP2PTE);
+
+	while( offset < length && pageTableOffset < pageTableSize )
+	{
+		if( (length - offset) < sizeof(FWSBP2PTE) )
+		{
+			IOLog( "IOFireWireSBP2ORB<0x%08lx>::prepareFastStartPacket - fast start packet not full, yet pte doesn't fit\n", this );
+			break;
+		}
+						
+		fPageTableDescriptor->readBytes( pageTableOffset, &pte, sizeof(FWSBP2PTE) );
+		descriptor->writeBytes( offset, &pte, sizeof(FWSBP2PTE) );
+
+		
+		offset += sizeof(FWSBP2PTE);
+		pageTableOffset += sizeof(FWSBP2PTE);
+	}
+	
+	if( offset > length )
+	{
+		IOLog( "IOFireWireSBP2ORB<0x%08lx>::prepareFastStartPacket - offset > length\n", this );
+	}
+	
+	//
+	// trim descriptor size if necessary
+	//
+	
+	descriptor->setLength( offset );
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -602,6 +666,8 @@ void IOFireWireSBP2ORB::deallocateBufferAddressSpace( void )
 {
     fControl->closeGate();
     
+	fPTECount = 0;
+	
     if( fBufferAddressSpaceAllocated )
     {
         fBufferAddressSpace->deactivate();
@@ -863,6 +929,7 @@ IOReturn IOFireWireSBP2ORB::setCommandBuffers( IOMemoryDescriptor * memoryDescri
             fORBBuffer->dataDescriptorLo	= 0;
             fORBBuffer->options				&= 0xfff0;	// no page table
             fORBBuffer->dataSize			= 0;
+			fPTECount = 0;
         }
         else 
 		{
@@ -880,6 +947,7 @@ IOReturn IOFireWireSBP2ORB::setCommandBuffers( IOMemoryDescriptor * memoryDescri
 				fORBBuffer->dataDescriptorLo	= firstEntry.segmentBaseAddressLo;
 				fORBBuffer->options				&= 0xfff0;		// no page table
 				fORBBuffer->dataSize			= firstEntry.segmentLength;
+				fPTECount = 0;
 			}
 			else if( pte * sizeof(FWSBP2PTE) < PAGE_SIZE )
 			{
@@ -889,6 +957,7 @@ IOReturn IOFireWireSBP2ORB::setCommandBuffers( IOMemoryDescriptor * memoryDescri
 				fORBBuffer->options				&= 0xfff0;
 				fORBBuffer->options				|= 0x0008;		// unrestricted page table
 				fORBBuffer->dataSize			= pte;
+				fPTECount = pte;
 			}
 			else
 			{
@@ -898,6 +967,7 @@ IOReturn IOFireWireSBP2ORB::setCommandBuffers( IOMemoryDescriptor * memoryDescri
 				fORBBuffer->options				&= 0xfff0;
 				fORBBuffer->options				|= 0x0008;		// unrestricted page table
 				fORBBuffer->dataSize			= pte;			
+				fPTECount = pte;
 			}
 		}
     }

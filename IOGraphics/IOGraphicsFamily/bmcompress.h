@@ -499,7 +499,7 @@ static int CompressData(UInt8 *srcbase, UInt32 depth, UInt32 width, UInt32 heigh
 
     if(dlen <= (3+height)*sizeof(uint32_t))
     {
-    	DEBG("compressData: destination buffer size %ld too small for y index (%ld)\n",
+    	DEBG(0, "compressData: destination buffer size %ld too small for y index (%ld)\n",
 		dlen, (3+height)*sizeof(uint32_t));
         return 0;
     }
@@ -519,7 +519,7 @@ static int CompressData(UInt8 *srcbase, UInt32 depth, UInt32 width, UInt32 heigh
     {
         if(((((uint8_t *)cScan)-dstbase) + 8*(width+1)) > dlen)
         {
-            DEBG("compressData: overflow: %d bytes in %ld byte buffer at scanline %ld (of %ld).\n",
+            DEBG(0, "compressData: overflow: %d bytes in %ld byte buffer at scanline %ld (of %ld).\n",
 		(uint8_t *)cScan-dstbase, dlen, y, height);
 
 	    return 0;
@@ -552,6 +552,13 @@ static void DecompressData(UInt8 *srcbase, UInt8 *dstbase, int dx, int dy,
 
     src     = (uint32_t *)srcbase;
     dst     = (uint8_t *)dstbase;
+
+    if ((dw != (int) src[1]) || (dh != (int) src[2]))
+    {
+	DEBG(0, " DecompressData mismatch %dx%d, %dx%d\n", dw, dh, src[1], src[2]);
+	return;
+    }
+
     depth   = src[0];
     src     = src + 3 + dy;
 

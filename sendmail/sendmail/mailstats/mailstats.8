@@ -1,4 +1,4 @@
-.\" Copyright (c) 1998-2001 Sendmail, Inc. and its suppliers.
+.\" Copyright (c) 1998-2002 Sendmail, Inc. and its suppliers.
 .\"	 All rights reserved.
 .\"
 .\" By using this file, you agree to the terms and conditions set
@@ -6,15 +6,15 @@
 .\" the sendmail distribution.
 .\"
 .\"
-.\"	$Id: mailstats.8,v 1.1.1.4 2002/03/12 18:00:24 zarzycki Exp $
+.\"	$Id: mailstats.8,v 1.1.1.5 2002/10/15 02:38:20 zarzycki Exp $
 .\"
-.TH MAILSTATS 8 "$Date: 2002/03/12 18:00:24 $"
+.TH MAILSTATS 8 "$Date: 2002/10/15 02:38:20 $"
 .SH NAME
 mailstats
 \- display mail statistics
 .SH SYNOPSIS
 .B mailstats
-.RB [ \-o "] [" \-p "] [" \-P ]
+.RB [ \-c "] [" \-o "] [" \-p "] [" \-P ]
 .RB [ \-C 
 .IR cffile ]
 .RB [ \-f
@@ -65,12 +65,17 @@ is displayed (preceded with a ``T''),
 separated from the previous information by a line containing only equals 
 (``='') 
 characters.
-Another line preceded with a ``C'' lists the number of connections.
+Another line preceded with a ``C'' lists the number of TCP connections.
 .PP
 The options are as follows:
 .TP 
 .B \-C
 Read the specified file instead of the default
+.B sendmail
+configuration file.
+.TP
+.B \-c
+Try to use submit.cf instead of the default
 .B sendmail
 configuration file.
 .TP

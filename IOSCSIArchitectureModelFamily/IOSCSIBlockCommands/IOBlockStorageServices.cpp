@@ -197,7 +197,7 @@ IOBlockStorageServices::doAsyncReadWrite (
 					 ErrorExit,
 					 status = kIOReturnBadArgument );
 	
-	clientData = ( BlockServicesClientData * ) IOMalloc ( sizeof ( BlockServicesClientData ) );
+	clientData = IONew ( BlockServicesClientData, 1 );
 	require_nonzero_action ( clientData, ErrorExit, status = kIOReturnNoResources );
 	
 	// Make sure we don't go away while the command is being executed.
@@ -234,7 +234,7 @@ ReleaseClientDataAndRetain:
 	
 	
 	require_nonzero ( clientData, ErrorExit );
-	IOFree ( clientData, sizeof ( BlockServicesClientData ) );
+	IODelete ( clientData, BlockServicesClientData, 1 );
 	clientData = NULL;
 	
 	// Release the retain for this command.	
@@ -760,8 +760,6 @@ IOBlockStorageServices::AsyncReadWriteComplete (
 	returnData 		= servicesData->completionData;
 	owner 			= servicesData->owner;
 	
-	
-	
 	STATUS_LOG ( ( "IOBlockStorageServices: AsyncReadWriteComplete; command status %x\n",
 					status  ) );
 	
@@ -793,7 +791,7 @@ IOBlockStorageServices::AsyncReadWriteComplete (
 	if ( commandComplete == true )
 	{		
 		
-		IOFree ( clientData, sizeof ( BlockServicesClientData ) );
+		IODelete ( clientData, BlockServicesClientData, 1 );
 		
 		// Release the retains for this command.
 		owner->fProvider->release ( );	

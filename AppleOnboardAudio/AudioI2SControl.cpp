@@ -456,17 +456,17 @@ void AudioI2SControl::Fcr3SetReg(UInt32 value)
 
 // Access to Keylargo registers:
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//	[3110829] register accesses need to translate endian format.
 void AudioI2SControl::KLSetRegister(void *klRegister, UInt32 value)
 {
-    UInt32 *reg = (UInt32*)klRegister;
-    *reg = value;
+	OSWriteLittleInt32(klRegister, 0, value);
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//	[3110829] register accesses need to translate endian format.
 UInt32 AudioI2SControl::KLGetRegister(void *klRegister)
 {
-    UInt32 *reg = (UInt32*)klRegister;
-    return (*reg);
+    return (OSReadLittleInt32(klRegister, 0));
 }
 
 // --------------------------------------------------------------------------

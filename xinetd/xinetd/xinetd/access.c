@@ -213,10 +213,10 @@ access_e access_control( struct service *sp,
          }
       }
 
-      /* If this is a redirection, go by the service name,
+      /* If this is a redirection or internal , go by the service name,
        * since the server name will be bogus.
        */
-      if( scp->sc_redir_addr != NULL ) {
+      if( (scp->sc_redir_addr != NULL) || (SC_IS_INTERNAL(scp) )) {
          server = scp->sc_name;
          server--; /* nasty but ok. */
       }

@@ -1551,6 +1551,15 @@ ip_plugin_init()
 }
 
 void
+prime()
+{
+    struct in_addr	ip_zeros = { 0 };
+
+    /* initialize multicast route */
+    set_router(ip_zeros, NULL, FALSE);
+}
+
+void
 load(CFBundleRef bundle, Boolean bundleVerbose)
 {
     if (bundleVerbose) {

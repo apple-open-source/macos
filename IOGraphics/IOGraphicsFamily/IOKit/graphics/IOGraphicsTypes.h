@@ -69,7 +69,7 @@ enum {
     kIOFixedCLUTPixels		= 1,
     kIORGBDirectPixels 		= 2,
     kIOMonoDirectPixels 	= 3,
-    kIOMonoInverseDirectPixels	= 4,
+    kIOMonoInverseDirectPixels	= 4
 };
 
 /*!
@@ -156,7 +156,7 @@ enum {
 enum {
     kDisplayModeValidFlag		= 0x00000001,
     kDisplayModeSafeFlag		= 0x00000002,
-    kDisplayModeDefaultFlag		= 0x00000004,
+    kDisplayModeDefaultFlag		= 0x00000004
 };
 
 // Framebuffer info - obsolete
@@ -179,7 +179,7 @@ enum {
     kFramebufferSupportsCopybackCache	= 0x00010000,
     kFramebufferSupportsWritethruCache	= 0x00020000,
     kFramebufferSupportsGammaCorrection	= 0x00040000,
-    kFramebufferDisableAltivecAccess	= 0x00080000,
+    kFramebufferDisableAltivecAccess	= 0x00080000
 };
 
 // Aperture is an index into supported pixel formats for a mode & depth
@@ -228,19 +228,19 @@ enum {
 
     kIOCapturedAttribute		= 'capd',
 
-    kIOCursorControlAttribute		= 'crsc',
+    kIOCursorControlAttribute		= 'crsc'
 };
 
 // values for kIOMirrorAttribute
 enum {
     kIOMirrorIsPrimary			= 0x80000000,
-    kIOMirrorHWClipped			= 0x40000000,
+    kIOMirrorHWClipped			= 0x40000000
 };
 
 // values for kIOMirrorDefaultAttribute
 enum {
     kIOMirrorDefault			= 0x00000001,
-    kIOMirrorForced			= 0x00000002,
+    kIOMirrorForced			= 0x00000002
 };
 
 //// Display mode timing information
@@ -376,12 +376,12 @@ enum {
     kConnectionSupportsHLDDCSense	= 'hddc',
     kConnectionEnable			= 'enab',
     kConnectionChanged			= 'chng',
-    kConnectionPower			= 'powr',
+    kConnectionPower			= 'powr'
 };
 
 // kConnectionFlags values
 enum {
-    kIOConnectionBuiltIn		= 0x00000800,
+    kIOConnectionBuiltIn		= 0x00000800
 };
 
 // kConnectionSyncControl values
@@ -417,7 +417,7 @@ enum {
 enum {
     // connection types for IOServiceOpen
     kIOFBServerConnectType		= 0,
-    kIOFBSharedConnectType		= 1,
+    kIOFBSharedConnectType		= 1
 };
 
 enum {
@@ -467,7 +467,7 @@ enum {
    kTransparentEncodedPixel	= (0x01 << kTransparentEncodingShift),
 
    kInvertingEncodingShift	= (kInvertingEncoding << 1),
-   kInvertingEncodedPixel	= (0x01 << kInvertingEncodingShift),
+   kInvertingEncodedPixel	= (0x01 << kInvertingEncodingShift)
 };
 
 enum {
@@ -520,7 +520,7 @@ enum {
     // Demand to remove framebuffer (Hardware not available on dependent change -- but must not buserror)
     kIOFBOfflineInterruptType		= 'remv',
     // Notice that hardware is available (after being removed)
-    kIOFBOnlineInterruptType		= 'add ',
+    kIOFBOnlineInterruptType		= 'add '
 };
 
 // framebuffer property keys
@@ -641,7 +641,7 @@ enum {
     kDisplaySubPixelShapeSquare		= 0x00000002,
     kDisplaySubPixelShapeRectangular	= 0x00000003,
     kDisplaySubPixelShapeOval		= 0x00000004,
-    kDisplaySubPixelShapeElliptical	= 0x00000005,
+    kDisplaySubPixelShapeElliptical	= 0x00000005
 };
 
 // CFNumbers

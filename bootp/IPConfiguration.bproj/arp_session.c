@@ -67,7 +67,6 @@
 #include "ipconfigd_globals.h"
 #include "arp_session.h"
 
-extern char *  			ether_ntoa(struct ether_addr *e);
 extern struct ether_addr *	ether_aton(char *);
 
 #define ARP_PROBE_COUNT		3
@@ -279,8 +278,12 @@ arp_read(void * arg1, void * arg2)
 	    && (op == ARPOP_REPLY || op == ARPOP_REQUEST)
 	    && ntohs(earp->ea_hdr.ar_hrd) == ARPHRD_ETHER
 	    && ntohs(earp->ea_hdr.ar_pro) == ETHERTYPE_IP
-	    && (client->target_ip.s_addr 
-		== ((struct in_addr *)earp->arp_spa)->s_addr)
+	    && ((client->target_ip.s_addr 
+		 == ((struct in_addr *)earp->arp_spa)->s_addr) 
+		|| (op == ARPOP_REQUEST
+		    && ((struct in_addr *)earp->arp_spa)->s_addr == 0
+		    && (client->target_ip.s_addr 
+			== ((struct in_addr *)earp->arp_tpa)->s_addr)))
 	    && (*session->is_our_address)(client->if_p, 
 					  ntohs(earp->ea_hdr.ar_hrd),
 					  earp->arp_sha,

@@ -1,10 +1,396 @@
 			SENDMAIL RELEASE NOTES
-      $Id: RELEASE_NOTES,v 1.1.1.4 2002/03/12 17:59:40 zarzycki Exp $
+      $Id: RELEASE_NOTES,v 1.1.1.5 2002/10/15 02:37:07 zarzycki Exp $
 
 
 This listing shows the version of the sendmail binary, the version
 of the sendmail configuration files, the date of release, and a
 summary of the changes in that release.
+
+8.12.6/8.12.6	2002/08/26
+	Do not add the FallbackMXhost (or its MX records) to the list
+		returned by the bestmx map when -z is used as option.
+		Otherwise sendmail may act as an open relay if FallbackMXhost
+		and FEATURE(`relay_based_on_MX') are used together.
+		Problem noted by Alexander Ignatyev.
+	Properly split owner- mailing list messages when SuperSafe is set
+		to interactive.  Problem noted by Todd C. Miller of
+		Courtesan Consulting.
+	Make sure that an envelope is queued in the selected queue group
+		even if some recipients are deleted or invalid.  Problem
+		found by Chris Adams of HiWAAY Informations Services.
+	Do not send a bounce message if a message is completely collected
+		from the SMTP client.  Problem noted by Kari Hurtta of the
+		Finnish Meteorological Institute.
+	Provide an 'install-submit-st' target for sendmail/Makefile to
+		install the MSP statistics file using the file named in the
+		confMSP_STFILE devtools variable.  Requested by Jeff
+		Earickson of Colby College.
+	Queue up mail with a temporary error if setusercontext() fails
+		during a delivery attempt.  Patch from Todd C. Miller of
+		Courtesan Consulting.
+	Fix handling of base64 encoded client authentication data for
+		SMTP AUTH.  Patch from Elena Slobodnik of life medien GmbH.
+	Set the OpenLDAP option LDAP_OPT_RESTART so the client libraries
+		restart interrupted system calls.  Problem noted by Luiz
+		Henrique Duma of BSIOne.
+	Prevent a segmentation fault if a program passed a NULL envp using
+		execve().
+	Document a problem with the counting of queue runners that may
+		cause delays if MaxQueueChildren is set too low. Problem
+		noted by Ian Duplisse of Cable Television Laboratories, Inc.
+	If discarding a message based on a recipient, don't try to look up
+		the recipient in the mailbox database if F=w is set.  This
+		allows users to discard bogus recipients when dealing with
+		spammers without tipping them off.  Problem noted by Neil
+		Rickert of Northern Illinois University.
+	If applying a header check to a header with unstructured data,
+		e.g., Subject:, then do not run syntax checks that are
+		supposed for addresses on the header content.
+	Count messages rejected/discarded via the check_data ruleset.
+	Portability:
+		Fix compilation on systems which do not allow simple
+			copying of the variable argument va_list.  Based on
+			fix from Scott Walters.
+		Fix NSD map open bug.  From Michel Bourget of SGI.
+		Add some additional IRIX shells to the default shell
+			list.  From Michel Bourget of SGI.
+		Fix compilation issues on Mac OS X 10.2 (Darwin 6.0).
+			NETISO support has been dropped.
+	CONFIG: There was a seemingly minor change in 8.12.4 with respect
+		to handling entries of IP nets/addresses with RHS REJECT.
+		These would be rejected in check_rcpt instead of only
+		being activated in check_relay.  This change has been made to
+		avoid potential bogus temporary rejection of relay attempts
+		"450 4.7.1 Relaying temporarily denied. Cannot resolve PTR
+		record for ..." if delay_checks is enabled.  However, this
+		modification causes a change of behavior if an IP net/address
+		is listed in the access map with REJECT and a host/domain
+		name is listed with OK or RELAY, hence it has been reversed
+		such that the behavior of 8.12.3 is restored.  The original
+		change was made on request of Neil Rickert of Northern
+		Illinois University, the side effect has been found by
+		Stefaan Van Hoornick.
+	CONFIG: Make sure delay_checks works even for sender addresses
+		using the local hostname ($j) or domains in class {P}.
+		Based on patch from Neil Rickert of Northern Illinois
+		University.
+	CONFIG: Fix temporary error handling for LDAP Routing lookups.
+		Fix from Andrzej Filip.
+	CONTRIB: New version of etrn.pl script and external man page
+		(etrn.0) from John Beck of Sun Microsystems.
+	LIBMILTER: Protect a free(3) operation from being called with a
+		NULL pointer.  Problem noted by Andrey J. Melnikoff.
+	LIBMILTER: Protect against more interrupted select() calls.  Based
+		on patch from Jose Marcio Martins da Cruz of Ecole Nationale
+		Superieure des Mines de Paris.
+	New Files:
+		contrib/etrn.0
+
+8.12.5/8.12.5	2002/06/25
+	SECURITY: The DNS map can cause a buffer overflow if the user
+		specifies a dns map using TXT records in the configuration
+		file and a rogue DNS server is queried.  None of the
+		sendmail supplied configuration files use this option hence
+		they are not vulnerable.  Problem noted independently by
+		Joost Pol of PINE Internet and Anton Rang of Sun Microsystems.
+	Unprintable characters in responses from DNS servers for the DNS
+		map type are changed to 'X' to avoid potential problems
+		with rogue DNS servers.
+	Require a suboption when setting the Milter option.  Problem noted
+		by Bryan Costales.
+	Do not silently overwrite command line settings for
+		DirectSubmissionModifiers.  Problem noted by Bryan
+		Costales.
+	Prevent a segmentation fault when clearing the event list by
+		turning off alarms before checking if event list is
+		empty.  Problem noted by Allan E Johannesen of Worcester
+		Polytechnic Institute.
+	Close a potential race condition in transitioning a memory buffered
+		file onto disk.  From Janani Devarajan of Sun Microsystems.
+	Portability:
+		Include paths.h on Linux systems running glibc 2.0 or later
+			to get the definition for _PATH_SENDMAIL, used by
+			rmail and vacation.  Problem noted by Kevin
+			A. McGrail of Peregrine Hardware.
+		NOTE: Linux appears to have broken flock() again.  Unless
+			the bug is fixed before sendmail 8.13 is shipped,
+			8.13 will change the default locking method to
+			fcntl() for Linux kernel 2.4 and later.  You may
+			want to do this in 8.12 by compiling with
+			-DHASFLOCK=0.  Be sure to update other sendmail
+			related programs to match locking techniques.
+
+8.12.4/8.12.4	2002/06/03
+	SECURITY: Inherent limitations in the UNIX file locking model
+		can leave systems open to a local denial of service
+		attack.  Be sure to read the "FILE AND MAP PERMISSIONS"
+		section of the top level README for more information.
+		Problem noted by lumpy.
+	Use TempFileMode (defaults to 0600) for the permissions of PidFile
+		instead of 0644.
+	Change the default file permissions for new alias database files
+		from 0644 to 0640.  This can be overridden at compile time
+		by setting the DBMMODE macro.
+	Fix a potential core dump problem if the environment variable
+		NAME is set.  Problem noted by Beth A. Chaney of
+		Purdue University.
+	Expand macros before passing them to libmilter.  Problem noted
+		by Jose Marcio Martins da Cruz of Ecole Nationale
+		Superieure des Mines de Paris.
+	Rewind the df (message body) before truncating it when libmilter
+		replaces the body of a message.  Problem noted by Gisle Aas
+		of Active State.
+	Change SMTP reply code for AUTH failure from 500 to 535 and the
+		initial zero-length response to "=" per RFC 2554.  Patches
+		from Kenneth Murchison of Oceana Matrix Ltd.
+	Do not try to fix broken message/rfc822 MIME attachments by
+		inserting a MIME-Version: header when MaxMimeHeaderLength
+		is set and no 8 to 7 bit conversion is needed.  Based on
+		patch from Rehor Petr of ICZ (Czech Republic).
+	Do not log "did not issue MAIL/EXPN/VRFY/ETRN" if the connection
+		is rejected anyway.  Noted by Chris Loelke.
+	Mention the submission mail queue in the mailq man page.  Requested
+		by Bill Fenner of AT&T.
+	Set ${msg_size} macro when reading a message from the command line
+		or the queue.
+	Detach from shared memory before dropping privileges back to
+		user who started sendmail.
+	If AllowBogusHELO is set to false (default) then also complain if
+		the argument to HELO/EHLO contains white space.  Suggested
+		by Seva Gluschenko of Cronyx Plus.
+	Allow symbolicly linked forward files in writable directory paths
+		if both ForwardFileInUnsafeDirPath and
+		LinkedForwardFileInWritableDir DontBlameSendmail options
+		are set.  Problem noted by Werner Spirk of
+		Leibniz-Rechenzentrum Munich.
+	Portability:
+		Operating systems that lack the ftruncate() call will not
+			be able to use Milter's body replacement feature.
+			This only affects Altos, Maxion, and MPE/iX.
+		Digital UNIX 5.0 has changed flock() semantics to be
+			non-compliant.  Problem noted by Martin Mokrejs of
+			Charles University in Prague.
+		The sparc64 port of FreeBSD 5.0 now supports shared
+			memory.
+	CONFIG: FEATURE(`preserve_luser_host') needs the macro map.
+		Problem noted by Andrzej Filip.
+	CONFIG: Using 'local:' as a mailertable value with
+		FEATURE(`preserve_luser_host') and LUSER_RELAY caused mail
+		to be misaddressed.  Problem noted by Andrzej Filip.
+	CONFIG: Provide a workaround for DNS based rejection lists that
+		fail for AAAA queries.  Problem noted by Chris Boyd.
+	CONFIG: Accept the machine's hostname as resolvable when checking
+		the sender address.  This allows locally submitted mail to
+		be accepted if the machine isn't connected to a nameserver
+		and doesn't have an /etc/hosts entry for itself.  Problem
+		noted by Robert Watson of the TrustedBSD Project.
+	CONFIG: Use deferred expansion for checking the ${deliveryMode}
+		macro in case the SMTP VERB command is used.  Problem
+		noted by Bryan Costales.
+	CONFIG: Avoid a duplicate '@domain' virtusertable lookup if no
+		matches are found.  Fix from Andrzej Filip.
+	CONFIG: Fix wording in default dnsbl rejection message.  Suggested
+		by Lou Katz of Metron Computerware, Ltd.
+	CONFIG: Add mailer cyrusv2 for Cyrus V2.  Contributed by
+		Kenneth Murchison of Oceana Matrix Ltd.
+	CONTRIB: Fix wording in default dnsblaccess rejection message to
+		match dnsbl change.
+	DEVTOOLS: Add new option for access mode of statistics file,
+		confSTMODE, which specifies the permissions when initially
+		installing the sendmail statistics file.
+	LIBMILTER: Mark the listening socket as close-on-exec in case
+		a user's filter starts other applications.
+	LIBSM: Allow the MBDB initialize, lookup, and/or terminate
+		functions in SmMbdbTypes to be set to NULL.
+	MAKEMAP: Change the default file permissions for new databases from
+		0644 to 0640.  This can be overridden at compile time
+		by setting the DBMMODE macro.
+	SMRSH: Fix man page bug: replace SMRSH_CMDBIN with SMRSH_CMDDIR.
+		Problem noted by Dave Alden of Ohio State University.
+	VACATION: When listing the vacation database (-l), don't show
+		bogus timestamps for excluded (-x) addresses.  Problem
+		noted by Bryan Costales.
+	New Files:
+		cf/mailer/cyrusv2.m4
+
+8.12.3/8.12.3	2002/04/05
+	NOTICE: In general queue files should not be moved if queue groups
+		are used.  In previous versions this could cause mail
+		not to be delivered if a queue file is repeatedly moved
+		by an external process whenever sendmail moved it back
+		into the right place.  Some precautions have been taken
+		to avoid moving queue files if not really necessary.
+		sendmail may use links to refer to queue files and it
+		may store the path of data files in queue files.  Hence
+		queue files should not be moved unless those internals
+		are understood and the integrity of the files is not
+		compromised.  Problem noted by Anne Bennett of Concordia
+		University.
+	If an error mail is created, and the mail is split across different
+		queue directories, and SuperSafe is off, then write the mail
+		to disk before splitting it, otherwise an assertion is
+		triggered.  Problem tracked down by Henning Schmiedehausen
+		of INTERMETA.
+	Fix possible race condition that could cause sendmail to forget
+		running queues.  Problem noted by Jeff Wasilko of smoe.org.
+	Handle bogus qf files better without triggering assertions.
+		Problem noted by Guy Feltin.
+	Protect against interrupted select() call when enforcing Milter
+		read and write timeouts.  Patch from Gurusamy Sarathy of
+		ActiveState.
+	Matching queue IDs with -qI should be case sensitive.  Problem
+		noted by Anne Bennett of Concordia University.
+	If privileges have been dropped, don't try to change group ID to
+		the RunAsUser group.  Problem noted by Neil Rickert of
+		Northern Illinois University.
+	Fix SafeFileEnvironment path munging when the specified path
+		contains a trailing slash.  Based on patch from Dirk Meyer
+		of Dinoex.
+	Do not limit sendmail command line length to SM_ARG_MAX (usually
+		4096).  Problem noted by Allan E Johannesen of Worcester
+		Polytechnic Institute.
+	Clear full name of sender for each new envelope to avoid bogus data
+		if several mails are sent in one session and some of them
+		do not have a From: header.  Problem noted by Bas Haakman.
+	Change timeout check such that cached information about a connection
+		will be immediately invalid if ConnectionCacheTimeout is zero.
+		Based on patch from David Burns of Portland State University.
+	Properly count message size for mailstats during mail collection.
+		Problem noted by Werner Wiethege.
+	Log complete response from LMTP delivery agent on failure.  Based on
+		patch from by Motonori Nakamura of Kyoto University.
+	Provide workaround for getopt() implementations that do not catch
+		missing arguments.
+	Fix the message size calculation if the message body is replaced by
+		a milter filter and buffered file I/O is being used.
+		Problem noted by Sergey Akhapkin of Dr.Web.
+	Do not honor SIGUSR1 requests if running with extra privileges.
+		Problem noted by Werner Wiethege.
+	Prevent a file descriptor leak on mail delivery if the initial
+		connect fails and DialDelay is set.  Patch from Servaas
+		Vandenberghe of Katholieke Universiteit Leuven.
+	Properly deal with a case where sendmail is called by root running
+		a set-user-ID (non-root) program.  Problem noted by Jon
+		Lusky of ISS Atlanta.
+	Avoid leaving behind stray transcript (xf) files if multiple queue
+		directories are used and mail is sent to a mailing list
+		which has an owner- alias.  Problem noted by Anne Bennett
+		of Concordia University.
+	Fix class map parsing code if optional key is specified.  Problem
+		found by Mario Nigrovic.
+	The SMTP daemon no longer tries to fix up improperly dot-stuffed
+		incoming messages.  A leading dot is always stripped by the
+		SMTP receiver regardless of whether or not it is followed by
+		another dot.  Problem noted by Jordan Ritter of darkridge.com.
+	Fix corruption when doing automatic MIME 7-bit quoted-printable or
+		base64 encoding to 8-bit text.  Problem noted by Mark
+		Elvers.
+	Correct the statistics gathered for total number of connections.
+		Instead of being the exact same number as the total number
+		of messages (T line in mailstats) it now represents the
+		total number of TCP connections.
+	Be more explicit about syntax errors in addresses, especially
+		non-ASCII characters, and properly create DSNs if necessary.
+		Problem noted by Leena Heino of the University of Tampere.
+	Prevent small timeouts from being lost on slow machines if itimers
+		are used.  Problem noted by Suresh Ramasubramanian.
+	Prevent a race condition on child cleanup for delivery to files.
+		Problem noted by Fletcher Mattox of the University of
+		Texas.
+	Change the SMTP error code for temporary map failures from 421
+		to 451.
+	Do not assume that realloc(NULL, size) works on all OS (this was
+		only done in one place: queue group creation).  Based on
+		patch by Bryan Costales.
+	Initialize Timeout.iconnect in the code to prevent randomly short
+		timeouts.  Problem noted by Bradley Watts of AT&T Canada.
+	Do not try to send a second SMTP QUIT command if the remote
+		responds to a MAIL command with a 421 reply or on I/O
+		errors.  By doing so, the host was marked as having a
+		temporary problem and other mail destined for that host was
+		queued for the next queue run.  Problem noted by Fletcher
+		Mattox of the University of Texas, Allan E Johannesen of
+		Worcester Polytechnic Institute, Larry Greenfield of CMU,
+		and Neil Rickert of Northern Illinois University.
+	Ignore error replies from the SMTP QUIT command (including servers
+		which drop the connection instead of responding to the
+		command).
+	Portability:
+		Check LDAP_API_VERSION to determine if ldap_memfree() is
+			available.
+		Define HPUX10 when building on HP-UX 10.X.  That platform
+			now gets the proper _PATH_SENDMAIL and SMRSH_CMDDIR
+			settings.  Patch from Elias Halldor Agustsson of
+			Skyrr.
+		Fix dependency building on Mac OS X and Darwin.  Problem
+			noted by John Beck.
+		Preliminary support for the sparc64 port of FreeBSD 5.0.
+		Add /sbin/sh as an acceptable user shell on HP-UX.  From
+			Rajesh Somasund of Hewlett-Packard.
+	CONFIG: Add FEATURE(`authinfo') to allow a separate database for
+		SMTP AUTH information.  This feature was actually added in
+		8.12.0 but a release note was not included.
+	CONFIG: Do not bounce mail if FEATURE(`ldap_routing')'s bounce
+		parameter is set and the LDAP lookup returns a temporary
+		error.
+	CONFIG: Honor FEATURE(`relay_hosts_only') when using
+		FEATURE(`relay_mail_from', `domain').  Problem noted by
+		Krzysztof Oledzki.
+	CONFIG: FEATURE(`msp') now disables any type of alias
+		initialization as aliases are not needed for the MSP.
+	CONFIG: Allow users to override RELAY_MAILER_ARGS when FEATURE(`msp')
+		is in use.  Patch from Andrzej Filip.
+	CONFIG: FEATURE(`msp') uses `[localhost]' as default instead of
+		`localhost' and turns on MX lookups for the SMTP mailers.
+		This will only have an effect if a parameter is specified,
+		i.e., an MX lookup will be performed on the hostname unless
+		it is embedded in square brackets.  Problem noted by
+		Theo Van Dinter of Collective Technologies.
+	CONFIG: Set confTIME_ZONE to USE_TZ in submit.mc (TimeZoneSpec= in
+		submit.cf) to use $TZ for time stamps.  This is a compromise
+		to allow for the proper time zone on systems where the
+		default results in misleading time stamps. That is, syslog
+		time stamps and Date headers on submitted mail will use the
+		user's $TZ setting.  Problem noted by Mark Roth of the
+		University of Illinois at Urbana-Champaign, solution proposed
+		by Neil Rickert of Northern Illinois University.
+	CONFIG: Mac OS X (Darwin) ships with mail.local as non-set-user-ID
+		binary.  Adjust local mailer flags accordingly.  Problem
+		noted by John Beck.
+	CONTRIB: Add a warning to qtool.pl to not move queue files around
+		if queue groups are used.
+	CONTRIB: buildvirtuser: Add -f option to force rebuild.
+	CONTRIB: smcontrol.pl: Add -f option to specify control socket.
+	CONTRIB: smcontrol.pl: Add support for 'memdump' command.
+		Suggested by Bryan Costales.
+	DEVTOOLS: Add dependency generation for test programs.
+	LIBMILTER: Remove conversion of port number for the socket
+		structure that is passed to xxfi_connect().  Notice:
+		this fix requires that sendmail and libmilter both have
+		this change; mixing versions may lead to wrong port
+		values depending on the endianness of the involved systems.
+		Problem noted by Gisle Aas of ActiveState.
+	LIBMILTER: If smfi_setreply() sets a custom reply code of '4XX' but
+		SMFI_REJECT is returned, ignore the custom reply.  Do the
+		same if '5XX' is used and SMFI_TEMPFAIL is returned.
+	LIBMILTER: Install include files in ${INCLUDEDIR}/libmilter/ as
+		required by mfapi.h.  Problem noted by Jose Marcio Martins
+		da Cruz of Ecole Nationale Superieure des Mines de Paris.
+	LIBSM: Add SM_CONF_LDAP_MEMFREE as a configuration define.  Set
+		this to 1 if your LDAP client libraries include
+		ldap_memfree().
+	LIBSMDB: Avoid a file creation race condition for Berkeley DB 1.X
+		and NDBM on systems with the O_EXLOCK open(2) flag.
+	SMRSH: Fix compilation problem on some operating systems.  Problem
+		noted by Christian Krackowizer of schuler technodat GmbH.
+	VACATION: Allow root to operate on user vacation databases.  Based
+		on patch from Greg Couch of the University of California,
+		San Francisco.
+	VACATION: Don't ignore -C option.  Based on patch by Bryan Costales.
+	VACATION: Clarify option usage in the man page.  Problem noted by
+		Joe Barbish.
+	New Files:
+		libmilter/docs/smfi_setbacklog.html
 
 8.12.2/8.12.2	2002/01/13
 	Don't complain too much if stdin, stdout, or stderr are missing

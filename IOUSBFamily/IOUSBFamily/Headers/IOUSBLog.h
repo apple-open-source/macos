@@ -62,6 +62,7 @@ enum
     kUSBControllerUserClientSetDebuggingType,
     kUSBControllerUserClientGetDebuggingLevel,
     kUSBControllerUserClientGetDebuggingType,
+    kUSBControllerUserClientSetTestMode,
     kNumUSBControllerMethods
 };
 

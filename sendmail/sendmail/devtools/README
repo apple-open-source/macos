@@ -107,6 +107,7 @@ confGBINMODE	    2555		The mode for set-group-ID binaries.
 confGBINOWN	    root		The owner for set-group-ID binaries.
 confMSPQOWN	    smmsp		The owner of the MSP queue.
 confMSP_QUEUE_DIR   /var/spool/clientmqueue   The MSP queue directory.
+confMSP_STFILE	    sm-client.st	Name of the MSP statistics file.
 confHFDIR	    /etc/mail		Location of the sendmail helpfile.
 confHFFILE	    helpfile		Name of the installed helpfile.
 confINCDIRS	    [empty]		-I flags passed to C compiler.
@@ -138,6 +139,7 @@ confLINKS	    ${UBINDIR}/newaliases ${UBINDIR}/mailq \
 		    ${UBINDIR}/hoststat ${UBINDIR}/purgestat
 					Names of links to sendmail.
 confLN		    ln			The command used to create links.
+confLNOPTS	    -f -s		The parameters for confLN.
 confMAN1	    confMANROOT 1	The location of man1 files.
 confMAN1EXT	    1			The extension on files in confMAN1.
 confMAN1SRC	    0			The source for man pages installed
@@ -230,6 +232,7 @@ confSONAME	    [empty]		ld flag	for recording the shared object
 confSTDIR	    /etc/mail		The directory in which to store the
 					sendmail statistics file.
 confSTFILE	    statistics		Name of the installed statistics file.
+confSTMODE	    0600		Mode of the installed statistics file.
 confSTRIP	    strip		What program to use for stripping
 					executables.
 confSTRIPOPTS	    [empty]		Options to pass to the strip program.
@@ -377,4 +380,4 @@ bldSOURCES - This should be defined to a space separated list of C source
 files that make up the library.
 
 
-$Revision: 1.1.1.2 $, Last updated $Date: 2002/03/12 17:59:57 $
+$Revision: 1.1.1.3 $, Last updated $Date: 2002/10/15 02:37:26 $

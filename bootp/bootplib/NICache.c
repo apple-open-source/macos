@@ -617,8 +617,6 @@ IDCacheEntry_free(IDCacheEntry_t * entry)
  ** Module: IDCache
  **/
 
-extern char *  			ether_ntoa(struct ether_addr *e);
-
 void
 IDCache_print(IDCache_t * cache)
 {

@@ -1145,6 +1145,9 @@ sInt32 CLDAPNode::BindProc ( sLDAPNodeStruct *inLDAPNodeStruct )
 			}
 			else if ( ldap_result2error(inLDAPHost, result, 1) != LDAP_SUCCESS )
 			{
+				fLDAPNodeOpenMutex.Wait();
+				inLDAPNodeStruct->fHost = inLDAPHost;
+				fLDAPNodeOpenMutex.Signal();
 				throw( (sInt32)eDSCannotAccessSession );
 			}
 			fLDAPNodeOpenMutex.Wait();

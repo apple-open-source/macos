@@ -1,4 +1,4 @@
-! Apple Internal 56K Modem (V.92)   Version 1.4  Date: June/06/02  Time: 10:00am
+! Apple Internal 56K Modem (V.92)   Version 1.5  Date: August/29/02  Time: 10:00am
 @ORIGINATE
 @ANSWER
 ifstr 5 1 "0"
@@ -45,6 +45,9 @@ matchclr
 matchstr 1 7   "OK\13\10"
 matchstr 2 101 "ERROR\13\10"
 write "AT&F92L3E0Q0V1X4&C1&K3S95=0&D2S7=75S0=0W2\13"
+!To disable PCM upstream, just add "!" at the beginning of the above line,
+!then remove the "!" from the line below. 
+!write "AT&F92L3E0Q0V1X4&C1&K3S95=0&D2S7=75S0=0W2+PIG=1\13"
 pause 5
 matchread 90
 inctries

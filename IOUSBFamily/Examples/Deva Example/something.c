@@ -49,11 +49,193 @@ void stopDoingSomething(void)	// Call this to stop the action.
     quitFlag = true;
 }
 
+
+#define PUMPKIN 0
+
+UInt32 lights[]={
+    1 << 16,
+    1 << 17,
+    1 << 18,
+    1 << 19,
+    1 << 8,
+    1 << 9,
+    1 << 10,
+    1 << 11,
+    
+    1 << 12,
+    1 << 13,
+    1 << 14,
+    1 << 15,
+    
+    1 << 0,
+    1 << 1,
+    1 << 2,
+    1 << 3,
+    1 << 4,
+    1 << 5,
+    1 << 6,
+    1 << 7
+    };
+
+#if PUMPKIN
+
+// This stuff supports the light sequencing in the USB Pumpkin
+// entered into the halloween pumpkin carving competition.
+
+
+#define l0 (1<<0)
+#define l1 (1<<1)
+#define l2 (1<<2)
+#define l3 (1<<3)
+#define l4 (1<<4)
+#define l5 (1<<5)
+#define l6 (1<<6)
+#define l7 (1<<7)
+#define l8 (1<<8)
+#define l9 (1<<9)
+#define l10 (1<<10)
+#define l11 (1<<11)
+#define l12 (1<<12)
+#define l13 (1<<13)
+#define l14 (1<<14)
+#define l15 (1<<15)
+#define l16 (1<<16)
+#define l17 (1<<17)
+#define l18 (1<<18)
+#define l19 (1<<19)
+
+#define LUEye l4
+#define LLEye l5
+#define RLEye l6
+#define RUEye l7
+#define RMouth l8
+#define LMouth l9
+#define RBeard l10
+#define LBeard l11
+#define Triangle l12
+#define Circle l13
+#define Square l14
+#define LEye l18
+#define REye l19
+
+
+
+typedef struct{
+    UInt32 time;
+    UInt32 state;
+    }lightState;
+
+
+#define dwellTenths 1
+
+UInt32 constState = Triangle+Circle+Square;
+
+lightState states[]={
+    {10, 0},
+    {2, LEye+REye},
+    {1, 0},
+    {3, LEye+REye},
+    {1, 0},
+    {5, LEye+REye},
+    {10, LEye+REye+RMouth+LMouth},
+    {2, LEye+REye+LMouth},
+    {2, LEye+REye},
+    {20, LEye+REye+LUEye+LLEye+RLEye+RUEye},
+    {20, LEye+REye+LUEye+LLEye+RLEye+RUEye+RMouth+LMouth},
+    {5, LEye+REye+LUEye+LLEye+RLEye+RUEye},
+//    {2, LEye+REye+LUEye+LLEye+RLEye+RUEye+RMouth+LMouth},
+    {1, LEye+REye+LUEye+LLEye+RLEye+RUEye+RMouth},
+    {1, LEye+REye+LUEye+LLEye+RLEye+RUEye+RMouth+LBeard},
+    {1, LEye+REye+LUEye+LLEye+RLEye+RUEye+RMouth+RBeard+LBeard},
+    {20, LEye+REye+LUEye+LLEye+RLEye+RUEye+RMouth+LMouth+RBeard+LBeard},
+    {1, LEye+REye+LUEye+LLEye+RLEye+RUEye+RMouth+LMouth+RBeard+LBeard},
+
+#if 0
+    {1, LUEye},
+    {1, LLEye},
+    {1, RLEye},
+    {1, RUEye},
+    {1, RMouth},
+    {1, LMouth},
+    {1, RBeard},
+    {1, LBeard},
+    {1, Triangle},
+    {1, Circle},
+    {1, Square},
+    {1, LEye},
+    {1, REye},
+#endif
+    };
+
+#define numStates (sizeof(states)/sizeof(lightState))
+
+#endif
+
+
 void finallyDoSomethingWithThisDevice(IOUSBInterfaceInterface **intf)
 {
+#if PUMPKIN
+IOReturn err;
+UInt32 IOBits, currState;
+UInt32 state, bit;
+int i;
+void *hBits;
+    // Now set all bits output.
+
+    err = DevaSetIoPortsConfig(intf, 0);
+    if (kIOReturnSuccess != err)
+    {
+        printInterpretedError("unable to do SetIoPortsConfig", err);
+        return;
+    }
+
+    err = DevaWriteIoPorts(intf, 0x000FFFFF, 0x000FFFFF);
+
+    if(kIOReturnSuccess != err)
+    {
+        printInterpretedError("unable to do WriteIoPorts", err);
+        return;
+    }
+
+	usleep(100 * 1000);
+    
+    state = 0;
+
+    while(!quitFlag)
+    {
+	bit = 1;
+	IOBits = 0;
+    currState = states[state].state +constState;
+	for(i= 0; i<20; i++)
+	{
+	    if((currState & bit) != 0)
+	    {
+		IOBits |= lights[i];
+	    }
+	    bit <<= 1;
+	}
+    hBits = (void *)IOBits;
+	err = DevaWriteIoPorts(intf, IOBits, 0x000FFFFF);
+
+	if(kIOReturnSuccess != err)
+	{
+	    printInterpretedError("unable to write walking bit", err);
+	    return;
+	}
+
+	usleep(states[state].time*100 * 1000*dwellTenths);
+
+	if(++state >= numStates)
+	{
+	    state = 0;
+	}
+
+    }
+#else
 IOReturn err;
 UInt32 portBits, IOBits, IOBits1;
-
+UInt32 light, light2;
+Boolean dirn;
     // First set all ports to input
     
     err = DevaSetIoPortsConfig(intf, 0x000FFFFF);
@@ -101,17 +283,45 @@ UInt32 portBits, IOBits, IOBits1;
 //sleep(9);
         sleep(1);
         portBits = 0;
+        light = 0;
+        light2 = 8;
+        dirn= false;
     //      IOBits1 = IOBits;
-        
+
         do{
             IOBits1 = IOBits;
+
+#if 0
             do{
                 portBits <<= 1;
+             //   portBits2 >>= 1;
                 if((portBits & 0x000FFFFF)== 0)
                 {
                     portBits = 1;
-                }
+                //    portBits2 = (0x000FFFFF+1)/2;
+              }
             }while((portBits & ~IOBits) == 0);
+#endif
+            if( (light >= 7) || (light <= 0) )
+            {
+               // light = 0;
+               // light2 = 19;
+               dirn = !dirn;
+            }
+            light2++;
+            if(light2 > 19)
+            {
+                light2 = 8;
+            }
+            portBits = lights[light] | lights[light2];
+            if(dirn)
+            {
+                light++;
+            }
+            else
+            {
+                light--;
+            }
 
             err = DevaWriteIoPorts(intf, portBits, 0x000FFFFF);
     
@@ -164,6 +374,6 @@ UInt32 portBits, IOBits, IOBits1;
 
         } while(IOBits1 == IOBits);   
     }
-
+#endif
 
 }

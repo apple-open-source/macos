@@ -1090,8 +1090,6 @@ SCSIMultimediaCommands::READ_CD (
 	require ( IsParameterValid ( STARTING_LOGICAL_BLOCK_ADDRESS,
 								 kSCSICmdFieldMask4Byte ), ErrorExit );
 	require ( IsParameterValid ( TRANSFER_LENGTH, kSCSICmdFieldMask3Byte ), ErrorExit );
-	require ( IsParameterValid ( SUBCHANNEL_SELECTION_BITS,
-								 kSCSICmdFieldMask3Bit ), ErrorExit );
 	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
 	
 	// determine the size of the transfer
@@ -1190,8 +1188,6 @@ SCSIMultimediaCommands::READ_CD_MSF (
 		 	  ( ( ( ENDING_MSF >> 8 ) & 0xFF ) >= SECONDS_IN_A_MINUTE ), ErrorExit );
 	
 	require ( ( STARTING_MSF <= ENDING_MSF ), ErrorExit );
-	require ( IsParameterValid ( SUBCHANNEL_SELECTION_BITS,
-								 kSCSICmdFieldMask3Bit ), ErrorExit );
 	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
 	
 	// determine the size of the transfer
@@ -2983,6 +2979,8 @@ SCSIMultimediaCommands::GetBlockSize (
 	require ( IsParameterValid ( EDC_ECC, kSCSICmdFieldMask1Bit ), ErrorExit );
 	require ( IsParameterValid ( ERROR_FIELD,
 								 kSCSICmdFieldMask2Bit ), ErrorExit );
+	require ( IsParameterValid ( SUBCHANNEL_SELECTION_BITS,
+								 kSCSICmdFieldMask3Bit ), ErrorExit );
 	
 	// valid flag combination?
 	switch ( ( SYNC << 4 ) | ( HEADER_CODES << 2 ) | ( USER_DATA << 1 ) |  EDC_ECC )
@@ -3165,14 +3163,19 @@ SCSIMultimediaCommands::GetBlockSize (
 		
 	}
 	
-	require ( ( ERROR_FIELD == 0 ), ErrorExit );
-	
-	if ( SUBCHANNEL_SELECTION_BITS != 0 )
+	if ( SUBCHANNEL_SELECTION_BITS == 0x01 )
 	{
 		
 		*requestedByteCount += SUBCHANNEL_DATA_SIZE;
 		
 	}
+
+	else if ( SUBCHANNEL_SELECTION_BITS == 0x02 )
+	{
+		
+		*requestedByteCount += SUBCHANNELQ_DATA_SIZE;
+ 		
+ 	}
 	
 	result = true;
 	
@@ -3244,6 +3247,6 @@ SCSIMultimediaCommands *
 SCSIMultimediaCommands::CreateSCSIMultimediaCommandObject ( void )
 {
 
-	return new SCSIMultimediaCommands;
+	return OSTypeAlloc ( SCSIMultimediaCommands );
 
 }

@@ -148,8 +148,7 @@ IOSCSIPrimaryCommandsDevice::start ( IOService * provider )
 	fDeviceSupportsPowerConditions 	= false;
 	fNumCommandsOutstanding 		= 0;
 	
-	fIOSCSIPrimaryCommandsDeviceReserved = ( IOSCSIPrimaryCommandsDeviceExpansionData * )
-			IOMalloc ( sizeof ( IOSCSIPrimaryCommandsDeviceExpansionData ) );
+	fIOSCSIPrimaryCommandsDeviceReserved = IONew ( IOSCSIPrimaryCommandsDeviceExpansionData, 1 );
 	require_nonzero ( fIOSCSIPrimaryCommandsDeviceReserved, ErrorExit );
 	
 	bzero ( fIOSCSIPrimaryCommandsDeviceReserved,
@@ -297,8 +296,7 @@ FreeReservedMemory:
 	
 	
 	require_nonzero ( fIOSCSIPrimaryCommandsDeviceReserved, ErrorExit );
-	IOFree ( fIOSCSIPrimaryCommandsDeviceReserved,
-		sizeof ( IOSCSIPrimaryCommandsDeviceExpansionData ) );
+	IODelete ( fIOSCSIPrimaryCommandsDeviceReserved, IOSCSIPrimaryCommandsDeviceExpansionData, 1 );
 	fIOSCSIPrimaryCommandsDeviceReserved = NULL;
 	
 	
@@ -359,8 +357,7 @@ IOSCSIPrimaryCommandsDevice::free ( void )
 	if ( fIOSCSIPrimaryCommandsDeviceReserved != NULL )
 	{
 		
-		IOFree ( fIOSCSIPrimaryCommandsDeviceReserved,
-				 sizeof ( IOSCSIPrimaryCommandsDeviceExpansionData ) );
+		IODelete ( fIOSCSIPrimaryCommandsDeviceReserved, IOSCSIPrimaryCommandsDeviceExpansionData, 1 );
 		fIOSCSIPrimaryCommandsDeviceReserved = NULL;
 		
 	}
@@ -832,7 +829,7 @@ SCSITaskIdentifier
 IOSCSIPrimaryCommandsDevice::GetSCSITask ( void )
 {
 	
-	SCSITask *	newTask = new SCSITask;
+	SCSITask *	newTask = OSTypeAlloc ( SCSITask );
 	
 	check ( newTask );
 	
@@ -1103,17 +1100,25 @@ ProtocolAccessDisabledError:
 #pragma mark -
 #endif
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ ResetForNewTask - Resets the task.								[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 bool
 IOSCSIPrimaryCommandsDevice::ResetForNewTask (	
 									SCSITaskIdentifier 		request )
 {
+	
 	SCSITask *	scsiRequest;
 	
 	scsiRequest = OSDynamicCast ( SCSITask, request );
 	check ( scsiRequest );
 	
 	return scsiRequest->ResetForNewTask ( );
+	
 }
+
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 // ¥ SetTaskAttribute - Sets the SCSITaskAttribute.					[PROTECTED]

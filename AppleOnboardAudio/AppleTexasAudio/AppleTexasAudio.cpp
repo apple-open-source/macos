@@ -1386,7 +1386,7 @@ void AppleTexasAudio::deferHeadphoneHandler (OSObject *owner, IOTimerEventSource
 	device = OSDynamicCast (AppleTexasAudio, owner);
 	FailIf (NULL == device, Exit);
 
-	if ( kIOAudioDeviceActive == device->ourPowerState ) {
+	if ( kIOAudioDeviceSleep != device->ourPowerState ) {
 		//	Audio system is awake so handle the interrupt normally.	[3103075]
 		device->RealHeadphoneInterruptHandler (0, 0);
 	} else {
@@ -2728,6 +2728,9 @@ void AppleTexasAudio::DeviceInterruptService (void) {
 			switch (layoutID) {
 				case layoutTangent:
 				case layoutP57:
+					driverDMAEngine->setRightChanMixed (FALSE);
+					useMasterVolumeControl = TRUE;
+					break;
 				case layoutP57b:
 				case layoutTessera:
 				case layoutP79:

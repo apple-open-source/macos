@@ -1,0 +1,95 @@
+.Dd April 17, 2002 
+.Dt KEXTUNLOAD 8
+.Os Darwin
+.Sh NAME
+.Nm kextunload
+.Nd terminates objects and unloads code associated with a kernel extension
+.Sh SYNOPSIS
+.Nm
+.Op Fl b Ar bundle_id
+\&.\|.\|.
+.Op Fl c Ar class_name
+\&.\|.\|.
+.Op Fl h
+.Op Fl p
+.Op Fl v Op 1-6
+[
+extension
+]
+\&.\|.\|.
+.Sh DESCRIPTION
+The
+.Nm
+program is used to terminate and unregister I/O Kit objects
+associated with a kernel extension (kext)
+and to unload the code and personalities for that kext.
+In order to unload a kext
+.Nm
+must be invoked as the superuser.
+.Pp
+If another loaded kext has a dependency on a kext being unloaded,
+the unload will fail.
+You can determine whether a kext has dependents using the
+.Xr kextstat 8
+tool.
+.Pp
+.Nm
+is a formal interface for unloading kexts in the Darwin OS and
+in Mac OS X.
+Software and installers can rely on its presence
+and invoke it in order to unload kexts.
+.Pp
+The arguments and options available are these:
+.Bl -tag -width -indent
+.It Ar extension
+The pathname of a kext to unload.
+All instances of classes associated with the kext are terminated,
+and personalities and code are unloaded from the kernel.
+.It Fl b Ar bundle_id
+Unload code and personalities for the kext
+whose CFBundleIdentifier is
+.Ar bundle_id .
+.It Fl c Ar class_name
+Terminate all instances of class
+.Ar class_name
+if possible but do not unload code or personalities.
+New load requests for devices driven by these instances
+may result in the same class being instantiated at any time.
+.It Fl h
+Print a help message describing each option flag.
+.It Fl m Ar bundle_id
+Same as
+.Fl m
+(remains for backward compatibility).
+.It Fl p
+Don't remove personalities when unloading
+(unnecessary when using the
+.Fl c
+option).
+New load requests for devices driven by the kext
+may result in the same kext being loaded at any time.
+.It Fl v Op 1-6
+Verbose mode; print information about the kext scanning and loading
+process (note that this is generally not useful when unloading).
+See the man page for
+.Xr kextload 8
+to see what each verbose level prints.
+.Sh DIAGNOSTICS
+.Nm
+exits with a zero status upon success,
+or prints an error message and exits with a nonzero status upon failure.
+An error when multiple kexts are being unloaded causes
+.Nm
+to exit immediately, so that some kexts may remain unloaded
+even if they could have been unloaded without error.
+.Sh BUGS
+The results of unload requests as given by the kernel
+don't allow for determining the reason for a failure,
+such as that the kext wasn't loaded
+or that another kext has a dependency on it.
+You can check these conditions using
+.Xr kextstat 8 .
+.Sh SEE ALSO 
+.Xr kextd 8 ,
+.Xr kextload 8 ,
+.Xr kextstat 8

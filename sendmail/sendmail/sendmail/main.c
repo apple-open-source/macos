@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2001 Sendmail, Inc. and its suppliers.
+ * Copyright (c) 1998-2002 Sendmail, Inc. and its suppliers.
  *	All rights reserved.
  * Copyright (c) 1983, 1995-1997 Eric P. Allman.  All rights reserved.
  * Copyright (c) 1988, 1993
@@ -25,7 +25,7 @@ SM_UNUSED(static char copyright[]) =
 	The Regents of the University of California.  All rights reserved.\n";
 #endif /* ! lint */
 
-SM_RCSID("@(#)$Id: main.c,v 1.1.1.2 2002/03/12 18:00:33 zarzycki Exp $")
+SM_RCSID("@(#)$Id: main.c,v 1.1.1.3 2002/10/15 02:38:29 zarzycki Exp $")
 
 
 #if NETINET || NETINET6
@@ -326,10 +326,15 @@ main(argc, argv, envp)
 
 #ifdef SIGUSR1
 	/* Only allow root (or non-set-*-ID binaries) to use SIGUSR1 */
-	if (extraprivs)
+	if (!extraprivs)
 	{
 		/* arrange to dump state on user-1 signal */
 		(void) sm_signal(SIGUSR1, sigusr1);
+	}
+	else
+	{
+		/* ignore user-1 signal */
+		(void) sm_signal(SIGUSR1, SIG_IGN);
 	}
 #endif /* SIGUSR1 */
 
@@ -389,7 +394,8 @@ main(argc, argv, envp)
 		switch (j)
 		{
 		  case 'b':	/* operations mode */
-			switch (j = *optarg)
+			j = (optarg == NULL) ? ' ' : *optarg;
+			switch (j)
 			{
 			  case MD_DAEMON:
 			  case MD_FGDAEMON:
@@ -544,13 +550,6 @@ main(argc, argv, envp)
 	j = 0;
 	for (av = argv; *av != NULL; )
 		j += strlen(*av++) + 1;
-	if (j < 0 || j > SM_ARG_MAX)
-	{
-		syserr("!Arguments too long");
-
-		/* NOTREACHED */
-		return EX_USAGE;
-	}
 	SaveArgv = (char **) xalloc(sizeof (char *) * (argc + 1));
 	CommandLineArgs = xalloc(j);
 	p = CommandLineArgs;
@@ -643,6 +642,8 @@ main(argc, argv, envp)
 	(void) sm_signal(SIGPIPE, SIG_IGN);
 	OldUmask = umask(022);
 	FullName = getextenv("NAME");
+	if (FullName != NULL)
+		FullName = newstr(FullName);
 
 	/*
 	**  Initialize name server if it is going to be used.
@@ -1063,6 +1064,11 @@ main(argc, argv, envp)
 			  default:
 				i = Errors;
 				QueueIntvl = convtime(optarg, 'm');
+				if (QueueIntvl < 0)
+				{
+					usrerr("Invalid -q value");
+					ExitStat = EX_USAGE;
+				}
 
 				/* check for bad conversion */
 				if (i < Errors)
@@ -1187,14 +1193,19 @@ main(argc, argv, envp)
 
 	if (bitset(SUBMIT_MTA, SubmitMode))
 	{
-		macdefine(&BlankEnvelope.e_macro, A_PERM,
-			  macid("{daemon_flags}"), "CC f");
+		/* If set daemon_flags on command line, don't reset it */
+		if (macvalue(macid("{daemon_flags}"), &BlankEnvelope) == NULL)
+			macdefine(&BlankEnvelope.e_macro, A_PERM,
+				  macid("{daemon_flags}"), "CC f");
 	}
 	else if (OpMode == MD_DELIVER || OpMode == MD_SMTP)
 	{
 		SubmitMode = SUBMIT_MSA;
-		macdefine(&BlankEnvelope.e_macro, A_PERM,
-			  macid("{daemon_flags}"), "c u");
+
+		/* If set daemon_flags on command line, don't reset it */
+		if (macvalue(macid("{daemon_flags}"), &BlankEnvelope) == NULL)
+			macdefine(&BlankEnvelope.e_macro, A_PERM,
+				  macid("{daemon_flags}"), "c u");
 	}
 
 	/*
@@ -2179,7 +2190,10 @@ main(argc, argv, envp)
 				**  increment the work counter.
 				*/
 
-				runqueueevent(qgrp);
+				for (i = 0; i < NumQueue && Queue[i] != NULL;
+				     i++)
+					Queue[i]->qg_nextrun = (time_t) -1;
+				Queue[qgrp]->qg_nextrun = 0;
 				(void) run_work_group(Queue[qgrp]->qg_wgrp,
 						      false, Verbose,
 						      queuepersistent, false);
@@ -2239,7 +2253,7 @@ main(argc, argv, envp)
 	**		during startup.
 	*/
 
-	if (OpMode == MD_DAEMON || QueueIntvl != 0)
+	if (OpMode == MD_DAEMON || QueueIntvl > 0)
 	{
 		char dtype[200];
 
@@ -2279,7 +2293,7 @@ main(argc, argv, envp)
 			(void) sm_strlcat(dtype, "+SMTP", sizeof dtype);
 			DaemonPid = CurrentPid;
 		}
-		if (QueueIntvl != 0)
+		if (QueueIntvl > 0)
 		{
 			(void) sm_strlcat2(dtype,
 					   queuepersistent
@@ -2310,7 +2324,7 @@ main(argc, argv, envp)
 		(void) sm_releasesignal(SIGHUP);
 		(void) sm_signal(SIGTERM, sigterm);
 
-		if (QueueIntvl != 0)
+		if (QueueIntvl > 0)
 		{
 			(void) runqueue(true, false, queuepersistent, true);
 
@@ -2693,6 +2707,13 @@ main(argc, argv, envp)
 			/* NOTREACHED */
 			return -1;
 		}
+
+		/* set message size */
+		(void) sm_snprintf(buf, sizeof buf, "%ld",
+				   MainEnvelope.e_msgsize);
+		macdefine(&MainEnvelope.e_macro, A_TEMP,
+			  macid("{msg_size}"), buf);
+
 		Errors = savederrors;
 		MainEnvelope.e_flags |= savedflags;
 	}
@@ -2798,6 +2819,7 @@ finis(drop, cleanup, exitstat)
 	bool cleanup;
 	volatile int exitstat;
 {
+
 	/* Still want to process new timeouts added below */
 	sm_clear_events();
 	(void) sm_releasesignal(SIGALRM);
@@ -3358,7 +3380,7 @@ getextenv(envar)
 	int l;
 
 	l = strlen(envar);
-	for (envp = ExternalEnviron; *envp != NULL; envp++)
+	for (envp = ExternalEnviron; envp != NULL && *envp != NULL; envp++)
 	{
 		if (strncmp(*envp, envar, l) == 0 && (*envp)[l] == '=')
 			return &(*envp)[l + 1];
@@ -3537,6 +3559,7 @@ drop_privileges(to_real_uid)
 		RunAsUserName = RealUserName;
 		RunAsUid = RealUid;
 		RunAsGid = RealGid;
+		EffGid = RunAsGid;
 	}
 
 	/* make sure no one can grab open descriptors for secret files */
@@ -3620,20 +3643,19 @@ drop_privileges(to_real_uid)
 	/* fiddle with uid */
 	if (to_real_uid || RunAsUid != 0)
 	{
-		uid_t euid = geteuid();
+		uid_t euid;
 
 		/*
 		**  Try to setuid(RunAsUid).
 		**  euid must be RunAsUid,
-		**  ruid must be RunAsUid unless it's the MSP and the euid
-		**  wasn't 0 and we didn't have to drop privileges to the
-		**  real uid.
+		**  ruid must be RunAsUid unless (e|r)uid wasn't 0
+		**	and we didn't have to drop privileges to the real uid.
 		*/
 
 		if (setuid(RunAsUid) < 0 ||
-		    (getuid() != RunAsUid  &&
-		     (!UseMSP || euid == 0 || to_real_uid )) ||
-		    geteuid() != RunAsUid)
+		    geteuid() != RunAsUid ||
+		    (getuid() != RunAsUid &&
+		     (to_real_uid || geteuid() == 0 || getuid() == 0)))
 		{
 #if HASSETREUID
 			/*
@@ -3642,7 +3664,7 @@ drop_privileges(to_real_uid)
 			**  setuid() to drop the saved-uid as well.
 			*/
 
-			if (euid == RunAsUid)
+			if (geteuid() == RunAsUid)
 			{
 				if (setreuid(RunAsUid, -1) < 0)
 				{
@@ -3665,6 +3687,7 @@ drop_privileges(to_real_uid)
 				rval = EX_OSERR;
 			}
 		}
+		euid = geteuid();
 		if (RunAsUid != 0 && setuid(0) == 0)
 		{
 			/*

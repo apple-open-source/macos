@@ -82,6 +82,8 @@ protected:
 	IOAudioSelectorControl *	outputSelector;			// This is a read only selector
         
 	// globals for the driver
+	unsigned long long			idleSleepDelayTime;
+	IOTimerEventSource *		idleTimer;
     bool						gIsMute;					// global mute (that is on all the ports)
     bool						gIsPlayThroughActive;		// playthrough mode is on
     SInt32      				gVolLeft;
@@ -142,28 +144,23 @@ public:
     static IOReturn outputControlChangeHandler (IOService *target, IOAudioControl *volumeControl, SInt32 oldValue, SInt32 newValue);
 	static IOReturn inputControlChangeHandler (IOService *target, IOAudioControl *control, SInt32 oldValue, SInt32 newValue);
 
-//	virtual IOReturn setiSubVolume (UInt32 iSubVolumeControl, SInt32 iSubVolumeLevel);
-//	virtual IOReturn setiSubMute (UInt32 setMute);
-
 	virtual IOReturn volumeMasterChange(SInt32 newValue);
     virtual IOReturn volumeLeftChange(SInt32 newValue);
     virtual IOReturn volumeRightChange(SInt32 newValue);
 	virtual IOReturn outputMuteChange(SInt32 newValue);
 
-//    static IOReturn gainLeftChangeHandler(IOService *target, IOAudioControl *gainControl, SInt32 oldValue, SInt32 newValue);
     virtual IOReturn gainLeftChanged(SInt32 newValue);
 
-//    static IOReturn gainRightChangeHandler(IOService *target, IOAudioControl *gainControl, SInt32 oldValue, SInt32 newValue);
     virtual IOReturn gainRightChanged(SInt32 newValue);
     
-//    static IOReturn passThruChangeHandler(IOService *target, IOAudioControl *passThruControl, SInt32 oldValue, SInt32 newValue);
     virtual IOReturn passThruChanged(SInt32 newValue);
 
-//    static IOReturn inputSelectorChangeHandler(IOService *target, IOAudioControl *inputSelector, SInt32 oldValue, SInt32 newValue);
     virtual IOReturn inputSelectorChanged(SInt32 newValue);
 
     virtual IOReturn performPowerStateChange(IOAudioDevicePowerState oldPowerState, IOAudioDevicePowerState newPowerState,
                                                                                             UInt32 *microsecondsUntilComplete);
+	virtual void setTimerForSleep ();
+	static void sleepHandlerTimer (OSObject *owner, IOTimerEventSource *sender);
 
     virtual IOReturn setModemSound(bool state);
     virtual IOReturn callPlatformFunction( const OSSymbol * functionName,bool waitForFunction,

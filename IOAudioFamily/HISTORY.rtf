@@ -389,4 +389,9 @@ IOAudioFamily-1.3.0b2\
 \cf0 \
 IOAudioFamily-1.3.1\
 \pard\tx540\tx2880\tx4320\tx5760\tx7200\li540\fi-180\ql\qnatural
-\cf0 -	Remove the IOLog of "!!! firstSampleFrame > audioEngine->numSampleFramesPerBuffer (XXX > YYY)" messages}
+\cf0 -	Remove the IOLog of "!!! firstSampleFrame > audioEngine->numSampleFramesPerBuffer (XXX > YYY)" messages\
+\pard\tx1440\tx2880\tx4320\tx5760\tx7200\ql\qnatural
+\cf0 \
+IOAudioFamily-1.3.2\
+\pard\tx540\tx2880\tx4320\tx5760\tx7200\li540\fi-180\ql\qnatural
+\cf0 -	Fix instance of taking the address of a cast variable.  Take the address and make the cast to be of a pointer instead.  New compliers flag this syntax error, previous ones didn't.}

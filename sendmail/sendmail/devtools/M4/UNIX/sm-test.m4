@@ -1,6 +1,6 @@
 divert(-1)
 #
-# Copyright (c) 2001 Sendmail, Inc. and its suppliers.
+# Copyright (c) 2001-2002 Sendmail, Inc. and its suppliers.
 #	All rights reserved.
 #
 # By using this file, you agree to the terms and conditions set
@@ -9,13 +9,14 @@ divert(-1)
 #
 #	Compile/run a test program for libsm.
 #
-#	$Id: sm-test.m4,v 1.1.1.1 2002/03/12 17:59:59 zarzycki Exp $
+#	$Id: sm-test.m4,v 1.1.1.2 2002/10/15 02:37:27 zarzycki Exp $
 #
 define(`smtest',
 `bldPUSH_TARGET($1)dnl
 bldLIST_PUSH_ITEM(`bldC_PRODUCTS', $1)dnl
 bldPUSH_CLEAN_TARGET($1`-clean')dnl
 divert(bldTARGETS_SECTION)
+$1`'SRCS=$1.c
 $1: ${BEFORE} $1.o ifdef(`confREQUIRE_LIBSM', `libsm.a')
 	${CC} -o $1 ${LDOPTS} ${LIBDIRS} $1.o ifdef(`confREQUIRE_LIBSM', `libsm.a') ${LIBS}
 ifelse(len(X`'$2), `1', `', `

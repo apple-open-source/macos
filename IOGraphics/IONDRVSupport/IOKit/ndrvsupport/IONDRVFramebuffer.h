@@ -168,8 +168,10 @@ private:
                             const char * libraryName, const char * symbolName );
     static bool _videoJackStateChangeHandler( void * target, void * ref,
                             IOService * newService );
+    static void _avProbeAction( OSObject * p0, IOTimerEventSource * evtSrc );
     void displayI2CPower( bool enable );
     IOReturn ndrvSetPowerState( UInt32 newState );
+    IOReturn ndrvUpdatePowerState( void );
     IOReturn ndrvSetDisplayPowerState( UInt32 newState );
     static IOReturn _probeAction( IONDRVFramebuffer * self, IOOptionBits options );
     IOReturn mirrorInfo( UInt32 index );
@@ -180,7 +182,7 @@ private:
     IOReturn setMirror( IONDRVFramebuffer * other );
     IOReturn setConnectionFlags( void );
     bool getOnlineState( void );
-    IOReturn ndrvSetFeature( UInt32 feature, UInt32 value );
+    IOReturn ndrvGetSetFeature( UInt32 feature, UInt32 newValue, UInt32 * currentValue );
     static IOReturn _doControl( IONDRVFramebuffer * self, UInt32 code, void * params );
     static IOReturn _doStatus( IONDRVFramebuffer * self, UInt32 code, void * params );
     static IOReturn extControl( OSObject * owner, void * code, void * params );
@@ -196,6 +198,8 @@ public:
 				SInt32 *	score );
 
     virtual bool start( IOService * provider );
+
+    virtual void stop( IOService * provider );
 
     virtual void free( void );
 

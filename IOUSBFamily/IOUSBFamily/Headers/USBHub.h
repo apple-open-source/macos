@@ -118,7 +118,7 @@ SetPortFeature   0010 0011B                Feature Port    Zero   None
     kSetHubFeature
         = EncodeRequest(kUSBRqSetFeature,    kUSBOut, kUSBClass, kUSBDevice),
     kSetPortFeature
-        = EncodeRequest(kUSBRqSetFeature,    kUSBOut, kUSBClass, kUSBOther),
+        = EncodeRequest(kUSBRqSetFeature,    kUSBOut, kUSBClass, kUSBOther)
 };
 
 

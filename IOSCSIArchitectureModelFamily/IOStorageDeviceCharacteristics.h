@@ -40,6 +40,10 @@
 // This is the SCSI Target Identifier for a given SCSI Target Device
 #define kIOPropertySCSITargetIdentifierKey			"SCSI Target Identifier"
 
+// This key is the SCSI Logical Unit Number for the device server controlled
+// by the driver
+#define kIOPropertySCSILogicalUnitNumberKey			"SCSI Logical Unit Number"
+
 // This key is used to define the Physical Interconnect to which a device is
 // attached (e.g. ATAPI, FireWire).
 #define kIOPropertyPhysicalInterconnectTypeKey		"Physical Interconnect"

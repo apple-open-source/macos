@@ -60,7 +60,7 @@ void AppleUSBOHCI::PollInterrupts(IOUSBCompletionAction safeAction)
 
         USBLog(3,"%s[%p] ResumeDetected Interrupt on bus %d", getName(), this, _busNumber );
         if ( _idleSuspend )
-            setPowerState(kOHCISetPowerLevelRunning,self);
+            setPowerState(kOHCISetPowerLevelRunning, self);
     }
 
     // Unrecoverable Error Interrupt
@@ -107,7 +107,7 @@ void AppleUSBOHCI::InterruptHandler(OSObject *owner,
 {
     register AppleUSBOHCI		*controller = (AppleUSBOHCI *) owner;
 
-    if (!controller || controller->isInactive() || (controller->_onCardBus && controller->_pcCardEjected) )
+    if (!controller || controller->isInactive() || (controller->_onCardBus && controller->_pcCardEjected) || !controller->_ohciAvailable)
         return;
         
     // Finish pending transactions first.
@@ -141,7 +141,7 @@ AppleUSBOHCI::PrimaryInterruptFilter(OSObject *owner, IOFilterInterruptEventSour
     // If we our controller has gone away, or it's going away, or if we're on a PC Card and we have been ejected,
     // then don't process this interrupt.
     //
-    if (!controller || controller->isInactive() || (controller->_onCardBus && controller->_pcCardEjected) )
+    if (!controller || controller->isInactive() || (controller->_onCardBus && controller->_pcCardEjected) || !controller->_ohciAvailable)
         return false;
 
     // Process this interrupt
@@ -164,6 +164,7 @@ AppleUSBOHCI::FilterInterrupt(int index)
     IOPhysicalAddress			oldHead;
     IOPhysicalAddress			cachedHead;
     UInt32				cachedProducer;
+    Boolean				needSecondary = false;
     
 
     // Check if the OHCI has written the DoneHead yet.  First we get the list of
@@ -257,6 +258,7 @@ AppleUSBOHCI::FilterInterrupt(int index)
             //
             _pOHCIRegisters->hcInterruptStatus = HostToUSBLong(kOHCIHcInterrupt_RHSC);
             IOSync();
+	    needSecondary = true;
         }
 
         // Unrecoverable Error Interrupt
@@ -274,6 +276,7 @@ AppleUSBOHCI::FilterInterrupt(int index)
             //
             _pOHCIRegisters->hcInterruptStatus = HostToUSBLong(kOHCIHcInterrupt_UE);
             IOSync();
+	    needSecondary = true;
         }
 
         // Resume Detected Interrupt
@@ -289,6 +292,7 @@ AppleUSBOHCI::FilterInterrupt(int index)
             //
             _pOHCIRegisters->hcInterruptStatus = HostToUSBLong(kOHCIHcInterrupt_RD);
             IOSync();
+	    needSecondary = true;
         }
 
         // Check to see if the WriteDoneHead interrupt fired.  If so, then we can look at the queue
@@ -304,7 +308,7 @@ AppleUSBOHCI::FilterInterrupt(int index)
             // Debugging aid to keep track of how long we take in between calls to the filter routine
             //
             _filterInterruptCount++;
-                
+            
             _filterTimeStamp2 = timeStamp;
             SUB_ABSOLUTETIME(&_filterTimeStamp2, &_filterTimeStamp); 
             _filterTimeStamp = timeStamp;
@@ -453,6 +457,7 @@ AppleUSBOHCI::FilterInterrupt(int index)
             _producerCount = cachedProducer;	// Validates _producerCount;
             
             IOSimpleLockUnlock( _wdhLock );
+	    needSecondary = true;
         }
     }
 
@@ -462,7 +467,8 @@ AppleUSBOHCI::FilterInterrupt(int index)
     // able to have our filter interrupt routine called before the action routine runs, if needed.  That is what will enable low latency isoch transfers to work, as when the
     // system is under heavy load, the action routine can be delayed for tens of ms.
     //
-    _filterInterruptSource->signalInterrupt();
+    if (needSecondary)
+	_filterInterruptSource->signalInterrupt();
     
     return false;
     

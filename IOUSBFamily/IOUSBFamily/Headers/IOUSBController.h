@@ -50,8 +50,7 @@ enum {
     kErrataLSHSOpti			= (1 << 3),		// Don't cross page boundaries in a single transfer
     kErrataDisableOvercurrent		= (1 << 4),		// Always set the NOCP bit in rhDescriptorA register
     kErrataLucentSuspendResume		= (1 << 5),		// Don't allow port suspend at the root hub
-    kErrataNeedsWatchdogTimer		= (1 << 6),		// Use Watchdog timer to reset confused controllers
-    kErrataIgnorePCIPM			= (1 << 7)		// Ignore PCI PowerManagement registers		
+    kErrataNeedsWatchdogTimer		= (1 << 6)		// Use Watchdog timer to reset confused controllers
 };
 
 

@@ -211,7 +211,8 @@ protected:
 	bool					fIsAppended;
 	
     UInt32					fFetchAgentWriteRetries;
-    
+    UInt32					fPTECount;
+	
     virtual IOReturn allocateResources( void );
     virtual void free( void );
 
@@ -337,11 +338,16 @@ public:
         @function setCommandFlags
         @abstract Sets configuration flags for the ORB.
         @discussion Sets the configuration flags for the ORB.  These can be any of the following:
-        kFWSBP2CommandCompleteNotify, kFWSBP2CommandTransferDataFromTarget, kFWSBP2CommandImmediate,
-        kFWSBP2CommandNormalORB, kFWSBP2CommandReservedORB, kFWSBP2CommandVendorORB, 
-        kFWSBP2CommandDummyORB, kFWSBP2CommandCheckGeneration, kFWSBP2CommandFixedSize, 
-        or kFWSBP2CommandVirtualORBs.  Note that you will not recieve status of your ORB completing 
-        unless kFWSBP2CommandCompleteNotify is set.
+		<p>kFWSBP2CommandCompleteNotify - Set the notify bit as specified in SBP2 standard. Set to receive completion/timeout notification on this ORB.  You almost always want to set this.</p>
+		<p>kFWSBP2CommandTransferDataFromTarget - Transfer direction as specified in SBP2 standard.  Set if data is to be written by the device into the host's memory.</p>
+		<p>kFWSBP2CommandImmediate - Immediate Append.  ORB address will be written to fetch agent and not chained.  It is only legal to have one immediate ORB in progress at a time.</p>
+		<p>kFWSBP2CommandNormalORB - ORB format 0 - Format specified by SBP2 standard.  Set this for most ORBs.</p>
+		<p>kFWSBP2CommandReservedORB - ORB format 1 - Format reserved by SBP2 standard for future standardization.</p>
+		<p>kFWSBP2CommandVendorORB - ORB format 2 - Format specified by SBP2 standard for vendor dependent ORBs.</p>
+		<p>kFWSBP2CommandDummyORB - ORB format 3 - Format specified by SBP2 standard for dummy ORBs.</p>
+		<p>kFWSBP2CommandCheckGeneration - If set upon submitORB, the ORB will only be appended if generation set with setCommandGeneration() matches the current generation.  Pretty much all SBP2 drivers need sophisticated logic to track login state, so this is generally not used. </p>
+		<p>kFWSBP2CommandFixedSize - Do not allocate more memory for page table if needed.  If there is not enough space in the currently allocated page table, the setCommandBuffers call will fail.  This is important to set if your device is the backing store, as we don't want to cause memory allocations on the paging path. </p>
+		<p>kFWSBP2CommandVirtualORBs - Normally ORBs are backed by physical address spaces.  Setting this flag makes this ORB backed by a pseudo address space.  This can make ORBs easier to see in a bus trace.  Virtual ORBs will have an address in the form of ffcX.XXXX.0000.0000.  Pseudo address space backed ORBs are slower, so you won't want to set for deployment builds.</p>
         @param flags The flags to be set.
     */
     
@@ -456,6 +462,9 @@ protected:
 	virtual void setIsAppended( bool state );
 	virtual UInt32 getFetchAgentWriteRetries( void );
     virtual void setFetchAgentWriteRetries( UInt32 retries );
+
+    virtual void prepareFastStartPacket( IOBufferMemoryDescriptor * descriptor );
+
 };
     
 #endif

@@ -21,7 +21,11 @@
  */
 
 #include <IOKit/IOMessage.h>
-#include <IOKit/firewire/IOFireWireLink.h>
+
+#define FIREWIREPRIVATE
+#include <IOKit/firewire/IOFireWireController.h>
+#undef FIREWIREPRIVATE
+
 #include <IOKit/firewire/IOConfigDirectory.h>
 #include <IOKit/firewire/IOFireWireDevice.h>
 #include <IOKit/IODeviceTreeSupport.h>
@@ -40,6 +44,7 @@ const OSSymbol *gDevice_Type_Symbol = NULL;
 const OSSymbol *gGUID_Symbol = NULL;
 const OSSymbol *gUnit_Characteristics_Symbol = NULL;
 const OSSymbol *gManagement_Agent_Offset_Symbol = NULL;
+const OSSymbol *gFast_Start_Symbol = NULL;
 		
 OSDefineMetaClassAndStructors(IOFireWireSBP2Target, IOService);
 
@@ -104,11 +109,14 @@ bool IOFireWireSBP2Target::start( IOService *provider )
 	
 	if( gManagement_Agent_Offset_Symbol == NULL )
 		gManagement_Agent_Offset_Symbol = OSSymbol::withCString("Management_Agent_Offset");
+
+	if( gFast_Start_Symbol == NULL )
+		gFast_Start_Symbol = OSSymbol::withCString("Fast_Start");
 		
     if (IOService::start(provider))
     {
 		IOFireWireController * 	controller = fProviderUnit->getController();
-        IOFireWireLink * 		fwim = controller->getLink();
+        IOService * 			fwim = (IOService*)controller->getLink();
 		OSObject *				prop = NULL;
 		UInt32					byteCount1, byteCount2;
 		
@@ -363,6 +371,9 @@ void IOFireWireSBP2Target::scanForLUNs( void )
 	UInt32			devType				= 0;
 	UInt32 			unitCharacteristics = 0;
 	UInt32 			offset 				= 0;
+	UInt32			revision			= 0;
+	bool			fastStartSupported 	= false;
+	UInt32			fastStart			= 0;
 	
 	//
     // get root directory
@@ -449,7 +460,27 @@ void IOFireWireSBP2Target::scanForLUNs( void )
     }
  
     // failure to find one of the following is not fatal, hence the use of tempStatus
-    
+
+	//
+	// find revision
+	//
+	
+	if( status == kIOReturnSuccess )
+        tempStatus = directory->getKeyValue( kRevisionKey, revision );
+
+	//
+	// find fast start info
+	//
+	
+	if( status == kIOReturnSuccess && revision != 0 )
+	{
+		tempStatus = directory->getKeyValue( kFastStartKey, fastStart );
+		if( tempStatus == kIOReturnSuccess )
+		{
+			fastStartSupported = true;
+		}
+	}
+
 	//
 	// find software rev
 	//
@@ -498,11 +529,13 @@ void IOFireWireSBP2Target::scanForLUNs( void )
                              firmwareRev, lun, devType ) );
 					FWKLOG( ( "IOFireWireSBP2Target : unitCharacteristics = %d, managementOffset = %d,\n",
                              unitCharacteristics, offset ) );
-
+					FWKLOG( ( "IOFireWireSBP2Target : revision = %d, fastStartSupported = %d, fastStart = 0x%08lx\n",
+                         revision, fastStartSupported, fastStart ) );
+						 
                     // force vendors to use real values, (0, 0) is not legal
                     if( (cmdSpecID & 0x00ffffff) || (cmdSet & 0x00ffffff) )
                     {
-                        createLUN( cmdSpecID, cmdSet, vendorID, softwareRev, firmwareRev, lun, devType, unitCharacteristics, offset );
+                        createLUN( cmdSpecID, cmdSet, vendorID, softwareRev, firmwareRev, lun, devType, unitCharacteristics, offset, fastStartSupported, fastStart );
                     }
                 }
             }
@@ -524,6 +557,19 @@ void IOFireWireSBP2Target::scanForLUNs( void )
         // iterate through directories
         while( (lunDirectory = OSDynamicCast(IOConfigDirectory,directoryIterator->getNextObject())) != NULL )
         {
+			//
+			// find fast start info
+			//
+			
+			if( revision != 0 )
+			{
+				tempStatus = directory->getKeyValue( kFastStartKey, fastStart );
+				if( tempStatus == kIOReturnSuccess )
+				{
+					fastStartSupported = true;
+				}
+			}
+			
             // get lun value
             
             tempStatus = lunDirectory->getKeyValue( kLUNKey, lunValue );
@@ -536,11 +582,13 @@ void IOFireWireSBP2Target::scanForLUNs( void )
                          cmdSpecID, cmdSet, vendorID, softwareRev ) );
                 FWKLOG( ( "IOFireWireSBP2Target : firmwareRev = %d, lun = %d, devType = %d\n",
                          firmwareRev, lun, devType ) );
-
+				FWKLOG( ( "IOFireWireSBP2Target : revision = %d, fastStartSupported = %d, fastStart = 0x%08lx\n",
+                         revision, fastStartSupported, fastStart ) );
+						 
                 // force vendors to use real values, (0, 0) is not legal
                 if( (cmdSpecID & 0x00ffffff) || (cmdSet & 0x00ffffff) )
                 {
-                    createLUN( cmdSpecID, cmdSet, vendorID, softwareRev, firmwareRev, lun, devType, unitCharacteristics, offset );
+                    createLUN( cmdSpecID, cmdSet, vendorID, softwareRev, firmwareRev, lun, devType, unitCharacteristics, offset, fastStartSupported, fastStart );
                 }
             }
         }
@@ -593,7 +641,7 @@ void IOFireWireSBP2Target::scanForLUNs( void )
 
 IOReturn IOFireWireSBP2Target::createLUN( UInt32 cmdSpecID, UInt32 cmdSet, UInt32 vendorID, UInt32 softwareRev,
                                           UInt32 firmwareRev, UInt32 lun, UInt32 devType, UInt32 unitCharacteristics,
-										  UInt32 managementOffset  )
+										  UInt32 managementOffset, bool fastStartSupported, UInt32 fastStart )
 
 {
     IOReturn	status = kIOReturnSuccess;
@@ -668,6 +716,13 @@ IOReturn IOFireWireSBP2Target::createLUN( UInt32 cmdSpecID, UInt32 cmdSet, UInt3
 		prop = OSNumber::withNumber( managementOffset, 32 );
         propTable->setObject( gManagement_Agent_Offset_Symbol, prop );
         prop->release();
+		
+		if( fastStartSupported )
+		{
+			prop = OSNumber::withNumber( fastStart, 32 );
+			propTable->setObject( gFast_Start_Symbol, prop );
+			prop->release();
+		}
 		
         prop = fProviderUnit->getProperty(gGUID_Symbol);
         if( prop )
@@ -770,7 +825,7 @@ void IOFireWireSBP2Target::configurePhysicalFilter( void )
     if( fFlags & kIOFWSBP2FailsOnAckBusy )
     {
         IOFireWireController * controller = fProviderUnit->getController();
-        IOFireWireLink * fwim = controller->getLink();
+        IOService * fwim = (IOService*)controller->getLink();
  
         UInt32 deviceCount = 0;
 		

@@ -38,7 +38,7 @@ protected:
     virtual ~IOUSBInterfaceClass();
 
     static IOCFPlugInInterface 		sIOCFPlugInInterfaceV1;
-    static IOUSBInterfaceInterface192  	sUSBInterfaceInterfaceV192;
+    static IOUSBInterfaceInterface197  	sUSBInterfaceInterfaceV197;
 
     struct InterfaceMap 	fUSBInterface;
     io_service_t 		fService;
@@ -112,10 +112,16 @@ public:
                                   IOAsyncCallback1 callback, void *refcon);
     virtual IOReturn WriteIsochPipeAsync(UInt8 pipeRef, void *buf, UInt64 frameStart, UInt32 numFrames, IOUSBIsocFrame *frameList,
                                   IOAsyncCallback1 callback, void *refcon);
+    // ----- new with 1.9.2
     virtual IOReturn LowLatencyReadIsochPipeAsync(UInt8 pipeRef, void *buf, UInt64 frameStart, UInt32 numFrames, UInt32 updateFrequency, IOUSBLowLatencyIsocFrame *frameList, IOAsyncCallback1 callback, void *refcon);
     virtual IOReturn LowLatencyWriteIsochPipeAsync(UInt8 pipeRef, void *buf, UInt64 frameStart, UInt32 numFrames, UInt32 updateFrequency, IOUSBLowLatencyIsocFrame *frameList, IOAsyncCallback1 callback, void *refcon);
     virtual IOReturn LowLatencyCreateBuffer(void * *buffer, IOByteCount size, UInt32 bufferType);
     virtual IOReturn LowLatencyDestroyBuffer(void * buffer);
+    // ----- new with 1.9.7
+    virtual IOReturn GetBusMicroFrameNumber(UInt64 *microFrame, AbsoluteTime *atTime);
+    virtual IOReturn GetFrameListTime(UInt32 *microsecondsInFrame);
+    virtual IOReturn GetIOUSBLibVersion(NumVersion *ioUSBLibVersion, NumVersion *usbFamilyVersion);
+    
 
     virtual void 			AddDataBufferToList( LowLatencyUserBufferInfo * insertBuffer );
     virtual bool			RemoveDataBufferFromList( LowLatencyUserBufferInfo * removeBuffer );
@@ -204,6 +210,10 @@ protected:
                                   UInt32 updateFrequency, IOUSBLowLatencyIsocFrame *frameList, IOAsyncCallback1 callback, void *refcon);
     static IOReturn interfaceLowLatencyCreateBuffer(void *self, void * *buffer, IOByteCount size, UInt32 bufferType);
     static IOReturn interfaceLowLatencyDestroyBuffer(void *self, void * buffer );
+    // ----------------- added in 1.9.7
+    static IOReturn interfaceGetBusMicroFrameNumber(void *self, UInt64 *microFrame, AbsoluteTime *atTime);
+    static IOReturn interfaceGetFrameListTime(void *self, UInt32 *microsecondsInFrame);
+    static IOReturn interfaceGetIOUSBLibVersion( void *self, NumVersion *ioUSBLibVersion, NumVersion *usbFamilyVersion);
    
 };
 

@@ -344,35 +344,39 @@ BC_convert_history(const struct BC_history_entry *he, struct BC_playlist_entry *
 {
 	struct BC_playlist_entry *pc, *pcp;
 	u_int64_t end;
-	int nentries, ent, pent, have_prefetch;
+	int oentries, nentries, ent, pent, have_prefetch;
 
 	if (he == NULL)
 		return(0);
-	nentries = *pnentries;
+	oentries = *pnentries;
 
-	if ((pc = malloc(sizeof(*pc) * nentries)) == NULL)
+	if ((pc = malloc(sizeof(*pc) * oentries)) == NULL)
 		return(ENOMEM);
 
 	/* scan history and convert */
 	have_prefetch = 0;
 	pcp = pc;
-	for (ent = 0; ent < nentries; ent++) {
+	nentries = 0;
+	for (ent = 0; ent < oentries; ent++, he++) {
 
 		/* if we find a prefetch tag, mark all earlier entries */
 		if (he->he_flags == BC_HE_TAG) {
 			have_prefetch = 1;
 			for (pent = 0; pent < ent; pent++)
 				(pc + pent)->pce_flags |= PCE_PREFETCH;
-			he++;
 			continue;
 		}
+
+		/* if we find a writethrough, discard it (debugging use only) */
+		if (he->he_flags == BC_HE_WRITE)
+			continue;
 
 		/* convert history entry across */
 		pcp->pce_offset = BLOCK_ROUNDDOWN(he->he_offset);
 		end = he->he_offset + he->he_length;
 		pcp->pce_length = BLOCK_ROUNDUP(end) - pcp->pce_offset;
-		he++;
 		pcp++;
+		nentries++;
 	}
 
 	if (have_prefetch != NULL)

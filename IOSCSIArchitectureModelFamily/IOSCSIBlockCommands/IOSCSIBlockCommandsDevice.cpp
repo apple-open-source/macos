@@ -93,6 +93,7 @@ OSDefineAbstractStructors ( IOSCSIBlockCommandsDevice, IOSCSIPrimaryCommandsDevi
 #define kFireWireHDIconKey					"FireWireHD.icns"
 #define kUSBHDIconKey						"USBHD.icns"
 #define kModeSense6ParameterHeaderSize		4
+#define kCachingModePageMinSize				18
 #define	kDefaultMaxBlocksPerIO				65535
 
 
@@ -504,7 +505,7 @@ UInt64
 IOSCSIBlockCommandsDevice::ReportDeviceMaxBlocksReadTransfer ( void )
 {
 
-	UInt64	maxBlockCount 	= kDefaultMaxBlocksPerIO;
+	UInt32	maxBlockCount 	= kDefaultMaxBlocksPerIO;
 	UInt64	maxByteCount	= 0;
 	bool	supported		= false;
 	
@@ -544,7 +545,7 @@ UInt64
 IOSCSIBlockCommandsDevice::ReportDeviceMaxBlocksWriteTransfer ( void )
 {
 
-	UInt64	maxBlockCount 	= kDefaultMaxBlocksPerIO;
+	UInt32	maxBlockCount 	= kDefaultMaxBlocksPerIO;
 	UInt64	maxByteCount	= 0;
 	bool	supported		= false;
 	
@@ -621,8 +622,7 @@ IOSCSIBlockCommandsDevice::InitializeDeviceSupport ( void )
 	STATUS_LOG ( ( "%s::%s called\n", getName ( ), __FUNCTION__ ) );
 	
 	// Allocate space for our reserved data.
-	fIOSCSIBlockCommandsDeviceReserved = ( IOSCSIBlockCommandsDeviceExpansionData * )
-			IOMalloc ( sizeof ( IOSCSIBlockCommandsDeviceExpansionData ) );
+	fIOSCSIBlockCommandsDeviceReserved = IONew ( IOSCSIBlockCommandsDeviceExpansionData, 1 );
 	require_nonzero ( fIOSCSIBlockCommandsDeviceReserved, ErrorExit );
 	
 	bzero ( fIOSCSIBlockCommandsDeviceReserved,
@@ -650,14 +650,15 @@ IOSCSIBlockCommandsDevice::InitializeDeviceSupport ( void )
 		
 	}
 	
-	if ( GetProtocolDriver()->getProperty ( kIOPropertyProtocolCharacteristicsKey ) != NULL )
+	if ( GetProtocolDriver ( )->getProperty ( kIOPropertyProtocolCharacteristicsKey ) != NULL )
 	{
+		
 		// There is a characteristics property for this device, check for known entries.
 		OSDictionary * characterDict = NULL;
 		
 		characterDict = OSDynamicCast (
 					OSDictionary,
-					 GetProtocolDriver()->getProperty ( kIOPropertyProtocolCharacteristicsKey ) );
+					GetProtocolDriver ( )->getProperty ( kIOPropertyProtocolCharacteristicsKey ) );
 		
 		// Check if the personality for this device specifies that this is known to be manual ejectable.
 		if ( characterDict->getObject ( kIOPropertySCSIProtocolMultiInitKey ) != NULL )
@@ -666,6 +667,7 @@ IOSCSIBlockCommandsDevice::InitializeDeviceSupport ( void )
 			fDeviceIsShared = true;		
 			
 		}
+		
 	}
 	
 	// Make sure the drive is ready for us!
@@ -703,8 +705,7 @@ ReleaseReservedMemory:
 	
 	
 	require_nonzero_quiet ( fIOSCSIBlockCommandsDeviceReserved, ErrorExit );
-	IOFree ( fIOSCSIBlockCommandsDeviceReserved,
-			 sizeof ( IOSCSIBlockCommandsDeviceExpansionData ) );
+	IODelete ( fIOSCSIBlockCommandsDeviceReserved, IOSCSIBlockCommandsDeviceExpansionData, 1 );
 	fIOSCSIBlockCommandsDeviceReserved = NULL;	
 	
 	
@@ -873,8 +874,7 @@ IOSCSIBlockCommandsDevice::FreeCommandSetObjects ( void )
 	if ( fIOSCSIBlockCommandsDeviceReserved != NULL )
 	{
 		
-		IOFree ( fIOSCSIBlockCommandsDeviceReserved,
-				 sizeof ( IOSCSIBlockCommandsDeviceExpansionData ) );
+		IODelete ( fIOSCSIBlockCommandsDeviceReserved, IOSCSIBlockCommandsDeviceExpansionData, 1 );
 		fIOSCSIBlockCommandsDeviceReserved = NULL;
 		
 	}
@@ -1253,10 +1253,19 @@ IOSCSIBlockCommandsDevice::DetermineDeviceCharacteristics ( void )
 		
 		UInt8 *		cachePage				= ( UInt8 * ) buffer->getBytesNoCopy ( );
 		UInt8		blockDescriptorLength	= 0;
+		UInt8		minSize					= 0;
 		bool		WCEBit					= false;
+				
+		// Sanity check on buffer size
+		minSize = kModeSense6ParameterHeaderSize + kCachingModePageMinSize + 2;
+		require ( ( cachePage[0] + sizeof ( UInt8 ) ) >= minSize, ReleaseTask );
 		
 		// Get the block descriptor length
 		blockDescriptorLength = cachePage[3];
+		
+		// Sanity check on returned data from drive
+		require ( ( cachePage[blockDescriptorLength + kModeSense6ParameterHeaderSize] & 0x3F ) == kCachingModePageCode, ReleaseTask );
+		require ( ( cachePage[blockDescriptorLength + kModeSense6ParameterHeaderSize + 1] ) >= kCachingModePageMinSize, ReleaseTask );
 		
 		// Set the page code in the buffer to the cache page code
 		cachePage[blockDescriptorLength + kModeSense6ParameterHeaderSize] = kCachingModePageCode;
@@ -1378,7 +1387,7 @@ IOSCSIBlockCommandsDevice::CreateStorageServiceNub ( void )
 	
 	IOService * 	nub = NULL;
 	
-	nub = new IOBlockStorageServices;
+	nub = OSTypeAlloc ( IOBlockStorageServices );
 	require_nonzero ( nub, ErrorExit );
 	
 	nub->init ( );
@@ -2271,7 +2280,9 @@ IOSCSIBlockCommandsDevice::IssueRead (
 	else
 	{
 		
-		status = kIOReturnBadArgument;
+		ReleaseSCSITask ( request );
+		request	= NULL;
+		status	= kIOReturnBadArgument;
 		
 	}
 	
@@ -2393,7 +2404,9 @@ IOSCSIBlockCommandsDevice::IssueWrite (
 	else
 	{
 		
-		status = kIOReturnBadArgument;
+		ReleaseSCSITask ( request );
+		request	= NULL;
+		status	= kIOReturnBadArgument;
 		
 	}	
 	

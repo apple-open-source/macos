@@ -42,8 +42,8 @@ bool IODisplayConnect::initWithConnection( IOIndex _connection )
 {
     char	name[ 12 ];
 
-    if( !super::init())
-	return( false);
+    if (!super::init())
+        return (false);
 
     connection = _connection;
 
@@ -51,38 +51,38 @@ bool IODisplayConnect::initWithConnection( IOIndex _connection )
 
     setName( name);
 
-    return( true);
+    return (true);
 }
 
 IOFramebuffer * IODisplayConnect::getFramebuffer( void )
 {
-    return( (IOFramebuffer *) getProvider());
+    return ((IOFramebuffer *) getProvider());
 }
 
 IOIndex IODisplayConnect::getConnection( void )
 {
-    return( connection);
+    return (connection);
 }
 
 IOReturn  IODisplayConnect::getAttributeForConnection( IOSelect selector, UInt32 * value )
 {
-    if( !getProvider())
-        return( kIOReturnNotReady);
-    return ((IOFramebuffer *) getProvider())->getAttributeForConnection( connection, selector, value );
+    if (!getProvider())
+        return (kIOReturnNotReady);
+    return ((IOFramebuffer *) getProvider())->getAttributeForConnection(connection, selector, value);
 }
 
 IOReturn  IODisplayConnect::setAttributeForConnection( IOSelect selector, UInt32 value )
 {
-    if( !getProvider())
-        return( kIOReturnNotReady);
-    return ((IOFramebuffer *) getProvider())->setAttributeForConnection( connection,  selector, value );
+    if (!getProvider())
+        return (kIOReturnNotReady);
+    return ((IOFramebuffer *) getProvider())->setAttributeForConnection(connection,  selector, value);
 }
 
 // joinPMtree
 //
 // The policy-maker in the display driver calls here when initializing.
 // We attach it into the power management hierarchy as a child of our
-// frame buffer. 
+// frame buffer.
 
 void IODisplayConnect::joinPMtree ( IOService * driver )
 {
@@ -102,8 +102,8 @@ bool IODisplayWrangler::start( IOService * provider )
 {
     OSObject *	notify;
 
-    if( !super::start( provider))
-	return( false);
+    if (!super::start(provider))
+        return (false);
 
     assert( gIODisplayWrangler == 0 );
     gIODisplayWrangler = this;
@@ -115,55 +115,55 @@ bool IODisplayWrangler::start( IOService * provider )
     assert( fMatchingLock && fFramebuffers && fDisplays );
 
     notify = addNotification( gIOPublishNotification,
-        serviceMatching("IODisplay"), _displayHandler,
-        this, fDisplays );
+                              serviceMatching("IODisplay"), _displayHandler,
+                              this, fDisplays );
     assert( notify );
 
     notify = addNotification( gIOPublishNotification,
-        serviceMatching("IODisplayConnect"), _displayConnectHandler,
-        this, 0, 50000 );
+                              serviceMatching("IODisplayConnect"), _displayConnectHandler,
+                              this, 0, 50000 );
     assert( notify );
 
     // initialize power managment
     gIODisplayWrangler->initForPM();
     // set default screen-dim timeout
-    gIODisplayWrangler->setAggressiveness ( kPMMinutesToDim, 30 );
+    gIODisplayWrangler->setAggressiveness( kPMMinutesToDim, 30 );
 
-    return( true );
+    return (true);
 }
 
 
 
 bool IODisplayWrangler::_displayHandler( void * target, void * ref,
-                            IOService * newService )
+        IOService * newService )
 {
-    return( ((IODisplayWrangler *)target)->displayHandler( (OSSet *) ref, 
-		(IODisplay *) newService ));
+    return (((IODisplayWrangler *)target)->displayHandler((OSSet *) ref,
+            (IODisplay *) newService));
 }
 
 bool IODisplayWrangler::_displayConnectHandler( void * target, void * ref,
-                            IOService * newService )
+        IOService * newService )
 {
-    return( ((IODisplayWrangler *)target)->displayConnectHandler( ref, 
-		(IODisplayConnect *) newService ));
+    return (((IODisplayWrangler *)target)->displayConnectHandler(ref,
+            (IODisplayConnect *) newService));
 }
 
 bool IODisplayWrangler::displayHandler( OSSet * set,
-                            IODisplay * newDisplay )
+                                            IODisplay * newDisplay )
 {
     assert( OSDynamicCast( IODisplay, newDisplay ));
-    
+
     IOTakeLock( fMatchingLock );
 
     set->setObject( newDisplay );
 
     IOUnlock( fMatchingLock );
 
-    return( true );
+    return (true);
 }
 
 bool IODisplayWrangler::displayConnectHandler( void * /* ref */,
-                            IODisplayConnect * connect )
+        IODisplayConnect * connect )
 {
     SInt32		score = 50000;
     OSIterator *	iter;
@@ -171,30 +171,34 @@ bool IODisplayWrangler::displayConnectHandler( void * /* ref */,
     bool		found = false;
 
     assert( OSDynamicCast( IODisplayConnect, connect ));
-    
+
     IOTakeLock( fMatchingLock );
 
     iter = OSCollectionIterator::withCollection( fDisplays );
-    if( iter) {
-	while( !found && (display = (IODisplay *) iter->getNextObject())) {
-	    if( display->getConnection())
-		continue;
+    if (iter)
+    {
+        while (!found && (display = (IODisplay *) iter->getNextObject()))
+        {
+            if (display->getConnection())
+                continue;
 
-	    do {
-		if( !display->attach( connect ))
-		    continue;
-		found = ((display->probe( connect, &score ))
-                        && (display->start( connect )));
-		if( !found)
+            do
+            {
+                if (!display->attach(connect))
+                    continue;
+                found = ((display->probe( connect, &score ))
+                         && (display->start( connect )));
+                if (!found)
                     display->detach( connect );
-	    } while( false);
-	}
-	iter->release();
+            }
+            while (false);
+        }
+        iter->release();
     }
 
     IOUnlock( fMatchingLock );
 
-    return( true);
+    return (true);
 }
 
 bool IODisplayWrangler::makeDisplayConnects( IOFramebuffer * fb )
@@ -202,21 +206,21 @@ bool IODisplayWrangler::makeDisplayConnects( IOFramebuffer * fb )
     IODisplayConnect *	connect;
     IOItemCount		i;
 
-    for( i = 0; i < 1 /*fb->getConnectionCount()*/; i++) {
+    for (i = 0; i < 1 /*fb->getConnectionCount()*/; i++)
+    {
+        connect = new IODisplayConnect;
+        if (0 == connect)
+            continue;
 
-	connect = new IODisplayConnect;
-	if( 0 == connect)
-	    continue;
-
-	if( (connect->initWithConnection( i ))
-	 && (connect->attach( fb ))) {
-
-	    connect->registerService( kIOServiceSynchronous );
-	}
-	connect->release();
+        if ((connect->initWithConnection(i))
+                && (connect->attach(fb)))
+        {
+            connect->registerService( kIOServiceSynchronous );
+        }
+        connect->release();
     }
 
-    return( true );
+    return (true);
 }
 
 void IODisplayWrangler::destroyDisplayConnects( IOFramebuffer * fb )
@@ -227,13 +231,17 @@ void IODisplayWrangler::destroyDisplayConnects( IOFramebuffer * fb )
     IODisplay *		display;
 
     iter = fb->getClientIterator();
-    if( iter) {
-        while( (next = iter->getNextObject())) {
-            if( (connect = OSDynamicCast( IODisplayConnect, next))) {
-                if( connect->isInactive())
+    if (iter)
+    {
+        while ((next = iter->getNextObject()))
+        {
+            if ((connect = OSDynamicCast(IODisplayConnect, next)))
+            {
+                if (connect->isInactive())
                     continue;
                 display = OSDynamicCast( IODisplay, connect->getClient());
-                if( display) {
+                if (display)
+                {
                     gIODisplayWrangler->fDisplays->removeObject( display );
                     display->PMstop();
                 }
@@ -245,62 +253,67 @@ void IODisplayWrangler::destroyDisplayConnects( IOFramebuffer * fb )
 }
 
 IODisplayConnect * IODisplayWrangler::getDisplayConnect(
-			IOFramebuffer * fb, IOIndex connect )
+    IOFramebuffer * fb, IOIndex connect )
 {
     OSIterator	*	iter;
     OSObject	*	next;
     IODisplayConnect *  connection = 0;
 
     iter = fb->getClientIterator();
-    if( iter) {
-	while( (next = iter->getNextObject())) {
+    if (iter)
+    {
+        while ((next = iter->getNextObject()))
+        {
             connection = OSDynamicCast( IODisplayConnect, next);
-            if( connection) {
-                if( connection->isInactive())
+            if (connection)
+            {
+                if (connection->isInactive())
                     continue;
-                if( 0 == (connect--))
+                if (0 == (connect--))
                     break;
             }
-	}
-	iter->release();
+        }
+        iter->release();
     }
-    return( connection );
+    return (connection);
 }
 
 IOReturn IODisplayWrangler::getConnectFlagsForDisplayMode(
-		IODisplayConnect * connect,
-		IODisplayModeID mode, UInt32 * flags )
+    IODisplayConnect * connect,
+    IODisplayModeID mode, UInt32 * flags )
 {
     IOReturn		err = kIOReturnUnsupported;
     IODisplay * 	display;
 
     display = OSDynamicCast( IODisplay, connect->getClient());
-    if( display)
+    if (display)
         err = display->getConnectFlagsForDisplayMode( mode, flags );
-    else {
-	kprintf("%s: no display\n", connect->getFramebuffer()->getName());
-        err = connect->getFramebuffer()->connectFlags( 
-			connect->getConnection(), mode, flags );
+    else
+    {
+        kprintf("%s: no display\n", connect->getFramebuffer()->getName());
+        err = connect->getFramebuffer()->connectFlags(
+                  connect->getConnection(), mode, flags );
     }
 
-    return( err );
+    return (err);
 }
 
 IOReturn IODisplayWrangler::getFlagsForDisplayMode(
-		IOFramebuffer * fb,
-		IODisplayModeID mode, UInt32 * flags )
+    IOFramebuffer * fb,
+    IODisplayModeID mode, UInt32 * flags )
 {
     IODisplayConnect * 		connect;
 
     // should look at all connections
     connect = gIODisplayWrangler->getDisplayConnect( fb, 0 );
-    if( !connect) {
-	kprintf("%s: no display connect\n", fb->getName());
-        return( fb->connectFlags( 0, mode, flags ));
+    if (!connect)
+    {
+        kprintf("%s: no display connect\n", fb->getName());
+        return (fb->connectFlags(0, mode, flags));
     }
 
-    return( gIODisplayWrangler->
-		getConnectFlagsForDisplayMode( connect, mode, flags ));
+    return (gIODisplayWrangler->
+            getConnectFlagsForDisplayMode(connect, mode, flags));
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -311,23 +324,23 @@ enum {
 };
 
 static IOPMPowerState ourPowerStates[kIODisplayWranglerNumPowerStates] = {
-  // version,
-  //   capabilityFlags, outputPowerCharacter, inputPowerRequirement,
-  { 1, 0,               			 0, 0,           0,0,0,0,0,0,0,0 },
-  { 1, 0,                			 0, IOPMPowerOn, 0,0,0,0,0,0,0,0 },
-  { 1, 0,               			 0, IOPMPowerOn, 0,0,0,0,0,0,0,0 },
-  { 1, IOPMDeviceUsable | kIOPMPreventIdleSleep, 0, IOPMPowerOn, 0,0,0,0,0,0,0,0 },
-  { 1, IOPMDeviceUsable | kIOPMPreventIdleSleep, 0, IOPMPowerOn, 0,0,0,0,0,0,0,0 }
-  // staticPower, unbudgetedPower, powerToAttain, timeToAttain, settleUpTime, 
-  // timeToLower, settleDownTime, powerDomainBudget
-};
+            // version,
+            //   capabilityFlags, outputPowerCharacter, inputPowerRequirement,
+            { 1, 0,               			 0, 0,           0,0,0,0,0,0,0,0 },
+            { 1, 0,                			 0, IOPMPowerOn, 0,0,0,0,0,0,0,0 },
+            { 1, 0,               			 0, IOPMPowerOn, 0,0,0,0,0,0,0,0 },
+            { 1, IOPMDeviceUsable | kIOPMPreventIdleSleep, 0, IOPMPowerOn, 0,0,0,0,0,0,0,0 },
+            { 1, IOPMDeviceUsable | kIOPMPreventIdleSleep, 0, IOPMPowerOn, 0,0,0,0,0,0,0,0 }
+            // staticPower, unbudgetedPower, powerToAttain, timeToAttain, settleUpTime,
+            // timeToLower, settleDownTime, powerDomainBudget
+        };
 
 
 /*
     This is the Power Management policy-maker for the displays.  It senses when
     the display is idle and lowers power accordingly.  It raises power back up
     when the display becomes un-idle.
-
+ 
     It senses idleness with a combination of an idle timer and the "activityTickle"
     method call.  "activityTickle" is called by objects which sense keyboard activity,
     mouse activity, or other button activity (display contrast, display brightness,
@@ -377,17 +390,17 @@ void IODisplayWrangler::initForPM(void )
     // register ourselves with policy-maker (us)
     registerPowerDriver( this, ourPowerStates, kIODisplayWranglerNumPowerStates );
     makeUsable();
-    
+
     // HID system is waiting for this
     registerService();
 }
 
 unsigned long IODisplayWrangler::initialPowerStateForDomainState( IOPMPowerFlags domainState )
 {
-   if( domainState & IOPMPowerOn)
-       return( kIODisplayWranglerMaxPowerState );
+    if (domainState & IOPMPowerOn)
+        return (kIODisplayWranglerMaxPowerState);
     else
-       return( 0 );
+        return (0);
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -400,11 +413,14 @@ unsigned long IODisplayWrangler::initialPowerStateForDomainState( IOPMPowerFlags
 
 IOReturn IODisplayWrangler::setAggressiveness( unsigned long type, unsigned long newLevel )
 {
-    if( type == kPMMinutesToDim) {
+    if (type == kPMMinutesToDim)
+    {
         // minutes to dim received
-        if( newLevel == 0) {
+        if (newLevel == 0)
+        {
             // pm turned off while idle?
-            if( pm_vars->myCurrentState < kIODisplayWranglerMaxPowerState) {
+            if (pm_vars->myCurrentState < kIODisplayWranglerMaxPowerState)
+            {
                 // yes, bring displays up again
                 changePowerStateToPriv( kIODisplayWranglerMaxPowerState );
             }
@@ -412,31 +428,41 @@ IOReturn IODisplayWrangler::setAggressiveness( unsigned long type, unsigned long
         fMinutesToDim = newLevel;
         fUseGeneralAggressiveness = false;
         // no, currently in emergency level?
-        if( pm_vars->aggressiveness < kIOPowerEmergencyLevel) {
+        if (pm_vars->aggressiveness < kIOPowerEmergencyLevel)
+        {
             // no, set new timeout
             setIdleTimerPeriod( newLevel*60 / 2);
         }
 
-    // general factor received
-    } else if( type == kPMGeneralAggressiveness) {
+        // general factor received
+    }
+    else if (type == kPMGeneralAggressiveness)
+    {
         // emergency level?
-        if( newLevel >= kIOPowerEmergencyLevel ) {
+        if (newLevel >= kIOPowerEmergencyLevel)
+        {
             // yes
             setIdleTimerPeriod( 5 );
         }
-        else {
+        else
+        {
             // no, coming out of emergency level?
-            if( pm_vars->aggressiveness >= kIOPowerEmergencyLevel ) {
-                if( fUseGeneralAggressiveness) {
+            if (pm_vars->aggressiveness >= kIOPowerEmergencyLevel)
+            {
+                if (fUseGeneralAggressiveness)
+                {
                     // yes, set new timer period
                     setIdleTimerPeriod( (333 - (newLevel/3)) / 2 );
                 }
-                else {
+                else
+                {
                     setIdleTimerPeriod( fMinutesToDim * 60 / 2);
                 }
             }
-            else {
-                if( fUseGeneralAggressiveness) {
+            else
+            {
+                if (fUseGeneralAggressiveness)
+                {
                     // no, maybe set period
                     setIdleTimerPeriod( (333 - (newLevel/3)) / 2 );
                 }
@@ -444,7 +470,7 @@ IOReturn IODisplayWrangler::setAggressiveness( unsigned long type, unsigned long
         }
     }
     super::setAggressiveness(type, newLevel);
-    return( IOPMNoErr );
+    return (IOPMNoErr);
 }
 
 
@@ -455,11 +481,11 @@ IOReturn IODisplayWrangler::setAggressiveness( unsigned long type, unsigned long
 
 bool IODisplayWrangler::activityTickle( unsigned long, unsigned long )
 {
-    if( super::activityTickle(kIOPMSuperclassPolicy1, kIODisplayWranglerMaxPowerState))
-        return( true );
+    if (super::activityTickle(kIOPMSuperclassPolicy1, kIODisplayWranglerMaxPowerState))
+        return (true);
 
     getPMRootDomain()->wakeFromDoze();
-    return( false );
+    return (false);
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -471,23 +497,26 @@ bool IODisplayWrangler::activityTickle( unsigned long, unsigned long )
 
 IOReturn IODisplayWrangler::setPowerState( unsigned long powerStateOrdinal, IOService * whatDevice )
 {
-    if( powerStateOrdinal == 0) {
+    if (powerStateOrdinal == 0)
+    {
         // system is going to sleep
         // keep displays off on wake till UI brings them up
         changePowerStateToPriv(0);
-        return( IOPMNoErr );
+        return (IOPMNoErr);
     }
-    if( powerStateOrdinal < pm_vars->myCurrentState ) {
+    if (powerStateOrdinal < pm_vars->myCurrentState)
+    {
         // HI is idle, drop power
         idleDisplays();
-        return( IOPMNoErr );
+        return (IOPMNoErr);
     }
-    if( powerStateOrdinal == kIODisplayWranglerMaxPowerState ) {
+    if (powerStateOrdinal == kIODisplayWranglerMaxPowerState)
+    {
         // there is activity, raise power
         makeDisplaysUsable();
-        return( IOPMNoErr );
+        return (IOPMNoErr);
     }
-    return( IOPMNoErr );
+    return (IOPMNoErr);
 }
 
 
@@ -504,8 +533,10 @@ void IODisplayWrangler::makeDisplaysUsable ( void )
     IOTakeLock( fMatchingLock );
 
     iter = OSCollectionIterator::withCollection( fDisplays );
-    if( iter ) {
-        while( (display = (IODisplay *) iter->getNextObject()) ) {
+    if (iter)
+    {
+        while ((display = (IODisplay *) iter->getNextObject()))
+        {
             display->makeDisplayUsable();
         }
         iter->release();
@@ -527,8 +558,10 @@ void IODisplayWrangler::idleDisplays ( void )
     IOTakeLock( fMatchingLock );
 
     iter = OSCollectionIterator::withCollection( fDisplays );
-    if( iter ) {
-        while( (display = (IODisplay *) iter->getNextObject()) ) {
+    if (iter)
+    {
+        while ((display = (IODisplay *) iter->getNextObject()))
+        {
             display->dropOneLevel();
         }
         iter->release();

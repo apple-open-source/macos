@@ -1,1 +1,5 @@
-Targets='IOUSBMassStorageClass'
+if [ "${Target}" = "IOUSBMassStorageClass" ]; then
+	Targets='IOUSBMassStorageClass'
+else
+	Targets='IOUSBMassStorageClass'
+fi

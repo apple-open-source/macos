@@ -1,12 +1,12 @@
 /*
- * Copyright (c) 2000-2001 Sendmail, Inc. and its suppliers.
+ * Copyright (c) 2000-2002 Sendmail, Inc. and its suppliers.
  *      All rights reserved.
  *
  * By using this file, you agree to the terms and conditions set
  * forth in the LICENSE file which can be found at the top level of
  * the sendmail distribution.
  *
- *	$Id: shm.h,v 1.1.1.1 2002/03/12 18:00:16 zarzycki Exp $
+ *	$Id: shm.h,v 1.1.1.2 2002/10/15 02:37:56 zarzycki Exp $
  */
 
 #ifndef SM_SHM_H
@@ -24,8 +24,7 @@
 
 /* return value for failed shmget() */
 #  define SM_SHM_NULL	((void *) -1)
-#  define SM_SHM_NO_ID	(-1)
-#  define SM_NO_SHM(id)	((id) < 0)
+#  define SM_SHM_NO_ID	(-2)
 
 extern void *sm_shmstart __P((key_t, int , int , int *, bool));
 extern int sm_shmstop __P((void *, int, bool));

@@ -85,7 +85,7 @@ enum {
     kIOBlitSourceOOLPattern		= 0x00005000,
     kIOBlitSourceSolid			= 0x00006000,
     kIOBlitSourceCGSSurface		= 0x00007000,
-    kIOBlitSourceIsSame			= 0x80000000,
+    kIOBlitSourceIsSame			= 0x80000000
 };
 
 #ifdef IOGA_COMPAT
@@ -209,11 +209,11 @@ enum {
 
 enum {
         kIO16LE4444PixelFormat	= IO_FOUR_CHAR_CODE('L444'),	/* 16 bit LE argb 4444*/
-        kIO16BE4444PixelFormat	= IO_FOUR_CHAR_CODE('B444'),	/* 16 bit BE argb 4444*/
+        kIO16BE4444PixelFormat	= IO_FOUR_CHAR_CODE('B444')	/* 16 bit BE argb 4444*/
 };
 
 enum {
-    kIOBlitMemoryRequiresHostFlush	= 0x00000001,
+    kIOBlitMemoryRequiresHostFlush	= 0x00000001
 };
 
 typedef struct IOBlitSurfaceStruct {
@@ -249,7 +249,7 @@ enum {
     kIOBlitWaitGlobal			= 0x00000001,
     kIOBlitWaitAll			= 0x00000002,
     kIOBlitWaitCheck			= 0x00000080,
-    kIOBlitFlushWithSwap		= 0x00010000,
+    kIOBlitFlushWithSwap		= 0x00010000
 };
 
 enum {
@@ -257,7 +257,7 @@ enum {
     kIOBlitHasCGSSurface		= 0x00000001,
     kIOBlitFixedSource			= 0x00000002,
     kIOBlitBeamSyncSwaps		= 0x00000004,
-    kIOBlitReferenceSource		= 0x00000008,
+    kIOBlitReferenceSource		= 0x00000008
 };
 
 enum {
