@@ -27,12 +27,12 @@
 #import <IOKit/IOCFPlugIn.h>
 #import <IOKit/usb/IOUSBLib.h>
 #import <stdio.h>
-#import "authorization.h"
-#import "systemCommands.h"
+#import "Authorization.h"
+#import "SystemCommands.h"
 #import "Node.h"
 #import "IORegistryClass.h"
 #import "BusProbeClass.h"
-#import "usbLoggerClass.h"
+#import "USBLoggerClass.h"
 
 @interface mainController : NSObject
 {

@@ -7,15 +7,15 @@ JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
 export deferred DEVELOPMENT_LANGUAGE = English ;
 export deferred PROJECT = $(PROJECT_NAME) ;
 export deferred PROJECT_NAME = IOStorageFamily ;
-export deferred SRCROOT = /Volumes/Users/markaria/Active/IOStorageFamily-19-HEAD ;
+export deferred SRCROOT = /Volumes/Users/markaria/Active/IOStorageFamily ;
 
 # User-defined project-wide settings for project
 
 # Target "IOStorageFamily"
 
-export deferred _INFO_PLIST_FILE_PATH = "$(SRCROOT)/pbxbuild.data/Info.plist" ;
-export deferred _PKGINFO_FILE_PATH = "$(SRCROOT)/pbxbuild.data/PkgInfo" ;
-export deferred _PBDEVELOPMENT_PLIST_FILE_PATH = "$(SRCROOT)/pbxbuild.data/pbdevelopment.plist" ;
+export deferred _INFO_PLIST_FILE_PATH = "$(SRCROOT)/pbxbuild.data/IOStorageFamily.build/Info.plist" ;
+export deferred _PKGINFO_FILE_PATH = "$(SRCROOT)/pbxbuild.data/IOStorageFamily.build/PkgInfo" ;
+export deferred _PBDEVELOPMENT_PLIST_FILE_PATH = "$(SRCROOT)/pbxbuild.data/IOStorageFamily.build/pbdevelopment.plist" ;
 
 # Implicitly computed build settings for target "IOStorageFamily"
 export deferred CLONE_HEADERS = NO ;
@@ -31,7 +31,7 @@ export deferred KERNEL_MODULE = YES ;
 export deferred LIBRARY_SEARCH_PATHS =  ;
 export deferred MODULE_IOKIT = YES ;
 export deferred MODULE_NAME = com.apple.iokit.IOStorageFamily ;
-export deferred MODULE_VERSION = 1.2 ;
+export deferred MODULE_VERSION = 1.2.3 ;
 export deferred OTHER_CFLAGS =  ;
 export deferred OTHER_LDFLAGS =  ;
 export deferred OTHER_REZFLAGS =  ;
@@ -58,7 +58,7 @@ commitdeferred ;
 BeginBundle "<IOStorageFamily>IOStorageFamily.kext" ;
 
 # Script Build Phase Files
-SCRIPT_BUILD_PHASE_FILES = "$(SRCROOT)/pbxbuild.data/BPTag000-script.sh" ;
+SCRIPT_BUILD_PHASE_FILES = "$(SRCROOT)/pbxbuild.data/IOStorageFamily.build/BPTag000-script.sh" ;
 ProcessScriptBuildPhaseFiles "<IOStorageFamily>IOStorageFamily.kext" : "$(SCRIPT_BUILD_PHASE_FILES)" : "" : BPTag000 ;
 
 # Headers
@@ -105,7 +105,7 @@ REZ_FILES = ;
 ProcessRezFiles "<IOStorageFamily>IOStorageFamily.kext" : "$(REZ_FILES)" : BPTag004 : BPTag005 ;
 
 # Script Build Phase Files
-SCRIPT_BUILD_PHASE_FILES = "$(SRCROOT)/pbxbuild.data/BPTag006-script.sh" ;
+SCRIPT_BUILD_PHASE_FILES = "$(SRCROOT)/pbxbuild.data/IOStorageFamily.build/BPTag006-script.sh" ;
 ProcessScriptBuildPhaseFiles "<IOStorageFamily>IOStorageFamily.kext" : "$(SCRIPT_BUILD_PHASE_FILES)" : BPTag005 : BPTag006 ;
 
 EndBundle "<IOStorageFamily>IOStorageFamily.kext" ;

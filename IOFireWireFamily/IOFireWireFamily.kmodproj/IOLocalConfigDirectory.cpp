@@ -20,14 +20,16 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include <libkern/c++/OSIterator.h>
-#include <libkern/c++/OSData.h>
-#include <libkern/c++/OSArray.h>
-#include <libkern/c++/OSObject.h>
-#include <libkern/c++/OSString.h>
-#include <IOKit/IOLib.h>
-#include <IOKit/firewire/IOFWRegs.h>
-#include <IOKit/firewire/IOLocalConfigDirectory.h>
+#import "IOFireWireFamilyCommon.h"
+#import "IOLocalConfigDirectory.h"
+#import "IOFWUtils.h"
+
+#import <libkern/c++/OSIterator.h>
+#import <libkern/c++/OSData.h>
+#import <libkern/c++/OSArray.h>
+#import <libkern/c++/OSObject.h>
+#import <libkern/c++/OSString.h>
+#import <IOKit/IOLib.h>
 
 
 class IOConfigEntry : public OSObject
@@ -372,7 +374,7 @@ IOReturn IOLocalConfigDirectory::compile(OSData *rom)
     return kIOReturnSuccess;                           
 }
 
-IOReturn IOLocalConfigDirectory::addEntry(int key, UInt32 value, OSString *desc)
+IOReturn IOLocalConfigDirectory::addEntry(int key, UInt32 value, OSString* desc )
 {
     IOReturn res;
 
@@ -389,8 +391,7 @@ IOReturn IOLocalConfigDirectory::addEntry(int key, UInt32 value, OSString *desc)
     }
     return res;
 }
-IOReturn IOLocalConfigDirectory::addEntry(int key, IOLocalConfigDirectory *value,
-                                                                    OSString *desc)
+IOReturn IOLocalConfigDirectory::addEntry( int key, IOLocalConfigDirectory *value, OSString* desc )
 {
     IOReturn res;
 
@@ -408,7 +409,7 @@ IOReturn IOLocalConfigDirectory::addEntry(int key, IOLocalConfigDirectory *value
     return res;
 }
 
-IOReturn IOLocalConfigDirectory::addEntry(int key, OSData *value, OSString *desc)
+IOReturn IOLocalConfigDirectory::addEntry(int key, OSData *value, OSString* desc )
 {
     IOReturn res;
 
@@ -426,7 +427,7 @@ IOReturn IOLocalConfigDirectory::addEntry(int key, OSData *value, OSString *desc
     return res;
 }
 
-IOReturn IOLocalConfigDirectory::addEntry(int key, FWAddress value, OSString *desc)
+IOReturn IOLocalConfigDirectory::addEntry( int key, FWAddress value, OSString* desc )
 {
     IOReturn res;
 

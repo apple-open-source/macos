@@ -181,6 +181,16 @@ bool AppleDBDMAAudioDMAEngine::initHardware(IOService *provider)
             kIOAudioStreamByteOrderBigEndian,
             true
     };
+	
+	//	rbm 7.15.2002 keep a copy for user client
+	dbdmaFormat.fNumChannels = format.fNumChannels;
+	dbdmaFormat.fSampleFormat = format.fSampleFormat;
+	dbdmaFormat.fNumericRepresentation = format.fNumericRepresentation;
+	dbdmaFormat.fBitDepth = format.fBitDepth;
+	dbdmaFormat.fBitWidth = format.fBitWidth;
+	dbdmaFormat.fAlignment = format.fAlignment;
+	dbdmaFormat.fIsMixable = format.fIsMixable;
+	dbdmaFormat.fDriverTag = format.fDriverTag;
         
     DEBUG_IOLOG("+ AppleDBDMAAudioDMAEngine::initHardware()\n");
     
@@ -517,6 +527,7 @@ IOReturn AppleDBDMAAudioDMAEngine::performAudioEngineStart()
 	FailIf (NULL == commandBufferPhys, Exit);
 	IODBDMAStart(ioBaseDMAOutput, (IODBDMADescriptor *)commandBufferPhys);
 
+	dmaRunState = TRUE;				//	rbm 7.12.02	added for user client support
 	result = kIOReturnSuccess;
 
     debugIOLog(" - AppleDBDMAAudioDMAEngine::performAudioEngineStart()\n");
@@ -599,6 +610,7 @@ IOReturn AppleDBDMAAudioDMAEngine::performAudioEngineStop()
         IODBDMAReset(ioBaseDMAInput);
     }
     
+	dmaRunState = FALSE;				//	rbm 7.12.02	added for user client support
     interruptEventSource->enable();
 
     DEBUG_IOLOG("- AppleDBDMAAudioDMAEngine::performAudioEngineStop()\n");
@@ -1083,6 +1095,17 @@ IOReturn AppleDBDMAAudioDMAEngine::convertInputSamples(const void *sampleBuf, vo
 
 IOReturn AppleDBDMAAudioDMAEngine::performFormatChange(IOAudioStream *audioStream, const IOAudioStreamFormat *newFormat, const IOAudioSampleRate *newSampleRate)
 {
+	if ( NULL != newFormat ) {									//	rbm 7.15.2002 keep a copy for user client
+		dbdmaFormat.fNumChannels = newFormat->fNumChannels;
+		dbdmaFormat.fSampleFormat = newFormat->fSampleFormat;
+		dbdmaFormat.fNumericRepresentation = newFormat->fNumericRepresentation;
+		dbdmaFormat.fBitDepth = newFormat->fBitDepth;
+		dbdmaFormat.fBitWidth = newFormat->fBitWidth;
+		dbdmaFormat.fAlignment = newFormat->fAlignment;
+		dbdmaFormat.fByteOrder = newFormat->fByteOrder;
+		dbdmaFormat.fIsMixable = newFormat->fIsMixable;
+		dbdmaFormat.fDriverTag = newFormat->fDriverTag;
+	}
     return kIOReturnSuccess;
 }
 
@@ -1291,3 +1314,25 @@ bool AppleDBDMAAudioDMAEngine::willTerminate (IOService * provider, IOOptionBits
 
 	return super::willTerminate (provider, options);
 }
+
+bool AppleDBDMAAudioDMAEngine::getDmaState (void )
+{
+	return dmaRunState;
+}
+
+IOReturn AppleDBDMAAudioDMAEngine::getAudioStreamFormat( IOAudioStreamFormat * streamFormatPtr )
+{
+	if ( NULL != streamFormatPtr ) {
+		streamFormatPtr->fNumChannels = dbdmaFormat.fNumChannels;
+		streamFormatPtr->fSampleFormat = dbdmaFormat.fSampleFormat;
+		streamFormatPtr->fNumericRepresentation = dbdmaFormat.fNumericRepresentation;
+		streamFormatPtr->fBitDepth = dbdmaFormat.fBitDepth;
+		streamFormatPtr->fBitWidth = dbdmaFormat.fBitWidth;
+		streamFormatPtr->fAlignment = dbdmaFormat.fAlignment;
+		streamFormatPtr->fByteOrder = dbdmaFormat.fByteOrder;
+		streamFormatPtr->fIsMixable = dbdmaFormat.fIsMixable;
+		streamFormatPtr->fDriverTag = dbdmaFormat.fDriverTag;
+	}
+	return kIOReturnSuccess;
+}
+

@@ -28,7 +28,7 @@
 .\" ********************************************************************
 .\" *  Required macros
 .\" ********************************************************************
-.Dd March 6, 2002
+.Dd July 26, 2002
 .Dt MOUNT_WEBDAV 8
 .Os Mac\ OS\ X
 .\"
@@ -189,12 +189,16 @@ authentication was added in Mac OS X Version 10.1.1.
 .It 0
 .Nm
 successfully mounted the server directory. 
+.It Bq Er ENOENT
+The server directory could not be mounted by
+.Nm
+because the node path is invalid.
 .It Bq Er ENODEV
 The server directory could not be mounted by
 .Nm
 because it is not WebDAV-enabled or because it does not exist, or
 because node does not have proper access.
-.It Bq Er EACCES
+.It Bq Er ECANCELED
 The server directory could not be mounted by
 .Nm
 because the user did not provide proper authentication credentials.

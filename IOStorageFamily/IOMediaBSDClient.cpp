@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -995,14 +998,14 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int f, struct proc * p)
         case DKIOCGETMAXBLOCKCOUNTREAD:                    // (u_int64_t * out);
         {
             //
-            // This ioctl returns the maximum supported block count for reads. 
+            // This ioctl returns the maximum block count for reads.
             //
 
             OSNumber * number = OSDynamicCast(
-                             /* class  */ OSNumber,
-                             /* object */ minor->media->getProperty(
-                                     /* key   */ kIOMaximumBlockCountReadKey,
-                                     /* plane */ gIOServicePlane ) );
+                         /* class  */ OSNumber,
+                         /* object */ minor->media->getProperty(
+                                 /* key   */ kIOMaximumBlockCountReadKey,
+                                 /* plane */ gIOServicePlane ) );
             if ( number )
                 *(u_int64_t *)data = number->unsigned64BitValue();
             else
@@ -1013,14 +1016,50 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int f, struct proc * p)
         case DKIOCGETMAXBLOCKCOUNTWRITE:                   // (u_int64_t * out);
         {
             //
-            // This ioctl returns the maximum supported block count for writes.
+            // This ioctl returns the maximum block count for writes.
             //
 
             OSNumber * number = OSDynamicCast(
-                             /* class  */ OSNumber,
-                             /* object */ minor->media->getProperty(
-                                     /* key   */ kIOMaximumBlockCountWriteKey,
-                                     /* plane */ gIOServicePlane ) );
+                         /* class  */ OSNumber,
+                         /* object */ minor->media->getProperty(
+                                 /* key   */ kIOMaximumBlockCountWriteKey,
+                                 /* plane */ gIOServicePlane ) );
+            if ( number )
+                *(u_int64_t *)data = number->unsigned64BitValue();
+            else
+                *(u_int64_t *)data = 0;
+
+        } break;
+
+        case DKIOCGETMAXBYTECOUNTREAD:                     // (u_int64_t * out);
+        {
+            //
+            // This ioctl returns the maximum byte count for reads.
+            //
+
+            OSNumber * number = OSDynamicCast(
+                         /* class  */ OSNumber,
+                         /* object */ minor->media->getProperty(
+                                 /* key   */ kIOMaximumByteCountReadKey,
+                                 /* plane */ gIOServicePlane ) );
+            if ( number )
+                *(u_int64_t *)data = number->unsigned64BitValue();
+            else
+                *(u_int64_t *)data = 0;
+
+        } break;
+
+        case DKIOCGETMAXBYTECOUNTWRITE:                    // (u_int64_t * out);
+        {
+            //
+            // This ioctl returns the maximum byte count for writes.
+            //
+
+            OSNumber * number = OSDynamicCast(
+                         /* class  */ OSNumber,
+                         /* object */ minor->media->getProperty(
+                                 /* key   */ kIOMaximumByteCountWriteKey,
+                                 /* plane */ gIOServicePlane ) );
             if ( number )
                 *(u_int64_t *)data = number->unsigned64BitValue();
             else
@@ -1031,15 +1070,14 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int f, struct proc * p)
         case DKIOCGETMAXSEGMENTCOUNTREAD:                  // (u_int64_t * out);
         {
             //
-            // This ioctl returns the maximum supported physical segment count
-            // for read buffers.
+            // This ioctl returns the maximum segment count for reads.
             //
 
             OSNumber * number = OSDynamicCast(
-                             /* class  */ OSNumber,
-                             /* object */ minor->media->getProperty(
-                                     /* key   */ kIOMaximumSegmentCountReadKey,
-                                     /* plane */ gIOServicePlane ) );
+                         /* class  */ OSNumber,
+                         /* object */ minor->media->getProperty(
+                                 /* key   */ kIOMaximumSegmentCountReadKey,
+                                 /* plane */ gIOServicePlane ) );
             if ( number )
                 *(u_int64_t *)data = number->unsigned64BitValue();
             else
@@ -1050,15 +1088,50 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int f, struct proc * p)
         case DKIOCGETMAXSEGMENTCOUNTWRITE:                 // (u_int64_t * out);
         {
             //
-            // This ioctl returns the maximum supported physical segment count
-            // for write buffers.
+            // This ioctl returns the maximum segment count for writes.
             //
 
             OSNumber * number = OSDynamicCast(
-                             /* class  */ OSNumber,
-                             /* object */ minor->media->getProperty(
-                                     /* key   */ kIOMaximumSegmentCountWriteKey,
-                                     /* plane */ gIOServicePlane ) );
+                         /* class  */ OSNumber,
+                         /* object */ minor->media->getProperty(
+                                 /* key   */ kIOMaximumSegmentCountWriteKey,
+                                 /* plane */ gIOServicePlane ) );
+            if ( number )
+                *(u_int64_t *)data = number->unsigned64BitValue();
+            else
+                *(u_int64_t *)data = 0;
+
+        } break;
+
+        case DKIOCGETMAXSEGMENTBYTECOUNTREAD:              // (u_int64_t * out);
+        {
+            //
+            // This ioctl returns the maximum segment byte count for reads.
+            //
+
+            OSNumber * number = OSDynamicCast(
+                         /* class  */ OSNumber,
+                         /* object */ minor->media->getProperty(
+                                 /* key   */ kIOMaximumSegmentByteCountReadKey,
+                                 /* plane */ gIOServicePlane ) );
+            if ( number )
+                *(u_int64_t *)data = number->unsigned64BitValue();
+            else
+                *(u_int64_t *)data = 0;
+
+        } break;
+
+        case DKIOCGETMAXSEGMENTBYTECOUNTWRITE:             // (u_int64_t * out);
+        {
+            //
+            // This ioctl returns the maximum segment byte count for writes.
+            //
+
+            OSNumber * number = OSDynamicCast(
+                         /* class  */ OSNumber,
+                         /* object */ minor->media->getProperty(
+                                 /* key   */ kIOMaximumSegmentByteCountWriteKey,
+                                 /* plane */ gIOServicePlane ) );
             if ( number )
                 *(u_int64_t *)data = number->unsigned64BitValue();
             else

@@ -35,7 +35,7 @@
 #ifndef _IOKIT_IOFWLOCALISOCHPORT_H
 #define _IOKIT_IOFWLOCALISOCHPORT_H
 
-#include <IOKit/firewire/IOFWIsoch.h>
+#include <IOKit/firewire/IOFireWireFamilyCommon.h>
 #include <IOKit/firewire/IOFWIsochPort.h>
 class IOFireWireController;
 class IODCLProgram;
@@ -82,7 +82,7 @@ public:
         @result IOKit error code.
      */
     virtual IOReturn notify(UInt32 notificationType,
-        DCLCommandPtr *dclCommandList, UInt32 numDCLCommands);
+        DCLCommand** dclCommandList, UInt32 numDCLCommands);
 
 private:
     OSMetaClassDeclareReservedUnused(IOFWLocalIsochPort, 0);

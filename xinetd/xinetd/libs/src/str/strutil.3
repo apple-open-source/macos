@@ -1,0 +1,62 @@
+.\"(c) Copyright 1992, 1993 by Panagiotis Tsirigotis
+.\"All rights reserved.  The file named COPYRIGHT specifies the terms 
+.\"and conditions for redistribution.
+.\"
+.\" $Id: strutil.3,v 1.1.1.1 2002/01/31 07:09:04 zarzycki Exp $
+.TH STRUTIL 3X "30 September 1992"
+.SH NAME
+str_find, str_casefind, str_fill, str_lower, str_upper -- string utility functions
+.SH SYNOPSIS
+.LP
+.nf
+.ft B
+#include "str.h"
+.LP
+.ft B
+char *str_find( s1, s2 )
+char *s1, *s2 ;
+.LP
+.ft B
+char *str_casefind( s1, s2 )
+char *s1, *s2 ;
+.LP
+.ft B
+void str_fill( s, c )
+char *s ;
+char c ;
+.LP
+.ft B
+char *str_lower( s )
+char *s ;
+.LP
+.ft B
+char *str_upper( s )
+char *s ;
+.SH DESCRIPTION
+.B str_find()
+returns a pointer to the first instance of string \fIs2\fR in string \fIs1\fR.
+If \fIs2\fR is the empty string a pointer to \fIs1\fR is returned.
+.LP
+.B str_casefind()
+performs the same function as
+.B str_find()
+except that it performs case insensitive character comparisons.
+.LP
+.B str_fill()
+fills the string \fIs\fR with the character \fIc\fR.
+.LP
+.B str_lower()
+and
+.B str_upper()
+convert their argument in place to a lower or upper case string respectively.
+.SH "RETURN VALUES"
+.LP
+\fBstr_find()\fR 
+and
+.B str_casefind()
+return a pointer to the first occurrence of \fIs2\fR
+in \fIs1\fR or
+.SM NULL
+if \fIs2\fR does not exist in \fIs1\fR.
+.LP
+\fBstr_lower()\fR and \fBstr_upper()\fR return \fIs\fR.

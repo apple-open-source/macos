@@ -75,6 +75,9 @@
     static int		_impendingSleep = 0;
     static io_connect_t     _pm_ack_port = 0;
 
+// Defined in PowerManagement/pmconfigd/pmconfigd.c
+extern void _pmcfgd_goingToSleep(void);
+extern void _pmcfgd_wakeFromSleep(void);
 
 void _pmcfgd_callback(void * port,io_service_t y,natural_t messageType,void * messageArgument)
 {    
@@ -84,12 +87,14 @@ void _pmcfgd_callback(void * port,io_service_t y,natural_t messageType,void * me
         // Battery drain during sleep will produce an unrealistic time remaining
         // expectation on wake from sleep unless we reset the average sample.
         _impendingSleep = 1;
+        _pmcfgd_goingToSleep();
         // fall through
     case kIOMessageCanSystemSleep:
         IOAllowPowerChange(_pm_ack_port, (long)messageArgument);
         break;
         
     case kIOMessageSystemHasPoweredOn:
+        _pmcfgd_wakeFromSleep();
         _impendingSleep = 0;
         break;
     }

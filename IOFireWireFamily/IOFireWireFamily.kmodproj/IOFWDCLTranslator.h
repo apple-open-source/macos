@@ -43,39 +43,37 @@ class IODCLTranslator : public IODCLProgram
 protected:
     enum
     {
-        kNumPingPongs			= 2,
+        kNumPingPongs				= 2,
         kNumPacketsPerPingPong		= 500,
-        kMaxIsochPacketSize		= 1000,
-        kPingPongBufferSize		=
-                kNumPingPongs * kNumPacketsPerPingPong * kMaxIsochPacketSize
+        kMaxIsochPacketSize			= 1000,
+        kPingPongBufferSize			= kNumPingPongs * kNumPacketsPerPingPong * kMaxIsochPacketSize
     };
 
     // Opcodes and buffer for pingpong program
     DCLLabel			fStartLabel;
-    DCLTransferPacket		fTransfers[kNumPingPongs*kNumPacketsPerPingPong];
+    DCLTransferPacket	fTransfers[kNumPingPongs*kNumPacketsPerPingPong];
     DCLCallProc			fCalls[kNumPingPongs];
-    DCLJump			fJumpToStart;
-    UInt8			fBuffer[kPingPongBufferSize];
+    DCLJump				fJumpToStart;
+    UInt8				fBuffer[kPingPongBufferSize];
 
-    IODCLProgram *		fHWProgram;		// Hardware program executing our opcodes
-    DCLCommandPtr		fToInterpret;		// The commands to interpret
-    DCLCommandPtr		fCurrentDCLCommand;	// Current command to interpret
-    int				fPingCount;		// Are we pinging or ponging?
+    IODCLProgram *		fHWProgram;				// Hardware program executing our opcodes
+    DCLCommand*			fToInterpret;			// The commands to interpret
+    DCLCommand*			fCurrentDCLCommand;		// Current command to interpret
+    int					fPingCount;				// Are we pinging or ponging?
+    UInt32				fPacketHeader;
 
-    UInt32			fPacketHeader;
-
-    static void ListeningDCLPingPongProc(DCLCommandPtr pDCLCommand);
-    static void TalkingDCLPingPongProc(DCLCommandPtr pDCLCommand);
+    static void ListeningDCLPingPongProc(DCLCommand* pDCLCommand);
+    static void TalkingDCLPingPongProc(DCLCommand* pDCLCommand);
 
 public:
-    virtual bool init(DCLCommandPtr toInterpret);
+    virtual bool init(DCLCommand* toInterpret);
     virtual IOReturn allocateHW(IOFWSpeed speed, UInt32 chan);
     virtual IOReturn releaseHW();
     virtual IOReturn notify(UInt32 notificationType,
-	DCLCommandPtr *dclCommandList, UInt32 numDCLCommands);
+	DCLCommand** dclCommandList, UInt32 numDCLCommands);
     virtual void stop();
 
-    DCLCommandPtr getTranslatorOpcodes();
+    DCLCommand* getTranslatorOpcodes();
     void setHWProgram(IODCLProgram *program);
 };
 

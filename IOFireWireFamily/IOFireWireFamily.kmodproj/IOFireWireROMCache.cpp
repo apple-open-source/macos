@@ -37,6 +37,9 @@ OSMetaClassDefineReservedUnused(IOFireWireROMCache, 5);
 OSMetaClassDefineReservedUnused(IOFireWireROMCache, 6);
 OSMetaClassDefineReservedUnused(IOFireWireROMCache, 7);
 
+#define kROMBIBSizeMinimal	4   // technically, this is the size of the ROM header
+#define kROMBIBSizeGeneral	20  // technically, this is the size of the ROM header + the BIB
+
 // withBytes
 //
 //
@@ -235,37 +238,79 @@ void IOFireWireROMCache::unlock( void )
 
 bool IOFireWireROMCache::hasROMChanged( const UInt32 * newBIB, UInt32 newBIBSize )
 {
-	bool rom_changed = true;
+	bool rom_changed = false;	// assume ROM has not changed
+	
+	FWKLOG(( "IOFireWireROMCache@0x%08lx::hasROMChanged - newBIB = 0x%08lx, newBIBSize = %d\n", (UInt32)this, (UInt32)newBIB, (int)newBIBSize ));
+
+	FWPANICASSERT( newBIB != NULL );
+	FWPANICASSERT( newBIBSize != 0 );
+	
+	// a minimal ROM header + BIB is 4 bytes long
+	// a general ROM header + BIB is 20 bytes long
+	// all other sizes are invalid
+	FWKLOGASSERT( newBIBSize == kROMBIBSizeMinimal || newBIBSize == kROMBIBSizeGeneral );
 	
 	lock();
 	
 	// the ROM generation is in the Bus Info Block, so our bcmp here
 	// will fail if the generation has changed.
 	
-	// ROM generation = 0 means you can't assume the ROM is the same,
-	// however since the only real world devices whose ROM will change
-	// are going to be 1394a or later we assume all generation zero ROMs
-	// are unchanging
+	// ROM generation == 0 means you can't assume the ROM is the same,
+	// however, there is only one known real-world device for which this
+	// is true : an older version of Open Firmware in Target Disk Mode.
 	
-	// we compare using the incoming BIB size instead of just assuming 20
-	// bytes as minimal config ROM devices do not have a full BIB
-
-	if( newBIBSize == getLength() || 
-		(newBIBSize == 20 && newBIBSize < getLength()) )
+	// to cut down on unneeded bus traffic, we are assuming that all future 
+	// devices with ROMs which may change will be 1394a compliant and update 
+	// their generation when they change.
+	
+	
+	// if the BIB + header is bigger than the current ROM, then we've
+	// got a minimal ROM changing into a general ROM
+	
+	if( newBIBSize > getLength() )
 	{
-		if(	!bcmp( newBIB, getBytesNoCopy(), newBIBSize) ) 
-		{
-			rom_changed = false;
-		}
+		rom_changed = true;
 	}
 
+	// if the new BIB + header is less than the size of a general ROM BIB + header and
+	// the current ROM is greater than or equal to the size of a general ROM
+	// BIB + header, then we've got a general ROM changing into a minimal ROM
+	
+	if( newBIBSize < kROMBIBSizeGeneral && 
+		getLength() >= kROMBIBSizeGeneral )
+	{
+		rom_changed = true;
+	}
+	
+	// check for changes in a general config ROM
+	
+	if( newBIBSize == kROMBIBSizeGeneral )
+	{
+	
+		if(	bcmp( newBIB, getBytesNoCopy(), newBIBSize) != 0 ) 
+		{
+			rom_changed = true;
+		}
+
+#if 0		
+		// if this has ROM generation of 0, don't assume the ROM is the same.
+		UInt32 romGeneration = (newBIB[2] & kFWBIBGeneration) >> kFWBIBGenerationPhase;
+		if( romGeneration == 0 )
+		{
+			rom_changed = true; // don't assume its the same
+		}
+#endif
+
+	}
+	
 	// don't come back from an invalid state
+	
 	if( fState == kROMStateInvalid )
 	{
 		rom_changed = true;
 	}
 	
-#if 0
+#if FWLOGGING
 	if( rom_changed )
 	{
 		FWKLOG(( "IOFireWireROMCache@0x%08lx::hasROMChanged - ROM changed\n", (UInt32)this ));

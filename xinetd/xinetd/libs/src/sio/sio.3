@@ -1,0 +1,416 @@
+.\"(c) Copyright 1992, 1993 by Panagiotis Tsirigotis
+.\"All rights reserved.  The file named COPYRIGHT specifies the terms 
+.\"and conditions for redistribution.
+.\"
+.\" $Id: sio.3,v 1.1.1.2 2002/06/17 22:51:08 zarzycki Exp $
+.TH SIO 3X "29 May 1992"
+.SH NAME
+Sread, Sgetc, Srdline, Sfetch, Swrite, Sputc, Sprint, Sprintv, Sdone, Sundo, Stie, Suntie, Sflush, Sclose, Sbuftype, Smorefds, Sgetchar, Sputchar, SIOLINELEN - fast stream I/O
+.SH SYNOPSIS
+.LP
+.nf
+.ft B
+#include "sio.h"
+#include <stdarg.h>
+.LP
+.ft B
+int Sread( fd, buf, nbytes )
+int fd ;
+char *buf ;
+int nbytes ;
+.LP
+.ft B
+int Sgetc( fd )
+int fd ;
+.LP
+.ft B
+char *Srdline( fd )
+int fd ;
+.LP
+.ft B
+char *Sfetch( fd, length )
+int fd ;
+long *length ;
+.LP
+.ft B
+int Swrite( fd, buf, nbytes )
+int fd ;
+char *buf ;
+int nbytes ;
+.LP
+.ft B
+int Sputc( fd, c )
+int fd ;
+char c ;
+.LP
+.ft B
+int Sprint( fd, format [ , ... ] )
+int fd ;
+char *format ;
+.LP
+.ft B
+int Sprintv( fd, format, ap )
+int fd ;
+char *format ;
+va_list ap ;
+.LP
+.ft B
+int Sdone( fd )
+int fd ;
+.LP
+.ft B
+int Sundo( fd, type )
+int fd ;
+int type ;
+.LP
+.ft B
+int Stie( ifd, ofd )
+int ifd, ofd ;
+.LP
+.ft B
+int Suntie( fd )
+int fd ;
+.LP
+.ft B
+int Sbuftype( fd, type )
+int fd, type ;
+.LP
+.ft B
+int Smorefds()
+.LP
+.ft B
+int Sflush( fd )
+int fd ;
+.LP
+.ft B
+int Sclose( fd )
+int fd ;
+.LP
+.ft B
+int Sgetchar( fd )
+int fd ;
+.LP
+.ft B
+int Sputchar( fd, c )
+int fd;
+char c ;
+.LP
+.ft B
+int SIOLINELEN( fd )
+int fd ;
+.SH DESCRIPTION
+The \fISIO\fR library provides support
+for \fIstream\fR I/O on file descriptors.
+The first argument of every function
+or macro is a file descriptor. The file descriptor may be used either for
+input or for output but not both. Attempting to use a descriptor for
+both input and output will cause the call to fail. When you are
+done with using a file descriptor, you should inform \fISIO\fR
+by invoking \fBSdone()\fR (unless the program is about to 
+call \fIexit(3)\fR).
+You can also use \fBSdone()\fR if
+you want to perform a different type of operation on the same
+file descriptor (e.g. first you were reading data from the file
+descriptor and then you want to write some data).
+Another possibility is to do stream I/O at different file offsets
+by using \fBSdone()\fR before doing the \fBlseek(2)\fR to the
+new file offset.
+.LP
+I/O operations on different file descriptors do not interfere
+(unless the file descriptors refer to the same file, in which case
+the results are undefined).
+.LP
+For disk files I/O always starts at the current file offset.
+If that offset is not a multiple of the preferred block size for file
+system I/O (the \fIst_blksize\fR field in \fIstruct stat\fR),
+performance will not be optimal.
+For optimal performance, it is recommended that no I/O operations
+(like \fIread(2)\fR or \fIwrite(2)\fR)
+are applied to the file descriptor if it is to be used by \fISIO\fR.
+.LP
+Read I/O is either buffered or is done using memory mapping whenever
+that is possible and appropriate.
+.LP
+The library functions that do stream I/O resemble system calls
+(for example \fBSread()\fR resembles \fIread(2)\fR) so that modifying
+a program that uses the system calls to use the \fISIO\fR functions
+is easy (e.g. just replace \fIread(2)\fR with \fBSread()\fR; the function
+signatures as well as the return values are exactly the same).
+.LP
+.B Sread()
+reads \fInbytes\fR bytes from the stream associated with file 
+descriptor \fIfd\fR into the buffer pointed to by \fIbuf\fR.
+.LP
+.B Sgetc()
+reads a character from the stream
+associated with file descriptor \fIfd\fR.
+It returns \fBSIO_EOF\fR if the end of file has been reached.
+.LP
+.B Sgetchar()
+(a macro) performs exactly the same function as \fBSgetc()\fR but
+it is much faster.
+.LP
+.B Srdline()
+reads a line from the stream
+associated with file descriptor \fIfd\fR.
+The newline at the end of the line is replaced by a 0 byte. Lines
+longer than the maximum line length supported by \fISIO\fR will
+have characters deleted.
+.LP
+.B SIOLINELEN()
+(a macro) returns the length of
+the line returned by the last call to \fBSrdline()\fR
+(the value returned by \fBSIOLINELEN()\fR is valid only after
+\fBSrdline()\fR and as long as no other 
+\fISIO\fR calls are performed on that file descriptor).
+.LP
+.B Sfetch()
+returns a pointer to data coming from the stream
+associated with file
+descriptor \fIfd\fR. The amount of data available is indicated
+by the \fIlength\fR argument. One possible use for this function
+is copying of files.
+.LP
+.B Swrite()
+writes \fInbytes\fR bytes to the stream associated with file
+descriptor \fIfd\fR from the buffer pointed to by \fIbuf\fR.
+.LP
+.B Sputc()
+writes a single character to the stream
+associated with file descriptor \fIfd\fR.
+.LP
+.B Sputchar()
+(a macro) performs exactly the same function as \fBSputc()\fR
+but it is much faster.
+.LP
+.B Sprint()
+imitates the behavior of printf(3) as defined in the
+ANSI C Standard. There are some limitations. Check the \fBSprint()\fR
+man page for more information.
+.LP
+.B Sprintv()
+is the same as \fBSprint()\fR except that it takes a
+\fIstdarg\fR argument list.
+.LP
+.B Sundo()
+returns the characters returned by the last call to
+\fBSrdline()\fR, \fBSgetc()\fR or \fBSgetchar()\fR to the stream
+so that they can be reread. The \fItype\fR argument to \fBSundo()\fR
+can be \fBSIO_UNDO_LINE\fR or \fBSIO_UNDO_CHAR\fR depending
+on whether the call whose effect needs to be undone was
+\fBSrdline()\fR or \fBSgetc()\fR/\fBSgetchar()\fR respectively.
+There is no check on
+whether the last function invoked on \fIfd\fR was one of the above
+and the results are undefined if there is no correspondence
+between the \fItype\fR and the last operation on \fIfd\fR.
+(i.e. the result is undefined if you try \fBSIO_UNDO_CHAR\fR 
+and the last operation was not \fBSgetchar()\fR or \fBSgetc()\fR).
+.LP
+.B Stie()
+ties the file descriptor \fIifd\fR to the file descriptor \fIofd\fR.
+This means that whenever a \fIread(2)\fR is done on \fIifd\fR, it is
+preceded by a \fIwrite(2)\fR on \fIofd\fR.
+For filters it is useful to do \fIStie( 0, 1 )\fR to maximize concurrency.
+It is also useful to do the same thing when you issue prompts to the
+user and you want the user reply to appear on the same line with the
+prompt.
+\fIifd\fR, \fIofd\fR  will be initialized for input, output respectively
+(if any of them is initialized, it must be for the appropriate
+stream type (input or output)).
+If \fIifd\fR was tied to another file descriptor, the old tie is broken.
+.LP
+.B Suntie()
+undoes the effect of \fBStie()\fR for the specified input file descriptor.
+.LP
+.B Sbuftype()
+determines the buffering type for the output stream associated with
+file descriptor \fIfd\fR.
+By default output directed to terminals is line buffered, output
+directed to file descriptor 2 (standard error) is unbuffered and
+everything else is fully buffered.
+Possible values for the \fItype\fR argument are
+.RS
+.TP 15
+.B SIO_FULLBUF
+for full buffering
+.TP
+.B SIO_LINEBUF
+for line buffering
+.TP
+.B SIO_NOBUF
+for no buffering
+.RE
+.LP
+.B Smorefds()
+should be used to inform \fBSIO\fR that the number of available file
+descriptors has been increased. \fBSIO\fR uses an array of internal
+stream descriptors which are indexed by the file descriptor number. Some
+operating systems (ex. SunOS 4.1[.x]) allow the number of available
+file descriptors to vary. If that number is increased beyond its initial
+value \fBSIO\fR needs to know in order to allocate more stream descriptors.
+.LP
+.B Sdone()
+flushes any buffered output for \fIfd\fR 
+and releases the \fISIO\fR resources used. \fBSdone()\fR 
+is useful in case the program needs to reprocess the
+data of a file descriptor (assuming the file descriptor corresponds
+to a file).  The program can call \fBSdone()\fR,
+\fIlseek(2)\fR to the beginning of the file
+and then proceed to reread the file.
+.LP
+.B Sflush()
+causes any buffered stream output to be written to the
+file descriptor. If its argument is the special value \fBSIO_FLUSH_ALL\fR
+then all output streams will be flushed.
+.LP
+.B Sclose()
+closes a file descriptor used for stream I/O, flushes
+any buffered output and releases the \fISIO\fR resources used.
+.SH EXAMPLES
+.LP
+The following code implements a (poor) substitute for the tee command
+(it copies standard input to a file as well as to standard output).
+.ne 10
+.RS
+.nf
+.ft B
+#include "sio.h"
+.sp .5
+main( argc, argv )
+	int argc ;
+	char *argv[] ;
+{
+	char *file = (argc > 1) ? argv[ 1 ] : "tee.file" ;
+	int fd = creat( file, 0644 ) ;
+	long length ;
+	char *s ;
+.sp .5
+	while ( s = Sfetch( 0, &length ) )
+	{
+		Swrite( 1, s, length ) ;
+		Swrite( fd, s, length ) ;
+	}
+	exit( 0 ) ;
+}
+.fi
+.ft R
+.RE
+.SH RETURN VALUES
+.LP
+.B Sread()
+returns the number of bytes read on success
+(0 means end-of-file)
+or \fBSIO_ERR\fR on failure (\fIerrno\fR is set to indicate the error).
+.LP
+.B Sgetc()
+returns the character read on success,
+SIO_EOF when the end-of-file is reached,
+or \fBSIO_ERR\fR on failure (\fIerrno\fR is set to indicate the error).
+.LP
+.B Srdline()
+returns a pointer to the next line on success.
+On failure or when the end-of-file is reached it returns
+.SM NULL.
+If the end-of-file is reached \fIerrno\fR is set to 0, otherwise it indicates
+the error.
+.LP
+.B Sfetch()
+returns a pointer to file data on success.
+(the \fIlength\fR argument indicates how many bytes
+are available).
+On failure or when the end-of-file is reached it returns
+.SM NULL.
+If the end-of-file is reached \fIerrno\fR is set to 0, otherwise it indicates
+the error.
+.LP
+.B Swrite()
+returns the number of bytes written on success
+or \fBSIO_ERR\fR on failure (\fIerrno\fR is set to indicate the error).
+.LP
+.B Sputc()
+returns the character it was given as an argument on success
+.B Sprint()
+returns the number of characters printed on success
+or \fBSIO_ERR\fR on failure (\fIerrno\fR is set to indicate the error).
+.LP
+.B Sdone()
+returns \fB0\fR on success
+or \fBSIO_ERR\fR on failure (\fIerrno\fR is set to indicate the error).
+.LP
+.B Sundo()
+returns \fB0\fR on success
+or \fBSIO_ERR\fR on failure (\fIerrno\fR is set to indicate the error).
+.LP
+.B Stie()
+returns \fB0\fR on success
+or \fBSIO_ERR\fR on failure (\fIerrno\fR is set to indicate the error).
+.LP
+.B Suntie()
+returns \fB0\fR on success
+or \fBSIO_ERR\fR on failure
+(\fIerrno\fR is set to \fBEBADF\fR if there
+was no tied file descriptor).
+.LP
+.B Sbuftype()
+returns \fB0\fR on success
+or \fBSIO_ERR\fR on failure
+(\fIerrno\fR is set to \fBEBADF\fR if this is not an output stream
+or to \fBEINVAL\fR if an unknown \fItype\fR is specified).
+.LP
+.B Smorefds()
+returns \fB0\fR on success
+or \fBSIO_ERR\fR on failure (because of lack of memory).
+.LP
+.B Sflush()
+returns \fB0\fR on success
+or \fBSIO_ERR\fR on failure (\fIerrno\fR is set to indicate the error).
+.LP
+.B Sclose()
+returns \fB0\fR on success
+or \fBSIO_ERR\fR on failure (\fIerrno\fR is set to indicate the error).
+.LP
+.B Sgetchar()
+returns the character read on success,
+SIO_EOF when the end-of-file is reached,
+or \fBSIO_ERR\fR on failure (\fIerrno\fR is set to indicate the error).
+.LP
+.B Sputchar()
+returns the character it was given as an argument on success
+or \fBSIO_ERR\fR on failure (\fIerrno\fR is set to indicate the error).
+.LP
+.B SIOLINELEN()
+returns the length of the last line read by \fBSrdline()\fR.
+.LP
+Attempting a read operation on a descriptor opened for writing or vice
+versa will cause the operation to fail with \fIerrno\fR set to \fBEBADF\fR.
+.LP
+The first \fISIO\fR operation on a descriptor must be a read or write
+operation. It cannot be a control operation (like \fBSflush()\fR). Such
+an operation will fail with \fIerrno\fR set to \fBEBADF\fR.
+.LP
+.IP "\fBNOTE 1:\fR" 15
+\fBStie()\fR is an input/output operation for the
+respective file descriptors, not a control operation. \fBSuntie()\fR
+is a control operation.
+.IP "\fBNOTE 2:\fR"
+\fBSIO_ERR\fR is defined to be \fB-1\fR.
+.SH "SEE ALSO"
+.LP
+Sprint(3)
+.SH BUGS
+.LP
+If the operating system does not provide for invocation of a
+finalization function upon exit, the program will have to
+explicitly flush all output streams.
+The following operating systems provide such a facility:
+SunOS 4.x, Ultrix 4.x.
+.LP
+Socket file descriptors can be used for input as well as output but
+\fBSIO\fR does not support this.
+.LP
+The current implementation will not try to use memory mapping to
+read a file if the file offset is not 0 (it will use buffered I/O instead).
+.LP
+Pointers returned by \fBSfetch()\fR point to read-only memory.
+Attempting to modify this memory will result in a segmentation
+violation.

@@ -7,7 +7,7 @@ JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
 export deferred DEVELOPMENT_LANGUAGE = English ;
 export deferred PROJECT = $(PROJECT_NAME) ;
 export deferred PROJECT_NAME = IOFireWireFamily ;
-export deferred SRCROOT = /nvtmp/IOFireWireFamily-121-4-1 ;
+export deferred SRCROOT = /Users/cpieper/Desktop/fwproject/build/Projects/IOFireWireFamily ;
 
 # User-defined project-wide settings for project
 
@@ -26,12 +26,13 @@ export deferred TARGET_NAME = IOFireWireLib.plugin ;
 # User-defined build settings for target "IOFireWireLib.plugin"
 export deferred BUILD_SETTING =  ;
 export deferred INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOFireWireFamily.kext/Contents/PlugIns" ;
-export deferred OTHER_CFLAGS =  ;
+export deferred OTHER_CFLAGS = -DFIREWIREPRIVATE ;
 export deferred OTHER_LDFLAGS = -bundle -undefined error ;
 export deferred OTHER_REZFLAGS =  ;
 export deferred PREBINDING = NO ;
 export deferred PRODUCT_NAME = IOFireWireLib ;
 export deferred SECTORDER_FLAGS =  ;
+export deferred USE_GCC3_PFE_SUPPORT = YES ;
 export deferred WARNING_CFLAGS = -Wmost -Wno-four-char-constants -Wno-unknown-pragmas ;
 export deferred WRAPPER_EXTENSION = plugin ;
 
@@ -63,9 +64,9 @@ BeginBundle "<IOFireWireLib>IOFireWireLib.plugin" ;
 HEADERS =
 	IOFireWireLib.CFPlugInProj/IOFireWireLib.h
 	IOFireWireLib.CFPlugInProj/IOFireWireLibCommand.h
-	IOFireWireLib.CFPlugInProj/IOFireWireLibPhysAddrSpace.h
+	IOFireWireLib.CFPlugInProj/IOFireWireLibPhysicalAddressSpace.h
 	IOFireWireLib.CFPlugInProj/IOFireWireLibPriv.h
-	IOFireWireLib.CFPlugInProj/IOFireWireLibPsudoAddrSpace.h
+	IOFireWireLib.CFPlugInProj/IOFireWireLibPseudoAddressSpace.h
 	IOFireWireLib.CFPlugInProj/IOFireWireLibUnitDirectory.h
 	IOFireWireFamily.kmodproj/IOFireWireFamilyCommon.h
 	IOFireWireLib.CFPlugInProj/IOFireWireLibConfigDirectory.h
@@ -84,9 +85,9 @@ ProcessResources "<IOFireWireLib>IOFireWireLib.plugin" : "$(RESOURCES)" : BPTag0
 # Sources
 SOURCES =
 	IOFireWireLib.CFPlugInProj/IOFireWireLibCommand.cpp
-	IOFireWireLib.CFPlugInProj/IOFireWireLibPhysAddrSpace.cpp
+	IOFireWireLib.CFPlugInProj/IOFireWireLibPhysicalAddressSpace.cpp
 	IOFireWireLib.CFPlugInProj/IOFireWireLibPriv.cpp
-	IOFireWireLib.CFPlugInProj/IOFireWireLibPsudoAddrSpace.cpp
+	IOFireWireLib.CFPlugInProj/IOFireWireLibPseudoAddressSpace.cpp
 	IOFireWireLib.CFPlugInProj/IOFireWireLibUnitDirectory.cpp
 	IOFireWireLib.CFPlugInProj/IOFireWireLibConfigDirectory.cpp
 	IOFireWireLib.CFPlugInProj/IOFireWireLibDCLCommandPool.cpp

@@ -1,0 +1,297 @@
+.\"(c) Copyright 1992, 1993 by Panagiotis Tsirigotis
+.\"All rights reserved.  The file named COPYRIGHT specifies the terms 
+.\"and conditions for redistribution.
+.\"
+.\" $Id: xlog.3,v 1.1.1.1 2002/01/31 07:09:05 zarzycki Exp $
+.TH XLOG 3X "15 June 1993"
+xlog_parms, xlog_create, xlog_destroy, xlog_write, xlog_control -- general purpose logging facility
+.SH SYNOPSIS
+.LP
+.nf
+.ft B
+#include "xlog.h"
+.LP
+.ft B
+xlog_h xlog_create( type, id, flags, ... )
+xlog_e type ;
+char *id ;
+int flags ;
+.LP
+.ft B
+int xlog_parms( type, ... )
+xlog_e type ;
+.LP
+.ft B
+void xlog_destroy( xlog )
+xlog_h xlog ;
+.LP
+.ft B
+void xlog_write( xlog, buf, len, flags, ... )
+xlog_h xlog ;
+char buf[] ;
+int len ;
+int flags ;
+.LP
+.ft B
+int xlog_control( xlog, cmd, ... )
+xlog_h xlog ;
+xlog_cmd_e cmd ;
+.SH DESCRIPTION
+The purpose of this library is to provide a general purpose logging facility
+by providing
+.I xlogs,
+logging objects that may be connected to various existent logging facilities.
+Currently, the only logging facilities supported are
+.I "syslog(3)"
+and logging to files.
+Log entries are timestamped lines which may contain arbitrary information.
+.\" ********************* xlog_create ***********************
+.LP
+.B xlog_create()
+creates a new xlog of the specified
+.I type.
+Possible type values are:
+.RS
+.TP 20
+.SB XLOG_SYSLOG
+Varargs: \fIint facility, int priority\fP.
+The xlog will be connected to 
+.I "syslog(3)." 
+.I facility
+determines the syslog facility to use for logged messages and 
+.I priority
+is the default message priority.
+.TP
+.SB XLOG_FILELOG
+Varargs: \fIchar *pathname, int flags [, int flags]\fP.
+The xlog will be connected to the file identified by
+.I pathname.
+The variable part of the argument list has the same semantics as the
+argument list of the
+.I "open(2)"
+system call.
+.RE
+.LP
+All xlogs have an id, specified by the 
+.I id 
+argument. The
+.I flags
+argument is formed by ORing one or more of the following constants:
+.RS
+.TP 20
+.SB XLOG_NO_ERRNO
+do not replace 
+.I "%m" 
+with an explanation of the current value of errno.
+.TP
+.SB XLOG_NO_SIZECHECK
+.I "(XLOG_FILELOG only)"
+do not perform size checks on the file.
+.TP
+.SB XLOG_PRINT_ID
+precede each log entry with the xlog id
+.TP
+.SB XLOG_PRINT_PID
+precede each log entry with the process id
+(the process id will follow the xlog id)
+.RE
+.LP
+Flags that do not apply to the xlog are ignored.
+The contant
+.SM XLOG_NOFLAGS
+can be used if you don't want to specify any flags.
+.\" ********************* xlog_parms ***********************
+.LP
+.B xlog_parms()
+sets default parameters for the specified xlog
+.I type:
+.RS
+.TP 20
+.SB XLOG_SYSLOG
+3 arguments are expected which correspond one-to-one to the arguments of 
+.I "openlog(3)."
+The defaults, in case this function is not used, are:
+"XLOG", LOG_PID + LOG_NOWAIT, LOG_USER
+.TP
+.SB XLOG_FILELOG
+No action.
+.RE
+.LP
+.B xlog_parms()
+should be invoked before any xlogs of the specified type
+are created.
+.\" ********************* xlog_destroy ***********************
+.LP
+.B xlog_destroy()
+destroys an xlog. The action taken depends on the type of the xlog:
+.RS
+.TP 20
+.SB XLOG_SYSLOG
+if this is the last xlog using syslog, then
+.I "closelog(3)"
+is invoked.
+.TP
+.SB XLOG_FILELOG
+The file is closed.
+.RE
+.\" ********************* xlog_control ***********************
+.LP
+.B xlog_control()
+applies control operations to an xlog. Certain operations are common to
+all xlogs while others are type-specific. The common ones are:
+.RS
+.TP 15
+.SB XLOG_LINK
+Argument list: \fIxlog_h link_to\fP.
+Link the specified xlog to the one provided as argument.
+(if the argument is
+.SM NULL
+any existent link is severed).
+Linking xlogs has the effect that if one finds an error it uses the
+other to report it.
+.TP
+.SB XLOG_CALLBACK
+Argument list: \fIvoid (*callback)(), void *arg\fP.
+This function will be invoked in case of error while writing a log
+entry. It will be given
+3 arguments: the xlog handle, an integer that indicates the type
+of error and the
+.I arg 
+specified in this call. Possible errors include:
+.RS
+.TP 15
+.SB XLOG_ENOMEM
+lack of memory
+.TP
+.SB XLOG_EOPEN
+.I "open(2)"
+failed
+.TP
+.SB XLOG_EFSTAT
+.I "fstat(2)"
+failed
+.TP
+.SB XLOG_ESIZE
+hard limit exceeded
+.RE
+.TP
+.SB XLOG_SETFLAG
+Argument list: \fIint flag, int *value\fP.
+The value of
+.I flag
+(one of those listed before) is set according to
+.I "*value"
+which should be either 0 or 1.
+The old flag value is placed in 
+.I "*value."
+.TP
+.SB XLOG_GETFLAG
+Argument list: \fIint flag, int *value\fP.
+The value of 
+.I flag
+(one of those listed before) is placed in
+.I "*value."
+.RE
+.LP
+Xlogs of type
+.B XLOG_SYSLOG
+also support the following operations:
+.RS
+.TP 15
+.SB XLOG_FACILITY
+Argument list: \fIint facility\fP.
+Sets the syslog facility to the specified value.
+.TP
+.SB XLOG_LEVEL
+Argument list: \fIint level\fP.
+Sets the default syslog level for this xlog to the specified value.
+.TP
+.SB XLOG_PREEXEC
+Argument list: \fIvoid\fP.
+Prepares the xlog for an impending exec operation
+.TP
+.SB XLOG_POSTEXEC
+Argument list: \fIvoid\fP.
+Informs the xlog that the exec failed
+.RE
+.LP
+Xlogs of type
+.B XLOG_FILELOG
+also support the following operations:
+.RS
+.TP 15
+.SB XLOG_LIMITS
+Argument list: \fIunsigned soft_limit, unsigned hard_limit\fP.
+Sets soft and hard limits on the size of the file.
+When any of the limits is exceeded a message is sent to the linked xlog.
+(if there is no linked xlog, no message is sent)
+When the soft limit is exceeded a warning message is sent to the linked xlog
+(if the linked xlog is of the
+.SB XLOG_SYSLOG
+type, the message will be sent at the
+.I LOG_ALERT
+level).
+If the exceeded limit is the hard limit, logging is terminated.
+The actual file size is checked every time this operation is applied to
+the file.
+If logging was terminated because the hard limit was exceeded and
+this operation increases the hard limit beyond the actual file size,
+logging will be resumed.
+.TP
+.SB XLOG_SIZECHECK
+Argument list: \fIvoid\fP.
+Checks the actual file size.
+.TP
+.SB XLOG_GETFD
+Argument list: \fIint *value\fP.
+Places in
+.I "*value"
+the file descriptor of the log file.
+.RE
+.\" ********************* xlog_write ***********************
+.LP
+.B xlog_write()
+writes a message to the specified xlog. A
+.SM NEWLINE
+is always appended to the message.
+The first occurrence of "%m" in
+.I buf
+is replaced by a string explaining the current value of
+.I errno.
+The
+.I flags
+argument is formed in the same way as in 
+.B xlog_create().
+One additional constant is available:
+.RS
+.TP 20
+.SB XLOG_SET_LEVEL
+.I "(XLOG_SYSLOG only)"
+the next argument is an integer that should be used as the syslog level
+for this message instead of the default level of the xlog.
+.RE
+.SH "RETURN VALUES"
+.B xlog_create()
+returns an xlog handle or
+.SM NULL
+if it fails.
+.LP
+.B xlog_control()
+returns an error code (it returns
+.SM XLOG_ENOERROR
+if it is successful).
+.LP
+.B xlog_parms()
+returns an error code (it returns
+.SM XLOG_ENOERROR
+if it is successful).
+.SH "SEE ALSO"
+openlog(3), syslog(3), closelog(3)
+.SH BUGS
+.LP
+Only the first occurrence of
+.I "%m"
+is replaced by an errno explanation.
+.LP
+There is no check for cycles when linking xlogs. In particular it is
+possible to link a xlog to itself.

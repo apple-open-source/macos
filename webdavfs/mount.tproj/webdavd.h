@@ -36,7 +36,7 @@
  *
  *	@(#)webdavd.h	8.1 (Berkeley) 6/5/93
  *
- * $Id: webdavd.h,v 1.7.26.1 2002/08/28 00:04:07 lutherj Exp $
+ * $Id: webdavd.h,v 1.8 2002/08/23 15:09:44 lutherj Exp $
  */
 
 #include <sys/cdefs.h>
@@ -295,7 +295,7 @@ extern pthread_mutex_t garray_lock;
 extern int gtimeout_val;
 extern char * gtimeout_string;
 extern webdav_memcache_header_t gmemcache_header;
-extern char *gmountpt;
+extern char gmountpt[MAXPATHLEN];
 extern struct statfs gstatfsbuf;
 extern time_t gstatfstime;
 

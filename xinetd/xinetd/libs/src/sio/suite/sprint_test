@@ -1,0 +1,63 @@
+#!/bin/sh
+
+# (c) Copyright 1992, 1993 by Panagiotis Tsirigotis
+# All rights reserved.  The file named COPYRIGHT specifies the terms 
+# and conditions for redistribution.
+
+
+#
+# $Id: sprint_test,v 1.1.1.1 2002/01/31 07:09:04 zarzycki Exp $
+#
+
+compare()
+{
+	cmp -s PRINTF.DATA SPRINT.DATA
+	if [ $? -ne 0 ]
+	then
+		echo TEST $1 FAILED
+		echo Check files PRINTF.DATA and SPRINT.DATA for differences
+		exit 1
+	else
+		echo TEST $1 PASSED
+		rm -f PRINTF.DATA SPRINT.DATA
+	fi
+}
+
+format_test()
+{
+	Sprint $@ 1>PRINTF.DATA 2>SPRINT.DATA
+	compare "$*"
+}
+
+format_test ALL
+
+format_test -W10 -F0 -c
+format_test -W10 -F- -c
+
+echo
+echo PRECISION TEST
+i=13
+while test $i -ne 0
+do
+	format_test -P$i -F# -X
+	i=`expr $i - 1`
+done
+echo END OF PRECISION TEST
+echo
+
+format_test -Vi -4 4 1 -o "-F#"
+
+format_test -Vf -1.0 1.0 0.3 -W30 -P13 -F+ -f
+format_test -Vf -1.0 1.0 0.3 -W30 -P13 -F+ -e
+format_test -Vf -1.0 2.0 0.3 -W30 -P13 -F+ -g
+
+format_test -Vf -1.0 1.0 0.3 -W30 -P13 -F+- -f
+format_test -Vf -1.0 1.0 0.3 -W30 -P13 -F+- -e
+format_test -Vf -1.0 2.0 0.3 -W30 -P13 -F+- -g
+
+format_test -W10 "-F " -x
+
+format_test -W40 -u -Vi 8 100 3 -F0
+
+format_test -b
+format_test -b -P10

@@ -67,8 +67,6 @@ static int GetEDType(OHCIEndpointDescriptorPtr pED);
 extern void print_td(OHCIGeneralTransferDescriptorPtr pTD);
 extern void print_itd(OHCIIsochTransferDescriptorPtr x);
 
-static IOReturn TranslateStatusToUSBError(UInt32 status);
-
 OSDefineMetaClassAndStructors(AppleUSBOHCI, IOUSBController)
 
 bool 
@@ -82,7 +80,16 @@ AppleUSBOHCI::init(OSDictionary * propTable)
     if (!_intLock)
         return(false);
 
+    _wdhLock = IOSimpleLockAlloc();
+    if (!_wdhLock)
+        return(false);
+
     _uimInitialized = false;
+    
+    // Initialize our consumer and producer counts.  
+    //
+    _producerCount = 1;
+    _consumerCount = 1;
     
     return (true);
 }
@@ -200,7 +207,7 @@ AppleUSBOHCI::UIMInitialize(IOService * provider)
         _filterInterruptSource = IOFilterInterruptEventSource::filterInterruptEventSource(this,
                                                                             AppleUSBOHCI::InterruptHandler,	
                                                                             AppleUSBOHCI::PrimaryInterruptFilter,
-                                                                            _device );
+                                                                            provider );
                                                                             
         if ( !_filterInterruptSource )
         {
@@ -367,7 +374,7 @@ AppleUSBOHCI::UIMFinalize(void)
     if ( !isInactive() )
     {
         // Disable All OHCI Interrupts
-        _pOHCIRegisters->hcInterruptDisable = kOHCIHcInterrupt_MIE;
+        _pOHCIRegisters->hcInterruptDisable = HostToUSBLong(kOHCIHcInterrupt_MIE);
         IOSync();
     
         // Place the USB bus into the Reset State
@@ -738,11 +745,11 @@ AppleUSBOHCI::GetLogicalAddress (UInt32 pPhysicalAddress)
         }
     }
 
-    if ( LogicalAddress == NULL)
+/*    if ( LogicalAddress == NULL)
     {
         USBLog(3, "%s[%p]: LogicalAddress(0x%lx) == NULL !", getName(), this, pPhysicalAddress);
     }
-    
+*/    
     return (LogicalAddress);
 
 }
@@ -973,7 +980,7 @@ AppleUSBOHCI::AllocateITD(void)
             return NULL;
         }
 
-        itdsPerPage = _pageSize / sizeof (OHCIIsochTransferDescriptorPtr);
+        itdsPerPage = _pageSize / sizeof (OHCIIsochTransferDescriptor);
         _pFreeITD = freeITDCurrent = (OHCIIsochTransferDescriptorPtr)p;
         physical = GetPhysicalAddress((UInt32) freeITDCurrent, 1);
         
@@ -981,11 +988,11 @@ AppleUSBOHCI::AllocateITD(void)
         {
             // Create TDs
             //
-            freeITDCurrent[j].pPhysical = physical + (j * sizeof (OHCIIsochTransferDescriptorPtr));
+            freeITDCurrent[j].pPhysical = physical + (j * sizeof (OHCIIsochTransferDescriptor));
             freeITDCurrent[j].pLogicalNext = &freeITDCurrent[j+1];
         }
         
-        freeITDCurrent[j].pPhysical = physical + (j * sizeof (OHCIIsochTransferDescriptorPtr));
+        freeITDCurrent[j].pPhysical = physical + (j * sizeof (OHCIIsochTransferDescriptor));
         freeITDCurrent[j].pLogicalNext = NULL;
         _pLastFreeITD = &freeITDCurrent[j];
         freeITD = _pFreeITD;
@@ -1020,7 +1027,7 @@ AppleUSBOHCI::AllocateTD(void)
         int 	tdsPerPage;
         UInt32 	physical;
         
-        USBLog(5,"%s[%p]: Out of General TDs.  Allocating some more", getName(), this);
+        USBLog(3,"%s[%p]: Out of General TDs.  Allocating some more", getName(), this);
         
         // Note:  We should keep this pointer around so that we can release this
         // memory when the controller goes away (think PC Card)
@@ -1147,7 +1154,8 @@ AppleUSBOHCI::DeallocateTD (OHCIGeneralTransferDescriptorPtr pTD)
     pTD->pLogicalNext = NULL;
     pTD->pPhysical = physical;
 
-    if (_pFreeTD){
+    if (_pFreeTD)
+    {
         _pLastFreeTD->pLogicalNext = pTD;
         _pLastFreeTD = pTD;
     } else {
@@ -1310,6 +1318,9 @@ AppleUSBOHCI::ProcessCompletedITD (OHCIIsochTransferDescriptorPtr pITD, IOReturn
         
     itdConditionCode = (USBToHostLong(pITD->flags) & kOHCIITDControl_CC) >> kOHCIITDControl_CCPhase;
     
+
+    // USBLog(3, "%s[%p]::ProcessCompletedITD: filter interrupt duration: %ld", getName(), this, (UInt32) timeElapsed);
+
     if (itdConditionCode == kOHCIITDConditionDataOverrun)
     {
             // The OHCI controller sets the status to DATAOVERRUN in this case.  However, we translate it to kIOReturnIsoTooOld
@@ -1334,12 +1345,12 @@ AppleUSBOHCI::ProcessCompletedITD (OHCIIsochTransferDescriptorPtr pITD, IOReturn
         
         if ( _lowLatencyIsochTDsProcessed != 0 )
         {
-            USBLog(3, "%s[%p]::ProcessCompletedITD: LowLatency isoch TD's proccessed: %d, framesUpdated: %d, framesError: %d",  getName(), this, _lowLatencyIsochTDsProcessed, _framesUpdated, _framesError);
-            USBLog(5, "%s[%p]::ProcessCompletedITD: delay in microsecs before callback (from hw interrupt time): %ld", getName(), this, (UInt32) timeElapsed / 1000);
+            USBLog(6, "%s[%p]::ProcessCompletedITD: LowLatency isoch TD's proccessed: %d, framesUpdated: %d, framesError: %d",  getName(), this, _lowLatencyIsochTDsProcessed, _framesUpdated, _framesError);
+            USBLog(7, "%s[%p]::ProcessCompletedITD: delay in microsecs before callback (from hw interrupt time): %ld", getName(), this, (UInt32) timeElapsed / 1000);
             
-            SUB_ABSOLUTETIME(&_filterTimeStamp2, &_filterTimeStamp); 
-            absolutetime_to_nanoseconds(_filterTimeStamp2, &timeElapsed); 
-            USBLog(5, "%s[%p]::ProcessCompletedITD: filter interrupt duration: %ld", getName(), this, (UInt32) timeElapsed / 1000);
+            // SUB_ABSOLUTETIME(&_filterTimeStamp2, &_filterTimeStamp); 
+            // absolutetime_to_nanoseconds(_filterTimeStamp2, &timeElapsed); 
+            // USBLog(7, "%s[%p]::ProcessCompletedITD: filter interrupt duration: %ld", getName(), this, (UInt32) timeElapsed / 1000);
         }
         
         // These need to be updated only when we process a TD due to an interrupt
@@ -1365,7 +1376,8 @@ AppleUSBOHCI::ProcessCompletedITD (OHCIIsochTransferDescriptorPtr pITD, IOReturn
             {
                 if ( (pLLFrames[pITD->frameNum + i].frStatus != (IOReturn) kUSBLowLatencyIsochTransferKey) ) 
                 {
-                    USBLog(6,"%s[%p]::ProcessCompletedITD: frame processed at hw interrupt time: frame: %d, frReqCount: %d, frActCount: %d, frStatus: 0x%x",  getName(), this, i, pLLFrames[pITD->frameNum + i].frReqCount, pLLFrames[pITD->frameNum + i].frActCount, pLLFrames[pITD->frameNum + i].frStatus);
+                    // USBLog(7,"%s[%p]::ProcessCompletedITD: frame processed at hw interrupt time: frame: %d, frReqCount: %d, frActCount: %d, frStatus: 0x%x frTimeStamp.lo: 0x%x",  getName(), this, i, pLLFrames[pITD->frameNum + i].frReqCount, pLLFrames[pITD->frameNum + i].frActCount, pLLFrames[pITD->frameNum + i].frStatus, pLLFrames[pITD->frameNum + i].frTimeStamp.lo);
+                    USBLog(6,"%s[%p]::ProcessCompletedITD: frame processed at hw interrupt time: frame: %d,  frTimeStamp.lo: 0x%x",  getName(), this, i, pLLFrames[pITD->frameNum + i].frTimeStamp.lo);
                     
                 }
             }
@@ -1475,7 +1487,7 @@ AppleUSBOHCI::ProcessCompletedITD (OHCIIsochTransferDescriptorPtr pITD, IOReturn
         
         // Zero out handler first than call it
         //
-        USBLog(7,"%s[%p]::ProcessCompletedITD: calling completion", getName(), this, pITD);
+        USBLog(6,"%s[%p]::ProcessCompletedITD: calling completion", getName(), this, pITD);
         
         pHandler = pITD->completion.action;
         pITD->completion.action = NULL;
@@ -1484,43 +1496,126 @@ AppleUSBOHCI::ProcessCompletedITD (OHCIIsochTransferDescriptorPtr pITD, IOReturn
 }
 
 
+void 
+AppleUSBOHCI::UIMProcessDoneQueue(IOUSBCompletionAction safeAction)
+{
+    UInt32				interruptStatus;
+    IOPhysicalAddress			PhysAddr;
+    OHCIGeneralTransferDescriptorPtr 	pHCDoneTD;
+    UInt32				cachedProducer;
+    IOPhysicalAddress			cachedWriteDoneQueueHead;
+    IOInterruptState			intState;
+    
+
+    // Get the values of the Done Queue Head and the producer count.  We use a lock and disable interrupts
+    // so that the filter routine does not preempt us and updates the values while we're trying to read them.
+    //
+    intState = IOSimpleLockLockDisableInterrupt( _wdhLock );
+    
+    cachedWriteDoneQueueHead = _savedDoneQueueHead;
+    cachedProducer = _producerCount;
+    
+    IOSimpleLockUnlockEnableInterrupt( _wdhLock, intState );
+    
+    // OK, now that we have a valid queue head in cachedWriteDoneQueueHead, let's process the list
+    //
+    DoDoneQueueProcessing( cachedWriteDoneQueueHead, cachedProducer, safeAction);
+
+    return;
+
+}
+
 
 IOReturn
-AppleUSBOHCI::DoDoneQueueProcessing(OHCIGeneralTransferDescriptorPtr pHCDoneTD,
-                                 IOUSBCompletionAction safeAction)
+AppleUSBOHCI::DoDoneQueueProcessing(IOPhysicalAddress cachedWriteDoneQueueHead, UInt32 cachedProducer, IOUSBCompletionAction safeAction)
 {
     UInt32				control, transferStatus;
     long				bufferSizeRemaining;
-    OHCIGeneralTransferDescriptorPtr	prevTD, nextTD;
-    IOPhysicalAddress			PhysAddr;
+    OHCIGeneralTransferDescriptorPtr	pHCDoneTD, prevTD, nextTD;
+    IOPhysicalAddress			physicalAddress;
     UInt32				pageMask;
     OHCIEndpointDescriptorPtr		tempED;
     OHCIIsochTransferDescriptorPtr	pITD;
+    volatile UInt32			cachedConsumer;
+    UInt32				numTDs = 0;
+    // This should never happen
+    //
+    if (cachedWriteDoneQueueHead == NULL)
+        return kIOReturnSuccess;
 
-    if(pHCDoneTD == NULL)
-        /* This should not happen */
-        return(kIOReturnSuccess);
-
-    pageMask = ~(_pageSize - 1);
-
-    /* Reverse the done queue use only the virtual Address fields */
-    prevTD = 0;
-    while (pHCDoneTD != NULL)
+    // Cache our consumer count
+    //
+    cachedConsumer = _consumerCount;
+    
+    // If for some reason our cachedConsumer and cachedProducer are the same, then we need to bail out, as we
+    // don't have anything to process
+    //
+    if ( cachedConsumer == cachedProducer)
     {
-        PhysAddr = USBToHostLong(pHCDoneTD->nextTD) & kOHCIHeadPMask;
-        nextTD = (OHCIGeneralTransferDescriptorPtr) GetLogicalAddress(PhysAddr);
+        USBLog(3, "%s[%p]::DoDoneQueueProcessing  consumer (%d) == producer (%d) Filter count: %d", getName(), this, cachedConsumer, cachedProducer, _filterInterruptCount);
+        return kIOReturnSuccess;
+    }
+    
+    // Get the logical address for our cachedQueueHead
+    //
+    pHCDoneTD = (OHCIGeneralTransferDescriptorPtr) GetLogicalAddress(cachedWriteDoneQueueHead);
+    
+    // Now, reverse the queue.  We know how many TD's to process, not by the last one pointing to NULL,
+    // but by the fact that cachedConsumer != cachedProducer.  So, go through the loop and increment consumer
+    // until they are equal, taking care or the wraparound case.
+    //
+    prevTD = NULL;
+
+    while ( true )
+    {
         pHCDoneTD->pLogicalNext = prevTD;
         prevTD = pHCDoneTD;
+        numTDs++;
+        
+        // Increment our consumer count.  If we wrap around, then increment again.  If we reach
+        // the end (both counts are equal, then brake out of the loop
+        // 
+        cachedConsumer++;
+           
+        if ( cachedProducer == cachedConsumer)
+            break;
+    
+        physicalAddress = USBToHostLong(pHCDoneTD->nextTD) & kOHCIHeadPMask;
+        nextTD = (OHCIGeneralTransferDescriptorPtr) GetLogicalAddress(physicalAddress);
+        if ( nextTD == NULL )
+        {
+            USBLog(5, "%s[%p]::DoDoneQueueProcessing nextTD = NULL.  (%p, %d, %d, %d)", getName(), this, physicalAddress, _filterInterruptCount, cachedProducer, cachedConsumer);
+            break;
+        }
+        
         pHCDoneTD = nextTD;
+            
     }
-    pHCDoneTD = prevTD;	/* New qHead */
 
+
+    // New done queue head
+    //
+    pHCDoneTD = prevTD;
+    
+    // Update our consumer count
+    //
+    _consumerCount = cachedConsumer;
+    
+/*
+    if ( (numTDs > 1) || (numTDs < 1) )
+    {
+        USBLog(3,"Processed %d (%d) TDs, # filtInterr: %ld, time Interval: %ld", numTDs, _lowLatencyIsochTDsProcessed, _filterInterruptCount, (UInt32) _timeElapsed );
+    }
+*/
+    
+    // Now, we have a new done queue head.  Now process this reversed list in LOGICAL order.  That
+    // means that we can look for a NULL termination
+    //
     while (pHCDoneTD != NULL)
     {
-#if (DEBUGGING_LEVEL > 2)
-        USBLog(6, "%s[%p]::DoDoneQueueProcessing", getName(), this); print_td(pHCDoneTD);
-#endif
+        // USBLog(6, "%s[%p]::DoDoneQueueProcessing", getName(), this); // print_td(pHCDoneTD);
         IOReturn errStatus;
+        
         // find the next one
         nextTD	= pHCDoneTD->pLogicalNext;
 
@@ -1595,38 +1690,6 @@ AppleUSBOHCI::DoDoneQueueProcessing(OHCIGeneralTransferDescriptorPtr pHCDoneTD,
     }
 
     return(kIOReturnSuccess);
-}
-
-
-
-
-void 
-AppleUSBOHCI::UIMProcessDoneQueue(IOUSBCompletionAction safeAction)
-{
-    UInt32				interruptStatus;
-    IOPhysicalAddress			PhysAddr;
-    OHCIGeneralTransferDescriptorPtr 	pHCDoneTD;
-
-
-    // check if the OHCI has written the DoneHead yet
-    interruptStatus = USBToHostLong(_pOHCIRegisters->hcInterruptStatus);
-    if( (interruptStatus & kOHCIHcInterrupt_WDH) == 0)
-    {	
-        return;
-    }
-
-    // get the pointer to the list (logical address)
-    PhysAddr = (UInt32) USBToHostLong(*(UInt32 *)(_pHCCA + 0x84));
-    PhysAddr &= kOHCIHeadPMask; // mask off interrupt bits
-    pHCDoneTD = (OHCIGeneralTransferDescriptorPtr) GetLogicalAddress(PhysAddr);
-    // write to 0 to the HCCA DoneHead ptr so we won't look at it anymore.
-    *(UInt32 *)(_pHCCA + 0x84) = 0L;
-
-    // Since we have a copy of the queue to process, we can let the host update it again.
-    _pOHCIRegisters->hcInterruptStatus = HostToUSBLong(kOHCIHcInterrupt_WDH);
-
-    DoDoneQueueProcessing(pHCDoneTD, safeAction);
-    return;
 }
 
 
@@ -1741,7 +1804,7 @@ AppleUSBOHCI::dumpRegs(void)
 
 
 IOReturn 
-TranslateStatusToUSBError(UInt32 status)
+AppleUSBOHCI::TranslateStatusToUSBError(UInt32 status)
 {
     static const UInt32 statusToErrorMap[] = {
         /* OHCI Error */     /* USB Error */
@@ -1847,16 +1910,11 @@ AppleUSBOHCI::ReturnOneTransaction(
     
     // first mark the pED as skipped so we don't conflict
     pED->flags |= HostToUSBLong (kOHCIEDControl_K);
-    _pOHCIRegisters->hcInterruptStatus = HostToUSBLong(kOHCIHcInterrupt_SF);
+    
+    // We used to wait for a SOF interrupt here.  Now just sleep for 1 ms.
+    //
     IOSleep(1);
-    something = USBToHostLong(_pOHCIRegisters->hcInterruptStatus) & kOHCIInterruptSOFMask;
-
-    if (!something)
-    {
-        /* This should have been set, just in case wait another ms */
-        IOSleep(1);
-    }
-
+    
     // make sure we are still on the same transaction
     if (transaction->pPhysical == (USBToHostLong(pED->tdQueueHeadPtr) & kOHCIHeadPMask))
     {
@@ -2059,7 +2117,7 @@ AppleUSBOHCI::UIMFinalizeForPowerDown(void)
     _workLoop->disableAllInterrupts();
     
     // Disable All OHCI Interrupts
-    _pOHCIRegisters->hcInterruptDisable = kOHCIHcInterrupt_MIE;
+    _pOHCIRegisters->hcInterruptDisable = HostToUSBLong(kOHCIHcInterrupt_MIE);
     IOSync();
     
     // Place the USB bus into the Reset State
@@ -2092,163 +2150,15 @@ AppleUSBOHCI::UIMFinalizeForPowerDown(void)
     return kIOReturnSuccess;
 }
 
-bool 
-AppleUSBOHCI::PrimaryInterruptFilter(OSObject *owner, IOFilterInterruptEventSource *source)
+
+void
+AppleUSBOHCI::free()
 {
-    register AppleUSBOHCI *me = (AppleUSBOHCI *)owner;
-    bool result = true;
-
-    if (me) 
-    {
-        result = me->FilterInterrupt(0);
-    }
-
-    return true;
-}
-
-// This routine will get called at Primary interrupt time.  When we are interrupted the host controller
-// has already written the HCDoneHead register to the HCCADoneHeadRegister.  Furthermore, the host controller
-// will NOT update the HCCADoneHeadRegister again until we clear the WDH (WritebackDoneHead) bit of the 
-// HCInterruptStatus register.  At Filter Interrupt time (hardware interrupt) we will NOT clear that bit so that
-// the Action Interrupt ( secondary interrupt) can fire and it will then clear the bit.
-//
-// At primary interrupt time we are only concerned with updating the frStatus and frActCount fields of the frames
-// in low latency isoch TD's.  We will traverse the done queue (pointed by the HCCADoneHeadRegister) and look for those 
-// TD and update the frStatus and frActCount fields just like is done in the ProcessCompletedITD routine.
-//
-// The Done Queue has physical addresses.  We need to traverse the queue using logical addresses, so we need to do
-// a lookup of the logical address from the physical address.  We have this information in the OHCIPhysicalLogicalStruct
-// so it only involves a function call to look it up.
-//
-bool 
-AppleUSBOHCI::FilterInterrupt(int index)
-{
-    
-    register UInt32		activeInterrupts;
-    register UInt32		interruptEnable;
-
-    IOPhysicalAddress			physicalAddress;
-    OHCIGeneralTransferDescriptorPtr 	pHCDoneTD;
-    OHCIGeneralTransferDescriptorPtr	nextTD;
-
-    clock_get_uptime(&_filterTimeStamp);
-    // Check if the OHCI has written the DoneHead yet.  First we get the list of
-    // active enabled interrupts and we make sure that the master interrupts bit
-    // is enabled and that we do have an interrupt to process. 
+    // Free our locks
     //
-    interruptEnable = USBToHostLong(_pOHCIRegisters->hcInterruptEnable);
-    activeInterrupts = interruptEnable & USBToHostLong(_pOHCIRegisters->hcInterruptStatus);
-
-    if ((interruptEnable & kOHCIHcInterrupt_MIE) && (activeInterrupts != 0))
-    {
-        // Used for debugging purposes
-        //
-        _filterInterruptCount++;
-        
-        // Check to see if the WriteDoneHead interrupt fired.  If so, then we can look at the queue
-        //
-        if (activeInterrupts & kOHCIHcInterrupt_WDH)
-        {
-            // Get the pointer to the list (physical address)
-            //
-            physicalAddress = (UInt32) USBToHostLong(*(UInt32 *)(_pHCCA + kHCCADoneHeadOffset));
-            
-            // Mask off interrupt bits
-            //
-            physicalAddress &= kOHCIHeadPMask;
-            
-            // Now get the logical address from the physical one
-            //
-            pHCDoneTD = (OHCIGeneralTransferDescriptorPtr) GetLogicalAddress(physicalAddress);
-            
-            // Now that we have the beginning of the queue, walk it looking for low latency isoch TD's
-            //
-            while (pHCDoneTD != NULL)
-            {
-                OHCIIsochTransferDescriptorPtr  pITD;
-                IOUSBLowLatencyIsocFrame *	pFrames;
-                IOReturn 			errStatus;
-                UInt32				control;
-                UInt32				transferStatus;
-                UInt32				frameCount;
-                UInt32				i;
-                AbsoluteTime			timeStamp;
-                
-                // Find the next one
-                //
-                physicalAddress = USBToHostLong(pHCDoneTD->nextTD) & kOHCIHeadPMask;
-                nextTD = (OHCIGeneralTransferDescriptorPtr) GetLogicalAddress(physicalAddress);
-        
-                if ( (pHCDoneTD->pType == kOHCIIsochronousInLowLatencyType) || 
-                    (pHCDoneTD->pType == kOHCIIsochronousOutLowLatencyType) )
-                {
-                    // We have a low latency isoch TD.  Update debugging stamps
-                    //
-                    _lowLatencyIsochTDsProcessed++;
-                    clock_get_uptime(&timeStamp);
-                    
-                    // Since we know it's an ITD, cast it into one and get a pointer to the Low Latency ITD's frames
-                    //
-                    pITD = (OHCIIsochTransferDescriptorPtr) pHCDoneTD;
-                    pFrames = (IOUSBLowLatencyIsocFrame *) pITD->pIsocFrame;
-                    
-                    // Get any errors from the TD
-                    //
-                    control = USBToHostLong(pHCDoneTD->ohciFlags);
-                    transferStatus = (control & kOHCIGTDControl_CC) >> kOHCIGTDControl_CCPhase;
-                    errStatus = TranslateStatusToUSBError(transferStatus);
-            
-                    // Process the frames in the low latency isochTDs
-                    //
-                    frameCount = (USBToHostLong(pITD->flags) & kOHCIITDControl_FC) >> kOHCIITDControl_FCPhase;
-                    for (i = 0; i <= frameCount; i++)
-                    {
-                        // Debugging stamps
-                        //
-                        _framesUpdated++;
-                        if ( pFrames[pITD->frameNum + i].frStatus != (IOReturn) kUSBLowLatencyIsochTransferKey )
-                            _framesError++;
-                        
-                        // Set the time stamp
-                        //
-                        pFrames[pITD->frameNum + i].frTimeStamp = timeStamp;
-                        
-                        // Get information on whether there was an error in the frame
-                        //
-                        UInt16 offset = USBToHostWord(pITD->offset[i]);
-                        
-                        if ( ((offset & kOHCIITDOffset_CC) >> kOHCIITDOffset_CCPhase) == kOHCIITDOffsetConditionNotAccessed)
-                        {
-                            // If the condition code is not accessed, set the frActCount to 0 and the status accordingly
-                            //
-                            pFrames[pITD->frameNum + i].frActCount = 0;
-                            pFrames[pITD->frameNum + i].frStatus = TranslateStatusToUSBError(kOHCIITDConditionNotAccessedReturn);
-                        }
-                        else
-                        {
-                            // Set the frStatus to the OHCI Condition code translated to the correct USB Error
-                            //
-                            pFrames[pITD->frameNum + i].frStatus = TranslateStatusToUSBError( (offset & kOHCIITDPSW_CC) >> kOHCIITDPSW_CCPhase);
-                            
-                            // Successful isoch transmit sets the size field to requested count,
-                            // successful receive sets size to actual packet size received
-                            //
-                            if((kIOReturnSuccess == pFrames[pITD->frameNum + i].frStatus) && (pITD->pType == kOHCIIsochronousOutLowLatencyType))
-                                pFrames[pITD->frameNum + i].frActCount = pFrames[pITD->frameNum + i].frReqCount;
-                            else
-                                pFrames[pITD->frameNum + i].frActCount = offset & kOHCIITDPSW_Size;
-                        }
-                        
-                    }
-                }
-                
-                // Look at the next TD
-                pHCDoneTD = nextTD;	/* New qHead */
-            }
-        }
-    }
-
-    clock_get_uptime(&_filterTimeStamp2);
-
-    return true;
+    IOLockFree( _intLock );
+    IOSimpleLockFree( _wdhLock );
+    
+    super::free();
 }
+

@@ -27,16 +27,14 @@
  *
  */
 
-#define DEBUGGING_LEVEL 0	// 1 = low; 2 = high; 3 = extreme
-#define DEBUGLOG kprintf
-#include <IOKit/assert.h>
+#import "IOFireWireUserClient.h"
+#import "IOFireWireLink.h"
+#import "IOFireWireNub.h"
+#import "IOFireWireController.h"
+#import "IOConfigDirectory.h"
 
-#include <IOKit/IOMessage.h>
-#include <IOKit/firewire/IOFireWireLink.h>
-#include <IOKit/firewire/IOFireWireNub.h>
-#include <IOKit/firewire/IOFireWireController.h>
-#include <IOKit/firewire/IOConfigDirectory.h>
-#include "IOFireWireUserClient.h"
+#import <IOKit/assert.h>
+#import <IOKit/IOMessage.h>
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -242,9 +240,10 @@ IOFireWireNub::createCompareAndSwapCommand(FWAddress devAddress, const UInt32 *c
     return cmd;
 }
 
-    /*
-     * Create local FireWire address spaces for the device to access
-     */
+/*
+ * Create local FireWire address spaces for the device to access
+ */
+
 IOFWPhysicalAddressSpace *IOFireWireNub::createPhysicalAddressSpace(IOMemoryDescriptor *mem)
 {
     return fControl->createPhysicalAddressSpace(mem);

@@ -33,47 +33,6 @@
 //012
 //013
 //014
-		010986460030C60811CE2124 = {
-			children = (
-				0212CDAFFFE5A54911CE206C,
-				03610213000A548E11CE2050,
-				080C09530017B84F7F000001,
-				0162E5A7001FB51211CE2124,
-				013163AB00CC49117F000001,
-				013163AC00CC49117F000001,
-				013163AD00CC49117F000001,
-				01190FFF00CC4E527F000001,
-			);
-			isa = PBXGroup;
-			name = "User Client Headers (Kernel)";
-			path = "";
-			refType = 4;
-		};
-		010986470030C60811CE2124 = {
-			children = (
-				0212CDAEFFE5A54911CE206C,
-				0119100000CC4E527F000001,
-				03610215000A549811CE2050,
-				080C09540017B84F7F000001,
-				0162E5A8001FB51211CE2124,
-				013163AE00CC49117F000001,
-				013163AF00CC49117F000001,
-				013163B000CC49117F000001,
-			);
-			isa = PBXGroup;
-			name = "User Client Source (Kernel)";
-			path = "";
-			refType = 4;
-		};
-		010986480030C65511CE2124 = {
-			children = (
-				010986460030C60811CE2124,
-				010986470030C60811CE2124,
-			);
-			isa = PBXGroup;
-			name = "User Client";
-			refType = 4;
-		};
 		010986490030C65511CE2124 = {
 			children = (
 				02B2D13DFFFD5ED311CE2050,
@@ -87,12 +46,14 @@
 			refType = 4;
 		};
 		01190FFF00CC4E527F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFWUserClientIsoch.h;
 			path = IOFireWireFamily.kmodproj/IOFWUserClientIsoch.h;
 			refType = 4;
 		};
 		0119100000CC4E527F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFWUserClientIsoch.cpp;
 			path = IOFireWireFamily.kmodproj/IOFWUserClientIsoch.cpp;
@@ -117,36 +78,42 @@
 			};
 		};
 		013163AB00CC49117F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFWUserCommand.h;
 			path = IOFireWireFamily.kmodproj/IOFWUserCommand.h;
 			refType = 4;
 		};
 		013163AC00CC49117F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFWUserIsochChannel.h;
 			path = IOFireWireFamily.kmodproj/IOFWUserIsochChannel.h;
 			refType = 4;
 		};
 		013163AD00CC49117F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFWUserIsochPort.h;
 			path = IOFireWireFamily.kmodproj/IOFWUserIsochPort.h;
 			refType = 4;
 		};
 		013163AE00CC49117F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFWUserCommand.cpp;
 			path = IOFireWireFamily.kmodproj/IOFWUserCommand.cpp;
 			refType = 4;
 		};
 		013163AF00CC49117F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFWUserIsochChannel.cpp;
 			path = IOFireWireFamily.kmodproj/IOFWUserIsochChannel.cpp;
 			refType = 4;
 		};
 		013163B000CC49117F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFWUserIsochPort.cpp;
 			path = IOFireWireFamily.kmodproj/IOFWUserIsochPort.cpp;
@@ -189,36 +156,42 @@
 			};
 		};
 		013163BA00CC49C17F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireWireLibDCLCommandPool.h;
 			path = IOFireWireLib.CFPlugInProj/IOFireWireLibDCLCommandPool.h;
 			refType = 4;
 		};
 		013163BB00CC49C17F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireWireLibIsochChannel.h;
 			path = IOFireWireLib.CFPlugInProj/IOFireWireLibIsochChannel.h;
 			refType = 4;
 		};
 		013163BC00CC49C17F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireWireLibIsochPort.h;
 			path = IOFireWireLib.CFPlugInProj/IOFireWireLibIsochPort.h;
 			refType = 4;
 		};
 		013163BD00CC49C17F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireWireLibDCLCommandPool.cpp;
 			path = IOFireWireLib.CFPlugInProj/IOFireWireLibDCLCommandPool.cpp;
 			refType = 4;
 		};
 		013163BE00CC49C17F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireWireLibIsochChannel.cpp;
 			path = IOFireWireLib.CFPlugInProj/IOFireWireLibIsochChannel.cpp;
 			refType = 4;
 		};
 		013163BF00CC49C17F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireWireLibIsochPort.cpp;
 			path = IOFireWireLib.CFPlugInProj/IOFireWireLibIsochPort.cpp;
@@ -261,12 +234,14 @@
 			};
 		};
 		0160F2FF0010FFF211CE237E = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireWireLink.h;
 			path = IOFireWireFamily.kmodproj/IOFireWireLink.h;
 			refType = 4;
 		};
 		0160F3000010FFF211CE237E = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireWireLink.cpp;
 			path = IOFireWireFamily.kmodproj/IOFireWireLink.cpp;
@@ -284,19 +259,15 @@
 			settings = {
 			};
 		};
-		0160F3030011005A11CE237E = {
-			fileRef = 0160F2FF0010FFF211CE237E;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		0162E5A7001FB51211CE2124 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireWireUserClientIniter.h;
 			path = IOFireWireFamily.kmodproj/IOFireWireUserClientIniter.h;
 			refType = 4;
 		};
 		0162E5A8001FB51211CE2124 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireWireUserClientIniter.cpp;
 			path = IOFireWireFamily.kmodproj/IOFireWireUserClientIniter.cpp;
@@ -308,25 +279,22 @@
 			settings = {
 			};
 		};
-		0162E5AB001FC5B211CE2124 = {
-			fileRef = 0162E5A7001FB51211CE2124;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		0164CCEB001CC4A811CE2124 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireWireLibConfigDirectory.cpp;
 			path = IOFireWireLib.CFPlugInProj/IOFireWireLibConfigDirectory.cpp;
 			refType = 4;
 		};
 		0164CCEC001CC4A811CE2124 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireWireLibConfigDirectory.h;
 			path = IOFireWireLib.CFPlugInProj/IOFireWireLibConfigDirectory.h;
 			refType = 4;
 		};
 		01955135003A7B117F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFWWorkLoop.h;
 			path = IOFireWireFamily.kmodproj/IOFWWorkLoop.h;
@@ -338,13 +306,8 @@
 			settings = {
 			};
 		};
-		01955137003A7B457F000001 = {
-			fileRef = 01955135003A7B117F000001;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		01955138003A7B757F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFWWorkLoop.cpp;
 			path = IOFireWireFamily.kmodproj/IOFWWorkLoop.cpp;
@@ -370,12 +333,11 @@
 		};
 		01C27ABDFFE6EE5311CE206C = {
 			children = (
-				F537AEC502B6E1B601CE230E,
 				0212CDA9FFE5A54911CE206C,
 				0212CDBAFFE5A54911CE206C,
 			);
 			isa = PBXGroup;
-			name = "Common Headers";
+			name = common;
 			refType = 4;
 		};
 		01F3CFE1FFE5B76411CE206C = {
@@ -383,121 +345,31 @@
 			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/firewire";
 			dstSubfolderSpec = 0;
 			files = (
-				F53EA110029C6A1D01CE230E,
-				01F3CFE4FFE5B82F11CE206C,
-				F5B11EB40299BAA60125EFCB,
-				01F3CFE5FFE5B82F11CE206C,
-				8CC990CA0173CB9504CE206D,
-				01F3CFE7FFE5B82F11CE206C,
-				01F3CFE8FFE5B82F11CE206C,
-				01F3CFE9FFE5B82F11CE206C,
-				01F3CFEAFFE5B82F11CE206C,
-				01F3CFEBFFE5B82F11CE206C,
-				01F3CFECFFE5B82F11CE206C,
-				8C30A5B70111F20304CE206D,
-				01F3CFEDFFE5B82F11CE206C,
-				01F3CFEEFFE5B82F11CE206C,
-				01F3CFEFFFE5B82F11CE206C,
-				01F3CFF0FFE5B82F11CE206C,
-				01F3CFF1FFE5B82F11CE206C,
-				01F3CFF2FFE5B82F11CE206C,
-				0160F3030011005A11CE237E,
-				01F3CFF3FFE5B82F11CE206C,
-				0162E5AB001FC5B211CE2124,
-				01955137003A7B457F000001,
+				4DF89E5C033AB87200CE20D6,
+				4DF89E5D033AB87200CE20D6,
+				4DF89E5E033AB87200CE20D6,
+				4DF89E5F033AB87200CE20D6,
+				4DF89E60033AB87200CE20D6,
+				4DF89E61033AB87200CE20D6,
+				4DF89E62033AB87200CE20D6,
+				4DF89E63033AB87200CE20D6,
+				4DF89E64033AB87200CE20D6,
+				4DF89E65033AB87200CE20D6,
+				4DF89E66033AB87200CE20D6,
+				4DF89E67033AB87200CE20D6,
+				4DF89E68033AB87200CE20D6,
+				F56DE4A303445CB3012C70AC,
+				F56DE4A403445CB7012C70AC,
+				4DF89E69033AB87200CE20D6,
+				4DF89E6A033AB87200CE20D6,
+				4DF89E6B033AB87200CE20D6,
+				4DF89E6C033AB87200CE20D6,
+				4DF89E73033ABA2000CE20D6,
+				4DF89E74033ABA2000CE20D6,
+				4D8FDDFB0341358100CE20D6,
 			);
 			isa = PBXCopyFilesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
-		};
-		01F3CFE4FFE5B82F11CE206C = {
-			fileRef = 0212CDC0FFE5A54911CE206C;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		01F3CFE5FFE5B82F11CE206C = {
-			fileRef = 0212CDABFFE5A54911CE206C;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		01F3CFE7FFE5B82F11CE206C = {
-			fileRef = 0212CDBAFFE5A54911CE206C;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		01F3CFE8FFE5B82F11CE206C = {
-			fileRef = 0212CDA4FFE5A54911CE206C;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		01F3CFE9FFE5B82F11CE206C = {
-			fileRef = 0212CDB3FFE5A54911CE206C;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		01F3CFEAFFE5B82F11CE206C = {
-			fileRef = 0212CDA9FFE5A54911CE206C;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		01F3CFEBFFE5B82F11CE206C = {
-			fileRef = 0212CDBFFFE5A54911CE206C;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		01F3CFECFFE5B82F11CE206C = {
-			fileRef = 0212CDB7FFE5A54911CE206C;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		01F3CFEDFFE5B82F11CE206C = {
-			fileRef = 0212CDC3FFE5A54911CE206C;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		01F3CFEEFFE5B82F11CE206C = {
-			fileRef = 0212CDA8FFE5A54911CE206C;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		01F3CFEFFFE5B82F11CE206C = {
-			fileRef = 0212CDBEFFE5A54911CE206C;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		01F3CFF0FFE5B82F11CE206C = {
-			fileRef = 0212CDB5FFE5A54911CE206C;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		01F3CFF1FFE5B82F11CE206C = {
-			fileRef = 0212CDADFFE5A54911CE206C;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		01F3CFF2FFE5B82F11CE206C = {
-			fileRef = 0212CDA6FFE5A54911CE206C;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		01F3CFF3FFE5B82F11CE206C = {
-			fileRef = 0212CDBCFFE5A54911CE206C;
-			isa = PBXBuildFile;
-			settings = {
-			};
 		};
 //010
 //011
@@ -534,192 +406,224 @@
 			target = 089C1673FE841209C02AAC07;
 		};
 		0212CDA1FFE5A54911CE206C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOConfigDirectory.cpp;
 			path = IOFireWireFamily.kmodproj/IOConfigDirectory.cpp;
 			refType = 4;
 		};
 		0212CDA2FFE5A54911CE206C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IORemoteConfigDirectory.h;
 			path = IOFireWireFamily.kmodproj/IORemoteConfigDirectory.h;
 			refType = 4;
 		};
 		0212CDA3FFE5A54911CE206C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireWireBus.cpp;
 			path = IOFireWireFamily.kmodproj/IOFireWireBus.cpp;
 			refType = 4;
 		};
 		0212CDA4FFE5A54911CE206C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireWireBus.h;
 			path = IOFireWireFamily.kmodproj/IOFireWireBus.h;
 			refType = 4;
 		};
 		0212CDA5FFE5A54911CE206C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireWireController.cpp;
 			path = IOFireWireFamily.kmodproj/IOFireWireController.cpp;
 			refType = 4;
 		};
 		0212CDA6FFE5A54911CE206C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireWireController.h;
 			path = IOFireWireFamily.kmodproj/IOFireWireController.h;
 			refType = 4;
 		};
 		0212CDA7FFE5A54911CE206C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireWireDevice.cpp;
 			path = IOFireWireFamily.kmodproj/IOFireWireDevice.cpp;
 			refType = 4;
 		};
 		0212CDA8FFE5A54911CE206C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireWireDevice.h;
 			path = IOFireWireFamily.kmodproj/IOFireWireDevice.h;
 			refType = 4;
 		};
 		0212CDA9FFE5A54911CE206C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireWireFamilyCommon.h;
 			path = IOFireWireFamily.kmodproj/IOFireWireFamilyCommon.h;
 			refType = 4;
 		};
 		0212CDAAFFE5A54911CE206C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireWireNub.cpp;
 			path = IOFireWireFamily.kmodproj/IOFireWireNub.cpp;
 			refType = 4;
 		};
 		0212CDABFFE5A54911CE206C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireWireNub.h;
 			path = IOFireWireFamily.kmodproj/IOFireWireNub.h;
 			refType = 4;
 		};
 		0212CDACFFE5A54911CE206C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireWireUnit.cpp;
 			path = IOFireWireFamily.kmodproj/IOFireWireUnit.cpp;
 			refType = 4;
 		};
 		0212CDADFFE5A54911CE206C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireWireUnit.h;
 			path = IOFireWireFamily.kmodproj/IOFireWireUnit.h;
 			refType = 4;
 		};
 		0212CDAEFFE5A54911CE206C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireWireUserClient.cpp;
 			path = IOFireWireFamily.kmodproj/IOFireWireUserClient.cpp;
 			refType = 4;
 		};
 		0212CDAFFFE5A54911CE206C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireWireUserClient.h;
 			path = IOFireWireFamily.kmodproj/IOFireWireUserClient.h;
 			refType = 4;
 		};
 		0212CDB0FFE5A54911CE206C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFWAddressSpace.cpp;
 			path = IOFireWireFamily.kmodproj/IOFWAddressSpace.cpp;
 			refType = 4;
 		};
 		0212CDB2FFE5A54911CE206C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFWCommand.cpp;
 			path = IOFireWireFamily.kmodproj/IOFWCommand.cpp;
 			refType = 4;
 		};
 		0212CDB3FFE5A54911CE206C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFWCommand.h;
 			path = IOFireWireFamily.kmodproj/IOFWCommand.h;
 			refType = 4;
 		};
 		0212CDB4FFE5A54911CE206C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFWDCLProgram.cpp;
 			path = IOFireWireFamily.kmodproj/IOFWDCLProgram.cpp;
 			refType = 4;
 		};
 		0212CDB5FFE5A54911CE206C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFWDCLProgram.h;
 			path = IOFireWireFamily.kmodproj/IOFWDCLProgram.h;
 			refType = 4;
 		};
 		0212CDB6FFE5A54911CE206C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFWDCLTranslator.cpp;
 			path = IOFireWireFamily.kmodproj/IOFWDCLTranslator.cpp;
 			refType = 4;
 		};
 		0212CDB7FFE5A54911CE206C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFWDCLTranslator.h;
 			path = IOFireWireFamily.kmodproj/IOFWDCLTranslator.h;
 			refType = 4;
 		};
 		0212CDBAFFE5A54911CE206C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFWIsoch.h;
 			path = IOFireWireFamily.kmodproj/IOFWIsoch.h;
 			refType = 4;
 		};
 		0212CDBBFFE5A54911CE206C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFWIsochChannel.cpp;
 			path = IOFireWireFamily.kmodproj/IOFWIsochChannel.cpp;
 			refType = 4;
 		};
 		0212CDBCFFE5A54911CE206C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFWIsochChannel.h;
 			path = IOFireWireFamily.kmodproj/IOFWIsochChannel.h;
 			refType = 4;
 		};
 		0212CDBDFFE5A54911CE206C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFWIsochPort.cpp;
 			path = IOFireWireFamily.kmodproj/IOFWIsochPort.cpp;
 			refType = 4;
 		};
 		0212CDBEFFE5A54911CE206C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFWIsochPort.h;
 			path = IOFireWireFamily.kmodproj/IOFWIsochPort.h;
 			refType = 4;
 		};
 		0212CDBFFFE5A54911CE206C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFWLocalIsochPort.h;
 			path = IOFireWireFamily.kmodproj/IOFWLocalIsochPort.h;
 			refType = 4;
 		};
 		0212CDC0FFE5A54911CE206C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFWRegs.h;
 			path = IOFireWireFamily.kmodproj/IOFWRegs.h;
 			refType = 4;
 		};
 		0212CDC1FFE5A54911CE206C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFWUtils.cpp;
 			path = IOFireWireFamily.kmodproj/IOFWUtils.cpp;
 			refType = 4;
 		};
 		0212CDC2FFE5A54911CE206C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOLocalConfigDirectory.cpp;
 			path = IOFireWireFamily.kmodproj/IOLocalConfigDirectory.cpp;
 			refType = 4;
 		};
 		0212CDC3FFE5A54911CE206C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOLocalConfigDirectory.h;
 			path = IOFireWireFamily.kmodproj/IOLocalConfigDirectory.h;
@@ -949,30 +853,13 @@
 		};
 		0212CDE7FFE5AB2E11CE206C = {
 			children = (
-				F52DF93702878C0101845C1A,
-				F52DF93802878C0101845C1A,
-				F53D5F0B02B6D57E01CE230E,
-				8C30A5B50111F11D04CE206D,
-				0212CDC3FFE5A54911CE206C,
-				0212CDA2FFE5A54911CE206C,
-				0212CDA4FFE5A54911CE206C,
-				0212CDA6FFE5A54911CE206C,
-				0212CDA8FFE5A54911CE206C,
-				0160F2FF0010FFF211CE237E,
-				0212CDABFFE5A54911CE206C,
-				0212CDADFFE5A54911CE206C,
-				0212CDB3FFE5A54911CE206C,
-				0212CDB5FFE5A54911CE206C,
-				0212CDB7FFE5A54911CE206C,
-				8CC990C80173CB1D04CE206D,
-				0212CDBCFFE5A54911CE206C,
-				0212CDBEFFE5A54911CE206C,
-				0212CDBFFFE5A54911CE206C,
-				0212CDC0FFE5A54911CE206C,
-				01955135003A7B117F000001,
+				4DE4B7A3033A777600CE20D6,
+				4DE4B7A4033A777F00CE20D6,
+				4DE4B7A5033A779900CE20D6,
+				247142CAFF3F8F9811CA285C,
 			);
 			isa = PBXGroup;
-			name = "Kernel Headers";
+			name = kext;
 			path = "";
 			refType = 4;
 		};
@@ -1031,12 +918,13 @@
 			buildSettings = {
 				BUILD_SETTING = "";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOFireWireFamily.kext/Contents/PlugIns";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = "-DFIREWIREPRIVATE";
 				OTHER_LDFLAGS = "-bundle -undefined error";
 				OTHER_REZFLAGS = "";
 				PREBINDING = NO;
 				PRODUCT_NAME = IOFireWireLib;
 				SECTORDER_FLAGS = "";
+				USE_GCC3_PFE_SUPPORT = YES;
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = plugin;
 			};
@@ -1056,7 +944,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOFireWireLib</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.2.1, Copyright Apple Computer, Inc. 2002</string>
+	<string>1.2.2, Copyright Apple Computer, Inc. 2002</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1068,11 +956,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.1</string>
+	<string>1.2.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.1</string>
+	<string>1.2.2</string>
 	<key>CFPlugInFactories</key>
 	<dict>
 		<key>A1478010-F197-11D4-A28B-000502072F80</key>
@@ -1157,42 +1045,49 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		02B2D12FFFFD5E6F11CE2050 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireWireLibCommand.cpp;
 			path = IOFireWireLib.CFPlugInProj/IOFireWireLibCommand.cpp;
 			refType = 4;
 		};
 		02B2D131FFFD5E6F11CE2050 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
-			name = IOFireWireLibPhysAddrSpace.cpp;
-			path = IOFireWireLib.CFPlugInProj/IOFireWireLibPhysAddrSpace.cpp;
+			name = IOFireWireLibPhysicalAddressSpace.cpp;
+			path = IOFireWireLib.CFPlugInProj/IOFireWireLibPhysicalAddressSpace.cpp;
 			refType = 4;
 		};
 		02B2D132FFFD5E6F11CE2050 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireWireLibPriv.cpp;
 			path = IOFireWireLib.CFPlugInProj/IOFireWireLibPriv.cpp;
 			refType = 4;
 		};
 		02B2D133FFFD5E6F11CE2050 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
-			name = IOFireWireLibPsudoAddrSpace.cpp;
-			path = IOFireWireLib.CFPlugInProj/IOFireWireLibPsudoAddrSpace.cpp;
+			name = IOFireWireLibPseudoAddressSpace.cpp;
+			path = IOFireWireLib.CFPlugInProj/IOFireWireLibPseudoAddressSpace.cpp;
 			refType = 4;
 		};
 		02B2D134FFFD5E6F11CE2050 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireWireLibUnitDirectory.cpp;
 			path = IOFireWireLib.CFPlugInProj/IOFireWireLibUnitDirectory.cpp;
 			refType = 4;
 		};
 		02B2D136FFFD5E6F11CE2050 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireWireLib.h;
 			path = IOFireWireLib.CFPlugInProj/IOFireWireLib.h;
 			refType = 4;
 		};
 		02B2D137FFFD5E6F11CE2050 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			lineEnding = 0;
 			name = IOFireWireLibCommand.h;
@@ -1200,24 +1095,28 @@
 			refType = 4;
 		};
 		02B2D138FFFD5E6F11CE2050 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
-			name = IOFireWireLibPhysAddrSpace.h;
-			path = IOFireWireLib.CFPlugInProj/IOFireWireLibPhysAddrSpace.h;
+			name = IOFireWireLibPhysicalAddressSpace.h;
+			path = IOFireWireLib.CFPlugInProj/IOFireWireLibPhysicalAddressSpace.h;
 			refType = 4;
 		};
 		02B2D139FFFD5E6F11CE2050 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireWireLibPriv.h;
 			path = IOFireWireLib.CFPlugInProj/IOFireWireLibPriv.h;
 			refType = 4;
 		};
 		02B2D13AFFFD5E6F11CE2050 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
-			name = IOFireWireLibPsudoAddrSpace.h;
-			path = IOFireWireLib.CFPlugInProj/IOFireWireLibPsudoAddrSpace.h;
+			name = IOFireWireLibPseudoAddressSpace.h;
+			path = IOFireWireLib.CFPlugInProj/IOFireWireLibPseudoAddressSpace.h;
 			refType = 4;
 		};
 		02B2D13BFFFD5E6F11CE2050 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireWireLibUnitDirectory.h;
 			path = IOFireWireLib.CFPlugInProj/IOFireWireLibUnitDirectory.h;
@@ -1410,9 +1309,10 @@
 			target = 02B2D11AFFFD5D3111CE2050;
 		};
 		03610213000A548E11CE2050 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
-			name = IOFWUserClientPsdoAddrSpace.h;
-			path = IOFireWireFamily.kmodproj/IOFWUserClientPsdoAddrSpace.h;
+			name = IOFWUserPseudoAddressSpace.h;
+			path = IOFireWireFamily.kmodproj/IOFWUserPseudoAddressSpace.h;
 			refType = 4;
 		};
 		03610214000A548E11CE2050 = {
@@ -1422,9 +1322,10 @@
 			};
 		};
 		03610215000A549811CE2050 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
-			name = IOFWUserClientPsdoAddrSpace.cpp;
-			path = IOFireWireFamily.kmodproj/IOFWUserClientPsdoAddrSpace.cpp;
+			name = IOFWUserPseudoAddressSpace.cpp;
+			path = IOFireWireFamily.kmodproj/IOFWUserPseudoAddressSpace.cpp;
 			refType = 4;
 		};
 		03610216000A549811CE2050 = {
@@ -1501,15 +1402,17 @@
 //083
 //084
 		080C09530017B84F7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
-			name = IOFWUserClientPhysAddrSpace.h;
-			path = IOFireWireFamily.kmodproj/IOFWUserClientPhysAddrSpace.h;
+			name = IOFWUserPhysicalAddressSpace.h;
+			path = IOFireWireFamily.kmodproj/IOFWUserPhysicalAddressSpace.h;
 			refType = 4;
 		};
 		080C09540017B84F7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
-			name = IOFWUserClientPhysAddrSpace.cpp;
-			path = IOFireWireFamily.kmodproj/IOFWUserClientPhysAddrSpace.cpp;
+			name = IOFWUserPhysicalAddressSpace.cpp;
+			path = IOFireWireFamily.kmodproj/IOFWUserPhysicalAddressSpace.cpp;
 			refType = 4;
 		};
 		080C09550017B84F7F000001 = {
@@ -1543,8 +1446,6 @@
 			children = (
 				01C27ABDFFE6EE5311CE206C,
 				0212CDE7FFE5AB2E11CE206C,
-				247142CAFF3F8F9811CA285C,
-				010986480030C65511CE2124,
 				010986490030C65511CE2124,
 				089C167CFE841241C02AAC07,
 				19C28FB6FE9D52B211CA2CBB,
@@ -1559,6 +1460,7 @@
 			buildPhases = (
 				06AA1267FFB2110C11CA28AA,
 				01F3CFE1FFE5B76411CE206C,
+				4DF89E6D033AB88500CE20D6,
 				F5FA890200D1860901CE2124,
 				089C1674FE841209C02AAC07,
 				089C1675FE841209C02AAC07,
@@ -1576,13 +1478,14 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireFamily;
-				MODULE_VERSION = 1.2.1;
-				OTHER_CFLAGS = "";
+				MODULE_VERSION = 1.2.2;
+				OTHER_CFLAGS = "-DFIREWIREPRIVATE";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PREBINDING = NO;
 				PRODUCT_NAME = IOFireWireFamily;
 				SECTORDER_FLAGS = "";
+				USE_GCC3_PFE_SUPPORT = YES;
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = kext;
 			};
@@ -1602,7 +1505,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOFireWireFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.2.1, Copyright Apple Computer, Inc. 2002</string>
+	<string>1.2.2, Copyright Apple Computer, Inc. 2002</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1614,11 +1517,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.1</string>
+	<string>1.2.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.1</string>
+	<string>1.2.2</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOFireWireUserClient</key>
@@ -1695,6 +1598,12 @@
 				F52DF93B02878C0101845C1A,
 				F53D5F0D02B6D57E01CE230E,
 				F537AEC602B6E1B601CE230E,
+				F51AB1A103380D9301CE230E,
+				F51AB1A303380D9301CE230E,
+				F51AB1A503380D9301CE230E,
+				4DF89E76033ABAB200CE20D6,
+				F56DE49C0344560C012C70AC,
+				F56DE4A003445631012C70AC,
 			);
 			isa = PBXHeadersBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1736,6 +1645,11 @@
 				0119100200CC4E527F000001,
 				F52DF93902878C0101845C1A,
 				F53D5F0C02B6D57E01CE230E,
+				F51AB1A003380D9301CE230E,
+				F51AB1A203380D9301CE230E,
+				F51AB1A403380D9301CE230E,
+				F56DE49D0344560C012C70AC,
+				F56DE4A103445631012C70AC,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1808,8 +1722,17 @@
 //244
 		247142CAFF3F8F9811CA285C = {
 			children = (
-				F52DF93602878C0101845C1A,
+				0212CDAEFFE5A54911CE206C,
+				0119100000CC4E527F000001,
+				03610215000A549811CE2050,
+				080C09540017B84F7F000001,
+				0162E5A8001FB51211CE2124,
+				013163AE00CC49117F000001,
+				013163AF00CC49117F000001,
+				013163B000CC49117F000001,
 				F53D5F0A02B6D57E01CE230E,
+				F51AB19A03380D9301CE230E,
+				F52DF93602878C0101845C1A,
 				0212CDA1FFE5A54911CE206C,
 				0212CDC2FFE5A54911CE206C,
 				0212CDA3FFE5A54911CE206C,
@@ -1819,6 +1742,8 @@
 				0212CDAAFFE5A54911CE206C,
 				0212CDACFFE5A54911CE206C,
 				0212CDB0FFE5A54911CE206C,
+				F56DE49B0344560C012C70AC,
+				F56DE49F03445631012C70AC,
 				0212CDB2FFE5A54911CE206C,
 				0212CDB4FFE5A54911CE206C,
 				0212CDB6FFE5A54911CE206C,
@@ -1826,9 +1751,11 @@
 				0212CDBDFFE5A54911CE206C,
 				0212CDC1FFE5A54911CE206C,
 				01955138003A7B757F000001,
+				F51AB19E03380D9301CE230E,
+				F51AB19C03380D9301CE230E,
 			);
 			isa = PBXGroup;
-			name = "Kernel Source";
+			name = sources;
 			path = "";
 			refType = 4;
 		};
@@ -1837,12 +1764,237 @@
 //242
 //243
 //244
+//4D0
+//4D1
+//4D2
+//4D3
+//4D4
+		4D8FDDFA03412E3900CE20D6 = {
+			fileRef = 01955135003A7B117F000001;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		4D8FDDFB0341358100CE20D6 = {
+			fileRef = 4DF89E75033ABAB200CE20D6;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		4DE4B7A3033A777600CE20D6 = {
+			children = (
+				F537AEC502B6E1B601CE230E,
+				F52DF93802878C0101845C1A,
+				F53D5F0B02B6D57E01CE230E,
+				F51AB19B03380D9301CE230E,
+				F51AB19F03380D9301CE230E,
+				F51AB19D03380D9301CE230E,
+				0212CDAFFFE5A54911CE206C,
+				03610213000A548E11CE2050,
+				080C09530017B84F7F000001,
+				0162E5A7001FB51211CE2124,
+				013163AB00CC49117F000001,
+				013163AC00CC49117F000001,
+				013163AD00CC49117F000001,
+				01190FFF00CC4E527F000001,
+			);
+			isa = PBXGroup;
+			name = private;
+			refType = 4;
+		};
+		4DE4B7A4033A777F00CE20D6 = {
+			children = (
+				01955135003A7B117F000001,
+				0160F2FF0010FFF211CE237E,
+			);
+			isa = PBXGroup;
+			name = protected;
+			path = "";
+			refType = 4;
+		};
+		4DE4B7A5033A779900CE20D6 = {
+			children = (
+				F52DF93702878C0101845C1A,
+				8C30A5B50111F11D04CE206D,
+				0212CDC3FFE5A54911CE206C,
+				0212CDA2FFE5A54911CE206C,
+				0212CDA4FFE5A54911CE206C,
+				0212CDA6FFE5A54911CE206C,
+				0212CDA8FFE5A54911CE206C,
+				0212CDABFFE5A54911CE206C,
+				0212CDADFFE5A54911CE206C,
+				0212CDB3FFE5A54911CE206C,
+				0212CDB5FFE5A54911CE206C,
+				0212CDB7FFE5A54911CE206C,
+				8CC990C80173CB1D04CE206D,
+				F56DE49A0344560C012C70AC,
+				F56DE49E03445631012C70AC,
+				0212CDBCFFE5A54911CE206C,
+				0212CDBEFFE5A54911CE206C,
+				0212CDBFFFE5A54911CE206C,
+				0212CDC0FFE5A54911CE206C,
+				4DF89E75033ABAB200CE20D6,
+			);
+			isa = PBXGroup;
+			name = public;
+			refType = 4;
+		};
+		4DF89E5C033AB87200CE20D6 = {
+			fileRef = F52DF93702878C0101845C1A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		4DF89E5D033AB87200CE20D6 = {
+			fileRef = 8C30A5B50111F11D04CE206D;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		4DF89E5E033AB87200CE20D6 = {
+			fileRef = 0212CDC3FFE5A54911CE206C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		4DF89E5F033AB87200CE20D6 = {
+			fileRef = 0212CDA2FFE5A54911CE206C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		4DF89E60033AB87200CE20D6 = {
+			fileRef = 0212CDA4FFE5A54911CE206C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		4DF89E61033AB87200CE20D6 = {
+			fileRef = 0212CDA6FFE5A54911CE206C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		4DF89E62033AB87200CE20D6 = {
+			fileRef = 0212CDA8FFE5A54911CE206C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		4DF89E63033AB87200CE20D6 = {
+			fileRef = 0212CDABFFE5A54911CE206C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		4DF89E64033AB87200CE20D6 = {
+			fileRef = 0212CDADFFE5A54911CE206C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		4DF89E65033AB87200CE20D6 = {
+			fileRef = 0212CDB3FFE5A54911CE206C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		4DF89E66033AB87200CE20D6 = {
+			fileRef = 0212CDB5FFE5A54911CE206C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		4DF89E67033AB87200CE20D6 = {
+			fileRef = 0212CDB7FFE5A54911CE206C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		4DF89E68033AB87200CE20D6 = {
+			fileRef = 8CC990C80173CB1D04CE206D;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		4DF89E69033AB87200CE20D6 = {
+			fileRef = 0212CDBCFFE5A54911CE206C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		4DF89E6A033AB87200CE20D6 = {
+			fileRef = 0212CDBEFFE5A54911CE206C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		4DF89E6B033AB87200CE20D6 = {
+			fileRef = 0212CDBFFFE5A54911CE206C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		4DF89E6C033AB87200CE20D6 = {
+			fileRef = 0212CDC0FFE5A54911CE206C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		4DF89E6D033AB88500CE20D6 = {
+			buildActionMask = 2147483647;
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/PrivateHeaders/IOKit/firewire";
+			dstSubfolderSpec = 0;
+			files = (
+				4DF89E6E033AB89000CE20D6,
+				4D8FDDFA03412E3900CE20D6,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4DF89E6E033AB89000CE20D6 = {
+			fileRef = 0160F2FF0010FFF211CE237E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		4DF89E73033ABA2000CE20D6 = {
+			fileRef = 0212CDA9FFE5A54911CE206C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		4DF89E74033ABA2000CE20D6 = {
+			fileRef = 0212CDBAFFE5A54911CE206C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		4DF89E75033ABAB200CE20D6 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = IOFWUtils.h;
+			path = IOFireWireFamily.kmodproj/IOFWUtils.h;
+			refType = 4;
+		};
+		4DF89E76033ABAB200CE20D6 = {
+			fileRef = 4DF89E75033ABAB200CE20D6;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//4D0
+//4D1
+//4D2
+//4D3
+//4D4
 //8C0
 //8C1
 //8C2
 //8C3
 //8C4
 		8C30A5B50111F11D04CE206D = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOConfigDirectory.h;
 			path = IOFireWireFamily.kmodproj/IOConfigDirectory.h;
@@ -1854,25 +2006,14 @@
 			settings = {
 			};
 		};
-		8C30A5B70111F20304CE206D = {
-			fileRef = 8C30A5B50111F11D04CE206D;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		8CC990C80173CB1D04CE206D = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFWAddressSpace.h;
 			path = IOFireWireFamily.kmodproj/IOFWAddressSpace.h;
 			refType = 4;
 		};
 		8CC990C90173CB1D04CE206D = {
-			fileRef = 8CC990C80173CB1D04CE206D;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		8CC990CA0173CB9504CE206D = {
 			fileRef = 8CC990C80173CB1D04CE206D;
 			isa = PBXBuildFile;
 			settings = {
@@ -1888,19 +2029,100 @@
 //F52
 //F53
 //F54
+		F51AB19A03380D9301CE230E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = IOFireWireLocalNode.cpp;
+			path = IOFireWireFamily.kmodproj/IOFireWireLocalNode.cpp;
+			refType = 4;
+		};
+		F51AB19B03380D9301CE230E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = IOFireWireLocalNode.h;
+			path = IOFireWireFamily.kmodproj/IOFireWireLocalNode.h;
+			refType = 4;
+		};
+		F51AB19C03380D9301CE230E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = IOFireWireMagicMatchingNub.cpp;
+			path = IOFireWireFamily.kmodproj/IOFireWireMagicMatchingNub.cpp;
+			refType = 4;
+		};
+		F51AB19D03380D9301CE230E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = IOFireWireMagicMatchingNub.h;
+			path = IOFireWireFamily.kmodproj/IOFireWireMagicMatchingNub.h;
+			refType = 4;
+		};
+		F51AB19E03380D9301CE230E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = IOFWQEventSource.cpp;
+			path = IOFireWireFamily.kmodproj/IOFWQEventSource.cpp;
+			refType = 4;
+		};
+		F51AB19F03380D9301CE230E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = IOFWQEventSource.h;
+			path = IOFireWireFamily.kmodproj/IOFWQEventSource.h;
+			refType = 4;
+		};
+		F51AB1A003380D9301CE230E = {
+			fileRef = F51AB19A03380D9301CE230E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F51AB1A103380D9301CE230E = {
+			fileRef = F51AB19B03380D9301CE230E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F51AB1A203380D9301CE230E = {
+			fileRef = F51AB19C03380D9301CE230E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F51AB1A303380D9301CE230E = {
+			fileRef = F51AB19D03380D9301CE230E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F51AB1A403380D9301CE230E = {
+			fileRef = F51AB19E03380D9301CE230E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F51AB1A503380D9301CE230E = {
+			fileRef = F51AB19F03380D9301CE230E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
 		F52DF93602878C0101845C1A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireLog.cpp;
 			path = IOFireWireFamily.kmodproj/IOFireLog.cpp;
 			refType = 4;
 		};
 		F52DF93702878C0101845C1A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireLog.h;
 			path = IOFireWireFamily.kmodproj/IOFireLog.h;
 			refType = 4;
 		};
 		F52DF93802878C0101845C1A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireLogPriv.h;
 			path = IOFireWireFamily.kmodproj/IOFireLogPriv.h;
@@ -1936,6 +2158,7 @@
 			name = FireLog;
 		};
 		F537AEC502B6E1B601CE230E = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = FWDebugging.h;
 			path = IOFireWireFamily.kmodproj/FWDebugging.h;
@@ -1948,12 +2171,14 @@
 			};
 		};
 		F53D5F0A02B6D57E01CE230E = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireWireROMCache.cpp;
 			path = IOFireWireFamily.kmodproj/IOFireWireROMCache.cpp;
 			refType = 4;
 		};
 		F53D5F0B02B6D57E01CE230E = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireWireROMCache.h;
 			path = IOFireWireFamily.kmodproj/IOFireWireROMCache.h;
@@ -1971,12 +2196,6 @@
 			settings = {
 			};
 		};
-		F53EA110029C6A1D01CE230E = {
-			fileRef = F52DF93702878C0101845C1A;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		F5410DC301B8073901CE2124 = {
 			isa = PBXFrameworkReference;
 			name = Security.framework;
@@ -1989,8 +2208,62 @@
 			settings = {
 			};
 		};
-		F5B11EB40299BAA60125EFCB = {
-			fileRef = F52DF93702878C0101845C1A;
+		F56DE49A0344560C012C70AC = {
+			isa = PBXFileReference;
+			name = IOFWPseudoAddressSpace.h;
+			path = IOFireWireFamily.kmodproj/IOFWPseudoAddressSpace.h;
+			refType = 4;
+		};
+		F56DE49B0344560C012C70AC = {
+			isa = PBXFileReference;
+			name = IOFWPseudoAddressSpace.cpp;
+			path = IOFireWireFamily.kmodproj/IOFWPseudoAddressSpace.cpp;
+			refType = 4;
+		};
+		F56DE49C0344560C012C70AC = {
+			fileRef = F56DE49A0344560C012C70AC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F56DE49D0344560C012C70AC = {
+			fileRef = F56DE49B0344560C012C70AC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F56DE49E03445631012C70AC = {
+			isa = PBXFileReference;
+			name = IOFWPhysicalAddressSpace.h;
+			path = IOFireWireFamily.kmodproj/IOFWPhysicalAddressSpace.h;
+			refType = 4;
+		};
+		F56DE49F03445631012C70AC = {
+			isa = PBXFileReference;
+			name = IOFWPhysicalAddressSpace.cpp;
+			path = IOFireWireFamily.kmodproj/IOFWPhysicalAddressSpace.cpp;
+			refType = 4;
+		};
+		F56DE4A003445631012C70AC = {
+			fileRef = F56DE49E03445631012C70AC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F56DE4A103445631012C70AC = {
+			fileRef = F56DE49F03445631012C70AC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F56DE4A303445CB3012C70AC = {
+			fileRef = F56DE49A0344560C012C70AC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F56DE4A403445CB7012C70AC = {
+			fileRef = F56DE49E03445631012C70AC;
 			isa = PBXBuildFile;
 			settings = {
 			};
@@ -2002,6 +2275,7 @@
 			};
 		};
 		F5FA88FC00D184BD01CE2124 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireWireLibIsoch.h;
 			path = IOFireWireLib.CFPlugInProj/IOFireWireLibIsoch.h;

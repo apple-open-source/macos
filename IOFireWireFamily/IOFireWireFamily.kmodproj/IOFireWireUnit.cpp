@@ -43,6 +43,7 @@ OSDefineMetaClassAndStructors(IOFireWireUnit, IOFireWireNub)
 OSMetaClassDefineReservedUnused(IOFireWireUnit, 0);
 OSMetaClassDefineReservedUnused(IOFireWireUnit, 1);
 
+#pragma mark -
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 bool IOFireWireUnit::init(OSDictionary *propTable, IOConfigDirectory *directory)
@@ -108,6 +109,12 @@ bool IOFireWireUnit::matchPropertyTable(OSDictionary * table)
     return res;
 }
 
+#pragma mark -
+
+/////////////////////////////////////////////////////////////////////////////
+// open / close
+//
+
 bool IOFireWireUnit::handleOpen( 	IOService *	  forClient,
                             IOOptionBits	  options,
                             void *		  arg )
@@ -129,6 +136,12 @@ void IOFireWireUnit::handleClose(   IOService *	  forClient,
     fDevice->close(this, options);
 }
 
+#pragma mark -
+
+/////////////////////////////////////////////////////////////////////////////
+// node flags
+//
+
 void IOFireWireUnit::setNodeFlags( UInt32 flags )
 {
 	if( fDevice )
@@ -147,4 +160,40 @@ UInt32 IOFireWireUnit::getNodeFlags( void )
 		return fDevice->getNodeFlags();
 	else
 		return 0;
+}
+
+#pragma mark -
+
+/////////////////////////////////////////////////////////////////////////////
+// address spaces
+//
+
+/*
+ * Create local FireWire address spaces for the device to access
+ */
+
+IOFWPhysicalAddressSpace * IOFireWireUnit::createPhysicalAddressSpace(IOMemoryDescriptor *mem)
+{
+    IOFWPhysicalAddressSpace * space = fControl->createPhysicalAddressSpace(mem);
+	
+	if( space != NULL )
+	{
+		space->addTrustedNode( fDevice );
+	}
+	
+	return space;
+}
+
+IOFWPseudoAddressSpace * IOFireWireUnit::createPseudoAddressSpace(FWAddress *addr, UInt32 len, 
+				FWReadCallback reader, FWWriteCallback writer, void *refcon)
+{
+    IOFWPseudoAddressSpace * space = fControl->createPseudoAddressSpace(addr, len, reader, writer, refcon);
+
+	if( space != NULL )
+	{
+		space->addTrustedNode( fDevice );
+	}
+	
+	return space;
+
 }

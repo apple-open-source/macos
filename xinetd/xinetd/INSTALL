@@ -1,0 +1,25 @@
+Generic install:
+./configure
+make
+make install
+xinetd/xconv.pl < /etc/inetd.conf > /tmp/xinetd.conf
+Edit the /etc/xinetd.conf file to your liking.
+
+Options to configure:
+--prefix=/path        to specify the directory prefix for installing xinetd.
+
+Check the README file for a description of the following options:
+--with-libwrap=[path] to specify that you would like libwrap compiled in.
+--with-loadavg
+
+Other options, such as what signals do what, where the default paths
+point for things like the config file and the debug dump file, default
+limitations, etc can all be configured in xinetd/config.h
+
+Please take a look at the config file before using it.  A default config
+file is in xinetd/sample.conf.  I can almost guarantee you'll have
+problems if you use the default config file.
+
+xconv.pl is a perl script that will convert your old inetd.conf file to
+xinetd.conf syntax.  This does a pretty decent job on most inetd.conf
+files I've encountered.  

@@ -4894,13 +4894,6 @@ sInt32 CSearchNode::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 		
 		//stop the call if the call comes in for the DefaultNetwork Node
 		if (pContext->fSearchConfigKey == eDSNetworkSearchNodeName)  throw( (sInt32)eDSInvalidNodeRef );
-		
-		fMutex.Wait();
-		aSearchConfig	= FindSearchConfigWithKey(pContext->fSearchConfigKey);
-		if ( aSearchConfig == nil ) throw( (sInt32)eDSInvalidNodeRef );		
-
-		// Set it to the first node in the search list - this check doesn't need to use the context search path
-		if ( aSearchConfig->fSearchNodeList == nil ) throw( (sInt32)eSearchPathNotDefined );
 
 		aRequest = inData->fInRequestCode;
 		bufLen = inData->fInRequestData->fBufferLength;
@@ -4926,6 +4919,14 @@ sInt32 CSearchNode::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 		{
 			throw( (sInt32)eDSPermissionError );
 		}
+
+		fMutex.Wait();
+		aSearchConfig	= FindSearchConfigWithKey(pContext->fSearchConfigKey);
+		if ( aSearchConfig == nil ) throw( (sInt32)eDSInvalidNodeRef );
+
+		// Set it to the first node in the search list - this check doesn't need to use the context search path
+		if ( aSearchConfig->fSearchNodeList == nil ) throw( (sInt32)eSearchPathNotDefined );
+
 		switch( aRequest )
 		{
 			case 111:

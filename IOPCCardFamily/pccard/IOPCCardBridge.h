@@ -96,6 +96,8 @@ private:
 
     interrupt_handler_t *	interruptHandlers;
 
+    bool			pciExpansionChassis;		// OF has scanned and configured this card and its subordinates
+    
     struct ExpansionData 	{ };
     ExpansionData *		reserved;
 

@@ -20,7 +20,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#import "usbLoggerClass.h"
+#import "USBLoggerClass.h"
 
 //================================================================================================
 //   Globals

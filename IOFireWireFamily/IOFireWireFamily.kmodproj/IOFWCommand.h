@@ -30,7 +30,7 @@
 #include <IOKit/IOCommand.h>
 #include <IOKit/IOLib.h>
 
-#include <IOKit/firewire/IOFWRegs.h>
+#include <IOKit/firewire/IOFireWireFamilyCommon.h>
 
 class IOMemoryDescriptor;
 class IOSyncer;
@@ -40,7 +40,9 @@ class IOFireWireNub;
 class IOFWAddressSpace;	// Description of chunk of local FW address space
 class IOFWCommand;
 class IOFWBusCommand;
+class IOFWAsyncStreamCommand;
 class IOCommandGate;
+
 struct AsyncPendingTrans;
 
 // Callback when device command completes asynchronously
@@ -48,6 +50,9 @@ typedef void (*FWDeviceCallback)(void *refcon, IOReturn status, IOFireWireNub *d
 
 // Callback when bus command completes asynchronously
 typedef void (*FWBusCallback)(void *refcon, IOReturn status, IOFireWireBus *bus, IOFWBusCommand *fwCmd);
+
+// Callback when async stream command completes asynchronously
+typedef void (*FWAsyncStreamCallback)(void *refcon, IOReturn status, IOFireWireBus *bus, IOFWAsyncStreamCommand *fwCmd);
 
 // Struct for head of command queue
 /*!
@@ -243,11 +248,6 @@ class IOFWUserWriteCommand ;
 */
 class IOFWAsyncCommand : public IOFWCommand
 {
-	// temporary for debugging:
-//	friend class IOFWUserReadQuadletCommand ;
-//	friend class IOFWUserWriteCommand ;
-	friend class IOFireWireUserClient ;
-
 	OSDeclareAbstractStructors(IOFWAsyncCommand)
 
 protected:
@@ -548,6 +548,94 @@ private:
     OSMetaClassDeclareReservedUnused(IOFWCompareAndSwapCommand, 1);
     OSMetaClassDeclareReservedUnused(IOFWCompareAndSwapCommand, 2);
     OSMetaClassDeclareReservedUnused(IOFWCompareAndSwapCommand, 3);
+
+};
+
+/*
+ * Send an async stream packet
+ */
+
+/*! @class IOFWAsyncStreamCommand
+*/
+class IOFWAsyncStreamCommand : public IOFWCommand
+{
+	// temporary for debugging:
+	friend class IOFireWireUserClient ;
+
+	OSDeclareDefaultStructors(IOFWAsyncStreamCommand)
+
+protected:
+    FWAsyncStreamCallback	fComplete;
+    void *					fRefCon;
+    IOMemoryDescriptor 		* fMemDesc;
+    int						fSpeed;
+    int						fSize;
+    int						fCurRetries;
+    int						fMaxRetries;
+    int						fChannel;
+    int						fSyncBits;
+    int						fTag;
+    UInt32					fGeneration;	// bus topology fNodeID is valid for.
+    bool					fFailOnReset;
+
+/*! @struct ExpansionData
+    @discussion This structure will be used to expand the capablilties of the class in the future.
+    */    
+    struct ExpansionData { };
+
+/*! @var reserved
+    Reserved for future use.  (Internal use only)  */
+    ExpansionData *reserved;
+
+    virtual IOReturn	complete(
+    							IOReturn 				status);
+    							
+   // To be called by IOFireWireController and derived classes.
+    virtual IOReturn	execute();
+
+public:
+
+    virtual bool		initAll(
+    							IOFireWireController 	* control,
+                                UInt32 					generation, 
+                                UInt32 					channel,
+                                UInt32 					sync,
+                                UInt32 					tag,
+                                IOMemoryDescriptor 		* hostMem,
+                                UInt32					size,
+                                int						speed,
+                                FWAsyncStreamCallback	completion,
+                                void 					* refcon);
+    virtual IOReturn	reinit(	UInt32 					generation, 
+                                UInt32 					channel,
+                                UInt32 					sync,
+                                UInt32 					tag,
+                                IOMemoryDescriptor 		* hostMem,
+                                UInt32					size,
+                                int						speed,
+                               	FWAsyncStreamCallback	completion,
+                                void 					* refcon);
+
+    virtual void				gotAck(
+    							int 					ackCode);
+	// Utility for setting generation on newly created command
+	virtual void				setGeneration(
+								UInt32 					generation)
+	{ fGeneration = generation; }
+
+ 
+    // update nodeID/generation after bus reset, from the device object
+    IOReturn		updateGeneration();
+    
+    bool		failOnReset() const
+    { return fFailOnReset; }
+    
+
+private:
+    OSMetaClassDeclareReservedUnused(IOFWAsyncStreamCommand, 0);
+    OSMetaClassDeclareReservedUnused(IOFWAsyncStreamCommand, 1);
+    OSMetaClassDeclareReservedUnused(IOFWAsyncStreamCommand, 2);
+    OSMetaClassDeclareReservedUnused(IOFWAsyncStreamCommand, 3);
 
 };
 

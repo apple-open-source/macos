@@ -20,7 +20,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#import "systemCommands.h"
+#import "SystemCommands.h"
 
 AuthorizationRef myAuthorizationRef;
 

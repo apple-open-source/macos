@@ -98,11 +98,11 @@ namespace IOFireWireLib {
 			Boolean					GetTalking() const							{ return mTalking ; }
 			
 		protected:
-			FWKernIsochPortRef		GetKernPortRef()							{ return mKernPortRef; }
+			KernIsochPortRef		GetKernPortRef()							{ return mKernPortRef; }
 	
 	protected:
 		Device&							mUserClient ;
-		FWKernIsochPortRef				mKernPortRef ;
+		KernIsochPortRef				mKernPortRef ;
 		void*							mRefCon ;
 		Boolean							mTalking ;
 		
@@ -248,17 +248,17 @@ namespace IOFireWireLib {
 			virtual IOReturn		Stop() ;
 		
 			// local port methods:
-			IOReturn				ModifyJumpDCL( DCLJumpStruct* inJump, DCLLabelStruct* inLabel ) ;
+			IOReturn				ModifyJumpDCL( DCLJump* inJump, DCLLabelStruct* inLabel ) ;
 			IOReturn				ModifyTransferPacketDCLSize( DCLTransferPacket* dcl, IOByteCount newSize ) ;			
 			static void				DCLCallProcHandler( void* inRefCon, IOReturn result, LocalIsochPort* me) ;
 			void					Lock() ;
 			void					Unlock() ;
 		
 			// utility functions:
-			void					PrintDCLProgram( const DCLCommandStruct* inProgram, UInt32 inLength ) ;
+			void					PrintDCLProgram( const DCLCommand* inProgram, UInt32 inLength ) ;
 		
 		protected:
-			DCLCommandStruct*				mDCLProgram ;
+			DCLCommand*				mDCLProgram ;
 			UInt32							mStartEvent ;
 			UInt32							mStartState ;
 			UInt32							mStartMask ;
@@ -283,7 +283,7 @@ namespace IOFireWireLib {
 		typedef ::IOFireWireLibLocalIsochPortRef PortRef ;
 		
 		public:
-			LocalIsochPortCOM( Device& inUserClient, bool inTalking, DCLCommandStruct* inDCLProgram, UInt32 inStartEvent,
+			LocalIsochPortCOM( Device& userclient, bool inTalking, DCLCommand* inDCLProgram, UInt32 inStartEvent,
 					UInt32 inStartState, UInt32 inStartMask, IOVirtualRange inDCLProgramRanges[], 
 					UInt32 inDCLProgramRangeCount, IOVirtualRange inBufferRanges[], UInt32 inBufferRangeCount) ;
 			virtual ~LocalIsochPortCOM() ;	
@@ -292,7 +292,7 @@ namespace IOFireWireLib {
 			static IUnknownVTbl**	Alloc(
 											Device&	inUserClient, 
 											Boolean							inTalking,
-											DCLCommandStruct*				inDCLProgram,
+											DCLCommand*				inDCLProgram,
 											UInt32							inStartEvent,
 											UInt32							inStartState,
 											UInt32							inStartMask,
@@ -307,11 +307,11 @@ namespace IOFireWireLib {
 			// --- static methods ------------------
 			static IOReturn			SModifyJumpDCL(
 											PortRef 	self, 
-											DCLJumpStruct* 					inJump, 
+											DCLJump* 					inJump, 
 											DCLLabelStruct* 				inLabel) ;
 			static void				SPrintDCLProgram(
 											PortRef						 	self, 
-											const DCLCommandStruct*			inProgram,
+											const DCLCommand*			inProgram,
 											UInt32							inLength) ;
 			static IOReturn			SModifyTransferPacketDCLSize( PortRef self, DCLTransferPacket* dcl, IOByteCount newSize ) ;
 			static IOReturn			SModifyTransferPacketDCLBuffer( PortRef self, DCLTransferPacket* dcl, void* newBuffer ) ;

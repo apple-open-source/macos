@@ -45,6 +45,7 @@
 #include <sys/time.h>
 #include <sys/mount.h>
 #include <dirent.h>
+#include <architecture/byte_order.h>
 
 // CoreFoundation Includes
 #include <CoreFoundation/CoreFoundation.h>
@@ -1298,8 +1299,8 @@ CreateXMLFileInPListFormat ( QTOCDataFormat10Ptr TOCDataPtr )
 															&kCFTypeDictionaryValueCallBacks );
 		
 		// Grab the length and advance
-		length = TOCDataPtr->TOCDataLength;
-
+		length = NXSwapBigShortToHost ( TOCDataPtr->TOCDataLength );
+		
 		// Add the Raw TOC Data
 		theRawTOCDataRef = CFDataCreate (	kCFAllocatorDefault,
 											( UInt8 * ) TOCDataPtr,
@@ -1672,7 +1673,7 @@ GetTOCDataPtr ( const char * deviceNamePtr )
 				{
 					
 					ptr = CreateBufferFromCFData ( data );
-					
+
 				}
 				
 				// Release the properties
@@ -1762,7 +1763,7 @@ GetNumberOfTrackDescriptors ( 	QTOCDataFormat10Ptr	TOCDataPtr,
 	}
 	
 	// Grab the length and advance
-	length = TOCDataPtr->TOCDataLength;
+	length = NXSwapBigShortToHost ( TOCDataPtr->TOCDataLength );
 	DebugLog ( ( "Length = %d\n", length ) );
 	
 	if ( length <= 4 )
@@ -1842,7 +1843,7 @@ FindNumberOfAudioTracks ( QTOCDataFormat10Ptr TOCDataPtr )
 	{
 				
 		// Grab the length and advance
-		length = TOCDataPtr->TOCDataLength;		
+		length = NXSwapBigShortToHost ( TOCDataPtr->TOCDataLength );
 		length -= ( sizeof ( TOCDataPtr->firstSessionNumber ) +
 					sizeof ( TOCDataPtr->lastSessionNumber ) );
 		
@@ -1891,3 +1892,4 @@ FindNumberOfAudioTracks ( QTOCDataFormat10Ptr TOCDataPtr )
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //				End				Of			File
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ

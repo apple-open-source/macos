@@ -139,6 +139,7 @@ enum
 };
 
 
+
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //	Includes
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
@@ -153,10 +154,11 @@ enum
 #include <IOKit/storage/IODVDTypes.h>
 
 // SCSI Architecture Model Family includes
-#include <IOKit/scsi-commands/SCSIMultimediaCommands.h>
-#include <IOKit/scsi-commands/SCSIBlockCommands.h>
 #include <IOKit/scsi-commands/IOSCSIPrimaryCommandsDevice.h>
 
+// Forward definitions for internal use only classes
+class SCSIMultimediaCommands;
+class SCSIBlockCommands;
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //	Class Declaration
@@ -410,6 +412,19 @@ public:
 													const UInt32				logicalBlockAddress,
 													const UInt8					layer,
 													const UInt8 				agid );
+
+	// The block size decoding for Read CD and Read CD MSF  as defined in table 255
+    bool	GetBlockSize (
+						UInt32 *					requestedByteCount,
+						SCSICmdField3Bit 			EXPECTED_SECTOR_TYPE,
+						SCSICmdField1Bit 			SYNC,
+						SCSICmdField2Bit 			HEADER_CODES,
+						SCSICmdField1Bit 			USER_DATA,
+						SCSICmdField1Bit 			EDC_ECC,
+						SCSICmdField2Bit 			ERROR_FIELD,
+						SCSICmdField3Bit 			SUBCHANNEL_SELECTION_BITS );
+	
+	SCSICmdField4Byte ConvertMSFToLBA ( SCSICmdField3Byte MSF );
 
 	// Command methods to access all commands available to MMC based devices.
 	// The BLANK command as defined in section 6.1.1

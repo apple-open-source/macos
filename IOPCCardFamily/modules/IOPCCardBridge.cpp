@@ -167,6 +167,25 @@ wackBridgeBusNumbers(IOPCIDevice * bridgeDevice)
     return true;
 }
 
+// Determine if the cardbus card is a PCI to PCI bridge.
+// And if it is then set this state variable to bypass all card services. ;-)
+
+static bool
+hasPCIExpansionChassis(IOService * provider)
+{
+	IORegistryEntry * entry;
+	OSIterator * iter;
+
+	if (iter = provider->getChildIterator(gIODTPlane)) {
+		while (entry = OSDynamicCast(IORegistryEntry, iter->getNextObject())) {
+			const char *name = entry->getName();
+			if (name && (strcmp ("pci-bridge", name) == 0))
+				return true;
+		}
+	}
+	return false;
+}
+
 //*****************************************************************************
 //*****************************************************************************
 
@@ -267,25 +286,33 @@ IOPCCardBridge::lastBusNum(void)
 void
 IOPCCardBridge::probeBus(IOService * provider, UInt8 busNum)
 {
-    // doesn't really work make sense for PC Cards, wait for a card insertion event
+    // if there is a pci expansion chassis attached, just act like a pci to pci bridge
+    if (pciExpansionChassis) {
+    	super::probeBus(provider, busNum);
+    }
+
+    // if not, it really doesn't make sense to probe for PC Cards at this point,
+    // just wait for a card insertion event
     return;
 }
 
 IOReturn
 IOPCCardBridge::getNubResources(IOService * service)
 {
-    IOPCIDevice *	nub = (IOPCIDevice *) service;
-    IOReturn		err;
+    IOReturn	err;
+    
+    if (pciExpansionChassis) {
+	err = super::getNubResources(service);
+    } else {
+	IOPCIDevice * nub = (IOPCIDevice *) service;
 
-    if( service->getDeviceMemory())
-	return( kIOReturnSuccess );
+	if (service->getDeviceMemory())
+	    return kIOReturnSuccess;
 
-//    if( isDTNub( nub))
-//        err = getDTNubAddressing( nub );
-//    else
 	err = getNubAddressing(nub);
+    }
 
-    return( err);
+    return err;
 }
 
 //*****************************************************************************
@@ -1308,6 +1335,19 @@ IOPCCardBridge::start(IOService * provider)
     bridgeDevice = OSDynamicCast(IOPCIDevice, provider);
     if (!bridgeDevice) return false;
 
+    // if there is a pci expansion chassis attached, just act like a pci to pci bridge
+    // and do nothing, open firmware has already probed and configured the bus
+    pciExpansionChassis = hasPCIExpansionChassis(provider);
+    if (pciExpansionChassis) {
+    
+	bool status = super::start(provider);
+	if (status != false) {
+	    // well, almost do nothing...
+	    bridgeDevice->configWrite32 (0x8c, 0x00000002);	// Multifunction Routing {INTA}
+	}
+	return status;
+    }
+
     do {
 	bool success = false;
     
@@ -1407,8 +1447,9 @@ IOPCCardBridge::configure(IOService * provider)
 {
     DEBUG(2, "IOPCCardBridge::configure\n");
 
-//	this is wrong
+//	this is wrong for cardbus controllers
 //	return super::configure(provider);
+    
     return true;
 }
 
@@ -1421,10 +1462,14 @@ IOPCCardBridge::stop(IOService * provider)
     if (dynamicBridgeIOSpace)	dynamicBridgeIOSpace->release();
     if (cardBusRegisterMap)	cardBusRegisterMap->release();	
 
-    gIOPCCardWorkLoop->removeEventSource(interruptSource);
-    if (interruptSource)	interruptSource->release();
-    bridgeDevice->unregisterInterrupt(0);
-    if (interruptController)	interruptController->release();
+    if (interruptSource) {
+	gIOPCCardWorkLoop->removeEventSource(interruptSource);
+    	interruptSource->release();
+    }
+    if (interruptController) {
+    	    bridgeDevice->unregisterInterrupt(0);
+	    interruptController->release();
+    }
 
     super::stop(provider);
 }
@@ -1434,6 +1479,9 @@ IOPCCardBridge::setPowerState(unsigned long powerState,
 			      IOService * whatDevice)
 {
     DEBUG(1, "IOPCCardBridge::setPowerState state=%d\n", powerState);
+
+    if (pciExpansionChassis)
+	return super::setPowerState(powerState, whatDevice);  // NOOP
 
     return gIOPCCardCommandGate->runCommand((void *)kCSGateSetBridgePower, (void *)this, (void *)powerState, (void *)whatDevice);
 }
@@ -1576,7 +1624,7 @@ IOPCCardBridge::unconfigureSocket(IOService * nub)
 IOWorkLoop * 
 IOPCCardBridge::getWorkLoop() const
 { 
-	return gIOPCCardWorkLoop;
+    return gIOPCCardWorkLoop ? gIOPCCardWorkLoop : super::getWorkLoop();
 }
 
 int

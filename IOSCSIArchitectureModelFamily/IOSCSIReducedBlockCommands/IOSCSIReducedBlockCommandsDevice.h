@@ -39,7 +39,6 @@
 #include <IOKit/storage/IOStorage.h>
 
 // SCSI Architecture Model Family includes
-#include <IOKit/scsi-commands/SCSIReducedBlockCommands.h>
 #include <IOKit/scsi-commands/IOSCSIPrimaryCommandsDevice.h>
 
 
@@ -66,6 +65,9 @@ enum
 	kMediaStateLocked 	= 1
 };
 
+// Forward declaration for the SCSIReducedBlockCommands that is used internally by the
+// IOSCSIReducedBlockCommandsDevice class.
+class SCSIReducedBlockCommands;
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //	Class Declaration
@@ -117,9 +119,9 @@ protected:
 	
 	enum
 	{
-		kPollingMode_Suspended		= 0,
-		kPollingMode_NewMedia 		= 1,
-		kPollingMode_MediaRemoval	= 2
+		kPollingMode_Suspended			= 0,
+		kPollingMode_NewMedia 			= 1,
+		kPollingMode_MediaRemoval		= 2
 	};
 	
 	virtual void 		CreateStorageServiceNub ( void );

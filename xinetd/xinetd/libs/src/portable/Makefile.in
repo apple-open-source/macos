@@ -1,0 +1,94 @@
+# (c) Copyright 2001 by Rob Braun
+# All rights reserved.  The file named COPYRIGHT specifies the terms 
+# and conditions for redistribution.
+
+NAME			= portable
+VPATH			= @srcdir@
+SRCDIR			= @srcdir@
+
+HEADERS			= $(SRCDIR)/libportable.h 
+SOURCES			= difftime.c inet_aton.c strerror.c fake-getnameinfo.c \
+                          inet_ntop.c cvt.c
+OBJECTS			= difftime.o inet_aton.o strerror.o fake-getnameinfo.o \
+                          inet_ntop.o cvt.o
+
+INCLUDEFILES		= $(HEADERS)
+
+# The following variables are used by the 'install' entry and
+# should be customized:
+#     LIBDIR:     where the library will be placed
+#     INCUDEDIR:  where the include files will be placed
+#     MANDIR:     where the man pages will be placed
+#
+#LIBDIR			= $(HOME)/.links/libraries/$(ARCH)
+#MANDIR			= $(HOME)/.links/manpages/man3
+#INCLUDEDIR		= $(HOME)/.links/includes
+LIBDIR			= ../../lib
+MANDIR			= ../../man
+INCLUDEDIR		= ../../include
+
+#
+# Possible flags:
+#     -DOLD_DIR         : must include <sys/dir.h> instead of <dirent.h>
+#
+
+DEBUG			= -g				# -g or -O
+
+CPP_DEFS		= 
+
+#
+# The following variables shouldn't need to be changed
+#
+CPP_FLAGS		= $(CPP_DEFS)
+CC_FLAGS		= $(DEBUG)
+CFLAGS			= @CFLAGS@ $(CPP_FLAGS) $(CC_FLAGS) -I$(INCLUDEDIR)
+
+INSTALL			= @INSTALL@
+FMODE			= -m 640		# used by install
+RANLIB			= @RANLIB@
+
+LIBNAME			= lib$(NAME).a
+
+lib: $(LIBNAME)
+
+libopt: clean
+	make DEBUG=-O lib
+	mv $(LIBNAME) $(LIBDIR)/optimized
+
+
+$(LIBNAME): $(OBJECTS)
+	ar r $@ $?
+	$(RANLIB) $@
+
+install: $(LIBNAME)
+	@if test "$(LIBDIR)" -a "$(INCLUDEDIR)" -a "$(MANDIR)" ;\
+	then \
+		$(INSTALL) $(FMODE) $(LIBNAME) $(LIBDIR) ;\
+		${RANLIB} $(LIBDIR)/$(LIBNAME) ;\
+		echo "Installed $(LIBNAME) to $(LIBDIR)" ;\
+		for i in $(INCLUDEFILES); do $(INSTALL) $(FMODE) $$i $(INCLUDEDIR) ; done ;\
+		echo Installed $(INCLUDEFILES) to $(INCLUDEDIR) ;\
+	else \
+		echo "You forgot to set one of the following variables: LIBDIR,INCLUDEDIR,MANDIR" ;\
+	fi
+
+uninstall:
+	a=`pwd` ; cd $(INCLUDEDIR) ;\
+	if test $$a != `pwd` ; then rm -f $(INCLUDEFILES) ; fi
+	a=`pwd` ; cd $(LIBDIR) ;\
+	if test $$a != `pwd` ; then rm -f $(LIBNAME) ; fi
+
+clean:
+	rm -f $(OBJECTS) $(LIBNAME) core
+	rm -f *.swp
+	rm -f *.?~ 
+
+spotless: clean uninstall
+
+distclean: clean
+	rm -f Makefile
+
+#
+# PUT HERE THE RULES TO MAKE THE OBJECT FILES
+#
+# None special

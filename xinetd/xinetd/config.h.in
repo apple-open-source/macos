@@ -1,0 +1,132 @@
+#undef HAVE_STRERROR
+
+#undef HAVE_SETENV
+
+#undef HAVE_SYS_RESOURCE_H
+
+#undef HAVE_ISATTY
+
+#undef HAVE_UNISTD_H
+
+#undef HAVE_GETPAGESIZE
+
+#undef HAVE_MMAP
+
+#undef HAVE_MEMCPY
+
+#undef HAVE_WAITPID
+
+#undef HAVE_SIGVEC
+
+#undef HAVE_SETSID
+
+#undef HAVE_STRFTIME
+
+#undef HAVE_SYS_TYPES_H
+
+#undef HAVE_SYS_TERMIOS_H
+
+#undef HAVE_TERMIOS_H
+
+#undef HAVE_SYS_IOCTL_H
+
+#undef HAVE_RPC_RPC_H
+
+#undef HAVE_RPC_RPCENT_H
+
+#undef HAVE_SYS_SELECT_H
+
+#undef HAVE_SYS_FILE_H
+
+#undef HAVE_MACHINE_REG_H
+
+#undef HAVE_FTW_H
+
+#undef HAVE_LINUX_TIME_H
+
+#undef HAVE_NETDB_H
+
+#undef HAVE_LIBCRYPT
+
+#undef HAVE_ARPA_INET_H
+
+#undef HAVE_GRP_H
+
+#undef HAVE_RPC_PMAP_CLNT_H
+
+#undef HAVE_SYS_SOCKET_H
+
+#undef HAVE_SYS_SIGNAL_H
+
+#undef HAVE_STRSIGNAL
+
+#undef HAVE_SYS_SIGLIST
+
+#undef HAVE_CRYPT_H
+
+#undef HAVE_STDINT_H
+
+#undef HAVE_STDBOOL_H
+
+#undef HAVE_SYS_FILIO_H
+
+#undef HAVE_KSTAT_H
+
+#undef NO_INET_ATON
+
+#undef HAVE_STRUCT_ADDRINFO
+
+#undef HAVE_GAI_STRERROR
+
+#undef HAVE_FREEADDRINFO
+
+#undef HAVE_GETADDRINFO
+
+#undef HAVE_DIFFTIME
+
+#undef HAVE_GETNAMEINFO
+
+#undef HAVE_INET_NTOP
+
+#undef HAVE_STRUCT_IN6_ADDR
+
+#undef HAVE_STRUCT_SOCKADDR_IN6
+
+#undef HAVE_STRUCT_SOCKADDR_STORAGE
+
+#undef HAVE_FCVT
+
+#undef HAVE_ECVT
+
+#undef HAVE_GCVT
+
+#undef HAVE_STRCASECMP
+
+#undef HAVE_RLIM_T
+
+#undef HAVE_DNSREGISTRATION
+
+/* OS specific */
+#undef solaris
+
+/* Options */
+#undef HAVE_LIBWRAP
+#undef LIBWRAP
+
+#undef HAVE_LOADAVG
+
+#undef uint16_t
+#undef uint32_t
+#undef uint64_t
+#undef gid_t
+#undef uid_t
+#undef socklen_t
+
+/* Versioning Information */
+#define XINETD_VERSION "xinetd Version 2.3.9"
+#define MISC_VERSION   "MISC Version 1.2.2"
+#define PSET_VERSION   "PSET Version 1.2.0"
+#define SIO_VERSION    "SIO Version 1.6.2"
+#define STR_VERSION    "STR Version 1.4.1"
+#define TIMER_VERSION  "TIMER Version 1.2.2"
+#define XLOG_VERSION   "XLOG Version 1.1.2"

@@ -115,7 +115,7 @@
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBKeyboard;
 				MODULE_VERSION = 1.9;
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = "-fno-default-inline -W -Wall -Wno-unused";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = AppleUSBKeyboard;
@@ -480,7 +480,7 @@
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBComposite;
 				MODULE_VERSION = 1.9.2;
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = "-fno-default-inline -W -Wall -Wno-unused";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = AppleUSBComposite;
@@ -945,8 +945,8 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBOHCI;
-				MODULE_VERSION = 1.9.2;
-				OTHER_CFLAGS = "-W -Wall -Wno-unused";
+				MODULE_VERSION = 1.9.4fc5;
+				OTHER_CFLAGS = "-fno-default-inline -W -Wall -Wno-unused";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = AppleUSBOHCI;
@@ -969,7 +969,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleUSBOHCI</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.9.2, Copyright Apple Computer, Inc. 2000-2002</string>
+	<string>1.9.4, Copyright Apple Computer, Inc. 2000-2002</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -981,11 +981,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.9.2</string>
+	<string>1.9.4</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.9.2</string>
+	<string>1.9.4fc5</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleUSBOHCI</key>
@@ -1249,8 +1249,8 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOUSBFamily;
-				MODULE_VERSION = 1.9.2;
-				OTHER_CFLAGS = "-fno-default-inline";
+				MODULE_VERSION = 1.9.4;
+				OTHER_CFLAGS = "-fno-default-inline -W -Wall -Wno-unused";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOUSBFamily;
@@ -1287,7 +1287,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOUSBFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.9.2, Copyright Apple Computer, Inc. 2000-2002</string>
+	<string>1.9.4, Copyright Apple Computer, Inc. 2000-2002</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1299,11 +1299,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.9.2</string>
+	<string>1.9.4</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.9.2</string>
+	<string>1.9.4</string>
 	<key>IOKitPersonalities</key>
 	<dict/>
 	<key>OSBundleCompatibleVersion</key>
@@ -1710,7 +1710,7 @@
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBHub;
 				MODULE_VERSION = 1.9.2;
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = "-fno-default-inline -W -Wall -Wno-unused";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = AppleUSBHub;
@@ -1991,8 +1991,8 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOUSBUserClient;
-				MODULE_VERSION = 1.9.2;
-				OTHER_CFLAGS = "-fno-default-inline";
+				MODULE_VERSION = 1.9.4;
+				OTHER_CFLAGS = "-fno-default-inline -W -Wall -Wno-unused";
 				OTHER_LDFLAGS = " ";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOUSBUserClient;
@@ -2015,7 +2015,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOUSBUserClient</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.9.2, Copyright Apple Computer, Inc. 2000-2002</string>
+	<string>1.9.4, Copyright Apple Computer, Inc. 2000-2002</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -2027,11 +2027,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.9.2</string>
+	<string>1.9.4</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.9.2</string>
+	<string>1.9.4</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOUSBDeviceUserClientInit</key>
@@ -2528,7 +2528,7 @@
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBCDCDriver;
 				MODULE_VERSION = 1.9;
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = "-fno-default-inline -W -Wall -Wno-unused";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = AppleUSBCDCDriver;
@@ -2792,6 +2792,7 @@
 				19C28FB6FE9D52B211CA2CBB,
 				F5E6DDDD01206E6801000001,
 				F5F1994F01209AE401000001,
+				3E20590A034E3DD000000164,
 			);
 			isa = PBXGroup;
 			name = IOUSBFamily;
@@ -2819,7 +2820,7 @@
 				FRAMEWORK_SEARCH_PATHS = "";
 				HEADER_SEARCH_PATHS = "";
 				LIBRARY_SEARCH_PATHS = "";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = "-fno-default-inline -W -Wall -Wno-unused";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOUSBLib;
@@ -2842,7 +2843,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOUSBLib</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.9.2, Copyright Apple Computer, Inc. 2000-2002</string>
+	<string>1.9.4, Copyright Apple Computer, Inc. 2000-2002</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -2854,11 +2855,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.9.2</string>
+	<string>1.9.4</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.9.2</string>
+	<string>1.9.4</string>
 	<key>CFPlugInDynamicRegisterFunction</key>
 	<string></string>
 	<key>CFPlugInDynamicRegistration</key>
@@ -3014,7 +3015,7 @@
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOUSBHIDDriver;
 				MODULE_VERSION = 1.9.2;
-				OTHER_CFLAGS = "-fno-default-inline";
+				OTHER_CFLAGS = "-fno-default-inline -W -Wall -Wno-unused";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOUSBHIDDriver;
@@ -3290,7 +3291,7 @@
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBMergeNub;
 				MODULE_VERSION = 1.9;
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = "-fno-default-inline -W -Wall -Wno-unused";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = AppleUSBMergeNub;
@@ -3752,6 +3753,22 @@
 //3A2
 //3A3
 //3A4
+//3E0
+//3E1
+//3E2
+//3E3
+//3E4
+		3E20590A034E3DD000000164 = {
+			isa = PBXFrameworkReference;
+			name = Kernel.framework;
+			path = /System/Library/Frameworks/Kernel.framework;
+			refType = 0;
+		};
+//3E0
+//3E1
+//3E2
+//3E3
+//3E4
 //F50
 //F51
 //F52
@@ -4823,7 +4840,7 @@
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBOpticalMouse;
 				MODULE_VERSION = 1.9;
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = "-fno-default-inline -W -Wall -Wno-unused";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = AppleUSBOpticalMouse;
@@ -5101,7 +5118,7 @@
 			);
 			buildSettings = {
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = "-fno-default-inline -W -Wall -Wno-unused";
 				OTHER_LDFLAGS = "-bundle";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = USBUPSSupport;

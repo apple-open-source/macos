@@ -28,17 +28,17 @@
  *
  */
 
-#include <IOKit/firewire/IOFWIsochChannel.h>
+#import "IOFWIsochChannel.h"
 
 class IOFWUserIsochChannel: public IOFWIsochChannel
 {
 	OSDeclareDefaultStructors(IOFWUserIsochChannel)
 	
  public:
-    virtual IOReturn allocateChannel();
-    virtual IOReturn releaseChannel();
-    virtual IOReturn start();
-    virtual IOReturn stop();
+    virtual IOReturn 				allocateChannel();
+    virtual IOReturn 				releaseChannel();
+    virtual IOReturn 				start();
+    virtual IOReturn 				stop();
 	
  public:
 	virtual IOReturn	userAllocateChannelBegin(

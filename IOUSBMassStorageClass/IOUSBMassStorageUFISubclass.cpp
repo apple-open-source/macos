@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,6 +20,10 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Includes
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 // This class' header file
 #include <IOKit/usb/IOUSBMassStorageUFISubclass.h>
 
@@ -29,7 +33,14 @@
 #include <IOKit/scsi-commands/SCSICmds_INQUIRY_Definitions.h>
 #include <IOKit/scsi-commands/SCSICommandOperationCodes.h>
 
+#include <IOKit/scsi-commands/SCSITask.h>
+
 #include "Debugging.h"
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Macros
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 #if (USB_MASS_STORAGE_DEBUG == 0)
 #define USB_MSC_UFI_DEBUGGING_LEVEL 0
@@ -62,22 +73,37 @@
 #define STATUS_LOG(x)
 #endif
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Constants
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 #define kKeySwitchProperty			"Keyswitch"
 #define kAppleKeySwitchProperty		"AppleKeyswitch"
 
-#define super IOUSBMassStorageClass
 OSDefineMetaClassAndStructors( IOUSBMassStorageUFISubclass, IOUSBMassStorageClass )
 
 
+#pragma mark -
+#pragma mark *** IOUSBMassStorageUFIDevice declaration ***
+#pragma mark -
+
+OSDefineMetaClassAndStructors( IOUSBMassStorageUFIDevice, IOSCSIPrimaryCommandsDevice )
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ free - Called by IOKit to free any resources.					   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 void
-IOUSBMassStorageUFISubclass::free ( void )
+IOUSBMassStorageUFIDevice::free ( void )
 {
 	
-	// Check first that fIOUSBMassStorageUFISubclassReserved is not NULL
+	// Check first that fIOUSBMassStorageUFIDeviceReserved is not NULL
 	// so that we don't dereference it when we shouldn't when we
 	// check if fKeySwitchNotifier is NULL since fKeySwitchNotifier is
-	// defined to be fIOUSBMassStorageUFISubclassReserved->fKeySwitchNotifier
-	if ( fIOUSBMassStorageUFISubclassReserved != NULL )
+	// defined to be fIOUSBMassStorageUFIDeviceReserved->fKeySwitchNotifier
+	if ( fIOUSBMassStorageUFIDeviceReserved != NULL )
 	{
 		
 		if ( fKeySwitchNotifier != NULL )
@@ -88,20 +114,24 @@ IOUSBMassStorageUFISubclass::free ( void )
 			
 		}
 		
-		IOFree ( fIOUSBMassStorageUFISubclassReserved,
-				 sizeof ( IOUSBMassStorageUFISubclassExpansionData ) );
-		fIOUSBMassStorageUFISubclassReserved = NULL;
+		IOFree ( fIOUSBMassStorageUFIDeviceReserved,
+				 sizeof ( IOUSBMassStorageUFIDeviceExpansionData ) );
+		fIOUSBMassStorageUFIDeviceReserved = NULL;
 		
 	}
 	
 	// Make sure to call our super
-	super::free ( );
+	IOSCSIPrimaryCommandsDevice::free ( );
 	
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ message - Called by IOKit to deliver messages.				   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 IOReturn
-IOUSBMassStorageUFISubclass::message( UInt32 type, IOService * provider, void * argument )
+IOUSBMassStorageUFIDevice::message( UInt32 type, IOService * provider, void * argument )
 {
 	
 	IOReturn	result;
@@ -111,11 +141,11 @@ IOUSBMassStorageUFISubclass::message( UInt32 type, IOService * provider, void * 
 		
 		case kIOMessageServiceIsRequestingClose:
 		{
-			// Check first that fIOUSBMassStorageUFISubclassReserved is not NULL
+			// Check first that fIOUSBMassStorageUFIDeviceReserved is not NULL
 			// so that we don't dereference it when we shouldn't when we
 			// check if fKeySwitchNotifier is NULL since fKeySwitchNotifier is
-			// defined to be fIOUSBMassStorageUFISubclassReserved->fKeySwitchNotifier
-			if ( fIOUSBMassStorageUFISubclassReserved != NULL )
+			// defined to be fIOUSBMassStorageUFIDeviceReserved->fKeySwitchNotifier
+			if ( fIOUSBMassStorageUFIDeviceReserved != NULL )
 			{
 				if ( fKeySwitchNotifier != NULL )
 				{
@@ -125,13 +155,13 @@ IOUSBMassStorageUFISubclass::message( UInt32 type, IOService * provider, void * 
 					
 				}
 			}
-			result = super::message( type, provider, argument );
+			result = IOSCSIPrimaryCommandsDevice::message( type, provider, argument );
 		}
 		break;
 		
 		default:
 		{
-			result = super::message( type, provider, argument );
+			result = IOSCSIPrimaryCommandsDevice::message( type, provider, argument );
 		}
 	}
 	
@@ -140,45 +170,20 @@ IOUSBMassStorageUFISubclass::message( UInt32 type, IOService * provider, void * 
 }
 
 
-bool
-IOUSBMassStorageUFISubclass::BeginProvidedServices( void )
-{
-	fDeviceCharacteristicsDictionary = OSDictionary::withCapacity( 1 );
-	if( fDeviceCharacteristicsDictionary == NULL )
-	{
-		ERROR_LOG( ( "%s: couldn't device characteristics dictionary.\n", getName() ) );
-		return false;
-	}
-	
-	if( InitializeDeviceSupport() == false )
-	{
-		return false;
-	}
-
-	// Create what will be the client.
-	CreateStorageServiceNub();
-
-	// Enable the check for media	
-	EnablePolling();		
-
-	return true;
-}
-
-bool	
-IOUSBMassStorageUFISubclass::EndProvidedServices( void )
-{
-	return true;
-}
-
 #pragma mark -
-#pragma mark Static Class Methods
+#pragma mark *** Static Class Methods ***
+#pragma mark -
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ sProcessPoll - Gets scheduled to execute the polls.	   [STATIC][PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 void 
-IOUSBMassStorageUFISubclass::sProcessPoll( void * theUFIDriver, void * refCon )
+IOUSBMassStorageUFIDevice::sProcessPoll( void * theUFIDriver, void * refCon )
 {
-	IOUSBMassStorageUFISubclass *	driver;
+	IOUSBMassStorageUFIDevice *	driver;
 	
-	driver = (IOUSBMassStorageUFISubclass *) theUFIDriver;
+	driver = (IOUSBMassStorageUFIDevice *) theUFIDriver;
 	driver->ProcessPoll();
 	if( driver->fPollingMode != kPollingMode_Suspended )
 	{
@@ -191,10 +196,116 @@ IOUSBMassStorageUFISubclass::sProcessPoll( void * theUFIDriver, void * refCon )
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ AsyncReadWriteComplete - Completion routine for I/O	  [STATIC][PRIVATE]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+void 
+IOUSBMassStorageUFIDevice::AsyncReadWriteComplete( SCSITaskIdentifier request )
+{
+	void *							clientData;
+	IOReturn						status;
+	UInt64							actCount = 0;
+	IOUSBMassStorageUFIDevice *		taskOwner;
+		
+	if ( request == NULL )
+	{
+		PANIC_NOW(( "IOUSBMassStorageUFIDevice::AsyncReadWriteComplete request==NULL." ));
+	}
+
+	taskOwner = OSDynamicCast( IOUSBMassStorageUFIDevice, IOSCSIPrimaryCommandsDevice::sGetOwnerForTask( request ));
+	if ( taskOwner == NULL )
+	{
+		PANIC_NOW(( "IOUSBMassStorageUFIDevice::AsyncReadWriteComplete taskOwner==NULL." ));
+	}
+
+	// Extract the client data from the SCSITask	
+	clientData	= taskOwner->GetApplicationLayerReference( request );
+	
+	if (( taskOwner->GetServiceResponse( request ) == kSCSIServiceResponse_TASK_COMPLETE ) &&
+		( taskOwner->GetTaskStatus( request ) == kSCSITaskStatus_GOOD )) 
+	{
+		status = kIOReturnSuccess;
+	}
+	else
+	{
+		ERROR_LOG ( ( "Error on read/write\n" ) );
+		status = kIOReturnError;
+	}
+
+	if ( status == kIOReturnSuccess )
+	{
+		actCount = taskOwner->GetDataBuffer( request )->getLength();
+	}
+	
+
+	taskOwner->ReleaseSCSITask( request );
+
+	IOUFIStorageServices::AsyncReadWriteComplete( clientData, status, actCount );
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ ServerKeyswitchCallback -	Called when notifications about the server
+//								keyswitch are broadcast.	  [STATIC][PRIVATE]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+IOUSBMassStorageUFIDevice::ServerKeyswitchCallback (
+									void *			target,
+									void * 			refCon,
+									IOService * 	newDevice )
+{
+	
+	OSBoolean *						shouldNotPoll	= NULL;
+	IOUSBMassStorageUFIDevice *	device			= NULL;
+	
+	STATUS_LOG( ( "ServerKeyswitchCallback called.\n" ) );
+	
+	shouldNotPoll = OSDynamicCast (
+							OSBoolean,
+							newDevice->getProperty ( kKeySwitchProperty ) );
+	
+	device = OSDynamicCast ( IOUSBMassStorageUFIDevice, ( OSObject * ) target );
+	
+	if ( ( shouldNotPoll != NULL ) && ( device != NULL ) )
+	{
+		
+		// Is the key unlocked?
+		if ( shouldNotPoll->isFalse ( ) )
+		{
+			
+			// Key is unlocked, start resuming device support
+			device->ResumeDeviceSupport ( );
+			
+		}
+		
+		else if ( shouldNotPoll->isTrue ( ) )
+		{
+			
+			// Key is locked, suspend device support
+			device->SuspendDeviceSupport ( );
+			
+		}
+		
+	}
+	
+	return true;
+	
+}
+
+
+#pragma mark -
+#pragma mark *** Class Methods ***
 #pragma mark -
 
-bool 
-IOUSBMassStorageUFISubclass::InitializeDeviceSupport( void )
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ InitializeDeviceSupport - Initializes device support			[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+IOUSBMassStorageUFIDevice::InitializeDeviceSupport( void )
 {
 	bool setupSuccessful 	= false;
 	
@@ -202,7 +313,7 @@ IOUSBMassStorageUFISubclass::InitializeDeviceSupport( void )
 	fMediumPresent			= false;
 	fMediumIsWriteProtected	= true;
 
-    STATUS_LOG( ( "IOUSBMassStorageUFISubclass::InitializeDeviceSupport called\n" ) );
+    STATUS_LOG( ( "IOUSBMassStorageUFIDevice::InitializeDeviceSupport called\n" ) );
 
 	ClearNotReadyStatus();
 
@@ -210,28 +321,28 @@ IOUSBMassStorageUFISubclass::InitializeDeviceSupport( void )
 	
 	fPollingMode = kPollingMode_NewMedia;
 	fPollingThread = thread_call_allocate(
-					( thread_call_func_t ) IOUSBMassStorageUFISubclass::sProcessPoll,
+					( thread_call_func_t ) IOUSBMassStorageUFIDevice::sProcessPoll,
 					( thread_call_param_t ) this );
 	
 	require_nonzero( fPollingThread, ERROR_EXIT );
 	
-	fIOUSBMassStorageUFISubclassReserved = ( IOUSBMassStorageUFISubclassExpansionData * )
-			IOMalloc ( sizeof ( IOUSBMassStorageUFISubclassExpansionData ) );
+	fIOUSBMassStorageUFIDeviceReserved = ( IOUSBMassStorageUFIDeviceExpansionData * )
+			IOMalloc ( sizeof ( IOUSBMassStorageUFIDeviceExpansionData ) );
 	
-	require_nonzero ( fIOUSBMassStorageUFISubclassReserved, ERROR_EXIT );
+	require_nonzero ( fIOUSBMassStorageUFIDeviceReserved, ERROR_EXIT );
 	
-	bzero ( fIOUSBMassStorageUFISubclassReserved,
-			sizeof ( IOUSBMassStorageUFISubclassExpansionData ) );
+	bzero ( fIOUSBMassStorageUFIDeviceReserved,
+			sizeof ( IOUSBMassStorageUFIDeviceExpansionData ) );
 	
 	// Add a notification for the Apple KeySwitch on the server.
 	fKeySwitchNotifier = addNotification (
 			gIOMatchedNotification,
 			nameMatching ( kAppleKeySwitchProperty ),
-			( IOServiceNotificationHandler ) &IOUSBMassStorageUFISubclass::ServerKeyswitchCallback,
+			( IOServiceNotificationHandler ) &IOUSBMassStorageUFIDevice::ServerKeyswitchCallback,
 			this,
 			0 );
 
-	STATUS_LOG( ( "IOUSBMassStorageUFISubclass::InitializeDeviceSupport setupSuccessful = %d\n", setupSuccessful ) );
+	STATUS_LOG( ( "IOUSBMassStorageUFIDevice::InitializeDeviceSupport setupSuccessful = %d\n", setupSuccessful ) );
 	
 	setupSuccessful = true;
 	
@@ -239,8 +350,25 @@ ERROR_EXIT:
 	return setupSuccessful;
 }
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ StartDeviceSupport - Starts device support					[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+void
+IOUSBMassStorageUFIDevice::StartDeviceSupport( void )
+{
+	// This is only here to keep the compiler happy since
+	// the method is pure virtual.  We don't need it for UFI.
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SuspendDeviceSupport - Suspends device support				[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 void 
-IOUSBMassStorageUFISubclass::SuspendDeviceSupport( void )
+IOUSBMassStorageUFIDevice::SuspendDeviceSupport( void )
 {
 	if( fPollingMode != kPollingMode_Suspended )
 	{
@@ -248,8 +376,13 @@ IOUSBMassStorageUFISubclass::SuspendDeviceSupport( void )
     }		
 }
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ ResumeDeviceSupport - Resumes device support					[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 void 
-IOUSBMassStorageUFISubclass::ResumeDeviceSupport( void )
+IOUSBMassStorageUFIDevice::ResumeDeviceSupport( void )
 {
 	// The driver has not found media in the device, restart 
 	// the polling for new media.
@@ -260,10 +393,27 @@ IOUSBMassStorageUFISubclass::ResumeDeviceSupport( void )
 	}
 }
 
-void 
-IOUSBMassStorageUFISubclass::TerminateDeviceSupport( void )
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ StopDeviceSupport - Stops device support						[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+void
+IOUSBMassStorageUFIDevice::StopDeviceSupport( void )
 {
-    STATUS_LOG ( ( "IOUSBMassStorageUFISubclass::cleanUp called.\n" ) );
+	// This is only here to keep the compiler happy since
+	// the method is pure virtual.  We don't need it for UFI.
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ TerminateDeviceSupport - Terminates device support			[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+void 
+IOUSBMassStorageUFIDevice::TerminateDeviceSupport( void )
+{
+    STATUS_LOG ( ( "IOUSBMassStorageUFIDevice::cleanUp called.\n" ) );
 
     if ( fPollingThread != NULL )
     {
@@ -272,8 +422,13 @@ IOUSBMassStorageUFISubclass::TerminateDeviceSupport( void )
     }
 }
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ ClearNotReadyStatus - Clears any NOT_READY status on device	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 bool
-IOUSBMassStorageUFISubclass::ClearNotReadyStatus( void )
+IOUSBMassStorageUFIDevice::ClearNotReadyStatus( void )
 {
 	SCSI_Sense_Data				senseBuffer;
 	IOMemoryDescriptor *		bufferDesc;
@@ -298,7 +453,7 @@ IOUSBMassStorageUFISubclass::ClearNotReadyStatus( void )
 		}
 		else
 		{
-			PANIC_NOW( ( "IOUSBMassStorageUFISubclass::ClearNotReadyStatus malformed command" ) );
+			PANIC_NOW( ( "IOUSBMassStorageUFIDevice::ClearNotReadyStatus malformed command" ) );
 		}
 		
 		if( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE )
@@ -317,7 +472,7 @@ IOUSBMassStorageUFISubclass::ClearNotReadyStatus( void )
 					}
 					else
 					{
-						PANIC_NOW( ( "IOUSBMassStorageUFISubclass::ClearNotReadyStatus malformed command" ) );
+						PANIC_NOW( ( "IOUSBMassStorageUFIDevice::ClearNotReadyStatus malformed command" ) );
 					}
 					
 					if( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE )
@@ -383,8 +538,13 @@ IOUSBMassStorageUFISubclass::ClearNotReadyStatus( void )
 	return result;
 }
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ EnablePolling - Schedules the polling thread to run			[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 void 
-IOUSBMassStorageUFISubclass::EnablePolling( void )
+IOUSBMassStorageUFIDevice::EnablePolling( void )
 {		
     AbsoluteTime	time;
 	
@@ -401,8 +561,14 @@ IOUSBMassStorageUFISubclass::EnablePolling( void )
 	}
 }
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ DisablePolling - Unschedules the polling thread if it hasn't run yet
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 void 
-IOUSBMassStorageUFISubclass::DisablePolling( void )
+IOUSBMassStorageUFIDevice::DisablePolling( void )
 {		
 	fPollingMode = kPollingMode_Suspended;
 
@@ -415,8 +581,14 @@ IOUSBMassStorageUFISubclass::DisablePolling( void )
 	}
 }
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ DetermineDeviceCharacteristics - Determines device characteristics
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 bool 
-IOUSBMassStorageUFISubclass::DetermineDeviceCharacteristics( void )
+IOUSBMassStorageUFIDevice::DetermineDeviceCharacteristics( void )
 {
 	SCSIServiceResponse 			serviceResponse = kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
 	SCSITaskIdentifier				request = NULL;
@@ -428,7 +600,7 @@ IOUSBMassStorageUFISubclass::DetermineDeviceCharacteristics( void )
 	char							tempString[17]; // Maximum + 1 for null char
 	OSString *						string;
 
-	STATUS_LOG( ( "IOUSBMassStorageUFISubclass::DetermineDeviceCharacteristics called\n" ) );
+	STATUS_LOG( ( "IOUSBMassStorageUFIDevice::DetermineDeviceCharacteristics called\n" ) );
 
 	inquiryBuffer = ( SCSICmd_INQUIRY_StandardData * ) IOMalloc( inquiryBufferCount );
 	if( inquiryBuffer == NULL )
@@ -460,7 +632,7 @@ IOUSBMassStorageUFISubclass::DetermineDeviceCharacteristics( void )
 	}
 	else
 	{
-		PANIC_NOW( ( "IOUSBMassStorageUFISubclass::DetermineDeviceCharacteristics malformed command" ) );
+		PANIC_NOW( ( "IOUSBMassStorageUFIDevice::DetermineDeviceCharacteristics malformed command" ) );
 		goto ErrorExit;
 	}
 	
@@ -549,7 +721,7 @@ IOUSBMassStorageUFISubclass::DetermineDeviceCharacteristics( void )
 
 ErrorExit:
 
-	STATUS_LOG( ( "IOUSBMassStorageUFISubclass::DetermineDeviceCharacteristics exiting\n" ) );
+	STATUS_LOG( ( "IOUSBMassStorageUFIDevice::DetermineDeviceCharacteristics exiting\n" ) );
 
 	if( request )
 	{
@@ -573,41 +745,55 @@ ErrorExit:
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SetMediumCharacteristics - Sets medium characteristics		[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 void 
-IOUSBMassStorageUFISubclass::SetMediumCharacteristics( UInt32 blockSize, UInt32 blockCount )
+IOUSBMassStorageUFIDevice::SetMediumCharacteristics( UInt32 blockSize, UInt32 blockCount )
 {
-    STATUS_LOG( ( "IOUSBMassStorageUFISubclass::SetMediumCharacteristics called\n" ) );
+    STATUS_LOG( ( "IOUSBMassStorageUFIDevice::SetMediumCharacteristics called\n" ) );
 	STATUS_LOG( ( "mediumBlockSize = %ld, blockCount = %ld\n", blockSize, blockCount ) );
 	
 	fMediumBlockSize	= blockSize;
 	fMediumBlockCount	= blockCount;
 	
-	STATUS_LOG( ( "IOUSBMassStorageUFISubclass::SetMediumCharacteristics exiting\n" ) );
+	STATUS_LOG( ( "IOUSBMassStorageUFIDevice::SetMediumCharacteristics exiting\n" ) );
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ ResetMediumCharacteristics -	Resets medium characteristics to known
+//									values							[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 void 
-IOUSBMassStorageUFISubclass::ResetMediumCharacteristics( void )
+IOUSBMassStorageUFIDevice::ResetMediumCharacteristics( void )
 {
-    STATUS_LOG ( ( "IOUSBMassStorageUFISubclass::ResetMediumCharacteristics called\n" ) );
+    STATUS_LOG ( ( "IOUSBMassStorageUFIDevice::ResetMediumCharacteristics called\n" ) );
 	fMediumBlockSize		= 0;
 	fMediumBlockCount		= 0;
 	fMediumPresent			= false;
 	fMediumIsWriteProtected = true;
-	STATUS_LOG ( ( "IOUSBMassStorageUFISubclass::ResetMediumCharacteristics exiting\n" ) );
+	STATUS_LOG ( ( "IOUSBMassStorageUFIDevice::ResetMediumCharacteristics exiting\n" ) );
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ CreateStorageServiceNub - Creates the linkage object for IOStorageFamily
+//								to use.								[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 void 
-IOUSBMassStorageUFISubclass::CreateStorageServiceNub( void )
+IOUSBMassStorageUFIDevice::CreateStorageServiceNub( void )
 {
-    STATUS_LOG( ( "IOUSBMassStorageUFISubclass::CreateStorageServiceNub entering.\n" ) );
+    STATUS_LOG( ( "IOUSBMassStorageUFIDevice::CreateStorageServiceNub entering.\n" ) );
 
 	IOService * 	nub = new IOUFIStorageServices;
 	if( nub == NULL )
 	{
-		ERROR_LOG( ( "IOUSBMassStorageUFISubclass::CreateStorageServiceNub failed\n" ) );
-		PANIC_NOW(( "IOUSBMassStorageUFISubclass::CreateStorageServiceNub failed\n" ));
+		ERROR_LOG( ( "IOUSBMassStorageUFIDevice::CreateStorageServiceNub failed\n" ) );
+		PANIC_NOW(( "IOUSBMassStorageUFIDevice::CreateStorageServiceNub failed\n" ));
 		return;
 	}
 	
@@ -616,19 +802,23 @@ IOUSBMassStorageUFISubclass::CreateStorageServiceNub( void )
 	if( !nub->attach( this ) )
 	{
 		// panic since the nub can't attach
-		PANIC_NOW(( "IOUSBMassStorageUFISubclass::CreateStorageServiceNub unable to attach nub" ));
+		PANIC_NOW(( "IOUSBMassStorageUFIDevice::CreateStorageServiceNub unable to attach nub" ));
 		return;
 	}
 	
 	nub->registerService();
-	STATUS_LOG( ( "IOUSBMassStorageUFISubclass::CreateStorageServiceNub exiting.\n" ) );
+	STATUS_LOG( ( "IOUSBMassStorageUFIDevice::CreateStorageServiceNub exiting.\n" ) );
 
 	nub->release();
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ ProcessPoll - Processes a poll for media or media removal.	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 void 
-IOUSBMassStorageUFISubclass::ProcessPoll( void )
+IOUSBMassStorageUFIDevice::ProcessPoll( void )
 {
 	switch( fPollingMode )
 	{
@@ -653,8 +843,13 @@ IOUSBMassStorageUFISubclass::ProcessPoll( void )
 	}
 }
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ PollForNewMedia - Polls for new media insertion.				[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 void 
-IOUSBMassStorageUFISubclass::PollForNewMedia( void )
+IOUSBMassStorageUFIDevice::PollForNewMedia( void )
 {
 	bool						mediaFound = false;
 	UInt64						blockCount;
@@ -693,17 +888,22 @@ IOUSBMassStorageUFISubclass::PollForNewMedia( void )
 	
 }
 
-// Check if media has been inserted into the device.
-// if medium is detected, this method will return true, 
-// else it will return false
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ DetermineMediaPresence -	Checks if media has been inserted into the
+//								device. If medium is detected, this method
+//								will return true, else it will return false
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 bool
-IOUSBMassStorageUFISubclass::DetermineMediaPresence( void )
+IOUSBMassStorageUFIDevice::DetermineMediaPresence( void )
 {
 	SCSIServiceResponse			serviceResponse = kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
 	SCSITaskIdentifier			request = NULL;
 	bool						mediaFound = false;
 
-	STATUS_LOG(( "IOUSBMassStorageUFISubclass::DetermineMediaPresence called" ));
+	STATUS_LOG(( "IOUSBMassStorageUFIDevice::DetermineMediaPresence called" ));
 
 	request = GetSCSITask();
 	if( request == NULL )
@@ -719,7 +919,7 @@ IOUSBMassStorageUFISubclass::DetermineMediaPresence( void )
 	}
 	else
 	{
-		ERROR_LOG(( "IOUSBMassStorageUFISubclass::DetermineMediaPresence malformed command" ));
+		ERROR_LOG(( "IOUSBMassStorageUFIDevice::DetermineMediaPresence malformed command" ));
 		goto CHECK_DONE;
 	}
 	
@@ -752,7 +952,7 @@ IOUSBMassStorageUFISubclass::DetermineMediaPresence( void )
 			}
 			else
 			{
-				ERROR_LOG(( "IOUSBMassStorageUFISubclass::PollForMedia malformed command" ));
+				ERROR_LOG(( "IOUSBMassStorageUFIDevice::PollForMedia malformed command" ));
 				bufferDesc->release();
 				goto CHECK_DONE;
 			}
@@ -817,7 +1017,7 @@ IOUSBMassStorageUFISubclass::DetermineMediaPresence( void )
 	}
 	else
 	{
-		ERROR_LOG(( "IOUSBMassStorageUFISubclass::PollForMedia malformed command" ));
+		ERROR_LOG(( "IOUSBMassStorageUFIDevice::PollForMedia malformed command" ));
 		formatDesc->release();
 		goto CHECK_DONE;
 	}
@@ -853,7 +1053,7 @@ IOUSBMassStorageUFISubclass::DetermineMediaPresence( void )
 				}
 				else
 				{
-					ERROR_LOG(( "IOUSBMassStorageUFISubclass::PollForMedia malformed command" ));
+					ERROR_LOG(( "IOUSBMassStorageUFIDevice::PollForMedia malformed command" ));
 					bufferDesc->release();
 					goto CHECK_DONE;
 				}
@@ -928,9 +1128,14 @@ CHECK_DONE:
 	return mediaFound;
 }
 
-// Returns true if the capacity could be determined, else it returns false.
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ DetermineMediumCapacity - Determines capacity of the medium. Returns true
+//								if the capacity could be determined, else it
+//								returns false.	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 bool 
-IOUSBMassStorageUFISubclass::DetermineMediumCapacity( UInt64 * blockSize, UInt64 * blockCount )
+IOUSBMassStorageUFIDevice::DetermineMediumCapacity( UInt64 * blockSize, UInt64 * blockCount )
 {
 	SCSIServiceResponse			serviceResponse= kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
 	UInt32						capacityData[2];
@@ -963,7 +1168,7 @@ IOUSBMassStorageUFISubclass::DetermineMediumCapacity( UInt64 * blockSize, UInt64
 	}
 	else
 	{
-		ERROR_LOG(( "IOUSBMassStorageUFISubclass::PollForMedia malformed command" ));
+		ERROR_LOG(( "IOUSBMassStorageUFIDevice::PollForMedia malformed command" ));
     	result = false;
     	goto isDone;
 	}
@@ -997,8 +1202,14 @@ isDone:
 	return result;
 }
 
-bool 
-IOUSBMassStorageUFISubclass::DetermineMediumWriteProtectState( void )
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ DetermineMediumWriteProtectState - Determines medium write protect state.
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+IOUSBMassStorageUFIDevice::DetermineMediumWriteProtectState( void )
 {
 	SCSIServiceResponse 	serviceResponse = kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
 	UInt8					modeBuffer[8];
@@ -1006,7 +1217,7 @@ IOUSBMassStorageUFISubclass::DetermineMediumWriteProtectState( void )
 	SCSITaskIdentifier		request = NULL;
 	bool					mediumIsProtected = true;
 
-	STATUS_LOG( ( "IOUSBMassStorageUFISubclass::checkWriteProtection called\n" ) );
+	STATUS_LOG( ( "IOUSBMassStorageUFIDevice::checkWriteProtection called\n" ) );
 		
 	request = GetSCSITask();
 	if( request == NULL )
@@ -1040,7 +1251,7 @@ IOUSBMassStorageUFISubclass::DetermineMediumWriteProtectState( void )
 	}
 	else
 	{
-		ERROR_LOG(( "IOUSBMassStorageUFISubclass::CheckWriteProtection malformed command" ));
+		ERROR_LOG(( "IOUSBMassStorageUFIDevice::CheckWriteProtection malformed command" ));
 		goto WP_CHECK_DONE;
 	}
 
@@ -1073,8 +1284,13 @@ WP_CHECK_DONE:
 	return mediumIsProtected;
 }
 
-void 
-IOUSBMassStorageUFISubclass::PollForMediaRemoval( void )
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ PollForMediaRemoval - Polls for media removal.				[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+void
+IOUSBMassStorageUFIDevice::PollForMediaRemoval( void )
 {
 	SCSIServiceResponse			serviceResponse= kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
 	SCSITaskIdentifier			request = NULL;
@@ -1095,7 +1311,7 @@ IOUSBMassStorageUFISubclass::PollForMediaRemoval( void )
 	}
 	else
 	{
-		PANIC_NOW(( "IOUSBMassStorageUFISubclass::PollForMedia malformed command" ));
+		PANIC_NOW(( "IOUSBMassStorageUFIDevice::PollForMedia malformed command" ));
 		goto REMOVE_CHECK_DONE;
 	}
 	
@@ -1126,7 +1342,7 @@ IOUSBMassStorageUFISubclass::PollForMediaRemoval( void )
 			}
 			else
 			{
-				PANIC_NOW(( "IOUSBMassStorageUFISubclass::PollForMedia malformed command" ));
+				PANIC_NOW(( "IOUSBMassStorageUFIDevice::PollForMedia malformed command" ));
 				bufferDesc->release();
 				goto REMOVE_CHECK_DONE;
 			}
@@ -1170,102 +1386,73 @@ REMOVE_CHECK_DONE:
 }
 
 
-bool
-IOUSBMassStorageUFISubclass::ServerKeyswitchCallback (
-									void *			target,
-									void * 			refCon,
-									IOService * 	newDevice )
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetInitialPowerState - Currently does nothing.				[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+UInt32
+IOUSBMassStorageUFIDevice::GetInitialPowerState ( void )
+{
+	return 0;
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ HandlePowerChange - Currently does nothing.					[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+void
+IOUSBMassStorageUFIDevice::HandlePowerChange ( void )
 {
 	
-	OSBoolean *						shouldNotPoll	= NULL;
-	IOUSBMassStorageUFISubclass *	device			= NULL;
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ HandleCheckPowerState - Currently does nothing.				[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+void
+IOUSBMassStorageUFIDevice::HandleCheckPowerState ( void )
+{
 	
-	STATUS_LOG( ( "ServerKeyswitchCallback called.\n" ) );
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ TicklePowerManager - Currently does nothing.					[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+void
+IOUSBMassStorageUFIDevice::TicklePowerManager ( void )
+{
 	
-	shouldNotPoll = OSDynamicCast (
-							OSBoolean,
-							newDevice->getProperty ( kKeySwitchProperty ) );
-	
-	device = OSDynamicCast ( IOUSBMassStorageUFISubclass, ( OSObject * ) target );
-	
-	if ( ( shouldNotPoll != NULL ) && ( device != NULL ) )
-	{
-		
-		// Is the key unlocked?
-		if ( shouldNotPoll->isFalse ( ) )
-		{
-			
-			// Key is unlocked, start resuming device support
-			device->ResumeDeviceSupport ( );
-			
-		}
-		
-		else if ( shouldNotPoll->isTrue ( ) )
-		{
-			
-			// Key is locked, suspend device support
-			device->SuspendDeviceSupport ( );
-			
-		}
-		
-	}
-	
-	return true;
-	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetNumberOfPowerStateTransitions - Currently does nothing.	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+UInt32
+IOUSBMassStorageUFIDevice::GetNumberOfPowerStateTransitions ( void )
+{
+	return 0;
 }
 
 
 #pragma mark -
-#pragma mark Client Requests Support
+#pragma mark *** Client Requests Support ***
+#pragma mark -
 
-void 
-IOUSBMassStorageUFISubclass::AsyncReadWriteComplete( SCSITaskIdentifier request )
-{
-	void *							clientData;
-	IOReturn						status;
-	UInt64							actCount = 0;
-	IOUSBMassStorageUFISubclass *	taskOwner;
-	SCSITask *						scsiRequest;
-		
-	scsiRequest = OSDynamicCast( SCSITask, request );
-	if ( scsiRequest == NULL )
-	{
-		PANIC_NOW(( "IOUSBMassStorageUFISubclass::AsyncReadWriteComplete scsiRequest==NULL." ));
-	}
 
-	// Extract the client data from the SCSITask	
-	clientData	= scsiRequest->GetApplicationLayerReference();
-	
-	if (( scsiRequest->GetServiceResponse() == kSCSIServiceResponse_TASK_COMPLETE ) &&
-		( scsiRequest->GetTaskStatus() == kSCSITaskStatus_GOOD )) 
-	{
-		status = kIOReturnSuccess;
-	}
-	else
-	{
-		ERROR_LOG ( ( "Error on read/write\n" ) );
-		status = kIOReturnError;
-	}
 
-	if ( status == kIOReturnSuccess )
-	{
-		actCount = scsiRequest->GetDataBuffer()->getLength();
-	}
-	
-	taskOwner = OSDynamicCast( IOUSBMassStorageUFISubclass, scsiRequest->GetTaskOwner());
-	if ( taskOwner == NULL )
-	{
-		PANIC_NOW(( "IOUSBMassStorageUFISubclass::AsyncReadWriteComplete taskOwner==NULL." ));
-	}
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ IssueRead - Performs the Synchronous Read Request				[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
-	taskOwner->ReleaseSCSITask( request );
-
-	IOUFIStorageServices::AsyncReadWriteComplete( clientData, status, actCount );
-}
-
-// Perform the Synchronous Read Request
 IOReturn 
-IOUSBMassStorageUFISubclass::IssueRead( 	IOMemoryDescriptor *	buffer,
+IOUSBMassStorageUFIDevice::IssueRead( 	IOMemoryDescriptor *	buffer,
 										UInt64					startBlock,
 										UInt64					blockCount )
 {
@@ -1290,7 +1477,7 @@ IOUSBMassStorageUFISubclass::IssueRead( 	IOMemoryDescriptor *	buffer,
 	}
 	else
 	{
-		PANIC_NOW(( "IOUSBMassStorageUFISubclass::IssueRead malformed command" ));
+		PANIC_NOW(( "IOUSBMassStorageUFIDevice::IssueRead malformed command" ));
 	}
 
 	ReleaseSCSITask ( request );
@@ -1306,9 +1493,12 @@ IOUSBMassStorageUFISubclass::IssueRead( 	IOMemoryDescriptor *	buffer,
 }
 
 
-// Perform the Asynchronous Read Request
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ IssueRead - Performs the Asynchronous Read Request			[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 IOReturn 
-IOUSBMassStorageUFISubclass::IssueRead( 	IOMemoryDescriptor *	buffer,
+IOUSBMassStorageUFIDevice::IssueRead( 	IOMemoryDescriptor *	buffer,
 										UInt64					startBlock,
 										UInt64					blockCount,
 										void *					clientData )
@@ -1331,21 +1521,25 @@ IOUSBMassStorageUFISubclass::IssueRead( 	IOMemoryDescriptor *	buffer,
     {
     	// The command was successfully built, now send it
     	SetApplicationLayerReference( request, clientData );
-		STATUS_LOG ( ( "IOUSBMassStorageUFISubclass::IssueRead send command.\n" ) );
+		STATUS_LOG ( ( "IOUSBMassStorageUFIDevice::IssueRead send command.\n" ) );
     	SendCommand( request, 0, &this->AsyncReadWriteComplete );
 	}
 	else
 	{
-		PANIC_NOW(( "IOUSBMassStorageUFISubclass::IssueWrite malformed command" ));
+		PANIC_NOW(( "IOUSBMassStorageUFIDevice::IssueWrite malformed command" ));
 		status = kIOReturnError;
 	}
 
 	return status;
 }
 
-// Perform the Synchronous Write Request
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ IssueWrite - Performs the Synchronous Write Request			[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 IOReturn 
-IOUSBMassStorageUFISubclass::IssueWrite( 	IOMemoryDescriptor *	buffer,
+IOUSBMassStorageUFIDevice::IssueWrite( 	IOMemoryDescriptor *	buffer,
 										UInt64					startBlock,
 										UInt64					blockCount )
 {
@@ -1369,7 +1563,7 @@ IOUSBMassStorageUFISubclass::IssueWrite( 	IOMemoryDescriptor *	buffer,
 	}
 	else
 	{
-		PANIC_NOW(( "IOUSBMassStorageUFISubclass::IssueWrite malformed command" ));
+		PANIC_NOW(( "IOUSBMassStorageUFIDevice::IssueWrite malformed command" ));
 	}
 
 	ReleaseSCSITask ( request );
@@ -1385,9 +1579,12 @@ IOUSBMassStorageUFISubclass::IssueWrite( 	IOMemoryDescriptor *	buffer,
 }
 
 
-// Perform the Asynchronous Write Request
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ IssueWrite - Performs the Asynchronous Write Request			[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 IOReturn 
-IOUSBMassStorageUFISubclass::IssueWrite(	IOMemoryDescriptor *	buffer,
+IOUSBMassStorageUFIDevice::IssueWrite(	IOMemoryDescriptor *	buffer,
 										UInt64					startBlock,
 										UInt64					blockCount,
 										void *					clientData )
@@ -1410,20 +1607,25 @@ IOUSBMassStorageUFISubclass::IssueWrite(	IOMemoryDescriptor *	buffer,
     {
     	// The command was successfully built, now send it
     	SetApplicationLayerReference( request, clientData );
-		STATUS_LOG ( ( "IOUSBMassStorageUFISubclass::IssueWrite send command.\n" ) );
+		STATUS_LOG ( ( "IOUSBMassStorageUFIDevice::IssueWrite send command.\n" ) );
     	SendCommand( request, 0, &this->AsyncReadWriteComplete );
 	}
 	else
 	{
-		PANIC_NOW(( "IOUSBMassStorageUFISubclass::IssueWrite malformed command" ));
+		PANIC_NOW(( "IOUSBMassStorageUFIDevice::IssueWrite malformed command" ));
 	}
 
 	return status;
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SyncReadWrite - 	Translates a synchronous I/O request into a
+//						read or a write.							   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 IOReturn 
-IOUSBMassStorageUFISubclass::SyncReadWrite ( 	IOMemoryDescriptor *	buffer,
+IOUSBMassStorageUFIDevice::SyncReadWrite ( 	IOMemoryDescriptor *	buffer,
 											UInt64					startBlock,
 											UInt64					blockCount,
                          					UInt64					blockSize )
@@ -1431,11 +1633,6 @@ IOUSBMassStorageUFISubclass::SyncReadWrite ( 	IOMemoryDescriptor *	buffer,
 	IODirection		direction;
 	IOReturn		theErr;
 
-	if ( GetInterfaceReference() == NULL )
-	{
-		return kIOReturnOffline;
-	}
-	
 	direction = buffer->getDirection();
 	
 	if ( direction == kIODirectionIn )
@@ -1455,8 +1652,14 @@ IOUSBMassStorageUFISubclass::SyncReadWrite ( 	IOMemoryDescriptor *	buffer,
 	return theErr;
 }
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ AsyncReadWrite - 	Translates a asynchronous I/O request into a
+//						read or a write.							   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 IOReturn 
-IOUSBMassStorageUFISubclass::AsyncReadWrite (	IOMemoryDescriptor *	buffer,
+IOUSBMassStorageUFIDevice::AsyncReadWrite (	IOMemoryDescriptor *	buffer,
 											UInt64					startBlock,
 											UInt64					blockCount,
                          					UInt64					blockSize,
@@ -1465,11 +1668,6 @@ IOUSBMassStorageUFISubclass::AsyncReadWrite (	IOMemoryDescriptor *	buffer,
 	IODirection		direction;
 	IOReturn		theErr;
 	
-	if ( GetInterfaceReference() == NULL )
-	{
-		return kIOReturnOffline;
-	}
-
 	direction = buffer->getDirection();
 	if ( direction == kIODirectionIn )
 	{
@@ -1490,16 +1688,17 @@ IOUSBMassStorageUFISubclass::AsyncReadWrite (	IOMemoryDescriptor *	buffer,
 	return theErr;
 }
 
-IOReturn 
-IOUSBMassStorageUFISubclass::EjectTheMedium( void )
-{
-    STATUS_LOG ( ( "IOUSBMassStorageUFISubclass::EjectTheMedium called\n" ) );
-	
-	if ( GetInterfaceReference() == NULL )
-	{
-		return kIOReturnOffline;
-	}
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ EjectTheMedium - Changes the polling mode to poll for medium removal.
+//																	   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+IOReturn 
+IOUSBMassStorageUFIDevice::EjectTheMedium( void )
+{
+    STATUS_LOG ( ( "IOUSBMassStorageUFIDevice::EjectTheMedium called\n" ) );
+	
 	ResetMediumCharacteristics();
 	
 	// Set the polling to determine when media has been removed
@@ -1511,37 +1710,45 @@ IOUSBMassStorageUFISubclass::EjectTheMedium( void )
 }
 
 
-IOReturn 
-IOUSBMassStorageUFISubclass::FormatMedium( UInt64 blockCount, UInt64 blockSize )
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ FormatMedium - 	Currently does nothing.						   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+IOReturn
+IOUSBMassStorageUFIDevice::FormatMedium( UInt64 blockCount, UInt64 blockSize )
 {
 	IOReturn	theErr = kIOReturnSuccess;
 
-    STATUS_LOG ( ( "IOUSBMassStorageUFISubclass::FormatMedium called\n" ) );
-
-	if ( GetInterfaceReference() == NULL )
-	{
-		return kIOReturnOffline;
-	}
+    STATUS_LOG ( ( "IOUSBMassStorageUFIDevice::FormatMedium called\n" ) );
 
 	return theErr;	
 }
 
 
-UInt32 
-IOUSBMassStorageUFISubclass::GetFormatCapacities(	UInt64 * capacities,
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetFormatCapacities - Currently does nothing.					   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+UInt32
+IOUSBMassStorageUFIDevice::GetFormatCapacities(	UInt64 * capacities,
 												UInt32   capacitiesMaxCount ) const
 {
-    STATUS_LOG ( ( "IOUSBMassStorageUFISubclass::doGetFormatCapacities called\n" ) );
+    STATUS_LOG ( ( "IOUSBMassStorageUFIDevice::doGetFormatCapacities called\n" ) );
 
 	return 0;
 }
 
-#pragma mark -
-#pragma mark Device Information Retrieval Methods
 
+#pragma mark -
+#pragma mark *** Device Information Retrieval Methods ***
+#pragma mark -
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetVendorString - Returns the vendor string.					   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 char *
-IOUSBMassStorageUFISubclass::GetVendorString ( void )
+IOUSBMassStorageUFIDevice::GetVendorString ( void )
 {
 	OSString *		vendorString;
 	
@@ -1559,8 +1766,12 @@ IOUSBMassStorageUFISubclass::GetVendorString ( void )
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetProductString - Returns the Product String.				   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 char *
-IOUSBMassStorageUFISubclass::GetProductString ( void )
+IOUSBMassStorageUFIDevice::GetProductString ( void )
 {
 	OSString *		productString;
 	
@@ -1578,8 +1789,12 @@ IOUSBMassStorageUFISubclass::GetProductString ( void )
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetRevisionString - Returns the Revision String.			   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 char *
-IOUSBMassStorageUFISubclass::GetRevisionString ( void )
+IOUSBMassStorageUFIDevice::GetRevisionString ( void )
 {
 	OSString *		revisionString;
 	
@@ -1597,515 +1812,135 @@ IOUSBMassStorageUFISubclass::GetRevisionString ( void )
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetProtocolCharacteristicsDictionary - 	Returns the Protocol
+//												Characteristics Dictionary.
+//																	   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 OSDictionary *
-IOUSBMassStorageUFISubclass::GetProtocolCharacteristicsDictionary ( void )
+IOUSBMassStorageUFIDevice::GetProtocolCharacteristicsDictionary ( void )
 {
 	STATUS_LOG ( ( "%s::%s\n", getName ( ), __FUNCTION__ ) );
 	return ( OSDictionary * ) getProperty( kIOPropertyProtocolCharacteristicsKey );
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetDeviceCharacteristicsDictionary - 	Returns the Device
+//												Characteristics Dictionary.
+//																	   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 OSDictionary *
-IOUSBMassStorageUFISubclass::GetDeviceCharacteristicsDictionary ( void )
+IOUSBMassStorageUFIDevice::GetDeviceCharacteristicsDictionary ( void )
 {
 	STATUS_LOG ( ( "%s::%s\n", getName ( ), __FUNCTION__ ) );	
 	return fDeviceCharacteristicsDictionary;
 }
 
 
-#pragma mark - 
-#pragma mark Query methods to report device characteristics 
+#pragma mark -
+#pragma mark *** Query methods to report device characteristics ***
+#pragma mark -
 
-UInt64 
-IOUSBMassStorageUFISubclass::ReportDeviceMaxBlocksReadTransfer( void )
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ ReportDeviceMaxBlocksReadTransfer -	Reports the max number of blocks
+//											a device can handle per read.
+//																	   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+UInt64
+IOUSBMassStorageUFIDevice::ReportDeviceMaxBlocksReadTransfer( void )
 {
 	UInt64	maxBlockCount;
 
-    STATUS_LOG ( ( "IOUSBMassStorageUFISubclass::reportMaxReadTransfer\n" ) );
+    STATUS_LOG ( ( "IOUSBMassStorageUFIDevice::reportMaxReadTransfer\n" ) );
 
 	maxBlockCount = 256;
 
 	return maxBlockCount;
 }
 
-UInt64 
-IOUSBMassStorageUFISubclass::ReportDeviceMaxBlocksWriteTransfer( void )
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ ReportDeviceMaxBlocksWriteTransfer -	Reports the max number of blocks
+//											a device can handle per write.
+//																	   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+UInt64
+IOUSBMassStorageUFIDevice::ReportDeviceMaxBlocksWriteTransfer( void )
 {
 	UInt64	maxBlockCount;
 	
-    STATUS_LOG ( ( "IOUSBMassStorageUFISubclass::reportMaxWriteTransfer.\n" ) );
+    STATUS_LOG ( ( "IOUSBMassStorageUFIDevice::reportMaxWriteTransfer.\n" ) );
 
 	maxBlockCount = 256;
 
 	return maxBlockCount;
 }
 
-#pragma mark - 
-#pragma mark Query methods to report installed medium characteristics 
+
+#pragma mark -
+#pragma mark *** Query methods to report installed medium characteristics ***
+#pragma mark -
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ ReportMediumBlockSize -	Reports the medium block size.		   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 UInt64 
-IOUSBMassStorageUFISubclass::ReportMediumBlockSize( void )
+IOUSBMassStorageUFIDevice::ReportMediumBlockSize( void )
 {
-    STATUS_LOG ( ( "IOUSBMassStorageUFISubclass::ReportMediumBlockSize blockSize = %ld\n", ( UInt32 ) fMediumBlockSize ) );
+    STATUS_LOG ( ( "IOUSBMassStorageUFIDevice::ReportMediumBlockSize blockSize = %ld\n", ( UInt32 ) fMediumBlockSize ) );
 	return fMediumBlockSize;
 }
 
 
-UInt64 
-IOUSBMassStorageUFISubclass::ReportMediumTotalBlockCount( void )
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ ReportMediumTotalBlockCount -	Reports the number of blocks on the medium
+//																	   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+UInt64
+IOUSBMassStorageUFIDevice::ReportMediumTotalBlockCount( void )
 {
-    STATUS_LOG ( ( "IOUSBMassStorageUFISubclass::ReportMediumTotalBlockCount maxBlock = %ld\n", fMediumBlockCount ) );
+    STATUS_LOG ( ( "IOUSBMassStorageUFIDevice::ReportMediumTotalBlockCount maxBlock = %ld\n", fMediumBlockCount ) );
 	return fMediumBlockCount;
 }
 
-bool 
-IOUSBMassStorageUFISubclass::ReportMediumWriteProtection( void )
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ ReportMediumWriteProtection -	Reports whether the medium is write 
+//									protected						   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+IOUSBMassStorageUFIDevice::ReportMediumWriteProtection( void )
 {
-    STATUS_LOG ( ( "IOUSBMassStorageUFISubclass::ReportMediumWriteProtection isWriteProtected = %d.\n", fMediumIsWriteProtected ) );	
+    STATUS_LOG ( ( "IOUSBMassStorageUFIDevice::ReportMediumWriteProtection isWriteProtected = %d.\n", fMediumIsWriteProtected ) );	
 	return fMediumIsWriteProtected;
 }
 
-#pragma mark -
-#pragma mark SCSI Task Get and Release
-
-SCSITaskIdentifier 
-IOUSBMassStorageUFISubclass::GetSCSITask( void )
-{
-	SCSITask	* newTask = new SCSITask;
-	
-	newTask->SetTaskOwner( this );
-
-	// Make sure the object is not removed if there is a pending
-	// command.
-	retain();
-	
-	return ( SCSITaskIdentifier ) newTask;
-}
-
-void 
-IOUSBMassStorageUFISubclass::ReleaseSCSITask ( SCSITaskIdentifier request )
-{
-	if( request != NULL )
-	{
-		request->release();
-		
-		// Since the command has been released, let go of the retain on this
-		// object.
-		release();
-	}
-}
-
 
 #pragma mark -
-#pragma mark Task Execution Support Methods
-
-void
-IOUSBMassStorageUFISubclass::TaskCallback( SCSITaskIdentifier completedTask )
-{
-	SCSIServiceResponse 	serviceResponse;
-	SCSITask *				scsiRequest;
-	IOSyncer *				fSyncLock;
-	
-	STATUS_LOG ( ( "IOUSBMassStorageUFISubclass::TaskCallback called\n.") );
-		
-	scsiRequest = OSDynamicCast ( SCSITask, completedTask );
-	if ( scsiRequest == NULL )
-	{
-		
-		PANIC_NOW ( ( "IOUSBMassStorageUFISubclass::TaskCallback scsiRequest==NULL." ) );
-		ERROR_LOG ( ( "IOUSBMassStorageUFISubclass::TaskCallback scsiRequest==NULL." ) );
-		return;
-		
-	}
-	
-	fSyncLock = ( IOSyncer * ) scsiRequest->GetApplicationLayerReference ( );
-	serviceResponse = scsiRequest->GetServiceResponse ( );
-	fSyncLock->signal ( serviceResponse, false );
-}
-
-
-SCSIServiceResponse 
-IOUSBMassStorageUFISubclass::SendCommand ( SCSITaskIdentifier request, UInt32 timeoutDuration )
-{
-	SCSIServiceResponse 	serviceResponse;
-	IOSyncer *				fSyncLock;
-	
-	if ( GetInterfaceReference() == NULL )
-	{
-		SetServiceResponse ( request, kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE );
-		
-		// Save that status into the Task object.
-		SetTaskStatus ( request, kSCSITaskStatus_No_Status );
-		
-		return kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
-	}
-
-	fSyncLock = IOSyncer::create ( false );
-	if ( fSyncLock == NULL )
-	{
-		PANIC_NOW ( ( "IOUSBMassStorageUFISubclass::SendCommand Allocate fSyncLock failed." ) );
-		ERROR_LOG ( ( "IOUSBMassStorageUFISubclass::SendCommand Allocate fSyncLock failed." ) );
-		
-		SetServiceResponse ( request, kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE );
-		
-		// Save that status into the Task object.
-		SetTaskStatus ( request, kSCSITaskStatus_No_Status );
-		
-		return kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
-	}
-	
-	fSyncLock->signal ( kIOReturnSuccess, false );
-	
-	SetTimeoutDuration ( request, timeoutDuration );
-	SetTaskCompletionCallback ( request, &this->TaskCallback );
-	SetApplicationLayerReference ( request, ( void * ) fSyncLock );
-	
-	SetAutosenseCommand ( request, 0x03, 0x00, 0x00, 0x00, sizeof ( SCSI_Sense_Data ), 0x00 );
-	
-	STATUS_LOG ( ( "%s:SendCommand Reinit the syncer.\n", getName ( ) ) );
-	fSyncLock->reinit ( );
-	
-	STATUS_LOG ( ( "%s:SendCommand Execute the command.\n", getName ( ) ) );
-	ExecuteCommand( request );
-	
-	// Wait for the completion routine to get called
-	serviceResponse = ( SCSIServiceResponse) fSyncLock->wait ( false );
-	fSyncLock->release ( );
-	
-	STATUS_LOG ( ( "%s:SendCommand return the service response.\n", getName ( ) ) );
-	return serviceResponse;
-}
-
-
-void 
-IOUSBMassStorageUFISubclass::SendCommand ( 
-						SCSITaskIdentifier	request,
-						UInt32 				timeoutDuration,
-						SCSITaskCompletion 	taskCompletion )
-{
-	STATUS_LOG ( ( "%s:  called.\n", getName ( ) ) );
-	
-	if ( GetInterfaceReference() == NULL )
-	{
-		
-		SetServiceResponse ( request, kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE );
-		
-		// Save that status into the Task object.
-		SetTaskStatus ( request, kSCSITaskStatus_No_Status );
-		
-		// The task has completed, execute the callback.
-		TaskCompletedNotification ( request );
-		
-		return;
-		
-	}
-	
-	SetTimeoutDuration ( request, timeoutDuration );
-	
-	SetTaskCompletionCallback ( request, taskCompletion );
-	
-	SetAutosenseCommand ( request, 0x03, 0x00, 0x00, 0x00, sizeof ( SCSI_Sense_Data ), 0x00 );
-	ExecuteCommand( request );
-	
-}
-
-
+#pragma mark *** Command Builders Utility Methods ***
 #pragma mark -
-#pragma mark SCSI Task Field Accessors
 
-
-// ---- Utility methods for accessing SCSITask attributes ----
-bool
-IOUSBMassStorageUFISubclass::SetTaskAttribute( SCSITaskIdentifier request, SCSITaskAttribute newAttribute )
-{
-	SCSITask *	scsiRequest;
-	
-	scsiRequest = OSDynamicCast( SCSITask, request );
-	return scsiRequest->SetTaskAttribute( newAttribute );
-}
-
-
-SCSITaskAttribute
-IOUSBMassStorageUFISubclass::GetTaskAttribute( SCSITaskIdentifier request )
-{
-	SCSITask *	scsiRequest;
-	
-	scsiRequest = OSDynamicCast( SCSITask, request );
-	return scsiRequest->GetTaskAttribute();
-}
-
-
-bool
-IOUSBMassStorageUFISubclass::SetTaskState( SCSITaskIdentifier request,
-											SCSITaskState newTaskState )
-{
-	SCSITask *	scsiRequest;
-	
-	scsiRequest = OSDynamicCast( SCSITask, request );
-	return scsiRequest->SetTaskState( newTaskState );
-}
-
-
-SCSITaskState
-IOUSBMassStorageUFISubclass::GetTaskState ( SCSITaskIdentifier request )
-{
-	SCSITask *	scsiRequest;
-
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-	return scsiRequest->GetTaskState( );
-}
-
-
-bool
-IOUSBMassStorageUFISubclass::SetTaskStatus ( SCSITaskIdentifier request,
-											 SCSITaskStatus newStatus )
-{
-	SCSITask *	scsiRequest;
-	
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-	return scsiRequest->SetTaskStatus ( newStatus );
-}
-
-
-SCSITaskStatus
-IOUSBMassStorageUFISubclass::GetTaskStatus ( SCSITaskIdentifier request )
-{
-	SCSITask *	scsiRequest;
-	
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-	return scsiRequest->GetTaskStatus ( );
-}
-
-
-// Get the control information for the transfer, including
-// the transfer direction and the number of bytes to transfer.
-bool
-IOUSBMassStorageUFISubclass::SetDataTransferDirection ( SCSITaskIdentifier request,
-														UInt8 newDirection )
-{
-	SCSITask *	scsiRequest;
-	
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-	return scsiRequest->SetDataTransferDirection ( newDirection );
-}
-
-
-// Get the control information for the transfer, including
-// the transfer direction and the number of bytes to transfer.
-UInt8
-IOUSBMassStorageUFISubclass::GetDataTransferDirection ( SCSITaskIdentifier request )
-{
-	SCSITask *	scsiRequest;
-	
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-	return scsiRequest->GetDataTransferDirection ( );
-}
-
-
-bool
-IOUSBMassStorageUFISubclass::SetRequestedDataTransferCount ( SCSITaskIdentifier request,
-															 UInt64 newRequestedCount )
-{
-	SCSITask *	scsiRequest;
-	
-	scsiRequest = OSDynamicCast( SCSITask, request );
-	return scsiRequest->SetRequestedDataTransferCount( newRequestedCount );
-}
-
-
-UInt64
-IOUSBMassStorageUFISubclass::GetRequestedDataTransferCount ( SCSITaskIdentifier request )
-{
-	SCSITask *	scsiRequest;
-	
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-	return scsiRequest->GetRequestedDataTransferCount ( );
-}
-
-
-bool
-IOUSBMassStorageUFISubclass::SetRealizedDataTransferCount ( SCSITaskIdentifier request,
-															UInt64 newRealizedDataCount )
-{
-	SCSITask *	scsiRequest;
-	
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-	return scsiRequest->SetRealizedDataTransferCount ( newRealizedDataCount );
-}
-
-
-UInt64
-IOUSBMassStorageUFISubclass::GetRealizedDataTransferCount ( SCSITaskIdentifier request )
-{
-	SCSITask *	scsiRequest;
-	
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-	return scsiRequest->GetRealizedDataTransferCount ( );
-}
-
-
-bool
-IOUSBMassStorageUFISubclass::SetDataBuffer ( SCSITaskIdentifier request,
-											 IOMemoryDescriptor * newBuffer )
-{
-	SCSITask *	scsiRequest;
-	
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-	return scsiRequest->SetDataBuffer ( newBuffer );
-}
-
-
-IOMemoryDescriptor *
-IOUSBMassStorageUFISubclass::GetDataBuffer ( SCSITaskIdentifier request )
-{
-	SCSITask *	scsiRequest;
-	
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-	return scsiRequest->GetDataBuffer ( );
-}
-
-
-bool
-IOUSBMassStorageUFISubclass::SetTimeoutDuration ( SCSITaskIdentifier request,
-												  UInt32 newTimeout )
-{
-	SCSITask *	scsiRequest;
-	
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-	return scsiRequest->SetTimeoutDuration ( newTimeout );
-}
-
-
-UInt32
-IOUSBMassStorageUFISubclass::GetTimeoutDuration ( SCSITaskIdentifier request )
-{
-	SCSITask *	scsiRequest;
-	
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-	return scsiRequest->GetTimeoutDuration ( );
-}
-
-
-bool
-IOUSBMassStorageUFISubclass::SetTaskCompletionCallback ( 
-										SCSITaskIdentifier 		request,
-										SCSITaskCompletion 		newCallback )
-{
-	SCSITask *	scsiRequest;
-	
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-	return scsiRequest->SetTaskCompletionCallback ( newCallback );
-}
-
-
-void
-IOUSBMassStorageUFISubclass::TaskCompletedNotification (  
-										SCSITaskIdentifier 		request )
-{
-	SCSITask *	scsiRequest;
-	
-	scsiRequest = OSDynamicCast( SCSITask, request );
-	return scsiRequest->TaskCompletedNotification( );
-}
-
-
-bool
-IOUSBMassStorageUFISubclass::SetServiceResponse( 
-										SCSITaskIdentifier 		request,
-										SCSIServiceResponse 	serviceResponse )
-{
-	SCSITask *	scsiRequest;
-	
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-	return scsiRequest->SetServiceResponse( serviceResponse );
-}
-
-
-SCSIServiceResponse
-IOUSBMassStorageUFISubclass::GetServiceResponse ( 
-										SCSITaskIdentifier 		request )
-{
-	SCSITask *	scsiRequest;
-	
-	scsiRequest = OSDynamicCast( SCSITask, request );
-	return scsiRequest->GetServiceResponse();
-}
-
-
-bool
-IOUSBMassStorageUFISubclass::SetAutosenseCommand (
-										SCSITaskIdentifier 		request,
-										UInt8					cdbByte0,
-										UInt8					cdbByte1,
-										UInt8					cdbByte2,
-										UInt8					cdbByte3,
-										UInt8					cdbByte4,
-										UInt8					cdbByte5 )
-{
-	SCSITask *		scsiRequest;
-	
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-	return scsiRequest->SetAutosenseCommand ( cdbByte0, cdbByte1, cdbByte2,
-											  cdbByte3, cdbByte4, cdbByte5 );
-}
-
-
-// Set the auto sense data that was returned for the SCSI Task.
-// A return value if true indicates that the data copied to the member 
-// sense data structure, false indicates that the data could not be saved.
-bool
-IOUSBMassStorageUFISubclass::GetAutoSenseData( SCSITaskIdentifier request,
-												SCSI_Sense_Data * senseData )
-{
-	SCSITask *		scsiRequest;
-	
-	scsiRequest = OSDynamicCast( SCSITask, request );
-	return scsiRequest->GetAutoSenseData( senseData, sizeof ( SCSI_Sense_Data ) );
-}
-
-
-bool
-IOUSBMassStorageUFISubclass::SetApplicationLayerReference( SCSITaskIdentifier request,
-															void * newReferenceValue )
-{
-	SCSITask *		scsiRequest;
-	
-	scsiRequest = OSDynamicCast( SCSITask, request );
-	return scsiRequest->SetApplicationLayerReference ( newReferenceValue );
-}
-
-
-void *
-IOUSBMassStorageUFISubclass::GetApplicationLayerReference ( SCSITaskIdentifier request )
-{
-	SCSITask *		scsiRequest;
-	
-	scsiRequest = OSDynamicCast( SCSITask, request );
-	return scsiRequest->GetApplicationLayerReference();
-}
-
-
-
-#pragma mark -
-#pragma mark Command Builders Utility Methods
 
 // Utility routines used by all SCSI Command Set objects
 
-//----------------------------------------------------------------------
-//
-//		IOUSBMassStorageUFISubclass::IsParameterValid
-//
-//----------------------------------------------------------------------
-//
-//		Validate Parameter used for 1 bit to 1 byte paramaters
-//
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ IsParameterValid - Validate Parameter used for 1 bit to 1 byte paramaters
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
-IOUSBMassStorageUFISubclass::IsParameterValid( SCSICmdField1Byte param,
+IOUSBMassStorageUFIDevice::IsParameterValid( SCSICmdField1Byte param,
 										SCSICmdField1Byte mask )
 {
-	STATUS_LOG( ( "IOUSBMassStorageUFISubclass::IsParameterValid called\n" ) );
+	STATUS_LOG( ( "IOUSBMassStorageUFIDevice::IsParameterValid called\n" ) );
 	
 	if( ( param | mask ) != mask )
 	{
@@ -2117,21 +1952,16 @@ IOUSBMassStorageUFISubclass::IsParameterValid( SCSICmdField1Byte param,
 }
 
 
-//----------------------------------------------------------------------
-//
-//		IOUSBMassStorageUFISubclass::IsParameterValid
-//
-//----------------------------------------------------------------------
-//
-//		Validate Parameter used for 9 bit to 2 byte paramaters
-//
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ IsParameterValid - Validate Parameter used for 9 bit to 2 byte paramaters
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
-IOUSBMassStorageUFISubclass::IsParameterValid( SCSICmdField2Byte param,
+IOUSBMassStorageUFIDevice::IsParameterValid( SCSICmdField2Byte param,
 										SCSICmdField2Byte mask )
 {
-	STATUS_LOG( ( "IOUSBMassStorageUFISubclass::IsParameterValid called\n" ) );
+	STATUS_LOG( ( "IOUSBMassStorageUFIDevice::IsParameterValid called\n" ) );
 	
 	if( ( param | mask ) != mask )
 	{
@@ -2143,21 +1973,16 @@ IOUSBMassStorageUFISubclass::IsParameterValid( SCSICmdField2Byte param,
 }
 
 
-//----------------------------------------------------------------------
-//
-//		IOUSBMassStorageUFISubclass::IsParameterValid
-//
-//----------------------------------------------------------------------
-//
-//		Validate Parameter used for 17 bit to 4 byte paramaters
-//
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ IsParameterValid -	Validate Parameter used for 17 bit to 4 byte
+//							paramaters								[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
-IOUSBMassStorageUFISubclass::IsParameterValid( SCSICmdField4Byte param,
+IOUSBMassStorageUFIDevice::IsParameterValid( SCSICmdField4Byte param,
 										SCSICmdField4Byte mask )
 {
-	STATUS_LOG( ( "IOUSBMassStorageUFISubclass::IsParameterValid called\n" ) );
+	STATUS_LOG( ( "IOUSBMassStorageUFIDevice::IsParameterValid called\n" ) );
 	
 	if( ( param | mask ) != mask )
 	{
@@ -2169,163 +1994,25 @@ IOUSBMassStorageUFISubclass::IsParameterValid( SCSICmdField4Byte param,
 }
 
 
-//----------------------------------------------------------------------
-//
-//		IOUSBMassStorageUFISubclass::IsBufferAndCapacityValid
-//
-//----------------------------------------------------------------------
-//
-//		Check that the buffer is valid and of the required size
-//
-//----------------------------------------------------------------------
-
-bool
-IOUSBMassStorageUFISubclass::IsBufferAndCapacityValid(
-				IOMemoryDescriptor *		dataBuffer,
-				UInt32						requiredSize )
-{
-	STATUS_LOG( ( "IOUSBMassStorageUFISubclass::IsBufferAndCapacityValid called\n" ) );
-	
-	if( dataBuffer == NULL )
-	{
-		STATUS_LOG ( ( "dataBuffer = %x not valid\n", dataBuffer ) );
-		return false;
-	}
-	
-	if( dataBuffer->getLength() < requiredSize )
-	{
-		STATUS_LOG ( ( "dataBuffer length = %x not valid, requiredSize = %x\n",
-						dataBuffer->getLength(), requiredSize ) );
-		
-		return false;
-	}
-	
-	return true;
-}
-
-
-// ---- Methods for accessing the SCSITask attributes ----
-// The setCommandDescriptorBlock methods will populate the CDB of the
-// appropriate size.  These methods will returns true if the CDB could 
-// be filled out, false if it couldn't.
-
-//----------------------------------------------------------------------
-//
-//		IOUSBMassStorageUFISubclass::SetCommandDescriptorBlock
-//
-//----------------------------------------------------------------------
-//
-//		Populate the 12 Byte Command Descriptor Block
-//
-//----------------------------------------------------------------------
-
-bool
-IOUSBMassStorageUFISubclass::SetCommandDescriptorBlock( 
-							SCSITask *		request,
-							UInt8			cdbByte0,
-							UInt8			cdbByte1,
-							UInt8			cdbByte2,
-							UInt8			cdbByte3,
-							UInt8			cdbByte4,
-							UInt8			cdbByte5,
-							UInt8			cdbByte6,
-							UInt8			cdbByte7,
-							UInt8			cdbByte8,
-							UInt8			cdbByte9,
-							UInt8			cdbByte10,
-							UInt8			cdbByte11)
-{
-	return request->SetCommandDescriptorBlock(
-					cdbByte0,
-					cdbByte1,
-					cdbByte2,
-					cdbByte3,
-					cdbByte4,
-					cdbByte5,
-					cdbByte6,
-					cdbByte7,
-					cdbByte8,
-					cdbByte9,
-					cdbByte10,
-					cdbByte11 );
-}
-
-//----------------------------------------------------------------------
-//
-//		IOUSBMassStorageUFISubclass::SetDataTransferControl
-//
-//----------------------------------------------------------------------
-//
-//		Set up the control information for the transfer, including
-//		the transfer direction and the number of bytes to transfer.
-//
-//----------------------------------------------------------------------
-
-bool
-IOUSBMassStorageUFISubclass::SetDataTransferControl( 
-							SCSITask *				request,
-							UInt8					dataTransferDirection,
-							IOMemoryDescriptor *	dataBuffer,
-							UInt64					transferCountInBytes )
-{
-	bool	result = false;
-		
-	STATUS_LOG( ( "IOUSBMassStorageUFISubclass::SetDataTransferControl called\n" ) );
-	
-	// Needs to do more extensive checking based on buffer count and control values
-	if( ( transferCountInBytes != 0 ) && ( dataBuffer == NULL ) )
-	{
-		STATUS_LOG( ( "transferCountInBytes = %x not valid, dataBuffer = %x\n",
-						transferCountInBytes, dataBuffer ) );
-		return result;
-	}
-	
-	result = request->SetDataTransferDirection( dataTransferDirection );
-	if( result == false )
-	{
-		STATUS_LOG( ( "SetDataTransferDirection failed, dataTransferDirection = %x\n",
-						dataTransferDirection ) );
-		return result;
-	}
-	
-	result = request->SetDataBuffer( dataBuffer );
-	if( result == false )
-	{
-		STATUS_LOG( ( "SetDataBuffer failed, dataBuffer = %x\n",
-						dataBuffer ) );
-		return result;
-	}
-	
-	result = request->SetRequestedDataTransferCount( transferCountInBytes );
-	if( result == false )
-	{
-		STATUS_LOG( ( "SetRequestedDataTransferCount failed, transferCountInBytes = %x\n",
-						transferCountInBytes ) );
-		return result;
-	}
-	
-	return true;
-}
-
-
 #pragma mark -
-#pragma mark Command Builder Methods
+#pragma mark *** Command Builder Methods ***
+#pragma mark -
 
-bool 
-IOUSBMassStorageUFISubclass::FORMAT_UNIT(
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ FORMAT_UNIT - Command Builder									[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+IOUSBMassStorageUFIDevice::FORMAT_UNIT(
 							SCSITaskIdentifier			request,
 			    			IOMemoryDescriptor *		dataBuffer,
 			    			IOByteCount					defectListSize,
 			    			SCSICmdField1Byte 			TRACK_NUMBER, 
 			    			SCSICmdField2Byte 			INTERLEAVE )
 {
-	SCSITask *	scsiRequest;
+	STATUS_LOG( ( "IOUSBMassStorageUFIDevice::FORMAT_UNIT called\n" ) );
 	
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-
-	STATUS_LOG( ( "IOUSBMassStorageUFISubclass::FORMAT_UNIT called\n" ) );
-	
-	if ( scsiRequest->ResetForNewTask() == false )
+	if ( ResetForNewTask( request ) == false )
 	{
 		ERROR_LOG ( ( "ResetForNewTask on the request SCSITask failed.\n" ) );
 		return false;
@@ -2342,7 +2029,7 @@ IOUSBMassStorageUFISubclass::FORMAT_UNIT(
 	{
 		// We have data to send to the device, 
 		// make sure that we were given a valid buffer
-		if( IsBufferAndCapacityValid( dataBuffer, defectListSize  )
+		if( IsMemoryDescriptorValid( dataBuffer, defectListSize  )
 				== false )
 		{
 			STATUS_LOG( ( "dataBuffer = %x not valid, defectListSize = %x\n",
@@ -2352,7 +2039,7 @@ IOUSBMassStorageUFISubclass::FORMAT_UNIT(
 	}
 	
 	// This is a 6-Byte command, fill out the cdb appropriately  
-	SetCommandDescriptorBlock(	scsiRequest,
+	SetCommandDescriptorBlock(	request,
 								kSCSICmd_FORMAT_UNIT,
 								0x00,
 								0x00,
@@ -2362,27 +2049,29 @@ IOUSBMassStorageUFISubclass::FORMAT_UNIT(
  	
 	// The client has requested a DEFECT LIST be sent to the device
 	// to be used with the format command
-	SetDataTransferControl( 	scsiRequest,
-								kSCSIDataTransfer_FromInitiatorToTarget,
+	SetDataTransferDirection( 	request,
+								kSCSIDataTransfer_FromInitiatorToTarget );
+	SetDataBuffer( 				request,
 								dataBuffer );
 	
 	return true;
 }
 
-bool 
-IOUSBMassStorageUFISubclass::INQUIRY(
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ INQUIRY - Command Builder										[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+IOUSBMassStorageUFIDevice::INQUIRY(
 							SCSITaskIdentifier			request,
     						IOMemoryDescriptor 			*dataBuffer,
     						SCSICmdField1Byte 			PAGE_OR_OPERATION_CODE,
     						SCSICmdField1Byte 			ALLOCATION_LENGTH )
 {
-	SCSITask *	scsiRequest;
-	
-	scsiRequest = OSDynamicCast ( SCSITask, request );
+	STATUS_LOG( ( "IOUSBMassStorageUFIDevice::INQUIRY called\n" ) );
 
-	STATUS_LOG( ( "IOUSBMassStorageUFISubclass::INQUIRY called\n" ) );
-
-	if ( scsiRequest->ResetForNewTask() == false )
+	if ( ResetForNewTask( request ) == false )
 	{
 		ERROR_LOG ( ( "ResetForNewTask on the request SCSITask failed.\n" ) );
 		return false;
@@ -2401,7 +2090,7 @@ IOUSBMassStorageUFISubclass::INQUIRY(
 		return false;
 	}
 	
-	if ( IsBufferAndCapacityValid( dataBuffer, ALLOCATION_LENGTH ) == false )
+	if ( IsMemoryDescriptorValid( dataBuffer, ALLOCATION_LENGTH ) == false )
 	{
 		STATUS_LOG ( ( "dataBuffer = %x not valid, ALLOCATION_LENGTH = %x\n",
 						dataBuffer, ALLOCATION_LENGTH ) );
@@ -2409,7 +2098,7 @@ IOUSBMassStorageUFISubclass::INQUIRY(
 	}
 		
 	// This is a 6-Byte command, fill out the cdb appropriately  
-	SetCommandDescriptorBlock(	scsiRequest,
+	SetCommandDescriptorBlock(	request,
 								kSCSICmd_INQUIRY,
 								0x00,
 								PAGE_OR_OPERATION_CODE,
@@ -2417,30 +2106,32 @@ IOUSBMassStorageUFISubclass::INQUIRY(
 								ALLOCATION_LENGTH,
 								0x00 );
 	
-	SetDataTransferControl( 	scsiRequest,
-								kSCSIDataTransfer_FromTargetToInitiator,
-								dataBuffer,
+	SetDataTransferDirection( 	request,
+								kSCSIDataTransfer_FromTargetToInitiator );
+	SetDataBuffer( 				request,
+								dataBuffer );
+	SetRequestedDataTransferCount( 	request,
 								ALLOCATION_LENGTH );
 	
 	return true;
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ MODE_SELECT_10 - Command Builder								[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 bool 
-IOUSBMassStorageUFISubclass::MODE_SELECT_10(
+IOUSBMassStorageUFIDevice::MODE_SELECT_10(
 							SCSITaskIdentifier			request,
     						IOMemoryDescriptor 			*dataBuffer,
     						SCSICmdField1Bit 			PF,
     						SCSICmdField1Bit 			SP,
     						SCSICmdField2Byte 			PARAMETER_LIST_LENGTH )
 {
-	SCSITask *	scsiRequest;
+	STATUS_LOG( ( "IOUSBMassStorageUFIDevice::MODE_SELECT_10 called\n" ) );
 	
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-
-	STATUS_LOG( ( "IOUSBMassStorageUFISubclass::MODE_SELECT_10 called\n" ) );
-	
-	if ( scsiRequest->ResetForNewTask() == false )
+	if ( ResetForNewTask( request ) == false )
 	{
 		ERROR_LOG ( ( "ResetForNewTask on the request SCSITask failed.\n" ) );
 		return false;
@@ -2465,7 +2156,7 @@ IOUSBMassStorageUFISubclass::MODE_SELECT_10(
 		return false;
 	}
 
-	if( IsBufferAndCapacityValid( dataBuffer, PARAMETER_LIST_LENGTH ) == false )
+	if( IsMemoryDescriptorValid( dataBuffer, PARAMETER_LIST_LENGTH ) == false )
 	{
 		STATUS_LOG( ( "dataBuffer = %x not valid, PARAMETER_LIST_LENGTH = %x\n",
 						dataBuffer, PARAMETER_LIST_LENGTH ) );
@@ -2473,7 +2164,7 @@ IOUSBMassStorageUFISubclass::MODE_SELECT_10(
 	}
 	
 	// This is a 10-Byte command, fill out the cdb appropriately  
-	SetCommandDescriptorBlock(	scsiRequest,
+	SetCommandDescriptorBlock(	request,
 								kSCSICmd_MODE_SELECT_10,
 								( PF << 4 ) | SP,
 								0x00,
@@ -2485,17 +2176,23 @@ IOUSBMassStorageUFISubclass::MODE_SELECT_10(
 								PARAMETER_LIST_LENGTH & 0xFF,
 								0x00 );
 	
-	SetDataTransferControl( 	scsiRequest,
-								kSCSIDataTransfer_FromInitiatorToTarget,
-								dataBuffer,
+	SetDataTransferDirection( 	request,
+								kSCSIDataTransfer_FromInitiatorToTarget );
+	SetDataBuffer( 				request,
+								dataBuffer );
+	SetRequestedDataTransferCount( 	request,
 								PARAMETER_LIST_LENGTH );
 	
 	return true;
 }
   
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ MODE_SENSE_10 - Command Builder								[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 bool 
-IOUSBMassStorageUFISubclass::MODE_SENSE_10(
+IOUSBMassStorageUFIDevice::MODE_SENSE_10(
 							SCSITaskIdentifier			request,
     						IOMemoryDescriptor 			*dataBuffer,
     						SCSICmdField1Bit 			DBD,
@@ -2503,13 +2200,9 @@ IOUSBMassStorageUFISubclass::MODE_SENSE_10(
 	   						SCSICmdField6Bit 			PAGE_CODE,
 	   						SCSICmdField2Byte 			ALLOCATION_LENGTH )
 {
-	SCSITask *	scsiRequest;
+	STATUS_LOG( ( "IOUSBMassStorageUFIDevice::MODE_SENSE_10 called\n" ) );
 	
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-
-	STATUS_LOG( ( "IOUSBMassStorageUFISubclass::MODE_SENSE_10 called\n" ) );
-	
-	if ( scsiRequest->ResetForNewTask() == false )
+	if ( ResetForNewTask( request ) == false )
 	{
 		ERROR_LOG ( ( "ResetForNewTask on the request SCSITask failed.\n" ) );
 		return false;
@@ -2540,7 +2233,7 @@ IOUSBMassStorageUFISubclass::MODE_SENSE_10(
 		return false;
 	}
 
-	if( IsBufferAndCapacityValid( dataBuffer, ALLOCATION_LENGTH ) == false )
+	if( IsMemoryDescriptorValid( dataBuffer, ALLOCATION_LENGTH ) == false )
 	{
 		STATUS_LOG( ( "dataBuffer = %x not valid, ALLOCATION_LENGTH = %x\n",
 						dataBuffer, ALLOCATION_LENGTH ) );
@@ -2548,7 +2241,7 @@ IOUSBMassStorageUFISubclass::MODE_SENSE_10(
 	}
 	
 	// This is a 10-Byte command, fill out the cdb appropriately  
-	SetCommandDescriptorBlock(	scsiRequest,
+	SetCommandDescriptorBlock(	request,
 								kSCSICmd_MODE_SENSE_10,
 								( DBD << 3 ),
 								( PC << 6 ) | PAGE_CODE,
@@ -2560,27 +2253,29 @@ IOUSBMassStorageUFISubclass::MODE_SENSE_10(
 								  ALLOCATION_LENGTH		   & 0xFF,
 								0x00 );
 	
-	SetDataTransferControl( 	scsiRequest,
-								kSCSIDataTransfer_FromTargetToInitiator,
-								dataBuffer,
+	SetDataTransferDirection( 	request,
+								kSCSIDataTransfer_FromTargetToInitiator );
+	SetDataBuffer( 				request,
+								dataBuffer );
+	SetRequestedDataTransferCount( 	request,
 								ALLOCATION_LENGTH );
 	
 	return true;
 }
 
 
-bool 
-IOUSBMassStorageUFISubclass::PREVENT_ALLOW_MEDIUM_REMOVAL( 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ PREVENT_ALLOW_MEDIUM_REMOVAL - Command Builder				[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+IOUSBMassStorageUFIDevice::PREVENT_ALLOW_MEDIUM_REMOVAL( 
 							SCSITaskIdentifier			request,
 	     					SCSICmdField1Bit 			PREVENT )
 {
-	SCSITask *	scsiRequest;
-	
-	scsiRequest = OSDynamicCast ( SCSITask, request );
+	STATUS_LOG( ( "IOUSBMassStorageUFIDevice::PREVENT_ALLOW_MEDIUM_REMOVAL called\n" ) );
 
-	STATUS_LOG( ( "IOUSBMassStorageUFISubclass::PREVENT_ALLOW_MEDIUM_REMOVAL called\n" ) );
-
-	if ( scsiRequest->ResetForNewTask() == false )
+	if ( ResetForNewTask( request ) == false )
 	{
 		ERROR_LOG ( ( "ResetForNewTask on the request SCSITask failed.\n" ) );
 		return false;
@@ -2593,7 +2288,7 @@ IOUSBMassStorageUFISubclass::PREVENT_ALLOW_MEDIUM_REMOVAL(
 	}
 	
 	// This is a 6-Byte command, fill out the cdb appropriately  
-	SetCommandDescriptorBlock(	scsiRequest,
+	SetCommandDescriptorBlock(	request,
 								kSCSICmd_PREVENT_ALLOW_MEDIUM_REMOVAL,
 								0x00,
 								0x00,
@@ -2601,15 +2296,19 @@ IOUSBMassStorageUFISubclass::PREVENT_ALLOW_MEDIUM_REMOVAL(
 								PREVENT,
 								0x00 );
 	
-	SetDataTransferControl( 	scsiRequest,
+	SetDataTransferDirection( 	request,
 								kSCSIDataTransfer_NoDataTransfer );
 	
 	return true;
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ READ_10 - Command Builder										[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 bool 
-IOUSBMassStorageUFISubclass::READ_10(
+IOUSBMassStorageUFIDevice::READ_10(
 							SCSITaskIdentifier			request,
 			    			IOMemoryDescriptor *		dataBuffer, 
 			    			UInt32						blockSize,
@@ -2619,14 +2318,11 @@ IOUSBMassStorageUFISubclass::READ_10(
 							SCSICmdField4Byte 			LOGICAL_BLOCK_ADDRESS, 
 							SCSICmdField2Byte 			TRANSFER_LENGTH )
 {
-	SCSITask *		scsiRequest;
-	UInt32			requestedByteCount;
+	UInt32					requestedByteCount;
 	
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-
-	STATUS_LOG( ( "IOUSBMassStorageUFISubclass::READ_10 called\n" ) );
+	STATUS_LOG( ( "IOUSBMassStorageUFIDevice::READ_10 called\n" ) );
 	
-	if ( scsiRequest->ResetForNewTask() == false )
+	if ( ResetForNewTask( request ) == false )
 	{
 		ERROR_LOG ( ( "ResetForNewTask on the request SCSITask failed.\n" ) );
 		return false;
@@ -2693,7 +2389,7 @@ IOUSBMassStorageUFISubclass::READ_10(
 	}
 
 	// This is a 10-Byte command, fill out the cdb appropriately  
-	SetCommandDescriptorBlock(	scsiRequest,
+	SetCommandDescriptorBlock(	request,
 								kSCSICmd_READ_10,
 								( DPO << 4 ) | ( FUA << 3 ) | RELADR,
 								( LOGICAL_BLOCK_ADDRESS >> 24 ) & 0xFF,
@@ -2705,17 +2401,23 @@ IOUSBMassStorageUFISubclass::READ_10(
 								  TRANSFER_LENGTH		 & 0xFF,
 								0x00 );
 	
-	SetDataTransferControl( 	scsiRequest,
-								kSCSIDataTransfer_FromTargetToInitiator,
-								dataBuffer,
+	SetDataTransferDirection( 	request,
+								kSCSIDataTransfer_FromTargetToInitiator );	
+	SetDataBuffer( 				request,
+								dataBuffer );	
+	SetRequestedDataTransferCount( 	request,
 								requestedByteCount );	
 	
 	return true;
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ READ_12 - Command Builder										[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 bool 
-IOUSBMassStorageUFISubclass::READ_12(
+IOUSBMassStorageUFIDevice::READ_12(
 							SCSITaskIdentifier			request,
 			    			IOMemoryDescriptor *		dataBuffer, 
 			    			UInt32						blockSize,
@@ -2725,14 +2427,11 @@ IOUSBMassStorageUFISubclass::READ_12(
 							SCSICmdField4Byte 			LOGICAL_BLOCK_ADDRESS, 
 							SCSICmdField4Byte 			TRANSFER_LENGTH )
 {
-	SCSITask *		scsiRequest;
-	UInt32			requestedByteCount;
-	
-	scsiRequest = OSDynamicCast ( SCSITask, request );
+	UInt32					requestedByteCount;
 
-	STATUS_LOG( ( "IOUSBMassStorageUFISubclass::READ_12 called\n" ) );
+	STATUS_LOG( ( "IOUSBMassStorageUFIDevice::READ_12 called\n" ) );
 	
-	if ( scsiRequest->ResetForNewTask() == false )
+	if ( ResetForNewTask( request ) == false )
 	{
 		ERROR_LOG ( ( "ResetForNewTask on the request SCSITask failed.\n" ) );
 		return false;
@@ -2799,7 +2498,7 @@ IOUSBMassStorageUFISubclass::READ_12(
 	}
 
 	// This is a 12-Byte command, fill out the cdb appropriately  
-	SetCommandDescriptorBlock(	scsiRequest,
+	SetCommandDescriptorBlock(	request,
 								kSCSICmd_READ_12,
 								( DPO << 4 ) | ( FUA << 3 ) | RELADR,
 								( LOGICAL_BLOCK_ADDRESS >> 24 ) & 0xFF,
@@ -2813,30 +2512,32 @@ IOUSBMassStorageUFISubclass::READ_12(
 								0x00,
 								0x00 );
 	
-	SetDataTransferControl( 	scsiRequest,
-								kSCSIDataTransfer_FromTargetToInitiator,
-								dataBuffer,
+	SetDataTransferDirection( 	request,
+								kSCSIDataTransfer_FromTargetToInitiator );	
+	SetDataBuffer( 				request,
+								dataBuffer );	
+	SetRequestedDataTransferCount( 	request,
 								requestedByteCount );	
 
 	return true;
 }
 
 
-bool 
-IOUSBMassStorageUFISubclass::READ_CAPACITY(
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ READ_CAPACITY - Command Builder								[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+IOUSBMassStorageUFIDevice::READ_CAPACITY(
 							SCSITaskIdentifier			request,
 			    			IOMemoryDescriptor *		dataBuffer, 
 			    			SCSICmdField1Bit 			RELADR,
 							SCSICmdField4Byte 			LOGICAL_BLOCK_ADDRESS, 
 							SCSICmdField1Bit 			PMI )
 {
-	SCSITask *	scsiRequest;
+	STATUS_LOG( ( "IOUSBMassStorageUFIDevice::READ_CAPACITY called\n" ) );
 	
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-
-	STATUS_LOG( ( "IOUSBMassStorageUFISubclass::READ_CAPACITY called\n" ) );
-	
-	if ( scsiRequest->ResetForNewTask() == false )
+	if ( ResetForNewTask( request ) == false )
 	{
 		ERROR_LOG ( ( "ResetForNewTask on the request SCSITask failed.\n" ) );
 		return false;
@@ -2869,7 +2570,7 @@ IOUSBMassStorageUFISubclass::READ_CAPACITY(
 	}
 	
 	// This is a 10-Byte command, fill out the cdb appropriately  
-	SetCommandDescriptorBlock(	scsiRequest,
+	SetCommandDescriptorBlock(	request,
 								kSCSICmd_READ_CAPACITY,
 								RELADR,
 								( LOGICAL_BLOCK_ADDRESS >> 24 ) & 0xFF,
@@ -2881,27 +2582,28 @@ IOUSBMassStorageUFISubclass::READ_CAPACITY(
 								PMI,
 								0x00 );
 	
-	SetDataTransferControl( 	scsiRequest,
-								kSCSIDataTransfer_FromTargetToInitiator,
-								dataBuffer,
-								8 );	
+	SetDataTransferDirection( 	request,
+								kSCSIDataTransfer_FromTargetToInitiator );	
+	SetDataBuffer( 				request,
+								dataBuffer );	
+	SetRequestedDataTransferCount( 	request, 8 );	
 	return true;
 }
 
 
-bool 
-IOUSBMassStorageUFISubclass::READ_FORMAT_CAPACITIES(
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ READ_FORMAT_CAPACITIES - Command Builder						[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+IOUSBMassStorageUFIDevice::READ_FORMAT_CAPACITIES(
 							SCSITaskIdentifier			request,
 			    			IOMemoryDescriptor *		dataBuffer, 
 			    			SCSICmdField2Byte 			ALLOCATION_LENGTH )
 {
-	SCSITask *	scsiRequest;
+	STATUS_LOG( ( "IOUSBMassStorageUFIDevice::READ_CAPACITY called\n" ) );
 	
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-
-	STATUS_LOG( ( "IOUSBMassStorageUFISubclass::READ_CAPACITY called\n" ) );
-	
-	if ( scsiRequest->ResetForNewTask() == false )
+	if ( ResetForNewTask( request ) == false )
 	{
 		ERROR_LOG ( ( "ResetForNewTask on the request SCSITask failed.\n" ) );
 		return false;
@@ -2921,7 +2623,7 @@ IOUSBMassStorageUFISubclass::READ_FORMAT_CAPACITIES(
 	}
 	
 	// This is a 10-Byte command, fill out the cdb appropriately  
-	SetCommandDescriptorBlock(	scsiRequest,
+	SetCommandDescriptorBlock(	request,
 								kSCSICmd_READ_FORMAT_CAPACITIES,
 								0x00,
 								0x00,
@@ -2933,27 +2635,29 @@ IOUSBMassStorageUFISubclass::READ_FORMAT_CAPACITIES(
 								  ALLOCATION_LENGTH			& 0xFF,
 								0x00 );
 	
-	SetDataTransferControl( 	scsiRequest,
-								kSCSIDataTransfer_FromTargetToInitiator,
-								dataBuffer,
+	SetDataTransferDirection( 	request,
+								kSCSIDataTransfer_FromTargetToInitiator );	
+	SetDataBuffer( 				request,
+								dataBuffer );	
+	SetRequestedDataTransferCount( 	request,
 								ALLOCATION_LENGTH );	
 	return true;
 }
 
 
-bool 
-IOUSBMassStorageUFISubclass::REQUEST_SENSE(
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ REQUEST_SENSE - Command Builder								[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+IOUSBMassStorageUFIDevice::REQUEST_SENSE(
 							SCSITaskIdentifier			request,
    							IOMemoryDescriptor 			*dataBuffer,
 			    			SCSICmdField1Byte 			ALLOCATION_LENGTH )
 {
-	SCSITask *	scsiRequest;
+	STATUS_LOG( ( "IOUSBMassStorageUFIDevice::REQUEST_SENSE called\n" ) );
 	
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-
-	STATUS_LOG( ( "IOUSBMassStorageUFISubclass::REQUEST_SENSE called\n" ) );
-	
-	if ( scsiRequest->ResetForNewTask() == false )
+	if ( ResetForNewTask( request ) == false )
 	{
 		ERROR_LOG ( ( "ResetForNewTask on the request SCSITask failed.\n" ) );
 		return false;
@@ -2967,7 +2671,7 @@ IOUSBMassStorageUFISubclass::REQUEST_SENSE(
 	}
 	
 	// This is a 6-Byte command, fill out the cdb appropriately  
-	SetCommandDescriptorBlock(	scsiRequest,
+	SetCommandDescriptorBlock(	request,
 								kSCSICmd_REQUEST_SENSE,
 								0x00,
 								0x00,
@@ -2975,25 +2679,35 @@ IOUSBMassStorageUFISubclass::REQUEST_SENSE(
 								ALLOCATION_LENGTH,
 								0x00 );
 	
-	SetDataTransferControl( 	scsiRequest,
-								kSCSIDataTransfer_FromTargetToInitiator,
-								dataBuffer,
+	SetDataTransferDirection( 	request,
+								kSCSIDataTransfer_FromTargetToInitiator );
+	SetDataBuffer( 				request,
+								dataBuffer );
+	SetRequestedDataTransferCount( 	request,
 								ALLOCATION_LENGTH );
 	
 	return true;
 }
 
- 	
-bool 
-IOUSBMassStorageUFISubclass::REZERO_UNIT( 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ REZERO_UNIT - Command Builder									[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+IOUSBMassStorageUFIDevice::REZERO_UNIT( 
 							SCSITaskIdentifier			request )
 {
 	return false;
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SEEK - Command Builder										[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 bool 
-IOUSBMassStorageUFISubclass::SEEK( 
+IOUSBMassStorageUFIDevice::SEEK( 
 							SCSITaskIdentifier			request,
 			    			SCSICmdField4Byte 			LOGICAL_BLOCK_ADDRESS )
 {
@@ -3001,21 +2715,21 @@ IOUSBMassStorageUFISubclass::SEEK(
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SEND_DIAGNOSTICS - Command Builder							[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 bool 
-IOUSBMassStorageUFISubclass::SEND_DIAGNOSTICS( 
+IOUSBMassStorageUFIDevice::SEND_DIAGNOSTICS( 
 							SCSITaskIdentifier			request,
 							SCSICmdField1Bit 			PF, 
 							SCSICmdField1Bit 			SELF_TEST, 
 							SCSICmdField1Bit 			DEF_OFL, 
 							SCSICmdField1Bit 			UNIT_OFL )
 {
-	SCSITask *	scsiRequest;
+	STATUS_LOG( ( "IOUSBMassStorageUFIDevice::SEND_DIAGNOSTICS called\n" ) );
 	
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-
-	STATUS_LOG( ( "IOUSBMassStorageUFISubclass::SEND_DIAGNOSTICS called\n" ) );
-	
-	if ( scsiRequest->ResetForNewTask() == false )
+	if ( ResetForNewTask( request ) == false )
 	{
 		ERROR_LOG ( ( "ResetForNewTask on the request SCSITask failed.\n" ) );
 		return false;
@@ -3046,7 +2760,7 @@ IOUSBMassStorageUFISubclass::SEND_DIAGNOSTICS(
 	}
 	
 	// This is a 6-Byte command, fill out the cdb appropriately  
-	SetCommandDescriptorBlock(	scsiRequest,
+	SetCommandDescriptorBlock(	request,
 								kSCSICmd_SEND_DIAGNOSTICS,
 								( PF << 4 ) |
 									( SELF_TEST << 2 ) | ( DEF_OFL << 1 ) | UNIT_OFL,
@@ -3055,27 +2769,27 @@ IOUSBMassStorageUFISubclass::SEND_DIAGNOSTICS(
 								0x00,
 								0x00 );
 	
-	SetDataTransferControl( 	scsiRequest,
+	SetDataTransferDirection( 	request,
 								kSCSIDataTransfer_NoDataTransfer);
 	
 	return true;
 }
 
 
-bool 
-IOUSBMassStorageUFISubclass::START_STOP_UNIT( 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ START_STOP_UNIT - Command Builder								[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+IOUSBMassStorageUFIDevice::START_STOP_UNIT( 
 							SCSITaskIdentifier			request,
 							SCSICmdField1Bit 			IMMED, 
 							SCSICmdField1Bit 			LOEJ, 
 							SCSICmdField1Bit 			START )
 {
-	SCSITask *	scsiRequest;
-	
-	scsiRequest = OSDynamicCast ( SCSITask, request );
+	STATUS_LOG( ( "IOUSBMassStorageUFIDevice::START_STOP_UNIT called\n" ) );
 
-	STATUS_LOG( ( "IOUSBMassStorageUFISubclass::START_STOP_UNIT called\n" ) );
-
-	if ( scsiRequest->ResetForNewTask() == false )
+	if ( ResetForNewTask( request ) == false )
 	{
 		ERROR_LOG ( ( "ResetForNewTask on the request SCSITask failed.\n" ) );
 		return false;
@@ -3101,7 +2815,7 @@ IOUSBMassStorageUFISubclass::START_STOP_UNIT(
 	}
 
 	// This is a 6-Byte command, fill out the cdb appropriately  
-	SetCommandDescriptorBlock(	scsiRequest,
+	SetCommandDescriptorBlock(	request,
 								kSCSICmd_START_STOP_UNIT,
 								IMMED,
 								0x00,
@@ -3109,31 +2823,31 @@ IOUSBMassStorageUFISubclass::START_STOP_UNIT(
 								( LOEJ << 1 ) | START,
 								0x00 );
 	
-	SetDataTransferControl( 	scsiRequest,
+	SetDataTransferDirection( 	request,
 								kSCSIDataTransfer_NoDataTransfer );
 	
 	return true;
 }
 
 
-bool 
-IOUSBMassStorageUFISubclass::TEST_UNIT_READY(  
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ TEST_UNIT_READY - Command Builder								[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+IOUSBMassStorageUFIDevice::TEST_UNIT_READY(  
 							SCSITaskIdentifier			request )
 {
-	SCSITask *	scsiRequest;
+	STATUS_LOG( ( "IOUSBMassStorageUFIDevice::TEST_UNIT_READY called\n" ) );
 	
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-
-	STATUS_LOG( ( "IOUSBMassStorageUFISubclass::TEST_UNIT_READY called\n" ) );
-	
-	if ( scsiRequest->ResetForNewTask() == false )
+	if ( ResetForNewTask( request ) == false )
 	{
 		ERROR_LOG ( ( "ResetForNewTask on the request SCSITask failed.\n" ) );
 		return false;
 	}
 	
 	// This is a 6-Byte command, fill out the cdb appropriately  
-	SetCommandDescriptorBlock(	scsiRequest,
+	SetCommandDescriptorBlock(	request,
 								kSCSICmd_TEST_UNIT_READY,
 								0x00,
 								0x00,
@@ -3141,15 +2855,19 @@ IOUSBMassStorageUFISubclass::TEST_UNIT_READY(
 								0x00,
 								0x00 );
 	
-	SetDataTransferControl( 	scsiRequest,
+	SetDataTransferDirection( 	request,
 								kSCSIDataTransfer_NoDataTransfer );
 	
 	return true;
 }
 
- 
-bool 
-IOUSBMassStorageUFISubclass::VERIFY( 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ VERIFY - Command Builder										[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+IOUSBMassStorageUFIDevice::VERIFY( 
 							SCSITaskIdentifier			request,
 							SCSICmdField1Bit 			DPO, 
 							SCSICmdField1Bit 			BYTCHK, 
@@ -3161,8 +2879,12 @@ IOUSBMassStorageUFISubclass::VERIFY(
 }
 
 
-bool 
-IOUSBMassStorageUFISubclass::WRITE_10(
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ WRITE_10 - Command Builder									[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+IOUSBMassStorageUFIDevice::WRITE_10(
 							SCSITaskIdentifier			request,
 			    			IOMemoryDescriptor *		dataBuffer, 
 			    			UInt32						blockSize,
@@ -3172,14 +2894,11 @@ IOUSBMassStorageUFISubclass::WRITE_10(
 							SCSICmdField4Byte 			LOGICAL_BLOCK_ADDRESS, 
 							SCSICmdField2Byte 			TRANSFER_LENGTH )
 {
-	SCSITask *		scsiRequest;
-	UInt32			requestedByteCount;
+	UInt32					requestedByteCount;
 	
-	scsiRequest = OSDynamicCast ( SCSITask, request );
+	STATUS_LOG( ( "IOUSBMassStorageUFIDevice::WRITE_10 called\n" ) );
 
-	STATUS_LOG( ( "IOUSBMassStorageUFISubclass::WRITE_10 called\n" ) );
-
-	if ( scsiRequest->ResetForNewTask() == false )
+	if ( ResetForNewTask( request ) == false )
 	{
 		ERROR_LOG ( ( "ResetForNewTask on the request SCSITask failed.\n" ) );
 		return false;
@@ -3246,7 +2965,7 @@ IOUSBMassStorageUFISubclass::WRITE_10(
 	}
 
 	// This is a 10-Byte command, fill out the cdb appropriately  
-	SetCommandDescriptorBlock(	scsiRequest,
+	SetCommandDescriptorBlock(	request,
 								kSCSICmd_WRITE_10,
 								( DPO << 4 ) | ( FUA << 3 ) | RELADR,
 								( LOGICAL_BLOCK_ADDRESS >> 24 ) & 0xFF,
@@ -3258,17 +2977,23 @@ IOUSBMassStorageUFISubclass::WRITE_10(
 								  TRANSFER_LENGTH		 & 0xFF,
 								0x00 );
 	
-	SetDataTransferControl( 	scsiRequest,
-								kSCSIDataTransfer_FromInitiatorToTarget,
-								dataBuffer,
+	SetDataTransferDirection( 	request,
+								kSCSIDataTransfer_FromInitiatorToTarget );
+	SetDataBuffer( 				request,
+								dataBuffer );
+	SetRequestedDataTransferCount( 	request,
 								requestedByteCount );
 	
 	return true;
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ WRITE_12 - Command Builder									[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 bool 
-IOUSBMassStorageUFISubclass::WRITE_12(
+IOUSBMassStorageUFIDevice::WRITE_12(
 							SCSITaskIdentifier			request,
 							IOMemoryDescriptor *		dataBuffer, 
 			    			UInt32						blockSize,
@@ -3282,8 +3007,12 @@ IOUSBMassStorageUFISubclass::WRITE_12(
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ WRITE_AND_VERIFY - Command Builder							[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 bool 
-IOUSBMassStorageUFISubclass::WRITE_AND_VERIFY(
+IOUSBMassStorageUFIDevice::WRITE_AND_VERIFY(
 							SCSITaskIdentifier			request,
 			    			IOMemoryDescriptor *		dataBuffer, 
 			    			UInt32						blockSize,
@@ -3296,3 +3025,54 @@ IOUSBMassStorageUFISubclass::WRITE_AND_VERIFY(
 	return false;
 }
 
+
+#pragma mark -
+#pragma mark *** IOUSBMassStorageUFISubclass methods ***
+#pragma mark -
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ BeginProvidedServices											[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+IOUSBMassStorageUFISubclass::BeginProvidedServices( void )
+{
+	// Call our superclass
+	IOUSBMassStorageClass::BeginProvidedServices( );
+	
+	// Create the IOUSBMassStorageUFIDevice object
+	IOUSBMassStorageUFIDevice * 	ufiDevice = new IOUSBMassStorageUFIDevice;
+	if( ufiDevice == NULL )
+	{
+		ERROR_LOG( ( "IOUSBMassStorageUFISubclass::BeginProvidedServices failed\n" ) );
+		PANIC_NOW( ( "IOUSBMassStorageUFISubclass::BeginProvidedServices failed\n" ) );
+		return false;
+	}
+	
+	ufiDevice->init( NULL );
+	
+	if( !ufiDevice->attach( this ) )
+	{
+		// panic since the nub can't attach
+		PANIC_NOW(( "IOUSBMassStorageUFISubclass::BeginProvidedServices unable to attach nub" ));
+		return false;
+	}
+	
+	ufiDevice->registerService();
+	STATUS_LOG( ( "IOUSBMassStorageUFISubclass::BeginProvidedServices exiting.\n" ) );
+	
+	ufiDevice->release();
+	
+	return true;
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ EndProvidedServices											[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool	
+IOUSBMassStorageUFISubclass::EndProvidedServices( void )
+{
+	return true;
+}

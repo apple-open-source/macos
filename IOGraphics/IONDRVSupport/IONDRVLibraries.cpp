@@ -861,19 +861,37 @@ void _eCStrToPStr( char *to, const char *from )
 
 LogicalAddress _ePoolAllocateResident(ByteCount byteSize, Boolean clear)
 {
-    LogicalAddress  mem;
+    UInt32 * mem;
 
-    mem = (LogicalAddress) kern_os_malloc( (size_t) byteSize );
-    if( clear && mem)
-        memset( mem, 0, byteSize);
+    mem = (UInt32 *) kern_os_malloc( (size_t) byteSize + sizeof(UInt32) );
 
-    return( mem);
+    if (mem)
+    {
+	mem[0] = 'mllc';
+	mem++;
+    }
+    if (clear && mem)
+	memset( (void *) mem, 0, byteSize);
+
+    return ((LogicalAddress) mem);
 }
 
 OSStatus _ePoolDeallocate( LogicalAddress address )
 {
-    kern_os_free( (void *) address );
-    return( noErr);
+    UInt32 * mem = (UInt32 *) address;
+
+    if (!mem)
+	return (nrNotEnoughMemoryErr);
+
+    mem--;
+    if (mem[0] != 'mllc')
+    {
+//	IOLog("PoolDeallocate invalid address %08lx\n", mem + 1);
+//	IOPanic("PoolDeallocate invalid address");
+	return (nrInvalidNodeErr);
+    }
+    kern_os_free( (void *) mem );
+    return (noErr);
 }
 
 UInt32	_eCurrentExecutionLevel(void)
@@ -1951,13 +1969,14 @@ IOReturn _IONDRVLibrariesInitialize( IOService * provider )
             else
                 mem->setMapping( kernel_task, mem->getPhysicalAddress() );
         }
-        map = mem->map( kIOMapInhibitCache );
+        map = mem->map();
         if( 0 == map) {
 //		IOLog("%s: map[%ld] failed\n", provider->getName(), i);
             continue;
         }
 
         virtAddress = map->getVirtualAddress();
+	mem->setMapping(kernel_task, virtAddress, kIOMapInhibitCache);
         if( !data)
             data = OSData::withCapacity( numMaps * sizeof( IOVirtualAddress));
         if( !data)

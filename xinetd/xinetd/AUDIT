@@ -1,0 +1,173 @@
+This is the xinetd-2.3.0 audit status.  The audit has been performed
+in order to make the Owl (http://www.openwall.com/Owl/) xinetd package
+reasonably secure and of course with the hope that others will find
+the results and patches useful as well.
+
+Much of xinetd's logic is left unaudited (other than for generic bug
+classes listed below).  In particular, this applies to all network
+access control checks.
+
+To summarize the results, xinetd may be reasonably safe to use with
+these patches, but the code remains far from clean and certain bugs
+are there by design.
+
+The format of this list is one item per line, with subitems indented.
+If a line doesn't start with a '+', that item hasn't been completed
+(audited and/or patched).
+
+None of the PATCH'es are a part of xinetd-2.3.0; they will be in the
+Owl package and hopefully will get incorporated into future versions
+of xinetd.
+
+-- 
+Solar Designer <solar@openwall.com>
+
++BUGS	strx_* functions (danger: don't always NUL-terminate)
++PATCH		bug: shouldn't write NUL when len <= 0
++PATCH		may overflow with huge precision values (bad for format bugs)
++BUGS	strx_* calls: some assume NUL-termination, but none look dangerous
++PATCH		__xlog_explain_errno forgets to update size
++PATCH		child.c: child_process may not NUL-terminate name
++PATCH		init.c: syscall_failed may not NUL-terminate err
++PATCH		shutdown.c: safe, but should use print_buf_size-1
++PATCH		signals.c: sig_name should use sizeof(signame_buf)-1
++OK	str_* calls
++OK		none :-)
++OK	strcat, strcpy calls (testsuite calls not checked)
++OK	strn* calls
++PATCH		some inefficient, but correct
++BUGS	memcpy, memmove, bcopy calls
++PATCH		addr.c: addrlist_dump() copies ipv6 address into ipv4 struct
++PATCH		addr.c: host_addr() trusts hep->h_length from gethostbyname()
++PATCH		parsers.c: redir_parser() wouldn't build/work when NO_INET_ATON
++PATCH		parsers.c: redir_parser() wrongly relies on sizeof(he->h_addr)
++PATCH		parsers.c: bind_parser() same as the above
+		the use of sizeof() is inconsistent (not always of dst arg)
++PATCH		should change bcopy to memcpy/memmove as appropriate
++BUGS	sio_memcopy calls
++OK		sio.c
++BUGS		siosup.c is too complicated in its handling of data sizes
++OK			expand() is only called with old_size < new_size
++?			buffer_setup() isn't obviously correct, but is safe
++OK			__sio_extend_buffer is correct
++PATCH				comment to sio.h: aux buffer is right below buf
++PATCH			__sio_get_events may cause bufentries < 0 (->overflow)
++OK	conn_setaddr calls: safe, but could use sizeof((cp)->co_remote_address)
++OK	sprintf calls
++BUGS	sscanf calls
++PATCH		addr.c: explicit_mask() has single-byte overflow of saddr[]
++BUGS	formats
++OK		fprintf, sprintf, fscanf, sscanf
++OK		syslog (but relies on %.*s for non-NUL-terminated buffers)
++OK		strx_*
++OK		svc_logprint, prepare_buffer
++BUGS		msg, parsemsg
++PATCH			intcommon.c: int_init() passes fmt as wrong arg
++PATCH			(non-security) should never have '\n' in format
++OK		tabprint
++OK		Sprint
++OK		ostimer.c: terminate
++PATCH		xlog_write() is called on untrusted input w/o XLOG_NO_ERRNO
++OK	ident -- looks mostly safe
++OK		SIGALRM + longjmp() used safely:
++OK			no static accesses, no stdio between START/STOP_TIMER
++OK			immediate return on timeout (-> no clobbering issues)
++OK			signal mask after longjmp() is unimportant
++PATCH			could be safer to also reset SIGALRM handler
++PATCH		verify_line() modifies buf, which is then logged on error
+		will log control chars from remote
++BUGS	builtins
++OK		time, daytime, sensor: NO_FORK && stream (safe: FNDELAY)
++PATCH		accept() return value never checked
++PATCH		bad_port_check(): should deny all <1024 (53/udp is just as bad)
++PATCH		stream_daytime writes to wrong fd when wait = yes (gets EPIPE)
++PATCH		*_time sends sizeof(time_t): wrong on at least linux-alpha
+		xadmin_handler(): the command parser is unreliable (use sio?)
++BUGS	record (shutdown.c)
+		connect_back may be used for portscanning of own machine
+		write() return values not checked
++PATCH		will only handle traditional (obsolete) crypt(3) hashes
+		special.c: stream_shutdown() will log control chars from remote
+	intercept (int[.c]*, {tcp,udp}int.c) -- checked for generic bugs ONLY
+		tcpint.c: si_exit() may leave open fd from accept()
++BUGS	signal races, longjmp clobbering
++BUGS		__ostimer_interrupt:
++PATCH			call_level should be volatile
++PATCH			should use &ret_env, not (char *)ret_env (may differ)
++BUGS			ret_env modified non-atomically (with 2 TIMER_LONGJMP's)
++PATCH				should set have_env before and make it volatile
++PATCH			may leave an altered signal mask on longjmp()
+				should fallback to plain longjmp in configure
++OK			__ostimer_{add,remove} only called with signals blocked
++OK			timer_s fields not volatile, safe due to block _calls_
++BUGS		check uses of TIMER_LONGJMP flag
++BUGS			confparse.c: get_conf() may jump out of malloc(), etc
+				no other uses, perhaps just disable CONF_TIMEOUT
++OK		ident.c: mostly safe (see above)
++BUGS		signals.c: bad_signal(): only on crashes, so not a big issue
++PATCH			*count should be volatile to really avoid looping
+			does calls which may cause another SIGSEGV w/o a bug
++PATCH			may leave an altered signal mask on longjmp()
++BUGS		signals.c: general_handler()
+			sio and non-reentrant libc calls on unexpected signal
++BUGS		signals.c: handle_signal(), my_handler(): events may be lost
+			my_handler may be re-entered, but M_SET isn't atomic:
+				should split ps.flags into int-per-flag
++OK		main.c: main(): setjmp() placed in a way avoiding clobbering
++BUGS		access.c: parent_access_control(), alrm_ena() (cps feature)
+			alrm_ena() may cause re-entry into syslog(), etc
+			SIGALRM handler may be never reset, or --
+			the handler and/or alarm may be reset for other needs
+				should use the timer queues, not OS timers
++BUGS		int.c: int_sighandler(), intcommon.c: int_init()
+			int_sighandler() may cause re-entry into msg(), etc
+				installed for multiple signals, doesn't block
+				may interrupt msg() in main and cause re-entry
++PATCH		redirect.c: redir_sigpipe() should use _exit(2), not exit(3)
++BUGS	fd_set overflows
+		intcommon.c: sets INT_REMOTE(ip) w/o fd_set size check
+			{tcp,udp}int.c: si_mux(), di_mux() FD_SET w/o fd check
+		internals.c: socket_mask_copy w/o fd checks
+		main_loop(): select() on read_mask w/o fd checks
+		service.c: svc_activate(): could check ps.rws.mask_max here
+		(many files) all references to ps.rws.socket_mask are unchecked
+		redirect.c: redir_handler() no checks for rdfd, msfd
+		should use fd_grow similarly to OpenBSD inetd
++PATCH		workaround: reduce RLIMIT_NOFILE to FD_SETSIZE
++BUGS	__sio_descriptors overflows
++PATCH		sio functions forget to check fd against n_descriptors
++BUGS	get_fd_limit(), Smorefds()
++PATCH		assume RLIMIT_NOFILE is small (not RLIM_INFINITY)
++OK		orig_max_descriptors and max_descriptors are rlim_t, not int
++BUGS	potential fd leaks to services
++PATCH		init.c: setup_file_descriptors() relies on the rlimit only
+		returns from close() never checked -- fixed the worst one
++BUGS	child.c: set_credentials()
++PATCH		should fail if !ps.ros.is_superuser && user/group requested
++OK		is otherwise fail-close and resets groups (fixed long ago)
++BUGS	gethostby*, getaddrinfo (some are common with memcpy bugs)
++PATCH		addr.c: host_addr() trusts hep->h_length from gethostbyname()
+		addr.c: host_addr() INET6 doesn't check res->ai_family
+		parsers.c: {redir,bind}_parser() don't check res->ai_family
++PATCH		parsers.c: redir_parser() wrongly relies on sizeof(he->h_addr)
++PATCH		parsers.c: bind_parser() same as the above
++PATCH	getpwnam unnecessarily leaves password hashes in address space on BSD
+---
++PATCH	gcc format attributes
++	build with gcc -Wall -Wcast-align (x86, alpha) -- mostly clean
++PATCH		many unused vars with ipv6
++PATCH		parsers.c, inet.c: stores strtol() to int, then needs long
++PATCH		several format strings don't match arguments
++	build with ccc -msg_enable level4 or higher
++PATCH		CC= from configure doesn't get into Makefile's
+		lots of warnings (250 KB of output), the code is just not clean
++PATCH			some really need fixing
+-	use wrapper functions around either strx_* or vsnprintf()?
++		not a good idea, tested strx_* against snprintf instead
+?	define strz_* wrappers around strx_*, which would always NUL-terminate
++PATCH	atoi -> strtol with long to int overflow checks
+---
+	should limit logging rate (= rate of permitted sessions, popa3d-like)
+	should drop privileges for ident lookups, builtins, and records
+	should have options to build --without-{ident,builtins,record,intercept}
+		should generate manpages accordingly

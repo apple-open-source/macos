@@ -52,6 +52,7 @@
 #include <sys/loadable_fs.h>
 #include <hfs/hfs_format.h>
 
+#include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <pwd.h>
@@ -84,6 +85,13 @@
 #define FSUC_SETUUID 's'
 #endif
 
+#ifndef FSUC_MKJNL
+#define FSUC_MKJNL   'J'
+#endif
+
+#ifndef FSUC_UNJNL
+#define FSUC_UNJNL   'U'
+#endif
 
 
 /* **************************************** L O C A L S ******************************************* */
@@ -112,6 +120,8 @@ char gUsePermissionsOption[] = "perm";
 char gIgnorePermissionsOption[] = "noperm";
 
 boolean_t gIsEjectable = 0;
+
+int gJournalSize = 0;
 
 #define AUTO_ADOPT_FIXED 1
 #define AUTO_ENTER_FIXED 0
@@ -154,6 +164,10 @@ static int	DoGetUUIDKey( const char * theDeviceNamePtr );
 static int	DoChangeUUIDKey( const char * theDeviceNamePtr );
 static int	DoAdopt( const char * theDeviceNamePtr );
 static int	DoDisown( const char * theDeviceNamePtr );
+
+extern int  DoMakeJournaled( const char * volNamePtr, int journalSize );  // XXXdbg
+extern int  DoUnJournal( const char * volNamePtr );      // XXXdbg
+
 static int	ParseArgs( int argc, const char * argv[], const char ** actionPtr, const char ** mountPointPtr, boolean_t * isEjectablePtr, boolean_t * isLockedPtr, boolean_t * isSetuidPtr, boolean_t * isDevPtr );
 
 static int	GetVolumeUUID(const char *deviceNamePtr, VolumeUUID *volumeUUIDPtr, boolean_t generate);
@@ -245,6 +259,7 @@ int main (int argc, const char *argv[])
 
     result = seteuid( 0 );
     if ( result ) {
+		fprintf(stderr, "You must be root to run %s.\n", argv[0]);
         result = FSUR_INVAL;
         goto AllDone;
     }
@@ -277,6 +292,18 @@ int main (int argc, const char *argv[])
 		
 		case FSUC_DISOWN:
 			result = DoDisown( blockDeviceName );
+			break;
+
+		case FSUC_MKJNL:
+			if (gJournalSize) {
+				result = DoMakeJournaled( argv[3], gJournalSize );
+			} else {
+				result = DoMakeJournaled( argv[2], gJournalSize );
+			}
+			break;
+
+		case FSUC_UNJNL:
+			result = DoUnJournal( argv[2] );
 			break;
 			
         default:
@@ -760,6 +787,19 @@ Err_Return:
 }
 
 
+static int
+get_multiplier(char c)
+{
+	if (tolower(c) == 'k') {
+		return 1024;
+	} else if (tolower(c) == 'm') {
+		return 1024 * 1024;
+	} else if (tolower(c) == 'g') {
+		return 1024 * 1024 * 1024;
+	} 
+
+	return 1;
+}
 
 /* **************************************** ParseArgs ********************************************
 Purpose -
@@ -805,7 +845,7 @@ ParseArgs(int argc, const char *argv[], const char ** actionPtr,
           boolean_t * isLockedPtr, boolean_t * isSetuidPtr, boolean_t * isDevPtr)
 {
     int			result = FSUR_INVAL;
-    int			deviceLength;
+    int			deviceLength, doLengthCheck = 1;
     int			index;
     int 		mounting = 0;
 
@@ -865,6 +905,26 @@ ParseArgs(int argc, const char *argv[], const char ** actionPtr,
 			index = 0;
 			break;
 		
+		// XXXdbg
+		case FSUC_MKJNL:
+			index = 0;
+			doLengthCheck = 0;
+			if (isdigit(argv[2][0])) {
+				char *ptr;
+				gJournalSize = strtoul(argv[2], &ptr, 0);
+				if (ptr) {
+					gJournalSize *= get_multiplier(*ptr);
+				}
+				return 0;
+			}
+			break;
+
+		case FSUC_UNJNL:
+			index = 0;
+			doLengthCheck = 0;
+			break;
+		// XXXdbg
+
         default:
             DoDisplayUsage( argv );
             goto Return;
@@ -873,7 +933,7 @@ ParseArgs(int argc, const char *argv[], const char ** actionPtr,
 
     /* Make sure device (argv[2]) is something reasonable */
     deviceLength = strlen( argv[2] );
-    if ( deviceLength < 3 || deviceLength > NAME_MAX ) {
+    if ( doLengthCheck && (deviceLength < 3 || deviceLength > NAME_MAX) ) {
         DoDisplayUsage( argv );
         goto Return;
     }
@@ -950,8 +1010,12 @@ DoDisplayUsage(const char *argv[])
     printf("       -%c (Set UUID Key)\n", FSUC_SETUUID);
 #endif HFS_UUID_SUPPORT
     printf("       -%c (Adopt permissions)\n", FSUC_ADOPT);
+	printf("       -%c (Make a volume journaled)\n", FSUC_MKJNL);
+	printf("       -%c (Turn off journaling on a volume)\n", FSUC_UNJNL);
     printf("device_arg:\n");
     printf("       device we are acting upon (for example, 'disk0s2')\n");
+    printf("       if '-%c' or '-%c' is specified, this should be the\n", FSUC_MKJNL, FSUC_UNJNL);
+	printf("       name of the volume we to act on (for example, '/Volumes/foo' or '/')\n");
     printf("mount_point_arg:\n");
     printf("       required for Mount and Force Mount \n");
     printf("Flags:\n");

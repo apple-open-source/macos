@@ -1,32 +1,32 @@
 /*
- * Copyright (c) 1998-2001 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
+* Copyright (c) 1998-2001 Apple Computer, Inc. All rights reserved.
+*
+* @APPLE_LICENSE_HEADER_START@
+* 
+* The contents of this file constitute Original Code as defined in and
+* are subject to the Apple Public Source License Version 1.1 (the
+* "License").  You may not use this file except in compliance with the
+* License.  Please obtain a copy of the License at
+* http://www.apple.com/publicsource and read it before using this file.
+* 
+* This Original Code and all software distributed under the License are
+* distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+* EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+* INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+* FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+* License for the specific language governing rights and limitations
+* under the License.
+* 
+* @APPLE_LICENSE_HEADER_END@
+*/
 /*
- *  IOFWUserClientIsoch.cpp
- *  IOFireWireFamily
- *
- *  Created by NWG on Mon Mar 12 2001.
- *  Copyright (c) 2001 Apple Computer, Inc. All rights reserved.
- *
- */
+*  IOFWUserClientIsoch.cpp
+*  IOFireWireFamily
+*
+*  Created by NWG on Mon Mar 12 2001.
+*  Copyright (c) 2001 Apple Computer, Inc. All rights reserved.
+*
+*/
 
 #include <IOKit/firewire/IOFireWireBus.h>
 #include <IOKit/firewire/IOFWLocalIsochPort.h>
@@ -44,107 +44,107 @@ IOFireWireUserClient::initIsochMethodTable()
 	//
 	// --- isoch methods ----------
 	//
-	fMethods[kFWIsochPort_Allocate].object	= this ;
-	fMethods[kFWIsochPort_Allocate].func 	= (IOMethod) & IOFireWireUserClient::isochPortAllocate ;
-	fMethods[kFWIsochPort_Allocate].count0	= sizeof(FWIsochPortAllocateParams) ;
-	fMethods[kFWIsochPort_Allocate].count1	= sizeof(FWKernIsochPortRef) ;
-	fMethods[kFWIsochPort_Allocate].flags	= kIOUCStructIStructO ;
+	fMethods[kIsochPort_Allocate].object	= this ;
+	fMethods[kIsochPort_Allocate].func 	= (IOMethod) & IOFireWireUserClient::isochPortAllocate ;
+	fMethods[kIsochPort_Allocate].count0	= sizeof(IsochPortAllocateParams) ;
+	fMethods[kIsochPort_Allocate].count1	= sizeof(KernIsochPortRef) ;
+	fMethods[kIsochPort_Allocate].flags	= kIOUCStructIStructO ;
 
-	fMethods[kFWIsochPort_Release].object	= this ;
-	fMethods[kFWIsochPort_Release].func		= (IOMethod) & IOFireWireUserClient::isochPortRelease ;
-	fMethods[kFWIsochPort_Release].count0	= 1 ;
-	fMethods[kFWIsochPort_Release].count1	= 0 ;
-	fMethods[kFWIsochPort_Release].flags	= kIOUCScalarIScalarO ;
+	fMethods[kIsochPort_Release].object	= this ;
+	fMethods[kIsochPort_Release].func		= (IOMethod) & IOFireWireUserClient::isochPortRelease ;
+	fMethods[kIsochPort_Release].count0	= 1 ;
+	fMethods[kIsochPort_Release].count1	= 0 ;
+	fMethods[kIsochPort_Release].flags	= kIOUCScalarIScalarO ;
 	
-	fMethods[kFWIsochPort_GetSupported].object	= this ;
-	fMethods[kFWIsochPort_GetSupported].func	= (IOMethod) & IOFireWireUserClient::isochPortGetSupported ;
-	fMethods[kFWIsochPort_GetSupported].count0	= 1 ;
-	fMethods[kFWIsochPort_GetSupported].count1	= 3 ;
-	fMethods[kFWIsochPort_GetSupported].flags	= kIOUCScalarIScalarO ;
+	fMethods[kIsochPort_GetSupported].object	= this ;
+	fMethods[kIsochPort_GetSupported].func	= (IOMethod) & IOFireWireUserClient::isochPortGetSupported ;
+	fMethods[kIsochPort_GetSupported].count0	= 1 ;
+	fMethods[kIsochPort_GetSupported].count1	= 3 ;
+	fMethods[kIsochPort_GetSupported].flags	= kIOUCScalarIScalarO ;
 
-	fMethods[kFWIsochPort_AllocatePort].object	= this ;
-	fMethods[kFWIsochPort_AllocatePort].func	= (IOMethod) & IOFireWireUserClient::isochPortAllocatePort ;
-	fMethods[kFWIsochPort_AllocatePort].count0	= 3 ;
-	fMethods[kFWIsochPort_AllocatePort].count1	= 0 ;
-	fMethods[kFWIsochPort_AllocatePort].flags	= kIOUCScalarIScalarO ;
+	fMethods[kIsochPort_AllocatePort].object	= this ;
+	fMethods[kIsochPort_AllocatePort].func	= (IOMethod) & IOFireWireUserClient::isochPortAllocatePort ;
+	fMethods[kIsochPort_AllocatePort].count0	= 3 ;
+	fMethods[kIsochPort_AllocatePort].count1	= 0 ;
+	fMethods[kIsochPort_AllocatePort].flags	= kIOUCScalarIScalarO ;
 
-	fMethods[kFWIsochPort_ReleasePort].object	= this ;
-	fMethods[kFWIsochPort_ReleasePort].func		= (IOMethod) & IOFireWireUserClient::isochPortReleasePort ;
-	fMethods[kFWIsochPort_ReleasePort].count0	= 1 ;
-	fMethods[kFWIsochPort_ReleasePort].count1	= 0 ;
-	fMethods[kFWIsochPort_ReleasePort].flags	= kIOUCScalarIScalarO ;
+	fMethods[kIsochPort_ReleasePort].object	= this ;
+	fMethods[kIsochPort_ReleasePort].func		= (IOMethod) & IOFireWireUserClient::isochPortReleasePort ;
+	fMethods[kIsochPort_ReleasePort].count0	= 1 ;
+	fMethods[kIsochPort_ReleasePort].count1	= 0 ;
+	fMethods[kIsochPort_ReleasePort].flags	= kIOUCScalarIScalarO ;
 
-	fMethods[kFWIsochPort_Start].object	= this ;
-	fMethods[kFWIsochPort_Start].func	= (IOMethod) & IOFireWireUserClient::isochPortStart ;
-	fMethods[kFWIsochPort_Start].count0	= 1 ;
-	fMethods[kFWIsochPort_Start].count1	= 0 ;
-	fMethods[kFWIsochPort_Start].flags	= kIOUCScalarIScalarO ;
+	fMethods[kIsochPort_Start].object	= this ;
+	fMethods[kIsochPort_Start].func	= (IOMethod) & IOFireWireUserClient::isochPortStart ;
+	fMethods[kIsochPort_Start].count0	= 1 ;
+	fMethods[kIsochPort_Start].count1	= 0 ;
+	fMethods[kIsochPort_Start].flags	= kIOUCScalarIScalarO ;
 
-	fMethods[kFWIsochPort_Stop].object	= this ;
-	fMethods[kFWIsochPort_Stop].func	= (IOMethod) & IOFireWireUserClient::isochPortStop ;
-	fMethods[kFWIsochPort_Stop].count0	= 1 ;
-	fMethods[kFWIsochPort_Stop].count1	= 0 ;
-	fMethods[kFWIsochPort_Stop].flags	= kIOUCScalarIScalarO ;
+	fMethods[kIsochPort_Stop].object	= this ;
+	fMethods[kIsochPort_Stop].func	= (IOMethod) & IOFireWireUserClient::isochPortStop ;
+	fMethods[kIsochPort_Stop].count0	= 1 ;
+	fMethods[kIsochPort_Stop].count1	= 0 ;
+	fMethods[kIsochPort_Stop].flags	= kIOUCScalarIScalarO ;
 
 	// --- local isoch port methods ----------------------
-	fMethods[kFWLocalIsochPort_Allocate].object			= this ;
-	fMethods[kFWLocalIsochPort_Allocate].func			= (IOMethod) & IOFireWireUserClient::localIsochPortAllocate ;
-	fMethods[kFWLocalIsochPort_Allocate].count0			= sizeof(FWLocalIsochPortAllocateParams) ;
-	fMethods[kFWLocalIsochPort_Allocate].count1			= sizeof(FWKernIsochPortRef) ;
-	fMethods[kFWLocalIsochPort_Allocate].flags			= kIOUCStructIStructO ;
+	fMethods[kLocalIsochPort_Allocate].object			= this ;
+	fMethods[kLocalIsochPort_Allocate].func			= (IOMethod) & IOFireWireUserClient::localIsochPortAllocate ;
+	fMethods[kLocalIsochPort_Allocate].count0			= sizeof(LocalIsochPortAllocateParams) ;
+	fMethods[kLocalIsochPort_Allocate].count1			= sizeof(KernIsochPortRef) ;
+	fMethods[kLocalIsochPort_Allocate].flags			= kIOUCStructIStructO ;
 
-	fMethods[kFWLocalIsochPort_ModifyJumpDCL].object	= this ;
-	fMethods[kFWLocalIsochPort_ModifyJumpDCL].func	= (IOMethod) & IOFireWireUserClient::localIsochPortModifyJumpDCL ;
-	fMethods[kFWLocalIsochPort_ModifyJumpDCL].count0	= 3 ;
-	fMethods[kFWLocalIsochPort_ModifyJumpDCL].count1	= 0 ;
-	fMethods[kFWLocalIsochPort_ModifyJumpDCL].flags	= kIOUCScalarIScalarO ;
+	fMethods[kLocalIsochPort_ModifyJumpDCL].object	= this ;
+	fMethods[kLocalIsochPort_ModifyJumpDCL].func	= (IOMethod) & IOFireWireUserClient::localIsochPortModifyJumpDCL ;
+	fMethods[kLocalIsochPort_ModifyJumpDCL].count0	= 3 ;
+	fMethods[kLocalIsochPort_ModifyJumpDCL].count1	= 0 ;
+	fMethods[kLocalIsochPort_ModifyJumpDCL].flags	= kIOUCScalarIScalarO ;
 	
-	fMethods[kFWLocalIsochPort_ModifyTransferPacketDCLSize].object	= this ;
-	fMethods[kFWLocalIsochPort_ModifyTransferPacketDCLSize].func	= (IOMethod) & IOFireWireUserClient::localIsochPortModifyJumpDCLSize ;
-	fMethods[kFWLocalIsochPort_ModifyTransferPacketDCLSize].count0	= 3 ;
-	fMethods[kFWLocalIsochPort_ModifyTransferPacketDCLSize].count1	= 0 ;
-	fMethods[kFWLocalIsochPort_ModifyTransferPacketDCLSize].flags	= kIOUCScalarIScalarO ;
+	fMethods[kLocalIsochPort_ModifyTransferPacketDCLSize].object	= this ;
+	fMethods[kLocalIsochPort_ModifyTransferPacketDCLSize].func	= (IOMethod) & IOFireWireUserClient::localIsochPortModifyJumpDCLSize ;
+	fMethods[kLocalIsochPort_ModifyTransferPacketDCLSize].count0	= 3 ;
+	fMethods[kLocalIsochPort_ModifyTransferPacketDCLSize].count1	= 0 ;
+	fMethods[kLocalIsochPort_ModifyTransferPacketDCLSize].flags	= kIOUCScalarIScalarO ;
 
 	// --- isoch channel methods -------------------------
-	fMethods[kFWIsochChannel_Allocate].object	= this ;
-	fMethods[kFWIsochChannel_Allocate].func		= (IOMethod) & IOFireWireUserClient::isochChannelAllocate ;
-	fMethods[kFWIsochChannel_Allocate].count0	= 3 ;
-	fMethods[kFWIsochChannel_Allocate].count1	= 1 ;
-	fMethods[kFWIsochChannel_Allocate].flags	= kIOUCScalarIScalarO ;
+	fMethods[kIsochChannel_Allocate].object	= this ;
+	fMethods[kIsochChannel_Allocate].func		= (IOMethod) & IOFireWireUserClient::isochChannelAllocate ;
+	fMethods[kIsochChannel_Allocate].count0	= 3 ;
+	fMethods[kIsochChannel_Allocate].count1	= 1 ;
+	fMethods[kIsochChannel_Allocate].flags	= kIOUCScalarIScalarO ;
 	
-	fMethods[kFWIsochChannel_Release].object	= this ;
-	fMethods[kFWIsochChannel_Release].func		= (IOMethod) & IOFireWireUserClient::isochChannelRelease ;
-	fMethods[kFWIsochChannel_Release].count0	= 1 ;
-	fMethods[kFWIsochChannel_Release].count1	= 0 ;
-	fMethods[kFWIsochChannel_Release].flags		= kIOUCScalarIScalarO ;
+	fMethods[kIsochChannel_Release].object	= this ;
+	fMethods[kIsochChannel_Release].func		= (IOMethod) & IOFireWireUserClient::isochChannelRelease ;
+	fMethods[kIsochChannel_Release].count0	= 1 ;
+	fMethods[kIsochChannel_Release].count1	= 0 ;
+	fMethods[kIsochChannel_Release].flags		= kIOUCScalarIScalarO ;
 
-	fMethods[kFWIsochChannel_UserAllocateChannelBegin].object	= this ;
-	fMethods[kFWIsochChannel_UserAllocateChannelBegin].func		= (IOMethod) & IOFireWireUserClient::isochChannelUserAllocateChannelBegin ;
-	fMethods[kFWIsochChannel_UserAllocateChannelBegin].count0	= 4 ;
-	fMethods[kFWIsochChannel_UserAllocateChannelBegin].count1	= 2 ;
-	fMethods[kFWIsochChannel_UserAllocateChannelBegin].flags	= kIOUCScalarIScalarO ;
+	fMethods[kIsochChannel_UserAllocateChannelBegin].object	= this ;
+	fMethods[kIsochChannel_UserAllocateChannelBegin].func		= (IOMethod) & IOFireWireUserClient::isochChannelUserAllocateChannelBegin ;
+	fMethods[kIsochChannel_UserAllocateChannelBegin].count0	= 4 ;
+	fMethods[kIsochChannel_UserAllocateChannelBegin].count1	= 2 ;
+	fMethods[kIsochChannel_UserAllocateChannelBegin].flags	= kIOUCScalarIScalarO ;
 	
-	fMethods[kFWIsochChannel_UserReleaseChannelComplete].object	= this ;
-	fMethods[kFWIsochChannel_UserReleaseChannelComplete].func	= (IOMethod) & IOFireWireUserClient::isochChannelUserReleaseChannelComplete ;
-	fMethods[kFWIsochChannel_UserReleaseChannelComplete].count0	= 1 ;
-	fMethods[kFWIsochChannel_UserReleaseChannelComplete].count1	= 0 ;
-	fMethods[kFWIsochChannel_UserReleaseChannelComplete].flags	= kIOUCScalarIScalarO ;
+	fMethods[kIsochChannel_UserReleaseChannelComplete].object	= this ;
+	fMethods[kIsochChannel_UserReleaseChannelComplete].func	= (IOMethod) & IOFireWireUserClient::isochChannelUserReleaseChannelComplete ;
+	fMethods[kIsochChannel_UserReleaseChannelComplete].count0	= 1 ;
+	fMethods[kIsochChannel_UserReleaseChannelComplete].count1	= 0 ;
+	fMethods[kIsochChannel_UserReleaseChannelComplete].flags	= kIOUCScalarIScalarO ;
 }
 
 void
 IOFireWireUserClient::initIsochAsyncMethodTable()
 {
-	fAsyncMethods[kFWSetAsyncRef_IsochChannelForceStop].object	= this ;
-	fAsyncMethods[kFWSetAsyncRef_IsochChannelForceStop].func	= (IOAsyncMethod) & IOFireWireUserClient::setAsyncRef_IsochChannelForceStop ;
-	fAsyncMethods[kFWSetAsyncRef_IsochChannelForceStop].count0	= 3 ;
-	fAsyncMethods[kFWSetAsyncRef_IsochChannelForceStop].count1	= 0 ;
-	fAsyncMethods[kFWSetAsyncRef_IsochChannelForceStop].flags	= kIOUCScalarIScalarO ;
+	fAsyncMethods[kSetAsyncRef_IsochChannelForceStop].object	= this ;
+	fAsyncMethods[kSetAsyncRef_IsochChannelForceStop].func	= (IOAsyncMethod) & IOFireWireUserClient::setAsyncRef_IsochChannelForceStop ;
+	fAsyncMethods[kSetAsyncRef_IsochChannelForceStop].count0	= 3 ;
+	fAsyncMethods[kSetAsyncRef_IsochChannelForceStop].count1	= 0 ;
+	fAsyncMethods[kSetAsyncRef_IsochChannelForceStop].flags	= kIOUCScalarIScalarO ;
 
-	fAsyncMethods[kFWSetAsyncRef_DCLCallProc].object			= this ;
-	fAsyncMethods[kFWSetAsyncRef_DCLCallProc].func				= (IOAsyncMethod) & IOFireWireUserClient::setAsyncRef_DCLCallProc ;
-	fAsyncMethods[kFWSetAsyncRef_DCLCallProc].count0			= 2 ;
-	fAsyncMethods[kFWSetAsyncRef_DCLCallProc].count1			= 0 ;
-	fAsyncMethods[kFWSetAsyncRef_DCLCallProc].flags				= kIOUCScalarIScalarO ;
+	fAsyncMethods[kSetAsyncRef_DCLCallProc].object			= this ;
+	fAsyncMethods[kSetAsyncRef_DCLCallProc].func				= (IOAsyncMethod) & IOFireWireUserClient::setAsyncRef_DCLCallProc ;
+	fAsyncMethods[kSetAsyncRef_DCLCallProc].count0			= 2 ;
+	fAsyncMethods[kSetAsyncRef_DCLCallProc].count1			= 0 ;
+	fAsyncMethods[kSetAsyncRef_DCLCallProc].flags				= kIOUCScalarIScalarO ;
 }
 	
 //
@@ -153,8 +153,8 @@ IOFireWireUserClient::initIsochAsyncMethodTable()
 
 IOReturn
 IOFireWireUserClient::isochPortAllocate(
-	FWIsochPortAllocateParams*		inParams,
-	FWKernIsochPortRef*				outPortRef)
+	IsochPortAllocateParams*		inParams,
+	KernIsochPortRef*				outPortRef)
 {
 	IOFWUserIsochPortProxy*	newPort	= new IOFWUserIsochPortProxy() ;
 	
@@ -181,7 +181,7 @@ IOFireWireUserClient::isochPortAllocate(
 
 IOReturn
 IOFireWireUserClient::isochPortRelease(
-	FWKernIsochPortRef		inPortRef)
+	KernIsochPortRef		inPortRef)
 {
 	if (!OSDynamicCast(IOFWUserIsochPortProxy, inPortRef))
 		return kIOReturnBadArgument ;
@@ -193,7 +193,7 @@ IOFireWireUserClient::isochPortRelease(
 
 IOReturn
 IOFireWireUserClient::isochPortGetSupported(
-	FWKernIsochPortRef		inPortRef,
+	KernIsochPortRef		inPortRef,
 	IOFWSpeed*				outMaxSpeed,
 	UInt32*					outChanSupportedHi,
 	UInt32*					outChanSupportedLo)
@@ -214,7 +214,7 @@ IOFireWireUserClient::isochPortGetSupported(
 
 IOReturn
 IOFireWireUserClient::isochPortAllocatePort(
-	FWKernIsochPortRef		inPortRef,
+	KernIsochPortRef		inPortRef,
 	IOFWSpeed				inSpeed,
 	UInt32					inChannel)
 {
@@ -226,7 +226,7 @@ IOFireWireUserClient::isochPortAllocatePort(
 
 IOReturn
 IOFireWireUserClient::isochPortReleasePort(
-	FWKernIsochPortRef		inPortRef)
+	KernIsochPortRef		inPortRef)
 {
 	if (!OSDynamicCast(IOFWUserIsochPortProxy, inPortRef))
 		return kIOReturnBadArgument ;
@@ -236,7 +236,7 @@ IOFireWireUserClient::isochPortReleasePort(
 
 IOReturn
 IOFireWireUserClient::isochPortStart(
-	FWKernIsochPortRef		inPortRef)
+	KernIsochPortRef		inPortRef)
 {
 	if (!OSDynamicCast(IOFWUserIsochPortProxy, inPortRef))
 		return kIOReturnBadArgument ;
@@ -246,7 +246,7 @@ IOFireWireUserClient::isochPortStart(
 
 IOReturn
 IOFireWireUserClient::isochPortStop(
-	FWKernIsochPortRef		inPortRef)
+	KernIsochPortRef		inPortRef)
 {
 	if (!OSDynamicCast(IOFWUserIsochPortProxy, inPortRef))
 		return kIOReturnBadArgument ;
@@ -256,8 +256,8 @@ IOFireWireUserClient::isochPortStop(
 
 IOReturn
 IOFireWireUserClient::localIsochPortAllocate(
-	FWLocalIsochPortAllocateParams*	inParams,
-	FWKernIsochPortRef*				outPortRef)
+	LocalIsochPortAllocateParams*	inParams,
+	KernIsochPortRef*				outPortRef)
 {
 	IOReturn						result		= kIOReturnSuccess ;
 	IOFWUserLocalIsochPortProxy*	newPort 	= new IOFWUserLocalIsochPortProxy ;
@@ -286,7 +286,7 @@ IOFireWireUserClient::localIsochPortAllocate(
 
 IOReturn
 IOFireWireUserClient::localIsochPortModifyJumpDCL(
-	FWKernIsochPortRef		inPortRef,
+	KernIsochPortRef		inPortRef,
 	UInt32					inJumpDCLCompilerData,
 	UInt32					inLabelDCLCompilerData)
 {
@@ -298,8 +298,8 @@ IOFireWireUserClient::localIsochPortModifyJumpDCL(
 }
 
 IOReturn
-IOFireWireUserClient::localIsochPortModifyJumpDCLSize( FWKernIsochPortRef inPortRef, UInt32 dclCompilerData,
-		IOByteCount newSize )
+IOFireWireUserClient::localIsochPortModifyJumpDCLSize( KernIsochPortRef inPortRef, UInt32 dclCompilerData,
+	IOByteCount newSize )
 {
 	IOFWUserLocalIsochPortProxy*	portProxy ;
 	if (NULL == (portProxy = OSDynamicCast( IOFWUserLocalIsochPortProxy, inPortRef)) )
@@ -309,10 +309,8 @@ IOFireWireUserClient::localIsochPortModifyJumpDCLSize( FWKernIsochPortRef inPort
 }
 
 IOReturn
-IOFireWireUserClient::setAsyncRef_DCLCallProc(
-	OSAsyncReference		asyncRef,
-	FWKernIsochPortRef		inPortRef,
-	DCLCallCommandProcPtr	inProc )
+IOFireWireUserClient::setAsyncRef_DCLCallProc( OSAsyncReference asyncRef, KernIsochPortRef inPortRef, 
+	DCLCallCommandProc* inProc )
 {
 	IOFWUserLocalIsochPortProxy*	port = OSDynamicCast(IOFWUserLocalIsochPortProxy, inPortRef) ;
 	if (!port)
@@ -332,13 +330,13 @@ IOFireWireUserClient::isochChannelForceStopHandler(
 {
 	return kIOReturnSuccess ;
 }
- 
+
 IOReturn
 IOFireWireUserClient::isochChannelAllocate(
 	bool					inDoIRM,
 	UInt32					inPacketSize,
 	IOFWSpeed				inPrefSpeed,
-	FWKernIsochChannelRef*	outIsochChannelRef)
+	KernIsochChannelRef*	outIsochChannelRef)
 {
 	IOReturn	result		= kIOReturnSuccess ;
 
@@ -371,7 +369,7 @@ IOFireWireUserClient::isochChannelAllocate(
 
 IOReturn
 IOFireWireUserClient::isochChannelRelease(
-	FWKernIsochChannelRef	inChannelRef)
+	KernIsochChannelRef	inChannelRef)
 {
 	if (!OSDynamicCast(IOFWUserIsochChannel, inChannelRef))
 		return kIOReturnBadArgument ;
@@ -386,7 +384,7 @@ IOFireWireUserClient::isochChannelRelease(
 
 IOReturn
 IOFireWireUserClient::isochChannelUserAllocateChannelBegin(
-	FWKernIsochChannelRef	inChannelRef,
+	KernIsochChannelRef	inChannelRef,
 	IOFWSpeed				inSpeed,
 	UInt32					inAllowedChansHi,
 	UInt32					inAllowedChansLo,
@@ -401,7 +399,7 @@ IOFireWireUserClient::isochChannelUserAllocateChannelBegin(
 
 IOReturn
 IOFireWireUserClient::isochChannelUserReleaseChannelComplete(
-	FWKernIsochChannelRef	inChannelRef)
+	KernIsochChannelRef	inChannelRef)
 {
 	if (!OSDynamicCast(IOFWUserIsochChannel, inChannelRef))
 		return kIOReturnBadArgument ;

@@ -7,12 +7,10 @@
  *
  */
 
-#include <libkern/c++/OSObject.h>
-
-#include <IOKit/firewire/IOFireWireDevice.h>
-#include <IOKit/firewire/IOFireWireFamilyCommon.h>
-
-#include "IOFWUserCommand.h"
+#import "IOFWUserCommand.h"
+#import "IOFireWireDevice.h"
+#import "IOFireWireFamilyCommon.h"
+#import "IOFireWireLib.h"
 
 OSDefineMetaClassAndAbstractStructors(IOFWUserCommand, OSObject)
 OSDefineMetaClassAndStructors(IOFWUserReadCommand, IOFWUserCommand)
@@ -53,7 +51,7 @@ IOFWUserCommand::setAsyncReference(
 
 IOFWUserCommand*
 IOFWUserCommand::withSubmitParams(
-	const FWUserCommandSubmitParams*	inParams,
+	const CommandSubmitParams*	inParams,
 	const IOFireWireUserClient*			inUserClient)
 {
 	IOFWUserCommand*	result	= NULL ;
@@ -92,7 +90,7 @@ IOFWUserCommand::withSubmitParams(
 
 bool
 IOFWUserCommand::initWithSubmitParams(
-	const FWUserCommandSubmitParams*	inParams,
+	const CommandSubmitParams*	inParams,
 	const IOFireWireUserClient*			inUserClient)
 {
 	fUserClient	= inUserClient ;
@@ -147,7 +145,7 @@ IOFWUserCommand::asyncReadQuadletCommandCompletion(
 
 bool
 IOFWUserReadCommand::initWithSubmitParams(
-	const FWUserCommandSubmitParams*	inParams,
+	const CommandSubmitParams*	inParams,
 	const IOFireWireUserClient*			inUserClient)
 {
 	bool	result = true ;
@@ -177,8 +175,8 @@ IOFWUserReadCommand::initWithSubmitParams(
 
 IOReturn
 IOFWUserReadCommand::submit(
-	FWUserCommandSubmitParams*	inParams,
-	FWUserCommandSubmitResult*	outResult)
+	CommandSubmitParams*	inParams,
+	CommandSubmitResult*	outResult)
 {
 	IOReturn	error		= kIOReturnSuccess ;
 	Boolean		syncFlag 	= ( inParams->flags & kFWCommandInterfaceSyncExecute ) != 0 ;
@@ -361,7 +359,7 @@ IOFWUserReadCommand::submit(
 // ============================================================
 bool
 IOFWUserWriteCommand::initWithSubmitParams(
-	const FWUserCommandSubmitParams*	inParams,
+	const CommandSubmitParams*	inParams,
 	const IOFireWireUserClient*			inUserClient)
 {
 	bool	result = true ;
@@ -391,8 +389,8 @@ IOFWUserWriteCommand::initWithSubmitParams(
 
 IOReturn
 IOFWUserWriteCommand::submit(
-	FWUserCommandSubmitParams*	inParams,
-	FWUserCommandSubmitResult*	outResult)
+	CommandSubmitParams*	inParams,
+	CommandSubmitResult*	outResult)
 {
 	IOReturn	result		= kIOReturnSuccess ;
 	Boolean		syncFlag 	= ( inParams->flags & kFWCommandInterfaceSyncExecute ) != 0 ;
@@ -529,7 +527,7 @@ IOFWUserWriteCommand::submit(
 // ============================================================
 bool
 IOFWUserCompareSwapCommand::initWithSubmitParams(
-	const FWUserCommandSubmitParams*	inParams,
+	const CommandSubmitParams*	inParams,
 	const IOFireWireUserClient*			inUserClient)
 {
 	bool	result = true ;
@@ -541,13 +539,13 @@ IOFWUserCompareSwapCommand::initWithSubmitParams(
 
 IOReturn
 IOFWUserCompareSwapCommand::submit(
-	FWUserCommandSubmitParams*	inParams,
-	FWUserCommandSubmitResult*	outResult)
+	CommandSubmitParams*	inParams,
+	CommandSubmitResult*	outResult)
 {
 	// cast to the right type:
-	// for compare swap commands we are really dealing with a 'FWUserCompareSwapSubmitResult'
+	// for compare swap commands we are really dealing with a 'CompareSwapSubmitResult'
 	// but we have to override submit() with a prototype matching our superclass submit()
-	FWUserCompareSwapSubmitResult* result = (FWUserCompareSwapSubmitResult*)outResult ;
+	CompareSwapSubmitResult* result = (CompareSwapSubmitResult*)outResult ;
 
 	IOReturn	error		= kIOReturnSuccess ;
 
@@ -634,7 +632,7 @@ IOFWUserCompareSwapCommand::asyncCompletion(
 
 	if (refcon && cmd->fAsyncRef[0] )
 	{
-		FWUserCompareSwapSubmitResult sendResult ;
+		CompareSwapSubmitResult sendResult ;
 		
 		sendResult.result = status ;
 		sendResult.bytesTransferred = cmd->fCommand->getBytesTransferred() ;

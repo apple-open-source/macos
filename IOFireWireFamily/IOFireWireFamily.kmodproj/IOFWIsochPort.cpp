@@ -120,7 +120,7 @@ IOReturn IOFWLocalIsochPort::stop()
 }
 
 IOReturn IOFWLocalIsochPort::notify(UInt32 notificationType,
-	DCLCommandPtr *dclCommandList, UInt32 numDCLCommands)
+	DCLCommand** dclCommandList, UInt32 numDCLCommands)
 {
     IOReturn res;
 

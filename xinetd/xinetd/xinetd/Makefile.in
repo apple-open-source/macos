@@ -1,0 +1,232 @@
+# (c) Copyright 1992 by Panagiotis Tsirigotis
+# All rights reserved.  The file named COPYRIGHT specifies the terms 
+# and conditions for redistribution.
+
+#
+# $Id: Makefile.in,v 1.1.1.3 2002/10/02 21:07:26 bbraun Exp $
+#
+# Based on Program makefile template: *Revision: 1.14 *
+#
+
+#
+# Available entries:
+#	$(NAME)		--> create the program (this is the default target)
+#	install		--> install the program (and man page)
+#	uninstall	--> uninstall the program (and man page)
+#	clean			--> cleanup
+#
+
+NAME		= xinetd
+VPATH		= @srcdir@
+SRCDIR		= @srcdir@
+
+# Available debug flags:
+#     DEBUG                      code is being debugged
+#     DEBUG_SERVER               forked server will do a sleep
+#     DEBUG_INTERCEPTOR          forked interceptor will do a sleep
+#     DEBUG_SIGNALS              code that handles SIGSEGV and SIGBUS
+#     DEBUG_LOGGING              forked logging server will do a sleep
+#     DEBUG_SHUTDOWN             forked shutdown server will do a sleep
+#     DEBUG_TPCINT               enable debugging code in the tcp interceptor
+#     DEBUG_UDPINT               enable debugging code in the udp interceptor
+#     DEBUG_DAEMON               debug xinetd when not invoked with -d option
+#     DEBUG_RETRY                debug the server retry code
+#
+
+DEFS        = @DEFS@
+
+PREFIX      = @prefix@
+
+INSTALL_CMD = @INSTALL@
+
+LIBS        = -lsio -lmisc -lxlog -lstr -lpset -lportable @LIBS@
+
+INCLUDEDIR  = -I../libs/include
+LIBDIR      = -L../libs/lib
+
+LDFLAGS     = @LDFLAGS@ $(LIBDIR) 
+CFLAGS      = $(INCLUDEDIR) @CFLAGS@ @DEFS@ -Wall
+
+HDRS     = \
+		access.h \
+		addr.h \
+		attr.h \
+		builtins.h \
+		conf.h \
+		xconfig.h \
+		connection.h \
+		defs.h \
+		inet.h \
+		int.h \
+		log.h \
+		mask.h \
+		parse.h \
+		sconst.h \
+		sconf.h \
+		sensor.h \
+		server.h \
+		service.h \
+		state.h \
+		xtimer.h
+
+SRCS     = \
+		access.c addr.c \
+		builtins.c \
+		child.c conf.c confparse.c connection.c \
+		env.c \
+		ident.c init.c int.c intcommon.c internals.c \
+		log.c logctl.c \
+		main.c msg.c \
+		nvlists.c \
+		parse.c parsesup.c parsers.c \
+		reconfig.c retry.c \
+		sconf.c sensor.c server.c service.c \
+		signals.c special.c \
+		tcpint.c time.c \
+		udpint.c util.c redirect.c \
+		xgetloadavg.c includedir.c xtimer.c inet.c
+
+OBJS     = \
+		access.o addr.o \
+		builtins.o \
+		child.o conf.o confparse.o connection.o \
+		env.o \
+		ident.o init.o int.o intcommon.o internals.o \
+		log.o logctl.o \
+		main.o msg.o \
+		nvlists.o \
+		parse.o parsesup.o parsers.o \
+		reconfig.o retry.o \
+		sconf.o sensor.o server.o service.o \
+		signals.o special.o \
+		tcpint.o time.o \
+		udpint.o util.o redirect.o \
+		xgetloadavg.o options.o includedir.o xtimer.o inet.o
+
+XMODE		= -m 700	# mode for executables
+FMODE		= -m 640	# mode for anything but executables
+INSTALL		= @INSTALL@
+
+#
+# The following variables do not need to be changed
+#
+
+
+all: xinetd itox
+
+itox: itox.c
+	$(CC) $(DEBUG) $(INCLUDEDIR) $(SRCDIR)/itox.c -o $@ $(LDFLAGS) -lmisc -lsio -lstr -lportable $(LIBS)
+
+xinetd: $(OBJS)
+	$(CC) $(CFLAGS) $(DEBUG) -o $@ $(OBJS) $(LDFLAGS) $(LIBS) || rm -f $@
+
+clean:
+	rm -f $(OBJS) $(NAME) core itox
+	rm -f *.swp 
+	rm -f *.?~ 
+
+distclean: clean
+	rm -f Makefile
+
+install: $(NAME)
+	$(INSTALL) $(XMODE) $(NAME) $(INSTALLDIR)
+
+install.man:
+	if test "$(MANPROGDIR)" ; then \
+		$(INSTALL) $(FMODE) $(MANPROGFILE) $(MANPROGDIR)/$(MANPROGPAGE) ;\
+	fi
+	if test "$(MANDATADIR)" ; then \
+		for i in $(MANDATANAMES) ; do \
+			name=$(NAME).$$i ; \
+			$(INSTALL) $(FMODE) $$name.man $(MANDATADIR)/$$name.$(MANDATASECTION);\
+		done ;\
+	fi
+
+uninstall:
+	a=`pwd` ; cd $(INSTALLDIR) ;\
+	if test $$a != `pwd` ; then rm -f $(NAME) ; fi
+	a=`pwd` ; cd $(MANPROGDIR) ;\
+	if test $$a != `pwd` ; then rm -f $(MANPROGPAGE) ; fi
+	a=`pwd` ; cd $(MANDATADIR) ;\
+	if test $$a != `pwd` ; then \
+		for i in $(MANDATANAMES) ; do \
+			rm -f $(NAME).$$i.$(MANDATASECTION) ;\
+		done ;\
+	fi
+
+#
+# Header file dependencies
+#
+addr.h: defs.h
+	@if test -f $@ ; then touch $@ ; else echo $@ is missing ; exit 1 ; fi
+
+builtins.h: defs.h
+	@if test -f $@ ; then touch $@ ; else echo $@ is missing ; exit 1 ; fi
+
+conf.h: service.h
+	@if test -f $@ ; then touch $@ ; else echo $@ is missing ; exit 1 ; fi
+
+int.h: server.h
+	@if test -f $@ ; then touch $@ ; else echo $@ is missing ; exit 1 ; fi
+
+parse.h: defs.h
+	@if test -f $@ ; then touch $@ ; else echo $@ is missing ; exit 1 ; fi
+
+sconf.h: defs.h log.h mask.h
+	@if test -f $@ ; then touch $@ ; else echo $@ is missing ; exit 1 ; fi
+
+sensor.h: defs.h service.h
+	@if test -f $@ ; then touch $@ ; else echo $@ is missing ; exit 1 ; fi
+
+server.h: defs.h service.h connection.h
+	@if test -f $@ ; then touch $@ ; else echo $@ is missing ; exit 1 ; fi
+
+service.h: defs.h sconf.h builtins.h
+	@if test -f $@ ; then touch $@ ; else echo $@ is missing ; exit 1 ; fi
+
+state.h: mask.h sconf.h conf.h
+	@if test -f $@ ; then touch $@ ; else echo $@ is missing ; exit 1 ; fi
+
+connection.h: mask.h service.h
+	@if test -f $@ ; then touch $@ ; else echo $@ is missing ; exit 1 ; fi
+
+#
+# Object file dependencies
+#
+access.o:	access.h addr.h connection.h sensor.h service.h state.h
+addr.o: 	addr.h defs.h
+builtins.o: 	builtins.h xconfig.h defs.h sconf.h server.h
+child.o: 	attr.h xconfig.h sconst.h server.h state.h $(OPT_HEADER)
+conf.o: 	attr.h conf.h xconfig.h defs.h service.h state.h 
+confparse.o:	attr.h xconfig.h conf.h defs.h parse.h sconst.h \
+		sconf.h sensor.h state.h
+connection.o:	connection.h service.h state.h
+sconf.o:	addr.h attr.h defs.h sconf.h state.h
+env.o:		attr.h defs.h sconf.h 
+ident.o:	defs.h sconst.h server.h
+init.o:		defs.h conf.h xconfig.h state.h $(OPT_HEADER)
+int.o:		xconfig.h connection.h defs.h int.h server.h service.h
+intcommon.o:	xconfig.h defs.h int.h server.h service.h state.h 
+internals.o:	xconfig.h server.h service.h state.h
+log.o:		access.h defs.h connection.h sconst.h server.h service.h
+logctl.o:	xconfig.h defs.h log.h service.h state.h
+main.o:		service.h state.h $(OPT_HEADER)
+msg.o:		xconfig.h defs.h state.h $(OPT_HEADER)
+nvlists.o:	defs.h sconf.h
+parse.o:	addr.h attr.h conf.h defs.h parse.h service.h
+parsesup.o:	defs.h parse.h
+parsers.o:	addr.h xconfig.h defs.h parse.h sconf.h
+reconfig.o:	access.h conf.h xconfig.h defs.h server.h service.h state.h
+retry.o:	access.h xconfig.h connection.h server.h state.h
+sensor.o:	addr.h msg.h sconf.h server.h xconfig.h xtimer.h
+server.o:	access.h xconfig.h connection.h server.h state.h
+service.o:	access.h attr.h xconfig.h connection.h defs.h \
+			server.h service.h state.h $(OPT_HEADER)
+signals.o:	xconfig.h defs.h state.h
+special.o:	builtins.h conf.h xconfig.h connection.h \
+			server.h sconst.h state.h $(OPT_HEADER)
+tcpint.o:	access.h xconfig.h defs.h int.h 
+time.o:		defs.h
+udpint.o:	access.h defs.h int.h
+util.o:		xconfig.h defs.h
+xtimer.o:	msg.h

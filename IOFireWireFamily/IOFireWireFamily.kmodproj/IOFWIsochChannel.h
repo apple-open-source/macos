@@ -31,7 +31,7 @@
 #define _IOKIT_IOFWISOCHCHANNEL_H
 
 #include <libkern/c++/OSObject.h>
-#include <IOKit/firewire/IOFWRegs.h>
+#include <IOKit/firewire/IOFireWireFamilyCommon.h>
 
 enum
 {
@@ -47,34 +47,31 @@ class OSSet;
 class IOFWReadQuadCommand;
 class IOFWCompareAndSwapCommand;
 
-typedef IOReturn	(FWIsochChannelForceStopNotificationProc) (
-        void *				refCon,
-	IOFWIsochChannel *		isochChannelID,
-	UInt32				stopCondition);
-
-typedef FWIsochChannelForceStopNotificationProc *FWIsochChannelForceStopNotificationProcPtr;
-
 /*! @class IOFWIsochChannel
 */
 class IOFWIsochChannel : public OSObject
 {
     OSDeclareDefaultStructors(IOFWIsochChannel)
 
+	public:
+
+		typedef IOReturn (ForceStopNotificationProc)(void* refCon, IOFWIsochChannel* channel, UInt32 stopCondition );
+
 protected:
-    IOFireWireController *fControl;
-    FWIsochChannelForceStopNotificationProcPtr fStopProc;
-    void *		fStopRefCon;
-    IOFWIsochPort *	fTalker;
-    OSSet *		fListeners;
-    bool		fDoIRM;
-    UInt32		fBandwidth;	// Allocation units used
-    UInt32		fPacketSize;
-    IOFWSpeed		fPrefSpeed;
-    IOFWSpeed		fSpeed;		// Actual speed used
-    UInt32		fChannel;	// Actual channel used
-    IOFWReadQuadCommand *fReadCmd;
-    IOFWCompareAndSwapCommand *fLockCmd;
-    UInt32		fGeneration;	// When bandwidth was allocated
+    IOFireWireController *			fControl;
+    ForceStopNotificationProc* 		fStopProc;
+    void *							fStopRefCon;
+    IOFWIsochPort *					fTalker;
+    OSSet *							fListeners;
+    bool							fDoIRM;
+    UInt32							fBandwidth;	// Allocation units used
+    UInt32							fPacketSize;
+    IOFWSpeed						fPrefSpeed;
+    IOFWSpeed						fSpeed;		// Actual speed used
+    UInt32							fChannel;	// Actual channel used
+    IOFWReadQuadCommand *			fReadCmd;
+    IOFWCompareAndSwapCommand *		fLockCmd;
+    UInt32							fGeneration;	// When bandwidth was allocated
     
 /*! @struct ExpansionData
     @discussion This structure will be used to expand the capablilties of the class in the future.
@@ -85,39 +82,36 @@ protected:
     Reserved for future use.  (Internal use only)  */
     ExpansionData *reserved;
 
-    static void		threadFunc(void * arg, void *);
+    static void					threadFunc( void * arg, void * );
     
-    virtual IOReturn	updateBandwidth(bool claim);
-    virtual void	reallocBandwidth();	
-    virtual void	free();
+    virtual IOReturn			updateBandwidth(bool claim);
+    virtual void				reallocBandwidth();	
+    virtual void				free();
 
 public:
     // Called from IOFireWireController
-    virtual bool init(IOFireWireController *control,
-		bool doIRM, UInt32 packetSize, IOFWSpeed prefSpeed,
-		FWIsochChannelForceStopNotificationProcPtr stopProc,
-		void *stopRefCon);
-    virtual void handleBusReset();
+    virtual bool 				init( IOFireWireController *control, bool doIRM, UInt32 packetSize, 
+										IOFWSpeed prefSpeed, ForceStopNotificationProc* stopProc,
+										void *stopRefCon );
+    virtual void 				handleBusReset();
 
     // Called by clients
-    virtual IOReturn setTalker(IOFWIsochPort *talker);
-    virtual IOReturn addListener(IOFWIsochPort *listener);
+    virtual IOReturn 			setTalker(IOFWIsochPort *talker);
+    virtual IOReturn 			addListener(IOFWIsochPort *listener);
 
-    virtual IOReturn allocateChannel();
-    virtual IOReturn releaseChannel();
-    virtual IOReturn start();
-    virtual IOReturn stop();
+    virtual IOReturn 			allocateChannel();
+    virtual IOReturn 			releaseChannel();
+    virtual IOReturn 			start();
+    virtual IOReturn 			stop();
 
 protected:
 	// handles IRM and channel determination and allocation.
 	// called by both user and kernel isoch channels
-	IOReturn			allocateChannelBegin(
-								IOFWSpeed		inSpeed,		// used to calculate bandwidth number
-								UInt64			inAllowedChans,
-								UInt32&			outChannel ) ;
+	IOReturn					allocateChannelBegin( IOFWSpeed speed, UInt64 allowedChans, UInt32& channel ) ;
+
 	// handles IRM and channel allocation.
 	// called by both user and kernel isoch channels
-	IOReturn			releaseChannelComplete() ;
+	IOReturn					releaseChannelComplete() ;
 
 private:
     OSMetaClassDeclareReservedUnused(IOFWIsochChannel, 0);
@@ -126,6 +120,9 @@ private:
     OSMetaClassDeclareReservedUnused(IOFWIsochChannel, 3);
 
 };
+
+typedef IOFWIsochChannel::ForceStopNotificationProc 	FWIsochChannelForceStopNotificationProc ;
+typedef IOFWIsochChannel::ForceStopNotificationProc* 	FWIsochChannelForceStopNotificationProcPtr ;
 
 #endif /* ! _IOKIT_IOFWISOCHCHANNEL_H */
 

@@ -1,0 +1,835 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 38;
+	objects = {
+		014CEA3E0018CDD111CA2923 = {
+			isa = PBXBundleReference;
+			path = PasswordServer.dsplug;
+			refType = 3;
+		};
+		014CEA3F0018CDD111CA2923 = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				OPTIMIZATION_CFLAGS = "-O0";
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		014CEA400018CDD111CA2923 = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+//010
+//011
+//012
+//013
+//014
+//080
+//081
+//082
+//083
+//084
+		089C1669FE841209C02AAC07 = {
+			buildStyles = (
+				014CEA3F0018CDD111CA2923,
+				014CEA400018CDD111CA2923,
+			);
+			isa = PBXProject;
+			mainGroup = 089C166AFE841209C02AAC07;
+			projectDirPath = "";
+			targets = (
+				089C1673FE841209C02AAC07,
+			);
+		};
+		089C166AFE841209C02AAC07 = {
+			children = (
+				08FB77AFFE84173DC02AAC07,
+				089C167CFE841241C02AAC07,
+				089C1671FE841209C02AAC07,
+				19C28FB6FE9D52B211CA2CBB,
+			);
+			isa = PBXGroup;
+			name = PasswordServerPlugin;
+			refType = 4;
+		};
+		089C1671FE841209C02AAC07 = {
+			children = (
+				F56C1E240294335201DD284B,
+				F56C1E260294336701DD284B,
+				0AA1909FFE8422F4C02AAC07,
+				F56C17D1029432F801DD284B,
+				F56C19ED0294331B01DD284B,
+				F56C19EE0294331B01DD284B,
+				F56C19EF0294331B01DD284B,
+				F56C1E1C0294333301DD284B,
+				F56C1E2D029433D801DD284B,
+				F56C1E2F0294343A01DD284B,
+				F56C1E41029436AB01DD284B,
+			);
+			isa = PBXGroup;
+			name = "External Frameworks and Libraries";
+			refType = 4;
+		};
+		089C1673FE841209C02AAC07 = {
+			buildPhases = (
+				089C1674FE841209C02AAC07,
+				089C1675FE841209C02AAC07,
+				089C1676FE841209C02AAC07,
+				089C1677FE841209C02AAC07,
+				089C1679FE841209C02AAC07,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\" \"$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Resources\"";
+				HEADER_SEARCH_PATHS = "\"$(APPLE_INTERNAL_DEVELOPER_DIR)/Headers/sasl\" \"$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Headers\" \"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/DirectoryServiceCore.framework/Versions/A/Headers\"";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Resources/Plugins";
+				LIBRARY_SEARCH_PATHS = "\"$(APPLE_INTERNAL_DIR)/Developer/libs\"";
+				OPTIMIZATION_CFLAGS = "-Os";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-bundle -twolevel_namespace";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = PasswordServer;
+				SECTORDER_FLAGS = "";
+				USE_GCC3 = YES;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = dsplug;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = PasswordServerPlugin;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Resources/Plugins";
+			productName = PasswordServerPlugin;
+			productReference = 014CEA3E0018CDD111CA2923;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleConfigFile</key>
+	<string>PasswordServer</string>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>PasswordServer</string>
+	<key>CFBundleGetInfoString</key>
+	<string></string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.DirectoryService.PasswordServerPlugin</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>DirectoryServicePasswordServerPlugIn</string>
+	<key>CFBundlePackageSignature</key>
+	<string>adss</string>
+	<key>CFBundlePackageType</key>
+	<string>dspi</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.1</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.1</string>
+	<key>CFPlugInDynamicRegisterFunction</key>
+	<string></string>
+	<key>CFPlugInDynamicRegistration</key>
+	<string>NO</string>
+	<key>CFPlugInFactories</key>
+	<dict>
+		<key>F8ACD86B-3C66-11D6-939C-00039350EB4E</key>
+		<string>ModuleFactory</string>
+	</dict>
+	<key>CFPlugInTypes</key>
+	<dict>
+		<key>697B5D6C-87A1-1226-89CA-000502C1C736</key>
+		<array>
+			<string>F8ACD86B-3C66-11D6-939C-00039350EB4E</string>
+		</array>
+	</dict>
+	<key>CFPlugInUnloadFunction</key>
+	<string></string>
+	<key>CFPluginNameString</key>
+	<string>PasswordServer</string>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 1;
+		};
+		089C1674FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				F56C1799029431B901DD284B,
+				F5E060C9029593D701DD284B,
+				F5E060CB029593D701DD284B,
+				F5E060CD029593D701DD284B,
+				F5E060CF029593D701DD284B,
+				F5E060D0029593D701DD284B,
+				F5E060D2029593D701DD284B,
+				F5E060D4029593D701DD284B,
+				F5E060D5029593D701DD284B,
+				F5E060D6029593D701DD284B,
+				F5E060D7029593D701DD284B,
+				F5E060D9029593D701DD284B,
+				F5E060DA029593D701DD284B,
+				F5E060DC029593D701DD284B,
+				F5E060DD029593D701DD284B,
+				F5E060DF029593D701DD284B,
+				F5E060E1029593D701DD284B,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		089C1675FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				089C1680FE841241C02AAC07,
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		089C1676FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				F56C1798029431B901DD284B,
+				F5E060C7029593D701DD284B,
+				F5E060C8029593D701DD284B,
+				F5E060CA029593D701DD284B,
+				F5E060CC029593D701DD284B,
+				F5E060CE029593D701DD284B,
+				F5E060D1029593D701DD284B,
+				F5E060D3029593D701DD284B,
+				F5E060D8029593D701DD284B,
+				F5E060DB029593D701DD284B,
+				F5E060DE029593D701DD284B,
+				F5E060E0029593D701DD284B,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		089C1677FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				0AA190A0FE8422F4C02AAC07,
+				F56C19EC029432F901DD284B,
+				F56C1E190294331C01DD284B,
+				F56C1E1A0294331C01DD284B,
+				F56C1E1B0294331C01DD284B,
+				F56C1E230294333301DD284B,
+				F56C1E250294335201DD284B,
+				F56C1E270294336701DD284B,
+				F56C1E2E029433D801DD284B,
+				F56C1E380294343A01DD284B,
+				F56C1E5F029436AB01DD284B,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		089C1679FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		089C167CFE841241C02AAC07 = {
+			children = (
+				089C167DFE841241C02AAC07,
+			);
+			isa = PBXGroup;
+			name = Resources;
+			refType = 4;
+		};
+		089C167DFE841241C02AAC07 = {
+			children = (
+				089C167EFE841241C02AAC07,
+			);
+			isa = PBXVariantGroup;
+			name = InfoPlist.strings;
+			refType = 4;
+		};
+		089C167EFE841241C02AAC07 = {
+			fileEncoding = 10;
+			isa = PBXFileReference;
+			name = English;
+			path = English.lproj/InfoPlist.strings;
+			refType = 4;
+		};
+		089C1680FE841241C02AAC07 = {
+			fileRef = 089C167DFE841241C02AAC07;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		08FB77AFFE84173DC02AAC07 = {
+			children = (
+				F56C179A029431BE01DD284B,
+				F56C1796029431B901DD284B,
+				F56C1797029431B901DD284B,
+			);
+			isa = PBXGroup;
+			name = Source;
+			refType = 4;
+		};
+//080
+//081
+//082
+//083
+//084
+//0A0
+//0A1
+//0A2
+//0A3
+//0A4
+		0AA1909FFE8422F4C02AAC07 = {
+			isa = PBXFrameworkReference;
+			name = CoreFoundation.framework;
+			path = /System/Library/Frameworks/CoreFoundation.framework;
+			refType = 0;
+		};
+		0AA190A0FE8422F4C02AAC07 = {
+			fileRef = 0AA1909FFE8422F4C02AAC07;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//0A0
+//0A1
+//0A2
+//0A3
+//0A4
+//190
+//191
+//192
+//193
+//194
+		19C28FB6FE9D52B211CA2CBB = {
+			children = (
+				014CEA3E0018CDD111CA2923,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+		};
+//190
+//191
+//192
+//193
+//194
+//F50
+//F51
+//F52
+//F53
+//F54
+		F56C1796029431B901DD284B = {
+			isa = PBXFileReference;
+			path = CPSPlugIn.cpp;
+			refType = 4;
+		};
+		F56C1797029431B901DD284B = {
+			isa = PBXFileReference;
+			path = CPSPlugIn.h;
+			refType = 4;
+		};
+		F56C1798029431B901DD284B = {
+			fileRef = F56C1796029431B901DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F56C1799029431B901DD284B = {
+			fileRef = F56C1797029431B901DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F56C179A029431BE01DD284B = {
+			children = (
+				F5E060AC029593D701DD284B,
+				F5E060AD029593D701DD284B,
+				F5E060AE029593D701DD284B,
+				F5E060AF029593D701DD284B,
+				F5E060B0029593D701DD284B,
+				F5E060B1029593D701DD284B,
+				F5E060B2029593D701DD284B,
+				F5E060B3029593D701DD284B,
+				F5E060B4029593D701DD284B,
+				F5E060B5029593D701DD284B,
+				F5E060B6029593D701DD284B,
+				F5E060B7029593D701DD284B,
+				F5E060B8029593D701DD284B,
+				F5E060B9029593D701DD284B,
+				F5E060BA029593D701DD284B,
+				F5E060BB029593D701DD284B,
+				F5E060BC029593D701DD284B,
+				F5E060BD029593D701DD284B,
+				F5E060BE029593D701DD284B,
+				F5E060BF029593D701DD284B,
+				F5E060C0029593D701DD284B,
+				F5E060C1029593D701DD284B,
+				F5E060C2029593D701DD284B,
+				F5E060C3029593D701DD284B,
+				F5E060C4029593D701DD284B,
+				F5E060C5029593D701DD284B,
+				F5E060C6029593D701DD284B,
+			);
+			isa = PBXGroup;
+			name = OpenSSH;
+			refType = 4;
+		};
+		F56C17D1029432F801DD284B = {
+			isa = PBXFrameworkReference;
+			name = IOKit.framework;
+			path = /System/Library/Frameworks/IOKit.framework;
+			refType = 0;
+		};
+		F56C19EC029432F901DD284B = {
+			fileRef = F56C17D1029432F801DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F56C19ED0294331B01DD284B = {
+			isa = PBXFrameworkReference;
+			name = Security.framework;
+			path = /System/Library/Frameworks/Security.framework;
+			refType = 0;
+		};
+		F56C19EE0294331B01DD284B = {
+			isa = PBXFrameworkReference;
+			name = System.framework;
+			path = /System/Library/Frameworks/System.framework;
+			refType = 0;
+		};
+		F56C19EF0294331B01DD284B = {
+			isa = PBXFrameworkReference;
+			name = SystemConfiguration.framework;
+			path = /System/Library/Frameworks/SystemConfiguration.framework;
+			refType = 0;
+		};
+		F56C1E190294331C01DD284B = {
+			fileRef = F56C19ED0294331B01DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F56C1E1A0294331C01DD284B = {
+			fileRef = F56C19EE0294331B01DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F56C1E1B0294331C01DD284B = {
+			fileRef = F56C19EF0294331B01DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F56C1E1C0294333301DD284B = {
+			isa = PBXFrameworkReference;
+			name = TimClient.framework;
+			path = /System/Library/PrivateFrameworks/TimClient.framework;
+			refType = 0;
+		};
+		F56C1E230294333301DD284B = {
+			fileRef = F56C1E1C0294333301DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F56C1E240294335201DD284B = {
+			isa = PBXExecutableFileReference;
+			name = libsasl2.2.0.1.dylib;
+			path = /usr/lib/libsasl2.2.0.1.dylib;
+			refType = 0;
+		};
+		F56C1E250294335201DD284B = {
+			fileRef = F56C1E240294335201DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F56C1E260294336701DD284B = {
+			isa = PBXExecutableFileReference;
+			name = libcrypto.dylib;
+			path = /usr/lib/libcrypto.0.9.dylib;
+			refType = 0;
+		};
+		F56C1E270294336701DD284B = {
+			fileRef = F56C1E260294336701DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F56C1E2D029433D801DD284B = {
+			isa = PBXFileReference;
+			name = libDSPlugInCommon.a;
+			path = /AppleInternal/Developer/libs/libDSPlugInCommon.a;
+			refType = 0;
+		};
+		F56C1E2E029433D801DD284B = {
+			fileRef = F56C1E2D029433D801DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F56C1E2F0294343A01DD284B = {
+			isa = PBXFrameworkReference;
+			name = DirectoryService.framework;
+			path = /System/Library/Frameworks/DirectoryService.framework;
+			refType = 0;
+		};
+		F56C1E380294343A01DD284B = {
+			fileRef = F56C1E2F0294343A01DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F56C1E41029436AB01DD284B = {
+			isa = PBXFrameworkReference;
+			name = DirectoryServiceCore.framework;
+			path = /System/Library/PrivateFrameworks/DirectoryServiceCore.framework;
+			refType = 0;
+		};
+		F56C1E5F029436AB01DD284B = {
+			fileRef = F56C1E41029436AB01DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5E060AC029593D701DD284B = {
+			isa = PBXFileReference;
+			name = atomicio.c;
+			path = OpenSSH/atomicio.c;
+			refType = 4;
+		};
+		F5E060AD029593D701DD284B = {
+			isa = PBXFileReference;
+			name = "bsd-base64.c";
+			path = "OpenSSH/bsd-base64.c";
+			refType = 4;
+		};
+		F5E060AE029593D701DD284B = {
+			isa = PBXFileReference;
+			name = "bsd-base64.h";
+			path = "OpenSSH/bsd-base64.h";
+			refType = 4;
+		};
+		F5E060AF029593D701DD284B = {
+			isa = PBXFileReference;
+			name = bufaux.c;
+			path = OpenSSH/bufaux.c;
+			refType = 4;
+		};
+		F5E060B0029593D701DD284B = {
+			isa = PBXFileReference;
+			name = bufaux.h;
+			path = OpenSSH/bufaux.h;
+			refType = 4;
+		};
+		F5E060B1029593D701DD284B = {
+			isa = PBXFileReference;
+			name = buffer.c;
+			path = OpenSSH/buffer.c;
+			refType = 4;
+		};
+		F5E060B2029593D701DD284B = {
+			isa = PBXFileReference;
+			name = buffer.h;
+			path = OpenSSH/buffer.h;
+			refType = 4;
+		};
+		F5E060B3029593D701DD284B = {
+			isa = PBXFileReference;
+			name = cipher.c;
+			path = OpenSSH/cipher.c;
+			refType = 4;
+		};
+		F5E060B4029593D701DD284B = {
+			isa = PBXFileReference;
+			name = cipher.h;
+			path = OpenSSH/cipher.h;
+			refType = 4;
+		};
+		F5E060B5029593D701DD284B = {
+			isa = PBXFileReference;
+			name = compat.h;
+			path = OpenSSH/compat.h;
+			refType = 4;
+		};
+		F5E060B6029593D701DD284B = {
+			isa = PBXFileReference;
+			name = dsa.c;
+			path = OpenSSH/dsa.c;
+			refType = 4;
+		};
+		F5E060B7029593D701DD284B = {
+			isa = PBXFileReference;
+			name = dsa.h;
+			path = OpenSSH/dsa.h;
+			refType = 4;
+		};
+		F5E060B8029593D701DD284B = {
+			isa = PBXFileReference;
+			name = entropy.c;
+			path = OpenSSH/entropy.c;
+			refType = 4;
+		};
+		F5E060B9029593D701DD284B = {
+			isa = PBXFileReference;
+			name = entropy.h;
+			path = OpenSSH/entropy.h;
+			refType = 4;
+		};
+		F5E060BA029593D701DD284B = {
+			isa = PBXFileReference;
+			name = "fake-socket.h";
+			path = "OpenSSH/fake-socket.h";
+			refType = 4;
+		};
+		F5E060BB029593D701DD284B = {
+			isa = PBXFileReference;
+			name = getput.h;
+			path = OpenSSH/getput.h;
+			refType = 4;
+		};
+		F5E060BC029593D701DD284B = {
+			isa = PBXFileReference;
+			name = kex.h;
+			path = OpenSSH/kex.h;
+			refType = 4;
+		};
+		F5E060BD029593D701DD284B = {
+			isa = PBXFileReference;
+			name = key.c;
+			path = OpenSSH/key.c;
+			refType = 4;
+		};
+		F5E060BE029593D701DD284B = {
+			isa = PBXFileReference;
+			name = key.h;
+			path = OpenSSH/key.h;
+			refType = 4;
+		};
+		F5E060BF029593D701DD284B = {
+			isa = PBXFileReference;
+			name = readconf.h;
+			path = OpenSSH/readconf.h;
+			refType = 4;
+		};
+		F5E060C0029593D701DD284B = {
+			isa = PBXFileReference;
+			name = rsa.c;
+			path = OpenSSH/rsa.c;
+			refType = 4;
+		};
+		F5E060C1029593D701DD284B = {
+			isa = PBXFileReference;
+			name = rsa.h;
+			path = OpenSSH/rsa.h;
+			refType = 4;
+		};
+		F5E060C2029593D701DD284B = {
+			isa = PBXFileReference;
+			name = ssh.h;
+			path = OpenSSH/ssh.h;
+			refType = 4;
+		};
+		F5E060C3029593D701DD284B = {
+			isa = PBXFileReference;
+			name = uuencode.c;
+			path = OpenSSH/uuencode.c;
+			refType = 4;
+		};
+		F5E060C4029593D701DD284B = {
+			isa = PBXFileReference;
+			name = uuencode.h;
+			path = OpenSSH/uuencode.h;
+			refType = 4;
+		};
+		F5E060C5029593D701DD284B = {
+			isa = PBXFileReference;
+			name = xmalloc.c;
+			path = OpenSSH/xmalloc.c;
+			refType = 4;
+		};
+		F5E060C6029593D701DD284B = {
+			isa = PBXFileReference;
+			name = xmalloc.h;
+			path = OpenSSH/xmalloc.h;
+			refType = 4;
+		};
+		F5E060C7029593D701DD284B = {
+			fileRef = F5E060AC029593D701DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5E060C8029593D701DD284B = {
+			fileRef = F5E060AD029593D701DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5E060C9029593D701DD284B = {
+			fileRef = F5E060AE029593D701DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5E060CA029593D701DD284B = {
+			fileRef = F5E060AF029593D701DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5E060CB029593D701DD284B = {
+			fileRef = F5E060B0029593D701DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5E060CC029593D701DD284B = {
+			fileRef = F5E060B1029593D701DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5E060CD029593D701DD284B = {
+			fileRef = F5E060B2029593D701DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5E060CE029593D701DD284B = {
+			fileRef = F5E060B3029593D701DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5E060CF029593D701DD284B = {
+			fileRef = F5E060B4029593D701DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5E060D0029593D701DD284B = {
+			fileRef = F5E060B5029593D701DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5E060D1029593D701DD284B = {
+			fileRef = F5E060B6029593D701DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5E060D2029593D701DD284B = {
+			fileRef = F5E060B7029593D701DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5E060D3029593D701DD284B = {
+			fileRef = F5E060B8029593D701DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5E060D4029593D701DD284B = {
+			fileRef = F5E060B9029593D701DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5E060D5029593D701DD284B = {
+			fileRef = F5E060BA029593D701DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5E060D6029593D701DD284B = {
+			fileRef = F5E060BB029593D701DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5E060D7029593D701DD284B = {
+			fileRef = F5E060BC029593D701DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5E060D8029593D701DD284B = {
+			fileRef = F5E060BD029593D701DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5E060D9029593D701DD284B = {
+			fileRef = F5E060BE029593D701DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5E060DA029593D701DD284B = {
+			fileRef = F5E060BF029593D701DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5E060DB029593D701DD284B = {
+			fileRef = F5E060C0029593D701DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5E060DC029593D701DD284B = {
+			fileRef = F5E060C1029593D701DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5E060DD029593D701DD284B = {
+			fileRef = F5E060C2029593D701DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5E060DE029593D701DD284B = {
+			fileRef = F5E060C3029593D701DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5E060DF029593D701DD284B = {
+			fileRef = F5E060C4029593D701DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5E060E0029593D701DD284B = {
+			fileRef = F5E060C5029593D701DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5E060E1029593D701DD284B = {
+			fileRef = F5E060C6029593D701DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+	};
+	rootObject = 089C1669FE841209C02AAC07;
+}

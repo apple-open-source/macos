@@ -57,23 +57,59 @@ The interface returned by IOCreatePlugInInterfaceForService() should be dealloca
 IODestroyPlugInInterface(). Do not call Release() on it.
 
 */
+/*
+	$Log: IOFireWireLib.h,v $
+	Revision 1.25  2002/09/25 00:27:33  niels
+	flip your world upside-down
+	
+	Revision 1.24  2002/09/12 22:41:55  niels
+	add GetIRMNodeID() to user client
+	
+*/
 
 #ifndef __IOFireWireLib_H__
 #define __IOFireWireLib_H__
 
+#ifndef KERNEL
 #include <CoreFoundation/CoreFoundation.h>
 #include <IOKit/IOCFPlugIn.h>
 #include <IOKit/firewire/IOFireWireFamilyCommon.h>
 
-#include <IOKit/firewire/IOFWIsoch.h>
+// ============================================================
+// plugin loading
+// ============================================================
 
-// === [CFPlugIn support constants] ========================================
+#pragma mark IOFIREWIRELIB TYPE UUID
+//	uuid string: CDCFCA94-F197-11D4-87E6-000502072F80
+#define kIOFireWireLibTypeID			CFUUIDGetConstantUUIDWithBytes(kCFAllocatorDefault,\
+											0xCD, 0xCF, 0xCA, 0x94, 0xF1, 0x97, 0x11, 0xD4,\
+											0x87, 0xE6, 0x00, 0x05, 0x02, 0x07, 0x2F, 0x80)
 
 #pragma mark -
-#pragma mark --- device interface UUIDs ---
+#pragma mark DEVICE/UNIT/NUB INTERFACE UUIDs
 // ============================================================
 // device/unit/nub interfaces (newest first)
 // ============================================================
+
+//
+// 	version 5 interfaces
+//
+//
+//	kIOFireWireNubInterface_v5
+//		uuid string: D4900C5A-C69E-11D6-AEA5-0003938BEB0A
+#define kIOFireWireNubInterfaceID_v5	CFUUIDGetConstantUUIDWithBytes( kCFAllocatorDefault,\
+											0xD4, 0x90, 0x0C, 0x5A, 0xC6, 0x9E, 0x11, 0xD6,\
+											0xAE, 0xA5, 0x00, 0x03, 0x93, 0x8B, 0xEB, 0x0A )
+//	kIOFireWireUnitInterfaceID_v5
+//		uuid string: 121D7347-C69F-11D6-9B31-0003938BEB0A
+#define kIOFireWireUnitInterfaceID_v5	CFUUIDGetConstantUUIDWithBytes( kCFAllocatorDefault,\
+											0x12, 0x1D, 0x73, 0x47, 0xC6, 0x9F, 0x11, 0xD6,\
+											0x9B, 0x31, 0x00, 0x03, 0x93, 0x8B, 0xEB, 0x0A )
+//	kIOFireWireDeviceInterfaceID_v5
+//		uuid string: 127A12F6-C69F-11D6-9D11-0003938BEB0A
+#define kIOFireWireDeviceInterfaceID_v5	CFUUIDGetConstantUUIDWithBytes( kCFAllocatorDefault,\
+											0x12, 0x7A, 0x12, 0xF6, 0xC6, 0x9F, 0x11, 0xD6,\
+											0x9D, 0x11, 0x00, 0x03, 0x93, 0x8B, 0xEB, 0x0A )
 
 //
 // 	version 4 interfaces
@@ -163,23 +199,8 @@ IODestroyPlugInInterface(). Do not call Release() on it.
 											0xE3, 0xDF, 0x44, 0x60, 0xF1, 0x97, 0x11, 0xD4,\
 											0x8A, 0xC8, 0x00, 0x05, 0x02, 0x07, 0x2F, 0x80)
 
-
-// ============================================================
-// plugin loading
-// ============================================================
 #pragma mark -
-#pragma mark --- plugin loading UUIDs ---
-
-// 	uuid string: A1478010-F197-11D4-A28B-000502072F80
-#define	kIOFireWireLibFactoryID			CFUUIDGetConstantUUIDWithBytes(kCFAllocatorDefault,\
-											0xA1, 0x47, 0x80, 0x10,0xF1, 0x97, 0x11, 0xD4,\
-											0xA2, 0x8B, 0x00, 0x05,0x02, 0x07, 0x2F, 0x80)
-											
-//	uuid string: CDCFCA94-F197-11D4-87E6-000502072F80
-#define kIOFireWireLibTypeID			CFUUIDGetConstantUUIDWithBytes(kCFAllocatorDefault,\
-											0xCD, 0xCF, 0xCA, 0x94, 0xF1, 0x97, 0x11, 0xD4,\
-											0x87, 0xE6, 0x00, 0x05, 0x02, 0x07, 0x2F, 0x80)
-
+#pragma mark COMMAND OBJECT UUIDs
 // ============================================================
 // command objects
 // ============================================================
@@ -245,7 +266,8 @@ IODestroyPlugInInterface(). Do not call Release() on it.
 											0x4E, 0xDD, 0xED, 0x10, 0xF6, 0x4A, 0x11, 0xD4,\
 											0xB7, 0xA5, 0x00, 0x50, 0xE4, 0xD9, 0x3B, 0x36)
 
-
+#pragma mark -
+#pragma mark ADDRESS SPACE UUIDs
 // ============================================================
 // address spaces
 // ============================================================
@@ -260,6 +282,8 @@ IODestroyPlugInInterface(). Do not call Release() on it.
 											0x48, 0x91, 0x10, 0xF6, 0xF1, 0x98, 0x11, 0xD4,\
 											0x8B, 0xEB, 0x00, 0x05, 0x02, 0x07, 0x2F, 0x80)
 
+#pragma mark -
+#pragma mark CONFIG ROM UUIDs
 // ============================================================
 // config ROM
 // ============================================================
@@ -274,10 +298,10 @@ IODestroyPlugInInterface(). Do not call Release() on it.
 											0x7D, 0x43, 0xB5, 0x06, 0xF1, 0x98, 0x11, 0xD4,\
 											0xAA, 0x10, 0x00, 0x05, 0x02, 0x07, 0x2F, 0x80)
 
+#pragma mark -
+#pragma mark INTERFACE TYPES
 // ============================================================
-//
-// IOFireWireLib interface typedefs
-//
+// IOFireWireLib interface types
 // ============================================================
 
 typedef struct 	IOFireWireDeviceInterface_t**	 			IOFireWireLibDeviceRef ;
@@ -302,10 +326,10 @@ typedef struct 	IOFireWireRemoteIsochPortInterface_t**		IOFireWireLibRemoteIsoch
 typedef struct 	IOFireWireLocalIsochPortInterface_t**		IOFireWireLibLocalIsochPortRef ;
 typedef struct 	IOFireWireDCLCommandPoolInterface_t**		IOFireWireLibDCLCommandPoolRef ;
 
+#pragma mark -
+#pragma mark CALLBACK TYPES
 // ============================================================
-//
-// IOFireWireLib callback typedefs
-//
+// IOFireWireLib callback types
 // ============================================================
 
 /*!	@typedef IOFireWirePseudoAddressSpaceReadHandler
@@ -393,34 +417,14 @@ typedef void	(*IOFireWireLibCommandCallback)(
 					void*								refCon,
 					IOReturn							completionStatus) ;
 
-// unused.
-typedef void (*IOFireWireDeviceAddedCallback)() ;
-typedef void (*IOFireWireDeviceRemovedCallback)() ;
-
-// unused.
-typedef struct FWInterfaceCallBacks_t
-{
-	IOFireWireBusResetHandler					busResetHandler ;
-	IOFireWireBusResetDoneHandler				busResetDoneHandler ;
-} FWInterfaceCallBacks ;
-
-// unused.
-typedef struct IOFireWirePseudoAddressSpaceCallbacks_t
-{
-	IOFireWirePseudoAddressSpaceReadHandler				readHandler ;
-	IOFireWirePseudoAddressSpaceSkippedPacketHandler	skippedPacketHandler ;
-	IOFireWirePseudoAddressSpaceWriteHandler			writeHandler ;
-} IOFireWirePseudoAddressSpaceCallbacks ;
-
 #pragma mark -
-#pragma mark --- IOFireWireDeviceInterface ----------
-
+#pragma mark DEVICE INTERFACE
 // ============================================================
-//
 // IOFireWireDeviceInterface
-//
 // ============================================================
 
+typedef struct IOFireWireDeviceInterface_t
+{
 /*!	@class IOFireWireDeviceInterface
 	@abstract IOFireWireDeviceInterface is your primary gateway to the functionality contained in
 		IOFireWireLib.
@@ -455,8 +459,10 @@ typedef struct IOFireWirePseudoAddressSpaceCallbacks_t
 	</ul>
 
 */
-typedef struct IOFireWireDeviceInterface_t
-{
+/* headerdoc parse workaround	
+class IOFireWireDeviceInterface: public IUnknown {
+public:
+*/
 	IUNKNOWN_C_GUTS ;
 
 	UInt32 version, revision ; // version/revision
@@ -999,7 +1005,7 @@ typedef struct IOFireWireDeviceInterface_t
 						(*CreateLocalIsochPort)(
 								IOFireWireLibDeviceRef 	self, 
 								Boolean					inTalking,
-								DCLCommandPtr			inDCLProgram,
+								DCLCommand*				inDCLProgram,
 								UInt32					inStartEvent,
 								UInt32					inStartState,
 								UInt32					inStartMask,
@@ -1078,7 +1084,7 @@ typedef struct IOFireWireDeviceInterface_t
 			in the program. */
 	void 				(*PrintDCLProgram)(
 								IOFireWireLibDeviceRef	self, 
-								const DCLCommandPtr		inProgram, 
+								const DCLCommand*		inProgram, 
 								UInt32 					inLength) ;
 
 	//
@@ -1342,21 +1348,43 @@ typedef struct IOFireWireDeviceInterface_t
 			kIOFireWireBusReset if 'checkGeneration' does not match the current bus generation number.*/
 	IOReturn (*GetSpeedBetweenNodes)( IOFireWireLibDeviceRef self, UInt32 checkGeneration, UInt16 srcNodeID, UInt16 destNodeID,  IOFWSpeed* outSpeed) ;
 
+	// v5
+
+	IOReturn (*GetIRMNodeID)( IOFireWireLibDeviceRef self, UInt32 checkGeneration, UInt16* outIRMNodeID ) ;
+	
 } IOFireWireDeviceInterface, IOFireWireUnitInterface, IOFireWireNubInterface ;
+#endif // ifdef KERNEL
 
+#pragma mark -
+#pragma mark PSEUDO ADDRESS SPACE
 // ============================================================
-//
 // IOFireWirePseudoAddressSpaceInterface
-//
 // ============================================================
 
+// creation flags
+typedef enum
+{
+	kFWAddressSpaceNoFlags			= 0,
+	kFWAddressSpaceNoWriteAccess 	= (1 << 0) ,
+	kFWAddressSpaceNoReadAccess 	= (1 << 1) ,
+	kFWAddressSpaceAutoWriteReply	= (1 << 2) ,
+	kFWAddressSpaceAutoReadReply	= (1 << 3) ,
+	kFWAddressSpaceAutoCopyOnWrite	= (1 << 4) ,
+	kFWAddressSpaceShareIfExists	= (1 << 5)
+} FWAddressSpaceFlags ;
+
+#ifndef KERNEL
+typedef struct IOFireWirePseudoAddressSpaceInterface_t
+{
 /*!	@class IOFireWirePseudoAddressSpace (IOFireWireLib)
 	@discussion Represents and provides management functions for a pseudo address 
 		space (software-backed) in the local machine.
 
 		Pseudo address space objects can be created using IOFireWireDeviceInterface.*/
-typedef struct IOFireWirePseudoAddressSpaceInterface_t
-{
+/* headerdoc parse workaround	
+class IOFireWirePseudoAddressSpaceInterface: public IUnknown {
+public:
+*/
 	IUNKNOWN_C_GUTS ;
 	UInt32 version, revision ;
 
@@ -1439,12 +1467,16 @@ typedef struct IOFireWirePseudoAddressSpaceInterface_t
 
 } IOFireWirePseudoAddressSpaceInterface ;
 
+#pragma mark -
+#pragma mark LOCAL UNIT DIRECTORY INTERFACE
 // ============================================================
 //
 // IOFireWireLocalUnitDirectoryInterface
 //
 // ============================================================
 
+typedef struct IOFireWireLocalUnitDirectoryInterface_t
+{
 /*!	@class IOFireWireLocalUnitDirectoryInterface (IOFireWireLib)
 	@discussion Allows creation and management of unit directories in the config
 		ROM of the local machine. After the unit directory has been built, 
@@ -1452,8 +1484,10 @@ typedef struct IOFireWirePseudoAddressSpaceInterface_t
 		Unpublish() has the reverse effect as Publish().
 
 		This interface can be created using IOFireWireDeviceInterface::CreateLocalUnitDirectory. */
-typedef struct IOFireWireLocalUnitDirectoryInterface_t
-{
+/* headerdoc parse workaround	
+class IOFireWireLocalUnitDirectoryInterface: public IUnknown {
+public:
+*/
 	IUNKNOWN_C_GUTS ;
 	UInt32 version, revision ;
 
@@ -1504,19 +1538,25 @@ typedef struct IOFireWireLocalUnitDirectoryInterface_t
 	IOReturn			(*Unpublish)(IOFireWireLibLocalUnitDirectoryRef self) ;
 } IOFireWireLocalUnitDirectoryInterface ;
 
+#pragma mark -
+#pragma mark PHYSICAL ADDRESS SPACE INTERFACE
 // ============================================================
 //
 // IOFireWireLibPhysicalAddressSpaceInterface
 //
 // ============================================================
 
-/*!	@class IOFireWirePhysicalAddressSpace
+typedef struct IOFireWirePhysicalAddressSpaceInterface_t
+{
+/*!	@class IOFireWirePhysicalAddressSpaceInterface
 	@abstract IOFireWireLib physical address space object. ( interface name: IOFireWirePhysicalAddressSpaceInterface )
 	@discussion Represents and provides management functions for a physical address 
 		space (hardware-backed) in the local machine.<br>
 		Physical address space objects can be created using IOFireWireDeviceInterface.*/
-typedef struct IOFireWirePhysicalAddressSpaceInterface_t
-{
+/* headerdoc parse workaround	
+class IOFireWirePhysicalAddressSpace: public IUnknown {
+public:
+*/
 	IUNKNOWN_C_GUTS ;
 	UInt32 version, revision ;
 	/*!	@function GetPhysicalSegments
@@ -1581,13 +1621,44 @@ typedef struct IOFireWirePhysicalAddressSpaceInterface_t
 								IOFireWireLibPhysicalAddressSpaceRef self) ;
 
 } IOFireWirePhysicalAddressSpaceInterface ;
+#endif // ifndef KERNEL
 
-// ============================================================
-//
-// IOFireWireLibPhysicalAddressSpaceInterface
-//
-// ============================================================
+#pragma mark -
+#pragma mark COMMAND OBJECT INTERFACES
+// =================================================================
+// command objects
+// =================================================================
 
+#define kFireWireCommandUserFlagsMask (0x0000FFFF)
+
+// 8 quadlets
+#define kFWUserCommandSubmitWithCopyMaxBufferBytes	32
+
+//
+// Flags to be set on IOFireWireLib command objects
+// Passed to SetFlags()
+//
+enum
+{
+	kFWCommandNoFlags					= 0 ,
+	kFWCommandInterfaceForceNoCopy		= (1 << 0) ,
+	kFWCommandInterfaceForceCopyAlways	= (1 << 1) ,
+	kFWCommandInterfaceSyncExecute		= (1 << 2) ,
+	kFWCommandInterfaceAbsolute			= (1 << 3)
+} ;
+
+enum
+{
+	kFWDontFailOnReset = false,
+	kFWFailOnReset = true
+} ;
+
+enum {
+	kFireWireCommandUseCopy				= (1 << 16),
+	kFireWireCommandAbsolute			= (1 << 17)
+} ;
+
+#ifndef KERNEL
 //
 // IOFIREWIRELIBCOMMAND_C_GUTS
 // Macro used to insert generic superclass function definitions into all subclass of
@@ -1612,6 +1683,8 @@ typedef struct IOFireWirePhysicalAddressSpaceInterface_t
 	IOReturn			(*SetMaxPacket)(IOFireWireLibCommandRef self, IOByteCount maxPacketSize) ;	\
 	void				(*SetFlags)(IOFireWireLibCommandRef self, UInt32 inFlags)
 
+typedef struct IOFireWireCommandInterface_t
+{
 /*!	@class IOFireWireCommandInterface
 	@abstract IOFireWireLib command object.
 	@discussion Represents an object that is configured and submitted to issue synchronous
@@ -1625,11 +1698,11 @@ typedef struct IOFireWirePhysicalAddressSpaceInterface_t
 		control this behavior.
 
 */
-typedef struct IOFireWireCommandInterface_t
-{
-/*
- public:
+/* headerdoc parse workaround	
+class IOFireWireCommandInterface: public IUnknown {
+public:
 */
+	
 	IUNKNOWN_C_GUTS ;
 	UInt32 version, revision ;
 	
@@ -2361,16 +2434,21 @@ typedef struct IOFireWireCommandInterface_t
 
 } IOFireWireCommandInterface ;
 
+typedef struct IOFireWireReadCommandInterface_t
+{
 /*!	@class IOFireWireReadCommandInterface
 	@abstract IOFireWireLib block read command object.
 	@discussion Represents an object that is configured and submitted to issue synchronous
 		and asynchronous block read commands.
 		
-		This interface contains all methods of IOFireWireCommandInterface.
-		This interface will contain all v2 methods of IOFireWireCommandInterface
-			when instantiated as v2 or newer. */
-typedef struct IOFireWireReadCommandInterface_t
-{
+	This interface contains all methods of IOFireWireCommandInterface.
+	This interface will contain all v2 methods of IOFireWireCommandInterface
+		when instantiated as v2 or newer. */
+/* headerdoc parse workaround	
+class IOFireWireReadCommandInterface: public IOFireWireCommandInterface {
+public:
+*/
+
 	IUNKNOWN_C_GUTS ;
 	UInt32 version, revision ;
 	
@@ -2381,6 +2459,8 @@ typedef struct IOFireWireReadCommandInterface_t
 	IOFIREWIRELIBCOMMAND_C_GUTS_v2 ;
 } IOFireWireReadCommandInterface ;
 
+typedef struct IOFireWireWriteCommandInterface_t
+{
 /*!	@class IOFireWireWriteCommandInterface
 	@abstract IOFireWireLib block read command object.
 	@discussion Represents an object that is configured and submitted to issue synchronous
@@ -2389,8 +2469,11 @@ typedef struct IOFireWireReadCommandInterface_t
 		This interface contains all methods of IOFireWireCommandInterface.
 		This interface will contain all v2 methods of IOFireWireCommandInterface
 			when instantiated as v2 or newer. */
-typedef struct IOFireWireWriteCommandInterface_t
-{
+/* headerdoc parse workaround	
+class IOFireWireWriteCommandInterface: public IOFireWireCommandInterface {
+public:
+*/
+	
 	IUNKNOWN_C_GUTS ;
 	UInt32 version, revision ;
 	
@@ -2405,6 +2488,13 @@ typedef struct IOFireWireWriteCommandInterface_t
 
 typedef struct IOFireWireCompareSwapCommandInterface_t
 {
+/*!	@class IOFireWireCompareSwapCommandInterface
+*/
+
+/* headerdoc parse workaround	
+class IOFireWireReadQuadletCommandInterface: public IOFireWireCommandInterface {
+public:
+*/
 	IUNKNOWN_C_GUTS ;
 	UInt32 version, revision ;
 	
@@ -2470,12 +2560,16 @@ typedef struct IOFireWireCompareSwapCommandInterface_t
 //
 // obsolete: do not use. Use IOFireWireWriteCommandInterface_v2 and its function SetMaxPacket().
 //
-/*!	@class IOFWRdQuadCmdInterface
+typedef struct IOFireWireReadQuadletCommandInterface_t
+{
+/*!	@class IOFireWireReadQuadletCommandInterface
 	@abstract IOFireWireReadQuadletCommandInterface -- IOFireWireLib quadlet read command object.
 	@discussion Obsolete; do not use. Use IOFireWireReadCommandInterface v2 or newer
 		and its function SetMaxPacket() */
-typedef struct IOFireWireReadQuadletCommandInterface_t
-{
+/* headerdoc parse workaround	
+class IOFireWireReadQuadletCommandInterface: public IOFireWireCommandInterface {
+public:
+*/
 	IUNKNOWN_C_GUTS ;
 	UInt32 version, revision ;
 	
@@ -2492,34 +2586,45 @@ typedef struct IOFireWireReadQuadletCommandInterface_t
 //
 // obsolete: do not use. Use IOFireWireWriteCommandInterface_v2 and its function SetMaxPacket().
 //
-/*!	@class IOFireWireWtQuadCmdInterface
+typedef struct IOFireWireWriteQuadletCommandInterface_t
+{
+/*!	@class IOFireWireWriteQuadletCommandInterface
 	@abstract IOFireWireLib quadlet read command object.
 	@discussion Obsolete; do not use. Use IOFireWireWriteCommandInterface v2 or newer
 		and its function SetMaxPacket() */
-typedef struct IOFireWireWriteQuadletCommandInterface_t
-{
+/* headerdoc parse workaround	
+class IOFireWireWriteQuadletCommandInterface: public IOFireWireCommandInterface {
+public:
+*/
 	IUNKNOWN_C_GUTS ;
 	UInt32 version, revision ;
 	
 	IOFIREWIRELIBCOMMAND_C_GUTS ;
 
 	void (*SetQuads)(IOFireWireLibWriteQuadletCommandRef self, UInt32 inQuads[], UInt32 inNumQuads) ;
+	
 } IOFireWireWriteQuadletCommandInterface ;
 
+#pragma mark -
+#pragma mark CONFIG DIRECTORY INTERFACE
 // ============================================================
-//
 // IOFireWireConfigDirectoryInterface
-//
 // ============================================================
 
+
+typedef struct IOFireWireConfigDirectoryInterface_t
+{
 /*!	@class IOFireWireConfigDirectoryInterface
 	@abstract IOFireWireLib device config ROM browsing interface
 	@discussion Represents an interface to the config ROM of a remote device. You can use the
 		methods of this interface to browser the ROM and obtain key values. You can also
 		create additional IOFireWireConfigDirectoryInterface's to represent subdirectories
 		within the ROM.*/
-typedef struct IOFireWireConfigDirectoryInterface_t
-{
+/* headerdoc parse workaround	
+class IOFireWireConfigDirectoryInterface: public IUnknown {
+public:
+*/
+
 	IUNKNOWN_C_GUTS ;
 	UInt32 version, revision ;
 	
@@ -2550,5 +2655,6 @@ typedef struct IOFireWireConfigDirectoryInterface_t
 	IOReturn (*GetNumEntries)					( IOFireWireLibConfigDirectoryRef self, int* outNumEntries) ;
 
 } IOFireWireConfigDirectoryInterface ;
+#endif // ifdef KERNEL
 
 #endif //__IOFireWireLib_H__

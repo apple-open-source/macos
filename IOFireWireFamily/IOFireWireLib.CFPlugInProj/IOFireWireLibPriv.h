@@ -27,12 +27,71 @@
  *  Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
  *
  */
+/*
+	$Log: IOFireWireLibPriv.h,v $
+	Revision 1.21  2002/09/25 00:27:35  niels
+	flip your world upside-down
+	
+	Revision 1.20  2002/09/12 22:41:56  niels
+	add GetIRMNodeID() to user client
+*/
+
+#import <IOKit/firewire/IOFireWireFamilyCommon.h>
+
+#define kIOFireWireLibConnection 11
+
+#ifdef KERNEL
+	class IOFWUserPseudoAddressSpace ;
+	class IOFWUserClientPhysicalAddressSpace ;
+	class IOConfigDirectory ;
+	class IOLocalConfigDirectory ;
+	class OSString ;
+	class OSData ;
+	class IOFWUserIsochPortProxy ;
+	class IOFWUserIsochChannel ;
+	class IOFWUserCommand ;
+
+	namespace IOFireWireLib {	
+	
+		typedef IOFWUserPseudoAddressSpace*			KernAddrSpaceRef ;
+		typedef IOFWUserClientPhysicalAddressSpace*	KernPhysicalAddrSpaceRef ;
+		typedef IOConfigDirectory* 					KernConfigDirectoryRef ;
+		typedef IOLocalConfigDirectory*				KernUnitDirRef ;
+		typedef OSString*							KernOSStringRef ;
+		typedef OSData*								KernOSDataRef ;
+		typedef IOFWUserIsochPortProxy*				KernIsochPortRef ;
+		typedef IOFWUserIsochChannel*				KernIsochChannelRef ;
+		typedef IOFWUserCommand*					KernCommandRef ;
+	}
+	
+#else
+
+	namespace IOFireWireLib {
+
+		typedef struct KernAddrSpaceOpaqueStruct* 				KernAddrSpaceRef ;
+		typedef struct KernPhysicalAddrSpaceOpaqueStruct*		KernPhysicalAddrSpaceRef ;
+		typedef struct KernConfigDirectoryOpaqueStruct*			KernConfigDirectoryRef ;
+		typedef struct KernUnitDirOpaqueStruct*					KernUnitDirRef ;
+		typedef struct KernOSStringOpaqueStruct*				KernOSStringRef ;
+		typedef struct KernOSDataOpqaueStruct*					KernOSDataRef ;
+		typedef struct KernIsochPortOpaqueStruct*				KernIsochPortRef ;
+		typedef struct KernIsochChannelOpaqueStruct*			KernIsochChannelRef ;
+		typedef struct KernCommandOpaqueStruct*					KernCommandRef ;
+
+	}
+	
+#endif // KERNEL
+
+#ifndef KERNEL
 
 #import <IOKit/firewire/IOFireWireLib.h>
-#import <IOKit/firewire/IOFireWireFamilyCommon.h>
 #import <stdio.h>
 #import <CoreFoundation/CoreFoundation.h>
 #import <IOKit/IOKitLib.h>
+
+// IOFireWireLib factory ID
+// 	uuid string: A1478010-F197-11D4-A28B-000502072F80
+#define	kIOFireWireLibFactoryID			CFUUIDGetConstantUUIDWithBytes(kCFAllocatorDefault, 0xA1, 0x47, 0x80, 0x10,0xF1, 0x97, 0x11, 0xD4, 0xA2, 0x8B, 0x00, 0x05,0x02, 0x07, 0x2F, 0x80)
 
 #if IOFIREWIRELIBDEBUG
 	#include <syslog.h>
@@ -51,11 +110,10 @@
 	#define IOFireWireLibLogIfFalse_(x, y...)
 #endif
 
-#define kIOFireWireLibConnection 11
-
-__BEGIN_DECLS
-void * IOFireWireLibFactory(CFAllocatorRef allocator, CFUUIDRef typeID) ;
-__END_DECLS
+extern "C"
+{
+	void * IOFireWireLibFactory(CFAllocatorRef allocator, CFUUIDRef typeID) ;
+}
 
 #define INTERFACEIMP_INTERFACE \
 	0,	\
@@ -360,11 +418,11 @@ namespace IOFireWireLib {
 			const Boolean			IsochAsyncPortsExist() const		{ return ((mIsochAsyncCFPort != 0) && (mIsochAsyncPort != 0)); }
 		
 			IOReturn				CreateCFStringWithOSStringRef(
-											FWKernOSStringRef	inStringRef,
+											KernOSStringRef	inStringRef,
 											UInt32				inStringLen,
 											CFStringRef*&		text) ;
 			IOReturn				CreateCFDataWithOSDataRef(
-											FWKernOSDataRef		inDataRef,
+											KernOSDataRef		inDataRef,
 											IOByteCount			inDataLen,
 											CFDataRef*&			data) ;
 			// --- isoch related ----------
@@ -387,7 +445,7 @@ namespace IOFireWireLib {
 			IOFireWireLibLocalIsochPortRef
 									CreateLocalIsochPort(
 											Boolean					inTalking,
-											DCLCommandStruct*		inDCLProgram,
+											DCLCommand*				inDCLProgram,
 											UInt32					inStartEvent,
 											UInt32					inStartState,
 											UInt32					inStartMask,
@@ -400,14 +458,14 @@ namespace IOFireWireLib {
 									CreateDCLCommandPool(
 											IOByteCount 			size, 
 											REFIID 					iid ) ;
-			void					PrintDCLProgram(
-											const DCLCommandStruct*		inDCL,
-											UInt32						inDCLCount) ;
+			void					PrintDCLProgram( const DCLCommand* dcl, UInt32 inDCLCount ) ;
 			IOReturn 				GetBusGeneration( UInt32* outGeneration ) ;
 			IOReturn 				GetLocalNodeIDWithGeneration( UInt32 checkGeneration, UInt16* outLocalNodeID ) ;
 			IOReturn 				GetRemoteNodeID( UInt32 checkGeneration, UInt16* outRemoteNodeID ) ;
 			IOReturn 				GetSpeedToNode( UInt32 checkGeneration, IOFWSpeed* outSpeed) ;
 			IOReturn 				GetSpeedBetweenNodes( UInt32 checkGeneration, UInt16 srcNodeID, UInt16 destNodeID,  IOFWSpeed* outSpeed) ;
+			IOReturn				GetIRMNodeID( UInt32 checkGeneration, UInt16* irmNodeID ) ;
+
 		
 		protected:
 			Boolean						mIsInited ;
@@ -745,7 +803,7 @@ namespace IOFireWireLib {
 									SCreateLocalIsochPort(
 											IOFireWireLibDeviceRef 	self, 
 											Boolean					inTalking,
-											DCLCommandStruct*		inDCLProgram,
+											DCLCommand*		inDCLProgram,
 											UInt32					inStartEvent,
 											UInt32					inStartState,
 											UInt32					inStartMask,
@@ -764,10 +822,7 @@ namespace IOFireWireLib {
 			static void				SSetRefCon(
 											IOFireWireLibDeviceRef 	self,
 											const void*				inRefCon )	{ IOFireWireIUnknown::InterfaceMap<Device>::GetThis(self)->mUserRefCon = const_cast<void*>(inRefCon) ; }
-			static void				SPrintDCLProgram(
-											IOFireWireLibDeviceRef 	self, 
-											DCLCommandStruct*		inDCL,
-											UInt32					inDCLCount)  ;
+			static void				SPrintDCLProgram( IOFireWireLibDeviceRef self, const DCLCommand* dcl, UInt32 dclCount )  ;
 			//
 			// v4
 			//
@@ -777,8 +832,351 @@ namespace IOFireWireLib {
 			static IOReturn SGetSpeedToNode( IOFireWireLibDeviceRef self, UInt32 checkGeneration, IOFWSpeed* outSpeed) ;
 			static IOReturn SGetSpeedBetweenNodes( IOFireWireLibDeviceRef self, UInt32 checkGeneration, UInt16 srcNodeID, UInt16 destNodeID,  IOFWSpeed* outSpeed) ;
 
+
+			//
+			// v5
+			//
+			
+			static IOReturn	S_GetIRMNodeID( IOFireWireLibDeviceRef self, UInt32 checkGeneration, UInt16* outIRMNodeID ) ;
+
 			protected:
 				static IOFireWireDeviceInterface	sInterface ;
 	} ;
+}
+#endif // KERNEL
+
+#pragma mark -
+
+namespace IOFireWireLib {
+
+	typedef enum IOFireWireCommandType_t {
+		kFireWireCommandType_Read,
+		kFireWireCommandType_ReadQuadlet,
+		kFireWireCommandType_Write,
+		kFireWireCommandType_WriteQuadlet,
+		kFireWireCommandType_CompareSwap
+	} IOFireWireCommandType ;
 	
+	typedef struct 
+	{
+		FWAddress					addr ;
+		const UInt32  			 	val ;
+		Boolean						failOnReset ;
+		UInt32						generation ;
+		Boolean						isAbs ;
+	} WriteQuadParams ;
+	
+	typedef struct
+	{	
+		FWAddress					addr ;
+		const void*  			 	buf ;
+		UInt32						size ;
+		Boolean						failOnReset ;
+		UInt32						generation ;
+		Boolean						isAbs ;
+	} ReadParams, WriteParams, ReadQuadParams ;
+	
+	typedef struct
+	{
+		FWAddress					addr ;
+		UInt64						cmpVal ;
+		UInt64						swapVal ;
+		IOByteCount					size ;
+		Boolean						failOnReset ;
+		UInt32						generation ;
+		Boolean						isAbs ;
+	} CompareSwapParams ;
+	
+	typedef struct
+	{
+		KernCommandRef				kernCommandRef ;
+		IOFireWireCommandType		type ;
+		void*						callback ;
+		void*						refCon ;
+		UInt32						flags ;
+		
+		UInt32						staleFlags ;
+		FWAddress					newTarget ;
+		void*						newBuffer ;
+		IOByteCount					newBufferSize ;	// note: means numQuads for quadlet commands!
+		Boolean						newFailOnReset ;
+		UInt32						newGeneration ;
+		IOByteCount					newMaxPacket ;
+	
+	} CommandSubmitParams ;
+	
+	typedef struct
+	{
+		KernCommandRef				kernCommandRef ;
+		IOReturn					result ;
+		IOByteCount					bytesTransferred ;
+	} CommandSubmitResult ;
+	
+	typedef struct 
+	{
+		Boolean 	didLock ;
+		UInt64		value ;
+	} FWCompareSwapLockInfo ;
+	
+	typedef struct
+	{
+		KernCommandRef				kernCommandRef ;
+		IOReturn					result ;
+		IOByteCount					bytesTransferred ;
+		FWCompareSwapLockInfo		lockInfo ;
+	} CompareSwapSubmitResult ;
+	
+	typedef struct
+	{
+		UInt32		size ;
+		void*		backingStore ;
+		UInt32		queueSize ;
+		void*		queueBuffer ;
+		UInt32		flags ;
+		void*		refCon ;
+	
+		// for initial units address spaces:
+		Boolean		isInitialUnits ;
+		UInt32		addressLo ;
+	} AddressSpaceCreateParams ;
+	
+	
+	typedef struct
+	{
+		UInt32		reserved ;
+	} IsochPortAllocateParams ;
+	
+	typedef struct
+	{
+		Boolean				talking ;
+		
+		DCLCommand*			userDCLProgram ;
+		UInt32				userDCLProgramDCLCount ;
+	
+		IOVirtualRange*		userDCLProgramRanges ;
+		UInt32				userDCLProgramRangeCount ;
+		IOVirtualRange*		userDCLBufferRanges ;
+		UInt32				userDCLBufferRangeCount ;
+		
+		UInt32				startEvent ;
+		UInt32				startState ;
+		UInt32				startMask ;
+		
+		void*				userObj ;
+	} LocalIsochPortAllocateParams ;
+	
+	typedef struct
+	{
+		KernAddrSpaceRef	kernAddrSpaceRef ;
+	} AddrSpaceCreateResult ;
+	
+	typedef struct
+	{
+		UInt32		size ;
+		void*		backingStore ;
+		UInt32		flags ;
+	} PhysicalAddressSpaceCreateParams ;
+	
+	typedef struct
+	{
+		KernOSDataRef		data ;
+		IOByteCount			dataLength ;
+		KernOSStringRef	text ;
+		UInt32				textLength ;	
+	} GetKeyValueDataResults ;
+	
+	typedef struct
+	{
+		FWAddress			address ;
+		KernOSStringRef	text ;
+		UInt32				length ;
+	} GetKeyOffsetResults ;
+
+	typedef enum
+	{
+		// --- open/close ----------------------------
+		kOpen = 0,
+		kOpenWithSessionRef,
+		kClose,
+		
+		// --- user client general methods -----------
+		kReadQuad,
+		kRead,
+		kWriteQuad,
+		kWrite,
+		kCompareSwap,
+		kBusReset,
+		kCycleTime,
+		kGetGenerationAndNodeID,
+		kGetLocalNodeID,
+		kGetResetTime,
+		
+		// --- debugging -----------------------------
+		kFireBugMsg,
+		
+		// --- conversion helpers --------------------
+		kGetOSStringData,
+		kGetOSDataData,
+		
+		// --- user unit directory methods -----------
+		kUnitDirCreate,
+		kUnitDirRelease,
+		kUnitDirAddEntry_Buffer,
+		kUnitDirAddEntry_UInt32,
+		kUnitDirAddEntry_FWAddr,
+		kUnitDirAddEntry_UnitDir,
+		kUnitDirPublish,
+		kUnitDirUnpublish,
+		
+		// --- pseudo address space methods ----------
+		kPseudoAddrSpace_Allocate,
+		kPseudoAddrSpace_Release,
+		kPseudoAddrSpace_GetFWAddrInfo,
+		kPseudoAddrSpace_ClientCommandIsComplete,
+		
+		// --- physical address space methods ----------
+		kPhysicalAddrSpace_Allocate,
+		kPhysicalAddrSpace_Release,
+		kPhysicalAddrSpace_GetSegmentCount,
+		kPhysicalAddrSpace_GetSegments,
+		
+		// --- command completion --------------------
+		kClientCommandIsComplete,
+		
+		// --- config directory ----------------------
+		kConfigDirectoryCreate,
+		kConfigDirectoryUpdate,
+		kConfigDirectoryGetKeyType,
+		
+		kConfigDirectoryGetKeyValue_UInt32,
+		kConfigDirectoryGetKeyValue_Data,
+		kConfigDirectoryGetKeyValue_ConfigDirectory,
+		
+		kConfigDirectoryGetKeyOffset_FWAddress,	
+		
+		kConfigDirectoryGetIndexType,
+		kConfigDirectoryGetIndexKey,
+		
+		kConfigDirectoryGetIndexValue_UInt32,
+		kConfigDirectoryGetIndexValue_Data,
+		kConfigDirectoryGetIndexValue_String,
+		kConfigDirectoryGetIndexValue_ConfigDirectory,
+		
+		kConfigDirectoryGetIndexOffset_FWAddress,
+		kConfigDirectoryGetIndexOffset_UInt32,
+		
+		kConfigDirectoryGetIndexEntry,
+		kConfigDirectoryGetSubdirectories,
+		
+		kConfigDirectoryGetKeySubdirectories,
+		kConfigDirectoryGetType,
+		kConfigDirectoryGetNumEntries,
+		kConfigDirectoryRelease,
+		
+		// --- isoch port methods ----------------------------
+		kIsochPort_Allocate,
+		kIsochPort_Release,
+		kIsochPort_GetSupported,
+		kIsochPort_AllocatePort,
+		kIsochPort_ReleasePort,
+		kIsochPort_Start,
+		kIsochPort_Stop,
+		kIsochPort_SetSupported,
+		
+		// --- local isoch port methods ----------------------
+		kLocalIsochPort_Allocate,
+		kLocalIsochPort_ModifyJumpDCL,
+		kLocalIsochPort_ModifyTransferPacketDCLSize,
+		kLocalIsochPort_ModifyTransferPacketDCL,
+		
+		// --- isoch channel methods -------------------------
+		kIsochChannel_Allocate,
+		kIsochChannel_Release,
+		kIsochChannel_UserAllocateChannelBegin,
+		kIsochChannel_UserReleaseChannelComplete,
+		
+		// --- firewire command objects ----------------------
+		kCommand_Release,
+		kCommand_Cancel,
+		kCommand_DidLock,
+		kCommand_Locked32,
+		kCommand_Locked64,
+		
+		// --- seize service ----------
+		kSeize,
+		
+		// --- firelog ----------
+		kFireLog,
+		
+		// --- More user client general methods (new in v3)
+		kGetBusCycleTime,
+		
+		//
+		// v4
+		//
+		
+		kGetBusGeneration,
+		kGetLocalNodeIDWithGeneration,
+		kGetRemoteNodeID,
+		kGetSpeedToNode,
+		kGetSpeedBetweenNodes,
+		
+		//
+		// v5
+		//
+		
+		kGetIRMNodeID,
+		
+		// -------------------------------------------
+		kNumMethods
+		
+	} MethodSelector ;
+
+
+	typedef enum
+	{
+	
+		kSetAsyncRef_BusReset,
+		kSetAsyncRef_BusResetDone,
+	
+		//
+		// pseudo address space
+		//
+		kSetAsyncRef_Packet,
+		kSetAsyncRef_SkippedPacket,
+		kSetAsyncRef_Read,
+	
+		//
+		// user command objects
+		//
+		kCommand_Submit,
+		
+		//
+		// isoch channel
+		//
+		kSetAsyncRef_IsochChannelForceStop,
+	
+		//
+		// isoch port
+		//
+		kSetAsyncRef_DCLCallProc,
+		
+		kNumAsyncMethods
+	
+	} AsyncMethodSelector ;
+
+	typedef enum {
+		kCommandType_Read,
+		kCommandType_ReadQuadlet,
+		kCommandType_Write,
+		kCommandType_WriteQuadlet,
+		kCommandType_CompareSwap
+	} CommandType ;
+
+	enum {
+		kFireWireCommandStale				= (1 << 0),
+		kFireWireCommandStale_Buffer		= (1 << 1),
+		kFireWireCommandStale_MaxPacket		= (1 << 2)
+	} ;
+
 }	// namespace IOFireWireLib

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,8 +20,17 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Includes
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 // This class' header file
 #include <IOKit/usb/IOUSBMassStorageClass.h>
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Macros
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 // Macros for printing debugging information
 #if (USB_MASS_STORAGE_DEBUG == 1)
@@ -46,15 +55,27 @@ enum
 
 #pragma mark -
 #pragma mark Protocol Services Methods
+#pragma mark -
 
-// The AbortSCSICommand helper method for Bulk Only protocol devices.
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ AbortSCSICommandForBulkOnlyProtocol - The AbortSCSICommand helper method
+//											for Bulk Only protocol devices.
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 IOReturn IOUSBMassStorageClass::AbortSCSICommandForBulkOnlyProtocol(
                                         SCSITaskIdentifier request )
 {
 	return kIOReturnError;
 }
 
-// The SendSCSICommand helper method for Bulk Only protocol devices.
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SendSCSICommandForBulkOnlyProtocol - 	The SendSCSICommand helper method
+//											for Bulk Only protocol devices.
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 IOReturn IOUSBMassStorageClass::SendSCSICommandForBulkOnlyProtocol(
                                          SCSITaskIdentifier request )
 {
@@ -89,6 +110,11 @@ IOReturn IOUSBMassStorageClass::SendSCSICommandForBulkOnlyProtocol(
 
 #pragma mark -
 #pragma mark Bulk Only Protocol Specific Commands
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ BulkDeviceResetDevice											[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 IOReturn 
 IOUSBMassStorageClass::BulkDeviceResetDevice(
@@ -130,6 +156,11 @@ IOUSBMassStorageClass::BulkDeviceResetDevice(
 #pragma mark -
 #pragma mark SendSCSICommand Helper methods
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ BulkOnlyUSBCompletionAction									[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 void 
 IOUSBMassStorageClass::BulkOnlyUSBCompletionAction(
 					                void *			target,
@@ -147,7 +178,13 @@ IOUSBMassStorageClass::BulkOnlyUSBCompletionAction(
 												bufferSizeRemaining );
 }
 
-// Prepare the Command Block Wrapper packet for Bulk Only Protocol
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ BulkOnlySendCBWPacket -	Prepare the Command Block Wrapper packet for
+//								Bulk Only Protocol
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 IOReturn 
 IOUSBMassStorageClass::BulkOnlySendCBWPacket(
 						BulkOnlyRequestBlock *		boRequestBlock,
@@ -210,6 +247,11 @@ IOUSBMassStorageClass::BulkOnlySendCBWPacket(
 	return status;
 }
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ BulkOnlyTransferData											[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 IOReturn 
 IOUSBMassStorageClass::BulkOnlyTransferData( 
 						BulkOnlyRequestBlock *		boRequestBlock,
@@ -227,6 +269,9 @@ IOUSBMassStorageClass::BulkOnlyTransferData(
 					GetDataBuffer( boRequestBlock->request ), 
 					GetTimeoutDuration( boRequestBlock->request ),  // Use the client's timeout for both
 					GetTimeoutDuration( boRequestBlock->request ),
+#if 0
+					GetRequestedDataTransferCount( boRequestBlock->request ),
+#endif
 					&boRequestBlock->boCompletion );
 	}
 	else if (GetDataTransferDirection(boRequestBlock->request) == kSCSIDataTransfer_FromInitiatorToTarget)
@@ -235,6 +280,9 @@ IOUSBMassStorageClass::BulkOnlyTransferData(
 					GetDataBuffer( boRequestBlock->request ), 
 					GetTimeoutDuration( boRequestBlock->request ),  // Use the client's timeout for both
 					GetTimeoutDuration( boRequestBlock->request ),
+#if 0
+					GetRequestedDataTransferCount( boRequestBlock->request ),
+#endif
 					&boRequestBlock->boCompletion );
 	}
 
@@ -244,7 +292,14 @@ IOUSBMassStorageClass::BulkOnlyTransferData(
 	return status;
 }
 
-// Prepare the Command Status Wrapper packet for Bulk Only Protocol
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ BulkOnlyReceiveCSWPacket -	Prepare the Command Status Wrapper packet
+//									for Bulk Only Protocol
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+// 
 IOReturn 
 IOUSBMassStorageClass::BulkOnlyReceiveCSWPacket(
 						BulkOnlyRequestBlock *		boRequestBlock,
@@ -274,6 +329,11 @@ IOUSBMassStorageClass::BulkOnlyReceiveCSWPacket(
    				status));
 	return status;
 }
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ BulkOnlyExecuteCommandCompletion								[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 void 
 IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion(

@@ -35,7 +35,7 @@
 #include <IOKit/IOCFPlugIn.h>
 
 #include <IOKit/firewire/IOFireWireFamilyCommon.h>
-#include <IOKit/firewire/IOFWIsoch.h>
+#include <IOKit/firewire/IOFireWireFamilyCommon.h>
 #include <IOKit/firewire/IOFireWireLib.h>
 
 // === [CFPlugIn support constants] ========================================
@@ -368,7 +368,7 @@ typedef struct IOFireWireIsochChannelInterface_t
 			AddListener()
 	*/
 /* headerdoc parse workaround	
-class IOFireWireLocalIsochPortInterface {
+class IOFireWireLocalIsochPortInterface: public IUnknown {
 public:
 */
 	IUNKNOWN_C_GUTS ;
@@ -474,6 +474,12 @@ public:
 
 typedef struct IOFireWireDCLCommandPoolInterface_t
 {
+/*!	@class IOFireWireDCLCommandPoolInterface
+*/
+/* headerdoc parse workaround	
+class IOFireWireDCLCommandPoolInterface {
+public:
+*/
 	IUNKNOWN_C_GUTS ;
 	UInt32 revision, version ;
 
@@ -492,11 +498,11 @@ typedef struct IOFireWireDCLCommandPoolInterface_t
 	DCLCommand*			(*AllocateReceivePacketDCL)		( IOFireWireLibDCLCommandPoolRef self, DCLCommand* inDCL, void* inBuffer, IOByteCount inSize) ;
 	DCLCommand*			(*AllocateReceiveBufferDCL)		( IOFireWireLibDCLCommandPoolRef self, DCLCommand* inDCL, void* inBuffer, IOByteCount inSize, IOByteCount inPacketSize, UInt32 inBufferOffset) ;
 
-	DCLCommand*			(*AllocateCallProcDCL)			( IOFireWireLibDCLCommandPoolRef self, DCLCommand* inDCL, DCLCallCommandProcPtr inProc, UInt32 inProcData) ;
+	DCLCommand*			(*AllocateCallProcDCL)			( IOFireWireLibDCLCommandPoolRef self, DCLCommand* inDCL, DCLCallCommandProc* inProc, UInt32 inProcData) ;
 	DCLCommand*			(*AllocateLabelDCL)				( IOFireWireLibDCLCommandPoolRef self, DCLCommand* inDCL) ;
-	DCLCommand*			(*AllocateJumpDCL)				( IOFireWireLibDCLCommandPoolRef self, DCLCommand* inDCL, DCLLabelPtr pInJumpDCLLabel) ;
+	DCLCommand*			(*AllocateJumpDCL)				( IOFireWireLibDCLCommandPoolRef self, DCLCommand* inDCL, DCLLabel* pInJumpDCLLabel) ;
 	DCLCommand*			(*AllocateSetTagSyncBitsDCL)	( IOFireWireLibDCLCommandPoolRef self, DCLCommand* inDCL, UInt16 inTagBits, UInt16 inSyncBits) ;
-	DCLCommand*			(*AllocateUpdateDCLListDCL)		( IOFireWireLibDCLCommandPoolRef self, DCLCommand* inDCL, DCLCommandPtr*inDCLCommandList, UInt32 inNumCommands) ;
+	DCLCommand*			(*AllocateUpdateDCLListDCL)		( IOFireWireLibDCLCommandPoolRef self, DCLCommand* inDCL, DCLCommand** inDCLCommandList, UInt32 inNumCommands) ;
 	DCLCommand*			(*AllocatePtrTimeStampDCL)		( IOFireWireLibDCLCommandPoolRef self, DCLCommand* inDCL, UInt32* inTimeStampPtr) ;
 
 	void 				(*Free)							( IOFireWireLibDCLCommandPoolRef self, DCLCommand* inDCL ) ;

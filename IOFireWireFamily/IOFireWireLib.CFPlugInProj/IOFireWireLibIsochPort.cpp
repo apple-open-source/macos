@@ -71,21 +71,21 @@ namespace IOFireWireLib {
 	
 	Boolean
 	GetDCLDataBuffer(
-		DCLCommandStruct*	inDCL,
+		DCLCommand*	dcl,
 		IOVirtualAddress*	outDataBuffer,
 		IOByteCount*		outDataLength)
 	{
 		Boolean	result = false ;
 	
-		switch(inDCL->opcode & ~kFWDCLOpFlagMask)
+		switch(dcl->opcode & ~kFWDCLOpFlagMask)
 		{
 			case kDCLSendPacketStartOp:
 			case kDCLSendPacketWithHeaderStartOp:
 			case kDCLSendPacketOp:
 			case kDCLReceivePacketStartOp:
 			case kDCLReceivePacketOp:
-				*outDataBuffer		= (IOVirtualAddress)((DCLTransferPacketStruct*)inDCL)->buffer ;
-				*outDataLength		= ((DCLTransferPacketStruct*)inDCL)->size ;
+				*outDataBuffer		= (IOVirtualAddress)((DCLTransferPacketStruct*)dcl)->buffer ;
+				*outDataLength		= ((DCLTransferPacketStruct*)dcl)->size ;
 				result = true ;
 				break ;
 				
@@ -95,8 +95,8 @@ namespace IOFireWireLib {
 				break ;
 	
 			case kDCLPtrTimeStampOp:
-				*outDataBuffer		= (IOVirtualAddress)((DCLPtrTimeStampStruct*)inDCL)->timeStampPtr ;
-				*outDataLength		= sizeof( *( ((DCLPtrTimeStampStruct*)inDCL)->timeStampPtr) ) ;
+				*outDataBuffer		= (IOVirtualAddress)((DCLPtrTimeStampStruct*)dcl)->timeStampPtr ;
+				*outDataLength		= sizeof( *( ((DCLPtrTimeStampStruct*)dcl)->timeStampPtr) ) ;
 				result = true ;
 				break ;
 			
@@ -109,11 +109,11 @@ namespace IOFireWireLib {
 	
 	IOByteCount
 	GetDCLSize(
-		DCLCommandStruct*	inDCL)
+		DCLCommand*	dcl)
 	{
 		IOByteCount result = 0 ;
 	
-		switch(inDCL->opcode & ~kFWDCLOpFlagMask)
+		switch(dcl->opcode & ~kFWDCLOpFlagMask)
 		{
 			case kDCLSendPacketStartOp:
 			case kDCLSendPacketWithHeaderStartOp:
@@ -137,7 +137,7 @@ namespace IOFireWireLib {
 				break ;
 				
 			case kDCLJumpOp:
-				result = sizeof(DCLJumpStruct) ;
+				result = sizeof(DCLJump) ;
 				break ;
 				
 			case kDCLSetTagSyncBitsOp:
@@ -304,11 +304,12 @@ namespace IOFireWireLib {
 
 		if (allocateKernPort)
 		{
-			FWIsochPortAllocateParams	params ;
-			IOByteCount					outputSize = sizeof(FWKernIsochPortRef) ;
+			IsochPortAllocateParams	params ;
+			IOByteCount					outputSize = sizeof(KernIsochPortRef) ;
 			
-			IOReturn err = IOConnectMethodStructureIStructureO( mUserClient.GetUserClientConnection(), kFWIsochPort_Allocate, sizeof(FWIsochPortAllocateParams),
-																	& outputSize, & params, & mKernPortRef) ;
+			IOReturn err = ::IOConnectMethodStructureIStructureO( mUserClient.GetUserClientConnection(), 
+								kIsochPort_Allocate, sizeof(IsochPortAllocateParams), & outputSize, & params, 
+								& mKernPortRef) ;
 			if(err)
 				throw std::exception() ;
 		}
@@ -318,11 +319,10 @@ namespace IOFireWireLib {
 	{
 		if ( mKernPortRef )
 		{
-			IOReturn	err = IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(),
-																kFWIsochPort_Release,
-																1,
-																0,
-																mKernPortRef ) ;
+			IOReturn	err = kIOReturnSuccess;
+			
+			err = ::IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(),
+									               kIsochPort_Release, 1, 0, mKernPortRef ) ;
 		
 			IOFireWireLibLogIfErr_( err, "%s %u: Couldn't release kernel port", __FILE__, __LINE__) ;
 		}
@@ -337,15 +337,12 @@ namespace IOFireWireLib {
 	{
 		mTalking = inTalking ;
 	
-		FWIsochPortAllocateParams	params ;
-		IOByteCount					outputSize = sizeof(FWKernIsochPortRef) ;
+		IsochPortAllocateParams	params ;
+		IOByteCount					outputSize = sizeof(KernIsochPortRef) ;
 		
-		IOReturn result = IOConnectMethodStructureIStructureO( mUserClient.GetUserClientConnection(),
-															kFWIsochPort_Allocate,
-															sizeof(FWIsochPortAllocateParams),
-															& outputSize,
-															& params,
-															& mKernPortRef) ;
+		IOReturn result = ::IOConnectMethodStructureIStructureO( mUserClient.GetUserClientConnection(),
+								kIsochPort_Allocate, sizeof(IsochPortAllocateParams), & outputSize, & params,
+								& mKernPortRef) ;
 	
 		IOFireWireLibLogIfErr_( result, "IsochPort::Init: result=0x%08X\n", result ) ;
 	
@@ -357,58 +354,36 @@ namespace IOFireWireLib {
 		IOFWSpeed&					maxSpeed, 
 		UInt64& 					chanSupported )
 	{
-		return IOConnectMethodScalarIScalarO(
-					mUserClient.GetUserClientConnection(),
-					kFWIsochPort_GetSupported,
-					1,
-					3,
-					mKernPortRef,
-					& maxSpeed,
-					(UInt32*)&chanSupported,
-					(UInt32*)&chanSupported + 1) ;
+		return ::IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), kIsochPort_GetSupported,
+						1, 3, mKernPortRef, & maxSpeed, (UInt32*)&chanSupported, (UInt32*)&chanSupported + 1) ;
 	}
 	
 	IOReturn
-	IsochPort::AllocatePort(
-		IOFWSpeed 					speed, 
-		UInt32 						chan )
+	IsochPort::AllocatePort( IOFWSpeed speed, UInt32 chan )
 	{
-		return IOConnectMethodScalarIScalarO(
-							mUserClient.GetUserClientConnection(),
-							kFWIsochPort_AllocatePort,
-							3,
-							0,
-							mKernPortRef,
-							speed,
-							chan) ;
+		return ::IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), kIsochPort_AllocatePort,
+						3, 0, mKernPortRef, speed, chan ) ;
 	}
 	
 	IOReturn
 	IsochPort::ReleasePort()
 	{
-		return IOConnectMethodScalarIScalarO(
-						mUserClient.GetUserClientConnection(),
-						kFWIsochPort_ReleasePort,
-						1,
-						0,
-						mKernPortRef) ;
+		return ::IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(),
+						kIsochPort_ReleasePort, 1, 0, mKernPortRef ) ;
 	}
 	
 	IOReturn
 	IsochPort::Start()
 	{
-		return IOConnectMethodScalarIScalarO(
-						mUserClient.GetUserClientConnection(),
-						kFWIsochPort_Start,
-						1,
-						0,
-						mKernPortRef) ;
+		return ::IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(),
+						kIsochPort_Start, 1, 0, mKernPortRef ) ;
 	}
 	
 	IOReturn
 	IsochPort::Stop()
 	{
-		return IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), kFWIsochPort_Stop, 1, 0, mKernPortRef ) ;
+		return ::IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), kIsochPort_Stop, 1, 0, 
+						mKernPortRef ) ;
 	}
 	
 #pragma mark -
@@ -747,7 +722,7 @@ namespace IOFireWireLib {
 		// point to beginning of DCL program
 		DCLCommand*							pCurrentDCLStruct = mDCLProgram ;
 		IOVirtualRange						tempRange ;
-		FWLocalIsochPortAllocateParams		params ;
+		LocalIsochPortAllocateParams		params ;
 	
 		params.userDCLProgramDCLCount = 0 ;
 		while (pCurrentDCLStruct)
@@ -800,9 +775,9 @@ namespace IOFireWireLib {
 		params.startMask					= mStartMask ;
 		params.userObj						= this ;
 		
-		IOByteCount	outputSize = sizeof(FWKernIsochPortRef) ;
-		IOReturn err = IOConnectMethodStructureIStructureO( mUserClient.GetUserClientConnection(), kFWLocalIsochPort_Allocate, sizeof(params),
-																& outputSize, & params, & mKernPortRef) ;
+		IOByteCount	outputSize = sizeof(KernIsochPortRef) ;
+		IOReturn err = ::IOConnectMethodStructureIStructureO( mUserClient.GetUserClientConnection(), 
+							kLocalIsochPort_Allocate, sizeof(params), & outputSize, & params, & mKernPortRef) ;
 		if (err)
 			throw std::exception() ;
 		
@@ -818,8 +793,9 @@ namespace IOFireWireLib {
 	//		params[1]	= (UInt32) & DCLCallProcHandler ;
 	//		params[2]	= (UInt32) this ;
 			
-			err = io_async_method_scalarI_scalarO( mUserClient.GetUserClientConnection(), mUserClient.GetIsochAsyncPort(), mAsyncRef, 1,
-														kFWSetAsyncRef_DCLCallProc, params, 2, NULL, & outputSize) ;
+			err = ::io_async_method_scalarI_scalarO( mUserClient.GetUserClientConnection(), 
+							mUserClient.GetIsochAsyncPort(), mAsyncRef, 1, kSetAsyncRef_DCLCallProc, params, 2, 
+							NULL, & outputSize) ;
 			if(err)
 				throw std::exception() ;
 		}
@@ -852,7 +828,7 @@ namespace IOFireWireLib {
 	IOReturn
 	LocalIsochPort::Init(
 		Boolean				inTalking,
-		DCLCommandStruct*	inDCLProgram,
+		DCLCommand*	inDCLProgram,
 		UInt32				inStartEvent,
 		UInt32				inStartState,
 		UInt32				inStartMask,
@@ -895,9 +871,9 @@ namespace IOFireWireLib {
 				bufferTree.CoalesceRange(inBufferRanges[index]) ;
 	
 		// point to beginning of DCL program
-		DCLCommandStruct*					pCurrentDCLStruct = mDCLProgram ;
+		DCLCommand*					pCurrentDCLStruct = mDCLProgram ;
 		IOVirtualRange						tempRange ;
-		FWLocalIsochPortAllocateParams		params ;
+		LocalIsochPortAllocateParams		params ;
 	
 		params.userDCLProgramDCLCount = 0 ;
 		while (pCurrentDCLStruct)
@@ -958,14 +934,9 @@ namespace IOFireWireLib {
 			
 			params.userObj						= this ;
 			
-			IOByteCount	outputSize = sizeof(FWKernIsochPortRef) ;
-			result = IOConnectMethodStructureIStructureO(
-							mUserClient.GetUserClientConnection(),
-							kFWLocalIsochPort_Allocate,
-							sizeof(params),
-							& outputSize,
-							& params,
-							& mKernPortRef) ;		
+			IOByteCount	outputSize = sizeof(KernIsochPortRef) ;
+			result = ::IOConnectMethodStructureIStructureO( mUserClient.GetUserClientConnection(), 
+							kLocalIsochPort_Allocate, sizeof(params), & outputSize, & params, & mKernPortRef) ;		
 		}
 		
 		if (programRanges)
@@ -982,15 +953,9 @@ namespace IOFireWireLib {
 			params[1]	= (UInt32) & DCLCallProcHandler ;
 			params[2]	= (UInt32) this ;
 			
-			result = io_async_method_scalarI_scalarO( mUserClient.GetUserClientConnection(),
-													mUserClient.GetIsochAsyncPort(),
-													mAsyncRef,
-													1,
-													kFWSetAsyncRef_DCLCallProc,
-													params,
-													2,
-													NULL,
-													& outputSize) ;
+			result = ::io_async_method_scalarI_scalarO( mUserClient.GetUserClientConnection(),
+					mUserClient.GetIsochAsyncPort(), mAsyncRef, 1, kSetAsyncRef_DCLCallProc,
+					params, 2, NULL, & outputSize) ;
 		}											  
 													
 		return result ;
@@ -1008,20 +973,19 @@ namespace IOFireWireLib {
 	}
 	
 	IOReturn
-	LocalIsochPort::ModifyJumpDCL(
-		DCLJumpStruct* 						inJump, 
-		DCLLabelStruct* 					inLabel)
+	LocalIsochPort::ModifyJumpDCL( DCLJump* inJump, DCLLabelStruct* inLabel )
 	{
 		inJump->pJumpDCLLabel = inLabel ;
 	
-		return IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), kFWLocalIsochPort_ModifyJumpDCL, 3, 0, 
-						mKernPortRef, inJump->compilerData, inLabel->compilerData ) ;
+		return ::IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), 
+						kLocalIsochPort_ModifyJumpDCL, 3, 0, mKernPortRef, inJump->compilerData, 
+						inLabel->compilerData ) ;
 	}
 	
 	IOReturn
 	LocalIsochPort::ModifyTransferPacketDCLSize( DCLTransferPacket* dcl, IOByteCount newSize )
 	{
-		return ::IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), kFWLocalIsochPort_ModifyTransferPacketDCLSize, 3, 0,
+		return ::IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), kLocalIsochPort_ModifyTransferPacketDCLSize, 3, 0,
 						mKernPortRef, dcl->compilerData, newSize ) ;
 	}
 
@@ -1049,7 +1013,7 @@ namespace IOFireWireLib {
 		{
 			DCLCallProcStruct*	callProcDCL = (DCLCallProcStruct*)inRefCon ;
 			
-			(*callProcDCL->proc)((DCLCommandStruct*)inRefCon) ;
+			(*callProcDCL->proc)((DCLCommand*)inRefCon) ;
 		}
 	}
 	
@@ -1067,10 +1031,10 @@ namespace IOFireWireLib {
 	
 	void
 	LocalIsochPort::PrintDCLProgram(
-		const DCLCommandStruct*		inDCL,
+		const DCLCommand*		dcl,
 		UInt32						inDCLCount) 
 	{
-		mUserClient.PrintDCLProgram(inDCL, inDCLCount) ;
+		mUserClient.PrintDCLProgram(dcl, inDCLCount) ;
 	}
 	
 #pragma mark -
@@ -1080,7 +1044,7 @@ namespace IOFireWireLib {
 	//
 	// ============================================================
 	
-	LocalIsochPortCOM::LocalIsochPortCOM( Device& userclient, bool inTalking, DCLCommandStruct* inDCLProgram, UInt32 inStartEvent,
+	LocalIsochPortCOM::LocalIsochPortCOM( Device& userclient, bool inTalking, DCLCommand* inDCLProgram, UInt32 inStartEvent,
 			UInt32 inStartState, UInt32 inStartMask, IOVirtualRange inDCLProgramRanges[], UInt32 inDCLProgramRangeCount,
 			IOVirtualRange inBufferRanges[], UInt32 inBufferRangeCount)
 	: LocalIsochPort( reinterpret_cast<IUnknownVTbl*>(& sInterface), userclient, inTalking, inDCLProgram, inStartEvent, 
@@ -1096,7 +1060,7 @@ namespace IOFireWireLib {
 	LocalIsochPortCOM::Alloc(
 		Device&							inUserClient, 
 		Boolean							inTalking,
-		DCLCommandStruct*				inDCLProgram,
+		DCLCommand*				inDCLProgram,
 		UInt32							inStartEvent,
 		UInt32							inStartState,
 		UInt32							inStartMask,
@@ -1148,7 +1112,7 @@ namespace IOFireWireLib {
 	IOReturn
 	LocalIsochPortCOM::SModifyJumpDCL(
 		IOFireWireLibLocalIsochPortRef 	self, 
-		DCLJumpStruct* 					inJump, 
+		DCLJump* 					inJump, 
 		DCLLabelStruct* 				inLabel)
 	{
 		return IOFireWireIUnknown::InterfaceMap<LocalIsochPortCOM>::GetThis(self)->ModifyJumpDCL(inJump, inLabel) ;
@@ -1158,7 +1122,7 @@ namespace IOFireWireLib {
 	void
 	LocalIsochPortCOM::SPrintDCLProgram(
 		IOFireWireLibLocalIsochPortRef 	self, 
-		const DCLCommandStruct*			inProgram,
+		const DCLCommand*			inProgram,
 		UInt32							inLength)
 	{
 		IOFireWireIUnknown::InterfaceMap<LocalIsochPortCOM>::GetThis(self)->PrintDCLProgram(inProgram, inLength) ;

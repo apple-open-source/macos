@@ -53,7 +53,7 @@
 #if defined(LIBC_SCCS) && !defined(lint)
 /*static char *sccsid = "from: @(#)svc_tcp.c 1.21 87/08/11 Copyr 1984 Sun Micro";*/
 /*static char *sccsid = "from: @(#)svc_tcp.c	2.2 88/08/01 4.0 RPCSRC";*/
-static char *rcsid = "$Id: svc_tcp.c,v 1.3 2002/02/19 20:36:25 epeyton Exp $";
+static char *rcsid = "$Id: svc_tcp.c,v 1.3.84.1 2002/10/18 21:16:15 bbraun Exp $";
 #endif
 
 /*
@@ -73,6 +73,8 @@ static char *rcsid = "$Id: svc_tcp.c,v 1.3 2002/02/19 20:36:25 epeyton Exp $";
 #include <rpc/rpc.h>
 #include <sys/socket.h>
 #include <errno.h>
+
+#define max(a, b) (((a) > (b)) ? (a) : (b))
 
 extern int		bindresvport();
 
@@ -316,6 +318,8 @@ svctcp_destroy(xprt)
  */
 static struct timeval wait_per_try = { 35, 0 };
 
+extern int svc_maxfd;
+
 /*
  * reads data from the tcp conection.
  * any error is fatal and the connection is closed.
@@ -328,27 +332,52 @@ readtcp(xprt, buf, len)
 	register int len;
 {
 	register int sock = xprt->xp_sock;
-	fd_set mask;
 	fd_set readfds;
+	bool_t ready = FALSE;
+	struct timeval delta, start, tv, tmp1, tmp2;
 
-	FD_ZERO(&mask);
-	FD_SET(sock, &mask);
-	do {
-		readfds = mask;
-		if (select(sock+1, &readfds, NULL, NULL, 
-			   &wait_per_try) <= 0) {
-			if (errno == EINTR) {
-				continue;
-			}
+	delta = wait_per_try;
+	gettimeofday(&start, NULL);
+	do
+	{
+		FD_COPY(&svc_fdset, &readfds);
+		FD_SET(sock, &readfds);
+		tv = delta;
+		switch( select(max(svc_maxfd, sock) + 1, &readfds, (fd_set*)NULL, (fd_set*)NULL, &tv) ) {
+		case -1:
+			if( errno != EINTR )
+				goto fatal_err;
+			gettimeofday(&tmp1, NULL);
+			timersub(&tmp1, &start, &tmp2);
+			timersub(&wait_per_try, &tmp2, &tmp1);
+			if( tmp1.tv_sec < 0 || !timerisset(&tmp1) )
+				goto fatal_err;
+			delta = tmp1;
+			continue;
+		case 0:
 			goto fatal_err;
+		default:
+			if(!FD_ISSET(sock, &readfds)) {
+				svc_getreqset(&readfds);
+				gettimeofday(&tmp1, NULL);
+				timersub(&tmp1, &start, &tmp2);
+				timersub(&wait_per_try, &tmp2, &tmp1);
+				if( tmp1.tv_sec < 0 || !timerisset(&tmp1) )
+					goto fatal_err;
+				delta = tmp1;
+				continue;
+			} else {
+				ready = TRUE;
+			}
 		}
-	} while (!FD_ISSET(sock, &readfds));
-	if ((len = read(sock, buf, len)) > 0) {
-		return (len);
-	}
+
+	} while (!ready);
+
+	if ((len = read(sock, buf, len)) > 0) return len;
+
 fatal_err:
 	((struct tcp_conn *)(xprt->xp_p1))->strm_stat = XPRT_DIED;
-	return (-1);
+	return -1;
 }
 
 /*

@@ -27,7 +27,8 @@
 
 // SCSI Architecture Model Family includes
 #include "IOSCSIPrimaryCommandsDevice.h"
-
+#include "SCSITaskDefinition.h"
+#include "SCSIPrimaryCommands.h"
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //	Macros
@@ -37,6 +38,138 @@
 #define DEBUG_ASSERT_COMPONENT_NAME_STRING		"SPC"
 
 #include "IOSCSIArchitectureModelFamilyDebugging.h"
+
+
+#if 0
+#pragma mark -
+#pragma mark ¥ Commands Builder Utility Routines
+#pragma mark -
+#endif
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//
+//		IOSCSIPrimaryCommandsDevice::IsParameterValid
+//
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//
+//		Validate Parameter used for 1 bit to 1 byte paramaters
+//
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+IOSCSIPrimaryCommandsDevice::IsParameterValid ( SCSICmdField1Byte param,
+										SCSICmdField1Byte mask )
+{
+	
+	bool	valid = false;
+	
+	require ( ( param | mask ) == mask, ErrorExit );
+	valid = true;
+	
+	
+ErrorExit:
+	
+	
+	return valid;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//
+//		IOSCSIPrimaryCommandsDevice::IsParameterValid
+//
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//
+//		Validate Parameter used for 9 bit to 2 byte paramaters
+//
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+IOSCSIPrimaryCommandsDevice::IsParameterValid ( SCSICmdField2Byte param,
+										SCSICmdField2Byte mask )
+{
+	
+	bool	valid = false;
+	
+	require ( ( param | mask ) == mask, ErrorExit );
+	valid = true;
+	
+	
+ErrorExit:
+	
+	
+	return valid;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//
+//		IOSCSIPrimaryCommandsDevice::IsParameterValid
+//
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//
+//		Validate Parameter used for 17 bit to 4 byte paramaters
+//
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+IOSCSIPrimaryCommandsDevice::IsParameterValid ( SCSICmdField4Byte param,
+										SCSICmdField4Byte mask )
+{
+	
+	bool	valid = false;
+	
+	require ( ( param | mask ) == mask, ErrorExit );
+	valid = true;
+	
+	
+ErrorExit:
+	
+	
+	return valid;
+	
+}
+
+
+
+bool
+IOSCSIPrimaryCommandsDevice::IsMemoryDescriptorValid (
+							IOMemoryDescriptor * 		dataBuffer )
+{
+	bool	valid = false;
+
+	require_nonzero ( dataBuffer, ErrorExit );
+	valid = true;
+	
+	
+ErrorExit:
+	
+	return valid;
+	
+}	
+
+
+bool 				
+IOSCSIPrimaryCommandsDevice::IsMemoryDescriptorValid (
+							IOMemoryDescriptor * 		dataBuffer,
+							UInt64						requiredSize )
+{
+	
+	bool	valid = false;
+
+	require_nonzero ( dataBuffer, ErrorExit );
+	require ( ( dataBuffer->getLength ( ) >= requiredSize ), ErrorExit );
+	valid = true;
+	
+	
+ErrorExit:
+	
+	
+	return valid;
+	
+}	
 
 
 #if 0

@@ -333,13 +333,21 @@ ConfigStart
         fi
     else
         for name in openssl ssleay; do
-	    for bindir in bin apps Executables; do
-                if [ -f "$SSL_BASE/$bindir/$name" ]; then
-                    SSL_PROGRAM="$SSL_BASE/$bindir/$name"
-                    SSL_BINDIR='$(SSL_BASE)/'"$bindir"
-                    break;
-                fi
-            done
+            if [ -f "$SSL_BASE/bin/$name" ]; then
+                SSL_PROGRAM="$SSL_BASE/bin/$name"
+                SSL_BINDIR='$(SSL_BASE)/bin'
+                break;
+            fi
+            if [ -f "$SSL_BASE/sbin/$name" ]; then
+                SSL_PROGRAM="$SSL_BASE/sbin/$name"
+                SSL_BINDIR='$(SSL_BASE)/sbin'
+                break;
+            fi
+            if [ -f "$SSL_BASE/apps/$name" ]; then
+                SSL_PROGRAM="$SSL_BASE/apps/$name"
+                SSL_BINDIR='$(SSL_BASE)/apps'
+                break;
+            fi
         done
         if [ ".$SSL_BINDIR" = . ]; then
             echo "Error: Cannot find SSL binaries under $SSL_BASE" 1>&2

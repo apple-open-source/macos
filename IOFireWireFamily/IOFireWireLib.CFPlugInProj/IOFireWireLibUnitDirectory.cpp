@@ -54,7 +54,7 @@ namespace IOFireWireLib {
 	  mUserClient(userclient), 
 	  mPublished(false)
 	{
-		IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), kFWUnitDirCreate, 
+		IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), kUnitDirCreate, 
 				0, 1, & mKernUnitDirRef ) ;
 	}
 	
@@ -107,7 +107,7 @@ namespace IOFireWireLib {
 			return kIOReturnBadArgument ;
 		}
 		
-		return IOConnectMethodScalarIStructureI( mUserClient.GetUserClientConnection(), kFWUnitDirAddEntry_Buffer, 2, 
+		return IOConnectMethodScalarIStructureI( mUserClient.GetUserClientConnection(), kUnitDirAddEntry_Buffer, 2, 
 					inLen, mKernUnitDirRef, key, inBuffer ) ;
 	}
 	
@@ -118,7 +118,7 @@ namespace IOFireWireLib {
 		CFStringRef	/*inDesc = NULL*/)	// zzz don't know what to do with this yet...
 										// zzz should probably go into kernel
 	{
-		IOReturn err = IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), kFWUnitDirAddEntry_UInt32, 3, 0, mKernUnitDirRef, key, value ) ;
+		IOReturn err = IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), kUnitDirAddEntry_UInt32, 3, 0, mKernUnitDirRef, key, value ) ;
 	
 		IOFireWireLibLogIfErr_(err, "LocalUnitDirectory::AddEntry[UInt32](): result = 0x%08x\n", err) ;
 	
@@ -132,7 +132,7 @@ namespace IOFireWireLib {
 		CFStringRef	/*inDesc = NULL*/)	// zzz don't know what to do with this yet...
 										// zzz should probably go into kernel
 	{
-		return IOConnectMethodScalarIStructureI( mUserClient.GetUserClientConnection(), kFWUnitDirAddEntry_FWAddr, 
+		return IOConnectMethodScalarIStructureI( mUserClient.GetUserClientConnection(), kUnitDirAddEntry_FWAddr, 
 					2, sizeof(value), mKernUnitDirRef, key, & value ) ;
 	}
 	
@@ -142,7 +142,7 @@ namespace IOFireWireLib {
 		if (mPublished)
 			return kIOReturnSuccess ;
 	
-		IOReturn err = IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), kFWUnitDirPublish, 1, 0, mKernUnitDirRef ) ;
+		IOReturn err = IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), kUnitDirPublish, 1, 0, mKernUnitDirRef ) ;
 	
 		mPublished = ( kIOReturnSuccess == err ) ;
 	
@@ -155,7 +155,7 @@ namespace IOFireWireLib {
 		if (!mPublished)
 			return kIOReturnSuccess ;
 			
-		IOReturn err = IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), kFWUnitDirUnpublish, 1, 0, mKernUnitDirRef) ;
+		IOReturn err = IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), kUnitDirUnpublish, 1, 0, mKernUnitDirRef) ;
 			
 		if ( kIOReturnSuccess == err )
 				mPublished = false ;

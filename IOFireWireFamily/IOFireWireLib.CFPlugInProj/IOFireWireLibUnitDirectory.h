@@ -44,7 +44,7 @@ namespace IOFireWireLib {
 											void **				ppv ) ;		
 		public:
 			// --- constructor/destructor ----------
-									LocalUnitDirectory( Device& inUserClient ) ;
+									LocalUnitDirectory( Device& userclient ) ;
 			virtual					~LocalUnitDirectory() ;
 		
 			// --- adding to ROM -------------------
@@ -92,7 +92,7 @@ namespace IOFireWireLib {
 		
 		protected:
 			static Interface		sInterface ;		
-			FWKernUnitDirRef		mKernUnitDirRef ;
+			KernUnitDirRef		mKernUnitDirRef ;
 			Device&					mUserClient ;
 			bool					mPublished ;
 	} ;

@@ -33,7 +33,10 @@
 #include <IOKit/IOCommandGate.h>
 
 // SCSI Architecture Model Family includes
+#include <IOKit/scsi-commands/IOSCSITargetDevice.h>
 #include <IOKit/scsi-commands/IOSCSIProtocolServices.h>
+
+#include "SCSITaskDefinition.h"
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
@@ -1187,11 +1190,75 @@ IOSCSIProtocolServices::CommandCompleted ( 	SCSITaskIdentifier 	request,
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ CreateSCSITargetDevice -	Creates the appropriate object to represent the
+//								Target portion of a SCSI Device. This object is
+//								responsible for managing the Target functions
+//								of the SCSI Device including the Task Manager
+//								and Logical Units.					[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+IOSCSIProtocolServices::CreateSCSITargetDevice ( void )
+{
+	
+	IOSCSITargetDevice *	newDevice = NULL;
+	
+	// Create the IOSCSIParallelInterfaceDevice object
+	newDevice = new IOSCSITargetDevice;
+	if ( newDevice == NULL )
+	{
+		
+		// The device could not be created, let the caller know.
+		return false;
+		
+	}
+	
+	// Attach the device
+	if ( newDevice->init ( 0 ) == false )
+	{
+		goto ATTACH_FAILED_EXIT;
+	}
+	
+	if ( newDevice->attach ( this ) == false )
+	{
+		goto ATTACH_FAILED_EXIT;
+	}
+	
+	if ( newDevice->start ( this ) == false )
+	{
+		goto START_FAILED_EXIT;
+	}
+	
+	newDevice->release ( );
+	
+	// The SCSI Target Device was successfully created.
+	return true;
+	
+	
+START_FAILED_EXIT:
+	
+	
+	// Detach the target device
+	newDevice->detach ( this );
+	
+	
+ATTACH_FAILED_EXIT:	
+	
+	// The device can now be destroyed.
+	newDevice->release ( );
+	
+	return false;
+	
+}
+
+
 #if 0
 #pragma mark -
 #pragma mark ¥ Provided Services to the SCSI Application Layer 
 #pragma mark -
 #endif
+
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //	¥ ExecuteCommand -	The ExecuteCommand function will take a SCSI Task and
@@ -1426,9 +1493,9 @@ OSMetaClassDefineReservedUsed ( IOSCSIProtocolServices, 3 );	// HandleClearACA
 OSMetaClassDefineReservedUsed ( IOSCSIProtocolServices, 4 );	// HandleClearTaskSet
 OSMetaClassDefineReservedUsed ( IOSCSIProtocolServices, 5 );	// HandleLogicalUnitReset
 OSMetaClassDefineReservedUsed ( IOSCSIProtocolServices, 6 );	// HandleTargetReset
+OSMetaClassDefineReservedUsed ( IOSCSIProtocolServices, 7 );	// CreateSCSITargetDevice
 
 // Space reserved for future expansion.
-OSMetaClassDefineReservedUnused ( IOSCSIProtocolServices, 7 );
 OSMetaClassDefineReservedUnused ( IOSCSIProtocolServices, 8 );
 OSMetaClassDefineReservedUnused ( IOSCSIProtocolServices, 9 );
 OSMetaClassDefineReservedUnused ( IOSCSIProtocolServices, 10 );

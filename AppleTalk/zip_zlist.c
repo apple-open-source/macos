@@ -159,7 +159,7 @@ int zip_getzonesfrombridge(
 		* sanity, check the other fields in the packet
 		*/
 		puserdata = (u_char *)&resp.userdata[0];
-		if (puserdata[0] == 1) {
+		if (puserdata[0] != 0) {
 			*context = ZIP_NO_MORE_ZONES;
 			abridge.node = 0;
 			abridge.net = 0;		

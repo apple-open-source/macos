@@ -1,0 +1,89 @@
+.\"(c) Copyright 1992, 1993 by Panagiotis Tsirigotis
+.\"All rights reserved.  The file named COPYRIGHT specifies the terms 
+.\"and conditions for redistribution.
+.\"
+.\" $Id: psi.3,v 1.1.1.1 2002/01/31 07:09:04 zarzycki Exp $
+.TH PSET 3X "25 September 1992"
+.SH NAME
+psi_create, psi_destroy, psi_reset, psi_start, psi_next, psi_remove - pointer set iterator functions
+.SH SYNOPSIS
+.LP
+.nf
+.ft B
+#include "pset.h"
+.LP
+.ft B
+psi_h psi_create( pset )
+pset_h pset ;
+.LP
+.ft B
+void psi_destroy( iter )
+psi_h iter ;
+.LP
+.ft B
+void psi_reset( iter, pset )
+psi_h iter ;
+pset_h pset ;
+.LP
+.ft B
+void *psi_start( iter )
+psi_h iter ;
+.LP
+.ft B
+void *psi_next( iter )
+psi_h iter ;
+.LP
+.ft B
+void psi_remove( iter )
+psi_h iter ;
+.SH DESCRIPTION
+These functions provide a means to iterate over psets (pointer sets).
+.LP
+.B psi_create()
+creates an iterator. The only operation that should be applied to
+an iterator after it is created is
+.B psi_start().
+.LP
+.B psi_destroy()
+destroys the iterator.
+.LP
+.B psi_reset()
+changes the pset that is being iterated to
+.I pset.
+.LP
+.B psi_start()
+starts an iteration and returns the first pointer
+in the pointer set.
+.LP
+.B psi_next()
+returns the next pointer in the set.
+.LP
+.B psi_remove()
+removes the current pointer from the set. The current pointer is
+the one returned most recently from either
+.B psi_start()
+or
+.B psi_next().
+.SH "RETURN VALUES"
+.LP
+.B psi_create()
+returns an iterator handle on success or
+.SM NULL
+on failure.
+.LP
+.B psi_start()
+returns the first pointer from the set or
+.SM NULL
+if the set is empty.
+.LP
+.B psi_next()
+returns a pointer or
+.SM NULL
+if the end of the set is reached.
+.SH WARNINGS
+.B psi_create()
+is the only function in this library. The rest of the interface is macros.
+.LP
+This interface may be eliminated in a future release of the
+.I pset
+library.

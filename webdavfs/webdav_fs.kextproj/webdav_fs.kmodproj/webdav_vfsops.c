@@ -356,6 +356,15 @@ int webdav_statfs(mp, sbp, p)
 
 	if (fmp->status & WEBDAV_MOUNT_SUPPORTS_STATFS)
 	{
+		/* while there's a WEBDAV_STATFS request outstanding, sleep */
+		while (fmp->status & WEBDAV_MOUNT_STATFS)
+		{
+			fmp->status |= WEBDAV_MOUNT_STATFS_WANTED;
+			(void) tsleep((caddr_t)&fmp->status, PRIBIO, "webdav_statfs", 0);
+		}
+		
+		/* we're making a request so grab the token */
+		fmp->status |= WEBDAV_MOUNT_STATFS;
 
 		pcred.pcr_flag = 0;
 		/* user level is ingnoring the pcred anyway */
@@ -367,8 +376,10 @@ int webdav_statfs(mp, sbp, p)
 		error = webdav_sendmsg(vnop, WEBDAV_USE_URL, pt, &pcred, fmp, p, (void *)NULL, 0,
 			&server_error, (void *) & server_sbp, sizeof(server_sbp));
 
+		/* XXX - When this WEBDAV_CHECK_VNODE and goto is removed, the code below
+		 * that calls wakeup can be moved up here. */
+		 
 		/* We pended so check the state of the vnode */
-
 		if (WEBDAV_CHECK_VNODE(rootvp))
 		{
 			error = EPERM;
@@ -405,7 +416,7 @@ int webdav_statfs(mp, sbp, p)
 	if (!server_sbp.f_blocks)
 	{
 		/* server must not support getting quotas so stop trying */
-		fmp->status = fmp->status & ~WEBDAV_MOUNT_SUPPORTS_STATFS;
+		fmp->status &= ~WEBDAV_MOUNT_SUPPORTS_STATFS;
 		sbp->f_blocks = WEBDAV_NUM_BLOCKS;
 		sbp->f_bfree = sbp->f_bavail = WEBDAV_FREE_BLOCKS;
 	}
@@ -446,6 +457,20 @@ int webdav_statfs(mp, sbp, p)
 	}
 
 bad:
+
+	/* XXX - This code (everything up to return) can be moved up into the
+	 * if statement above that tsleeps when the WEBDAV_CHECK_VNODE is removed
+	 */
+	
+	/* we're done, so release the token */
+	fmp->status &= ~WEBDAV_MOUNT_STATFS;
+	
+	/* if anyone else is waiting, wake them up */
+	if ( fmp->status & WEBDAV_MOUNT_STATFS_WANTED )
+	{
+		fmp->status &= ~WEBDAV_MOUNT_STATFS_WANTED;
+		wakeup((caddr_t)&fmp->status);
+	}
 
 	return (error);
 }

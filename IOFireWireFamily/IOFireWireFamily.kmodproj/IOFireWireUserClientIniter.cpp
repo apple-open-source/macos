@@ -28,17 +28,13 @@
  *
  */
 
-#include <IOKit/assert.h>
-#include <IOKit/IOLib.h>
+#import "IOFireWireUserClientIniter.h"
 
-#include <IOKit/IOService.h>
-#include <libkern/OSAtomic.h>
+#import <IOKit/assert.h>
+#import <IOKit/IOLib.h>
+#import <IOKit/IOService.h>
+#import <libkern/OSAtomic.h>
 
-#include <IOKit/firewire/IOFireWireUserClientIniter.h>
-
-#ifndef DEBUGGING_LEVEL
-#define DEBUGGING_LEVEL 1
-#endif
 
 OSDefineMetaClassAndStructors(IOFireWireUserClientIniter, IOService);
 OSMetaClassDefineReservedUnused(IOFireWireUserClientIniter, 0);
@@ -53,6 +49,10 @@ OSDictionary*				IOFireWireUserClientIniter::fPropTable = NULL ;
 IOService*					IOFireWireUserClientIniter::fProvider = NULL ;
 
 
+// init
+//
+//
+
 bool
 IOFireWireUserClientIniter::init(OSDictionary * propTable)
 {
@@ -61,6 +61,10 @@ IOFireWireUserClientIniter::init(OSDictionary * propTable)
 	
 	return IOService::init(propTable) ;
 }
+
+// start
+//
+//
 
 bool
 IOFireWireUserClientIniter::start(
@@ -79,22 +83,30 @@ IOFireWireUserClientIniter::start(
 		return false;
 	}
 
-	const OSSymbol*	userClientClass;
-	OSObject*		temp = fProviderMergeProperties->getObject( gIOUserClientClassKey ) ;
-
-	if ( OSDynamicCast(OSSymbol, temp) )
-		userClientClass = 0;
-	else if ( OSDynamicCast(OSString, temp) )
-		userClientClass = OSSymbol::withString((const OSString *) temp);
-	else
+	//
+	// make sure the user client class object is an OSSymbol
+	//
+	
+	OSObject * userClientClassObject = fProviderMergeProperties->getObject( gIOUserClientClassKey );
+	if( OSDynamicCast(OSString, userClientClassObject) != NULL )
 	{
-		userClientClass = 0;
+		// if the the user client class object is an OSString, turn it into an OSSymbol
+		
+		const OSSymbol * userClientClassSymbol = OSSymbol::withString((const OSString *) userClientClassObject);
+		if( userClientClassSymbol != NULL )
+		{
+			fProviderMergeProperties->setObject(gIOUserClientClassKey, (OSObject *) userClientClassSymbol);
+			userClientClassSymbol->release();
+		}
+		
+	}
+	else if( OSDynamicCast(OSSymbol, userClientClassObject) == NULL )
+	{
+		// if its not an OSString or an OSymbol remove it from the merge properties
+		
 		fProviderMergeProperties->removeObject(gIOUserClientClassKey);
 	}
-
-	if (userClientClass)
-		fProviderMergeProperties->setObject(gIOUserClientClassKey, (OSObject *) userClientClass);
-
+	
     OSDictionary*	providerProps = fProvider->getPropertyTable() ;
 	if (providerProps)
 	{
@@ -111,66 +123,104 @@ IOFireWireUserClientIniter::stop(IOService* provider)
 	IOService::stop(provider) ;
 }
 
+// mergeProperties
+//
+// recurively merge the properties of two dictionaries
+
 void
 IOFireWireUserClientIniter::mergeProperties(OSObject* inDest, OSObject* inSrc)
 {
-	OSDictionary*	dest = OSDynamicCast(OSDictionary, inDest) ;
-	OSDictionary*	src = OSDynamicCast(OSDictionary, inSrc) ;
+	OSDictionary*	dest = OSDynamicCast(OSDictionary, inDest);
+	OSDictionary*	src = OSDynamicCast(OSDictionary, inSrc);
 
 	if (!src || !dest)
-		return ;
+		return;
 
-	OSCollectionIterator*	srcIterator = OSCollectionIterator::withCollection(src) ;
+	OSCollectionIterator*	srcIterator = OSCollectionIterator::withCollection(src);
 	
-	OSSymbol*	keyObject	= NULL ;
-	OSObject*	destObject	= NULL ;
-	OSObject*	srcObject	= NULL ;
+	OSSymbol*	keyObject	= NULL;
+	OSObject*	destObject	= NULL;
+	OSObject*	srcObject	= NULL;
+	
 	while (NULL != (keyObject = OSDynamicCast(OSSymbol, srcIterator->getNextObject())))
 	{
-		srcObject 	= src->getObject(keyObject) ;
-		destObject	= dest->getObject(keyObject) ;
+		srcObject 	= src->getObject(keyObject);
+		destObject	= dest->getObject(keyObject);
 		
 		if (OSDynamicCast(OSDictionary, srcObject))
-			srcObject = copyDictionaryProperty((OSDictionary*)srcObject) ;
+		{
+			srcObject = copyDictionaryProperty((OSDictionary*)srcObject);
 			
-		if (destObject && OSDynamicCast(OSDictionary, srcObject))
-			mergeProperties(destObject, srcObject );
+			// if there's a already a dictionary with the same key as the 
+			// srcObject, we need to merge the new properties with that 
+			// dictionary, otherwise we can just add the srcObject to the
+			// dest dictionary
+			
+			if( destObject )
+				mergeProperties(destObject, srcObject);
+			else
+				dest->setObject(keyObject, srcObject);
+			
+			// copyDictionaryProperty creates a new dictionary, so we should release 
+			// it after we add it to our dictionary
+	
+			srcObject->release();
+		}
 		else
-			dest->setObject(keyObject, srcObject) ;
-
+		{
+			// if the property is not a dictionary, then we can simply add it to the
+			// destination dictionary
+			
+			dest->setObject(keyObject, srcObject);
+		}
 	}
 	
 	// have to release this, or we'll leak.
-	srcIterator->release() ;
+	srcIterator->release();
 }
+
+// copyDictionaryProperty
+//
+// recursively copy am OSDictionary
 
 OSDictionary*
 IOFireWireUserClientIniter::copyDictionaryProperty(
 	OSDictionary*	srcDictionary)
 {
-	OSDictionary*			result			= NULL ;
-	OSObject*				srcObject		= NULL ;
-	OSCollectionIterator*	srcIterator		= NULL ;
-	OSSymbol*				keyObject		= NULL ;
+	OSDictionary*			result			= NULL;
+	OSObject*				srcObject		= NULL;
+	OSCollectionIterator*	srcIterator		= NULL;
+	OSSymbol*				keyObject		= NULL;
 	
-	result = OSDictionary::withCapacity(srcDictionary->getCount()) ;
+	result = OSDictionary::withCapacity(srcDictionary->getCount());
 	if (result)
 	{
-		srcIterator = OSCollectionIterator::withCollection(srcDictionary) ;
+		srcIterator = OSCollectionIterator::withCollection(srcDictionary);
 		if (srcIterator)
 		{
 			while ( keyObject = OSDynamicCast(OSSymbol, srcIterator->getNextObject()) )
 			{
-				srcObject	= srcDictionary->getObject(keyObject) ;
+				srcObject	= srcDictionary->getObject(keyObject);
 				if (OSDynamicCast(OSDictionary, srcObject))
-					srcObject = copyDictionaryProperty((OSDictionary*)srcObject) ;
-				
-				result->setObject(keyObject, srcObject) ;
+				{
+					srcObject = copyDictionaryProperty((OSDictionary*)srcObject);
+					
+					result->setObject(keyObject, srcObject);
+					
+					// copyDictionaryProperty creates a new dictionary, so we should release 
+					// it after we add it to our dictionary
+					
+					srcObject->release();
+				}
+				else
+				{
+					result->setObject(keyObject, srcObject);
+				}
 			}
 		
-			srcIterator->release() ;
+			srcIterator->release();
 		}
 	}
 	
-	return result ;
+	return result;
 }

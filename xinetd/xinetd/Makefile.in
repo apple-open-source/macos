@@ -1,0 +1,130 @@
+CC = @CC@
+
+INSTALL_CMD = @INSTALL@
+
+RANLIB = @RANLIB@
+SRCDIR = @srcdir@
+VPATH = @srcdir@
+
+prefix = @prefix@
+exec_prefix = @exec_prefix@
+DAEMONDIR = @sbindir@
+mandir = @mandir@
+topdir = @top_srcdir@
+
+LIBS = -lsio -lstr -lmisc -lxlog -lportable -lpset @LIBS@
+
+CFLAGS += @CFLAGS@ 
+DCFLAGS = -Wall -Wshadow -Wredundant-decls -Wcast-align -Wpointer-arith -g
+
+DEFS = @DEFS@
+
+SIO_DEFS  = @DEFS@
+MISC_DEFS = @DEFS@
+LIB_DEFS = @DEFS@ 
+PROG_DEFS = @DEFS@
+
+LIBMAKEDEFS = CC=$(CC) CFLAGS='$(CFLAGS) -I../../include'
+PROGMAKEDEFS = CC=$(CC) CFLAGS='$(CFLAGS) -I../libs/include' LDFLAGS='-L../libs/lib'
+DEBUGLIBMAKEDEFS = CC=$(CC) CFLAGS='$(DCFLAGS) -I../../include'
+DEBUGMAKEDEFS = CC=$(CC) CFLAGS='$(DCFLAGS) -I../libs/include' LDFLAGS=' -L../libs/lib'
+
+MANDATORY_LIBS	= portable sio str misc xlog pset 
+ALL_LIBS	= portable sio str misc xlog pset 
+
+build: makelibs makeprog
+
+debug: debugmakelibs debugmakeprog
+
+makeprog: makelibs
+	cd xinetd ; $(MAKE) $(PROGMAKEDEFS)
+
+debugmakeprog:
+	cd xinetd ; $(MAKE) $(DEBUGMAKEDEFS)
+
+makelibs: libmisc libportable libpset libsio libstr libxlog
+
+debugmakelibs: dlibmisc dlibportable dlibpset dlibsio dlibstr dlibxlog
+
+libmisc: libstr
+	cd libs/src/misc ; $(MAKE) $(LIBMAKEDEFS) install
+libportable:
+	cd libs/src/portable ; $(MAKE) $(LIBMAKEDEFS) install
+libpset:
+	cd libs/src/pset ; $(MAKE) $(LIBMAKEDEFS) install
+libsio: libportable
+	cd libs/src/sio ; $(MAKE) $(LIBMAKEDEFS) install
+libstr: libsio
+	cd libs/src/str ; $(MAKE) $(LIBMAKEDEFS) install
+libxlog: libsio libstr
+	cd libs/src/xlog ; $(MAKE) $(LIBMAKEDEFS) install
+
+dlibmisc: dlibstr
+	cd libs/src/misc ; $(MAKE) $(DEBUGLIBMAKEDEFS) install
+dlibportable:
+	cd libs/src/portable ; $(MAKE) $(DEBUGLIBMAKEDEFS) install
+dlibpset:
+	cd libs/src/pset ; $(MAKE) $(DEBUGLIBMAKEDEFS) install
+dlibsio: dlibportable
+	cd libs/src/sio ; $(MAKE) $(DEBUGLIBMAKEDEFS) install
+dlibstr: dlibsio
+	cd libs/src/str ; $(MAKE) $(DEBUGLIBMAKEDEFS) install
+dlibxlog: dlibsio dlibstr
+	cd libs/src/xlog ; $(MAKE) $(DEBUGLIBMAKEDEFS) install
+
+install-common: build
+	for i in $(DAEMONDIR) $(BINDIR) $(mandir)/man5 $(mandir)/man8 ; do \
+	   test -d $$i || mkdir -p $$i ; done
+	$(INSTALL_CMD) -m 644 $(SRCDIR)/xinetd/xinetd.conf.man $(mandir)/man5/xinetd.conf.5
+	$(INSTALL_CMD) -m 644 $(SRCDIR)/xinetd/xinetd.log.man $(mandir)/man8/xinetd.log.8
+	$(INSTALL_CMD) -m 644 $(SRCDIR)/xinetd/xinetd.man $(mandir)/man8/xinetd.8
+	$(INSTALL_CMD) -m 644 $(SRCDIR)/xinetd/itox.8 $(mandir)/man8/itox.8
+	$(INSTALL_CMD) -m 755 $(SRCDIR)/xinetd/xconv.pl $(DAEMONDIR)
+
+install-strip: install-common
+	$(INSTALL_CMD) -s -m 755 xinetd/xinetd $(DAEMONDIR)
+	$(INSTALL_CMD) -s -m 755 xinetd/itox $(DAEMONDIR)
+	@echo "You must put your xinetd.conf in /etc/xinetd.conf"
+	@echo "There is a sample config file in xinetd/sample.conf and you can"
+	@echo "use xconv.pl to convert your old inetd.conf file to an xinetd format"
+
+install: install-common
+	$(INSTALL_CMD) -m 755 xinetd/xinetd $(DAEMONDIR)
+	$(INSTALL_CMD) -m 755 xinetd/itox $(DAEMONDIR)
+	@echo "You must put your xinetd.conf in /etc/xinetd.conf"
+	@echo "There is a sample config file in xinetd/sample.conf and you can"
+	@echo "use xconv.pl to convert your old inetd.conf file to an xinetd format"
+
+uninstall:
+	rm -f $(DAEMONDIR)/xinetd
+	rm -f $(DAEMONDIR)/itox
+	rm -f $(DAEMONDIR)/xconv.pl
+	rm -f $(mandir)/man5/xinetd.conf.5
+	rm -f $(mandir)/man8/xinetd.log.8
+	rm -f $(mandir)/man8/xinetd.8
+	rm -f $(mandir)/man8/itox.8
+ 
+distclean: clean
+	rm -f config.cache config.log Makefile config.status xinetd/itox
+	rm -f config.h @srcdir@/libs/include/* @srcdir@/libs/man/*
+	for lib in $(ALL_LIBS) ; do \
+		cd @srcdir@/libs/src/$$lib ; $(MAKE) distclean ; \
+		cd ../../.. ; \
+	done
+	cd xinetd ; $(MAKE) distclean
+
+clean: cleanlibs cleanprog 
+	rm -f @srcdir@/libs/lib/*.a 
+
+cleanlibs:
+	for lib in $(ALL_LIBS) ; do \
+		cd @srcdir@/libs/src/$$lib ; $(MAKE) clean ; \
+		cd ../../.. ; \
+	done
+
+cleanprog:
+	cd xinetd ; $(MAKE) clean
+
+spotless: clean
+	rm -f @srcdir@/libs/include/*.h @srcdir@/libs/man/*.3
+	cd libs ; for i in lib include man ; do rm $$i/* ; done

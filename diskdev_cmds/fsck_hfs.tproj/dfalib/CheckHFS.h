@@ -29,6 +29,7 @@ enum {
 	kDirtyCheck = 1,	/* only check if dirty */
 	kAlwaysCheck = 2,	/* always check */
 	kPartialCheck = 3,	/* used with kForceRepairs in order to set up environment */
+	kForceCheck = 4,
 
 	kNeverRepair = 0,	/* never repair */
 	kMinorRepairs = 1,	/* only do minor repairs (fsck preen) */

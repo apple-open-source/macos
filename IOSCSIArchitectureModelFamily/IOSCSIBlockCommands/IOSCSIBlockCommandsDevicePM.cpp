@@ -152,7 +152,7 @@ IOSCSIBlockCommandsDevice::PowerDownHandler (	void * 			refCon,
 		
 		case kIOMessageSystemWillPowerOff:
 			
-			if ( fMediumPresent == true )
+			if (( fMediumPresent == true ) && ( fDeviceIsShared == false ))
 			{
 				
 				// Media is present (but may be spinning). Make sure the drive is spun down.
@@ -322,12 +322,15 @@ IOSCSIBlockCommandsDevice::HandlePowerChange ( void )
 		{
 			
 			STATUS_LOG ( ( "We think we're in sleep\n" ) );
-			
-			if ( START_STOP_UNIT ( request, 0x00, 0x00, 0x00, 0x01, 0x00 ) == true )
-			{
-				
-				serviceResponse = SendCommand ( request, 0 );
-				
+
+			if ( fDeviceIsShared == false )	
+			{		
+				if ( START_STOP_UNIT ( request, 0x00, 0x00, 0x00, 0x01, 0x00 ) == true )
+				{
+					
+					serviceResponse = SendCommand ( request, 0 );
+					
+				}
 			}
 			
 			// First, if we were in sleep mode ( fCurrentPowerState <= kSBCPowerStateSleep )
@@ -448,36 +451,37 @@ IOSCSIBlockCommandsDevice::HandlePowerChange ( void )
 				// put it to sleep using the START_STOP_UNIT command, issue one to the drive.
 				if ( previousPowerState != kSBCPowerStateSleep )
 				{
-					
-					if ( fDeviceSupportsPowerConditions )
+					if ( fDeviceIsShared == false )
 					{
-					
-						STATUS_LOG ( ( "Sending START_STOP_UNIT to drive to turn it off\n" ) );
-						
-						if ( START_STOP_UNIT ( request, 0, 0x05, 0, 0, 0 ) == true )
+						if ( fDeviceSupportsPowerConditions )
 						{
+						
+							STATUS_LOG ( ( "Sending START_STOP_UNIT to drive to turn it off\n" ) );
 							
-							serviceResponse = SendCommand ( request, 0 );
+							if ( START_STOP_UNIT ( request, 0, 0x05, 0, 0, 0 ) == true )
+							{
+								
+								serviceResponse = SendCommand ( request, 0 );
+								
+							}
 							
 						}
-						
-					}
-									
-					else
-					{
-	
-						STATUS_LOG ( ( "Power conditions not supported, make sure drive is spun down\n" ) );
-					
-						// At a minimum, make sure the drive is spun down
-						if ( START_STOP_UNIT ( request, 0, 0, 0, 0, 0 ) == true )
+										
+						else
 						{
-							
-							serviceResponse = SendCommand ( request, 0 );
+		
+							STATUS_LOG ( ( "Power conditions not supported, make sure drive is spun down\n" ) );
+						
+							// At a minimum, make sure the drive is spun down
+							if ( START_STOP_UNIT ( request, 0, 0, 0, 0, 0 ) == true )
+							{
+								
+								serviceResponse = SendCommand ( request, 0 );
+								
+							}
 							
 						}
-						
 					}
-					
 				}
 				
 				fCurrentPowerState = kSBCPowerStateSystemSleep;
@@ -508,7 +512,7 @@ IOSCSIBlockCommandsDevice::HandlePowerChange ( void )
 					
 				}
 				
-				if ( fCurrentPowerState > kSBCPowerStateSleep )
+				if ( ( fCurrentPowerState > kSBCPowerStateSleep ) && ( fDeviceIsShared == false ) )
 				{
 					
 					STATUS_LOG ( ( "At minimum, make sure drive is spun down.\n" ) );
@@ -534,7 +538,7 @@ IOSCSIBlockCommandsDevice::HandlePowerChange ( void )
 				STATUS_LOG ( ( "case kSBCPowerStateStandby\n" ) );
 
 				STATUS_LOG ( ( "At minimum, make sure drive is spun down.\n" ) );
-				if ( fCurrentPowerState > kSBCPowerStateStandby )
+				if ( ( fCurrentPowerState > kSBCPowerStateStandby ) && ( fDeviceIsShared == false ) )
 				{
 
 					// At a minimum, make sure the drive is spun down
@@ -566,11 +570,14 @@ IOSCSIBlockCommandsDevice::HandlePowerChange ( void )
 				
 				STATUS_LOG ( ( "case kSBCPowerStateActive\n" ) );
 
-				if ( START_STOP_UNIT ( request, 0, 0, 0, 1, 0 ) == true )
+				if ( fDeviceIsShared == false )
 				{
-							
-					serviceResponse = SendCommand ( request, 0 );
-							
+					if ( START_STOP_UNIT ( request, 0, 0, 0, 1, 0 ) == true )
+					{
+								
+						serviceResponse = SendCommand ( request, 0 );
+								
+					}
 				}
 				
 				fCurrentPowerState = kSBCPowerStateActive;

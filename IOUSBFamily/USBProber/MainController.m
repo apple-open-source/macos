@@ -20,7 +20,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#import "mainController.h"
+#import "MainController.h"
 
 static const double    REFRESH_TIMER_STEP_SIZE  =  0.5;
 static const double    USB_LOGGER_OUTPUT_REFRESH  =  0.1;

@@ -556,13 +556,10 @@ kern_return_t DiskArbRequestMount_rpc (
     if (diskPtr) {
         if (IsWhole(diskPtr))
         {
-            // unmount the disk and it's partitions ...
-            UnmountAllPartitions(diskPtr, FALSE);
-    
             // remove the disk from my tables
-            FreeDisk(diskPtr);
+            FreeAllPartitions(diskPtr);
         } else {
-            UnmountDisk(diskPtr, FALSE);
+            // remove the disk from my tables
             FreeDisk(diskPtr);
         }
     }

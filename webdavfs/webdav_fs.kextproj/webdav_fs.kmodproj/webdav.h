@@ -86,6 +86,8 @@ struct webdavnode
 /* Defines for webdav mount structure status field */
 
 #define WEBDAV_MOUNT_SUPPORTS_STATFS 0x00000001	/* Indicates that the server supports quata and quota used properties */
+#define WEBDAV_MOUNT_STATFS 0x00000002			/* statfs is in progress */
+#define WEBDAV_MOUNT_STATFS_WANTED 0x00000004	/* statfs wakeup is wanted */
 
 /* Webdav sizes for statfs */
 

@@ -30,9 +30,13 @@
 
 // Generic IOKit related headers
 #include <IOKit/IOBufferMemoryDescriptor.h>
+#include <IOKit/IOKitKeys.h>
 
 // Generic IOKit storage related headers
 #include <IOKit/storage/IOBlockStorageDriver.h>
+
+// User notification includes
+#include <UserNotification/KUNCUserNotifications.h>
 
 // SCSI Architecture Model Family includes
 #include <IOKit/scsi-commands/SCSICommandDefinitions.h>
@@ -41,7 +45,8 @@
 #include "IOSCSIMultimediaCommandsDevice.h"
 #include "IODVDServices.h"
 #include "IOCompactDiscServices.h"
-
+#include "SCSIBlockCommands.h"
+#include "SCSIMultimediaCommands.h"
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //	Macros
@@ -104,11 +109,17 @@ OSDefineAbstractStructors ( IOSCSIMultimediaCommandsDevice, IOSCSIPrimaryCommand
 #define kCDAudioModePageBufferSize				24
 
 #define kMaxRetryCount							8
+#define	kDefaultMaxBlocksPerIO					65535
 #define kMechanicalCapabilitiesModePageCode		0x2A
 #define kCDAudioModePageCode					0x0E
 
 #define kAppleKeySwitchProperty					"AppleKeyswitch"
 
+#define kLocalizationPath						"/System/Library/Extensions/IOSCSIArchitectureModelFamily.kext/Contents/PlugIns/IOSCSIMultimediaCommandsDevice.kext"
+#define kMediaEjectHeaderString					"Media Eject Header"
+#define kMediaEjectNoticeString					"Media Eject Notice"
+#define kOKButtonString							"OK"
+#define kEmptyString							""
 
 // Get Configuration Profiles
 enum
@@ -557,38 +568,76 @@ IOSCSIMultimediaCommandsDevice::ReportMaxReadTransfer (
 										UInt64 * 	max )
 {
 	
-	UInt64		maxBlockCount 	= 256;
-	bool		supported		= false;
+	UInt64	maxBlockCount 	= kDefaultMaxBlocksPerIO;
+	UInt64	maxByteCount	= 0;
+	bool	supported		= false;
 	
-	STATUS_LOG ( ( "%s::%s called\n", getName ( ), __FUNCTION__ ) );
+	STATUS_LOG ( ( "IOSCSIMultimediaCommandsDevice::ReportMaxReadTransfer.\n" ) );
 	
 	// See if the transport driver wants us to limit the block transfer count
 	supported = GetProtocolDriver ( )->IsProtocolServiceSupported (
-					kSCSIProtocolFeature_MaximumReadBlockTransferCount,
-					&maxBlockCount );	
+						kSCSIProtocolFeature_MaximumReadBlockTransferCount,
+						&maxBlockCount );
 	
 	if ( supported == false )
-	{
-		
-		UInt64	maxByteCount = 0;
-		
-		// See if the transport driver wants us to limit the transfer byte count
-		supported = GetProtocolDriver ( )->IsProtocolServiceSupported (
+		maxBlockCount = kDefaultMaxBlocksPerIO;
+	
+	// See if the transport driver wants us to limit the transfer byte count
+	supported = GetProtocolDriver ( )->IsProtocolServiceSupported (
 						kSCSIProtocolFeature_MaximumReadTransferByteCount,
 						&maxByteCount );	
+	
+	if ( ( supported == true ) && ( maxByteCount > 0 ) && ( fMediaBlockSize > 0 ) )
+	{
 		
-		if ( ( supported == true )	&&
-			 ( maxByteCount > 0 )	&&
-			 ( blockSize > 0 ) )
-		{
-			
-			maxBlockCount = maxByteCount / blockSize;
-			
-		}
+		maxBlockCount = min ( maxBlockCount, ( maxByteCount / fMediaBlockSize ) );
 		
 	}
 	
-	*max = blockSize * maxBlockCount;
+	*max = maxBlockCount * blockSize;
+	
+	return kIOReturnSuccess;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ ReportMaxWriteTransfer - Reports maximum write transfer in bytes.
+//																	   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+IOReturn
+IOSCSIMultimediaCommandsDevice::ReportMaxWriteTransfer ( UInt64 	blockSize,
+														 UInt64 * 	max )
+{
+	
+	UInt64	maxBlockCount 	= kDefaultMaxBlocksPerIO;
+	UInt64	maxByteCount	= 0;
+	bool	supported		= false;
+	
+	STATUS_LOG ( ( "IOSCSIMultimediaCommandsDevice::ReportMaxWriteTransfer.\n" ) );
+	
+	// See if the transport driver wants us to limit the block transfer count
+	supported = GetProtocolDriver ( )->IsProtocolServiceSupported (
+						kSCSIProtocolFeature_MaximumWriteBlockTransferCount,
+						&maxBlockCount );
+	
+	if ( supported == false )
+		maxBlockCount = kDefaultMaxBlocksPerIO;
+	
+	// See if the transport driver wants us to limit the transfer byte count
+	supported = GetProtocolDriver ( )->IsProtocolServiceSupported (
+						kSCSIProtocolFeature_MaximumWriteTransferByteCount,
+						&maxByteCount );	
+	
+	if ( ( supported == true ) && ( maxByteCount > 0 ) && ( fMediaBlockSize > 0 ) )
+	{
+		
+		maxBlockCount = min ( maxBlockCount, ( maxByteCount / fMediaBlockSize ) );
+		
+	}
+	
+	*max = maxBlockCount * blockSize;
 	
 	return kIOReturnSuccess;
 	
@@ -625,55 +674,6 @@ IOSCSIMultimediaCommandsDevice::ReportMaxValidBlock ( UInt64 * maxBlock )
 	
 	STATUS_LOG ( ( "%s::%s maxBlockHi = 0x%x, maxBlockLo = 0x%x\n", getName ( ),
 					__FUNCTION__, ( *maxBlock ), ( *maxBlock ) >> 32 ) );
-	
-	return kIOReturnSuccess;
-	
-}
-
-
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ ReportMaxWriteTransfer - Reports maximum write transfer in bytes.
-//																	   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-
-IOReturn
-IOSCSIMultimediaCommandsDevice::ReportMaxWriteTransfer ( UInt64 	blockSize,
-														 UInt64 * 	max )
-{
-	
-	
-	UInt64	maxBlockCount = 256;
-	bool	supported;
-	
-	STATUS_LOG ( ( "%s::%s called\n", getName ( ), __FUNCTION__ ) );
-	
-	// see if the transport driver wants us to limit the block transfer count
-	supported = GetProtocolDriver ( )->IsProtocolServiceSupported (
-						kSCSIProtocolFeature_MaximumWriteBlockTransferCount,
-						&maxBlockCount );	
-	
-	if ( supported == false )
-	{
-		
-		UInt64	maxByteCount = 0;
-		
-		// see if the transport driver wants us to limit the transfer byte count
-		supported = GetProtocolDriver ( )->IsProtocolServiceSupported (
-						kSCSIProtocolFeature_MaximumWriteTransferByteCount,
-						&maxByteCount );	
-		
-		if ( ( supported == true )	&&
-			 ( maxByteCount > 0 )	&&
-			 ( blockSize > 0 ) )
-		{
-			
-			maxBlockCount = maxByteCount / blockSize;
-			
-		}
-		
-	}
-	
-	*max = blockSize * maxBlockCount;
 	
 	return kIOReturnSuccess;
 	
@@ -1226,7 +1226,7 @@ IOSCSIMultimediaCommandsDevice::ReadTOC (
 										sizeOfTOC, ( UInt32 ) GetRealizedDataTransferCount ( request ) ) );
 				#endif
 					
-					require_action ( ( sizeOfTOC > sizeof ( CDTOC ) ), ReleaseDescriptor, status = kIOReturnError );
+					require_action ( ( sizeOfTOC > sizeof ( CDTOC ) ), ReleaseTask, status = kIOReturnError );
 					
 					// Get the number of the last session on the disc.
 					// Since this number will be match to the appropriate
@@ -1327,7 +1327,7 @@ IOSCSIMultimediaCommandsDevice::ReadTOC (
 				else
 				{
 					
-					require_action ( ( sizeOfTOC > sizeof ( CDTOC ) ), ErrorExit, status = kIOReturnError );
+					require_action ( ( sizeOfTOC > sizeof ( CDTOC ) ), ReleaseTask, status = kIOReturnError );
 					
 				}
 				
@@ -1352,20 +1352,20 @@ IOSCSIMultimediaCommandsDevice::ReadTOC (
 	}
 	
 	
-ReleaseDescriptor:
-	
-	
-	require_nonzero_quiet ( doubleBuffer, ReleaseTask );
-	doubleBuffer->release ( );
-	doubleBuffer = NULL;
-	
-	
 ReleaseTask:
 	
 	
-	require_nonzero_quiet ( request, ErrorExit );		
+	require_nonzero_quiet ( request, ReleaseDescriptor );		
 	ReleaseSCSITask ( request );
 	request = NULL;
+	
+	
+ReleaseDescriptor:
+	
+	
+	require_nonzero_quiet ( doubleBuffer, ErrorExit );
+	doubleBuffer->release ( );
+	doubleBuffer = NULL;
 	
 	
 ErrorExit:
@@ -2356,6 +2356,9 @@ IOSCSIMultimediaCommandsDevice::InitializeDeviceSupport ( void )
 	}
 	
 	STATUS_LOG ( ( "IOSCSIMultimediaCommandsDevice::InitializeDeviceSupport setupSuccessful = %d\n", setupSuccessful ) );
+	
+	setProperty ( kIOMaximumBlockCountReadKey,  kDefaultMaxBlocksPerIO, 64 );
+	setProperty ( kIOMaximumBlockCountWriteKey, kDefaultMaxBlocksPerIO, 64 );
 	
 	return setupSuccessful;
 	
@@ -4004,8 +4007,30 @@ IOSCSIMultimediaCommandsDevice::SetMediaCharacteristics (
 									UInt32	blockCount )
 {
 	
+	UInt64		maxBytesRead	= 0;
+	UInt64		maxBytesWrite	= 0;
+	UInt64		maxBlocksRead	= 0;
+	UInt64		maxBlocksWrite	= 0;
+	
+	STATUS_LOG ( ( "mediaBlockSize = %ld, blockCount = %ld\n",
+					blockSize, blockCount ) );
+	
 	fMediaBlockSize		= blockSize;
 	fMediaBlockCount	= blockCount;
+	
+	ReportMaxReadTransfer  ( fMediaBlockSize, &maxBytesRead );
+	ReportMaxWriteTransfer ( fMediaBlockSize, &maxBytesWrite );
+	
+	if ( fMediaBlockSize > 0 )
+	{
+		
+		maxBlocksRead 	= maxBytesRead / fMediaBlockSize;
+		maxBlocksWrite	= maxBytesWrite / fMediaBlockSize;
+		
+		setProperty ( kIOMaximumBlockCountReadKey, maxBlocksRead, 64 );
+		setProperty ( kIOMaximumBlockCountWriteKey, maxBlocksWrite, 64 );
+		
+	}
 	
 }
 
@@ -4197,6 +4222,23 @@ IOSCSIMultimediaCommandsDevice::PollForMedia ( void )
 					   senseBuffer.ADDITIONAL_SENSE_CODE, senseBuffer.ADDITIONAL_SENSE_CODE_QUALIFIER ) );
 		
 		EjectTheMedia ( );
+		
+		#if NOT_READY_FOR_PRIMETIME
+		
+		kern_return_t	result = KERN_SUCCESS;
+		
+	    // NOTE! This call below depends on the hard coded path of this KEXT. Make sure
+	    // that if the KEXT moves, this path is changed!
+	    result = KUNCUserNotificationDisplayNotice ( 0,							// Timeout in seconds
+	    											 0,							// Flags (for later usage)
+	    											 kEmptyString,				// iconPath (not supported yet)
+	    											 kEmptyString,				// soundPath (not supported yet)
+	    											 kLocalizationPath,			// localizationPath
+	    											 kMediaEjectHeaderString,	// the header
+	    											 kMediaEjectNoticeString,	// the notice - look in Localizable.strings
+	    											 kOKButtonString );
+		
+		#endif
 		
 	}
 	
@@ -5227,6 +5269,7 @@ IOSCSIMultimediaCommandsDevice::AsyncReadWriteComplete (
 												0 );
 					
 					taskOwner->ResetMediaCharacteristics ( );
+					taskOwner->fPollingMode = kPollingMode_NewMedia;
 					taskOwner->EnablePolling ( );
 					
 				}

@@ -1,0 +1,190 @@
+#!/bin/sh
+
+# (c) Copyright 1992, 1993 by Panagiotis Tsirigotis
+# All rights reserved.  The file named COPYRIGHT specifies the terms 
+# and conditions for redistribution.
+
+
+#
+# $Id: tester,v 1.1.1.1 2002/01/31 07:09:04 zarzycki Exp $
+#
+
+#
+# Usage:
+#			tester [all] [function-name function-name ...]
+#
+# function-name is the name of a sio function (or macro)
+#
+# If "all" is used, functions after it will *not* be tested.
+#
+
+script_name=`basename $0`
+
+copy_file=/usr/dict/words
+temp_file=/tmp/w
+make_log=MAKE.LOG
+
+if test ! -f $copy_file ; then
+	echo "The file '$copy_file' is not available."
+	echo "Please edit the '$script_name' script and change set the"
+	echo "variable 'copy_file' to the name of a publicly readable file"
+	echo "with at least a few tens of thousands of lines."
+	exit 1
+fi
+
+trap_function()
+{
+	rm -f $temp_file $make_log
+	echo
+	exit 1
+}
+
+
+make_program()
+{
+	target=$1
+	cflags="$2"
+	if test -f $1 -a ! -x $1 ; then rm -f $1 ; fi
+	if test "$cflags"
+	then
+		make -s "$cflags" $target >$make_log 2>&1
+	else
+		make -s $target >$make_log 2>&1
+	fi
+	exit_code=$?
+	if test $exit_code -eq 0 -a -x $1
+	then
+		rm -f $make_log
+	else
+		echo "FAILED"
+		echo "   The make failed. Check the make log file << $make_log >>"
+		exit
+	fi
+}
+
+
+
+#
+# test_function expects a single argument, the name of the function
+# it will test.
+# It creates a program that has the name of the function by invoking
+# make with the symbol -DTEST_<function_name>
+#
+test_function()
+{
+	expression="echo $"$1
+	var=`eval $expression`
+	if test "$var" = "no" -o "$var" = "" -a "$all" = "no" ; then return ; fi
+
+	echo -n "TESTING $1 "
+	make_program $1 "CFLAGS=-g -DTEST_$1"
+
+	./$1 < $copy_file >$temp_file
+	exit_code=$?
+	if test $exit_code -ne 0
+	then
+		echo "FAILED"
+		echo "   Test program exited with exit code $exit_code"
+		echo "   Temporary file << $temp_file >> not deleted"
+		exit
+	fi
+	cmp -s $copy_file $temp_file
+	if test $? -ne 0
+	then
+		echo "FAILED"
+		echo "   The files << $copy_file >> and << $temp_file >> are not the same"
+		exit
+	else
+		echo PASSED
+	fi
+	rm -f $temp_file
+}
+
+
+test_sprint()
+{
+	var=$Sprint
+	program=Sprint
+	if test "$var" = "no" -o "$var" = "" -a "$all" = "no" ; then return ; fi
+
+	echo TESTING Sprint
+	make_program $program ""
+	$TESTSHELL sprint_test
+}
+
+
+test_smorefds()
+{
+	var=$Smorefds
+	program=fdtest
+	if test "$var" = "no" -o "$var" = "" -a "$all" = "no" ; then return ; fi
+
+	echo -n "TESTING Smorefds "
+	make_program $program "CFLAGS=-g"
+	v=`fdtest 2>&1`
+	if test $? -eq 0 ; then
+		echo PASSED
+	else
+		echo "FAILED: $v"
+	fi
+}
+
+
+trap trap_function 1 2 3 15
+
+#
+# There is a variable for every function to be tested. That variable
+# can have the values "yes", "no" or "".
+# When a function is specified, it takes the value of $run. Initially $run 
+# is "yes", so a specified function has its variable set to "yes". 
+# If "all" is specified, $run becomes "no", so subsequently specified
+# functions, have their variables set to "no".
+#
+# We test a function iff:
+#		its variable is "yes" OR its variable is "" and $all is "yes"
+# We don't test a function iff:
+#		its variable is "no" OR its variable is "" and $all is "no"
+#		
+# Therefore, all functions specified after "all" will NOT be tested.
+#
+run=yes
+all=no
+
+while test $# -gt 0
+do
+	case $1 in
+		Sputchar)	Sputchar=$run ;;
+		Sgetchar)	Sgetchar=$run ;;
+		Srdline)		Srdline=$run ;;
+		Sfetch)		Sfetch=$run ;;
+		Sread)		Sread=$run ;;
+		Swrite)		Swrite=$run ;;
+		Sgetc)		Sgetc=$run ;;
+		Sputc)		Sputc=$run ;;
+		Sflush)		Sflush=$run ;;
+		Sundo)		Sundo=$run ;;
+		Sprint)		Sprint=$run ;;
+		switch)		switch=$run ;;
+		switch2)		switch2=$run ;;
+		Smorefds)	Smorefds=$run ;;
+		all)			all=yes ; run="no" ;;
+		*) echo Bad argument: $1
+	esac
+	shift
+done
+
+test_function Sgetchar
+test_function Sputchar
+test_function Sread
+test_function Swrite
+test_function Srdline
+test_function Sfetch
+test_function Sgetc
+test_function Sputc
+test_function Sflush
+test_function Sundo
+test_function switch
+test_function switch2
+test_smorefds
+test_sprint
+

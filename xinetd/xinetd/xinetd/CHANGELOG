@@ -1,0 +1,768 @@
+
+This file describes the changes to xinetd. The base version is 2.0.0.
+
+2.0.0: (not released)
+
+2.0.1: (not released)
+
+2.0.2:
+	Changes to the Makefile.
+	Trivial mods to the usage() function
+
+2.0.3:
+	Changes to the Makefile.
+	Fixed a bug in the usage() function
+
+2.0.4:
+	Distribution versions of the Makefile no longer contain any 
+	references to options.opt
+
+2.0.5:
+	1) Clarified what an "unlisted RPC service" is in the man page
+	2) Fixed a bug in remote_address_check which caused access to be denied
+		for all hosts if no_access was set and only_from was not set.
+	3) Fixed a bug which caused arbitrary syslog levels if the log_type
+		was specified as SYSLOG in the "defaults" entry
+
+2.0.6:
+	bug fix in child.c: replaced strx_sprint with strx_print when naming
+	interceptor processes
+
+
+-------------------------------------------------------------------------------
+
+2.1.0: (not released)
+	This was mostly a clean-up of 2.0
+	List of changes:
+
+	A. The man page has been split into 3 parts:
+			xinetd.man			:	man page describing the program
+			xinetd.conf.man	:	man page describing the configuration file 
+										This file now includes figures about the
+										overhead of interception.
+			xinetd.log.man		:	man page describing the log file
+	B. New service attributes
+			rpc_number			: to support unlisted RPC services
+			nice					: to set the nice value of forked servers
+	C. The IDONLY service flag was added
+	D. Now uses the timer library unless NO_TIMERS is defined. If NO_TIMERS
+		is not defined, the following are also available:
+			a) a new option, -cc, to do periodic consistency checks
+			b) timeout for reconfiguration
+	E.	Configuration file man page now mentions that access control is 
+		based on IP-address instead of domain address.
+	F.	The interception code now sets the TCP_NODELAY option.
+	G. The timeout when contacting a remote identification server is
+		configurable both when the service request has been accepted and 
+		when the request is rejected. In the former case it defaults to
+		infinity while in the latter it defaults to 30 sec.
+	H. The log line ids are now constants in an include file.
+	I. The fsma library is no longer used.
+	J. Most structure fields were renamed; certain functions were renamed too.
+		Access to structure fields is now via macros.
+	K. A bug in not restoring the number of descriptors to the soft limit
+		was fixed.
+	L. The -pid option works
+	M. New internal services:
+			"servers"		: lists active servers
+			"services"		: lists active services
+
+2.1.1:
+	xinetd produces more meaningful messages if it can't start logging
+
+2.1.2:
+	Fixed 2 bugs:
+		1) xinetd would request a port number for unlisted RPC services
+			One could get around this by simply specifying the port attribute
+			for the service; the specified value would be ignored anyway.
+		2) xinetd initialization might fail sometimes in function msg_init()
+			syslog logging was specified (i.e. the option -syslog was used)
+			The cause of this bug was that the 
+				xlog_control( xlog, XLOG_GETFD, &fd ) 
+			operation will not fail for xlogs connected to syslog and
+			the value of 'fd' would be used in the subsequent fcntl(). That
+			value is arbitrary since 'fd' is a local variable.
+			If 'fd' did not happen to refer to an open descriptor, the program 
+			would terminate since the fcntl() would fail (btw, the success
+			of the fcntl() call would be harmless if 'fd' happened to
+			refer to an open descriptor).
+
+2.1.3:
+	Bug fix:
+		only_from/no_access addresses would get inverted on little-endian
+		machines when such addresses were specified using the numeric notation
+		(for example, 128.138.45.3). This bug was in the numeric_addr function
+		which did not convert the result of inet_addr to host-byte-order.
+		A work around for the bug would be to use the factorized address 
+		notation (for example, 128.138.45.{3})
+
+2.1.4:
+	Bug fixes:
+		1) in dgram_echo(), sin_len was not being set before the invocation of
+			recvfrom
+		2) in finger_shutdown(), it was possible for Srdline() to return NULL
+			(if the remote end would close the socket without sending anything).
+			If the RECORD option was set in the log_on_failure flags, this
+			would cause the forked xinetd process which did the recording to
+			die since it would try to dereference a NULL pointer.
+
+
+2.1.5:
+	Bug fixes:
+		1) in exec_server() service descriptor might be closed when
+		   execing server. This made it impossible to start servers
+			for 'nowait' services.  The bug occurred only Ultrix version
+			4.3a or (probably) later (bug discovered and fix provided
+			by doug@seas.smu.edu)
+		
+		2) for systems that supported supplementary group id's, the
+			set_credentials() function did not set those group id's
+			(they were being inherited from xinetd). Now initgroups(3)
+			is called to set the supplementary group id's properly.
+			(bug discovered and fix provided by maf+@osu.edu)
+
+2.1.6:
+	Bug fixes:
+		1) xinetd will crash after reconfiguration if there is a running
+			server for a service that was removed from the configuration and
+			which logs on exit.
+		2) xinetd forked process falls in infinite loop if identd server
+			sends a reply that is missing the ending CR-LF.
+			(bug discovered and fix provided by Laurent.Wacrenier@gin.obspm.fr).
+
+	We also change the LOGUSER_SUCCESS_TIMEOUT constant in config.h from
+	0 seconds (i.e. infinite timeout) to 30 seconds. This avoids infinite
+	waits in case the remote host does not send a RST reply when we attempt
+	to connect to the IDENTD port, and there is no server listening at
+	that port.
+
+
+2.1.7:
+	Bug fix: the HOST flag in the 'log_on_success' attribute was ignored;
+				the code was incorrectly checking if the HOST flag was
+				set in the log_on_failure attribute
+				(bug discovered by frolich@corrine.cpc.cs.ucf.edu)
+
+2.1.8.1: 
+	Added support for TCP redirect to a remote host.
+		--bbraun
+
+2.1.8.2: 
+	Added support for binding to specific interface.
+		--bbraun
+
+2.1.8.3:
+	Changed redirect so that a remote port can be specified as well.
+		--bbraun
+
+2.1.8.4 10/98:
+	Changed use of varargs to be more modern (and actually work on IRIX 6.5)
+	Added use of 1.2.3.4/24 style address ranges for access control
+		--bbraun
+2.1.8.4p2 11/98:
+	Fixed stupid error with logging of ip addresses.  
+	Pointed out by Todd R. Eigenschink
+2.1.8.4p3 11/98:
+	Fixed to compile correctly under HPUX
+		Includes fixes from Pavel Roskin <pavel_roskin@geocities.com>
+2.1.8.4p4 11/98:
+	Fixed to compile correctly under BSDi
+2.1.8.4p5 11/98:
+	Fixed Linux libc5 to work with RPC.
+		Pointed out by Frodo Looijaard <frodol@dds.nl>
+2.1.8.4p8 11/98:
+	Minor jump because I went through many revisions of testing things
+	- Fixed littleendian bug with 1.2.3.4/26 style access control
+	- Added support for inet_addr instead of inet_aton, as Solaris 2.5.1
+	does not support inet_aton.
+		Both the previous bugs were found with the help of
+			Thomas E. (tht@inlink.com)
+	- Went entirely to stdarg.h version of variable arguement handling,
+	since some newer platforms doen't handle varargs.h style very
+	gracefully.  If this breaks too many older architectures I'll
+	ifdef all the old stuff back in...
+2.1.8.5 11/98:
+	Fixed /tmp/xinetd.dump symlink problem pointed out on 
+		BugTraq by Balazs Nagy <julian7@KVA.HU>
+2.1.8.5p1 1/99:
+	Fixed compilation problems on BSD systems.
+2.1.8.5p2 1/99:
+	Fixed compilation problems on AIX 4.1.x/powerpc
+2.1.8.5p3 3/99:
+	Fixed compilation problems on FreeBSD 
+		Thanks to  Sascha Schumann <schumann@schell.de>
+	Fixed a bug in sio/sprint.c
+		Thanks to Steven Stanfield <sstanf@reston.wcom.net>
+2.1.8.6b1 4/99:
+	Rudimentary administrative interface added (use the service name
+		xadmin).
+	Supports the "banner" directive, which is the name of the file
+		that will be splatted when a connection is denied.
+	Has a fixed open() on the dump file that is much better.
+		Thanks to Steven Stanfield <sstanf@reston.wcom.net>
+	$REMOTE_HOST environment variable is set to the name of the
+		remote host.  Currently, if no name is available, it is set to NULL.
+2.1.8.6b2 4/99:
+	Fixed a problem with shells that don't define $PWD
+2.1.8.6b3 4/99:
+	Fixed a problem I introduced with automagic port selection
+	If both a port and a protocol are specified, no checks are done.
+		xinetd will believe the config, even if /etc/services says 
+		otherwise.
+	xadmin service is an internal service now, just like tcp echo, etc.
+		Use the INTERNAL flag.
+	xadmin service now just calls server_dump when a "show run" command
+		is executed.
+	Added a NAMEINARGS flag, so that you can use tcpd with xinetd.
+		Normally, xinetd takes argv[0] from the "server" directive.
+		This prevents tcpd from working properly.  Now, you can use
+		tcp wrappers like this:
+		service telnet
+		{
+			scoket_type = stream
+			protocol = tcp
+			flags = NAMEINARGS
+			wait = no
+			user = root
+			server = /usr/libexec/tcpd
+			server_args = /usr/libexec/telnetd
+		}
+2.1.86b4 4/99:
+        Added support for libwrap.  Compile with --with-libwrap.  Access 
+        checking is done with libwrap (if compiled in) first, then with 
+        xinetd's internal access control.
+2.1.8.6b5 4/99:
+	Some versions of libwrap needed allow_severity.  Added it.
+		Changed severity to INFO from WARNING.
+2.1.8.6b6 7/99:
+	Added ability to use names for the bind and redirect
+		functions.  They lookup the name, and use the
+		first address it returns.  They only do the
+		lookup once.
+	Added "interface" as an alias to "bind"
+	Fixed potential bug with redirection losing data. 
+		Pointed out by Solar Designer
+	Fixed potential bug in the parsing of xadmin commands.
+		Pointed out by Solar Designer
+	Changed default location of the dump file to /var/run/xinetd.dump
+		configurable in config.h
+	Added Solar Designer's per_source feature.  Allows you to limit
+		the number of services spawned per source address.
+	Added Solar Designer's supplementary groups fix.
+2.1.8.6b7 7/99:
+	Updated the make files to not require absolute paths.  This
+		will help with people having problems with the LOCATION
+		Makefile variable.
+	Updated configure to compile properly with Debian's version
+		of libwrap and glibc (look for yp_get_default_domain in nsl)
+	If banner directive is used, banner is printed regardless of access
+		control.  It is actually printed before access control check 
+		take place.  banner_success and banner_fail are added to 
+		explicitly give a message depending on access control.
+	Added banner_success option.  This is a banner that is printed when
+		access to the service is granted.  This is before any attempt
+		to execute the server has been made.  The service may still fail
+		but it will not be for access control reasons.
+	Added banner_fail option.  This is a banner that is printed when 
+		access to the service has been denied.  This allows you to 
+		inform your users that they are doing something bad and they 
+		shouldn't be doing it anymore.
+	Added max_load option.  This option allows the operator to specify
+		the max load at which to run the service.  If the machine 
+		reaches the specified max load level, connections are denied to
+		that service.  Each service can have a different max_load, and 
+		it can be listed in the default service.  Linux is working,
+		Solaris is kind of wierd.  Solaris people should try it, but
+		don't use it as a real security mechanism yet.  2.6 and 2.7 
+		should be fine.  I'm not sure about 2.5.1 and earlier.
+2.1.8.7 10/99:
+	Fixed per_source to actually work properly.
+	Added the NODELAY flag.  This will set the TCP_NODELAY sockopt
+		on the socket.  If the service is not a TCP service, then
+		this flag has no effect.
+	Updated the man page with more explicit definition of the "groups"
+		attribute.
+	Includes xconv.pl to replace itox.  xconv.pl handles most of the
+		inetd.conf files I've seen, including the use of tcpd,
+		even though it is recommended that you compile with
+		libwrap instead of using tcpd.
+	Includes a man page to itox donated by Norbert Veber of Debian.
+	Updates to configure and Makefile to better handle the configuration
+		of install directories.  Again, changes donated by Debian group.
+	Updates to itox to handle user.group syntax and checking on "wait".
+2.1.8.8pre1 11/99
+	Fixed a problem with the banner_fail parser.
+	Added IPv6 support to xinetd.
+2.1.8.8pre2 12/99
+	Added the option "cps".  This allows you to disable a service if
+		the rate of incoming connections is too great.  This number 
+		may be set higher than the instances or per_source number.
+		This is used as a last ditch measure, if someone is bombarding
+		a service, and either 1) logs are piling up because of failed
+		attempts, or 2) way too much is happening, ditch the service.
+		This actually does a close() on the socket, so nothing is
+		listening to that port anymore.  All connections will fail.
+2.1.8.8pre3 12/99
+	Made the options mask_t an unsigned long long (64bits on x86)
+		instead of an unsigned.  xinetd was running out of bits
+		to store options in.  Eventually, a real solution will
+		need to be implemented, but this works for the short term.
+		This may break on compilers that don't understand 
+		long long's.  Be aware.  Most modern compilers are ok.
+	Added the option "enabled", similar to the "disabled" function.
+		If "enabled" is used, only the services listed in the
+		enabled line are available, regardless of what other
+		services are configured.
+	Changed the behavior of only_from and no_access.  First, if you
+		specify a host by _name_ in only_from or no_access, a lookup
+		happens when a client connects.  The _canonical_ name that
+		is returned is compared to the name specified in the access
+		control option.  If the _names_ match, access is granted
+		or denied.  See the readme for more information.
+	Added the ability to specify .domain.com to the access control
+		options.  This is very similar to tcp wrapper's method
+		of specifying domain access.  If the connecting client's
+		reverse lookup returns a name that ends in .domain.com
+		then access is granted or denied.  See the readme for
+		more information.
+2.1.8.8pre4 12/99
+	The enable function didn't work.  It worked for one entry, but
+		more than 1 entry would not be recognized and xinetd
+		would exit with no services available.  I believe this
+		has been fixed.
+	limits.h is included in parsers.c now, because of LONG_MIN and
+		LONG_MAX.  Some setups would automagically include limits.h
+		through the other include files, and some wouldn't.  This
+		should fix compile problems on those that don't.
+	Added a check for sys_siglist in the configuration script.  This
+		is better than statically defining #ifdef's in signals.c.
+2.1.8.8pre5 12/99
+	Fixed numeric addresses being entered in the only_from field.
+		host_addr parser was identifying them and marking them as
+		HOST_ADDRs instead of NUMERIC_ADDRS.
+2.1.8.8pre6 1/100
+	Fixed year formatting in log to print 00 instead of 100.
+2.1.8.8pre7 1/00
+	Fixed the TIMEOFFSET macro in builtins.c so the 'time' service printed
+		the correct output.
+2.1.8.8pre8 1/00
+	Fixed a problem where banners would not work saying "could not find
+		banner: bannername<garbage here>".
+2.1.8.8pre9 1/00
+	The dump file was logging the ip address incorrectly for only_from
+		addresses.  For some reason xntoa() was reporting the wrong
+		address.  Changed to inet_ntoa, and works fine.
+	BSDI 4.1 was not compiling correctly, "inet_ntoa" not found.
+		This is because BSDI4.x switched to using bind 8 resolver
+		libraries, so you have to include <arpa/inet.h> to #define
+		all these functions to __func_name.  
+	Some BSD's don't let you set the group permissions of a process to NULL,
+		so you get the setgroups(0,NULL) error whenever a connection
+		is made.  To avoid this, set 'groups = yes' and be aware of the
+		extra group permissions the server may be running with.  A message
+		to this effect has been added to the syslog error, so confusion is
+		minimized.
+2.1.8.8pre10 2/00
+	Fixed a syntax error when compiling IPv6 support.
+2.1.8.8pre11 2/00
+	Always call no_control_tty().  This calls setsid() and fixes a problem
+		under FreeBSD.
+2.1.8.8 2/00
+	Bumped version number.
+2.1.8.9pre1
+	Added the "include" directive.  You can now include other files
+		into your .conf file.  "include filename"
+	Added preliminary an inetd compatibility mode.  Start xinetd
+		with -inetd-compat and specify /etc/inetd.conf as your
+		configuration file.
+2.1.8.9pre2 
+	Fixed up RPC support
+2.1.8.9pre3
+	Incorporated patches for Mac OS X and Tru64 support.
+	Also incorporated a patch for the includedir directive.
+2.1.8.9pre4
+	Incorporated a patch to allow logging to the AUTHPRIV level.
+		patch from Trond Eivind Glomsr.
+	Numerous cleanups.  Mostly superficial, but gets rid of *lots*
+		of compile warnings when using -Wall.  These cleanups
+		may have affected portability issues...
+	Support for Darwin!  Now compiles and runs fine.  Note that
+		xinetd doing mmap didn't work right (always lost the
+		first byte of the file).  Workaround is to disable
+		mmapped io for Darwin.
+	Added a DISABLE flag for services, that will prevent a service
+		from starting.
+	Added a "disable" boolean for services that does the same thing
+		as the DISABLE flag.
+	"groups" can now be specified in the defaults section.
+2.1.8.9pre5
+	Implemented better error checking in redirect.c, so hopefully
+		it will detect error conditions more reliably and
+		prevent lots of child xinetd's running unecisarily.
+	Ramon Krikken sent a redirector implementation that replaced
+		the two process redirection with a single process using
+		select.  Modifications to his patch were integrated.
+	includedir parses only regular files, or symlinks to regular
+		files, that do not begin with '.'.  
+	Added includedir to the xinetd.conf man page.
+2.1.8.9pre6
+	Fixed a bug in the access lists.  If you specified a host by
+		name in only_from, any connection from a host without
+		a reverse dns entry would be accepted.
+2.1.8.9pre8
+	Now allows you to specify multiple instances of the same service
+		as long as all but one is disabled.
+	Fixed a documentation issue in the xinetd.conf man page.
+		The user attribute can be specified for an unlisted
+		service, just not an internal service.
+	When including files with "includedir", it parses the files
+		in alphabetical order, as determined by strcmp().
+	Under Solaris, I've removed the no_control_tty() call in
+		child.c.  This was causing some confusion.  xinetd
+		its self still calls no_control_tty().
+	Fixed a compile error with --with-inet6
+	Changed the exiting behavior: xinetd now kills only the
+		RPC services and internal services (like redir) when
+		it exits (or does a hard reconfigure).  This keeps things
+		like telnet sessions open across restarts of xinetd
+		(assuming you are using REUSE).
+2.1.8.9pre9
+	Fixed a potential bug in parsing of filenames from includedir.
+	Possibly fixed tcp wait=yes handling.
+	Fixed man pages so they say they're installed in the sections
+		they are really installed into.
+	Added .cvsignore to empty directories
+2.1.8.9pre10
+	Hopefully fixed a few compile errors on architectures such
+		as DUNIX and Darwin.
+	When compiled with libwrap support, xinetd passes the server
+		name to be checked in hosts.{allow,deny} instead of
+		the service name.  Behavior should now match tcpd.
+	Incorporated Trond's pidfile patch.  You can now specify -pidfile
+		on the command line, and xinetd will make a 
+		/var/run/xinetd.pid file.  Note that this _replaces_ the
+		-pid option.
+2.1.8.9pre11
+	Removed '\n's from syslog messages.  Also moved some of the 
+		syslog()'s to pasemsg()'s.
+	Added a patch from mob@de.uu.net to make the bind attribute 
+		specifiable in the default section.
+	Added the KEEPALIVE flag, which sets the SO_KEEPALIVE socketopt
+		on tcp sockets.
+	Added a patch from Trond at RedHat that will hopefully fix some
+		of the remaining tcp wait=yes problems.
+	More paranoid handling of access control in addr.c
+	Always allow access to the internal pseudo services.
+	For internal services and libwrap, access control is performed 
+		by the service name (instead of the server, since there
+		is no server).
+	The last two entries together fix problems with segfaults when
+		doing access control.
+	If a hostname is specified in only_from, xinetd will try to 
+		match the connecting address to any of the IP addresses
+		associated with the hostname in only_from.
+	For redirection services with libwrap support, the service name
+		is used for access control rather than the server name, since
+		the server name makes no sense.
+2.1.8.9pre12
+	Remove the pidfile when exiting.
+	Added a -stayalive option to keep xinetd running even when there are
+		no services available.
+2.1.8.9pre13
+	Added paranoid access control for the udp internal servers.
+		Do not reply to udp packets on dangerous ports 
+		(avoid looping echo services).
+	For libwrap, if the server isn't specified use the service
+		_id_ instead of the service name (this usually is the
+		service name).  This makes more sense for things like
+		the internal servers (echo-stream instead of using echo,
+		which will get echo-stream and echo-dgram)
+	Included an rlimit patch from Nick Burrett, which should help
+		keep some nasty users at bay.  He's even updated the
+		man page.  This patch brings a tear to my eye.
+
+2.1.8.9pre14
+	Moved the libwrap and address checking to the child process.
+		The purpose of this is to move the expensive checking
+		into the child process (such as name resolution, exec()'ing,
+		etc), but leave some of the lighter weigh checking in the
+		parent in an attempt to prevent DoS'.
+	Incorporated Charles Levert's NOLIBWRAP patch.  This adds a flag,
+		NOLIBWRAP, which will turn off libwrap access control for
+		a single service.  This is a good thing when you're wanting
+		to use tcpd with a service.  It's also useful when wanting
+		libwrap for some lesser used services, but the high volume
+		ones need higher performance.
+	Included Motonobu Ichimura's patches for v6.  The first one sets
+		v6 services with incoming v4mapped or compatible addresses
+		to AF_INET instead of AF_INET6.  This should make incoming
+		v4 connections to v4 servers work correctly.
+	Motonobu Ichimura's second patch adds the service attribute
+		v6config, which allows a v6 service to only accept v6 
+		connections.
+	Moved most of the configured defines into a config.h.
+		This involved renaming xinetd/config.h to xinetd/xconfig.h
+	The configure system actually works with --srcdir now.
+		You can build xinetd from a directory other than the source
+		directory now.
+	Minor cleanups to remove warnings with -Wall
+
+2.1.8.9pre15 5/20/2001
+	Added Steve Grubb's SENSOR patch which provides a SENSOR flag and 
+		deny_time attribute. These will help to stop script kiddies 
+		doing port scans by turning off all access to all services 
+		on all IP addresses until the timeout expires.
+	Cleaned up pset stuff in the lib section.
+	Continued fixing warnings produced by -Wall
+	Added "child" security check for internal services.
+	Fixed some possible memory leaks.
+	Changed snprintf to the internal strx_nprint() function, standardizing
+		on that.  Removed the need for the snprintf() implementation 
+		for systems lacking snprintf().
+	Another attempt to fix the tcp wait condition.
+		TCP wait services were being accept()'d when they shouldn't
+		This caused services such as linuxconf, which accept()
+		their own connections, to fail.
+	Fixed a problem with displaying bound and redirected addresses in
+		the xadmin service.
+	Don't print banner always and banner success twice.
+	Converted to ANSI C style prototypes instead of K&R.
+	Use spaces instead of 3 character tabs.
+	Use POSIX types for network, time, and other length specific purposes.
+	Make the initial log message of compile time options atomic.
+	When grow()'ing the environment variables, initialize things to 
+		prevent bad pointers.
+	Mitigated consequences of possible SIGCHLD race with intercepted 
+		services.
+	Removed all remnants of varargs syntax, and have completely moved
+		to the stdarg style syntax.
+	Added BSD/OS loadavg support from Robert Brewer at LavaNet.
+	Fixed a potential buffer overflow when using USERID.
+		Found by zen-parse.
+	Added permissions to the pidfile's open call.
+		Suggested by zen-parse.
+	Changed xinetd's umask to 022 from 0.
+2.1.8.9pre16 6/13/2001
+	Attempted to fix IPv6 support broken in the pre15 release. -Steve Grubb
+	Moved remote_address_check ahead of the libwrap checks.  This is needed
+		so that SENSORS work without modifying the hosts.allow file if 
+		tcp_wrappers is compiled in. -Steve Grubb
+	Added missing includes to several library files
+	Fixed bug where DISABLE flag was being set/cleared in xflags rather 
+		than types. -Matthias Andree
+	Fixed memory leak in attr_check. -Steve Grubb
+        Continued converting to ANSI C prototypes. -Steve Grubb
+        Fixed reads in service.c to continue through interupts. -Steve Grubb
+        Corrected Includedir directive. -Solar Designer
+	Changed umask to OR 022 with the current umask. -Solar Designer  
+	Cleaned up the address list dump to format the different addresses 
+		types correctly. -Steve Grubb
+	Cleaned up parsing of address lists. -Steve Grubb
+	Integrated support for building on OS X.
+	Added wait/nowait support to "small services".
+	Fixed IPv6 support for "small services".
+	Added "umask" keyword to specify service's umask in octal.
+	Umask situation is described in the umask section of xinetd.conf.man
+	Inspect all configuration files. Will now emit warnings if any are 
+		world writeable, symlinks, or not owned by root.-Steve Grubb
+2.3.0
+	Fixed a bounds checking case in strx* functions.
+		Pointed out by Sebastian Krahmer.
+2.3.1
+	Reworked all headers in xinetd directory. -Steve Grubb
+	Fixed redirect & shutdown to read & write through signal 
+		interrupts. -Steve Grubb
+	Inspect all servers. Prints warnings for things that look funny.
+	Applied _many_ security and reliability fixes,
+		see AUDIT. -Solar Designer
+	Removed the Soft Reconfigure capability.  Soft Reconfigure is now
+		the same as Hard Reconfigure (SIGUSR1 = SIGUSR2).
+			-Steve Grubb
+	Attempt to fix segfaulting seen since 2.3.0.
+		-Steve Grubb
+	Moved the re-enable service after cps violation to run off of the 
+		flags system to avoid re-entrancy issues. -Steve Grubb
+	Only call drain if service is active. Deactivated services close 
+		the descriptor. -Steve Grubb
+	Reorganized flags to process terminating children first, -Steve Grubb
+2.3.2
+	more K&R -> ANSI prototype -Steve Grubb
+	Stop using C++ keywords (even though this is really C...) -Steve Grubb
+	Fix a heap overrun in grow().  -teg@redhat.com 
+	Fix a parse error with multiple explict masks.
+	If protocol is not specified, but socket type is, infer protocol
+		from socket type.  -Ahmon Dancy
+	Added a check to the return value of env_addstr() in child.c to
+		make sure we aren't exec()ing with an invalid environment.
+	Wrap the remaining <stdint.h> includes with autoconf macros.
+	Removed all unused functions. -Steve Grubb
+	Don't use SIGALRM for the cps directive.  Instead, do a generic
+		timer routine that evolves around the main event loop.
+2.3.3
+	Fixed the filelog problem of printing garbage.
+	Fixed the RPC parser to correctly handle RPC version ranges again.
+
+2.3.4
+	Removed the old flags construct and replaced it with the timers
+		added in 2.3.2.  This will handle multiple of the same 
+		signals occuring before the event loop cycles.
+	Removed all the old timer code that uses SIGALRM, and replace it
+		with the timer code from 2.3.2.  The conf timer bit the
+		dust along the way, since the event loop hasn't started
+		by the time the conf parser started.  It was never built
+		anyway, so not a big loss.
+	Made xinetd unlink its pidfile properly.
+		- Solar Designer
+	Enabled loadavg support for Darwin.
+	Remove the exit when user or group is specified and xinetd is not root.
+		Enables running xinetd as non-root again.
+	Fixed various portability issues:
+		- strerror for SunOS 4
+		- difftime for SunOS 4
+		- inet_aton for Solaris 2.5.1
+		- uint{16,32,64}_t for systems without them
+		- rlim_t for systems without them.
+	Moved compat.c into the portable library, where it belonged.
+		Added finer testing of the {e,f,g}cvt functions in autoconf.
+	Begin transition to combined IPv4/IPv6 support.  Add compatibility
+		code from OpenSSH into the portable library.
+	Made socket_type or protocol optional (only need to specify one)
+	Removed syslog()'s, replaced with internal msg().
+	Fixed a parsing bug when specified server is invalid.
+	Change the signal handling.  Signal handlers write their signal
+		to a pipe, which wakes up the main select(), and the
+		signal is then dealt with.
+	Removed the looping option.  The cps directive duplicated much
+		of the functionality.
+	Fixed a bug re-enabling internal wait services.
+	Continue syncing IPv4 and IPv6 code.
+		Made a flag to specify IPv4 or IPv6 based service.
+		Redirect currently only redirects between IPv4<->IPv4 or
+			IPv6<->IPv6.  It should handle IPv4<->IPv6 and 
+			vice versa
+	Fixed the reconfig case where a bind directive changes.
+	SIGHUP now reconfigures xinetd.  
+	SIGUSR1 now dumps the internal state.
+	SIGUSR2 still reconfigures xinetd, but will be deprecated in
+		future releases.
+	Fixed a warning of redefined SA macro with some tcp wrapper
+		header files.
+	Make the configuration keyword comparisons case insensitive.
+		This allows things like Service foo { blah } instead
+		of just service foo { blah }.
+	Merged IPv4 and IPv6 support.  The only difference between 
+		compiling with IPv6 support is that services default to
+		being IPv6.  Manually set the service to IPv6 (or IPv4)
+		with the IPv{4,6} service flags.
+        The only_from numeric address specification works for IPv6 addresses,
+		and mixing IPv4 style address specifications will now match
+		for IPv4 mapped addresses on IPv6 services.
+	Fixed an environment variable setting problem.
+	Fixed a misuse of the sio routines in the banner routines.  This
+		will probably fix a variety of bugs related to banners.
+	More code cleanups. -Steve Grubb.
+	Pass the expected size of the address structure used to bind()
+		calls rather than the total memory allocated.
+	Fix some compile errors and warnings on BSD/OS.
+	Prevent some possible unnecissary DNS lookups.
+	Makefiles now accept make -j.  This is only mildly useful at the
+		moment, since the main chunk of xinetd blocks on all the
+		libraries being built first, and the libraries are small
+		but somewhat serialized.
+	Fixed a problem with the access control on builtin services.
+		(Introduced in the development cycle)
+	Removed libpq. It is no longer needed. -Steve Grubb
+	Removed the %n processing from __sio_converter(). It is not used and 
+		would cause a core dump if it was. -Steve Grubb
+	Make the man page match the new signal change.  - Steve Grubb
+	Fix some potential problems with only_from access.
+	Start using "const".  Go const happy.
+	All services now essentially default to having the REUSE flag.
+		The -reuse option and the REUSE flag are now silently ignored.
+	When dumping service configs, print out the redir config information,
+		also fixes a hostname lookup problem when using systems
+		that have a too strict getnameinfo().
+		Also print the CPS directive information.
+	Print out symbolic system names that don't have strsignal(), but do
+		have sys_siglist[].
+	Fix a potential crasher in xtimer_add().
+	Add %q and %ll modifiers to the sio library for displaying quad_t's or
+		long long's.  
+	Restructure the argument parsing a little to reduce global memory usage.
+	Fixed bug in service parameter verification. Prior versions did not 
+		verify that all require attributes were specified.
+        Disable the service when a parse error is detected for its 
+		configuration. (Steve Grubb)
+2.3.5
+	Included patch from Trond at RedHat to check signal pipe if there are
+		no services running. 
+	Update the access_times parser to disable service if there is a parse 
+		error. Also corrected ti_add too. -Steve Grubb
+        Updated all parsers to propagate errors so service will be 
+		disabled. -Steve Grubb
+	Updated internal services to check the signal pipe 
+		periodically. -Steve Grubb
+	Updated sendsig to wait for termed children so zombies aren't created
+		and ports are clear to rebind to on hard_reconfig. -Steve Grubb
+        Included a patch from Hendrik Visage for a problem with ident.
+2.3.6
+	Updated only_from to 'and' both the remote address and the specified
+		portion if a network mask type address is used. -Steve Grubb
+	Updated explicit_mask to chose NUMERIC_ADDR if mask is 32. -Steve Grubb
+	Many parser updates. -Steve Grubb
+	Propogate default attributes even if not specified. log_on_success, 
+		log_on_failure, passenv were the main items affected by this 
+		problem. only_from and no_access now conform to this new
+		propogation technique. -Steve Grubb
+	Xremove now uses domain names in addition to ip addresses. -Steve Grubb
+	Moved sensor code into its own file and changed it to use timer
+		facility. -Steve Grubb
+	Reworked remote_addr check & addrlist_match to not cache IP addresses 
+		and corrected several algorithmic problems. -Steve Grubb
+	Off-by-one error corrected in pset_delete. -Steve Grubb
+	Updated attrfill to use IPv4 addresses if bind specified. -Steve Grubb
+	Fixed bug in libwrap code to check server better for NULL -Steve Grubb
+	Added better testing of configuration if NAMEINARGS flag 
+		is set. -Steve Grubb
+	Updated config.guess & config.sub. -Thomas Seyrat
+	Added an rpm spec file. -Steve Grubb
+	Removed sio/suite directory. It appears that key files have been 
+		deleted in the past so it no longer works. -Steve Grubb
+        Make the file descriptor buffer allocation dynamic.  This substantially
+                reduces xinetd's normal memory footprint (~760KB). -Rob Braun
+        Work around bugs in Mac OS X's getrlimit/setrlimit which causes them
+                to be almost unusable. -Rob Braun
+2.3.7
+	Added fixes or workarounds for issues introduced after 2.3.3
+		including the signal pipe leak into child processes (a
+		security hole). -Solar Designer
+	Made xinetd unlink its pidfile when there turns out to be no
+		services configured on reload. -Solar Designer
+2.3.8
+	Reworked redirect to better detect problems in its configuration. Also,
+		redirect now allows service names for port numbers. -Steve Grubb
+	Reworked attribute checking in confparse & updated attr.h. -Steve Grubb
+	Ensure that children have the default signal handlers installed.
+	Added support for DNS service registration ala Rendezvous.
+	Fixed some compile errors on Mac OS X, FreeBSD, and OpenBSD.
+	Added preliminary support for tcpmux -Philip Armstrong
+	Update the xinetd man page to document the -version option.
+	Now ignores the --with-inet6 compile option.
+		Services will default to IPv4 unless configured otherwise.
+	Bring back the inetd.conf parser in a different form.  Parse all
+		the xinetd config files first, then parse /etc/inetd.conf,
+		and add services from there (if it exists).
+		Use the -inetd_compat option to read inetd.conf.
+	IPv6 updates for bind_parser, only_from, and no_access. -Steve Grubb
+2.3.9
+	Fixed bug uncovered by IPv6 updates for bind parser. In the id_parser,
+		a test was being performed for uniqueness. It relied on the
+		address already being given.  However, the address may not be
+		known if more than one record came back from the getaddrinfo 
+		function call. -Steve Grubb
+	Added code to service_fill to resolve port if unspecified. -Steve Grubb
+	Consolidated duplicate services tests into check_entry. -Steve Grubb
+	Fixed a bug with access control & internal services.
+	Make sure we byteswap the value returned by time services.
+	Fix an omission with the tcpmux integration.
+	Fixed a race when there's 1 service configured and it is a wait service.

@@ -50,6 +50,7 @@
 #include <hfs/hfs_mount.h>
 #include <hfs/hfs_format.h>
 #include <sys/attr.h>
+#include <errno.h>
 
 /* Sensible wrappers over the byte-swapping routines */
 #include "hfs_endian.h"
@@ -383,8 +384,31 @@ main(argc, argv)
 
 
 	optind = optreset = 1;		/* Reset for parse of new argv. */
-	while ((ch = getopt(argc, argv, "xu:g:m:e:o:w")) != EOF)
+	while ((ch = getopt(argc, argv, "xu:g:m:e:o:wt:jc")) != EOF)
 		switch (ch) {
+		case 't': {
+			char *ptr;
+			args.journal_tbuffer_size = strtoul(optarg, &ptr, 0);
+			if (errno != 0) {
+				fprintf(stderr, "%s: Invalid tbuffer size %s\n", argv[0], optarg);
+				exit(5);
+			} else {
+				if (*ptr == 'k')
+					args.journal_tbuffer_size *= 1024;
+				else if (*ptr == 'm')
+					args.journal_tbuffer_size *= 1024*1024;
+			}
+			if (args.flags == VNOVAL) 
+				args.flags = HFSFSMNT_EXTENDED_ARGS;
+			break;
+		}
+		case 'j':
+			args.journal_disable = 1;
+			break;
+		case 'c':
+			// XXXdbg JOURNAL_NO_GROUP_COMMIT == 0x0001
+			args.journal_flags = 0x0001;
+			break;
 		case 'x':
 			if (args.flags == VNOVAL)
 				args.flags = 0;
@@ -628,6 +652,8 @@ void
 usage()
 {
 	(void)fprintf(stderr,
-               "usage: mount_hfs [-xw] [-u user] [-g group] [-m mask] [-e encoding] [-o options] special-device filesystem-node\n");
+               "usage: mount_hfs [-xw] [-u user] [-g group] [-m mask] [-e encoding] [-t tbuffer-size] [-j] [-c] [-o options] special-device filesystem-node\n");
+	(void)fprintf(stderr, "   -j disables journaling; -c disables group-commit for journaling\n");
+	
 	exit(1);
 }

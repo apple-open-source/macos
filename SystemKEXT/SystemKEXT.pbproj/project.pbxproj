@@ -76,7 +76,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleGetInfoString</key>
-	<string>ADB Family Pseudoextension, Apple Computer Inc, 6.1</string>
+	<string>ADB Family Pseudoextension, Apple Computer Inc, 6.2</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.apple.iokit.IOADBFamily</string>
 	<key>CFBundleInfoDictionaryVersion</key>
@@ -86,11 +86,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>6.1</string>
+	<string>6.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>6.1</string>
+	<string>6.2</string>
 	<key>OSBundleCompatibleVersion</key>
 	<string>1.0.0b1</string>
 	<key>OSBundleRequired</key>
@@ -183,7 +183,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleGetInfoString</key>
-	<string>BSD Kernel Pseudoextension, Apple Computer Inc, 6.1</string>
+	<string>BSD Kernel Pseudoextension, Apple Computer Inc, 6.2</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -195,11 +195,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>6.1</string>
+	<string>6.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>6.1</string>
+	<string>6.2</string>
 	<key>OSBundleCompatibleVersion</key>
 	<string>1.1</string>
 	<key>OSBundleRequired</key>
@@ -272,7 +272,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleGetInfoString</key>
-	<string>Mach Kernel Pseudoextension, Apple Computer Inc, 6.1</string>
+	<string>Mach Kernel Pseudoextension, Apple Computer Inc, 6.2</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -284,11 +284,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>6.1</string>
+	<string>6.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>6.1</string>
+	<string>6.2</string>
 	<key>OSBundleCompatibleVersion</key>
 	<string>1.0.0b1</string>
 	<key>OSBundleRequired</key>
@@ -361,7 +361,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleGetInfoString</key>
-	<string>I/O Kit Pseudoextension, Apple Computer Inc, 6.1</string>
+	<string>I/O Kit Pseudoextension, Apple Computer Inc, 6.2</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -373,11 +373,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>6.1</string>
+	<string>6.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>6.1</string>
+	<string>6.2</string>
 	<key>OSBundleCompatibleVersion</key>
 	<string>1.0.0b1</string>
 	<key>OSBundleRequired</key>
@@ -450,7 +450,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleGetInfoString</key>
-	<string>Libkern Pseudoextension, Apple Computer Inc, 6.1</string>
+	<string>Libkern Pseudoextension, Apple Computer Inc, 6.2</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -462,11 +462,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>6.1</string>
+	<string>6.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>6.1</string>
+	<string>6.2</string>
 	<key>OSBundleCompatibleVersion</key>
 	<string>1.0.0b1</string>
 	<key>OSBundleRequired</key>
@@ -544,7 +544,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleGetInfoString</key>
-	<string>System Management Pseudoextension, Apple Computer Inc, 6.1</string>
+	<string>System Management Pseudoextension, Apple Computer Inc, 6.2</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.apple.iokit.IOSystemManagementFamily</string>
 	<key>CFBundleInfoDictionaryVersion</key>
@@ -554,11 +554,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>6.1</string>
+	<string>6.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>6.1</string>
+	<string>6.2</string>
 	<key>OSBundleCompatibleVersion</key>
 	<string>1.0.0b1</string>
 	<key>OSBundleRequired</key>
@@ -787,7 +787,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleGetInfoString</key>
-	<string>System Resource Pseudoextension, Apple Computer Inc, 6.1</string>
+	<string>System Resource Pseudoextension, Apple Computer Inc, 6.2</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -799,13 +799,13 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>6.1</string>
+	<string>6.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>6.1</string>
+	<string>6.2</string>
 	<key>OSBundleCompatibleVersion</key>
-	<string>6.1</string>
+	<string>6.2</string>
 	<key>OSBundleRequired</key>
 	<string>Root</string>
 	<key>OSKernelResource</key>
@@ -935,7 +935,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleGetInfoString</key>
-	<string>Apple Platform Family Pseudoextension, Apple Computer Inc, 6.1</string>
+	<string>Apple Platform Family Pseudoextension, Apple Computer Inc, 6.2</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.apple.iokit.ApplePlatformFamily</string>
 	<key>CFBundleInfoDictionaryVersion</key>
@@ -945,11 +945,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>6.1</string>
+	<string>6.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>6.1</string>
+	<string>6.2</string>
 	<key>OSBundleCompatibleVersion</key>
 	<string>1.0</string>
 	<key>OSBundleRequired</key>
@@ -1019,7 +1019,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleNMI Pseudoextension, Apple Computer Inc, 6.1</string>
+	<string>AppleNMI Pseudoextension, Apple Computer Inc, 6.2</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1031,11 +1031,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>6.1</string>
+	<string>6.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>6.1</string>
+	<string>6.2</string>
 	<key>OSBundleCompatibleVersion</key>
 	<string>1.1</string>
 	<key>OSBundleRequired</key>
@@ -1105,7 +1105,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleNMI Pseudoextension, Apple Computer Inc, 6.1</string>
+	<string>AppleNMI Pseudoextension, Apple Computer Inc, 6.2</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.apple.driver.AppleNMI</string>
 	<key>CFBundleInfoDictionaryVersion</key>
@@ -1115,11 +1115,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>6.1</string>
+	<string>6.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>6.1</string>
+	<string>6.2</string>
 	<key>OSBundleRequired</key>
 	<string>Root</string>
 	<key>OSKernelResource</key>

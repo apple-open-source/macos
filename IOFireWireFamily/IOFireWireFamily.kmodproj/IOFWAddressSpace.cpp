@@ -19,6 +19,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+ 
 /*
  *
  *	IOFWAddressSpace.cpp
@@ -29,27 +30,305 @@
  * HISTORY
  *
  */
+ 
 #include <IOKit/firewire/IOFWAddressSpace.h>
 #include <IOKit/firewire/IOFireWireController.h>
+#include <IOKit/firewire/IOFireWireDevice.h>
 
-OSData *IOFWPseudoAddressSpace::allocatedAddresses = NULL;  // unused
+#include "FWDebugging.h"
+
+OSDefineMetaClassAndStructors(IOFWAddressSpaceAux, OSObject);
+
+OSMetaClassDefineReservedUnused(IOFWAddressSpaceAux, 0);
+OSMetaClassDefineReservedUnused(IOFWAddressSpaceAux, 1);
+OSMetaClassDefineReservedUnused(IOFWAddressSpaceAux, 2);
+OSMetaClassDefineReservedUnused(IOFWAddressSpaceAux, 3);
+OSMetaClassDefineReservedUnused(IOFWAddressSpaceAux, 4);
+OSMetaClassDefineReservedUnused(IOFWAddressSpaceAux, 5);
+OSMetaClassDefineReservedUnused(IOFWAddressSpaceAux, 6);
+OSMetaClassDefineReservedUnused(IOFWAddressSpaceAux, 7);
+OSMetaClassDefineReservedUnused(IOFWAddressSpaceAux, 8);
+OSMetaClassDefineReservedUnused(IOFWAddressSpaceAux, 9);
+
+#pragma mark -
+
+// init
+//
+//
+
+bool IOFWAddressSpaceAux::init( IOFWAddressSpace * primary )
+{
+	bool success = true;		// assume success
+	
+	// init super
+	
+    if( !OSObject::init() )
+        success = false;
+	
+	if( success )
+	{
+		fPrimary = primary;
+		fControl = fPrimary->fControl;
+		
+		//
+		// create node set
+		//
+		
+		fTrustedNodeSet = OSSet::withCapacity(1);
+		if( fTrustedNodeSet == NULL )
+			success = false;
+	}
+	
+	if( success )
+	{
+		fTrustedNodeSetIterator = OSCollectionIterator::withCollection( fTrustedNodeSet );
+		if( fTrustedNodeSetIterator == NULL )
+			success = false;
+	}
+	
+	if( !success )
+	{
+		if( fTrustedNodeSet != NULL )
+		{
+			fTrustedNodeSet->release();
+			fTrustedNodeSet = NULL;
+		}
+		
+		if( fTrustedNodeSetIterator != NULL )
+		{
+			fTrustedNodeSetIterator->release();
+			fTrustedNodeSetIterator = NULL;
+		}
+	}
+	
+	return success;
+}
+
+// free
+//
+//
+
+void IOFWAddressSpaceAux::free()
+{	
+	if( fTrustedNodeSet != NULL )
+	{
+		fTrustedNodeSet->release();
+		fTrustedNodeSet = NULL;
+	}
+	
+	if( fTrustedNodeSetIterator != NULL )
+	{
+		fTrustedNodeSetIterator->release();
+		fTrustedNodeSetIterator = NULL;
+	}
+    
+	OSObject::free();
+}
+
+// isTrustedNode
+//
+//
+
+bool IOFWAddressSpaceAux::isTrustedNode( UInt16 nodeID )
+{
+	bool	trusted = false;
+
+#if 1	
+	//
+	// trusted if not in secure mode
+	//
+	
+	if( fControl->getSecurityMode() == kIOFWSecurityModeNormal )
+		trusted = true;
+#endif
+		
+	//
+	// trusted if the local node
+	// trusted if no nodes in set (no source node ID verification)
+	//
+	
+	if( !trusted )
+	{
+		UInt16 localNodeID = fControl->getLocalNodeID();
+		
+//		FWKLOG(( "IOFWAddressSpaceAux::isTrustedNode - localNodeID = 0x%x\n", localNodeID ));
+
+		if( nodeID == localNodeID || fTrustedNodeSet->getCount() == 0 )
+			trusted = true;
+	}
+	
+	//
+	// check node id of all devices in set
+	//
+	
+	IOFireWireDevice * item = NULL;
+	fTrustedNodeSetIterator->reset();
+	while( !trusted && (item = (IOFireWireDevice *) fTrustedNodeSetIterator->getNextObject()) )
+	{
+		UInt32 generation = 0;
+		UInt16 deviceNodeID = 0;
+
+		item->getNodeIDGeneration( generation, deviceNodeID ); 
+
+	//	FWKLOG(( "IOFWAddressSpaceAux::isTrustedNode - deviceNodeID = 0x%x\n", deviceNodeID ));
+
+		if( deviceNodeID == nodeID )
+			trusted = true;
+	}
+
+//	FWKLOG(( "IOFWAddressSpaceAux::isTrustedNode - nodeID = 0x%x, trusted = %d\n", nodeID, trusted ));
+
+	return trusted;
+}
+
+// addTrustedNode
+//
+//
+
+void IOFWAddressSpaceAux::addTrustedNode( IOFireWireDevice * device )
+{
+	fTrustedNodeSet->setObject( device );
+}
+
+// removeTrustedNode
+//
+//
+
+void IOFWAddressSpaceAux::removeTrustedNode( IOFireWireDevice * device )
+{
+	fTrustedNodeSet->removeObject( device );
+}
+
+// removeAllTrustedNodes
+//
+//
+
+void IOFWAddressSpaceAux::removeAllTrustedNodes( void )
+{
+	fTrustedNodeSet->flushCollection();
+}
+
+#pragma mark -
 
 /*
  * Base class for FireWire address space objects
  */
+
 OSDefineMetaClass( IOFWAddressSpace, OSObject )
 OSDefineAbstractStructors(IOFWAddressSpace, OSObject)
+
 //OSMetaClassDefineReservedUnused(IOFWAddressSpace, 0);
-OSMetaClassDefineReservedUnused(IOFWAddressSpace, 1);
+//OSMetaClassDefineReservedUnused(IOFWAddressSpace, 1);
+
+// init
+//
+//
 
 bool IOFWAddressSpace::init(IOFireWireBus *bus)
 {
-    if(!OSObject::init())
-        return false;
+	bool success = true;		// assume success
+	
+	// init super
+	
+    if( !OSObject::init() )
+        success = false;
 
-    fControl = OSDynamicCast(IOFireWireController, bus);
-    return fControl != NULL;
+	// get controller
+	
+	if( success )
+	{
+		fControl = OSDynamicCast(IOFireWireController, bus);
+		if( fControl == NULL )
+			success = false;
+	}
+	
+	// create expansion data
+	
+	if( success )
+	{
+		fIOFWAddressSpaceExpansion = (ExpansionData*) IOMalloc( sizeof(ExpansionData) );
+		if( fIOFWAddressSpaceExpansion == NULL )
+			success = false;
+	}
+	
+	// zero expansion data
+	
+	if( success )
+	{
+		bzero( fIOFWAddressSpaceExpansion, sizeof(ExpansionData) );
+		fIOFWAddressSpaceExpansion->fAuxiliary = createAuxiliary();
+		if( fIOFWAddressSpaceExpansion->fAuxiliary == NULL )
+			success = false;
+	}
+
+	// clean up on failure
+	
+	if( !success )
+	{
+		if( fIOFWAddressSpaceExpansion->fAuxiliary != NULL )
+		{
+			fIOFWAddressSpaceExpansion->fAuxiliary->release();
+			fIOFWAddressSpaceExpansion->fAuxiliary = NULL;
+		}
+		
+		if( fIOFWAddressSpaceExpansion != NULL )
+		{
+			IOFree ( fIOFWAddressSpaceExpansion, sizeof(ExpansionData) );
+			fIOFWAddressSpaceExpansion = NULL;
+		}
+	}
+	
+    return success;
 }
+
+// createAuxiliary
+//
+// virtual method for creating auxiliary object.  subclasses needing to subclass 
+// the auxiliary object can override this.
+
+IOFWAddressSpaceAux * IOFWAddressSpace::createAuxiliary( void )
+{
+	IOFWAddressSpaceAux * auxiliary;
+    
+	auxiliary = new IOFWAddressSpaceAux;
+
+    if( auxiliary != NULL && !auxiliary->init(this) ) 
+	{
+        auxiliary->release();
+        auxiliary = NULL;
+    }
+	
+    return auxiliary;
+}
+
+// free
+//
+//
+
+void IOFWAddressSpace::free()
+{
+	if( fIOFWAddressSpaceExpansion != NULL )
+	{
+		// release auxiliary object
+		
+		if( fIOFWAddressSpaceExpansion->fAuxiliary != NULL )
+		{
+			fIOFWAddressSpaceExpansion->fAuxiliary->release();
+			fIOFWAddressSpaceExpansion->fAuxiliary = NULL;
+		}
+		
+		// free expansion data
+		
+		IOFree ( fIOFWAddressSpaceExpansion, sizeof(ExpansionData) );
+		fIOFWAddressSpaceExpansion = NULL;
+	}
+	
+    OSObject::free();
+}
+
+// doLock
+//
+//
 
 UInt32 IOFWAddressSpace::doLock(UInt16 nodeID, IOFWSpeed &speed, FWAddress addr, UInt32 inLen,
                         const UInt32 *newVal, UInt32 &outLen, UInt32 *oldVal, UInt32 type,
@@ -64,20 +343,22 @@ UInt32 IOFWAddressSpace::doLock(UInt16 nodeID, IOFWSpeed &speed, FWAddress addr,
 
     size = inLen/8;	// Depends on type, right for 'compare and swap'
     outLen = inLen/2;	// right for 'compare and swap'
-    ret = doRead(nodeID, speed, addr, size*4, &desc, &offset, refcon);
+    
+	ret = doRead(nodeID, speed, addr, size*4, &desc, &offset, refcon);
 	if(ret != kFWResponseComplete)
 		return ret;
 
     desc->readBytes(offset, oldVal, size*4);
     
-    switch (type) {
+    switch (type) 
+	{
         case kFWExtendedTCodeCompareSwap:
             ok = true;
-            for(i=0; i<size; i++)
+			for(i=0; i<size; i++)
                 ok = ok && oldVal[i] == newVal[i];
-            if(ok)
+			if(ok)
                 ret = doWrite(nodeID, speed, addr, size*4, newVal+size, refcon);
-            break;
+			break;
 
         default:
             ret = kFWResponseTypeError;
@@ -85,329 +366,29 @@ UInt32 IOFWAddressSpace::doLock(UInt16 nodeID, IOFWSpeed &speed, FWAddress addr,
     return ret;
 }
 
+// activate
+//
+//
+
 IOReturn IOFWAddressSpace::activate()
 {
     return fControl->allocAddress(this);
 }
+
+// deactivate
+//
+//
 
 void IOFWAddressSpace::deactivate()
 {
     fControl->freeAddress(this);
 }
 
+// contains
+//
+//
+
 UInt32 IOFWAddressSpace::contains(FWAddress addr)
 {
     return 0;
 }
-
-/*
- * Direct physical memory <-> FireWire address.
- * Accesses to these addresses will be handled automatically by the
- * hardware without notification.
- *
- * The 64 bit FireWire address of (32 bit) physical addr xxxx:xxxx is hostNode:0000:xxxx:xxxx
- */
-OSDefineMetaClassAndStructors(IOFWPhysicalAddressSpace, IOFWAddressSpace)
-
-bool IOFWPhysicalAddressSpace::initWithDesc(IOFireWireBus *control,
-                                            IOMemoryDescriptor *mem)
-{
-    if(!IOFWAddressSpace::init(control))
-        return false;
-    fMem = mem;
-    fMem->retain();
-    fLen = mem->getLength();
-
-    return true;
-}
-
-void IOFWPhysicalAddressSpace::free()
-{
-    if(fMem)
-        fMem->release();
-    IOFWAddressSpace::free();
-}
-
-
-UInt32 IOFWPhysicalAddressSpace::doRead(UInt16 nodeID, IOFWSpeed &speed, FWAddress addr, UInt32 len, 
-					IOMemoryDescriptor **buf, IOByteCount * offset, IOFWRequestRefCon refcon)
-{
-    UInt32 res = kFWResponseAddressError;
-    vm_size_t pos;
-    IOPhysicalAddress phys;
-    if(addr.addressHi != 0)
-	return kFWResponseAddressError;
-
-    pos = 0;
-    while(pos < fLen) {
-        IOPhysicalLength lengthOfSegment;
-        phys = fMem->getPhysicalSegment(pos, &lengthOfSegment);
-        if(addr.addressLo >= phys && addr.addressLo+len <= phys+lengthOfSegment) {
-            // OK, block is in space and is within one VM page
-	    // Set position to exact start
-	    *offset = pos + addr.addressLo - phys;
-            *buf = fMem;
-            res = kFWResponseComplete;
-            break;
-        }
-        pos += lengthOfSegment;
-    }
-    return res;
-}
-
-UInt32 IOFWPhysicalAddressSpace::doWrite(UInt16 nodeID, IOFWSpeed &speed, FWAddress addr, UInt32 len,
-                                         const void *buf, IOFWRequestRefCon refcon)
-{
-    UInt32 res = kFWResponseAddressError;
-    vm_size_t pos;
-    IOPhysicalAddress phys;
-    if(addr.addressHi != 0)
-	return kFWResponseAddressError;
-
-    pos = 0;
-    while(pos < fLen) {
-        IOPhysicalLength lengthOfSegment;
-        phys = fMem->getPhysicalSegment(pos, &lengthOfSegment);
-        if(addr.addressLo >= phys && addr.addressLo+len <= phys+lengthOfSegment) {
-            // OK, block is in space and is within one VM page
-	    // Set position to exact start
-            fMem->writeBytes(pos + addr.addressLo - phys, buf, len);
-            res = kFWResponseComplete;
-            break;
-        }
-        pos += lengthOfSegment;
-    }
-    return res;
-}
-
-/*
- * Pseudo firewire addresses usually represent emulated registers of some kind.
- * Accesses to these addresses will result in the owner being notified.
- * 
- * Virtual addresses should not have zero as the top 16 bits of the 48 bit local address,
- * since that may look like a physical address to hardware (eg. OHCI).
- * if reader is NULL then reads will not be allowed.
- * if writer is NULL then writes will not be allowed.
- * if either is NULL then lock requests will not be allowed.
- * refcon is passed back as the first argument of read and write callbacks.
- */
-OSDefineMetaClassAndStructors(IOFWPseudoAddressSpace, IOFWAddressSpace)
-OSMetaClassDefineReservedUnused(IOFWPseudoAddressSpace, 0);
-OSMetaClassDefineReservedUnused(IOFWPseudoAddressSpace, 1);
-
-IOReturn IOFWPseudoAddressSpace::allocateAddress(FWAddress *addr, UInt32 lenDummy)
-{
-	return fControl->allocatePseudoAddress( addr, lenDummy );     
-}
-
-void IOFWPseudoAddressSpace::freeAddress(FWAddress addr, UInt32 lenDummy)
-{
-    fControl->freePseudoAddress( addr, lenDummy );
-}
-
-UInt32 IOFWPseudoAddressSpace::simpleReader(void *refcon, UInt16 nodeID, IOFWSpeed &speed,
-					FWAddress addr, UInt32 len, IOMemoryDescriptor **buf,
-                        IOByteCount * offset, IOFWRequestRefCon reqrefcon)
-{
-    IOFWPseudoAddressSpace * space = (IOFWPseudoAddressSpace *)refcon;
-    *buf = space->fDesc;
-    *offset = addr.addressLo - space->fBase.addressLo;
-
-    return kFWResponseComplete;
-}
-
-UInt32 IOFWPseudoAddressSpace::simpleWriter(void *refcon, UInt16 nodeID, IOFWSpeed &speed,
-                    FWAddress addr, UInt32 len, const void *buf, IOFWRequestRefCon reqrefcon)
-{
-    IOFWPseudoAddressSpace * space = (IOFWPseudoAddressSpace *)refcon;
-    space->fDesc->writeBytes(addr.addressLo - space->fBase.addressLo, buf, len);
-
-    return kFWResponseComplete;
-}
-
-IOFWPseudoAddressSpace *
-IOFWPseudoAddressSpace::simpleRead(IOFireWireBus *control,
-                                   FWAddress *addr, UInt32 len, const void *data)
-{
-    IOFWPseudoAddressSpace * me;
-    me = new IOFWPseudoAddressSpace;
-    do {
-        if(!me)
-            break;
-        if(!me->initAll(control, addr, len, simpleReader, NULL, (void *)me)) {
-            me->release();
-            me = NULL;
-            break;
-        }
-        me->fDesc = IOMemoryDescriptor::withAddress((void *)data, len, kIODirectionOut);
-        if(!me->fDesc) {
-            me->release();
-            me = NULL;
-        }
-    } while(false);
-
-    return me;
-}
-
-IOFWPseudoAddressSpace *
-IOFWPseudoAddressSpace::simpleReadFixed(IOFireWireBus *control,
-                                   FWAddress addr, UInt32 len, const void *data)
-{
-    IOFWPseudoAddressSpace * me;
-    me = new IOFWPseudoAddressSpace;
-    do {
-        if(!me)
-            break;
-        if(!me->initFixed(control, addr, len, simpleReader, NULL, (void *)me)) {
-            me->release();
-            me = NULL;
-            break;
-        }
-        me->fDesc = IOMemoryDescriptor::withAddress((void *)data, len, kIODirectionOut);
-        if(!me->fDesc) {
-            me->release();
-            me = NULL;
-        }
-    } while(false);
-
-    return me;
-}
-
-
-IOFWPseudoAddressSpace *IOFWPseudoAddressSpace::simpleRW(IOFireWireBus *control,
-                                                         FWAddress *addr, UInt32 len, void *data)
-{
-    IOFWPseudoAddressSpace * me;
-    me = new IOFWPseudoAddressSpace;
-    do {
-        if(!me)
-            break;
-        if(!me->initAll(control, addr, len, simpleReader, simpleWriter, (void *)me)) {
-            me->release();
-            me = NULL;
-            break;
-        }
-        me->fDesc = IOMemoryDescriptor::withAddress(data, len, kIODirectionOut);
-        if(!me->fDesc) {
-            me->release();
-            me = NULL;
-        }
-    } while(false);
-
-    return me;
-}
-
-IOFWPseudoAddressSpace *IOFWPseudoAddressSpace::simpleRW(IOFireWireBus *control,
-                                                         FWAddress *addr, IOMemoryDescriptor *	data)
-{
-    IOFWPseudoAddressSpace * me;
-    me = new IOFWPseudoAddressSpace;
-    do {
-        if(!me)
-            break;
-        if(!me->initAll(control, addr, data->getLength(), simpleReader, simpleWriter, (void *)me)) {
-            me->release();
-            me = NULL;
-            break;
-        }
-        data->retain();
-        me->fDesc = data;
-    } while(false);
-
-    return me;
-}
-
-bool IOFWPseudoAddressSpace::initAll(IOFireWireBus *control,
-                FWAddress *addr, UInt32 len, 
-		FWReadCallback reader, FWWriteCallback writer, void *refCon)
-{	
-    if(!IOFWAddressSpace::init(control))
-		return false;
-
-    if(allocateAddress(addr, len) != kIOReturnSuccess)
-        return false;
-
-    fBase = *addr;
-    fBase.addressHi &= 0xFFFF;	// Mask off nodeID part.
-    fLen = len;
-    fDesc = NULL;	// Only used by simpleRead case.
-    fRefCon = refCon;
-    fReader = reader;
-    fWriter = writer;
-	
-    return true;
-}
-
-bool IOFWPseudoAddressSpace::initFixed(IOFireWireBus *control,
-                FWAddress addr, UInt32 len,
-                FWReadCallback reader, FWWriteCallback writer, void *refCon)
-{	
-    if(!IOFWAddressSpace::init(control))
-        return false;
-
-    // Only allow fixed addresses at top of address space
-    if(addr.addressHi != kCSRRegisterSpaceBaseAddressHi)
-        return false;
-
-    fBase = addr;
-    fLen = len;
-    fDesc = NULL;	// Only used by simpleRead case.
-    fRefCon = refCon;
-    fReader = reader;
-    fWriter = writer;
-    return true;
-}
-
-
-void IOFWPseudoAddressSpace::free()
-{
-    if(fDesc)
-	fDesc->release();
-    if(fBase.addressHi != kCSRRegisterSpaceBaseAddressHi)
-        freeAddress(fBase, fLen);
-    IOFWAddressSpace::free();
-}
-
-UInt32 IOFWPseudoAddressSpace::doRead(UInt16 nodeID, IOFWSpeed &speed, FWAddress addr, UInt32 len, 
-					IOMemoryDescriptor **buf, IOByteCount * offset, IOFWRequestRefCon refcon)
-{
-    if(addr.addressHi != fBase.addressHi)
-	return kFWResponseAddressError;
-    if(addr.addressLo < fBase.addressLo)
-	return kFWResponseAddressError;
-    if(addr.addressLo + len > fBase.addressLo+fLen)
-	return kFWResponseAddressError;
-    if(!fReader)
-        return kFWResponseTypeError;
-
-    return fReader(fRefCon, nodeID, speed, addr, len, buf, offset, refcon);
-}
-
-UInt32 IOFWPseudoAddressSpace::doWrite(UInt16 nodeID, IOFWSpeed &speed, FWAddress addr, UInt32 len,
-                                       const void *buf, IOFWRequestRefCon refcon)
-{
-    if(addr.addressHi != fBase.addressHi)
-	return kFWResponseAddressError;
-    if(addr.addressLo < fBase.addressLo)
-	return kFWResponseAddressError;
-    if(addr.addressLo + len > fBase.addressLo+fLen)
-	return kFWResponseAddressError;
-    if(!fWriter)
-        return kFWResponseTypeError;
-
-    return fWriter(fRefCon, nodeID, speed, addr, len, buf, refcon);
-}
-
-UInt32 IOFWPseudoAddressSpace::contains(FWAddress addr)
-{
-    UInt32 offset;
-    if(addr.addressHi != fBase.addressHi)
-        return 0;
-    if(addr.addressLo < fBase.addressLo)
-        return 0;
-    offset = addr.addressLo - fBase.addressLo;
-    if(offset > fLen)
-        return 0;
-    return fLen - offset;
-}
-

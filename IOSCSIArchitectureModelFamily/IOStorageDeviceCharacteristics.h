@@ -59,6 +59,10 @@
 // a bus and it is indeterminate whether it it internal or external, this key should be set.
 #define kIOPropertyInternalExternalKey				"Internal/External"
 
+// This protocol characteristics key is used to inform the system that the protocol
+// supports having multiple devices that act as initiators.
+#define kIOPropertySCSIProtocolMultiInitKey		"Multiple Initiators"
+
 
 //
 //	Device Characteristics - Characteristics defined for devices.

@@ -69,7 +69,7 @@ namespace IOFireWireLib {
 		
 		protected:
 			Device&						mUserClient ;
-			FWKernIsochChannelRef		mKernChannelRef ;
+			KernIsochChannelRef		mKernChannelRef ;
 			Boolean						mNotifyIsOn ;
 			ForceStopHandler			mForceStopHandler ;
 			void*						mUserRefCon ;

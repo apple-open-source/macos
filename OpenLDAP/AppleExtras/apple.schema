@@ -1,4 +1,4 @@
-#ident $Id: apple.schema,v 1.4 2002/07/15 23:45:10 majka Exp $
+#ident $Id: apple.schema,v 1.4.8.1 2002/10/03 00:12:44 jtownsen Exp $
 #
 # Preliminary Apple OS X Native LDAP Schema
 # This file is subject to change.
@@ -312,6 +312,7 @@ objectclass (
 	MUST ( cn )
 	MAY ( description $
 	      macAddress $
+	      apple-computer-list-groups $
 	      apple-mcxflags $
 	      apple-mcxsettings ) )
 

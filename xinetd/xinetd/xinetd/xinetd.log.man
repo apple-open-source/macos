@@ -1,0 +1,159 @@
+.\"(c) Copyright 1992 by Panagiotis Tsirigotis
+.\"(c) Sections Copyright 1998-2001 by Rob Braun
+.\"All rights reserved.  The file named COPYRIGHT specifies the terms 
+.\"and conditions for redistribution.
+.\"
+.\" $Id: xinetd.log.man,v 1.1.1.1 2002/01/31 07:09:06 zarzycki Exp $
+.TH XINETD.LOG 5 "28 April 1993"
+.SH NAME
+xinetd.log \- xinetd service log format
+.\" *********************** DESCRIPTION ****************************
+.SH "DESCRIPTION"
+A service configuration may specify various degrees of logging when
+attempts are made to access the service. When logging for a service
+is enabled,
+.B xinetd
+will generate one-line log entries which have the following format
+(all entries have a timestamp as a prefix):
+.sp 1
+.RS
+\fIentry\fP: \fIservice-id\fP \fIdata\fP
+.RE
+.LP
+The \fIdata\fP depends on the \fIentry\fP.
+Possible \fIentry\fP types include:
+.RS
+.TP 12
+.SB START
+generated when a server is started
+.TP
+.SB EXIT
+generated when a server exits
+.TP
+.SB FAIL
+generated when it is not possible to start a server
+.TP
+.SB DATA
+generated when an attempt to start a server fails and the service supports
+the \fIRECORD\fP log option.
+.TP
+.SB USERID
+generated if the \fIUSERID\fP log option is used.
+.TP
+.SB NOID
+generated if the 
+.I USERID
+log option is used,
+and the 
+.I IDONLY
+service flag is used,
+and the remote end does not identify who is trying to access the service.
+.RE
+.LP
+In the following, the information enclosed in brackets appears 
+if the appropriate log option is used.
+.LP
+A \fISTART\fP entry has the format:
+.sp 1
+.RS
+START: \fIservice-id\fP [pid=%d] [from=%d.%d.%d.%d]
+.RE
+.LP
+An \fIEXIT\fP entry has the format:
+.sp 1
+.RS
+EXIT: \fIservice-id\fP [\fItype\fP=%d] [pid=%d] [duration=%d(sec)]
+.RE
+.sp 1
+.I type
+can be either
+.SB status
+or
+.SB signal.
+The number is either the exit status or the signal that caused process
+termination.
+.LP
+A \fIFAIL\fP entry has the format:
+.sp 1
+.RS
+FAIL: \fIservice-id\fP \fIreason\fP [from=%d.%d.%d.%d]
+.RE
+.sp 1
+Possible \fIreasons\fP are:
+.RS
+.TP 15
+.SB fork
+a certain number of consecutive fork attempts failed (this number is
+a configurable parameter)
+.TP
+.SB time
+the time check failed
+.TP
+.SB address
+the address check failed
+.TP
+.SB service_limit
+the allowed number of server instances for this service would be exceeded
+.TP
+.SB process_limit
+a limit on the number of forked processes was specified and it would 
+be exceeded
+.RE
+.LP
+A \fIDATA\fP entry has the format:
+.sp 1
+.RS
+DATA: \fIservice-id\fP \fIdata\fP
+.RE
+.sp 1
+The \fIdata\fP logged depends on the service.
+.RS
+.TP 12
+.SB login
+remote_user=%s local_user=%s tty=%s
+.TP
+.SB exec
+remote_user=%s verify=\fIstatus\fP command=%s
+.br
+Possible
+.I status
+values:
+.RS
+.TP 10
+.I ok
+the password was correct
+.TP
+.I failed
+the password was incorrect
+.TP
+.I baduser
+no such user
+.RE
+.TP
+.SB shell
+remote_user=%s local_user=%s command=%s
+.TP
+.SB finger
+\fIreceived string\fP or
+.I EMPTY-LINE
+.RE
+.LP
+A \fIUSERID\fP entry has the format:
+.sp 1
+.RS
+USERID: \fIservice-id\fP \fItext\fP
+.RE
+.sp 1
+The \fItext\fP is the response of the identification daemon at the remote end
+excluding the port numbers (which are included in the response).
+.LP
+A \fINOID\fP entry has the format:
+.sp 1
+.RS
+NOID: \fIservice-id\fP \fIIP-address\fP \fIreason\fP 
+.RE
+.\" *********************** SEE ALSO ****************************
+.SH "SEE ALSO"
+.I "xinetd(1L),"
+.LP
+.I "xinetd.conf(5)"

@@ -1,4 +1,4 @@
-#ident $Id: netinfo.schema,v 1.5 2002/07/28 21:18:33 jtownsen Exp $
+#ident $Id: netinfo.schema,v 1.5.2.1 2002/10/03 00:12:44 jtownsen Exp $
 #
 # NetInfo attribute mapping schema.
 #
@@ -111,6 +111,7 @@ attributemap /aliases members rfc822MailMember
 objectclassmap /computers apple-computer
 attributemap /computers comment description
 attributemap /computers en_address macAddress
+attributemap /computers groups apple-computer-list-groups
 
 #
 # Schema mapping for NetInfo computer lists.

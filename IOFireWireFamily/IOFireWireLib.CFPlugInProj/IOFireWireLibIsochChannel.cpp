@@ -10,6 +10,7 @@
 #import "IOFireWireLibIsochChannel.h"
 #import "IOFireWireLibIsochPort.h"
 #import <IOKit/iokitmig.h>
+#import <exception>
 
 namespace IOFireWireLib {
 
@@ -34,8 +35,9 @@ namespace IOFireWireLib {
 
 		mUserClient.AddRef() ;
 
-		IOReturn	err = IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), kFWIsochChannel_Allocate, 3, 1,
-															inDoIRM, inPacketSize, inPrefSpeed, & mKernChannelRef) ;
+		IOReturn	err = ::IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), 
+								kIsochChannel_Allocate, 3, 1, inDoIRM, inPacketSize, inPrefSpeed, 
+								& mKernChannelRef) ;
 		if(err)
 			throw ;//err !!!
 	}
@@ -48,7 +50,8 @@ namespace IOFireWireLib {
 		
 		if (mKernChannelRef)
 		{
-			IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), kFWIsochChannel_Release, 1, 0, mKernChannelRef ) ;
+			::IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), kIsochChannel_Release, 1, 0, 
+					mKernChannelRef ) ;
 			mKernChannelRef = 0 ;
 		}
 	
@@ -135,17 +138,10 @@ namespace IOFireWireLib {
 		}
 	
 		// call the kernel middle bits
-		result = IOConnectMethodScalarIScalarO(
-							mUserClient.GetUserClientConnection(),
-							kFWIsochChannel_UserAllocateChannelBegin,
-							4,
-							2,
-							mKernChannelRef,
-							mSpeed,
-							(UInt32)(allowedChans >> 32),
-							(UInt32)(0xFFFFFFFF & allowedChans),
-							& mSpeed,
-							& mChannel) ;
+		result = IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), 
+						kIsochChannel_UserAllocateChannelBegin, 4, 2, mKernChannelRef, mSpeed,
+						(UInt32)(allowedChans >> 32), (UInt32)(0xFFFFFFFF & allowedChans), & mSpeed,
+						& mChannel) ;
 	
 		if (kIOReturnSuccess == result)
 		{
@@ -192,11 +188,8 @@ namespace IOFireWireLib {
 			++index ;
 		}
 	
-		result = IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(),
-												kFWIsochChannel_UserReleaseChannelComplete,
-												1,
-												0,
-												mKernChannelRef ) ;
+		result = ::IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(),
+						kIsochChannel_UserReleaseChannelComplete, 1, 0, mKernChannelRef ) ;
 		
 		return result ;
 	}
@@ -298,16 +291,8 @@ namespace IOFireWireLib {
 			params[1]	= (UInt32)(IOAsyncCallback) & ForceStop ;
 			params[2]	= (UInt32) this ;
 		
-			err = io_async_method_scalarI_scalarO(
-					connection,
-					mUserClient.GetAsyncPort(),
-					mAsyncRef,
-					1,
-					kFWSetAsyncRef_IsochChannelForceStop,
-					params,
-					3,
-					output,
-					& size) ;
+			err = ::io_async_method_scalarI_scalarO( connection, mUserClient.GetAsyncPort(), mAsyncRef,
+					1, kSetAsyncRef_IsochChannelForceStop, params, 3, output, & size) ;
 			
 		}
 	
@@ -320,36 +305,17 @@ namespace IOFireWireLib {
 	void
 	IsochChannel::TurnOffNotification()
 	{
-		IOReturn				err					= kIOReturnSuccess ;
 		io_connect_t			connection			= mUserClient.GetUserClientConnection() ;
-		io_scalar_inband_t		params ;
-		mach_msg_type_number_t	size = 0 ;
 		
 		// if notification isn't on, skip out.
-		if (!mNotifyIsOn)
+		if (!mNotifyIsOn || !connection)
 			return ;
+		
+		io_scalar_inband_t		params = { (UInt32) mKernChannelRef, (UInt32)(IOAsyncCallback) 0, (UInt32) this } ;
+		mach_msg_type_number_t	size = 0 ;
 	
-		if (!connection)
-			err = kIOReturnNoDevice ;
-		
-		if ( kIOReturnSuccess == err )
-		{
-			// set callback for writes to 0
-			params[0]	= (UInt32) mKernChannelRef ;
-			params[1]	= (UInt32)(IOAsyncCallback) 0 ;
-			params[2]	= (UInt32) this ;
-		
-			err = io_async_method_scalarI_scalarO(
-					connection,
-					mUserClient.GetAsyncPort(),
-					mAsyncRef,
-					1,
-					kFWSetAsyncRef_Packet,
-					params,
-					3,
-					params,
-					& size) ;
-		}
+		::io_async_method_scalarI_scalarO( connection, mUserClient.GetAsyncPort(), mAsyncRef, 1, 
+				kSetAsyncRef_Packet, params, 3, params, & size) ;
 		
 		mNotifyIsOn = false ;
 	}

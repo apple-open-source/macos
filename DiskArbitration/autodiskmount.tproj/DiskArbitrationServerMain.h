@@ -257,6 +257,8 @@ DiskPtr NewDisk(	char * ioBSDName,
 
 void FreeDisk( DiskPtr diskPtr );
 
+void FreeAllPartitions( DiskPtr diskPtr );
+
 void PrintDisks(void);
 
 void DiskSetMountpoint( DiskPtr diskPtr, const char * mountpoint );

@@ -1,0 +1,11 @@
+service auth
+{
+	disable		= yes
+	socket_type	= stream
+	wait		= yes
+	user		= root
+	server		= /usr/libexec/identd
+	server_args	= -w -t120
+	groups		= yes
+	flags		= REUSE
+}

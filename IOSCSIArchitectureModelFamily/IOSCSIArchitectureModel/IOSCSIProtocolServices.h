@@ -51,6 +51,8 @@ enum
 	kSCSIProtocolLayerNumDefaultStates			= 2
 };
 
+// Forward definitions of internal use only classes
+class SCSITask;
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //	Class Declaration
@@ -313,10 +315,19 @@ protected:
     // protocol the driver represents for the TargetReset management function.
 	virtual SCSIServiceResponse		HandleTargetReset ( void );
 
+
+    OSMetaClassDeclareReservedUsed ( IOSCSIProtocolServices,  7 );
+    // The CreateSCSITargetDevice member routine will create the appropriate object
+    // to represent the Target portion of a SCSI Device.  This object is responsible
+    // for managing the Target functions of the SCSI Device including the Task Manager and
+    // Logical Units.
+    // If the SCSITargetDevice object was successfully created, a true value will be
+    // returned, otherwisw, this will return false.
+	virtual bool					CreateSCSITargetDevice ( void );
+	
 private:
 	
 	// Space reserved for future expansion.
-    OSMetaClassDeclareReservedUnused ( IOSCSIProtocolServices,  7 );
     OSMetaClassDeclareReservedUnused ( IOSCSIProtocolServices,  8 );
     OSMetaClassDeclareReservedUnused ( IOSCSIProtocolServices, 	9 );
     OSMetaClassDeclareReservedUnused ( IOSCSIProtocolServices, 10 );

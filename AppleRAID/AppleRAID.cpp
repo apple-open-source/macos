@@ -55,6 +55,7 @@ void AppleRAID::free(void)
     
     if (_arSliceCloseThreadCall) thread_call_free(_arSliceCloseThreadCall);
     if (_arUpdateHeadersThreadCall) thread_call_free(_arUpdateHeadersThreadCall);
+    if (_arSyncronizeCacheThreadCall) thread_call_free(_arSyncronizeCacheThreadCall);
     
     if (_arStorageRequestPool != 0) {
         while (1) {
@@ -536,6 +537,7 @@ IOReturn AppleRAID::degradeSliceMedia(IOMedia *media, AppleRAIDStorageRequest *s
         if (!getSliceNumberForMedia(media, &sliceNumber)) return kIOReturnError;
         
         // Pause the raid set.
+        _arSetIsDegrading = true;
         _arSetIsPaused = true;
         
         // Mark this slice as having an error.
@@ -603,8 +605,11 @@ IOReturn AppleRAID::degradeSliceMedia(IOMedia *media, AppleRAIDStorageRequest *s
     _arController->statusChanged(this);
     
     // Unpause the raid set and wakeup any sleeping requests.
-    _arSetIsPaused = false;
-    _arSetCommandGate->commandWakeup(&_arSetIsPaused, false);
+    _arSetIsDegrading = false;
+    if (!_arSetIsSyncing) {
+        _arSetIsPaused = false;
+        _arSetCommandGate->commandWakeup(&_arSetIsPaused, false);
+    }
     
     return result;
 }
@@ -651,6 +656,11 @@ IOReturn AppleRAID::initRAIDSet(void)
                                     (thread_call_param_t)this);
         if (_arUpdateHeadersThreadCall == 0) return kIOReturnNoMemory;
         
+        _arSyncronizeCacheThreadCall = thread_call_allocate(
+                                       (thread_call_func_t)&AppleRAID::synchronizeCacheSliceMedias,
+                                       (thread_call_param_t)this);
+        if (_arSyncronizeCacheThreadCall == 0) return kIOReturnNoMemory;
+        
         // Create and populate the storage request pool.
         _arStorageRequestPool = IOCommandPool::withWorkLoop(getWorkLoop());
         if (_arStorageRequestPool == 0) return kIOReturnNoMemory;
@@ -681,7 +691,7 @@ IOReturn AppleRAID::initRAIDSet(void)
             maxSegmentCount = tmpNumber2->unsigned64BitValue();
             
             maxBlockCount *= _arSlicesStarted;
-            maxSegmentCount = (_arSlicesStarted * maxSegmentCount * (pagesPerChunk - 1)) / pagesPerChunk;
+            maxSegmentCount *= _arSlicesStarted;
             
             setProperty(kIOMaximumBlockCountReadKey, maxBlockCount, 64);
             setProperty(kIOMaximumSegmentCountReadKey, maxSegmentCount, 64);
@@ -694,7 +704,7 @@ IOReturn AppleRAID::initRAIDSet(void)
             maxSegmentCount = tmpNumber2->unsigned64BitValue();
             
             maxBlockCount *= _arSlicesStarted;
-            maxSegmentCount = (_arSlicesStarted * maxSegmentCount * (pagesPerChunk - 1)) / pagesPerChunk;
+            maxSegmentCount *= _arSlicesStarted;
             
             setProperty(kIOMaximumBlockCountWriteKey, maxBlockCount, 64);
             setProperty(kIOMaximumSegmentCountWriteKey, maxSegmentCount, 64);
@@ -1134,6 +1144,20 @@ IOReturn AppleRAID::closeSliceMedias(IOOptionBits options)
     return kIOReturnSuccess;
 }
 
+IOReturn AppleRAID::requestSynchronizeCache(void)
+{
+    if (_arSetIsSyncing) {
+        _arSetCommandGate->commandSleep(&_arSetIsSyncing, THREAD_UNINT);
+    }
+    
+    _arSetIsSyncing = true;
+    _arSetIsPaused = true;
+    
+    thread_call_enter(_arSyncronizeCacheThreadCall);
+    
+    return kIOReturnSuccess;
+}
+
 IOReturn AppleRAID::synchronizeCacheSliceMedias(void)
 {
     UInt32	cnt;
@@ -1146,6 +1170,14 @@ IOReturn AppleRAID::synchronizeCacheSliceMedias(void)
         tmp = arSliceMedias[cnt]->synchronizeCache(this);
         if (tmp != kIOReturnSuccess) result = tmp;
     }
+    
+    _arSetIsSyncing = false;
+    if (!_arSetIsDegrading) {
+        _arSetIsPaused = false;
+        _arSetCommandGate->commandWakeup(&_arSetIsPaused, false);
+    }
+    
+    _arSetCommandGate->commandWakeup(&_arSetIsSyncing, false);
     
     return result;
 }
@@ -1269,7 +1301,7 @@ void AppleRAID::write(IOService *client, UInt64 byteStart,
 
 IOReturn AppleRAID::synchronizeCache(IOService *client)
 {
-    return _arSetCommandGate->runAction((IOCommandGate::Action)&AppleRAID::synchronizeCacheSliceMedias);
+    return _arSetCommandGate->runAction((IOCommandGate::Action)&AppleRAID::requestSynchronizeCache);
 }
 
 

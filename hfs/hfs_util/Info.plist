@@ -13,11 +13,11 @@
 	<key>CFBundlePackageType</key>
 	<string>fs  </string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1</string>
+	<string>1.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1</string>
+	<string>1.2</string>
 	<key>FSMediaTypes</key>
 	<dict>
 		<key>Apple_HFS</key>
@@ -96,6 +96,31 @@
 			<key>FSVerificationExecutable</key>
 			<string>../../../../../../sbin/fsck_hfs</string>
 		</dict>
+		<key>Journaled HFS+</key>
+		<dict>
+			<key>FSFormatArguments</key>
+			<string>-J</string>
+			<key>FSFormatContentMask</key>
+			<string>Apple_HFS</string>
+			<key>FSFormatExecutable</key>
+			<string>../../../../../../sbin/newfs_hfs</string>
+			<key>FSFormatMinimumSize</key>
+			<integer>4194304</integer>
+			<key>FSMountArguments</key>
+			<string></string>
+			<key>FSMountExecutable</key>
+			<string>../../../../../../sbin/mount_hfs</string>
+			<key>FSName</key>
+			<string>Mac OS Extended (Journaled)</string>
+			<key>FSRepairArguments</key>
+			<string>-y</string>
+			<key>FSRepairExecutable</key>
+			<string>../../../../../../sbin/fsck_hfs</string>
+			<key>FSVerificationArguments</key>
+			<string>-fn</string>
+			<key>FSVerificationExecutable</key>
+			<string>../../../../../../sbin/fsck_hfs</string>
+		</dict>
 		<key>HFS+</key>
 		<dict>
 			<key>FSFormatArguments</key>
@@ -117,7 +142,7 @@
 			<key>FSRepairExecutable</key>
 			<string>../../../../../../sbin/fsck_hfs</string>
 			<key>FSVerificationArguments</key>
-			<string>-n</string>
+			<string>-fn</string>
 			<key>FSVerificationExecutable</key>
 			<string>../../../../../../sbin/fsck_hfs</string>
 		</dict>

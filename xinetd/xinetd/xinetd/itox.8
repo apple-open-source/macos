@@ -1,0 +1,19 @@
+.TH ITOX 8 "October 1999" "xinetd"
+.SH NAME
+itox \- converts inetd.conf style configuration files to xinetd.conf
+.SH SYNOPSIS
+itox [-daemon_dir <dir_path>]
+.SH DESCRIPTION
+.B itox
+takes on its standard input inetd.conf style entries and dumps to
+standard output the corresponding xinetd.conf style entries.
+.SH OPTIONS
+.TP
+.I -daemon_dir <dir_path>
+Specifies the file name of the TCP daemon used in the inetd.conf file.
+.SH EXAMPLES
+itox -daemon_dir /usr/sbin/tcpd < inetd.conf > xinetd.conf
+.SH AUTHOR
+xinetd and itox were written by Panagiotis Tsirigotis.
+.sp
+This man page was written by Norbert Veber <nveber@debian.org>.

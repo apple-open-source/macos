@@ -24,6 +24,7 @@
 #include <IOKit/platform/ApplePlatformExpert.h>
 #include <IOKit/IODeviceTreeSupport.h>
 #include <IOKit/IOLocks.h>
+#include <IOKit/IOMessage.h>
 #include <IOKit/pwr_mgt/RootDomain.h>
 #include <IOKit/graphics/IOGraphicsPrivate.h>
 #include <IOKit/graphics/IOGraphicsInterfaceTypes.h>
@@ -2148,7 +2149,26 @@ IOReturn IONDRVFramebuffer::setAttribute( IOSelect attribute, UInt32 _value )
 	    break;
 
         case kIOSystemPowerAttribute:
-	    break;
+	    switch (_value)
+	    {
+	      case kIOMessageSystemWillPowerOff:
+		/* fall thru */
+	      case kIOMessageSystemWillRestart:
+		if (ndrvState)
+		{
+		    IONDRVControlParameters pb;
+
+		    err = doDriverIO( 0, &pb,
+				    kIONDRVCloseCommand, kIONDRVImmediateIOCommandKind );
+		    err = doDriverIO( 0, nub,
+				    kIONDRVFinalizeCommand, kIONDRVImmediateIOCommandKind );
+		    ndrvState = 0;
+
+		    DEBG("IOFB: kIOSystemPowerAttribute finalize(%d)\n", err);
+		}
+	    }
+	    err = kIOReturnSuccess;
+            break;
 
 	case kIOMirrorAttribute:
 

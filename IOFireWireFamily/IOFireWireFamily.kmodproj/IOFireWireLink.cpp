@@ -30,6 +30,8 @@
 #include <IOKit/firewire/IOFireWireLink.h>
 #include <IOKit/firewire/IOFireWireDevice.h>
 
+#import "IOFWWorkLoop.h"
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 OSDefineMetaClass( IOFireWireLink, IOService )

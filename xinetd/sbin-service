@@ -1,0 +1,52 @@
+#!/bin/sh
+
+set -e
+
+function restart_xinetd ()
+{
+	kill -HUP $(cat /var/run/xinetd.pid 2>/dev/null) 2>/dev/null || /usr/sbin/xinetd -pidfile /var/run/xinetd.pid
+}
+
+if [ $# -eq 0 ]
+then
+   echo "Usage: $(basename $0) --list | <service-name> <command>" >&2
+   exit 1
+fi
+
+if [ "$1" == "--list" ]
+then
+	cd /etc/xinetd.d 2>/dev/null
+	ls -1
+	exit 0
+elif [ "$1" == "--test-if-configured-on" ]
+then
+	[ ! -f "/etc/xinetd.d/$2" ] && exit 1
+	egrep "disable.*=.*no" /etc/xinetd.d/$2 >/dev/null 2>&1
+	exit $?
+elif [ "$1" == "--test-if-available" ]
+then
+	[ ! -f "/etc/xinetd.d/$2" ] && exit 1
+	SERVER_FILE=$(egrep 'server[ 	]' "/etc/xinetd.d/$2" | sed 's,.*server[ 	]*=[ 	]*\(.*\),\1,g')
+	[ ! -f "$SERVER_FILE" ] && exit 1
+	exit 0
+elif [ -f "/etc/xinetd.d/$1" ]
+then
+	if [ "$2" == start ]
+	then
+		mv "/etc/xinetd.d/$1" "/etc/xinetd.d/$1.old"
+		sed 's/disable.*=.*/disable = no/g' < "/etc/xinetd.d/$1.old" > "/etc/xinetd.d/$1"
+		rm "/etc/xinetd.d/$1.old"
+		restart_xinetd
+	elif [ "$2" == stop ]
+	then
+		mv "/etc/xinetd.d/$1" "/etc/xinetd.d/$1.old"
+		sed 's/disable.*=.*/disable = yes/g' < "/etc/xinetd.d/$1.old" > "/etc/xinetd.d/$1"
+		rm "/etc/xinetd.d/$1.old"
+		restart_xinetd
+	else
+		echo "No such service command" >&2
+	fi
+else
+	echo "No such service $1" >&2
+	exit 1
+fi

@@ -125,7 +125,7 @@ protected:
     UInt16					_rootHubFuncAddress;	// Function Address for the root hub
     int						_OptiOn;
     UInt32					_isochBandwidthAvail;	// amount of available bandwidth for Isochronous transfers
-    UInt32					_disablePortsBitmap;	// Bitmaps of ports that support port suspend even if they have an errata
+    UInt32		 			_disablePortsBitmap;	// Bitmaps of ports that support port suspend even if they have an errata
     UInt32					_dataAllocationSize;	// # of bytes allocated in for TD's
     IOFilterInterruptEventSource *		_filterInterruptSource;
     IOLock *					_intLock;
@@ -144,6 +144,18 @@ protected:
     UInt32					_filterInterruptCount;
     UInt32					_framesUpdated;
     UInt32					_framesError;
+    
+    // Interrupt related fields
+    //
+    UInt32					_resumeDetectedInterrupt;	// Set at primary interrupt time if we get that interrupt, cleared at secondary interrupt time
+    UInt32					_unrecoverableErrorInterrupt;	// Set at primary interrupt time if we get that interrupt, cleared at secondary interrupt time
+    UInt32					_rootHubStatusChangeInterrupt;	// Set at primary interrupt time if we get that interrupt, cleared at secondary interrupt time
+    UInt32					_writeDoneHeadInterrupt;	// Set at primary interrupt time if we get that interrupt, cleared at secondary interrupt time
+    volatile IOPhysicalAddress			_savedDoneQueueHead;		// Physical address read from the done queue;
+    volatile UInt32				_producerCount;			// Counter used to synchronize reading of the done queue between filter (producer) and action (consumer)
+    volatile UInt32				_consumerCount;			// Counter used to synchronize reading of the done queue between filter (producer) and action (consumer)
+    IOSimpleLock *				_wdhLock;
+    UInt64					_timeElapsed;
     
     static void 				InterruptHandler(OSObject *owner,  IOInterruptEventSource * source, int count);
     static bool 				PrimaryInterruptFilter(OSObject *owner, IOFilterInterruptEventSource *source);
@@ -177,14 +189,18 @@ protected:
     OHCIIsochTransferDescriptorPtr AllocateITD(void);
     OHCIGeneralTransferDescriptorPtr AllocateTD(void);
     OHCIEndpointDescriptorPtr AllocateED(void);
+    IOReturn 	TranslateStatusToUSBError(UInt32 status);
+    
     void ProcessCompletedITD (OHCIIsochTransferDescriptorPtr pITD, IOReturn status);
     IOReturn DeallocateITD (OHCIIsochTransferDescriptorPtr pTD);
     IOReturn DeallocateTD (OHCIGeneralTransferDescriptorPtr pTD);
     IOReturn DeallocateED (OHCIEndpointDescriptorPtr pED);
     IOReturn RemoveAllTDs(OHCIEndpointDescriptorPtr pED);
     IOReturn RemoveTDs(OHCIEndpointDescriptorPtr pED);
-    IOReturn DoDoneQueueProcessing(OHCIGeneralTransferDescriptorPtr pHCDoneTD,
-                                   IOUSBCompletionAction safeAction);
+    // IOReturn DoDoneQueueProcessing(OHCIGeneralTransferDescriptorPtr pHCDoneTD, IOUSBCompletionAction safeAction);
+    IOReturn DoDoneQueueProcessing(IOPhysicalAddress cachedWritedoneQueueHead, UInt32 cachedProducer, IOUSBCompletionAction safeAction);
+                                   
+                                   
     void UIMProcessDoneQueue(IOUSBCompletionAction safeAction=0);
     void UIMRootHubStatusChange( void );
     void UIMRootHubStatusChange(bool abort);
@@ -264,6 +280,7 @@ public:
     virtual void 	stop( IOService * provider );
     virtual bool 	finalize(IOOptionBits options);
     virtual IOReturn 	message( UInt32 type, IOService * provider,  void * argument = 0 );
+    virtual void 	free();
 
     /*
      * UIM methods
@@ -486,5 +503,6 @@ enum
     kOHCICheckForRootHubConnectionsPeriod = 30, 	// Check every x secs to see if root hub has connections
     kOHCICheckForRootHubInactivityPeriod = 30		// Wait for x secs after the last time the root hub was active
 };
+
 
 #endif /* _IOKIT_AppleUSBOHCI_H */

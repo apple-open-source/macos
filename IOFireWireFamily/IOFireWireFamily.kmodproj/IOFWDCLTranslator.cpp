@@ -36,19 +36,19 @@
 //
 
 static void	DCLReceivePacketStart(
-	DCLCommandPtr				*ppCurrentDCLCommand,
+	DCLCommand**			ppCurrentDCLCommand,
 	UInt32					packetHeader,
-	UInt8 *					*pPacketBuffer,
-	UInt32					*pPacketSize,
-	bool					*pGetNextPacket)
+	UInt8**					pPacketBuffer,
+	UInt32*					pPacketSize,
+	bool*					pGetNextPacket)
 {
-	DCLTransferPacketPtr		pDCLTransferPacket;
+	DCLTransferPacket*		pDCLTransferPacket;
 	UInt8 *				transferBuffer;
 	UInt8 *				packetBuffer;
 	SInt32				transferSize, packetSize;
 
 	// Recast DCL command.
-	pDCLTransferPacket = (DCLTransferPacketPtr) *ppCurrentDCLCommand;
+	pDCLTransferPacket = (DCLTransferPacket*) *ppCurrentDCLCommand;
 
 	// Get some parameters.
 	transferBuffer = (UInt8 *)pDCLTransferPacket->buffer;
@@ -93,19 +93,19 @@ static void	DCLReceivePacketStart(
 //
 
 static void	DCLReceivePacket(
-	DCLCommandPtr				*ppCurrentDCLCommand,
+	DCLCommand**			ppCurrentDCLCommand,
 	UInt32					packetHeader,
 	UInt8 *					*pPacketBuffer,
 	UInt32					*pPacketSize,
 	bool					*pGetNextPacket)
 {
-	DCLTransferPacketPtr		pDCLTransferPacket;
+	DCLTransferPacket*		pDCLTransferPacket;
 	UInt8 *				transferBuffer;
 	UInt8 *				packetBuffer;
 	UInt32				transferSize, packetSize;
 
 	// Recast DCL command.
-	pDCLTransferPacket = (DCLTransferPacketPtr) *ppCurrentDCLCommand;
+	pDCLTransferPacket = (DCLTransferPacket*) *ppCurrentDCLCommand;
 
 	// Get some parameters.
 	transferBuffer = (UInt8 *)pDCLTransferPacket->buffer;
@@ -150,14 +150,10 @@ static void	DCLReceivePacket(
 //zzz should we clip off end of packet when buffer is filled?
 //
 
-static void	DCLReceiveBuffer(
-	DCLCommandPtr				*ppCurrentDCLCommand,
-	UInt32					packetHeader,
-	UInt8 *					*pPacketBuffer,
-	UInt32					*pPacketSize,
-	bool					*pGetNextPacket)
+static void	DCLReceiveBuffer( DCLCommand** ppCurrentDCLCommand, UInt32 packetHeader,
+	UInt8** pPacketBuffer, UInt32* pPacketSize, bool* pGetNextPacket )
 {
-	DCLTransferBufferPtr		pDCLTransferBuffer;
+	DCLTransferBuffer*	pDCLTransferBuffer;
 	UInt8 *				buffer;
 	UInt32				bufferOffset, bufferSize;
 	UInt32				bufferSizeLeft;
@@ -166,7 +162,7 @@ static void	DCLReceiveBuffer(
 	UInt32				transferSize;
 
 	// Recast current DCL command.
-	pDCLTransferBuffer = (DCLTransferBufferPtr) *ppCurrentDCLCommand;
+	pDCLTransferBuffer = (DCLTransferBuffer*) *ppCurrentDCLCommand;
 
 	// Get some parameters.
 	buffer = (UInt8 *)pDCLTransferBuffer->buffer;
@@ -217,18 +213,18 @@ static void	DCLReceiveBuffer(
 //
 
 static void	DCLSendPacket(
-	DCLCommandPtr		*ppCurrentDCLCommand,
+	DCLCommand**	ppCurrentDCLCommand,
 	UInt8 *			*pPacketBuffer,
 	UInt32			*pPacketSize,
 	bool			*pGetNextPacket)
 {
-	DCLTransferPacketPtr	pDCLTransferPacket;
+	DCLTransferPacket*	pDCLTransferPacket;
 	UInt8 *			transferBuffer;
 	UInt8 *			packetBuffer;
 	UInt32			transferSize, packetSize;
 
 	// Recast DCL command.
-	pDCLTransferPacket = (DCLTransferPacketPtr) *ppCurrentDCLCommand;
+	pDCLTransferPacket = (DCLTransferPacket*) *ppCurrentDCLCommand;
 
 	// Get some parameters.
 	transferBuffer = (UInt8 *)pDCLTransferPacket->buffer;
@@ -265,13 +261,9 @@ static void	DCLSendPacket(
 //zzz should we clip off end of packet when buffer is emptied?
 //
 
-static void	DCLSendBuffer(
-	DCLCommandPtr			*ppCurrentDCLCommand,
-	UInt8 *				*pPacketBuffer,
-	UInt32				*pPacketSize,
-	bool				*pGetNextPacket)
+static void	DCLSendBuffer( DCLCommand** ppCurrentDCLCommand, UInt8** pPacketBuffer, UInt32* pPacketSize, bool* pGetNextPacket)
 {
-	DCLTransferBufferPtr	pDCLTransferBuffer;
+	DCLTransferBuffer*	pDCLTransferBuffer;
 	UInt8 *			buffer;
 	UInt32			bufferOffset, bufferSize;
 	UInt32			bufferSizeLeft;
@@ -281,7 +273,7 @@ static void	DCLSendBuffer(
 	UInt32			transferSize;
 
 	// Recast current DCL command.
-	pDCLTransferBuffer = (DCLTransferBufferPtr) *ppCurrentDCLCommand;
+	pDCLTransferBuffer = (DCLTransferBuffer*) *ppCurrentDCLCommand;
 
 	// Get some parameters.
 	buffer = (UInt8 *)pDCLTransferBuffer->buffer;
@@ -336,16 +328,12 @@ static void	DCLSendBuffer(
 //zzz implement rest of DCL commands.
 //
 
-static void	RunListeningDCLEngine(
-	DCLCommandPtr	*ppCurrentDCLCommand,
-	UInt32		packetHeader,
-	UInt8 *		*pPacketBuffer,
-	UInt32		*pPacketSize,
-	bool		*pGetNextPacket)
+static void	RunListeningDCLEngine( DCLCommand** ppCurrentDCLCommand, UInt32 packetHeader, UInt8** pPacketBuffer,
+		UInt32* pPacketSize, bool* pGetNextPacket)
 {
-    DCLCommandPtr			pCurrentDCLCommand;
-    DCLCallProcPtr			pDCLCallProc;
-    DCLJumpPtr				pDCLJump;
+    DCLCommand*				pCurrentDCLCommand;
+    DCLCallProc*			pDCLCallProc;
+    DCLJump*				pDCLJump;
 
     // Run the current DCL command.
     pCurrentDCLCommand = *ppCurrentDCLCommand;
@@ -379,18 +367,18 @@ static void	RunListeningDCLEngine(
                     break;
 
             case kDCLCallProcOp :
-                    pDCLCallProc = (DCLCallProcPtr) pCurrentDCLCommand;
+                    pDCLCallProc = (DCLCallProc*) pCurrentDCLCommand;
                     // Call the handler if there is one.
                     if (pDCLCallProc->proc != NULL)
-			(*(pDCLCallProc->proc)) ((DCLCommandPtr) pDCLCallProc);
+			(*(pDCLCallProc->proc)) ((DCLCommand*) pDCLCallProc);
 
                     pCurrentDCLCommand = pCurrentDCLCommand->pNextDCLCommand;
                     *pGetNextPacket = false;
                     break;
 
             case kDCLJumpOp :
-                    pDCLJump = (DCLJumpPtr) pCurrentDCLCommand;
-                    pCurrentDCLCommand = (DCLCommandPtr) pDCLJump->pJumpDCLLabel;
+                    pDCLJump = (DCLJump*) pCurrentDCLCommand;
+                    pCurrentDCLCommand = (DCLCommand*) pDCLJump->pJumpDCLLabel;
                     *pGetNextPacket = false;
                     break;
 
@@ -414,17 +402,13 @@ static void	RunListeningDCLEngine(
 //zzz maybe a vector table would be nice
 //
 
-static void	RunTalkingDCLEngine(
-	UInt32 *	packetHeader,
-	DCLCommandPtr	*ppCurrentDCLCommand,
-	UInt8 *		*pPacketBuffer,
-	UInt32		*pPacketSize,
-	bool		*pGetNextPacket)
+static void	RunTalkingDCLEngine( UInt32* packetHeader, DCLCommand** ppCurrentDCLCommand, 
+		UInt8** pPacketBuffer, UInt32* pPacketSize, bool* pGetNextPacket)
 {
-	DCLCommandPtr			pCurrentDCLCommand;
-	DCLCallProcPtr			pDCLCallProc;
-	DCLJumpPtr			pDCLJump;
-	DCLSetTagSyncBitsPtr		pDCLSetTagSyncBits;
+	DCLCommand*				pCurrentDCLCommand;
+	DCLCallProc*			pDCLCallProc;
+	DCLJump*				pDCLJump;
+	DCLSetTagSyncBits*		pDCLSetTagSyncBits;
 
 	// Run the current DCL command.
 	pCurrentDCLCommand = *ppCurrentDCLCommand;
@@ -448,17 +432,17 @@ static void	RunTalkingDCLEngine(
 			break;
 
 		case kDCLCallProcOp :
-                        pDCLCallProc = (DCLCallProcPtr) pCurrentDCLCommand;
+                        pDCLCallProc = (DCLCallProc*) pCurrentDCLCommand;
                         // Call the handler if there is one.
                         if (pDCLCallProc->proc != NULL)
-                            (*(pDCLCallProc->proc)) ((DCLCommandPtr) pDCLCallProc);
+                            (*(pDCLCallProc->proc)) ((DCLCommand*) pDCLCallProc);
 			pCurrentDCLCommand = pCurrentDCLCommand->pNextDCLCommand;
 			*pGetNextPacket = false;
 			break;
 
 		case kDCLJumpOp :
-			pDCLJump = (DCLJumpPtr) pCurrentDCLCommand;
-			pCurrentDCLCommand = (DCLCommandPtr) pDCLJump->pJumpDCLLabel;
+			pDCLJump = (DCLJump*) pCurrentDCLCommand;
+			pCurrentDCLCommand = (DCLCommand*) pDCLJump->pJumpDCLLabel;
 			*pGetNextPacket = false;
 			break;
 
@@ -468,7 +452,7 @@ static void	RunTalkingDCLEngine(
 			break;
 
 		case kDCLSetTagSyncBitsOp :
-			pDCLSetTagSyncBits = (DCLSetTagSyncBitsPtr) pCurrentDCLCommand;
+			pDCLSetTagSyncBits = (DCLSetTagSyncBits*) pCurrentDCLCommand;
 			*packetHeader &= ~(kFWIsochTag | kFWIsochSy);
 			*packetHeader |= (pDCLSetTagSyncBits->tagBits << kFWIsochTagPhase);
 			*packetHeader |= (pDCLSetTagSyncBits->syncBits << kFWIsochSyPhase);
@@ -489,7 +473,7 @@ static void	RunTalkingDCLEngine(
 OSDefineMetaClass( IODCLTranslator, IODCLProgram )
 OSDefineAbstractStructors(IODCLTranslator, IODCLProgram)
 
-bool IODCLTranslator::init(DCLCommandPtr toInterpret)
+bool IODCLTranslator::init(DCLCommand* toInterpret)
 {
     if(!IODCLProgram::init())
 	return false;
@@ -500,8 +484,7 @@ bool IODCLTranslator::init(DCLCommandPtr toInterpret)
     return true;
 }
 
-IOReturn IODCLTranslator::notify(UInt32 notificationType,
-	DCLCommandPtr *dclCommandList, UInt32 numDCLCommands)
+IOReturn IODCLTranslator::notify(UInt32 notificationType, DCLCommand** dclCommandList, UInt32 numDCLCommands)
 {
     return kIOReturnSuccess;	// Nothing to do, we're interpreting anyway
 }
@@ -524,28 +507,31 @@ void IODCLTranslator::stop()
     fHWProgram->stop();
 }
 
-DCLCommandPtr IODCLTranslator::getTranslatorOpcodes() 
+DCLCommand*
+IODCLTranslator::getTranslatorOpcodes() 
 {
-	return (DCLCommandPtr)&fStartLabel;
+	return (DCLCommand*)&fStartLabel;
 }
 
-void IODCLTranslator::setHWProgram(IODCLProgram *program) 
+void
+IODCLTranslator::setHWProgram(IODCLProgram *program) 
 {
 	fHWProgram = program;
 }
 
-void IODCLTranslator::ListeningDCLPingPongProc(DCLCommandPtr pDCLCommand)
+void
+IODCLTranslator::ListeningDCLPingPongProc(DCLCommand* pDCLCommand)
 {
     IODCLTranslator *		me;
-    DCLCommandPtr		pCurrentDCLCommand;
-    DCLTransferPacketPtr	pDCLTransferPacket;
+    DCLCommand*		pCurrentDCLCommand;
+    DCLTransferPacket*	pDCLTransferPacket;
     UInt8 *			packetBuffer;
     UInt32			packetHeader;
     UInt32			packetSize;
     UInt32			packetNum;
     bool			getNextPacket;
 
-    me = (IODCLTranslator *)((DCLCallProcPtr)pDCLCommand)->procData;
+    me = (IODCLTranslator *)((DCLCallProc*)pDCLCommand)->procData;
     pCurrentDCLCommand = me->fCurrentDCLCommand;
     pDCLTransferPacket = &me->fTransfers[me->fPingCount * kNumPacketsPerPingPong];
     // Run all packets through DCL program.
@@ -580,18 +566,18 @@ void IODCLTranslator::ListeningDCLPingPongProc(DCLCommandPtr pDCLCommand)
 	me->fPingCount = 0;
 }
 
-void IODCLTranslator::TalkingDCLPingPongProc(DCLCommandPtr pDCLCommand)
+void IODCLTranslator::TalkingDCLPingPongProc(DCLCommand* pDCLCommand)
 {
     IODCLTranslator *		me;
-    DCLCommandPtr		pCurrentDCLCommand;
-    DCLTransferPacketPtr	pDCLTransferPacket;
-    UInt8 *			packetBuffer;
-    UInt32			packetHeader;
-    UInt32			packetSize;
-    UInt32			packetNum;
-    bool			getNextPacket;
+    DCLCommand*				pCurrentDCLCommand;
+    DCLTransferPacket*		pDCLTransferPacket;
+    UInt8 *					packetBuffer;
+    UInt32					packetHeader;
+    UInt32					packetSize;
+    UInt32					packetNum;
+    bool					getNextPacket;
 
-    me = (IODCLTranslator *)((DCLCallProcPtr)pDCLCommand)->procData;
+    me = (IODCLTranslator *)((DCLCallProc*)pDCLCommand)->procData;
     pCurrentDCLCommand = me->fCurrentDCLCommand;
     pDCLTransferPacket = &me->fTransfers[me->fPingCount * kNumPacketsPerPingPong];
     // Run all packets through DCL program.
@@ -624,7 +610,7 @@ void IODCLTranslator::TalkingDCLPingPongProc(DCLCommandPtr pDCLCommand)
 	pDCLTransferPacket->size = packetSize;
 	// Send notification to DCL compiler.
 	me->fHWProgram->notify(kFWDCLModifyNotification,
-				(DCLCommandPtr *) pDCLTransferPacket, 1);
+				(DCLCommand**) pDCLTransferPacket, 1);
 
         // Update for next packet.
         pDCLTransferPacket++;
@@ -644,8 +630,8 @@ IOReturn IODCLTranslateTalk::compile(IOFWSpeed speed, UInt32 chan)
 {
     int pingPongNum;
     int packetNum;
-    DCLTransferPacketPtr pDCLTransferPacket = &fTransfers[0];
-    DCLCallProcPtr pDCLPingPongProc = &fCalls[0];
+    DCLTransferPacket* pDCLTransferPacket = &fTransfers[0];
+    DCLCallProc* pDCLPingPongProc = &fCalls[0];
     UInt8 *pingPongBuffer = fBuffer;
 
     if(!fHWProgram)
@@ -654,7 +640,7 @@ IOReturn IODCLTranslateTalk::compile(IOFWSpeed speed, UInt32 chan)
     fPacketHeader = chan << kFWIsochChanNumPhase;
 
     // Create label for start of loop.
-    fStartLabel.pNextDCLCommand = (DCLCommandPtr)pDCLTransferPacket;
+    fStartLabel.pNextDCLCommand = (DCLCommand*)pDCLTransferPacket;
     fStartLabel.opcode = kDCLLabelOp;
 
     // Create kNumPingPongs ping pong buffer lists of kNumPacketsPerPingPong
@@ -663,7 +649,7 @@ IOReturn IODCLTranslateTalk::compile(IOFWSpeed speed, UInt32 chan)
         // Create transfer DCL for each packet.
         for (packetNum = 0; packetNum < kNumPacketsPerPingPong; packetNum++) {
             // Receive one packet up to kMaxIsochPacketSize bytes.
-            pDCLTransferPacket->pNextDCLCommand = (DCLCommandPtr)(pDCLTransferPacket+1);
+            pDCLTransferPacket->pNextDCLCommand = (DCLCommand*)(pDCLTransferPacket+1);
             pDCLTransferPacket->opcode = kDCLSendPacketWithHeaderStartOp | kFWDCLOpDynamicFlag;
             pDCLTransferPacket->buffer = pingPongBuffer;
             pDCLTransferPacket->size = kMaxIsochPacketSize;
@@ -671,16 +657,16 @@ IOReturn IODCLTranslateTalk::compile(IOFWSpeed speed, UInt32 chan)
             pDCLTransferPacket++;
         }
 	// Correct next opcode for last transfer op.
-        (pDCLTransferPacket-1)->pNextDCLCommand = (DCLCommandPtr)pDCLPingPongProc;
+        (pDCLTransferPacket-1)->pNextDCLCommand = (DCLCommand*)pDCLPingPongProc;
         // Call the ping pong proc.
-        pDCLPingPongProc->pNextDCLCommand = (DCLCommandPtr) pDCLTransferPacket;
+        pDCLPingPongProc->pNextDCLCommand = (DCLCommand*) pDCLTransferPacket;
         pDCLPingPongProc->opcode = kDCLCallProcOp;
         pDCLPingPongProc->proc = TalkingDCLPingPongProc;
         pDCLPingPongProc->procData = (UInt32) this;
         pDCLPingPongProc++;
     }
     // Correct next opcode for last call op.
-    (pDCLPingPongProc-1)->pNextDCLCommand = (DCLCommandPtr)&fJumpToStart;
+    (pDCLPingPongProc-1)->pNextDCLCommand = (DCLCommand*)&fJumpToStart;
 
     // Loop to start of ping pong.
     fJumpToStart.pNextDCLCommand = NULL;
@@ -696,7 +682,7 @@ IOReturn IODCLTranslateTalk::start()
     fPingCount = 0;
     // Prime all buffers
     for(i=0; i<kNumPingPongs; i++) {
-        TalkingDCLPingPongProc((DCLCommandPtr)&fCalls[i]);
+        TalkingDCLPingPongProc((DCLCommand*)&fCalls[i]);
     }
     return fHWProgram->start();
 }
@@ -708,8 +694,8 @@ IOReturn IODCLTranslateListen::compile(IOFWSpeed speed, UInt32 chan)
 {
     int pingPongNum;
     int packetNum;
-    DCLTransferPacketPtr pDCLTransferPacket = &fTransfers[0];
-    DCLCallProcPtr pDCLPingPongProc = &fCalls[0];
+    DCLTransferPacket* pDCLTransferPacket = &fTransfers[0];
+    DCLCallProc* pDCLPingPongProc = &fCalls[0];
     UInt8 *pingPongBuffer = fBuffer;
 
     if(!fHWProgram)
@@ -718,7 +704,7 @@ IOReturn IODCLTranslateListen::compile(IOFWSpeed speed, UInt32 chan)
     fPacketHeader = chan << kFWIsochChanNumPhase;
 
     // Create label for start of loop.
-    fStartLabel.pNextDCLCommand = (DCLCommandPtr)pDCLTransferPacket;
+    fStartLabel.pNextDCLCommand = (DCLCommand*)pDCLTransferPacket;
     fStartLabel.opcode = kDCLLabelOp;
 
     // Create kNumPingPongs ping pong buffer lists of kNumPacketsPerPingPong
@@ -727,7 +713,7 @@ IOReturn IODCLTranslateListen::compile(IOFWSpeed speed, UInt32 chan)
         // Create transfer DCL for each packet.
         for (packetNum = 0; packetNum < kNumPacketsPerPingPong; packetNum++) {
             // Receive one packet up to kMaxIsochPacketSize bytes.
-            pDCLTransferPacket->pNextDCLCommand = (DCLCommandPtr)(pDCLTransferPacket+1);
+            pDCLTransferPacket->pNextDCLCommand = (DCLCommand*)(pDCLTransferPacket+1);
             pDCLTransferPacket->opcode = kDCLReceivePacketStartOp | kFWDCLOpDynamicFlag;
             pDCLTransferPacket->buffer = pingPongBuffer;
             pDCLTransferPacket->size = kMaxIsochPacketSize;
@@ -735,16 +721,16 @@ IOReturn IODCLTranslateListen::compile(IOFWSpeed speed, UInt32 chan)
             pDCLTransferPacket++;
         }
 	// Correct next opcode for last transfer op.
-        (pDCLTransferPacket-1)->pNextDCLCommand = (DCLCommandPtr)pDCLPingPongProc;
+        (pDCLTransferPacket-1)->pNextDCLCommand = (DCLCommand*)pDCLPingPongProc;
         // Call the ping pong proc.
-        pDCLPingPongProc->pNextDCLCommand = (DCLCommandPtr) pDCLTransferPacket;
+        pDCLPingPongProc->pNextDCLCommand = (DCLCommand*) pDCLTransferPacket;
         pDCLPingPongProc->opcode = kDCLCallProcOp;
         pDCLPingPongProc->proc = ListeningDCLPingPongProc;
         pDCLPingPongProc->procData = (UInt32) this;
         pDCLPingPongProc++;
     }
     // Correct next opcode for last call op.
-    (pDCLPingPongProc-1)->pNextDCLCommand = (DCLCommandPtr)&fJumpToStart;
+    (pDCLPingPongProc-1)->pNextDCLCommand = (DCLCommand*)&fJumpToStart;
 
     // Loop to start of ping pong.
     fJumpToStart.pNextDCLCommand = NULL;

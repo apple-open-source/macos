@@ -650,6 +650,7 @@ typedef struct SGlob {
 	Boolean			guiControl;
 	int				logLevel;
 	int				chkLevel;
+	int             repairLevel;   // from 
 	BTScanState		scanState;
 
 	char			volumeName[256]; /* volume name in ASCII or UTF-8 */
@@ -990,6 +991,7 @@ extern	OSErr	AttrBTChk( SGlobPtr GPtr );		//	attributes btree check
 extern	OSErr	IVChk( SGlobPtr GPtr );
 
 extern	int	CheckForClean( SGlobPtr GPtr, Boolean markClean );
+extern  int	CheckIfJournaled(SGlobPtr GPtr);
 
 extern	OSErr	VInfoChk( SGlobPtr GPtr );
 

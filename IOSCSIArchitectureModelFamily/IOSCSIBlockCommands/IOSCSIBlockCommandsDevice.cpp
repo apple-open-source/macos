@@ -37,8 +37,9 @@
 
 // SCSI Architecture Model Family includes
 #include <IOKit/scsi-commands/SCSICommandDefinitions.h>
-#include "IOBlockStorageServices.h"
-#include "IOSCSIBlockCommandsDevice.h"
+#include <IOKit/scsi-commands/IOBlockStorageServices.h>
+#include <IOKit/scsi-commands/IOSCSIBlockCommandsDevice.h>
+#include "SCSIBlockCommands.h"
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
@@ -88,9 +89,11 @@ OSDefineAbstractStructors ( IOSCSIBlockCommandsDevice, IOSCSIPrimaryCommandsDevi
 #define kCapacityDataBufferSize				8
 #define kWriteProtectMask					0x80
 #define kAppleKeySwitchProperty				"AppleKeyswitch"
+#define kFibreChannelHDIconKey				"FibreChannelHD.icns"
 #define kFireWireHDIconKey					"FireWireHD.icns"
 #define kUSBHDIconKey						"USBHD.icns"
 #define kModeSense6ParameterHeaderSize		4
+#define	kDefaultMaxBlocksPerIO				65535
 
 
 #if 0
@@ -500,35 +503,30 @@ IOSCSIBlockCommandsDevice::ReportMediumWriteProtection ( void )
 UInt64
 IOSCSIBlockCommandsDevice::ReportDeviceMaxBlocksReadTransfer ( void )
 {
-	
-	UInt64	maxBlockCount 	= 256;		// ¥¥¥ This is an artificial limit. It needs to be revisited.
+
+	UInt64	maxBlockCount 	= kDefaultMaxBlocksPerIO;
+	UInt64	maxByteCount	= 0;
 	bool	supported		= false;
 	
-	STATUS_LOG ( ( "IOSCSIBlockCommandsDevice::ReportDeviceMaxBlocksReadTransfer\n" ) );
+	STATUS_LOG ( ( "IOSCSIBlockCommandsDevice::ReportDeviceMaxBlocksWriteTransfer.\n" ) );
 	
 	// See if the transport driver wants us to limit the block transfer count
 	supported = GetProtocolDriver ( )->IsProtocolServiceSupported (
 						kSCSIProtocolFeature_MaximumReadBlockTransferCount,
-						&maxBlockCount );	
+						&maxBlockCount );
 	
 	if ( supported == false )
-	{
-		
-		UInt64	maxByteCount = 0;
-		
-		// See if the transport driver wants us to limit the transfer byte count
-		supported = GetProtocolDriver ( )->IsProtocolServiceSupported (
+		maxBlockCount = kDefaultMaxBlocksPerIO;
+	
+	// See if the transport driver wants us to limit the transfer byte count
+	supported = GetProtocolDriver ( )->IsProtocolServiceSupported (
 						kSCSIProtocolFeature_MaximumReadTransferByteCount,
 						&maxByteCount );	
+	
+	if ( ( supported == true ) && ( maxByteCount > 0 ) && ( fMediumBlockSize > 0 ) )
+	{
 		
-		if ( ( supported == true ) &&
-			 ( maxByteCount > 0 )  &&
-			 ( fMediumBlockSize > 0 ) )
-		{
-			
-			maxBlockCount = maxByteCount / fMediumBlockSize;
-			
-		}
+		maxBlockCount = min ( maxBlockCount, ( maxByteCount / fMediumBlockSize ) );
 		
 	}
 	
@@ -546,7 +544,8 @@ UInt64
 IOSCSIBlockCommandsDevice::ReportDeviceMaxBlocksWriteTransfer ( void )
 {
 
-	UInt64	maxBlockCount 	= 256;
+	UInt64	maxBlockCount 	= kDefaultMaxBlocksPerIO;
+	UInt64	maxByteCount	= 0;
 	bool	supported		= false;
 	
 	STATUS_LOG ( ( "IOSCSIBlockCommandsDevice::ReportDeviceMaxBlocksWriteTransfer.\n" ) );
@@ -554,26 +553,20 @@ IOSCSIBlockCommandsDevice::ReportDeviceMaxBlocksWriteTransfer ( void )
 	// See if the transport driver wants us to limit the block transfer count
 	supported = GetProtocolDriver ( )->IsProtocolServiceSupported (
 						kSCSIProtocolFeature_MaximumWriteBlockTransferCount,
-						&maxBlockCount );	
+						&maxBlockCount );
 	
 	if ( supported == false )
-	{
-		
-		UInt64	maxByteCount = 0;
-		
-		// See if the transport driver wants us to limit the transfer byte count
-		supported = GetProtocolDriver ( )->IsProtocolServiceSupported (
+		maxBlockCount = kDefaultMaxBlocksPerIO;
+	
+	// See if the transport driver wants us to limit the transfer byte count
+	supported = GetProtocolDriver ( )->IsProtocolServiceSupported (
 						kSCSIProtocolFeature_MaximumWriteTransferByteCount,
 						&maxByteCount );	
+	
+	if ( ( supported == true ) && ( maxByteCount > 0 ) && ( fMediumBlockSize > 0 ) )
+	{
 		
-		if ( ( supported == true )	&&
-			 ( maxByteCount > 0 )	&&
-			 ( fMediumBlockSize > 0 ) )
-		{
-			
-			maxBlockCount = maxByteCount / fMediumBlockSize;
-			
-		}
+		maxBlockCount = min ( maxBlockCount, ( maxByteCount / fMediumBlockSize ) );
 		
 	}
 	
@@ -657,6 +650,24 @@ IOSCSIBlockCommandsDevice::InitializeDeviceSupport ( void )
 		
 	}
 	
+	if ( GetProtocolDriver()->getProperty ( kIOPropertyProtocolCharacteristicsKey ) != NULL )
+	{
+		// There is a characteristics property for this device, check for known entries.
+		OSDictionary * characterDict = NULL;
+		
+		characterDict = OSDynamicCast (
+					OSDictionary,
+					 GetProtocolDriver()->getProperty ( kIOPropertyProtocolCharacteristicsKey ) );
+		
+		// Check if the personality for this device specifies that this is known to be manual ejectable.
+		if ( characterDict->getObject ( kIOPropertySCSIProtocolMultiInitKey ) != NULL )
+		{
+			
+			fDeviceIsShared = true;		
+			
+		}
+	}
+	
 	// Make sure the drive is ready for us!
 	require ( ClearNotReadyStatus ( ), ReleaseReservedMemory );
 	
@@ -681,6 +692,9 @@ IOSCSIBlockCommandsDevice::InitializeDeviceSupport ( void )
 	
 	STATUS_LOG ( ( "%s::%s setupSuccessful = %d\n", getName ( ),
 					__FUNCTION__, setupSuccessful ) );
+	
+	setProperty ( kIOMaximumBlockCountReadKey,  kDefaultMaxBlocksPerIO, 64 );
+	setProperty ( kIOMaximumBlockCountWriteKey, kDefaultMaxBlocksPerIO, 64 );
 	
 	return setupSuccessful;
 	
@@ -1319,11 +1333,20 @@ IOSCSIBlockCommandsDevice::SetMediumCharacteristics (
 							UInt32	blockCount )
 {
 	
+	UInt64		maxBlocksRead	= 0;
+	UInt64		maxBlocksWrite	= 0;
+	
 	STATUS_LOG ( ( "mediumBlockSize = %ld, blockCount = %ld\n",
 					blockSize, blockCount ) );
 	
 	fMediumBlockSize	= blockSize;
 	fMediumBlockCount	= blockCount;
+	
+	maxBlocksRead	= ReportDeviceMaxBlocksReadTransfer ( );
+	maxBlocksWrite	= ReportDeviceMaxBlocksWriteTransfer ( );
+	
+	setProperty ( kIOMaximumBlockCountReadKey, maxBlocksRead, 64 );
+	setProperty ( kIOMaximumBlockCountWriteKey, maxBlocksWrite, 64 );
 	
 }
 
@@ -1908,6 +1931,7 @@ IOSCSIBlockCommandsDevice::SetMediumIcon ( void )
 	//
 	// We currently have icons for the following:
 	//	¥ Firewire HD
+	//	¥ Fibre Channel HD
 	//	¥ USB HD
 	//	¥ SuperDisk
 	//	¥ MagnetoOptical
@@ -1973,6 +1997,14 @@ IOSCSIBlockCommandsDevice::SetMediumIcon ( void )
 						{
 							
 							resourceFile = OSString::withCString ( kUSBHDIconKey );
+							
+						}
+						
+						// If the protocol is FibreChannel, it needs an icon.
+						if ( strcmp ( protocol, "Fibre Channel Interface" ) == 0 )
+						{
+							
+							resourceFile = OSString::withCString ( kFibreChannelHDIconKey );
 							
 						}
 						

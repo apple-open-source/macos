@@ -27,10 +27,10 @@
  *
  * Useful stuff called from several different FireWire objects.
  */
-#include <IOKit/assert.h>
-#include <IOKit/IOLib.h>
-#include <IOKit/firewire/IOFWRegs.h>
-#include <IOKit/firewire/IOFireWireFamilyCommon.h>
+#import <IOKit/assert.h>
+#import <IOKit/IOLib.h>
+#import <IOKit/firewire/IOFireWireFamilyCommon.h>
+#import "IOFWUtils.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -78,7 +78,7 @@ UInt16	FWComputeCRC16(const UInt32 *pQuads, UInt32 numQuads)
     return (crc16 & 0xFFFF);
 }
 
-static UInt32  AddFWCycleTimeToFWCycleTime( UInt32 cycleTime1, UInt32 cycleTime2 )
+UInt32  AddFWCycleTimeToFWCycleTime( UInt32 cycleTime1, UInt32 cycleTime2 )
 {
     UInt32    secondCount,
               cycleCount,
@@ -114,7 +114,7 @@ static UInt32  AddFWCycleTimeToFWCycleTime( UInt32 cycleTime1, UInt32 cycleTime2
     return (cycleTime);
 }
 
-static UInt32 SubtractFWCycleTimeFromFWCycleTime( UInt32 cycleTime1, UInt32 cycleTime2)
+UInt32 SubtractFWCycleTimeFromFWCycleTime( UInt32 cycleTime1, UInt32 cycleTime2)
 {
     SInt32 secondCount,
            cycleCount,

@@ -179,8 +179,15 @@ struct SubQTOCInfo
 {
 	
 	UInt8		sessionNumber;
+#if defined(__BIG_ENDIAN__)
 	UInt8		address:4;
 	UInt8		control:4;
+#elif defined(__LITTLE_ENDIAN__)
+	UInt8		control:4;
+	UInt8		address:4;
+#else
+#error Unknown byte order
+#endif /* __LITTLE_ENDIAN__ */
 	UInt8		tno;
 	UInt8		point;
 	UInt8		ATIP[3];

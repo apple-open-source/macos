@@ -182,6 +182,9 @@ checkfilesys(char * filesys)
 		repLev = kNeverRepair;
 		logLev = kFatalLog;
 	}
+	if (force) {
+		chkLev = kForceCheck;
+	}
 	if (preen) {
 		repLev = kMinorRepairs;
 		chkLev = force ? kAlwaysCheck : kDirtyCheck;

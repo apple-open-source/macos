@@ -95,6 +95,7 @@ protected:
 	Boolean					dallasSpeakersConnected;
 	DRCInfo					drc;										// dynamic range compression info
 	UInt32					layoutID;									// The ID of the machine we're running on
+	UInt32					familyID;									// The ID of the speakers that are plugged in (required for rom verification)
 	UInt32					speakerID;									// The ID of the speakers that are plugged in
 	GpioPtr					hwResetGpio;
 	GpioPtr					hdpnMuteGpio;
@@ -276,29 +277,59 @@ protected:
 	UInt32	 KLGetRegister(void *klRegister);
 	bool clockRun(bool start);
 
-	inline UInt32 ReadWordLittleEndian(void *address, UInt32 offset);
-	inline void WriteWordLittleEndian(void *address, UInt32 offset, UInt32 value);
-	inline void I2SSetSerialFormatReg(UInt32 value);
-	inline UInt32 I2SGetSerialFormatReg(void);
-	inline void I2SSetDataWordSizeReg(UInt32 value);
-	inline UInt32 I2SGetDataWordSizeReg(void);
-	inline UInt32 FCR1GetReg(void);
-	inline UInt32 FCR3GetReg(void);
+	inline UInt32	ReadWordLittleEndian(void *address, UInt32 offset);
+	inline void		WriteWordLittleEndian(void *address, UInt32 offset, UInt32 value);
 
-	inline UInt32 I2SGetIntCtlReg();
-	bool setSampleParameters(UInt32 sampleRate, UInt32 mclkToFsRatio);
-	void setSerialFormatRegister(ClockSource clockSource, UInt32 mclkDivisor, UInt32 sclkDivisor, SoundFormat serialFormat);
-	bool setHWSampleRate(UInt rate);
-	UInt32 frameRate(UInt32 index);
+	inline void		I2SSetSerialFormatReg(UInt32 value);
+	inline UInt32	I2SGetSerialFormatReg(void);
+	inline void		I2SSetDataWordSizeReg(UInt32 value);
+	inline UInt32	I2SGetDataWordSizeReg(void);
 
-	UInt8 *	getGPIOAddress (UInt32 gpioSelector);
-	void	GpioWriteByte( UInt8* gpioAddress, UInt8 data );
-	UInt8	GpioReadByte( UInt8* gpioAddress );
+	inline void		I2S1SetSerialFormatReg(UInt32 value);
+	inline UInt32	I2S1GetSerialFormatReg(void);
+	inline void		I2S1SetDataWordSizeReg(UInt32 value);
+	inline UInt32	I2S1GetDataWordSizeReg(void);
+
+	inline UInt32	FCR1GetReg(void);
+	inline void		Fcr1SetReg(UInt32 value);
+	inline UInt32	FCR3GetReg(void);
+	inline void		Fcr3SetReg(UInt32 value);
+
+	inline UInt32 	I2SGetIntCtlReg();
+	inline UInt32 	I2S1GetIntCtlReg();
+	
+	bool			setSampleParameters(UInt32 sampleRate, UInt32 mclkToFsRatio);
+	void			setSerialFormatRegister(ClockSource clockSource, UInt32 mclkDivisor, UInt32 sclkDivisor, SoundFormat serialFormat);
+	bool			setHWSampleRate(UInt rate);
+	UInt32			frameRate(UInt32 index);
+
+	UInt8 *			getGPIOAddress (UInt32 gpioSelector);
+	void			GpioWriteByte( UInt8* gpioAddress, UInt8 data );
+	UInt8			GpioReadByte( UInt8* gpioAddress );
 
 	// User Client calls
-	virtual UInt8	readGPIO (UInt32 selector);
-	virtual void	writeGPIO (UInt32 selector, UInt8 data);
-	virtual Boolean	getGPIOActiveState (UInt32 gpioSelector);
+	virtual UInt8		readGPIO (UInt32 selector);
+	virtual void		writeGPIO (UInt32 selector, UInt8 data);
+	virtual Boolean		getGPIOActiveState (UInt32 gpioSelector);
+	virtual void		setGPIOActiveState ( UInt32 selector, UInt8 gpioActiveState );
+	virtual Boolean		checkGpioAvailable ( UInt32 selector );
+	virtual IOReturn	readHWReg32 ( UInt32 selector, UInt32 * registerData );
+	virtual IOReturn	writeHWReg32 ( UInt32 selector, UInt32 registerData );
+	virtual IOReturn	readCodecReg ( UInt32 selector, void * registerData,  UInt32 * registerDataSize );
+	virtual IOReturn	writeCodecReg ( UInt32 selector, void * registerData );
+	virtual IOReturn	readSpkrID ( UInt32 selector, UInt32 * speakerIDPtr );
+	virtual IOReturn	getCodecRegSize ( UInt32 selector, UInt32 * codecRegSizePtr );
+	virtual	IOReturn	getVolumePRAM ( UInt32 * pramDataPtr );
+	virtual IOReturn	getDmaState ( UInt32 * dmaStatePtr );
+	virtual IOReturn	getStreamFormat ( IOAudioStreamFormat * streamFormatPtr );
+	virtual IOReturn	readPowerState ( UInt32 selector, IOAudioDevicePowerState * powerState );
+	virtual IOReturn	setPowerState ( UInt32 selector, IOAudioDevicePowerState powerState );
+	virtual IOReturn	setBiquadCoefficients ( UInt32 selector, void * biquadCoefficients, UInt32 coefficientSize );
+	virtual IOReturn	getBiquadInformation ( UInt32 scalarArg1, void * outStructPtr, IOByteCount * outStructSizePtr );
+	virtual IOReturn	getProcessingParameters ( UInt32 scalarArg1, void * outStructPtr, IOByteCount * outStructSizePtr );
+	virtual IOReturn	setProcessingParameters ( UInt32 scalarArg1, void * inStructPtr, UInt32 inStructSize );
+	virtual	IOReturn	invokeInternalFunction ( UInt32 functionSelector, void * inData );
+
 };
 
 #endif

@@ -36,7 +36,7 @@
 #define _IOKIT_IOFWISOCHPORT_H
 
 #include <libkern/c++/OSObject.h>
-#include <IOKit/firewire/IOFWRegs.h>
+#include <IOKit/firewire/IOFireWireFamilyCommon.h>
 
 class IOFWIsochPort : public OSObject
 {

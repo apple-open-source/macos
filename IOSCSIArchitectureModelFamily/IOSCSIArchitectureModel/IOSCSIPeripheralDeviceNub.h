@@ -54,8 +54,10 @@ enum
 
 // SCSI Architecture Model Family includes
 #include <IOKit/scsi-commands/IOSCSIProtocolServices.h>
-#include <IOKit/scsi-commands/SCSIPrimaryCommands.h>
 
+
+// Forward definitions for internal use only classes.
+class SCSIPrimaryCommands;
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //	Class Declarations
@@ -75,19 +77,18 @@ private:
 										bool *			matches );
 	
 	static void		TaskCallback ( SCSITaskIdentifier completedTask );
+
+protected:
+
 	SCSIServiceResponse SendTask ( SCSITask * request );
 	
-public:
-	
 	bool			InterrogateDevice ( void );										
-	
-protected:
-	
+
 	// Reserve space for future expansion.
 	struct IOSCSIPeripheralDeviceNubExpansionData { };
 	IOSCSIPeripheralDeviceNubExpansionData * fIOSCSIPeripheralDeviceNubReserved;
 	
-	IOSCSIProtocolServices *		fProvider;
+	IOSCSIProtocolInterface *		fProvider;
 	SCSIPrimaryCommands *			fSCSIPrimaryCommandObject;
 	UInt8							fDefaultInquiryCount;
 	

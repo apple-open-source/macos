@@ -1,0 +1,19 @@
+
+1.2.0: 
+	First release (as part of xinetd 1.3)
+
+1.3.2:
+	Added the string matching functions
+
+1.3.3: (posted to alt.sources)
+	Changed the way the library is configured
+
+1.4.0:
+	Added the shift-or string matching algorithm
+	Implemented the automatic switching to the proper search algorithm
+	Added the STRS_NOSWITCH flag to disallow switching
+	Added the STRS_PATLEN flag
+
+1.4.1:
+	Moved definition of u_wide_int from ss_rk.h to ss_impl.h
+

@@ -39,7 +39,7 @@ namespace IOFireWireLib {
 	class Cmd: public IOFireWireIUnknown
 	{		
 		public:
-			typedef ::FWUserCommandSubmitResult		SubmitResult ;
+//			typedef CommandSubmitResult		SubmitResult ;
 		
 		public:
 									Cmd(
@@ -51,42 +51,23 @@ namespace IOFireWireLib {
 											const bool 						inFailOnReset, 
 											const UInt32 					inGeneration, 
 											void* 							inRefCon,
-											FWUserCommandSubmitParams*		params ) ;
+											CommandSubmitParams*		params ) ;
 			virtual					~Cmd() ;
 			
-			virtual HRESULT 		QueryInterface(
-											REFIID 						iid, 
-											LPVOID* 					ppv) ;
-			virtual void			SetTarget(
-											const FWAddress&	addr) ;
-			virtual void			SetGeneration(
-											UInt32				generation) ;
-			virtual void			SetCallback(
-											CommandCallback		inCallback) ;
+			virtual HRESULT 		QueryInterface( REFIID iid, LPVOID* ppv ) ;
+			virtual void			SetTarget( const FWAddress&	addr) ;
+			virtual void			SetGeneration( UInt32 generation) ;
+			virtual void			SetCallback( CommandCallback callback ) ;
 			virtual IOReturn		Submit() = 0 ;
-			virtual IOReturn		Submit(
-											FWUserCommandSubmitParams*	params,
-											mach_msg_type_number_t		paramsSize,
-											SubmitResult*				ioResult,
-											mach_msg_type_number_t*		ioResultSize ) ;
-			virtual IOReturn		SubmitWithRefconAndCallback(
-											void*				refCon,
-											CommandCallback		inCallback) ;
-			virtual IOReturn		Cancel(
-											IOReturn			reason) ;
-			virtual void			SetBuffer(
-											UInt32				size,
-											void*				buf) ;
-			virtual void			GetBuffer(
-											UInt32*				outSize,
-											void**				outBuf) ;
-			virtual IOReturn		SetMaxPacket(
-											IOByteCount				inMaxBytes) ;
+			virtual IOReturn		Submit( CommandSubmitParams* params, mach_msg_type_number_t paramsSize,
+											CommandSubmitResult* ioResult, mach_msg_type_number_t* ioResultSize ) ;
+			virtual IOReturn		SubmitWithRefconAndCallback( void* refCon, CommandCallback inCallback ) ;
+			virtual IOReturn		Cancel( IOReturn reason) ;
+			virtual void			SetBuffer( UInt32 size, void* buf ) ;
+			virtual void			GetBuffer( UInt32* outSize, void** outBuf ) ;
+			virtual IOReturn		SetMaxPacket( IOByteCount maxBytes ) ;
 			virtual void			SetFlags( UInt32 inFlags ) ;
-			static void				CommandCompletionHandler(
-											void*				refcon,
-											IOReturn			result,
-											IOByteCount			bytesTransferred) ;									
+			static void				CommandCompletionHandler( void* refcon, IOReturn result, IOByteCount bytesTransferred ) ;									
 
 			// --- getters -----------------------
 			static IOReturn			SGetStatus(
@@ -149,7 +130,7 @@ namespace IOFireWireLib {
 			void*							mRefCon ;
 			CommandCallback	mCallback ;
 			
-			FWUserCommandSubmitParams* 		mParams ;
+			CommandSubmitParams* 		mParams ;
 	} ;
 
 #pragma mark -
@@ -407,6 +388,6 @@ namespace IOFireWireLib {
 		protected:
 			static Interface				sInterface ;
 			UInt8*							mParamsExtra ;
-			FWUserCompareSwapSubmitResult	mSubmitResult ;
+			CompareSwapSubmitResult			mSubmitResult ;
 	} ;
 }

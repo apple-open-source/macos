@@ -102,6 +102,9 @@ protected:
     float *							mInputGainLPtr;				
     float *							mInputGainRPtr;				
 
+	bool							dmaRunState;			//	rbm 7.12.02 added for user client support
+	IOAudioStreamFormat				dbdmaFormat;			//	rbm 7.15.02 added for user client support
+
     IOAudioStreamDirection			direction;
 
     virtual bool		filterInterrupt(int index);
@@ -157,6 +160,9 @@ public:
     virtual IOReturn 	convertInputSamples(const void *sampleBuf, void *destBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat, IOAudioStream *audioStream);
 
     virtual IOReturn	performFormatChange(IOAudioStream *audioStream, const IOAudioStreamFormat *newFormat, const IOAudioSampleRate *newSampleRate);
+	
+	virtual	bool		getDmaState (void );
+	virtual IOReturn	getAudioStreamFormat( IOAudioStreamFormat * streamFormatPtr );
     
     static const int kDBDMADeviceIndex;
     static const int kDBDMAOutputIndex;
