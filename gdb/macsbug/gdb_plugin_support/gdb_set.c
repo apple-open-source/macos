@@ -151,12 +151,13 @@ static Set_Info *set_list = NULL;		/* list of user defined set commands	*/
 		     
    The SET sfunct should have the following prototype:
    
-     void sfunct(char *theSetting, Gdb_Set_Type type, void *value, int show);
+     void sfunct(char *theSetting, Gdb_Set_Type type, void *value, int show, int confirm);
    
    where theSetting = the SET/SHOW setting being processed.
 	 type       = the type of the value described above.
 	 value      = pointer to the value whose form is a function of the type.
-	 show       = 0 if called for SET and 1 for SHOW. 
+	 show       = 0 if called for SET and 1 for SHOW.
+	 confirm    = 1 if SET/SHOW is entered from terminal and SET confirm on.
 	 
    The value is usually for convenience and of course unnecessary if you associate unique
    sfunct's with unique settings.  If you use an sfunct for more than one setting then
@@ -429,7 +430,8 @@ static void my_set(char *ignore, int from_tty, struct cmd_list_element *c)
 	  gdb_error("internal error: bad var_type");
     }
     
-    si->sfunct(c->name, si->type, value, (c->type == show_cmd));  /* call user sfunct	*/
+    si->sfunct(c->name,si->type,value,(c->type==show_cmd),	/* call user sfunct	*/
+    	       from_tty && input_from_terminal_p());
 }
 
 
@@ -508,7 +510,7 @@ static void my_set_hook(struct cmd_list_element *c)
 	return;
    
     __my_set_hook_guts(c, &type, &value);
-    users_generic_sfunc(c->name, type, value, 0);
+    users_generic_sfunc(c->name, type, value, 0, input_from_terminal_p());
 }
 
 /*--------------------------------------------------------------------------------------*/

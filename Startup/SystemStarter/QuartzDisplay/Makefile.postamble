@@ -1,5 +1,5 @@
-NEXTSTEP_PB_CFLAGS += -DkBootImagePath="\"$(SYSTEM_CORE_SERVICES_DIR)/SystemStarter/QuartzDisplay.bundle/Resources/$(BootPanelImage)\""
-
+NEXTSTEP_PB_CFLAGS += -DkBootImagePath="\"$(SYSTEM_CORE_SERVICES_DIR)/SystemStarter/QuartzDisplay.bundle/Resources/$(BootPanelImage)\""  -DkServerBootImagePath="\"$(SYSTEM_CORE_SERVICES_DIR)/SystemStarter/QuartzDisplay.bundle/Resources/$(ServerBootPanelImage)\""
+NEXTSTEP_PB_LDFLAGS += -bundle_loader $(NEXT_ROOT)/sbin/SystemStarter
 # We aren't really a CFBundle
 remove_info_file:
 	$(RM) -f $(INFO_FILE)

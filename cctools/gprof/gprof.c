@@ -86,6 +86,7 @@ char *a_outname = NULL;
  */
 char *gmonname = NULL;
 
+__private_extern__
 nltype	*nl = NULL;	/* the whole namelist */
 nltype	*npe = NULL;	/* the virtual end of the namelist */
 unsigned long nname = 0;/* the number of function names */

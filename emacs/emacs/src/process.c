@@ -1539,7 +1539,11 @@ create_process (process, new_argv, current_dir)
     current_dir = ENCODE_FILE (current_dir);
 
 #ifndef WINDOWSNT
+#ifndef PUMA_VFORK_ISSUES_CLEARED_UP
+    pid = fork ();
+#else
     pid = vfork ();
+#endif
     if (pid == 0)
 #endif /* not WINDOWSNT */
       {

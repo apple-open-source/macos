@@ -20,89 +20,92 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * Modification History
+ *
+ * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * - public API conversion
+ *
+ * June 20, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
 #include "configd.h"
 #include "session.h"
 
-SCDStatus
-_SCDTouch(SCDSessionRef session, CFStringRef key)
+int
+__SCDynamicStoreTouchValue(SCDynamicStoreRef store, CFStringRef key)
 {
-	SCDSessionPrivateRef	sessionPrivate = (SCDSessionPrivateRef)session;
-	SCDStatus		scd_status;
-	boolean_t		wasLocked;
-	SCDHandleRef		handle;
-	CFPropertyListRef	value;
+	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
+	int				sc_status;
+	Boolean				newValue	= FALSE;
+	CFPropertyListRef		value;
 
-	SCDLog(LOG_DEBUG, CFSTR("_SCDTouch:"));
-	SCDLog(LOG_DEBUG, CFSTR("  key = %@"), key);
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("__SCDynamicStoreTouchValue:"));
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  key = %@"), key);
 
-	if ((session == NULL) || (sessionPrivate->server == MACH_PORT_NULL)) {
-		return SCD_NOSESSION;		/* you can't do anything with a closed session */
+	if (!store || (storePrivate->server == MACH_PORT_NULL)) {
+		return kSCStatusNoStoreSession;	/* you must have an open session to play */
 	}
 
 	/*
-	 * 1. Determine if the cache lock is currently held by this session
-	 *    and acquire the lock if necessary.
+	 * 1. Ensure that we hold the lock.
 	 */
-	wasLocked = SCDOptionGet(NULL, kSCDOptionIsLocked);
-	if (!wasLocked) {
-		scd_status = _SCDLock(session);
-		if (scd_status != SCD_OK) {
-			SCDLog(LOG_DEBUG, CFSTR("  _SCDLock(): %s"), SCDError(scd_status));
-			return scd_status;
-		}
+	sc_status = __SCDynamicStoreLock(store, TRUE);
+	if (sc_status != kSCStatusOK) {
+		return sc_status;
 	}
 
 	/*
-	 * 2. Grab the current (or establish a new) cache entry for this key.
+	 * 2. Grab the current (or establish a new) store entry for this key.
 	 */
-	scd_status = _SCDGet(session, key, &handle);
-	switch (scd_status) {
-		case SCD_NOKEY :
-			/* cache entry does not exist, create */
-			handle = SCDHandleInit();
-			value  = CFDateCreate(NULL, CFAbsoluteTimeGetCurrent());
-			SCDLog(LOG_DEBUG, CFSTR("  new time stamp = %@"), value);
-			SCDHandleSetData(handle, value);
-			CFRelease(value);
+	sc_status = __SCDynamicStoreCopyValue(store, key, &value);
+	switch (sc_status) {
+		case kSCStatusNoKey :
+			/* store entry does not exist, create */
+			value    = CFDateCreate(NULL, CFAbsoluteTimeGetCurrent());
+			newValue = TRUE;
+			SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  new time stamp = %@"), value);
 			break;
 
-		case SCD_OK :
-			/* cache entry exists, update */
-			value = SCDHandleGetData(handle);
+		case kSCStatusOK :
+			/* store entry exists */
 			if (CFGetTypeID(value) == CFDateGetTypeID()) {
-				/* if value is a CFDate */
-				value = CFDateCreate(NULL, CFAbsoluteTimeGetCurrent());
-				SCDLog(LOG_DEBUG, CFSTR("  new time stamp = %@"), value);
-				SCDHandleSetData(handle, value);
+				/* the value is a CFDate, update the time stamp */
 				CFRelease(value);
+				value = CFDateCreate(NULL, CFAbsoluteTimeGetCurrent());
+				newValue = TRUE;
+				SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  new time stamp = %@"), value);
 			} /* else, we'll just save the data (again) to bump the instance */
 			break;
 
 		default :
-			SCDLog(LOG_DEBUG, CFSTR("  _SCDGet(): %s"), SCDError(scd_status));
+			SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  __SCDynamicStoreCopyValue(): %s"), SCErrorString(sc_status));
 			goto done;
 	}
 
-	scd_status = _SCDSet(session, key, handle);
-	SCDHandleRelease(handle);
+	sc_status = __SCDynamicStoreSetValue(store, key, value);
+
+	if (newValue) {
+		CFRelease(value);
+	}
 
     done :
 
 	/*
-	 * 8. Release the lock if we acquired it as part of this request.
+	 * 8. Release our lock.
 	 */
-	if (!wasLocked)
-		_SCDUnlock(session);
+	__SCDynamicStoreUnlock(store, TRUE);
 
-	return SCD_OK;
+	return kSCStatusOK;
 }
 
 
 kern_return_t
-_configtouch(mach_port_t 			server,
+_configtouch(mach_port_t 		server,
 	     xmlData_t			keyRef,		/* raw XML bytes */
 	     mach_msg_type_number_t	keyLen,
-	     int				*scd_status
+	     int			*sc_status
 )
 {
 	kern_return_t		status;
@@ -111,14 +114,14 @@ _configtouch(mach_port_t 			server,
 	CFStringRef		key;		/* key  (un-serialized) */
 	CFStringRef		xmlError;
 
-	SCDLog(LOG_DEBUG, CFSTR("Touch key in configuration database."));
-	SCDLog(LOG_DEBUG, CFSTR("  server = %d"), server);
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("Touch key in configuration database."));
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  server = %d"), server);
 
 	/* un-serialize the key */
 	xmlKey = CFDataCreate(NULL, keyRef, keyLen);
 	status = vm_deallocate(mach_task_self(), (vm_address_t)keyRef, keyLen);
 	if (status != KERN_SUCCESS) {
-		SCDLog(LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
+		SCLog(_configd_verbose, LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
 		/* non-fatal???, proceed */
 	}
 	key = CFPropertyListCreateFromXMLData(NULL,
@@ -126,13 +129,21 @@ _configtouch(mach_port_t 			server,
 					      kCFPropertyListImmutable,
 					      &xmlError);
 	CFRelease(xmlKey);
-	if (xmlError) {
-		SCDLog(LOG_DEBUG, CFSTR("CFPropertyListCreateFromXMLData() key: %s"), xmlError);
-		*scd_status = SCD_FAILED;
+	if (!key) {
+		if (xmlError) {
+			SCLog(_configd_verbose, LOG_DEBUG,
+			       CFSTR("CFPropertyListCreateFromXMLData() key: %@"),
+			       xmlError);
+			CFRelease(xmlError);
+		}
+		*sc_status = kSCStatusFailed;
+		return KERN_SUCCESS;
+	} else if (!isA_CFString(key)) {
+		*sc_status = kSCStatusInvalidArgument;
 		return KERN_SUCCESS;
 	}
 
-	*scd_status = _SCDTouch(mySession->session, key);
+	*sc_status = __SCDynamicStoreTouchValue(mySession->store, key);
 	CFRelease(key);
 
 	return KERN_SUCCESS;

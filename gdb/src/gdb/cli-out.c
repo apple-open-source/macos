@@ -22,6 +22,7 @@
 
 #include "defs.h"
 #include "value.h"
+#include "varobj.h"
 #include "wrapper.h"
 #include "ui-out.h"
 #include "cli-out.h"
@@ -382,7 +383,6 @@ cli_interpreter_display_prompt (void *data, char *new_prompt)
 int 
 cli_interpreter_exec (void *data, char *command_str)
 {
-  int ret_val;
 
   return safe_execute_command (command_str, 0);
 }
@@ -401,7 +401,7 @@ _initialize_cli_out (void)
 			   cli_interpreter_do_one_event,
 			   cli_interpreter_suspend,
 			   cli_interpreter_delete,
-			   NULL,
+			   cli_interpreter_exec,
 			   cli_interpreter_display_prompt);
 
   gdb_add_interpreter (cli_interp);

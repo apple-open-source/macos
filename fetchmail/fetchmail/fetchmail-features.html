@@ -10,7 +10,7 @@
 <table width="100%" cellpadding=0><tr>
 <td width="30%">Back to <a href="index.html">Fetchmail Home Page</a>
 <td width="30%" align=center>To <a href="/~esr/sitemap.html">Site Map</a>
-<td width="30%" align=right>$Date: 1999/09/23 17:21:41 $
+<td width="30%" align=right>$Date: 2001/08/10 16:06:56 $
 </table>
 <HR>
 
@@ -18,7 +18,74 @@
 
 <H2>Since 5.0:</H2>
 <UL>
-<LI>NTLM support, so fetchmail can query Microsoft Exchange servers.
+<LI>Has the capability of adding trace information to the Received header to
+faciliate mail filtering by mailserver and remote account.
+
+<LI>Fetchmail now has options to handle SSL certificate validation.
+
+<LI>Fetchmail now falls back to delivering via local MDA if it can't
+open port 25.
+
+<LI>Support for AUTH=CRAM-MD5 under POP3, a la RFC2195.
+
+<LI>Support for ODMR (On-Demand Mail Relay), RFC 2645 (untested).
+
+<LI>It's now easy to deliver mail to a local LMTP socket.
+
+<LI>The interface option now checks both local and remote interface IPs.
+
+<LI>
+The plugin facility has been enhanced; %h and %p options are now
+available to pass in the hostname and service port number.
+
+<LI>
+Added a dropdelivered option to discard Delivered-To headers. This
+addresses a problem with using fetchmail and postfix as a relay inside
+a domain; when postfix sees incoming messages with delivered-to
+headers looking exactly the same as the ones it adds himself, it
+bounces the message.
+
+<LI>
+Added --smtpname to set username and domain portion of SMTP "RCPT TO"
+command. &gt;fetchmail@mail.julianhaight.com&gt;.
+
+<LI>
+Added "from" server's IP address to inserted Received line
+&gt;fetchmail@mail.julianhaight.com&lt;.
+
+<LI>
+Fetchmail now runs on BeOS, thanks to David Reid &lt;david@jetnet.co.uk&gt;.
+
+<LI>
+In IMAP, unseen-message counting and indexing is now done by SEARCH
+UNSEEN at the beginning of each poll or re-poll (rather than with
+the UNSEEN and RECENT responses and FLAGS queries on individual
+messages). This significantly cuts down on traffic to and from the
+server, and gives more reliable results.
+
+<LI>
+The aka option now matches hostname suffixes, so (for example) saying
+`aka netaxs.com' will match not just netaxs.com but also (say)
+pop3.netaxs.com and mail.netaxs.com.
+
+<LI>
+Fetchmail can optionally use the RFC 2177 IDLE extension on an IMAP 
+server that supports it.
+
+<LI>
+Fetchmail now recognizes the RFC 2449 extended responses [IN-USE] and
+[LOGIN-DELAY].
+
+<LI>
+Fetchmail running in daemon mode now restarts itself quietly when the
+rc file is touched.
+
+<LI>Following recent court decisions and changes in U.S. federal
+regulatory policy, hooks for Secure Sockets Layer (SSL) are now part
+of the main fetchmail distribution.  The distribution still contains
+no actual cryptographic code.
+
+<LI>NTLM support under IMAP, so fetchmail can query Microsoft Exchange servers.
 
 <LI>Expunge option can now be used to break POP3 retrieval into subsessions. 
 
@@ -42,9 +109,11 @@
 <LI> The --limit option can now be used in daemon mode, with oversized-message
 notifications being mailed to the calling user.
 
-<LI> Configurable support for the 
-<a href="http://www.demon.net/services/mail/sdps-tech.html">SDPS extensions</a>
-in <a href="http://www.demon.net/">www.demon.net</a>'s POP3 service.
+<LI> 
+Configurable support for the <a
+href="http://www.demon.net/info/helpdesk/demon_products/mail/sdps-tech.shtml">SDPS
+extensions</a> in <a href="http://www.demon.net/">www.demon.net</a>'s
+POP3 service.
 
 <LI> There is now an interactive GUI fetchmail configurator, fetchmailconf.
 
@@ -60,7 +129,9 @@ suppressed).
 <LI> Support for IMAP-OTP authentication using Craig Metz's patches 
      for UW IMAP.
 
-<LI> Support for IPv6 and IPSEC (using Craig Metz's inet6-apps library).
+<LI> Support for IPv6 (using glibc or Craig Metz's inet6-apps library).
+
+<Li> Support for IPSEC (using Craig Metz's inet6-apps library).
 
 <LI> Support for IMAP with RFC1731-conformant GSSAPI authentication.
 
@@ -155,7 +226,7 @@ suppressed).
 <H2>Features in common with other remote-mail retrieval programs:</H2>
 
 The other programs I have checked include fetchpop1.9, PopTart-0.9.3,
-get-mail, gwpop, pimp-1.0, pop-perl5-1.2, popc, popmail-1.6 and upop.<P>
+get-mail, gwpop, pimp-1.0, pop-perl5-1.2, popc, popmail-1.6 and upop.
 
 <UL>
 <LI> Support for POP3.
@@ -177,7 +248,7 @@ get-mail, gwpop, pimp-1.0, pop-perl5-1.2, popc, popmail-1.6 and upop.<P>
 <table width="100%" cellpadding=0><tr>
 <td width="30%">Back to <a href="index.html">Fetchmail Home Page</a>
 <td width="30%" align=center>To <a href="/~esr/sitemap.html">Site Map</a>
-<td width="30%" align=right>$Date: 1999/09/23 17:21:41 $
+<td width="30%" align=right>$Date: 2001/08/10 16:06:56 $
 </table>
 
 <P><ADDRESS>Eric S. Raymond <A HREF="mailto:esr@thyrsus.com">&lt;esr@snark.thyrsus.com&gt;</A></ADDRESS>

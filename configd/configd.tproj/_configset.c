@@ -20,49 +20,51 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * Modification History
+ *
+ * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * - public API conversion
+ *
+ * March 24, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
 #include "configd.h"
 #include "session.h"
 
-SCDStatus
-_SCDSet(SCDSessionRef session, CFStringRef key, SCDHandleRef handle)
+int
+__SCDynamicStoreSetValue(SCDynamicStoreRef store, CFStringRef key, CFPropertyListRef value)
 {
-	SCDSessionPrivateRef	sessionPrivate = (SCDSessionPrivateRef)session;
-	SCDStatus		scd_status = SCD_OK;
-	boolean_t		wasLocked;
-	CFDictionaryRef		dict;
-	CFMutableDictionaryRef	newDict;
-	CFNumberRef		num;
-	int			dictInstance;
-	CFStringRef		sessionKey;
-	CFStringRef		cacheSessionKey;
+	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
+	int				sc_status	= kSCStatusOK;
+	CFDictionaryRef			dict;
+	CFMutableDictionaryRef		newDict;
+	Boolean				newEntry	= FALSE;
+	CFStringRef			sessionKey;
+	CFStringRef			storeSessionKey;
 
-	SCDLog(LOG_DEBUG, CFSTR("_SCDSet:"));
-	SCDLog(LOG_DEBUG, CFSTR("  key          = %@"), key);
-	SCDLog(LOG_DEBUG, CFSTR("  data         = %@"), SCDHandleGetData(handle));
-	SCDLog(LOG_DEBUG, CFSTR("  instance     = %d"), SCDHandleGetInstance(handle));
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("__SCDynamicStoreSetValue:"));
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  key          = %@"), key);
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  value        = %@"), value);
 
-	if ((session == NULL) || (sessionPrivate->server == MACH_PORT_NULL)) {
-		return SCD_NOSESSION;		/* you can't do anything with a closed session */
+	if (!store || (storePrivate->server == MACH_PORT_NULL)) {
+		return kSCStatusNoStoreSession;	/* you must have an open session to play */
 	}
 
 	/*
-	 * 1. Determine if the cache lock is currently held
-	 *    and acquire the lock if necessary.
+	 * 1. Ensure that we hold the lock.
 	 */
-	wasLocked = SCDOptionGet(NULL, kSCDOptionIsLocked);
-	if (!wasLocked) {
-		scd_status = _SCDLock(session);
-		if (scd_status != SCD_OK) {
-			SCDLog(LOG_DEBUG, CFSTR("  _SCDLock(): %s"), SCDError(scd_status));
-			return scd_status;
-		}
+	sc_status = __SCDynamicStoreLock(store, TRUE);
+	if (sc_status != kSCStatusOK) {
+		return sc_status;
 	}
 
 	/*
 	 * 2. Grab the current (or establish a new) dictionary for this key.
 	 */
 
-	dict = CFDictionaryGetValue(cacheData, key);
+	dict = CFDictionaryGetValue(storeData, key);
 	if (dict) {
 		newDict = CFDictionaryCreateMutableCopy(NULL,
 							0,
@@ -75,67 +77,40 @@ _SCDSet(SCDSessionRef session, CFStringRef key, SCDHandleRef handle)
 	}
 
 	/*
-	 * 3. Make sure that we're not updating the cache with potentially
-	 *    stale information.
+	 * 3. Update the dictionary entry to be saved to the store.
 	 */
-
-	if ((num = CFDictionaryGetValue(newDict, kSCDInstance)) == NULL) {
-		/* if first instance */
-		dictInstance = 0;
-		_SCDHandleSetInstance(handle, dictInstance);
-	} else {
-		(void) CFNumberGetValue(num, kCFNumberIntType, &dictInstance);
-	}
-	if (SCDHandleGetInstance(handle) != dictInstance) {
-		/* data may be based on old information */
-		CFRelease(newDict);
-		scd_status = SCD_STALE;
-		goto done;
-	}
+	newEntry = !CFDictionaryContainsKey(newDict, kSCDData);
+	CFDictionarySetValue(newDict, kSCDData, value);
 
 	/*
-	 * 4. Update the dictionary entry (data & instance) to be saved to
-	 *    the cache.
-	 */
-
-	CFDictionarySetValue(newDict, kSCDData, SCDHandleGetData(handle));
-
-	dictInstance++;
-	num = CFNumberCreate(NULL, kCFNumberIntType, &dictInstance);
-	CFDictionarySetValue(newDict, kSCDInstance, num);
-	CFRelease(num);
-	_SCDHandleSetInstance(handle, dictInstance);
-	SCDLog(LOG_DEBUG, CFSTR("  new instance = %d"), SCDHandleGetInstance(handle));
-
-	/*
-	 * 5. Since we are updating this key we need to check and, if
+	 * 4. Since we are updating this key we need to check and, if
 	 *    necessary, remove the indication that this key is on
 	 *    another session's remove-on-close list.
 	 */
-	sessionKey = CFStringCreateWithFormat(NULL, NULL, CFSTR("%d"), sessionPrivate->server);
-	if (CFDictionaryGetValueIfPresent(newDict, kSCDSession, (void *)&cacheSessionKey) &&
-	    !CFEqual(sessionKey, cacheSessionKey)) {
+	sessionKey = CFStringCreateWithFormat(NULL, NULL, CFSTR("%d"), storePrivate->server);
+	if (CFDictionaryGetValueIfPresent(newDict, kSCDSession, (void *)&storeSessionKey) &&
+	    !CFEqual(sessionKey, storeSessionKey)) {
 		CFStringRef	removedKey;
 
 		/* We are no longer a session key! */
 		CFDictionaryRemoveValue(newDict, kSCDSession);
 
 		/* add this session key to the (session) removal list */
-		removedKey = CFStringCreateWithFormat(NULL, 0, CFSTR("%@:%@"), cacheSessionKey, key);
+		removedKey = CFStringCreateWithFormat(NULL, 0, CFSTR("%@:%@"), storeSessionKey, key);
 		CFSetAddValue(removedSessionKeys, removedKey);
 		CFRelease(removedKey);
 	}
 	CFRelease(sessionKey);
 
 	/*
-	 * 6. Update the dictionary entry in the cache.
+	 * 5. Update the dictionary entry in the store.
 	 */
 
-	CFDictionarySetValue(cacheData, key, newDict);
+	CFDictionarySetValue(storeData, key, newDict);
 	CFRelease(newDict);
 
 	/*
-	 * 7. For "new" entries to the cache, check the deferred cleanup
+	 * 6. For "new" entries to the store, check the deferred cleanup
 	 *    list. If the key is flagged for removal, remove it from the
 	 *    list since any defined regex's for this key are still defined
 	 *    and valid. If the key is not flagged then iterate over the
@@ -144,7 +119,7 @@ _SCDSet(SCDSessionRef session, CFStringRef key, SCDHandleRef handle)
 	 *    being watched.
 	 */
 
-	if (dictInstance == 1) {
+	if (newEntry) {
 		if (CFSetContainsValue(deferredRemovals, key)) {
 			CFSetRemoveValue(deferredRemovals, key);
 		} else {
@@ -155,21 +130,18 @@ _SCDSet(SCDSessionRef session, CFStringRef key, SCDHandleRef handle)
 	}
 
 	/*
-	 * 8. Mark this key as "changed". Any "watchers" will be notified
+	 * 7. Mark this key as "changed". Any "watchers" will be notified
 	 *    as soon as the lock is released.
 	 */
 	CFSetAddValue(changedKeys, key);
 
 	/*
-	 * 9. Release the lock if we acquired it as part of this request.
+	 * 8. Release our lock.
 	 */
-    done:
-	if (!wasLocked)
-		_SCDUnlock(session);
+	__SCDynamicStoreUnlock(store, TRUE);
 
-	return scd_status;
+	return sc_status;
 }
-
 
 kern_return_t
 _configset(mach_port_t			server,
@@ -179,7 +151,7 @@ _configset(mach_port_t			server,
 	   mach_msg_type_number_t	dataLen,
 	   int				oldInstance,
 	   int				*newInstance,
-	   int				*scd_status
+	   int				*sc_status
 )
 {
 	kern_return_t		status;
@@ -188,17 +160,18 @@ _configset(mach_port_t			server,
 	CFStringRef		key;		/* key  (un-serialized) */
 	CFDataRef		xmlData;	/* data (XML serialized) */
 	CFPropertyListRef	data;		/* data (un-serialized) */
-	SCDHandleRef		handle;
 	CFStringRef		xmlError;
 
-	SCDLog(LOG_DEBUG, CFSTR("Set key to configuration database."));
-	SCDLog(LOG_DEBUG, CFSTR("  server = %d"), server);
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("Set key to configuration database."));
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  server = %d"), server);
+
+	*sc_status = kSCStatusOK;
 
 	/* un-serialize the key */
 	xmlKey = CFDataCreate(NULL, keyRef, keyLen);
 	status = vm_deallocate(mach_task_self(), (vm_address_t)keyRef, keyLen);
 	if (status != KERN_SUCCESS) {
-		SCDLog(LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
+		SCLog(_configd_verbose, LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
 		/* non-fatal???, proceed */
 	}
 	key = CFPropertyListCreateFromXMLData(NULL,
@@ -206,17 +179,23 @@ _configset(mach_port_t			server,
 					      kCFPropertyListImmutable,
 					      &xmlError);
 	CFRelease(xmlKey);
-	if (xmlError) {
-		SCDLog(LOG_DEBUG, CFSTR("CFPropertyListCreateFromXMLData() key: %s"), xmlError);
-		*scd_status = SCD_FAILED;
-		return KERN_SUCCESS;
+	if (!key) {
+		if (xmlError) {
+			SCLog(_configd_verbose, LOG_DEBUG,
+			       CFSTR("CFPropertyListCreateFromXMLData() key: %@"),
+			       xmlError);
+			CFRelease(xmlError);
+		}
+		*sc_status = kSCStatusFailed;
+	} else if (!isA_CFString(key)) {
+		*sc_status = kSCStatusInvalidArgument;
 	}
 
 	/* un-serialize the data */
 	xmlData = CFDataCreate(NULL, dataRef, dataLen);
 	status = vm_deallocate(mach_task_self(), (vm_address_t)dataRef, dataLen);
 	if (status != KERN_SUCCESS) {
-		SCDLog(LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
+		SCLog(_configd_verbose, LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
 		/* non-fatal???, proceed */
 	}
 	data = CFPropertyListCreateFromXMLData(NULL,
@@ -224,23 +203,239 @@ _configset(mach_port_t			server,
 					       kCFPropertyListImmutable,
 					       &xmlError);
 	CFRelease(xmlData);
-	if (xmlError) {
-		SCDLog(LOG_DEBUG, CFSTR("CFPropertyListCreateFromXMLData() data: %s"), xmlError);
-		CFRelease(key);
-		*scd_status = SCD_FAILED;
+	if (!data) {
+		if (xmlError) {
+			SCLog(_configd_verbose, LOG_DEBUG,
+			       CFSTR("CFPropertyListCreateFromXMLData() data: %@"),
+			       xmlError);
+			CFRelease(xmlError);
+		}
+		*sc_status = kSCStatusFailed;
+	} else if (!isA_CFPropertyList(data)) {
+		*sc_status = kSCStatusInvalidArgument;
+	}
+
+	if (*sc_status != kSCStatusOK) {
+		if (key)	CFRelease(key);
+		if (data)	CFRelease(data);
 		return KERN_SUCCESS;
 	}
 
-	handle = SCDHandleInit();
-	SCDHandleSetData(handle, data);
-	_SCDHandleSetInstance(handle, oldInstance);
-	*scd_status = _SCDSet(mySession->session, key, handle);
-	if (*scd_status == SCD_OK) {
-		*newInstance = SCDHandleGetInstance(handle);
-	}
-	SCDHandleRelease(handle);
+	*sc_status = __SCDynamicStoreSetValue(mySession->store, key, data);
+	*newInstance = 0;
+
 	CFRelease(key);
 	CFRelease(data);
+
+	return KERN_SUCCESS;
+}
+
+static void
+setSpecificKey(const void *key, const void *value, void *context)
+{
+	CFStringRef		k	= (CFStringRef)key;
+	CFPropertyListRef	v	= (CFPropertyListRef)value;
+	SCDynamicStoreRef	store	= (SCDynamicStoreRef)context;
+
+	if (!isA_CFString(k)) {
+		return;
+	}
+
+	if (!isA_CFPropertyList(v)) {
+		return;
+	}
+
+	(void) __SCDynamicStoreSetValue(store, k, v);
+
+	return;
+}
+
+static void
+removeSpecificKey(const void *value, void *context)
+{
+	CFStringRef		k	= (CFStringRef)value;
+	SCDynamicStoreRef	store	= (SCDynamicStoreRef)context;
+
+	if (!isA_CFString(k)) {
+		return;
+	}
+
+	(void) __SCDynamicStoreRemoveValue(store, k);
+
+	return;
+}
+
+static void
+notifySpecificKey(const void *value, void *context)
+{
+	CFStringRef		k	= (CFStringRef)value;
+	SCDynamicStoreRef	store	= (SCDynamicStoreRef)context;
+
+	if (!isA_CFString(k)) {
+		return;
+	}
+
+	(void) __SCDynamicStoreNotifyValue(store, k);
+
+	return;
+}
+
+kern_return_t
+_configset_m(mach_port_t		server,
+	     xmlData_t			dictRef,
+	     mach_msg_type_number_t	dictLen,
+	     xmlData_t			removeRef,
+	     mach_msg_type_number_t	removeLen,
+	     xmlData_t			notifyRef,
+	     mach_msg_type_number_t	notifyLen,
+	     int			*sc_status)
+{
+	kern_return_t		status;
+	serverSessionRef	mySession = getSession(server);
+	CFDictionaryRef		dict	= NULL;		/* key/value dictionary (un-serialized) */
+	CFArrayRef		remove	= NULL;		/* keys to remove (un-serialized) */
+	CFArrayRef		notify	= NULL;		/* keys to notify (un-serialized) */
+
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("Set key to configuration database."));
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  server = %d"), server);
+
+	*sc_status = kSCStatusOK;
+
+	if (dictRef && (dictLen > 0)) {
+		CFDataRef	xmlDict;	/* key/value dictionary (XML serialized) */
+		CFStringRef	xmlError;
+
+		/* un-serialize the key/value pairs to set */
+		xmlDict = CFDataCreate(NULL, dictRef, dictLen);
+		status = vm_deallocate(mach_task_self(), (vm_address_t)dictRef, dictLen);
+		if (status != KERN_SUCCESS) {
+			SCLog(_configd_verbose, LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
+			/* non-fatal???, proceed */
+		}
+		dict = CFPropertyListCreateFromXMLData(NULL,
+						       xmlDict,
+						       kCFPropertyListImmutable,
+						       &xmlError);
+		CFRelease(xmlDict);
+		if (!dict) {
+			if (xmlError) {
+				SCLog(_configd_verbose, LOG_DEBUG,
+				       CFSTR("CFPropertyListCreateFromXMLData() dict: %@"),
+				       xmlError);
+				CFRelease(xmlError);
+			}
+			*sc_status = kSCStatusFailed;
+		} else if (!isA_CFDictionary(dict)) {
+			*sc_status = kSCStatusInvalidArgument;
+		}
+	}
+
+	if (removeRef && (removeLen > 0)) {
+		CFDataRef	xmlRemove;	/* keys to remove (XML serialized) */
+		CFStringRef	xmlError;
+
+		/* un-serialize the keys to remove */
+		xmlRemove = CFDataCreate(NULL, removeRef, removeLen);
+		status = vm_deallocate(mach_task_self(), (vm_address_t)removeRef, removeLen);
+		if (status != KERN_SUCCESS) {
+			SCLog(_configd_verbose, LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
+			/* non-fatal???, proceed */
+		}
+		remove = CFPropertyListCreateFromXMLData(NULL,
+							 xmlRemove,
+							 kCFPropertyListImmutable,
+							 &xmlError);
+		CFRelease(xmlRemove);
+		if (!remove) {
+			if (xmlError) {
+				SCLog(_configd_verbose, LOG_DEBUG,
+				       CFSTR("CFPropertyListCreateFromXMLData() remove: %@"),
+				       xmlError);
+				CFRelease(xmlError);
+			}
+			*sc_status = kSCStatusFailed;
+		} else if (!isA_CFArray(remove)) {
+			*sc_status = kSCStatusInvalidArgument;
+		}
+	}
+
+	if (notifyRef && (notifyLen > 0)) {
+		CFDataRef	xmlNotify;	/* keys to notify (XML serialized) */
+		CFStringRef	xmlError;
+
+		/* un-serialize the keys to notify */
+		xmlNotify = CFDataCreate(NULL, notifyRef, notifyLen);
+		status = vm_deallocate(mach_task_self(), (vm_address_t)notifyRef, notifyLen);
+		if (status != KERN_SUCCESS) {
+			SCLog(_configd_verbose, LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
+			/* non-fatal???, proceed */
+		}
+		notify = CFPropertyListCreateFromXMLData(NULL,
+						       xmlNotify,
+						       kCFPropertyListImmutable,
+						       &xmlError);
+		CFRelease(xmlNotify);
+		if (!notify) {
+			if (xmlError) {
+				SCLog(_configd_verbose, LOG_DEBUG,
+				       CFSTR("CFPropertyListCreateFromXMLData() notify: %@"),
+				       xmlError);
+				CFRelease(xmlError);
+			}
+			*sc_status = kSCStatusFailed;
+		} else if (!isA_CFArray(notify)) {
+			*sc_status = kSCStatusInvalidArgument;
+		}
+	}
+
+	if (*sc_status != kSCStatusOK) {
+		goto done;
+	}
+
+	/*
+	 * Ensure that we hold the lock
+	 */
+	*sc_status = __SCDynamicStoreLock(mySession->store, TRUE);
+	if (*sc_status != kSCStatusOK) {
+		goto done;
+	}
+
+	/*
+	 * Set the new/updated keys
+	 */
+	if (dict) {
+		CFDictionaryApplyFunction(dict,
+					  setSpecificKey,
+					  (void *)mySession->store);
+	}
+
+	/*
+	 * Remove the specified keys
+	 */
+	if (remove) {
+		CFArrayApplyFunction(remove,
+				     CFRangeMake(0, CFArrayGetCount(remove)),
+				     removeSpecificKey,
+				     (void *)mySession->store);
+	}
+
+	/*
+	 * Notify the specified keys
+	 */
+	if (notify) {
+		CFArrayApplyFunction(notify,
+				     CFRangeMake(0, CFArrayGetCount(notify)),
+				     notifySpecificKey,
+				     (void *)mySession->store);
+	}
+
+	__SCDynamicStoreUnlock(mySession->store, TRUE);	/* Release our lock */
+
+    done :
+
+	if (dict)	CFRelease(dict);
+	if (remove)	CFRelease(remove);
+	if (notify)	CFRelease(notify);
 
 	return KERN_SUCCESS;
 }

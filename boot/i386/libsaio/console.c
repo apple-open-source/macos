@@ -46,7 +46,7 @@
 
 #include "libsaio.h"
 
-BOOL verbose_mode;
+BOOL gVerboseMode;
 BOOL errors;
 
 /*
@@ -105,7 +105,7 @@ int verbose(const char * fmt, ...)
 {
     va_list ap;
     
-    if (verbose_mode)
+    if (gVerboseMode)
     {
         va_start(ap, fmt);
         prf(fmt, ap, putchar, 0);

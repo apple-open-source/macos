@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/sh.dir.c,v 1.1.1.1 1999/04/23 01:59:54 wsanchez Exp $ */
+/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/sh.dir.c,v 1.1.1.2 2001/06/28 23:10:50 bbraun Exp $ */
 /*
  * sh.dir.c: Directory manipulation functions
  */
@@ -36,7 +36,7 @@
  */
 #include "sh.h"
 
-RCSID("$Id: sh.dir.c,v 1.1.1.1 1999/04/23 01:59:54 wsanchez Exp $")
+RCSID("$Id: sh.dir.c,v 1.1.1.2 2001/06/28 23:10:50 bbraun Exp $")
 
 /*
  * C Shell - directory management
@@ -493,7 +493,7 @@ dgoto(cp)
 
 	for (p = dcwd->di_name; *p++;)
 	    continue;
-	if ((cwdlen = p - dcwd->di_name - 1) == 1)	/* root */
+	if ((cwdlen = (int) (p - dcwd->di_name - 1)) == 1)	/* root */
 	    cwdlen = 0;
 	for (p = cp; *p++;)
 	    continue;
@@ -513,11 +513,11 @@ dgoto(cp)
     else
 	dp = cp;
 
-#ifdef WINNT
+#ifdef WINNT_NATIVE
     cp = SAVE(getcwd(NULL, 0));
-#else /* !WINNT */
+#else /* !WINNT_NATIVE */
     cp = dcanon(cp, dp);
-#endif /* WINNT */
+#endif /* WINNT_NATIVE */
     return cp;
 }
 
@@ -836,7 +836,7 @@ dcanon(cp, p)
 	Char    tmpdir[MAXPATHLEN];
 
 	p1 = varval(STRcwd);
-	if (p1 == STRNULL || ABSOLUTEP(p1))
+	if (p1 == STRNULL || !ABSOLUTEP(p1))
 	    abort();
 	if (Strlen(p1) + Strlen(cp) + 1 >= MAXPATHLEN)
 	    abort();
@@ -1268,7 +1268,8 @@ getstakd(s, cnt)
 		return (0);
 	}
     }
-    (void) Strcpy(s, dp->di_name);
+    (void) Strncpy(s, dp->di_name, BUFSIZE);
+    s[BUFSIZE - 1] = '\0';
     return (1);
 }
 

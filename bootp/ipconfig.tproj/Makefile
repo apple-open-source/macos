@@ -29,7 +29,6 @@ PROF_LIBS = $(LIBS)
 
 
 FRAMEWORK_PATHS = -F$(NEXT_ROOT)/System/Library/PrivateFrameworks
-NEXTSTEP_PB_CFLAGS = -I../bootplib
 FRAMEWORKS = -framework CoreFoundation -framework SystemConfiguration
 
 

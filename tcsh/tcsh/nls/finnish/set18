@@ -1,0 +1,4 @@
+$ $Id: set18,v 1.1.1.1 2001/06/28 23:11:07 bbraun Exp $
+$ sh.set.c
+$set 18 
+1 Varoitus: Kohtuuttoman pitkä hakupolku (PATH) katkaistu.\n

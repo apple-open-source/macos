@@ -1,61 +1,63 @@
 /* ====================================================================
- * Copyright (c) 1995-1999 The Apache Group.  All rights reserved.
+ * The Apache Software License, Version 1.1
+ *
+ * Copyright (c) 2000 The Apache Software Foundation.  All rights
+ * reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
  *
  * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer. 
+ *    notice, this list of conditions and the following disclaimer.
  *
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in
  *    the documentation and/or other materials provided with the
  *    distribution.
  *
- * 3. All advertising materials mentioning features or use of this
- *    software must display the following acknowledgment:
- *    "This product includes software developed by the Apache Group
- *    for use in the Apache HTTP server project (http://www.apache.org/)."
+ * 3. The end-user documentation included with the redistribution,
+ *    if any, must include the following acknowledgment:
+ *       "This product includes software developed by the
+ *        Apache Software Foundation (http://www.apache.org/)."
+ *    Alternately, this acknowledgment may appear in the software itself,
+ *    if and wherever such third-party acknowledgments normally appear.
  *
- * 4. The names "Apache Server" and "Apache Group" must not be used to
- *    endorse or promote products derived from this software without
- *    prior written permission. For written permission, please contact
- *    apache@apache.org.
+ * 4. The names "Apache" and "Apache Software Foundation" must
+ *    not be used to endorse or promote products derived from this
+ *    software without prior written permission. For written
+ *    permission, please contact apache@apache.org.
  *
- * 5. Products derived from this software may not be called "Apache"
- *    nor may "Apache" appear in their names without prior written
- *    permission of the Apache Group.
+ * 5. Products derived from this software may not be called "Apache",
+ *    nor may "Apache" appear in their name, without prior written
+ *    permission of the Apache Software Foundation.
  *
- * 6. Redistributions of any form whatsoever must retain the following
- *    acknowledgment:
- *    "This product includes software developed by the Apache Group
- *    for use in the Apache HTTP server project (http://www.apache.org/)."
- *
- * THIS SOFTWARE IS PROVIDED BY THE APACHE GROUP ``AS IS'' AND ANY
- * EXPRESSED OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE APACHE GROUP OR
+ * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESSED OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+ * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED.  IN NO EVENT SHALL THE APACHE SOFTWARE FOUNDATION OR
  * ITS CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
- * NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
- * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
- * OF THE POSSIBILITY OF SUCH DAMAGE.
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
+ * USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
+ * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
  * ====================================================================
  *
  * This software consists of voluntary contributions made by many
- * individuals on behalf of the Apache Group and was originally based
- * on public domain software written at the National Center for
- * Supercomputing Applications, University of Illinois, Urbana-Champaign.
- * For more information on the Apache Group and the Apache HTTP server
- * project, please see <http://www.apache.org/>.
+ * individuals on behalf of the Apache Software Foundation.  For more
+ * information on the Apache Software Foundation, please see
+ * <http://www.apache.org/>.
  *
+ * Portions of this software are based upon public domain software
+ * originally written at the National Center for Supercomputing Applications,
+ * University of Illinois, Urbana-Champaign.
  */
 
 #define CORE_PRIVATE
+#define ADD_EBCDICCONVERT_DEBUG_HEADER 0
 #include "httpd.h"
 #include "http_config.h"
 #include "http_core.h"
@@ -156,6 +158,17 @@ static void *create_core_dir_config(pool *a, char *dir)
 
     conf->add_default_charset = ADD_DEFAULT_CHARSET_UNSET;
     conf->add_default_charset_name = DEFAULT_ADD_DEFAULT_CHARSET_NAME;
+
+#ifdef CHARSET_EBCDIC
+    conf->ebcdicconversion_by_ext_in = ap_make_table(a, 4);
+    conf->ebcdicconversion_by_ext_out = ap_make_table(a, 4);
+    conf->ebcdicconversion_by_type_in = ap_make_table(a, 4);
+    conf->ebcdicconversion_by_type_out = ap_make_table(a, 4);
+    conf->x_ascii_magic_kludge = 0;
+#if ADD_EBCDICCONVERT_DEBUG_HEADER
+    conf->ebcdicconversion_debug_header = 0;
+#endif
+#endif /* CHARSET_EBCDIC */
 
     return (void *)conf;
 }
@@ -290,6 +303,21 @@ static void *merge_core_dir_configs(pool *a, void *basev, void *newv)
 	    conf->add_default_charset_name = new->add_default_charset_name;
 	}
     }
+
+#ifdef CHARSET_EBCDIC
+    conf->ebcdicconversion_by_ext_in = ap_overlay_tables(a, new->ebcdicconversion_by_ext_in,
+                                               base->ebcdicconversion_by_ext_in);
+    conf->ebcdicconversion_by_ext_out = ap_overlay_tables(a, new->ebcdicconversion_by_ext_out,
+                                               base->ebcdicconversion_by_ext_out);
+    conf->ebcdicconversion_by_type_in = ap_overlay_tables(a, new->ebcdicconversion_by_type_in,
+                                                base->ebcdicconversion_by_type_in);
+    conf->ebcdicconversion_by_type_out = ap_overlay_tables(a, new->ebcdicconversion_by_type_out,
+                                                base->ebcdicconversion_by_type_out);
+    conf->x_ascii_magic_kludge = new->x_ascii_magic_kludge ? new->x_ascii_magic_kludge : base->x_ascii_magic_kludge;
+#if ADD_EBCDICCONVERT_DEBUG_HEADER
+    conf->ebcdicconversion_debug_header = new->ebcdicconversion_debug_header ? new->ebcdicconversion_debug_header : base->ebcdicconversion_debug_header;
+#endif
+#endif /* CHARSET_EBCDIC */
 
     return (void*)conf;
 }
@@ -844,25 +872,36 @@ static char* get_interpreter_from_win32_registry(pool *p, const char* ext)
         return NULL;
 
     /*
+     * The command entry may contain embedded %envvar% entries,
+     * e.g. %winsysdir%\somecommand.exe %1
+     *
+     * Resolve them here
+     */
+    size = ExpandEnvironmentStrings(buffer, NULL, 0);
+    if (size) {
+        s = ap_palloc(p, size);
+        if (ExpandEnvironmentStrings(buffer, s, size))
+            buffer = s;
+    }
+
+    /*
      * The canonical way shell command entries are entered in the Win32 
      * registry is as follows:
-     *   shell [options] "%1"
+     *   shell [options] "%1" [options] [%*]
      * where
      *   shell - full path name to interpreter or shell to run.
      *           E.g., c:\usr\local\ntreskit\perl\bin\perl.exe
      *   options - optional switches
-     *              E.g., \C
+     *              E.g., /C or -w
      *   "%1" - Place holder for file to run the shell against. 
-     *          Typically quoted.
+     *          Quoted for if long path names are accepted.
+     *          Not quoted if only short paths are acceptd
      *
-     * If we find a %1 or a quoted %1, lop it off. 
+     *   %* - additional arguments
+     *
+     * Effective in v. 1.3.15, the responsibility is the consumer's
+     * to make these substitutions.
      */
-    if (buffer && *buffer) {
-        if ((s = strstr(buffer, "\"%1")))
-            *s = '\0';
-        else if ((s = strstr(buffer, "%1"))) 
-            *s = '\0';
-    }
 
     return buffer;
 }
@@ -896,8 +935,29 @@ API_EXPORT (file_type_e) ap_get_win32_interpreter(const  request_rec *r,
     }
     ext = strrchr(exename, '.');
 
-    if (ext && (!strcasecmp(ext,".bat") || !strcasecmp(ext,".cmd"))) {
-        return eFileTypeEXE32;
+    if (ext && (!strcasecmp(ext,".bat") || !strcasecmp(ext,".cmd")) &&
+        d->script_interpreter_source != INTERPRETER_SOURCE_REGISTRY) 
+    {
+        /* The registry does these for us unless INTERPRETER_SOURCE_REGISTRY
+         * was not enabled.
+         */
+        char *p, *shellcmd = getenv("COMSPEC");
+        if (!shellcmd)
+            shellcmd = SHELL_PATH;
+        p = strchr(shellcmd, '\0');
+        if ((p - shellcmd >= 11) && !strcasecmp(p - 11, "command.com")) 
+        {
+            /* Command.com doesn't like long paths, doesn't do .cmd
+             */
+            if (!strcasecmp(ext,".cmd"))
+                return eFileTypeUNKNOWN;
+            *interpreter = ap_pstrcat(r->pool, "\"", shellcmd, "\" /C %1", NULL);
+        }
+        else
+            /* Assume any other likes long paths, and knows .cmd
+             */
+            *interpreter = ap_pstrcat(r->pool, "\"", shellcmd, "\" /C \"%1\"", NULL);
+        return eFileTypeSCRIPT;
     }
 
     /* If the file has an extension and it is not .com and not .exe and
@@ -2046,6 +2106,9 @@ static const char *set_server_root(cmd_parms *cmd, void *dummy, char *arg)
     if (!ap_is_directory(arg)) {
         return "ServerRoot must be a valid directory";
     }
+    /* ServerRoot is never '/' terminated */
+    while (strlen(ap_server_root) > 1 && ap_server_root[strlen(ap_server_root)-1] == '/')
+        ap_server_root[strlen(ap_server_root)-1] = '\0';
     ap_cpystrn(ap_server_root, arg,
 	       sizeof(ap_server_root));
     return NULL;
@@ -2777,6 +2840,123 @@ static const char *set_interpreter_source(cmd_parms *cmd, core_dir_config *d,
 }
 #endif
 
+
+#ifdef CHARSET_EBCDIC
+
+typedef struct {
+  char conv_out[2];
+  char conv_in[2];
+} parsed_conf_t;
+
+/* Check for conversion syntax:  { On | Off } [ = { In | Out | InOut } ] */
+static parsed_conf_t *
+parse_on_off_in_out(pool *p, char *arg)
+{
+    static parsed_conf_t ret = { { conv_Unset, '\0' }, { conv_Unset, '\0' } };
+    char *onoff = ap_getword_nc(p, &arg, '=');
+    int in = 0, out = 0, inout = 0;
+    char conv_val;
+
+    /* Check for valid syntax:  { On | Off } [ = { In | Out | InOut } ] */
+    if (strcasecmp(onoff, "On") == 0)
+        conv_val = conv_On;
+    else if (strcasecmp(onoff, "Off") == 0)
+        conv_val = conv_Off;
+    else
+        return NULL;
+
+    /* Check the syntax, and at the same time assign the test results */
+    if (!(inout = (*arg == '\0')) &&
+        !(in = (strcasecmp(arg, "In") == 0)) &&
+        !(out = (strcasecmp(arg, "Out") == 0)) &&
+        !(inout = (strcasecmp(arg, "InOut") == 0))) {
+        /* Invalid string, not conforming to syntax! */
+        return NULL;
+    }
+
+    ret.conv_in[0]  = (in || inout)  ? conv_val : conv_Unset;
+    ret.conv_out[0] = (out || inout) ? conv_val : conv_Unset;
+
+    return &ret;
+}
+
+
+/* Handle the EBCDICConvert directive:
+ *   EBCDICConvert {On|Off}[={In|Out|InOut}] ext ...
+ */
+static const char *
+add_conversion_by_ext(cmd_parms *cmd, core_dir_config *m,
+		      char *onoff, char *ext)
+{
+    parsed_conf_t *onoff_code = parse_on_off_in_out(cmd->pool, onoff);
+
+    if (onoff_code == NULL)
+        return "Invalid syntax: use EBCDICConvert {On|Off}[={In|Out|InOut}] ext [...]";
+
+    if (*ext == '.')
+        ++ext;
+
+    if (*onoff_code->conv_in != conv_Unset)
+	ap_table_addn(m->ebcdicconversion_by_ext_in, ext,
+		      ap_pstrndup(cmd->pool, onoff_code->conv_in, 1));
+    if (*onoff_code->conv_out != conv_Unset)
+	ap_table_addn(m->ebcdicconversion_by_ext_out, ext,
+		      ap_pstrndup(cmd->pool, onoff_code->conv_out, 1));
+
+    return NULL;
+}
+
+
+/* Handle the EBCDICConvertByType directive:
+ *   EBCDICConvertByType {On|Off}[={In|Out|InOut}] mimetype ...
+ */
+static const char *
+add_conversion_by_type(cmd_parms *cmd, core_dir_config *m,
+		       char *onoff, char *type)
+{
+    parsed_conf_t *onoff_code = parse_on_off_in_out(cmd->pool, onoff);
+
+    if (onoff_code == NULL)
+        return "Invalid syntax: use EBCDICConvertByType {On|Off}[={In|Out|InOut}] mimetype [...]";
+
+    if (*onoff_code->conv_in != conv_Unset)
+	ap_table_addn(m->ebcdicconversion_by_type_in, type,
+		      ap_pstrndup(cmd->pool, onoff_code->conv_in, 1));
+    if (*onoff_code->conv_out != conv_Unset)
+	ap_table_addn(m->ebcdicconversion_by_type_out, type,
+		      ap_pstrndup(cmd->pool, onoff_code->conv_out, 1));
+
+    return NULL;
+}
+
+
+/* Handle the EBCDICKludge directive:
+ *   EBCDICKludge {On|Off}
+ */
+#ifdef LEGACY_KLUDGE
+static const char *
+set_x_ascii_kludge(cmd_parms *cmd, core_dir_config *m, int arg)
+{
+    m->x_ascii_magic_kludge = arg;
+
+    return NULL;
+}
+#endif
+
+#if ADD_EBCDICCONVERT_DEBUG_HEADER
+/* Handle the EBCDICDebugHeader directive:
+ *   EBCDICDebugHeader {On|Off}
+ */
+static const char *
+set_debug_header(cmd_parms *cmd, core_dir_config *m, int arg)
+{
+    m->ebcdicconversion_debug_header = arg;
+
+    return NULL;
+}
+#endif
+#endif /* CHARSET_EBCDIC */
+
 /* Note --- ErrorDocument will now work from .htaccess files.  
  * The AllowOverride of Fileinfo allows webmasters to turn it off
  */
@@ -2993,10 +3173,10 @@ static const command_rec core_cmds[] = {
 #endif
 #ifdef WIN32
 { "ScriptInterpreterSource", set_interpreter_source, NULL, OR_FILEINFO, TAKE1,
-  "Where to find interpreter to run Win32 scripts (Registry or script shebang line)" },
+  "Where to find interpreter to run Win32 scripts - Registry or Script (shebang line)" },
 #endif
 { "ServerTokens", set_serv_tokens, NULL, RSRC_CONF, TAKE1,
-  "Determine tokens displayed in the Server: header - Min(imal), OS or Full" },
+  "Tokens displayed in the Server: header - Min[imal], OS, Prod[uctOnly], Full" },
 { "LimitRequestLine", set_limit_req_line, NULL, RSRC_CONF, TAKE1,
   "Limit on maximum size of an HTTP request line"},
 { "LimitRequestFieldsize", set_limit_req_fieldsize, NULL, RSRC_CONF, TAKE1,
@@ -3007,6 +3187,23 @@ static const command_rec core_cmds[] = {
   (void*)XtOffsetOf(core_dir_config, limit_req_body),
   OR_ALL, TAKE1,
   "Limit (in bytes) on maximum size of request message body" },
+
+/* EBCDIC Conversion directives: */
+#ifdef CHARSET_EBCDIC
+{ "EBCDICConvert", add_conversion_by_ext, NULL, OR_FILEINFO, ITERATE2,
+    "{On|Off}[={In|Out|InOut}] followed by one or more file extensions" },
+{ "EBCDICConvertByType", add_conversion_by_type, NULL, OR_FILEINFO, ITERATE2,
+    "{On|Off}[={In|Out|InOut}] followed by one or more MIME types" },
+#ifdef LEGACY_KLUDGE
+{ "EBCDICKludge", set_x_ascii_kludge, NULL, OR_FILEINFO, FLAG,
+    "'On': enable or default='Off': disable the old text/x-ascii-mimetype kludge" },
+#endif
+#if ADD_EBCDICCONVERT_DEBUG_HEADER
+{ "EBCDICDebugHeader", set_debug_header, NULL, OR_FILEINFO, FLAG,
+    "'On': enable or default='Off': disable the EBCDIC Debugging MIME Header" },
+#endif
+#endif /* CHARSET_EBCDIC */
+
 { NULL }
 };
 
@@ -3059,6 +3256,259 @@ static int core_translate(request_rec *r)
 
 static int do_nothing(request_rec *r) { return OK; }
 
+#ifdef CHARSET_EBCDIC
+struct do_mime_match_parms {
+    request_rec *request;     /* [In] current request_rec */
+    int direction;            /* [In] determine conversion for: dir_In|dir_Out */
+    const char *content_type; /* [In] Content-Type (dir_In: from MIME Header, else r->content_type) */
+    int match_found;          /* [Out] nonzero if a match was found */
+    int conv;                 /* [Out] conversion setting if match was found */
+};
+
+
+/* This routine is called for each mime type configured by the
+ * EBCDICConvertByType directive.
+ */
+static int
+do_mime_match(void *rec, const char *key, const char *val)
+{
+    int conv = (val[0] == conv_On);
+    const char *content_type;
+#if ADD_EBCDICCONVERT_DEBUG_HEADER
+    request_rec *r = ((struct do_mime_match_parms *) rec)->request;
+#endif
+
+    ((struct do_mime_match_parms *) rec)->match_found = 0;
+    ((struct do_mime_match_parms *) rec)->conv = conv_Unset;
+
+    content_type = ((struct do_mime_match_parms *) rec)->content_type;
+
+    /* If no type set: no need to continue */
+    if (content_type == NULL)
+        return 0;
+
+    /* If the MIME type matches, set the conversion flag appropriately */
+    if ((ap_is_matchexp(key) && ap_strcasecmp_match(content_type, key) == 0)
+        || (strcasecmp(key, content_type) == 0)) {
+
+        ((struct do_mime_match_parms *) rec)->match_found = 1;
+        ((struct do_mime_match_parms *) rec)->conv = conv;
+
+#if ADD_EBCDICCONVERT_DEBUG_HEADER
+	ap_table_setn(r->headers_out,
+               ((((struct do_mime_match_parms *) rec)->direction) == dir_In)
+		      ? "X-EBCDIC-Debug-In" : "X-EBCDIC-Debug-Out",
+                       ap_psprintf(r->pool, "EBCDICConversionByType %s %s",
+                                   conv ? "On" : "Off",
+                                   key));
+#endif
+
+        /* the mime type scan stops at the first  match. */
+        return 0;
+    }
+
+    return 1;
+}
+
+static void
+ap_checkconv_dir(request_rec *r, const char **pType, int dir)
+{
+    core_dir_config *conf =
+    (core_dir_config *) ap_get_module_config(r->per_dir_config, &core_module);
+    table *conv_by_ext, *conv_by_type;
+    const char *type, *conversion;
+    char *ext;
+    int conv_valid = 0, conv;
+
+    conv_by_ext  = (dir == dir_In) ? conf->ebcdicconversion_by_ext_in  : conf->ebcdicconversion_by_ext_out;
+    conv_by_type = (dir == dir_In) ? conf->ebcdicconversion_by_type_in : conf->ebcdicconversion_by_type_out;
+
+    type = (*pType == NULL) ? ap_default_type(r) : *pType;
+
+    /* Pseudo "loop" which is executed once only, with break's at individual steps */
+    do {
+        /* Step 0: directories result in redirections or in directory listings.
+	 * Both are EBCDIC text documents.
+	 * @@@ Should we check for the handler instead?
+	 */
+        if (S_ISDIR(r->finfo.st_mode) && dir == dir_Out) {
+            conv = conv_valid = 1;
+            break;
+        }
+
+        /* 1st step: check the binding on file extension. This allows us to
+         * override the conversion default based on a specific name.
+         * For instance, the following would allow some HTML files
+         * to be converted (.html) and others passed unconverted (.ahtml):
+         *     AddType text/html .html .ahtml
+         *     EBCDICConvert Off .ahtml
+         * For uploads, this assumes that the destination file name
+	 * has the correct extension. That may not be true for, e.g.,
+	 * Netscape Communicator roaming profile uploads!
+         */
+        if (r->filename && !ap_is_empty_table(conv_by_ext)) {
+            const char *fn = strrchr(r->filename, '/');
+
+            if (fn == NULL)
+                fn = r->filename;
+
+            /* Parse filename extension */
+            if ((ext = strrchr(fn, '.')) != NULL) {
+                ++ext;
+
+                /* Check for Content-Type */
+                if ((conversion = ap_table_get(conv_by_ext, ext)) != NULL) {
+
+#if ADD_EBCDICCONVERT_DEBUG_HEADER
+		    if (conf->ebcdicconversion_debug_header)
+		        ap_table_setn(r->headers_out,
+				      (dir == dir_In) ? "X-EBCDIC-Debug-In" : "X-EBCDIC-Debug-Out",
+				      ap_psprintf(r->pool, "EBCDICConversion %s .%s",
+						  (conversion[0] == conv_On) ? "On" : "Off",
+						  ext));
+#endif
+
+                    conv = (conversion[0] == conv_On);
+                    conv_valid = 1;
+                    break;
+                }
+            }
+        }
+
+
+        /* 2nd step: test for the old "legacy kludge", that is, a default
+         * conversion=on for text/?* message/?* multipart/?* and the possibility
+         * to override the text/?* conversion with a definition like
+         *    AddType text/x-ascii-plain .atxt
+         *    AddType text/x-ascii-html  .ahtml
+         * where the "x-ascii-" would be removed and the conversion switched
+         * off.
+         * This step must be performed prior to testing wildcard MIME types
+         * like text/?* by the EBCDICConvertByType directive.
+         */
+#ifdef LEGACY_KLUDGE
+        /* This fallback is only used when enabled (default=off) */
+        if (conf->x_ascii_magic_kludge) {
+            char *magic;
+
+            /* If the mime type of a document is set to
+             * "text/x-ascii-anything", it gets changed to
+             * "text/anything" here and the conversion is forced to off
+             * ("binary" or ASCII documents).
+             */
+            if (*pType != NULL
+                && (magic = strstr(*pType, "/x-ascii-")) != NULL) {
+
+#if ADD_EBCDICCONVERT_DEBUG_HEADER
+		if (conf->ebcdicconversion_debug_header)
+		    ap_table_setn(r->headers_out,
+				  (dir == dir_In) ? "X-EBCDIC-Debug-In" : "X-EBCDIC-Debug-Out",
+				  ap_psprintf(r->pool, "EBCDICKludge On (and type is: %s, thus no conversion)",
+					      *pType));
+#endif
+
+                /* the mime type scan stops at the first  match. */
+                magic[1] = '\0';        /* overwrite 'x' */
+
+                /* Fix MIME type: strip out the magic "x-ascii-" substring */
+                *pType = ap_pstrcat(r->pool, *pType, &magic[9], NULL);
+
+                magic[1] = 'x'; /* restore 'x' in old string (just in case) */
+
+                /* Switch conversion to BINARY */
+                conv = 0;       /* do NOT convert this document */
+                conv_valid = 1;
+                break;
+            }
+        }
+#endif /*LEGACY_KLUDGE */
+
+
+        /* 3rd step: check whether a generic conversion was defined for a MIME type,
+         * like in
+         *    EBCDICConvertByType  On  model/vrml application/postscript text/?*
+         */
+        if (!ap_is_empty_table(conv_by_type)) {
+            struct do_mime_match_parms do_par;
+
+            do_par.request = r;
+            do_par.direction = dir;
+	    do_par.content_type = type;
+
+            ap_table_do(do_mime_match, (void *) &do_par, conv_by_type, NULL);
+
+            if ((conv_valid = do_par.match_found) != 0) {
+                conv = do_par.conv;
+                break;
+            }
+        }
+        else /* If no conversion by type was configured, use the default: */
+        {
+            /*
+             * As a final step, mime types starting with "text/", "message/" or
+             * "multipart/" imply a conversion, while all the rest is
+             * delivered unconverted (i.e., binary, e.g. application/octet-stream).
+             */
+
+            /* If no content type is set then treat it as text (conversion=on) */
+            conv =
+                (type == NULL) ||
+                (strncasecmp(type, "text/", 5) == 0) ||
+                (strncasecmp(type, "message/", 8) == 0) ||
+                (strncasecmp(type, "multipart/", 10) == 0) ||
+                (strcasecmp(type, "application/x-www-form-urlencoded") == 0);
+
+#if ADD_EBCDICCONVERT_DEBUG_HEADER
+		if (conf->ebcdicconversion_debug_header)
+		    ap_table_setn(r->headers_out,
+				  (dir == dir_In) ? "X-EBCDIC-Debug-In" : "X-EBCDIC-Debug-Out",
+				  ap_psprintf(r->pool,
+					      "No EBCDICConversion configured (and type is: %s, "
+					      "=> guessed conversion = %s)",
+					      type, conv ? "On" : "Off"));
+#endif
+            conv_valid = 1;
+            break;
+        }
+    } while (0);
+
+    if (conv_valid) {
+        if (dir == dir_In)
+            r->ebcdic.conv_in = conv;
+        else
+            r->ebcdic.conv_out = conv;
+    }
+}
+
+/* This function determines the conversion for uploads (PUT/POST): */
+API_EXPORT(int)
+ap_checkconv_in(request_rec *r)
+{
+    const char *typep;
+
+    /* If nothing is being sent as input anyway, we don't bother about conversion */
+    /* (see ap_should_client_block())*/
+    if (r->read_length || (!r->read_chunked && (r->remaining <= 0)))
+        return r->ebcdic.conv_in;
+
+    typep = ap_table_get(r->headers_in, "Content-Type");
+    ap_checkconv_dir(r, &typep, dir_In);
+
+    return r->ebcdic.conv_in;
+}
+
+
+/* Backward compatibility function */
+API_EXPORT(int)
+ap_checkconv(request_rec *r)
+{
+    ap_checkconv_dir(r, &r->content_type, dir_Out);
+    return r->ebcdic.conv_out;
+}
+
+#endif /* CHARSET_EBCDIC */
+
+
 #ifdef USE_MMAP_FILES
 struct mmap_rec {
     void *mm;
@@ -3093,9 +3543,6 @@ static int default_handler(request_rec *r)
     FILE *f;
 #ifdef USE_MMAP_FILES
     caddr_t mm;
-#endif
-#ifdef CHARSET_EBCDIC
-    int convert_flag;
 #endif
 
     /* This handler has no use for a request body (yet), but we still
@@ -3152,19 +3599,6 @@ static int default_handler(request_rec *r)
         return errstatus;
     }
 
-#ifdef CHARSET_EBCDIC
-    /* To make serving of "raw ASCII text" files easy (they serve faster
-     * since they don't have to be converted from EBCDIC), a new
-     * "magic" type prefix was invented: text/x-ascii-{plain,html,...}
-     * If we detect one of these content types here, we simply correct
-     * the type to the real text/{plain,html,...} type. Otherwise, we
-     * set a flag that translation is required later on.
-     *
-     * Note: convert_flag is not used in the MMAP path;
-     * ap_checkconv() sets a request_req flag based on content_type
-     */ 
-    convert_flag = ap_checkconv(r);
-#endif
 #ifdef USE_MMAP_FILES
     ap_block_alarms();
     if ((r->finfo.st_size >= MMAP_THRESHOLD)
@@ -3190,7 +3624,7 @@ static int default_handler(request_rec *r)
 #ifdef CHARSET_EBCDIC
 	if (d->content_md5 & 1) {
 	    ap_table_setn(r->headers_out, "Content-MD5",
-			  ap_md5digest(r->pool, f, convert_flag));
+			  ap_md5digest(r->pool, f, r->ebcdic.conv_out));
 	}
 #else
 	if (d->content_md5 & 1) {

@@ -20,6 +20,16 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * Modification History
+ *
+ * June 24, 2001		Allan Nathanson <ajn@apple.com>
+ * - update to public SystemConfiguration.framework APIs
+ * 
+ * November 10, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
 
 #include <fcntl.h>
 #include <sys/types.h>
@@ -27,73 +37,51 @@
 #include <unistd.h>
 
 
-#define	SYSTEMCONFIGURATION_NEW_API
 #include <SystemConfiguration/SystemConfiguration.h>
+#include <SystemConfiguration/SCPrivate.h>
+#include <SystemConfiguration/SCValidation.h>
+
 
 #define USE_FLAT_FILES	"UseFlatFiles"
 
-SCDSessionRef		session		= NULL;
-CFMutableSetRef		curCacheKeys	= NULL;	/* previous cache keys */
-CFMutableSetRef		newCacheKeys	= NULL;	/* cache keys which reflect current config */
-CFIndex			keyCnt;
+SCDynamicStoreRef	store		= NULL;
+CFRunLoopSourceRef	rls		= NULL;
+
+CFMutableDictionaryRef	currentPrefs;		/* current prefs */
+CFMutableDictionaryRef	newPrefs;		/* new prefs */
+CFMutableArrayRef	unchangedPrefsKeys;	/* new prefs keys which match current */
+CFMutableArrayRef	removedPrefsKeys;	/* old prefs keys to be removed */
+
+Boolean			_verbose	= FALSE;
 
 
 static void
 updateCache(const void *key, const void *value, void *context)
 {
 	CFStringRef		configKey	= (CFStringRef)key;
-	CFPropertyListRef	configData	= (CFDictionaryRef)value;
-	SCDStatus		scd_status;
-	SCDHandleRef		handle;
+	CFPropertyListRef	configData	= (CFPropertyListRef)value;
 	CFPropertyListRef	cacheData;
+	CFIndex			i;
 
-	scd_status = SCDGet(session, configKey, &handle);
-	switch (scd_status) {
-		case SCD_OK :
-			/* key exists, compare old & new dictionaries */
-			cacheData = SCDHandleGetData(handle);
-			if (!CFEqual(cacheData, configData)) {
-				/* data has changed */
-				SCDHandleSetData(handle, configData);
-				scd_status = SCDSet(session, configKey, handle);
-				if (scd_status != SCD_OK) {
-					SCDLog(LOG_ERR, CFSTR("SCDSet(): %s"), SCDError(scd_status));
-				}
-			}
-			SCDHandleRelease(handle);
-			break;
-		case SCD_NOKEY :
-			/* key does not exist, this is a new interface or domain */
-			handle = SCDHandleInit();
-			SCDHandleSetData(handle, configData);
-			scd_status = SCDAdd(session, configKey, handle);
-			SCDHandleRelease(handle);
-			if (scd_status != SCD_OK) {
-				SCDLog(LOG_ERR, CFSTR("SCDSet(): %s"), SCDError(scd_status));
-			}
-			break;
-		default :
-			/* some other error */
-			SCDLog(LOG_ERR, CFSTR("SCDGet(): %s"), SCDError(scd_status));
-			break;
+	cacheData = CFDictionaryGetValue(currentPrefs, configKey);
+	if (cacheData) {
+		/* key exists */
+		if (CFEqual(cacheData, configData)) {
+			/*
+			 * if the old & new property list values have
+			 * not changed then we don't need to update
+			 * the preference.
+			 */
+			CFArrayAppendValue(unchangedPrefsKeys, configKey);
+		}
 	}
 
-	CFSetRemoveValue(curCacheKeys, configKey);
-	CFSetAddValue   (newCacheKeys, configKey);
-
-	return;
-}
-
-
-void
-removeCacheKey(const void *value, void *context)
-{
-	SCDStatus	scd_status;
-	CFStringRef	configKey	= (CFStringRef)value;
-
-	scd_status = SCDRemove(session, configKey);
-	if ((scd_status != SCD_OK) && (scd_status != SCD_NOKEY)) {
-		SCDLog(LOG_ERR, CFSTR("SCDRemove() failed: %s"), SCDError(scd_status));
+	/* in any case, this key should not be removed */
+	i = CFArrayGetFirstIndexOfValue(removedPrefsKeys,
+					CFRangeMake(0, CFArrayGetCount(removedPrefsKeys)),
+					configKey);
+	if (i != kCFNotFound) {
+		CFArrayRemoveValueAtIndex(removedPrefsKeys, i);
 	}
 
 	return;
@@ -101,10 +89,9 @@ removeCacheKey(const void *value, void *context)
 
 
 static void
-flatten(SCPSessionRef		pSession,
+flatten(SCPreferencesRef	pSession,
 	CFStringRef		key,
-	CFDictionaryRef		base,
-	CFMutableDictionaryRef	newPreferences)
+	CFDictionaryRef		base)
 {
 	CFDictionaryRef		subset;
 	CFStringRef		link;
@@ -120,15 +107,13 @@ flatten(SCPSessionRef		pSession,
 		subset = base;
 	} else {
 		/* if __LINK__ key is present */
-		SCPStatus	scp_status;
-
-		scp_status = SCPPathGetValue(pSession, link, &subset);
-		if (scp_status != SCP_OK) {
+		subset = SCPreferencesPathGetValue(pSession, link);
+		if (!subset) {
 			/* if error with link */
-			SCDLog(LOG_ERR,
-			       CFSTR("SCPPathGetValue(,%@,) failed: %s"),
-			       link,
-			       SCPError(scp_status));
+			SCLog(TRUE, LOG_ERR,
+			      CFSTR("SCPreferencesPathGetValue(,%@,) failed: %s"),
+			      link,
+			      SCErrorString(SCError()));
 			return;
 		}
 	}
@@ -141,19 +126,19 @@ flatten(SCPSessionRef		pSession,
 	myKey = CFStringCreateWithFormat(NULL,
 					 NULL,
 					 CFSTR("%@%@"),
-					 kSCCacheDomainSetup,
+					 kSCDynamicStoreDomainSetup,
 					 key);
 
-	myDict = (CFMutableDictionaryRef)CFDictionaryGetValue(newPreferences, myKey);
-	if (myDict == NULL) {
+	myDict = (CFMutableDictionaryRef)CFDictionaryGetValue(newPrefs, myKey);
+	if (myDict) {
+		myDict = CFDictionaryCreateMutableCopy(NULL,
+						       0,
+						       (CFDictionaryRef)myDict);
+	} else {
 		myDict = CFDictionaryCreateMutable(NULL,
 						   0,
 						   &kCFTypeDictionaryKeyCallBacks,
 						   &kCFTypeDictionaryValueCallBacks);
-	} else {
-		myDict = CFDictionaryCreateMutableCopy(NULL,
-						       0,
-						       (CFDictionaryRef)myDict);
 	}
 
 	nKeys = CFDictionaryGetCount(subset);
@@ -176,7 +161,7 @@ flatten(SCPSessionRef		pSession,
 							  key,
 							  CFEqual(key, CFSTR("/")) ? "" : "/",
 							  keys[i]);
-			flatten(pSession, subKey, vals[i], newPreferences);
+			flatten(pSession, subKey, vals[i]);
 			CFRelease(subKey);
 		}
 	}
@@ -186,7 +171,7 @@ flatten(SCPSessionRef		pSession,
 
 	if (CFDictionaryGetCount(myDict) > 0) {
 		/* add this dictionary to the new preferences */
-		CFDictionarySetValue(newPreferences, myKey, myDict);
+		CFDictionarySetValue(newPrefs, myKey, myDict);
 	}
 
 	CFRelease(myDict);
@@ -196,63 +181,72 @@ flatten(SCPSessionRef		pSession,
 }
 
 
-static boolean_t
-updateConfiguration(SCDSessionRef session, void *arg)
+static void
+updateConfiguration(SCDynamicStoreRef store, CFArrayRef changedKeys, void *arg)
 {
-	CFArrayRef		changedKeys;
-	boolean_t		cleanupKeys	= TRUE;
 	CFStringRef		current		= NULL;
-	CFArrayRef		currentKeys;
-	CFDateRef		date;
-	CFMutableDictionaryRef	dict;
+	CFDateRef		date		= NULL;
+	CFMutableDictionaryRef	dict		= NULL;
 	CFDictionaryRef		global		= NULL;
-	boolean_t		haveLock	= FALSE;
 	CFIndex			i;
-	CFMutableDictionaryRef	newPreferences	= NULL;	/* new configuration preferences */
-	SCPSessionRef		pSession	= NULL;
-	SCPStatus		scp_status;
+	Boolean			noPrefs		= TRUE;
+	CFStringRef		pattern;
+	CFMutableArrayRef	patterns;
+	SCPreferencesRef	pSession	= NULL;
 	CFDictionaryRef		set		= NULL;
-	SCDStatus		scd_status;
 
-	SCDLog(LOG_DEBUG, CFSTR("updating configuration"));
+	SCLog(_verbose, LOG_DEBUG, CFSTR("updating configuration"));
 
 	/*
-	 * Fetched the changed keys
+	 * initialize old preferences, new preferences, an array
+	 * of keys which have not changed, and an array of keys
+	 * to be removed (cleaned up).
 	 */
-	scd_status = SCDNotifierGetChanges(session, &changedKeys);
-	if (scd_status == SCD_OK) {
-		CFRelease(changedKeys);
+
+	patterns = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+	pattern  = CFStringCreateWithFormat(NULL,
+					    NULL,
+					    CFSTR("^%@.*"),
+					    kSCDynamicStoreDomainSetup);
+	CFArrayAppendValue(patterns, pattern);
+	dict = (CFMutableDictionaryRef)SCDynamicStoreCopyMultiple(store, NULL, patterns);
+	CFRelease(patterns);
+	CFRelease(pattern);
+	if (dict) {
+		currentPrefs = CFDictionaryCreateMutableCopy(NULL, 0, dict);
+		CFRelease(dict);
 	} else {
-		SCDLog(LOG_ERR, CFSTR("SCDNotifierGetChanges() failed: %s"), SCDError(scd_status));
-		/* XXX need to do something more with this FATAL error XXXX */
+		currentPrefs = CFDictionaryCreateMutable(NULL,
+							 0,
+							 &kCFTypeDictionaryKeyCallBacks,
+							 &kCFTypeDictionaryValueCallBacks);
+	}
+
+	unchangedPrefsKeys = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+
+	i = CFDictionaryGetCount(currentPrefs);
+	if (i > 0) {
+		void		**keys;
+		CFArrayRef	array;
+
+		keys = CFAllocatorAllocate(NULL, i * sizeof(CFStringRef), 0);
+		CFDictionaryGetKeysAndValues(currentPrefs, keys, NULL);
+		array = CFArrayCreate(NULL, keys, i, &kCFTypeArrayCallBacks);
+		removedPrefsKeys = CFArrayCreateMutableCopy(NULL, 0, array);
+		CFRelease(array);
+		CFAllocatorDeallocate(NULL, keys);
+	} else {
+		removedPrefsKeys = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 	}
 
 	/*
-	 * initialize old/new configuration, ensure that we clean up any
-	 * existing cache keys
-	 */
-	curCacheKeys = CFSetCreateMutable(NULL, 0, &kCFTypeSetCallBacks);
-	newCacheKeys = CFSetCreateMutable(NULL, 0, &kCFTypeSetCallBacks);
-
-	scd_status = SCDList(session, kSCCacheDomainSetup, 0, &currentKeys);
-	if (scd_status != SCD_OK) {
-		SCDLog(LOG_ERR, CFSTR("SCDList() failed: %s"), SCDError(scd_status));
-		goto error;
-	}
-
-	for (i=0; i<CFArrayGetCount(currentKeys); i++) {
-		CFSetAddValue(curCacheKeys, CFArrayGetValueAtIndex(currentKeys, i));
-	}
-	CFRelease(currentKeys);
-
-	/*
-	 * The "newPreferences" dictionary will contain the new / updated
+	 * The "newPrefs" dictionary will contain the new / updated
 	 * configuration which will be written to the configuration cache.
 	 */
-	newPreferences = CFDictionaryCreateMutable(NULL,
-						   0,
-						   &kCFTypeDictionaryKeyCallBacks,
-						   &kCFTypeDictionaryValueCallBacks);
+	newPrefs = CFDictionaryCreateMutable(NULL,
+						 0,
+						 &kCFTypeDictionaryKeyCallBacks,
+						 &kCFTypeDictionaryValueCallBacks);
 
 	/*
 	 * create status dictionary associated with current configuration
@@ -270,200 +264,217 @@ updateConfiguration(SCDSessionRef session, void *arg)
 	/*
 	 * load preferences
 	 */
-	scp_status = SCPOpen(&pSession, CFSTR("PreferencesMonitor.bundle"), NULL, 0);
-	if (scp_status != SCP_OK) {
+	pSession = SCPreferencesCreate(NULL, CFSTR("PreferencesMonitor.bundle"), NULL);
+	if (pSession) {
+		CFArrayRef	prefKeys = SCPreferencesCopyKeyList(pSession);
+
+		if (prefKeys) {
+			if (CFArrayGetCount(prefKeys) > 0) {
+				noPrefs = FALSE;
+			}
+			CFRelease(prefKeys);
+		}
+	}
+	if (noPrefs == TRUE) {
 		/* no preferences, indicate that we should use flat files */
 		CFStringRef	key;
 
-		SCDLog(LOG_NOTICE, CFSTR("updateConfiguration(): no preferences."));
+		SCLog(TRUE, LOG_NOTICE, CFSTR("updateConfiguration(): no preferences."));
 
-		key = SCDKeyCreate(CFSTR("%@" USE_FLAT_FILES), kSCCacheDomainSetup);
-		CFDictionarySetValue(newPreferences, key, date);
+		key = SCDynamicStoreKeyCreate(NULL, CFSTR("%@" USE_FLAT_FILES), kSCDynamicStoreDomainSetup);
+		CFDictionarySetValue(newPrefs, key, date);
 		CFRelease(key);
 
 		/* leave any Setup: cache keys */
-		cleanupKeys = FALSE;
+		CFArrayRemoveAllValues(removedPrefsKeys);
 
 		goto done;
 	}
 
-	/* get "global" system preferences */
-	scp_status = SCPGet(pSession, kSCPrefSystem, (CFPropertyListRef *)&global);
-	switch (scp_status) {
-		case SCP_OK :
-			break;
-		case SCP_NOKEY :
-			/* if current set not defined */
-			goto getSet;
-		default :
-			SCDLog(LOG_NOTICE,
-			       CFSTR("SCPGet(,%@,) failed: %s"),
-			       kSCPrefSystem,
-			       SCPError(scp_status));
-			goto error;
+	/*
+	 * get "global" system preferences
+	 */
+	(CFPropertyListRef)global = SCPreferencesGetValue(pSession, kSCPrefSystem);
+	if (!global) {
+		/* if no global preferences are defined */
+		goto getSet;
 	}
 
-	if ((global == NULL) || (CFGetTypeID(global) != CFDictionaryGetTypeID())) {
-		SCDLog(LOG_NOTICE,
-		       CFSTR("updateConfiguration(): %@ is not a dictionary."),
-		       kSCPrefSystem);
+	if (!isA_CFDictionary(global)) {
+		SCLog(TRUE, LOG_ERR,
+		      CFSTR("updateConfiguration(): %@ is not a dictionary."),
+		      kSCPrefSystem);
 		goto done;
 	}
 
 	/* flatten property list */
-	flatten(pSession, CFSTR("/"), global, newPreferences);
+	flatten(pSession, CFSTR("/"), global);
 
     getSet :
 
-	/* get current set name */
-	scp_status = SCPGet(pSession, kSCPrefCurrentSet, (CFPropertyListRef *)&current);
-	switch (scp_status) {
-		case SCP_OK :
-			break;
-		case SCP_NOKEY :
-			/* if current set not defined */
-			goto done;
-		default :
-			SCDLog(LOG_NOTICE,
-			       CFSTR("SCPGet(,%@,) failed: %s"),
-			       kSCPrefCurrentSet,
-			       SCPError(scp_status));
-			goto error;
-	}
-
-	if ((current == NULL) || (CFGetTypeID(current) != CFStringGetTypeID())) {
-		SCDLog(LOG_NOTICE,
-		       CFSTR("updateConfiguration(): %@ is not a string."),
-		       kSCPrefCurrentSet);
+	/*
+	 * get current set name
+	 */
+	(CFPropertyListRef)current = SCPreferencesGetValue(pSession, kSCPrefCurrentSet);
+	if (!current) {
+		/* if current set not defined */
 		goto done;
 	}
 
-	/* get current set */
-	scp_status = SCPPathGetValue(pSession, current, &set);
-	switch (scp_status) {
-		case SCP_OK :
-			break;
-		case SCP_NOKEY :
-			/* if error with path */
-			SCDLog(LOG_ERR,
-			       CFSTR("%@ value (%@) not valid"),
-			       kSCPrefCurrentSet,
-			       current);
-			goto done;
-		default :
-			SCDLog(LOG_ERR,
-			       CFSTR("SCPPathGetValue(,%@,) failed: %s"),
-			       current,
-			       SCPError(scp_status));
-			goto error;
+	if (!isA_CFString(current)) {
+		SCLog(TRUE, LOG_ERR,
+		      CFSTR("updateConfiguration(): %@ is not a string."),
+		      kSCPrefCurrentSet);
+		goto done;
 	}
-	if ((set == NULL) || (CFGetTypeID(set) != CFDictionaryGetTypeID())) {
+
+	/*
+	 * get current set
+	 */
+	(CFPropertyListRef)set = SCPreferencesPathGetValue(pSession, current);
+	if (!set) {
+		/* if error with path */
+		SCLog(TRUE, LOG_ERR,
+		      CFSTR("%@ value (%@) not valid"),
+		      kSCPrefCurrentSet,
+		      current);
+		goto done;
+	}
+
+	if (!isA_CFDictionary(set)) {
+		SCLog(TRUE, LOG_ERR,
+		      CFSTR("updateConfiguration(): %@ is not a dictionary."),
+		      current);
 		goto done;
 	}
 
 	/* flatten property list */
-	flatten(pSession, CFSTR("/"), set, newPreferences);
+	flatten(pSession, CFSTR("/"), set);
 
-	CFDictionarySetValue(dict, kSCCachePropSetupCurrentSet, current);
+	CFDictionarySetValue(dict, kSCDynamicStorePropSetupCurrentSet, current);
 
     done :
 
 	/* add last updated time stamp */
-	CFDictionarySetValue(dict, kSCCachePropSetupLastUpdated, date);
-	CFRelease(date);
+	CFDictionarySetValue(dict, kSCDynamicStorePropSetupLastUpdated, date);
 
 	/* add Setup: key */
-	CFDictionarySetValue(newPreferences, kSCCacheDomainSetup, dict);
-	CFRelease(dict);
+	CFDictionarySetValue(newPrefs, kSCDynamicStoreDomainSetup, dict);
 
-	scd_status = SCDLock(session);
-	if (scd_status != SCD_OK) {
-		SCDLog(LOG_ERR, CFSTR("SCDLock() failed: %s"), SCDError(scd_status));
-		goto error;
-	}
-	haveLock = TRUE;
+	/* compare current and new preferences */
+	CFDictionaryApplyFunction(newPrefs, updateCache, NULL);
 
-	/*
-	 * Compare (and update as needed) any keys present in the cache which are
-	 * present in the current configuration. New keys will also be added.
-	 */
-	CFDictionaryApplyFunction(newPreferences, updateCache, NULL);
+	/* remove those keys which have not changed from the update */
+	for (i=0; i<CFArrayGetCount(unchangedPrefsKeys); i++) {
+		CFStringRef	key;
 
-	/*
-	 * Lastly, remove keys which no longer exist in the current configuration.
-	 */
-	if (cleanupKeys) {
-		CFSetApplyFunction(curCacheKeys, removeCacheKey, NULL);
+		key = CFArrayGetValueAtIndex(unchangedPrefsKeys, i);
+		CFDictionaryRemoveValue(newPrefs, key);
 	}
 
-    error :
-
-	if (haveLock) {
-		scd_status = SCDUnlock(session);
-		if (scd_status != SCD_OK) {
-			SCDLog(LOG_ERR, CFSTR("SCDUnlock() failed: %s"), SCDError(scd_status));
-		}
+	/* Update the dynamic store */
+	if (!SCDynamicStoreSetMultiple(store, newPrefs, removedPrefsKeys, NULL)) {
+		SCLog(TRUE, LOG_ERR,
+		      CFSTR("SCDynamicStoreSetMultiple() failed: %s"),
+		      SCErrorString(SCError()));
 	}
 
-	CFRelease(curCacheKeys);
-	CFRelease(newCacheKeys);
-	if (pSession)		(void)SCPClose(&pSession);
-	if (newPreferences) 	CFRelease(newPreferences);
-	return TRUE;
+	CFRelease(currentPrefs);
+	CFRelease(newPrefs);
+	CFRelease(unchangedPrefsKeys);
+	CFRelease(removedPrefsKeys);
+	if (dict)	CFRelease(dict);
+	if (date)	CFRelease(date);
+	if (pSession)	CFRelease(pSession);
+	return;
 }
 
 
 void
 prime()
 {
-	SCDLog(LOG_DEBUG, CFSTR("prime() called"));
+	SCLog(_verbose, LOG_DEBUG, CFSTR("prime() called"));
 
 	/* load the initial configuration from the database */
-	updateConfiguration(session, NULL);
+	updateConfiguration(store, NULL, NULL);
 
 	return;
 }
 
 
 void
-start(const char *bundleName, const char *bundleDir)
+load(CFBundleRef bundle, Boolean bundleVerbose)
 {
-	SCDStatus	scd_status;
-	CFStringRef	notifyKey;
+	CFStringRef		key;
+	CFMutableArrayRef	keys;
+	Boolean			ok;
 
-	SCDLog(LOG_DEBUG, CFSTR("start() called"));
-	SCDLog(LOG_DEBUG, CFSTR("  bundle name      = %s"), bundleName);
-	SCDLog(LOG_DEBUG, CFSTR("  bundle directory = %s"), bundleDir);
+	if (bundleVerbose) {
+		_verbose = TRUE;
+	}
+
+	SCLog(_verbose, LOG_DEBUG, CFSTR("load() called"));
+	SCLog(_verbose, LOG_DEBUG, CFSTR("  bundle ID = %@"), CFBundleGetIdentifier(bundle));
 
 	/* open a "configd" session to allow cache updates */
-	scd_status = SCDOpen(&session, CFSTR("Configuraton Preferences Monitor plug-in"));
-	if (scd_status != SCD_OK) {
-		SCDLog(LOG_ERR, CFSTR("SCDOpen() failed: %s"), SCDError(scd_status));
+	store = SCDynamicStoreCreate(NULL,
+				     CFSTR("Configuraton Preferences Monitor plug-in"),
+				     updateConfiguration,
+				     NULL);
+	if (!store) {
+		SCLog(TRUE, LOG_ERR,
+		      CFSTR("SCDynamicStoreCreate() failed: %s"),
+		      SCErrorString(SCError()));
 		goto error;
 	}
 
 	/*
 	 * register for change notifications.
 	 */
-	notifyKey = SCPNotificationKeyCreate(NULL, kSCPKeyApply);
-	scd_status = SCDNotifierAdd(session, notifyKey, 0);
-	CFRelease(notifyKey);
-	if (scd_status != SCD_OK) {
-		SCDLog(LOG_ERR, CFSTR("SCDNotifierAdd() failed: %s"), SCDError(scd_status));
+	keys = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+	key  = SCDynamicStoreKeyCreatePreferences(NULL, NULL, kSCPreferencesKeyApply);
+	CFArrayAppendValue(keys, key);
+	CFRelease(key);
+	ok = SCDynamicStoreSetNotificationKeys(store, keys, NULL);
+	CFRelease(keys);
+	if (!ok) {
+		SCLog(TRUE, LOG_ERR,
+		      CFSTR("SCDynamicStoreSetNotificationKeys() failed: %s"),
+		      SCErrorString(SCError()));
 		goto error;
 	}
 
-	scd_status = SCDNotifierInformViaCallback(session, updateConfiguration, NULL);
-	if (scd_status != SCD_OK) {
-		SCDLog(LOG_ERR, CFSTR("SCDNotifierInformViaCallback() failed: %s"), SCDError(scd_status));
+	rls = SCDynamicStoreCreateRunLoopSource(NULL, store, 0);
+	if (!rls) {
+		SCLog(TRUE, LOG_ERR,
+		      CFSTR("SCDynamicStoreCreateRunLoopSource() failed: %s"),
+		      SCErrorString(SCError()));
 		goto error;
 	}
 
+	CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
 	return;
 
     error :
 
-	if (session)	(void) SCDClose(&session);
+	if (store)	CFRelease(store);
 
 	return;
 }
+
+
+#ifdef  MAIN
+int
+main(int argc, char **argv)
+{
+	_sc_log     = FALSE;
+	_sc_verbose = (argc > 1) ? TRUE : FALSE;
+
+	load(CFBundleGetMainBundle(), (argc > 1) ? TRUE : FALSE);
+	prime();
+	CFRunLoopRun();
+	/* not reached */
+	exit(0);
+	return 0;
+}
+#endif

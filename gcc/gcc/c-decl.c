@@ -655,6 +655,10 @@ int warn_most = 0;
 
 int warn_multichar = 1;
 
+/* The variant of the C language being processed.  */
+
+int c_language = clk_c;
+
 /* Nonzero means `$' can be in an identifier.  */
 
 #ifndef DOLLARS_IN_IDENTIFIERS
@@ -4006,6 +4010,34 @@ groktypename_in_parm_context (typename)
 }
 
 void
+gen_decl_index (declarator, declspecs)
+     tree declarator;
+     tree declspecs;
+{
+  switch (TREE_CODE (declarator))
+    {
+    case FUNCTION_DECL:
+      dump_symbol_info ("+fh ", IDENTIFIER_POINTER (DECL_NAME (declarator)), 
+                       DECL_SOURCE_LINE (declarator));
+      break;
+    case CONST_DECL:
+      dump_symbol_info ("+nh ", IDENTIFIER_POINTER (DECL_NAME (declarator)), 
+                       DECL_SOURCE_LINE (declarator));
+      break;
+    case VAR_DECL:
+      dump_symbol_info ("+vm ", IDENTIFIER_POINTER (DECL_NAME (declarator)), 
+                       DECL_SOURCE_LINE (declarator));
+      break;
+    case TYPE_DECL:
+      dump_symbol_info ("+th ", IDENTIFIER_POINTER (DECL_NAME (declarator)), 
+                       DECL_SOURCE_LINE (declarator));
+      break;
+    default:
+      break;
+    }
+}
+
+void
 dump_decl (declarator, declspecs)
      tree declarator;
      tree declspecs;
@@ -4064,6 +4096,8 @@ start_decl (declarator, declspecs, initialized, attributes, prefix_attributes)
 
   if (flag_dump_symbols)
     dump_decl (decl, declspecs);
+  if (flag_gen_index)
+    gen_decl_index (decl, declspecs);
 
   /* The corresponding pop_obstacks is in finish_decl.  */
   push_obstacks_nochange ();
@@ -6981,6 +7015,8 @@ build_enumerator (name, value)
 
   if (flag_dump_symbols)
     printf ("+vm %s %u\n", IDENTIFIER_POINTER (name), lineno);
+  if (flag_gen_index)
+    dump_symbol_info ("+vm ", IDENTIFIER_POINTER (name), lineno);
 
   return saveable_tree_cons (decl, value, NULL_TREE);
 }
@@ -7038,6 +7074,13 @@ start_function (declspecs, declarator, prefix_attributes, attributes, nested)
       name = IDENTIFIER_POINTER (DECL_NAME (decl1));
       if (name[1] != '[')   /* Avoid objc methods "-[..." or "+[----"  */
         printf ("+fm %s %u\n", name, lineno);
+    } 
+  if (flag_gen_index)
+    {
+      const char *name; 
+      name = IDENTIFIER_POINTER (DECL_NAME (decl1));
+      if (name[1] != '[')   /* Avoid objc methods "-[..." or "+[----"  */
+        dump_symbol_info ("+fm ", name, lineno);
     }
 
 

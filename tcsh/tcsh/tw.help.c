@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/tw.help.c,v 1.1.1.1 1999/04/23 01:59:58 wsanchez Exp $ */
+/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/tw.help.c,v 1.1.1.2 2001/06/28 23:10:57 bbraun Exp $ */
 /* tw.help.c: actually look up and print documentation on a file.
  *	      Look down the path for an appropriate file, then print it.
  *	      Note that the printing is NOT PAGED.  This is because the
@@ -39,7 +39,7 @@
  */
 #include "sh.h"
 
-RCSID("$Id: tw.help.c,v 1.1.1.1 1999/04/23 01:59:58 wsanchez Exp $")
+RCSID("$Id: tw.help.c,v 1.1.1.2 2001/06/28 23:10:57 bbraun Exp $")
 
 #include "tw.h"
 #include "tc.h"
@@ -106,7 +106,7 @@ do_help(command)
 
 	for (;;) {
 	    if (!*hpath) {
-		xprintf(CGETS(28, 1, "No help file for %S\n"), name);
+		xprintf(CGETS(29, 1, "No help file for %S\n"), name);
 		break;
 	    }
 	    nextslist(hpath, curdir);
@@ -152,6 +152,7 @@ static  sigret_t
 cleanf(snum)
 int snum;
 {
+    USE(snum);
 #ifdef UNRELSIGS
     if (snum)
 	(void) sigset(SIGINT, cleanf);

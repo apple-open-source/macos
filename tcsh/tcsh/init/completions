@@ -88,7 +88,19 @@ complete chmod                  'p/1/(u g o a)//'		\
 complete chgrp			'p/1/g/' 'n/-R/g/' 'p/*/f/'
 complete chown			'p/1/u/' 'n/-R/u/' 'p/*/f/'
 
-complete su			'c/-/(f l m K)/'
+complete su			'c/-/(f l m K)/'			\
+				'p/1/u/'				\
+				'n/-[flmK]/u/'
+
+complete sudo			'n/-u/u/'				\
+				'n/-p/n/'				\
+				'n/-V/n/'				\
+				'n/-c/(-)/'				\
+				'n/-H/d/'				\
+				'c/-/(V h l L v k K s H S b p c u -)/'	\
+				'p/1/c/'				\
+				'n/-[hlLvkKsSb-]/c/'			\
+				'N/-[upcH]/c/'
 
 # URLs
 complete {lynx,netscape,wget} 	'p|1|(ftp:// gopher:// http:// https:// mailto: news: wais:// )||'
@@ -194,35 +206,35 @@ if (! $?framework_path) then
     end
 endif
 
-complete {gcc,g++,cc,c++}									\
-	'c/-[IL]/d/'										\
-	'c/-f/(caller-saves cse-follow-jumps delayed-branch elide-constructors			\
-		expensive-optimizations float-store force-addr force-mem inline			\
-		inline-functions keep-inline-functions memoize-lookups				\
-		no-default-inline no-defer-pop no-function-cse					\
-		omit-frame-pointer rerun-cse-after-loop schedule-insns				\
-		schedule-insns2 strength-reduce thread-jumps unroll-all-loops			\
-		unroll-loops syntax-only all-virtual cond-mismatch				\
-		dollars-in-identifiers enum-int-equiv no-asm no-builtin				\
-		no-strict-prototype signed-bitfields signed-char				\
-		this-is-variable unsigned-bitfields unsigned-char				\
-		writable-strings call-saved-reg call-used-reg fixed-reg				\
-		no-common no-gnu-binutils nonnull-objects pcc-struct-return pic			\
-		PIC shared-data short-enums short-double volatile ramework)/'			\
-	'c/-W/(all aggregate-return cast-align cast-qual comment conversion			\
-		enum-clash error format id-clash-len implicit					\
-		missing-prototypes no-parentheses pointer-arith return-type			\
-		shadow strict-prototypes switch uninitialized unused				\
-		write-strings)/'								\
-	'c/-m/(68000 68020 68881 bitfield fpa nobitfield rtd short c68000			\
-		c68020 soft-float g gnu unix fpu no-epilogue)/'					\
-	'c/-d/(D M N)/'										\
-	'c@-l@`ls -1 /usr/lib/lib* | sed s%^.\*/lib%%\;s%\\..\*\$%%`@'				\
-	'c/-/(f W vspec v vpath ansi traditional traditional-cpp trigraphs			\
-		pedantic x o l c g L I D U O O2 O3 C E H B b V M MD MM i			\
-		dynamic nodtdlib static nostdinc undef arch framework)/'			\
-	'n@-framework@`ls -1 ${framework_path} | egrep .framework\$ | sed 's/\\.framework//'`@'	\
-	'n/-arch/(ppc i386)/'									\
+complete {gcc,g++,cc,c++}							\
+	'c/-[IL]/d/'								\
+	'c/-f/(caller-saves cse-follow-jumps delayed-branch elide-constructors	\
+		expensive-optimizations float-store force-addr force-mem inline	\
+		inline-functions keep-inline-functions memoize-lookups		\
+		no-default-inline no-defer-pop no-function-cse			\
+		omit-frame-pointer rerun-cse-after-loop schedule-insns		\
+		schedule-insns2 strength-reduce thread-jumps unroll-all-loops	\
+		unroll-loops syntax-only all-virtual cond-mismatch		\
+		dollars-in-identifiers enum-int-equiv no-asm no-builtin		\
+		no-strict-prototype signed-bitfields signed-char		\
+		this-is-variable unsigned-bitfields unsigned-char		\
+		writable-strings call-saved-reg call-used-reg fixed-reg		\
+		no-common no-gnu-binutils nonnull-objects pcc-struct-return pic	\
+		PIC shared-data short-enums short-double volatile ramework)/'	\
+	'c/-W/(all aggregate-return cast-align cast-qual comment conversion	\
+		enum-clash error format id-clash-len implicit			\
+		missing-prototypes no-parentheses pointer-arith return-type	\
+		shadow strict-prototypes switch uninitialized unused		\
+		write-strings)/'						\
+	'c/-m/(68000 68020 68881 bitfield fpa nobitfield rtd short c68000	\
+		c68020 soft-float g gnu unix fpu no-epilogue)/'			\
+	'c/-d/(D M N)/'								\
+	'c@-l@`ls -1 /usr/lib/lib* | sed s%^.\*/lib%%\;s%\\..\*\$%% | uniq`@'	\
+	'c/-/(f W vspec v vpath ansi traditional traditional-cpp trigraphs	\
+		pedantic x o l c g L I D U O O2 O3 C E H B b V M MD MM i	\
+		dynamic nodtdlib static nostdinc undef arch framework)/'	\
+	'n@-framework@`ls -1 ${framework_path} | grep .framework\$ | sed 's/\\.framework//' | uniq`@' \
+	'n/-arch/(ppc i386)/'							\
 	'n/*/f:*.{c,C,cc,m,o,a,s,i}/'
 
 complete gdb	'c/-cd=/d/'								\

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -15,7 +15,7 @@
    | Author: Hartmut Holzgraefe <hartmut@six.de>                          |
    +----------------------------------------------------------------------+
  */
-/* $Id: url_scanner.c,v 1.1.1.3 2001/01/25 05:00:14 wsanchez Exp $ */
+/* $Id: url_scanner.c,v 1.1.1.4 2001/07/19 00:20:23 zarzycki Exp $ */
 
 #include "php.h"
 
@@ -67,12 +67,12 @@ static char *url_attr_addon(const char *tag,const char *attr,const char *val,con
 	if(flag) {		
 		if(!strstr(val,buf)&&!strchr(val,':'))
 			{
-				char *result = (char *)emalloc(strlen(buf)+strlen(PG(arg_separator))+1);
+				char *result = (char *)emalloc(strlen(buf)+strlen(PG(arg_separator).output)+1);
 				int n;
 
 				if(strchr(val,'?')) {
-					strcpy(result,PG(arg_separator));
-					n=strlen(PG(arg_separator));
+					strcpy(result,PG(arg_separator).output);
+					n=strlen(PG(arg_separator).output);
 				} else {
 					*result='?';
 					n=1;

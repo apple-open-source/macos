@@ -43,29 +43,47 @@ dsindex_new(void)
 /*
  * Free an index and release all the data objects it holds.
  */
+static void
+dsindex_val_free(dsindex_val_t *v)
+{
+	if (v == NULL) return;
+
+	if (v->val != NULL) dsdata_release(v->val);
+	if (v->dsid != NULL) free(v->dsid);
+	free(v);
+}
+
+static void
+dsindex_key_free(dsindex_key_t *k)
+{
+	u_int32_t i;
+
+	if (k == NULL) return;
+
+	if (k->key != NULL) dsdata_release(k->key);
+
+	for (i = 0; i < k->val_count; i++)
+	{
+		dsindex_val_free(k->vindex[i]);
+	}
+
+	if (k->vindex != NULL) free(k->vindex);
+	free(k);
+}
+
 void
 dsindex_free(dsindex *x)
 {
-	u_int32_t i, j;
-	dsindex_key_t *kx;
-	dsindex_val_t *vx;
+	u_int32_t i;
 
 	if (x == NULL) return;
 
 	for (i = 0; i < x->key_count; i++)
 	{
-		kx = x->kindex[i];
-		dsdata_release(kx->key);
-		for (j = 0; j < kx->val_count; j++)
-		{
-			vx = kx->vindex[j];
-			dsdata_release(vx->val);
-			if (vx->dsid_count > 0) free(vx->dsid);
-			free(vx);
-		}
-		free(kx);
+		dsindex_key_free(x->kindex[i]);
 	}
 
+	if (x->kindex != NULL) free(x->kindex);
 	free(x);
 }
 

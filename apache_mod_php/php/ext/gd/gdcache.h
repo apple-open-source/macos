@@ -1,5 +1,5 @@
 /* 
- * $Id: gdcache.h,v 1.1.1.1 2000/08/10 02:08:28 wsanchez Exp $ 
+ * $Id: gdcache.h,v 1.1.1.2 2001/07/19 00:19:11 zarzycki Exp $ 
  *
  * Caches of pointers to user structs in which the least-recently-used 
  * element is replaced in the event of a cache miss after the cache has 
@@ -40,7 +40,7 @@
 /* header                                                */
 /*********************************************************/
 
-#ifndef _OSD_POSIX
+#if (!defined _OSD_POSIX) && HAVE_MALLOC_H
 #include <malloc.h>
 #else
 #include <stdlib.h> /* BS2000/OSD defines malloc() & friends in stdlib.h */

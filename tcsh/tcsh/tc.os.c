@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/tc.os.c,v 1.1.1.1 1999/04/23 01:59:56 wsanchez Exp $ */
+/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/tc.os.c,v 1.1.1.2 2001/06/28 23:10:54 bbraun Exp $ */
 /*
  * tc.os.c: OS Dependent builtin functions
  */
@@ -36,12 +36,17 @@
  */
 #include "sh.h"
 
-RCSID("$Id: tc.os.c,v 1.1.1.1 1999/04/23 01:59:56 wsanchez Exp $")
+RCSID("$Id: tc.os.c,v 1.1.1.2 2001/06/28 23:10:54 bbraun Exp $")
 
 #include "tw.h"
 #include "ed.h"
 #include "ed.defns.h"		/* for the function names */
 #include "sh.decls.h"
+
+#ifdef _UWIN
+#define TIOCGPGRP TIOCGETPGRP
+#define TIOCSPGRP TIOCSETPGRP
+#endif
 
 /***
  *** MACH
@@ -860,7 +865,7 @@ xmemmove(vdst, vsrc, len)
 #endif /* NEEDmemmove */
 
 
-#ifndef WINNT
+#ifndef WINNT_NATIVE
 #ifdef tcgetpgrp
 int
 xtcgetpgrp(fd)
@@ -888,7 +893,7 @@ xtcsetpgrp(fd, pgrp)
 }
 
 #endif	/* tcgetpgrp */
-#endif /* WINNT */
+#endif /* WINNT_NATIVE */
 
 
 #ifdef YPBUGS
@@ -970,6 +975,14 @@ osinit()
 #ifdef apollo
     (void) isapad();
 #endif
+
+#ifdef _SX
+    /* 
+     * kill(SIGCONT) problems, don't know what this syscall does
+     * [schott@rzg.mpg.de]
+     */
+    syscall(151, getpid(), getpid());
+#endif /* _SX */
 }
 
 #ifdef strerror
@@ -990,16 +1003,16 @@ xstrerror(i)
 #endif /* strerror */
     
 #ifdef gethostname
-# if !defined(_MINIX) && !defined(__EMX__) && !defined(WINNT)
+# if !defined(_MINIX) && !defined(__EMX__) && !defined(WINNT_NATIVE)
 #  include <sys/utsname.h>
-# endif /* !_MINIX && !__EMX__ && !WINNT */
+# endif /* !_MINIX && !__EMX__ && !WINNT_NATIVE */
 
 int
 xgethostname(name, namlen)
     char   *name;
     int     namlen;
 {
-# if !defined(_MINIX) && !defined(__EMX__) && !defined(WINNT)
+# if !defined(_MINIX) && !defined(__EMX__) && !defined(WINNT_NATIVE)
     int     i, retval;
     struct utsname uts;
 
@@ -1151,7 +1164,7 @@ fail:
 
 # else /* ! hp9000s500 */
 
-#  if (SYSVREL != 0 && !defined(d_fileno)) || defined(_VMS_POSIX) || defined(WINNT)
+#  if (SYSVREL != 0 && !defined(d_fileno)) || defined(_VMS_POSIX) || defined(WINNT) || defined(_MINIX_VMD)
 #   define d_fileno d_ino
 #  endif
 
@@ -1236,7 +1249,7 @@ xgetcwd(pathname, pathlen)
 		if (ISDOT(d->d_name) || ISDOTDOT(d->d_name))
 		    continue;
 		(void)strncpy(cur_name_add, d->d_name,
-		    &nextpathbuf[sizeof(nextpathbuf) - 1] - cur_name_add);
+		    (size_t) (&nextpathbuf[sizeof(nextpathbuf) - 1] - cur_name_add));
 		if (lstat(nextpathptr, &st_next) == -1) {
 		    /*
 		     * We might not be able to stat() some path components

@@ -35,26 +35,21 @@ includes
 #include <sys/sockio.h>
 #include <net/if.h>
 #include <CoreFoundation/CoreFoundation.h>
-#define	SYSTEMCONFIGURATION_NEW_API
+
+#ifdef	USE_SYSTEMCONFIGURATION_PUBLIC_APIS
 #include <SystemConfiguration/SystemConfiguration.h>
+#else	/* USE_SYSTEMCONFIGURATION_PUBLIC_APIS */
+#include <SystemConfiguration/v1Compatibility.h>
+#include <SystemConfiguration/SCSchemaDefinitions.h>
+#endif	/* USE_SYSTEMCONFIGURATION_PUBLIC_APIS */
 
 #include "ppp_msg.h"
 #include "ppp_privmsg.h"
-#include "../Family/PPP.kmodproj/ppp.h"
 
-#include "fsm.h"
-#include "lcp.h"
-#include "ipcp.h"
-#include "chap.h"
-#include "upap.h"
-#include "auth.h"
 #include "ppp_client.h"
 #include "ppp_option.h"
-#include "ppp_utils.h"
 #include "ppp_command.h"
 #include "ppp_manager.h"
-#include "ppp_utils.h"
-#include "link.h"
 
 /* -----------------------------------------------------------------------------
 definitions
@@ -98,12 +93,12 @@ u_long set_str_opt (struct opt_str *option, char *opt, int len)
 /* -----------------------------------------------------------------------------
 id must be a valid client 
 ----------------------------------------------------------------------------- */
-u_long ppp_setoption (u_short id, struct msg *msg)
+u_long ppp_setoption (struct client *client, struct msg *msg)
 {
     struct ppp_opt 	*opt = (struct ppp_opt *)&msg->data[0];
     struct options	*opts;
     u_long		err = 0, len = msg->hdr.m_len - sizeof(struct ppp_opt_hdr);
-    u_long		speed, done;
+    u_long		speed;
     struct ppp 		*ppp = ppp_findbyref(msg->hdr.m_link);
     
     if (!ppp) {
@@ -112,40 +107,16 @@ u_long ppp_setoption (u_short id, struct msg *msg)
         return 0;
     }
 
-    // some action have immediate effect, other are activated only on commit
-    if (ppp->phase == PPP_RUNNING) {
-
-        done = 1;
-        
-        switch (opt->o_type) {
-            case PPP_OPT_COMM_LOOPBACK:
-                if (link_setloopback(ppp, *(u_long *)&opt->o_data[0]))
-                    err = EOPNOTSUPP;
-               break;
-            default :
-                done = 0;
-        }
-
-        if (done) {
-            msg->hdr.m_result = err;
-            msg->hdr.m_len = 0;
-            return 0;
-        }
-    }    
-
-
     // not connected, set the client options that will be used.
-    opts = client_findoptset(id, msg->hdr.m_link);
+    opts = client_findoptset(client, msg->hdr.m_link);
     if (!opts) {
         // first option used by client, create private set
-        opts = client_newoptset(id, msg->hdr.m_link);
+        opts = client_newoptset(client, msg->hdr.m_link);
         if (!opts) {
             msg->hdr.m_result = ENOMEM;
             msg->hdr.m_len = 0;
             return 0;
         }
-        // init set with ppp default values
-        bcopy(&ppp->def_options, opts, sizeof(struct options));
     }
 
     switch (opt->o_type) {
@@ -170,23 +141,14 @@ u_long ppp_setoption (u_short id, struct msg *msg)
         case PPP_OPT_DEV_CONNECTSCRIPT:
             err = set_str_opt(&opts->dev.connectscript, &opt->o_data[0], len);
             break;
-#if 0
-        case PPP_OPT_DEV_CONNECTPRGM:
-            err = set_str_opt(&opts->dev.connectprgm, &opt->o_data[0], len);
-            break;
-#endif
         case PPP_OPT_COMM_TERMINALMODE:
 	    err = set_long_opt(&opts->comm.terminalmode, *(u_long *)(&opt->o_data[0]), 0, 0xFFFFFFFF, 1);
 	    break;
         case PPP_OPT_COMM_TERMINALSCRIPT:
             err = set_str_opt(&opts->comm.terminalscript, &opt->o_data[0], len);
             break;
-#if 0
-        case PPP_OPT_COMM_TERMINALPRGM:
-            err = set_str_opt(&opts->comm.terminalprgm, &opt->o_data[0], len);
-            break;
-#endif
         case PPP_OPT_COMM_REMOTEADDR:
+        //printf("XXXXXXXXXXXXXXXXXXXXXXx SETOPTION REMOTE ADDRESS : %s, len = %d\n", opt->o_data, len);
             err = set_str_opt(&opts->comm.remoteaddr, &opt->o_data[0], len);
             break;
         case PPP_OPT_COMM_IDLETIMER:
@@ -194,9 +156,6 @@ u_long ppp_setoption (u_short id, struct msg *msg)
             break;
         case PPP_OPT_COMM_SESSIONTIMER:
             err = set_long_opt(&opts->comm.sessiontimer, *(u_long *)(&opt->o_data[0]), 0, 0xFFFFFFFF, 1);
-            break;
-        case PPP_OPT_COMM_LISTENFILTER:
-            err = set_str_opt(&opts->comm.listenfilter, &opt->o_data[0], len);
             break;
         case PPP_OPT_COMM_CONNECTDELAY:
             err = set_long_opt(&opts->comm.connectdelay, *(u_long *)(&opt->o_data[0]), 0, 0xFFFFFFFF, 1);
@@ -221,7 +180,8 @@ u_long ppp_setoption (u_short id, struct msg *msg)
             err = set_long_opt(&opts->lcp.txaccm, *(u_long *)(&opt->o_data[0]), 0, 0xFFFFFFFF, 1);
             break;
         case PPP_OPT_LCP_ECHO:
-            err = set_long_opt(&opts->lcp.echo, *(u_long *)(&opt->o_data[0]), 0, 0xFFFFFFFF, 1);
+            err = set_long_opt(&opts->lcp.echointerval, ((struct ppp_opt_echo *)opt->o_data)->interval, 0, 0xFFFFFFFF, 1);
+            err = set_long_opt(&opts->lcp.echofailure, ((struct ppp_opt_echo *)opt->o_data)->failure, 0, 0xFFFFFFFF, 1);
             break;
 
             // SEC options
@@ -245,52 +205,17 @@ u_long ppp_setoption (u_short id, struct msg *msg)
         case PPP_OPT_IPCP_LOCALADDR:
             err = set_long_opt(&opts->ipcp.localaddr, *(u_long *)(&opt->o_data[0]), 0, 0xFFFFFFFF, 1);
             break;
-        case PPP_OPT_IPCP_IN_LOCALADDR:
-            // private call, manipulate default options...
-            err = set_long_opt(&ppp->def_options.ipcp.localaddr, *(u_long *)(&opt->o_data[0]), 0, 0xFFFFFFFF, 1);
-            //err = set_long_opt(&opts->ipcp.localaddr, *(u_long *)(&opt->o_data[0]), 0, 0xFFFFFFFF, 1);
-            break;
-        case PPP_OPT_IPCP_IN_REMOTEADDR:
-            // private call, manipulate default options...
-            err = set_long_opt(&ppp->def_options.ipcp.remoteaddr, *(u_long *)(&opt->o_data[0]), 0, 0xFFFFFFFF, 1);
-            //err = set_long_opt(&opts->ipcp.remoteaddr, *(u_long *)(&opt->o_data[0]), 0, 0xFFFFFFFF, 1);
-            break;
-        case PPP_OPT_IPCP_USESERVERDNS:
-            err = set_long_opt(&opts->ipcp.useserverdns, *(u_long *)(&opt->o_data[0]), 0, 1, 1);
-            break;
-        case PPP_OPT_IPCP_IN_DNS1:
-            // private call, manipulate default options...
-            err = set_long_opt(&ppp->def_options.ipcp.serverdns1, *(u_long *)(&opt->o_data[0]), 0, 0xFFFFFFFF, 1);
-            //err = set_long_opt(&opts->ipcp.serverdns1, *(u_long *)(&opt->o_data[0]), 0, 0xFFFFFFFF, 1);
-            break;
-        case PPP_OPT_IPCP_IN_DNS2:
-            // private call, manipulate default options...
-            err = set_long_opt(&ppp->def_options.ipcp.serverdns2, *(u_long *)(&opt->o_data[0]), 0, 0xFFFFFFFF, 1);
-            //err = set_long_opt(&opts->ipcp.serverdns2, *(u_long *)(&opt->o_data[0]), 0, 0xFFFFFFFF, 1);
-            break;
-
             // MISC options
         case PPP_OPT_LOGFILE:
            err = set_str_opt(&opts->misc.logfile, &opt->o_data[0], len);
             break;
-        case PPP_OPT_REMINDERTIMER:
-            err = set_long_opt(&opts->misc.remindertimer, *(u_long *)(&opt->o_data[0]), 0, 0xFFFFFFFF, 1);
+        case PPP_OPT_COMM_REMINDERTIMER:
+            err = set_long_opt(&opts->comm.remindertimer, *(u_long *)(&opt->o_data[0]), 0, 0xFFFFFFFF, 1);
             break;
         case PPP_OPT_ALERTENABLE:
-            err = set_long_opt(&opts->misc.alertenable, *(u_long *)(&opt->o_data[0]), 0, 1, 1);
-            break;
-        case PPP_OPT_COMM_LOOPBACK:
-            err = EOPNOTSUPP;
-            if (ppp->link_caps.flags & PPP_CAPS_LOOPBACK)
-                err = set_long_opt(&opts->comm.loopback, *(u_long *)(&opt->o_data[0]), 0, 1, 1);
-            break;
-        case PPP_OPT_AUTOLISTEN:
-            // private call, manipulate default options...
-            err = set_long_opt(&ppp->def_options.misc.autolisten, *(u_long *)(&opt->o_data[0]), 0, 1, 1);
-            //err = set_long_opt(&opts->misc.autolisten, *(u_long *)(&opt->o_data[0]), 0, 1, 1);
-            break;
-        case PPP_OPT_AUTOCONNECT:
-            err = set_long_opt(&opts->misc.autoconnect, *(u_long *)(&opt->o_data[0]), 0, 1, 1);
+            //err = set_long_opt(&opts->misc.alertenable, *(u_long *)(&opt->o_data[0]), 0, 1, 1);
+            // this option has immediate effect, at least on alert/dialogs
+            ppp->alertenable = *(u_long *)(&opt->o_data[0]);
             break;
         default:
             err = EOPNOTSUPP;

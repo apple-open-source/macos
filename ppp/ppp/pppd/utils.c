@@ -17,7 +17,7 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#define RCSID	"$Id: utils.c,v 1.5 2001/01/20 03:35:50 callie Exp $"
+#define RCSID	"$Id: utils.c,v 1.6 2001/05/09 17:52:33 callie Exp $"
 
 #include <stdio.h>
 #include <ctype.h>
@@ -555,7 +555,7 @@ logit(level, fmt, args)
     va_list args;
 {
     int n;
-    char buf[256];
+    char buf[1024];
 
     n = vslprintf(buf, sizeof(buf), fmt, args);
     syslog(level, "%s", buf);
@@ -586,7 +586,7 @@ fatal __V((char *fmt, ...))
     logit(LOG_ERR, fmt, pvar);
     va_end(pvar);
 
-   die(1);			/* as promised */
+    die(1);			/* as promised */
 }
 
 /*
@@ -609,12 +609,14 @@ error __V((char *fmt, ...))
     va_end(pvar);
 }
 
-#ifndef APPLE
 /*
  * warn - log a warning message.
  */
-void
-warn __V((char *fmt, ...))
+#ifdef __APPLE__
+__private_extern__
+#endif
+void 
+warn (char *fmt, ...)
 {
     va_list pvar;
 
@@ -629,8 +631,6 @@ warn __V((char *fmt, ...))
     logit(LOG_WARNING, fmt, pvar);
     va_end(pvar);
 }
-#endif
-
 /*
  * notice - log a notice-level message.
  */

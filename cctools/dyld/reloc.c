@@ -35,6 +35,9 @@
 #ifdef sparc
 #import <mach-o/sparc/reloc.h>
 #endif
+#ifdef __ppc__
+#import <mach-o/ppc/reloc.h>
+#endif
 #import <mach-o/dyld_debug.h>
 
 #import "stuff/vm_flush_cache.h"
@@ -45,6 +48,11 @@
 #import "reloc.h"
 #import "debug.h"
 #import "register_funcs.h"
+
+static void reset_lazy_symbol_pointers(
+    unsigned long symbol_index,
+    unsigned long *indirect_symtab,
+    struct image *image);
 
 /*
  * relocate_modules_being_linked() preforms the external relocation for the
@@ -246,7 +254,9 @@ enum bool launching_with_prebound_libraries)
 void
 undo_prebound_lazy_pointers(
 struct image *image,
-unsigned long PB_LA_PTR_r_type)
+unsigned long PB_LA_PTR_r_type,
+enum bool all_lazy_pointers,
+unsigned long lazy_pointer_address)
 {
     unsigned long i, r_slide, r_address, r_type, r_value, value;
     struct relocation_info *relocs;
@@ -281,8 +291,11 @@ unsigned long PB_LA_PTR_r_type)
 		 * in r_value plus the slide amount.
 		 */
 		if(r_type == PB_LA_PTR_r_type){
-		    value = r_value + image->vmaddr_slide;
-		    *((long *)(r_address + r_slide)) = value;
+		    if(all_lazy_pointers == TRUE ||
+		       lazy_pointer_address == (r_address + r_slide)){
+			value = r_value + image->vmaddr_slide;
+			*((long *)(r_address + r_slide)) = value;
+		    }
 
 		    if(image->cache_sync_on_reloc){
 			if(r_address + r_slide < cache_flush_low_addr)
@@ -337,9 +350,17 @@ struct library_image *library_image)
     struct dysymtab_command *dyst;
     struct relocation_info *relocs;
     struct nlist *symbols;
-    char *strings;
+    char *strings, *symbol_name;
     struct dylib_module *dylib_modules;
-    unsigned long module_index;
+    unsigned long module_index, i, j;
+    struct dylib_reference *dylib_references;
+    struct nlist *defined_symbol;
+    module_state *defined_module;
+    struct image *defined_image;
+    struct library_image *defined_library_image;
+    enum link_state link_state;
+    unsigned long *indirect_symtab;
+    enum bool undo_lazy_pointer;
 
 	linkedit_segment = image->linkedit_segment;
 	st = image->st;
@@ -379,8 +400,148 @@ struct library_image *library_image)
 	    image->name,
 	    strings + dylib_modules[module_index].module_name);
 
+	/*
+	 * If this PREBOUND_UNLINKED module is in an image that did not have all
+	 * its prebound lazy pointers undone we how have the hard task of
+	 * undoing just the prebound lazy pointers this module uses.
+	 */ 
+	if(image->undone_prebound_lazy_pointers == FALSE){
+	    dylib_references = (struct dylib_reference *)
+		(image->vmaddr_slide +
+		 linkedit_segment->vmaddr +
+		 dyst->extrefsymoff -
+		 linkedit_segment->fileoff);
+	    indirect_symtab = (unsigned long *)
+		(image->vmaddr_slide +
+		 linkedit_segment->vmaddr +
+		 dyst->indirectsymoff -
+		 linkedit_segment->fileoff);
+	    for(i = dylib_modules[module_index].irefsym;
+		i < dylib_modules[module_index].irefsym +
+		    dylib_modules[module_index].nrefsym;
+		i++){
+		undo_lazy_pointer = FALSE;
+		if(dylib_references[i].flags == REFERENCE_FLAG_UNDEFINED_LAZY){
+		    symbol_name = strings +
+				  symbols[dylib_references[i].isym].n_un.n_strx;
+		    lookup_symbol(symbol_name,
+				  get_primary_image(image, symbols +
+						dylib_references[i].isym),
+				  get_hint(image, symbols +
+						dylib_references[i].isym),
+				  &defined_symbol, &defined_module,
+				  &defined_image, &defined_library_image, NULL);
+		    /*
+		     * If this symbol is in a module that is not bound or has
+		     * has a different address than the prebound undefined
+		     * symbol we have to undo the prebinding of any lazy pointer
+		     * to it.
+		     */
+		    if(defined_symbol != NULL){
+			link_state = GET_LINK_STATE(*defined_module);
+			if((link_state == PREBOUND_UNLINKED ||
+			    link_state == UNLINKED) ||
+			    defined_symbol->n_value +
+				defined_image->vmaddr_slide !=
+				symbols[dylib_references[i].isym].n_value){
+			    undo_lazy_pointer = TRUE;
+			}
+		    }
+		    else{
+			undo_lazy_pointer = TRUE;
+		    }
+		}
+		if(dylib_references[i].flags ==
+			REFERENCE_FLAG_PRIVATE_UNDEFINED_LAZY){
+		    for(j = 0; j < dyst->nmodtab; j++){
+			if(dylib_references[i].isym >=
+			       dylib_modules[j].ilocalsym &&
+			   dylib_references[i].isym <
+			       dylib_modules[j].ilocalsym +
+				   dylib_modules[j].nlocalsym)
+			    break;
+		    }
+		    if(j < dyst->nmodtab){
+			link_state =
+			    GET_LINK_STATE(library_image->modules[j]);
+			if(link_state == PREBOUND_UNLINKED ||
+			   link_state == UNLINKED){
+			    undo_lazy_pointer = TRUE;
+			}
+		    }
+		}
+		if(undo_lazy_pointer == TRUE){
+		    reset_lazy_symbol_pointers(dylib_references[i].isym,
+					       indirect_symtab, image);
+
+		}
+	    }
+	}
+
 	if(image->change_protect_on_reloc)
 	    restore_image_vm_protections(image, "library");
+}
+
+/*
+ * reset_lazy_symbol_pointers() is passed a symbol index of a lazy bound symbol.
+ * This routine searches the lazy pointer sections of the specified image for
+ * indirect symbol table entries that matches this symbol index.  Then it
+ * calculates the address of that lazy pointer and calls
+ * undo_prebound_lazy_pointers() to undo the prebinding for just the lazy symbol
+ * pointer at this address in this image.
+ */
+static
+void
+reset_lazy_symbol_pointers(
+unsigned long symbol_index,
+unsigned long *indirect_symtab,
+struct image *image)
+{
+    unsigned long i, j, k, section_type, lazy_pointer_address;
+    struct load_command *lc;
+    struct segment_command *sg;
+    struct section *s;
+
+	lc = (struct load_command *)((char *)image->mh +
+				     sizeof(struct mach_header));
+	for(i = 0; i < image->mh->ncmds; i++){
+	    switch(lc->cmd){
+	    case LC_SEGMENT:
+		sg = (struct segment_command *)lc;
+		s = (struct section *)
+		    ((char *)sg + sizeof(struct segment_command));
+		for(j = 0 ; j < sg->nsects ; j++){
+		    section_type = s->flags & SECTION_TYPE;
+		    if(section_type == S_LAZY_SYMBOL_POINTERS){
+			for(k = 0; k < s->size / sizeof(unsigned long); k++){
+			    if(indirect_symtab[s->reserved1 + k] == 
+			       symbol_index){
+				lazy_pointer_address = (unsigned long)
+				    (image->vmaddr_slide +
+				     s->addr + (k * sizeof(long)));
+				undo_prebound_lazy_pointers(image,
+#if defined(m68k) || defined(__i386__)
+				    GENERIC_RELOC_PB_LA_PTR,
+#endif
+#ifdef hppa
+				    HPPA_RELOC_PB_LA_PTR,
+#endif
+#ifdef sparc
+				    SPARC_RELOC_PB_LA_PTR,
+#endif
+#ifdef __ppc__
+				    PPC_RELOC_PB_LA_PTR,
+#endif
+				    FALSE, /* all_lazy_pointers */
+				    lazy_pointer_address);
+			    }
+			}
+		    }
+		    s++;
+		}
+	    }
+	    lc = (struct load_command *)((char *)lc + lc->cmdsize);
+	}
 }
 
 /*

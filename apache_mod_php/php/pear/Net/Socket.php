@@ -3,7 +3,7 @@
 // +----------------------------------------------------------------------+
 // | PHP version 4.0                                                      |
 // +----------------------------------------------------------------------+
-// | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+// | Copyright (c) 1997-2001 The PHP Group                                |
 // +----------------------------------------------------------------------+
 // | This source file is subject to version 2.0 of the PHP license,       |
 // | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
 // |          Chuck Hagenbuch <chuck@horde.org>                           |
 // +----------------------------------------------------------------------+
 //
-// $Id: Socket.php,v 1.1.1.2 2001/01/25 05:00:30 wsanchez Exp $
+// $Id: Socket.php,v 1.1.1.3 2001/07/19 00:20:50 zarzycki Exp $
 //
 
 require_once 'PEAR.php';
@@ -55,7 +55,7 @@ class Net_Socket extends PEAR {
     /** Number of bytes to read at a time in readLine() and
         readAll(). */
     var $lineLength = 2048;
-	// }}}
+    // }}}
     
     
     // {{{ constructor
@@ -67,10 +67,10 @@ class Net_Socket extends PEAR {
     function Net_Socket() {
         $this->PEAR();
     }
-	// }}}
+    // }}}
     
     
-	// {{{ connect()
+    // {{{ connect()
     /**
      * Connect to the specified port. If called when the socket is
      * already connected, it disconnects and connects again.
@@ -114,9 +114,9 @@ class Net_Socket extends PEAR {
         $this->persistent = $persistent;
         return true;
     }
-	// }}}
+    // }}}
     
-	// {{{ disconnect()
+    // {{{ disconnect()
     /**
      * Disconnects from the peer, closes the socket.
      *
@@ -131,9 +131,9 @@ class Net_Socket extends PEAR {
         }
         return new PEAR_Error("not connected");
     }
-	// }}}
+    // }}}
     
-	// {{{ isBlocking()
+    // {{{ isBlocking()
     /**
      * Find out if the socket is in blocking mode.
      *
@@ -143,9 +143,9 @@ class Net_Socket extends PEAR {
     function isBlocking() {
         return $this->blocking;
     }
-	// }}}
+    // }}}
     
-	// {{{ setBlocking()
+    // {{{ setBlocking()
     /**
      * Sets whether the socket connection should be blocking or
      * not. A read call to a non-blocking socket will return immediately
@@ -161,18 +161,18 @@ class Net_Socket extends PEAR {
             set_socket_blocking($this->fp, $mode);
         }
     }
-	// }}}
+    // }}}
     
-	// {{{ gets()
+    // {{{ gets()
     function gets($size) {
         if (is_resource($this->fp)) {
             return fgets($this->fp, $size);
         }
         return new PEAR_Error("not connected");
     }
-	// }}}
+    // }}}
     
-	// {{{ read()
+    // {{{ read()
     /**
      * Read a specified amount of data. This is guaranteed to return,
      * and has the added benefit of getting everything in one fread()
@@ -190,16 +190,16 @@ class Net_Socket extends PEAR {
         }
         return new PEAR_Error("not connected");
     }
-	// }}}
+    // }}}
     
-	// {{{ write()
+    // {{{ write()
     function write($data) {
         if (is_resource($this->fp)) {
             return fwrite($this->fp, $data);
         }
         return new PEAR_Error("not connected");
     }
-	// }}}
+    // }}}
     
     // {{{ writeLine()
     /**
@@ -214,24 +214,24 @@ class Net_Socket extends PEAR {
         }
         return new PEAR_Error("not connected");
     }
-	// }}}
+    // }}}
     
-	// {{{ eof()
+    // {{{ eof()
     function eof() {
         return (is_resource($this->fp) && feof($this->fp));
     }
-	// }}}
+    // }}}
     
-	// {{{ readByte()
+    // {{{ readByte()
     function readByte() {
         if (is_resource($this->fp)) {
             return ord(fread($this->fp, 1));
         }
         return new PEAR_Error("not connected");
     }
-	// }}}
+    // }}}
     
-	// {{{ readWord()
+    // {{{ readWord()
     function readWord() {
         if (is_resource($this->fp)) {
             $buf = fread($this->fp, 2);
@@ -239,9 +239,9 @@ class Net_Socket extends PEAR {
         }
         return new PEAR_Error("not connected");
     }
-	// }}}
+    // }}}
     
-	// {{{ readInt()
+    // {{{ readInt()
     function readInt() {
         if (is_resource($this->fp)) {
             $buf = fread($this->fp, 4);
@@ -250,9 +250,9 @@ class Net_Socket extends PEAR {
         }
         return new PEAR_Error("not connected");
     }
-	// }}}
+    // }}}
     
-	// {{{ readString()
+    // {{{ readString()
     function readString() {
         if (is_resource($this->fp)) {
             $string = '';
@@ -263,9 +263,9 @@ class Net_Socket extends PEAR {
         }
         return new PEAR_Error("not connected");
     }
-	// }}}
+    // }}}
     
-	// {{{ readIPAddress()
+    // {{{ readIPAddress()
     function readIPAddress() {
         if (is_resource($this->fp)) {
             $buf = fread($this->fp, 4);
@@ -274,9 +274,9 @@ class Net_Socket extends PEAR {
         }
         return new PEAR_Error("not connected");
     }
-	// }}}
+    // }}}
     
-	// {{{ readLine()
+    // {{{ readLine()
     /**
      * Read until either the end of the socket or a newline, whichever
      * comes first. Strips the trailing newline from the returned data.
@@ -299,9 +299,9 @@ class Net_Socket extends PEAR {
         }
         return new PEAR_ERROR("not connected");
     }
-	// }}}
+    // }}}
     
-	// {{{ readAll()
+    // {{{ readAll()
     /**
      * Read until the socket closes. THIS FUNCTION WILL NOT EXIT if the
      * socket is in blocking mode until the socket closes.
@@ -318,8 +318,7 @@ class Net_Socket extends PEAR {
         }
         return new PEAR_Error("not connected");
     }
-	// }}}
+    // }}}
     
 }
-
 ?>

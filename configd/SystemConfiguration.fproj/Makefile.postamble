@@ -107,13 +107,16 @@ before_installhdrs: $(OFILE_DIR)
 $(OFILE_DIR)/genSCPreferences: genSCPreferences.o
 	$(CC) -o $@ $(ARCHITECTURE_FLAGS) $<
 
-SCPreferences.h: $(OFILE_DIR)/genSCPreferences
+SCSchemaDefinitions.h: $(OFILE_DIR)/genSCPreferences
 	$(CD) $(SFILE_DIR) && $(OFILE_DIR)/genSCPreferences header > $@
 
-SCPreferences.c: $(OFILE_DIR)/genSCPreferences
+SCSchemaDefinitions.c: $(OFILE_DIR)/genSCPreferences
 	$(CD) $(SFILE_DIR) && $(OFILE_DIR)/genSCPreferences cfile  > $@
 
 genSCFiles:
 	cc -o /tmp/genSCFiles genSCPreferences.c -framework CoreFoundation
-	/tmp/genSCFiles header > /tmp/SCPreferences.h
-	/tmp/genSCFiles cfile  > /tmp/SCPreferences.c
+	/tmp/genSCFiles header > /tmp/SCSchemaDefinitions.h
+	/tmp/genSCFiles cfile  > /tmp/SCSchemaDefinitions.c
+
+dhcp: DHCP.c
+	cc -Wall -DUSE_SYSTEMCONFIGURATION_PUBLIC_APIS -DTEST_DHCPCLIENT_PREFERENCES -g -o dhcp DHCP.c -framework CoreFoundation -framework SystemConfiguration

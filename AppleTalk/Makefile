@@ -12,15 +12,15 @@ NAME = AppleTalk
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Framework
 
-HFILES = at_paths.h at_proto.h at_rwlock.h
+HFILES = at_paths.h at_proto.h
 
 CFILES = adsp_socket.c asp_if.c atalk_status.c at_abort.c at_get_req.c\
-         at_get_rsp.c at_look.c at_open.c at_rwlock.c at_snd_dev.c\
-         at_snd_req.c at_snd_rsp.c ddp_config.c lap_init.c nbp_conf.c\
-         nbp_iswild.c nbp_lookup.c nbp_parse.c nbp_reg.c nbp_remove.c\
-         nbp_send.c pap_close.c pap_open.c pap_read.c pap_rig.c\
-         pap_status.c pap_ustat.c pap_write.c version.c zip_lolist.c\
-         zip_myzone.c zip_zlist.c
+         at_get_rsp.c at_look.c at_open.c at_snd_dev.c at_snd_req.c\
+         at_snd_rsp.c ddp_config.c lap_init.c nbp_conf.c nbp_iswild.c\
+         nbp_lookup.c nbp_parse.c nbp_reg.c nbp_remove.c nbp_send.c\
+         pap_close.c pap_open.c pap_read.c pap_rig.c pap_status.c\
+         pap_ustat.c pap_write.c version.c zip_lolist.c zip_myzone.c\
+         zip_zlist.c
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble atp.3\
             atp_close.3 atp_getreq.3 atp_getresp.3 atp_sendreq.3\

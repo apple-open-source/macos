@@ -1,0 +1,531 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 32;
+	objects = {
+		00EDCDFCFF682165D0A17CE7 = {
+			isa = PBXFileReference;
+			path = CertExtensions.cpp;
+			refType = 4;
+		};
+		00EDCDFDFF682166D0A17CE7 = {
+			fileRef = 00EDCDFCFF682165D0A17CE7;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		00EDCDFEFF685DECD0A17CE7 = {
+			isa = PBXFileReference;
+			path = CertExtensions.h;
+			refType = 4;
+		};
+		00EDCDFFFF685DECD0A17CE7 = {
+			fileRef = 00EDCDFEFF685DECD0A17CE7;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0145E217FFEECAE67F000001 = {
+			isa = PBXFileReference;
+			path = CSPAttacher.h;
+			refType = 4;
+		};
+		0145E218FFEECAE67F000001 = {
+			fileRef = 0145E217FFEECAE67F000001;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0145E219FFEECB7D7F000001 = {
+			isa = PBXFileReference;
+			path = CSPAttacher.cpp;
+			refType = 4;
+		};
+		0145E21AFFEECB7D7F000001 = {
+			fileRef = 0145E219FFEECB7D7F000001;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		01B9A482FF51F881D0A17CE7 = {
+			isa = PBXFileReference;
+			path = CertBuilder.cpp;
+			refType = 4;
+		};
+		01B9A483FF51F881D0A17CE7 = {
+			isa = PBXFileReference;
+			path = CertBuilder.h;
+			refType = 4;
+		};
+		01B9A484FF51F882D0A17CE7 = {
+			fileRef = 01B9A483FF51F881D0A17CE7;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		01B9A485FF51F882D0A17CE7 = {
+			fileRef = 01B9A482FF51F881D0A17CE7;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		023E3604001F8F3611CD283A = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				OTHER_LDFLAGS = "\U0001-dylib_file \"$(SYSTEM_LIBRARY_DIR)/Frameworks/Security.framework/Versions/A/Security:$(SYMROOT)/Security.framework/Versions/A/Security\"";
+			};
+			isa = PBXBuildStyle;
+			name = "Build Folder";
+		};
+		026EACE1FF4315CCD0A17CE7 = {
+			buildStyles = (
+				1C9129D5FFD8583A11CD296C,
+				1C9129D6FFD8583A11CD296C,
+				023E3604001F8F3611CD283A,
+			);
+			isa = PBXProject;
+			mainGroup = 026EACE2FF4315CCD0A17CE7;
+			productRefGroup = 026EACE3FF431640D0A17CE7;
+			projectDirPath = .;
+			targets = (
+				026EACE7FF431640D0A17CE7,
+			);
+		};
+		026EACE2FF4315CCD0A17CE7 = {
+			children = (
+				026EACEDFF431781D0A17CE7,
+				026EACEEFF431781D0A17CE7,
+				01B9A482FF51F881D0A17CE7,
+				01B9A483FF51F881D0A17CE7,
+				00EDCDFCFF682165D0A17CE7,
+				00EDCDFEFF685DECD0A17CE7,
+				04CBC2A4FF487123D0A17CE7,
+				0A8DEDB2FF48916BD0A17CE7,
+				0A8DEDB0FF488BFED0A17CE7,
+				0145E219FFEECB7D7F000001,
+				0145E217FFEECAE67F000001,
+				08D5DEBCFF52F2F3D0A17CE7,
+				08D5DEBEFF52F335D0A17CE7,
+				0A8DEDBAFF49C621D0A17CE7,
+				0A8DEDBBFF49C621D0A17CE7,
+				0A8DEDB6FF499ACAD0A17CE7,
+				23C0B750FF4C5F61D0A17CE7,
+				23C0B751FF4C5F61D0A17CE7,
+				026EACFFFF43462AD0A17CE7,
+				026EAD00FF43462AD0A17CE7,
+				23715C3DFF4C5A26D0A17CE7,
+				23C0B758FF4C6EA0D0A17CE7,
+				23C0B759FF4C6EA0D0A17CE7,
+				026EACFDFF431F36D0A17CE7,
+				35D41EC6FFF3E85F11CD283A,
+				026EACE3FF431640D0A17CE7,
+			);
+			isa = PBXGroup;
+			refType = 4;
+		};
+		026EACE3FF431640D0A17CE7 = {
+			children = (
+				1C9129D4FFD8583A11CD296C,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+		};
+		026EACE7FF431640D0A17CE7 = {
+			buildPhases = (
+				026EACE8FF431640D0A17CE7,
+				026EACE9FF431640D0A17CE7,
+				026EACEAFF431640D0A17CE7,
+				026EACEBFF431640D0A17CE7,
+				026EACECFF431640D0A17CE7,
+			);
+			buildSettings = {
+				DEPLOYMENT_OPTIMIZATION_CFLAGS = "-O2 -fno-inline";
+				EXPORTED_SYMBOLS_FILE = cssmplugin.exp;
+				FRAMEWORK_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Security";
+				OPTIMIZATION_CFLAGS = "-O1";
+				OTHER_CFLAGS = "-DVDADER_RULES";
+				OTHER_LDFLAGS = "-bundle -undefined error -lstdc++";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleX509CL;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-format -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = bundle;
+			};
+			conditionalBuildSettings = {
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = AppleX509CL;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Security";
+			productName = AppleX509CL;
+			productReference = 1C9129D4FFD8583A11CD296C;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
+<plist version=\"0.9\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>AppleX509CL</string>
+	<key>CFBundleGetInfoString</key>
+	<string></string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.applex509cl</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>AppleX509CL</string>
+	<key>CFBundlePackageType</key>
+	<string>BNDL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>AppleX509CL 1.0</string>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 1;
+		};
+		026EACE8FF431640D0A17CE7 = {
+			buildActionMask = 2147483647;
+			files = (
+				026EACF5FF431781D0A17CE7,
+				0A8DEDB1FF488BFED0A17CE7,
+				0A8DEDB7FF499ACAD0A17CE7,
+				0A8DEDBCFF49C621D0A17CE7,
+				23C0B752FF4C5F61D0A17CE7,
+				23C0B75AFF4C6EA0D0A17CE7,
+				01B9A484FF51F882D0A17CE7,
+				08D5DEBFFF52F335D0A17CE7,
+				00EDCDFFFF685DECD0A17CE7,
+				0145E218FFEECAE67F000001,
+			);
+			isa = PBXHeadersBuildPhase;
+			name = Headers;
+		};
+		026EACE9FF431640D0A17CE7 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			name = "Bundle Resources";
+		};
+		026EACEAFF431640D0A17CE7 = {
+			buildActionMask = 2147483647;
+			files = (
+				026EACF7FF431781D0A17CE7,
+				026EACFEFF431F36D0A17CE7,
+				026EAD01FF43462AD0A17CE7,
+				026EAD02FF43462AD0A17CE7,
+				04CBC2A5FF487123D0A17CE7,
+				0A8DEDB3FF48916BD0A17CE7,
+				0A8DEDBDFF49C621D0A17CE7,
+				23715C3EFF4C5A26D0A17CE7,
+				23C0B753FF4C5F61D0A17CE7,
+				23C0B75BFF4C6EA0D0A17CE7,
+				01B9A485FF51F882D0A17CE7,
+				08D5DEBDFF52F2F3D0A17CE7,
+				00EDCDFDFF682166D0A17CE7,
+				0145E21AFFEECB7D7F000001,
+			);
+			isa = PBXSourcesBuildPhase;
+			name = Sources;
+		};
+		026EACEBFF431640D0A17CE7 = {
+			buildActionMask = 2147483647;
+			files = (
+				35D41EC8FFF3E85F11CD283A,
+			);
+			isa = PBXFrameworksBuildPhase;
+			name = "Frameworks & Libraries";
+		};
+		026EACECFF431640D0A17CE7 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			name = "ResourceManager Resources";
+		};
+		026EACEDFF431781D0A17CE7 = {
+			isa = PBXFileReference;
+			path = AppleX509CL.cpp;
+			refType = 4;
+		};
+		026EACEEFF431781D0A17CE7 = {
+			isa = PBXFileReference;
+			path = AppleX509CL.h;
+			refType = 4;
+		};
+		026EACF5FF431781D0A17CE7 = {
+			fileRef = 026EACEEFF431781D0A17CE7;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		026EACF7FF431781D0A17CE7 = {
+			fileRef = 026EACEDFF431781D0A17CE7;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		026EACFDFF431F36D0A17CE7 = {
+			isa = PBXFileReference;
+			path = cssmplugin.exp;
+			refType = 4;
+		};
+		026EACFEFF431F36D0A17CE7 = {
+			fileRef = 026EACFDFF431F36D0A17CE7;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		026EACFFFF43462AD0A17CE7 = {
+			isa = PBXFileReference;
+			path = Session_Cert.cpp;
+			refType = 4;
+		};
+		026EAD00FF43462AD0A17CE7 = {
+			isa = PBXFileReference;
+			path = Session_CRL.cpp;
+			refType = 4;
+		};
+		026EAD01FF43462AD0A17CE7 = {
+			fileRef = 026EACFFFF43462AD0A17CE7;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		026EAD02FF43462AD0A17CE7 = {
+			fileRef = 026EAD00FF43462AD0A17CE7;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		04CBC2A4FF487123D0A17CE7 = {
+			isa = PBXFileReference;
+			path = CertFields.cpp;
+			refType = 4;
+		};
+		04CBC2A5FF487123D0A17CE7 = {
+			fileRef = 04CBC2A4FF487123D0A17CE7;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		08D5DEBCFF52F2F3D0A17CE7 = {
+			isa = PBXFileReference;
+			path = DecodedCert.cpp;
+			refType = 4;
+		};
+		08D5DEBDFF52F2F3D0A17CE7 = {
+			fileRef = 08D5DEBCFF52F2F3D0A17CE7;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		08D5DEBEFF52F335D0A17CE7 = {
+			isa = PBXFileReference;
+			path = DecodedCert.h;
+			refType = 4;
+		};
+		08D5DEBFFF52F335D0A17CE7 = {
+			fileRef = 08D5DEBEFF52F335D0A17CE7;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0A8DEDB0FF488BFED0A17CE7 = {
+			isa = PBXFileReference;
+			path = CLCachedEntry.h;
+			refType = 4;
+		};
+		0A8DEDB1FF488BFED0A17CE7 = {
+			fileRef = 0A8DEDB0FF488BFED0A17CE7;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0A8DEDB2FF48916BD0A17CE7 = {
+			isa = PBXFileReference;
+			path = CLCachedEntry.cpp;
+			refType = 4;
+		};
+		0A8DEDB3FF48916BD0A17CE7 = {
+			fileRef = 0A8DEDB2FF48916BD0A17CE7;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		0A8DEDB6FF499ACAD0A17CE7 = {
+			isa = PBXFileReference;
+			path = LockedMap.h;
+			refType = 4;
+		};
+		0A8DEDB7FF499ACAD0A17CE7 = {
+			fileRef = 0A8DEDB6FF499ACAD0A17CE7;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0A8DEDBAFF49C621D0A17CE7 = {
+			isa = PBXFileReference;
+			path = debugging.c;
+			refType = 4;
+		};
+		0A8DEDBBFF49C621D0A17CE7 = {
+			isa = PBXFileReference;
+			path = debugging.h;
+			refType = 4;
+		};
+		0A8DEDBCFF49C621D0A17CE7 = {
+			fileRef = 0A8DEDBBFF49C621D0A17CE7;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0A8DEDBDFF49C621D0A17CE7 = {
+			fileRef = 0A8DEDBAFF49C621D0A17CE7;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		1C9129D4FFD8583A11CD296C = {
+			isa = PBXBundleReference;
+			path = AppleX509CL.bundle;
+			refType = 3;
+		};
+		1C9129D5FFD8583A11CD296C = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		1C9129D6FFD8583A11CD296C = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+		23715C3DFF4C5A26D0A17CE7 = {
+			isa = PBXFileReference;
+			path = Session_Crypto.cpp;
+			refType = 4;
+		};
+		23715C3EFF4C5A26D0A17CE7 = {
+			fileRef = 23715C3DFF4C5A26D0A17CE7;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		23C0B750FF4C5F61D0A17CE7 = {
+			isa = PBXFileReference;
+			path = Session.h;
+			refType = 4;
+		};
+		23C0B751FF4C5F61D0A17CE7 = {
+			isa = PBXFileReference;
+			path = Session.cpp;
+			refType = 4;
+		};
+		23C0B752FF4C5F61D0A17CE7 = {
+			fileRef = 23C0B750FF4C5F61D0A17CE7;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		23C0B753FF4C5F61D0A17CE7 = {
+			fileRef = 23C0B751FF4C5F61D0A17CE7;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		23C0B758FF4C6EA0D0A17CE7 = {
+			isa = PBXFileReference;
+			path = SnaccUtils.cpp;
+			refType = 4;
+		};
+		23C0B759FF4C6EA0D0A17CE7 = {
+			isa = PBXFileReference;
+			path = SnaccUtils.h;
+			refType = 4;
+		};
+		23C0B75AFF4C6EA0D0A17CE7 = {
+			fileRef = 23C0B759FF4C6EA0D0A17CE7;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		23C0B75BFF4C6EA0D0A17CE7 = {
+			fileRef = 23C0B758FF4C6EA0D0A17CE7;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		35D41EC6FFF3E85F11CD283A = {
+			children = (
+				35D41EC7FFF3E85F11CD283A,
+			);
+			isa = PBXGroup;
+			name = "External Frameworks";
+			path = ../Projects/SecurityX/AppleX509CL;
+			refType = 3;
+		};
+		35D41EC7FFF3E85F11CD283A = {
+			isa = PBXFrameworkReference;
+			path = Security.framework;
+			refType = 3;
+		};
+		35D41EC8FFF3E85F11CD283A = {
+			fileRef = 35D41EC7FFF3E85F11CD283A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+	};
+	rootObject = 026EACE1FF4315CCD0A17CE7;
+}

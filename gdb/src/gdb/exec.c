@@ -573,6 +573,49 @@ xfer_memory (CORE_ADDR memaddr, char *myaddr, int len, int write,
 
 
 void
+print_section_info_objfile (struct objfile *o)
+{
+  struct obj_section *p;
+
+#ifdef UI_OUT
+  ui_out_list_begin (uiout, "section-info");
+  ui_out_text (uiout, "\t");
+  ui_out_field_string (uiout, "filename", bfd_get_filename (o->obfd));
+  ui_out_text (uiout, ", ");
+  ui_out_wrap_hint (uiout, "        ");
+  ui_out_text (uiout, "file type ");
+  ui_out_field_string (uiout, "filetype", bfd_get_target (o->obfd));
+  ui_out_text (uiout, ", ");
+  ui_out_wrap_hint (uiout, "        ");
+  ui_out_text (uiout, "symbol prefix ");
+  ui_out_field_string (uiout, "prefix", o->prefix);
+  ui_out_text (uiout, ".\n");
+  ui_out_list_begin (uiout, "sections");
+  for (p = o->sections; p < o->sections_end; p++)
+    {
+      ui_out_list_begin (uiout, "section");
+      ui_out_text (uiout, "\t");
+      ui_out_field_core_addr (uiout, "addr", p->addr);
+      ui_out_text (uiout, " - ");
+      ui_out_field_core_addr (uiout, "endaddr", p->endaddr);
+      if (info_verbose)
+	{
+	  ui_out_text (uiout, " @ ");
+	  ui_out_field_core_addr (uiout, "filepos", p->the_bfd_section->filepos);
+	}
+      ui_out_text (uiout, " is ");
+      ui_out_field_string (uiout, "name", bfd_section_name (p->bfd, p->the_bfd_section));
+      ui_out_text (uiout, "\n");
+      ui_out_list_end (uiout); /* "section" */
+    }
+  ui_out_list_end (uiout); /* "sections" */
+  ui_out_list_end (uiout); /* "section-info" */
+#else
+#error must support UI_OUT
+#endif
+}
+
+void
 print_section_info (struct target_ops *t, bfd *abfd)
 {
   struct section_table *p;
@@ -615,7 +658,7 @@ print_section_info (struct target_ops *t, bfd *abfd)
       ui_out_text (uiout, "\n");
       ui_out_list_end (uiout); /* "section" */
     }
-  ui_out_list_end (uiout); /* "section" */
+  ui_out_list_end (uiout); /* "sections" */
   ui_out_list_end (uiout); /* "section-info" */
 #else
   printf_filtered ("\t`%s', ", bfd_get_filename (abfd));

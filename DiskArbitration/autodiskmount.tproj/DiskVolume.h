@@ -24,6 +24,7 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 #include "DiskArbitrationTypes.h"
+#include "DiskArbitrationServerMain.h"
 #include "FSParticular.h"
 
 #define FS_RESERVED_PREFIX	"Apple_"
@@ -71,7 +72,7 @@ typedef struct DiskVolumes DiskVolumes, *DiskVolumesPtr;
 
 void 		DiskVolumes_new(DiskVolumesPtr *diskList);
 void 		DiskVolumes_delete(DiskVolumesPtr diskList);
-DiskVolumesPtr 		DiskVolumes_do_removable(DiskVolumesPtr diskList,boolean_t do_removable,boolean_t eject);
+DiskVolumesPtr 		DiskVolumes_do_volumes(DiskVolumesPtr diskList);
 unsigned 	DiskVolumes_count(DiskVolumesPtr);
 DiskVolumePtr 	DiskVolumes_objectAtIndex(DiskVolumesPtr diskList,int index);
 DiskVolumePtr 	DiskVolumes_volumeWithMount(DiskVolumesPtr diskList,char *path);
@@ -80,3 +81,9 @@ DiskVolumesPtr   DiskVolumes_print(DiskVolumesPtr diskList);
 
 extern boolean_t DiskVolume_mount_ufs(DiskVolumePtr diskVolume);
 
+/* UI display stuff */
+
+void StartUnrecognizedDiskDialogThread(DiskPtr disk);
+int DiskArbIsHandlingUnrecognizedDisks(void);
+void DiskVolume_SetTrashes(DiskVolumePtr dptr);
+void StartUnmountableDiskThread(DiskPtr disk);

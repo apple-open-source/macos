@@ -16,7 +16,7 @@
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  *
- * $Id: ipcp.h,v 1.4 2001/01/20 03:35:45 callie Exp $
+ * $Id: ipcp.h,v 1.5 2001/05/09 17:52:30 callie Exp $
  */
 
 /*
@@ -71,3 +71,4 @@ extern ipcp_options ipcp_hisoptions[];
 char *ip_ntoa __P((u_int32_t));
 
 extern struct protent ipcp_protent;
+

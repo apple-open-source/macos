@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,14 +16,14 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_gettext.h,v 1.1.1.2 2000/09/07 00:05:29 wsanchez Exp $ */
+/* $Id: php_gettext.h,v 1.1.1.3 2001/07/19 00:19:12 zarzycki Exp $ */
 
 #ifndef PHP_GETTEXT_H
 #define PHP_GETTEXT_H
 
 #if HAVE_LIBINTL
 #ifndef INIT_FUNC_ARGS
-#include "modules.h"
+#include "zend_modules.h"
 #endif
 
 extern zend_module_entry php_gettext_module_entry;

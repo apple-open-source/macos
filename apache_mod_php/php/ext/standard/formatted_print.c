@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: formatted_print.c,v 1.1.1.2 2000/09/07 00:06:03 wsanchez Exp $ */
+/* $Id: formatted_print.c,v 1.1.1.3 2001/07/19 00:20:13 zarzycki Exp $ */
 
 #include <math.h>				/* modf() */
 #include "php.h"
@@ -92,7 +92,7 @@ static char *php_convert_to_decimal(double arg, int ndigits, int *decpt, int *si
 		while (p1 < &cvt_buf[NDIG])
 			*p++ = *p1++;
 	} else if (arg > 0) {
-		while ((fj = arg * 10) < 1) {
+		while ((fj = arg * 10.0) < 0.9999999) {
 			arg = fj;
 			r2--;
 		}
@@ -184,7 +184,7 @@ php_sprintf_appendstring(char **buffer, int *pos, int *size, char *add,
 		}
 	}
 	PRINTF_DEBUG(("sprintf: appending \"%s\"\n", add));
-	strncpy(&(*buffer)[*pos], add, MIN(max_width, len)+1);
+	memcpy(&(*buffer)[*pos], add, MIN(max_width, len)+1);
 	*pos += MIN(max_width, len);
 	if (alignment == ALIGN_LEFT) {
 		while (npad--) {
@@ -232,6 +232,33 @@ php_sprintf_appendint(char **buffer, int *pos, int *size, int number,
 							 neg, 0);
 }
 
+inline static void
+php_sprintf_appenduint(char **buffer, int *pos, int *size, int number,
+						int width, char padding, int alignment)
+{
+	char numbuf[NUM_BUF_SIZE];
+	register unsigned int magn, nmagn, i = NUM_BUF_SIZE - 1;
+
+	PRINTF_DEBUG(("sprintf: appenduint(%x, %x, %x, %d, %d, '%c', %d)\n",
+				  *buffer, pos, size, number, width, padding, alignment));
+	magn = (unsigned int) number;
+
+	/* Can't right-pad 0's on integers */
+	if (alignment == 0 && padding == '0') padding = ' ';
+
+	numbuf[i] = '\0';
+
+	do {
+		nmagn = magn / 10;
+
+		numbuf[--i] = (magn - (nmagn * 10)) + '0';
+		magn = nmagn;
+	}
+	while (magn > 0 && i > 0);
+	PRINTF_DEBUG(("sprintf: appending %d as \"%s\", i=%d\n", number, &numbuf[i], i));
+	php_sprintf_appendstring(buffer, pos, size, &numbuf[i], width, 0,
+							 padding, alignment, (NUM_BUF_SIZE - 1) - i, 0, 0);
+}
 
 inline static void
 php_sprintf_appenddouble(char **buffer, int *pos,
@@ -390,8 +417,8 @@ static char *
 php_formatted_print(int ht, int *len)
 {
 	pval ***args;
-	int argc, size = 240, inpos = 0, outpos = 0;
-	int alignment, width, precision, currarg, adjusting;
+	int argc, size = 240, inpos = 0, outpos = 0, temppos;
+	int alignment, width, precision, currarg, adjusting, argnum;
 	char *format, *result, padding;
 
 	argc = ZEND_NUM_ARGS();
@@ -411,7 +438,7 @@ php_formatted_print(int ht, int *len)
 
 	currarg = 1;
 
-	while (format[inpos]) {
+	while (inpos<(*args[0])->value.str.len) {
 		int expprec = 0;
 
 		PRINTF_DEBUG(("sprintf: format[%d]='%c'\n", inpos, format[inpos]));
@@ -437,7 +464,23 @@ php_formatted_print(int ht, int *len)
 			PRINTF_DEBUG(("sprintf: first looking at '%c', inpos=%d\n",
 						  format[inpos], inpos));
 			if (isascii((int)format[inpos]) && !isalpha((int)format[inpos])) {
-				/* first look for modifiers */
+				/* first look for argnum */
+				temppos = inpos;
+				while (isdigit((int)format[temppos])) temppos++;
+				if (format[temppos] == '$') {
+					argnum = php_sprintf_getnumber(format, &inpos);
+					inpos++;  /* skip the '$' */
+				} else {
+					argnum = currarg++;
+				}
+				if (argnum >= argc) {
+					efree(result);
+					efree(args);
+					php_error(E_WARNING, "%s(): too few arguments",get_active_function_name());
+					return NULL;
+				}
+
+				/* after argnum comes modifiers */
 				PRINTF_DEBUG(("sprintf: looking for modifiers\n"
 							  "sprintf: now looking at '%c', inpos=%d\n",
 							  format[inpos], inpos));
@@ -469,7 +512,7 @@ php_formatted_print(int ht, int *len)
 				}
 				PRINTF_DEBUG(("sprintf: width=%d\n", width));
 
-				/* after width comes precision */
+				/* after width and argnum comes precision */
 				if (format[inpos] == '.') {
 					inpos++;
 					PRINTF_DEBUG(("sprintf: getting precision\n"));
@@ -486,6 +529,7 @@ php_formatted_print(int ht, int *len)
 				PRINTF_DEBUG(("sprintf: precision=%d\n", precision));
 			} else {
 				width = precision = 0;
+				argnum = currarg++;
 			}
 
 			if (format[inpos] == 'l') {
@@ -495,67 +539,74 @@ php_formatted_print(int ht, int *len)
 			/* now we expect to find a type specifier */
 			switch (format[inpos]) {
 				case 's':
-					convert_to_string_ex(args[currarg]);
+					convert_to_string_ex(args[argnum]);
 					php_sprintf_appendstring(&result, &outpos, &size,
-											 (*args[currarg])->value.str.val,
+											 (*args[argnum])->value.str.val,
 											 width, precision, padding,
 											 alignment,
-											 (*args[currarg])->value.str.len,
+											 (*args[argnum])->value.str.len,
 											 0, expprec);
 					break;
 
 				case 'd':
-					convert_to_long_ex(args[currarg]);
+					convert_to_long_ex(args[argnum]);
 					php_sprintf_appendint(&result, &outpos, &size,
-										  (*args[currarg])->value.lval,
+										  (*args[argnum])->value.lval,
+										  width, padding, alignment);
+					break;
+
+				case 'u':
+					convert_to_long_ex(args[argnum]);
+					php_sprintf_appenduint(&result, &outpos, &size,
+										  (*args[argnum])->value.lval,
 										  width, padding, alignment);
 					break;
 
 				case 'e':
 				case 'f':
 					/* XXX not done */
-					convert_to_double_ex(args[currarg]);
+					convert_to_double_ex(args[argnum]);
 					php_sprintf_appenddouble(&result, &outpos, &size,
-											 (*args[currarg])->value.dval,
+											 (*args[argnum])->value.dval,
 											 width, padding, alignment,
 											 precision, adjusting,
 											 format[inpos]);
 					break;
 
 				case 'c':
-					convert_to_long_ex(args[currarg]);
+					convert_to_long_ex(args[argnum]);
 					php_sprintf_appendchar(&result, &outpos, &size,
-										(char) (*args[currarg])->value.lval);
+										(char) (*args[argnum])->value.lval);
 					break;
 
 				case 'o':
-					convert_to_long_ex(args[currarg]);
+					convert_to_long_ex(args[argnum]);
 					php_sprintf_append2n(&result, &outpos, &size,
-										 (*args[currarg])->value.lval,
+										 (*args[argnum])->value.lval,
 										 width, padding, alignment, 3,
 										 hexchars, expprec);
 					break;
 
 				case 'x':
-					convert_to_long_ex(args[currarg]);
+					convert_to_long_ex(args[argnum]);
 					php_sprintf_append2n(&result, &outpos, &size,
-										 (*args[currarg])->value.lval,
+										 (*args[argnum])->value.lval,
 										 width, padding, alignment, 4,
 										 hexchars, expprec);
 					break;
 
 				case 'X':
-					convert_to_long_ex(args[currarg]);
+					convert_to_long_ex(args[argnum]);
 					php_sprintf_append2n(&result, &outpos, &size,
-										 (*args[currarg])->value.lval,
+										 (*args[argnum])->value.lval,
 										 width, padding, alignment, 4,
 										 HEXCHARS, expprec);
 					break;
 
 				case 'b':
-					convert_to_long_ex(args[currarg]);
+					convert_to_long_ex(args[argnum]);
 					php_sprintf_append2n(&result, &outpos, &size,
-										 (*args[currarg])->value.lval,
+										 (*args[argnum])->value.lval,
 										 width, padding, alignment, 1,
 										 hexchars, expprec);
 					break;
@@ -567,7 +618,6 @@ php_formatted_print(int ht, int *len)
 				default:
 					break;
 			}
-			currarg++;
 			inpos++;
 		}
 	}

@@ -5,7 +5,7 @@
 #           file from the comments it finds.
 #
 # Author: Matt Morse (matt@apple.com)
-# Last Updated: 05/26/2000
+# Last Updated: $Date: 2001/06/06 18:02:45 $
 #
 # Copyright (c) 1999 Apple Computer, Inc.  All Rights Reserved.
 # The contents of this file constitute Original Code as defined in and are
@@ -22,6 +22,7 @@
 # the specific language governing rights and limitations under the
 # License.
 #
+# $Revision: 1.21 $
 #####################################################################
 
 my $VERSION = 2.1;
@@ -39,107 +40,118 @@ my $printVersion;
 # The look-up tables supply uniqueID-to-APIName mappings.
 
 my $scriptDir;
+my $lookupTableDirName;
 my $lookupTableDir;
 my $dbLookupTables;
-my $lookupTableDirName;
 my $functionFilename;
 my $typesFilename;
+my $enumsFilename;
+my $masterTOCName;
 my @inputFiles;
 
 # Check options in BEGIN block to avoid overhead of loading supporting 
 # modules in error cases.
 BEGIN {
-	use Cwd;
+    use Cwd;
     use Getopt::Std;
+    use File::Find;
 	
-	my %options = ();
-	$lookupTableDirName = "LookupTables";
-	$functionFilename = "functions.tab";;
-	$typesFilename = "types.tab";
+    my %options = ();
+    $lookupTableDirName = "LookupTables";
+    $functionFilename = "functions.tab";;
+    $typesFilename = "types.tab";
+    $enumsFilename = "enumConstants.tab";
 
-	$scriptDir = cwd();
+    $scriptDir = cwd();
 
-	if ($^O =~ /MacOS/i) {
-		$pathSeparator = ":";
-		$isMacOS = 1;
-	} else {
-		$pathSeparator = "/";
-		$isMacOS = 0;
-	}
+    if ($^O =~ /MacOS/i) {
+            $pathSeparator = ":";
+            $isMacOS = 1;
+    } else {
+            $pathSeparator = "/";
+            $isMacOS = 0;
+    }
 	foreach (qw(Mac::Files)) {
 	    $MOD_AVAIL{$_} = eval "use $_; 1";
     }
 
-	&getopts("dvxo:", \%options);
-	if ($options{v}) {
+    &getopts("dvxo:", \%options);
+    if ($options{v}) {
     	print "Getting version information for all modules.  Please wait...\n";
 		$printVersion = 1;
 		return;
-	}
+    }
 
-	if ($options{d}) {
-		print "\tDebugging on...\n\n";
-		$debugging = 1;
-	}
+    if ($options{d}) {
+            print "\tDebugging on...\n\n";
+            $debugging = 1;
+    }
 
-	if ($options{o}) {
-		$specifiedOutputDir = $options{o};
-		if (! -e $specifiedOutputDir)  {
-		    die "Error: $specifiedOutputDir does not exist. Exiting. \n$!\n";
-		} elsif (! -d $specifiedOutputDir) {
-		    die "Error: $specifiedOutputDir is not a directory. Exiting.\n$!\n";
-		} elsif (! -w $specifiedOutputDir) {
-		    die "Error: Output directory $specifiedOutputDir is not writable. Exiting.\n$!\n";
-		}
-		print "\nDocumentation will be written to $specifiedOutputDir\n";
-	}
-
-	$lookupTableDir = "$scriptDir$pathSeparator$lookupTableDirName";
-	if (($options{x}) || ($testingExport)) {
-		if ((-e "$lookupTableDir$pathSeparator$functionFilename") && (-e "$lookupTableDir$pathSeparator$typesFilename")) {
-			print "\nWill write database files to an Export directory within each top-level HTML directory.\n\n";
-			$export = 1;
-		} else {
-			print "\nLookup table files not available. Cannot export data.\n";
-		    $export = 0;
-			$testingExport = 0;
-		}
-	}
-	if (($#ARGV == 0) && (-d $ARGV[0])) {
-	    opendir(DIR, $ARGV[0]) || die "Can't open directory $ARGV[0]";
-	    while (defined(my $entry = readdir(DIR))) {
-	        my $singleFile = "$ARGV[0]$pathSeparator$entry";
-            if ((-f $singleFile)  && ($entry ne "Icon\n")) {  # workaround for bug with File::Find
-	            push(@inputFiles, $singleFile);                    # and Mac OS hidden Icon\n files
-	        }
-	    }
-	    closedir DIR;
-	} else {
+    if ($options{o}) {
+        $specifiedOutputDir = $options{o};
+        if (! -e $specifiedOutputDir)  {
+            unless (mkdir ("$specifiedOutputDir", 0777)) {
+                die "Error: $specifiedOutputDir does not exist. Exiting. \n$!\n";
+            }
+        } elsif (! -d $specifiedOutputDir) {
+            die "Error: $specifiedOutputDir is not a directory. Exiting.\n$!\n";
+        } elsif (! -w $specifiedOutputDir) {
+            die "Error: Output directory $specifiedOutputDir is not writable. Exiting.\n$!\n";
+        }
+        print "\nDocumentation will be written to $specifiedOutputDir\n";
+    }
+    $lookupTableDir = "$scriptDir$pathSeparator$lookupTableDirName";
+    if (($options{x}) || ($testingExport)) {
+        if ((-e "$lookupTableDir$pathSeparator$functionFilename") && (-e "$lookupTableDir$pathSeparator$typesFilename")) {
+                print "\nWill write database files to an Export directory within each top-level HTML directory.\n\n";
+                $export = 1;
+        } else {
+                print "\nLookup table files not available. Cannot export data.\n";
+            $export = 0;
+                $testingExport = 0;
+        }
+    }
+    
+    if (($#ARGV == 0) && (-d $ARGV[0])) {
+        my $inputDir = $ARGV[0];
+        $inputDir =~ s|(.*)/$|$1|; # get rid of trailing slash, if any
+        &find({wanted => \&getHeaders, follow => 1}, $inputDir);
+    } else {
+        print "Will process one or more individual files.\n" if ($debugging);
         foreach my $singleFile (@ARGV) {
             if (-f $singleFile) {
-	            push(@inputFiles, $singleFile);
-	        }
+                    push(@inputFiles, $singleFile);
+                }
         }
-	}
-	unless (@inputFiles) {
-	    print "No valid input files specified. \n\n";
-	    if ($isMacOS) {
-	        die "\tTo use HeaderDoc, drop a header file or folder of header files on this application.\n\n";
-		} else {
-			die "\tUsage: headerDoc2HTML [-d] [-o <output directory>] <input file(s) or directory>.\n\n";
-		}
-	}
+    }
+    unless (@inputFiles) {
+        print "No valid input files specified. \n\n";
+        if ($isMacOS) {
+            die "\tTo use HeaderDoc, drop a header file or folder of header files on this application.\n\n";
+            } else {
+                    die "\tUsage: headerDoc2HTML [-d] [-o <output directory>] <input file(s) or directory>.\n\n";
+            }
+    }
+    
+    sub getHeaders {
+        my $filePath = $File::Find::name;
+        my $fileName = $_;
+        
+        if ($fileName =~ /\.h$/) {
+            push(@inputFiles, $filePath);
+        }
+    }
 }
 
+
 use strict;
-use File::Find;
 use File::Copy;
 use FindBin qw ($Bin);
 use lib "$Bin". "$pathSeparator"."Modules";
 
-# Classes specific to HeaderDoc
+# Classes and other modules specific to HeaderDoc
 use HeaderDoc::DBLookup;
-use HeaderDoc::Utilities qw(findRelativePath safeName getAPINameAndDisc printArray printHash);
+use HeaderDoc::Utilities qw(findRelativePath safeName getAPINameAndDisc printArray printHash updateHashFromConfigFiles getHashFromConfigFile);
 use HeaderDoc::Header;
 use HeaderDoc::CPPClass;
 use HeaderDoc::Function;
@@ -151,6 +163,40 @@ use HeaderDoc::PDefine;
 use HeaderDoc::Enum;
 use HeaderDoc::MinorAPIElement;
 
+################ Setup from Configuration File #######################
+my $localConfigFileName = "headerDoc2HTML.config";
+my $preferencesConfigFileName = "com.apple.headerDoc2HTML.config";
+my $homeDir = (getpwuid($<))[7];
+my $usersPreferencesPath = $homeDir.$pathSeparator."Library".$pathSeparator."Preferences";
+
+# The order of files in this array determines the order that the config files will be read
+# If there are multiple config files that declare a value for the same key, the last one read wins
+my @configFiles = ($usersPreferencesPath.$pathSeparator.$preferencesConfigFileName, $Bin.$pathSeparator.$localConfigFileName);
+
+# default configuration, which will be modified by assignments found in config files.
+my %config = (
+    copyrightOwner => "",
+    defaultFrameName => "index.html",
+    compositePageName => "CompositePage.html",
+    masterTOCName => "MasterTOC.html",
+    apiUIDPrefix => "apple_ref"
+);
+
+%config = &updateHashFromConfigFiles(\%config,\@configFiles);
+
+if (defined $config{"copyrightOwner"}) {
+    HeaderDoc::APIOwner->copyrightOwner($config{"copyrightOwner"});
+}
+if (defined $config{"defaultFrameName"}) {
+    HeaderDoc::APIOwner->defaultFrameName($config{"defaultFrameName"});
+}
+if (defined $config{"compositePageName"}) {
+    HeaderDoc::APIOwner->compositePageName($config{"compositePageName"});
+}
+if (defined $config{"apiUIDPrefix"}) {
+    HeaderDoc::APIOwner->apiUIDPrefix($config{"apiUIDPrefix"});
+}
+
 ################ Version Info ##############################
 if ($printVersion) {
     &printVersionInfo();
@@ -159,7 +205,7 @@ if ($printVersion) {
 
 ################ Exporting ##############################
 if ($export || $testingExport) {
-	DBLookup->loadUsingFolderAndFiles($lookupTableDir, $functionFilename, $typesFilename);
+	HeaderDoc::DBLookup->loadUsingFolderAndFiles($lookupTableDir, $functionFilename, $typesFilename, $enumsFilename);
 }
 
 ################### States ###########################################
@@ -176,6 +222,7 @@ my $inEnum = 0;
 
 ################ Processing starts here ##############################
 my $headerObject;  # this is the Header object that will own the HeaderElement objects for this file.
+
 foreach my $inputFile (@inputFiles) {
 	my $constantObj;
 	my $enumObj;
@@ -184,7 +231,7 @@ foreach my $inputFile (@inputFiles) {
 	my $structObj;
 	my $typedefObj;
 	my $varObj;
-	my $cppAccessControlState = "protected"; # the default in C++
+	my $cppAccessControlState = "protected:"; # the default in C++
 	
     my @path = split (/$pathSeparator/, $inputFile);
     my $filename = pop (@path);
@@ -202,14 +249,21 @@ foreach my $inputFile (@inputFiles) {
     	$rootOutputDir = $rootFileName;
     }
         
-    $headerObject = HeaderDoc::Header->new();
-	$headerObject->outputDir($rootOutputDir);
-	$headerObject->name($filename);
-	
     open(INPUTFILE, "<$inputFile") || die "Can't open input file $inputFile.\n$!\n";
     my @rawInputLines = <INPUTFILE>;
     close INPUTFILE;
     
+    # check for HeaderDoc comments -- if none, move to next file
+    my @headerDocCommentLines = grep(/^\s*\/\*\!/, @rawInputLines);
+    if (!@headerDocCommentLines) {
+        print "    Skipping. No HeaderDoc comments found.\n";
+        next;
+    }
+    
+    $headerObject = HeaderDoc::Header->new();
+	$headerObject->outputDir($rootOutputDir);
+	$headerObject->name($filename);
+	
     # scan input lines for class declarations
     # return an array of array refs, the first array being the header-wide lines
     # the others (if any) being the class-specific lines
@@ -250,7 +304,7 @@ foreach my $inputFile (@inputFiles) {
 		            ($line =~ /^\/\*!\s+\@function\s*/i) && do {$inFunction = 1;last SWITCH;};
 		            ($line =~ /^\/\*!\s+\@typedef\s*/i) && do {$inTypedef = 1;last SWITCH;};
 		            ($line =~ /^\/\*!\s+\@struct\s*/i) && do {$inStruct = 1;last SWITCH;};
-		            ($line =~ /^\/\*!\s+\@constant\s*/i) && do {$inConstant = 1;last SWITCH;};
+		            ($line =~ /^\/\*!\s+\@const(ant)?\s*/i) && do {$inConstant = 1;last SWITCH;};
 		            ($line =~ /^\/\*!\s+\@var\s*/i) && do {$inVar = 1;last SWITCH;};
 		            ($line =~ /^\/\*!\s+\@define(d)?\s*/i) && do {$inPDefine = 1;last SWITCH;};
 		            ($line =~ /^\/\*!\s+\@enum\s*/i) && do {$inEnum = 1;last SWITCH;};
@@ -288,7 +342,12 @@ foreach my $inputFile (@inputFiles) {
 								$declaration .= $inputLines[$inputCounter];
 							} while (($declaration !~ /;[^;]*$/)  && ($inputCounter <= $#inputLines))
 						}
-						$declaration =~ s/^\s+//g;  # trim leading spaces.
+						$declaration =~ s/^\s+//g;				# trim leading spaces.
+						$declaration =~ s/([^;]*;).*$/$1/s;		# trim anything following the final semicolon, 
+                                                                # including comments.
+						$declaration =~ s/([^{]+){.*;$/$1;/s;   # handle inline functions [#2423551]
+                                                                # by removing opening brace up to semicolon
+						$declaration =~ s/\s+;/;/;				# trim spaces before semicolon.
 						if ($declaration =~ /^virtual.*/) {
 						    $funcObj->linkageState("virtual");
 						} elsif ($declaration =~ /^static.*/) {
@@ -339,11 +398,7 @@ foreach my $inputFile (@inputFiles) {
 						}
 					}
 	                if (length($declaration)) {
-				       if (($declaration =~ /CALLBACK_API_C/) || $typedefObj->isFunctionPointer()) {
-			               $typedefObj->setTypedefDeclaration(TYPE=>"funcPtr", DECLARATION=>$declaration);
-				       } else {
-			               $typedefObj->setTypedefDeclaration(TYPE=>"struct", DECLARATION=>$declaration);
-			           }
+                        $typedefObj->setTypedefDeclaration($declaration);
 					} else {
 						warn "Couldn't find a declaration for typedef near line: $inputCounter\n";
 					}
@@ -445,7 +500,15 @@ foreach my $inputFile (@inputFiles) {
                     	print "$name\n\n";
                     }
 					$pDefineObj->setPDefineDeclaration($declaration);
-					if (length($pDefineObj->name())) { $apiOwner->addToPDefines($pDefineObj);};
+					
+					if (length($pDefineObj->name())) {
+						if (ref($apiOwner) ne "HeaderDoc::Header") {
+							$pDefineObj->accessControl($cppAccessControlState);
+							$apiOwner->addToVars($pDefineObj);
+						} else { # headers group by type
+							$apiOwner->addToPDefines($pDefineObj);
+					    }
+					}					
 				} ## end inPDefine
 				
 				if ($inEnum) {
@@ -491,7 +554,6 @@ foreach my $inputFile (@inputFiles) {
     $headerObject->writeHeaderElementsToCompositePage();
     $headerObject->writeExportsWithName($rootFileName) if (($export) || ($testingExport));
 }
-
 print "...done\n";
 exit 0;
 
@@ -604,7 +666,7 @@ sub processClassComment {
             };
             ($field =~ s/^abstract\s+//) && do {$apiOwner->abstract($field); last SWITCH;};
             ($field =~ s/^discussion\s+//) && do {$apiOwner->discussion($field); last SWITCH;};
-            print "Unknown field: $field\n";
+            print "Unknown field in class comment: $field\n";
 		}
 	}
 	return $apiOwner;
@@ -624,7 +686,7 @@ sub processHeaderComment {
 			do {
 				my ($name, $disc);
 				($name, $disc) = &getAPINameAndDisc($field); 
-				print "Setting header name to $name\n";
+				print "Setting header name to $name\n" if ($debugging);
 				print "Discussion is:\n" if ($debugging);
 				print "$disc\n" if ($debugging);
 				if (length($disc)) {$apiOwner->discussion($disc);};
@@ -632,7 +694,7 @@ sub processHeaderComment {
 			};
             ($field =~ s/^abstract\s+//) && do {$apiOwner->abstract($field); last SWITCH;};
             ($field =~ s/^discussion\s+//) && do {$apiOwner->discussion($field); last SWITCH;};
-            print "Unknown field: $field\n";
+            print "Unknown field in header comment: $field\n";
 		}
 	}
 	return $apiOwner;

@@ -65,7 +65,7 @@ all default ${NAME}:
 # be deleted.
 #
 clean::
-	find . \( -name '*~' -o -name '#*' -o -name '.places' -o -name '.list' \) -exec rm {} \;
+	find . \( -name '*~' -o -name '#*' -o -name '.places' -o -name '.list' -o -name '.DS_Store' -o -name 'Icon?' \) -exec rm {} \;
 
 #####
 # The "-CWD=`pwd`..." line is a standard invocation used to convert DSTROOT 

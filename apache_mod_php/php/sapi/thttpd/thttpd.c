@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -24,6 +24,10 @@
 #include "php_variables.h"
 #include "version.h"
 
+#include "ext/standard/php_smart_str.h"
+
+#include <sys/uio.h>
+
 typedef struct {
 	httpd_conn *hc;
 	int post_off;
@@ -42,36 +46,80 @@ static php_thttpd_globals thttpd_globals;
 static int sapi_thttpd_ub_write(const char *str, uint str_length)
 {
 	int n;
+	uint sent = 0;	
 	TLS_FETCH();
 	
-	n = send(TG(hc)->conn_fd, str, str_length, 0);
+	while (str_length > 0) {
+		n = send(TG(hc)->conn_fd, str, str_length, 0);
 
-	if (n == -1 && errno == EPIPE) {
-		php_handle_aborted_connection();
+		if (n == -1 && errno == EPIPE)
+			php_handle_aborted_connection();
+		if (n == -1 && errno == EAGAIN)
+			continue;
+		if (n <= 0) 
+			return n;
+
+		TG(hc)->bytes_sent += n;
+		str += n;
+		sent += n;
+		str_length -= n;
 	}
 
-	return n;
+	return sent;
 }
+
+#define COMBINE_HEADERS 30
 
 static int sapi_thttpd_send_headers(sapi_headers_struct *sapi_headers SLS_DC)
 {
 	char buf[1024];
-
+	struct iovec vec[COMBINE_HEADERS];
+	int n = 0;
+	zend_llist_position pos;
+	sapi_header_struct *h;
+	size_t len;
+	
 	if (!SG(sapi_headers).http_status_line) {
 		snprintf(buf, 1023, "HTTP/1.0 %d Something\r\n", SG(sapi_headers).http_response_code);
-		send(TG(hc)->conn_fd, buf, strlen(buf), 0);
+		len = strlen(buf);
+		vec[n].iov_base = buf;
+		vec[n].iov_len = len;
+	} else {
+		vec[n].iov_base = SG(sapi_headers).http_status_line;
+		len = strlen(vec[n].iov_base);
+		vec[n].iov_len = len;
+		vec[++n].iov_base = "\r\n";
+		vec[n].iov_len = 2;
+		len += 2;
+	}
+	TG(hc)->status = SG(sapi_headers).http_response_code;
+	TG(hc)->bytes_sent += len;
+	n++;
+
+	h = zend_llist_get_first_ex(&sapi_headers->headers, &pos);
+	while (h) {
+		vec[n].iov_base = h->header;
+		vec[n++].iov_len = h->header_len;
+		if (n >= COMBINE_HEADERS - 1) {
+			if (writev(TG(hc)->conn_fd, vec, n) == -1 && errno == EPIPE)
+				php_handle_aborted_connection();
+			n = 0;
+		}
+		vec[n].iov_base = "\r\n";
+		vec[n++].iov_len = 2;
+		
+		h = zend_llist_get_next_ex(&sapi_headers->headers, &pos);
+	}
+
+	vec[n].iov_base = "\r\n";
+	vec[n++].iov_len = 2;
+
+	if (n) {
+		if (writev(TG(hc)->conn_fd, vec, n) == -1 && errno == EPIPE)
+			php_handle_aborted_connection();
 	}
 	
-	return SAPI_HEADER_DO_SEND;
-}
-
-static void sapi_thttpd_send_header(sapi_header_struct *sapi_header, void *server_context)
-{
-	TLS_FETCH();
-
-	if (sapi_header)
-		send(TG(hc)->conn_fd, sapi_header->header, sapi_header->header_len, 0);
-	send(TG(hc)->conn_fd, "\r\n", sizeof("\r\n") - 1, 0);
+	return SAPI_HEADER_SENT_SUCCESSFULLY;
 }
 
 static int sapi_thttpd_read_post(char *buffer, uint count_bytes SLS_DC)
@@ -117,20 +165,23 @@ static char *sapi_thttpd_read_cookies(SLS_D)
 static void sapi_thttpd_register_variables(zval *track_vars_array ELS_DC SLS_DC PLS_DC)
 {
 	char buf[BUF_SIZE + 1];
+	char *p;
 	TLS_FETCH();
 
 	php_register_variable("PHP_SELF", SG(request_info).request_uri, track_vars_array ELS_CC PLS_CC);
 	php_register_variable("SERVER_SOFTWARE", SERVER_SOFTWARE, track_vars_array ELS_CC PLS_CC);
 	php_register_variable("GATEWAY_INTERFACE", "CGI/1.1", track_vars_array ELS_CC PLS_CC);
-	php_register_variable("REQUEST_METHOD", SG(request_info).request_method, track_vars_array ELS_CC PLS_CC);
+	php_register_variable("REQUEST_METHOD", (char *) SG(request_info).request_method, track_vars_array ELS_CC PLS_CC);
 	php_register_variable("REQUEST_URI", SG(request_info).request_uri, track_vars_array ELS_CC PLS_CC);
 	php_register_variable("PATH_TRANSLATED", SG(request_info).path_translated, track_vars_array ELS_CC PLS_CC);
 
-	buf[BUF_SIZE] = '\0';
-	
-	strncpy(buf, inet_ntoa(TG(hc)->client_addr.sa_in.sin_addr), BUF_SIZE);
-	ADD_STRING("REMOTE_ADDR");
-	ADD_STRING("REMOTE_HOST");
+	p = inet_ntoa(TG(hc)->client_addr.sa_in.sin_addr);
+	/* string representation of IPs are never larger than 512 bytes */
+	if (p) {
+		memcpy(buf, p, strlen(p) + 1);
+		ADD_STRING("REMOTE_ADDR");
+		ADD_STRING("REMOTE_HOST");
+	}
 
 	snprintf(buf, BUF_SIZE, "%d", TG(hc)->hs->port);
 	ADD_STRING("SERVER_PORT");
@@ -164,7 +215,7 @@ static void sapi_thttpd_register_variables(zval *track_vars_array ELS_DC SLS_DC 
 		php_register_variable("AUTH_TYPE", "Basic", track_vars_array ELS_CC PLS_C);
 }
 
-static sapi_module_struct sapi_module = {
+static sapi_module_struct thttpd_sapi_module = {
 	"thttpd",
 	"thttpd",
 	
@@ -183,7 +234,7 @@ static sapi_module_struct sapi_module = {
 	
 	NULL,
 	sapi_thttpd_send_headers,
-	sapi_thttpd_send_header,
+	NULL,
 	sapi_thttpd_read_post,
 	sapi_thttpd_read_cookies,
 
@@ -218,30 +269,24 @@ static void thttpd_module_main(TLS_D SLS_DC)
 
 static void thttpd_request_ctor(TLS_D SLS_DC)
 {
-	char *cp;
-	size_t cp_len;
 	char buf[1024];
 	int offset;
 	size_t filename_len;
 	size_t cwd_len;
-
+	smart_str s = {0};
 
 	SG(request_info).query_string = TG(hc)->query?strdup(TG(hc)->query):NULL;
 
-	filename_len = strlen(TG(hc)->expnfilename);
-	cwd_len = strlen(TG(hc)->hs->cwd);
-
-	cp_len = cwd_len + filename_len;
-	cp = (char *) malloc(cp_len + 1);
-	/* cwd always ends in "/", so this is safe */
-	memcpy(cp, TG(hc)->hs->cwd, cwd_len);
-	memcpy(cp + cwd_len, TG(hc)->expnfilename, filename_len);
-	cp[cp_len] = '\0';
+	smart_str_appends_ex(&s, TG(hc)->hs->cwd, 1);
+	smart_str_appends_ex(&s, TG(hc)->expnfilename, 1);
+	smart_str_0(&s);
+	SG(request_info).path_translated = s.c;
 	
-	SG(request_info).path_translated = cp;
-	
-	snprintf(buf, 1023, "/%s", TG(hc)->origfilename);
-	SG(request_info).request_uri = strdup(buf);
+	s.c = NULL;
+	smart_str_appendc_ex(&s, '/', 1);
+	smart_str_appends_ex(&s, TG(hc)->origfilename, 1);
+	smart_str_0(&s);
+	SG(request_info).request_uri = s.c;
 	SG(request_info).request_method = httpd_method_str(TG(hc)->method);
 	SG(sapi_headers).http_response_code = 200;
 	SG(request_info).content_type = TG(hc)->contenttype;
@@ -274,6 +319,7 @@ off_t thttpd_php_request(httpd_conn *hc)
 	TLS_FETCH();
 
 	TG(hc) = hc;
+	hc->bytes_sent = 0;
 	
 	thttpd_request_ctor(TLS_C SLS_CC);
 
@@ -306,15 +352,15 @@ void thttpd_set_dont_close(void)
 
 void thttpd_php_init(void)
 {
-	sapi_startup(&sapi_module);
-	sapi_module.startup(&sapi_module);
+	sapi_startup(&thttpd_sapi_module);
+	thttpd_sapi_module.startup(&thttpd_sapi_module);
 	SG(server_context) = (void *) 1;
 }
 
 void thttpd_php_shutdown(void)
 {
 	if (SG(server_context) != NULL) {
-		sapi_module.shutdown(&sapi_module);
+		thttpd_sapi_module.shutdown(&thttpd_sapi_module);
 		sapi_shutdown();
 	}
 }

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_yaz.h,v 1.1.1.2 2001/01/25 05:00:22 wsanchez Exp $ */
+/* $Id: php_yaz.h,v 1.1.1.3 2001/07/19 00:20:33 zarzycki Exp $ */
 
 #ifndef PHP_YAZ_H
 #define PHP_YAZ_H
@@ -42,6 +42,13 @@ PHP_FUNCTION(yaz_record);
 PHP_FUNCTION(yaz_syntax);
 PHP_FUNCTION(yaz_element);
 PHP_FUNCTION(yaz_range);
+PHP_FUNCTION(yaz_itemorder);
+PHP_FUNCTION(yaz_scan);
+PHP_FUNCTION(yaz_scan_result);
+PHP_FUNCTION(yaz_present);
+PHP_FUNCTION(yaz_ccl_conf);
+PHP_FUNCTION(yaz_ccl_parse);
+PHP_FUNCTION(yaz_database);
 
 #else
 

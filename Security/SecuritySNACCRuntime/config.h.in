@@ -1,0 +1,160 @@
+/* config.h.in.  Generated automatically from configure.in by autoheader.  */
+
+/* Define to empty if the keyword does not work.  */
+#undef const
+
+/* Define to `int' if <sys/types.h> doesn't define.  */
+#undef gid_t
+
+/* Define if you don't have vprintf but do have _doprnt.  */
+#undef HAVE_DOPRNT
+
+/* Define if you have the vprintf function.  */
+#undef HAVE_VPRINTF
+
+/* Define if your C compiler doesn't accept -c and -o together.  */
+#undef NO_MINUS_C_MINUS_O
+
+/* Define if you need to in order for stat and other things to work.  */
+#undef _POSIX_SOURCE
+
+/* Define to `unsigned' if <sys/types.h> doesn't define.  */
+#undef size_t
+
+/* Define if you have the ANSI C header files.  */
+#undef STDC_HEADERS
+
+/* Define if you can safely include both <sys/time.h> and <time.h>.  */
+#undef TIME_WITH_SYS_TIME
+
+/* Define to `int' if <sys/types.h> doesn't define.  */
+#undef uid_t
+
+/* Define if your processor stores words with the most significant
+   byte first (like Motorola and SPARC, unlike Intel and VAX).  */
+#undef WORDS_BIGENDIAN
+
+/* Define if the X Window System is missing or not being used.  */
+#undef X_DISPLAY_MISSING
+
+/* Define if lex declares yytext as a char * by default, not a char[].  */
+#undef YYTEXT_POINTER
+
+/*
+ * file: acconfig.h
+ *
+ * $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/config.h.in,v 1.1.1.1 2001/05/18 23:14:04 mb Exp $
+ * $Log: config.h.in,v $
+ * Revision 1.1.1.1  2001/05/18 23:14:04  mb
+ * Move from private repository to open source repository
+ *
+ * Revision 1.3  2000/12/21 23:56:34  dmitch
+ * Misc. updates for clean build on Cheetah 1D7.
+ *
+ * Revision 1.1.1.1  1999/03/16 18:05:47  aram
+ * Originals from SMIME Free Library.
+ *
+ * Revision 1.7  1997/03/03 11:58:26  wan
+ * Final pre-delivery stuff (I hope).
+ *
+ * Revision 1.6  1997/02/28 13:39:34  wan
+ * Modifications collected for new version 1.3: Bug fixes, tk4.2.
+ *
+ * Revision 1.5  1997/02/15 20:01:37  rj
+ * check whether the compiler supports volatile functions (and whether abort() is volatile).
+ *
+ * Revision 1.4  1995/02/20  11:16:57  rj
+ * cpp switch HAVE_VARIABLE_SIZED_AUTOMATIC_ARRAYS added.
+ *
+ * Revision 1.3  1995/02/13  14:46:49  rj
+ * settings for IEEE_REAL_FMT/IEEE_REAL_LIB moved from {c_lib,c++_lib}/inc/asn_config.h to acconfig.h.
+ *
+ * Revision 1.2  1994/10/08  04:38:56  rj
+ * slot for autoconf Tcl detection added.
+ *
+ * Revision 1.1  1994/09/01  00:51:19  rj
+ * first check-in (new file).
+ *
+ */
+
+/*
+ * define IEEE_REAL_FMT if your system/compiler uses the native ieee double
+ * this should improve the performance of encoding reals.
+ * If your system has the IEEE library routines (iszero, isinf etc)
+ * then define IEEE_REAL_LIB.  If neither are defined then
+ * frexp is used.  Performance is probaby best for IEEE_REAL_FMT.
+ *
+ *  #define IEEE_REAL_FMT
+ *  #define IEEE_REAL_LIB
+ */
+/* use ANSI or K&R style C? */
+#undef __USE_ANSI_C__
+
+/* does the C++ compiler have the bool type built-in? */
+#undef BOOL_BUILTIN
+
+/* does the C++ compiler allow variable sized automatic arryas? */
+#undef HAVE_VARIABLE_SIZED_AUTOMATIC_ARRAYS
+
+/* do we have all the libs we need for the Tcl interface? */
+#undef HAVE_TCL
+
+/* does the compiler support volatile functions (and is abort() volatile?) */
+#undef COMPILER_WITHOUT_VOLATILE_FUNCTIONS
+
+/* The number of bytes in a double.  */
+#undef SIZEOF_DOUBLE
+
+/* The number of bytes in a int.  */
+#undef SIZEOF_INT
+
+/* The number of bytes in a long.  */
+#undef SIZEOF_LONG
+
+/* The number of bytes in a short.  */
+#undef SIZEOF_SHORT
+
+/* Define if you have the finite function.  */
+#undef HAVE_FINITE
+
+/* Define if you have the isinf function.  */
+#undef HAVE_ISINF
+
+/* Define if you have the memcmp function.  */
+#undef HAVE_MEMCMP
+
+/* Define if you have the memcpy function.  */
+#undef HAVE_MEMCPY
+
+/* Define if you have the memset function.  */
+#undef HAVE_MEMSET
+
+/* Define if you have the <dirent.h> header file.  */
+#undef HAVE_DIRENT_H
+
+/* Define if you have the <fcntl.h> header file.  */
+#undef HAVE_FCNTL_H
+
+/* Define if you have the <malloc.h> header file.  */
+#undef HAVE_MALLOC_H
+
+/* Define if you have the <memory.h> header file.  */
+#undef HAVE_MEMORY_H
+
+/* Define if you have the <ndir.h> header file.  */
+#undef HAVE_NDIR_H
+
+/* Define if you have the <string.h> header file.  */
+#undef HAVE_STRING_H
+
+/* Define if you have the <sys/dir.h> header file.  */
+#undef HAVE_SYS_DIR_H
+
+/* Define if you have the <sys/ndir.h> header file.  */
+#undef HAVE_SYS_NDIR_H
+
+/* Define if you have the <unistd.h> header file.  */
+#undef HAVE_UNISTD_H
+
+/* Define if you have the m library (-lm).  */
+#undef HAVE_LIBM

@@ -507,6 +507,25 @@ ui_out_get_verblvl (struct ui_out *uiout)
   return 0;
 }
 
+/* 
+ * Try to cleanup a ui_out UIOUT after an error; 
+ * esp useful when the error happens in an MI command.
+ */
+void
+ui_out_cleanup_after_error (struct ui_out *uiout)
+{
+  /* cleanup any pending lists first */
+  while (uiout->list_flag > 0) 
+    {
+        ui_out_list_end (uiout);
+    }
+    
+  if (uiout->table_flag != 0)
+    {
+       ui_out_table_end (uiout);
+    }
+}
+
 #if 0
 void
 ui_out_result_begin (struct ui_out *uiout, char *class)

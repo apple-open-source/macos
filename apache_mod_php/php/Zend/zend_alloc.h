@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2000 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2001 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 0.92 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
@@ -30,7 +30,7 @@
 #include "zend_globals_macros.h"
 
 #define MEM_BLOCK_START_MAGIC	0x7312F8DCL
-#define MEM_BLOCK_END_MAGIC	0x2A8FCC84L
+#define MEM_BLOCK_END_MAGIC		0x2A8FCC84L
 #define MEM_BLOCK_FREED_MAGIC	0x99954317L
 #define MEM_BLOCK_CACHED_MAGIC	0xFB8277DCL
 
@@ -69,7 +69,7 @@ typedef union _align_test {
 #define PLATFORM_ALIGNMENT (sizeof(align_test))
 #endif
 
-#define PLATFORM_PADDING (((PLATFORM_ALIGNMENT-sizeof(zend_mem_header))%PLATFORM_ALIGNMENT+PLATFORM_ALIGNMENT)%PLATFORM_ALIGNMENT)
+#define MEM_HEADER_PADDING (((PLATFORM_ALIGNMENT-sizeof(zend_mem_header))%PLATFORM_ALIGNMENT+PLATFORM_ALIGNMENT)%PLATFORM_ALIGNMENT)
 
 
 BEGIN_EXTERN_C()

@@ -9,7 +9,7 @@ goto endofperl
 ##  configure.bat -- mod_ssl configuration script (Win32 version)
 ##
 ##  ====================================================================
-##  Copyright (c) 1998-2000 Ralf S. Engelschall. All rights reserved.
+##  Copyright (c) 1998-2001 Ralf S. Engelschall. All rights reserved.
 ## 
 ##  Redistribution and use in source and binary forms, with or without
 ##  modification, are permitted provided that the following conditions
@@ -266,6 +266,10 @@ if (not -d "$apache\\src\\modules\\ssl") {
     system("md $apache\\src\\modules\\ssl");
 }
 print "$prefixe creating: [FILE] modules\\ssl\\Makefile\n" if ($verbose);
+my $first2 = $ssl;
+if ($first2 =~ m|^\.\.|) {
+    $ssl = '..\\..\\..\\'.$ssl;
+}
 open(SRC, "<pkg.sslmod\\Makefile.win32") or die "$!";
 open(DST, ">$apache\\src\\modules\\ssl\\Makefile") or die "$!";
 while (<SRC>) {
@@ -392,7 +396,7 @@ while (defined($line = <FP>)) {
 }
 close(FP);
 if (not -d "$apache\\htdocs\\manual\\mod\\mod_ssl") {
-    print "$prefixe creating: [DIR]  htdocs\\manual\\mod\mod_ssl\n" if ($verbose);
+    print "$prefixe creating: [DIR]  htdocs\\manual\\mod\\mod_ssl\n" if ($verbose);
     system("md $apache\\htdocs\\manual\\mod\\mod_ssl");
 }
 @F = glob("pkg.ssldoc\\ssl_*");
@@ -433,15 +437,14 @@ system("copy /b pkg.addon\\mod_define.html $apache\\htdocs\\manual\\mod\\mod_def
 #   Apply: Win32 DevStudio-generated Makefiles
 #
 print "$prefixo DevStudio Makefiles\n";
-print "$prefixe patching: [FILE] src\\Makefile.nt\n" if ($verbose);
-open(FP, "<$apache\\src\\Makefile.nt") || die "$!";
+print "$prefixe patching: [FILE] src\\makefile.win\n" if ($verbose);
+open(FP, "<$apache\\src\\makefile.win") || die "$!";
 $data = '';
 $data .= $_ while (<FP>);
 close(FP);
-$data =~ s|(\n\s+)(cd modules\\proxy\s*\n[^\n]+ApacheModuleProxy\.mak\n)|$1cd modules\\ssl$1nmake /nologo all$1cd ..\\..$1$2|s;
-$data =~ s|(\n\s+)(copy modules\\proxy\\.*)|$1copy modules\\ssl\\ApacheModuleSSL.dll \$\(INSTDIR\)\\modules$1$2|s;
-$data =~ s|(\n\s+)(cd modules\\proxy\s*\n[^\n]+ApacheModuleProxy\.mak\s+clean\n)|$1cd modules\\ssl$1nmake /nologo clean$1cd ..\\..$1$2|s;
-open(FP, ">$apache\\src\\Makefile.nt") || die "$!";
+$data =~ s|(\n\s+)(cd \.\.\\\.\.\n)(\n)(_install:)|$1$2\tcd modules\\ssl$1\$\(MAKE\) \$\(MAKEOPT\) -f makefile RECURSE=0 \$\(CTARGET\)$1$2$3$4|s;
+$data =~ s|(\n\s+)(copy os\\win32\\\$\(LONG\)\\mod_proxy.*)|$1copy modules\\ssl\\mod_ssl.so \"\$\(INSTDIR\)\\modules\"$1$2|s;
+open(FP, ">$apache\\src\\makefile.win") || die "$!";
 print FP $data;
 close(FP);
 sub patch_mak {
@@ -470,7 +473,7 @@ sub patch_mak {
     close(FP);
     
     #   patch Makefile
-    $data =~ s|^(CPP_PROJ\s*)=|$1=/DEAPI /DMOD_SSL=$V_MODSSL_NUM |mg;
+    $data =~ s|^(CPP_PROJ\s*)=|$1=/D \"EAPI\" /DMOD_SSL=$V_MODSSL_NUM |mg;
     
     #   write Makefile
     open(FP, ">$apache_base\\src\\$mak") || die "$!";
@@ -484,19 +487,18 @@ foreach $mak (qw(
     ap\ap.mak
     main\gen_test_char.mak
     main\gen_uri_delims.mak
-    modules\proxy\ApacheModuleProxy.mak
-    os\win32\ApacheModuleAuthAnon.mak
-    os\win32\ApacheModuleCERNMeta.mak
-    os\win32\ApacheModuleDigest.mak
-    os\win32\ApacheModuleExpires.mak
-    os\win32\ApacheModuleHeaders.mak
-    os\win32\ApacheModuleInfo.mak
-    os\win32\ApacheModuleRewrite.mak
-    os\win32\ApacheModuleSpeling.mak
-    os\win32\ApacheModuleStatus.mak
-    os\win32\ApacheModuleUserTrack.mak
+    os\win32\mod_proxy.mak
+    os\win32\mod_auth_anon.mak
+    os\win32\mod_cern_meta.mak
+    os\win32\mod_digest.mak
+    os\win32\mod_expires.mak
+    os\win32\mod_headers.mak
+    os\win32\mod_info.mak
+    os\win32\mod_rewrite.mak
+    os\win32\mod_speling.mak
+    os\win32\mod_status.mak
+    os\win32\mod_usertrack.mak
     os\win32\ApacheOS.mak
-    os\win32\MakeModuleMak.mak
     regex\regex.mak
 )) {
     patch_mak($ssl, $apache, $mak);
@@ -513,8 +515,8 @@ print "Done: source extension and patches successfully applied.\n";
 print "\n";
 print "Now proceed with the following commands:\n";
 print " \$ cd $apache\\src\n";
-print " \$ nmake /f Makefile.nt\n";
-print " \$ nmake /f Makefile.nt installr\n";
+print " \$ nmake /f makefile.win\n";
+print " \$ nmake /f makefile.win installr\n";
 print "\n";
 
 exit(0);

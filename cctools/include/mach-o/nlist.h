@@ -193,14 +193,19 @@ struct nlist {
  * bound to is recorded by the static linker in the high 8 bits of the n_desc
  * field using the SET_LIBRARY_ORDINAL macro below.  The ordinal recorded
  * references the libraries listed in the Mach-O's LC_LOAD_DYLIB load commands
- * in the order they appear in the headers.   The lobrary ordinals start from 1.
- * The EXECUTABLE_ORDINAL is refers to the executable image for references from
- * plugins that refer to the executable that loads them.
+ * in the order they appear in the headers.   The library ordinals start from 1.
+ * For a dynamic library that is built as a two-level namespace image the
+ * undefined references from module defined in another use the same nlist struct
+ * an in that case SELF_LIBRARY_ORDINAL is used as the library ordinal.  For
+ * defined symbols in all images they also must have the library ordinal set to
+ * SELF_LIBRARY_ORDINAL.  The EXECUTABLE_ORDINAL is refers to the executable
+ * image for references from plugins that refer to the executable that loads
+ * them.
  */
 #define GET_LIBRARY_ORDINAL(n_desc) (((n_desc) >> 8) & 0xff)
 #define SET_LIBRARY_ORDINAL(n_desc,ordinal) \
 	(n_desc) = (((n_desc) & 0x00ff) | (((ordinal) & 0xff) << 8))
-#define SELF_LIBRARY_ORDINAL 0x0 /* what is this needed for? */
+#define SELF_LIBRARY_ORDINAL 0x0
 #define MAX_LIBRARY_ORDINAL 0xfe
 #define EXECUTABLE_ORDINAL 0xff
 

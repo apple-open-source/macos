@@ -36,6 +36,7 @@
 #include "version.h"
 #include "interpreter.h"
 
+
 /* readline include files */
 #include <readline/readline.h>
 #include <readline/history.h>
@@ -509,7 +510,15 @@ void (*context_hook) (int id);
    middle of the GUI.  Usually used in conjunction with a catch routine.  */
 
 NORETURN void (*error_hook) (void) ATTR_NORETURN;
-
+/* called when a stepping command (step, next, stepi, nexti) is issued */
+void (*stepping_command_hook) (void);
+
+/* called when the continue command is issued */
+void (*continue_command_hook) (void);
+
+/* called when the run command is issued; return 1 means do the run; 0 means do not */
+int (*run_command_hook) (void);
+
 
 /* One should use catch_errors rather than manipulating these
    directly.  */
@@ -790,6 +799,12 @@ read_command_file (FILE *stream)
 
   cleanups = make_cleanup (do_restore_instream_cleanup, instream);
   instream = stream;
+  if (target_can_async_p ())
+    {
+      gdb_set_async_override (1);
+      make_cleanup (gdb_set_async_override, 0);
+    }
+
   command_loop ();
   do_cleanups (cleanups);
 }
@@ -1108,6 +1123,7 @@ execute_control_command (struct command_line *cmd)
   int loop;
   enum command_control_type ret;
   char *new_line;
+  extern int sigint_taken_p(void);
 
   switch (cmd->control_type)
     {
@@ -1140,14 +1156,19 @@ execute_control_command (struct command_line *cmd)
 
 	ret = simple_control;
 	loop = 1;
-
+	
 	/* Keep iterating so long as the expression is true.  */
 	while (loop == 1)
 	  {
 	    int cond_result;
-
-	    QUIT;
-
+	    /* We want to be user interruptible in a while loop, and QUIT
+	       doesn't do anything unless the immediate_quit global is set.
+	       An alternative would be to error(), but that's 
+	       equivalent to a longjmp() to the top level in this case 
+	       since this function isn't executed in a catch_errors() 
+	       environment. */
+	    if (sigint_taken_p())
+	      async_request_quit(0);
 	    /* Evaluate the expression.  */
 	    val_mark = value_mark ();
 	    val = evaluate_expression (expr);

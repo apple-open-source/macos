@@ -553,25 +553,30 @@ main(int argc, char *argv[])
 	   cls * bpb.spc == 1 ? "" : "s", cls, fat,
 	   cls == 1 ? "" : "s", bpb.bps * bpb.spc);
     if (!bpb.mid)
-	bpb.mid = !bpb.hid ? 0xf0 : 0xf8;
+        bpb.mid = !bpb.hid ? 0xf0 : 0xf8;
     if (fat == 32)
-	bpb.rdcl = RESFTE;
+        bpb.rdcl = RESFTE;
     if (bpb.hid + bpb.bsec <= MAXU16) {
-	bpb.sec = bpb.bsec;
-	bpb.bsec = 0;
+        bpb.sec = bpb.bsec;
+        bpb.bsec = 0;
     }
     if (fat != 32) {
-	bpb.spf = bpb.bspf;
-	bpb.bspf = 0;
+        bpb.spf = bpb.bspf;
+        bpb.bspf = 0;
+    } else {
+        if (bpb.bsec == 0)
+            bpb.bsec = bpb.sec;
+        bpb.spf = 0;
+        bpb.sec = 0;
     }
     print_bpb(&bpb);
     if (!opt_N) {
-	gettimeofday(&tv, NULL);
-	now = tv.tv_sec;
-	tm = localtime(&now);
-	if (!(img = malloc(bpb.bps)))
-	    err(1, NULL);
-	dir = bpb.res + (bpb.spf ? bpb.spf : bpb.bspf) * bpb.nft;
+        gettimeofday(&tv, NULL);
+        now = tv.tv_sec;
+        tm = localtime(&now);
+        if (!(img = malloc(bpb.bps)))
+            err(1, NULL);
+        dir = bpb.res + (bpb.spf ? bpb.spf : bpb.bspf) * bpb.nft;
 	for (lsn = 0; lsn < dir + (fat == 32 ? bpb.spc : rds); lsn++) {
 	    x = lsn;
 	    if (opt_B &&

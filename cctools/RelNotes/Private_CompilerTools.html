@@ -1,21 +1,21 @@
 <HTML>
-<!--This file created 2/13/01 1:55 PM by Claris Home Page version 3.0-->
+<!--This file created 8/20/01 3:44 PM by Claris Home Page version 3.0-->
 <HEAD>
    <TITLE>Private Compiler Tools Release Notes</TITLE>
    <META NAME=GENERATOR CONTENT="Claris Home Page 3.0">
-   <X-CLARIS-WINDOW TOP=66 BOTTOM=841 LEFT=471 RIGHT=1101>
+   <X-CLARIS-WINDOW TOP=72 BOTTOM=847 LEFT=479 RIGHT=1109>
    <X-CLARIS-TAGVIEW MODE=minimal>
 <META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=iso-8859-1">
 </HEAD>
 <BODY BGCOLOR="#FFFFFF">
-<P><FONT SIZE="-1">MacOS X 1.0 Release Copyright 2001 by Apple
+<P><FONT SIZE="-1">MacOS X 10.1 Release Copyright 2001 by Apple
 Computer, Inc. All Rights Reserved.</FONT></P>
 
-<H1>Private MacOS X 1.0 Notes:<BR>
-Compiler Tools (cctools-358)</H1>
+<H1>Private MacOS X 10.1 Notes:<BR>
+Compiler Tools (cctools-384)</H1>
 
-<P>This file contains release notes for the 5.8 release of the
-Compiler Tools for MacOS X 1.0. This file contains information about
+<P>This file contains release notes for the 5.9 release of the
+Compiler Tools for MacOS X 10.1. This file contains information about
 the following topics:</P>
 
 <UL>
@@ -30,8 +30,493 @@ the following topics:</P>
 
 <P>&nbsp;</P>
 
+<H3><FONT SIZE="+2">Notes Specific to Release 5.9 (MacOS X
+10.1)</FONT></H3>
+
+<H3><FONT SIZE="+1">New Features</FONT></H3>
+
+<H3><FONT SIZE="+1">Two level namespace</FONT></H3>
+
+<P>Work on the compiler tools to support two level name space is now
+complete and -twolevel_namespace is now the default (Radar bugs
+2372124 and 2415916). See the Public release notes for the
+details.</P>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-383 for
+the 5.9 MacOS 10.1 release) </FONT></H5>
+
+<UL>
+   <LI>Fixed the change to the header file &lt;mach-o/dyld.h&gt; that
+   added extern "C" ifdef'ed with __cplusplus that had an extra
+   trailing semicolon after the closing curly brace (Radar bug
+   #2748160).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-382 for
+the 5.9 MacOS 10.1 release) </FONT></H5>
+
+<UL>
+   <LI>Changied the semantic of NSLookupSymbolInImage() and
+   NSIsSymbolNameDefinedInImage() to ignore the specified image if it
+   is not a private image if DYLD_FORCE_FLAT_NAMESPACE is set (Radar
+   bug #2731330).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-381 for
+the 5.9 MacOS 10.1 release) </FONT></H5>
+
+<UL>
+   <LI>Fixed a bug introduced in cctools-381 that caused libkld to
+   have an undefined symbol _twolevel_namespace_hints.</LI>
+   
+   <LI>Picked up the Compiler Tools release notes edits from tech
+   pubs (Radar bug #2739023).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-380 for
+the 5.9 MacOS 10.1 release) </FONT></H5>
+
+<UL>
+   <LI>Changed the dynamic linker and the
+   NSCreateObjectFileImageFromFile(3) API to allow for a mechanism
+   for "future compatibility" when adding new load commands to the
+   Mach-O object file format (Radar bug #2737644).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-379 for
+the 5.9 MacOS 10.1 release) </FONT></H5>
+
+<UL>
+   <LI>Added the flag <B>-twolevel_namespace_hints</B> to the static
+   link editor. This specifies to create the output with the
+   two-level namespace hints table to be used by the dynamic linker.
+   This is the default except when the <B>-bundle</B> flag is
+   specified. If this is used when the <B>-bundle</B> flag is
+   specified the bundle will fail to load on a MacOS X 10.0 system
+   with a malformed object error. Radar bug #2735266.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-378 for
+the 5.9 MacOS 10.1 release)</FONT></H5>
+
+<UL>
+   <LI>Changed the dynamic linker to not unnecessarily touches link
+   edit pages for the module table of dynamic libraries when a
+   dynamic library does not have any module initialization and
+   termination routines (Radar bug #2732714).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-377 for
+the 5.9 MacOS 10.1 release)</FONT></H5>
+
+<UL>
+   <LI>Changed the header file &lt;mach-o/dyld.h&gt; to have extern
+   "C" ifdef'ed with __cplusplus (Radar bug #2728016).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-376 for
+the 5.9 MacOS 10.1 release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a problems with the cctools-376 project not building its
+   cctools_ofiles target due to the changes made for Radar bug
+   #2716249 (Radar bug #2727607).</LI>
+   
+   <LI>Fixed a bug in the dynamic linker that caused programs to
+   crash when DYLD_IMAGE_SUFFIX was used (Radar bug #2724475).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-375 for
+the 5.9 MacOS 10.1 release)</FONT></H5>
+
+<UL>
+   <LI>Fixed the static link editor that caused it to crash when the
+   -Y flag was used with two-level namespace libraries introduced
+   with the fix in cctools-375 below for Radar bug #2716249.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-374 for
+the 5.9 MacOS 10.1 release)</FONT></H5>
+
+<UL>
+   <LI>Fixed the PowerPC assembler to protect the short-form macros
+   which is needed so they do not incorrectly expand under certain
+   circumstances (Radar bug #2717461).</LI>
+   
+   <LI>Removed the dependency on libstreams by the assemblers so
+   nothing in the cctools project depends on</LI>
+   
+   <LI>Fixed the static link editor to correctly deal with the
+   semantics of two-level namespace libraries so it won't build
+   programs that would fail to launch correctly flagging multiply
+   defined and undefined symbol errors (Radar bug #2716249).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-373 for
+the 5.9 MacOS 10.1 release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a bug in the dynamic linker that caused programs to get
+   undefined symbols or crash (in one of dyld's symbol lookup
+   routines) if the program or one of the libraries had been built
+   with two-level namespace hints.</LI>
+   
+   <LI>Fixed a bug in the dynamic linker that caused the Puma5E9
+   DirectoryService daemon thread count grows unbounded. Radar bug
+   #2716915</LI>
+   
+   <LI>Fixed a bug in the optimization to use two-level namespace
+   prebound libraries in the dynamic linker that caused programs to
+   crash when using the DYLD_*_PATH enironment variables.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-372 for
+the 5.9 MacOS 10.1 release)</FONT></H5>
+
+<UL>
+   <LI>Changed the static link editor to have -twolevel_namespace as
+   the default (Radar bug #2717678)</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-371 for
+the 5.9 MacOS 10.1 release)</FONT></H5>
+
+<UL>
+   <LI>Added the optimization to use two-level namespace hints to the
+   dynamic linker (Radar bug #2558069).</LI>
+   
+   <LI>Added the -update_overlaps option to the seg_addr_table(1)
+   tool.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-370 for
+the 5.9 MacOS 10.1 release)</FONT></H5>
+
+<UL>
+   <LI>Added the optimization to use two-level namespace prebound
+   libraries to the dynamic linker.</LI>
+   
+   <LI>Changed the static link editor to log the used of the
+   -bundle_loader argument with the environment variable
+   XBS_TRACE_BUNDLE_LOADER set (Radar bug #2710229)</LI>
+   
+   <LI>Changed the dynamic linker to not leak a send port right on
+   the thread it is doing an operation for (Radar bug #2704241).</LI>
+   
+   <LI>Fixed a bug in the tool redo_prebinding(1) so it uses "up to
+   date" not "uptodate" in its error messages (Radar bug
+   #2711451).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-369.3 for
+the 5.9 MacOS 10.1 release)</FONT></H5>
+
+<UL>
+   <LI>Changed the compiler tools to produce, update, pass through
+   and print a two-level namespace hints lookup table (Radar bug
+   #2558069). The dynamic linker does not yet use this table (that
+   will be done in a subsequent release of cctools).</LI>
+   
+   <LI>Added the <B>-nomultidefs</B> flag to the the static link
+   editor. Specifying this flag marks the umbrella being created such
+   that the dynamic linker is guaranteed that no multiple defintions
+   of symbols in the umbrella's sub-images will ever exist. This
+   allows the dynamic linker to always use the two-level namespace
+   lookup hints even if the timestamps of the sub-images do not
+   match. This should be used with all Apple umbrellas. This has to
+   be used with <B>-Wl,-nomultidefs</B> with the compiler driver,
+   <I>cc</I>(1), until Radar bug #2705158 is fixed.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-369.2 for
+the 5.9 MacOS 10.1 release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a bug in the tool redo_prebinding(1) that produced an
+   incorrect error message when run on a binary with debugging
+   symbols. The incorrect error message reported the file as
+   malformed because of a bad LIBRARY_ORDINAL in a symbol table
+   entry.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-369.1 for
+the 5.9 MacOS 10.1 release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a bug in the dynamic linker when an umbrella library for
+   a two-level namspace library is loaded after the two-level
+   namspace library is initally loaded. This would cause refernces
+   from from sub libraries of the umbrella to symbols in the
+   two-level library to crash (Radar bug #2706662) .</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-369 for
+the 5.9 MacOS 10.1 release)</FONT></H5>
+
+<UL>
+   <LI>Re-fixed the bug in the dynamic linker API
+   NSLookupSymbolInImage() where if called from a shared library init
+   routine it would relocate the library module a second time causing
+   pointers to have twice their values and the program to crash.</LI>
+   
+   <LI>Changed the dynamic linker API NSLookupSymbolInImage() to
+   allow it to take a pointer to the mach header of the executable or
+   a bundle as well as dynamic libraries.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-368 for
+the 5.9 MacOS 10.1 release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a bug in the the tool redo_prebinding(1) with undefined
+   symbol references from two-level images where the definition of
+   the symbol is in a sub-framework of a flat namespace umbrella
+   framework would come up undefined.</LI>
+   
+   <LI>Fixed a bug in the dynamic linker API NSLookupSymbolInImage()
+   where if called from a shared library init routine it is possible
+   that it can return a non-NULL NSSymbol but a call to
+   NSAddressOfSymbol() or other uses of that NSSymbol may not work
+   (in the case of NSAddressOfSymbol() it returns NULL).</LI>
+   
+   <LI>Picked up the new rld interfaces kld_load_from_memory &amp;
+   kld_load_basefile_from_memory (see the rld(3) man page for more
+   information).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-367 for
+the 5.9 MacOS 10.1 release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a bug in the static link editor that would cause it to
+   crash when using -bundle_loader and doing a cross bytesex link
+   (using -arch i386 while linking on a PowerPC machine for
+   example).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-366 for
+the 5.9 MacOS 10.1 release)</FONT></H5>
+
+<UL>
+   <LI>Added the -sub_library flag to the static linker and all the
+   support needed in cctools for it. This is needed to allow
+   Foundation to lhave libobjc treated as a sub-umbrella (Radar bug
+   #2697458). For now this must be passed using cc(1) with
+   -Wl,-sub_library,library_name until and if Radar bug #2699511 is
+   fixed.</LI>
+   
+   <LI>Fixed a bug in the redo_prebinding(3) APIs that did not
+   deallocate a buffer if the open(2) or write(2) fails for it is
+   output (Radar bug #2691920).</LI>
+   
+   <LI>Fixed a bug static linker that with -twolevel_namespace it did
+   not search the sub-umbrella's in the same order as the dynamic
+   linker.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-365 for
+the 5.9 MacOS 10.1 release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a bug in the dynamic linker with undefined symbol
+   references from two-level images where the definition of the
+   symbol is in a sub-framework of a flat namespace umbrella
+   framework would come up undefined.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-364 for
+the 5.9 MacOS 10.1 release)</FONT></H5>
+
+<UL>
+   <LI>Added the dynamic linker API's NSAddImage(),
+   NSLookupSymbolInImage() and NSIsSymbolNameDefinedInImage() for use
+   in doing two-levelnamespace lookups. For more information see the
+   NSModule(3) man page (Radar bug #2689833).</LI>
+   
+   <LI>Fixed a bug in the dynamic linker when
+   NSLINKMODULE_OPTION_RETURN_ON_ERROR option of the NSLinkModule()
+   API is used and plugins fail to load it can later cause the
+   program to crash (Radar bug #2665925).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-363 for
+the 5.9 MacOS 10.1 release)</FONT></H5>
+
+<UL>
+   <LI>Added the -prebind_allow_overlap to the static linker, which
+   causes it to prebind the output even if the addresses of the
+   dynamic libraries it uses overlap. The resulting output can then
+   have redo_prebinding(1) run on it to fix up the prebinding after
+   the overlapping dynamic libraries have been rebuilt. This option
+   can also be specified by setting the environment variable
+   LD_PREBIND_ALLOW_OVERLAP. It is intended for use only in
+   B&amp;I.</LI>
+   
+   <LI>Changed NXFindBestFatArch() which had a problem with selecting
+   the PowerPC cpusubtype when an exact match could not be found. See
+   Radar bug #2678019 against exec(2) which is the same problem as
+   this but in the exec code.</LI>
+   
+   <LI>Changed NXCombineCpuSubtypes() for the PowerPC to select the
+   highest subtype when there is not an exact match and neither is a
+   601.</LI>
+   
+   <LI>Fixed a bug in the dynamic linker when DYLD_LIBRARY_PATH ended
+   in a ':' that caused it to crash (Radar bug #2676732).</LI>
+   
+   <LI>Fixed a bug in the dynamic linker when a module from a
+   prebound dynamic library wasn't originally used by the program was
+   later dynamically bound and referenced another prebound dynamic
+   library that also was not originally used that had a C++
+   constuctor which was not called when the first symbol was
+   dynamically bound (Radar bug #2650066).</LI>
+   
+   <LI>Fixed a bug in the dynamic linker that caused prebound dynamic
+   libraries that had nmedit(1) run on it to not be relocated
+   correctly and cause the code in them to crash (Radar bug
+   #2676317).</LI>
+   
+   <LI>Picked up the change suggested in Radar bug #2686444 which
+   makes the dynamic linker recurse too much for its algorithm to use
+   the header dependencices instead of the symbol dependencies when
+   calling library init routines which was added for Radar bug
+   #2571628.</LI>
+   
+   <LI>Picked up a change to the PowerPC assembler adds the 4-arg
+   option to rlwinm and friends, and uses mask-&gt;mb/me (Radar bug
+   #2684824).</LI>
+   
+   <LI>Fixed a bug in the assembler when a ".=value" was past the
+   value of the current location counter and caused the assembler to
+   crash (Radar bug #2682911).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-362 for
+the 5.9 MacOS 10.1 release)</FONT></H5>
+
+<UL>
+   <LI>Picked up the change suggested in Radar bug #2667248 which is
+   a small speed up to dyld locking.</LI>
+   
+   <LI>Picked up the change suggested in Radar bug #2667241 which
+   added a dyld_mach_thread_self() call to lock.c to improve
+   preformance by caching the last value of the mach_thread_self()
+   call against the page truncated stack address making the
+   call.</LI>
+   
+   <LI>Fixed a bug in the PowerPC assembler that set the Y bit
+   inappropriately in bdnzt when no prediction was specified (Radar
+   bug #2665165).</LI>
+   
+   <LI>Changed <I>libtool</I>(1) so that if <B>-arch_only</B> is
+   specified with a specific cpusubtype other than the family
+   cpusubtype it does not use <B>-force_cpusubtype_ALL</B> and passes
+   the <B>-arch_only</B> argument to <I>ld</I>(1) as the <B>-arch</B>
+   flag so that the output is to be tagged with that
+   cpusubtype..</LI>
+   
+   <LI>Changed the PowerPC assembler so that vector instructions can
+   be used when <B>-arch 7400</B> and <B>-arch 7450</B> are specified
+   without specifying <B>-force_cpusubtype_ALL</B>.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-361 for
+the 5.9 MacOS 10.1 release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a bug in the redo_prebinding code that did not honor the
+   sticky bit when creating its output file.</LI>
+   
+   <LI>Picked up one of the bug fixes to the dynamic linker made in
+   cctools-361 that was also needed in the redo_prebinding code.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-360 for
+the 5.9 MacOS 10.1 release)</FONT></H5>
+
+<UL>
+   <LI>Made a 4 bug fixes to the dynamic linker for bugs when running
+   two-level namesapce images. With these fixes the 70 projects that
+   Sherlock depends on can be built with -twolevel_namespace in
+   effect and run.</LI>
+   
+   <LI>The <I>ld</I>(1) and <I>dyld</I>(1) man pages have been
+   updated with the information about two level name space and the
+   associated options.</LI>
+   
+   <LI>Fixed a bug in ld(1) in that caused it to crash when doing a
+   cross byte sex link with -twolevel_namespace and linking both a
+   sub-umbrella and its outer umbrella framework.</LI>
+   
+   <LI>Picked up the fixes for <I>otool</I>(1) -ov from Radar bug
+   #2660421.</LI>
+   
+   <LI>The <I>redo_prebinding</I>(3) has been written and is now a
+   part of cctools-361.</LI>
+   
+   <LI>Added the slide_to_address parameter to the redo_prebinding(3)
+   API to be used in the furture to support changing the prefered
+   address of a dynamic library.</LI>
+   
+   <LI>Fixed a bug in the <I>redo_prebinding</I>(3) API
+   needs_redo_prebinding() where after it returned an error, all
+   subsequent calls return PREBINDING_UNKNOWN.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-359 for
+the 5.9 MacOS 10.1 release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a bug in <I>strip</I>(1) that did not honor the NO_TOC
+   section attribute when creating archive table of contents (Radar
+   bug #2663483).</LI>
+   
+   <LI>Added the <I>redo_prebinding</I>(3) APIs (Radar bug
+   2604014).</LI>
+   
+   <LI>Added the <B>-e executable_path</B> argument to
+   <I>redo_prebinding</I>(1) to allow it to be used with programs and
+   dynamic libraries that use the "@executable_path" prefix in
+   install names.</LI>
+   
+   <LI>Changed the cctoolslib project to no longer build librld and
+   its varients when RC_RELEASE is not Cheetah (or an earilier build)
+   as the use of librld was removed earily in the Cheetah build
+   cycle.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-358 for
+the 5.8 MacOS 10.0 release)</FONT></H5>
+
+<UL>
+   <LI>Added support for two-level namespace (Radar bugs 2372124 and
+   2415916).</LI>
+   
+   <LI>Changed the <I>redo_prebinding</I>(1) so that it won't trash
+   file it is operating on when out of disk space (Radar bug
+   #2639352).</LI>
+   
+   <LI>Changed the dynamic linker locking routine to nolonger use an
+   "extra" sync after a load with reservation which was needed only
+   for some old 604 processors (Radar bug #2615783).</LI>
+   
+   <LI>Updated the <I>pagestuff</I>(1) man page as edited by tech
+   pubs (Radar bug #2582293).</LI>
+   
+   <LI>Changed the the static linker's, <I>ld</I>(1), overlap
+   checking when building an executable to not disable prebinding
+   when the split library's __LINKEDIT segment the executable is
+   being linked overlap. This can happen when some of the split
+   libraries linked with are from the $(SYMROOT) and are not
+   stripped.</LI>
+   
+   <LI>Changed <I>checksyms</I>(1) to open the default segment
+   address table if none is specified via a <B>-seg_addr_table</B>
+   argument (and not try to open the old DylibTable).</LI>
+</UL>
+
 <H3><FONT SIZE="+2">Notes Specific to Release 5.8 (MacOS X
-1.0)</FONT></H3>
+10.0)</FONT></H3>
 
 <H3><FONT SIZE="+1">New Features</FONT></H3>
 
@@ -44,7 +529,7 @@ and are for development purposes only. Do not expect any of this to
 work at all.</P>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-357 for
-the 5.8 MacOS 1.0 release)</FONT></H5>
+the 5.8 MacOS 10.0 release)</FONT></H5>
 
 <UL>
    <LI>Fixed a bug in the dynamic linker where a C++ plugin using
@@ -54,7 +539,7 @@ the 5.8 MacOS 1.0 release)</FONT></H5>
 </UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-356 for
-the 5.8 MacOS 1.0 release)</FONT></H5>
+the 5.8 MacOS 10.0 release)</FONT></H5>
 
 <UL>
    <LI>Added support for the Vger (7450) cpu subtype to the compiler
@@ -67,7 +552,7 @@ the 5.8 MacOS 1.0 release)</FONT></H5>
 </UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-355 for
-the 5.8 MacOS 1.0 release)</FONT></H5>
+the 5.8 MacOS 10.0 release)</FONT></H5>
 
 <UL>
    <LI>Fixed a bug in the tool seg_addr_table(1) where it was not
@@ -80,7 +565,7 @@ the 5.8 MacOS 1.0 release)</FONT></H5>
 </UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-354 for
-the 5.8 MacOS 1.0 release)</FONT></H5>
+the 5.8 MacOS 10.0 release)</FONT></H5>
 
 <UL>
    <LI>Changed the include file &lt;mach/vm_task.h&gt; to
@@ -112,7 +597,7 @@ the 5.8 MacOS 1.0 release)</FONT></H5>
 </UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-353 for
-the 5.8 MacOS 1.0 release)</FONT></H5>
+the 5.8 MacOS 10.0 release)</FONT></H5>
 
 <UL>
    <LI>Fixed a bug in the implementations of two of new lookup with
@@ -126,7 +611,7 @@ the 5.8 MacOS 1.0 release)</FONT></H5>
 </UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-352 for
-the 5.8 MacOS 1.0 release)</FONT></H5>
+the 5.8 MacOS 10.0 release)</FONT></H5>
 
 <UL>
    <LI>The PowerPC assembler is now installed in
@@ -171,7 +656,7 @@ the 5.8 MacOS 1.0 release)</FONT></H5>
 </UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-351 for
-the 5.8 MacOS 1.0 release)</FONT></H5>
+the 5.8 MacOS 10.0 release)</FONT></H5>
 
 <UL>
    <LI>Fixed yet another bug in the tool nmedit(1) when used with the
@@ -181,7 +666,7 @@ the 5.8 MacOS 1.0 release)</FONT></H5>
 </UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-350 for
-the 5.8 MacOS 1.0 release)</FONT></H5>
+the 5.8 MacOS 10.0 release)</FONT></H5>
 
 <UL>
    <LI>Fixed a bug in the tool nmedit(1) when used with the -s file
@@ -192,7 +677,7 @@ the 5.8 MacOS 1.0 release)</FONT></H5>
 </UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-349 for
-the 5.8 MacOS 1.0 release)</FONT></H5>
+the 5.8 MacOS 10.0 release)</FONT></H5>
 
 <UL>
    <LI>Added the new environment variable
@@ -213,7 +698,7 @@ the 5.8 MacOS 1.0 release)</FONT></H5>
 </UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-348 for
-the 5.8 MacOS 1.0 release)</FONT></H5>
+the 5.8 MacOS 10.0 release)</FONT></H5>
 
 <UL>
    <LI>Changed the static link editor to use the fcntrl() F_NOCACHE
@@ -236,7 +721,7 @@ the 5.8 MacOS 1.0 release)</FONT></H5>
 </UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-347 for
-the 5.8 MacOS 1.0 release)</FONT></H5>
+the 5.8 MacOS 10.0 release)</FONT></H5>
 
 <UL>
    <LI>Clarified the nmedit(1) man page adding a comment about when
@@ -248,7 +733,7 @@ the 5.8 MacOS 1.0 release)</FONT></H5>
 </UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-346 for
-the 5.8 MacOS 1.0 release)</FONT></H5>
+the 5.8 MacOS 10.0 release)</FONT></H5>
 
 <UL>
    <LI>Added the NSAddLibraryWithSearching api (Radar bug
@@ -262,7 +747,7 @@ the 5.8 MacOS 1.0 release)</FONT></H5>
 </UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-345 for
-the 5.8 MacOS 1.0 release)</FONT></H5>
+the 5.8 MacOS 10.0 release)</FONT></H5>
 
 <UL>
    <LI>Added logging why a binary was not prebound for B&amp;I when
@@ -277,7 +762,7 @@ the 5.8 MacOS 1.0 release)</FONT></H5>
 </UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-344 for
-the 5.8 MacOS 1.0 release)</FONT></H5>
+the 5.8 MacOS 10.0 release)</FONT></H5>
 
 <UL>
    <LI>Changed the static link editor to ignore the
@@ -318,7 +803,7 @@ the 5.8 MacOS 1.0 release)</FONT></H5>
 </UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-343 for
-the 5.8 MacOS 1.0 release)</FONT></H5>
+the 5.8 MacOS 10.0 release)</FONT></H5>
 
 <UL>
    <LI>Added the needed support for the static link editor to do with
@@ -344,7 +829,7 @@ the 5.8 MacOS 1.0 release)</FONT></H5>
 </UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-342 for
-the 5.8 MacOS 1.0 release)</FONT></H5>
+the 5.8 MacOS 10.0 release)</FONT></H5>
 
 <UL>
    <LI>Fixed the inadvernt change to the value of the constant
@@ -353,7 +838,7 @@ the 5.8 MacOS 1.0 release)</FONT></H5>
 </UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-341 for
-the 5.8 MacOS 1.0 release)</FONT></H5>
+the 5.8 MacOS 10.0 release)</FONT></H5>
 
 <UL>
    <LI>Fixed a bug in the change to the static link editor for Radar

@@ -20,6 +20,13 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * Modification History
+ *
+ * May 26, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
 #ifndef _S_PLUGIN_SUPPORT_H
 #define _S_PLUGIN_SUPPORT_H
 
@@ -27,8 +34,8 @@
 
 __BEGIN_DECLS
 
-void	plugin_init	__P(());
-void	plugin_exec	__P((void	*arg));
+void	plugin_init	();
+void	plugin_exec	(void	*arg);
 
 __END_DECLS
 

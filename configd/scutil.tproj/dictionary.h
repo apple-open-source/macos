@@ -20,6 +20,13 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * Modification History
+ *
+ * November 9, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
 #ifndef _DICTIONARY_H
 #define _DICTIONARY_H
 
@@ -27,10 +34,10 @@
 
 __BEGIN_DECLS
 
-void	do_dictInit		__P((int argc, char **argv));
-void	do_dictShow		__P((int argc, char **argv));
-void	do_dictSetKey		__P((int argc, char **argv));
-void	do_dictRemoveKey		__P((int argc, char **argv));
+void	do_dictInit		(int argc, char **argv);
+void	do_dictShow		(int argc, char **argv);
+void	do_dictSetKey		(int argc, char **argv);
+void	do_dictRemoveKey	(int argc, char **argv);
 
 __END_DECLS
 

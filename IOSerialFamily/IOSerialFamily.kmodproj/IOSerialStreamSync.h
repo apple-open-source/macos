@@ -65,10 +65,17 @@
 #define PD_E_RX_DATA_SIZE	(PD_DATA_LONG|PD_OP(15))
 #define PD_E_DATA_INTEGRITY	(PD_DATA_LONG|PD_OP(16))	// parity or ECC method
 #define PD_E_RX_DATA_INTEGRITY	(PD_DATA_LONG|PD_OP(17))
+#define PD_E_EXTERNAL_CLOCK_MODE (PD_DATA_LONG|PD_OP(28))	// multiplier between clock and data rates
 
 /* timeout events */
 #define PD_E_DELAY		(PD_DATA_LONG|PD_OP(18))	// inter-character delay (us)
 #define PD_E_DATA_LATENCY	(PD_DATA_LONG|PD_OP(19))	// A dequeueData Latency timeout
+								// rcs Secondary Timer mainly to fix performance 
+								// problems with MIDI and IRDA drivers.
+								// Midi and Irda drivers will issue an IOCTL
+								// call with this as the selector and
+								// the Data as the value they want the rate set
+								// to (Typically 1 for IrDA devices) 
 #define PD_E_FLOW_CONTROL       (PD_DATA_LONG|PD_OP(20))  	// enable/disable each flow mechanism
 
 /* I/O events */

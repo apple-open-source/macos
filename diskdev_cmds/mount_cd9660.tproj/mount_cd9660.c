@@ -71,6 +71,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 #include <CoreFoundation/CFBase.h>
 #include <IOKit/IOKitLib.h>
@@ -90,6 +91,21 @@ struct mntopt mopts[] = {
 };
 #endif
 
+typedef struct ISOVolumeDescriptor
+{
+	char		type[1];
+	char		id[5];			// should be "CD001"
+	char		version[1];
+	char		filler[33];
+	char		volumeID[32];
+	char		filler2[1976];
+} ISOVolumeDescriptor, *ISOVolumeDescriptorPtr;
+
+
+#define	CDROM_BLOCK_SIZE		2048
+#define ISO_STANDARD_ID 		"CD001"
+#define ISO_VD_PRIMARY 			0x01  // for ISOVolumeDescriptor.type when it's a primary descriptor
+
 void	usage __P((void));
 
 static int	get_ssector(const char *devpath);
@@ -107,7 +123,7 @@ main(int argc, char **argv)
 	mntflags = opts = 0;
 	memset(&args, 0, sizeof args);
 	args.ssector = -1;
-	while ((ch = getopt(argc, argv, "egjo:rs")) != EOF)
+	while ((ch = getopt(argc, argv, "egjo:rs:")) != EOF)
 		switch (ch) {
 		case 'e':
 			opts |= ISOFSMNT_EXTATT;
@@ -228,14 +244,23 @@ get_ssector(const char *devpath)
 {
 	struct CDTOC * toc_p;
 	struct CDTOC_Desc *toc_desc;
+	struct ISOVolumeDescriptor *isovdp;
+	char iobuf[CDROM_BLOCK_SIZE];
+	int cmpsize = sizeof(isovdp->id);
 	int i, count;
 	int ssector;
 	u_char track;
+	int devfd;
 
 	ssector = 0;
+	isovdp = (struct ISOVolumeDescriptor *)iobuf;
+
+	devfd = open(devpath, O_RDONLY | O_NDELAY , 0);
+	if (devfd <= 0)
+		goto exit;
 
 	if ((toc_p = (struct CDTOC *)get_cdtoc(devpath)) == NULL)
-		goto exit;
+		goto exit_close;
 
 	count = (toc_p->length - 2) / sizeof(struct CDTOC_Desc);
 	toc_desc = toc_p->trackdesc;
@@ -249,12 +274,33 @@ get_ssector(const char *devpath)
 			continue;
 
 		if (toc_desc[i].ctrl_adr & CD_CTRL_DATA) {
-			ssector = MSF_TO_LBA(toc_desc[i].p);
-			break;
+			int sector;
+
+			sector = MSF_TO_LBA(toc_desc[i].p);	
+			if (sector == 0)
+				break;
+
+			/* 
+			 * Kodak Photo CDs have multiple tracks per session
+			 * and a primary volume descriptor (PVD) will be in
+			 * one of these tracks.  So we check each data track
+			 * to find the latest valid PVD.
+			 */
+			lseek(devfd, ((16 + sector) * CDROM_BLOCK_SIZE), 0);
+			if (read(devfd, iobuf, CDROM_BLOCK_SIZE) != CDROM_BLOCK_SIZE)
+				continue;
+		
+			if ((memcmp(&isovdp->id[0], ISO_STANDARD_ID, cmpsize) == 0)
+				&& (isovdp->type[0] == ISO_VD_PRIMARY)) {
+				ssector = sector;
+				break;
+			}
 		}
 	}
 	
 	free(toc_p);
+exit_close:
+	close(devfd);
 exit:
 	return ssector;
 }

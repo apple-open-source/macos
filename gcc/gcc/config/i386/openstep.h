@@ -514,4 +514,16 @@ void machopic_define_decl ();
 
 #define DWARF2_UNWIND_INFO      0
 
+/* Use the library _setjmp () call so that we don't have to worry about
+   restoring the PIC base.  */
+
+#define DONT_USE_BUILTIN_SETJMP
+
+#if 0	/* Temporarily removed until we fix a few unopened projects.  */
+/* We define this to prevent the name mangler from putting dollar signs into
+   function names.  This is so we can be name-compatible with gcc for PPC.  */
+
+#define NO_DOLLAR_IN_LABEL
+#endif
+
 #include "apple/embedded.h"

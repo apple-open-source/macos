@@ -1,17 +1,21 @@
-#!/usr/bin/perl
+#!/usr/bin/perl -Tw
 ##
 ##  loadcacert.cgi -- Load a CA certificate into Communicator
-##  Copyright (c) 1998-2000 Ralf S. Engelschall, All Rights Reserved. 
+##  Copyright (c) 1998-2001 Ralf S. Engelschall, All Rights Reserved. 
 ##
 
+use strict;
+
 $|++;
+
 open(FP, "<ca.crt");
-$cert = '';
+my $cert = '';
 $cert .= $_ while (<FP>);
 close(FP);
-$len = length($cert);
-print "Content-type: application/x-x509-ca-cert\n";
-print "Content-length: $len\n";
-print "\n";
+my $len = length($cert);
+
+print "Content-type: application/x-x509-ca-cert\r\n";
+print "Content-length: $len\r\n";
+print "\r\n";
 print $cert;
 

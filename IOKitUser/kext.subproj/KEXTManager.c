@@ -1351,12 +1351,13 @@ static CFArrayRef
 _KEXTBundleCopyPersonalities (
             CFDictionaryRef                          props /* a bundle dict */ )
 {
-    CFDictionaryRef personalities;
-    CFDictionaryRef personsMutable;
-    CFArrayRef personalitiesArray;
+    CFArrayRef returnArray = NULL;
+    CFDictionaryRef personalities = NULL;
+    CFDictionaryRef personsMutable = NULL;
+    CFArrayRef personalitiesArray = NULL;
 
     CFIndex numPersonalities;
-    void ** personalityValues;
+    void ** personalityValues = NULL;
 
     personalities = CFDictionaryGetValue(props, CFSTR(kPersonalitiesKey));
     if ( ! personalities ) {
@@ -1380,21 +1381,27 @@ _KEXTBundleCopyPersonalities (
 
     personalityValues = (void **)malloc(numPersonalities * sizeof(void *));
     if (!personalityValues) {
-        return NULL;
+        returnArray = NULL;
+        goto finish;
     }
     CFDictionaryGetKeysAndValues(personsMutable, NULL, personalityValues);
     personalitiesArray = CFArrayCreateMutable(kCFAllocatorDefault,
         numPersonalities, &kCFTypeArrayCallBacks);
     if (!personalitiesArray) {
-        return NULL;
+        returnArray = NULL;
+        goto finish;
     }
+
+    returnArray = personalitiesArray;
 
     CFArrayReplaceValues(personalitiesArray, CFRangeMake(0, 0),
         personalityValues, numPersonalities);
 
-    free(personalityValues);
+finish:
+    if (personsMutable)    CFRelease(personsMutable);
+    if (personalityValues) free(personalityValues);
 
-    return personalitiesArray;
+    return returnArray;
 }
 
 static void ArrayGetModuleAndKey(const void * val, void * context[])
@@ -1425,9 +1432,10 @@ _KEXTManagerCreateModulesArray(
             CFMutableArrayRef                      * keys,
             Boolean                                  isCFStyle )
 {
-    CFMutableArrayRef modules;
-    CFMutableArrayRef modKeys;
-    CFArrayRef array;
+    Boolean error = false;
+    CFMutableArrayRef modules = NULL;
+    CFMutableArrayRef modKeys = NULL;
+    CFArrayRef array = NULL;
     CFRange range;
     void * context[3];
 
@@ -1448,14 +1456,8 @@ _KEXTManagerCreateModulesArray(
                         &kCFTypeArrayCallBacks);
 
     if ( !modules || !modKeys ) {
-        if ( modules ) {
-            CFRelease(modules);
-        }
-        if ( modKeys ) {
-            CFRelease(modKeys);
-        }
-        CFRelease(array);
-        return NULL;
+        error = true;
+        goto finish;
     }
 
     context[0] = (void *)bundleKey;
@@ -1464,10 +1466,22 @@ _KEXTManagerCreateModulesArray(
 
     range = CFRangeMake(0, CFArrayGetCount(array));
     CFArrayApplyFunction(array, range, (CFArrayApplierFunction)ArrayGetModuleAndKey, context);
-    CFRelease(array);
 
     *keys = modKeys;
 
+finish:
+
+    if (error) {
+        if (modules) {
+            CFRelease(modules);
+            modules = NULL;
+        }
+        if (modKeys) {
+            CFRelease(modKeys);
+            modKeys = NULL;
+        }
+    }
+    if (array) CFRelease(array);
     return modules;
 }
 
@@ -1588,6 +1602,7 @@ _KEXTManagerCreateProperties(
     if ( ret != kKEXTReturnSuccess ) {
         _KEXTManagerLogError(manager,
             CFSTR("%@ is not a valid kernel extension bundle.\n"), urlString);
+        if (xmlData) CFRelease(xmlData);
         return kKEXTReturnNotKext;
     }
     
@@ -1611,6 +1626,10 @@ _KEXTManagerCreateProperties(
             CFRelease(str);
         }
         return kKEXTReturnSerializationError;
+    }
+
+    if ( str ) {
+        CFRelease(str);
     }
 
     if ( CFDictionaryGetTypeID() != CFGetTypeID(*properties) ) {
@@ -1706,6 +1725,7 @@ _KEXTManagerCreateEntities(
     CFDictionarySetValue(*bundle, CFSTR("ModificationDate"), date);
     CFRelease(date);
 
+    CFRelease(properties);
     return kKEXTReturnSuccess;
 }
 
@@ -1948,42 +1968,45 @@ _KEXTManagerAddBundle(
             CFURLRef		bundleUrl,
             Boolean		toplevel)
 {
-    KEXTBundleRef bundle;
-    KEXTReturn ret;
-    CFMutableArrayRef modules;
-    CFMutableArrayRef persons;
-    CFStringRef primaryKey;
+    KEXTBundleRef bundle = 0;
+    KEXTReturn ret = kKEXTReturnSuccess;
+    CFMutableArrayRef modules = 0;
+    CFMutableArrayRef persons = 0;
+    CFStringRef primaryKey = 0;
 
     if ( !manager || !bundleUrl ) {
-        return kKEXTReturnBadArgument;
+        ret = kKEXTReturnBadArgument;
+        goto finish;
     }
 
     ret = URLResourceExists(bundleUrl);
     if ( ret != kKEXTReturnSuccess ) {
-        return ret;
+        goto finish;
     }
 
     ret = deref(manager)->bcb.BundleAuthentication(bundleUrl, deref(manager)->_context);
     if ( ret != kKEXTReturnSuccess ) {
-        return ret;
+        goto finish;
     }
 
     // Create entries.
     ret = _KEXTManagerCreateEntities(manager, bundleUrl, &bundle, &modules, &persons);
     if ( ret != kKEXTReturnSuccess ) {
-        return ret;
+        goto finish;
     }
 
     if ( deref(manager)->bcb.BundleWillAdd ) {
         if ( !deref(manager)->bcb.BundleWillAdd(manager, bundle, deref(manager)->_context) ) {
-            return kKEXTReturnSuccess;
+            ret = kKEXTReturnSuccess;
+            goto finish;
         }
     }
 
     // Check if bundle already exists in database.
     primaryKey = KEXTBundleGetPrimaryKey(bundle);
     if ( !primaryKey ) {
-        return kKEXTReturnPropertyNotFound;
+        ret = kKEXTReturnPropertyNotFound;
+        goto finish;
     }
 
     ret = kKEXTReturnSuccess;
@@ -2046,6 +2069,8 @@ _KEXTManagerAddBundle(
 	    CFRelease(pluginURL);
         }
     }
+
+finish:
 
     if ( bundle )
 	CFRelease(bundle);
@@ -2370,6 +2395,7 @@ _KEXTManagerGraphDependencies(
             CFMutableArrayRef                        array )
 {
     KEXTReturn result = kKEXTReturnSuccess;
+    CFStringRef moduleName = NULL;        // do not release
     CFDictionaryRef dependencies = NULL;  // do not release
     KEXTModuleRef mod = NULL;             // do not release
     CFTypeID scratch = NULL;              // do not release
@@ -2411,21 +2437,16 @@ _KEXTManagerGraphDependencies(
         goto finish;
     }
 
+    moduleName = KEXTModuleGetProperty(module, CFSTR("CFBundleIdentifier"));
     dependencies = KEXTModuleGetProperty(module, CFSTR(kRequiresKey));
     if ( ! dependencies ) {
         _KEXTManagerLogError(manager,
             CFSTR("Extension %@ "
             "declares no dependencies.\n"),
-            requestedModuleName);
-#if 0
-// make a failure after folks have converted kexts
+            moduleName);
+
         result = kKEXTReturnError;
         goto finish;
-#else
-        _KEXTManagerLogError(manager,
-            CFSTR("Loading anyway.\n"));
-        goto no_dependencies;
-#endif 0
     }
 
     if (CFGetTypeID(dependencies) != CFDictionaryGetTypeID() ) {
@@ -2435,8 +2456,6 @@ _KEXTManagerGraphDependencies(
 
     numDependencies = CFDictionaryGetCount(dependencies);
     if (numDependencies < 1) {
-        // FIXME: Make this an error when all kexts properly
-        // FIXME: declare their kernel dependencies.
         goto no_dependencies;
     }
 
@@ -2461,7 +2480,8 @@ _KEXTManagerGraphDependencies(
         goto finish;
     }
 
-    versionArray = CFArrayCreate(NULL, versionList, numDependencies, &kCFTypeArrayCallBacks);
+    versionArray = CFArrayCreate(NULL, versionList, numDependencies,
+        &kCFTypeArrayCallBacks);
     if (! versionArray) {
         result = kKEXTReturnNoMemory;
         goto finish;
@@ -2512,15 +2532,8 @@ _KEXTManagerGraphDependencies(
                 "declares no version.\n"),
                 name, requestedModuleName);
 
-#if 0
-// make a failure after folks have converted kexts
             result = kKEXTReturnError;
             goto finish;
-
-#else
-            _KEXTManagerLogError(manager,
-                CFSTR("Loading anyway.\n"));
-#endif 0
         }
 
         if (!_KEXTManagerGetModuleVers(manager, mod,
@@ -2531,29 +2544,29 @@ _KEXTManagerGraphDependencies(
                 CFSTR("Dependency %@ of extension %@ "
                 "declares no compatible version.\n"),
                 name, requestedModuleName);
-#if 0
-// make a failure after folks have converted kexts
+
             result = kKEXTReturnError;
             goto finish;
-#else
+        }
+
+        if (dep_vers < dep_compat_vers) {
             _KEXTManagerLogError(manager,
-                CFSTR("Loading anyway.\n"));
-#endif 0
+                CFSTR("Compatible version of dependency %@ is later "
+                "than its current version.\n"),
+                name);
+
+            result = kKEXTReturnDependencyVersionMismatch;
+            goto finish;
         }
 
         if (req_vers > dep_vers || req_vers < dep_compat_vers) {
             _KEXTManagerLogError(manager,
-                CFSTR("Installed version %@ of dependency %@ is not compatible "
-                "with extension %@.\n"),
+                CFSTR("Installed version %@ of dependency %@ is not "
+                "compatible with extension %@.\n"),
                 version, name, requestedModuleName);
-#if 0
-// make a failure after folks have converted kexts
+
             result = kKEXTReturnDependencyVersionMismatch;
             goto finish;
-#else
-            _KEXTManagerLogError(manager,
-                CFSTR("Loading anyway.\n"));
-#endif 0
         }
 
         range = CFRangeMake(0, CFArrayGetCount(array));
@@ -2568,16 +2581,23 @@ _KEXTManagerGraphDependencies(
 
 no_dependencies:
 
-    // Prevent "special" modules from being added to the dependency list
-    // as used by kmodload.
-    if ( ! isKernelResource ) {
+    // Add the kext module to the list for kmodload only if the kext is not
+    // a kernel resource and it declares an executable. This does mean that
+    // any dependencies declared by kernel resources and kexts without
+    // executables will not be version-checked--but that isn't a problem as
+    // the kernel is already linked together and a kext without code by
+    // definition has no link dependencies.
+    //
+    if ( !isKernelResource &&
+         KEXTModuleGetProperty(module, CFSTR("CFBundleExecutable"))) {
+
         if (numDependencies < 1) {
             _KEXTManagerLogError(manager,
                 CFSTR("Extension %@ declares no dependencies.\n"),
-                requestedModuleName);
-// FIXME: Make this an error.
-            _KEXTManagerLogError(manager,
-                CFSTR("Loading anyway.\n"));
+                moduleName);
+
+            result = kKEXTReturnError;
+            goto finish;
         }
         range = CFRangeMake(0, CFArrayGetCount(array));
         if ( !CFArrayContainsValue(array, range, module) ) {

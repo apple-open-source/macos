@@ -80,6 +80,7 @@
 #define	SUPPRESS	0x08	/* suppress assignment */
 #define	POINTER		0x10	/* weird %p pointer (`fake hex') */
 #define	NOSKIP		0x20	/* do not skip blanks */
+#define QUAD            0x400
 
 /*
  * The following are used in numeric conversions only:
@@ -101,13 +102,13 @@
 #define	CT_CHAR		0	/* %c conversion */
 #define	CT_CCL		1	/* %[...] conversion */
 #define	CT_STRING	2	/* %s conversion */
-#define	CT_INT		3	/* integer, i.e., strtol or strtoul */
+#define	CT_INT		3	/* integer, i.e., strtoq or strtouq */
 #define	CT_FLOAT	4	/* floating, i.e., strtod */
 
 #define u_char unsigned char
 #define u_long unsigned long
 
-static u_char *__sccl();
+static u_char *__sccl(char *, u_char *);
 
 /*
  * vfscanf
@@ -127,8 +128,8 @@ __svfscanf(fp, fmt0, ap)
 	register char *p0;	/* saves original value of p when necessary */
 	int nassigned;		/* number of fields assigned */
 	int nread;		/* number of characters consumed from fp */
-	int base;		/* base argument to strtol/strtoul */
-	u_long (*ccfn)();	/* conversion function (strtol/strtoul) */
+	int base;		/* base argument to strtoq/strtouq */
+	u_quad_t (*ccfn)();	/* conversion function (strtoq/strtouq) */
 	char ccltab[256];	/* character class table for %[...] */
 	char buf[BUF];		/* buffer for numeric conversions */
 
@@ -180,6 +181,9 @@ literal:
 		case 'l':
 			flags |= LONG;
 			goto again;
+		case 'q':
+			flags |= QUAD;
+			goto again;
 		case 'L':
 			flags |= LONGDBL;
 			goto again;
@@ -204,13 +208,13 @@ literal:
 			/* FALLTHROUGH */
 		case 'd':
 			c = CT_INT;
-			ccfn = (u_long (*)())strtol;
+			ccfn = (u_quad_t (*)())strtoq;
 			base = 10;
 			break;
 
 		case 'i':
 			c = CT_INT;
-			ccfn = (u_long (*)())strtol;
+			ccfn = (u_quad_t (*)())strtoq;
 			base = 0;
 			break;
 
@@ -219,13 +223,13 @@ literal:
 			/* FALLTHROUGH */
 		case 'o':
 			c = CT_INT;
-			ccfn = strtoul;
+			ccfn = strtouq;
 			base = 8;
 			break;
 
 		case 'u':
 			c = CT_INT;
-			ccfn = strtoul;
+			ccfn = strtouq;
 			base = 10;
 			break;
 
@@ -235,7 +239,7 @@ literal:
 		case 'x':
 			flags |= PFXOK;	/* enable 0x prefixing */
 			c = CT_INT;
-			ccfn = strtoul;
+			ccfn = strtouq;
 			base = 16;
 			break;
 
@@ -267,7 +271,7 @@ literal:
 		case 'p':	/* pointer format is like hex */
 			flags |= POINTER | PFXOK;
 			c = CT_INT;
-			ccfn = strtoul;
+			ccfn = strtouq;
 			base = 16;
 			break;
 
@@ -278,6 +282,8 @@ literal:
 				*va_arg(ap, short *) = nread;
 			else if (flags & LONG)
 				*va_arg(ap, long *) = nread;
+			else if (flags & QUAD)
+				*va_arg(ap, quad_t *) = nread;
 			else
 				*va_arg(ap, int *) = nread;
 			continue;
@@ -292,7 +298,7 @@ literal:
 			if (isupper(c))
 				flags |= LONG;
 			c = CT_INT;
-			ccfn = (u_long (*)())strtol;
+			ccfn = (u_quad_t (*)())strtoq;
 			base = 10;
 			break;
 		}
@@ -434,7 +440,7 @@ literal:
 			continue;
 
 		case CT_INT:
-			/* scan an integer as if by strtol/strtoul */
+			/* scan an integer as if by strtoq/strtouq */
 #ifdef hardway
 			if (width == 0 || width > sizeof(buf) - 1)
 				width = sizeof(buf) - 1;
@@ -552,7 +558,7 @@ literal:
 				(void) ungetc(c, fp);
 			}
 			if ((flags & SUPPRESS) == 0) {
-				u_long res;
+				u_quad_t res;
 
 				*p = 0;
 				res = (*ccfn)(buf, (char **)NULL, base);
@@ -562,6 +568,8 @@ literal:
 					*va_arg(ap, short *) = res;
 				else if (flags & LONG)
 					*va_arg(ap, long *) = res;
+				else if (flags & QUAD)
+					*va_arg(ap, quad_t *) = res;
 				else
 					*va_arg(ap, int *) = res;
 				nassigned++;
@@ -651,7 +659,9 @@ literal:
 
 				*p = 0;
 				res = strtod(buf,(char **) NULL);
-				if (flags & LONG)
+				if (flags & LONGDBL)
+					*va_arg(ap, long double *) = res;
+				else if (flags & LONG)
 					*va_arg(ap, double *) = res;
 				else
 					*va_arg(ap, float *) = res;

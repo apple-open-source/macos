@@ -349,6 +349,21 @@ enum byte_sex target_byte_sex)
 
 __private_extern__
 void
+swap_sub_library_command(
+struct sub_library_command *lsub,
+enum byte_sex target_byte_sex)
+{
+#ifdef __MWERKS__
+    enum byte_sex dummy;
+        dummy = target_byte_sex;
+#endif
+	lsub->cmd = SWAP_LONG(lsub->cmd);
+	lsub->cmdsize = SWAP_LONG(lsub->cmdsize);
+	lsub->sub_library.offset = SWAP_LONG(lsub->sub_library.offset);
+}
+
+__private_extern__
+void
 swap_sub_client_command(
 struct sub_client_command *csub,
 enum byte_sex target_byte_sex)
@@ -1673,6 +1688,61 @@ enum byte_sex target_byte_sex)
 	r_cmd->reserved4 = SWAP_LONG(r_cmd->reserved4);
 	r_cmd->reserved5 = SWAP_LONG(r_cmd->reserved5);
 	r_cmd->reserved6 = SWAP_LONG(r_cmd->reserved6);
+}
+
+__private_extern__
+void
+swap_twolevel_hints_command(
+struct twolevel_hints_command *hints_cmd,
+enum byte_sex target_byte_sex)
+{
+#ifdef __MWERKS__
+    enum byte_sex dummy;
+        dummy = target_byte_sex;
+#endif
+	hints_cmd->cmd = SWAP_LONG(hints_cmd->cmd);
+	hints_cmd->cmdsize = SWAP_LONG(hints_cmd->cmdsize);
+	hints_cmd->offset = SWAP_LONG(hints_cmd->offset);
+	hints_cmd->nhints = SWAP_LONG(hints_cmd->nhints);
+}
+
+__private_extern__
+void
+swap_twolevel_hint(
+struct twolevel_hint *hints,
+unsigned long nhints,
+enum byte_sex target_byte_sex)
+{
+    struct swapped_twolevel_hint {
+	union {
+	    struct {
+		unsigned long
+		    itoc:24,
+		    isub_image:8;
+	    } fields;
+	    unsigned long word;
+	} u;
+    } shint;
+
+    unsigned long i;
+    enum byte_sex host_byte_sex;
+
+	host_byte_sex = get_host_byte_sex();
+
+	for(i = 0; i < nhints; i++){
+	    if(target_byte_sex == host_byte_sex){
+		memcpy(&shint, hints + i, sizeof(struct swapped_twolevel_hint));
+		shint.u.word = SWAP_LONG(shint.u.word);
+		hints[i].itoc = shint.u.fields.itoc;
+		hints[i].isub_image = shint.u.fields.isub_image;
+	    }
+	    else{
+		shint.u.fields.isub_image = hints[i].isub_image;
+		shint.u.fields.itoc = hints[i].itoc;
+		shint.u.word = SWAP_LONG(shint.u.word);
+		memcpy(hints + i, &shint, sizeof(struct swapped_twolevel_hint));
+	    }
+	}
 }
 
 __private_extern__

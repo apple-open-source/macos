@@ -1,9 +1,9 @@
 Package: fetchmail
 Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
 Vendor: Eric Raymond
-Version: 5.1.0
+Version: 5.8.17
 URL: http://www.tuxedo.org/~esr/fetchmail
-Build-Depends: build-base, flex, libinfo-hdrs
+Build-Depends: build-base, flex, libinfo-hdrs, yacc, gnudiff
 Description: Mail retrieval and forwarding utility
  fetchmail is a free, full-featured, robust, well-documented remote
  mail retrieval and forwarding utility intended to be used over

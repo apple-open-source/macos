@@ -27,7 +27,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: dba_db3.c,v 1.1.1.3 2001/01/25 04:59:12 wsanchez Exp $ */
+/* $Id: dba_db3.c,v 1.1.1.4 2001/07/19 00:19:03 zarzycki Exp $ */
 
 #include "php.h"
 
@@ -63,7 +63,7 @@ DBA_OPEN_FUNC(db3)
 
 	type =  info->mode == DBA_READER ? DB_UNKNOWN :
 		info->mode == DBA_TRUNC ? DB_BTREE :
-		V_STAT(info->path, &check_stat) ? DB_BTREE : DB_UNKNOWN;
+		VCWD_STAT(info->path, &check_stat) ? DB_BTREE : DB_UNKNOWN;
 	  
 	gmode = info->mode == DBA_READER ? DB_RDONLY :
 		info->mode == DBA_CREAT  ? DB_CREATE : 

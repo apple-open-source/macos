@@ -75,6 +75,7 @@
 #include "DiskVolume.h"
 #include "GetRegistry.h"
 #include "DiskArbitrationServerMain.h"
+#include "Configuration.h"
 
 #include <errno.h>
 #include <stdio.h>
@@ -82,6 +83,11 @@
 #include <sys/attr.h>
 
 #define kIsInvisible 0x4000
+
+#define DEVICE_SUID	"suid"
+#define DEVICE_NOSUID	"nosuid"
+#define DEVICE_DEV	"dev"
+#define DEVICE_NODEV	"nodev"
 
 /*
  * Generic Finder file/dir data
@@ -119,6 +125,7 @@ int DiskArbIsHandlingUnrecognizedDisks(void)
 }
 
 extern mach_port_t gNotifyPort;
+extern int requestorUID;
 
 void * UnrecognizedDiskDiscovered(void * args)
 {
@@ -134,7 +141,7 @@ void * UnrecognizedDiskDiscovered(void * args)
         if (currentConsoleUser >= 0 ) {  //someone's logged in
                 retval = CFUserNotificationDisplayAlert(60.0, kCFUserNotificationStopAlertLevel, NULL, NULL, daFrameworkURL, unrecognizedHeader, unrecognizedMessage, ejectString, ignoreString, initString, &responseFlags);
         } else { // someone's at the login window
-                retval = CFUserNotificationDisplayAlert(60.0, kCFUserNotificationStopAlertLevel, NULL, NULL, daFrameworkURL, unrecognizedHeader, unrecognizedMessage, ejectString, ignoreString, NULL, &responseFlags);
+                retval = CFUserNotificationDisplayAlert(60.0, kCFUserNotificationStopAlertLevel, NULL, NULL, daFrameworkURL, unrecognizedHeaderNoInitialize, unrecognizedMessage, ejectString, ignoreString, NULL, &responseFlags);
         }
         if (responseFlags == kCFUserNotificationDefaultResponse) {
                 // Eject the disk
@@ -144,7 +151,8 @@ void * UnrecognizedDiskDiscovered(void * args)
                         mach_msg_empty_send_t	msg;
 
                         if (diskPtr->ioBSDName) {
-                        	DiskArbUnmountAndEjectRequest_async_rpc( 0, diskPtr->ioBSDName, FALSE);
+                                requestorUID = 0;
+                        	DiskArbUnmountAndEjectRequest_async_rpc( 0, 0, diskPtr->ioBSDName, FALSE);
                         }
 
                         msg.header.msgh_bits = MACH_MSGH_BITS(MACH_MSG_TYPE_MAKE_SEND, 0);
@@ -179,6 +187,61 @@ void * UnrecognizedDiskDiscovered(void * args)
         return NULL;
 }
 
+
+
+void * DiskFsckOrMountFailed(void * args)
+{
+        DiskPtr diskPtr = args;
+        // display UI to inform the user that an unrecognized disk was inserted.  this must be done asynch.
+        // we also need to pass the diskPtr so that it can be ejected
+        SInt32			retval = ERR_SUCCESS;
+        CFOptionFlags 		responseFlags;
+        CFURLRef		daFrameworkURL = CFURLCreateWithFileSystemPath(kCFAllocatorDefault, CFSTR("/System/Library/PrivateFrameworks/DiskArbitration.framework"), kCFURLPOSIXPathStyle, TRUE);
+
+        // use the url of the DiskArbitration Framework and put a Localizable.strings file in there.
+
+        if (currentConsoleUser >= 0 ) {  //someone's logged in
+                CFMutableStringRef localString = CFStringCreateMutable(kCFAllocatorDefault, 1024);  // build a string with the device name in it ...
+                CFStringAppend(localString, someDisk);
+                if (diskPtr->mountpoint && strlen(diskPtr->mountpoint)) {
+                        CFStringAppendCString(localString, diskPtr->mountpoint, kCFStringEncodingUTF8);
+                } else {
+                        CFStringAppend(localString, unknownString);
+                }
+                CFStringAppend(localString, mountOrFsckFailedWithDiskUtility);
+
+                retval = CFUserNotificationDisplayAlert(60.0, kCFUserNotificationStopAlertLevel, NULL, NULL, daFrameworkURL, localString, unrecognizedMessage, NULL, NULL, launchString, &responseFlags);
+                CFRelease(localString);
+        } else { // someone's at the login window
+                CFMutableStringRef localString = CFStringCreateMutable(kCFAllocatorDefault, 1024);  // build a string with the device name in it ...
+                CFStringAppend(localString, someDisk);
+                if (diskPtr->mountpoint && strlen(diskPtr->mountpoint)) {
+                        CFStringAppendCString(localString, diskPtr->mountpoint, kCFStringEncodingUTF8);
+                } else {
+                        CFStringAppend(localString, unknownString);
+                }
+                CFStringAppend(localString, mountOrFsckFailed);
+
+                retval = CFUserNotificationDisplayAlert(60.0, kCFUserNotificationStopAlertLevel, NULL, NULL, daFrameworkURL, localString, unrecognizedMessage, NULL, NULL, NULL, &responseFlags);
+                CFRelease(localString);
+        }
+
+        if (responseFlags == kCFUserNotificationOtherResponse) {
+                // Launch Disk Utility
+                // switch to the console user uid and ...
+                if (currentConsoleUser >= 0) {
+                        seteuid(currentConsoleUser);
+                        system("/usr/bin/open \"/Applications/Utilities/Disk Utility.app\"");
+                        // then switch back ...
+                        seteuid(0);
+                }
+        }
+
+        CFRelease(daFrameworkURL);
+
+        return NULL;
+}
+
 // Disconnected arbitration messages
 void StartUnrecognizedDiskDialogThread(DiskPtr disk)
 {
@@ -191,24 +254,16 @@ void StartUnrecognizedDiskDialogThread(DiskPtr disk)
     pthread_attr_destroy(&attr);
 }
 
-
-static void
-eject_media(char * dev)
+// A fsck or mount failed
+void StartUnmountableDiskThread(DiskPtr disk)
 {
-    int		fd;
-    char	specName[MAXNAMELEN];
+    pthread_attr_t attr;
+    pthread_t tid;
 
-    sprintf(specName, "/dev/r%s", dev);
-    fd = open(specName, O_RDONLY | O_NDELAY);
-	if ( fd >= 0 )
-    {
-		if (ioctl(fd, DKIOCEJECT, 0) < 0)
-		{
-			pwarning(("eject %s failed: %s\n", dev, strerror(errno)));
-		}
-		close(fd);
-    }
-    return;
+    pthread_attr_init(&attr);
+    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+    pthread_create(&tid, &attr, DiskFsckOrMountFailed, disk);
+    pthread_attr_destroy(&attr);
 }
 
 static struct statfs *
@@ -279,6 +334,7 @@ fsck_needed(char * devname, char * fstype)
         if (stat(fsck_command_line, &sb) != 0) {
             // the file doesn't exist
             dwarning(("%s: '%s' not found...\n", __FUNCTION__, fsck_command_line));
+                free(fsckCmd);
             return (FALSE);
         }
     }
@@ -291,6 +347,7 @@ fsck_needed(char * devname, char * fstype)
     {
 		dwarning(("%s('%s'): popen('%s') failed", __FUNCTION__, devname, command));
         // Couldn't find an appropriate fsck_* - assume one isn't needed
+            free(fsckCmd);
 		return (FALSE);
     }
     fflush(f);
@@ -313,12 +370,16 @@ fsck_needed(char * devname, char * fstype)
 
 /* foreignLabel: return the label written to the file by the -p(robe) option of the fs.util program */
 
-static char * 
+char * 
 foreignLabel(char * fsName)
 {
     int fd;
-    static char theLabel[MAXNAMELEN], buf[MAXPATHLEN];
+    char buf[MAXPATHLEN];
 
+    char *theLabel;
+
+    theLabel = malloc(MAXPATHLEN);
+    
     sprintf(buf, "%s/%s%s/%s%s", FS_DIR_LOCATION, fsName, FS_DIR_SUFFIX, fsName, FS_LABEL_SUFFIX);
     fd = open(buf, O_RDONLY, 0);
     if (fd >= 0)
@@ -394,7 +455,7 @@ Return:
 
 /* foreignMountDevice: run the -(mount) option of the given <fsName>.util program in a child process */
 
-static int foreignMountDevice(const char *fsName, const char *execPath, const char *devName, int removable, int writable, const char *mountPoint)
+static int foreignMountDevice(const char *fsName, const char *execPath, const char *devName, int removable, int writable, int suid, int dev, const char *mountPoint)
 {
     int result;
     char cmd[] = {'-', FSUC_MOUNT, 0};
@@ -405,12 +466,14 @@ static int foreignMountDevice(const char *fsName, const char *execPath, const ch
                                                         mountPoint,
                                                         removable ? DEVICE_REMOVABLE : DEVICE_FIXED,
                                                         writable? DEVICE_WRITABLE : DEVICE_READONLY,
+                                                        suid? DEVICE_SUID : DEVICE_NOSUID,
+                                                        dev? DEVICE_DEV : DEVICE_NODEV,
                                                         0 };
     char *fsDir = fsDirForFS((char *)fsName);
     int pid;
 
-    dwarning(("%s('%s', '%s', removable=%d, writable=%d, '%s'):\n'%s %s %s %s %s %s'\n",
-                        __FUNCTION__, fsName, devName, removable, writable, mountPoint, execPath, childArgv[1], childArgv[2], childArgv[3], childArgv[4], childArgv[5]));
+    dwarning(("%s('%s', '%s', removable=%d, writable=%d, '%s'):\n'%s %s %s %s %s %s %s %s'\n",
+                        __FUNCTION__, fsName, devName, removable, writable, mountPoint, execPath, childArgv[1], childArgv[2], childArgv[3], childArgv[4], childArgv[5], childArgv[6], childArgv[7]));
 
     if ((pid = fork()) == 0)
     {
@@ -453,21 +516,37 @@ static int foreignMountDevice(const char *fsName, const char *execPath, const ch
     result = FILESYSTEM_ERROR;
 
 Return:
-    free(execPath);
+    free((char *)execPath);
     free(fsDir);
     dwarning(("%s(...) => %d\n", __FUNCTION__, result));
     return result;
 }
 /** ripped off from workspace - end **/
 
+static int mountVolumeSuid(DiskVolumePtr diskVolume)
+{
+        if (diskVolume->removable) {
+                return FALSE;
+        }
+        return TRUE;
+}
+
+static int mountVolumeDev(DiskVolumePtr diskVolume)
+{
+        if (diskVolume->removable) {
+                return FALSE;
+        }
+        return TRUE;
+}
+
 boolean_t DiskVolume_mount_foreign(DiskVolumePtr diskVolume)
 {
     int ret;
 
-    ret = foreignMountDevice(diskVolume->fs_type,diskVolume->util_path, diskVolume->disk_dev_name,diskVolume->removable,diskVolume->writable,diskVolume->mount_point);
+        ret = foreignMountDevice(diskVolume->fs_type,diskVolume->util_path, diskVolume->disk_dev_name,diskVolume->removable,diskVolume->writable, mountVolumeSuid(diskVolume), mountVolumeDev(diskVolume), diskVolume->mount_point);
     if (ret == FILESYSTEM_MOUNTED)
     {
-        printf("Mounted %s /dev/%s on %s\n", diskVolume->fs_type, diskVolume->disk_dev_name, diskVolume->mount_point);
+        	dwarning(("Mounted %s /dev/%s on %s\n", diskVolume->fs_type, diskVolume->disk_dev_name, diskVolume->mount_point));
                 DiskVolume_setMounted(diskVolume,TRUE);
 		return (TRUE);
     }
@@ -480,6 +559,10 @@ boolean_t DiskVolume_mount_foreign(DiskVolumePtr diskVolume)
             char *rprCmd = repairArgsForFileSystem(diskVolume->fs_type);
 
             sprintf(m_command, "%s %s /dev/r%s", fsckCmd, rprCmd, diskVolume->disk_dev_name);
+
+            free(fsckCmd);
+            free(rprCmd);
+
             {
                     FILE *		f;
                     int 		ret;
@@ -502,24 +585,21 @@ boolean_t DiskVolume_mount_foreign(DiskVolumePtr diskVolume)
                     }
             }
 
-            ret = foreignMountDevice(diskVolume->fs_type, diskVolume->util_path, diskVolume->disk_dev_name, diskVolume->removable, diskVolume->writable, diskVolume->mount_point);
+            ret = foreignMountDevice(diskVolume->fs_type, diskVolume->util_path, diskVolume->disk_dev_name, diskVolume->removable, diskVolume->writable, mountVolumeSuid(diskVolume), mountVolumeDev(diskVolume), diskVolume->mount_point);
             if (ret == FILESYSTEM_MOUNTED)
             {
-                pwarning(("Mounted %s /dev/%s on %s\n", diskVolume->fs_type, diskVolume->disk_dev_name, diskVolume->mount_point));
-                          DiskVolume_setMounted(diskVolume,TRUE);
+                dwarning(("Mounted %s /dev/%s on %s\n", diskVolume->fs_type, diskVolume->disk_dev_name, diskVolume->mount_point));
                     return (TRUE);
             }
             else
             {
                     return (FALSE);
             }
-            free(fsckCmd);
-            free(rprCmd);
 
     }
     else if (ret == FILESYSTEM_ERROR)
     {
-        pwarning(("%s: There is a filesystem error with the device %s which was attempting to mount at %s\n", __FUNCTION__, diskVolume->disk_dev_name, diskVolume->mount_point));
+	    pwarning(("%s: There is a filesystem error with the device %s which was attempting to mount at %s\n", __FUNCTION__, diskVolume->disk_dev_name, diskVolume->mount_point));
     }
     else
     {
@@ -540,10 +620,22 @@ boolean_t DiskVolume_mount(DiskVolumePtr diskVolume)
         DiskPtr dp 		= LookupDiskByIOBSDName( diskVolume->disk_dev_name );
 
         if (dp) {
+                int isRemovable = ( dp->flags & kDiskArbDiskAppearedEjectableMask ) != 0;
+
                 if ((dp->flags & kDiskArbDiskAppearedNoMountMask) != 0) {
                         return (FALSE);  // say it mounted, but it didn't
                 };
+                
+                if (isRemovable && (currentConsoleUser < 0) && !mountWithoutConsoleUser()) {
+                        return (FALSE);  // say it mounted, but it didn't
+                } else {
+                        // mark the whole disk ptr as being attempted in at least one case
+                        DiskPtr wdp = LookupWholeDiskForThisPartition(dp);
+                        wdp->mountAttempted = 1;
+                }
         }
+
+        
 
 #warning Using mount command to mount UFS here - this needs to change to using ufs.util through pluggable
 
@@ -649,7 +741,7 @@ void DiskVolume_delete(DiskVolumePtr diskVolume)
                         &(diskVolume->dev_type),
                         &(diskVolume->disk_name),
                         &(diskVolume->mount_point),
-                        // &(diskVolume->util_path),
+                        //&(diskVolume->util_path),
                         NULL };
 
 
@@ -677,7 +769,7 @@ DiskVolumePtr DiskVolumes_newVolume(DiskVolumesPtr diskList,DiskPtr media,boolea
     char * 			fsname;
     int 			ret;
     char			specName[MAXNAMELEN];
-    DiskVolumePtr 		volume = nil;
+    DiskVolumePtr 		volume = 0x0;
     int 			matchingPointer = 0;
 
     for (matchingPointer = 0;matchingPointer < CFArrayGetCount(matchingArray);matchingPointer++) {
@@ -695,11 +787,6 @@ DiskVolumePtr DiskVolumes_newVolume(DiskVolumesPtr diskList,DiskPtr media,boolea
         if (error) {
             dwarning(("some kind of error while matching service to array... %d\n", error));
         }
-
-        //if (!matches) {
-                //dwarning(("********We have no match for devname = %s and mediaProps = \n", devname));
-                //CFShow(mediaProps);
-        //}
         
         if (matches) {
             CFStringRef utilArgsFromDict;
@@ -711,6 +798,7 @@ DiskVolumePtr DiskVolumes_newVolume(DiskVolumesPtr diskList,DiskPtr media,boolea
             char *utilArgsFromDict2;
             char *fsNameFromDict2;
             char *fstype;
+            char *resourcePath;
 
             char utilPath[MAXPATHLEN];
 
@@ -725,25 +813,25 @@ DiskVolumePtr DiskVolumes_newVolume(DiskVolumesPtr diskList,DiskPtr media,boolea
             utilArgsFromDict2 = daCreateCStringFromCFString(utilArgsFromDict);
             fsNameFromDict2 = daCreateCStringFromCFString(fsNameFromDict);
             fstype = daCreateCStringFromCFString(CFArrayGetValueAtIndex(fsNameArray, 0));
+            resourcePath = resourcePathForFSName(fsNameFromDict2);
 
-            sprintf(utilPath, "%s%s", resourcePathForFSName(fsNameFromDict2), utilPathFromDict2);
+            sprintf(utilPath, "%s%s", resourcePath, utilPathFromDict2);
 
-            //CFShow(utilPathFromDict);
-            
-            //dwarning(("\tutilPath = %s\n", utilPathFromDict2));
-            //dwarning(("\tutilArgs = %s\n", utilArgsFromDict2));
-            //dwarning(("\tfsNameFromDict2 = %s\n", fsNameFromDict2));
-            //dwarning(("\tfstype = %s\n", fstype));
-            //dwarning(("\tutilPath = %s\n", utilPath));
+            // clean up
+            CFRelease(fsNameArray);
+            free(utilPathFromDict2);
+            free(fsNameFromDict2);
+            free(resourcePath);
             
             sprintf(specName,"/dev/%s",devname);
             ret = foreignProbe(fstype, utilPath, utilArgsFromDict2, devname, isRemovable, isWritable);
-            
+
+            free(utilArgsFromDict2);
+
             if (ret == FSUR_RECOGNIZED || ret == -9)
             {
                 fsname = foreignLabel(fstype);
                 if (fsname == NULL) {
-#warning This is a leak.  foreignLabel returns a static char * - I am returning a malloced char *
                     printf("**************** Label not used ...\n");
                     fsname = fsNameForFSWithMediaName(fstype, media->ioMediaNameOrNull);
                 }
@@ -766,19 +854,19 @@ DiskVolumePtr DiskVolumes_newVolume(DiskVolumesPtr diskList,DiskPtr media,boolea
                         DiskVolume_setMounted(volume,TRUE);
                         DiskVolume_setMountPoint(volume,fs_p->f_mntonname);
                 }
-                else if (isWritable)
+                else if (isWritable || shouldFsckReadOnlyMedia())
                 {
                         DiskVolume_setDirtyFS(volume,fsck_needed(devname,fstype));
                 }
+                free(fstype);
+                free(fsname);
                 break;
+            } else {
+                    free(fstype);
+                    dwarning(("Volume is bad\n"));
+                    volume = 0x0;
             }
             
-            // clean up
-            CFRelease(fsNameArray);
-            free(utilPathFromDict2);
-            free(utilArgsFromDict2);
-            free(fsNameFromDict2);
-            free(fstype);
         }
     }
 
@@ -855,7 +943,7 @@ static int CanSkipContentType(char * contentType) {
     return 0;
 }
 
-DiskVolumesPtr DiskVolumes_do_removable(DiskVolumesPtr diskList,boolean_t do_removable,boolean_t eject_removable)
+DiskVolumesPtr DiskVolumes_do_volumes(DiskVolumesPtr diskList)
 {
 	DiskPtr				diskPtr;
 	boolean_t			success = FALSE;
@@ -894,7 +982,7 @@ DiskVolumesPtr DiskVolumes_do_removable(DiskVolumesPtr diskList,boolean_t do_rem
 	for (diskPtr = g.Disks; diskPtr != NULL; diskPtr = diskPtr->next )
 	{
 		int isWhole, isWritable, isRemovable;
-		DiskVolumePtr volume = nil;
+		DiskVolumePtr volume = 0x0;
 
 		/* Skip non-new disks */
 
@@ -905,28 +993,48 @@ DiskVolumesPtr DiskVolumes_do_removable(DiskVolumesPtr diskList,boolean_t do_rem
 		
 		/* Initialize some convenient flags */
 		
-		isWhole = ( diskPtr->flags & kDiskArbDiskAppearedWholeDiskMask ) != 0;
+		isWhole = IsWhole(diskPtr);
 		isWritable = ( diskPtr->flags & kDiskArbDiskAppearedLockedMask ) == 0;
 		isRemovable = ( diskPtr->flags & kDiskArbDiskAppearedEjectableMask ) != 0;
 
-		/* Eject removable disk and move on to the next one, if that was requested */
-
-		if (isRemovable && do_removable == FALSE)
-		{
-			if (eject_removable)
-			{
-				eject_media(diskPtr->ioBSDName);
-			}
-			continue;
-		}
+                if (diskPtr->mountedUser < 0 && currentConsoleUser >= 0) {
+                        diskPtr->mountedUser = currentConsoleUser;
+                }
 
                 /* Take appropriate action based on the <ioContent> field */
 
                 /* There are certain IOContent fields that we *know* we can skip over,
                     so let's encode them here till after MacOS X Beta - yeah right :) */
                 
+                /* if we are chowning /dev nodes, now is the time to do it */
+
+                if (consoleDevicesAreOwnedByMountingUser() && isRemovable && (diskPtr->mountedUser >= 0)) {
+                        char devdName[MAXPATHLEN];
+                        char devrName[MAXPATHLEN];
+
+                        sprintf(devdName, "/dev/%s", diskPtr->ioBSDName);
+                        sprintf(devrName, "/dev/r%s", diskPtr->ioBSDName);
+
+                        dwarning(("Changing devices %s, %s to be owned by user %d\n", devdName, devrName, diskPtr->mountedUser));
+
+                        chown(devdName, diskPtr->mountedUser, 5);	// 5 == operator
+                        chown(devrName, diskPtr->mountedUser, 5);	// 5 == operator
+                }
+
                 if (CanSkipContentType(diskPtr->ioContent)) {
                     continue;
+                }
+
+                if ((diskPtr->flags & kDiskArbDiskAppearedNoSizeMask) != 0) {
+                    DiskPtr wholePtr = LookupWholeDiskForThisPartition(diskPtr);
+                    wholePtr->mountAttempted = 1;   // so that unrecognized disks will still
+                    diskPtr->flags = diskPtr->flags | kDiskArbDiskAppearedUnrecognizableFormat;
+                    continue;  // if it's zero length, skip it
+                };
+
+                if (IsNetwork(diskPtr)) {
+                        continue;
+                        // we don't discover network volumes - we are told about them ...
                 }
 
                 volume = DiskVolumes_newVolume(diskList,
@@ -937,10 +1045,19 @@ DiskVolumesPtr DiskVolumes_do_removable(DiskVolumesPtr diskList,boolean_t do_rem
                                                       stat_p,
                                                       stat_number);
 
-
-                if (!volume && strncmp(FS_RESERVED_PREFIX, diskPtr->ioContent, strlen(FS_RESERVED_PREFIX))) {
+                //printf("val = %d\n", strncmp(FS_RESERVED_PREFIX, diskPtr->ioContent, strlen(FS_RESERVED_PREFIX)));
+                //if (!volume && strncmp(FS_RESERVED_PREFIX, diskPtr->ioContent, strlen(FS_RESERVED_PREFIX))) {
+                if (!volume) {
                         // file system unrecognized
-                        diskPtr->flags = diskPtr->flags | kDiskArbDiskAppearedUnrecognizableFormat;
+                        DiskPtr wholePtr = LookupWholeDiskForThisPartition(diskPtr);
+
+                        if (isRemovable && (currentConsoleUser < 0) && !mountWithoutConsoleUser()) {
+                                wholePtr->mountAttempted = 0;
+                        } else {
+                                wholePtr->mountAttempted = 1;   // so that unrecognized disks will still
+                                diskPtr->flags = diskPtr->flags | kDiskArbDiskAppearedUnrecognizableFormat;
+                        }
+
                 }
 		if (volume != nil) {
                     CFArrayAppendValue(diskList->list,volume);
@@ -1043,12 +1160,21 @@ char *mountPath(void)
     return "/Volumes";
 }
 
+mode_t mountModeForDisk(DiskVolumePtr disk)
+{
+        if (disk->removable && strictRemovableMediaSettings()) {
+                return 0700;
+        }
+
+        return 0755;
+}
+
 
 boolean_t     	DiskVolumes_setVolumeMountPoint(DiskVolumesPtr diskList,DiskVolumePtr vol)
 {
     DiskVolumePtr	disk 	= vol;
     int 		i 	= 1;
-    mode_t		mode 	= mountModeForFS(disk->fs_type);
+    mode_t		mode 	= mountModeForDisk(disk);
     char 		mount_path[MAXLBLLEN + 32];
     char 		possible_mount_path[MAXLBLLEN + 32];
     struct stat 	sb;
@@ -1116,6 +1242,13 @@ boolean_t     	DiskVolumes_setVolumeMountPoint(DiskVolumesPtr diskList,DiskVolum
     {
 	pwarning(("mountDisks: mkdir(%s) failed, %s\n", mount_path, strerror(errno)));
 	return (FALSE);
+    } else {
+            /* When you make the path, mark the diskPtr so that the path can get deleted by us later.  That way, we never attempt to delete the mount path of a disk we didn't mount */
+
+            DiskPtr diskPtr 		= LookupDiskByIOBSDName( disk->disk_dev_name );
+            if (diskPtr) {
+                    diskPtr->admCreatedMountPoint = 1;
+            }
     }
 
     /* Set the mode again, just in case the umask interfered with the mkdir() */

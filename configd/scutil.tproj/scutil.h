@@ -20,27 +20,41 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * Modification History
+ *
+ * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * - public API conversion
+ *
+ * November 9, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
 #ifndef _SC_H
 #define _SC_H
 
 #include <sys/cdefs.h>
 
-#include <SystemConfiguration/SCD.h>
+#include <SystemConfiguration/SystemConfiguration.h>
+#include <SystemConfiguration/SCPrivate.h>
 
-extern SCDSessionRef		session;
-extern SCDHandleRef		data;
+
 extern int			nesting;
+extern CFRunLoopSourceRef	notifyRls;
 extern CFMutableArrayRef	sources;
+extern SCDynamicStoreRef	store;
+extern CFPropertyListRef	value;
+
 
 __BEGIN_DECLS
 
-boolean_t	process_line		__P((FILE	*fp));
+Boolean	process_line		(FILE	*fp);
 
-void		runLoopProcessInput	__P((CFSocketRef		s,
-					     CFSocketCallBackType	type,
-					     CFDataRef			address,
-					     const void			*data,
-					     void			*info));
+void		runLoopProcessInput	(CFSocketRef		s,
+					 CFSocketCallBackType	type,
+					 CFDataRef		address,
+					 const void		*data,
+					 void			*info);
 
 __END_DECLS
 

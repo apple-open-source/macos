@@ -1,12 +1,12 @@
 /************************************************************************
  *	Routines to deal with the header-field objects in formail	*
  *									*
- *	Copyright (c) 1990-1997, S.R. van den Berg, The Netherlands	*
+ *	Copyright (c) 1990-2000, S.R. van den Berg, The Netherlands	*
  *	#include "../README"						*
  ************************************************************************/
 #ifdef RCS
 static /*const*/char rcsid[]=
- "$Id: fields.c,v 1.1.1.1 1999/09/23 17:30:07 wsanchez Exp $";
+ "$Id: fields.c,v 1.1.1.2 2001/07/20 19:38:15 bbraun Exp $";
 #endif
 #include "includes.h"
 #include "formail.h"
@@ -21,12 +21,25 @@ struct field*findf(p,ah)const struct field*const p;register struct field**ah;
 { size_t i;int uhead;char*chp;register struct field*h;
   uhead=ah==&uheader||ah==&Uheader;
   for(i=p->id_len,chp=(char*)p->fld_text,h= *ah;h;h= *(ah= &h->fld_next))
-     if(i>=h->id_len&&!strnIcmp(chp,h->fld_text,h->id_len))
+     if(i>=h->id_len&&!strncasecmp(chp,h->fld_text,h->id_len))
       { if(i>h->id_len&&uhead)			     /* finalise the header? */
 	   *ah=0,(*(ah=addfield(ah,chp,i)))->fld_next=h,(h= *ah)->fld_ref=0;
 	return h;
       }
   return (struct field*)0;
+}
+
+void cleanheader P((void))		  /* zorch whitespace before the ':' */
+{ struct field**pp,*p;char*cp;int idlen;
+  for(pp=&rdheader;p= *pp;pp= &(*pp)->fld_next)
+     if((cp=p->fld_text+p->id_len-1,*cp==HEAD_DELIMITER)&&	    /* has : */
+	(*--cp==' '||*cp=='\t'))				   /* has ws */
+      { char*q=cp++;int diff;
+	while(*--q==' '||*q=='\t');		      /* find the field name */
+	tmemmove(++q,cp,p->Tot_len-p->id_len+1);		   /* zappo! */
+	p->id_len-=(diff=cp-q);
+	p->Tot_len-=diff;
+      }
 }
 
 void clear_uhead(hdr)register struct field*hdr;
@@ -96,15 +109,16 @@ void dispfield(p)register const struct field*p;
 }
 		    /* try and append one valid field to rdheader from stdin */
 int readhead P((void))
-{ getline();
-  if(eqFrom_(buf))					/* it's a From_ line */
+{ int idlen;
+  getline();
+  if((idlen=breakfield(buf,buffilled))<=0) /* not the start of a valid field */
+     return 0;
+  if(idlen==STRLEN(FROM)&&eqFrom_(buf))			/* it's a From_ line */
    { if(rdheader)
 	return 0;			       /* the From_ line was a fake! */
      for(;buflast=='>';getline());	    /* gather continued >From_ lines */
    }
   else
-   { if(breakfield(buf,buffilled)<=0)	   /* not the start of a valid field */
-	return 0;
      for(;;getline())		      /* get the rest of the continued field */
       { switch(buflast)			     /* will this line be continued? */
 	 { case ' ':case '\t':				  /* yep, it sure is */
@@ -112,7 +126,6 @@ int readhead P((void))
 	 }
 	break;
       }
-   }
   addbuf();			  /* phew, got the field, add it to rdheader */
   return 1;
 }

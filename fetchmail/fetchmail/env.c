@@ -16,6 +16,9 @@
 #endif
 #include <pwd.h>
 #include <string.h>
+#ifdef HAVE_NET_SOCKET_H
+#include <net/socket.h>
+#endif
 #ifdef HAVE_GETHOSTBYNAME
 #include <netdb.h>
 #endif /* HAVE_GETHOSTBYNAME */
@@ -24,6 +27,10 @@
 #include "fetchmail.h"
 
 #include "i18n.h"
+#if defined(HAVE_SETLOCALE) && defined(ENABLE_NLS) && defined(HAVE_STRFTIME)
+#include <time.h>
+#include <locale.h>
+#endif
 
 extern char *getenv();	/* needed on sysV68 R3V7.1. */
 
@@ -34,8 +41,13 @@ void envquery(int argc, char **argv)
 {
     struct passwd by_name, by_uid, *pwp;
 
-    if (!(user = getenv("LOGNAME")))
-	user = getenv("USER");
+    if (!(user = getenv("FETCHMAILUSER")))
+    {
+	if (!(user = getenv("LOGNAME")))
+	{
+	    user = getenv("USER");
+	}
+    }
 
     if (!(pwp = getpwuid(getuid())))
     {
@@ -47,13 +59,13 @@ void envquery(int argc, char **argv)
     else
     {
 	memcpy(&by_uid, pwp, sizeof(struct passwd));
-	if (!user)
+	if (!user || !(pwp = getpwnam(user)))
 	    pwp = &by_uid;
-	else if ((pwp = getpwnam(user)))
+	else
 	{
 	    /*
 	     * This logic is needed to handle gracefully the possibility
-	     * that multiple names might be mapped to one UID
+	     * that multiple names might be mapped to one UID.
 	     */
 	    memcpy(&by_name, pwp, sizeof(struct passwd));
 
@@ -62,33 +74,40 @@ void envquery(int argc, char **argv)
 	    else
 		pwp = &by_uid;
 	}
-	else
-	{
-	    fprintf(stderr,
-		    _("%s: can't find your name and home directory!\n"),
-		    program_name);
-	    exit(PS_UNDEFINED);
-	}
 	user = xstrdup(pwp->pw_name);
     }
 
+    /* compute user's home directory */
     if (!(home = getenv("HOME")))
 	home = pwp->pw_dir;
+
+    /* compute fetchmail's home directory */
+    if (!(fmhome = getenv("FETCHMAILHOME")))
+	fmhome = home;
 
     if ((program_name = strrchr(argv[0], '/')) != NULL)
 	++program_name;
     else
 	program_name = argv[0];
 
-#define RCFILE_NAME	".fetchmailrc"
-    rcfile = (char *) xmalloc(strlen(home)+strlen(RCFILE_NAME)+2);
+#define RCFILE_NAME	"fetchmailrc"
+    /*
+     * The (fmhome==home) leaves an extra character for a . at the
+     * beginning of the rc file's name, iff fetchmail is using $HOME
+     * for its files. We don't want to do that if fetchmail has its
+     * own home ($FETCHMAILHOME), however.
+     */
+    rcfile = (char *)xmalloc(strlen(fmhome)+sizeof(RCFILE_NAME)+(fmhome==home)+2);
     /* avoid //.fetchmailrc */
-    if (strcmp(home, "/") != 0) {
-    	strcpy(rcfile, home);
-    } else {
-    	*rcfile = '\0';
-    }
-    strcat(rcfile, "/");
+    if (strcmp(fmhome, "/") != 0)
+	strcpy(rcfile, fmhome);
+    else
+	*rcfile = '\0';
+
+    if (rcfile[strlen(rcfile) - 1] != '/')
+	strcat(rcfile, "/");
+    if (fmhome==home)
+	strcat(rcfile, ".");
     strcat(rcfile, RCFILE_NAME);
 }
 
@@ -166,10 +185,18 @@ char *rfc822timestamp(void)
      * Conform to RFC822.  We generate a 4-digit year here, avoiding
      * Y2K hassles.  Max length of this timestamp in an English locale
      * should be 29 chars.  The only things that should vary by locale
-     * are the day and month abbreviations.
+     * are the day and month abbreviations.  The set_locale calls prevent
+     * weird multibyte i18n characters (such as kanji) for showing up
+     * in your Received headers.
      */
+#if defined(HAVE_SETLOCALE) && defined(ENABLE_NLS) && defined(HAVE_STRFTIME)
+    setlocale (LC_TIME, "C");
+#endif
     strftime(buf, sizeof(buf)-1, 
 	     "%a, %d %b %Y %H:%M:%S XXXXX (%Z)", localtime(&now));
+#if defined(HAVE_SETLOCALE) && defined(ENABLE_NLS) && defined(HAVE_STRFTIME)
+    setlocale (LC_TIME, "");
+#endif
     strncpy(strstr(buf, "XXXXX"), tzoffset(&now), 5);
 #else
     /*
@@ -193,15 +220,20 @@ const char *showproto(int proto)
 #ifdef POP2_ENABLE
     case P_POP2: return("POP2");
 #endif /* POP2_ENABLE */
+#ifdef POP3_ENABLE
     case P_POP3: return("POP3");
-    case P_IMAP: return("IMAP");
-    case P_IMAP_K4: return("IMAP-K4");
-#ifdef GSSAPI
-    case P_IMAP_GSS: return("IMAP-GSS");
-#endif /* GSSAPI */
     case P_APOP: return("APOP");
     case P_RPOP: return("RPOP");
+#endif /* POP3_ENABLE */
+#ifdef IMAP_ENABLE
+    case P_IMAP: return("IMAP");
+#endif /* IMAP_ENABLE */
+#ifdef ETRN_ENABLE
     case P_ETRN: return("ETRN");
+#endif /* ETRN_ENABLE */
+#ifdef ODMR_ENABLE
+    case P_ODMR: return("ODMR");
+#endif /* ODMR_ENABLE */
     default: return("unknown?!?");
     }
 }
@@ -217,6 +249,11 @@ char *visbuf(const char *buf)
 	if (*buf == '"')
 	{
 	    *tp++ = '\\'; *tp++ = '"';
+	    buf++;
+	}
+	else if (*buf == '\\')
+	{
+	    *tp++ = '\\'; *tp++ = '\\';
 	    buf++;
 	}
 	else if (isprint(*buf) || *buf == ' ')

@@ -29,7 +29,7 @@
  */
  
 #import <stdio.h>
-#import <bsd/libc.h>
+#import <libc.h>
 
 /*
  * State of input scanner.

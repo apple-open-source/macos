@@ -344,7 +344,7 @@ extern CORE_ADDR step_sp;
 /* 1 means step over all subroutine calls.
    -1 means step over calls to undebuggable functions.  */
 
-enum step_over_calls_kind
+extern enum step_over_calls_kind
   {
     STEP_OVER_NONE,
     STEP_OVER_ALL,

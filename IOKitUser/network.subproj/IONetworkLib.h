@@ -109,6 +109,54 @@ extern "C" {
                                     const char * dataName,
                                     IONDHandle * dataHandleP);
 
+/*! @function IONetworkSetPacketFiltersMask
+    @abstract Set the packet filters for a given filter group.
+    @discussion A network controller may support a number of packets filters
+    that can accept or reject a type of packet seen on the network. A filter
+    group identifies a set of related filters, such as all filters that will
+    allow a packet to pass upstream based on the destination address encoded
+    within the packet. This function allows an user-space program to set the
+    filtering performed by a given filter group.
+    @param connect The connection object returned from IONetworkOpen(). 
+    @param filterGroup The name of the packet filter group.
+    @param filtersMask A mask of filters to set.
+    @param options No options are currently defined.
+    @result An IOReturn error code. */
+
+	IOReturn IONetworkSetPacketFiltersMask( io_connect_t    connect,
+                                            const io_name_t filterGroup,
+                                            UInt32          filtersMask,
+                                            IOOptionBits    options );
+
+/*! @enum IONetworkPacketFilterOptions
+    @constant kIONetworkSupportedPacketFilters Indicate the filters that are
+    supported by the hardware. */
+
+    enum {
+        kIONetworkSupportedPacketFilters = 0x0001
+    };
+
+/*! @function IONetworkGetPacketFiltersMask
+    @abstract Get the packet filters for a given filter group.
+    @discussion A network controller may support a number of packets filters
+    that can accept or reject a type of packet seen on the network. A filter
+    group identifies a set of related filters, such as all filters that will
+    allow a packet to pass upstream based on the destination address encoded
+    within the packet. This function allows an user-space program to get the
+    filtering performed by a given filter group.
+    @param connect The connection object returned from IONetworkOpen(). 
+    @param filterGroup The name of the packet filter group.
+    @param filters Pointer to the return value containing a mask of
+    packet filters.
+    @param options kIONetworkSupportedPacketFilters may be set to fetch the
+    filters that are supported by the hardware.
+    @result An IOReturn error code. */
+
+    IOReturn IONetworkGetPacketFiltersMask( io_connect_t    connect,
+                                            const io_name_t filterGroup,
+                                            UInt32 *        filtersMask,
+                                            IOOptionBits    options );
+
 #ifdef __cplusplus
 }
 #endif

@@ -33,18 +33,8 @@ CANONICAL_ARCHS := $(subst teflon:i386:undefined,i386-apple-rhapsody,$(CANONICAL
 CANONICAL_ARCHS := $(subst teflon:ppc:Hera,powerpc-apple-rhapsody,$(CANONICAL_ARCHS))
 CANONICAL_ARCHS := $(subst teflon:i386:Hera,i386-apple-rhapsody,$(CANONICAL_ARCHS))
 
-CANONICAL_ARCHS := $(subst macos:ppc:Beaker,powerpc-apple-macos10,$(CANONICAL_ARCHS))
-CANONICAL_ARCHS := $(subst macos:i386:Beaker,i386-apple-macos10,$(CANONICAL_ARCHS))
-CANONICAL_ARCHS := $(subst macos:ppc:Bunsen,powerpc-apple-macos10,$(CANONICAL_ARCHS))
-CANONICAL_ARCHS := $(subst macos:i386:Bunsen,i386-apple-macos10,$(CANONICAL_ARCHS))
-CANONICAL_ARCHS := $(subst macos:ppc:Gonzo,powerpc-apple-macos10,$(CANONICAL_ARCHS))
-CANONICAL_ARCHS := $(subst macos:i386:Gonzo,i386-apple-macos10,$(CANONICAL_ARCHS))
-CANONICAL_ARCHS := $(subst macos:ppc:Darwin,powerpc-apple-macos10,$(CANONICAL_ARCHS))
-CANONICAL_ARCHS := $(subst macos:i386:Darwin,i386-apple-macos10,$(CANONICAL_ARCHS))
-CANONICAL_ARCHS := $(subst macos:ppc:Kodiak,powerpc-apple-macos10,$(CANONICAL_ARCHS))
-CANONICAL_ARCHS := $(subst macos:i386:Kodiak,i386-apple-macos10,$(CANONICAL_ARCHS))
-CANONICAL_ARCHS := $(subst macos:ppc:Cheetah,powerpc-apple-macos10,$(CANONICAL_ARCHS))
-CANONICAL_ARCHS := $(subst macos:i386:Cheetah,i386-apple-macos10,$(CANONICAL_ARCHS))
+CANONICAL_ARCHS := $(subst macos:i386:$(RC_RELEASE),i386-apple-macos10,$(CANONICAL_ARCHS))
+CANONICAL_ARCHS := $(subst macos:ppc:$(RC_RELEASE),powerpc-apple-macos10,$(CANONICAL_ARCHS))
 
 CANONICAL_ARCHS := $(subst solaris:sparc:Zeus,sparc-nextpdo-solaris2,$(CANONICAL_ARCHS))
 CANONICAL_ARCHS := $(subst hpux:hppa:Zeus,hppa1.1-nextpdo-hpux10.20,$(CANONICAL_ARCHS))
@@ -52,19 +42,19 @@ CANONICAL_ARCHS := $(subst solaris:sparc:Hydra,sparc-nextpdo-solaris2,$(CANONICA
 CANONICAL_ARCHS := $(subst hpux:hppa:Hydra,hppa2.0n-nextpdo-hpux11.0,$(CANONICAL_ARCHS))
 
 CANONICAL_ARCHS := $(subst powerpc-apple-macos10 i386-apple-macos10,i386-apple-macos10 powerpc-apple-macos10,$(CANONICAL_ARCHS))
-	
+
 SRCTOP = $(shell cd $(SRCROOT) && pwd)
 OBJTOP = $(shell (test -d $(OBJROOT) || $(INSTALL) -c -d $(OBJROOT)) && cd $(OBJROOT) && pwd)
 SYMTOP = $(shell (test -d $(SYMROOT) || $(INSTALL) -c -d $(SYMROOT)) && cd $(SYMROOT) && pwd)
 DSTTOP = $(shell (test -d $(DSTROOT) || $(INSTALL) -c -d $(DSTROOT)) && cd $(DSTROOT) && pwd)
 
 GDB_VERSION = 5.0-20001113
-APPLE_VERSION = 186.1
+APPLE_VERSION = 200
 
 GDB_VERSION_STRING = $(GDB_VERSION) (Apple version gdb-$(APPLE_VERSION))
 
 GDB_BINARY = gdb
-FRAMEWORKS = gdb
+FRAMEWORKS = gdb readline
 
 ifndef BINUTILS_BUILD_ROOT
 BINUTILS_BUILD_ROOT = $(NEXT_ROOT)
@@ -80,7 +70,7 @@ BFD_FRAMEWORK = $(BINUTILS_FRAMEWORKS)/bfd.framework
 BFD_HEADERS = $(BFD_FRAMEWORK)/Headers
 
 LIBERTY_FRAMEWORK = $(BINUTILS_FRAMEWORKS)/liberty.framework
-LIBERTY_HEADERS = $(LIBERTY_FRAMEWORKS)/Headers
+LIBERTY_HEADERS = $(LIBERTY_FRAMEWORK)/Headers
 
 MMALLOC_FRAMEWORK = $(BINUTILS_FRAMEWORKS)/mmalloc.framework
 MMALLOC_HEADERS = $(MMALLOC_FRAMEWORK)/Headers
@@ -90,6 +80,9 @@ OPCODES_HEADERS = $(OPCODES_FRAMEWORK)/Headers
 
 BINUTILS_FRAMEWORK = $(BINUTILS_FRAMEWORKS)/binutils.framework
 BINUTILS_HEADERS = $(BINUTILS_FRAMEWORK)/Headers
+
+READLINE_FRAMEWORK = $(BINUTILS_FRAMEWORKS)/readline.framework
+READLINE_HEADERS = $(READLINE_FRAMEWORK)/Headers
 
 EFENCE_FRAMEWORK = $(BINUTILS_FRAMEWORKS)/electric-fence.framework
 EFENCE_HEADERS = $(EFENCE_FRAMEWORK)/Headers
@@ -151,10 +144,10 @@ endif
 MAKE_CTHREADS=
 
 ifneq ($(findstring rhapsody,$(CANONICAL_ARCHS))$(findstring macos10,$(CANONICAL_ARCHS)),)
-CC = cc -arch $(HOST_ARCHITECTURE) -traditional-cpp
-CC_FOR_BUILD = NEXT_ROOT= cc -traditional-cpp
+CC = cc -arch $(HOST_ARCHITECTURE) -no-cpp-precomp
+CC_FOR_BUILD = NEXT_ROOT= cc -no-cpp-precomp
 CDEBUGFLAGS = -g -O3
-CFLAGS = $(CDEBUGFLAGS) -Wall -Wimplicit $(RC_CFLAGS_NOARCH)
+CFLAGS = $(CDEBUGFLAGS) -Wall -Wimplicit -Wno-long-double $(RC_CFLAGS_NOARCH)
 HOST_ARCHITECTURE = $(shell echo $* | sed -e 's/--.*//' -e 's/powerpc/ppc/' -e 's/-apple-rhapsody//' -e 's/-apple-macos.*//')
 endif
 
@@ -252,6 +245,7 @@ EFLAGS = \
 	CC_FOR_BUILD='$(CC_FOR_BUILD)' \
 	HOST_ARCHITECTURE='$(HOST_ARCHITECTURE)' \
 	NEXT_ROOT='$(NEXT_ROOT)' \
+	BINUTILS_FRAMEWORKS='$(BINUTILS_FRAMEWORKS)' \
 	SRCROOT='$(SRCROOT)' \
 	$(MAKE_OPTIONS)
 
@@ -340,7 +334,7 @@ $(OBJROOT)/%/stamp-build-headers:
 	#touch $@
 
 $(OBJROOT)/%/stamp-build-core:
-	$(SUBMAKE) -C $(OBJROOT)/$*/readline $(MFLAGS) all
+	$(SUBMAKE) -C $(OBJROOT)/$*/readline $(MFLAGS) all stamp-framework
 	$(SUBMAKE) -C $(OBJROOT)/$*/intl $(MFLAGS)
 	#touch $@
 
@@ -379,23 +373,29 @@ install-frameworks-headers:
 		l=`echo $${i} | sed -e 's/liberty/libiberty/;' -e 's/binutils/\./;' -e 's/gdb/\./;'`; \
 		(cd $(OBJROOT)/$(firstword $(NATIVE_TARGETS))/$${l}/$${i}.framework/Versions/A \
 		 && $(TAR) --exclude=CVS -cf - Headers) \
-		| (cd $(CURRENT_ROOT)/$(PRIVATE_FRAMEWORKS_DIR)/$${i}.framework/Versions/A \
+		| \
+		(cd $(CURRENT_ROOT)/$(PRIVATE_FRAMEWORKS_DIR)/$${i}.framework/Versions/A \
 		 && $(TAR) -xf -); \
-		rm -rf $(CURRENT_ROOT)/$(PRIVATE_FRAMEWORKS_DIR)/$${i}.framework/Versions/A/Headers/gdb/machine; \
-		mkdir -p $(CURRENT_ROOT)/$(PRIVATE_FRAMEWORKS_DIR)/$${i}.framework/Versions/A/Headers/gdb/machine; \
+	done
+
+	set -e; for i in gdb; do \
+		l=`echo $${i} | sed -e 's/liberty/libiberty/;' -e 's/binutils/\./;' -e 's/gdb/\./;'`; \
+		rm -rf $(CURRENT_ROOT)/$(PRIVATE_FRAMEWORKS_DIR)/$${i}.framework/Versions/A/Headers/machine; \
+		mkdir -p $(CURRENT_ROOT)/$(PRIVATE_FRAMEWORKS_DIR)/$${i}.framework/Versions/A/Headers/machine; \
 		for j in $(NATIVE_TARGETS); do \
+			mkdir -p $(CURRENT_ROOT)/$(PRIVATE_FRAMEWORKS_DIR)/$${i}.framework/Versions/A/Headers/machine/$${j}; \
 			(cd $(OBJROOT)/$${j}/$${l}/$${i}.framework/Versions/A/Headers/machine \
-			 && $(TAR) --exclude=CVS -cf - Headers) \
-			| (cd $(CURRENT_ROOT)/$(PRIVATE_FRAMEWORKS_DIR)/$${i}.framework/Versions/A/Headers/$${j} \
+			 && $(TAR) --exclude=CVS -cf - *) \
+			| \
+			(cd $(CURRENT_ROOT)/$(PRIVATE_FRAMEWORKS_DIR)/$${i}.framework/Versions/A/Headers/machine/$${j} \
 			 && $(TAR) -xf -) \
-			|| true; \
 		done; \
 		for h in $(TEMPLATE_HEADERS); do \
 			hg=`echo $${h} | sed -e 's/\.h//' -e 'y/abcdefghijklmnopqrstuvwxyz/ABCDEFGHIJKLMNOPQRSTUVWXYZ/'`; \
-			rm -f $(CURRENT_ROOT)/$(PRIVATE_FRAMEWORKS_DIR)/$${i}.framework/Versions/A/Headers/gdb/$${h}; \
-			ln -s machine/$${h} $(CURRENT_ROOT)/$(PRIVATE_FRAMEWORKS_DIR)/$${i}.framework/Versions/A/Headers/gdb/$${h}; \
+			rm -f $(CURRENT_ROOT)/$(PRIVATE_FRAMEWORKS_DIR)/$${i}.framework/Versions/A/Headers/$${h}; \
+			ln -s machine/$${h} $(CURRENT_ROOT)/$(PRIVATE_FRAMEWORKS_DIR)/$${i}.framework/Versions/A/Headers/$${h}; \
 			cat template.h | sed -e "s/@file@/$${h}/g" -e "s/@FILEGUARD@/_CONFIG_$${hg}_H_/" \
-				> $(CURRENT_ROOT)/$(PRIVATE_FRAMEWORKS_DIR)/$${i}.framework/Versions/A/Headers/gdb/machine/$${h}; \
+				> $(CURRENT_ROOT)/$(PRIVATE_FRAMEWORKS_DIR)/$${i}.framework/Versions/A/Headers/machine/$${h}; \
 		done; \
 	done
 
@@ -500,7 +500,7 @@ install-gdb-pdo: install-gdb-common
 		$(INSTALL) -c -m 644 $(SRCROOT)/gdb.conf $${dstroot}/$(CONFIG_DIR)/gdb.conf; \
 		\
 		$(INSTALL) -c -d $${dstroot}/$(CONF_DIR); \
-		for j in $(SRCROOT)/conf/*; do \
+		for j in $(SRCROOT)/conf/*.gdb; do \
 			$(INSTALL) -c -m 644 $$j $${dstroot}/$(CONF_DIR)/; \
 		done; \
 	done;
@@ -534,7 +534,7 @@ install-gdb-rhapsody-common: install-gdb-common
 		$(INSTALL) -c -m 644 $(SRCROOT)/gdb.conf $${dstroot}/$(CONFIG_DIR)/gdb.conf; \
 		\
 		$(INSTALL) -c -d $${dstroot}/$(CONF_DIR); \
-		for j in $(SRCROOT)/conf/*; do \
+		for j in $(SRCROOT)/conf/*.gdb; do \
 			$(INSTALL) -c -m 644 $$j $${dstroot}/$(CONF_DIR)/; \
 		done; \
 		\
@@ -566,8 +566,7 @@ install-gdb-fat: install-gdb-rhapsody-common
 		if echo $${target} | egrep '^[^-]*-apple-macos10' > /dev/null; then \
 			echo "stripping __objcInit"; \
 			echo "__objcInit" > /tmp/macosx-syms-to-remove; \
-			strip -R /tmp/macosx-syms-to-remove -X \
-				$(DSTROOT)/$(LIBEXEC_GDB_DIR)/gdb-$${target} || true; \
+			strip -R /tmp/macosx-syms-to-remove -X $(DSTROOT)/$(LIBEXEC_GDB_DIR)/gdb-$${target} || true; \
 			rm -f /tmp/macosx-syms-to-remove; \
 		fi; \
 	done
@@ -581,7 +580,6 @@ install-chmod-rhapsody:
 				chmod a+x $${dstroot}/$(PRIVATE_FRAMEWORKS_DIR)/$${i}.framework/Versions/A/$${i}; \
 			done; \
 			chmod a+x $${dstroot}/$(LIBEXEC_GDB_DIR)/*; \
-			true || chmod a+x $${dstroot}/$(LIBEXEC_BINUTILS_DIR)/*; \
 			chmod a+x $${dstroot}/$(DEVEXEC_DIR)/*; \
 		done; \
 	fi

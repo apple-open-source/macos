@@ -20,6 +20,16 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * Modification History
+ *
+ * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * - public API conversion
+ *
+ * November 9, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
 #ifndef _CACHE_H
 #define _CACHE_H
 
@@ -27,12 +37,14 @@
 
 __BEGIN_DECLS
 
-void	do_list			__P((int argc, char **argv));
-void	do_add			__P((int argc, char **argv));
-void	do_get			__P((int argc, char **argv));
-void	do_set			__P((int argc, char **argv));
-void	do_remove		__P((int argc, char **argv));
-void	do_touch		__P((int argc, char **argv));
+void	do_list			(int argc, char **argv);
+void	do_add			(int argc, char **argv);
+void	do_get			(int argc, char **argv);
+void	do_set			(int argc, char **argv);
+void	do_show			(int argc, char **argv);
+void	do_remove		(int argc, char **argv);
+void	do_notify		(int argc, char **argv);
+void	do_touch		(int argc, char **argv);
 
 __END_DECLS
 

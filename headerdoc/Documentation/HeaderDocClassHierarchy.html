@@ -8,35 +8,43 @@
 		<h2>HeaderDoc Class Hierarchy</h2>
 		<address>
         author: Matt Morse (matt@apple.com)<br>
-		last updated: 12/15/99
+		last updated: 01/21/2001
 		</address>
 <pre>
 HeaderElement                              (Root Class)
-	|
-	|
-	|-----------APIOwner               (Object that owns declared API)
-	|               |
-	|               |-------Header     (Owner for header-wide API)
-	|               |		
-	|               |-------CPPClass   (Owner for C++ class API)
-	|
-	|-----------Constant
-	|
-	|-----------Enum
-	|
-	|-----------Function
-	|
-	|-----------PDefine
-	|
-	|-----------Struct
-	|
-	|-----------Typedef
-	|
-	|-----------Var
-	|
-	|-----------MinorAPIElement  (parameter, members of structs)
-	
+        |
+        |
+        |-----------APIOwner               (Object that owns declared API)
+        |               |
+        |               |-------Header     (Owner for header-wide API)
+        |               |                
+        |               |-------CPPClass   (Owner for C++ class API)
+        |
+        |-----------Constant
+        |                
+        |-----------Enum
+        |                
+        |-----------Function
+        |                
+        |-----------MinorAPIElement        (parameter, members of structs)
+        |                
+        |-----------PDefine
+        |                
+        |-----------Struct
+        |                |        
+        |                |-------Var        
+        |                
+        |-----------Typedef
+
+        
+        
+DocReference      (Another root class. Used by gatherHeaderDoc to store information about
+                   documentation framesets within an input folder. The script uses this 
+                   information to construct a top-level table of contents with links to each
+                   frameset.)
+
+
 </pre>
-<p>headerDoc2HTML also uses the non object-oriented module, Utilities.pm.</p>
+<p>headerDoc2HTML also uses the non object-oriented module, <tt>Utilities.pm</tt>.</p>
 </body>
 </html>

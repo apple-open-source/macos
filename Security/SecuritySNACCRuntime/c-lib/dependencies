@@ -1,0 +1,2011 @@
+asn-len.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/exp-buf.h inc/print.h inc/asn-len.h 
+asn-tag.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/exp-buf.h inc/print.h inc/asn-len.h \
+  inc/asn-tag.h 
+asn-int.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/exp-buf.h inc/print.h inc/asn-len.h \
+  inc/asn-tag.h inc/asn-int.h 
+asn-bool.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/exp-buf.h inc/print.h inc/asn-len.h \
+  inc/asn-tag.h inc/asn-bool.h 
+asn-bits.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/exp-buf.h inc/print.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/string.h \
+  inc/asn-len.h inc/asn-tag.h inc/str-stk.h inc/asn-bits.h 
+asn-octs.o : \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ctype.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/runetype.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/exp-buf.h inc/print.h inc/asn-len.h \
+  inc/asn-tag.h inc/str-stk.h inc/asn-bits.h inc/asn-octs.h 
+asn-oid.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/exp-buf.h inc/print.h inc/asn-len.h \
+  inc/asn-tag.h inc/asn-octs.h inc/asn-oid.h 
+asn-real.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/exp-buf.h inc/print.h inc/asn-len.h \
+  inc/asn-tag.h inc/asn-real.h 
+asn-null.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/exp-buf.h inc/print.h inc/asn-len.h \
+  inc/asn-tag.h inc/asn-null.h 
+asn-list.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/exp-buf.h inc/print.h inc/asn-list.h 
+asn-enum.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/exp-buf.h inc/print.h inc/asn-len.h \
+  inc/asn-tag.h inc/asn-int.h inc/asn-enum.h 
+str-stk.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/exp-buf.h inc/print.h inc/str-stk.h 
+nibble-alloc.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/exp-buf.h inc/print.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/string.h 
+print.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/exp-buf.h inc/print.h 
+asn-any.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/exp-buf.h inc/print.h inc/asn-len.h \
+  inc/asn-tag.h inc/asn-oid.h inc/asn-octs.h inc/asn-int.h inc/asn-any.h \
+  inc/hash.h 
+hash.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/exp-buf.h inc/print.h inc/hash.h 
+exp-buf.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/exp-buf.h inc/print.h inc/gen-buf.h 
+sbuf.o : 
+tbl-dec.o : 
+tbl-enc.o : 
+tbl-free.o : 
+tbl-gen.o : 
+tbl-dbg.o : 
+tbl-print.o : 
+tbl-util.o : 
+asn-useful.o : inc/asn-incl.h inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/exp-buf.h inc/print.h inc/asn-len.h \
+  inc/asn-tag.h inc/asn-bool.h inc/asn-int.h inc/asn-enum.h inc/asn-real.h \
+  inc/asn-octs.h inc/asn-bits.h inc/asn-oid.h inc/asn-null.h inc/asn-any.h \
+  inc/hash.h inc/asn-list.h inc/asn-useful.h 
+tbl.o : 
+asn-len.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/exp-buf.h inc/print.h inc/asn-len.h 
+asn-tag.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/exp-buf.h inc/print.h inc/asn-len.h \
+  inc/asn-tag.h 
+asn-int.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/exp-buf.h inc/print.h inc/asn-len.h \
+  inc/asn-tag.h inc/asn-int.h 
+asn-bool.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/exp-buf.h inc/print.h inc/asn-len.h \
+  inc/asn-tag.h inc/asn-bool.h 
+asn-bits.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/exp-buf.h inc/print.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/string.h \
+  inc/asn-len.h inc/asn-tag.h inc/str-stk.h inc/asn-bits.h 
+asn-octs.o : \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ctype.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/runetype.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/exp-buf.h inc/print.h inc/asn-len.h \
+  inc/asn-tag.h inc/str-stk.h inc/asn-bits.h inc/asn-octs.h 
+asn-oid.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/exp-buf.h inc/print.h inc/asn-len.h \
+  inc/asn-tag.h inc/asn-octs.h inc/asn-oid.h 
+asn-real.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/exp-buf.h inc/print.h inc/asn-len.h \
+  inc/asn-tag.h inc/asn-real.h 
+asn-null.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/exp-buf.h inc/print.h inc/asn-len.h \
+  inc/asn-tag.h inc/asn-null.h 
+asn-list.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/exp-buf.h inc/print.h inc/asn-list.h 
+asn-enum.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/exp-buf.h inc/print.h inc/asn-len.h \
+  inc/asn-tag.h inc/asn-int.h inc/asn-enum.h 
+str-stk.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/exp-buf.h inc/print.h inc/str-stk.h 
+nibble-alloc.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/exp-buf.h inc/print.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/string.h 
+print.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/exp-buf.h inc/print.h 
+asn-any.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/exp-buf.h inc/print.h inc/asn-len.h \
+  inc/asn-tag.h inc/asn-oid.h inc/asn-octs.h inc/asn-int.h inc/asn-any.h \
+  inc/hash.h 
+hash.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/exp-buf.h inc/print.h inc/hash.h 
+exp-buf.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/exp-buf.h inc/print.h inc/gen-buf.h 
+sbuf.o : 
+tbl-dec.o : 
+tbl-enc.o : 
+tbl-free.o : 
+tbl-gen.o : 
+tbl-dbg.o : 
+tbl-print.o : 
+tbl-util.o : 
+asn-useful.o : inc/asn-incl.h inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/exp-buf.h inc/print.h inc/asn-len.h \
+  inc/asn-tag.h inc/asn-bool.h inc/asn-int.h inc/asn-enum.h inc/asn-real.h \
+  inc/asn-octs.h inc/asn-bits.h inc/asn-oid.h inc/asn-null.h inc/asn-any.h \
+  inc/hash.h inc/asn-list.h inc/asn-useful.h 
+tbl.o : 
+asn-len.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/min-buf.h inc/print.h inc/asn-len.h 
+asn-tag.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/min-buf.h inc/print.h inc/asn-len.h \
+  inc/asn-tag.h 
+asn-int.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/min-buf.h inc/print.h inc/asn-len.h \
+  inc/asn-tag.h inc/asn-int.h 
+asn-bool.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/min-buf.h inc/print.h inc/asn-len.h \
+  inc/asn-tag.h inc/asn-bool.h 
+asn-bits.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/min-buf.h inc/print.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/string.h \
+  inc/asn-len.h inc/asn-tag.h inc/str-stk.h inc/asn-bits.h 
+asn-octs.o : \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ctype.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/runetype.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/min-buf.h inc/print.h inc/asn-len.h \
+  inc/asn-tag.h inc/str-stk.h inc/asn-bits.h inc/asn-octs.h 
+asn-oid.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/min-buf.h inc/print.h inc/asn-len.h \
+  inc/asn-tag.h inc/asn-octs.h inc/asn-oid.h 
+asn-real.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/min-buf.h inc/print.h inc/asn-len.h \
+  inc/asn-tag.h inc/asn-real.h 
+asn-null.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/min-buf.h inc/print.h inc/asn-len.h \
+  inc/asn-tag.h inc/asn-null.h 
+asn-list.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/min-buf.h inc/print.h inc/asn-list.h 
+asn-enum.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/min-buf.h inc/print.h inc/asn-len.h \
+  inc/asn-tag.h inc/asn-int.h inc/asn-enum.h 
+str-stk.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/min-buf.h inc/print.h inc/str-stk.h 
+nibble-alloc.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/min-buf.h inc/print.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/string.h 
+print.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/min-buf.h inc/print.h 
+asn-any.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/min-buf.h inc/print.h inc/asn-len.h \
+  inc/asn-tag.h inc/asn-oid.h inc/asn-octs.h inc/asn-int.h inc/asn-any.h \
+  inc/hash.h 
+hash.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/min-buf.h inc/print.h inc/hash.h 
+exp-buf.o : 
+sbuf.o : 
+tbl-dec.o : 
+tbl-enc.o : 
+tbl-free.o : 
+tbl-gen.o : 
+tbl-dbg.o : 
+tbl-print.o : 
+tbl-util.o : 
+asn-useful.o : inc/asn-incl.h inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/min-buf.h inc/print.h inc/asn-len.h \
+  inc/asn-tag.h inc/asn-bool.h inc/asn-int.h inc/asn-enum.h inc/asn-real.h \
+  inc/asn-octs.h inc/asn-bits.h inc/asn-oid.h inc/asn-null.h inc/asn-any.h \
+  inc/hash.h inc/asn-list.h inc/asn-useful.h 
+tbl.o : 
+asn-len.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/sbuf.h inc/print.h inc/asn-len.h 
+asn-tag.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/sbuf.h inc/print.h inc/asn-len.h \
+  inc/asn-tag.h 
+asn-int.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/sbuf.h inc/print.h inc/asn-len.h \
+  inc/asn-tag.h inc/asn-int.h 
+asn-bool.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/sbuf.h inc/print.h inc/asn-len.h \
+  inc/asn-tag.h inc/asn-bool.h 
+asn-bits.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/sbuf.h inc/print.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/string.h \
+  inc/asn-len.h inc/asn-tag.h inc/str-stk.h inc/asn-bits.h 
+asn-octs.o : \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ctype.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/runetype.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/sbuf.h inc/print.h inc/asn-len.h \
+  inc/asn-tag.h inc/str-stk.h inc/asn-bits.h inc/asn-octs.h 
+asn-oid.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/sbuf.h inc/print.h inc/asn-len.h \
+  inc/asn-tag.h inc/asn-octs.h inc/asn-oid.h 
+asn-real.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/sbuf.h inc/print.h inc/asn-len.h \
+  inc/asn-tag.h inc/asn-real.h 
+asn-null.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/sbuf.h inc/print.h inc/asn-len.h \
+  inc/asn-tag.h inc/asn-null.h 
+asn-list.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/sbuf.h inc/print.h inc/asn-list.h 
+asn-enum.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/sbuf.h inc/print.h inc/asn-len.h \
+  inc/asn-tag.h inc/asn-int.h inc/asn-enum.h 
+str-stk.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/sbuf.h inc/print.h inc/str-stk.h 
+nibble-alloc.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/sbuf.h inc/print.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/string.h 
+print.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/sbuf.h inc/print.h 
+asn-any.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/sbuf.h inc/print.h inc/asn-len.h \
+  inc/asn-tag.h inc/asn-oid.h inc/asn-octs.h inc/asn-int.h inc/asn-any.h \
+  inc/hash.h 
+hash.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/sbuf.h inc/print.h inc/hash.h 
+exp-buf.o : 
+sbuf.o : 
+tbl-dec.o : 
+tbl-enc.o : 
+tbl-free.o : 
+tbl-gen.o : 
+tbl-dbg.o : 
+tbl-print.o : 
+tbl-util.o : 
+asn-useful.o : inc/asn-incl.h inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/sbuf.h inc/print.h inc/asn-len.h \
+  inc/asn-tag.h inc/asn-bool.h inc/asn-int.h inc/asn-enum.h inc/asn-real.h \
+  inc/asn-octs.h inc/asn-bits.h inc/asn-oid.h inc/asn-null.h inc/asn-any.h \
+  inc/hash.h inc/asn-list.h inc/asn-useful.h 
+tbl.o : 
+asn-len.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/gen-buf.h inc/print.h inc/asn-len.h 
+asn-tag.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/gen-buf.h inc/print.h inc/asn-len.h \
+  inc/asn-tag.h 
+asn-int.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/gen-buf.h inc/print.h inc/asn-len.h \
+  inc/asn-tag.h inc/asn-int.h 
+asn-bool.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/gen-buf.h inc/print.h inc/asn-len.h \
+  inc/asn-tag.h inc/asn-bool.h 
+asn-bits.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/gen-buf.h inc/print.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/string.h \
+  inc/asn-len.h inc/asn-tag.h inc/str-stk.h inc/asn-bits.h 
+asn-octs.o : \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ctype.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/runetype.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/gen-buf.h inc/print.h inc/asn-len.h \
+  inc/asn-tag.h inc/str-stk.h inc/asn-bits.h inc/asn-octs.h 
+asn-oid.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/gen-buf.h inc/print.h inc/asn-len.h \
+  inc/asn-tag.h inc/asn-octs.h inc/asn-oid.h 
+asn-real.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/gen-buf.h inc/print.h inc/asn-len.h \
+  inc/asn-tag.h inc/asn-real.h 
+asn-null.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/gen-buf.h inc/print.h inc/asn-len.h \
+  inc/asn-tag.h inc/asn-null.h 
+asn-list.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/gen-buf.h inc/print.h inc/asn-list.h 
+asn-enum.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/gen-buf.h inc/print.h inc/asn-len.h \
+  inc/asn-tag.h inc/asn-int.h inc/asn-enum.h 
+str-stk.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/gen-buf.h inc/print.h inc/str-stk.h 
+nibble-alloc.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/gen-buf.h inc/print.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/string.h 
+print.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/gen-buf.h inc/print.h 
+asn-any.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/gen-buf.h inc/print.h inc/asn-len.h \
+  inc/asn-tag.h inc/asn-oid.h inc/asn-octs.h inc/asn-int.h inc/asn-any.h \
+  inc/hash.h 
+hash.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/gen-buf.h inc/print.h inc/hash.h 
+exp-buf.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/gen-buf.h inc/print.h inc/exp-buf.h 
+sbuf.o : inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/gen-buf.h inc/print.h inc/sbuf.h 
+tbl-dec.o : /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  inc/tbl-incl.h inc/asn-incl.h inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/gen-buf.h inc/print.h inc/asn-len.h \
+  inc/asn-tag.h inc/asn-bool.h inc/asn-int.h inc/asn-enum.h inc/asn-real.h \
+  inc/asn-octs.h inc/asn-bits.h inc/asn-oid.h inc/asn-null.h inc/asn-any.h \
+  inc/hash.h inc/asn-list.h inc/asn-useful.h inc/tbl.h inc/tbl-util.h \
+  inc/tbl-enc.h inc/tbl-dec.h inc/tbl-print.h inc/tbl-free.h 
+tbl-enc.o : /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  inc/tbl-incl.h inc/asn-incl.h inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/gen-buf.h inc/print.h inc/asn-len.h \
+  inc/asn-tag.h inc/asn-bool.h inc/asn-int.h inc/asn-enum.h inc/asn-real.h \
+  inc/asn-octs.h inc/asn-bits.h inc/asn-oid.h inc/asn-null.h inc/asn-any.h \
+  inc/hash.h inc/asn-list.h inc/asn-useful.h inc/tbl.h inc/tbl-util.h \
+  inc/tbl-enc.h inc/tbl-dec.h inc/tbl-print.h inc/tbl-free.h 
+tbl-free.o : \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  inc/tbl-incl.h inc/asn-incl.h inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/gen-buf.h inc/print.h inc/asn-len.h \
+  inc/asn-tag.h inc/asn-bool.h inc/asn-int.h inc/asn-enum.h inc/asn-real.h \
+  inc/asn-octs.h inc/asn-bits.h inc/asn-oid.h inc/asn-null.h inc/asn-any.h \
+  inc/hash.h inc/asn-list.h inc/asn-useful.h inc/tbl.h inc/tbl-util.h \
+  inc/tbl-enc.h inc/tbl-dec.h inc/tbl-print.h inc/tbl-free.h 
+tbl-gen.o : /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  inc/tbl-gen.h inc/tbl-incl.h inc/asn-incl.h inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/gen-buf.h inc/print.h inc/asn-len.h \
+  inc/asn-tag.h inc/asn-bool.h inc/asn-int.h inc/asn-enum.h inc/asn-real.h \
+  inc/asn-octs.h inc/asn-bits.h inc/asn-oid.h inc/asn-null.h inc/asn-any.h \
+  inc/hash.h inc/asn-list.h inc/asn-useful.h inc/tbl.h inc/tbl-util.h \
+  inc/tbl-enc.h inc/tbl-dec.h inc/tbl-print.h inc/tbl-free.h 
+tbl-dbg.o : inc/tbl-dbg.h inc/tbl-gen.h inc/tbl-incl.h inc/asn-incl.h \
+  inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/gen-buf.h inc/print.h inc/asn-len.h \
+  inc/asn-tag.h inc/asn-bool.h inc/asn-int.h inc/asn-enum.h inc/asn-real.h \
+  inc/asn-octs.h inc/asn-bits.h inc/asn-oid.h inc/asn-null.h inc/asn-any.h \
+  inc/hash.h inc/asn-list.h inc/asn-useful.h inc/tbl.h inc/tbl-util.h \
+  inc/tbl-enc.h inc/tbl-dec.h inc/tbl-print.h inc/tbl-free.h 
+tbl-print.o : \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  inc/tbl-incl.h inc/asn-incl.h inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/gen-buf.h inc/print.h inc/asn-len.h \
+  inc/asn-tag.h inc/asn-bool.h inc/asn-int.h inc/asn-enum.h inc/asn-real.h \
+  inc/asn-octs.h inc/asn-bits.h inc/asn-oid.h inc/asn-null.h inc/asn-any.h \
+  inc/hash.h inc/asn-list.h inc/asn-useful.h inc/tbl.h inc/tbl-util.h \
+  inc/tbl-enc.h inc/tbl-dec.h inc/tbl-print.h inc/tbl-free.h 
+tbl-util.o : \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  inc/tbl-incl.h inc/asn-incl.h inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/gen-buf.h inc/print.h inc/asn-len.h \
+  inc/asn-tag.h inc/asn-bool.h inc/asn-int.h inc/asn-enum.h inc/asn-real.h \
+  inc/asn-octs.h inc/asn-bits.h inc/asn-oid.h inc/asn-null.h inc/asn-any.h \
+  inc/hash.h inc/asn-list.h inc/asn-useful.h inc/tbl.h inc/tbl-util.h \
+  inc/tbl-enc.h inc/tbl-dec.h inc/tbl-print.h inc/tbl-free.h inc/sbuf.h 
+asn-useful.o : inc/asn-incl.h inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/gen-buf.h inc/print.h inc/asn-len.h \
+  inc/asn-tag.h inc/asn-bool.h inc/asn-int.h inc/asn-enum.h inc/asn-real.h \
+  inc/asn-octs.h inc/asn-bits.h inc/asn-oid.h inc/asn-null.h inc/asn-any.h \
+  inc/hash.h inc/asn-list.h inc/asn-useful.h 
+tbl.o : inc/asn-incl.h inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h inc/nibble-alloc.h inc/gen-buf.h inc/print.h inc/asn-len.h \
+  inc/asn-tag.h inc/asn-bool.h inc/asn-int.h inc/asn-enum.h inc/asn-real.h \
+  inc/asn-octs.h inc/asn-bits.h inc/asn-oid.h inc/asn-null.h inc/asn-any.h \
+  inc/hash.h inc/asn-list.h inc/asn-useful.h inc/tbl.h 

@@ -1,4 +1,4 @@
-dnl $Id: config.m4,v 1.1.1.1 2001/01/25 04:59:17 wsanchez Exp $
+dnl $Id: config.m4,v 1.1.1.2 2001/07/19 00:19:08 zarzycki Exp $
 dnl config.m4 for extension fribidi
 dnl don't forget to call PHP_EXTENSION(fribidi)
 
@@ -16,7 +16,7 @@ if test "$PHP_FRIBIDI" != "no"; then
 dnl if module was requested with default path of fribidi installation then 
 dnl $PHP_FRIBIDI will be "yes"
 
-  if test "$PHP_FRIBIDI" == "yes"; then
+  if test "$PHP_FRIBIDI" = "yes"; then
     PHP_FRIBIDI="/usr/local"
   fi
   
@@ -61,9 +61,9 @@ dnl $PHP_FRIBIDI will be "yes"
     AC_MSG_RESULT([yes])
    
 
-    AC_ADD_INCLUDE("$FRIBIDI_INCDIR")
-    AC_ADD_INCLUDE("$GLIB_INCDIR")
-    AC_ADD_LIBRARY_WITH_PATH(fribidi,"$FRIBIDI_LIBDIR", FRIBIDI_SHARED_LIBADD)
+    PHP_ADD_INCLUDE("$FRIBIDI_INCDIR")
+    PHP_ADD_INCLUDE("$GLIB_INCDIR")
+    PHP_ADD_LIBRARY_WITH_PATH(fribidi,"$FRIBIDI_LIBDIR", FRIBIDI_SHARED_LIBADD)
     PHP_SUBST(FRIBIDI_SHARED_LIBADD)
 
     AC_DEFINE(HAVE_FRIBIDI, 1, [ ])

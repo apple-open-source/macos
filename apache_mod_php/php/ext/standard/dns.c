@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,34 +16,46 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: dns.c,v 1.1.1.2 2001/01/25 05:00:04 wsanchez Exp $ */
+/* $Id: dns.c,v 1.1.1.3 2001/07/19 00:20:12 zarzycki Exp $ */
 
 #include "php.h"
 #if HAVE_SYS_SOCKET_H
 #include <sys/socket.h>
 #endif
 #ifdef PHP_WIN32
-#if HAVE_BINDLIB
+#if HAVE_LIBBIND
 #ifndef WINNT
 #define WINNT 1
 #endif
 /* located in www.php.net/extra/bindlib.zip */
+#if HAVE_ARPA_INET_H
 #include "arpa/inet.h"
+#endif
 #include "netdb.h"
+#if HAVE_ARPA_NAMESERV_H
 #include "arpa/nameser.h"
+#endif
+#if HAVE_RESOLV_H
 #include "resolv.h"
+#endif
 #endif
 #include <winsock.h>
 #else
 #include <netinet/in.h>
+#if HAVE_ARPA_INET_H
 #include <arpa/inet.h>
+#endif
 #include <netdb.h>
 #ifdef _OSD_POSIX
 #undef STATUS
 #undef T_UNSPEC
 #endif
+#if HAVE_ARPA_NAMESER_H
 #include <arpa/nameser.h>
+#endif
+#if HAVE_RESOLV_H
 #include <resolv.h>
+#endif
 #endif
 
 #include "dns.h"
@@ -155,7 +167,7 @@ char *php_gethostbyname(char *name)
 	return estrdup(inet_ntoa(in));
 }
 
-#if !defined(PHP_WIN32)||HAVE_BINDLIB
+#if HAVE_RES_SEARCH && !(defined(__BEOS__)||defined(PHP_WIN32))
 
 /* {{{ proto int checkdnsrr(string host [, string type])
    Check DNS records corresponding to a given Internet host name or IP address */

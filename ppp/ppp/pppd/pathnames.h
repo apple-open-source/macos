@@ -1,18 +1,18 @@
 /*
  * define path names
  *
- * $Id: pathnames.h,v 1.3 2001/01/20 03:35:47 callie Exp $
+ * $Id: pathnames.h,v 1.4 2001/05/09 17:52:32 callie Exp $
  */
 
 #ifdef HAVE_PATHS_H
 #include <paths.h>
 
-#else
+#else /* HAVE_PATHS_H */
 #ifndef _PATH_VARRUN
 #define _PATH_VARRUN 	"/etc/ppp/"
 #endif
 #define _PATH_DEVNULL	"/dev/null"
-#endif
+#endif /* HAVE_PATHS_H */
 
 #ifndef _ROOT_PATH
 #define _ROOT_PATH
@@ -21,6 +21,9 @@
 #define _PATH_UPAPFILE 	 _ROOT_PATH "/etc/ppp/pap-secrets"
 #define _PATH_CHAPFILE 	 _ROOT_PATH "/etc/ppp/chap-secrets"
 #define _PATH_SYSOPTIONS _ROOT_PATH "/etc/ppp/options"
+#ifdef __APPLE__
+#define _PATH_SYSPOSTOPTIONS _ROOT_PATH "/etc/ppp/postoptions"
+#endif
 #define _PATH_IPUP	 _ROOT_PATH "/etc/ppp/ip-up"
 #define _PATH_IPDOWN	 _ROOT_PATH "/etc/ppp/ip-down"
 #define _PATH_AUTHUP	 _ROOT_PATH "/etc/ppp/auth-up"
@@ -41,3 +44,13 @@
 #define _PATH_IPXUP	 _ROOT_PATH "/etc/ppp/ipx-up"
 #define _PATH_IPXDOWN	 _ROOT_PATH "/etc/ppp/ipx-down"
 #endif /* IPX_CHANGE */
+
+#ifdef __STDC__
+#define _PATH_PPPDB	_ROOT_PATH _PATH_VARRUN "pppd.tdb"
+#else /* __STDC__ */
+#ifdef HAVE_PATHS_H
+#define _PATH_PPPDB	"/var/run/pppd.tdb"
+#else
+#define _PATH_PPPDB	"/etc/ppp/pppd.tdb"
+#endif
+#endif /* __STDC__ */

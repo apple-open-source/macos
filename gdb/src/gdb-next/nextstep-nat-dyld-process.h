@@ -34,7 +34,7 @@ PARAMS ((struct dyld_objfile_info *old,
 	 struct dyld_objfile_info *result));
 
 void dyld_remove_objfiles
-PARAMS ((struct dyld_objfile_info *result));
+PARAMS ((const struct dyld_path_info *d, struct dyld_objfile_info *result));
 
 void dyld_remove_duplicates
 PARAMS ((struct dyld_path_info *d, struct dyld_objfile_info *result));
@@ -51,9 +51,5 @@ PARAMS ((const struct next_dyld_thread_status *s,
 	 struct dyld_objfile_info *old,
 	 struct dyld_objfile_info *new,
 	 struct dyld_objfile_info *result));
-
-void dyld_process_event
-PARAMS ((struct dyld_objfile_info *info,
-	 const struct dyld_event *event));
 
 #endif /* _NEXTSTEP_NAT_DYLD_PROCESS_H_ */

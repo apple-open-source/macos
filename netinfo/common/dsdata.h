@@ -65,11 +65,11 @@
 #define DataTypeUInt32Array  69
 #define DataTypeInt64Array   70
 #define DataTypeUInt64Array  71
-/* 72-252 reserved  */
+/* 72-251 reserved  */
 #define DataTypeDirectoryID	253
 #define DataTypeDSAttribute	254
 #define DataTypeAny			255
-#define DataTypeDSRecord	256
+#define DataTypeDSRecord		256
 
 #define IsStringDataType(type) ((type == DataTypeCStr) || (type == DataTypeUTF8Str))
 
@@ -86,6 +86,7 @@ typedef struct
 } dsdata;
 
 
+dsdata *dsdata_alloc(void);
 dsdata *dsdata_new(u_int32_t, u_int32_t, char *);
 dsdata *dsdata_copy(dsdata *);
 
@@ -118,8 +119,15 @@ dsdata *int64_to_dsdata(int64_t);
 dsdata *uint64_to_dsdata(u_int64_t);
 dsdata *dsid_to_dsdata(u_int32_t i);
 
+/*
+ * NB - the following two routines do not allocate memory.
+ * They simply return a pointer to the memory in the dsdata.
+ * This works because dsdata includes a NULL character to
+ * terminate strings.  Do not free the returned pointers!
+ */
 char *dsdata_to_cstring(dsdata *);
 char *dsdata_to_utf8string(dsdata *);
+
 int8_t dsdata_to_int8(dsdata *);
 u_int8_t dsdata_to_uint8(dsdata *);
 int16_t dsdata_to_int16(dsdata *);

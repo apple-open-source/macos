@@ -6,7 +6,7 @@
         OTHER_SOURCES = (Makefile.preamble, Makefile, HIDParamTest.c); 
         PROJECT_HEADERS = (IOHIDLib.h); 
         PUBLIC_HEADERS = (IOHIDLib.h); 
-        SUBPROJECTS = (USBHIDParser.subproj); 
+        SUBPROJECTS = (); 
     }; 
     LANGUAGE = English; 
     MAKEFILEDIR = "$(MAKEFILEPATH)/pb_makefiles"; 

@@ -1,8 +1,8 @@
-/* 
+/*
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php.h,v 1.1.1.3 2001/01/25 05:00:24 wsanchez Exp $ */
+/* $Id: php.h,v 1.1.1.4 2001/07/19 00:20:37 zarzycki Exp $ */
 
 #ifndef PHP_H
 #define PHP_H
@@ -26,7 +26,7 @@
 #include <dmalloc.h>
 #endif
 
-#define PHP_API_VERSION 19990421
+#define PHP_API_VERSION 20010119
 
 #define YYDEBUG 0
 
@@ -41,17 +41,13 @@
 #define sprintf php_sprintf
 #endif
 
-extern unsigned char first_arg_force_ref[];   
-extern unsigned char first_arg_allow_ref[];
-extern unsigned char second_arg_force_ref[];
-extern unsigned char second_arg_allow_ref[];
-
 #ifdef PHP_WIN32
+#include "tsrm_win32.h"
 #include "win95nt.h"
 #	ifdef PHP_EXPORTS
-#	define PHPAPI __declspec(dllexport) 
+#	define PHPAPI __declspec(dllexport)
 #	else
-#	define PHPAPI __declspec(dllimport) 
+#	define PHPAPI __declspec(dllimport)
 #	endif
 #define PHP_DIR_SEPARATOR '\\'
 #else
@@ -132,11 +128,11 @@ typedef unsigned int socklen_t;
 #endif
 #if HAVE_STDARG_H
 #include <stdarg.h>
-#else   
+#else
 # if HAVE_SYS_VARARGS_H
 # include <sys/varargs.h>
-# endif 
-#endif 
+# endif
+#endif
 
 
 #include "zend_hash.h"
@@ -161,7 +157,8 @@ typedef unsigned int socklen_t;
 char *strerror(int);
 #endif
 
-#include "fopen-wrappers.h"
+#include "php_streams.h"
+#include "fopen_wrappers.h"
 
 #if (REGEX == 1 || REGEX == 0) && !defined(NO_REGEX_EXTRA_H)
 #include "regex/regex_extra.h"
@@ -244,7 +241,7 @@ extern char **environ;
 void phperror(char *error);
 PHPAPI int php_write(void *buf, uint size);
 PHPAPI int php_printf(const char *format, ...);
-void php_log_err(char *log_message);
+PHPAPI void php_log_err(char *log_message);
 int Debug(char *format, ...);
 int cfgparse(void);
 
@@ -312,7 +309,7 @@ PHPAPI int cfg_get_string(char *varname, char **result);
 
 #define XtOffset(p_type,field) ((unsigned int)&(((p_type)NULL)->field))
 
-#endif /* !CRAY2 */  
+#endif /* !CRAY2 */
 #endif /* __STDC__ */
 #else /* ! (CRAY || __arm) */
 

@@ -20,30 +20,40 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * Modification History
+ *
+ * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * - public API conversion
+ *
+ * March 24, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
 #include <unistd.h>
 
 #include "configd.h"
 #include "session.h"
 
-static boolean_t
+static Boolean
 isMySessionKey(CFStringRef sessionKey, CFStringRef key)
 {
 	CFDictionaryRef	dict;
-	CFStringRef	cacheSessionKey;
+	CFStringRef	storeSessionKey;
 
-	dict = CFDictionaryGetValue(cacheData, key);
+	dict = CFDictionaryGetValue(storeData, key);
 	if (!dict) {
 		/* if key no longer exists */
 		return FALSE;
 	}
 
-	cacheSessionKey = CFDictionaryGetValue(dict, kSCDSession);
-	if (!cacheSessionKey) {
+	storeSessionKey = CFDictionaryGetValue(dict, kSCDSession);
+	if (!storeSessionKey) {
 		/* if this is not a session key */
 		return FALSE;
 	}
 
-	if (!CFEqual(sessionKey, cacheSessionKey)) {
+	if (!CFEqual(sessionKey, storeSessionKey)) {
 		/* if this is not "my" session key */
 		return FALSE;
 	}
@@ -52,113 +62,113 @@ isMySessionKey(CFStringRef sessionKey, CFStringRef key)
 }
 
 
-SCDStatus
-_SCDClose(SCDSessionRef *session)
+int
+__SCDynamicStoreClose(SCDynamicStoreRef *store)
 {
-	SCDSessionPrivateRef	sessionPrivate = (SCDSessionPrivateRef)*session;
-	CFIndex			keyCnt;
-	CFStringRef		sessionKey;
-	CFDictionaryRef		dict;
-	CFArrayRef		keys;
-	serverSessionRef	mySession;
+	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)*store;
+	CFIndex				keyCnt;
+	CFStringRef			sessionKey;
+	CFDictionaryRef			dict;
+	CFArrayRef			keys;
+	serverSessionRef		mySession;
 
-	SCDLog(LOG_DEBUG, CFSTR("_SCDClose:"));
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("__SCDynamicStoreClose:"));
 
-	if ((*session == NULL) || (sessionPrivate->server == MACH_PORT_NULL)) {
-		return SCD_NOSESSION;
+	if ((*store == NULL) || (storePrivate->server == MACH_PORT_NULL)) {
+		return kSCStatusNoStoreSession;	/* you must have an open session to play */
 	}
 
 	/* Remove notification keys */
-	if ((keyCnt = CFSetGetCount(sessionPrivate->keys)) > 0) {
+	if ((keyCnt = CFSetGetCount(storePrivate->keys)) > 0) {
 		void		**watchedKeys;
 		CFArrayRef	keysToRemove;
 		CFIndex		i;
 
 		watchedKeys = CFAllocatorAllocate(NULL, keyCnt * sizeof(CFStringRef), 0);
-		CFSetGetValues(sessionPrivate->keys, watchedKeys);
+		CFSetGetValues(storePrivate->keys, watchedKeys);
 		keysToRemove = CFArrayCreate(NULL, watchedKeys, keyCnt, &kCFTypeArrayCallBacks);
 		CFAllocatorDeallocate(NULL, watchedKeys);
 		for (i=0; i<keyCnt; i++) {
-			(void) _SCDNotifierRemove(*session,
-						  CFArrayGetValueAtIndex(keysToRemove, i),
-						  0);
+			(void) __SCDynamicStoreRemoveWatchedKey(*store,
+								CFArrayGetValueAtIndex(keysToRemove, i),
+								FALSE);
 		}
 		CFRelease(keysToRemove);
 	}
 
 	/* Remove regex notification keys */
-	if ((keyCnt = CFSetGetCount(sessionPrivate->reKeys)) > 0) {
+	if ((keyCnt = CFSetGetCount(storePrivate->reKeys)) > 0) {
 		void		**watchedKeys;
 		CFArrayRef	keysToRemove;
 		CFIndex		i;
 
 		watchedKeys = CFAllocatorAllocate(NULL, keyCnt * sizeof(CFStringRef), 0);
-		CFSetGetValues(sessionPrivate->reKeys, watchedKeys);
+		CFSetGetValues(storePrivate->reKeys, watchedKeys);
 		keysToRemove = CFArrayCreate(NULL, watchedKeys, keyCnt, &kCFTypeArrayCallBacks);
 		CFAllocatorDeallocate(NULL, watchedKeys);
 		for (i=0; i<keyCnt; i++) {
-			(void) _SCDNotifierRemove(*session,
-						  CFArrayGetValueAtIndex(keysToRemove, i),
-						  kSCDRegexKey);
+			(void) __SCDynamicStoreRemoveWatchedKey(*store,
+								CFArrayGetValueAtIndex(keysToRemove, i),
+								TRUE);
 		}
 		CFRelease(keysToRemove);
 	}
 
 	/* Remove/cancel any outstanding notification requests. */
-	(void) _SCDNotifierCancel(*session);
+	(void) __SCDynamicStoreNotifyCancel(*store);
 
 	/* Remove any session keys */
-	sessionKey = CFStringCreateWithFormat(NULL, NULL, CFSTR("%d"), sessionPrivate->server);
+	sessionKey = CFStringCreateWithFormat(NULL, NULL, CFSTR("%d"), storePrivate->server);
 	dict = CFDictionaryGetValue(sessionData, sessionKey);
 	keys = CFDictionaryGetValue(dict, kSCDSessionKeys);
 	if (keys && ((keyCnt = CFArrayGetCount(keys)) > 0)) {
-		boolean_t	wasLocked;
-		CFIndex		i;
+		Boolean	wasLocked;
+		CFIndex	i;
 
 		/*
 		 * if necessary, claim a lock to ensure that we inform
 		 * any processes that a session key was removed.
 		 */
-		wasLocked = SCDOptionGet(NULL, kSCDOptionIsLocked);
+		wasLocked = (storeLocked > 0);
 		if (!wasLocked) {
-			(void) _SCDLock(*session);
+			(void) __SCDynamicStoreLock(*store, FALSE);
 		}
 
-		/* remove keys from "locked" cache" */
+		/* remove keys from "locked" store" */
 		for (i=0; i<keyCnt; i++) {
-			if (isMySessionKey(sessionKey, CFArrayGetValueAtIndex(keys, i)))
-				(void) _SCDRemove(*session, CFArrayGetValueAtIndex(keys, i));
+			if (isMySessionKey(sessionKey, CFArrayGetValueAtIndex(keys, i))) {
+				(void) __SCDynamicStoreRemoveValue(*store, CFArrayGetValueAtIndex(keys, i));
+			}
 		}
 
 		if (wasLocked) {
-			/* remove keys from "unlocked" cache" */
-			_swapLockedCacheData();
+			/* remove keys from "unlocked" store" */
+			_swapLockedStoreData();
 			for (i=0; i<keyCnt; i++) {
 				if (isMySessionKey(sessionKey, CFArrayGetValueAtIndex(keys, i)))
-					(void) _SCDRemove(*session, CFArrayGetValueAtIndex(keys, i));
+					(void) __SCDynamicStoreRemoveValue(*store, CFArrayGetValueAtIndex(keys, i));
 			}
-			_swapLockedCacheData();
+			_swapLockedStoreData();
 		}
 
 		/*
-		 * Note: everyone who calls _SCDClose() ends up
-		 *       removing this sessions dictionary. As
-		 *       such, we don't need to worry about
-		 *       the session keys.
+		 * Note: everyone who calls __SCDynamicStoreClose() ends
+		 *       up removing this sessions dictionary. As such,
+		 *       we don't need to worry about the session keys.
 		 */
 	}
 	CFRelease(sessionKey);
 
 	/* release the lock */
-	if (SCDOptionGet(*session, kSCDOptionIsLocked)) {
-		(void) _SCDUnlock(*session);
+	if (storePrivate->locked) {
+		(void) __SCDynamicStoreUnlock(*store, FALSE);
 	}
 
 	/*
-	 * Invalidate the server port (for this client) which will result
-	 * in the removal of any associated run loop sources.
+	 * Remove the run loop source on the server port (for this
+	 * client).  Then, invalidate and release the port.
 	 */
-	mySession = getSession(sessionPrivate->server);
+	mySession = getSession(storePrivate->server);
 	if (mySession->serverRunLoopSource) {
 		CFRunLoopRemoveSource(CFRunLoopGetCurrent(),
 				      mySession->serverRunLoopSource,
@@ -168,29 +178,28 @@ _SCDClose(SCDSessionRef *session)
 	CFMachPortInvalidate(mySession->serverPort);
 	CFRelease(mySession->serverPort);
 
-	CFRelease(sessionPrivate->keys);
-	CFRelease(sessionPrivate->reKeys);
-	CFAllocatorDeallocate(NULL, sessionPrivate);
-	*session = NULL;
+	storePrivate->server = MACH_PORT_NULL;
+	CFRelease(*store);
+	*store = NULL;
 
-	return SCD_OK;
+	return kSCStatusOK;
 }
 
 
 kern_return_t
-_configclose(mach_port_t server, int *scd_status)
+_configclose(mach_port_t server, int *sc_status)
 {
 	serverSessionRef	mySession = getSession(server);
 
-	SCDLog(LOG_DEBUG, CFSTR("Close session."));
-	SCDLog(LOG_DEBUG, CFSTR("  server = %d"), server);
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("Close session."));
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  server = %d"), server);
 
 	/*
 	 * Close the session.
 	 */
-	*scd_status = _SCDClose(&mySession->session);
-	if (*scd_status != SCD_OK) {
-		SCDLog(LOG_DEBUG, CFSTR("  _SCDClose(): %s"), SCDError(*scd_status));
+	*sc_status = __SCDynamicStoreClose(&mySession->store);
+	if (*sc_status != kSCStatusOK) {
+		SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  __SCDynamicStoreClose(): %s"), SCErrorString(*sc_status));
 		return KERN_SUCCESS;
 	}
 

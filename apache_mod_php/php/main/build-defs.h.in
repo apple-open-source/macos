@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: build-defs.h.in,v 1.1.1.1 2001/01/25 05:00:23 wsanchez Exp $ */
+/* $Id: build-defs.h.in,v 1.1.1.2 2001/07/19 00:20:36 zarzycki Exp $ */
 
 #define CONFIGURE_COMMAND "@CONFIGURE_COMMAND@"
 #define PHP_ADA_INCLUDE		""
@@ -27,7 +27,6 @@
 #define PHP_FHTTPD_INCLUDE      ""
 #define PHP_FHTTPD_LIB          ""
 #define PHP_FHTTPD_TARGET       ""
-#define PHP_BINNAME		"@BINNAME@"
 #define PHP_CFLAGS		"@CFLAGS@"
 #define PHP_DBASE_LIB		""
 #define PHP_BUILD_DEBUG		"@DEBUG_CFLAGS@"
@@ -46,13 +45,13 @@
 #define PHP_MSQL_INCLUDE	""
 #define PHP_MSQL_LFLAGS		""
 #define PHP_MSQL_LIBS		""
-#define PHP_MYSQL_INCLUDE	""
-#define PHP_MYSQL_LFLAGS	""
-#define PHP_MYSQL_LIBS		""
-#define PHP_ODBC_TYPE       "@ODBC_TYPE@"
-#define PHP_ODBC_INCLUDE    "@ODBC_INCLUDE@"
-#define PHP_ODBC_LFLAGS     "@ODBC_LFLAGS@"
-#define PHP_ODBC_LIBS       "@ODBC_LIBS@"
+#define PHP_MYSQL_INCLUDE	"@MYSQL_INCLUDE@"
+#define PHP_MYSQL_LIBS		"@MYSQL_LIBS@"
+#define PHP_MYSQL_TYPE		"@MYSQL_MODULE_TYPE@"
+#define PHP_ODBC_INCLUDE	"@ODBC_INCLUDE@"
+#define PHP_ODBC_LFLAGS		"@ODBC_LFLAGS@"
+#define PHP_ODBC_LIBS		"@ODBC_LIBS@"
+#define PHP_ODBC_TYPE		"@ODBC_TYPE@"
 #define PHP_OCI8_SHARED_LIBADD 	"@OCI8_SHARED_LIBADD@"
 #define PHP_OCI8_DIR			"@OCI8_DIR@"
 #define PHP_OCI8_VERSION		"@OCI8_VERSION@"
@@ -78,5 +77,12 @@
 #define PHP_LDAP_LIBS		""
 #define PHP_VELOCIS_INCLUDE     ""
 #define PHP_VELOCIS_LIBS        ""
-#define PHP_EXTENSION_DIR       "@EXTENSION_DIR@"
+#define PEAR_INSTALLDIR         "@EXPANDED_PEAR_INSTALLDIR@"
 #define PHP_INCLUDE_PATH	"@INCLUDE_PATH@"
+#define PHP_EXTENSION_DIR       "@EXPANDED_EXTENSION_DIR@"
+#define PHP_BINDIR              "@EXPANDED_BINDIR@"
+#define PHP_LIBDIR              "@EXPANDED_LIBDIR@"
+#define PHP_DATADIR             "@EXPANDED_DATADIR@"
+#define PHP_SYSCONFDIR          "@EXPANDED_SYSCONFDIR@"
+#define PHP_LOCALSTATEDIR       "@EXPANDED_LOCALSTATEDIR@"
+#define PHP_CONFIG_FILE_PATH    "@EXPANDED_PHP_CONFIG_FILE_PATH@"

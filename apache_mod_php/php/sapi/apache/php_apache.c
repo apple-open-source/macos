@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    |          David Sklar <sklar@student.net>                             |
    +----------------------------------------------------------------------+
  */
-/* $Id: php_apache.c,v 1.1.1.3 2001/01/25 05:00:38 wsanchez Exp $ */
+/* $Id: php_apache.c,v 1.1.1.4 2001/07/19 00:20:57 zarzycki Exp $ */
 
 #define NO_REGEX_EXTRA_H
 
@@ -45,6 +45,12 @@
 #include "php_apache_http.h"
 #include "http_request.h"
 
+#ifdef ZTS
+int php_apache_info_id;
+#else
+php_apache_info_struct php_apache_info;
+#endif
+
 #ifdef PHP_WIN32
 #include "zend.h"
 #include "ap_compat.h"
@@ -61,6 +67,7 @@ PHP_FUNCTION(getallheaders);
 PHP_FUNCTION(apachelog);
 PHP_FUNCTION(apache_note);
 PHP_FUNCTION(apache_lookup_uri);
+PHP_FUNCTION(apache_child_terminate);
 
 PHP_MINFO_FUNCTION(apache);
 
@@ -69,51 +76,33 @@ function_entry apache_functions[] = {
 	PHP_FE(getallheaders,							NULL)
 	PHP_FE(apache_note,								NULL)
 	PHP_FE(apache_lookup_uri,						NULL)
+	PHP_FE(apache_child_terminate,					NULL)
 	{NULL, NULL, NULL}
 };
 
 
-static PHP_INI_MH(OnChangeApacheInt)
-{
-	long *p;
-	char *base = (char *) &php_apache_info;
-
-	p = (long *) (base+(size_t) mh_arg1);
-
-	if (new_value) {
-		*p = atoi(new_value);
-		return SUCCESS;
-	} else {
-		return FAILURE;
-	}
-}
-
-
-static PHP_INI_MH(OnChangeApacheString)
-{
-	char **p;
-	char *base = (char *) &php_apache_info;
-
-	p = (char **) (base+(size_t) mh_arg1);
-
-	if (new_value) {
-		*p = new_value;
-		return SUCCESS;
-	} else {
-		return FAILURE;
-	}
-}
-
 PHP_INI_BEGIN()
-	PHP_INI_ENTRY1("xbithack",			"0",				PHP_INI_ALL,		OnChangeApacheInt,		(void *) XtOffsetOf(php_apache_info_struct, xbithack))
-	PHP_INI_ENTRY1("engine",				"1",				PHP_INI_ALL,		OnChangeApacheInt,		(void *) XtOffsetOf(php_apache_info_struct, engine))
-	PHP_INI_ENTRY1("last_modified",		"0",				PHP_INI_ALL,		OnChangeApacheInt,		(void *) XtOffsetOf(php_apache_info_struct, last_modified))
-	PHP_INI_ENTRY1("dav_script",			NULL,				PHP_INI_ALL,		OnChangeApacheString,	(void *) XtOffsetOf(php_apache_info_struct, dav_script))
+	STD_PHP_INI_ENTRY("xbithack",			"0",				PHP_INI_ALL,		OnUpdateInt,		xbithack, php_apache_info_struct, php_apache_info)
+	STD_PHP_INI_ENTRY("engine",				"1",				PHP_INI_ALL,		OnUpdateInt,		engine, php_apache_info_struct, php_apache_info)
+	STD_PHP_INI_ENTRY("last_modified",		"0",				PHP_INI_ALL,		OnUpdateInt,		last_modified, php_apache_info_struct, php_apache_info)
+	STD_PHP_INI_ENTRY("child_terminate",	"0",				PHP_INI_ALL,		OnUpdateInt,		terminate_child, php_apache_info_struct, php_apache_info)
 PHP_INI_END()
+
+
+
+static void php_apache_globals_ctor(php_apache_info_struct *apache_globals)
+{
+	apache_globals->in_request = 0;
+}
 
 
 static PHP_MINIT_FUNCTION(apache)
 {
+#ifdef ZTS
+	php_apache_info_id = ts_allocate_id(sizeof(php_apache_info_struct), php_apache_globals_ctor, NULL);
+#else
+	php_apache_globals_ctor(&php_apache_info);
+#endif
 	REGISTER_INI_ENTRIES();
 	return SUCCESS;
 }
@@ -129,6 +118,25 @@ static PHP_MSHUTDOWN_FUNCTION(apache)
 zend_module_entry apache_module_entry = {
 	"apache", apache_functions, PHP_MINIT(apache), PHP_MSHUTDOWN(apache), NULL, NULL, PHP_MINFO(apache), STANDARD_MODULE_PROPERTIES
 };
+
+/* {{{ proto string child_terminate()
+   Get and set Apache request notes */
+PHP_FUNCTION(apache_child_terminate)
+{
+#ifndef MULTITHREAD
+	APLS_FETCH();
+	SLS_FETCH();
+
+	if (AP(terminate_child)) {
+		ap_child_terminate( ((request_rec *)SG(server_context)) );
+	} else { /* tell them to get lost! */
+		php_error(E_WARNING, "apache.child_terminate is disabled");
+	}
+#else
+		php_error(E_WARNING, "apache_child_terminate() is not supported in this build");
+#endif
+}
+/* }}} */
 
 /* {{{ proto string apache_note(string note_name [, string note_value])
    Get and set Apache request notes */
@@ -313,15 +321,6 @@ PHP_FUNCTION(virtual)
 		RETURN_FALSE;
 	}
 
-	/* Cannot include another PHP file because of global conflicts */
-	if (rr->content_type &&
-		!strcmp(rr->content_type, PHP_MIME_TYPE)) {
-		php_error(E_WARNING, "Cannot include a PHP file "
-			  "(use <code>&lt;?include \"%s\"&gt;</code> instead)", (*filename)->value.str.val);
-		if (rr) destroy_sub_req (rr);
-		RETURN_FALSE;
-	}
-	
 	php_end_ob_buffers(1);
 	php_header();
 

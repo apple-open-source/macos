@@ -26,6 +26,8 @@
 #include "mi-cmds.h"
 #include "ui-out.h"
 #include "varobj.h"
+#include "wrapper.h"
+#include "interpreter.h"
 
 #ifdef UI_OUT
 /* FIXME: these should go in some .h file but stack.c doesn't have a
@@ -35,6 +37,13 @@ extern void select_frame_command_wrapper (char *, int);
 
 /* FIXME: There is no general mi header to put this kind of utility function.*/
 extern void mi_report_var_creation (struct ui_out *uiout, struct varobj *var);
+
+void mi_interp_stack_changed_hook (void);
+void mi_interp_frame_changed_hook (int new_frame_number);
+void mi_interp_context_hook (int thread_id);
+
+/* This is the interpreter for the mi... */
+extern struct gdb_interpreter *mi_interp;
 
 /* Use this to print any extra info in the stack listing output that is
    not in the standard gdb printing */
@@ -351,8 +360,17 @@ print_syms_for_block (struct block *block,
   int print_me;
   struct symbol *sym;
   int i;
-
+  struct ui_stream *error_stb;
+  struct cleanup *old_chain;
+  
   nsyms = BLOCK_NSYMS (block);
+
+  if (nsyms == 0) 
+    return;
+
+  error_stb = ui_out_stream_new (uiout);
+  old_chain = make_cleanup_ui_out_stream_delete (error_stb);
+
   for (i = 0; i < nsyms; i++)
     {
       sym = BLOCK_SYM (block, i);
@@ -426,10 +444,26 @@ print_syms_for_block (struct block *block,
 		{
 		  if (new_var != NULL)
 		    {
+		      char *value_str;
+		      struct ui_file *save_stderr;
+       
 		      /* If we are using the varobj's, then print
 			 the value as the varobj would. */
-		      ui_out_field_string (uiout, "value", 
-					   varobj_get_value (new_var));
+		      
+		      save_stderr = gdb_stderr;
+		      gdb_stderr = error_stb->stream;
+
+		      if (gdb_varobj_get_value (new_var, &value_str))
+			{
+			  ui_out_field_string (uiout, "value", value_str);
+			}
+		      else
+			{
+			  /* FIXME: can I get the error string & put it here? */
+			  ui_out_field_stream (uiout, "value", 
+					       error_stb);
+			}
+		      gdb_stderr = save_stderr;
 		    }
 		  else
 		    ui_out_field_skip (uiout, "value");
@@ -444,6 +478,8 @@ print_syms_for_block (struct block *block,
 	  ui_out_list_end (uiout);
 	}      
     }
+
+  do_cleanups (old_chain);
 }
 
 enum mi_cmd_result
@@ -464,3 +500,52 @@ mi_cmd_stack_select_frame (char *command, char **argv, int argc)
 #endif
   return MI_CMD_DONE;
 }
+
+void 
+mi_interp_stack_changed_hook (void)
+{
+  struct ui_out *saved_ui_out = uiout;
+  struct mi_out *tmp_mi_out;
+
+  uiout = mi_interp->interpreter_out;
+
+  ui_out_list_begin (uiout, "MI_HOOK_RESULT");
+  ui_out_field_string (uiout, "HOOK_TYPE", "stack_changed");
+  ui_out_list_end (uiout);
+  uiout = saved_ui_out;
+}
+
+void 
+mi_interp_frame_changed_hook (int new_frame_number)
+{
+  struct ui_out *saved_ui_out = uiout;
+  struct mi_out *tmp_mi_out;
+
+  uiout = mi_interp->interpreter_out;
+
+  ui_out_list_begin (uiout, "MI_HOOK_RESULT");
+  ui_out_field_string (uiout, "HOOK_TYPE", "frame_changed");
+  ui_out_field_int (uiout, "frame", new_frame_number);
+  ui_out_list_end (uiout);
+  uiout = saved_ui_out;
+
+}
+
+void
+mi_interp_context_hook (int thread_id)
+{
+  struct ui_out *saved_ui_out = uiout;
+  struct mi_out *tmp_mi_out;
+
+  uiout = mi_interp->interpreter_out;
+
+  ui_out_list_begin (uiout, "MI_HOOK_RESULT");
+  ui_out_field_string (uiout, "HOOK_TYPE", "thread_changed");
+  ui_out_field_int (uiout, "thread", thread_id);
+  ui_out_list_end (uiout);
+  uiout = saved_ui_out;
+}
+
+
+
+

@@ -49,10 +49,9 @@
  * Original code from:
  *	"kldload.c,v 1.5 1998/07/06 06:58:32 charnier Exp"
  */
-
 #ifndef lint
 static const char rcsid[] =
-	"$Id: kmodload.c,v 1.7 2001/02/05 19:53:16 lindak Exp $";
+	"$Id: kmodload.c,v 1.10 2001/08/02 20:57:01 lindak Exp $";
 #endif /* not lint */
 
 #include <stdlib.h>
@@ -63,6 +62,8 @@ static const char rcsid[] =
 #include <unistd.h>
 #include <sys/param.h>
 #include <sys/stat.h>
+#include <sys/mman.h>
+
 #include <paths.h>
 
 #include <mach/mach.h>
@@ -71,11 +72,18 @@ static const char rcsid[] =
 #include <mach-o/kld.h>
 #include <mach-o/fat.h>
 
+#include <CoreFoundation/CoreFoundation.h>
+
+#include "kld_patch.h"
+
 #define KMOD_ERROR_USAGE	1
 #define KMOD_ERROR_PERMS	2
 #define KMOD_ERROR_LOADING	3		
 #define KMOD_ERROR_INTERNAL	4
 #define KMOD_ERROR_ALREADY	5
+
+#define kKMOD_INFO_SYMBOLNAME "_kmod_info"
+#define kKmodsymsName "kmodsyms"
 
 static mach_port_t kernel_port;
 static mach_port_t kernel_priv_port;
@@ -96,26 +104,31 @@ static char *progname = "program name?";
 static int kmodsyms = 0;
 static int link_addrs_set = 0;
 static int verbose = 0;
-#define v_printf	if (verbose) printf
+
+static char *debugdumpfile = NULL;
 
 // must not be static; kld library calls
-void				kld_error_vprintf(const char *format, va_list ap);
+extern void			kld_error_vprintf(const char *format, va_list ap);
+static void			e_printf(const char *fmt, ...);
+static void			v_printf(const char *fmt, ...);
 
 static void			machwarn(int error, const char *message);
 static void			macherr(int error, const char *message);
 
-static unsigned long		linkedit_address(unsigned long size,
+static unsigned long	linkedit_address(unsigned long size,
 						 unsigned long headers_size);
-static void 			cleanup_kernel_memory();
-static void 			link_base(const char *base,
+static void			abort_load(int exitcode, const char *fmt, ...);
+static void			map_and_patch(const char *base,
+								  const char **library_paths,
+								  const char *module);
+static void			link_base(const char *base,
 					  const char **dependency_paths,
 					  const vm_address_t *dependency_addrs);
 static void			clear_globals(void);
-static void 			map_module(char *module_path, char **object_addr,
-					   long *object_size, kmod_info_t **kinfo);
-static struct mach_header	*link_module(const char *filename, 
+static kmod_info_t *map_module(const char *filename);
+static struct mach_header *link_module(const char *filename, 
 					     const char *output);
-static vm_address_t		patch_module(struct mach_header *mach_header);
+static vm_address_t		update_kmod_info(struct mach_header *mach_header);
 static kmod_t			load_module(struct mach_header *mach_header,
 					    vm_address_t info);
 static void 			set_module_dependencies(kmod_t id);
@@ -125,11 +138,13 @@ static void
 usage(void)
 {
 	if (kmodsyms) {
-		fprintf(stderr, "usage: kmodsyms [-v] [-k kernelfile] [-d dependencyfile] -o symbolfile modulefile\n");
-		fprintf(stderr, "       kmodsyms [-v]  -k kernelfile  [-d dependencyfile@address] -o symbolfile modulefile@address\n");
+		fprintf(stderr, "usage: %s [-v] [-k kernelfile] [-d dependencyfile] -o symbolfile modulefile\n", progname);
+		fprintf(stderr, "       %s [-v]  -k kernelfile  [-d dependencyfile@address] -o symbolfile modulefile@address\n",
+			progname);
 	} else {
-		fprintf(stderr, "usage: kmodload [-v] [-k kernelfile] [-d dependencyfile] [-o symbolfile] modulefile\n");
+		fprintf(stderr, "usage: %s [-v] [-k kernelfile] [-d dependencyfile] [-o symbolfile] modulefile\n", progname);
 	}
+	fflush(stderr);
 	exit(KMOD_ERROR_USAGE);
 }
 
@@ -148,30 +163,28 @@ main(int argc, char** argv)
 
 	char * module_path = "";
 	vm_address_t module_info = 0;
-	char *module_addr = 0;
-	long module_size = 0;
 	vm_address_t module_faked_address = 0;
 	kmod_t module_id = 0;
 	kmod_info_t *file_kinfo;
 
-	if ((progname = rindex(argv[0], '/')) == NULL)
+	if ((progname = strrchr(argv[0], '/')) == NULL)
 		progname = argv[0];
 	else
 		++progname;
 
-	kmodsyms = !strcmp(progname, "kmodsyms");
+	kmodsyms = !strcmp(progname, kKmodsymsName);
 
 	// XXX things to add:
 	//  -p data string to send as outofband data on start
 	//  -P data file to send as outofband data on start
 
-	while ((c = getopt(argc, argv, "d:o:k:v")) != -1)
+	while ((c = getopt(argc, argv, "D:d:o:k:v")) != -1)
 		switch (c) {
 		case 'd':
 			dependencies[dependency_count] = optarg;
 			if (kmodsyms) {
 				char *address;
-				if ((address = rindex(optarg, '@'))) {
+				if ((address = strrchr(optarg, '@'))) {
 					*address++ = 0;
 					loaded_addresses[dependency_count] = strtoul(address, NULL, 0);
 					link_addrs_set++;
@@ -180,8 +193,8 @@ main(int argc, char** argv)
 				}
 			}
 			if (++dependency_count == MAX_DEPENDANCIES) {
-				fprintf(stderr, "%s: internal error, dependency count overflow.\n", progname); 
-				exit(KMOD_ERROR_INTERNAL);
+				abort_load(KMOD_ERROR_INTERNAL, 
+					"internal error, dependency count overflow."); 
 			}
 			break;
 		case 'o':
@@ -193,6 +206,9 @@ main(int argc, char** argv)
 			break;
 		case 'v':
 			verbose = 1;
+			break;
+		case 'D':
+			debugdumpfile = optarg;
 			break;
 		default:
 			usage();
@@ -213,7 +229,7 @@ main(int argc, char** argv)
 		if (!gdbfile) usage();
 
 		// check for @address
-		if ((address = rindex(module_path, '@'))) {
+		if ((address = strrchr(module_path, '@'))) {
 			*address++ = 0;
 			module_faked_address = strtoul(address, NULL, 0);
 			link_addrs_set++;
@@ -231,8 +247,8 @@ main(int argc, char** argv)
 		}
 	}
 
-	// map module and then check if it has been loaded
-	map_module(module_path, &module_addr, &module_size, &file_kinfo);
+	// map the module if possible, map_module will fail if there is a problem
+	file_kinfo = map_module(module_path);
 
 	if (!link_addrs_set) {
 		kmod_info_t *k;
@@ -240,9 +256,9 @@ main(int argc, char** argv)
 		// we only need the kernel port if we need to lookup loaded kmods
 		r = task_for_pid(mach_task_self(), 0, &kernel_port);
 		machwarn(r, "unable to get kernel task port");
-		if (r) {
-			fprintf(stderr, "%s: You must be running as root to load/check modules in the kernel.\n", progname);
-			exit(KMOD_ERROR_PERMS);
+		if (KERN_SUCCESS != r) {
+			abort_load(KMOD_ERROR_PERMS,
+				"You must be running as root to load modules in the kernel.");
 		}
 
 		//get loaded modules
@@ -254,8 +270,8 @@ main(int argc, char** argv)
 		while (k) {
 			if (!strcmp(k->name, file_kinfo->name)) {
 				if (!kmodsyms) {
-					fprintf(stderr, "%s: the module named '%s' is already loaded.\n", progname, k->name); 
-					exit(KMOD_ERROR_ALREADY);
+					abort_load(KMOD_ERROR_ALREADY,
+						"the module named '%s' is already loaded.", k->name); 
 				} else {
 					module_faked_address = k->address;
 				}
@@ -265,13 +281,19 @@ main(int argc, char** argv)
 		}
 
 		if (kmodsyms && !module_faked_address) {
-			fprintf(stderr, "%s: the module named '%s' has not been loaded.\n", progname, file_kinfo->name); 
-			exit(KMOD_ERROR_USAGE);
+			abort_load(KMOD_ERROR_USAGE,
+				"the module named '%s' has not been loaded.", file_kinfo->name);
 		}
 		
 		//XXX it would be nice to be able to verify this is the correct kernel
 		//XXX by comparing the kernel version strings (once we have them)
 	}
+
+	map_and_patch(kernel, dependencies, module_path);
+	if (debugdumpfile) kld_file_debug_dump(module_path, debugdumpfile);
+
+	// Tell the kld linker where to get its load address from
+	kld_address_func(linkedit_address);
 
 	// link the kernel along with any dependencies
 	link_base(kernel, dependencies, loaded_addresses);
@@ -280,13 +302,13 @@ main(int argc, char** argv)
 	    faked_kernel_load_address = module_faked_address;
 
 	    if (!faked_kernel_load_address) {
-		fprintf(stderr, "%s: internal error, fell thru without setting module load address.\n", progname); 
-		exit(KMOD_ERROR_INTERNAL);
+			abort_load(KMOD_ERROR_INTERNAL,
+			  "internal error, fell thru without setting module load address.");
 	    }
 	}
 
 	rld_header = link_module(module_path, gdbfile);
-	module_info = patch_module(rld_header);
+	module_info = update_kmod_info(rld_header);
 
 	if (kmodsyms) return 0;
 
@@ -303,123 +325,62 @@ main(int argc, char** argv)
 static void
 machwarn(int error, const char *message)
 {
-	if (error == KERN_SUCCESS) return;
-	fprintf(stderr, "%s: %s: %s\n", progname, message, mach_error_string(error));
+	if (KERN_SUCCESS != error)
+		e_printf("%s: %s", message, mach_error_string(error));
 }
 
 static void
 macherr(int error, const char *message)
 {
-	if (error == KERN_SUCCESS) return;
-	fprintf(stderr, "%s: %s: %s\n", progname, message, mach_error_string(error));
+	if (KERN_SUCCESS != error)
+		abort_load(KMOD_ERROR_INTERNAL,
+			"%s: %s", message, mach_error_string(error));
+}
 
-	cleanup_kernel_memory();
+static kmod_info_t *map_module(const char *filename)
+{
+	kmod_info_t *file_kinfo;
 
-	exit(KMOD_ERROR_INTERNAL);
+	if (!kld_file_map(filename))
+		exit(KMOD_ERROR_LOADING);
+
+	file_kinfo = kld_file_lookupsymbol(filename, kKMOD_INFO_SYMBOLNAME);
+	if (!file_kinfo) {
+		abort_load(KMOD_ERROR_USAGE,
+			"%s is not a valid kernel module.", filename);
+	}
+	
+	return file_kinfo;
 }
 
 static void
-map_module(char *module_path, char **object_addr, long *object_size, kmod_info_t **kinfo)
+map_and_patch(const char *base, const char **library_paths, const char *module)
 {
-	int fd;
-	struct stat stat_buf;
-	struct mach_header *mh;
-	char *p;
+	if (!kld_file_map(base))
+		exit(KMOD_ERROR_INTERNAL);
+	if (!kld_file_merge_OSObjects(base))
+		abort_load(KMOD_ERROR_LOADING, NULL);
 
-	struct nlist nl[] = {
-		{ "_kmod_info" },
-		{ "" },
-	};
-
-	if((fd = open(module_path, O_RDONLY)) == -1){
-	    fprintf(stderr, "%s: Can't open: %s\n", progname, module_path);
-	    exit(KMOD_ERROR_USAGE);
-	}
-	if (nlist(module_path, nl)) {
-		fprintf(stderr, "%s: %s is not a valid kernel module.\n", progname, module_path);
-		exit(KMOD_ERROR_USAGE);
-	}
-	if(fstat(fd, &stat_buf) == -1){
-	    fprintf(stderr, "%s: Can't stat file: %s\n", progname, module_path);
-	    exit(KMOD_ERROR_PERMS);
-	}
-	*object_size = stat_buf.st_size;
-	if(map_fd(fd, 0, (vm_offset_t *)object_addr, TRUE, *object_size) != KERN_SUCCESS){
-	    fprintf(stderr, "%s: Can't map file: %s\n", progname, module_path);
-	    exit(KMOD_ERROR_INTERNAL);
-	}
-	close(fd);
-
-	if (NXSwapBigLongToHost(*((long *)*object_addr)) == FAT_MAGIC) {
-		struct host_basic_info hbi;
-		struct fat_header *fh;
-		struct fat_arch *fat_archs, *fap;
-		unsigned i, nfat_arch;
-
-		/* Get our host info */
-		i = HOST_BASIC_INFO_COUNT;
-		if (host_info(mach_host_self(), HOST_BASIC_INFO, (host_info_t)(&hbi), &i) != KERN_SUCCESS) {
-		    fprintf(stderr, "%s: Can't get host's basic info\n", progname);
-		    exit(KMOD_ERROR_INTERNAL);
+	if (*library_paths) {
+		char **library;
+		for (library = library_paths; *library; library++) {
+			map_module(*library);
+			if (!kld_file_patch_OSObjects(*library))
+				abort_load(KMOD_ERROR_LOADING, NULL);
 		}
-
-		// get number of architectures
-		fh = (struct fat_header *)*object_addr;
-		nfat_arch = NXSwapBigLongToHost(fh->nfat_arch);
-
-		// find beginning of fat_arch struct
-		fat_archs = (struct fat_arch *)((char *)fh + sizeof(struct fat_header));
-
-		/*
-		 * Convert archs to host byte ordering (a constraint of
-		 * cpusubtype_getbestarch()
-		 */
-		for (i = 0; i < nfat_arch; i++) {
-			fat_archs[i].cputype =
-				NXSwapBigLongToHost(fat_archs[i].cputype);
-			fat_archs[i].cpusubtype =
-			      NXSwapBigLongToHost(fat_archs[i].cpusubtype);
-			fat_archs[i].offset =
-				NXSwapBigLongToHost(fat_archs[i].offset);
-			fat_archs[i].size =
-				NXSwapBigLongToHost(fat_archs[i].size);
-			fat_archs[i].align =
-				NXSwapBigLongToHost(fat_archs[i].align);
-		}
-
-// this code was lifted from Darwin/Libraries/NeXT/libc/gen.subproj/nlist.c
-// when cpusubtype_getbestarch exists this code should also be changed.
-#define	CPUSUBTYPE_SUPPORT	0
-
-#if	CPUSUBTYPE_SUPPORT
-		fap = cpusubtype_getbestarch(hbi.cpu_type, hbi.cpu_subtype,
-					     fat_archs, nfat_arch);
-#else	CPUSUBTYPE_SUPPORT
-#warning	Use the cpusubtype functions!!!
-		fap = NULL;
-		for (i = 0; i < nfat_arch; i++) {
-			if (fat_archs[i].cputype == hbi.cpu_type) {
-				fap = &fat_archs[i];
-				break;
-			}
-		}
-#endif	CPUSUBTYPE_SUPPORT
-		if (!fap) {
-		    fprintf(stderr, "%s: could not find the correct architecture in %s.\n", progname, module_path);
-		    exit(KMOD_ERROR_USAGE);
-		}
-		
-		*object_addr += fap->offset;
-		*object_size = fap->size;
 	}
 
-	mh = (struct mach_header *)*object_addr;
-	if (*((long *)mh) != MH_MAGIC) {
-	    fprintf(stderr, "%s: invalid file format for file: %s\n", progname, module_path);
-	    exit(KMOD_ERROR_USAGE);
-	}
-	p = *object_addr + sizeof(struct mach_header) + mh->sizeofcmds + nl->n_value;
-	*kinfo = (kmod_info_t *)p;
+	// Patch the vtables of the object module we are about to load
+	// The module has already been mapped in the main() routine as part
+	// of validation
+	if (!kld_file_patch_OSObjects(module))
+		abort_load(KMOD_ERROR_LOADING, NULL);
+
+	// During the patch up process the mapped images were modified
+	// to avoid having to allocate more data than necessary.
+	// Now we have to give the patcher a chance to clean up after itself.
+	if (!kld_file_prepare_for_link())
+		abort_load(KMOD_ERROR_LOADING, NULL);
 }
 
 static void
@@ -428,25 +389,34 @@ link_base(const char *base,
 	  const vm_address_t *dependency_addrs)
 {
 	struct mach_header *rld_header;
+	char *base_addr;
+	long base_size;
 	int ok;
 
-	ok = kld_load_basefile(base);
+	// Get the address and size of the base, usually the kernel
+	base_addr = kld_file_getaddr(base, &base_size);
+	if (!base_addr)
+		exit(KMOD_ERROR_INTERNAL);	// Error reported by kld library.
+
+	ok = kld_load_basefile_from_memory(base, base_addr, base_size);
 	fflush(stdout);
-	if (!ok) {
-		fprintf(stderr, "%s: kld_load_basefile(%s) failed.\n", progname, base); 
-		exit(KMOD_ERROR_LOADING);
-	}
+	if (!ok)
+		abort_load(KMOD_ERROR_LOADING, "kld_load_basefile(%s) failed.", base); 
 
 	if (*dependency_paths) {
 		char **dependency = dependency_paths;
 		const vm_address_t *load_addr = dependency_addrs;
 
 		while (*dependency) {
-			char *object_addr;
-			long object_size;
 			kmod_info_t *file_kinfo;
 
-			map_module(*dependency, &object_addr, &object_size, &file_kinfo);
+			// Find the kmod_info structure in the image.
+			file_kinfo =
+				kld_file_lookupsymbol(*dependency, kKMOD_INFO_SYMBOLNAME);
+			if (!file_kinfo) {
+				abort_load(KMOD_ERROR_USAGE, 
+					"%s is not a valid kernel module.", *dependency);
+			}
 
 			// find the address that this dependency is loaded at
 			if (kmodsyms && *load_addr) {
@@ -461,11 +431,10 @@ link_base(const char *base,
 				while (k) {
 					if (!strcmp(k->name, file_kinfo->name)) {
 						if (strcmp(k->version, file_kinfo->version)) {
-							fprintf(stderr, "%s: loaded kernel module '%s' version differs.\n",
-								progname, *dependency);
-							fprintf(stderr, "%s: loaded version '%s', file version '%s'.\n",
-								progname, k->version, file_kinfo->version);
-							exit(KMOD_ERROR_LOADING);
+							e_printf("loaded kernel module '%s' version differs.", *dependency);
+							abort_load(KMOD_ERROR_LOADING, 
+								"loaded version '%s', file version '%s'.",
+								k->version, file_kinfo->version);
 						}
 						found_it++;
 						break;
@@ -473,17 +442,15 @@ link_base(const char *base,
 					k = (k->next) ? (k + 1) : 0;
 				}
 				if (!found_it) {
-					fprintf(stderr, "%s: kernel module '%s' is not loaded.\n", 
-						progname, *dependency);
-					exit(KMOD_ERROR_USAGE);
+					abort_load(KMOD_ERROR_USAGE, 
+						"kernel module '%s' is not loaded.", *dependency);
 				}	
 			
-                                tmp = malloc(sizeof(kmod_info_t));
-				if (!tmp) {
-					fprintf(stderr, "%s: no memory.\n", progname);
-					exit(KMOD_ERROR_LOADING);
-				}	
-                                *tmp = *k;
+				tmp = malloc(sizeof(kmod_info_t));
+				if (!tmp)
+					abort_load(KMOD_ERROR_LOADING, "no memory.");
+
+				*tmp = *k;
 				tmp->next = module_dependencies;
 				module_dependencies = tmp;
 
@@ -492,7 +459,7 @@ link_base(const char *base,
 
 			rld_header = link_module(*dependency, 0);
 
-			(void)patch_module(rld_header);
+			(void) update_kmod_info(rld_header);
 
 			dependency++; load_addr++;
 		}
@@ -526,45 +493,26 @@ linkedit_address(unsigned long size, unsigned long headers_size)
 
     if (faked_kernel_load_address) {
         kernel_load_address = faked_kernel_load_address + kernel_hdr_pad;
-        v_printf("%s: Returning fake load address of 0x%8x\n",
-            progname, kernel_load_address);
+        v_printf("Returning fake load address of 0x%8x", kernel_load_address);
         return kernel_load_address;
     }
     if (kmodsyms) {
-        fprintf(stderr, "%s: internal error, almost tried to alloc kernel memory.\n", progname); 
-        exit(KMOD_ERROR_INTERNAL);
+		abort_load(KMOD_ERROR_INTERNAL, 
+			"internal error, almost tried to alloc kernel memory."); 
     }
 
     r = vm_allocate(kernel_port, &kernel_alloc_address, 
         kernel_alloc_size, TRUE);
     macherr(r, "unable to allocate kernel memory");
 
-    v_printf("%s: allocated %ld bytes in kernel space at 0x%8x\n",
-        progname, kernel_alloc_size, kernel_alloc_address);
+    v_printf("allocated %ld bytes in kernel space at 0x%8x",
+        kernel_alloc_size, kernel_alloc_address);
 
     kernel_load_address = kernel_alloc_address + kernel_hdr_pad;
 
-    v_printf("%s: Returning load address of 0x%x\n",
-        progname, kernel_load_address);
+    v_printf("Returning load address of 0x%x", kernel_load_address);
 
     return kernel_load_address;
-}
-
-static void
-cleanup_kernel_memory()
-{
-	int r;
-
-	if (faked_kernel_load_address) return;	
-
-	if (kernel_alloc_address || kernel_alloc_size) {	
-		v_printf("%s: freeing %ld bytes in kernel space at 0x%x\n",
-			 progname, kernel_alloc_size, kernel_alloc_address);
-		r = vm_deallocate(kernel_port, kernel_alloc_address, kernel_alloc_size);
-                clear_globals();
-		kernel_load_address = kernel_load_size = 0;
-		machwarn(r, "unable to cleanup kernel memory");
-	}
 }
 
 static void
@@ -584,51 +532,50 @@ static struct mach_header *
 link_module(const char *filename, const char *output)
 {
 	struct mach_header *rld_header;
+	char *object_addr;
+	long object_size;
 	int ok;
 
-	kld_address_func(linkedit_address);
+	// Get the address of the thined MachO image.
+	object_addr = kld_file_getaddr(filename, &object_size);
+	if (!object_addr)
+		abort_load(KMOD_ERROR_LOADING, NULL);
 
-	ok = kld_load(&rld_header, filename, output);
+	ok = kld_load_from_memory(&rld_header, filename,
+								object_addr, object_size, output);
 	fflush(stdout);
-	if (!ok) {
-		fprintf(stderr, "%s: kld_load() failed.\n", progname);
-		cleanup_kernel_memory();
-		exit(KMOD_ERROR_LOADING);
-	}
+	if (!ok)
+		abort_load(KMOD_ERROR_LOADING, "kld_load() failed.");
 
 	return rld_header;
 }
 
+// Update the kmod_info_t structure in the image to be laoded
+// Side effect of removing the kKMOD_INFO_SYMBOLNAME from the 
+// loaded symbol name space, otherwise we would have a duplicate
+// defined symbol failure
 vm_address_t
-patch_module(struct mach_header *mach_header)
+update_kmod_info(struct mach_header *mach_header)
 {
-	char * symbol = "_kmod_info";
+	char * symbol = kKMOD_INFO_SYMBOLNAME;
 	kmod_info_t *info;
 	unsigned long value;
 	int ok;
 
-	ok = kld_lookup(symbol, &value);
-	fflush(stdout);
-	if (!ok) {
-		fprintf(stderr, "%s: kld_lookup(%s) failed.\n", progname, symbol);
-		cleanup_kernel_memory();
-		exit(KMOD_ERROR_LOADING);
-	}
+	ok = kld_lookup(symbol, &value); fflush(stdout);
+	if (!ok)
+		abort_load(KMOD_ERROR_LOADING, "kld_lookup(%s) failed.", symbol);
 
-	ok = kld_forget_symbol(symbol);
-	fflush(stdout);
-	if (!ok) {
-		fprintf(stderr, "%s: kld_forget_symbol(%s) failed.\n", progname, symbol);
-		cleanup_kernel_memory();
-		exit(KMOD_ERROR_INTERNAL);
-	}
+	ok = kld_forget_symbol(symbol); fflush(stdout);
+	if (!ok)
+		abort_load(KMOD_ERROR_LOADING, "kld_forget_symbol(%s) failed.", symbol);
 
        /* Get the kmod info by translating from the kernel address at value.
         */
 	info = (kmod_info_t *)(value - (unsigned long)kernel_load_address + (unsigned long)mach_header);
-	v_printf("%s: kmod name: %s\n", progname, info->name);
-	v_printf("%s: kmod start @ 0x%x\n", progname, (vm_address_t)info->start);
-	v_printf("%s: kmod stop  @ 0x%x\n", progname, (vm_address_t)info->stop);
+	v_printf("kmod name: %s", info->name);
+	v_printf("kmod start @ 0x%x", (vm_address_t)info->start);
+	v_printf("kmod stop  @ 0x%x", (vm_address_t)info->stop);
 
        /* Record link info in kmod info struct, rounding the hdr_size to fit
         * the adjustment that was made.
@@ -637,16 +584,10 @@ patch_module(struct mach_header *mach_header)
 	info->size = kernel_alloc_size;
 	info->hdr_size = page_round(kernel_hdr_size);
 
-	if (!info->start) {
-		fprintf(stderr, "%s: invalid start address?\n", progname);
-		cleanup_kernel_memory();
-		exit(KMOD_ERROR_LOADING);
-	}
-	if (!info->stop) {
-		fprintf(stderr, "%s: invalid stop address?\n", progname);
-		cleanup_kernel_memory();
-		exit(KMOD_ERROR_LOADING);
-	}
+	if (!info->start)
+		abort_load(KMOD_ERROR_LOADING, "invalid start address?");
+	else if (!info->stop)
+		abort_load(KMOD_ERROR_LOADING, "invalid stop address?");
 
 	return (vm_address_t)value;
 }
@@ -680,8 +621,8 @@ load_module(struct mach_header *mach_header, vm_address_t info)
     r = kmod_create(kernel_priv_port, info, &id);
     macherr(r, "unable to register module with kernel");
 
-    v_printf("%s: kmod id %d successfully created at 0x%x size %ld.\n", 
-        progname, id, kernel_alloc_address, kernel_alloc_size);
+    v_printf("kmod id %d successfully created at 0x%x size %ld.\n", 
+        id, kernel_alloc_address, kernel_alloc_size);
 
     // FIXME: make sure this happens even on failure
 
@@ -705,10 +646,9 @@ set_module_dependencies(kmod_t id)
 			clear_globals();
 			r = kmod_destroy(kernel_priv_port, id);
 			macherr(r, "kmod_destroy failed");
-			exit(KMOD_ERROR_INTERNAL);
 		}
 
-		v_printf("%s: kmod id %d reference count was sucessfully incremented.\n", progname, module->id);
+		v_printf("kmod id %d reference count was sucessfully incremented.", module->id);
 
 		module = module->next;
 	}
@@ -727,14 +667,64 @@ start_module(kmod_t id)
 		clear_globals();
 		kmod_destroy(kernel_priv_port, id);
 		macherr(r, "kmod_destroy failed");
-		exit(KMOD_ERROR_INTERNAL);
 	}
 
-	v_printf("%s: kmod id %d successfully started.\n", progname, id);
+	v_printf("kmod id %d successfully started.", id);
 }
 
-void
-kld_error_vprintf(const char *format, va_list ap){
-    vfprintf(stderr, format, ap);
-    return;
+static void e_printf(const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	kld_error_vprintf(fmt, ap);
+	va_end(ap);
+}
+
+static void v_printf(const char *fmt, ...)
+{
+	va_list ap;
+	char msg[1024];
+
+	if (!verbose) return;
+
+	va_start(ap, fmt);
+	vsnprintf(msg, sizeof(msg), fmt, ap);
+	va_end(ap);
+
+	printf("%s: %s\n", progname, msg);
+}
+
+static void abort_load(int exitcode, const char *fmt, ...)
+{
+	if (fmt) {
+		va_list ap;
+	
+		va_start(ap, fmt);
+		kld_error_vprintf(fmt, ap);
+		va_end(ap);
+	}
+
+	if (!faked_kernel_load_address
+	&& (kernel_alloc_address || kernel_alloc_size)) {	
+		int r;
+
+		v_printf("freeing %ld bytes in kernel space at 0x%x",
+					kernel_alloc_size, kernel_alloc_address);
+		r = vm_deallocate(kernel_port, kernel_alloc_address, kernel_alloc_size);
+		machwarn(r, "unable to cleanup kernel memory");
+	}
+
+	exit(exitcode);
+}
+
+__private_extern__ void
+kld_error_vprintf(const char *fmt, va_list ap)
+{
+    char msg[1024];
+
+    vsnprintf(msg, sizeof(msg), fmt, ap);
+    fprintf(stderr, "%s: %s", progname, msg);
+
+    fflush(stderr);
 }

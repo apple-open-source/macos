@@ -105,11 +105,7 @@
 after_install:
 	$(RM) -rf $(INSTALLED_PRODUCTS)
 
-ipconfig_before_installhdrs:
-	$(MKDIRS) $(DSTROOT)$(PRIVATE_HDR_INSTALLDIR)
-	install -c -m 644 ipconfig.defs $(DSTROOT)$(PRIVATE_HDR_INSTALLDIR)
-	install -c -m 644 ipconfig_types.h $(DSTROOT)$(PRIVATE_HDR_INSTALLDIR)
-	install -c -m 644 ipconfig_ext.h $(DSTROOT)$(PRIVATE_HDR_INSTALLDIR)
+ipconfig_before_installhdrs: $(OFILE_DIR)
 
 gen: genoptionfiles
 	rm -f gen_dhcp*.h
@@ -131,8 +127,14 @@ afpusers:
 readtest:
 	cc -g -o readtest -DREAD_TEST NICache.c dynarray.c ptrlist.c netinfo.c host_identifier.c util.c NIDomain.c
 
+arp: arp.c arp.h
+	cc -g -o arp -DMAIN arp.c
+
 nihosts:
 	cc -g -o nihosts -DTEST_NIHOSTS NIHosts.m util.c NIDomain.c dynarray.c ptrlist.c netinfo.c host_identifier.c
 
 interfaces:
-	cc -o interfaces -DTEST_INTERFACES interfaces.c ptrlist.c dynarray.c
+	cc -g -o interfaces -DTEST_INTERFACES interfaces.c ptrlist.c dynarray.c
+
+dhcpopt: dhcp_options.c
+	cc -g -DTEST_DHCP_OPTIONS -o dhcpopt dhcp_options.c ptrlist.c util.c

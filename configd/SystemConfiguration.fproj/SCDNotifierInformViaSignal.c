@@ -20,64 +20,74 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * Modification History
+ *
+ * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * - public API conversion
+ *
+ * March 31, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
 #include <mach/mach.h>
 #include <mach/mach_error.h>
 
-#include <SystemConfiguration/SCD.h>
+#include <SystemConfiguration/SystemConfiguration.h>
+#include <SystemConfiguration/SCPrivate.h>
+#include "SCDynamicStoreInternal.h"
 #include "config.h"		/* MiG generated file */
-#include "SCDPrivate.h"
 
-
-SCDStatus
-SCDNotifierInformViaSignal(SCDSessionRef session, pid_t pid, int sig)
+Boolean
+SCDynamicStoreNotifySignal(SCDynamicStoreRef store, pid_t pid, int sig)
 {
-	SCDSessionPrivateRef	sessionPrivate = (SCDSessionPrivateRef)session;
+	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
+	kern_return_t			status;
+	int				sc_status;
+	task_t				task;
 
-	kern_return_t	status;
-	SCDStatus	scd_status;
-	task_t		task;
+	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCDynamicStoreNotifySignal:"));
+	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  pid = %d"), pid);
+	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  sig = %d"), sig);
 
-	SCDLog(LOG_DEBUG, CFSTR("SCDNotifierInformViaSignal:"));
-	SCDLog(LOG_DEBUG, CFSTR("  pid = %d"), pid);
-	SCDLog(LOG_DEBUG, CFSTR("  sig = %d"), sig);
-
-	if ((session == NULL) || (sessionPrivate->server == MACH_PORT_NULL)) {
-		return SCD_NOSESSION;	/* you must have an open session to play */
+	if (!store) {
+		/* sorry, you must provide a session */
+		_SCErrorSet(kSCStatusNoStoreSession);
+		return FALSE;
 	}
 
-	if (SCDOptionGet(NULL, kSCDOptionIsServer)) {
-		/* sorry, neither the server nor any plug-ins can "wait" */
-		return SCD_FAILED;
+	if (storePrivate->server == MACH_PORT_NULL) {
+		/* sorry, you must have an open session to play */
+		_SCErrorSet(kSCStatusNoStoreServer);
+		return FALSE;
 	}
 
-	if (sessionPrivate->notifyStatus != NotifierNotRegistered) {
+	if (storePrivate->notifyStatus != NotifierNotRegistered) {
 		/* sorry, you can only have one notification registered at once */
-		return SCD_NOTIFIERACTIVE;
-	}
-
-	if ((sig <= 0) || (sig > NSIG)) {
-		/* sorry, you must specify a valid signal */
-		return SCD_INVALIDARGUMENT;
+		_SCErrorSet(kSCStatusNotifierActive);
+		return FALSE;
 	}
 
 	status = task_for_pid(mach_task_self(), pid, &task);
 	if (status != KERN_SUCCESS) {
-		SCDLog(LOG_DEBUG, CFSTR("task_for_pid(): %s"), mach_error_string(status));
-		return SCD_FAILED;
+		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("task_for_pid(): %s"), mach_error_string(status));
+		_SCErrorSet(status);
+		return FALSE;
 	}
 
-	status = notifyviasignal(sessionPrivate->server, task, sig, (int *)&scd_status);
+	status = notifyviasignal(storePrivate->server, task, sig, (int *)&sc_status);
 
 	if (status != KERN_SUCCESS) {
 		if (status != MACH_SEND_INVALID_DEST)
-			SCDLog(LOG_DEBUG, CFSTR("notifyviasignal(): %s"), mach_error_string(status));
-		(void) mach_port_destroy(mach_task_self(), sessionPrivate->server);
-		sessionPrivate->server = MACH_PORT_NULL;
-		return SCD_NOSERVER;
+			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("notifyviasignal(): %s"), mach_error_string(status));
+		(void) mach_port_destroy(mach_task_self(), storePrivate->server);
+		storePrivate->server = MACH_PORT_NULL;
+		_SCErrorSet(status);
+		return FALSE;
 	}
 
 	/* set notifier active */
-	sessionPrivate->notifyStatus = Using_NotifierInformViaSignal;
+	storePrivate->notifyStatus = Using_NotifierInformViaSignal;
 
-	return scd_status;
+	return TRUE;
 }

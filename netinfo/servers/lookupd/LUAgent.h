@@ -49,6 +49,9 @@
 @interface LUAgent : Root
 {
 	BOOL didInit;
+	unsigned long generation;
+	char *serviceName;
+	LUArray *configurationArray;
 }
 
 + (const char *)categoryName:(LUCategory)cat;
@@ -58,6 +61,8 @@
 + (char **)variationsOfEthernetAddress:(char *)addr;
 + (char *)canonicalEthernetAddress:(char *)addr;
 
+- (LUAgent *)initWithArg:(char *)arg;
+
 - (void)mergeNetgroup:(LUDictionary *)b into:(LUDictionary *)a;
 
 - (const char *)serviceName;
@@ -66,7 +71,10 @@
 - (LUDictionary *)statistics;
 - (void)resetStatistics;
 
+- (BOOL)isStale;
+
 - (BOOL)isValid:(LUDictionary *)item;
+- (BOOL)isArrayValid:(LUArray *)array;
 
 - (LUDictionary *)serviceWithName:(char *)name
 	protocol:(char *)prot;
@@ -80,16 +88,13 @@
 
 - (LUArray *)allGroupsWithUser:(char *)name;
 
-- (LUDictionary *)hostsWithService:(char *)name protocol:(char *)protocol;
-
 - (LUDictionary *)itemWithKey:(char *)key
 	value:(char *)val
 	category:(LUCategory)cat;
 
-- (LUArray *)allItemsWithCategory:(LUCategory)cat;
-
 - (LUArray *)query:(LUDictionary *)pattern;
 - (LUArray *)query:(LUDictionary *)pattern category:(LUCategory)cat;
 
-@end
+- (LUArray *)allItemsWithCategory:(LUCategory)cat;
 
+@end

@@ -27,7 +27,8 @@
 #endif /* NET_SECURITY */
 
 #include "fetchmail.h"
-
+#include "i18n.h"
+  
 /* parser reads these */
 char *rcfile;			/* path name of rc file */
 struct query cmd_opts;		/* where to put command-line info */
@@ -58,18 +59,23 @@ extern char * yytext;
 }
 
 %token DEFAULTS POLL SKIP VIA AKA LOCALDOMAINS PROTOCOL
-%token PREAUTHENTICATE TIMEOUT KPOP SDPS KERBEROS4 KERBEROS5 KERBEROS
-%token ENVELOPE QVIRTUAL USERNAME PASSWORD FOLDER SMTPHOST MDA BSMTP LMTP
-%token SMTPADDRESS SPAMRESPONSE PRECONNECT POSTCONNECT LIMIT WARNINGS
+%token AUTHENTICATE TIMEOUT KPOP SDPS ENVELOPE QVIRTUAL
+%token USERNAME PASSWORD FOLDER SMTPHOST FETCHDOMAINS MDA BSMTP LMTP
+%token SMTPADDRESS SMTPNAME SPAMRESPONSE PRECONNECT POSTCONNECT LIMIT WARNINGS
 %token NETSEC INTERFACE MONITOR PLUGIN PLUGOUT
 %token IS HERE THERE TO MAP WILDCARD
 %token BATCHLIMIT FETCHLIMIT EXPUNGE PROPERTIES
-%token SET LOGFILE DAEMON SYSLOG IDFILE INVISIBLE POSTMASTER BOUNCEMAIL
-%token <proto> PROTO
+%token SET LOGFILE DAEMON SYSLOG IDFILE INVISIBLE POSTMASTER BOUNCEMAIL 
+%token SPAMBOUNCE SHOWDOTS
+%token <proto> PROTO AUTHTYPE
 %token <sval>  STRING
 %token <number> NUMBER
-%token NO KEEP FLUSH FETCHALL REWRITE FORCECR STRIPCR PASS8BITS DROPSTATUS
-%token DNS SERVICE PORT UIDL INTERVAL MIMEDECODE CHECKALIAS
+%token NO KEEP FLUSH FETCHALL REWRITE FORCECR STRIPCR PASS8BITS 
+%token DROPSTATUS DROPDELIVERED
+%token DNS SERVICE PORT UIDL INTERVAL MIMEDECODE IDLE CHECKALIAS 
+%token SSL SSLKEY SSLCERT SSLPROTO SSLCERTCK SSLCERTPATH SSLFINGERPRINT
+%token PRINCIPAL
+%token TRACEPOLLS
 
 %%
 
@@ -90,9 +96,15 @@ statement	: SET LOGFILE optmap STRING	{run.logfile = xstrdup($4);}
 		| SET POSTMASTER optmap STRING	{run.postmaster = xstrdup($4);}
 		| SET BOUNCEMAIL		{run.bouncemail = TRUE;}
 		| SET NO BOUNCEMAIL		{run.bouncemail = FALSE;}
+		| SET SPAMBOUNCE		{run.spambounce = TRUE;}
+		| SET NO SPAMBOUNCE		{run.spambounce = FALSE;}
 		| SET PROPERTIES optmap STRING	{run.properties =xstrdup($4);}
 		| SET SYSLOG			{run.use_syslog = TRUE;}
+		| SET NO SYSLOG			{run.use_syslog = FALSE;}
 		| SET INVISIBLE			{run.invisible = TRUE;}
+		| SET NO INVISIBLE		{run.invisible = FALSE;}
+		| SET SHOWDOTS			{run.showdots = TRUE;}
+		| SET NO SHOWDOTS		{run.showdots = FALSE;}
 
 /* 
  * The way the next two productions are written depends on the fact that
@@ -105,7 +117,7 @@ statement	: SET LOGFILE optmap STRING	{run.logfile = xstrdup($4);}
 
 /* detect and complain about the most common user error */
 		| define_server serverspecs userspecs serv_option
-			{yyerror("server option after user options");}
+			{yyerror(_("server option after user options"));}
 		;
 
 define_server	: POLL STRING		{reset_server($2, FALSE);}
@@ -132,24 +144,25 @@ serv_option	: AKA alias_list
 		| PROTOCOL KPOP		{
 					    current.server.protocol = P_POP3;
 
-					    if (current.server.preauthenticate == A_PASSWORD)
+					    if (current.server.authenticate == A_PASSWORD)
 #ifdef KERBEROS_V5
-						current.server.preauthenticate = A_KERBEROS_V5;
+						current.server.authenticate = A_KERBEROS_V5;
 #else
-		    				current.server.preauthenticate = A_KERBEROS_V4;
+		    				current.server.authenticate = A_KERBEROS_V4;
 #endif /* KERBEROS_V5 */
-#if INET6
+#if INET6_ENABLE
 					    current.server.service = KPOP_PORT;
-#else /* INET6 */
+#else /* INET6_ENABLE */
 					    current.server.port = KPOP_PORT;
-#endif /* INET6 */
+#endif /* INET6_ENABLE */
 					}
+		| PRINCIPAL STRING	{current.server.principal = xstrdup($2);}
 		| PROTOCOL SDPS		{
 #ifdef SDPS_ENABLE
 					    current.server.protocol = P_POP3;
 					    current.server.sdps = TRUE;
 #else
-					    yyerror("SDPS not enabled.");
+					    yyerror(_("SDPS not enabled."));
 #endif /* SDPS_ENABLE */
 					}
 		| UIDL			{current.server.uidl = FLAG_TRUE;}
@@ -157,28 +170,26 @@ serv_option	: AKA alias_list
 		| CHECKALIAS            {current.server.checkalias = FLAG_TRUE;}
 		| NO CHECKALIAS         {current.server.checkalias  = FLAG_FALSE;}
 		| SERVICE STRING	{
-#if INET6
+#if INET6_ENABLE
 					current.server.service = $2;
-#endif /* INET6 */
+#endif /* INET6_ENABLE */
 					}
 		| PORT NUMBER		{
-#if !INET6
-					current.server.port = $2;
-#endif /* !INET6 */
-					}
-		| INTERVAL NUMBER		{current.server.interval = $2;}
-		| PREAUTHENTICATE PASSWORD	{current.server.preauthenticate = A_PASSWORD;}
-		| PREAUTHENTICATE KERBEROS4	{current.server.preauthenticate = A_KERBEROS_V4;}
-                | PREAUTHENTICATE KERBEROS5 	{current.server.preauthenticate = A_KERBEROS_V5;}
-                | PREAUTHENTICATE KERBEROS         {
-#ifdef KERBEROS_V5
-		    current.server.preauthenticate = A_KERBEROS_V5;
+#if INET6_ENABLE
+					int port = $2;
+					char buf[10];
+					sprintf(buf, "%d", port);
+					current.server.service = xstrdup(buf);
 #else
-		    current.server.preauthenticate = A_KERBEROS_V4;
-#endif /* KERBEROS_V5 */
+					current.server.port = $2;
+#endif /* INET6_ENABLE */
 		}
-		| TIMEOUT NUMBER	{current.server.timeout = $2;}
-
+		| INTERVAL NUMBER
+			{current.server.interval = $2;}
+		| AUTHENTICATE AUTHTYPE
+			{current.server.authenticate = $2;}
+		| TIMEOUT NUMBER
+			{current.server.timeout = $2;}
 		| ENVELOPE NUMBER STRING 
 					{
 					    current.server.envelope = 
@@ -199,34 +210,36 @@ serv_option	: AKA alias_list
 					    int requestlen;
 
 		    			    if (net_security_strtorequest($2, &request, &requestlen))
-						yyerror("invalid security request");
+						yyerror(_("invalid security request"));
 					    else {
 						current.server.netsec = xstrdup($2);
 					        free(request);
 					    }
 #else
-					    yyerror("network-security support disabled");
+					    yyerror(_("network-security support disabled"));
 #endif /* NET_SECURITY */
 					}
 		| INTERFACE STRING	{
-#if (defined(linux) && !defined(INET6)) || defined(__FreeBSD__)
+#if (defined(linux) && !defined(INET6_ENABLE)) || defined(__FreeBSD__)
 					interface_parse($2, &current.server);
-#else /* (defined(linux) && !defined(INET6)) || defined(__FreeBSD__) */
-					fprintf(stderr, "fetchmail: interface option is only supported under Linux and FreeBSD\n");
-#endif /* (defined(linux) && !defined(INET6)) || defined(__FreeBSD__) */
+#else /* (defined(linux) && !defined(INET6_ENABLE)) || defined(__FreeBSD__) */
+					fprintf(stderr, _("fetchmail: interface option is only supported under Linux (without IPv6) and FreeBSD\n"));
+#endif /* (defined(linux) && !defined(INET6_ENABLE)) || defined(__FreeBSD__) */
 					}
 		| MONITOR STRING	{
-#if (defined(linux) && !defined(INET6)) || defined(__FreeBSD__)
+#if (defined(linux) && !defined(INET6_ENABLE)) || defined(__FreeBSD__)
 					current.server.monitor = xstrdup($2);
-#else /* (defined(linux) && !defined(INET6)) || defined(__FreeBSD__) */
-					fprintf(stderr, "fetchmail: monitor option is only supported under Linux\n");
-#endif /* (defined(linux) && !defined(INET6) || defined(__FreeBSD__)) */
+#else /* (defined(linux) && !defined(INET6_ENABLE)) || defined(__FreeBSD__) */
+					fprintf(stderr, _("fetchmail: monitor option is only supported under Linux (without IPv6) and FreeBSD\n"));
+#endif /* (defined(linux) && !defined(INET6_ENABLE) || defined(__FreeBSD__)) */
 					}
 		| PLUGIN STRING		{ current.server.plugin = xstrdup($2); }
 		| PLUGOUT STRING	{ current.server.plugout = xstrdup($2); }
 		| DNS			{current.server.dns = FLAG_TRUE;}
 		| NO DNS		{current.server.dns = FLAG_FALSE;}
 		| NO ENVELOPE		{current.server.envelope = STRING_DISABLED;}
+		| TRACEPOLLS		{current.tracepolls = FLAG_TRUE;}
+		| NO TRACEPOLLS		{current.tracepolls = FLAG_FALSE;}
 		;
 
 userspecs	: user1opts		{record_current(); user_reset();}
@@ -276,6 +289,10 @@ smtp_list	: STRING		{save_str(&current.smtphunt, $1,TRUE);}
 		| smtp_list STRING	{save_str(&current.smtphunt, $2,TRUE);}
 		;
 
+fetch_list	: STRING		{save_str(&current.domainlist, $1,TRUE);}
+		| fetch_list STRING	{save_str(&current.domainlist, $2,TRUE);}
+		;
+
 num_list	: NUMBER
 			{
 			    struct idlist *id;
@@ -299,7 +316,9 @@ user_option	: TO localnames HERE
 		| PASSWORD STRING	{current.password    = xstrdup($2);}
 		| FOLDER folder_list
 		| SMTPHOST smtp_list
+		| FETCHDOMAINS fetch_list
 		| SMTPADDRESS STRING	{current.smtpaddress = xstrdup($2);}
+		| SMTPNAME STRING	{current.smtpname = xstrdup($2);}
 		| SPAMRESPONSE num_list
 		| MDA STRING		{current.mda         = xstrdup($2);}
 		| BSMTP STRING		{current.bsmtp       = xstrdup($2);}
@@ -315,7 +334,17 @@ user_option	: TO localnames HERE
 		| STRIPCR		{current.stripcr     = FLAG_TRUE;}
 		| PASS8BITS		{current.pass8bits   = FLAG_TRUE;}
 		| DROPSTATUS		{current.dropstatus  = FLAG_TRUE;}
+                | DROPDELIVERED         {current.dropdelivered = FLAG_TRUE;}
 		| MIMEDECODE		{current.mimedecode  = FLAG_TRUE;}
+		| IDLE			{current.idle        = FLAG_TRUE;}
+
+		| SSL 	                {current.use_ssl = FLAG_TRUE;}
+		| SSLKEY STRING		{current.sslkey = xstrdup($2);}
+		| SSLCERT STRING	{current.sslcert = xstrdup($2);}
+		| SSLPROTO STRING	{current.sslproto = xstrdup($2);}
+		| SSLCERTCK             {current.sslcertck = FLAG_TRUE;}
+		| SSLCERTPATH STRING    {current.sslcertpath = xstrdup($2);}
+		| SSLFINGERPRINT STRING {current.sslfingerprint = xstrdup($2);}
 
 		| NO KEEP		{current.keep        = FLAG_FALSE;}
 		| NO FLUSH		{current.flush       = FLAG_FALSE;}
@@ -325,7 +354,11 @@ user_option	: TO localnames HERE
 		| NO STRIPCR		{current.stripcr     = FLAG_FALSE;}
 		| NO PASS8BITS		{current.pass8bits   = FLAG_FALSE;}
 		| NO DROPSTATUS		{current.dropstatus  = FLAG_FALSE;}
+                | NO DROPDELIVERED      {current.dropdelivered = FLAG_FALSE;}
 		| NO MIMEDECODE		{current.mimedecode  = FLAG_FALSE;}
+		| NO IDLE		{current.idle        = FLAG_FALSE;}
+
+		| NO SSL 	        {current.use_ssl = FLAG_FALSE;}
 
 		| LIMIT NUMBER		{current.limit       = NUM_VALUE_IN($2);}
 		| WARNINGS NUMBER	{current.warnings    = NUM_VALUE_IN($2);}
@@ -348,8 +381,8 @@ static struct query *hosttail;	/* where to add new elements */
 void yyerror (const char *s)
 /* report a syntax error */
 {
-    report_at_line(stderr, 0, rcfile, prc_lineno, "%s at %s", s, 
-		   (yytext && yytext[0]) ? yytext : "end of input");
+    report_at_line(stderr, 0, rcfile, prc_lineno, _("%s at %s"), s, 
+		   (yytext && yytext[0]) ? yytext : _("end of input"));
     prc_errflag++;
 }
 
@@ -382,20 +415,22 @@ int prc_filecheck(const char *pathname, const flag securecheck)
 	}
     }
 
-    if (!securecheck)	return 0;
+    if (!securecheck)	return PS_SUCCESS;
 
     if ((statbuf.st_mode & S_IFLNK) == S_IFLNK)
     {
-	fprintf(stderr, "File %s must not be a symbolic link.\n", pathname);
+	fprintf(stderr, _("File %s must not be a symbolic link.\n"), pathname);
 	return(PS_IOERR);
     }
 
+#ifndef __BEOS__
     if (statbuf.st_mode & ~(S_IFREG | S_IREAD | S_IWRITE | S_IEXEC | S_IXGRP))
     {
-	fprintf(stderr, "File %s must have no more than -rwx--x--- (0710) permissions.\n", 
+	fprintf(stderr, _("File %s must have no more than -rwx--x--- (0710) permissions.\n"), 
 		pathname);
 	return(PS_IOERR);
     }
+#endif /* __BEOS__ */
 
 #ifdef HAVE_GETEUID
     if (statbuf.st_uid != geteuid())
@@ -403,7 +438,7 @@ int prc_filecheck(const char *pathname, const flag securecheck)
     if (statbuf.st_uid != getuid())
 #endif /* HAVE_GETEUID */
     {
-	fprintf(stderr, "File %s must be owned by you.\n", pathname);
+	fprintf(stderr, _("File %s must be owned by you.\n"), pathname);
 	return(PS_IOERR);
     }
 #endif
@@ -422,7 +457,17 @@ int prc_parse_file (const char *pathname, const flag securecheck)
     if ( (prc_errflag = prc_filecheck(pathname, securecheck)) != 0 )
 	return(prc_errflag);
 
-    if (errno == ENOENT)
+    /*
+     * Croak if the configuration directory does not exist.
+     * This probably means an NFS mount failed and we can't
+     * see a configuration file that ought to be there.
+     * Question: is this a portable check? It's not clear
+     * that all implementations of lstat() will return ENOTDIR
+     * rather than plain ENOENT in this case...
+     */
+    if (errno == ENOTDIR)
+	return(PS_IOERR);
+    else if (errno == ENOENT)
 	return(PS_SUCCESS);
 
     /* Open the configuration file and feed it to the lexer. */
@@ -435,7 +480,7 @@ int prc_parse_file (const char *pathname, const flag securecheck)
 
     yyparse();		/* parse entire file */
 
-    fclose(yyin);
+    fclose(yyin);	/* not checking this should be safe, file mode was r */
 
     if (prc_errflag) 
 	return(PS_SYNTAX);
@@ -451,6 +496,7 @@ static void reset_server(const char *name, int skip)
     current.smtp_socket = -1;
     current.server.pollname = xstrdup(name);
     current.server.skip = skip;
+    current.server.principal = (char *)NULL;
 }
 
 

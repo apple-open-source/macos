@@ -15,7 +15,6 @@ ConsoleMessage "Configuring network"
 ##
 # Configure interfaces 
 ##
-ipconfigd 
 ipconfig waitall > /dev/null 2>&1
 ifconfig lo0 127.0.0.1 netmask 255.0.0.0 up
 
@@ -24,20 +23,17 @@ ifconfig lo0 127.0.0.1 netmask 255.0.0.0 up
 ##
 CheckForNetwork
 
-##
-# Configure global network settings
-##
-
 # Set HOSTNAME if needed
 if [ "${HOSTNAME:=-AUTOMATIC-}" = "-AUTOMATIC-" ]; then
     HOSTNAME=$(ipconfig getoption "" host_name)
-    if [ ! $? -eq 0 ]; then HOSTNAME="localhost"; fi
+    if [ $? -eq 0 ]; then 
+	hostname "${HOSTNAME}"
+    fi
 fi
 
-if [ -z "${HOSTNAME}" ]; then HOSTNAME=localhost; fi
-
-echo "Setting hostname: ${HOSTNAME}"
-hostname "${HOSTNAME}"
+##
+# Configure global network settings
+##
 
 if [ "${NETWORKUP:=-NO-}" = "-YES-" ]; then
 

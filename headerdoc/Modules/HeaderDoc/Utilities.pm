@@ -2,7 +2,7 @@
 # Utilities.pm
 # 
 # Common subroutines
-# Last Updated: 12/9/99
+# Last Updated: $Date: 2001/03/22 02:27:13 $
 # 
 # Copyright (c) 1999 Apple Computer, Inc.  All Rights Reserved.
 # The contents of this file constitute Original Code as defined in and are
@@ -27,17 +27,38 @@ use vars qw(@ISA @EXPORT $VERSION);
 use Carp;
 use Exporter;
 @ISA = qw(Exporter);
-@EXPORT = qw(findRelativePath safeName getAPINameAndDisc convertCharsForFileMaker printArray printHash);
+@EXPORT = qw(findRelativePath safeName getAPINameAndDisc convertCharsForFileMaker 
+			 printArray printHash updateHashFromConfigFiles getHashFromConfigFile);
 $VERSION = 1.00;
+
+########## Portability ##############################
+my $pathSeparator;
+my $isMacOS;
+BEGIN {
+	if ($^O =~ /MacOS/i) {
+		$pathSeparator = ":";
+		$isMacOS = 1;
+	} else {
+		$pathSeparator = "/";
+		$isMacOS = 0;
+	}
+}
 
 sub findRelativePath {
     my ($fromMe, $toMe) = @_;	
-	my @fromMeParts = split (/:/, $fromMe);
-	my @toMeParts = split (/:/, $toMe);
+	my @fromMeParts = split (/$pathSeparator/, $fromMe);
+	my @toMeParts = split (/$pathSeparator/, $toMe);
+	my $localDebug = 0;
+	
+	print "fromMe --> |$fromMe|\n" if $localDebug;
+	print "toMe --> |$toMe|\n" if $localDebug;
 	
 	# find number of identical parts
 	my $i = 0;
-	while ($fromMeParts[$i] eq $toMeParts[$i]) { $i++;};
+	while (($fromMeParts[$i] eq $toMeParts[$i]) && ($i < $#fromMeParts)) {
+	    print "$i\n" if $localDebug; 
+	    $i++;
+	}
 	@fromMeParts = splice (@fromMeParts, $i);
 	@toMeParts = splice (@toMeParts, $i);
     my $numFromMeParts = @fromMeParts; #number of unique elements left in fromMeParts
@@ -45,6 +66,7 @@ sub findRelativePath {
 	my $relPath = $relPart.join("/", @toMeParts);
 	return $relPath;
 }
+
 
 # this version of safeName doesn't guard against name collisions
 sub safeName {
@@ -79,6 +101,7 @@ sub getAPINameAndDisc {
     # first, get rid of leading space
     $line =~ s/^\s+//;
     ($name, $disc) = split (/\s/, $line, 2);
+    
     if ($name =~ /operator/) {  # this is for operator overloading in C++
         ($operator, $name, $disc) = split (/\s/, $line, 3);
         $name = $operator." ".$name;
@@ -88,11 +111,48 @@ sub getAPINameAndDisc {
 
 sub convertCharsForFileMaker {
     my $line = shift;
-    $line =~ s/\t//g;
-    $line =~ s/\n/¬/g;
+    $line =~ s/\t/chr(198)/eg;
+    $line =~ s/\n/chr(194)/eg;
     return $line;
 }
 
+sub updateHashFromConfigFiles {
+    my $configHashRef = shift;
+    my $fileArrayRef = shift;
+    
+    foreach my $file (@{$fileArrayRef}) {
+    	my %hash = &getHashFromConfigFile($file);
+    	%{$configHashRef} = (%{$configHashRef}, %hash); # updates configHash from hash
+    }
+    return %{$configHashRef};
+}
+
+sub getHashFromConfigFile {
+    my $configFile = shift;
+    my %hash;
+    my $localDebug = 0;
+    my @lines;
+    
+    if ((-e $configFile) && (-f $configFile)) {
+		open(INFILE, "<$configFile") || die "Can't open $configFile.\n";
+		@lines = <INFILE>;
+		close INFILE;
+    } else {
+        print "No configuration file found at $configFile\n" if ($localDebug);
+        return;
+    }
+    
+	foreach my $line (@lines) {
+	    if ($line =~/^#/) {next;};
+	    chomp $line;
+	    my ($key, $value) = split (/\s*=>\s*/, $line);
+	    if ((defined($key)) && (length($key))){
+		    $hash{$key} = $value;
+		}
+	}
+	undef @lines;
+	return %hash;
+}
 
 
 ############### Debugging Routines ########################

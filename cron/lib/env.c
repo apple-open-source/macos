@@ -17,7 +17,7 @@
 
 #if !defined(lint) && !defined(LINT)
 static const char rcsid[] =
-  "$FreeBSD: src/usr.sbin/cron/lib/env.c,v 1.7 1999/08/28 01:15:55 peter Exp $";
+  "$FreeBSD: src/usr.sbin/cron/lib/env.c,v 1.9 2000/04/30 15:57:00 ghelmer Exp $";
 #endif
 
 
@@ -27,7 +27,7 @@ static const char rcsid[] =
 char **
 env_init()
 {
-	register char	**p = (char **) malloc(sizeof(char **));
+	register char	**p = (char **) malloc(sizeof(char *));
 
 	if (p)
 		p[0] = NULL;
@@ -41,8 +41,9 @@ env_free(envp)
 {
 	char	**p;
 
-	for (p = envp;  *p;  p++)
-		free(*p);
+	if ((p = envp))
+		for (;  *p;  p++)
+			free(*p);
 	free(envp);
 }
 
@@ -56,7 +57,7 @@ env_copy(envp)
 
 	for (count = 0;  envp[count] != NULL;  count++)
 		;
-	p = (char **) malloc((count+1) * sizeof(char *));  /* 1 for the NULL */
+	p = (char **) malloc((count+1) * sizeof(char *)); /* 1 for the NULL */
 	if (p == NULL) {
 		errno = ENOMEM;
 		return NULL;
@@ -81,6 +82,7 @@ env_set(envp, envstr)
 {
 	register int	count, found;
 	register char	**p;
+	char		*q;
 
 	/*
 	 * count the number of elements, including the null pointer;
@@ -98,12 +100,14 @@ env_set(envp, envstr)
 		 * it exists already, so just free the existing setting,
 		 * save our new one there, and return the existing array.
 		 */
-		free(envp[found]);
+		q = envp[found];
 		if ((envp[found] = strdup(envstr)) == NULL) {
-			envp[found] = "";
+			envp[found] = q;
+			/* XXX env_free(envp); */
 			errno = ENOMEM;
 			return NULL;
 		}
+		free(q);
 		return (envp);
 	}
 
@@ -113,13 +117,15 @@ env_set(envp, envstr)
 	 * array.
 	 */
 	p = (char **) realloc((void *) envp,
-			      (unsigned) ((count+1) * sizeof(char **)));
+			      (unsigned) ((count+1) * sizeof(char *)));
 	if (p == NULL) 	{
+		/* XXX env_free(envp); */
 		errno = ENOMEM;
 		return NULL;
 	}
 	p[count] = p[count-1];
 	if ((p[count-1] = strdup(envstr)) == NULL) {
+		env_free(p);
 		errno = ENOMEM;
 		return NULL;
 	}

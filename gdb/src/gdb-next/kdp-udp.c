@@ -259,26 +259,31 @@ static kdp_return_t kdp_bind_remote
   /* Set up a sockaddr_in for target host and connect to the target. */
 
   host = gethostbyname ((char *) target);
-  if (host != NULL) {
-    c->target_sin.sin_family = host->h_addrtype;
-    c->target_sin.sin_port = htons (port);
-    memcpy (&c->target_sin.sin_addr, host->h_addr, host->h_length);
-
-    c->port = port;
-    c->bound = 1;
-    return RR_SUCCESS;
-  }
-
-  ret = inet_aton (target, &addr);
-  if (ret == 0) {
-    c->target_sin.sin_family = 2;
-    c->target_sin.sin_port = htons (port);
-    memcpy (&c->target_sin.sin_addr, &addr, sizeof (struct in_addr));
-
-    c->port = port;
-    c->bound = 1;
-    return RR_SUCCESS;
-  }    
+  if (host == NULL)
+    {
+      ret = inet_aton (target, &addr);
+      if (ret == 1)
+	host = gethostbyaddr ((char *) &addr, 4, AF_INET);
+    }
+  if (host != NULL)
+    {
+      c->target_sin.sin_family = host->h_addrtype;
+      c->target_sin.sin_port = htons (port);
+      memcpy (&c->target_sin.sin_addr, host->h_addr, host->h_length);
+      
+      c->port = port;
+      c->bound = 1;
+      return RR_SUCCESS;
+    }
+  if (ret == 1) 
+    {
+      c->target_sin.sin_family = AF_INET;
+      c->target_sin.sin_port = htons (port);
+      memcpy (&c->target_sin.sin_addr, &addr, sizeof (struct in_addr));
+      c->port = port;
+      c->bound = 1;
+      return RR_SUCCESS;
+    }    
 
   c->logger (KDP_LOG_ERROR, "kdp_bind_remote: unable to resolve host \"%s\"\n", target);
   return RR_LOOKUP;

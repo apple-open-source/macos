@@ -12,7 +12,14 @@
             RBool.m
         ); 
         English_INTERFACES = (IORegistryExplorer.nib); 
-        FRAMEWORKS = (AppKit.framework, Foundation.framework, IOKit.framework, System.framework); 
+        English_OTHER_RESOURCES = (Localizable.strings); 
+        FRAMEWORKS = (
+            AppKit.framework, 
+            CoreFoundation.framework, 
+            Foundation.framework, 
+            IOKit.framework, 
+            System.framework
+        ); 
         FRAMEWORKSEARCH = (); 
         H_FILES = (
             RExplorer.h, 
@@ -24,6 +31,7 @@
         ); 
         IMAGES = (IORE.tiff); 
         INTERFACES = (); 
+        OTHER_LIBS = (objc.A); 
         OTHER_LINKED = (IORegistryExplorer_main.m); 
         OTHER_RESOURCES = (IORE.icns); 
         OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble, CustomInfo.plist); 
@@ -32,10 +40,11 @@
     LANGUAGE = English; 
     MAKEFILEDIR = "$(MAKEFILEPATH)/pb_makefiles"; 
     NEXTSTEP_APPICON = IORE.tiff; 
-    NEXTSTEP_BUILDTOOL = /bin/gnumake; 
+    NEXTSTEP_BUILDTOOL = /usr/bin/gnumake; 
     NEXTSTEP_DOCUMENTEXTENSIONS = (); 
     NEXTSTEP_INSTALLDIR = "$(SYSTEM_DEVELOPER_APPS_DIR)"; 
     NEXTSTEP_JAVA_COMPILER = /usr/bin/javac; 
+    NEXTSTEP_LINKEROPTIONS = "-twolevel_namespace"; 
     NEXTSTEP_MAINNIB = IORegistryExplorer.nib; 
     NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc; 
     PDO_UNIX_BUILDTOOL = $NEXT_ROOT/Developer/bin/make; 

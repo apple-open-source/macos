@@ -63,7 +63,7 @@ __BEGIN_DECLS
 #define kIOHIDElementIsRelativeKey          "IsRelative"
 #define kIOHIDElementIsWrappingKey          "IsWrapping"
 #define kIOHIDElementIsNonLinearKey         "IsNonLinear"
-#define kIOHIDElementHasPreferedStateKey    "HasPreferredState"
+#define kIOHIDElementHasPreferredStateKey   "HasPreferredState"
 #define kIOHIDElementHasNullStateKey        "HasNullState"
 #define kIOHIDElementVendorSpecificKey      "VendorSpecifc"
 #define kIOHIDElementUnitKey                "Unit"

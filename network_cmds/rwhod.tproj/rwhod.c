@@ -75,6 +75,7 @@ static char sccsid[] = "@(#)rwhod.c	8.1 (Berkeley) 6/6/93";
 #include <net/if_dl.h>
 #include <net/route.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 #include <protocols/rwhod.h>
 
 #include <ctype.h>
@@ -207,17 +208,23 @@ main(argc, argv)
 			continue;
 		}
 		if (from.sin_port != sp->s_port) {
-			syslog(LOG_WARNING, "%d: bad from port",
-				ntohs(from.sin_port));
+                       syslog(LOG_WARNING, "%d: bad source port from %s",
+                           ntohs(from.sin_port), inet_ntoa(from.sin_addr));
 			continue;
 		}
+                if (cc < WHDRSIZE) {
+                       syslog(LOG_WARNING, "short packet from %s",
+                           inet_ntoa(from.sin_addr));
+                       continue;
+                }
+
 		if (wd.wd_vers != WHODVERSION)
 			continue;
 		if (wd.wd_type != WHODTYPE_STATUS)
 			continue;
 		if (!verify(wd.wd_hostname)) {
-			syslog(LOG_WARNING, "malformed host name from %x",
-				from.sin_addr);
+                       syslog(LOG_WARNING, "malformed host name from %s",
+                           inet_ntoa(from.sin_addr));
 			continue;
 		}
 		(void) sprintf(path, "whod.%s", wd.wd_hostname);

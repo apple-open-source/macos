@@ -4,13 +4,18 @@
 	../error.c \
 	../etrn.c \
 	../fetchmail.c \
+	../fetchmail.h \
 	../getpass.c \
+	../idle.c \
 	../imap.c \
 	../interface.c \
 	../netrc.c \
 	../options.c \
 	../pop3.c \
+	../rcfile_y.c \
+	../rfc822.c \
 	../rpa.c \
 	../sink.c \
 	../socket.c \
+	../uid.c \
 	../xmalloc.c

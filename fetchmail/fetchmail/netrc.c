@@ -114,10 +114,12 @@ parse_netrc (file)
 
 	/* If the line is empty... */
 	if (!*p)
+	{
 	    if (last_token == tok_macdef)	/* end of macro */
 		last_token = tok_nothing;
 	    else
 		continue;			/* otherwise ignore it */
+	}
 
 	/* If we are defining macros, then skip parsing the line. */
 	while (*p && last_token != tok_macdef)

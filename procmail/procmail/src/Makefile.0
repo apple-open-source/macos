@@ -1,9 +1,11 @@
-#$Id: Makefile.0,v 1.1.1.1 1999/09/23 17:30:07 wsanchez Exp $
+#$Id: Makefile.0,v 1.1.1.2 2001/07/20 19:38:18 bbraun Exp $
 
 PM_OBJ=cstdio.$(O) common.$(O) exopen.$(O) goodies.$(O) locking.$(O) \
- mailfold.$(O) misc.$(O) pipes.$(O) regexp.$(O) robust.$(O) sublib.$(O) \
- acommon.$(O) mcommon.$(O) lastdirsep.$(O) authenticate.$(O)
-LF_OBJ=exopen.$(O) sublib.$(O) acommon.$(O) mcommon.$(O) authenticate.$(O)
+ mailfold.$(O) foldinfo.$(O) misc.$(O) pipes.$(O) regexp.$(O) robust.$(O) \
+ sublib.$(O) acommon.$(O) mcommon.$(O) lastdirsep.$(O) authenticate.$(O) \
+ lmtp.$(O) memblk.$(O) variables.$(O) from.$(O) comsat.$(O)
+LF_OBJ=exopen.$(O) sublib.$(O) acommon.$(O) mcommon.$(O) authenticate.$(O) \
+ lastdirsep.$(O)
 FM_OBJ=common.$(O) fields.$(O) formisc.$(O) sublib.$(O) ecommon.$(O) \
  acommon.$(O)
 MG_OBJ=sublib.$(O) ecommon.$(O) mcommon.$(O) hsort.$(O) lastdirsep.$(O)
@@ -17,12 +19,15 @@ make:							# fake target
 
 procmail: procmail.$(O) $(PM_OBJ) setid
 	$(CC) $(CFLAGS) $@.$(O) $(PM_OBJ) -o $@ $(LDFLAGS)
+	@test -z "$(STRIP)" || ( echo $(STRIP) $@; $(STRIP) $@ )
 
 lockfile: lockfile.$(O) $(LF_OBJ)
 	$(CC) $(CFLAGS) $@.$(O) $(LF_OBJ) -o $@ $(LDFLAGS)
+	@test -z "$(STRIP)" || ( echo $(STRIP) $@; $(STRIP) $@ )
 
 formail: formail.$(O) $(FM_OBJ)
 	$(CC) $(CFLAGS) $@.$(O) $(FM_OBJ) -o $@ $(LDFLAGS)
+	@test -z "$(STRIP)" || ( echo $(STRIP) $@; $(STRIP) $@ )
 
 mailstat: ../examples/mailstat
 	cp ../examples/$@ $@
@@ -60,8 +65,11 @@ authenticate.$(O): misc.h authenticate.h authenticate.c
 common.$(O): ../autoconf.h ../config.h includes.h procmail.h sublib.h robust.h
 common.$(O): shell.h misc.h common.h
 
+comsat.$(O): ../autoconf.h ../config.h includes.h procmail.h sublib.h robust.h
+comsat.$(O): shell.h common.h mailfold.h variables.h comsat.h network.h
+
 cstdio.$(O): ../autoconf.h ../config.h includes.h procmail.h robust.h cstdio.h
-cstdio.$(O):  misc.h
+cstdio.$(O):  misc.h shell.h variables.h
 
 ecommon.$(O): ../autoconf.h ../config.h includes.h ecommon.h common.h shell.h
 
@@ -71,6 +79,9 @@ exopen.$(O): misc.h exopen.h
 fields.$(O): ../autoconf.h ../config.h includes.h formail.h sublib.h shell.h
 fields.$(O): common.h fields.h ecommon.h formisc.h
 
+foldinfo.$(O): ../autoconf.h ../config.h includes.h procmail.h misc.h
+foldinfo.$(O): lastdirsep.h robust.h exopen.h foldinfo.h
+
 formail.$(O): ../autoconf.h ../config.h includes.h formail.h acommon.h sublib.h
 formail.$(O): shell.h common.h fields.h ecommon.h formisc.h header.h
 formail.$(O): ../patchlevel.h
@@ -79,11 +90,15 @@ formisc.$(O): ../autoconf.h ../config.h includes.h formail.h sublib.h shell.h
 formisc.$(O): common.h ecommon.h formisc.h
 
 goodies.$(O): ../autoconf.h ../config.h includes.h procmail.h sublib.h robust.h
-goodies.$(O): shell.h misc.h pipes.h common.h cstdio.h goodies.h
+goodies.$(O): shell.h misc.h pipes.h common.h cstdio.h variables.h goodies.h
 
 hsort.$(O): ../autoconf.h ../config.h includes.h hsort.h
 
 lastdirsep.$(O): ../autoconf.h ../config.h includes.h lastdirsep.h
+
+lmtp.$(O): ../autoconf.h ../config.h includes.h procmail.h sublib.h robust.h
+lmtp.$(O): shell.h misc.h common.h authenticate.h cstdio.h
+lmtp.$(O): mailfold.h lmtp.h memblk.h foldinfo.h from.h
 
 lockfile.$(O): ../autoconf.h ../config.h includes.h sublib.h exopen.h mcommon.h
 lockfile.$(O): authenticate.h ../patchlevel.h
@@ -93,34 +108,44 @@ locking.$(O): misc.h pipes.h exopen.h locking.h lastdirsep.h
 
 mailfold.$(O): ../autoconf.h ../config.h includes.h procmail.h acommon.h
 mailfold.$(O): sublib.h robust.h shell.h misc.h pipes.h common.h exopen.h
-mailfold.$(O): goodies.h locking.h mailfold.h
+mailfold.$(O): variables.h locking.h mailfold.h memblk.h from.h
 
 mcommon.$(O): ../autoconf.h ../config.h includes.h mcommon.h
 
-misc.$(O): ../autoconf.h ../config.h ../patchlevel.h includes.h procmail.h
+memblk.$(O): ../autoconf.h ../config.h includes.h procmail.h shell.h
+memblk.$(O): exopen.h memblk.h
+
+misc.$(O): ../autoconf.h ../config.h includes.h procmail.h
 misc.$(O): acommon.h sublib.h robust.h shell.h misc.h pipes.h common.h cstdio.h
-misc.$(O): exopen.h regexp.h mcommon.h goodies.h locking.h network.h mailfold.h
-misc.$(O): lastdirsep.h authenticate.h
+misc.$(O): exopen.h regexp.h mcommon.h goodies.h locking.h comsat.h mailfold.h
+misc.$(O): lastdirsep.h authenticate.h memblk.h foldinfo.h variables.h
 
 multigram.$(O): ../autoconf.h ../config.h includes.h sublib.h hsort.h shell.h
 multigram.$(O): ecommon.h mcommon.h lastdirsep.h targetdir.h
 
 pipes.$(O): ../autoconf.h ../config.h includes.h procmail.h robust.h shell.h
-pipes.$(O): misc.h pipes.h common.h cstdio.h exopen.h mcommon.h goodies.h
+pipes.$(O): misc.h pipes.h common.h cstdio.h mcommon.h variables.h memblk.h
 pipes.$(O): mailfold.h
 
 procmail.$(O): ../patchlevel.h ../autoconf.h ../config.h includes.h procmail.h
 procmail.$(O): acommon.h sublib.h robust.h shell.h misc.h pipes.h common.h
 procmail.$(O): cstdio.h exopen.h regexp.h mcommon.h goodies.h locking.h
-procmail.$(O): mailfold.h lastdirsep.h authenticate.h
+procmail.$(O): mailfold.h lastdirsep.h authenticate.h lmtp.h memblk.h
+procmail.$(O): variables.h comsat.h from.h
 
 regexp.$(O): ../autoconf.h ../config.h includes.h procmail.h sublib.h robust.h
-regexp.$(O): shell.h misc.h regexp.h goodies.h
+regexp.$(O): shell.h misc.h regexp.h variables.h
 
 robust.$(O): ../autoconf.h ../config.h includes.h procmail.h robust.h shell.h
 robust.$(O): misc.h pipes.h common.h mailfold.h shell.h
 
 sublib.$(O): ../autoconf.h ../config.h includes.h sublib.h shell.h
+
+variables.$(O): ../autoconf.h ../config.h includes.h procmail.h shell.h
+variables.$(O): authenticate.h goodies.h misc.h comsat.h variables.h
+
+from.$(O): ../autoconf.h ../config.h includes.h procmail.h robust.h shell.h
+from.$(O): memblk.h from.h
 
 gethome.$(O) setid.$(O) recommend.$(O): ../autoconf.h ../config.h includes.h
 
@@ -149,9 +174,9 @@ recommend: recommend.$(O) sublib.$(O)
 	@$(CC) $(CFLAGS) $@.$(O) sublib.$(O) -o $@ $(LDFLAGS)
 
 ../man/man.sed: manconf.c ../autoconf.h ../config.h includes.h procmail.h
-../man/man.sed: ../patchlevel.h lastdirsep.h lastdirsep.$(O)
+../man/man.sed: ../patchlevel.h
 	@$(CC) $(CFLAGS) "-DBINDIR=\"$(VISIBLE_BINDIR)\"" -o _autotst \
- manconf.c lastdirsep.$(O) $(LDFLAGS)
+ manconf.c $(LDFLAGS)
 	@./_autotst $@
 	@echo Housekeeping file >$@
 	@$(RM) _autotst

@@ -263,6 +263,12 @@ nifty_print_dsrecord(dsrecord *r, FILE *f, u_int32_t detail)
 			fprintf(f, "\n");
 		}
 	}
+
+	if (r->next != NULL)
+	{
+		fprintf(f, "\n");
+		nifty_print_dsrecord(r->next, f, detail);
+	}
 }
 
 dsstatus
@@ -284,8 +290,15 @@ nifty_pathcreate(char *s, u_int32_t *dsid)
 {
 	dsstatus status;
 	dsrecord *r;
+	u_int32_t i, numeric;
 
-	if ((s[0] >= '0') && (s[0] <= '9'))
+	numeric = 1;
+	for (i = 0; (numeric == 1) && (s[i] != '\0'); i++)
+	{
+		if ((s[i] < '0') || (s[i] > '9')) numeric = 0;
+	}
+
+	if (numeric == 1)
 	{
 		*dsid = atoi(s);
 		if ((*dsid == 0) && (strcmp(s, "0"))) return DSStatusInvalidRecordID;

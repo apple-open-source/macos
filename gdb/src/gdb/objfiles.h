@@ -243,6 +243,10 @@ struct objfile
 
     unsigned short flags;
 
+    /* Controls level of detail of symbols loaded for this objfile. */
+
+    unsigned short symflags;
+
     /* Each objfile points to a linked list of symtabs derived from this file,
        one symtab structure for each compilation unit (source file).  Each link
        in the symtab list contains a backpointer to this objfile. */
@@ -467,6 +471,14 @@ struct objfile
 
 #define OBJF_USERLOADED	(1 << 5)	/* User loaded */
 
+#define OBJF_SYM_NONE 0
+#define OBJF_SYM_CONTAINER (1 << 0)
+#define OBJF_SYM_EXTERN (1 << 1)
+#define OBJF_SYM_TRACEBACK (1 << 2)
+#define OBJF_SYM_LOCAL (1 << 3)
+#define OBJF_SYM_DEBUG (1 << 4)
+#define OBJF_SYM_ALL (0xff)
+
 /* The object file that the main symbol table was loaded from (e.g. the
    argument to the "symbol-file" or "file" command).  */
 
@@ -499,7 +511,7 @@ extern struct objfile *object_files;
 
 /* Declarations for functions defined in objfiles.c */
 
-extern struct objfile *allocate_objfile (bfd *, int, CORE_ADDR);
+extern struct objfile *allocate_objfile (bfd *, int, int, CORE_ADDR);
 
 extern int build_objfile_section_table (struct objfile *);
 

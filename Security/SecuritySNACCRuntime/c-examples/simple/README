@@ -1,0 +1,134 @@
+(RCS control information is at the end of this file.)
+
+
+C Simple Example README
+-----------------------
+
+This directory should have 8 files in it:
+
+README       - this file
+genber.c     - C source code for a program that creates and encodes
+               a PersonnelRecord value to a file.
+expbuf_ex.c  - C source code for a program that calls the generated
+               PersonnelRecord encoder and decoder routines
+               using the ExpBuf buffer type
+minbuf_ex.c  - C source code for program that calls the generated
+               PersonnelRecord encoder and decoder routines
+               using the MinBuf buffer type
+sbuf_ex.c    - C source code for a program that calls the generated
+               PersonnelRecord encoder and decoder routines
+               using the MinBuf buffer type
+makefile     - compiles the example programs
+good_pr.ber  - BER encoding of a Personnel Record (all definite lengths)
+
+
+
+Type "make" to generate the 7 example programs:
+        genber
+        expbuf_def
+        expbuf_indef
+        minbuf_def
+        minbuf_indef
+        sbuf_def
+        sbuf_indef
+
+
+snacc is called from the makefile on snacc/asn1specs/p_rec.asn1 to
+generate the following files:
+
+p_rec.h  - C data structs for PersonnelRecord and prototypes for
+           the generated encode, decode, print and free routines.
+p_rec.c  - C source code for the PersonnelRecord encode, decode,
+           print, and free routines.
+
+These source files are then compiled with *_ex.c and genber.c files to
+make 7 programs.  Each program takes 1 argument (except genber), the
+name of a file containing an BER encoded PersonnelRecord value.
+
+
+Try the following: (or use the makefile's `check' phony target)
+
+eg% ./genber				# create a file called pr.ber
+eg% ./sbuf_indef good_pr.ber > indef_pr.ber
+eg% ./sbuf_def indef_pr.ber > def_pr.ber
+eg% diff good_pr.ber def_pr.ber		# should be no differences
+
+
+The above commands decode the BER value in "good_pr.ber" and
+indef_pr.ber respectively and then re-encode then to stdout.
+Both programs will decode any valid BER representation of a
+PersonnelRecord value but, the sbuf_def program will re-encode the
+given data using only the definite length BER format and the
+sbuf_indef program will re-encode the given data using only the
+indefinite length BER format.
+
+Compare the lengths of the def_pr.ber and indef_pr.ber files,
+indefinite length encodings are usually larger.
+
+
+
+Things to Note
+--------------
+
+
+Look at genber.c to see how to build a C value and then encode it.
+look at the *_ex.c files to see the different types of buffer
+manipulation.  Read the comments in the code.
+
+It should be relatively simple to change the memory and buffer
+management to fit your target environment.
+(see snacc/c_include/asn_config.h.)
+
+
+Snacc ASN.1 comment commands
+
+Notice the special "--snacc" ASN.1 comment in snacc/asn1specs/p_rec.asn1.
+
+PersonnelRecord ::= --snacc isPdu:"TRUE" -- [APPLICATION 0] IMPLICIT SET
+ { ... etc. ... }
+
+The "isPdu" flag tells snacc that the PersonnelRecord is a PDU type
+that you will be calling the encoding and decoding routines directly
+from your code.  This causes snacc to generate the
+"BEncPersonnelRecord" and "BDecPersonnelRecord" routines in addition
+to the standard "BEncPersonnelRecordContent" and
+"BDecPersonnelRecordContent".
+
+The Content encoding and decoding routines only deal with the content
+of the type, ignoring all of the tag and length pairs on the given
+type (in this case the APPLICATION (CONSTRUCTED) 0 tag and the length
+for the SET).  The "BEncPersonnelRecord" and "BDecPersonnelRecord"
+routines do encode the APPLICATION tag and the SET's length.  This
+design is motivated by IMPLICIT tagging.
+
+The compiler generated routines generally only call the content
+oriented routines except in the case of ANY and ANY DEFINED BY types.
+For ANY and ANY DEFINED BY types the PDU form of the rouine is called
+since the tags are not known by the containing type.
+
+
+Length formats
+
+Each pair of *_def and *_indef programs were generated from the same
+source file, *_ex.c.  Indefinite length encoders can be created by
+giving the -DUSE_INDEF_LEN flag to the C compiler when compiling.
+Currently the indefinite/definite length encoder choice is made a
+compile time.  To change this to a run-time decision, a simple
+solution would be to modify BerEncodeConsLen and BerEncodeEocIfNec
+macros in snacc/c_lib/asn_len.h to check a global flag.
+
+#-------------------------------------------------------------------------------
+# $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/c-examples/simple/README,v 1.1.1.1 2001/05/18 23:14:07 mb Exp $
+# $Log: README,v $
+# Revision 1.1.1.1  2001/05/18 23:14:07  mb
+# Move from private repository to open source repository
+#
+# Revision 1.1.1.1  1999/03/16 18:06:09  aram
+# Originals from SMIME Free Library.
+#
+# Revision 1.2  1995/02/17 16:17:24  rj
+# reflect the test script's integration into the makefile.
+#
+# Revision 1.1  1994/08/31  08:46:22  rj
+# first check-in. for a list of changes to the snacc-1.1 distribution please refer to the ChangeLog.
+#

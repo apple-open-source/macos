@@ -6,13 +6,14 @@
  ************************************************************************/
 #ifdef RCS
 static /*const*/char rcsid[]=
- "$Id: formisc.c,v 1.1.1.1 1999/09/23 17:30:07 wsanchez Exp $";
+ "$Id: formisc.c,v 1.1.1.2 2001/07/20 19:38:16 bbraun Exp $";
 #endif
 #include "includes.h"
 #include "formail.h"
 #include "sublib.h"
 #include "shell.h"
 #include "common.h"
+#include "acommon.h"
 #include "ecommon.h"
 #include "formisc.h"
 

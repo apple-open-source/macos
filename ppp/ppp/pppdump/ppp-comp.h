@@ -24,7 +24,7 @@
  * OBLIGATION TO PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS,
  * OR MODIFICATIONS.
  *
- * $Id: ppp-comp.h,v 1.3 2001/01/20 03:35:54 callie Exp $
+ * $Id: ppp-comp.h,v 1.4 2001/05/09 17:52:38 callie Exp $
  */
 
 #ifndef _NET_PPP_COMP_H

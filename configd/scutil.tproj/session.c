@@ -20,32 +20,27 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * Modification History
+ *
+ * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * - public API conversion
+ *
+ * November 9, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
 #include "scutil.h"
+#include "notify.h"
 
 void
 do_open(int argc, char **argv)
 {
-	SCDStatus	status;
+	if (store)	CFRelease(store);
 
-	if (session != NULL) {
-		status = SCDClose(&session);
-		switch (status) {
-			case SCD_OK :
-			case SCD_NOSESSION :
-				/*
-				 * if the "close" was successful or if we had an open
-				 * session but can no talk to the server
-				 */
-				break;
-			default :
-				SCDLog(LOG_INFO, CFSTR("SCDClose: %s"), SCDError(status));
-				return;
-		}
-	}
-
-	status = SCDOpen(&session, CFSTR("sc"));
-	if (status != SCD_OK) {
-		SCDLog(LOG_INFO, CFSTR("SCDOpen: %s"), SCDError(status));
+	store = SCDynamicStoreCreate(NULL, CFSTR("scutil"), storeCallback, NULL);
+	if (!store) {
+		SCPrint(TRUE, stdout, CFSTR("  %s\n"), SCErrorString(SCError()));
 		return;
 	}
 
@@ -56,11 +51,15 @@ do_open(int argc, char **argv)
 void
 do_close(int argc, char **argv)
 {
-	SCDStatus	status;
+	if (notifyRls) {
+		CFRunLoopRemoveSource(CFRunLoopGetCurrent(), notifyRls, kCFRunLoopDefaultMode);
+		CFRelease(notifyRls);
+		notifyRls = NULL;
+	}
 
-	status = SCDClose(&session);
-	if (status != SCD_OK) {
-		SCDLog(LOG_INFO, CFSTR("SCDClose: %s"), SCDError(status));
+	if (store) {
+		CFRelease(store);
+		store = NULL;
 	}
 	return;
 }
@@ -69,11 +68,8 @@ do_close(int argc, char **argv)
 void
 do_lock(int argc, char **argv)
 {
-	SCDStatus	status;
-
-	status = SCDLock(session);
-	if (status != SCD_OK) {
-		SCDLog(LOG_INFO, CFSTR("SCDLock: %s"), SCDError(status));
+	if (!SCDynamicStoreLock(store)) {
+		SCPrint(TRUE, stdout, CFSTR("  %s\n"), SCErrorString(SCError()));
 	}
 	return;
 }
@@ -82,11 +78,8 @@ do_lock(int argc, char **argv)
 void
 do_unlock(int argc, char **argv)
 {
-	SCDStatus	status;
-
-	status = SCDUnlock(session);
-	if (status != SCD_OK) {
-		SCDLog(LOG_INFO, CFSTR("SCDUnlock: %s"), SCDError(status));
+	if (!SCDynamicStoreUnlock(store)) {
+		SCPrint(TRUE, stdout, CFSTR("  %s\n"), SCErrorString(SCError()));
 	}
 	return;
 }

@@ -2070,6 +2070,8 @@ void meshSCSIController::doInterruptStageCmdO()
     }
     else if ( phase == kBusPhaseSTS )           /* Probably Check Condition    */
     {                                           /* Perhaps block # invalid     */
+                                                /* or target dislikes Cmd after*/
+        setSeqReg( kMeshFlushFIFO );            /* 6th byte of 10-byte Cmd.    */
         fFlagIncompleteDBDMA = false;           /* indicate no-more-data       */
 		runDBDMA(  kcclGetStatus, kcclStageStat );
     }

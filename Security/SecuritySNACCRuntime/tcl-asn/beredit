@@ -1,0 +1,372 @@
+#!/bin/sh
+# the next line restarts using wish \
+exec asnwish "$0" "$@"
+
+proc err {msg} {
+    tk_dialog .err Error $msg {} 0 Damn
+}
+
+proc ref {desc} {
+    set res [lindex $desc 0]
+    if {$res==""} {
+    	set res [lindex $desc 1]
+    	if {$res=="TYPEREF"} {
+    	    set res [lindex [lindex $desc 4] 1]
+    	}
+    }
+    return $res
+}
+
+proc complete {ntp} {
+    global pdu
+    upvar $ntp tp
+    set tp [string trimright "$pdu $tp"]
+}
+
+proc newenc {tp r toggle} {
+    global asnenc
+    set idx $tp
+    if {$toggle} {
+    	set cur [lindex [array get asnenc $idx] 1]
+	set pr [lsearch -exact $cur $r]
+	if {$pr==-1} {
+    	    lappend cur $r
+	} else {
+    	    set cur [lreplace $cur $pr $pr]
+	}
+	set asnenc($idx) $cur
+    } else {
+    	set asnenc($idx) $r
+    }
+    fillcomposer
+}
+
+proc selpress {y} {
+    global tag
+    set i [.selector.l nearest $y]
+    if {$i==0} return
+    set tpval [.selector.l get $i]
+    if {$tag(selector)=="CHOICE"} {
+    	newenc [lindex $tpval 0] [lindex $tpval 1] 0
+    } else {
+    	newenc [lindex $tpval 0] [lindex $tpval 1] 1
+    }
+}
+
+proc comppress {y} {
+    global table tag
+    set i [.composer.l nearest $y]
+    set tpval [.composer.l get $i]
+    set tp [lindex $tpval 0]
+    set val [lindex $tpval 1]
+    set typetoask $tp
+    set td [$table type -followref $typetoask]
+    set t [lindex $td 1]
+    switch $t {
+    	CHOICE {
+    	    set tag(selector) $t
+   	    .selector.l delete 0 end
+    	    .selector.l insert end "$tp is a CHOICE of:"
+    	    foreach {subtypedesc req} [lindex $td 4] {
+    	    	set r [ref $subtypedesc]
+    	    	.selector.l insert end [list $tp $r] 
+    	    }
+    	    wm withdraw .insertor
+    	    wm deiconify .selector 
+    	    raise .selector
+    	}
+    	SEQUENCE {
+    	    set tag(selector) $t
+    	    .selector.l delete 0 end
+    	    .selector.l insert end "In SEQUENCE $tp, the following are OPTIONAL:"
+    	    foreach {subtypedesc req} [lindex $td 4] {
+    	    	if {!$req} {
+   	    	    set r [ref $subtypedesc]
+    	    	    .selector.l insert end [list $tp $r]
+    	    	}
+    	    }
+    	    wm withdraw .insertor
+   	    wm deiconify .selector 
+    	    raise .selector
+    	}
+    	default {
+    	    if {$t=="SEQUENCE OF"} {
+    	    	set text "Size of SEQUENCE OF $tp:"
+    	    } else {
+    	    	set text "New value of $tp:"
+    	    }
+    	    set tag(insertor) $tp
+    	    .insertor.l configure -text $text
+    	    .insertor.e delete 0 end
+    	    .insertor.e insert 0 $val
+    	    wm withdraw .selector
+    	    wm deiconify .insertor
+    	    raise .insertor
+    	}
+    }
+}
+
+proc inspress {} {
+    global tag
+    newenc $tag(insertor) [.insertor.e get] 0
+}
+
+proc fillcomposer {} {
+    global table pdu
+    set fraction 0.0
+    if [winfo exists .composer.l] {
+    	set fraction [lindex [.composer.l yview] 0]
+	.composer.l delete 0 end
+    } else {
+	frame .composer
+	pack .composer -fill both -expand 1
+	listbox .composer.l -yscrollcommand ".composer.v set"
+	scrollbar .composer.v -orient vertical -command ".composer.l yview"
+	pack .composer.v -fill y -side right
+	pack .composer.l -expand yes -fill both
+	bind .composer.l <ButtonPress-1> {comppress %y}
+	toplevel .selector
+	listbox .selector.l -yscrollcommand ".selector.v set"
+	scrollbar .selector.v -orient vertical -command ".selector.l yview"
+	pack .selector.v -fill y -side right
+	pack .selector.l -expand yes -fill both
+	bind .selector.l <ButtonPress-1> {selpress %y}
+	wm protocol .selector WM_DELETE_WINDOW {wm withdraw .selector}
+	wm title .selector "Snacc ASN.1 data item selection"
+	toplevel .insertor
+	label .insertor.l
+	entry .insertor.e
+	pack .insertor.l -fill x -expand yes -side top
+	pack .insertor.e -fill x -expand yes -side bottom
+	bind .insertor.e <KeyPress-Return> {inspress}
+	wm protocol .insertor WM_DELETE_WINDOW {wm withdraw .insertor}
+	wm title .insertor "Snacc ASN.1 data item modification"
+    }
+    wm withdraw .selector
+    wm withdraw .insertor
+    set null [open "/dev/null" w]
+    $table encode $null $pdu "encodevalcompose $null"
+    close $null
+    .composer.l yview moveto $fraction
+    wm deiconify .
+    raise .
+}
+
+proc decodetype {tp val} {
+    complete tp
+    if {$val==-1} {
+	set l [expr [llength $tp]-1]
+	set final [lindex $tp $l]
+	set addto [lrange $tp 0 [expr $l-1]]
+	global table asnenc
+    	set td [$table type -followref $addto]
+	if {[lindex $td 1]=="SEQUENCE"} {
+	    if [catch {set asnenc($addto)}] {
+    		set asnenc($addto) ""
+	    }
+	    foreach {elem req} [lindex $td 4] {
+    		if {[lindex $elem 0]==$final} {
+    		    if {!$req} {
+    			lappend asnenc($addto) $final
+   		    }
+   		    break
+    		}
+	    }
+	} else {
+    	    set asnenc($addto) $final
+	}
+    }
+}
+
+proc decodeval {chan tp val} {
+    decodetype $tp -1
+    global asnenc table
+    complete tp
+    set typ [$table type -followref $tp]
+    if {[lindex $typ 1]=="BIT STRING"} {
+	set namespecs [lindex $typ 3]
+	set bitno 0
+	foreach bit [split $val ""] {
+	    set idx [lsearch $namespecs "$bitno *"]
+	    if {$idx>=0 && $bit} {
+	    	lappend val "[lindex {! {}} $bit][lindex [lindex $namespecs $idx] 1]($bitno)"
+	    }
+	    incr bitno
+	}
+    } elseif {[lindex $typ 1]=="ENUMERATED"} {
+	set namespecs [lindex $typ 3]
+	set idx [lsearch $namespecs "$val *"]
+	if {$idx>=0} {
+	    lappend val "[lindex [lindex $namespecs $idx] 1]"
+	}
+    }
+    set asnenc($tp) $val
+}
+
+proc encodevalcompose {chan tp} {
+    global asnenc
+    complete tp
+    if [catch {set val $asnenc($tp)}] {
+	set val {}
+    }
+    .composer.l insert end [list $tp $val]
+    return $val
+}
+
+proc encodeval {chan tp val} {
+    global table
+    set prefix -
+    set val [subst -nobackslashes $val]
+    set typ [$table type -followref $tp]
+    if {[lindex $typ 1]=="OCTET STRING"} {
+	set fromto [lindex $typ 2]
+	set from [lindex $fromto 0]
+	set to [lindex $fromto 1]
+	if {$to==""} {
+	    set to $from
+	}
+	regsub -all {[^\\]} $val {} slashes
+	set len [expr [string length $val] - [string length $slashes] * 3]
+	if {$from!={} && $from>$len} {
+	    set val [format "%$prefix[expr $from]s" $val] 
+	} elseif {$to!={} && $to<$len} {
+	    err [list encodeval: value $val for $tp >$to]
+	    while {$to<$len} {
+	    	set last [string last \\ $val]
+	    	if {$last==-1 || $last<[string length $val]-4} {
+	    	    set val [string range $val 0 [expr [string length $val] - 2]]
+	    	} else {
+	    	    set val [string range $val 0 [expr $last - 1]]
+	    	}
+		regsub -all {[^\\]} $val {} slashes
+		set len [expr [string length $val] - [string length $slashes] * 3]
+	    }
+	}
+    } elseif {[lindex $typ 1]=="BIT STRING"} {
+	set namespecs [lindex $typ 3]
+	if {[regexp {^[01]+$} [lindex $val 0]]} {
+	    set val [split [lindex $val 0] ""]
+	} else {
+	    set names $val
+	    set val {}
+	    foreach name $names {
+	    	if {[regsub {([a-zA-Z_][a-zA-Z0-9_]*)?\(([0-9]+)\)} $name {\2} bitno]!=1} {
+	    	    set idx [lsearch -regexp $namespecs "^\[0-9\]+ $name$"]
+	    	    if {$idx<0} {
+	    	    	err "Bit $name of $tp not in $namespecs"
+	    	    	continue 
+	    	    }
+	    	    set bitno [lindex [lindex $namespecs $idx] 0]
+	    	}
+	    	while {[llength $val]<=$bitno} {
+	    	    lappend val 0
+	    	}
+	    	set val [lreplace $val $bitno $bitno 1]
+	    }
+	}
+	proc namespeccmp {a b} {return [expr [lindex $a 0] - [lindex $b 0]]}
+	set sorted [lsort -command namespeccmp -decreasing $namespecs]
+	set bitno [lindex [lindex $sorted 0] 0]
+	while {[llength $val]<=$bitno} {
+	    lappend val 0
+	}
+	set val [join $val ""]
+    } elseif {[lindex $typ 1]=="ENUMERATED"} {
+	set namespecs [lindex $typ 3]
+	if {![regexp {^[0-9]*$} [lindex $val 0]]} {
+	    set idx [lsearch -regexp $namespecs "^\[0-9\]+ $val$"]
+	    if {$idx<0} {
+	    	err "Named value $val of $tp not in $namespecs"
+	    } else {
+	    	set val [lindex [lindex $namespecs $idx] 0]
+	    }
+	}
+    }
+    return $val
+}
+
+proc encodeasnenc {chan tp} {
+    global asnenc pdu
+    complete tp
+    if [catch {set val $asnenc($tp)}] {
+	set val {}
+    }
+    return [encodeval $chan $tp $val]
+}
+
+wm title . "Snacc ASN.1 message editor"
+wm geometry . 400x300
+frame .mbar -relief raised
+pack .mbar -side top -fill x
+
+menubutton .mbar.file -text Message -menu .mbar.file.menu
+pack .mbar.file -side left
+
+menu .mbar.file.menu
+.mbar.file.menu add command -label "Open ..." -command {openfile}
+.mbar.file.menu add command -label "Save As ..." -command {savefile}
+.mbar.file.menu add command -label "Quit" -command {quit}
+wm protocol . WM_DELETE_WINDOW {quit}
+
+proc readfile {fn} {
+    if {$fn==""} return
+    global table pdu asnenc
+    catch {unset asnenc}
+    set chan [open $fn r]
+    fconfigure $chan -translation binary
+    set bytes [$table decode $chan $pdu "decodeval $chan" decodetype]
+    close $chan
+    fillcomposer
+}
+
+proc openfile {} {
+    readfile [tk_getOpenFile -defaultextension .ber -filetypes {{{ASN.1 data} {.ber .bin .out .tt}} {{All files} {.*}}}]
+}
+
+proc savefile {} {
+    set fn [tk_getSaveFile -defaultextension .ber -filetypes {{{ASN.1 data} {.ber .bin .out .tt}} {{All files} {.*}}}]
+    if {$fn==""} return
+    global table pdu
+    set chan [open $fn w]
+    $table encode $chan $pdu "encodeasnenc $chan"
+    close $chan
+}
+
+proc quit {} {
+    global done
+    set done 1
+}
+
+set asnfile [lindex $argv 0]
+if {$asnfile==""} {
+    puts stderr "Usage: $argv0 <table-file> ?<ber-file>?"
+    puts stderr ""
+    puts stderr "This program is a simple editor for ASN.1 messages"
+    puts stderr "encoded using the Basic Encoding Rules (BER). It requires"
+    puts stderr "the grammar specification, in binary format as generated"
+    puts stderr "by \"snacc -T\", as the initial argument on the command line."
+    puts stderr ""
+    puts stderr "The purpose of this program is to demonstrate the usage of"
+    puts stderr "the new Tcl/Tk command \"asn\". Have a look at the Tcl/Tk"
+    puts stderr "script \"$argv0\"!"
+    exit 0
+}
+
+set table [asn $asnfile]
+
+foreach type [$table types] {
+    if {[lindex [$table type $type] 0]=="$type pdu"} {
+	set pdu $type
+	break
+    }
+}
+
+readfile [lindex $argv 1]
+fillcomposer
+
+update idletasks
+vwait done
+
+$table close
+exit
+

@@ -20,93 +20,94 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include <sys/types.h>
-#include <regex.h>
+/*
+ * Modification History
+ *
+ * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * - public API conversion
+ *
+ * March 24, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
 
 #include <mach/mach.h>
 #include <mach/mach_error.h>
 
-#include <SystemConfiguration/SCD.h>
+#include <SystemConfiguration/SystemConfiguration.h>
+#include <SystemConfiguration/SCPrivate.h>
+#include "SCDynamicStoreInternal.h"
 #include "config.h"		/* MiG generated file */
-#include "SCDPrivate.h"
 
-
-static CFComparisonResult
-sort_keys(const void *p1, const void *p2, void *context) {
-	CFStringRef key1 = (CFStringRef)p1;
-	CFStringRef key2 = (CFStringRef)p2;
-	return CFStringCompare(key1, key2, 0);
-}
-
-
-SCDStatus
-SCDList(SCDSessionRef session, CFStringRef key, int regexOptions, CFArrayRef *subKeys)
+CFArrayRef
+SCDynamicStoreCopyKeyList(SCDynamicStoreRef store, CFStringRef pattern)
 {
-	SCDSessionPrivateRef	sessionPrivate = (SCDSessionPrivateRef)session;
-	kern_return_t		status;
-	CFDataRef		xmlKey;		/* serialized key */
-	xmlData_t		myKeyRef;
-	CFIndex			myKeyLen;
-	CFDataRef		xmlData;	/* data (XML serialized) */
-	xmlDataOut_t		xmlDataRef;	/* serialized data */
-	int			xmlDataLen;
-	SCDStatus		scd_status;
-	CFArrayRef		allKeys;
-	CFMutableArrayRef	sortedKeys;
-	CFStringRef		xmlError;
+	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
+	kern_return_t			status;
+	CFDataRef			xmlPattern;	/* serialized pattern */
+	xmlData_t			myPatternRef;
+	CFIndex				myPatternLen;
+	CFDataRef			xmlData;	/* data (XML serialized) */
+	xmlDataOut_t			xmlDataRef;	/* serialized data */
+	int				xmlDataLen;
+	int				sc_status;
+	CFArrayRef			allKeys;
+	CFStringRef			xmlError;
 
-	SCDLog(LOG_DEBUG, CFSTR("SCDList:"));
-	SCDLog(LOG_DEBUG, CFSTR("  key          = %@"), key);
-	SCDLog(LOG_DEBUG, CFSTR("  regexOptions = %0o"), regexOptions);
+	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCDynamicStoreCopyKeyList:"));
+	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  pattern = %@"), pattern);
 
-	if (key == NULL) {
-		return SCD_INVALIDARGUMENT;	/* no key specified */
+	if (!store) {
+		/* sorry, you must provide a session */
+		_SCErrorSet(kSCStatusNoStoreSession);
+		return NULL;
 	}
 
-	if ((session == NULL) || (sessionPrivate->server == MACH_PORT_NULL)) {
-		return SCD_NOSESSION;
+	if (storePrivate->server == MACH_PORT_NULL) {
+		_SCErrorSet(kSCStatusNoStoreServer);
+		return NULL;
 	}
 
-	/* serialize the key */
-	xmlKey = CFPropertyListCreateXMLData(NULL, key);
-	myKeyRef = (xmlData_t)CFDataGetBytePtr(xmlKey);
-	myKeyLen = CFDataGetLength(xmlKey);
+	/* serialize the pattern */
+	xmlPattern = CFPropertyListCreateXMLData(NULL, pattern);
+	myPatternRef = (xmlData_t)CFDataGetBytePtr(xmlPattern);
+	myPatternLen = CFDataGetLength(xmlPattern);
 
-	/* send the key & fetch the associated data from the server */
-	status = configlist(sessionPrivate->server,
-			    myKeyRef,
-			    myKeyLen,
-			    regexOptions,
+	/* send the pattern & fetch the associated data from the server */
+	status = configlist(storePrivate->server,
+			    myPatternRef,
+			    myPatternLen,
+			    TRUE,		/* isRegex == TRUE */
 			    &xmlDataRef,
 			    &xmlDataLen,
-			    (int *)&scd_status);
+			    (int *)&sc_status);
 
 	/* clean up */
-	CFRelease(xmlKey);
+	CFRelease(xmlPattern);
 
 	if (status != KERN_SUCCESS) {
 		if (status != MACH_SEND_INVALID_DEST)
-			SCDLog(LOG_DEBUG, CFSTR("configlist(): %s"), mach_error_string(status));
-		(void) mach_port_destroy(mach_task_self(), sessionPrivate->server);
-		sessionPrivate->server = MACH_PORT_NULL;
-		return SCD_NOSERVER;
+			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("configlist(): %s"), mach_error_string(status));
+		(void) mach_port_destroy(mach_task_self(), storePrivate->server);
+		storePrivate->server = MACH_PORT_NULL;
+		_SCErrorSet(status);
+		return NULL;
 	}
 
-	if (scd_status != SCD_OK) {
+	if (sc_status != kSCStatusOK) {
 		status = vm_deallocate(mach_task_self(), (vm_address_t)xmlDataRef, xmlDataLen);
 		if (status != KERN_SUCCESS) {
-			SCDLog(LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
+			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
 			/* non-fatal???, proceed */
 		}
-		*subKeys = NULL;
-		return scd_status;
+		_SCErrorSet(sc_status);
+		return NULL;
 	}
 
 	/* un-serialize the list of keys */
 	xmlData = CFDataCreate(NULL, xmlDataRef, xmlDataLen);
 	status = vm_deallocate(mach_task_self(), (vm_address_t)xmlDataRef, xmlDataLen);
 	if (status != KERN_SUCCESS) {
-		SCDLog(LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
+		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
 		/* non-fatal???, proceed */
 	}
 	allKeys = CFPropertyListCreateFromXMLData(NULL,
@@ -114,19 +115,16 @@ SCDList(SCDSessionRef session, CFStringRef key, int regexOptions, CFArrayRef *su
 						  kCFPropertyListImmutable,
 						  &xmlError);
 	CFRelease(xmlData);
-	if (xmlError) {
-		SCDLog(LOG_DEBUG, CFSTR("CFPropertyListCreateFromXMLData() list: %s"), xmlError);
-		return SCD_FAILED;
+	if (!allKeys) {
+		if (xmlError) {
+			SCLog(_sc_verbose, LOG_DEBUG,
+			       CFSTR("CFPropertyListCreateFromXMLData() list: %@"),
+			       xmlError);
+			CFRelease(xmlError);
+		}
+		_SCErrorSet(kSCStatusFailed);
+		return NULL;
 	}
 
-	myKeyLen = CFArrayGetCount(allKeys);
-	sortedKeys = CFArrayCreateMutableCopy(NULL, myKeyLen, allKeys);
-	CFRelease(allKeys);
-	CFArraySortValues(sortedKeys,
-			  CFRangeMake(0, myKeyLen),
-			  sort_keys,
-			  NULL);
-
-	*subKeys = sortedKeys;
-	return scd_status;
+	return allKeys;
 }

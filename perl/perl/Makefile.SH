@@ -46,7 +46,7 @@ true)
 		-prebind -seg1addr 0x27000000 -install_name \$(shrpdir)/\$@"
 		;;
 	rhapsody*|darwin*)
-		shrpldflags="${ldflags} -dynamiclib \
+		shrpldflags="${ldflags} -dynamiclib -flat_namespace \
 			     -compatibility_version 1 \
 			     -current_version \
 				${api_version}.${api_subversion} \

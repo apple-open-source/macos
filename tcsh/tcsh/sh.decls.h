@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/sh.decls.h,v 1.1.1.1 1999/04/23 01:59:54 wsanchez Exp $ */
+/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/sh.decls.h,v 1.1.1.2 2001/06/28 23:10:50 bbraun Exp $ */
 /*
  * sh.decls.h	 External declarations from sh*.c
  */
@@ -265,7 +265,7 @@ extern struct command 	 *syntax	__P((struct wordent *,
 /*
  * sh.print.c
  */
-extern	void		  draino	__P((void));
+extern	void		  drainoline	__P((void));
 extern	void		  flush		__P((void));
 #ifdef BSDTIMES
 extern	void		  pcsecs	__P((long));

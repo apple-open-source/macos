@@ -28,7 +28,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: ftp.h,v 1.1.1.3 2001/01/25 04:59:17 wsanchez Exp $ */
+/* $Id: ftp.h,v 1.1.1.4 2001/07/19 00:19:10 zarzycki Exp $ */
 
 #ifndef	FTP_H
 #define	FTP_H
@@ -44,7 +44,7 @@
 
 typedef enum ftptype {
 	FTPTYPE_ASCII,
-	FTPTYPE_IMAGE,
+	FTPTYPE_IMAGE
 } ftptype_t;
 
 typedef struct ftpbuf

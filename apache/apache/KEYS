@@ -314,26 +314,55 @@ B7zJElmBUrmj9aW6ICmSNbOBwVo1Y7hg6lPSFFMOOECFpT1WuTXXYpNA
 Type bits/keyID    Date       User ID
 pub  1024/EE65E321 1998/10/22 Martin Kraemer <martin@apache.org>
 sig       BB1D9F6D             ct magazine CERTIFICATE <pgpCA@ct.heise.de>
-sig       E2449019             Martin Kraemer <Martin.Kraemer@Mch.SNI.De>
+sig       E2449019             Martin Kraemer <Martin.Kraemer@Fujitsu-Siemens.com>
 sig       EE65E321             Martin Kraemer <martin@apache.org>
 -----BEGIN PGP PUBLIC KEY BLOCK-----
-Version: 2.6.2
+Version: PGP 6.5.1i
 
-mQCNAzYvawcAAAEEAO/lLOQVYsUS+l7yan+Rzr0ehfWRqlgeNsV4DQ0xTuQewD9K
-5lm7ujRwutxlNaf5dXjE24mlsiRN8KDp+fKwm7Wtqv490xmhzS/6y8ekwB02P4fi
-/JJNX1PbLS0cL6+bz2dFqLDhh03Ovz3G16Y9he5mrJ2PNOWa9Dfj9F/uZeMhAAUR
-tCJNYXJ0aW4gS3JhZW1lciA8bWFydGluQGFwYWNoZS5vcmc+iQCVAwUQNkcAbUS4
-3da7HZ9tAQFUnAP+PrKa3YFKp9XTrANmORex4kOyNpM1adS8zM6bTcHyIkH4WitB
-b2nRbqOdOuSwbh655aSStluIxY66CValeL+6E7MCEqQ/UlzzMVmdbMyWSYwDlkV3
-gQkg3vE6bgFlWlLLr2HnkllY3ISEChDWh8x7fRKLy+8ZBGW89ZXOGkhIb9mJAJUD
-BRA2L2ueKwLDReJEkBkBAbeGBACKM1FCmQC583/IHyw7rDlvnsZKeKvdbbLGSnmJ
-NWOyf4VgkC8OCKmwPnWLOOIK44/JsT2Yonih2r+04FBqYo6SsMgBqOBJqKktHvtx
-bD3VfUUkkV8kZ4ituecWTx0zj1Oa0QiCiv8HHvdsmQB0mj07mWQz1CamXPSwHYn+
-t+fJOIkAlQMFEDYva2c34/Rf7mXjIQEBcNQEAOrt4+o2LwcCiJp3bOF9WZMirpMQ
-QJISqXBnom3r2eB+k1a/Jig1sePSzPxneW9EgWIrWg0EfK+u2kMgvTJynDUux9zL
-4qnECmZT+ESEm+P8rPKeecOfUHgDjQlTUCneOX5p0TbdvJm+TcJVjXjoVrYv6hZg
-InYw+jlvF5e/sdI8
-=03LU
+mQBtAzRKZDIAAAEDAON7JJtbjj6ZFEstbQS16Hd/BPlwdbczMGaQ0Mi3Xjfvi5Dq
+4+Lf8bthb8YWu8pxIb+6ktmfzWmgshWwxNNYzaY/iqgH72zlgYSG4dYoozC4yj5n
+Ov1Bc5xQ69dy/eU00QAFEbQiTWFydGluIEtyYWVtZXIgPG1hcnRpbkBhcGFjaGUu
+b3JnPokAdQMFEDYvZz9Q69dy/eU00QEBh0UDAJL56LzNCHD/za8baftylTc+ggw1
+bU+DWKkndjviHCaPwBbMrlfsEndVFLljhM5l4bgBUhpTBQG+tPPh9Go1uAL2ijqc
+XvAspicY2ZSkAZlCxxdFP2GSYVKqToXmlRsj9okAdQMFEDYvZv82KtdYjzlOPQEB
+gXoC/jPP9DlA++2ITMAm48o5spImnQR0DgZrQk5yvvnXFE0qUCo3CcbFjcxRO6kt
+bcgNDcImTVunFYmvur25+/mD/JkmoJNK9E3Df4l48lpbD0384ZPVKYq9cHH1oCm/
+T9lcC5kAjQM2L2sHAAABBADv5SzkFWLFEvpe8mp/kc69HoX1kapYHjbFeA0NMU7k
+HsA/SuZZu7o0cLrcZTWn+XV4xNuJpbIkTfCg6fnysJu1rar+PdMZoc0v+svHpMAd
+Nj+H4vySTV9T2y0tHC+vm89nRaiw4YdNzr89xtemPYXuZqydjzTlmvQ34/Rf7mXj
+IQAFEbQiTWFydGluIEtyYWVtZXIgPG1hcnRpbkBhcGFjaGUub3JnPokAlQMFEDZH
+AG1EuN3Wux2fbQEBVJwD/j6ymt2BSqfV06wDZjkXseJDsjaTNWnUvMzOm03B8iJB
++ForQW9p0W6jnTrksG4eueWkkrZbiMWOuglWpXi/uhOzAhKkP1Jc8zFZnWzMlkmM
+A5ZFd4EJIN7xOm4BZVpSy69h55JZWNyEhAoQ1ofMe30Si8vvGQRlvPWVzhpISG/Z
+iQCVAwUQNi9rnisCw0XiRJAZAQG3hgQAijNRQpkAufN/yB8sO6w5b57GSnir3W2y
+xkp5iTVjsn+FYJAvDgipsD51izjiCuOPybE9mKJ4odq/tOBQamKOkrDIAajgSaip
+LR77cWw91X1FJJFfJGeIrbnnFk8dM49TmtEIgor/Bx73bJkAdJo9O5lkM9Qmplz0
+sB2J/rfnyTiJAJUDBRA2L2tnN+P0X+5l4yEBAXDUBADq7ePqNi8HAoiad2zhfVmT
+Iq6TEECSEqlwZ6Jt69ngfpNWvyYoNbHj0sz8Z3lvRIFiK1oNBHyvrtpDIL0ycpw1
+Lsfcy+KpxApmU/hEhJvj/KzynnnDn1B4A40JU1Ap3jl+adE23byZvk3CVY146Fa2
+L+oWYCJ2MPo5bxeXv7HSPA==
+=Z/eM
+-----END PGP PUBLIC KEY BLOCK-----
+Type bits      keyID      Date       User ID
+RSA   768      0xFDE534D1 1997/10/19 Martin Kraemer <martin@apache.org>
+sig            0xFDE534D1             Martin Kraemer <martin@apache.org>
+sig            0xE2449019             Martin Kraemer <Martin.Kraemer@Fujitsu-Siemens.com>
+-----BEGIN PGP PUBLIC KEY BLOCK-----
+Version: 2.6.3ia
+
+mQBtAzRKZDIAAAEDAON7JJtbjj6ZFEstbQS16Hd/BPlwdbczMGaQ0Mi3Xjfvi5Dq
+4+Lf8bthb8YWu8pxIb+6ktmfzWmgshWwxNNYzaY/iqgH72zlgYSG4dYoozC4yj5n
+Ov1Bc5xQ69dy/eU00QAFEbQiTWFydGluIEtyYWVtZXIgPG1hcnRpbkBhcGFjaGUu
+b3JnPokAlQMFEDqfWqkrAsNF4kSQGQEBzfAD/1n9mcXRCQ/vUB6o96zcVe9ixQfd
+3y4gFLP4omhBr9K8HnvexbULnSL4kRadV7x8BCzBBD4Xyr+QlqX56om9qnr6ujcp
+EbUIZrbxpy5HMdyFKYboYmlSo5esV+jixsUIRcizZabCGjt3sC2es3yWx+piZrPV
+Rz/KX7AclQlQi5sLiQB1AwUQNi9nP1Dr13L95TTRAQGHRQMAkvnovM0IcP/Nrxtp
++3KVNz6CDDVtT4NYqSd2O+IcJo/AFsyuV+wSd1UUuWOEzmXhuAFSGlMFAb608+H0
+ajW4AvaKOpxe8CymJxjZlKQBmULHF0U/YZJhUqpOheaVGyP2iQB1AwUQNi9m/zYq
+11iPOU49AQGBegL+M8/0OUD77YhMwCbjyjmykiadBHQOBmtCTnK++dcUTSpQKjcJ
+xsWNzFE7qS1tyA0NwiZNW6cVia+6vbn7+YP8mSagk0r0TcN/iXjyWlsPTfzhk9Up
+ir1wcfWgKb9P2VwL
+=ZxgG
 -----END PGP PUBLIC KEY BLOCK-----
 
 
@@ -763,4 +792,28 @@ xIspAQGtCwP9FFWCZN2540lomDAY6tXt7Q3AhP/CkAec5i/lsv21sUl09jlZQnr/
 Kc8hL1lPOuAlLFGqso3zL7KMVlrOIng+R/E5fcYpE60QhhIoHdvlxFKTJ5GZq7DG
 stCrR34q2A4OWtoC7tF0Uu+Ew2ontVgvqsrgq4qt0h3yh/kABp/8mRw=
 =GGxP
+-----END PGP PUBLIC KEY BLOCK-----
+
+
+Type bits      keyID      Date       User ID
+RSA  2048      0x423FF2F1 2001/03/16 *** DEFAULT SIGNING KEY ***
+                                     Paul J. Reder <rederpj@raleigh.ibm.com>
+
+-----BEGIN PGP PUBLIC KEY BLOCK-----
+Version: PGP 6.5.8
+
+mQENAzqyerAAAAEIAMPeottLIzgSNklzro66gEnshbRLeb8MRwlivgOMxl5MgDpx
+sH44MPaYKaB1owFQdVSSA+k8ARrxSbki46mQvK53+t1yUeVtaPu85GBta4Q2paXJ
++2/JVB83Qt8ZdkR7bA3Rxet+Poye4wqZcNQW271FS+sUkTvhAF6nb+5nWFNyKkTe
+ApG9eudukksFd4Uh6ekMjpOX0HPUXoyzf7CmwSERZIny+qwK0dkKkr6qKvZZOEXu
+wjnFgQoqcj242usLpGUfrGZCDQsOheGmaWH+RxrmccOqqqfmjo/EoHNjmEvfRSDP
+Mviq9p574VRsKdt3smkyo63DcaguX/FV7EI/8vEABRG0J1BhdWwgSi4gUmVkZXIg
+PHJlZGVycGpAcmFsZWlnaC5pYm0uY29tPokBFQMFEDqyerBf8VXsQj/y8QEBX5AH
+/iGMf93L2+1NP2MHZzuggQrcRcf7fkOdVRfx0GcMUFuet4G/0Qg/NKy24J2xMVLI
+E03//bn99c47BmGWlSrsuKM3nHXDtLHfmX9ajWB2x5TGLsQqCubfvGyxviFKyUKr
+tVLrvOmfiOGZkbRjD1r1mjNKWONKgUcjgFmSqsZPnZsclNjOMnqENVwOtSS14r0K
+YMquMP/sk7xDNZlRVUPEVn2TlLSBJp0NiAzwzbafbszX6xHLRJzE23hCGjl0ZnX+
+zkBusLpUGkuRkK6phJO6pg0E41D5QRnts3pHaDQ4EI6jEnWwlIsavrHh0mAw6ocf
+oO+6PlKrPkqjgRSHYewLqnU=
+=WB/Q
 -----END PGP PUBLIC KEY BLOCK-----

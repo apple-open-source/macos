@@ -30,15 +30,13 @@ typedef struct ppc_function_boundaries {
 
 typedef struct ppc_function_properties {
 
-  int offset;			/* This is the stack offset.  The tricky bit is that on the PPC
-				   you can EITHER move the SP first, and then save the registers
-                                   OR save the registers and then move the SP.  This offset is
-				   used to get the gpr_offset right in either case. */
-  int offset2;			/* This seems redundant to me, but I am not going to bother to
-				   take it out right now.  Also, neither of these fields are used
-				   outside of ppc_parse_frame, so they should probably be moved
-				   into functions local to that routine.
-				*/
+  int offset;			/* This is the stack offset.  The
+				   tricky bit is that on the PPC you
+				   can EITHER move the SP first, and
+				   then save the registers OR save the
+				   registers and then move the SP.
+				   This offset is used to get the
+				   gpr_offset right in either case. */
 
   int saved_gpr;		/* smallest # of saved gpr */
   int saved_fpr;		/* smallest # of saved fpr */
@@ -47,18 +45,27 @@ typedef struct ppc_function_properties {
 
   char frameless;		/* true if no stack frame allocated */
 
-  char alloca_saved;		/* true if alloca register saved (frame pointer) */
-  int alloca_reg;		/* alloca register number (frame pointer) */
-
-  char lr_saved;		/* true if pc is saved */
+  char frameptr_used;		/* true if frame uses a frame pointer */
+  int frameptr_reg;		/* frame pointer register number */
+  CORE_ADDR lr_saved;		/* 0 if the lr is not saved, otherwise 
+				   the pc at which it is saved. */
   int lr_offset;		/* offset of saved lr */
-  int lr_reg;			/*  */
+  CORE_ADDR lr_invalid;         /* if 0, then the prev. frame pc is
+				   either saved, or in the link
+				   register .  Otherwise, the insn
+				   which moves something else to the
+				   lr. */
+  CORE_ADDR lr_valid_again;     /* If lr_invalid != 0, then this is where
+				   the prev. frame pc gets moved BACK to the
+				   lr. */
+  int lr_reg;                   /* If lr_invalid is true, then this is the
+				   reg # where the lr is stored. */
 
   char cr_saved;		/* true if condition register is saved */
   int cr_offset;		/* offset of saved cr */
-  int cr_reg;			/*  */
 
   char minimal_toc_loaded;
+  int pic_base_reg;             /* Did we see the magic pic base setup code */
 
 } ppc_function_properties;
 

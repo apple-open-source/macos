@@ -1,7 +1,4 @@
-/*[
-     1999-8-10	Godfrey van der Linden(gvdl)
-         Created.
-]*/
+/* Sample C++ Header -- Used for HeaderDoc testing.*/
 /*!  @language embedded-c++ */
 
 #ifndef _IOKIT_IOCOMMANDGATE_H
@@ -72,6 +69,22 @@ more work to be processed later.
 be checked again, the time is currently absolute.
 */
      virtual void checkForWork(bool *moreP, mach_timespec_t *wakeupTimeP);
+
+/*!
+     @function inlineFunctionOneLine
+     @abstract Test of the handling of inline functions.
+     @discussion This function is inlined and defined all on one line.
+*/
+    void inlineFunctionOneLine() { return foo; };
+
+/*!
+     @function inlineFunctionMultiLine
+     @abstract Test of the handling of inline functions.
+     @discussion This function is inlined and defined on several lines.
+*/
+    void inlineFunctionMultiLine() { 
+        return foo; 
+    };
 
 public:
 /*!

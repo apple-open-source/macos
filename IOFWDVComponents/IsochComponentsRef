@@ -1,0 +1,977 @@
+Copyright 2001 Apple Computer, Inc.  All Rights Reserved.
+
+									ISOCHRONOUS COMPONENTS REFERENCE v1.0 3/16/2001
+									(INITIAL DOCUMENTATION - SUBJECT TO CHANGE)
+							
+
+Header Files: IsochronousDataHandler.h, DeviceControl.h
+Framework:	 DVComponentGlue
+
+
+
+
+
+Component Types for Isoch Components
+------------------------------------
+
+	#define kIDHComponentType 	'ihlr'		/* Component type*/
+	#define	kIDHSubtypeDV		'dv  '		/* Subtype for DV (over FireWire)*/
+
+
+
+Data Types for Isoch Components
+-------------------------------
+
+The callback function prototype:
+
+	typedef OSStatus (*IDHNotificationProc)(IDHGenericEvent *event, void *userData);
+
+	FieldDecriptions:
+
+	event - a IDHGenericEvent that is returned from the Isoch component. If this is an IDHRead() or
+			IDHWrite() notification function, then 'event' is the address of the IDHParameterBlock 
+			that was passed to the IDHRead()/IDHWrite() call.
+
+	userData - If this is an IDHRead() or IDHWrite() notification function, the userData returned will 
+	           be the 'refCon' field of the IDHParameterBlock.	Otherwise, it will be the value specified
+	           in the IDHNewNotification() function.
+
+
+
+The parameter block passed to IDHRead() and IDHWrite():
+
+	struct IDHParameterBlock {
+		UInt32 					reserved1;			/* reserved by Apple */
+		UInt16 					reserved2;			/* reserved by Apple */
+		void *					buffer;				/* buffer used in read/write operation */
+		ByteCount 				requestedCount;		/* bytes required to read/write */
+		ByteCount 				actualCount;		/* actual bytes read/written */
+		IDHNotificationProc 	completionProc;		/* called after read/write complete */
+		void *					refCon;				/* user specified data */
+		OSErr 					result;				/* result of read/write */
+	};
+
+	Field Descriptions
+
+	reserved1, reserved2 - reserved by Apple
+
+	buffer - can contain an address of a user supplied buffer or 'nil'.
+		 In reads: if 'buffer' is supplied, the data is read into the buffer
+		 
+		           if 'buffer' is 'nil', a buffer address is returned in the completion proc
+		           and the client has control of the buffer until it is released by
+		           the IDHReleaseBuffer() function. NOTE: The buffer will remain valid for
+				   an indeterminate amount of time. The client should USE the buffer ASAP to
+				   guarantee data integrity
+				   
+		 In writes: If 'buffer' is supplied, the data from the buffer is written to the 
+		            isoch device.
+		 
+		            If 'buffer' is 'nil', a buffer address is supplied to the client on 
+		            callback. The client then writes his data into the buffer and returns
+		            control to the IDH component. The data is then written to the device.
+
+	requestedCount - contains the number of bytes requested to read or write.
+
+	actualCount - the actual number of bytes read or written from/to the device.
+
+	completionProc - the routine that is called after read or write completion. If the completionProc
+					 parameter is set to 'nil', the function becomes synchronous and does not return
+					 until the read/write is complete. It is NOT possible to have a synchronous write/ 'nil'
+					 buffer operation.
+	
+	refCon - user data that is returned to the completion proc.
+	
+	result - result of IDHRead()/IDHWrite() operation.
+
+
+Error Codes (see functions for actual meanings)
+-----------------------------------------------
+
+	#define	kIDHErrDeviceDisconnected	-14101
+	#define	kIDHErrInvalidDeviceID		-14102
+	#define	kIDHErrDeviceInUse			-14104
+	#define	kIDHErrDeviceNotOpened		-14105
+	#define	kIDHErrDeviceReadError		-14107
+	#define	kIDHErrDeviceWriteError		-14108
+	#define	kIDHErrDeviceNotConfigured	-14109
+	#define	kIDHErrDeviceList			-14110
+	#define	kIDHErrCompletionPending	-14111
+	#define	kIDHErrDeviceTimeout		-14112
+	#define	kIDHErrInvalidIndex			-14113
+	#define	kIDHErrDeviceCantRead		-14114
+	#define	kIDHErrDeviceCantWrite		-14115
+	
+
+Isochronous Component Atoms	
+---------------------------
+
+	#define kIDHDeviceAtomType							'devc'	/* QTAtom - contains the description for a device */
+	#define	kIDHDeviceIDType							'dvid'	/* UInt32 - contains the device ID referenced in notification events */
+	#define kIDHIsochServiceAtomType					'isoc'	/* QTAtom - contains the isoch configs for a device */
+	#define kIDHIsochModeAtomType						'mode'	/* QTAtom - contains isoch configuration atoms */
+	#define kIDHIsochVersionAtomType					'iver'	/* UInt32 - contains the version of the isoch component */
+	#define kIDHUseCMPAtomType	 						'ucmp'	/* UInt32 - true when using CMP */
+	#define kIDHUniqueIDType							'unid'	/* variable size - contains a unique ID associated with device */
+	#define kIDHNameAtomType							'name'	/* Str255 - contains the name of the device */
+	#define kIDHIsochMediaType							'av  '	/* OSType - kIDHSoundMediaAtomType or kIDHVideoMediaAtomType */
+	#define kIDHDataTypeAtomType						'dtyp'	/* OSType - a configuration identifier */
+	#define kIDHDefaultIOType							'dfio'	/* UInt32 - set for default read or write config */
+	#define kIDHDataSizeAtomType						'dsiz'	/* UInt32 - the size of a frame of data */	
+	#define kIDHDataBufferSizeAtomType					'dbuf'	/* UInt32 - the size of a packet of data*/
+	#define kIDHDataIntervalAtomType					'intv'	/* float - frame rate i.e. 29.97fps */
+	#define kIDHDataIODirectionAtomType					'ddir'	/* long - I/O direction associated with the device
+	    															kIDHDataTypeIsInput	is 1
+																	kIDHDataTypeIsOutput is 2
+																	kIDHDataTypeIsInputAndOutput is 4 */
+	#define kIDHSoundChannelCountAtomType 				'ccnt'	/* long - number of audio channels */
+	#define kIDHSoundSampleSizeAtomType					'ssiz'	/* long - number of bytes per sample of audio */
+	#define kIDHSoundSampleRateAtomType					'srat'	/* Fixed - audio sample rate */
+	#define kIDHVideoDimensionsAtomType					'dimn'	/* IDHDimension - pixel dimension of video */
+	#define kIDHVideoResolutionAtomType					'resl'	/* IDHResolution - DPI resolution */
+	#define kIDHVideoRefreshRateAtomType 				'refr'	/* Fixed - video refresh rate */
+	#define kIDHVideoPixelTypeAtomType					'pixl'	/* OSType - Quicktime pixel type */
+	#define kIDHVideoDecompressorTypeAtomType 			'dety'	/* OSType - Quicktime decompressor type */
+	#define kIDHVideoDecompressorComponentAtomType 		'cmpt'	/* Component - Quicktime decompressor */
+
+	Atom Layout
+	-----------
+	deviceList - QTAtomContainer
+		kIDHIsochVersionAtomType (r)
+		kIDHUseCMPAtomType (r/w)
+		kIDHDeviceAtomType (r)
+			kIDHDeviceIDType (r)
+			kIDHUniqueIDType (r)
+			kIDHNameAtomType (r/w)
+			kIDHDefaultIOType (r/w)
+			kIDHIsochServiceAtomType (r)
+				kIDHIsochModeAtomType (r)
+					kIDHDataTypeAtomType (r)
+					kIDHDataSizeAtomType (r)
+					kIDHDataBufferSizeAtomType		(r)
+					kIDHDataBufferSizeAtomType		(r)
+					kIDHDataIntervalAtomType		(r)
+					kIDHDataIODirectionAtomType		(r)
+					kIDHSoundChannelCountAtomType	(r)
+					kIDHSoundSampleSizeAtomType		(r)
+					kIDHSoundSampleRateAtomType		(r)
+				kIDHIsochModeAtomType	 (r)
+					kIDHDataTypeAtomType			(r)
+					kIDHDataSizeAtomType			(r)
+					kIDHDataBufferSizeAtomType		(r)
+					kIDHDataBufferSizeAtomType		(r)
+					kIDHDataIntervalAtomType		(r)
+					kIDHDataIODirectionAtomType		(r)
+					kIDHVideoDimensionsAtomType		(r)
+					kIDHVideoResolutionAtomType		(r)
+					kIDHVideoRefreshRateAtomType	(r)
+					kIDHVideoPixelTypeAtomType		(r)
+					kIDHVideoDecompressorTypeAtomType	(r)
+					kIDHVideoDecompressorComponentAtomType	(r)
+		kIDHDeviceAtomType
+					...
+					
+	Note: (r) - read only, (r/w) - read/write
+
+
+Device Status Structure
+		
+	struct IDHDeviceStatus {
+		UInt32 							version;				/* version of structure */
+		Boolean 						physicallyConnected;	/* device is connected and active */
+		Boolean 						readEnabled;			/* device has been enabled for read */
+		Boolean 						writeEnabled;			/* device has been enabled for writing */
+		Boolean 						exclusiveAccess;		/* a client has opened device for exclusive access */
+		UInt32 							currentBandwidth;		/* ??? */
+		UInt32 							currentChannel;			/* ??? */
+		PsuedoID 						localNodeID;			/* the ID associated with this device */
+		SInt16 							inputStandard;			/* ntscIn is 0 or palIn is 1 */
+		Boolean 						deviceActive;			/* device is being used by another client */
+	};
+
+
+
+Notification Structures	
+
+
+	struct IDHEventHeader {
+		IDHDeviceID 					deviceID;					/* a unique device ID */
+		IDHNotificationID 				notificationID;				/* notification ID associated this callback */
+		IDHEvent 						event;						/* The event */
+	};
+	
+	struct IDHGenericEvent {
+		IDHEventHeader 					eventHeader;				/* as described above */
+		UInt32 							pad[4];
+	};
+
+	struct IDHDeviceConnectionEvent {
+		IDHEventHeader 					eventHeader;
+	};
+			
+	struct IDHDeviceIOEnableEvent {
+		IDHEventHeader 					eventHeader;
+	};
+
+
+Notification Events
+	
+	#define kIDHEventInvalid			0,
+	#define kIDHEventDeviceAdded		1L << 0						/* Uses IDHDeviceConnectionEvent*/
+	#define kIDHEventDeviceRemoved		1L << 1						/* Uses IDHDeviceConnectionEvent*/
+	#define kIDHEventDeviceChanged		1L << 2						/* Uses ????*/
+	#define kIDHEventReadEnabled		1L << 3						/* Uses IDHDeviceIOEnableEvent*/
+	#define kIDHEventReserved1			1L << 4						/* Reserved for future use*/
+	#define kIDHEventReadDisabled		1L << 5						/* Uses IDHDeviceIOEnableEvent*/
+	#define kIDHEventWriteEnabled		1L << 6						/* Uses IDHDeviceIOEnableEvent*/
+	#define kIDHEventReserved2			1L << 7						/* Reserved for future use*/
+	#define kIDHEventWriteDisabled		1L << 8						/* Uses IDHDeviceIOEnableEvent*/
+	#define kIDHEventEveryEvent			(long)0xFFFFFFFF
+
+
+			
+			
+									Isochronous Component Functions
+									===============================
+					
+Getting device information and choosing a device
+
+IDHGetDeviceList
+----------------
+
+	The IDHGetDeviceList function returns an atom list of the devices that are currently active.
+	
+	pascal ComponentResult IDHGetDeviceList( ComponentInstance idh, QTAtomContainer *deviceList)
+
+	idh - Specifies the IDH component for operation. You can obtain this identifier from the
+		  ComponentManager's OpenComponent() function.
+		  
+	deviceList - An atom container that describes each of the devices that support this isoch component.
+	             The atom structure is defined above. The user must free this atom container using 
+	             QTRemoveChildren() and QTDisposeAtomContainer() when finished.
+	
+	Result Codes:
+		Quicktime error codes
+	
+IDHUpdateDeviceList
+-------------------
+
+	The IDHUpdateDeviceList function allows the client to change certain atoms within the internal atom list.
+	
+	pascal ComponentResult IDHUpdateDeviceList( ComponentInstance idh, QTAtomContainer *deviceList)
+
+	idh - Specifies the IDH component for operation. You can obtain this identifier from the
+		  ComponentManager's OpenComponent() function.
+		  
+	deviceList - An atom container that was returned from IDHGetDeviceList(). The client has modified one
+				 or more atoms identified as (r/w).
+	
+	Result Codes:
+		kIDHErrDeviceList		The device list is either stale or corrupt. Please IDHGetDeviceList().
+		Quicktime error codes
+
+IDHSetDeviceConfiguration
+-------------------------
+
+	The IDHSetDeviceConfiguration function allows the user to choose a specific configuration of a device
+	for reads or writes. The configuration structure is defined in the atom description above.
+	
+	pascal ComponentResult IDHSetDeviceConfiguration( ComponentInstance idh, const QTAtomSpec *configurationID)
+
+	idh - Specifies the IDH component for operation. You can obtain this identifier from the
+		  ComponentManager's OpenComponent() function.
+		  
+	configurationID - Specifies the requested configuration. The user passes an QTAtomSpec which is
+	                  an atom container/ kIDHIsochModeAtomType atom pair. NOTE: The user must NOT dispose 
+	                  of the device list (requested by IDHGetDeviceList()) until he is through with this 
+	                  configuration.
+
+	Result Codes:
+		kIDHErrDeviceInUse		Another device has already been opened. Please IDHCloseDevice().
+		kIDHErrDeviceList		The device list is either stale or corrupt. Please IDHGetDeviceList().
+		kIDHErrInvalidDeviceID	Internal Error
+		kAlreadyEnabledErr		Device control has already been enabled on this device
+		kNotEnabledErr			Device control is not enabled
+	
+IDHGetDeviceConfiguration
+-------------------------
+
+	The IDHGetDeviceConfiguration function returns the configuration that the client set using the
+	IDHSetDeviceConfiguration() call.
+	
+	pascal ComponentResult IDHGetDeviceConfiguration( ComponentInstance idh, QTAtomSpec *configurationID)
+	
+	idh - Specifies the IDH component for operation. You can obtain this identifier from the
+		  ComponentManager's OpenComponent() function.
+		  
+	configurationID - Contains the previously specified configuration. The function returns an QTAtomSpec
+					  which is an atom container/ kIDHIsochModeAtomType atom pair. NOTE: The user must NOT 
+					  dispose the device list (requested by IDHGetDeviceList()) until he is through with this 
+	                  configuration.
+
+	Result Codes:
+		kIDHErrDeviceNotConfigured	A device has not already been selected using IDHSetDeviceConfiguration()
+
+	
+Opening and closing a device
+
+IDHOpenDevice
+-------------
+
+	The IDHOpenDevice function opens the currently configured device.
+	
+	pascal ComponentResult IDHOpenDevice( ComponentInstance idh, UInt32 permissions)
+
+	idh - Specifies the IDH component for operation. You can obtain this identifier from the
+		  ComponentManager's OpenComponent() function.
+		  
+	permissions - The user specifies a combination of the following flags when opening a device.
+		
+		kIDHOpenForReadTransactions	- Indicates that the device will be opened for reads. The value of
+		this flag is 1. One or more clients can open a device for reads unless a client specifies 
+		the	kIDHOpenWithExclusiveAccess flag.
+		
+		kIDHOpenForWriteTransactions - Indicates that the device will be opened for writes. The value of
+		this flag is 0x2. Note: Only one client can open a device for writes.
+		
+		kIDHOpenWithExclusiveAccess	- Indicates that the device cannot be opened by another client. The 
+		value of this flag is 0x4.
+
+	Result Codes:
+		kIDHErrDeviceNotConfigured	A device has not already been selected using IDHSetDeviceConfiguration()
+		kIDHErrInvalidDeviceID		Internal Error
+		kIDHErrDeviceInUse			Device has been exclusively opened by another client. Or it has already been
+									in another state.
+		kIDHErrInvalidIndex			Internal Error
+		
+IDHCloseDevice
+--------------
+
+	The IDHCloseDevice function closes the previously opened IDH device.
+	
+	pascal ComponentResult IDHCloseDevice( ComponentInstance idh)
+
+	idh - Specifies the IDH component for operation. You can obtain this identifier from the
+		  ComponentManager's OpenComponent() function.
+		  
+	Result Codes:
+		kIDHErrDeviceNotConfigured	A device has not already been selected using IDHSetDeviceConfiguration()
+		kIDHErrInvalidDeviceID		Internal Error
+		kIDHErrDeviceNotOpened		A device has not been opened
+
+
+Device I/O
+
+IDHRead
+-------
+
+	The IDHRead function reads data from the currently opened device configuration.
+	
+	pascal ComponentResult IDHRead( ComponentInstance idh, IDHParameterBlock *pb)
+	
+	idh - Specifies the IDH component for operation. You can obtain this identifier from the
+		  ComponentManager's OpenComponent() function.
+		  
+	pb - Specifies the address of a IDHParameterBlock structure. Each of the fields are described in detail
+	     in a previous section. The user should keep the IDHParameterBlock around until the completion routine
+	     is called.   NOTE: On a 'nil' buffer read, the buffer will remain valid for an indeterminate 
+		 amount of time. The client should USE the buffer ASAP to guarantee data integrity.
+
+	Result Codes:
+		kIDHErrDeviceNotConfigured	A device has not already been selected using IDHSetDeviceConfiguration()
+		kIDHErrInvalidDeviceID		Internal Error
+		kIDHErrDeviceTimeout		Timeout on synchronous read
+		
+		
+IDHWrite
+--------
+
+	The IDHWrite function writes data to the currently opened device configuration.
+	
+	pascal ComponentResult IDHWrite( ComponentInstance idh, IDHParameterBlock *pb)
+
+	idh - Specifies the IDH component for operation. You can obtain this identifier from the
+		  ComponentManager's OpenComponent() function.
+		  
+	pb - Specifies the address of a IDHParameterBlock structure. Each of the fields are described in detail
+	     in a previous section. The user should keep the IDHParameterBlock around until the completion routine
+	     is called. 
+
+	Result Codes:
+		kIDHErrDeviceNotConfigured	A device has not already been selected using IDHSetDeviceConfiguration()
+		kIDHErrInvalidDeviceID		Internal Error
+		kIDHErrDeviceTimeout		Timeout on synchronous read
+
+IDHReleaseBuffer
+----------------
+
+	The IDHReleaseBuffer function releases a buffer returned from an IDHRead() request where
+	the client specified a 'nil' buffer.
+	
+	pascal ComponentResult IDHReleaseBuffer( ComponentInstance idh, IDHParameterBlock *pb)
+
+	idh - Specifies the IDH component for operation. You can obtain this identifier from the
+		  ComponentManager's OpenComponent() function.
+		  
+	pb - Specifies the address of the IDHParameterBlock structure that was originally passed into
+		 IDHRead() function.  NOTE: The buffer will remain valid for an indeterminate amount of time. 
+		 The client should USE the buffer ASAP to guarantee data integrity.
+
+	Result Codes:
+		kIDHErrDeviceNotConfigured	A device has not already been selected using IDHSetDeviceConfiguration()
+		kIDHErrInvalidDeviceID		Internal Error
+
+IDHCancelPendingIO
+------------------
+
+	The IDHCancelPendingIO function cancels any outstanding IDHRead() or IDHWrite() requests. This
+	should be called prior to closing a device.
+	
+	pascal ComponentResult IDHCancelPendingIO( ComponentInstance idh, IDHParameterBlock *pb)
+
+	idh - Specifies the IDH component for operation. You can obtain this identifier from the
+		  ComponentManager's OpenComponent() function.
+		  
+	pb - Specifies the address of the IDHParameterBlock structure that was originally passed into
+		 IDHRead() or IDHWrite() function.
+
+	Result Codes:
+		Macintosh errors
+
+
+Getting device status
+
+IDHGetDeviceStatus
+------------------
+
+	The IDHGetDeviceStatus function gets the device status from the specified device configuration.
+	
+	pascal ComponentResult IDHGetDeviceStatus( ComponentInstance idh, const QTAtomSpec *configurationID,
+								 IDHDeviceStatus *status)
+
+	idh - Specifies the IDH component for operation. You can obtain this identifier from the
+		  ComponentManager's OpenComponent() function.
+		  
+	configurationID - The user passes an QTAtomSpec which is an atom container/ kIDHIsochModeAtomType atom 
+					  pair. NOTE: The user must NOT dispose of the device list (requested by IDHGetDeviceList()) 
+					  until he is through with this configuration.
+
+	status - The address of a IDHDeviceStatus structure. The specified device status will be returned. Each
+			 of the status fields are described in detail above.
+	
+	Result Codes:
+		kIDHErrDeviceList		The device list is either stale or corrupt. Please IDHGetDeviceList().
+		kIDHErrInvalidDeviceID	Internal Error
+		
+
+
+Device Notification
+
+IDHNewNotification
+------------------
+
+	The IDHNewNotification function creates a notification ID which is used to initiate client notification 
+	based on device events.
+	
+	pascal ComponentResult IDHNewNotification(	ComponentInstance idh, IDHDeviceID deviceID,
+												IDHNotificationProc notificationProc, void *userData, 
+												IDHNotificationID *notificationID)
+
+	idh - Specifies the IDH component for operation. You can obtain this identifier from the
+		  ComponentManager's OpenComponent() function.
+		  
+	deviceID -	the value of a devices kIDHDeviceIDType atom or kIDHDeviceIDEveryDevice. 
+		  
+	notificationProc - the client function that is called when a particular event has taken place
+	
+	userData - the client specified data returned to the client notificationProc.
+	
+	notificationID - this parameter is returned to the client and used in other IDH functions.
+	
+	Result Codes:
+		Macintosh errors
+
+IDHNotifyMeWhen
+---------------
+
+	The IDHNotifyMeWhen function actually enables the notification process. When one of the client specified
+	events occur, the client will be notified through his notification function. NOTE: This function is
+	a one shot. The function must be called again after the event(s) have occured to re-enable the
+	notification.
+	
+	pascal ComponentResult IDHNotifyMeWhen( ComponentInstance idh, IDHNotificationID notificationID, 
+							IDHEvent events)
+
+
+	idh - Specifies the IDH component for operation. You can obtain this identifier from the
+		  ComponentManager's OpenComponent() function.
+
+	notificationID - this parameter is obtained by calling IDHNewNotification.
+	
+	events - one or more flags that the client uses to specify the device events of interest
+		kIDHEventDeviceAdded - Indicates that a new device has been added to the computer. The value of this 
+							   flag is 1.
+							   
+		kIDHEventDeviceRemoved - Indicates that a device has been removed from the computer. The value of this 
+								 flag is 2.
+								 
+		kIDHEventDeviceChanged - Indicates that a device is ???. The value of this flag is 4.
+		
+		kIDHEventReadEnabled - Indicates that a device has been enabled for read. The value of this flag 
+							   is 8.
+							   
+		kIDHEventReadDisabled - Indicates that a device has been disabled for read. The value of this flag
+								is 32.
+								
+		kIDHEventWriteEnabled - Indicates that a device has been enabled for write. The value of this flag
+								is 64.
+								
+		kIDHEventWriteDisabled - Indicates that a device has been disabled for write. The value of this flag
+								 is 256.
+	
+	Result Codes:
+		Macintosh Errors
+		
+
+IDHCancelNotification
+---------------------
+
+	The IDHCancelNotification function cancels an outstanding IDHNotifyMeWhen() request. This function
+	should be called prior to exiting to avoid spurious calls to the client callback.
+	
+	pascal ComponentResult IDHCancelNotification( ComponentInstance idh, IDHNotificationID	notificationID)
+
+	idh - Specifies the IDH component for operation. You can obtain this identifier from the
+		  ComponentManager's OpenComponent() function.
+
+	notificationID - this parameter is obtained by calling IDHNewNotification() and used in IDHNotifyMeWhen().
+	
+	Result Codes:
+		Macintosh Errors
+
+IDHDisposeNotification
+----------------------
+
+	The IDHDisposeNotification function releases the resources associated with the IDHNotificationID. This
+	function should be called before closing the isoch component.
+	
+	pascal ComponentResult IDHDisposeNotification( ComponentInstance idh, IDHNotificationID notificationID)
+
+	idh - Specifies the IDH component for operation. You can obtain this identifier from the
+		  ComponentManager's OpenComponent() function.
+
+	notificationID - this parameter is obtained by calling IDHNewNotification().
+
+	Result Codes:
+		Macintosh Errors
+
+
+
+Other functions
+
+IDHGetDeviceClock
+-----------------
+	
+	The IDHGetDeviceClock function returns a bus specific clock component used in audio/video 
+	synchronization. The client should read the Quicktime documentation for information about 
+	a Clock Component. The Clock component is used in other Quicktime functions such as video out.
+	
+	pascal ComponentResult IDHGetDeviceClock( ComponentInstance idh, Component *clock)
+
+	idh - Specifies the IDH component for operation. You can obtain this identifier from the
+		  ComponentManager's OpenComponent() function.
+
+	clock - returns the Clock component associated with this IDH component.
+
+	Result Codes:
+		kIDHErrDeviceNotConfigured	A device has not already been selected using IDHSetDeviceConfiguration()
+
+IDHGetDeviceControl
+-------------------
+
+	The IDHGetDeviceControl function returns an instance to a device control component associated with
+	the device that was most recently set with IDHSetDeviceConfiguration. See the device control component 
+	documentation for more details.
+	
+	pascal ComponentResult IDHGetDeviceControl( ComponentInstance idh, ComponentInstance *deviceControl)
+
+	idh - Specifies the IDH component for operation. You can obtain this identifier from the
+		  ComponentManager's OpenComponent() function.
+
+	deviceControl - returns an instance of a device control component.
+
+	Result Codes:
+		kIDHErrDeviceNotConfigured	A device has not already been selected using IDHSetDeviceConfiguration()
+		kIDHErrInvalidDeviceID		Internal Error
+
+
+                                    Device Control Component Reference
+                                    ==================================
+
+Component Types for Device Control Components
+------------------------------------
+
+	#define kDVCComponentType 	'devc'		/* Component type*/
+	#define	kDVCSubtypeDV		'fwdv'		/* Subtype for DV (over FireWire)*/
+
+
+
+Data Types for Device Control Components
+-------------------------------
+
+The parameter block passed to DeviceControlDoAVCTransaction():
+
+typedef UInt32 DCResponseHandler(UInt32 fwCommandObjectID, Ptr responseBuffer, UInt32 responseLength);
+struct DVCTransactionParams {
+    Ptr                             commandBufferPtr;			/* pointer to AVC command bytes */
+    UInt32                          commandLength;				/* command length in bytes */
+    Ptr                             responseBufferPtr;			/* pointer to buffer to store AVC response */
+    UInt32                          responseBufferSize;			/* response buffer size in bytes */
+    DCResponseHandler *             responseHandler;			/* Function to call when device sends response - IGNORED in X 1.0 */
+};
+typedef struct DVCTransactionParams     DVCTransactionParams;
+
+
+									Device Control Component Functions
+									===============================
+DeviceControlDoAVCTransaction
+-----------------------------
+
+    The DeviceControlDoAVCTransaction transaction sends an AV/C command to the device and returns the response sent by the device. 	Documentation on AV/C command and response formats is available from the 1394 Trade Association (www.1394TA.org)
+ 
+    ComponentResult DeviceControlDoAVCTransaction(ComponentInstance instance, DVCTransactionParams * params)
+    
+    instance - specifies the device control component for operation. Obtained from IDHGetDeviceControl().
+    params - parameter block for call.
+
+											SAMPLE CODE
+											===========
+					
+					
+		NOTE - The isoch component requires QT 4.0 headers and libraries.					
+
+		Opening a DV isoch component
+		----------------------------
+		
+		ComponentDescription compDesc;
+		Component isochComponent;
+		ComponentInstance isochInstance;
+		
+		compDesc.componentType 			= kIDHComponentType;
+		compDesc.componentSubType 		= kIDHSubtypeDV;
+		compDesc.componentManufacturer 	= 0;
+		compDesc.componentFlags 		= 0;
+		compDesc.componentFlagsMask 	= kAnyComponentFlagsMask;
+
+		isochComponent = FindNextComponent( nil, &compDesc);
+		if( isochComponent == nil)
+			goto error;
+			
+		isochInstance = OpenComponent( isochComponent);
+		if( isochInstance == nil)
+			goto error;
+			
+
+		Finding the first video device in the list
+		------------------------------------------
+
+		QTAtomContainer deviceList;
+		short nDVDevices, i, j, nConfigs;
+		QTAtom deviceAtom, isochAtom;
+		QTAtomSpec currentIsochConfig;
+		
+		err = IDHGetDeviceList( isochInstance, &deviceList);
+		if( err != noErr)
+			goto err;
+	
+		nDVDevices = QTCountChildrenOfType( deviceList, kParentAtomIsContainer, kIDHDeviceAtomType);
+
+		for( i=0; i<nDVDevices; ++i)
+		{
+			QTAtom deviceAtom, isochAtom;
+			int nConfigs;
+			
+			// get the atom to this device
+			deviceAtom = QTFindChildByIndex( deviceList, kParentAtomIsContainer, kIDHDeviceAtomType, i + 1, nil);
+			if( deviceAtom == nil)
+				goto error;
+			
+			// find the isoch characteristics for this device
+			isochAtom = QTFindChildByIndex( deviceList, deviceAtom, kIDHIsochServiceAtomType, 1, nil);
+			if( isochAtom == nil)
+				goto error;
+			
+			// how many configs exist for this device
+			nConfigs = QTCountChildrenOfType( deviceList, isochAtom, kIDHIsochModeAtomType);
+			
+			currentIsochConfig.atom = nil;	// start with no selected config
+			
+			// process each config
+			for( j=0; j<nConfigs; ++j)
+			{
+				OSType mediaType;
+				long size;
+				QTAtom configAtom, mediaAtom;
+				
+				// get this configs atom
+				configAtom = QTFindChildByIndex( deviceList, isochAtom, kIDHIsochModeAtomType, j + 1, nil);
+				if( configAtom == nil)
+					goto error;
+				
+				// find the media type atom
+				mediaAtom = QTFindChildByIndex( deviceList, configAtom, kIDHIsochMediaType, 1, nil);
+				if( mediaAtom == nil)
+					goto error;
+				
+				QTLockContainer( deviceList);
+				
+				// get the value of the mediaType atom
+				QTCopyAtomDataToPtr( deviceList, mediaAtom, true, sizeof( mediaType), &mediaType, &size);
+				
+				QTUnlockContainer( deviceList);
+				
+				// is this config an video config?
+				if( mediaType == kIDHVideoMediaAtomType)	// found video device
+				{
+					currentIsochConfig.container = deviceList;	// save this config 
+					currentIsochConfig.atom = configAtom;
+					break;
+				}
+			}
+			
+			if( currentIsochConfig.atom != nil)	// did we find a video config?
+				break;
+		}
+		
+		if( currentIsochConfig.atom == nil)	// no good configs found
+			goto error;
+			
+		Setting a configuration and opening a device for reading
+		--------------------------------------------------------
+		
+		// set isoch to use this config
+		err = IDHSetDeviceConfiguration( isochInstance, &currentIsochConfig);						
+		if( err != noErr)
+			goto error;
+		
+		// open the DV device
+		err = IDHOpenDevice( isochInstance, kIDHOpenForReadTransactions);
+		if( err != noErr)
+			goto Exit);
+
+		Reading from a device (client supplies buffer)
+		----------------------------------------------
+		
+		// we are doing isoch reads with only one buffer at a time
+		isochParamBlock.buffer 			= myBuffer;
+		isochParamBlock.requestedCount	= 120000;	// NTSC buffer size
+		isochParamBlock.actualCount 	= 0;
+		isochParamBlock.completionProc 	= DVIsochComponentReadCallback;
+		isochParamBlock.refCon		 	= iGlobals;
+		
+		err = IDHRead( isochInstance, &isochParamBlock);
+		if( err != noErr)
+			goto error;
+			
+		Callback from read request (client supplies buffer)
+		---------------------------------------------------
+		
+		// called when a new isoch read is received
+		OSStatus DVIsochComponentReadCallback( IDHGenericEvent *eventRecord, void *userData)
+		{
+			OSErr 					result = noErr;
+			ComponentInstancePtr	iGlobals = userData;
+			IDHParameterBlock		*pb = (IDHParameterBlock *) eventRecord;
+			
+			// fill out structure
+			pb->buffer 			= myBuffer;
+			pb->requestedCount	= 120000;
+			pb->actualCount 	= 0;
+			pb->completionProc 	= DVIsochComponentReadCallback;
+			pb->refCon		 	= iGlobals;
+			
+			// do another read
+			result = IDHRead( isochInstance, pb);
+			if( result != noErr)
+				goto error;
+
+		error:		
+			return result;
+		}
+
+		Reading from a device (isoch component supplies buffer)
+		-------------------------------------------------------
+		
+		// we are doing isoch reads with only one buffer at a time
+		isochParamBlock.buffer 			= nil;
+		isochParamBlock.requestedCount	= 120000;	// NTSC buffer size
+		isochParamBlock.actualCount 	= 0;
+		isochParamBlock.completionProc 	= DVIsochComponentReadCallback;
+		isochParamBlock.refCon		 	= iGlobals;
+		
+		err = IDHRead( isochInstance, &isochParamBlock);
+		if( err != noErr)
+			goto error;
+			
+		Callback from read request (isoch component supplies buffer)
+		------------------------------------------------------------
+		
+		// called when a new isoch read is received
+		OSStatus DVIsochComponentReadCallback( IDHGenericEvent *eventRecord, void *userData)
+		{
+			OSErr 					result = noErr;
+			ComponentInstancePtr	iGlobals = userData;
+			IDHParameterBlock		*pb = (IDHParameterBlock *) eventRecord;
+			
+			WorkOnData( pb->buffer, pb->actualCount);
+			
+			result = IDHReleaseBuffer( isochInstance, pb);
+			if( result != noErr)
+				goto error;
+
+			// fill out structure
+			pb->buffer 			= nil;
+			pb->requestedCount	= 120000;
+			pb->actualCount 	= 0;
+			pb->completionProc 	= DVIsochComponentReadCallback;
+			pb->refCon		 	= iGlobals;
+			
+			// do another read
+			result = IDHRead( isochInstance, pb);
+			if( result != noErr)
+				goto error;
+
+		error:		
+			return result;
+		}
+		
+		Writing to device (client supplies the buffer)
+		----------------------------------------------
+		
+		// we are doing isoch reads with only one buffer at a time
+		isochParamBlock.buffer 			= myBuffer;
+		isochParamBlock.requestedCount	= 120000;	// NTSC buffer size
+		isochParamBlock.actualCount 	= 0;
+		isochParamBlock.completionProc 	= DVIsochComponentWriteCallback;
+		isochParamBlock.refCon		 	= iGlobals;
+		
+		err = IDHWrite( isochInstance, &isochParamBlock);
+		if( err != noErr)
+			goto error;
+			
+		Callback from write request (client supplies the buffer)
+		--------------------------------------------------------
+		
+		// called when a new isoch read is received
+		OSStatus DVIsochComponentWriteCallback( IDHGenericEvent *eventRecord, void *userData)
+		{
+			OSErr 					result = noErr;
+			ComponentInstancePtr	iGlobals = userData;
+			IDHParameterBlock		*pb = (IDHParameterBlock *) eventRecord;
+			
+			// fill out structure
+			isochParamBlock.buffer 			= myBuffer;
+			isochParamBlock.requestedCount	= 120000;	// NTSC buffer size
+			isochParamBlock.actualCount 	= 0;
+			isochParamBlock.completionProc 	= DVIsochComponentWriteCallback;
+			isochParamBlock.refCon		 	= iGlobals;
+			
+			// do another read
+			result = IDHWrite( isochInstance, pb);
+			if( result != noErr)
+				goto error;
+
+		error:		
+			return result;
+		}
+
+		Writing to device (isoch component supplies the buffer)
+		-------------------------------------------------------
+		
+		// we are doing isoch reads with only one buffer at a time
+		isochParamBlock.buffer 			= nil;
+		isochParamBlock.requestedCount	= 120000;	// NTSC buffer size
+		isochParamBlock.actualCount 	= 0;
+		isochParamBlock.completionProc 	= DVIsochComponentWriteCallback;
+		isochParamBlock.refCon		 	= iGlobals;
+		
+		err = IDHWrite( isochInstance, &isochParamBlock);
+		if( err != noErr)
+			goto error;
+			
+		Callback from write request (isoch component supplies the buffer)
+		-----------------------------------------------------------------
+		
+		// called when a new isoch read is received
+		OSStatus DVIsochComponentWriteCallback( IDHGenericEvent *eventRecord, void *userData)
+		{
+			OSErr 					result = noErr;
+			ComponentInstancePtr	iGlobals = userData;
+			IDHParameterBlock		*pb = (IDHParameterBlock *) eventRecord;
+			
+			BlockMove( myBuffer, pb->buffer, 120000);
+			
+			// fill out structure
+			isochParamBlock.buffer 			= nil;
+			isochParamBlock.requestedCount	= 120000;	// NTSC buffer size
+			isochParamBlock.actualCount 	= 0;
+			isochParamBlock.completionProc 	= DVIsochComponentWriteCallback;
+			isochParamBlock.refCon		 	= iGlobals;
+			
+			// do another read
+			result = IDHWrite( isochInstance, pb);
+			if( result != noErr)
+				goto error;
+
+		error:		
+			return result;
+		}
+
+		Closing down the isoch device
+		-----------------------------
+		
+		result = IDHCancelPendingIO( isochInstance, &isochParamBlock);
+			
+		result = IDHCloseDevice( isochInstance);
+			
+		CloseComponent( isochInstance);	// close isoch component
+		
+		
+		Writing a device control command to a device
+		--------------------------------------------
+		
+		ComponentInstance deviceControlInstance;
+		
+		result = IDHGetDeviceControl( isochInstance, &deviceControlInstance);
+		if( result != noErr)
+			goto error;
+			
+		result = DeviceControlDoAVCTransaction( deviceControlInstance, (DVCTransactionParams *) pParams);
+		if( result != noErr)
+			goto error;
+			
+			
+		Setting up notification for a device being enabled for reads
+		------------------------------------------------------------
+		deviceNotificationID = 0;
+		result = IDHNewNotification( isochInstance, kIDHDeviceIDEveryDevice, DVDeviceCallback, 
+					(void *) iGlobals, &deviceNotificationID);
+		if( result != noErr)
+			goto error;
+	
+		result = IDHNotifyMeWhen( isochInstance, deviceNotificationID, kIDHEventReadEnabled);
+		if( result != noErr)
+			goto error;
+		
+		
+		Getting called on a notification event
+		--------------------------------------	
+		OSStatus DVDeviceCallback( IDHGenericEvent *event, void *userData)
+		{
+			switch( event->eventHeader.event)
+			{
+				case kIDHEventReadEnabled:
+					deviceHasBeenReadEnabled( event);
+					break;
+			}
+		}

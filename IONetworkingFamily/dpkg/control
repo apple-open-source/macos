@@ -1,0 +1,6 @@
+Package: ionetworkingfamily
+Maintainer: Rob Braun <rbraun@synack.net>
+Vendor: Apple Computer, Inc.
+Version: 2
+Build-Depends: build-base, jam, xnu
+Description: IOKit Networking Family

@@ -48,6 +48,8 @@
 
 OSDefineMetaClassAndStructors(KeyLargo, AppleMacIO);
 
+KeyLargo *gHostKeyLargo = NULL;
+
 bool KeyLargo::init(OSDictionary * properties)
 {
   // Just to be sure we are not going to use the
@@ -79,7 +81,14 @@ bool KeyLargo::start(IOService *provider)
   tmpData = OSDynamicCast(OSData, entry->getProperty("clock-frequency"));
   if (tmpData == 0) return false;
   busSpeed = *(unsigned long *)tmpData->getBytesNoCopy();
-
+  
+  // if this is mac-io (as opposed to ext-mac-io) save a reference to it
+  tmpData = OSDynamicCast(OSData, provider->getProperty("name"));
+  if (tmpData == 0) return false;
+  
+  if (tmpData->isEqualTo ("mac-io", strlen ("mac-io")))
+	gHostKeyLargo = this;
+	
   // callPlatformFunction symbols
   keyLargo_resetUniNEthernetPhy = OSSymbol::withCString("keyLargo_resetUniNEthernetPhy");
   keyLargo_restoreRegisterState = OSSymbol::withCString("keyLargo_restoreRegisterState");
@@ -87,10 +96,13 @@ bool KeyLargo::start(IOService *provider)
   keyLargo_saveRegisterState = OSSymbol::withCString("keyLargo_saveRegisterState");
   keyLargo_turnOffIO = OSSymbol::withCString("keyLargo_turnOffIO");
   keyLargo_writeRegUInt8 = OSSymbol::withCString("keyLargo_writeRegUInt8");
+  keyLargo_safeWriteRegUInt8 = OSSymbol::withCString("keyLargo_safeWriteRegUInt8");
+  keyLargo_safeReadRegUInt8 = OSSymbol::withCString("keyLargo_safeReadRegUInt8");
   keyLargo_safeWriteRegUInt32 = OSSymbol::withCString("keyLargo_safeWriteRegUInt32");
   keyLargo_safeReadRegUInt32 = OSSymbol::withCString("keyLargo_safeReadRegUInt32");
   keyLargo_powerMediaBay = OSSymbol::withCString("powerMediaBay");
-
+  keyLargo_getHostKeyLargo = OSSymbol::withCString("keyLargo_getHostKeyLargo");
+  
   // Call MacIO's start.
   if (!super::start(provider))
     return false;
@@ -544,25 +556,56 @@ void KeyLargo::restoreRegisterState(void)
     savedKeyLargState.thisStateIsValid = false;
 }
 
-UInt8 KeyLargo::readRegUInt8(unsigned long offest)
+UInt8 KeyLargo::readRegUInt8(unsigned long offset)
 {
-    return *(UInt8 *)(keyLargoBaseAddress + offest);
+    return *(UInt8 *)(keyLargoBaseAddress + offset);
 }
 
-void KeyLargo::writeRegUInt8(unsigned long offest, UInt8 data)
+void KeyLargo::writeRegUInt8(unsigned long offset, UInt8 data)
 {
-    *(UInt8 *)(keyLargoBaseAddress + offest) = data;
+    *(UInt8 *)(keyLargoBaseAddress + offset) = data;
+
     eieio();
 }
 
-UInt32 KeyLargo::readRegUInt32(unsigned long offest)
+void KeyLargo::safeWriteRegUInt8(unsigned long offset, UInt8 mask, UInt8 data)
 {
-    return lwbrx(keyLargoBaseAddress + offest);
+  IOInterruptState intState;
+
+  if ( mutex  != NULL )
+     intState = IOSimpleLockLockDisableInterrupt(mutex);
+
+  UInt8 currentReg = readRegUInt8(offset);
+  currentReg = (currentReg & ~mask) | (data & mask);
+  writeRegUInt8(offset, currentReg);
+  
+  if ( mutex  != NULL )
+     IOSimpleLockUnlockEnableInterrupt(mutex, intState);
 }
 
-void KeyLargo::writeRegUInt32(unsigned long offest, UInt32 data)
+UInt8 KeyLargo::safeReadRegUInt8(unsigned long offset)
 {
-  stwbrx(data, keyLargoBaseAddress + offest);
+  IOInterruptState intState;
+
+  if ( mutex  != NULL )
+     intState = IOSimpleLockLockDisableInterrupt(mutex);
+  
+  UInt8 currentReg = readRegUInt8(offset);
+  
+  if ( mutex  != NULL )
+     IOSimpleLockUnlockEnableInterrupt(mutex, intState);
+
+  return (currentReg);  
+}
+
+UInt32 KeyLargo::readRegUInt32(unsigned long offset)
+{
+    return lwbrx(keyLargoBaseAddress + offset);
+}
+
+void KeyLargo::writeRegUInt32(unsigned long offset, UInt32 data)
+{
+  stwbrx(data, keyLargoBaseAddress + offset);
   eieio();
 }
 
@@ -625,17 +668,18 @@ void KeyLargo::initForPM (IOService *provider)
     // unsigned long	powerDomainBudget;	// power in mw a domain in this state can deliver to its children
 
     // NOTE: all these values are made up since now I do not have areal clue of what to put.
-#define number_of_power_states 2
+#define kNumberOfPowerStates 3
 
-    static IOPMPowerState ourPowerStates[number_of_power_states] = {
-    {1,0,0,0,0,0,0,0,0,0,0,0},
-    {1,IOPMDeviceUsable,IOPMPowerOn,IOPMPowerOn,0,0,0,0,0,0,0,0}
-    };
+    static IOPMPowerState ourPowerStates[kNumberOfPowerStates] = {
+    { 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+    { 1, 0, IOPMSoftSleep, IOPMSoftSleep, 0, 0, 0, 0, 0, 0, 0, 0 },
+    { 1, IOPMDeviceUsable, IOPMPowerOn, IOPMPowerOn, 0, 0, 0, 0, 0, 0, 0, 0 }
+};
 
 
     // register ourselves with ourself as policy-maker
     if (pm_vars != NULL)
-        registerPowerDriver(this, ourPowerStates, number_of_power_states);
+        registerPowerDriver(this, ourPowerStates, kNumberOfPowerStates);
 }
 
 // Method: setPowerState
@@ -644,8 +688,8 @@ void KeyLargo::initForPM (IOService *provider)
 IOReturn KeyLargo::setPowerState(unsigned long powerStateOrdinal, IOService* whatDevice)
 {
     // Do not do anything if the state is inavalid.
-    if (powerStateOrdinal >= 2)
-        return IOPMNoSuchState;
+    if (powerStateOrdinal >= kNumberOfPowerStates)
+        return IOPMAckImplied;
 
     if ( powerStateOrdinal == 0 ) {
         kprintf("KeyLargo would be powered off here\n");
@@ -1025,6 +1069,19 @@ IOReturn KeyLargo::callPlatformFunction(const OSSymbol *functionName,
         return kIOReturnSuccess;
     }
 
+    if (functionName == keyLargo_safeWriteRegUInt8)
+    {
+        safeWriteRegUInt8((unsigned long)param1, (UInt8)param2, (UInt8)param3);
+        return kIOReturnSuccess;
+    }
+
+    if (functionName == keyLargo_safeReadRegUInt8)
+    {
+        UInt8 *returnval = (UInt8 *)param2;
+        *returnval = safeReadRegUInt8((unsigned long)param1);
+        return kIOReturnSuccess;
+    }
+
     if (functionName == keyLargo_safeWriteRegUInt32)
     {
         safeWriteRegUInt32((unsigned long)param1, (UInt32)param2, (UInt32)param3);
@@ -1033,7 +1090,7 @@ IOReturn KeyLargo::callPlatformFunction(const OSSymbol *functionName,
 
     if (functionName == keyLargo_safeReadRegUInt32)
     {
-        UInt32 *returnval = param2;
+        UInt32 *returnval = (UInt32 *)param2;
         *returnval = safeReadRegUInt32((unsigned long)param1);
         return kIOReturnSuccess;
     }
@@ -1047,7 +1104,7 @@ IOReturn KeyLargo::callPlatformFunction(const OSSymbol *functionName,
     
     if (functionName->isEqualTo("EnableSCC"))
     {
-        EnableSCC((bool)param1);
+        EnableSCC((bool)param1, (UInt8)param2, (bool)param3);
         return kIOReturnSuccess;
     }
 
@@ -1057,35 +1114,142 @@ IOReturn KeyLargo::callPlatformFunction(const OSSymbol *functionName,
         return kIOReturnSuccess;
     }
 
+    if (functionName->isEqualTo("ModemResetLow"))
+    {
+        ModemResetLow();
+        return kIOReturnSuccess;
+    }
+
+    if (functionName->isEqualTo("ModemResetHigh"))
+    {
+        ModemResetHigh();
+        return kIOReturnSuccess;
+    }
+	
+    if (functionName == keyLargo_getHostKeyLargo)
+    {
+        UInt32 *returnVal = (UInt32 *)param1;
+		*returnVal = (UInt32) gHostKeyLargo;
+        return kIOReturnSuccess;
+    }
+
     return super::callPlatformFunction(functionName, waitForFunction, param1, param2, param3, param4);
 }
 
-void KeyLargo::EnableSCC(bool state)
+void KeyLargo::EnableSCC(bool state, UInt8 device, bool type)
 {
+    UInt32 bitsToSet, bitsToClear, currentReg = 0;
+    IOInterruptState intState;
+        
     if (state)
     {
-        UInt32 bitMask;
+        bitsToSet = (1 << 6);			// Enables SCC Cell
+        
+        if(device == 0) // SCCA
+        {
+            bitsToSet |= (1 << 4);		// Enables SCC Interface A
 
-        // Enables the SCC cell:
-        bitMask = (1 << 6);	// Enables SCC
-        //bitMask |= (1 << 5);	// Enables SCC B (which I do not belive is in use i any core99)
-        bitMask |= (1 << 4);	// Enables SCC A
-        bitMask |= (1 << 1);	// Enables SCC Interface A
-        //bitMask |= (1 << 0);	// Enables SCC Interface B (which I do not belive is in use i any core99)
-        safeWriteRegUInt32( (unsigned long)kKeyLargoFCR0, (UInt32)0x52, (UInt32)bitMask );
+            if(type) // I2S1
+            {
+                bitsToClear |= (1 << 1);	// Enables SCC Interface A to support I2S1
+            }
+            else // SCC
+            {
+                bitsToSet |= (1 << 1);		// Enables SCC Interface A to support SCCA
+            }
+        }
+        if(device == 1) // SCCB
+        {
+            bitsToSet |= (1 << 5);		// Enables SCC Interface B
 
-        // Resets the SCC:
-        bitMask = (1 << 3);	// Resets the SCC
-        safeWriteRegUInt32( (unsigned long)kKeyLargoFCR0, (UInt32)0x8, (UInt32)bitMask );
+            if(type) // IrDA
+            {                
+                bitsToSet |= (1 << 17);		// irda 19.584 MHz clock
+                bitsToSet |= (1 << 16);		// irda 32 mhz clock on
+                bitsToSet |= (1 << 15);		// IrDA Enable
+                bitsToClear |= (1 << 14);	// fast connect
+                bitsToClear |= (1 << 13);	// default0
+                bitsToClear |= (1 << 12);	// default1	
+                bitsToSet |= (1 << 10);		// use ir source 1
+                bitsToClear |= (1 << 9);	// do not use ir source 2
+                bitsToClear |= (1 << 8);	// high band for 1mbit.  0 for low speed?
+                //bitsToClear |= (1 << 2);	// SlowPCLK.    0 for SCCPCLK at 24.576 MHZ, 1 for 15.6672 MHz
+                bitsToClear |= (1 << 0);	// Enables SCC Interface B to support IrDA
+            }
+            else // SCC
+            {
+                bitsToSet |= (1 << 0);		// Enables SCC Interface B to support SCCB
+            }
+        }
+                
+        if ( mutex  != NULL ) 			// Take Lock
+            intState = IOSimpleLockLockDisableInterrupt(mutex);
+  
+        currentReg = readRegUInt32( (unsigned long)kKeyLargoFCR0);
+        currentReg |= bitsToSet;
+        currentReg &= ~bitsToClear;
+        
+        writeRegUInt32( (unsigned long)kKeyLargoFCR0, (UInt32)currentReg );
 
-        IOSleep(15);
+        // Reset the SCC
+        currentReg |= (1 << 3);
+        writeRegUInt32( (unsigned long)kKeyLargoFCR0, (UInt32)currentReg );
 
-        bitMask = (0 << 3);
-        safeWriteRegUInt32( (unsigned long)kKeyLargoFCR0, (UInt32)0x8, (UInt32)bitMask );
+        IODelay(15000);
+
+        currentReg &= ~(1 << 3);
+        writeRegUInt32( (unsigned long)kKeyLargoFCR0, (UInt32)currentReg );
+
+        if(device == 1 && (type))	// Reset the IrDA:
+        {
+            currentReg = (1 << 11);
+            writeRegUInt32( (unsigned long)kKeyLargoFCR0, (UInt32)currentReg );
+
+            IODelay(15000);
+
+            currentReg &= ~(1 << 11);
+            writeRegUInt32( (unsigned long)kKeyLargoFCR0, (UInt32)currentReg );
+        }
+        
+        if ( mutex  != NULL )			// Release Lock
+            IOSimpleLockUnlockEnableInterrupt(mutex, intState);
     }
     else
     {
-        // disable code
+        if(device == 0)
+        {
+            bitsToClear |= (1 << 4);		// Disables SCC A
+        }
+        if(device == 1)
+        {
+            bitsToClear |= (1 << 5);		// Disables SCC B
+            
+            if (type)
+            {
+                bitsToClear |= (1 << 17);	// irda 19.584 MHz clock
+                bitsToClear |= (1 << 16);	// irda 32 mhz clock on
+                bitsToClear |= (1 << 15);	// IrDA Enable
+                bitsToClear |= (1 << 14);	// fast connect
+                bitsToClear |= (1 << 13);	// default0
+                bitsToClear |= (1 << 12);	// default1	
+                bitsToClear |= (1 << 10);	// use ir source 1
+                bitsToClear |= (1 << 9);	// do not use ir source 2
+                bitsToClear |= (1 << 8);	// high band for 1mbit.  0 for low speed?
+                //bitsToClear |= (1 << 2);	// SlowPCLK.    0 for SCCPCLK at 24.576 MHZ, 1 for 15.6672 MHz
+            }
+        }
+
+        if ( mutex  != NULL ) 			// Take Lock
+            intState = IOSimpleLockLockDisableInterrupt(mutex);
+  
+        currentReg = readRegUInt32( (unsigned long)kKeyLargoFCR0);
+        currentReg |= bitsToSet;
+        currentReg &= ~bitsToClear;
+        
+        writeRegUInt32( (unsigned long)kKeyLargoFCR0, (UInt32)currentReg );
+
+        if ( mutex  != NULL )			// Release Lock
+            IOSimpleLockUnlockEnableInterrupt(mutex, intState);
     }
     
     return;
@@ -1097,11 +1261,7 @@ void KeyLargo::PowerModem(bool state)
     {
         if (state)
         {
-            writeRegUInt8(kKeyLargoGPIOBase + 0x3, 0x4); // set reset
-            eieio();
             writeRegUInt8(kKeyLargoGPIOBase + 0x2, 0x4); // power modem on
-            eieio();
-            writeRegUInt8(kKeyLargoGPIOBase + 0x3, 0x5); // unset reset
             eieio();
         }
         else
@@ -1119,6 +1279,22 @@ void KeyLargo::PowerModem(bool state)
     }
 
     return;
+}
+
+void KeyLargo::ModemResetLow()
+{
+        *(UInt8*)(keyLargoBaseAddress + kKeyLargoGPIOBase + 0x3) |= 0x04;	// Set GPIO3_DDIR to output
+        eieio();
+        *(UInt8*)(keyLargoBaseAddress + kKeyLargoGPIOBase + 0x3) &= ~0x01;	// Set GPIO3_DataOut output to zero
+        eieio();
+}
+
+void KeyLargo::ModemResetHigh()
+{
+        *(UInt8*)(keyLargoBaseAddress + kKeyLargoGPIOBase + 0x3) |= 0x04;	// Set GPIO3_DDIR to output
+        eieio();
+        *(UInt8*)(keyLargoBaseAddress + kKeyLargoGPIOBase + 0x3) |= 0x01;	// Set GPIO3_DataOut output to 1
+        eieio();
 }
 
 void KeyLargo::resetUniNEthernetPhy(void)

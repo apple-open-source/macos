@@ -1,58 +1,59 @@
 /* ====================================================================
- * Copyright (c) 1995-1999 The Apache Group.  All rights reserved.
+ * The Apache Software License, Version 1.1
+ *
+ * Copyright (c) 2000 The Apache Software Foundation.  All rights
+ * reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
  *
  * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer. 
+ *    notice, this list of conditions and the following disclaimer.
  *
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in
  *    the documentation and/or other materials provided with the
  *    distribution.
  *
- * 3. All advertising materials mentioning features or use of this
- *    software must display the following acknowledgment:
- *    "This product includes software developed by the Apache Group
- *    for use in the Apache HTTP server project (http://www.apache.org/)."
+ * 3. The end-user documentation included with the redistribution,
+ *    if any, must include the following acknowledgment:
+ *       "This product includes software developed by the
+ *        Apache Software Foundation (http://www.apache.org/)."
+ *    Alternately, this acknowledgment may appear in the software itself,
+ *    if and wherever such third-party acknowledgments normally appear.
  *
- * 4. The names "Apache Server" and "Apache Group" must not be used to
- *    endorse or promote products derived from this software without
- *    prior written permission. For written permission, please contact
- *    apache@apache.org.
+ * 4. The names "Apache" and "Apache Software Foundation" must
+ *    not be used to endorse or promote products derived from this
+ *    software without prior written permission. For written
+ *    permission, please contact apache@apache.org.
  *
- * 5. Products derived from this software may not be called "Apache"
- *    nor may "Apache" appear in their names without prior written
- *    permission of the Apache Group.
+ * 5. Products derived from this software may not be called "Apache",
+ *    nor may "Apache" appear in their name, without prior written
+ *    permission of the Apache Software Foundation.
  *
- * 6. Redistributions of any form whatsoever must retain the following
- *    acknowledgment:
- *    "This product includes software developed by the Apache Group
- *    for use in the Apache HTTP server project (http://www.apache.org/)."
- *
- * THIS SOFTWARE IS PROVIDED BY THE APACHE GROUP ``AS IS'' AND ANY
- * EXPRESSED OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE APACHE GROUP OR
+ * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESSED OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+ * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED.  IN NO EVENT SHALL THE APACHE SOFTWARE FOUNDATION OR
  * ITS CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
- * NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
- * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
- * OF THE POSSIBILITY OF SUCH DAMAGE.
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
+ * USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
+ * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
  * ====================================================================
  *
  * This software consists of voluntary contributions made by many
- * individuals on behalf of the Apache Group and was originally based
- * on public domain software written at the National Center for
- * Supercomputing Applications, University of Illinois, Urbana-Champaign.
- * For more information on the Apache Group and the Apache HTTP server
- * project, please see <http://www.apache.org/>.
+ * individuals on behalf of the Apache Software Foundation.  For more
+ * information on the Apache Software Foundation, please see
+ * <http://www.apache.org/>.
  *
+ * Portions of this software are based upon public domain software
+ * originally written at the National Center for Supercomputing Applications,
+ * University of Illinois, Urbana-Champaign.
  */
 
 #ifndef AP_CONFIG_H
@@ -79,7 +80,7 @@ extern "C" {
 #undef HAVE_UNISTD_H
 #endif
 
-/* Have to include sys/stat.h before ../os/win32/os.h so we can override
+/* Have to include sys/stat.h before ../win32/os.h so we can override
 stat() properly */
 #ifndef NETWARE
 #include <sys/types.h>
@@ -110,11 +111,7 @@ stat() properly */
 #define ENUM_BITFIELD(e,n,w)  e n : w
 #endif
 
-#ifdef WIN32
-#include "../os/win32/os.h"
-#else
 #include "os.h"
-#endif
 
 /* Define one of these according to your system. */
 #if defined(MINT)
@@ -437,55 +434,6 @@ typedef int pid_t;
 #define USE_LONGJMP
 #define USE_FLOCK_SERIALIZED_ACCEPT
 #define SINGLE_LISTEN_UNSERIALIZED_ACCEPT
-/*
- * If you are using APACI, (you probably should be on Mac OS) these
- * values are set at configure time.
- */
-#ifndef HTTPD_ROOT
-#define HTTPD_ROOT              "/Local/Library/WebServer"
-#endif
-#ifndef DOCUMENT_LOCATION
-#define DOCUMENT_LOCATION       HTTPD_ROOT "/Documents"
-#endif
-#ifndef DEFAULT_XFERLOG
-#define DEFAULT_XFERLOG         "Logs/Access"
-#endif
-#ifndef DEFAULT_ERRORLOG
-#define DEFAULT_ERRORLOG        "Logs/Errors"
-#endif
-#ifndef DEFAULT_PIDLOG
-#define DEFAULT_PIDLOG          "Logs/Process"
-#endif
-#ifndef DEFAULT_SCOREBOARD
-#define DEFAULT_SCOREBOARD      "Logs/Status"
-#endif
-#ifndef DEFAULT_LOCKFILE
-#define DEFAULT_LOCKFILE        "Logs/Lock"
-#endif
-#ifndef SERVER_CONFIG_FILE
-#define SERVER_CONFIG_FILE      "Configuration/Server"
-#endif
-#ifndef RESOURCE_CONFIG_FILE
-#define RESOURCE_CONFIG_FILE    "Configuration/Resources"
-#endif
-#ifndef TYPES_CONFIG_FILE
-#define TYPES_CONFIG_FILE       "Configuration/MIME"
-#endif
-#ifndef ACCESS_CONFIG_FILE
-#define ACCESS_CONFIG_FILE      "Configuration/Access"
-#endif
-#ifndef DEFAULT_USER_DIR
-#define DEFAULT_USER_DIR        "Library/Web Documents"
-#endif
-#ifndef DEFAULT_USER
-#define DEFAULT_USER            "www"
-#endif
-#ifndef DEFAULT_GROUP
-#define DEFAULT_GROUP           "www"
-#endif
-#ifndef DEFAULT_PATH
-#define DEFAULT_PATH            "/bin:/usr/bin:/usr/local/bin"
-#endif
 
 #elif defined(LINUX)
 
@@ -522,12 +470,18 @@ typedef int pid_t;
 #define HAVE_MMAP 1
 #define USE_MMAP_FILES
 
-/* flock is faster ... but hasn't been tested on 1.x systems */
-/* PR#3531 indicates flock() may not be stable, probably depends on
- * kernel version.  Go back to using fcntl, but provide a way for
- * folks to tweak their Configuration to get flock.
+#if LINUX > 20
+/* see Pine.LNX.4.21.0011041233550.1897-100000@twinlark.arctic.org
+ * in new-httpd archives for performance numbers indicating these
+ * are the right choices for linux 2.2.x and later
  */
-#ifndef USE_FLOCK_SERIALIZED_ACCEPT
+#define USE_SYSVSEM_SERIALIZED_ACCEPT
+#define SINGLE_LISTEN_UNSERIALIZED_ACCEPT 
+#include <sys/sem.h>
+#if _SEM_SEMUN_UNDEFINED
+#define NEED_UNION_SEMUN
+#endif
+#else
 #define USE_FCNTL_SERIALIZED_ACCEPT
 #endif
 
@@ -906,6 +860,13 @@ typedef int rlim_t;
 #define PF_INET AF_INET
 #define S_IEXEC S_IXUSR
 
+#elif defined(BONE)
+#undef PLATFORM
+#define PLATFORM "BeOS BONE"
+#define NO_KILLPG
+#define NEED_INITGROUPS
+#define S_IEXEC S_IXUSR
+
 #elif defined(_CX_SX)
 #define JMP_BUF sigjmp_buf
 #include <sys/types.h>
@@ -935,7 +896,6 @@ typedef int rlim_t;
 #define NEED_STRDUP
 #define NO_DBM_REWRITEMAP
 #define NO_GETTIMEOFDAY
-#define NO_KILLPG
 #define NO_LINGCLOSE
 #define NO_MMAP
 #define NO_OTHER_CHILD
@@ -946,11 +906,10 @@ typedef int rlim_t;
 #define NO_TIMES
 #define NO_USE_SIGACTION
 #define USE_LONGJMP
-/*#define USE_SHMGET_SCOREBOARD*/
+#define USE_SHMGET_SCOREBOARD
+/*#define USE_TPF_SCOREBOARD*/
 #define USE_TPF_ACCEPT
 #define USE_TPF_CORE_SERIALIZED_ACCEPT
-/*#define USE_TPF_DAEMON*/
-#define USE_TPF_SCOREBOARD
 #define USE_TPF_SELECT
 #define S_IREAD S_IRUSR
 #define S_IWRITE S_IWUSR
@@ -991,6 +950,11 @@ typedef int rlim_t;
 #include <sys/socket.h>
 #define NET_SIZE_T size_t
 #define NEED_HASHBANG_EMUL
+
+#elif defined(CYGWIN)               /* Cygwin 1.x POSIX layer for Win32 */
+#define JMP_BUF jmp_buf
+#define NO_KILLPG
+#define USE_LONGJMP
 
 #else
 /* Unknown system - Edit these to match */
@@ -1153,9 +1117,7 @@ typedef int rlim_t;
 #include <process.h>
 #endif
 
-#ifdef WIN32
-#include "../include/hsregex.h"
-#elif defined(USE_HSREGEX)
+#if defined(WIN32) || defined(USE_HSREGEX)
 #include "hsregex.h"
 #else
 #include <regex.h>

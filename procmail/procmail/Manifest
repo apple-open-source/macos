@@ -43,6 +43,16 @@ examples/advanced
 		Some extra info for network mounted mailboxes, examples of
 		advanced .procmailrc expressions and using procmail as
 		a local delivery agent.
+examples/local_procmail_lmtp.m4
+		A sendmail M4 config file that, when used with
+		"FEATURE(local_procmail_lmtp.m4)", will make sendmail use
+		procmail as its local delivery agent via LMTP.	Procmail
+		*MUST* be compiled with LMTP support (see config.h) or
+		this will just bounce all your email.  This is not yet
+		ready for general use.
+examples/procmail-rpm.spec
+		An RPM spec file that allows for automated builds of a
+		procmail RPM package.
 SmartList/*	All you need to start up lots of mailinglists.
 SmartList/FEATURES
 		A summary of all the SmartList package will take care of.

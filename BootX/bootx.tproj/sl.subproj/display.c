@@ -48,6 +48,7 @@ struct DisplayInfo {
   CICell height;
   CICell depth;
   CICell linebytes;
+  CICell triedToOpen;
 };
 
 typedef struct DisplayInfo DisplayInfo, *DisplayInfoPtr;
@@ -102,9 +103,12 @@ static void DumpDisplaysInfo(void);
 static long OpenDisplay(long displayNum);
 static long InitDisplay(long displayNum);
 static long NetLoadDrivers(void);
-static long DiskLoadDrivers(void);
 static long LoadDisplayDriver(char *fileSpec);
 static long LookUpCLUTIndex(long index, long depth);
+
+#if 0
+static long DiskLoadDrivers(void);
+#endif
 
 static long        gNumDisplays;
 static long        gMainDisplayNum;
@@ -397,6 +401,13 @@ static long OpenDisplays(void)
     }
   }
   
+  // Open the rest of the displays
+  if (gOFVersion >= kOFVersion3x) {
+    for (cnt = 0; cnt < gNumDisplays; cnt++) {
+      OpenDisplay(cnt);
+    }
+  }
+  
   return 0;
 }
 
@@ -436,22 +447,36 @@ static void DumpDisplaysInfo(void)
 
 static long OpenDisplay(long displayNum)
 {
-  char   screenPath[256];
+  char   screenPath[258];
   CICell screenIH;
   long   ret;
+  
+  // Only try to open a screen once.
+  if (gDisplays[displayNum].triedToOpen) {
+    return gDisplays[displayNum].screenIH != 0;
+  } else {
+    gDisplays[displayNum].triedToOpen = -1;
+  }
   
   // Try to use mac-boot's ihandle.
   Interpret_0_1("\" _screen-ihandle\" $find if execute else 0 then",
 		&screenIH);
+  if ((screenIH != 0) &&
+      (InstanceToPackage(screenIH) != gDisplays[displayNum].screenPH)) {
+    screenIH = 0;
+  }
   
   // Try to use stdout as the screen's ihandle
-  if (gStdOutPH == gDisplays[displayNum].screenPH) screenIH = gStdOutIH;
+  if ((screenIH == 0) && (gStdOutPH == gDisplays[displayNum].screenPH)) {
+    screenIH = gStdOutIH;
+  }
   
   // Try to open the display.
   if (screenIH == 0) {
     screenPath[255] = '\0';
     ret = PackageToPath(gDisplays[displayNum].screenPH, screenPath, 255);
     if (ret != -1) {
+      strcat(screenPath, ":0");
       screenIH = Open(screenPath);
     }
   }
@@ -484,9 +509,10 @@ static long InitDisplay(long displayNum)
    " to active-package"
    " value rowbytes"
    " value depthbytes"
+   " frame-buffer-adr value this-frame-buffer-adr"
    
    " : rect-setup"      // ( adr|index x y w h -- w adr|index xy-adr h )
-   "   >r >r rowbytes * swap depthbytes * + frame-buffer-adr +"
+   "   >r >r rowbytes * swap depthbytes * + this-frame-buffer-adr +"
    "   r> depthbytes * -rot r>"
    " ;"
    
@@ -518,7 +544,7 @@ static long InitDisplay(long displayNum)
    "   3drop"
    " ;"
    
-   " frame-buffer-adr"
+   " this-frame-buffer-adr"
    " 0 to active-package"
    , display->screenPH, display->linebytes,
    display->depth / 8, &display->address);
@@ -565,29 +591,6 @@ static long NetLoadDrivers(void)
 	    gNetDriverFileNames[cnt]);
     
     ret = LoadDisplayDriver(fileSpec);
-  }
-  
-  return 0;
-}
-
-static long DiskLoadDrivers(void)
-{
-  long ret, flags, index, time;
-  char dirSpec[512], *name;
-  
-  index = 0;
-  while (1) {
-    sprintf(dirSpec, "%sprivate\\Drivers\\ppc\\IONDRV.config\\", gRootDir);
-    
-    ret = GetDirEntry(dirSpec, &index, &name, &flags, &time);
-    if (ret == -1) break;
-    
-    if (flags != kFlatFileType) continue;
-    
-    strcat(dirSpec, name);
-    ret = LoadDisplayDriver(dirSpec);
-    
-    if (ret == -1) return -1;
   }
   
   return 0;
@@ -699,3 +702,28 @@ static long LookUpCLUTIndex(long index, long depth)
   
   return result;
 }
+
+#if 0
+static long DiskLoadDrivers(void)
+{
+  long ret, flags, index, time;
+  char dirSpec[512], *name;
+  
+  index = 0;
+  while (1) {
+    sprintf(dirSpec, "%sprivate\\Drivers\\ppc\\IONDRV.config\\", gRootDir);
+    
+    ret = GetDirEntry(dirSpec, &index, &name, &flags, &time);
+    if (ret == -1) break;
+    
+    if (flags != kFlatFileType) continue;
+    
+    strcat(dirSpec, name);
+    ret = LoadDisplayDriver(dirSpec);
+    
+    if (ret == -1) return -1;
+  }
+  
+  return 0;
+}
+#endif

@@ -166,6 +166,13 @@ lib_ofiles lib_ofiles_install: installhdrs
 		SRCROOT=$(SRCROOT)/libstuff				\
 		OBJROOT=$(OBJROOT)/libstuff				\
 		SYMROOT=$(SYMROOT)/libstuff all);			\
+	    echo =========== $(MAKE) $@ for libmacho =============;	\
+	    (cd libmacho; $(MAKE) RC_CFLAGS="$(RC_CFLAGS)"		\
+		RC_ARCHS="$(RC_ARCHS)"					\
+		DSTROOT=$$DSTROOT					\
+		SRCROOT=$(SRCROOT)/libmacho				\
+		OBJROOT=$(OBJROOT)/libmacho				\
+		SYMROOT=$(SYMROOT)/libmacho $@);			\
 	    echo =========== $(MAKE) $@ for ld =============;		\
 	    (cd ld; $(MAKE) RC_CFLAGS="$(RC_CFLAGS)"			\
 		RC_ARCHS="$(RC_ARCHS)"					\
@@ -180,19 +187,23 @@ lib_ofiles lib_ofiles_install: installhdrs
 		SRCROOT=$(SRCROOT)/libdyld				\
 		OBJROOT=$(OBJROOT)/libdyld				\
 		SYMROOT=$(SYMROOT)/libdyld $@);				\
-	    echo =========== $(MAKE) $@ for libmacho =============;	\
-	    (cd libmacho; $(MAKE) RC_CFLAGS="$(RC_CFLAGS)"		\
+	    echo =========== $(MAKE) $@ for misc =============;	\
+	    (cd misc; $(MAKE) RC_CFLAGS="$(RC_CFLAGS)"		\
 		RC_ARCHS="$(RC_ARCHS)"					\
 		DSTROOT=$$DSTROOT					\
-		SRCROOT=$(SRCROOT)/libmacho				\
-		OBJROOT=$(OBJROOT)/libmacho				\
-		SYMROOT=$(SYMROOT)/libmacho $@);			\
+		SRCROOT=$(SRCROOT)/misc					\
+		OBJROOT=$(OBJROOT)/misc					\
+		SYMROOT=$(SYMROOT)/misc $@);				\
 	else								\
 	    CWD=`pwd`; cd $(DSTROOT); DSTROOT=`pwd`; cd $$CWD;		\
 	    echo =========== $(MAKE) all for libstuff =============;	\
 	    (cd libstuff; $(MAKE) RC_CFLAGS="$(RC_CFLAGS)"		\
 		RC_ARCHS="$(RC_ARCHS)"					\
 		DSTROOT=$$DSTROOT all);					\
+	    echo =========== $(MAKE) $@ for libmacho =============;	\
+	    (cd libmacho; $(MAKE) RC_CFLAGS="$(RC_CFLAGS)"		\
+		RC_ARCHS="$(RC_ARCHS)"					\
+		DSTROOT=$$DSTROOT $@);					\
 	    echo =========== $(MAKE) $@ for ld =============;		\
 	    (cd ld; $(MAKE) RC_CFLAGS="$(RC_CFLAGS)"			\
 		RC_ARCHS="$(RC_ARCHS)"					\
@@ -201,8 +212,8 @@ lib_ofiles lib_ofiles_install: installhdrs
 	    (cd libdyld; $(MAKE) RC_CFLAGS="$(RC_CFLAGS)"		\
 		RC_ARCHS="$(RC_ARCHS)"					\
 		DSTROOT=$$DSTROOT $@);					\
-	    echo =========== $(MAKE) $@ for libmacho =============;	\
-	    (cd libmacho; $(MAKE) RC_CFLAGS="$(RC_CFLAGS)"		\
+	    echo =========== $(MAKE) $@ for misc =============;		\
+	    (cd misc; $(MAKE) RC_CFLAGS="$(RC_CFLAGS)"			\
 		RC_ARCHS="$(RC_ARCHS)"					\
 		DSTROOT=$$DSTROOT $@);					\
 	fi

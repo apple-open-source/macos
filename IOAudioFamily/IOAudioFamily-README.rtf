@@ -1,0 +1,212 @@
+{\rtf1\mac\ansicpg10000\cocoartf100
+{\fonttbl\f0\fswiss\fcharset77 Helvetica;\f1\fswiss\fcharset77 Helvetica-Bold;\f2\fswiss\fcharset77 Helvetica-Oblique;
+}
+{\colortbl;\red255\green255\blue255;}
+\pard\tx1440\tx2880\tx4320\tx5760\tx7200\ql\qnatural
+
+\f0\fs24 \cf0 \
+
+\f1\b IOAudioFamily 1.1
+\f0\b0 \
+\
+
+\f1\b \
+\pard\tx360\tx2880\tx4320\tx5760\tx7200\ql\qnatural
+\cf0 I.	 Contents 
+\f0\b0 \
+\
+\pard\tx540\tx2880\tx4320\tx5760\tx7200\li540\fi-180\ql\qnatural
+\cf0 -	/System/Library/Extensions/IOAudioFamily.kext\
+-	/System/Library/Frameworks/\
+\pard\tx540\tx2880\tx4320\tx5760\tx7200\li720\ql\qnatural
+\cf0 Kernel.framework/Headers/IOKit/audio/\
+\pard\tx540\tx2880\tx4320\tx5760\tx7200\li1080\ql\qnatural
+\cf0 IOAudioControl.h\
+IOAudioControlUserClient.h\
+IOAudioDebug.h\
+IOAudioDefines.h\
+IOAudioDevice.h\
+IOAudioEngine.h\
+IOAudioEngineUserClient.h\
+IOAudioPort.h\
+IOAudioSelectorControl.h\
+IOAudioStream.h\
+IOAudioToggleControl.h\
+IOAudioTypes.h\
+\pard\tx540\tx2880\tx4320\tx5760\tx7200\li720\ql\qnatural
+\cf0 IOKit.framework/Headers/audio/\
+\pard\tx540\tx2880\tx4320\tx5760\tx7200\li1080\ql\qnatural
+\cf0 IOAudioDefines.h\
+IOAudioTypes.h\
+\
+\pard\tx540\tx2880\tx4320\tx5760\tx7200\li540\fi-180\ql\qnatural
+\cf0 -	/Developer/Examples/IOKit/audio/\
+\pard\tx540\tx2880\tx4320\tx5760\tx7200\li720\ql\qnatural
+\cf0 PhantomAudioDriver/\
+\pard\tx540\tx2880\tx4320\tx5760\tx7200\li1080\ql\qnatural
+\cf0 English.lproj\
+PhantomAudioClip.cpp\
+PhantomAudioDevice.cpp\
+PhantomAudioDevice.h\
+PhantomAudioEngine.cpp\
+PhantomAudioEngine.h\
+PhantomAudioDriver.pbproj\
+\pard\tx1440\tx2880\tx4320\tx5760\tx7200\ql\qnatural
+
+\f2\i \cf0 \
+\
+\pard\tx360\tx2880\tx4320\tx5760\tx7200\ql\qnatural
+
+\f1\i0\b \cf0 II.	Changes\
+\
+	IOAudioFamily-1.1d27 to IOAudioFamily-1.1fc3\
+
+\f0\b0 \
+\pard\tx540\tx2880\tx4320\tx5760\tx7200\li540\fi-180\ql\qnatural
+\cf0 -	Added clock source selector control subtype: kIOAudioSelectorControlSubTypeClockSource to identify clock source selector controls.\
+-	Fixed a bug in IOAudioEngine::takeTimeStamp() that caused it to ignore the timestamp argument if present.\
+-	Fixed a bug in IOAudioEngineUserClient::stopClientAction() that caused it to always return kIOReturnBadArgument\
+-	Fixed a bug in IOAudioEngine::updateChannelNumbers() which caused input and passthru controls on the last channel to get a -1 channel number instead of the correct one.  This caused the HAL to ignore those controls.\
+-	Fixed some minor locking issues\
+-	Added a watchdog timer which will fire if a client takes too long to perform output.  This prevents glitching in other apps playing audio if one app is misbehaving. \
+\pard\tx360\tx2880\tx4320\tx5760\tx7200\ql\qnatural
+
+\f1\b \cf0 \
+	IOAudioFamily-1.1d19 to IOAudioFamily-1.1d27\
+
+\f0\b0 \
+\pard\tx540\tx2880\tx4320\tx5760\tx7200\li540\fi-180\ql\qnatural
+\cf0 -	Removed IOAudioManager class\
+-	Changes to the mix/clip API and semantics\
+\pard\tx720\tx2880\tx4320\tx5760\tx7200\li720\fi-180\ql\qnatural
+\cf0 -	Previously, the function IOAudioEngine::mixAndClip() was called each time samples were sent from any client.  Each output sample was clipped once for each client and the order the the buffer of samples was called was not deterministic.  It would frequently jump forward and backwards making it difficult to properly implement some types of DSP operations in the clipping function.\
+-	This has been changed so that the clip function is only called once all of the samples have been received from all clients.  This insures that the clip function is called with a continuous stream of sample data.  The one caveat is that if a new client starts up, the clip position will move backwards to the position at which that new client wants to start outputting samples.  In that case, those first samples will be clipped a second time.  When this occurs, a new function IOAudioEngine::resetClipFunction() is called to indication that the clip location is moving backwards.\
+-	The mix and clip functionality has been broken out into separate functions and the names of all of the mix, clip and input conversion functions have been changed:\
+\pard\tx900\tx2880\tx4320\tx5760\tx7200\li900\fi-180\ql\qnatural
+\cf0 -	IOAudioEngine::mixAndClip() has been removed\
+-	New function IOAudioEngine::mixOutputSamples() called to mix in new samples\
+-	IOAudioEngine::clipToOutputStream() renamed to clipOutputSamples()\
+-	IOAudioEngine::convertFromInputStream() renamed to convertInputSamples()\
+\pard\tx720\tx2880\tx4320\tx5760\tx7200\li720\fi-180\ql\qnatural
+\cf0 -	The IOAudioStream class has been extended to allow a custom clip or input conversion function or list of functions to be specified on a per-stream basis (new type IOAudioStream::AudioIOFunction).\
+-	Each allowable format in each IOAudioStream can have a custom clip/input function or list of functions specified that will get set automatically when the format is selected.\
+\pard\tx540\tx2880\tx4320\tx5760\tx7200\li540\fi-180\ql\qnatural
+\cf0 -	Changed format changing semantics to automatically pause and resume the engine around the call to IOAudioEngine::performFormatChange().  \
+-	While paused, all aspects of the engine can now be changed (controls added or removed, numSampleFramesPerBuffer attribute, etc...)\
+-	Added IOAudioEngine::removeDefaultAudioControl()\
+-	Other IOAudioEngine changes:\
+\pard\tx720\tx2880\tx4320\tx5760\tx7200\li720\fi-180\ql\qnatural
+\cf0 -	Changed type of audioEngines var from OSSet to OSArray\
+-	Removed masterControls variable (not needed anymore)\
+-	Removed addMasterControl(), setMasterVolumeLeft(), setMasterVolumeRight() and setMasterMute()\
+-	Renamed deactivateAudioEngines() to deactivateAllAudioEngines()\
+-	Removed unsupported deactivateAudioEngine()\
+-	Renamed clearTimerEvents() to removeAllTimerEvents()\
+-	Renamed deactivateAudioPorts() to detachAllAudioPorts()\
+-	Renamed removeDefaultAudioControls() to removeAllDefaultAudioControls()\
+\pard\tx540\tx2880\tx4320\tx5760\tx7200\li540\fi-180\ql\qnatural
+\cf0 -	Removed master, setMaster() and isMaster() from IOAudioLevelControl and IOAudioToggleControl.\
+-	Added IOAudioEngine::hardwareSampleRateChanged() to be called when the hardware changes and the new sample rate is needed to be reflected to the rest of the system.\
+-	Added IOAudioStream::hardwareFormatChanged() to indicate that the format has changed.\
+-	Added support for a global unique ID to be assigned to each IOAudioEngine to allow each engine to be identified across reboots and detach/re-attach operations. \
+\pard\tx720\tx2880\tx4320\tx5760\tx7200\li720\fi-180\ql\qnatural
+\cf0 -	New IOAudioEngine functions: getGlobalUniqueID() and getLocalUniqueID()\
+-	getGlobalUniqueID() by default generates a unique ID string by concatenating the class name, the location of audioDevice->getProvider() (which ls the location within the provider's bus) and the result of getLocalUniqueID().\
+-	getLocalUniqueID() needs to generate a scoped ID that is local to the device.  The default implementation returns an index based on the order that the IOAudioEngine was added to the IOAudioDevice.  If that isn't sufficient to guarantee uniqueness for the engine, this should be overridden to provide a better ID.  A case where this is necessary is the USB audio driver.  Since a single driver/class may drive different pieces of hardware that could be plugged into the same port (and hence return the same location), it needs to provide another piece of information that is unique to each device.\
+\pard\tx540\tx2880\tx4320\tx5760\tx7200\li540\fi-180\ql\qnatural
+\cf0 -	Added IOAudioEngine::setDescription() to allow a custom description to be set on each IOAudioEngine.\
+-	Added IOAudioControl::setCoreAudioPropertyID() to allow an IOAudioControl to represent a custom CoreAudio property.\
+\pard\tx720\tx2880\tx4320\tx5760\tx7200\li720\fi-180\ql\qnatural
+\cf0 -	The HAL will pass thru CoreFoundation objects passed to AudioDeviceSetProperty().  They can be CFNumber, CFString, CFData, etc... and will be turned into OSObjects in the kernel: OSNumber, OSString, OSData, etc...\
+-	A new usage has been added to allow the HAL to recognize the controls which represent custom properties (kIOAudioControlUsageCoreAudioProperty).\
+\pard\tx540\tx2880\tx4320\tx5760\tx7200\li540\fi-180\ql\qnatural
+\cf0 -	Added IOAudioEngine::stopEngineAtPosition() as a convenience location where the family calls when it needs to stop the engine at a certain location (called when the last client has disconnected and the engine should stop at a point after it has played the specified samples).  By default the function makes sure the timer is running and checks the current sample frame vs. the stop position and calls stopAudioEngine() if it is passed the stop position.  This new function makes it easy for a driver to override that behavior if there is a different or better mechanism it wants to use to decide when to stop.\
+\pard\tx720\tx2880\tx4320\tx5760\tx7200\li720\fi-180\ql\qnatural
+\cf0 \
+\
+\pard\tx360\tx2880\tx4320\tx5760\tx7200\ql\qnatural
+
+\f1\b \cf0 III.	Future Plans
+\f0\b0 \
+\
+\pard\tx540\tx2880\tx4320\tx5760\tx7200\li540\fi-180\ql\qnatural
+\cf0 -	All planned API changes are complete for IOAudioFamily-1.1fc3, however final API review and any final functionality additions may necessitate small API changes before IOAudioFamily-1.1 final.\
+-	Headerdoc for all classes will be completed
+\f2\i \
+\pard\tx1440\tx2880\tx4320\tx5760\tx7200\ql\qnatural
+
+\f0\i0 \cf0 \
+\
+\pard\tx360\tx2880\tx4320\tx5760\tx7200\ql\qnatural
+
+\f1\b \cf0 IV.	Getting Started
+\f0\b0 \
+\
+\pard\tx540\tx2880\tx4320\tx5760\tx7200\li540\fi-180\ql\qnatural
+\cf0 -	Read the headerdoc class descriptions of IOAudioDevice, IOAudioEngine, IOAudioControl and IOAudioStream\
+-	Look over the examples and templates.  The PhantomAudioDriver is fully functional.\
+-	Follow IOAudioFamily development in Darwin.  The source repository is named IOAudioFamily and is live.  The source for this specific version can be found by checking out tag IOAudioFamily-1-1d18.\
+-	Here is a list of what is needed for a fully functional driver:\
+\pard\tx720\tx2880\tx4320\tx5760\tx7200\li720\fi-180\ql\qnatural
+\cf0 -	Implement an IOAudioDevice subclass\
+\pard\tx900\tx2880\tx4320\tx5760\tx7200\li900\fi-180\ql\qnatural
+\cf0 -	Override initHardware()\
+\pard\tx1080\tx2880\tx4320\tx5760\tx7200\li1080\fi-180\ql\qnatural
+\cf0 -	Call setDeviceName(), setDeviceShortName(), setManufacturerName() at init time - typically in initHardware()\
+-	In initHardware() - create an instance of the driver's IOAudioEngine subclass for each I/O engine on the device and call activateAudioEngine() when each is ready to begin vending audio services to the system.\
+-	May create various IOAudioControls to control volume, mute, input selection, etc...\
+\pard\tx1260\tx2880\tx4320\tx5760\tx7200\li1260\fi-180\ql\qnatural
+\cf0 -	Call addDefaultAudioControl() on the appropriate audio engine for each control created\
+-	Implement a ValueChangeHandler for each control created.  The handler gets called when the control's value needs to change.  The hardware should be updated to the new value in the handler.\
+\pard\tx1080\tx2880\tx4320\tx5760\tx7200\li1080\fi-180\ql\qnatural
+\cf0 -	Perform any necessary hardware initialization\
+\pard\tx720\tx2880\tx4320\tx5760\tx7200\li720\fi-180\ql\qnatural
+\cf0 -	Implement an IOAudioEngine subclass\
+\pard\tx900\tx2880\tx4320\tx5760\tx7200\li900\fi-180\ql\qnatural
+\cf0 -	Override initHardware() (this gets called during the IOAudioDevice::activateAudioEngine() call)\
+\pard\tx1080\tx2880\tx4320\tx5760\tx7200\li1080\fi-180\ql\qnatural
+\cf0 -	Determine current sample rate and set it using setSampleRate()\
+-	Call setNumSampleFramesPerBuffer() to indicate the number of sample frames in each buffer serviced by this audio-I/O engine\
+-	Call setDescription()\
+-	Call setOutputSampleLatency()/setInputSampleLatency() to indicate how much latency exists on the input and output streams.\
+-	Call setSampleOffset() to make sure that the CoreAudio.framework stays at least the specified number of samples away from the I/O head.\
+-	Create an IOAudioStream instance for each sample buffer serviced by the audio engine\
+\pard\tx1260\tx2880\tx4320\tx5760\tx7200\li1260\fi-180\ql\qnatural
+\cf0 -	For each IOAudioStream, call addAvailableFormat() for each format to which the stream can be set.  As part of the addAvailableFormat() call, the allowed sample rates for that format must be specified.\
+-	Once all formats have been added to an IOAudioStream, call setFormat() to indicate what the hardware is currently set to.  Note that performFormatChange() will be called as a result of the setFormat() call.  This will be fixed in the future.\
+-	Call setSampleBuffer() to pass the actual hardware sample buffer to the stream.  If the sample buffer resides in main memory, it should be allocated here.\
+\pard\tx1080\tx2880\tx4320\tx5760\tx7200\li1080\fi-180\ql\qnatural
+\cf0 -	Perform any necessary hardware initialization\
+\pard\tx900\tx2880\tx4320\tx5760\tx7200\li900\fi-180\ql\qnatural
+\cf0 -	Override free() to free any resources allocated by this audio engine (like the sample buffer)\
+-	Implement performAudioEngineStart() and performAudioEngineStop() to start and stop the I/O process\
+\pard\tx1080\tx2880\tx4320\tx5760\tx7200\li1080\fi-180\ql\qnatural
+\cf0 -	In performAudioEngineStart(), call takeTimeStamp(false) to set the timestamp when the audio engine is started without incrementing the buffer loop count.\
+\pard\tx900\tx2880\tx4320\tx5760\tx7200\li900\fi-180\ql\qnatural
+\cf0 -	Implement getCurrentSampleFrame() to provide a sample counter\
+\pard\tx1080\tx2880\tx4320\tx5760\tx7200\li1080\fi-180\ql\qnatural
+\cf0 -	This value doesn't need to be exact, but should never be larger than the current sample counter.\
+-	This value is used for the erase head process and it will erase up to, but not including the sample frame returned by this function.\
+-	If the value is too large, sound data that hasn't been played will be erased.\
+\pard\tx900\tx2880\tx4320\tx5760\tx7200\li900\fi-180\ql\qnatural
+\cf0 -	Implement performFormatChange() if multiple formats or sample rates are allowed\
+\pard\tx1080\tx2880\tx4320\tx5760\tx7200\li1080\fi-180\ql\qnatural
+\cf0 -	It is possible that either the new format or sample rate pointer will be NULL in this function.  That indicates that only the sample rate or format has changed.\
+\pard\tx900\tx2880\tx4320\tx5760\tx7200\li900\fi-180\ql\qnatural
+\cf0 -	Implement a mechanism to allow a new timestamp to be taken every time the audio engine loops to the beginning of the sample buffer.\
+\pard\tx1080\tx2880\tx4320\tx5760\tx7200\li1080\fi-180\ql\qnatural
+\cf0 -	Typically, hardware will throw an interrupt when this situation occurs.  \
+-	In that interrupt routine, a simple call to takeTimeStamp() is all that's needed.  That will get the current time and set it as the loop timestamp.  It will also increment the loop count so that the CoreAudio.framework can keep track of where the audio engine is.\
+\pard\tx900\tx2880\tx4320\tx5760\tx7200\li900\fi-180\ql\qnatural
+\cf0 -	Implement clipOutputSamples() if an output IOAudioStream is present\
+-	Implement convertInputSamples() if an input IOAudioStream is present\
+\pard\tx1080\tx2880\tx4320\tx5760\tx7200\li1080\fi-180\ql\qnatural
+\cf0 -	Because these functions will be executing floating point code, they can't be included in the same source file as the other functions.  By default, floating point emulation is enabled in the compiler which prevents floating point instructions from being generated.  \
+-	To get around this, a separate library is created to contain the floating point code and is compiled and linked into the resulting kernel module.  Take a look at the example code for an example of how to do this.  Or better yet, use one of the sample drivers as a starting point and all of the work is done for you.\
+\pard\tx900\tx2880\tx4320\tx5760\tx7200\li900\fi-180\ql\qnatural
+\cf0 \
+\pard\tx1440\tx2880\tx4320\tx5760\tx7200\ql\qnatural
+
+\f2\i \cf0 Copyright 2001, Apple Computer, Inc.
+\f0\i0 \
+}

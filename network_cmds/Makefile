@@ -16,12 +16,12 @@ SUBPROJECTS = timed.tproj bootparams
 
 TOOLS = arp.tproj domainname.tproj ftp.tproj ftpd.tproj identd.tproj\
         ifconfig.tproj inetd.tproj logger.tproj netstat.tproj\
-        nfsd.tproj nfsiod.tproj nfsstat.tproj ping.tproj portmap.tproj\
+        nfsd.tproj nfsiod.tproj nfsstat.tproj ping.tproj \
         rarpd.tproj rbootd.tproj rcp.tproj rexecd.tproj rlogin.tproj\
         rlogind.tproj route.tproj routed.tproj rpcinfo.tproj rsh.tproj\
         rshd.tproj ruptime.tproj rwho.tproj rwhod.tproj slattach.tproj\
         sliplogin.tproj spray.tproj startslip.tproj syslogd.tproj\
-        talk.tproj talkd.tproj tcpdump.tproj telnet.tproj\
+        talk.tproj talkd.tproj telnet.tproj\
         telnetd.tproj tftp.tproj tftpd.tproj traceroute.tproj\
         trpt.tproj trsp.tproj uucpd.tproj wall.tproj ypbind.tproj\
         ypcat.tproj ypmatch.tproj yppoll.tproj yppush.tproj\
@@ -29,7 +29,7 @@ TOOLS = arp.tproj domainname.tproj ftp.tproj ftpd.tproj identd.tproj\
         makedbm.tproj revnetgroup.tproj rpc_yppasswdd.tproj\
         stdethers.tproj stdhosts.tproj natd.tproj ipfw.tproj
 
-LIBRARIES = alias pcap
+LIBRARIES = alias 
 
 LEGACIES = newclient.tproj ypinit.tproj
 

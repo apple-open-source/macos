@@ -1,0 +1,40 @@
+-- file: .../asn1specs/ex1.asn1
+--
+--  This is an example ASN.1 module used in the documentation
+--
+--  MS 92
+--
+-- $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/asn1specs/ex1.asn1,v 1.1.1.1 2001/05/18 23:14:05 mb Exp $
+-- $Log: ex1.asn1,v $
+-- Revision 1.1.1.1  2001/05/18 23:14:05  mb
+-- Move from private repository to open source repository
+--
+-- Revision 1.1.1.1  1999/03/16 18:05:55  aram
+-- Originals from SMIME Free Library.
+--
+-- Revision 1.2  1997/02/16 20:25:22  rj
+-- check-in of a few cosmetic changes
+--
+-- Revision 1.1  1994/10/08  05:41:32  rj
+-- initial check-in.
+--
+
+EX1 DEFINITIONS ::=
+BEGIN
+
+anOidVal      OBJECT IDENTIFIER ::= { joint-iso-ccitt 40 foobar(29) }
+theSameOidVal OBJECT IDENTIFIER ::= { 2 40 29 }
+anIntVal      INTEGER ::= 1
+aBoolVal      BOOLEAN ::= TRUE
+
+T1 ::= SEQUENCE
+{
+   INTEGER OPTIONAL,
+   OCTET STRING OPTIONAL,
+   ENUMERATED { a(0), b(1), c(2) },
+   SEQUENCE OF INTEGER,
+   SEQUENCE { id OBJECT IDENTIFIER, value OCTET STRING },
+   CHOICE { INTEGER, OBJECT IDENTIFIER }
+}
+
+END

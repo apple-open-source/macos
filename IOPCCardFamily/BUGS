@@ -1,0 +1,209 @@
+Known problems and limitations for the 3.1.22 PCMCIA release
+============================================================
+
+Bug summaries:
+
+o CardBus devices with 2.0.* kernels are not recommended
+o PCI interrupt routing issues for CardBus bridges on some systems
+o PCI configuration problems with 2.3.* kernels
+o O2Micro and ToPIC CardBus bridge configuration problems
+o On the Sony VAIO PCG-N505VE, interrupts break after a suspend
+o SCSI drivers are not hot swap safe
+o Iomega Clik! drives require a kernel patch
+o Token ring memory allocation issues
+o Interrupt lossage with Megahertz multifunction cards
+o The aic7xxx/apa1480_cb driver misbehaves if the cable is detached
+o Ositech Jack of Diamonds firmware issue
+o Serial interrupt sharing bug in certain 2.2.*, 2.3.* kernels
+o aha152x interrupt bug in certain 2.2.* kernels
+o IDE driver shutdown bug in certain 2.2.*, 2.3.* kernels
+o Tedious IDE probes for nonexistent slave devices
+o IDE driver does not share PCI interrupts properly
+o SuSE 6.4 IDE driver problem
+o parport_cs doesn't work in 2.3.*
+o Xircom CardBus driver instability
+o NE2000 compatible cards based on the Asix AX88190 are unsupported
+
+Bug details:
+
+o Use of CardBus cards with 2.0.* kernels is discouraged.  It may work
+  on some systems, but not on others, due to PCI BIOS limitations.
+  Also, it is harder to diagnose problems, because /proc/bus/pccard is
+  not available with these kernels.
+
+o With some PCI host bridges, the PCMCIA subsystem is not able to
+  determine the PCI interrupt routing for CardBus bridges.  For some
+  types of CardBus bridges, this means that we can't configure
+  interrupts for CardBus cards at all.  When the PCMCIA drivers are
+  loaded, they may complain about an "unknown interrupt router".
+
+  Prognosis: see the discussion in the PCMCIA-HOWTO.
+
+o Some 2.3.* kernels may make mistakes when autoconfiguring CardBus
+  bridges.  Specifically, the kernel may memory map bridges at invalid
+  addresses.  The i82365 driver reports a "Bad bridge mapping".  In
+  other cases, the PCI subsystem may misconfigure PCI interrupts for
+  CardBus bridges.
+
+  Prognosis: either upgrade to a newer 2.3.* kernel if possible, or
+  revert to a 2.2.* kernel.
+
+o Interrupt routing on O2Micro CardBus bridges seems to have problems.
+  Toshiba ToPIC97 bridges also seem to have problems, particularly
+  with Cardbus cards.
+
+  Prognosis: I think the O2Micro problems should now be fixed.  For
+  the ToPIC problem, Toshiba does not seem willing and/or able to
+  provide adequate help, so I've mostly given up on it.  For both the
+  O2Micro and ToPIC problems, fixes would require someone with device
+  driver experience and the relevant hardware to work on it: data
+  sheets are available, and I can make suggestions of things to try,
+  but I can't debug the problems by email.
+
+  With ToPIC chipsets, some systems seem to work better if the bridge
+  mode is changed to either "PCIC" or "CardBus", rather than "Auto",
+  in the BIOS setup menu.
+
+  In some cases, ToPIC chipsets generate bogus eject/insert sequences
+  when a card is first powered up.  It may be useful to increase the
+  vcc_settle and/or setup_time parameters for the pcmcia_core module
+  to prevent this.
+
+o On the Sony VAIO PCG-N505VE, after a suspend, no interrupts are
+  delivered by the CardBus bridge until the system is rebooted.
+
+  Prognosis: I've spent a lot of time trying to track this down, but
+  I'm completely stumped.  The PCMCIA drivers appear to restore the
+  state of the CardBus bridge correctly, and the PCI interrupt router
+  is also configured properly.  But no interrupts get through.
+
+o All of the SCSI drivers, and most of the CardBus drivers, do not
+  implement suspend/resume handling.  The only workaround now is to
+  eject these cards (or do "cardctl eject") before suspending.
+  
+  Prognosis: CardBus Network cards will probably be fixed eventually,
+  but it has not been a high priority.  SCSI drivers are less likely
+  to be fixed since we're more dependent on kernel code.
+
+o The Iomega Clik! drive is incompatible with the kernel ide-floppy
+  driver.  A kernel patch for 2.2.14 and later 2.2 kernels is
+  available at http://paulbristow.net/linux/clik.html.
+
+o The token ring driver tweaks a problem in the memory management
+  code.  To work around the problem, remove all high memory windows
+  from /etc/pcmcia/config.opts.  The driver is also completely broken
+  for late 2.1 and early 2.2 kernels.  A fix is in 2.2.7.
+
+o Megahertz EM1144, EM3288, and EM3336 cards drop interrupts if the
+  modem and ethernet are used simultaneously.
+  
+  Prognosis: Unlikely to be fixed, since these cards are old and we
+  are unlikely to ever get more complete tech info.
+
+o The kernel aic7xxx driver, which is linked into the apa1480_cb
+  driver, can generate spurious interrupts when a card is initialized,
+  which can cause system lockups.  This will usually happen if the
+  card is inserted with no SCSI cable attached.
+
+  Prognosis: I've sent a patch to the driver maintainer.  The problem
+  can be mostly mitigated by disabling use of PCI interrupts for
+  CardBus cards, by setting PCIC_OPTS="pci_int=0".  This setting does
+  not work on some newer laptops; in those cases, you'll have to wait
+  for a kernel update to fix the problem.
+
+o Some Ositech Jack of Diamonds 33.6K modem/ethernet cards don't work
+  because of a firmware issue.  With these cards, the smc91c92_cs
+  driver reports "Bad chip signature".
+
+  A DOS program to update the card firmware to v8.1B is available from
+  Ositech's web site at ftp://www.ositech.com/pub/jod/JDCEL422.EXE
+
+o The 2.2.*/2.3.* serial driver had a bug that interfered with
+  interrupt sharing for multifunction cards.  The effect is that
+  opening a serial port on a multifunction card fails, giving an IO
+  error.  It was fixed in 2.2.11 and 2.3.9.
+
+  The bug can be fixed by editing linux/drivers/char/serial.c and
+  changing each use of IRQ_T(info) to IRQ_T(state).
+
+o The kernel aha152x driver, used for Adaptec 16-bit SCSI adapters,
+  had a PCMCIA compatibility problem in 2.2.* that was fixed in 2.2.9.
+  The effect was that interrupts were ignored, unless the card
+  happened to be configured for irq 9..12.
+
+  Either upgrade to a 2.2.9 or later kernel, or if you have an
+  appropriate interrupt available, add to /etc/pcmcia/config.opts:
+
+    module "aha152x_cs" opts "irq_list=9,10,11,12"
+
+o The kernel IDE driver had a bug that causes shutdown of some PCMCIA
+  IDE cards to cause a kernel trap.  It was introduced in 2.2.9/2.3.1
+  and fixed in 2.2.10/2.3.4.
+
+o For some ATA/IDE devices, the IDE driver will lock up the system for
+  up to 15 seconds while probing for (non-existent) slave devices.
+
+  I've told the IDE maintainer about the issue and it is just a matter
+  of getting the kernel driver updated.  There are two aspects to the
+  fix; one is to improve automatic detection of flash memory cards,
+  and the other is to change the probe to sleep instead of freezing
+  the system during the probe.  The 2.4 driver is fixed.
+
+o The linux IDE driver generates spurious interrupts when it probes
+  for new devices.  This is ok at boot time because the IDE probe runs
+  before almost all other drivers.  But it causes lockups if the probe
+  is done when another driver is using the same PCI interrupt.  This
+  happens when the PCMCIA subsystem is configured to use only PCI
+  interrupts for card status changes as well as card interrupts.
+
+  Prognosis: the IDE device probe needs to be rewritten; I don't know
+  when that might happen.  In some situations, you can work around the
+  issue by using startup options like:
+
+    PCIC_OPTS="irq_mode=0 pci_csc=0"
+
+  which will prevent the i82365 driver from sharing the PCI interrupt
+  for monitoring card insert/eject events; this will not help if other
+  PCI devices also need to share.
+
+o The SuSE 6.4 version of the 2.2.14 kernel has a broken IDE probe
+  that messes up at least some PCMCIA devices.  The result is that
+  the ide_cs driver reports "ide_register(...) failed".
+
+  Prognosis: substitute drivers/block/ide-probe.c from SuSE's 2.2.13
+  kernel or from a virgin 2.2.14 source tree.
+
+o The 2.3.6 kernel update broke the PCMCIA parport_cs driver.
+
+  Prognosis: it should be fixable in newer 2.3.* kernels, but I just
+  have not gotten around to doing it.
+
+o Xircom CBEM support in the tulip_cb driver seems to be extremely
+  unreliable.  A wide range of symptoms are reported, ranging from no
+  packet reception, to correct operation at certain speed/duplex
+  combinations but not others, to frequent missed interrupts.  Also,
+  some people have reported kernel faults when a Xircom card is shut
+  down with "ifconfig down".
+
+  Prognosis: I used to think that the Xircom inconsistencies had to do
+  with multiple chipset revisions.  After more study, it seems that
+  the receive filter setup on the Xircom chipset is quirky; different
+  network setups kick the filter differently, so many reported
+  differences in card behavior actually reflect different network
+  setups.
+
+  Temporarily setting the card to promiscuous mode ("ifconfig eth0
+  promisc") or all-multicast mode ("ifconfig eth0 allmulti") seems
+  to help with the packet reception issue in some cases.  The current
+  driver is broken for more than 6 multicast addresses, unless
+  "allmulti" is used.
+
+o A number of "NE2000 compatible" cards use the Asix AX88190 chipset,
+  which has several serious bugs and incompatibilities that render the
+  regular pcnet_cs driver unusable.  The pcnet_cs driver will identify
+  and refuse to deal with these cards.
+
+  Prognosis: a Linux driver is available from the Asix web site at
+  http://www.asix.com.tw/driver2.htm and I'm investigating how to best
+  deal with the issue in the regular pcnet_cs driver.  It is a tricky
+  issue and I'm not sure when a better fix will be available.

@@ -12,7 +12,9 @@ NAME = kmodload
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Tool
 
-CFILES = kmodload.c
+HFILES = kld_patch.h
+
+CFILES = kld_patch.c kmodload.c
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble kmodload.8\
             kmodsyms.8
@@ -29,8 +31,6 @@ DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
 
-HEADER_PATHS =\
-               -I$(NEXT_ROOT)/System/Library/Frameworks/System.framework/PrivateHeaders
 
 
 NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc

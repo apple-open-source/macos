@@ -317,6 +317,9 @@ char *dyld_resolve_image (const struct dyld_path_info *d, const char *dylib_name
 
   char *framework_path = NULL;
 
+  if (dylib_name == NULL)
+    return NULL;
+
   framework_name = get_framework_pathname (dylib_name, ".framework/", 0);
   framework_name_suffix = get_framework_pathname (dylib_name, ".framework/", 1);
 
@@ -334,30 +337,24 @@ char *dyld_resolve_image (const struct dyld_path_info *d, const char *dylib_name
      tries to get a name without a suffix, the second call tries with
      a suffix. */
 
-  if (d->framework_path != NULL) {
-
-    if (framework_name != NULL)
-      {
-        framework_path = search_for_name_in_path (framework_name, 
-                                                  d->framework_path, 
-                                                  d->image_suffix);
-        if (framework_path != NULL) 
-          {
-	      return framework_path;
-          }
-      }
+  if (d->framework_path != NULL) 
+    {
+      if (framework_name != NULL)
+	{
+	  framework_path = search_for_name_in_path 
+	    (framework_name, d->framework_path, d->image_suffix);
+	  if (framework_path != NULL) 
+	    return framework_path;
+	}
   
-    if (framework_name_suffix != NULL) 
-      {
-        framework_path = search_for_name_in_path (framework_name_suffix, 
-                                                  d->framework_path, 
-                                                  d->image_suffix);
-        if (framework_path != NULL) 
-          {
-	     return framework_path;
-          }
-      }
-  }
+      if (framework_name_suffix != NULL) 
+	{
+	  framework_path = search_for_name_in_path 
+	    (framework_name_suffix, d->framework_path, d->image_suffix);
+	  if (framework_path != NULL) 
+	    return framework_path;
+	}
+    }
 
   /* If d->library_path is set, then use the first file that
      exists in the path.  If none exist, use the original name. The
@@ -366,13 +363,11 @@ char *dyld_resolve_image (const struct dyld_path_info *d, const char *dylib_name
 
   if (d->library_path != NULL) 
     {
-      framework_path = search_for_name_in_path (library_name, d->library_path,
-                                              d->image_suffix);
-    if (framework_path != NULL) 
-      {
+      framework_path = search_for_name_in_path 
+	(library_name, d->library_path, d->image_suffix);
+      if (framework_path != NULL) 
         return framework_path;
-      }
-  }
+    }
   
   /* Now try to open the dylib_name (remembering to try the suffix first).  
      If it fails and we have not previously tried to search for a name then 
@@ -402,31 +397,30 @@ char *dyld_resolve_image (const struct dyld_path_info *d, const char *dylib_name
   /* First try the the d->fallback_framework_path if that has
      been set (first without a suffix and then with a suffix). */
 
-  if (d->fallback_framework_path != NULL) 
-    {
+  if (d->fallback_framework_path != NULL) {
 
-      if (framework_name != NULL)
-        {
-          framework_path = search_for_name_in_path (framework_name, 
-                                                    d->fallback_framework_path, 
-                                                    d->image_suffix);
+    if (framework_name != NULL)
+      {
+	framework_path = search_for_name_in_path (framework_name, 
+						  d->fallback_framework_path, 
+						  d->image_suffix);
         if (framework_path != NULL) 
           {
-	     return framework_path;
+	    return framework_path;
           }
-        }
+      }
   
-      if (framework_name_suffix != NULL) 
-        {
-          framework_path = search_for_name_in_path (framework_name_suffix, 
-                                                    d->fallback_framework_path, 
-                                                    d->image_suffix);
+    if (framework_name_suffix != NULL) 
+      {
+	framework_path = search_for_name_in_path (framework_name_suffix, 
+						  d->fallback_framework_path, 
+						  d->image_suffix);
         if (framework_path != NULL) 
           {
-	     return framework_path;
+	    return framework_path;
           }
-        }
-    }
+      }
+  }
 
   /* If no new name is still found try d->fallback_library_path if
      that was set.  */

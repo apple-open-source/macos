@@ -58,8 +58,8 @@ DSTROOT=
 # where to do the build .. better have lots of space there!
 BUILDROOT=$TEMP
 
-# what compilers to build.  On NeXT, we only really need objc and objc++.
-LANGUAGES="objc c++"	# was: "objc objc++ c++"
+# what compilers to build.  At Apple, we only really need objc, objc++ and c++.
+LANGUAGES="objc objc++ c++"
 
 # flags to use when compiling the compiler
 CFLAGS="-g -dynamic"
@@ -580,7 +580,7 @@ for host in $HOSTS; do
 	GCC_CFLAGS="-traditional-cpp $CFLAGS" \
 	BOOT_CFLAGS="$OPTIMIZE $CFLAGS \
 	  `if [ $TARGET_OS != win32 ]; then echo -traditional-cpp; fi`" \
-	BOOT_LDFLAGS="\\\`if [ \( \\\$\$(@F) = cc1obj -o \\\$\$(@F) = cc1plus \) \
+	BOOT_LDFLAGS="\\\`if [ \( \\\$\$(@F) = cc1obj -o \\\$\$(@F) = cc1objplus -o \\\$\$(@F) = cc1plus \) \
 			    -a $target = ppc ]; then \
 			 echo -sectorder __TEXT __text $SRCROOT/\\\$\$(@F).order -e start; \
 		       fi\\\`" \
@@ -611,7 +611,7 @@ for host in $HOSTS; do
 
     install_newer	cpp$exe		$libdir/cpp$exe 	"-m 555"
     install_newer	cc1obj$exe	$libdir/cc1obj$exe 	"-m 555"
-#   install_newer	cc1objplus$exe	$libdir/cc1objplus$exe	"-m 555"
+    install_newer	cc1objplus$exe	$libdir/cc1objplus$exe	"-m 555"
     install_newer	cc1plus$exe	$libdir/cc1plus$exe	"-m 555"
 
     if [ $TARGET_OS = win32 ]; then
@@ -925,7 +925,7 @@ $MKDIRS $fat/$libexec
 for target in $TARGETS; do
   $MKDIRS $fat/$libexec/$target`if [ "$RHAPSODY" ]; then echo /$gcc_version; fi`
 
-  for file in cpp cc1obj cc1plus; do
+  for file in cpp cc1obj cc1objplus cc1plus; do
     thin_files=""
     for host in $HOSTS; do
       thin_files="$thin_files $sym/$host/lib/$target/$file"

@@ -319,7 +319,7 @@ dsutil_parse_netinfo_string_path(char *path)
 
 		if (i == 0) break;
 
-		s = malloc(i);
+		s = malloc(i + 1);
 		m = 0;
 		eq = NULL;
 

@@ -1,0 +1,5 @@
+# Created and modified by checkpoint; do not edit
+# $Id: CVSVersionInfo.txt,v 1.1.1.1 2001/05/18 23:14:00 mb Exp $
+# $Name: Security-28 $
+ProjectName: SecurityServer
+ProjectVersion: 17.1

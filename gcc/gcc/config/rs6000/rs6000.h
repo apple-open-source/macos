@@ -630,6 +630,7 @@ extern int rs6000_debug_arg;		/* debug argument handling */
 /* No data type wants to be aligned rounder than this.  */
 #define BIGGEST_ALIGNMENT 128
 #define RS6000_DOUBLE_ALIGNMENT 64
+#define RS6000_LONGLONG_ALIGNMENT 64
 #define RS6000_VECTOR_ALIGNMENT 128
 
 /* AIX word-aligns FP doubles but doubleword-aligns 64-bit ints.  */
@@ -703,7 +704,7 @@ extern int rs6000_debug_arg;		/* debug argument handling */
    and are not available for the register allocator.
 
    On RS/6000, r1 is used for the stack and r2 is used as the TOC pointer.
-   (On Mac OS X, r2 is a volatile register.)
+   (On Mac OS X, r2 could be a volatile register.)
 
    cr5 is not supposed to be used.
 
@@ -792,7 +793,7 @@ extern int rs6000_debug_arg;		/* debug argument handling */
    31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19,	\
    18, 17, 16, 15, 14, 13, 12,				\
    64, 66, 65, 						\
-   73, 1, ALLOC_R2_AS_FIXED 67, 76}
+   73, 1, ALLOC_R2_AS_FIXED 67, 76, 77}
 
 /* True if register is floating-point.  */
 #define FP_REGNO_P(N) ((N) >= 32 && (N) <= 63)
@@ -3423,7 +3424,8 @@ do {									\
   {"scc_comparison_operator", {EQ, NE, LE, LT, GE,		\
 			       GT, LEU, LTU, GEU, GTU}},	\
   {"trap_comparison_operator", {EQ, NE, LE, LT, GE,		\
-				GT, LEU, LTU, GEU, GTU}},
+				GT, LEU, LTU, GEU, GTU}},	\
+  {"shift_operator", {ASHIFT, ASHIFTRT, LSHIFTRT}},
 
 /* uncomment for disabling the corresponding default options */
 /* #define  MACHINE_no_sched_interblock */

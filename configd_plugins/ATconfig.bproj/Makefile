@@ -33,7 +33,9 @@ BUNDLE_EXTENSION = bundle
 
 
 FRAMEWORK_PATHS = -F$(NEXT_ROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks
-FRAMEWORKS = -framework AppleTalk -framework SystemConfiguration
+NEXTSTEP_PB_CFLAGS = -Wall -DUSE_SYSTEMCONFIGURATION_PUBLIC_APIS
+FRAMEWORKS = -framework AppleTalk -framework CoreFoundation\
+             -framework SystemConfiguration
 
 
 NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc

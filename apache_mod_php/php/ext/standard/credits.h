@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,8 +17,13 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: credits.h,v 1.1.1.1 2001/01/25 05:00:03 wsanchez Exp $ */
+/* $Id: credits.h,v 1.1.1.2 2001/07/19 00:20:08 zarzycki Exp $ */
 
+#ifndef CREDITS_H
+#define CREDITS_H
+
+#ifndef HAVE_CREDITS_DEFS
+#define HAVE_CREDITS_DEFS
 
 #define PHP_CREDITS_GROUP			(1<<0)
 #define PHP_CREDITS_GENERAL			(1<<1)
@@ -26,7 +31,12 @@
 #define PHP_CREDITS_MODULES			(1<<3)
 #define PHP_CREDITS_DOCS			(1<<4)
 #define PHP_CREDITS_FULLPAGE		(1<<5)
+#define PHP_CREDITS_QA				(1<<6)
+#define PHP_CREDITS_WEB				(1<<7)
 #define PHP_CREDITS_ALL				0xFFFFFFFF
+
+#endif /* HAVE_CREDITS_DEFS */
 
 PHPAPI void php_print_credits(int flag);
 
+#endif

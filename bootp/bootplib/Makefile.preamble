@@ -123,14 +123,14 @@
 # STRIP_ON_INSTALL = NO
 
 OTHER_GARBAGE=*~ #*#
+OTHER_PROJECT_HEADERS += ipconfig.defs ipconfig.h 
 OTHER_OFILES=ipconfigServer.o ipconfigUser.o
 BEFORE_INSTALLHDRS=ipconfig_before_installhdrs
 AFTER_INSTALL=after_install
 LIBRARY_STYLE=STATIC
-PRIVATE_HEADER_DIR=$(APPLE_INTERNAL_DIR)/Developer/Headers/ipconfig
 
 ifeq "$(PLATFORM_OS)" "macos" 
-        OTHER_CFLAGS += -DMOSX -DNETBOOT
+        OTHER_CFLAGS += -DMOSX
 	ALL_MIGFLAGS += -DMOSX
 endif
 

@@ -1,4 +1,4 @@
-dnl $Id: config.m4,v 1.1.1.2 2001/01/25 04:59:30 wsanchez Exp $
+dnl $Id: config.m4,v 1.1.1.3 2001/07/19 00:19:25 zarzycki Exp $
 
 sinclude(ext/mysql/libmysql/acinclude.m4)
 sinclude(ext/mysql/libmysql/mysql.m4)
@@ -51,7 +51,7 @@ if test "$PHP_MYSQL" = "yes"; then
   PHP_SUBST(MYSQL_LIBADD)
   PHP_SUBST(MYSQL_SUBDIRS)
   LIB_BUILD($ext_builddir/libmysql,$ext_shared,yes)
-  AC_ADD_INCLUDE($ext_srcdir/libmysql)
+  PHP_ADD_INCLUDE($ext_srcdir/libmysql)
   MYSQL_MODULE_TYPE="builtin"
 elif test "$PHP_MYSQL" != "no"; then
   for i in $PHP_MYSQL; do
@@ -69,6 +69,7 @@ elif test "$PHP_MYSQL" != "no"; then
   fi
 
   MYSQL_MODULE_TYPE="external"
+
   for i in lib lib/mysql; do
     MYSQL_LIB_CHK($i)
   done
@@ -77,10 +78,23 @@ elif test "$PHP_MYSQL" != "no"; then
     AC_MSG_ERROR(Cannot find mysqlclient library under $MYSQL_DIR)
   fi
 
-  AC_ADD_LIBRARY_WITH_PATH(mysqlclient, $MYSQL_LIB_DIR, MYSQL_SHARED_LIBADD)
+  if test "$PHP_ZLIB_DIR" != "no"; then
+    PHP_ADD_LIBRARY(z,, MYSQL_SHARED_LIBADD)
+    MYSQL_LIBS="-L$PHP_ZLIB_DIR -z"
+  fi
 
-  AC_ADD_INCLUDE($MYSQL_INC_DIR)
+  PHP_ADD_LIBRARY_WITH_PATH(mysqlclient, $MYSQL_LIB_DIR, MYSQL_SHARED_LIBADD)
+  MYSQL_LIBS="-L$MYSQL_LIB_DIR -lmysqlclient $MYSQL_LIBS"
+
+  PHP_ADD_INCLUDE($MYSQL_INC_DIR)
+  MYSQL_INCLUDE="-I$MYSQL_INC_DIR"
+  PHP_MYSQL_SOCK
+
 else
   MYSQL_MODULE_TYPE="none"
 fi
+
 PHP_SUBST(MYSQL_SHARED_LIBADD)
+PHP_SUBST_OLD(MYSQL_MODULE_TYPE)
+PHP_SUBST_OLD(MYSQL_LIBS)
+PHP_SUBST_OLD(MYSQL_INCLUDE)

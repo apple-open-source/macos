@@ -1,0 +1,6 @@
+Package: iocdstoragefamily
+Maintainer: Darwin Developers <darwin-development@lists.apple.com>
+Vendor: Apple Computer, Inc.
+Version: 5
+Build-Depends: cctools, gcc, libsystem, files, file-cmds, system-cmds, shell-cmds, zsh, grep, text-cmds, iokituser, jam, iostoragefamily, xnu
+Description: IOKit CD Storage Family Framework

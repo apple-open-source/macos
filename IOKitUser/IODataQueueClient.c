@@ -40,7 +40,8 @@ IODataQueueEntry *IODataQueuePeek(IODataQueueMemory *dataQueue)
 
     if (dataQueue && (dataQueue->head != dataQueue->tail)) {
         IODataQueueEntry *head = (IODataQueueEntry *)((char *)dataQueue->queue + dataQueue->head);
-        if ((dataQueue->head + head->size) > dataQueue->queueSize) { // Wrap around to beginning
+		// we wraped around to beginning, so read from there
+        if ((dataQueue->head + head->size + DATA_QUEUE_ENTRY_HEADER_SIZE) > dataQueue->queueSize) {
             entry = dataQueue->queue;
         } else {
             entry = head;
@@ -49,6 +50,7 @@ IODataQueueEntry *IODataQueuePeek(IODataQueueMemory *dataQueue)
 
     return entry;
 }
+
 IOReturn IODataQueueDequeue(IODataQueueMemory *dataQueue, void *data, UInt32 *dataSize)
 {
     IOReturn retVal = kIOReturnSuccess;
@@ -58,9 +60,14 @@ IOReturn IODataQueueDequeue(IODataQueueMemory *dataQueue, void *data, UInt32 *da
     if (dataQueue) {
         if (dataQueue->head != dataQueue->tail) {
             IODataQueueEntry *head = (IODataQueueEntry *)((char *)dataQueue->queue + dataQueue->head);
-            if ((dataQueue->head + head->size) > dataQueue->queueSize) { // Wrap around to beginning
+            // we wraped around to beginning, so read from there
+			// either there was not even room for the header
+			if ((dataQueue->head + DATA_QUEUE_ENTRY_HEADER_SIZE > dataQueue->queueSize) ||
+				// or there was room for the header, but not for the data
+				((dataQueue->head + head->size + DATA_QUEUE_ENTRY_HEADER_SIZE) > dataQueue->queueSize)) {
                 entry = dataQueue->queue;
                 newHead = dataQueue->queue->size + DATA_QUEUE_ENTRY_HEADER_SIZE;
+            // else it is at the end
             } else {
                 entry = head;
                 newHead = dataQueue->head + head->size + DATA_QUEUE_ENTRY_HEADER_SIZE;

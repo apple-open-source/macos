@@ -249,6 +249,17 @@ IOReturn IOSerialSessionSync::releasePort()
     return kIOReturnSuccess;
 }
 
+/*
+ * Release all locks for this session, called from release as well
+ */
+IOReturn IOSerialSessionSync::stopPort()
+{
+    releasePort();
+    fLockError = kIOReturnOffline;
+
+    return kIOReturnSuccess;
+}
+
 IOReturn IOSerialSessionSync::
 setState(UInt32 state, UInt32 mask)
 {
@@ -260,6 +271,9 @@ setState(UInt32 state, UInt32 mask)
 
 UInt32 IOSerialSessionSync::getState()
 {
+    if (fLockError)
+        return 0;
+
     return STREAM->getState();
 }
 

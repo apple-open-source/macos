@@ -36,21 +36,26 @@ int gettimeofday (struct timeval *tp, struct timezone *tzp)
 {
         static int validtz = 0;
         static struct timezone cached_tz = {0};
+        struct timeval localtv;
+  
+        if (tzp && (tp == NULL) && (validtz == 0)) {
+                tp = &localtv;
+        }
 
         if (syscall (SYS_gettimeofday, tp, tzp) < 0) {
                 return (-1);
         }
-        if (validtz == 0)  {
-		struct tm *localtm = localtime ((time_t *)&tp->tv_sec);
-                cached_tz.tz_dsttime = localtm->tm_isdst;
-                cached_tz.tz_minuteswest =
-                        (-localtm->tm_gmtoff / SECSPERMIN) +
-                        (localtm->tm_isdst * MINSPERHOUR);
-                validtz = 1;
-        }
         if (tzp) {
-          tzp->tz_dsttime = cached_tz.tz_dsttime;
-          tzp->tz_minuteswest = cached_tz.tz_minuteswest;
+		if (validtz == 0)  {
+			struct tm *localtm = localtime ((time_t *)&tp->tv_sec);
+			cached_tz.tz_dsttime = localtm->tm_isdst;
+			cached_tz.tz_minuteswest =
+				(-localtm->tm_gmtoff / SECSPERMIN) +
+				(localtm->tm_isdst * MINSPERHOUR);
+			validtz = 1;
+		}
+		tzp->tz_dsttime = cached_tz.tz_dsttime;
+		tzp->tz_minuteswest = cached_tz.tz_minuteswest;
         }
         return (0);
 }

@@ -121,6 +121,10 @@ __private_extern__ void swap_sub_umbrella_command(
     struct sub_umbrella_command *usub,
     enum byte_sex target_byte_sex);
 
+__private_extern__ void swap_sub_library_command(
+    struct sub_library_command *lsub,
+    enum byte_sex target_byte_sex);
+
 __private_extern__ void swap_sub_client_command(
     struct sub_client_command *csub,
     enum byte_sex target_byte_sex);
@@ -229,6 +233,10 @@ __private_extern__ void swap_routines_command(
     struct routines_command *r_cmd,
     enum byte_sex target_byte_sex);
 
+__private_extern__ void swap_twolevel_hints_command(
+    struct twolevel_hints_command *hints_cmd,
+    enum byte_sex target_byte_sex);
+
 __private_extern__ void swap_nlist(
     struct nlist *symbols,
     unsigned long nsymbols,
@@ -262,6 +270,11 @@ __private_extern__ void swap_dylib_module(
 __private_extern__ void swap_dylib_table_of_contents(
     struct dylib_table_of_contents *tocs,
     unsigned long ntocs,
+    enum byte_sex target_byte_sex);
+
+__private_extern__ void swap_twolevel_hint(
+    struct twolevel_hint *hints,
+    unsigned long nhints,
     enum byte_sex target_byte_sex);
 
 /*

@@ -69,10 +69,6 @@
 
 char * gFilename;
 
-#ifdef DISABLED
-static char * deviceDirectory;
-#endif
-
 extern int ram_debug_sarld;		// in load.c
 
 #define DCACHE            1
@@ -448,7 +444,6 @@ sbmap(struct iob * io, daddr_t bn)
 	return (nb);
 }
 
-#ifdef DISABLED
 /*==========================================================================
  *
  *
@@ -490,7 +485,6 @@ disk_closedir(struct dirstuff * dirp)
     free((void *)dirp);
     return 0;
 }
-#endif /* DISABLED */
 
 /*==========================================================================
  * get next entry in a directory.
@@ -894,12 +888,7 @@ disk_flushdev()
 #if DCACHE
     cacheFlush(dcache);
 #endif
-
-#ifdef DISABLED
-    deviceDirectory = NULL;
-#endif /* DISABLED */
 }
-
 
 /***************************************************************************
  *
@@ -944,7 +933,6 @@ en_devopen(char * name, struct iob * io)
 {
 	io->i_error = 0;
 }
-
 
 /***************************************************************************
  *
@@ -1021,8 +1009,7 @@ gen_usrDevices()
 struct dirstuff *
 opendir(char * path)
 {
-	error("Unsupported function: opendir\n");
-	return 0;
+    return disk_opendir(path);
 }
 
 /*==========================================================================
@@ -1031,8 +1018,7 @@ opendir(char * path)
 int
 closedir(struct dirstuff * dirp)
 {
-	error("Unsupported function: closedir\n");
-	return 0;
+    return disk_closedir(dirp);
 }
 
 /*==========================================================================
@@ -1041,8 +1027,7 @@ closedir(struct dirstuff * dirp)
 struct direct *
 readdir(struct dirstuff * dirp)
 {
-	error("Unsupported function: readdir\n");
-	return NULL;
+    return disk_readdir(dirp);
 }
 
 /*==========================================================================
@@ -1129,6 +1114,7 @@ open(char * str, int how)
 
 #if CHECK_CAREFULLY	/* iob[] is in BSS, so it is guaranteed to be zero. */
 	if (open_init == 0) {
+        int i;
 		for (i = 0; i < NFILES; i++)
 			iob[i].i_flgs = 0;
 		open_init = 1;

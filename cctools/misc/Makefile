@@ -1,10 +1,18 @@
 export USE_APPLE_PB_SUPPORT = all
 OFLAG = -O
+ifeq "macos" "$(RC_OS)"
+  X_CFLAGS := $(shell if [ "$(RC_RELEASE)" != "Beaker" ] &&    \
+			 [ "$(RC_RELEASE)" != "Bunsen" ] &&    \
+			 [ "$(RC_RELEASE)" != "Gonzo"  ] &&    \
+			 [ "$(RC_RELEASE)" != "Kodiak" ]; then \
+	     echo -Wno-long-double ; \
+	     fi; )
+endif
 ifeq "mwcc" "$(notdir $(CC))"
   CFLAGS = $(OFLAG) -g \
 	 -I$(SRCROOT) -I$(SRCROOT)/../include -I$(OFILE_DIR)
 else
-  CFLAGS = $(OFLAG) -g -Wall -Wno-precomp \
+  CFLAGS = $(OFLAG) -g -Wall -Wno-precomp $(X_CFLAGS) \
 	 -I$(SRCROOT) -I$(SRCROOT)/../include -I$(OFILE_DIR)
 endif
 LIBSTUFF = -L$(SYMROOT)/../libstuff -lstuff
@@ -26,6 +34,7 @@ SYMROOT = .
 BINDIR = /bin
 USRBINDIR = /usr/bin
 LOCBINDIR = /usr/local/bin
+LOCLIBDIR = /usr/local/lib
 
 CFILES1 = libtool.c
 CFILES2 = main.c lipo.c size.c strings.c nm.c checksyms.c inout.c \
@@ -52,12 +61,19 @@ nextstep_all: $(PROGS) atom.NEW ar.NEW file.NEW
 
 all:	$(OFILE_DIR) $(SYMROOT) $(RC_OS)_all
 
+lib_ofiles: $(OFILE_DIR) $(SYMROOT) libredo_prebinding.a
+
 vers.c:
 	vers_string -c $(VERS_STRING_FLAGS) cctools_misc > $(OFILE_DIR)/$@
 
 .c.o:
 	$(CC) $(CFLAGS) $(RC_CFLAGS) -c -MD -dependency-file \
 		$(OFILE_DIR)/$*.d -o $(OFILE_DIR)/$*.o $<
+	md -d -u $(OFILE_DIR)/Makedep $(OFILE_DIR)/$*.d
+
+libredo_prebinding.o: redo_prebinding.c
+	$(CC) $(CFLAGS) $(RC_CFLAGS) -c -MD -dependency-file $(OFILE_DIR)/$*.d \
+		-o $(OFILE_DIR)/$*.o $(SRCROOT)/redo_prebinding.c -DLIBRARY_API
 	md -d -u $(OFILE_DIR)/Makedep $(OFILE_DIR)/$*.d
 
 checksyms.NEW: checksyms.o vers.o
@@ -130,6 +146,11 @@ redo_prebinding.NEW: redo_prebinding.o vers.o
 		$(OFILE_DIR)/redo_prebinding.o $(OFILE_DIR)/vers.o $(LIBSTUFF)
 	$(CC) $(CFLAGS) $(RC_CFLAGS) -o $(SYMROOT)/redo_prebinding.NEW \
 		$(OFILE_DIR)/redo_prebinding.private.o
+
+libredo_prebinding.a: libredo_prebinding.o
+	$(CC) $(CFLAGS) $(RC_CFLAGS) -nostdlib -r \
+		-o $(SYMROOT)/libredo_prebinding.a libredo_prebinding.o \
+		$(LIBSTUFF)
 
 seg_addr_table.NEW: seg_addr_table.o vers.o
 	$(CC) $(CFLAGS) $(RC_CFLAGS) -nostdlib -r \
@@ -278,6 +299,7 @@ clean: shlib_clean
 	$(SYMROOT)/dylib_pcsampler.NEW \
 	$(SYMROOT)/pagestuff.NEW \
 	$(SYMROOT)/redo_prebinding.NEW \
+	$(SYMROOT)/libredo_prebinding.a \
 	$(SYMROOT)/kern_tool.NEW \
 	$(SYMROOT)/cmpdylib.NEW
 
@@ -305,6 +327,7 @@ shlib_clean:
 	$(OFILE_DIR)/dylib_pcsampler.o \
 	$(OFILE_DIR)/pagestuff.o \
 	$(OFILE_DIR)/redo_prebinding.o \
+	$(OFILE_DIR)/libredo_prebinding.o \
 	$(OFILE_DIR)/seg_addr_table.o \
 	$(OFILE_DIR)/check_dylib.o \
 	$(OFILE_DIR)/kern_tool.o \
@@ -398,6 +421,11 @@ common_install:
 			  $(DSTROOT)$(LOCBINDIR)/kern_tool
 	install -c -s -m 555 $(SYMROOT)/seg_hack.NEW \
 			  $(DSTROOT)$(LOCBINDIR)/seg_hack
+
+lib_ofiles_install: lib_ofiles
+	$(MKDIRS) $(DSTROOT)$(LOCLIBDIR)
+	install -p -c -m 444 $(SYMROOT)/libredo_prebinding.a \
+		 $(DSTROOT)$(LOCLIBDIR)/libredo_prebinding.a
 
 installsrc:
 	$(MKDIRS) $(SRCROOT)

@@ -1,11 +1,7 @@
-#include <mach/mach.h>
-
-/* this is to placate bfd */
-#define TRUE_FALSE_ALREADY_DEFINED
-
 #include "defs.h"
 #include "breakpoint.h"
 #include "gdbcmd.h"
+#include "gdbcore.h"
 
 #include "nextstep-nat-inferior.h"
 #include "nextstep-nat-inferior-util.h"
@@ -14,389 +10,343 @@
 #include "nextstep-nat-cfm-io.h"
 #include "nextstep-nat-cfm-process.h"
 
-CFMClosure *gClosures = NULL;
+#define CFM_MAX_UNIVERSE_LENGTH 1024
+#define CFM_MAX_CONNECTION_LENGTH 1024
+#define CFM_MAX_CONTAINER_LENGTH 1024
+#define CFM_MAX_SECTION_LENGTH 1024
+#define CFM_MAX_INSTANCE_LENGTH 1024
+
+enum cfm_errtype { 
+  noErr = 0,
+  paramErr = -1,
+  cfragCFMInternalErr = -2,
+  cfragConnectionIDErr = -3,
+  cfragContainerIDErr = -4,
+  cfragFragmentCorruptErr = -5,
+  cfragNoSectionErr = -6
+};
+
+#define CFContHashedStringLength(hash) ((hash) >> 16)
 
 extern next_inferior_status *next_status;
 
-extern OSStatus CCFM_SetInfoSPITarget
-(MPProcessID targetProcess, void *targetCFMHook, mach_port_t notifyPort);
-
-static int cfm_annotation_level = 2;
-
-static void
-output_data (unsigned char *buf, size_t len)
+long
+cfm_update (task_t task, struct dyld_objfile_info *info)
 {
-  size_t i;
+  long ret;
 
-  printf_filtered ("0x%lx\n", len);
-  for (i = 0; i < len; i++) {
-    if ((i % 8) != 0) {
-      printf_filtered (" ");
-    }
-    printf_filtered ("0x%02x", buf[i]);
-    if (((i + 1) % 8) == 0) {
-      printf_filtered ("\n");
-    }
-  }
-  if (((i + 1) % 8) != 0) {
-    printf_filtered ("\n");
-  }
-}
+  unsigned long n_connection_ids;
+  unsigned long nread_connection_ids;
+  unsigned long *connection_ids;
 
-static void
-annotate_closure_begin (CFragClosureInfo *closure)
-{
-  if ((annotation_level > 1) && (cfm_annotation_level > 1))
+  unsigned long connection_index;
+
+  CORE_ADDR cfm_cookie;
+  CORE_ADDR cfm_context;
+  struct cfm_parser *cfm_parser;
+
+  cfm_cookie = next_status->cfm_status.info_api_cookie;
+  cfm_parser = &next_status->cfm_status.parser;
+
+  if (cfm_cookie == NULL)
+    return -1;
+
+  cfm_context = read_memory_unsigned_integer (cfm_cookie, 4);
+
+  ret = cfm_fetch_context_connections (cfm_parser, cfm_context, 0, 0, &n_connection_ids, NULL);
+  if (ret != noErr)
+      return ret;
+
+  connection_ids = (unsigned long *) xmalloc (n_connection_ids * sizeof (unsigned long));
+
+  ret = cfm_fetch_context_connections (cfm_parser, cfm_context, n_connection_ids, 0, &nread_connection_ids, connection_ids);
+  if (ret != noErr)
+      return ret;
+
+  CHECK (n_connection_ids == nread_connection_ids);
+
+  for (connection_index = 0; connection_index < n_connection_ids; connection_index++)
     {
-      printf_filtered ("\n\032\032closure-begin\n");
-      output_data ((unsigned char *) closure, sizeof (*closure));
+      NCFragConnectionInfo connection_info;
+      NCFragContainerInfo container_info;
+      NCFragSectionInfo section_info;
+      NCFragInstanceInfo instance_info;
+
+      ret = cfm_fetch_connection_info (cfm_parser, connection_ids[connection_index], &connection_info);
+      if (ret != noErr)
+	continue;
+      
+      ret = cfm_fetch_container_info (cfm_parser, connection_info.container, &container_info);
+      if (ret != noErr)
+	continue;
+      
+      if (container_info.sectionCount > 0) {
+	ret = cfm_fetch_connection_section_info (cfm_parser, connection_ids[connection_index], 0, &section_info, &instance_info);
+	if (ret != noErr)
+	  continue;
+      }
+
+      {
+	struct dyld_objfile_entry *entry;
+
+	entry = dyld_objfile_entry_alloc (info);
+
+	entry->dyld_name = xstrdup (container_info.name + 1);
+	entry->dyld_name_valid = 1;
+
+	entry->dyld_addr = container_info.address;
+	entry->dyld_slide = container_info.address;
+	entry->dyld_length = container_info.length;
+	entry->dyld_index = 0;
+	entry->dyld_valid = 1;
+
+	entry->cfm_connection = connection_ids[connection_index];
+
+	entry->reason = dyld_reason_cfm;
+      }
     }
+
+  return noErr;
 }
 
-static void
-annotate_closure_end (CFragClosureInfo *closure)
+long
+cfm_fetch_context_connections
+(struct cfm_parser *parser,
+ CORE_ADDR contextAddr,
+ unsigned long requestedCount, unsigned long skipCount,
+ unsigned long *totalCount_o, unsigned long* connectionIDs_o)
 {
-  if ((annotation_level > 1) && (cfm_annotation_level > 1))
+  int ret;
+
+  unsigned long localTotal = 0;
+  unsigned long currIDSlot;
+
+  NCFragUniverseInfo universe;
+  NCFragConnectionInfo connection;
+
+  CORE_ADDR curConnection = 0;
+
+  *totalCount_o = 0;
+
+  ret = cfm_fetch_universe_info (parser, contextAddr, &universe);
+
+  localTotal = universe.connections.length;
+
+  if (skipCount >= localTotal)
     {
-      printf_filtered ("\n\032\032closure-end\n");
+      *totalCount_o = localTotal;
+      return noErr;
     }
-}
 
-static void
-annotate_connection (CFragConnectionInfo *connection)
-{
-  if ((annotation_level > 1) && (cfm_annotation_level > 1))
+  if (requestedCount > (localTotal - skipCount))
+    requestedCount = localTotal - skipCount;
+
+  curConnection = universe.connections.head;
+
+  while (skipCount > 0)
     {
-      printf_filtered ("\n\032\032connection\n");
-      output_data ((unsigned char *) connection, sizeof (*connection));
-    }
-}
+      if (curConnection == 0)
+	return cfragCFMInternalErr;
 
-static void
-annotate_container (CFragContainerInfo *container)
-{
-  if ((annotation_level > 1) && (cfm_annotation_level > 1))
+      ret = cfm_fetch_connection_info (parser, curConnection, &connection);
+
+      curConnection = connection.next;
+      skipCount -= 1;
+    }
+
+  for (currIDSlot = 0; currIDSlot < requestedCount; currIDSlot += 1)
     {
-      printf_filtered ("\n\032\032container\n");
-      output_data ((unsigned char *) container, sizeof (*container));
+      if (curConnection == 0)
+	return cfragCFMInternalErr;
+
+      ret = cfm_fetch_connection_info (parser, curConnection, &connection);
+
+      connectionIDs_o[currIDSlot] = curConnection;
+      curConnection = connection.next;
     }
+
+  *totalCount_o = localTotal;
+  return noErr;
 }
 
-static void
-annotate_section (ItemCount index, CFragSectionInfo *section)
+long
+cfm_parse_universe_info
+(struct cfm_parser *parser, unsigned char *buf, size_t len, NCFragUniverseInfo *info)
 {
-  if ((annotation_level > 1) && (cfm_annotation_level > 1))
-    {
-      printf_filtered ("\n\032\032section\n");
-      output_data ((unsigned char *) section, sizeof (*section));
-    }
+  if (parser->universe_container_offset + 12 > len) { return -1; }
+  if (parser->universe_connection_offset + 12 > len) { return -1; }
+  if (parser->universe_closure_offset + 12 > len) { return -1; }
+
+  info->containers.head = bfd_getb32 (buf + parser->universe_container_offset);
+  info->containers.tail = bfd_getb32 (buf + parser->universe_container_offset + 4);
+  info->containers.length = bfd_getb32 (buf + parser->universe_container_offset + 8);
+  info->connections.head = bfd_getb32 (buf + parser->universe_connection_offset);
+  info->connections.tail = bfd_getb32 (buf + parser->universe_connection_offset + 4);
+  info->connections.length = bfd_getb32 (buf + parser->universe_connection_offset + 8);
+  info->closures.head = bfd_getb32 (buf + parser->universe_closure_offset);
+  info->closures.tail = bfd_getb32 (buf + parser->universe_closure_offset + 4);
+  info->closures.length = bfd_getb32 (buf + parser->universe_closure_offset + 8);
+
+  return 0;
 }
 
-void
-next_init_cfm_info_api (struct next_inferior_status *status)
+long
+cfm_fetch_universe_info
+(struct cfm_parser *parser, CORE_ADDR addr, NCFragUniverseInfo *info)
 {
-  kern_return_t	kret;
+  int ret, err;
+
+  unsigned char buf[CFM_MAX_UNIVERSE_LENGTH];
+  if (parser->universe_length > CFM_MAX_UNIVERSE_LENGTH) { return -1; }
+
+  ret = target_read_memory_partial (addr, buf, parser->universe_length, &err);
+  if (ret < 0) { return -1; }
+
+  return cfm_parse_universe_info (parser, buf, parser->universe_length, info);
+}
+
+long
+cfm_parse_container_info
+(struct cfm_parser *parser, unsigned char *buf, size_t len, NCFragContainerInfo *info)
+{
+  info->address = bfd_getb32 (buf + parser->container_address_offset);
+  info->length = bfd_getb32 (buf + parser->container_length_offset);
+  info->sectionCount = bfd_getb32 (buf + parser->container_section_count_offset);
+
+  return 0;
+}
+
+long
+cfm_fetch_container_info
+(struct cfm_parser *parser, CORE_ADDR addr, NCFragContainerInfo *info)
+{
+  int ret, err;
+  unsigned long name_length, name_addr;
+
+  unsigned char buf[CFM_MAX_CONTAINER_LENGTH];
+  if (parser->container_length > CFM_MAX_CONTAINER_LENGTH) { return -1; }
+
+  ret = target_read_memory_partial (addr, buf, parser->container_length, &err);
+  if (ret < 0) { return -1; }
+
+  ret = cfm_parse_container_info (parser, buf, parser->container_length, info);
+  if (ret < 0) { return -1; }
+
+  name_length = CFContHashedStringLength (bfd_getb32 (buf + parser->container_fragment_name_offset));
+  if (name_length > 63)
+    return cfragFragmentCorruptErr;
+  name_addr = bfd_getb32 (buf + parser->container_fragment_name_offset + 4);
+
+  info->name[0] = name_length;
   
-  if (status->cfm_status.cfm_receive_right != MACH_PORT_NULL)
-    return;
+  ret = target_read_memory_partial (name_addr, &info->name[1], name_length, &err);
+  if (ret < 0)
+    return cfragFragmentCorruptErr;
 
-  if (status->cfm_status.info_api_cookie == NULL)
-    return;
+  info->name[name_length + 1] = '\0';
 
-  if (status->task == MACH_PORT_NULL)
-    return;
-
-  next_cfm_thread_create (&status->cfm_status, status->task);
+  return 0;
 }
 
-void
-next_handle_cfm_event (struct next_inferior_status* status, unsigned char *buf)
+long
+cfm_parse_connection_info
+(struct cfm_parser *parser, unsigned char *buf, size_t len, NCFragConnectionInfo *info)
 {
-    CFragNotifyInfo *messageBody = (CFragNotifyInfo *) buf;
-    kern_return_t result, kret;
-    ItemCount numberOfConnections, totalCount, index;
-    CFragConnectionID *connections;
-    CFragClosureInfo closureInfo;
-    CFMClosure *closure;
-    
-    gdb_flush (gdb_stdout);
-    
-    kret = next_inferior_suspend_mach (next_status);
-    MACH_CHECK_ERROR (kret);
+  if (parser->connection_next_offset + 4 > len) { return -1; }
+  if (parser->connection_container_offset + 4 > len) { return -1; }
 
-    kret = task_resume (next_status->task);
-    MACH_CHECK_ERROR (kret);
+  info->next = bfd_getb32 (buf + parser->connection_next_offset);
+  info->container = bfd_getb32 (buf + parser->connection_container_offset);
 
-    CHECK_FATAL ((kCFragPrepareClosureNotify == messageBody->notifyKind)
-		 || (kCFragReleaseClosureNotify == messageBody->notifyKind));
-
-    result = CFragGetClosureInfo
-      (messageBody->u.closureInfo.closureID, kCFragClosureInfoVersion, &closureInfo);
-    CHECK_FATAL (result == noErr);
-    annotate_closure_begin (&closureInfo);
-
-    closure = xcalloc (1, sizeof (CFMClosure));
-    closure->mClosure = closureInfo;
-
-    result = CFragGetConnectionsInClosure
-      (closureInfo.closureID, 0, 0, &numberOfConnections, NULL);
-    CHECK_FATAL (result == noErr);
-
-    connections = xmalloc(numberOfConnections * sizeof(CFragConnectionID));
-
-    result = CFragGetConnectionsInClosure
-      (closureInfo.closureID, numberOfConnections, 0, &totalCount, connections);
-    CHECK_FATAL (result == noErr);
-    CHECK_FATAL (numberOfConnections == totalCount);
-
-    for (index = 0; index < numberOfConnections; ++index)
-    {
-        CFragConnectionInfo	connectionInfo;
-        CFragContainerInfo	containerInfo;
-        ItemCount			sectionIndex;
-        CFMConnection*		connection;
-        CFMContainer*		container;
-        
-        result = CFragGetConnectionInfo(connections[index],
-                                        kCFragConnectionInfoVersion,
-                                        &connectionInfo);
-        CHECK_FATAL (noErr == result);
-        annotate_connection(&connectionInfo);
-
-        connection = xcalloc(1, sizeof(CFMConnection));
-        CHECK_FATAL (NULL != connection);
-        connection->mConnection = connectionInfo;
-        connection->mNext = closure->mConnections;
-        closure->mConnections = connection;
-
-        result = CFragGetContainerInfo(connectionInfo.containerID,
-                                       kCFragContainerInfoVersion,
-                                       &containerInfo);
-        CHECK_FATAL (noErr == result);
-
-        annotate_container(&containerInfo);
-
-        container = xcalloc(1, sizeof(CFMContainer));
-        CHECK_FATAL (NULL != container);
-        container->mContainer = containerInfo;
-        connection->mContainer = container;
-
-        for (sectionIndex = 0; sectionIndex < containerInfo.sectionCount; ++sectionIndex)
-        {
-            CFragSectionInfo	sectionInfo;
-            CFMSection*			section;
-            
-            result = CFragGetSectionInfo(connections[index],
-                                         sectionIndex,
-                                         kCFragSectionInfoVersion,
-                                         &sectionInfo);
-            CHECK_FATAL (noErr == result);
-            annotate_section(sectionIndex, &sectionInfo);
-
-            section = xcalloc(1, sizeof(CFMSection));
-            CHECK_FATAL (NULL != section);
-            section->mSection = sectionInfo;
-            section->mContainer = container;
-            section->mNext = container->mSections;
-            container->mSections = section;
-        }
-    }
-
-    xfree (connections);
-
-    annotate_closure_end(&closureInfo);
-
-    closure->mNext = gClosures;
-    gClosures = closure;
-       
-    next_inferior_suspend_mach (status);
-
-    next_update_cfm ();
-
-    reread_symbols ();
-    breakpoint_re_set ();
-    breakpoint_update ();
-    re_enable_breakpoints_in_shlibs (0);
-    enable_breakpoints_in_containers ();
+  return 0;
 }
 
-void enable_breakpoints_in_containers (void)
+long
+cfm_fetch_connection_info
+(struct cfm_parser *parser, CORE_ADDR addr, NCFragConnectionInfo *info)
 {
-  struct breakpoint *b;
-  extern struct breakpoint* breakpoint_chain;
+  int ret, err;
 
-  for (b = breakpoint_chain; b; b = b->next) {
+  unsigned char buf[CFM_MAX_CONNECTION_LENGTH];
+  if (parser->connection_length > CFM_MAX_CONNECTION_LENGTH) { return -1; }
 
-    if (b->enable != disabled) { break; } 
-    if (strncmp (b->addr_string, "@metrowerks:", strlen ("@metrowerks:")) != 0) { break; } 
+  ret = target_read_memory_partial (addr, buf, parser->connection_length, &err);
+  if (ret < 0) { return -1; }
 
-    {
-      char **argv;
-      unsigned long section;
-      unsigned long offset;
-      CFMContainer *cfmContainer;
-
-      argv = buildargv (b->addr_string + strlen ("@metrowerks:"));
-      if (argv == NULL) { 
-	nomem (0); 
-      } 
-      
-      section = strtoul (argv[1], NULL, 16); 
-      offset = strtoul (argv[2], NULL, 16); 
-
-      cfmContainer = CFM_FindContainerByName (argv[0], strlen (argv[0]));
-      if (cfmContainer != NULL) {
-	CFMSection *cfmSection = CFM_FindSection(cfmContainer, kCFContNormalCode);
-	if (cfmSection != NULL) {
-	  b->address = cfmSection->mSection.address + offset;
-	  b->enable = enabled;
-	  b->addr_string = xmalloc (64);
-	  sprintf (b->addr_string, "*0x%lx", (unsigned long) b->address);
-	}
-      }
-    }
-  }
+  return cfm_parse_connection_info (parser, buf, parser->connection_length, info);
 }
 
-CFMContainer *CFM_FindContainerByName (char *name, int length)
+long
+cfm_parse_section_info
+(struct cfm_parser *parser, unsigned char *buf, size_t len, NCFragSectionInfo *info)
 {
-    CFMContainer*	found = NULL;
-    CFMClosure* 	closure = gClosures;
-    
-    while ((NULL == found) && (NULL != closure))
-    {
-        CFMConnection* connection = closure->mConnections;
-        while ((NULL == found) && (NULL != connection))
-        {
-            if (NULL != connection->mContainer)
-            {
-                CFMContainer* container = connection->mContainer;
-                if (0 == memcmp(name,
-                                &container->mContainer.name[1],
-                                min(container->mContainer.name[0], length)))
-                {
-                    found = container;
-                    break;
-                }
-            }
+  if (parser->section_total_length_offset + 4 > len) { return -1; }
 
-            connection = connection->mNext;
-        }
+  info->length = bfd_getb32 (buf + parser->section_total_length_offset);
 
-        closure = closure->mNext;
-    }
-
-    return found;
+  return 0;
 }
 
-CFMSection *CFM_FindSection (CFMContainer *container, CFContMemoryAccess accessType)
+long
+cfm_parse_instance_info
+(struct cfm_parser *parser, unsigned char *buf, size_t len, NCFragInstanceInfo *info)
 {
-  int done = false;
-  CFMSection *section = container->mSections;
+  if (parser->instance_address_offset + 4 > len) { return -1; }
 
-  while (!done && (NULL != section))
-    {
-      CFContMemoryAccess access = section->mSection.access;
-      if ((access & accessType) == accessType)
-        {
-	  done = true;
-	  break;
-        }
-        
-      section = section->mNext;
-    }
+  info->address = bfd_getb32 (buf + parser->instance_address_offset);
 
-  return (done ? section : NULL);
+  return 0;
 }
 
-CFMSection *CFM_FindContainingSection (CORE_ADDR address)
+long
+cfm_fetch_connection_section_info
+(struct cfm_parser *parser, CORE_ADDR addr, unsigned long sectionIndex, NCFragSectionInfo *section, NCFragInstanceInfo *instance)
 {
-  CFMSection*	section = NULL;
-  CFMClosure*	closure = gClosures;
+  int ret, err;
+  unsigned long offset;
 
-  while ((NULL == section) && (NULL != closure))
-    {
-      CFMConnection* connection = closure->mConnections;
-      while ((NULL == section) && (NULL != connection))
-        {
-	  CFMContainer*	container = connection->mContainer;
-	  CFMSection*		testSection = container->mSections;
-	  while ((NULL == section) && (NULL != testSection))
-            {
-	      if ((address >= testSection->mSection.address) &&
-		  (address < (testSection->mSection.address + testSection->mSection.length)))
-                {
-		  section = testSection;
-		  break;
-                }
-                
-	      testSection = testSection->mNext;
-            }
-            
-	  connection = connection->mNext;
-        }
+  NCFragConnectionInfo connection;
+  NCFragContainerInfo container;
+  unsigned char section_buf[CFM_MAX_SECTION_LENGTH];
+  unsigned char instance_buf[CFM_MAX_INSTANCE_LENGTH];
+  unsigned long instance_ptr;
 
-      closure = closure->mNext;
-    }
+  ret = cfm_fetch_connection_info (parser, addr, &connection);
+  if (ret < 0)
+    return cfragCFMInternalErr;
 
-  return section;
-}
+  ret = cfm_fetch_container_info (parser, connection.container, &container);
+  if (ret < 0)
+    return cfragCFMInternalErr;
+  
+  if (sectionIndex >= container.sectionCount)
+    return cfragNoSectionErr;
 
-static void info_cfm_command (args, from_tty)
-     char *args;
-     int from_tty;
-{
-  CFMClosure *closure = gClosures;
-  while (closure != NULL) {
+  offset = (connection.container + parser->container_length - (2 * parser->section_length) + (sectionIndex * parser->section_length));
+  
+  ret = target_read_memory_partial (offset, section_buf, parser->section_length, &err);
+  if (ret < 0)
+    return cfragCFMInternalErr;
+  
+  offset = (addr + parser->connection_length - (2 * sizeof (unsigned long)) + (sectionIndex * sizeof (unsigned long)));
+  
+  ret = target_read_memory_partial (offset, (unsigned char *) &instance_ptr, sizeof (unsigned long), &err);
+  if (ret < 0)
+	return cfragCFMInternalErr;
+  if (instance_ptr == 0)
+    return cfragNoSectionErr;
+  
+  ret = target_read_memory_partial (instance_ptr, instance_buf, parser->instance_length, &err);
+  if (ret < 0)
+    return cfragCFMInternalErr;
+  
+  ret = cfm_parse_section_info (parser, section_buf, parser->section_length, section);
+  if (ret < 0)
+    return ret;
 
-    CFMConnection *connection = closure->mConnections;
-    annotate_closure_begin (&closure->mClosure);
+  ret = cfm_parse_instance_info (parser, instance_buf, parser->instance_length, instance);
+  if (ret < 0)
+    return ret;
 
-    while (connection != NULL) {
-      
-      CFMContainer *container = connection->mContainer;
-      CFMSection *section = container->mSections;
-      size_t secnum = 0;
-
-      annotate_container (&container->mContainer);
-
-      printf_filtered 
-	("Noted CFM object \"%.*s\" at 0x%lx for 0x%lx\n",
-	 container->mContainer.name[0], &container->mContainer.name[1],
-	 (unsigned long) container->mContainer.address,
-	 (unsigned long) container->mContainer.length);
-      
-      annotate_connection (&connection->mConnection);
-
-      while (section != NULL) {
-	annotate_section (secnum, &section->mSection);
-	secnum++;
-	section = section->mNext;
-      }
-      
-      connection = connection->mNext;
-    }
-
-    annotate_closure_end (&closure->mClosure);
-
-    closure = closure->mNext;
-  }
-
-  return;
-}
-
-void
-_initialize_nextstep_nat_cfm ()
-{
-  struct cmd_list_element *cmd = NULL;
-
-  cmd = add_set_cmd
-    ("cfm-annotate", class_obscure, var_zinteger,
-     (char *) &cfm_annotation_level,
-     "Set annotation level for CFM structure data.",
-     &setlist);
-  add_show_from_set (cmd, &showlist);		
-
-  add_info ("cfm", info_cfm_command,
-	    "Show current CFM state.");
+  return noErr;
 }

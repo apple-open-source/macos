@@ -1,0 +1,63 @@
+.\" Copyright (c) 1993 by Mike Sample and UBC
+.\" See section COPYING for conditions for redistribution
+.\" $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/doc/pval.1,v 1.1.1.1 2001/05/18 23:14:10 mb Exp $
+.\" $Log: pval.1,v $
+.\" Revision 1.1.1.1  2001/05/18 23:14:10  mb
+.\" Move from private repository to open source repository
+.\"
+.\" Revision 1.1.1.1  1999/03/16 18:05:54  aram
+.\" Originals from SMIME Free Library.
+.\"
+.\" Revision 1.2  1997/01/01 22:47:20  rj
+.\" first check-in
+.\"
+.TH PVAL 1 "11 July 1993"
+.SH NAME
+pval \- print BER values in ASN.1 value notation
+.SH SYNOPSIS
+.nf
+pval \-T <tt file name> [\-m <module name>] \-n <type name>
+             <BER value file list>
+.SH DESCRIPTION
+pval prints the given BER values in their value notation.  You must
+specify the type name and optionally the module name of the type in
+the given BER files.
+.SH OPTIONS
+.TP
+.BI "\-T " file\c
+Use the type table in the file to look for the named types definition.
+.TP
+.BI "\-m " modulename\c
+Specifies the module in which the named type is defined.  If the
+module name is not specified with this option, pval looks for the
+first occurence of the named type in the modules in the given type
+table.
+.TP
+.BI "\-n " typename\c
+Specifies the type of the values in the given BER files.  If you
+give the wrong type name, decoding errors will occur.
+.PP
+.\" there is a tab between the file name and the description
+.SH FILES
+.PD 0
+.TP 28
+.B snacc/tbl-tools/pval/
+Source code for the pval program
+.SH COPYING
+Copyright (c) 1993 Mike Sample and the University of British Columbia
+.PP
+Permission is granted to make and distribute verbatim copies of
+this manual provided the copyright notice and this permission notice
+are preserved on all copies.
+.PP
+Permission is granted to copy and distribute modified versions of this
+manual under the conditions for verbatim copying, provided that the
+entire resulting derived work is distributed under the terms of a
+permission notice identical to this one.
+.PP
+.SH AUTHOR
+Mike Sample <msample@cs.ubc.ca>, University of British Columbia
+.SH ACKNOWLEDGEMENTS
+This work was made possible by grants from the Canadian Institute for
+Telecommunications Research (CITR) and Natural Sciences and
+Engineering Research Council of Canada (NSERC).

@@ -24,39 +24,38 @@
 
 /*
  * NIAgent.h
- *
- * NetInfo lookup agent for lookupd
- *
- * Copyright (c) 1995, NeXT Computer Inc.
- * All rights reserved.
  * Written by Marc Majka
  */
 
-#import "LUDictionary.h"
-#import "LUArray.h"
 #import "LUAgent.h"
-#import "LUNIDomain.h"
-#import "LUGlobal.h"
-#import <NetInfo/syslock.h>
+#import "LUDictionary.h"
 #import <netinfo/ni.h>
+
+typedef struct
+{
+	unsigned long refcount;
+	void *ni;
+} ni_shared_handle_t;
+
+typedef struct
+{
+	ni_shared_handle_t *handle;
+	unsigned long checksum;
+	unsigned long checksum_time;
+} ni_data;
 
 @interface NIAgent : LUAgent
 {
-	LUDictionary *stats;
-	LUArray *globalChain;
-	LUArray *chain[NCATEGORIES];
-	syslock *threadLock;
+	unsigned long domain_count;
+	unsigned long timeout;
+	unsigned long connect_timeout;
+	unsigned long latency;
+	ni_data *domain;
 }
 
-+ (LUNIDomain *)domainWithName:(char *)domainName;
-+ (void)releaseDomainStore;
-
-+ (ni_status)findDirectory:(char *)path domain:(void **)dom nidir:(ni_id *)nid;
-
+- (void)setSource:(char *)src;
+- (BOOL)findDirectory:(char *)path domain:(void **)d nidir:(ni_id *)nid;
 - (BOOL)isSecurityEnabledForOption:(char *)option;
-- (BOOL)isNetwareEnabled;
-
-- (LUNIDomain *)domainAtIndex:(unsigned int)where;
 
 @end
 

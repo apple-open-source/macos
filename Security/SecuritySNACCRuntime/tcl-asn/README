@@ -1,0 +1,75 @@
+asnwish - An ASN.1 Tcl/Tk interpreter based on snacc table files
+
+The only extension to standard Tcl/Tk is a command called 
+
+"asn",
+	which reads a binary ASN.1 grammar file (as generated 
+	by "snacc -T") into an internal data structure
+	and returns a new command "asn<n>".
+
+"asn<n>" offers the following possibilities:
+
+"asn<n> modules"
+	Returns a list of all modules of the grammar.
+
+"asn<n> types ?module?"
+	Returns a list of all type definitions of the
+	grammar respectively of the module given.
+	Each type definition is returned as a list
+	consisting of the module name and the type name.
+
+"asn<n> type ?-followref? {?module? typedef ?subtype? ...}
+	Returns a description of the given type. 
+	The description format is 
+	"<typeid> <type> <range> <namedvalues> ?<subtypelist>?".
+
+	In case of a type definition, "<typeid>" is a three-
+	element list "{<module> <typename> "pdu"|"sub"}".
+	In case of a subtype, <typeid> is the fieldname,
+	if any, or an empty list "{}".
+
+	"<type>" is one out of "BOOLEAN", "INTEGER", "BIT STRING",
+	"OCTET STRING", "NULL", "OBJECT IDENTIFIER", "REAL",
+	"ENUMERATED", "SEQUENCE", "SET", "SEQUENCE OF", "SET OF",
+	"CHOICE" or "TYPEREF".
+
+	"<range>" is either empty, or a single numeric value,
+	or a list of two numeric vaules. It can be available
+	for types "SEQUENCE OF" (giving the lower and, optionally,
+	the upper bounds of the index), "INTEGER" (giving the lowest
+	and the highest possible value) and "OCTET STRING" (giving
+	the minimum and, optionally, the maximum length).
+
+	"<namedvalues>" is either empty, or a list of two-element
+	lists, each consisting of an integer value and a name.
+	It can be available for types "BIT STRING" and "ENUMERATED".
+
+	"?<subtypelist>?" is available for types "TYPEREF" (where it
+	is a two-element list "{<module> <typename>}" and "SEQUENCE",
+	"SET", "SEQUENCE OF", "SET OF", "CHOICE" (where it is a list
+	of subtype descriptions, each of the format given here).
+
+"asn<n> decode channel {?module? typedef ?subtype? ...} valcmd ?typecmd?"
+	Reads from the channel the given type, BER encoded, and decodes it.
+	During decoding, whenever a compound type is entered or left,
+	the Tcl/Tk "typecmd" (if any) is executed, with the type path
+	as first parameter, and a "1" resp. "-1" as second, and
+	whenever a value is decoded, the Tcl/Tk "valcmd" is executed,
+	with the type path as the first and the value as the second
+	parameter. BOOLEAN values are represented as "TRUE" resp. 
+	"FALSE". INTEGER and ENUMERATED values are represented by
+	their decimal representation. BIT STRINGs are represented by
+	a string of "0" and "1" characters. OCTET STRINGs and OIDs
+	are represented as following: printable characters (except the
+	character "\") are copied unchanged; non-printable characters
+	and the character "\" are represented by \OOO (e.g., their ASCII
+	value encoded by three octal digits with leading 0). The NULL
+	type is encoded as "NULL". REAL numbers representation follows
+	sprintf %G.
+
+	Returns the number of bytes decoded.
+
+"asn<n> encode channel {?module? typedef ?subtype? ...} valcmd ?typecmd?"
+
+"asn<n> close"
+	Closes the grammar and deletes the internal data structure.

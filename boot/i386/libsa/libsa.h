@@ -94,8 +94,6 @@ extern int slvprintf(char *       buffer,
 /*
  * zalloc.c
  */
-#define ZALLOC_NODES    384
-
 extern void   malloc_init(char * start, int size, int nodes);
 extern void * malloc(size_t size);
 extern void   free(void * start);
@@ -106,5 +104,10 @@ extern void * realloc(void * ptr, size_t size);
  */
 extern struct segment_command *
 	getsegbynamefromheader(struct mach_header * mhp, char * segname);
+
+/*
+ * bswap.c
+ */
+extern unsigned long bswap32( unsigned long data );
 
 #endif /* !__BOOT_LIBSA_H */

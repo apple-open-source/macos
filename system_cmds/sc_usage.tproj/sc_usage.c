@@ -56,7 +56,7 @@ cc -I. -DKERNEL_PRIVATE -O -o sc_usage sc_usage.c
 
 #include <sys/sysctl.h>
 #include <errno.h>
-#import <mach/clock_types.h>
+#include <mach/mach_time.h>
 #include <err.h>
 
 
@@ -89,6 +89,9 @@ long   start_time = 0;
 #define MAX_NESTED  8
 #define MAX_FAULTS  5
 
+/* If NUMPARMS from kernel changes, it will be reflected in PATHLENGTH as well */
+#define NUMPARMS 23
+#define PATHLENGTH (NUMPARMS*sizeof(long))
 
 char *state_name[] = {
         "Dont Know",
@@ -103,12 +106,6 @@ char *state_name[] = {
 #define USER_MODE   2
 #define WAITING     3
 #define PREEMPTED   4
-
-typedef struct {
-        natural_t hi;
-        natural_t lo;
-} AbsoluteTime;
-
 
 struct entry {
         int  sc_state;
@@ -125,7 +122,8 @@ struct th_info {
         int  depth;
         int  vfslookup;
         int  curpri;
-        char pathname[32];
+        long *pathptr;
+        char pathname[PATHLENGTH + 1];
         struct entry th_entry[MAX_NESTED];
 };
 
@@ -264,29 +262,6 @@ void sigwinch()
 {
         if (no_screen_refresh == 0)
 	        newLINES = 1;
-}
-
-
-/* raw read of the timebase register */
-void clock_get_uptime(
-        AbsoluteTime    *result)
-{
-#ifdef __ppc__
-
-        natural_t       hi, lo, hic;
-
-        do {
-	  asm volatile("  mftbu %0" : "=r" (hi));
-	  asm volatile("  mftb %0" : "=r" (lo));
-	  asm volatile("  mftbu %0" : "=r" (hic));
-        } while (hic != hi);
-
-        result->lo = lo;
-        result->hi = hi;
-#else
-        result->lo = 0;
-        result->hi = 0;
-#endif /* __ppc__ */
 }
 
 int
@@ -600,6 +575,7 @@ void screen_update()
         char    *p1, *p2, *p3;
 	char    tbuf[256];
 	int     clen;
+	int     plen;
 	int     n, i, rows;
 	long	curr_time;
 	long    elapsed_secs;
@@ -851,7 +827,7 @@ void screen_update()
 	        printf("\n");
 
 	if (num_of_threads) {
-	        sprintf(tbuf, "\nCURRENT_TYPE              LAST_PATHNAME_WAITED_FOR   CUR_WAIT_TIME  THRD#  PRI\n");
+	        sprintf(tbuf, "\nCURRENT_TYPE              LAST_PATHNAME_WAITED_FOR     CUR_WAIT_TIME THRD# PRI\n");
 
 		if (tbuf[COLS-2] != '\n') {
 		        tbuf[COLS-1] = '\n';
@@ -876,14 +852,10 @@ void screen_update()
 		
 	for (i = 0; i < num_of_threads; i++, ti++) {
 	        struct entry *te;
-		unsigned long long now;
-		AbsoluteTime timestamp;
+		uint64_t now;
 		int      secs, time_secs, time_usecs;
 
-		clock_get_uptime(&timestamp);
-
-		now = (((unsigned long long)timestamp.hi) << 32) |
-		        (unsigned long long)((unsigned int)(timestamp.lo));
+		now = mach_absolute_time();
 
 		while (ti->thread == 0 && ti < &th_state[MAX_THREADS])
 		        ti++;
@@ -906,7 +878,13 @@ void screen_update()
 		}
 		clen = strlen(tbuf);
 		
-		sprintf(&tbuf[clen], "   %-28.28s  ", ti->pathname);
+		/* print the tail end of the pathname */
+		plen = strlen(ti->pathname);
+		if (plen > 34)
+		  plen -= 34;
+		else
+		  plen = 0;
+		sprintf(&tbuf[clen], "   %-34.34s ", &ti->pathname[plen]);
 
 		clen += strlen(&tbuf[clen]);
 
@@ -917,7 +895,7 @@ void screen_update()
 
 		print_time(&tbuf[clen], time_usecs, time_secs);
 		clen += strlen(&tbuf[clen]);
-		sprintf(&tbuf[clen], "      %2d  %3d\n", i, ti->curpri);
+		sprintf(&tbuf[clen], "  %2d %3d\n", i, ti->curpri);
 
 		if (tbuf[COLS-2] != '\n') {
 		        tbuf[COLS-1] = '\n';
@@ -1175,13 +1153,9 @@ sort_scalls() {
 	struct th_info *ti;
 	struct sc_entry *se;
 	struct entry *te;
-	unsigned long long now;
-	AbsoluteTime timestamp;
+	uint64_t now;
 
-	clock_get_uptime(&timestamp);
-
-	now = (((unsigned long long)timestamp.hi) << 32) |
-	        (unsigned long long)((unsigned int)(timestamp.lo));
+	now = mach_absolute_time();
 
 	for (ti = th_state; ti < &th_state[MAX_THREADS]; ti++) {
 	        if (ti->thread == 0)
@@ -1215,6 +1189,7 @@ sort_scalls() {
 			        if ((unsigned long)(((double)now - te->otime) / divisor) > 5000000) {
 				        ti->thread = 0;
 					ti->vfslookup = 0;
+					ti->pathptr = (long *)0;
 					ti->pathname[0] = 0;
 					num_of_threads--;
 				}
@@ -1417,6 +1392,7 @@ sample_sc()
 		        th_state[i].depth = 0;
 			th_state[i].thread = 0;
 			th_state[i].vfslookup = 0;
+			th_state[i].pathptr = (long *)0;
 			th_state[i].pathname[0] = 0;
 		}
 		num_of_threads = 0;
@@ -1432,7 +1408,7 @@ sample_sc()
 	for (i = 0; i < count; i++) {
 	        int debugid, baseid, thread;
 		int type, code;
-		unsigned long long now;
+		uint64_t now;
 		struct th_info *ti, *switched_out, *switched_in;
 		struct sc_entry *se;
 		struct entry *te;
@@ -1445,8 +1421,8 @@ sample_sc()
 		switched_out = (struct th_info *)0;
 		switched_in  = (struct th_info *)0;
 
-		now = (((unsigned long long)kd[i].timestamp.tv_sec) << 32) |
-		        (unsigned long long)((unsigned int)(kd[i].timestamp.tv_nsec));
+		now = (((uint64_t)kd[i].timestamp.tv_sec) << 32) |
+		        (uint64_t)((unsigned int)(kd[i].timestamp.tv_nsec));
 		baseid = debugid & 0xffff0000;
 
 		if (debugid == vfs_lookup) {
@@ -1455,22 +1431,32 @@ sample_sc()
 		        if ((ti = find_thread(thread)) == (struct th_info *)0)
 			        continue;
 		        if (ti->vfslookup == 1) {
-			        ti->vfslookup = 2;
-				memset(&ti->pathname[0], 0, 32);
-				sargptr = (long *)&ti->pathname[0];
-				
+			        ti->vfslookup++;
+				memset(&ti->pathname[0], 0, (PATHLENGTH + 1));
+			        sargptr = (long *)&ti->pathname[0];
+
 				*sargptr++ = kd[i].arg2;
 				*sargptr++ = kd[i].arg3;
 				*sargptr++ = kd[i].arg4;
+				ti->pathptr = sargptr;
 
-			} else if (ti->vfslookup == 2) {
-			        ti->vfslookup = 3;
-	  
-				sargptr = (long *)&ti->pathname[12];
+			} else if (ti->vfslookup > 1) {
+			        ti->vfslookup++;
+			        sargptr = ti->pathptr;
+
+				/*
+				  We don't want to overrun our pathname buffer if the
+				  kernel sends us more VFS_LOOKUP entries than we can
+				  handle.
+				*/
+
+				if ((long *)sargptr >= (long *)&ti->pathname[PATHLENGTH])
+				  continue;
 				*sargptr++ = kd[i].arg1;
 				*sargptr++ = kd[i].arg2;
 				*sargptr++ = kd[i].arg3;
 				*sargptr++ = kd[i].arg4;
+				ti->pathptr = sargptr;
 			}
 			continue;
 
@@ -1617,7 +1603,7 @@ sample_sc()
 			se->delta_count++;
 			se->total_count++;
 
-		        if (ti->depth) {
+		        while (ti->depth) {
 			        te = &ti->th_entry[ti->depth-1];
 
 			        if (te->type == type) {
@@ -1651,6 +1637,20 @@ sample_sc()
 					} else
 					        te = &ti->th_entry[ti->depth-1];
 
+					te->stime = (double)now;
+					te->otime = (double)now;
+
+					break;
+				}
+				ti->depth--;
+
+				if (ti->depth == 0) {
+				        /* 
+					 * headed back to user mode
+					 * start the time accumulation
+					 */
+				        te = &ti->th_entry[0];
+					te->sc_state = USER_MODE;
 					te->stime = (double)now;
 					te->otime = (double)now;
 				}
@@ -1699,20 +1699,14 @@ char *s;
 	exit(1);
 }
 
-
 void getdivisor()
 {
+  mach_timebase_info_data_t info;
 
-    unsigned int delta;
-    unsigned int abs_to_ns_num;
-    unsigned int abs_to_ns_denom;
-    unsigned int proc_to_abs_num;
-    unsigned int proc_to_abs_denom;
+  (void) mach_timebase_info (&info);
 
-    MKGetTimeBaseInfo (&delta, &abs_to_ns_num, &abs_to_ns_denom,
-		       &proc_to_abs_num,  &proc_to_abs_denom);
+  divisor = ( (double)info.denom / (double)info.numer) * 1000;
 
-    divisor = ((double)abs_to_ns_denom / (double)abs_to_ns_num) * 1000;
 }
 
 

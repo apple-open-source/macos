@@ -5,19 +5,8 @@ retained for the purpose of protecting free redistribution of source.
 The MD5 support is copyright by RSA Data Security, Inc.  See the header
 comment of the md5.c module for license terms.
 
-			NO-VIRUS CLAUSE
-
-The intent of this license is to protect free redistribution and reuse of the
-source of the licensed distribution, not to prejudice the authorship
-rights of programmers of other code to control their original inventions.
-
-No portion of this license is to be interpreted as forbidding the reuse of
-this code or its constituent parts, algorithms, or inventions in commercial
-products.
-
-Nor shall such inclusion be construed to require the GPLing or disclosure of
-any portions of said commercial products other than those falling under
-the copyright of the licensed distribution.
+Specific permission is granted for this code to be linked to OpenSSL
+(this is necessary becuse the OpenSSL license is not GPL-compatible).
 
 -------------------------------------------------------------------------------
 		    GNU GENERAL PUBLIC LICENSE

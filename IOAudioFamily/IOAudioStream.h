@@ -24,38 +24,48 @@
 #define _IOKIT_IOAUDIOSTREAM_H
 
 #include <IOKit/IOService.h>
+#include <IOKit/audio/IOAudioEngine.h>
 #include <IOKit/audio/IOAudioTypes.h>
 
 class OSSymbol;
 class OSArray;
 class OSDictionary;
+class OSSet;
 
-class IOAudioDMAEngine;
 class IOCommandGate;
 class IOAudioControl;
 
+typedef struct IOAudioClientBuffer;
+typedef struct IOAudioStreamFormatDesc;
+
 /*!
-* @enum IOAudioStreamDirection
- * @abstract Represents the direction of an IOAudioStream
- * @constant kAudioOutput Output buffer
- * @constant kAudioInput Input buffer
+ * @class IOAudioStream
+ * @abstract This class wraps a single sample buffer in an audio driver.
+ * @discussion An IOAudioStream represents one hardware sample buffer as well as the direction
+ *  of that buffer, the mix buffer that multiple clients mix into as well as a list of
+ *  all of the formats to which this buffer can be set.
+ *
+ *  When an IOAudioEngine is created during init time in the driver, an IOAudioStream must be
+ *  created for each sample buffer in the device.  Typically, the sample buffer will be interleaved 
+ *  (or single channel), as a non-interleaved buffer should be divided into multiple single-channel
+ *  buffers (and multiple IOAudioStreams).
+ *
+ *  Additionally, when an IOAudioStream is created it must have all of the possible formats (and
+ *  allowed sample rates for each format) set and must have the currently set format specified
+ *  (addAvailableFormat() and setFormat()).
  */
-
-typedef enum _IOAudioStreamDirection
-{
-    kAudioOutput = 0,
-    kAudioInput
-} IOAudioStreamDirection;
-
 
 class IOAudioStream : public IOService
 {
     OSDeclareDefaultStructors(IOAudioStream)
     
-    friend class IOAudioDMAEngineUserClient;
+    friend class IOAudioEngine;
+    friend class IOAudioEngineUserClient;
 
 public:
 
+    typedef IOReturn (*AudioIOFunction)(const void *mixBuf, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat, IOAudioStream *audioStream);
+    
     static const OSSymbol	*gDirectionKey;
     static const OSSymbol	*gNumChannelsKey;
     static const OSSymbol	*gSampleFormatKey;
@@ -65,6 +75,7 @@ public:
     static const OSSymbol	*gAlignmentKey;
     static const OSSymbol	*gByteOrderKey;
     static const OSSymbol	*gIsMixableKey;
+    static const OSSymbol	*gDriverTagKey;
     static const OSSymbol	*gMinimumSampleRateKey;
     static const OSSymbol	*gMaximumSampleRateKey;
 
@@ -74,30 +85,107 @@ public:
     static IOAudioStreamFormat *createFormatFromDictionary(const OSDictionary *formatDict, IOAudioStreamFormat *streamFormat = 0);
     
 
-    IOAudioDMAEngine 			*audioDMAEngine;
+    IOAudioEngine 				*audioEngine;
     IOWorkLoop					*workLoop;
     IOCommandGate				*commandGate;
     IORecursiveLock				*streamIOLock;
     
-    UInt32					numClients;
+    UInt32						numClients;
 
-    IOAudioStreamDirection	direction;
+    IOAudioStreamDirection		direction;
 
-    IOAudioStreamFormat		format;
-    OSArray				*availableFormats;
+    IOAudioStreamFormat			format;
+    IOAudioStreamFormatDesc		*availableFormats;
+    OSArray						*availableFormatDictionaries;
+    UInt32						numAvailableFormats;
     
-    void				*sampleBuffer;
-    UInt32				sampleBufferSize;
+    UInt32						startingChannelID;
+    UInt32						maxNumChannels;
+    
+    void						*sampleBuffer;
+    UInt32						sampleBufferSize;
 
-    void				*mixBuffer;
-    UInt32				mixBufferSize;
+    void						*mixBuffer;
+    UInt32						mixBufferSize;
+    bool						streamAllocatedMixBuffer;
+    
+    AudioIOFunction				*audioIOFunctions;
+    UInt32						numIOFunctions;
+    
+    bool						streamAvailable;
+    
+    OSSet						*defaultAudioControls;
+    
+    IOAudioEnginePosition		startingPosition;
+    IOAudioEnginePosition		clippedPosition;
+    
+    IOAudioClientBuffer			*clientBufferListStart;
+    IOAudioClientBuffer			*clientBufferListEnd;
+    
+    IOAudioClientBuffer			*userClientList;
 
-    virtual bool initWithAudioDMAEngine(IOAudioDMAEngine *dmaEngine, IOAudioStreamDirection dir, OSDictionary *properties = 0);
+protected:
+    struct ExpansionData { };
+    
+    ExpansionData *reserved;
+    
+private:
+    OSMetaClassDeclareReservedUnused(IOAudioStream, 0);
+    OSMetaClassDeclareReservedUnused(IOAudioStream, 1);
+    OSMetaClassDeclareReservedUnused(IOAudioStream, 2);
+    OSMetaClassDeclareReservedUnused(IOAudioStream, 3);
+    OSMetaClassDeclareReservedUnused(IOAudioStream, 4);
+    OSMetaClassDeclareReservedUnused(IOAudioStream, 5);
+    OSMetaClassDeclareReservedUnused(IOAudioStream, 6);
+    OSMetaClassDeclareReservedUnused(IOAudioStream, 7);
+    OSMetaClassDeclareReservedUnused(IOAudioStream, 8);
+    OSMetaClassDeclareReservedUnused(IOAudioStream, 9);
+    OSMetaClassDeclareReservedUnused(IOAudioStream, 10);
+    OSMetaClassDeclareReservedUnused(IOAudioStream, 11);
+    OSMetaClassDeclareReservedUnused(IOAudioStream, 12);
+    OSMetaClassDeclareReservedUnused(IOAudioStream, 13);
+    OSMetaClassDeclareReservedUnused(IOAudioStream, 14);
+    OSMetaClassDeclareReservedUnused(IOAudioStream, 15);
+    OSMetaClassDeclareReservedUnused(IOAudioStream, 16);
+    OSMetaClassDeclareReservedUnused(IOAudioStream, 17);
+    OSMetaClassDeclareReservedUnused(IOAudioStream, 18);
+    OSMetaClassDeclareReservedUnused(IOAudioStream, 19);
+    OSMetaClassDeclareReservedUnused(IOAudioStream, 20);
+    OSMetaClassDeclareReservedUnused(IOAudioStream, 21);
+    OSMetaClassDeclareReservedUnused(IOAudioStream, 22);
+    OSMetaClassDeclareReservedUnused(IOAudioStream, 23);
+    OSMetaClassDeclareReservedUnused(IOAudioStream, 24);
+    OSMetaClassDeclareReservedUnused(IOAudioStream, 25);
+    OSMetaClassDeclareReservedUnused(IOAudioStream, 26);
+    OSMetaClassDeclareReservedUnused(IOAudioStream, 27);
+    OSMetaClassDeclareReservedUnused(IOAudioStream, 28);
+    OSMetaClassDeclareReservedUnused(IOAudioStream, 29);
+    OSMetaClassDeclareReservedUnused(IOAudioStream, 30);
+    OSMetaClassDeclareReservedUnused(IOAudioStream, 31);
+    OSMetaClassDeclareReservedUnused(IOAudioStream, 32);
+    OSMetaClassDeclareReservedUnused(IOAudioStream, 33);
+    OSMetaClassDeclareReservedUnused(IOAudioStream, 34);
+    OSMetaClassDeclareReservedUnused(IOAudioStream, 35);
+    OSMetaClassDeclareReservedUnused(IOAudioStream, 36);
+    OSMetaClassDeclareReservedUnused(IOAudioStream, 37);
+    OSMetaClassDeclareReservedUnused(IOAudioStream, 38);
+    OSMetaClassDeclareReservedUnused(IOAudioStream, 39);
+    OSMetaClassDeclareReservedUnused(IOAudioStream, 40);
+    OSMetaClassDeclareReservedUnused(IOAudioStream, 41);
+    OSMetaClassDeclareReservedUnused(IOAudioStream, 42);
+    OSMetaClassDeclareReservedUnused(IOAudioStream, 43);
+    OSMetaClassDeclareReservedUnused(IOAudioStream, 44);
+    OSMetaClassDeclareReservedUnused(IOAudioStream, 45);
+    OSMetaClassDeclareReservedUnused(IOAudioStream, 46);
+    OSMetaClassDeclareReservedUnused(IOAudioStream, 47);
+
+public:
+    virtual bool initWithAudioEngine(IOAudioEngine *engine, IOAudioStreamDirection dir, UInt32 startChannelID, const char *streamDescription = NULL, OSDictionary *properties = 0);
     virtual void free();
     
     virtual void stop(IOService *provider);
     
-    virtual IOWorkLoop *getWorkLoop();
+    virtual IOWorkLoop *getWorkLoop() const;
 
     virtual IOReturn setProperties(OSObject *properties);
 
@@ -111,28 +199,51 @@ public:
     virtual void *getMixBuffer();
     virtual UInt32 getMixBufferSize();
     
+    virtual void numSampleFramesPerBufferChanged();
+
     virtual void clearSampleBuffer();
+    
+    virtual void setIOFunction(AudioIOFunction ioFunction);
+    virtual void setIOFunctionList(const AudioIOFunction *ioFunctionList, UInt32 numFunctions);
 
     virtual const IOAudioStreamFormat *getFormat();
     static IOReturn setFormatAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4);
-    virtual IOReturn setFormat(const IOAudioStreamFormat *streamFormat);
+    virtual IOReturn setFormat(const IOAudioStreamFormat *streamFormat, bool callDriver = true);
     virtual IOReturn setFormat(OSDictionary *formatDict);
-    virtual IOReturn setFormat(const IOAudioStreamFormat *streamFormat, OSDictionary *formatDict);
-    virtual void addAvailableFormat(const IOAudioStreamFormat *streamFormat, const IOAudioSampleRate *minRate, const IOAudioSampleRate *maxRate);
+    virtual IOReturn setFormat(const IOAudioStreamFormat *streamFormat, OSDictionary *formatDict, bool callDriver = true);
+    virtual IOReturn hardwareFormatChanged(const IOAudioStreamFormat *streamFormat);
+    virtual void addAvailableFormat(const IOAudioStreamFormat *streamFormat, const IOAudioSampleRate *minRate, const IOAudioSampleRate *maxRate, const AudioIOFunction *ioFunctionList = NULL, UInt32 numFunctions = 0);
+    virtual void addAvailableFormat(const IOAudioStreamFormat *streamFormat, const IOAudioSampleRate *minRate, const IOAudioSampleRate *maxRate, AudioIOFunction ioFunction);
     virtual void clearAvailableFormats();
-    virtual bool validateFormat(const IOAudioStreamFormat *streamFormat);
-
-    virtual bool addDefaultAudioControl(IOAudioControl *defaultAudioControl);
-    virtual void removeDefaultAudioControl(IOAudioControl *defaultAudioControl);
+    virtual bool validateFormat(IOAudioStreamFormat *streamFormat, IOAudioStreamFormatDesc *formatDesc);
     
+    virtual UInt32 getStartingChannelID();
+    virtual UInt32 getMaxNumChannels();
+    
+    virtual void setStreamAvailable(bool available);
+    virtual bool getStreamAvailable();
+    
+    virtual IOReturn addDefaultAudioControl(IOAudioControl *defaultAudioControl);
+    virtual void removeDefaultAudioControls();
+
 protected:
     virtual void lockStreamForIO();
     virtual void unlockStreamForIO();
     
     virtual void updateNumClients();
-    virtual void addClient();
-    virtual void removeClient();
+    virtual IOReturn addClient(IOAudioClientBuffer *clientBuffer);
+    virtual void removeClient(IOAudioClientBuffer *clientBuffer);
+    virtual UInt32 getNumClients();
     
+    virtual IOReturn processOutputSamples(IOAudioClientBuffer *clientBuffer, UInt32 firstSampleFrame, UInt32 loopCount, bool samplesAvailable);
+    virtual IOReturn readInputSamples(IOAudioClientBuffer *clientBuffer, UInt32 firstSampleFrame);
+    
+    virtual void resetClipInfo();
+    virtual void clipIfNecessary();
+    virtual void clipOutputSamples(UInt32 startingSampleFrame, UInt32 numSampleFrames);
+    
+    virtual void setStartingChannelNumber(UInt32 channelNumber);
+
 private:
     virtual void setDirection(IOAudioStreamDirection dir);
 

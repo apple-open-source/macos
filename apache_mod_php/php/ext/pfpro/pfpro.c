@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,13 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: pfpro.c,v 1.1.1.2 2001/01/25 04:59:53 wsanchez Exp $ */
+/* $Id: pfpro.c,v 1.1.1.3 2001/07/19 00:19:52 zarzycki Exp $ */
+
+/* {{{ includes */
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 
 #include "php.h"
 #include "php_ini.h"
@@ -28,15 +34,17 @@
 #if HAVE_PFPRO
 
 #include "ext/standard/php_string.h"
+/* }}} */
 
+/* {{{ zts */
 #ifdef ZTS
 int pfpro_globals_id;
 #else
 php_pfpro_globals pfpro_globals;
 #endif
+/* }}} */
 
-/* Function table */
-
+/* {{{ Function table */
 function_entry pfpro_functions[] = {
 	PHP_FE(pfpro_version, NULL)
 	PHP_FE(pfpro_init, NULL)
@@ -45,7 +53,9 @@ function_entry pfpro_functions[] = {
 	PHP_FE(pfpro_process, NULL)
 	{NULL, NULL, NULL}
 };
+/* }}} */
 
+/* {{{ Zend module entry */
 zend_module_entry pfpro_module_entry = {
 	"pfpro",
 	pfpro_functions,
@@ -56,12 +66,15 @@ zend_module_entry pfpro_module_entry = {
 	PHP_MINFO(pfpro),
 	STANDARD_MODULE_PROPERTIES
 };
+/* }}} */
 
+/* {{{ dl() stuff */
 #ifdef COMPILE_DL_PFPRO
 ZEND_GET_MODULE(pfpro)
 #endif
+/* }}} */
 
-
+/* {{{ initialization defaults */
 PHP_INI_BEGIN()
 	STD_PHP_INI_ENTRY("pfpro.defaulthost",		"test.signio.com",	PHP_INI_ALL, OnUpdateString,	defaulthost,			php_pfpro_globals,	pfpro_globals)
 	STD_PHP_INI_ENTRY("pfpro.defaultport",			"443",			PHP_INI_ALL, OnUpdateInt,		defaultport,			php_pfpro_globals,	pfpro_globals)
@@ -89,7 +102,7 @@ PHP_RINIT_FUNCTION(pfpro)
 {
 	PFPROLS_FETCH();
 
-	PFPROG(initialised) = 0;
+	PFPROG(initialized) = 0;
 
     return SUCCESS;
 }
@@ -98,25 +111,25 @@ PHP_RSHUTDOWN_FUNCTION(pfpro)
 {
 	PFPROLS_FETCH();
 
-	if (PFPROG(initialised) == 1) {
-		PNCleanup();
+	if (PFPROG(initialized) == 1) {
+		pfproCleanup();
 	}
 
     return SUCCESS;
 }
+/* }}} */
 
-
+/* {{{ minfo registration */
 PHP_MINFO_FUNCTION(pfpro)
 {
 	php_info_print_table_start();
 	php_info_print_table_header(2, "Verisign Payflow Pro support", "enabled");
-	php_info_print_table_row(2, "libpfpro version", PNVersion());
+	php_info_print_table_row(2, "libpfpro version", pfproVersion());
 	php_info_print_table_end();
 
 	DISPLAY_INI_ENTRIES();
 }
-
-
+/* }}} */
 
 /* {{{ proto string pfpro_version()
    Returns the version of the Payflow Pro library */
@@ -126,14 +139,12 @@ PHP_FUNCTION(pfpro_version)
 		WRONG_PARAM_COUNT;
 	}
 
-	RETURN_STRING(PNVersion(), 1);
+	RETURN_STRING((char *)pfproVersion(), 1);
 }
 /* }}} */
 
-
-
 /* {{{ proto void pfpro_init()
-   Initialises the Payflow Pro library */
+   Initializes the Payflow Pro library */
 PHP_FUNCTION(pfpro_init)
 {
 	PFPROLS_FETCH();
@@ -142,15 +153,13 @@ PHP_FUNCTION(pfpro_init)
 		WRONG_PARAM_COUNT;
 	}
 
-	PNInit();
+	pfproInit();
 
-	PFPROG(initialised) = 1;
+	PFPROG(initialized) = 1;
 
 	RETURN_TRUE;
 }
 /* }}} */
-
-
 
 /* {{{ proto void pfpro_cleanup()
    Shuts down the Payflow Pro library */
@@ -162,15 +171,13 @@ PHP_FUNCTION(pfpro_cleanup)
 		WRONG_PARAM_COUNT;
 	}
 
-	PNCleanup();
+	pfproCleanup();
 
-	PFPROG(initialised) = 0;
+	PFPROG(initialized) = 0;
 
 	RETURN_TRUE;
 }
 /* }}} */
-
-
 
 /* {{{ proto string pfpro_process_raw(string parmlist [, string hostaddress [, int port, [, int timeout [, string proxyAddress [, int proxyPort [, string proxyLogon [, string proxyPassword]]]]]]])
    Raw Payflow Pro transaction processing */
@@ -178,7 +185,7 @@ PHP_FUNCTION(pfpro_process_raw)
 {
 	zval ***args;
 
-	char *parmlist;
+	char *parmlist = NULL;
 	char *address = NULL;
 	int port = PFPROG(defaultport);
 	int timeout = PFPROG(defaulttimeout);
@@ -189,10 +196,12 @@ PHP_FUNCTION(pfpro_process_raw)
 
 	int freeaddress = 0;
 
-	/* No, I don't like that Signio tell you to use a
-	   fixed length buffer either */
-
+#if PFPRO_VERSION < 3
 	char response[512] = "";
+#else
+	int context;
+	char *response;
+#endif
 
 	PFPROLS_FETCH();
 
@@ -256,31 +265,27 @@ PHP_FUNCTION(pfpro_process_raw)
 		freeaddress = 1;
 	}
 
-#if 0
-	printf("Address: >%s<\n", address);
-	printf("Port: >%d<\n", port);
-	printf("Parmlist: >%s<\n", parmlist);
-	printf("Timeout: >%d<\n", timeout);
-	printf("Proxy address: >%s<\n", proxyAddress);
-	printf("Proxy port: >%d<\n", proxyPort);
-	printf("Proxy logon: >%s<\n", proxyLogon);
-	printf("Proxy password: >%s<\n", proxyPassword);
+#if PFPRO_VERSION < 3
+	/* Blank the response buffer */
+	memset(response, 0, sizeof(response));
 #endif
 
-	/* Blank the response buffer */
+	/* Initialize the library if needed */
 
-	memset(response, 0, sizeof(response));
-
-	/* Initialise the library if needed */
-
-	if (PFPROG(initialised) == 0) {
-		PNInit();
-		PFPROG(initialised) = 1;
+	if (PFPROG(initialized) == 0) {
+		pfproInit();
+		PFPROG(initialized) = 1;
 	}
 
 	/* Perform the transaction */
 
+#if PFPRO_VERSION < 3
 	ProcessPNTransaction(address, port, proxyAddress, proxyPort, proxyLogon, proxyPassword, parmlist, strlen(parmlist), timeout, response);
+#else
+	pfproCreateContext(&context, address, port, timeout, proxyAddress, proxyPort, proxyLogon, proxyPassword);
+	pfproSubmitTransaction(context, parmlist, strlen(parmlist), &response);
+	pfproDestroyContext(context);
+#endif
 
 	if (freeaddress) {
 		efree(address);
@@ -289,8 +294,6 @@ PHP_FUNCTION(pfpro_process_raw)
 	RETURN_STRING(response, 1);
 }
 /* }}} */
-
-
 
 /* {{{ proto array pfpro_process(array parmlist [, string hostaddress [, int port, [, int timeout [, string proxyAddress [, int proxyPort [, string proxyLogon [, string proxyPassword]]]]]]])
    Payflow Pro transaction processing using arrays */
@@ -304,6 +307,7 @@ PHP_FUNCTION(pfpro_process)
 	zval **entry;
 	int pass;
 
+	char *parmlist = NULL;
 	char *address = NULL;
 	int port = PFPROG(defaultport);
 	int timeout = PFPROG(defaulttimeout);
@@ -312,22 +316,21 @@ PHP_FUNCTION(pfpro_process)
 	char *proxyLogon = PFPROG(proxylogon);
 	char *proxyPassword = PFPROG(proxypassword);
 
+	int parmlength = 0;
 	int freeaddress = 0;
 
-	char *parmlist = NULL;
-	int parmlength = 0;
-
-	/* No, I don't like that Signio tell you to use a
-	   fixed length buffer either */
-
+#if PFPRO_VERSION < 3
 	char response[512] = "";
+#else
+	int context;
+	char *response;
+#endif
 
 	char tmpbuf[128];
-	char *rsppos, *valpos;
 
     char buf[128], sbuf[128];
     char *p1, *p2, *p_end,          /* Pointers for string manipulation */
-        *sp1, *sp2, *sp_end,
+        *sp1, *sp2,
         *pdelim1="&", *pdelim2="=";
 
 	PFPROLS_FETCH();
@@ -386,7 +389,7 @@ PHP_FUNCTION(pfpro_process)
 			address = (*args[1])->value.str.val;
 	}
 
-	/* Concatenate the passed array as specified by signio.
+	/* Concatenate the passed array as specified by Verisign.
 	   Basically it's all key=value&key=value, the only exception
 	   being if the value contains = or &, in which case we also
 	   encode the length, e.g. key[5]=bl&ah */
@@ -409,15 +412,13 @@ PHP_FUNCTION(pfpro_process)
 				parmlength += 1;
 			}
 
-			switch (zend_hash_get_current_key(target_hash, &string_key, &num_key)) {
+			switch (zend_hash_get_current_key(target_hash, &string_key, &num_key, 0)) {
 
 				case HASH_KEY_IS_STRING:
 
 					if (pass == 1)
 						strcpy(parmlist + parmlength, string_key);
 					parmlength += strlen(string_key);
-
-					efree(string_key);
 
 					break;
 
@@ -497,17 +498,6 @@ PHP_FUNCTION(pfpro_process)
 		freeaddress = 1;
 	}
 
-#if 0
-	printf("Address: >%s<\n", address);
-	printf("Port: >%d<\n", port);
-	printf("Parmlist: >%s<\n", parmlist);
-	printf("Timeout: >%d<\n", timeout);
-	printf("Proxy address: >%s<\n", proxyAddress);
-	printf("Proxy port: >%d<\n", proxyPort);
-	printf("Proxy logon: >%s<\n", proxyLogon);
-	printf("Proxy password: >%s<\n", proxyPassword);
-#endif
-
 	/* Allocate the array for the response now - so we catch any errors
 	   from this BEFORE we knock it off to the bank */
 
@@ -516,41 +506,31 @@ PHP_FUNCTION(pfpro_process)
 		RETURN_FALSE;
 	}
 
+#if PFPRO_VERSION < 3
 	/* Blank the response buffer */
-
 	memset(response, 0, sizeof(response));
+#endif
 
-	/* Initialise the library if needed */
+	/* Initialize the library if needed */
 
-	if (PFPROG(initialised) == 0) {
-		PNInit();
-		PFPROG(initialised) = 1;
+	if (PFPROG(initialized) == 0) {
+		pfproInit();
+		PFPROG(initialized) = 1;
 	}
 
 	/* Perform the transaction */
 
-	ProcessPNTransaction(address, port, proxyAddress, proxyPort, proxyLogon, proxyPassword, parmlist, parmlength, timeout, response);
+#if PFPRO_VERSION < 3
+	ProcessPNTransaction(address, port, proxyAddress, proxyPort, proxyLogon, proxyPassword, parmlist, strlen(parmlist), timeout, response);
+#else
+	pfproCreateContext(&context, address, port, timeout, proxyAddress, proxyPort, proxyLogon, proxyPassword);
+	pfproSubmitTransaction(context, parmlist, strlen(parmlist), &response);
+	pfproDestroyContext(context);
+#endif
 
 	if (freeaddress) {
 		efree(address);
 	}
-
-
-#if 0
-	/* Decode the response back into a PHP array */
-
-	rsppos = strtok(response, "&");
-
-	do {
-		valpos = strchr(rsppos, '=');
-		if (valpos) {
-			strncpy(tmpbuf, rsppos, valpos - rsppos);
-			tmpbuf[valpos - rsppos] = 0;
-			add_assoc_string(return_value, tmpbuf, valpos + 1, 1);
-		}
-
-	} while (rsppos = strtok(NULL, "&"));
-#else
 
 
 	/* This final chunk of code is to walk the string returned by Signio
@@ -608,7 +588,6 @@ PHP_FUNCTION(pfpro_process)
 		add_assoc_string(return_value, &buf[0], &sbuf[0], 1);
 	}
 
-#endif
 
 }
 /* }}} */

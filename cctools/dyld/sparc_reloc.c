@@ -268,12 +268,21 @@ char *module_name)
 	     * get the defined symbol's value to be used.  If this is a private
 	     * image and the symbol is coalesced then use the coalesced symbol
 	     * from this image.
+	     *
+	     * nmedit(1) run on a dynamic library does not change the relocation
+	     * entries of symbols it turns into private_externs into local
+	     * relocation entries as ld(1) does.  So what we end up with is an
+	     * external relocation entry with a symbol that is not external but
+	     * was a private_extern.  So in this case also use the symbol in the
+	     * image.
 	     */
 	    symbol_name = strings + symbols[relocs[i].r_symbolnum].n_un.n_strx;
-	    if(image->private == TRUE &&
-	       image->has_coalesced_sections == TRUE &&
-	       is_symbol_coalesced(image,
-				   symbols + relocs[i].r_symbolnum) == TRUE){
+	    if((image->private == TRUE &&
+	        image->has_coalesced_sections == TRUE &&
+	        is_symbol_coalesced(image,
+				    symbols + relocs[i].r_symbolnum) == TRUE) ||
+		((symbols[relocs[i].r_symbolnum].n_type & N_EXT) != N_EXT &&
+		 (symbols[relocs[i].r_symbolnum].n_type & N_PEXT) == N_PEXT) ){
 		defined_symbol = symbols + relocs[i].r_symbolnum;
 		defined_module = NULL; /* not needed here */
 		defined_image = image;
@@ -281,7 +290,11 @@ char *module_name)
 		
 	    }
 	    else{
-		lookup_symbol(symbol_name, &defined_symbol, &defined_module,
+		lookup_symbol(symbol_name,
+			      get_primary_image(image, symbols +
+						       relocs[i].r_symbolnum),
+			      get_hint(image, symbols + relocs[i].r_symbolnum),
+			      &defined_symbol, &defined_module,
 			      &defined_image, &defined_library_image, NULL);
 	    }
 	    /* 
@@ -494,7 +507,12 @@ char *module_name)
 		    
 		}
 		else{
-		    lookup_symbol(symbol_name, &defined_symbol, &defined_module,
+		    lookup_symbol(symbol_name,
+				  get_primary_image(image, symbols +
+						       relocs[i].r_symbolnum),
+				  get_hint(image, symbols +
+						       relocs[i].r_symbolnum),
+				  &defined_symbol, &defined_module,
 				  &defined_image, &defined_library_image, NULL);
 		}
 		/*

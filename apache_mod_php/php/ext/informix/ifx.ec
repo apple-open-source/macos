@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -15,12 +15,12 @@
    | Authors: Danny Heijl  <Danny.Heijl@cevi.be> : initial cut (ODS 7.2x) |
    |                                               PHP4 port              |
    |          Christian Cartus <chc@idgruppe.de> : blobs, and IUS 9       |
-   |          Jouni Ahto <jah@mork.net>   : configuration stuff           |
+   |          Jouni Ahto <jouni.ahto@exdec.fi>   : configuration stuff    |
    | Based on the MySQL code by:  Zeev Suraski <zeev@php.net>             |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: ifx.ec,v 1.1.1.3 2001/01/25 04:59:23 wsanchez Exp $ */
+/* $Id: ifx.ec,v 1.1.1.4 2001/07/19 00:19:16 zarzycki Exp $ */
 
 /* -------------------------------------------------------------------
  * if you want a function reference : "grep '^\*\*' ifx.ec" will give
@@ -472,17 +472,18 @@ PHP_MINFO_FUNCTION(ifx)
         maxl[15]=0;
     }
    
+    php_info_print_table_start();
+    php_info_print_table_header(2, "Informix support", "enabled");
+    sprintf(buf, "%ld", IFXG(num_persistent));
+    php_info_print_table_row(2, "Persistent links", buf);
+    sprintf(buf, "%ld", IFXG(num_links)); 
+    php_info_print_table_row(2, "Total links", buf);
+    sprintf(buf, "%02.2f", (double)(IFX_VERSION/100.0)); 
+    php_info_print_table_row(2, "ESQL/C Version", buf);
+    php_info_print_table_end();
+
     DISPLAY_INI_ENTRIES();
    
-    php_printf("<table border=\"5\" width=\"600\">\n");
-    php_info_print_table_header(2, "Key", "Value");
-    sprintf(buf, "%ld", IFXG(num_persistent));
-    php_info_print_table_row(2, "Persistent links : ", buf);
-    sprintf(buf, "%ld", IFXG(num_links)); 
-    php_info_print_table_row(2, "Total links : ", buf);
-    sprintf(buf, "%02.2f", (double)(IFX_VERSION/100.0)); 
-    php_info_print_table_row(2, "ESQL/C Version: ", buf);
-    php_printf("</table>\n");
 }
 
 static void php3_ifx_set_default_link(int id) 

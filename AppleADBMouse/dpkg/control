@@ -1,0 +1,5 @@
+Package: appleadbmouse
+Maintainer: Darwin Developers <darwin-development@lists.apple.com>
+Vendor: Apple Computer, Inc.
+Build-Depends: files, file-cmds, shell-cmds, system-cmds, text-cmds, grep, zsh, cctools, libsystem, gcc, jam, xnu, iographics, iohidsystem
+Description: ADB mouse driver

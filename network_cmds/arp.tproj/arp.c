@@ -99,6 +99,7 @@ static char sccsid[] = "@(#)arp.c	8.3 (Berkeley) 4/28/95";
 
 static int pid;
 static int nflag;
+static int aflag = 0;
 static int s = -1;
 
 int	delete __P((char *, char *));
@@ -123,8 +124,8 @@ main(argc, argv)
 	while ((ch = getopt(argc, argv, "ands")) != EOF)
 		switch((char)ch) {
 		case 'a':
-			dump(0);
-			exit(0);
+			aflag = 1;
+			break;
 		case 'd':
 			if (argc < 3 || argc > 4)
 				usage();
@@ -132,7 +133,7 @@ main(argc, argv)
 			exit(0);
 		case 'n':
 			nflag = 1;
-			continue;
+			break;
 		case 's':
 			if (argc < 4 || argc > 7)
 				usage();
@@ -141,6 +142,14 @@ main(argc, argv)
 		default:
 			usage();
 		}
+	if( aflag ) {
+		dump(0);
+		exit(0);
+	}
+	if( nflag && (argc == 3) ) {
+		get(argv[2]);
+		exit(0);
+	}
 	if (argc != 2)
 		usage();
 	get(argv[1]);
@@ -478,8 +487,8 @@ ether_aton(a, n)
 void
 usage()
 {
-	printf("usage: arp hostname\n");
-	printf("       arp -a [kernel] [kernel_memory]\n");
+	printf("usage: arp [-n] hostname\n");
+	printf("       arp [-n] -a\n");
 	printf("       arp -d hostname\n");
 	printf("       arp -s hostname ether_addr [temp] [pub]\n");
 	printf("       arp -f filename\n");

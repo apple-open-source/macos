@@ -1,4 +1,4 @@
-dnl $Id: config.m4,v 1.1.1.1 2000/08/10 02:08:34 wsanchez Exp $
+dnl $Id: config.m4,v 1.1.1.2 2001/07/19 00:19:56 zarzycki Exp $
 dnl config.m4 for extension recode
 dnl don't forget to call PHP_EXTENSION(recode)
 
@@ -49,12 +49,12 @@ recode_format_table();
 			AC_MSG_ERROR(Please reinstall recode - I cannot find librecode.a)
 		fi
 
-		AC_ADD_INCLUDE($RECODE_DIR/$RECODE_INC)
+		PHP_ADD_INCLUDE($RECODE_DIR/$RECODE_INC)
 		if test "$ext_shared" = "yes"; then
-			AC_ADD_LIBRARY_WITH_PATH(recode, $RECODE_DIR/$RECODE_LIB, RECODE_SHARED_LIBADD)
+			PHP_ADD_LIBRARY_WITH_PATH(recode, $RECODE_DIR/$RECODE_LIB, RECODE_SHARED_LIBADD)
 			PHP_SUBST(RECODE_SHARED_LIBADD)
 		else
-			AC_ADD_LIBRARY_DEFER_WITH_PATH(recode, $RECODE_DIR/$RECODE_LIB)
+			PHP_ADD_LIBRARY_DEFER_WITH_PATH(recode, $RECODE_DIR/$RECODE_LIB)
 		fi
 
 		AC_DEFINE(HAVE_LIBRECODE, 1, [Whether we have librecode 3.5 or higher])

@@ -1,0 +1,89 @@
+(RCS control information is at the end of this file.)
+
+
+Table encoder/decoder example README - MS 93
+------------------------------------
+
+This directory contains an example that shows:
+
+   1. the process of creating and using tables.
+   2. examples of decoding, printing, and encoding.
+
+
+To dive right in just type "make" in this directory.  That will
+create the "example" executable (you should have previously installed
+the snacc and mkchdr progs and the table library).
+
+Then type:
+
+ make check
+
+and see what happens. Look in example.c and makefile to see how things
+work.
+
+
+
+Questions and Answers
+---------------------
+
+Q. What is a table? (also refered to a type table or type tree)
+
+A. A table is simply a data structure that holds a description of
+   the types from an ASN.1 module.  This table can then be used
+   by a number of "generic" routines to do ASN.1 related (BER
+   encoding/decoding) or other useful things such as printing
+   values, freeing values and whatever else you can dream up.
+
+
+Q. How do I create a table from my ASN.1 source files?
+
+A. Run snacc with the -T option, e.g.:
+
+     snacc -T mytbls.tt myMod1.asn1 myMod2.asn1
+
+   the above command will create the "mytbls.tt" file that
+   holds the descriptions of the ASN.1 types in the "myMod1.asn1"
+   and "myMod2.asn1" files. (look in the makefile in this directory)
+
+
+Q. Why is there only a C interface to tables?
+
+A. Time. Tables drivers create/read/free these types
+   without having seen a typedef for them.  The C implementation
+   uses some assumptions about how structures etc. are allocated
+   and accessed.  With C++ this is much more difficult.  It can
+   be done but required more time than I had.
+
+
+Q. Ok, tables sound great, what's the catch?
+
+A. Well,
+
+   1. table driven encoding and decoding is something like
+      4 times slower than the C or C++ version.
+      (but tables are *way* smaller than the .o's for the compiled approach)
+   2. the ANY DEFINED BY stuff is not supported at all.
+   3. subtype information is not included in the tables (time crunch again)
+      (PER encoders/decoders will need the subtype info)
+   4. Values from the ASN.1 source are not included in the table.
+
+   If you have the time and skills, you can fix 2, 3 and 4.  1 is harder.
+
+
+
+Q.  Tell me more.
+
+A.  Look at the manual. (in .../doc/)
+
+#-------------------------------------------------------------------------------
+# $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/tbl-example/README,v 1.1.1.1 2001/05/18 23:14:10 mb Exp $
+# $Log: README,v $
+# Revision 1.1.1.1  2001/05/18 23:14:10  mb
+# Move from private repository to open source repository
+#
+# Revision 1.1.1.1  1999/03/16 18:06:54  aram
+# Originals from SMIME Free Library.
+#
+# Revision 1.1  1997/02/15 19:33:24  rj
+# first check-in
+#

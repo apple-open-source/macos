@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -15,7 +15,7 @@
    | Author: Jim Winstead (jimw@php.net)                                  |
    +----------------------------------------------------------------------+
  */
-/* $Id: url.c,v 1.1.1.3 2001/01/25 05:00:13 wsanchez Exp $ */
+/* $Id: url.c,v 1.1.1.4 2001/07/19 00:20:23 zarzycki Exp $ */
 
 #include <stdlib.h>
 #include <string.h>
@@ -87,27 +87,27 @@ php_url *url_parse(char *str)
 		return NULL;
 	}
 	/* no processing necessary on the scheme */
-	if (subs[2].rm_so != -1 && subs[2].rm_so < length) {
+	if (subs[2].rm_so != -1 && subs[2].rm_so <= length) {
 		ret->scheme = estrndup(str + subs[2].rm_so, subs[2].rm_eo - subs[2].rm_so);
 	}
 
 	/* the path to the resource */
-	if (subs[5].rm_so != -1 && subs[5].rm_so < length) {
+	if (subs[5].rm_so != -1 && subs[5].rm_so <= length) {
 		ret->path = estrndup(str + subs[5].rm_so, subs[5].rm_eo - subs[5].rm_so);
 	}
 
 	/* the query part */
-	if (subs[7].rm_so != -1 && subs[7].rm_so < length) {
+	if (subs[7].rm_so != -1 && subs[7].rm_so <= length) {
 		ret->query = estrndup(str + subs[7].rm_so, subs[7].rm_eo - subs[7].rm_so);
 	}
 
 	/* the fragment */
-	if (subs[9].rm_so != -1 && subs[9].rm_so < length) {
+	if (subs[9].rm_so != -1 && subs[9].rm_so <= length) {
 		ret->fragment = estrndup(str + subs[9].rm_so, subs[9].rm_eo - subs[9].rm_so);
 	}
 
 	/* extract the username, pass, and port from the hostname */
-	if (subs[4].rm_so != -1 && subs[4].rm_so < length) {
+	if (subs[4].rm_so != -1 && subs[4].rm_so <= length) {
 
 		int cerr;
 		/* extract username:pass@host:port from regex results */

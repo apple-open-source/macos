@@ -26,8 +26,6 @@ void print_string(char *s, FILE *out)
 		else if (s[i] == '\t') fprintf(out, "\\t");
 		else if (s[i] == '\v') fprintf(out, "\\v");
 		else if (s[i] == '\\') fprintf(out, "\\");
-		else if (s[i] < 20) fprintf(out, "\\0%0o", s[i]);
-		else if (s[i] == 0x7f) fprintf(out, "\377");
 		else putc(s[i], out);
 	}
 }

@@ -20,6 +20,7 @@
 #include "value.h"
 #include "frame.h"
 #include "top.h"
+#include "varobj.h"
 #include "wrapper.h"
 
 /* Use this struct to pass arguments to wrapper routines. We assume
@@ -58,6 +59,8 @@ static int wrap_value_subscript (char *);
 static int wrap_value_ind (char *opaque_arg);
 
 static int wrap_parse_and_eval_type (char *);
+
+static int wrap_varobj_get_value (char *a);
 
 int
 gdb_parse_exp_1 (char **stringptr, struct block *block, int comma,
@@ -297,6 +300,36 @@ wrap_parse_and_eval_type (char *a)
   return 1;
 }
 
+int
+gdb_varobj_get_value (struct varobj *val1, char **result)
+{
+  struct gdb_wrapper_arguments args;
+
+  args.args[0].pointer = val1;
+
+  if (!catch_errors ((catch_errors_ftype *) wrap_varobj_get_value, &args,
+		     "", RETURN_MASK_ERROR))
+    {
+      /* An error occurred */
+      return 0;
+    }
+
+  *result = args.result.pointer;
+  return 1;
+}
+
+static int
+wrap_varobj_get_value (char *a)
+{
+  struct gdb_wrapper_arguments *args = (struct gdb_wrapper_arguments *) a;
+  struct varobj *val1;
+
+  val1 = (struct varobj *) (args)->args[0].pointer;
+
+  (args)->result.pointer = varobj_get_value (val1);
+  return 1;
+}
+
 static int
 wrap_execute_command (char *a)
 {
@@ -326,4 +359,10 @@ safe_execute_command (char *command, int from_tty)
 
     return 1;
 }
+
+
+
+
+
+
 

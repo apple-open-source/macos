@@ -508,9 +508,9 @@ kdp_return_t kdp_marshal
   }
 
   if (c->bigendian) {
-    s[0] = (p->hdr.request & 0x8f) | (p->hdr.is_reply << 7);
+    s[0] = (p->hdr.request & 0x7f) | (p->hdr.is_reply << 7);
   } else {
-    s[0] = ((p->hdr.request & 0x8f) << 1) | (p->hdr.is_reply & 0x1);
+    s[0] = ((p->hdr.request & 0x7f) << 1) | (p->hdr.is_reply & 0x1);
   }    
   s[1] = p->hdr.seq;
   write16u (s + 2, len, c->bigendian);

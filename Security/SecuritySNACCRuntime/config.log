@@ -1,0 +1,76 @@
+This file contains any messages produced by compilers while
+running configure, to aid debugging if configure makes a mistake.
+
+configure:529: checking whether make sets ${MAKE}
+configure:558: checking for gcc
+configure:671: checking whether the C compiler (cc -DMACOS -DYYTEXT_POINTER ) works
+configure:687: cc -o conftest -DMACOS -DYYTEXT_POINTER   conftest.c  1>&5
+configure:713: checking whether the C compiler (cc -DMACOS -DYYTEXT_POINTER ) is a cross-compiler
+configure:718: checking whether we are using GNU C
+configure:746: checking whether cc accepts -g
+configure:778: checking for POSIXized ISC
+configure:802: checking for cc's include path
+configure:811: checking how to run the C preprocessor
+configure:892: checking whether cc needs -traditional
+configure:942: checking whether cc understands -c and -o together
+configure:993: checking whether ANSI or K&R style C
+configure:1002: cc -o conftest -DMACOS -DYYTEXT_POINTER   conftest.c  1>&5
+configure:1022: checking for c++
+configure:1054: checking whether the C++ compiler (c++  ) works
+configure:1070: c++ -o conftest    conftest.C  1>&5
+configure:1096: checking whether the C++ compiler (c++  ) is a cross-compiler
+configure:1101: checking whether we are using GNU C++
+configure:1129: checking whether c++ accepts -g
+configure:1168: checking for bool built-in
+configure:1177: c++ -c -g -O2  conftest.C 1>&5
+configure:1191: checking for variable sized automatic arrays
+configure:1200: c++ -c -g -O2  conftest.C 1>&5
+configure:1214: checking for volatile functions
+configure:1223: c++ -c -g -O2  conftest.C 1>&5
+configure:1246: checking for flex
+configure:1322: checking lex output file root
+configure:1343: checking whether yytext is a pointer
+configure:1398: checking for patch
+configure:1433: checking for bison
+configure:1468: checking for makedepend
+configure:1503: checking for ar
+configure:1536: checking for ranlib
+configure:1594: checking for a BSD compatible install
+configure:1647: checking whether time.h and sys/time.h may both be included
+configure:1686: checking for dirent.h that defines DIR
+configure:1724: checking for opendir in -ldir
+configure:1807: checking for ANSI C header files
+configure:1911: checking for size_t
+configure:1944: checking for uid_t in sys/types.h
+configure:1978: checking for ANSI C header files
+configure:2085: checking for unistd.h
+configure:2085: checking for memory.h
+configure:2085: checking for string.h
+configure:2085: checking for malloc.h
+configure:2085: checking for fcntl.h
+configure:2122: checking for vprintf
+configure:2227: checking for working const
+configure:2302: checking whether byte ordering is bigendian
+configure:2392: checking size of short
+configure:2431: checking size of int
+configure:2470: checking size of long
+configure:2509: checking size of double
+configure:2548: checking for sin in -lm
+configure:2597: checking for isinf
+configure:2597: checking for finite
+configure:2652: checking for memset
+configure:2652: checking for memcpy
+configure:2652: checking for memcmp
+configure:2709: checking for X
+configure:3543: checking for tclsh
+configure:3800: checking for latex
+configure:3835: checking for bibtex
+configure:3870: checking for dvips
+configure:3905: checking for detex2
+configure:3905: checking for detex
+configure:3940: checking for ghostview
+configure:3940: checking for gs
+configure:3975: checking for psbook
+configure:4010: checking for psnup
+configure:4045: checking for ispell
+configure:4045: checking for spell

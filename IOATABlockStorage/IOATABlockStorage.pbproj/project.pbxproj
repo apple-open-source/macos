@@ -1,0 +1,456 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 34;
+	objects = {
+		01140C20FFC5C1ED11CE15BF = {
+			isa = PBXFileReference;
+			path = IOATABlockStorageDriver.h;
+			refType = 2;
+		};
+		01140C21FFC5C1ED11CE15BF = {
+			isa = PBXFileReference;
+			path = IOATABlockStorageDevice.h;
+			refType = 2;
+		};
+		01140C22FFC5C1ED11CE15BF = {
+			isa = PBXFileReference;
+			path = IOATAStorageDefines.h;
+			refType = 2;
+		};
+		01140C23FFC5C1ED11CE15BF = {
+			isa = PBXFileReference;
+			path = IOATABlockStorageCommands.cpp;
+			refType = 2;
+		};
+		01140C24FFC5C1ED11CE15BF = {
+			isa = PBXFileReference;
+			path = IOATABlockStorageDriver.cpp;
+			refType = 2;
+		};
+		01140C25FFC5C1ED11CE15BF = {
+			isa = PBXFileReference;
+			path = IOATABlockStorageDevice.cpp;
+			refType = 2;
+		};
+		01140C26FFC5C1ED11CE15BF = {
+			isa = PBXFileReference;
+			path = IOATABlockStorageDriverPM.cpp;
+			refType = 2;
+		};
+		01140C27FFC5C1ED11CE15BF = {
+			fileRef = 01140C20FFC5C1ED11CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		01140C28FFC5C1ED11CE15BF = {
+			fileRef = 01140C21FFC5C1ED11CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		01140C29FFC5C1ED11CE15BF = {
+			fileRef = 01140C22FFC5C1ED11CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		01140C2AFFC5C1ED11CE15BF = {
+			buildActionMask = 8;
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/storage/ata";
+			dstSubfolderSpec = 0;
+			files = (
+				01140C2FFFC5C21611CE15BF,
+				01140C30FFC5C21611CE15BF,
+				01140C31FFC5C21611CE15BF,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			name = "Copy Files";
+		};
+		01140C2BFFC5C1ED11CE15BF = {
+			fileRef = 01140C23FFC5C1ED11CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		01140C2CFFC5C1ED11CE15BF = {
+			fileRef = 01140C24FFC5C1ED11CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		01140C2DFFC5C1ED11CE15BF = {
+			fileRef = 01140C25FFC5C1ED11CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		01140C2EFFC5C1ED11CE15BF = {
+			fileRef = 01140C26FFC5C1ED11CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		01140C2FFFC5C21611CE15BF = {
+			fileRef = 01140C20FFC5C1ED11CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		01140C30FFC5C21611CE15BF = {
+			fileRef = 01140C21FFC5C1ED11CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		01140C31FFC5C21611CE15BF = {
+			fileRef = 01140C22FFC5C1ED11CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0145CCF6FFE5FEDF11CE15BF = {
+			isa = PBXFrameworkReference;
+			name = Kernel.framework;
+			path = /System/Library/Frameworks/Kernel.framework;
+			refType = 0;
+		};
+//010
+//011
+//012
+//013
+//014
+//060
+//061
+//062
+//063
+//064
+		06AA1264FFB2107B11CA28AA = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			name = "Shell Script";
+			neededFileNames = (
+			);
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		06AA1265FFB2107B11CA28AA = {
+			buildRules = (
+			);
+			buildSettings = {
+				ATA_BLOCK_STORAGE_DEVICE_DEBUGGING_LEVEL = 0;
+				ATA_BLOCK_STORAGE_DRIVER_DEBUGGING_LEVEL = 0;
+				ATA_BLOCK_STORAGE_DRIVER_PM_DEBUGGING_LEVEL = 0;
+				COPY_PHASE_STRIP = NO;
+				OPTIMIZATION_CFLAGS = "-O0";
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		06AA1266FFB2107B11CA28AA = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+		06AA1267FFB2110C11CA28AA = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			name = "Shell Script";
+			neededFileNames = (
+			);
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+//060
+//061
+//062
+//063
+//064
+//080
+//081
+//082
+//083
+//084
+		089C1669FE841209C02AAC07 = {
+			buildStyles = (
+				06AA1265FFB2107B11CA28AA,
+				06AA1266FFB2107B11CA28AA,
+			);
+			isa = PBXProject;
+			mainGroup = 089C166AFE841209C02AAC07;
+			projectDirPath = "";
+			targets = (
+				089C1673FE841209C02AAC07,
+			);
+		};
+		089C166AFE841209C02AAC07 = {
+			children = (
+				247142CAFF3F8F9811CA285C,
+				0145CCF6FFE5FEDF11CE15BF,
+				089C167CFE841241C02AAC07,
+				19C28FB6FE9D52B211CA2CBB,
+			);
+			isa = PBXGroup;
+			name = IOATABlockStorage;
+			refType = 4;
+		};
+		089C1673FE841209C02AAC07 = {
+			buildPhases = (
+				06AA1267FFB2110C11CA28AA,
+				089C1674FE841209C02AAC07,
+				01140C2AFFC5C1ED11CE15BF,
+				089C1675FE841209C02AAC07,
+				089C1676FE841209C02AAC07,
+				089C1677FE841209C02AAC07,
+				089C1679FE841209C02AAC07,
+				06AA1264FFB2107B11CA28AA,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.iokit.IOATABlockStorage;
+				MODULE_VERSION = 1.1.0;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOATABlockStorage;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = IOATABlockStorage;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+			productName = IOATABlockStorage;
+			productReference = 0B81C263FFB7832611CA28AA;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
+<plist version=\"0.9\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>IOATABlockStorage</string>
+	<key>CFBundleGetInfoString</key>
+	<string>1.1.0, Copyright Apple Computer, Inc. 1998-2001</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.iokit.IOATABlockStorage</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>IOATABlockStorage</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.1.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.1.0</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>IOATABlockStorage</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.IOATABlockStorage</string>
+			<key>IOClass</key>
+			<string>IOATABlockStorageDriver</string>
+			<key>IOCommandPoolSize</key>
+			<integer>32</integer>
+			<key>IOProviderClass</key>
+			<string>IOATADevice</string>
+			<key>Physical Interconnect</key>
+			<string>ATA</string>
+			<key>Physical Interconnect Location</key>
+			<string>Internal</string>
+			<key>ata device type</key>
+			<string>ata</string>
+		</dict>
+	</dict>
+	<key>OSBundleCompatibleVersion</key>
+	<string>1.0.0</string>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.iokit.IOATAFamily</key>
+		<string>1.4.8b1</string>
+		<key>com.apple.iokit.IOStorageFamily</key>
+		<string>1.0.0</string>
+	</dict>
+	<key>OSBundleRequired</key>
+	<string>Local-Root</string>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 0;
+		};
+		089C1674FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				01140C27FFC5C1ED11CE15BF,
+				01140C28FFC5C1ED11CE15BF,
+				01140C29FFC5C1ED11CE15BF,
+			);
+			isa = PBXHeadersBuildPhase;
+			name = Headers;
+		};
+		089C1675FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				089C1680FE841241C02AAC07,
+			);
+			isa = PBXResourcesBuildPhase;
+			name = "Bundle Resources";
+		};
+		089C1676FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				01140C2BFFC5C1ED11CE15BF,
+				01140C2CFFC5C1ED11CE15BF,
+				01140C2DFFC5C1ED11CE15BF,
+				01140C2EFFC5C1ED11CE15BF,
+			);
+			isa = PBXSourcesBuildPhase;
+			name = Sources;
+		};
+		089C1677FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			name = "Frameworks & Libraries";
+		};
+		089C1679FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			name = "ResourceManager Resources";
+		};
+		089C167CFE841241C02AAC07 = {
+			children = (
+				089C167DFE841241C02AAC07,
+			);
+			isa = PBXGroup;
+			name = Resources;
+			refType = 4;
+		};
+		089C167DFE841241C02AAC07 = {
+			children = (
+				089C167EFE841241C02AAC07,
+			);
+			isa = PBXVariantGroup;
+			name = InfoPlist.strings;
+			refType = 4;
+		};
+		089C167EFE841241C02AAC07 = {
+			fileEncoding = 10;
+			isa = PBXFileReference;
+			name = English;
+			path = English.lproj/InfoPlist.strings;
+			refType = 4;
+		};
+		089C1680FE841241C02AAC07 = {
+			fileRef = 089C167DFE841241C02AAC07;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//080
+//081
+//082
+//083
+//084
+//0B0
+//0B1
+//0B2
+//0B3
+//0B4
+		0B81C263FFB7832611CA28AA = {
+			isa = PBXBundleReference;
+			path = IOATABlockStorage.kext;
+			refType = 3;
+		};
+//0B0
+//0B1
+//0B2
+//0B3
+//0B4
+//190
+//191
+//192
+//193
+//194
+		19C28FB6FE9D52B211CA2CBB = {
+			children = (
+				0B81C263FFB7832611CA28AA,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+		};
+//190
+//191
+//192
+//193
+//194
+//240
+//241
+//242
+//243
+//244
+		247142CAFF3F8F9811CA285C = {
+			children = (
+				01140C20FFC5C1ED11CE15BF,
+				01140C21FFC5C1ED11CE15BF,
+				01140C22FFC5C1ED11CE15BF,
+				01140C24FFC5C1ED11CE15BF,
+				01140C23FFC5C1ED11CE15BF,
+				01140C26FFC5C1ED11CE15BF,
+				01140C25FFC5C1ED11CE15BF,
+			);
+			isa = PBXGroup;
+			name = Source;
+			path = "";
+			refType = 4;
+		};
+	};
+	rootObject = 089C1669FE841209C02AAC07;
+}

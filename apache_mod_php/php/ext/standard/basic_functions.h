@@ -1,8 +1,8 @@
-/* 
+/*
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: basic_functions.h,v 1.1.1.3 2001/01/25 05:00:02 wsanchez Exp $ */
+/* $Id: basic_functions.h,v 1.1.1.4 2001/07/19 00:20:07 zarzycki Exp $ */
 
 #ifndef BASIC_FUNCTIONS_H
 #define BASIC_FUNCTIONS_H
@@ -76,12 +76,15 @@ PHP_FUNCTION(is_numeric);
 PHP_FUNCTION(is_string);
 PHP_FUNCTION(is_array);
 PHP_FUNCTION(is_object);
+PHP_FUNCTION(is_scalar);
+PHP_FUNCTION(is_callable);
 
 PHP_FUNCTION(error_log);
 
 PHP_FUNCTION(call_user_func);
 PHP_FUNCTION(call_user_func_array);
 PHP_FUNCTION(call_user_method);
+PHP_FUNCTION(call_user_method_array);
 
 PHP_FUNCTION(register_shutdown_function);
 PHP_FUNCTION(highlight_file);
@@ -95,7 +98,6 @@ PHP_FUNCTION(ini_restore);
 PHP_FUNCTION(print_r);
 
 PHP_FUNCTION(connection_aborted);
-PHP_FUNCTION(connection_timeout);
 PHP_FUNCTION(connection_status);
 PHP_FUNCTION(ignore_user_abort);
 
@@ -152,10 +154,10 @@ typedef struct {
 	zend_llist *user_tick_functions;
 
 	zval *active_ini_file_section;
-	
+
 	HashTable sm_protected_env_vars;
 	char *sm_allowed_env_vars;
-
+ 
 	/* pageinfo.c */
 	long page_uid;
 	long page_inode;
@@ -182,9 +184,14 @@ typedef struct {
 
 #ifdef TRANS_SID
 	/* url_scanner.c */
-	url_adapt_state_t url_adapt_state; 
+	url_adapt_state_t url_adapt_state;
 	/* url_scanner_ex.re */
-	url_adapt_state_ex_t url_adapt_state_ex; 
+	url_adapt_state_ex_t url_adapt_state_ex;
+#endif
+
+#ifdef HAVE_MMAP
+	void *mmap_file;
+	size_t mmap_len;
 #endif
 } php_basic_globals;
 

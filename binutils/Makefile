@@ -35,23 +35,15 @@ CANONICAL_ARCHS := $(subst teflon:i386:undefined,i386-apple-rhapsody,$(CANONICAL
 CANONICAL_ARCHS := $(subst teflon:ppc:Hera,powerpc-apple-rhapsody,$(CANONICAL_ARCHS))
 CANONICAL_ARCHS := $(subst teflon:i386:Hera,i386-apple-rhapsody,$(CANONICAL_ARCHS))
 
-CANONICAL_ARCHS := $(subst macos:ppc:Beaker,powerpc-apple-macos10,$(CANONICAL_ARCHS))
-CANONICAL_ARCHS := $(subst macos:i386:Beaker,i386-apple-macos10,$(CANONICAL_ARCHS))
-CANONICAL_ARCHS := $(subst macos:ppc:Bunsen,powerpc-apple-macos10,$(CANONICAL_ARCHS))
-CANONICAL_ARCHS := $(subst macos:i386:Bunsen,i386-apple-macos10,$(CANONICAL_ARCHS))
-CANONICAL_ARCHS := $(subst macos:ppc:Gonzo,powerpc-apple-macos10,$(CANONICAL_ARCHS))
-CANONICAL_ARCHS := $(subst macos:i386:Gonzo,i386-apple-macos10,$(CANONICAL_ARCHS))
-CANONICAL_ARCHS := $(subst macos:ppc:Darwin,powerpc-apple-macos10,$(CANONICAL_ARCHS))
-CANONICAL_ARCHS := $(subst macos:i386:Darwin,i386-apple-macos10,$(CANONICAL_ARCHS))
-CANONICAL_ARCHS := $(subst macos:ppc:Kodiak,powerpc-apple-macos10,$(CANONICAL_ARCHS))
-CANONICAL_ARCHS := $(subst macos:i386:Kodiak,i386-apple-macos10,$(CANONICAL_ARCHS))
-CANONICAL_ARCHS := $(subst macos:ppc:Cheetah,powerpc-apple-macos10,$(CANONICAL_ARCHS))
-CANONICAL_ARCHS := $(subst macos:i386:Cheetah,i386-apple-macos10,$(CANONICAL_ARCHS))
+CANONICAL_ARCHS := $(subst macos:i386:$(RC_RELEASE),i386-apple-macos10,$(CANONICAL_ARCHS))
+CANONICAL_ARCHS := $(subst macos:ppc:$(RC_RELEASE),powerpc-apple-macos10,$(CANONICAL_ARCHS))
 
 CANONICAL_ARCHS := $(subst solaris:sparc:Zeus,sparc-nextpdo-solaris2,$(CANONICAL_ARCHS))
 CANONICAL_ARCHS := $(subst hpux:hppa:Zeus,hppa1.1-nextpdo-hpux10.20,$(CANONICAL_ARCHS))
 CANONICAL_ARCHS := $(subst solaris:sparc:Hydra,sparc-nextpdo-solaris2,$(CANONICAL_ARCHS))
 CANONICAL_ARCHS := $(subst hpux:hppa:Hydra,hppa2.0n-nextpdo-hpux11.0,$(CANONICAL_ARCHS))
+
+CANONICAL_ARCHS := $(subst powerpc-apple-macos10 i386-apple-macos10,i386-apple-macos10 powerpc-apple-macos10,$(CANONICAL_ARCHS))
 
 SRCTOP = $(shell cd $(SRCROOT) && pwd)
 OBJTOP = $(shell (test -d $(OBJROOT) || $(INSTALL) -c -d $(OBJROOT)) && cd $(OBJROOT) && pwd)
@@ -59,7 +51,7 @@ SYMTOP = $(shell (test -d $(SYMROOT) || $(INSTALL) -c -d $(SYMROOT)) && cd $(SYM
 DSTTOP = $(shell (test -d $(DSTROOT) || $(INSTALL) -c -d $(DSTROOT)) && cd $(DSTROOT) && pwd)
 
 BINUTILS_VERSION = 5.0-20001113
-APPLE_VERSION = 20
+APPLE_VERSION = 23.1
 
 BINUTILS_VERSION_STRING = $(BINUTILS_VERSION) (Apple version binutils-$(APPLE_VERSION))
 
@@ -82,7 +74,7 @@ HOST_ARCHITECTURE = UNKNOWN
 
 RC_CFLAGS_NOARCH = $(shell echo $(RC_CFLAGS) | sed -e 's/-arch [a-z0-9]*//g')
 
-SYSTEM_FRAMEWORK = -framework Carbon -framework System -lcc_dynamic
+SYSTEM_FRAMEWORK = -framework System -lcc_dynamic
 FRAMEWORK_PREFIX =
 FRAMEWORK_SUFFIX =
 FRAMEWORK_VERSION = A

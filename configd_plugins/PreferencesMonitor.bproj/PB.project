@@ -22,6 +22,7 @@
     LANGUAGE = English; 
     MAKEFILEDIR = "$(MAKEFILEPATH)/pb_makefiles"; 
     NEXTSTEP_BUILDTOOL = /usr/bin/gnumake; 
+    NEXTSTEP_COMPILEROPTIONS = "-Wall -DUSE_SYSTEMCONFIGURATION_PUBLIC_APIS"; 
     NEXTSTEP_INSTALLDIR = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration"; 
     NEXTSTEP_JAVA_COMPILER = /usr/bin/javac; 
     NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc; 

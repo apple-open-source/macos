@@ -3,7 +3,7 @@
     DYNAMIC_CODE_GEN = YES; 
     FILESTABLE = {
         FRAMEWORKS = (CoreFoundation.framework, SystemConfiguration.framework); 
-        FRAMEWORKSEARCH = (/System/Library/PrivateFrameworks); 
+        FRAMEWORKSEARCH = ("$(NEXT_ROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks"); 
         H_FILES = (); 
         OTHER_LINKED = (ip_plugin.c); 
         OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble, CustomInfo.plist); 
@@ -15,6 +15,7 @@
     LANGUAGE = English; 
     MAKEFILEDIR = "$(MAKEFILEPATH)/pb_makefiles"; 
     NEXTSTEP_BUILDTOOL = /usr/bin/gnumake; 
+    NEXTSTEP_COMPILEROPTIONS = "-Wall -DUSE_SYSTEMCONFIGURATION_PUBLIC_APIS"; 
     NEXTSTEP_INSTALLDIR = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration"; 
     NEXTSTEP_JAVA_COMPILER = /usr/bin/javac; 
     NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc; 

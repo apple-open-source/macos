@@ -1,33 +1,38 @@
 /************************************************************************
  *	Whatever is needed for (un)locking files in various ways	*
  *									*
- *	Copyright (c) 1990-1999, S.R. van den Berg, The Netherlands	*
+ *	Copyright (c) 1990-1997, S.R. van den Berg, The Netherlands	*
+ *	Copyright (c) 1998-2001, Philip Guenther, The United States	*
+ *						of America		*
  *	#include "../README"						*
  ************************************************************************/
 #ifdef RCS
 static /*const*/char rcsid[]=
- "$Id: locking.c,v 1.1.1.1 1999/09/23 17:30:07 wsanchez Exp $";
+ "$Id: locking.c,v 1.1.1.2 2001/07/20 19:38:17 bbraun Exp $";
 #endif
 #include "procmail.h"
 #include "robust.h"
 #include "shell.h"
 #include "misc.h"
 #include "pipes.h"
+#include "foldinfo.h"
 #include "exopen.h"
 #include "locking.h"
 #include "lastdirsep.h"
 
-void lockit(name,lockp)char*name;char**const lockp;
+char*globlock;
+
+int lockit(name,lockp)char*name;char**const lockp;
 { int permanent=nfsTRY,triedforce=0,locktype=doLOCK;struct stat stbuf;time_t t;
   zombiecollect();
   if(*lockp)
    { if(!strcmp(name,*lockp))	/* compare the previous lockfile to this one */
-      { free(name);return;	 /* they're equal, save yourself some effort */
+      { free(name);return 1;	 /* they're equal, save yourself some effort */
       }
      unlock(lockp);		       /* unlock any previous lockfile FIRST */
    }				  /* to prevent deadlocks (I hate deadlocks) */
   if(!*name)
-   { free(name);return;
+   { free(name);return 1;
    }
   if(!strcmp(name,defdeflock))	       /* is it the system mailbox lockfile? */
    { locktype=doCHECK|doLOCK;
@@ -35,12 +40,12 @@ void lockit(name,lockp)char*name;char**const lockp;
 #ifndef fdlock
 	if(!accspooldir)
 	 { yell("Bypassed locking",name);
-	   free(name);return;
+	   free(name);return 0;
 	 }
 #endif
 	;
    }
-  for(lcking|=lck_LOCKFILE;;)
+  for(lcking|=lck_DELAYSIG;;)
    { yell("Locking",name);	    /* in order to cater for clock skew: get */
      if(!xcreat(name,LOCKperm,&t,locktype))    /* time t from the filesystem */
       { *lockp=name;				   /* lock acquired, hurray! */
@@ -94,40 +99,45 @@ term: { free(name);			     /* drop the preallocated buffer */
 	break;
       }
    }
-  if(rcstate==rc_NORMAL)			   /* we already set our ids */
+  if(!privileged)				   /* we already set our ids */
      setegid(gid);		      /* we put back our regular permissions */
-  lcking&=~lck_LOCKFILE;
+  lcking&=~lck_DELAYSIG;
   if(nextexit)
      elog(whilstwfor),elog("lockfile"),logqnl(name),Terminate();
+  return !!*lockp;
 }
 
-void lcllock P((void))				    /* lock a local lockfile */
+int lcllock(noext,withext)			    /* lock a local lockfile */
+ const char*const noext,*const withext;
 { char*lckfile;			    /* locking /dev/null or | would be silly */
-  if(tolock||strcmp(buf2,devnull)&&strcmp(buf2,"|"))
-   { if(tolock)
-	lckfile=tstrdup(tolock);
+  if(noext||(strcmp(withext,devnull)&&strcmp(withext,"|")))
+   { if(noext)
+	lckfile=tstrdup(noext);
      else
-      { int len=strlen(buf2);
-	strcpy(strcpy(lckfile=malloc(len+strlen(lockext)+1),buf2)+len,lockext);
+      { size_t len=strlen(withext);
+	lckfile=malloc(len+strlen(lockext)+1);
+	strcpy(strcpy(lckfile,withext)+len,lockext);
       }
      if(globlock&&!strcmp(lckfile,globlock))	 /* same as global lockfile? */
       { nlog("Deadlock attempted on");logqnl(lckfile);
 	free(lckfile);
+	return 0;
       }
      else
-	lockit(lckfile,&loclock);
+	return lockit(lckfile,&loclock);
    }
+  return 1;
 }
 
 void unlock(lockp)char**const lockp;
-{ lcking|=lck_LOCKFILE;
+{ onguard();
   if(*lockp)
    { if(!strcmp(*lockp,defdeflock))    /* is it the system mailbox lockfile? */
 	setegid(sgid);		       /* try and get some extra permissions */
      yell("Unlocking",*lockp);
      if(unlink(*lockp))
 	nlog("Couldn't unlock"),logqnl(*lockp);
-     if(rcstate==rc_NORMAL)			   /* we already set our ids */
+     if(!privileged)				   /* we already set our ids */
 	setegid(gid);		      /* we put back our regular permissions */
      if(!nextexit)			   /* if not inside a signal handler */
 	free(*lockp);
@@ -140,7 +150,7 @@ int xcreat(name,mode,tim,chownit)const char*const name;const mode_t mode;
  time_t*const tim;const int chownit;
 { char*p;int j= -2;size_t i;
   i=lastdirsep(name)-name;strncpy(p=malloc(i+UNIQnamelen),name,i);
-  if(unique(p,p+i,mode,verbose,chownit)) /* try & rename the unique filename */
+  if(unique(p,p+i,0,mode,verbose,chownit)) /* try & rename a unique filename */
    { if(tim)
       { struct stat stbuf;	 /* return the filesystem time to the caller */
 	stat(p,&stbuf);*tim=stbuf.st_mtime;
@@ -174,7 +184,7 @@ static off_t oldlockoffset;
 #define REITlockf	0
 #endif /* USElockf */
 
-int fdlock(fd)
+int fdlock(fd)int fd;
 { int ret;
   if(verbose)
      nlog("Acquiring kernel-lock\n");

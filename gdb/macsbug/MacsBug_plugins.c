@@ -22,6 +22,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <time.h>
+#include <unistd.h>
 
 #include "MacsBug.h"
 
@@ -42,8 +43,44 @@ static void ra(char *arg, int from_tty);	/* needed by G and GT when not running	
 
 /*--------------------------------------------------------------------------------------*/
 
+/*--------------------------------------------------------------*
+ | BRC [addr] - clear all breakpoints or one breakpoint at addr |
+ *--------------------------------------------------------------*/
+
+static void brc(char *arg, int from_tty)
+{
+    if (arg && *arg)
+	gdb_execute_command("clear %s", arg);
+    else
+    	gdb_execute_command("delete");
+    
+    gdb_set_int("$__lastcmd__", 1);
+}
+
+#define BRC_HELP \
+"BRC [addr] -- Clear all breakpoints or one breakpoint at addr.\n"			\
+"See also gdb's DELETE command (clears breakpoints by number), and DISABLE."
+
+
+/*--------------------------------------------------*
+ | BRD [n] - show all breakpoints (or breakpoint n) |
+ *--------------------------------------------------*/
+
+static void brd(char *arg, int from_tty)
+{
+    if (arg && *arg)
+	gdb_execute_command("info breakpoints %s", arg);
+    else
+    	gdb_execute_command("info breakpoints");
+    
+    gdb_set_int("$__lastcmd__", 2);
+}
+
+#define BRD_HELP "BRD -- Show all breakpoints (or breakpoint n)."
+
+
 /*------------------------------------------*
- | brm regex - set breakpoints (gdb RBREAK) |
+ | BRM regex - set breakpoints (gdb RBREAK) |
  *------------------------------------------*/
 
 static void brm(char *arg, int from_tty)
@@ -80,11 +117,11 @@ static void brp(char *arg, int from_tty)
 "BRP [gdb-spec [expr]] -- Break at gdb-spec (under specified condition).\n"		\
 "This implements the gdb \"BREAK gdb-spec [if condition]\".  See gdb BREAK\n"		\
 "documentation for further details.\n"							\
-"Ê\n"											\
+"\n"											\
 "Macsbug features not supported: Interation count.\n"					\
-"Ê                               No semicolon before the command.\n"			\
-"Ê                               Command is not enclosed in quotes.\n"			\
-"Ê                               Only a single command is allowed."
+"                                No semicolon before the command.\n"			\
+"                                Command is not enclosed in quotes.\n"			\
+"                                Only a single command is allowed."
 
 
 /*-------------------------------------------------------------------*
@@ -115,11 +152,12 @@ static void brp(char *arg, int from_tty)
  command aborted BEFORE we get a chance to back up the cursor.
 */
 
-static void back_up_over_prompt(unsigned long addr, int branchTaken)
+static void back_up_over_prompt(unsigned long addr, int branchTaken, int from_tty)
 {
-    if (!macsbug_screen) {				/* skip if macsbug screen is up*/
+    if (!macsbug_screen && isatty(STDOUT_FILENO)) {	/* skip if macsbug screen is up	*/
 	gdb_eval("$__accessible__=*(char*)0x%lX", addr);
-	gdb_printf(CURSOR_UP, 2 + (branchTaken != 0));
+	if (from_tty)
+	    gdb_printf(CURSOR_UP, 2 + (branchTaken != 0));
     }
 }
 
@@ -146,7 +184,7 @@ static void db_dw_and_dl(char *arg, int from_tty, int size, int cmdNbr)
 	gdb_set_int("$dot", addr);
     } else if (gdb_get_int("$__lastcmd__") == cmdNbr) {
     	addr = gdb_get_int("$dot") + size;
-	back_up_over_prompt(addr, 0);
+	back_up_over_prompt(addr, 0, from_tty);
  	gdb_set_int("$dot", addr);
    } else
     	addr = gdb_get_int("$dot");
@@ -251,7 +289,7 @@ static void dm(char *arg, int from_tty)
     if (argc == 1) {
     	if (gdb_get_int("$__lastcmd__") == 5) {
 	    gdb_eval("$dot=(unsigned char *)$dot+$__prev_dm_n__");
-	    back_up_over_prompt(gdb_get_int("$dot"), 0);
+	    back_up_over_prompt(gdb_get_int("$dot"), 0, from_tty);
 	} else {
 	    gdb_printf("Displaying memory from %.8lX\n", gdb_get_int("$dot"));
 	    gdb_set_int("$__prev_dm_n__", 16);
@@ -478,15 +516,15 @@ static void dm(char *arg, int from_tty)
 "The basic types are Byte, Word, Long, SignedByte, SignedWord, SignedLong,\n"		\
 "UnsignedByte, UnsignedWord, UnsignedLong, PString, CString, Boolean,\n"		\
 "Binary8, Binary16, Binary32, OSType, and Rect.\n"					\
-"Ê\n"											\
+"\n"											\
 "Also see SET for [mb-]ditto mode (HELP set mb-ditto).\n"							\
-"Ê\n"											\
+"\n"											\
 "Macsbug features not supported: templates and the following basic types.\n"		\
-"Ê                               Pointer, Handle, RGBColor, Text, IORefNum,\n"		\
-"Ê                               VRefNum, Seconds, ATrapWord, AbsTicks,\n"		\
-"Ê                               TickInterval, Region, RgnHandle, IOTrapWord,\n"	\
-"Ê                               Version, Fixed, ShortFixed, UnsignedFixed,\n"		\
-"Ê                               and Fract."
+"                                Pointer, Handle, RGBColor, Text, IORefNum,\n"		\
+"                                VRefNum, Seconds, ATrapWord, AbsTicks,\n"		\
+"                                TickInterval, Region, RgnHandle, IOTrapWord,\n"	\
+"                                Version, Fixed, ShortFixed, UnsignedFixed,\n"		\
+"                                and Fract."
 
 
 /*-------------------------------------------------------------------------------*
@@ -508,7 +546,7 @@ static void dma(char *arg, int from_tty)
     if (argc == 1) {
     	if (gdb_get_int("$__lastcmd__") == 37) {
 	    gdb_eval("$dot=(unsigned char *)$dot+$__prev_dma_n__");
-	    back_up_over_prompt(gdb_get_int("$dot"), 0);
+	    back_up_over_prompt(gdb_get_int("$dot"), 0, from_tty);
 	} else {
 	    gdb_printf("Displaying memory from %.8lX\n", gdb_get_int("$dot"));
 	    gdb_set_int("$__prev_dma_n__", 512);
@@ -571,7 +609,7 @@ static void dp(char *arg, int from_tty)
 	gdb_printf("Displaying memory from %.8X\n", addr);
     } else if (gdb_get_int("$__lastcmd__") == 6) {
     	addr = gdb_get_int("$dot") + 128;
-	back_up_over_prompt(addr, 0);
+	back_up_over_prompt(addr, 0, from_tty);
  	gdb_set_int("$dot", addr);
     } else {
     	addr = gdb_get_int("$dot");
@@ -648,7 +686,7 @@ static void fb(char *arg, int from_tty)
 
 #define FB_HELP  \
 "FB addr n expr|\"string\" -- Search from addr to addr+n-1 for the byte.\n"		\
-"Ê\n"											\
+"\n"											\
 "Note, FB is also an alias for gdb's FUTURE_BREAK command.  The syntax of\n"		\
 "the FB parameters determines whether FB is treated as a MacsBug FB or a\n"		\
 "gdb FUTURE_BREAK alias."
@@ -864,15 +902,15 @@ static void find(char *arg, int from_tty)
 "FIND addr n expr -- Search from addr to addr+n-1 for the pattern.\n"			\
 "If pattern is an expr then the width of the pattern is the smallest\n"			\
 "unit (byte, word or long) that contains its value.\n"					\
-"Ê\n"											\
+"\n"											\
 "Restriction: The expr value may not have any embedded blanks.  For example\n"		\
-"Ê            a value like (unsigned char *)&a is invalid.\n"				\
-"Ê\n"											\
+"             a value like (unsigned char *)&a is invalid.\n"				\
+"\n"											\
 "Macsbug features not supported: MacsBug F must be FIND here since F conflicts\n"	\
-"Ê                               with the gdb FRAME command abbreviation.\n"		\
-"Ê\n"											\
-"Ê                               Double quoted \"string\" instead of single quoted\n"	\
-"Ê                               'string'."
+"                                with the gdb FRAME command abbreviation.\n"		\
+"\n"											\
+"                                Double quoted \"string\" instead of single quoted\n"	\
+"                                'string'."
 
 
 /*----------------------------------------------------------------------------*
@@ -928,7 +966,7 @@ static void g(char *arg, int from_tty)
 
 #define G_HELP \
 "G [addr] -- Continue execution (at addr if supplied).\n"				\
-"Ê\n"											\
+"\n"											\
 "Note, G is treated as a RA (\"run again\") command if the target\n"			\
 "program is not currently running."
 
@@ -971,10 +1009,10 @@ static void gt(char *arg, int from_tty)
 "GT gdb-spec -- Go (continue) until the gdb-spec is reached.\n" 			\
 "This implements the gdb \"TBREAK gdb-spec\" followed by a CONTINUE\n"			\
 "command.  See gdb TBREAK documentation for further details.\n" 			\
-"Ê\n"											\
+"\n"											\
 "Note, GT is treated as a TBREAK followed by RA (\"run again\")\n"			\
 "command if the target program is not currently running.\n"				\
-"Ê\n" 											\
+"\n" 											\
 "Macsbug features not supported: Command list not allowed."				\
 
 
@@ -994,7 +1032,7 @@ static void id(char *arg, int from_tty)
     	addr = gdb_get_int(arg);
     } else if (gdb_get_int("$__lastcmd__") == 9) {
 	addr = gdb_get_int("$dot") + 4;
-	back_up_over_prompt(addr, branchTaken);
+	back_up_over_prompt(addr, branchTaken, from_tty);
     } else {
     	__reset_current_function(NULL, 0);
 	addr = gdb_get_int("$pc");
@@ -1009,7 +1047,7 @@ static void id(char *arg, int from_tty)
 
 #define ID_HELP \
 "ID [addr] -- Disassemble 1 line starting at addr (or pc).\n"				\
-"Ê\n"											\
+"\n"											\
 "Macsbug features not supported: -c option."
 
 
@@ -1030,7 +1068,7 @@ static void il(char *arg, int from_tty)
     if (argc == 1) {
 	if (gdb_get_int("$__lastcmd__") == 11) {
 	    addr = gdb_get_int("$dot") + 4*20;
-	    back_up_over_prompt(addr, branchTaken);
+	    back_up_over_prompt(addr, branchTaken, from_tty);
 	} else {
 	    __reset_current_function(NULL, 0);
 	    addr = gdb_get_int("$pc");
@@ -1058,7 +1096,7 @@ static void il(char *arg, int from_tty)
 
 #define IL_HELP \
 "IL [addr [n]] -- Disassemble n (default 20) lines from the addr or pc.\n"		\
-"Ê\n"											\
+"\n"											\
 "Macsbug features not supported: -c option."
 
 
@@ -1079,7 +1117,7 @@ static void ip(char *arg, int from_tty)
     if (argc == 1) {
 	if (gdb_get_int("$__lastcmd__") == 13) {
 	    addr = gdb_get_int("$dot") + 4*21;
-	    back_up_over_prompt(addr - 40, branchTaken);
+	    back_up_over_prompt(addr - 40, branchTaken, from_tty);
 	} else {
 	    __reset_current_function(NULL, 0);
 	    addr = gdb_get_int("$pc");
@@ -1101,8 +1139,28 @@ static void ip(char *arg, int from_tty)
 
 #define IP_HELP \
 "IP [addr] -- Disassemble 20 lines centered around the addr (or pc).\n"			\
-"Ê\n"											\
+"\n"											\
 "Macsbug features not supported: -c option."
+
+
+/*---------------------------------------------*
+ | MR - return from current frame (gdb FINISH) |
+ *---------------------------------------------*/
+
+static void mr(char *arg, int from_tty)
+{
+    if (arg && *arg)
+    	gdb_error("Only the parameterless form of MR is supported.");
+    else
+    	gdb_execute_command("finish");
+    
+    gdb_set_int("$__lastcmd__", 15);
+}
+
+#define MR_HELP \
+"MR -- Return from current frame.\n"							\
+"\n"											\
+"Macsbug features not supported: offset and addr arguments."
 
 
 /*------------------------------*
@@ -1142,7 +1200,7 @@ static char *check_confirm_status(FILE *f, char *line, void *data)
  
  This is NOT a MacsBug command but it is useful in a gdb environment.  The HELP info is
  placed in the "run" class so it appears with the HELP running command list instead of
- the MacaBug command list.
+ the MacsBug command list.
 */
  
 static void ra(char *arg, int from_tty)
@@ -1352,9 +1410,9 @@ static void sb(char *arg, int from_tty)
 #define SB_HELP \
 "SB addr values -- Assign values to bytes starting at addr.\n"				\
 "String values are fully assigned at the next assignable byte.\n"			\
-"Ê\n"											\
+"\n"											\
 "Macsbug features not supported: Double quoted \"string\" instead of single quoted\n"	\
-"Ê                               'string'."
+"                                'string'."
 
 
 /*-----------------------------------------------------------*
@@ -1372,8 +1430,8 @@ static void sc(char *arg, int from_tty)
 }
 
 #define SC_HELP \
-"SC [n] -- Display back trace (stack crawl).\n"								\
-"Ê\n"											\
+"SC [n] -- Display back trace (stack crawl).\n"						\
+"\n"											\
 "MacsBug extensions: Optional \"n\" is a positive or negative value.  A positive\n"	\
 "                    value indicates to display only the innermost n frames.\n"		\
 "                    Negative means display only the outermost n frames."
@@ -1478,19 +1536,19 @@ static void si(char *arg, int from_tty)
 "SI [n] [m] -- Step n (or 1) instruction(s) and disassemble m lines from new pc.\n" \
 "See also gdb's next and step instructions, which step by source lines,\n" 		   \
 "not instructions.\n" 									   \
-"Ê\n" 											   \
+"\n" 											   \
 "The second argument is a extension to the MacsBug syntax to allow a disassembly\n" 	   \
 "of m lines to show the next instructions to be executed.  This approximates the\n" 	   \
 "disassembly window that MacsBug always shows.\n" 					   \
-"Ê\n"											   \
+"\n"											   \
 "Macsbug features not supported: S expr\n" 						   \
-"Ê\n" 											   \
-"Ê                               The MacsBug S is SI here.  This was done to preserve\n"   \
-"Ê                               gdb's definition of S[tep] to single statement step.\n"   \
-"Ê                               There is (was) a gdb SI to which does exactly what\n" 	   \
-"Ê                               this MacsBug SI does except that now the instruction\n"   \
-"Ê                               is also displayed at each instruction step.\n"		   \
-"Ê\n"											   \
+"\n" 											   \
+"                                The MacsBug S is SI here.  This was done to preserve\n"   \
+"                                gdb's definition of S[tep] to single statement step.\n"   \
+"                                There is (was) a gdb SI to which does exactly what\n" 	   \
+"                                this MacsBug SI does except that now the instruction\n"   \
+"                                is also displayed at each instruction step.\n"		   \
+"\n"											   \
 "Note, the gdb SI abbreviation for STEPI is overridden by this MacsBug command."
 
 
@@ -1506,9 +1564,10 @@ static void sl(char *arg, int from_tty)
 #define SL_HELP \
 "SL addr values -- Assign values to (4-byte) longs starting at addr.\n"				\
 "String values are fully assigned at the next assignable byte.\n"			\
-"Ê\n"											\
+"\n"											\
 "Macsbug features not supported: Double quoted \"string\" instead of single quoted\n"	\
-"Ê                               'string'."
+"                                'string'."
+
 
 /*----------------------------------------------------------*
  | SM addr value - assign values to memory starting at addr |
@@ -1524,9 +1583,9 @@ static void sm(char *arg, int from_tty)
 "Each value determines the assignment size (byte, 2-byte word, or 4-byte\n"		\
 "long).  Specific sizes can be set using SB, SW, or SL.  String values\n"		\
 "are fully assigned at the next assignable byte.\n"					\
-"Ê\n"											\
+"\n"											\
 "Macsbug features not supported: Double quoted \"string\" instead of single quoted\n"	\
-"Ê                               'string'."
+"                                'string'."
 
 
 /*---------------------------------------------------------------------------*
@@ -1542,7 +1601,7 @@ static void so(char *arg, int from_tty)
 "SO [n] [m] -- Step over n instructions and disassemble m lines from new pc.\n"		\
 "See also gdb's next and step instructions, which step by source lines,\n"		\
 "not instructions.\n" 									\
-"Ê\n" 											\
+"\n" 											\
 "The second argument is a extension to the MacsBug syntax to allow a disassembly\n" 	\
 "of m lines to show the next instructions to be executed.  This approximates the\n" 	\
 "disassembly window that MacsBug always shows."
@@ -1572,9 +1631,25 @@ static void sw(char *arg, int from_tty)
 #define SW_HELP \
 "SW addr values -- Assign values to (2-byte) words starting at addr.\n"				\
 "String values are fully assigned at the next assignable byte.\n"			\
-"Ê\n"											\
+"\n"											\
 "Macsbug features not supported: Double quoted \"string\" instead of single quoted\n"	\
-"Ê                               'string'."
+"                                'string'."
+
+
+/*------------------------------------*
+ | T [n [m]] - same as SO (step over) |
+ *------------------------------------*
+ 
+ Note that SO and SI are written as plugins because we need to play silly games with
+ the stepi/nexti source display when drawing to the macsbug screen.
+*/
+
+static void t(char *arg, int from_tty)
+{
+    so_and_si(arg, from_tty, 25, "SO", "nexti");
+}
+
+#define T_HELP "T [n] [m] -- Same as SO."
 
 
 /*--------------------------------------------*
@@ -1628,7 +1703,7 @@ static void td(char *arg, int from_tty)
     gdb_printf(" MSR = %.8lX         SOC Compare Count\n", gdb_get_int("$ps"));
     gdb_printf("                    XER ");
     xer = gdb_get_int("$xer");
-    printf(tmpCmdLine, "0x%X 3", (xer>> 29) & 7);
+    sprintf(tmpCmdLine, "0x%X 3", (xer>> 29) & 7);
     __binary(tmpCmdLine, from_tty);
     gdb_printf("   %.2X    %.2X                     MQ  = %.8lX\n",
               (xer>>8) & 0xFF, (xer & 0x7F), gdb_get_int("$mq"));
@@ -1658,6 +1733,156 @@ static void td(char *arg, int from_tty)
 #define TD_HELP "TD -- Display integer and machine registers."
 
 
+/*-------------------------------------------*
+ | TF - display the floating point registers |
+ *-------------------------------------------*
+
+ Example of output format:
+
+ FPU Registers
+                                                   S S
+           F           N I I Z I                   O Q C
+  FPSCR  F E V O U Z X A S D D M V F F             F R V V O U Z X N
+         X X X X X X X N I I Z Z C R I C < > = ?   T T I E E E E E I RN
+         1 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 00
+  
+  FPR0  = FFF 8000082004000     -NAN(000) 
+  FPR1  = 408 4700000000000      6.540000000000000e+2
+  - - -
+  FPR30 = 000 0000000000000      0.000000000000000e+0
+  FPR31 = 000 0000000000000      0.000000000000000e+0
+*/
+
+static void tf(char *arg, int from_tty)
+{
+    int		  i, size;
+    unsigned long fpscr;
+    char	  f[4];
+    
+    union {
+	char          msg[50];
+    	double	      d;
+	struct {
+	    unsigned long hi;
+	    unsigned long lo;
+	} hilo;
+    } value, *v;
+		
+    /* Following causes an appropriate error message if regs are unavailable...		*/
+    
+    fpscr = gdb_get_int("$fpscr");
+		
+    gdb_printf("FPU Registers\n");
+    gdb_printf("                                                  S S\n");
+    gdb_printf("          F           N I I Z I                   O Q C\n");
+    gdb_printf(" FPSCR  F E V O U Z X A S D D M V F F             F R V V O U Z X N\n");
+    gdb_printf("        X X X X X X X N I I Z Z C R I C < > = ?   T T I E E E E E I RN\n");
+    
+    gdb_printf("        ");
+    for (i = 31; i >= 2; --i)
+    	gdb_printf("%d ", (fpscr >> i) & 1);
+    gdb_printf("%d%d\n\n", (fpscr >> 1) & 1, fpscr & 1);
+    
+    for (i = 0; i < 32; ++i) {
+    	sprintf(f, "$f%d", i);
+	gdb_printf("FPR%-2d = ", i);
+	
+	v = gdb_get_register(f, &value, &size);
+	
+	if (v == NULL)
+	    gdb_error(value.msg);
+	
+	/* Break hex up to 1 bit for sign, 11 bits for exponent, 52 bits for fraction.	*/
+	/* That's followed by 5 spaces and the scientific notation to 15 digits.	*/ 
+	
+	gdb_printf("%.3lX %.5lX%.8lX     %- 15.15e\n", 
+	           (value.hilo.hi >> 20) & 0xFFF, value.hilo.hi & 0x000FFFFF, value.hilo.lo,
+		   value.d);
+    }
+    
+    gdb_set_int("$__lastcmd__", 27);
+}
+
+#define TF_HELP "TF -- Display the floating point registers."
+
+
+/*-----------------------------------*
+ | TV - display the vector registers |
+ *-----------------------------------*
+ 
+ Vector Registers
+                                                                       S
+  VRsave = 00000000                    N                               A
+                                       J                               T
+  VSCR = 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+
+  V0  = 00000000 00000000 00000000 00000000   0.0000e+0   0.0000e+0   0.0000e+0   0.0000e+0 
+  V1  = 53706F74 20636865 636B206F 66207472   1.0327e+12  1.9262e-19  4.3373e+21  1.8943e+23 
+  - - -
+  V30 = 7FFFDEAD 7FFFDEAD 7FFFDEAD 7FFFDEAD   NAN(222)    NAN(222)    NAN(222)    NAN(222) 
+  V31 = 7FFFDEAD 7FFFDEAD 7FFFDEAD 7FFFDEAD   NAN(222)    NAN(222)    NAN(222)    NAN(222)
+*/
+
+static void tv(char *arg, int from_tty)
+{
+    int 	  i, j, k, size;
+    unsigned long vrsave, vscr;
+    double	  d;
+    char	  vn[4], vf[13];
+    
+    union {
+	char          msg[50];
+	unsigned long l[4];
+	float	      f[4];
+    } value, *v;
+    
+    /* Following causes an appropriate error message if regs are unavailable...		*/
+    
+    vrsave = gdb_get_int("$vrsave");
+    
+    gdb_printf("Vector Registers\n");
+    gdb_printf("                                                                      S\n");
+    gdb_printf(" VRsave = %.8lX", vrsave);
+    gdb_printf("                    N                               A\n");
+    gdb_printf("                                      J                               T\n");
+    
+    vscr = 0;//gdb_get_int("$vscr");	// gdb need to fix the type of vscr
+    gdb_printf(" VSCR = ");
+    for (i = 31; i >= 0; --i)
+	gdb_printf("%d ", (vscr >> i) & 1);
+    
+    gdb_printf("\n\n");
+    
+    for (i = 0; i < 32; ++i) {
+    	sprintf(vn, "$v%d", i);
+	gdb_printf("V%-2d = ", i);
+	
+	v = gdb_get_register(vn, &value, &size);
+	
+	if (v == NULL)
+	    gdb_error(value.msg);
+	
+	gdb_printf("%.8lX %.8lX %.8lX %.8lX  ", 
+			value.l[0], value.l[1],value.l[2],value.l[3]);
+	
+	for (k = 0; k < 4; ++k) {
+	    strcpy(vf, "            ");
+	    //          123456789012
+	    d = value.f[k];
+	    j = sprintf(vf, "%- 4.4e", d);
+	    vf[j] = ' ';
+	    gdb_printf("%s ", vf);
+	}
+	
+	gdb_printf("\n");
+    }
+    
+    gdb_set_int("$__lastcmd__", 28);
+}
+
+#define TV_HELP "TV -- Display the vector registers."
+
+
 /*----------------------------------------------------------------------*
  | WH [addr] - display the function corresponding to an address (or pc) |
  *----------------------------------------------------------------------*
@@ -1667,33 +1892,43 @@ static void td(char *arg, int from_tty)
 
 static void wh(char *arg, int from_tty)
 {
-    int           argc;
-    unsigned long addr;
-    char          *argv[4], tmpCmdLine[1024];
+    int  argc;
+    char *addr, *argv[4], tmpCmdLine[1024];
     
-    static unsigned long prev_arg;
+    static char *prev_arg;
+    
+    __is_running("The program is not running.", 0);
     
     gdb_setup_argv(safe_strcpy(tmpCmdLine, arg), "WH", &argc, argv, 2);
     
     if (argc == 1)
+    	/*
     	if (gdb_get_int("$__lastcmd__") == 42)
     	    addr = prev_arg;
 	else
-	    addr = gdb_get_int("$pc");
+	*/
+	    addr = "*$pc";
     else
-    	addr = gdb_get_int(argv[1]);
+    	addr = argv[1];
     
-    gdb_print_address(addr);
+    gdb_print_address(addr, 1);
     prev_arg = addr;
 
     gdb_set_int("$__lastcmd__", 42);
 }
 
 #define WH_HELP \
-"WH [addr] -- Find the name and addr of the parameter.\n" \
-"If no parameter then assume WH PC.\n" 			  \
-"Ê\n" 							  \
-"Macsbug features not supported: Traps."
+"WH [*addr | linespec] -- Find the name and addr of the parameter.\n" 			\
+"If no parameter then assume WH *$pc.  Type HELP INFO LINE or HELP\n"			\
+"LIST for more info on linespecs.\n"							\
+"\n" 							  				\
+"Note that, if possible, the source line is listed exactly like it\n"			\
+"was done using the gdb LIST command.  Thus the amount of context\n"			\
+"lines is controlled by the SET listsize command.\n"					\
+"\n" 							  				\
+"Macsbug features not supported: Traps.\n"						\
+"                                Numeric addresses and gdb convenience\n"		\
+"                                variables must start with a '*'."
 
 /*--------------------------------------------------------------------------------------*/
 
@@ -1721,6 +1956,8 @@ void init_from_gdb(void)
 
     gdb_change_class("mb-notes", Gdb_Private);
     
+    MACSBUG_COMMAND(brc,  BRC_HELP);
+    MACSBUG_COMMAND(brd,  BRD_HELP);
     MACSBUG_COMMAND(brm,  BRM_HELP);
     MACSBUG_COMMAND(brp,  BRP_HELP);
     MACSBUG_COMMAND(db,   DB_HELP);
@@ -1740,6 +1977,7 @@ void init_from_gdb(void)
     MACSBUG_COMMAND(id,   ID_HELP);
     MACSBUG_COMMAND(il,   IL_HELP);
     MACSBUG_COMMAND(ip,   IP_HELP);
+    MACSBUG_COMMAND(mr,   MR_HELP);
     MACSBUG_COMMAND(sb,   SB_HELP);
     MACSBUG_COMMAND(sc,   SC_HELP);
     MACSBUG_COMMAND(si,   SI_HELP);
@@ -1747,7 +1985,10 @@ void init_from_gdb(void)
     MACSBUG_COMMAND(sm,   SM_HELP);
     MACSBUG_COMMAND(so,   SO_HELP);
     MACSBUG_COMMAND(sw,   SW_HELP);
+    MACSBUG_COMMAND(t,    T_HELP);
     MACSBUG_COMMAND(td,   TD_HELP);
+    MACSBUG_COMMAND(tf,   TF_HELP);
+    MACSBUG_COMMAND(tv,   TV_HELP);
     MACSBUG_COMMAND(wh,   WH_HELP);
     
     COMMAND_ALIAS(id, idp);
@@ -1767,8 +2008,9 @@ void init_from_gdb(void)
     MACSBUG_COMMAND(sp, HELP_SP);
     MACSBUG_COMMAND(rn, RN_HELP);
     
-    gdb_define_plugin("ra", ra, Gdb_Running, RA_HELP);
-    
+    gdb_define_cmd("ra", ra, Gdb_Running, RA_HELP);
+    gdb_enable_filename_completion("ra");
+       
     init_macsbug_utils();
     init_macsbug_display();
     init_macsbug_patches();
@@ -1778,4 +2020,8 @@ void init_from_gdb(void)
     gdb_continue_command = gdb_replace_command("continue", NULL);
     if (!gdb_continue_command)
 	gdb_internal_error("internal error - continue command not found");
+    
+    if (!isatty(STDOUT_FILENO)) {
+    	gdb_fixup_document_help("mb-notes");
+    }
 }

@@ -20,17 +20,29 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include <SystemConfiguration/SystemConfiguration.h>
+/*
+ * Modification History
+ *
+ * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * - public API conversion
+ *
+ * January 1, 2001		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
 #include <unistd.h>
 
+#include <SystemConfiguration/SystemConfiguration.h>
+#include <SystemConfiguration/SCPrivate.h>
 
-boolean_t	apply	= TRUE;
+
+Boolean	apply	= TRUE;
 
 
 void
 usage(const char *command)
 {
-	SCDLog(LOG_ERR, CFSTR("usage: %s [-n] new-set-name"), command);
+	SCPrint(TRUE, stderr, CFSTR("usage: %s [-n] new-set-name\n"), command);
 	return;
 }
 
@@ -46,8 +58,7 @@ main(int argc, char **argv)
 	CFStringRef		newSet		= NULL;	/* set key */
 	CFStringRef		newSetUDN	= NULL;	/* user defined name */
 	CFStringRef		prefix;
-	SCPStatus		status;
-	SCPSessionRef		session;
+	SCPreferencesRef	session;
 	CFDictionaryRef		sets;
 	CFIndex			nSets;
 	void			**setKeys;
@@ -56,15 +67,14 @@ main(int argc, char **argv)
 
 	/* process any arguments */
 
-	SCDOptionSet(NULL, kSCDOptionUseSyslog, FALSE);
-
 	while ((opt = getopt(argc, argv, "dvn")) != -1)
 		switch(opt) {
 		case 'd':
-			SCDOptionSet(NULL, kSCDOptionDebug, TRUE);
+			_sc_debug = TRUE;
+			_sc_log   = FALSE;	/* enable framework logging */
 			break;
 		case 'v':
-			SCDOptionSet(NULL, kSCDOptionVerbose, TRUE);
+			_sc_verbose = TRUE;
 			break;
 		case 'n':
 			apply = FALSE;
@@ -82,11 +92,9 @@ main(int argc, char **argv)
 			? CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingMacRoman)
 			: CFSTR("");
 
-	status = SCPOpen(&session, CFSTR("Select Set Command"), NULL, 0);
-	if (status != SCP_OK) {
-		SCDLog(LOG_ERR,
-		       CFSTR("SCPOpen() failed: %s"),
-		       SCPError(status));
+	session = SCPreferencesCreate(NULL, CFSTR("Select Set Command"), NULL);
+	if (!session) {
+		SCPrint(TRUE, stderr, CFSTR("SCPreferencesCreate() failed\n"));
 		exit (1);
 	}
 
@@ -100,7 +108,7 @@ main(int argc, char **argv)
 
 		range = CFStringFind(str, CFSTR("/"), 0);
 		if (range.location != kCFNotFound) {
-			SCDLog(LOG_ERR, CFSTR("Set \"%@\" not available."), newSet);
+			SCPrint(TRUE, stderr, CFSTR("Set \"%@\" not available\n."), newSet);
 			exit (1);
 		}
 
@@ -108,32 +116,26 @@ main(int argc, char **argv)
 		newSet = str;
 	}
 
-	status = SCPGet(session, kSCPrefSets, (CFPropertyListRef *)&sets);
-	if (status != SCP_OK) {
-		SCDLog(LOG_ERR, CFSTR("SCDGet(...,%s,...) failed: %s"), SCPError(status));
+	sets = SCPreferencesGetValue(session, kSCPrefSets);
+	if (!sets) {
+		SCPrint(TRUE, stderr, CFSTR("SCPreferencesGetValue(...,%s,...) failed\n"));
 		exit (1);
 	}
 
-	status = SCPGet(session, kSCPrefCurrentSet, (CFPropertyListRef *)&current);
-	switch (status) {
-		case SCP_OK :
-			if (CFStringHasPrefix(current, prefix)) {
-				CFMutableStringRef	tmp;
+	current = SCPreferencesGetValue(session, kSCPrefCurrentSet);
+	if (current) {
+		if (CFStringHasPrefix(current, prefix)) {
+			CFMutableStringRef	tmp;
 
-				tmp = CFStringCreateMutableCopy(NULL, 0, current);
-				CFStringDelete(tmp, CFRangeMake(0, CFStringGetLength(prefix)));
-				current = tmp;
-			} else {
-				currentMatched = -1;	/* not prefixed */
-			}
-			break;
-		case SCP_NOKEY :
-			current = CFSTR("");
-			currentMatched = -2;	/* not defined */
-			break;
-		default :
-			SCDLog(LOG_ERR, CFSTR("SCDGet(...,%s,...) failed: %s"), SCPError(status));
-			exit (1);
+			tmp = CFStringCreateMutableCopy(NULL, 0, current);
+			CFStringDelete(tmp, CFRangeMake(0, CFStringGetLength(prefix)));
+			current = tmp;
+		} else {
+			currentMatched = -1;	/* not prefixed */
+		}
+	} else {
+		current = CFSTR("");
+		currentMatched = -2;	/* not defined */
 	}
 
 	nSets = CFDictionaryGetCount(sets);
@@ -174,23 +176,23 @@ main(int argc, char **argv)
 	}
 
 	if (argc == 2) {
-		SCDLog(LOG_ERR, CFSTR("Set \"%@\" not available."), newSet);
+		SCPrint(TRUE, stderr, CFSTR("Set \"%@\" not available.\n"), newSet);
 	} else {
 		usage(command);
 	}
 
-	SCDLog(LOG_ERR, CFSTR(""));
-	SCDLog(LOG_ERR,
-	       CFSTR("Defined sets include:%s"),
-	       (currentMatched > 0) ? " (* == current set)" : "");
+	SCPrint(TRUE, stderr, CFSTR("\n"));
+	SCPrint(TRUE, stderr,
+		CFSTR("Defined sets include:%s\n"),
+		(currentMatched > 0) ? " (* == current set)" : "");
 
 	for (i=0; i<nSets; i++) {
 		CFStringRef	key  = (CFStringRef)    setKeys[i];
 		CFDictionaryRef	dict = (CFDictionaryRef)setVals[i];
 		CFStringRef	udn  = CFDictionaryGetValue(dict, kSCPropUserDefinedName);
 
-		SCDLog(LOG_ERR,
-			CFSTR(" %s %@\t(%@)"),
+		SCPrint(TRUE, stderr,
+			CFSTR(" %s %@\t(%@)\n"),
 			((currentMatched > 0) && CFEqual(key, current)) ? "*" : " ",
 			key,
 			udn ? udn : CFSTR(""));
@@ -198,16 +200,13 @@ main(int argc, char **argv)
 
 	switch (currentMatched) {
 		case -2 :
-			SCDLog(LOG_ERR, CFSTR(""));
-			SCDLog(LOG_ERR, CFSTR("CurrentSet not defined"));
+			SCPrint(TRUE, stderr, CFSTR("\nCurrentSet not defined.\n"));
 			break;
 		case -1 :
-			SCDLog(LOG_ERR, CFSTR(""));
-			SCDLog(LOG_ERR, CFSTR("CurrentSet \"%@\" may not be valid"), current);
+			SCPrint(TRUE, stderr, CFSTR("\nCurrentSet \"%@\" may not be valid\n"), current);
 			break;
 		case  0 :
-			SCDLog(LOG_ERR, CFSTR(""));
-			SCDLog(LOG_ERR, CFSTR("CurrentSet \"%@\" not valid"), current);
+			SCPrint(TRUE, stderr, CFSTR("\nCurrentSet \"%@\" not valid\n"), current);
 			break;
 		default :
 			break;
@@ -217,38 +216,30 @@ main(int argc, char **argv)
 
     found :
 
-	status = SCPSet(session, kSCPrefCurrentSet, current);
-	if (status != SCP_OK) {
-		SCDLog(LOG_ERR,
-			CFSTR("SCDSet(...,%@,%@) failed: %s"),
+	if (!SCPreferencesSetValue(session, kSCPrefCurrentSet, current)) {
+		SCPrint(TRUE, stderr,
+			CFSTR("SCPreferencesSetValue(...,%@,%@) failed\n"),
 			kSCPrefCurrentSet,
-			current,
-			SCPError(status));
+			current);
 		exit (1);
 	}
 
-	status = SCPCommit(session);
-	if (status != SCP_OK) {
-		SCDLog(LOG_ERR, CFSTR("SCPCommit() failed: %s"), SCPError(status));
+	if (!SCPreferencesCommitChanges(session)) {
+		SCPrint(TRUE, stderr, CFSTR("SCPreferencesCommitChanges() failed\n"));
 		exit (1);
 	}
 
 	if (apply) {
-		status = SCPApply(session);
-		if (status != SCP_OK) {
-			SCDLog(LOG_ERR, CFSTR("SCPApply() failed: %s"), SCPError(status));
+		if (!SCPreferencesApplyChanges(session)) {
+			SCPrint(TRUE, stderr, CFSTR("SCPreferencesApplyChanges() failed\n"));
 			exit (1);
 		}
 	}
 
-	status = SCPClose(&session);
-	if (status != SCP_OK) {
-		SCDLog(LOG_ERR, CFSTR("SCPClose() failed: %s"), SCPError(status));
-		exit (1);
-	}
+	CFRelease(session);
 
-	SCDLog(LOG_NOTICE,
-		CFSTR("%@ updated to %@ (%@)"),
+	SCPrint(TRUE, stdout,
+		CFSTR("%@ updated to %@ (%@)\n"),
 		kSCPrefCurrentSet,
 		newSet,
 		newSetUDN ? newSetUDN : CFSTR(""));

@@ -215,14 +215,8 @@ WriteOneMachErrorDefine(file, name, timeout)
     fprintf(file, "\tswitch (_R_) { \\\n");
     fprintf(file, "\tcase MACH_SEND_INVALID_REPLY: \\\n");
     fprintf(file, "\tcase MACH_RCV_INVALID_NAME: \\\n");
-    fprintf(file, "\tcase MACH_RCV_IN_SET: \\\n");
     fprintf(file, "\tcase MACH_RCV_PORT_DIED: \\\n");
     fprintf(file, "\tcase MACH_RCV_PORT_CHANGED: \\\n");
-    fprintf(file, "\tcase MACH_SEND_INVALID_MEMORY: \\\n");
-    fprintf(file, "\tcase MACH_SEND_INVALID_RIGHT: \\\n");
-    fprintf(file, "\tcase MACH_SEND_INVALID_TYPE: \\\n");
-    fprintf(file, "\tcase MACH_SEND_MSG_TOO_SMALL: \\\n");
-    fprintf(file, "\tcase MACH_SEND_INVALID_RT_OOL_SIZE: \\\n");
     if (timeout)
         fprintf(file, "\tcase MACH_RCV_TIMED_OUT: \\\n");
     fprintf(file, "\t\tmig_dealloc_reply_port(InP->Head.msgh_reply_port); \\\n");
@@ -353,7 +347,7 @@ WriteVarDecls(file, rt)
     FILE *file;
     routine_t *rt;
 {
-    register i;
+    register int i;
 
     if (rt->rtOverwrite) {
 	fprintf(file, "\tRequest MessRequest;\n");
@@ -1700,8 +1694,12 @@ WriteExtractKPD_port(file, arg)
 	    register argument_t *count = arg->argCount;
 	    register char *cref = count->argByReferenceUser ? "*" : "";
 
-	    fprintf(file, "\t    if (Out%dP->%s > %s%s)\n",  count->argReplyPos, 
-		count->argVarName, cref, count->argVarName);
+	    fprintf(file, "\t    if (Out%dP->%s >",count->argReplyPos, count->argVarName);
+	    if (arg->argCountInOut) {
+		fprintf(file, " %s%s)\n", cref, count->argVarName);
+	    } else {
+		fprintf(file, " %d)\n", it->itNumber/it->itElement->itNumber);
+	    }
 	    WriteReturnMsgError(file, arg->argRoutine, TRUE, arg, "MIG_ARRAY_TOO_LARGE");
 	}
 	fprintf(file, "\t}\n");
@@ -1833,10 +1831,12 @@ WriteExtractArgValueNormal(file, arg)
 
 	    /* Note count->argMultiplier == btype->itNumber */
 	    /* Note II: trailer logic isn't supported in this case */
-
 	    fprintf(file, "\tif (Out%dP->%s", count->argReplyPos, count->argMsgField);
-	    fprintf(file, " > %s%s) {\n",
-		countRef, count->argVarName);
+	    if (arg->argCountInOut) {
+		fprintf(file, " > %s%s) {\n", countRef, count->argVarName);
+	    } else {
+		fprintf(file, " > %d) {\n", argType->itNumber/btype->itNumber);
+	    }
 
 	    /*
 	     * If number of elements is too many for user receiving area,
@@ -1847,9 +1847,11 @@ WriteExtractArgValueNormal(file, arg)
 		ref, arg->argVarName, arg->argReplyPos, arg->argMsgField);
 	    if (btype->itTypeSize > 1)
 		fprintf(file, "%d * ", btype->itTypeSize);
-	    fprintf(file, "%s%s);\n",
-		countRef, count->argVarName);
-
+	    if (arg->argCountInOut) {
+		fprintf(file, " %s%s);\n", countRef, count->argVarName);
+	    } else {
+		fprintf(file, " %d);\n", argType->itNumber/btype->itNumber);
+	    }
 	    fprintf(file, "\t\t%s%s = Out%dP->%s",
 		     countRef, count->argVarName, count->argReplyPos, count->argMsgField);
 	    fprintf(file, ";\n");
@@ -2058,17 +2060,14 @@ WriteRPCArgDescriptor(file, arg, offset)
 
 void
 WriteRPCRoutineDescriptor(file, rt, arg_count, descr_count,
-			  work_routine, stub_routine, sig_array)
+			  stub_routine, sig_array)
     FILE *file;
     register routine_t *rt;
     int arg_count, descr_count;
-    string_t work_routine, stub_routine, sig_array;
+    string_t stub_routine, sig_array;
 {
-    register argument_t *arg;
-
-    fprintf(file, "          { (mig_impl_routine_t) %s,\n\
-            (mig_stub_routine_t) %s, ",
-	    work_routine, stub_routine);
+    fprintf(file, "          { (mig_impl_routine_t) 0,\n\
+            (mig_stub_routine_t) %s, ", stub_routine);
     fprintf(file, "%d, %d, %s }", arg_count, descr_count, sig_array);
 }
 
@@ -2115,7 +2114,7 @@ WriteRPCSignature(file, rt)
 
     fprintf(file, "    kern_return_t rtn;\n");
     descr_count = rtCountArgDescriptors(rt->rtArgs, &arg_count);
-    fprintf(file, "    static struct\n    {\n");
+    fprintf(file, "    const static struct\n    {\n");
     fprintf(file, "        struct routine_descriptor rd;\n");
     fprintf(file, "        struct routine_arg_descriptor rad[%d];\n", descr_count);
     fprintf(file, "    } sig =\n    {\n");

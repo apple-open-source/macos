@@ -1,7 +1,7 @@
 #!/bin/sh
 ##
 ##  sign.sh -- Sign a SSL Certificate Request (CSR)
-##  Copyright (c) 1998-2000 Ralf S. Engelschall, All Rights Reserved. 
+##  Copyright (c) 1998-2001 Ralf S. Engelschall, All Rights Reserved. 
 ##
 
 #   argument line handling

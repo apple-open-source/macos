@@ -1,0 +1,456 @@
+% file: .../doc/tcl.tex
+
+% $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/doc/tcl.tex,v 1.1.1.1 2001/05/18 23:14:10 mb Exp $
+% $Log: tcl.tex,v $
+% Revision 1.1.1.1  2001/05/18 23:14:10  mb
+% Move from private repository to open source repository
+%
+% Revision 1.1.1.1  1999/03/16 18:05:54  aram
+% Originals from SMIME Free Library.
+%
+% Revision 1.1  1997/01/01 22:47:40  rj
+% first check-in
+%
+
+\chapter{\label{tcl-if-chapter}Tcl Interface}
+
+\section{\label{intro-tcl-section}Introduction}
+
+This chapter describes the Snacc's Tcl interface, or: the metacode's link to the outside world.
+
+Tcl is a simple scripting language which the author, John K. Ousterhout, describes in his book titled ``Tcl and the TK Toolkit'' \cite{tcl-book}.
+Tcl's purpose is to be embedded into other applications, to provide a user interface by extending the language.
+Tk, an implementation of the Motif look and feel, is the first and best known extension to Tcl and is described in the same book.
+
+Tcl has got only one data type, the NUL terminated character string.
+Tcl supports other data types like integers and lists, but they are represented as strings.
+A function operating on an integer first converts the string into an integer, performs its operation, converts the resulting value back into another string and returns it to the Tcl interpreter.
+Since lists and even the Tcl procedures are kept as strings, Tcl is rather slow.
+Computations in Tcl should best be kept at a minimum, and all intensive work should be wrapped into C or C++ functions and be made available as Tcl commands.
+
+Since procedures and bodies of loops are kept in string form and parsed for every invocation, comments should be put outside code that is executed \emph{very} often.
+
+From Tcl's point of view, Snacc's Tcl interface is nothing but yet another Tcl extension.
+The Snacc Tcl interface extends the Tcl language by only one command, {\Tcl snacc}.
+The first argument to this command specifies the action to be taken.
+This method is very practical for combining Tcl extensions since it avoids collisions with new command names from other extensions.
+For example, the Tcl core defines an {\Tcl open} command.
+Snacc's Tcl interface wants to offer one as well and has to choose another name.
+This could have been done by naming it {\Tcl snacc\_open}, but I think it is better to stick to Tcl's well established convention and so the Tcl interface's open command became {\Tcl snacc open}.
+To simplify the wording, I will refer to the `snacc subcommands' simply as `commands'.
+
+The usual (non-metacode) snacc generated functions operate on memory buffers containing BER encoded data; they convert them into hierarchical C++ data structures and vice versa.
+
+The Tcl interface is designed to allow controlled fine grained access to this hierarchical C++ data structure, to read and modify its contents.
+While both the C++ code and the Tcl look very similar, for example\dots\\[1ex]
+{\C
+// this is C++ code\\
+x-->foo-->bar = 42;\\[1ex]
+}
+\dots\ and\dots\\[1ex]
+{\Tcl
+\# this is Tcl code\\
+snacc set \{x foo bar\} 42
+}
+
+\dots\ the C++ code gets compiled and the identifiers get turned into pointers and numeric offsets, and the Tcl code gets interpreted and has to mimic the C++ compiler at run time.
+This is what the metacode from chapter~\ref{meta-chapter} is for.
+
+To enable snacc's Tcl code generator, you have to give an additional {\ufn -tcl} option, followed by the list of PDU types.
+The {\ufn -meta} option can (and should) be omitted.
+
+\section{The {\Tcl snacc} Tcl command}
+
+This section explains the Tcl (sub)commands provided by the Snacc extension.
+The commands are grouped in three catagories, commands operating on files (both their external and internal representation), commands accessing the meta information and commands operating on the content itself.
+
+The file commands check the return value from system calls and behave like for example the Tcl {\Tcl open} command, that is, they set the {\Tcl errorCode} variable to {\Tcl POSIX \emph{errno}}, e.g. {\Tcl POSIX ENOENT \{No such file or directory\}}.
+
+The code should be fairly robust, not just against user and programmer errors from `outside' (using the {\Tcl snacc} Tcl command), but against errors from the `inside' as well such as illegal numeric values for enumeration types or illegal choice settings as well.
+
+There are two types of errors:
+\begin{enumerate}
+  \item programmer errors, where the program has no other choice as to print a regret to the user and exit
+  \item user errors, such as trying to write to a read-only file, where the program should tell the user about their mistake and let them try something else.
+\end{enumerate}
+The Tcl interface code helps the programmer for the second type of error by setting Tcl's {\Tcl errorCode} variable.
+The program can {\Tcl catch} any error, and, based on the {\Tcl errorCode}, choose to deal with the mistake or rethrow the error that it is not prepared to handle.
+
+\subsection{File commands}
+
+Most snacc Tcl commands operate on so-called files.
+A file is an internal data structure that
+\begin{itemize}
+  \item references the C++ representation of an ASN.1 data structure as a pointer to {\C AsnType}
+  \item may be associated with an external file in the file system
+\end{itemize}
+
+The commands operating on these files are as follows:
+
+\begin{description}%{
+  \item[{\Tcl snacc create \emph{type}}]
+    The command creates a file consisting only of an instance of type \emph{type}.
+    \emph{type} has to be denoted as one argument, a Tcl list with two elements, module and type.
+    No external filename is associated with this file.
+%    The command returns a file handle that consists of letters and digits only and may therefore be used to construct a component in the Tk widget tree.
+
+  \item[{\Tcl snacc open \emph{type filename} ?\emph{flags}? ?\emph{mode}?}]
+    Open a file and read and decode its contents.
+    \emph{type} has to be denoted as one argument, a list with two elements, module and type.
+    The optional \emph{flags} may consist of:
+    \begin{description}
+      \item[{\Tcl create}] If the file does not exist, create it.
+	If this flag is not given and the file does not already exist, an error occurs.
+      \item[{\Tcl truncate}] If the file exists, drop its contents.
+      \item[{\Tcl \emph{access}}] which may be either {\Tcl ro} or {\Tcl rw}, denoting read only and read/write access.
+	If no access mode is specified, the file will be opened read/write if it is writable, and read only otherwise.
+    \end{description}
+    If the file is created, its mode is set to \emph{mode}, minus umask, of course.
+    \emph{mode} may be any value accepted by {\C Tcl\_GetInt(3)} (the function accepts octal values).
+    At last, if the file could be opened, its contents is read and BER decoded.
+    As for {\Tcl snacc create} above, a file handle is returned.
+
+    If the file cannot be opened, an error is returned identical to Tcl's {\Tcl open} command.
+
+    More errors can be returned, as described under {\Tcl snacc read} below.
+
+  \item[{\Tcl snacc close \emph{file}}]
+    closes the file \emph{file} and invalidates the file handle.
+
+  \item[{\Tcl snacc read \emph{file} ?\emph{type filename}?}]
+    without the \emph{filename}, rereads the file from its old place; otherwise opens \emph{filename}, reads its contents into \emph{file} and closes it.
+    The file's contents gets BER decoded.
+
+    In case no \emph{filename} has been given but the \emph{file} is not associated with a filename, an error is returned and {\Tcl errorCode} is set to {\Tcl SNACC MUSTOPEN}.
+
+    If Snacc's decoding routines detect an error, a Tcl error is returned and {\Tcl errorCode} is set to {\Tcl SNACC DECODE \emph{errval}} where \emph{errval} is the value returned by {\C setjmp()} (see sections~\ref{error-C++-section} and~\ref{lib-err-C-section} on pages~\pageref{error-C++-section} and~\pageref{lib-err-C-section}, respectively).
+
+    If the input file is too short, the buffer will signal a read error and a Tcl error will be returned, with {\Tcl errorCode} set to {\Tcl SNACC DECODE EOBUF}.
+
+  \item[{\Tcl snacc write \emph{file} ?\emph{filename}?}]
+    BER encodes the file, then writes the file to its old place in case no \emph{filename} has been given, or opens \emph{filename}, writes \emph{file} into it and closes it.
+
+    In case no \emph{filename} has been given but the \emph{file} is not associated with a filename, an error is returned and {\Tcl errorCode} is set to {\Tcl SNACC MUSTOPEN}.
+    If you try to write to a read-only file, an error is returned and {\Tcl errorCode} is set to {\Tcl SNACC WRITE READONLY}.
+
+  \item[{\Tcl snacc finfo \emph{file}}]
+    returns a list with two elements, the file name associated with it (the empty string if no external file name is associated with it) and an identifier which may be
+    \begin{description}%{
+      \item[{\Tcl bad}] the file is not associated with an external file.
+      \item[{\Tcl rw}] the external file has been opened read/write.
+      \item[{\Tcl ro}] the external file has been opened read only.
+    \end{description}%}
+\end{description}%}
+
+Since Tcl cannot operate on binary strings (that is, strings containing NUL bytes), but ASN.1 octet strings may contain arbitrary binary data, the binary data has to be converted into a replacement notation that Tcl can work with and that can be converted back to binary without loss of information.
+The conversion I chose is fairly simple: NUL is converted into a backslash followed by a zero digit, and every backslash is doubled.
+
+These conversions for the most part take place automatically.
+In fact, there is only one point where the binary representation is necessary, when you want to read or write data from or into a file on disk.
+Two functions have been written to offer this: the export function converts and writes an octet string to an external file, and the import function reads binary data from a file and converts it to the Tcl compatible representation.
+Unlike the functions described above, these two do not operate on ASN.1 files, that is, the contents is not BER decoded/encoded, but may be used for any file in the file system.
+
+\begin{description}%{
+  \item[{\Tcl snacc import \emph{filename}}] opens the file named, reads its contents, closes it, performs the above described conversion and returns the resulting Tcl string.
+  \item[{\Tcl snacc export \emph{string filename}}] converts the Tcl string into its binary counterpart, opens the file named, writes the binary buffer into it and closes it.
+    The file is created and truncated as necessary.
+    The command returns the empty string.
+\end{description}%}
+
+\subsection{Generic Information Retrieval}
+
+The following functions return information about the modules and their types.
+(This information is independent of any file instance, it is the information from the type descriptions in the {\ufn .asn1} files.)
+
+\begin{description}%{
+  \item[{\Tcl snacc modules}]
+    returns a list of module identifiers.
+  \item[{\Tcl snacc types ?\emph{module}?}]
+    if a \emph{module} is specified, returns a list of all type names of that module.
+    otherwise, a list of all types is returned as a list of pairs, where each pair consists of the module name and the type name.
+  \item[{\Tcl snacc type \emph{type}}]
+    where \emph{type} is a list with two elements, module and type.
+    This command returns a list with the following four elements:
+    \begin{enumerate}%{
+    \setcounter{enumi}{-1}
+      \item the content type as a list consisting of module name and type name
+      \item an identifier that is either {\Tcl pdu} or {\Tcl sub} depending on the list of PDUs that had been given after snacc's {\ufn -tcl} option.
+      \item the ASN.1 type (e.g. INTEGER or CHOICE)
+      \item a list of items that depends on the ASN.1 type:
+      \begin{description}%{
+	\item[INTEGER] a (possibly empty) list of pairs of name and value for each named value.
+	\item[ENUMERATED] a (non-empty) list of names.
+	\item[SET, SEQUENCE \textnormal{and} CHOICE] a list of lists of four elements similar to that being described here.
+	  Element~0 is the subtypes name, then follow content type (a pair consisting of module name and type name), \emph{pdu} vs. \emph{sub} and finally the ASN.1 type.
+	  (The fourth element of the outer list is omitted for obvious reasons: it would explode the type's description.)
+      \end{description}%}
+    \end{enumerate}%}
+\end{description}%}
+
+\subsection{Operations on Content and Structure}
+
+Finally, the last last four functions operate on the file instances itself.
+All four commands get a \emph{path} argument that is constructed as follows:
+\begin{itemize}
+  \item Every \emph{path} starts with a file handle as returned by {\Tcl snacc create} or {\Tcl snacc open}.
+  \item All subsequent path elements, except for the last, must indicate elements of composed types.
+    For CHOICE, SET and SEQUENCE, these are member names, for SET OF and SEQUENCE OF, these are numeric indices.
+  \item The last path element may reference a simple type.
+  \item For SET OF and SEQUENCE OF, instead of a numeric index, a pair consisting of the word {\Tcl insert} followed by a numeric index may be specified.
+    In this case, a new list element is inserted before that addressed by the index.
+    The index must be in the range $0\ldots{}n-1$ to address existing elements and it must be in the range $0\ldots{}n$ for insertion, where in both cases $n$ is the number of elements in the list.
+  \item For {\Tcl snacc unset}, the path must point to an optional member of a SET or SEQUENCE or to an element of a SET OF or SEQUENCE OF.
+\end{itemize}
+
+The commands are:
+\begin{description}%{
+  \item[{\Tcl snacc info \emph{path}}] returns information about the value pointed to by \emph{path}.
+    The information returned is quite similar to that of {\Tcl snacc type} above, with the following exceptions:
+    \begin{itemize}%{
+      \item element~0, the content type, contains empty names for types that have not been given a name (e.g. a SET member of type OCTET STRING
+	Example: the {\ASN contents} member in type {\ASN File} in file {\ufn edex1.asn1} (page~\pageref{edex1.asn1}) {\Tcl snacc info} returns {\Tcl \{\{\} \{\}\} sub \{OCTET STRING\}}).
+      \item the number of elements depends on the ASN.1 type:
+	\begin{description}%{
+	  \item simple types (\textbf{NULL}, \textbf{BOOLEAN}, \textbf{INTEGER}, \textbf{ENUMERATED}, \textbf{REAL}, \textbf{BIT STRING} and \textbf{OCTET STRING}):
+	    no additional elements are returned.
+	    For the list of named values for INTEGER, ENUMERATED and BIT STRING, you have to call {\Tcl snacc type [lindex [snacc info \emph{path}]~0]}, unless the content type equals {\Tcl \{\{\}~\{\}\}}.
+	  \item[CHOICE]
+	    a total of five elements is returned, number~3 is the name of the choice member currently chosen, and the final element number~4 is an identifier that is either {\Tcl void} or {\Tcl valid} depending on whether the pointer representing the choice member is {\C NULL} or pointing to some data.
+	  \item[SET \textnormal{and} SEQUENCE]
+	    a fourth element, a list of pairs, is returned, where the pairs are built from the member name and an identifier that is either {\Tcl valid} or {\Tcl void}
+	  \item[SET OF \textnormal{and} SEQUENCE OF]
+	    the number of items is returned as element number~3.
+	\end{description}%}
+    \end{itemize}%}
+  \item[{\Tcl snacc get \emph{path}}]
+    returns the value of the subtree pointed to by \emph{path}.
+    The value returned is a simple string for simple types, and a hierarchical structure (in Tcl that is a list of lists) otherwise.
+    \begin{description}%{
+      \item[NULL]
+	the empty string is returned.
+      \item[BOOLEAN]
+	the value is returned as {\Tcl TRUE} or {\Tcl FALSE}.
+      \item[INTEGER]
+	the numeric value is returned, even if it has been assigned a name.
+      \item[ENUMERATED]
+	the symbolic value is returned.
+	The numeric values are inaccessible through the Tcl interface.
+	If the object happens to contain an illegal numeric value, an error is returned and {\Tcl errorCode} is set to {\Tcl SNACC ILLENUM}.
+      \item[REAL]
+	the value is returned as formatted by {\C sprintf (\dots, "\%g", \dots)}, except for the special values {\ASN PLUS-INFINITY} and {\ASN MINUS-INFINITY} which are returned as {\Tcl +inf} and {\Tcl -inf}, respectively.
+      \item[BIT STRING]
+	a string, consisting solely of `0' and `1', is returned.
+      \item[OCTET STRING]
+	the binary string is returned as is, except for the unavoidable NUL-escape described above.
+      \item[OBJECT IDENTIFIER]
+	the value is returned as a list of numbers.
+      \item[CHOICE]
+	is returned as a pair, the choice member chosen and its value.
+      \item[SET \textnormal{and} SEQUENCE]
+	are returned as a list of pairs of member name and value.
+	Absent OPTIONAL members are left out from the list.
+      \item[SET OF \textnormal{and} SEQUENCE OF]
+	are returned as a list of values.
+    \end{description}%}
+  \item[{\Tcl snacc set \emph{path value}}] sets the subtree identified by \emph{path} to \emph{value}.
+    The value must be of the form 
+    \begin{description}%{
+      \item[NULL]
+	the only legal value is the empty string.
+	otherwise, an error is returned and {\Tcl errorCode} is set to {\Tcl SNACC ILLNULL}.
+      \item[BOOLEAN]
+	any value that is accepted by {\C Tcl\_GetBoolean}(3) is fine.
+      \item[INTEGER]
+	both the numeric (as accepted by {\C Tcl\_GetInt(3)}) and the symbolic values are allowed.
+      \item[ENUMERATED]
+	any value must be specified by its name.
+	If an illegal name is given, an error is returned and {\Tcl errorCode} is set to {\Tcl SNACC ILLENUM}.
+      \item[REAL]
+	the special values {\ASN PLUS-INFINITY} and {\ASN MINUS-INFINITY} have to be given as {\Tcl +inf} and {\Tcl -inf}, respectively.
+	All other values may be specified in any format accepted by {\C Tcl\_GetDouble}(3).
+      \item[BIT STRING]
+	a string that must consist of `0' and `1' only has to be given.
+	otherwise, an error is returned and {\Tcl errorCode} is set to {\Tcl SNACC ILLBIT}.
+      \item[OCTET STRING]
+	due to the NUL-escapes necessary, any string where a backslash is followed by either another backslash or a `0' digit is legal.
+	Improper use of the escape character leads to an error and {\Tcl errorCode} will be set to {\Tcl SNACC ILLESC}.
+      \item[OBJECT IDENTIFIER]
+	the value has to be specified as a list of numbers.
+	if the arc has less than 2 or more than 10 elements, an error is returned and {\Tcl errorCode} is set to {\Tcl SNACC ILLARC <2} or {\Tcl SNACC ILLARC >10}, respectively.
+      \item[CHOICE]
+	the value expected is a pair, the choice member chosen and its value.
+	if an illegal member is specified, an error is returned and {\Tcl errorCode} is set to {\Tcl SNACC ILLCHOICE}.
+      \item[SET \textnormal{and} SEQUENCE]
+	the value has got to be a list of pairs of member name and value.
+	Any member may be specified at most once.
+	All mandatory members must be present.
+	Failure to do so will result in an error and {\Tcl errorCode} to be set to {\Tcl SNACC DUPMEMB} or {\Tcl SNACC MISSMAND}, respectively.
+	All optional members not listed in the value will be deallocated.
+      \item[SET OF \textnormal{and} SEQUENCE OF]
+	the whole list is replaced with the specified value that has to be a proper Tcl list.
+    \end{description}%}
+  \item[{\Tcl snacc unset \emph{path}}]
+    unsets the subtree pointed to by \emph{path}.
+    Only OPTIONAL members of SET and SEQUENCE types and list elements of SEQ OF and SEQUENCE OF may be unset.
+    If you try to unset a mandatory SET or SEQUENCE member, an error is returned and {\Tcl errorCode} is set to {\Tcl SNACC MANDMEMB}.
+\end{description}%}
+
+I did not follow Tk's example where one has to set widget commands to {\Tcl \{\}} to delete them.
+This method would have the drawback that one could not distinguish between an empty and a non-existing octet string (in C that would be {\C ""} vs. {\C NULL}).
+
+The value returned by {\Tcl snacc get} may be very long, {\Tcl snacc get file0} returns the contents of the whole file!
+
+\section{\label{snacc-examples}Examples}
+
+The following example session shall illustrate the {\Tcl snacc} commands usage.
+It assumes that the editor example files {\ufn edex0.asn1} and {\ufn edex1.asn1} (see appendix~\ref{edex-files} on page~\pageref{edex-files}) have been compiled into a binary that has been linked with the necessary libraries.
+
+The notation used is as in the Tcl book \cite{tcl-book}, i.e. `$\Rightarrow$' indicates a normal return value and `$\varnothing$' indicates an error with the error message set in {\Tcl \emph{oblique typeface}}.
+
+A look at the types available:
+
+\begin{Tclex}
+   & snacc types\\
+\R & \{EdEx-Simple Hand\} \{EdEx-Structured StructuredChoice\} \{EdEx-Structured Coordinate\} \{EdEx-Structured CoordinateSeq\} \{EdEx-Structured RGBColor\} \{EdEx-Structured Simple\} \{EdEx-Simple File\} \{EdEx-Simple RainbowColor\} \{EdEx-Structured DirectorySetOf\} \{EdEx-Structured Various\} \{EdEx-Structured File1\} \{EdEx-Structured CoordinateSeq1\} \{EdEx-Structured Directory\} \{EdEx-Structured Structured\} \{EdEx-Simple DayOfTheWeek\}
+\end{Tclex}
+
+Create a file (without filename):
+
+\begin{Tclex}
+   & set file [snacc create \{EdEx-Structured Structured\}]\\
+\R & file0
+\end{Tclex}
+
+The string returned is the file handle. It is used as the first snaccpath component in successive calls.
+
+Look at the file's type:
+
+\begin{Tclex}
+   & snacc info \$file\\
+\R & \{EdEx-Structured Structured\} sub SET \{\{coord valid\} \{color valid\}\}
+\end{Tclex}
+
+The file's type is a SET with the name `Structured' in module `EdEx-Structured' (it is defined in file {\ufn edex1.asn1} (see page~\pageref{edex1.asn1})).
+The `sub' tells us that the type has not been marked as a PDU.
+The SET has the components `coord' and `color', both are present (they are not OPTIONAL, i.e. mandatory).
+
+Look at a component's type:
+
+\begin{Tclex}
+   & snacc info "\$file color"\\
+\R & \{EdEx-Structured StructuredChoice\} sub CHOICE rainbow valid
+\end{Tclex}
+
+Snacc has generated the type name `StructuredChoice' for this type, this name was not defined in the {\ufn .asn1} file.
+The CHOICE object currently is set to `rainbow'.
+A CHOICE component is always present (CHOICE components may not be OPTIONAL), the `valid' is just for completeness.
+
+Ask for the CHOICE's generic type information:
+
+\begin{Tclex}
+   & snacc type \{EdEx-Structured StructuredChoice\}\\
+\R & \{EdEx-Structured StructuredChoice\} sub CHOICE \{\{rainbow \{EdEx-Simple RainbowColor\} sub INTEGER\} \{rgb \{EdEx-Structured RGBColor\} sub SEQUENCE\}\}
+\end{Tclex}
+
+The CHOICE type has two possible components, `rainbow', an INTEGER and `rgb', a SEQUENCE.
+
+Look at the INTEGER's type information:
+
+\begin{Tclex}
+   & snacc type \{EdEx-Simple RainbowColor\}\\
+\R & \{EdEx-Simple RainbowColor\} sub INTEGER \{\{red~0\} \{orange~1\} \{yellow~2\} \{green~3\} \{blue~4\} \{indigo~5\} \{violet~6\}\}
+\end{Tclex}
+
+The type has got named values.
+
+Access the file contents:
+
+\begin{Tclex}
+   & snacc get \$file\\
+\R & \{coord \{cartesian \{\{x 0\} \{y 0\}\}\}\} \{color \{rainbow 977768\}\}
+\end{Tclex}
+
+The color component contains garbage.
+Change that:
+
+\begin{Tclex}
+   & snacc set "\$file color rainbow" green\\
+\R &\\
+   & snacc get "\$file color"\\
+\R & rainbow 3
+\end{Tclex}
+
+Change it again, select the CHOICE's other component type, `rgb', and set its `red' component:
+
+\begin{Tclex}
+   & snacc set "\$file color rgb red" 256\\
+\R &
+\end{Tclex}
+
+Changing a CHOICE component selection work only for write access, on read access this is not possible:
+
+\begin{Tclex}
+   & snacc get "\$file color rainbow"\\
+\E & \emph{snacc get: illegal component "rainbow" in path}\\
+   & snacc get "\$file color rgb"\\
+\R & \{red 256\} \{green 544501616\} \{blue 1814045815\}
+\end{Tclex}
+
+Upon setting a SET or SEQUENCE type, all mandatory members have to be specified:
+
+\begin{Tclex}
+   & snacc set "\$file color rgb" \{\{green 0\} \{blue 0\}\}\\
+\E & \emph{mandatory member "red" is missing in list}\\
+   & snacc set "\$file color rgb" \{\{red 0\} \{green 256\} \{blue 0\}\}\\
+\R &\\
+   & snacc get "\$file color"\\
+\R & rgb \{\{red 0\} \{green 256\} \{blue 0\}\}
+\end{Tclex}
+
+Finish up:
+
+\begin{Tclex}
+   & snacc close \$file\\
+\R &\\
+   & snacc get \$file\\
+\E & \emph{snacc get: no file named "file0"}
+\end{Tclex}
+
+\section{\label{tcl-if-impl}Implementation}
+
+The Tcl interface is implemented in {\ufn \dots/c++-lib/inc/tcl-if.h} and {\ufn \dots/c++-lib/src/tcl-if.C}.
+It gets initialized with the help of {\ufn \dots/c++-lib/inc/init.h} and {\ufn \dots/c++-lib/src/tkAppInit.c}.
+
+The {\Tcl snacc} commands implementation is pretty straight forward: check the arguments, call a metacode function to perform an action and return the result, which may indicate success or an error.
+
+Care has been taken to check the return codes of all system calls and to set Tcl's {\Tcl errorCode} variable in case any system call returns an error.
+
+The file {\ufn tkAppInit.c} contains the function that introduces the {\Tcl snacc} Tcl command to the Tcl interpreter.
+The path that leads to the function's invocation is a little tricky and is described in section~\ref{editor-building}, ``Building Your Own Editor''.
+
+\section{Setup for the Tcl Code Generator}
+
+To compile Snacc with the Tcl interface code generator, you have got to fulfill the following conditions:
+\begin{itemize}
+  \item the configure script must be able to find {\ufn tclsh} and the Tcl/Tk libraries
+  \item the preprocessor switches {\C NO\_META} and {\C NO\_TCL} in {\ufn \dots/policy.h} must not be set
+\end{itemize}
+
+\section{\label{tcl-if-deficiencies}Deficiencies}
+
+\begin{itemize}
+  \item
+    Values defined in the ASN.1 files currently are inaccessible.
+    Adding access functions to the metacode and Tcl interface is rather trivial: build an array of elements that hold a variable's name as a character string and an {\C AsnType~*} that points to the C++ variable.
+    {\C a[i].val-->\_getdesc()} would return a pointer to the variable's type description.
+
+    (First you should fix snacc's value parser as currently it lets some values silently vanish, for example the {\ASN victory} in {\ufn edex0.asn1} that you can find in appendix~\ref{edex0.asn1} on page~\pageref{edex0.asn1}.)
+  \item
+    The Tcl interface does not provide symbolic object identifiers.
+    Mapping numeric to symbolic oids is a task that is difficult to get right since snacc translates\\
+    {\ASN anOidVal OBJECT IDENTIFIER ::= \{ 1 2 foo(3) \}}\\
+    and\\
+    {\ASN anOidVal OBJECT IDENTIFIER ::= \{ 1 2 3 \}\\
+    foo INTEGER ::= 3}\\
+    into identical C++ code, but translating the second {\ASN anOidVal} into {\ASN \{ 1 2 foo \}} may in fact violate {\ASN foo}'s semantics.
+\end{itemize}

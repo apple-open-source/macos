@@ -86,7 +86,9 @@
 #import "AFPUsers.h"
 #import "NetBootServer.h"
 
-#define AFP_USERS_MAX	50
+#define AFP_USERS_MAX		50
+#define ADMIN_GROUP_NAME	"admin"
+#define ROOT_UID		0
 
 /* external functions */
 char *  	ether_ntoa(struct ether_addr *e);
@@ -100,6 +102,12 @@ int		afp_users_max = AFP_USERS_MAX;
 
 #define MAX_RETRY		5
 
+#define SHARED_DIR_PERMS	0775
+#define SHARED_FILE_PERMS	0664
+
+#define CLIENT_DIR_PERMS	0770
+#define CLIENT_FILE_PERMS	0660
+
 /*
  * Define: SHADOW_SIZE_SAME
  * Meaning:
@@ -108,6 +116,8 @@ int		afp_users_max = AFP_USERS_MAX;
  */ 
 #define SHADOW_SIZE_SAME	0 
 #define SHADOW_SIZE_DEFAULT	48
+
+static gid_t		S_admin_gid;
 
 static nbspList_t	S_sharepoints = NULL;
 static boolean_t	S_disk_space_warned = FALSE;
@@ -150,6 +160,60 @@ S_gid_taken(ni_entrylist * id_list, gid_t gid)
 	    return (TRUE);
     }
     return (FALSE);
+}
+
+static boolean_t
+S_set_privs_no_stat(u_char * path, struct stat * sb_p, uid_t uid, gid_t gid,
+		    mode_t mode, boolean_t lock)
+{
+    boolean_t		needs_chown = FALSE;
+    boolean_t		needs_chmod = FALSE;
+
+    if (sb_p->st_uid != uid || sb_p->st_gid != gid)
+	needs_chown = TRUE;
+
+    if ((sb_p->st_mode & ACCESSPERMS) != mode)
+	needs_chmod = TRUE;
+     
+    if (needs_chown || needs_chmod) {
+	if (sb_p->st_flags & UF_IMMUTABLE) {
+	    if (chflags(path, 0) < 0)
+		return (FALSE);
+	}
+	if (needs_chown) {
+	    if (chown(path, uid, gid) < 0)
+		return (FALSE);
+	}
+	if (needs_chmod) {
+	    if (chmod(path, mode) < 0)
+		return (FALSE);
+	}
+	if (lock) {
+	    if (chflags(path, UF_IMMUTABLE) < 0)
+		return (FALSE);
+	}
+    }
+    else if (lock) {
+	if ((sb_p->st_flags & UF_IMMUTABLE) == 0) {
+	    if (chflags(path, UF_IMMUTABLE) < 0)
+		return (FALSE);
+	}
+    }
+    else if (sb_p->st_flags & UF_IMMUTABLE) {
+	if (chflags(path, 0) < 0)
+	    return (FALSE);
+    }
+    return (TRUE);
+}
+
+static boolean_t
+S_set_privs(u_char * path, struct stat * sb_p, uid_t uid, gid_t gid,
+	    mode_t mode, boolean_t lock)
+{
+    if (stat(path, sb_p) != 0) {
+	return (FALSE);
+    }
+    return (S_set_privs_no_stat(path, sb_p, uid, gid, mode, lock));
 }
 
 static boolean_t
@@ -254,6 +318,14 @@ S_read_config()
     return;
 }
 
+static void
+S_update_bootfile_symlink(char * path)
+{
+    (void)mkdir("/private/tftpboot", 0755);
+    (void)symlink(path, "/private/tftpboot/Mac OS ROM");
+    return;
+}
+
 static nbspEntry_t *
 S_find_images(nbspList_t list)
 {
@@ -275,7 +347,15 @@ S_find_images(nbspList_t list)
 	if (stat(path, &sb) < 0) {
 	    continue;
 	}
+	snprintf(path, sizeof(path), "%s/%s", entry->path, S_images_dir);
+	if (S_set_privs(path, &sb, ROOT_UID, S_admin_gid, SHARED_DIR_PERMS, FALSE)
+	    == FALSE) {
+	    syslog(LOG_INFO, "macNC: setting permissions on '%s' failed: %m", 
+		   path);
+	    continue;
+	}
 	images = entry;
+	S_update_bootfile_symlink(path);
 	break;
     }
     return (images);
@@ -288,20 +368,25 @@ S_set_sharepoint_permissions(nbspList_t list, uid_t user, gid_t group)
     int 		i;
 	
     for (i = 0; i < nbspList_count(list); i++) {
-	nbspEntry_t * entry = nbspList_element(list, i);
+	nbspEntry_t * 	entry = nbspList_element(list, i);
+	char		path[PATH_MAX];
+	struct stat	sb;
 
 	/*
 	 * Verify permissions/ownership
-	 * We restrict write access to root only,
-	 * the Mac NC Group gets read/search, and others
-	 * get search only. Others need search because
-	 * clients use TFTP to get the boot file that might be
-	 * on this volume; tftpd runs as user nobody.
 	 */
-	if (chown(entry->path, user, group) < 0
-	    || chmod(entry->path, 0751) < 0) {
-	    syslog(LOG_INFO, "macNC: chmod/chown '%s' failed: %m", 
+	if (S_set_privs(entry->path, &sb, user, group, SHARED_DIR_PERMS, 
+			FALSE) == FALSE) {
+	    syslog(LOG_INFO, "macNC: setting permissions on '%s' failed: %m", 
 		   entry->path);
+	    ret = FALSE;
+	}
+	snprintf(path, sizeof(path), "%s/%s", entry->path, S_client_image_dir);
+	(void)mkdir(path, SHARED_DIR_PERMS);
+	if (S_set_privs(path, &sb, user, group, SHARED_DIR_PERMS, FALSE)
+	    == FALSE) {
+	    syslog(LOG_INFO, "macNC: setting permissions on '%s' failed: %m", 
+		   path);
 	    ret = FALSE;
 	}
     }
@@ -342,7 +427,8 @@ S_cfg_init()
 	return (FALSE);
     }
 
-    if (S_set_sharepoint_permissions(S_sharepoints, 0, netboot_gid) == FALSE) {
+    if (S_set_sharepoint_permissions(S_sharepoints, ROOT_UID, 
+				     S_admin_gid) == FALSE) {
 	return (FALSE);
     }
 
@@ -379,6 +465,7 @@ S_init()
 
     PropList_init(&S_config_netboot, "/config/NetBootServer");
 
+    /* get the netboot group id, or create the group if necessary */
     group_ent_p = getgrnam(NETBOOT_GROUP);
     if (group_ent_p == NULL) {
 #define NETBOOT_GID	120
@@ -389,6 +476,14 @@ S_init()
     else {
 	netboot_gid = group_ent_p->gr_gid;
     }
+
+    /* get the admin group id */
+    group_ent_p = getgrnam(ADMIN_GROUP_NAME);
+    if (group_ent_p == NULL) {
+	syslog(LOG_INFO, "macNC: getgrnam " ADMIN_GROUP_NAME " failed");
+	return (FALSE);
+    }
+    S_admin_gid = group_ent_p->gr_gid;
 
     /* read the configuration directory */
     if (S_cfg_init() == FALSE) {
@@ -528,16 +623,17 @@ S_get_volpath(u_char * path, nbspEntry_t * entry, u_char * dir, u_char * file)
  *   Create the given directory path on the given volume.
  */
 static boolean_t
-S_create_volume_dir(nbspEntry_t * entry, u_char * dirname)
+S_create_volume_dir(nbspEntry_t * entry, u_char * dirname, mode_t mode)
 {
     u_char 		path[PATH_MAX];
 
     S_get_volpath(path, entry, dirname, NULL);
-    if (create_path(path, 0755) < 0) {
+    if (create_path(path, mode) < 0) {
 	syslog(LOG_INFO, "macNC: create_volume_dir: create_path(%s)"
 	       " failed, %m",  path);
 	return (FALSE);
     }
+    (void)chmod(path, mode);
     return (TRUE);
 }
 
@@ -548,17 +644,15 @@ S_create_volume_dir(nbspEntry_t * entry, u_char * dirname)
  *   Create a new empty file with the given size and attributes
  *   from another file.
  */
-#define SHADOW_FILE_PERMS	0700
 static boolean_t
 S_create_shadow_file(u_char * shadow_path, u_char * real_path,
 		     uid_t uid, gid_t gid, unsigned long long size)
 {
     int 		fd;
 
-    S_set_uid_gid(shadow_path, 0, 0);
+    S_set_uid_gid(shadow_path, ROOT_UID, 0);
 
-    fd = open(shadow_path, /* O_NO_MFS | */ O_CREAT | O_TRUNC | O_WRONLY, 
-	      SHADOW_FILE_PERMS);
+    fd = open(shadow_path, O_CREAT | O_TRUNC | O_WRONLY, CLIENT_FILE_PERMS);
     if (fd < 0) {
 	syslog(LOG_INFO, "macNC: couldn't create file '%s': %m", shadow_path);
 	return (FALSE);
@@ -572,7 +666,7 @@ S_create_shadow_file(u_char * shadow_path, u_char * real_path,
     if (S_make_finder_info(shadow_path, real_path) == FALSE) 
 	goto err;
 
-    fchmod(fd, SHADOW_FILE_PERMS);
+    fchmod(fd, CLIENT_FILE_PERMS);
     close(fd);
 
     /* correct the owner of the path */
@@ -641,9 +735,8 @@ S_stat_shared(u_char * shared_path, struct stat * sb_p)
 {
     S_get_volpath(shared_path, S_shared_image_volume, S_images_dir,
 		  S_shared_image_name);
-    if (stat(shared_path, sb_p) != 0)
-	return (FALSE);
-    return (TRUE);
+    return (S_set_privs(shared_path, sb_p, ROOT_UID, S_admin_gid,
+			SHARED_FILE_PERMS, TRUE));
 }
 
 static __inline__ boolean_t
@@ -651,9 +744,17 @@ S_stat_private(u_char * private_path, struct stat * sb_p)
 {
     S_get_volpath(private_path, S_private_image_volume, S_images_dir,
 		  S_private_image_name);
-    if (stat(private_path, sb_p) != 0)
-	return (FALSE);
-    return (TRUE);
+    return (S_set_privs(private_path, sb_p, ROOT_UID, S_admin_gid,
+			SHARED_FILE_PERMS, TRUE));
+}
+
+static __inline__ boolean_t
+S_stat_bootfile(u_char * bootfile_path, struct stat * sb_p)
+{
+    S_get_volpath(bootfile_path, S_shared_image_volume, S_images_dir,
+		  S_default_bootfile);
+    return (S_set_privs(bootfile_path, sb_p, ROOT_UID, S_admin_gid,
+			SHARED_FILE_PERMS, TRUE));
 }
 
 static boolean_t
@@ -708,7 +809,7 @@ S_remove_shadow(u_char * shadow_path, nbspEntry_t * entry, u_char * dir)
     u_char path[PATH_MAX];
 
     /* remove the shadow file */
-    S_set_uid_gid(shadow_path, 0, 0);
+    S_set_uid_gid(shadow_path, ROOT_UID, 0);
     unlink(shadow_path);
     S_get_volpath(path, entry, dir, NULL);
     /* and its directory */
@@ -738,6 +839,8 @@ S_add_image_options(uid_t uid, gid_t gid, struct in_addr servip,
 		    u_char * afp_hostname)
 {
     int			def_vol_index;
+    u_char		dir_path[PATH_MAX];
+    struct stat		dir_statb;
     int			i;
     u_char		nc_images_dir[PATH_MAX];
     nbspEntry_t *	nc_volume = NULL;
@@ -745,6 +848,10 @@ S_add_image_options(uid_t uid, gid_t gid, struct in_addr servip,
     struct stat		statb;
     int			vol_index;
 
+    if (S_stat_bootfile(path, &statb) == FALSE) {
+	syslog(LOG_INFO, "macNC: '%s' does not exist", path);
+	return (FALSE);
+    }
     snprintf(nc_images_dir, sizeof(nc_images_dir),
 	     "%s/%s", S_client_image_dir, afp_hostname);
 
@@ -756,8 +863,8 @@ S_add_image_options(uid_t uid, gid_t gid, struct in_addr servip,
     for (i = 0, vol_index = def_vol_index; i < nbspList_count(S_sharepoints);
 	 i++) {
 	nbspEntry_t * entry = nbspList_element(S_sharepoints, vol_index);
-	if (S_stat_path_vol_file(path, entry,
-				 nc_images_dir, NULL, &statb) == 0) {
+	if (S_stat_path_vol_file(dir_path, entry,
+				 nc_images_dir, NULL, &dir_statb) == 0) {
 	    nc_volume = entry;
 	    break;
 	}
@@ -768,13 +875,20 @@ S_add_image_options(uid_t uid, gid_t gid, struct in_addr servip,
     if (nc_volume != NULL
 	&& S_stat_path_vol_file(path, nc_volume, nc_images_dir, 
 				S_shared_image_name, &statb) == 0) {
-	if (S_set_uid_gid(path, uid, gid)) {
+	/* set the image file perms */
+	if (S_set_privs_no_stat(path, &statb, uid, gid, CLIENT_FILE_PERMS, 
+				FALSE) == FALSE) {
 	    syslog(LOG_INFO, "macNC: couldn't set permissions on path %s: %m",
 		   path);
 	    return (FALSE);
 	}
-	else
-	    chflags(path, 0); /* make shared image writable */
+	/* set the client dir perms */
+	if (S_set_privs_no_stat(dir_path, &dir_statb, uid, gid, 
+				CLIENT_DIR_PERMS, FALSE) == FALSE) {
+	    syslog(LOG_INFO, "macNC: couldn't set permissions on path %s: %m",
+		   dir_path);
+	    return (FALSE);
+	}
 	if (S_add_afppath_option(servip, options, nc_volume, nc_images_dir,
 				 S_shared_image_name,
 				 macNCtag_shared_system_file_e) == FALSE) {
@@ -783,6 +897,12 @@ S_add_image_options(uid_t uid, gid_t gid, struct in_addr servip,
 	/* does the client have its own Private image? */
 	if (S_stat_path_vol_file(path, nc_volume, nc_images_dir,
 				 S_private_image_name, &statb) == 0) {
+	    if (S_set_privs_no_stat(path, &statb, uid, gid, 
+				    CLIENT_FILE_PERMS, FALSE) == FALSE) {
+		syslog(LOG_INFO, 
+		       "macNC: couldn't set permissions on path %s: %m", path);
+		return (FALSE);
+	    }
 	    /*
 	     * We use macNCtag_page_file_e instead of 
 	     * macNCtag_private_system_file_e as you would expect.
@@ -797,13 +917,6 @@ S_add_image_options(uid_t uid, gid_t gid, struct in_addr servip,
 				     macNCtag_page_file_e) == FALSE){
 		return (FALSE);
 	    }
-	    if (S_set_uid_gid(path, uid, gid)) {
-		syslog(LOG_INFO, 
-		       "macNC: couldn't set permissions on path %s: %m", path);
-		return (FALSE);
-	    }
-	    else
-		chflags(path, 0); /* make private image writable */
 	}
     }
     else { /* client gets shadow file(s) */
@@ -819,7 +932,6 @@ S_add_image_options(uid_t uid, gid_t gid, struct in_addr servip,
 	    syslog(LOG_INFO, "macNC: '%s' does not exist", shared_path);
 	    return (FALSE);
 	}
-	chflags(shared_path, UF_IMMUTABLE); /* lock the share image file */
 	/* add the shared system image option */
 	if (S_add_afppath_option(servip, options, S_shared_image_volume,
 				 S_images_dir, S_shared_image_name, 
@@ -830,8 +942,6 @@ S_add_image_options(uid_t uid, gid_t gid, struct in_addr servip,
 				     S_images_dir, S_private_image_name, 
 				     macNCtag_private_system_file_e) == FALSE)
 		return (FALSE);
-	    /* lock the private image file */
-	    chflags(private_path, UF_IMMUTABLE); 
 	}
 
 #define ONE_MEG		(1024UL * 1024UL)
@@ -853,7 +963,8 @@ S_add_image_options(uid_t uid, gid_t gid, struct in_addr servip,
 			   sb_shadow.st_size, needspace);
 
 		if (sb_shadow.st_uid != uid
-		    || (sb_shadow.st_mode & ACCESSPERMS) != SHADOW_FILE_PERMS)
+		    || sb_shadow.st_gid != gid
+		    || (sb_shadow.st_mode & ACCESSPERMS) != CLIENT_FILE_PERMS)
 		    set_owner_perms = TRUE;
 
 		if (sb_shadow.st_size != needspace) {
@@ -906,7 +1017,7 @@ S_add_image_options(uid_t uid, gid_t gid, struct in_addr servip,
 		}
 		else if (set_owner_perms) {
 		    S_timestamp("setting shadow file perms/owner");
-		    chmod(shadow_path, SHADOW_FILE_PERMS);
+		    chmod(shadow_path, CLIENT_FILE_PERMS);
 		    S_set_uid_gid(shadow_path, uid, gid);
 		    S_timestamp("shadow file perms/owner set");
 		}
@@ -924,8 +1035,10 @@ S_add_image_options(uid_t uid, gid_t gid, struct in_addr servip,
 	    S_get_volpath(shadow_path, nc_volume, nc_images_dir, 
 			  S_shadow_name);
 	    S_disk_space_warned = FALSE;
-	    if (S_create_volume_dir(nc_volume, nc_images_dir) == FALSE)
+	    if (S_create_volume_dir(nc_volume, nc_images_dir,
+				    CLIENT_DIR_PERMS) == FALSE) {
 		return (FALSE);
+	    }
 	    if (S_create_shadow_file(shadow_path, shared_path, 
 				     uid, gid, needspace) == FALSE) {
 		syslog(LOG_INFO, "macNC: couldn't create %s, %m",
@@ -990,7 +1103,7 @@ macNC_allocate(struct dhcp * reply, u_char * hostname, struct in_addr servip,
 	    return (FALSE);
 	}
     }
-    if (S_add_image_options(uid, netboot_gid, servip, 
+    if (S_add_image_options(uid, S_admin_gid, servip, 
 			    options, host_number, hostname) == FALSE) {
 	if (!quiet) {
 	    syslog(LOG_INFO, 

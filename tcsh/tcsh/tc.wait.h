@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/tc.wait.h,v 1.1.1.1 1999/04/23 01:59:57 wsanchez Exp $ */
+/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/tc.wait.h,v 1.1.1.2 2001/06/28 23:10:55 bbraun Exp $ */
 /*
  * tc.wait.h: <sys/wait.h> for machines that don't have it or have it and
  *	      is incorrect.
@@ -68,9 +68,9 @@
 #  undef NEEDwait
 #  include "mi.wait.h"
 # else
-#  ifndef WINNT
+#  ifndef WINNT_NATIVE
 #   include <sys/wait.h>
-#  endif /* WINNT */
+#  endif /* WINNT_NATIVE */
 # endif /* _MINIX */
 #endif /* SYSVREL == 0 || linux */
 

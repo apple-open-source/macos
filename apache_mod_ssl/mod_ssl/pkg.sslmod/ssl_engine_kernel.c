@@ -9,7 +9,7 @@
 */
 
 /* ====================================================================
- * Copyright (c) 1998-2000 Ralf S. Engelschall. All rights reserved.
+ * Copyright (c) 1998-2001 Ralf S. Engelschall. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -800,7 +800,7 @@ int ssl_hook_Access(request_rec *r)
     if (dc->nVerifyDepth != UNSET) {
         apctx = SSL_get_app_data2(ssl);
         if ((vp = ap_ctx_get(apctx, "ssl::verify::depth")) != NULL)
-            n = AP_CTX_PTR2NUM(vp);
+            n = (int)AP_CTX_PTR2NUM(vp);
         else
             n = sc->nVerifyDepth;
         ap_ctx_set(apctx, "ssl::verify::depth",
@@ -1071,10 +1071,12 @@ int ssl_hook_Access(request_rec *r)
     }
 
     /*
-     * Else access is granted...
-     * (except vendor handlers override)
+     * Else access is granted from our point of view (except vendor
+     * handlers override). But we have to return DECLINED here instead
+     * of OK, because mod_auth and other modules still might want to
+     * deny access.
      */
-    rc = OK;
+    rc = DECLINED;
 #ifdef SSL_VENDOR
     ap_hook_use("ap::mod_ssl::vendor::access_handler",
                 AP_HOOK_SIG2(int,ptr), AP_HOOK_DECLINE(DECLINED),
@@ -1098,6 +1100,9 @@ int ssl_hook_Auth(request_rec *r)
     SSLDirConfigRec *dc = myDirConfig(r);
     char b1[MAX_STRING_LEN], b2[MAX_STRING_LEN];
     char *clientdn;
+    const char *cpAL;
+    const char *cpUN;
+    const char *cpPW;
 
     /*
      * Additionally forbid access (again)
@@ -1106,6 +1111,24 @@ int ssl_hook_Auth(request_rec *r)
     if (   (dc->nOptions & SSL_OPT_STRICTREQUIRE)
         && (ap_table_get(r->notes, "ssl-access-forbidden") != NULL))
         return FORBIDDEN;
+
+    /*
+     * Make sure the user is not able to fake the client certificate
+     * based authentication by just entering an X.509 Subject DN
+     * ("/XX=YYY/XX=YYY/..") as the username and "password" as the
+     * password.
+     */
+    if ((cpAL = ap_table_get(r->headers_in, "Authorization")) != NULL) {
+        if (strcEQ(ap_getword(r->pool, &cpAL, ' '), "Basic")) {
+            while (*cpAL == ' ' || *cpAL == '\t')
+                cpAL++;
+            cpAL = ap_pbase64decode(r->pool, cpAL);
+            cpUN = ap_getword_nulls(r->pool, &cpAL, ':');
+            cpPW = cpAL;
+            if (cpUN[0] == '/' && strEQ(cpPW, "password"))
+                return FORBIDDEN;
+        }
+    }
 
     /*
      * We decline operation in various situations...

@@ -3,7 +3,7 @@
 // +----------------------------------------------------------------------+
 // | PHP version 4.0                                                      |
 // +----------------------------------------------------------------------+
-// | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+// | Copyright (c) 1997-2001 The PHP Group                                |
 // +----------------------------------------------------------------------+
 // | This source file is subject to version 2.02 of the PHP license,      |
 // | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
 // | Authors: Sebastian Bergmann <sb@sebastian-bergmann.de>               |
 // +----------------------------------------------------------------------+
 //
-// $Id: Fraction.php,v 1.1.1.1 2001/01/25 05:00:30 wsanchez Exp $
+// $Id: Fraction.php,v 1.1.1.2 2001/07/19 00:20:50 zarzycki Exp $
 //
 
   /**
@@ -34,7 +34,7 @@
   *   $a->add( $b );
   * 
   * @author   Sebastian Bergmann <sb@sebastian-bergmann.de>
-  * @version  $Revision: 1.1.1.1 $
+  * @version  $Revision: 1.1.1.2 $
   * @access   public
   */
 

@@ -3,4 +3,10 @@ BundleInstallDir = $(NSLIBRARYDIR)/CoreServices/SystemStarter
 
 AFTER_INSTALL = install_bundles
 
+BUNDLES =
+
+ifneq "$(wildcard /System/Library/Frameworks/ApplicationServices.framework)" ""
+BUNDLES += QuartzDisplay
+endif
+
 include $(MAKEFILEPATH)/CoreOS/ProjectBuilder/Makefile.Preamble.Common

@@ -1,5 +1,5 @@
 # Created and modified by checkpoint; do not edit
 # $Id: CVSVersionInfo.txt,v 1.16 1999/03/10 19:13:44 pmarcos Exp $
-# $Name: Chess-45 $
+# $Name: Chess-48 $
 ProjectName: Chess
 ProjectVersion: 33

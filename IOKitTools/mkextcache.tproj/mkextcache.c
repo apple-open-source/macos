@@ -158,7 +158,7 @@ static void URLAbsoluteGetPath(CFURLRef url, char *buf, int len)
     CFStringRef urlPath;
 
     absURL = CFURLCopyAbsoluteURL(url); assert(absURL);
-    urlPath = CFURLCopyPath(absURL); assert(urlPath);
+    urlPath = CFURLCopyFileSystemPath(absURL, kCFURLPOSIXPathStyle); assert(urlPath);
     CFRelease(absURL);
 
     CFStringGetCString(urlPath, buf, len, kCFStringEncodingMacRoman);
@@ -175,6 +175,10 @@ static void BundleGetInfoPlistPath(CFBundleRef bundle, char *buf, int len)
     CFRelease(dataURL);
 
     baseLen = strlen(buf);
+    buf[baseLen] = '/';
+    baseLen++;
+    buf[baseLen] = '\0';
+
     strncpy(buf + baseLen, INFO_PATH, len - baseLen);
 }
 
@@ -248,10 +252,10 @@ static CFArrayRef createBundleList(int argc, const char *argv[])
         checkFatal(url, (EX_TEMPFAIL, "Couldn't create url - no memory?"));
 
         kext = CFBundleCreate(NULL, url); CFRelease(url);
-        if (kext) {
-            CFArrayAppendValue(bundleList, kext);
-            CFRelease(kext);
-        }
+        checkFatal(kext, (EX_TEMPFAIL, "%s does not exist", argv[i]));
+
+        CFArrayAppendValue(bundleList, kext);
+        CFRelease(kext);
     }
 
     // If we don't have any directories to search and no bundles
@@ -306,6 +310,7 @@ static void validateBundle(const void *val, void *context)
     CFStringRef bundleIdent = 0;
     CFStringRef bundleType = 0;
     char bundle_ident[120];
+    CFStringRef execString = 0;
     CFURLRef execUrl, pluginDir;
     CFArrayRef childKexts;
     CFIndex childCount;
@@ -317,12 +322,16 @@ static void validateBundle(const void *val, void *context)
 // function.
 
     if (!kext)
-        return;  // This isn't a bundle so return immediately
+        return;  // This isn't a bundle so return immediately;
+                 // don't even do the children.
 
     // Is this in the list of bundles already?
     bundleIdent = CFBundleGetIdentifier(kext);
-    if (!bundleIdent || CFDictionaryGetValue(c->dict, bundleIdent))
-        return;
+
+    if (!bundleIdent || CFDictionaryGetValue(c->dict, bundleIdent)) {
+        fprintf(stderr, "Error: Can't get bundle identifier.\n");
+        return; // Fatal error? Don't do children.
+    }
 
     if (!CFStringGetCString(bundleIdent, bundle_ident, sizeof(bundle_ident) / sizeof(char),
         kCFStringEncodingASCII)) {
@@ -349,7 +358,7 @@ static void validateBundle(const void *val, void *context)
                 verbosePrintf(3,
                     "Skipping bundle %s; no OSBundleRequired key.\n",
                     bundle_ident);
-                return;
+                goto do_children;
 
             } else if (CFStringCompare(requiredString,
                     CFSTR("Root"), 0) == kCFCompareEqualTo ||
@@ -388,7 +397,7 @@ static void validateBundle(const void *val, void *context)
                 verbosePrintf(3,
                     "Skipping bundle %s; OSBundleRequired key is \"%s\".\n",
                     bundle_ident, required_string);
-                return;
+                goto do_children;
             }
         } while (0);
     }
@@ -398,18 +407,34 @@ static void validateBundle(const void *val, void *context)
     if (rawValue) {
         bundleType = CFDynamicCast(CFString, rawValue);
     }
-    if (!bundleType || !CFEqual(bundleType, kKEXTPackageTypeStr))
-        return;
+    if (!bundleType || !CFEqual(bundleType, kKEXTPackageTypeStr)) {
+        return;  // Don't do children if this isn't even a kext.
+    }
 
     BundleGetInfoPlistPath(kext, buf, sizeof(buf));
     fd = open(buf, O_RDONLY, 0);
-    if (-1 == fd)
-        return;
+    if (-1 == fd) {
+        goto do_children;
+    }
     close(fd);
 
     // Check for an executable, and make sure it is readable and
     // of the right architecture
+    rawValue = CFBundleGetValueForInfoDictionaryKey(kext,
+        CFSTR("CFBundleExecutable"));
+    if (rawValue) {
+        execString = CFDynamicCast(CFString, rawValue);
+    }
+
     execUrl = CFBundleCopyExecutableURL(kext);
+
+    if (execString && !execUrl) {
+        fprintf(stderr,
+            "Error: Bundle %s claims an executable but has none.\n",
+            bundle_ident);
+        goto do_children;
+    }
+
     if (execUrl) {
         URLAbsoluteGetPath(execUrl, buf, sizeof(buf) - 1);
         CFRelease(execUrl);
@@ -418,21 +443,26 @@ static void validateBundle(const void *val, void *context)
             off_t size;
 
             fd = open(buf, O_RDONLY, 0);
-            if (-1 == fd)
-                return;  // Can't read executable
+            if (-1 == fd) { // Can't read executable
+                goto do_children;
+            }
 
             cc = read(fd, buf, 512);  // First block only
             close(fd);
-            if (512 != cc)
-                return; //  Not even one block in size?
-                
+            if (512 != cc) { //  Not even one block in size?
+                goto do_children;
+            }
+
             find_arch(NULL, &size, sCPU, sSubType, buf, 512);
-            if (!size)  // Couldn't find an architecture
-                return;
+            if (!size) { // Couldn't find an architecture
+                goto do_children;
+            }
         }
     }
 
     CFDictionarySetValue(c->dict, bundleIdent, kext);
+
+do_children:
 
     // If we are already a child then don't check further for children
     if (c->isChild) 
@@ -459,6 +489,8 @@ static void validateBundle(const void *val, void *context)
                                 &childContext);
     }
     CFRelease(childKexts);
+
+    return;
 }
 
 static CFDictionaryRef validateBundleList(CFArrayRef bundleList)

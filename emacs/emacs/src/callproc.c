@@ -540,7 +540,11 @@ If you quit, the process is killed with SIGINT, or SIGKILL if you quit again.")
     pid = child_setup (filefd, fd1, fd_error, (char **) new_argv,
 		       0, current_dir);
 #else  /* not WINDOWSNT */
+#ifndef PUMA_VFORK_ISSUES_CLEARED_UP
+    pid = fork ();
+#else
     pid = vfork ();
+#endif
 
     if (pid == 0)
       {

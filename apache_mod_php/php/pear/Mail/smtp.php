@@ -3,7 +3,7 @@
 // +----------------------------------------------------------------------+
 // | PHP version 4.0                                                      |
 // +----------------------------------------------------------------------+
-// | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+// | Copyright (c) 1997-2001 The PHP Group                                |
 // +----------------------------------------------------------------------+
 // | This source file is subject to version 2.02 of the PHP license,      |
 // | that is bundled with this package in the file LICENSE, and is        |
@@ -74,10 +74,10 @@ class Mail_smtp extends Mail {
     function Mail_smtp($params)
     {
         if (isset($params['host'])) $this->host = $params['host'];
-        if (isset($params['port'])) $this->host = $params['port'];
-        if (isset($params['auth'])) $this->host = $params['auth'];
-        if (isset($params['username'])) $this->host = $params['username'];
-        if (isset($params['password'])) $this->host = $params['password'];
+        if (isset($params['port'])) $this->port = $params['port'];
+        if (isset($params['auth'])) $this->auth = $params['auth'];
+        if (isset($params['username'])) $this->username = $params['username'];
+        if (isset($params['password'])) $this->password = $params['password'];
     }
     
 	/**

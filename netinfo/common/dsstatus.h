@@ -36,6 +36,7 @@ typedef enum
 	DSStatusInvalidUpdate = 1005,
 	DSStatusDuplicateRecord = 1006,
 	DSStatusNoRootRecord = 1007,
+	DSStatusLocked = 1008,
 	DSStatusInvalidRecord = 2001,
 	DSStatusNoData = 2002,
 	DSStatusInvalidRecordID = 2003,

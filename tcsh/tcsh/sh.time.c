@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/sh.time.c,v 1.1.1.1 1999/04/23 01:59:56 wsanchez Exp $ */
+/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/sh.time.c,v 1.1.1.2 2001/06/28 23:10:52 bbraun Exp $ */
 /*
  * sh.time.c: Shell time keeping and printing.
  */
@@ -36,7 +36,7 @@
  */
 #include "sh.h"
 
-RCSID("$Id: sh.time.c,v 1.1.1.1 1999/04/23 01:59:56 wsanchez Exp $")
+RCSID("$Id: sh.time.c,v 1.1.1.2 2001/06/28 23:10:52 bbraun Exp $")
 
 #ifdef SUNOS4
 # include <machine/param.h>
@@ -71,8 +71,8 @@ settimes()
 #ifdef BSDTIMES
     struct sysrusage ruch;
 #ifdef convex
-    memset(ru0, 0, sizeof(ru0));
-    memset(ruch, 0, sizeof(ruch));
+    memset(&ru0, 0, sizeof(ru0));
+    memset(&ruch, 0, sizeof(ruch));
 #endif /* convex */
 
     (void) gettimeofday(&time0,	NULL);
@@ -86,10 +86,11 @@ settimes()
     (void) get_process_stats(&time0, PS_SELF, &ru0, &ruch);
     ruadd(&ru0,	&ruch);
 # else	/* _SEQUENT_ */
+    seconds0 = time(NULL);
 #  ifndef COHERENT
     time0 = times(&times0);
 #  else	/* !COHERENT */
-    time0 = HZ * time(NULL);
+    time0 = HZ * seconds0;
     times(&times0);
 #  endif /* !COHERENT */
     times0.tms_stime +=	times0.tms_cstime;
@@ -114,8 +115,8 @@ dotime(v, c)
     timeval_t timedol;
     struct sysrusage ru1, ruch;
 #ifdef convex
-    memset(ru1, 0, sizeof(ru1));
-    memset(ruch, 0, sizeof(ruch));
+    memset(&ru1, 0, sizeof(ru1));
+    memset(&ruch, 0, sizeof(ruch));
 #endif /* convex */
 
     (void) getrusage(RUSAGE_SELF, (struct rusage *) &ru1);
@@ -454,9 +455,9 @@ prusage(bs, es,	e, b)
 		if ((sysinfo.cpu_count == 0) &&
 		    (getsysinfo(SYSINFO_SIZE, &sysinfo)	< 0))
 		    sysinfo.cpu_count =	1;
-		    i =	(ms == 0) ? 0 :	(t * 1000 / (ms	* sysinfo.cpu_count));
+		    i =	(ms == 0) ? 0 :	(t * 1000.0 / (ms * sysinfo.cpu_count));
 #else /* convex	*/
-		i = (ms	== 0) ?	0 : (t * 1000 /	ms);
+		i = (ms	== 0) ?	0 : (long)(t * 1000.0 / ms);
 #endif /* convex */
 		xprintf("%ld.%01ld%%", i / 10, i % 10);	/* nn.n% */
 		break;

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -58,14 +58,12 @@ static zval *ps_call_handler(zval *func, int argc, zval **argv)
 	MAKE_STD_ZVAL(retval);
 	if (call_user_function(EG(function_table), NULL, func, retval, 
 				argc, argv) == FAILURE) {
-		zval_dtor(retval);
-		FREE_ZVAL(retval);
+		zval_ptr_dtor(&retval);
 		retval = NULL;
 	}
 
 	for (i = 0; i < argc; i++) {
-		zval_dtor(argv[i]);
-		FREE_ZVAL(argv[i]);
+		zval_ptr_dtor(&argv[i]);
 	}
 
 	return retval;
@@ -84,8 +82,7 @@ static zval *ps_call_handler(zval *func, int argc, zval **argv)
 	if (retval) {							\
 		convert_to_long(retval);			\
 		ret = retval->value.lval;			\
-		zval_dtor(retval);					\
-		FREE_ZVAL(retval);					\
+		zval_ptr_dtor(&retval);				\
 	} 										\
 	return ret
 
@@ -110,7 +107,7 @@ PS_CLOSE_FUNC(user)
 	retval = ps_call_handler(PSF(close), 0, NULL);
 
 	for (i = 0; i < 6; i++)
-		zval_del_ref(&mdata->names[i]);
+		zval_ptr_dtor(&mdata->names[i]);
 	efree(mdata);
 
 	PS_SET_MOD_DATA(NULL);
@@ -133,8 +130,7 @@ PS_READ_FUNC(user)
 			*vallen = retval->value.str.len;
 			ret = SUCCESS;
 		}
-		zval_dtor(retval);
-		FREE_ZVAL(retval);
+		zval_ptr_dtor(&retval);
 	}
 
 	return ret;

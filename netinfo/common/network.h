@@ -51,6 +51,7 @@ typedef struct
 } interface_list_t;
 
 interface_list_t *sys_interfaces(void);
+void sys_interfaces_release(void);
 
 int sys_is_my_address(struct in_addr *);
 int sys_is_my_network(struct in_addr *);

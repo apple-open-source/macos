@@ -123,8 +123,8 @@ ni_relopen(
 	char *component;
 
 	/* look for <tag>@<address> in last component of domain */
-	start = domain;
-	while ((slash = escindex(start, '/')) != NULL) {
+	start = (char *)domain;
+	while ((slash = (char *)escindex(start, '/')) != NULL) {
 		/* found a slash, keep looking for the last one */
 		start = slash + 1;
 	}

@@ -1,4 +1,0 @@
-include $(CoreOSMakefiles)/ProjectBuilder/Makefile.Postamble.Common
-
-announce-install announce-postinstall validate-install install-headers install-products change-permissions strip-binaries:
-	@true

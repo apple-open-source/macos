@@ -6,6 +6,8 @@
 
 #include "config.h"
 
+#include <sys/stat.h>
+#include <errno.h>
 #include <stdio.h>
 #include <limits.h>
 #if defined(STDC_HEADERS)
@@ -17,6 +19,7 @@
 #endif
 
 #include "fetchmail.h"
+#include "i18n.h"
 
 /*
  * Machinery for handling UID lists live here.  This is mainly to support
@@ -70,7 +73,7 @@ static struct idlist *scratchlist;
 void initialize_saved_lists(struct query *hostlist, const char *idfile)
 /* read file of saved IDs and attach to each host */
 {
-    int	st;
+    struct stat statbuf;
     FILE	*tmpfp;
     struct query *ctl;
 
@@ -78,73 +81,124 @@ void initialize_saved_lists(struct query *hostlist, const char *idfile)
     for (ctl = hostlist; ctl; ctl = ctl->next)
 	ctl->skipped = ctl->oldsaved = ctl->newsaved = (struct idlist *)NULL;
 
+    errno = 0;
+
+    /*
+     * Croak if the uidl directory does not exist.
+     * This probably means an NFS mount failed and we can't
+     * see a uidl file that ought to be there.
+     * Question: is this a portable check? It's not clear
+     * that all implementations of lstat() will return ENOTDIR
+     * rather than plain ENOENT in this case...
+     */
+   if (lstat(idfile, &statbuf) < 0) {
+     if (errno == ENOTDIR) 
+    {
+      report(stderr, _("lstat: %s: %s\n"), idfile, strerror(errno));
+      exit(PS_IOERR);
+    }
+   }
+
     /* let's get stored message UIDs from previous queries */
     if ((tmpfp = fopen(idfile, "r")) != (FILE *)NULL)
     {
 	char buf[POPBUFSIZE+1];
-	char *host;
+	char *host = NULL;	/* pacify -Wall */
 	char *user;
 	char *id;
 	char *atsign;	/* temp pointer used in parsing user and host */
 	char *delimp1;
 	char saveddelim1;
 	char *delimp2;
-	char saveddelim2;
+	char saveddelim2 = '\0';	/* pacify -Wall */
 
 	while (fgets(buf, POPBUFSIZE, tmpfp) != (char *)NULL)
 	{
-	  /*
-	   * At this point, we assume the bug has two fields -- a user@host 
-	   * part, and an ID part. Either field may contain spurious @ signs. 
-           * The previous version of this code presumed one could split at 
-           * the rightmost '@'.  This is not correct, as InterMail puts an 
-           * '@' in the UIDL.
-	   */
+	    /*
+	     * At this point, we assume the bug has two fields -- a user@host 
+	     * part, and an ID part. Either field may contain spurious @ signs.
+	     * The previous version of this code presumed one could split at 
+	     * the rightmost '@'.  This is not correct, as InterMail puts an 
+	     * '@' in the UIDL.
+	     */
 	  
-	  /* very first, skip leading spaces */
-	  user = buf + strspn(buf, " \t");
+	    /* first, skip leading spaces */
+	    user = buf + strspn(buf, " \t");
 
-	  /* First, we split the buf into a userhost part and an id part */
-	  if ( (delimp1 = strpbrk(user, " \t")) != NULL ) {
-		id = delimp1 + strspn(delimp1, " \t");	/* set pointer to id */
+	    /*
+	     * First, we split the buf into a userhost part and an id
+	     * part ... but id doesn't necessarily start with a '<',
+	     * espescially if the POP server returns an X-UIDL header
+	     * instead of a Message-ID, as GMX's (www.gmx.net) POP3
+	     * StreamProxy V1.0 does.
+	     */
+	    if ((id = strchr(user, ' ')) != NULL )
+	    {
+
+	      /*
+	       * this is one other trick. The userhost part 
+	       * may contain ' ' in the user part, at least in
+	       * the lotus notes case.
+	       * So we start looking for the '@' after which the
+	       * host will follow with the ' ' seperator finaly id.
+	       */
+	        delimp1 = strchr(user, '@');
+	        id = strchr(delimp1,' ');
+	        for (delimp1 = id; delimp1 >= user; delimp1--)
+		    if ((*delimp1 != ' ') && (*delimp1 != '\t'))
+			break;
+
+		/* 
+		 * It should be safe to assume that id starts after
+		 * the " " - after all, we're writing the " "
+		 * ourselves in write_saved_lists() :-)
+		 */
+		id = id + strspn(id, " ");
+
+		delimp1++; /* but what if there is only white space ?!? */
 	  	saveddelim1 = *delimp1;	/* save char after token */
 		*delimp1 = '\0';		/* delimit token with \0 */
-		if (id != NULL) {
-			/* now remove trainling white space chars from id */
-	  		if ( (delimp2 = strpbrk(id, " \t\n")) != NULL ) {
-				saveddelim2 = *delimp2;
-				*delimp2 = '\0';
-			}
-	      		atsign = strrchr(user, '@');
-	      		if (atsign) {
-				*atsign = '\0';
-				host = atsign + 1;
+		if (id != NULL) 
+		{
+		    /* now remove trailing white space chars from id */
+		    if ((delimp2 = strpbrk(id, " \t\n")) != NULL ) {
+			saveddelim2 = *delimp2;
+			*delimp2 = '\0';
+		    }
+		    atsign = strrchr(user, '@');
+		    if (atsign) {
+			*atsign = '\0';
+			host = atsign + 1;
 
-			}
-			for (ctl = hostlist; ctl; ctl = ctl->next) {
-				if (ctl->server.truename &&
-			 	    strcasecmp(host, ctl->server.truename) == 0
-			 	    && strcasecmp(user, ctl->remotename) == 0) {
+		    }
+		    for (ctl = hostlist; ctl; ctl = ctl->next) {
+			if (ctl->server.truename &&
+			    strcasecmp(host, ctl->server.truename) == 0
+			    && strcasecmp(user, ctl->remotename) == 0) {
 	
-					save_str(&ctl->oldsaved, id, UID_SEEN);
-					break;
-				}
+			    save_str(&ctl->oldsaved, id, UID_SEEN);
+			    break;
 			}
-			/* if it's not in a host we're querying,
-			** save it anyway */
-			if (ctl == (struct query *)NULL) {
+		    }
+		    /* 
+		     * If it's not in a host we're querying,
+		     * save it anyway.  Otherwise we'd lose UIDL
+		     * information any time we queried an explicit
+		     * subset of hosts.
+		     */
+		    if (ctl == (struct query *)NULL) {
 				/* restore string */
-				*delimp1 = saveddelim1;
-				*atsign = '@';
-	  			if (delimp2 != NULL) {
-					*delimp2 = saveddelim2;
-				}
-				save_str(&scratchlist, buf, UID_SEEN);
+			*delimp1 = saveddelim1;
+			*atsign = '@';
+			if (delimp2 != NULL) {
+			    *delimp2 = saveddelim2;
 			}
+			save_str(&scratchlist, buf, UID_SEEN);
+		    }
 		}
 	    }
 	}
-	fclose(tmpfp);
+	fclose(tmpfp);	/* not checking should be safe, mode was "r" */
     }
 
     if (outlevel >= O_DEBUG)
@@ -155,22 +209,23 @@ void initialize_saved_lists(struct query *hostlist, const char *idfile)
 	for (ctl = hostlist; ctl; ctl = ctl->next)
 	    if (ctl->server.uidl)
 	    {
-		report_build(stdout, "Old UID list from %s:",ctl->server.pollname);
+		report_build(stdout, _("Old UID list from %s:"), 
+			     ctl->server.pollname);
 		for (idp = ctl->oldsaved; idp; idp = idp->next)
 		    report_build(stdout, " %s", idp->id);
 		if (!idp)
-		    report_build(stdout, " <empty>");
+		    report_build(stdout, _(" <empty>"));
 		report_complete(stdout, "\n");
 		uidlcount++;
 	    }
 
 	if (uidlcount)
 	{
-	    report_build(stdout, "Scratch list of UIDs:");
+	    report_build(stdout, _("Scratch list of UIDs:"));
 	    for (idp = scratchlist; idp; idp = idp->next)
 		report_build(stdout, " %s", idp->id);
 	    if (!idp)
-		report_build(stdout, " <empty>");
+		report_build(stdout, _(" <empty>"));
 	    report_complete(stdout, "\n");
 	}
     }
@@ -345,6 +400,22 @@ int delete_str(struct idlist **idl, int num)
     return(0);
 }
 
+struct idlist *copy_str_list(struct idlist *idl)
+/* copy the given UID list */
+{
+    struct idlist *newnode ;
+
+    if (idl == (struct idlist *)NULL)
+	return(NULL);
+    else
+    {
+	newnode = (struct idlist *)xmalloc(sizeof(struct idlist));
+	memcpy(newnode, idl, sizeof(struct idlist));
+	newnode->next = copy_str_list(idl->next);
+	return(newnode);
+    }
+}
+
 void append_str_list(struct idlist **idl, struct idlist **nidl)
 /* append nidl to idl (does not copy *) */
 {
@@ -369,25 +440,49 @@ void expunge_uids(struct query *ctl)
 	    idl->val.status.mark = UID_EXPUNGED;
 }
 
-void update_str_lists(struct query *ctl)
-/* perform end-of-query actions on UID lists */
+void uid_swap_lists(struct query *ctl) 
+/* finish a query */
 {
-    free_str_list(&ctl->oldsaved);
-    free_str_list(&scratchlist);
-    ctl->oldsaved = ctl->newsaved;
-    ctl->newsaved = (struct idlist *) NULL;
-
+    /* debugging code */
     if (ctl->server.uidl && outlevel >= O_DEBUG)
     {
 	struct idlist *idp;
 
-	report_build(stdout, "New UID list from %s:", ctl->server.pollname);
-	for (idp = ctl->oldsaved; idp; idp = idp->next)
+	report_build(stdout, _("New UID list from %s:"), ctl->server.pollname);
+	for (idp = ctl->newsaved; idp; idp = idp->next)
 	    report_build(stdout, " %s = %d", idp->id, idp->val.status.mark);
 	if (!idp)
-	    report_build(stdout, " <empty>");
+	    report_build(stdout, _(" <empty>"));
 	report_complete(stdout, "\n");
     }
+
+    /*
+     * Don't swap UID lists unless we've actually seen UIDLs.
+     * This is necessary in order to keep UIDL information
+     * from being heedlessly deleted later on.
+     *
+     * Older versions of fetchmail did
+     *
+     *     free_str_list(&scratchlist);
+     *
+     * after swap.  This was wrong; we need to preserve the UIDL information
+     * from unqueried hosts.  Unfortunately, not doing this means that
+     * under some circumstances UIDLs can end up being stored forever --
+     * specifically, if a user description is removed from .fetchmailrc
+     * with UIDLs from that account in .fetchids, there is no way for
+     * them to ever get garbage-collected.
+     */
+    if (ctl->newsaved)
+    {
+	/* old state of mailbox may now be irrelevant */
+	if (outlevel >= O_DEBUG)
+	    report(stdout, _("swapping UID lists\n"));
+	free_str_list(&ctl->oldsaved);
+	ctl->oldsaved = ctl->newsaved;
+	ctl->newsaved = (struct idlist *) NULL;
+    }
+    else if (outlevel >= O_DEBUG)
+	report(stdout, _("not swapping UID lists, no UIDs seen this query\n"));
 }
 
 void write_saved_lists(struct query *hostlist, const char *idfile)
@@ -401,18 +496,23 @@ void write_saved_lists(struct query *hostlist, const char *idfile)
     /* if all lists are empty, nuke the file */
     idcount = 0;
     for (ctl = hostlist; ctl; ctl = ctl->next) {
-	if (ctl->oldsaved)
-	    idcount++;
+        for (idp = ctl->oldsaved; idp; idp = idp->next)
+            if (idp->val.status.mark == UID_SEEN
+	    			|| idp->val.status.mark == UID_DELETED)
+                idcount++;
     }
 
     /* either nuke the file or write updated last-seen IDs */
     if (!idcount && !scratchlist)
     {
 	if (outlevel >= O_DEBUG)
-	    report(stdout, "Deleting fetchids file.\n");
+	    report(stdout, _("Deleting fetchids file.\n"));
 	unlink(idfile);
     }
     else
+    {
+	if (outlevel >= O_DEBUG)
+	    report(stdout, _("Writing fetchids file.\n"));
 	if ((tmpfp = fopen(idfile, "w")) != (FILE *)NULL) {
 	    for (ctl = hostlist; ctl; ctl = ctl->next) {
 		for (idp = ctl->oldsaved; idp; idp = idp->next)
@@ -425,6 +525,7 @@ void write_saved_lists(struct query *hostlist, const char *idfile)
 		fputs(idp->id, tmpfp);
 	    fclose(tmpfp);
 	}
+    }
 }
 #endif /* POP3_ENABLE */
 

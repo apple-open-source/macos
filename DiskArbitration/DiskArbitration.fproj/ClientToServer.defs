@@ -16,6 +16,9 @@ type DiskArbMountpoint = c_string[*:1024];
 
 type DiskArbGenericString = c_string[*:1024];
 
+type DiskArbSecurityToken = c_string[*:32];
+
+
 /*
 --	Messages sent by the DiskArbitration Client to the Server
 */
@@ -68,6 +71,11 @@ simpleroutine DiskArbRegisterWithPID_rpc(
 			in	pid: int;
 			in	flags: unsigned);
 
+simpleroutine DiskArbUpdateClientWithPID_rpc(
+				server: mach_port_t;
+			in	pid: int;
+			in	flags: unsigned);
+
 simpleroutine DiskArbDeregisterWithPID_rpc(
 				server: mach_port_t;
 			in	client: mach_port_make_send_t;
@@ -86,6 +94,7 @@ simpleroutine DiskArbMarkPIDNew_rpc(
 
 simpleroutine DiskArbUnmountRequest_async_rpc(
 				dest: mach_port_t;
+			in	clientPid: int;
 			in	diskIdentifier: DiskArbDiskIdentifier;
 			in	flags: unsigned); /* eject or just unmount? regular or forced unmount? one partition or all partitions? */
 
@@ -97,6 +106,7 @@ simpleroutine DiskArbUnmountPreNotifyAck_async_rpc(
 
 simpleroutine DiskArbEjectRequest_async_rpc(
 				dest: mach_port_t;
+			in	clientPid: int;
 			in	diskIdentifier: DiskArbDiskIdentifier;
 			in	flags: unsigned); /* eject or just unmount? regular or forced unmount? one partition or all partitions? */
 
@@ -108,6 +118,7 @@ simpleroutine DiskArbEjectPreNotifyAck_async_rpc(
 
 simpleroutine DiskArbUnmountAndEjectRequest_async_rpc(
 				dest: mach_port_t;
+			in	clientPid: int;
 			in	diskIdentifier: DiskArbDiskIdentifier;
 			in	flags: unsigned); /* eject or just unmount? regular or forced unmount? one partition or all partitions? */
 
@@ -126,20 +137,24 @@ simpleroutine DiskArbSetBlueBoxBootVolume_async_rpc(
 
 simpleroutine DiskArbRequestDiskChange_rpc(
 				dest: mach_port_t;
+			in	clientPid: int;
 			in	diskIdentifier: DiskArbDiskIdentifier;
 			in	mountPoint: DiskArbMountpoint;
 			in	flags: int);
 
 simpleroutine DiskArbSetCurrentUser_rpc(
 				dest: mach_port_t;
+			in	clientPid: int;
 			in	user: int);
 
 simpleroutine DiskArbVSDBAdoptVolume_rpc(
 				dest: mach_port_t;
+			in	clientPid: int;
 			in	diskIdentifier: DiskArbDiskIdentifier);
 
 simpleroutine DiskArbVSDBDisownVolume_rpc(
 				dest: mach_port_t;
+			in	clientPid: int;
 			in	diskIdentifier: DiskArbDiskIdentifier);
 
 routine DiskArbVSDBGetVolumeStatus_rpc(
@@ -149,6 +164,7 @@ routine DiskArbVSDBGetVolumeStatus_rpc(
 
 simpleroutine DiskArbSetVolumeEncoding_rpc(
 				dest: mach_port_t;
+			in	clientPid: int;
 			in	diskIdentifier: DiskArbDiskIdentifier;
 			in	volumeEncoding: int);
 
@@ -180,3 +196,57 @@ simpleroutine DiskArbPrinter_Response_rpc (
 simpleroutine DiskArbPrinter_Release_rpc (
 				dest: mach_port_t;
 			in	locationID: int);
+
+/* -- Backing Store/Device Arbitration -- */
+
+simpleroutine DiskArbIsDeviceReservedForClient_rpc (
+				dest: mach_port_t;
+			in	diskIdentifier: DiskArbDiskIdentifier;
+			in	clientPid: int);
+
+simpleroutine DiskArbRetainClientReservationForDevice_rpc (
+				dest: mach_port_t;
+			in	diskIdentifier: DiskArbDiskIdentifier;
+			in	clientPid: int);
+
+simpleroutine DiskArbReleaseClientReservationForDevice_rpc (
+				dest: mach_port_t;
+			in	diskIdentifier: DiskArbDiskIdentifier;
+			in	clientPid: int);
+
+simpleroutine DiskArbClientRelinquishesReservation_rpc (
+				dest: mach_port_t;
+			in	diskIdentifier: DiskArbDiskIdentifier;
+			in	releaseToPid: int;
+			in	clientPid: int;
+			in	status: int);
+
+/* -- Uninitialized Disk/Unrecognized Disk Arbitration -- */
+
+simpleroutine DiskArbClientHandlesUnrecognizedDisks_rpc (
+				dest: mach_port_t;
+			in	clientPid: int;
+			in	diskTypes: int;
+			in	priority: int);
+
+simpleroutine DiskArbClientWillHandleUnrecognizedDisk_rpc (
+				dest: mach_port_t;
+			in	diskIdentifier: DiskArbDiskIdentifier;
+			in	clientPid: int;
+			in	status: int);
+
+/* -- security authorization -- */
+
+simpleroutine DiskArbSetSecuritySettingsForClient_rpc (
+				dest: mach_port_t;
+			in	clientPid: int;
+			in	token: DiskArbSecurityToken);
+
+/* -- open vacant drive doors -- */
+
+simpleroutine DiskArbOpenVacantDriveDoors_rpc (
+				dest: mach_port_t);
+
+
+simpleroutine DiskArbEjectKeyPressed_rpc (
+				dest: mach_port_t);

@@ -1,4 +1,4 @@
-.TH LD 1 "October 13, 2000" "Apple Computer, Inc."
+.TH LD 1 "July 28, 2001" "Apple Computer, Inc."
 .SH NAME
 ld \- Mach object file link editor
 .SH SYNOPSIS
@@ -172,6 +172,111 @@ Because it can produce different dynamic linking, using dynamic shared libraries
 If a static archive library appears after a dynamic shared library on the command line, the
 static library is placed in the dynamic library search list and is searched as a dynamic library.  In this way, when a dynamic library has undefined symbols, it will cause the appropriate members of the static libraries to be loaded into the output.  Searching static libraries as dynamic libraries can cause problems if the dynamic library later changes to reference symbols from the static library that it did not previously reference. In this case when
 the program runs, the dynamic linker will report these symbols as undefined because the members for these symbols were not loaded into the output. 
+
+.SH TWO-LEVEL AND FLAT NAMESPACES
+.PP
+Two-level and flat namespaces refer to how references to symbols in dynamic
+libraries are resolved to a definition in specific dynamic library.  For
+two-level namespace that resolution is done at static link time when each
+image (program, bundle and shared library) is built.  When a program is using
+images built with two-level namespace their may be different global symbols
+with the same name being used by different images in the program (this is now
+the default).  When a program is using all flat namespace images then only one
+global symbol for each global symbol name is used by all images of the program
+(this was the default in MacOS X 10.0).
+.PP
+When creating a output file with the static link editor that links against
+dynamic libraries, the references to symbols in those libraries can be recorded
+at static link time to bind to a specific library definition (two-level
+namespace) or left to be bound at execution time to the first library in the
+search order of the program (flat namespace).  A program, its dynamic libraries
+and its bundles may each be either two-level or flat namespace images.  The
+dynamic linker will bind each image according to how it was built.
+.PP
+When creating a output file with the static link editor when
+.B \-twolevel_namespace
+is in effect (now the default) all undefined references must be satisfied at
+static link time.  The flags to allow undefined references,
+.BI \-U symbol_name,
+.BI \-undefined " warning"
+and
+.BI \-undefined " suppress"
+can't be used.  The specific library definition recorded
+for each reference is the first library that has a definition as listed on the
+link line.  Listing an umbrella framework implys all of its sub-frameworks,
+sub-umbrellas and sub-libraries.  For any reference to a definition found in
+an umbrella framework's sub-framework, sub-umbrella or sub-library will be
+recorded as coming from the umbrella framework.  Then at execution time the
+dynamic linker will search that umbrella framework's sub-frameworks,
+sub-umbrellas and sub-libraries for those references.
+Also when two-level namespace is in effect only those frameworks listed on the
+link line (and sub-frameworks, sub-umbrellas and sub-libraries of umbrella
+frameworks) are searched.  Other dependent libraries which are not
+sub-frameworks, sub-umbrellas or sub-libraries of umbrella frameworks are not
+searched.
+.RS
+If a two-level namespace static link references a symbol from an indirectly
+referenced dynamic library not listed on the link line the following error
+message will result:
+.RS
+ld:
+.I object_file
+illegal reference to symbol:
+.I symbol
+defined in indirectly referenced dynamic library:
+.I library
+.RE
+To correct the link error the user should add
+.I library
+to the link line in the order he wants the
+.I library
+to be searched.
+.RE
+.PP
+When creating bundles (MH_BUNDLE outputs) with the static link editor when
+two-level namespace is in effect (now the default) and the bundle has
+references to symbols
+expected to be defined in the program loading the bundle, then the
+.BI \-bundle_loader " executable"
+must be used.
+.PP
+When creating a output file with the static link editor when
+.B \-flat_namespace
+is in effect (the MacOS X 10.0 default) all undefined references must be
+satisfied at static link time when
+.BI \-undefined " error"
+(the default) is used.  The static
+link editor checks the undefined references by searching all the libraries
+listed on the link line then all dependent libraries.  The undefined symbols
+in the created output file are left to be resolved at execution time by the
+dynamic link editor in the dynamic libraries in the search order of the program.
+
+.SH MULTIPLY DEFINED SYMBOLS
+.PP
+If there are multiply defined symbols in the object files being linked into
+the output file being created this always results in a multiply defined
+symbol error.
+.PP
+When the static link editor links symbols in from a dynamic library that result
+in multiply defined symbols the handling depends on the type of name space of
+output file being created and possibly the type of name space of the dynamic
+library.
+.PP
+When the static link editor is creating a two-level namespace image and a
+there is a multiply defined symbol from dynamic library then that generates a
+multiply defined symbol warning (by default), where the treatment of this
+warning can be changed with the
+.B \-multiply_defined
+flag.
+.PP
+When the static link editor is creating a flat namespace image and a there is
+a multiply defined symbol from dynamic library, if the library is a flat
+namespace image then that generates a multiply defined symbol error.  If the
+library is a two-level namespace image then that generates a multiply defined
+symbol warning (by default), where the treatment of this warning can be changed
+with the
+.B \-multiply_defined
+flag.
 
 .SH "USING THE DYNAMIC LINK EDITOR AND DYNAMIC SHARED LIBRARIES"
 .PP
@@ -390,6 +495,17 @@ Do not have the static linker,
 prebind the output.  If this is specified the environment variable
 .SM LD_PREBIND
 is ignored.
+.TP
+.B \-prebind_allow_overlap
+Have the static linker,
+.IR ld (1),
+prebind the output even if the addresses of the dynamic libraries it uses
+overlap.  The resulting output can then have
+.IR redo_prebinding (1)
+run on it to fix up the prebinding after the overlapping dynamic libraries
+have been rebuilt.  This option can also be specified by setting the
+environment variable
+.SM LD_PREBIND_ALLOW_OVERLAP.
 .PP
 The following flags are related to libraries:
 .TP 
@@ -586,7 +702,8 @@ The following flags support segment specifications:
 Specifies the segment alignment.
 .I value
 is a hexadecimal number that must be an integral power of 2.
-The default is the target pagesize (2000 hex currently).
+The default is the target pagesize (currently 1000 hex for the PowerPC and 2000
+hex for i386).
 .TP
 .BI "\-seg1addr" " addr"
 Specifies the starting address of the first segment in the output file.
@@ -697,7 +814,8 @@ Specifies the segment size of _\|_PAGEZERO to be of size
 where
 .I value 
 is a hexadecimal number rounded to the segment alignment.
-The default is the target pagesize (currently, 2000 hexadecimal).
+The default is the target pagesize (currently, 1000 hexadecimal for the PowerPC
+and 2000 hexadecimal for i386).
 .TP
 .BI "\-stack_addr" " value"
 Specifies the initial address of the stack pointer
@@ -705,8 +823,8 @@ Specifies the initial address of the stack pointer
 where
 .I value 
 is a hexadecimal number rounded to the segment alignment.
-The default segment alignment is the target pagesize (currently, 2000
-hexadecimal).
+The default segment alignment is the target pagesize (currently, 1000
+hexadecimal for the PowerPC and 2000 hexadecimal for i386).
 If
 .B \-stack_size
 is specified and 
@@ -724,8 +842,8 @@ Specifies the size of the stack segment
 where
 .I value 
 is a hexadecimal number rounded to the segment alignment.
-The default segment alignment is the target pagesize (currently, 2000
-hexadecimal).
+The default segment alignment is the target pagesize (currently, 1000
+hexadecimal for the PowerPC and 2000 hexadecimal for i386).
 If
 .B \-stack_addr
 is specified and 
@@ -868,6 +986,90 @@ in order to help the debugger debug object files produced by old versions of
 the compiler or by non-Apple compilers.
 
 .PP
+The following flags are related to name spaces:
+.TP 
+.B \-twolevel_namespace
+Specifies the output to be built as a two-level namespace image.
+This option can also be specified by setting the environment variable
+.SM LD_TWOLEVEL_NAMESPACE.
+This is the default.
+.TP 
+.B \-flat_namespace
+Specifies the output to be built as a flat namespace image.
+This is not the default (but was the default in MacOS X 10.0).
+.TP 
+.B \-force_flat_namespace
+Specifies the executable output to be built and executed treating all its
+dynamic libraries as flat namespace images.  This marks the executable so that
+the dynamic link editor know to treat all dynamic libraries as flat namespace
+images when the program is executed.
+.TP 
+.BI \-bundle_loader " executable"
+This specifies the 
+.I executable
+that will be loading the bundle output file being linked.  Undefined symbols
+from the bundle are checked against the specified executable like it was one of
+the dynamic libraries the bundle was linked with.  If the bundle being created
+with
+.B \-twolevel_namespace
+in effect then the searching of the executable for
+symbols is based on the placement of the
+.B \-bundle_loader
+flag relative to the dynamic libraries.  If the the bundle being created with
+.B \-flat_namespace
+then the searching of the executable is done before all dynamic libraries.
+.TP 
+.B \-private_bundle
+This specifies that the bundle output file being created with
+.B \-flat_namespace
+in effect is going to be loaded by the executable in the
+.B \-bundle_loader
+argument with the
+.TP 
+.B \-twolevel_namespace_hints
+Specifies to create the output with the two-level namespace hints table to be
+used by the dynamic linker.  This is the default except when the
+.B \-bundle
+flag is specified.  If this is used when the
+.B \-bundle
+flag is specified the bundle will fail to load on a MacOS X 10.0 system with a
+malformed object error.
+
+.SM  NSLINKMODULE_OPTION_PRIVATE
+option to
+.IR NSLinkModule (3)
+and that the symbols in the executable are not to cause multiply defined symbol
+errors.
+.TP 
+.BI \-multiply_defined " treatment"
+Specifies how multiply defined symbols in dynamic libraries when
+.B \-twolevel_namespace
+is in effect are to be treated.
+.I treatment
+can be:
+.I error,
+.I warning,
+or
+.I suppress.
+Which cause the treatment of multiply defined symbols in dynamic libraries
+as either, errors, warnings, or suppresses the checking of multiply symbols
+from dynamic libraries when
+.B \-twolevel_namespace
+is in effect.
+The default is to treat multiply defined symbols in dynamic libraries as
+warnings when
+.B \-twolevel_namespace
+is in effect.
+.TP
+.B -nomultidefs
+specifying this flag marks the umbrella being created such that the dynamic
+linker is guaranteed that no multiple defintions of symbols in the umbrella's
+sub-images will ever exist.  This allows the dynamic linker to always use the
+two-level namespace lookup hints even if the timestamps of the sub-images
+do not match.  This flag implys
+.BI \-multiply_defined " error".
+
+.PP
 The following flags are related to symbols.  These flags' arguments
 are external symbols whose names have `_' prepended to the C,
 .SM FORTRAN,
@@ -897,12 +1099,13 @@ Don't turn private external symbols into static symbols, but rather leave them
 as private external in the resulting output file.
 .TP
 .B \-m
-Don't treat multiply defined symbols as a hard error; instead, simply print a 
-warning.  The first such symbol is used for linking; its value is used for
-the symbol in the symbol table.  The other symbols by the same name may be 
-used in the resulting output file through local references.  This can still
-produce a resulting output file that is in error.  This flag's use is 
-strongly discouraged!
+Don't treat multiply defined symbols from the linked objects as a hard error;
+instead, simply print a warning.  The first linked object defining such a symbol
+is used for linking; its value is used for the symbol in the symbol table.  The
+code and data for all such symbols are copied into the output.  The duplicate
+symbols other than the first symbol may still end up being used in the resulting
+output file through local references.  This can still produce a resulting output
+file that is in error.  This flag's use is strongly discouraged!
 .TP
 .B \-whyload
 Indicate why each member of a library is loaded.  In other words, indicate
@@ -1178,6 +1381,17 @@ Specifies that the
 .I framework_name
 being linked by a dynamic library is to be treated as it one of the
 subframeworks with respect to twolevel namespace.
+.TP
+.BI \-sub_library " library_name"
+Specifies that the
+.I library_name
+being linked by a dynamic library is to be treated as it one of the
+sublibraries with respect to twolevel namespace.  For example the 
+.I library_name
+for
+.I /usr/lib/libobjc_profile.A.dylib
+would be
+.I libobjc.
 .TP
 .BI \-init " sym"
 The argument

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_oci8.h,v 1.1.1.3 2001/01/25 04:59:44 wsanchez Exp $ */
+/* $Id: php_oci8.h,v 1.1.1.4 2001/07/19 00:19:40 zarzycki Exp $ */
 
 #if HAVE_OCI8
 # ifndef PHP_OCI8_H
@@ -42,12 +42,19 @@
 #define PHP_OCI_API
 #endif                                   
 
+#if defined(min)
+#undef min
+#endif
+#if defined(max)
+#undef max
+#endif
+
 #include <oci.h>
 
 typedef struct {
 	int num;
 	int persistent;
-	int open;
+	int is_open;
 	char *dbname;
     OCIServer *pServer;
 #if 0
@@ -58,7 +65,7 @@ typedef struct {
 typedef struct {
 	int num;
 	int persistent;
-	int open;
+	int is_open;
 	int exclusive;
 	char *hashed_details;
 	oci_server *server;
@@ -67,7 +74,7 @@ typedef struct {
 
 typedef struct {
 	int id;
-	int open;
+	int is_open;
 	oci_session *session;
     OCISvcCtx *pServiceContext;
 	sword error;
@@ -80,6 +87,17 @@ typedef struct {
 	dvoid *ocidescr;
 	ub4 type;
 } oci_descriptor;
+
+typedef struct {
+    int id;
+    oci_connection *conn;
+    OCIType     *tdo;
+    OCITypeCode coll_typecode;
+    OCIRef      *elem_ref;
+    OCIType     *element_type;
+    OCITypeCode element_typecode;
+    OCIColl     *coll;
+} oci_collection;
 
 typedef struct {
     zval *zval;

@@ -81,8 +81,6 @@ kern_return_t catch_exception_raise
  exception_type_t exception_type, exception_data_t exception_data,
  mach_msg_type_number_t data_count)
 {
-  kern_return_t kret;
-
 #if 0
   kret = mach_port_deallocate (mach_task_self(), task_port);
   MACH_CHECK_ERROR (kret);

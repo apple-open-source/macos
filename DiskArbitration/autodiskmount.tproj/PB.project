@@ -1,14 +1,21 @@
 {
     DYNAMIC_CODE_GEN = YES; 
     FILESTABLE = {
-        FRAMEWORKS = (CoreFoundation.framework, IOKit.framework, System.framework); 
-        FRAMEWORKSEARCH = (); 
+        FRAMEWORKS = (
+            CoreFoundation.framework, 
+            IOKit.framework, 
+            Security.framework, 
+            System.framework, 
+            SystemConfiguration.framework
+        ); 
+        FRAMEWORKSEARCH = (/System/Library/PrivateFrameworks); 
         H_FILES = (
             DiskArbitrationServerMain.h, 
             DiskArbitrationTypes.h, 
             DiskVolume.h, 
             GetRegistry.h, 
-            FSParticular.h
+            FSParticular.h, 
+            Configuration.h
         ); 
         OTHER_LINKED = (
             autodiskmount.c, 
@@ -17,7 +24,8 @@
             DiskVolume.c, 
             GetRegistry.c, 
             FSParticular.c, 
-            vsdbutil.c
+            vsdbutil.c, 
+            Configuration.c
         ); 
         OTHER_SOURCES = (
             Makefile.preamble, 
@@ -34,6 +42,7 @@
     LANGUAGE = English; 
     MAKEFILEDIR = "$(MAKEFILEPATH)/pb_makefiles"; 
     NEXTSTEP_BUILDTOOL = /usr/bin/gnumake; 
+    NEXTSTEP_COMPILEROPTIONS = "-Werror"; 
     NEXTSTEP_INSTALLDIR = /sbin; 
     NEXTSTEP_JAVA_COMPILER = /usr/bin/javac; 
     NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc; 

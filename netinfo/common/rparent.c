@@ -35,65 +35,42 @@
 
 #include <NetInfo/nilib2.h>
 
+typedef struct ni_private {
+	int naddrs;		/* number of addresses */
+	struct in_addr *addrs;	/* addresses of servers - network byte order */
+	int whichwrite;	/* which one of the above is the master */
+	ni_name *tags;		/* tags of servers */
+	int pid;		/* pid, to detect forks */
+	int tsock;		/* tcp socket */
+	int tport;		/* tcp local port name - host byte order */
+	CLIENT *tc;		/* tcp client */
+	long tv_sec;		/* timeout for this call */
+	long rtv_sec;		/* read timeout - 0 if default */
+	long wtv_sec;		/* write timeout - 0 if default */
+	int abort;		/* abort on timeout? */
+	int needwrite;		/* need to lock writes? */
+	int uid;		/* user id */
+	ni_name passwd;		/* password */
+} ni_private;
+
+#define NIP(ni) ((ni_private *)(ni))
+
+/* ask a NetInfo server for the address and tag of it's parent */
 ni_status ni2_rparent(void *domain, struct sockaddr_in *addr, char **tag)
 {
-	/* ask a NetInfo server for the address and tag of it's parent */
-	/* there's no library routine to ask a server for it's parent */
-	/* directly, so we have to jump through a couple of hoops */
-	/* first ask nibindd for the tcp port of the server, then */
-	/* make our own RCP connection to the server and send it */
-	/* an NI_RPARENT message */
-
-	ni_status ret;
-	CLIENT *bindclnt, *niclnt;
-	char child_tag[1024];
-	nibind_getregister_res *grres;
+	CLIENT *c;
 	ni_rparent_res *rpres;
-	int sock;
-	struct sockaddr_in sin, child_addr;
 
-	/* get current server's address and tag */
-	ret = ni_addrtag(domain, &child_addr, (ni_name *)&child_tag);
+	if (domain == NULL) return NI_INVALIDDOMAIN;
+	if (addr == NULL) return NI_NONAME;
+	if (tag == NULL) return NI_NONAME;
 
-	/* avoid crashing if bad info in child_addr */
-	if (NI_OK != ret || 
-	    INADDR_NONE == child_addr.sin_addr.s_addr ||
-	    INADDR_ANY == child_addr.sin_addr.s_addr) {
-	    /*
-	     * If we got no address, there's a weird error in network
-	     * interface configuration, and we should complain.
-	     */
-	    return(NI_CANTFINDADDRESS);
-	}
-
-	/* ask nibindd for the tcp port of the server */
-
-	/* create an RPC client for NIBIND */
-	child_addr.sin_port = 0; /* let portmapper find it */
-	sock = RPC_ANYSOCK;
-	bindclnt = clnttcp_create(&child_addr, NIBIND_PROG, NIBIND_VERS, &sock, 0, 0);
-	if (bindclnt == NULL) return NI_SYSTEMERR;
-
-	/* ask for the ports used by the server */
-	grres = nibind_getregister_1((ni_name *)&child_tag, bindclnt);
-	clnt_destroy(bindclnt);
-	if (grres == NULL) return NI_SYSTEMERR;
-
-	/* create a NI client */
-	/* we need to use clnttcp_create, so we need to set up an address and a socket */
-	/* here's the address */
-	sin.sin_port=htons(grres->nibind_getregister_res_u.addrs.tcp_port);
-	sin.sin_family = AF_INET;
-	bcopy(&child_addr.sin_addr, &sin.sin_addr, sizeof(child_addr.sin_addr));
-	sock = RPC_ANYSOCK;
-
-	/* now make me a client */
-	niclnt = clnttcp_create(&sin, NI_PROG, NI_VERS, &sock, 0, 0);
-	if (niclnt == NULL) return NI_SYSTEMERR;
+	c = NIP(domain)->tc;
+	if (c == NULL) return NI_SYSTEMERR;
 
 	/* send the NI_RPARENT */
-	rpres = _ni_rparent_2((void *)0, niclnt);
-	clnt_destroy(niclnt);
+	rpres = _ni_rparent_2((void *)0, c);
+
 	if (rpres == NULL) return NI_SYSTEMERR;
 	if (rpres->status != NI_OK) return rpres->status;
 

@@ -323,16 +323,25 @@ xfwrite (buf, size, nelem, fp)
 static char *
 tempname ()
 {
-  static int seq;
+  int fd;
   int len = strlen (temp_file_prefix);
-  char *name = xmalloc (len + 16);
-  struct tempnode *node =
-  (struct tempnode *) xmalloc (sizeof (struct tempnode));
+  char *name = xmalloc (len + 1 + sizeof "sort" - 1 + 5 + 5 + 1);
+  struct tempnode *node;
 
-  if (len && temp_file_prefix[len - 1] != '/')
-    sprintf (name, "%s/sort%5.5d%5.5d", temp_file_prefix, getpid (), ++seq);
-  else
-    sprintf (name, "%ssort%5.5d%5.5d", temp_file_prefix, getpid (), ++seq);
+  node = (struct tempnode *) xmalloc (sizeof (struct tempnode));
+  sprintf(name,
+	  "%s%ssortXXXXXX",
+	  temp_file_prefix,
+	  (len && temp_file_prefix[len - 1] != '/') ? "/" : "");
+  
+  if ((fd = mkstemp(name)) == -1)
+  {
+	error(0, errno, "mkstemp error");
+	cleanup();
+	exit(2);
+  }
+  close(fd); 
+
   node->name = name;
   node->next = temphead.next;
   temphead.next = node;

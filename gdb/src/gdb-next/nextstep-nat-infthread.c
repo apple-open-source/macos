@@ -98,6 +98,43 @@ kern_return_t clear_trace_bit (thread_t thread)
   return KERN_SUCCESS;
 }
 
+void prepare_threads_after_stop (struct next_inferior_status *inferior)
+{
+  thread_array_t thread_list = NULL;
+  unsigned int nthreads = 0;
+  kern_return_t kret;
+  unsigned int i;
+  
+  if (inferior->exception_status.saved_exceptions_stepping) {
+    next_restore_exception_ports (inferior->task, &inferior->exception_status.saved_exceptions_step);
+    inferior->exception_status.saved_exceptions_stepping = 0;
+  }
+
+  next_mach_check_new_threads ();
+
+  kret = task_threads (inferior->task, &thread_list, &nthreads);
+  MACH_CHECK_ERROR (kret);
+  
+  for (i = 0; i < nthreads; i++) {
+
+    int tid;
+    struct thread_info *tp = NULL;
+
+    next_thread_list_lookup_by_info (next_status, inferior->pid, thread_list[i], &tid);
+    tp = find_thread_id (tid);
+    CHECK_FATAL (tp != NULL);
+    while (tp->gdb_suspend_count > 0) {
+      thread_resume (thread_list[i]);
+      tp->gdb_suspend_count--;
+    }
+    kret = clear_trace_bit (thread_list[i]);
+    MACH_WARN_ERROR (kret);
+  }
+  
+  kret = vm_deallocate (task_self(), (vm_address_t) thread_list, (nthreads * sizeof (int)));
+  MACH_WARN_ERROR (kret);
+}
+
 void prepare_threads_before_run
   (struct next_inferior_status *inferior, int step, thread_t current, int stop_others)
 {
@@ -158,43 +195,6 @@ void prepare_threads_before_run
     next_save_exception_ports (inferior->task, &inferior->exception_status.saved_exceptions_step);
     inferior->exception_status.saved_exceptions_stepping = 1;
   }
-}
-
-void prepare_threads_after_stop (struct next_inferior_status *inferior)
-{
-  thread_array_t thread_list = NULL;
-  unsigned int nthreads = 0;
-  kern_return_t kret;
-  unsigned int i;
-  
-  if (inferior->exception_status.saved_exceptions_stepping) {
-    next_restore_exception_ports (inferior->task, &inferior->exception_status.saved_exceptions_step);
-    inferior->exception_status.saved_exceptions_stepping = 0;
-  }
-
-  next_mach_check_new_threads ();
-
-  kret = task_threads (inferior->task, &thread_list, &nthreads);
-  MACH_CHECK_ERROR (kret);
-  
-  for (i = 0; i < nthreads; i++) {
-
-    int tid;
-    struct thread_info *tp = NULL;
-
-    next_thread_list_lookup_by_info (next_status, inferior->pid, thread_list[i], &tid);
-    tp = find_thread_id (tid);
-    CHECK_FATAL (tp != NULL);
-    while (tp->gdb_suspend_count > 0) {
-      thread_resume (thread_list[i]);
-      tp->gdb_suspend_count--;
-    }
-    kret = clear_trace_bit (thread_list[i]);
-    MACH_WARN_ERROR (kret);
-  }
-  
-  kret = vm_deallocate (task_self(), (vm_address_t) thread_list, (nthreads * sizeof (int)));
-  MACH_WARN_ERROR (kret);
 }
 
 char *unparse_run_state (int run_state)

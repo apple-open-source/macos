@@ -40,11 +40,14 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+#include <pwd.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 
 #include <CoreFoundation/CFString.h>
+extern Boolean _CFStringGetFileSystemRepresentation(CFStringRef string, UInt8 *buffer, CFIndex maxBufLen);
+
 
 #include <hfs/hfs_format.h>
 #include "hfs_endian.h"
@@ -109,7 +112,8 @@ static UInt32 Largest __P((UInt32 a, UInt32 b, UInt32 c, UInt32 d ));
 
 static void MarkBitInAllocationBuffer __P((HFSPlusVolumeHeader *header,
 		UInt32 allocationBlock, void* sectorBuffer, UInt32 *sector));
-static UInt32 GuessTextEncoding __P((const UniChar *string, UInt32 charCount));
+
+static UInt32 GetDefaultEncoding();
 
 static UInt32 UTCToLocal __P((UInt32 utcTime));
 
@@ -487,7 +491,6 @@ InitMDB(hfsparams_t *defaults, UInt32 driveBlocks, HFS_MDB *mdbp)
 	{
 		UniChar unibuf[kHFSMaxVolumeNameChars];
 		CFStringRef cfstr;
-		CFStringEncoding encoding;
 		CFIndex maxchars;
 		Boolean cfOK;
 	
@@ -496,9 +499,7 @@ InitMDB(hfsparams_t *defaults, UInt32 driveBlocks, HFS_MDB *mdbp)
 		/* Find out what Mac encoding to use: */
 		maxchars = MIN(sizeof(unibuf)/sizeof(UniChar), CFStringGetLength(cfstr));
 		CFStringGetCharacters(cfstr, CFRangeMake(0, maxchars), unibuf);
-		encoding = GuessTextEncoding(unibuf, maxchars);
-
-		cfOK = CFStringGetPascalString(cfstr, mdbp->drVN, sizeof(mdbp->drVN), encoding);
+		cfOK = CFStringGetPascalString(cfstr, mdbp->drVN, sizeof(mdbp->drVN), GetDefaultEncoding());
 		CFRelease(cfstr);
 
 		if (!cfOK) {
@@ -994,7 +995,9 @@ InitCatalogRoot_HFSPlus(const hfsparams_t *dp, void * buffer)
 	UInt16					nodeSize;
 	SInt16					offset;
 	UInt32					unicodeBytes;
-
+	UInt8 canonicalName[256];
+	CFStringRef cfstr;
+	Boolean	cfOK;
 
 	nodeSize = dp->catalogNodeSize;
 	bzero(buffer, nodeSize);
@@ -1015,8 +1018,12 @@ InitCatalogRoot_HFSPlus(const hfsparams_t *dp, void * buffer)
 	 * First record is always the root directory...
 	 */
 	ckp = (HFSPlusCatalogKey *)((UInt8 *)buffer + offset);
+	
+	/* Use CFString functions to get a HFSPlus Canonical name */
+	cfstr = CFStringCreateWithCString(kCFAllocatorDefault, dp->volumeName, kCFStringEncodingUTF8);
+	cfOK = _CFStringGetFileSystemRepresentation(cfstr, canonicalName, sizeof(canonicalName));
 
-	if (ConvertUTF8toUnicode(dp->volumeName, sizeof(ckp->nodeName.unicode),
+	if (!cfOK || ConvertUTF8toUnicode(canonicalName, sizeof(ckp->nodeName.unicode),
 		ckp->nodeName.unicode, &ckp->nodeName.length)) {
 
 		/* On conversion errors "untitled" is used as a fallback. */
@@ -1027,6 +1034,7 @@ InitCatalogRoot_HFSPlus(const hfsparams_t *dp, void * buffer)
 		warnx("invalid HFS+ name: \"%s\", using \"%s\" instead",
 		      dp->volumeName, kDefaultVolumeNameStr);
 	}
+	CFRelease(cfstr);
     ckp->nodeName.length = SWAP_BE16 (ckp->nodeName.length);
 
 	unicodeBytes = sizeof(UniChar) * SWAP_BE16 (ckp->nodeName.length);
@@ -1040,8 +1048,7 @@ InitCatalogRoot_HFSPlus(const hfsparams_t *dp, void * buffer)
 	cdp->folderID		= SWAP_BE32 (kHFSRootFolderID);
 	cdp->createDate		= SWAP_BE32 (dp->createDate);
 	cdp->contentModDate	= SWAP_BE32 (dp->createDate);
-	cdp->textEncoding	= SWAP_BE32 ((GuessTextEncoding(ckp->nodeName.unicode,
-                                      SWAP_BE16 (ckp->nodeName.length))));
+	cdp->textEncoding	= SWAP_BE32 (GetDefaultEncoding());
 	offset += sizeof(HFSPlusCatalogFolder);
 
 	SETOFFSET(buffer, nodeSize, offset, 2);
@@ -1699,30 +1706,30 @@ DivideAndRoundUp(UInt32 numerator, UInt32 denominator)
 }
 
 
+#define __kCFUserEncodingFileName ("/.CFUserTextEncoding")
 
-/*
- * make a guess at the text encoding value for a given Unicode string
- */
 static UInt32
-GuessTextEncoding(const UniChar *string, UInt32 charCount)
+GetDefaultEncoding()
 {
-	int i;
-	UniChar ch;
+    struct passwd *passwdp;
 
-	for (i = 0; i < charCount; ++i) {
-		ch = SWAP_BE16 (string[i]);
-		/* CJK codepoints are 0x3000 thru 0x9FFF */
-		if (ch >= 0x3000) {
-			if (ch < 0xa000)
-				return (kTextEncodingMacJapanese);
+    if ((passwdp = getpwuid(0))) { // root account
+        char buffer[MAXPATHLEN + 1];
+        int fd;
 
-			/* fullwidth codepoints are 0xFF00 thru 0xFFEF */
-			if (ch >= 0xff00 && ch <= 0xffef)
-				return (kTextEncodingMacJapanese);
-		}
-	}
-	
-	return (kTextEncodingMacRoman);
+        strcpy(buffer, passwdp->pw_dir);
+        strcat(buffer, __kCFUserEncodingFileName);
+
+        if ((fd = open(buffer, O_RDONLY, 0)) > 0) {
+            size_t readSize;
+
+            readSize = read(fd, buffer, MAXPATHLEN);
+            buffer[(readSize < 0 ? 0 : readSize)] = '\0';
+            close(fd);
+            return strtol(buffer, NULL, 0);
+        }
+    }
+    return 0;
 }
 
 

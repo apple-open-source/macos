@@ -6,14 +6,16 @@
 Project               = php
 UserType              = Administration
 ToolType              = Services
-Extra_Configure_Flags = --with-apxs --enable-debug
+Extra_Configure_Flags = --with-apxs
 Extra_Environment     = AR="$(SRCROOT)/ar.sh" PEAR_INSTALLDIR="$(NSLIBRARYDIR)/PHP"
 GnuAfterInstall       = strip mode
 
 Framework = $(NSFRAMEWORKDIR)/php.framework/Versions/4
 
 # It's a GNU Source project
+Extra_CC_Flags = -no-cpp-precomp
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
+Extra_CC_Flags = -no-cpp-precomp
 
 Install_Target = install
 

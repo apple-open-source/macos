@@ -4,7 +4,7 @@
 # Synopsis: Holds function info parsed by headerDoc
 #
 # Author: Matt Morse (matt@apple.com)
-# Last Updated: 12/9/99
+# Last Updated: $Date: 2001/03/22 02:27:13 $
 # 
 # Copyright (c) 1999 Apple Computer, Inc.  All Rights Reserved.
 # The contents of this file constitute Original Code as defined in and are
@@ -27,6 +27,7 @@ package HeaderDoc::Function;
 use HeaderDoc::Utilities qw(findRelativePath safeName getAPINameAndDisc convertCharsForFileMaker printArray printHash);
 use HeaderDoc::HeaderElement;
 use HeaderDoc::MinorAPIElement;
+use HeaderDoc::APIOwner;
 
 @ISA = qw( HeaderDoc::HeaderElement );
 use vars qw($VERSION @ISA);
@@ -116,8 +117,8 @@ sub processFunctionComment {
 			($field =~ s/^discussion\s+//) && do {$self->discussion($field); last SWITCH;};
 			($field =~ s/^param\s+//) && 
 			do {
-				$field =~ s/^\s+|\s+$//g;
-	            $field =~ /(\w*)\s+(.*)/s;
+				$field =~ s/^\s+|\s+$//g; # trim leading and trailing whitespace
+	            $field =~ /(\w*)\s*(.*)/s;
 	            my $pName = $1;
 	            my $pDesc = $2;
 	            my $param = HeaderDoc::MinorAPIElement->new();
@@ -219,6 +220,50 @@ sub setFunctionDeclaration {
     return $retval;
 }
 
+
+sub documentationBlock {
+    my $self = shift;
+    my $contentString;
+    my $name = $self->name();
+    my $desc = $self->discussion();
+    my $abstract = $self->abstract();
+    my $declaration = $self->declarationInHTML();
+    my @params = $self->taggedParameters();
+    my $result = $self->result();
+    my $apiUIDPrefix = HeaderDoc::APIOwner->apiUIDPrefix();
+    
+    $contentString .= "<a name=\"//$apiUIDPrefix/c/func/$name\"></a>\n"; # apple_ref marker
+    $contentString .= "<h3><a name=\"$name\">$name</a></h3>\n";
+    if (length($abstract)) {
+        $contentString .= "<b>Abstract:</b> $abstract\n";
+    }
+    $contentString .= "<blockquote><pre>$declaration</pre></blockquote>\n";
+    $contentString .= "<p>$desc</p>\n";
+    my $arrayLength = @params;
+    if ($arrayLength > 0) {
+        my $paramContentString;
+        foreach my $element (@params) {
+            my $pName = $element->name();
+            my $pDesc = $element->discussion();
+            if (length ($pName)) {
+                $paramContentString .= "<tr><td align = \"center\"><tt>$pName</tt></td><td>$pDesc</td><tr>\n";
+            }
+        }
+        if (length ($paramContentString)){
+            $contentString .= "<h4>Parameters</h4>\n";
+            $contentString .= "<blockquote>\n";
+            $contentString .= "<table border = \"1\"  width = \"90%\">\n";
+            $contentString .= "<thead><tr><th>Name</th><th>Description</th></tr></thead>\n";
+            $contentString .= $paramContentString;
+            $contentString .= "</table>\n</blockquote>\n";
+        }
+    }
+    if (length($result)) {
+        $contentString .= "<b>Result:</b> $result\n";
+    }
+    $contentString .= "<hr>\n";
+    return $contentString;
+}
 
 sub printObject {
     my $self = shift;

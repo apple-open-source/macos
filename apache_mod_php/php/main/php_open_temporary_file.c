@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -34,7 +34,9 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#if HAVE_ARPA_INET_H
 #include <arpa/inet.h>
+#endif
 #endif
 #ifdef HAVE_SYS_TIME_H
 #include <sys/time.h>
@@ -42,6 +44,10 @@
 
 #ifdef HAVE_SYS_FILE_H
 #include <sys/file.h>
+#endif
+
+#if !defined(P_tmpdir)
+#define P_tmpdir ""
 #endif
 
 /* {{{ php_open_temporary_file */
@@ -108,7 +114,7 @@ static FILE *php_do_open_temporary_file(char *path, const char *pfx, char **open
 
 #ifdef PHP_WIN32
 	if (GetTempFileName(path, pfx, 0, opened_path)) {
-		fp = V_FOPEN(opened_path, "wb");
+		fp = VCWD_FOPEN(opened_path, "wb");
 	} else {
 		fp = NULL;
 	}
@@ -121,7 +127,7 @@ static FILE *php_do_open_temporary_file(char *path, const char *pfx, char **open
 	}
 #else
 	if (mktemp(opened_path)) {
-		fp = V_FOPEN(opened_path, "wb");
+		fp = VCWD_FOPEN(opened_path, "wb");
 	} else {
 		fp = NULL;
 	}

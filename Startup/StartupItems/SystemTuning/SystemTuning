@@ -33,45 +33,48 @@ SetBootCommand()
 {
     local BootCommand="$*"
 
-    if nvram "${BootArgsVar}"="${BootCommand}"; then
-	shutdown -r now
-    else
-	echo "Warning: Failed to set boot-command"
-	echo "Warning: Continuing startup"
+    if [ $ARCH = "powerpc" ]; then
+        if nvram "${BootArgsVar}"="${BootCommand}"; then
+	    shutdown -r now
+        else
+	    echo "Warning: Failed to set boot-command"
+	    echo "Warning: Continuing startup"
+        fi
     fi
 }
 
-if boot_command=$(nvram "${BootArgsVar}" | cut -f 2-); then
+if [ $ARCH = "powerpc" ]; then
+    if boot_command=$(nvram "${BootArgsVar}" | cut -f 2-); then
 
-    case ${SERVER} in
+        case ${SERVER} in
 
-      -YES-)
-	if [ -n "$( echo ${boot_command} | sed -n '/srv=/p' )" ]; then
-	    if [ -n "$( echo ${boot_command} | sed -n '/srv=0/p' )" ]; then
-		ConsoleMessage "Rebooting with server configuration"
-		SetBootCommand $(echo ${boot_command} | sed 's/srv=0/srv=1/')
+          -YES-)
+	    if [ -n "$( echo ${boot_command} | sed -n '/srv=/p' )" ]; then
+	        if [ -n "$( echo ${boot_command} | sed -n '/srv=0/p' )" ]; then
+		    ConsoleMessage "Rebooting with server configuration"
+		    SetBootCommand $(echo ${boot_command} | sed 's/srv=0/srv=1/')
+	        fi
+	    else
+	        ConsoleMessage "Rebooting with server configuration"
+	        SetBootCommand ${boot_command} srv=1
 	    fi
-	else
-	    ConsoleMessage "Rebooting with server configuration"
-	    SetBootCommand ${boot_command} srv=1
-	fi
-	;;
-
-      -NO-)
-	if [ -n "$( echo ${boot_command} | sed -n '/srv=1/p' )" ]; then
-	    ConsoleMessage "Rebooting without server configuration"
-	    SetBootCommand $(echo ${boot_command} | sed 's/srv=1//')
-	fi
-	;;
-
-    esac
-
-    nvram boot-command
-
-else
-    echo "Warning: Unable to access OpenFirmware to set boot-command"
+	    ;;
+    
+          -NO-)
+	    if [ -n "$( echo ${boot_command} | sed -n '/srv=1/p' )" ]; then
+	        ConsoleMessage "Rebooting without server configuration"
+	        SetBootCommand $(echo ${boot_command} | sed 's/srv=1//')
+	    fi
+	    ;;
+    
+        esac
+    
+        nvram boot-command
+    
+    else
+        echo "Warning: Unable to access OpenFirmware to set boot-command"
+    fi
 fi
-
 ##
 # Scale number of vnodes based on RAM
 # base memory is 32MB and each 32MB gets 512 vnodes

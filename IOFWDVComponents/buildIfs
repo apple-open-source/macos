@@ -1,0 +1,12 @@
+/AppleInternal/Developer/Tools/Interfacer ./DeviceControl.i -i /AppleInternal/Carbon/interfaces/Interfaces/ -c -o DeviceControl.h
+/AppleInternal/Developer/Tools/Interfacer ./DeviceControl.i -i /AppleInternal/Carbon/interfaces/Interfaces/ -componentGlueC -o DeviceControl.i.c
+/AppleInternal/Developer/Tools/Interfacer ./DeviceControl.i -i /AppleInternal/Carbon/interfaces/Interfaces/ -components -o DeviceControl.k.h
+/AppleInternal/Developer/Tools/Interfacer ./DeviceControlPriv.i -i /AppleInternal/Carbon/interfaces/Interfaces/ -c -o DeviceControlPriv.h
+/AppleInternal/Developer/Tools/Interfacer ./DeviceControlPriv.i -i /AppleInternal/Carbon/interfaces/Interfaces/ -componentGlueC -o DeviceControlPriv.i.c
+/AppleInternal/Developer/Tools/Interfacer ./DeviceControlPriv.i -i /AppleInternal/Carbon/interfaces/Interfaces/ -components -o DeviceControlPriv.k.h
+/AppleInternal/Developer/Tools/Interfacer ./IsochronousDataHandler.i -i /AppleInternal/Carbon/interfaces/Interfaces/ -c -o IsochronousDataHandler.h
+/AppleInternal/Developer/Tools/Interfacer ./IsochronousDataHandler.i -i /AppleInternal/Carbon/interfaces/Interfaces/ -componentGlueC -o IsochronousDataHandler.i.c
+/AppleInternal/Developer/Tools/Interfacer ./IsochronousDataHandler.i -i /AppleInternal/Carbon/interfaces/Interfaces/ -components -o IsochronousDataHandler.k.h
+
+
+/AppleInternal/Developer/Tools/MakePseudoLibrary DVComponentGlue.exp -fragname DVComponentGlue.vlib -bridge DVComponentGlue.bridge -vector DVComponentVectors.s -dylibpath /System/Library/Frameworks/DVComponentGlue.framework/Versions/Current/DVComponentGlue

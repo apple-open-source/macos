@@ -2,13 +2,13 @@
  * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * The contents of this file constitute Original Code as defined in and
  * are subject to the Apple Public Source License Version 1.1 (the
  * "License").  You may not use this file except in compliance with the
  * License.  Please obtain a copy of the License at
  * http://www.apple.com/publicsource and read it before using this file.
- * 
+ *
  * This Original Code and all software distributed under the License are
  * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -16,7 +16,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
  * License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
@@ -55,7 +55,6 @@
  * SUCH DAMAGE.
  */
 
-
 #include <sys/param.h>
 #include <sys/wait.h>
 #include <sys/socket.h>
@@ -67,6 +66,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <paths.h>
+#include <crt_externs.h>
+
+#define environ *(_NSGetEnviron())
 
 static struct pid {
 	struct pid *next;
@@ -81,38 +83,57 @@ popen(command, type)
 	struct pid *cur;
 	FILE *iop;
 	int pdes[2], pid, twoway;
+	char *argv[4];
+	struct pid *p;
 
 	if (strchr(type, '+')) {
 		twoway = 1;
 		type = "r+";
-		if (socketpair(AF_UNIX, SOCK_STREAM, 0, pdes) < 0)
-			return (NULL);
+                if (socketpair(AF_UNIX, SOCK_STREAM, 0, pdes) < 0)
+                        return (NULL);
 	} else  {
 		twoway = 0;
-		if (*type != 'r' && *type != 'w' || type[1] ||
-		    (pipe(pdes) < 0))
+		if ((*type != 'r' && *type != 'w') || type[1])
 			return (NULL);
 	}
-
-	if ((cur = malloc(sizeof(struct pid))) == NULL)
+	if (pipe(pdes) < 0)
 		return (NULL);
+
+	if ((cur = malloc(sizeof(struct pid))) == NULL) {
+		(void)close(pdes[0]);
+		(void)close(pdes[1]);
+		return (NULL);
+	}
+
+	argv[0] = "sh";
+	argv[1] = "-c";
+	argv[2] = (char *)command;
+	argv[3] = NULL;
 
 	switch (pid = vfork()) {
 	case -1:			/* Error. */
 		(void)close(pdes[0]);
 		(void)close(pdes[1]);
-		(void)free(cur);
+		free(cur);
 		return (NULL);
 		/* NOTREACHED */
 	case 0:				/* Child. */
 		if (*type == 'r') {
+			/*
+			 * The _dup2() to STDIN_FILENO is repeated to avoid
+			 * writing to pdes[1], which might corrupt the
+			 * parent's copy.  This isn't good enough in
+			 * general, since the _exit() is no return, so
+			 * the compiler is free to corrupt all the local
+			 * variables.
+			 */
+			(void)close(pdes[0]);
 			if (pdes[1] != STDOUT_FILENO) {
 				(void)dup2(pdes[1], STDOUT_FILENO);
 				(void)close(pdes[1]);
-				pdes[1] = STDOUT_FILENO;
-			}
-			(void) close(pdes[0]);
-			if (twoway && (pdes[1] != STDIN_FILENO))
+				if (twoway)
+					(void)dup2(STDOUT_FILENO, STDIN_FILENO);
+			} else if (twoway && (pdes[1] != STDIN_FILENO))
 				(void)dup2(pdes[1], STDIN_FILENO);
 		} else {
 			if (pdes[0] != STDIN_FILENO) {
@@ -120,8 +141,11 @@ popen(command, type)
 				(void)close(pdes[0]);
 			}
 			(void)close(pdes[1]);
+			}
+		for (p = pidlist; p; p = p->next) {
+			(void)close(fileno(p->fp));
 		}
-		execl(_PATH_BSHELL, "sh", "-c", command, NULL);
+		execve(_PATH_BSHELL, argv, environ);
 		_exit(127);
 		/* NOTREACHED */
 	}
@@ -154,7 +178,6 @@ pclose(iop)
 	FILE *iop;
 {
 	register struct pid *cur, *last;
-	int omask;
 	int pstat;
 	pid_t pid;
 
@@ -168,7 +191,7 @@ pclose(iop)
 	(void)fclose(iop);
 
 	do {
-		pid = waitpid(cur->pid, &pstat, 0);
+		pid = wait4(cur->pid, &pstat, 0, (struct rusage *)0);
 	} while (pid == -1 && errno == EINTR);
 
 	/* Remove the entry from the linked list. */

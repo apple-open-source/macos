@@ -1,0 +1,6 @@
+/* Localized versions of Info.plist keys */
+
+CFBundleName = "Security Settings";
+CFBundleShortVersionString = "Security Settings version 0.0.1d1";
+CFBundleGetInfoString = "Security Settings version 0.0.1d1, Copyright 2000, Apple Computer, Inc.";
+NSHumanReadableCopyright = "Copyright 2000,  Apple Computer, Inc.";

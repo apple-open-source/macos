@@ -37,8 +37,6 @@ public:
 private:
 
     virtual  IOReturn setPowerState ( long, IOService* );
-    virtual  unsigned long maxCapabilityForDomainState ( IOPMPowerFlags );
-    virtual  unsigned long powerStateForDomainState ( IOPMPowerFlags );
     unsigned long initialPowerStateForDomainState ( IOPMPowerFlags);
     
 };

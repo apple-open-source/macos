@@ -125,9 +125,6 @@ ni_prot_svc.c:		ni_prot.x
 	$(RPCGEN) -m ni_prot.x -o $(DERIVED_SRC_DIR)/ni_prot_svc_orig.c
 	sed -f rpcgen_HACK.sed $(DERIVED_SRC_DIR)/ni_prot_svc_orig.c > $(DERIVED_SRC_DIR)/ni_prot_svc.c
 
-bootparam_prot_xdr.c:	bootparam_prot.x
-	$(RPCGEN) -c bootparam_prot.x -o $(DERIVED_SRC_DIR)/$@
-
 after_install:
 	install -d $(DSTROOT)/usr/share/man/man8
 	install -c -m 444 netinfod.8 $(DSTROOT)/usr/share/man/man8

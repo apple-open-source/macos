@@ -63,22 +63,14 @@ CFM_FILES = \
         nextstep-nat-cfmthread.o \
 	macosx-metrowerks.o
 
-CFM_CFLAGS = \
-	-DWITH_CFM=1 \
-	-I$(CARBON_CORE)/Versions/Current/Headers \
-	-I$(CARBON_CORE)/Versions/Current/PrivateHeaders \
-	-Wno-four-char-constants \
-	-traditional-cpp
-
-CFM_LIBS = \
-	-L$(CARBON_CORE)/Support \
-	-lGDBCFMHelper
+CFM_CFLAGS = -DWITH_CFM=1
 
 else
 CFM_FILES =
 CFM_CFLAGS =
-CFM_LIBS =
 endif
+
+CFM_LIBS = 
 
 ifneq ("$(USE_CTHREADS)", "")
 MH_CFLAGS += -DUSE_CTHREADS=1

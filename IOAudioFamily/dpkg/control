@@ -1,6 +1,6 @@
 Package: ioaudiofamily
 Maintainer: Darwin Developers <darwin-development@lists.apple.com>
 Vendor: Apple Computer, Inc.
-Version: 12.1
-Build-Depends: build-base, corefoundation, carbonheaders, iokituser, extentools, perl
+Version: 1.1
+Build-Depends: cctools, libsystem, grep, text-cmds, shell-cmds, file-cmds, system-cmds, zsh, jam, gcc, corefoundation, carbonheaders, iokituser, perl, xnu, files
 Description: IOKit Audio Family Framework

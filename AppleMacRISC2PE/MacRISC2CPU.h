@@ -64,6 +64,7 @@ private:
     const OSSymbol 		*keyLargo_saveRegisterState;
     const OSSymbol 		*keyLargo_turnOffIO;
     const OSSymbol 		*keyLargo_writeRegUInt8;
+    const OSSymbol 		*keyLargo_getHostKeyLargo;
 
 public:
     virtual const OSSymbol *getCPUName(void);

@@ -1,7 +1,7 @@
 %define askpass		1.2.0
 
 Name        	: openssh
-Version     	: 2.9p1
+Version     	: 2.9p2
 Release     	: 1
 Group       	: System/Network
 
@@ -18,6 +18,9 @@ Packager    	: Stephan Seyboth <sps@caldera.de>
 URL         	: http://www.openssh.com/
 
 Obsoletes   	: ssh, ssh-clients, openssh-clients
+ 
+# uncomment for >= Caldera 3.1
+#Requires    	: SysVinit-scripts >= 1.07
 
 BuildRoot   	: /tmp/%{Name}-%{Version}
 
@@ -278,4 +281,4 @@ fi
 * Mon Jan 01 1998 ...
 Template Version: 1.31
 
-$Id: openssh.spec,v 1.1.1.3 2001/05/03 16:51:24 zarzycki Exp $
+$Id: openssh.spec,v 1.1.1.4 2001/06/26 01:03:29 zarzycki Exp $

@@ -289,7 +289,8 @@ rpcerr2errno(int r, int e)
 	{
 		port[i] = 0;
 		lastTime[i] = 0;
-		isDead[i] = NO;
+		isDead[i][0] = NO;
+		isDead[i][1] = NO;
 	}
 }
 
@@ -300,8 +301,9 @@ rpcerr2errno(int r, int e)
 	struct sockaddr_in sin;
 	struct timeval tv;
 	CLIENT *cl;
-	int i, s, delta;
+	int i, s, delta, px;
 	unsigned long addr;
+	BOOL mort;
 
 	if (!((v == 2) || (v == 3))) return ERPCMISMATCH;
 
@@ -324,21 +326,25 @@ rpcerr2errno(int r, int e)
 
 	mountClient[v] = NULL;
 
-	if (isDead[v] && (delta < DEATH_LATENCY))
+	px = 0;
+	if (proto == IPPROTO_TCP) px = 1;
+	mort = isDead[v][px];
+
+	if (mort && (delta < DEATH_LATENCY))
 	{
 		sys_msg(debug, LOG_INFO,
-			"Assuming %s is still unavailable (%d seconds remain)",
-			[myname value], DEATH_LATENCY - delta);
+			"Assuming %s NFS_V%d/%s is still unavailable (%d seconds remain)",
+			[myname value], v, (px == 0) ? "UDP" : "TCP", DEATH_LATENCY - delta);
 		return EHOSTDOWN;
 	}
 
-	isDead[v] = NO;
+	isDead[v][px] = NO;
 
 	addr = [self address];
 	if (addr == 0)
 	{
 		sys_msg(debug, LOG_ERR, "Can't find address for %s", [myname value]);
-		isDead[v] = YES;
+		isDead[v][px] = YES;
 		return 0;
 	}
 	
@@ -356,14 +362,17 @@ rpcerr2errno(int r, int e)
 	{
 		sys_msg(debug, LOG_NOTICE, "Can't get NFS_V%d/%s port for %s",
 			v, (proto == IPPROTO_TCP) ? "TCP" : "UDP", [myname value]);
-		isDead[v] = YES;
+		isDead[v][px] = YES;
 
 		if (rpc_createerr.cf_stat == RPC_PMAPFAILURE)
 		{
-			for (i = 0; i < 4; i++) isDead[i] = YES;
+			for (i = 0; i < 4; i++)
+			{
+				isDead[i][0] = YES;
+				isDead[i][1] = YES;
+			}
 			return EHOSTDOWN;
 		}
-
 		return rpcerr2errno(rpc_createerr.cf_stat, ECONNREFUSED);
 	}
 
@@ -393,8 +402,8 @@ rpcerr2errno(int r, int e)
 
 	if (cl == NULL)
 	{
-		sys_msg(debug, LOG_NOTICE, "Can't create MOUNTPROG client: %s",
-			clnt_spcreateerror("clntudp_create"));
+		sys_msg(debug, LOG_ERR, "Can't create MOUNTPROG client for server %s: %s",
+			inet_ntoa(sin.sin_addr), clnt_spcreateerror("clntudp_create"));
 		return rpc_createerr.cf_error.re_errno;
 	}
 
@@ -430,11 +439,13 @@ rpcerr2errno(int r, int e)
 	if (tv.tv_sec == 0) tv.tv_sec = 1;
 	tv.tv_usec = 0;
 
-	dir = [filename value];
-	cl = (CLIENT *)mountClient[v];
 	status = RPC_FAILED;
+	cl = (CLIENT *)mountClient[v];
+	if (cl == NULL) return status;
+
 	mount_status = (unsigned int)-1;
-	
+	dir = [filename value];
+
 	memset(&mount_res_2, 0, sizeof(fhstatus));
 	memset(&mount_res_3, 0, sizeof(mountres3));
 
@@ -453,7 +464,7 @@ rpcerr2errno(int r, int e)
 
 	if (status != RPC_SUCCESS)
 	{
-		sys_msg(debug, LOG_DEBUG, "RPC mount version %d %s:%s status: %s",
+		sys_msg(debug, LOG_ERR, "RPC mount version %d %s:%s status: %s",
 			v, [myname value], [filename value], clnt_sperrno(status));
 		clnt_geterr(cl, &rpcerr);
 		return rpcerr2errno(rpcerr.re_status, ECONNABORTED);

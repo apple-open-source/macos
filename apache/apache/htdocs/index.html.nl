@@ -17,7 +17,7 @@
   </H1>
   <P>
   Mocht u deze pagina zien, dan betekent dat, dat de eigenaren van dit
-  domein zojuist een nieuwe <A HREF="http://www.apache.org/httpd">Apache Web
+  domein zojuist een nieuwe <A HREF="http://httpd.apache.org/">Apache Web
   Server</A> hebben geinstalleerd. Nu moet men nog de echte inhoud gaan
   toevoegen, en moet men deze pagina gaan vervangen door de echte web
   site. 
@@ -25,16 +25,16 @@
   <HR>
   <BLOCKQUOTE>
    Mocht u deze pagina zien, in plaats van de pagina of web site die u 
-   verwachtte, neem dan <STRONG>contact op met de beheerder van
-   deze site</STRONG>. Bijvoorbeeld door een berichtje te sturen naar
+   verwachtte, neem dan <strong>contact op met de beheerder van
+   deze site</strong>. Bijvoorbeeld door een berichtje te sturen naar
    <SAMP>&lt;Webmaster@<EM>dit-domain</EM>&gt;</SAMP>.
    <P>
    Alhoewel deze web site gebruik maakt van de Apache Software is er 
    verder geen enkele relatie tussen de beheerders van deze web site en
    de Apache Groep (die de web software geschreven heeft). Het heeft dus
-   <BIG><STRONG>absoluut</STRONG></BIG>
+   <BIG><strong>absoluut</strong></BIG>
    geen zin de web software auteurs een emailtje te sturen. Mocht u dat
-   toch doen, dan wordt uw bericht gewoon <STRONG><BIG>genegeerd</BIG></STRONG>.
+   toch doen, dan wordt uw bericht gewoon <strong><BIG>genegeerd</BIG></strong>.
   </BLOCKQUOTE>
   <HR>
   <P>

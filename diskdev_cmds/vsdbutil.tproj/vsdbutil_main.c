@@ -834,14 +834,14 @@ int OpenVolumeStatusDB(VolumeStatusDBHandle *DBHandlePtr) {
 	};
 	
 	dbstateptr->dbmode = O_RDWR;
-	dbstateptr->dbfile = open(gVSDBPath, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+	dbstateptr->dbfile = open(gVSDBPath, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
 	if (dbstateptr->dbfile == -1) {
 		/*
 		   The file couldn't be opened for read/write access:
 		   try read-only access before giving up altogether.
 		 */
 		dbstateptr->dbmode = O_RDONLY;
-		dbstateptr->dbfile = open(gVSDBPath, O_RDONLY | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+		dbstateptr->dbfile = open(gVSDBPath, O_RDONLY | O_CREAT, S_IRUSR | S_IWUSR);
 		if (dbstateptr->dbfile == -1) {
 			return errno;
 		};

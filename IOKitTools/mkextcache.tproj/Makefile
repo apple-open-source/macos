@@ -28,6 +28,7 @@ DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
 
+NEXTSTEP_PB_LDFLAGS = -twolevel_namespace
 FRAMEWORKS = -framework CoreFoundation
 
 

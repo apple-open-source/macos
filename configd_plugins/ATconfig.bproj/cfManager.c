@@ -20,6 +20,13 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * Modification History
+ *
+ * July 17, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
 
 #include <unistd.h>
 #include <fcntl.h>

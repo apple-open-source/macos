@@ -30,34 +30,22 @@
 #define __BOOT2_BOOT_H
 
 /*
- * How long to wait (in seconds) to load the
- * kernel after displaying the "boot:" prompt.
- */
-#define BOOT_TIMEOUT     10      /* 10 second timeout */
-
-/*
  * Keys used in system Default.table / Instance0.table
  */
-#define PROMPT_KEY       "Prompt For Driver Disk"
-#define NUM_PROMPTS_KEY  "Driver Disk Prompts"
-#define ASK_KEY          "Ask For Drivers"
-#define INSTALL_KEY      "Install Mode"
-#define G_MODE_KEY       "Graphics Mode"
+#define kGraphicsModeKey    "Graphics Mode"
+#define kBootGraphicsKey    "Boot Graphics"
+#define kQuietBootKey       "Quiet Boot"
+#define kKernelFlagsKey     "Kernel Flags"
+#define kKernelNameKey      "Kernel"
 
 /*
  * Possible values for the bootdev argument passed to boot().
  */
 enum {
-	kBootDevHardDisk   = 0,
-	kBootDevFloppyDisk = 1,
-	kBootDevNetwork    = 2,
+	kBootDevHardDisk = 0,
+	kBootDevFloppyDisk,
+	kBootDevNetwork
 };
-
-/*
- * The directory that contains the booter support files.
- */
-#define BOOT_DIR_DISK       "/usr/standalone/i386/"
-#define BOOT_DIR_NET        ""
 
 /*
  * A global set by boot() to record the device that the booter
@@ -66,18 +54,17 @@ enum {
 extern int gBootDev;
 
 /*
- * Create the complete path to a booter support file.
- */
-#define makeFilePath(x) \
-    (gBootDev == kBootDevNetwork) ? BOOT_DIR_NET x : BOOT_DIR_DISK x
-
-/*
- * Functions defined in graphics.c.
+ * graphics.c
  */
 extern void message(char * str, int centered);
 extern void setMode(int mode);
 extern int  currentMode();
 extern void spinActivityIndicator();
 extern void clearActivityIndicator();
+
+/*
+ * drivers.c
+ */
+extern long LoadDrivers(char * dirSpec);
 
 #endif /* !__BOOT2_BOOT_H */

@@ -20,44 +20,18 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-/*
- * SCDKeys.h
- */
-
 #ifndef _SCDKEYS_H
 #define _SCDKEYS_H
 
-#include <CoreFoundation/CoreFoundation.h>
-#include <sys/cdefs.h>
-
-__BEGIN_DECLS
-
-/*
- * SCDKeyCreate*
- * - convenience routines that create a CFString key for an item in the cache
- */
-
-/*
- * Function: SCDKeyCreate
- * Purpose:
- *    Creates a cache key using the given format.
- */
-CFStringRef	SCDKeyCreate				(CFStringRef	fmt,
-							 ...);
-
-CFStringRef	SCDKeyCreateNetworkGlobalEntity		(CFStringRef	domain,
-							 CFStringRef	entity);
-
-CFStringRef	SCDKeyCreateNetworkInterface		(CFStringRef	domain);
-
-CFStringRef	SCDKeyCreateNetworkInterfaceEntity	(CFStringRef	domain,
-							 CFStringRef	ifname,
-							 CFStringRef	entity);
-
-CFStringRef	SCDKeyCreateNetworkServiceEntity	(CFStringRef	domain,
-							 CFStringRef	serviceID,
-							 CFStringRef	entity);
-
-__END_DECLS
+#ifndef _SYSTEMCONFIGURATION_H
+#warning Your code has directly included the (old) <SystemConfiguration/SCDKeys.h>
+#warning header file.  Please dont do that.  Use the top-level header file:
+#warning
+#warning   <SystemConfiguration/SystemConfiguration.h>
+#warning
+#warning Note: the dynamic store key creation APIs have been moved out of
+#warning       the SCDKeys.h header file.
+#include <SystemConfiguration/SystemConfiguration.h>    /* ...and try to keep everyone happy */
+#endif
 
 #endif /* _SCDKEYS_H */

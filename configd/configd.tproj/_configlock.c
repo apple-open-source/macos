@@ -20,54 +20,61 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * Modification History
+ *
+ * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * - public API conversion
+ *
+ * March 24, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
 #include "configd.h"
 #include "configd_server.h"
 #include "session.h"
 
 
-SCDStatus
-_SCDLock(SCDSessionRef session)
+int
+__SCDynamicStoreLock(SCDynamicStoreRef store, Boolean recursive)
 {
-	SCDSessionPrivateRef	sessionPrivate = (SCDSessionPrivateRef)session;
-	serverSessionRef	mySession;
+	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
+	serverSessionRef		mySession;
 
-	SCDLog(LOG_DEBUG, CFSTR("_SCDLock:"));
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("__SCDynamicStoreLock:"));
 
-	if ((session == NULL) || (sessionPrivate->server == MACH_PORT_NULL)) {
-		return SCD_NOSESSION;	/* you must have an open session to play */
+	if (!store || (storePrivate->server == MACH_PORT_NULL)) {
+		return kSCStatusNoStoreSession;		/* you must have an open session to play */
 	}
 
-	if (SCDOptionGet(NULL, kSCDOptionIsLocked)) {
-		return SCD_LOCKED;	/* sorry, someone (you) already have the lock */
+	if (storeLocked > 0) {
+		if (storePrivate->locked && recursive) {
+			/* if this session holds the lock and this is a recursive (internal) request */
+			storeLocked++;
+			return kSCStatusOK;
+		}
+		return kSCStatusLocked;			/* sorry, someone (you) already have the lock */
 	}
 
 	/* check credentials */
-	mySession = getSession(sessionPrivate->server);
+	mySession = getSession(storePrivate->server);
 	if (mySession->callerEUID != 0) {
-#ifdef	DEBUG
-		if (!SCDOptionGet(NULL, kSCDOptionDebug)) {
-#endif	/* DEBUG */
-			return SCD_EACCESS;
-#ifdef	DEBUG
-		} else {
-			SCDLog(LOG_DEBUG, CFSTR("  non-root access granted while debugging"));
-		}
-#endif	/* DEBUG */
+		return kSCStatusAccessError;
 	}
 
-	SCDOptionSet(NULL,    kSCDOptionIsLocked, TRUE);	/* global lock flag */
-	SCDOptionSet(session, kSCDOptionIsLocked, TRUE);	/* per-session lock flag */
+	storeLocked          = 1;	/* global lock flag */
+	storePrivate->locked = TRUE;	/* per-session lock flag */
 
 	/*
-	 * defer all (actually, most) changes until the call to _SCDUnlock()
+	 * defer all (actually, most) changes until the call to __SCDynamicStoreUnlock()
 	 */
-	if (cacheData_s) {
-		CFRelease(cacheData_s);
+	if (storeData_s) {
+		CFRelease(storeData_s);
 		CFRelease(changedKeys_s);
 		CFRelease(deferredRemovals_s);
 		CFRelease(removedSessionKeys_s);
 	}
-	cacheData_s          = CFDictionaryCreateMutableCopy(NULL, 0, cacheData);
+	storeData_s          = CFDictionaryCreateMutableCopy(NULL, 0, storeData);
 	changedKeys_s        = CFSetCreateMutableCopy(NULL, 0, changedKeys);
 	deferredRemovals_s   = CFSetCreateMutableCopy(NULL, 0, deferredRemovals);
 	removedSessionKeys_s = CFSetCreateMutableCopy(NULL, 0, removedSessionKeys);
@@ -75,21 +82,21 @@ _SCDLock(SCDSessionRef session)
 	/* Add a "locked" mode run loop source for this port */
 	CFRunLoopAddSource(CFRunLoopGetCurrent(), mySession->serverRunLoopSource, CFSTR("locked"));
 
-	return SCD_OK;
+	return kSCStatusOK;
 }
 
 
 kern_return_t
-_configlock(mach_port_t server, int *scd_status)
+_configlock(mach_port_t server, int *sc_status)
 {
 	serverSessionRef	mySession = getSession(server);
 
-	SCDLog(LOG_DEBUG, CFSTR("Lock configuration database."));
-	SCDLog(LOG_DEBUG, CFSTR("  server = %d"), server);
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("Lock configuration database."));
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  server = %d"), server);
 
-	*scd_status = _SCDLock(mySession->session);
-	if (*scd_status != SCD_OK) {
-		SCDLog(LOG_DEBUG, CFSTR("  SCDLock(): %s"), SCDError(*scd_status));
+	*sc_status = __SCDynamicStoreLock(mySession->store, FALSE);
+	if (*sc_status != kSCStatusOK) {
+		SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  SCDynamicStoreLock(): %s"), SCErrorString(*sc_status));
 		return KERN_SUCCESS;
 	}
 

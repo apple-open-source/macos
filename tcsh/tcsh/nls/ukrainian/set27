@@ -1,0 +1,8 @@
+$ $Id: set27,v 1.1.1.1 2001/06/28 23:11:25 bbraun Exp $
+$ tw.comp.c
+$set 27 
+1 command
+2 separator
+3 pattern
+4 range
+5 completion

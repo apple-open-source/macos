@@ -55,8 +55,11 @@ int papm[NOFILE];
 static int pap_active = 0;
 int papfd = 0;
 
-int pap_open(tuple)
+
+int pap_open2(tuple, num_tries, wait_time)
 at_nbptuple_t	*tuple;
+int num_tries;
+long wait_time;
 {
 	int fd, k;
 	long tm;
@@ -143,13 +146,13 @@ at_nbptuple_t	*tuple;
 	resp.bitmap = 0x01;
 	resp.resp[0].iov_base = rdata;
 	resp.resp[0].iov_len = sizeof(rdata);
-	i = time(NULL) - tm;
+        i = time(NULL) - tm + wait_time;
 	data[0] = socket;
 	data[1] = 8;
 	data[2] = i>>8;
 	data[3] = i & 0xff;
 
-  for (k=0; k < 10; k++) {
+  for (k=0; k < num_tries; k++) {
 	status = atp_sendreq(fd, &tuple->enu_addr, data, 4, userdata, 1, 0, 0,
 		&resp, &retry, 0);
 	if (status >= 0) {
@@ -162,6 +165,9 @@ at_nbptuple_t	*tuple;
 			SET_ERRNO(ECONNREFUSED);
 			if (rdata[1] == 8) {
 				sleep(1);
+				i = time(NULL) - tm + wait_time;
+				data[2] = i>>8;
+				data[3] = i & 0xff;
 				continue;
 			}
 			goto bad;
@@ -217,6 +223,13 @@ bad:
 	atp_close(fd);
 	return(-1);
 }
+
+int pap_open(tuple)
+at_nbptuple_t *tuple;
+{
+        return pap_open2(tuple, 10, 0);
+}
+
 
 /* ARGSUSED */
 void

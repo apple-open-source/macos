@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -43,6 +43,16 @@
 # define GetLastError() errno
 #endif
 
+/* 
+uncomment the following lines to turn off 
+exception trapping when running under a debugger 
+
+
+#ifdef _DEBUG
+#define NO_EXCEPTION_HANDLERS
+#endif
+*/
+
 #define MAX_STATUS_LENGTH sizeof("xxxx LONGEST STATUS DESCRIPTION")
 #define ISAPI_SERVER_VAR_BUF_SIZE 1024
 #define ISAPI_POST_DATA_BUF 1024
@@ -50,32 +60,52 @@
 static zend_bool bFilterLoaded=0;
 static zend_bool bTerminateThreadsOnError=0;
 
-static char *isapi_server_variables[] = {
+static char *isapi_special_server_variable_names[] = {
 	"ALL_HTTP",
+	"HTTPS",
+#ifndef WITH_ZEUS
+	"SCRIPT_NAME",
+#endif
+	NULL
+};
+
+#define NUM_SPECIAL_VARS		(sizeof(isapi_special_server_variable_names)/sizeof(char *))
+#define SPECIAL_VAR_ALL_HTTP	0
+#define SPECIAL_VAR_HTTPS		1
+#define SPECIAL_VAR_PHP_SELF	2
+
+static char *isapi_server_variable_names[] = {
 	"AUTH_PASSWORD",
 	"AUTH_TYPE",
+	"AUTH_USER",
 	"CONTENT_LENGTH",
 	"CONTENT_TYPE",
-	"HTTPS",
-	"PATH_INFO",
 	"PATH_TRANSLATED",
 	"QUERY_STRING",
 	"REMOTE_ADDR",
 	"REMOTE_HOST",
 	"REMOTE_USER",
 	"REQUEST_METHOD",
-	"REQUEST_URI",
-	"SCRIPT_NAME",
 	"SERVER_NAME",
 	"SERVER_PORT",
-	"SERVER_PORT_SECURE",
 	"SERVER_PROTOCOL",
 	"SERVER_SOFTWARE",
-	"URL",
 #ifndef WITH_ZEUS
 	"APPL_MD_PATH",
 	"APPL_PHYSICAL_PATH",
-	"AUTH_USER",
+	"INSTANCE_ID",
+	"INSTANCE_META_PATH",
+	"LOGON_USER",
+	"REQUEST_URI",
+	"URL",
+#else
+	"DOCUMENT_ROOT",
+#endif
+	NULL
+};
+
+
+static char *isapi_secure_server_variable_names[] = {
 	"CERT_COOKIE",
 	"CERT_FLAGS",
 	"CERT_ISSUER",
@@ -85,14 +115,26 @@ static char *isapi_server_variables[] = {
 	"CERT_SERVER_ISSUER",
 	"CERT_SERVER_SUBJECT",
 	"CERT_SUBJECT",
-	"HTTP_COOKIE",
 	"HTTPS_KEYSIZE",
 	"HTTPS_SECRETKEYSIZE",
 	"HTTPS_SERVER_ISSUER",
 	"HTTPS_SERVER_SUBJECT",
-	"INSTANCE_ID",
-	"INSTANCE_META_PATH",
-	"LOGON_USER",
+	"SERVER_PORT_SECURE",
+#ifdef WITH_ZEUS
+	"SSL_CLIENT_CN",
+	"SSL_CLIENT_EMAIL",
+	"SSL_CLIENT_OU",
+	"SSL_CLIENT_O",
+	"SSL_CLIENT_L",
+	"SSL_CLIENT_ST",
+	"SSL_CLIENT_C",
+	"SSL_CLIENT_I_CN",
+	"SSL_CLIENT_I_EMAIL",
+	"SSL_CLIENT_I_OU",
+	"SSL_CLIENT_I_O",
+	"SSL_CLIENT_I_L",
+	"SSL_CLIENT_I_ST",
+	"SSL_CLIENT_I_C",	
 #endif
 	NULL
 };
@@ -100,9 +142,16 @@ static char *isapi_server_variables[] = {
 
 static void php_info_isapi(ZEND_MODULE_INFO_FUNC_ARGS)
 {
-	char **p = isapi_server_variables;
+	char **p;
 	char variable_buf[ISAPI_SERVER_VAR_BUF_SIZE];
 	DWORD variable_len;
+	char **all_variables[] = {
+		isapi_server_variable_names,
+		isapi_special_server_variable_names,
+		isapi_secure_server_variable_names,
+		NULL
+	};
+	char ***server_variable_names;
 	LPEXTENSION_CONTROL_BLOCK lpECB;
 	SLS_FETCH();
 
@@ -110,22 +159,27 @@ static void php_info_isapi(ZEND_MODULE_INFO_FUNC_ARGS)
 
 	php_info_print_table_start();
 	php_info_print_table_header(2, "Server Variable", "Value");
-	while (*p) {
-		variable_len = ISAPI_SERVER_VAR_BUF_SIZE;
-		if (lpECB->GetServerVariable(lpECB->ConnID, *p, variable_buf, &variable_len)
-			&& variable_buf[0]) {
-			php_info_print_table_row(2, *p, variable_buf);
-		} else if (GetLastError() == ERROR_INSUFFICIENT_BUFFER) {
-			char *tmp_variable_buf;
-
-			tmp_variable_buf = (char *) emalloc(variable_len);
-			if (lpECB->GetServerVariable(lpECB->ConnID, *p, tmp_variable_buf, &variable_len)
+	server_variable_names = all_variables;
+	while (*server_variable_names) {
+		p = *server_variable_names;
+		while (*p) {
+			variable_len = ISAPI_SERVER_VAR_BUF_SIZE;
+			if (lpECB->GetServerVariable(lpECB->ConnID, *p, variable_buf, &variable_len)
 				&& variable_buf[0]) {
-				php_info_print_table_row(2, *p, tmp_variable_buf);
+				php_info_print_table_row(2, *p, variable_buf);
+			} else if (GetLastError() == ERROR_INSUFFICIENT_BUFFER) {
+				char *tmp_variable_buf;
+
+				tmp_variable_buf = (char *) emalloc(variable_len);
+				if (lpECB->GetServerVariable(lpECB->ConnID, *p, tmp_variable_buf, &variable_len)
+					&& variable_buf[0]) {
+					php_info_print_table_row(2, *p, tmp_variable_buf);
+				}
+				efree(tmp_variable_buf);
 			}
-			efree(tmp_variable_buf);
+			p++;
 		}
-		p++;
+		server_variable_names++;
 	}
 	php_info_print_table_end();
 }
@@ -302,78 +356,204 @@ static char *sapi_isapi_read_cookies(SLS_D)
 }
 
 
-static void sapi_isapi_register_server_variables(zval *track_vars_array ELS_DC SLS_DC PLS_DC)
+#ifdef WITH_ZEUS
+
+static void sapi_isapi_register_zeus_ssl_variables(LPEXTENSION_CONTROL_BLOCK lpECB, zval *track_vars_array ELS_DC PLS_DC)
 {
 	char static_variable_buf[ISAPI_SERVER_VAR_BUF_SIZE];
-	char *variable_buf;
 	DWORD variable_len = ISAPI_SERVER_VAR_BUF_SIZE;
-	char *variable;
+	char static_cons_buf[ISAPI_SERVER_VAR_BUF_SIZE];
+	/*
+	 * We need to construct the /C=.../ST=...
+	 * DN's for SSL_CLIENT_DN and SSL_CLIENT_I_DN
+	 */
+	strcpy( static_cons_buf, "/C=" );
+	if( lpECB->GetServerVariable( lpECB->ConnID, "SSL_CLIENT_C", static_variable_buf, &variable_len ) && static_variable_buf[0] ) {
+		strcat( static_cons_buf, static_variable_buf );
+	}
+	strcat( static_cons_buf, "/ST=" );
+	variable_len = ISAPI_SERVER_VAR_BUF_SIZE;
+	if( lpECB->GetServerVariable( lpECB->ConnID, "SSL_CLIENT_ST", static_variable_buf, &variable_len ) && static_variable_buf[0] ) {
+		strcat( static_cons_buf, static_variable_buf );
+	}
+	php_register_variable( "SSL_CLIENT_DN", static_cons_buf, track_vars_array ELS_CC PLS_CC );
+	
+	strcpy( static_cons_buf, "/C=" );
+	variable_len = ISAPI_SERVER_VAR_BUF_SIZE;
+	if( lpECB->GetServerVariable( lpECB->ConnID, "SSL_CLIENT_I_C", static_variable_buf, &variable_len ) && static_variable_buf[0] ) {
+		strcat( static_cons_buf, static_variable_buf );
+	}
+	strcat( static_cons_buf, "/ST=" );
+	variable_len = ISAPI_SERVER_VAR_BUF_SIZE;
+	if( lpECB->GetServerVariable( lpECB->ConnID, "SSL_CLIENT_I_ST", static_variable_buf, &variable_len ) && static_variable_buf[0] ) {
+		strcat( static_cons_buf, static_variable_buf );
+	}
+	php_register_variable( "SSL_CLIENT_I_DN", static_cons_buf, track_vars_array ELS_CC PLS_CC );	
+}
+
+static void sapi_isapi_register_zeus_variables(LPEXTENSION_CONTROL_BLOCK lpECB, zval *track_vars_array ELS_DC PLS_DC)
+{
+	char static_variable_buf[ISAPI_SERVER_VAR_BUF_SIZE];
+	DWORD variable_len = ISAPI_SERVER_VAR_BUF_SIZE;
+	DWORD scriptname_len = ISAPI_SERVER_VAR_BUF_SIZE;
+	DWORD pathinfo_len = 0;
 	char *strtok_buf = NULL;
-	LPEXTENSION_CONTROL_BLOCK lpECB;
-	char **p = isapi_server_variables;
 
-	lpECB = (LPEXTENSION_CONTROL_BLOCK) SG(server_context);
+	/* Get SCRIPT_NAME, we use this to work out which bit of the URL
+	 * belongs in PHP's version of PATH_INFO
+	 */
+	lpECB->GetServerVariable(lpECB->ConnID, "SCRIPT_NAME", static_variable_buf, &scriptname_len);
 
-	/* Register the standard ISAPI variables */
+	/* Adjust Zeus' version of PATH_INFO, set PHP_SELF,
+	 * and generate REQUEST_URI
+	 */
+	if ( lpECB->GetServerVariable(lpECB->ConnID, "PATH_INFO", static_variable_buf, &variable_len) && static_variable_buf[0] ) {
+
+		/* PHP_SELF is just PATH_INFO */
+		php_register_variable( "PHP_SELF", static_variable_buf, track_vars_array ELS_CC PLS_CC );
+
+		/* Chop off filename to get just the 'real' PATH_INFO' */
+		pathinfo_len = variable_len - scriptname_len;
+		php_register_variable( "PATH_INFO", static_variable_buf + scriptname_len - 1, track_vars_array ELS_CC PLS_CC );
+		/* append query string to give url... extra byte for '?' */
+		if ( strlen(lpECB->lpszQueryString) + variable_len + 1 < ISAPI_SERVER_VAR_BUF_SIZE ) {
+			/* append query string only if it is present... */
+			if ( strlen(lpECB->lpszQueryString) ) {
+				static_variable_buf[ variable_len - 1 ] = '?';
+				strcpy( static_variable_buf + variable_len, lpECB->lpszQueryString );
+			}
+			php_register_variable( "URL", static_variable_buf, track_vars_array ELS_CC PLS_CC );
+			php_register_variable( "REQUEST_URI", static_variable_buf, track_vars_array ELS_CC PLS_CC );
+		}
+	}
+
+	/* Get and adjust PATH_TRANSLATED to what PHP wants */
+	variable_len = ISAPI_SERVER_VAR_BUF_SIZE;
+	if ( lpECB->GetServerVariable(lpECB->ConnID, "PATH_TRANSLATED", static_variable_buf, &variable_len) && static_variable_buf[0] ) {
+		static_variable_buf[ variable_len - pathinfo_len - 1 ] = '\0';
+		php_register_variable( "PATH_TRANSLATED", static_variable_buf, track_vars_array ELS_CC PLS_CC );
+	}
+
+	/* Bring in the AUTHENTICATION stuff as needed */
+	variable_len = ISAPI_SERVER_VAR_BUF_SIZE;
+	if ( lpECB->GetServerVariable(lpECB->ConnID, "AUTH_USER", static_variable_buf, &variable_len) && static_variable_buf[0] )  {
+		php_register_variable( "PHP_AUTH_USER", static_variable_buf, track_vars_array ELS_CC PLS_CC );
+	}
+	variable_len = ISAPI_SERVER_VAR_BUF_SIZE;
+	if ( lpECB->GetServerVariable(lpECB->ConnID, "AUTH_PASSWORD", static_variable_buf, &variable_len) && static_variable_buf[0] )  {
+		php_register_variable( "PHP_AUTH_PW", static_variable_buf, track_vars_array ELS_CC PLS_CC );
+	}
+	variable_len = ISAPI_SERVER_VAR_BUF_SIZE;
+	if ( lpECB->GetServerVariable(lpECB->ConnID, "AUTH_TYPE", static_variable_buf, &variable_len) && static_variable_buf[0] )  {
+		php_register_variable( "PHP_AUTH_TYPE", static_variable_buf, track_vars_array ELS_CC PLS_CC );
+	}
+	
+	/* And now, for the SSL variables (if applicable) */
+	variable_len = ISAPI_SERVER_VAR_BUF_SIZE;
+	if ( lpECB->GetServerVariable(lpECB->ConnID, "CERT_COOKIE", static_variable_buf, &variable_len) && static_variable_buf[0] ) {
+		sapi_isapi_register_zeus_ssl_variables( lpECB, track_vars_array ELS_CC PLS_CC );
+	}
+	/* Copy some of the variables we need to meet Apache specs */
+	variable_len = ISAPI_SERVER_VAR_BUF_SIZE;
+	if ( lpECB->GetServerVariable(lpECB->ConnID, "SERVER_SOFTWARE", static_variable_buf, &variable_len) && static_variable_buf[0] )  {
+		php_register_variable( "SERVER_SIGNATURE", static_variable_buf, track_vars_array ELS_CC PLS_CC );
+	}
+}
+#endif
+
+
+static void sapi_isapi_register_server_variables2(char **server_variables, LPEXTENSION_CONTROL_BLOCK lpECB, zval *track_vars_array, char **recorded_values ELS_DC PLS_DC)
+{
+	char **p=server_variables;
+	DWORD variable_len;
+	char static_variable_buf[ISAPI_SERVER_VAR_BUF_SIZE];
+	char *variable_buf;
+
 	while (*p) {
 		variable_len = ISAPI_SERVER_VAR_BUF_SIZE;
 		if (lpECB->GetServerVariable(lpECB->ConnID, *p, static_variable_buf, &variable_len)
 			&& static_variable_buf[0]) {
 			php_register_variable(*p, static_variable_buf, track_vars_array ELS_CC PLS_CC);
+			if (recorded_values) {
+				recorded_values[p-server_variables] = estrndup(static_variable_buf, variable_len);
+			}
 		} else if (GetLastError() == ERROR_INSUFFICIENT_BUFFER) {
 			variable_buf = (char *) emalloc(variable_len);
 			if (lpECB->GetServerVariable(lpECB->ConnID, *p, variable_buf, &variable_len)
 				&& variable_buf[0]) {
 				php_register_variable(*p, variable_buf, track_vars_array ELS_CC PLS_CC);
 			}
-			efree(variable_buf);
+			if (recorded_values) {
+				recorded_values[p-server_variables] = variable_buf;
+			} else {
+				efree(variable_buf);
+			}
 		}
 		p++;
 	}
+}
+
+
+static void sapi_isapi_register_server_variables(zval *track_vars_array ELS_DC SLS_DC PLS_DC)
+{
+	DWORD variable_len = ISAPI_SERVER_VAR_BUF_SIZE;
+	char *variable;
+	char *strtok_buf = NULL;
+	char *isapi_special_server_variables[NUM_SPECIAL_VARS];
+	LPEXTENSION_CONTROL_BLOCK lpECB;
+
+	lpECB = (LPEXTENSION_CONTROL_BLOCK) SG(server_context);
+
+	/* Register the special ISAPI variables */
+	memset(isapi_special_server_variables, 0, sizeof(isapi_special_server_variables));
+	sapi_isapi_register_server_variables2(isapi_special_server_variable_names, lpECB, track_vars_array, isapi_special_server_variables ELS_CC PLS_CC);
+	if (SG(request_info).cookie_data) {
+		php_register_variable("HTTP_COOKIE", SG(request_info).cookie_data, track_vars_array ELS_CC PLS_CC);
+	}
+
+	/* Register the standard ISAPI variables */
+	sapi_isapi_register_server_variables2(isapi_server_variable_names, lpECB, track_vars_array, NULL ELS_CC PLS_CC);
+
+	if (isapi_special_server_variables[SPECIAL_VAR_HTTPS]
+		&& atoi(isapi_special_server_variables[SPECIAL_VAR_HTTPS])) {
+		/* Register SSL ISAPI variables */
+		sapi_isapi_register_server_variables2(isapi_secure_server_variable_names, lpECB, track_vars_array, NULL ELS_CC PLS_CC);
+	}
+
+	if (isapi_special_server_variables[SPECIAL_VAR_HTTPS]) {
+		efree(isapi_special_server_variables[SPECIAL_VAR_HTTPS]);
+	}
+
+
+#ifdef WITH_ZEUS
+	sapi_isapi_register_zeus_variables(lpECB, track_vars_array ELS_CC PLS_CC);
+#endif
 
 	/* PHP_SELF support */
-	variable_len = ISAPI_SERVER_VAR_BUF_SIZE;
-#ifdef WITH_ZEUS
-	if (lpECB->GetServerVariable(lpECB->ConnID, "PATH_INFO", static_variable_buf, &variable_len)
-#else
-	if (lpECB->GetServerVariable(lpECB->ConnID, "SCRIPT_NAME", static_variable_buf, &variable_len)
-#endif
-		&& static_variable_buf[0]) {
-		php_register_variable("PHP_SELF", static_variable_buf, track_vars_array ELS_CC PLS_CC);
+	if (isapi_special_server_variables[SPECIAL_VAR_PHP_SELF]) {
+		php_register_variable("PHP_SELF", isapi_special_server_variables[SPECIAL_VAR_PHP_SELF], track_vars_array ELS_CC PLS_CC);
+		efree(isapi_special_server_variables[SPECIAL_VAR_PHP_SELF]);
 	}
 
-	/* Register the internal bits of ALL_HTTP */
+	if (isapi_special_server_variables[SPECIAL_VAR_ALL_HTTP]) {
+		/* Register the internal bits of ALL_HTTP */
+		variable = php_strtok_r(isapi_special_server_variables[SPECIAL_VAR_ALL_HTTP], "\r\n", &strtok_buf);
+		while (variable) {
+			char *colon = strchr(variable, ':');
 
-	variable_len = ISAPI_SERVER_VAR_BUF_SIZE;
+			if (colon) {
+				char *value = colon+1;
 
-	if (lpECB->GetServerVariable(lpECB->ConnID, "ALL_HTTP", static_variable_buf, &variable_len)) {
-		variable_buf = static_variable_buf;
-	} else {
-		if (GetLastError()==ERROR_INSUFFICIENT_BUFFER) {
-			variable_buf = (char *) emalloc(variable_len);
-			if (!lpECB->GetServerVariable(lpECB->ConnID, "ALL_HTTP", variable_buf, &variable_len)) {
-				efree(variable_buf);
-				return;
+				while (*value==' ') {
+					value++;
+				}
+				*colon = 0;
+				php_register_variable(variable, value, track_vars_array ELS_CC PLS_CC);
+				*colon = ':';
 			}
-		} else {
-			return;
+			variable = php_strtok_r(NULL, "\r\n", &strtok_buf);
 		}
-	}
-	variable = php_strtok_r(variable_buf, "\r\n", &strtok_buf);
-	while (variable) {
-		char *colon = strchr(variable, ':');
-
-		if (colon) {
-			char *value = colon+1;
-
-			while (*value==' ') {
-				value++;
-			}
-			*colon = 0;
-			php_register_variable(variable, value, track_vars_array ELS_CC PLS_CC);
-			*colon = ':';
-		}
-		variable = php_strtok_r(NULL, "\r\n", &strtok_buf);
+		efree(isapi_special_server_variables[SPECIAL_VAR_ALL_HTTP]);
 	}
 
 #ifdef PHP_WIN32
@@ -391,14 +571,10 @@ static void sapi_isapi_register_server_variables(zval *track_vars_array ELS_DC S
 		}
 	}
 #endif
-	
-	if (variable_buf!=static_variable_buf) {
-		efree(variable_buf);
-	}
 }
 
 
-static sapi_module_struct sapi_module = {
+static sapi_module_struct isapi_sapi_module = {
 	"isapi",						/* name */
 	"ISAPI",						/* pretty name */
 									
@@ -436,7 +612,7 @@ BOOL WINAPI GetFilterVersion(PHTTP_FILTER_VERSION pFilterVersion)
 {
 	bFilterLoaded = 1;
 	pFilterVersion->dwFilterVersion = HTTP_FILTER_REVISION;
-	strcpy(pFilterVersion->lpszFilterDesc, sapi_module.pretty_name);
+	strcpy(pFilterVersion->lpszFilterDesc, isapi_sapi_module.pretty_name);
 	pFilterVersion->dwFlags= (SF_NOTIFY_AUTHENTICATION | SF_NOTIFY_PREPROC_HEADERS);
 	return TRUE;
 }
@@ -457,7 +633,7 @@ DWORD WINAPI HttpFilterProc(PHTTP_FILTER_CONTEXT pfc, DWORD notificationType, LP
 
 				if (auth_user && auth_user[0]) {
 					SG(request_info).auth_user = estrdup(auth_user);
-				}   
+				}	
 				if (auth_password && auth_password[0]) {
 					SG(request_info).auth_password = estrdup(auth_password);
 				}
@@ -507,9 +683,9 @@ BOOL WINAPI GetExtensionVersion(HSE_VERSION_INFO *pVer)
 {
 	pVer->dwExtensionVersion = HSE_VERSION;
 #ifdef WITH_ZEUS
-	strncpy( pVer->lpszExtensionDesc, sapi_module.name, HSE_MAX_EXT_DLL_NAME_LEN);
+	strncpy( pVer->lpszExtensionDesc, isapi_sapi_module.name, HSE_MAX_EXT_DLL_NAME_LEN);
 #else
-	lstrcpyn(pVer->lpszExtensionDesc, sapi_module.name, HSE_MAX_EXT_DLL_NAME_LEN);
+	lstrcpyn(pVer->lpszExtensionDesc, isapi_sapi_module.name, HSE_MAX_EXT_DLL_NAME_LEN);
 #endif
 	return TRUE;
 }
@@ -544,7 +720,7 @@ DWORD WINAPI HttpExtensionProc(LPEXTENSION_CONTROL_BLOCK lpECB)
 	CLS_FETCH();
 	ELS_FETCH();
 	PLS_FETCH();
-#ifdef PHP_WIN32
+#if !defined (NO_EXCEPTION_HANDLERS) && defined(PHP_WIN32)
 	LPEXCEPTION_POINTERS e;
 #endif
 
@@ -553,12 +729,33 @@ DWORD WINAPI HttpExtensionProc(LPEXTENSION_CONTROL_BLOCK lpECB)
 		return HSE_STATUS_ERROR;
 	}
 
+#if !defined (NO_EXCEPTION_HANDLERS)
 	__try {
+#endif
 		init_request_info(sapi_globals, lpECB);
 		SG(server_context) = lpECB;
 
+#ifdef WITH_ZEUS
+		/* PATH_TRANSLATED can contain extra PATH_INFO stuff after the
+		 * file being loaded, so we must use SCRIPT_FILENAME instead
+		 */
+		file_handle.filename = (char *)emalloc( ISAPI_SERVER_VAR_BUF_SIZE );
+		file_handle.free_filename = 1;
+		{
+			DWORD filename_len = ISAPI_SERVER_VAR_BUF_SIZE;
+			if( !lpECB->GetServerVariable(lpECB->ConnID, "SCRIPT_FILENAME", file_handle.filename, &filename_len) || file_handle.filename[ 0 ] == '\0' ) {
+                /* If we're running on an earlier version of Zeus, this
+                 * variable won't be present, so fall back to old behaviour.
+                 */
+                efree( file_handle.filename );
+                file_handle.filename = sapi_globals->request_info.path_translated;
+                file_handle.free_filename = 0;
+            }
+		}
+#else
 		file_handle.filename = sapi_globals->request_info.path_translated;
 		file_handle.free_filename = 0;
+#endif
 		file_handle.type = ZEND_HANDLE_FILENAME;
 		file_handle.opened_path = NULL;
 
@@ -567,6 +764,7 @@ DWORD WINAPI HttpExtensionProc(LPEXTENSION_CONTROL_BLOCK lpECB)
 		if (SG(request_info).cookie_data) {
 			efree(SG(request_info).cookie_data);
 		}
+#if !defined (NO_EXCEPTION_HANDLERS)
 #ifdef PHP_WIN32
 	} __except(exceptionhandler(&e,GetExceptionInformation())) {
 #else
@@ -620,6 +818,9 @@ DWORD WINAPI HttpExtensionProc(LPEXTENSION_CONTROL_BLOCK lpECB)
 	} __except(EXCEPTION_EXECUTE_HANDLER) {
 		my_endthread();
 	}
+#else
+		php_request_shutdown(NULL);
+#endif
 
 	return HSE_STATUS_SUCCESS;
 }
@@ -630,10 +831,14 @@ __declspec(dllexport) BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, L
 {
 	switch (fdwReason) {
 		case DLL_PROCESS_ATTACH:
-			tsrm_startup(1, 1, TSRM_ERROR_LEVEL_CORE, "C:\\TSRM.log");
-			sapi_startup(&sapi_module);
-			if (sapi_module.startup) {
-				sapi_module.startup(&sapi_module);
+#ifdef WITH_ZEUS
+			tsrm_startup(128, 1, TSRM_ERROR_LEVEL_CORE, "TSRM.log");
+#else
+			tsrm_startup(128, 1, TSRM_ERROR_LEVEL_CORE, "C:\\TSRM.log");
+#endif
+			sapi_startup(&isapi_sapi_module);
+			if (isapi_sapi_module.startup) {
+				isapi_sapi_module.startup(&sapi_module);
 			}
 			break;
 		case DLL_THREAD_ATTACH:
@@ -642,8 +847,8 @@ __declspec(dllexport) BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, L
 			ts_free_thread();
 			break;
 		case DLL_PROCESS_DETACH:
-			if (sapi_module.shutdown) {
-				sapi_module.shutdown(&sapi_module);
+			if (isapi_sapi_module.shutdown) {
+				isapi_sapi_module.shutdown(&sapi_module);
 			}
 			tsrm_shutdown();
 			break;

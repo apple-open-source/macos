@@ -2,7 +2,7 @@
 'di';
 'ig00';
 #
-# $Header: /cvs/Darwin/Scripting/perl/perl/eg/wrapsuid,v 1.1.1.2 2000/03/31 05:11:01 wsanchez Exp $
+# $Header: /cvs/Darwin/Scripting/perl/perl/eg/Attic/wrapsuid,v 1.1.1.2 2000/03/31 05:11:01 wsanchez Exp $
 #
 # $Log: wrapsuid,v $
 # Revision 1.1.1.2  2000/03/31 05:11:01  wsanchez

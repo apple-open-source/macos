@@ -13,6 +13,7 @@
 # include "filesys.h"
 # include "newstr.h"
 
+
 /*
  * variable.c - handle jam multi-element variables
  *
@@ -50,7 +51,8 @@ struct _def_asgs {
 	struct _def_asg {
 	    char	    *symbol;
 	    char	    *value;
-	    unsigned	    append;
+	    unsigned short  append;
+	    unsigned short  being_expanded;
 	}		asgs[0];
 } ;
 static struct _def_asgs *def_asgs = NULL;
@@ -771,14 +773,16 @@ static int find_next_variable_reference (const char * characters, unsigned lengt
 }
 
 
-static void var_append_expansion_of_deferred_variable (const char * symbol, unsigned length, int asgSearchStartIdx, struct string_buffer * expstrbuf)
+static int var_append_expansion_of_deferred_variable (const char * symbol, unsigned length, int asgSearchStartIdx, struct string_buffer * expstrbuf)
     /** Private helper function that appends the expansion of 'symbol' to 'expstrbuf'. Recursive expansion is done as needed. The 'asgSearchStartIdx' is the index into the array of deferred assignments from which the search for a definition of 'symbol' should start. This is used when expanding concatenation assignments (X += Y). */
 {
     const char *   value = NULL;
     char           symbolstr[length+1];
-    int            shouldConcatenate = 0;
+    int            should_concatenate = 0;
+    int            found_recursion = 0;
     int            i, asgIdx = -1;
     int            free_value = 0;
+
 
     // Find the definition of 'symbol'.
     if (DEBUG_VARSET) {
@@ -792,10 +796,17 @@ static void var_append_expansion_of_deferred_variable (const char * symbol, unsi
 	    if (DEBUG_VARSET) {
 		printf("[found deferred assignment of ");fwrite(symbol, length, 1, stdout);printf(" with value |%s| at index %u]\n", value, i);
 	    }
-	    shouldConcatenate = def_asgs->asgs[i].append;
+	    should_concatenate = def_asgs->asgs[i].append;
+	    found_recursion = def_asgs->asgs[i].being_expanded;
 	    asgIdx = i;
 	}
     }
+
+    // If we found recursion, we bail out.
+    if (found_recursion) {
+	return 0;
+    }
+
     // If we haven't found a value yet, we try to find one in the standard Jam variables.
     if (value == NULL) {
 	LIST * jamvar_list = var_get(symbolstr);
@@ -808,7 +819,7 @@ static void var_append_expansion_of_deferred_variable (const char * symbol, unsi
 	    memcpy((char *)value, strbuf_characters(&jamvar_sbuf), strbuf_length(&jamvar_sbuf) * sizeof(char));
 	    strbuf_free(&jamvar_sbuf);
 	    free_value = 1;
-	    shouldConcatenate = 0;
+	    should_concatenate = 0;
 	    if (DEBUG_VARSET) {
 		printf("[found normal value of ");fwrite(symbol, length, 1, stdout);printf(" with value |%s|]\n", value);
 	    }
@@ -824,17 +835,23 @@ static void var_append_expansion_of_deferred_variable (const char * symbol, unsi
 	const char *   var_ref_end;
 
 	// If it's a concatenation assignment, then we first append the expansion of the next definition of 'symbol' of lower precendence than the one we're currently expanding, i.e. we recurse with the search starting from 'asgSearchStartIdx'-1.
-	if (shouldConcatenate) {
+	if (should_concatenate  &&  asgIdx >= 0) {
 	    if (DEBUG_VARSET) {
 		printf("[concatenation, so starting expansion of ");fwrite(symbol, length, 1, stdout);printf(" from search index %i]\n", asgIdx-1);
 	    }
-	    var_append_expansion_of_deferred_variable(symbol, length, asgIdx-1, expstrbuf);
+	    found_recursion |= (var_append_expansion_of_deferred_variable(symbol, length, asgIdx-1, expstrbuf) == 0);
 	    strbuf_append_character(expstrbuf, ' ');
 	}
 	// Now we walk our string, expanding variable references as we go. The input string may contain escape characters and single quotes, both of which we need to honour as we do the variable expansion. We use find_next_variable_reference() to walk the string, honouring escaping and quoting.
+	if (asgIdx >= 0) {
+	    if (DEBUG_VARSET) {
+		printf("[marking symbol %i: %s]\n", asgIdx, def_asgs->asgs[asgIdx].symbol);
+	    }
+	    def_asgs->asgs[asgIdx].being_expanded = 1;
+	}
 	subrange_start = value;
 	subrange_end = subrange_start + strlen(subrange_start);
-        while (find_next_variable_reference(subrange_start, subrange_end-subrange_start, &var_ref_start, &var_name_start, &var_name_end, &var_ref_end)) {
+        while (!found_recursion  &&  find_next_variable_reference(subrange_start, subrange_end-subrange_start, &var_ref_start, &var_name_start, &var_name_end, &var_ref_end)) {
 
             // First append any plain text prefix, up to the opening delimiter.
             if (subrange_start < var_ref_start) {
@@ -843,7 +860,7 @@ static void var_append_expansion_of_deferred_variable (const char * symbol, unsi
 
             // Extract the name of the referenced build setting, and recursively expand it at the end of 'expstrbuf'.
             // !!!:anders:20001209  We should check for definition loops here (e.g. A=$(A) -- as in make, such loops aren't allowed.
-	    var_append_expansion_of_deferred_variable(var_name_start, var_name_end - var_name_start, def_asgs->count - 1, expstrbuf);
+	    found_recursion |= (var_append_expansion_of_deferred_variable(var_name_start, var_name_end - var_name_start, def_asgs->count - 1, expstrbuf) == 0);
 
             // Update the substring range. It starts immediately after the previous variable reference.
             subrange_start = var_ref_end;
@@ -853,6 +870,12 @@ static void var_append_expansion_of_deferred_variable (const char * symbol, unsi
         if (subrange_start < subrange_end) {
 	    strbuf_append_characters(expstrbuf, subrange_start, subrange_end - subrange_start);
         }
+	if (asgIdx >= 0) {
+	    if (DEBUG_VARSET) {
+		printf("[unmarking symbol %i: %s]\n", asgIdx, def_asgs->asgs[asgIdx].symbol);
+	    }
+	    def_asgs->asgs[asgIdx].being_expanded = 0;
+	}
     }
     if (free_value) {
 	free((char *)value);
@@ -860,6 +883,7 @@ static void var_append_expansion_of_deferred_variable (const char * symbol, unsi
     if (DEBUG_VARSET) {
 	printf("}\n");
     }
+    return !found_recursion;
 }
 
 
@@ -908,6 +932,7 @@ void var_set_deferred (const char * symbol, LIST * value, int flag, int export)
     def_asgs->asgs[def_asgs->count].symbol = newstr(symbol);
     def_asgs->asgs[def_asgs->count].value = valstr;
     def_asgs->asgs[def_asgs->count].append = (flag == VAR_APPEND) ? 1 : 0;
+    def_asgs->asgs[def_asgs->count].being_expanded = 0;
     def_asgs->count++;
     // Mark the variable as exported, if needed.
     if (export) {
@@ -946,16 +971,23 @@ void var_commit_all_deferred_assignments ()
 	    if (!hashcheck(commited_defvars_hash, (HASHDATA **)&v)) {
 		struct string_buffer  sbuf;
 		LIST *                lst;
+		int                   found_recursion;
 
 		(void)hashenter(commited_defvars_hash, (HASHDATA **)&v);
 		strbuf_init(&sbuf);
-		var_append_expansion_of_deferred_variable(def_asgs->asgs[i].symbol, strlen(def_asgs->asgs[i].symbol), def_asgs->count - 1, &sbuf);
-		strbuf_append_character(&sbuf, '\0');
-		lst = list_by_parsing_as_commandline_arguments(strbuf_characters(&sbuf), strbuf_length(&sbuf)-1);
-		if (DEBUG_COMPILE) {
-		    printf("committing deferred assignment %s := %s\n", def_asgs->asgs[i].symbol, strbuf_characters(&sbuf));
+		found_recursion = (var_append_expansion_of_deferred_variable(def_asgs->asgs[i].symbol, strlen(def_asgs->asgs[i].symbol), def_asgs->count - 1, &sbuf) == 0);
+		if (found_recursion) {
+		    printf("Error: '%s' refers to itself (either directly or indirectly)\n", def_asgs->asgs[i].symbol);
 		}
-		var_set(def_asgs->asgs[i].symbol, lst, VAR_SET, 1);
+		else {
+		    strbuf_append_character(&sbuf, '\0');
+		    lst = list_by_parsing_as_commandline_arguments(strbuf_characters(&sbuf), strbuf_length(&sbuf)-1);
+		    if (DEBUG_COMPILE) {
+			printf("committing deferred assignment %s := %s\n", def_asgs->asgs[i].symbol, strbuf_characters(&sbuf));
+		    }
+		    var_set(def_asgs->asgs[i].symbol, lst, VAR_SET, 1);
+		    // we don't free 'lst' because var_set() takes over ownership of it
+		}
 		strbuf_free(&sbuf);
 	    }
 	    else {

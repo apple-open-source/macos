@@ -29,7 +29,7 @@
  *
  */
 
-#if 1
+#if 0
 #import <sys/syscall.h>
 #import <architecture/ppc/asm_help.h>
 #import	<architecture/ppc/pseudo_inst.h>

@@ -96,9 +96,6 @@ read_again:
 
     if ( head.magic == MH_MAGIC )
     {
-#if	0
-		printf("oneway fat binary found\n"); sleep(1);
-#endif	1
         return loadmacho(&head, dev, fd, entry, addr, size, file_offset);
     }
     else if ( file_offset == 0 && 
@@ -204,32 +201,33 @@ int xread( int    fd,
 // loadmacho
 
 int
-loadmacho(
-    struct mach_header * head,
-    int                  dev,
-    int                  io,
-    entry_t *            rentry,
-    char **              raddr,
-    int *                rsize,
-    int                  file_offset
-)
+loadmacho( struct mach_header * head,
+           int                  dev,
+           int                  io,
+           entry_t *            rentry,
+           char **              raddr,
+           int *                rsize,
+           int                  file_offset )
 {
-	int ncmds;
-	unsigned  cmds, cp;
+	int          ncmds;
+	void *       cmds;
+    void *       cp;
+	unsigned int entry  = 0;
+	int          vmsize = 0;
+	unsigned int vmaddr = ~0;
+    unsigned int vmend  = 0;
+
 	struct xxx_thread_command {
 		unsigned long	cmd;
 		unsigned long	cmdsize;
 		unsigned long	flavor;
 		unsigned long	count;
 		i386_thread_state_t state;
-	} *th;
-	unsigned int entry  = 0;
-	int          vmsize = 0;
-	unsigned int vmaddr = ~0;
+	} * th;
 
 	// XXX should check cputype
-	cmds = (unsigned int) malloc(head->sizeofcmds);
-	b_lseek(io, sizeof (struct mach_header) + file_offset, 0);
+	cmds = malloc(head->sizeofcmds);
+	b_lseek(io, sizeof(struct mach_header) + file_offset, 0);
 
 	if ( read(io, (char *) cmds, head->sizeofcmds) != head->sizeofcmds )
     {
@@ -249,33 +247,23 @@ loadmacho(
             case LC_SEGMENT:
                 addr = (scp->vmaddr & 0x3fffffff) + (int)*raddr;
                 if ( scp->filesize )
-                {
-                    // Is this an OK assumption?
-                    // if the filesize is zero, it doesn't
-                    // take up any virtual space...
-                    // (Hopefully this only excludes PAGEZERO.)
-                    // Also, ignore linkedit segment when
-                    // computing size, because we will erase
-                    // the linkedit segment later.
-
-                    if ( strncmp(scp->segname, SEG_LINKEDIT,
-                         sizeof(scp->segname)) != 0)
-                        vmsize += scp->vmsize;
-
-                    vmaddr = min(vmaddr, addr);
+                {                    
+                    vmsize += scp->vmsize;
+                    vmaddr  = min(vmaddr, addr);
+                    vmend   = max(vmend, addr + scp->vmsize);
                     
                     // Zero any space at the end of the segment.
+
                     bzero((char *)(addr + scp->filesize),
-                    scp->vmsize - scp->filesize);
+                          scp->vmsize - scp->filesize);
                     
                     // FIXME:  check to see if we overflow
                     // the available space (should be passed in
                     // as the size argument).
 			    
 #if 0
-                    printf("LC_SEGMENT\n");
-                    printf("LS;file_off %x; fos %x; fsize %x ; addr %x \n",
-                           scp->fileoff, file_offset,scp->filesize, addr);
+                    printf("LC: fileoff %x, filesize %x, off %x, addr %x\n",
+                           scp->fileoff, scp->filesize, file_offset, addr);
                     sleep(1);
 #endif
 
@@ -300,20 +288,15 @@ loadmacho(
 
 	kernBootStruct->rootdev = (dev & 0xffffff00) | devMajor[Dev(dev)];
 
-	free((char *) cmds);
-	*rentry = (entry_t)( (int) entry & 0x3fffffff );
-	*rsize = vmsize;
-	*raddr = (char *)vmaddr;
+	free(cmds);
 
-#if 0
-    printf("suceesful load;vmaddr=%x; vmsize=%x;entry=%x\n", vmaddr, vmsize,entry);
-    sleep(5);
-#endif
+	*rentry = (entry_t)( (int) entry & 0x3fffffff );
+	*rsize = vmend - vmaddr;
+	*raddr = (char *)vmaddr;
 
 	return 0;
 
 shread:
-	free((char *) cmds);
-	error("loadmacho: read error\n");
+	free(cmds);
 	return -1;
 }

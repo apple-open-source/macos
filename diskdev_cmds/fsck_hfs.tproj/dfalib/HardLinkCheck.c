@@ -233,6 +233,14 @@ CheckHardLinks(void *cookie)
 					keyp->nodeName.length * 2,
 					filename, &len);
 		filename[len] = '\0';
+		
+		if ( 	(strstr(filename, HFS_DELETE_PREFIX) == filename) &&
+				(gp->calculatedVCB->vcbDriverWriteRef != -1) ) {
+				
+			RecordOrphanINode(gp, folderID, filename);
+			continue;		
+		}
+				
 		if (strstr(filename, HFS_INODE_PREFIX) != filename)
 			continue;
 		

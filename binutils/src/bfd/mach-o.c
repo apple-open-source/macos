@@ -1368,6 +1368,8 @@ bfd_mach_o_scan_read_command (abfd, command)
     break;
   case BFD_MACH_O_LC_SUB_UMBRELLA:
   case BFD_MACH_O_LC_SUB_CLIENT:
+  case BFD_MACH_O_LC_SUB_LIBRARY:
+  case BFD_MACH_O_LC_TWOLEVEL_HINTS:
     break;
   default:
     fprintf (stderr, "unable to read unknown load command 0x%lx\n",

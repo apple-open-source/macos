@@ -14,7 +14,7 @@ PROJECT_TYPE = Application
 NEXTSTEP_APPICON = IORE.tiff
 ICONSECTIONS =	-sectcreate __ICON app IORE.tiff
 
-English_RESOURCES = IORegistryExplorer.nib
+English_RESOURCES = IORegistryExplorer.nib Localizable.strings
 
 LANGUAGES = English
 
@@ -39,13 +39,14 @@ MAKEFILE = app.make
 NEXTSTEP_INSTALLDIR = $(SYSTEM_DEVELOPER_APPS_DIR)
 WINDOWS_INSTALLDIR = /Applications
 PDO_UNIX_INSTALLDIR = /Applications
-LIBS = 
+LIBS = -lobjc.A
 DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
 
-FRAMEWORKS = -framework AppKit -framework Foundation -framework IOKit\
-             -framework System
+NEXTSTEP_PB_LDFLAGS = -twolevel_namespace
+FRAMEWORKS = -framework AppKit -framework CoreFoundation\
+             -framework Foundation -framework IOKit -framework System
 
 
 NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc

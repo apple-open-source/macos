@@ -2060,9 +2060,13 @@ show_user (char *args, int from_tty)
 void
 _initialize_command (void)
 {
-  add_com ("shell", class_support, shell_escape,
+  struct cmd_list_element *c;
+
+  c = add_com ("shell", class_support, shell_escape,
 	   "Execute the rest of the line as a shell command.  \n\
 With no arguments, run an inferior shell.");
+  c->completer = filename_completer;
+  c->completer_word_break_characters = gdb_completer_filename_word_break_characters;
 
   /* NOTE: cagney/2000-03-20: Being able to enter ``(gdb) !ls'' would
      be a really useful feature.  Unfortunately, the below wont do

@@ -27,7 +27,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: dba_cdb.c,v 1.1.1.2 2000/09/07 00:05:22 wsanchez Exp $ */
+/* $Id: dba_cdb.c,v 1.1.1.3 2001/07/19 00:19:03 zarzycki Exp $ */
 
 #include "php.h"
 
@@ -71,7 +71,7 @@ DBA_OPEN_FUNC(cdb)
 	cdb = malloc(sizeof *cdb);
 	memset(cdb, 0, sizeof *cdb);
 
-	cdb->fd = V_OPEN((info->path, gmode));
+	cdb->fd = VCWD_OPEN((info->path, gmode));
 	if(cdb->fd < 0) {
 		free(cdb);
 		return FAILURE;

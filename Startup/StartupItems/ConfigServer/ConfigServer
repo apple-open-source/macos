@@ -6,9 +6,10 @@
 # Start up Configuration Server
 ##
 
-if [ "${AUTOCONFIG:=-YES-}" = "-YES-" ]; then
+case "${HOSTNAME:=-AUTOMATIC-}" in
+	"-AUTOMATIC-" | "") hostname localhost ;;
+	*) hostname "${HOSTNAME}" ;;
+esac
 
-    ConsoleMessage "Starting Network Configuration Server"
-    configd
-
-fi
+ConsoleMessage "Starting Network Configuration Server"
+configd

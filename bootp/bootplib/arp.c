@@ -105,12 +105,12 @@ typedef struct {
 } route_options;
 
 #ifdef MAIN
-static int	delete __P((int, char *, char *));
+static int	delete __P((int, int, char * *));
 static int	dump __P((u_long));
 static int	ether_aton __P((char *, u_char *));
 static void	ether_print __P((u_char *));
 static int	file __P((int, char *));
-static void	get __P((char *));
+static int	get __P((char *));
 static int	getsocket __P((void));
 static int	set __P((int, int, char **));
 static void	usage __P((void));
@@ -171,6 +171,15 @@ arp_get_routing_socket()
 
 
 #ifdef MAIN
+
+typedef enum {
+    command_none_e = 0,
+    command_dump_e,
+    command_delete_e,
+    command_set_e,
+    command_flush_e,
+} command_t;
+
 int
 main(argc, argv)
 	int argc;
@@ -178,39 +187,73 @@ main(argc, argv)
 {
 	int ch;
 	int s;
+	int aflag = 0;
+	command_t cmd = command_none_e;
+	int ret = 0;
 
-	while ((ch = getopt(argc, argv, "andsF")) != EOF)
+	while ((ch = getopt(argc, argv, "andsF")) != EOF) {
 		switch((char)ch) {
 		case 'a':
-			dump(0);
-			exit(0);
+			aflag = 1;
+			break;
 		case 'd':
-			if (argc < 3 || argc > 4)
+			if (nflag ||aflag 
+			    || cmd != command_none_e) {
 				usage();
-			s = getsocket();
-			delete(s, argv[2], argv[3]);
-			exit(0);
+			}
+			cmd = command_delete_e;
+			break;
 		case 'n':
 			nflag = 1;
-			continue;
+			break;
 		case 's':
-			if (argc < 4 || argc > 7)
+			if (cmd != command_none_e || argc < 4 || argc > 7)
 				usage();
-			s = getsocket();
-			exit(set(s, argc-2, &argv[2]) ? 1 : 0);
+			cmd = command_set_e;
+			break;
 		case 'F':
-		  	if (argc > 2)
+			if (cmd != command_none_e)
 				usage();
-			s = getsocket();
-			arp_flush(s);
-			exit(0);
+			cmd = command_flush_e;
+			break;
 		case '?':
 		default:
 			usage();
 		}
-	if (argc != 2)
-		usage();
-	get(argv[1]);
+	}
+	if (cmd == command_none_e) {
+		cmd = command_dump_e;
+	}
+	switch (cmd) {
+	case command_dump_e:
+		if (aflag)
+			dump(0);
+		else {
+			if ((argc - optind) != 1)
+				usage();
+			ret = get(argv[optind]) ? 1 : 0;
+		}
+		break;
+	case command_delete_e:
+		if ((argc - optind) < 1 || (argc - optind) > 2)
+			usage();
+		s = getsocket();
+		ret = delete(s, argc - optind, &argv[optind]) ? 1 : 0;
+		break;
+	case command_set_e:
+		if ((argc - optind) < 2)
+			usage();
+		s = getsocket();
+		ret = set(s, argc - optind, &argv[optind]) ? 1 : 0;
+		break;
+	case command_flush_e:
+		s = getsocket();
+		arp_flush(s, aflag);
+		break;
+	default:
+		break;
+	}
+	exit(ret);
 	return (0);
 }
 
@@ -319,7 +362,7 @@ set(int s, int argc, char *argv[])
 /*
  * Display an individual arp entry
  */
-void
+int
 get(host)
 	char *host;
 {
@@ -333,7 +376,7 @@ get(host)
 		if (!(hp = gethostbyname(host))) {
 			fprintf(stderr, "arp: %s: ", host);
 			herror((char *)NULL);
-			exit(1);
+			return (1);
 		}
 		bcopy((char *)hp->h_addr, (char *)&sin->sin_addr,
 		    sizeof sin->sin_addr);
@@ -341,21 +384,24 @@ get(host)
 	if (dump(sin->sin_addr.s_addr) == 0) {
 		printf("%s (%s) -- no entry\n",
 		    host, inet_ntoa(sin->sin_addr));
-		exit(1);
+		return (1);
 	}
+	return (0);
 }
 
 /*
  * Delete an arp entry 
  */
 int
-delete(int s, char * host, char * info)
+delete(int s, int argc, char * * argv)
 {
+	char * host;
 	struct hostent *hp;
 	int export = 0;
 	struct in_addr iaddr;
 
-	if (info && strncmp(info, "pro", 3) )
+	host = argv[0];
+	if (argc > 1 && strncmp(argv[1], "pro", 3) )
 		export = 1;
 
 	iaddr.s_addr = inet_addr(host);
@@ -372,7 +418,7 @@ delete(int s, char * host, char * info)
 	    int ret;
 
 	    errno = 0;
-	    ret = arp_delete(s, &iaddr, export);
+	    ret = arp_delete(s, iaddr, export);
 	    if (ret == ARP_RETURN_SUCCESS) {
 		printf("%s (%s) deleted\n", host, inet_ntoa(iaddr));
 		return (0);
@@ -488,10 +534,11 @@ void
 usage()
 {
 	printf("usage: arp hostname\n");
-	printf("       arp -a [kernel] [kernel_memory]\n");
+	printf("       arp -a [-n]\n");
 	printf("       arp -d hostname\n");
 	printf("       arp -s hostname ether_addr [temp] [pub]\n");
 	printf("       arp -f filename\n");
+	printf("       arp -F [-a]\n");
 	exit(1);
 }
 
@@ -523,7 +570,7 @@ main()
 	    ea[5] = i;
 	    sprintf(buf, "14.3.3.%d", i);
 	    ia.s_addr = inet_addr(buf);
-	    arp_delete(s, &ia, FALSE);
+	    arp_delete(s, ia, FALSE);
 //	    usleep(100 * 1000);
 	    arp_ret = arp_set(s, &ia, (void *)ea, 6, TRUE, FALSE);
 	    if (arp_ret)
@@ -744,7 +791,7 @@ arp_set(int s, struct in_addr * iaddr_p, void * hwaddr_p, int hwaddr_len,
  *   s is an open routing socket
  */
 int 
-arp_delete(int s, struct in_addr * iaddr_p, int export)
+arp_delete(int s, struct in_addr iaddr, int export)
 {
     	route_options 			opt;
 	register struct sockaddr_inarp *sin;
@@ -759,7 +806,7 @@ arp_delete(int s, struct in_addr * iaddr_p, int export)
 		opt.export_only = 1;
 	opt.sin_m = blank_sin;
 	sin = &opt.sin_m;
-	sin->sin_addr = *iaddr_p;
+	sin->sin_addr = iaddr;
       tryagain:
 	ret = rtmsg(s, RTM_GET, &msg, &opt);
 	if (ret)
@@ -792,7 +839,7 @@ arp_delete(int s, struct in_addr * iaddr_p, int export)
 }
 
 int
-arp_flush(int s) 
+arp_flush(int s, int all)
 {
 	int mib[6];
 	size_t needed;
@@ -829,7 +876,11 @@ arp_flush(int s)
 		rtm = (struct rt_msghdr *)next;
 		sin = (struct sockaddr_inarp *)(rtm + 1);
 		sdl = (struct sockaddr_dl *)(sin + 1);
-		(void)arp_delete(s, &sin->sin_addr, FALSE);
+		if (rtm->rtm_rmx.rmx_expire == 0 && all == 0) {
+		    /* permanent entry */
+		    continue;
+		}
+		(void)arp_delete(s, sin->sin_addr, FALSE);
 	}
 	free(buf);
 	return (0);

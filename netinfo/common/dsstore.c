@@ -35,6 +35,8 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/param.h>
+#include <errno.h>
+#include <utime.h>
 
 #define DataStoreAccessMode 0700
 #define ConfigFileName "Config"
@@ -56,12 +58,17 @@
 static char zero[DataQuantum];
 
 #define MIN_CACHE_SIZE 100
-#define MAX_CACHE_SIZE 100
+#define MAX_CACHE_SIZE 1000
 
 #define forever for(;;)
 
 #define Quantize(X) ((((X) + DataQuantum - 1) / DataQuantum) * DataQuantum)
 static dsstatus store_save_data(dsstore *, dsrecord *, dsdata *);
+static dsstatus dsstore_init(dsstore *s);
+u_int32_t dsstore_max_id_internal(dsstore *s, u_int32_t lock);
+dsstatus dsstore_save_internal(dsstore *s, dsrecord *r, u_int32_t lock);
+dsstatus dsstore_remove_internal(dsstore *s, u_int32_t dsid, u_int32_t lock);
+static dsrecord *dsstore_fetch_internal(dsstore *s, u_int32_t dsid, u_int32_t lock);
 
 /*
  * Index file contains these entries
@@ -261,6 +268,99 @@ dsstore_version_lookup(dsstore *s, u_int32_t vers)
 #endif
 
 /*
+ * Lock the store.
+ */
+static dsstatus
+dsstore_lock(dsstore *s, int block)
+{
+	int status, op;
+
+	if (s == NULL) return DSStatusInvalidStore;
+
+	op = LOCK_EX;
+	if (block == 0) op |= LOCK_EX;
+
+	status = flock(s->store_lock, op);
+	if ((status < 0) && (errno == EWOULDBLOCK)) return DSStatusLocked;
+	else if (status < 0) return DSStatusInvalidStore;
+
+	return DSStatusOK;
+}
+
+/*
+ * Unlock the store.
+ */
+static void
+dsstore_unlock(dsstore *s)
+{
+	if (s == NULL) return;
+	flock(s->store_lock, LOCK_UN);
+}
+
+/*
+ * Stat a file in the store.
+ */
+static int
+dsstore_stat(dsstore *s, char *name, struct stat *sb)
+{
+	char path[MAXPATHLEN + 1];
+
+	if (s == NULL) return stat(name, sb);
+	
+	if ((strlen(s->dsname) + strlen(name) + 1) > MAXPATHLEN)
+		return DSStatusInvalidStore;
+	sprintf(path, "%s/%s", s->dsname, name);
+	return stat(path, sb);
+}
+
+static dsstatus
+dsstore_sync(dsstore *s)
+{
+	struct stat sb;
+	u_int32_t i;
+
+	if (s == NULL) return DSStatusInvalidStore;
+	if (dsstore_stat(s, ConfigFileName, &sb) != 0) return DSStatusInvalidStore;
+
+#ifdef _UNIX_BSD_43_
+	if (s->last_sec == sb.st_mtime) return DSStatusOK;
+#else
+	if ((s->last_sec == sb.st_mtimespec.tv_sec) && (s->last_nsec == sb.st_mtimespec.tv_nsec)) return DSStatusOK;
+#endif
+
+	for (i = 0; i < s->index_count; i++) free(s->index[i]);
+	if (s->index != NULL) free(s->index);
+
+	dscache_free(s->cache);
+	s->cache_enabled = 0;
+
+	return dsstore_init(s);
+}
+
+static dsstatus
+dsstore_touch(dsstore *s)
+{
+	char path[MAXPATHLEN + 1];
+	struct stat sb;
+
+	if (s == NULL) return DSStatusInvalidStore;
+	
+	sprintf(path, "%s/%s", s->dsname, ConfigFileName);
+	utime(path, NULL);
+
+	if (stat(path, &sb) != 0) return DSStatusInvalidStore;
+
+#ifdef _UNIX_BSD_43_
+	s->last_sec = sb.st_mtime;
+#else
+	s->last_sec = sb.st_mtimespec.tv_sec;
+	s->last_nsec = sb.st_mtimespec.tv_nsec;
+#endif
+
+	return DSStatusOK;
+}
+
+/*
  * Find a record with a specific version.
  */
 u_int32_t
@@ -274,12 +374,20 @@ dsstore_version_record(dsstore *s, u_int32_t vers)
 	if (s->flags & DSSTORE_FLAGS_REMOTE_NETINFO)
 		return nistore_version_record(s, vers);
 
+	dsstore_lock(s, 1);
+	dsstore_sync(s);
+	
 	for (i = 0; i < s->index_count; i++)
 	{
 		e = s->index[i];
-		if (e->vers == vers) return e->dsid;
+		if (e->vers == vers)
+		{
+			dsstore_unlock(s);
+			return e->dsid;
+		}
 	}
 
+	dsstore_unlock(s);
 	return IndexNull;
 }
 
@@ -322,22 +430,6 @@ dsstore_fopen(dsstore *s, char *name, char *mode)
 }
 
 /*
- * Stat a file in the store.
- */
-static int
-dsstore_stat(dsstore *s, char *name, struct stat *sb)
-{
-	char path[MAXPATHLEN + 1];
-
-	if (s == NULL) return stat(name, sb);
-	
-	if ((strlen(s->dsname) + strlen(name) + 1) > MAXPATHLEN)
-		return DSStatusWriteFailed;
-	sprintf(path, "%s/%s", s->dsname, name);
-	return stat(path, sb);
-}
-
-/*
  * Unlink a file in the store.
  */
 static int
@@ -349,6 +441,7 @@ dsstore_unlink(dsstore *s, char *name)
 	
 	if ((strlen(s->dsname) + strlen(name) + 1) > MAXPATHLEN)
 		return DSStatusWriteFailed;
+
 	sprintf(path, "%s/%s", s->dsname, name);
 	return unlink(path);
 }
@@ -380,7 +473,7 @@ dsstore_rename(dsstore *s, char *old, char *new)
  * Open a Store.<size> file.
  */
 static FILE *
-dsstore_store_fopen(dsstore *s, u_int32_t size)
+dsstore_store_fopen(dsstore *s, u_int32_t size, int flag)
 {
 	char path[MAXPATHLEN + 1];
 	char str[40];
@@ -391,6 +484,8 @@ dsstore_store_fopen(dsstore *s, u_int32_t size)
 		return NULL;
 
 	sprintf(path, "%s/%s.%u", s->dsname, StoreFileBase, size);
+
+	if (flag == 0) return fopen(path, "r");
 
 	if (0 != stat(path, &sb)) return fopen(path, "a+");
 	return fopen(path, "r+");
@@ -685,7 +780,7 @@ create_recovery(dsstore *s)
 	}
 
 	/* Delete record from store */
-	status = dsstore_remove(s, r->dsid);
+	status = dsstore_remove_internal(s, r->dsid, 0);
 	if (status == DSStatusInvalidPath)
 	{
 	}
@@ -705,7 +800,7 @@ create_recovery(dsstore *s)
 	dsdata_release(d);
 	if (status != DSStatusOK) return DSStatusWriteFailed;
 	
-	r = dsstore_fetch(s, pdsid);
+	r = dsstore_fetch_internal(s, pdsid, 0);
 	if (r == NULL) return DSStatusWriteFailed;
 
 	parent_ok = 0;
@@ -716,7 +811,7 @@ create_recovery(dsstore *s)
 	if (parent_ok == 0)
 	{
 		dsrecord_append_sub(r, dsid);
-		status = dsstore_save(s, r);
+		status = dsstore_save_internal(s, r, 0);
 		dsrecord_release(r);
 		if (status != DSStatusOK) return DSStatusWriteFailed;
 	}
@@ -761,7 +856,7 @@ delete_recovery(dsstore *s)
 		return DSStatusWriteFailed;
 	}
 
-	status = dsstore_remove(s, dsid);
+	status = dsstore_remove_internal(s, dsid, 0);
 	if (status == DSStatusInvalidPath) status = DSStatusOK;
 
 	dsstore_unlink(s, DeleteFileName);
@@ -791,7 +886,7 @@ tree_check_child(dsstore *s, dsrecord *parent, dsrecord *child, int write_allowe
 	 * Child doesn't know this parent. The child's link to it's parent
 	 * overrides the parent's link to a child.
 	 */
-	r = dsstore_fetch(s, child->super);
+	r = dsstore_fetch_internal(s, child->super, 0);
 	if (r == NULL)
 	{
 		/*
@@ -799,18 +894,18 @@ tree_check_child(dsstore *s, dsrecord *parent, dsrecord *child, int write_allowe
 		 * parent that claimed it.
 		 */
 		child->super = parent->dsid;
-		status = dsstore_save(s, child);
+		status = dsstore_save_internal(s, child, 0);
 		if (status == DSStatusOK) return TreeCheckOrphanedChild;
 		return TreeCheckUpdateFailed;
 	}
 
 	/* Remove child from "false" parent. */
 	dsrecord_remove_sub(parent, child->dsid);
-	status = dsstore_save(s, parent);
+	status = dsstore_save_internal(s, parent, 0);
 
 	/* Make sure child is attached to real parent. */
 	dsrecord_append_sub(r, child->dsid);
-	status1 = dsstore_save(s, r);
+	status1 = dsstore_save_internal(s, r, 0);
 
 	dsrecord_release(r);
 
@@ -828,12 +923,12 @@ tree_check_record(dsstore *s, dsrecord *r, int write_allowed)
 
 	for (i = 0; i < r->sub_count; i++)
 	{
-		c = dsstore_fetch(s, r->sub[i]);
+		c = dsstore_fetch_internal(s, r->sub[i], 0);
 		if (c == NULL)
 		{
 			if (write_allowed == 0) return TreeCheckUpdateFailed;
 			dsrecord_remove_sub(r, r->sub[i]);
-			status = dsstore_save(s, r);
+			status = dsstore_save_internal(s, r, 0);
 			if (status == DSStatusOK) 
 			{
 				/* Backup by one since r->sub[i] was removed. */
@@ -870,7 +965,7 @@ tree_check(dsstore *s, int write_allowed)
 
 	if (s->index_count == 0) return DSStatusOK;
 
-	r = dsstore_fetch(s, 0);
+	r = dsstore_fetch_internal(s, 0, 0);
 	if (r == NULL) return DSStatusInvalidStore;
 
 	tc = -1;
@@ -894,7 +989,7 @@ connection_check_record(dsstore *s, u_int32_t dsid, char *test)
 
 	if (dsid == 0) return DSStatusOK;
 
-	r = dsstore_fetch(s, dsid);
+	r = dsstore_fetch_internal(s, dsid, 0);
 	if (r == NULL) return DSStatusInvalidRecordID;
 
 	c = r->dsid;
@@ -907,20 +1002,20 @@ connection_check_record(dsstore *s, u_int32_t dsid, char *test)
 			/* A cycle - break it and attach to root */
 			n = 0;
 			r->super = 0;
-			status = dsstore_save(s, r);
+			status = dsstore_save_internal(s, r, 0);
 		}
 
-		p = dsstore_fetch(s, n);
+		p = dsstore_fetch_internal(s, n, 0);
 		if (p == NULL)
 		{
 			/* Parent doesn't exist - attach to root */
-			p = dsstore_fetch(s, 0);
+			p = dsstore_fetch_internal(s, 0, 0);
 		}
 
 		if (dsrecord_has_sub(p, c) == 0)
 		{
 			dsrecord_append_sub(p, c);
-			status = dsstore_save(s, p);
+			status = dsstore_save_internal(s, p, 0);
 		}
 		
 		i = dsstore_index_lookup(s, n);
@@ -1024,7 +1119,7 @@ dsstore_read_index(dsstore *s)
 
 	return DSStatusOK;
 }
-
+	
 /*
  * Internal initializations.
  * - does create and delete disaster recovery
@@ -1037,7 +1132,7 @@ dsstore_init(dsstore *s)
 {
 	dsstatus status;
 	struct stat sb;
-	u_int32_t i, where;
+	u_int32_t i, where, size;
 	int write_allowed;
 	FILE *f;
 
@@ -1045,13 +1140,19 @@ dsstore_init(dsstore *s)
 	s->nichecksum = 0;
 
 	s->index = NULL;
-
-	s->fetch_count = 0;
-	s->save_count = 0;
-	s->remove_count = 0;
+	s->index_count = 0;
 
 	write_allowed = dsstore_access_readwrite(s);
 	s->dirty = 0;
+
+	if (dsstore_stat(s, ConfigFileName, &sb) != 0) return DSStatusInvalidStore;
+
+#ifdef _UNIX_BSD_43_
+	s->last_sec = sb.st_mtime;
+#else
+	s->last_sec = sb.st_mtimespec.tv_sec;
+	s->last_nsec = sb.st_mtimespec.tv_nsec;
+#endif
 
 	/* If Create or Delete file exists, we had a crash */
 	if (dsstore_stat(s, CreateFileName, &sb) == 0) s->dirty++;
@@ -1131,7 +1232,7 @@ dsstore_init(dsstore *s)
 	{
 		status = tree_check(s, write_allowed);
 		if (status != DSStatusOK) return status;
-		
+
 		status = connection_check(s);
 		if (status != DSStatusOK) return status;
 	}
@@ -1143,6 +1244,18 @@ dsstore_init(dsstore *s)
 		if (where == IndexNull) return DSStatusNoRootRecord;
 	}
 
+	/*
+	 * Set cache size to be 10% of the store size, but
+	 * not less than the minimum (MIN_CACHE_SIZE), and
+	 * not greater than the maximum (MAX_CACHE_SIZE).
+	 */
+	size = s->index_count / 10;
+	if (size < MIN_CACHE_SIZE) size = MIN_CACHE_SIZE;
+	if (size > MAX_CACHE_SIZE) size = MAX_CACHE_SIZE;
+
+	s->cache_enabled = 1;
+	s->cache = dscache_new(size);
+
 	return DSStatusOK;
 }
 
@@ -1153,7 +1266,8 @@ dsstatus
 dsstore_open(dsstore **s, char *dirname, u_int32_t flags)
 {
 	dsstatus status;
-	u_int32_t size, len;
+	u_int32_t len;
+	char path[MAXPATHLEN + 1];
 
 	if (flags & DSSTORE_FLAGS_REMOTE_NETINFO)
 		return nistore_open(s, dirname, flags);
@@ -1170,30 +1284,21 @@ dsstore_open(dsstore **s, char *dirname, u_int32_t flags)
 
 	(*s)->flags = flags;
 
+	sprintf(path, "%s/%s", dirname, ConfigFileName);
+	(*s)->store_lock = open(path, O_RDONLY, 0);
+
+	dsstore_lock(*s, 1);
 	status = dsstore_init(*s);
-	if (status != DSStatusOK) return status;
+	dsstore_unlock(*s);
 
-	/*
-	 * Set cache size to be 10% of the store size, but
-	 * not less than the minimum (MIN_CACHE_SIZE), and
-	 * not greater than the maximum (MAX_CACHE_SIZE).
-	 */
-	size = (*s)->index_count / 10;
-	if (size < MIN_CACHE_SIZE) size = MIN_CACHE_SIZE;
-	if (size > MAX_CACHE_SIZE) size = MAX_CACHE_SIZE;
-
-	(*s)->cache_enabled = 1;
-	(*s)->cache = dscache_new(size);
-
-	if (status != DSStatusOK) return status;
-
-	return DSStatusOK;
+	return status;
 }
 
 dsstatus
 dsstore_close(dsstore *s)
 {
 	u_int32_t i;
+	struct stat sb;
 	FILE *f;
 	dsstatus status;
 
@@ -1201,6 +1306,16 @@ dsstore_close(dsstore *s)
 
 	if (s->flags & DSSTORE_FLAGS_REMOTE_NETINFO)
 		return nistore_close(s);
+
+	dsstore_lock(s, 1);
+
+	if (dsstore_stat(s, ConfigFileName, &sb) != 0) return DSStatusInvalidStore;
+
+#ifdef _UNIX_BSD_43_
+	if (s->last_sec != sb.st_mtime) return DSStatusInvalidStore;
+#else
+	if ((s->last_sec != sb.st_mtimespec.tv_sec) || (s->last_nsec != sb.st_mtimespec.tv_nsec)) return DSStatusInvalidStore;
+#endif
 
 	/*
 	 * Dump memory index to file.
@@ -1223,6 +1338,11 @@ dsstore_close(dsstore *s)
 	if (s->index != NULL) free(s->index);
 
 	dscache_free(s->cache);
+
+	dsstore_touch(s);
+	dsstore_unlock(s);
+	close(s->store_lock);
+
 	free(s);
 
 	return status;
@@ -1254,7 +1374,7 @@ dsstore_index(dsstore *s, u_int32_t dsid, u_int32_t *vers, u_int32_t *size, u_in
  * but nothing is written to disk until dsstore_save() is called
  * with the a new record having this ID.
  */
-u_int32_t
+static u_int32_t
 dsstore_create_dsid(dsstore *s)
 {
 	u_int32_t i, n;
@@ -1282,12 +1402,18 @@ dsstore_create_dsid(dsstore *s)
 }
 
 u_int32_t
-dsstore_max_id(dsstore *s)
+dsstore_max_id_internal(dsstore *s, u_int32_t lock)
 {
 	u_int32_t i, m;
 	store_index_entry_t *e;
 
 	if (s == NULL) return IndexNull;
+
+	if (lock != 0)
+	{
+		dsstore_lock(s, 1);
+		dsstore_sync(s);
+	}
 
 	m = 0;
 	for (i = 0; i < s->index_count; i++)
@@ -1296,7 +1422,14 @@ dsstore_max_id(dsstore *s)
 		if (e->dsid > m) m = e->dsid;
 	}
 
+	if (lock != 0) dsstore_unlock(s);
 	return m;
+}
+
+u_int32_t
+dsstore_max_id(dsstore *s)
+{
+	return dsstore_max_id_internal(s, 1);
 }
 
 u_int32_t
@@ -1306,6 +1439,10 @@ dsstore_version(dsstore *s)
 
 	if (s->flags & DSSTORE_FLAGS_REMOTE_NETINFO)
 		return nistore_version(s);
+
+	dsstore_lock(s, 1);
+	dsstore_sync(s);
+	dsstore_unlock(s);
 
 	return s->max_vers;
 }
@@ -1329,7 +1466,7 @@ store_save_data(dsstore *s, dsrecord *r, dsdata *d)
 	if (size == 0) return DSStatusInvalidRecord;
 
 	/* Open store file */
-	f = dsstore_store_fopen(s, size);
+	f = dsstore_store_fopen(s, size, 1);
 	if (f == NULL) return DSStatusWriteFailed;
 
 	/* Find an empty slot (type == DataTypeNil) in the store file */
@@ -1377,6 +1514,7 @@ store_save_data(dsstore *s, dsrecord *r, dsdata *d)
 	{
 		s->dirty = 1;
 		dsstore_unlink(s, CleanFileName);
+		dsstore_touch(s);
 	}
 
 	/* write data to store file */
@@ -1420,11 +1558,13 @@ store_save_data(dsstore *s, dsrecord *r, dsdata *d)
  * 5: Remove Create file
  */
 dsstatus
-dsstore_save(dsstore *s, dsrecord *r)
+dsstore_save_internal(dsstore *s, dsrecord *r, u_int32_t lock)
 {
 	FILE *f;
 	dsdata *d;
 	dsstatus status;
+	dsrecord *curr;
+	u_int32_t serial;
 
 	if (s == NULL) return DSStatusInvalidStore;
 
@@ -1434,11 +1574,38 @@ dsstore_save(dsstore *s, dsrecord *r)
 	if (!dsstore_access_readwrite(s)) return DSStatusWriteFailed;
 	if (r == NULL) return DSStatusOK;
 
-	s->save_count++;
+	if (lock != 0)
+	{
+		dsstore_lock(s, 1);
+		dsstore_sync(s);
+	}
 
-	/* Set record ID if it is a new record */
+	/*  dsid == IndexNull means a new record */
 	if (r->dsid == IndexNull)
+	{
+		/* Set record ID if it is a new record */
 		r->dsid = dsstore_create_dsid(s);
+	}
+	else
+	{
+		/* Check if the record is stale */
+		curr = dsstore_fetch_internal(s, r->dsid, 0);
+		if (curr == NULL)
+		{
+			if (lock != 0) dsstore_unlock(s);
+			return DSStatusInvalidStore;
+		}
+
+		serial = curr->serial;
+		dsrecord_release(curr);
+		if (r->serial != serial)
+		{
+			if (lock != 0) dsstore_unlock(s);
+			return DSStatusStaleRecord;
+		}
+	}
+
+	s->save_count++;
 
 	/* Update version numbers */
 	s->max_vers++;
@@ -1449,13 +1616,20 @@ dsstore_save(dsstore *s, dsrecord *r)
 	s->nichecksum += ((r->dsid + 1) * r->serial);
 
 	d = dsrecord_to_dsdata(r);
-	if (d == NULL) return DSStatusInvalidRecord;
+	if (d == NULL)
+	{
+		if (lock != 0) dsstore_unlock(s);
+		return DSStatusInvalidRecord;
+	}
+
+	dsstore_touch(s);
 
 	/* Write record to Temp file */
 	f = dsstore_fopen(s, TempFileName, "w");
 	if (f == NULL)
 	{
 		dsdata_release(d);
+		if (lock != 0) dsstore_unlock(s);
 		return DSStatusWriteFailed;
 	}
 
@@ -1472,6 +1646,7 @@ dsstore_save(dsstore *s, dsrecord *r)
 	{
 		dsdata_release(d);
 		dsstore_unlink(s, TempFileName);
+		if (lock != 0) dsstore_unlock(s);
 		return status;
 	}
 
@@ -1480,28 +1655,41 @@ dsstore_save(dsstore *s, dsrecord *r)
 	if (status != DSStatusOK)
 	{
 		dsdata_release(d);
+		if (lock != 0) dsstore_unlock(s);
 		return status;
 	}
 
 	/* Delete record from store */
-	status = dsstore_remove(s, r->dsid);
+	status = dsstore_remove_internal(s, r->dsid, 0);
 	if (status == DSStatusInvalidPath)
 	{
 	}
 	else if (status != DSStatusOK)
 	{
 		dsdata_release(d);
+		if (lock != 0) dsstore_unlock(s);
 		return status;
 	}
 
 	/* Write data to store */
 	status = store_save_data(s, r, d);
 	dsdata_release(d);
-	if (status != DSStatusOK) return status;
+	if (status != DSStatusOK)
+	{
+		if (lock != 0) dsstore_unlock(s);
+		return status;
+	}
 
 	/* Remove Create file */
 	dsstore_unlink(s, CreateFileName);
+	if (lock != 0) dsstore_unlock(s);
 	return DSStatusOK;
+}
+
+dsstatus
+dsstore_save(dsstore *s, dsrecord *r)
+{
+	return dsstore_save_internal(s, r, 1);
 }
 
 /*
@@ -1522,11 +1710,17 @@ dsstore_save_copy(dsstore *s, dsrecord *r)
 	if (!dsstore_access_readwrite(s)) return DSStatusWriteFailed;
 	if (r == NULL) return DSStatusOK;
 
+	dsstore_lock(s, 1);
+	dsstore_sync(s);
+
 	s->save_count++;
 
-	/* Set record ID if it is a new record */
+	/*  dsid == IndexNull means a new record */
 	if (r->dsid == IndexNull)
+	{
+		/* Set record ID if it is a new record */
 		r->dsid = dsstore_create_dsid(s);
+	}
 
 	/* Update version numbers */
 	s->max_vers++;
@@ -1536,7 +1730,13 @@ dsstore_save_copy(dsstore *s, dsrecord *r)
 	s->nichecksum += ((r->dsid + 1) * r->serial);
 
 	d = dsrecord_to_dsdata(r);
-	if (d == NULL) return DSStatusInvalidRecord;
+	if (d == NULL)
+	{
+		dsstore_unlock(s);
+		return DSStatusInvalidRecord;
+	}
+
+	dsstore_touch(s);
 
 	/* Remove the Clean file when we dirty the store */
 	if (s->dirty == 0)
@@ -1546,19 +1746,21 @@ dsstore_save_copy(dsstore *s, dsrecord *r)
 	}
 
 	/* Delete record from store */
-	status = dsstore_remove(s, r->dsid);
+	status = dsstore_remove_internal(s, r->dsid, 0);
 	if (status == DSStatusInvalidPath)
 	{
 	}
 	else if (status != DSStatusOK)
 	{
 		dsdata_release(d);
+		dsstore_unlock(s);
 		return status;
 	}
 
 	/* Write data to store */
 	status = store_save_data(s, r, d);
 	dsdata_release(d);
+	dsstore_unlock(s);
 	return status;
 }
 
@@ -1570,7 +1772,7 @@ dsstore_save_attribute(dsstore *s, dsrecord *r, dsattribute *a, u_int32_t asel)
 	if (s->flags & DSSTORE_FLAGS_REMOTE_NETINFO)
 		return nistore_save_attribute(s, r, a, asel);
 
-	return dsstore_save(s, r);
+	return dsstore_save_internal(s, r, 1);
 }
 
 dsstatus
@@ -1590,7 +1792,7 @@ dsstore_authenticate(dsstore *s, dsdata *user, dsdata *password)
  * 3: delete Delete file
  */
 dsstatus
-dsstore_remove(dsstore *s, u_int32_t dsid)
+dsstore_remove_internal(dsstore *s, u_int32_t dsid, u_int32_t lock)
 {
 	u_int32_t i, size, where;
 	off_t offset;
@@ -1608,8 +1810,18 @@ dsstore_remove(dsstore *s, u_int32_t dsid)
 
 	if (!dsstore_access_readwrite(s)) return DSStatusWriteFailed;
 
+	if (lock != 0)
+	{
+		dsstore_lock(s, 1);
+		dsstore_sync(s);
+	}
+
 	i = dsstore_index_lookup(s, dsid);
-	if (i == IndexNull) return DSStatusOK;
+	if (i == IndexNull)
+	{
+		if (lock != 0) dsstore_unlock(s);
+		return DSStatusOK;
+	}
 
 	s->remove_count++;
 
@@ -1622,10 +1834,20 @@ dsstore_remove(dsstore *s, u_int32_t dsid)
 
 	dsstore_index_delete(s, dsid);
 
-	if ((size == 0) || (size == IndexNull)) return DSStatusOK;
+	if ((size == 0) || (size == IndexNull))
+	{
+		if (lock != 0) dsstore_unlock(s);
+		return DSStatusOK;
+	}
+
+	dsstore_touch(s);
 
 	f = dsstore_fopen(s, DeleteFileName, "w");
-	if (f == NULL) return DSStatusWriteFailed;
+	if (f == NULL)
+	{
+		if (lock != 0) dsstore_unlock(s);
+		return DSStatusWriteFailed;
+	}
 
 	/* Remove the Clean file when we dirty the store */
 	if (s->dirty == 0)
@@ -1639,6 +1861,7 @@ dsstore_remove(dsstore *s, u_int32_t dsid)
 	if (status != 1)
 	{
 		dsstore_unlink(s, DeleteFileName);
+		if (lock != 0) dsstore_unlock(s);
 		return DSStatusWriteFailed;
 	}
 
@@ -1647,14 +1870,16 @@ dsstore_remove(dsstore *s, u_int32_t dsid)
 	{
 		/* Store.<size> doesn't exist.  This should never happen. */
 		dsstore_unlink(s, DeleteFileName);
+		if (lock != 0) dsstore_unlock(s);
 		return DSStatusWriteFailed;
 	}
 
 	/* Open store file */
-	f = dsstore_store_fopen(s, size);
+	f = dsstore_store_fopen(s, size, 1);
 	if (f == NULL)
 	{
 		dsstore_unlink(s, DeleteFileName);
+		if (lock != 0) dsstore_unlock(s);
 		return DSStatusWriteFailed;
 	}
 
@@ -1664,6 +1889,7 @@ dsstore_remove(dsstore *s, u_int32_t dsid)
 	{
 		fclose(f);
 		dsstore_unlink(s, DeleteFileName);
+		if (lock != 0) dsstore_unlock(s);
 		return DSStatusWriteFailed;
 	}
 
@@ -1681,15 +1907,22 @@ dsstore_remove(dsstore *s, u_int32_t dsid)
 
 	dsstore_unlink(s, DeleteFileName);
 
+	if (lock != 0) dsstore_unlock(s);
 	if (status != 1) return DSStatusWriteFailed;
 	return DSStatusOK;
+}
+
+dsstatus
+dsstore_remove(dsstore *s, u_int32_t dsid)
+{
+	return dsstore_remove_internal(s, dsid, 1);
 }
 
 /* 
  * Fetch a record from the store
  */
-dsrecord *
-dsstore_fetch(dsstore *s, u_int32_t dsid)
+static dsrecord *
+dsstore_fetch_internal(dsstore *s, u_int32_t dsid, u_int32_t lock)
 {
 	u_int32_t vers;
 	u_int32_t size, where;
@@ -1703,26 +1936,45 @@ dsstore_fetch(dsstore *s, u_int32_t dsid)
 	if (s->flags & DSSTORE_FLAGS_REMOTE_NETINFO)
 		return nistore_fetch(s, dsid);
 
+	if (lock != 0)
+	{
+		dsstore_lock(s, 1);
+		dsstore_sync(s);
+	}
+
 	s->fetch_count++;
 
 	/* Check the cache first */
 	if (s->cache_enabled == 1)
 	{
 		r = dscache_fetch(s->cache, dsid);
-		if (r != NULL) return r;
+		if (r != NULL)
+		{
+			if (lock != 0) dsstore_unlock(s);
+			return r;
+		}
 	}
 	
 	status = dsstore_index(s, dsid, &vers, &size, &where);
-	if (status != DSStatusOK) return NULL;
+	if (status != DSStatusOK)
+	{
+		if (lock != 0) dsstore_unlock(s);
+		return NULL;
+	}
 
 	/* Open store file */
-	f = dsstore_store_fopen(s, size);
-	if (f == NULL) return NULL;
+	f = dsstore_store_fopen(s, size, 0);
+	if (f == NULL)
+	{
+		if (lock != 0) dsstore_unlock(s);
+		return NULL;
+	}
 
 	offset = where * size;
 	if (fseek(f, offset, SEEK_SET) != 0)
 	{
 		fclose(f);
+		if (lock != 0) dsstore_unlock(s);
 		return NULL;
 	}
 
@@ -1731,7 +1983,14 @@ dsstore_fetch(dsstore *s, u_int32_t dsid)
 
 	/* Save in cache */
 	if (s->cache_enabled == 1) dscache_save(s->cache, r);
+	if (lock != 0) dsstore_unlock(s);
 	return r;
+}
+
+dsrecord *
+dsstore_fetch(dsstore *s, u_int32_t dsid)
+{
+	return dsstore_fetch_internal(s, dsid, 1);
 }
 
 /* 
@@ -1755,6 +2014,9 @@ dsstore_vital_statistics(dsstore *s, u_int32_t dsid, u_int32_t *vers, u_int32_t 
 	if (s->flags & DSSTORE_FLAGS_REMOTE_NETINFO)
 		return nistore_vital_statistics(s, dsid, vers, serial, super);
 
+	dsstore_lock(s, 1);
+	dsstore_sync(s);
+	
 	/* Check the cache */
 	if (s->cache_enabled == 1)
 	{
@@ -1766,27 +2028,38 @@ dsstore_vital_statistics(dsstore *s, u_int32_t dsid, u_int32_t *vers, u_int32_t 
 			if (super != NULL) *super = r->super;
 
 			dsrecord_release(r);
+			dsstore_unlock(s);
 			return DSStatusOK;
 		}
 	}
 	
 	status = dsstore_index(s, dsid, &v, &size, &where);
-	if (status != DSStatusOK) return status;
+	if (status != DSStatusOK)
+	{
+		dsstore_unlock(s);
+		return status;
+	}
 
 	/* Open store file */
-	f = dsstore_store_fopen(s, size);
-	if (f == NULL) return DSStatusReadFailed;
+	f = dsstore_store_fopen(s, size, 0);
+	if (f == NULL)
+	{
+		dsstore_unlock(s);
+		return DSStatusReadFailed;
+	}
 
 	offset = where * size;
 	if (fseek(f, offset, SEEK_SET) != 0)
 	{
 		fclose(f);
+		dsstore_unlock(s);
 		return DSStatusReadFailed;
 	}
 
 	status = dsrecord_fstats(f, &where, vers, serial, super);
 	fclose(f);
 
+	dsstore_unlock(s);
 	return status;
 }
 
@@ -1814,11 +2087,15 @@ dsstore_match(dsstore *s, u_int32_t dsid, dsdata *key, dsdata *val, u_int32_t as
 	if (s->flags & DSSTORE_FLAGS_REMOTE_NETINFO)
 		return nistore_match(s, dsid, key, val, asel, match);
 
-	r = dsstore_fetch(s, dsid);
+	dsstore_lock(s, 1);
+	dsstore_sync(s);
+
+	r = dsstore_fetch_internal(s, dsid, 0);
 	if (r == NULL) return DSStatusInvalidPath;
 	if (r->sub_count == 0)
 	{
 		dsrecord_release(r);
+		dsstore_unlock(s);
 		return DSStatusOK;
 	}
 
@@ -1835,6 +2112,7 @@ dsstore_match(dsstore *s, u_int32_t dsid, dsdata *key, dsdata *val, u_int32_t as
 		}
 
 		dsrecord_release(r);
+		dsstore_unlock(s);
 		return DSStatusOK;
 	}
 
@@ -1848,7 +2126,7 @@ dsstore_match(dsstore *s, u_int32_t dsid, dsdata *key, dsdata *val, u_int32_t as
 	a_index_key = dsrecord_attribute(r, d_index_key, SELECT_META_ATTRIBUTE);
 	dsdata_release(d_index_key);
 
-	r->index = dsindex_new();
+	if (r->index == NULL) r->index = dsindex_new();
 	dsindex_insert_key(r->index, d_name);
 	if (a_index_key != NULL)
 	{
@@ -1858,8 +2136,12 @@ dsstore_match(dsstore *s, u_int32_t dsid, dsdata *key, dsdata *val, u_int32_t as
 
 	for (i = 0; i < r->sub_count; i++)
 	{
-		k = dsstore_fetch(s, r->sub[i]);
-		if (k == NULL) return DSStatusInvalidPath;
+		k = dsstore_fetch_internal(s, r->sub[i], 0);
+		if (k == NULL)
+		{
+			dsstore_unlock(s);
+			return DSStatusInvalidPath;
+		}
 
 		for (j = 0; j < k->count; j++)
 		{
@@ -1888,6 +2170,8 @@ dsstore_match(dsstore *s, u_int32_t dsid, dsdata *key, dsdata *val, u_int32_t as
 	dsdata_release(d_name);
 	dscache_save(s->cache, r);
 	dsrecord_release(r);
+	dsstore_unlock(s);
+
 	return DSStatusOK;
 }
 
@@ -1902,7 +2186,13 @@ dsstore_record_version(dsstore *s, u_int32_t dsid)
 	if (s->flags & DSSTORE_FLAGS_REMOTE_NETINFO)
 		return nistore_record_version(s, dsid);
 
+	dsstore_lock(s, 1);
+	dsstore_sync(s);
+	
 	status = dsstore_index(s, dsid, &vers, &size, &where);
+
+	dsstore_unlock(s);
+
 	if (status != DSStatusOK) return IndexNull;
 	return vers;
 }
@@ -1933,7 +2223,7 @@ dsstore_record_super(dsstore *s, u_int32_t dsid)
 
 	if (s->flags & DSSTORE_FLAGS_REMOTE_NETINFO)
 		return nistore_record_super(s, dsid);
-
+	
 	status = dsstore_vital_statistics(s, dsid, NULL, NULL, &super);
 	if (status != DSStatusOK) return IndexNull;
 	return super;
@@ -1943,6 +2233,11 @@ u_int32_t
 dsstore_nichecksum(dsstore *s)
 {
 	if (s == NULL) return 0;
+
+	dsstore_lock(s, 1);
+	dsstore_sync(s);
+	dsstore_unlock(s);
+
 	return s->nichecksum;
 }
 
@@ -1964,6 +2259,9 @@ dsstore_reset(dsstore *s)
 	if (s == NULL) return;
 	if (!dsstore_access_readwrite(s)) return;
 
+	dsstore_lock(s, 1);
+	dsstore_sync(s);
+
 	ce = s->cache_enabled;
 	s->cache_enabled = 0;
 	dscache_flush(s->cache);
@@ -1972,13 +2270,14 @@ dsstore_reset(dsstore *s)
 	{
 		e = (store_index_entry_t *)s->index[i];
 		e->vers = 0;
-		r = dsstore_fetch(s, e->dsid);
+		r = dsstore_fetch_internal(s, e->dsid, 0);
 		if (r == NULL) continue;
 		s->max_vers = IndexNull;
-		dsstore_save(s, r);
+		dsstore_save_internal(s, r, 0);
 	}
 
 	s->cache_enabled = ce;
+	dsstore_unlock(s);
 }
 
 dsrecord *
@@ -1993,6 +2292,9 @@ dsstore_statistics(dsstore *s)
 
 	if (s->flags & DSSTORE_FLAGS_REMOTE_NETINFO)
 		return nistore_statistics(s);
+
+	dsstore_lock(s, 1);
+	dsstore_sync(s);
 
 	r = dsrecord_new();
 
@@ -2019,7 +2321,7 @@ dsstore_statistics(dsstore *s)
 	d = cstring_to_dsdata("max_dsid");
 	a = dsattribute_new(d);
 	dsdata_release(d);
-	sprintf(str, "%u", dsstore_max_id(s));
+	sprintf(str, "%u", dsstore_max_id_internal(s, 0));
 	d = cstring_to_dsdata(str);
 	dsattribute_append(a, d);
 	dsdata_release(d);
@@ -2055,6 +2357,8 @@ dsstore_statistics(dsstore *s)
 	dsdata_release(d);
 	dsrecord_append_attribute(r, a, 0);
 	dsattribute_release(a);
-	
+
+	dsstore_unlock(s);
+
 	return r;
 }	

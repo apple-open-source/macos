@@ -20,44 +20,65 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include <paths.h>
-#include <unistd.h>
+/*
+ * Modification History
+ *
+ * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * - public API conversion
+ *
+ * April 5, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
 #include <mach/mach.h>
 #include <mach/mach_error.h>
+
+#include <SystemConfiguration/SystemConfiguration.h>
+#include <SystemConfiguration/SCPrivate.h>
+#include "SCDynamicStoreInternal.h"
+#include "config.h"		/* MiG generated file */
+
+#include <paths.h>
+#include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 
-#include <SystemConfiguration/SCD.h>
-#include "config.h"		/* MiG generated file */
-#include "SCDPrivate.h"
-
-
-SCDStatus
-SCDNotifierInformViaFD(SCDSessionRef	session,
-		       int32_t		identifier,
-		       int		*fd)
+Boolean
+SCDynamicStoreNotifyFileDescriptor(SCDynamicStoreRef	store,
+				   int32_t		identifier,
+				   int			*fd)
 {
-	SCDSessionPrivateRef	sessionPrivate = (SCDSessionPrivateRef)session;
-	kern_return_t		status;
-	SCDStatus		scd_status;
-	struct sockaddr_un	un;
-	int			sock;
+	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
+	kern_return_t			status;
+	int				sc_status;
+	struct sockaddr_un		un;
+	int				sock;
 
-	SCDLog(LOG_DEBUG, CFSTR("SCDNotifierInformViaFD:"));
+	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCDynamicStoreNotifyFileDescriptor:"));
 
-	if ((session == NULL) || (sessionPrivate->server == MACH_PORT_NULL)) {
-		return SCD_NOSESSION;	/* you must have an open session to play */
+	if (!store) {
+		/* sorry, you must provide a session */
+		_SCErrorSet(kSCStatusNoStoreSession);
+		return FALSE;
 	}
 
-	if (sessionPrivate->notifyStatus != NotifierNotRegistered) {
+	if (storePrivate->server == MACH_PORT_NULL) {
+		/* sorry, you must have an open session to play */
+		_SCErrorSet(kSCStatusNoStoreServer);
+		return FALSE;
+	}
+
+	if (storePrivate->notifyStatus != NotifierNotRegistered) {
 		/* sorry, you can only have one notification registered at once */
-		return SCD_NOTIFIERACTIVE;
+		_SCErrorSet(kSCStatusNotifierActive);
+		return FALSE;
 	}
 
 	if ((sock = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
-		SCDLog(LOG_NOTICE, CFSTR("socket: %s"), strerror(errno));
-		return SCD_FAILED;
+		_SCErrorSet(errno);
+		SCLog(_sc_verbose, LOG_NOTICE, CFSTR("socket: %s"), strerror(errno));
+		return FALSE;
 	}
 
 	/* establish a UNIX domain socket for server->client notification */
@@ -67,45 +88,49 @@ SCDNotifierInformViaFD(SCDSessionRef	session,
 		 sizeof(un.sun_path)-1,
 		 "%s%s-%d",
 		 _PATH_VARTMP,
-		 "SCDNotifierInformViaFD",
-		 sessionPrivate->server);
+		 "SCDynamicStoreNotifyFileDescriptor",
+		 storePrivate->server);
 
 	if (bind(sock, (struct sockaddr *)&un, sizeof(un)) == -1) {
-		SCDLog(LOG_NOTICE, CFSTR("bind: %s"), strerror(errno));
+		_SCErrorSet(errno);
+		SCLog(_sc_verbose, LOG_NOTICE, CFSTR("bind: %s"), strerror(errno));
 		(void) close(sock);
-		return SCD_FAILED;
+		return FALSE;
 	}
 
 	if (listen(sock, 0) == -1) {
-		SCDLog(LOG_NOTICE, CFSTR("listen: %s"), strerror(errno));
+		_SCErrorSet(errno);
+		SCLog(_sc_verbose, LOG_NOTICE, CFSTR("listen: %s"), strerror(errno));
 		(void) close(sock);
-		return SCD_FAILED;
+		return FALSE;
 	}
 
-	status = notifyviafd(sessionPrivate->server,
+	status = notifyviafd(storePrivate->server,
 			     un.sun_path,
 			     strlen(un.sun_path),
 			     identifier,
-			     (int *)&scd_status);
+			     (int *)&sc_status);
 
 	if (status != KERN_SUCCESS) {
 		if (status != MACH_SEND_INVALID_DEST)
-			SCDLog(LOG_DEBUG, CFSTR("notifyviafd(): %s"), mach_error_string(status));
-		(void) mach_port_destroy(mach_task_self(), sessionPrivate->server);
-		sessionPrivate->server = MACH_PORT_NULL;
-		return SCD_NOSERVER;
+			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("notifyviafd(): %s"), mach_error_string(status));
+		(void) mach_port_destroy(mach_task_self(), storePrivate->server);
+		storePrivate->server = MACH_PORT_NULL;
+		_SCErrorSet(status);
+		return FALSE;
 	}
 
 	*fd = accept(sock, 0, 0);
 	if (*fd == -1) {
-		SCDLog(LOG_NOTICE, CFSTR("accept: %s"), strerror(errno));
+		_SCErrorSet(errno);
+		SCLog(_sc_verbose, LOG_NOTICE, CFSTR("accept: %s"), strerror(errno));
 		(void) close(sock);
-		return SCD_FAILED;
+		return FALSE;
 	}
 	(void) close(sock);
 
 	/* set notifier active */
-	sessionPrivate->notifyStatus = Using_NotifierInformViaFD;
+	storePrivate->notifyStatus = Using_NotifierInformViaFD;
 
-	return scd_status;
+	return TRUE;
 }

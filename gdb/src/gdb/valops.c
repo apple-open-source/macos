@@ -392,6 +392,7 @@ value_cast (struct type *type, register value_ptr arg2)
 
 		      v2 = value_addr (v2);
 		      VALUE_TYPE (v2) = type;
+		      VALUE_ENCLOSING_TYPE (v2) = type;
 		      return v2;
 		    }
 		}
@@ -3305,6 +3306,14 @@ value_rtti_type (value_ptr v, int *full, int *top, int *using_enc)
       future as i get around to setting the vtables properly for G++
       compiled stuff. Also, i'll be using the type info functions,
       which are always right. Deal with it until then.
+      JCI - This pretty much useless.  This gets the "true" type
+      correctly when there is single inheritance - but in all such 
+      cases that I could find gdb already knows that.  In cases
+      where this points INTO the object (like non-virtual diamond
+      graphs) the demangled name is something like OUTER::INNER
+      and this is not a symbol gdb can resolve, so we fail & return
+      NULL anyway.  Seems like this really isn't going to work till
+      we actually call the RTTI function & parse it.
     */
     {
       CORE_ADDR vtbl;
@@ -3343,33 +3352,38 @@ value_rtti_type (value_ptr v, int *full, int *top, int *using_enc)
 	 If we are enclosed by something that isn't us, adjust the
 	 address properly and set using_enclosing.
       */
-      if (VALUE_ENCLOSING_TYPE(v) != VALUE_TYPE(v))
+
+      if (VALUE_ENCLOSING_TYPE(v) != btype)
 	{
-	  value_ptr tempval;
-	  tempval=value_field(v,TYPE_VPTR_FIELDNO(known_type));
-	  VALUE_ADDRESS(tempval)+=(TYPE_BASECLASS_BITPOS(known_type,TYPE_VPTR_FIELDNO(known_type))/8);
-	  vtbl=value_as_pointer(tempval);
 	  using_enclosing=1;
 	}
       else
 	{
-	  vtbl=value_as_pointer(value_field(v,TYPE_VPTR_FIELDNO(known_type)));
 	  using_enclosing=0;
 	}
 
+      vtbl=value_as_pointer(value_field(v,TYPE_VPTR_FIELDNO(known_type)));
+
       /* Try to find a symbol that is the vtable */
       minsym=lookup_minimal_symbol_by_pc(vtbl);
-      if (minsym==NULL || (demangled_name=SYMBOL_NAME(minsym))==NULL || !VTBL_PREFIX_P(demangled_name))
+
+      if (minsym == NULL)
+	return NULL;
+
+      demangled_name = SYMBOL_NAME(minsym);
+
+      if (demangled_name == NULL 
+	  || !VTBL_PREFIX_P(demangled_name))
 	return NULL;
 
       /* If we just skip the prefix, we get screwed by namespaces */
-      demangled_name=cplus_demangle(demangled_name,DMGL_PARAMS|DMGL_ANSI);
-      *(strchr(demangled_name,' '))=0;
+      demangled_name=cplus_demangle (demangled_name,DMGL_PARAMS|DMGL_ANSI);
+      *(strchr(demangled_name,' ')) = 0;
 
       /* Lookup the type for the name */
-      rtti_type=lookup_typename(demangled_name, (struct block *)0,1);
+      rtti_type=lookup_typename (demangled_name, (struct block *) 0, 1);
 
-      if (rtti_type==NULL)
+      if (rtti_type == NULL)
 	return NULL;
 
       if (TYPE_N_BASECLASSES(rtti_type) > 1 &&  full && (*full) != 1)

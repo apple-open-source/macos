@@ -28,12 +28,19 @@
 static char sccsid[] = "@(#)popen.c	5.7 (Berkeley) 2/14/89";
 #endif
 static const char rcsid[] =
-  "$FreeBSD: src/usr.sbin/cron/cron/popen.c,v 1.7 1999/08/28 01:15:50 peter Exp $";
+  "$FreeBSD: src/usr.sbin/cron/cron/popen.c,v 1.11 2000/12/09 09:35:43 obrien Exp $";
 #endif /* not lint */
 
 #include "cron.h"
 #include <sys/signal.h>
 #include <fcntl.h>
+#include <paths.h>
+#if defined(SYSLOG)
+# include <syslog.h>
+#endif
+#if defined(LOGIN_CAP)
+# include <login_cap.h>
+#endif
 
 
 #define MAX_ARGS 100
@@ -48,14 +55,20 @@ static PID_T *pids;
 static int fds;
 
 FILE *
-cron_popen(program, type)
+cron_popen(program, type, e)
 	char *program, *type;
+	entry *e;
 {
 	register char *cp;
 	FILE *iop;
 	int argc, pdes[2];
 	PID_T pid;
+	char *usernm;
 	char *argv[MAX_ARGS + 1];
+# if defined(LOGIN_CAP)
+	struct passwd	*pwd;
+	login_cap_t *lc;
+# endif
 #if WANT_GLOBBING
 	char **pop, *vv[2];
 	int gargc;
@@ -80,6 +93,7 @@ cron_popen(program, type)
 	for (argc = 0, cp = program; argc < MAX_ARGS; cp = NULL)
 		if (!(argv[argc++] = strtok(cp, " \t\n")))
 			break;
+	argv[MAX_ARGS] = NULL;
 
 #if WANT_GLOBBING
 	/* glob each piece */
@@ -105,10 +119,19 @@ cron_popen(program, type)
 		goto pfree;
 		/* NOTREACHED */
 	case 0:				/* child */
+		if (e != NULL) {
+#ifdef SYSLOG
+			closelog();
+#endif
+
+			/* get new pgrp, void tty, etc.
+			 */
+			(void) setsid();
+		}
 		if (*type == 'r') {
 			/* Do not share our parent's stdin */
 			(void)close(0);
-			(void)open("/dev/null", O_RDWR);
+			(void)open(_PATH_DEVNULL, O_RDWR);
 			if (pdes[1] != 1) {
 				dup2(pdes[1], 1);
 				dup2(pdes[1], 2);	/* stderr, too! */
@@ -122,10 +145,48 @@ cron_popen(program, type)
 			}
 			/* Hack: stdout gets revoked */
 			(void)close(1);
-			(void)open("/dev/null", O_RDWR);
+			(void)open(_PATH_DEVNULL, O_RDWR);
 			(void)close(2);
-			(void)open("/dev/null", O_RDWR);
+			(void)open(_PATH_DEVNULL, O_RDWR);
 			(void)close(pdes[1]);
+		}
+		if (e != NULL) {
+			/* Set user's entire context, but skip the environment
+			 * as cron provides a separate interface for this
+			 */
+			usernm = env_get("LOGNAME", e->envp);
+# if defined(LOGIN_CAP)
+			if ((pwd = getpwnam(usernm)) == NULL)
+				pwd = getpwuid(e->uid);
+			lc = NULL;
+			if (pwd != NULL) {
+				pwd->pw_gid = e->gid;
+				if (e->class != NULL)
+					lc = login_getclass(e->class);
+			}
+			if (pwd &&
+			    setusercontext(lc, pwd, e->uid,
+				    LOGIN_SETALL & ~(LOGIN_SETPATH|LOGIN_SETENV)) == 0)
+				(void) endpwent();
+			else {
+				/* fall back to the old method */
+				(void) endpwent();
+# endif
+				/* set our directory, uid and gid.  Set gid first,
+				 * since once we set uid, we've lost root privledges.
+				 */
+				setgid(e->gid);
+# if defined(BSD)
+				initgroups(usernm, e->gid);
+# endif
+				setlogin(usernm);
+				setuid(e->uid);         /* we aren't root after this..*/
+#if defined(LOGIN_CAP)
+			}
+			if (lc != NULL)
+				login_close(lc);
+#endif
+			chdir(env_get("HOME", e->envp));
 		}
 #if WANT_GLOBBING
 		execvp(gargv[0], gargv);

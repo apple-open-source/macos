@@ -55,12 +55,23 @@ __private_extern__ char *standard_framework_dirs[];
 __private_extern__ struct merged_segment *base_obj_segments;
 
 /*
+ * These are pointers to strings and symbols used to search of the table of
+ * contents of a library.  These have to be can not be local so that routines
+ * can set them and that ranlib_bsearch() and dylib_bsearch() can use them.
+ */
+__private_extern__ char *bsearch_strings;
+#ifndef RLD
+__private_extern__ struct nlist *bsearch_symbols;
+#endif !defined(RLD)
+
+/*
  * The lists of libraries to be search with dynamic library search semantics.
  */
 enum library_type {
     DYLIB,
     SORTED_ARCHIVE,
-    UNSORTED_ARCHIVE
+    UNSORTED_ARCHIVE,
+    BUNDLE_LOADER
 };
 struct dynamic_library {
     enum library_type type;
@@ -69,6 +80,7 @@ struct dynamic_library {
     char *dylib_name;
     struct dylib_command *dl;
     char *umbrella_name;
+    char *library_name;
     enum bool indirect_twolevel_ref_flagged;
     struct object_file *definition_obj;
     char *dylib_file; /* argument to -dylib_file "install_name:file_name" */
@@ -78,6 +90,13 @@ struct dynamic_library {
     struct dylib_module *mods;
     struct prebound_dylib_command *pbdylib;
     char *linked_modules;
+    /* following are used when -twolevel_namespace is in effect */
+    unsigned long ndependent_images;
+    struct dynamic_library **dependent_images;
+    enum bool sub_images_setup;
+    unsigned long nsub_images;
+    struct dynamic_library **sub_images;
+    enum bool twolevel_searched;
 
     /* following used for archive libraries */
     char *file_name;
@@ -103,9 +122,11 @@ __private_extern__ void pass1(
     char *filename,
     enum bool lname,
     enum bool base_name,
-    enum bool framework_name);
+    enum bool framework_name,
+    enum bool bundle_loader);
 __private_extern__ void merge(
-    enum bool dylib_only);
+    enum bool dylib_only,
+    enum bool bundle_loader);
 __private_extern__ void check_fat(
     char *file_name,
     unsigned long file_size,
@@ -119,10 +140,15 @@ __private_extern__ void search_dynamic_libs(
     void);
 __private_extern__ void prebinding_check_for_dylib_override_symbols(
     void);
+__private_extern__ void twolevel_namespace_check_for_unused_dylib_symbols(
+    void);
 __private_extern__ struct dynamic_library *add_dynamic_lib(
     enum library_type type,
     struct dylib_command *dl,
     struct object_file *definition_obj);
+__private_extern__ int dylib_bsearch(
+    const char *symbol_name,
+    const struct dylib_table_of_contents *toc);
 #endif !defined(RLD)
 
 #ifdef RLD

@@ -4,13 +4,25 @@ MySQL, ODBC, FTP, Calendar, BCMath, COM, PCRE, Session, WDDX and XML support is 
 You don't need to load any additional extensions in order to use these functions.
 
 
+Folders
+-------
+- mibs
+The mibs directory contains support files for SNMP.
+This directory should be moved to DRIVE:\usr\mibs (DRIVE being the drive where PHP is installed.)
+
+- dlls
+Some DLLs that are required for PHP and some extensions. Please copy them to your to your windows/system (Win9.x)
+or winnt/system32 (WinNT, Win2000) directory.
+If you already have these DLLs installed on your system, overwrite them only if something is not working correctly.
+Before overwriting them, it is a good idea to back them or move them to another folder - just in case something goes wrong.
+
+
 Installtion instructions
 ------------------------
 
 Apache:
 1. Stop the Apache Webserver.
 Edit the httpd.conf and put in these lines, modified to your environment:
-2. Unzip the Package to c:\php, now move php4ts.dll to the windows/system(32) directory, overwritte any older file!
 
 # for the apache module
 LoadModule php4_module c:/php/sapi/php4apache.dll
@@ -21,8 +33,11 @@ ScriptAlias /php4/ "C:/php/"
 Action application/x-httpd-php4 "/php4/php.exe"
 AddType application/x-httpd-php4 .php
 
+2. Unzip the Package to c:\php, now move php4ts.dll to the windows/system(32) directory, overwritte any older file!
+
 3. Copy the php.ini-dist to your sysroot (directory where you installed windows), rename it to php.ini, and
 edit the php.ini to fit your needs.
+
 4. Restart the Apache server.
 
 
@@ -94,3 +109,40 @@ for example:
 support to, and select Properties. Check the 'Execute' checkbox, and
 confirm.
 4. At this point, PWS should have built-in PHP support.
+
+NETSCAPE SERVERS, PHP as CGI (for Netscape Enterprise Server, iPlanet, perhaps Fastrack..) 
+1. Copy the php.ini-dist to your systemroot (the directory where you installed windows), and edit it to fit your needs
+2. Copy php4ts.dll to your systemroot (the directory where you installed windows) 
+3. Make a file assocition from the command line (type the 2 following lines)
+      assoc .php=PHPScript
+      ftype PHPScript=d:\php4\php.exe %1 %*
+4. In the Netscape Enterprise Administration Server create a dummy shellcgi directory and remove it just after
+      (this step creates 5 important lines in obj.conf and allow the web server to handle shellcgi scripts)
+5. In the Netscape Enterprise Administration Server create a new mime type
+      (Category:type,Content-Type:magnus-internal/shellcgi,File Suffix:php)
+6. Do it for each web server instance you want php to run
+7. More details http://benoit.noss.free.fr/php/install-php.html
+
+	  
+NETSCAPE SERVERS, PHP as NSAPI (for Netscape Enterprise Server, iPlanet, perhaps Fastrack..) 
+1. Copy the php.ini-dist to your systemroot (the directory where you installed windows), and edit it to fit your needs
+2. Copy php4ts.dll to your systemroot (the directory where you installed windows) 
+3. Make a file assocition from the command line (type the 2 following lines)
+      assoc .php=PHPScript
+      ftype PHPScript=d:\php4\php.exe %1 %*
+4. In the Netscape Enterprise Administration Server create a new mime type
+      (Category:type,Content-Type:magnus-internal/x-httpd-php,File Suffix:php)
+5. Stop your web service and edit obj.conf
+6.1 At the end of the Init section, place this 2 lines (necessarely after mime type init!)
+      Init fn="load-modules" funcs="php4_init,php4_close,php4_execute,php4_auth_trans" shlib="d:/php4/sapi/php4nsapi.dll"
+      Init fn="php4_init" errorString="Failed to initialise PHP!"
+6.2 In The < Object name="default" > section, place this line necessarely after all 'ObjectType' and before all 'AddLog' lines! 
+      Service fn="php4_execute" type="magnus-internal/x-httpd-php"
+6.3 At the end of the file, create a new object called x-httpd-php, by inserting this lines
+      <Object name="x-httpd-php">
+      ObjectType fn="force-type" type="magnus-internal/x-httpd-php"
+      Service fn=php4_execute
+      </Object>
+7. Restart your web service and apply changes
+8. Do it for each web server instance you want php to run
+9. More details http://benoit.noss.free.fr/php/install-php4.html

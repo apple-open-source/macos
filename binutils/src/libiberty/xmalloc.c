@@ -23,7 +23,8 @@ Boston, MA 02111-1307, USA.  */
 #include "ansidecl.h"
 #include "libiberty.h"
 
-#define HAVE_EFENCE 1
+#define HAVE_EFENCE 0
+#define HAVE_MMALLOC 0
 #undef HAVE_SBRK
 
 #include <stdio.h>
@@ -51,6 +52,10 @@ void free (PTR ptr);
 #include "efence.h"
 #endif
 
+#if HAVE_MMALLOC
+#include <mmalloc.h>
+#endif
+
 #include <assert.h>
 #include <limits.h>
 
@@ -62,6 +67,10 @@ void free (PTR ptr);
 
 #if HAVE_EFENCE
 int use_efence = 0;
+#endif
+
+#if HAVE_MMALLOC
+int use_mmalloc = 0;
 #endif
 
 /* The program name if set.  */
@@ -84,54 +93,6 @@ xmalloc_set_program_name (s)
     first_break = (char *) sbrk (0);
 #endif /* HAVE_SBRK */
 }
-
-#if defined (USE_MMALLOC)
-
-#include <mmalloc.h>
-
-#else /* ! USE_MMALLOC */
-
-PTR
-mmalloc (md, size)
-     PTR md;
-     size_t size;
-{
-  assert (size < MAX_SIZE);
-  return malloc (size);
-}
-
-PTR
-mcalloc (md, nmemb, size)
-     PTR md;
-     size_t nmemb;
-     size_t size;
-{
-  assert (nmemb < (MAX_SIZE / size));
-  return calloc (nmemb, size);
-}
-
-PTR
-mrealloc (md, ptr, size)
-     PTR md;
-     PTR ptr;
-     size_t size;
-{
-  assert (size < MAX_SIZE);
-  if (ptr == 0)         /* Guard against old realloc's */
-    return malloc (size);
-  else
-    return realloc (ptr, size);
-}
-
-void
-mfree (md, ptr)
-     PTR md;
-     PTR ptr;
-{
-  free (ptr);
-}
-
-#endif  /* USE_MMALLOC */
 
 static void nomem (size_t size)
 {
@@ -173,15 +134,21 @@ xmmalloc (md, size)
   if (size == 0)
     return NULL;
   
+  if (0) { 
+  }
 #if HAVE_EFENCE
-  if (use_efence) {
+  else if (use_efence) {
     val = efence_malloc (size);
-  } else {
-#endif
-    val = mmalloc (md, size);
-#if HAVE_EFENCE
   }
 #endif
+#if HAVE_MMALLOC
+  else if (use_mmalloc) {
+    val = mmalloc (md, size);
+  }
+#endif
+  else {
+    val = malloc (size);
+  }
 
   if (val == NULL)
     nomem (size);
@@ -202,15 +169,21 @@ xmcalloc (md, nelem, elsize)
 
   assert (nelem < (MAX_SIZE / elsize));
 
+  if (0) {
+  }
 #if HAVE_EFENCE
-  if (use_efence) {
+  else if (use_efence) {
     val = efence_calloc (nelem, elsize);
-  } else {
-#endif
-    val = mcalloc (md, nelem, elsize);
-#if HAVE_EFENCE
   }
 #endif
+#if HAVE_MMALLOC
+  else if (use_mmalloc) {
+    val = mcalloc (md, nelem, elsize);
+  }
+#endif
+  else {
+    val = calloc (nelem, elsize);
+  }
 
   if (val == NULL)
     nomem (nelem * elsize);
@@ -230,24 +203,33 @@ xmrealloc (md, ptr, size)
 
   assert (size < MAX_SIZE);
 
+  if (0) {
+  }
 #if HAVE_EFENCE
-  if (use_efence) {
+  else if (use_efence) {
     if (ptr != NULL)
       val = efence_realloc (ptr, size);
     else
       val = efence_malloc (size);
-  } else {
+  }
 #endif
+#if HAVE_MMALLOC
+  else if (use_mmalloc) {
     if (ptr != NULL)
       val = mrealloc (md, ptr, size);
     else
       val = mmalloc (md, size);
-#if HAVE_EFENCE
   }
 #endif
+  else {
+    if (ptr != NULL)
+      val = realloc (ptr, size);
+    else
+      val = malloc (size);
+  }
 
   if (val == NULL)
-      nomem (size);
+    nomem (size);
 
   return val;
 }
@@ -260,15 +242,21 @@ xmfree (md, ptr)
   if (ptr == NULL)
     return;
 
+  if (0) {
+  }
 #if HAVE_EFENCE
-  if (use_efence) {
+  else if (use_efence) {
     efence_free (ptr);
-  } else {
-#endif
-    mfree (md, ptr);
-#if HAVE_EFENCE
   }
 #endif
+#if HAVE_MMALLOC 
+  else if (use_mmalloc) {
+    mfree (md, ptr);
+  }
+#endif
+  else {
+    free (ptr);
+  }
 }
 
 /* Like malloc but get error if no storage available, and protect against

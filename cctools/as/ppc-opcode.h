@@ -23,6 +23,7 @@ enum optype {
     NUM,	/* number */
     SNUM,	/* signed number */
     NUM0,	/* number (where 1<<width is the same as 0) */
+    MBE,	/* mask defined by MB and ME fields */
     ZERO	/* the number zero */
 };
 
@@ -734,17 +735,17 @@ static const struct ppc_opcode ppc_opcodes[] = {
 	{{16,5,GREG}, {21,5,GREG}, {11,5,GREG}, {0,0,mb}}, IMPL64 },
 
  { 0x54000000, "rlwinm",
-	{{16,5,GREG}, {21,5,GREG}, {11,5,NUM0}, {6,5,NUM}, {1,5,NUM}} },
+	{{16,5,GREG}, {21,5,GREG}, {11,5,NUM0}, {6,5,MBE}, {1,5,MBE}} },
  { 0x54000001, "rlwinm.",
-	{{16,5,GREG}, {21,5,GREG}, {11,5,NUM0}, {6,5,NUM}, {1,5,NUM}} },
+	{{16,5,GREG}, {21,5,GREG}, {11,5,NUM0}, {6,5,MBE}, {1,5,MBE}} },
  { 0x5c000000, "rlwnm",
-	{{16,5,GREG}, {21,5,GREG}, {11,5,GREG}, {6,5,NUM}, {1,5,NUM}} },
+	{{16,5,GREG}, {21,5,GREG}, {11,5,GREG}, {6,5,MBE}, {1,5,MBE}} },
  { 0x5c000001, "rlwnm.",
-	{{16,5,GREG}, {21,5,GREG}, {11,5,GREG}, {6,5,NUM}, {1,5,NUM}} },
+	{{16,5,GREG}, {21,5,GREG}, {11,5,GREG}, {6,5,MBE}, {1,5,MBE}} },
  { 0x50000000, "rlwimi",
-	{{16,5,GREG}, {21,5,GREG}, {11,5,NUM0}, {6,5,NUM}, {1,5,NUM}} },
+	{{16,5,GREG}, {21,5,GREG}, {11,5,NUM0}, {6,5,MBE}, {1,5,MBE}} },
  { 0x50000001, "rlwimi.",
-	{{16,5,GREG}, {21,5,GREG}, {11,5,NUM0}, {6,5,NUM}, {1,5,NUM}} },
+	{{16,5,GREG}, {21,5,GREG}, {11,5,NUM0}, {6,5,MBE}, {1,5,MBE}} },
 
  { 0x44000002, "sc", },
 
@@ -978,9 +979,9 @@ static const struct ppc_opcode ppc_opcodes[] = {
  { 0x7c0006d7, "divso.",  {{21,5,GREG}, {16,5,GREG}, {11,5,GREG}}, CPU601 },
 
  { 0x58000000, "rlmi",
-    {{16,5,GREG}, {21,5,GREG}, {11,5,GREG},  {6,5,NUM}, {1,5,NUM}}, CPU601 },
+    {{16,5,GREG}, {21,5,GREG}, {11,5,GREG},  {6,5,MBE}, {1,5,MBE}}, CPU601 },
  { 0x58000001, "rlmi.",
-    {{16,5,GREG}, {21,5,GREG}, {11,5,GREG},  {6,5,NUM}, {1,5,NUM}}, CPU601 },
+    {{16,5,GREG}, {21,5,GREG}, {11,5,GREG},  {6,5,MBE}, {1,5,MBE}}, CPU601 },
 
  { 0x7c000432, "rrib",    {{16,5,GREG}, {21,5,GREG}, {11,5,GREG}}, CPU601 },
  { 0x7c000433, "rrib.",   {{16,5,GREG}, {21,5,GREG}, {11,5,GREG}}, CPU601 },

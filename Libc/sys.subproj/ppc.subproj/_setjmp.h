@@ -28,6 +28,14 @@
  *
  */
 
+/* NOTE: jmp_bufs are only 4-byte aligned.  This means we
+ * need to pad before the VR and FPR save areas, so that they
+ * can be naturally aligned in the buffer.  In case a jmp_buf
+ * is bcopy'd to a different alignment between the setjmp
+ * and longjmp, we need to save the jmp_buf address in the
+ * jmp_buf at setjmp time, so we can realign before reloading.
+ */
+ 
 #define JMP_r1	0x00
 #define JMP_r2	0x04
 #define JMP_r13	0x08
@@ -55,3 +63,13 @@
 #define JMP_xer	0x60
 #define JMP_sig	0x64
 #define JMP_SIGFLAG 0x68
+#define JMP_flags 0x6c
+#define JMP_vrsave 0x70
+#define JMP_addr_at_setjmp 0x74
+/* 12 bytes padding here */
+#define JMP_vr_base_addr 0x84
+/* save room for 12 VRs (v20-v31), or 0xC0 bytes */
+#define JMP_fp_base_addr 0x144
+/* save room for 18 FPRs (f14-f31), or 0x90 bytes */
+#define JMP_buf_end 0x1d4
+

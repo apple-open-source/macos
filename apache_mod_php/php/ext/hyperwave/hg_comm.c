@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: hg_comm.c,v 1.1.1.2 2001/01/25 04:59:21 wsanchez Exp $ */
+/* $Id: hg_comm.c,v 1.1.1.3 2001/07/19 00:19:13 zarzycki Exp $ */
 
 /* #define HW_DEBUG */
 
@@ -31,7 +31,7 @@
 #include <string.h> 
 #include <sys/types.h>
 #ifdef PHP_WIN32
-# include <winsock2.h>
+# include <winsock.h>
 # define EWOULDBLOCK WSAEWOULDBLOCK
 # define ETIMEDOUT WSAETIMEDOUT
 # define bcopy memcpy
@@ -364,7 +364,8 @@ DLIST *fnCreateAnchorList(hw_objectID objID, char **anchors, char **docofanchorr
 		if(NULL != anchors[i]) {
 			object = anchors[i];
 			docofanchorptr = docofanchorrec[i];
-			reldestptr = reldestrec[i];
+			if(reldestrec) /* FIXME reldestrec may only be NULL if anchormode != 0 */
+				reldestptr = reldestrec[i];
 	
 			/* Determine Position. Doesn't matter if Src or Dest
 			   The Position field should always be there. Though there
@@ -374,7 +375,7 @@ DLIST *fnCreateAnchorList(hw_objectID objID, char **anchors, char **docofanchorr
 			   In such a case the Position has the value 'invisible' */
 			str = strstr(object, "Position");
 			str += 9;
-			if(0 != strncmp(str, "invisible", 9)) {
+			if((str != 9) && (0 != strncmp(str, "invisible", 9))) {
 				sscanf(str, "0x%X 0x%X", &start, &end);
 		
 				/* Determine ObjectID */
@@ -464,16 +465,16 @@ DLIST *fnCreateAnchorList(hw_objectID objID, char **anchors, char **docofanchorr
 					}
 		
 					if(!cur_ptr->destdocname) {
-					cur_ptr->link = NULL;
-					if(NULL != (str = strstr(object, "Hint=URL:"))) {
-						str += 9;
-						if(sscanf(str, "%s\n", link))
-							cur_ptr->link = estrdup(link);
-					} else if(NULL != (str = strstr(object, "Hint="))) {
-						str += 5;
-						if(sscanf(str, "%s\n", link))
-							cur_ptr->link = estrdup(link);
-					}
+						cur_ptr->link = NULL;
+						if(NULL != (str = strstr(object, "Hint=URL:"))) {
+							str += 9;
+							if(sscanf(str, "%s\n", link))
+								cur_ptr->link = estrdup(link);
+						} else if(NULL != (str = strstr(object, "Hint="))) {
+							str += 5;
+							if(sscanf(str, "%s\n", link))
+								cur_ptr->link = estrdup(link);
+						}
 					}
 		
 					cur_ptr->fragment = NULL;
@@ -522,6 +523,19 @@ DLIST *fnCreateAnchorList(hw_objectID objID, char **anchors, char **docofanchorr
 						if(strncmp(str, "background", 10) == 0)
 							cur_ptr->linktype=HW_BACKGROUND_LINK;
 						else
+						if(strncmp(str, "intagnodel", 10) == 0) { /* New type introduced by Uwe Steinmann 16.03.2001 */
+							cur_ptr->linktype=HW_INTAGNODEL_LINK;
+							cur_ptr->tagattr = NULL;
+							if(NULL != (str = strstr(object, "TagAttr="))) {
+								str += 8;
+								str1 = str;
+								while((*str1 != '\n') && (*str1 != '\0'))
+									str1++;
+								cur_ptr->tagattr = emalloc(str1 - str + 1);
+								memcpy(cur_ptr->tagattr, str, str1 - str);
+								cur_ptr->tagattr[str1 - str] = '\0';
+							}
+						} else
 						if(strncmp(str, "intag", 5) == 0) {
 							cur_ptr->linktype=HW_INTAG_LINK;
 							cur_ptr->tagattr = NULL;
@@ -587,7 +601,8 @@ DLIST *fnCreateAnchorList(hw_objectID objID, char **anchors, char **docofanchorr
 		
 				efree(anchors[i]);
 				if(docofanchorrec[i]) efree(docofanchorrec[i]);
-				if(reldestrec[i]) efree(reldestrec[i]);
+				if(reldestrec)
+					if(reldestrec[i]) efree(reldestrec[i]);
 			}
 		}
 	}
@@ -617,6 +632,7 @@ char *fnInsAnchorsIntoText(char *text, DLIST *pAnchorList, char **bodytag, char 
 	int laststart=0;
 	char emptystring[BUFFERLEN];
 	int i;
+	ELS_FETCH();
 	
 	emptystring[0] = '\0';
 
@@ -685,10 +701,15 @@ char *fnInsAnchorsIntoText(char *text, DLIST *pAnchorList, char **bodytag, char 
 				/* The link is only set if the Link points to an external document */
 				switch(cur_ptr->linktype) {
 					case HW_BACKGROUND_LINK:
-						snprintf(bgstr, BUFFERLEN, " background='%s'", cur_ptr->link);
+						snprintf(istr, BUFFERLEN, " background='%s'", cur_ptr->link);
 						break;
 					case HW_INTAG_LINK:
 						snprintf(istr, BUFFERLEN, " %s='%s'", cur_ptr->tagattr, cur_ptr->link);
+						offset -= 4; /* because there is no closing tag </A> */
+/*						laststart = cur_ptr->start; */
+						break;
+					case HW_INTAGNODEL_LINK:
+						snprintf(istr, BUFFERLEN, "%s", cur_ptr->link);
 						offset -= 4; /* because there is no closing tag </A> */
 /*						laststart = cur_ptr->start; */
 						break;
@@ -713,10 +734,10 @@ char *fnInsAnchorsIntoText(char *text, DLIST *pAnchorList, char **bodytag, char 
 			} else {
 				switch(cur_ptr->linktype) {
 					case HW_BACKGROUND_LINK:
-						if(NULL != cur_ptr->destdocname)
-							snprintf(bgstr, BUFFERLEN, " background='%s/%s'", scriptname[HW_BACKGROUND_LINK], cur_ptr->destdocname);
-						else
-							bgstr[0] = '\0';
+						if(NULL != cur_ptr->destdocname) {
+							snprintf(istr, BUFFERLEN, " background='%s/%s'", scriptname[HW_BACKGROUND_LINK], cur_ptr->destdocname);
+						} else
+							istr[0] = '\0';
 						break;
 					case HW_INTAG_LINK:
 						if(cur_ptr->fragment)
@@ -724,7 +745,10 @@ char *fnInsAnchorsIntoText(char *text, DLIST *pAnchorList, char **bodytag, char 
 						else
 							snprintf(istr, BUFFERLEN, " %s='%s/%s'", cur_ptr->tagattr, scriptname[HW_INTAG_LINK], cur_ptr->destdocname); 
 						offset -= 4; /* because there is no closing tag </A> */
-/*						laststart = cur_ptr->start; */
+						break;
+					case HW_INTAGNODEL_LINK:
+						snprintf(istr, BUFFERLEN, "%s", cur_ptr->destdocname);
+						offset -= 4; /* because there is no closing tag </A> */
 						break;
 					case HW_APPLET_LINK:
 						if(cur_ptr->codebase)
@@ -2138,7 +2162,7 @@ int send_gettext(int sockfd, hw_objectID objectID, int mode, int rootid, char **
 
 			if(pAnchorList != NULL) {
 				char *newtext;
-				char *body;
+				char *body = NULL;
 				char **prefixarray;
 
 				prefixarray = emalloc(5*sizeof(char *));
@@ -2155,7 +2179,7 @@ int send_gettext(int sockfd, hw_objectID objectID, int mode, int rootid, char **
 				dlst_kill(pAnchorList, fnDeleteAnchor);
 #endif
 				*bodytag = strdup(body);
-				efree(body);
+				if(body) efree(body);
 				*text = newtext;
 				*count = strlen(newtext);
 			}
@@ -2164,6 +2188,43 @@ int send_gettext(int sockfd, hw_objectID objectID, int mode, int rootid, char **
 
 	if(documenttype) efree(documenttype);
 	return(0);
+}
+
+send_insertanchors(char **text, int *count, char **anchors, char **destrec, int ancount, char **urlprefix, char **bodytag) {
+	char **reldestrec = NULL;
+	int mode = 0;
+	hw_objectID objectID = 0;
+#ifdef newlist
+	zend_llist *pAnchorList = NULL;
+#else
+	DLIST *pAnchorList = NULL;
+#endif
+	pAnchorList = fnCreateAnchorList(objectID, anchors, destrec, reldestrec, ancount, mode);
+
+	/* Free only the array, the objrecs has been freed in fnCreateAnchorList() */
+	if(anchors) efree(anchors);
+	if(destrec) efree(destrec);
+	if(reldestrec) efree(reldestrec);
+
+	if(pAnchorList != NULL) {
+		char *newtext;
+		char *body = NULL;
+
+		newtext = fnInsAnchorsIntoText(*text, pAnchorList, &body, urlprefix);
+
+#ifdef newlist
+		zend_llist_destroy(pAnchorList);
+		efree(pAnchorList);
+#else
+		dlst_kill(pAnchorList, fnDeleteAnchor);
+#endif
+		*bodytag = strdup(body);
+		if(body) efree(body);
+fprintf(stderr, "bodytag = %s\n", *bodytag);
+		*text = newtext;
+		*count = strlen(newtext);
+	}
+	return 0;
 }
 
 int send_edittext(int sockfd, char *objattr, char *text)
@@ -4331,6 +4392,9 @@ int send_getobjbyftquery(int sockfd, char *query, int maxhits, hw_objectID **chi
 		return -1;
 	}
 	if(*ptr++ == 0) {
+		char *cptr, tmp[20];
+		float weight;
+		int j;
 		*count = (*ptr < maxhits) ? *ptr : maxhits;
 		ptr++;
 		if(NULL != (*childIDs = emalloc(*count * sizeof(hw_objectID)))) {
@@ -4338,8 +4402,18 @@ int send_getobjbyftquery(int sockfd, char *query, int maxhits, hw_objectID **chi
 			if(NULL != (*weights = emalloc(*count * sizeof(float)))) {
 				ptr2 = *weights;
 				for(i=0; i<*count; i++) {
-					ptr1[i] = *ptr++;
-					ptr2[i] = (float) *ptr++;
+					ptr1[i] = *ptr++; /* Object id */
+					cptr = (char *) ptr;
+					j = 0;
+					while(*cptr != ' ') {
+						tmp[j++] = *cptr++;
+					}
+					cptr++; /* Skip space after weight */
+					tmp[j] = '\0';
+					sscanf(tmp, "%f", &weight);
+					ptr2[i] = weight;
+					ptr = (int *) cptr;
+					ptr++; /* Skip 0-Integer after weight string */
 				}
 				efree(retmsg->buf);
 				efree(retmsg);
@@ -4403,6 +4477,9 @@ int send_getobjbyftqueryobj(int sockfd, char *query, int maxhits, char ***childr
 		return -4;
 	}
 	if(*ptr++ == 0) {
+		char *cptr, tmp[20];
+		float weight;
+		int j;
 		*count = (*ptr < maxhits) ? *ptr : maxhits;
     		ptr++;
 		if(NULL != (childIDs = emalloc(*count * sizeof(hw_objectID)))) {
@@ -4410,8 +4487,18 @@ int send_getobjbyftqueryobj(int sockfd, char *query, int maxhits, char ***childr
 			if(NULL != (*weights = emalloc(*count * sizeof(float)))) {
 				ptr2 = *weights;
 				for(i=0; i<*count; i++) {
-					ptr1[i] = *ptr++;
-					ptr2[i] = (float) *ptr++;
+					ptr1[i] = *ptr++; /* Object id */
+					cptr = (char *) ptr;
+					j = 0;
+					while(*cptr != ' ') {
+						tmp[j++] = *cptr++;
+					}
+					cptr++; /* Skip space after weight */
+					tmp[j] = '\0';
+					sscanf(tmp, "%f", &weight);
+					ptr2[i] = weight;
+					ptr = (int *) cptr;
+					ptr++; /* Skip 0-Integer after weight string */
 				}
 				efree(retmsg->buf);
 				efree(retmsg);
@@ -4539,6 +4626,9 @@ int send_getobjbyftquerycoll(int sockfd, hw_objectID collID, char *query, int ma
 		return -1;
 	}
 	if(*ptr++ == 0) {
+		char *cptr, tmp[20];
+		float weight;
+		int j;
 		*count = (*ptr < maxhits) ? *ptr : maxhits;
 		ptr++;
 		if(NULL != (*childIDs = emalloc(*count * sizeof(hw_objectID)))) {
@@ -4546,8 +4636,18 @@ int send_getobjbyftquerycoll(int sockfd, hw_objectID collID, char *query, int ma
 			if(NULL != (*weights = emalloc(*count * sizeof(float)))) {
 				ptr2 = *weights;
 				for(i=0; i<*count; i++) {
-					ptr1[i] = *ptr++;
-					ptr2[i] = (float) *ptr++;
+					ptr1[i] = *ptr++; /* Object id */
+					cptr = (char *) ptr;
+					j = 0;
+					while(*cptr != ' ') {
+						tmp[j++] = *cptr++;
+					}
+					cptr++; /* Skip space after weight */
+					tmp[j] = '\0';
+					sscanf(tmp, "%f", &weight);
+					ptr2[i] = weight;
+					ptr = (int *) cptr;
+					ptr++; /* Skip 0-Integer after weight string */
 				}
 			} else {
 				efree(*childIDs);
@@ -4612,6 +4712,9 @@ int send_getobjbyftquerycollobj(int sockfd, hw_objectID collID, char *query, int
 		return -1;
 	}
 	if(*ptr++ == 0) {
+		char *cptr, tmp[20];
+		float weight;
+		int j;
 		*count = (*ptr < maxhits) ? *ptr : maxhits;
 		ptr++;
 		if(NULL != (childIDs = emalloc(*count * sizeof(hw_objectID)))) {
@@ -4619,8 +4722,18 @@ int send_getobjbyftquerycollobj(int sockfd, hw_objectID collID, char *query, int
 			if(NULL != (*weights = emalloc(*count * sizeof(float)))) {
 				ptr2 = *weights;
 				for(i=0; i<*count; i++) {
-					ptr1[i] = *ptr++;
-					ptr2[i] = (float) *ptr++;
+					ptr1[i] = *ptr++; /* Object id */
+					cptr = (char *) ptr;
+					j = 0;
+					while(*cptr != ' ') {
+						tmp[j++] = *cptr++;
+					}
+					cptr++; /* Skip space after weight */
+					tmp[j] = '\0';
+					sscanf(tmp, "%f", &weight);
+					ptr2[i] = weight;
+					ptr = (int *) cptr;
+					ptr++; /* Skip 0-Integer after weight string */
 				}
 				efree(retmsg->buf);
 				efree(retmsg);
@@ -5056,7 +5169,7 @@ int send_pipedocument(int sockfd, char *host, hw_objectID objectID, int mode, in
 
 			if(pAnchorList != NULL) {
 				char *newtext;
-				char *body;
+				char *body = NULL;
 
 				newtext = fnInsAnchorsIntoText(*text, pAnchorList, &body, urlprefix);
 #ifdef newlist
@@ -5066,7 +5179,7 @@ int send_pipedocument(int sockfd, char *host, hw_objectID objectID, int mode, in
 				dlst_kill(pAnchorList, fnDeleteAnchor);
 #endif
 				*bodytag = strdup(body);
-				efree(body);
+				if(body) efree(body);
 				*text = newtext;
 				*count = strlen(newtext);
 			}

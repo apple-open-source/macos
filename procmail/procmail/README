@@ -2,6 +2,7 @@ For installation instructions see the INSTALL file.
 ----------------------
 Procmail & formail mail processing package.
 Copyright (c) 1990-1999, S.R. van den Berg, The Netherlands.
+Copyright (c) 1997-2001, Philip Guenther, The United States of America
 
 Some legal stuff:
 
@@ -35,7 +36,7 @@ see "src/includes.h".
 
 ------------------------------ DESCRIPTION -----------------------------------
 
-The procmail mail processing program. (v3.13.1 1999/04/05)
+The procmail mail processing program. (v3.21 2001/06/29)
 
 Can be used to create mail-servers, mailing lists, sort your incoming mail
 into separate folders/files (real convenient when subscribing to one or more
@@ -77,15 +78,15 @@ For a more extensive list of features see the FEATURES file.
 
 ----------------------
 
-However, as with any program, bugs cannot be completely ruled out.
-We tested the program extensively, and believe it should be relatively
-bug free (no known bug at the time).  Should, however, anyone find any
-bugs (highly unlikely :-), we would be pleased (well, sort of :-) to hear
-about it.  Please send us the patches or bug report; you can reach
-us by E-mail at <bug@procmail.org>.
+However, as with any program, bugs cannot be completely ruled out.  We
+tested the program extensively, and believe it should be relatively bug
+free.  Should, however, anyone find any bugs (highly unlikely :-), we
+would be pleased (well, sort of :-) to hear about it.  Please send us
+the patches or bug report; you can reach us by E-mail at
+<bug@procmail.org>.
 We'll look at them and will try to fix it in a future release.
 (BTW, if you should find any spelling or grammar errors in these files,
-don't hesitate to point them out to me; we like correct English just as much
+don't hesitate to point them out; we like correct English just as much
 as you do).
 
 ----------------------
@@ -95,7 +96,7 @@ to these devoted users of the procmail-package.	 Without their constant
 feedback procmail would not have looked the same:
 
 	David W. Tamkin		An excellent proofreader and betatester.
-	 <dattier@wwa.com>
+	 <dattier@Mcs.Net>
 	Josh Laff		For stresstesting procmail (and me :-).
 	 <jal@uiuc.edu>
 	Dan Jacobson		For his many useful suggestions.
@@ -109,11 +110,25 @@ feedback procmail would not have looked the same:
 	Alan K. Stebbens	For his endless creativity and suggestions.
 	 <aks@sgi.com>
 	Philip Guenther		Sometimes faster at repairing bugs than I can
-	 <guenther@gac.edu>	write them :-)	He's also the current main
+	 <guenther@sendmail.com> write them :-) He's also the current main
 				coordinator of procmail/SmartList development.
 	Era Eriksson		For maintaining the FAQ.  He's also the
 	 <era@iki.fi>		current coordinator of the procmail volunteer
 				group.
+
+Philip Guenther would like to thank the following people:
+
+	David W. Tamkin		For continued duty as procmail's star
+	 <dattier@Mcs.Net>	betatester.
+	Miquel van Smoorenburg	For winning an argument with me.
+	 <miquels@cistron.nl>
+	Tim Pierce		SmartList's current guardian angel.
+	 <twp@rootsweb.com>
+	Christopher P. Lindsey	For thinking hard about real world usage.
+	 <lindsey@mallorn.com>
+
+...and all the other members of the procmail-dev mailing list, for
+suggestions, testing, and being annoying (but in a good way).
 
 ----------------------
 
@@ -150,16 +165,25 @@ or ftp://ftp.procmail.org/pub/procmail/
 You'll be able to find instructions there which direct you to suitable
 mirror sites around the world.
 
-We're in the process of streamlining this, there are currently some
-unofficial mirrors around the world which can still be used:
+The current list of mirror sites include:
 
-	ftp://ftp.net.ohio-state.edu/pub/networking/mail/procmail
-	ftp://ftp.fu-berlin.de/pub/unix/mail/procmail
-	ftp://ftp.psg.com/pub/unix/procmail
-	ftp://ftp.fdt.net/pub/unix/packages/procmail
-	ftp://hub.ucsb.edu/pub/mail		(hand updated)
+	ftp://ftp.psg.com/pub/unix/procmail/
+	ftp://ftp.ucsb.edu/pub/mirrors/procmail/
+	ftp://ftp.informatik.rwth-aachen.de/pub/packages/procmail/
+	ftp://ftp.fu-berlin.de/pub/unix/mail/procmail/
+	ftp://ftp.net.ohio-state.edu/pub/networking/mail/procmail/
+	ftp://ftp.fdt.net/pub/unix/packages/procmail/
 	ftp://ftp.tamu.edu/pub/mirrors/procmail/
-	ftp://ftp.kfki.hu/pub/packages/mail/procmail
-	ftp://giswitch.sggw.waw.pl/pub/unix/procmail
-ftp://ftp.informatik.rwth-aachen.de/pub/packages/procmail/procmail.tar.gz
+	ftp://ftp.kfki.hu/pub/packages/mail/procmail/
+	ftp://giswitch.sggw.waw.pl/pub/unix/procmail/
+	ftp://ftp.solarisguide.com/pub/procmail/
+	ftp://ftp.win.ne.jp/pub/network/mail/procmail/
+	http://www.ring.gr.jp/archives/net/mail/procmail/
+	ftp://ftp.ring.gr.jp/pub/net/mail/procmail/
+	ftp://ftp.ayamura.org/pub/procmail/
+	ftp://sunsite.cnlab-switch.ch/mirror/procmail/
+	ftp://ftp.gigabell.net/pub/procmail/
+	ftp://ftp.linja.net/pub/mirrors/procmail/
+	ftp://ftp.stealth.net/pub/mirrors/ftp.procmail.org/pub/procmail/
+	ftp://ftp.mirror.ac.uk/sites/ftp.procmail.org/pub/procmail/
 ----------------------

@@ -20,28 +20,27 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include <SystemConfiguration/SCP.h>
-#include "SCPPrivate.h"
+/*
+ * Modification History
+ *
+ * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * - public API conversion
+ *
+ * November 9, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
 
-#include <SystemConfiguration/SCD.h>
+#include <SystemConfiguration/SystemConfiguration.h>
+#include <SystemConfiguration/SCPrivate.h>
+#include "SCPreferencesInternal.h"
 
-#include <fcntl.h>
-#include <unistd.h>
-#include <sys/errno.h>
-
-
-SCPStatus
-SCPApply(SCPSessionRef session)
+Boolean
+SCPreferencesApplyChanges(SCPreferencesRef session)
 {
-	SCPSessionPrivateRef	sessionPrivate;
-	SCPStatus		scp_status = SCP_OK;
-	SCDStatus		scd_status;
-	boolean_t		wasLocked;
+	SCPreferencesPrivateRef	sessionPrivate	= (SCPreferencesPrivateRef)session;
+	Boolean			wasLocked;
 
-	if (session == NULL) {
-		return SCP_FAILED;           /* you can't do anything with a closed session */
-	}
-	sessionPrivate = (SCPSessionPrivateRef)session;
+	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCPreferencesApplyChanges:"));
 
 	/*
 	 * Determine if the we have exclusive access to the preferences
@@ -49,41 +48,41 @@ SCPApply(SCPSessionRef session)
 	 */
 	wasLocked = sessionPrivate->locked;
 	if (!wasLocked) {
-		scp_status = SCPLock(session, TRUE);
-		if (scp_status != SCD_OK) {
-			SCDLog(LOG_DEBUG, CFSTR("  SCPLock(): %s"), SCPError(scp_status));
-			return scp_status;
+		if (!SCPreferencesLock(session, TRUE)) {
+			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  SCPreferencesLock() failed"));
+			return FALSE;
 		}
 	}
 
 	if (!sessionPrivate->isRoot) {
 		/* CONFIGD REALLY NEEDS NON-ROOT WRITE ACCESS */
-		goto notRoot;
+		goto perUser;
 	}
 
 	/* if necessary, create the session "apply" key */
 	if (sessionPrivate->sessionKeyApply == NULL) {
-		sessionPrivate->sessionKeyApply = _SCPNotificationKey(sessionPrivate->prefsID,
+		sessionPrivate->sessionKeyApply = _SCPNotificationKey(NULL,
+								      sessionPrivate->prefsID,
 								      sessionPrivate->perUser,
 								      sessionPrivate->user,
-								      kSCPKeyApply);
+								      kSCPreferencesKeyApply);
 	}
 
 	/* post notification */
-	scd_status = SCDLock(sessionPrivate->session);
-	if (scd_status == SCD_OK) {
-		(void) SCDTouch (sessionPrivate->session, sessionPrivate->sessionKeyApply);
-		(void) SCDRemove(sessionPrivate->session, sessionPrivate->sessionKeyApply);
-		(void) SCDUnlock(sessionPrivate->session);
-	} else {
-		SCDLog(LOG_DEBUG, CFSTR("  SCDLock(): %s"), SCDError(scd_status));
-		scp_status = SCP_FAILED;
+	if (!SCDynamicStoreNotifyValue(sessionPrivate->session,
+				       sessionPrivate->sessionKeyApply)) {
+		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  SCDynamicStoreNotifyValue() failed"));
+		_SCErrorSet(kSCStatusFailed);
+		goto error;
 	}
 
-    notRoot:
+    perUser :
 
-	if (!wasLocked)
-		(void) SCPUnlock(session);
+	if (!wasLocked)	(void) SCPreferencesUnlock(session);
+	return TRUE;
 
-	return scp_status;
+    error :
+
+	if (!wasLocked)	(void) SCPreferencesUnlock(session);
+	return FALSE;
 }

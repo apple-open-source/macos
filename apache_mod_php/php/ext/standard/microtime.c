@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: microtime.c,v 1.1.1.1 2000/08/10 02:08:35 wsanchez Exp $ */
+/* $Id: microtime.c,v 1.1.1.2 2001/07/19 00:20:17 zarzycki Exp $ */
 
 #include "php.h"
 
@@ -57,11 +57,13 @@ PHP_FUNCTION(microtime)
 	if (gettimeofday((struct timeval *) &tp, (NUL)) == 0) {
 		msec = (double) (tp.tv_usec / MICRO_IN_SEC);
 		sec = tp.tv_sec;
-	}
-	if (msec >= 1.0) msec -= (long) msec;
-	snprintf(ret, 100, "%.8f %ld", msec, sec);
-	RETVAL_STRING(ret,1);
+	
+		if (msec >= 1.0) msec -= (long) msec;
+		snprintf(ret, 100, "%.8f %ld", msec, sec);
+		RETVAL_STRING(ret,1);
+	} else
 #endif
+		RETURN_FALSE;
 }
 /* }}} */
 
@@ -114,7 +116,7 @@ PHP_FUNCTION(getrusage)
 	array_init(return_value);
 #define PHP_RUSAGE_PARA(a) \
 		add_assoc_long(return_value, #a, usg.a)
-#ifndef _OSD_POSIX /* BS2000 has only a few fields in the rusage struct */
+#if !defined( _OSD_POSIX) && !defined(__BEOS__) /* BS2000 has only a few fields in the rusage struct */
 	PHP_RUSAGE_PARA(ru_oublock);
 	PHP_RUSAGE_PARA(ru_inblock);
 	PHP_RUSAGE_PARA(ru_msgsnd);

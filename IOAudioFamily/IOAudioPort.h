@@ -37,8 +37,8 @@ class OSDictionary;
  *  represented and adjusted.
  *
  *  IOAudioPort objects are connected up in the IORegistry in the IOAudioPlane to represent the signal chain of
- *  the device.  They may be connected to other IOAudioPorts as well as IOAudioDMAEngines to indicate they either
- *  feed into or are fed by one of the DMA engines (i.e. they provide input to or take output from the computer).
+ *  the device.  They may be connected to other IOAudioPorts as well as IOAudioEngines to indicate they either
+ *  feed into or are fed by one of the audio engines (i.e. they provide input to or take output from the computer).
  */
 class IOAudioPort : public IOService
 {
@@ -53,13 +53,53 @@ public:
     OSSet *		audioControls;
     bool		isRegistered;
 
+protected:
+    struct ExpansionData { };
+    
+    ExpansionData *reserved;
+    
+private:
+    OSMetaClassDeclareReservedUnused(IOAudioPort, 0);
+    OSMetaClassDeclareReservedUnused(IOAudioPort, 1);
+    OSMetaClassDeclareReservedUnused(IOAudioPort, 2);
+    OSMetaClassDeclareReservedUnused(IOAudioPort, 3);
+    OSMetaClassDeclareReservedUnused(IOAudioPort, 4);
+    OSMetaClassDeclareReservedUnused(IOAudioPort, 5);
+    OSMetaClassDeclareReservedUnused(IOAudioPort, 6);
+    OSMetaClassDeclareReservedUnused(IOAudioPort, 7);
+    OSMetaClassDeclareReservedUnused(IOAudioPort, 8);
+    OSMetaClassDeclareReservedUnused(IOAudioPort, 9);
+    OSMetaClassDeclareReservedUnused(IOAudioPort, 10);
+    OSMetaClassDeclareReservedUnused(IOAudioPort, 11);
+    OSMetaClassDeclareReservedUnused(IOAudioPort, 12);
+    OSMetaClassDeclareReservedUnused(IOAudioPort, 13);
+    OSMetaClassDeclareReservedUnused(IOAudioPort, 14);
+    OSMetaClassDeclareReservedUnused(IOAudioPort, 15);
+    OSMetaClassDeclareReservedUnused(IOAudioPort, 16);
+    OSMetaClassDeclareReservedUnused(IOAudioPort, 17);
+    OSMetaClassDeclareReservedUnused(IOAudioPort, 18);
+    OSMetaClassDeclareReservedUnused(IOAudioPort, 19);
+    OSMetaClassDeclareReservedUnused(IOAudioPort, 20);
+    OSMetaClassDeclareReservedUnused(IOAudioPort, 21);
+    OSMetaClassDeclareReservedUnused(IOAudioPort, 22);
+    OSMetaClassDeclareReservedUnused(IOAudioPort, 23);
+    OSMetaClassDeclareReservedUnused(IOAudioPort, 24);
+    OSMetaClassDeclareReservedUnused(IOAudioPort, 25);
+    OSMetaClassDeclareReservedUnused(IOAudioPort, 26);
+    OSMetaClassDeclareReservedUnused(IOAudioPort, 27);
+    OSMetaClassDeclareReservedUnused(IOAudioPort, 28);
+    OSMetaClassDeclareReservedUnused(IOAudioPort, 29);
+    OSMetaClassDeclareReservedUnused(IOAudioPort, 30);
+    OSMetaClassDeclareReservedUnused(IOAudioPort, 31);
+
+public:
     /*!
      * @function withAttributes
      * @abstract Allocates a new IOAudioPort instance with the given attributes
      * @discussion This static method allocates a new IOAudioPort and calls initWithAttributes() on it with
      *  the parameters passed in to it.
      * @param portType A readable string representing the type of port.  Common port types are defined in
-     *  IOAudioTypes.h and are prefixed with 'IOAUDIOPORT_TYPE'.  Please provide feedback if there are
+     *  IOAudioTypes.h and are prefixed with 'kIOAudioPortType'.  Please provide feedback if there are
      *  other common port types that should be included.
      * @param portName A readable string representing the name of the port.  For example: 'Internal Speaker',
      *  'Line Out'.  This field is optional, but useful for providing information to the application/user.
@@ -68,7 +108,7 @@ public:
      *  gets stored in the registry for this instance. (optional)
      * @result Returns the newly allocated and initialized IOAudioPort instance.
      */
-    static IOAudioPort *withAttributes(const char *portType, const char *portName = 0, const char *subType = 0, OSDictionary *properties = 0);
+    static IOAudioPort *withAttributes(UInt32 portType, const char *portName = 0, UInt32 subType = 0, OSDictionary *properties = 0);
 
     /*!
      * @function initWithAttributes
@@ -76,7 +116,7 @@ public:
      * @discussion The properties parameter is passed on the superclass' init().  The portType, subType
      *  and properties parameters are optional, however portType is recommended.
      * @param portType A readable string representing the type of port.  Common port types are defined in
-     *  IOAudioTypes.h and are prefixed with 'IOAUDIOPORT_TYPE'.  Please provide feedback if there are
+     *  IOAudioTypes.h and are prefixed with 'kIOAudioPortType'.  Please provide feedback if there are
      *  other common port types that should be included.
      * @param portName A readable string representing the name of the port.  For example: 'Internal Speaker',
      *  'Line Out'.  This field is optional, but useful for providing information to the application/user.
@@ -85,7 +125,7 @@ public:
      *  gets stored in the registry for this instance. (optional)
      * @result Returns true on success.
      */
-    virtual bool initWithAttributes(const char *portType, const char *portName = 0, const char *subType = 0, OSDictionary *properties = 0);
+    virtual bool initWithAttributes(UInt32 portType, const char *portName = 0, UInt32 subType = 0, OSDictionary *properties = 0);
 
     /*!
      * @function free
@@ -125,7 +165,7 @@ public:
      * @param control A newly created IOAudioControl instance that should belong to this port.
      * @result Returns true on successfully staring the IOAudioControl.
      */
-    virtual bool addAudioControl(IOAudioControl *control);
+    virtual IOReturn addAudioControl(IOAudioControl *control);
 
     /*!
      * @function deactivateAudioControls
@@ -135,13 +175,10 @@ public:
      */
     virtual void deactivateAudioControls();
 
-    /*!
-     * @function performAudioControlValueChange
-     * @abstract Called when one of the port's audio control's value changes.
-     * @discussion This implementation simply calls audioControlValueChanged() on the port's IOAudioDevice.
-     * @param control The IOAudioControl who's value has changed.
-     */
-    virtual IOReturn performAudioControlValueChange(IOAudioControl *control, UInt32 newValue);
+protected:
+    virtual void setType(UInt32 portType);
+    virtual void setSubType(UInt32 subType);
+    virtual void setName(const char *name);
 };
 
 #endif /* _IOKIT_IOAUDIOPORT_H */

@@ -51,7 +51,7 @@
 #		default install places the files:
 
 # 		/usr/libexec/gdb/plugins/MacsBug/
-#     			   	   		 MacsBug
+#     			   	   		 MacsBug_plugin
 #     			   	   		 gdbinit-MacsBug-without-plugin
 #     			   	   		 gdbinit-MacsBug
 #     			   	   		 README.txt
@@ -61,7 +61,9 @@
 
 #--------------------------------------------------------------------------------------#
 
-VERSION				= 	1.0
+PROJECT				=	MacsBug
+PLUGIN				=       MacsBug_plugin
+VERSION				= 	1.1
 
 SRCROOT				=	.
 SYMROOT				=	.
@@ -69,17 +71,24 @@ OBJROOT				=	.
 OFILE_DIR			=	$(OBJROOT)/Objects
 API_DIR				=	$(SRCROOT)
 
-IDIR				=	/usr/libexec/gdb/plugins/MacsBug
+GDBDIR				=	/usr/libexec/gdb
+IDIR				=	$(GDBDIR)/plugins/$(PROJECT)
 DSTDIR				=	$(DSTROOT)$(IDIR)
 
 PLUGIN_SUPPORT			= 	$(API_DIR)/gdb_plugin_support
+
+BUILD_VERSION			=	$(shell echo -n `sw_vers | grep 'ProductVersion'` | sed -e 's/.*: //')
 
 # The following defines $(gdb_plugin_support.o) as a function of using the Makefile
 # by buildit or using it explicitly.  Only buildit will use the "install" target.  For
 # that we want the API library in the SYMROOT.  For explict builds we leave the library
 # in the API's own directory.
 
+ifeq ($(filter install,$(MAKECMDGOALS)),install)
 gdb_plugin_support.o		=	$(SYMROOT)/gdb_plugin_support.o
+else
+gdb_plugin_support.o		=	$(PLUGIN_SUPPORT)/gdb_plugin_support.o
+endif
 
 CC				=	cc
 
@@ -109,8 +118,15 @@ CFLAGS 				= 	-g 				\
 					-DVERSION=\""$(VERSION)"\"	\
 					$(INCLUDES)
 
+ifneq ($(BUILD_VERSION),10.0)
+LDFLAGS				=	-bundle 			\
+					-bundle_loader $(DSTROOT)$(GDBDIR)/gdb-powerpc-apple-macos10 \
+					-twolevel_namespace \
+					-F/System/Library/PrivateFrameworks -framework liberty 
+else
 LDFLAGS				=	-bundle 			\
 					-undefined suppress
+endif
 
 INSTALLSRC_FILES		=	$(CFILES)			\
 					MacsBug_testing.i		\
@@ -118,7 +134,6 @@ INSTALLSRC_FILES		=	$(CFILES)			\
 					Makefile			\
 					README.txt			\
 					README.html			\
-					install-MacsBug			\
 					$(GDBINIT)			\
 					$(OLD_GDBINIT)
 
@@ -126,7 +141,6 @@ OBJS				= 	$(CFILES:%.c=$(OFILE_DIR)/%.o)
 
 INSTALL_FILES_PARTIAL_LIST	=	README.txt			\
 					README.html			\
-					install-MacsBug			\
 					$(OLD_GDBINIT)
 
 #INSTALL_FILES			=	$(INSTALL_FILES_PARTIAL_LIST:%=$(SRCROOT)/%)
@@ -138,7 +152,7 @@ INSTALL_FILES_PARTIAL_LIST	=	README.txt			\
 
 all				: 	$(OFILE_DIR)  			\
 					$(SYMROOT)			\
-					$(SYMROOT)/MacsBug
+					$(SYMROOT)/$(PLUGIN)
 
 #--------------------------------------------------------------------------------------#
 #                       *-----------------*
@@ -153,7 +167,7 @@ installsrc			:
 	cd gdb_plugin_support; make installsrc SRCROOT=$(SRCROOT)/gdb_plugin_support; cd ..
 
 clean				:
-	rm -rf $(OFILE_DIR) MacsBug $(gdb_plugin_support.o)
+	rm -rf $(OFILE_DIR) $(PLUGIN) $(gdb_plugin_support.o)
 	cd $(PLUGIN_SUPPORT); make clean SRCROOT=$(PLUGIN_SUPPORT); cd ..
 
 installhdrs			:	
@@ -161,18 +175,18 @@ installhdrs			:
 install				:	all $(DSTDIR)
 	cp -p README.txt README.html $(OLD_GDBINIT) $(DSTDIR)
 	chmod 644 $(DSTDIR)/README.txt $(DSTDIR)/README.html $(DSTDIR)/$(OLD_GDBINIT)
-	cat $(GDBINIT) | sed 's,\(load-plugin[ \t]*\).*$$,\1'"$(DSTDIR)"'/MacsBug,' > "$(DSTDIR)/$(GDBINIT)"
+	cp -p $(GDBINIT) "$(DSTDIR)/$(GDBINIT)"
 	chmod 644 $(DSTDIR)/$(GDBINIT)
-	strip -S $(SYMROOT)/MacsBug -o $(DSTDIR)/MacsBug
-	chmod 755 $(DSTDIR)/MacsBug
+	strip -x $(SYMROOT)/$(PLUGIN) -o $(DSTDIR)/$(PLUGIN)
+	chmod 755 $(DSTDIR)/$(PLUGIN)
 
 #--------------------------------------------------------------------------------------#
 #                        *-------------*
 #                        | Build Rules |
 #                        *-------------*
 
-$(SYMROOT)/MacsBug 		: 	$(gdb_plugin_support.o) $(OBJS) 
-	$(CC) $(LDFLAGS) $(OBJS) $(gdb_plugin_support.o) -o $(SYMROOT)/MacsBug
+$(SYMROOT)/$(PLUGIN) 		: 	gdb_plugin_support.o $(OBJS) 
+	$(CC) $(LDFLAGS) $(OBJS) $(gdb_plugin_support.o) -o $(SYMROOT)/$(PLUGIN)
 
 $(OFILE_DIR)/MacsBug_utils.o 	: 	MacsBug_utils.c MacsBug_testing.i 	\
 					$(HFILES) 				\
@@ -187,12 +201,12 @@ $(OFILE_DIR)/%.o		:	%.c					\
 $(OFILE_DIR) $(SYMROOT) $(DSTDIR):
 	mkdir -p $@
 
-$(gdb_plugin_support.o)		: 	force
+gdb_plugin_support.o 		: 	force
 	cd $(PLUGIN_SUPPORT); make SRCROOT=$(PLUGIN_SUPPORT); cd ..
 
 force				:
 
 cleanmb				:
-	rm -rf $(OFILE_DIR) MacsBug
+	rm -rf $(OFILE_DIR) $(PLUGIN)
 
 #--------------------------------------------------------------------------------------#

@@ -59,7 +59,7 @@ static char sccsid[] = "@(#)readmsg.c	8.1 (Berkeley) 6/6/93";
 #endif /* not lint */
 
 #ifdef sgi
-#ident "$Revision: 1.1.1.1 $"
+#ident "$Revision: 1.2 $"
 #endif
 
 #include "globals.h"
@@ -111,6 +111,7 @@ readmsg(type, machfrom, intvl, netfrom)
 	struct tsplist *prev;
 	register struct netinfo *ntp;
 	register struct tsplist *ptr;
+	ssize_t n;
 
 	if (trace) {
 		fprintf(fd, "readmsg: looking for %s from %s, %s\n",
@@ -229,10 +230,17 @@ again:
 			continue;
 		}
 		length = sizeof(from);
-		if (recvfrom(sock, (char *)&msgin, sizeof(struct tsp), 0,
-			     (struct sockaddr*)&from, &length) < 0) {
+		if ((n = recvfrom(sock, (char *)&msgin, sizeof(struct tsp), 0,
+			     (struct sockaddr*)&from, &length)) < 0) {
 			syslog(LOG_ERR, "recvfrom: %m");
 			exit(1);
+		}
+		if (n < (ssize_t)sizeof(struct tsp)) {
+			syslog(LOG_NOTICE,
+			    "short packet (%u/%u bytes) from %s",
+			      n, sizeof(struct tsp),
+			      inet_ntoa(from.sin_addr));
+			continue;
 		}
 		(void)gettimeofday(&from_when, (struct timezone *)0);
 		bytehostorder(&msgin);
@@ -242,6 +250,13 @@ again:
 			    fprintf(fd,"readmsg: version mismatch\n");
 			    /* should do a dump of the packet */
 			}
+			continue;
+		}
+
+		if (memchr(msgin.tsp_name,
+		    '\0', sizeof msgin.tsp_name) == NULL) {
+			syslog(LOG_NOTICE, "hostname field not NUL terminated "
+			    "in packet from %s", inet_ntoa(from.sin_addr));
 			continue;
 		}
 
@@ -458,6 +473,13 @@ print(msg, addr)
 	struct sockaddr_in *addr;
 {
 	char tm[26];
+	
+       if (msg->tsp_type >= TSPTYPENUMBER) {
+               fprintf(fd, "bad type (%u) on packet from %s\n",
+                 msg->tsp_type, inet_ntoa(addr->sin_addr));
+               return;
+       }
+
 	switch (msg->tsp_type) {
 
 	case TSP_LOOP:

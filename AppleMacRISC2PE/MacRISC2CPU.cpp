@@ -51,7 +51,7 @@ static IOCPUInterruptController *gCPUIC;
 bool MacRISC2CPU::start(IOService *provider)
 {
     kern_return_t        result;
-    IORegistryEntry      *cpusRegEntry, *uniNRegEntry, *mpicRegEntry;
+    IORegistryEntry      *cpusRegEntry, *uniNRegEntry, *mpicRegEntry, *devicetreeRegEntry;
     OSIterator           *cpusIterator;
     OSData               *tmpData;
     IOService            *service;
@@ -72,7 +72,8 @@ bool MacRISC2CPU::start(IOService *provider)
     keyLargo_saveRegisterState = OSSymbol::withCString("keyLargo_saveRegisterState");
     keyLargo_turnOffIO = OSSymbol::withCString("keyLargo_turnOffIO");
     keyLargo_writeRegUInt8 = OSSymbol::withCString("keyLargo_writeRegUInt8");
-  
+    keyLargo_getHostKeyLargo = OSSymbol::withCString("keyLargo_getHostKeyLargo");
+
     macRISC2PE = OSDynamicCast(MacRISC2PE, getPlatform());
     if (macRISC2PE == 0) return false;
   
@@ -102,7 +103,7 @@ bool MacRISC2CPU::start(IOService *provider)
         if (numCPUs > maxCPUs) numCPUs = maxCPUs;
     }
   
-    // Get the "flush-on-lock" property from the fisrt cpu node.
+    // Get the "flush-on-lock" property from the first cpu node.
     flushOnLock = false;
     cpusRegEntry = fromPath("/cpus/@0", gIODTPlane);
     if (cpusRegEntry == 0) return false;
@@ -110,6 +111,13 @@ bool MacRISC2CPU::start(IOService *provider)
   
     // Set flushOnLock when numCPUs is not one.
     if (numCPUs != 1) flushOnLock = true;
+  
+    // If system is PowerMac3,5 (TowerG4), then set flushOnLock to disable nap
+    devicetreeRegEntry = fromPath("/", gIODTPlane);
+    tmpData = OSDynamicCast(OSData, devicetreeRegEntry->getProperty("model"));
+    if (tmpData == 0) return false;
+    if(!strcmp((char *)tmpData->getBytesNoCopy(), "PowerMac3,5"))
+        flushOnLock = true;
   
     // Get the physical CPU number from the "reg" property.
     tmpData = OSDynamicCast(OSData, provider->getProperty("reg"));
@@ -148,6 +156,13 @@ bool MacRISC2CPU::start(IOService *provider)
     keyLargo = waitForService(serviceMatching("KeyLargo"));
     if (keyLargo == 0) return false;
   
+    keyLargo->callPlatformFunction (keyLargo_getHostKeyLargo, false, &keyLargo, 0, 0, 0);
+    if (keyLargo == 0)
+    {
+        kprintf ("MacRISC2CPU::start - getHostKeyLargo returned nil\n");
+        return false;
+    }
+
     // Wait for MPIC to show up.
     mpic = waitForService(serviceMatching("AppleMPICInterruptController"));
     if (mpic == 0) return false;

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: mail.c,v 1.1.1.2 2000/09/07 00:06:05 wsanchez Exp $ */
+/* $Id: mail.c,v 1.1.1.3 2001/07/19 00:20:16 zarzycki Exp $ */
 
 #include <stdlib.h>
 #include <ctype.h>
@@ -25,7 +25,12 @@
 #include "ext/standard/info.h"
 #if !defined(PHP_WIN32)
 #include "build-defs.h"
+#if HAVE_SYSEXITS_H
 #include <sysexits.h>
+#endif
+#if HAVE_SYS_SYSEXITS_H
+#include <sys/sysexits.h>
+#endif
 #endif
 #include "php_mail.h"
 #include "php_ini.h"
@@ -33,10 +38,6 @@
 #if HAVE_SENDMAIL
 #ifdef PHP_WIN32
 #include "win32/sendmail.h"
-#endif
-
-#ifdef COMPILE_DL_STANDARD
-ZEND_GET_MODULE(odbc)
 #endif
 
 /* {{{ proto int ezmlm_hash(string addr)
@@ -70,16 +71,16 @@ PHP_FUNCTION(ezmlm_hash)
 	RETURN_LONG((int) h);
 }
 
-/* {{{ proto int mail(string to, string subject, string message [, string additional_headers])
+/* {{{ proto int mail(string to, string subject, string message [, string additional_headers [, string additional_parameters]])
    Send an email message */
 PHP_FUNCTION(mail)
 {
-	pval **argv[4];
-	char *to=NULL, *message=NULL, *headers=NULL, *subject=NULL;
+	pval **argv[5];
+	char *to=NULL, *message=NULL, *headers=NULL, *subject=NULL, *extra_cmd=NULL;
 	int argc;
 	
 	argc = ZEND_NUM_ARGS();
-	if (argc < 3 || argc > 4 || zend_get_parameters_array_ex(argc, argv) == FAILURE) {
+	if (argc < 3 || argc > 5 || zend_get_parameters_array_ex(argc, argv) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	/* To: */
@@ -110,12 +111,17 @@ PHP_FUNCTION(mail)
 		message = NULL;
 	}
 
-	if (argc == 4) {			/* other headers */
+	if (argc >= 4) {			/* other headers */
 		convert_to_string_ex(argv[3]);
 		headers = (*argv[3])->value.str.val;
 	}
 	
-	if (php_mail(to, subject, message, headers)){
+	if (argc == 5) {			/* extra options that get passed to the mailer */
+		convert_to_string_ex(argv[4]);
+		extra_cmd = (*argv[4])->value.str.val;
+	}
+	
+	if (php_mail(to, subject, message, headers, extra_cmd)) {
 		RETURN_TRUE;
 	} else {
 		RETURN_FALSE;
@@ -123,7 +129,7 @@ PHP_FUNCTION(mail)
 }
 /* }}} */
 
-int php_mail(char *to, char *subject, char *message, char *headers)
+int php_mail(char *to, char *subject, char *message, char *headers, char *extra_cmd)
 {
 #ifdef PHP_WIN32
 	int tsm_err;
@@ -131,6 +137,7 @@ int php_mail(char *to, char *subject, char *message, char *headers)
 	FILE *sendmail;
 	int ret;
 	char *sendmail_path = INI_STR("sendmail_path");
+	char *sendmail_cmd = NULL;
 #endif
 
 #ifdef PHP_WIN32
@@ -142,7 +149,18 @@ int php_mail(char *to, char *subject, char *message, char *headers)
 	if (!sendmail_path) {
 		return 0;
 	}
-	sendmail = popen(sendmail_path, "w");
+	if (extra_cmd != NULL) {
+		sendmail_cmd = emalloc (strlen (sendmail_path) + strlen (extra_cmd) + 2);
+		strcpy (sendmail_cmd, sendmail_path);
+		strcat (sendmail_cmd, " ");
+		strcat (sendmail_cmd, extra_cmd);
+	} else {
+		sendmail_cmd = sendmail_path;
+	}
+
+	sendmail = popen(sendmail_cmd, "w");
+	if (extra_cmd != NULL)
+		efree (sendmail_cmd);
 
 	if (sendmail) {
 		fprintf(sendmail, "To: %s\n", to);
@@ -152,7 +170,11 @@ int php_mail(char *to, char *subject, char *message, char *headers)
 		}
 		fprintf(sendmail, "\n%s\n", message);
 		ret = pclose(sendmail);
+#if defined(EX_TEMPFAIL)
 		if ((ret != EX_OK)&&(ret != EX_TEMPFAIL)) {
+#else
+		if (ret != EX_OK) {
+#endif
 			return 0;
 		} else {
 			return 1;

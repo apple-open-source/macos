@@ -13,13 +13,13 @@ PROJECTVERSION = 2.8
 PROJECT_TYPE = Tool
 
 HFILES = scutil.h commands.h dictionary.h session.h cache.h notify.h\
-	 tests.h
+         tests.h
 
 CFILES = scutil.c commands.c dictionary.c session.c cache.c notify.c\
-	 tests.c
+         tests.c
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble m.template\
-	    h.template
+            h.template
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
@@ -28,12 +28,13 @@ MAKEFILE = tool.make
 NEXTSTEP_INSTALLDIR = /usr/sbin
 WINDOWS_INSTALLDIR = /Library/Executables
 PDO_UNIX_INSTALLDIR = /bin
-LIBS =
+LIBS = 
 DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
 
-FRAMEWORKS = -framework SystemConfiguration
+NEXTSTEP_PB_CFLAGS = -DUSE_SYSTEMCONFIGURATION_PUBLIC_APIS
+FRAMEWORKS = -framework CoreFoundation -framework SystemConfiguration
 
 
 NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc

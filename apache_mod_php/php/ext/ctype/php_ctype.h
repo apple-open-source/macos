@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -40,7 +40,6 @@ PHP_RINIT_FUNCTION(ctype);
 PHP_RSHUTDOWN_FUNCTION(ctype);
 PHP_MINFO_FUNCTION(ctype);
 
-PHP_FUNCTION(confirm_ctype_compiled);	/* For testing, remove later. */
 PHP_FUNCTION(ctype_alnum);
 PHP_FUNCTION(ctype_alpha);
 PHP_FUNCTION(ctype_cntrl);

@@ -4,7 +4,7 @@
 # Synopsis: Holds typedef info parsed by headerDoc
 #
 # Author: Matt Morse (matt@apple.com)
-# Last Updated: 12/9/99
+# Last Updated: $Date: 2001/03/22 02:27:13 $
 # 
 # Copyright (c) 1999 Apple Computer, Inc.  All Rights Reserved.
 # The contents of this file constitute Original Code as defined in and are
@@ -27,6 +27,8 @@ package HeaderDoc::Typedef;
 use HeaderDoc::Utilities qw(findRelativePath safeName getAPINameAndDisc convertCharsForFileMaker printArray printHash);
 use HeaderDoc::HeaderElement;
 use HeaderDoc::MinorAPIElement;
+use HeaderDoc::APIOwner;
+
 @ISA = qw( HeaderDoc::HeaderElement );
 
 use strict;
@@ -47,8 +49,19 @@ sub new {
 
 sub _initialize {
     my($self) = shift;
+    $self->{RESULT} = undef;
     $self->{FIELDS} = [];
     $self->{ISFUNCPTR} = 0;
+    $self->{ISENUMLIST} = 0;
+}
+
+sub result {
+    my $self = shift;
+    
+    if (@_) {
+        $self->{RESULT} = shift;
+    }
+    return $self->{RESULT};
 }
 
 sub fields {
@@ -76,67 +89,150 @@ sub isFunctionPointer {
     return $self->{ISFUNCPTR};
 }
 
+sub isEnumList {
+    my $self = shift;
+
+    if (@_) {
+        $self->{ISENUMLIST} = shift;
+    }
+    return $self->{ISENUMLIST};
+}
+
+
 sub processTypedefComment {
     my $self = shift;
     my $fieldArrayRef = shift;
     my @fields = @$fieldArrayRef;
+    my $lastField = scalar(@fields);
+    my $fieldCounter = 0;
     my $localDebug = 0;
     
-	foreach my $field (@fields) {
-		SWITCH: {
+    while ($fieldCounter < $lastField) {
+        my $field = $fields[$fieldCounter];
+        SWITCH: {
             ($field =~ /^\/\*\!/)&& do {last SWITCH;}; # ignore opening /*!
             ($field =~ s/^typedef\s+//) && 
-            do {
-                my ($name, $disc);
-                ($name, $disc) = &getAPINameAndDisc($field); 
-                $self->name($name);
-                if (length($disc)) {$self->discussion($disc);};
-                last SWITCH;
-            };
+                do {
+                    my ($name, $disc);
+                    ($name, $disc) = &getAPINameAndDisc($field); 
+                    $self->name($name);
+                    if (length($disc)) {$self->discussion($disc);};
+                    last SWITCH;
+                };
             ($field =~ s/^abstract\s+//) && do {$self->abstract($field); last SWITCH;};
             ($field =~ s/^discussion\s+//) && do {$self->discussion($field); last SWITCH;};
             ($field =~ s/^field\s+//) &&
-            do {
-				$field =~ s/^\s+|\s+$//g;
-	            $field =~ /(\w*)\s+(.*)/s;
-	            my $fName = $1;
-	            my $fDesc = $2;
-	            my $fObj = HeaderDoc::MinorAPIElement->new();
-	            $fObj->name($fName);
-	            $fObj->discussion($fDesc);
-	            $self->addField($fObj);
-			    print "Adding field for typedef.  Field name: $fName.\n" if ($localDebug);
-				last SWITCH;
-			};
+                do {
+                    $field =~ s/^\s+|\s+$//g;
+                    $field =~ /(\w*)\s*(.*)/s;
+                    my $fName = $1;
+                    my $fDesc = $2;
+                    my $fObj = HeaderDoc::MinorAPIElement->new();
+                    $fObj->name($fName);
+                    $fObj->discussion($fDesc);
+                    $fObj->type("field");
+                    $self->addField($fObj);
+                    print "Adding field for typedef.  Field name: $fName.\n" if ($localDebug);
+                    last SWITCH;
+                };
+            ($field =~ s/^constant\s+//) &&
+                do {
+                    $self->isEnumList(1);
+                    $field =~ s/^\s+|\s+$//g;
+                    $field =~ /(\w*)\s*(.*)/s;
+                    my $fName = $1;
+                    my $fDesc = $2;
+                    my $fObj = HeaderDoc::MinorAPIElement->new();
+                    $fObj->name($fName);
+                    $fObj->discussion($fDesc);
+                    $fObj->type("constant");
+                    $self->addField($fObj);
+                    print "Adding constant for enum.  Constant name: $fName.\n" if ($localDebug);
+                    last SWITCH;
+                };
+            # To handle callbacks and their params and results, have to set up loop
+            ($field =~ s/^callback\s+//) &&
+                do {
+                    $field =~ s/^\s+|\s+$//g;
+                    $field =~ /(\w*)\s*(.*)/s;
+                    my $cbName = $1;
+                    my $cbDesc = $2;
+                    my $callbackObj = HeaderDoc::MinorAPIElement->new();
+                    $callbackObj->name($cbName);
+                    $callbackObj->discussion($cbDesc);
+                    $callbackObj->type("callback");
+                    # now get params and result that go with this callback
+                    print "Adding callback.  Callback name: $cbName.\n" if ($localDebug);
+                    $fieldCounter++;
+                    while ($fieldCounter < $lastField) {
+                        my $nextField = $fields[$fieldCounter];
+                        print "In callback: next field is '$nextField'\n" if ($localDebug);
+                        
+                        if ($nextField =~ s/^param\s+//) {
+                            $nextField =~ s/^\s+|\s+$//g;
+                            $nextField =~ /(\w*)\s*(.*)/s;
+                            my $paramName = $1;
+                            my $paramDesc = $2;
+                            $callbackObj->addToUserDictArray({"$paramName" => "$paramDesc"});
+                        } elsif ($nextField eq "result") {
+                            $nextField =~ s/^\s+|\s+$//g;
+                            $nextField =~ /(\w*)\s*(.*)/s;
+                            my $resultName = $1;
+                            my $resultDesc = $2;
+                            $callbackObj->addToUserDictArray({"$resultName" => "$resultDesc"});
+                        } else {
+                            last;
+                        }
+                        $fieldCounter++;
+                    }
+                    $self-> addField($callbackObj);
+                    print "Adding callback to typedef.  Callback name: $cbName.\n" if ($localDebug);
+                    last SWITCH;
+                };
+            # param and result have to come last, since they should be handled differently, if part of a callback
+            # which is inside a struct (as above).  Otherwise, these cases below handle the simple typedef'd callback 
+            # (i.e., a typedef'd function pointer without an enclosing struct.
             ($field =~ s/^param\s+//) && 
-            do {
-				$self->isFunctionPointer(1);
-				$field =~ s/^\s+|\s+$//g;
-	            $field =~ /(\w*)\s+(.*)/s;
-	            my $fName = $1;
-	            my $fDesc = $2;
-	            my $fObj = HeaderDoc::MinorAPIElement->new();
-	            $fObj->name($fName);
-	            $fObj->discussion($fDesc);
-	            $self->addField($fObj);
-			    print "Adding param for function-pointer typedef.  Param name: $fName.\n" if ($localDebug);
-				last SWITCH;
-			};
+                do {
+                    $self->isFunctionPointer(1);
+                    $field =~ s/^\s+|\s+$//g;
+                    $field =~ /(\w*)\s*(.*)/s;
+                    my $fName = $1;
+                    my $fDesc = $2;
+                    my $fObj = HeaderDoc::MinorAPIElement->new();
+                    $fObj->name($fName);
+                    $fObj->discussion($fDesc);
+                    $fObj->type("funcPtr");
+                    $self->addField($fObj);
+                    print "Adding param for function-pointer typedef.  Param name: $fName.\n" if ($localDebug);
+                    last SWITCH;
+                };
+            ($field =~ s/^result\s+//) && 
+                do {
+                    $self->isFunctionPointer(1);
+                    $self->result($field);
+                    last SWITCH;
+                };
             print "Unknown field: $field\n";
-		}
-	}
+        }
+        $fieldCounter++;
+    }
 }
 
 sub setTypedefDeclaration {
     my $self = shift;
-    my %defaults = (TYPE=>"struct", DECLARATION=>"");
-    my %args = (%defaults, @_);
-    my ($decType) = $args{TYPE};
-    my ($dec) =$args{DECLARATION};
+    my $dec = shift;
+    my $decType;
     my $localDebug = 0;
     
     print "============================================================================\n" if ($localDebug);
     print "Raw declaration is: $dec\n" if ($localDebug);
+    
+    if ($dec =~/{/) { # typedef'd struct of anything
+        $decType = "struct";
+    } else {          # simple function pointer
+        $decType = "funcPtr";
+    }
     
     if ($decType eq "struct") {
         print "processing struct-like typedef\n" if ($localDebug); 
@@ -176,6 +272,68 @@ sub setTypedefDeclaration {
     return $dec;
 }
 
+sub documentationBlock {
+    my $self = shift;
+    my $name = $self->name();
+    my $abstract = $self->abstract();
+    my $desc = $self->discussion();
+    my $result = $self->result();
+    my $declaration = $self->declarationInHTML();
+    my @fields = $self->fields();
+    my $fieldHeading;
+    my $contentString;
+    my $apiUIDPrefix = HeaderDoc::APIOwner->apiUIDPrefix();
+    
+    SWITCH: {
+        if ($self->isFunctionPointer()) {$fieldHeading = "Parameters"; last SWITCH; }
+        if ($self->isEnumList()) {$fieldHeading = "Constants"; last SWITCH; }
+        $fieldHeading = "Fields";
+    }
+    
+    $contentString .= "<a name=\"//$apiUIDPrefix/c/tdef/$name\"></a>\n"; # apple_ref marker
+    $contentString .= "<h3><a name=\"$name\">$name</a></h3>\n";
+    if (length($abstract)) {
+        $contentString .= "<b>Abstract:</b> $abstract\n";
+    }
+    $contentString .= "<blockquote>$declaration</blockquote>\n";
+    $contentString .= "<p>$desc</p>\n";
+    my $arrayLength = @fields;
+    if ($arrayLength > 0) {
+        $contentString .= "<h4>$fieldHeading</h4>\n";
+        $contentString .= "<blockquote>\n";
+        $contentString .= "<table border = \"1\"  width = \"90%\">\n";
+        $contentString .= "<thead><tr><th>Name</th><th>Description</th></tr></thead>\n";
+        
+        foreach my $element (@fields) {
+            my $fName = $element->name();
+            my $fDesc = $element->discussion();
+            my $fType = $element->type();
+            
+            if (($fType eq 'field') || ($fType eq 'constant') || ($fType eq 'funcPtr')){
+                $contentString .= "<tr><td><tt>$fName</tt></td><td>$fDesc</td><tr>\n";
+            } elsif ($fType eq 'callback') {
+                my @userDictArray = $element->userDictArray(); # contains elements that are hashes of param name to param doc
+                my $paramString;
+                foreach my $hashRef (@userDictArray) {
+                    while (my ($param, $disc) = each %{$hashRef}) {
+                        $paramString .= "<dt><b><tt>$param</tt></b></dt>\n<dd>$disc</dd>\n";
+                    }
+                    if (length($paramString)) {$paramString = "<dl>\n".$paramString."\n<dl>\n";};
+                }
+                $contentString .= "<tr><td><tt>$fName</tt></td><td>$fDesc<br>$paramString</td><tr>\n";
+            } else {
+                print "### warning: Typedef field with name $fName has unknown type: $fType\n";
+            }
+        }
+        
+        $contentString .= "</table>\n</blockquote>\n";
+    }
+    if (length($result)) {
+        $contentString .= "<b>Result:</b> $result\n";
+    }
+    $contentString .= "<hr>\n";
+    return $contentString;
+}
 
 
 sub printObject {
@@ -183,13 +341,19 @@ sub printObject {
  
     print "Typedef\n";
     $self->SUPER::printObject();
-    print "Fields:\n";
+    SWITCH: {
+        if ($self->isFunctionPointer()) {print "Parameters:\n"; last SWITCH; }
+        if ($self->isEnumList()) {print "Constants:\n"; last SWITCH; }
+        print "Fields:\n";
+    }
+
     my $fieldArrayRef = $self->{FIELDS};
     my $arrayLength = @{$fieldArrayRef};
     if ($arrayLength > 0) {
         &printArray(@{$fieldArrayRef});
     }
     print "is function pointer: $self->{ISFUNCPTR}\n";
+    print "is enum list: $self->{ISENUMLIST}\n";
     print "\n";
 }
 

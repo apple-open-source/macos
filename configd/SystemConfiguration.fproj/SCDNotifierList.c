@@ -20,54 +20,46 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * Modification History
+ *
+ * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * - public API conversion
+ *
+ * March 24, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
 #include <mach/mach.h>
 #include <mach/mach_error.h>
 
-#include <SystemConfiguration/SCD.h>
-#include "config.h"		/* MiG generated file */
-#include "SCDPrivate.h"
+#include <SystemConfiguration/SystemConfiguration.h>
+#include <SystemConfiguration/SCPrivate.h>
+#include "SCDynamicStoreInternal.h"
 
-static CFComparisonResult
-sort_keys(const void *p1, const void *p2, void *context) {
-	CFStringRef key1 = (CFStringRef)p1;
-	CFStringRef key2 = (CFStringRef)p2;
-	return CFStringCompare(key1, key2, 0);
-}
-
-
-SCDStatus
-SCDNotifierList(SCDSessionRef session, int regexOptions, CFArrayRef *notifierKeys)
+CFArrayRef
+SCDynamicStoreCopyWatchedKeyList(SCDynamicStoreRef store, Boolean isRegex)
 {
-	SCDSessionPrivateRef	sessionPrivate = (SCDSessionPrivateRef)session;
-	CFIndex			keyCnt;
-	void			**keyRefs;
-	CFArrayRef		keys;
-	CFMutableArrayRef	sortedKeys;
+	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
+	CFIndex				keyCnt;
+	void				**keyRefs;
+	CFArrayRef			watchedKeys	= NULL;
 
-	SCDLog(LOG_DEBUG, CFSTR("SCDNotifierList:"));
+	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCDynamicStoreCopyWatchedKeyList:"));
 
-	if ((session == NULL) || (sessionPrivate->server == MACH_PORT_NULL)) {
-		return SCD_NOSESSION;
-	}
-
-	if (regexOptions & kSCDRegexKey) {
-		keyCnt  = CFSetGetCount(sessionPrivate->reKeys);
+	if (isRegex) {
+		keyCnt  = CFSetGetCount(storePrivate->reKeys);
 		keyRefs = CFAllocatorAllocate(NULL, keyCnt * sizeof(CFStringRef), 0);
-		CFSetGetValues(sessionPrivate->reKeys, keyRefs);
-		keys = CFArrayCreate(NULL, keyRefs, keyCnt, &kCFTypeArrayCallBacks);
+		CFSetGetValues(storePrivate->reKeys, keyRefs);
+		watchedKeys = CFArrayCreate(NULL, keyRefs, keyCnt, &kCFTypeArrayCallBacks);
 		CFAllocatorDeallocate(NULL, keyRefs);
 	} else {
-		keyCnt  = CFSetGetCount(sessionPrivate->keys);
+		keyCnt  = CFSetGetCount(storePrivate->keys);
 		keyRefs = CFAllocatorAllocate(NULL, keyCnt * sizeof(CFStringRef), 0);
-		CFSetGetValues(sessionPrivate->keys, keyRefs);
-		keys = CFArrayCreate(NULL, keyRefs, keyCnt, &kCFTypeArrayCallBacks);
+		CFSetGetValues(storePrivate->keys, keyRefs);
+		watchedKeys = CFArrayCreate(NULL, keyRefs, keyCnt, &kCFTypeArrayCallBacks);
 		CFAllocatorDeallocate(NULL, keyRefs);
 	}
 
-	sortedKeys = CFArrayCreateMutableCopy(NULL, keyCnt, keys);
-	CFRelease(keys);
-	CFArraySortValues(sortedKeys, CFRangeMake(0, keyCnt), sort_keys, NULL);
-
-	*notifierKeys = sortedKeys;
-	return SCD_OK;
+	return watchedKeys;
 }

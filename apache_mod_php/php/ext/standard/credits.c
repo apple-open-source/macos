@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: credits.c,v 1.1.1.1 2001/01/25 05:00:03 wsanchez Exp $ */
+/* $Id: credits.c,v 1.1.1.2 2001/07/19 00:20:08 zarzycki Exp $ */
 
 #include "php.h"
 #include "info.h"
@@ -39,8 +39,7 @@ PHPAPI void php_print_credits(int flag)
 
 		php_info_print_table_start();
 		php_info_print_table_header(1, "PHP Group");
-		php_info_print_table_row(1, "Thies C. Arntzen, Stig Bakken, Andi Gutmans, Rasmus Lerdorf, Sam Ruby,\
-					Sascha Schumann, Zeev Suraski, Jim Winstead, Andrei Zmievski");
+		php_info_print_table_row(1, "Thies C. Arntzen, Stig Bakken, Andi Gutmans, Rasmus Lerdorf, Sam Ruby, Sascha Schumann, Zeev Suraski, Jim Winstead, Andrei Zmievski");
 		php_info_print_table_end();
 	}
 
@@ -86,8 +85,23 @@ PHPAPI void php_print_credits(int flag)
 	if (flag & PHP_CREDITS_DOCS) {
 		php_info_print_table_start();
 		php_info_print_table_header(1, "PHP Documentation Team");
-		php_info_print_table_row(1, "Alexander Aulbach, Stig Bakken, Rasmus Lerdorf, Egon Schmid, Zeev Suraski, Lars Torben Wilson, Jim Winstead");
+		php_info_print_table_row(1, "Jouni Ahto, Alexander Aulbach, Stig Bakken, Rasmus Lerdorf, Egon Schmid, Zeev Suraski, Lars Torben Wilson, Jim Winstead");
 		php_info_print_table_row(1, "Edited by:  Stig Bakken and Egon Schmid");
+		php_info_print_table_end();
+	}
+
+	if (flag & PHP_CREDITS_QA) {
+		php_info_print_table_start();
+		php_info_print_table_header(1, "PHP Quality Assurance Team");
+		php_info_print_table_row(1, "Andre Langhorst, Hellekin O. Wolf, Jalal Pushman, James Moore, Jani Taskinen, Joey Smith, Olivier Cahagne, Phil Driscoll, Sebastian Bergmann, Zak Greant");
+		php_info_print_table_end();
+	}
+
+	if (flag & PHP_CREDITS_WEB) {
+		/* Website Team */
+		php_info_print_table_start();
+		php_info_print_table_header(1, "PHP Website Team");
+		php_info_print_table_row(1, "Hojtsy Gabor, Colin Viebrock, Jim Winstead");
 		php_info_print_table_end();
 	}
 

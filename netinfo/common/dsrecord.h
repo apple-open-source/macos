@@ -78,8 +78,9 @@ typedef struct
 	dsattribute **meta_attribute;
 
 	u_int32_t retain;
-	
+
 	void *index;
+	void *next;
 } dsrecord;
 
 dsrecord *dsrecord_new(void);
@@ -107,6 +108,7 @@ int dsrecord_equal(dsrecord *, dsrecord *);
 u_int32_t dsrecord_attribute_index(dsrecord *, dsdata *, u_int32_t);
 void dsrecord_merge_attribute(dsrecord *, dsattribute *, u_int32_t);
 void dsrecord_append_attribute(dsrecord *, dsattribute *, u_int32_t);
+void dsrecord_insert_attribute(dsrecord *r, dsattribute *a, u_int32_t where, u_int32_t asel);
 void dsrecord_remove_attribute(dsrecord *, dsattribute *, u_int32_t);
 dsattribute *dsrecord_attribute(dsrecord *, dsdata *, u_int32_t);
 void dsrecord_remove_key(dsrecord *, dsdata *, u_int32_t);

@@ -1,4 +1,4 @@
-!/bin/sh
+#!/bin/sh
 #
 # To start fetchmail as a system service, copy this file to
 # /etc/init.d/fetchmail and run "update-rc.d fetchmail

@@ -77,15 +77,6 @@ char * daCreateCStringFromCFString(CFStringRef string)
     return buffer;
 } /* daCreateCStringFromCFString */
 
-
-mode_t mountModeForFS(char *fsname)
-{
-    //if (strcmp(fsname, FS_TYPE_HFS) == 0) {
-    //    return 0775;
-    //}
-    return 0755;
-}
-
 /*
  * This function implements ordering for hybrids.  It makes 9660/UDF
  * (DVD-Video bridge format) automount as UDF.  Likewise 9660/HFS
@@ -221,9 +212,12 @@ int renameUFSDevice(const char *devName, const char *mountPoint)
                 }
     }
 
+
     result = 0;
 
 Return:
+    free(execPath);
+    free(fsDir);
     dwarning(("%s(...) => %d\n", __FUNCTION__, result));
     return result;
 } /* renameUFSDevice */
@@ -272,6 +266,9 @@ void cacheFileSystemDictionaries()
         {
             char buf[MAXPATHLEN];
             CFDictionaryRef fsdict;
+            CFStringRef str;
+            CFURLRef bar;
+            CFStringRef zaz;
             
             if ( gDebug ) {
                 dwarning(("%s\n", &fsdirs[n]->d_name[0]));
@@ -280,12 +277,21 @@ void cacheFileSystemDictionaries()
             sprintf(buf, "%s/%s", FS_DIR_LOCATION ,&fsdirs[n]->d_name[0]);
             // get their dictionaries, test that they are okay and add them into the plistDict
 
-            fsdict = CFBundleCopyInfoDictionaryInDirectory(CFURLCreateWithFileSystemPath(NULL, CFStringCreateWithCString(NULL, buf, kCFStringEncodingUTF8), kCFURLPOSIXPathStyle, 1));
+            str = CFStringCreateWithCString(NULL, buf, kCFStringEncodingUTF8);
+            bar = CFURLCreateWithFileSystemPath(NULL, str, kCFURLPOSIXPathStyle, 1);
 
-            CFDictionaryAddValue(plistDict, CFStringCreateWithCString(NULL, &fsdirs[n]->d_name[0], kCFStringEncodingUTF8), fsdict);
+            fsdict = CFBundleCopyInfoDictionaryInDirectory(bar);
+
+            zaz = CFStringCreateWithCString(NULL, &fsdirs[n]->d_name[0], kCFStringEncodingUTF8);
+
+            CFDictionaryAddValue(plistDict, zaz, fsdict);
+
+            CFRelease(zaz);
+            CFRelease(bar);
+            CFRelease(str);
+            CFRelease(fsdict);
             
         }
-        //CFShow(plistDict);
     }
 }
 
@@ -320,8 +326,6 @@ void cacheFileSystemMatchingArray()
         int n;
         int i = 0;
 
-        //CFMutableDictionaryRef matchingDict =  CFDictionaryCreateMutable(NULL,0,&kCFTypeDictionaryKeyCallBacks,&kCFTypeDictionaryValueCallBacks);
-
         matchingArray = CFArrayCreateMutable(NULL, 0, NULL);
 
         /* discover known filesystem types */
@@ -332,13 +336,19 @@ void cacheFileSystemMatchingArray()
             char buf[MAXPATHLEN];
             CFDictionaryRef fsdict;
             CFDictionaryRef mediaTypeDict;
+            CFStringRef str;
+            CFURLRef bar;
 
             sprintf(buf, "%s/%s", FS_DIR_LOCATION ,&fsdirs[n]->d_name[0]);
             // get their dictionaries, test that they are okay and add them into the plistDict
 
-            fsdict = CFBundleCopyInfoDictionaryInDirectory(CFURLCreateWithFileSystemPath(NULL, CFStringCreateWithCString(NULL, buf, kCFStringEncodingUTF8), kCFURLPOSIXPathStyle, 1));
+            str = CFStringCreateWithCString(NULL, buf, kCFStringEncodingUTF8);
+            bar = CFURLCreateWithFileSystemPath(NULL, str, kCFURLPOSIXPathStyle, 1);
+
+            fsdict = CFBundleCopyInfoDictionaryInDirectory(bar);
 
             mediaTypeDict = CFDictionaryGetValue(fsdict, CFSTR(kFSMediaTypesKey));
+
 
             {
                 int j = CFDictionaryGetCount(mediaTypeDict);
@@ -347,20 +357,22 @@ void cacheFileSystemMatchingArray()
                 CFDictionaryGetKeysAndValues(mediaTypeDict,(void**)keys,(void**)dicts);
 
                 for (i=0;i<j;i++) {
+                    CFStringRef zaz;
                     
                     CFMutableDictionaryRef newDict = CFDictionaryCreateMutableCopy(NULL,0,dicts[i]);
-                    CFDictionaryAddValue(newDict, CFSTR("FSName"), CFStringCreateWithCString(NULL, &fsdirs[n]->d_name[0], kCFStringEncodingUTF8));
+                    zaz = CFStringCreateWithCString(NULL, &fsdirs[n]->d_name[0], kCFStringEncodingUTF8);
+                    CFDictionaryAddValue(newDict, CFSTR("FSName"), zaz);
                     CFArrayAppendValue(matchingArray, newDict);
+                    CFRelease(zaz);
                 }
                 
             }
-            CFRelease(mediaTypeDict);
+            CFRelease(fsdict);
+            CFRelease(str);
+            CFRelease(bar);
+
         }
         CFArraySortValues(matchingArray, CFRangeMake(0, CFArrayGetCount(matchingArray)), compareDicts, NULL);
-        /* for (i=0;i<CFArrayGetCount(matchingArray);i++) {
-            CFShow(CFArrayGetValueAtIndex(matchingArray,i));
-            
-        } */
     }
 }
 
@@ -373,10 +385,14 @@ char *resourcePathForFSName(char *fs)
     CFStringRef resourceString;
     char *path;
     char *resourcePath = malloc(MAXPATHLEN);
+    CFStringRef str;
 
     sprintf(bundlePath, "%s/%s", FS_DIR_LOCATION, fs);
 
-    bundleUrl = CFURLCreateWithFileSystemPath(NULL, CFStringCreateWithCString(NULL, bundlePath, kCFStringEncodingMacRoman),kCFURLPOSIXPathStyle ,1);
+    str = CFStringCreateWithCString(NULL, bundlePath, kCFStringEncodingMacRoman);
+
+    bundleUrl = CFURLCreateWithFileSystemPath(NULL, str,kCFURLPOSIXPathStyle ,1);
+    CFRelease(str);
     bundle = CFBundleCreate(NULL, bundleUrl);
     resourceUrl = CFBundleCopyResourcesDirectoryURL(bundle);
     resourceString = CFURLCopyPath(resourceUrl);
@@ -403,13 +419,16 @@ char *verifyPathForFileSystem(char *fsname)
     char fs[128];
     char *fsckPath;
     char *finalPath = malloc(MAXPATHLEN);
-
+    CFStringRef str;
+    
     if (strlen(fsname) == 0) {
         return finalPath;
     }
 
     sprintf(fs, "%s%s", fsname, FS_DIR_SUFFIX);
-    fsDict = (CFDictionaryRef)CFDictionaryGetValue(plistDict, CFStringCreateWithCString(NULL, fs, kCFStringEncodingMacRoman));
+    str = CFStringCreateWithCString(NULL, fs, kCFStringEncodingMacRoman);
+    fsDict = (CFDictionaryRef)CFDictionaryGetValue(plistDict, str);
+    CFRelease(str);
 
     if (!fsDict) {
         return finalPath;
@@ -449,13 +468,16 @@ char *repairPathForFileSystem(char *fsname)
     char fs[128];
     char *fsckPath;
     char *finalPath = malloc(MAXPATHLEN);
+    CFStringRef str;
 
     if (strlen(fsname) == 0) {
         return finalPath;
     }
 
     sprintf(fs, "%s%s", fsname, FS_DIR_SUFFIX);
-    fsDict = (CFDictionaryRef)CFDictionaryGetValue(plistDict, CFStringCreateWithCString(NULL, fs, kCFStringEncodingMacRoman));
+    str = CFStringCreateWithCString(NULL, fs, kCFStringEncodingMacRoman);
+    fsDict = (CFDictionaryRef)CFDictionaryGetValue(plistDict, str);
+    CFRelease(str);
 
     if (!fsDict) {
         return finalPath;
@@ -494,6 +516,7 @@ char *verifyArgsForFileSystem(char *fsname)
     CFStringRef repairArgs1;
     char fs[128];
     char *repairArgs;
+    CFStringRef str;
 
     if (strlen(fsname) == 0) {
         repairArgs = malloc(MAXPATHLEN);
@@ -501,7 +524,9 @@ char *verifyArgsForFileSystem(char *fsname)
     }
 
     sprintf(fs, "%s%s", fsname, FS_DIR_SUFFIX);
-    fsDict = (CFDictionaryRef)CFDictionaryGetValue(plistDict, CFStringCreateWithCString(NULL, fs, kCFStringEncodingMacRoman));
+    str = CFStringCreateWithCString(NULL, fs, kCFStringEncodingMacRoman);
+    fsDict = (CFDictionaryRef)CFDictionaryGetValue(plistDict, str);
+    CFRelease(str);
 
     if (!fsDict) {
         repairArgs = malloc(MAXPATHLEN);
@@ -539,6 +564,7 @@ char *repairArgsForFileSystem(char *fsname)
     CFStringRef repairArgs1;
     char fs[128];
     char *repairArgs;
+    CFStringRef str;
 
     if (strlen(fsname) == 0) {
         repairArgs = malloc(MAXPATHLEN);
@@ -546,7 +572,9 @@ char *repairArgsForFileSystem(char *fsname)
     }
 
     sprintf(fs, "%s%s", fsname, FS_DIR_SUFFIX);
-    fsDict = (CFDictionaryRef)CFDictionaryGetValue(plistDict, CFStringCreateWithCString(NULL, fs, kCFStringEncodingMacRoman));
+    str = CFStringCreateWithCString(NULL, fs, kCFStringEncodingMacRoman);
+    fsDict = (CFDictionaryRef)CFDictionaryGetValue(plistDict, str);
+    CFRelease(str);
 
     if (!fsDict) {
         repairArgs = malloc(MAXPATHLEN);
@@ -570,6 +598,7 @@ char *repairArgsForFileSystem(char *fsname)
     } else {
         repairArgs = malloc(MAXPATHLEN);
     }
+
 
    return repairArgs;
 

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,10 +17,15 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: xml.c,v 1.1.1.3 2001/01/25 05:00:19 wsanchez Exp $ */
+/* $Id: xml.c,v 1.1.1.4 2001/07/19 00:20:30 zarzycki Exp $ */
 #define IS_EXT_MODULE
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+ 
 #include "php.h"
+
 #define PHP_XML_INTERNAL
 #include "php_xml.h"
 #include "zend_variables.h"
@@ -91,6 +96,10 @@ void _xml_unparsedEntityDeclHandler(void *, const XML_Char *, const XML_Char *, 
 void _xml_notationDeclHandler(void *, const XML_Char *, const XML_Char *, const XML_Char *, const XML_Char *);
 int  _xml_externalEntityRefHandler(XML_Parser, const XML_Char *, const XML_Char *, const XML_Char *, const XML_Char *);
 
+#ifdef HAVE_LIBEXPAT2
+void _xml_startNamespaceDeclHandler(void *, const XML_Char *, const XML_Char *);
+void _xml_endNamespaceDeclHandler(void *, const XML_Char *);
+#endif
 /* }}} */
 /* {{{ extension definition structures */
 
@@ -98,6 +107,9 @@ static unsigned char third_and_fourth_args_force_ref[] = { 4, BYREF_NONE, BYREF_
 
 function_entry xml_functions[] = {
     PHP_FE(xml_parser_create, NULL)
+#ifdef HAVE_LIBEXPAT2
+    PHP_FE(xml_parser_create_ns, NULL)
+#endif
     PHP_FE(xml_set_object, second_arg_force_ref)
     PHP_FE(xml_set_element_handler, NULL)
 	PHP_FE(xml_set_character_data_handler, NULL)
@@ -106,6 +118,10 @@ function_entry xml_functions[] = {
 	PHP_FE(xml_set_unparsed_entity_decl_handler, NULL)
 	PHP_FE(xml_set_notation_decl_handler, NULL)
 	PHP_FE(xml_set_external_entity_ref_handler, NULL)
+#ifdef HAVE_LIBEXPAT2
+	PHP_FE(xml_set_start_namespace_decl_handler, NULL)
+	PHP_FE(xml_set_end_namespace_decl_handler, NULL)
+#endif
     PHP_FE(xml_parse, NULL)
     PHP_FE(xml_parse_into_struct, third_and_fourth_args_force_ref)
     PHP_FE(xml_get_error_code, NULL)
@@ -221,7 +237,10 @@ PHP_MINFO_FUNCTION(xml)
 {
 
         php_info_print_table_start();
-	php_info_print_table_row(2, "XML Support", "active");
+		php_info_print_table_row(2, "XML Support", "active");
+#if HAVE_LIBEXPAT2
+		php_info_print_table_row(2, "XML Namespace Support", "active");
+#endif
         php_info_print_table_end();
 }
 
@@ -279,9 +298,11 @@ xml_parser_dtor(zend_rsrc_list_entry *rsrc)
 {
 	xml_parser *parser = (xml_parser *)rsrc->ptr;
 
-	if (parser->object) {
-		zval_del_ref(&parser->object);
+	/* please leave this commented - or ask thies@thieso.net before doing it (again) 
+    if (parser->object) {
+		zval_ptr_dtor(&parser->object);
 	}
+	*/
 	
 	if (parser->parser) {
 		XML_ParserFree(parser->parser);
@@ -293,32 +314,40 @@ xml_parser_dtor(zend_rsrc_list_entry *rsrc)
 		efree(parser->ltags);
 	}
 	if (parser->startElementHandler) {
-		zval_del_ref(&parser->startElementHandler);
+		zval_ptr_dtor(&parser->startElementHandler);
 	}
 	if (parser->endElementHandler) {
-		zval_del_ref(&parser->endElementHandler);
+		zval_ptr_dtor(&parser->endElementHandler);
 	}
 	if (parser->characterDataHandler) {
-		zval_del_ref(&parser->characterDataHandler);
+		zval_ptr_dtor(&parser->characterDataHandler);
 	}
 	if (parser->processingInstructionHandler) {
-		zval_del_ref(&parser->processingInstructionHandler);
+		zval_ptr_dtor(&parser->processingInstructionHandler);
 	}
 	if (parser->defaultHandler) {
-		zval_del_ref(&parser->defaultHandler);
+		zval_ptr_dtor(&parser->defaultHandler);
 	}
 	if (parser->unparsedEntityDeclHandler) {
-		zval_del_ref(&parser->unparsedEntityDeclHandler);
+		zval_ptr_dtor(&parser->unparsedEntityDeclHandler);
 	}
 	if (parser->notationDeclHandler) {
-		zval_del_ref(&parser->notationDeclHandler);
+		zval_ptr_dtor(&parser->notationDeclHandler);
 	}
 	if (parser->externalEntityRefHandler) {
-		zval_del_ref(&parser->externalEntityRefHandler);
+		zval_ptr_dtor(&parser->externalEntityRefHandler);
 	}
 	if (parser->unknownEncodingHandler) {
-		zval_del_ref(&parser->unknownEncodingHandler);
+		zval_ptr_dtor(&parser->unknownEncodingHandler);
 	}
+#ifdef HAVE_LIBEXPAT2
+	if (parser->startNamespaceDeclHandler) {
+		zval_ptr_dtor(&parser->startNamespaceDeclHandler);
+	}
+	if (parser->endNamespaceDeclHandler) {
+		zval_ptr_dtor(&parser->endNamespaceDeclHandler);
+	}
+#endif
 	if (parser->baseURI) {
 		efree(parser->baseURI);
 	}
@@ -379,7 +408,7 @@ xml_call_handler(xml_parser *parser, zval *handler, int argc, zval **argv)
 		}
 
 		for (i = 0; i < argc; i++) {
-			zval_del_ref(&(argv[i]));
+			zval_ptr_dtor(&(argv[i]));
 		}
 
 		if (result == FAILURE) {
@@ -972,11 +1001,57 @@ _xml_externalEntityRefHandler(XML_Parser parserPtr,
 
 /* }}} */
 
+#ifdef HAVE_LIBEXPAT2
+    /* {{{ _xml_startNamespaceDeclHandler() */
+
+void _xml_startNamespaceDeclHandler(void *userData,
+									const XML_Char *prefix,
+									const XML_Char *uri)
+{
+	xml_parser *parser = (xml_parser *)userData;
+
+	if (parser && parser->startNamespaceDeclHandler) {
+		zval *retval, *args[3];
+
+		args[0] = _xml_resource_zval(parser->index);
+		args[1] = _xml_xmlchar_zval(prefix, 0, parser->target_encoding);
+		args[2] = _xml_xmlchar_zval(uri, 0, parser->target_encoding);
+		if ((retval = xml_call_handler(parser, parser->startNamespaceDeclHandler, 3, args))) {
+			zval_dtor(retval);
+			efree(retval);
+		}
+	}
+}
+
+/* }}} */
+
+    /* {{{ _xml_endNamespaceDeclHandler() */
+
+void _xml_endNamespaceDeclHandler(void *userData,
+								  const XML_Char *prefix)
+{
+	xml_parser *parser = (xml_parser *)userData;
+
+	if (parser && parser->endNamespaceDeclHandler) {
+		zval *retval, *args[2];
+
+		args[0] = _xml_resource_zval(parser->index);
+		args[1] = _xml_xmlchar_zval(prefix, 0, parser->target_encoding);
+		if ((retval = xml_call_handler(parser, parser->endNamespaceDeclHandler, 2, args))) {
+			zval_dtor(retval);
+			efree(retval);
+		}
+	}
+}
+
+/* }}} */
+#endif
+
 /* }}} */
 
 /************************* EXTENSION FUNCTIONS *************************/
 
-/* {{{ proto int xml_parser_create(void) 
+/* {{{ proto int xml_parser_create([string encoding]) 
    Create an XML parser */
 PHP_FUNCTION(xml_parser_create)
 {
@@ -1028,6 +1103,67 @@ PHP_FUNCTION(xml_parser_create)
 }
 /* }}} */
 
+#ifdef HAVE_LIBEXPAT2
+/* {{{ proto int xml_parser_create_ns([string encoding][, string sep]) 
+   Create an XML parser */
+PHP_FUNCTION(xml_parser_create_ns)
+{
+	xml_parser *parser;
+	int argc;
+	zval **encodingArg, **sepArg;
+	XML_Char *encoding, *sep;
+	char thisfunc[] = "xml_parser_create";
+	XMLLS_FETCH();
+	
+	argc = ZEND_NUM_ARGS();
+
+	if (argc > 2 || zend_get_parameters_ex(argc, &encodingArg, &sepArg) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
+
+	if (argc >= 1) {
+		convert_to_string_ex(encodingArg);
+		/* The supported encoding types are hardcoded here because
+		 * we are limited to the encodings supported by expat/xmltok.
+		 */
+		if (strncasecmp((*encodingArg)->value.str.val, "ISO-8859-1",
+						(*encodingArg)->value.str.len) == 0) {
+			encoding = "ISO-8859-1";
+		} else if (strncasecmp((*encodingArg)->value.str.val, "UTF-8",
+						(*encodingArg)->value.str.len) == 0) {
+			encoding = "UTF-8";
+		} else if (strncasecmp((*encodingArg)->value.str.val, "US-ASCII",
+						(*encodingArg)->value.str.len) == 0) {
+			encoding = "US-ASCII";
+		} else { /* UTF-16 not supported */
+			php_error(E_WARNING, "%s: unsupported source encoding \"%s\"",
+					   thisfunc, (*encodingArg)->value.str.val);
+			RETURN_FALSE;
+		}
+	} else {
+		encoding = XML(default_encoding);
+	}
+
+	if (argc == 2){
+		convert_to_string_ex(sepArg);
+		sep = (*sepArg)->value.str.val;
+	} else {
+		sep = ":";
+	}
+
+	parser = ecalloc(sizeof(xml_parser), 1);
+	parser->parser = XML_ParserCreateNS(encoding, sep[0]);
+	parser->target_encoding = encoding;
+	parser->case_folding = 1;
+	parser->object = NULL;
+	XML_SetUserData(parser->parser, parser);
+
+	ZEND_REGISTER_RESOURCE(return_value,parser,le_xml_parser);
+	parser->index = return_value->value.lval;
+}
+/* }}} */
+#endif
+
 /* {{{ proto int xml_set_object(int pind, object &obj) 
    Set up object which should be used for callbacks */
 PHP_FUNCTION(xml_set_object)
@@ -1045,19 +1181,19 @@ PHP_FUNCTION(xml_set_object)
 		RETURN_FALSE;
 	}
 
-	if (! ParameterPassedByReference(ht,2)) {
-		php_error(E_WARNING,"arg 2 not passed by reference");
-		RETURN_FALSE;
-	}
-
 	ZEND_FETCH_RESOURCE(parser,xml_parser *,pind, -1, "XML Parser", le_xml_parser);
 
-	if (parser->object) {
-		zval_del_ref(&parser->object);
+	/* please leave this commented - or ask thies@thieso.net before doing it (again) 
+    if (parser->object) {
+		zval_ptr_dtor(&parser->object);
 	}
+	*/
 	
 	parser->object = *mythis;
-	zval_add_ref(&parser->object);
+
+	/* please leave this commented - or ask thies@thieso.net before doing it (again) 
+	zval_add_ref(&parser->object); 
+	*/
 
 	RETVAL_TRUE;
 }
@@ -1195,6 +1331,47 @@ PHP_FUNCTION(xml_set_external_entity_ref_handler)
 }
 /* }}} */
 
+#ifdef HAVE_LIBEXPAT2
+
+/* {{{ proto int xml_set_start_namespace_decl_handler(int pind, string hdl) 
+   Set up character data handler */
+PHP_FUNCTION(xml_set_start_namespace_decl_handler)
+{
+	xml_parser *parser;
+	zval **pind, **hdl;
+
+	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2, &pind, &hdl) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
+
+	ZEND_FETCH_RESOURCE(parser,xml_parser *, pind, -1, "XML Parser", le_xml_parser);
+
+	xml_set_handler(&parser->startNamespaceDeclHandler, hdl);
+	XML_SetStartNamespaceDeclHandler(parser->parser, _xml_startNamespaceDeclHandler);
+	RETVAL_TRUE;
+}
+/* }}} */
+
+/* {{{ proto int xml_set_end_namespace_decl_handler(int pind, string hdl) 
+   Set up character data handler */
+PHP_FUNCTION(xml_set_end_namespace_decl_handler)
+{
+	xml_parser *parser;
+	zval **pind, **hdl;
+
+	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2, &pind, &hdl) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
+
+	ZEND_FETCH_RESOURCE(parser,xml_parser *, pind, -1, "XML Parser", le_xml_parser);
+
+	xml_set_handler(&parser->endNamespaceDeclHandler, hdl);
+	XML_SetEndNamespaceDeclHandler(parser->parser, _xml_endNamespaceDeclHandler);
+	RETVAL_TRUE;
+}
+/* }}} */
+#endif
+
 /* {{{ proto int xml_parse(int pind, string data [, int isFinal]) 
    Start parsing an XML document */
 PHP_FUNCTION(xml_parse)
@@ -1234,19 +1411,10 @@ PHP_FUNCTION(xml_parse_into_struct)
 
 	argc = ZEND_NUM_ARGS();
 	if (zend_get_parameters_ex(4, &pind, &data, &xdata,&info) == SUCCESS) {
-		if (!ParameterPassedByReference(ht, 4)) {
-			php_error(E_WARNING, "Array to be filled with values must be passed by reference.");
-            RETURN_FALSE;
-		}
 		zval_dtor(*info);
 		array_init(*info);
 	} else if (zend_get_parameters_ex(3, &pind, &data, &xdata) == FAILURE) {
 		WRONG_PARAM_COUNT;
-	}
-
-	if (!ParameterPassedByReference(ht, 3)) {
-		php_error(E_WARNING, "Array to be filled with values must be passed by reference.");
-		RETURN_FALSE;
 	}
 
 	ZEND_FETCH_RESOURCE(parser,xml_parser *, pind, -1, "XML Parser", le_xml_parser);

@@ -19,7 +19,7 @@ TOOLS = badsect.tproj clri.tproj dev_mkdb.tproj dump.tproj\
         mount_fdesc.tproj mount_hfs.tproj mount_nfs.tproj\
         mount_udf.tproj newfs.tproj newfs_hfs.tproj newfs_msdos.tproj\
         pdisk.tproj quot.tproj quota.tproj quotacheck.tproj\
-        quotaon.tproj repquota.tproj showmount.tproj tunefs.tproj\
+        quotaon.tproj repquota.tproj restore.tproj showmount.tproj tunefs.tproj\
         umount.tproj udf.tproj ufs.tproj vsdbutil.tproj\
         mount_synthfs.tproj
 

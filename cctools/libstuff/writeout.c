@@ -38,6 +38,8 @@ static void copy_new_symbol_info(
     unsigned long *size,
     struct dysymtab_command *dyst,
     struct dysymtab_command *old_dyst,
+    struct twolevel_hints_command *hints_cmd,
+    struct twolevel_hints_command *old_hints_cmd,
     struct object *object);
 
 static void make_table_of_contents(
@@ -50,7 +52,8 @@ static void make_table_of_contents(
 
 static enum bool toc_symbol(
     struct nlist *symbol,
-    enum bool commons_in_toc);
+    enum bool commons_in_toc,
+    struct section **sections);
 
 static int ranlib_name_qsort(
     const struct ranlib *ran1,
@@ -103,6 +106,7 @@ enum bool library_warnings)
     time_t timep[2];
 #endif
     struct dysymtab_command dyst;
+    struct twolevel_hints_command hints_cmd;
     unsigned long mh_flags;
     struct load_command *lc;
     struct dylib_command *dl;
@@ -316,6 +320,8 @@ enum bool library_warnings)
 			memset(&dyst, '\0', sizeof(struct dysymtab_command));
 			if(archs[i].members[j].object->dyst != NULL)
 			    dyst = *(archs[i].members[j].object->dyst);
+			if(archs[i].members[j].object->hints_cmd != NULL)
+			   hints_cmd = *(archs[i].members[j].object->hints_cmd);
 			mh_flags = archs[i].members[j].object->mh->flags;
 			if(archs[i].members[j].object->object_byte_sex !=
 								host_byte_sex){
@@ -346,22 +352,9 @@ enum bool library_warnings)
 			    memcpy(p, archs[i].members[j].object->object_addr,
 				   size);
 			    copy_new_symbol_info(p, &size, &dyst,
-				archs[i].members[j].object->dyst,
+				archs[i].members[j].object->dyst, &hints_cmd,
+				archs[i].members[j].object->hints_cmd,
 				archs[i].members[j].object);
-#if 0
-			    memcpy(p + size, archs[i].members[j].object->
-				   output_symbols,
-				   archs[i].members[j].object->output_nsymbols *
-				   sizeof(struct nlist));
-			    size += archs[i].members[j].object->output_nsymbols
-				    * sizeof(struct nlist);
-			    memcpy(p + size, archs[i].members[j].object->
-								output_strings,
-				   archs[i].members[j].object->
-							output_strings_size);
-			    size += archs[i].members[j].object->
-							output_strings_size;
-#endif
 			}
 			p += size;
 			pad = round(size, sizeof(long)) - size;
@@ -383,6 +376,8 @@ enum bool library_warnings)
 		memset(&dyst, '\0', sizeof(struct dysymtab_command));
 		if(archs[i].object->dyst != NULL)
 		    dyst = *(archs[i].object->dyst);
+		if(archs[i].object->hints_cmd != NULL)
+		    hints_cmd = *(archs[i].object->hints_cmd);
 		mh_flags = archs[i].object->mh->flags;
 		if(archs[i].object->mh->filetype == MH_DYLIB){
 		    lc = archs[i].object->load_commands;
@@ -413,18 +408,10 @@ enum bool library_warnings)
 		    size = archs[i].object->object_size
 			   - archs[i].object->input_sym_info_size;
 		    memcpy(p, archs[i].object->object_addr, size);
-		    copy_new_symbol_info(p, &size, &dyst, archs[i].object->dyst,
+		    copy_new_symbol_info(p, &size, &dyst,
+				archs[i].object->dyst, &hints_cmd,
+				archs[i].object->hints_cmd,
 				archs[i].object);
-#if 0
-		    memcpy(p + size, archs[i].object->output_symbols,
-			   archs[i].object->output_nsymbols *
-			   sizeof(struct nlist));
-		    size += archs[i].object->output_nsymbols *
-			    sizeof(struct nlist);
-		    memcpy(p + size, archs[i].object->output_strings,
-			   archs[i].object->output_strings_size);
-		    size += archs[i].object->output_strings_size;
-#endif
 		}
 	    }
 	    else{ /* archs[i].type == OFILE_UNKNOWN */
@@ -447,15 +434,15 @@ enum bool library_warnings)
 	(void)unlink(output);
 	if((fd = open(output, O_WRONLY | O_CREAT | O_TRUNC, mode)) == -1){
 	    system_error("can't create output file: %s", output);
-	    return;
+	    goto cleanup;
 	}
 	if(write(fd, file, file_size) != file_size){
 	    system_error("can't write output file: %s", output);
-	    return;
+	    goto cleanup;
 	}
 	if(close(fd) == -1){
 	    system_fatal("can't close output file: %s", output);
-	    return;
+	    goto cleanup;
 	}
 #ifndef __OPENSTEP__
 	timep.actime = toc_time - 5;
@@ -469,8 +456,9 @@ enum bool library_warnings)
 	{
 	    system_fatal("can't set the modifiy times in output file: %s",
 			 output);
-	    return;
+	    goto cleanup;
 	}
+cleanup:
 	if((r = vm_deallocate(mach_task_self(), (vm_address_t)file,
 			      file_size)) != KERN_SUCCESS){
 	    my_mach_error(r, "can't vm_deallocate() buffer for output file");
@@ -489,6 +477,8 @@ char *p,
 unsigned long *size,
 struct dysymtab_command *dyst,
 struct dysymtab_command *old_dyst,
+struct twolevel_hints_command *hints_cmd,
+struct twolevel_hints_command *old_hints_cmd,
 struct object *object)
 {
 	if(old_dyst != NULL){
@@ -500,6 +490,12 @@ struct object *object)
 		   object->output_nsymbols * sizeof(struct nlist));
 	    *size += object->output_nsymbols *
 		     sizeof(struct nlist);
+	    if(old_hints_cmd != NULL){
+		memcpy(p + *size, object->output_hints,
+		       hints_cmd->nhints * sizeof(struct twolevel_hint));
+		*size += hints_cmd->nhints *
+			 sizeof(struct twolevel_hint);
+	    }
 	    memcpy(p + *size, object->output_ext_relocs,
 		   dyst->nextrel * sizeof(struct relocation_info));
 	    *size += dyst->nextrel *
@@ -550,10 +546,11 @@ enum bool sort_toc,
 enum bool commons_in_toc,
 enum bool library_warnings)
 {
-    unsigned long i, j, r, s;
+    unsigned long i, j, k, r, s, nsects;
     struct member *member;
     struct object *object;
     struct load_command *lc;
+    struct segment_command *sg;
     struct nlist *symbols;
     unsigned long nsymbols;
     char *strings;
@@ -562,6 +559,7 @@ enum bool library_warnings)
     unsigned short toc_mode;
     int oumask, numask;
     char *ar_name;
+    struct section *section;
 
 	symbols = NULL; /* here to quite compiler maybe warning message */
 	strings = NULL; /* here to quite compiler maybe warning message */
@@ -575,6 +573,30 @@ enum bool library_warnings)
 	    if(member->type == OFILE_Mach_O){
 		object = member->object;
 		nsymbols = 0;
+		nsects = 0;
+		lc = object->load_commands;
+		for(j = 0; j < object->mh->ncmds; j++){
+		    if(lc->cmd == LC_SEGMENT){
+			sg = (struct segment_command *)lc;
+			nsects += sg->nsects;
+		    }
+		    lc = (struct load_command *)((char *)lc + lc->cmdsize);
+		}
+		object->sections = allocate(nsects *
+					    sizeof(struct section *));
+		nsects = 0;
+		lc = object->load_commands;
+		for(j = 0; j < object->mh->ncmds; j++){
+		    if(lc->cmd == LC_SEGMENT){
+			sg = (struct segment_command *)lc;
+			section = (struct section *)
+			    ((char *)sg + sizeof(struct segment_command));
+			for(k = 0; k < sg->nsects; k++){
+			    object->sections[nsects++] = section++;
+			}
+		    }
+		    lc = (struct load_command *)((char *)lc + lc->cmdsize);
+		}
 		if(object->output_sym_info_size == 0){
 		    lc = object->load_commands;
 		    for(j = 0; j < object->mh->ncmds; j++){
@@ -602,7 +624,8 @@ enum bool library_warnings)
 		    strings_size = object->output_strings_size;
 		}
 		for(j = 0; j < nsymbols; j++){
-		    if(toc_symbol(symbols + j, commons_in_toc) == TRUE){
+		    if(toc_symbol(symbols + j, commons_in_toc,
+		       object->sections) == TRUE){
 			arch->toc_nranlibs++;
 			arch->toc_strsize += strlen(strings +
 						    symbols[j].n_un.n_strx) + 1;
@@ -659,7 +682,8 @@ enum bool library_warnings)
 		for(j = 0; j < nsymbols; j++){
 		    if(symbols[j].n_un.n_strx > strings_size)
 			continue;
-		    if(toc_symbol(symbols + j, commons_in_toc) == TRUE){
+		    if(toc_symbol(symbols + j, commons_in_toc,
+		       object->sections) == TRUE){
 			strcpy(arch->toc_strings + s, 
 			       strings + symbols[j].n_un.n_strx);
 			arch->toc_ranlibs[r].ran_un.ran_name =
@@ -780,7 +804,8 @@ static
 enum bool
 toc_symbol(
 struct nlist *symbol,
-enum bool commons_in_toc)
+enum bool commons_in_toc,
+struct section **sections)
 {
 	/* if the name is NULL then it won't be in the table of contents */
 	if(symbol->n_un.n_strx == 0)
@@ -794,6 +819,10 @@ enum bool commons_in_toc)
 	/* if symbol is common and the commons are not to be in the toc */
 	if((symbol->n_type & N_TYPE) == N_UNDF && symbol->n_value != 0 &&
 	   commons_in_toc == FALSE)
+	    return(FALSE);
+	/* if the symbol is in a section marked NO_TOC then ... */
+	if((symbol->n_type & N_TYPE) == N_SECT &&
+	   (sections[symbol->n_sect - 1]->flags & S_ATTR_NO_TOC) != 0)
 	    return(FALSE);
 
 	return(TRUE);
@@ -907,16 +936,14 @@ struct member *member,
 const char *format, ...)
 {
     va_list ap;
-    unsigned long i;
 
 	fprintf(stderr, "%s: ", progname);
 	if(arch->fat_arch != NULL)
 	    fprintf(stderr, "for architecture: %s ", arch->fat_arch_name);
 
 	if(member->input_ar_hdr != NULL){
-	    i = size_ar_name(member->input_ar_hdr);
-	    fprintf(stderr, "file: %s(%.*s) ", member->input_file_name, (int)i,
-		    member->input_ar_hdr->ar_name);
+	    fprintf(stderr, "file: %s(%.*s) ", member->input_file_name,
+		    (int)member->member_name_size, member->member_name);
 	}
 	else
 	    fprintf(stderr, "file: %s ", member->input_file_name);

@@ -1,0 +1,78 @@
+-- file: edex1.asn1
+--
+-- snacced example, structured types module
+--
+-- $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/tcl-example/edex1.asn1,v 1.1.1.1 2001/05/18 23:14:10 mb Exp $
+-- $Log: edex1.asn1,v $
+-- Revision 1.1.1.1  2001/05/18 23:14:10  mb
+-- Move from private repository to open source repository
+--
+-- Revision 1.1.1.1  1999/03/16 18:06:55  aram
+-- Originals from SMIME Free Library.
+--
+-- Revision 1.2  1997/02/28 13:39:56  wan
+-- Modifications collected for new version 1.3: Bug fixes, tk4.2.
+--
+-- Revision 1.1  1997/01/01 22:57:13  rj
+-- first check-in
+--
+
+EdEx-Structured DEFINITIONS ::=
+BEGIN
+
+IMPORTS RainbowColor, DayOfTheWeek, Hand FROM EdEx-Simple;
+
+RGBColor ::= SEQUENCE
+{
+  red INTEGER,
+  green INTEGER,
+  blue INTEGER
+}
+
+Coordinate ::= CHOICE
+{
+  cartesian [0] SEQUENCE { x REAL, y REAL },
+  polar [1] SEQUENCE { angle REAL, distance REAL }
+}
+
+File ::= SET
+{
+  name [0] PrintableString,
+  contents [1] OCTET STRING,
+  checksum [2] INTEGER OPTIONAL,
+  read-only [3] BOOLEAN DEFAULT FALSE
+}
+
+Directory ::= SET
+{
+  name PrintableString,
+  files SET OF File
+}
+
+Simple ::= SET
+{
+  null   [0] NULL,
+  boolv  [1] BOOLEAN,
+  day    [2] DayOfTheWeek,
+  intv   [3] INTEGER,
+  color  [4] RainbowColor,
+  real   [5] REAL,
+  bits   [6] Hand,
+  str    [7] OCTET STRING,
+  optstr [8] OCTET STRING OPTIONAL
+}
+
+Structured ::= SET
+{
+  coord [0] Coordinate,
+  color [1] CHOICE { rainbow RainbowColor, rgb RGBColor }
+}
+
+Various ::= SET
+{
+  simple [0] Simple,
+  struct [1] Structured,
+  recursion [2] Various OPTIONAL
+}
+
+END

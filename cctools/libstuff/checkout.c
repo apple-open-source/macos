@@ -87,6 +87,7 @@ struct object *object)
 	 */
 	object->st = NULL;
 	object->dyst = NULL;
+	object->hints_cmd = NULL;
 	object->seg_linkedit = NULL;
 	lc = object->load_commands;
 	for(i = 0; i < object->mh->ncmds; i++){
@@ -102,6 +103,12 @@ struct object *object)
 			"LC_DYSYMTAB load command): ");
 		object->dyst = (struct dysymtab_command *)lc;
 	    }
+	    else if(lc->cmd == LC_TWOLEVEL_HINTS){
+		if(object->hints_cmd != NULL)
+		    fatal_arch(arch, member, "malformed file (more than one "
+			"LC_TWOLEVEL_HINTS load command): ");
+		object->hints_cmd = (struct twolevel_hints_command *)lc;
+	    }
 	    else if(lc->cmd == LC_SEGMENT){
 		sg = (struct segment_command *)lc;
 		if(strcmp(sg->segname, SEG_LINKEDIT) == 0){
@@ -112,6 +119,16 @@ struct object *object)
 		}
 	    }
 	    lc = (struct load_command *)((char *)lc + lc->cmdsize);
+	}
+	if(object->hints_cmd != NULL){
+	    if(object->dyst == NULL && object->hints_cmd->nhints != 0)
+		fatal_arch(arch, member, "malformed file (LC_TWOLEVEL_HINTS "
+		"load command present without an LC_DYSYMTAB load command):");
+	    if(object->hints_cmd->nhints != 0 &&
+	       object->hints_cmd->nhints != object->dyst->nundefsym)
+		fatal_arch(arch, member, "malformed file (LC_TWOLEVEL_HINTS "
+		"load command's nhints does not match LC_DYSYMTAB load "
+		"command's nundefsym):");
 	}
 
 	/*
@@ -138,6 +155,7 @@ struct object *object)
 		 *		local symbols
 		 *		defined external symbols
 		 *		undefined symbols
+		 *	two-level namespace hints
 		 * 	external relocation entries
 		 *	table of contents
 		 * 	module table
@@ -211,7 +229,7 @@ struct arch *arch,
 struct member *member,
 struct object *object)
 {
-    unsigned long offset;
+    unsigned long offset, isym;
 
 	if(object->seg_linkedit == NULL)
 	    fatal_arch(arch, member, "malformed file (no " SEG_LINKEDIT
@@ -235,6 +253,28 @@ struct object *object)
 	    if(object->st->symoff != offset)
 		order_error(arch, member, "symbol table out of place");
 	    offset += object->st->nsyms * sizeof(struct nlist);
+	}
+	isym = 0;
+	if(object->dyst->nlocalsym != 0){
+	    if(object->dyst->ilocalsym != isym)
+		order_error(arch, member, "local symbols out of place");
+	    isym += object->dyst->nlocalsym;
+	}
+	if(object->dyst->nextdefsym != 0){
+	    if(object->dyst->iextdefsym != isym)
+		order_error(arch, member, "externally defined symbols out of "
+			    "place");
+	    isym += object->dyst->nextdefsym;
+	}
+	if(object->dyst->nundefsym != 0){
+	    if(object->dyst->iundefsym != isym)
+		order_error(arch, member, "undefined symbols out of place");
+	    isym += object->dyst->nundefsym;
+	}
+	if(object->hints_cmd != NULL && object->hints_cmd->nhints != 0){
+	    if(object->hints_cmd->offset != offset)
+		order_error(arch, member, "hints table out of place");
+	    offset += object->hints_cmd->nhints * sizeof(struct twolevel_hint);
 	}
 	if(object->dyst->nextrel != 0){
 	    if(object->dyst->extreloff != offset)

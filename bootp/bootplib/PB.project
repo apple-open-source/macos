@@ -5,7 +5,7 @@
     FILESTABLE = {
         CLASSES = (clientTypes.m, subnetDescr.m); 
         FRAMEWORKS = (); 
-        FRAMEWORKSEARCH = ("$(NEXT_ROOT)/System/Library/PrivateFrameworks"); 
+        FRAMEWORKSEARCH = (); 
         HEADERSEARCH = ("$(NEXT_ROOT)/System/Library/Frameworks/System.framework/PrivateHeaders/bsd"); 
         H_FILES = (
             afp.h, 
@@ -86,8 +86,7 @@
     LOCALIZABLE_FILES = {}; 
     MAKEFILEDIR = "$(MAKEFILEPATH)/pb_makefiles"; 
     NEXTSTEP_BUILDTOOL = /usr/bin/gnumake; 
-    NEXTSTEP_COMPILEROPTIONS = "-Wno-four-char-constants"; 
-    NEXTSTEP_INSTALLDIR = /usr/libexec; 
+    NEXTSTEP_INSTALLDIR = /usr/lib; 
     NEXTSTEP_JAVA_COMPILER = /usr/bin/javac; 
     NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc; 
     PDO_UNIX_BUILDTOOL = $NEXT_ROOT/Developer/bin/make; 

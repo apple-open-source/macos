@@ -20,46 +20,50 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * Modification History
+ *
+ * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * - public API conversion
+ *
+ * March 24, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
 #include "configd.h"
 #include "session.h"
 
-SCDStatus
-_SCDRemove(SCDSessionRef session, CFStringRef key)
+int
+__SCDynamicStoreRemoveValue(SCDynamicStoreRef store, CFStringRef key)
 {
-	SCDSessionPrivateRef	sessionPrivate = (SCDSessionPrivateRef)session;
-	SCDStatus		scd_status = SCD_OK;
-	boolean_t		wasLocked;
-	CFDictionaryRef		dict;
-	CFMutableDictionaryRef	newDict;
-	CFStringRef		sessionKey;
+	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
+	int				sc_status = kSCStatusOK;
+	CFDictionaryRef			dict;
+	CFMutableDictionaryRef		newDict;
+	CFStringRef			sessionKey;
 
-	SCDLog(LOG_DEBUG, CFSTR("_SCDRemove:"));
-	SCDLog(LOG_DEBUG, CFSTR("  key      = %@"), key);
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("__SCDynamicStoreRemoveValue:"));
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  key      = %@"), key);
 
-	if ((session == NULL) || (sessionPrivate->server == MACH_PORT_NULL)) {
-		return SCD_NOSESSION;		/* you can't do anything with a closed session */
+	if (!store || (storePrivate->server == MACH_PORT_NULL)) {
+		return kSCStatusNoStoreSession;	/* you must have an open session to play */
 	}
 
 	/*
-	 * 1. Determine if the cache lock is currently held  and acquire
-	 *    the lock if necessary.
+	 * 1. Ensure that we hold the lock.
 	 */
-	wasLocked = SCDOptionGet(NULL, kSCDOptionIsLocked);
-	if (!wasLocked) {
-		scd_status = _SCDLock(session);
-		if (scd_status != SCD_OK) {
-			SCDLog(LOG_DEBUG, CFSTR("  _SCDLock(): %s"), SCDError(scd_status));
-			return scd_status;
-		}
+	sc_status = __SCDynamicStoreLock(store, TRUE);
+	if (sc_status != kSCStatusOK) {
+		return sc_status;
 	}
 
 	/*
 	 * 2. Ensure that this key exists.
 	 */
-	dict = CFDictionaryGetValue(cacheData, key);
+	dict = CFDictionaryGetValue(storeData, key);
 	if ((dict == NULL) || (CFDictionaryContainsKey(dict, kSCDData) == FALSE)) {
 		/* key doesn't exist (or data never defined) */
-		scd_status = SCD_NOKEY;
+		sc_status = kSCStatusNoKey;
 		goto done;
 	}
 	newDict = CFDictionaryCreateMutableCopy(NULL, 0, dict);
@@ -96,27 +100,26 @@ _SCDRemove(SCDSessionRef session, CFStringRef key)
 
 	/*
 	 * 6. Remove data, remove instance, and update/remove
-	 *    the dictionary cache entry.
+	 *    the dictionary store entry.
 	 */
 	CFDictionaryRemoveValue(newDict, kSCDData);
 	CFDictionaryRemoveValue(newDict, kSCDInstance);
 	if (CFDictionaryGetCount(newDict) > 0) {
 		/* this key is still being "watched" */
-		CFDictionarySetValue(cacheData, key, newDict);
+		CFDictionarySetValue(storeData, key, newDict);
 	} else {
 		/* no information left, remove the empty dictionary */
-		CFDictionaryRemoveValue(cacheData, key);
+		CFDictionaryRemoveValue(storeData, key);
 	}
 	CFRelease(newDict);
 
 	/*
-	 * 7. Release the lock if we acquired it as part of this request.
+	 * 7. Release our lock.
 	 */
     done:
-	if (!wasLocked)
-		_SCDUnlock(session);
+	__SCDynamicStoreUnlock(store, TRUE);
 
-	return scd_status;
+	return sc_status;
 }
 
 
@@ -124,7 +127,7 @@ kern_return_t
 _configremove(mach_port_t		server,
 	      xmlData_t			keyRef,		/* raw XML bytes */
 	      mach_msg_type_number_t	keyLen,
-	      int			*scd_status
+	      int			*sc_status
 )
 {
 	kern_return_t		status;
@@ -133,14 +136,14 @@ _configremove(mach_port_t		server,
 	CFStringRef		key;		/* key  (un-serialized) */
 	CFStringRef		xmlError;
 
-	SCDLog(LOG_DEBUG, CFSTR("Remove key from configuration database."));
-	SCDLog(LOG_DEBUG, CFSTR("  server = %d"), server);
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("Remove key from configuration database."));
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  server = %d"), server);
 
 	/* un-serialize the key */
 	xmlKey = CFDataCreate(NULL, keyRef, keyLen);
 	status = vm_deallocate(mach_task_self(), (vm_address_t)keyRef, keyLen);
 	if (status != KERN_SUCCESS) {
-		SCDLog(LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
+		SCLog(_configd_verbose, LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
 		/* non-fatal???, proceed */
 	}
 	key = CFPropertyListCreateFromXMLData(NULL,
@@ -148,13 +151,21 @@ _configremove(mach_port_t		server,
 					      kCFPropertyListImmutable,
 					      &xmlError);
 	CFRelease(xmlKey);
-	if (xmlError) {
-		SCDLog(LOG_DEBUG, CFSTR("CFPropertyListCreateFromXMLData() key: %s"), xmlError);
-		*scd_status = SCD_FAILED;
+	if (!key) {
+		if (xmlError) {
+			SCLog(_configd_verbose, LOG_DEBUG,
+			       CFSTR("CFPropertyListCreateFromXMLData() key: %@"),
+			       xmlError);
+			CFRelease(xmlError);
+		}
+		*sc_status = kSCStatusFailed;
+		return KERN_SUCCESS;
+	} else if (!isA_CFString(key)) {
+		*sc_status = kSCStatusInvalidArgument;
 		return KERN_SUCCESS;
 	}
 
-	*scd_status = _SCDRemove(mySession->session, key);
+	*sc_status = __SCDynamicStoreRemoveValue(mySession->store, key);
 	CFRelease(key);
 
 	return KERN_SUCCESS;

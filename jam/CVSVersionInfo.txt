@@ -1,5 +1,0 @@
-# Created and modified by checkpoint; do not edit
-# $Id: CVSVersionInfo.txt,v 1.15 2001/01/17 00:56:23 anders Exp $
-# $Name: jam-52 $
-ProjectName: jam
-ProjectVersion: 52

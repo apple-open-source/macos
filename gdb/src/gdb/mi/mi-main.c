@@ -112,7 +112,26 @@ int mi_interpreter_prompt(void *data, char *new_prompt);
 extern void mi_print_frame_more_info (struct ui_out *uiout,
 				       struct symtab_and_line *sal,
 				       struct frame_info *fi);
+
+/* These are hooks that we put in place while doing interpreter_exec
+   so we can report interesting things that happened "behind the mi's 
+   back" in this command */
+
+extern void mi_interp_create_breakpoint_hook (struct breakpoint *bpt);
+extern void mi_interp_delete_breakpoint_hook (struct breakpoint *bpt);
+extern void mi_interp_modify_breakpoint_hook (struct breakpoint *bpt);
+extern int mi_interp_query_hook (const char *ctlstr, va_list ap);
+extern void mi_interp_stack_changed_hook (void);
+extern void mi_interp_frame_changed_hook (int new_frame_number);
+extern void mi_interp_context_hook (int thread_id);
+extern char * mi_interp_read_one_line_hook (char *prompt, int repeat, char *anno);
+extern void mi_interp_stepping_command_hook(void);
+extern void mi_interp_continue_command_hook(void);
+extern int mi_interp_run_command_hook(void);
 #endif
+
+void mi_insert_notify_hooks (void);
+void mi_remove_notify_hooks (void);
 
 /* Command implementations. FIXME: Is this libgdb? No.  This is the MI
    layer that calls libgdb.  Any operation used in the below should be
@@ -1077,6 +1096,46 @@ mi_cmd_data_write_memory (char *command, char **argv, int argc)
   return MI_CMD_DONE;
 }
 
+enum mi_cmd_result
+mi_cmd_mi_verify_command (char *command, char **argv, int argc)
+{
+  char 		*command_name = argv[0];
+  struct mi_cmd *cmd;
+  
+  if (argc != 1)
+    {
+      error ("mi_cmd_mi_verify_command: Usage: MI_COMMAND_NAME.");
+    }
+
+  cmd = mi_lookup (command_name);
+
+  ui_out_list_begin (uiout, "mi_verify_command");
+  ui_out_field_string (uiout, "name", command_name);
+  if (cmd != NULL) 
+    {
+       ui_out_field_string (uiout, "defined", "true");
+       ui_out_field_string (uiout, "implemented",
+            ((cmd->argv_func != NULL) || (cmd->args_func != NULL)) ? "true" : "false");
+    }
+  else 
+    {
+       ui_out_field_string (uiout, "defined", "false");
+    }
+  ui_out_list_end (uiout);
+  
+  return MI_CMD_DONE;
+}
+
+
+enum mi_cmd_result
+mi_cmd_mi_no_op (char *command, char **argv, int argc)
+{
+  /* how does one know when a bunch of MI commands have finished being processed?
+     just send a no-op as the last command and look for that...
+   */
+  return MI_CMD_DONE;
+}
+
 /* Execute a command within a safe environment.  Return >0 for
    ok. Return <0 for supress prompt.  Return 0 to have the error
    extracted from error_last_message(). */
@@ -1204,11 +1263,15 @@ mi_execute_command (char *cmd, int from_tty)
 	  char *msg = error_last_message ();
 	  struct cleanup *cleanup = make_cleanup (free, msg);
 	  /* The command execution failed and error() was called
-	     somewhere */
+	     somewhere. Try to dump the accumulated output from the command. */
+          ui_out_cleanup_after_error (mi_interp->interpreter_out);
 	  fputs_unfiltered (command->token, raw_stdout);
 	  fputs_unfiltered ("^error,msg=\"", raw_stdout);
 	  fputstr_unfiltered (msg, '"', raw_stdout);
-	  fputs_unfiltered ("\"\n", raw_stdout);
+	  fputs_unfiltered ("\"", raw_stdout);
+          mi_out_put (mi_interp->interpreter_out, raw_stdout);
+          mi_out_rewind (mi_interp->interpreter_out);
+	  fputs_unfiltered ("\n", raw_stdout);
 	}
       mi_parse_free (command);
     }
@@ -1390,12 +1453,21 @@ mi_exec_async_cli_cmd_continuation (struct continuation_arg *arg)
 {
   if (last_async_command)
     fputs_unfiltered (last_async_command, raw_stdout);
-  fputs_unfiltered ("*stopped", raw_stdout);
-  mi_out_put (uiout, raw_stdout);
-  fputs_unfiltered ("\n", raw_stdout);
-  fputs_unfiltered ("(gdb) \n", raw_stdout);
-  gdb_flush (raw_stdout);
-  do_exec_cleanups (ALL_CLEANUPS);
+
+  bpstat_do_actions (&stop_bpstat);
+  if (!target_executing)
+    {
+      fputs_unfiltered ("*stopped", raw_stdout);
+      mi_out_put (uiout, raw_stdout);
+      fputs_unfiltered ("\n", raw_stdout);
+      fputs_unfiltered ("(gdb) \n", raw_stdout);
+      gdb_flush (raw_stdout);
+      do_exec_cleanups (ALL_CLEANUPS);
+    }
+  else if (target_can_async_p ())
+    {
+      add_continuation (mi_exec_async_cli_cmd_continuation, NULL);
+    }
 }
 
 static char *
@@ -1510,10 +1582,10 @@ _initialize_mi_main (void)
   mi_interp = gdb_new_interpreter ("mi", NULL,  mi_out_new (), 
 				   mi_interpreter_init,
 				   mi_interpreter_resume,
-				   NULL,
+				   NULL /* do one event proc */,
 				   mi_interpreter_suspend,
 				   mi_interpreter_delete,
-				   NULL,
+				   NULL /* exec proc */,
 				   mi_interpreter_prompt);
   if (mi_interp == NULL)
     error ("Couldn't allocate a new interpreter for the mi interpreter\n");
@@ -1620,7 +1692,26 @@ mi_do_one_event (void *data)
 {
   return 1;
 }
-			    
+
+void
+mi_interpreter_exec_continuation (struct continuation_arg *arg)
+{
+  bpstat_do_actions (&stop_bpstat);
+  if (!target_executing) 
+    {
+      fputs_unfiltered ("*stopped", raw_stdout);
+      mi_out_put (uiout, raw_stdout);
+      fputs_unfiltered ("\n", raw_stdout);
+      fputs_unfiltered ("(gdb) \n", raw_stdout);
+      gdb_flush (raw_stdout);
+      do_exec_cleanups (ALL_CLEANUPS);
+    }
+  else if (target_can_async_p()) 
+    {
+      add_continuation (mi_interpreter_exec_continuation, NULL);
+    }
+}
+
 enum mi_cmd_result 
 mi_cmd_interpreter_exec (char *command, char **argv, int argc)
 {
@@ -1636,13 +1727,20 @@ mi_cmd_interpreter_exec (char *command, char **argv, int argc)
       return MI_CMD_ERROR;
     }
 
-  old_interp = gdb_lookup_interpreter ("current");
-
+  old_interp = gdb_current_interpreter ();
+  
   interp_to_use = gdb_lookup_interpreter (argv[0]);
   if (interp_to_use == NULL)
     {
       asprintf (&mi_error_message,
 		"Could not find interpreter \"%s\".", argv[0]);
+      return MI_CMD_ERROR;
+    }
+
+  if (!interp_to_use->exec_proc)
+    {
+      asprintf (&mi_error_message, "Interpreter \"%s\" does not support command execution.",
+		argv[0]);
       return MI_CMD_ERROR;
     }
 
@@ -1655,10 +1753,33 @@ mi_cmd_interpreter_exec (char *command, char **argv, int argc)
       return MI_CMD_ERROR;
     }
 
+  /* Insert the MI out hooks, making sure to also call the interpreter's hooks
+     if it has any. */
+
+  mi_insert_notify_hooks ();
+
   /* Now run the code... */
 
   for (i = 1; i < argc; i++) {
-    if (!safe_execute_command (argv[i], 0))
+    char *buff = NULL;
+    /* Do this in a cleaner way...  We want to force execution to be
+       asynchronous for commands that run the target.  */
+    if (target_can_async_p () && (strcmp (argv[0], "console") == 0))
+      {
+	int len = strlen (argv[i]);
+	buff = xmalloc (len + 2);
+	memcpy (buff, argv[i], len);
+	buff[len] = '&';
+	buff[len + 1] = '\0';
+      }
+    
+    /* We had to set sync_execution = 0 for the mi (well really for Project
+       Builder's use of the mi - particularly so interrupting would work.
+       But for console commands to work, we need to initialize it to 1 -
+       since that is what the cli expects - before running the command,
+       and then set it back to 0 when we are done. */
+    sync_execution = 1;
+    if (!interp_to_use->exec_proc (interp_to_use->data, argv[i]))
       {
 	asprintf (&mi_error_message,
 		  "mi_interpreter_execute: error in command: \"%s\".",
@@ -1667,12 +1788,28 @@ mi_cmd_interpreter_exec (char *command, char **argv, int argc)
 	result = MI_CMD_ERROR;
 	break;
       }
+    xfree (buff);
+    do_exec_error_cleanups (ALL_CLEANUPS);
+    sync_execution = 0;
+
   }
   
   /* Now do the switch... */
 
   gdb_set_interpreter (old_interp);
+  mi_remove_notify_hooks ();
   gdb_interpreter_set_quiet (interp_to_use, old_quiet);
+
+  /* Okay, now let's see if the command set the inferior going...
+     Tricky point - have to do this AFTER resetting the interpreter, since
+     changing the interpreter will clear out all the continuations for
+     that interpreter... */
+  
+  if (target_can_async_p () && target_executing)
+    {
+      fputs_unfiltered ("^running\n", raw_stdout);
+      add_continuation (mi_interpreter_exec_continuation, NULL);
+    }
 
   return result;
 }
@@ -1708,4 +1845,101 @@ mi_cmd_interpreter_set (char *command, char **argv, int argc)
   return MI_CMD_QUIET;
 }
 			    
+/*
+ * mi_insert_notify_hooks - This inserts a number of hooks that are meant to produce
+ * async-notify ("=") MI messages while running commands in another interpreter
+ * using mi_interpreter_exec.  The canonical use for this is to allow access to
+ * the gdb CLI interpreter from within the MI, while still producing MI style output
+ * when actions in the CLI command change gdb's state. 
+*/
 
+void
+mi_insert_notify_hooks (void)
+{
+
+  create_breakpoint_hook = mi_interp_create_breakpoint_hook;
+  delete_breakpoint_hook = mi_interp_delete_breakpoint_hook;
+  modify_breakpoint_hook = mi_interp_modify_breakpoint_hook;
+
+  frame_changed_hook = mi_interp_frame_changed_hook;
+  context_hook = mi_interp_context_hook;
+
+  /* command_line_input_hook = mi_interp_command_line_input; */
+  query_hook = mi_interp_query_hook;
+  command_line_input_hook = mi_interp_read_one_line_hook;
+
+  stepping_command_hook = mi_interp_stepping_command_hook;
+  continue_command_hook = mi_interp_continue_command_hook;
+  run_command_hook = mi_interp_run_command_hook;
+}
+
+void
+mi_remove_notify_hooks ()
+{
+  create_breakpoint_hook = NULL;
+  delete_breakpoint_hook = NULL;
+  modify_breakpoint_hook = NULL;
+
+  frame_changed_hook = NULL;
+  context_hook = NULL;
+
+  /* command_line_input_hook = NULL; */
+  query_hook = NULL;
+  command_line_input_hook = NULL;
+
+  stepping_command_hook = NULL;
+  continue_command_hook = NULL;
+  run_command_hook = NULL;
+
+}
+
+int 
+mi_interp_query_hook (const char * ctlstr, va_list ap)
+{
+  
+  return 1;
+}
+
+char *
+mi_interp_read_one_line_hook (char *prompt, int repeat, char *anno)
+{
+  static char buff[256];
+  
+  printf_unfiltered ("=read-one-line,prompt=\"%s\"\n", prompt);
+  gdb_flush (gdb_stdout);
+  
+  (void) fgets(buff, sizeof(buff), stdin);
+  buff[(strlen(buff) - 1)] = 0;
+  
+  return buff;
+  
+}
+
+static void
+output_control_change_notification(char *notification)
+{
+  printf_unfiltered ("^");
+  printf_unfiltered ("%s\n", notification);
+  gdb_flush (gdb_stdout);
+}
+
+void
+mi_interp_stepping_command_hook ()
+{
+  output_control_change_notification("stepping");
+}
+
+void
+mi_interp_continue_command_hook ()
+{
+  output_control_change_notification("continuing");
+}
+
+int
+mi_interp_run_command_hook ()
+{
+  /* request that the ide initiate a restart of the target */
+  printf_unfiltered ("=rerun\n");
+  gdb_flush (gdb_stdout);
+  return 0;
+}

@@ -593,7 +593,9 @@ unknown_flag:
 	/*
 	 * Call the initialization routines.
 	 */
+#ifdef OLD_PROJECTBUILDER_INTERFACE
 	check_for_ProjectBuilder();	/* messages.c */
+#endif /* OLD_PROJECTBUILDER_INTERFACE */
 	symbol_begin();			/* symbols.c */
 	sections_begin();		/* sections.c */
 	read_begin();			/* read.c */

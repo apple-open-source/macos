@@ -20,54 +20,64 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * Modification History
+ *
+ * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * - public API conversion
+ *
+ * March 31, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
 #include <unistd.h>
 
 #include "configd.h"
 #include "session.h"
 
 
-SCDStatus
-_SCDNotifierCancel(SCDSessionRef session)
+int
+__SCDynamicStoreNotifyCancel(SCDynamicStoreRef store)
 {
-	SCDSessionPrivateRef	sessionPrivate = (SCDSessionPrivateRef)session;
+	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
 
-	SCDLog(LOG_DEBUG, CFSTR("_SCDNotifierCancel:"));
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("__SCDynamicStoreNotifyCancel:"));
 
-	if (session == NULL) {
-		return SCD_NOSESSION;	/* you must have an open session to play */
+	if (!store) {
+		return kSCStatusNoStoreSession;	/* you must have an open session to play */
 	}
 
 	/*
 	 * cleanup any mach port based notifications.
 	 */
-	if (sessionPrivate->notifyPort != MACH_PORT_NULL) {
-		(void) mach_port_destroy(mach_task_self(), sessionPrivate->notifyPort);
-		sessionPrivate->notifyPort = MACH_PORT_NULL;
+	if (storePrivate->notifyPort != MACH_PORT_NULL) {
+		(void) mach_port_destroy(mach_task_self(), storePrivate->notifyPort);
+		storePrivate->notifyPort = MACH_PORT_NULL;
 	}
 
 	/*
 	 * cleanup any file based notifications.
 	 */
-	if (sessionPrivate->notifyFile >= 0) {
-		SCDLog(LOG_DEBUG, CFSTR("  closing (notification) fd %d"), sessionPrivate->notifyFile);
-		(void) close(sessionPrivate->notifyFile);
-		sessionPrivate->notifyFile = -1;
+	if (storePrivate->notifyFile >= 0) {
+		SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  closing (notification) fd %d"), storePrivate->notifyFile);
+		(void) close(storePrivate->notifyFile);
+		storePrivate->notifyFile = -1;
 	}
 
 	/*
 	 * cleanup any signal notifications.
 	 */
-	if (sessionPrivate->notifySignal > 0) {
-		(void) mach_port_destroy(mach_task_self(), sessionPrivate->notifySignalTask);
-		sessionPrivate->notifySignal     = 0;
-		sessionPrivate->notifySignalTask = TASK_NULL;
+	if (storePrivate->notifySignal > 0) {
+		(void) mach_port_destroy(mach_task_self(), storePrivate->notifySignalTask);
+		storePrivate->notifySignal     = 0;
+		storePrivate->notifySignalTask = TASK_NULL;
 	}
 
 	/* remove this session from the to-be-notified list */
 	if (needsNotification) {
 		CFNumberRef	num;
 
-		num = CFNumberCreate(NULL, kCFNumberIntType, &sessionPrivate->server);
+		num = CFNumberCreate(NULL, kCFNumberIntType, &storePrivate->server);
 		CFSetRemoveValue(needsNotification, num);
 		CFRelease(num);
 
@@ -78,24 +88,24 @@ _SCDNotifierCancel(SCDSessionRef session)
 	}
 
 	/* set notifier inactive */
-	sessionPrivate->notifyStatus = NotifierNotRegistered;
+	storePrivate->notifyStatus = NotifierNotRegistered;
 
-	return SCD_OK;
+	return kSCStatusOK;
 }
 
 
 kern_return_t
 _notifycancel(mach_port_t	server,
-	      int		*scd_status)
+	      int		*sc_status)
 {
 	serverSessionRef	mySession = getSession(server);
 
-	SCDLog(LOG_DEBUG, CFSTR("Cancel requested notifications."));
-	SCDLog(LOG_DEBUG, CFSTR("  server = %d"), server);
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("Cancel requested notifications."));
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  server = %d"), server);
 
-	*scd_status = _SCDNotifierCancel(mySession->session);
-	if (*scd_status != SCD_OK) {
-		SCDLog(LOG_DEBUG, CFSTR("  SCDNotifierCancel(): %s"), SCDError(*scd_status));
+	*sc_status = __SCDynamicStoreNotifyCancel(mySession->store);
+	if (*sc_status != kSCStatusOK) {
+		SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  __SCDynamicStoreNotifyCancel(): %s"), SCErrorString(*sc_status));
 	}
 
 	return KERN_SUCCESS;

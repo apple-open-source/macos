@@ -128,6 +128,8 @@ struct object_file *obj)
 		cmp_obj = &(object_list->object_files[i]);
 		if(cmp_obj->dylib == TRUE)
 		    continue;
+		if(cmp_obj->bundle_loader == TRUE)
+		    continue;
 		if(cmp_obj == obj)
 		    return(index);
 		index++;
@@ -242,6 +244,8 @@ print_whatsloaded(void)
 	    for(i = 0; i < object_list->used; i++){
 		obj = &(object_list->object_files[i]);
 		if(obj->dylib && obj->dylib_module == NULL)
+		    continue;
+		if(obj->bundle_loader)
 		    continue;
 		if(obj->dylinker)
 		    continue;
@@ -530,7 +534,9 @@ unsigned long input_offset)
 		index = fine_reloc->output_offset;
 	    }
 	    else if((map->s->flags & SECTION_TYPE) ==
-		     S_NON_LAZY_SYMBOL_POINTERS){
+		     S_NON_LAZY_SYMBOL_POINTERS ||
+	    	    (map->s->flags & SECTION_TYPE) ==
+		     S_LAZY_SYMBOL_POINTERS){
 		indirect_symtab = (unsigned long *)(cur_obj->obj_addr +
 					    cur_obj->dysymtab->indirectsymoff);
 		index = indirect_symtab[map->s->reserved1 + 
@@ -540,7 +546,8 @@ unsigned long input_offset)
 		fatal("internal error, fine_reloc_output_sectnum() called with "
 		      "an input_offset which maps to a fine_reloc where "
 		      "local_symbol is TRUE but it's not in a S_SYMBOL_STUBS, "
-		      "S_NON_LAZY_SYMBOL_POINTERS or S_COALESCED section");
+		      "S_NON_LAZY_SYMBOL_POINTERS, S_LAZY_SYMBOL_POINTERS or "
+		      "S_COALESCED section");
 		index = 0;
 	    }
 	    nlists = (struct nlist *)(cur_obj->obj_addr +

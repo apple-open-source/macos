@@ -50,8 +50,8 @@ struct file_handle
 	String *src;
 	String *link;
 	Server *server;
-        String *vfsType;
-        String *urlString;
+	String *vfsType;
+	String *urlString;
 	BOOL mounted;
 	BOOL mountPathCreated;
 	BOOL fake;

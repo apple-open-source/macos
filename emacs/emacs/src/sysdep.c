@@ -786,7 +786,12 @@ sys_subshell ()
   synch_process_alive = 1;
 #endif /* __DJGPP__ > 1 */
 #else  
+#ifndef PUMA_VFORK_ISSUES_CLEARED_UP
+  pid = fork ();
+#else
   pid = vfork ();
+#endif
+
   if (pid == -1)
     error ("Can't spawn subshell");
 #endif

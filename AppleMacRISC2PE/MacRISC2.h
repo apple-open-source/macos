@@ -51,8 +51,9 @@ private:
     IOService * usb2;
     IOService * keylargoUSB1;
     IOService * keylargoUSB2;
+    class IOPMPagingPlexus * plexus;
+    class IOPMSlotsMacRISC2 * slotsMacRISC2;
     IOLock * mutex;
-    bool kDoFrameBufferDeepSleep;
     
     virtual unsigned long readUniNReg(unsigned long offest);
     virtual void writeUniNReg(unsigned long offest, unsigned long data);
@@ -61,6 +62,7 @@ private:
     void enableUniNEthernetClock(bool enable);
     void enableUniNFireWireClock(bool enable);
     void enableUniNFireWireCablePower(bool enable);
+    IOReturn accessUniN15PerformanceRegister(bool write, long regNumber, unsigned long *data);
   
     void PMInstantiatePowerDomains ( void );
     void PMRegisterDevice(IOService * theNub, IOService * theDevice);
@@ -80,6 +82,7 @@ public:
 #define kUniNVersion               (0x0000)
 #define kUniNVersion107            (0x0003)
 #define kUniNVersion10A            (0x0007)
+#define kUniNVersion150            (0x0010)
 
 #define kUniNClockControl          (0x0020)
 #define kUniNFirewireClockEnable   (1 << 2)
@@ -101,5 +104,12 @@ public:
 #define kUniNHWInitStateSleeping   (0x01)
 #define kUniNHWInitStateRunning    (0x02)
 
+// Uni-N 1.5 Performance Monitoring Registers
+#define kUniNMMCR                  (0x0F00)
+#define kUniNMCMDR                 (0x0F10)
+#define kUniNMPMC1                 (0x0F20)
+#define kUniNMPMC2                 (0x0F30)
+#define kUniNMPMC3                 (0x0F40)
+#define kUniNMPMC4                 (0x0F50)
 
 #endif /* ! _IOKIT_MACRISC2_H */

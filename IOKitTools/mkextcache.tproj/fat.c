@@ -106,7 +106,7 @@ cpusubtype_findbestarch(
     int nfat_archs;
 
     nfat_archs = NXSwapBigLongToHost(fat->nfat_arch);
-    arch = (struct fat_arch *) (&fat[1]);
+    arch = (struct fat_arch *)((char *)fat + sizeof(struct fat_header));
     if ( (u_int8_t *) fat + size < (u_int8_t *)  &arch[nfat_archs])
         return NULL;
 
@@ -296,7 +296,8 @@ cpusubtype_findbestarch(
 foundArch:
     free(first_arch);
 
-    arch = (struct fat_arch *) (&fat[1]);
+    if (archi >= nfat_archs) return NULL;
+    arch = (struct fat_arch *)((char *)fat + sizeof(struct fat_header));
     return &arch[archi];
 }
 
@@ -335,9 +336,9 @@ find_arch(
     if (is_mh) {
         fakeHeader.hdr.magic = FAT_MAGIC;
         fakeHeader.hdr.nfat_arch = NXSwapHostLongToBig(1);
-        fakeHeader.arch.cputype = mach_hdr->cputype;
-        fakeHeader.arch.cpusubtype = mach_hdr->cpusubtype;
-        fakeHeader.arch.offset = 0;
+        fakeHeader.arch.cputype = NXSwapHostIntToBig(mach_hdr->cputype);
+        fakeHeader.arch.cpusubtype = NXSwapHostIntToBig(mach_hdr->cpusubtype);
+        fakeHeader.arch.offset = NXSwapHostIntToBig(0);
         fakeHeader.arch.size = NXSwapHostLongToBig((long) filesize);
         fat_hdr = &fakeHeader.hdr;
     }

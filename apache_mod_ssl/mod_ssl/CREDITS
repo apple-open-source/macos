@@ -39,9 +39,9 @@
 
     o Erik Aronesty         <erik@primedata.org>
     o Aspa                  <aspa@attoparsek.com>
+    o Marko Asplund         <aspa@kronodoc.fi>
     o Seb Bacon             <seb.bacon@razorfish.co.uk>
     o Jeff Baker            <jeff@godzilla.tamu.edu>
-    o Brian Havard          <brianh@kheldar.apana.org.au>
     o Bob Beck              <beck@bofh.ucs.ualberta.ca>
     o Brian Behlendorf      <brian@apache.org>
     o Kirk Benson           <Kirk.benson@brokat.com>
@@ -61,6 +61,7 @@
     o Brad Cox              <bcox@gmu.edu>
     o M.A.Zamora Cunningham <mzamora@cbbanorte.com.mx>
     o Thomas Devanneaux     <tdevanneaux@lehub.com>
+    o Martin Dickau         <mdickau@byallaccounts.com>
     o Brad Eacker           <beacker@misc.com>
     o Cristi Estan          <estan@ensim.com>
     o Axel Findling         <Axel.Findling@lrz-muenchen.de>
@@ -70,9 +71,11 @@
     o Lin Geng              <glin@suffolk.lib.ny.us>
     o Philip Gwyn           <gwynp@artware.qc.ca>
     o Rolf Haberrecker      <rolf@suse.de>
+    o Craig Huckabee        <huck@spawar.navy.mil>
     o John Hamlik           <johnh@solidtechnology.com>
     o Deborah A. Hansknecht <dahansk@sandia.gov>
     o David Harris          <dharris@drh.net>
+    o Brian Havard          <brianh@kheldar.apana.org.au>
     o Ernst Heiri           <heiri@switch.ch>
     o Dr Stephen N. Henson  <shenson@drh-consultancy.demon.co.uk>
     o Stefan H. Holek       <stefan@epy.co.at>
@@ -81,6 +84,7 @@
     o Tim J. Hudson         <tjh@cryptsoft.com>
     o Dominic J. Hulewicz   <dom@intanet.com>
     o Ryu Inada             <ryu@fujixerox.co.jp>
+    o Paul Ingendorf        <pingendorf@aivia.net>
     o Oscar Jacobsson       <oscar@medcom.se>
     o Marc Jadoul           <marcj@globalsign.net>
     o Mats Josefsson        <matjos@rsv.se>
@@ -117,8 +121,11 @@
     o Nigel Metheringham    <Nigel.Metheringham@theplanet.net>
     o Bodo Moeller          <3moeller@informatik.uni-hamburg.de>
     o Dmitry Morozovsky     <marck@rinet.ru>
+    o Balázs Nagy           <bn@thenewpush.com>
+    o Simona Nass           <syn@redhat.com>
     o Dennis Norgord        <dennis@norgord.com>
     o Yutaka OIWA           <oiwa@is.s.u-tokyo.ac.jp>
+    o Joe Orton             <jorton@redhat.com> 
     o Dave Paris            <dparis@w3works.com>
     o Patrick Price         <jprice@moment.net>
     o Peter Perkins         <peter@caliban.ucsd.edu>
@@ -130,6 +137,7 @@
     o Jouni Rajala          <slicer@blerp.pp.sci.fi>
     o Jon Rami              <jr@internetfriend.com>
     o David Rees            <drees@ebetinc.com>
+    o William A. Rowe, Jr.  <wrowe@rowe-clan.net>
     o Peter 'Luna' Runestig <peter@runestig.com>
     o Matthew J. Ryan       <mjr@exodus.net>
     o Rick Saltzman         <rick@aixia.net>
@@ -151,7 +159,6 @@
     o Daniel F. Sully       <dsully@nas.nasa.gov>
     o Toru Takinaka         <takinaka@cs.mpd.nec.co.jp>
     o Hakan Tandogan        <hakan@iconsult.com>
-    o Geoff Thorpe          <geoff@eu.c2.net>
     o Mads Toftum           <mads@toftum.dk>
     o Holger Trapp          <Holger.Trapp@Informatik.TU-Chemnitz.DE>
     o Aleksey Tsalolikhin   <atsaloli@guardiangeneral.com>

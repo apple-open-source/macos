@@ -6,6 +6,10 @@ HISTORY
      1998-10-30	Godfrey van der Linden(gvdl)
          Converted to C++
 */
+
+/* NOTE:  This file is expressly for use with HeaderDoc, for testing purposes.  It is not the current CFIOEventSource.h file! */
+
+
 /*! @language embedded-c++ */
 
 #ifndef _IOKIT_IOEVENTSOURCE_H
@@ -114,6 +118,14 @@ protected:
 
 /*! @var workLoop What is the work-loop for this event source. */
      IOWorkLoop *workLoop;
+
+/*!
+	@function getID
+	HeaderDoc test of multiline inline function definition.
+*/
+int getID() {
+    return id;
+}
 
 /*! @function init
      @abstract Primary initialiser for the IOEventSource class.

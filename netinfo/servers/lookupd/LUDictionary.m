@@ -213,6 +213,9 @@ typedef struct {
 	unsigned int top, bot, mid, range;
 	int comp, i;
 
+	if (key == NULL) return IndexNull;
+	if (key[0] == '\0') return IndexNull;
+
 	if (count == 0)
 	{
 		count++;
@@ -789,6 +792,50 @@ typedef struct {
 
 	age = now.tv_sec - ((_private_data *)_data)->access.tv_sec;
 	return age;
+}
+
+- (char *)description
+{
+	unsigned int i, j, len, slen;
+	char **p, *out;
+
+	slen = strlen(banner) + 8;
+
+	for (i = 0; i < count; i++)
+	{
+		slen += 2; /* () */
+		slen += strlen([self keyAtIndex:i]);
+		slen += 1; /* " " */
+		p = [self valuesAtIndex:i];
+		len = [self countAtIndex:i];
+		slen += len; /* " " */
+		for (j = 0; j < len; j++) slen += strlen(p[j]);
+		slen += 1; /* " " */
+	}
+
+	out = malloc(slen);
+	memset(out, 0, slen);
+	strcat(out, banner);
+	strcat(out, ": ");
+
+	for (i = 0; i < count; i++)
+	{
+		strcat(out, "(");
+		strcat(out, [self keyAtIndex:i]);
+		strcat(out, " ");
+
+		p = [self valuesAtIndex:i];
+		len = [self countAtIndex:i];
+		for (j = 0; j < len; j++)
+		{
+			strcat(out, p[j]);
+			if ((j + 1) < len) strcat(out, " ");
+		}
+		strcat(out, ")");
+		if ((i + 1) < count) strcat(out, " ");
+	}
+
+	return out;
 }
 
 - (void)print:(FILE *)f

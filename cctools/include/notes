@@ -1,3 +1,59 @@
+Changes for the 5.9 release (the cctools-384 release):
+- Removed the semicolon after the closing curly brace in the trailing endif
+  __cplusplus wrapper in <mach-o/dyld.h>.  Radar bug #2748160.
+
+Changes for the 5.9 release (the cctools-381 release):
+- Added the LC_REQ_DYLD constant to <mach-o/loader.h> as a bit in the load
+  command that must be understood by the dynamic linker for the image to
+  execute properly.
+
+Changes for the 5.9 release (the cctools-378 release):
+- Added the extern "C" stuff in #if __cplusplus wrappers for <mach-o/dyld.h> .
+  Radar bug #2728016.
+
+Changes for the 5.9 release (the cctools-370 release):
+- Added the MH_NOMULTIDEFS flag to <mach-o/loader.h> .
+- Added the hints_cmd and output_hints fields to the object structure in
+  <stuff/breakout.h> .
+
+Changes for the 5.9 release (the cctools-369 release):
+- Picked up the changes to <mach-o/arch.h> so that it has the extern "C" stuff
+  in #if __cplusplus wrappers.
+- Added kld_load_from_memory & kld_load_basefile_from_memory for the dynamic
+  build variant of libkld.  These APIs will be used by the Kernel's dynamic
+  OSObject patch code.  This change is in <mach-o/kld.h> .
+
+Changes for the 5.9 release (the cctools-367 release):
+- Added swap_sub_library_command to <mach-o/swap.c>.  Added
+  swap_sub_library_command() to <stuff/bytesex.h> .  Added the LC_SUB_LIBRARY
+  load command and the sub_library_command struct to <mach-o/loader.h> . 
+  Radar bug #2697458.
+- Added swap_twolevel_hint(), swap_twolevel_hints_command() and the missing
+  swap_routines_command() to <mach-o/swap.c>. Added
+  swap_twolevel_hints_command() and swap_twolevel_hint() to <stuff/bytesex.h> .
+  Added the LC_TWOLEVEL_HINTS load command and the twolevel_hint struct to
+  <mach-o/loader.h> .  Radar bug #2558069.
+
+Changes for the 5.9 release (the cctools-365 release):
+- Added NSAddImage(), NSLookupSymbolInImage() and NSIsSymbolNameDefinedInImage()
+  and their options to <mach-o/dyld.h>.  Also NSOtherErrorInvalidArgs in the
+  NSOtherErrorNumbers enum in <mach-o/dyld.h> was added.  Radar bug #2689833.
+
+Changes for the 5.9 release (the cctools-360 release):
+- Added the sections field to stuff/breakout.h for support of NO_TOC section
+  attribute.  See notes in libstuff about writeout().
+- Added the header file <mach-o/redo_prebinding.h> for the redo_prebinding(3)
+  API.  Radar bug #2604014.
+- Changed guess_short_name() to be __private_extern__ in
+  <stuff/guess_short_name.h> .
+
+Changes for the 5.9 release (the cctools-359 release):
+- Changed the comments about SELF_LIBRARY_ORDINAL in <mach-o/nlist.h> to
+  correctly reflect its usage.
+- Removed the comment /* not yet implemented */ before
+  NSDestroyObjectFileImage() in <mach-o/dyld.h> as this was fixed as part of
+  Radar bug #2500014.
+
 Changes for the 5.8 release (the cctools-357 release):
 - Added CPU_SUBTYPE_POWERPC_7450 to <mach/machine.h> Radar bug #2599869.
 

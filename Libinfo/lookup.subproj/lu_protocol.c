@@ -235,7 +235,10 @@ lu_getprotoent()
 			return (NULL);
 		}
 
+#ifdef NOTDEF 
+/* NOTDEF because OOL buffers are counted in bytes with untyped IPC */  
 		p_datalen *= BYTES_PER_XDR_UNIT;
+#endif
 		xdrmem_create(&p_xdr, p_data, p_datalen,
 			XDR_DECODE);
 		if (!xdr_int(&p_xdr, &p_nentries))

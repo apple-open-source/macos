@@ -2,7 +2,7 @@
     DYNAMIC_CODE_GEN = YES; 
     FILESTABLE = {
         CLASSES = (); 
-        FRAMEWORKS = (Foundation.framework); 
+        FRAMEWORKS = (); 
         H_FILES = (mount_volfs.h); 
         OTHER_LINKED = (mount_volfs.c); 
         OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble); 

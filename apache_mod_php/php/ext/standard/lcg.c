@@ -1,8 +1,8 @@
-/* 
+/*
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: lcg.c,v 1.1.1.2 2000/09/07 00:06:05 wsanchez Exp $ */
+/* $Id: lcg.c,v 1.1.1.3 2001/07/19 00:20:16 zarzycki Exp $ */
 
 #include "php.h"
 #include "php_lcg.h"
@@ -30,6 +30,8 @@ int lcg_globals_id;
 #else
 static php_lcg_globals lcg_globals;
 #endif
+
+static int php_lcg_initialized = 0;
 
 #ifdef PHP_WIN32
 #include <process.h>
@@ -71,15 +73,22 @@ static void lcg_init_globals(LCGLS_D)
 #endif
 }
 
+#ifdef ZTS
 PHP_MINIT_FUNCTION(lcg)
 {
-#ifdef ZTS
 	lcg_globals_id = ts_allocate_id(sizeof(php_lcg_globals), (ts_allocate_ctor) lcg_init_globals, NULL);
-#else
-	lcg_init_globals();
-#endif
 	return SUCCESS;
 }
+#else 
+PHP_RINIT_FUNCTION(lcg)
+{
+	if (!php_lcg_initialized) {
+		lcg_init_globals();
+		php_lcg_initialized = 1;
+	}
+	return SUCCESS;
+}
+#endif
 
 /* {{{ proto double lcg_value()
    Returns a value from the combined linear congruential generator */

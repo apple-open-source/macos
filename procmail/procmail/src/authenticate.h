@@ -1,4 +1,4 @@
-/*$Id: authenticate.h,v 1.1.1.1 1999/09/23 17:30:07 wsanchez Exp $*/
+/*$Id: authenticate.h,v 1.1.1.2 2001/07/20 19:38:14 bbraun Exp $*/
 
 /* Generic authentication interface, substitute a suitable module to
    accomodate arbitrary other authentication databases */
@@ -11,13 +11,13 @@ typedef struct auth_identity auth_identity;
 #endif
 
 /*const*/auth_identity
- *auth_finduser P((char*const user,const sock)),
- *auth_finduid Q((const uid_t uid,const sock));
+ *auth_finduser P((char*const user,const int sock)),
+ *auth_finduid Q((const uid_t uid,const int sock));
 auth_identity
  *auth_newid P((void));
 int
  auth_checkpassword P((const auth_identity*const pass,const char*const pw,
-  const allowemptypw)),
+  const int allowemptypw)),
  auth_filledid P((const auth_identity*pass));
 const char
  *auth_getsecret P((const auth_identity*const pass)),

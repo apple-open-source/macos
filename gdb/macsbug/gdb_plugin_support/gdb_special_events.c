@@ -156,7 +156,7 @@ static void my_set_hook(struct cmd_list_element *c)
     Gdb_Set_Type type;
     
     __my_set_hook_guts(c, &type, &value);
-    users_set_hook(c->name, type, value, 0);
+    users_set_hook(c->name, type, value, 0, input_from_terminal_p());
     
     if (saved_set_hook)
     	saved_set_hook(c);

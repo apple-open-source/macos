@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -14,37 +14,28 @@
    +----------------------------------------------------------------------+
    | Authors: Paul Panotzki - Bunyip Information Systems                  |
    |          Jim Winstead (jimw@php.net)                                 |
+   |          Wez Furlong                                                 |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: fsock.h,v 1.1.1.2 2000/09/07 00:06:04 wsanchez Exp $ */
+/* $Id: fsock.h,v 1.1.1.3 2001/07/19 00:20:14 zarzycki Exp $ */
 
 /* Synced with php 3.0 revision 1.24 1999-06-18 [ssb] */
 
 #ifndef FSOCK_H
 #define FSOCK_H
 
-#ifdef PHP_WIN32
-# ifndef WINNT
-#  define WINNT 1
-# endif
-# undef FD_SETSIZE
-# include "arpa/inet.h"
-# define socklen_t unsigned int
+#include "file.h"
+
+#define PHP_FSOCK_CHUNK_SIZE 8192
+
+#include "php_network.h"
+
+#if HAVE_PHP_STREAM
+extern php_stream_ops php_stream_socket_ops;
 #endif
 
-#ifdef HAVE_NETINET_IN_H
-# include <netinet/in.h>
-#endif
-
-#ifdef HAVE_SYS_SOCKET_H
-#include <sys/socket.h>
-#endif
-
-#ifdef HAVE_SYS_TIME_H
-#include <sys/time.h>
-#endif
-
+/* stream->abstract points to an instance of this */
 struct php_sockbuf {
 	int socket;
 	unsigned char *readbuf;
@@ -59,6 +50,9 @@ struct php_sockbuf {
 	size_t chunk_size;
 	struct timeval timeout;
 	char timeout_event;
+#if HAVE_PHP_STREAM
+	php_stream * stream;
+#endif
 };
 
 typedef struct php_sockbuf php_sockbuf;
@@ -66,47 +60,29 @@ typedef struct php_sockbuf php_sockbuf;
 PHP_FUNCTION(fsockopen);
 PHP_FUNCTION(pfsockopen);
 
-int lookup_hostname(const char *addr, struct in_addr *in);
-char *php_sock_fgets(char *buf, size_t maxlen, int socket);
-size_t php_sock_fread(char *buf, size_t maxlen, int socket);
-int php_sock_feof(int socket);
-int php_sock_fgetc(int socket);
-int php_is_persistent_sock(int);
-int php_sockset_blocking(int socket, int mode);
-void php_sockset_timeout(int socket, struct timeval *timeout);
-int php_sockdestroy(int socket);
-int php_sock_close(int socket);
-size_t php_sock_set_def_chunk_size(size_t size);
-void php_msock_destroy(int *data);
+PHPAPI int php_lookup_hostname(const char *addr, struct in_addr *in);
+PHPAPI char *php_sock_fgets(char *buf, size_t maxlen, int socket);
+PHPAPI size_t php_sock_fread(char *buf, size_t maxlen, int socket);
+PHPAPI int php_sock_feof(int socket);
+PHPAPI int php_sock_fgetc(int socket);
+PHPAPI int php_is_persistent_sock(int);
+PHPAPI int php_sockset_blocking(int socket, int mode);
+PHPAPI void php_sockset_timeout(int socket, struct timeval *timeout);
+PHPAPI int php_sockdestroy(int socket);
+PHPAPI int php_sock_close(int socket);
+PHPAPI size_t php_sock_set_def_chunk_size(size_t size);
+PHPAPI void php_msock_destroy(int *data);
+PHPAPI void php_cleanup_sockbuf(int persistent FLS_DC);
 
-PHPAPI int connect_nonb(int sockfd, struct sockaddr *addr, socklen_t addrlen, struct timeval *timeout);
 PHPAPI struct php_sockbuf *php_get_socket(int socket);
 
-PHP_MINIT_FUNCTION(fsock);
-PHP_MSHUTDOWN_FUNCTION(fsock);
 PHP_RSHUTDOWN_FUNCTION(fsock);
 
-typedef struct {
-	HashTable ht_fsock_keys;
-	HashTable ht_fsock_socks;
-	struct php_sockbuf *phpsockbuf;
-	size_t def_chunk_size;
-} php_fsock_globals;
-
-#ifdef ZTS
-#define FLS_D php_fsock_globals *fsock_globals
-#define FLS_DC , FLS_D
-#define FLS_C fsock_globals
-#define FLS_CC , FLS_C
-#define FG(v) (fsock_globals->v)
-#define FLS_FETCH() php_fsock_globals *fsock_globals = ts_resource(fsock_globals_id)
-#else
-#define FLS_D	void
-#define FLS_DC
-#define FLS_C
-#define FLS_CC
-#define FG(v) (fsock_globals.v)
-#define FLS_FETCH()
-#endif
-
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * End:
+ * vim: sw=4 ts=4 tw=78
+ */
 #endif /* FSOCK_H */

@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/sh.exp.c,v 1.1.1.1 1999/04/23 01:59:54 wsanchez Exp $ */
+/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/sh.exp.c,v 1.1.1.2 2001/06/28 23:10:51 bbraun Exp $ */
 /*
  * sh.exp.c: Expression evaluations
  */
@@ -36,7 +36,7 @@
  */
 #include "sh.h"
 
-RCSID("$Id: sh.exp.c,v 1.1.1.1 1999/04/23 01:59:54 wsanchez Exp $")
+RCSID("$Id: sh.exp.c,v 1.1.1.2 2001/06/28 23:10:51 bbraun Exp $")
 
 /*
  * C shell
@@ -183,7 +183,7 @@ sh_access(fname, mode)
 
 	if (n > 0) {
 	    groups = (GID_T *) xmalloc((size_t) (n * sizeof(GID_T)));
-	    n = getgroups(n, groups);
+	    n = getgroups((int) n, groups);
 	    while (--n >= 0)
 		if (groups[n] == statb.st_gid) {
 		    mode <<= 3;
@@ -742,18 +742,30 @@ filetest(cp, vp, ignore)
 
 #ifdef S_IFLNK
 	    if (tolower(*ft) == 'l') {
-		if (!lst && TCSH_LSTAT(short2str(ep), lst = &lstb) == -1) {
-		    xfree((ptr_t) ep);
-		    return (Strsave(errval));
+		/* 
+		 * avoid convex compiler bug.
+		 */
+		if (!lst) {
+		    lst = &lstb;
+		    if (TCSH_LSTAT(short2str(ep), lst) == -1) {
+			xfree((ptr_t) ep);
+			return (Strsave(errval));
+		    }
 		}
 		if (*ft == 'L')
 		    st = lst;
 	    }
 	    else 
 #endif /* S_IFLNK */
-		if (!st && TCSH_STAT(short2str(ep), st = &stb) == -1) {
-		    xfree((ptr_t) ep);
-		    return (Strsave(errval));
+		/* 
+		 * avoid convex compiler bug.
+		 */
+		if (!st) {
+		    st = &stb;
+		    if (TCSH_STAT(short2str(ep), st) == -1) {
+			xfree((ptr_t) ep);
+			return (Strsave(errval));
+		    }
 		}
 
 	    switch (*ft) {

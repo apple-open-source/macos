@@ -149,6 +149,10 @@ print_rtx (in_rtx)
 	if (i == 3 && GET_CODE (in_rtx) == NOTE
 	    && (NOTE_LINE_NUMBER (in_rtx) == NOTE_INSN_EH_REGION_BEG
 		|| NOTE_LINE_NUMBER (in_rtx) == NOTE_INSN_EH_REGION_END
+#ifdef NOTE_INSN_EH_CLEANUP_BEG
+		|| NOTE_LINE_NUMBER (in_rtx) == NOTE_INSN_EH_CLEANUP_BEG
+		|| NOTE_LINE_NUMBER (in_rtx) == NOTE_INSN_EH_CLEANUP_END
+#endif
 		|| NOTE_LINE_NUMBER (in_rtx) == NOTE_INSN_BLOCK_BEG
 		|| NOTE_LINE_NUMBER (in_rtx) == NOTE_INSN_BLOCK_END))
 	  {

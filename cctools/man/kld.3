@@ -1,20 +1,35 @@
-.TH KLD 3 "September 8, 2000" "Apple Computer, Inc."
+.TH KLD 3 "May 24, 2001" "Apple Computer, Inc."
 .SH NAME
-kld_load, kld_load_from_memory, kld_lookup, kld_forget_symbol, kld_unload_all, kld_load_basefile, kld_address_func \- programmatically link edit and load driver object files
+kld_load, kld_load_from_memory, kld_lookup, kld_forget_symbol, kld_unload_all,
+kld_load_basefile, kld_load_basefile_from_memory, kld_address_func
+\- programmatically link edit and load driver object files
 .SH SYNOPSIS
 .nf
 .PP
 #include <kld.h>
+.PP
 #ifdef __DYNAMIC__
 __private_extern__ long kld_load_basefile(
 	const char *base_filename);
-.sp .5
+.PP
+__private_extern__ long kld_load_basefile_from_memory(
+	const char *base_filename,
+	char *base_addr,
+	long base_size);
+.PP
 __private_extern__ long kld_load(
 	struct mach_header **header_addr,
 	const char *object_filename,
 	const char *output_filename);
+.PP
+__private_extern__ long kld_load_from_memory(
+	struct mach_header **header_addr,
+	const char *object_name,
+	char *object_addr,
+	long object_size,
+	const char *output_filename);
 #endif /* __DYNAMIC__ */
-.sp .5
+.PP
 #ifdef __STATIC__
 __private_extern__ long kld_load_from_memory(
 	struct mach_header **header_addr,
@@ -22,17 +37,17 @@ __private_extern__ long kld_load_from_memory(
 	char *object_addr,
 	long *object_size);
 #endif /* __STATIC__ */
-.sp .5
+.PP
 __private_extern__ long kld_lookup(
 	const char *symbol_name,
 	unsigned long *value);
-.sp .5
+.PP
 __private_extern__ long kld_forget_symbol(
 	const char *symbol_name);
-.sp .5
+.PP
 __private_extern__ long kld_unload_all(
 	long deallocate_sets);
-.sp.5
+.PP
 __private_extern__ void kld_address_func(
 	unsigned long (*func)(unsigned long size, unsigned long headers_size));
 .fi
@@ -64,18 +79,26 @@ which is the the name of the base file used for error messages.
 
 .PP
 For kmodload the
-.I kld_load_basefile
+.I kld_load_basefile,
+.I kld_load_basefile_from_memory,
+.I kld_load,
 and
-.I kld_load
+.I kld_load_from_memory
 APIs are provided in the library libkld.dylib compiled with the
 .B \-dynamic
 compiler flag.
 .PP
 .I kld_load
+or
+.I kld_load_from_memory
 link edits and loads the file specified by
 .I object_filename
-to the base file that was previous loaded with a call to
-.I kld_load_basefile.
+or memory pointed to by
+.I obj_addr
+respectively to the base file that was previous loaded with a call to
+.I kld_load_basefile
+or
+.I kld_load_basefile_from_memory.
 .PP
 If the program, in this case the kernel, is to allow the loaded
 object files to use symbols from itself, it must be built with the
@@ -218,7 +241,9 @@ The argument to
 specifies a base file, whose symbol table is taken as the
 basis for subsequent
 .I kld_load's.
-The base file may be a ``fat'' file, and
+.IR kld_load_basefile_from_memory
+is an alternate interface that allows mapped ``thin'' object image to be
+specified rather than a file.  The base file may be a ``fat'' file, and
 must contain an architecture that would execute on the host; 
 otherwise, it is an error.  
 If the file is a fat file, the ``best'' architecture (as defined by

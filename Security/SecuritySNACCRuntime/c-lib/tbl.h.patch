@@ -1,0 +1,23 @@
+*** tbl.h	Wed Feb  5 17:37:16 1997
+--- boot/tbl.h	Wed Jul 19 16:58:58 1995
+***************
+*** 82,87 ****
+--- 82,88 ----
+  {
+      TBLTypeDefId typeDef; /* TBLTypeDefId */
+      AsnBool implicit; /* BOOLEAN */
++     struct TBLTypeDef *typeDefPtr;  /* Added by MS to hold resolved index */
+  } TBLTypeRef;
+  
+  AsnLen BEncTBLTypeRefContent PROTO ((BUF_TYPE b, TBLTypeRef *v));
+***************
+*** 100,105 ****
+--- 101,108 ----
+  {
+      TBLTagClass tclass; /* TBLTagClass */
+      AsnInt code; /* INTEGER (0..MAX) */
++     BER_FORM form; /* added by MS to simplify enc/dec */
++     AsnTag encTag; /* added by MS to simplify enc/dec */
+  } TBLTag;
+  
+  AsnLen BEncTBLTagContent PROTO ((BUF_TYPE b, TBLTag *v));

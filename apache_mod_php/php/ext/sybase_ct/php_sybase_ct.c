@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,9 +17,13 @@
    +----------------------------------------------------------------------+
  */
  
-/* $Id: php_sybase_ct.c,v 1.1.1.3 2001/01/25 05:00:16 wsanchez Exp $ */
+/* $Id: php_sybase_ct.c,v 1.1.1.4 2001/07/19 00:20:27 zarzycki Exp $ */
 
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+ 
 #include "php.h"
 #include "php_sybase_ct.h"
 #include "ext/standard/php_standard.h"
@@ -39,6 +43,7 @@ function_entry sybase_functions[] = {
 	PHP_FE(sybase_select_db,			NULL)
 	PHP_FE(sybase_query,				NULL)
 	PHP_FE(sybase_free_result,			NULL)
+	PHP_FE(sybase_get_last_message,		NULL)
 	PHP_FE(sybase_num_rows,				NULL)
 	PHP_FE(sybase_num_fields,			NULL)
 	PHP_FE(sybase_fetch_row,			NULL)
@@ -46,6 +51,7 @@ function_entry sybase_functions[] = {
 	PHP_FE(sybase_fetch_object,			NULL)
 	PHP_FE(sybase_data_seek,			NULL)
 	PHP_FE(sybase_fetch_field,			NULL)
+	PHP_FE(sybase_field_seek,           NULL)
 	PHP_FE(sybase_result,				NULL)
 	PHP_FE(sybase_affected_rows,		NULL)
 	PHP_FE(sybase_min_client_severity,	NULL)
@@ -57,6 +63,7 @@ function_entry sybase_functions[] = {
 	PHP_FALIAS(mssql_select_db,			sybase_select_db,		NULL)
 	PHP_FALIAS(mssql_query,				sybase_query,			NULL)
 	PHP_FALIAS(mssql_free_result,		sybase_free_result,		NULL)
+	PHP_FALIAS(mssql_get_last_message,	sybase_get_last_message,NULL)
 	PHP_FALIAS(mssql_num_rows,			sybase_num_rows,		NULL)
 	PHP_FALIAS(mssql_num_fields,		sybase_num_fields,		NULL)
 	PHP_FALIAS(mssql_fetch_row,			sybase_fetch_row,		NULL)
@@ -64,6 +71,7 @@ function_entry sybase_functions[] = {
 	PHP_FALIAS(mssql_fetch_object,		sybase_fetch_object,	NULL)
 	PHP_FALIAS(mssql_data_seek,			sybase_data_seek,		NULL)
 	PHP_FALIAS(mssql_fetch_field,		sybase_fetch_field,		NULL)
+	PHP_FALIAS(mssql_field_seek,		sybase_field_seek,		NULL)
 	PHP_FALIAS(mssql_result,			sybase_result,			NULL)
 	PHP_FALIAS(mssql_affected_rows,		sybase_affected_rows,	NULL)
 	PHP_FALIAS(mssql_min_client_severity,	sybase_min_client_severity,	NULL)
@@ -194,13 +202,16 @@ static void _close_sybase_plink(zend_rsrc_list_entry *rsrc)
 }
 
 
-static CS_RETCODE _client_message_handler(CS_CONTEXT *context, CS_CONNECTION *connection, CS_CLIENTMSG *errmsg)
+static CS_RETCODE CS_PUBLIC _client_message_handler(CS_CONTEXT *context, CS_CONNECTION *connection, CS_CLIENTMSG *errmsg)
 {
 	SybCtLS_FETCH();
 
 	if (CS_SEVERITY(errmsg->msgnumber) >= SybCtG(min_client_severity)) {
 		php_error(E_WARNING, "Sybase:  Client message:  %s (severity %d)", errmsg->msgstring, CS_SEVERITY(errmsg->msgnumber));
 	}
+	STR_FREE(SybCtG(server_message));
+	SybCtG(server_message) = estrdup(errmsg->msgstring);
+
 
 	/* If this is a timeout message, return CS_FAIL to cancel the
 	 * operation and mark the connection as dead.
@@ -217,7 +228,7 @@ static CS_RETCODE _client_message_handler(CS_CONTEXT *context, CS_CONNECTION *co
 }
 
 
-static CS_RETCODE _server_message_handler(CS_CONTEXT *context, CS_CONNECTION *connection, CS_SERVERMSG *srvmsg)
+static CS_RETCODE CS_PUBLIC _server_message_handler(CS_CONTEXT *context, CS_CONNECTION *connection, CS_SERVERMSG *srvmsg)
 {
 	SybCtLS_FETCH();
 
@@ -225,6 +236,8 @@ static CS_RETCODE _server_message_handler(CS_CONTEXT *context, CS_CONNECTION *co
 		php_error(E_WARNING, "Sybase:  Server message:  %s (severity %d, procedure %s)",
 					srvmsg->text, srvmsg->severity, ((srvmsg->proclen>0) ? srvmsg->proc : "N/A"));
 	}
+	STR_FREE(SybCtG(server_message));
+	SybCtG(server_message) = estrdup(srvmsg->text);
 
 	/* If this is a deadlock message, set the connection's deadlock flag
 	 * so we will retry the request.  Sorry about the bare constant here,
@@ -338,7 +351,7 @@ PHP_RINIT_FUNCTION(sybase)
 	SybCtG(default_link)=-1;
 	SybCtG(num_links) = SybCtG(num_persistent);
 	SybCtG(appname) = estrndup("PHP 4.0", 7);
-	SybCtG(server_message) = NULL;
+	SybCtG(server_message) = empty_string;
 	return SUCCESS;
 }
 
@@ -360,9 +373,7 @@ PHP_RSHUTDOWN_FUNCTION(sybase)
 	SybCtLS_FETCH();
 
 	efree(SybCtG(appname));
-	if (SybCtG(server_message)) {
-		efree(SybCtG(server_message));
-	}
+	STR_FREE(SybCtG(server_message));
 	return SUCCESS;
 }
 
@@ -643,7 +654,7 @@ static int php_sybase_get_default_link(INTERNAL_FUNCTION_PARAMETERS)
 
 
 /* {{{ proto int sybase_connect([string host [, string user [, string password [, string charset]]]])
-    Open Sybase server connection */
+   Open Sybase server connection */
 PHP_FUNCTION(sybase_connect)
 {
 	php_sybase_do_connect(INTERNAL_FUNCTION_PARAM_PASSTHRU, 0);
@@ -652,7 +663,7 @@ PHP_FUNCTION(sybase_connect)
 /* }}} */
 
 /* {{{ proto int sybase_pconnect([string host [, string user [, string password [, string charset]]]])
-    Open persistent Sybase connection */
+   Open persistent Sybase connection */
 PHP_FUNCTION(sybase_pconnect)
 {
 	php_sybase_do_connect(INTERNAL_FUNCTION_PARAM_PASSTHRU, 1);
@@ -662,7 +673,7 @@ PHP_FUNCTION(sybase_pconnect)
 
 
 /* {{{ proto bool sybase_close([int link_id])
-    Close Sybase connection */
+   Close Sybase connection */
 PHP_FUNCTION(sybase_close)
 {
 	pval *sybase_link_index = 0;
@@ -780,7 +791,7 @@ static int exec_cmd(sybase_link *sybase_ptr, char *cmdbuf)
 
 
 /* {{{ proto bool sybase_select_db(string database [, int link_id])
-    Select Sybase database */
+   Select Sybase database */
 PHP_FUNCTION(sybase_select_db)
 {
 	pval *db,*sybase_link_index;
@@ -991,7 +1002,7 @@ static sybase_result * php_sybase_fetch_result_set (sybase_link *sybase_ptr)
 
 
 /* {{{ proto int sybase_query(string query [, int link_id])
-    Send Sybase query */
+   Send Sybase query */
 PHP_FUNCTION(sybase_query)
 {
 	pval **query, **sybase_link_index=NULL;
@@ -1203,7 +1214,7 @@ PHP_FUNCTION(sybase_query)
 /* }}} */
 
 /* {{{ proto bool sybase_free_result(int result)
-    Free result memory */
+   Free result memory */
 PHP_FUNCTION(sybase_free_result)
 {
 	pval *sybase_result_index;
@@ -1227,8 +1238,18 @@ PHP_FUNCTION(sybase_free_result)
 
 /* }}} */
 
+/* {{{ proto string sybase_get_last_message(void)
+   Returns the last message from server (over min_message_severity) */
+PHP_FUNCTION(sybase_get_last_message)
+{
+	SybCtLS_FETCH();
+	
+	RETURN_STRING(SybCtG(server_message),1);
+}
+/* }}} */
+
 /* {{{ proto int sybase_num_rows(int result)
-    Get number of rows in result */
+   Get number of rows in result */
 PHP_FUNCTION(sybase_num_rows)
 {
 	pval *sybase_result_index;
@@ -1248,7 +1269,7 @@ PHP_FUNCTION(sybase_num_rows)
 /* }}} */
 
 /* {{{ proto int sybase_num_fields(int result)
-    Get number of fields in result */
+   Get number of fields in result */
 PHP_FUNCTION(sybase_num_fields)
 {
 	pval *sybase_result_index;
@@ -1268,7 +1289,7 @@ PHP_FUNCTION(sybase_num_fields)
 /* }}} */
 
 /* {{{ proto array sybase_fetch_row(int result)
-    Get row as enumerated array */
+   Get row as enumerated array */
 PHP_FUNCTION(sybase_fetch_row)
 {
 	pval *sybase_result_index;
@@ -1341,7 +1362,7 @@ static void php_sybase_fetch_hash(INTERNAL_FUNCTION_PARAMETERS)
 
 
 /* {{{ proto object sybase_fetch_object(int result)
-    Fetch row as object */
+   Fetch row as object */
 PHP_FUNCTION(sybase_fetch_object)
 {
 	php_sybase_fetch_hash(INTERNAL_FUNCTION_PARAM_PASSTHRU);
@@ -1354,7 +1375,7 @@ PHP_FUNCTION(sybase_fetch_object)
 /* }}} */
 
 /* {{{ proto array sybase_fetch_array(int result)
-    Fetch row as array */
+   Fetch row as array */
 PHP_FUNCTION(sybase_fetch_array)
 {
 	php_sybase_fetch_hash(INTERNAL_FUNCTION_PARAM_PASSTHRU);
@@ -1362,7 +1383,7 @@ PHP_FUNCTION(sybase_fetch_array)
 /* }}} */
 
 /* {{{ proto bool sybase_data_seek(int result, int offset)
-    Move internal row pointer */
+   Move internal row pointer */
 PHP_FUNCTION(sybase_data_seek)
 {
 	pval *sybase_result_index,*offset;
@@ -1432,7 +1453,7 @@ static char *php_sybase_get_field_name(CS_INT type)
 
 
 /* {{{ proto object sybase_fetch_field(int result [, int offset])
-    Get field information */
+   Get field information */
 PHP_FUNCTION(sybase_fetch_field)
 {
 	pval *sybase_result_index,*offset;
@@ -1486,7 +1507,7 @@ PHP_FUNCTION(sybase_fetch_field)
 
 
 /* {{{ proto bool sybase_field_seek(int result, int offset)
-    Set field offset */
+   Set field offset */
 PHP_FUNCTION(sybase_field_seek)
 {
 	pval *sybase_result_index,*offset;
@@ -1515,7 +1536,7 @@ PHP_FUNCTION(sybase_field_seek)
 
 
 /* {{{ proto string sybase_result(int result, int row, mixed field)
-    Get result data */
+   Get result data */
 PHP_FUNCTION(sybase_result)
 {
 	pval *row, *field, *sybase_result_index;
@@ -1569,7 +1590,7 @@ PHP_FUNCTION(sybase_result)
 
 
 /* {{{ proto int sybase_affected_rows([int link_id])
-    Get number of affected rows in last query */
+   Get number of affected rows in last query */
 PHP_FUNCTION(sybase_affected_rows)
 {
 	pval *sybase_link_index;
@@ -1635,7 +1656,7 @@ PHP_FUNCTION(sybase_min_client_severity)
 
 
 /* {{{ proto void sybase_min_server_severity(int severity)
-    Sets minimum server severity */
+   Sets minimum server severity */
 PHP_FUNCTION(sybase_min_server_severity)
 {
 	pval *severity;

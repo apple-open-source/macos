@@ -1,6 +1,6 @@
 OTHER_SRCS = Makefile
 PRIVATE_NOTES = Private_CompilerTools.html FatFiles.rtf
-NOTES = CompilerTools.html
+NOTES = CompilerTools.html Prebinding.html
 INSTALL_FILES = $(OTHER_SRCS) $(NOTES) $(PRIVATE_NOTES)
 
 ifneq "" "$(wildcard /bin/mkdirs)"
@@ -44,6 +44,13 @@ shlib_clean:
 
 all:
 
+ifeq "macos" "$(RC_OS)"
+  WEBDIR = /Library/WebServer/Documents
+else
+  WEBDIR = /Local/Library/WebServer/Documents
+endif
+
 local_install:
-	cp Private_CompilerTools.html /Local/Library/WebServer/Documents
-	cp CompilerTools.html /Local/Library/WebServer/Documents
+	cp Private_CompilerTools.html $(WEBDIR)
+	cp CompilerTools.html $(WEBDIR)
+	cp Prebinding.html $(WEBDIR)

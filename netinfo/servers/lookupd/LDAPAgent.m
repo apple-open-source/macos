@@ -65,8 +65,6 @@ extern char *nettoa(unsigned long);
 /* function to rebind after referrals */
 static int do_rebind( LDAP *session, char **whop, char **credp, int *methodp, int freeit, void *arg);
 
-static LDAPAgent *_sharedLDAPAgent = nil;
-
 static inline char *stpcpy(char *dest, const char *src)
 {
 	while ((*dest++ = *src++) != '\0')
@@ -77,22 +75,13 @@ static inline char *stpcpy(char *dest, const char *src)
 
 @implementation LDAPAgent 
 
-+ alloc
++ (LDAPAgent *)alloc
 {
-	if (_sharedLDAPAgent != nil)
-	{
-		[_sharedLDAPAgent retain];
-		return _sharedLDAPAgent;
-	}
+	LDAPAgent *agent;
 
-	_sharedLDAPAgent = [super alloc];
-	_sharedLDAPAgent = [_sharedLDAPAgent init];
-	if (_sharedLDAPAgent == nil)
-		return nil;
-
-	system_log(LOG_DEBUG, "Allocated LDAPAgent 0x%08x\n", (int)_sharedLDAPAgent);
-
-	return _sharedLDAPAgent;
+	agent = [super alloc];
+	system_log(LOG_DEBUG, "Allocated LDAPAgent 0x%08x\n", (int)agent);
+	return agent;
 }
 
 - init
@@ -138,6 +127,11 @@ static inline char *stpcpy(char *dest, const char *src)
 	[self resetStatistics];
 
 	return self;
+}
+
+- (LUAgent *)initWithArg:(char *)arg
+{
+	return [self init];
 }
 
 - reInit
@@ -193,11 +187,10 @@ static inline char *stpcpy(char *dest, const char *src)
 	 * Ask the configManager for the configuration.
 	 */
 	
-	configuration = [configManager configGlobal];
+	configuration = [configManager configGlobal:configurationArray];
 	timelimit = [configManager intForKey:"Timeout" dict:configuration default:30];
-	[configuration release];
 
-	configuration = [configManager configForAgent:"LDAPAgent"];
+	configuration = [configManager configForAgent:"LDAPAgent" fromConfig:configurationArray];
 
 	/*
 	 * If the configManager doesn't return anything, look at the DNS
@@ -315,9 +308,9 @@ static inline char *stpcpy(char *dest, const char *src)
 	time_t age, fetchTime;
 	BOOL isValid;
 	
-	if (item == nil)
-		return NO;
-		
+	if (item == nil) return NO;
+	if ([self isStale]) return NO;
+	
 	fetchTime = [item unsignedLongForKey:"_lookup_LDAP_timestamp"];
 	ttl = [item unsignedLongForKey:"_lookup_LDAP_time_to_live"];
 	age = time(0) - fetchTime;
@@ -366,11 +359,6 @@ static inline char *stpcpy(char *dest, const char *src)
 	}
 	
 	return isValid;
-}
-
-- (const char *)serviceName
-{
-	return "Lightweight Directory Access Protocol";
 }
 
 - (const char *)shortName
@@ -462,8 +450,6 @@ static inline char *stpcpy(char *dest, const char *src)
 	system_log(LOG_DEBUG, "Deallocated LDAPAgent 0x%08x\n", (int)self);
 
 	[super dealloc];
-
-	_sharedLDAPAgent = nil;
 }
 
 - (int)openConnection
@@ -669,7 +655,7 @@ static inline char *stpcpy(char *dest, const char *src)
 	
 	for (i = 0; i < NCATEGORIES; i++)
 	{
-		config = [configManager configForAgent:"LDAPAgent" category:i];
+		config = [configManager configForAgent:"LDAPAgent" category:i fromConfig:configurationArray];
 		if (config != nil)
 		{
 			char *b;
@@ -717,7 +703,7 @@ static inline char *stpcpy(char *dest, const char *src)
 
 	globalAge = 0;
 	globalHasAge = NO;
-	config = [configManager configGlobal];
+	config = [configManager configGlobal:configurationArray];
 	if (config != nil)
 	{
 		if ([config valueForKey:CONFIG_KEY_LATENCY] != NULL)
@@ -967,73 +953,7 @@ static inline char *stpcpy(char *dest, const char *src)
 
 - (LUDictionary *)getDNSConfiguration
 {
-#ifdef HOSTSWITHSERVICE
-	/*
-	 * At the moment there is a substantial requirement that DNS
-	 * be running and maintained with information about LDAP
-	 * servers.
-	 */
-
-	LUDictionary *config;
-	DNSAgent *dnsAgent;
-	LUDictionary *srvRecords;
-	char *domain;
-	char **servers, **ports;
-	char **pServer, **pPort;
-	char *dn;
-
-	dnsAgent = [[DNSAgent alloc] init];
-
-	srvRecords = [dnsAgent hostsWithService:"_ldap" protocol:"_tcp"];
-	
-	domain = [srvRecords valueForKey:"_lookup_domain"];
-	servers = [srvRecords valuesForKey:"target"];
-	ports = [srvRecords valuesForKey:"port"];
-
-	if (domain == NULL || servers == NULL || ports == NULL)
-	{
-		[dnsAgent release];
-		[srvRecords release];
-		return nil;
-	}
-
-	dn = [self dnsDomainToDn:domain];
-	if (dn == NULL)
-	{
-		[dnsAgent release];
-		[srvRecords release];
-		return nil;
-	}
-	
-	config = [[LUDictionary alloc] init];
-	
-	pServer = servers;
-
-	for (pPort = ports; *pPort != NULL; pPort++)
-	{
-		char *hostport;
-		
-		hostport = copyString(*pServer);
-		hostport = concatString(hostport, ":");
-		hostport = concatString(hostport, *pPort);
-
-		[config mergeValue:hostport forKey:CONFIG_KEY_LDAPHOST];
-
-		freeString(hostport);
-
-		pServer++;
-	}
-
-	[config setValue:dn forKey:CONFIG_KEY_BASEDN];
-
-	[srvRecords release];
-	[dnsAgent release];
-	freeString(dn);
-
-	return config;
-#else
 	return nil;
-#endif
 }
 
 - (char *)dnsDomainToDn:(char *)domain
@@ -1100,146 +1020,6 @@ static inline char *stpcpy(char *dest, const char *src)
  * required attributes to be fetched on each LDAP search. This is the author's
  * preferred solution.
  */	
-
-- (LUArray *)allGroupsWithUser:(char *)name
-{
-	LUArray *allWithUser = nil;
-	LUDictionary *user;
-	char *filter, *v[2];
-	oid_name_t k[2];
-	LDAPMessage *res;
-	char *base;
-
-	/*
-	 * lookup the groups with the user
-	 */
-	k[0] = OID_MEMBERUID;
-	k[1] = NULL;
-
-	v[0] = name;
-	v[1] = NULL;
-
-	filter = [self filterWithClass:nisClasses[LUCategoryGroup]
-		attributes:k values:v];
-	base = [self searchBaseForCategory:LUCategoryGroup];
-
-	[self lock];
-	
-	res = [self search:base filter:filter attributes:nisAttributes[LUCategoryGroup] sizelimit:LDAP_NO_LIMIT];
-	allWithUser = [[LUArray alloc] initWithLDAPEntry:res agent:self category:LUCategoryGroup
-stamp:YES];
-			
-	free(filter);
-	[self unlock];
-
-	/*
-	 * lookup the user with the group. Do we really need to do this?
-	 * After all, initgroups() gets passed the base GID. But it's
-	 * not federated over multiple nameservices, so perhaps this is
-	 * a good thing.
-	 */
-	user = [self itemWithKey:"name" value:name category:LUCategoryUser];
-	if (user != nil)
-	{
-		char **vals = [user valuesForKey:"gid"];
-		if (vals != NULL)
-		{
-			LUDictionary *group;
-			int nvals = [user countForKey:"gid"];
-			
-			if (nvals < 0) nvals = 0;
-
-			group = [self itemWithAttribute:OID_GIDNUMBER value:vals[0]
-					category:LUCategoryGroup];
-
-			if (group != nil)
-			{
-				if (allWithUser == nil)
-				{
-					allWithUser = [[LUArray alloc] init];
-				}
-				
-				if ([allWithUser containsObject:group] == NO)
-				{
-					LUDictionary *vstamp;
-
-					/* copy over the validation data */
-					vstamp = [[LUDictionary alloc] init];
-					[vstamp setBanner:"LDAPAgent validation stamp"];
-					[vstamp setValue:"LDAP" forKey:"_lookup_info_system"];
-					[vstamp mergeKey:"_lookup_LDAP_timestamp" from:group];
-					[vstamp mergeKey:"_lookup_LDAP_time_to_live" from:group];
-					[vstamp mergeKey:"_lookup_LDAP_dn" from:group];
-					[vstamp mergeKey:"_lookup_LDAP_modify_timestamp" from:group];
-						
-					[allWithUser addValidationStamp:vstamp];
-					[vstamp release];
-					
-					[allWithUser addObject:group];
-				}
-				[group release];
-			}
-		}
-		[user release];
-	}
-
-	if (allWithUser != nil && [allWithUser count] == 0)
-	{
-		[allWithUser release];
-		allWithUser = nil;
-	}
-
-	return allWithUser;	
-}
-
-/*
- * Services
- */
-
-- (LUDictionary *)serviceWithName:(char *)name
-        protocol:(char *)prot
-{
-	LUDictionary *item;
-	oid_name_t k[3];
-	char *v[3];
-		
-	k[0] = OID_CN;
-	k[1] = (prot == NULL) ? NULL : OID_IPSERVICEPROTOCOL;
-	k[2] = NULL;
-	
-	v[0] = name;
-	v[1] = prot;
-	v[2] = NULL;
-	
-	item = [self itemWithAttributes:k values:v
-		category:LUCategoryService];
-
-	return item;
-}
-
-- (LUDictionary *)serviceWithNumber:(int *)number
-        protocol:(char *)prot
-{
-	LUDictionary *item;
-	char str[32];
-	oid_name_t k[3];
-	char *v[3];
-	
-	sprintf(str, "%d", *number);
-	
-	k[0] = OID_IPSERVICEPORT;
-	k[1] = (prot == NULL) ? NULL : OID_IPSERVICEPROTOCOL;
-	k[2] = NULL;
-	
-	v[0] = str;
-	v[1] = prot;
-	v[2] = NULL;
-	
-	item = [self itemWithAttributes:k values:v
-		category:LUCategoryService];
-	
-	return item;
-}
 
 - (BOOL)inNetgroup:(char *)group
         host:(char *)host

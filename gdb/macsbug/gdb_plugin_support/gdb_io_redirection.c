@@ -61,8 +61,8 @@ typedef struct gdb_file {		  /* Redirected output data:			*/
     
     GDB_FILE 	    *prev_stream;	  /* 	old stream prior to redirecting to this	*/
     
-    struct ui_file  *uifile;		  /* 	output controler			*/
-    struct ui_out   *uiout;		  /* 	command completion output		*/
+    struct ui_file  *uifile;		  /* 	output controller			*/
+    struct ui_out   *uiout;		  /* 	backpointer to the stream variable	*/
     
     FILE 	    	    *f;		  /*	stdout or stderr			*/
     gdb_output_filter_ftype filter;	  /*	output filter hook			*/
@@ -86,7 +86,30 @@ extern int ui_file_magic;
 #define CHECK_MAGIC(p, func)  if ((p)->magic_nbr != &magic) \
     			          internal_error(#func ": bad magic number for %s", \
 				  	          p->f == stderr ? "stderr" : "stdout")
-    			      
+
+/* List entries of unknown stream redirection values, i.e., corresponding to streams	*/
+/* that gdb_open_output() has not created.  An entry one this list contains all the 	*/
+/* critical settings needed to redirect gdb output.					*/
+
+typedef struct UnknownRedirection {	  /* Redirection data for unknown streams:	*/
+    struct UnknownRedirection *prev;	  /*	list entries are doubly linked		*/
+    struct UnknownRedirection *next;
+    
+    struct ui_file *stream;		  /*	redirection data is for this stream	*/
+    FILE	   *f;			  /* 	corresponds to stdout or stderr		*/
+    
+    struct ui_file *uiout;		  /*	associated redirection data...		*/
+    fprintf_ftype  *insn_printf;
+    struct ui_file *insn_stream;
+    void (*completion_hook)(char **, int, int);
+    int (*query_hook)(char *, va_list);
+    void (*rl_startup_hook)();
+    Command_line_input_hook command_line_input_hook;
+} UnknownRedirection;
+
+static UnknownRedirection *unknown_redirections      = NULL; /* head of unknowns list	*/
+static UnknownRedirection *unknown_redirections_tail = NULL; /* tail of unknowns list	*/
+	      
 #if DEBUG
 #define DEBUG1(func) fprintf(stdout, "\n--- " #func " ---\n");
 #define DEBUG2(func, s, len)						\
@@ -262,16 +285,91 @@ static void file_delete(struct ui_file *file)
 	    open_recovery_chain_tail = open_recovery_chain_tail->prev;
     }
     
-    free(output);
+    xfree(output);
 }
 
 /*--------------------------------------------------------------------------------------*/
+
+/*------------------------------------------------------------------*
+ | is_unknown_redirection - determine if a stream is one we created |
+ *------------------------------------------------------------------*
+
+ This routine is called by only by gdb_redirect_output() to determine whether the
+ stream to be redirected to is a known redirection stream (i.e., one that
+ gdb_open_output() defined) or is one that someone else outside of our control created.
+ This function returns NULL if it IS one of our streams and non-NULL (a pointer to a 
+ struct UnknownRedirection list entry) if it is not.
+ 
+ A list is of streams not defined by gdb_open_output() is built by gdb_open_output().
+ These are the streams that are in effect at the time gdb_open_output() is called.  It
+ saves that stream to allow gdb_close_output() to restore that stream.  It does so by
+ calling gdb_redirect_output() which is why this routine is called from there.
+ 
+ The UnknownRedirection list entries contain the redirection data that was in effect
+ at the time gdb_open_output() was called.  We "blindly" use it in gdb_redirect_output()
+ when we know we are not dealing with one of our own streams.  This appears to be safe
+ since all the redirection data we're setting is what we saved when we recorded the
+ list entry.
+*/
+ 
+static UnknownRedirection *is_unknown_redirection(struct ui_file *stream)
+{
+    UnknownRedirection *u = unknown_redirections_tail;
+    
+    while (u) {
+    	if (u->stream == stream)
+	    return (u);
+    	u = u->prev;
+    }
+    
+    return (NULL);
+}
+
+
+/*---------------------------------------------------------------------*
+ | is_known_redirection - determine if a stream is a known redirection |
+ *---------------------------------------------------------------------*
+ 
+ Streams created by gdb_open_output() are of course our own.  We record these streams on
+ a list for error recovery.  That list is also convenient to scan to see if it is one of
+ our own streams.  If it is the function returns the stream data (which has a back
+ pointer to the stream).  If it isn't, NULL is returned.
+ 
+ This function is used gdb_open_output() to see if the stream in effect at the time
+ gdb_open_output() is called is a stream previously created by gdb_open_output() or
+ someone else.  We need to save that stream to allow gdb_close_output() to restore it
+ when it is called.  But gdb_close_output() will restore it by calling 
+ gdb_redirect_output().  It, in turn, will need to know whether the stream is one of our
+ own or someone else's (to set the proper redirection values).  So gdb_redirect_output()
+ will call is_unknown_redirection() above to check that.  The list that
+ is_unknown_redirection() checks is built by gdb_open_output() when it knows that the
+ stream being saved is not one it previously created.  And it determines that by calling
+ is_known_redirection().
+ 
+ Note that is_known_redirection() is also called by gdb_redirect_output() when 
+ is_unknown_redirection() implies it is a known redirection.  It is done merely as an
+ assert/safety check.
+*/
+
+static gdb_file *is_known_redirection(struct ui_file *stream)
+{
+    gdb_file *output = open_recovery_chain_tail;
+    
+    while (output) {
+    	if (output->uifile == stream)
+    	    return (output);
+    	output = output->prev;
+    }
+    
+    return (NULL);
+}
+
 
 /*---------------------------------------------------------------*
  | gdb_open_output - create a new stdout or stderr output stream |
  *---------------------------------------------------------------*
  
- Creates a new output stream pointer for stdout or stderr (specified by f).   When the
+ Creates a new output stream pointer for stdout or stderr (specified by f).  When the
  output is redirected by calling gdb_redirect_output() all the stdout or stderr writes
  will be filtered by the specified filter with the following prototype:
  
@@ -315,8 +413,9 @@ static void file_delete(struct ui_file *file)
 
 GDB_FILE *gdb_open_output(FILE *f, gdb_output_filter_ftype filter, void *data)
 {
-    struct gdb_file *output;
-    struct ui_file  *ui_file;
+    struct gdb_file    *output;
+    struct ui_file     *ui_file;
+    UnknownRedirection *u;
      
     DEBUG1(output_file_new);
     
@@ -360,13 +459,46 @@ GDB_FILE *gdb_open_output(FILE *f, gdb_output_filter_ftype filter, void *data)
     output->next     	   = NULL;
     output->prev    	   = open_recovery_chain_tail;
     output->refCount	   = open_refCount;
- 
+    
+    /* See cleanup_output() for some info on why this open_recovery_chain is being	*/
+    /* maintained...									*/
+    
     if (open_recovery_chain_tail == NULL)
     	open_recovery_chain_head = open_recovery_chain_tail = output;
     else
     	open_recovery_chain_tail->next = output;
     open_recovery_chain_tail = output;
-        
+    
+    /* If the output->prev_stream is a stream we previously created then we are		*/
+    /* basically done.  If it's someone else's stream then we need to save all the 	*/
+    /* current redirection data so that gdb_redirect_output() can use it at the time	*/
+    /* gdb_close_output() asks gdb_redirect_output() to redirect back to it.		*/
+    
+    if (!is_known_redirection(output->prev_stream)) {	/* not known stream...		*/
+	u = xmalloc(sizeof(UnknownRedirection));	/* ...add to list of unknowns	*/
+	u->next   = NULL;
+	u->prev   = unknown_redirections_tail;
+	u->stream = output->prev_stream;
+	u->f	  = f;
+	
+	if (unknown_redirections_tail == NULL)
+	    unknown_redirections = unknown_redirections_tail = u;
+	else
+	    unknown_redirections_tail->next = u;
+	unknown_redirections_tail = u;
+	
+	u->uiout		   = uiout;
+	u->insn_printf	       	   = TARGET_PRINT_INSN_INFO->fprintf_func;
+	u->insn_stream	           = TARGET_PRINT_INSN_INFO->stream;
+	u->completion_hook	   = rl_completion_display_matches_hook;
+	u->query_hook	           = query_hook;
+	u->rl_startup_hook	   = rl_startup_hook;
+	u->command_line_input_hook = command_line_input_hook;
+    }
+    
+    //fprintf(stderr, "  gdb_open_output: ui_file = %X, data = %X, magic_nbr = %X, &magic = %X\n",
+    //				ui_file, output, output->magic_nbr, &magic);
+    
     return ((GDB_FILE *)ui_file);
 }
 
@@ -425,9 +557,10 @@ GDB_FILE *gdb_open_output(FILE *f, gdb_output_filter_ftype filter, void *data)
  
 GDB_FILE *gdb_redirect_output(GDB_FILE *stream)
 {
-    struct gdb_file *output;
-    GDB_FILE        *prev_file;
-    static int      firsttime = 1;
+    struct gdb_file    *output;
+    GDB_FILE           *prev_file;
+    UnknownRedirection *u;
+    static int         firsttime = 1;
     
     static fprintf_ftype  *default_gdb_insn_printf;
     static struct ui_file *default_gdb_insn_stream;
@@ -486,32 +619,95 @@ GDB_FILE *gdb_redirect_output(GDB_FILE *stream)
 	query_hook			     = __default_gdb_query_hook;
 	rl_startup_hook			     = default_rl_startup_hook;
 	command_line_input_hook		     = default_command_line_input_hook;
+	//fprintf(stderr, "  gdb_redirect_output0: stream == gdb_default_stdout\n");
     } else {
 	if (!stream)
     	    internal_error("attempt to redirect output to a undefined (NULL) stream");
-	output = ui_file_data((struct ui_file *)stream);
-	if (output->magic_nbr != &magic)
-	    internal_error("attempt to redirect to a stream with a bad magic number");
-	    	
-	if (output->f == stdout) {
-	    prev_file  = (GDB_FILE *)gdb_stdout;
-	    gdb_stdout = (struct ui_file *)stream;
-	} else {
-	    prev_file  = (GDB_FILE *)gdb_stderr;
-	    gdb_stderr = (struct ui_file *)stream;
-	}
 	
-	uiout 				     = output->uiout;
-	TARGET_PRINT_INSN_INFO->fprintf_func = (fprintf_ftype)my_disasm_fprintf;
-	TARGET_PRINT_INSN_INFO->stream       = (struct ui_file *)stream;
-	rl_completion_display_matches_hook   = __cmd_completion_display_hook;
-	query_hook			     = my_query_hook;
-	rl_startup_hook			     = my_rl_startup_hook;
+	/* If the stream being redirected to is one of ours then we can use the data	*/
+	/* that gdb_open_output() set up.  If it isn't one of ours we use the data we	*/
+	/* blindly saved at gdb_open_output() time on the "unknown" stream list.	*/
+	
+	if ((u = is_unknown_redirection(stream)) != NULL) {
+	    if (u->f == stdout) {
+		prev_file  = (GDB_FILE *)gdb_stdout;
+		gdb_stdout = (struct ui_file *)stream;
+	    } else {
+		prev_file  = (GDB_FILE *)gdb_stderr;
+		gdb_stderr = (struct ui_file *)stream;
+	    }
+	    
+	    uiout 				 = u->uiout;
+	    TARGET_PRINT_INSN_INFO->fprintf_func = u->insn_printf;
+	    TARGET_PRINT_INSN_INFO->stream       = u->insn_stream;
+	    rl_completion_display_matches_hook   = u->completion_hook;
+	    query_hook			     	 = u->query_hook;
+	    rl_startup_hook			 = u->rl_startup_hook;
+	    command_line_input_hook		 = u->command_line_input_hook;
+	    
+	    /* Once we use the data we never use it again...				*/
+	    
+	    if (u->next)
+		u->next->prev = u->prev;
+	    if (u->prev)
+		u->prev->next = u->next;
+	    if (u == unknown_redirections)
+		unknown_redirections = unknown_redirections->next;
+	    if (u == unknown_redirections_tail)
+		unknown_redirections_tail = unknown_redirections_tail->prev;
+	    xfree(u);
+	    //fprintf(stderr, "  gdb_redirect_output2: ui_file = %X, data = %X, magic_nbr = %X, &magic = %X\n",
+	    //			    stream, output, output->magic_nbr, &magic);
+	} else {
+	    if (!is_known_redirection(stream))
+	    	internal_error("attempt to redirect to a undefined stream");
+	    output = ui_file_data((struct ui_file *)stream);
+	    
+	    #if 0
+	    if (stream == gdb_default_stdout)
+		fprintf(stderr, "    gdb_default_stdout\n");
+	    else if (stream == gdb_default_stderr)
+		fprintf(stderr, "    gdb_default_stderr\n");
+	    fprintf(stderr, "  gdb_redirect_output1: ui_file = %X, data = %X, magic_nbr = %X, &magic = %X\n",
+				    stream, output, output->magic_nbr, &magic);
+	    #endif
+	    
+	    if (output->magic_nbr != &magic)
+		internal_error("attempt to redirect to a stream with a bad magic number");
+	    
+	    if (output->f == stdout) {
+		prev_file  = (GDB_FILE *)gdb_stdout;
+		gdb_stdout = (struct ui_file *)stream;
+	    } else {
+		prev_file  = (GDB_FILE *)gdb_stderr;
+		gdb_stderr = (struct ui_file *)stream;
+	    }
+	    
+	    uiout 				 = output->uiout;
+	    TARGET_PRINT_INSN_INFO->fprintf_func = (fprintf_ftype)my_disasm_fprintf;
+	    TARGET_PRINT_INSN_INFO->stream       = (struct ui_file *)stream;
+	    rl_completion_display_matches_hook   = __cmd_completion_display_hook;
+	    query_hook			     	 = my_query_hook;
+	    rl_startup_hook			 = my_rl_startup_hook;
+	    
+	    //fprintf(stderr, "  gdb_redirect_output3: ui_file = %X, data = %X, magic_nbr = %X, &magic = %X\n",
+	    //			    stream, output, output->magic_nbr, &magic);
+    	}
     }
     
     gdb_current_stdout = gdb_stdout;
     gdb_current_stderr = gdb_stderr;
-        
+    
+    #if 0
+    output = ui_file_data((struct ui_file *)prev_file);
+    fprintf(stderr, "  gdb_redirect_output4: ui_file = %X, data = %X, magic_nbr = %X, &magic = %X\n",
+    				prev_file, output, output->magic_nbr, &magic);
+    if (prev_file == gdb_default_stdout)
+    	fprintf(stderr, "    gdb_default_stdout\n");
+    else if (prev_file == gdb_default_stderr)
+    	fprintf(stderr, "    gdb_default_stderr\n");
+    #endif
+    
     return (prev_file);
 }
 
@@ -562,15 +758,28 @@ void gdb_close_output(GDB_FILE *stream)
 	(void)gdb_redirect_output(prev_default_stderr_stream);
     	return;
     }
-   
+    
     output = ui_file_data((struct ui_file *)stream);
     if (output->magic_nbr != &magic)
 	internal_error("attempt to close to a stream with a bad magic number");
-        
+
+    //fprintf(stderr, "  gdb_close_output1: ui_file = %X, data = %X, magic_nbr = %X, &magic = %X\n",
+    //				stream, output, output->magic_nbr, &magic);
+    
     gdb_fflush((struct ui_file *)stream);
     xfree(output->uiout);
     prev_stream = output->prev_stream;
     file_delete((struct ui_file *)stream);
+    
+    #if 0
+    output = ui_file_data((struct ui_file *)prev_stream);
+    fprintf(stderr, "  gdb_close_output2: ui_file = %X, data = %X, magic_nbr = %X, &magic = %X\n",
+    				prev_stream, output, output->magic_nbr, &magic);
+    if (prev_stream == gdb_default_stdout)
+    	fprintf(stderr, "    gdb_default_stdout\n");
+    else if (prev_stream == gdb_default_stderr)
+    	fprintf(stderr, "    gdb_default_stderr\n");
+    #endif
     
     (void)gdb_redirect_output(prev_stream);
 }

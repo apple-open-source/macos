@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd">
+<plist version="0.9">
+<dict>
+	<key>AppleAntiAliasingThreshold</key>
+	<integer>8</integer>
+        <key>AppleLanguages</key>
+        <array>
+                <string>English</string>
+                <string>German</string>
+                <string>French</string>
+                <string>Dutch</string>
+                <string>Italian</string>
+                <string>Japanese</string>
+                <string>Spanish</string>
+        </array>
+</dict>
+</plist>
+

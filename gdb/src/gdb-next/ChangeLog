@@ -1,3 +1,115 @@
+2001-08-06  James Ingham  <jingham@inghji.apple.com>
+
+	* ppc-frameinfo.c (safe_read_memory_unsigned_integer): The wrapped
+	function has to return a value, or bad things happen...
+	(ppc_frame_cache_properties): pass the function_end as the stop
+	for the parsing, not the pc.  This way we can correctly parse the
+	prologue & figure out where we are EVEN IF the pc is in the
+	prologue.
+
+2001-08-03  James Ingham  <jingham@inghji.apple.com>
+
+	* nextstep-nat-dyld-info.c (dyld_entry_info): Check for 
+	e->loaded_name not null before passing to strrchr.
+
+2001-08-02  James Ingham  <jingham@inghji.apple.com>
+
+	* nextstep-nat-dyld.c (_initialize_nextstep_nat_dyld): fix up doc strings.
+	(next_init_dyld): Add a missing check for the ofile being NULL.
+
+2001-07-31  James Ingham  <jingham@inghji.apple.com>
+
+	* nextstep-nat-dyld-process.c: The dyld code doesn't own the
+	objfile for the executable.  The generic gdb code keeps a pointer
+	to this through the symfile_objfile pointer.  So let the generic
+	code handle the lifetime of the executable objfile.
+
+2001-07-27  James Ingham  <jingham@inghji.apple.com>
+
+	* ppc-frameinfo.c (safe_read_memory_unsigned_integer): New
+	function, safe version of read_memory_unsigned_int.
+	(wrap_read_memory_unsigned_integer): This is the wrapper function.
+	(ppc_parse_instructions): catch errors from
+	read_memory_unsigned_integer, this gives us a much better chance
+	of cleaning up from cases where the pc is off in unreadable
+	memory.
+
+2001-06-21  Klee Dienes  <kdienes@localhost>
+
+	* nextstep-nat-dyld.c (section_info_helper): protect the CFM
+	section of the code with #if WITH_CFM .
+
+2001-06-14  James Ingham  <jingham@gdbrulez.apple.com>
+
+        * ppc-frameinfo.c (ppc_parse_instructions): properly sign extend
+	the instruction offset from the "bl" instruction - the old way
+	didn't work for CORE_ADDR = unsigned long long.
+	
+	* nextstep-nat-dyld-path.c (dyld_resolve_image): check for name
+	being null and don't crash.
+	* nextstep-nat-dyld-process.c (dyld_resolve_load_flag): Ditto...
+
+2001-06-07  James Ingham  <jingham@inghji.apple.com>
+
+	* ppc-frameinfo.c (ppc_frame_cache_properties): protect against
+	the case where we think the lr wasn't saved in a non-leaf
+	function.
+	* ppc-tdep.c (ppc_frame_find_pc): ditto.
+
+2001-05-18  James Ingham  <jingham@inghji.apple.com>
+
+	* ppc-frameinfo.c (ppc_parse_instructions): Add a fallback if we
+	don't recognize ANY valid prologue instructions.  In that case, we
+	are just guessing, but guess that the pc is stored on the stack,
+	since this is usually the case.
+
+2001-05-15  James Ingham  <jingham@inghji.apple.com>
+
+	* nextstep-nat-dyld-info.c (dyld_print_shlib_info): use dyld_entry_out to 
+	output the path, offset & slide in ui-out'ified form.
+	(dyld_entry_string): Use dyld_entry_info.
+	(dyld_entry_out): New function, format the path, offset & slide in ui-out.
+	(dyld_entry_info): Generic function, returns path, offset & slide in separate
+	fields, for use in dyld_entry_string & dyld_entry_out.
+
+2001-05-10  James Ingham  <jingham@inghji.apple.com>
+
+	* nextstep-nat-dyld.c (dyld_print_status_info): ui_out'ify the info 
+	messages so we don't spam the mi...
+
+	* nextstep-nat-dyld-info.c (dyld_print_shlib_info): ui_out'ify the
+	output from info sharedlibrary.
+
+2001-04-18  Jim Ingham  <jingham@localhost.apple.com>
+
+	* ppc-tdep.c (ppc_get_unsaved_pc): New function.  How to get the
+	frame's pc if it hasn't been saved in the frame.
+	(ppc_frame_find_pc): Reworked the logic to better handle cases
+	where the of the parent frame is in its prologue.
+	(ppc_frame_chain_valid): If the frame pointer is null, we are at
+	the end of the stack.  Re-enable the code that does this check.
+	Klee thinks this might cause trouble somewhere but can't remember
+	where, and it is the right thing to do, so...
+
+	* ppc-frameinfo.h: Removed the offset2 field, it was just for use
+	IN ppc_parse_instructions.  Added lr_invalid to handle prologues
+	that temporarily invalidate the link register.
+
+	* ppc-frameinfo.c (ppc_print_properties): mutatis mutandi for
+	changes to the properties structure.
+	(ppc_parse_instructions): Add support for the saveFP and saveVec
+	gcc prolog setup routines.  Also record WHEN the link register is
+	stored in the frame so we can do a better job of backtraces while
+	in the prolog.
+	(ppc_clear_function_properties): mutatis mutandi for changes to
+	the properties structure.
+
+2001-02-21  James Ingham  <jingham@inghji.apple.com>
+
+	* nextstep-nat-dyld-process.c (dyld_load_library): If you get an
+	error in getting the TEXT segment for a shlib, mark the entry as
+	invalid.  You can't free it, it wasn't malloc'ed...
+
 2001-01-24  James Ingham  <jingham@inghji.apple.com>
 
 	* nextstep-nat-inferior.c (next_fetch_task_info): Comment out the call 

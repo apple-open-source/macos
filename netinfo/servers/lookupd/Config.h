@@ -45,21 +45,30 @@
 	LUArray *cdict;
 	BOOL didSetConfig;
 	unsigned int source;
+	unsigned int initsource;
+	unsigned int generation;
 	void *sourceDomain;
 	char *sourcePath;
+	char *sourceDomainName;
 }
 
 /* Called at startup by lookupd.m */
 - (BOOL)setConfigSource:(int)src path:(char *)path domain:(char *)domain;
 
-/* Array of config dictionaries.  Used by for queries.  */
+/* Get current config generation (increments when lookupd gets a SIGHUP) */
+- (unsigned int)generation;
+
+/* Called on SIGHUP. */
+- (void)reset;
+
+/* Array of config dictionaries. */
 - (LUArray *)config;
 
 /* Caller should release returned dictionaries */
-- (LUDictionary *)configGlobal;
-- (LUDictionary *)configForCategory:(LUCategory)cat;
-- (LUDictionary *)configForAgent:(char *)agent;
-- (LUDictionary *)configForAgent:(char *)agent category:(LUCategory)cat;
+- (LUDictionary *)configGlobal:(LUArray *)c;
+- (LUDictionary *)configForCategory:(LUCategory)cat fromConfig:(LUArray *)c;
+- (LUDictionary *)configForAgent:(char *)agent fromConfig:(LUArray *)c;
+- (LUDictionary *)configForAgent:(char *)agent category:(LUCategory)cat fromConfig:(LUArray *)c;
 
 /* Caller must free returned string */
 - (char *)stringForKey:(char *)key dict:(LUDictionary *)dict default:(char *)def;

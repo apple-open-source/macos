@@ -62,6 +62,11 @@
 
 - (void)encodeInt:(char *)key
 	from:(LUDictionary *)item
+	intoXdr:(XDR *)xdrs
+	default:(int)def;
+
+- (void)encodeInt:(char *)key
+	from:(LUDictionary *)item
 	intoXdr:(XDR *)xdrs;
 
 - (void)encodeStrings:(char *)key

@@ -20,36 +20,63 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * Modification History
+ *
+ * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * - public API conversion
+ *
+ * March 24, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
 #include "configd.h"
 #include "session.h"
 
-SCDStatus
-_SCDNotifierAdd(SCDSessionRef session, CFStringRef key, int regexOptions)
+
+static __inline__ void
+my_CFDictionaryApplyFunction(CFDictionaryRef			theDict,
+			     CFDictionaryApplierFunction	applier,
+			     void				*context)
 {
-	SCDSessionPrivateRef	sessionPrivate = (SCDSessionPrivateRef)session;
+	CFAllocatorRef	myAllocator;
+	CFDictionaryRef	myDict;
 
-	SCDLog(LOG_DEBUG, CFSTR("_SCDNotifierAdd:"));
-	SCDLog(LOG_DEBUG, CFSTR("  key          = %@"), key);
-	SCDLog(LOG_DEBUG, CFSTR("  regexOptions = %0o"), regexOptions);
+	myAllocator = CFGetAllocator(theDict);
+	myDict      = CFDictionaryCreateCopy(myAllocator, theDict);
+	CFDictionaryApplyFunction(myDict, applier, context);
+	CFRelease(myDict);
+	return;
+}
 
-	if ((session == NULL) || (sessionPrivate->server == MACH_PORT_NULL)) {
-		return SCD_NOSESSION;		/* you can't do anything with a closed session */
+
+int
+__SCDynamicStoreAddWatchedKey(SCDynamicStoreRef store, CFStringRef key, Boolean isRegex)
+{
+	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
+
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("__SCDynamicStoreAddWatchedKey:"));
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  key     = %@"), key);
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  isRegex = %s"), isRegex ? "TRUE" : "FALSE");
+
+	if (!store || (storePrivate->server == MACH_PORT_NULL)) {
+		return kSCStatusNoStoreSession;	/* you must have an open session to play */
 	}
 
 	/*
 	 * add new key after checking if key has already been defined
 	 */
-	if (regexOptions & kSCDRegexKey) {
-		if (CFSetContainsValue(sessionPrivate->reKeys, key))
-			return SCD_EXISTS;		/* sorry, key already exists in notifier list */
-		CFSetAddValue(sessionPrivate->reKeys, key);	/* add key to this sessions notifier list */
+	if (isRegex) {
+		if (CFSetContainsValue(storePrivate->reKeys, key))
+			return kSCStatusKeyExists;		/* sorry, key already exists in notifier list */
+		CFSetAddValue(storePrivate->reKeys, key);	/* add key to this sessions notifier list */
 	} else {
-		if (CFSetContainsValue(sessionPrivate->keys, key))
-			return SCD_EXISTS;		/* sorry, key already exists in notifier list */
-		CFSetAddValue(sessionPrivate->keys, key);	/* add key to this sessions notifier list */
+		if (CFSetContainsValue(storePrivate->keys, key))
+			return kSCStatusKeyExists;		/* sorry, key already exists in notifier list */
+		CFSetAddValue(storePrivate->keys, key);	/* add key to this sessions notifier list */
 	}
 
-	if (regexOptions & kSCDRegexKey) {
+	if (isRegex) {
 		CFStringRef		sessionKey;
 		int			regexStrLen;
 		char			*regexStr;
@@ -67,7 +94,7 @@ _SCDNotifierAdd(SCDSessionRef session, CFStringRef key, int regexOptions)
 
 		/*
 		 * We are adding a regex key. As such, we need to flag
-		 * any keys currently in the cache.
+		 * any keys currently in the store.
 		 */
 
 		/* 1. Extract a C String version of the key pattern string. */
@@ -78,9 +105,9 @@ _SCDNotifierAdd(SCDSessionRef session, CFStringRef key, int regexOptions)
 					regexStr,
 					regexStrLen,
 					kCFStringEncodingMacRoman)) {
-			SCDLog(LOG_DEBUG, CFSTR("CFStringGetCString: could not convert regex key to C string"));
+			SCLog(_configd_verbose, LOG_DEBUG, CFSTR("CFStringGetCString: could not convert regex key to C string"));
 			CFAllocatorDeallocate(NULL, regexStr);
-			return SCD_FAILED;
+			return kSCStatusFailed;
 		}
 
 		/* 2. Compile the regular expression from the pattern string. */
@@ -96,27 +123,27 @@ _SCDNotifierAdd(SCDSessionRef session, CFStringRef key, int regexOptions)
 					       (regex_t *)CFDataGetBytePtr(regexData),
 					       reErrBuf,
 					       sizeof(reErrBuf));
-			SCDLog(LOG_DEBUG, CFSTR("regcomp() key: %s"), reErrBuf);
+			SCLog(_configd_verbose, LOG_DEBUG, CFSTR("regcomp() key: %s"), reErrBuf);
 			CFRelease(regexData);
-			return SCD_FAILED;
+			return kSCStatusFailed;
 		}
 
 		/*
 		 * 3. Iterate over the current keys and add this session as a "watcher"
-		 *    for any key already defined in the cache.
+		 *    for any key already defined in the store.
 		 */
 
-		context.session = sessionPrivate;
-		context.preg    = (regex_t *)CFDataGetBytePtr(regexData);
-		CFDictionaryApplyFunction(cacheData,
-					  (CFDictionaryApplierFunction)_addRegexWatcherByKey,
-					  &context);
+		context.store = storePrivate;
+		context.preg  = (regex_t *)CFDataGetBytePtr(regexData);
+		my_CFDictionaryApplyFunction(storeData,
+					     (CFDictionaryApplierFunction)_addRegexWatcherByKey,
+					     &context);
 
 		/*
 		 * 4. We also need to save this key and the associated regex data
 		 *    for any subsequent additions.
 		 */
-		sessionKey = CFStringCreateWithFormat(NULL, NULL, CFSTR("%d"), sessionPrivate->server);
+		sessionKey = CFStringCreateWithFormat(NULL, NULL, CFSTR("%d"), storePrivate->server);
 
 		info = CFDictionaryGetValue(sessionData, sessionKey);
 		if (info) {
@@ -159,14 +186,14 @@ _SCDNotifierAdd(SCDSessionRef session, CFStringRef key, int regexOptions)
 
 		/*
 		 * We are watching a specific key. As such, update the
-		 * cache to mark our interest in any changes.
+		 * store to mark our interest in any changes.
 		 */
-		sessionNum = CFNumberCreate(NULL, kCFNumberIntType, &sessionPrivate->server);
+		sessionNum = CFNumberCreate(NULL, kCFNumberIntType, &storePrivate->server);
 		_addWatcher(sessionNum, key);
 		CFRelease(sessionNum);
 	}
 
-	return SCD_OK;
+	return kSCStatusOK;
 }
 
 
@@ -174,8 +201,8 @@ kern_return_t
 _notifyadd(mach_port_t 			server,
 	   xmlData_t			keyRef,		/* raw XML bytes */
 	   mach_msg_type_number_t	keyLen,
-	   int				regexOptions,
-	   int				*scd_status
+	   int				isRegex,
+	   int				*sc_status
 )
 {
 	kern_return_t		status;
@@ -184,14 +211,14 @@ _notifyadd(mach_port_t 			server,
 	CFStringRef		key;		/* key  (un-serialized) */
 	CFStringRef		xmlError;
 
-	SCDLog(LOG_DEBUG, CFSTR("Add notification key for this session."));
-	SCDLog(LOG_DEBUG, CFSTR("  server = %d"), server);
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("Add notification key for this session."));
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  server = %d"), server);
 
 	/* un-serialize the key */
 	xmlKey = CFDataCreate(NULL, keyRef, keyLen);
 	status = vm_deallocate(mach_task_self(), (vm_address_t)keyRef, keyLen);
 	if (status != KERN_SUCCESS) {
-		SCDLog(LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
+		SCLog(_configd_verbose, LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
 		/* non-fatal???, proceed */
 	}
 	key = CFPropertyListCreateFromXMLData(NULL,
@@ -199,13 +226,21 @@ _notifyadd(mach_port_t 			server,
 					      kCFPropertyListImmutable,
 					      &xmlError);
 	CFRelease(xmlKey);
-	if (xmlError) {
-		SCDLog(LOG_DEBUG, CFSTR("CFPropertyListCreateFromXMLData() key: %s"), xmlError);
-		*scd_status = SCD_FAILED;
+	if (!key) {
+		if (xmlError) {
+			SCLog(_configd_verbose, LOG_DEBUG,
+			       CFSTR("CFPropertyListCreateFromXMLData() key: %@"),
+			       xmlError);
+			CFRelease(xmlError);
+		}
+		*sc_status = kSCStatusFailed;
+		return KERN_SUCCESS;
+	} else if (!isA_CFString(key)) {
+		*sc_status = kSCStatusInvalidArgument;
 		return KERN_SUCCESS;
 	}
 
-	*scd_status = _SCDNotifierAdd(mySession->session, key, regexOptions);
+	*sc_status = __SCDynamicStoreAddWatchedKey(mySession->store, key, isRegex);
 	CFRelease(key);
 
 	return KERN_SUCCESS;

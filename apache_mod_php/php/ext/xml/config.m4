@@ -1,5 +1,5 @@
 # $Source: /cvs/Darwin/Services/apache_mod_php/php/ext/xml/config.m4,v $
-# $Id: config.m4,v 1.1.1.1 2000/08/10 02:08:37 wsanchez Exp $
+# $Id: config.m4,v 1.1.1.2 2001/07/19 00:20:29 zarzycki Exp $
 
 dnl Fallback for --with-xml[=DIR]
 AC_ARG_WITH(xml,[],enable_xml=$withval)
@@ -15,14 +15,46 @@ fi
 PHP_ARG_ENABLE(xml,for XML support,
 [  --disable-xml           Disable XML support using bundled expat lib], yes)
 
-if test "$PHP_XML" != "no"; then
-  AC_DEFINE(HAVE_LIBEXPAT, 1, [ ])
-  CPPFLAGS="$CPPFLAGS -DXML_BYTE_ORDER=$order"
+PHP_ARG_WITH(expat-dir, external libexpat install dir,
+[  --with-expat-dir=DIR    XML: external libexpat install dir])
+
+if test "$PHP_XML" = "yes"; then
+if test "$PHP_EXPAT_DIR" = "no"; then
+
   PHP_EXTENSION(xml, $ext_shared)
+  PHP_SUBST(EXPAT_SHARED_LIBADD)
+  AC_DEFINE(HAVE_LIBEXPAT, 1, [ ])
+
+  CPPFLAGS="$CPPFLAGS -DXML_BYTE_ORDER=$order"
+  EXPAT_INTERNAL_LIBADD="expat/libexpat.la"	    
+  PHP_SUBST(EXPAT_INTERNAL_LIBADD)
+  EXPAT_SUBDIRS="expat"	    
+  PHP_SUBST(EXPAT_SUBDIRS)
   LIB_BUILD($ext_builddir/expat,$ext_shared,yes)
   LIB_BUILD($ext_builddir/expat/xmlparse,$ext_shared,yes)
   LIB_BUILD($ext_builddir/expat/xmltok,$ext_shared,yes)
-  AC_ADD_INCLUDE($ext_srcdir/expat/xmltok)
-  AC_ADD_INCLUDE($ext_srcdir/expat/xmlparse)
+  PHP_ADD_INCLUDE($ext_srcdir/expat/xmltok)
+  PHP_ADD_INCLUDE($ext_srcdir/expat/xmlparse)
   PHP_FAST_OUTPUT($ext_builddir/expat/Makefile $ext_builddir/expat/xmlparse/Makefile $ext_builddir/expat/xmltok/Makefile)
+
+else
+  
+  PHP_EXTENSION(xml, $ext_shared)
+  PHP_SUBST(EXPAT_SHARED_LIBADD)
+  AC_DEFINE(HAVE_LIBEXPAT,  1, [ ])
+  AC_DEFINE(HAVE_LIBEXPAT2, 1, [Whether external expat libs are used])
+
+  for i in $PHP_XML $PHP_EXPAT_DIR; do
+    if test -f $i/lib/libexpat.a -o -f $i/lib/libexpat.s? ; then
+      EXPAT_DIR=$i
+    fi
+  done
+
+  if test -z "$EXPAT_DIR"; then
+    AC_MSG_ERROR(not found. Please reinstall the expat distribution.)
+  fi
+
+  PHP_ADD_INCLUDE($EXPAT_DIR/include)
+  PHP_ADD_LIBRARY_WITH_PATH(expat, $EXPAT_DIR/lib, EXPAT_SHARED_LIBADD)
+fi
 fi

@@ -1,0 +1,93 @@
+#!/bin/sh
+#
+# restart-automount
+#
+
+AUTOMOUNT_PIDFILE="/var/run/automount.pid"
+
+IS_CONSOLE_LOGOUT=0
+IS_NETWORK_CHANGE=0
+
+while [ $# -gt 0 ]
+do
+    case "${1}" in
+    "State:/Users/ConsoleUser" | "state:/users/ConsoleUser" )
+	scutil <<_END_OF_INPUT | grep -q "No such key"
+open
+get ${1}
+quit
+_END_OF_INPUT
+
+	status=$?
+	if [ $status -eq 0 ]; then
+	    IS_CONSOLE_LOGOUT=1
+	fi
+	;;
+    * )
+	IS_NETWORK_CHANGE=1
+	;;
+    esac
+
+    shift
+done
+
+if [ ${IS_NETWORK_CHANGE} -gt 0 ]; then
+
+    #
+    # network configuration has changed
+    #
+    logger -i -p daemon.debug -t restart-automount "process network configuration changed"
+
+    if [ ! -f "${AUTOMOUNT_PIDFILE}" ]; then
+	#
+	# the automount daemon is not running, start it
+	#
+	. /etc/rc.common
+	if [ "${AUTOMOUNT:=-YES-}" = "-YES-" ]; then
+	    automount -m /Network/Servers -fstab -m /automount -static
+	fi
+	exit 0
+    fi
+
+    #
+    # send a SIGHUP to the "automount" daemon which will attempt to
+    # unmount all mounted filesystems, re-read the mount maps, and
+    # reset.
+    #
+#   aPID=`cat "${AUTOMOUNT_PIDFILE}"`
+#   kill -HUP ${aPID}
+#   status=$?
+#   if [ $status -ne 0 ]; then
+#	logger -i -p daemon.notice -t restart-automount "Could not SIGHUP automount, pid=${aPID}, status=${status}"
+#	exit 0
+#   fi
+
+elif [ ${IS_CONSOLE_LOGOUT} -gt 0 ]; then
+
+    #
+    # console user has logged out
+    #
+    logger -i -p daemon.debug -t restart-automount "process console user logout"
+
+    if [ ! -f "${AUTOMOUNT_PIDFILE}" ]; then
+	#
+	# if the automount daemon is not running
+	#
+	exit 0
+    fi
+
+    #
+    # send a SIGUSR1 to the "automount" daemon which will attempt to
+    # unmount all mounted filesystems.
+    #
+    aPID=`cat "${AUTOMOUNT_PIDFILE}"`
+    kill -USR1 ${aPID}
+    status=$?
+    if [ $status -ne 0 ]; then
+	logger -i -p daemon.notice -t restart-automount "Could not SIGUSR1 automount, pid=${aPID}, status=${status}"
+	exit 0
+    fi
+
+fi
+
+exit 0

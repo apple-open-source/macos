@@ -55,7 +55,8 @@
 #include <mach/boolean.h>
 #include <sys/loadable_fs.h>
 
-
+#include <Security/Authorization.h>
+#include <CoreFoundation/CoreFoundation.h>
 
 #include <IOKit/IOKitLib.h>
 
@@ -75,7 +76,7 @@
 
 struct volattr {
     attrreference_t volnameref;
-    unsigned char volumenamestorage[32];
+    unsigned char volumenamestorage[140];
 };
 
 struct volattrbuf {
@@ -98,6 +99,7 @@ extern void autodiskmount(int ownership);
 
 /********************************************************************************************************/
 /******************************************* Private Prototypes *****************************************/
+static ClientPtr LookupBlueBox( void );
 /********************************************************************************************************/
 
 /********************************************************************************************************/
@@ -224,10 +226,40 @@ FoundIt:
 		dwarning(("%s: Blue Box died, resetting gBlueBoxBootVolume = -1\n",__FUNCTION__));
 		SetBlueBoxBootVolume( -1 );
 	}
+        {
+                DiskPtr diskPtr;
+
+                for (diskPtr = g.Disks; diskPtr != NULL; diskPtr = diskPtr->next)
+                {
+                        if (diskPtr->retainingClient == thisPtr->pid) {
+                                if (diskPtr->flags & kDiskArbDiskAppearedUnrecognizableFormat) {
+                                        diskPtr->state = kDiskStateNew;
+                                        // mark the disk new so that someone else claims it
+                                }
+                                
+                                diskPtr->retainingClient = 0;
+                        }
+                }
+
+        }
+
+        if (thisPtr->ackOnUnrecognizedDisk) {
+                DiskPtr ackDisk = (DiskPtr)thisPtr->ackOnUnrecognizedDisk;
+                ackDisk->retainingClient = 0;
+                ackDisk->state = kDiskStateNew;
+                ackDisk->lastClientAttemptedForUnrecognizedMessages = nil;
+                thisPtr->ackOnUnrecognizedDisk = nil;
+        }
+
+        if (thisPtr->clientAuthRef) {
+                AuthorizationFree(thisPtr->clientAuthRef, NULL);
+        }
+
 
 	free( thisPtr );
 
 	g.NumClients--;
+
 
 	goto Return;
 
@@ -312,24 +344,28 @@ kern_return_t DiskArbDiskAppearedWithMountpointPing_rpc (
 	unsigned flags,
 	DiskArbMountpoint mountpoint)
 {
+        DiskPtr newDisk;
 	kern_return_t err = 0;
 
 	dwarning(("%s(diskIdentifier = '%s', flags = $%08x, mountpoint = '%s')\n", __FUNCTION__, diskIdentifier, flags, mountpoint));
+
+        newDisk = NewDisk(	diskIdentifier,		/*ioBSDName*/
+                0,					/*ioBSDUnit*/
+                NULL,				/*ioContentOrNull*/
+                kDiskFamily_AFP,	/*family*/
+                mountpoint,			/*mountpoint*/
+                NULL,				/*ioMediaNameOrNull*/
+                NULL,				/*ioDeviceTreePathOrNull*/
+NULL,				/*service*/
+-1,				/*uid*/
+                flags );
 	
-	if ( ! NewDisk(	diskIdentifier,		/*ioBSDName*/
-					0,					/*ioBSDUnit*/
-					NULL,				/*ioContentOrNull*/
-					kDiskFamily_AFP,	/*family*/
-					mountpoint,			/*mountpoint*/
-					NULL,				/*ioMediaNameOrNull*/
-                                        NULL,				/*ioDeviceTreePathOrNull*/
-                                        NULL,				/*service*/
-					flags ) )			/*flags*/
+	if ( !newDisk  )			/*flags*/
 	{
 		dwarning(("%s: NewDisk() failed!\n", __FUNCTION__));
-	}
-	
-//	PrintDisks();
+        } else {
+                newDisk->admCreatedMountPoint = 1;  // this is so we clean up mountpoints created by other apps when we close down the remote connections
+        }
 
 	goto Return;
 
@@ -453,11 +489,13 @@ kern_return_t DiskArbRefresh_rpc (
         }
 
         if (diskPtr && (diskPtr->mountpoint == NULL || (!strcmp(diskPtr->mountpoint, "")))) {
-                diskPtr->mountpoint = mntbuf[index].f_mntonname;
+                int newDisks;
+                DiskSetMountpoint(diskPtr, mntbuf[index].f_mntonname);
                 dwarning(("%s: Disk updated in mount table (did someone mount one)?\n", __FUNCTION__));
                 dwarning(("%s %s %s\n", mntbuf[index].f_fstypename, mntbuf[index].f_mntonname, mntbuf[index].f_mntfromname));
                 diskPtr->state = kDiskStateNew;
-                SendDiskAppearedMsgs();
+                newDisks = SendDiskAppearedMsgs();
+                SendCompletedMsgs(kDiskArbCompletedDiskAppeared, newDisks);
 
         }
 
@@ -470,6 +508,7 @@ kern_return_t DiskArbRefresh_rpc (
                                 NULL,
                                  NULL,
                                  NULL,
+                                 -1,
                              kDiskArbDiskAppearedNoFlags ) )
             {
                     dwarning(("%s: NewDisk() failed!\n", __FUNCTION__));
@@ -496,8 +535,7 @@ kern_return_t DiskArbRefresh_rpc (
             
             // otherwise - remove the disk
             if (!exists) {
-                    free( diskPtr->mountpoint );
-                    diskPtr->mountpoint = strdup( "" ); // We need to send this in messages via MIG, so it cannot be NULL
+                    DiskSetMountpoint(diskPtr, "");
 
                     SetStateForOnePartition( diskPtr, kDiskStateNewlyUnmounted );
                     SendUnmountPostNotifyMsgsForOnePartition( diskPtr->ioBSDName, 0, 0 );
@@ -540,7 +578,7 @@ kern_return_t DiskArbRequestMount_rpc (
             FreeDisk(diskPtr);
     }
 
-    GetDisksFromRegistry( ioIterator );
+    GetDisksFromRegistry( ioIterator, 0 );
 
     autodiskmount(takeUserOwnership);  // is this sufficient?
 
@@ -641,8 +679,30 @@ kern_return_t DiskArbMarkPIDNew_rpc (
     NewClient(client, pid, flags);
 
     return 0;
-    
+
 } // DiskArbMarkPIDNew_rpc
+
+/******************************************* DiskArbUpdateClientWithPID_rpc *******************************************/
+
+kern_return_t DiskArbUpdateClientWithPID_rpc (
+        mach_port_t server,
+        int pid,
+        unsigned flags)
+{
+        ClientPtr clientPtr = LookupClientByPID( pid );
+        if ( clientPtr )
+        {
+                /* Update existing client record. */
+                dwarning(("%s(pid = %d, flags = $%08x): updating existing client record:\n", __FUNCTION__, pid, flags));
+                PrintClient( clientPtr );
+
+                clientPtr->flags = flags;
+                clientPtr->state = kDiskStateNew; // Force a re-send of all the msgs.
+        }
+
+    return 0;
+
+} // DiskArbUpdateClientWithPID_rpc
 
 /******************************************* DiskArbDeregister_rpc *******************************************/
 
@@ -678,11 +738,13 @@ kern_return_t DiskArbDeregisterWithPID_rpc (
 
 kern_return_t DiskArbUnmountRequest_async_rpc (
 	mach_port_t server,
+        pid_t clientPid,                                       
 	DiskArbDiskIdentifier diskIdentifier,
 	unsigned flags)
 {
 	kern_return_t err = 0;
 	DiskPtr diskPtr;
+        ClientPtr clientPtr = LookupClientByPID(clientPid);
 
 	dwarning(("%s(diskIdentifier = '%s', flags = $%08x)\n", __FUNCTION__, diskIdentifier, flags));
 
@@ -691,13 +753,28 @@ kern_return_t DiskArbUnmountRequest_async_rpc (
 	{
 		pwarning(("%s(diskIdentifier = '%s', flags = $%08x): LookupDiskByIOBDSName failed\n", __FUNCTION__, diskIdentifier, flags));
 		err = -1;
+                if (clientPtr) {
+                        SendCallFailedMessage(clientPtr, NULL, kDiskArbUnmountRequestFailed, kDiskArbVolumeDoesNotExist);
+                }
+
 		goto Return;		
 	}
+
+        if (!requestingClientHasPermissionToModifyDisk(clientPid, diskPtr, "system.volume.unmount")) {
+                err = -1;
+                if (clientPtr) {
+                        SendCallFailedMessage(clientPtr, diskPtr, kDiskArbUnmountRequestFailed, kDiskArbInsecureRequest);
+                }
+                goto Return;
+        }
 	
 	if ( AreWeBusy() )
 	{
 		pwarning(("%s(diskIdentifier = '%s', flags = $%08x): already busy\n", __FUNCTION__, diskIdentifier, flags));
-		err = -1;
+                err = -1;
+                if (clientPtr) {
+                        SendCallFailedMessage(clientPtr, diskPtr, kDiskArbUnmountRequestFailed, kDiskArbIsBusy);
+                }
 		goto Return;		
 	}
 
@@ -785,28 +862,45 @@ Return:
 
 kern_return_t DiskArbEjectRequest_async_rpc (
 	mach_port_t server,
+        pid_t clientPid,                                       
 	DiskArbDiskIdentifier diskIdentifier,
 	unsigned flags)
 {
 	kern_return_t err = 0;
 	DiskPtr diskPtr;
+        ClientPtr clientPtr = LookupClientByPID(clientPid);
 
 	dwarning(("%s(diskIdentifier = '%s', flags = $%08x)\n", __FUNCTION__, diskIdentifier, flags));
 
 	diskPtr = LookupDiskByIOBSDName( diskIdentifier );
-	if ( NULL == diskPtr )
-	{
-		pwarning(("%s(diskIdentifier = '%s', flags = $%08x): LookupDiskByIOBDSName failed\n", __FUNCTION__, diskIdentifier, flags));
-		err = -1;
-		goto Return;		
-	}
-	
-	if ( AreWeBusy() )
-	{
-		pwarning(("%s(diskIdentifier = '%s', flags = $%08x): already busy\n", __FUNCTION__, diskIdentifier, flags));
-		err = -1;
-		goto Return;		
-	}
+        if ( NULL == diskPtr )
+        {
+                pwarning(("%s(diskIdentifier = '%s', flags = $%08x): LookupDiskByIOBDSName failed\n", __FUNCTION__, diskIdentifier, flags));
+                err = -1;
+                if (clientPtr) {
+                        SendCallFailedMessage(clientPtr, NULL, kDiskArbEjectRequestFailed, kDiskArbVolumeDoesNotExist);
+                }
+
+                goto Return;
+        }
+
+        if (!requestingClientHasPermissionToModifyDisk(clientPid, diskPtr, "system.volume.eject")) {
+                err = -1;
+                if (clientPtr) {
+                        SendCallFailedMessage(clientPtr, diskPtr, kDiskArbEjectRequestFailed, kDiskArbInsecureRequest);
+                }
+                goto Return;
+        }
+
+        if ( AreWeBusy() )
+        {
+                pwarning(("%s(diskIdentifier = '%s', flags = $%08x): already busy\n", __FUNCTION__, diskIdentifier, flags));
+                err = -1;
+                if (clientPtr) {
+                SendCallFailedMessage(clientPtr, diskPtr, kDiskArbEjectRequestFailed, kDiskArbIsBusy);
+                }
+                goto Return;
+        }
 	
 	/* Mark all the partitions of this disk for ejection (allocates ack-value tables, too). */
 
@@ -836,7 +930,6 @@ kern_return_t DiskArbEjectPreNotifyAck_async_rpc(
 	kern_return_t err = 0;
 	DiskPtr diskPtr;
 	ClientPtr clientPtr;
-
 	dwarning(("%s(pid = %d, diskIdentifier = '%s', errorCode = %d)\n", __FUNCTION__, pid, diskIdentifier, errorCode));
 
 	clientPtr = LookupClientByPID( pid );
@@ -877,28 +970,45 @@ Return:
 
 kern_return_t DiskArbUnmountAndEjectRequest_async_rpc (
 	mach_port_t server,
+        pid_t clientPid,
 	DiskArbDiskIdentifier diskIdentifier,
 	unsigned flags)
 {
 	kern_return_t err = 0;
 	DiskPtr diskPtr;
+        ClientPtr clientPtr = LookupClientByPID(clientPid);
 
 	dwarning(("%s(diskIdentifier = '%s', flags = $%08x)\n", __FUNCTION__, diskIdentifier, flags));
 
 	diskPtr = LookupDiskByIOBSDName( diskIdentifier );
-	if ( NULL == diskPtr )
-	{
-		dwarning(("%s(diskIdentifier = '%s', flags = $%08x): LookupDiskByIOBDSName failed\n", __FUNCTION__, diskIdentifier, flags));
-		err = -1;
-		goto Return;		
-	}
-	
-	if ( AreWeBusy() )
-	{
-		pwarning(("%s(diskIdentifier = '%s', flags = $%08x): already busy\n", __FUNCTION__, diskIdentifier, flags));
-		err = -1;
-		goto Return;		
-	}
+        if ( NULL == diskPtr )
+        {
+                pwarning(("%s(diskIdentifier = '%s', flags = $%08x): LookupDiskByIOBDSName failed\n", __FUNCTION__, diskIdentifier, flags));
+                err = -1;
+                if (clientPtr) {
+                        SendCallFailedMessage(clientPtr, NULL, kDiskArbUnmountAndEjectRequestFailed, kDiskArbVolumeDoesNotExist);
+                }
+
+                goto Return;
+        }
+
+        if (!requestingClientHasPermissionToModifyDisk(clientPid, diskPtr, "system.volume.unmount.eject")) {
+                err = -1;
+                if (clientPtr) {
+                        SendCallFailedMessage(clientPtr, diskPtr, kDiskArbUnmountAndEjectRequestFailed, kDiskArbInsecureRequest);
+                }
+                goto Return;
+        }
+
+        if ( AreWeBusy() )
+        {
+                pwarning(("%s(diskIdentifier = '%s', flags = $%08x): already busy\n", __FUNCTION__, diskIdentifier, flags));
+                err = -1;
+                if (clientPtr) {
+                        SendCallFailedMessage(clientPtr, diskPtr, kDiskArbUnmountAndEjectRequestFailed, kDiskArbIsBusy);
+                }
+                goto Return;
+        }
 
         if (flags & kDiskArbForceUnmountFlag) {
                 UnmountAllPartitions( diskPtr, TRUE );
@@ -944,7 +1054,15 @@ kern_return_t DiskArbSetBlueBoxBootVolume_async_rpc (
 	}
 	else
 	{
-		/* Should probably double-check that no other client record already has this flag set. */
+                ClientPtr newClientPtr = LookupBlueBox();
+
+                /* Double-check that no other client record already has this flag set. */
+                if ( newClientPtr != NULL )
+                {
+        		dwarning(("%s(pid=%d,seqno=%d): BlueBox client already exists with pid=%d\n",
+                  __FUNCTION__, pid, seqno, newClientPtr->pid));
+                }
+                            
 		clientPtr->flags |= kDiskArbIAmBlueBox;
 	}
 
@@ -959,6 +1077,7 @@ kern_return_t DiskArbSetBlueBoxBootVolume_async_rpc (
 
 kern_return_t DiskArbRequestDiskChange_rpc (
         mach_port_t server,
+        pid_t clientPid,                                       
         DiskArbDiskIdentifier diskIdentifier,
         DiskArbMountpoint mountPoint,
         int flags)
@@ -966,25 +1085,65 @@ kern_return_t DiskArbRequestDiskChange_rpc (
         kern_return_t err = 0;
         DiskPtr diskPtr;
         char deviceName[MAXPATHLEN];
-        char newMountName[MAXPATHLEN];
-        char newVolumeName[MAXPATHLEN];
         int success = 0;
         char		cookieFile[MAXPATHLEN];
         struct stat 	sb;
         int i = 1;
+        ClientPtr clientPtr = LookupClientByPID(clientPid);
 
-        dwarning(("%s: renaming volume %s to %s\n", __FUNCTION__, diskIdentifier, mountPoint));
+        char newMountName[MAXPATHLEN];
+        char newVolumeName[MAXPATHLEN];
 
+        //char *newMountName = malloc(sizeof(char)*MAXPATHLEN);
+        //char *newVolumeName = malloc(sizeof(char)*MAXPATHLEN);
 
         sprintf(deviceName, "/dev/r%s", (char *)diskIdentifier);
         sprintf(newMountName, "%s/%s", (char *)mountPath(), (char *)mountPoint);
         sprintf(newVolumeName, "%s", (char *)mountPoint);
         sprintf(cookieFile, "/%s/%s", newMountName, ADM_COOKIE_FILE);
 
+        dwarning(("%s: renaming volume %s to %s and attempting to mount at %s\n", __FUNCTION__, diskIdentifier, mountPoint, newMountName));
+
         diskPtr = LookupDiskByIOBSDName( diskIdentifier );
 
         // we may have to modify the new mountpoint name until it matches up with an empty directory, otherwise we could end up with 2 /tmp's for example ...
 
+        if ( NULL == diskPtr )
+        {
+                pwarning(("%s(diskIdentifier = '%s', flags = $%08x): LookupDiskByIOBDSName failed\n", __FUNCTION__, diskIdentifier, flags));
+                err = -1;
+                if (clientPtr) {
+                        SendCallFailedMessage(clientPtr, NULL, kDiskArbDiskChangeRequestFailed, kDiskArbVolumeDoesNotExist);
+                }
+
+                goto Return;
+        }
+
+        /*
+         * 2758222
+        if (!requestingClientHasPermissionToModifyDisk(clientPid, diskPtr, "system.volume.rename")) {
+                err = -1;
+                if (clientPtr) {
+                        SendCallFailedMessage(clientPtr, diskPtr, kDiskArbDiskChangeRequestFailed, kDiskArbInsecureRequest);
+                }
+                goto Return;
+        }
+        */
+
+        if (diskPtr && IsNetwork(diskPtr)) {
+                err = -1;
+                if (clientPtr) {
+                        SendCallFailedMessage(clientPtr, diskPtr, kDiskArbDiskChangeRequestFailed, kDiskArbDiskIsNetwork);
+                }
+                goto Return;
+        }
+
+        if (strcmp(newMountName, diskPtr->mountpoint) == 0) { // the newName would be the same as the old name
+                dwarning(("%s: attempt to rename volume %s to %s.  The name is the same.\n", __FUNCTION__, diskIdentifier, diskPtr->mountpoint));
+                SendDiskChangedMsgs(diskIdentifier, newMountName, newVolumeName, flags, kDiskArbRenameSuccessful);
+                return err;
+        }
+        
         while (1) {
 
                 if (stat(newMountName, &sb) < 0)
@@ -1026,18 +1185,19 @@ kern_return_t DiskArbRequestDiskChange_rpc (
 
         }        
         
-        if ( ! diskPtr )
         {
-                pwarning(("%s(id=%s): no known disk with this diskIdentifier.\n", __FUNCTION__, diskIdentifier));
-                err = -1;
-        }
-        else
-        {
-
 #warning - renaming devices is FS specific.
+                boolean_t is_hfs;
+                boolean_t is_ufs;
 
-                boolean_t is_hfs = (strcmp(diskPtr->mountedFilesystemName, "hfs") == 0);
-                boolean_t is_ufs = (strcmp(diskPtr->mountedFilesystemName, "ufs") == 0);
+                if (!diskPtr->mountedFilesystemName || !strlen(diskPtr->mountedFilesystemName)) {
+                        err = -1;
+                        goto Return;
+                } else {
+                        is_hfs = (strcmp(diskPtr->mountedFilesystemName, "hfs") == 0);
+                        is_ufs = (strcmp(diskPtr->mountedFilesystemName, "ufs") == 0);
+                }
+
                 // change the disk name on device diskIdentifier
                 if (is_hfs) {
                         struct attrlist alist;
@@ -1073,8 +1233,9 @@ kern_return_t DiskArbRequestDiskChange_rpc (
                                 if (strcmp(diskPtr->mountpoint, "/")) {
                                         // report that the name is different
                                         int ret = rename(diskPtr->mountpoint, newMountName);
+                                        
                                         if (ret == 0) {
-                                                strcpy(diskPtr->mountpoint, newMountName);
+                                                DiskSetMountpoint(diskPtr, newMountName);
                                                 success = kDiskArbRenameSuccessful;
                                         } else {
                                                 dwarning(("Hey!  Couldn't change volume name, %d, %d return from rename\n", ret, errno));
@@ -1097,8 +1258,9 @@ kern_return_t DiskArbRequestDiskChange_rpc (
                                 if (strcmp(diskPtr->mountpoint, "/")) {
                                         // report that the name is different
                                         int ret = rename(diskPtr->mountpoint, newMountName);
+
                                         if (ret == 0) {
-                                                strcpy(diskPtr->mountpoint, newMountName);
+                                                DiskSetMountpoint(diskPtr, newMountName);
                                                 success = kDiskArbRenameSuccessful;
                                         } else {
                                                 dwarning(("Hey!  Couldn't change volume name, %d, %d return from rename\n", ret, errno));
@@ -1124,67 +1286,101 @@ kern_return_t DiskArbRequestDiskChange_rpc (
                 PrintDisks();
         }
 
-//Return:
+Return:
+        if (err == -1) {
+                SendDiskChangedMsgs(diskIdentifier, newMountName, newVolumeName, flags, kDiskArbRenameUnsuccessful);
+        }
+
         return err;
 
 } // DiskArbRequestDiskChange_rpc
 
 kern_return_t DiskArbSetCurrentUser_rpc (
         mach_port_t server,
+        pid_t clientPid,                                       
         int user)
 {
-    currentConsoleUser = user;
 
     if (user == -1) {
-        //someone logged out .. eject the disks they mounted
+        //someone logged out .. unmount the disks they mounted
         DiskPtr diskPtr;
 
         for (diskPtr = g.Disks; diskPtr != NULL; diskPtr = diskPtr->next)
         {
-            if (diskPtr->mountedUser != -1) {
-                // request an ejection on the disk
-                // unmount the disk and it's partitions ...
-                UnmountAllPartitions(diskPtr, FALSE);
-                
-                // remove the disk from my tables
-                // FreeDisk(diskPtr);
+            if (diskPtr->mountedUser == currentConsoleUser && ( diskPtr->flags & kDiskArbDiskAppearedEjectableMask ) ) {
+                // request an unmount on the disk
+
+                    if (diskPtr->ejectOnLogout) {
+                            DiskArbUnmountAndEjectRequest_async_rpc( 0, 0, diskPtr->ioBSDName, FALSE);
+                    } else {
+                            // unmount the disk and it's partitions ...
+                            DiskArbUnmountRequest_async_rpc( 0, 0, diskPtr->ioBSDName, FALSE);
+                            // arg! no wonder - have to reset the mountedUser to -1
+                            diskPtr->mountedUser = user;
+                    }
+                    
             }
         }
+        currentConsoleUser = user;
+        
+
 
     } else {
         io_iterator_t ioIterator;
         mach_port_t masterPort;
         kern_return_t err;
 
+        currentConsoleUser = user;
+
         err = IOMasterPort(bootstrap_port, &masterPort);
 
         // get an iterator from the registry for IOMedia and get the disks out of the registry ...
         err = IOServiceGetMatchingServices(masterPort, IOServiceMatching("IOMedia"), &ioIterator);
 
-        GetDisksFromRegistry( ioIterator );
+        GetDisksFromRegistry( ioIterator, 0 );
 
-        autodiskmount(FALSE);
+        dwarning(("autodiskmount: Setting user to %d\n", user));
+
+        autodiskmount(TRUE);
     }
+
+
     
     return 0;
 }
 
 kern_return_t DiskArbSetVolumeEncoding_rpc (mach_port_t server,
+                                            pid_t clientPid,                                       
                                             DiskArbDiskIdentifier diskIdentifier,
                                             int volumeEncoding)
 {
         // what's the encoding?
-        char *encodingName;
         DiskPtr diskPtr;
         int isWritable;
         char bsdPath[MAXPATHLEN];
         char encodingString[MAXPATHLEN];
         boolean_t is_hfs;
+        ClientPtr clientPtr = LookupClientByPID(clientPid);
 
         diskPtr = LookupDiskByIOBSDName( diskIdentifier );
 
-        if (!diskPtr) {
-                return 0;
+        dwarning(("%s: change volume %s encoding to %d\n", __FUNCTION__, diskIdentifier, volumeEncoding));
+
+        if ( NULL == diskPtr )
+        {
+                pwarning(("%s(diskIdentifier = '%s'): LookupDiskByIOBDSName failed\n", __FUNCTION__, diskIdentifier));
+                if (clientPtr) {
+                        SendCallFailedMessage(clientPtr, NULL, kDiskArbSetEncodingRequestFailed, kDiskArbVolumeDoesNotExist);
+                }
+
+                return -1;
+        }
+
+        if (!requestingClientHasPermissionToModifyDisk(clientPid, diskPtr, "system.volume.setencoding")) {
+                if (clientPtr) {
+                        SendCallFailedMessage(clientPtr, diskPtr, kDiskArbSetEncodingRequestFailed, kDiskArbInsecureRequest);
+                }
+                return -1;
         }
 
         sprintf(bsdPath,"/dev/%s", diskIdentifier);
@@ -1193,45 +1389,21 @@ kern_return_t DiskArbSetVolumeEncoding_rpc (mach_port_t server,
         is_hfs = (strcmp(diskPtr->mountedFilesystemName, "hfs") == 0);
 
         if (!is_hfs) {
-                return 0;
-        }
-
-        switch (volumeEncoding) {
-                case 0:
-                        encodingName = "Roman";
-                        break;
-                case 1:
-                        encodingName = "Japanese";
-                        break;
-                case 3:
-                        encodingName = "Korean";
-                        break;
-                case 4:
-                        encodingName = "Arabic";
-                        break;
-                case 5:
-                        encodingName = "Hebrew";
-                        break;
-                case 6:
-                        encodingName = "Greek";
-                        break;
-                case 7:
-                        encodingName = "Cyrillic";
-                        break;
-                default:
-                        encodingName = "Roman";
-                        break;
+                if (clientPtr) {
+                        SendCallFailedMessage(clientPtr, diskPtr, kDiskArbSetEncodingRequestFailed, kDiskArbInvalidVolumeFormat);
+                }
+                return -1;
         }
 
         // build the string
-        sprintf(encodingString, "-e=%s", encodingName);
+        sprintf(encodingString, "-e=%d", volumeEncoding);
 
         // mount_hfs , the mount command for an HFS filesystem
         // -u to signal an update
         // or -ur to signal a read only update
         // -o to signal something or another
         // -e to signal encoding
-        // encodingName
+        // encodingnumber
         // /dev/disk* , diskPtr->bsdName
         // /Volumes/VolName, diskPtr->mountPoint
 
@@ -1281,7 +1453,7 @@ kern_return_t DiskArbSetVolumeEncoding_rpc (mach_port_t server,
                 struct attrlist alist;
                 struct volattrbuf volinfobuf;
                 int result;
-                int success;
+                int success = kDiskArbRenameSuccessful;
                 struct stat 	sb;
                 char newMountName[MAXPATHLEN];
                 char cookieFile[MAXPATHLEN];
@@ -1302,71 +1474,76 @@ kern_return_t DiskArbSetVolumeEncoding_rpc (mach_port_t server,
                 sprintf(newMountName, "%s/%s", (char *)mountPath(), volinfobuf.va.volumenamestorage);
                 sprintf(cookieFile, "/%s/%s", newMountName, ADM_COOKIE_FILE);
 
-                while (1) {
-
-                        if (stat(newMountName, &sb) < 0)
-                        {
-                            if (errno == ENOENT)
-                            {
-                                        break;
-                            }
-                            else if (errno == EIO)
-                            {
-                                        /* do nothing */
-                            }
-                            else
-                            {
-                                    pwarning(("stat(%s) failed, %s\n", newMountName, strerror(errno)));
-                                        return (FALSE);
-                            }
-                        }
-                        else if (rmdir(newMountName) == 0)
-                        {
-                                dwarning(("The asked for directory (%s) has been removed\n", newMountName));
-
-                                /* it was an empty directory */
-                                break;
-                        } else if (errno == ENOTEMPTY) {
-                                 // some file exists, see if it's the ADM_COOKIE_FILE and if that is it remove the cookie and retry the rmdir
-                                if (stat(cookieFile, &sb) == 0) {
-                                            if (remove(cookieFile) == 0) {
-                                                    if (rmdir(newMountName) == 0) {
-                                                            break;
-                                                    }
-                                            }
-                                    }
-                        } else {
-                                dwarning(("The asked for directory (%s) was not removed with errno = %d\n", newMountName, errno));
-                        }
-                        sprintf(newMountName, "%s/%s %d", mountPath(), volinfobuf.va.volumenamestorage, i);
-                        i++;
-                }
-
-                dwarning(("Encoding changed which is forcing a rename on %s to %s\n", diskPtr->mountpoint, newMountName));
-
-
                 if (strcmp(newMountName, diskPtr->mountpoint) != 0) {
                         // the volume name is no longer the same, rename the mount point ...
-                        if (strcmp(diskPtr->mountpoint, "/")) {
-                                // report that the name is different
-                                int ret = rename(diskPtr->mountpoint, newMountName);
-                                if (ret == 0) {
-                                        strcpy(diskPtr->mountpoint, newMountName);
-                                        success = kDiskArbRenameSuccessful;
-                                        dwarning(("Changed volume name\n"));
+
+                        while (1) {
+
+                                if (stat(newMountName, &sb) < 0)
+                                {
+                                if (errno == ENOENT)
+                                {
+                                                break;
+                                }
+                                else if (errno == EIO)
+                                {
+                                                /* do nothing */
+                                }
+                                else
+                                {
+                                        pwarning(("stat(%s) failed, %s\n", newMountName, strerror(errno)));
+                                                return (FALSE);
+                                }
+                                }
+                                else if (rmdir(newMountName) == 0)
+                                {
+                                        dwarning(("The asked for directory (%s) has been removed\n", newMountName));
+
+                                        /* it was an empty directory */
+                                        break;
+                                } else if (errno == ENOTEMPTY) {
+                                        // some file exists, see if it's the ADM_COOKIE_FILE and if that is it remove the cookie and retry the rmdir
+                                        if (stat(cookieFile, &sb) == 0) {
+                                                if (remove(cookieFile) == 0) {
+                                                        if (rmdir(newMountName) == 0) {
+                                                                break;
+                                                        }
+                                                }
+                                        }
                                 } else {
-                                        dwarning(("Hey!  Couldn't change volume name, %d, %d return from rename\n", ret, errno));
+                                        dwarning(("The asked for directory (%s) was not removed with errno = %d\n", newMountName, errno));
+                                }
+                                sprintf(newMountName, "%s/%s %d", mountPath(), volinfobuf.va.volumenamestorage, i);
+                                i++;
+                        }
+                        dwarning(("Encoding changed which is forcing a rename on %s to %s\n", diskPtr->mountpoint, newMountName));
+
+
+                        if (strcmp(newMountName, diskPtr->mountpoint) != 0) {
+                                // the volume name is no longer the same, rename the mount point ...
+                                dwarning(("Encoding changed which is forcing a rename on %s to %s\n", diskPtr->mountpoint, newMountName));
+
+
+                                if (strcmp(diskPtr->mountpoint, "/")) {
+                                        // report that the name is different
+                                        int ret = rename(diskPtr->mountpoint, newMountName);
+
+                                        if (ret == 0) {
+                                                DiskSetMountpoint(diskPtr, newMountName);
+                                                success = kDiskArbRenameSuccessful;
+                                                dwarning(("Changed volume name\n"));
+                                        } else {
+                                                dwarning(("Hey!  Couldn't change volume name, %d, %d return from rename\n", ret, errno));
+                                                success = kDiskArbRenameUnsuccessful;
+                                        }
+                                } else {
+                                        strcpy(diskPtr->mountpoint, "/");
                                         success = kDiskArbRenameUnsuccessful;
                                 }
-                        } else {
-                                strcpy(diskPtr->mountpoint, "/");
-                                success = kDiskArbRenameUnsuccessful;
                         }
                 }
                 SendDiskChangedMsgs(diskIdentifier, newMountName, volinfobuf.va.volumenamestorage, 0, success);
         }
-
-
         
     return 0;
 }
@@ -1382,7 +1559,7 @@ kern_return_t DiskArbGetVolumeEncoding_rpc (mach_port_t server,
 
         diskPtr = LookupDiskByIOBSDName( diskIdentifier );
 
-        if (!diskPtr) {
+        if (!diskPtr || !diskPtr->mountedFilesystemName) {
                 return 0;
         }
 
@@ -1411,39 +1588,8 @@ kern_return_t DiskArbGetVolumeEncoding_rpc (mach_port_t server,
     return 0;
 }
 
-kern_return_t DiskArbClientHandlesUninitializedDisks_rpc (
-        mach_port_t server,
-        int clientPid,
-        int flags)
-{
-        kern_return_t err = 0;
-        ClientPtr clientPtr;
-
-        dwarning(("%s(%d:%d)\n", __FUNCTION__, clientPid, flags));
-
-        clientPtr = LookupClientByPID( clientPid );
-        if ( ! clientPtr )
-        {
-                dwarning(("%s(pid=%d,flags=%d): no known client with this pid.\n", __FUNCTION__, clientPid, flags));
-                err = -1;
-        }
-        else
-        {
-                if (flags) {
-                        // or it in
-                        clientPtr->flags |= kDiskArbClientHandlesUninitializedDisks;
-                } else {
-                        // and it out
-                        clientPtr->flags &= ~kDiskArbClientHandlesUninitializedDisks;
-                }
-        }
-
-        return err;
-}
-
 /* -- Printer Arbitration -- */
 
-static ClientPtr LookupBlueBox( void );
 static ClientPtr LookupBlueBox( void )
 {
 	ClientPtr result = NULL;
@@ -1493,12 +1639,14 @@ kern_return_t DiskArbPrinter_Request_rpc (
 		}
 
 		dwarning(("%s: Blue Box is not registered\n", __FUNCTION__));
+#warning  Should this be in a thread
 		err = DiskArbPrinter_FinalResponse_rpc( clientPtr->port, locationID, 0x00000001 /* answer */ );
 		goto Return;
 	}
 
 	/* Forward the question to Blue Box. */
-	
+
+#warning  Should this be in a thread
 	err = DiskArbPrinter_FinalRequest_rpc( bbClientPtr->port, pid, locationID );
 	goto Return;
 	
@@ -1530,7 +1678,8 @@ kern_return_t DiskArbPrinter_Response_rpc (
 	}
 
 	/* Forward the message to the Blue Box */
-	
+
+#warning  Should this be in a thread
 	err = DiskArbPrinter_FinalResponse_rpc( clientPtr->port, locationID, answer );
 	
 	goto Return;
@@ -1552,13 +1701,14 @@ kern_return_t DiskArbPrinter_Release_rpc (
 	bbClientPtr = LookupBlueBox();
 	if ( ! bbClientPtr )
 	{
-		dwarning(("%s: Blue Box is not registered\n"));
+		dwarning(("%s: Blue Box is not registered\n", __FUNCTION__));
 		err = 0;
 		goto Return;
 	}
 
 	/* Forward the question to Blue Box. */
-	
+
+#warning  Should this be in a thread
 	err = DiskArbPrinter_FinalRelease_rpc( bbClientPtr->port, locationID );
 
 	goto Return;
@@ -1568,4 +1718,359 @@ Return:
 
 } // DiskArbPrinter_Release_rpc
 
+/*
 
+-- DEVICE RESERVATIONS --
+
+ */
+
+kern_return_t DiskArbIsDeviceReservedForClient_rpc ( mach_port_t server, DiskArbDiskIdentifier diskIdentifier, pid_t clientPid)
+{
+        DiskPtr diskPtr;
+        DiskPtr wholePtr;
+        ClientPtr clientPtr;
+
+        int status = kDiskArbDeviceIsNotReserved;
+        int pid = 0;
+
+        clientPtr = LookupClientByPID(clientPid);
+        if ( ! clientPtr )
+        {
+                dwarning(("%s: client ptr not found %d", __FUNCTION__, clientPid));
+                return 0;
+        }
+
+
+        dwarning(("%s(diskIdentifier = '%s', from pid = '%d')\n", __FUNCTION__, diskIdentifier, clientPid));
+
+        diskPtr = LookupDiskByIOBSDName( diskIdentifier );
+        if (diskPtr) {
+                wholePtr = LookupWholeDiskForThisPartition( diskPtr );
+        } else {
+                dwarning(("%s: diskPtr not found %s", __FUNCTION__, diskIdentifier));
+                return 0;
+        }
+
+        if (!wholePtr) {
+                pwarning(("%s: wholePtr not found, cannot retain reservation on %s", __FUNCTION__, diskIdentifier));
+        }
+
+        if (wholePtr->retainingClient) {
+
+                status = kDiskArbDeviceIsReserved;
+                pid = wholePtr->retainingClient;
+        }
+
+        // call the client back
+#warning  Should this be in a thread
+        DiskArbDeviceReservationStatus_rpc(clientPtr->port, diskIdentifier, status, pid);
+
+        return 0;
+
+}
+
+kern_return_t DiskArbRetainClientReservationForDevice_rpc ( mach_port_t server, DiskArbDiskIdentifier diskIdentifier, pid_t clientPid)
+{
+        DiskPtr diskPtr;
+        DiskPtr wholePtr;
+        ClientPtr clientPtr = LookupClientByPID(clientPid);
+
+        int pid = 0;
+
+        if ( ! clientPtr )
+        {
+                dwarning(("%s: client ptr not found %d", __FUNCTION__, clientPid));
+                return 0;
+        }
+
+        dwarning(("%s(diskIdentifier = '%s', pid = '%d')\n", __FUNCTION__, diskIdentifier, clientPid));
+
+        diskPtr = LookupDiskByIOBSDName( diskIdentifier );
+        if (diskPtr) {
+                wholePtr = LookupWholeDiskForThisPartition( diskPtr );
+        } else {
+                dwarning(("%s: diskPtr not found %s", __FUNCTION__, diskIdentifier));
+                return 0;
+        }
+
+        if (!wholePtr) {
+                pwarning(("%s: wholePtr not found, cannot retain reservation on %s", __FUNCTION__, diskIdentifier));
+        }
+
+        if (wholePtr->retainingClient) {
+                ClientPtr remoteClientPtr = LookupClientByPID(wholePtr->retainingClient);
+                if ( ! remoteClientPtr )
+                {
+                        dwarning(("%s: client ptr not found %d", __FUNCTION__, wholePtr->retainingClient));
+                        return 0;
+                }
+
+		// here is where we ask the retaining client if they will give it up ...
+#warning  Should this be in a thread
+               DiskArbWillClientRelinquish_rpc(remoteClientPtr->port, diskIdentifier, clientPid);
+               // if the application doesn't have a handler for this, the application will immediately callback and say "nope - I won't give it up"
+
+        } else {
+                wholePtr->retainingClient = clientPid;
+                pid = wholePtr->retainingClient;
+
+                // call the client back right away
+#warning  Should this be in a thread
+                DiskArbDeviceReservationStatus_rpc(clientPtr->port, diskIdentifier, kDiskArbDeviceReservationObtained, pid);
+        }
+        
+        return 0;
+
+}
+
+kern_return_t DiskArbReleaseClientReservationForDevice_rpc ( mach_port_t server, DiskArbDiskIdentifier diskIdentifier, pid_t pid)
+{
+        DiskPtr diskPtr;
+        DiskPtr wholePtr;
+
+        dwarning(("%s(diskIdentifier = '%s', pid = '%d')\n", __FUNCTION__, diskIdentifier, pid));
+
+        diskPtr = LookupDiskByIOBSDName( diskIdentifier );
+        if (diskPtr) {
+                wholePtr = LookupWholeDiskForThisPartition( diskPtr );
+        } else {
+                dwarning(("%s: diskPtr not found %s", __FUNCTION__, diskIdentifier));
+                return 0;
+        }
+
+        if (!wholePtr) {
+                pwarning(("%s: wholePtr not found, cannot release reservation on %s", __FUNCTION__, diskIdentifier));
+        } else if (wholePtr->retainingClient == pid) {
+                wholePtr->retainingClient = 0;
+	}
+        
+        return 0;
+
+}
+
+kern_return_t DiskArbClientRelinquishesReservation_rpc ( mach_port_t server, DiskArbDiskIdentifier diskIdentifier, pid_t pid, pid_t releaseToClientPid, int status)
+{
+        DiskPtr diskPtr;
+        DiskPtr wholePtr;
+        ClientPtr clientPtr = LookupClientByPID(releaseToClientPid);
+
+        if ( ! clientPtr )
+        {
+                dwarning(("%s: client ptr not found %d", __FUNCTION__, releaseToClientPid));
+                return 0;
+        }
+
+        dwarning(("%s(diskIdentifier = '%s', my pid = '%d', release to pid = '%d', status = '%d')\n", __FUNCTION__, diskIdentifier, pid, releaseToClientPid, status));
+
+        diskPtr = LookupDiskByIOBSDName( diskIdentifier );
+        if (diskPtr) {
+                wholePtr = LookupWholeDiskForThisPartition( diskPtr );
+        } else {
+                dwarning(("%s: diskPtr not found %s", __FUNCTION__, diskIdentifier));
+                return 0;
+        }
+
+        if (!wholePtr) {
+                pwarning(("%s: wholePtr not found, cannot release reservation on %s", __FUNCTION__, diskIdentifier));
+                return 0;
+        }
+
+        if (status) {
+                // now notify the person who asked that they now have or don't have the reservation
+                wholePtr->retainingClient = releaseToClientPid;
+#warning  Should this be in a thread
+                DiskArbDeviceReservationStatus_rpc(clientPtr->port, diskIdentifier, kDiskArbDeviceReservationObtained, releaseToClientPid);
+        } else {
+                wholePtr->retainingClient = pid;
+#warning  Should this be in a thread
+                DiskArbDeviceReservationStatus_rpc(clientPtr->port, diskIdentifier, kDiskArbDeviceReservationRefused, pid);
+        }
+        
+        return 0;
+
+}
+
+/* Unintialized Disk notifications */
+
+kern_return_t DiskArbClientHandlesUnrecognizedDisks_rpc ( mach_port_t server,  pid_t pid, int types, int priority)
+{
+        ClientPtr clientPtr = LookupClientByPID(pid);
+
+        if (!clientPtr) {
+                dwarning(("%s : No client ptr for client pid %d\n", __FUNCTION__, pid));
+        } else {
+                clientPtr->unrecognizedPriority = priority;
+                clientPtr->notifyOnDiskTypes = types;
+        }
+        return 0;
+}
+
+kern_return_t DiskArbClientHandlesUninitializedDisks_rpc (
+        mach_port_t server,
+        int clientPid,
+        int flags)
+{
+        kern_return_t err = 0;
+        ClientPtr clientPtr;
+
+        dwarning(("%s(%d:%d)\n", __FUNCTION__, clientPid, flags));
+
+        clientPtr = LookupClientByPID( clientPid );
+        if ( ! clientPtr )
+        {
+                dwarning(("%s(pid=%d,flags=%d): no known client with this pid.\n", __FUNCTION__, clientPid, flags));
+                err = -1;
+        }
+        else
+        {
+                if (flags) {
+                        // or it in
+                        clientPtr->flags |= kDiskArbClientHandlesUninitializedDisks;
+                } else {
+                        // and it out
+                        clientPtr->flags &= ~kDiskArbClientHandlesUninitializedDisks;
+                }
+        }
+
+        return err;
+}
+
+
+kern_return_t DiskArbClientWillHandleUnrecognizedDisk_rpc ( mach_port_t server,  DiskArbDiskIdentifier diskIdentifier, pid_t pid, int yesNo)
+{
+        DiskPtr diskPtr = LookupDiskByIOBSDName( diskIdentifier );
+        ClientPtr clientPtr = LookupClientByPID( pid );
+        clientPtr->ackOnUnrecognizedDisk = nil;
+
+        if (!clientPtr || !diskPtr) {
+                return 0;
+        }
+        
+        if (yesNo == FALSE) {
+
+		/* Mark the disk new again, this will get the disk to get
+                recognized as unrecognizable again in the next loop */
+                diskPtr->state = kDiskStateNew;
+        } else {
+                DiskPtr wholePtr = LookupWholeDiskForThisPartition( diskPtr );
+                diskPtr->retainingClient = pid;
+                /* give a claim on the disk to the client */
+                if (wholePtr) {
+                        wholePtr->retainingClient = pid;
+                }
+        }
+       
+        return 0;
+}
+
+kern_return_t DiskArbSetSecuritySettingsForClient_rpc ( mach_port_t server,  pid_t pid, DiskArbSecurityToken token)
+{
+        kern_return_t err = 0;
+        ClientPtr clientPtr = LookupClientByPID( pid );
+
+        if (!clientPtr) {
+                dwarning(("%s(pid=%d): no known client with this pid.\n", __FUNCTION__, pid));
+                err = -1;
+        } else {
+                AuthorizationRef ref;
+                int ok = AuthorizationCreateFromExternalForm((const AuthorizationExternalForm *)token, &ref);
+
+                if (0 == ok && ref) {
+                        dwarning(("%s Setting token for (pid=%d)\n", __FUNCTION__, pid));
+                        // good
+                        clientPtr->clientAuthRef = ref;
+
+                } else {
+                        // bad
+                }
+
+
+        }
+
+        return err;
+
+}
+
+static void EjectAllCDAndDVDMedia()
+{
+        // spin through all disks, find whole media ones only, if it's a CD or DVD, eject it
+        DiskPtr diskPtr;
+
+        for (diskPtr = g.Disks; diskPtr != NULL; diskPtr = diskPtr->next)
+        {
+                DiskPtr wholePtr = LookupWholeDiskForThisPartition(diskPtr);
+
+                if (wholePtr == diskPtr) {
+                        if ((diskPtr->flags & kDiskArbDiskAppearedCDROMMask) || (diskPtr->flags & kDiskArbDiskAppearedDVDROMMask)) {
+                                DiskArbUnmountAndEjectRequest_async_rpc( 0, 0, diskPtr->ioBSDName, FALSE);
+                        }
+                }
+        }
+}
+
+static void OpenVacantDriveDoor(io_registry_entry_t device)
+{
+    io_registry_entry_t driver = 0;
+    io_registry_entry_t media  = 0;
+    kern_return_t       status = KERN_SUCCESS;
+
+    status = IORegistryEntryGetChildEntry(device, kIOServicePlane, &driver);
+    if (status != KERN_SUCCESS)  goto OpenVacantDriveDoorErr;
+
+    status = IORegistryEntryGetChildEntry(driver, kIOServicePlane, &media);
+    if (status == KERN_SUCCESS)  goto OpenVacantDriveDoorErr;
+
+    IORegistryEntrySetCFProperty(device, CFSTR("TrayState"), kCFBooleanTrue);
+
+OpenVacantDriveDoorErr:
+
+    if (driver)  IOObjectRelease(driver);
+    if (media)  IOObjectRelease(media);
+}
+
+static void OpenAllVacantCDAndDVDDriveDoors()
+{
+    CFMutableDictionaryRef description = 0;
+    mach_port_t            masterPort  = 0;
+    io_registry_entry_t    device      = 0;
+    io_iterator_t          devices     = 0;
+    kern_return_t          status      = KERN_SUCCESS;
+
+    status = IOMasterPort(bootstrap_port, &masterPort);
+    if (status != KERN_SUCCESS)  goto OpenAllVacantCDAndDVDDriveDoorsErr;
+
+    description = IOServiceMatching("IOCDBlockStorageDevice");
+    if (description == 0)  goto OpenAllVacantCDAndDVDDriveDoorsErr;
+
+    status = IOServiceGetMatchingServices(masterPort, description, &devices);
+    if (status != KERN_SUCCESS)  goto OpenAllVacantCDAndDVDDriveDoorsErr;
+
+    description = 0; // (retain consumed in above call)
+
+    while ( (device = IOIteratorNext(devices)) )
+    {
+        OpenVacantDriveDoor(device);
+        IOObjectRelease(device);
+    }
+
+OpenAllVacantCDAndDVDDriveDoorsErr:
+
+    if (description)  CFRelease(description);
+    if (devices)  IOObjectRelease(devices);
+}
+
+
+kern_return_t DiskArbOpenVacantDriveDoors_rpc ( mach_port_t server )
+{
+        OpenAllVacantCDAndDVDDriveDoors();
+        return 0;
+
+}
+
+kern_return_t DiskArbEjectKeyPressed_rpc ( mach_port_t server )
+{
+        OpenAllVacantCDAndDVDDriveDoors();
+        EjectAllCDAndDVDMedia();
+        return 0;
+
+}

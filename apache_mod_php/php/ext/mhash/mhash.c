@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -18,6 +18,10 @@
    |  Nikos Mavroyanopoulos <nmav@hellug.gr>                              |
    +----------------------------------------------------------------------+
  */
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 
 #include "php.h"
 
@@ -75,8 +79,8 @@ static PHP_MINIT_FUNCTION(mhash)
 	return SUCCESS;
 }
 
-/* {{{ proto int mhash_count()
-   get the number of available hashes */
+/* {{{ proto int mhash_count(void)
+   Gets the number of available hashes */
 PHP_FUNCTION(mhash_count)
 {
 	RETURN_LONG(mhash_count());
@@ -85,7 +89,7 @@ PHP_FUNCTION(mhash_count)
 /* }}} */
 
 /* {{{ proto int mhash_get_block_size(int hash)
-   get the block size of hash */
+   Gets the block size of hash */
 PHP_FUNCTION(mhash_get_block_size)
 {
 	pval **hash;
@@ -103,7 +107,7 @@ PHP_FUNCTION(mhash_get_block_size)
 /* }}} */
 
 /* {{{ proto string mhash_get_hash_name(int hash)
-   get the name of hash */
+   Gets the name of hash */
 PHP_FUNCTION(mhash_get_hash_name)
 {
 	pval **hash;
@@ -127,8 +131,8 @@ PHP_FUNCTION(mhash_get_hash_name)
 
 /* }}} */
 
-/* {{{ proto string mhash(int hash, string data, [string key])
-   hash data with hash */
+/* {{{ proto string mhash(int hash, string data [, string key])
+   Hash data with hash */
 PHP_FUNCTION(mhash)
 {
 	pval **hash, **data, **key;
@@ -194,7 +198,7 @@ PHP_FUNCTION(mhash)
 /* }}} */
 
 /* {{{ proto string mhash_keygen_s2k(int hash, string input_password, string salt, int bytes)
-   generate a key using hash functions */
+   Generates a key using hash functions */
 /* SALTED S2K uses a fixed salt */
 #define SALT_SIZE 8
 PHP_FUNCTION(mhash_keygen_s2k)

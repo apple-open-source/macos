@@ -50,13 +50,13 @@
  * of their lists.
  */
 struct symbol_list undefined_list = {
-    NULL, NULL, NULL, FALSE, FALSE, &undefined_list, &undefined_list
+    NULL, NULL, NULL, FALSE, FALSE, FALSE, &undefined_list, &undefined_list
 };
 static struct symbol_list being_linked_list = {
-    NULL, NULL, NULL, FALSE, FALSE, &being_linked_list, &being_linked_list
+    NULL, NULL, NULL, FALSE, FALSE, FALSE, &being_linked_list,&being_linked_list
 };
 static struct symbol_list free_list = {
-    NULL, NULL, NULL, FALSE, FALSE, &free_list, &free_list
+    NULL, NULL, NULL, FALSE, FALSE, FALSE, &free_list, &free_list
 };
 /*
  * The structures for the symbol list are allocated in blocks and placed on the
@@ -94,13 +94,13 @@ static void add_to_undefined_list(
     char *name,
     struct nlist *symbol,
     struct image *image,
-    enum bool bind_fully);
+    enum bool bind_fully,
+    enum bool flat_reference);
 static void add_to_being_linked_list(
     char *name,
     struct nlist *symbol,
-    struct image *image);
-static void clear_state_changes_to_the_modules(
-    void);
+    struct image *image,
+    enum bool flat_reference);
 static enum bool are_symbols_coalesced(
     struct image *image1,
     struct nlist *symbol1,
@@ -115,6 +115,20 @@ static void add_reference(
     struct image *image,
     enum bool bind_now,
     enum bool bind_fully);
+static struct image *get_indr_image(
+    char *symbol_name,
+    struct image *image);
+static enum bool lookup_symbol_in_library_image(
+    char *symbol_name,
+    unsigned long itoc,
+    struct image *image,
+    module_state *library_modules,
+    struct library_image *library_image,
+    struct nlist **defined_symbol,
+    module_state **defined_module,
+    struct image **defined_image,
+    struct library_image **defined_library_image,
+    struct indr_loop_list *indr_loop);
 
 static char *nlist_bsearch_strings;
 static struct nlist *toc_bsearch_symbols;
@@ -127,7 +141,7 @@ static struct nlist *nlist_linear_search(
     unsigned long nsymbols,
     char *strings);
 
-static char * look_for_reference(
+static char * look_for_flat_reference(
     char *symbol_name,
     struct nlist **referenced_symbol,
     module_state **referenced_module,
@@ -147,6 +161,97 @@ static enum bool check_libraries_for_definition_and_refernce(
     struct library_image *library_image);
 
 /*
+ * get_primary_image() gets the primary image for a two-level symbol reference
+ * from the specified image.  If the the image is NULL or the symbol is NULL or
+ * the image passed is not two-level or force_flat_namespace is TRUE then NULL
+ * is returned.  Otherwise the pointer to the primary image for the reference
+ * is returned.
+ */
+/* TODO make this "static inline" moving it to symbols.h after debugging it */
+struct image *
+get_primary_image(
+struct image *image,
+struct nlist *symbol)
+{
+    struct image *primary_image;
+
+	if(image != NULL && symbol != NULL && force_flat_namespace == FALSE &&
+	   (image->mh->flags & MH_TWOLEVEL) == MH_TWOLEVEL){
+	    if(GET_LIBRARY_ORDINAL(symbol->n_desc) == EXECUTABLE_ORDINAL)
+		primary_image = &object_images.images[0].image;
+	    else if(GET_LIBRARY_ORDINAL(symbol->n_desc) ==
+		    SELF_LIBRARY_ORDINAL){
+		/*
+		 * For two-level libraries that reference symbols
+		 * defined in the same library then the LIBRARY_ORDINAL
+		 * will be SELF_LIBRARY_ORDINAL as the symbol is the
+		 * defined symbol.
+		 */
+		primary_image = image;
+	    }
+	    else{
+		/* could make this check
+		if(GET_LIBRARY_ORDINAL(symbol->n_desc) - 1 >
+		   image.ndependent_images)
+		    <<< bad LIBRARY_ORDINAL in object file >>>
+		*/
+		primary_image = image->dependent_images[
+			    GET_LIBRARY_ORDINAL(symbol->n_desc) - 1];
+	    }
+	}
+	else{
+	    primary_image = NULL;
+	}
+	return(primary_image);
+}
+
+/*
+ * get_hint() gets the twolevel_hint for a two-level symbol reference from the
+ * specified image for the specified symbol.  If the the image is NULL or the
+ * symbol is NULL or the hints can't be used then NULL is returned.  Otherwise
+ * the pointer to the twolevel_hint for the symbol in the image is returned.
+ */
+/* TODO make this "static inline" moving it to symbols.h after debugging it */
+struct twolevel_hint *
+get_hint(
+struct image *image,
+struct nlist *symbol)
+{
+    struct nlist *symbols;
+    struct twolevel_hint *hints, *hint;
+    unsigned long symbol_index;
+
+	/*
+	 * Note that the bit field image_can_use_hints will never be set if
+ 	 * force_flat_namespace is TRUE, the image is not two-level, does not
+	 * have any hints or the hints can't be used because of possible
+	 * new duplicate symbols in the umbrella.
+	 */
+	if(image != NULL &&
+	   symbol != NULL &&
+	   image->image_can_use_hints == TRUE &&
+	   ((symbol->n_type & N_TYPE) == N_UNDF ||
+	    (symbol->n_type & N_TYPE) == N_PBUD) ){
+	    symbols = (struct nlist *)
+		(image->vmaddr_slide +
+		 image->linkedit_segment->vmaddr +
+		 image->st->symoff -
+		 image->linkedit_segment->fileoff);
+	    hints = (struct twolevel_hint *)
+		(image->vmaddr_slide +
+		 image->linkedit_segment->vmaddr +
+		 image->hints_cmd->offset -
+		 image->linkedit_segment->fileoff);
+	    symbol_index = symbol - symbols;
+	    hint = hints + (symbol_index - image->dyst->iundefsym);
+	}
+	else{
+	    hint = NULL;
+	}
+	return(hint);
+}
+
+/*
  * setup_initial_undefined_list() builds the initial list of non-lazy symbol
  * references based on the executable's symbols.
  */
@@ -161,6 +266,7 @@ enum bool all_symbols)
     struct symtab_command *st;
     struct dysymtab_command *dyst;
     struct image *image;
+    enum bool flat_reference;
 
 	/*
 	 * The executable is the first object on the object_image list.
@@ -176,6 +282,11 @@ enum bool all_symbols)
 	     st->symoff -
 	     linkedit_segment->fileoff);
 	image = &object_images.images[0].image;
+	if(force_flat_namespace == FALSE)
+	    flat_reference = (object_images.images[0].image.mh->flags &
+			      MH_TWOLEVEL) != MH_TWOLEVEL;
+	else
+	    flat_reference = TRUE;
 
 	for(i = dyst->iundefsym; i < dyst->iundefsym + dyst->nundefsym; i++){
 	    if(executable_bind_at_load == TRUE ||
@@ -187,7 +298,8 @@ enum bool all_symbols)
 		     image->st->stroff -
 		     image->linkedit_segment->fileoff) +
 		    symbols[i].n_un.n_strx;
-		add_to_undefined_list(symbol_name, symbols + i, image, FALSE);
+		add_to_undefined_list(symbol_name, symbols + i, image,
+		    FALSE, flat_reference);
 	    }
 	}
 }
@@ -195,7 +307,7 @@ enum bool all_symbols)
 /*
  * setup_prebound_coalesed_symbols() builds the list of coalesced symbols in
  * the prebound program.  Then gets the symbol pointers and external relocation
- * entried relocated to the coalesced symbols being used.
+ * entries relocated to the coalesced symbols being used.
  */
 void
 setup_prebound_coalesed_symbols(
@@ -217,6 +329,7 @@ void)
     enum bool found;
     struct relocation_info *relocs;
     struct dylib_table_of_contents *tocs, *toc;
+    enum bool flat_reference;
 
 	/*
 	 * The executable is the first object on the object_image list.  So
@@ -227,6 +340,11 @@ void)
 	    linkedit_segment = image->linkedit_segment;
 	    st = image->st;
 	    dyst = image->dyst;
+	    if(force_flat_namespace == FALSE)
+		flat_reference = (object_images.images[0].image.mh->flags &
+				  MH_TWOLEVEL) != MH_TWOLEVEL;
+	    else
+		flat_reference = TRUE;
 	    if(linkedit_segment != NULL && st != NULL && dyst != NULL){
 		/*
 		 * The vmaddr_slide of an executable is always 0, no need to add
@@ -248,7 +366,8 @@ void)
 		    if((symbol->n_type & N_TYPE) == N_SECT &&
 		       is_section_coalesced(image, symbol->n_sect - 1) == TRUE){
 			symbol_name = strings + symbol->n_un.n_strx;
-			add_to_being_linked_list(symbol_name, symbol, image);
+			add_to_being_linked_list(symbol_name, symbol, image,
+						 flat_reference);
 		    }
 		}
 	    }
@@ -287,6 +406,11 @@ void)
 		     linkedit_segment->vmaddr +
 		     dyst->extrefsymoff -
 		     linkedit_segment->fileoff);
+		if(force_flat_namespace == FALSE)
+		    flat_reference = (image->mh->flags &
+				      MH_TWOLEVEL) != MH_TWOLEVEL;
+		else
+		    flat_reference = TRUE;
 		for(j = 0; j < image->dyst->nmodtab; j++){
 		    link_state = GET_LINK_STATE(q->images[i].modules[j]);
 		    if(link_state != FULLY_LINKED)
@@ -318,7 +442,7 @@ void)
 			    }
 			    if(found == FALSE){
 				add_to_being_linked_list(symbol_name, symbol,
-							 image);
+							 image, flat_reference);
 			    }
 			}
 		    }
@@ -358,7 +482,9 @@ void)
 	     * executable's image.
 	     */
 	    image = &object_images.images[0].image;
-	    if(being_linked->image != image){
+	    if(being_linked->image != image &&
+	       (force_flat_namespace == TRUE ||
+		(image->mh->flags & MH_TWOLEVEL) != MH_TWOLEVEL)){
 		linkedit_segment = image->linkedit_segment;
 		st = image->st;
 		dyst = image->dyst;
@@ -427,7 +553,9 @@ void)
 	    do{
 		for(i = 0; i < q->nimages; i++){
 		    image = &(q->images[i].image);
-		    if(being_linked->image != image){
+		    if(being_linked->image != image &&
+		       (force_flat_namespace == TRUE ||
+			(image->mh->flags & MH_TWOLEVEL) != MH_TWOLEVEL)){
 			linkedit_segment = image->linkedit_segment;
 			st = image->st;
 			dyst = image->dyst;
@@ -601,7 +729,8 @@ add_to_undefined_list(
 char *name,
 struct nlist *symbol,
 struct image *image,
-enum bool bind_fully)
+enum bool bind_fully,
+enum bool flat_reference)
 {
     struct symbol_list *undefined;
     struct symbol_list *new;
@@ -612,6 +741,8 @@ enum bool bind_fully)
 	    if(undefined->name == name){
 		if(bind_fully == TRUE)
 		    undefined->bind_fully = bind_fully;
+		if(flat_reference == TRUE)
+		    undefined->flat_reference = flat_reference;
 		return;
 	    }
 	}
@@ -625,6 +756,7 @@ enum bool bind_fully)
 	new->image = image;
 	new->remove_on_error = return_on_error;
 	new->bind_fully = bind_fully;
+	new->flat_reference = flat_reference;
 
 	/* put this at the end of the undefined list */
 	new->prev = undefined_list.prev;
@@ -641,7 +773,8 @@ void
 add_to_being_linked_list(
 char *name,
 struct nlist *symbol,
-struct image *image)
+struct image *image,
+enum bool flat_reference)
 {
     struct symbol_list *new;
 
@@ -654,6 +787,7 @@ struct image *image)
 	new->image = image;
 	new->remove_on_error = return_on_error;
 	new->bind_fully = FALSE;
+	new->flat_reference = flat_reference;
 
 	/* put this at the end of the being_linked list */
 	new->prev = being_linked_list.prev;
@@ -695,6 +829,7 @@ enum bool only_remove_on_error)
 		old->image = NULL;
 		old->remove_on_error = FALSE;
 		old->bind_fully = FALSE;
+		old->flat_reference = FALSE;
 		old = old_next;
 	    }
 	    /*
@@ -762,6 +897,7 @@ enum bool only_remove_on_error)
 		old->image = NULL;
 		old->remove_on_error = FALSE;
 		old->bind_fully = FALSE;
+		old->flat_reference = FALSE;
 		old = old_next;
 	    }
 	}
@@ -813,8 +949,10 @@ enum bool launching_with_prebound_libraries)
 	    /* no increment expression */){
 	    bind_fully = undefined->bind_fully;
 
-	    lookup_symbol(undefined->name, &symbol, &module, &image,
-			  &library_image, NO_INDR_LOOP);
+	    lookup_symbol(undefined->name,
+		get_primary_image(undefined->image, undefined->symbol),
+		get_hint(undefined->image, undefined->symbol),
+		&symbol, &module, &image, &library_image, NO_INDR_LOOP);
 	    if(symbol != NULL){
 		/*
 		 * The symbol was found so remove it from the undefined_list
@@ -897,15 +1035,15 @@ enum bool launching_with_prebound_libraries)
 		     */
 		    if(return_on_error == TRUE &&
 		       library_image->saved_module_states != NULL)
-			library_image->saved_module_states[module_index] =
-				UNLINKED;
+			SET_LINK_STATE(library_image->saved_module_states
+				       [module_index], UNLINKED);
 
 		    /* link this library module */
 		    r = link_library_module(library_image, image, module,
 			    bind_now, bind_fully,
 			    launching_with_prebound_libraries);
 		    if(return_on_error == TRUE && r == FALSE)
-			goto back_out_changes;;
+			goto back_out_changes;
 		}
 		else if(link_state == UNLINKED){
 		    /* link this library module */
@@ -915,7 +1053,7 @@ enum bool launching_with_prebound_libraries)
 		    if(launching_with_prebound_libraries == TRUE && r == FALSE)
 			return(FALSE);
 		    if(return_on_error == TRUE && r == FALSE)
-			goto back_out_changes;;
+			goto back_out_changes;
 		}
 		else if(bind_now == TRUE &&
 			library_image != NULL &&
@@ -925,7 +1063,7 @@ enum bool launching_with_prebound_libraries)
 			    bind_now, bind_fully,
 			    launching_with_prebound_libraries);
 		    if(return_on_error == TRUE && r == FALSE)
-			goto back_out_changes;;
+			goto back_out_changes;
 		}
 		else if(bind_fully == TRUE &&
 			GET_FULLYBOUND_STATE(*module) == 0){
@@ -935,14 +1073,14 @@ enum bool launching_with_prebound_libraries)
 				TRUE, bind_fully,
 				launching_with_prebound_libraries);
 			if(return_on_error == TRUE && r == FALSE)
-			    goto back_out_changes;;
+			    goto back_out_changes;
 		    }
 		    else{
 			/* cause this object module to be fully bound */
 			object_image = find_object_image(image);
 			r = link_object_module(object_image, TRUE, TRUE);
 			if(return_on_error == TRUE && r == FALSE)
-			    goto back_out_changes;;
+			    goto back_out_changes;
 		    }
 		}
 		if(undefined == &undefined_list &&
@@ -974,10 +1112,35 @@ back_out_changes:
 }
 
 /*
+ * clear_module_states_saved() is called before linking when return_on_error 
+ * is set to TRUE while linking.  This is so that resolve_undefineds() will
+ * know that the state of a module it is going to change has not yet been saved
+ * so it will save it before it changes it so it can be backed out if needed.
+ */
+void
+clear_module_states_saved(
+void)
+{
+    unsigned long i;
+    struct object_images *p;
+    struct library_images *q;
+
+	for(p = &object_images ; p != NULL; p = p->next_images){
+	    for(i = 0; i < p->nimages; i++){
+		p->images[i].module_state_saved = FALSE;
+	    }
+	}
+	for(q = &library_images; q != NULL; q = q->next_images){
+	    for(i = 0; i < q->nimages; i++){
+		q->images[i].module_states_saved = FALSE;
+	    }
+	}
+}
+
+/*
  * clear_state_changes_to_the_modules() back's out state changes to the
  * modules resolve_undefineds() made when return_on_error was set.
  */
-static
 void
 clear_state_changes_to_the_modules(
 void)
@@ -1149,6 +1312,7 @@ enum bool launching_with_prebound_libraries)
     enum bool found;
     struct symbol_list *being_linked;
     enum bool private_refs;
+    enum bool flat_reference;
 
 	linkedit_segment = image->linkedit_segment;
 	st = image->st;
@@ -1170,6 +1334,10 @@ enum bool launching_with_prebound_libraries)
 	     linkedit_segment->fileoff);
 	module_index = module - library_image->modules;
 	dylib_module = dylib_modules + module_index;
+	if(force_flat_namespace == FALSE)
+	    flat_reference = (image->mh->flags & MH_TWOLEVEL) != MH_TWOLEVEL;
+	else
+	    flat_reference = TRUE;
 
 	/*
 	 * If this module is in the LINKED state or BEING_LINKED state then we
@@ -1182,6 +1350,48 @@ enum bool launching_with_prebound_libraries)
 	    goto add_undefineds;
 
 	/*
+	 * If we are not forcing the flat namespace and this is a two-level
+	 * namespace image its defined symbols can't cause any multiply defined 
+	 * so we can skip checking for them and go on to adding undefined
+	 * symbols.
+	 */
+	if(force_flat_namespace == FALSE &&
+	   (image->mh->flags & MH_TWOLEVEL) == MH_TWOLEVEL){
+	    /*
+	     * If this image has global coalesced symbols they must be added to
+	     * the being linked list even though it is defined in this module
+	     * because all references to coalesced symbols are done indirectly
+	     * and the indirect symbol pointers must get filled in.
+	     */
+	    if(image->has_coalesced_sections == TRUE){
+		for(i = dylib_module->iextdefsym;
+		    i < dylib_module->iextdefsym + dylib_module->nextdefsym;
+		    i++){
+
+		    if(is_symbol_coalesced(image, symbols + i) == TRUE){
+			/* check being_linked_list of symbols */
+			found = FALSE;
+			for(being_linked = being_linked_list.next;
+			    being_linked != &being_linked_list;
+			    being_linked = being_linked->next){
+			    if(being_linked->symbol == prev_symbol){
+				found = TRUE;
+				break;
+			    }
+			}
+			if(found == FALSE){
+			    symbol_name = strings + symbols[i].n_un.n_strx;
+			    add_to_being_linked_list(symbol_name,
+						     symbols + i, image,
+						     flat_reference);
+			}
+		    }
+		}
+	    }
+	    goto add_undefineds;
+	}
+
+	/*
 	 * For each defined symbol check to see if it is not defined in a module
 	 * that is already linked (or being linked).
 	 */
@@ -1189,12 +1399,17 @@ enum bool launching_with_prebound_libraries)
 	    i < dylib_module->iextdefsym + dylib_module->nextdefsym;
 	    i++){
 	    symbol_name = strings + symbols[i].n_un.n_strx;
-	    lookup_symbol(symbol_name, &prev_symbol, &prev_module, &prev_image,
-			  &prev_library_image, NO_INDR_LOOP);
+	    lookup_symbol(symbol_name, NULL, NULL, &prev_symbol, &prev_module,
+			  &prev_image, &prev_library_image, NO_INDR_LOOP);
 	    /*
 	     * The symbol maybe found in this module which is not an error.
+	     * or the symbol may be in a two-level namespace image which is
+	     * not an error.
 	     */
-	    if(prev_symbol != NULL && module != prev_module){
+	    if(prev_symbol != NULL && module != prev_module && 
+	       prev_image != NULL &&
+	       (force_flat_namespace == TRUE ||
+		(prev_image->mh->flags & MH_TWOLEVEL) != MH_TWOLEVEL)){
 		prev_link_state = GET_LINK_STATE(*prev_module);
 
 		if(prev_link_state == BEING_LINKED ||
@@ -1250,7 +1465,7 @@ enum bool launching_with_prebound_libraries)
 			}
 			if(found == FALSE)
 			    add_to_being_linked_list(symbol_name, prev_symbol,
-						     prev_image);
+						     prev_image,flat_reference);
 			continue;
 		    }
 
@@ -1291,7 +1506,8 @@ enum bool launching_with_prebound_libraries)
 		     */
 		    if(image->has_coalesced_sections == TRUE &&
 		       is_symbol_coalesced(image, symbols + i) == TRUE){
-			add_to_being_linked_list(symbol_name, symbols+i, image);
+			add_to_being_linked_list(symbol_name, symbols+i, image,
+						 flat_reference);
 		    }
 		}
 	    }
@@ -1304,7 +1520,8 @@ enum bool launching_with_prebound_libraries)
 		 */
 		if(image->has_coalesced_sections == TRUE &&
 		   is_symbol_coalesced(image, symbols + i) == TRUE){
-		    add_to_being_linked_list(symbol_name, symbols + i, image);
+		    add_to_being_linked_list(symbol_name, symbols + i, image,
+					     flat_reference);
 		}
 	    }
 	}
@@ -1406,8 +1623,8 @@ add_undefineds:
 			     */
 			    if(return_on_error == TRUE &&
 			       library_image->saved_module_states != NULL)
-				library_image->saved_module_states[j] =
-								      UNLINKED;
+				SET_LINK_STATE(library_image->
+					saved_module_states[j], UNLINKED);
 			}
 			if(ref_link_state == UNLINKED ||
 			   (bind_fully == TRUE && 
@@ -1453,8 +1670,8 @@ add_undefineds:
 		 */
 		if(return_on_error == TRUE &&
 		   library_image->saved_module_states != NULL)
-		    library_image->saved_module_states[ 
-			library_image->image.rc->init_module] = UNLINKED;
+		    SET_LINK_STATE(library_image->saved_module_states[ 
+			library_image->image.rc->init_module], UNLINKED);
 	    }
 	    if(library_image->image.init_bound == FALSE){
 	        library_image->image.init_bound = TRUE;
@@ -1493,7 +1710,12 @@ enum bool bind_fully)
     enum link_state ref_link_state;
     enum bool found;
     struct symbol_list *being_linked;
+    enum bool flat_reference;
 
+	if(force_flat_namespace == FALSE)
+	    flat_reference = (image->mh->flags & MH_TWOLEVEL) != MH_TWOLEVEL;
+	else
+	    flat_reference = TRUE;
 	/*
 	 * Lookup the symbol to see if it is defined in an already linked (or
 	 * being linked) module.
@@ -1504,8 +1726,9 @@ enum bool bind_fully)
 	 *
 	 *     If it is not then add it to the undefined list.
 	 */
-	lookup_symbol(symbol_name, &ref_symbol, &ref_module, &ref_image,
-		      &ref_library_image, NO_INDR_LOOP);
+	lookup_symbol(symbol_name, get_primary_image(image, symbol),
+		      get_hint(image, symbol), &ref_symbol, &ref_module,
+		      &ref_image, &ref_library_image, NO_INDR_LOOP);
 	if(ref_symbol != NULL){
 	    ref_link_state = GET_LINK_STATE(*ref_module);
 
@@ -1533,11 +1756,11 @@ enum bool bind_fully)
 			ref_library_image != NULL &&
 			ref_link_state == LINKED) ){
 			add_to_undefined_list(symbol_name, ref_symbol,
-						 ref_image, bind_fully);
+					 ref_image, bind_fully, flat_reference);
 		    }
 		    else{
 			add_to_being_linked_list(symbol_name, ref_symbol,
-						 ref_image);
+						 ref_image, flat_reference);
 		    }
 		}
 		else{
@@ -1561,19 +1784,28 @@ enum bool bind_fully)
 			being_linked->image = NULL;
 			being_linked->remove_on_error = FALSE;
 			being_linked->bind_fully = FALSE;
+			/* don't loose if this was a flat_reference */
+			if(being_linked->flat_reference == TRUE)
+			    flat_reference = TRUE;
+			being_linked->flat_reference = FALSE;
 
 			add_to_undefined_list(symbol_name, ref_symbol,
-						 ref_image, bind_fully);
-		     }
+					 ref_image, bind_fully, flat_reference);
+		    }
+		    else if(flat_reference == TRUE &&
+			    being_linked->flat_reference == FALSE){
+			being_linked->flat_reference = TRUE;
+		    }
 		}
 	    }
 	    else{
 		add_to_undefined_list(symbol_name, ref_symbol, ref_image,
-				      bind_fully);
+				      bind_fully, flat_reference);
 	    }
 	}
 	else{
-	    add_to_undefined_list(symbol_name, symbol, image, bind_fully);
+	    add_to_undefined_list(symbol_name, symbol, image, bind_fully,
+				  flat_reference);
 	}
 }
 
@@ -1619,6 +1851,7 @@ enum bool bind_fully)
 
     enum bool found;
     struct symbol_list *being_linked;
+    enum bool flat_reference;
 
 	linkedit_segment = object_image->image.linkedit_segment;
 	st = object_image->image.st;
@@ -1633,20 +1866,33 @@ enum bool bind_fully)
 	     linkedit_segment->vmaddr +
 	     st->stroff -
 	     linkedit_segment->fileoff);
+	if(force_flat_namespace == FALSE)
+	    flat_reference = (object_image->image.mh->flags &
+			      MH_TWOLEVEL) != MH_TWOLEVEL;
+	else
+	    flat_reference = TRUE;
 
 	/*
-	 * If this object file image is private or if this module is in the
-	 * LINKED state or BEING_LINKED state skip checking for multiply defined
-	 * symbols and move on to added undefined symbols.  If this module is
-	 * in the LINKED state or BEING_LINKED state then we were called to
-	 * fully link this module.  Since it was already linked we can skip
-	 * checking for its defined symbols for being multiply defined as that
-	 * was done when it was first linked.
+	 * If this module is in the LINKED state or BEING_LINKED state skip
+	 * checking for multiply defined symbols and move on to added undefined
+	 * symbols.  If this module is in the LINKED state or BEING_LINKED
+	 * state then we were called to fully link this module.  Since it was
+	 * already linked we can skip checking for its defined symbols for
+	 * being multiply defined as that was done when it was first linked.
 	 */
 	link_state = GET_LINK_STATE(object_image->module);
 	if(link_state == LINKED || link_state == BEING_LINKED)
 	    goto add_undefineds;
-	if(object_image->image.private == TRUE){
+
+	/*
+	 * If this object file image is private or a two-level name space
+	 * image we can skip checking for its defined symbols for being
+	 * multiply defined.  But the module may still have coaleseced
+	 * symbols that need to be delt with.
+	 */
+	if(object_image->image.private == TRUE ||
+	  (force_flat_namespace == TRUE ||
+	   (object_image->image.mh->flags & MH_TWOLEVEL) == MH_TWOLEVEL)){
 	    if(object_image->image.has_coalesced_sections == FALSE)
 		goto add_undefineds;
 	    /*
@@ -1678,22 +1924,40 @@ enum bool bind_fully)
 	}
 
 	/*
-	 * For each defined symbol check to see if it is not defined in a module
-	 * that is already linked (or being linked).  To do this we set the
-	 * link state of this object image's module temporarily to UNUSED so
-	 * the lookup_symbol() routine will not find the symbols from this
-	 * object image.
+	 * If we are not forcing the flat namespace and this is a two-level
+	 * namespace image its defined symbols can't cause any multiply defined
+	 * errors so skip checking them and move on to adding this module's
+	 * undefined symbols.
+	 */
+	if(force_flat_namespace == FALSE &&
+	   (object_image->image.mh->flags & MH_TWOLEVEL) == MH_TWOLEVEL)
+	    goto add_undefineds;
+
+	/*
+	 * For flat namespace each defined symbol check to see if it is not
+	 * defined in a module that is already linked (or being linked).  To do 
+	 * this we set the link state of this object image's module temporarily
+	 * to UNUSED so the lookup_symbol() routine will not find the symbols
+	 * from this object image.
 	 */
 	saved_link_state = GET_LINK_STATE(object_image->module);
 	SET_LINK_STATE(object_image->module, UNUSED);
-	for(i = dyst->iextdefsym; i < dyst->iextdefsym + dyst->nextdefsym; i++){
+	for(i = dyst->iextdefsym;
+	    i < dyst->iextdefsym + dyst->nextdefsym;
+	    i++){
 	    symbol_name = strings + symbols[i].n_un.n_strx;
-	    lookup_symbol(symbol_name, &prev_symbol, &prev_module, &prev_image,
+	    lookup_symbol(symbol_name, NULL, NULL,
+			  &prev_symbol, &prev_module, &prev_image,
 			  &prev_library_image, NO_INDR_LOOP);
 	    /*
 	     * The symbol maybe found in this module which is not an error.
+	     * or the symbol may be in a two-level namespace image which is
+	     * not an error.
 	     */
-	    if(prev_symbol != NULL && &object_image->module != prev_module){
+	    if(prev_symbol != NULL && &object_image->module != prev_module && 
+	       prev_image != NULL &&
+	       (force_flat_namespace == FALSE &&
+		(prev_image->mh->flags & MH_TWOLEVEL) != MH_TWOLEVEL)){
 		prev_link_state = GET_LINK_STATE(*prev_module);
 
 		if(prev_link_state == BEING_LINKED ||
@@ -1750,7 +2014,7 @@ enum bool bind_fully)
 			}
 			if(found == FALSE)
 			    add_to_being_linked_list(symbol_name, prev_symbol,
-						     prev_image);
+						     prev_image,flat_reference);
 			continue;
 		    }
 		    multiply_defined_error(symbol_name,
@@ -1786,7 +2050,8 @@ enum bool bind_fully)
 		       is_symbol_coalesced(&(object_image->image),
 					   symbols + i) == TRUE){
 			add_to_being_linked_list(symbol_name, symbols + i,
-						 &(object_image->image));
+						 &(object_image->image),
+						 flat_reference);
 		    }
 		}
 	    }
@@ -1802,7 +2067,8 @@ enum bool bind_fully)
 		   is_symbol_coalesced(&(object_image->image),
 				       symbols + i) == TRUE){
 		    add_to_being_linked_list(symbol_name, symbols + i,
-					     &(object_image->image));
+					     &(object_image->image),
+					     flat_reference);
 		}
 	    }
 	}
@@ -1914,14 +2180,15 @@ enum bool reset_lazy_references)
 		continue;
 	    symbol_name = strings + symbol->n_un.n_strx;
 
-	    reference_name = look_for_reference(symbol_name, &referenced_symbol,
+	    reference_name = look_for_flat_reference(symbol_name,
+				&referenced_symbol,
     				&referenced_module, &referenced_image,
 				&referenced_library_image,
 				reset_lazy_references);
 
 	    if(reference_name != NULL){
 		add_to_undefined_list(reference_name, referenced_symbol,
-				      referenced_image, FALSE);
+				      referenced_image, FALSE, TRUE);
 	    }
 
 	    /*
@@ -1929,7 +2196,7 @@ enum bool reset_lazy_references)
 	     * lazy pointers in all images for this symbol.
 	     */
 	    if(reset_lazy_references == TRUE){
-		change_symbol_pointers_in_images(symbol_name,
+		change_symbol_pointers_in_flat_images(symbol_name,
 				(unsigned long)&unlinked_lazy_pointer_handler,
 				TRUE /* only_lazy_pointers */);
 	    }
@@ -1941,29 +2208,26 @@ enum bool reset_lazy_references)
  * symbol, module and image.  If the symbol is not found the pointers are set
  * to NULL.  The last argument, indr_loop, should be NULL on initial calls to
  * lookup_symbol().
+ *
+ * For two-level namespace lookups the primary_image is not NULL and the symbol
+ * is only looked up in that image and its sub-images.
  */
 void
 lookup_symbol(
 char *symbol_name,
+struct image *primary_image,    /* the primary_image for two-level name space */
+struct twolevel_hint *hint,	/* the two-level hint if not NULL */
 struct nlist **defined_symbol,	/* the defined symbol */
 module_state **defined_module,	/* the module the symbol is in */
 struct image **defined_image,	/* the image the module is in */
 struct library_image **defined_library_image,
 struct indr_loop_list *indr_loop)
 {
-    unsigned long i;
+    unsigned long i, itoc;
     struct object_images *p;
     struct library_images *q;
-    struct segment_command *linkedit_segment;
-    struct symtab_command *st;
-    struct dysymtab_command *dyst;
-    struct nlist *symbols, *symbol;
-    struct dylib_table_of_contents *tocs, *toc;
-    struct indr_loop_list new_indr_loop, *loop, *l;
-    char *strings, *module_name;
-    struct dylib_module *dylib_modules, *dylib_module;
-    unsigned long module_index;
-    enum link_state link_state;
+    struct library_image *outer_library_image;
+    struct object_image *outer_object_image;
 
 	/*
 	 * This is done first so that if executable_bind_at_load is set it can
@@ -1978,284 +2242,648 @@ struct indr_loop_list *indr_loop)
 	*defined_library_image = NULL;
 
 	/*
-	 * First look in object_images for a definition of symbol_name.
+	 * If primary_image is non-NULL this is a two-level name space lookup.
+	 * So look this symbol up in the primary_image and its sub-images
+	 * only.
+	 */
+	if(primary_image != NULL){
+	    if(primary_image->mh->filetype != MH_DYLIB){
+		outer_object_image = (struct object_image *)
+				     primary_image->outer_image;
+		if(lookup_symbol_in_object_image(symbol_name, primary_image,
+			&(outer_object_image->module), defined_symbol,
+			defined_module, defined_image, defined_library_image,
+			indr_loop) == TRUE)
+		    return;
+	    }
+	    else{
+		/*
+		 * First set the index into the table of contents to ULONG_MAX
+		 * indicating we don't have a hint.  Then see if we have a hint
+		 * that can be used for which of the sub-images to look in
+		 * first.
+		 */
+		itoc = ULONG_MAX;
+		if(hint != NULL && primary_image->subs_can_use_hints == TRUE){
+		    /*
+		     * If the hint is for a sub image (isub_image != 0) then
+		     * look in that sub-image otherwise the hint is for the
+		     * primary_image itself.
+		     */
+		    if(hint->isub_image != 0){
+			/*
+			 * If the hint for the sub image is not greater than the
+			 * number of sub images we have a valid hint and we
+			 * first search that sub image for this symbol.
+			 */
+			if((hint->isub_image - 1) < primary_image->nsub_images){
+			    if(primary_image->sub_images[hint->isub_image - 1]->
+			       mh->filetype == MH_DYLIB){
+				outer_library_image = (struct library_image *)
+				    primary_image->sub_images[hint->isub_image -
+							       1]->outer_image;
+				if(lookup_symbol_in_library_image(symbol_name,
+					hint->itoc,
+					primary_image->sub_images[
+					    hint->isub_image - 1],
+					outer_library_image->modules,
+					outer_library_image, defined_symbol,
+					defined_module, defined_image,
+					defined_library_image, indr_loop) ==
+									  TRUE){
+	
+				    if(dyld_hints_debug > 1)
+					print("hint for symbol: %s into "
+					      "sub-image: %s of image: %s "
+					      "worked\n", symbol_name,
+					      primary_image->sub_images[
+						hint->isub_image - 1]->name,
+					      primary_image->name);
+				    return;
+			        }
+			    }
+			}
+			if(dyld_hints_debug > 1)
+			    print("hint for symbol: %s into image: %s failed\n",
+				  symbol_name, primary_image->name);
+		    }
+		    else{
+			/*
+			 * isub_image is 0 which means the hint is for the
+			 * primary_image.  So just pick up the hint for the
+			 * index into the table of contents and fall into
+			 * starting the search with the primary_image.
+			 */
+			itoc = hint->itoc;
+		    }
+		}
+		outer_library_image = (struct library_image *)
+				      primary_image->outer_image;
+		if(lookup_symbol_in_library_image(symbol_name, itoc,
+			primary_image, outer_library_image->modules,
+			outer_library_image, defined_symbol, defined_module,
+			defined_image, defined_library_image,indr_loop) ==TRUE){
+		    if(dyld_hints_debug > 1 && itoc != ULONG_MAX)
+			print("hint for symbol: %s into image: %s worked\n",
+			      symbol_name, primary_image->name);
+		    return;
+		}
+		if(dyld_hints_debug > 1 && itoc != ULONG_MAX)
+		    print("hint for symbol: %s into image: %s failed\n",
+			  symbol_name, primary_image->name);
+	    }
+	    for(i = 0; i < primary_image->nsub_images; i++){
+		if(primary_image->sub_images[i]->mh->filetype != MH_DYLIB){
+		    outer_object_image = (struct object_image *)
+			primary_image->sub_images[i]->outer_image;
+		    if(lookup_symbol_in_object_image(symbol_name, 
+			    primary_image->sub_images[i],
+			    &(outer_object_image->module), defined_symbol,
+			    defined_module, defined_image,
+			    defined_library_image, indr_loop) == TRUE)
+			return;
+		}
+		else{
+		    outer_library_image = (struct library_image *)
+			primary_image->sub_images[i]->outer_image;
+		    if(lookup_symbol_in_library_image(symbol_name, ULONG_MAX,
+			    primary_image->sub_images[i],
+			    outer_library_image->modules, outer_library_image,
+			    defined_symbol, defined_module, defined_image,
+			    defined_library_image, indr_loop) == TRUE)
+			return;
+		}
+	    }
+	    /*
+	     * If we get here the symbol was either not found in the
+	     * primary_image and its sub-images so it is undefined for a
+	     * two-level name space lookup.  Or we were doing a bind at load
+	     * operation and the defined_* return values were set to the first
+	     * unbound definition.
+	     */
+	    return;
+	}
+
+	/*
+	 * For flat namespace lookups first look in object_images for a
+	 * definition of symbol_name.
 	 */
 	p = &object_images;
 	do{
 	    for(i = 0; i < p->nimages; i++){
-		/* If this object file image is currently unused skip it */
-		link_state = GET_LINK_STATE(p->images[i].module);
-		if(link_state == UNUSED)
-		    continue;
-
 		/* If the image is private skip it */
 		if(p->images[i].image.private == TRUE)
 		    continue;
-
-		/* TODO: skip modules that that are replaced */
-
-		linkedit_segment = p->images[i].image.linkedit_segment;
-		st = p->images[i].image.st;
-		dyst = p->images[i].image.dyst;
-		/*
-		 * Object images could be loaded that do not have the proper
-		 * link edit information.
-		 */
-		if(linkedit_segment == NULL || st == NULL || dyst == NULL)
-		    continue;
-		symbols = (struct nlist *)
-		    (p->images[i].image.vmaddr_slide +
-		     linkedit_segment->vmaddr +
-		     st->symoff -
-		     linkedit_segment->fileoff);
-		nlist_bsearch_strings = (char *)
-		    (p->images[i].image.vmaddr_slide +
-		     linkedit_segment->vmaddr +
-		     st->stroff -
-		     linkedit_segment->fileoff);
-		symbol = inline_bsearch_nlist(symbol_name,
-					      symbols + dyst->iextdefsym,
-					      dyst->nextdefsym);
-		if(symbol != NULL &&
-		   (symbol->n_desc & N_DESC_DISCARDED) == 0){
-		    if((symbol->n_type & N_TYPE) == N_INDR &&
-			indr_loop != NO_INDR_LOOP){
-			for(loop = indr_loop; loop != NULL; loop = loop->next){
-			    if(loop->defined_symbol == symbol &&
-			       loop->defined_module == &(p->images[i].module) &&
-			       loop->defined_image == &(p->images[i].image) &&
-			       loop->defined_library_image == NULL){
-				error("indirect symbol loop:");
-				for(l = indr_loop; l != NULL; l = l->next){
-				    linkedit_segment =
-					l->defined_image->linkedit_segment;
-				    st = l->defined_image->st;
-				    strings = (char *)
-					(l->defined_image->vmaddr_slide +
-					 linkedit_segment->vmaddr +
-					 st->stroff -
-					 linkedit_segment->fileoff);
-				    if(l->defined_library_image != NULL){
-					dyst = l->defined_image->dyst;
-					dylib_modules =
-					    (struct dylib_module *)
-					    (l->defined_image->vmaddr_slide +
-					    linkedit_segment->vmaddr +
-					    dyst->modtaboff -
-					    linkedit_segment->fileoff);
-					module_index = l->defined_module -
-					    l->defined_library_image->modules;
-					dylib_module = dylib_modules +
-						       module_index;
-					module_name = strings +
-					    dylib_module->module_name;
-					add_error_string("%s(%s) definition of "
-					    "%s as indirect for %s\n", 
-					    l->defined_image->name, module_name,
-					    strings +
-						l->defined_symbol->n_un.n_strx,
-					    strings +
-						l->defined_symbol->n_value);
-				    }
-				    else{
-					add_error_string("%s definition of "
-					    "%s as indirect for %s\n", 
-					    l->defined_image->name,
-					    strings +
-						l->defined_symbol->n_un.n_strx,
-					    strings +
-						l->defined_symbol->n_value);
-				    }
-				    if(l == loop)
-					break;
-				}
-				link_edit_error(DYLD_OTHER_ERROR,
-						DYLD_INDR_LOOP, NULL);
-				return;
-			    }
-			}
-			new_indr_loop.defined_symbol = symbol;
-			new_indr_loop.defined_module = &(p->images[i].module);
-			new_indr_loop.defined_image = &(p->images[i].image);
-			new_indr_loop.defined_library_image = NULL;
-			new_indr_loop.next = indr_loop;
-			symbol_name = nlist_bsearch_strings +
-				      symbol->n_value;
-			lookup_symbol(symbol_name, defined_symbol,
-				      defined_module, defined_image,
-				      defined_library_image, &new_indr_loop);
-			return;
-		    }
-		    else{
-			if(executable_bind_at_load != TRUE ||
-			   *defined_symbol == NULL){
-			    *defined_symbol = symbol;
-			    *defined_module = &(p->images[i].module);
-			    *defined_image = &(p->images[i].image);
-			    *defined_library_image = NULL;
-			}
-			if(executable_bind_at_load == TRUE){
-			    if(link_state == BEING_LINKED ||
-			       link_state == RELOCATED ||
-			       link_state == REGISTERING ||
-			       link_state == INITIALIZING ||
-			       link_state == LINKED ||
-			       link_state == FULLY_LINKED){
-				*defined_symbol = symbol;
-				*defined_module = &(p->images[i].module);
-				*defined_image = &(p->images[i].image);
-				*defined_library_image = NULL;
-				return;
-			    }
-			    else
-				continue;
-			}
-			return;
-		    }
-		}
+		/* TODO: skip modules that are replaced */
+		if(lookup_symbol_in_object_image(symbol_name,
+			&(p->images[i].image), &(p->images[i].module),
+			defined_symbol, defined_module, defined_image,
+			defined_library_image, indr_loop) == TRUE)
+		    return;
 	    }
 	    p = p->next_images;
 	}while(p != NULL);
 
 	/*
-	 * Next look in the library_images for a definition of symbol_name.
+	 * Next for flat namespace lookups look in the library_images for a
+	 * definition of symbol_name.
 	 */
 	q = &library_images;
 	do{
 	    for(i = 0; i < q->nimages; i++){
-		linkedit_segment = q->images[i].image.linkedit_segment;
-		st = q->images[i].image.st;
-		dyst = q->images[i].image.dyst;
-
-		tocs = (struct dylib_table_of_contents *)
-		    (q->images[i].image.vmaddr_slide +
-		     linkedit_segment->vmaddr +
-		     dyst->tocoff -
-		     linkedit_segment->fileoff);
-		toc_bsearch_symbols = (struct nlist *)
-		    (q->images[i].image.vmaddr_slide +
-		     linkedit_segment->vmaddr +
-		     st->symoff -
-		     linkedit_segment->fileoff);
-		toc_bsearch_strings = (char *)
-		    (q->images[i].image.vmaddr_slide +
-		     linkedit_segment->vmaddr +
-		     st->stroff -
-		     linkedit_segment->fileoff);
-		toc = inline_bsearch_toc(symbol_name, tocs, dyst->ntoc);
-		/* TODO: skip modules that that are replaced */
-		if(toc != NULL &&
-		   (toc_bsearch_symbols[toc->symbol_index].n_desc &
-		    N_DESC_DISCARDED) == 0){
-		    symbol = toc_bsearch_symbols + toc->symbol_index;
-		    if((symbol->n_type & N_TYPE) == N_INDR &&
-			indr_loop != NO_INDR_LOOP){
-			for(loop = indr_loop; loop != NULL; loop = loop->next){
-			    if(loop->defined_symbol ==
-				toc_bsearch_symbols + toc->symbol_index &&
-			       loop->defined_module ==
-				q->images[i].modules + toc->module_index &&
-			       loop->defined_image == &(q->images[i].image) &&
-			       loop->defined_library_image == &(q->images[i])){
-				error("indirect symbol loop:");
-				for(l = indr_loop; l != NULL; l = l->next){
-				    linkedit_segment =
-					l->defined_image->linkedit_segment;
-				    st = l->defined_image->st;
-				    strings = (char *)
-					(l->defined_image->vmaddr_slide +
-					 linkedit_segment->vmaddr +
-					 st->stroff -
-					 linkedit_segment->fileoff);
-				    if(l->defined_library_image != NULL){
-					dyst = l->defined_image->dyst;
-					dylib_modules =
-					    (struct dylib_module *)
-					    (l->defined_image->vmaddr_slide +
-					    linkedit_segment->vmaddr +
-					    dyst->modtaboff -
-					    linkedit_segment->fileoff);
-					module_index = l->defined_module -
-					    l->defined_library_image->modules;
-					dylib_module = dylib_modules +
-						       module_index;
-					module_name = strings +
-					    dylib_module->module_name;
-					add_error_string("%s(%s) definition of "
-					    "%s as indirect for %s\n", 
-					    l->defined_image->name, module_name,
-					    strings +
-						l->defined_symbol->n_un.n_strx,
-					    strings +
-						l->defined_symbol->n_value);
-				    }
-				    else{
-					add_error_string("%s definition of "
-					    "%s as indirect for %s\n", 
-					    l->defined_image->name,
-					    strings +
-						l->defined_symbol->n_un.n_strx,
-					    strings +
-						l->defined_symbol->n_value);
-				    }
-				    if(l == loop)
-					break;
-				}
-				link_edit_error(DYLD_OTHER_ERROR,
-						DYLD_INDR_LOOP, NULL);
-				return;
-			    }
-			}
-			new_indr_loop.defined_symbol =
-			    toc_bsearch_symbols + toc->symbol_index;
-			new_indr_loop.defined_module =
-			    q->images[i].modules + toc->module_index;
-			new_indr_loop.defined_image = &(q->images[i].image);
-			new_indr_loop.defined_library_image = &(q->images[i]);
-			new_indr_loop.next = indr_loop;
-			symbol_name = toc_bsearch_strings +
-				      symbol->n_value;
-			lookup_symbol(symbol_name, defined_symbol,
-				      defined_module, defined_image,
-				      defined_library_image, &new_indr_loop);
-			return;
-		    }
-		    else{
-			if(executable_bind_at_load != TRUE ||
-			   *defined_symbol == NULL){
-			    *defined_symbol =
-				toc_bsearch_symbols + toc->symbol_index;
-			    *defined_module =
-				q->images[i].modules + toc->module_index;
-			    *defined_image = &(q->images[i].image);
-			    *defined_library_image = &(q->images[i]);
-			}
-			if(executable_bind_at_load == TRUE){
-			    link_state = GET_LINK_STATE(*(q->images[i].modules +
-							toc->module_index));
-			    if(link_state == BEING_LINKED ||
-			       link_state == RELOCATED ||
-			       link_state == REGISTERING ||
-			       link_state == INITIALIZING ||
-			       link_state == LINKED ||
-			       link_state == FULLY_LINKED){
-				*defined_symbol =
-				    toc_bsearch_symbols + toc->symbol_index;
-				*defined_module =
-				    q->images[i].modules + toc->module_index;
-				*defined_image = &(q->images[i].image);
-				*defined_library_image = &(q->images[i]);
-				return;
-			    }
-			    else
-				continue;
-			}
-			return;
-		    }
-		}
+		if(lookup_symbol_in_library_image(symbol_name, ULONG_MAX,
+			&(q->images[i].image), q->images[i].modules,
+			&(q->images[i]), defined_symbol, defined_module,
+			defined_image, defined_library_image, indr_loop) ==TRUE)
+		    return;
 	    }
 	    q = q->next_images;
 	}while(q != NULL);
+}
+
+/*
+ * get_indr_image() is passed the the indirect name of an N_INDR symbol and the
+ * image it came from.  It returns the image to look this indirect name up in.
+ * For flat images it returns NULL.  For two-level images it finds the
+ * corresponding undefined symbol for the indirect name and returns the primary
+ * image that undefined symbol is bound to.
+ */
+static
+struct image *
+get_indr_image(
+char *symbol_name,
+struct image *image)
+{
+    struct segment_command *linkedit_segment;
+    struct symtab_command *st;
+    struct dysymtab_command *dyst;
+    struct nlist *symbols, *symbol;
+    char *strings;
+    struct dylib_table_of_contents *tocs, *toc;
+    unsigned long symbol_index;
+    struct image *indr_image;
+
+	/*
+	 * If this is a flat image then the indr image is NULL.
+	 */
+	if(force_flat_namespace == TRUE ||
+	   (image->mh->flags & MH_TWOLEVEL) != MH_TWOLEVEL)
+	    return(NULL);
+
+	linkedit_segment = image->linkedit_segment;
+	st = image->st;
+	dyst = image->dyst;
+	symbols = (struct nlist *)
+	    (image->vmaddr_slide +
+	     linkedit_segment->vmaddr +
+	     st->symoff -
+	     linkedit_segment->fileoff);
+	strings = (char *)
+	    (image->vmaddr_slide +
+	     linkedit_segment->vmaddr +
+	     st->stroff -
+	     linkedit_segment->fileoff);
+
+	if(image->mh->filetype != MH_DYLIB){
+	    nlist_bsearch_strings = strings;
+	    symbol = inline_bsearch_nlist(symbol_name,
+				symbols + dyst->iundefsym, dyst->nundefsym);
+	    /* if this fails we really have a malformed symbol table */
+	    if(symbol == NULL)
+		return(NULL);
+	    indr_image = get_primary_image(image, symbol);
+	}
+	else{
+	    /*
+	     * We need the "undefined symbol" in this image for this
+	     * symbol_name so we can get the primary image for its lookup.
+	     * Since this image is a library the "undefined symbol" maybe
+	     * defined in this library but in a different module so first
+	     * look in the defined symbols then in the undefined symbols.
+	     */
+	    tocs = (struct dylib_table_of_contents *)
+		(image->vmaddr_slide +
+		 linkedit_segment->vmaddr +
+		 dyst->tocoff -
+		 linkedit_segment->fileoff);
+	    toc_bsearch_symbols = symbols;
+	    toc_bsearch_strings = strings;
+	    toc = inline_bsearch_toc(symbol_name, tocs, dyst->ntoc);
+	    if(toc != NULL){
+		symbol_index = toc->symbol_index;
+	    }
+	    else{
+		nlist_bsearch_strings = strings;
+		symbol = inline_bsearch_nlist(symbol_name,
+			   symbols + dyst->iundefsym, dyst->nundefsym);
+		/* if this fails we really have a malformed symbol table */
+		if(symbol == NULL)
+		    return(NULL);
+		symbol_index = symbol - symbols;
+	    }
+	    indr_image = get_primary_image(image, symbols + symbol_index);
+	}
+	return(indr_image);
+}
+
+/*
+ * lookup_symbol_in_object_image() is a sub-routine for lookup_symbol().  It
+ * looks up the symbol_name in the specified object image and object_module.
+ * Its return results depends on the value of executable_bind_at_load.
+ *
+ * If executable_bind_at_load is FALSE and a definition is found it sets
+ * pointers to the defintion symbol, module, image and library_image and returns
+ * TRUE.
+ * 
+ * If executable_bind_at_load is TRUE the caller is expected to set the value
+ * of *defined_symbol to NULL before any lookup_symbol sub-routine calls.
+ * If executable_bind_at_load is TRUE and definition is found and this object
+ * module is bound then it sets the pointers to the defined_* prameters and
+ * returns TRUE.  If the definition is found but this object is not bound
+ * and *defined_symbol is still NULL then sets the pointers to the defined_*
+ * prameters and returns FALSE.  Thus repeated calls will find a bound defintion
+ * or the first unbound definition.
+ *
+ * If no definition is found FALSE is returned and the pointers to the defined_*
+ * prameters are unchanged.
+ *
+ * The last argument, indr_loop, should be NULL on initial calls.
+ */
+enum bool
+lookup_symbol_in_object_image(
+char *symbol_name,
+struct image *object_image,     /* the object_image to look in */
+module_state *object_module,	/* the object_module for the object_image */
+struct nlist **defined_symbol,	/* the defined symbol */
+module_state **defined_module,	/* the module the symbol is in */
+struct image **defined_image,	/* the image the module is in */
+struct library_image **defined_library_image,
+struct indr_loop_list *indr_loop)
+{
+    enum link_state link_state;
+    struct segment_command *linkedit_segment;
+    struct symtab_command *st;
+    struct dysymtab_command *dyst;
+    struct nlist *symbols, *symbol;
+    struct indr_loop_list new_indr_loop, *loop, *l;
+    char *strings, *module_name;
+    struct dylib_module *dylib_modules, *dylib_module;
+    unsigned long module_index;
+    struct image *indr_image;
+
+	link_state = GET_LINK_STATE(*object_module);
+	/* If this object file image is currently unused don't search it */
+	if(link_state == UNUSED)
+	    return(FALSE);
+
+	linkedit_segment = object_image->linkedit_segment;
+	st = object_image->st;
+	dyst = object_image->dyst;
+	/*
+	 * Object images could be loaded that do not have the proper
+	 * link edit information.
+	 */
+	if(linkedit_segment == NULL || st == NULL || dyst == NULL)
+	    return(FALSE);
+	symbols = (struct nlist *)
+	    (object_image->vmaddr_slide +
+	     linkedit_segment->vmaddr +
+	     st->symoff -
+	     linkedit_segment->fileoff);
+	nlist_bsearch_strings = (char *)
+	    (object_image->vmaddr_slide +
+	     linkedit_segment->vmaddr +
+	     st->stroff -
+	     linkedit_segment->fileoff);
+	symbol = inline_bsearch_nlist(symbol_name,
+				      symbols + dyst->iextdefsym,
+				      dyst->nextdefsym);
+	if(symbol != NULL &&
+	   (symbol->n_desc & N_DESC_DISCARDED) == 0){
+	    if((symbol->n_type & N_TYPE) == N_INDR &&
+		indr_loop != NO_INDR_LOOP){
+		/*
+		 * The symbol found is an N_INDR.  First check to see that
+		 * we don't have a loop of symbols, if so report the loop.
+		 * Then and then lookup the indirected symbol name.
+		 */
+		for(loop = indr_loop; loop != NULL; loop = loop->next){
+		    if(loop->defined_symbol == symbol &&
+		       loop->defined_module == object_module &&
+		       loop->defined_image == object_image &&
+		       loop->defined_library_image == NULL){
+			error("indirect symbol loop:");
+			for(l = indr_loop; l != NULL; l = l->next){
+			    linkedit_segment =
+				l->defined_image->linkedit_segment;
+			    st = l->defined_image->st;
+			    strings = (char *)
+				(l->defined_image->vmaddr_slide +
+				 linkedit_segment->vmaddr +
+				 st->stroff -
+				 linkedit_segment->fileoff);
+			    if(l->defined_library_image != NULL){
+				dyst = l->defined_image->dyst;
+				dylib_modules =
+				    (struct dylib_module *)
+				    (l->defined_image->vmaddr_slide +
+				    linkedit_segment->vmaddr +
+				    dyst->modtaboff -
+				    linkedit_segment->fileoff);
+				module_index = l->defined_module -
+				    l->defined_library_image->modules;
+				dylib_module = dylib_modules +
+					       module_index;
+				module_name = strings +
+				    dylib_module->module_name;
+				add_error_string("%s(%s) definition of "
+				    "%s as indirect for %s\n", 
+				    l->defined_image->name, module_name,
+				    strings +
+					l->defined_symbol->n_un.n_strx,
+				    strings +
+					l->defined_symbol->n_value);
+			    }
+			    else{
+				add_error_string("%s definition of "
+				    "%s as indirect for %s\n", 
+				    l->defined_image->name,
+				    strings +
+					l->defined_symbol->n_un.n_strx,
+				    strings +
+					l->defined_symbol->n_value);
+			    }
+			    if(l == loop)
+				break;
+			}
+			link_edit_error(DYLD_OTHER_ERROR,
+					DYLD_INDR_LOOP, NULL);
+			return(FALSE);
+		    }
+		}
+		new_indr_loop.defined_symbol = symbol;
+		new_indr_loop.defined_module = object_module;
+		new_indr_loop.defined_image = object_image;
+		new_indr_loop.defined_library_image = NULL;
+		new_indr_loop.next = indr_loop;
+		symbol_name = nlist_bsearch_strings + symbol->n_value;
+		indr_image = get_indr_image(symbol_name,
+					new_indr_loop.defined_image);
+		lookup_symbol(symbol_name, indr_image, NULL, defined_symbol,
+			      defined_module, defined_image,
+			      defined_library_image, &new_indr_loop);
+		return(defined_symbol != NULL);
+	    }
+	    else{
+		/*
+		 * This symbol is defined in the image.  So set the define_*
+		 * return values.
+		 *
+		 *  If we are doing bind at load we want to return the first
+		 * defined symbol that is linked or if none then the first
+		 * symbol found.  So if defined_symbol == NULL then this it the 
+		 * first symbol found and save its info in the defined_* return
+		 * values.  So that if no linked symbol is found then that
+		 * symbol is used.  If we do find a linked symbol overwrite the
+		 * defined_* return values and return TRUE to indicate the
+		 * symbol to be used is found.
+		 */
+		if(executable_bind_at_load != TRUE ||
+		   *defined_symbol == NULL){
+		    *defined_symbol = symbol;
+		    *defined_module = object_module;
+		    *defined_image = object_image;
+		    *defined_library_image = NULL;
+		}
+		if(executable_bind_at_load == TRUE){
+		    if(link_state == BEING_LINKED ||
+		       link_state == RELOCATED ||
+		       link_state == REGISTERING ||
+		       link_state == INITIALIZING ||
+		       link_state == LINKED ||
+		       link_state == FULLY_LINKED){
+			*defined_symbol = symbol;
+			*defined_module = object_module;
+			*defined_image = object_image;
+			*defined_library_image = NULL;
+			return(TRUE);
+		    }
+		    else
+			/*
+			 * For bind at load the defined_* return values are set 
+			 * and may be used if no other linked symbol is found.
+			 */
+			return(FALSE);
+		}
+		return(TRUE);
+	    }
+	}
+	return(FALSE);
+}
+
+/*
+ * lookup_symbol_in_library_image() is a sub-routine for lookup_symbol().  It
+ * looks up the symbol_name in the specified library image and library_modules.
+ * Its return results depends on the value of executable_bind_at_load.
+ *
+ * If executable_bind_at_load is FALSE and a definition is found it sets
+ * pointers to the defintion symbol, module, image and library_image and returns
+ * TRUE.
+ * 
+ * If executable_bind_at_load is TRUE the caller is expected to set the value
+ * of *defined_symbol to NULL before any lookup_symbol sub-routine calls.
+ * If executable_bind_at_load is TRUE and definition is found and this library
+ * module is bound then it sets the pointers to the defined_* prameters and
+ * returns TRUE.  If the definition is found but this library module is not
+ * bound and *defined_symbol is still NULL then sets the pointers to the
+ * defined_* prameters and returns FALSE.  Thus repeated calls will find a
+ * bound defintion or the first unbound definition.
+ *
+ * If no definition is found FALSE is returned and the pointers to the defined_*
+ * prameters are unchanged.
+ *
+ * The last argument, indr_loop, should be NULL on initial calls.
+ */
+static
+enum bool
+lookup_symbol_in_library_image(
+char *symbol_name,
+unsigned long itoc,		/* hint of index into the table of contents */
+struct image *image,    	/* the library image to look in */
+module_state *library_modules,	/* the library_modules for the image */
+struct library_image *library_image,  /* the library_image for the image */
+struct nlist **defined_symbol,	/* the defined symbol */
+module_state **defined_module,	/* the module the symbol is in */
+struct image **defined_image,	/* the image the module is in */
+struct library_image **defined_library_image,
+struct indr_loop_list *indr_loop)
+{
+    struct segment_command *linkedit_segment;
+    struct symtab_command *st;
+    struct dysymtab_command *dyst;
+    struct nlist *symbol;
+    struct dylib_table_of_contents *tocs, *toc;
+    struct indr_loop_list new_indr_loop, *loop, *l;
+    char *strings, *module_name;
+    struct dylib_module *dylib_modules, *dylib_module;
+    unsigned long module_index;
+    enum link_state link_state;
+    struct image *indr_image;
+
+	linkedit_segment = image->linkedit_segment;
+	st = image->st;
+	dyst = image->dyst;
+
+	tocs = (struct dylib_table_of_contents *)
+	    (image->vmaddr_slide +
+	     linkedit_segment->vmaddr +
+	     dyst->tocoff -
+	     linkedit_segment->fileoff);
+	toc_bsearch_symbols = (struct nlist *)
+	    (image->vmaddr_slide +
+	     linkedit_segment->vmaddr +
+	     st->symoff -
+	     linkedit_segment->fileoff);
+	toc_bsearch_strings = (char *)
+	    (image->vmaddr_slide +
+	     linkedit_segment->vmaddr +
+	     st->stroff -
+	     linkedit_segment->fileoff);
+	toc = inline_bsearch_toc_with_index(symbol_name, tocs, dyst->ntoc,itoc);
+	/* TODO: skip modules that that are replaced */
+	if(toc != NULL &&
+	   (toc_bsearch_symbols[toc->symbol_index].n_desc &
+	    N_DESC_DISCARDED) == 0){
+	    symbol = toc_bsearch_symbols + toc->symbol_index;
+	    if((symbol->n_type & N_TYPE) == N_INDR &&
+		indr_loop != NO_INDR_LOOP){
+		/*
+		 * The symbol found is an N_INDR.  First check to see that
+		 * we don't have a loop of symbols, if so report the loop.
+		 * Then and then lookup the indirected symbol name.
+		 */
+		for(loop = indr_loop; loop != NULL; loop = loop->next){
+		    if(loop->defined_symbol ==
+			toc_bsearch_symbols + toc->symbol_index &&
+		       loop->defined_module ==
+			library_modules + toc->module_index &&
+		       loop->defined_image == image &&
+		       loop->defined_library_image == library_image){
+			error("indirect symbol loop:");
+			for(l = indr_loop; l != NULL; l = l->next){
+			    linkedit_segment =
+				l->defined_image->linkedit_segment;
+			    st = l->defined_image->st;
+			    strings = (char *)
+				(l->defined_image->vmaddr_slide +
+				 linkedit_segment->vmaddr +
+				 st->stroff -
+				 linkedit_segment->fileoff);
+			    if(l->defined_library_image != NULL){
+				dyst = l->defined_image->dyst;
+				dylib_modules =
+				    (struct dylib_module *)
+				    (l->defined_image->vmaddr_slide +
+				    linkedit_segment->vmaddr +
+				    dyst->modtaboff -
+				    linkedit_segment->fileoff);
+				module_index = l->defined_module -
+				    l->defined_library_image->modules;
+				dylib_module = dylib_modules +
+					       module_index;
+				module_name = strings +
+				    dylib_module->module_name;
+				add_error_string("%s(%s) definition of "
+				    "%s as indirect for %s\n", 
+				    l->defined_image->name, module_name,
+				    strings +
+					l->defined_symbol->n_un.n_strx,
+				    strings +
+					l->defined_symbol->n_value);
+			    }
+			    else{
+				add_error_string("%s definition of "
+				    "%s as indirect for %s\n", 
+				    l->defined_image->name,
+				    strings +
+					l->defined_symbol->n_un.n_strx,
+				    strings +
+					l->defined_symbol->n_value);
+			    }
+			    if(l == loop)
+				break;
+			}
+			link_edit_error(DYLD_OTHER_ERROR,
+					DYLD_INDR_LOOP, NULL);
+			return(FALSE);
+		    }
+		}
+		new_indr_loop.defined_symbol =
+		    toc_bsearch_symbols + toc->symbol_index;
+		new_indr_loop.defined_module =
+		    library_modules + toc->module_index;
+		new_indr_loop.defined_image = image;
+		new_indr_loop.defined_library_image = library_image;
+		new_indr_loop.next = indr_loop;
+		symbol_name = toc_bsearch_strings + symbol->n_value;
+		indr_image = get_indr_image(symbol_name,
+					    new_indr_loop.defined_image);
+		lookup_symbol(symbol_name, indr_image, NULL, defined_symbol,
+			      defined_module, defined_image,
+			      defined_library_image, &new_indr_loop);
+		return(defined_symbol != NULL);
+	    }
+	    else{
+		/*
+		 * This symbol is defined in the image.  So set the define_*
+		 * return values.
+		 *
+		 *  If we are doing bind at load we want to return the first
+		 * defined symbol that is linked or if none then the first
+		 * symbol found.  So if defined_symbol == NULL then this it the 
+		 * first symbol found and save its info in the defined_* return
+		 * values.  So that if no linked symbol is found then that
+		 * symbol is used.  If we do find a linked symbol overwrite the
+		 * defined_* return values and return TRUE to indicate the
+		 * symbol to be used is found.
+		 */
+		if(executable_bind_at_load != TRUE ||
+		   *defined_symbol == NULL){
+		    *defined_symbol =
+			toc_bsearch_symbols + toc->symbol_index;
+		    *defined_module =
+			library_modules + toc->module_index;
+		    *defined_image = image;
+		    *defined_library_image = library_image;
+		}
+		if(executable_bind_at_load == TRUE){
+		    link_state = GET_LINK_STATE(*(library_modules +
+						toc->module_index));
+		    if(link_state == BEING_LINKED ||
+		       link_state == RELOCATED ||
+		       link_state == REGISTERING ||
+		       link_state == INITIALIZING ||
+		       link_state == LINKED ||
+		       link_state == FULLY_LINKED){
+			*defined_symbol =
+			    toc_bsearch_symbols + toc->symbol_index;
+			*defined_module =
+			    library_modules + toc->module_index;
+			*defined_image = image;
+			*defined_library_image = library_image;
+			return(TRUE);
+		    }
+		    else
+			/*
+			 * For bind at load the defined_* return values are set 
+			 * and may be used if no other linked symbol is found.
+			 */
+			return(FALSE);
+		}
+		return(TRUE);
+	    }
+	}
+	return(FALSE);
 }
 
 /*
@@ -2263,7 +2891,8 @@ struct indr_loop_list *indr_loop)
  * the string hinted_library it it.  If found it looks up the symbol_name in
  * that library.  And if that module is bound then it sets pointers to the
  * defintion symbol, module and image.  If the library is not found or the
- * symbol is not found or not in a bound moduld the pointers are set to NULL.
+ * symbol is not found or not in a bound module the pointers are set to NULL.
+ * Note: this is used for API's that are flat lookups.
  */
 void
 lookup_symbol_in_hinted_library(
@@ -2288,7 +2917,7 @@ struct library_image **defined_library_image)
 	*defined_image = NULL;
 	*defined_library_image = NULL;
 	/*
-	 * If the hint is NULL return and force a full lookup.
+	 * If the hinted library is NULL return and force a full lookup.
 	 */
 	if(hinted_library == NULL)
 	    return;
@@ -2357,63 +2986,16 @@ struct library_image **defined_library_image)
 }
 
 /*
- * lookup_symbol_in_object_image() returns a pointer to the nlist structure in
- * this object_file image if it is defined.  Otherwise NULL.
- */
-struct nlist *
-lookup_symbol_in_object_image(
-char *symbol_name,
-struct object_image *object_image)
-{
-    struct segment_command *linkedit_segment;
-    struct symtab_command *st;
-    struct dysymtab_command *dyst;
-    struct nlist *symbols, *symbol;
-
-	linkedit_segment = object_image->image.linkedit_segment;
-	st = object_image->image.st;
-	dyst = object_image->image.dyst;
-	/*
-	 * Object images could be loaded that do not have the proper
-	 * link edit information.
-	 */
-	if(linkedit_segment == NULL || st == NULL || dyst == NULL)
-	    return(NULL);
-	symbols = (struct nlist *)
-	    (object_image->image.vmaddr_slide +
-	     linkedit_segment->vmaddr +
-	     st->symoff -
-	     linkedit_segment->fileoff);
-	nlist_bsearch_strings = (char *)
-	    (object_image->image.vmaddr_slide +
-	     linkedit_segment->vmaddr +
-	     st->stroff -
-	     linkedit_segment->fileoff);
-	symbol = inline_bsearch_nlist(symbol_name,
-				      symbols + dyst->iextdefsym,
-				      dyst->nextdefsym);
-	/*
-	 * If we find a symbol that was descarded:
-	 * (symbol->n_desc & N_DESC_DISCARDED) != 0
-	 * by a multiply defined handler return it anyway.
-	 * As the caller is looking it up in a specified module.
-	 *
-	 * TODO: What to do about INDR symbols.
-	 */
-	return(symbol);
-}
-
-/*
- * look_for_reference() looks up the symbol_name and sets pointers to the
- * reference symbol, module and image.  If no reference is found the pointers
- * are set to NULL.  If it a reference is found then the symbol_name in the
- * referencing image is returned else NULL.  If ignore_lazy_references is
- * TRUE then it returns a non-lazy reference or NULL if there are only
- * lazy references.
+ * look_for_flat_reference() looks up in flat namespace images the symbol_name
+ * and sets pointers to the reference symbol, module and image.  If no reference
+ * is found the pointers are set to NULL.  If it a reference is found then the
+ * symbol_name in the referencing image is returned else NULL.  If
+ * ignore_lazy_references is TRUE then it returns a non-lazy reference or NULL
+ * if there are only lazy references.
  */
 static
 char *
-look_for_reference(
+look_for_flat_reference(
 char *symbol_name,
 struct nlist **referenced_symbol,	/* the referenced symbol */
 module_state **referenced_module,	/* the module the symbol is in */
@@ -2443,6 +3025,10 @@ enum bool ignore_lazy_references)
 		/* If this object file image is currently unused skip it */
 		link_state = GET_LINK_STATE(p->images[i].module);
 		if(link_state == UNUSED)
+		    continue;
+		/* If this is a two-level image skip it */
+		if(force_flat_namespace == FALSE &&
+		   (p->images[i].image.mh->flags & MH_TWOLEVEL) == MH_TWOLEVEL)
 		    continue;
 		/* TODO: skip modules that that are replaced */
 		linkedit_segment = p->images[i].image.linkedit_segment;
@@ -2495,6 +3081,10 @@ enum bool ignore_lazy_references)
 	q = &library_images;
 	do{
 	    for(i = 0; i < q->nimages; i++){
+		/* If this is a two-level image skip it */
+		if(force_flat_namespace == FALSE &&
+		   (q->images[i].image.mh->flags & MH_TWOLEVEL) == MH_TWOLEVEL)
+		    continue;
 		linkedit_segment = q->images[i].image.linkedit_segment;
 		st = q->images[i].image.st;
 		dyst = q->images[i].image.dyst;
@@ -2825,6 +3415,9 @@ struct image *image)
     struct image *defined_image;
     struct library_image *defined_library_image;
 
+    struct image *primary_image;
+    unsigned long i;
+    enum bool match;
 
 	linkedit_segment = image->linkedit_segment;
 	st = image->st;
@@ -2876,11 +3469,61 @@ struct image *image)
 		continue;
 	    symbol_index = symbol - symbols;
 
+	    /*
+	     * The symbol on the being linked list has been found in this image.
+	     * If we are doing two-level namespace linking and this is a
+	     * two-level namespace image then we only relocate the symbol
+	     * pointers in this image to this being linked symbol if the
+	     * primary image of the being linked matches that of the symbol in
+	     * this image.
+	     */
+	    if(force_flat_namespace == FALSE &&
+	       (image->mh->flags & MH_TWOLEVEL) == MH_TWOLEVEL){
+		if(GET_LIBRARY_ORDINAL(symbol->n_desc) == EXECUTABLE_ORDINAL)
+		    primary_image = &object_images.images[0].image;
+		else if(GET_LIBRARY_ORDINAL(symbol->n_desc) ==
+			SELF_LIBRARY_ORDINAL)
+		    primary_image = image;
+		else{
+		    /* could make this check
+		    if(GET_LIBRARY_ORDINAL(symbol->n_desc) - 1 >
+		       image.ndependent_images)
+			<<< bad LIBRARY_ORDINAL in object file >>>
+		    */
+		    primary_image = image->dependent_images[
+			    GET_LIBRARY_ORDINAL(symbol->n_desc) - 1];
+		}
+		/* match this primary_image with symbol_list->image */
+		if(primary_image != symbol_list->image){
+		    match = FALSE;
+		    for(i = 0;
+			i < symbol_list->image->numbrella_images;
+			i++){
+			if(primary_image ==
+			   symbol_list->image->umbrella_images[i]){
+			    match = TRUE;
+			    break;
+			}
+		    }
+		    if(match != TRUE)
+			continue; /* do not relocate symbol pointers in this
+				     image to this being linked symbol */
+		}
+	    }
+	    else{
+		if(symbol_list->flat_reference == FALSE)
+		    continue; /* go to next being linked symbol */
+	    }
+
 	    if(symbol_list->symbol != NULL &&
 	       (symbol_list->symbol->n_type & N_TYPE) == N_INDR){
 		/* TODO: could this lookup fail? */
-		lookup_symbol(symbol_name, &defined_symbol, &defined_module,
-		      &defined_image, &defined_library_image, NULL);
+		lookup_symbol(symbol_name,
+			      get_primary_image(symbol_list->image,
+						symbol_list->symbol),
+			      get_hint(symbol_list->image, symbol_list->symbol),
+			      &defined_symbol, &defined_module, &defined_image,
+			      &defined_library_image, NULL);
 		nlist_bsearch_strings = strings;
 
 		value = defined_symbol->n_value;
@@ -2935,6 +3578,9 @@ struct image *image)
     struct image *defined_image;
     struct library_image *defined_library_image;
 
+    struct image *primary_image;
+    unsigned long i;
+    enum bool match;
 
 	linkedit_segment = image->linkedit_segment;
 	st = image->st;
@@ -2975,6 +3621,7 @@ struct image *image)
 	    toc = inline_bsearch_toc(symbol_name, tocs, dyst->ntoc);
 	    if(toc != NULL){
 		symbol_index = toc->symbol_index;
+		symbol = symbols + symbol_index;
 	    }
 	    else{
 		symbol = inline_bsearch_nlist(symbol_name,
@@ -2984,11 +3631,61 @@ struct image *image)
 		symbol_index = symbol - symbols;
 	    }
 
+	    /*
+	     * The symbol on the being linked list has been found in this image.
+	     * If we are doing two-level namespace linking and this is a
+	     * two-level namespace image then we only relocate the symbol
+	     * pointers in this image to this being linked symbol if the
+	     * primary image of the being linked matches that of the symbol in
+	     * this image.
+	     */
+	    if(force_flat_namespace == FALSE &&
+	       (image->mh->flags & MH_TWOLEVEL) == MH_TWOLEVEL){
+		if(GET_LIBRARY_ORDINAL(symbol->n_desc) == EXECUTABLE_ORDINAL)
+		    primary_image = &object_images.images[0].image;
+		else if(GET_LIBRARY_ORDINAL(symbol->n_desc) ==
+			SELF_LIBRARY_ORDINAL)
+		    primary_image = image;
+		else{
+		    /* could make this check
+		    if(GET_LIBRARY_ORDINAL(symbol->n_desc) - 1 >
+		       image.ndependent_images)
+			<<< bad LIBRARY_ORDINAL in object file >>>
+		    */
+		    primary_image = image->dependent_images[
+			    GET_LIBRARY_ORDINAL(symbol->n_desc) - 1];
+		}
+		/* match this primary_image with symbol_list->image */
+		if(primary_image != symbol_list->image){
+		    match = FALSE;
+		    for(i = 0;
+			i < symbol_list->image->numbrella_images;
+			i++){
+			if(primary_image ==
+			   symbol_list->image->umbrella_images[i]){
+			    match = TRUE;
+			    break;
+			}
+		    }
+		    if(match != TRUE)
+			continue; /* do not relocate symbol pointers in this
+				     image to this being linked symbol */
+		}
+	    }
+	    else{
+		if(symbol_list->flat_reference == FALSE)
+		    continue; /* go to next being linked symbol */
+	    }
+
 	    if(symbol_list->symbol != NULL &&
 	       (symbol_list->symbol->n_type & N_TYPE) == N_INDR){
 		/* TODO: could this lookup fail? */
-		lookup_symbol(symbol_name, &defined_symbol, &defined_module,
-		      &defined_image, &defined_library_image, NULL);
+		lookup_symbol(symbol_name,
+			      get_primary_image(symbol_list->image,
+						symbol_list->symbol),
+			      get_hint(symbol_list->image, symbol_list->symbol),
+			      &defined_symbol, &defined_module, &defined_image,
+			      &defined_library_image, NULL);
 		toc_bsearch_symbols = symbols;
 		toc_bsearch_strings = strings;
 		nlist_bsearch_strings = strings;
@@ -3020,14 +3717,14 @@ struct image *image)
 }
 
 /*
- * change_symbol_pointers_in_images() changes the symbol pointers in all the
- * images to the symbol_name to the new specified value.  This not used in
- * normal dynamic linking but used in response to things like multiply defined
- * symbol error handling and replacing of modules.  If only_lazy_pointers is
- * TRUE then only lazy symbol pointers are changed.
+ * change_symbol_pointers_in_flat_images() changes the symbol pointers in all
+ * the flat images to the symbol_name to the new specified value.  This not
+ * used in normal dynamic linking but used in response to things like multiply
+ * defined symbol error handling and replacing of modules.  If
+ * only_lazy_pointers is TRUE then only lazy symbol pointers are changed.
  */
 void
-change_symbol_pointers_in_images(
+change_symbol_pointers_in_flat_images(
 char *symbol_name,
 unsigned long value,
 enum bool only_lazy_pointers)
@@ -3055,6 +3752,10 @@ enum bool only_lazy_pointers)
 		/* If this object file image is currently unused skip it */
 		link_state = GET_LINK_STATE(p->images[i].module);
 		if(link_state == UNUSED)
+		    continue;
+		/* If this is a two-level image skip it */
+		if(force_flat_namespace == FALSE &&
+		   (p->images[i].image.mh->flags & MH_TWOLEVEL) == MH_TWOLEVEL)
 		    continue;
 
 		linkedit_segment = p->images[i].image.linkedit_segment;
@@ -3114,6 +3815,10 @@ enum bool only_lazy_pointers)
 	q = &library_images;
 	do{
 	    for(i = 0; i < q->nimages; i++){
+		/* If this is a two-level image skip it */
+		if(force_flat_namespace == FALSE &&
+		   (q->images[i].image.mh->flags & MH_TWOLEVEL) == MH_TWOLEVEL)
+		    continue;
 		linkedit_segment = q->images[i].image.linkedit_segment;
 		st = q->images[i].image.st;
 		dyst = q->images[i].image.dyst;
@@ -3317,6 +4022,7 @@ unsigned long lazy_symbol_pointer_address)
     struct object_images *p;
     struct library_images *q;
     struct image *image;
+    enum bool flat_reference;
 
     unsigned long i, j, section_type, isym;
     struct load_command *lc;
@@ -3505,7 +4211,8 @@ unsigned long lazy_symbol_pointer_address)
 	     image->st->stroff -
 	     image->linkedit_segment->fileoff) +
 	    symbol->n_un.n_strx;
-	lookup_symbol(symbol_name, &defined_symbol, &defined_module,
+	lookup_symbol(symbol_name, get_primary_image(image, symbol),
+		      get_hint(image, symbol), &defined_symbol, &defined_module,
 		      &defined_image, &defined_library_image, NULL);
 	if(defined_symbol != NULL){
 	    link_state = GET_LINK_STATE(*defined_module);
@@ -3533,14 +4240,19 @@ unsigned long lazy_symbol_pointer_address)
 	 * This symbol is not defined in a linked module.  So put it on the
 	 * undefined list and link in the needed modules.
 	 */
-	add_to_undefined_list(symbol_name, symbol, image, FALSE);
+	if(force_flat_namespace == FALSE)
+	    flat_reference = (image->mh->flags & MH_TWOLEVEL) != MH_TWOLEVEL;
+	else
+	    flat_reference = TRUE;
+	add_to_undefined_list(symbol_name, symbol, image, FALSE,flat_reference);
 	link_in_need_modules(FALSE, FALSE);
 
 	/*
 	 * Now that all the needed module are linked in there can't be any
 	 * undefineds left.  Therefore the lookup_symbol can't fail.
 	 */
-	lookup_symbol(symbol_name, &defined_symbol, &defined_module,
+	lookup_symbol(symbol_name, get_primary_image(image, symbol),
+		      get_hint(image, symbol), &defined_symbol, &defined_module,
 		      &defined_image, &defined_library_image, NULL);
 	value = defined_symbol->n_value;
 	if((defined_symbol->n_type & N_TYPE) != N_ABS)
@@ -3572,7 +4284,7 @@ enum bool change_symbol_pointers)
 	/* set lock for dyld data structures */
 	set_lock();
 
-	lookup_symbol(symbol_name, &defined_symbol, &defined_module,
+	lookup_symbol(symbol_name, NULL, NULL, &defined_symbol, &defined_module,
 		      &defined_image, &defined_library_image, NULL);
 	if(defined_symbol != NULL){
 	    link_state = GET_LINK_STATE(*defined_module);
@@ -3581,7 +4293,8 @@ enum bool change_symbol_pointers)
 		if((defined_symbol->n_type & N_TYPE) != N_ABS)
 		    value += defined_image->vmaddr_slide;
 		if(change_symbol_pointers == TRUE)
-		    change_symbol_pointers_in_images(symbol_name, value, FALSE);
+		    change_symbol_pointers_in_flat_images(symbol_name,
+							  value, FALSE);
 		if(address != NULL)
 		    *address = value;
 		if(module != NULL)
@@ -3603,14 +4316,14 @@ enum bool change_symbol_pointers)
 	 * This symbol is not defined in a linked module.  So put it on the
 	 * undefined list and link in the needed modules.
 	 */
-	add_to_undefined_list(symbol_name, NULL, NULL, FALSE);
+	add_to_undefined_list(symbol_name, NULL, NULL, FALSE, TRUE);
 	link_in_need_modules(FALSE, FALSE);
 
 	/*
 	 * Now that all the needed modules are linked in there can't be any
 	 * undefineds left.  Therefore the lookup_symbol can't fail.
 	 */
-	lookup_symbol(symbol_name, &defined_symbol, &defined_module,
+	lookup_symbol(symbol_name, NULL, NULL, &defined_symbol, &defined_module,
 		      &defined_image, &defined_library_image, NULL);
 	value = defined_symbol->n_value;
 	if((defined_symbol->n_type & N_TYPE) != N_ABS)
@@ -3650,23 +4363,15 @@ enum bool bind_now,
 enum bool release_lock_flag)
 {
 	/*
-	 * Load the dependent libraries.
-	 */
-	if(load_dependent_libraries() == FALSE &&
-	   return_on_error == TRUE){
-	    return(FALSE);
-	}
-
-	/*
-	 * Now resolve all non-lazy symbol references this program currently
+	 * Resolve all non-lazy symbol references this program currently
 	 * has so it can be continued.
 	 */
 	if(resolve_undefineds(bind_now, FALSE) == FALSE &&
 	   return_on_error == TRUE){
 	    /*
-	     * Unload any dependent libraries loaded by
-	     * load_dependent_libraries() since we had errors resolving
-	     * undefined symbols.
+	     * Unload any dependent libraries previously loaded by
+	     * load_dependent_libraries() with return_on_error set since we had
+	     * errors resolving undefined symbols.
 	     */
 	    unload_remove_on_error_libraries();
 	    return(FALSE);

@@ -1,9 +1,9 @@
 /**
  * SystemStarter.c - System Starter driver
- * Wilfredo Sanchez | wsanchez@apple.com
+ * Wilfredo Sanchez | wsanchez@opensource.apple.com
  * $Apple$
  **
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2001 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -28,7 +28,7 @@
 
 #include <unistd.h>
 #include <NSSystemDirectories.h>
-#import  <CoreFoundation/CoreFoundation.h>
+#include <CoreFoundation/CoreFoundation.h>
 #include "main.h"
 #include "Log.h"
 #include "StartupItems.h"

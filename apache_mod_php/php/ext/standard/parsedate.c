@@ -216,7 +216,7 @@ typedef union {
 
 
 
-#define	YYFINAL		61
+#define	YYFINAL		62
 #define	YYFLAG		-32768
 #define	YYNTBASE	22
 
@@ -257,9 +257,10 @@ static const char yytranslate[] = {     0,
 static const short yyprhs[] = {     0,
      0,     1,     4,     6,     8,    10,    12,    14,    16,    19,
     24,    29,    36,    43,    45,    47,    50,    52,    55,    58,
-    62,    68,    72,    76,    79,    84,    87,    91,    94,    96,
-    99,   102,   104,   107,   110,   112,   115,   118,   120,   123,
-   126,   128,   131,   134,   136,   139,   142,   144,   146,   147
+    62,    68,    72,    76,    80,    83,    88,    91,    95,    98,
+   100,   103,   106,   108,   111,   114,   116,   119,   122,   124,
+   127,   130,   132,   135,   138,   140,   143,   146,   148,   150,
+   151
 };
 
 static const short yyrhs[] = {    -1,
@@ -270,14 +271,15 @@ static const short yyrhs[] = {    -1,
     15,     0,    18,     0,     6,     0,    18,     7,     0,     4,
      0,     4,    20,     0,    16,     4,     0,    16,    21,    16,
      0,    16,    21,    16,    21,    16,     0,    16,    15,    15,
-     0,    16,    12,    15,     0,    12,    16,     0,    12,    16,
-    20,    16,     0,    16,    12,     0,    16,    12,    16,     0,
-    29,     3,     0,    29,     0,    16,    17,     0,    15,    17,
-     0,    17,     0,    16,    13,     0,    15,    13,     0,    13,
-     0,    16,     5,     0,    15,     5,     0,     5,     0,    16,
-     8,     0,    15,     8,     0,     8,     0,    16,    11,     0,
-    15,    11,     0,    11,     0,    16,    14,     0,    15,    14,
-     0,    14,     0,    16,     0,     0,    10,     0
+     0,    16,    12,    15,     0,    12,    16,    16,     0,    12,
+    16,     0,    12,    16,    20,    16,     0,    16,    12,     0,
+    16,    12,    16,     0,    29,     3,     0,    29,     0,    16,
+    17,     0,    15,    17,     0,    17,     0,    16,    13,     0,
+    15,    13,     0,    13,     0,    16,     5,     0,    15,     5,
+     0,     5,     0,    16,     8,     0,    15,     8,     0,     8,
+     0,    16,    11,     0,    15,    11,     0,    11,     0,    16,
+    14,     0,    15,    14,     0,    14,     0,    16,     0,     0,
+    10,     0
 };
 
 #endif
@@ -286,9 +288,10 @@ static const short yyrhs[] = {    -1,
 static const short yyrline[] = { 0,
    202,   203,   206,   209,   212,   215,   218,   221,   224,   230,
    236,   245,   251,   263,   266,   269,   275,   279,   283,   289,
-   293,   311,   317,   323,   327,   332,   336,   343,   351,   354,
-   357,   360,   363,   366,   369,   372,   375,   378,   381,   384,
-   387,   390,   393,   396,   399,   402,   405,   410,   443,   447
+   293,   311,   317,   323,   328,   332,   337,   341,   348,   356,
+   359,   362,   365,   368,   371,   374,   377,   380,   383,   386,
+   389,   392,   395,   398,   401,   404,   407,   410,   415,   448,
+   452
 };
 #endif
 
@@ -306,41 +309,43 @@ static const char * const yytname[] = {   "$","error","$undefined.","tAGO","tDAY
 static const short yyr1[] = {     0,
     22,    22,    23,    23,    23,    23,    23,    23,    24,    24,
     24,    24,    24,    25,    25,    25,    26,    26,    26,    27,
-    27,    27,    27,    27,    27,    27,    27,    28,    28,    29,
+    27,    27,    27,    27,    27,    27,    27,    27,    28,    28,
     29,    29,    29,    29,    29,    29,    29,    29,    29,    29,
-    29,    29,    29,    29,    29,    29,    29,    30,    31,    31
+    29,    29,    29,    29,    29,    29,    29,    29,    30,    31,
+    31
 };
 
 static const short yyr2[] = {     0,
      0,     2,     1,     1,     1,     1,     1,     1,     2,     4,
      4,     6,     6,     1,     1,     2,     1,     2,     2,     3,
-     5,     3,     3,     2,     4,     2,     3,     2,     1,     2,
-     2,     1,     2,     2,     1,     2,     2,     1,     2,     2,
-     1,     2,     2,     1,     2,     2,     1,     1,     0,     1
+     5,     3,     3,     3,     2,     4,     2,     3,     2,     1,
+     2,     2,     1,     2,     2,     1,     2,     2,     1,     2,
+     2,     1,     2,     2,     1,     2,     2,     1,     1,     0,
+     1
 };
 
 static const short yydefact[] = {     1,
-     0,    17,    38,    15,    41,    44,     0,    35,    47,     0,
-    48,    32,    14,     2,     3,     4,     6,     5,     7,    29,
-     8,    18,    24,    37,    40,    43,    34,    46,    31,    19,
-    36,    39,     9,    42,    26,    33,    45,     0,    30,     0,
-     0,    16,    28,     0,    23,    27,    22,    49,    20,    25,
-    50,    11,     0,    10,     0,    49,    21,    13,    12,     0,
-     0
+     0,    17,    39,    15,    42,    45,     0,    36,    48,     0,
+    49,    33,    14,     2,     3,     4,     6,     5,     7,    30,
+     8,    18,    25,    38,    41,    44,    35,    47,    32,    19,
+    37,    40,     9,    43,    27,    34,    46,     0,    31,     0,
+     0,    16,    29,    24,     0,    23,    28,    22,    50,    20,
+    26,    51,    11,     0,    10,     0,    50,    21,    13,    12,
+     0,     0
 };
 
 static const short yydefgoto[] = {     1,
-    14,    15,    16,    17,    18,    19,    20,    21,    54
+    14,    15,    16,    17,    18,    19,    20,    21,    55
 };
 
 static const short yypact[] = {-32768,
      0,   -19,-32768,-32768,-32768,-32768,   -13,-32768,-32768,    30,
     15,-32768,    14,-32768,-32768,-32768,-32768,-32768,-32768,    19,
--32768,-32768,     4,-32768,-32768,-32768,-32768,-32768,-32768,-32768,
--32768,-32768,-32768,-32768,    -6,-32768,-32768,    16,-32768,    17,
-    23,-32768,-32768,    24,-32768,-32768,-32768,    27,    28,-32768,
--32768,-32768,    29,-32768,    32,    -8,-32768,-32768,-32768,    50,
--32768
+-32768,-32768,    29,-32768,-32768,-32768,-32768,-32768,-32768,-32768,
+-32768,-32768,-32768,-32768,    -6,-32768,-32768,     9,-32768,    17,
+    23,-32768,-32768,-32768,    24,-32768,-32768,-32768,    27,    10,
+-32768,-32768,-32768,    32,-32768,    34,    -8,-32768,-32768,-32768,
+    51,-32768
 };
 
 static const short yypgoto[] = {-32768,
@@ -348,25 +353,25 @@ static const short yypgoto[] = {-32768,
 };
 
 
-#define	YYLAST		51
+#define	YYLAST		52
 
 
-static const short yytable[] = {    60,
-    22,    51,    23,     2,     3,     4,    58,     5,    45,    46,
+static const short yytable[] = {    61,
+    22,    52,    23,     2,     3,     4,    59,     5,    46,    47,
      6,     7,     8,     9,    10,    11,    12,    13,    30,    31,
-    42,    43,    32,    44,    33,    34,    35,    36,    37,    38,
-    47,    39,    48,    40,    24,    41,    51,    25,    49,    50,
-    26,    52,    27,    28,    56,    53,    29,    57,    55,    61,
-    59
+    42,    43,    32,    48,    33,    34,    35,    36,    37,    38,
+    56,    39,    49,    40,    24,    41,    52,    25,    50,    51,
+    26,    53,    27,    28,    44,    54,    29,    57,    45,    58,
+    62,    60
 };
 
 static const short yycheck[] = {     0,
     20,    10,    16,     4,     5,     6,    15,     8,    15,    16,
     11,    12,    13,    14,    15,    16,    17,    18,     4,     5,
-     7,     3,     8,    20,    10,    11,    12,    13,    14,    15,
-    15,    17,    16,    19,     5,    21,    10,     8,    16,    16,
-    11,    15,    13,    14,    16,    19,    17,    16,    21,     0,
-    56
+     7,     3,     8,    15,    10,    11,    12,    13,    14,    15,
+    21,    17,    16,    19,     5,    21,    10,     8,    16,    16,
+    11,    15,    13,    14,    16,    19,    17,    16,    20,    16,
+     0,    57
 };
 /* -*-C-*-  Note some compilers choke on comments on `#line' lines.  */
 
@@ -1060,31 +1065,38 @@ case 23:
     break;}
 case 24:
 {
+	    yyMonth = yyvsp[-2].Number;
+	    yyDay = yyvsp[-1].Number;
+		yyYear = yyvsp[0].Number;
+	;
+    break;}
+case 25:
+{
 	    yyMonth = yyvsp[-1].Number;
 	    yyDay = yyvsp[0].Number;
 	;
     break;}
-case 25:
+case 26:
 {
 	    yyMonth = yyvsp[-3].Number;
 	    yyDay = yyvsp[-2].Number;
 	    yyYear = yyvsp[0].Number;
 	;
     break;}
-case 26:
+case 27:
 {
 	    yyMonth = yyvsp[0].Number;
 	    yyDay = yyvsp[-1].Number;
 	;
     break;}
-case 27:
+case 28:
 {
 	    yyMonth = yyvsp[-1].Number;
 	    yyDay = yyvsp[-2].Number;
 	    yyYear = yyvsp[0].Number;
 	;
     break;}
-case 28:
+case 29:
 {
 	    yyRelSeconds = -yyRelSeconds;
 	    yyRelMinutes = -yyRelMinutes;
@@ -1094,11 +1106,6 @@ case 28:
 	    yyRelYear = -yyRelYear;
 	;
     break;}
-case 30:
-{
-	    yyRelYear += yyvsp[-1].Number * yyvsp[0].Number;
-	;
-    break;}
 case 31:
 {
 	    yyRelYear += yyvsp[-1].Number * yyvsp[0].Number;
@@ -1106,12 +1113,12 @@ case 31:
     break;}
 case 32:
 {
-	    yyRelYear += yyvsp[0].Number;
+	    yyRelYear += yyvsp[-1].Number * yyvsp[0].Number;
 	;
     break;}
 case 33:
 {
-	    yyRelMonth += yyvsp[-1].Number * yyvsp[0].Number;
+	    yyRelYear += yyvsp[0].Number;
 	;
     break;}
 case 34:
@@ -1121,12 +1128,12 @@ case 34:
     break;}
 case 35:
 {
-	    yyRelMonth += yyvsp[0].Number;
+	    yyRelMonth += yyvsp[-1].Number * yyvsp[0].Number;
 	;
     break;}
 case 36:
 {
-	    yyRelDay += yyvsp[-1].Number * yyvsp[0].Number;
+	    yyRelMonth += yyvsp[0].Number;
 	;
     break;}
 case 37:
@@ -1136,12 +1143,12 @@ case 37:
     break;}
 case 38:
 {
-	    yyRelDay += yyvsp[0].Number;
+	    yyRelDay += yyvsp[-1].Number * yyvsp[0].Number;
 	;
     break;}
 case 39:
 {
-	    yyRelHour += yyvsp[-1].Number * yyvsp[0].Number;
+	    yyRelDay += yyvsp[0].Number;
 	;
     break;}
 case 40:
@@ -1151,12 +1158,12 @@ case 40:
     break;}
 case 41:
 {
-	    yyRelHour += yyvsp[0].Number;
+	    yyRelHour += yyvsp[-1].Number * yyvsp[0].Number;
 	;
     break;}
 case 42:
 {
-	    yyRelMinutes += yyvsp[-1].Number * yyvsp[0].Number;
+	    yyRelHour += yyvsp[0].Number;
 	;
     break;}
 case 43:
@@ -1166,12 +1173,12 @@ case 43:
     break;}
 case 44:
 {
-	    yyRelMinutes += yyvsp[0].Number;
+	    yyRelMinutes += yyvsp[-1].Number * yyvsp[0].Number;
 	;
     break;}
 case 45:
 {
-	    yyRelSeconds += yyvsp[-1].Number * yyvsp[0].Number;
+	    yyRelMinutes += yyvsp[0].Number;
 	;
     break;}
 case 46:
@@ -1181,10 +1188,15 @@ case 46:
     break;}
 case 47:
 {
-	    yyRelSeconds += yyvsp[0].Number;
+	    yyRelSeconds += yyvsp[-1].Number * yyvsp[0].Number;
 	;
     break;}
 case 48:
+{
+	    yyRelSeconds += yyvsp[0].Number;
+	;
+    break;}
+case 49:
 {
 	    if (yyHaveTime && yyHaveDate && !yyHaveRel)
 	      yyYear = yyvsp[0].Number;
@@ -1216,12 +1228,12 @@ case 48:
 	      }
 	  ;
     break;}
-case 49:
+case 50:
 {
 	    yyval.Meridian = MER24;
 	  ;
     break;}
-case 50:
+case 51:
 {
 	    yyval.Meridian = yyvsp[0].Meridian;
 	  ;

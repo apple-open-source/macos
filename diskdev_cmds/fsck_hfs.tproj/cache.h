@@ -27,16 +27,12 @@
  */
 #ifndef _CACHE_H_
 #define _CACHE_H_
-
+#include <stdint.h>
 
 /*
  * Some nice lowercase shortcuts.
  */
 #define EOK					0
-typedef unsigned long		uint32_t;
-typedef unsigned long long	uint64_t;
-
-
 
 #define BUF_SPAN	0x80000000	/* Buffer spans several cache blocks */
 

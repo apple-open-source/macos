@@ -55,6 +55,7 @@
 #include "alert.h"
 #include <NetInfo/syslock.h>
 #include <NetInfo/socket_lock.h>
+#include <NetInfo/rpc_extra.h>
 #include "sanitycheck.h"
 #include "proxy_pids.h"
 
@@ -81,13 +82,18 @@
 #define NIBIND_TIMEOUT 60
 #define NIBIND_RETRIES 9
 
+#define LOCAL_PORT 1033
+
 #ifdef _UNIX_BSD_43_
-#define PID_FILE	"/etc/netinfo_%s.pid"
+#define PID_FILE "/etc/netinfo_%s.pid"
 #else
-#define PID_FILE	"/var/run/netinfo_%s.pid"
+#define PID_FILE "/var/run/netinfo_%s.pid"
 #endif
 
 #define FD_SLOPSIZE 15 /* # of fds for things other than connections */
+
+extern int svc_maxfd;
+extern int _rpc_dtablesize();
 
 extern void ni_prog_2();
 extern void ni_svc_run(int);
@@ -103,6 +109,8 @@ extern void readall_catcher(void);
 extern void dblock_catcher(void);
 
 extern void waitforparent(void);
+
+static int standalone = 0;
 
 char **Argv;	/* used to set the information displayed with ps(1) */
 int    Argc;
@@ -124,12 +132,21 @@ closeall(void)
 	dup(0);
 }
 
+void
+catch_sighup(void)
+{
+	system_log(LOG_DEBUG, "Caught SIGHUP - unbinding");
+	set_binding_status(NI_FAILED);
+	sys_interfaces_release();
+}
+
 int
 main(int argc, char *argv[])
 {
 	ni_status status;
 	ni_name myname = argv[0];
 	int create = 0;
+	int log_pri = LOG_NOTICE;
 	ni_name dbsource_name = NULL;
 	ni_name dbsource_addr = NULL;
 	ni_name dbsource_tag = NULL;
@@ -151,6 +168,7 @@ main(int argc, char *argv[])
 		if (strcmp(*argv, "-d") == 0)
 		{
 			debug = 1;
+			log_pri = LOG_DEBUG;
 			if (argc < 2) logf = stderr;
 			else
 			{
@@ -159,7 +177,18 @@ main(int argc, char *argv[])
 				argv += 1;
 			}
 		}
+		else if (strcmp(*argv, "-l") == 0)
+		{
+			if (argc < 2) usage(myname);
+			else
+			{
+				log_pri = atoi(argv[1]);
+				argc -= 1;
+				argv += 1;
+			}
+		}
 		else if (strcmp(*argv, "-n") == 0) forcedIsRoot = 1;
+		else if (strcmp(*argv, "-s") == 0) standalone = 1;
 		else if (strcmp(*argv, "-m") == 0) create++;
 		else if (strcmp(*argv, "-c") == 0)
 		{
@@ -180,7 +209,11 @@ main(int argc, char *argv[])
 
 	if (argc != 1) usage(myname);
 
-	if (debug == 0) closeall();
+	if (debug == 0)
+	{
+		closeall();
+		if (standalone == 1) daemon(1, 1);
+	}
 
 	db_tag = malloc(strlen(argv[0]) + 1);
 	strcpy(db_tag, argv[0]);
@@ -189,12 +222,17 @@ main(int argc, char *argv[])
 	sprintf(str, "netinfod %s", db_tag);
 	system_log_open(str, (LOG_NDELAY | LOG_PID), LOG_NETINFO, logf);
 	free(str);
+	system_log_set_max_priority(log_pri);
 
 	system_log(LOG_DEBUG, "version %s (pid %d) - starting",
 		_PROJECT_VERSION_, getpid());
 
 	rlim.rlim_cur = rlim.rlim_max = RLIM_INFINITY;
 	setrlimit(RLIMIT_CORE, &rlim);
+
+	rlim.rlim_cur = rlim.rlim_max = FD_SETSIZE;
+	setrlimit(RLIMIT_NOFILE, &rlim);
+
 	umask(S_IRGRP|S_IWGRP|S_IROTH|S_IWOTH);
 
 	srandom(gethostid() ^ time(NULL));
@@ -228,18 +266,22 @@ main(int argc, char *argv[])
 		}
 	}
 	
-	signal(SIGTERM, SIG_IGN);
+	if (standalone == 0) signal(SIGTERM, SIG_IGN);
 	signal(SIGPIPE, SIG_IGN);
-	signal(SIGHUP, SIG_IGN);
+	signal(SIGHUP, (void *)catch_sighup);
 	signal(SIGCHLD, (void *)readall_catcher);
-	if (debug == 0) signal(SIGINT, (void *)dblock_catcher);
+	if (debug == 0)
+	{
+		signal(SIGINT, (void *)dblock_catcher);
+		if (setsid() < 0) syslog(LOG_WARNING, "setsid failed: %m");
+	}
 
 	writepid(db_tag);
 
 	status = start_service(db_tag);
 	if (status != NI_OK)
 	{
-		system_log(LOG_ERR, "start_service(%s) failed - exiting", db_tag);
+		system_log(LOG_ERR, "start_service failed: %s - exiting", ni_error(status));
 		system_log_close();
 		exit(status);
 	}
@@ -270,11 +312,12 @@ main(int argc, char *argv[])
 	}
 
 	/* Shutdown gracefully after this point */
+	if (standalone == 1) signal(SIGTERM, (void *)sig_shutdown);
 	signal(SIGUSR1, (void *)sig_shutdown);
 
 	system_log(LOG_DEBUG, "starting RPC service");
 
-	ni_svc_run(FD_SETSIZE - (FD_SLOPSIZE + max_subthreads));
+	ni_svc_run(_rpc_dtablesize() - (FD_SLOPSIZE + max_subthreads));
 
 	system_log(LOG_DEBUG, "shutting down");
 
@@ -304,21 +347,41 @@ register_it(ni_name tag)
 	ni_status status;
 	unsigned udp_port;
 	unsigned tcp_port;
+	struct sockaddr_in addr;
+	bool_t desktop;
+	int ret;
 
-	transp = svcudp_create(RPC_ANYSOCK);
-	if (transp == NULL) return (NI_SYSTEMERR);
+	memset(&addr, 0, sizeof(struct sockaddr_in));
+	addr.sin_family = AF_INET;
+	addr.sin_port = get_port(db_ni, NULL);
+	if ((addr.sin_port == 0) && !strcmp(tag, "local")) addr.sin_port = htons(LOCAL_PORT);
 
-	if (!svc_register(transp, NI_PROG, NI_VERS, ni_prog_2, 0))
-		return (NI_SYSTEMERR);
+	desktop = is_desktop(db_ni);
+
+	if (desktop) addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+
+	transp = svcudp_bind(RPC_ANYSOCK, addr);
+	if (transp == NULL) return NI_SYSTEMERR;
+
+	ret = svc_register(transp, NI_PROG, NI_VERS, ni_prog_2, 0);
+	if (ret == 0)
+	{
+		system_log(LOG_DEBUG, "udp svc_register returned %d\n", ret);
+		return NI_SYSTEMERR;
+	}
 
 	udp_port = transp->xp_port;
 	udp_sock = transp->xp_sock;
 
-	transp = svctcp_create(RPC_ANYSOCK, NI_SENDSIZE, NI_RECVSIZE);
-	if (transp == NULL) return (NI_SYSTEMERR);
+	transp = svctcp_bind(RPC_ANYSOCK, addr, NI_SENDSIZE, NI_RECVSIZE);
+	if (transp == NULL) return NI_SYSTEMERR;
 
-	if (!svc_register(transp, NI_PROG, NI_VERS, ni_prog_2, 0))
-		return (NI_SYSTEMERR);
+	ret = svc_register(transp, NI_PROG, NI_VERS, ni_prog_2, 0);
+	if (ret == 0)
+	{
+		system_log(LOG_DEBUG, "tcp svc_register returned %d\n", ret);
+		return NI_SYSTEMERR;
+	}
 
 	tcp_port = transp->xp_port;
 	tcp_sock = transp->xp_sock;
@@ -326,15 +389,18 @@ register_it(ni_name tag)
 	if ((forcedIsRoot == 0) && (ni_name_match(tag, "local")))
 		waitforparent();
 
-	system_log(LOG_DEBUG, "registering %s udp %u tcp %u",
-			tag, udp_port, tcp_port);
-	status = ni_register(tag, udp_port, tcp_port);
-	if (status != NI_OK)
+	if (standalone == 0)
 	{
-		system_log(LOG_DEBUG, "ni_register: %s",
-			tag, ni_error(status));
-		return (status);
+		system_log(LOG_DEBUG, "registering %s tcp %u udp %u", tag, tcp_port, udp_port);
+
+		status = ni_register(tag, udp_port, tcp_port);
+		if (status != NI_OK)
+		{
+			system_log(LOG_DEBUG, "ni_register: %s", tag, ni_error(status));
+			return (status);
+		}
 	}
+
 	return (NI_OK);
 }
 
@@ -354,7 +420,11 @@ start_service(ni_name tag)
 	system_log(LOG_DEBUG, "initializing server");
 	status = ni_init(dbname, &db_ni);
 	ni_name_free(&dbname);
-	if (status != NI_OK) return (status);
+	if (status != NI_OK)
+	{
+		system_log(LOG_ERR, "ni_init failed: %s", ni_error(status));
+		return (status);
+	}
 
 	system_log(LOG_DEBUG, "checksum = %u", ni_getchecksum(db_ni));
 
@@ -430,7 +500,7 @@ ni_register(ni_name tag, unsigned udp_port, unsigned tcp_port)
 static void 
 usage(char *myname)
 {
-	fprintf(stderr, "usage: netinfod [-m] [-c name addr tag] tag\n");
+	fprintf(stderr, "usage: netinfod [-m] [-l log_priority] [-c name addr tag] tag\n");
 	exit(1);
 }
 
@@ -445,6 +515,9 @@ void writepid(ni_name tag)
 {
 	FILE *fp;
 	char *fname;
+	int pid;
+
+	pid = getpid();
 
 	fname = (char *)malloc(strlen(tag) + strlen(PID_FILE) + 1);
 	sprintf(fname, PID_FILE, tag);
@@ -457,9 +530,8 @@ void writepid(ni_name tag)
 		return;
 	}
 
-	fprintf(fp, "%d\n", getpid());
-	if (fclose(fp) != 0)
-		system_log(LOG_ERR, "error closing PID file '%s': %m", fname);
+	fprintf(fp, "%d\n", pid);
+	if (fclose(fp) != 0) system_log(LOG_ERR, "error closing PID file '%s': %m", fname);
 	free(fname);
 }
 

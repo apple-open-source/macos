@@ -33,9 +33,19 @@
  *		Created. Derived from setjmp.s
  */
 
-#include "SYS.h"
+
 #include <architecture/ppc/asm_help.h>
 #include "_setjmp.h"
+
+#define	VRSave	256
+
+/* special flag bit definitions copied from /osfmk/ppc/thread_act.h */
+
+#define floatUsedbit	1
+#define vectorUsedbit	2
+
+#define	FlagsFastTrap	0x7FF3
+
 
 LEAF(__setjmp)
 	stw r31, JMP_r31(r3)
@@ -68,6 +78,77 @@ LEAF(__setjmp)
 	stw r5, JMP_lr(r3)
 	stw r6, JMP_ctr(r3)
 	stw r7, JMP_xer(r3)
-	li r3, 0
+        
+        mr	r31,r3				; save jmp_buf ptr
+        li	r0,FlagsFastTrap
+        sc					; get FPR-inuse and VR-inuse flags from kernel
+        rlwinm	r4,r3,0,floatUsedbit,floatUsedbit
+        rlwinm.	r5,r3,0,vectorUsedbit,vectorUsedbit
+        cmpwi	cr1,r4,0			; set CR1 bne iff FPRs in use
+        stw	r3,JMP_flags(r31)
+        stw	r31,JMP_addr_at_setjmp(r31)
+        mr	r3,r31				; restore jmp_buf ptr
+        lwz	r31,JMP_r31(r31)
+        beq	LSaveFPRsIfNecessary		; skip if vectorUsedbit was 0
+        
+        ; must save VRs and VRSAVE
+        
+        mfspr	r4,VRSave
+        andi.	r0,r4,0xFFF			; we only care about v20-v31
+        stw	r0,JMP_vrsave(r3)		; set up effective VRSAVE
+        beq	LSaveFPRsIfNecessary		; no live non-volatile VRs
+        addi	r6,r3,JMP_vr_base_addr
+        stvx	v20,0,r6
+        li	r4,16*1
+        stvx	v21,r4,r6
+        li	r4,16*2
+        stvx	v22,r4,r6
+        li	r4,16*3
+        stvx	v23,r4,r6
+        li	r4,16*4
+        stvx	v24,r4,r6
+        li	r4,16*5
+        stvx	v25,r4,r6
+        li	r4,16*6
+        stvx	v26,r4,r6
+        li	r4,16*7
+        stvx	v27,r4,r6
+        li	r4,16*8
+        stvx	v28,r4,r6
+        li	r4,16*9
+        stvx	v29,r4,r6
+        li	r4,16*10
+        stvx	v30,r4,r6
+        li	r4,16*11
+        stvx	v31,r4,r6
+        
+        ; must save FPRs if they are live in this thread
+        ;	CR1 = bne iff FPRs are in use
+        
+LSaveFPRsIfNecessary:
+        beq	cr1,LExit			; FPRs not in use
+        addi	r6,r3,JMP_fp_base_addr
+        rlwinm	r6,r6,0,0,27			; mask off low 4 bits to qw align
+        stfd	f14,0*8(r6)
+        stfd	f15,1*8(r6)
+        stfd	f16,2*8(r6)
+        stfd	f17,3*8(r6)
+        stfd	f18,4*8(r6)
+        stfd	f19,5*8(r6)
+        stfd	f20,6*8(r6)
+        stfd	f21,7*8(r6)
+        stfd	f22,8*8(r6)
+        stfd	f23,9*8(r6)
+        stfd	f24,10*8(r6)
+        stfd	f25,11*8(r6)
+        stfd	f26,12*8(r6)
+        stfd	f27,13*8(r6)
+        stfd	f28,14*8(r6)
+        stfd	f29,15*8(r6)
+        stfd	f30,16*8(r6)
+        stfd	f31,17*8(r6)
+
+LExit:
+	li 	r3, 0
 	blr
 

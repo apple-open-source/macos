@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/patchlevel.h,v 1.1.1.1 1999/04/23 01:59:53 wsanchez Exp $ */
+/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/patchlevel.h,v 1.1.1.2 2001/06/28 23:10:49 bbraun Exp $ */
 /*
  * patchlevel.h: Our life story.
  */
@@ -7,8 +7,8 @@
 
 #define ORIGIN "Astron"
 #define REV 6
-#define VERS 8
+#define VERS 10
 #define PATCHLEVEL 0
-#define DATE "1998-10-02"
+#define DATE "2000-11-19"
 
 #endif /* _h_patchlevel */

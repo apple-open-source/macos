@@ -445,17 +445,6 @@ pmem_doit(task_port_t task, int pid, int *shared, int *private, int *aliased, in
 		mach_msg_type_number_t  count;
 	        vm_size_t		size;
 
-		if ( !split && (address >= FW_CODE_BEG_ADDR && address < FW_DATA_END_ADDR)) {
-		        vm_region_basic_info_data_64_t    b_info;
-			  
-		        count = VM_REGION_BASIC_INFO_COUNT_64;
-			if (err = vm_region_64(task, &address, &size, VM_REGION_BASIC_INFO, (vm_region_info_t)&b_info,
-					    &count, &object_name))
-			        break;
-
-			if (b_info.reserved)
-			        split = 1;
-		}
 		count = VM_REGION_TOP_INFO_COUNT;
 
 		if (err = vm_region(task, &address, &size, VM_REGION_TOP_INFO, (vm_region_info_t)&info,
@@ -466,6 +455,17 @@ pmem_doit(task_port_t task, int pid, int *shared, int *private, int *aliased, in
 
 			*fw_private += info.private_pages_resident * vm_page_size;
 
+			if ( !split && info.share_mode == SM_EMPTY) {
+			        vm_region_basic_info_data_64_t    b_info;
+			  
+				count = VM_REGION_BASIC_INFO_COUNT_64;
+				if (err = vm_region_64(task, &address, &size, VM_REGION_BASIC_INFO, (vm_region_info_t)&b_info,
+					    &count, &object_name))
+				        break;
+
+				if (b_info.reserved)
+				        split = 1;
+			}
 		        if (info.share_mode != SM_PRIVATE) {
 			        address += size;
 			        continue;
@@ -830,20 +830,23 @@ void get_proc_info(kpb, pi)
 				(void) vm_deallocate(mach_task_self(), (vm_offset_t)thread_table,
 						     table_size * sizeof(*thread_table));
 
-				if (mach_port_names(task, &names, &ncnt,
-						    &types, &tcnt) == KERN_SUCCESS) {
-				        pi->num_ports = ncnt;
-					pi->orig_num_ports = ncnt;
-					(void) vm_deallocate(mach_task_self(),
-							     (vm_offset_t) names,
-							     ncnt * sizeof(*names));
-					(void) vm_deallocate(mach_task_self(),
-							     (vm_offset_t) types,
-							     tcnt * sizeof(*types));
-				} else {
-				        pi->num_ports = -1;
-				}
-			
+				if (!events_only) {
+				        if (mach_port_names(task, &names, &ncnt,
+							    &types, &tcnt) == KERN_SUCCESS) {
+					        pi->num_ports = ncnt;
+						pi->orig_num_ports = ncnt;
+						(void) vm_deallocate(mach_task_self(),
+								     (vm_offset_t) names,
+								     ncnt * sizeof(*names));
+						(void) vm_deallocate(mach_task_self(),
+								     (vm_offset_t) types,
+								     tcnt * sizeof(*types));
+					} else {
+					        pi->num_ports = -1;
+					}
+				} else
+				        pi->num_ports = 0;
+
 				if (events_only) {
 				        task_events_info_data_t	tei;
 
@@ -1202,6 +1205,7 @@ main(argc, argv)
 	char	*argv[];
 {
 	char	*myname = "top";
+	int     ch;
 	int	delay = Default_DELAY;
 	kern_return_t	error;
 
@@ -1225,19 +1229,11 @@ main(argc, argv)
 	events_delta = 0;
 	events_accumulate = 0;
 
-	while (argc > 1 && argv[1][0] == '-') {
-		switch (argv[1][1]) {
+	while ((ch = getopt(argc, argv, "uwks:edal:")) != EOF) {
+	       switch(ch) {
 		case 's':
-		        if (argv[1][2])
-			        delay = atoi(&argv[1][2]);
-			else {
-				argc--;
-				argv++;
-
-				if (argc > 1)
-				        delay = atoi(&argv[1][0]);
-			}
-			break;
+			delay = atoi(optarg);
+		        break;
 		case 'u':
 			sort_by_usage = 1;
 			break;
@@ -1259,21 +1255,13 @@ main(argc, argv)
 		        events_accumulate = 1;
 			break;
 	        case 'l':
-		        if (argv[1][2])
-			        logcnt = atoi(&argv[1][2]);
-			else {
-				argc--;
-				argv++;
-
-				if (argc > 1)
-				        logcnt = atoi(&argv[1][0]);
-			}
+			logcnt = atoi(optarg);
 		        oneshot = 1;
 			LINES = 80;
 			COLS  = 132;
 			break;
 		default:
-			fprintf(stderr, "Usage: %s [-u] [-w] [-k] [-sn] [-e] [-d] [number]\n", myname);
+			fprintf(stderr, "Usage: %s [-u] [-w] [-k] [-sn] [-e | -d | -a] [-ln] [number]\n", myname);
 			fprintf(stderr, "  -u      enables sort by usage\n");
 			fprintf(stderr, "  -w      enables wide output of additional info\n");
 			fprintf(stderr, "  -k      generate vm info for kernel(proc 0)... expensive\n");
@@ -1286,9 +1274,11 @@ main(argc, argv)
 
 			exit(1);
 		}
-		argc--;
-		argv++;
 	}
+
+	argc -= optind;
+	//argv += optind;
+
 	if (events_only)
 	  {
 	    if ( wide_output || do_proc0_vm)
@@ -1303,8 +1293,8 @@ main(argc, argv)
 	host_port = get_host_port();
 
 	/* get count of top processes to display (if any) */
-	if (argc > 1) {
-		wanted_topn = topn = atoi(argv[1]);
+	if (argc) {
+		wanted_topn = topn = atoi(argv[optind]);
 	} else
 	        wanted_topn = -1;
 
@@ -1448,7 +1438,7 @@ void screen_update()
 	unsigned long long	total_virtual_size;
 	unsigned long long	total_private_size;
 	unsigned long long      total_shared_size;
-	unsigned int            total_memory_regions;
+	unsigned int            total_memory_regions = 0;
 	unsigned int            total_shared_objects;
 	unsigned int            total_fw_code_size;
 	unsigned int            total_fw_data_size;
@@ -1492,9 +1482,11 @@ void screen_update()
 	        mach_error("host_info", error);
 	        exit(EXIT_FAILURE);
 	}
-	getNETWORKcounters();
-	getDISKcounters();
-
+	
+	if (events_only) {
+	        getNETWORKcounters();
+		getDISKcounters();
+	}
 	/* count up process states and get pointers to interesting procs */
 
 	mpid = 0;
@@ -1746,7 +1738,7 @@ void screen_update()
 		        i_kbytes = i_net.kbytes;
 		        o_kbytes = o_net.kbytes;
 		}
-	        sprintf(tbuf, "en0:   %10d ipkts/%dK", i_io, i_kbytes);
+	        sprintf(tbuf, "Networks:%10d ipkts/%dK", i_io, i_kbytes);
 		clen = strlen(tbuf);
 		memset(&tbuf[clen], ' ', 36 - clen);
 		sprintf(&tbuf[36], "%10d opkts /%dK\n", o_io, o_kbytes);
@@ -1792,7 +1784,7 @@ void screen_update()
 		        i_kbytes = i_dsk.kbytes;
 		        o_kbytes = o_dsk.kbytes;
 		}
-	        sprintf(tbuf, "Disks: %10d reads/%dK", i_io, i_kbytes);
+	        sprintf(tbuf, "Disks:   %10d reads/%dK", i_io, i_kbytes);
 		clen = strlen(tbuf);
 		memset(&tbuf[clen], ' ', 36 - clen);
 		sprintf(&tbuf[36], "%10d writes/%dK\n", o_io, o_kbytes);
@@ -1835,7 +1827,7 @@ void screen_update()
 		        pageins = vm_stat.pageins;
 		        pageouts = vm_stat.pageouts;
 		}
-	        sprintf(tbuf, "VM:    %10d pageins", pageins);
+	        sprintf(tbuf, "VM:      %10d pageins", pageins);
 		clen = strlen(tbuf);
 		memset(&tbuf[clen], ' ', 36 - clen);
 		sprintf(&tbuf[36], "%10d pageouts\n", pageouts);
@@ -2199,25 +2191,26 @@ getNETWORKcounters()
 	if (kread(nl_net[N_IFNET].n_value, (char *)&ifnethead, sizeof ifnethead))
 	       return;
 
+        i_net.io = 0;
+	o_net.io = 0;
+			  
+	i_net.kbytes = 0;
+	o_net.kbytes = 0;
+
 	for (off = (u_long)ifnethead.tqh_first; off; ) {
-                  char name[16], tname[16];
+                  char tname[16];
 
 		  if (kread(off, (char *)&ifnet, sizeof ifnet))
 		          break;
 		  if (kread((u_long)ifnet.if_name, tname, 16))
 		          break;
-                  tname[15] = '\0';
 
-		  snprintf(name, 16, "%s%d", tname, ifnet.if_unit);
-
-		  if (strcmp(name, "en0") == 0) {
-		          i_net.io = ifnet.if_ipackets;
-			  o_net.io = ifnet.if_opackets;
+		  if (strncmp(tname, "lo", 2)) {
+		          i_net.io += ifnet.if_ipackets;
+			  o_net.io += ifnet.if_opackets;
 			  
-			  i_net.kbytes = ifnet.if_ibytes/1024;
-			  o_net.kbytes = ifnet.if_obytes/1024;
-
-			  return;
+			  i_net.kbytes += ifnet.if_ibytes/1024;
+			  o_net.kbytes += ifnet.if_obytes/1024;
 		  }
 		  off = (u_long) ifnet.if_link.tqe_next;
 	}

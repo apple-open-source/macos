@@ -1,0 +1,3 @@
+Targets='InstallHeaders
+IOHIDLib
+IOHIDFamily'

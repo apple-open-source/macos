@@ -1,3 +1,0 @@
-include $(CoreOSMakefiles)/ProjectBuilder/Makefile.Postamble.Common
-
-Install_Program_Mode = 4555

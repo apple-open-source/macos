@@ -52,7 +52,7 @@
 	 * into blocks and the end blocks are normally never touched.  And for
 	 * launching prebound this should never be touched.
 	 */
-	.zerofill __DATA, __symbol_blocks, _symbol_blocks, 126360, 2
+	.zerofill __DATA, __symbol_blocks, _symbol_blocks, 144360, 2
 	.globl _symbol_blocks
 	/*
 	 * The symbol error_string and NSLinkEditError_fileName used in

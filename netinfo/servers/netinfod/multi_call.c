@@ -40,6 +40,7 @@
 #include <NetInfo/socket_lock.h>
 #include "multi_call.h"
 #include "ni_globals.h"
+#include <NetInfo/system.h>
 #include <NetInfo/system_log.h>
 
 #define NRETRIES 5
@@ -50,60 +51,31 @@ extern int alert_aborted(void);
 extern void xdr_free();
 
 /*
- * Wrapper for gethostname() syscall
- */
-static char *
-get_hostname(void)
-{
-	int len;
-	static char hostname[MAXHOSTNAMELEN + 1];
-
-	len = gethostname(hostname, sizeof(hostname));
-	if (len < 0) {
-		hostname[0] = 0;
-	} else {
-		hostname[len] = 0;
-	}
-	return (hostname);
-}
-
-
-/*
  * Encode a call message
  */
 static int
-encodemsg(
-	  char *buf,
-	  int buflen,
-	  struct rpc_msg *call,
-	  unsigned prognum,
-	  unsigned versnum,
-	  unsigned procnum,
-	  xdrproc_t xdr_args,
-	  void *arg
-	  )
+encodemsg(char *buf, int buflen, struct rpc_msg *call, unsigned prognum, unsigned versnum, unsigned procnum, xdrproc_t xdr_args, void *arg)
 {
 	XDR xdr;
 	unsigned size;
 	unsigned pos;
 
 	xdrmem_create(&xdr, buf, buflen, XDR_ENCODE);
-	if (!xdr_callmsg(&xdr, call) ||
-	    !xdr_u_int(&xdr, &prognum) ||
-	    !xdr_u_int(&xdr, &versnum) ||
-	    !xdr_u_int(&xdr, &procnum)) {
-		return (0);
-	}
+
+	if (xdr_callmsg(&xdr, call) == 0) return 0;
+	if (xdr_u_int(&xdr, &prognum) == 0) return 0;
+	if (xdr_u_int(&xdr, &versnum) == 0) return 0;
+	if (xdr_u_int(&xdr, &procnum) == 0) return 0;
+
 	pos = xdr_getpos(&xdr);
 	xdr_setpos(&xdr, pos + BYTES_PER_XDR_UNIT);
-	if (!(*xdr_args)(&xdr, arg)) {
-		return (0);
-	}
+	if ((*xdr_args)(&xdr, arg) == 0) return 0;
+
 	size = xdr_getpos(&xdr) - pos;
 	xdr_setpos(&xdr, pos);
-	if (!xdr_u_int(&xdr, &size)) {
-		return (0);
-	}
+
+	if (xdr_u_int(&xdr, &size) == 0) return 0;
+
 	return (pos + BYTES_PER_XDR_UNIT + size);
 }
 
@@ -111,29 +83,23 @@ encodemsg(
  * Decode a reply message
  */
 static int
-decodemsg(
-	  XDR *xdr,
-	  xdrproc_t xdr_res,
-	  void *res
-	  )
+decodemsg(XDR *xdr, xdrproc_t xdr_res, void *res)
 {
 	unsigned port;
 	unsigned len;
 	long *buf;
 	XDR bufxdr;
 
-	if (!xdr_u_int(xdr, &port) ||
-	    !xdr_u_int(xdr, &len) ||
-	    !(buf = xdr_inline(xdr, len))) {
-		return (0);
-	}
-	xdrmem_create(&bufxdr, (char *)buf, len * BYTES_PER_XDR_UNIT, 
-		      XDR_DECODE);
-	if (!(*xdr_res)(&bufxdr, res)) {
-		return (0);
-	}
-	return (1);
+	if (xdr_u_int(xdr, &port) == 0) return 0;
+	if (xdr_u_int(xdr, &len) == 0) return 0;
+
+	buf = xdr_inline(xdr, len);
+	if (buf == NULL) return 0;
 	
+	xdrmem_create(&bufxdr, (char *)buf, len * BYTES_PER_XDR_UNIT, XDR_DECODE);
+	if ((*xdr_res)(&bufxdr, res) == 0) return 0;
+
+	return 1;
 }
 
 /*
@@ -150,20 +116,7 @@ decodemsg(
  */
  
 enum clnt_stat 
-ni_multi_call(
-	   unsigned naddrs,		
-	   struct in_addr *addrs, 
-	   unsigned prognum,
-	   unsigned versnum,
-	   unsigned procnum,
-	   xdrproc_t xdr_args,
-	   void *argsvec,
-	   unsigned argsize,
-	   xdrproc_t xdr_res,
-	   void *res,
-	   int (*eachresult)(void *, struct sockaddr_in *, int),
-	   int preferred_provider
-	   )
+ni_multi_call(unsigned naddrs, struct in_addr *addrs, unsigned prognum, unsigned versnum, unsigned procnum, xdrproc_t xdr_args, void *argsvec, unsigned argsize, xdrproc_t xdr_res, void *res, int (*eachresult)(void *, struct sockaddr_in *, int), int preferred_provider)
 {
 	struct authunix_parms aup;
 	char credbuf[MAX_AUTH_BYTES];
@@ -191,7 +144,7 @@ ni_multi_call(
 	 * Fill in Unix auth stuff
 	 */
 	aup.aup_time = time(0);
-	aup.aup_machname = get_hostname();
+	aup.aup_machname = sys_hostname();
 	aup.aup_uid = getuid();
 	aup.aup_gid = getgid();
 	aup.aup_gids = gids;
@@ -201,9 +154,8 @@ ni_multi_call(
 	 * Encode unix auth
 	 */
 	xdrmem_create(&xdr, credbuf, sizeof(credbuf), XDR_ENCODE);
-	if (!xdr_authunix_parms(&xdr, &aup)) {
-		return (RPC_CANTENCODEARGS);
-	}
+	if (xdr_authunix_parms(&xdr, &aup) == 0) return RPC_CANTENCODEARGS;
+
 	cred.oa_flavor = AUTH_UNIX;
 	cred.oa_base = credbuf;
 	cred.oa_length = xdr_getpos(&xdr);
@@ -224,20 +176,21 @@ ni_multi_call(
 	call.rm_call.cb_cred = cred;
 	call.rm_call.cb_verf = verf;
 
-
 	/*
 	 * Open socket
 	 */
 	socket_lock();
 	s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	socket_unlock();
-	if (s < 0) {
+	if (s < 0)
+	{
 		system_log(LOG_ERR, "multi_call: socket: %m");
-		return (RPC_FAILED);
+		return RPC_FAILED;
 	}
 
 	i = 1;
-	if (setsockopt(s, SOL_SOCKET, SO_BROADCAST, &i, sizeof(int)) < 0) {
+	if (setsockopt(s, SOL_SOCKET, SO_BROADCAST, &i, sizeof(int)) < 0)
+	{
 		system_log(LOG_ERR, "multi_call can't broadcast: %m");
 	}
 
@@ -256,56 +209,30 @@ ni_multi_call(
 	
 	do_probes:
 	
-	for (callno = 0; callno <= NRETRIES; callno++) {
-                int *todo;		/* indices to provided addresses */
-                int tCnt = naddrs;	/* remaining hosts to contact */
-                int tX;			/* offset into *todo list */
-                int aX;			/* offset into *addrs list */
-
-                /* allocate and initialize "todo" list */
-                todo = (int *)malloc(naddrs * sizeof(int));
-                for (tX=0; tX<naddrs; tX++)
-                        todo[tX] = tX;
-
+	for (callno = 0; callno <= NRETRIES; callno++)
+	{
 		/*
 		 * Send a call message to each host with the appropriate args
 		 */
-	  	for (serverno = 0; serverno < naddrs; serverno++, tCnt--) {
-                        tX = random() % tCnt;
-                        aX = todo[tX];
-                        while (tX < tCnt) {
-                                todo[tX] = todo[tX+1];
-                                tX++;
-                        };
+	  	for (serverno = 0; serverno < naddrs; serverno++)
+		{
+			if ((preferred_provider >= 0) &&  (serverno != preferred_provider)) continue;
 
-                        if ((preferred_provider >= 0) && 
-			    (aX != preferred_provider)) 
+			call.rm_xid = trans_id + serverno;
+			buflen = encodemsg(buf, sizeof(buf), &call, prognum, versnum, procnum, xdr_args, (argsvec + (serverno * argsize)));
+			if (buflen == 0)
 			{
-			    continue;
-			}
-			call.rm_xid = trans_id + aX;
-			buflen = encodemsg(buf, sizeof(buf), &call, 
-					   prognum, versnum, procnum, 
-					   xdr_args, (argsvec + 
-						      (aX * argsize)));
-			if (buflen == 0) {
-				/*
-				 * Encode failed
-				 */
+				/* Encode failed */
 				continue;
 			}
-			sin.sin_addr = addrs[aX];
-			sendlen = sendto(s, buf, buflen, 0, 
-					 (struct sockaddr *)&sin, sizeof(sin));
-			if (sendlen != buflen) {
-				system_log(LOG_ERR, 
-				       "Cannot send multicall packet to %s: %m",
-				       inet_ntoa(addrs[aX]));
+
+			sin.sin_addr = addrs[serverno];
+			sendlen = sendto(s, buf, buflen, 0, (struct sockaddr *)&sin, sizeof(sin));
+			if (sendlen != buflen)
+			{
+				system_log(LOG_ERR,  "Cannot send multicall packet to %s: %m", inet_ntoa(addrs[serverno]));
 			}
 		}
-
-                /* Each host has been called */
-                free(todo);
 
 		/*
 		 * Double the timeout after each call
@@ -314,11 +241,13 @@ ni_multi_call(
 		{
 			tv.tv_sec *= 2;
 			tv.tv_usec *= 2;
+
 			if (tv.tv_usec >= USECS_PER_SEC)
 			{
 				tv.tv_usec -= USECS_PER_SEC;
 				tv.tv_sec++;
 			}
+
 			if (tv.tv_sec >= MAX_RETRY_TIMEOUT)
 			{
 				tv.tv_sec = MAX_RETRY_TIMEOUT;
@@ -326,15 +255,15 @@ ni_multi_call(
 			}
 		}
 
-
 		/*
 		 * Check for cancel by user
 		 */
-		if (alert_aborted()) {
+		if (alert_aborted() != 0)
+		{
 			socket_lock();
 			close(s);
 			socket_unlock();
-			return (RPC_FAILED);
+			return RPC_FAILED;
 		}
 
 		/*
@@ -342,27 +271,25 @@ ni_multi_call(
 		 */
 		FD_ZERO(&fds);
 		FD_SET(s, &fds);
-		switch (select(dtablesize, &fds, NULL, NULL, &tv)) {
-		case -1:
-			system_log(LOG_ERR, "select failure: %m");
-			continue;
-		case 0:
-			system_log(LOG_DEBUG, "multicall timeout: %u+%u",
-				tv.tv_sec, tv.tv_usec);
-			continue;
-		default:
-			break;
+
+		switch (select(dtablesize, &fds, NULL, NULL, &tv))
+		{
+			case -1:
+				system_log(LOG_ERR, "select failure: %m");
+				continue;
+			case 0:
+				system_log(LOG_DEBUG, "multicall timeout: %u+%u", tv.tv_sec, tv.tv_usec);
+				continue;
+			default:
+				break;
 		}
 
 		/*
 		 * Receive packet
 		 */
 		fromsize = sizeof(from);
-		buflen = recvfrom(s, buf, sizeof(buf), 0,
-				  (struct sockaddr *)&from, &fromsize);
-		if (buflen < 0) {
-			continue;
-		}
+		buflen = recvfrom(s, buf, sizeof(buf), 0, (struct sockaddr *)&from, &fromsize);
+		if (buflen < 0) continue;
 
 		/*
 		 * Decode packet and if no errors, call eachresult
@@ -371,39 +298,40 @@ ni_multi_call(
 		reply.rm_reply.rp_acpt.ar_results.proc = xdr_void;
 		reply.rm_reply.rp_acpt.ar_results.where = NULL;
 		if (xdr_replymsg(&xdr, &reply) &&
-		    (reply.rm_xid >= trans_id) &&
-		    (reply.rm_xid < trans_id + naddrs) &&
-		    (reply.rm_reply.rp_stat == MSG_ACCEPTED) &&
-		    (reply.acpted_rply.ar_stat == SUCCESS) &&
-		    decodemsg(&xdr, xdr_res, res)) {
-			if ((*eachresult)(res, &from, 
-					  reply.rm_xid - trans_id)) {
+			(reply.rm_xid >= trans_id) &&
+			(reply.rm_xid < trans_id + naddrs) &&
+			(reply.rm_reply.rp_stat == MSG_ACCEPTED) &&
+			(reply.acpted_rply.ar_stat == SUCCESS) &&
+			decodemsg(&xdr, xdr_res, res))
+		{
+			if ((*eachresult)(res, &from, reply.rm_xid - trans_id))
+			{
 				xdr_free(xdr_res, res);
 				socket_lock();
 				close(s);
 				socket_unlock();
-				return (RPC_SUCCESS);
+				return RPC_SUCCESS;
 			}
 		}
+
 		xdr_free(xdr_res, res);
 	}
 	
 	/* 
-	** If we were trying to favor a particular server, repeat the whole
-	** procedure with favoritism turned off.
-	*/
+	 * If we were trying to favor a particular server, repeat the whole
+	 * procedure with favoritism turned off.
+	 */
 	
-	if (preferred_provider >= 0) {
-	    preferred_provider = -1;
-	    goto do_probes;
+	if (preferred_provider >= 0)
+	{
+		preferred_provider = -1;
+		goto do_probes;
 	}
 	
 	socket_lock();
 	close(s);
 	socket_unlock();
-	return (RPC_TIMEDOUT);
+	return RPC_TIMEDOUT;
 }
-
-
 
 

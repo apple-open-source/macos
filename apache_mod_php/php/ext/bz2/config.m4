@@ -1,4 +1,4 @@
-dnl $Id: config.m4,v 1.1.1.1 2001/01/25 04:59:06 wsanchez Exp $
+dnl $Id: config.m4,v 1.1.1.2 2001/07/19 00:18:57 zarzycki Exp $
 dnl config.m4 for extension BZip2
 
 PHP_ARG_WITH(bz2, for BZip2 support,
@@ -22,12 +22,11 @@ if test "$PHP_BZ2" != "no"; then
     AC_MSG_ERROR(Please reinstall the BZip2 distribution)
   fi
 
-  AC_ADD_INCLUDE($BZIP_DIR/include)
+  PHP_ADD_INCLUDE($BZIP_DIR/include)
 
   PHP_SUBST(BZ2_SHARED_LIBADD)
-  AC_ADD_LIBRARY_WITH_PATH(bz2, $BZIP_DIR/lib, BZ2_SHARED_LIBADD)
-
-  AC_DEFINE(HAVE_BZ2,1,[ ])
+  PHP_ADD_LIBRARY_WITH_PATH(bz2, $BZIP_DIR/lib, BZ2_SHARED_LIBADD)
+  AC_CHECK_LIB(bz2, BZ2_bzerror, [AC_DEFINE(HAVE_BZ2,1,[ ])], [AC_MSG_ERROR(bz2 module requires libbz2 >= 1.0.0)],)
 
   PHP_EXTENSION(bz2, $ext_shared)
 fi

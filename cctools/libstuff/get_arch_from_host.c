@@ -27,6 +27,7 @@
 #include <mach/mach.h>
 #include "stuff/openstep_mach.h"
 #include "stuff/arch.h"
+#include "stuff/allocate.h"
 
 /*
  * get_arch_from_host() gets the architecture from the host this is running on
@@ -181,8 +182,8 @@ struct arch_flag *specific_arch_flag)
                     family_arch_flag->cpusubtype = CPU_SUBTYPE_POWERPC_ALL;
                 }
                 if(specific_arch_flag != NULL){
-                    specific_arch_flag->name =
-			malloc(sizeof("PowerPC cpusubtype ") + 10);
+                    specific_arch_flag->name = 
+			savestr("PowerPC cpusubtype 1234567890");
                     if(specific_arch_flag->name != NULL)
 			sprintf(specific_arch_flag->name,
 				"PowerPC cpusubtype %u", 
@@ -270,7 +271,7 @@ struct arch_flag *specific_arch_flag)
                 }
                 if(specific_arch_flag != NULL){
                     specific_arch_flag->name =
-			malloc(sizeof("Intel family  model ") + 2 + 8);
+			savestr("Intel family 12 model 12345678");
 		    if(specific_arch_flag->name != NULL)
 			sprintf(specific_arch_flag->name,
 			    "Intel family %u model %u", 

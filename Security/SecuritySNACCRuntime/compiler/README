@@ -1,0 +1,111 @@
+(RCS control information is at the end of this file.)
+
+
+README: snacc compiler source code - Mike Sample 92
+----------------------------------------------------
+
+
+Compiling the snacc compiler
+----------------------------
+
+The snacc source code can be compiled with ANSI and non-ANSI C
+compilers.  The configure script automatically determines the type of
+your C compiler and defines __USE_ANSI_C__ accordingly.
+
+If you use lex, you should change the YYLMAX value in the lex
+generated lex-asn1.c file from its measly default value (200 or so) to
+something like 2048.  YYLMAX is the longest token that the lexical
+analyzer can match.  I found this problem when snacc choked on the
+DESCRIPTION field of an OBJECT-TYPE macro that was longer than 200
+characters.  GNU flex does not have this problem (and seems to produce
+smaller code than the old lex).
+
+Compiling parse-asn1.y with bison or yacc will produce 61 shift/reduce
+errors and 2 reduce/reduce errors.  These are mostly due to the macros
+that are parsed.  The reduce/reduce errors result from type or value
+lists in some macros - the a "NULL" value and "NULL" type are both
+represented by "NULL" - don't worry about this ambiguity.  Bizzare
+syntax errors that arise from these shift-reduce errors can be
+handled by separating types/values with semi-colons.
+
+The length of generated files' names will be truncated to match your
+system has the posix "pathconf" routine.  If it does not the maximum
+file length will be set at 14 chars.  If you want to change this,
+modify the "MakeBaseFileName" routine in back_ends/c_gen/str_util.c or
+use the -mf cmd line option.
+
+snacc has been successfully installed on SPARCs, HP700s, RS 6000s, and
+MIPS machines.  You may have to fiddle with system include files.
+
+Outline of what snacc does
+--------------------------
+
+The snacc compiler uses yacc and lex (or bison/flex) parser to produce
+an attributed parse tree for an ASN.1 source file.  The main steps of
+the snacc are (see main() in core/snacc.c):
+
+
+ 1. parse USEFUL types module (if given on command line with -u option)
+      related src:  core/snacc.c core/lex-asn1.l core/parse-asn1.y
+                    core/asn1module.h
+
+ 2. parse the ASN.1 source file(s)
+      related src:  core/snacc.c core/lex-asn1.l core/parse-asn1.y
+                    core/asn1module.h
+
+ 3. link import and local type references to the type proper
+    definitions in the parsed modules (including useful types module).
+      related src:  core/link_types.c
+
+ 4. do parsing for OBJECT IDENTIFIER values. Simple recursive descent
+    parser.  Could be expanded to handle more complex values.
+      related src:  core/val_parser.c
+
+5. link any value references (some may be internal to OBJECT IDENTIFIERs)
+      related src:  core/link_values.c
+
+ 6. process macros - change type definitions in the macros to separate
+    type definitions and do systemd dependent processing.
+      related src:  core/do_macros.c
+
+ 7. normalize types and values - eg swap COMPONENTS OF and SELECTION types
+    for actual types/field. (and more)
+      related src:  core/normalize.c
+
+ 8. mark recursive type and report any recursion related errors.
+    (e.g. empty recursive types A ::= B  B ::= A)
+      related src:  core/recursive.c
+
+ 9. check for sematic errors in each ASN.1 module.
+      related src:  core/err_chk.c
+
+10. fill in the C or C++ type and routine naming information.
+    (done before dependency sorting so the sorter can make
+    decisions on the basis of whether a type is ref'd by pointer
+    (last resort))
+      related src:  back_ends/c++_gen/c++_types.c
+                    back_ends/c++_gen/c++_rules.c
+                    back_ends/c_gen/types_info.c
+                    back_ends/c_gen/rules.c
+
+11. do type dependency sorting. Ordered from least dependent
+    to most dependent.  Saves some irritations in the C/C++ code.
+      related src:  core/dependency.c
+
+12. Generate C/C++ .h and .c/.C files
+      related src:  core/snacc.c back_ends/*
+
+#-------------------------------------------------------------------------------
+# $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/compiler/README,v 1.1.1.1 2001/05/18 23:14:08 mb Exp $
+# $Log: README,v $
+# Revision 1.1.1.1  2001/05/18 23:14:08  mb
+# Move from private repository to open source repository
+#
+# Revision 1.1.1.1  1999/03/16 18:06:38  aram
+# Originals from SMIME Free Library.
+#
+# Revision 1.2  1994/09/01 01:37:51  rj
+# document the changes:
+# - autoconf stuff
+# - filename changes.
+#

@@ -40,6 +40,8 @@ extern volatile unsigned long * volatile global_lock;
 extern volatile unsigned long * volatile debug_thread_lock;
 extern volatile unsigned long mem_prot_lock;
 extern volatile unsigned long mem_prot_debug_lock;
+extern volatile mach_port_t cached_thread;
+extern volatile vm_address_t cached_stack;
 
 extern enum bool try_to_get_lock(
     volatile unsigned long *lock);

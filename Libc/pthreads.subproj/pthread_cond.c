@@ -295,7 +295,8 @@ _pthread_cond_wait(pthread_cond_t *cond,
     if ((res = pthread_mutex_lock(mutex)) != ESUCCESS) {
         return (res);
     }
-    if (kern_res == KERN_SUCCESS) {
+    /* KERN_ABORTED can be treated as a spurious wakeup */
+    if ((kern_res == KERN_SUCCESS) || (kern_res == KERN_ABORTED)) {
         return (ESUCCESS);
     } else if (kern_res == KERN_OPERATION_TIMED_OUT) {
         return (ETIMEDOUT);

@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 32;
+	objectVersion = 34;
 	objects = {
 		021C9E2B000BD0CF11CA285C = {
 			buildStyles = (
@@ -13,7 +13,7 @@
 			isa = PBXProject;
 			mainGroup = 021C9E2C000BD0CF11CA285C;
 			productRefGroup = 021C9E44000BD0CF11CA285C;
-			projectDirPath = .;
+			projectDirPath = "";
 			targets = (
 				021C9E46000BD0CF11CA285C,
 				021C9E59000BD1ED11CA285C,
@@ -21,6 +21,7 @@
 		};
 		021C9E2C000BD0CF11CA285C = {
 			children = (
+				A0147846011B0EC802CA285C,
 				021C9E33000BD0CF11CA285C,
 				021C9E34000BD0CF11CA285C,
 				021C9E35000BD0CF11CA285C,
@@ -127,8 +128,8 @@
 				KERNEL_EXTENSION = YES;
 				KERNEL_MODULE = YES;
 				MODULE_NAME = com.apple.iokit.IOSerialFamily;
-				MODULE_VERSION = 1.0.5;
-				OPTIMIZATION_CFLAGS = "";
+				MODULE_VERSION = 1.0.7d11;
+				OPTIMIZATION_CFLAGS = "-O2";
 				OTHER_CFLAGS = "-Wno-format -fpermissive";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -136,8 +137,6 @@
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = kext;
-			};
-			conditionalBuildSettings = {
 			};
 			dependencies = (
 				021C9E68000BD34611CA285C,
@@ -156,7 +155,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOSerialFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>Apple Computer, Inc 1999-11-05 IOKit Serial Port Family</string>
+	<string>Apple Computer, Inc 2001-07-30 IOKit Serial Port Family</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -168,11 +167,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.5</string>
+	<string>1.0.7</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.0.5</string>
+	<string>1.0.7d11</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOSerialBSDClient</key>
@@ -203,7 +202,7 @@
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.kernel.bsd</key>
-		<string>1.0.0b1</string>
+		<string>1.1</string>
 		<key>com.apple.kernel.iokit</key>
 		<string>1.0.0b1</string>
 		<key>com.apple.kernel.libkern</key>
@@ -237,6 +236,7 @@
 				021C9E4D000BD0CF11CA285C,
 				021C9E4E000BD0CF11CA285C,
 				021C9E4F000BD0CF11CA285C,
+				A0147847011B0EC802CA285C,
 			);
 			isa = PBXHeadersBuildPhase;
 			name = Headers;
@@ -379,7 +379,6 @@
 			buildSettings = {
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers";
-				OPTIMIZATION_CFLAGS = "";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -387,8 +386,6 @@
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
-			};
-			conditionalBuildSettings = {
 			};
 			dependencies = (
 			);
@@ -491,17 +488,38 @@
 			isa = PBXTargetDependency;
 			target = 021C9E59000BD1ED11CA285C;
 		};
+//020
+//021
+//022
+//023
+//024
+//040
+//041
+//042
+//043
+//044
 		04EC4B3D00518F8311CA285C = {
 			isa = PBXFrameworkReference;
 			name = Kernel.framework;
 			path = /System/Library/Frameworks/Kernel.framework;
 			refType = 0;
 		};
+//040
+//041
+//042
+//043
+//044
+//0C0
+//0C1
+//0C2
+//0C3
+//0C4
 		0C1118D40014E0F911CA285C = {
 			buildRules = (
 			);
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
+				OPTIMIZATION_CFLAGS = "-O0";
 			};
 			isa = PBXBuildStyle;
 			name = Development;
@@ -514,6 +532,28 @@
 			};
 			isa = PBXBuildStyle;
 			name = Deployment;
+		};
+//0C0
+//0C1
+//0C2
+//0C3
+//0C4
+//A00
+//A01
+//A02
+//A03
+//A04
+		A0147846011B0EC802CA285C = {
+			isa = PBXFileReference;
+			name = ioss.h;
+			path = IOSerialFamily.kmodproj/ioss.h;
+			refType = 4;
+		};
+		A0147847011B0EC802CA285C = {
+			fileRef = A0147846011B0EC802CA285C;
+			isa = PBXBuildFile;
+			settings = {
+			};
 		};
 	};
 	rootObject = 021C9E2B000BD0CF11CA285C;

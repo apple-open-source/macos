@@ -1,0 +1,78 @@
+# file: maketail
+#
+# $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/maketail,v 1.1.1.1 2001/05/18 23:14:04 mb Exp $
+# $Log: maketail,v $
+# Revision 1.1.1.1  2001/05/18 23:14:04  mb
+# Move from private repository to open source repository
+#
+# Revision 1.1.1.1  1999/03/16 18:05:50  aram
+# Originals from SMIME Free Library.
+#
+# Revision 1.7  1997/02/16 16:46:26  rj
+# rule to generate $(TCL-P) added
+#
+# Revision 1.6  1997/02/15 20:33:59  rj
+# trick to make making clean/clobber working with gmake: set MAKE_CLEAN_HACK (in makefile), and don't include the dependencies files (in maketail) if it is set.
+#
+# Revision 1.5  1995/07/24  15:02:34  rj
+# .C.o default rule uses CXXFLAGS instead of CFLAGS for compilation.
+#
+# dependencies modified to allow c*-lib's recursive dependency-making.
+#
+# Revision 1.4  1995/02/18  11:53:48  rj
+# added a small hack to find gcc's hidden include directory to pass it to makedepend. this shall enable X11's makedepend to find .h files a little more the way gcc does.
+#
+# Revision 1.3  1994/09/01  01:34:49  rj
+# gen-distfiles phony target to generate up-to-date versions of the distfiles.
+#
+# Revision 1.2  1994/08/31  23:23:24  rj
+# use a make macro MKDEP (set via autoconf) instead of a fixed name.
+# generate dependencies for .c files derived from .asn1 files.
+#
+
+# different make versions have different default rules, so we need our own to get a consistent behaviour...
+.l.c:
+		$(REASON)
+		$(RM) $@
+		$(LEX) $(LFLAGS) -t $< > $@~
+		mv $@~ $@
+.c.o:
+		$(REASON)
+		$(CC) $(CPPFLAGS) $(CFLAGS) -c -o $@ $<
+.C.o:
+		$(REASON)
+		$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c -o $@ $<
+
+.PHONY:		depend distfiles
+
+depend::	$(ASN1HFILES) $(ASN1CFILES) $(LCFILES) $(YHFILES) $(YCFILES)
+
+depend::
+		if [ x"$(DEPENDENCIES)" != x ]; then\
+		  touch newdep;\
+		  $(MKDEP) -f newdep $(CPPFLAGS) -DMAKEDEPEND $(MKDEP_CCINC) $(ASN1CFILES) $(LCFILES) $(YCFILES) $(CFILES);\
+		  mv newdep $(DEPENDENCIES);\
+		  $(RM) newdep.bak;\
+		fi
+
+ifeq "$(MAKE_CLEAN_HACK)" "" # avoid any recompilation when we just want to `make clean'
+include dependencies
+endif
+
+dependencies:
+		touch $@
+		$(MAKE) depend
+
+$(TCL-P):
+		cd $(TOP) && $(MAKE) tcl-p
+clean::
+		$(RM) dependencies
+
+gen-distfiles::	$(DISTFILES)
+
+distfiles::
+		echo "$(DISTFILES)"
+
+.PHONY:	clean clobber
+
+clobber::	clean

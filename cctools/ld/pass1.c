@@ -123,15 +123,15 @@ static struct stat stat_buf = { 0 };
 
 /*
  * These are pointers to strings and symbols used to search of the table of
- * contents of a library.  These have to be static and not local so that
+ * contents of a library.  These have to be can not be local so that
  * pass1_archive() and search_dylibs() can set them and that ranlib_bsearch()
  * and dylib_bsearch() can use them.  This is done instead of assigning to
  * ran_name so that the library can be mapped read only and thus not get dirty
  * and maybe written to the swap area by the kernel.
  */
-static char *strings = NULL;
+__private_extern__ char *bsearch_strings = NULL;
 #ifndef RLD
-static struct nlist *symbols = NULL;
+__private_extern__ struct nlist *bsearch_symbols = NULL;
 
 /*
  * The list of dynamic libraries to search.  The list of specified libraries
@@ -163,14 +163,16 @@ static void pass1_fat(
     char *file_addr,
     unsigned long file_size,
     enum bool base_name,
-    enum bool dylib_only);
+    enum bool dylib_only,
+    enum bool bundle_loader);
 
 static void pass1_archive(
     char *file_name,
     char *file_addr,
     unsigned long file_size,
     enum bool base_name,
-    enum bool from_fat_file);
+    enum bool from_fat_file,
+    enum bool bundle_loader);
 
 static enum bool check_archive_arch(
     char *file_name,
@@ -189,11 +191,18 @@ static void pass1_object(
     unsigned long file_size,
     enum bool base_name,
     enum bool from_fat_file,
-    enum bool dylib_only);
+    enum bool dylib_only,
+    enum bool bundle_loader);
 
 #ifndef RLD
+static void load_init_dylib_module(
+    struct dynamic_library *q);
+static enum bool setup_sub_images( 
+    struct dynamic_library *p);
 static void check_dylibs_for_definition(
-    struct merged_symbol *merged_symbol);
+    struct merged_symbol *merged_symbol,
+    enum bool prebind_check,
+    enum bool twolevel_namespace_check);
 static enum bool check_dylibs_for_reference(
     struct merged_symbol *merged_symbol);
 
@@ -203,12 +212,12 @@ static enum bool open_dylib(
 static enum bool set_sub_frameworks_ordinals(
     struct dynamic_library *umbrella);
 
-static enum bool set_sub_umbrella_ordinal(
-    struct dynamic_library *sub_umbrella);
+static enum bool set_sub_umbrella_sub_library_ordinal(
+    struct dynamic_library *sub);
 
-static int dylib_bsearch(
-    const char *symbol_name,
-    const struct dylib_table_of_contents *toc);
+static void set_isub_image(
+    struct dynamic_library *p,
+    struct dynamic_library *sub);
 
 static int nlist_bsearch(
     const char *symbol_name,
@@ -222,7 +231,8 @@ static int ranlib_bsearch(
 #endif /* !defined(SA_RLD) && !(defined(KLD) && defined(__STATIC__)) */
 
 static void check_cur_obj(
-    enum bool dylib_only);
+    enum bool dylib_only,
+    enum bool bundle_loader);
 
 static void check_size_offset(
     unsigned long size,
@@ -284,7 +294,8 @@ pass1(
 char *name,
 enum bool lname,
 enum bool base_name,
-enum bool framework_name)
+enum bool framework_name,
+enum bool bundle_loader)
 {
     int fd;
     char *file_name;
@@ -432,14 +443,16 @@ enum bool framework_name)
 #ifdef RLD
 	    new_archive_or_fat(file_name, file_addr, file_size);
 #endif RLD
-	    pass1_fat(file_name, file_addr, file_size, base_name, FALSE);
+	    pass1_fat(file_name, file_addr, file_size, base_name, FALSE,
+		      bundle_loader);
 	}
 	else if(file_size >= SARMAG && strncmp(file_addr, ARMAG, SARMAG) == 0){
-	    pass1_archive(file_name, file_addr, file_size, base_name, FALSE);
+	    pass1_archive(file_name, file_addr, file_size, base_name, FALSE,
+			  bundle_loader);
 	}
 	else{
 	    pass1_object(file_name, file_addr, file_size, base_name, FALSE,
-			 FALSE);
+			 FALSE, bundle_loader);
 	}
 #ifdef VM_SYNC_DEACTIVATE
 	vm_msync(mach_task_self(), (vm_address_t)file_addr,
@@ -535,7 +548,8 @@ char *file_name,
 char *file_addr,
 unsigned long file_size,
 enum bool base_name,
-enum bool dylib_only)
+enum bool dylib_only,
+enum bool bundle_loader)
 {
     struct fat_header *fat_header;
 #ifdef __LITTLE_ENDIAN__
@@ -657,11 +671,11 @@ enum bool dylib_only)
 		    goto pass1_fat_return;
 		}
 		pass1_archive(file_name, arch_addr, arch_size,
-			      base_name, TRUE);
+			      base_name, TRUE, bundle_loader);
 	    }
 	    else{
 		pass1_object(file_name, arch_addr, arch_size, base_name, TRUE,
-			     dylib_only);
+			     dylib_only, bundle_loader);
 	    }
 	    goto pass1_fat_return;
 	}
@@ -682,11 +696,12 @@ enum bool dylib_only)
 			   fat_archs[0].cputype, fat_archs[0].cpusubtype));
 		    goto pass1_fat_return;
 		}
-		pass1_archive(file_name, arch_addr, arch_size, base_name, TRUE);
+		pass1_archive(file_name, arch_addr, arch_size, base_name, TRUE,
+			      bundle_loader);
 	    }
 	    else{
 		pass1_object(file_name, arch_addr, arch_size, base_name, TRUE,
-			     dylib_only);
+			     dylib_only, bundle_loader);
 	    }
 	    goto pass1_fat_return;
 	}
@@ -714,11 +729,11 @@ enum bool dylib_only)
 		    goto pass1_fat_return;
 		}
 		pass1_archive(file_name, arch_addr, arch_size,
-			      base_name, TRUE);
+			      base_name, TRUE, bundle_loader);
 	    }
 	    else{
 		pass1_object(file_name, arch_addr, arch_size, base_name, TRUE,
-			     dylib_only);
+			     dylib_only, bundle_loader);
 	    }
 	    goto pass1_fat_return;
 	}
@@ -851,7 +866,8 @@ char *file_name,
 char *file_addr,
 unsigned long file_size,
 enum bool base_name,
-enum bool from_fat_file)
+enum bool from_fat_file,
+enum bool bundle_loader)
 {
     unsigned long i, j, offset;
 #ifndef RLD
@@ -903,6 +919,9 @@ enum bool from_fat_file)
 	if(base_name)
 	    fatal("base file of incremental link (argument of -A): %s should't "
 		  "be an archive", file_name);
+	if(bundle_loader)
+	    fatal("-bundle_loader argument: %s should't be an archive", 
+		  file_name);
 
 	/*
 	 * If the flag to specifiy that all the archive members are to be
@@ -1134,7 +1153,7 @@ down:
 		    print_obj_name(cur_obj);
 		    print("loaded because of -all_load flag\n");
 		}
-		merge(FALSE);
+		merge(FALSE, FALSE);
 		length = round(ar_size + ar_name_size, sizeof(short));
 		offset = (offset - ar_name_size) + length;
 	    }
@@ -1231,7 +1250,7 @@ down:
 	if(toc_byte_sex != host_byte_sex)
 	    string_size = SWAP_LONG(string_size);
 	offset += sizeof(long);
-	strings = file_addr + offset;
+	bsearch_strings = file_addr + offset;
 	offset += string_size;
 	if(offset - (2 * sizeof(long) + ar_name_size + sizeof(struct ar_hdr) +
 		     SARMAG) > symdef_length){
@@ -1299,10 +1318,10 @@ down:
 	    nloaded_offsets = 0;
 	    for(i = 0; i < nranlibs; i++){
 		/* See if this symbol is an objective-C symbol */
-		if(strncmp(strings + ranlibs[i].ran_un.ran_strx,
+		if(strncmp(bsearch_strings + ranlibs[i].ran_un.ran_strx,
 		           ".objc_class_name",
 			   sizeof(".objc_class_name") - 1) != 0 &&
-		   strncmp(strings + ranlibs[i].ran_un.ran_strx,
+		   strncmp(bsearch_strings + ranlibs[i].ran_un.ran_strx,
 		           ".objc_category_name",
 			   sizeof(".objc_category_name") - 1) != 0)
 		    continue;
@@ -1362,9 +1381,9 @@ down:
 		if(whyload){
 		    print_obj_name(cur_obj);
 		    print("loaded because of -ObjC flag to get symbol: %s\n", 
-			  strings + ranlibs[i].ran_un.ran_strx);
+			  bsearch_strings + ranlibs[i].ran_un.ran_strx);
 		}
-		merge(FALSE);
+		merge(FALSE, FALSE);
 	    }
 	    free(loaded_offsets);
 	}
@@ -1408,7 +1427,7 @@ down:
 	    p->file_size = file_size;
 	    p->nranlibs = nranlibs;
 	    p->ranlibs = ranlibs;
-	    p->ranlib_strings = strings;
+	    p->ranlib_strings = bsearch_strings;
 	    return;
 	}
 #endif !defined(RLD)
@@ -1496,7 +1515,7 @@ down:
 			       undefined->merged_symbol->nlist.n_un.n_name);
 		    }
 
-		    merge(FALSE);
+		    merge(FALSE, FALSE);
 
 		    /* make sure this symbol got defined */
 		    if(errors == 0 && 
@@ -1534,7 +1553,7 @@ down:
 	    while(member_loaded == TRUE && errors == 0){
 		member_loaded = FALSE;
 		for(i = 0; i < nranlibs; i++){
-		    merged_symbol = *(lookup_symbol(strings +
+		    merged_symbol = *(lookup_symbol(bsearch_strings +
 						   ranlibs[i].ran_un.ran_strx));
 		    if(merged_symbol != NULL){
 			if(merged_symbol->nlist.n_type == (N_UNDF | N_EXT) &&
@@ -1594,7 +1613,7 @@ down:
 				       merged_symbol->nlist.n_un.n_name);
 			    }
 
-			    merge(FALSE);
+			    merge(FALSE, FALSE);
 
 			    /* make sure this symbol got defined */
 			    if(errors == 0 &&
@@ -1807,7 +1826,8 @@ char *file_addr,
 unsigned long file_size,
 enum bool base_name,
 enum bool from_fat_file,
-enum bool dylib_only)
+enum bool dylib_only,
+enum bool bundle_loader)
 {
 #ifdef __MWERKS__
     enum bool dummy;
@@ -1833,7 +1853,7 @@ enum bool dylib_only)
 	    base_obj = cur_obj;
 #endif !defined(RLD)
 
-	merge(dylib_only);
+	merge(dylib_only, bundle_loader);
 
 #ifndef RLD
 	/*
@@ -1865,9 +1885,9 @@ void
 search_dynamic_libs(
 void)
 {
-    struct dynamic_library *p, *prev;
+    struct dynamic_library *p, *q, *dep, *prev;
     unsigned long i, j, nmodules, size, ar_name_size;
-    enum bool removed;
+    enum bool removed, some_images_setup;
     char *ar_name;
 
     struct mach_header *mh;
@@ -1888,6 +1908,8 @@ void)
     char *umbrella_install_name, *short_name, *has_suffix;
     enum bool is_framework, set_some_ordinals, non_set_ordinals;
 
+    struct nlist *extdef_symbols, *extdef;
+
 	/*
 	 * If -twolevel_namespace is in effect assign the library ordinals to
 	 * all of the dynamic libraries specified on the command line and
@@ -1900,18 +1922,42 @@ void)
 	 * the macro SET_LIBRARY_ORDINAL(nlist.n_desc, library_ordinal).
 	 */
 	library_ordinal = 1;
-	if(twolevel_namespace == TRUE){
-	    for(p = dynamic_libs; p != NULL; p = p->next){
-		if(p->type == DYLIB && p->dl->cmd == LC_ID_DYLIB){
+	for(p = dynamic_libs; p != NULL; p = p->next){
+	    if(p->type == DYLIB && p->dl->cmd == LC_ID_DYLIB){
+		if(twolevel_namespace == TRUE){
 		    if(library_ordinal > MAX_LIBRARY_ORDINAL)
 			fatal("too many dynamic libraries used, maximum is: %d "
 			      "when -twolevel_namespace is in effect",
 			      MAX_LIBRARY_ORDINAL);
-		    p->definition_obj->library_ordinal = library_ordinal;
-		    library_ordinal++;
 		}
+		p->definition_obj->library_ordinal = library_ordinal;
+		library_ordinal++;
+		p->dependent_images =
+		    allocate(p->definition_obj->nload_dylibs *
+			     sizeof(struct dynamic_library *));
+	    }
+	    else if(p->type == BUNDLE_LOADER){
+		p->definition_obj->library_ordinal = EXECUTABLE_ORDINAL;
 	    }
 	}
+
+	/*
+	 * The code in the following loop adds dynamic libraries to the search
+	 * list and this ordering matches the library search order dyld uses
+	 * for flat-level namespace images and lookups.
+	 * 
+	 * But for two-level namespace lookups ld(1) and dyld lookup symbols in
+	 * all the sub_images of a dynamic library when it is encountered in the
+	 * search list.  So this can get different symbols in the flat and
+	 * two-level namespace cases if there are multiple definitions of the
+	 * same symbol in a framework's sub-images.  Or if there are multiple
+	 * umbrella frameworks where their sub-frameworks have multiple
+	 * definitions of the same symbol.
+	 * 
+	 * Also to record two-level namespace hints ld(1) must exactly match the
+	 * list of sub-images created for each library so it can assign the
+	 * sub-image indexes and then record them.
+	 */
 
 	/*
 	 * For dynamic libraries on the dynamic library search list that are
@@ -1951,6 +1997,11 @@ void)
 			prev->next = p->next;
 		    removed = TRUE;
 		}
+		else{
+		    p->dependent_images =
+			allocate(p->definition_obj->nload_dylibs *
+			         sizeof(struct dynamic_library *));
+		}
 	    }
 	    /*
 	     * If this element on the dynamic library list is a dylib file
@@ -1978,8 +2029,8 @@ void)
 		for(i = 0; i < mh->ncmds; i++){
 		    if(lc->cmd == LC_LOAD_DYLIB){
 			dl = (struct dylib_command *)lc;
-			(void)add_dynamic_lib(DYLIB, dl,
-							p->definition_obj);
+			dep = add_dynamic_lib(DYLIB, dl, p->definition_obj);
+			p->dependent_images[p->ndependent_images++] = dep;
 		    }
 		    lc = (struct load_command *)((char *)lc + lc->cmdsize);
 		}
@@ -1990,99 +2041,152 @@ void)
 	indirect_dylib = FALSE;
 
 #ifdef DEBUG
-	if(debug & (1 << 22) && twolevel_namespace == TRUE){
+	if(debug & (1 << 22)){
 	    print("dynamic library search list and ordinals before sub "
 		  "assignments:\n");
 	    for(p = dynamic_libs; p != NULL; p = p->next){
 		if(p->type == DYLIB){
 		    if(p->dylib_file != NULL)
-			printf("\t%s ordinal %lu (using file %s)\n",
+			printf("  %s ordinal %lu (using file %s)\n",
 			   p->dylib_name, p->definition_obj->library_ordinal,
 			   p->file_name);
-		    else
-			printf("\t%s oridinal %lu\n", p->dylib_name,
+		    else{
+			short_name = guess_short_name(p->dylib_name,
+						&is_framework, &has_suffix);
+			printf("  %s oridinal %lu\n", short_name != NULL ?
+			       short_name : p->dylib_name,
 			       p->definition_obj->library_ordinal);
+		    }
 		}
 		else
-		    printf("\t%s (archive)\n", p->file_name);
+		    printf("  %s (archive)\n", p->file_name);
 	    }
 	}
 #endif /* DEBUG */
 
 	/*
-	 * If we are creating a two-level namespace image now that all the
-	 * indirect libraries have been found and opened go through and set the
-	 * library_ordinal for those that are used indirectly via a
-	 * sub-umbrella or sub-framework and remove those that are not.
+	 * If we are creating or using two-level namespace images now that all
+	 * the indirect libraries have been found and opened go through and set
+	 * the library_ordinal for those that are used indirectly via a
+	 * sub-umbrella, sub-library or sub-framework.
 	 */
-	if(twolevel_namespace == TRUE){
-	    /*
-	     * Set up the umbrella names (if any) for all dynamic libraries.
-	     */
+
+	/*
+	 * Set up the umbrella and library names (if any) for all dynamic
+	 * libraries.
+	 */
+	for(p = dynamic_libs; p != NULL; p = p->next){
+	    if(p->type != DYLIB)
+		continue;
+	    if(p->umbrella_name == NULL){
+		umbrella_install_name = (char *)p->dl +
+					p->dl->dylib.name.offset;
+		short_name = guess_short_name(umbrella_install_name,
+					      &is_framework, &has_suffix);
+		if(short_name != NULL && is_framework == TRUE)
+		    p->umbrella_name = short_name;
+		else if(short_name != NULL && is_framework == FALSE)
+		    p->library_name = short_name;
+	    }
+	}
+	/*
+	 * Now with all the indirect libraries loaded and the
+	 * dependent_images set up set up the sub_images for any dynamic
+	 * library that does not have this set up yet.  Since sub_images
+	 * include sub_umbrellas and sub_librarys any dynamic library that
+	 * has sub_umbrellas or sub_librarys must have their sub_umbrella 
+	 * and sub_librarys images set up first. To do this
+	 * setup_sub_images() will return FALSE for a dynamic library that
+	 * needed one of its sub_umbrellas or sub_libraries set up and we
+	 * will loop here until we get a clean pass with no more dynamic
+	 * libraries needing setup.
+	 */
+	do{
+	    some_images_setup = FALSE;
 	    for(p = dynamic_libs; p != NULL; p = p->next){
 		if(p->type != DYLIB)
 		    continue;
-		if(p->umbrella_name == NULL){
-		    umbrella_install_name = (char *)p->dl +
-					    p->dl->dylib.name.offset;
-		    short_name = guess_short_name(umbrella_install_name,
-						  &is_framework, &has_suffix);
-		    if(short_name != NULL && is_framework == TRUE)
-			p->umbrella_name = short_name;
-		}
+		if(p->sub_images_setup == FALSE)
+		    some_images_setup |= setup_sub_images(p);
+	    }
+	}while(some_images_setup == TRUE);
+	/*
+	 * Set the library ordinals for libraries that are not set.
+	 */
+	do{
+	    /*
+	     * Set the library ordinals of sub-frameworks who's umbrella
+	     * framework has its library ordinal set.
+	     */
+	    set_some_ordinals = FALSE;
+	    non_set_ordinals = FALSE;
+	    for(p = dynamic_libs; p != NULL; p = p->next){
+		if(p->type != DYLIB)
+		    continue;
+		if(p->definition_obj->library_ordinal != 0 &&
+		   p->umbrella_name != NULL)
+		    set_some_ordinals |= set_sub_frameworks_ordinals(p);
+		else
+		    non_set_ordinals = TRUE;
 	    }
 	    /*
-	     * Set the library ordinals for libraries that are not set.
+	     * If there are still some not set ordinals then set the dylibs
+	     * that are sub-umbrella's or sub-libraries that are not set.
 	     */
-	    do{
-		/*
-		 * Set the library ordinals of sub-frameworks who's umbrella
-		 * framework has its library ordinal set.
-		 */
-		set_some_ordinals = FALSE;
-		non_set_ordinals = FALSE;
+	    if(non_set_ordinals == TRUE){
 		for(p = dynamic_libs; p != NULL; p = p->next){
 		    if(p->type != DYLIB)
 			continue;
-		    if(p->definition_obj->library_ordinal != 0 &&
-		       p->umbrella_name != NULL)
-			set_some_ordinals |= set_sub_frameworks_ordinals(p);
-		    else
-			non_set_ordinals = TRUE;
-		}
-		/*
-		 * If there are still some non set ordinals then set the dylibs
-		 * that are sub-umbrella's that are not set.
-		 */
-		if(non_set_ordinals == TRUE){
-		    for(p = dynamic_libs; p != NULL; p = p->next){
-			if(p->type != DYLIB)
-			    continue;
-			if(p->definition_obj->library_ordinal == 0 &&
-			   p->umbrella_name != NULL){
-			    set_some_ordinals |= set_sub_umbrella_ordinal(p);
-			}
+		    if(p->definition_obj->library_ordinal == 0 &&
+		       (p->umbrella_name != NULL ||
+			p->library_name != NULL)){
+			set_some_ordinals |=
+			    set_sub_umbrella_sub_library_ordinal(p);
 		    }
 		}
-	    }while(set_some_ordinals == TRUE);
-	}
+	    }
+	}while(set_some_ordinals == TRUE);
 
 #ifdef DEBUG
-	if(debug & (1 << 22) && twolevel_namespace == TRUE){
+	if(debug & (1 << 22)){
 	    print("dynamic library search list and ordinals after sub "
 		  "assignments:\n");
 	    for(p = dynamic_libs; p != NULL; p = p->next){
 		if(p->type == DYLIB){
 		    if(p->dylib_file != NULL)
-			printf("\t%s ordinal %lu (using file %s)\n",
-			   p->dylib_name, p->definition_obj->library_ordinal,
-			   p->file_name);
-		    else
-			printf("\t%s oridinal %lu\n", p->dylib_name,
-			       p->definition_obj->library_ordinal);
+			printf("  %s ordinal %lu isub_image %lu "
+			       "(using file %s)\n", p->dylib_name,
+			       p->definition_obj->library_ordinal,
+			       p->definition_obj->isub_image, p->file_name);
+		    else{
+			short_name = guess_short_name(p->dylib_name,
+						&is_framework, &has_suffix);
+			printf("  %s oridinal %lu isub_image %lu\n",
+			       short_name != NULL ?  short_name : p->dylib_name,
+			       p->definition_obj->library_ordinal,
+			       p->definition_obj->isub_image);
+		    }
+		    print("    ndependent_images = %lu\n",p->ndependent_images);
+		    for(i = 0; i < p->ndependent_images; i++){
+			dep = p->dependent_images[i];
+			short_name = guess_short_name(dep->dylib_name,
+						&is_framework, &has_suffix);
+			printf("      [%lu] %s\n", i, short_name != NULL ?
+			       short_name : dep->dylib_name);
+			
+		    }
+		    print("    nsub_images = %lu\n",p->nsub_images);
+		    for(i = 0; i < p->nsub_images; i++){
+			dep = p->sub_images[i];
+			short_name = guess_short_name(dep->dylib_name,
+						&is_framework, &has_suffix);
+			printf("      [%lu] %s\n", i, short_name != NULL ?
+			       short_name : dep->dylib_name);
+			
+		    }
 		}
 		else
-		    printf("\t%s (archive)\n", p->file_name);
+		    printf("  %s (archive)\n", p->file_name);
 	    }
 	}
 #endif /* DEBUG */
@@ -2145,6 +2249,17 @@ void)
 		    }
 		}
 	    }
+	    if(p->type == BUNDLE_LOADER){
+		p->strings = p->definition_obj->obj_addr +
+			     p->definition_obj->symtab->stroff;
+		p->symbols = (struct nlist *)(
+			      p->definition_obj->obj_addr +
+			      p->definition_obj->symtab->symoff);
+		if(p->definition_obj->swapped)
+		    swap_nlist(p->symbols,
+			       p->definition_obj->symtab->nsyms,
+			       host_byte_sex);
+	    }
 	}
 
 	/*
@@ -2178,8 +2293,12 @@ void)
 		    if(p->dylib_file != NULL)
 			printf("\t%s (using file %s)\n", p->dylib_name,
 			       p->file_name);
-		    else
-			printf("\t%s\n", p->dylib_name);
+		    else{
+			short_name = guess_short_name(p->dylib_name,
+						&is_framework, &has_suffix);
+			printf("\t%s\n", short_name != NULL ?
+			       short_name : p->dylib_name);
+		    }
 		}
 		else
 		    printf("\t%s (archive)\n", p->file_name);
@@ -2207,6 +2326,122 @@ void)
 	for(undefined = undefined_list.next;
 	    undefined != &undefined_list;
 	    /* no increment expression */){
+
+	    /*
+	     * If this symbol is a twolevel_reference placed on the undefined
+	     * list by merge_dylib_module_symbols() in symbols.c then we
+	     * determine which dylib module needs to be loaded and if it is not
+	     * yet loaded we load it.  Note the merged symbol pointed to by
+	     * this undefined entry is a fake and not entered into the symbol
+	     * symbol table.  This merged symbol's nlist is a copy of the nlist
+	     * from the referencing_library.
+	     */
+	    if(undefined->merged_symbol->twolevel_reference == TRUE){
+		library_ordinal = GET_LIBRARY_ORDINAL(
+				    undefined->merged_symbol->nlist.n_desc);
+		if(library_ordinal == SELF_LIBRARY_ORDINAL)
+		    p = undefined->merged_symbol->referencing_library;
+		else
+		    p = undefined->merged_symbol->referencing_library->
+			    dependent_images[library_ordinal - 1];
+		q = p;
+		/*
+		 * This could be a dylib that was missing so its dynamic_library
+		 * struct will be just an LC_LOAD_DYLIB command and a name with
+		 * no strings, symbols, sub_images, etc.
+	 	 */
+		if(p->dl->cmd == LC_LOAD_DYLIB)
+		    goto undefined_twolevel_reference;
+		bsearch_strings = q->strings;
+		bsearch_symbols = q->symbols;
+		toc = bsearch(undefined->merged_symbol->nlist.n_un.n_name,
+			      q->tocs, q->definition_obj->dysymtab->ntoc,
+			      sizeof(struct dylib_table_of_contents),
+			      (int (*)(const void *, const void *))
+				dylib_bsearch);
+		if(toc == NULL){
+		    for(i = 0; toc == NULL && i < p->nsub_images; i++){
+			q = p->sub_images[i];
+			if(q->dl->cmd == LC_LOAD_DYLIB)
+			    break;
+			bsearch_strings = q->strings;
+			bsearch_symbols = q->symbols;
+			toc = bsearch(undefined->merged_symbol->
+				  nlist.n_un.n_name, q->tocs,
+				  q->definition_obj->dysymtab->ntoc,
+				  sizeof(struct dylib_table_of_contents),
+				  (int (*)(const void *, const void *))
+				    dylib_bsearch);
+		    }
+		}
+		if(toc != NULL){
+		    /*
+		     * There is a module that defineds this symbol so see if it
+		     * has been loaded and if not load it.
+		     */
+		    if(is_dylib_module_loaded(q->mods + toc->module_index) ==
+		       FALSE){
+			cur_obj = new_object_file();
+			*cur_obj = *(q->definition_obj);
+			cur_obj->dylib_module = q->mods + toc->module_index;
+			if(q->linked_modules != NULL)
+			    q->linked_modules[toc->module_index / 8] |=
+				1 << toc->module_index % 8;
+			if(whyload){
+			    print_obj_name(cur_obj);
+			    print("loaded to resolve symbol: %s ", 
+			       undefined->merged_symbol->nlist.n_un.n_name);
+			    dep = undefined->merged_symbol->referencing_library;
+			    if(dep->umbrella_name != NULL)
+				short_name = dep->umbrella_name;
+			    else if(dep->library_name != NULL)
+				short_name = dep->library_name;
+			    else
+				short_name = dep->dylib_name;
+			    print("referenced from %s\n", short_name);
+			}
+			merge_dylib_module_symbols(q);
+			/*
+			 * We would like to make sure this symbol got defined
+			 * from this dylib module.  But since this is a
+			 * two-level reference the symbol in this dylib module
+			 * may or may not be used by the output file being
+			 * created (the symbol entered in the merged symbol
+			 * table not this fake one).
+			 */
+
+			/*
+			 * Since something from this dynamic library is being
+			 * used, if there is a library initialization routine
+			 * make sure that the module that defines it is loaded.
+			 */
+			load_init_dylib_module(q);
+		    }
+		    /*
+		     * If the -Y flag is not set free the memory for this fake
+		     * merged_symbol which was for a two-level reference, move
+		     * to the next undefined, and take this off the undefined
+		     * list.
+		     */
+		    if(!Yflag)
+			free(undefined->merged_symbol);
+		    undefined = undefined->next;
+		    delete_from_undefined_list(undefined->prev);
+		}
+		else{
+		    /*
+		     * The library expected to define this symbol did not define
+		     * it so it must remain undefined and should result in an
+		     * undefined symbol error.  In process_undefineds() in
+		     * symbols.c it loops over the undefined list looking for
+		     * these fake merged_symbols.
+		     */
+undefined_twolevel_reference:
+		    undefined = undefined->next;
+		}
+		continue;
+	    }
+
 	    /* If this symbol is no longer undefined delete it and move on*/
 	    if(undefined->merged_symbol->nlist.n_type != (N_UNDF | N_EXT) ||
 	       undefined->merged_symbol->nlist.n_value != 0){
@@ -2214,35 +2449,77 @@ void)
 		delete_from_undefined_list(undefined->prev);
 		continue;
 	    }
+
+	    /*
+	     * If -twolevel_namespace is in effect then when each dynamic
+	     * library is seen all of its sub-images are searched at that
+	     * point.  So to avoid searching a dynamic library more than once
+	     * per symbol the twolevel_searched field is set to TRUE when
+	     * searched and the library is skipped if it is encountered again
+	     * when looking for the same symbol.
+	     */
+	    if(twolevel_namespace == TRUE){
+		for(p = dynamic_libs; p != NULL; p = p->next)
+		    p->twolevel_searched = FALSE;
+	    }
 	    found = FALSE;
 	    for(p = dynamic_libs; p != NULL && found == FALSE; p = p->next){
 		switch(p->type){
 
 		case DYLIB:
-		    strings = p->strings;
-		    symbols = p->symbols;
+		    if(twolevel_namespace == TRUE &&
+		       p->twolevel_searched == TRUE)
+			break;
+		    /*
+		     * This could be a dylib that was missing so its
+		     * dynamic_library struct will be just an LC_LOAD_DYLIB
+		     * command and a name with no strings, symbols, sub_images,
+		     * etc.
+		     */
+		    if(p->dl->cmd == LC_LOAD_DYLIB)
+			break;
+		    q = p;
+		    bsearch_strings = q->strings;
+		    bsearch_symbols = q->symbols;
 		    toc = bsearch(undefined->merged_symbol->nlist.n_un.n_name,
-				  p->tocs, p->definition_obj->dysymtab->ntoc,
+				  q->tocs, q->definition_obj->dysymtab->ntoc,
 				  sizeof(struct dylib_table_of_contents),
 				  (int (*)(const void *, const void *))
 				    dylib_bsearch);
+		    if(toc == NULL && twolevel_namespace == TRUE){
+			q->twolevel_searched = TRUE;
+			for(i = 0; toc == NULL && i < p->nsub_images; i++){
+			    q = p->sub_images[i];
+			    q->twolevel_searched = TRUE;
+			    if(q->dl->cmd == LC_LOAD_DYLIB)
+				break;
+			    bsearch_strings = q->strings;
+			    bsearch_symbols = q->symbols;
+			    toc = bsearch(undefined->merged_symbol->
+				      nlist.n_un.n_name, q->tocs,
+				      q->definition_obj->dysymtab->ntoc,
+				      sizeof(struct dylib_table_of_contents),
+				      (int (*)(const void *, const void *))
+					dylib_bsearch);
+			}
+		    }
 		    if(toc != NULL){
 			/*
 			 * There is a module that defineds this symbol so
 			 * load it.
 			 */
 			cur_obj = new_object_file();
-			*cur_obj = *(p->definition_obj);
-			cur_obj->dylib_module = p->mods + toc->module_index;
-			if(p->linked_modules != NULL)
-			    p->linked_modules[toc->module_index / 8] |=
+			*cur_obj = *(q->definition_obj);
+			cur_obj->dylib_module = q->mods + toc->module_index;
+			if(q->linked_modules != NULL)
+			    q->linked_modules[toc->module_index / 8] |=
 				1 << toc->module_index % 8;
 			if(whyload){
 			    print_obj_name(cur_obj);
 			    print("loaded to resolve symbol: %s\n", 
 			       undefined->merged_symbol->nlist.n_un.n_name);
 			}
-			merge_dylib_module_symbols(p);
+			merge_dylib_module_symbols(q);
 			/* make sure this symbol got defined */
 			if(errors == 0 && 
 			   undefined->merged_symbol->nlist.n_type ==
@@ -2250,10 +2527,12 @@ void)
 			   && undefined->merged_symbol->nlist.n_value == 0){
 			    error("malformed table of contents in library: "
 			       "%s (module %s did not defined symbol %s)",
-			       cur_obj->file_name,
-			       strings + cur_obj->dylib_module->module_name,
+			       cur_obj->file_name, bsearch_strings +
+			       cur_obj->dylib_module->module_name,
 			       undefined->merged_symbol->nlist.n_un.n_name);
 			}
+			if(twolevel_namespace == TRUE)
+			    undefined->merged_symbol->itoc = toc - q->tocs;
 			undefined = undefined->next;
 			delete_from_undefined_list(undefined->prev);
 			found = TRUE;
@@ -2263,32 +2542,12 @@ void)
 			 * used, if there is a library initialization routine
 			 * make sure that the module that defines it is loaded.
 			 */
-			if(p->definition_obj->rc != NULL &&
-			   p->definition_obj->init_module_loaded == FALSE){
-			    if(is_dylib_module_loaded(p->mods +
-				  p->definition_obj->rc->init_module) == FALSE){
-				cur_obj = new_object_file();
-				*cur_obj = *(p->definition_obj);
-				cur_obj->dylib_module = p->mods +
-				    p->definition_obj->rc->init_module;
-				if(p->linked_modules != NULL)
-				    p->linked_modules[p->definition_obj->rc->
-						  init_module / 8] |= 1 <<
-					p->definition_obj->rc->init_module % 8;
-				if(whyload){
-				    print_obj_name(cur_obj);
-				    print("loaded for library initialization "
-					  "routine\n");
-				}
-				merge_dylib_module_symbols(p);
-			    }
-			    p->definition_obj->init_module_loaded = TRUE;
-			}
+			load_init_dylib_module(q);
 		    }
 		    break;
 
 		case SORTED_ARCHIVE:
-		    strings = p->ranlib_strings;
+		    bsearch_strings = p->ranlib_strings;
 		    ranlib = bsearch(undefined->merged_symbol->
 				     nlist.n_un.n_name, p->ranlibs, p->nranlibs,
 				     sizeof(struct ranlib),
@@ -2344,7 +2603,7 @@ void)
 				   undefined->merged_symbol->nlist.n_un.n_name);
 			}
 
-			merge(FALSE);
+			merge(FALSE, FALSE);
 
 			/* make sure this symbol got defined */
 			if(errors == 0 && 
@@ -2417,7 +2676,7 @@ void)
 				   undefined->merged_symbol->nlist.n_un.n_name);
 			    }
 
-			    merge(FALSE);
+			    merge(FALSE, FALSE);
 
 			    /* make sure this symbol got defined */
 			    if(errors == 0 && 
@@ -2433,6 +2692,49 @@ void)
 			    delete_from_undefined_list(undefined->prev);
 			    found = TRUE;
 			}
+		    }
+		    break;
+
+		case BUNDLE_LOADER:
+		    bsearch_strings = p->definition_obj->obj_addr +
+			      p->definition_obj->symtab->stroff;
+		    extdef_symbols = (struct nlist *)(
+				  p->definition_obj->obj_addr +
+				  p->definition_obj->symtab->symoff) +
+				  p->definition_obj->dysymtab->iextdefsym;
+		    extdef =bsearch(undefined->merged_symbol->nlist.n_un.n_name,
+				  extdef_symbols,
+				  p->definition_obj->dysymtab->nextdefsym,
+				  sizeof(struct nlist),
+				  (int (*)(const void *, const void *))
+				    nlist_bsearch);
+		    if(extdef != NULL){
+			/*
+			 * There is a external symbol in the bundle loader that
+			 * defineds this symbol so load it.
+			 */
+			cur_obj = p->definition_obj;
+			if(whyload){
+			    print_obj_name(cur_obj);
+			    print("loaded to resolve symbol: %s\n", 
+			       undefined->merged_symbol->nlist.n_un.n_name);
+			}
+
+			merge_bundle_loader_symbols(p);
+
+			/* make sure this symbol got defined */
+			if(errors == 0 && 
+			   undefined->merged_symbol->nlist.n_type ==
+			    (N_UNDF|N_EXT)
+			   && undefined->merged_symbol->nlist.n_value == 0){
+			    error("malformed external defined symbols of "
+			       "-bundle_loader: %s (it did not defined symbol "
+			       "%s)", cur_obj->file_name,
+			       undefined->merged_symbol->nlist.n_un.n_name);
+			}
+			undefined = undefined->next;
+			delete_from_undefined_list(undefined->prev);
+			found = TRUE;
 		    }
 		    break;
 		}
@@ -2456,21 +2758,50 @@ void)
 			continue;
 		    if(merged_symbol->coalesced_defined_in_dylib == TRUE)
 			continue;
+		    if(twolevel_namespace == TRUE){
+			for(p = dynamic_libs; p != NULL; p = p->next)
+			    p->twolevel_searched = FALSE;
+		    }
 		    for(p = dynamic_libs; p != NULL; p = p->next){
 			if(p->type == DYLIB){
-			    strings = p->strings;
-			    symbols = p->symbols;
+			    if(twolevel_namespace == TRUE &&
+			       p->twolevel_searched == TRUE)
+				break;
+			    q = p;
+			    if(q->dl->cmd == LC_LOAD_DYLIB)
+				break;
+			    bsearch_strings = q->strings;
+			    bsearch_symbols = q->symbols;
 			    toc = bsearch(merged_symbol->nlist.n_un.n_name,
-				      p->tocs,p->definition_obj->dysymtab->ntoc,
+				      q->tocs,q->definition_obj->dysymtab->ntoc,
 				      sizeof(struct dylib_table_of_contents),
 				      (int (*)(const void *, const void *))
 					dylib_bsearch);
+			    if(toc == NULL && twolevel_namespace == TRUE){
+				q->twolevel_searched = TRUE;
+				for(j = 0;
+				    toc == NULL && j < p->nsub_images;
+				    j++){
+				    q = p->sub_images[j];
+				    q->twolevel_searched = TRUE;
+				    if(q->dl->cmd == LC_LOAD_DYLIB)
+					break;
+				    bsearch_strings = q->strings;
+				    bsearch_symbols = q->symbols;
+				    toc = bsearch(merged_symbol->
+				      nlist.n_un.n_name, q->tocs,
+				      q->definition_obj->dysymtab->ntoc,
+				      sizeof(struct dylib_table_of_contents),
+				      (int (*)(const void *, const void *))
+					dylib_bsearch);
+				}
+			    }
 			    if(toc != NULL){
 				if(merged_symbol->definition_object->obj_addr
-				   == p->definition_obj->obj_addr)
+				   == q->definition_obj->obj_addr)
 				    break;
 				if(merged_symbol->definition_object->obj_addr
-				   != p->definition_obj->obj_addr){
+				   != q->definition_obj->obj_addr){
 				    if(bind_at_load_warning == FALSE){
 					warning("suggest use of -bind_at_load, "
 						"as lazy binding may result in "
@@ -2489,8 +2820,8 @@ void)
 					    definition_object->symtab->stroff) +
 					merged_symbol->definition_object->
 					    dylib_module->module_name,
-					p->dylib_name,
-					strings + (p->mods +
+					q->dylib_name,
+					bsearch_strings + (q->mods +
 					    toc->module_index)->module_name);
 				}
 			    }
@@ -2499,6 +2830,236 @@ void)
 		}
 	    }
 	}
+}
+
+/*
+ * load_init_dylib_module() is passed a pointer to a dynamic library that just
+ * had a module loaded.  Since something from this dynamic library is being used
+ * if there is a library initialization routine make sure that the module that
+ * defines it is loaded.
+ */
+static
+void
+load_init_dylib_module(
+struct dynamic_library *q)
+{
+	if(q->definition_obj->rc != NULL &&
+	   q->definition_obj->init_module_loaded == FALSE){
+	    if(is_dylib_module_loaded(q->mods +
+		  q->definition_obj->rc->init_module) == FALSE){
+		cur_obj = new_object_file();
+		*cur_obj = *(q->definition_obj);
+		cur_obj->dylib_module = q->mods +
+		    q->definition_obj->rc->init_module;
+		if(q->linked_modules != NULL)
+		    q->linked_modules[q->definition_obj->rc->
+				  init_module / 8] |= 1 <<
+			q->definition_obj->rc->init_module % 8;
+		if(whyload){
+		    print_obj_name(cur_obj);
+		    print("loaded for library initialization "
+			  "routine\n");
+		}
+		merge_dylib_module_symbols(q);
+	    }
+	    q->definition_obj->init_module_loaded = TRUE;
+	}
+}
+
+/*
+ * setup_sub_images() is called to set up the sub images that make up the
+ * specified "primary" dynamic library.  If not all of its sub_umbrella's and
+ * sub_librarys are set up then it will return FALSE and not set up the sub
+ * images.  The caller will loop through all the libraries until all libraries
+ * are setup.  This routine will return TRUE when it sets up the sub_images and 
+ * will also set the sub_images_setup field to TRUE in the specified library.
+ */
+static       
+enum bool    
+setup_sub_images( 
+struct dynamic_library *p)
+{
+    unsigned long i, j, k, l, n, max_libraries;
+    struct mach_header *mh;
+    struct load_command *lc, *load_commands;
+    struct sub_umbrella_command *usub;
+    struct sub_library_command *lsub;
+    struct sub_framework_command *sub;
+    struct dynamic_library **deps;
+    char *sub_umbrella_name, *sub_library_name, *sub_framework_name;
+    enum bool found;
+
+	max_libraries = 0;
+	deps = p->dependent_images;
+
+	/*
+	 * First see if this library has any sub-umbrellas or sub-librarys and
+	 * that they have had their sub-images set up.  If not return FALSE and
+	 * wait for this to be set up.  If so add the count of sub-images to
+	 * max_libraries value which will be used for allocating the array for
+	 * the sub-images of this library.
+	 */
+	mh = (struct mach_header *)(p->definition_obj->obj_addr);
+	load_commands = (struct load_command *)((char *)mh +
+						sizeof(struct mach_header));
+	lc = load_commands;
+	for(i = 0; i < mh->ncmds; i++){
+	    switch(lc->cmd){
+	    case LC_SUB_UMBRELLA:
+		usub = (struct sub_umbrella_command *)lc;
+		sub_umbrella_name = (char *)usub + usub->sub_umbrella.offset;
+		for(j = 0; j < p->ndependent_images; j++){
+		    if(deps[j]->umbrella_name != NULL &&
+		       strcmp(sub_umbrella_name, deps[j]->umbrella_name) == 0){
+			/*
+			 * TODO: can't this logic (here and in our caller) hang
+		         * if there is a circular loop?  And is that even
+			 * possible to create?  See comments in our caller.
+			 */
+			if(deps[j]->sub_images_setup == FALSE)
+			    return(FALSE);
+			max_libraries += 1 + deps[j]->nsub_images;
+		    }
+		}
+		break;
+	    case LC_SUB_LIBRARY:
+		lsub = (struct sub_library_command *)lc;
+		sub_library_name = (char *)lsub + lsub->sub_library.offset;
+		for(j = 0; j < p->ndependent_images; j++){
+		    if(deps[j]->library_name != NULL &&
+		       strcmp(sub_library_name, deps[j]->library_name) == 0){
+			/*
+			 * TODO: can't this logic (here and in our caller) hang
+		         * if there is a circular loop?  And is that even
+			 * possible to create?  See comments in our caller.
+			 */
+			if(deps[j]->sub_images_setup == FALSE)
+			    return(FALSE);
+			max_libraries += 1 + deps[j]->nsub_images;
+		    }
+		}
+		break;
+	    }
+	    lc = (struct load_command *)((char *)lc + lc->cmdsize);
+	}
+
+	/*
+	 * Allocate the sub-images array of pointers to dynamic libraries that
+	 * make up this "primary" library.  Allocate enough to handle the max.
+	 */
+	max_libraries += p->ndependent_images;
+	p->sub_images = allocate(max_libraries *
+				 sizeof(struct dynamic_library *));
+	n = 0;
+
+	/*
+	 * First add the dependent images which are sub-frameworks of this
+	 * image to the sub images list.
+	 */
+	if(p->umbrella_name != NULL){
+	    for(i = 0; i < p->ndependent_images; i++){
+		mh = (struct mach_header *)(deps[i]->definition_obj->obj_addr);
+		load_commands = (struct load_command *)((char *)mh +
+						    sizeof(struct mach_header));
+		lc = load_commands;
+		for(j = 0; j < mh->ncmds; j++){
+		    if(lc->cmd == LC_SUB_FRAMEWORK){
+			sub = (struct sub_framework_command *)lc;
+			sub_framework_name = (char *)sub + sub->umbrella.offset;
+			if(p->umbrella_name != NULL &&
+			   strcmp(sub_framework_name, p->umbrella_name) == 0){
+			    p->sub_images[n++] = deps[i];
+			    goto next_dep;
+			}
+		    }
+		    lc = (struct load_command *)((char *)lc + lc->cmdsize);
+		}
+next_dep:	;
+	    }
+	}
+
+	/*
+	 * Second add the sub-umbrella's and sub-library's sub-images to the
+	 * sub images list.
+	 */
+	mh = (struct mach_header *)p->definition_obj->obj_addr;
+	load_commands = (struct load_command *)((char *)mh +
+						sizeof(struct mach_header));
+	lc = load_commands;
+	for(i = 0; i < mh->ncmds; i++){
+	    switch(lc->cmd){
+	    case LC_SUB_UMBRELLA:
+		usub = (struct sub_umbrella_command *)lc;
+		sub_umbrella_name = (char *)usub + usub->sub_umbrella.offset;
+		for(j = 0; j < p->ndependent_images; j++){
+		    if(deps[j]->umbrella_name != NULL &&
+		       strcmp(sub_umbrella_name, deps[j]->umbrella_name) == 0){
+
+			/* make sure this image is not already on the list */
+			found = FALSE;
+			for(l = 0; l < n; l++){
+			    if(p->sub_images[l] == deps[j]){
+				found = TRUE;
+				break;
+			    }
+			}
+			if(found == FALSE)
+			    p->sub_images[n++] = deps[j];
+
+			for(k = 0; k < deps[j]->nsub_images; k++){
+			    /* make sure this image is not already on the list*/
+			    found = FALSE;
+			    for(l = 0; l < n; l++){
+				if(p->sub_images[l] == deps[j]->sub_images[k]){
+				    found = TRUE;
+				    break;
+				}
+			    }
+			    if(found == FALSE)
+				p->sub_images[n++] = deps[j]->sub_images[k];
+			}
+		    }
+		}
+		break;
+	    case LC_SUB_LIBRARY:
+		lsub = (struct sub_library_command *)lc;
+		sub_library_name = (char *)lsub + lsub->sub_library.offset;
+		for(j = 0; j < p->ndependent_images; j++){
+		    if(deps[j]->library_name != NULL &&
+		       strcmp(sub_library_name, deps[j]->library_name) == 0){
+
+			/* make sure this image is not already on the list */
+			found = FALSE;
+			for(l = 0; l < n; l++){
+			    if(p->sub_images[l] == deps[j]){
+				found = TRUE;
+				break;
+			    }
+			}
+			if(found == FALSE)
+			    p->sub_images[n++] = deps[j];
+
+			for(k = 0; k < deps[j]->nsub_images; k++){
+			    /* make sure this image is not already on the list*/
+			    found = FALSE;
+			    for(l = 0; l < n; l++){
+				if(p->sub_images[l] == deps[j]->sub_images[k]){
+				    found = TRUE;
+				    break;
+				}
+			    }
+			    if(found == FALSE)
+				p->sub_images[n++] = deps[j]->sub_images[k];
+			}
+		    }
+		}
+		break;
+	    }
+	    lc = (struct load_command *)((char *)lc + lc->cmdsize);
+	}
+	p->nsub_images = n;
+	p->sub_images_setup = TRUE;
+	return(TRUE);
 }
 
 /*
@@ -2523,25 +3084,63 @@ void)
 		    merged_symbol = &(merged_symbol_list->merged_symbols[i]);
 		    if((merged_symbol->nlist.n_type & N_PEXT) == N_PEXT)
 			continue;
-		    check_dylibs_for_definition(merged_symbol);
+		    check_dylibs_for_definition(merged_symbol, TRUE, FALSE);
 		}
 	    }
 	}
 }
 
 /*
+ * twolevel_namespace_check_for_unused_dylib_symbols() checks dylibs to make
+ * sure the user sees a warning about unused symbols defined in a dylib that
+ * where another symbol of the same name is being used from some other object
+ * or dynamic library.
+ */
+__private_extern__
+void
+twolevel_namespace_check_for_unused_dylib_symbols(
+void)
+{
+    unsigned long i;
+    struct merged_symbol_list **p, *merged_symbol_list;
+    struct merged_symbol *merged_symbol;
+
+	for(p = &merged_symbol_lists; *p; p = &(merged_symbol_list->next)){
+	    merged_symbol_list = *p;
+	    for(i = 0; i < merged_symbol_list->used; i++){
+		merged_symbol = &(merged_symbol_list->merged_symbols[i]);
+		if((merged_symbol->nlist.n_type & N_PEXT) == N_PEXT)
+		    continue;
+		check_dylibs_for_definition(merged_symbol, FALSE, TRUE);
+	    }
+	}
+}
+
+/*
  * check_dylibs_for_definition() checks to see if the merged symbol is defined
- * in any of the dependent dynamic shared libraries.  If it is a warning is
- * printed, prebinding is disabled and the symbols are traced.
+ * in any of the dependent dynamic shared libraries.
+ *
+ * If prebind_check is TRUE and the symbol is defined in a dylib and also
+ * refernced a warning is printed, prebinding is disabled and the symbols are
+ * traced.
+ *
+ * If twolevel_namespace_check is TRUE and the symbol is defined in a dylib the
+ * a warning about an unused defintion is printed and the symbols are traced.
  */
 static
 void
 check_dylibs_for_definition(
-struct merged_symbol *merged_symbol)
+struct merged_symbol *merged_symbol,
+enum bool prebind_check,
+enum bool twolevel_namespace_check)
 {
     struct dynamic_library *p;
     struct dylib_table_of_contents *toc;
-    static enum bool printed_override = FALSE;
+    static enum bool printed_override, printed_unused, merged_symbol_printed;
+
+    printed_override = FALSE;
+    printed_unused = FALSE;
+    merged_symbol_printed = FALSE;
 
 	for(p = dynamic_libs; p != NULL; p = p->next){
 	    if(p->type == DYLIB){
@@ -2554,8 +3153,8 @@ struct merged_symbol *merged_symbol)
 		   merged_symbol->definition_object->file_name)
 		    continue;
 
-		strings = p->strings;
-		symbols = p->symbols;
+		bsearch_strings = p->strings;
+		bsearch_symbols = p->symbols;
 
 		toc = bsearch(merged_symbol->nlist.n_un.n_name,
 			      p->tocs, p->definition_obj->dysymtab->ntoc,
@@ -2563,31 +3162,66 @@ struct merged_symbol *merged_symbol)
 			      (int (*)(const void *, const void *))
 				dylib_bsearch);
 		if(toc != NULL){
-		    /*
-		     * There is a module that defineds this symbol.  If this
-		     * symbol is also referenced by the libraries then we
-		     * can't prebind.
-		     */
-		    if(check_dylibs_for_reference(merged_symbol) == TRUE){
-			if(printed_override == FALSE){
-			    if(rc_trace_prebinding_disabled == TRUE)
-				print("[Logging for Build & Integration] "
-				      "prebinding disabled for %s because of "
-				      "symbols overridden in dependent dynamic "
-				      "shared libraries\n", final_output !=
-				      NULL ? final_output : outputfile);
-			    warning("prebinding disabled because of symbols "
-			       "overridden in dependent dynamic shared "
-			       "libraries:");
-			    printed_override = TRUE;
+		    if(prebind_check == TRUE){
+			/*
+			 * There is a module that defineds this symbol.  If this
+			 * symbol is also referenced by the libraries then we
+			 * can't prebind.
+			 */
+			if(check_dylibs_for_reference(merged_symbol) == TRUE){
+			    if(printed_override == FALSE){
+				if(rc_trace_prebinding_disabled == TRUE)
+				    print("[Logging for Build & Integration] "
+					  "prebinding disabled for %s because "
+					  "of symbols overridden in dependent "
+					  "dynamic shared libraries\n",
+					  final_output != NULL ? final_output :
+					  outputfile);
+				warning("prebinding disabled because of symbols"
+				   " overridden in dependent dynamic shared "
+				   "libraries:");
+				printed_override = TRUE;
+			    }
+			    trace_merged_symbol(merged_symbol);
+			    printf("%s(%s) definition of %s\n",
+				   p->definition_obj->file_name,
+				   p->strings +
+					p->mods[toc->module_index].module_name,
+				   merged_symbol->nlist.n_un.n_name);
+			    prebinding = FALSE;
 			}
-			trace_merged_symbol(merged_symbol);
-			printf("%s(%s) definition of %s\n",
+		    }
+		    if(twolevel_namespace_check == TRUE){
+			/*
+			 * If this module was loaded then warnings about
+			 * multiply defined symbols in it have previously been
+			 * flagged.
+			 */
+			if(is_dylib_module_loaded(p->mods + toc->module_index)
+			   == TRUE)
+			    continue;
+			if(printed_unused == FALSE){
+			    if(multiply_defined_flag == MULTIPLY_DEFINED_ERROR)
+				error("unused multiple definitions of symbol "
+				      "%s", merged_symbol->nlist.n_un.n_name);
+			    else
+				warning("unused multiple definitions of symbol "
+					"%s", merged_symbol->nlist.n_un.n_name);
+			    printed_unused = TRUE;
+			}
+			/*
+			 * First print the symbol that is being used if not
+			 * already printed.
+			 */
+			if(merged_symbol_printed == FALSE){
+			    trace_merged_symbol(merged_symbol);
+			    merged_symbol_printed = TRUE;
+			}
+			printf("%s(%s) unused definition of %s\n",
 			       p->definition_obj->file_name,
 			       p->strings +
 				    p->mods[toc->module_index].module_name,
 			       merged_symbol->nlist.n_un.n_name);
-			prebinding = FALSE;
 		    }
 		}
 	    }
@@ -2596,8 +3230,8 @@ struct merged_symbol *merged_symbol)
 
 /*
  * check_dylibs_for_reference() checks the dependent dynamic shared libraries
- * to see if the specified merged symbol is referenced.  If it is TRUE is
- * returned else FALSE is returned.
+ * to see if the specified merged symbol is referenced in a flat namespace
+ * library.  If it is TRUE is returned else FALSE is returned.
  */
 static
 enum bool
@@ -2609,15 +3243,26 @@ struct merged_symbol *merged_symbol)
     struct nlist *symbol;
     struct dylib_reference *dylib_references;
     unsigned long i, symbol_index;
+    struct mach_header *mh;
 
 	for(p = dynamic_libs; p != NULL; p = p->next){
 	    if(p->type == DYLIB){
 		/*
+		 * If we are not building an output file that forces flat name
+		 * space and this library is a two-level namespace library then
+		 * all references to undefined symbols are to specific
+		 * libraries and can't be overridden.
+		 */
+		mh = (struct mach_header *)(p->definition_obj->obj_addr);
+		if(force_flat_namespace == FALSE &&
+		   (mh->flags & MH_TWOLEVEL) == MH_TWOLEVEL)
+		    continue;
+		/*
 		 * See if this symbol appears at all (defined or undefined)
 		 * in this library.
 		 */
-		strings = p->strings;
-		symbols = p->symbols;
+		bsearch_strings = p->strings;
+		bsearch_symbols = p->symbols;
 		toc = bsearch(merged_symbol->nlist.n_un.n_name,
 			      p->tocs, p->definition_obj->dysymtab->ntoc,
 			      sizeof(struct dylib_table_of_contents),
@@ -2628,13 +3273,14 @@ struct merged_symbol *merged_symbol)
 		}
 		else{
 		    symbol = bsearch(merged_symbol->nlist.n_un.n_name,
-			     symbols + p->definition_obj->dysymtab->iundefsym,
+			     bsearch_symbols +
+				p->definition_obj->dysymtab->iundefsym,
 			     p->definition_obj->dysymtab->nundefsym,
 			     sizeof(struct nlist),
 			     (int (*)(const void *,const void *))nlist_bsearch);
 		    if(symbol == NULL)
 			continue;
-		    symbol_index = symbol - symbols;
+		    symbol_index = symbol - bsearch_symbols;
 		}
 		/*
 		 * The symbol appears in this library.  Now see if it is
@@ -2721,7 +3367,7 @@ struct dynamic_library *p)
 
 	/*
 	 * Try to open the dynamic library.  If it can't be opened it is only
-	 * a warning if undefined checking or prebinging is to be done.  Once
+	 * a warning if undefined checking or prebinding is to be done.  Once
 	 * the file is opened sucessfully then any futher problems are treated
 	 * as errors.
 	 */
@@ -2780,10 +3426,11 @@ struct dynamic_library *p)
 	if(fat_header->magic == SWAP_LONG(FAT_MAGIC))
 #endif /* __LITTLE_ENDIAN__ */
 	{
-	    pass1_fat(file_name, file_addr, file_size, FALSE, TRUE);
+	    pass1_fat(file_name, file_addr, file_size, FALSE, TRUE, FALSE);
 	}
 	else{
-	    pass1_object(file_name, file_addr, file_size, FALSE, FALSE, TRUE);
+	    pass1_object(file_name, file_addr, file_size, FALSE, FALSE, TRUE,
+			 FALSE);
 	}
 	if(cur_obj == NULL || cur_obj->dylib == FALSE)
 	    return(FALSE);
@@ -2850,6 +3497,7 @@ struct dynamic_library *umbrella)
 				  umbrella->umbrella_name) == 0){
 			    p->definition_obj->library_ordinal =
 				umbrella->definition_obj->library_ordinal;
+			    set_isub_image(p, p);
 			    set_some_ordinals = TRUE;
 			    break;
 			}
@@ -2862,29 +3510,30 @@ struct dynamic_library *umbrella)
 }
 
 /*
- * set_sub_umbrella_ordinal() sets the library ordinal for the specified dynamic
- * library if it is a sub-umbrella of another dynamic library who's library
- * ordinal is set.  If the ordinal is set then TRUE is returned else FALSE is
- * returned.
+ * set_sub_umbrella_sub_library_ordinal() sets the library ordinal for the
+ * specified dynamic library if it is a sub-umbrella or a sub-library of another
+ * dynamic library who's library ordinal is set.  If the ordinal is set then
+ * TRUE is returned else FALSE is returned.
  */
 static
 enum bool
-set_sub_umbrella_ordinal(
-struct dynamic_library *sub_umbrella)
+set_sub_umbrella_sub_library_ordinal(
+struct dynamic_library *sub)
 {
     struct dynamic_library *p;
     unsigned long i;
     struct mach_header *mh;
     struct load_command *lc;
     struct sub_umbrella_command *usub;
+    struct sub_library_command *lsub;
 
 	for(p = dynamic_libs; p != NULL; p = p->next){
 	    if(p->type != DYLIB)
 		continue;
 	    /*
 	     * If this library's ordinal is set the see if it has an
-	     * LC_SUB_UMBRELLA command with the same name as the sub_umbrella
-	     * library.
+	     * LC_SUB_UMBRELLA or LC_SUB_LIBRARY command with the same name as
+	     * the sub library.
 	     */
 	    if(p->definition_obj->library_ordinal != 0){
 		mh = (struct mach_header *)p->definition_obj->obj_addr;
@@ -2894,42 +3543,65 @@ struct dynamic_library *sub_umbrella)
 		for(i = 0; i < mh->ncmds; i++){
 		    if(lc->cmd == LC_SUB_UMBRELLA){
 			usub = (struct sub_umbrella_command *)lc;
-			if(strcmp((char *)usub + usub->sub_umbrella.offset,
-				  sub_umbrella->umbrella_name) == 0){
-			    sub_umbrella->definition_obj->library_ordinal = 
+			if(sub->umbrella_name != NULL &&
+			   strcmp((char *)usub + usub->sub_umbrella.offset,
+				  sub->umbrella_name) == 0){
+			    sub->definition_obj->library_ordinal = 
 				p->definition_obj->library_ordinal;
+			    set_isub_image(p, sub);
+			    return(TRUE);
+			}
+		    }
+		    else if(lc->cmd == LC_SUB_LIBRARY){
+			lsub = (struct sub_library_command *)lc;
+			if(sub->library_name != NULL &&
+			   strcmp((char *)lsub + lsub->sub_library.offset,
+				  sub->library_name) == 0){
+			    sub->definition_obj->library_ordinal = 
+				p->definition_obj->library_ordinal;
+			    set_isub_image(p, sub);
 			    return(TRUE);
 			}
 		    }
 		    lc = (struct load_command *)((char *)lc + lc->cmdsize);
 		}
-
-#ifdef SUB_UMBRELLA_HACKS
-
-		/* hack for Carbon's sub_umbrella ApplicationServices */
-		if(p->umbrella_name != NULL &&
-		   strcmp(p->umbrella_name, "Carbon") == 0 &&
-		   strcmp(sub_umbrella->umbrella_name,
-			  "ApplicationServices") == 0){
-		    sub_umbrella->definition_obj->library_ordinal = 
-			p->definition_obj->library_ordinal;
-printf("hack for Carbon's sub_umbrella ApplicationServices\n");
-		    return(TRUE);
-		}
-		/* hack for ApplicationServices's sub_umbrella CoreServices */
-		if(p->umbrella_name != NULL &&
-		   strcmp(p->umbrella_name, "ApplicationServices") == 0 &&
-		   strcmp(sub_umbrella->umbrella_name, "CoreServices") == 0){
-		    sub_umbrella->definition_obj->library_ordinal = 
-			p->definition_obj->library_ordinal;
-printf("hack for ApplicationServices's sub_umbrella CoreServices\n");
-		    return(TRUE);
-		}
-
-#endif SUB_UMBRELLA_HACKS
 	    }
 	}
 	return(FALSE);
+}
+
+/*
+ * set_isub_image() sets the isub_image of the specified sub dynamic library to
+ * the index into the sub_images of the specified dynamic library p.
+ */
+static
+void
+set_isub_image(
+struct dynamic_library *p,
+struct dynamic_library *sub)
+{
+    struct dynamic_library *q;
+    unsigned long j;
+
+	/*
+	 * Find the first library in the list with this
+	 * ordinal which is the primary library.  Then walk
+	 * the primary library's sub_images to figure out
+	 * what the sub_image index is for this library.
+	 */
+	for(q = dynamic_libs; q != NULL; q = q->next){
+	    if(q->type != DYLIB)
+		continue;
+	    if(q->definition_obj->library_ordinal ==
+	       p->definition_obj->library_ordinal){
+		for(j = 0; j < q->nsub_images; j++){
+		    if(q->sub_images[j] == sub){
+			sub->definition_obj->isub_image = j + 1;
+			return;
+		    }
+		}
+	    }
+	}
 }
 
 /*
@@ -2949,13 +3621,6 @@ struct object_file *definition_obj)
 {
     struct dynamic_library *p, *q;
     char *dylib_name;
-
-    unsigned long i;
-    struct mach_header *mh;
-    struct load_command *lc;
-    char *short_name, *has_suffix;
-    enum bool is_framework;
-    struct sub_umbrella_command *usub;
 
 	dylib_name = NULL;
 	/*
@@ -2995,35 +3660,6 @@ struct object_file *definition_obj)
 			    p->definition_obj = definition_obj;
 			}
 		    }
-		    if(twolevel_namespace == TRUE){
-			/*
-			 * If this library is a subframework of the library
-			 * referencing it then change the definition_obj to
-			 * this reference so that it is not removed from the
-			 * library list via open_dylib().
-			 */
-			short_name = guess_short_name(dylib_name, &is_framework,
-						      &has_suffix);
-			if(short_name == NULL || is_framework == FALSE)
-			    goto keep_definition_obj;
-			mh = (struct mach_header *)definition_obj->obj_addr;
-			lc = (struct load_command *)
-				((char *)definition_obj->obj_addr +
-					 sizeof(struct mach_header));
-			for(i = 0; i < mh->ncmds; i++){
-			    if(lc->cmd == LC_SUB_UMBRELLA){
-				usub = (struct sub_umbrella_command *)lc;
-				if(strcmp((char *)usub +
-				   usub->sub_umbrella.offset, short_name) == 0){
-				    p->definition_obj = definition_obj;
-				    return(p);
-				}
-			    }
-			    lc = (struct load_command *)((char *)lc +
-				 lc->cmdsize);
-			}
-		    }
-keep_definition_obj:
 		    return(p);
 		}
 	    }
@@ -3062,6 +3698,13 @@ keep_definition_obj:
 		p->dylib_file = p->dylib_name;
 	    }
 	}
+
+	if(type == BUNDLE_LOADER){
+	    p->type = BUNDLE_LOADER;
+	    p->dylib_name = NULL;
+	    p->dl = NULL;
+	    p->definition_obj = definition_obj;
+	}
 	return(p);
 }
 
@@ -3069,14 +3712,15 @@ keep_definition_obj:
  * Function for bsearch() for finding a symbol name in a dylib table of
  * contents.
  */
-static
+__private_extern__
 int
 dylib_bsearch(
 const char *symbol_name,
 const struct dylib_table_of_contents *toc)
 {
 	return(strcmp(symbol_name,
-		      strings + symbols[toc->symbol_index].n_un.n_strx));
+		      bsearch_strings +
+		      bsearch_symbols[toc->symbol_index].n_un.n_strx));
 }
 
 /*
@@ -3089,7 +3733,7 @@ nlist_bsearch(
 const char *symbol_name,
 const struct nlist *symbol)
 {
-	return(strcmp(symbol_name, strings + symbol->n_un.n_strx));
+	return(strcmp(symbol_name, bsearch_strings + symbol->n_un.n_strx));
 }
 #endif /* !defined(RLD) */
 
@@ -3103,7 +3747,7 @@ ranlib_bsearch(
 const char *symbol_name,
 const struct ranlib *ran)
 {
-	return(strcmp(symbol_name, strings + ran->ran_un.ran_strx));
+	return(strcmp(symbol_name, bsearch_strings + ran->ran_un.ran_strx));
 }
 #endif /* !defined(SA_RLD) && !(defined(KLD) && defined(__STATIC__)) */
 
@@ -3114,7 +3758,8 @@ const struct ranlib *ran)
 __private_extern__
 void
 merge(
-enum bool dylib_only)
+enum bool dylib_only,
+enum bool bundle_loader)
 {
     unsigned long previous_errors;
 
@@ -3132,13 +3777,26 @@ enum bool dylib_only)
 	}
 
 	/* check the header and load commands of the object file */
-	check_cur_obj(dylib_only);
+	check_cur_obj(dylib_only, bundle_loader);
 	if(errors)
 	    goto merge_return;
 
 	/* if this was called to via an open_dylib() we are done */
 	if(dylib_only == TRUE)
 	    goto merge_return;
+
+#ifndef RLD
+	/*
+	 * if this is the -bundle_loader argument then put it on the list
+	 * of dynamic libraries where it will be searched.
+	 */
+	if(bundle_loader){
+	    /* If this object file has no symbols then don't add it */
+	    if(cur_obj->symtab != NULL)
+		(void)add_dynamic_lib(BUNDLE_LOADER, NULL, cur_obj);
+	    goto merge_return;
+	}
+#endif /* !defined(RLD) */
 
 	/* if this object has any fixed VM shared library stuff merge it */
 	if(cur_obj->fvmlib_stuff){
@@ -3205,7 +3863,8 @@ merge_return:
 static
 void
 check_cur_obj(
-enum bool dylib_only)
+enum bool dylib_only,
+enum bool bundle_loader)
 {
     unsigned long i, j, section_type;
     struct mach_header *mh;
@@ -3221,9 +3880,11 @@ enum bool dylib_only)
     struct dylinker_command *dyld, *dyldid;
     struct sub_framework_command *sub;
     struct sub_umbrella_command *usub;
+    struct sub_library_command *lsub;
     struct sub_client_command *csub;
+    struct twolevel_hints_command *hints;
     char *fvmlib_name, *dylib_name, *dylib_id_name, *dylinker_name,
-	 *umbrella_name, *sub_umbrella_name, *sub_client_name;
+	 *umbrella_name, *sub_umbrella_name, *sub_library_name,*sub_client_name;
     cpu_subtype_t new_cpusubtype;
     const char *new_arch, *prev_arch;
     const struct arch_flag *family_arch_flag;
@@ -3457,7 +4118,8 @@ enum bool dylib_only)
 	    return;
 	}
 	if((mh->flags & MH_DYLDLINK) != 0 && 
-	   (mh->filetype != MH_DYLIB && mh->filetype != MH_DYLINKER)){
+	   (mh->filetype != MH_DYLIB && mh->filetype != MH_DYLINKER) &&
+	   bundle_loader == FALSE){
 	    error_with_cur_obj("is input for the dynamic link editor, is not "
 			       "relocatable by the static link editor again");
 	    return;
@@ -3937,6 +4599,7 @@ enum bool dylib_only)
 		    return;
 		}
 		cur_obj->dylib_stuff = TRUE;
+		cur_obj->nload_dylibs++;
 		break;
 
 	    case LC_SUB_FRAMEWORK:
@@ -4017,6 +4680,45 @@ enum bool dylib_only)
 		}
 		if(j >= usub->cmdsize - usub->sub_umbrella.offset){
 		    error_with_cur_obj("sub_umbrella name of load command %lu "
+				       "not null terminated", i);
+		    return;
+		}
+		break;
+
+	    case LC_SUB_LIBRARY:
+		if(filetype == MH_FVMLIB ||
+		   filetype == MH_DYLINKER){
+		    error_with_cur_obj("LC_SUB_LIBRARY load command in "
+			"object file (should not be in an input file to the "
+			"link editor for the output file type %s)",
+			filetype == MH_FVMLIB ? "MH_FVMLIB" : "MH_DYLINKER");
+		    return;
+		}
+		if(mh->filetype != MH_DYLIB){
+		    error_with_cur_obj("LC_SUB_LIBRARY load command in non-"
+			"MH_DYLIB filetype");
+		    return;
+		}
+		lsub = (struct sub_library_command *)lc;
+		if(cur_obj->swapped)
+		    swap_sub_library_command(lsub, host_byte_sex);
+		if(lsub->cmdsize < sizeof(struct sub_library_command)){
+		    error_with_cur_obj("cmdsize of load command %lu incorrect "
+				       "for LC_SUB_LIBRARY", i);
+		    return;
+		}
+		if(lsub->sub_library.offset >= lsub->cmdsize){
+		    error_with_cur_obj("sub_library.offset of load command "
+			"%lu extends past the end of the load command", i); 
+		    return;
+		}
+		sub_library_name = (char *)lsub + lsub->sub_library.offset;
+		for(j = 0 ; j < lsub->cmdsize - lsub->sub_library.offset; j++){
+		    if(sub_library_name[j] == '\0')
+			break;
+		}
+		if(j >= lsub->cmdsize - lsub->sub_library.offset){
+		    error_with_cur_obj("sub_library name of load command %lu "
 				       "not null terminated", i);
 		    return;
 		}
@@ -4146,12 +4848,30 @@ enum bool dylib_only)
 		cur_obj->dylib_stuff = TRUE;
 		break;
 
+	    case LC_TWOLEVEL_HINTS:
+		hints = (struct twolevel_hints_command *)lc;
+		if(cur_obj->swapped)
+		    swap_twolevel_hints_command(hints, host_byte_sex);
+		if(hints->cmdsize != sizeof(struct twolevel_hints_command)){
+		    error_with_cur_obj("cmdsize of load command %lu incorrect "
+				       "for LC_TWOLEVEL_HINTS", i);
+		    return;
+		}
+		check_size_offset(hints->nhints * sizeof(struct twolevel_hint),
+				  hints->offset, sizeof(long),
+				  "nhints * sizeof(struct twolevel_hint)",
+				  "offset", i);
+		if(errors)
+		    return;
+		break;
+
 	    /* all of these are not looked at so they are also not swapped */
 	    case LC_UNIXTHREAD:
 	    case LC_THREAD:
 	    case LC_IDENT:
 	    case LC_FVMFILE:
 	    case LC_PREPAGE:
+	    case LC_PREBOUND_DYLIB:
 		break;
 
 	    default:
@@ -4159,6 +4879,18 @@ enum bool dylib_only)
 		return;
 	    }
 	    lc = (struct load_command *)((char *)lc + l.cmdsize);
+	}
+	/*
+	 * The -bundle_loader argument must be an object file with a dynamic
+	 * symbol table command.
+	 */
+	if(bundle_loader){
+	    if(cur_obj->dysymtab == NULL){
+		error_with_cur_obj("bundle loader does not have an LC_DYSYMTAB "
+				   "command");
+		return;
+	    }
+	    cur_obj->bundle_loader = TRUE;
 	}
 	/*
 	 * If this object does not have a symbol table command then set it's

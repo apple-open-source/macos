@@ -46,8 +46,6 @@
 
 /* Definitions specific to the Mach based event driver */
 #define BRIGHT_MAX 64
-#define VOLUME_MAX 43
-
 
 static void secs_to_packed_nsecs(double secs, unsigned int *nsecs)
 {
@@ -65,22 +63,16 @@ NXEventHandle NXOpenEventStatus(void)
     NXEventHandle 		handle = MACH_PORT_NULL;
     register kern_return_t	kr;
     io_service_t		service = MACH_PORT_NULL;
-    io_iterator_t		iter;
     mach_port_t			masterPort;
-    extern mach_port_t		bootstrap_port;
 
     do {
 
-	kr = IOMasterPort(bootstrap_port, &masterPort);
+	kr = IOMasterPort( MACH_PORT_NULL, &masterPort );
 	if( kr != KERN_SUCCESS)
 	    break;
 
-	kr = IOServiceGetMatchingServices( masterPort,
-			 IOServiceMatching( kIOHIDSystemClass ), &iter);
-	if( kr != KERN_SUCCESS)
-	    break;
-
-	service = IOIteratorNext( iter );
+        service = IORegistryEntryFromPath( masterPort,
+                    kIOServicePlane ":/IOResources/IOHIDSystem" );
 	if( !service)
 	    break;
 
@@ -89,10 +81,9 @@ NXEventHandle NXOpenEventStatus(void)
 			kIOHIDParamConnectType,
 			&handle);
 
-    } while( false );
+        IOObjectRelease( service );
 
-    IOObjectRelease( service );
-    IOObjectRelease( iter );
+    } while( false );
 
     return( handle );
 }
@@ -100,33 +91,6 @@ NXEventHandle NXOpenEventStatus(void)
 void NXCloseEventStatus(NXEventHandle handle)
 {
     IOServiceClose( handle );
-}
-
-static io_service_t FindFirstEventSource( io_connect_t connect,
-						char * ofClass )
-{
-    kern_return_t	kr;
-    io_iterator_t	iter;
-    io_registry_entry_t hiddevice = MACH_PORT_NULL;
-    io_registry_entry_t hidsystem;
-
-    do {
-	kr = IOConnectGetService( connect, &hidsystem );
-	if( KERN_SUCCESS != kr )
-	    break;
-
-	kr = IORegistryEntryGetParentIterator( hidsystem,
-			kIOServicePlane, &iter );
-	if( KERN_SUCCESS != kr )
-	    break;
-
-	while( (hiddevice = IOIteratorNext( iter ))
-	 && !IOObjectConformsTo( hiddevice, ofClass ))
-		IOObjectRelease( hiddevice );
-
-    } while( false );
-
-    return( hiddevice );
 }
 
 /* Status query */
@@ -141,7 +105,8 @@ NXEventSystemInfoType NXEventSystemInfo(NXEventHandle handle,
     int deviceCount = 0;
 
     io_iterator_t iter;
-    io_registry_entry_t hiddevice, hidsystem;
+    io_registry_entry_t hidsystem;
+    io_registry_entry_t hiddevice;
 
     CFDictionaryRef	dict;
     CFNumberRef		num;
@@ -161,6 +126,9 @@ NXEventSystemInfoType NXEventSystemInfo(NXEventHandle handle,
 
 	kr = IORegistryEntryGetParentIterator( hidsystem,
 			kIOServicePlane, &iter );
+
+        IOObjectRelease( hidsystem );
+
 	if( KERN_SUCCESS != kr )
 	    break;
 
@@ -208,56 +176,58 @@ NXEventSystemInfoType NXEventSystemInfo(NXEventHandle handle,
     return evs_info;
 }
 
-static kern_return_t IOHIDSetParameter(NXEventHandle handle, CFStringRef name,
-				unsigned char * bytes, unsigned int size)
+kern_return_t IOHIDSetParameter( io_connect_t handle, CFStringRef key, 
+		const void * bytes, IOByteCount size )
 {
     kern_return_t		kr = kIOReturnNoMemory;
     CFDataRef			data;
-    CFMutableDictionaryRef	dict = 0;
 
     do {
         data = CFDataCreate( kCFAllocatorDefault, bytes, size );
         if( !data)
 	    continue;
-        dict = CFDictionaryCreateMutable( kCFAllocatorDefault, 1,
-					&kCFTypeDictionaryKeyCallBacks,
-					&kCFTypeDictionaryValueCallBacks);
-        if( !dict)
-	    continue;
-	CFDictionarySetValue( dict, name, data );
-	kr = IOConnectSetCFProperties( handle, dict );
+	kr = IOConnectSetCFProperty( handle, key, data );
+	CFRelease(data);
 
     } while( false );
 
-    if( data)
-	CFRelease(data);
-    if( dict)
-	CFRelease(dict);
-
     return( kr );
 }
+#ifndef kIOHIDParametersKey
+#define kIOHIDParametersKey		"HIDParameters"
+#endif
 
-static kern_return_t IOHIDGetParameter(NXEventHandle handle, CFStringRef name,
-				int maxCount,
-				unsigned char * bytes, int * rsize)
+kern_return_t IOHIDGetParameter( io_connect_t handle, CFStringRef key, 
+		IOByteCount maxSize, void * bytes, IOByteCount * actualSize )
 {
     kern_return_t	kr;
+    io_service_t	hidsystem;
+    CFDictionaryRef	paramDict;
     CFDictionaryRef	dict;
-    CFDataRef		data;
+    CFDataRef		data = NULL;
     int 		copySize;
 
-    kr = IORegistryEntryCreateCFProperties( handle, &dict,
-                                    kCFAllocatorDefault, kNilOptions);
-    IOObjectRelease( handle );
+    kr = IOConnectGetService( handle, &hidsystem );
+    if( KERN_SUCCESS != kr )
+        return( kr );
+
+    kr = IORegistryEntryCreateCFProperties( hidsystem, &dict,
+                                            kCFAllocatorDefault, kNilOptions);
+    IOObjectRelease( hidsystem );
+
     if( kr != KERN_SUCCESS)
 	return( kr );
 
-    data = CFDictionaryGetValue( dict, name);
+    if( (paramDict = CFDictionaryGetValue( dict, CFSTR(kIOHIDParametersKey))))
+        data = CFDictionaryGetValue( paramDict, key);
+    if( !data)
+        data = CFDictionaryGetValue( dict, key);
+
     if( data ) {
 	copySize = CFDataGetLength(data);
-	*rsize = copySize;
-	if( maxCount < copySize)
-	    copySize = maxCount;
+	*actualSize = copySize;
+	if( maxSize < copySize)
+	    copySize = maxSize;
 	bcopy( CFDataGetBytePtr(data), bytes, copySize );
 
     } else
@@ -271,7 +241,7 @@ static kern_return_t IOHIDGetParameter(NXEventHandle handle, CFStringRef name,
 #define NXEvSetParameterChar( h,n,p,sz ) IOHIDSetParameter( h,n,p,sz )
 #define NXEvSetParameterInt( h,n,p,sz )	 IOHIDSetParameter( h,n,	\
 					(unsigned char *)p,sz * 4 )
-#define NXEvGetParameterChar( h,n,mx,p,sz ) IOHIDGetParameter( h,n,mx,p,sz )
+#define NXEvGetParameterChar( h,n,mx,p,sz ) IOHIDGetParameter( h, n,mx,p,sz )
 #define NXEvGetParameterInt( h,n,mx,p,sz )	 IOHIDGetParameter( h,n, mx * 4, \
 					(unsigned char *)p,sz ); \
 			*sz /= 4
@@ -296,13 +266,10 @@ void NXSetKeyRepeatInterval(NXEventHandle handle, double rate)
 double NXKeyRepeatInterval(NXEventHandle handle)
 {
 	unsigned int params[EVSIOCKR_SIZE];
-	int rcnt = EVSIOCKR_SIZE;
+	IOByteCount rcnt = EVSIOCKR_SIZE;
 	int r;
-	io_service_t keyb;
 
-	keyb = FindFirstEventSource( handle, kIOHIKeyboardClass );
-
-	r = NXEvGetParameterInt(keyb, CFSTR(EVSIOSKR), EVSIOCKR_SIZE,
+	r = NXEvGetParameterInt( handle, CFSTR(EVSIOSKR), EVSIOCKR_SIZE,
 				params, &rcnt );
 	if ( r != kIOReturnSuccess )
 		return 0.0;
@@ -320,13 +287,10 @@ void NXSetKeyRepeatThreshold(NXEventHandle handle, double threshold)
 double NXKeyRepeatThreshold(NXEventHandle handle)
 {
 	unsigned int params[EVSIOCKR_SIZE];
-	int rcnt = EVSIOCKR_SIZE;
+	IOByteCount rcnt = EVSIOCKR_SIZE;
 	int r;
-	io_service_t keyb;
 
-	keyb = FindFirstEventSource( handle, kIOHIKeyboardClass );
-
-	r = NXEvGetParameterInt(keyb, CFSTR(EVSIOSIKR), EVSIOCKR_SIZE,
+	r = NXEvGetParameterInt( handle, CFSTR(EVSIOSIKR), EVSIOCKR_SIZE,
 				params, &rcnt );
 	if ( r != kIOReturnSuccess )
 		return 0.0;
@@ -350,12 +314,9 @@ NXKeyMapping * NXSetKeyMapping(NXEventHandle handle, NXKeyMapping *keymap)
 int NXKeyMappingLength(NXEventHandle handle)
 {
 	int r;
-	int size;
-	io_service_t keyb;
+	IOByteCount size;
 
-	keyb = FindFirstEventSource( handle, kIOHIKeyboardClass );
-
-	r = NXEvGetParameterChar(keyb, CFSTR(EVSIOCKM), 0,
+	r = NXEvGetParameterChar( handle, CFSTR(EVSIOCKM), 0,
 				(unsigned char *) 0,
 				&size );
 	if ( r != kIOReturnSuccess )
@@ -366,13 +327,10 @@ int NXKeyMappingLength(NXEventHandle handle)
 NXKeyMapping * NXGetKeyMapping(NXEventHandle handle, NXKeyMapping *keymap)
 {
 	int r;
-	io_service_t keyb;
 
-	keyb = FindFirstEventSource( handle, kIOHIKeyboardClass );
-
-	r = NXEvGetParameterChar(keyb, CFSTR(EVSIOCKM), keymap->size,
+	r = NXEvGetParameterChar( handle, CFSTR(EVSIOCKM), keymap->size,
 				(unsigned char *) keymap->mapping,
-				&keymap->size );
+				(IOByteCount *) &keymap->size );
 	if ( r != kIOReturnSuccess )
     		return (NXKeyMapping *)0;
 	return keymap;
@@ -398,14 +356,10 @@ void NXSetClickTime(NXEventHandle handle, double secs)
 double NXClickTime(NXEventHandle handle)
 {
 	unsigned int params[EVSIOCCT_SIZE];
-	int rcnt = EVSIOCCT_SIZE;
+	IOByteCount rcnt = EVSIOCCT_SIZE;
 	int r;
-	io_service_t	hidsystem;
 
-	if( KERN_SUCCESS != IOConnectGetService( handle, &hidsystem ))
-		return 0.0;
-
-	r = NXEvGetParameterInt(hidsystem, CFSTR(EVSIOCCT), EVSIOCCT_SIZE,
+	r = NXEvGetParameterInt(handle, CFSTR(EVSIOCCT), EVSIOCCT_SIZE,
 				params, &rcnt );
 	if ( r != kIOReturnSuccess )
 		return 0.0;
@@ -415,10 +369,6 @@ double NXClickTime(NXEventHandle handle)
 void NXSetClickSpace(NXEventHandle handle, _NXSize_ *area)
 {
 	unsigned int params[EVSIOSCS_SIZE];
-	io_service_t	hidsystem;
-
-	if( KERN_SUCCESS != IOConnectGetService( handle, &hidsystem ))
-		return;
 
 	params[EVSIOSCS_X] = (unsigned int)(area->width);
 	params[EVSIOSCS_Y] = (unsigned int)(area->height);
@@ -429,11 +379,7 @@ void NXSetClickSpace(NXEventHandle handle, _NXSize_ *area)
 void NXGetClickSpace(NXEventHandle handle, _NXSize_ *area)
 {
 	unsigned int params[EVSIOCCS_SIZE];
-	int rcnt = EVSIOCCS_SIZE;
-	io_service_t	hidsystem;
-
-	if( KERN_SUCCESS != IOConnectGetService( handle, &hidsystem ))
-		return;
+	IOByteCount rcnt = EVSIOCCS_SIZE;
 
 	NXEvGetParameterInt(handle, CFSTR(EVSIOCCS), EVSIOCCS_SIZE,
 				params, &rcnt );
@@ -497,13 +443,10 @@ void NXGetMouseScaling(NXEventHandle handle, NXMouseScaling *scaling)
 kern_return_t IOHIDGetMouseAcceleration( io_connect_t handle, double * acceleration )
 {
 	kern_return_t	kr;
-	io_service_t	mouse;
 	unsigned int	fixed;
-	int		rsize;
+	IOByteCount	rsize;
 
-	mouse = FindFirstEventSource( handle, kIOHIPointingClass );
-
-	kr = IOHIDGetParameter(mouse, CFSTR(kIOHIDPointerAccelerationKey),
+	kr = IOHIDGetParameter( handle, CFSTR(kIOHIDPointerAccelerationKey),
 				sizeof( fixed), (unsigned char *) &fixed, &rsize );
 
 	if( kr == kIOReturnSuccess)
@@ -522,6 +465,32 @@ kern_return_t IOHIDSetMouseAcceleration( io_connect_t handle, double acceleratio
 				(unsigned char *) &fixed, sizeof( fixed)) );
 }
 
+kern_return_t IOHIDGetAccelerationWithKey( io_connect_t handle, CFStringRef key, double * acceleration )
+{
+	kern_return_t	kr;
+	unsigned int	fixed;
+	IOByteCount	rsize;
+
+	kr = IOHIDGetParameter( handle, key,
+				sizeof( fixed), (unsigned char *) &fixed, &rsize );
+
+	if( kr == kIOReturnSuccess)
+            *acceleration = ((double) fixed) / 65536.0;
+
+        return( kr );
+}
+
+kern_return_t IOHIDSetAccelerationWithKey( io_connect_t handle, CFStringRef key, double acceleration )
+{
+	unsigned int	fixed;
+
+	fixed = (unsigned int) (acceleration * 65536.0);
+
+	return( IOHIDSetParameter(handle, key,
+				(unsigned char *) &fixed, sizeof( fixed)) );
+}
+
+
 /* Screen Brightness and Auto-dimming */
 
 void NXSetAutoDimThreshold(NXEventHandle handle, double threshold)
@@ -535,14 +504,10 @@ void NXSetAutoDimThreshold(NXEventHandle handle, double threshold)
 double NXAutoDimThreshold(NXEventHandle handle)
 {
 	unsigned int params[EVSIOCADT_SIZE];
-	int rcnt = EVSIOCADT_SIZE;
+	IOByteCount rcnt = EVSIOCADT_SIZE;
 	int r;
-	io_service_t	hidsystem;
 
-	if( KERN_SUCCESS != IOConnectGetService( handle, &hidsystem ))
-		return 0.0;
-
-	r = NXEvGetParameterInt(hidsystem, CFSTR(EVSIOCADT), EVSIOCADT_SIZE,
+	r = NXEvGetParameterInt(handle, CFSTR(EVSIOCADT), EVSIOCADT_SIZE,
 				params, &rcnt );
 	if ( r != kIOReturnSuccess )
 		return 0.0;
@@ -552,14 +517,10 @@ double NXAutoDimThreshold(NXEventHandle handle)
 double NXAutoDimTime(NXEventHandle handle)
 {
 	unsigned int params[EVSIOGDADT_SIZE];
-	int rcnt = EVSIOGDADT_SIZE;
+	IOByteCount rcnt = EVSIOGDADT_SIZE;
 	int r;
-	io_service_t	hidsystem;
 
-	if( KERN_SUCCESS != IOConnectGetService( handle, &hidsystem ))
-		return 0.0;
-
-	r = NXEvGetParameterInt(hidsystem, CFSTR(EVSIOGDADT), EVSIOGDADT_SIZE,
+	r = NXEvGetParameterInt( handle, CFSTR(EVSIOGDADT), EVSIOGDADT_SIZE,
 				params, &rcnt );
 	if ( r != kIOReturnSuccess )
 		return 0.0;
@@ -569,14 +530,10 @@ double NXAutoDimTime(NXEventHandle handle)
 double NXIdleTime(NXEventHandle handle)
 {
 	unsigned int params[EVSIOIDLE_SIZE];
-	int rcnt = EVSIOIDLE_SIZE;
+	IOByteCount rcnt = EVSIOIDLE_SIZE;
 	int r;
-	io_service_t	hidsystem;
 
-	if( KERN_SUCCESS != IOConnectGetService( handle, &hidsystem ))
-		return 0.0;
-
-	r = NXEvGetParameterInt(hidsystem, CFSTR(EVSIOIDLE), EVSIOIDLE_SIZE,
+	r = NXEvGetParameterInt( handle, CFSTR(EVSIOIDLE), EVSIOIDLE_SIZE,
 				params, &rcnt );
 	if ( r != kIOReturnSuccess )
 		return 0.0;
@@ -594,14 +551,10 @@ void NXSetAutoDimState(NXEventHandle handle, boolean_t dimmed)
 boolean_t NXAutoDimState(NXEventHandle handle)
 {
 	unsigned int params[EVSIOCADS_SIZE];
-	int rcnt = EVSIOCADS_SIZE;
+	IOByteCount rcnt = EVSIOCADS_SIZE;
 	int r;
-	io_service_t	hidsystem;
 
-	if( KERN_SUCCESS != IOConnectGetService( handle, &hidsystem ))
-		return false;
-
-	r = NXEvGetParameterInt(hidsystem, CFSTR(EVSIOCADS), EVSIOCADS_SIZE,
+	r = NXEvGetParameterInt( handle, CFSTR(EVSIOCADS), EVSIOCADS_SIZE,
 				params, &rcnt );
 	if ( r != kIOReturnSuccess )
 		return false;
@@ -619,15 +572,10 @@ void NXSetAutoDimBrightness(NXEventHandle handle, double brightness)
 double NXAutoDimBrightness(NXEventHandle handle)
 {
 	unsigned int params[EVSIOSB_SIZE];
-	int rcnt = EVSIOSB_SIZE;
+	IOByteCount rcnt = EVSIOSB_SIZE;
 	int r;
 
-	io_service_t	hidsystem;
-
-	if( KERN_SUCCESS != IOConnectGetService( handle, &hidsystem ))
-		return 1.0;
-
-	r = NXEvGetParameterInt(hidsystem, CFSTR(EVSIOSADB), EVSIOSB_SIZE,
+	r = NXEvGetParameterInt( handle, CFSTR(EVSIOSADB), EVSIOSB_SIZE,
 				params, &rcnt );
 	if ( r != kIOReturnSuccess )
 		return 1.0;
@@ -645,14 +593,10 @@ void NXSetScreenBrightness(NXEventHandle handle, double brightness)
 double NXScreenBrightness(NXEventHandle handle)
 {
 	unsigned int params[EVSIOSB_SIZE];
-	int rcnt = EVSIOSB_SIZE;
+	IOByteCount rcnt = EVSIOSB_SIZE;
 	int r;
-	io_service_t	hidsystem;
 
-	if( KERN_SUCCESS != IOConnectGetService( handle, &hidsystem ))
-		return 1.0;
-
-	r = NXEvGetParameterInt(hidsystem, CFSTR(EVSIOSB), EVSIOSB_SIZE,
+	r = NXEvGetParameterInt( handle, CFSTR(EVSIOSB), EVSIOSB_SIZE,
 				params, &rcnt );
 	if ( r != kIOReturnSuccess )
 		return 1.0;

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: html.c,v 1.1.1.3 2001/01/25 05:00:06 wsanchez Exp $ */
+/* $Id: html.c,v 1.1.1.4 2001/07/19 00:20:14 zarzycki Exp $ */
 
 #include "php.h"
 #include "reg.h"
@@ -44,10 +44,6 @@ static char EntTable[][7] =
 	"ouml","divide","oslash","ugrave","uacute","ucirc",
 	"uuml","yacute","thorn","yuml"
 };
-
-#define ENT_COMPAT			1
-#define ENT_QUOTES			2
-#define ENT_NOQUOTES		4
 
 PHPAPI char *php_escape_html_entities(unsigned char *old, int oldlen, int *newlen, int all, int quote_style)
 {
@@ -89,7 +85,7 @@ PHPAPI char *php_escape_html_entities(unsigned char *old, int oldlen, int *newle
 		}
 		old++;
 	}
-    new [len] = '\0';
+	new [len] = '\0';
 	*newlen = len;
 
 	return new;
@@ -97,23 +93,23 @@ PHPAPI char *php_escape_html_entities(unsigned char *old, int oldlen, int *newle
 
 static void php_html_entities(INTERNAL_FUNCTION_PARAMETERS, int all)
 {
-    zval **arg, **quotes;
-    int len, quote_style = ENT_COMPAT;
+	zval **arg, **quotes;
+	int len, quote_style = ENT_COMPAT;
 	int ac = ZEND_NUM_ARGS();
 	char *new;
 
 	if (ac < 1 || ac > 2 || zend_get_parameters_ex(ac, &arg, &quotes) == FAILURE) {
-        WRONG_PARAM_COUNT;
-    }
+		WRONG_PARAM_COUNT;
+	}
 
-    convert_to_string_ex(arg);
+	convert_to_string_ex(arg);
 	if(ac==2) {
 		convert_to_long_ex(quotes);
 		quote_style = (*quotes)->value.lval;
 	}
 
 	new = php_escape_html_entities((*arg)->value.str.val, (*arg)->value.str.len, &len, all, quote_style);
-    RETVAL_STRINGL(new,len,0);
+	RETVAL_STRINGL(new,len,0);
 }
 
 #define HTML_SPECIALCHARS 	0
@@ -155,8 +151,8 @@ PHP_FUNCTION(get_html_translation_table)
 	char ind[ 2 ];
 
 	if (ac < 0 || ac > 2 || zend_get_parameters_ex(ac, &whichone, &quotes) == FAILURE) {
-        WRONG_PARAM_COUNT;
-    }
+		WRONG_PARAM_COUNT;
+	}
 
 	if (ac > 0) {
 		convert_to_long_ex(whichone);
@@ -184,9 +180,11 @@ PHP_FUNCTION(get_html_translation_table)
 		case HTML_SPECIALCHARS:
 			ind[0]=38; add_assoc_string(return_value,ind,"&amp;",1);
 			if(quote_style&ENT_QUOTES) {
-				ind[0]=39; add_assoc_string(return_value,ind,"&#039;",1); }
+				ind[0]=39; add_assoc_string(return_value,ind,"&#039;",1);
+			}
 			if(!(quote_style&ENT_NOQUOTES)) {
-				ind[0]=34; add_assoc_string(return_value,ind,"&quot;",1); }
+				ind[0]=34; add_assoc_string(return_value,ind,"&quot;",1); 
+			}
 			ind[0]=60; add_assoc_string(return_value,ind,"&lt;",1);
 			ind[0]=62; add_assoc_string(return_value,ind,"&gt;",1);
 			break;

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: link.c,v 1.1.1.3 2001/01/25 05:00:07 wsanchez Exp $ */
+/* $Id: link.c,v 1.1.1.4 2001/07/19 00:20:16 zarzycki Exp $ */
 
 #include "php.h"
 #include "php_filestat.h"
@@ -87,7 +87,7 @@ PHP_FUNCTION(linkinfo)
 	}
 	convert_to_string_ex(filename);
 
-	ret = V_LSTAT((*filename)->value.str.val, &sb);
+	ret = VCWD_LSTAT((*filename)->value.str.val, &sb);
 	if (ret == -1) {
 		php_error(E_WARNING, "LinkInfo failed (%s)", strerror(errno));
 		RETURN_LONG(-1L);

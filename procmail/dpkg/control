@@ -1,7 +1,7 @@
 Package: procmail
 Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
 Vendor: Procmail
-Version: 3.13.1
+Version: 3.21
 URL: http://www.procmail.org/
 Build-Depends: build-base, mail-cmds
 Description: Mail processing program

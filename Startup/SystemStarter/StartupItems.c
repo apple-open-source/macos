@@ -1,9 +1,9 @@
 /**
  * StartupItems.c - Startup Item management routines
- * Wilfredo Sanchez | wsanchez@apple.com
+ * Wilfredo Sanchez | wsanchez@opensource.apple.com
  * $Apple$
  **
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2001 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,7 +37,7 @@
 #include <limits.h>
 #include <errno.h>
 #include <string.h>
-#import  <CoreFoundation/CoreFoundation.h>
+#include <CoreFoundation/CoreFoundation.h>
 #include "Log.h"
 #include "main.h"
 #include "StartupItems.h"
@@ -403,10 +403,14 @@ void StartupItemRun (CFDictionaryRef anItem, CFMutableDictionaryRef aStatusDict)
 			{
 			  char *const aNullEnvironment[] = { NULL };
 			  int anError;
+			  int i;
 
 			  if (setsid() == -1)
 			    warning(CFSTR("Unable to create session for item %@: %s\n"),
 				    aBundlePathString, strerror(errno));
+
+			  for (i = getdtablesize() - 1; i > STDERR_FILENO; i--)
+				(void)close(i);
 
 			  anError = execle(anExecutable,
 					   anExecutable, "start", NULL,
@@ -513,7 +517,17 @@ CFStringRef StartupItemCreateLocalizedString (CFDictionaryRef anItem, CFStringRe
 		      }
 
                     if (aStringsDict && CFGetTypeID(aStringsDict) == CFDictionaryGetTypeID())
-		      aResult = CFRetain(CFDictionaryGetValue(aStringsDict, aString));
+                      {
+                        CFDictionaryRef aDictStringValue = CFDictionaryGetValue(aStringsDict, aString);
+                        if (aDictStringValue)
+                          {
+                            aResult = CFRetain(aDictStringValue);
+                          }
+                        else
+                          {
+                            error(CFSTR("Unable to get Localized string from valid string file %s\n"), aStringsFilePath);
+                          }
+                      }
                     else
 		      error(CFSTR("Malformatted strings file %s.\n"), aStringsFilePath);
 

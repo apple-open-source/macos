@@ -24,13 +24,15 @@
  *
  */
 
+#include <CoreFoundation/CoreFoundation.h>
+#include <IOKit/IOKitLib.h>
+#include <IOKit/IOBSD.h>
+#include <IOKit/network/IONetworkLib.h>
+#include <IOKit/network/IONetworkInterface.h>
+#include <IOKit/network/IONetworkController.h>
 #include <ctype.h>
 #include <stdlib.h>
 #include <stdio.h>
-
-#include <IOKit/IOKitLib.h>
-#include <IOKit/network/IONetworkLib.h>
-
 #include <mach/mach_interface.h>
 #include <IOKit/iokitmig.h>     // mig generated
 
@@ -164,4 +166,203 @@ IOReturn IONetworkGetDataHandle(io_connect_t con,
                 nameSize,                            /* inputCount */
                 (char *) dataHandleP,                /* output */
                 &outCount);                          /* outputCount */
+}
+
+//---------------------------------------------------------------------------
+// Utility functions to manipulate nested dictionaries.
+
+#define kIONetworkInterfaceProperties   "IONetworkInterfaceProperties"
+#define kIORequiredPacketFilters        "IORequiredPacketFilters"
+
+static void
+GetDictionaryValueUsingKeysApplier( const void * value,
+                                    void *       context )
+{
+    CFDictionaryRef * dict = (CFDictionaryRef *) context;
+
+    if ( ( *dict ) &&
+         ( CFGetTypeID(*dict) == CFDictionaryGetTypeID() ) )
+        *dict = CFDictionaryGetValue( *dict, value );
+    else
+        *dict = 0;
+}
+
+static CFTypeRef
+GetDictionaryValueUsingKeys( CFDictionaryRef dict,
+                             CFArrayRef      keysArray,
+                             CFTypeID        typeID )
+{
+	CFArrayApplyFunction( keysArray,
+                          CFRangeMake(0, CFArrayGetCount(keysArray)),
+                          GetDictionaryValueUsingKeysApplier,
+                          &dict );
+
+    if ( dict && (CFGetTypeID(dict) != typeID) ) dict = 0;
+
+	return dict;
+}
+
+static CFDictionaryRef
+CreateNestedDictionariesUsingKeys( CFArrayRef keysArray,
+                                   CFTypeRef  value )
+{
+    CFDictionaryRef dict = 0;
+    CFDictionaryRef prevDict;
+    CFIndex         index;
+    CFStringRef     keys[1];
+    CFTypeRef       values[1];
+
+    for ( index = CFArrayGetCount(keysArray) - 1;
+          index >= 0;
+          index-- )
+    {
+        prevDict = dict;
+
+        keys[0]   = CFArrayGetValueAtIndex( keysArray, index );
+        values[0] = ( prevDict ) ? prevDict : value;
+
+        dict = CFDictionaryCreate( NULL,
+                                   (void *) keys,
+                                   (void *) values,
+                                   1,
+                                   &kCFCopyStringDictionaryKeyCallBacks,
+                                   &kCFTypeDictionaryValueCallBacks );
+
+        if ( prevDict )  CFRelease( prevDict );
+        if ( dict == 0 ) break;
+    }
+
+    return dict;
+}
+
+//---------------------------------------------------------------------------
+// IONetworkGetPacketFiltersMask
+
+IOReturn
+IONetworkGetPacketFiltersMask( io_connect_t    connect,
+                               const io_name_t filterGroup,
+                               UInt32 *        filtersMask,
+                               IOOptionBits    options )
+{
+	IOReturn               kr;
+    io_service_t           service   = 0;
+    CFMutableDictionaryRef dict      = 0;
+    CFArrayRef             keysArray = 0;
+    CFStringRef            group     = 0;
+    CFStringRef            keys[2];
+    CFTypeRef              value;
+
+    do {
+        *filtersMask = 0;
+
+        // Locate our service provider.
+
+        kr = IOConnectGetService( connect, &service );
+        if ( kr != kIOReturnSuccess ) break;
+
+        if ( kIONetworkSupportedPacketFilters & options )
+        {
+            io_service_t parentService;
+            kr = IORegistryEntryGetParentEntry( service, kIOServicePlane,
+                                                &parentService );
+            if ( kr != kIOReturnSuccess ) break;
+            IOObjectRelease( service );
+            service = parentService;
+        }
+
+        // Fetch properties from registry.
+
+        kr = IORegistryEntryCreateCFProperties( service,
+                                                &dict,
+                                                kCFAllocatorDefault,
+                                                kNilOptions );
+        if ( kr != kIOReturnSuccess ) break;
+
+        group = CFStringCreateWithCString( kCFAllocatorDefault, filterGroup,
+					                       CFStringGetSystemEncoding() );
+        if ( group == 0 )
+        {
+            kr = kIOReturnNoMemory;
+            break;
+        }
+
+        // Create an array of keys to the value.
+
+        keys[0] = CFSTR( (kIONetworkSupportedPacketFilters & options) ?
+                         kIOPacketFilters :
+                         kIORequiredPacketFilters );
+        keys[1] = group;
+
+        keysArray = CFArrayCreate( NULL, (void *)keys, 2, &kCFTypeArrayCallBacks );
+        if ( keysArray == 0 )
+        {
+            kr = kIOReturnNoMemory;
+            break;
+        }
+
+        value = GetDictionaryValueUsingKeys( dict, keysArray, CFNumberGetTypeID() );
+        if ( value == 0 )
+        {
+            kr = kIOReturnNotFound;
+            break;
+        }
+
+        CFNumberGetValue( (CFNumberRef)value, kCFNumberLongType, filtersMask );
+    }
+    while ( 0 );
+
+    if ( dict )      CFRelease( dict );
+    if ( group )     CFRelease( group );
+	if ( keysArray ) CFRelease( keysArray );
+    if ( service )   IOObjectRelease( service );
+
+    return kr;
+}
+
+//---------------------------------------------------------------------------
+// IONetworkSetPacketFiltersMask
+
+IOReturn
+IONetworkSetPacketFiltersMask( io_connect_t    connect,
+                               const io_name_t filterGroup,
+                               UInt32          filtersMask,
+                               IOOptionBits    options )
+{
+	IOReturn        kr = kIOReturnNoMemory;
+    CFStringRef     keys[3];
+    CFArrayRef      keysArray = 0;
+    CFStringRef     group     = 0;
+    CFNumberRef     num       = 0;
+    CFDictionaryRef dict      = 0;
+
+    do {
+        num = CFNumberCreate( kCFAllocatorDefault, 
+                              kCFNumberLongType, 
+                              &filtersMask );
+        if ( num == 0 ) break;
+
+        group = CFStringCreateWithCString( kCFAllocatorDefault, filterGroup,
+					                       CFStringGetSystemEncoding() );
+        if ( group == 0 ) break;
+
+        keys[0] = CFSTR( kIONetworkInterfaceProperties );
+        keys[1] = CFSTR( kIORequiredPacketFilters );
+        keys[2] = group;
+
+        keysArray = CFArrayCreate( NULL, (void *)keys, 3, &kCFTypeArrayCallBacks );
+        if ( keysArray == 0 ) break;
+
+        dict = CreateNestedDictionariesUsingKeys( keysArray, num );
+        if ( dict == 0 ) break;
+
+        kr = IOConnectSetCFProperties( connect, dict );
+    }
+    while ( 0 );
+
+	if ( num )       CFRelease( num );
+    if ( group )     CFRelease( group );
+    if ( keysArray ) CFRelease( keysArray );
+    if ( dict )      CFRelease( dict );
+
+    return kr;
 }

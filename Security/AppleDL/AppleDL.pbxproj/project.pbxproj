@@ -1,0 +1,247 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 32;
+	objects = {
+		023E3605001F8F6B11CD283A = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				OTHER_LDFLAGS = "\U0001-dylib_file \"$(SYSTEM_LIBRARY_DIR)/Frameworks/Security.framework/Versions/A/Security:$(SYMROOT)/Security.framework/Versions/A/Security\"";
+			};
+			isa = PBXBuildStyle;
+			name = "Build Folder";
+		};
+		0FD07C9DFE8A174411CD283A = {
+			buildStyles = (
+				1B60AA6DFFD84BFD11CD296C,
+				1B60AA6EFFD84BFD11CD296C,
+				023E3605001F8F6B11CD283A,
+			);
+			isa = PBXProject;
+			mainGroup = 0FD07C9EFE8A174411CD283A;
+			projectDirPath = .;
+			targets = (
+				0FD07CA2FE8A183A11CD283A,
+			);
+		};
+		0FD07C9EFE8A174411CD283A = {
+			children = (
+				0FD07CAAFE8A18AF11CD283A,
+				2B8B5BBCFFF3E33011CD283A,
+				0FD07CBFFE8A1A0011CD283A,
+			);
+			isa = PBXGroup;
+			refType = 4;
+		};
+		0FD07CA2FE8A183A11CD283A = {
+			buildPhases = (
+				0FD07CA3FE8A183A11CD283A,
+				0FD07CA4FE8A183A11CD283A,
+				0FD07CA5FE8A183A11CD283A,
+				0FD07CA6FE8A183A11CD283A,
+				0FD07CA7FE8A183A11CD283A,
+			);
+			buildSettings = {
+				DEPLOYMENT_OPTIMIZATION_CFLAGS = "-O2 -fno-inline";
+				EXPORTED_SYMBOLS_FILE = cssmplugin.exp;
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Security";
+				LIBRARY_SEARCH_PATHS = "";
+				OPTIMIZATION_CFLAGS = "-O2 -fno-inline";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-bundle -undefined error -lstdc++";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleFileDL;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = bundle;
+			};
+			conditionalBuildSettings = {
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = AppleFileDL;
+			productInstallPath = "\"$(SYSTEM_LIBRARY_DIR)/Security\"";
+			productName = AppleFileDL;
+			productReference = 1B60AA6CFFD84BFD11CD296C;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
+<plist version=\"0.9\">
+<dict>
+	<key>CFBundleExecutable</key>
+	<string>AppleFileDL</string>
+	<key>CFBundleGetInfoString</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.applefiledl</string>
+	<key>CFBundleName</key>
+	<string>AppleFileDL</string>
+	<key>CFBundlePackageType</key>
+	<string>BNDL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>AppleFileDL 1.0</string>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 1;
+		};
+		0FD07CA3FE8A183A11CD283A = {
+			buildActionMask = 2147483647;
+			files = (
+				2295BBC2FEEF08A311CD28CA,
+			);
+			isa = PBXHeadersBuildPhase;
+			name = Headers;
+		};
+		0FD07CA4FE8A183A11CD283A = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			name = "Bundle Resources";
+		};
+		0FD07CA5FE8A183A11CD283A = {
+			buildActionMask = 2147483647;
+			files = (
+				2295BBC3FEEF08A311CD28CA,
+			);
+			isa = PBXSourcesBuildPhase;
+			name = Sources;
+		};
+		0FD07CA6FE8A183A11CD283A = {
+			buildActionMask = 2147483647;
+			files = (
+				2B8B5BBEFFF3E33011CD283A,
+			);
+			isa = PBXFrameworksBuildPhase;
+			name = "Frameworks & Libraries";
+		};
+		0FD07CA7FE8A183A11CD283A = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			name = "ResourceManager Resources";
+		};
+		0FD07CAAFE8A18AF11CD283A = {
+			children = (
+				2295BBC0FEEF08A311CD28CA,
+				2295BBC1FEEF08A311CD28CA,
+				1DF71D5DFF30EDAB11CD283A,
+				0FD07CB3FE8A18AF11CD283A,
+				0FD07CB4FE8A18AF11CD283A,
+				0FD07CB5FE8A18AF11CD283A,
+			);
+			isa = PBXGroup;
+			name = AppleDL;
+			path = "";
+			refType = 4;
+		};
+		0FD07CB3FE8A18AF11CD283A = {
+			isa = PBXFileReference;
+			path = FORMAT;
+			refType = 4;
+		};
+		0FD07CB4FE8A18AF11CD283A = {
+			isa = PBXFileReference;
+			path = ISSUES;
+			refType = 4;
+		};
+		0FD07CB5FE8A18AF11CD283A = {
+			isa = PBXFileReference;
+			path = TODO;
+			refType = 4;
+		};
+		0FD07CBFFE8A1A0011CD283A = {
+			children = (
+				1B60AA6CFFD84BFD11CD296C,
+			);
+			isa = PBXGroup;
+			name = Products;
+			path = "";
+			refType = 3;
+		};
+		1B60AA6CFFD84BFD11CD296C = {
+			isa = PBXBundleReference;
+			path = AppleFileDL.bundle;
+			refType = 3;
+		};
+		1B60AA6DFFD84BFD11CD296C = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		1B60AA6EFFD84BFD11CD296C = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+		1DF71D5DFF30EDAB11CD283A = {
+			isa = PBXFileReference;
+			path = cssmplugin.exp;
+			refType = 4;
+		};
+		2295BBC0FEEF08A311CD28CA = {
+			isa = PBXFileReference;
+			path = AppleFileDL.cpp;
+			refType = 4;
+		};
+		2295BBC1FEEF08A311CD28CA = {
+			isa = PBXFileReference;
+			path = AppleFileDL.h;
+			refType = 4;
+		};
+		2295BBC2FEEF08A311CD28CA = {
+			fileRef = 2295BBC1FEEF08A311CD28CA;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2295BBC3FEEF08A311CD28CA = {
+			fileRef = 2295BBC0FEEF08A311CD28CA;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		2B8B5BBCFFF3E33011CD283A = {
+			children = (
+				2B8B5BBDFFF3E33011CD283A,
+			);
+			isa = PBXGroup;
+			name = "External Frameworks";
+			refType = 4;
+		};
+		2B8B5BBDFFF3E33011CD283A = {
+			isa = PBXFrameworkReference;
+			path = Security.framework;
+			refType = 3;
+		};
+		2B8B5BBEFFF3E33011CD283A = {
+			fileRef = 2B8B5BBDFFF3E33011CD283A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+	};
+	rootObject = 0FD07C9DFE8A174411CD283A;
+}

@@ -63,7 +63,6 @@ static FFAgent *_sharedFFAgent = nil;
 	[stats setValue:"Flat_File" forKey:"information_system"];
 	etcDir = copyString("/etc");
 	parser = [[FFParser alloc] init];
-	return self;
 
 	threadLock = [[Lock alloc] init];
 

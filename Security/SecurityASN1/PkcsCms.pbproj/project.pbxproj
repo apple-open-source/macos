@@ -1,0 +1,805 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 33;
+	objects = {
+		01C17CFFFF16DC3011CD283A = {
+			children = (
+				01C17D00FF16DC3011CD283A,
+			);
+			isa = PBXGroup;
+			name = Frameworks;
+			refType = 4;
+		};
+		01C17D00FF16DC3011CD283A = {
+			isa = PBXFrameworkReference;
+			path = SecuritySNACCRuntime.framework;
+			refType = 3;
+		};
+		01C17D01FF16DC3011CD283A = {
+			fileRef = 01C17D00FF16DC3011CD283A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//010
+//011
+//012
+//013
+//014
+//020
+//021
+//022
+//023
+//024
+		022D30ACFEF82B87D0A17CE7 = {
+			buildStyles = (
+				2B4BC6B0FFE026FE7F000001,
+				2B4BC6B1FFE026FE7F000001,
+			);
+			isa = PBXProject;
+			mainGroup = 022D30ADFEF82B87D0A17CE7;
+			productRefGroup = 022D30AFFEF8301ED0A17CE7;
+			projectDirPath = "";
+			targets = (
+				022D30F5FEF83C56D0A17CE7,
+				022D30B1FEF8301ED0A17CE7,
+				022D30AEFEF82D08D0A17CE7,
+			);
+		};
+		022D30ADFEF82B87D0A17CE7 = {
+			children = (
+				022D30B7FEF8308ED0A17CE7,
+				022D30C7FEF8308ED0A17CE7,
+				01C17CFFFF16DC3011CD283A,
+				022D30AFFEF8301ED0A17CE7,
+				141E8021FFE9D5767F000001,
+			);
+			isa = PBXGroup;
+			refType = 4;
+		};
+		022D30AEFEF82D08D0A17CE7 = {
+			buildArgumentsString = "-f $(SRCROOT)/Makefile $ACTION SRCROOT=$(SRCROOT) SYMROOT=$(SYMROOT)";
+			buildPhases = (
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/Frameworks/Carbon.framework/Libraries/CIncludes\"";
+				LIBRARY_SEARCH_PATHS = "";
+				OPTIMIZATION_CFLAGS = "";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = CompileAsn;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			buildToolPath = /usr/bin/gnumake;
+			dependencies = (
+			);
+			isa = PBXLegacyTarget;
+			name = CompileAsn;
+			productName = CompileAsn;
+			settingsToExpand = 6;
+			settingsToPassInEnvironment = 287;
+			settingsToPassOnCommandLine = 280;
+			shouldUseHeadermap = 0;
+		};
+		022D30AFFEF8301ED0A17CE7 = {
+			children = (
+				0509B1B7FF15465811CD283A,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+		};
+		022D30B1FEF8301ED0A17CE7 = {
+			buildPhases = (
+				022D30B2FEF8301ED0A17CE7,
+				022D30B3FEF8301ED0A17CE7,
+				022D30B4FEF8301ED0A17CE7,
+				022D30B5FEF8301ED0A17CE7,
+				022D30B6FEF8301ED0A17CE7,
+			);
+			buildSettings = {
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				FRAMEWORK_VERSION = A;
+				HEADER_SEARCH_PATHS = "\"$(SRCROOT)/inc\" \"$(SYMROOT)/SecuritySNACCRuntime.framework/Headers\" \"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/SecuritySNACCRuntime.framework/Headers\"";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				LIBRARY_SEARCH_PATHS = "";
+				OPTIMIZATION_CFLAGS = "";
+				OTHER_CFLAGS = "-DVDADER_RULES";
+				OTHER_LDFLAGS = "\"-lstdc++\"";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRINCIPAL_CLASS = "";
+				PRODUCT_NAME = SecurityASN1;
+				SECTORDER_FLAGS = "-sectorder __TEXT __text \"$(APPLE_INTERNAL_DIR)/OrderFiles/SecurityASN1.order\"";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = framework;
+			};
+			dependencies = (
+			);
+			isa = PBXFrameworkTarget;
+			name = PkcsCms;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+			productName = SecurityASN1;
+			productReference = 0509B1B7FF15465811CD283A;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
+<plist version=\"0.9\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>SecurityASN1</string>
+	<key>CFBundleGetInfoString</key>
+	<string></string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string></string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string></string>
+	<key>CFBundlePackageType</key>
+	<string>FMWK</string>
+	<key>CFBundleShortVersionString</key>
+	<string></string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>0.0.1d1</string>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 1;
+		};
+		022D30B2FEF8301ED0A17CE7 = {
+			buildActionMask = 2147483647;
+			files = (
+				022D30D7FEF8308ED0A17CE7,
+				022D30D8FEF8308ED0A17CE7,
+				022D30D9FEF8308ED0A17CE7,
+				022D30DAFEF8308ED0A17CE7,
+				022D30DBFEF8308ED0A17CE7,
+				022D30DCFEF8308ED0A17CE7,
+				022D30DDFEF8308ED0A17CE7,
+				022D30DEFEF8308ED0A17CE7,
+				022D30DFFEF8308ED0A17CE7,
+				022D30E0FEF8308ED0A17CE7,
+				022D30E1FEF8308ED0A17CE7,
+				022D30E2FEF8308ED0A17CE7,
+				022D30E3FEF8308ED0A17CE7,
+				022D30E4FEF8308ED0A17CE7,
+				022D30E5FEF8308ED0A17CE7,
+			);
+			isa = PBXHeadersBuildPhase;
+			name = Headers;
+		};
+		022D30B3FEF8301ED0A17CE7 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			name = "Bundle Resources";
+		};
+		022D30B4FEF8301ED0A17CE7 = {
+			buildActionMask = 2147483647;
+			files = (
+				022D30E6FEF8308ED0A17CE7,
+				022D30E7FEF8308ED0A17CE7,
+				022D30E8FEF8308ED0A17CE7,
+				022D30E9FEF8308ED0A17CE7,
+				022D30EAFEF8308ED0A17CE7,
+				022D30EBFEF8308ED0A17CE7,
+				022D30ECFEF8308ED0A17CE7,
+				022D30EDFEF8308ED0A17CE7,
+				022D30EEFEF8308ED0A17CE7,
+				022D30EFFEF8308ED0A17CE7,
+				022D30F0FEF8308ED0A17CE7,
+				022D30F1FEF8308ED0A17CE7,
+				022D30F2FEF8308ED0A17CE7,
+				022D30F3FEF8308ED0A17CE7,
+				022D30F4FEF8308ED0A17CE7,
+			);
+			isa = PBXSourcesBuildPhase;
+			name = Sources;
+		};
+		022D30B5FEF8301ED0A17CE7 = {
+			buildActionMask = 2147483647;
+			files = (
+				01C17D01FF16DC3011CD283A,
+				141E8022FFE9D5767F000001,
+			);
+			isa = PBXFrameworksBuildPhase;
+			name = "Frameworks & Libraries";
+		};
+		022D30B6FEF8301ED0A17CE7 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			name = "ResourceManager Resources";
+		};
+		022D30B7FEF8308ED0A17CE7 = {
+			children = (
+				022D30B8FEF8308ED0A17CE7,
+				022D30B9FEF8308ED0A17CE7,
+				022D30BAFEF8308ED0A17CE7,
+				022D30BBFEF8308ED0A17CE7,
+				022D30BCFEF8308ED0A17CE7,
+				022D30BDFEF8308ED0A17CE7,
+				022D30BEFEF8308ED0A17CE7,
+				022D30BFFEF8308ED0A17CE7,
+				022D30C0FEF8308ED0A17CE7,
+				022D30C1FEF8308ED0A17CE7,
+				022D30C2FEF8308ED0A17CE7,
+				022D30C3FEF8308ED0A17CE7,
+				022D30C4FEF8308ED0A17CE7,
+				022D30C5FEF8308ED0A17CE7,
+				022D30C6FEF8308ED0A17CE7,
+			);
+			isa = PBXGroup;
+			name = "gen src";
+			refType = 4;
+		};
+		022D30B8FEF8308ED0A17CE7 = {
+			isa = PBXFileReference;
+			name = pkcs1oids.cpp;
+			path = "c++/pkcs1oids.cpp";
+			refType = 4;
+		};
+		022D30B9FEF8308ED0A17CE7 = {
+			isa = PBXFileReference;
+			name = pkcs7.cpp;
+			path = "c++/pkcs7.cpp";
+			refType = 4;
+		};
+		022D30BAFEF8308ED0A17CE7 = {
+			isa = PBXFileReference;
+			name = pkcs8.cpp;
+			path = "c++/pkcs8.cpp";
+			refType = 4;
+		};
+		022D30BBFEF8308ED0A17CE7 = {
+			isa = PBXFileReference;
+			name = pkcs9oids.cpp;
+			path = "c++/pkcs9oids.cpp";
+			refType = 4;
+		};
+		022D30BCFEF8308ED0A17CE7 = {
+			isa = PBXFileReference;
+			name = sm_cms.cpp;
+			path = "c++/sm_cms.cpp";
+			refType = 4;
+		};
+		022D30BDFEF8308ED0A17CE7 = {
+			isa = PBXFileReference;
+			name = sm_ess.cpp;
+			path = "c++/sm_ess.cpp";
+			refType = 4;
+		};
+		022D30BEFEF8308ED0A17CE7 = {
+			isa = PBXFileReference;
+			name = sm_vdatypes.cpp;
+			path = "c++/sm_vdatypes.cpp";
+			refType = 4;
+		};
+		022D30BFFEF8308ED0A17CE7 = {
+			isa = PBXFileReference;
+			name = sm_x411mtsas.cpp;
+			path = "c++/sm_x411mtsas.cpp";
+			refType = 4;
+		};
+		022D30C0FEF8308ED0A17CE7 = {
+			isa = PBXFileReference;
+			name = sm_x411ub.cpp;
+			path = "c++/sm_x411ub.cpp";
+			refType = 4;
+		};
+		022D30C1FEF8308ED0A17CE7 = {
+			isa = PBXFileReference;
+			name = sm_x501if.cpp;
+			path = "c++/sm_x501if.cpp";
+			refType = 4;
+		};
+		022D30C2FEF8308ED0A17CE7 = {
+			isa = PBXFileReference;
+			name = sm_x501ud.cpp;
+			path = "c++/sm_x501ud.cpp";
+			refType = 4;
+		};
+		022D30C3FEF8308ED0A17CE7 = {
+			isa = PBXFileReference;
+			name = sm_x509af.cpp;
+			path = "c++/sm_x509af.cpp";
+			refType = 4;
+		};
+		022D30C4FEF8308ED0A17CE7 = {
+			isa = PBXFileReference;
+			name = sm_x509ce.cpp;
+			path = "c++/sm_x509ce.cpp";
+			refType = 4;
+		};
+		022D30C5FEF8308ED0A17CE7 = {
+			isa = PBXFileReference;
+			name = sm_x509cmn.cpp;
+			path = "c++/sm_x509cmn.cpp";
+			refType = 4;
+		};
+		022D30C6FEF8308ED0A17CE7 = {
+			isa = PBXFileReference;
+			name = sm_x520sa.cpp;
+			path = "c++/sm_x520sa.cpp";
+			refType = 4;
+		};
+		022D30C7FEF8308ED0A17CE7 = {
+			children = (
+				022D30C8FEF8308ED0A17CE7,
+				022D30C9FEF8308ED0A17CE7,
+				022D30CAFEF8308ED0A17CE7,
+				022D30CBFEF8308ED0A17CE7,
+				022D30CCFEF8308ED0A17CE7,
+				022D30CDFEF8308ED0A17CE7,
+				022D30CEFEF8308ED0A17CE7,
+				022D30CFFEF8308ED0A17CE7,
+				022D30D0FEF8308ED0A17CE7,
+				022D30D1FEF8308ED0A17CE7,
+				022D30D2FEF8308ED0A17CE7,
+				022D30D3FEF8308ED0A17CE7,
+				022D30D4FEF8308ED0A17CE7,
+				022D30D5FEF8308ED0A17CE7,
+				022D30D6FEF8308ED0A17CE7,
+			);
+			isa = PBXGroup;
+			name = "gen inc";
+			path = "";
+			refType = 4;
+		};
+		022D30C8FEF8308ED0A17CE7 = {
+			isa = PBXFileReference;
+			name = pkcs1oids.h;
+			path = inc/pkcs1oids.h;
+			refType = 4;
+		};
+		022D30C9FEF8308ED0A17CE7 = {
+			isa = PBXFileReference;
+			name = pkcs7.h;
+			path = inc/pkcs7.h;
+			refType = 4;
+		};
+		022D30CAFEF8308ED0A17CE7 = {
+			isa = PBXFileReference;
+			name = pkcs8.h;
+			path = inc/pkcs8.h;
+			refType = 4;
+		};
+		022D30CBFEF8308ED0A17CE7 = {
+			isa = PBXFileReference;
+			name = pkcs9oids.h;
+			path = inc/pkcs9oids.h;
+			refType = 4;
+		};
+		022D30CCFEF8308ED0A17CE7 = {
+			isa = PBXFileReference;
+			name = sm_cms.h;
+			path = inc/sm_cms.h;
+			refType = 4;
+		};
+		022D30CDFEF8308ED0A17CE7 = {
+			isa = PBXFileReference;
+			name = sm_ess.h;
+			path = inc/sm_ess.h;
+			refType = 4;
+		};
+		022D30CEFEF8308ED0A17CE7 = {
+			isa = PBXFileReference;
+			name = sm_vdatypes.h;
+			path = inc/sm_vdatypes.h;
+			refType = 4;
+		};
+		022D30CFFEF8308ED0A17CE7 = {
+			isa = PBXFileReference;
+			name = sm_x411mtsas.h;
+			path = inc/sm_x411mtsas.h;
+			refType = 4;
+		};
+		022D30D0FEF8308ED0A17CE7 = {
+			isa = PBXFileReference;
+			name = sm_x411ub.h;
+			path = inc/sm_x411ub.h;
+			refType = 4;
+		};
+		022D30D1FEF8308ED0A17CE7 = {
+			isa = PBXFileReference;
+			name = sm_x501if.h;
+			path = inc/sm_x501if.h;
+			refType = 4;
+		};
+		022D30D2FEF8308ED0A17CE7 = {
+			isa = PBXFileReference;
+			name = sm_x501ud.h;
+			path = inc/sm_x501ud.h;
+			refType = 4;
+		};
+		022D30D3FEF8308ED0A17CE7 = {
+			isa = PBXFileReference;
+			name = sm_x509af.h;
+			path = inc/sm_x509af.h;
+			refType = 4;
+		};
+		022D30D4FEF8308ED0A17CE7 = {
+			isa = PBXFileReference;
+			name = sm_x509ce.h;
+			path = inc/sm_x509ce.h;
+			refType = 4;
+		};
+		022D30D5FEF8308ED0A17CE7 = {
+			isa = PBXFileReference;
+			name = sm_x509cmn.h;
+			path = inc/sm_x509cmn.h;
+			refType = 4;
+		};
+		022D30D6FEF8308ED0A17CE7 = {
+			isa = PBXFileReference;
+			name = sm_x520sa.h;
+			path = inc/sm_x520sa.h;
+			refType = 4;
+		};
+		022D30D7FEF8308ED0A17CE7 = {
+			fileRef = 022D30C8FEF8308ED0A17CE7;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		022D30D8FEF8308ED0A17CE7 = {
+			fileRef = 022D30C9FEF8308ED0A17CE7;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		022D30D9FEF8308ED0A17CE7 = {
+			fileRef = 022D30CAFEF8308ED0A17CE7;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		022D30DAFEF8308ED0A17CE7 = {
+			fileRef = 022D30CBFEF8308ED0A17CE7;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		022D30DBFEF8308ED0A17CE7 = {
+			fileRef = 022D30CCFEF8308ED0A17CE7;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		022D30DCFEF8308ED0A17CE7 = {
+			fileRef = 022D30CDFEF8308ED0A17CE7;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		022D30DDFEF8308ED0A17CE7 = {
+			fileRef = 022D30CEFEF8308ED0A17CE7;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		022D30DEFEF8308ED0A17CE7 = {
+			fileRef = 022D30CFFEF8308ED0A17CE7;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		022D30DFFEF8308ED0A17CE7 = {
+			fileRef = 022D30D0FEF8308ED0A17CE7;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		022D30E0FEF8308ED0A17CE7 = {
+			fileRef = 022D30D1FEF8308ED0A17CE7;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		022D30E1FEF8308ED0A17CE7 = {
+			fileRef = 022D30D2FEF8308ED0A17CE7;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		022D30E2FEF8308ED0A17CE7 = {
+			fileRef = 022D30D3FEF8308ED0A17CE7;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		022D30E3FEF8308ED0A17CE7 = {
+			fileRef = 022D30D4FEF8308ED0A17CE7;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		022D30E4FEF8308ED0A17CE7 = {
+			fileRef = 022D30D5FEF8308ED0A17CE7;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		022D30E5FEF8308ED0A17CE7 = {
+			fileRef = 022D30D6FEF8308ED0A17CE7;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		022D30E6FEF8308ED0A17CE7 = {
+			fileRef = 022D30B8FEF8308ED0A17CE7;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		022D30E7FEF8308ED0A17CE7 = {
+			fileRef = 022D30B9FEF8308ED0A17CE7;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		022D30E8FEF8308ED0A17CE7 = {
+			fileRef = 022D30BAFEF8308ED0A17CE7;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		022D30E9FEF8308ED0A17CE7 = {
+			fileRef = 022D30BBFEF8308ED0A17CE7;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		022D30EAFEF8308ED0A17CE7 = {
+			fileRef = 022D30BCFEF8308ED0A17CE7;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		022D30EBFEF8308ED0A17CE7 = {
+			fileRef = 022D30BDFEF8308ED0A17CE7;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		022D30ECFEF8308ED0A17CE7 = {
+			fileRef = 022D30BEFEF8308ED0A17CE7;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		022D30EDFEF8308ED0A17CE7 = {
+			fileRef = 022D30BFFEF8308ED0A17CE7;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		022D30EEFEF8308ED0A17CE7 = {
+			fileRef = 022D30C0FEF8308ED0A17CE7;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		022D30EFFEF8308ED0A17CE7 = {
+			fileRef = 022D30C1FEF8308ED0A17CE7;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		022D30F0FEF8308ED0A17CE7 = {
+			fileRef = 022D30C2FEF8308ED0A17CE7;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		022D30F1FEF8308ED0A17CE7 = {
+			fileRef = 022D30C3FEF8308ED0A17CE7;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		022D30F2FEF8308ED0A17CE7 = {
+			fileRef = 022D30C4FEF8308ED0A17CE7;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		022D30F3FEF8308ED0A17CE7 = {
+			fileRef = 022D30C5FEF8308ED0A17CE7;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		022D30F4FEF8308ED0A17CE7 = {
+			fileRef = 022D30C6FEF8308ED0A17CE7;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		022D30F5FEF83C56D0A17CE7 = {
+			buildPhases = (
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/Frameworks/Carbon.framework/Libraries/CIncludes\"";
+				LIBRARY_SEARCH_PATHS = "";
+				OPTIMIZATION_CFLAGS = "";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = World;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+				022D30F7FEF83C56D0A17CE7,
+			);
+			isa = PBXAggregateTarget;
+			name = World;
+			productName = World;
+			shouldUseHeadermap = 0;
+		};
+		022D30F7FEF83C56D0A17CE7 = {
+			isa = PBXTargetDependency;
+			target = 022D30B1FEF8301ED0A17CE7;
+		};
+//020
+//021
+//022
+//023
+//024
+//050
+//051
+//052
+//053
+//054
+		0509B1B7FF15465811CD283A = {
+			isa = PBXFrameworkReference;
+			path = SecurityASN1.framework;
+			refType = 3;
+		};
+//050
+//051
+//052
+//053
+//054
+//140
+//141
+//142
+//143
+//144
+		141E8021FFE9D5767F000001 = {
+			isa = PBXFrameworkReference;
+			name = cdsa_utilities.framework;
+			path = /System/Library/PrivateFrameworks/cdsa_utilities.framework;
+			refType = 0;
+		};
+		141E8022FFE9D5767F000001 = {
+			fileRef = 141E8021FFE9D5767F000001;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//140
+//141
+//142
+//143
+//144
+//2B0
+//2B1
+//2B2
+//2B3
+//2B4
+		2B4BC6B0FFE026FE7F000001 = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				OPTIMIZATION_CFLAGS = "";
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		2B4BC6B1FFE026FE7F000001 = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+	};
+	rootObject = 022D30ACFEF82B87D0A17CE7;
+}

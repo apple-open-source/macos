@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -46,21 +46,21 @@
 static int
 php_apache_sapi_ub_write(const char *str, uint str_length)
 {
-	ap_bucket *b;
-	ap_bucket_brigade *bb;
+	apr_bucket *b;
+	apr_bucket_brigade *bb;
 	php_struct *ctx;
 	uint now;
 	SLS_FETCH();
 
 	ctx = SG(server_context);
 
-	if (!str_length) return 0;
+	if (str_length == 0) return 0;
 	
-	bb = ap_brigade_create(ctx->f->r->pool);
+	bb = apr_brigade_create(ctx->f->r->pool);
 	while (str_length > 0) {
 		now = MIN(str_length, 4096);
-		b = ap_bucket_create_transient(str, now);
-		AP_BRIGADE_INSERT_TAIL(bb, b);
+		b = apr_bucket_transient_create(str, now);
+		APR_BRIGADE_INSERT_TAIL(bb, b);
 		str += now;
 		str_length -= now;
 	}
@@ -161,17 +161,17 @@ static void
 php_apache_sapi_flush(void *server_context)
 {
 	php_struct *ctx = server_context;
-	ap_bucket_brigade *bb;
-	ap_bucket *b;
+	apr_bucket_brigade *bb;
+	apr_bucket *b;
 
 	/* Send a flush bucket down the filter chain. The current default
 	 * handler seems to act on the first flush bucket, but ignores
 	 * all further flush buckets.
 	 */
 	
-	bb = ap_brigade_create(ctx->f->r->pool);
-	b = ap_bucket_create_flush();
-	AP_BRIGADE_INSERT_TAIL(bb, b);
+	bb = apr_brigade_create(ctx->f->r->pool);
+	b = apr_bucket_flush_create();
+	APR_BRIGADE_INSERT_TAIL(bb, b);
 	if (ap_pass_brigade(ctx->f->next, bb) != APR_SUCCESS) {
 		php_handle_aborted_connection();
 	}
@@ -184,10 +184,10 @@ static void php_apache_sapi_log_message(char *msg)
 
 	ctx = SG(server_context);
 
-	apr_puts(msg, ctx->f->r->server->error_log);
+	apr_file_puts(msg, ctx->f->r->server->error_log);
 }
 
-static sapi_module_struct sapi_module = {
+static sapi_module_struct apache2_sapi_module = {
 	"apache2filter",
 	"Apache 2.0 Filter",
 
@@ -221,21 +221,21 @@ static sapi_module_struct sapi_module = {
 };
 
 
-module MODULE_VAR_EXPORT php4_module;
+AP_MODULE_DECLARE_DATA module php4_module;
 
 #define INIT_CTX \
 	if (ctx == NULL) { \
 		/* Initialize filter context */ \
 		SG(server_context) = ctx = apr_pcalloc(f->r->pool, sizeof(*ctx));  \
-		ctx->bb = ap_brigade_create(f->c->pool); \
+		ctx->bb = apr_brigade_create(f->c->pool); \
 	}
 
-static int php_input_filter(ap_filter_t *f, ap_bucket_brigade *bb, 
-		ap_input_mode_t mode)
+static int php_input_filter(ap_filter_t *f, apr_bucket_brigade *bb, 
+		ap_input_mode_t mode, apr_size_t *readbytes)
 {
 	php_struct *ctx;
 	long old_index;
-	ap_bucket *b;
+	apr_bucket *b;
 	const char *str;
 	apr_ssize_t n;
 	apr_status_t rv;
@@ -245,12 +245,12 @@ static int php_input_filter(ap_filter_t *f, ap_bucket_brigade *bb,
 
 	INIT_CTX;
 
-	if ((rv = ap_get_brigade(f->next, bb, mode)) != APR_SUCCESS) {
+	if ((rv = ap_get_brigade(f->next, bb, mode, readbytes)) != APR_SUCCESS) {
 		return rv;
 	}
 
-	AP_BRIGADE_FOREACH(b, bb) {
-		ap_bucket_read(b, &str, &n, 1);
+	APR_BRIGADE_FOREACH(b, bb) {
+		apr_bucket_read(b, &str, &n, 1);
 		if (n > 0) {
 			old_index = ctx->post_len;
 			ctx->post_len += n;
@@ -304,10 +304,10 @@ static void php_apache_request_dtor(ap_filter_t *f SLS_DC)
 	safe_free(SG(request_info).request_uri);
 }
 
-static int php_output_filter(ap_filter_t *f, ap_bucket_brigade *bb)
+static int php_output_filter(ap_filter_t *f, apr_bucket_brigade *bb)
 {
 	php_struct *ctx;
-	ap_bucket *b;
+	apr_bucket *b;
 	apr_status_t rv;
 	const char *str;
 	apr_ssize_t n;
@@ -339,11 +339,11 @@ static int php_output_filter(ap_filter_t *f, ap_bucket_brigade *bb)
 	/* If we have received all data from the previous filters,
 	 * we "flatten" the buckets by creating a single string buffer.
 	 */
-	if (ctx->state == 1 && AP_BUCKET_IS_EOS(AP_BRIGADE_LAST(ctx->bb))) {
+	if (ctx->state == 1 && APR_BUCKET_IS_EOS(APR_BRIGADE_LAST(ctx->bb))) {
 		int fd;
 		zend_file_handle zfd;
 		smart_str content = {0};
-		ap_bucket *eos;
+		apr_bucket *eos;
 		CLS_FETCH();
 		ELS_FETCH();
 		PLS_FETCH();
@@ -360,8 +360,8 @@ static int php_output_filter(ap_filter_t *f, ap_bucket_brigade *bb)
 			goto ok;
 	
 		/* Loop over all buckets and put them into the buffer */	
-		AP_BRIGADE_FOREACH(b, ctx->bb) {
-			rv = ap_bucket_read(b, &str, &n, 1);
+		APR_BRIGADE_FOREACH(b, ctx->bb) {
+			rv = apr_bucket_read(b, &str, &n, 1);
 			if (rv == APR_SUCCESS && n > 0)
 				smart_str_appendl(&content, str, n);
 		}
@@ -400,19 +400,19 @@ static int php_output_filter(ap_filter_t *f, ap_bucket_brigade *bb)
 		goto ok;
 skip_execution:
 #define NO_DATA "php_filter did not get ANY data"
-		eos = ap_bucket_create_transient(NO_DATA, sizeof(NO_DATA)-1);
-		AP_BRIGADE_INSERT_HEAD(bb, eos);
+		eos = apr_bucket_transient_create(NO_DATA, sizeof(NO_DATA)-1);
+		APR_BRIGADE_INSERT_HEAD(bb, eos);
 ok:
 		php_apache_request_dtor(f SLS_CC);
 
 		SG(server_context) = 0;
 		/* Pass EOS bucket to next filter to signal end of request */
-		eos = ap_bucket_create_eos();
-		AP_BRIGADE_INSERT_TAIL(bb, eos);
+		eos = apr_bucket_eos_create();
+		APR_BRIGADE_INSERT_TAIL(bb, eos);
 		
 		return ap_pass_brigade(f->next, bb);
 	} else
-		ap_brigade_destroy(bb);
+		apr_brigade_destroy(bb);
 
 	return APR_SUCCESS;
 }
@@ -420,7 +420,7 @@ ok:
 static apr_status_t
 php_apache_server_shutdown(void *tmp)
 {
-	sapi_module.shutdown(&sapi_module);
+	apache2_sapi_module.shutdown(&apache2_sapi_module);
 	sapi_shutdown();
 	tsrm_shutdown();
 	return APR_SUCCESS;
@@ -430,26 +430,25 @@ static void
 php_apache_server_startup(apr_pool_t *pchild, server_rec *s)
 {
 	tsrm_startup(1, 1, 0, NULL);
-	sapi_startup(&sapi_module);
-	sapi_module.startup(&sapi_module);
-	apr_register_cleanup(pchild, NULL, php_apache_server_shutdown, NULL);
+	sapi_startup(&apache2_sapi_module);
+	apache2_sapi_module.startup(&apache2_sapi_module);
+	apr_pool_cleanup_register(pchild, NULL, php_apache_server_shutdown, NULL);
 	php_apache_register_module();
 }
 
-static void php_register_hook(void)
+static void php_register_hook(apr_pool_t *p)
 {
-	ap_hook_child_init(php_apache_server_startup, NULL, NULL, AP_HOOK_MIDDLE);
+	ap_hook_child_init(php_apache_server_startup, NULL, NULL, APR_HOOK_MIDDLE);
 	ap_register_output_filter("PHP", php_output_filter, AP_FTYPE_CONTENT);
 	ap_register_input_filter("PHP", php_input_filter, AP_FTYPE_CONTENT);
 }
 
-module MODULE_VAR_EXPORT php4_module = {
+AP_MODULE_DECLARE_DATA module php4_module = {
     STANDARD20_MODULE_STUFF,
     create_php_config,		/* create per-directory config structure */
     merge_php_config,      		/* merge per-directory config structures */
     NULL,			/* create per-server config structure */
     NULL,			/* merge per-server config structures */
     php_dir_cmds,			/* command apr_table_t */
-    NULL,          		/* handlers */
     php_register_hook		/* register hooks */
 };

@@ -49,8 +49,6 @@
 
 extern char *nettoa(unsigned long);
 
-static FFAgent *_sharedFFAgent = nil;
-
 char *categoryFilename[] =
 {
 #ifdef _UNIX_BSD_43_
@@ -80,18 +78,20 @@ char *categoryFilename[] =
 
 - (FFAgent *)init
 {
+	return (FFAgent *)[self initWithArg:NULL];
+}
+
+- (LUAgent *)initWithArg:(char *)arg
+{
 	if (didInit) return self;
 
 	[super init];
 
-	stats = [[LUDictionary alloc] init];
-	[stats setBanner:"FFAgent statistics"];
-	[stats setValue:"Flat_File" forKey:"information_system"];
-	etcDir = copyString("/etc");
+	if (arg == NULL) etcDir = copyString("/etc");
+	else etcDir = copyString(arg);
+
 	parser = [[FFParser alloc] init];
 	[parser setBanner:"FFAgent flat file parser"];
-
-	return self;
 
 	threadLock = syslock_new(0);
 
@@ -100,19 +100,11 @@ char *categoryFilename[] =
 
 + (FFAgent *)alloc
 {
-	if (_sharedFFAgent != nil)
-	{
-		[_sharedFFAgent retain];
-		return _sharedFFAgent;
-	}
+	FFAgent *agent;
 
-	_sharedFFAgent = [super alloc];
-	_sharedFFAgent = [_sharedFFAgent init];
-	if (_sharedFFAgent == nil) return nil;
-
-	system_log(LOG_DEBUG, "Allocated FFAgent 0x%08x\n", (int)_sharedFFAgent);
-
-	return _sharedFFAgent;
+	agent = [super alloc];
+	system_log(LOG_DEBUG, "Allocated FFAgent 0x%08x\n", (int)agent);
+	return agent;
 }
 
 - (char *)getLineFromFile:(FILE *)fp category:(LUCategory)cat
@@ -215,6 +207,7 @@ char *categoryFilename[] =
 	struct stat st;
 
 	if (item == nil) return NO;
+	if ([self isStale]) return NO;
 
 	fileName = [item valueForKey:"_lookup_FF_file"];
 	if (fileName == NULL) return NO;
@@ -459,11 +452,6 @@ char *categoryFilename[] =
 	return all;
 }
 
-- (const char *)serviceName
-{
-	return "Flat File";
-}
-
 - (const char *)shortName
 {
 	return "FF";
@@ -471,30 +459,12 @@ char *categoryFilename[] =
 
 - (void)dealloc
 {
-	if (stats != nil) [stats release];
 	freeString(etcDir);
 	etcDir = NULL;
 	if (parser != nil) [parser release];
 	syslock_free(threadLock);
-
 	system_log(LOG_DEBUG, "Deallocated FFAgent 0x%08x\n", (int)self);
-
 	[super dealloc];
-
-	_sharedFFAgent = nil;
-}
-
-- (LUDictionary *)statistics
-{
-	return stats;
-}
-
-- (void)resetStatistics
-{
-	if (stats != nil) [stats release];
-	stats = [[LUDictionary alloc] init];
-	[stats setBanner:"FFAgent statistics"];
-	[stats setValue:"Flat_File" forKey:"information_system"];
 }
 
 - (void)setDirectory:(char *)dir
@@ -502,165 +472,6 @@ char *categoryFilename[] =
 	if (dir == NULL) return;
 	freeString(etcDir);
 	etcDir = copyString(dir);
-}
-
-- (LUArray *)allGroupsWithUser:(char *)name
-{
-	LUArray *allWithUser;
-	LUArray *all;
-	LUDictionary *user;
-	LUDictionary *group;
-	LUDictionary *vstamp;
-	char **vals;
-	int i, len, nvals;
-	char fpath[MAXPATHLEN + 1];
-	char scratch[MAXPATHLEN + 1];
-	struct stat st;
-	long ts;
-
-	all = [self allItemsWithCategory:LUCategoryGroup];
-	if (all == nil) return nil;
-
-	len = [all count];
-	if (len == 0)
-	{
-		[all release];
-		return nil;
-	}
-
-	allWithUser = [[LUArray alloc] init];
-
-	/* first get the user's default group(s) */
-	sprintf(fpath, "%s/master.passwd", etcDir);
-	if (stat(fpath, &st) < 0) ts = 0;
-	else ts = st.st_mtime;
-
-	vstamp = [[LUDictionary alloc] init];
-	sprintf(scratch, "FFAgent validation %s %s", fpath, ctime(&ts));
-	[vstamp setBanner:scratch];
-	[self stamp:vstamp file:fpath time:ts];
-	[allWithUser addValidationStamp:vstamp];
-	[vstamp release];
-
-	user = [self itemWithKey:"name" value:name category:LUCategoryUser];
-	if (user != nil)
-	{
-		vals = [user valuesForKey:"gid"];
-		if (vals != NULL)
-		{
-			nvals = [user countForKey:"gid"];
-			if (nvals < 0) nvals = 0;
-
-			for (i = 0; i < nvals; i++)
-			{
-				group = [self itemWithKey:"gid" value:vals[i]
-					category:LUCategoryGroup];
-
-				if (group == nil) continue;
-
-				if ([allWithUser containsObject:group])
-				{
-					[group release];
-					continue;
-				}
-				[allWithUser addObject:group];
-				[group release];
-			}
-		}
-		[user release];
-	}
-
-	/* get groups with this user as a member */
-	sprintf(fpath, "%s/group", etcDir);
-	if (stat(fpath, &st) < 0) ts = 0;
-	else ts = st.st_mtime;
-
-	vstamp = [[LUDictionary alloc] init];
-	sprintf(scratch, "FFAgent validation %s %s", fpath, ctime(&ts));
-	[vstamp setBanner:scratch];
-	[self stamp:vstamp file:fpath time:ts];
-	[allWithUser addValidationStamp:vstamp];
-	[vstamp release];
-
-	for (i = 0; i < len; i ++)
-	{
-		group = [all objectAtIndex:i];
-		vals = [group valuesForKey:"users"];
-		if (vals == NULL) continue;
-		if (listIndex(name, vals) == IndexNull)
-			continue;
-
-		if ([allWithUser containsObject:group])
-			continue;
-
-		[allWithUser addObject:group];
-	}
-
-	[all release];
-
-	len = [allWithUser count];
-	if (len == 0)
-	{
-		[allWithUser release];
-		allWithUser = nil;
-	}
-
-	return allWithUser;
-}
-
-- (LUDictionary *)serviceWithName:(char *)name
-	protocol:(char *)prot
-{
-	LUDictionary *item;
-	char **k = NULL;
-	char **v = NULL;
-
-	k = appendString("name", k);
-	v = appendString(name, v);
-	if (prot != NULL)
-	{
-		k = appendString("protocol", k);
-		v = appendString(prot, v);
-	}
-	
-	item = [self itemWithKeys:k values:v category:LUCategoryService];
-
-	freeList(k);
-	k = NULL;
-
-	freeList(v);
-	v = NULL;
-
-	return item;
-}
-
-- (LUDictionary *)serviceWithNumber:(int *)number
-	protocol:(char *)prot
-{
-	char str[32];
-	LUDictionary *item;
-	char **k = NULL;
-	char **v = NULL;
-
-	sprintf(str, "%d", *number);
-
-	k = appendString("port", k);
-	v = appendString(str, v);
-	if (prot != NULL)
-	{
-		k = appendString("protocol", k);
-		v = appendString(prot, v);
-	}
-	
-	item = [self itemWithKeys:k values:v category:LUCategoryService];
-
-	freeList(k);
-	k = NULL;
-
-	freeList(v);
-	v = NULL;
-
-	return item;
 }
 
 @end

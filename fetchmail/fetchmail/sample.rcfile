@@ -27,6 +27,10 @@
 #   uidl
 #   no uidl
 #   port                      -- must be followed by a TCP/IP port number
+#   principal                 -- must be followed by a principal name
+#   ssl
+#   sslkeyfile                -- must be followed by path to private key file
+#   sslcertfile               -- must be followed by path to certificate file
 #   authenticate (or auth)    -- must be followed by an authentication type
 #   timeout                   -- must be followed by a numeric timeout value
 #   envelope                  -- must be followed by an envelope header name
@@ -65,6 +69,7 @@
 #   pass8bits
 #   dropstatus
 #   mimedecode
+#   idle
 #   no keep
 #   no flush
 #   no fetchall
@@ -74,6 +79,7 @@
 #   no pass8bits
 #   no dropstatus
 #   no mimedecode
+#   no idle
 #   limit                     -- must be followed by numeric size limit
 #   warnings                  -- must be followed by numeric size limit
 #   fetchlimit                -- must be followed by numeric msg fetch limit
@@ -91,6 +97,11 @@
 #   kpop (or KPOP)
 #   etrn (or ETRN)
 #
+# Add ssl for protocols operating over an SSL connection (POP3 and IMAP)
+#   Default port for IMAPS (IMAP over SSL) is 993
+#   Default port for POP3S (POP3 over SSL) is 995
+#      Taken from assigned numbers and compatible with netscape/outlook usage.
+#
 # Legal authentication types are
 #   login
 #   kerberos
@@ -104,6 +115,7 @@
 #   set daemon			-- must be followed by a number   
 #   set syslog
 #   set invisible
+#   set showdots
 #
 # The noise keywords `and', `with', `has', `wants', and `options' are ignored
 # anywhere in an entry; they can be used to make it resemble English.  The

@@ -1,0 +1,40 @@
+This is a port of the linux pcmcia-cs project to Apple's Operating
+Systems. Only the core parts of the code from the linux code have been
+used, ie, Card Services, the PCI to Cardbus bridge controllers, Driver
+Services and Cardbus enabler.
+
+Code used from the pcmcia-cs sources is under Mozilla Public License.
+No code under the GNU Public License should be present in Apple's
+released port of this code.  Please see the files COPYING and LICENSE
+for more information.  To get the complete version of pcmcia-cs
+sources please go to:
+
+		http://pcmcia-cs.sourceforge.net
+
+The files: IOPCCard.h, IOPCCardBridge.h, IOPCCard16Device.h,
+IOCardBusDevice.h are released under the Apple Public Source License
+Version 1.1.  Please read the file APPLE_LICENSE before using these
+files.
+
+Most of documentation in the file PCMCIA-PROG should apply to this
+port. Other documentation may or may not be as useful.  Major
+differences in using this code compared to the linux port include:
+
+    * Drivers are written IOKit style. Cardbus drivers are the
+    written the same way as PCI drivers and can use either IOPCIDevice
+    or IOCardBusDevice as their provider, 16 bit cards should use
+    IOPCCard16Device.
+    
+    * IOKit style driver matching is used instead of running a daemon
+    to handle the matching of inserted cards.  Each driver specifies
+    what cards it can match against as part of its kernel extension
+    bundle instead of having one large file.
+    
+    * IOKit style interrupts are preconfigured for drivers. RequestIRQ
+    and ReleaseIRQ should not be called.
+
+If you have questions/comments about this port please direct them to
+Apple thru the usual channels, ie, http://www.apple.com/publicsource.
+Please don't bother the maintainers of linux port, if there is shared
+problem it is Apple's best interest to get it back in the pcmcia-cs
+source base.

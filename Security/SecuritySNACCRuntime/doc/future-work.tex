@@ -1,0 +1,80 @@
+% file: .../doc/future-work.tex
+
+% $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/doc/future-work.tex,v 1.1.1.1 2001/05/18 23:14:10 mb Exp $
+% $Log: future-work.tex,v $
+% Revision 1.1.1.1  2001/05/18 23:14:10  mb
+% Move from private repository to open source repository
+%
+% Revision 1.1.1.1  1999/03/16 18:05:52  aram
+% Originals from SMIME Free Library.
+%
+% Revision 1.1  1997/01/01 22:47:45  rj
+% first check-in
+%
+
+\chapter{\label{concl-chapter}Future Work}
+
+There are still many interesting and useful things that can be done to
+Snacc.  To name a few, Snacc could be improved to:
+\begin{itemize}
+  \item{support the new features of 1993 ASN.1}
+  \item{generate forward encoders that use only the indefinite length form for constructed BER values}
+  \item{support new encoding rules such as the variants of Packed Encoding Rules (PER),
+    Canonical Encoding Rules (CER) and Distinguished Encoding Rules (DER).}
+  \item{parse complex values.}
+\end{itemize}
+
+1993 ASN.1 has many improvements such as eliminating macros and adding
+stronger mechanisms for adding type semantics.  With stronger
+semantics, the compiler can do more for the user.
+
+New encoding rules such as PER offer improved compression and
+possibly better performance in certain cases.  They can be added to
+the compiler by adding a new backend to the compiler and providing a
+runtime library.
+
+The ability to parse complex ASN.1 value notation values is useful for
+protocol testing.  It allows PDUs to be defined in a human readable
+form and converted into their encoded representation.  The combination
+of an interpreted encoder and decoder with complex value parsing and
+support for newer encoding rules would very useful for protocol
+testing.
+
+
+Here is a list of the things that I didn't get time to do:
+
+\begin{enumerate}
+
+  \item {Add contexts to nibble memory.  It's a pain if you decode
+    a table and then a value---you can't free the value without freeing
+    the table.  This one should be relatively easy and only requires
+    modifications to the libraries and the example/user code.}
+
+  \item Spiff up the table stuff.
+    \begin{enumerate}
+      \item {add subtype info (available in big parse tree) to tbl data struct}
+      \item {add enumerated types name/value info to tbl data struct}
+      \item {Add ANY DEFINED BY id to type mappings to tbl data struct (available in parse tree if using OBJECT-TYPE macro)}
+      \item {Support for C++ table drivers.}
+      \item {I'm sure there's more}
+    \end{enumerate}
+
+  \item {existing bugs!}
+    \begin{enumerate}
+      \item {The hash stuff for ANY DEFINED BY mappings will bomb if you go more than 4 levels deep (unlikely, but\dots). Add linear chaining at the bottom level.}
+      \item {add the ability to handle CMIP style ANY DEFINED BY ids.  Currently snacc gripes about this and stops.}
+	\begin{verbatim}
+	   Eg ::= SEQUENCE { id Foo, ANY DEFINED BY id }
+	   Foo::= CHOICE { a OBJECT IDENTIFIER, b INTEGER }
+	\end{verbatim}
+    \end{enumerate}
+
+  \item {Bigger changes}
+    \begin{enumerate}
+      \item {punt yacc and lex and use PCCTS (Purdue Compiler Construction\dots) (better error reporting, easier to deal with (top down), etc.)}
+      \item {make an ASN.1 '93 version (no more macros!!!)}
+      \item {add PER.}
+      \item {make forwards encoders (use only indefinite lengths, though) for C, C++ and tables.  Allows simpler buffer writing.}
+    \end{enumerate}
+
+\end{enumerate}

@@ -1,0 +1,34 @@
+(RCS control information is at the end of this file.)
+
+
+C++ ASN.1 library README
+------------------------
+
+This directory contains the class definitions and the encode, decode,
+free and print methods for all of the built-in ASN.1 types.  It also
+contains buffer routines.
+
+The makefile will produce one or two libraries, libasn1c++.a and
+libasn1tcl.a.
+Whether the tcl library is to be generated or not is determined at
+configuration time.
+
+In addition to the normal C++ libraries contents, the Tcl library
+contains the meta code and the Tcl interface described in the
+documentation.
+
+#-------------------------------------------------------------------------------
+# $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/c++-lib/README,v 1.1.1.1 2001/05/18 23:14:05 mb Exp $
+# $Log: README,v $
+# Revision 1.1.1.1  2001/05/18 23:14:05  mb
+# Move from private repository to open source repository
+#
+# Revision 1.1.1.1  1999/03/16 18:05:59  aram
+# Originals from SMIME Free Library.
+#
+# Revision 1.3  1995/07/24 15:45:53  rj
+# mention meta code and tcl interface and their additional libary.
+#
+# Revision 1.2  1994/09/01  00:55:55  rj
+# textual change to adapt to change of directory tree.
+#

@@ -50,6 +50,9 @@ static int initial_flag_internal_refs;
 #define FIELD_ALIGN_STK_SIZE 1024
 static unsigned char field_align_stk[FIELD_ALIGN_STK_SIZE];
 static int field_align_stk_top;
+#ifdef TARGET_TOC
+extern int target_flags;
+#endif
 
 void
 push_field_alignment (bit_alignment)
@@ -59,6 +62,12 @@ push_field_alignment (bit_alignment)
     {
       field_align_stk[field_align_stk_top++] = maximum_field_alignment;
       maximum_field_alignment = bit_alignment;
+#ifdef TARGET_TOC
+      if (bit_alignment == 16)
+	target_flags |= MASK_ALIGN_MAC68K;
+      else
+	target_flags &= ~MASK_ALIGN_MAC68K;
+#endif
     }
   else
     error ("too many #pragma options align or #pragma pack(n)");
@@ -68,7 +77,15 @@ void
 pop_field_alignment ()
 {
   if (field_align_stk_top > 0)
-    maximum_field_alignment = field_align_stk[--field_align_stk_top];
+    {
+      maximum_field_alignment = field_align_stk[--field_align_stk_top];
+#ifdef TARGET_TOC
+      if (maximum_field_alignment == 16)
+	target_flags |= MASK_ALIGN_MAC68K;
+      else
+	target_flags &= ~MASK_ALIGN_MAC68K;
+#endif
+    }
   else
     error ("too many #pragma options align=reset");
 }
@@ -140,7 +157,7 @@ handle_pragma (pgetc, pungetc, pname)
   char *p = lineBuf;
 
   /* Fill our buffer with the remainder of the "#pragma xxx" line.  */
-
+  *p = 0;
   while ((c = pgetc ()) != EOF)
     {
       if (c == '\n')
@@ -153,6 +170,11 @@ handle_pragma (pgetc, pungetc, pname)
       else if (count == sizeof(lineBuf))
         warning ("#pragma line is too long - ignoring remainder of line");
     }                   /* getc(finput) != EOF  */
+
+  /* Toss any trailing whitespace.  */
+  while (p > lineBuf && isspace (p[-1]))
+    --p;
+
   *p = 0;
   p = lineBuf;          /* Reset to point to buffer start.  */
 
@@ -413,12 +435,19 @@ handle_pragma (pgetc, pungetc, pname)
 	warning ("malformed pragma pack(<AlignmentBytes>)");
       else
 	{
-	  long int i = strtol (++p, &p, 10);
+	  ++p;
 	  while (isspace (*p)) p++;
-	  if (i < 0 || i > 16 || *p != ')')
-	    warning ("malformed pragma pack(0..16)");
+	  if (*p == ')')
+	    pop_field_alignment ();
 	  else
-	    push_field_alignment (i * 8);
+	    {
+	      long int i = strtol (p, &p, 10);
+	      while (isspace (*p)) p++;
+	      if (i < 0 || i > 16 || *p != ')')
+		warning ("malformed pragma pack(0..16)");
+	      else
+		push_field_alignment (i * 8);
+	    }
 	}
     }
 #endif /* APPLE_MAC68K_ALIGNMENT */
@@ -668,5 +697,50 @@ output_const_pic_addr (exp, size)
     default:
         abort();
     }
+}
+
+/* Return whether NAME is a header filename.
+   Pretty feeble heuristics -- check for a '.' followed by a 'h'...  */
+
+int
+is_header_file_p (const char *name)
+{
+  if (name)
+    {
+      const char *dot = rindex (name, '.');
+      if (dot && dot[1] == 'h')
+	return 1;
+    }
+  return 0;
+}
+
+
+int
+is_different_header_file_p (const char *name)
+{
+  if (is_header_file_p (name))
+    {
+      const char *fn = rindex (name, '/');
+      const char *mf = rindex (main_input_filename, '/');
+
+      if (fn == 0) fn = name;
+      if (mf == 0) mf = main_input_filename;
+
+      while (*fn == *mf)
+	{
+	  if (*fn == '.') 		/* Names are the same  */
+	    return 0;
+
+	  if (*fn == 0 || *mf == 0)	/* Different lengths  */
+	    return 1;
+
+	  ++fn;
+	  ++mf;
+	}
+
+      return 1;				/* Different names  */
+    }
+
+  return 0;				/* Not a header file  */
 }
 

@@ -1,0 +1,18 @@
+SecurityServer is a work in progress.
+
+Important items that we know need to be cleaned up for Cheetah:
+Sort out which memory allocations should be sensitive, and make them so.
+Use CssmAutoData & friends copiously
+Replace MIG server loop with a custom version and integrate deferred
+  allocation release and timed events.
+
+Questionable for Cheetah (not important enough/too big?):
+Multi-threading the SecurityServer main request loop. This would require
+  thread-safing the entire server core, which right now it probably isn't.
+
+Major missing features (for future consideration):
+ACL-related callbacks (+ possibly other callbacks)
+  This would require IPC support that makes the IPC path asynchronous
+  (or else requires interesting step dancing on the client side).
+  It's not trivial, but eventually we'll have to do it. At least the
+  data structure transports are already pretty much in place.

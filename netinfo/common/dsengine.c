@@ -948,7 +948,7 @@ dsengine_netinfo_string_pathmatch(dsengine *s, u_int32_t dsid, char *path, u_int
 	numeric = 1;
 	for (i = 0; (numeric == 1) && (path[i] != '\0'); i++)
 	{
-		if ((path[0] < '0') || (path[0] > '9')) numeric = 0;
+		if ((path[i] < '0') || (path[i] > '9')) numeric = 0;
 	}
 	
 	if (numeric == 1)

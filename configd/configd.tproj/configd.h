@@ -20,6 +20,16 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * Modification History
+ *
+ * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * - public API conversion
+ *
+ * March 24, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
 #ifndef _S_CONFIGD_H
 #define _S_CONFIGD_H
 
@@ -29,11 +39,20 @@
 #include <mach/mach.h>
 #include <mach/mach_error.h>
 
-#include <SystemConfiguration/SCD.h>
+/* configd doesn't need the preference keys */
+#define _SCSCHEMADEFINITIONS_H
+
+#include <SystemConfiguration/SystemConfiguration.h>
+#include <SystemConfiguration/SCPrivate.h>
+#include "SCDynamicStoreInternal.h"
+#include <SystemConfiguration/SCValidation.h>
 #include "config_types.h"
-#include "SCDPrivate.h"
 #include "_SCD.h"
 
+extern Boolean		_configd_fork;		/* TRUE if process should be run in the background */
+extern Boolean		_configd_verbose;	/* TRUE if verbose logging enabled */
+extern CFMutableSetRef	_plugins_exclude;	/* bundle identifiers to exclude from loading */
+extern CFMutableSetRef	_plugins_verbose;	/* bundle identifiers to enable verbose logging */
 
 __BEGIN_DECLS
 __END_DECLS

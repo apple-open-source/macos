@@ -311,6 +311,7 @@ static void unexec_doit(int infd,int outfd)
   unsigned long delta = 0;
 #if defined(NS_TARGET) || !defined(NeXT)
   struct dysymtab_command *dysymtab;
+  struct twolevel_hints_command *hinttab;
   unsigned long extreloff = 0;
   unsigned long nextrel = 0;
   unsigned long locreloff = 0;
@@ -837,6 +838,16 @@ static void unexec_doit(int infd,int outfd)
 	  header_position += load_command->cmdsize;
 
 	  break;
+
+       case LC_TWOLEVEL_HINTS: 
+          hinttab = (struct twolevel_hints_command *)load_command;
+          hinttab->offset += delta;
+          
+          mcopy (-1, outfd, (unsigned long)load_command, header_position, load_command->cmdsize,
+                 "write two-level hint command");
+          header_position += load_command->cmdsize;
+
+          break;
 #endif
 	default:
 	  mcopy (-1, outfd, (unsigned long)load_command, header_position, load_command->cmdsize,

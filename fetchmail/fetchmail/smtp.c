@@ -27,6 +27,9 @@ static struct opt extensions[] =
     {"8BITMIME",	ESMTP_8BITMIME},
     {"SIZE",    	ESMTP_SIZE},
     {"ETRN",		ESMTP_ETRN},
+#ifdef ODMR_ENABLE
+    {"ATRN",		ESMTP_ATRN},
+#endif /* ODMR_ENABLE */
     {(char *)NULL, 0},
 };
 
@@ -94,11 +97,25 @@ int SMTP_from(int sock, const char *from, const char *opts)
     char buf[MSGBUFSIZE];
 
     if (strchr(from, '<'))
-	sprintf(buf, "MAIL FROM: %s", from);
+#ifdef HAVE_SNPRINTF
+	snprintf(buf, sizeof(buf),
+#else
+	sprintf(buf,
+#endif /* HAVE_SNPRINTF */
+		"MAIL FROM: %s", from);
     else
-	sprintf(buf, "MAIL FROM:<%s>", from);
+#ifdef HAVE_SNPRINTF
+    snprintf(buf, sizeof(buf),
+#else
+    sprintf(buf,
+#endif /* HAVE_SNPRINTF */
+	    "MAIL FROM:<%s>", from);
     if (opts)
+#ifdef HAVE_SNPRINTF
+	snprintf(buf+strlen(buf), sizeof(buf)-strlen(buf), "%s", opts);
+#else
 	strcat(buf, opts);
+#endif /* HAVE_SNPRINTF */
     SockPrintf(sock,"%s\r\n", buf);
     if (outlevel >= O_MONITOR)
 	report(stdout, "%cMTP> %s\n", smtp_mode, buf);

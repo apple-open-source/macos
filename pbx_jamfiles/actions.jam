@@ -25,14 +25,43 @@ rule Clean
     Clean.Remove $(PRODUCT_NAME:G=clean) : $(2) $(TEMP_DIR) ;
     Clean.Remove clean : $(2) $(TEMP_DIR) ;
 
+    # Removal of archive in case of tools that are class archives,
+    # this is which don't necessarily end with TOOL_SUFFIX.
+    local ARCHIVE_SUFFIX ;
+    local ARCHIVE_TARGET ;
+    if $(JAVA_ARCHIVE_TYPE) = JAR {
+        ARCHIVE_SUFFIX default = .jar ;
+    }
+    if $(JAVA_ARCHIVE_TYPE) = ZIP {
+        ARCHIVE_SUFFIX default = .zip ;
+    }
+    ARCHIVE_SUFFIX default = "" ;
+    ARCHIVE_TARGET = $(2:G=)$(ARCHIVE_SUFFIX) ;
+    LOCATE on $(ARCHIVE_TARGET) = $(BUILD_DIR) ;
+    Clean.RemoveArchive clean : $(ARCHIVE_TARGET) ;
+
     # whole project content to remove on full clean
     Clean.Remove clean : $(2) $(PRECOMP_TRUSTFILE) ;
-    Clean.Remove clean : $(2) $(BASE_PROJECT_HEADER_DIR) ;
+    # mferris:20010310 Do not remove whole shared ProjectHeaders dir. Just remove the specific subdirs for this target.
+    # Clean.Remove clean : $(2) $(BASE_PROJECT_HEADER_DIR) ;
+    if $(PROJECT_HEADER_DIR) {
+        Clean.Remove clean : $(2) $(PROJECT_HEADER_DIR) ;
+    }
+    if $(WRAPPER_CLONE_DIR) {
+        Clean.Remove clean : $(2) $(WRAPPER_CLONE_DIR) ;
+    }
 }
 
 actions quietly piecemeal together existing Clean.Remove 
 {
     $(RM) -rf "$(2)"
+}
+
+actions Clean.RemoveArchive
+{
+    if [ -f "$(2)" ]; then
+        $(RM) -rf "$(2)"
+    fi
 }
 
 # Build build : <product>
@@ -65,22 +94,21 @@ rule Install
         BulkCopy $(INSTALLED_PRODUCT) : $(2) ;
         # additional resource preserving copies for special files
         for SPECIAL_FILE in $(PRESERVE_RESOURCES) {
-            local SPECIAL_FILE_PATH SPECIAL_FILE_PATH default = $(INSTALL_DIR)$(/)$(SPECIAL_FILE) ;
+            SPECIAL_FILE_INSTALLED_PATH default = $(INSTALL_DIR)$(/)$(SPECIAL_FILE:G=) ;
             # preserved copies are differentiated by "<Preserve>" grist
             # and depend on full installed path of the primary tar copy
-            INSTALLED_PRODUCT_PATH default = $(INSTALL_DIR)$(/)$(INSTALLED_PRODUCT) ;
-            DEPENDS $(SPECIAL_FILE_PATH:G=Preserve) : $(INSTALLED_PRODUCT_PATH) ;
-            ResourcePreservingCp $(SPECIAL_FILE_PATH:G=Preserve) : $(SPECIAL_FILE) ;
+            INSTALLED_PRODUCT_PATH default = $(INSTALL_DIR)$(/)$(INSTALLED_PRODUCT:G=) ;
+            DEPENDS $(SPECIAL_FILE_INSTALLED_PATH:G=Preserve) : $(INSTALLED_PRODUCT_PATH) ;
+            DEPENDS $(1) : $(SPECIAL_FILE_INSTALLED_PATH:G=Preserve) ;
+            ResourcePreservingCp $(SPECIAL_FILE_INSTALLED_PATH:G=Preserve) : $(SPECIAL_FILE) ;
         }
-        # move and preserve any CFM bridge to install location
-        if $(CFM_BRIDGE) = YES {
-            VECTOR_INSTALL_DIR default = $(INSTALL_ROOT)/System/Library/CFMSupport/BridgeLibraries ;
-            INSTALLED_BRIDGE default = $(VECTOR_INSTALL_DIR)$(/)$(PRODUCT_NAME).bridge ;
-            BRIDGE default = $(BUILD_DIR)$(/)$(PRODUCT_NAME).bridge  ;
-            DEPENDS $(INSTALLED_BRIDGE) : $(VECTOR_INSTALL_DIR) ;
-            Mkdir $(VECTOR_INSTALL_DIR) ;
-            DEPENDS $(1) : $(INSTALLED_BRIDGE) ;
-            ResourcePreservingMv $(INSTALLED_BRIDGE) : $(BRIDGE) ;
+        # remove development property list
+        if $(DEVELOPMENT_PLIST_FILE) {
+            DEVELOPMENT_PLIST_FILE_REMOVE = $(DEVELOPMENT_PLIST_FILE:G=Remove) ;
+            NOTFILE $(DEVELOPMENT_PLIST_FILE_REMOVE) ;
+            DEPENDS $(1) : $(DEVELOPMENT_PLIST_FILE_REMOVE) ;
+            DEPENDS $(DEVELOPMENT_PLIST_FILE_REMOVE) : $(INSTALLED_PRODUCT) ;
+            RelativeRm $(DEVELOPMENT_PLIST_FILE_REMOVE) : $(INSTALL_DIR) ;
         }
         # strip the installed product, unless UNSTRIPPED_PRODUCT nonempty
         if $(STRIPPED_PRODUCT) && ( $(STRIP_INSTALLED_PRODUCT) = YES ) && $(UNSTRIPPED_PRODUCT) = "" {
@@ -88,8 +116,9 @@ rule Install
             LOCATE on $(INSTALLED_STRIPPED_PRODUCT) = $(INSTALL_DIR) ;
             DEPENDS $(INSTALLED_STRIPPED_PRODUCT) : $(INSTALL_DIR) ;
             if $(PRODUCT_TYPE) != Tool && $(PRODUCT_TYPE) != Application {
-                STRIPFLAGS on $(INSTALLED_PRODUCT) += -S ;
+                STRIPFLAGS default = -S ;
             }
+            STRIPFLAGS on $(INSTALLED_PRODUCT) = $(STRIPFLAGS) ;
             Strip $(INSTALLED_PRODUCT) : $(INSTALLED_STRIPPED_PRODUCT) ;
         }
         # set standard file mode and ownership

@@ -97,13 +97,12 @@ machopic_classify_ident (ident)
 		     && name[4] == 'C'
 		     && name[5] == '_'));
     
-  tree temp, decl  = lookup_name (ident, 0);
+  tree temp, decl = lookup_name (ident, 0);
 
   if (!decl)
     {
       if (lprefix)
 	{
-	  char *name = IDENTIFIER_POINTER (ident);
 	  int len = strlen(name);
 	  if ( (len > 5 && !strcmp (name+len-5, "$stub"))
 	    || (len > 6 && !strcmp (name+len-6, "$stub\"")))
@@ -246,7 +245,7 @@ machopic_define_name (name)
 /* This is a static to make inline functions work.  The rtx */
 /* representing the PIC base symbol allways points to here. */
 static char function_base[MAX_NAME_LEN];
-static int current_pic_label_num;
+int current_machopic_label_num = 0;
 
 char*
 machopic_function_base_name ()
@@ -266,11 +265,11 @@ machopic_function_base_name ()
 	 by the incredibly scientific test below.  This is because code in
 	 rs6000.c makes the same ugly test when loading the PIC reg.  */
  
-      ++current_pic_label_num;
+      ++current_machopic_label_num;
       if (*curr_name == '+' || *curr_name == '-')
-	sprintf (function_base, "*\"L-%d$pb\"", current_pic_label_num);
+	sprintf (function_base, "*\"L-%d$pb\"", current_machopic_label_num);
       else
-	sprintf (function_base, "*L%d$pb", current_pic_label_num);
+	sprintf (function_base, "*L%d$pb", current_machopic_label_num);
 
       name = curr_name;
     }
@@ -278,15 +277,97 @@ machopic_function_base_name ()
   return function_base;
 }
 
-static tree machopic_non_lazy_pointers = 0;
+#define MACHOPIC_STUB_HASH_SIZE	37
+static tree machopic_non_lazy_pointers[MACHOPIC_STUB_HASH_SIZE] = {0};
+
+static int name_needs_quotes(const char *name)
+{
+  int c;
+  while ((c = *name++) != '\0')
+    {
+      if (! ((c >= 'A' && c <= 'Z')
+	  || (c >= 'a' && c <= 'z')
+	  || (c >= '0' && c <= '9')
+	  || c == '_'))
+	return 1;
+    }
+  return 0;
+}
+
+enum machopic_name_type { NORMAL_NAME, STUB_NAME, LAZY_PTR_NAME };
+
+/* Standard hashpjw algorithm on the [ORIGINAL] name.  */
+
+static unsigned int
+MACHOPIC_STUB_HASH (const char *name, enum machopic_name_type ntype)
+{
+  unsigned int hash = 0;
+  char buffer[MAX_NAME_LEN];
+  const char *np = name;
+
+  /* If we're looking at a stub or non-lazy name, we need to get the
+     original identifier name, since that's what was used to create the
+     original hash value.  Strip out the $stub/$non-lazy-ptr stuff.  */
+
+  if (ntype != NORMAL_NAME)
+    {
+      int quoted = FALSE;
+      char *cp = buffer;
+
+      if (*np++ != '*')
+	abort ();
+
+      if (ntype == STUB_NAME && *np == '\"')
+	{
+	  /* Only routine stub names can be quoted.  */
+	  quoted = TRUE;
+	  ++np;
+	}
+      if (*np++ != 'L')
+	abort ();
+      if (*np++ != '_')
+	abort ();
+
+      while (*np)
+	{
+	  if (*np == '$')
+	    {
+	      if (! strcmp (np+1, (ntype == LAZY_PTR_NAME) ? "non_lazy_ptr"
+			    : (quoted) ? "stub\"" : "stub"))
+		break;
+	    }
+	  *cp++ = *np++;
+	}
+
+      *cp = 0;
+      np = buffer;
+    }
+
+  while (*np)
+    {
+      unsigned int g;
+      hash <<= 4;
+      hash += *np;
+      g = hash & 0xF0000000;
+      if (g)
+	{ 
+	  hash ^= (g >> 24);
+	  hash ^= g;
+	}
+      ++np;  
+    }
+
+  return hash % MACHOPIC_STUB_HASH_SIZE;
+}
 
 char* 
 machopic_non_lazy_ptr_name (name)
      const char *name;
 {
   tree temp, ident = get_identifier (name);
-  
-  for (temp = machopic_non_lazy_pointers;
+  unsigned int idx = MACHOPIC_STUB_HASH (name, NORMAL_NAME);
+
+  for (temp = machopic_non_lazy_pointers[idx];
        temp != NULL_TREE; 
        temp = TREE_CHAIN (temp))
     {
@@ -298,49 +379,39 @@ machopic_non_lazy_ptr_name (name)
     char buffer[MAX_NAME_LEN];
     tree ptr_name;
 
-    strcpy (buffer, "*L");
     if (name[0] == '*')
-      strcat (buffer, name+1);
+      {
+	strcpy (buffer, "*L");
+	strcat (buffer, name+1);
+      }
     else
       {
-	strcat (buffer, "_");
+	strcpy (buffer, "*L_");
 	strcat (buffer, name);
       }
       
     strcat (buffer, "$non_lazy_ptr");
     ptr_name = get_identifier (buffer);
 
-    machopic_non_lazy_pointers 
-      = perm_tree_cons (ptr_name, ident, machopic_non_lazy_pointers);
+    machopic_non_lazy_pointers[idx]
+      = perm_tree_cons (ptr_name, ident, machopic_non_lazy_pointers[idx]);
 
-    TREE_USED (machopic_non_lazy_pointers) = 0;
+    TREE_USED (machopic_non_lazy_pointers[idx]) = 0;
     return IDENTIFIER_POINTER (ptr_name);
   }
 }
 
 
-static tree machopic_stubs = 0;
-
-static int
-name_needs_quotes(name)
-     const char *name;
-{
-  int c;
-  while ((c = *name++) != '\0')
-    {
-      if (!isalnum(c) && c != '_')
-        return 1;
-    }
-  return 0;
-}
+static tree machopic_stubs[MACHOPIC_STUB_HASH_SIZE] = {0};
 
 char* 
 machopic_stub_name (name)
      const char *name;
 {
   tree temp, ident = get_identifier (name);
-  
-  for (temp = machopic_stubs;
+  unsigned idx = MACHOPIC_STUB_HASH (name, NORMAL_NAME);
+ 
+  for (temp = machopic_stubs[idx];
        temp != NULL_TREE; 
        temp = TREE_CHAIN (temp))
     {
@@ -353,29 +424,23 @@ machopic_stub_name (name)
     tree ptr_name;
     int needs_quotes = name_needs_quotes(name);
 
-    if (needs_quotes)
-      strcpy (buffer, "*\"L");
-    else
-      strcpy (buffer, "*L");
     if (name[0] == '*')
       {
+	strcpy (buffer, (needs_quotes) ? "*\"L" : "*L");
 	strcat (buffer, name+1);
       }
     else
       {
-	strcat (buffer, "_");
+	strcpy (buffer, (needs_quotes) ? "*\"L_" : "*L_");
 	strcat (buffer, name);
       }
 
-    if (needs_quotes)
-      strcat (buffer, "$stub\"");
-    else
-      strcat (buffer, "$stub");
+    strcat (buffer, (needs_quotes) ? "$stub\"" : "$stub");
     ptr_name = get_identifier (buffer);
 
-    machopic_stubs = perm_tree_cons (ptr_name, ident, machopic_stubs);
-    TREE_USED (machopic_stubs) = 0;
-
+    machopic_stubs[idx] = perm_tree_cons (ptr_name,
+					  ident, machopic_stubs[idx]);
+    TREE_USED (machopic_stubs[idx]) = 0;
     return IDENTIFIER_POINTER (ptr_name);
   }
 }
@@ -386,7 +451,11 @@ machopic_validate_stub_or_non_lazy_ptr (name, validate_stub)
   int validate_stub;
 {
     tree temp, ident = get_identifier (name);
-    for (temp = validate_stub ? machopic_stubs : machopic_non_lazy_pointers;
+    unsigned idx = MACHOPIC_STUB_HASH (name,
+			(validate_stub) ? STUB_NAME : LAZY_PTR_NAME);
+
+    for (temp = validate_stub ? machopic_stubs[idx]
+			      : machopic_non_lazy_pointers[idx];
          temp != NULL_TREE;
          temp = TREE_CHAIN (temp))
       if (ident == TREE_PURPOSE (temp))
@@ -394,9 +463,16 @@ machopic_validate_stub_or_non_lazy_ptr (name, validate_stub)
 	  /* Mark both the stub or non-lazy pointer
 	     as well as the original symbol as being referenced.  */
           TREE_USED (temp) = 1;
-	  if (TREE_CODE (TREE_VALUE (temp)) == IDENTIFIER_NODE)
-	    TREE_SYMBOL_REFERENCED (TREE_VALUE (temp)) = 1;
+
+	  ident = TREE_VALUE (temp);	/* original identifier  */
+	  if (TREE_CODE (ident) == IDENTIFIER_NODE)
+	    TREE_SYMBOL_REFERENCED (ident) = 1;
+
+	  return;
 	}
+
+  /* Should never get here!  */
+  abort ();
 }
 
 /*
@@ -434,11 +510,12 @@ machopic_indirect_data_reference (orig, reg)
 
 	  if (reg == 0) abort ();
 
-	  emit_insn (gen_rtx (SET, Pmode, hi_sum_reg,
+	  emit_insn (gen_rtx_SET (Pmode, hi_sum_reg,
 			      gen_rtx (PLUS, Pmode, pic_offset_table_rtx,
 				       gen_rtx (HIGH, Pmode, offset))));
 	  emit_insn (gen_rtx (SET, Pmode, reg,
 			      gen_rtx (LO_SUM, Pmode, hi_sum_reg, offset)));
+
 	  if (0)
 	  {
 	    rtx insn = get_last_insn ();
@@ -731,6 +808,7 @@ machopic_legitimize_pic_address (orig, mode, reg)
 	      rtx offset = gen_rtx (CONST, Pmode,
 				    gen_rtx (MINUS, Pmode,
 					     XEXP (orig, 0), pic_base));
+	      rtx mem;
 #if defined (HAVE_hi_sum) || defined (TARGET_TOC) /* i.e., PowerPC */
               rtx hi_sum_reg = reload_in_progress ?
 #ifdef HI_SUM_TARGET_RTX /* apparently only defined for HP PA-RISC  */
@@ -740,16 +818,23 @@ machopic_legitimize_pic_address (orig, mode, reg)
 #endif
 		  /* Generating a new reg may expose opportunities for common
 		     subexpression elimination.  */
-		gen_reg_rtx (SImode);
+		gen_reg_rtx (Pmode);
 
 	      emit_insn (gen_rtx (SET, Pmode, hi_sum_reg,
 				  gen_rtx (PLUS, Pmode,
 					   pic_offset_table_rtx,
 					   gen_rtx (HIGH, Pmode, offset))));
+#if 1
+	      mem = gen_rtx_MEM (GET_MODE (orig),
+				 gen_rtx (LO_SUM, Pmode, hi_sum_reg, offset));
+	      RTX_UNCHANGING_P (mem) = 1;
+	      emit_insn (gen_rtx_SET (VOIDmode, reg, mem));
+#else
 	      emit_insn (gen_rtx (SET, VOIDmode, reg,
 				  gen_rtx (MEM, GET_MODE (orig),
 					   gen_rtx (LO_SUM, Pmode, 
 						    hi_sum_reg, offset))));
+#endif
 	      pic_ref = reg;
 
 #else  /* !HAVE_hi_sum  */
@@ -969,51 +1054,76 @@ machopic_legitimize_pic_address (orig, mode, reg)
   return pic_ref;
 }
 
-
+#ifdef AS_SET_WORKS
+static struct set_override {
+  const char *original, *override;
+  struct set_override *next;
+} *overrides = 0;
+static
+void
+remember_set (const char *original, const char *override)
+{
+  struct set_override *p = malloc (sizeof (struct set_override));
+  p->original = original;
+  p->override = override;
+  p->next = overrides;
+  overrides = p;
+}
+#endif	/* AS_SET_WORKS  */
 void
 machopic_finish (asm_out_file)
      FILE *asm_out_file;
 {
   tree temp;
+  int  idx;
 
-  for (temp = machopic_stubs;
-       temp != NULL_TREE; 
-       temp = TREE_CHAIN (temp))
-    {
-      char symb[MAX_NAME_LEN];
-      char stub[MAX_NAME_LEN];
-      char *symb_name = IDENTIFIER_POINTER (TREE_VALUE (temp));
-      char *stub_name = IDENTIFIER_POINTER (TREE_PURPOSE (temp));
+#ifdef AS_SET_WORKS
+  struct set_override *p;
+  for (p = overrides; p != NULL; p = p->next)
+    fprintf (asm_out_file, "\t.set _%s,_%s\n", p->original, p->override);
+#endif
 
-      tree decl  = lookup_name (TREE_VALUE (temp), 0);
-
-      if (! TREE_USED (temp))
-          continue;
-
-      /* don't emit stubs for static inline functions which has not been compiled. */
-      if (decl
-          && TREE_CODE (decl) == FUNCTION_DECL
-          && DECL_INLINE (decl)
-          && ! TREE_PUBLIC (decl)
-          && ! TREE_ASM_WRITTEN (decl))
-          continue;
+  for (idx = 0; idx < MACHOPIC_STUB_HASH_SIZE; ++idx)
+    for (temp = machopic_stubs[idx];
+	 temp != NULL_TREE; 
+	 temp = TREE_CHAIN (temp))
+      {
+	char symb[MAX_NAME_LEN];
+	char stub[MAX_NAME_LEN];
+	const char *symb_name = IDENTIFIER_POINTER (TREE_VALUE (temp));
+	const char *stub_name = IDENTIFIER_POINTER (TREE_PURPOSE (temp));
+	tree decl;
   
-      if (symb_name[0] == '*')
-	strcpy (symb, symb_name+1);
-      else if (symb_name[0] == '-' || symb_name[0] == '+')
-	strcpy (symb, symb_name);	  
-      else
-	symb[0] = '_', strcpy (symb+1, symb_name);
-
-      if (stub_name[0] == '*')
-	strcpy (stub, stub_name+1);
-      else
-	stub[0] = '_', strcpy (stub+1, stub_name);
-
-      /* must be in aux-out.c */
-      machopic_output_stub (asm_out_file, symb, stub);
-	  
-    }
+	if (! TREE_USED (temp))
+	    continue;
+  
+	decl = lookup_name (TREE_VALUE (temp), 0);
+  
+	/* don't emit stubs for static inline functions which have not
+	   been compiled.  */
+  
+	if (decl
+	    && TREE_CODE (decl) == FUNCTION_DECL
+	    && DECL_INLINE (decl)
+	    && ! TREE_PUBLIC (decl)
+	    && ! TREE_ASM_WRITTEN (decl))
+	  continue;
+    
+	if (symb_name[0] == '*')
+	  strcpy (symb, symb_name+1);
+	else if (symb_name[0] == '-' || symb_name[0] == '+')
+	  strcpy (symb, symb_name);	
+	else
+	  symb[0] = '_', strcpy (symb+1, symb_name);
+  
+	if (stub_name[0] == '*')
+	  strcpy (stub, stub_name+1);
+	else
+	  stub[0] = '_', strcpy (stub+1, stub_name);
+  
+	/* must be in aux-out.c */
+	machopic_output_stub (asm_out_file, symb, stub);
+      }
 
 #if defined (I386) || defined (TARGET_TOC) /* i.e., PowerPC */
   {
@@ -1022,47 +1132,49 @@ machopic_finish (asm_out_file)
   }
 #endif
 
-  for (temp = machopic_non_lazy_pointers;
-       temp != NULL_TREE; 
-       temp = TREE_CHAIN (temp))
-    {
-      char *symb_name = IDENTIFIER_POINTER (TREE_VALUE (temp));
-      char *lazy_name = IDENTIFIER_POINTER (TREE_PURPOSE (temp));
-
-      tree decl  = lookup_name (TREE_VALUE (temp), 0);
-
-      if (! TREE_USED (temp))
-          continue;
-
-      if (machopic_ident_defined_p (TREE_VALUE (temp))
-          || (decl && DECL_PRIVATE_EXTERN (decl)))
-	{
-	  char symb[MAX_NAME_LEN];
-	  
-	  if (symb_name[0] == '*')
-	    strcpy (symb, symb_name+1);
-	  else
-	    strcpy (symb, symb_name);
-
-	  data_section ();
-	  assemble_align (UNITS_PER_WORD * BITS_PER_UNIT);
-	  assemble_label (lazy_name);
-	  assemble_integer (gen_rtx (SYMBOL_REF, Pmode, symb_name),
-			    GET_MODE_SIZE (Pmode), 1);
-	}
-      else
-	{
-	  machopic_nl_symbol_ptr_section ();
-	  assemble_name (asm_out_file, lazy_name); 
-	  fprintf (asm_out_file, ":\n");
-
-	  fprintf (asm_out_file, "\t.indirect_symbol ");
-	  assemble_name (asm_out_file, symb_name); 
-	  fprintf (asm_out_file, "\n");
-
-	  assemble_integer (const0_rtx, GET_MODE_SIZE (Pmode), 1);
-	}
-    }
+  for (idx = 0; idx < MACHOPIC_STUB_HASH_SIZE; ++idx)
+    for (temp = machopic_non_lazy_pointers[idx];
+	 temp != NULL_TREE; 
+	 temp = TREE_CHAIN (temp))
+      {
+	const char *symb_name = IDENTIFIER_POINTER (TREE_VALUE (temp));
+	const char *lazy_name = IDENTIFIER_POINTER (TREE_PURPOSE (temp));
+	tree decl;
+  
+	if (! TREE_USED (temp))
+	    continue;
+  
+	decl = lookup_name (TREE_VALUE (temp), 0);
+  
+	if (machopic_ident_defined_p (TREE_VALUE (temp))
+	    || (decl && DECL_PRIVATE_EXTERN (decl)))
+	  {
+	    char symb[MAX_NAME_LEN];
+	
+	    if (symb_name[0] == '*')
+	      strcpy (symb, symb_name+1);
+	    else
+	      strcpy (symb, symb_name);
+	
+	    data_section ();
+	    assemble_align (UNITS_PER_WORD * BITS_PER_UNIT);
+	    assemble_label (lazy_name);
+	    assemble_integer (gen_rtx (SYMBOL_REF, Pmode, symb_name),
+			      GET_MODE_SIZE (Pmode), 1);
+	  }
+	else
+	  {
+	    machopic_nl_symbol_ptr_section ();
+	    assemble_name (asm_out_file, lazy_name); 
+	    fprintf (asm_out_file, ":\n");
+	
+	    fprintf (asm_out_file, "\t.indirect_symbol ");
+	    assemble_name (asm_out_file, symb_name); 
+	    fprintf (asm_out_file, "\n");
+	
+	    assemble_integer (const0_rtx, GET_MODE_SIZE (Pmode), 1);
+	  }
+      }
 }
 
 int 
@@ -1107,6 +1219,169 @@ machopic_operand_p (op)
   return 0;
 }
 
+int Barfola (int x) {return x;}
+
+/* DECL is a coalesced item (data or function) which came from a header file.
+   Using the file/line info, mangle DECL's name so that we can share it.  */
+
+void mangle_coalesced_item_name (tree decl, int output_stub)
+{
+  const char *const sourcefile = DECL_SOURCE_FILE (decl);
+  const char *cp;
+  const char *name;
+  char sn[32], *override, *dp;
+  int i;
+  rtx x = 0;
+
+  if (! DECL_COALESCED (decl))
+    abort ();
+
+  /* Get the item's name, as described by its RTL (if a function) or by
+     the DECL_ASSEMBLER_NAME otherwise.  */
+
+  if (TREE_CODE (decl) == FUNCTION_DECL)
+    {
+      x = DECL_RTL (decl);
+      if (GET_CODE (x) != MEM)
+	abort ();
+      x = XEXP (x, 0);
+      if (GET_CODE (x) != SYMBOL_REF)
+	abort ();
+      name = XSTR (x, 0);
+    }
+  else
+    name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+
+  if (0) fprintf (stderr, "# %s in '%s'\n", name, sourcefile);
+
+  cp = rindex (sourcefile, '/');
+  if (cp == NULL)
+    cp = sourcefile;
+  else
+    ++cp;	/* skip last slash.  */
+
+  /* Copy the name of the header file (or the first 16 chars, anyway.)  */
+  sn[0] = '_';
+  for (i = 0; cp[i] != 0 && i < 16; ++i)
+    sn[i+1] = (isalnum(cp[i])) ? cp[i] : '_';
+  sn[i+1] = 0;
+
+  if (0)
+{
+  char hstr[8];
+  sprintf (hstr, "_%d", DECL_SOURCE_LINE (decl));
+  strcat (sn, hstr);
+}
+else
+    {
+      /* HashPJW the complete pathname.  Seed the line number.  */
+      unsigned int hash = DECL_SOURCE_LINE (decl);
+      static const char hc[32] = "0123456789abcdefghijklmnopqrstuv";
+      char hstr[8];
+
+#if 1
+      /* Just use the basename.  */
+      cp = rindex (sourcefile, '/');
+      if (cp == NULL)
+#endif
+      cp = sourcefile;
+      while (*cp)
+	{
+	  if (isalnum (*cp))
+	    {
+	      unsigned int g;
+	      hash <<= 4;
+	      hash += *cp;
+	      g = hash & 0xF0000000;
+	      if (g)
+		{
+		  hash ^= (g >> 24);
+		  hash ^= g;
+		}
+	    }
+	  ++cp;
+	}
+
+      /* If an inline function, hash the INSN length in, too.  */
+
+      if (TREE_CODE (decl) == FUNCTION_DECL && DECL_INLINE (decl)) 
+	{
+	  rtx insn = DECL_SAVED_INSNS (decl);
+
+	  for (i = 0 ; insn != 0; insn = NEXT_INSN (insn))
+	    if (GET_CODE (insn) != NOTE)
+	      ++i;
+
+	  if (i)
+	    {
+	      hash <<= 4;
+	      hash += i;
+	    }
+	}
+
+      hstr[0] = '_'; hstr[1] = hc[hash & 0x1F];
+      hstr[2] = hc[(hash >> 5) & 0x1f];
+      hstr[3] = hc[(hash >> 10) & 0x1f];
+      hstr[4] = hc[(hash >> 15) & 0x1f];
+      hstr[5] = hc[(hash >> 20) & 0x1f];
+      hstr[6] = hc[(hash >> 25) & 0x1f];
+      hstr[7] = 0;
+
+      strcat (sn, hstr);
+    }
+  override = malloc (strlen (name) + strlen (sn) + 1);
+
+  strcpy (override, name);
+  strcat (override, sn);
+
+#ifdef AS_SET_WORKS
+  remember_set (name, override);
+#else
+  if (output_stub && TREE_CODE (decl) == FUNCTION_DECL)
+    {
+      /* An UTTERLY horrible piece of hackery.  Let's Blame Rusty :-)  */
+
+      /* Output a one-instruction BRANCH to the stub routine.  */
+
+      /* Temporarily turn off coalescing so we get the "raw" section.  */
+      DECL_COALESCED (decl) = 0;
+      function_section (decl);
+      DECL_COALESCED (decl) = 1;
+
+      /* Properly align the function  */ 
+      i = floor_log2 (FUNCTION_BOUNDARY / BITS_PER_UNIT);
+      if (i > 0)
+	ASM_OUTPUT_ALIGN (asm_out_file, i);
+
+      if (TREE_PUBLIC (decl))
+	ASM_GLOBALIZE_LABEL (asm_out_file, name);
+
+      ASM_OUTPUT_LABEL (asm_out_file, name);
+      MACHOPIC_DEFINE_DECL (decl, name);
+
+      /* Eeeeeek!!  Fixme!!  */
+#ifdef TARGET_TOC
+      fprintf (asm_out_file, "\tb ");
+#else
+      fprintf (asm_out_file, "\tjmp ");
+#endif
+      assemble_name (asm_out_file, machopic_stub_name (override));
+      fprintf (asm_out_file, "\n\n");
+
+#if 0
+      /* This is for measurement purposes only -- we should remove this.  */
+      DECL_SECTION_NAME (decl) = build_string (14, "__coal_inlines");
+#endif
+    }
+#endif	/* AS_SET_WORKS  */
+
+  /* Mangle the assembly name of the function so that assemble_start_function
+     does the right thing.  Or override the assembler name.  */
+  if (x)
+    XSTR (x, 0) = override;
+  else
+    DECL_ASSEMBLER_NAME (decl) = get_identifier (override);
+}
 
 /* Is DECL an RTTI variable?
    Please excuse the horrible method for determining whether DECL is
@@ -1119,6 +1394,18 @@ int rtti_var_p (tree decl)
       const char *name = XSTR (XEXP (DECL_RTL (decl), 0), 0);
 
       if (!strncmp (name, "__ti", 4))
+	return 1;
+    }
+  return 0;
+}
+
+int rtti_func_p (tree decl)
+{
+  if (TREE_CODE (decl) == FUNCTION_DECL)
+    {
+      const char *name = IDENTIFIER_POINTER (DECL_NAME (decl));
+
+      if (!strncmp (name, "__tf", 4))
 	return 1;
     }
   return 0;

@@ -6,7 +6,7 @@ In order to use this configuration:
 	echo "source /usr/share/init/tcsh/login"  > ~/.login
 	echo "source /usr/share/init/tcsh/logout" > ~/.logout
 
-To do this system-wide, so the same instead to /etc/csh.cshrc, /etc/csh.login, and /etc/csh.logout.
+To do this system-wide, do the same instead to /etc/csh.cshrc, /etc/csh.login, and /etc/csh.logout.
 
 In order to customize tcsh:
 

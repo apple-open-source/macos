@@ -1,124 +1,121 @@
-dnl $Id: config.m4,v 1.1.1.1 2000/08/10 02:08:33 wsanchez Exp $
+dnl
+dnl $Id: config.m4,v 1.1.1.2 2001/07/19 00:19:51 zarzycki Exp $
+dnl
 
-AC_MSG_CHECKING(whether to include Pdflib 3.x support)
-AC_ARG_WITH(pdflib,
-[  --with-pdflib[=DIR]     Include pdflib 3.x support.
-                          DIR is the pdflib install directory,
-                          defaults to /usr/local.],
-[
-echo $withval
-  case "$withval" in
-    no)
-      AC_MSG_RESULT(no) ;;
+PHP_ARG_WITH(pdflib,whether to include PDFlib support,
+[  --with-pdflib[=DIR]     Include PDFlib support. DIR is the pdflib
+                          base install directory, defaults to /usr/local
+                          Set DIR to "shared" to build as dl, or "shared,DIR"
+                          to build as dl and still specify DIR.])
+
+if test "$PHP_PDFLIB" != "no"; then
+
+  PHP_SUBST(PDFLIB_SHARED_LIBADD)
+  PHP_EXTENSION(pdf, $ext_shared)
+
+  case "$PHP_PDFLIB" in
     yes)
-      AC_MSG_RESULT(yes)
-      PHP_EXTENSION(pdf)
-      old_LDFLAGS=$LDFLAGS
-		  old_LIBS=$LIBS
-		  LIBS="$LIBS -ltiff -ljpeg -lpng -lz"
-      AC_CHECK_LIB(pdf, PDF_show_boxed, [AC_DEFINE(HAVE_PDFLIB,1,[ ])],
-        [AC_MSG_ERROR(pdflib extension requires at least pdflib 3.x. You may also need libtiff and libjpeg. If so, use the options --with-tiff-dir=<DIR> and --with-jpeg-dir=<DIR>)])
-      LIBS=$old_LIBS
-      LDFLAGS=$old_LDFLAGS
-      AC_ADD_LIBRARY(pdf)
-      AC_ADD_LIBRARY(tiff)
-      AC_ADD_LIBRARY(png)
-      AC_ADD_LIBRARY(jpeg)
-      AC_ADD_LIBRARY(z)
-      ;;
-    *)
-      test -f $withval/include/pdflib.h && PDFLIB_INCLUDE="$withval/include"
-      if test -n "$PDFLIB_INCLUDE" ; then
-        AC_MSG_RESULT(yes)
-        PHP_EXTENSION(pdf)
-        old_withval=$withval
+      AC_CHECK_LIB(pdf, PDF_show_boxed, [
+        AC_DEFINE(HAVE_PDFLIB,1,[ ])
+      ],[
+        AC_MSG_ERROR(pdflib extension requires at least pdflib 3.x. You may also need libtiff and libjpeg. If so, use the options --with-tiff-dir=<DIR> and --with-jpeg-dir=<DIR>)
+      ],[
+        -ltiff -ljpeg -lpng -lz
+      ])
 
-        if test $HAVE_ZLIB; then
-          AC_MSG_CHECKING([for zlib (needed by pdflib 3.x)])
-          AC_ARG_WITH(zlib-dir,
-          [  --with-zlib-dir[=DIR]   zlib dir for pdflib 3.x or include zlib support],[
-            if test -z $withval; then
-              withval="/usr/local"
-            fi
-            old_LIBS=$LIBS
-            LIBS="$LIBS -L$withval/lib"
-            AC_CHECK_LIB(z,deflate, [PDFLIB_LIBS="-L$withval/lib -lz"],[AC_MSG_RESULT(no)],)
-            LIBS=$old_LIBS
-            AC_ADD_LIBRARY_WITH_PATH(z, $withval/lib)
+      PHP_ADD_LIBRARY(pdf,, PDFLIB_SHARED_LIBADD)
+      PHP_ADD_LIBRARY(tiff,, PDFLIB_SHARED_LIBADD)
+      PHP_ADD_LIBRARY(png,, PDFLIB_SHARED_LIBADD)
+      PHP_ADD_LIBRARY(jpeg,, PDFLIB_SHARED_LIBADD)
+      PHP_ADD_LIBRARY(z,, PDFLIB_SHARED_LIBADD)
+    ;;
+    *)
+      test -f $PHP_PDFLIB/include/pdflib.h && PDFLIB_INCLUDE="$PHP_PDFLIB/include"
+      if test -n "$PDFLIB_INCLUDE" ; then
+
+        if test "$PHP_ZLIB_DIR" = "no"; then
+          AC_MSG_ERROR(PDF extension requires ZLIB. Use --with-zlib-dir=<DIR>)
+        fi
+        
+        PHP_ADD_LIBRARY_WITH_PATH(z, $PHP_ZLIB_DIR/lib, PDFLIB_SHARED_LIBADD)
+ 
+        PHP_ARG_WITH(jpeg-dir, for the location of libjpeg, 
+        [  --with-jpeg-dir[=DIR]     PDFLIB: define libjpeg install directory])
+
+        if test "$PHP_JPEG_DIR" != "no"; then
+          AC_CHECK_LIB(jpeg,jpeg_read_header, 
+          [
+            PHP_ADD_LIBRARY_WITH_PATH(jpeg, $PHP_JPEG_DIR/lib, PDFLIB_SHARED_LIBADD)
           ],[
-            AC_CHECK_LIB(z,deflate, ,[AC_MSG_RESULT(no, try --with-zlib=<DIR>)],)
-            AC_ADD_LIBRARY(z)
-            LIBS="$LIBS -lz"
+            AC_MSG_ERROR(libjpeg not found!)
+          ],[
+            -L$PHP_JPEG_DIR/lib
           ])
         else
-          echo "checking for libz needed by pdflib 3.x... already zlib support"
-          PDFLIB_LIBS="$ZLIB_LIBS"
-          LIBS="$LIBS -lz"
+          AC_CHECK_LIB(jpeg,jpeg_read_header,
+          [ 
+            PHP_ADD_LIBRARY(jpeg,, PDFLIB_SHARED_LIBADD)
+          ],[
+            AC_MSG_RESULT(no, try --with-jpeg-dir=<DIR>)
+          ])
         fi
 
-        AC_ARG_WITH(jpeg-dir,
-        [  --with-jpeg-dir[=DIR]   jpeg dir for pdflib 3.x],[
-          if test -z $withval; then
-            withval="/usr/local"
-          fi
-          old_LIBS=$LIBS
-          LIBS="$LIBS -L$withval/lib"
-          AC_CHECK_LIB(jpeg,jpeg_read_header, [PDFLIB_LIBS="$PDFLIB_LIBS -L$withval/lib -ljpeg"],[AC_MSG_RESULT(no)],)
-          LIBS=$old_LIBS
-          AC_ADD_LIBRARY_WITH_PATH(jpeg, $withval/lib)
-          LIBS="$LIBS -L$withval/lib -ljpeg"
-        ],[
-          AC_CHECK_LIB(jpeg,jpeg_read_header, ,[AC_MSG_RESULT(no, try --with-jpeg-dir=<DIR>)],)
-          AC_ADD_LIBRARY(jpeg)
-          LIBS="$LIBS -ljpeg"
-        ]) 
+ 
+        PHP_ARG_WITH(png-dir, for the location of libpng, 
+        [  --with-png-dir[=DIR]      PDFLIB: define libpng install directory])
+        
+        if test "$PHP_PNG_DIR" != "no"; then
+          AC_CHECK_LIB(png,png_create_info_struct, 
+          [
+            PHP_ADD_LIBRARY_WITH_PATH(png, $PHP_PNG_DIR/lib, PDFLIB_SHARED_LIBADD)
+          ],[
+            AC_MSG_ERROR(libpng not found!)
+          ],[
+            -L$PHP_PNG_DIR/lib
+          ])
+        else
+          AC_CHECK_LIB(png,png_create_info_struct,
+          [ 
+            PHP_ADD_LIBRARY(png,, PDFLIB_SHARED_LIBADD)
+          ],[
+            AC_MSG_RESULT(no, try --with-png-dir=<DIR>)
+          ])
+        fi
+        
 
-        AC_ARG_WITH(png-dir,
-        [  --with-png-dir[=DIR]    png dir for pdflib 3.x],[
-          if test -z $withval; then
-            withval="/usr/local"
-          fi
-          old_LIBS=$LIBS
-          LIBS="$LIBS -L$withval/lib"
-          AC_CHECK_LIB(png,png_create_info_struct, [PDFLIB_LIBS="$PDFLIB_LIBS -L$withval/lib -lpng"],[AC_MSG_RESULT(no)],)
-          LIBS=$old_LIBS
-          AC_ADD_LIBRARY_WITH_PATH(png, $withval/lib)
-          LIBS="$LIBS -L$withval/lib -lpng"
-        ],[
-          AC_CHECK_LIB(png,png_create_info_struct, ,[AC_MSG_RESULT(no, try --with-png-dir=<DIR>)],)
-          AC_ADD_LIBRARY(png)
-          LIBS="$LIBS -lpng"
-        ]) 
+        PHP_ARG_WITH(tiff-dir, for the location of libtiff,
+        [  --with-tiff-dir[=DIR]     PDFLIB: define libtiff install directory])
 
-        AC_ARG_WITH(tiff-dir,
-        [  --with-tiff-dir[=DIR]   tiff dir for pdflib 3.x],[
-          if test -z $withval; then
-            withval="/usr/local"
-          fi
-          old_LIBS=$LIBS
-          LIBS="$LIBS -L$withval/lib"
-          AC_CHECK_LIB(tiff,TIFFOpen, [PDFLIB_LIBS="$PDFLIB_LIBS -L$withval/lib -ltiff"],[AC_MSG_RESULT(no)],)
-          LIBS=$old_LIBS
-          AC_ADD_LIBRARY_WITH_PATH(tiff, $withval/lib)
-          LIBS="$LIBS -L$withval/lib -ltiff"
-        ],[
-          AC_CHECK_LIB(tiff,TIFFOpen, ,[AC_MSG_RESULT(no, Try --with-tiff-dir=<DIR>)],)
-          AC_ADD_LIBRARY(tiff)
-          LIBS="$LIBS -ltiff"
-        ]) 
-        withval=$old_withval
+        if test "$PHP_TIFF_DIR" != "no"; then
+          AC_CHECK_LIB(tiff,TIFFOpen, 
+          [
+            PHP_ADD_LIBRARY_WITH_PATH(tiff, $PHP_TIFF_DIR/lib, PDFLIB_SHARED_LIBADD)
+          ],[
+            AC_MSG_ERROR(libtiff not found!)
+          ],[
+            -L$PHP_TIFF_DIR/lib
+          ])
+        else
+          AC_CHECK_LIB(tiff,TIFFOpen,
+          [
+            PHP_ADD_LIBRARY(tiff,, PDFLIB_SHARED_LIBADD)
+          ],[
+            AC_MSG_RESULT(no, Try --with-tiff-dir=<DIR>)
+          ])
+        fi
 
-        old_LIBS=$LIBS
-        LIBS="$LIBS -L$withval/lib"
-        AC_CHECK_LIB(pdf, PDF_show_boxed, [AC_DEFINE(HAVE_PDFLIB,1,[ ]) PDFLIB_LIBS="$PDFLIB_LIBS -L$withval/lib -lpdf"],
-          [AC_MSG_ERROR(pdflib extension requires pdflib 3.x.)])
-        LIBS=$old_LIBS
-        AC_ADD_LIBRARY_WITH_PATH(pdf, $withval/lib)
-        AC_ADD_INCLUDE($PDFLIB_INCLUDE)
-      else
-        AC_MSG_RESULT(no)
-      fi ;;
+
+        AC_CHECK_LIB(pdf, PDF_show_boxed, 
+        [
+          AC_DEFINE(HAVE_PDFLIB,1,[ ]) 
+          PHP_ADD_LIBRARY_WITH_PATH(pdf, $PHP_PDFLIB/lib, PDFLIB_SHARED_LIBADD)
+          PHP_ADD_INCLUDE($PDFLIB_INCLUDE)
+        ],[
+          AC_MSG_ERROR(pdflib extension requires at least pdflib 3.x.)
+        ],[
+          -L$PHP_PDFLIB/lib
+        ])
+      fi 
+    ;;
   esac
-],[
-  AC_MSG_RESULT(no)
-])
+fi

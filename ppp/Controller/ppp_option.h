@@ -56,7 +56,7 @@
 /* Device default values */
 
 #define OPT_DEV_NAME_DEF 		TTY_MODEM
-#define OPT_DEV_SPEED_DEF 		0	// use the default tty speed, CCL will set the speed
+#define OPT_DEV_SPEED_DEF 		115200	// use the default tty speed, CCL will set the speed
 #define OPT_DEV_CONNECTSCRIPT_DEF	"Apple Internal 56K Modem (v.34)"
 #define OPT_DEV_SPEAKER_DEF		1
 #define OPT_DEV_DIALMODE_DEF		0 // Normal mode
@@ -69,7 +69,8 @@
 #define OPT_COMM_IDLETIMER_DEF 		0	// no idle timer
 #define OPT_COMM_SESSIONTIMER_DEF 	0	// no session timer
 #define OPT_COMM_CONNECTDELAY_DEF 	0 	// delay to wait after link is connected (in seconds)
-//
+#define OPT_COMM_REMINDERTIMER_DEF 	0	// no reminder timer
+
 #define OPT_COMM_TERMINALMODE_DEF	PPP_COMM_TERM_NONE
 
 /* LCP default values */	
@@ -99,21 +100,27 @@
 #define OPT_LOGFILE_DEF		""	// no logs by default (suggested name "ppp.log")
 #define OPT_AUTOCONNECT_DEF 	0	// dial on demand not activated
 #define OPT_DISCLOGOUT_DEF 	1	// disconnect on logout by default
-#define OPT_CONNLOGOUT_DEF 	0	// don't allow connection when logged out by default
-                                        // only apply to dial on demand connections
-
 
 
 u_long set_long_opt (struct opt_long *option, u_long opt, u_long mini, u_long maxi, u_long limit);
 u_long set_str_opt (struct opt_str *option, char *opt, int maxlen);
 
-u_long ppp_setoption (u_short id, struct msg *req);
-u_long ppp_getoption (u_short id, struct msg *req);
+u_long ppp_setoption (struct client *client, struct msg *req);
+u_long ppp_getoption (struct client *client, struct msg *req);
 
 void options_init_all(SCDSessionRef session);
-void options_dispose_all(SCDSessionRef session);
-//void read_options(u_char *ifname, u_short ifunit, struct options *opts);
 
-u_char isUserLoggedIn();
+int getStringFromEntity(SCDSessionRef session, CFStringRef domain, CFStringRef serviceID, 
+        CFStringRef entity, CFStringRef property, u_char *str, u_int16_t maxlen);
+int getNumberFromEntity(SCDSessionRef session, CFStringRef domain, CFStringRef serviceID, 
+        CFStringRef entity, CFStringRef property, u_int32_t *outval);
+int getAddressFromEntity(SCDSessionRef session, CFStringRef domain, CFStringRef serviceID, 
+        CFStringRef entity, CFStringRef property, u_int32_t *outval);
+int getNumber(CFDictionaryRef service, CFStringRef property, u_int32_t *outval);
+int getString(CFDictionaryRef service, CFStringRef property, u_char *str, u_int16_t maxlen);
+CFTypeRef getEntity(SCDSessionRef session, CFStringRef domain, CFStringRef serviceID, CFStringRef entity);
+int getServiceName(SCDSessionRef session, CFStringRef serviceID, u_char *str, u_int16_t maxlen);
+
+extern char gLoggedInUser[32];
 
 #endif

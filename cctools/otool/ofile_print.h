@@ -144,6 +144,20 @@ extern void print_indirect_symbols(
     long strings_size,
     enum bool verbose);
 
+extern void print_hints(
+    struct mach_header *mh,
+    struct load_command *load_commands,
+    enum byte_sex load_commands_byte_sex,
+    char *object_addr,
+    unsigned long object_size,
+    struct twolevel_hint *hints,
+    unsigned long nhints,
+    struct nlist *symbols,
+    long nsymbols,
+    char *strings,
+    long strings_size,
+    enum bool verbose);
+
 extern void print_segment_command(
     struct segment_command *sg,
     unsigned long object_size,
@@ -185,6 +199,10 @@ extern void print_sub_umbrella_command(
     struct sub_umbrella_command *usub,
     struct load_command *lc);
 
+extern void print_sub_library_command(
+    struct sub_library_command *lsub,
+    struct load_command *lc);
+
 extern void print_sub_client_command(
     struct sub_client_command *csub,
     struct load_command *lc);
@@ -204,6 +222,10 @@ extern void print_fvmfile_command(
 
 extern void print_routines_command(
     struct routines_command *rc);
+
+extern void print_twolevel_hints_command(
+    struct twolevel_hints_command *hints,
+    unsigned long object_size);
 
 extern void print_thread_states(
     char *begin, 

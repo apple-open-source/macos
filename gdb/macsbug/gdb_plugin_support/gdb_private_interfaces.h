@@ -137,6 +137,8 @@ typedef struct Plugin_Pvt_Data {
     char   		   plugin_name[1];	/* start of plugin's name		*/
 } Plugin_Pvt_Data;
 
+extern char *tilde_expand(char *pathname);	/* defined in readline.c		*/
+
 
 /*----------------------*
  | gdb_io_redirection.c |

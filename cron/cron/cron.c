@@ -17,7 +17,7 @@
 
 #if !defined(lint) && !defined(LINT)
 static const char rcsid[] =
-  "$FreeBSD: src/usr.sbin/cron/cron/cron.c,v 1.9 1999/08/28 01:15:49 peter Exp $";
+  "$FreeBSD: src/usr.sbin/cron/cron/cron.c,v 1.14 2001/03/09 03:14:09 babkin Exp $";
 #endif
 
 #define	MAIN_PROGRAM
@@ -36,19 +36,22 @@ static	void	usage __P((void)),
 		run_reboot_jobs __P((cron_db *)),
 		cron_tick __P((cron_db *)),
 		cron_sync __P((void)),
-		cron_sleep __P((void)),
+		cron_sleep __P((cron_db *)),
+		cron_clean __P((cron_db *)),
 #ifdef USE_SIGCHLD
 		sigchld_handler __P((int)),
 #endif
 		sighup_handler __P((int)),
 		parse_args __P((int c, char *v[]));
 
+static time_t	last_time = 0;
+static int	dst_enabled = 0;
 
 static void
 usage() {
     char **dflags;
 
-	fprintf(stderr, "usage: cron [-x debugflag[,...]]\n");
+	fprintf(stderr, "usage: cron [-s] [-o] [-x debugflag[,...]]\n");
 	fprintf(stderr, "\ndebugflags: ");
 
         for(dflags = DebugFlagNames; *dflags; dflags++) {
@@ -100,19 +103,9 @@ main(argc, argv)
 # endif
 		(void) fprintf(stderr, "[%d] cron started\n", getpid());
 	} else {
-		switch (fork()) {
-		case -1:
-			log_it("CRON",getpid(),"DEATH","can't fork");
+		if (daemon(1, 0) == -1) {
+			log_it("CRON",getpid(),"DEATH","can't become daemon");
 			exit(0);
-			break;
-		case 0:
-			/* child process */
-			log_it("CRON",getpid(),"STARTUP","fork ok");
-			(void) setsid();
-			break;
-		default:
-			/* parent process should just die */
-			_exit(0);
 		}
 	}
 
@@ -127,7 +120,7 @@ main(argc, argv)
 # if DEBUGGING
 	    /* if (!(DebugFlags & DTEST)) */
 # endif /*DEBUGGING*/
-			cron_sleep();
+			cron_sleep(&database);
 
 		load_database(&database);
 
@@ -164,6 +157,11 @@ static void
 cron_tick(db)
 	cron_db	*db;
 {
+	static struct tm	lasttm;
+	static time_t	diff = 0, /* time difference in seconds from the last offset change */
+		difflimit = 0; /* end point for the time zone correction */
+	struct tm	otztm; /* time in the old time zone */
+	int		otzminute=0, otzhour=0, otzdom=0, otzmonth=0, otzdow=0;
  	register struct tm	*tm = localtime(&TargetTime);
 	register int		minute, hour, dom, month, dow;
 	register user		*u;
@@ -180,6 +178,72 @@ cron_tick(db)
 	Debug(DSCH, ("[%d] tick(%d,%d,%d,%d,%d)\n",
 		getpid(), minute, hour, dom, month, dow))
 
+	if (dst_enabled && last_time != 0 
+	&& TargetTime > last_time /* exclude stepping back */
+	&& tm->tm_gmtoff != lasttm.tm_gmtoff ) {
+
+		diff = tm->tm_gmtoff - lasttm.tm_gmtoff;
+
+		if ( diff > 0 ) { /* ST->DST */
+			/* mark jobs for an earlier run */
+			difflimit = TargetTime + diff;
+			for (u = db->head;  u != NULL;  u = u->next) {
+				for (e = u->crontab;  e != NULL;  e = e->next) {
+					e->flags &= ~NOT_UNTIL;
+					if ( e->lastrun >= TargetTime )
+						e->lastrun = 0;
+					/* not include the ends of hourly ranges */
+					if ( e->lastrun < TargetTime - 3600 )
+						e->flags |= RUN_AT;
+					else
+						e->flags &= ~RUN_AT;
+				}
+			}
+		} else { /* diff < 0 : DST->ST */
+			/* mark jobs for skipping */
+			difflimit = TargetTime - diff;
+			for (u = db->head;  u != NULL;  u = u->next) {
+				for (e = u->crontab;  e != NULL;  e = e->next) {
+					e->flags |= NOT_UNTIL;
+					e->flags &= ~RUN_AT;
+				}
+			}
+		}
+	}
+
+	if (diff != 0) {
+		/* if the time was reset of the end of special zone is reached */
+		if (last_time == 0 || TargetTime >= difflimit) {
+			/* disable the TZ switch checks */
+			diff = 0;
+			difflimit = 0;
+			for (u = db->head;  u != NULL;  u = u->next) {
+				for (e = u->crontab;  e != NULL;  e = e->next) {
+					e->flags &= ~(RUN_AT|NOT_UNTIL);
+				}
+			}
+		} else {
+			/* get the time in the old time zone */
+			time_t difftime = TargetTime + tm->tm_gmtoff - diff;
+#ifdef __APPLE__
+			{
+				struct tm *tmp = gmtime(&difftime);
+				memcpy(&otztm, tmp, sizeof(struct tm));
+			}
+#else
+			gmtime_r(&difftime, &otztm);
+#endif
+
+			/* make 0-based values out of these so we can use them as indicies
+			 */
+			otzminute = otztm.tm_min -FIRST_MINUTE;
+			otzhour = otztm.tm_hour -FIRST_HOUR;
+			otzdom = otztm.tm_mday -FIRST_DOM;
+			otzmonth = otztm.tm_mon +1 /* 0..11 -> 1..12 */ -FIRST_MONTH;
+			otzdow = otztm.tm_wday -FIRST_DOW;
+		}
+	}
+
 	/* the dom/dow situation is odd.  '* * 1,15 * Sun' will run on the
 	 * first and fifteenth AND every Sunday;  '* * * * Sun' will run *only*
 	 * on Sundays;  '* * 1,15 * *' will run *only* the 1st and 15th.  this
@@ -191,6 +255,27 @@ cron_tick(db)
 			Debug(DSCH|DEXT, ("user [%s:%d:%d:...] cmd=\"%s\"\n",
 					  env_get("LOGNAME", e->envp),
 					  e->uid, e->gid, e->cmd))
+
+			if ( diff != 0 && (e->flags & (RUN_AT|NOT_UNTIL)) ) {
+				if (bit_test(e->minute, otzminute)
+				 && bit_test(e->hour, otzhour)
+				 && bit_test(e->month, otzmonth)
+				 && ( ((e->flags & DOM_STAR) || (e->flags & DOW_STAR))
+					  ? (bit_test(e->dow,otzdow) && bit_test(e->dom,otzdom))
+					  : (bit_test(e->dow,otzdow) || bit_test(e->dom,otzdom))
+					)
+				   ) {
+					if ( e->flags & RUN_AT ) {
+						e->flags &= ~RUN_AT;
+						e->lastrun = TargetTime;
+						job_add(e, u);
+						continue;
+					} else 
+						e->flags &= ~NOT_UNTIL;
+				} else if ( e->flags & NOT_UNTIL )
+					continue;
+			}
+
 			if (bit_test(e->minute, minute)
 			 && bit_test(e->hour, hour)
 			 && bit_test(e->month, month)
@@ -199,10 +284,15 @@ cron_tick(db)
 			      : (bit_test(e->dow,dow) || bit_test(e->dom,dom))
 			    )
 			   ) {
+				e->flags &= ~RUN_AT;
+				e->lastrun = TargetTime;
 				job_add(e, u);
 			}
 		}
 	}
+
+	last_time = TargetTime;
+	lasttm = *tm;
 }
 
 
@@ -226,7 +316,9 @@ cron_sync() {
 
 
 static void
-cron_sleep() {
+cron_sleep(db)
+	cron_db	*db;
+{
 	int	seconds_to_wait = 0;
 
 	/*
@@ -241,6 +333,7 @@ cron_sleep() {
 		 */
 
 		if (seconds_to_wait < -600 || seconds_to_wait > 600) {
+			cron_clean(db);
 			cron_sync();
 			continue;
 		}
@@ -264,6 +357,26 @@ cron_sleep() {
 	}
 }
 
+
+/* if the time was changed abruptly, clear the flags related
+ * to the daylight time switch handling to avoid strange effects
+ */
+
+static void
+cron_clean(db)
+	cron_db	*db;
+{
+	user		*u;
+	entry		*e;
+
+	last_time = 0;
+
+	for (u = db->head;  u != NULL;  u = u->next) {
+		for (e = u->crontab;  e != NULL;  e = e->next) {
+			e->flags &= ~(RUN_AT|NOT_UNTIL);
+		}
+	}
+}
 
 #ifdef USE_SIGCHLD
 static void
@@ -309,8 +422,14 @@ parse_args(argc, argv)
 {
 	int	argch;
 
-	while ((argch = getopt(argc, argv, "x:")) != -1) {
+	while ((argch = getopt(argc, argv, "osx:")) != -1) {
 		switch (argch) {
+		case 'o':
+			dst_enabled = 0;
+			break;
+		case 's':
+			dst_enabled = 1;
+			break;
 		case 'x':
 			if (!set_debug_flags(optarg))
 				usage();
@@ -320,3 +439,4 @@ parse_args(argc, argv)
 		}
 	}
 }
+

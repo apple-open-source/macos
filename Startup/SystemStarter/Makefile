@@ -16,8 +16,6 @@ HFILES = main.h Log.h SystemStarter.h StartupItems.h StartupDisplay.h
 
 CFILES = main.c Log.c SystemStarter.c StartupItems.c TextDisplay.c
 
-BUNDLES = QuartzDisplay
-
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble .gdbinit
 
 

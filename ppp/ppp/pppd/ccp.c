@@ -25,7 +25,7 @@
  * OR MODIFICATIONS.
  */
 
-#define RCSID	"$Id: ccp.c,v 1.3 2001/01/20 03:35:43 callie Exp $"
+#define RCSID	"$Id: ccp.c,v 1.4 2001/05/09 17:52:30 callie Exp $"
 
 #include <stdlib.h>
 #include <string.h>
@@ -48,7 +48,7 @@ static option_t ccp_option_list[] = {
       "Disable CCP negotiation" },
     { "-ccp", o_bool, &ccp_protent.enabled_flag,
       "Disable CCP negotiation" },
-    { "bsdcomp", o_special, setbsdcomp,
+    { "bsdcomp", o_special, (void *)setbsdcomp,
       "Request BSD-Compress packet compression" },
     { "nobsdcomp", o_bool, &ccp_wantoptions[0].bsd_compress,
       "don't allow BSD-Compress", OPT_A2COPY,
@@ -56,7 +56,7 @@ static option_t ccp_option_list[] = {
     { "-bsdcomp", o_bool, &ccp_wantoptions[0].bsd_compress,
       "don't allow BSD-Compress", OPT_A2COPY,
       &ccp_allowoptions[0].bsd_compress },
-    { "deflate", 1, setdeflate,
+    { "deflate", 1, (void *)setdeflate,
       "request Deflate compression" },
     { "nodeflate", o_bool, &ccp_wantoptions[0].deflate,
       "don't allow Deflate compression", OPT_A2COPY,
@@ -1150,7 +1150,7 @@ ccp_printpkt(p, plen, printer, arg)
     case TERMACK:
     case TERMREQ:
 	if (len > 0 && *p >= ' ' && *p < 0x7f) {
-	    print_string(p, len, printer, arg);
+	    print_string((char *)p, len, printer, arg);
 	    p += len;
 	    len = 0;
 	}

@@ -129,4 +129,8 @@ typedef struct {
 
 - (BOOL)match:(LUDictionary *)pattern;
 
+- (LUCategory)category;
+
+- (char *)description;
+
 @end

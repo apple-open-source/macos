@@ -46,6 +46,7 @@ typedef enum {
     ipconfig_status_server_not_responding_e = 10,
     ipconfig_status_lease_terminated_e = 11,
     ipconfig_status_media_inactive_e = 12,
+    ipconfig_status_server_error_e = 13,
     ipconfig_status_last_e,
 } ipconfig_status_t;
 
@@ -66,6 +67,7 @@ ipconfig_status_string(ipconfig_status_t status)
 	"server not responding",
 	"lease terminated",
 	"media inactive",
+	"server error",
     };
     if (status < 0 || status >= ipconfig_status_last_e)
 	return ("<unknown>");

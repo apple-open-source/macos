@@ -20,27 +20,31 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include <SystemConfiguration/SCP.h>
-#include "SCPPrivate.h"
+/*
+ * Modification History
+ *
+ * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * - public API conversion
+ *
+ * November 9, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
 
-#include <SystemConfiguration/SCD.h>
+#include <SystemConfiguration/SystemConfiguration.h>
+#include <SystemConfiguration/SCPrivate.h>
+#include "SCPreferencesInternal.h"
 
-#include <fcntl.h>
-#include <unistd.h>
-#include <sys/errno.h>
-
-
-SCPStatus
-SCPSet(SCPSessionRef session, CFStringRef key, CFPropertyListRef data)
+Boolean
+SCPreferencesSetValue(SCPreferencesRef session, CFStringRef key, CFPropertyListRef value)
 {
-	SCPSessionPrivateRef	sessionPrivate;
+	SCPreferencesPrivateRef	sessionPrivate	= (SCPreferencesPrivateRef)session;
 
-	if (session == NULL) {
-		return SCP_FAILED;           /* you can't do anything with a closed session */
-	}
-	sessionPrivate = (SCPSessionPrivateRef)session;
+	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCPreferencesSetValue:"));
+	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  key   = %@"), key);
+	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  value = %@"), value);
 
-	CFDictionarySetValue(sessionPrivate->prefs, key, data);
-	sessionPrivate->changed = TRUE;
-	return SCP_OK;
+	CFDictionarySetValue(sessionPrivate->prefs, key, value);
+	sessionPrivate->accessed = TRUE;
+	sessionPrivate->changed  = TRUE;
+	return TRUE;
 }

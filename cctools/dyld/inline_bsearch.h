@@ -177,3 +177,46 @@ size_t nmemb)
 	}
 	return(NULL);
 }
+
+/*
+ * inline_bsearch_toc_with_index() searches for symbol_name in the specified
+ * tocs (table of contents) with ntocs number of entries.  If starting_index is
+ * less then the number of entries then that is used as the start of the search.
+ * the symbol table for the table of contents is pointed to by
+ * toc_bsearch_symbols and the string table is pointed to by
+ * toc_bsearch_strings.  If a table of contents entry for the symbol is found
+ * a pointer to it is returned.  Else NULL is returned.
+ */
+static
+inline
+struct dylib_table_of_contents *
+inline_bsearch_toc_with_index(
+char *symbol_name,
+struct dylib_table_of_contents *tocs,
+unsigned long ntocs,
+unsigned long starting_index)
+{
+    long low, high, mid;
+    int cmp;
+
+	low = 0;
+	high = ntocs - 1;
+	if(starting_index >= ntocs)
+	    mid = (low + high) / 2;
+	else
+	    mid = starting_index;
+	while(low <= high){
+	    cmp = strcmp(symbol_name, toc_bsearch_strings +
+		     toc_bsearch_symbols[tocs[mid].symbol_index].n_un.n_strx);
+	    if(cmp == 0)
+		return(tocs + mid);
+	    if(cmp > 0){ /* symbol_name > tocs[mid] move right */
+		low = mid + 1;
+	    }
+	    else{ /* else move left */
+		high = mid - 1;
+	    }
+	    mid = (low + high) / 2;
+	}
+	return(NULL);
+}

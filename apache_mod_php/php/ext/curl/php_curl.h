@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,14 +12,17 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Author: Sterling Hughes <Sterling.Hughes@pentap.net>                 |
+   | Author: Sterling Hughes <sterling@php.net>                           |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_curl.h,v 1.1.1.2 2001/01/25 04:59:09 wsanchez Exp $ */
+/* $Id: php_curl.h,v 1.1.1.3 2001/07/19 00:19:01 zarzycki Exp $ */
 
 #ifndef _PHP_CURL_H
 #define _PHP_CURL_H
+
+#include "php.h"
+#include "ext/standard/php_smart_str.h"
 
 #ifdef COMPILE_DL_CURL
 #undef HAVE_CURL
@@ -30,10 +33,12 @@
 
 #include <curl/curl.h>
 
+
 extern zend_module_entry curl_module_entry;
 #define curl_module_ptr &curl_module_entry
 
 #define CURLOPT_RETURNTRANSFER 19913
+#define CURLOPT_BINARYTRANSFER 19914
 
 PHP_MINIT_FUNCTION(curl);
 PHP_MSHUTDOWN_FUNCTION(curl);
@@ -42,34 +47,51 @@ PHP_FUNCTION(curl_version);
 PHP_FUNCTION(curl_init);
 PHP_FUNCTION(curl_setopt);
 PHP_FUNCTION(curl_exec);
-#if LIBCURL_VERSION_NUM >= 0x070401
 PHP_FUNCTION(curl_getinfo);
-#endif
 PHP_FUNCTION(curl_error);
 PHP_FUNCTION(curl_errno);
 PHP_FUNCTION(curl_close);
 
 typedef struct {
-	int return_transfer;
-	int output_file;
-	int php_stdout;
-	int cerrno;
-	char error[CURL_ERROR_SIZE+1];
-	CURL *cp;
-	zend_llist to_free;
-} php_curl;
+	zval         *func;
+	FILE         *fp;
+	smart_str     buf;
+	int           method;
+	int           type;
+} php_curl_write;
 
 typedef struct {
+	zval         *func;
+	FILE         *fp;
+	long          fd;
+	int           method;
+} php_curl_read;
 
-} php_curl_globals;
+typedef struct {
+	php_curl_write *write;
+	php_curl_read  *read;
+	zval           *write_header;
+	zval           *passwd;
+} php_curl_handlers;
 
-#ifdef ZTS
-#define CURLG(v) (curl_globals->v)
-#define CURLLS_FETCH() php_curl_globals *curl_globals = ts_resource(curl_globals_id)
-#else
-#define CURLG(v) (curl_globals.v)
-#define CURLLS_FETCH()
-#endif
+struct _php_curl_error  {
+	char str[CURL_ERROR_SIZE + 1];
+	int  no;
+};
+
+struct _php_curl_free {
+	zend_llist str;
+	zend_llist post;
+	zend_llist slist;
+};
+
+typedef struct {
+	CURL                    *cp;
+	php_curl_handlers       *handlers;
+	struct _php_curl_error   err;
+	struct _php_curl_free    to_free;
+	long                     id;
+} php_curl;
 
 
 #else

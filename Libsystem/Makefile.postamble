@@ -24,23 +24,28 @@ PRODUCTS += $(foreach TYPE, DEBUG PROFILE,								\
 	     )
 
 SystemFramework = $(NSFRAMEWORKDIR)/System.framework
-VersionDir      = /Versions/$(VERSION_NAME)
+VersionDir      = Versions/$(VERSION_NAME)
 
 compat-next:
 	$(INSTALL_DIRECTORY) "$(DSTROOT)$(SystemFramework)"
 	$(INSTALL_DIRECTORY) "$(DSTROOT)$(SystemFramework)/Versions"
-	$(INSTALL_DIRECTORY) "$(DSTROOT)$(SystemFramework)/Versions/B"
-	for suffix in "" $(DEBUG_SUFFIX) $(PROFILE_SUFFIX); do							\
-	  $(LN) -fs												\
-		$$(relpath											\
-		    "$(DSTROOT)$(SystemFramework)$(VersionDir)"							\
- 		    "$(DSTROOT)$(INSTALLDIR)/$(LIBRARY_PREFIX)$(NAME).$(VERSION_NAME)$${suffix}$(LIBRARY_EXT)")	\
-	        "$(DSTROOT)$(SystemFramework)$(VersionDir)/System$${suffix}";					\
-	  $(LN) -fs ".$(VersionDir)/System$${suffix}" "$(DSTROOT)$(SystemFramework)";				\
+	$(INSTALL_DIRECTORY) "$(DSTROOT)$(SystemFramework)/$(VersionDir)"
+	$(LN) -fs "$(VERSION_NAME)" "$(DSTROOT)$(SystemFramework)/Versions/Current"
+	for suffix in "" $(DEBUG_SUFFIX) $(PROFILE_SUFFIX); do								\
+		$(LN) -fs "Versions/Current/$(NAME)$${suffix}" "$(DSTROOT)$(SystemFramework)/$(NAME)$${suffix}" ;	\
+		$(LN) -fs "../../../../../..$(INSTALLDIR)/$(LIBRARY_PREFIX)$(NAME).$(VERSION_NAME)$${suffix}$(LIBRARY_EXT)" \
+			"$(DSTROOT)$(SystemFramework)/$(VersionDir)/$(NAME)$${suffix}"				;	\
 	done
-	$(LN) -fs ".$(VersionDir)/PrivateHeaders" "$(DSTROOT)$(SystemFramework)"
+	$(LN) -fs "Versions/Current/PrivateHeaders" "$(DSTROOT)$(SystemFramework)"
 
 compat-bsd:
 	for lib in $(BSD_LIBS) ; do		\
 	  $(LN) -fs libSystem.dylib "$(DSTROOT)$(INSTALLDIR)/lib$${lib}.dylib";	\
 	done
+
+copy_plist:
+	$(MKDIR) $(DSTROOT)$(SystemFramework)/$(VersionDir)/Resources
+	$(LN) -fs Versions/Current/Resources $(DSTROOT)$(SystemFramework)/Resources
+	$(RM) -f $(DSTROOT)$(SystemFramework)/$(VersionDir)/Resources/Info.plist
+	$(CP) $(SRCROOT)/Info.plist $(DSTROOT)$(SystemFramework)/$(VersionDir)/Resources
+	$(CHMOD) 444 $(DSTROOT)$(SystemFramework)/$(VersionDir)/Resources/Info.plist

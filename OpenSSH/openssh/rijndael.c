@@ -58,7 +58,8 @@ void gen_tabs	__P((void));
 
 #define byte(x,n)   ((u1byte)((x) >> (8 * n)))
 
-#ifdef WORDS_BIGENDIAN
+/* We can't trust WORDS_BIGENDIAN when building for multiple architectures at the same time */
+#if (defined(BYTE_ORDER) && defined(BIG_ENDIAN) && (BYTE_ORDER == BIG_ENDIAN)) || defined(WORDS_BIGENDIAN)
 #define BYTE_SWAP
 #endif
 

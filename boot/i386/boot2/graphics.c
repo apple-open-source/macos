@@ -85,7 +85,7 @@ setMode(int mode)
     if ( currentMode() == mode ) return;
 
     if ( mode == GRAPHICS_MODE &&
-        (vmode_name = newStringForKey(G_MODE_KEY)) != 0)
+        (vmode_name = newStringForKey(kGraphicsModeKey)) != 0)
     {
         // Set to the graphics mode specified in the config table file,
         // enable linear frame buffer mode, and update kernBootStruct.

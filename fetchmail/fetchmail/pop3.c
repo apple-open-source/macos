@@ -21,31 +21,27 @@
 #include  "socket.h"
 #include  "i18n.h"
 
-#if OPIE
+#if OPIE_ENABLE
 #include <opie.h>
-#endif /* OPIE */
+#endif /* OPIE_ENABLE */
 
 #ifndef strstr		/* glibc-2.1 declares this as a macro */
 extern char *strstr();	/* needed on sysV68 R3V7.1. */
 #endif /* strstr */
 
-static int pop3_phase;
-#define PHASE_GETAUTH	0
-#define PHASE_GETRANGE	1
-#define PHASE_GETSIZES	2
-#define PHASE_FETCH	3
-#define PHASE_LOGOUT	4
 static int last;
 #ifdef SDPS_ENABLE
 char *sdps_envfrom;
 char *sdps_envto;
 #endif /* SDPS_ENABLE */
 
-#if OPIE
+#if OPIE_ENABLE
 static char lastok[POPBUFSIZE+1];
-#endif /* OPIE */
+#endif /* OPIE_ENABLE */
 
-int pop3_ok (int sock, char *argbuf)
+#define DOTLINE(s)	(s[0] == '.' && (s[1]=='\r'||s[1]=='\n'||s[1]=='\0'))
+
+static int pop3_ok (int sock, char *argbuf)
 /* parse command response */
 {
     int ok;
@@ -53,8 +49,7 @@ int pop3_ok (int sock, char *argbuf)
     char *bufp;
 
     if ((ok = gen_recv(sock, buf, sizeof(buf))) == 0)
-    {
-	bufp = buf;
+    {	bufp = buf;
 	if (*bufp == '+' || *bufp == '-')
 	    bufp++;
 	else
@@ -68,14 +63,14 @@ int pop3_ok (int sock, char *argbuf)
 
 	if (strcmp(buf,"+OK") == 0)
 	{
-#if OPIE
+#if OPIE_ENABLE
 	    strcpy(lastok, bufp);
-#endif /* OPIE */
+#endif /* OPIE_ENABLE */
 	    ok = 0;
 	}
 	else if (strncmp(buf,"-ERR", 4) == 0)
 	{
-	    if (pop3_phase > PHASE_GETAUTH) 
+	    if (stage > STAGE_GETAUTH) 
 		ok = PS_PROTOCOL;
 	    /*
 	     * We're checking for "lock busy", "unable to lock", 
@@ -99,11 +94,22 @@ int pop3_ok (int sock, char *argbuf)
 	    else if (strstr(bufp,"lock")
 		     || strstr(bufp,"Lock")
 		     || strstr(bufp,"LOCK")
-		     || strstr(bufp,"wait"))
+		     || strstr(bufp,"wait")
+		     /* these are blessed by RFC 2449 */
+		     || strstr(bufp,"[IN-USE]")||strstr(bufp,"[LOGIN-DELAY]"))
 		ok = PS_LOCKBUSY;
+	    else if ((strstr(bufp,"Service")
+		     || strstr(bufp,"service"))
+			 && (strstr(bufp,"unavailable")))
+		ok = PS_SERVBUSY;
 	    else
 		ok = PS_AUTHFAIL;
-	    if (*bufp)
+	    /*
+	     * We always want to pass the user lock-busy messages, because
+	     * they're red flags.  Other stuff (like AUTH failures on non-
+	     * RFC1734 servers) only if we're debugging.
+	     */
+	    if (*bufp && (ok == PS_LOCKBUSY || outlevel >= O_MONITOR))
 	      report(stderr, "%s\n", bufp);
 	}
 	else
@@ -116,17 +122,25 @@ int pop3_ok (int sock, char *argbuf)
     return(ok);
 }
 
-int pop3_getauth(int sock, struct query *ctl, char *greeting)
+static int pop3_getauth(int sock, struct query *ctl, char *greeting)
 /* apply for connection authorization */
 {
     int ok;
     char *start,*end;
     char *msg;
-#if OPIE
+#if OPIE_ENABLE
     char *challenge;
-#endif /* OPIE */
-
-    pop3_phase = PHASE_GETAUTH;
+#endif /* OPIE_ENABLE */
+#if defined(GSSAPI)
+    flag has_gssapi = FALSE;
+#endif /* defined(GSSAPI) */
+#if defined(KERBEROS_V4) || defined(KERBEROS_V5)
+    flag has_kerberos = FALSE;
+#endif /* defined(KERBEROS_V4) || defined(KERBEROS_V5) */
+    flag has_cram = FALSE;
+#ifdef OPIE_ENABLE
+    flag has_otp = FALSE;
+#endif /* OPIE_ENABLE */
 
 #ifdef SDPS_ENABLE
     /*
@@ -152,7 +166,7 @@ int pop3_getauth(int sock, struct query *ctl, char *greeting)
 
 		while ((ok = gen_recv(sock, buffer, sizeof(buffer))) == 0)
 		{
-		    if (buffer[0] == '.')
+		    if (DOTLINE(buffer))
 			break;
 		    if (strncasecmp(buffer, "rpa", 3) == 0)
 			has_rpa = TRUE;
@@ -164,37 +178,112 @@ int pop3_getauth(int sock, struct query *ctl, char *greeting)
 
 	    return(PS_AUTHFAIL);
 	}
-	else /* not a CompuServe account */
 #endif /* RPA_ENABLE */
-	    ok = gen_transact(sock, "USER %s", ctl->remotename);
 
-#if OPIE
-	/* see RFC1938: A One-Time Password System */
-	if (challenge = strstr(lastok, "otp-")) {
-	  char response[OPIE_RESPONSE_MAX+1];
-	  int i;
+	/*
+	 * CAPA command may return a list including available
+	 * authentication mechanisms.  if it doesn't, no harm done, we
+	 * just fall back to a plain login.  Note that this code 
+	 * latches the server's authentication type, so that in daemon mode
+	 * the CAPA check only needs to be done once at start of run.
+	 *
+	 * APOP was introduced in RFC 1450, and CAPA not until
+	 * RFC2449. So the < check is an easy way to prevent CAPA from
+	 * being sent to the more primitive POP3 servers dating from
+	 * RFC 1081 and RFC 1225, which seem more likely to choke on
+	 * it.  This certainly catches IMAP-2000's POP3 gateway.
+	 * 
+	 * These authentication methods are blessed by RFC1734,
+	 * describing the POP3 AUTHentication command.
+	 */
+	if (ctl->server.authenticate == A_ANY 
+	    && strchr(greeting, '<') 
+	    && gen_transact(sock, "CAPA") == 0)
+	{
+	    char buffer[64];
 
-	  i = opiegenerator(challenge, !strcmp(ctl->password, "opie") ? "" : ctl->password, response);
-	  if ((i == -2) && !run.poll_interval) {
-	    char secret[OPIE_SECRET_MAX+1];
-	    fprintf(stderr, _("Secret pass phrase: "));
-	    if (opiereadpass(secret, sizeof(secret), 0))
-	      i = opiegenerator(challenge,  secret, response);
-	    memset(secret, 0, sizeof(secret));
-	  };
-
-	  if (i) {
-	    ok = PS_ERROR;
-	    break;
-	  };
-
-	  ok = gen_transact(sock, "PASS %s", response);
-	  break;
+	    /* determine what authentication methods we have available */
+	    while ((ok = gen_recv(sock, buffer, sizeof(buffer))) == 0)
+	    {
+		if (DOTLINE(buffer))
+		    break;
+#if defined(GSSAPI)
+		if (strstr(buffer, "GSSAPI"))
+		    has_gssapi = TRUE;
+#endif /* defined(GSSAPI) */
+#if defined(KERBEROS_V4)
+		if (strstr(buffer, "KERBEROS_V4"))
+		    has_kerberos = TRUE;
+#endif /* defined(KERBEROS_V4)  */
+#ifdef OPIE_ENABLE
+		if (strstr(buffer, "X-OTP"))
+		    has_otp = TRUE;
+#endif /* OPIE_ENABLE */
+		if (strstr(buffer, "CRAM-MD5"))
+		    has_cram = TRUE;
+	    }
 	}
-#endif /* OPIE */
+
+	/*
+	 * OK, we have an authentication type now.
+	 */
+#if defined(KERBEROS_V4)
+	/* 
+	 * Servers doing KPOP have to go through a dummy login sequence
+	 * rather than doing SASL.
+	 */
+	if (has_kerberos &&
+#if INET6_ENABLE
+	    ctl->server.service && (strcmp(ctl->server.service, KPOP_PORT)!=0)
+#else /* INET6_ENABLE */
+	    ctl->server.port != KPOP_PORT
+#endif /* INET6_ENABLE */
+	    && (ctl->server.authenticate == A_KERBEROS_V4
+	     || ctl->server.authenticate == A_KERBEROS_V5
+	     || ctl->server.authenticate == A_ANY))
+	{
+	    ok = do_rfc1731(sock, "AUTH", ctl->server.truename);
+	    if (ok == PS_SUCCESS || ctl->server.authenticate != A_ANY)
+		break;
+	}
+#endif /* defined(KERBEROS_V4) || defined(KERBEROS_V5) */
+
+#if defined(GSSAPI)
+	if (has_gssapi &&
+	    (ctl->server.authenticate == A_GSSAPI ||
+	     ctl->server.authenticate == A_ANY))
+	{
+	    ok = do_gssauth(sock,"AUTH",ctl->server.truename,ctl->remotename);
+	    if (ok == PS_SUCCESS || ctl->server.authenticate != A_ANY)
+		break;
+	}
+#endif /* defined(GSSAPI) */
+
+#ifdef OPIE_ENABLE
+	if (has_otp &&
+	    (ctl->server.authenticate == A_OTP ||
+	     ctl->server.authenticate == A_ANY))
+	{
+	    ok = do_otp(sock, "AUTH", ctl);
+	    if (ok == PS_SUCCESS || ctl->server.authenticate != A_ANY)
+		break;
+	}
+#endif /* OPIE_ENABLE */
+
+	if (has_cram &&
+	    (ctl->server.authenticate == A_CRAM_MD5 ||
+	     ctl->server.authenticate == A_ANY))
+	{
+	    ok = do_cram_md5(sock, "AUTH", ctl, NULL);
+	    if (ok == PS_SUCCESS || ctl->server.authenticate != A_ANY)
+		break;
+	}
 
 	/* ordinary validation, no one-time password or RPA */ 
+	gen_transact(sock, "USER %s", ctl->remotename);
+	strcpy(shroud, ctl->password);
 	ok = gen_transact(sock, "PASS %s", ctl->password);
+	shroud[0] = '\0';
 	break;
 
     case P_APOP:
@@ -264,20 +353,20 @@ int pop3_getauth(int sock, struct query *ctl, char *greeting)
     return(PS_SUCCESS);
 }
 
-static int
-pop3_gettopid( int sock, int num , char *id)
+static int pop3_gettopid( int sock, int num , char *id)
 {
     int ok;
     int got_it;
     char buf [POPBUFSIZE+1];
     sprintf( buf, "TOP %d 1", num );
-    if( (ok = gen_transact(sock, buf ) ) != 0 )
+    if ((ok = gen_transact(sock, buf )) != 0)
        return ok; 
     got_it = 0;
-    while((ok = gen_recv(sock, buf, sizeof(buf))) == 0) {
-	if( buf[0] == '.' )
+    while ((ok = gen_recv(sock, buf, sizeof(buf))) == 0) 
+    {
+	if (DOTLINE(buf))
 	    break;
-	if( ! got_it && ! strncasecmp("Message-Id:", buf, 11 )) {
+	if ( ! got_it && ! strncasecmp("Message-Id:", buf, 11 )) {
 	    got_it = 1;
 	    /* prevent stack overflows */
 	    buf[IDLEN+12] = 0;
@@ -287,8 +376,7 @@ pop3_gettopid( int sock, int num , char *id)
     return 0;
 }
 
-static int
-pop3_slowuidl( int sock,  struct query *ctl, int *countp, int *newp)
+static int pop3_slowuidl( int sock,  struct query *ctl, int *countp, int *newp)
 {
     /* This approach tries to get the message headers from the
      * remote hosts and compares the message-id to the already known
@@ -385,8 +473,6 @@ static int pop3_getrange(int sock,
     int ok;
     char buf [POPBUFSIZE+1];
 
-    pop3_phase = PHASE_GETRANGE;
-
     /* Ensure that the new list is properly empty */
     ctl->newsaved = (struct idlist *)NULL;
 
@@ -449,7 +535,7 @@ static int pop3_getrange(int sock,
 		*newp = 0;
  		while ((ok = gen_recv(sock, buf, sizeof(buf))) == 0)
 		{
- 		    if (buf[0] == '.')
+ 		    if (DOTLINE(buf))
  			break;
  		    else if (sscanf(buf, "%d %s", &num, id) == 2)
 		    {
@@ -478,8 +564,6 @@ static int pop3_getsizes(int sock, int count, int *sizes)
 {
     int	ok;
 
-    /* pop3_phase = PHASE_GETSIZES */
-
     if ((ok = gen_transact(sock, "LIST")) != 0)
 	return(ok);
     else
@@ -488,12 +572,16 @@ static int pop3_getsizes(int sock, int count, int *sizes)
 
 	while ((ok = gen_recv(sock, buf, sizeof(buf))) == 0)
 	{
-	    int num, size;
+	    unsigned int num, size;
 
-	    if (buf[0] == '.')
+	    if (DOTLINE(buf))
 		break;
-	    else if (sscanf(buf, "%d %d", &num, &size) == 2)
-		sizes[num - 1] = size;
+	    else if (sscanf(buf, "%u %u", &num, &size) == 2) {
+		if (num > 0 && num <= count)
+		    sizes[num - 1] = size;
+		/* else, strict: protocol error, flexible: nothing
+		 * I vote for flexible. */
+	    }
 	}
 
 	return(ok);
@@ -523,8 +611,6 @@ static int pop_fetch_headers(int sock, struct query *ctl,int number,int *lenp)
     int ok;
     char buf[POPBUFSIZE+1];
 
-    /* pop3_phase = PHASE_FETCH */
-
     gen_send(sock, "TOP %d 0", number);
     if ((ok = pop3_ok(sock, buf)) != 0)
 	return(ok);
@@ -540,8 +626,6 @@ static int pop3_fetch(int sock, struct query *ctl, int number, int *lenp)
 {
     int ok;
     char buf[POPBUFSIZE+1];
-
-    /* pop3_phase = PHASE_FETCH */
 
 #ifdef SDPS_ENABLE
     /*
@@ -631,11 +715,33 @@ static int pop3_logout(int sock, struct query *ctl)
 {
     int ok;
 
-    /* pop3_phase = PHASE_LOGOUT */
+#ifdef __UNUSED__
+    /*
+     * We used to do this in case the server marks messages deleted when seen.
+     * (Yes, this has been reported, in the MercuryP/NLM server.
+     * It's even legal under RFC 1939 (section 8) as a site policy.)
+     * It interacted badly with UIDL, though.  Thomas Zajic wrote:
+     * "Running 'fetchmail -F -v' and checking the logs, I found out
+     * that fetchmail did in fact flush my mailbox properly, but sent
+     * a RSET just before sending QUIT to log off.  This caused the
+     * POP3 server to undo/forget about the previous DELEs, resetting
+     * my mailbox to its original (ie.  unflushed) state. The
+     * ~/.fetchids file did get flushed though, so the next time
+     * fetchmail was run it saw all the old messages as new ones ..."
+     */
+     if (ctl->keep)
+	gen_transact(sock, "RSET");
+#endif /* __UNUSED__ */
 
     ok = gen_transact(sock, "QUIT");
     if (!ok)
 	expunge_uids(ctl);
+
+    if (ctl->lastid)
+    {
+	free(ctl->lastid);
+	ctl->lastid = NULL;
+    }
 
     return(ok);
 }
@@ -643,15 +749,16 @@ static int pop3_logout(int sock, struct query *ctl)
 const static struct method pop3 =
 {
     "POP3",		/* Post Office Protocol v3 */
-#if INET6
+#if INET6_ENABLE
     "pop3",		/* standard POP3 port */
-#else /* INET6 */
+    "pop3s",		/* ssl POP3 port */
+#else /* INET6_ENABLE */
     110,		/* standard POP3 port */
-#endif /* INET6 */
+    995,		/* ssl POP3 port */
+#endif /* INET6_ENABLE */
     FALSE,		/* this is not a tagged protocol */
     TRUE,		/* this uses a message delimiter */
     pop3_ok,		/* parse command response */
-    NULL,		/* no password canonicalization */
     pop3_getauth,	/* get authorization */
     pop3_getrange,	/* query range of messages */
     pop3_getsizes,	/* we can get a list of sizes */

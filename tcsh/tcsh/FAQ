@@ -1,6 +1,6 @@
 
 Last Updated: 
-Thu Jun 11 21:24:11 EDT 1998
+Fri Aug 25 13:27:45 EDT 2000
 
 This is for people who do not read the manual!
 
@@ -33,6 +33,10 @@ be able to get ftp it... :-)
 	stty -parenb -istrip cs8 
     
     would work..
+
+    Finally, tcsh will bind all printable meta characters to the self
+    insert command. If you don't want that to happen (i.e. use the printable
+    meta characters for commands) setenv NOREBIND.
 
 2.  I ran 'dbxtool &' and 'shelltool &' from tcsh, and they end up in cbreak 
     and no echo mode?
@@ -201,6 +205,10 @@ be able to get ftp it... :-)
     Try using rsh -8; this option is undocumented on some systems,
     but it works. If that does not work, get and use ssh/sshd. You'll
     be better off from a security point of view anyway.
+
+22. Tcsh compiled under hp/ux-10.x does not pass resource limits correctly
+    when ran on hp/ux-11.x systems. This is a problem with lack of ABI
+    compatibility between the two systems. The only solution is to recompile.
 
 christos
 

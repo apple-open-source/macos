@@ -6,7 +6,7 @@
 #           we implement only class methods
 #
 # Author: Matt Morse (matt@apple.com)
-# Last Updated: 12/9/99
+# Last Updated: $Date: 2000/12/28 23:07:49 $
 # 
 # Copyright (c) 1999 Apple Computer, Inc.  All Rights Reserved.
 # The contents of this file constitute Original Code as defined in and are
@@ -63,6 +63,7 @@ sub loadUsingFolderAndFiles {
     my $folder = shift;
 	my $functionFilename = shift;
 	my $typesFilename = shift;
+	my $enumsFilename = shift;
 
     if (ref $class)  { die "Class method called as object method" };
     
@@ -81,6 +82,7 @@ sub loadUsingFolderAndFiles {
 	    }
 	}
 	undef @funcIDLines;
+	
 	###################### Read in lookup table of typeID to name ######################
 	my $typeTable = $folder.$pathSeparator.$typesFilename;
 	open(TYPEIDS, "<$typeTable") || die "Can't open $typeTable.\n";
@@ -96,6 +98,23 @@ sub loadUsingFolderAndFiles {
 	    }
 	}
 	undef @typeIDLines;
+	
+	###################### Read in lookup table of enumID to name ######################
+	##### Add this to the types lookup since enums are often identified by the name of their first constant #####
+	my $enumTable = $folder.$pathSeparator.$enumsFilename;
+	open(ENUMIDS, "<$enumTable") || die "Can't open $enumTable.\n";
+	my @enumIDLines = <ENUMIDS>;
+	close ENUMIDS;
+	foreach my $line (@enumIDLines) {
+	    if ($line =~/^#/) {next;};
+	    chomp $line;
+	    my ($enumID, $enumName);
+	    ($enumID, $enumName) = split (/\t/, $line);
+	    if (length($enumID)) {
+	        $datatypeNameToIDHash{$enumName} = $enumID;
+	    }
+	}
+	undef @enumIDLines;
 }
 
 sub dataTypeNameToIDHash {

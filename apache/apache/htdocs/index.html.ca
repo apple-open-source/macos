@@ -18,7 +18,7 @@
   <P>
   Si veu aquesta p&agrave;gina, es que els propietaris d'aquest domini
   acaben d'instal&middot;lar satisfact&ograve;riament el
-  <A HREF="http://www.apache.org/httpd">servidor web Apache</A>.
+  <A href="http://www.apache.org/foundation/preFAQ.html">servidor web Apache</a>.
   Ara han d'afegir contingut en aquest directori i substituir aquesta p&agrave;gina, 
   o b&egrave; dirigir aquest servidor cap al contingut real.
   </P>
@@ -26,17 +26,17 @@
   <BLOCKQUOTE>
    Si est&agrave; veien aquesta p&agrave;gina i no es la que esperava, posis en
    contacte  amb
-   <STRONG>l'administrador web d'aquest lloc.</STRONG>
+   <strong>l'administrador web d'aquest lloc.</strong>
    (Provi d'enviar un correu electr&ograve;nic a <SAMP>&lt;Webmaster@<EM>domain</EM>&gt;</SAMP>.)
    Encara que aquest lloc est&agrave; utilitzant el programari Apache, es gaireb&eacute; segur
    que no t&egrave; res a veure amb el Grup Apache, per tant 
    no envi&iuml; cap correu electr&ograve;nic als autors d'Apache referent a aquest lloc o al seu contingut.
-   Si es que ho fa, el seu missatge ser&agrave; <STRONG><BIG>ignorat</BIG></STRONG>.
+   Si es que ho fa, el seu missatge ser&agrave; <strong><BIG>ignorat</BIG></strong>.
   </BLOCKQUOTE>
   <HR>
   <P>
   La
-  <A HREF="manual/index.html">documentaci&oacute;</A>
+  <A HREF="manual/">documentaci&oacute;</A>
   d'Apache ha estat inclosa en aquesta distribuci&oacute;.
   </P>
   <P>

@@ -1,7 +1,7 @@
 #!/bin/sh
 ##
 ##  CCA -- Trivial Client CA management for testing purposes
-##  Copyright (c) 1998-2000 Ralf S. Engelschall, All Rights Reserved. 
+##  Copyright (c) 1998-2001 Ralf S. Engelschall, All Rights Reserved. 
 ##
 
 #   external tools
@@ -40,7 +40,7 @@ for file in /var/log/messages /var/adm/messages \
 done
 
 echo "${T_MD}CCA -- Trivial Client CA management for testing purposes${T_ME}"
-echo "Copyright (c) 1998-2000 Ralf S. Engelschall, All Rights Reserved."
+echo "Copyright (c) 1998-2001 Ralf S. Engelschall, All Rights Reserved."
 echo ""
 
 if [ $# -eq 0 ]; then

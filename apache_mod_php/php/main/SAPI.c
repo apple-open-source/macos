@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -54,7 +54,7 @@ static void sapi_globals_ctor(sapi_globals_struct *sapi_globals)
 }
 
 /* True globals (no need for thread safety) */
-sapi_module_struct sapi_module;
+SAPI_API sapi_module_struct sapi_module;
 SAPI_API void (*sapi_error)(int error_type, const char *message, ...);
 
 
@@ -73,6 +73,10 @@ SAPI_API void sapi_startup(sapi_module_struct *sf)
 	virtual_cwd_startup(); /* Could use shutdown to free the main cwd but it would just slow it down for CGI */
 #endif
 
+#ifdef PHP_WIN32
+	tsrm_win32_startup();
+#endif
+
 	reentrancy_startup();
 
 	php_global_startup_internal_extensions();
@@ -84,6 +88,11 @@ SAPI_API void sapi_shutdown(void)
 #ifdef VIRTUAL_DIR
 	virtual_cwd_shutdown();
 #endif
+
+#ifdef PHP_WIN32
+	tsrm_win32_shutdown();
+#endif
+
 	php_global_shutdown_internal_extensions();
 	zend_hash_destroy(&known_post_content_types);
 }
@@ -97,7 +106,7 @@ SAPI_API void sapi_free_header(sapi_header_struct *sapi_header)
 
 SAPI_API void sapi_handle_post(void *arg SLS_DC)
 {
-	if (SG(request_info).post_entry) {
+	if (SG(request_info).post_entry && SG(request_info).content_type_dup) {
 		SG(request_info).post_entry->post_handler(SG(request_info).content_type_dup, arg SLS_CC);
 		if (SG(request_info).post_data) {
 			efree(SG(request_info).post_data);
@@ -538,49 +547,6 @@ SAPI_API void sapi_unregister_post_entry(sapi_post_entry *post_entry)
 	zend_hash_del(&known_post_content_types, post_entry->content_type, post_entry->content_type_len+1);
 }
 
-SAPI_API int sapi_add_post_entry(char *content_type
-								 , void (*post_reader)(SLS_D)
-								 , void (*post_handler)(char *content_type_dup
-								 , void *arg SLS_DC)) {
-
-	sapi_post_entry *post_entry = (sapi_post_entry *)malloc(sizeof(sapi_post_entry));
-	if(!post_entry) return 0;
-
-	post_entry->content_type     = strdup(content_type);
-	if(post_entry->content_type == NULL) return 0;
-	post_entry->content_type_len = strlen(content_type);
-	post_entry->post_reader      = post_reader;
-	post_entry->post_handler     = post_handler;
-
-	return zend_hash_add(&known_post_content_types
-						 , post_entry->content_type
-						 , post_entry->content_type_len+1
-						 , (void *) post_entry
-						 , sizeof(sapi_post_entry)
-						 , NULL
-						 );
-}
-
-SAPI_API void sapi_remove_post_entry(char *content_type) {
-	sapi_post_entry *post_entry;
-
-	zend_hash_find(&known_post_content_types
-				   ,content_type
-				   ,strlen(content_type)+1
-				   ,(void **)&post_entry
-				   );
-	
-	if(post_entry != NULL) {
-		zend_hash_del(&known_post_content_types
-					  ,content_type
-					  ,strlen(content_type)+1
-					  );
-		free(post_entry->content_type);
-		free(post_entry);
-	} else {
-		php_error(E_WARNING,"unregister post handler failed in fdf");
-	}
-}
 
 SAPI_API int sapi_register_default_post_reader(void (*default_post_reader)(SLS_D))
 {
@@ -608,7 +574,7 @@ SAPI_API struct stat *sapi_get_stat()
 	if (sapi_module.get_stat) {
 		return sapi_module.get_stat(SLS_C);
 	} else {
-		if (!SG(request_info).path_translated || (V_STAT(SG(request_info).path_translated, &SG(global_stat))==-1)) {
+		if (!SG(request_info).path_translated || (VCWD_STAT(SG(request_info).path_translated, &SG(global_stat))==-1)) {
 			return NULL;
 		}
 		return &SG(global_stat);

@@ -14,7 +14,8 @@ PROJECT_TYPE = Library
 
 OTHERLINKED = SystemMath.s
 
-OTHERSRCS = Makefile.preamble Makefile Makefile.postamble System.order
+OTHERSRCS = Makefile.preamble Makefile Makefile.postamble System.order\
+            Info.plist
 
 OTHERLINKEDOFILES = SystemMath.o
 
@@ -26,7 +27,7 @@ MAKEFILE = library.make
 NEXTSTEP_INSTALLDIR = $(USRLIBDIR)
 WINDOWS_INSTALLDIR = /Library/Frameworks
 PDO_UNIX_INSTALLDIR = /Library/Frameworks
-LIBS = -lc -lcurses -ldyld -ledit -linfo -lkvm -lm -lmacho\
+LIBS = -lc -lcurses -ldyld -linfo -lkvm -lm -lmacho\
        -lstreams -lunc -lkeymgr
 DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)

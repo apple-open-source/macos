@@ -7,8 +7,8 @@
 ## ____________________________________________________________________________
 ##
 ## Annotated patch file: addon.patch
-## Copyright (c) 1998-2000 Ralf S. Engelschall, All Rights Reserved. 
-## Created on: 14-Oct-2000
+## Copyright (c) 1998-2001 Ralf S. Engelschall, All Rights Reserved. 
+## Created on: 20-May-2001
 ##
 ## This file assembles changes to existing Apache source files
 ## between the original Apache and the patched variant. It can be
@@ -40,9 +40,9 @@ Index: src/Configuration.tmpl
 | Add more beautiful optic to the status page table..
 +---------------------------------------------------------------------------
 Index: src/modules/standard/mod_status.c
---- src/modules/standard/mod_status.c	2000/10/12 08:17:38	1.1.1.10
-+++ src/modules/standard/mod_status.c	2000/10/12 08:31:48	1.7
-@@ -475,12 +475,33 @@
+--- src/modules/standard/mod_status.c	2001/05/20 08:16:21	1.1.1.12
++++ src/modules/standard/mod_status.c	2001/05/20 08:23:02	1.9
+@@ -482,12 +482,33 @@
  	    if (no_table_report)
  		ap_rputs("<p><hr><h2>Server Details</h2>\n\n", r);
  	    else
@@ -76,7 +76,7 @@ Index: src/modules/standard/mod_status.c
  	}
  
  	for (i = 0; i < HARD_SERVER_LIMIT; ++i) {
-@@ -598,14 +619,19 @@
+@@ -605,14 +626,19 @@
  				vhost->server_hostname) : "(unavailable)");
  		    }
  		    else {		/* !no_table_report */
@@ -98,7 +98,7 @@ Index: src/modules/standard/mod_status.c
  				i, (int) ps_record.generation,
  				(int) ps_record.pid, (int) conn_lres,
  				my_lres, lres);
-@@ -665,12 +691,23 @@
+@@ -672,12 +698,23 @@
  			    ap_rprintf(r,
  			     "<td>?<td nowrap>?<td nowrap>..reading.. </tr>\n\n");
  			else
@@ -127,8 +127,8 @@ Index: src/modules/standard/mod_status.c
 | Add a hyperlink to the mod_define.html document.
 +---------------------------------------------------------------------------
 Index: htdocs/manual/mod/index.html
---- htdocs/manual/mod/index.html	2000/10/12 08:17:45	1.1.1.3
-+++ htdocs/manual/mod/index.html	2000/10/12 08:31:47	1.9
+--- htdocs/manual/mod/index.html	2001/01/23 11:35:19	1.1.1.4
++++ htdocs/manual/mod/index.html	2001/01/23 11:48:05	1.10
 @@ -65,6 +65,8 @@
  <DT><A HREF="mod_cookies.html">mod_cookies</A> up to Apache 1.1.1
  <DD>Support for Netscape-like cookies.  Replaced in Apache 1.2 by
@@ -143,8 +143,8 @@ Index: htdocs/manual/mod/index.html
 | Add a hyperlink for the Define directives.
 +---------------------------------------------------------------------------
 Index: htdocs/manual/mod/directives.html
---- htdocs/manual/mod/directives.html	2000/10/12 08:17:45	1.1.1.9
-+++ htdocs/manual/mod/directives.html	2000/10/12 08:31:47	1.19
+--- htdocs/manual/mod/directives.html	2001/05/20 08:16:32	1.1.1.10
++++ htdocs/manual/mod/directives.html	2001/05/20 08:23:01	1.20
 @@ -99,6 +99,7 @@
  <LI><A HREF="mod_autoindex.html#defaulticon">DefaultIcon</A>
  <LI><A HREF="mod_mime.html#defaultlanguage">DefaultLanguage</A>

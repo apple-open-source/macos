@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/tc.sig.c,v 1.1.1.1 1999/04/23 01:59:57 wsanchez Exp $ */
+/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/tc.sig.c,v 1.1.1.2 2001/06/28 23:10:54 bbraun Exp $ */
 /*
  * tc.sig.c: Signal routine emulations
  */
@@ -36,7 +36,7 @@
  */
 #include "sh.h"
 
-RCSID("$Id: tc.sig.c,v 1.1.1.1 1999/04/23 01:59:57 wsanchez Exp $")
+RCSID("$Id: tc.sig.c,v 1.1.1.2 2001/06/28 23:10:54 bbraun Exp $")
 
 #include "tc.wait.h"
 
@@ -161,7 +161,7 @@ ourwait(w)
     pid_t pid;
 
 #  ifdef JOBDEBUG
-    xprintf(CGETS(25, 1, "our wait %d\n", stk_ptr));
+    xprintf(CGETS(25, 1, "our wait %d\n"), stk_ptr);
     flush();
 #  endif /* JOBDEBUG */
 

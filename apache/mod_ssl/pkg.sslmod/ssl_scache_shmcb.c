@@ -9,7 +9,7 @@
 */
 
 /* ====================================================================
- * Copyright (c) 2000 Ralf S. Engelschall. All rights reserved.
+ * Copyright (c) 2000-2001 Ralf S. Engelschall. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -66,8 +66,6 @@
  * originally written by Geoff Thorpe <geoff@eu.c2.net> for C2Net Europe
  * and as a contribution to Ralf Engelschall's mod_ssl project.
  */
-
-#ifdef SSL_EXPERIMENTAL_SHMCB
 
 /*
  * The shared-memory segment header can be cast to and from the
@@ -1342,6 +1340,4 @@ end:
     ssl_log(s, SSL_LOG_TRACE, "leaving shmcb_remove_session_id");
     return to_return;
 }
-
-#endif /* SSL_EXPERIMENTAL_SHMCB */
 

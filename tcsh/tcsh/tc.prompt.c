@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/tc.prompt.c,v 1.1.1.1 1999/04/23 01:59:57 wsanchez Exp $ */
+/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/tc.prompt.c,v 1.1.1.2 2001/06/28 23:10:54 bbraun Exp $ */
 /*
  * tc.prompt.c: Prompt printing stuff
  */
@@ -36,7 +36,7 @@
  */
 #include "sh.h"
 
-RCSID("$Id: tc.prompt.c,v 1.1.1.1 1999/04/23 01:59:57 wsanchez Exp $")
+RCSID("$Id: tc.prompt.c,v 1.1.1.2 2001/06/28 23:10:54 bbraun Exp $")
 
 #include "ed.h"
 #include "tw.h"
@@ -186,9 +186,10 @@ tprintf(what, buf, fmt, siz, str, tim, info)
     Char   *z, *q;
     Char    attributes = 0;
     static int print_prompt_did_ding = 0;
-    const char   *cz;
     Char    buff[BUFSIZE];
-    char    cbuff[BUFSIZE];
+    /* Need to be unsigned to avoid sign extension */
+    const unsigned char   *cz;
+    unsigned char    cbuff[BUFSIZE];
 
     Char *p  = buf;
     Char *ep = &p[siz];
@@ -205,14 +206,24 @@ tprintf(what, buf, fmt, siz, str, tim, info)
     for (; *cp; cp++) {
 	if (p >= ep)
 	    break;
-	if (*cp == '%') {
+#ifdef DSPMBYTE
+	if (Ismbyte1(*cp) && ! (cp[1] == '\0'))
+	{
+	    *p++ = attributes | *cp++;	/* normal character */
+	    *p++ = attributes | *cp;	/* normal character */
+	}
+	else
+#endif /* DSPMBYTE */
+	if ((*cp == '%') && ! (cp[1] == '\0')) {
 	    cp++;
 	    switch (*cp) {
 	    case 'R':
 		if (what == FMT_HISTORY)
-		    fmthist('R', info, str = cbuff, sizeof(cbuff));
-		if (str != NULL)
-		    for (; *str; *p++ = attributes | *str++)
+		    fmthist('R', info, (char *) (cz = cbuff), sizeof(cbuff));
+		else
+		    cz = (unsigned char *) str;
+		if (cz != NULL)
+		    for (; *cz; *p++ = attributes | *cz++)
 			if (p >= ep) break;
 		break;
 	    case '#':
@@ -225,10 +236,12 @@ tprintf(what, buf, fmt, siz, str, tim, info)
 		    fmthist('h', info, (char *) cbuff, sizeof(cbuff));
 		    break;
 		case FMT_SCHED:
-		    (void) xsnprintf((char *) cbuff, sizeof(cbuff), "%d", *(int *)info);
+		    (void) xsnprintf((char *) cbuff, sizeof(cbuff), "%d", 
+			*(int *)info);
 		    break;
 		default:
-		    (void) xsnprintf((char *) cbuff, sizeof(cbuff), "%d", eventno + 1);
+		    (void) xsnprintf((char *) cbuff, sizeof(cbuff), "%d",
+			eventno + 1);
 		    break;
 		}
 		for (cz = cbuff; *cz; *p++ = attributes | *cz++)
@@ -262,31 +275,12 @@ tprintf(what, buf, fmt, siz, str, tim, info)
 			what != FMT_PROMPT || adrof(STRnoding)) {
 			if (t->tm_min)
 			    print_prompt_did_ding = 0;
-			Itoa(hr, buff);
-			*p++ = attributes | buff[0];
-			if (buff[1]) 
-			    *p++ = attributes | buff[1];
+			p = Itoa(hr, p, 0, attributes);
 			*p++ = attributes | ':';
-			Itoa(t->tm_min, buff);
-			if (buff[1]) {
-			    *p++ = attributes | buff[0];
-			    *p++ = attributes | buff[1];
-			}
-			else {
-			    *p++ = attributes | '0';
-			    *p++ = attributes | buff[0];
-			}
+			p = Itoa(t->tm_min, p, 2, attributes);
 			if (*cp == 'p' || *cp == 'P') {
 			    *p++ = attributes | ':';
-			    Itoa(t->tm_sec, buff);
-			    if (buff[1]) {
-				*p++ = attributes | buff[0];
-				*p++ = attributes | buff[1];
-			    }
-			    else {
-				*p++ = attributes | '0';
-				*p++ = attributes | buff[0];
-			    }
+			    p = Itoa(t->tm_sec, p, 2, attributes);
 			}
 			if (adrof(STRampm) || (*cp != 'T' && *cp != 'P')) {
 			    *p++ = attributes | ampm;
@@ -308,10 +302,11 @@ tprintf(what, buf, fmt, siz, str, tim, info)
 	    case 'M':
 #ifndef HAVENOUTMP
 		if (what == FMT_WHO)
-		    cz = who_info(info, 'M', (char *) cbuff, sizeof(cbuff));
+		    cz = (unsigned char *) who_info(info, 'M',
+			(char *) cbuff, sizeof(cbuff));
 		else 
 #endif /* HAVENOUTMP */
-		    cz = getenv("HOST");
+		    cz = (unsigned char *) getenv("HOST");
 		/*
 		 * Bug pointed out by Laurent Dami <dami@cui.unige.ch>: don't
 		 * derefrence that NULL (if HOST is not set)...
@@ -324,10 +319,11 @@ tprintf(what, buf, fmt, siz, str, tim, info)
 	    case 'm':
 #ifndef HAVENOUTMP
 		if (what == FMT_WHO)
-		    cz = who_info(info, 'm', (char *) cbuff, sizeof(cbuff));
+		    cz = (unsigned char *) who_info(info, 'm', (char *) cbuff,
+			sizeof(cbuff));
 		else 
 #endif /* HAVENOUTMP */
-		    cz = getenv("HOST");
+		    cz = (unsigned char *) getenv("HOST");
 
 		if (cz != NULL)
 		    for ( ; *cz && (what == FMT_WHO || *cz != '.')
@@ -361,7 +357,7 @@ tprintf(what, buf, fmt, siz, str, tim, info)
 			/* option to determine fixed # of dirs from path */
 		if (Scp == '.' || Scp == 'C') {
 		    int skip;
-#ifdef WINNT
+#ifdef WINNT_NATIVE
 		    if (z[1] == ':') {
 		    	*p++ = attributes | *z++;
 		    	*p++ = attributes | *z++;
@@ -373,7 +369,7 @@ tprintf(what, buf, fmt, siz, str, tim, info)
 					*p++ = attributes | *z++;
 				}while(*z != '/');
 			}
-#endif /* WINNT */
+#endif /* WINNT_NATIVE */
 		    q = z;
 		    while (*z)				/* calc # of /'s */
 			if (*z++ == '/')
@@ -440,7 +436,8 @@ tprintf(what, buf, fmt, siz, str, tim, info)
 	    case 'n':
 #ifndef HAVENOUTMP
 		if (what == FMT_WHO) {
-		    cz = who_info(info, 'n', (char *) cbuff, sizeof(cbuff));
+		    cz = (unsigned char *) who_info(info, 'n',
+			(char *) cbuff, sizeof(cbuff));
 		    for (; cz && *cz ; *p++ = attributes | *cz++)
 			if (p >= ep) break;
 		}
@@ -455,7 +452,8 @@ tprintf(what, buf, fmt, siz, str, tim, info)
 	    case 'l':
 #ifndef HAVENOUTMP
 		if (what == FMT_WHO) {
-		    cz = who_info(info, 'l', (char *) cbuff, sizeof(cbuff));
+		    cz = (unsigned char *) who_info(info, 'l',
+			(char *) cbuff, sizeof(cbuff));
 		    for (; cz && *cz ; *p++ = attributes | *cz++)
 			if (p >= ep) break;
 		}
@@ -468,57 +466,31 @@ tprintf(what, buf, fmt, siz, str, tim, info)
 		}
 		break;
 	    case 'd':
-		for (cz = day_list[t->tm_wday]; *cz; *p++ = attributes | *cz++)
+		for (cz = (unsigned char *) day_list[t->tm_wday]; *cz;
+		    *p++ = attributes | *cz++)
 		    if (p >= ep) break;
 		break;
 	    case 'D':
-		Itoa(t->tm_mday, buff);
 		if (p >= ep - 3) break;
-		if (buff[1]) {
-		    *p++ = attributes | buff[0];
-		    *p++ = attributes | buff[1];
-		}
-		else {
-		    *p++ = attributes | '0';
-		    *p++ = attributes | buff[0];
-		}
+		p = Itoa(t->tm_mday, p, 2, attributes);
 		break;
 	    case 'w':
 		if (p >= ep - 5) break;
-		for (cz = month_list[t->tm_mon]; *cz;)
-		    *p++ = attributes | *cz++;
+		for (cz = (unsigned char *) month_list[t->tm_mon]; *cz;
+		    *p++ = attributes | *cz++)
+		    if (p >= ep) break;
 		break;
 	    case 'W':
 		if (p >= ep - 3) break;
-		Itoa(t->tm_mon + 1, buff);
-		if (buff[1]) {
-		    *p++ = attributes | buff[0];
-		    *p++ = attributes | buff[1];
-		}
-		else {
-		    *p++ = attributes | '0';
-		    *p++ = attributes | buff[0];
-		}
+		p = Itoa(t->tm_mon + 1, p, 2, attributes);
 		break;
 	    case 'y':
 		if (p >= ep - 3) break;
-		Itoa(t->tm_year, buff);
-		if (buff[1]) {
-		    *p++ = attributes | buff[0];
-		    *p++ = attributes | buff[1];
-		}
-		else {
-		    *p++ = attributes | '0';
-		    *p++ = attributes | buff[0];
-		}
+		p = Itoa(t->tm_year % 100, p, 2, attributes);
 		break;
 	    case 'Y':
 		if (p >= ep - 5) break;
-		Itoa(t->tm_year + 1900, buff);
-		*p++ = attributes | buff[0];
-		*p++ = attributes | buff[1];
-		*p++ = attributes | buff[2];
-		*p++ = attributes | buff[3];
+		p = Itoa(t->tm_year + 1900, p, 4, attributes);
 		break;
 	    case 'S':		/* start standout */
 		attributes |= STANDOUT;
@@ -547,8 +519,8 @@ tprintf(what, buf, fmt, siz, str, tim, info)
 			if (p >= ep) break;
 		break;
 	    case '$':
-		sz = ep - p;
-		(void) expdollar(&p, &cp, &pdirs, attributes);
+		sz = (int) (ep - p);
+		(void) expdollar(&p, &cp, &sz, attributes);
 		break;
 	    case '%':
 		*p++ = attributes | '%';

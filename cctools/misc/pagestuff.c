@@ -67,6 +67,7 @@ enum mach_o_part_type {
     MP_EXT_RELOCS,
     MP_LOC_RELOCS,
     MP_SYMBOL_TABLE,
+    MP_HINTS_TABLE,
     MP_STRING_TABLE,
     MP_EXT_STRING_TABLE,
     MP_LOC_STRING_TABLE,
@@ -86,6 +87,7 @@ static char *mach_o_part_type_names[] = {
     "MP_EXT_RELOCS",
     "MP_LOC_RELOCS",
     "MP_SYMBOL_TABLE",
+    "MP_HINTS_TABLE",
     "MP_STRING_TABLE",
     "MP_EXT_STRING_TABLE",
     "MP_LOC_STRING_TABLE",
@@ -383,6 +385,7 @@ struct file_part *fp)
     struct load_command *lc;
     struct symtab_command *st;
     struct dysymtab_command *dyst;
+    struct twolevel_hints_command *hints;
     struct segment_command *sg;
     struct section *s;
     struct nlist *allocated_symbols, *symbols;
@@ -406,6 +409,7 @@ struct file_part *fp)
 
 	st = NULL;
 	dyst = NULL;
+	hints = NULL;
 	symbols = NULL;
 	strings = NULL;
 	lc = ofile.load_commands;
@@ -415,6 +419,9 @@ struct file_part *fp)
 	    }
 	    else if(dyst == NULL && lc->cmd == LC_DYSYMTAB){
 		dyst = (struct dysymtab_command *)lc;
+	    }
+	    else if(hints == NULL && lc->cmd == LC_TWOLEVEL_HINTS){
+		hints = (struct twolevel_hints_command *)lc;
 	    }
 	    else if(lc->cmd == LC_SEGMENT){
 		sg = (struct segment_command *)lc;
@@ -497,6 +504,14 @@ struct file_part *fp)
 			     dyst->iundefsym * sizeof(struct nlist);
 		mp->size = dyst->nundefsym * sizeof(struct nlist);
 		mp->type = MP_UNDEF_SYMBOLS;
+		insert_mach_o_part(fp, mp);
+	    }
+	    if(hints != NULL && hints->nhints != 0){
+		mp = new_mach_o_part();
+		mp->offset = fp->offset + hints->offset;
+		mp->size = hints->nhints *
+			   sizeof(struct twolevel_hint);
+		mp->type = MP_HINTS_TABLE;
 		insert_mach_o_part(fp, mp);
 	    }
 	    if(dyst->ntoc != 0){
@@ -904,6 +919,12 @@ unsigned long page_number)
 			print_arch(fp->mh);
 			printed = TRUE;
 			break;
+		    case MP_HINTS_TABLE:
+			printf("File Page %lu contains hints table",
+			       page_number);
+			print_arch(fp->mh);
+			printed = TRUE;
+			break;
 		    case MP_STRING_TABLE:
 			printf("File Page %lu contains string table",
 			       page_number);
@@ -1077,6 +1098,9 @@ struct mach_o_part *mp)
 	    break;
 	case MP_SYMBOL_TABLE:
 	    printf("symbol table");
+	    break;
+	case MP_HINTS_TABLE:
+	    printf("hints table");
 	    break;
 	case MP_STRING_TABLE:
 	    printf("string table");

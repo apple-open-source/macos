@@ -8959,10 +8959,9 @@ do_decl_instantiation (declspecs, declarator, storage)
     }
 
 #ifdef MARK_TEMPLATE_COALESCED
-    /* Template functions are good candidates for coalescing.  */
-    MARK_TEMPLATE_COALESCED (result);
+  /* Template functions are good candidates for coalescing.  */
+  MARK_TEMPLATE_COALESCED (result);
 #endif  
-
   if (flag_external_templates)
     return;
 
@@ -9404,7 +9403,7 @@ instantiate_decl (d)
 #ifdef MARK_TEMPLATE_COALESCED
   /* Template functions are good candidates for coalescing.  */
   MARK_TEMPLATE_COALESCED (d);
-#endif  
+#endif
 
   /* Regenerate the declaration in case the template has been modified
      by a subsequent redeclaration.  */
@@ -9528,7 +9527,33 @@ instantiate_pending_templates ()
 	      if (DECL_TEMPLATE_INSTANTIATION (instantiation)
 		  && !DECL_TEMPLATE_INSTANTIATED (instantiation))
 		{
+#ifdef HAVE_COALESCED_SYMBOLS
+		  /* Only call INSTANTIATE_DECL if the decl has been
+		     referenced -- or if we're forcing the issue (we should
+		     never have to do this, but it's a safety valve:) 
+
+		     Note that if implicit template generation is OFF, then
+		     templates are being *explicitly* instantiated (perhaps
+		     for a library or something), so we definitely want to
+		     instantiate any of those.
+
+		     If DECL_INTERFACE_KNOWN, always instantiate.  */
+
+		  tree name = DECL_ASSEMBLER_NAME (instantiation);
+
+#if 0	/* debugging  */
+		  fprintf (stderr, "## '%s' ref'd %d, intf_known %d\n",
+			IDENTIFIER_POINTER (name),
+			TREE_SYMBOL_REFERENCED (name),
+			DECL_INTERFACE_KNOWN (instantiation));
+#endif
+		  if (TREE_SYMBOL_REFERENCED (name)
+			|| DECL_INTERFACE_KNOWN (instantiation)
+			|| flag_instantiate_unreferenced_templates
+			|| ! flag_implicit_templates)
+#endif
 		  instantiation = instantiate_decl (instantiation);
+
 		  if (DECL_TEMPLATE_INSTANTIATED (instantiation))
 		    {
 		      instantiated_something = 1;

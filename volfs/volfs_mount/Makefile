@@ -28,7 +28,6 @@ DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
 
-FRAMEWORKS = -framework Foundation
 
 
 NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc

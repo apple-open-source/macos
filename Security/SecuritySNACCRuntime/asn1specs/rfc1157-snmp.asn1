@@ -1,0 +1,166 @@
+-- file: asn1specs/1157_snmp.asn1
+--
+-- this file is used in ../c{,++}-examples/snmp/
+--
+-- $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/asn1specs/rfc1157-snmp.asn1,v 1.1.1.1 2001/05/18 23:14:05 mb Exp $
+-- $Log: rfc1157-snmp.asn1,v $
+-- Revision 1.1.1.1  2001/05/18 23:14:05  mb
+-- Move from private repository to open source repository
+--
+-- Revision 1.1.1.1  1999/03/16 18:05:56  aram
+-- Originals from SMIME Free Library.
+--
+-- Revision 1.3  1995/07/27 08:29:17  rj
+-- rfc1155-smi.asn1, rfc1157-snmp.asn1 and rfc1213-mib2.asn1 renamed from 1155-smi.asn1, 1157-snmp.asn1 and 1213-mib2.asn1 to accomodate to snacc's new file name generation scheme.
+--
+-- Revision 1.2  1995/07/25  19:53:13  rj
+-- changed `_' to `-' in file names.
+--
+-- Revision 1.1  1994/08/31  23:08:27  rj
+-- first check-in.
+--
+
+RFC1157-SNMP DEFINITIONS ::= BEGIN
+
+      IMPORTS
+          ObjectName, ObjectSyntax, NetworkAddress, IpAddress, TimeTicks
+              FROM RFC1155-SMI;
+
+
+          -- top-level message
+
+          Message ::=
+                  SEQUENCE {
+                      version          -- version-1 for this RFC
+                          INTEGER {
+                              version-1(0)
+                          },
+
+                      community        -- community name
+                          OCTET STRING,
+
+                      data             -- e.g., PDUs if trivial
+                          PDUs          -- authentication is being used
+                  }
+
+
+          -- protocol data units
+
+          PDUs ::=
+                  CHOICE {
+                              get-request
+                                  GetRequest-PDU,
+
+                              get-next-request
+                                  GetNextRequest-PDU,
+
+                              get-response
+                                  GetResponse-PDU,
+
+                              set-request
+                                  SetRequest-PDU,
+
+                              trap
+                                  Trap-PDU
+                          }
+
+
+
+
+
+          -- PDUs
+
+          GetRequest-PDU ::=
+              [0]
+                  IMPLICIT PDU
+
+          GetNextRequest-PDU ::=
+              [1]
+                  IMPLICIT PDU
+
+          GetResponse-PDU ::=
+              [2]
+                  IMPLICIT PDU
+
+          SetRequest-PDU ::=
+              [3]
+                  IMPLICIT PDU
+
+          PDU ::=
+                  SEQUENCE {
+                     request-id
+                          INTEGER,
+
+                      error-status      -- sometimes ignored
+                          INTEGER {
+                              noError(0),
+                              tooBig(1),
+                              noSuchName(2),
+                              badValue(3),
+                              readOnly(4),
+                              genErr(5)
+                          },
+
+                      error-index       -- sometimes ignored
+                         INTEGER,
+
+                      variable-bindings -- values are sometimes ignored
+                          VarBindList
+                  }
+
+          Trap-PDU ::=
+              [4]
+                 IMPLICIT SEQUENCE {
+                      enterprise        -- type of object generating
+                                        -- trap, see sysObjectID in [5]
+
+
+                          OBJECT IDENTIFIER,
+
+
+
+                      agent-addr        -- address of object generating
+                          NetworkAddress, -- trap
+
+                      generic-trap      -- generic trap type
+                          INTEGER {
+                              coldStart(0),
+                              warmStart(1),
+                              linkDown(2),
+                              linkUp(3),
+                              authenticationFailure(4),
+                              egpNeighborLoss(5),
+                              enterpriseSpecific(6)
+                          },
+
+                      specific-trap  -- specific code, present even
+                          INTEGER,   -- if generic-trap is not
+                                     -- enterpriseSpecific
+
+                      time-stamp     -- time elapsed between the last
+                          TimeTicks, -- (re)initialization of the
+                                     -- network
+                                     -- entity and the generation of the
+                                     -- trap
+
+                       variable-bindings -- "interesting" information
+                          VarBindList
+                  }
+
+
+          -- variable bindings
+
+          VarBind ::=
+                  SEQUENCE {
+                      name
+                          ObjectName,
+
+                      value
+                          ObjectSyntax
+                  }
+
+         VarBindList ::=
+                  SEQUENCE OF
+                     VarBind
+
+END

@@ -7,11 +7,13 @@
  *	you need to authenticate your users				*
  *									*
  *	Copyright (c) 1996-1997, S.R. van den Berg, The Netherlands	*
+ *	Copyright (c) 1999-2001, Philip Guenther, The United States	*
+ *						of America		*
  *	#include "../README" or "README"				*
  ************************************************************************/
 #ifdef RCS
 static /*const*/char rcsid[]=
- "$Id: authenticate.c,v 1.1.1.1 1999/09/23 17:30:07 wsanchez Exp $";
+ "$Id: authenticate.c,v 1.1.1.2 2001/07/20 19:38:14 bbraun Exp $";
 #endif
 
 #ifdef PROCMAIL
@@ -27,6 +29,7 @@ static /*const*/char rcsid[]=
 #include <pwd.h>
 #include <string.h>
 #include <stdlib.h>
+#define bbzero(s,l)	memset(s,'\0',l)
 
 #ifdef SHADOW_PASSWD
 #include <shadow.h>
@@ -37,6 +40,9 @@ static /*const*/char rcsid[]=
 
 #ifndef MAILSPOOLDIR
 #define MAILSPOOLDIR	"/var/spool/mail/"	     /* watch the trailing / */
+#endif
+#ifndef MAILSPOOLSUFFIX
+#define MAILSPOOLSUFFIX ""	      /* suffix to force maildir or MH style */
 #endif
 #ifndef MAILSPOOLHASH
 #define MAILSPOOLHASH	0      /* 2 would deliver to /var/spool/mail/b/a/bar */
@@ -125,16 +131,42 @@ void auth_copyid(newpass,oldpass)auth_identity*newpass;
   newpass->sock=oldpass->sock;
   if(!(np=(struct passwd*)newpass->pw))
    { np=(struct passwd*)(newpass->pw=malloc(sizeof*np));
-     np->pw_name=np->pw_dir=np->pw_shell=0;
+     bbzero(np,sizeof*np);
    }
   np->pw_uid=(op=oldpass->pw)->pw_uid;np->pw_gid=op->pw_gid;
   np->pw_name=cstr(np->pw_name,op->pw_name);
   np->pw_dir=cstr(np->pw_dir,op->pw_dir);
   np->pw_shell=cstr(np->pw_shell,op->pw_shell);
+#ifndef NOpw_passwd
+  if(op->pw_passwd)
+     bbzero(op->pw_passwd,strlen(op->pw_passwd));
+#endif
+}
+
+static void auth_zeroout(pass)auth_identity*pass;
+{ struct passwd*p;
+  if(p=(struct passwd*)pass->pw)
+   { bbzero(p->pw_name,strlen(p->pw_name));
+#ifndef NOpw_passwd
+     if(p->pw_passwd)bbzero(p->pw_passwd,strlen(p->pw_passwd));
+#endif
+#ifndef NOpw_class
+     if(p->pw_class)bbzero(p->pw_class,strlen(p->pw_class));
+#endif
+#ifndef NOpw_gecos
+     if(p->pw_gecos)bbzero(p->pw_gecos,strlen(p->pw_gecos));
+#endif
+     bbzero(p->pw_dir,strlen(p->pw_dir));
+     bbzero(p->pw_shell,strlen(p->pw_shell));
+     bbzero(p,sizeof(*p));
+   }
+  if(pass->mbox)
+     bbzero(pass->mbox,strlen(pass->mbox));
 }
 
 void auth_freeid(pass)auth_identity*pass;
 { struct passwd*p;
+  auth_zeroout(pass);
   if(p=(struct passwd*)pass->pw)
      free(p->pw_name),free(p->pw_dir),free(p->pw_shell),free(p);
   if(pass->mbox)
@@ -157,8 +189,8 @@ const char*auth_mailboxname(pass)auth_identity*const pass;
      strcpy(pass->mbox+i,mailfile);
 #else
    { static const char mailspooldir[]=MAILSPOOLDIR;
-     if(!(pass->mbox=malloc(
-      STRLEN(mailspooldir)+MAILSPOOLHASH*2+strlen(pass->pw->pw_name)+1)))
+     if(!(pass->mbox=malloc(STRLEN(mailspooldir)+MAILSPOOLHASH*2+
+      strlen(pass->pw->pw_name)+1+STRLEN(MAILSPOOLSUFFIX))))
 	return "";
      strcpy(pass->mbox,mailspooldir);
      ;{ char*p,*n;size_t i;int c;
@@ -169,6 +201,8 @@ const char*auth_mailboxname(pass)auth_identity*const pass;
 	   *p++=c;
 	 }
 	strcpy(p,pass->pw->pw_name);
+	if(STRLEN(MAILSPOOLSUFFIX))
+	   strcat(p,MAILSPOOLSUFFIX);
       }
 #endif /* MAILSPOOLHOME */
    }
@@ -196,7 +230,8 @@ const char*auth_username(pass)const auth_identity*const pass;
 }
 
 void auth_end P((void))
-{ if(authi.mbox)
+{ auth_zeroout(&authi);
+  if(authi.mbox)
      free(authi.mbox),authi.mbox=0;	    /* discard the mailbox reference */
   endpwent();
 #ifdef SHADOW_PASSWD

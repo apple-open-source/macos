@@ -21,23 +21,28 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+#ifndef LIBRARY_API
 /*
  * The redo_prebinding(1) program.  This redoes the prebinding of an executable
  * or dynamic library.
  *
- * redo_prebinding [-c|-p|-d] [-i] [-r rootdir] [-o output_file] input_file 
+ * redo_prebinding [-c|-p|-d] [-i] [-r rootdir] [-e executable_path]
+ *		   [-o output_file] input_file 
  *	-c check only and return status
  *	-p check only for prebound files and return status
  *	-d check only for dylibs and return status
  *	-i ignore non-prebound files
  *	-r prepend the next argument to dependent libraries
+ *	-e replace "@executable_path" in dependent libraries with the next
+ *	   argument
+ *	-o write the output to the next argument instead of the input_file
  * With no -c, -p or -d it exits 0 if sucessful and 2 means it could not be
  * done for reasons like a dependent library is missing.  An exit of 3 is for
  * the specific case when the dependent libraries are out of date with respect
  * to each other.
  * 
  * If -c, check only, is specified a 0 exit means the file's prebinding is
- * uptodate, 1 means it needs to be redone and 2 means it could not be checked
+ * up to date, 1 means it needs to be redone and 2 means it could not be checked
  * for reasons like a dependent library is missing.
  *
  * If -p, check only for prebound files, is specified 1 exit means the file is
@@ -50,6 +55,14 @@
  * Other possible options to consider implementing:
  *	-seg1addr (for dylibs only) slide library to new seg1addr
  */
+#else /* defined(LIBRARY_API) */
+/*
+ * The library API for redo_prebinding is defined in <mach-o/redo_prebinding.h>
+ * and below in the comments before each routine.
+ */
+#include <mach-o/redo_prebinding.h>
+#endif /* defined(LIBRARY_API) */
+
 #import <stdio.h>
 #import <stdlib.h>
 #import <string.h>
@@ -69,37 +82,44 @@
 #import <stuff/round.h>
 #import <stuff/hppa.h>
 #import <stuff/execute.h>
+#import <stuff/guess_short_name.h>
 
 #define U_ABS(l) (((long)(l))<0 ? (unsigned long)(-(l)) : (l))
 
 /* name of the program for error messages (argv[0]) */
-char *progname;
+__private_extern__ char *progname = NULL;
 
 /* -c option, only check and return status */
-enum bool check_only = FALSE;
+static enum bool check_only = FALSE;
 
 /* -i option, ignore non-prebound files */
-enum bool ignore_non_prebound = FALSE;
+static enum bool ignore_non_prebound = FALSE;
 
 /* -p option, check for non-prebound files */
-enum bool check_for_non_prebound = FALSE;
+static enum bool check_for_non_prebound = FALSE;
 
 /* -d option, check for dynamic library files */
-enum bool check_for_dylibs = FALSE;
-enum bool seen_a_dylib = FALSE;
-enum bool seen_a_non_dylib = FALSE;
+static enum bool check_for_dylibs = FALSE;
+static enum bool seen_a_dylib = FALSE;
+static enum bool seen_a_non_dylib = FALSE;
 
 /* -r option's argument, root directory to prepend to dependent libraries */
-char *root_dir = NULL;
+static char *root_dir = NULL;
+
+/*
+ * -e option's argument, executable_path is used to replace "@executable_path
+ * for dependent libraries.
+ */
+static char *executable_path = NULL;
 
 /* -debug turn on debugging printf()'s */
-enum bool debug = FALSE;
+static enum bool debug = FALSE;
 
 /*
  * If some architecture was processed then the output file needs to be built
  * otherwise no output file is written.
  */
-enum bool arch_processed = FALSE;
+static enum bool arch_processed = FALSE;
 
 /* the link state of each module */
 enum link_state {
@@ -112,7 +132,7 @@ enum link_state {
  */
 static struct arch *arch = NULL;
 static struct arch_flag arch_flag = { 0 };
-static enum bool arch_swapped;
+static enum bool arch_swapped = FALSE;
 static char *arch_name = NULL;
 static struct nlist *arch_symbols = NULL;
 static unsigned long arch_nsyms = 0;
@@ -124,15 +144,19 @@ static struct dylib_module *arch_mods = NULL;
 static unsigned long arch_nmodtab = 0;
 static struct dylib_reference *arch_refs = NULL;
 static unsigned long arch_nextrefsyms = 0;
+static struct twolevel_hint *arch_hints = NULL;
+static unsigned long arch_nhints = 0;
 static enum link_state arch_state = LINKED;
 
-static unsigned long arch_seg1addr;
-static unsigned long arch_segs_read_write_addr;
-static enum bool arch_split_segs;
+static unsigned long arch_seg1addr = 0;
+static unsigned long arch_segs_read_write_addr = 0;
+static enum bool arch_split_segs = FALSE;
 static struct relocation_info *arch_extrelocs = NULL;
 static unsigned long arch_nextrel = 0;
 static unsigned long *arch_indirect_symtab = NULL;
 static unsigned long arch_nindirectsyms = 0;
+
+static enum bool arch_force_flat_namespace = FALSE;
 
 /*
  * These hold the dependent libraries for the arch currently being processed.
@@ -159,9 +183,43 @@ struct lib {
     enum link_state *module_states;
     enum bool LC_PREBOUND_DYLIB_found;
     unsigned long LC_PREBOUND_DYLIB_size;
+    /*
+     * For two-level namespace images this is the array of pointers to the
+     * dependent images (indexes into the libs[] array) and the count of them.
+     */
+    unsigned long *dependent_images;
+    unsigned long ndependent_images;
+    /*
+     * If this is a library image which has a framework name or library name
+     * then this is the part that would be the umbrella name or library name
+     * and the size of the name.  This points into the name and since framework
+     * and library names may have suffixes the size is needed to exclude it.
+     * This is only needed for two-level namespace images.  umbrella_name and
+     * or library_name will be NULL and name_size will be 0 if there is no
+     * umbrella name.
+     */
+    char *umbrella_name;
+    char *library_name;
+    unsigned long name_size;
+
+    /*
+     * array of pointers (indexes into the libs[] array) to sub-frameworks and
+     * sub-umbrellas and count
+     */
+    enum bool sub_images_setup;
+    unsigned long *sub_images;
+    unsigned long nsub_images;
+
+    enum bool two_level_debug_printed;
 };
-struct lib *libs = NULL;
-unsigned long nlibs = 0;
+static struct lib *libs = NULL;
+static unsigned long nlibs = 0;
+
+/*
+ * A fake lib struct for the arch being processed which is used if the arch
+ * being processed is a two-level namespace image.
+ */
+static struct lib arch_lib;
 
 /*
  * This is used by check_for_overlapping_segments() to create a list of segment
@@ -172,8 +230,10 @@ struct segment {
     struct segment_command *sg;
 };
 
+#ifndef LIBRARY_API
 static void usage(
     void);
+#endif /* !defined(LIBRARY_API) */
 
 static void process_archs(
     struct arch *archs,
@@ -186,9 +246,17 @@ static void load_archs_libraries(void);
 static void load_library(
     char *file_name,
     struct dylib_command *dl_load,
-    enum bool time_stamps_must_match);
+    enum bool time_stamps_must_match,
+    unsigned long *image_pointer);
 
 static void load_dependent_libraries(void);
+
+static void print_two_level_info(
+    struct lib *lib);
+
+static enum bool setup_sub_images(
+    struct lib *lib,
+    struct mach_header *lib_mh);
 
 static void check_for_overlapping_segments(void);
 
@@ -202,6 +270,8 @@ static void swap_arch_for_output(void);
 
 static void check_symbolic_info_tables(
     char *file_name,
+    struct mach_header *mh,
+    unsigned long nlibrefs,
     struct symtab_command *st,
     struct dysymtab_command *dyst,
     struct nlist *symbols,
@@ -240,26 +310,34 @@ static void setup_initial_undefined_list(void);
 
 static void link_in_need_modules(void);
 
+/* fake index into the libs[] array to refer to the arch being processed */
+#define ARCH_LIB 0xffffffff
 /*
  * The structure of an element in a symbol list.
  */
 struct symbol_list {
     char *name;			/* name of the symbol */
+    /* for two-level references then next two fields are used */
+    struct nlist *symbol;	/* the symbol, NULL for flat references */
+    unsigned long ilib;		/* the library the symbol is from (index into
+				   the libs[] array, or ARCH_LIB) */
     struct symbol_list *prev;	/* previous in the chain */
     struct symbol_list *next;	/* next in the chain */
 };
 /*
  * The head of the undefined list.  This is a circular list so it can be
  * searched from start to end and so new items can be put on the end.  This
- * structure never has its name filled in but they only serve as head and tail
+ * structure never has its name filled in but only serves as the head and tail
  * of the list.
  */
 static struct symbol_list undefined_list = {
-    NULL, &undefined_list, &undefined_list
+    NULL, NULL, 0, &undefined_list, &undefined_list
 };
 
 static void add_to_undefined_list(
-    char *name);
+    char *name,
+    struct nlist *symbol,
+    unsigned long ilib);
 
 static void link_library_module(
     enum link_state *module_state,
@@ -271,11 +349,41 @@ struct indr_loop_list {
 };
 #define NO_INDR_LOOP ((struct indr_loop_list *)1)
 
+static struct lib *get_primary_lib(
+    unsigned long ilib,
+    struct nlist *symbol);
+
+static struct lib *get_indr_lib(
+    char *symbol_name,
+    struct lib *lib);
+
 static void lookup_symbol(
+    char *name,
+    struct lib *primary_lib,
+    struct nlist **symbol,
+    enum link_state **module_state,
+    struct lib **lib,
+    unsigned long *isub_image,
+    unsigned long *itoc,
+    struct indr_loop_list *indr_loop);
+
+static enum bool lookup_symbol_in_arch(
     char *name,
     struct nlist **symbol,
     enum link_state **module_state,
     struct lib **lib,
+    unsigned long *isub_image,
+    unsigned long *itoc,
+    struct indr_loop_list *indr_loop);
+
+static enum bool lookup_symbol_in_lib(
+    char *name,
+    struct lib *primary_lib,
+    struct nlist **symbol,
+    enum link_state **module_state,
+    struct lib **lib,
+    unsigned long *isub_image,
+    unsigned long *itoc,
     struct indr_loop_list *indr_loop);
 
 static void build_new_symbol_table(
@@ -305,6 +413,13 @@ static void update_symbol_pointers(
 
 static void update_load_commands(
     void);
+
+static void message(
+    const char *format, ...)
+#ifdef __GNUC__
+    __attribute__ ((format (printf, 1, 2)))
+#endif
+    ;
 
 /*
  * These routines are used to get/set values that might not be aligned correctly
@@ -384,6 +499,22 @@ char value)
 }
 
 /*
+ * cleanup_libs() unmaps the ofiles for all the libraries in the libs[] array.
+ */
+static
+void
+cleanup_libs()
+{
+    unsigned long i;
+
+	for(i = 0; i < nlibs; i++){
+	    if(libs[i].ofile != NULL)
+		ofile_unmap(libs[i].ofile);
+	}
+}
+
+#ifndef LIBRARY_API
+/*
  * main() see top of file for program's description and options.
  */
 int
@@ -428,6 +559,14 @@ char *envp[])
 		    if(root_dir != NULL)
 			fatal("only one -r option allowed");
 		    root_dir = argv[i + 1];
+		    i++;
+		}
+		else if(strcmp(argv[i], "-e") == 0){
+		    if(i + 1 >= argc)
+			fatal("-e requires an argument");
+		    if(executable_path != NULL)
+			fatal("only one -e option allowed");
+		    executable_path = argv[i + 1];
 		    i++;
 		}
 		else if(strcmp(argv[i], "-c") == 0){
@@ -511,16 +650,24 @@ char *envp[])
 		exit(1);
 	    if(stat(input_file, &stat_buf) == -1)
 		system_error("can't stat input file: %s", input_file);
-	    mode = stat_buf.st_mode & 06777;
+	    mode = stat_buf.st_mode & 07777;
 	    uid = stat_buf.st_uid;
             gid = stat_buf.st_gid;
 
 	    if(output_file != NULL){
 		writeout(archs, narchs, output_file, mode, TRUE, FALSE, FALSE);
+		if(errors){
+		    unlink(output_file);
+		    return(2);
+		}
 	    }
 	    else{
 		output_file = makestr(input_file, ".redo_prebinding", NULL);
 		writeout(archs, narchs, output_file, mode, TRUE, FALSE, FALSE);
+		if(errors){
+		    unlink(output_file);
+		    return(2);
+		}
 		if(rename(output_file, input_file) == 1)
 		    system_error("can't move temporary file: %s to input "
 				 "file: %s\n", output_file, input_file);
@@ -592,9 +739,557 @@ usage(
 void)
 {
 	fprintf(stderr, "Usage: %s [-c|-p|-d] [-i] [-r rootdir] "
-		"[-o output_file] input_file\n", progname);
+		"[-e executable_path] [-o output_file] input_file\n", progname);
 	exit(EXIT_FAILURE);
 }
+
+/*
+ * redo_exit() simply calls exit for the non-library api interface.
+ */
+static
+void
+redo_exit(
+int value)
+{
+	exit(value);
+}
+
+/*
+ * message() simply calls vprintf() for the non-library api interface.
+ */
+static
+void
+message(
+const char *format,
+...)
+{
+    va_list ap;
+
+	va_start(ap, format);
+	vprintf(format, ap);
+	va_end(ap);
+}
+
+#else /* defined(LIBRARY_API) */
+#include <setjmp.h>
+#include <objc/zone.h>
+#include <errno.h>
+#include <mach/mach_error.h>
+/*
+ * The jump buffer to get back to the library's api call to allow catching
+ * of things like malformed files, etc.
+ */
+static jmp_buf library_env;
+
+/*
+ * A pointer to a malloc(3)'ed error message buffer for error messages allocated
+ * and filled in by the error routines in here for the library apis.
+ */
+static char *error_message_buffer = NULL;
+#define ERROR_MESSAGE_BUFFER_SIZE 8192
+static char *last = NULL;
+static unsigned long left = 0;
+
+static
+void
+setup_error_message_buffer(
+void)
+{
+	if(error_message_buffer == NULL){
+	    error_message_buffer = malloc(ERROR_MESSAGE_BUFFER_SIZE);
+	    if(error_message_buffer == NULL)
+		system_fatal("virtual memory exhausted (malloc failed)");
+	    error_message_buffer[0] = '\0';
+	    error_message_buffer[ERROR_MESSAGE_BUFFER_SIZE - 1] = '\0';
+	    last = error_message_buffer;
+	    left = ERROR_MESSAGE_BUFFER_SIZE - 1;
+	}
+}
+
+/*
+ * The zone allocation is done from this zone for the library api so it can
+ * be cleaned up.
+ */
+static NXZone *library_zone = NULL;
+
+/*
+ * reset_statics() is used by the library api's to get all the static variables
+ * in this file back to their initial values.
+ */
+static
+void
+reset_statics(
+void)
+{
+	check_only = FALSE;
+	ignore_non_prebound = FALSE;
+	check_for_non_prebound = FALSE;
+	check_for_dylibs = FALSE;
+	seen_a_dylib = FALSE;
+	seen_a_non_dylib = FALSE;
+	root_dir = NULL;
+	executable_path = NULL;
+	debug = FALSE;
+	arch_processed = FALSE;
+	arch = NULL;
+	memset(&arch_flag, '\0', sizeof(struct arch_flag));
+	arch_swapped = FALSE;
+	arch_name = NULL;
+	arch_symbols = NULL;
+	arch_nsyms = 0;
+	arch_strings = NULL;
+	arch_strsize = 0;
+	arch_tocs = NULL;
+	arch_ntoc = 0;
+	arch_mods = NULL;
+	arch_nmodtab = 0;
+	arch_refs = NULL;
+	arch_nextrefsyms = 0;
+	arch_hints = NULL;
+	arch_nhints = 0;
+	arch_state = LINKED;
+	arch_seg1addr = 0;
+	arch_segs_read_write_addr = 0;
+	arch_split_segs = FALSE;
+	arch_extrelocs = NULL;
+	arch_nextrel = 0;
+	arch_indirect_symtab = NULL;
+	arch_nindirectsyms = 0;
+	arch_force_flat_namespace = FALSE;
+	libs = NULL;
+	nlibs = 0;
+	memset(&arch_lib, '\0', sizeof(struct lib));
+	memset(&undefined_list, '\0', sizeof(struct symbol_list));
+	undefined_list.name = NULL;
+	undefined_list.symbol = NULL;
+	undefined_list.ilib = 0;
+	undefined_list.prev = &undefined_list;
+	undefined_list.next = &undefined_list;
+	error_message_buffer = NULL;
+	last = NULL;
+	left = 0;
+	errors = 0;
+}
+
+/*
+ * cleanup() is called when recoverable error occurs or when a successful
+ * library api has been completed.  So we deallocate anything we allocated from
+ * the zone up to this point.  Allocated items to be returned to the user are
+ * allocated with malloc(3) and not with our allocate() which uses the zone.
+ */
+static
+void
+cleanup(
+void)
+{
+	cleanup_libs();
+	if(library_zone != NULL)
+	    NXDestroyZone(library_zone);
+	library_zone = NULL;
+}
+
+/*
+ * For all the LIBRARY_APIs the parameters program_name and error_message
+ * are used the same.  For unrecoverable resource errors like being unable to
+ * allocate memory each API prints a message to stderr precede with program_name
+ * then calls exit(2) with the value EXIT_FAILURE.  If an API is unsuccessful
+ * and if error_message pass to it is not NULL it is set to a malloc(3)'ed
+ * buffer with a NULL terminated string with the error message.  For all APIs 
+ * when they return they release all resources (memory, open file descriptors,
+ * etc). 
+ * 
+ * The file_name parameter for these APIs may be of the form "foo(bar)" which is
+ * NOT interpreted as an archive name and a member name in that archive.  As
+ * these API deal with prebinding and prebound binaries ready for execution
+ * can't be in archives.
+ * 
+ * If the executable_path parameter for these APIs is not NULL it is used for
+ * any dependent library has a path that starts with "@executable_path". Then
+ * "@executable_path" is replaced with executable_path. 
+ * 
+ * If the root_dir parameter is not NULL it is prepended to all the rooted
+ * dependent library paths. 
+ */
+
+/*
+ * dependent_libs() takes a file_name of a binary and returns a malloc(3)'ed
+ * array of pointers (NULL terminated) to names (also malloc(3)'ed and '\0'
+ * terminated names) of all the dependent libraries for that binary (not
+ * recursive) for all of the architectures of that binary.  If successful
+ * dependent_libs() returns a non NULL value (at minimum a pointer to one NULL
+ * pointer). If unsuccessful dependent_libs() returns NULL.
+ */ 
+char **
+dependent_libs(
+const char *file_name,
+const char *program_name,
+char **error_message)
+{
+    struct arch *archs;
+    unsigned long narchs, i, j, k;
+    struct ofile *ofile;
+    unsigned long ndependents;
+    char **dependents, *dylib_name;
+    struct load_command *lc;
+    struct dylib_command *dl_load;
+    enum bool found;
+
+	reset_statics();
+	progname = (char *)program_name;
+	if(error_message != NULL)
+	    *error_message = NULL;
+
+	ofile = NULL;
+	ndependents = 0;
+	dependents = NULL;
+	archs = NULL;
+	narchs = 0;
+
+	/*
+	 * Set up to handle recoverable errors.
+	 */
+	if(setjmp(library_env) != 0){
+	    /*
+	     * It takes a longjmp() to get to this point.  So we got an error
+	     * so clean up and return NULL to say we were unsuccessful.
+	     */
+	    goto error_return;
+	}
+
+	/* breakout the file for processing */
+	ofile = breakout((char *)file_name, &archs, &narchs);
+	if(errors)
+	    goto error_return;
+
+	/* checkout the file for processing */
+	checkout(archs, narchs);
+
+	/*
+	 * Count the number of dynamic librarys in the all of the archs which
+	 * are executables and dynamic libraries.
+	 */
+	for(i = 0; i < narchs; i++){
+	    arch = archs + i;
+	    if(arch->type == OFILE_Mach_O &&
+	       (arch->object->mh->filetype == MH_EXECUTE ||
+	        arch->object->mh->filetype == MH_DYLIB)){
+		lc = arch->object->load_commands;
+		for(j = 0; j < arch->object->mh->ncmds; j++){
+		    switch(lc->cmd){
+		    case LC_LOAD_DYLIB:
+			ndependents++;
+			break;
+		    }
+		    lc = (struct load_command *)((char *)lc + lc->cmdsize);
+		}
+	    }
+	}
+	dependents = (char **)malloc(sizeof(char *) * (ndependents + 1));
+	if(dependents == NULL)
+	    system_fatal("virtual memory exhausted (malloc failed)");
+	/*
+	 * Now fill in the dependents[] array with the names of the libraries.
+	 */
+	ndependents = 0;
+	for(i = 0; i < narchs; i++){
+	    arch = archs + i;
+	    if(arch->type == OFILE_Mach_O &&
+	       (arch->object->mh->filetype == MH_EXECUTE ||
+	        arch->object->mh->filetype == MH_DYLIB)){
+		lc = arch->object->load_commands;
+		for(j = 0; j < arch->object->mh->ncmds; j++){
+		    switch(lc->cmd){
+		    case LC_LOAD_DYLIB:
+			dl_load = (struct dylib_command *)lc;
+			dylib_name = (char *)dl_load +
+				     dl_load->dylib.name.offset;
+			found = FALSE;
+			for(k = 0; k < ndependents; k++){
+			    if(strcmp(dependents[k], dylib_name) == 0){
+				found = TRUE;
+				break;
+			    }
+			}
+			if(found == FALSE){
+			    dependents[ndependents] =
+				(char *)malloc(strlen(dylib_name) + 1);
+			    if(dependents[ndependents] == NULL)
+				system_fatal("virtual memory exhausted (malloc "
+					     "failed)");
+			    strcpy(dependents[ndependents], dylib_name);
+			    ndependents++;
+			}
+			break;
+		    }
+		    lc = (struct load_command *)((char *)lc + lc->cmdsize);
+		}
+	    }
+	}
+	dependents[ndependents] = NULL;
+
+	if(ofile != NULL)
+	    ofile_unmap(ofile);
+	cleanup();
+	return(dependents);
+
+error_return:
+	if(ofile != NULL)
+	    ofile_unmap(ofile);
+	cleanup();
+	if(error_message != NULL && error_message_buffer != NULL)
+	    *error_message = error_message_buffer;
+	else if(error_message_buffer != NULL)
+	    free(error_message_buffer);
+	return(NULL);
+}
+
+/*
+ * redo_prebinding() takes a file_name of a binary and redoes the prebinding on
+ * it.  If output_file is not NULL the update file is written to output_file,
+ * if not it is written to file_name.  If redo_prebinding() is successful it
+ * returns 0 otherwise it returns 1.  If not all architectures can be updated
+ * it is not successful and nothing is done.
+ *
+ * The not yet supported slide_to_address parameter should be passed a value of
+ * zero. When supported a non-zero value will be the address a dynamic library
+ * is to be relocated to as its prefered address.
+ */
+int
+redo_prebinding(
+const char *file_name,
+const char *executable_path_arg,
+const char *root_dir_arg,
+const char *output_file,
+const char *program_name,
+char **error_message,
+unsigned long slide_to_address) /* not yet supported parameter */
+{
+    struct arch *archs;
+    unsigned long narchs;
+    struct ofile *ofile;
+    struct stat stat_buf;
+    unsigned short mode;
+    uid_t uid;
+    gid_t gid;
+
+	reset_statics();
+	progname = (char *)program_name;
+	if(error_message != NULL)
+	    *error_message = NULL;
+
+	executable_path = (char *)executable_path_arg;
+	root_dir = (char *)root_dir_arg;
+	ofile = NULL;
+	archs = NULL;
+	narchs = 0;
+
+	/*
+	 * Set up to handle recoverable errors.
+	 */
+	if(setjmp(library_env) != 0){
+	    /*
+	     * It takes a longjmp() to get to this point.  So we got an error
+	     * so clean up and return NULL to say we were unsuccessful.
+	     */
+	    goto error_return;
+	}
+
+	/* breakout the file for processing */
+	ofile = breakout((char *)file_name, &archs, &narchs);
+	if(errors)
+	    goto error_return;
+
+	/* checkout the file for processing */
+	checkout(archs, narchs);
+	if(errors)
+	    goto error_return;
+
+	/* process the archs redoing the prebinding */
+	process_archs(archs, narchs);
+	if(errors)
+	    goto error_return;
+
+	/*
+	 * Create an output file if we processed any of the archs.
+	 */
+	if(arch_processed == TRUE){
+	    if(stat(file_name, &stat_buf) == -1)
+		system_error("can't stat input file: %s", file_name);
+	    mode = stat_buf.st_mode & 06777;
+	    uid = stat_buf.st_uid;
+            gid = stat_buf.st_gid;
+
+	    if(output_file != NULL){
+		writeout(archs, narchs, (char *)output_file, mode, TRUE, FALSE, 
+			 FALSE);
+		if(errors){
+		    unlink(output_file);
+		    goto error_return;
+		}
+	    }
+	    else{
+		output_file = makestr(file_name, ".redo_prebinding", NULL);
+		writeout(archs, narchs, (char *)output_file, mode, TRUE, FALSE, 
+			 FALSE);
+		if(errors){
+		    unlink(output_file);
+		    goto error_return;
+		}
+		if(rename(output_file, file_name) == 1)
+		    system_error("can't move temporary file: %s to input "
+				 "file: %s\n", output_file, file_name);
+		free((char *)output_file);
+		output_file = NULL;
+	    }
+	    /*
+	     * Call chmod(2) to insure set-uid, set-gid and sticky bits get set.
+	     * Then call chown to insure the file has the same owner and group
+	     * as the original file.
+	     */
+	    if(output_file != NULL){
+		if(chmod(output_file, mode) == -1)
+		    system_error("can't set permissions on file: %s",
+			output_file);
+		if(chown(output_file, uid, gid) == -1)
+		    system_error("can't set owner and group on file: %s",
+			output_file);
+	    }
+	    else{
+		if(chmod(file_name, mode) == -1)
+		    system_error("can't set permissions on file: %s",
+			file_name);
+		if(chown(file_name, uid, gid) == -1)
+		    system_error("can't set owner and group on file: %s",
+			file_name);
+	    }
+	}
+
+	if(ofile != NULL)
+	    ofile_unmap(ofile);
+	cleanup();
+	return(0); /* successful */
+
+error_return:
+	if(ofile != NULL)
+	    ofile_unmap(ofile);
+	cleanup();
+	if(error_message != NULL && error_message_buffer != NULL)
+	    *error_message = error_message_buffer;
+	else if(error_message_buffer != NULL)
+	    free(error_message_buffer);
+	return(1); /* unsuccessful */
+}
+
+/*
+ * The redo_exit() routine sets this value for the library apis.
+ */
+static enum needs_redo_prebinding_retval retval;
+
+/*
+ * redo_exit() for library api interface translates the value of
+ * redo_prebinding(1) -c to the needs_redo_prebinding() return value then
+ * longjmp()'s back.
+ */
+static
+void
+redo_exit(
+int value)
+{
+	switch(value){
+	case 1:
+	     retval = PREBINDING_OUTOFDATE;
+	     break;
+	case 2:
+	case 3:
+	     retval = PREBINDING_UNKNOWN;
+	     break;
+	default:
+	     fprintf(stderr, "%s: internal error redo_exit() called with (%d) "
+		     "unexpected value\n", progname, value);
+	     exit(1);
+	}
+	longjmp(library_env, 1);
+}
+
+/*
+ * needs_redo_prebinding() takes a file_name and determines if it is a binary
+ * and if its prebinding is up to date.  It returns one of the
+ * needs_redo_prebinding_retval values depending on the state of the binary and
+ * libraries.  The value of PREBINDING_UNKNOWN is returned if all architectures
+ * are not in the same state.
+ */
+enum needs_redo_prebinding_retval
+needs_redo_prebinding(
+const char *file_name,
+const char *executable_path_arg,
+const char *root_dir_arg,
+const char *program_name,
+char **error_message)
+{
+    struct arch *archs;
+    unsigned long narchs;
+    struct ofile *ofile;
+
+	reset_statics();
+	progname = (char *)program_name;
+	if(error_message != NULL)
+	    *error_message = NULL;
+
+	executable_path = (char *)executable_path_arg;
+	root_dir = (char *)root_dir_arg;
+	ofile = NULL;
+	archs = NULL;
+	narchs = 0;
+	/*
+	 * The code when check_only is TRUE assumes the prebinding is up to date.
+	 * If it is not the code will change the retval before returning.
+	 */
+	check_only = TRUE;
+	retval = PREBINDING_UPTODATE;
+
+	/*
+	 * Set up to handle recoverable errors and longjmp's from the
+	 * redo_exit() routine.
+	 */
+	if(setjmp(library_env) != 0){
+	    goto return_point;
+	}
+
+	/* breakout the file for processing */
+	ofile = breakout((char *)file_name, &archs, &narchs);
+	if(errors){
+	    if(retval == PREBINDING_UPTODATE)
+		retval = PREBINDING_UNKNOWN;
+	    goto return_point;
+	}
+
+	/* checkout the file for processing */
+	checkout(archs, narchs);
+	if(errors){
+	    if(retval == PREBINDING_UPTODATE)
+		retval = PREBINDING_UNKNOWN;
+	    goto return_point;
+	}
+
+	/*
+	 * Now with check_only set to TRUE process the archs.  For error cases
+	 * the retval will get set by process_archs() or one of the routines.
+	 * If arch_processed is TRUE then set retval to PREBINDING_OUTOFDATE
+	 * else used the assumed initialized value PREBINDING_UPTODATE.
+	 */
+	process_archs(archs, narchs);
+
+return_point:
+	if(ofile != NULL)
+	    ofile_unmap(ofile);
+	cleanup();
+	if(error_message != NULL && error_message_buffer != NULL)
+	    *error_message = error_message_buffer;
+	else if(error_message_buffer != NULL)
+	    free(error_message_buffer);
+	return(retval);
+}
+#endif /* defined(LIBRARY_API) */
 
 /*
  * process_archs() is passed the broken out arch's and processes each of them
@@ -617,12 +1312,19 @@ unsigned long narchs)
 		    seen_a_non_dylib = TRUE;
 		    continue;
 		}
+#ifdef LIBRARY_API
+		else if(check_only == TRUE){
+		    retval = NOT_PREBINDABLE;
+		    return;
+		}
+#endif
 		else if(check_only == TRUE ||
 		        ignore_non_prebound == TRUE ||
 		        check_for_non_prebound == TRUE)
 		    continue;
-		else
+		else{
 		    fatal_arch(arch, NULL, "file is not a Mach-O file: ");
+		}
 	    }
 	    if(arch->object->mh->filetype != MH_EXECUTE &&
 	       arch->object->mh->filetype != MH_DYLIB){
@@ -631,13 +1333,20 @@ unsigned long narchs)
 			exit(2);
 		    seen_a_non_dylib = TRUE;
 		}
+#ifdef LIBRARY_API
+		else if(check_only == TRUE){
+		    retval = NOT_PREBINDABLE;
+		    return;
+		}
+#endif
 		else if(check_only == TRUE ||
 		        ignore_non_prebound == TRUE ||
 		        check_for_non_prebound == TRUE)
 		    continue;
-		else
+		else{
 		    fatal_arch(arch, NULL, "file is not a Mach-O "
 			"executable or dynamic shared library file: ");
+		}
 	    }
 	    if(check_for_dylibs == TRUE){
 		if(arch->object->mh->filetype == MH_DYLIB){
@@ -658,8 +1367,15 @@ unsigned long narchs)
 			exit(1);
 		    continue;
 		}
-		else if(check_only == TRUE || ignore_non_prebound == TRUE)
+#ifdef LIBRARY_API
+		else if(check_only == TRUE){
+		    retval = NOT_PREBOUND;
+		    return;
+		}
+#endif
+		else if(check_only == TRUE || ignore_non_prebound == TRUE){
 		    continue;
+		}
 		else
 		    fatal_arch(arch, NULL, "file is not prebound: ");
 	    }
@@ -668,6 +1384,13 @@ unsigned long narchs)
 
 	    /* Now redo the prebinding for this arch[i] */
 	    process_arch();
+#ifdef LIBRARY_API
+	    /*
+	     * for needs_redo_prebinding() we only check the first arch.
+	     */
+	    if(check_only == TRUE)
+		return;
+#endif
 	}
 }
 
@@ -684,10 +1407,20 @@ void)
 	 * Clear out any libraries loaded for the previous arch that was
 	 * processed.
 	 */
-	if(libs != NULL)
+	if(libs != NULL){
+	    cleanup_libs();
 	    free(libs);
+	}
 	libs = NULL;
 	nlibs = 0;
+
+	/*
+	 * Clear out the fake lib struct for this arch which holds the
+	 * two-level namespace stuff for the arch.
+	 */
+	memset(&arch_lib, '\0', sizeof(struct lib));
+	arch_force_flat_namespace = (arch->object->mh->flags & MH_FORCE_FLAT) ==
+				    MH_FORCE_FLAT;
 
 	/* set up an arch_flag for this arch's object */
 	arch_flag.cputype = arch->object->mh->cputype;
@@ -717,8 +1450,9 @@ void)
 	 * undefineds for __NXArgc, __NXArgv, and __environ from crt code,
 	 * we return if the arch has no dependent libraries.
 	 */
-	if(nlibs == 0)
+	if(nlibs == 0){
 	    return;
+	}
 
 	/*
 	 * Before we use the symbolic information we may need to swap everything
@@ -757,8 +1491,9 @@ void)
 	 * did an exit(1) if they did not match.  So if we get here this arch
 	 * has been checked so just return so the other archs can be checked.
 	 */
-	if(check_only == TRUE)
+	if(check_only == TRUE){
 	    return;
+	}
 
 	/*
 	 * Now that is possible to redo the prebinding as all the above checks
@@ -805,19 +1540,76 @@ void
 load_archs_libraries(
 void)
 {
-    unsigned long i;
-    struct load_command *lc;
-    struct dylib_command *dl_load;
+    unsigned long i, ndependent_images;
+    struct load_command *lc, *load_commands;
+    struct dylib_command *dl_load, *dl_id;
+    unsigned long *dependent_images, *image_pointer;
+    char *suffix;
+    enum bool is_framework;
 
-	lc = arch->object->load_commands;
+	load_commands = arch->object->load_commands;
+	/*
+	 * If arch_force_flat_namespace is false count the number of dependent
+	 * images and allocate the image pointers for them.
+	 */
+	ndependent_images = 0;
+	dependent_images = NULL;
+	if(arch_force_flat_namespace == FALSE){
+	    lc = load_commands;
+	    for(i = 0; i < arch->object->mh->ncmds; i++){
+		switch(lc->cmd){
+		case LC_LOAD_DYLIB:
+		    ndependent_images++;
+		    break;
+
+		case LC_ID_DYLIB:
+		    dl_id = (struct dylib_command *)lc;
+		    arch_lib.file_name = arch->file_name;
+		    arch_lib.dylib_name = (char *)dl_id +
+					  dl_id->dylib.name.offset;
+		    arch_lib.umbrella_name =
+			guess_short_name(arch_lib.dylib_name, &is_framework,
+					 &suffix);
+		    if(is_framework == TRUE){
+			arch_lib.name_size = strlen(arch_lib.umbrella_name);
+		    }
+		    else{
+			if(arch_lib.umbrella_name != NULL){
+			    arch_lib.library_name = arch_lib.umbrella_name;
+			    arch_lib.umbrella_name = NULL;
+			    arch_lib.name_size = strlen(arch_lib.library_name);
+			}
+		    }
+		    if(suffix != NULL)
+			free(suffix);
+		    break;
+		}
+		lc = (struct load_command *)((char *)lc + lc->cmdsize);
+	    }
+	    dependent_images = allocate(sizeof(unsigned long *) *
+					ndependent_images);
+	    arch_lib.dependent_images = dependent_images;
+	    arch_lib.ndependent_images = ndependent_images;
+	}
+	if(arch_lib.dylib_name == NULL){
+	    arch_lib.dylib_name = "not a dylib";
+	    arch_lib.file_name = arch->file_name;
+	}
+
+	lc = load_commands;
+	ndependent_images = 0;
 	for(i = 0; i < arch->object->mh->ncmds; i++){
 	    if(lc->cmd == LC_LOAD_DYLIB){
+		if(dependent_images != NULL)
+		    image_pointer = &(dependent_images[ndependent_images++]);
+		else
+		    image_pointer = NULL;
 		dl_load = (struct dylib_command *)lc;
-		load_library(arch->file_name, dl_load, FALSE);
+		load_library(arch->file_name, dl_load, FALSE, image_pointer);
 	    }
 	    if(lc->cmd == LC_ID_DYLIB && check_only == TRUE){
 		dl_load = (struct dylib_command *)lc;
-		load_library(arch->file_name, dl_load, TRUE);
+		load_library(arch->file_name, dl_load, TRUE, NULL);
 	    }
 	    lc = (struct load_command *)((char *)lc + lc->cmdsize);
 	}
@@ -832,23 +1624,389 @@ void
 load_dependent_libraries(
 void)
 {
-    unsigned long i, j;
+    unsigned long i, j, ndependent_images;
     struct load_command *lc;
     struct dylib_command *dl_load;
+    unsigned long *dependent_images, *image_pointer;
+    enum bool some_images_setup;
 
 	for(i = 0; i < nlibs; i++){
 	    if(debug == TRUE)
 		printf("%s: loading libraries for library %s\n",
 		       progname, libs[i].file_name);
+	    /*
+	     * If arch_force_flat_namespace is FALSE count the number of
+	     * dependent images and allocate the image pointers for them.
+	     */
+	    ndependent_images = 0;
+	    dependent_images = NULL;
+	    if(arch_force_flat_namespace == FALSE){
+		lc = libs[i].ofile->load_commands;
+		for(j = 0; j < libs[i].ofile->mh->ncmds; j++){
+		    switch(lc->cmd){
+		    case LC_LOAD_DYLIB:
+			ndependent_images++;
+			break;
+		    }
+		    lc = (struct load_command *)((char *)lc + lc->cmdsize);
+		}
+		dependent_images = allocate(sizeof(unsigned long *) *
+					    ndependent_images);
+		libs[i].dependent_images = dependent_images;
+		libs[i].ndependent_images = ndependent_images;
+	    }
+
+	    ndependent_images = 0;
 	    lc = libs[i].ofile->load_commands;
 	    for(j = 0; j < libs[i].ofile->mh->ncmds; j++){
 		if(lc->cmd == LC_LOAD_DYLIB){
 		    dl_load = (struct dylib_command *)lc;
-		    load_library(libs[i].ofile->file_name, dl_load, TRUE);
+		    if(dependent_images != NULL)
+			image_pointer = &(dependent_images[
+					  ndependent_images++]);
+		    else
+			image_pointer = NULL;
+		    load_library(libs[i].ofile->file_name, dl_load, TRUE,
+				 image_pointer);
 		}
 		lc = (struct load_command *)((char *)lc + lc->cmdsize);
 	    }
+
 	}
+
+	/*
+	 * To support the "primary" library concept each image that has
+	 * sub-frameworks and sub-umbrellas has a sub_images list created for
+	 * it for other libraries to search in for symbol names.
+	 *
+	 * These lists are set up after all the dependent libraries are loaded
+	 * in the loops above.
+	 */
+	if(arch_force_flat_namespace == FALSE){
+	    /*
+	     * Now with all the libraries loaded and the dependent_images set up
+	     * set up the sub_images for any library that does not have this set
+	     * up yet.  Since sub_images include sub_umbrellas any image that
+	     * has sub_umbrellas must have the sub_umbrella images set up first.
+	     * To do this setup_sub_images() will return FALSE for an image that
+	     * needed one of its sub_umbrellas set up and we will loop here
+	     * until we get a clean pass with no more images needing setup.
+	     */
+	    do{
+		some_images_setup = FALSE;
+		if(arch_lib.sub_images_setup == FALSE){
+		    some_images_setup |= setup_sub_images(&arch_lib,
+							  arch->object->mh);
+		}
+		for(i = 0; i < nlibs; i++){
+		    if(libs[i].sub_images_setup == FALSE){
+			some_images_setup |= setup_sub_images(&(libs[i]),
+							libs[i].ofile->mh);
+		    }
+		}
+	    }while(some_images_setup == TRUE);
+
+	    /*
+	     * If debug is set print out the lists.
+	     */
+	    if(debug == TRUE){
+		if(arch_lib.two_level_debug_printed == FALSE){
+		    print_two_level_info(&arch_lib);
+		}
+		arch_lib.two_level_debug_printed = TRUE;
+		for(i = 0; i < nlibs; i++){
+		    if(libs[i].two_level_debug_printed == FALSE){
+			print_two_level_info(libs + i);
+		    }
+		    libs[i].two_level_debug_printed = TRUE;
+		}
+	    }
+	}
+}
+
+/*
+ * print_two_level_info() prints out the info for two-level libs, the name,
+ * umbrella_name, library_name, dependent_images and sub_images lists.
+ */
+static
+void
+print_two_level_info(
+struct lib *lib)
+{
+    unsigned long j;
+    unsigned long *sp;
+
+	printf("two-level library: %s (file_name %s)",
+	       lib->dylib_name, lib->file_name);
+	if(lib->umbrella_name != NULL)
+	    printf(" umbrella_name = %.*s\n",
+	       (int)(lib->name_size),
+	       lib->umbrella_name);
+	else
+	    printf(" umbrella_name = NULL\n");
+
+	if(lib->library_name != NULL)
+	    printf(" library_name = %.*s\n",
+	       (int)(lib->name_size),
+	       lib->library_name);
+	else
+	    printf(" library_name = NULL\n");
+
+	printf("    ndependent_images = %lu\n",
+	       lib->ndependent_images);
+	sp = lib->dependent_images;
+	for(j = 0;
+	    j < lib->ndependent_images;
+	    j++){
+	    if(libs[sp[j]].umbrella_name != NULL)
+	       printf("\t[%lu] %.*s\n", j,
+		      (int)libs[sp[j]].name_size,
+		      libs[sp[j]].umbrella_name);
+	    else if(libs[sp[j]].library_name != NULL)
+	       printf("\t[%lu] %.*s\n", j,
+		      (int)libs[sp[j]].name_size,
+		      libs[sp[j]].library_name);
+	    else
+	       printf("\t[%lu] %s (file_name %s)\n", j,
+		      libs[sp[j]].dylib_name,
+		      libs[sp[j]].file_name);
+	}
+
+	printf("    nsub_images = %lu\n",
+	       lib->nsub_images);
+	sp = lib->sub_images;
+	for(j = 0; j < lib->nsub_images; j++){
+	    if(libs[sp[j]].umbrella_name != NULL)
+	       printf("\t[%lu] %.*s\n", j,
+		      (int)libs[sp[j]].name_size,
+		      libs[sp[j]].umbrella_name);
+	    else if(libs[sp[j]].library_name != NULL)
+	       printf("\t[%lu] %.*s\n", j,
+		      (int)libs[sp[j]].name_size,
+		      libs[sp[j]].library_name);
+	    else
+	       printf("\t[%lu] %s (file_name %s)\n", j,
+		      libs[sp[j]].dylib_name,
+		      libs[sp[j]].file_name);
+	}
+}
+
+/*
+ * setup_sub_images() is called to set up the sub images that make up the
+ * specified "primary" lib.  If not all of its sub_umbrella's and sub_library's
+ * are set up then it will return FALSE and not set up the sub images.  The
+ * caller will loop through all the libraries until all libraries are setup.
+ * This routine will return TRUE when it sets up the sub_images and will also
+ * set the sub_images_setup field to TRUE in the specified library.
+ */
+static
+enum bool
+setup_sub_images(
+struct lib *lib,
+struct mach_header *lib_mh)
+{
+    unsigned long i, j, k, l, n, max_libraries;
+    struct mach_header *mh;
+    struct load_command *lc, *load_commands;
+    struct sub_umbrella_command *usub;
+    struct sub_library_command *lsub;
+    struct sub_framework_command *sub;
+    unsigned long *deps;
+    char *sub_umbrella_name, *sub_library_name, *sub_framework_name;
+    enum bool found;
+
+	max_libraries = 0;
+	deps = lib->dependent_images;
+
+	/*
+	 * First see if this library has any sub-umbrellas or sub-libraries and
+	 * that they have had their sub-images set up.  If not return FALSE and
+	 * wait for this to be set up.  If so add the count of sub-images to
+	 * max_libraries value which will be used for allocating the array for
+	 * the sub-images of this library.
+	 */
+	mh = lib_mh;
+	load_commands = (struct load_command *)((char *)mh +
+						sizeof(struct mach_header));
+	lc = load_commands;
+	for(i = 0; i < mh->ncmds; i++){
+	    switch(lc->cmd){
+	    case LC_SUB_UMBRELLA:
+		usub = (struct sub_umbrella_command *)lc;
+		sub_umbrella_name = (char *)usub + usub->sub_umbrella.offset;
+		for(j = 0; j < lib->ndependent_images; j++){
+		    if(libs[deps[j]].umbrella_name != NULL &&
+		       strncmp(sub_umbrella_name, libs[deps[j]].umbrella_name,
+			       libs[deps[j]].name_size) == 0 &&
+		       sub_umbrella_name[libs[deps[j]].name_size] == '\0'){
+			/*
+			 * TODO: can't this logic (here and in our caller) hang
+		         * if there is a circular loop?  And is that even
+			 * possible to create?  See comments in our caller.
+			 */
+			if(libs[deps[j]].sub_images_setup == FALSE)
+			    return(FALSE);
+			max_libraries += 1 + libs[deps[j]].nsub_images;
+		    }
+		}
+		break;
+	    case LC_SUB_LIBRARY:
+		lsub = (struct sub_library_command *)lc;
+		sub_library_name = (char *)lsub + lsub->sub_library.offset;
+		for(j = 0; j < lib->ndependent_images; j++){
+		    if(libs[deps[j]].library_name != NULL &&
+		       strncmp(sub_library_name, libs[deps[j]].library_name,
+			       libs[deps[j]].name_size) == 0 &&
+		       sub_library_name[libs[deps[j]].name_size] == '\0'){
+			/*
+			 * TODO: can't this logic (here and in our caller) hang
+		         * if there is a circular loop?  And is that even
+			 * possible to create?  See comments in our caller.
+			 */
+			if(libs[deps[j]].sub_images_setup == FALSE)
+			    return(FALSE);
+			max_libraries += 1 + libs[deps[j]].nsub_images;
+		    }
+		}
+		break;
+	    }
+	    lc = (struct load_command *)((char *)lc + lc->cmdsize);
+	}
+
+	/*
+	 * Allocate the sub-images array of indexes into the libs[] array that
+	 * make up this "primary" library.  Allocate enough to handle the max
+	 * and then this allocation will be reallocated with the actual needed
+	 * size.
+	 */
+	max_libraries += lib->ndependent_images;
+	lib->sub_images = allocate(sizeof(unsigned long) * max_libraries);
+	n = 0;
+
+	/*
+	 * First add the dependent images which are sub-frameworks of this
+	 * image to the sub images list.
+	 */
+	if(lib->umbrella_name != NULL){
+	    for(i = 0; i < lib->ndependent_images; i++){
+		mh = libs[deps[i]].ofile->mh;
+		load_commands = (struct load_command *)
+		    ((char *)(libs[deps[i]].ofile->mh) +
+		     sizeof(struct mach_header));
+		lc = load_commands;
+		for(j = 0; j < libs[deps[i]].ofile->mh->ncmds; j++){
+		    if(lc->cmd == LC_SUB_FRAMEWORK){
+			sub = (struct sub_framework_command *)lc;
+			sub_framework_name = (char *)sub + sub->umbrella.offset;
+			if(lib->umbrella_name != NULL &&
+			   strncmp(sub_framework_name,
+			       lib->umbrella_name,
+			       lib->name_size) == 0 &&
+			   sub_framework_name[lib->name_size] =='\0'){
+			    lib->sub_images[n++] = deps[i];
+			}
+		    }
+		    lc = (struct load_command *)((char *)lc + lc->cmdsize);
+		}
+	    }
+	}
+
+	/*
+	 * Second add the sub-umbrella's and sub-library's sub-images to the
+	 * sub images list.
+	 */
+	mh = lib_mh;
+	load_commands = (struct load_command *)((char *)mh +
+						sizeof(struct mach_header));
+	lc = load_commands;
+	for(i = 0; i < mh->ncmds; i++){
+	    switch(lc->cmd){
+	    case LC_SUB_UMBRELLA:
+		usub = (struct sub_umbrella_command *)lc;
+		sub_umbrella_name = (char *)usub + usub->sub_umbrella.offset;
+		for(j = 0; j < lib->ndependent_images; j++){
+		    if(libs[deps[j]].umbrella_name != NULL &&
+		       strncmp(sub_umbrella_name, libs[deps[j]].umbrella_name,
+			       libs[deps[j]].name_size) == 0 &&
+		       sub_umbrella_name[libs[deps[j]].name_size] == '\0'){
+
+			/* make sure this image is not already on the list */
+			found = FALSE;
+			for(l = 0; l < n; l++){
+			    if(lib->sub_images[l] == deps[j]){
+				found = TRUE;
+				break;
+			    }
+			}
+			if(found == FALSE)
+			    lib->sub_images[n++] = deps[j];
+
+			for(k = 0; k < libs[deps[j]].nsub_images; k++){
+			    /* make sure this image is not already on the list*/
+			    found = FALSE;
+			    for(l = 0; l < n; l++){
+				if(lib->sub_images[l] ==
+				   libs[deps[j]].sub_images[k]){
+				    found = TRUE;
+				    break;
+				}
+			    }
+			    if(found == FALSE)
+				lib->sub_images[n++] = 
+				    libs[deps[j]].sub_images[k];
+			}
+		    }
+		}
+		break;
+	    case LC_SUB_LIBRARY:
+		lsub = (struct sub_library_command *)lc;
+		sub_library_name = (char *)lsub + lsub->sub_library.offset;
+		for(j = 0; j < lib->ndependent_images; j++){
+		    if(libs[deps[j]].library_name != NULL &&
+		       strncmp(sub_library_name, libs[deps[j]].library_name,
+			       libs[deps[j]].name_size) == 0 &&
+		       sub_library_name[libs[deps[j]].name_size] == '\0'){
+
+			/* make sure this image is not already on the list */
+			found = FALSE;
+			for(l = 0; l < n; l++){
+			    if(lib->sub_images[l] == deps[j]){
+				found = TRUE;
+				break;
+			    }
+			}
+			if(found == FALSE)
+			    lib->sub_images[n++] = deps[j];
+
+			for(k = 0; k < libs[deps[j]].nsub_images; k++){
+			    /* make sure this image is not already on the list*/
+			    found = FALSE;
+			    for(l = 0; l < n; l++){
+				if(lib->sub_images[l] ==
+				   libs[deps[j]].sub_images[k]){
+				    found = TRUE;
+				    break;
+				}
+			    }
+			    if(found == FALSE)
+				lib->sub_images[n++] = 
+				    libs[deps[j]].sub_images[k];
+			}
+		    }
+		}
+	    }
+	    lc = (struct load_command *)((char *)lc + lc->cmdsize);
+	}
+	/*
+	 * Now reallocate the sub-images of this library to the actual size
+	 * needed for it.  Note this just gives back the pointers we don't
+	 * use when allocated from the block of preallocated pointers.
+	 */
+	lib->sub_images = reallocate(lib->sub_images, sizeof(unsigned long) *n);
+	lib->nsub_images = n;
+
+	lib->sub_images_setup = TRUE;
+	return(TRUE);
 }
 
 /*
@@ -864,7 +2022,8 @@ void
 load_library(
 char *file_name,
 struct dylib_command *dl_load,
-enum bool time_stamps_must_match)
+enum bool time_stamps_must_match,
+unsigned long *image_pointer)
 {
     unsigned long i;
     char *dylib_name;
@@ -872,7 +2031,8 @@ enum bool time_stamps_must_match)
     struct fat_arch *best_fat_arch;
     struct load_command *lc;
     struct dylib_command *dl_id;
-    enum bool already_loaded;
+    enum bool already_loaded, is_framework;
+    char *suffix;
 
 	/* get the name of the library from the load command */
 	dylib_name = (char *)dl_load + dl_load->dylib.name.offset;
@@ -887,6 +2047,8 @@ enum bool time_stamps_must_match)
 		already_loaded = TRUE;
 		ofile = libs[i].ofile;
 		dylib_name = libs[i].file_name;
+		if(image_pointer != NULL)
+		    *image_pointer = i;
 		break;
 	    }
 	}
@@ -895,17 +2057,31 @@ enum bool time_stamps_must_match)
 		printf("%s: loading library: %s\n", progname, dylib_name);
 
 	    /*
+	     * If an executable_path option is used and the dylib_name starts
+	     * with "@executable_path" change "@executable_path" to the value
+	     * of the executable_path option.
+	     */
+	    if(executable_path != NULL &&
+	       strncmp(dylib_name, "@executable_path",
+		       sizeof("@executable_path") - 1) == 0)
+		dylib_name = makestr(executable_path,
+		    dylib_name + sizeof("@executable_path") - 1, NULL);
+	    /*
 	     * If a root_dir option is used prepend the directory for rooted
 	     * names.
 	     */
 	    if(root_dir != NULL && *dylib_name == '/')
 		dylib_name = makestr(root_dir, dylib_name, NULL);
 
+	    if(debug == TRUE &&
+	       dylib_name != (char *)dl_load + dl_load->dylib.name.offset)
+		printf("%s: library name now: %s\n", progname, dylib_name);
+
 	    ofile = allocate(sizeof(struct ofile));
 
 	    /* now map in the library for this architecture */
 	    if(ofile_map(dylib_name, NULL, NULL, ofile, FALSE) == FALSE)
-		exit(2);
+		redo_exit(2);
 	}
 
 	/*
@@ -922,7 +2098,7 @@ enum bool time_stamps_must_match)
 		error("dynamic shared library file: %s does not contain an "
 		      "architecture that can be used with %s (architecture %s)",
 		      dylib_name, file_name, arch_name);
-		exit(2);
+		redo_exit(2);
 	    }
 
 	    (void)ofile_first_arch(ofile);
@@ -933,48 +2109,48 @@ enum bool time_stamps_must_match)
 		    error("file: %s (for architecture %s) is an archive (not "
 			  "a Mach-O dynamic shared library)", dylib_name,
 			  ofile->arch_flag.name);
-		    exit(2);
+		    redo_exit(2);
 		}
 		else if(ofile->arch_type == OFILE_Mach_O){
 		    if(ofile->mh->filetype != MH_DYLIB){
 			error("file: %s (for architecture %s) is not a Mach-O "
 			      "dynamic shared library", dylib_name,
 			      arch_name);
-			exit(2);
+			redo_exit(2);
 		    }
 		    goto good;
 		}
 		else if(ofile->arch_type == OFILE_UNKNOWN){
 		    error("file: %s (for architecture %s) is not a Mach-O "
 			  "dynamic shared library", dylib_name, arch_name);
-		    exit(2);
+		    redo_exit(2);
 		}
 	    }while(ofile_next_arch(ofile) == TRUE);
 	}
 	else if(ofile->file_type == OFILE_ARCHIVE){
 	    error("file: %s is an archive (not a Mach-O dynamic shared "
 		  "library)", dylib_name);
-	    exit(2);
+	    redo_exit(2);
 	}
 	else if(ofile->file_type == OFILE_Mach_O){
 	    if(arch_flag.cputype != ofile->mh->cputype){
 		error("dynamic shared library: %s has the wrong CPU type for: "
 		      "%s (architecture %s)", dylib_name, file_name,
 		      arch_name);
-		exit(2);
+		redo_exit(2);
 	    }
 	    if(cpusubtype_combine(arch_flag.cputype,
 		arch_flag.cpusubtype, ofile->mh->cpusubtype) == -1){
 		error("dynamic shared library: %s has the wrong CPU subtype "
 		      "for: %s (architecture %s)", dylib_name, file_name,
 		      arch_name);
-		exit(2);
+		redo_exit(2);
 	    }
 	}
 	else{ /* ofile->file_type == OFILE_UNKNOWN */
 	    error("file: %s is not a Mach-O dynamic shared library",
 		  dylib_name);
-	    exit(2);
+	    redo_exit(2);
 	}
 
 good:
@@ -994,17 +2170,17 @@ good:
 		    if(dl_load->dylib.timestamp != dl_id->dylib.timestamp){
 			if(dl_load->cmd == LC_ID_DYLIB){
 			    error("library: %s (architecture %s) prebinding "
-				  "not uptodate with installed dynamic shared "
-				  "library: %s", file_name, arch_name,
+				  "not up to date with installed dynamic shared"
+				  " library: %s", file_name, arch_name,
 				  dylib_name);
-			    exit(1);
+			    redo_exit(1);
 			}
 			else{
 			    error("library: %s (architecture %s) prebinding "
-				  "not uptodate with dependent dynamic shared "
-				  "library: %s", file_name, arch_name,
+				  "not up to date with dependent dynamic shared"
+				  " library: %s", file_name, arch_name,
 				  dylib_name);
-			    exit(3);
+			    redo_exit(3);
 			}
 		    }
 		}
@@ -1023,7 +2199,7 @@ good:
 		if(lc->cmd == LC_ID_DYLIB){
 		    dl_id = (struct dylib_command *)lc;
 		    if(dl_load->dylib.timestamp != dl_id->dylib.timestamp){
-			exit(1);
+			redo_exit(1);
 		    }
 		}
 		lc = (struct load_command *)((char *)lc + lc->cmdsize);
@@ -1033,7 +2209,7 @@ good:
 	/*
 	 * To allow the check_only to check the installed library load_library()
 	 * can be called with an LC_ID_DYLIB for the install library to check
-	 * it time stamp.  This is not put into the list however as it would
+	 * its time stamp.  This is not put into the list however as it would
 	 * overlap.
 	 */
 	if(already_loaded == FALSE && dl_load->cmd == LC_LOAD_DYLIB){
@@ -1043,10 +2219,27 @@ good:
 	     */
 	    libs = reallocate(libs, (nlibs + 1) * sizeof(struct lib));
 	    memset(libs + nlibs, '\0', sizeof(struct lib));
+	    libs[nlibs].file_name = dylib_name;
 	    libs[nlibs].dylib_name = (char *)dl_load +
 				     dl_load->dylib.name.offset;
-	    libs[nlibs].file_name = dylib_name;
+	    libs[nlibs].umbrella_name = guess_short_name(libs[nlibs].dylib_name,
+							 &is_framework,
+							 &suffix);
+	    if(is_framework == TRUE){
+		libs[nlibs].name_size = strlen(libs[nlibs].umbrella_name);
+	    }
+	    else{
+		if(libs[nlibs].umbrella_name != NULL){
+		    libs[nlibs].library_name = libs[nlibs].umbrella_name;
+		    libs[nlibs].umbrella_name = NULL;
+		    libs[nlibs].name_size = strlen(libs[nlibs].library_name);
+		}
+	    }
+	    if(suffix != NULL)
+		free(suffix);
 	    libs[nlibs].ofile = ofile;
+	    if(image_pointer != NULL)
+		*image_pointer = nlibs;
 	    nlibs++;
 	}
 }
@@ -1138,7 +2331,7 @@ struct segment *s2)
 	      s2->sg->segname, (unsigned int)(s2->sg->vmaddr),
 	      (unsigned int)(s2->sg->vmsize), s2->file_name,
 	      arch_name);
-	exit(2);
+	redo_exit(2);
 }
 
 /*
@@ -1151,7 +2344,7 @@ void
 setup_symbolic_info(
 void)
 {
-    unsigned long i, j;
+    unsigned long i, j, nlibrefs;
     enum byte_sex host_byte_sex;
     struct load_command *lc;
 
@@ -1161,12 +2354,12 @@ void)
 	if(arch->object->st == NULL){
 	    error("malformed file: %s (no LC_SYMTAB load command) (for"
 		  " architecture %s)", arch->file_name, arch_name);
-	    exit(2);
+	    redo_exit(2);
 	}
 	if(arch->object->dyst == NULL){
 	    error("malformed file: %s (no LC_DYSYMTAB load command) (for"
 		  " architecture %s)", arch->file_name, arch_name);
-	    exit(2);
+	    redo_exit(2);
 	}
 
 	arch_symbols = (struct nlist *)(arch->object->object_addr +
@@ -1176,6 +2369,16 @@ void)
 	    swap_nlist(arch_symbols, arch_nsyms, host_byte_sex);
 	arch_strings = arch->object->object_addr + arch->object->st->stroff;
 	arch_strsize = arch->object->st->strsize;
+
+	if(arch->object->hints_cmd != NULL &&
+	   arch->object->hints_cmd->nhints != 0){
+	    arch_hints = (struct twolevel_hint *)
+		    (arch->object->object_addr +
+		     arch->object->hints_cmd->offset);
+	    arch_nhints = arch->object->hints_cmd->nhints;
+	    if(arch_swapped == TRUE)
+		swap_twolevel_hint(arch_hints, arch_nhints, host_byte_sex);
+	}
 
 	arch_extrelocs = (struct relocation_info *)
 		(arch->object->object_addr +
@@ -1222,8 +2425,18 @@ void)
 	    arch_refs = NULL;
 	    arch_nextrefsyms = 0;;
 	}
+	nlibrefs = 0;
+	lc = arch->object->load_commands;
+	for(i = 0; i < arch->object->mh->ncmds; i++){
+	    if(lc->cmd == LC_LOAD_DYLIB){
+		nlibrefs++;
+	    }
+	    lc = (struct load_command *)((char *)lc + lc->cmdsize);
+	}
 	check_symbolic_info_tables(
 	    arch->file_name,
+	    arch->object->mh,
+	    nlibrefs,
 	    arch->object->st,
 	    arch->object->dyst,
 	    arch_symbols,
@@ -1244,6 +2457,7 @@ void)
 	for(i = 0; i < nlibs; i++){
 	    libs[i].st = NULL;
 	    libs[i].dyst = NULL;
+	    nlibrefs = 0;
 	    lc = libs[i].ofile->load_commands;
 	    for(j = 0; j < libs[i].ofile->mh->ncmds; j++){
 		if(lc->cmd == LC_SYMTAB){
@@ -1251,7 +2465,7 @@ void)
 			error("malformed library: %s (more than one LC_SYMTAB "
 			      "load command) (for architecture %s)",
 			      libs[i].file_name, arch_name);
-			exit(2);
+			redo_exit(2);
 		    }
 		    libs[i].st = (struct symtab_command *)lc;
 		}
@@ -1260,7 +2474,7 @@ void)
 			error("malformed library: %s (more than one LC_DYSYMTAB"
 			      " load command) (for architecture %s)",
 			      libs[i].file_name, arch_name);
-			exit(2);
+			redo_exit(2);
 		    }
 		    libs[i].dyst = (struct dysymtab_command *)lc;
 		}
@@ -1269,21 +2483,24 @@ void)
 			error("malformed library: %s (more than one LC_ROUTINES"
 			      " load command) (for architecture %s)",
 			      libs[i].file_name, arch_name);
-			exit(2);
+			redo_exit(2);
 		    }
 		    libs[i].rc = (struct routines_command *)lc;
+		}
+		else if(lc->cmd == LC_LOAD_DYLIB){
+		    nlibrefs++;
 		}
 		lc = (struct load_command *)((char *)lc + lc->cmdsize);
 	    }
 	    if(libs[i].st == NULL){
 		error("malformed file: %s (no LC_SYMTAB load command) (for"
 		      " architecture %s)", libs[i].file_name, arch_name);
-		exit(2);
+		redo_exit(2);
 	    }
 	    if(libs[i].dyst == NULL){
 		error("malformed file: %s (no LC_DYSYMTAB load command) (for"
 		      " architecture %s)", libs[i].file_name, arch_name);
-		exit(2);
+		redo_exit(2);
 	    }
 
 	    libs[i].symbols = (struct nlist *)(libs[i].ofile->object_addr +
@@ -1314,6 +2531,8 @@ void)
 	    }
 	    check_symbolic_info_tables(
 		libs[i].file_name,
+		libs[i].ofile->mh,
+		nlibrefs,
 		libs[i].st,
 		libs[i].dyst,
 		libs[i].symbols,
@@ -1350,6 +2569,8 @@ void)
 	    arch->object->object_byte_sex);
 	swap_dylib_reference(arch_refs, arch_nextrefsyms,
 	    arch->object->object_byte_sex);
+	swap_twolevel_hint(arch_hints, arch_nhints,
+	    arch->object->object_byte_sex);
 }
 
 /*
@@ -1360,6 +2581,8 @@ static
 void
 check_symbolic_info_tables(
 char *file_name,
+struct mach_header *mh,
+unsigned long nlibrefs,
 struct symtab_command *st,
 struct dysymtab_command *dyst,
 struct nlist *symbols,
@@ -1381,14 +2604,28 @@ unsigned long nextrefsyms)
 		error("mallformed file: %s (bad string table index (%ld) for "
 		      "symbol %lu) (for architecture %s)", file_name,
 		      symbols[i].n_un.n_strx, i, arch_name);
-		exit(2);
+		redo_exit(2);
 	    }
 	    if((symbols[i].n_type & N_TYPE) == N_INDR &&
 		symbols[i].n_value > strsize){
 		error("mallformed file: %s (bad string table index (%ld) for "
 		      "N_INDR symbol %lu) (for architecture %s)", file_name,
 		      symbols[i].n_value, i, arch_name);
-		exit(2);
+		redo_exit(2);
+	    }
+	    if((mh->flags & MH_TWOLEVEL) == MH_TWOLEVEL &&
+		(symbols[i].n_type & N_STAB) == 0){
+		if(GET_LIBRARY_ORDINAL(symbols[i].n_desc) !=
+		       EXECUTABLE_ORDINAL &&
+		   GET_LIBRARY_ORDINAL(symbols[i].n_desc) !=
+		       SELF_LIBRARY_ORDINAL &&
+		   GET_LIBRARY_ORDINAL(symbols[i].n_desc) - 1 >
+		       nlibrefs){
+		    error("mallformed file: %s (bad LIBRARY_ORDINAL (%d) for "
+			  "symbol %lu) (for architecture %s)", file_name,
+			  GET_LIBRARY_ORDINAL(symbols[i].n_desc), i, arch_name);
+		    redo_exit(2);
+		}
 	    }
 	}
 
@@ -1398,13 +2635,13 @@ unsigned long nextrefsyms)
 		error("mallformed file: %s (bad symbol table index (%ld) for "
 		      "table of contents entry %lu) (for architecture %s)",
 		      file_name, tocs[i].symbol_index, i, arch_name);
-		exit(2);
+		redo_exit(2);
 	    }
 	    if(tocs[i].module_index > nmodtab){
 		error("mallformed file: %s (bad module table index (%ld) for "
 		      "table of contents entry %lu) (for architecture %s)",
 		      file_name, tocs[i].module_index, i, arch_name);
-		exit(2);
+		redo_exit(2);
 	    }
 	}
 
@@ -1415,7 +2652,7 @@ unsigned long nextrefsyms)
 		      "module_name in module table entry %lu ) (for "
 		      "architecture %s)", file_name, mods[i].module_name, i,
 		      arch_name);
-		exit(2);
+		redo_exit(2);
 	    }
 	    if(mods[i].nextdefsym != 0 &&
 	       (mods[i].iextdefsym < dyst->iextdefsym ||
@@ -1423,7 +2660,7 @@ unsigned long nextrefsyms)
 		error("mallformed file: %s (bad external symbol table index for"
 		      " for module table entry %lu) (for architecture %s)",
 		      file_name, i, arch_name);
-		exit(2);
+		redo_exit(2);
 	    }
 	    if(mods[i].nextdefsym != 0 &&
 	       mods[i].iextdefsym + mods[i].nextdefsym >
@@ -1431,7 +2668,7 @@ unsigned long nextrefsyms)
 		error("mallformed file: %s (bad number of external symbol table"
 		      " entries for module table entry %lu) (for architecture "
 		      "%s)", file_name, i, arch_name);
-		exit(2);
+		redo_exit(2);
 	    }
 	}
 
@@ -1441,7 +2678,7 @@ unsigned long nextrefsyms)
 		error("mallformed file: %s (bad external symbol table index "
 		      "reference table entry %lu) (for architecture %s)",
 		      file_name, i, arch_name);
-		exit(2);
+		redo_exit(2);
 	    }
 	}
 }
@@ -1501,7 +2738,7 @@ char *symbol_name)
 		       libs[i].strings +
 			    libs[i].mods[toc->module_index].module_name,
 		       arch_name);
-		    exit(2);
+		    redo_exit(2);
 		}
 	    }
 	}
@@ -1603,7 +2840,9 @@ void)
 	    i < arch->object->dyst->iundefsym + arch->object->dyst->nundefsym;
 	    i++){
 		add_to_undefined_list(
-		    arch_strings + arch_symbols[i].n_un.n_strx);
+		    arch_strings + arch_symbols[i].n_un.n_strx,
+		    arch_symbols + i,
+		    ARCH_LIB);
 	}
 }
 
@@ -1632,7 +2871,9 @@ void)
 	     * searched for a message will be printed and exit(2) will be done
 	     * to indicate this.
 	     */
-	    lookup_symbol(undefined->name, &symbol, &module_state, &lib,
+	    lookup_symbol(undefined->name,
+			  get_primary_lib(undefined->ilib, undefined->symbol),
+			  &symbol, &module_state, &lib, NULL, NULL,
 			  NO_INDR_LOOP);
 	    if(symbol != NULL){
 		/*
@@ -1659,15 +2900,18 @@ void)
 	}
 
 	if(undefined_list.next != &undefined_list){
-	    printf("%s: prebinding can't be redone for: %s (for architecture "
-		   "%s) because of undefined symbols:\n", progname,
-		   arch->file_name, arch_name);
+#ifndef LIBRARY_API
+	    printf("%s: ", progname);
+#endif
+	    message("prebinding can't be redone for: %s (for architecture "
+		    "%s) because of undefined symbols:\n", 
+		    arch->file_name, arch_name);
 	    for(undefined = undefined_list.next;
 		undefined != &undefined_list;
 		undefined = undefined->next){
-		    printf("%s\n", undefined->name);
+		    message("%s\n", undefined->name);
 		}
-	    exit(2);
+	    redo_exit(2);
 	}
 }
 
@@ -1682,7 +2926,7 @@ link_library_module(
 enum link_state *module_state,
 struct lib *lib)
 {
-    unsigned long i, j, module_index;
+    unsigned long i, j, module_index, ilib;
     struct dylib_module *dylib_module;
     char *name;
     struct nlist *prev_symbol;
@@ -1694,6 +2938,18 @@ struct lib *lib)
 
 	module_index = module_state - lib->module_states;
 	dylib_module = lib->mods + module_index;
+	ilib = lib - libs;
+
+	/*
+	 * If we are not forcing the flat namespace and this is a two-level
+	 * namespace image its defined symbols can't cause any multiply defined 
+	 * so we can skip checking for them and go on to adding undefined
+	 * symbols.
+	 */
+	if(arch_force_flat_namespace == FALSE &&
+	   (lib->ofile->mh->flags & MH_TWOLEVEL) == MH_TWOLEVEL){
+	    goto add_undefineds;
+	}
 
 	/*
 	 * For each defined symbol check to see if it is not defined in a module
@@ -1704,32 +2960,37 @@ struct lib *lib)
 	    i++){
 
 	    name = lib->strings + lib->symbols[i].n_un.n_strx;
-	    lookup_symbol(name, &prev_symbol, &prev_module_state, &prev_lib,
-			  NO_INDR_LOOP);
+	    lookup_symbol(name,
+			  get_primary_lib(ilib, lib->symbols + i),
+			  &prev_symbol, &prev_module_state, &prev_lib,
+			  NULL, NULL, NO_INDR_LOOP);
 	    if(prev_symbol != NULL &&
 	       module_state != prev_module_state &&
 	       *prev_module_state != UNLINKED){
-		printf("%s: prebinding can't be redone for: %s (for "
-		       "architecture %s) because of multiply defined "
-		       "symbol: %s\n", progname, arch->file_name, arch_name,
-			name);
+#ifndef LIBRARY_API
+		printf("%s: ", progname);
+#endif
+		message("prebinding can't be redone for: %s (for "
+		        "architecture %s) because of multiply defined "
+		        "symbol: %s\n", arch->file_name, arch_name, name);
 		if(prev_module_state == &arch_state)
-		    printf("%s definition of %s\n", arch->file_name, name);
+		    message("%s definition of %s\n", arch->file_name, name);
 		else
-		    printf("%s(%s) definition of %s\n", prev_lib->file_name,
-			   prev_lib->strings +
-			   prev_lib->mods[
+		    message("%s(%s) definition of %s\n", prev_lib->file_name,
+			    prev_lib->strings +
+			    prev_lib->mods[
 				prev_module_state - prev_lib->module_states].
 				module_name, name);
 		if(module_state == &arch_state)
-		    printf("%s definition of %s\n", arch->file_name, name);
+		    message("%s definition of %s\n", arch->file_name, name);
 		else
-		    printf("%s(%s) definition of %s\n", lib->file_name,
-			   lib->strings + dylib_module->module_name, name);
-		exit(2);
+		    message("%s(%s) definition of %s\n", lib->file_name,
+			    lib->strings + dylib_module->module_name, name);
+		redo_exit(2);
 	    }
 	}
 
+add_undefineds:
 	/*
 	 * For each reference to an undefined symbol look it up to see if it is
 	 * defined in an already linked module.  If it is not then add it to
@@ -1743,15 +3004,22 @@ struct lib *lib)
 	       lib->refs[i].flags == REFERENCE_FLAG_UNDEFINED_LAZY){
 		name = lib->strings +
 		       lib->symbols[lib->refs[i].isym].n_un.n_strx;
-		lookup_symbol(name, &ref_symbol, &ref_module_state, &ref_lib,
-			      NO_INDR_LOOP);
+		lookup_symbol(name,
+			      get_primary_lib(ilib, lib->symbols +
+						    lib->refs[i].isym),
+			      &ref_symbol, &ref_module_state, &ref_lib,
+			      NULL, NULL, NO_INDR_LOOP);
 		if(ref_symbol != NULL){
 		    if(*ref_module_state == UNLINKED)
-			add_to_undefined_list(name);
+			add_to_undefined_list(name,
+					      lib->symbols + lib->refs[i].isym,
+					      ilib);
 
 		}
 		else{
-		    add_to_undefined_list(name);
+		    add_to_undefined_list(name,
+					  lib->symbols + lib->refs[i].isym,
+					  ilib);
 		}
 	    }
 	    else{
@@ -1800,7 +3068,9 @@ struct lib *lib)
 static
 void
 add_to_undefined_list(
-char *name)
+char *name,
+struct nlist *symbol,
+unsigned long ilib)
 {
     struct symbol_list *undefined, *new;
 
@@ -1816,6 +3086,8 @@ char *name)
 
 	/* fill in the pointers for the undefined symbol */
 	new->name = name;
+	new->symbol = symbol;
+	new->ilib = ilib;
 
 	/* put this at the end of the undefined list */
 	new->prev = undefined_list.prev;
@@ -1825,28 +3097,263 @@ char *name)
 }
 
 /*
+ * get_primary_lib() gets the primary library for a two-level symbol reference
+ * from the library specified by ilib (in index into the libs[] array).  The
+ * value of ilib may be ARCH_LIB which then refers to the arch being processed.
+ * If the library specified by ilib is not a two-level namespace library or if 
+ * arch_force_flat_namespace is TRUE then NULL is returned.  Otherwise the
+ * pointer to the primary library for the reference is returned.
+ */
+static
+struct lib *
+get_primary_lib(
+unsigned long ilib,
+struct nlist *symbol)
+{
+    struct lib *lib;
+    struct mach_header *mh;
+
+	if(arch_force_flat_namespace == TRUE)
+	    return(NULL);
+	if(ilib == ARCH_LIB){
+	    lib = &arch_lib;
+	    mh = arch->object->mh;
+	}
+	else{
+	    lib = libs + ilib;
+	    mh = lib->ofile->mh;
+	}
+	if((mh->flags & MH_TWOLEVEL) != MH_TWOLEVEL)
+	    return(NULL);
+	/*
+	 * Note for prebinding no image should have a LIBRARY_ORDINAL of
+	 * EXECUTABLE_ORDINAL and this is only used for bundles and bundles are
+	 * not prebound.
+	 */
+	if(GET_LIBRARY_ORDINAL(symbol->n_desc) == EXECUTABLE_ORDINAL)
+	    return(NULL);
+	/*
+	 * For two-level libraries that reference symbols defined in the
+	 * same library then the LIBRARY_ORDINAL will be
+	 * SELF_LIBRARY_ORDINAL as the symbol is the defined symbol.
+	 */
+	if(GET_LIBRARY_ORDINAL(symbol->n_desc) == SELF_LIBRARY_ORDINAL)
+	    return(libs + ilib);
+
+	return(libs +
+	       lib->dependent_images[GET_LIBRARY_ORDINAL(symbol->n_desc) - 1]);
+}
+
+/*
+ * get_indr_lib() is passed the the indirect name of an N_INDR symbol and the
+ * library it came from.  It returns the library to look this indirect name up
+ * in.  For flat libraries it returns NULL.  For two-level images it finds the
+ * corresponding undefined symbol for the indirect name and returns the primary
+ * library that undefined symbol is bound to.
+ */
+static
+struct lib *
+get_indr_lib(
+char *symbol_name,
+struct lib *lib)
+{
+    struct dysymtab_command *dyst;
+    struct nlist *symbols, *symbol;
+    struct dylib_table_of_contents *tocs, *toc;
+    unsigned long symbol_index;
+    struct lib *indr_lib;
+    struct mach_header *mh;
+    char *file_name;
+
+	if(lib == &arch_lib)
+	    mh = arch->object->mh;
+	else
+	    mh = lib->ofile->mh;
+	/*
+	 * If this is a flat library then the indr library is NULL.
+	 */
+	if(arch_force_flat_namespace == TRUE ||
+	   (mh->flags & MH_TWOLEVEL) != MH_TWOLEVEL)
+	    return(NULL);
+
+	/*
+	 * The only non-dynamic library could be the arch being processed.
+	 */
+	if(lib == &arch_lib && mh->filetype != MH_DYLIB){
+	    bsearch_strings = arch_strings;
+	    symbol = bsearch(symbol_name,
+			     arch_symbols + arch->object->dyst->iundefsym,
+			     arch->object->dyst->nundefsym,
+			     sizeof(struct nlist),
+			     (int (*)(const void *,const void *))nlist_bsearch);
+	    /* if this fails we really have a malformed symbol table */
+	    if(symbol == NULL){
+		error("mallformed file: %s (table of contents or "				      "undefined symbol list) N_INDR symbol %s not "
+		      "found (for architecture %s)", arch->file_name,
+		      symbol_name, arch_name);
+		redo_exit(2);
+	    }
+	    indr_lib = get_primary_lib(ARCH_LIB, symbol);
+	}
+	else{
+	    /*
+	     * We need the "undefined symbol" in this image for this
+	     * symbol_name so we can get the primary image for its lookup.
+	     * Since this image is a library the "undefined symbol" maybe
+	     * defined in this library but in a different module so first
+	     * look in the defined symbols then in the undefined symbols.
+	     */
+	    if(lib == &arch_lib){
+		tocs = arch_tocs;
+		bsearch_strings = arch_strings;
+		bsearch_symbols = arch_symbols;
+		symbols = arch_symbols;
+		dyst = arch->object->dyst;
+		file_name = arch->file_name;
+	    }
+	    else{
+		tocs = lib->tocs;
+		bsearch_strings = lib->strings;
+		bsearch_symbols = lib->symbols;
+		symbols = lib->symbols;
+		dyst = lib->dyst;
+		file_name = lib->file_name;
+	    }
+	    toc = bsearch(symbol_name, tocs, dyst->ntoc,
+			  sizeof(struct dylib_table_of_contents),
+			  (int (*)(const void *, const void *))dylib_bsearch);
+	    if(toc != NULL){
+		symbol_index = toc->symbol_index;
+	    }
+	    else{
+		symbol = bsearch(symbol_name, symbols + dyst->iundefsym,
+				 dyst->nundefsym, sizeof(struct nlist),
+			     (int (*)(const void *,const void *))nlist_bsearch);
+		/* if this fails we really have a malformed symbol table */
+		if(symbol == NULL){
+		    error("mallformed file: %s (table of contents or "				      "undefined symbol list) N_INDR symbol %s not "
+			  "found (for architecture %s)", file_name,
+			  symbol_name, arch_name);
+		    redo_exit(2);
+		}
+		symbol_index = symbol - symbols;
+	    }
+	    indr_lib = get_primary_lib(libs - lib, symbols + symbol_index);
+	}
+	return(indr_lib);
+}
+
+/*
  * lookup_symbol() is passed a name of a symbol.  The name is looked up in the
  * current arch and the libs.  If found symbol, module_state and lib is set
  * to indicate where the symbol is defined.
+ *
+ * For two-level namespace lookups the primary_lib is not NULL and the symbol
+ * is only looked up in that lib and its sub-images.  Note that primary_lib may
+ * point to arch_lib in which case arch is used.
  */
 static
 void
 lookup_symbol(
 char *name,
+struct lib *primary_lib,
 struct nlist **symbol,
 enum link_state **module_state,
 struct lib **lib,
+unsigned long *isub_image,
+unsigned long *itoc,
 struct indr_loop_list *indr_loop)
 {
     unsigned long i;
+
+	if(isub_image != NULL)
+	    *isub_image = 0;
+	if(itoc != NULL)
+	    *itoc = 0;
+	/*
+	 * If primary_image is non-NULL this is a two-level name space lookup.
+	 * So look this symbol up only in the primary_image and its sub-images.
+	 */
+	if(primary_lib != NULL){
+	    if(primary_lib == &arch_lib){
+		if(lookup_symbol_in_arch(name, symbol, module_state, lib,
+    					 isub_image, itoc, indr_loop) == TRUE)
+		    return;
+	    }
+	    else{
+		if(lookup_symbol_in_lib(name, primary_lib, symbol, module_state,
+				    lib, isub_image, itoc, indr_loop) == TRUE)
+		    return;
+	    }
+	    for(i = 0; i < primary_lib->nsub_images; i++){
+		if(lookup_symbol_in_lib(name, libs + primary_lib->sub_images[i],
+		 			symbol, module_state, lib, isub_image,
+					itoc, indr_loop) == TRUE){
+		    if(isub_image != NULL)
+			*isub_image = i + 1;
+		    return;
+		}
+	    }
+	    /*
+	     * If we get here the symbol was not found in the primary_image and 
+	     * its sub-images so it is undefined for a two-level name space
+	     * lookup.
+	     */
+	    *symbol = NULL;
+	    *module_state = NULL;
+	    *lib = NULL;
+	    return;
+	}
+
+	/*
+	 * This is a flat namespace lookup so first search the current arch for
+	 * the named symbol as a defined external symbol.
+	 */
+	if(lookup_symbol_in_arch(name, symbol, module_state, lib, isub_image,
+				 itoc, indr_loop) == TRUE)
+	    return;
+
+	/*
+	 * The symbol was not found in the current arch so next look through the
+	 * libs for the a definition of the named symbol.
+	 */
+	for(i = 0; i < nlibs; i++){
+	    if(lookup_symbol_in_lib(name, libs + i, symbol, module_state, lib,
+				    isub_image, itoc, indr_loop) == TRUE)
+		return;
+	}
+
+	/* the symbol was not found */
+	*symbol = NULL;
+	*module_state = NULL;
+	*lib = NULL;
+	return;
+}
+
+/*
+ * lookup_symbol_in_arch() is a sub-routine for lookup_symbol().  It looks up
+ * the symbol name in the current arch.  If it finds it it returns TRUE else it
+ * returns FALSE.
+ */
+static
+enum bool
+lookup_symbol_in_arch(
+char *name,
+struct nlist **symbol,
+enum link_state **module_state,
+struct lib **lib,
+unsigned long *isub_image,
+unsigned long *itoc,
+struct indr_loop_list *indr_loop)
+{
     struct dylib_table_of_contents *toc;
     struct nlist *s;
     struct indr_loop_list new_indr_loop, *loop;
 
 	/*
-	 * First search the current arch for the named symbol as a defined
-	 * external symbol.  If the current arch is a dylib look in the table
-	 * of contents else look in the sorted external symbols.
+	 * Search the current arch for the named symbol as a defined external
+	 * symbol.  If the current arch is a dylib look in the table of contents
+	 * else look in the sorted external symbols.
 	 */
 	if(arch->object->mh->filetype == MH_DYLIB){
 	    bsearch_strings = arch_strings;
@@ -1862,7 +3369,9 @@ struct indr_loop_list *indr_loop)
 		}
 		*module_state = &arch_state;
 		*lib = NULL;
-		return;
+		if(itoc != NULL)
+		    *itoc = toc - arch_tocs;
+		return(TRUE);
 	    }
 	}
 	else{
@@ -1880,36 +3389,13 @@ struct indr_loop_list *indr_loop)
 		}
 		*module_state = &arch_state;
 		*lib = NULL;
-		return;
+		return(TRUE);
 	    }
 	}
-
-	/*
-	 * The symbol was not found in the current arch so look through the
-	 * dependent libs for the a definition of the named symbol.
-	 */
-	for(i = 0; i < nlibs; i++){
-	    bsearch_strings = libs[i].strings;
-	    bsearch_symbols = libs[i].symbols;
-	    toc = bsearch(name, libs[i].tocs, libs[i].ntoc,
-			  sizeof(struct dylib_table_of_contents),
-			  (int (*)(const void *, const void *))dylib_bsearch);
-	    if(toc != NULL){
-		*symbol = libs[i].symbols + toc->symbol_index;
-		if(((*symbol)->n_type & N_TYPE) == N_INDR){
-		    name = (*symbol)->n_value + libs[i].strings;
-		    goto indr;
-		}
-		*module_state = libs[i].module_states + toc->module_index;
-		*lib = libs + i;
-		return;
-	    }
-	}
-
 	*symbol = NULL;
 	*module_state = NULL;
 	*lib = NULL;
-	return;
+	return(FALSE);
 
 indr:
 	if(indr_loop != NO_INDR_LOOP){
@@ -1919,14 +3405,76 @@ indr:
 		    *symbol = NULL;
 		    *module_state = NULL;
 		    *lib = NULL;
-		    return;
+		    return(FALSE);
 		}
 	    }
 	}
 	new_indr_loop.symbol = *symbol;
 	new_indr_loop.next = indr_loop;
-	lookup_symbol(name, symbol, module_state, lib, &new_indr_loop);
-	return;
+	lookup_symbol(name, get_indr_lib(name, &arch_lib), symbol, module_state,
+		      lib, isub_image, itoc, &new_indr_loop);
+	return(symbol != NULL);
+}
+
+/*
+ * lookup_symbol_in_lib() is a sub-routine for lookup_symbol().  It looks up
+ * the symbol name in the specified primary library.  If it finds it it returns
+ * TRUE else it returns FALSE.
+ */
+static
+enum bool
+lookup_symbol_in_lib(
+char *name,
+struct lib *primary_lib,
+struct nlist **symbol,
+enum link_state **module_state,
+struct lib **lib,
+unsigned long *isub_image,
+unsigned long *itoc,
+struct indr_loop_list *indr_loop)
+{
+    struct dylib_table_of_contents *toc;
+    struct indr_loop_list new_indr_loop, *loop;
+
+	bsearch_strings = primary_lib->strings;
+	bsearch_symbols = primary_lib->symbols;
+	toc = bsearch(name, primary_lib->tocs, primary_lib->ntoc,
+		      sizeof(struct dylib_table_of_contents),
+		      (int (*)(const void *, const void *))dylib_bsearch);
+	if(toc != NULL){
+	    *symbol = primary_lib->symbols + toc->symbol_index;
+	    if(((*symbol)->n_type & N_TYPE) == N_INDR){
+		name = (*symbol)->n_value + primary_lib->strings;
+		goto indr;
+	    }
+	    *module_state = primary_lib->module_states + toc->module_index;
+	    *lib = primary_lib;
+	    if(itoc != NULL)
+		*itoc = toc - primary_lib->tocs;
+	    return(TRUE);
+	}
+	*symbol = NULL;
+	*module_state = NULL;
+	*lib = NULL;
+	return(FALSE);
+
+indr:
+	if(indr_loop != NO_INDR_LOOP){
+	    for(loop = indr_loop; loop != NULL; loop = loop->next){
+		if(loop->symbol == *symbol){
+		    /* this is an indirect loop */
+		    *symbol = NULL;
+		    *module_state = NULL;
+		    *lib = NULL;
+		    return(FALSE);
+		}
+	    }
+	}
+	new_indr_loop.symbol = *symbol;
+	new_indr_loop.next = indr_loop;
+	lookup_symbol(name, get_indr_lib(name, primary_lib), symbol,
+		      module_state, lib, isub_image, itoc, &new_indr_loop);
+	return(symbol != NULL);
 }
 
 /*
@@ -1939,7 +3487,7 @@ void
 build_new_symbol_table(
 void)
 {
-    unsigned long i, sym_info_size;
+    unsigned long i, sym_info_size, ihint, isub_image, itoc;
     char *symbol_name;
     struct nlist *new_symbols;
     struct nlist *symbol;
@@ -1956,6 +3504,11 @@ void)
 	    arch_nextrefsyms * sizeof(struct dylib_reference) +
 	    arch_nsyms * sizeof(struct nlist) +
 	    arch_strsize;
+	if(arch->object->hints_cmd != NULL){
+	    sym_info_size +=
+		arch->object->hints_cmd->nhints *
+		sizeof(struct twolevel_hint);
+	}
 
 	arch->object->input_sym_info_size = sym_info_size;
 	arch->object->output_sym_info_size = sym_info_size;
@@ -1983,20 +3536,36 @@ void)
 	arch->object->output_refs = arch_refs;
 	arch->object->output_nextrefsyms = arch_nextrefsyms;
 
+	if(arch->object->hints_cmd != NULL &&
+	   arch->object->hints_cmd->nhints != 0){
+	    arch->object->output_hints = (struct twolevel_hint *)
+		    (arch->object->object_addr +
+		     arch->object->hints_cmd->offset);
+	}
+
 	/*
 	 * The new symbol table is just a copy of the old symbol table with
 	 * the n_value's of the prebound undefined symbols updated.
 	 */
 	new_symbols = allocate(arch_nsyms * sizeof(struct nlist));
 	memcpy(new_symbols, arch_symbols, arch_nsyms * sizeof(struct nlist));
+	ihint = 0;
 	for(i = arch->object->dyst->iundefsym;
 	    i < arch->object->dyst->iundefsym + arch->object->dyst->nundefsym;
 	    i++){
 
 	    symbol_name = arch_strings + arch_symbols[i].n_un.n_strx;
-	    lookup_symbol(symbol_name, &symbol, &module_state, &lib,
+	    lookup_symbol(symbol_name,
+			  get_primary_lib(ARCH_LIB, arch_symbols + i),
+			  &symbol, &module_state, &lib, &isub_image, &itoc,
 			  NO_INDR_LOOP);
 	    new_symbols[i].n_value = symbol->n_value;
+
+	    if(arch_hints != NULL){
+		arch_hints[ihint].isub_image = isub_image;
+		arch_hints[ihint].itoc = itoc;
+		ihint++;
+	    }
 	}
 	arch->object->output_symbols = new_symbols;
 
@@ -2087,7 +3656,7 @@ void)
 		error("mallformed file: %s (bad symbol table index for "
 		      "external relocation entry %lu) (for architecture %s)",
 		      arch->file_name, i, arch_name);
-		exit(2);
+		redo_exit(2);
 	    }
 
 	    /*
@@ -2103,8 +3672,10 @@ void)
 	     * get the defined symbol's value to be used.
 	     */
 	    name = arch_strings + arch_symbol->n_un.n_strx;
-	    lookup_symbol(name, &defined_symbol, &module_state, &lib,
-			  NO_INDR_LOOP);
+	    lookup_symbol(name,
+			  get_primary_lib(ARCH_LIB, arch_symbol),
+			  &defined_symbol, &module_state, &lib,
+			  NULL, NULL, NO_INDR_LOOP);
 
 	    p = contents_pointer_for_vmaddr(arch_extrelocs[i].r_address +
 				(arch_split_segs == TRUE ?
@@ -2114,7 +3685,7 @@ void)
 		error("mallformed file: %s (for architecture %s) (bad r_address"
 		      " field for external relocation entry %lu)",
 		      arch->file_name, arch_name, i);
-		exit(2);
+		redo_exit(2);
 	    }
 
 	    switch(arch_extrelocs[i].r_length){
@@ -2128,7 +3699,7 @@ void)
 			" %s) because of relocation overflow (external "
 			"relocation for symbol %s does not fit in 1 byte)",
 			arch->file_name, arch_name, name);
-		    exit(2);
+		    redo_exit(2);
 		}
 		set_arch_byte(p, value);
 		break;
@@ -2142,7 +3713,7 @@ void)
 			" %s) because of relocation overflow (external "
 			"relocation for symbol %s does not fit in 2 bytes)",
 			arch->file_name, arch_name, name);
-		    exit(2);
+		    redo_exit(2);
 		}
 		set_arch_short(p, value);
 		break;
@@ -2156,7 +3727,7 @@ void)
 		error("mallformed file: %s (external relocation entry "
 		      "%lu has bad r_length) (for architecture %s)",
 		      arch->file_name, i, arch_name);
-		exit(2);
+		redo_exit(2);
 	    }
 	}
 }
@@ -2187,7 +3758,7 @@ void)
 		error("mallformed file: %s (bad symbol table index for "
 		      "external relocation entry %lu) (for architecture %s)",
 		      arch->file_name, i, arch_name);
-		exit(2);
+		redo_exit(2);
 	    }
 	    /* check to see if it needs a pair and has a correct one */
 	    if(arch_extrelocs[i].r_type == HPPA_RELOC_HI21 ||
@@ -2197,13 +3768,13 @@ void)
 		    error("mallformed file: %s (missing pair external "
 			  "relocation entry for entry %lu) (for architecture "
 			  "%s)", arch->file_name, i, arch_name);
-		    exit(2);
+		    redo_exit(2);
 		}
 		if(arch_extrelocs[i + 1].r_type != HPPA_RELOC_PAIR){
 		    error("mallformed file: %s (pair external relocation entry "
 			  "for entry %lu is not of r_type HPPA_RELOC_PAIR) (for"
 			  " architecture %s)", arch->file_name, i, arch_name);
-		    exit(2);
+		    redo_exit(2);
 		}
 	    }
 
@@ -2220,8 +3791,10 @@ void)
 	     * get the defined symbol's value to be used.
 	     */
 	    name = arch_strings + arch_symbol->n_un.n_strx;
-	    lookup_symbol(name, &defined_symbol, &module_state, &lib,
-			  NO_INDR_LOOP);
+	    lookup_symbol(name,
+			  get_primary_lib(ARCH_LIB, arch_symbol),
+			  &defined_symbol, &module_state, &lib,
+			  NULL, NULL, NO_INDR_LOOP);
 
 	    p = contents_pointer_for_vmaddr(arch_extrelocs[i].r_address +
 				(arch_split_segs == TRUE ?
@@ -2231,7 +3804,7 @@ void)
 		error("mallformed file: %s (for architecture %s) (bad r_address"
 		      " field for external relocation entry %lu)",
 		      arch->file_name, arch_name, i);
-		exit(2);
+		redo_exit(2);
 	    }
 
 	    if(arch_extrelocs[i].r_type == HPPA_RELOC_VANILLA){
@@ -2246,7 +3819,7 @@ void)
 			    "architecture %s) because of relocation overflow "
 			    "(external relocation for symbol %s does not fit "
 			    "in 1 byte)", arch->file_name, arch_name, name);
-			exit(2);
+			redo_exit(2);
 		    }
 		    set_arch_byte(p, value);
 		    break;
@@ -2260,7 +3833,7 @@ void)
 			    "architecture %s) because of relocation overflow "
 			    "(external relocation for symbol %s does not fit "
 			    "in 2 bytes)", arch->file_name, arch_name, name);
-			exit(2);
+			redo_exit(2);
 		    }
 		    set_arch_short(p, value);
 		    break;
@@ -2274,7 +3847,7 @@ void)
 		    error("mallformed file: %s (external relocation entry "
 			  "%lu has bad r_length) (for architecture %s)",
 			  arch->file_name, i, arch_name);
-		    exit(2);
+		    redo_exit(2);
 		}
 	    }
 	    /*
@@ -2337,7 +3910,7 @@ void)
 			    "(external relocation for symbol %s displacement "
 			    "too large to fit)", arch->file_name, arch_name,
 			    name);
-			exit(2);
+			redo_exit(2);
 		    }
 		    immediate >>= 2;
 		    dis_assemble_17(immediate, &w1, &w2, &w);
@@ -2348,7 +3921,7 @@ void)
 		    error("mallformed file: %s (external relocation entry "
 			  "%lu has unknown r_type) (for architecture %s)",
 			  arch->file_name, i, arch_name);
-		    exit(2);
+		    redo_exit(2);
 		}
 		set_arch_long(p, instruction);
 	    }
@@ -2387,7 +3960,7 @@ void)
 		error("mallformed file: %s (bad symbol table index for "
 		      "external relocation entry %lu) (for architecture %s)",
 		      arch->file_name, i, arch_name);
-		exit(2);
+		redo_exit(2);
 	    }
 	    /* check to see if it needs a pair and has a correct one */
 	    if(arch_extrelocs[i].r_type == SPARC_RELOC_LO10 ||
@@ -2396,14 +3969,14 @@ void)
 		    error("mallformed file: %s (missing pair external "
 			  "relocation entry for entry %lu) (for architecture "
 			  "%s)", arch->file_name, i, arch_name);
-		    exit(2);
+		    redo_exit(2);
 		}
 		if(arch_extrelocs[i + 1].r_type != SPARC_RELOC_PAIR){
 		    error("mallformed file: %s (pair external relocation entry "
 			  "for entry %lu is not of r_type SPARC_RELOC_PAIR) "
 			  "(for architecture %s)", arch->file_name, i,
 			  arch_name);
-		    exit(2);
+		    redo_exit(2);
 		}
 	    }
 
@@ -2420,8 +3993,10 @@ void)
 	     * get the defined symbol's value to be used.
 	     */
 	    name = arch_strings + arch_symbol->n_un.n_strx;
-	    lookup_symbol(name, &defined_symbol, &module_state, &lib,
-			  NO_INDR_LOOP);
+	    lookup_symbol(name,
+			  get_primary_lib(ARCH_LIB, arch_symbol),
+			  &defined_symbol, &module_state, &lib,
+			  NULL, NULL, NO_INDR_LOOP);
 
 	    p = contents_pointer_for_vmaddr(arch_extrelocs[i].r_address +
 				(arch_split_segs == TRUE ?
@@ -2431,7 +4006,7 @@ void)
 		error("mallformed file: %s (for architecture %s) (bad r_address"
 		      " field for external relocation entry %lu)",
 		      arch->file_name, arch_name, i);
-		exit(2);
+		redo_exit(2);
 	    }
 
 	    if(arch_extrelocs[i].r_type == SPARC_RELOC_VANILLA){
@@ -2446,7 +4021,7 @@ void)
 			    "architecture %s) because of relocation overflow "
 			    "(external relocation for symbol %s does not fit "
 			    "in 1 byte)", arch->file_name, arch_name, name);
-			exit(2);
+			redo_exit(2);
 		    }
 		    set_arch_byte(p, value);
 		    break;
@@ -2460,7 +4035,7 @@ void)
 			    "architecture %s) because of relocation overflow "
 			    "(external relocation for symbol %s does not fit "
 			    "in 2 bytes)", arch->file_name, arch_name, name);
-			exit(2);
+			redo_exit(2);
 		    }
 		    set_arch_short(p, value);
 		    break;
@@ -2474,7 +4049,7 @@ void)
 		    error("mallformed file: %s (external relocation entry "
 			  "%lu has bad r_length) (for architecture %s)",
 			  arch->file_name, i, arch_name);
-		    exit(2);
+		    redo_exit(2);
 		}
 	    }
 	    /*
@@ -2518,7 +4093,7 @@ void)
 			    "(external relocation for symbol %s displacement "
 			    "too large to fit)", arch->file_name, arch_name,
 			    name);
-			exit(2);
+			redo_exit(2);
 		    }
 		    immediate >>= 2;
 		    instruction = (instruction & 0xffc00000) | 
@@ -2537,7 +4112,7 @@ void)
 		    error("mallformed file: %s (external relocation entry "
 			  "%lu has unknown r_type) (for architecture %s)",
 			  arch->file_name, i, arch_name);
-		    exit(2);
+		    redo_exit(2);
 		}
 		set_arch_long(p, instruction);
 	    }
@@ -2575,7 +4150,7 @@ void)
 		error("mallformed file: %s (bad symbol table index for "
 		      "external relocation entry %lu) (for architecture %s)",
 		      arch->file_name, i, arch_name);
-		exit(2);
+		redo_exit(2);
 	    }
 	    /* check to see if it needs a pair and has a correct one */
 	    if(arch_extrelocs[i].r_type == PPC_RELOC_HI16 ||
@@ -2586,14 +4161,14 @@ void)
 		    error("mallformed file: %s (missing pair external "
 			  "relocation entry for entry %lu) (for architecture "
 			  "%s)", arch->file_name, i, arch_name);
-		    exit(2);
+		    redo_exit(2);
 		}
 		if(arch_extrelocs[i + 1].r_type != PPC_RELOC_PAIR){
 		    error("mallformed file: %s (pair external relocation entry "
 			  "for entry %lu is not of r_type PPC_RELOC_PAIR) "
 			  "(for architecture %s)", arch->file_name, i,
 			  arch_name);
-		    exit(2);
+		    redo_exit(2);
 		}
 	    }
 
@@ -2610,8 +4185,10 @@ void)
 	     * get the defined symbol's value to be used.
 	     */
 	    name = arch_strings + arch_symbol->n_un.n_strx;
-	    lookup_symbol(name, &defined_symbol, &module_state, &lib,
-			  NO_INDR_LOOP);
+	    lookup_symbol(name,
+			  get_primary_lib(ARCH_LIB, arch_symbol),
+			  &defined_symbol, &module_state, &lib,
+			  NULL, NULL, NO_INDR_LOOP);
 
 	    p = contents_pointer_for_vmaddr(arch_extrelocs[i].r_address +
 				(arch_split_segs == TRUE ?
@@ -2621,7 +4198,7 @@ void)
 		error("mallformed file: %s (for architecture %s) (bad r_address"
 		      " field for external relocation entry %lu)",
 		      arch->file_name, arch_name, i);
-		exit(2);
+		redo_exit(2);
 	    }
 
 	    if(arch_extrelocs[i].r_type == PPC_RELOC_VANILLA){
@@ -2636,7 +4213,7 @@ void)
 			    "architecture %s) because of relocation overflow "
 			    "(external relocation for symbol %s does not fit "
 			    "in 1 byte)", arch->file_name, arch_name, name);
-			exit(2);
+			redo_exit(2);
 		    }
 		    set_arch_byte(p, value);
 		    break;
@@ -2650,7 +4227,7 @@ void)
 			    "architecture %s) because of relocation overflow "
 			    "(external relocation for symbol %s does not fit "
 			    "in 2 bytes)", arch->file_name, arch_name, name);
-			exit(2);
+			redo_exit(2);
 		    }
 		    set_arch_short(p, value);
 		    break;
@@ -2664,7 +4241,7 @@ void)
 		    error("mallformed file: %s (external relocation entry "
 			  "%lu has bad r_length) (for architecture %s)",
 			  arch->file_name, i, arch_name);
-		    exit(2);
+		    redo_exit(2);
 		}
 	    }
 	    /*
@@ -2715,7 +4292,7 @@ void)
 			    "architecture %s) because of relocated value "
 			    "not a multiple of 4 bytes", arch->file_name,
 			    arch_name);
-			exit(2);
+			redo_exit(2);
 		    }
 		    instruction = (instruction & 0xffff0003) |
 				  (immediate & 0xfffc);
@@ -2734,7 +4311,7 @@ void)
 			    "architecture %s) because of relocated value "
 			    "not a multiple of 4 bytes", arch->file_name,
 			    arch_name);
-			exit(2);
+			redo_exit(2);
 		    }
 		    if((immediate & 0xfffe0000) != 0xfffe0000 &&
 		       (immediate & 0xfffe0000) != 0x00000000){
@@ -2743,7 +4320,7 @@ void)
 			    "(external relocation for symbol %s displacement "
 			    "too large to fit)", arch->file_name, arch_name,
 			    name);
-			exit(2);
+			redo_exit(2);
 		    }
 		    instruction = (instruction & 0xffff0003) |
 				  (immediate & 0xfffc);
@@ -2770,7 +4347,7 @@ void)
 			    "architecture %s) because of relocated value "
 			    "not a multiple of 4 bytes", arch->file_name,
 			    arch_name);
-			exit(2);
+			redo_exit(2);
 		    }
 		    if((immediate & 0xfe000000) != 0xfe000000 &&
 		       (immediate & 0xfe000000) != 0x00000000){
@@ -2779,8 +4356,7 @@ void)
 			    "(external relocation for symbol %s displacement "
 			    "too large to fit)", arch->file_name, arch_name,
 			    name);
-			exit(2);
-			exit(2);
+			redo_exit(2);
 		    }
 		    instruction = (instruction & 0xfc000003) |
 		    		  (immediate & 0x03fffffc);
@@ -2789,7 +4365,7 @@ void)
 		    error("mallformed file: %s (external relocation entry "
 			  "%lu has unknown r_type) (for architecture %s)",
 			  arch->file_name, i, arch_name);
-		    exit(2);
+		    redo_exit(2);
 		}
 		set_arch_long(p, instruction);
 	    }
@@ -2876,7 +4452,7 @@ void)
 				"(%.16s,%.16s) extends past the end of the "
 				"indirect symbol table)", arch->file_name,
 				arch_name, s->segname, s->sectname);
-			    exit(2);
+			    redo_exit(2);
 			}
 			for(k = 0; k < s->size / sizeof(unsigned long); k++){
 
@@ -2896,7 +4472,7 @@ void)
 				error("mallformed file: %s (for architecture "
 				    "%s) (bad indirect symbol table entry %lu)",
 				    arch->file_name, arch_name, i);
-				exit(2);
+				redo_exit(2);
 			    }
 	
 			    /*
@@ -2915,8 +4491,10 @@ void)
 			     * symbol's value to be used.
 			     */
 			    name = arch_strings + arch_symbol->n_un.n_strx;
-			    lookup_symbol(name, &defined_symbol, &module_state,
-					  &lib, NO_INDR_LOOP);
+			    lookup_symbol(name,
+					  get_primary_lib(ARCH_LIB,arch_symbol),
+					  &defined_symbol, &module_state,
+					  &lib, NULL, NULL, NO_INDR_LOOP);
 
 			    p = contents_pointer_for_vmaddr(
 				s->addr + (k * sizeof(long)), sizeof(long));
@@ -2925,7 +4503,7 @@ void)
 				    "%s) (bad indirect section (%.16s,%.16s))",
 				    arch->file_name, arch_name, s->segname,
 				    s->sectname);
-				exit(2);
+				redo_exit(2);
 			    }
 			    set_arch_long(p, defined_symbol->n_value);
 			}
@@ -3115,7 +4693,7 @@ void)
 		      " %s) because larger updated load commands do not fit "
 		      "(the program must be relinked)", arch->file_name,
 		      arch_name);
-		exit(2);
+		redo_exit(2);
 	    }
 	}
 
@@ -3221,6 +4799,7 @@ void)
 	}
 }
 
+#ifndef LIBRARY_API
 /*
  * Print the warning message and the input file.
  */
@@ -3314,3 +4893,371 @@ char *format,
 	    exit(0);
 	exit(2);
 }
+
+#else /* defined(LIBRARY_API) */
+
+/*
+ * vmessage() is a sub routine used by warning(), error(), system_error() for
+ * the library api to get the varariable argument message in to the error
+ * message buffer.
+ */
+static
+void
+vmessage(
+const char *format,
+va_list ap)
+{
+    unsigned long new;
+
+	setup_error_message_buffer();
+        /* for the __OPENSTEP__ case hope the string does not overflow */
+#ifdef __OPENSTEP__
+        new = vsprintf(last, format, ap);
+#else
+        new = vsnprintf(last, left, format, ap);
+#endif
+        last += new;
+        left -= new;
+}
+
+/*
+ * message() is a sub routine used by warning(), error(), system_error() or
+ * directly (for multi line message) for the library api to get the message in
+ * to the error message buffer.
+ */
+static
+void
+message(
+const char *format,
+...)
+{
+    va_list ap;
+
+	va_start(ap, format);
+	vmessage(format, ap);
+	va_end(ap);
+}
+
+/*
+ * message_with_arch() is a sub routine used by warning_arch(), error_arch()
+ * and fatal_arch() for the library api to get the message in to the error
+ * message buffer.
+ */
+static
+void
+message_with_arch(
+struct arch *arch,
+struct member *member,
+const char *format,
+va_list ap)
+{
+    unsigned long new;
+
+	setup_error_message_buffer();
+        /* for the __OPENSTEP__ case hope the string does not overflow */
+#ifdef __OPENSTEP__
+        new = vsprintf(last, format, ap);
+#else
+        new = vsnprintf(last, left, format, ap);
+#endif
+        last += new;
+        left -= new;
+
+	if(member != NULL){
+#ifdef __OPENSTEP__
+	    new = sprintf(last, 
+#else
+	    new = snprintf(last, left, 
+#endif
+		    "%s(%.*s)", arch->file_name,
+		    (int)member->member_name_size, member->member_name);
+	    last += new;
+	    left -= new;
+	}
+	else{
+#ifdef __OPENSTEP__
+	    new = sprintf(last, 
+#else
+	    new = snprintf(last, left, 
+#endif
+	    	    "%s", arch->file_name);
+	    last += new;
+	    left -= new;
+	}
+	if(arch->fat_arch_name != NULL){
+#ifdef __OPENSTEP__
+	    new = sprintf(last, 
+#else
+	    new = snprintf(last, left, 
+#endif
+		    " (for architecture %s)", arch->fat_arch_name);
+	    last += new;
+	    left -= new;
+	}
+}
+
+/*
+ * Put the warning message and the input file into the error message buffer.
+ */
+__private_extern__
+void
+warning_arch(
+struct arch *arch,
+struct member *member,
+char *format,
+...)
+{
+    va_list ap;
+
+	va_start(ap, format);
+	message_with_arch(arch, member, format, ap);
+	va_end(ap);
+}
+
+/*
+ * Put the error message and the input file into the error message buffer
+ * and increment the error count
+ */
+__private_extern__
+void
+error_arch(
+struct arch *arch,
+struct member *member,
+char *format,
+...)
+{
+    va_list ap;
+
+	va_start(ap, format);
+	message_with_arch(arch, member, format, ap);
+	va_end(ap);
+	errors++;
+}
+
+/*
+ * Put the warning message and the input file into the error message buffer and
+ * then longjmp back to the library api so it can return unsuccessfully.
+ */
+__private_extern__
+void
+fatal_arch(
+struct arch *arch,
+struct member *member,
+char *format,
+...)
+{
+    va_list ap;
+
+	va_start(ap, format);
+	message_with_arch(arch, member, format, ap);
+	va_end(ap);
+	if(check_only == TRUE)
+	    retval = PREBINDING_UNKNOWN;
+	longjmp(library_env, 1);
+}
+
+__private_extern__ unsigned long errors = 0;	/* number of calls to error() */
+
+/*
+ * Just put the message into the error message buffer without setting errors.
+ */
+__private_extern__
+void
+warning(
+const char *format,
+...)
+{
+    va_list ap;
+
+	va_start(ap, format);
+	vmessage(format, ap);
+	va_end(ap);
+}
+
+/*
+ * Put the message into the error message buffer and return to the caller
+ * after setting the error indication.
+ */
+__private_extern__
+void
+error(
+const char *format,
+...)
+{
+    va_list ap;
+
+	va_start(ap, format);
+	vmessage(format, ap);
+	va_end(ap);
+	errors++;
+}
+
+/*
+ * Put the message into the error message buffer and the architecture if not
+ * NULL and return to the caller after setting the error indication.
+ */
+__private_extern__
+void
+error_with_arch(
+const char *arch_name,
+const char *format,
+...)
+{
+    va_list ap;
+
+	va_start(ap, format);
+	if(arch_name != NULL)
+	    message("for architecture: %s ", arch_name);
+	vmessage(format, ap);
+	va_end(ap);
+	errors++;
+}
+
+/*
+ * Put the message into the error message buffer along with the system error
+ * message and return to the caller after setting the error indication.
+ */
+__private_extern__
+void
+system_error(
+const char *format,
+...)
+{
+    va_list ap;
+
+	va_start(ap, format);
+	vmessage(format, ap);
+	message(" (%s)", strerror(errno));
+	va_end(ap);
+	errors++;
+}
+
+/*
+ * Put the message into the error message buffer along with the mach error
+ * string and return to the caller after setting the error indication.
+ */
+__private_extern__
+void
+my_mach_error(
+kern_return_t r,
+char *format,
+...)
+{
+    va_list ap;
+
+	va_start(ap, format);
+	vmessage(format, ap);
+	message(" (%s)", mach_error_string(r));
+	va_end(ap);
+	errors++;
+}
+
+/*
+ * allocate() is used to allocate temporary memory for the library api and is
+ * allocated in the library zone.  If the allocation fails it is a fatal error.
+ */
+__private_extern__
+void *
+allocate(
+unsigned long size)
+{
+    void *p;
+
+	if(library_zone == NULL){
+	    library_zone = NXCreateZone(vm_page_size, vm_page_size, 1);
+	    if(library_zone == NULL)
+		fatal("can't create NXZone");
+	    NXNameZone(library_zone, "redo_prebinding");
+	}
+	if(size == 0)
+	    return(NULL);
+	if((p = NXZoneMalloc(library_zone, size)) == NULL)
+	    system_fatal("virtual memory exhausted (NXZoneMalloc failed)");
+	return(p);
+}
+
+/*
+ * reallocate() is used to reallocate temporary memory for the library api and
+ * is allocated in the library zone.  If the allocation fails it is a fatal
+ * error.
+ */
+__private_extern__
+void *
+reallocate(
+void *p,
+unsigned long size)
+{
+	if(library_zone == NULL){
+	    library_zone = NXCreateZone(vm_page_size, vm_page_size, 1);
+	    if(library_zone == NULL)
+		fatal("can't create NXZone");
+	    NXNameZone(library_zone, "redo_prebinding");
+	}
+	if(p == NULL)
+	    return(allocate(size));
+	if((p = NXZoneRealloc(library_zone, p, size)) == NULL)
+	    system_fatal("virtual memory exhausted (NXZoneRealloc failed)");
+	return(p);
+}
+
+/*
+ * savestr() allocate space for the string passed to it, copys the string into
+ * the space and returns a pointer to that space.
+ */
+__private_extern__
+char *
+savestr(
+const char *s)
+{
+    long len;
+    char *r;
+
+	len = strlen(s) + 1;
+	r = (char *)allocate(len);
+	strcpy(r, s);
+	return(r);
+}
+
+/*
+ * Makestr() creates a string that is the concatenation of a variable number of
+ * strings.  It is pass a variable number of pointers to strings and the last
+ * pointer is NULL.  It returns the pointer to the string it created.  The
+ * storage for the string is allocated()'ed can be free()'ed when nolonger
+ * needed.
+ */
+__private_extern__
+char *
+makestr(
+const char *args,
+...)
+{
+    va_list ap;
+    char *s, *p;
+    long size;
+
+	size = 0;
+	if(args != NULL){
+	    size += strlen(args);
+	    va_start(ap, args);
+	    p = (char *)va_arg(ap, char *);
+	    while(p != NULL){
+		size += strlen(p);
+		p = (char *)va_arg(ap, char *);
+	    }
+	}
+	s = allocate(size + 1);
+	*s = '\0';
+
+	if(args != NULL){
+	    (void)strcat(s, args);
+	    va_start(ap, args);
+	    p = (char *)va_arg(ap, char *);
+	    while(p != NULL){
+		(void)strcat(s, p);
+		p = (char *)va_arg(ap, char *);
+	    }
+	    va_end(ap);
+	}
+	return(s);
+}
+#endif /* defined(LIBRARY_API) */

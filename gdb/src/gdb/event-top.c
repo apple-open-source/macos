@@ -297,6 +297,14 @@ display_gdb_prompt (char *new_prompt)
 
   if (async_command_editing_p)
     {
+      /* Claim the terminal before we reset it.  It is quick if the
+	 terminal is already ours, and if not, we are going to lose
+	 when we try to install the callback handler otherwise.  We
+	 can get here with the terminal still belonging to the
+	 inferior if it dies an unexpected death, and somebody forgets
+	 to clean up properly.  Better safe than sorry... */
+
+      target_terminal_ours ();
       if (stdin_handler_removed)
 	{
 	  add_file_handler (input_fd, stdin_event_handler, 0);

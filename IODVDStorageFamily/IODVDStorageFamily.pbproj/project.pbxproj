@@ -1,0 +1,617 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 34;
+	objects = {
+		0560FFD5008B977E11CA2AA4 = {
+			isa = PBXFileReference;
+			path = IODVDBlockStorageDriver.cpp;
+			refType = 4;
+		};
+		0560FFD6008B977E11CA2AA4 = {
+			isa = PBXFileReference;
+			path = IODVDBlockStorageDevice.h;
+			refType = 4;
+		};
+		0560FFD7008B977E11CA2AA4 = {
+			isa = PBXFileReference;
+			path = IODVDBlockStorageDevice.cpp;
+			refType = 4;
+		};
+		0560FFD8008B977E11CA2AA4 = {
+			isa = PBXFileReference;
+			path = IODVDBlockStorageDriver.h;
+			refType = 4;
+		};
+		0560FFD9008B977E11CA2AA4 = {
+			isa = PBXFileReference;
+			path = IODVDMedia.cpp;
+			refType = 4;
+		};
+		0560FFDA008B977E11CA2AA4 = {
+			isa = PBXFileReference;
+			path = IODVDMedia.h;
+			refType = 4;
+		};
+		0560FFDB008B977E11CA2AA4 = {
+			isa = PBXFileReference;
+			path = IODVDTypes.h;
+			refType = 4;
+		};
+		0560FFDC008B977E11CA2AA4 = {
+			fileRef = 0560FFD6008B977E11CA2AA4;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0560FFDD008B977E11CA2AA4 = {
+			fileRef = 0560FFD8008B977E11CA2AA4;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0560FFDE008B977E11CA2AA4 = {
+			fileRef = 0560FFDA008B977E11CA2AA4;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0560FFDF008B977E11CA2AA4 = {
+			fileRef = 0560FFDB008B977E11CA2AA4;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0560FFE0008B977E11CA2AA4 = {
+			fileRef = 0560FFD5008B977E11CA2AA4;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0560FFE1008B977E11CA2AA4 = {
+			fileRef = 0560FFD9008B977E11CA2AA4;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0560FFE2008B977E11CA2AA4 = {
+			fileRef = 0560FFD7008B977E11CA2AA4;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//050
+//051
+//052
+//053
+//054
+//060
+//061
+//062
+//063
+//064
+		06AA1264FFB2107B11CA28AA = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			name = "Shell Script";
+			neededFileNames = (
+			);
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		06AA1265FFB2107B11CA28AA = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				OPTIMIZATION_CFLAGS = "-O0";
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		06AA1266FFB2107B11CA28AA = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+		06AA1267FFB2110C11CA28AA = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			name = "Shell Script";
+			neededFileNames = (
+			);
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+//060
+//061
+//062
+//063
+//064
+//080
+//081
+//082
+//083
+//084
+		089C1669FE841209C02AAC07 = {
+			buildStyles = (
+				06AA1265FFB2107B11CA28AA,
+				06AA1266FFB2107B11CA28AA,
+			);
+			isa = PBXProject;
+			mainGroup = 089C166AFE841209C02AAC07;
+			projectDirPath = "";
+			targets = (
+				089C1673FE841209C02AAC07,
+				2252E792008E0BAC11CA2AA4,
+			);
+		};
+		089C166AFE841209C02AAC07 = {
+			children = (
+				247142CAFF3F8F9811CA285C,
+				089C167CFE841241C02AAC07,
+				19C28FB6FE9D52B211CA2CBB,
+			);
+			isa = PBXGroup;
+			name = IODVDStorageFamily;
+			refType = 4;
+		};
+		089C1673FE841209C02AAC07 = {
+			buildPhases = (
+				06AA1267FFB2110C11CA28AA,
+				089C1674FE841209C02AAC07,
+				089C1675FE841209C02AAC07,
+				089C1676FE841209C02AAC07,
+				089C1677FE841209C02AAC07,
+				089C1679FE841209C02AAC07,
+				06AA1264FFB2107B11CA28AA,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.iokit.IODVDStorageFamily;
+				MODULE_VERSION = 1.1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IODVDStorageFamily;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+				2252E797008E0BEF11CA2AA4,
+			);
+			isa = PBXBundleTarget;
+			name = IODVDStorageFamily;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+			productName = IODVDStorageFamily;
+			productReference = 0B81C263FFB7832611CA28AA;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
+<plist version=\"0.9\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>IODVDStorageFamily</string>
+	<key>CFBundleGetInfoString</key>
+	<string>1.1, Copyright Apple Computer, Inc. 2000-2001</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.iokit.IODVDStorageFamily</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>I/O Kit DVD Storage Family</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.1</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.1</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>IODVDBlockStorageDriver</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.IODVDStorageFamily</string>
+			<key>IOClass</key>
+			<string>IODVDBlockStorageDriver</string>
+			<key>IOPropertyMatch</key>
+			<dict>
+				<key>device-type</key>
+				<string>DVD</string>
+			</dict>
+			<key>IOProviderClass</key>
+			<string>IODVDBlockStorageDevice</string>
+		</dict>
+		<key>IODVDMediaBSDClient</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.IODVDStorageFamily</string>
+			<key>IOClass</key>
+			<string>IODVDMediaBSDClient</string>
+			<key>IOMatchCategory</key>
+			<string>IOMediaBSDClient</string>
+			<key>IOProbeScore</key>
+			<integer>31000</integer>
+			<key>IOProviderClass</key>
+			<string>IODVDMedia</string>
+		</dict>
+	</dict>
+	<key>NSHumanReadableCopyright</key>
+	<string>Copyright Apple Computer, Inc. 2000-2001</string>
+	<key>OSBundleCompatibleVersion</key>
+	<string>1.0.0b1</string>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.iokit.IOCDStorageFamily</key>
+		<string>1.1</string>
+		<key>com.apple.iokit.IOStorageFamily</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.bsd</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.iokit</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>1.1</string>
+	</dict>
+	<key>OSBundleRequired</key>
+	<string>Local-Root</string>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 1;
+		};
+		089C1674FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				0560FFDC008B977E11CA2AA4,
+				0560FFDD008B977E11CA2AA4,
+				0560FFDE008B977E11CA2AA4,
+				12BF9C9A00D8588E03CA2AA4,
+				0560FFDF008B977E11CA2AA4,
+			);
+			isa = PBXHeadersBuildPhase;
+			name = Headers;
+		};
+		089C1675FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				089C1680FE841241C02AAC07,
+			);
+			isa = PBXResourcesBuildPhase;
+			name = "Bundle Resources";
+		};
+		089C1676FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				0560FFE2008B977E11CA2AA4,
+				0560FFE0008B977E11CA2AA4,
+				0560FFE1008B977E11CA2AA4,
+				12BF9C9B00D8588E03CA2AA4,
+			);
+			isa = PBXSourcesBuildPhase;
+			name = Sources;
+		};
+		089C1677FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			name = "Frameworks & Libraries";
+		};
+		089C1679FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			name = "ResourceManager Resources";
+		};
+		089C167CFE841241C02AAC07 = {
+			children = (
+				089C167DFE841241C02AAC07,
+			);
+			isa = PBXGroup;
+			name = Resources;
+			refType = 4;
+		};
+		089C167DFE841241C02AAC07 = {
+			children = (
+				089C167EFE841241C02AAC07,
+			);
+			isa = PBXVariantGroup;
+			name = InfoPlist.strings;
+			refType = 4;
+		};
+		089C167EFE841241C02AAC07 = {
+			fileEncoding = 10;
+			isa = PBXFileReference;
+			name = English;
+			path = English.lproj/InfoPlist.strings;
+			refType = 4;
+		};
+		089C1680FE841241C02AAC07 = {
+			fileRef = 089C167DFE841241C02AAC07;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//080
+//081
+//082
+//083
+//084
+//0B0
+//0B1
+//0B2
+//0B3
+//0B4
+		0B81C263FFB7832611CA28AA = {
+			isa = PBXBundleReference;
+			path = IODVDStorageFamily.kext;
+			refType = 3;
+		};
+//0B0
+//0B1
+//0B2
+//0B3
+//0B4
+//120
+//121
+//122
+//123
+//124
+		1280E29F00EAD9A303CA2AA4 = {
+			fileRef = 12BF9C9900D8588E03CA2AA4;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		12BF9C9800D8588E03CA2AA4 = {
+			isa = PBXFileReference;
+			path = IODVDMediaBSDClient.cpp;
+			refType = 4;
+		};
+		12BF9C9900D8588E03CA2AA4 = {
+			isa = PBXFileReference;
+			path = IODVDMediaBSDClient.h;
+			refType = 4;
+		};
+		12BF9C9A00D8588E03CA2AA4 = {
+			fileRef = 12BF9C9900D8588E03CA2AA4;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		12BF9C9B00D8588E03CA2AA4 = {
+			fileRef = 12BF9C9800D8588E03CA2AA4;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		12BF9CA400D85A0103CA2AA4 = {
+			fileRef = 12BF9C9900D8588E03CA2AA4;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		12BF9CA600D85A7A03CA2AA4 = {
+			fileRef = 0560FFDB008B977E11CA2AA4;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//120
+//121
+//122
+//123
+//124
+//190
+//191
+//192
+//193
+//194
+		19C28FB6FE9D52B211CA2CBB = {
+			children = (
+				0B81C263FFB7832611CA28AA,
+				2252E791008E0BAC11CA2AA4,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+		};
+//190
+//191
+//192
+//193
+//194
+//220
+//221
+//222
+//223
+//224
+		2252E791008E0BAC11CA2AA4 = {
+			isa = PBXExecutableFileReference;
+			path = "IODVDStorageFamily Headers";
+			refType = 3;
+		};
+		2252E792008E0BAC11CA2AA4 = {
+			buildPhases = (
+				2252E793008E0BAC11CA2AA4,
+				2252E794008E0BAC11CA2AA4,
+				2252E795008E0BAC11CA2AA4,
+				2252E796008E0BAC11CA2AA4,
+				2252E799008E0C7B11CA2AA4,
+				2252E79A008E0C7B11CA2AA4,
+			);
+			buildSettings = {
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = "IODVDStorageFamily Headers";
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+			);
+			isa = PBXToolTarget;
+			name = "IODVDStorageFamily Headers";
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
+			productName = "IODVDStorageFamily Headers";
+			productReference = 2252E791008E0BAC11CA2AA4;
+			shouldUseHeadermap = 0;
+		};
+		2252E793008E0BAC11CA2AA4 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+			name = Headers;
+		};
+		2252E794008E0BAC11CA2AA4 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXSourcesBuildPhase;
+			name = Sources;
+		};
+		2252E795008E0BAC11CA2AA4 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			name = "Frameworks & Libraries";
+		};
+		2252E796008E0BAC11CA2AA4 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			name = "ResourceManager Resources";
+		};
+		2252E797008E0BEF11CA2AA4 = {
+			isa = PBXTargetDependency;
+			target = 2252E792008E0BAC11CA2AA4;
+		};
+		2252E799008E0C7B11CA2AA4 = {
+			buildActionMask = 8;
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/storage";
+			dstSubfolderSpec = 0;
+			files = (
+				2389174F008E0ED811CA2AA4,
+				23891750008E0ED811CA2AA4,
+				23891751008E0ED811CA2AA4,
+				12BF9CA400D85A0103CA2AA4,
+				23891752008E0ED811CA2AA4,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			name = "Copy Files";
+		};
+		2252E79A008E0C7B11CA2AA4 = {
+			buildActionMask = 8;
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/Headers/storage";
+			dstSubfolderSpec = 0;
+			files = (
+				23891753008E0ED811CA2AA4,
+				1280E29F00EAD9A303CA2AA4,
+				12BF9CA600D85A7A03CA2AA4,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			name = "Copy Files";
+		};
+//220
+//221
+//222
+//223
+//224
+//230
+//231
+//232
+//233
+//234
+		2389174F008E0ED811CA2AA4 = {
+			fileRef = 0560FFD6008B977E11CA2AA4;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		23891750008E0ED811CA2AA4 = {
+			fileRef = 0560FFD8008B977E11CA2AA4;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		23891751008E0ED811CA2AA4 = {
+			fileRef = 0560FFDA008B977E11CA2AA4;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		23891752008E0ED811CA2AA4 = {
+			fileRef = 0560FFDB008B977E11CA2AA4;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		23891753008E0ED811CA2AA4 = {
+			fileRef = 0560FFDA008B977E11CA2AA4;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//230
+//231
+//232
+//233
+//234
+//240
+//241
+//242
+//243
+//244
+		247142CAFF3F8F9811CA285C = {
+			children = (
+				0560FFD7008B977E11CA2AA4,
+				0560FFD6008B977E11CA2AA4,
+				0560FFD5008B977E11CA2AA4,
+				0560FFD8008B977E11CA2AA4,
+				0560FFD9008B977E11CA2AA4,
+				0560FFDA008B977E11CA2AA4,
+				12BF9C9800D8588E03CA2AA4,
+				12BF9C9900D8588E03CA2AA4,
+				0560FFDB008B977E11CA2AA4,
+			);
+			isa = PBXGroup;
+			name = Source;
+			path = "";
+			refType = 4;
+		};
+	};
+	rootObject = 089C1669FE841209C02AAC07;
+}

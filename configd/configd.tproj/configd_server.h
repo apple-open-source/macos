@@ -20,6 +20,16 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * Modification History
+ *
+ * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * - public API conversion
+ *
+ * March 24, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
 #ifndef _S_CONFIGD_SERVER_H
 #define _S_CONFIGD_SERVER_H
 
@@ -33,116 +43,144 @@ extern	CFMachPortRef		configd_port;		/* configd server port (for new session req
 
 __BEGIN_DECLS
 
-void		configdCallback	__P((CFMachPortRef		port,
-				     void			*msg,
-				     CFIndex			size,
-				     void			*info));
+void		configdCallback	(CFMachPortRef		port,
+				 void			*msg,
+				 CFIndex		size,
+				 void			*info);
 
-boolean_t	server_active	__P(());
-void		server_init	__P(());
+boolean_t	server_active	();
 
-void		server_loop	__P(());
+void		server_init	();
 
-kern_return_t	_snapshot	__P((mach_port_t server, int *scd_status));
+void		server_loop	();
 
-kern_return_t	_configopen	__P((mach_port_t		server,
-				     xmlData_t			name,
-				     mach_msg_type_number_t	nameCnt,
-				     mach_port_t		*newServer,
-				     int			*scd_status));
+kern_return_t	_snapshot	(mach_port_t		server,
+				 int			*sc_status);
 
-kern_return_t	_configclose	__P((mach_port_t server, int *scd_status));
+kern_return_t	_configopen	(mach_port_t		server,
+				 xmlData_t		nameRef,
+				 mach_msg_type_number_t	nameLen,
+				 mach_port_t		*newServer,
+				 int			*sc_status);
 
-kern_return_t	_configlock	__P((mach_port_t server, int *scd_status));
+kern_return_t	_configclose	(mach_port_t		server,
+				 int			*sc_status);
 
-kern_return_t	_configunlock	__P((mach_port_t server, int *scd_status));
+kern_return_t	_configlock	(mach_port_t		server,
+				 int			*sc_status);
 
-kern_return_t	_configlist	__P((mach_port_t server,
-				     xmlData_t			key,
-				     mach_msg_type_number_t	keyCnt,
-				     int			regexOptions,
-				     xmlDataOut_t		*list,
-				     mach_msg_type_number_t	*listCnt,
-				     int			*scd_status));
+kern_return_t	_configunlock	(mach_port_t		server,
+				 int			*sc_status);
 
-kern_return_t	_configadd	__P((mach_port_t 		server,
-				     xmlData_t			key,
-				     mach_msg_type_number_t	keyCnt,
-				     xmlData_t			data,
-				     mach_msg_type_number_t	dataCnt,
-				     int			*newInstance,
-				     int			*scd_status));
+kern_return_t	_configlist	(mach_port_t server,
+				 xmlData_t		keyRef,
+				 mach_msg_type_number_t	keyLen,
+				 int			isRegex,
+				 xmlDataOut_t		*listRef,
+				 mach_msg_type_number_t	*listLen,
+				 int			*sc_status);
 
-kern_return_t	_configadd_s	__P((mach_port_t 		server,
-				     xmlData_t			key,
-				     mach_msg_type_number_t	keyCnt,
-				     xmlData_t			data,
-				     mach_msg_type_number_t	dataCnt,
-				     int			*newInstance,
-				     int			*scd_status));
+kern_return_t	_configadd	(mach_port_t 		server,
+				 xmlData_t		keyRef,
+				 mach_msg_type_number_t	keyLen,
+				 xmlData_t		dataRef,
+				 mach_msg_type_number_t	dataLen,
+				 int			*newInstance,
+				 int			*sc_status);
 
-kern_return_t	_configget	__P((mach_port_t		server,
-				     xmlData_t			key,
-				     mach_msg_type_number_t	keyCnt,
-				     xmlDataOut_t		*data,
-				     mach_msg_type_number_t	*dataCnt,
-				     int			*newInstance,
-				     int			*scd_status));
+kern_return_t	_configadd_s	(mach_port_t 		server,
+				 xmlData_t		keyRef,
+				 mach_msg_type_number_t	keyLen,
+				 xmlData_t		dataRef,
+				 mach_msg_type_number_t	dataLen,
+				 int			*newInstance,
+				 int			*sc_status);
 
-kern_return_t	_configset	__P((mach_port_t		server,
-				     xmlData_t			key,
-				     mach_msg_type_number_t	keyCnt,
-				     xmlData_t			data,
-				     mach_msg_type_number_t	dataCnt,
-				     int			*newInstance,
-				     int			*scd_status));
+kern_return_t	_configget	(mach_port_t		server,
+				 xmlData_t		keyRef,
+				 mach_msg_type_number_t	keyLen,
+				 xmlDataOut_t		*dataRef,
+				 mach_msg_type_number_t	*dataLen,
+				 int			*newInstance,
+				 int			*sc_status);
 
-kern_return_t	_configremove	__P((mach_port_t		server,
-				     xmlData_t			key,
-				     mach_msg_type_number_t	keyCnt,
-				     int			*scd_status));
+kern_return_t	_configset	(mach_port_t		server,
+				 xmlData_t		keyRef,
+				 mach_msg_type_number_t	keyLen,
+				 xmlData_t		dataRef,
+				 mach_msg_type_number_t	dataLen,
+				 int			*newInstance,
+				 int			*sc_status);
 
-kern_return_t	_configtouch	__P((mach_port_t 		server,
-				     xmlData_t			key,
-				     mach_msg_type_number_t	keyCnt,
-				     int			*scd_status));
+kern_return_t	_configremove	(mach_port_t		server,
+				 xmlData_t		keyRef,
+				 mach_msg_type_number_t	keyLen,
+				 int			*sc_status);
 
-kern_return_t	_notifyadd	__P((mach_port_t		server,
-				     xmlData_t			key,
-				     mach_msg_type_number_t	keyCnt,
-				     int			regexOptions,
-				     int			*status));
+kern_return_t	_configtouch	(mach_port_t 		server,
+				 xmlData_t		keyRef,
+				 mach_msg_type_number_t	keyLen,
+				 int			*sc_status);
 
-kern_return_t	_notifyremove	__P((mach_port_t		server,
-				     xmlData_t			key,
-				     mach_msg_type_number_t	keyCnt,
-				     int			regexOptions,
-				     int			*status));
+kern_return_t	_confignotify	(mach_port_t 		server,
+				 xmlData_t		keyRef,
+				 mach_msg_type_number_t	keyLen,
+				 int			*sc_status);
 
-kern_return_t	_notifychanges	__P((mach_port_t		server,
-				     xmlDataOut_t		*list,
-				     mach_msg_type_number_t	*listCnt,
-				     int			*status));
+kern_return_t	_configget_m	(mach_port_t		server,
+				 xmlData_t		keysRef,
+				 mach_msg_type_number_t	keysLen,
+				 xmlData_t		patternsRef,
+				 mach_msg_type_number_t	patternsLen,
+				 xmlDataOut_t		*dataRef,
+				 mach_msg_type_number_t	*dataLen,
+				 int			*sc_status);
 
-kern_return_t	_notifyviaport	__P((mach_port_t		server,
-				     mach_port_t		port,
-				     mach_msg_id_t		msgid,
-				     int			*status));
+kern_return_t	_configset_m	(mach_port_t		server,
+				 xmlData_t		dataRef,
+				 mach_msg_type_number_t	dataLen,
+				 xmlData_t		removeRef,
+				 mach_msg_type_number_t	removeLen,
+				 xmlData_t		notifyRef,
+				 mach_msg_type_number_t	notifyLen,
+				 int			*sc_status);
 
-kern_return_t	_notifyviafd	__P((mach_port_t		server,
-				     xmlData_t			path,
-				     mach_msg_type_number_t	pathCnt,
-				     int			identifier,
-				     int			*status));
+kern_return_t	_notifyadd	(mach_port_t		server,
+				 xmlData_t		keyRef,
+				 mach_msg_type_number_t	keyLen,
+				 int			isRegex,
+				 int			*status);
+
+kern_return_t	_notifyremove	(mach_port_t		server,
+				 xmlData_t		keyRef,
+				 mach_msg_type_number_t	keyLen,
+				 int			isRegex,
+				 int			*status);
+
+kern_return_t	_notifychanges	(mach_port_t		server,
+				 xmlDataOut_t		*listRef,
+				 mach_msg_type_number_t	*listLen,
+				 int			*status);
+
+kern_return_t	_notifyviaport	(mach_port_t		server,
+				 mach_port_t		port,
+				 mach_msg_id_t		msgid,
+				 int			*status);
+
+kern_return_t	_notifyviafd	(mach_port_t		server,
+				 xmlData_t		pathRef,
+				 mach_msg_type_number_t	pathLen,
+				 int			identifier,
+				 int			*status);
 
 kern_return_t	_notifyviasignal
-				__P((mach_port_t		server,
-				     task_t			task,
-				     int			signal,
-				     int			*status));
+				(mach_port_t		server,
+				 task_t			task,
+				 int			signal,
+				 int			*status);
 
-kern_return_t	_notifycancel	__P((mach_port_t		server,
-				     int			*scd_status));
+kern_return_t	_notifycancel	(mach_port_t		server,
+				 int			*sc_status);
 
 __END_DECLS
 

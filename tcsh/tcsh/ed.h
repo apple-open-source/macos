@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/ed.h,v 1.1.1.1 1999/04/23 01:59:52 wsanchez Exp $ */
+/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/ed.h,v 1.1.1.2 2001/06/28 23:10:47 bbraun Exp $ */
 /*
  * ed.h: Editor declarations and globals
  */
@@ -44,14 +44,9 @@
 #define TABSIZE		8	/* usually 8 spaces/tab */
 #define MAXMACROLEVELS	10	/* max number of nested kbd macros */
 
-#ifdef WINNT
-/* 256 + 24 (fkeys) +  4 (arrow) + 2 (ins/del) +2 (pgup/dn) +2 (home/end) */
-# define NT_NUM_KEYS	290
-#else /* !WINNT */
+#ifndef WINNT_NATIVE
 # define NT_NUM_KEYS	256
-#endif /* !WINNT */
-
-extern int errno;
+#endif /* WINNT_NATIVE */
 
 /****************************************************************************/
 /* stuff for the different states returned by the character editor routines */
@@ -193,9 +188,9 @@ EXTERN Char T_HasMeta;		/* true if we have a meta key */
  * Terminal dependend data structures
  */
 typedef struct {
-#ifdef WINNT
+#ifdef WINNT_NATIVE
     int dummy;
-#else /* !WINNT */
+#else /* !WINNT_NATIVE */
 # if defined(POSIX) || defined(TERMIO)
 #  ifdef POSIX
     struct termios d_t;
@@ -219,7 +214,7 @@ typedef struct {
 # ifdef TIOCGLTC
     struct ltchars d_ltc;
 # endif /* TIOCGLTC */
-#endif /* WINNT */
+#endif /* WINNT_NATIVE */
 } ttydata_t;
 
 #define MODE_INSERT	0

@@ -42,7 +42,7 @@ static const char copyright[] =
 static char sccsid[] = "@(#)ifconfig.c	8.2 (Berkeley) 2/16/94";
 #endif
 static const char rcsid[] =
-	"$Id: ifconfig.c,v 1.1.1.2 2000/01/11 01:48:49 wsanchez Exp $";
+	"$Id: ifconfig.c,v 1.2 2001/08/03 16:27:01 vlubet Exp $";
 #endif /* not lint */
 
 #include <sys/param.h>
@@ -89,7 +89,7 @@ int	setaddr;
 int	setipdst;
 int	doalias;
 int	clearaddr;
-int	newaddr = 1;
+int	newaddr;
 
 struct	afswtch;
 
@@ -510,6 +510,7 @@ setifaddr(addr, param, s, afp)
 	 * The address interpretation may depend on the flags,
 	 * and the flags may change when the address is set.
 	 */
+	newaddr = 1;
 	setaddr++;
 	if (doalias == 0)
 		clearaddr = 1;

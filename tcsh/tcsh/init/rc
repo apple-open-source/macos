@@ -18,11 +18,13 @@ else
   set tcsh_initdir = "${default_tcsh_initdir}"
 endif
 
-# SET UP HOST-DEPENDANT VARIABLES, ETC.
+# SET UP HOST-DEPENDENT VARIABLES, ETC.
 set host = `hostname`
 set host = `echo $host | tr A-Z a-z`
 
 set user=`whoami`
+
+set symlinks=ignore
 
 setenv HOST "${host}"
 setenv USER "${user}"

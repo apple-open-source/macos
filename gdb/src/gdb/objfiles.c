@@ -424,7 +424,7 @@ create_mapped_objfile (abfd, mapped, mapaddr)
    member. */
 
 struct objfile *
-allocate_objfile (bfd *abfd, int flags, CORE_ADDR mapaddr)
+allocate_objfile (bfd *abfd, int flags, int symflags, CORE_ADDR mapaddr)
 {
   struct objfile *objfile = NULL;
   struct objfile *last_one = NULL;
@@ -475,6 +475,8 @@ allocate_objfile (bfd *abfd, int flags, CORE_ADDR mapaddr)
 				  free);
       flags &= ~OBJF_MAPPED;
     }
+
+  objfile->symflags = symflags;
 
   /* Update the per-objfile information that comes from the bfd, ensuring
      that any data that is reference is saved in the per-objfile data

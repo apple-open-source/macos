@@ -40,59 +40,59 @@
 
 - (void)newMount:(String *)src dir:(String *)dst opts:(Array *)opts vfsType:(String *)type
 {
-        String *servername, *serversrc;
-        Vnode *v;
-        Server *server;
+	String *servername, *serversrc;
+	Vnode *v;
+	Server *server;
 
-        serversrc = [src postfix:':'];
-        if (serversrc == nil) return;
+	serversrc = [src postfix:':'];
+	if (serversrc == nil) return;
 
-        servername = [src prefix:':'];
-        if (servername == nil)
-        {
-                [serversrc release];
-                return;
-        }
+	servername = [src prefix:':'];
+	if (servername == nil)
+	{
+		[serversrc release];
+		return;
+	}
 
-        server = [controller serverWithName:servername];
-        if (server == nil)
-        {
-                [servername release];
-                return;
-        }
+	server = [controller serverWithName:servername];
+	if (server == nil)
+	{
+		[servername release];
+		return;
+	}
 
-        if ([server isLocalHost])
-        {
-                [serversrc release];
-                serversrc = [String uniqueString:"/"];
-        }
+	if ([server isLocalHost])
+	{
+		[serversrc release];
+		serversrc = [String uniqueString:"/"];
+	}
 
-        if (![self acceptOptions:opts])
-        {
+	if (![self acceptOptions:opts])
+	{
 		sys_msg(debug, LOG_DEBUG, "Rejected options for %s on %s (FileMap)",
-                     [src value], [dst value]);
-                [servername release];
-                [serversrc release];
-                return;
-        }
+			[src value], [dst value]);
+		[servername release];
+		[serversrc release];
+		return;
+	}
 
-        v = [self createVnodePath:dst from:root];
-        if ([v type] == NFLNK)
-        {
-                /* mount already exists - do not override! */
-                [servername release];
-                [serversrc release];
-                return;
-        }
+	v = [self createVnodePath:dst from:root];
+	if ([v type] == NFLNK)
+	{
+		/* mount already exists - do not override! */
+		[servername release];
+		[serversrc release];
+		return;
+	}
 
-        [v setType:NFLNK];
-        [v setServer:server];
-        [v setSource:serversrc];
-        [v setVfsType:type];
-        [v setupOptions:opts];
-        [servername release];
-        [serversrc release];
-        [self setupLink:v];
+	[v setType:NFLNK];
+	[v setServer:server];
+	[v setSource:serversrc];
+	[v setVfsType:type];
+	[v setupOptions:opts];
+	[servername release];
+	[serversrc release];
+	[self setupLink:v];
 }
 
 - (void)loadMounts
@@ -111,6 +111,7 @@
 		sys_msg(debug, LOG_ERR, "%s: %s", [dataStore value], strerror(errno));
 		return;
 	}
+
 	sys_msg(debug_proc, LOG_DEBUG, "  FileMap/loadMounts: reading %s", [dataStore value]);
 
 	while (fgets(line, 1024, fp) != NULL)
@@ -123,18 +124,22 @@
 			continue;
 		}
 
-                loc = [String uniqueString:cloc];
-                if (n == 3) {
-                    opts = [String uniqueString:copts];
-                    src = [String uniqueString:csrc];
-                }
-                else { /* n == 2 */
-                    opts = [String uniqueString:""];
-                    src = [String uniqueString:copts];
-                }
+		loc = [String uniqueString:cloc];
+		if (n == 3)
+		{
+			opts = [String uniqueString:copts];
+			src = [String uniqueString:csrc];
+		}
+		else
+		{
+			/* n == 2 */
+			opts = [String uniqueString:""];
+			src = [String uniqueString:copts];
+		}
+
 		options = [opts explode:','];
 
-                [self newMount:src dir:loc opts:options vfsType:nil];
+		[self newMount:src dir:loc opts:options vfsType:nil];
 
 		[src release];
 		[loc release];

@@ -104,8 +104,8 @@ getmntopts(options, m0, flagp, altflagp)
 		for (m = m0; m->m_option != NULL; ++m) {
 			len = strlen(m->m_option);
 			if (strncasecmp(opt, m->m_option, len) == 0)
-				if (   m->m_option[len]	== '\0'
-				    || m->m_option[len]	== '='
+				if (   opt[len]	== '\0'
+				    || opt[len]	== '='
 				   )
 				break;
 		}

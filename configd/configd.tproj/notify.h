@@ -20,6 +20,13 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * Modification History
+ *
+ * March 31, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
 #ifndef _S_NOTIFY_H
 #define _S_NOTIFY_H
 
@@ -27,7 +34,7 @@
 
 __BEGIN_DECLS
 
-void		pushNotifications	__P(());
+void		pushNotifications	();
 
 __END_DECLS
 

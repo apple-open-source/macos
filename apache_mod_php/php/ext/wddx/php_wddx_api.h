@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,10 +16,12 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_wddx_api.h,v 1.1.1.2 2000/09/07 00:06:16 wsanchez Exp $ */
+/* $Id: php_wddx_api.h,v 1.1.1.3 2001/07/19 00:20:29 zarzycki Exp $ */
 
 #ifndef PHP_WDDX_API_H
 #define PHP_WDDX_API_H
+
+#include "ext/standard/php_smart_str.h"
 
 #define WDDX_ARRAY_S			"<array length='%d'>"
 #define WDDX_ARRAY_E			"</array>"
@@ -45,24 +47,20 @@
 #define WDDX_VAR_S				"<var name='%s'>"
 #define WDDX_VAR_E				"</var>"
 
-#define php_wddx_add_chunk(packet, str) { \
-		char *__s = (str); \
-		php_wddx_add_chunk_ex(packet, __s, strlen(__s)); \
-	}
-#define php_wddx_add_chunk_static(packet, str) \
-	php_wddx_add_chunk_ex(packet, str, sizeof(str)-1);
+#define php_wddx_add_chunk(packet, str)	smart_str_appends(packet, str)
+#define php_wddx_add_chunk_ex(packet, str, len)	smart_str_appendl(packet, str, len)
+#define php_wddx_add_chunk_static(packet, str) smart_str_appendl(packet, str, sizeof(str)-1)
 
-typedef struct _wddx_packet wddx_packet;
+typedef smart_str wddx_packet;
 
-wddx_packet *php_wddx_constructor(void);
-void 		 php_wddx_destructor(wddx_packet *packet);
+wddx_packet* php_wddx_constructor(void);
+void		 php_wddx_destructor(wddx_packet *packet);
 
 void 		 php_wddx_packet_start(wddx_packet *packet, char *comment, int comment_len);
 void 		 php_wddx_packet_end(wddx_packet *packet);
 
-void 		 php_wddx_serialize_var(wddx_packet *packet, zval *var, char *name);
-void 		 php_wddx_add_chunk_ex(wddx_packet *packet, char *str, int length);
+void 		 php_wddx_serialize_var(wddx_packet *packet, zval *var, char *name, int name_len);
 int 		 php_wddx_deserialize_ex(char *, int, zval *return_value);
-char		*php_wddx_gather(wddx_packet *packet);
+#define php_wddx_gather(packet) estrndup(packet->c, packet->len)
 
 #endif /* PHP_WDDX_API_H */

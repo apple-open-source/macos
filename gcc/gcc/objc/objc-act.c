@@ -533,7 +533,8 @@ static tree receiver_is_class_object		PROTO((tree));
 static int check_methods			PROTO((tree, tree, int));
 static int check_methods_accessible 		PROTO((tree, tree, int));
 static int conforms_to_protocol			PROTO((tree, tree));
-static void check_protocols			PROTO((tree, char *, char *));
+static void check_protocol			PROTO((tree, const char *, const char *));
+static void check_protocols			PROTO((tree, const char *, const char *));
 static tree encode_method_def			PROTO((tree));
 static void gen_declspecs			PROTO((tree, char *, int));
 static void generate_classref_translation_entry	PROTO((tree));
@@ -1084,12 +1085,15 @@ define_decl (declarator, declspecs)
      tree declspecs;
 {
   int save_flag_dump_symbols = flag_dump_symbols;
+  int save_flag_gen_index = flag_gen_index;
   tree decl;
 
   flag_dump_symbols = 0;
+  flag_gen_index = 0;
   decl = start_decl3 (declarator, declspecs, 0);
   finish_decl (decl, NULL_TREE, NULL_TREE);
   flag_dump_symbols = save_flag_dump_symbols;
+  flag_gen_index = save_flag_gen_index;
   return decl;
 }
 
@@ -1245,8 +1249,12 @@ objc_comptypes (lhs, rhs, reflexive)
 		  while (rinter && !rproto)
 		    {
 		      tree cat;
-
-		      rproto_list = CLASS_PROTOCOL_LIST (rinter);
+                      /* If the underlying ObjC class does not have protocols 
+			 attached to it, perhaps there are "one-off" protocols 
+			 attached to the rhs?  E.g., "id<MyProt> foo;".  */
+		      rproto_list = CLASS_PROTOCOL_LIST (rinter) 
+				  ? CLASS_PROTOCOL_LIST (rinter) 
+				  : TYPE_PROTOCOL_LIST (TREE_TYPE (rhs));
 		      rproto = lookup_protocol_in_reflist (rproto_list, p);
 
 		      /* Check for protocols adopted by categories.  */
@@ -1373,7 +1381,6 @@ get_static_reference (interface, protocols)
 
       current_obstack = &permanent_obstack;
       t = copy_node (type);
-      TYPE_BINFO (t) = make_tree_vec (2);
 
 #if 0 /* See comments for corresponding lines in get_object_reference().  */
       /* Add this type to the chain of variants of TYPE.  */
@@ -1438,8 +1445,6 @@ get_object_reference (protocols)
 
       current_obstack = &permanent_obstack;
       t = copy_node (type);
-      /* The following line is probably not needed.  */
-      TYPE_BINFO (t) = make_tree_vec (2);
 
 #if 0
       /* The purpose of these two lines seems to be to avoid duplicating types
@@ -1467,6 +1472,31 @@ get_object_reference (protocols)
       type = t;
     }
   return type;
+}
+
+/*
+ * This function checks for circular dependencies in protocols.  The
+ * arguments are PROTO, the protocol to check, and LIST, a list of
+ * protocol it conforms to.
+ */
+static tree 
+check_protocol_recursively (proto, list)
+     tree proto, list;
+{
+  tree p;
+  for (p = list; p; p = TREE_CHAIN (p))
+    {
+      tree pp = TREE_VALUE (p);
+
+      if (TREE_CODE (pp) == IDENTIFIER_NODE)
+	pp = lookup_protocol (pp);
+
+      if (pp == proto)
+	fatal ("protocol `%s' has circular dependency",
+	       IDENTIFIER_POINTER (PROTOCOL_NAME (pp)));      
+      if (pp)
+	check_protocol_recursively (proto, PROTOCOL_LIST (pp));
+    }
 }
 
 static tree
@@ -5684,6 +5714,9 @@ build_method_decl (code, ret_type, selector, add_args, ret_type_mods)
 #endif
   if (flag_dump_symbols)
     printf (" %s %u\n", IDENTIFIER_POINTER (DECL_NAME (method_decl)), lineno);
+  if (flag_gen_index)
+    dump_symbol_info (NULL, IDENTIFIER_POINTER (DECL_NAME (method_decl)), lineno);
+
   return method_decl;
 }
 
@@ -5795,6 +5828,12 @@ receiver_is_class_object (receiver)
   tree chain, exp, arg;
   if (flag_class_references)
     {
+      /* The receiver is 'self' in the context of a class method.  */
+      if (objc_method_context && receiver == self_decl
+	  && TREE_CODE (objc_method_context) == CLASS_METHOD_DECL)
+	{
+	  return CLASS_NAME (objc_implementation_context);
+	}    
       /* The receiver is a variable created by build_class_reference_decl.  */
       if (TREE_CODE (receiver) == VAR_DECL
 	  && TREE_TYPE (receiver) == objc_class_type)
@@ -6211,8 +6250,8 @@ build_message_expr (mess, modern_flag)
         }
 
       /* substitute the real name (the one known by the implementation) */
-      if (method_prototype)
-        sel_name = get_sensible_name(method_prototype);
+      if (method_prototype) 
+        sel_name = get_sensible_name (method_prototype);
       else
 #else
       if (implementation_context
@@ -6370,56 +6409,6 @@ tree protocols;
     }
     return 0;
 }
-
-static int
-check_protocol (p, type, name)
-     tree p;
-     char *type;
-     char *name;
-{
-    if (TREE_CODE (p) == PROTOCOL_INTERFACE_TYPE)
-    {
-	int f1, f2;
-	
-	/* Ensure that all protocols have bodies! */
-	if (flag_warn_protocol) {
-	  f1 = check_methods (PROTOCOL_CLS_METHODS (p),
-			      CLASS_CLS_METHODS (implementation_context),
-			      '+');
-	  f2 = check_methods (PROTOCOL_NST_METHODS (p),
-			      CLASS_NST_METHODS (implementation_context),
-			      '-');
-	} else {
-	  f1 = check_methods_accessible (PROTOCOL_CLS_METHODS (p),
-					 implementation_context,
-					 '+');
-	  f2 = check_methods_accessible (PROTOCOL_NST_METHODS (p),
-					 implementation_context,
-					 '-');
-	}
-
-	if (!f1 || !f2)
-	warning ("%s `%s' does not fully implement the `%s' protocol",
-		    type, name, IDENTIFIER_POINTER (PROTOCOL_NAME (p)));
-
-    }
-    else 
-    ; /* an identifier...if we could not find a protocol.  */
-    
-    /* Check protocols recursively. */
-    if (PROTOCOL_LIST (p))
-    {
-	tree subs = PROTOCOL_LIST(p);
-	tree super_class = lookup_interface (CLASS_SUPER_NAME (implementation_template));
-	while (subs) {
-	    tree sub = TREE_VALUE(subs);
-	    if (!conforms_to_protocol (super_class, sub))
-		check_protocol (sub, type, name);
-	    subs = TREE_CHAIN(subs);
-	}
-    }
-}
-	
 
 /* Build a tree expression to send OBJECT the operation SELECTOR,
    looking up the method on object LOOKUP_OBJECT (often same as OBJECT),
@@ -6978,7 +6967,8 @@ lookup_class_method_static (interface, ident)
     }
   while (inter);
 
-  /* Simulate wrap around.  */
+  /* If no class (factory) method was found, check if an _instance_
+     method of the same name exists in the root class.  */
   return lookup_instance_method_static (root_inter, ident);
 }
 
@@ -7197,6 +7187,10 @@ add_instance_variable (class, public, declarator, declspecs, width)
   else
     CLASS_IVARS (class) = field_decl;
 
+  if (flag_dump_symbols)
+    printf ("+dh %s %u\n", IDENTIFIER_POINTER (DECL_NAME (field_decl)), lineno);
+  if (flag_gen_index)
+    dump_symbol_info ("+dh ", IDENTIFIER_POINTER (DECL_NAME (field_decl)), lineno);
   return class;
 }
 
@@ -7341,16 +7335,19 @@ check_methods (chain, list, mtype)
     return first;
 }
 
+/* Check if CLASS, or its superclasses, explicitly conforms to PROTOCOL.  */
+
 static int
 conforms_to_protocol (class, protocol)
      tree class;
      tree protocol;
 {
-   while (protocol)
+   if (TREE_CODE (protocol) == PROTOCOL_INTERFACE_TYPE)
      {
        tree p = CLASS_PROTOCOL_LIST (class);
-       while (p && TREE_VALUE (p) != TREE_VALUE (protocol))
+       while (p && TREE_VALUE (p) != protocol)
 	 p = TREE_CHAIN (p);
+
        if (!p)
 	 {
 	   tree super = (CLASS_SUPER_NAME (class)
@@ -7360,8 +7357,8 @@ conforms_to_protocol (class, protocol)
 	   if (!tmp)
 	     return 0;
 	 }
-       protocol = TREE_CHAIN (protocol);
      }
+
    return 1;
 }
 
@@ -7431,60 +7428,77 @@ check_methods_accessible (chain, context, mtype)
     return first;
 }
 
+/* Check whether the current interface (accessible via 'implementation_context')
+   actually implements protocol P, along with any protocols that P inherits.  */
+   
+static void
+check_protocol (p, type, name)
+     tree p;
+     const char *type;
+     const char *name;
+{
+    if (TREE_CODE (p) == PROTOCOL_INTERFACE_TYPE)
+    {
+	int f1, f2;
+	
+	/* Ensure that all protocols have bodies! */
+	if (flag_warn_protocol) {
+	  f1 = check_methods (PROTOCOL_CLS_METHODS (p),
+			      CLASS_CLS_METHODS (implementation_context),
+			      '+');
+	  f2 = check_methods (PROTOCOL_NST_METHODS (p),
+			      CLASS_NST_METHODS (implementation_context),
+			      '-');
+	} else {
+	  f1 = check_methods_accessible (PROTOCOL_CLS_METHODS (p),
+					 implementation_context,
+					 '+');
+	  f2 = check_methods_accessible (PROTOCOL_NST_METHODS (p),
+					 implementation_context,
+					 '-');
+	}
+
+	if (!f1 || !f2)
+	warning ("%s `%s' does not fully implement the `%s' protocol",
+		    type, name, IDENTIFIER_POINTER (PROTOCOL_NAME (p)));
+
+    }
+    else 
+    ; /* an identifier...if we could not find a protocol.  */
+    
+    /* Check protocols recursively. */
+    if (PROTOCOL_LIST (p))
+      {
+	tree subs = PROTOCOL_LIST (p);
+	tree super_class = lookup_interface (CLASS_SUPER_NAME (implementation_template));
+	while (subs) 
+	  {
+	    tree sub = TREE_VALUE (subs);
+	    /* If the superclass does not conform to the protocols inherited by P,
+	       then we must!  */
+	    if (!super_class || !conforms_to_protocol (super_class, sub))
+		check_protocol (sub, type, name);
+	    subs = TREE_CHAIN (subs);
+	  }
+      }
+}
+	
+/* Check whether the current interface (accessible via 'implementation_context')
+   actually implements the protocols listed in PROTO_LIST.  */
+   
 static void
 check_protocols (proto_list, type, name)
      tree proto_list;
-     char *type;
-     char *name;
+     const char *type;
+     const char *name;
 {
   for ( ; proto_list; proto_list = TREE_CHAIN (proto_list))
     {
       tree p = TREE_VALUE (proto_list);
-
-      if (TREE_CODE (p) == PROTOCOL_INTERFACE_TYPE)
-	{
-	  int f1, f2;
-	  
-	  /* Ensure that all protocols have bodies.  */
-	  if (flag_warn_protocol) {
-	    f1 = check_methods (PROTOCOL_CLS_METHODS (p),
-				CLASS_CLS_METHODS (implementation_context),
-				'+');
-	    f2 = check_methods (PROTOCOL_NST_METHODS (p),
-				CLASS_NST_METHODS (implementation_context),
-				'-');
-	  } else {
-	    f1 = check_methods_accessible (PROTOCOL_CLS_METHODS (p),
-					   implementation_context,
-					   '+');
-	    f2 = check_methods_accessible (PROTOCOL_NST_METHODS (p),
-					   implementation_context,
-					   '-');
-	  }
-
-	  if (!f1 || !f2)
-	    warning ("%s `%s' does not fully implement the `%s' protocol",
-		     type, name, IDENTIFIER_POINTER (PROTOCOL_NAME (p)));
-
-	}
-      else
-        {
-	  ; /* An identifier if we could not find a protocol.  */
-        }
-
-      /* Check protocols recursively.  */
-      if (PROTOCOL_LIST (p))
-	{
-	  tree super_class
-	    = lookup_interface (CLASS_SUPER_NAME (implementation_template));
-	  if (super_class &&
-	      ! conforms_to_protocol (super_class, PROTOCOL_LIST (p)))
-	    check_protocols (PROTOCOL_LIST (p), type, name);
-	}
+      check_protocol (p, type, name);
     }
 }
 
-
 /* Make sure that the class CLASS_NAME is defined
    CODE says which kind of thing CLASS_NAME ought to be.
    It can be CLASS_INTERFACE_TYPE, CLASS_IMPLEMENTATION_TYPE,
@@ -7502,10 +7516,10 @@ start_class (code, class_name, super_name, protocol_list, lineno)
      unsigned lineno;
 {
   tree class, decl;
+  char symType, symUsage;
 
   if (flag_dump_symbols)
     {
-      char symType, symUsage;
       switch (code)
 	{
 	case CLASS_INTERFACE_TYPE:
@@ -7524,15 +7538,18 @@ start_class (code, class_name, super_name, protocol_list, lineno)
 	  printf ("+?? ");
 	  break;
 	}
+    }
 
-      /* Print basic symbol record.  */
-      printf ("+%c%c %s %u\n", symType, symUsage,
-	      class_name->identifier.pointer, lineno);
+  if (flag_dump_symbols)
+    {
+      /* print basic symbol record */
+      printf("+%c%c %s %u\n", symType, symUsage, 
+             class_name->identifier.pointer, lineno);
 
       /* Add inherited class name, if applicable.  */
       if (super_name != NULL)
         /* Fix Me : Use valid lineno instead of 0.  */
-	printf ("+ci %s %u\n", super_name->identifier.pointer, 0); 
+        printf ("+ci %s %u\n", super_name->identifier.pointer, 0);
 
       /* Add any adopted protocols.  */
       if (protocol_list)
@@ -7541,13 +7558,52 @@ start_class (code, class_name, super_name, protocol_list, lineno)
 	  do
 	    {
               /* Fix Me : Use valid lineno instead of 0.  */
-	      printf ("+Pi %s %u\n",
-		      IDENTIFIER_POINTER (TREE_VALUE (protocol_node)), 0);
+              printf ("+Pi %s %u\n", 
+                      IDENTIFIER_POINTER (TREE_VALUE (protocol_node)), 0);
 	      protocol_node = TREE_CHAIN (protocol_node);
 	    }
 	  while (protocol_node);
 	}
     }   
+  if (flag_gen_index)
+    {
+      switch (code)
+	{
+	case CLASS_INTERFACE_TYPE:
+          dump_symbol_info ("+ch ", class_name->identifier.pointer, lineno);
+          if (super_name != NULL)
+            dump_symbol_info ("+ci ", super_name->identifier.pointer, 0);
+	  break;
+	case CLASS_IMPLEMENTATION_TYPE:
+          dump_symbol_info ("+cm ", class_name->identifier.pointer, lineno);
+          if (super_name != NULL)
+            dump_symbol_info ("+ci ", super_name->identifier.pointer, 0);
+	  break;
+	case CATEGORY_INTERFACE_TYPE:
+          dump_symbol_info ("+Ch ", super_name->identifier.pointer, lineno);
+          dump_symbol_info ("+ci ", class_name->identifier.pointer, lineno);
+	  break;
+	case CATEGORY_IMPLEMENTATION_TYPE:
+          dump_symbol_info ("+Cm ", super_name->identifier.pointer, lineno);
+          dump_symbol_info ("+ci ", class_name->identifier.pointer, lineno);
+	  break;
+	default:
+	  break;
+	}
+
+      /* Add any adopted protocols.  */
+      if (protocol_list)
+	{
+	  tree protocol_node = protocol_list;
+	  do
+	    {
+              dump_symbol_info ("+Pi ", IDENTIFIER_POINTER (TREE_VALUE (protocol_node)), 0);
+	      protocol_node = TREE_CHAIN (protocol_node);
+	    }
+	  while (protocol_node);
+	}
+    }   
+
   if (objc_implementation_context)
     {
       warning ("`@end' missing in implementation context");
@@ -7809,6 +7865,7 @@ finish_class (class)
      tree class;
 {
   int save_flag_dump_symbols = flag_dump_symbols;
+  int save_flag_gen_index = flag_gen_index;
   
   if (flag_dump_symbols)
   {
@@ -7831,7 +7888,29 @@ finish_class (class)
 	break;
       }
   }
+  if (flag_gen_index)
+  {
+    switch (TREE_CODE (class))
+      {
+      case CLASS_INTERFACE_TYPE:
+	dump_symbol_info ("-ch ", NULL, lineno);
+	break;
+      case CLASS_IMPLEMENTATION_TYPE:
+	dump_symbol_info ("-cm ", NULL, lineno);
+	break;
+      case CATEGORY_INTERFACE_TYPE:
+	dump_symbol_info ("-Ch ", NULL, lineno);
+	break;
+      case CATEGORY_IMPLEMENTATION_TYPE:
+	dump_symbol_info ("-Cm ", NULL, lineno);
+	break;
+      default:
+	dump_symbol_info ("-?? ", NULL, lineno);
+	break;
+      }
+  }
   flag_dump_symbols = 0;
+  flag_gen_index = 0;
 
   if (TREE_CODE (class) == CLASS_IMPLEMENTATION_TYPE)
     {
@@ -7895,6 +7974,7 @@ finish_class (class)
 		   decl_specs);
     }
   flag_dump_symbols = save_flag_dump_symbols;
+  flag_gen_index = save_flag_gen_index;
 }
 
 static tree
@@ -7966,22 +8046,47 @@ start_protocol (code, name, list)
   if (!objc_protocol_template)
     objc_protocol_template = build_protocol_template ();
 
-  protocol = make_node (code);
-  TYPE_BINFO (protocol) = make_tree_vec (2);
+  protocol = lookup_protocol (name);
 
-  PROTOCOL_NAME (protocol) = name;
-  PROTOCOL_LIST (protocol) = list;
+  if (!protocol)
+    {
+      protocol = make_node (code);
+      TYPE_BINFO (protocol) = make_tree_vec (2);
 
-  lookup_and_install_protocols (list);
+      PROTOCOL_NAME (protocol) = name;
+      PROTOCOL_LIST (protocol) = lookup_and_install_protocols (list);
+      add_protocol (protocol);
+      PROTOCOL_DEFINED (protocol) = 1;
+      PROTOCOL_FORWARD_DECL (protocol) = NULL_TREE;
 
-  if (lookup_protocol (name))
-    warning ("duplicate declaration for protocol `%s'",
-	   IDENTIFIER_POINTER (name));
+      check_protocol_recursively (protocol, list);
+    }
+  else if (! PROTOCOL_DEFINED (protocol))
+    {
+      PROTOCOL_DEFINED (protocol) = 1;
+      PROTOCOL_LIST (protocol) = lookup_and_install_protocols (list);
+
+      check_protocol_recursively (protocol, list);
+    }
   else
-    add_protocol (protocol);
+    {
+      warning ("duplicate declaration for protocol `%s'",
+	       IDENTIFIER_POINTER (name));
+    }
 
-  PROTOCOL_FORWARD_DECL (protocol) = NULL_TREE;
-
+  if (flag_gen_index)
+    {
+      tree chain = PROTOCOL_LIST (protocol);
+   
+      while (chain)
+        {
+          dump_symbol_info ("+Pi ", 
+                            IDENTIFIER_POINTER 
+                            (PROTOCOL_NAME (TREE_VALUE (chain))), 
+                            lineno);
+          chain = TREE_CHAIN (chain);
+        }
+    }
   return protocol;
 }
 
@@ -8144,6 +8249,11 @@ encode_aggregate_within (type, curtype, format, left, right)
      int left;
      int right;
 {
+  /* zlaski 2001-Apr-11: The RECORD_TYPE may in fact be a typedef!  For
+     purposes of encoding, we need the real underlying enchilada. */
+  if(TYPE_MAIN_VARIANT(type)) {
+    type = TYPE_MAIN_VARIANT(type);
+  }     
   if (obstack_object_size (&util_obstack) > 0
       && *(obstack_next_free (&util_obstack) - 1) == '^')
     {
@@ -8453,6 +8563,8 @@ encode_field_decl (field_decl, curtype, format)
   tree type;
 
   type = TREE_TYPE (field_decl);
+  if (type == error_mark_node)
+    return;
 
   /* If this field is obviously a bitfield, or is a bitfield that has been
      clobbered to look like a ordinary integer mode, go ahead and generate
@@ -8841,7 +8953,9 @@ void
 add_objc_decls ()
 {
   int save_flag_dump_symbols = flag_dump_symbols;
+  int save_flag_gen_index = flag_gen_index;
   flag_dump_symbols = 0;
+  flag_gen_index = 0;
   
   if (!UOBJC_SUPER_decl)
     {
@@ -8857,6 +8971,7 @@ add_objc_decls ()
       DECL_ARTIFICIAL (UOBJC_SUPER_decl) = 1;
     }
   flag_dump_symbols = save_flag_dump_symbols;
+  flag_gen_index = save_flag_gen_index;
 }
 
 /* _n_Method (id self, SEL sel, ...)
@@ -9778,7 +9893,11 @@ init_objc ()
 {
   /* Add the special tree codes of Objective C to the tables.  */
   int save_flag_dump_symbols = flag_dump_symbols;
+  int save_flag_gen_index = flag_gen_index;
   flag_dump_symbols = 0;
+  flag_gen_index = 0;
+
+  c_language = clk_objective_c;
 
 #ifdef OBJCPLUS
 #define LAST_CODE LAST_CPLUS_TREE_CODE
@@ -9809,6 +9928,7 @@ init_objc ()
   decl_printable_name = (char* (*)()) objc_printable_name;
 
   flag_dump_symbols = save_flag_dump_symbols;
+  flag_gen_index = save_flag_gen_index;
 }
 
 static void
@@ -9820,8 +9940,10 @@ finish_objc ()
      Don't warn about this.  */
   int save_warn_missing_braces = warn_missing_braces;
   int save_flag_dump_symbols = flag_dump_symbols;
+  int save_flag_gen_index = flag_gen_index;
   warn_missing_braces = 0;
   flag_dump_symbols = 0;
+  flag_gen_index = 0;
 
   if (objc_implementation_context)
     {
@@ -9957,6 +10079,7 @@ finish_objc ()
 
   warn_missing_braces = save_warn_missing_braces;
   flag_dump_symbols = save_flag_dump_symbols;
+  flag_gen_index = save_flag_gen_index;
 }
 
 /* Subroutines of finish_objc.  */

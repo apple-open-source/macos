@@ -27,6 +27,9 @@
 #include <string.h>
 #include <stdlib.h>
 
+//#define _ALLOC_DEBUG_
+//#define _DEALLOC_DEBUG_
+
 #ifdef DSDATA_UNIQUE
 dsdata **_unique_cstring_data = NULL;
 u_int32_t _unique_cstring_count = 0;
@@ -251,11 +254,35 @@ dsdata_print(dsdata *d, FILE *f)
 }
 
 dsdata *
-dsdata_new(u_int32_t type, u_int32_t len, char *buf)
+dsdata_alloc(void)
 {
 	dsdata *x;
 
 	x = (dsdata *)malloc(sizeof(dsdata));
+	memset(x, 0, sizeof(dsdata));
+
+#ifdef _ALLOC_DEBUG_
+	fprintf(stderr, "dsdata_alloc   0x%08x\n", (unsigned int)x);
+#endif
+
+	return x;
+}
+
+static void
+dsdata_dealloc(dsdata *x)
+{
+#ifdef _DEALLOC_DEBUG_
+	fprintf(stderr, "dsdata_delloc   0x%08x\n", (unsigned int)x);
+#endif
+	free(x);
+}
+
+dsdata *
+dsdata_new(u_int32_t type, u_int32_t len, char *buf)
+{
+	dsdata *x;
+
+	x = dsdata_alloc();
 	x->type = type;
 	x->length = len;
 	if (len == 0)
@@ -280,7 +307,7 @@ dsdata_copy(dsdata *d)
 
 	if (d == NULL) return NULL;
 
-	x = (dsdata *)malloc(sizeof(dsdata));
+	x = dsdata_alloc();
 	x->type = d->type;
 	x->length = d->length;
 	if (d->length == 0)
@@ -354,7 +381,7 @@ dsdata_release(dsdata *d)
 	if (d->retain > 0) return;
 
 	if (d->length != 0) free(d->data);
-	free(d);
+	dsdata_dealloc(d);
 }
 
 dsdata *
@@ -374,7 +401,7 @@ dsdata_fread(FILE *f)
 	if (n != 1) return NULL;
 	len = ntohl(x);
 
-	d = (dsdata *)malloc(sizeof(dsdata));
+	d = dsdata_alloc();
 	d->type = type;
 	d->length = len;
 	if (len == 0)
@@ -388,7 +415,7 @@ dsdata_fread(FILE *f)
 		if (n != 1)
 		{
 			free(d->data);
-			free(d);
+			dsdata_dealloc(d);
 			return NULL;
 		}
 	}
@@ -538,7 +565,7 @@ dsdata *cstring_to_dsdata(char *s)
 	
 	if (s == NULL) return NULL;
 
-	x = (dsdata *)malloc(sizeof(dsdata));
+	x = dsdata_alloc();
 	x->type = DataTypeCStr;
 	x->length = strlen(s) + 1;
 	x->data = malloc(x->length);
@@ -556,7 +583,7 @@ dsdata *utf8string_to_dsdata(char *s)
 
 	if (s == NULL) return NULL;
 
-	x = (dsdata *)malloc(sizeof(dsdata));
+	x = dsdata_alloc();
 	x->type = DataTypeCStr;
 
 	/* Do we need UTF-8 encoding? */
@@ -583,7 +610,7 @@ dsdata *int8_to_dsdata(int8_t i)
 {
 	dsdata *x;
 
-	x = (dsdata *)malloc(sizeof(dsdata));
+	x = dsdata_alloc();
 	x->type = DataTypeInt;
 	x->length = 1;
 	x->data = malloc(1);
@@ -597,7 +624,7 @@ dsdata *uint8_to_dsdata(u_int8_t i)
 {
 	dsdata *x;
 	
-	x = (dsdata *)malloc(sizeof(dsdata));
+	x = dsdata_alloc();
 	x->type = DataTypeUInt;
 	x->length = 1;
 	x->data = malloc(1);
@@ -612,7 +639,7 @@ dsdata *int16_to_dsdata(int16_t i)
 	dsdata *x;
 	int16_t t;
 
-	x = (dsdata *)malloc(sizeof(dsdata));
+	x = dsdata_alloc();
 	x->type = DataTypeInt;
 	x->length = 2;
 	x->data = malloc(x->length);
@@ -628,7 +655,7 @@ dsdata *uint16_to_dsdata(u_int16_t i)
 	dsdata *x;
 	u_int16_t t;
 
-	x = (dsdata *)malloc(sizeof(dsdata));
+	x = dsdata_alloc();
 	x->type = DataTypeUInt;
 	x->length = 2;
 	x->data = malloc(x->length);
@@ -644,7 +671,7 @@ dsdata *int32_to_dsdata(int32_t i)
 	dsdata *x;
 	int32_t t;
 
-	x = (dsdata *)malloc(sizeof(dsdata));
+	x = dsdata_alloc();
 	x->type = DataTypeInt;
 	x->length = 4;
 	x->data = malloc(x->length);
@@ -660,7 +687,7 @@ dsdata *uint32_to_dsdata(u_int32_t i)
 	dsdata *x;
 	u_int32_t t;
 
-	x = (dsdata *)malloc(sizeof(dsdata));
+	x = dsdata_alloc();
 	x->type = DataTypeUInt;
 	x->length = 4;
 	x->data = malloc(x->length);
@@ -676,7 +703,7 @@ dsdata *int64_to_dsdata(int64_t i)
 	dsdata *x;
 	int64_t t;
 
-	x = (dsdata *)malloc(sizeof(dsdata));
+	x = dsdata_alloc();
 	x->type = DataTypeInt;
 	x->length = 8;
 	x->data = malloc(x->length);
@@ -692,7 +719,7 @@ dsdata *uint64_to_dsdata(u_int64_t i)
 	dsdata *x;
 	u_int64_t t;
 
-	x = (dsdata *)malloc(sizeof(dsdata));
+	x = dsdata_alloc();
 	x->type = DataTypeUInt;
 	x->length = 8;
 	x->data = malloc(x->length);
@@ -715,8 +742,7 @@ char *dsdata_to_cstring(dsdata *d)
 		case DataTypeUTF8Str:
 			for (p = d->data; *p != '\0'; DSUTIL_UTF8_INCR(p))
 			{
-				if (!DSUTIL_UTF8_ISASCII(p))
-					return NULL;
+				if (!DSUTIL_UTF8_ISASCII(p)) return NULL;
 			}
 			/* fall through */
 		case DataTypeCStr:
@@ -848,7 +874,7 @@ dsdata *uint8_array_to_dsdata(u_int8_t *a, u_int32_t n)
 {
 	dsdata *x;
 
-	x = (dsdata *)malloc(sizeof(dsdata));
+	x = dsdata_alloc();
 	x->type = DataTypeUInt8Array;
 	x->length = n;
 	if (n == 0) x->data = NULL;
@@ -878,7 +904,7 @@ dsdata *uint16_array_to_dsdata(u_int16_t *a, u_int32_t n)
 	u_int16_t t;
 	u_int32_t i;
 
-	x = (dsdata *)malloc(sizeof(dsdata));
+	x = dsdata_alloc();
 	x->type = DataTypeUInt16Array;
 	x->length = n * 2;
 	if (n == 0) x->data = NULL;
@@ -914,7 +940,7 @@ dsdata *uint32_array_to_dsdata(u_int32_t *a, u_int32_t n)
 	void *p;
 	u_int32_t t, i;
 
-	x = (dsdata *)malloc(sizeof(dsdata));
+	x = dsdata_alloc();
 	x->type = DataTypeUInt32Array;
 	x->length = n * 4;
 	if (n == 0) x->data = NULL;
@@ -951,7 +977,7 @@ dsdata *uint64_array_to_dsdata(u_int64_t *a, u_int32_t n)
 	u_int32_t i;
 	u_int64_t t;
 
-	x = (dsdata *)malloc(sizeof(dsdata));
+	x = dsdata_alloc();
 	x->type = DataTypeUInt64Array;
 	x->length = n * 8;
 	if (n == 0) x->data = NULL;
@@ -1038,7 +1064,7 @@ dsdata *dsid_to_dsdata(u_int32_t i)
 	dsdata *x;
 	u_int32_t t;
 
-	x = (dsdata *)malloc(sizeof(dsdata));
+	x = dsdata_alloc();
 	x->type = DataTypeDirectoryID;
 	x->length = 4;
 	x->data = malloc(x->length);

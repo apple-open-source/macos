@@ -1,6 +1,6 @@
 Please read the README file in this directory first.
 .ex
-.Id $Id: procmailex.man,v 1.1.1.1 1999/09/23 17:30:07 wsanchez Exp $
+.Id $Id: procmailex.man,v 1.1.1.2 2001/07/20 19:38:13 bbraun Exp $
 .TH PROCMAILEX 5 \*(Dt BuGless
 .na
 .SH NAME
@@ -158,7 +158,7 @@ program.  This recipe is based on the same principles as the last one (prevent
 by extracting the name of the sender and inserting it in the vacation.cache
 file if the name was new (the vacation.cache file is maintained by formail
 which will make sure that it always contains the most recent names, the size
-of the file is limited to a maximum of aproximately 8192 bytes).  If the name
+of the file is limited to a maximum of approximately 8192 bytes).  If the name
 was new, an autoreply will be sent.
 .PP
 As you can see, the following recipe has comments
@@ -285,7 +285,7 @@ the benefits of the unseen sequence.
 * @BODY_GREP@ ?? spam
 | rcvstore +spamfold
 .Ex
-When delivering to emacs folders (i.e. mailfolders managed by any emacs
+When delivering to emacs folders (i.e., mailfolders managed by any emacs
 mail package, e.g. RMAIL or VM) directly, you should use emacs-compatible
 lockfiles.  The emacs mailers are a bit braindamaged in that respect, they get
 very upset if someone delivers to mailfolders which they already have in their
@@ -367,7 +367,7 @@ Likewise:
 | lpr
 .Ex
 Suppose you have two accounts, you use both accounts regularly, but they are
-in very distinct places (i.e. you can only read mail that arrived at either one
+in very distinct places (i.e., you can only read mail that arrived at either one
 of the accounts).  You would like to forward mail arriving at account one to
 account two, and the other way around.  The first thing that comes to mind is
 using .forward files at both sites; this won't work of course, since you will

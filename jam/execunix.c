@@ -123,6 +123,7 @@ int exportvars;
 #ifdef APPLE_EXTENSIONS
 	// :mferris:20001213 We use a pipe to send commands to sh through stdin instead of passing them as an argument with "-c" since there are problems with the command line arguments somehow getting mangled when they contain weird UTF-8 encoded file names...
 	int pipeForStdInToShell[2];
+	static char usePipeForShellCommands = -1;
 #endif
 
 # if defined( NT ) || defined( __OS2__ )
@@ -139,6 +140,18 @@ int exportvars;
 	if( !comspec && !( comspec = getenv( "COMSPEC" ) ) )
 	    comspec = "cmd.exe";
 # endif
+
+#ifdef APPLE_EXTENSIONS
+	if( usePipeForShellCommands == -1 ) {
+	    if( getenv( "USE_CMDLINE_FOR_SHELL_COMMANDS" ) != NULL ) {
+		/*printf("NOT USING PIPES\n");*/
+		usePipeForShellCommands = 0;
+	    } else {
+		/*printf("USING PIPES\n");*/
+		usePipeForShellCommands = 1;
+	    }
+	}
+#endif
 
 	/* Find a slot in the running commands table for this one. */
 
@@ -235,8 +248,14 @@ int exportvars;
 # else /* ! ( defined( NT ) || defined( __OS2__ ) ) */
 	    argv[0] = "/bin/sh";
 #ifdef APPLE_EXTENSIONS
-	    argv[1] = "-s";
-	    argv[2] = NULL;
+	    if (usePipeForShellCommands) {
+		argv[1] = "-s";
+		argv[2] = NULL;
+	    } else {
+		argv[1] = "-c";
+		argv[2] = string;
+		argv[3] = 0;
+	    }
 #else /* ! ( APPLE_EXTENSIONS ) */
 	    argv[1] = "-c";
 	    argv[2] = string;
@@ -275,16 +294,20 @@ int exportvars;
 	}
 # else
 #ifdef APPLE_EXTENSIONS
-	// Create the pipe we will use to send stdin to child
-	pipe(pipeForStdInToShell);
+	if (usePipeForShellCommands) {
+	    // Create the pipe we will use to send stdin to child
+	    pipe(pipeForStdInToShell);
+	}
 #endif
 
 	if ((pid = vfork()) == 0) 
    	{
 #ifdef APPLE_EXTENSIONS
-	    // CHILD: Close write end of pipe in child and make stdin be the read end.
-	    close(pipeForStdInToShell[1]);
-	    dup2(pipeForStdInToShell[0], 0);
+	    if (usePipeForShellCommands) {
+		// CHILD: Close write end of pipe in child and make stdin be the read end.
+		close(pipeForStdInToShell[1]);
+		dup2(pipeForStdInToShell[0], 0);
+	    }
 #endif
 	    if (exportvars)
 		var_setenv_all_exported_variables();
@@ -308,19 +331,21 @@ int exportvars;
 	cmdtab[ slot ].closure = closure;
 
 #ifdef APPLE_EXTENSIONS
-	// PARENT: 
-	// Close read end of pipe in parent.
-	close(pipeForStdInToShell[0]);
-	// Write the script string to the write end of the pipe, then close that one too.
-	{
-	    int toWrite = strlen(string);
-	    int written = write(pipeForStdInToShell[1], string, toWrite);
-	    
-	    if (toWrite != written) {
-		printf("Error: only wrote %d bytes of %d bytes of command to sub-shell.", written, toWrite);
+	if (usePipeForShellCommands) {
+	    // PARENT: 
+	    // Close read end of pipe in parent.
+	    close(pipeForStdInToShell[0]);
+	    // Write the script string to the write end of the pipe, then close that one too.
+	    {
+		int toWrite = strlen(string);
+		int written = write(pipeForStdInToShell[1], string, toWrite);
+		
+		if (toWrite != written) {
+		    printf("Error: only wrote %d bytes of %d bytes of command to sub-shell.", written, toWrite);
+		}
 	    }
+	    close(pipeForStdInToShell[1]);
 	}
-	close(pipeForStdInToShell[1]);
 #endif
 
 	/* Wait until we're under the limit of concurrent commands. */

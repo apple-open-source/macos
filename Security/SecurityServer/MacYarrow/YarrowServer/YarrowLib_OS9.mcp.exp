@@ -1,0 +1,1 @@
+# only export YarrowClientgetRandomBytes__12YarrowClientFPUcUl		# YarrowClient::getRandomBytes(unsigned char*,unsigned long)addEntropy__12YarrowClientFPUcUlUl		# YarrowClient::addEntropy(unsigned char*,unsigned long,unsigned long)__dt__12YarrowClientFv		# YarrowClient::~YarrowClient()__ct__12YarrowClientFv		# YarrowClient::YarrowClient()

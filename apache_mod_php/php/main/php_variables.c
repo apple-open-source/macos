@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    |          Zeev Suraski <zeev@zend.com>                                |
    +----------------------------------------------------------------------+
  */
-/* $Id: */
+/* $Id: php_variables.c,v 1.1.1.4 2001/07/19 00:20:39 zarzycki Exp $ */
 
 #include <stdio.h>
 #include "php.h"
@@ -217,7 +217,7 @@ SAPI_POST_HANDLER_FUNC(php_std_post_handler)
 
 void php_treat_data(int arg, char *str, zval* destArray ELS_DC PLS_DC SLS_DC)
 {
-	char *res = NULL, *var, *val;
+	char *res = NULL, *var, *val, *separator=NULL;
 	const char *c_var;
 	pval *array_ptr;
 	int free_buffer=0;
@@ -277,14 +277,18 @@ void php_treat_data(int arg, char *str, zval* destArray ELS_DC PLS_DC SLS_DC)
 		return;
 	}
 
-	if (arg == PARSE_COOKIE) {
-		var = php_strtok_r(res, ";", &strtok_buf);
-	} else if (arg == PARSE_POST) {
-		var = php_strtok_r(res, "&", &strtok_buf);
-	} else {
-		var = php_strtok_r(res, PG(arg_separator), &strtok_buf);
+	switch (arg) {
+		case PARSE_GET:
+		case PARSE_STRING:
+			separator = (char *) estrdup(PG(arg_separator).input);
+			break;
+		case PARSE_COOKIE:
+			separator = ";\0";
+			break;
 	}
-
+	
+	var = php_strtok_r(res, separator, &strtok_buf);
+	
 	while (var) {
 		val = strchr(var, '=');
 		if (val) { /* have a value */
@@ -295,17 +299,17 @@ void php_treat_data(int arg, char *str, zval* destArray ELS_DC PLS_DC SLS_DC)
 			val_len = php_url_decode(val, strlen(val));
 			php_register_variable_safe(var, val, val_len, array_ptr ELS_CC PLS_CC);
 		}
-		if (arg == PARSE_COOKIE) {
-			var = php_strtok_r(NULL, ";", &strtok_buf);
-		} else {
-			var = php_strtok_r(NULL, PG(arg_separator), &strtok_buf);
-		}
+		var = php_strtok_r(NULL, separator, &strtok_buf);
 	}
+
+	if(arg != PARSE_COOKIE) {
+		efree(separator);
+	}
+
 	if (free_buffer) {
 		efree(res);
 	}
 }
-
 
 
 void php_import_environment_variables(zval *array_ptr ELS_DC PLS_DC)

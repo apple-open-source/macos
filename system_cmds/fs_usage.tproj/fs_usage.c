@@ -60,6 +60,16 @@ cc -I. -DKERNEL_PRIVATE -O -o fs_usage fs_usage.c
 
 extern int errno;
 
+/* 
+   MAXCOLS controls when extra data kicks in.
+   MAX_WIDE_MODE_COLS controls -w mode to get even wider data in path.
+   If NUMPARMS changes to match the kernel, it will automatically
+   get reflected in the -w mode output.
+*/
+#define NUMPARMS 23
+#define PATHLENGTH (NUMPARMS*sizeof(long))
+#define MAXCOLS 131
+#define MAX_WIDE_MODE_COLS (PATHLENGTH + 80)
 
 struct th_info {
         int  in_filemgr;
@@ -69,11 +79,11 @@ struct th_info {
         int  arg2;
         int  arg3;
         int  arg4;
-        int  vfslookup;
         int  child_thread;
         int  waited;
         double stime;
-        char pathname[32];
+        long *pathptr;
+        char pathname[PATHLENGTH + 1];   /* add room for null terminator */
 };
 
 #define MAX_THREADS 512
@@ -234,6 +244,7 @@ int    pids[MAX_PIDS];
 
 int    num_of_pids = 0;
 int    exclude_pids = 0;
+int    exclude_default_pids = 1;
 
 struct kinfo_proc *kp_buffer = 0;
 int kp_nentries = 0;
@@ -299,17 +310,22 @@ void leave()			/* exit under normal conditions -- INT handler */
 
 void sigwinch()
 {
-	initscr();
+  if (!wideflag)
+    initscr();
 }
 
 int
 exit_usage(myname) {
 
         fprintf(stderr, "Usage: %s [-e] [-w] [pid | cmd [pid | cmd]....]\n", myname);
-	fprintf(stderr, "  -e    exclude the pids specified from the sample\n");
+	fprintf(stderr, "  -e    exclude the specified list of pids from the sample\n");
+	fprintf(stderr, "        and exclude fs_usage by default\n");
 	fprintf(stderr, "  -w    force wider, detailed, output\n");
 	fprintf(stderr, "  pid   selects process(s) to sample\n");
 	fprintf(stderr, "  cmd   selects process(s) matching command string to sample\n");
+	fprintf(stderr, "\n%s will handle a maximum list of %d pids.\n\n", myname, MAX_PIDS);
+	fprintf(stderr, "By default (no options) the following processes are excluded from the output:\n");
+	fprintf(stderr, "fs_usage, Terminal, telnetd, sshd, rlogind, tcsh, csh, sh\n\n");
 
 	exit(1);
 }
@@ -350,9 +366,12 @@ main(argc, argv)
                switch(ch) {
                 case 'e':
 		    exclude_pids = 1;
+		    exclude_default_pids = 0;
 		    break;
                 case 'w':
 		    wideflag = 1;
+		    if (COLS < MAX_WIDE_MODE_COLS)
+		      COLS = MAX_WIDE_MODE_COLS;
 		    break;
 	       default:
 		 exit_usage(myname);		 
@@ -362,6 +381,10 @@ main(argc, argv)
         argc -= optind;
         argv += optind;
 
+	/* If we process any list of pids/cmds, then turn off the defaults */
+	if (argc > 0)
+	  exclude_default_pids = 0;
+
 	while (argc > 0 && num_of_pids < (MAX_PIDS - 1)) {
 	  select_pid_mode++;
 	  argtopid(argv[0]);
@@ -369,8 +392,26 @@ main(argc, argv)
 	  argv++;
 	}
 
+	/* Exclude a set of default pids */
+	if (exclude_default_pids)
+	  {
+	    argtopid("Terminal");
+	    argtopid("telnetd");
+	    argtopid("sshd");
+	    argtopid("rlogind");
+	    argtopid("tcsh");
+	    argtopid("csh");
+	    argtopid("sh");
+	    exclude_pids = 1;
+	  }
+
 	if (exclude_pids)
+	  {
+	    if (num_of_pids < (MAX_PIDS - 1))
 	        pids[num_of_pids++] = getpid();
+	    else
+	      exit_usage(myname);
+	  }
 
 #if 0
 	for (i = 0; i < num_of_pids; i++)
@@ -638,6 +679,7 @@ sample_sc()
 {
 	kd_buf *kd;
 	int i, count;
+	size_t needed;
 	void read_command_map();
 	void create_map_entry();
 
@@ -665,7 +707,7 @@ sample_sc()
 
 	        for (i = 0; i < cur_max; i++) {
 			th_state[i].thread = 0;
-			th_state[i].vfslookup = 0;
+			th_state[i].pathptr = (long *)0;
 			th_state[i].pathname[0] = 0;
 		}
 		cur_max = 0;
@@ -740,23 +782,31 @@ sample_sc()
 		    if ((ti = find_thread(thread, 0)) == (struct th_info *)0)
 		            continue;
 
-		    if (ti->vfslookup == 0) {
-			    ti->vfslookup = 1;
-			    memset(&ti->pathname[0], 0, 32);
+		    if (!ti->pathptr) {
 			    sargptr = (long *)&ti->pathname[0];
-				
+			    memset(&ti->pathname[0], 0, (PATHLENGTH + 1));
 			    *sargptr++ = kd[i].arg2;
 			    *sargptr++ = kd[i].arg3;
 			    *sargptr++ = kd[i].arg4;
+			    ti->pathptr = sargptr;
 
-		    } else if (ti->vfslookup == 1) {
-		            ti->vfslookup = 2;
-	  
-			    sargptr = (long *)&ti->pathname[12];
+		    } else {
+		            sargptr = ti->pathptr;
+
+			    /* 
+			       We don't want to overrun our pathname buffer if the
+			       kernel sends us more VFS_LOOKUP entries than we can
+			       handle.
+			    */
+
+			    if ((long *)sargptr >= (long *)&ti->pathname[PATHLENGTH])
+			      continue;
+
 			    *sargptr++ = kd[i].arg1;
 			    *sargptr++ = kd[i].arg2;
 			    *sargptr++ = kd[i].arg3;
 			    *sargptr++ = kd[i].arg4;
+			    ti->pathptr = sargptr;
 		    }
 		    continue;
 		}
@@ -1401,8 +1451,13 @@ enter_syscall(int thread, int type, kd_buf *kd, char *name, double now)
        int    usecs;
        long long l_usecs;
        long curr_time;
-	   kd_threadmap *map;
-	   kd_threadmap *find_thread_map();
+       kd_threadmap *map;
+       kd_threadmap *find_thread_map();
+       int clen = 0;
+       int tsclen = 0;
+       int nmclen = 0;
+       int argsclen = 0;
+       char buf[MAXCOLS];
 
        switch (type) {
 
@@ -1546,43 +1601,62 @@ enter_syscall(int thread, int type, kd_buf *kd, char *name, double now)
 			   bias_secs = curr_time - secs;
 		   }
 		   curr_time = bias_secs + secs;
-		   printf("%-8.8s", &(ctime(&curr_time)[11]));
+		   sprintf(buf, "%-8.8s", &(ctime(&curr_time)[11]));
+		   tsclen = strlen(buf);
 
-		   if (COLS > 110 || wideflag) {
+		   if (COLS > MAXCOLS || wideflag) {
 		           usecs = l_usecs - (long long)((long long)secs * 1000000);
-			   printf(".%03ld", (long)usecs / 1000);
+			   sprintf(&buf[tsclen], ".%03ld", (long)usecs / 1000);
+			   tsclen = strlen(buf);
 		   }
+
+		   /* Print timestamp column */
+		   printf(buf);
+
 		   map = find_thread_map(thread);
 		   if (map) {
-		       char buf[128];
-		       int  clen;
-
-		       sprintf(buf, "  %s", name);
-		       clen = strlen(buf);
-
-		       if (clen > 25)
-			   clen = 25;
-		       memset(&buf[clen], ' ', 26 - clen);
-
-		       sprintf(&buf[25], "(%d, 0x%x, 0x%x, 0x%x)", (short)kd->arg1, kd->arg2, kd->arg3, kd->arg4);
-		       clen = strlen(&buf[25]) + 25;
-		       memset(&buf[clen], ' ', 128 - clen);
-
-		       if (COLS > 110 || wideflag)
-			   sprintf(&buf[81], "%s\n", map->command); 
-		       else
-			   sprintf(&buf[60], "%.12s\n", map->command); 
-
+		       sprintf(buf, "  %-25.25s ", name);
+		       nmclen = strlen(buf);
 		       printf(buf);
 
+		       sprintf(buf, "(%d, 0x%x, 0x%x, 0x%x)", (short)kd->arg1, kd->arg2, kd->arg3, kd->arg4);
+		       argsclen = strlen(buf);
+		       
+		       /*
+			 Calculate white space out to command
+		       */
+		       if (COLS > MAXCOLS || wideflag)
+			 {
+			   clen = COLS - (tsclen + nmclen + argsclen + 20);
+			 }
+		       else
+			 clen = COLS - (tsclen + nmclen + argsclen + 12);
+
+		       if(clen > 0)
+			 {
+			   printf(buf);   /* print the kdargs */
+			   memset(buf, ' ', clen);
+			   buf[clen] = '\0';
+			   printf(buf);
+			 }
+		       else if ((argsclen + clen) > 0)
+			 {
+			   /* no room so wipe out the kdargs */
+			   memset(buf, ' ', (argsclen + clen));
+			   buf[argsclen + clen] = '\0';
+			   printf(buf);
+			 }
+
+		       if (COLS > MAXCOLS || wideflag)
+			   printf("%-20.20s\n", map->command); 
+		       else
+			   printf("%-12.12s\n", map->command); 
 		   } else
 			   printf("  %-24.24s (%5d, %#x, 0x%x, 0x%x)\n",         name, (short)kd->arg1, kd->arg2, kd->arg3, kd->arg4);
-      
 	   } else {
 			   ti->in_filemgr = 0;
 	   }
 	   ti->thread = thread;
-	   ti->vfslookup = 0;
 	   ti->waited = 0;
 	   ti->type   = type;
 	   ti->stime  = now;
@@ -1590,6 +1664,7 @@ enter_syscall(int thread, int type, kd_buf *kd, char *name, double now)
 	   ti->arg2   = kd->arg2;
 	   ti->arg3   = kd->arg3;
 	   ti->arg4   = kd->arg4;
+	   ti->pathptr = (long *)0;
 	   ti->pathname[0] = 0;
 
 	   break;
@@ -1597,6 +1672,7 @@ enter_syscall(int thread, int type, kd_buf *kd, char *name, double now)
        default:
 	   break;
        }
+       fflush (0);
 }
 
 
@@ -1612,6 +1688,9 @@ exit_syscall(char *sc_name, int thread, int type, int error, int retval,
        long curr_time;
        kd_threadmap *map;
        kd_threadmap *find_thread_map();
+       int len = 0;
+       int clen = 0;
+       char buf[MAXCOLS];
       
        if ((ti = find_thread(thread, type)) == (struct th_info *)0)
 	       return;
@@ -1624,52 +1703,93 @@ exit_syscall(char *sc_name, int thread, int type, int error, int retval,
 	       bias_secs = curr_time - secs;
        }
        curr_time = bias_secs + secs;
-       printf("%-8.8s", &(ctime(&curr_time)[11]));
+       sprintf(buf, "%-8.8s", &(ctime(&curr_time)[11]));
+       clen = strlen(buf);
 
-
-       if (COLS > 110 || wideflag) {
+       if (COLS > MAXCOLS || wideflag) {
 	       nopadding = 0;
 	       usecs = l_usecs - (long long)((long long)secs * 1000000);
-	       printf(".%03ld", (long)usecs / 1000);
-
+	       sprintf(&buf[clen], ".%03ld", (long)usecs / 1000);
+	       clen = strlen(buf);
 	       if ((type >> 24) != FILEMGR_CLASS) {
 		   if (find_thread(thread, -1)) {
-		       printf("   ");
+		       sprintf(&buf[clen], "   ");
+		       clen = strlen(buf);
 		       nopadding = 1;
 		   }
 	       }
        } else
 	       nopadding = 1;
 
-       if (((type >> 24) == FILEMGR_CLASS) && (COLS > 110 || wideflag)) 
-	       printf("  %-18.18s", sc_name);
+       if (((type >> 24) == FILEMGR_CLASS) && (COLS > MAXCOLS || wideflag))
+	       sprintf(&buf[clen], "  %-18.18s", sc_name);
        else
-	       printf("  %-15.15s", sc_name);
+	       sprintf(&buf[clen], "  %-15.15s", sc_name);
 
-       if (COLS > 110 || wideflag) {
+       clen = strlen(buf);
+
+       if (COLS > MAXCOLS || wideflag) {
 	       if (has_fd == 2 && error == 0)
-		       printf(" F=%-3d", retval);
+		       sprintf(&buf[clen], " F=%-3d", retval);
 	       else if (has_fd == 1)
-		       printf(" F=%-3d", ti->arg1);
+		       sprintf(&buf[clen], " F=%-3d", ti->arg1);
 	       else if (has_ret != 2)
-		       printf("      ");
+		       sprintf(&buf[clen], "      ");
+
+	       clen = strlen(buf);
 
 	       if (error)
-		       printf("[%3d]       ", error);
+		       sprintf(&buf[clen], "[%3d]       ", error);
 	       else if (has_ret == 3)
-		       printf("O=0x%8.8x", ti->arg3);
+		       sprintf(&buf[clen], "O=0x%8.8x", ti->arg3);
 	       else if (has_ret == 5)
-		       printf("O=0x%8.8x", retval);
+		       sprintf(&buf[clen], "O=0x%8.8x", retval);
 	       else if (has_ret == 2) 
-		       printf(" A=0x%8.8x     ", retval);
+		       sprintf(&buf[clen], " A=0x%8.8x     ", retval);
 	       else if (has_ret == 1)
-		       printf("  B=0x%-6x", retval);
+		       sprintf(&buf[clen], "  B=0x%-6x", retval);
 	       else if (has_ret == 4)
-		       printf("R=0x%-8x", retval);
+		       sprintf(&buf[clen], "R=0x%-8x", retval);
 	       else
-		       printf("            ");
+		       sprintf(&buf[clen], "            ");
+	       clen = strlen(buf);
        }
-       printf(" %-28.28s ",  ti->pathname);
+       printf(buf);
+
+       /*
+	 Calculate space available to print pathname
+       */
+       if (COLS > MAXCOLS || wideflag)
+	 clen =  COLS - (clen + 13 + 20);
+       else
+	 clen =  COLS - (clen + 13 + 12);
+
+       if ((type >> 24) != FILEMGR_CLASS && !nopadding)
+	 clen -= 3;
+
+       sprintf(&buf[0], " %s ", ti->pathname);
+       len = strlen(buf);
+       
+       if (clen > len)
+	 {
+	   /* 
+	      Add null padding if column length
+	      is wider than the pathname length.
+	   */
+	   memset(&buf[len], ' ', clen - len);
+	   buf[clen] = '\0';
+	   printf(buf);
+	 }
+       else if (clen == len)
+	 {
+	   printf(buf);
+	 }
+       else if ((clen > 0) && (clen < len))
+	 {
+	   /* This prints the tail end of the pathname */
+	   buf[len-clen] = ' ';
+	   printf(&buf[len - clen]);
+	 }
 
        usecs = (unsigned long)(((double)now - ti->stime) / divisor);
        secs = usecs / 1000000;
@@ -1685,16 +1805,17 @@ exit_syscall(char *sc_name, int thread, int type, int error, int retval,
 	       printf("  ");
 
        if (map) {
-	       if (COLS > 110 || wideflag)
-		       printf(" %s", map->command);
+	       if (COLS > MAXCOLS || wideflag)
+		       printf(" %-20.20s", map->command);
 	       else
-		       printf(" %.12s", map->command);
+		       printf(" %-12.12s", map->command);
        }
        printf("\n");
 
        if (ti == &th_state[cur_max - 1])
 	         cur_max--;
        ti->thread = 0;
+       fflush (0);
 }
 
 int
@@ -1819,8 +1940,13 @@ void create_map_entry(int thread, char *command)
 
     map->valid = 1;
     map->thread = thread;
-    (void)strncpy (map->command, command, sizeof(map->command));
-    map->command[sizeof(map->command)-1] = '\0';
+    /*
+      The trace entry that returns the command name will hold
+      at most, MAXCOMLEN chars, and in that case, is not
+      guaranteed to be null terminated.
+    */
+    (void)strncpy (map->command, command, MAXCOMLEN);
+    map->command[MAXCOMLEN] = '\0';
 }
 
 

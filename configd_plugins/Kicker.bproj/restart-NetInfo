@@ -3,94 +3,110 @@
 # restart-NetInfo
 #
 
-PIDFILE="/var/run/nibindd.pid"
+NIBINDD_PIDFILE="/var/run/nibindd.pid"
+NILOCAL_PIDFILE="/var/run/netinfo_local.pid"
 
-#
-# Check for a PID file. There's something wrong if
-# the file is missing.
-#
-if [ ! -f ${PIDFILE} ]; then
-	#
-	# "nibindd" PID file not found, exiting
-	#
-	logger -i -p daemon.notice -t restart-NetInfo "${PIDFILE} missing"
-	exit 0
-fi
-oPID=`cat ${PIDFILE}`
+if [ -f ${NIBINDD_PIDFILE} ]; then
 
-#
-# Send a SIGHUP to the "nibindd" process to restart
-# the NetInfo subsystem.
-#
-kill -HUP ${oPID}
-status=$?
-if [ $status -ne 0 ]; then
+    #
+    # Send a SIGHUP to the "nibindd" process to restart
+    # the NetInfo subsystem.
+    #
+
+    oPID=`cat ${NIBINDD_PIDFILE}`
+    kill -HUP ${oPID}
+    status=$?
+    if [ $status -ne 0 ]; then
 	logger -i -p daemon.notice -t restart-NetInfo "Could not SIGHUP nibindd, pid=${oPID}, status=${status}"
 	exit 0
-fi
+    fi
 
-#
-# Wait a (short time) for the tag==local NetInfo
-# domain to become available.
-#
+    #
+    # Wait a (short time) for the tag==local NetInfo
+    # domain to become available.
+    #
 
-CHECK=1
-LIMIT=60
+    CHECK=1
+    LIMIT=60
 
-while [ 1 ]
-do
+    while [ 1 ]
+    do
 	#
 	# check status of "nibindd"
 	#
-	if [ -f ${PIDFILE} ]; then
-		nPID=`cat ${PIDFILE}`
-		if [ "X${oPID}" != "X${nPID}" ]; then
-			#
-			# new PID detected, go wait for local domain
-			#
-			break
-		fi
-	else
+	if [ -f ${NIBINDD_PIDFILE} ]; then
+	    nPID=`cat ${NIBINDD_PIDFILE}`
+	    if [ "X${oPID}" != "X${nPID}" ]; then
 		#
-		# "nibindd" PID file not found (yet), delay & retry
+		# new PID detected, go wait for local domain
+		#
+		break
+	    fi
+	else
+	    #
+	    # "nibindd" PID file not found (yet), delay & retry
 	fi
 
 	CHECK=`expr ${CHECK} + 1`
 	if [ ${CHECK} -le ${LIMIT} ]; then
-		sleep 1
+	    sleep 1
 	else
-		#
-		# We've waiting long enough, something's not right
-		#
-		logger -i -p daemon.notice -t restart-NetInfo "nibindd restart failed"
-		exit 0
+	    #
+	    # We've waiting long enough, something's not right
+	    #
+	    logger -i -p daemon.notice -t restart-NetInfo "nibindd restart failed"
+	    exit 0
 	fi
-done
+    done
 
-while [ 1 ]
-do
+    while [ 1 ]
+    do
 	#
 	# wait for the "netinfod local" domain to become available
 	#
-	niutil -read -T 1 -t 127.0.0.1/local /      > /dev/null 2>&1
+	niutil -read -T 1 -t 127.0.0.1/local /	    > /dev/null 2>&1
 	if [ $? -eq 0 ]; then
-		#
-		# "local" domain has been registered
-		#
-		break
+	    #
+	    # "local" domain has been registered
+	    #
+	    break
 	fi
 
 	CHECK=`expr ${CHECK} + 1`
 	if [ ${CHECK} -le ${LIMIT} ]; then
-		sleep 1
+	    sleep 1
 	else
-		#
-		# We've waiting long enough, something's not right
-		#
-		logger -i -p daemon.notice -t restart-NetInfo "\"netinfod local\" not starting (fast enough)"
-		exit 0
+	    #
+	    # We've waiting long enough, something's not right
+	    #
+	    logger -i -p daemon.notice -t restart-NetInfo "\"netinfod local\" not starting (fast enough)"
+	    exit 0
 	fi
-done
+    done
+
+elif [ -f ${NILOCAL_PIDFILE} ]; then
+
+    #
+    # Send a SIGHUP to restart the "netinfod" process for the
+    # tag==local domain.
+    #
+    PID=`cat ${NILOCAL_PIDFILE}`
+    kill -HUP ${PID}
+    status=$?
+    if [ $status -ne 0 ]; then
+	logger -i -p daemon.notice -t restart-NetInfo "Could not SIGHUP netinfod local, pid=${PID}, status=${status}"
+	exit 0
+    fi
+
+else
+
+    #
+    # "nibindd" and "netinfod local" PID files not found, exiting
+    #
+    logger -i -p daemon.notice -t restart-NetInfo "NetInfo daemons not running"
+    exit 0
+
+fi
 
 #
 # Touch the cache key to cause a notification

@@ -39,5 +39,9 @@ extern int gdb_value_ind (value_ptr val, value_ptr * rval);
 
 extern int gdb_parse_and_eval_type (char *, int, struct type **);
 
+int gdb_varobj_get_value (struct varobj *val1, char **result);
+
 extern int safe_execute_command (char *command, int from_tty);
 #endif /* WRAPPER_H */
+
+

@@ -2,7 +2,7 @@
   +----------------------------------------------------------------------+
   | PHP version 4.0                                                      |
   +----------------------------------------------------------------------+
-  | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+  | Copyright (c) 1997-2001 The PHP Group                                |
   +----------------------------------------------------------------------+
   | This source file is subject to version 2.02 of the PHP license,      |
   | that is bundled with this package in the file LICENSE, and is        |
@@ -91,7 +91,7 @@ static inline void append_modified_url(smart_str *url, smart_str *dest, smart_st
 {
 	register const char *p, *q;
 	const char *bash = NULL;
-	char sep = '?';
+	const char *sep = "?";
 	
 	q = url->c + url->len;
 	
@@ -101,7 +101,7 @@ static inline void append_modified_url(smart_str *url, smart_str *dest, smart_st
 				smart_str_append(dest, url);
 				return;
 			case '?':
-				sep = *separator;
+				sep = separator;
 				break;
 			case '#':
 				bash = p;
@@ -120,7 +120,7 @@ static inline void append_modified_url(smart_str *url, smart_str *dest, smart_st
 	else
 		smart_str_append(dest, url);
 
-	smart_str_appendc(dest, sep);
+	smart_str_appends(dest, sep);
 	smart_str_append(dest, name);
 	smart_str_appendc(dest, '=');
 	smart_str_append(dest, val);
@@ -138,7 +138,7 @@ static inline void tag_arg(url_adapt_state_ex_t *ctx, char quote PLS_DC)
 
 	smart_str_appendc(&ctx->result, quote);
 	if (f) {
-		append_modified_url(&ctx->val, &ctx->result, &ctx->q_name, &ctx->q_value, PG(arg_separator));
+		append_modified_url(&ctx->val, &ctx->result, &ctx->q_name, &ctx->q_value, PG(arg_separator).output);
 	} else {
 		smart_str_append(&ctx->result, &ctx->val);
 	}
@@ -172,11 +172,11 @@ static inline void passthru(STD_PARA)
 static inline void handle_form(STD_PARA) 
 {
 	if (ctx->tag.len == 4 && strncasecmp(ctx->tag.c, "form", 4) == 0) {
-		smart_str_appends(&ctx->result, "<INPUT TYPE=\"HIDDEN\" NAME=\""); 
+		smart_str_appends(&ctx->result, "<input type=\"hidden\" name=\""); 
 		smart_str_append(&ctx->result, &ctx->q_name);
-		smart_str_appends(&ctx->result, "\" VALUE=\"");
+		smart_str_appends(&ctx->result, "\" value=\"");
 		smart_str_append(&ctx->result, &ctx->q_value);
-		smart_str_appends(&ctx->result, "\">");
+		smart_str_appends(&ctx->result, "\" />");
 	}
 }
 
@@ -313,7 +313,7 @@ char *url_adapt_single_url(const char *url, size_t urllen, const char *name, con
 	smart_str_sets(&sname, name);
 	smart_str_sets(&sval, value);
 
-	append_modified_url(&surl, &buf, &sname, &sval, PG(arg_separator));
+	append_modified_url(&surl, &buf, &sname, &sval, PG(arg_separator).output);
 
 	smart_str_0(&buf);
 	if (newlen) *newlen = buf.len;
@@ -334,14 +334,9 @@ char *url_adapt_ext(const char *src, size_t srclen, const char *name, const char
 	mainloop(ctx, src, srclen);
 
 	*newlen = ctx->result.len;
-	if (ctx->result.len == 0) {
-		return strdup("");
-	}
 	smart_str_0(&ctx->result);
-	ret = malloc(ctx->result.len + 1);
-	memcpy(ret, ctx->result.c, ctx->result.len + 1);
 	ctx->result.len = 0;
-	return ret;
+	return ctx->result.c;
 }
 
 PHP_RINIT_FUNCTION(url_scanner)

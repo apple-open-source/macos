@@ -20,11 +20,18 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include <SystemConfiguration/SCD.h>
-#include <SystemConfiguration/SCP.h>
-#include "SCPPrivate.h"
-#include <SystemConfiguration/SCPreferences.h>
-#include <SystemConfiguration/SCPPath.h>
+/*
+ * Modification History
+ *
+ * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * - public API conversion
+ *
+ * November 16, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
+#include <SystemConfiguration/SystemConfiguration.h>
+#include <SystemConfiguration/SCPrivate.h>
 
 static CFArrayRef
 normalizePath(CFStringRef path)
@@ -64,34 +71,30 @@ normalizePath(CFStringRef path)
 }
 
 
-static SCPStatus
-getPath(SCPSessionRef session, CFStringRef path, CFMutableDictionaryRef *entity)
+static int
+getPath(SCPreferencesRef session, CFStringRef path, CFMutableDictionaryRef *entity)
 {
 	CFArrayRef		elements;
 	CFIndex			i;
 	CFIndex			nElements;
-	SCPStatus		status;
+	int			status		= kSCStatusFailed;
 	CFMutableDictionaryRef	value		= NULL;
-
-	if (session == NULL) {
-		return SCP_NOSESSION;	/* you can't do anything with a closed session */
-	}
 
 	elements = normalizePath(path);
 	if (elements == NULL) {
-		return SCP_NOKEY;
+		return kSCStatusNoKey;
 	}
 
 	/* get preferences key */
-	status = SCPGet(session,
-			CFArrayGetValueAtIndex(elements, 0),
-			(CFPropertyListRef *)&value);
-	if (status != SCP_OK) {
+	value = (CFMutableDictionaryRef)SCPreferencesGetValue(session,
+							      CFArrayGetValueAtIndex(elements, 0));
+	if (!value) {
+		status = kSCStatusNoKey;
 		goto done;
 	}
 
 	if (CFGetTypeID(value) != CFDictionaryGetTypeID()) {
-		status = SCP_NOKEY;
+		status = kSCStatusNoKey;
 		goto done;
 	}
 
@@ -103,19 +106,19 @@ getPath(SCPSessionRef session, CFStringRef path, CFMutableDictionaryRef *entity)
 		value   = (CFMutableDictionaryRef)CFDictionaryGetValue(value, element);
 		if (value == NULL) {
 			/* if (parent) path component does not exist */
-			status = SCP_NOKEY;
+			status = kSCStatusNoKey;
 			goto done;
 		}
 
 		if (CFGetTypeID(value) != CFDictionaryGetTypeID()) {
-			status = SCP_NOKEY;
+			status = kSCStatusNoKey;
 			goto done;
 		}
 
 	}
 
 	*entity = value;
-	status = SCP_OK;
+	status = kSCStatusOK;
 
     done :
 
@@ -124,27 +127,25 @@ getPath(SCPSessionRef session, CFStringRef path, CFMutableDictionaryRef *entity)
 }
 
 
-SCPStatus
-SCPPathCreateUniqueChild(SCPSessionRef	session,
-			 CFStringRef	prefix,
-			 CFStringRef	*newPath)
+CFStringRef
+SCPreferencesPathCreateUniqueChild(SCPreferencesRef	session,
+				   CFStringRef		prefix)
 {
-	SCPStatus		status;
+	int			status;
 	CFMutableDictionaryRef	value;
-	boolean_t		newValue	= FALSE;
+	CFStringRef		newPath		= NULL;
+	Boolean			newValue	= FALSE;
 	CFIndex			i;
-	CFStringRef		path;
-	CFMutableDictionaryRef	newDict;
+	CFMutableDictionaryRef	newDict		= NULL;
 
-	if (session == NULL) {
-		return SCP_NOSESSION;	/* you can't do anything with a closed session */
-	}
+	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCPreferencesPathCreateUniqueChild:"));
+	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  prefix = %@"), prefix);
 
 	status = getPath(session, prefix, &value);
 	switch (status) {
-		case SCP_OK :
+		case kSCStatusOK :
 			break;
-		case SCP_NOKEY :
+		case kSCStatusNoKey :
 			value = CFDictionaryCreateMutable(NULL,
 							  0,
 							  &kCFTypeDictionaryKeyCallBacks,
@@ -152,19 +153,19 @@ SCPPathCreateUniqueChild(SCPSessionRef	session,
 			newValue = TRUE;
 			break;
 		default :
-			return status;
+			return NULL;
 	}
 
 	if (CFGetTypeID(value) != CFDictionaryGetTypeID()) {
 		/* if specified path is not a dictionary */
-		status = SCP_NOKEY;
-		goto done;
+		status = kSCStatusNoKey;
+		goto error;
 	}
 
 	if (CFDictionaryContainsKey(value, kSCResvLink)) {
 		/* the path is a link... */
-		status = SCP_FAILED;
-		goto done;
+		status = kSCStatusFailed;
+		goto error;
 	}
 
 	i = 0;
@@ -178,11 +179,11 @@ SCPPathCreateUniqueChild(SCPSessionRef	session,
 
 		if (!found) {
 			/* if we've identified the next unique key */
-			path = CFStringCreateWithFormat(NULL,
-							NULL,
-							CFSTR("%@/%i"),
-							prefix,
-							i);
+			newPath = CFStringCreateWithFormat(NULL,
+							   NULL,
+							   CFSTR("%@/%i"),
+							   prefix,
+							   i);
 			break;
 		}
 		i++;
@@ -193,38 +194,38 @@ SCPPathCreateUniqueChild(SCPSessionRef	session,
 					    0,
 					    &kCFTypeDictionaryKeyCallBacks,
 					    &kCFTypeDictionaryValueCallBacks);
-	status = SCPPathSetValue(session, path, newDict);
-	CFRelease(newDict);
-	if (status != SCP_OK) {
-		CFRelease(path);
-		goto done;
+	if (!SCPreferencesPathSetValue(session, newPath, newDict)) {
+		goto error;
 	}
+	CFRelease(newDict);
 
-	*newPath = path;
-
-    done :
-
+	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  child  = %@"), newPath);
 	if (newValue)	CFRelease(value);
-	return status;
+	return newPath;
+
+    error :
+
+	if (newDict)	CFRelease(newDict);
+	if (newValue)	CFRelease(value);
+	if (newPath)	CFRelease(newPath);
+	return NULL;
 }
 
 
-SCPStatus
-SCPPathGetValue(SCPSessionRef	session,
-		CFStringRef	path,
-		CFDictionaryRef	*value)
+CFDictionaryRef
+SCPreferencesPathGetValue(SCPreferencesRef	session,
+			  CFStringRef		path)
 {
-	SCPStatus		status;
+	int			status;
 	CFMutableDictionaryRef	entity;
 	CFStringRef		entityLink;
 
-	if (session == NULL) {
-		return SCP_NOSESSION;	/* you can't do anything with a closed session */
-	}
+	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCPreferencesPathGetValue:"));
+	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  path  = %@"), path);
 
 	status = getPath(session, path, &entity);
-	if (status != SCP_OK) {
-		return status;
+	if (status != kSCStatusOK) {
+		return NULL;
 	}
 
 /* XXXX Add code here to chase multiple links XXXXX */
@@ -233,71 +234,71 @@ SCPPathGetValue(SCPSessionRef	session,
 	    (CFDictionaryGetValueIfPresent(entity, kSCResvLink, (void **)&entityLink))) {
 		    /* if this is a dictionary AND it is a link */
 		    status = getPath(session, entityLink, &entity);
-		    if (status != SCP_OK) {
+		    if (status != kSCStatusOK) {
 			    /* if it was a bad link */
-			    return status;
+			    return NULL;
 		    }
 	}
 
-	*value = entity;
-	return status;
+	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  value = %@"), entity);
+	return entity;
 }
 
 
-SCPStatus
-SCPPathGetLink(SCPSessionRef		session,
-	       CFStringRef		path,
-	       CFStringRef		*link)
+CFStringRef
+SCPreferencesPathGetLink(SCPreferencesRef	session,
+			 CFStringRef		path)
 {
-	SCPStatus		status;
+	int			status;
 	CFMutableDictionaryRef	entity;
 	CFStringRef		entityLink;
 
-	if (session == NULL) {
-		return SCP_NOSESSION;	/* you can't do anything with a closed session */
-	}
+	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCPreferencesPathGetLink:"));
+	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  path = %@"), path);
 
 	status = getPath(session, path, &entity);
-	if (status != SCP_OK) {
-		return status;
+	if (status != kSCStatusOK) {
+		return NULL;
 	}
 
 	if ((CFGetTypeID(entity) == CFDictionaryGetTypeID()) &&
 	    (CFDictionaryGetValueIfPresent(entity, kSCResvLink, (void **)&entityLink))) {
 		    /* if this is a dictionary AND it is a link */
-		*link = entityLink;
-		return status;
+		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  link = %@"), entityLink);
+		return entityLink;
 	}
 
-	return SCP_NOKEY;
+	return NULL;
 }
 
 
-SCPStatus
-SCPPathSetValue(SCPSessionRef session, CFStringRef path, CFDictionaryRef value)
+Boolean
+SCPreferencesPathSetValue(SCPreferencesRef	session,
+			  CFStringRef		path,
+			  CFDictionaryRef	value)
 {
 	CFMutableDictionaryRef	element;
 	CFArrayRef		elements	= NULL;
 	CFIndex			i;
 	CFIndex			nElements;
-	boolean_t		newRoot		= FALSE;
+	Boolean			newRoot		= FALSE;
+	Boolean			ok;
 	CFMutableDictionaryRef	root		= NULL;
-	SCPStatus		status		= SCP_NOKEY;
 
-	if (session == NULL) {
-		return SCP_NOSESSION;	/* you can't do anything with a closed session */
-	}
+	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCPreferencesPathSetValue:"));
+	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  path  = %@"), path);
+	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  value = %@"), value);
 
 	elements = normalizePath(path);
 	if (elements == NULL) {
-		return SCP_NOKEY;
+		_SCErrorSet(kSCStatusNoKey);
+		return FALSE;
 	}
 
 	/* get preferences key */
-	status = SCPGet(session,
-			CFArrayGetValueAtIndex(elements, 0),
-			(CFPropertyListRef *)&root);
-	if (status != SCP_OK) {
+	root = (CFMutableDictionaryRef)SCPreferencesGetValue(session,
+							     CFArrayGetValueAtIndex(elements, 0));
+	if (!root) {
 		root = CFDictionaryCreateMutable(NULL,
 						  0,
 						  &kCFTypeDictionaryKeyCallBacks,
@@ -339,67 +340,68 @@ SCPPathSetValue(SCPSessionRef session, CFStringRef path, CFDictionaryRef value)
 				     CFArrayGetValueAtIndex(elements, nElements-1),
 				     value);
 	}
-	status = SCPSet(session, CFArrayGetValueAtIndex(elements, 0), root);
-
+	ok = SCPreferencesSetValue(session, CFArrayGetValueAtIndex(elements, 0), root);
 	if (newRoot)	CFRelease(root);
 	CFRelease(elements);
-	return status;
+	return ok;
 }
 
 
-SCPStatus
-SCPPathSetLink(SCPSessionRef session, CFStringRef path, CFStringRef link)
+Boolean
+SCPreferencesPathSetLink(SCPreferencesRef	session,
+			 CFStringRef		path,
+			 CFStringRef		link)
 {
 	CFMutableDictionaryRef	dict;
-	SCPStatus		status;
+	Boolean			ok;
 
-	if (session == NULL) {
-		return SCP_NOSESSION;	/* you can't do anything with a closed session */
-	}
+	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCPreferencesPathSetLink:"));
+	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  path = %@"), path);
+	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  link = %@"), link);
 
 	dict = CFDictionaryCreateMutable(NULL,
 					 0,
 					 &kCFTypeDictionaryKeyCallBacks,
 					 &kCFTypeDictionaryValueCallBacks);
 	CFDictionaryAddValue(dict, kSCResvLink, link);
-	status = SCPPathSetValue(session, path, dict);
+	ok = SCPreferencesPathSetValue(session, path, dict);
 	CFRelease(dict);
 
-	return status;
+	return ok;
 }
 
 
-SCPStatus
-SCPPathRemove(SCPSessionRef session, CFStringRef path)
+Boolean
+SCPreferencesPathRemoveValue(SCPreferencesRef	session,
+			     CFStringRef	path)
 {
 	CFMutableDictionaryRef	element;
 	CFArrayRef		elements	= NULL;
 	CFIndex			i;
 	CFIndex			nElements;
+	Boolean			ok		= FALSE;
 	CFMutableDictionaryRef	root		= NULL;
-	SCPStatus		status		= SCP_NOKEY;
 
-	if (session == NULL) {
-		return SCP_NOSESSION;	/* you can't do anything with a closed session */
-	}
+	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCPreferencesPathRemoveValue:"));
+	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  path = %@"), path);
 
 	elements = normalizePath(path);
 	if (elements == NULL) {
-		return SCP_NOKEY;
+		_SCErrorSet(kSCStatusNoKey);
+		return FALSE;
 	}
 
 	/* get preferences key */
-	status = SCPGet(session,
-			CFArrayGetValueAtIndex(elements, 0),
-			(CFPropertyListRef *)&root);
-	if (status != SCP_OK) {
+	root = (CFMutableDictionaryRef)SCPreferencesGetValue(session,
+							     CFArrayGetValueAtIndex(elements, 0));
+	if (!root) {
 		goto done;
 	}
 
 	nElements = CFArrayGetCount(elements);
 	if (nElements == 1) {
 		/* if we are removing the data associated with the preference key */
-		status = SCPRemove(session, CFArrayGetValueAtIndex(elements, 0));
+		ok = SCPreferencesRemoveValue(session, CFArrayGetValueAtIndex(elements, 0));
 		goto done;
 	}
 
@@ -411,7 +413,6 @@ SCPPathRemove(SCPSessionRef session, CFStringRef path)
 		pathComponent = CFArrayGetValueAtIndex(elements, i);
 		tmpElement    = (void *)CFDictionaryGetValue(element, pathComponent);
 		if (tmpElement == NULL) {
-			status = SCP_NOKEY;
 			goto done;
 		}
 		element = tmpElement;
@@ -419,10 +420,10 @@ SCPPathRemove(SCPSessionRef session, CFStringRef path)
 
 	CFDictionaryRemoveValue(element,
 				CFArrayGetValueAtIndex(elements, nElements-1));
-	status = SCPSet(session, CFArrayGetValueAtIndex(elements, 0), root);
+	ok = SCPreferencesSetValue(session, CFArrayGetValueAtIndex(elements, 0), root);
 
     done :
 
 	CFRelease(elements);
-	return status;
+	return ok;
 }

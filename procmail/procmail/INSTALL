@@ -13,11 +13,16 @@ Discusses:
 To install procmail, lockfile and formail: edit Makefile & config.h accordingly
 and type 'make install'.
 Intended configurable options in Makefile are:
-	the install-destinations and the LOCKINGTEST directories (you can
-	optionally use something like 'make BASENAME=$HOME install' instead).
+	the install-destinations (primarily BASENAME) and the
+	LOCKINGTEST directories (you can optionally use something like
+	'make BASENAME=$HOME install' instead).
 Intended configurable options in config.h are:
 	MMDF support, standard environment presettings including PATH,
-	trusted userids.
+	trusted userids, whether each user has their own group.
+
+If an older version of procmail is currently installed, you should
+review all the entries in the HISTORY file between that revision and
+this one.
 
 'make install' will:
       - implicitly do a 'make init', which will check your basic utilities for
@@ -83,11 +88,11 @@ available *and* reliable on your system.  In order to do this it exercises
 all the available locking methods (fcntl(), lockf() and flock()) on some
 sample files extensively.
 
-These tests produce results which depend on the filesystem which is being
-used to perform the tests.  If you haven't defined LOCKINGTEST in the Makefile
-(you can include as many directories as you want) autoconf will prompt you
-to enter any additional directories (preferably on distinct filesystems)
-you want it to run the tests on.
+These tests produce results which depend on the filesystem which is
+being used to perform the tests.  If you haven't changed the definition
+of LOCKINGTEST in the Makefile (you can include as many directories as
+you want) autoconf will prompt you to enter any additional directories
+(preferably on distinct filesystems) you want it to run the tests on.
 
 When specifying directories to test, it would probably be advisable to
 pick exactly those directories which belong to a unique fileserver-fileclient

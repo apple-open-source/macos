@@ -20,6 +20,21 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * Modification History
+ *
+ * July 9, 2001			Allan Nathanson <ajn@apple.com>
+ * - added "-r" option for checking network reachability
+ * - added "-w" option to check/wait for the presence of a
+ *   dynamic store key.
+ *
+ * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * - public API conversion
+ *
+ * November 9, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,16 +48,22 @@
 #endif	/* DEBUG */
 
 #include "scutil.h"
-#include "SCDPrivate.h"
 #include "commands.h"
 #include "dictionary.h"
+#include "tests.h"
+
+#include <SystemConfiguration/SCPrivate.h>
+#include "SCDynamicStoreInternal.h"
+
 
 #define LINE_LENGTH 256
 
-SCDSessionRef		session = NULL;
-SCDHandleRef		data    = NULL;
-int			nesting = 0;
-CFMutableArrayRef	sources = NULL;
+
+int			nesting		= 0;
+CFRunLoopSourceRef	notifyRls	= NULL;
+CFMutableArrayRef	sources		= NULL;
+SCDynamicStoreRef	store		= NULL;
+CFPropertyListRef	value		= NULL;
 
 
 static char *
@@ -119,7 +140,7 @@ getString(char **line)
 }
 
 
-boolean_t
+Boolean
 process_line(FILE *fp)
 {
 	char	line[LINE_LENGTH], *s, *arg, **argv = NULL;
@@ -129,8 +150,8 @@ process_line(FILE *fp)
 	if (getLine(line, sizeof(line), fp) == NULL)
 		return FALSE;
 
-	if ((nesting > 0) && SCDOptionGet(NULL, kSCDOptionVerbose)) {
-		SCDLog(LOG_NOTICE, CFSTR("%d> %s"), nesting, line);
+	if (nesting > 0) {
+		SCPrint(TRUE, stdout, CFSTR("%d> %s"), nesting, line);
 	}
 
 	/* if requested, exit */
@@ -196,97 +217,126 @@ runLoopProcessInput(CFSocketRef s, CFSocketCallBackType type, CFDataRef address,
 		nesting--;
 	}
 
-	if (SCDOptionGet(NULL, kSCDOptionUseCFRunLoop)) {
-		/* debug information, diagnostics */
-		_showMachPortStatus();
+	/* debug information, diagnostics */
+	__showMachPortStatus();
 
-		/* if necessary, re-issue prompt */
-		if ((CFArrayGetCount(sources) == 1) && isatty(STDIN_FILENO)) {
-			printf("> ");
-			fflush(stdout);
-		}
+	/* if necessary, re-issue prompt */
+	if ((CFArrayGetCount(sources) == 1) && isatty(STDIN_FILENO)) {
+		printf("> ");
+		fflush(stdout);
 	}
 
 	return;
 }
 
 
+void
+usage(const char *command)
+{
+	SCPrint(TRUE, stderr, CFSTR("usage: %s\n"), command);
+	SCPrint(TRUE, stderr, CFSTR("   or: %s -r node-or-address\n"), command);
+	SCPrint(TRUE, stderr, CFSTR("\t-r\tcheck reachability of node/address\n"));
+	SCPrint(TRUE, stderr, CFSTR("   or: %s -w dynamic-store-key [ -t timeout ]\n"), command);
+	SCPrint(TRUE, stderr, CFSTR("\t-w\twait for presense of dynamic store key\n"));
+	SCPrint(TRUE, stderr, CFSTR("\t-t\ttime to wait for key\n"));
+	SCPrint(TRUE, stderr, CFSTR("\n"));
+	SCPrint(TRUE, stderr, CFSTR("Note: you may only specify one of \"-r\" or \"-w\".\n"));
+	exit (EX_USAGE);
+}
+
+
 int
 main(int argc, const char *argv[])
 {
-	extern int	optind;
-	int		opt;
-	boolean_t	ok;
+	CFSocketContext		context	= { 0, stdin, NULL, NULL, NULL };
+	char			*dest	= NULL;
+	CFSocketRef		in;
+	extern int		optind;
+	int			opt;
+	const char		*prog	= argv[0];
+	CFRunLoopSourceRef	rls;
+	int			timeout	= 15;	/* default timeout (in seconds) */
+	char			*wait	= NULL;
 
 	/* process any arguments */
 
-	SCDOptionSet(NULL, kSCDOptionUseCFRunLoop, FALSE);
-
-	while ((opt = getopt(argc, argv, "dvr")) != -1)
+	while ((opt = getopt(argc, argv, "dvpr:t:w:")) != -1)
 		switch(opt) {
 		case 'd':
-			SCDOptionSet(NULL, kSCDOptionDebug, TRUE);
+			_sc_debug = TRUE;
+			_sc_log   = FALSE;	/* enable framework logging */
 			break;
 		case 'v':
-			SCDOptionSet(NULL, kSCDOptionVerbose, TRUE);
+			_sc_verbose = TRUE;
+			_sc_log     = FALSE;	/* enable framework logging */
+			break;
+		case 'p':
+			enablePrivateAPI = TRUE;
 			break;
 		case 'r':
-			SCDOptionSet(NULL, kSCDOptionUseCFRunLoop, TRUE);
+			dest = optarg;
+			break;
+		case 't':
+			timeout = atoi(optarg);
+			break;
+		case 'w':
+			wait = optarg;
 			break;
 		case '?':
 		default :
-			do_help(0, NULL);
+			usage(prog);
 	}
 	argc -= optind;
 	argv += optind;
 
+	if (dest && wait) {
+		usage(prog);
+	}
+
+	/* are we checking the reachability of a host/address */
+	if (dest) {
+		do_checkReachability(dest);
+		/* NOT REACHED */
+	}
+
+	/* are we waiting on the presense of a dynamic store key */
+	if (wait) {
+		do_wait(wait, timeout);
+		/* NOT REACHED */
+	}
+
 	/* start with an empty dictionary */
 	do_dictInit(0, NULL);
 
-	if (SCDOptionGet(NULL, kSCDOptionUseCFRunLoop)) {
-		CFSocketRef		in;
-		CFSocketContext		context = { 0, stdin, NULL, NULL, NULL };
-		CFRunLoopSourceRef	rls;
+	/* create a "socket" reference with the file descriptor associated with stdin */
+	in  = CFSocketCreateWithNative(NULL,
+				       STDIN_FILENO,
+				       kCFSocketReadCallBack,
+				       runLoopProcessInput,
+				       &context);
 
-		/* create a "socket" reference with the file descriptor associated with stdin */
-		in  = CFSocketCreateWithNative(NULL,
-					       STDIN_FILENO,
-					       kCFSocketReadCallBack,
-					       runLoopProcessInput,
-					       &context);
+	/* Create a run loop source for the (stdin) file descriptor */
+	rls = CFSocketCreateRunLoopSource(NULL, in, nesting);
 
-		/* Create a run loop source for the (stdin) file descriptor */
-		rls = CFSocketCreateRunLoopSource(NULL, in, nesting);
+	/* keep track of input file sources */
+	sources = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+	CFArrayAppendValue(sources, rls);
 
-		/* keep track of input file sources */
-		sources = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-		CFArrayAppendValue(sources, rls);
+	/* add this source to the run loop */
+	CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
+	CFRelease(rls);
+	CFRelease(in);
 
-		/* add this source to the run loop */
-		CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
+	/* show (initial) debug information, diagnostics */
+	__showMachPortStatus();
 
-		CFRelease(rls);
-		CFRelease(in);
+	/* issue (initial) prompt */
+	if (isatty(STDIN_FILENO)) {
+		printf("> ");
+		fflush(stdout);
 	}
 
-	do {
-		/* debug information, diagnostics */
-		_showMachPortStatus();
-
-		/* issue prompt */
-		if (isatty(STDIN_FILENO)) {
-			printf("> ");
-			fflush(stdout);
-		}
-
-		if (SCDOptionGet(NULL, kSCDOptionUseCFRunLoop)) {
-			CFRunLoopRun();	/* process input, process events */
-			ok = FALSE;	/* if the RunLoop exited */
-		} else {
-			/* process command */
-			ok = process_line(stdin);
-		}
-	} while (ok);
+	CFRunLoopRun();	/* process input, process events */
 
 	exit (EX_OK);	// insure the process exit status is 0
 	return 0;	// ...and make main fit the ANSI spec.

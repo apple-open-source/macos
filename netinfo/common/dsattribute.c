@@ -27,6 +27,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+//#define _ALLOC_DEBUG_
+//#define _DEALLOC_DEBUG_
+
 extern void
 serialize_32(u_int32_t v, char **p);
 
@@ -35,6 +38,21 @@ deserialize_32(char **p);
 
 extern dsdata *
 deserialize_dsdata(char **p);
+
+dsattribute *
+dsattribute_alloc(void)
+{
+	dsattribute *x;
+
+	x = (dsattribute *)malloc(sizeof(dsattribute));
+	memset(x, 0, sizeof(dsattribute));
+
+#ifdef _ALLOC_DEBUG_
+	fprintf(stderr, "dsattribute_alloc   0x%08x\n", (unsigned int)x);
+#endif
+
+	return x;
+}
 
 /* serialize an attribute into a machine-independent string of bytes */
 dsdata *
@@ -56,7 +74,7 @@ dsattribute_to_dsdata(dsattribute *a)
 		len += (4 + 4 + a->value[i]->length);
 	}
 
-	d = (dsdata *)malloc(sizeof(dsdata));
+	d = dsdata_alloc();
 	d->retain = 1;
 	d->type = DataTypeDSAttribute;
 	d->length = len;
@@ -108,7 +126,7 @@ dsdata_to_dsattribute(dsdata *d)
 	if (d == NULL) return NULL;
 	if (d->type != DataTypeDSAttribute) return NULL;
 
-	a = (dsattribute *)malloc(sizeof(dsattribute));
+	a = dsattribute_alloc();
 	a->retain = 1;
 	
 	p = d->data;
@@ -133,7 +151,7 @@ dsattribute_new(dsdata *k)
 
 	if (k == NULL) return NULL;
 	
-	x = (dsattribute *)malloc(sizeof(dsattribute));
+	x = dsattribute_alloc();
 	x->key = dsdata_retain(k);
 	
 	x->count = 0;
@@ -152,7 +170,7 @@ dsattribute_copy(dsattribute *a)
 
 	if (a == NULL) return NULL;
 
-	x = (dsattribute *)malloc(sizeof(dsattribute));
+	x = dsattribute_alloc();
 	x->key = dsdata_copy(a->key);
 	
 	x->count = a->count;
@@ -177,6 +195,15 @@ dsattribute_retain(dsattribute *a)
 	return a;
 }
 
+static void
+dsattribute_dealloc(dsattribute *x)
+{
+#ifdef _DEALLOC_DEBUG_
+	fprintf(stderr, "dsattribute_dealloc   0x%08x\n", (unsigned int)x);
+#endif
+	free(x);
+}
+
 void
 dsattribute_release(dsattribute *a)
 {
@@ -190,7 +217,7 @@ dsattribute_release(dsattribute *a)
 	dsdata_release(a->key);
 	for (i = 0; i < a->count; i++) dsdata_release(a->value[i]);
 	if (a->count > 0) free(a->value);
-	free(a);
+	dsattribute_dealloc(a);
 }
 
 void
@@ -284,6 +311,17 @@ dsattribute_index(dsattribute *a, dsdata *d)
 		if (dsdata_equal(a->value[i], d)) return i;
 
 	return IndexNull;
+}
+
+dsdata *
+dsattribute_key(dsattribute *a)
+{
+	dsdata *k;
+
+	if (a == NULL) return NULL;
+
+	k = a->key;
+	return dsdata_retain(k);
 }
 
 dsdata *

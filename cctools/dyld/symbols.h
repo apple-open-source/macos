@@ -38,6 +38,7 @@ struct symbol_list {
     struct image *image;	/* the image the symbol is in or NULL */
     enum bool remove_on_error;	/* set when return_on_error is set */
     enum bool bind_fully;	/* dependent symbols are to be bound */
+    enum bool flat_reference;	/* symbol is for a flat namespace reference */
     struct symbol_list *prev;	/* previous in the chain */
     struct symbol_list *next;	/* next in the chain */
 };
@@ -70,8 +71,14 @@ extern void clear_undefined_list(
 extern enum bool resolve_undefineds(
     enum bool bind_now,
     enum bool launching_with_prebound_libraries);
+extern void clear_module_states_saved(
+    void);
+extern void clear_state_changes_to_the_modules(
+    void);
 extern void lookup_symbol(
     char *symbol_name,
+    struct image *primary_image,
+    struct twolevel_hint *hint,
     struct nlist **defined_symbol,
     module_state **defined_module,
     struct image **defined_image,
@@ -84,9 +91,15 @@ extern void lookup_symbol_in_hinted_library(
     module_state **defined_module,
     struct image **defined_image,
     struct library_image **defined_library_image);
-extern struct nlist * lookup_symbol_in_object_image(
+extern enum bool lookup_symbol_in_object_image(
     char *symbol_name,
-    struct object_image *object_image);
+    struct image *object_image,
+    module_state *object_module,
+    struct nlist **defined_symbol,
+    module_state **defined_module,
+    struct image **defined_image,
+    struct library_image **defined_library_image,
+    struct indr_loop_list *indr_loop);
 extern enum bool validate_NSSymbol(
     struct nlist *symbol,
     module_state **defined_module,
@@ -102,7 +115,7 @@ extern void relocate_symbol_pointers_in_library_image(
     struct image *image);
 extern void relocate_symbol_pointers_for_defined_externs(
     struct image *image);
-extern void change_symbol_pointers_in_images(
+extern void change_symbol_pointers_in_flat_images(
     char *symbol_name,
     unsigned long value,
     enum bool only_lazy_pointers);
@@ -132,10 +145,17 @@ extern void unlink_object_module(
 extern enum bool link_in_need_modules(
     enum bool bind_now,
     enum bool release_lock);
-enum bool check_executable_for_overrides(
+extern enum bool check_executable_for_overrides(
     void);
-enum bool check_libraries_for_overrides(
+extern enum bool check_libraries_for_overrides(
     void);
-void discard_symbol(
+extern void discard_symbol(
+    struct image *image,
+    struct nlist *symbol);
+/* TODO: make this a static inline */
+extern struct image * get_primary_image(
+    struct image *image,
+    struct nlist *symbol);
+extern struct twolevel_hint * get_hint(
     struct image *image,
     struct nlist *symbol);

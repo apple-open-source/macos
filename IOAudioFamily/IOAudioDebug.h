@@ -48,6 +48,14 @@
 #define DEBUG_OUTPUT
 #endif
 
+#ifdef DEBUG_INPUT
+#define DEBUG_IO
+#endif
+
+#ifdef DEBUG_OUTPUT
+#define DEBUG_IO
+#endif
+
 #if defined(DEBUG_TIMER) && defined(DEBUG_CALLS)
 #define DEBUG_TIMER_CALLS
 #endif

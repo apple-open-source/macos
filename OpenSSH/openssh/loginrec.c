@@ -163,7 +163,7 @@
 #include "log.h"
 #include "atomicio.h"
 
-RCSID("$Id: loginrec.c,v 1.1.1.4 2001/04/05 01:06:19 zarzycki Exp $");
+RCSID("$Id: loginrec.c,v 1.1.1.5 2001/06/26 01:03:22 zarzycki Exp $");
 
 #ifdef HAVE_UTIL_H
 #  include <util.h>
@@ -442,6 +442,27 @@ login_write (struct logininfo *li)
 #endif
 	return 0;
 }
+
+#ifdef LOGIN_NEEDS_UTMPX
+int
+login_utmp_only(struct logininfo *li)
+{
+	li->type = LTYPE_LOGIN; 
+# ifdef USE_UTMP
+	utmp_write_entry(li);
+# endif
+# ifdef USE_WTMP
+	wtmp_write_entry(li);
+# endif
+# ifdef USE_UTMPX
+	utmpx_write_entry(li);
+# endif
+# ifdef USE_WTMPX
+	wtmpx_write_entry(li);
+# endif
+	return 0;
+}
+#endif
 
 /**
  ** getlast_entry: Call low-level functions to retrieve the last login

@@ -542,7 +542,6 @@ setctty(name, flags)
 	int fd;
 
 	(void) revoke(name);
-	sleep (2);			/* leave DTR low */
 	if ((fd = open(name, flags | O_RDWR)) == -1) {
 		stall("can't open %s: %m", name);
 		_exit(1);

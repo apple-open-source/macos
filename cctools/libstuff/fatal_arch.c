@@ -39,16 +39,14 @@ char *format,
 ...)
 {
     va_list ap;
-    unsigned long i;
 
 	va_start(ap, format);
         fprintf(stderr, "%s: ", progname);
 	vfprintf(stderr, format, ap);
 	va_end(ap);
 	if(member != NULL){
-	    i = size_ar_name(member->ar_hdr);
-	    fprintf(stderr, "%s(%.*s)", arch->file_name, (int)i,
-		    member->ar_hdr->ar_name);
+	    fprintf(stderr, "%s(%.*s)", arch->file_name,
+		    (int)member->member_name_size, member->member_name);
 	}
 	else
 	    fprintf(stderr, "%s", arch->file_name);
@@ -71,16 +69,14 @@ char *format,
 ...)
 {
     va_list ap;
-    unsigned long i;
 
 	va_start(ap, format);
         fprintf(stderr, "%s: ", progname);
 	vfprintf(stderr, format, ap);
 	va_end(ap);
 	if(member != NULL){
-	    i = size_ar_name(member->ar_hdr);
-	    fprintf(stderr, "%s(%.*s)", arch->file_name, (int)i,
-		    member->ar_hdr->ar_name);
+	    fprintf(stderr, "%s(%.*s)", arch->file_name,
+		    (int)member->member_name_size, member->member_name);
 	}
 	else
 	    fprintf(stderr, "%s", arch->file_name);
@@ -104,16 +100,14 @@ char *format,
 ...)
 {
     va_list ap;
-    unsigned long i;
 
 	va_start(ap, format);
         fprintf(stderr, "%s: ", progname);
 	vfprintf(stderr, format, ap);
 	va_end(ap);
 	if(member != NULL){
-	    i = size_ar_name(member->ar_hdr);
-	    fprintf(stderr, "%s(%.*s)", arch->file_name, (int)i,
-		    member->ar_hdr->ar_name);
+	    fprintf(stderr, "%s(%.*s)", arch->file_name,
+		    (int)member->member_name_size, member->member_name);
 	}
 	else
 	    fprintf(stderr, "%s", arch->file_name);

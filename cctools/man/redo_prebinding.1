@@ -1,8 +1,8 @@
-.TH REDO_PREBINDING 1 "October 4, 2000" "Apple Computer, Inc."
+.TH REDO_PREBINDING 1 "February 28, 2001" "Apple Computer, Inc."
 .SH NAME
 redo_prebinding \- redo the prebinding of an executable or dynamic library
 .SH SYNOPSIS
-redo_prebinding [\-c | \-p | \-d] [\-i] [\-r rootdir] [\-o output_file] input_file
+redo_prebinding [\-c | \-p | \-d] [\-i] [\-r rootdir] [\-e exeutable_path] [\-o output_file] input_file
 .SH DESCRIPTION
 .I Redo_prebinding
 is used to redo the prebinding of an executable or dynamic library when one
@@ -45,6 +45,11 @@ An exit status of 0 means the file is a dynamic shared library,
 .TP
 .B \-i
 ignore non-prebound files (useful when running on all types of files).
+.TP
+.BI "\-e " executable_path
+replace any dependent library's "@executable_path" prefix with the
+.I executable_path
+argument.
 .TP
 .BI "\-r " rootdir
 prepend the

@@ -43,6 +43,7 @@
             quotacheck.tproj, 
             quotaon.tproj, 
             repquota.tproj, 
+            restore.tproj, 
             showmount.tproj, 
             tunefs.tproj, 
             umount.tproj, 

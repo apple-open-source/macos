@@ -17,6 +17,7 @@
 #include <stdio.h>
 #include <signal.h>
 #include <fcntl.h>
+#include <stdlib.h>
 #if defined(HAVE_UNISTD_H)
 #include <unistd.h>
 #endif
@@ -60,7 +61,7 @@ void static disable_tty_echo(void);
 void static restore_tty_state(void);
 static RETSIGTYPE sigint_handler(int);
 
-char *getpassword(prompt)
+char *fm_getpassword(prompt)
 char *prompt;
 {
 #if !(defined(HAVE_TCSETATTR) || defined(HAVE_TERMIO_H) || defined(HAVE_STTY))
@@ -131,7 +132,7 @@ char *prompt;
 	signal(SIGINT, sig);
     }
     if (fi != stdin)
-	fclose(fi);
+	fclose(fi);	/* not checking should be safe, file mode was "r" */
 
     return(pbuf);
 #endif /* !(defined(HAVE_TCSETATTR) || ... */

@@ -29,7 +29,6 @@
 #include "libsaio.h"
 #include "kernBootStruct.h"
 #include "stringConstants.h"
-#include "drivers.h"
 #include "legacy/configTablePrivate.h"
 
 extern KERNBOOTSTRUCT *kernBootStruct;

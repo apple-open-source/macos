@@ -303,7 +303,7 @@ elfmdebug_build_psymtabs (struct objfile *,
 
 struct objfile *symbol_file_add_bfd_safe (bfd * abfd, int from_tty,
 					  struct section_addr_info *addrs,
-					  int mainline, int flags,
+					  int mainline, int flags, int symflags,
 					  CORE_ADDR mapaddr,
 					  const char *prefix);
 

@@ -25,12 +25,12 @@ VPATH = $(OBJROOT):$(SYMROOT)
 
 SA_OBJS = prf.o printf.o zalloc.o \
 	string.o strtol.o error.o \
-	setjmp.o qsort.o
+	setjmp.o qsort.o bswap.o
 
 SFILES = setjmp.s
 CFILES = prf.c printf.c zalloc.c \
 	string.c strtol.c error.c \
-	qsort.c
+	qsort.c bswap.c
 HFILES = memory.h
 EXPORTED_HFILES = libsa.h kernBootStruct.h memory.h
 INSTALLED_SA_HFILES = libsa.h

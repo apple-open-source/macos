@@ -12,6 +12,12 @@
 #include "rcfile_y.h"
 
 int prc_lineno = 1;
+
+#ifdef LEXDEBUG
+#define SETSTATE(n)	do {BEGIN(n); if (yydebug) fprintf(stderr, "Entering lexer state %d\n", n);} while (0)
+#else
+#define SETSTATE(n)	BEGIN(n)
+#endif /* LEXDEBUG */
 %}
 
 /* this doesn't work with Linux lex, see the INSTALL file */
@@ -19,7 +25,7 @@ int prc_lineno = 1;
 %a 4000
 %p 3000
 
-%s NAME PREAUTH
+%s NAME AUTH
 
 %%
 
@@ -29,7 +35,7 @@ int prc_lineno = 1;
 			yytext[strlen(yytext)-1] = '\0';
 			escapes(yytext+1, buf);
 			yylval.sval = (char *) xstrdup(buf);
-                        BEGIN(0);
+                        SETSTATE(0);
 			return STRING;
 		}
 \'[^\']*\'	{
@@ -38,7 +44,7 @@ int prc_lineno = 1;
 			yytext[strlen(yytext)-1] = '\0';
 			escapes(yytext+1, buf);
 			yylval.sval = (char *) xstrdup(buf);
-                        BEGIN(0);
+                        SETSTATE(0);
 			return STRING;
 		}
 
@@ -49,7 +55,7 @@ int prc_lineno = 1;
 
 			escapes(yytext, buf);
 			yylval.sval = (char *) xstrdup(buf);
-                        BEGIN(0);
+                        SETSTATE(0);
 			return STRING;
 		}
 
@@ -59,9 +65,12 @@ idfile		{ return IDFILE; }
 daemon		{ return DAEMON; }
 syslog		{ return SYSLOG; }
 invisible	{ return INVISIBLE; }
+showdots	{ return SHOWDOTS; }
 postmaster	{ return POSTMASTER; }
 bouncemail	{ return BOUNCEMAIL; }
+spambounce	{ return SPAMBOUNCE; }
 warnings	{ return WARNINGS; }
+tracepolls	{ return TRACEPOLLS; }
 
 defaults 	{ return DEFAULTS; }
 server 		{ return POLL; }
@@ -74,20 +83,29 @@ proto(col)? 	{ return PROTOCOL; }
 service		{ return SERVICE; }
 port		{ return PORT; }
 interval	{ return INTERVAL; }
-preauth(enticate)?	{ BEGIN(PREAUTH); return PREAUTHENTICATE; }
-kerberos(_v)?4	{ BEGIN(0); return KERBEROS4; }
-kerberos(_v)?5	{ BEGIN(0); return KERBEROS5; }
-kerberos	{ BEGIN(0); return KERBEROS; }
-<PREAUTH>password { BEGIN(0); return PASSWORD; }
+preauth(enticate)?	{ SETSTATE(AUTH); return AUTHENTICATE; }
+auth(enticate)?	{ SETSTATE(AUTH); return AUTHENTICATE; }
+any		{ SETSTATE(0); yylval.proto = A_ANY; return AUTHTYPE;}
+gssapi		{ SETSTATE(0); yylval.proto = A_GSSAPI; return AUTHTYPE;}
+kerberos(_v)?4	{ SETSTATE(0); yylval.proto = A_KERBEROS_V4; return AUTHTYPE;}
+kerberos(_v)?5	{ SETSTATE(0); yylval.proto = A_KERBEROS_V5; return AUTHTYPE;}
+kerberos	{ SETSTATE(0); yylval.proto = A_KERBEROS_V4; return AUTHTYPE;}
+ssh		{ SETSTATE(0); yylval.proto = A_SSH; return AUTHTYPE;}
+cram(-md5)?	{ SETSTATE(0); yylval.proto = A_CRAM_MD5; return AUTHTYPE;}
+ntlm		{ SETSTATE(0); yylval.proto = A_NTLM; return AUTHTYPE;}
+<AUTH>password	{ SETSTATE(0); yylval.proto = A_PASSWORD; return AUTHTYPE;}
 timeout		{ return TIMEOUT;}
 envelope	{ return ENVELOPE; }
 qvirtual	{ return QVIRTUAL; }
+principal	{ return PRINCIPAL; }
 
-user(name)?	{BEGIN(NAME); return USERNAME; }
-pass(word)?	{BEGIN(NAME); return PASSWORD; }
+user(name)?	{SETSTATE(NAME); return USERNAME; }
+<INITIAL,NAME>pass(word)?	{SETSTATE(NAME); return PASSWORD; }
 folder(s)? 	{ return FOLDER; }
 smtp(host)?	{ return SMTPHOST; }
+fetchdomains	{ return FETCHDOMAINS; }
 smtpaddress	{ return SMTPADDRESS; }
+smtpname	{ return SMTPNAME; }
 antispam	{ return SPAMRESPONSE; }
 mda		{ return MDA; }
 bsmtp		{ return BSMTP; }
@@ -98,17 +116,17 @@ netsec		{ return NETSEC; }
 interface	{ return INTERFACE; }
 monitor		{ return MONITOR; }
 plugin		{ return PLUGIN; }
-plugout		{ return PLUGIN; }
+plugout		{ return PLUGOUT; }
 batchlimit	{ return BATCHLIMIT; }
 fetchlimit	{ return FETCHLIMIT; }
 expunge		{ return EXPUNGE; }
 properties	{ return PROPERTIES; }
 
-is		{ BEGIN(NAME); return IS; }
+is		{ SETSTATE(NAME); return IS; }
 here		{ return HERE; }
 there		{ return THERE; }
-to		{ BEGIN(NAME); return TO; }
-=		{ BEGIN(NAME); return MAP; }
+to		{ SETSTATE(NAME); return TO; }
+=		{ SETSTATE(NAME); return MAP; }
 
 nobouncemail	|
 nouidl		|
@@ -123,7 +141,10 @@ noforcecr	|
 nostripcr	|
 nopass8(bits)?	|
 nodropstatus	|
-nomimedec(ode)?	{
+nodropdelivered	|
+nomimedec(ode)? |
+nospambounce	|
+noidle	        {
                    yyless(2);
                    return NO;
                 }
@@ -138,9 +159,18 @@ forcecr		{ return FORCECR; }
 stripcr		{ return STRIPCR; }
 pass8(bits)?	{ return PASS8BITS; }
 dropstatus	{ return DROPSTATUS; }
+dropdelivered   { return DROPDELIVERED; }
 mimedec(ode)?   { return MIMEDECODE; }
+idle		{ return IDLE; }
 dns		{ return DNS; }
 uidl		{ return UIDL; }
+ssl		{ return SSL; }
+sslkey		{ return SSLKEY; }
+sslcert		{ return SSLCERT; }
+sslproto	{ return SSLPROTO; }
+sslcertck	{ return SSLCERTCK; }
+sslcertpath	{ return SSLCERTPATH; }
+sslfingerprint	{ return SSLFINGERPRINT; }
 checkalias	{ return CHECKALIAS; }
 
 limit		{ return LIMIT; }
@@ -156,18 +186,15 @@ options		{/* EMPTY */}
 (pop2)|(POP2)	{ yylval.proto = P_POP2;  return PROTO; }
 (sdps)|(SDPS)   { return SDPS; }
 (pop3)|(POP3)	{ yylval.proto = P_POP3;  return PROTO; }
-(imap-k4)|(IMAP-K4)   { yylval.proto = P_IMAP_K4;  return PROTO; }
-(imap-gss)|(IMAP-GSS) { yylval.proto = P_IMAP_GSS;  return PROTO; }
-(imap-crammd5)|(IMAP-CRAMMD5) { yylval.proto = P_IMAP_CRAM_MD5;  return PROTO; }
-(imap-login)|(IMAP-LOGIN) { yylval.proto = P_IMAP_LOGIN;  return PROTO; }
 (imap)|(IMAP)	{ yylval.proto = P_IMAP;  return PROTO; }
 (apop)|(APOP)   { yylval.proto = P_APOP;  return PROTO; }
 (etrn)|(ETRN)   { yylval.proto = P_ETRN;  return PROTO; }
+(odmr)|(ODMR)   { yylval.proto = P_ODMR;  return PROTO; }
 (kpop)|(KPOP)	{ return KPOP; }
 
 (#.*)?\\?\n	{ prc_lineno++;	}   /* newline is ignored */
 
-[0-9]+		{ yylval.number = atoi(yytext); return NUMBER; }
+-?[0-9]+/[^a-zA-Z]	{ yylval.number = atoi(yytext); return NUMBER; }
 
 [^=;:, \t\r\n]+	{
 			char buf[MSGBUFSIZE];

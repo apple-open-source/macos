@@ -1,3 +1,142 @@
+ 57. V6.10.00 - 20001119
+ 56. Completion fixes (Tom Warzeka)
+ 55. add missing linux kanji define (Tsuyoshi Kawabe)
+ 54. More WINNT_NATIVE fixes (amol)
+ 53. Fix compile error on winnt (Yoshiyuki Sakakibara)
+ 52. nonstopux configure and makefile fixes (Tom Bates)
+ 51. V6.09.04 - 20001111
+ 50. Order of initialization for multibyte display was wrong 
+     (HyunChul Kim)
+ 49. Follow the guideline for linux for japanese locale:
+     http://www.linux.or.jp/JF/JFdocs/Japanese-Locale-Policy.txt
+     (Tomohiro KUBOTA)
+ 48. Ukrainian nls map (Olexander Kunytsa)
+ 47. exit immeditiately if we get an error while we are setting up
+     (Michael Shalayeff)
+ 46. (unset path; unsetenv PATH; rehash) -> crash (Kent Vander Velden)
+ 45. change winnt to winnt_native (Randolph Fritz)
+ 44. Support home/end in the editor (Andrey A. Chernov)
+ 43. Typo s/gycwin/cygwin/ in tc.os.h (Andreas Schott)
+ 42. Alpha ev6 addition (Karen R. McArthur)
+ 41. DSPMBYTE patch from (Issei Suzuki)
+ 40. Security fix for here-doc tmp files (proton@ENERGYMECH.NET)
+ 39. Fix resource limit rounding *again* (Johannes Gross)
+ 38. Fix $ expansion in prompt (Takashi Sumiyoshi)
+ 37. V6.09.03 - 20000715
+ 36. cygwin port fixes (Arihiro Yoshida)
+ 35. Add a new "catalog" variable that specifies which NLS catalog
+     to be used (Issei Suzuki)
+ 34. cleanup and addition of page up/down (amol)
+ 33. fix vfork compile problem.
+ 32. use inet_addr instead of inet_aton for portability.
+ 31. V6.09.02 - 20000704
+ 30. lots more completions (George Cox)
+ 29. change FILSIZ to BUFSIZE [now that BUFSIZE >> MAXPATHLEN] and
+     avoid a potential buffer overflow in sh.dir.c (Volker Schmidt)
+ 28. _MINIX_VMD port (Martijn van Buul)
+ 27. inet6 handling for remotehost and configure (Hajimu UMEMOTO)
+ 26. aix-4 does not need gethostname (Darren Reed)
+ 25. IBM OS/390 Unix Systems Services support (Peter Prymmer)
+ 24. Fix prompt formatting (Andrey A. Chernov)
+ 23. Use HostType from Imakefile correctly (Kjetil Torgrim Homme)
+ 22. Handle long and expanded history lines better (Boleslaw Ciesielski)
+ 21. With symlinks=expand expand valid paths only (Martin Kraemer)
+ 20. Make one-byte charsets work with KANJI (Andrey A. Chernov)
+ 19. NT-specific executable detection moved to NT code (amol)
+ 18. New "complete module" (Dan Nicolaescu)
+ 17. Correctly display scaling string in limit error messages (Nathan Ahlstrom)
+ 16. Don't display "unset watch" message when not appropriate (kim)
+ 15. V6.09.01 - 20000114
+ 14. Circumvent IRIX4D ESTALE bug by exiting.
+ 13. IRIS4D de-linting.
+ 12. Finnish nls catalogs (Jukka A. Ukkonen)
+ 11. Even more multibyte fixes (Taga Nayuta)
+ 10. Patches to statically link tcsh under solaris-2.6 (John Hawkinson)
+  9. Manual page typos (R. Bernstein)
+  8. HP/UX-11 (9000/800) HP/UX-10.20 (9000/820) (Haflidi Sigtryggur Magnusson)
+  7. Color-ls fixes (Luis Francisco Gonzalez)
+  6. Don't re-use time0 to compare to stat's st_mtime, cause it could be
+     the value returned from times(2) which is the ticks since system
+     startup (Frank van der Linden)
+  5. Time percentage wrap fix (Simon Burge)
+  4. EUCKR support (HyunChul Kim)
+  3. Grammar and typo fixes for tcsh.man (Steve Kelem)
+  2. More multibyte fixes (Rodney Ruddock)
+  1. Change 6.08 -> 6.09 where I missed it; update for utlrix 4.5 (Simon Burge)
+
+ 65. V6.09.00 - 19990816
+ 64. Add csh emacs mode (Dan Harkless)
+ 63. Make sure the the glob buffer matches the word buffer size (Brian Biswas)
+ 62. Fix periodic to work without tperiod set (Kenny McCormack)
+ 61. V6.08.07 - 19990813
+ 60. Fix e_dabbrev_expand (Bjorn Knutsson)
+ 59. Make \builtin work again (by calling the command not the builtin)
+ 58. Add NLS_BUGS for OS's that keep file descriptors open for NLS (Ian Dowse)
+ 57. Make NONLSREBIND work after tcsh starts up.
+ 56. Fix AIX stupid exit bug. (Dan Harkless)
+ 55. More irix fixes (Kaveh)
+ 54. V6.08.06 - 19990701
+ 53. module command completion (Dan Nicolaescu)
+ 52. Man command completion enhancement (Tom)
+ 51. Fixes for irix configuration (Kaveh)
+ 50. Support \a and \e in echo command. From (Keith Thompson)
+ 49. Alpha configure nit from Kaveh
+ 48. V6.08.05 - 19990511
+ 47. In some system, when a builtin fails immediately after we start
+     tcsh and before we print any messages, NLS messages fail (some
+     descriptor might be closed) [FreeBSD, HP/UX?]. So we force reading
+     the NLS catalogs in errinit() (Yoshiyuki Sakakibara)
+ 46. typos in ja/set1 and ja/set29 (Yoshiyuki Sakakibara)
+ 45. "dspmbyte autoset trap" support to HP-UX 10.20. (Yoshiyuki Sakakibara)
+ 44. misnumbered NLS message in tw.help.c (Yoshiyuki Sakakibara)
+ 43. colorcat variable for NLS color messages (Yoshiyuki Sakakibara)
+ 42. autoconf fixes from Kaveh (and if it broke, me)
+ 41. SGI irix fixes from Glenn Coombs.
+ 40. Don't spin writing the history file when quota is exceeded (Rob McMahon)
+ 39. V6.08.04 - 19990419
+ 38. complete additions (John Gotts)
+ 37. Port to amiga with geek gadgets (Arto Huusko)
+ 36. Ignore case in setenv for windows (amol)
+ 35. Bug fixes for NT unc stuff (amol)
+ 34. Hash spell check (amol)
+ 33. V6.08.03 - 19990211
+ 32. Helpcommand documentation (Vladimir Alexiev)
+ 31. small Y2K fix [%y in prompt would be formatted as 10 not 00 at year 2000],
+     and new Itoa() code (Chris Torek)
+ 30. OpenBSD m68k patches (Paul DuBois)
+ 29. Avoid redefinition of getpeername on Solaris-2.7
+ 28. fix problems with savedups=erase, savehist=merge (Randy Gobbel)
+ 27. Don't set $shell to csh, if we were invoked as tcsh (Tomas Persson)
+ 26. added $_
+ 25. added postcmd
+ 24. V6.08.02 - 19981124
+ 23. document continue and continue_args
+ 22. wrong test in slowexec made NT optimization a noop (Amol)
+ 21. Rhapsody fixes + separate CFLAGS/CPPFLAGS (Wilfredo Sanchez)
+ 20. literals in both prompt at rprompt did not work properly (Taga Nayuta)
+ 19. multibyte deletion fixes (Yoshiyuki.Sakakibara)
+ 18. clean up key binding stuff for NT by moving the nt dependent code to
+     the NT source (amol)
+ 17. dspmbyte fixes for AIX, typos in man page and nls (Yoshiyuki Sakakibara)
+ 16. Convex fixes (Ron Echeverri)
+ 15. V6.08.01 - 19981025
+ 14. SX4 port; this adds many casts for machines where ptrdiff_t is 64 bits.
+     (Andreas Schott)
+ 13. U/Win port; does not work properly with U/Win 1.6, wait for the next
+     version (Chris Jones)
+ 12. Sgi does not need gethostname prototype (John Bogan)
+ 11. Logic in sh.dir.c was wrong for NT (Amol)
+ 10. HP_CXD_SPP stat64 fixes (Scott Garee)
+  9. Documentation spelling fixes (Keith Thompson)
+  8. Documentation fix for savedirs (Amol)
+  7. Siemens OSD_POSIX fixes (Martin Kraemer)
+  6. include <errno.h> for all the BSD's (Trevor Johnson)
+  5. Multibyte display fixes for gnu ls (Taga Nayuta)
+  4. Configure/Makefile hesiod and bindir fixes (Dan Winship)
+  3. Use winnt not win32 in tc.os.h (Amol)
+  2. Cygwin32 port (Raj Menon)
+  1. Ported Fixes (Tom)
+
  95. V6.08.00 - 19981002
  94. where builtin nt fix (Amol)
  93. V6.07.13 - 19980926
@@ -1352,11 +1491,11 @@ V5.19.02, 10/23/90.
  1. Added IRIX3.3.1 support.
 
 V5.19.01, 9/26/90.
-7. Brought the README file up-to-date, and changed the bug report
-   address to point to me.
-6. sh.lex.c. In addla(), overflow computation was wrong.
-5. Fixed SHELLPATH, to be set correctly when $SHELL is not set.
-4. Fixed print statement in sh.proc.c that contained \215.
-3. Fixed the Makefile and MAKEDIFFS so that a tahoe diff can be made.
-2. RS6000: hacked around execv bug, and ed.init.c warning.
-1. Editor should not be enabled when we don't have a tty.
+ 7. Brought the README file up-to-date, and changed the bug report
+    address to point to me.
+ 6. sh.lex.c. In addla(), overflow computation was wrong.
+ 5. Fixed SHELLPATH, to be set correctly when $SHELL is not set.
+ 4. Fixed print statement in sh.proc.c that contained \215.
+ 3. Fixed the Makefile and MAKEDIFFS so that a tahoe diff can be made.
+ 2. RS6000: hacked around execv bug, and ed.init.c warning.
+ 1. Editor should not be enabled when we don't have a tty.

@@ -1,0 +1,146 @@
+.TH REDO_PREBINDING 3 "March 12, 2001" "Apple Computer, Inc."
+.SH NAME
+dependent_libs, redo_prebinding, needs_redo_prebinding
+\- redo_prebinding library functions
+.SH SYNOPSIS
+.nf
+.PP
+.ft B
+#include <mach-o/redo_prebinding.h>
+.sp .5
+extern char ** dependent_libs(
+	const char *file_name,
+	const char *program_name,
+	char **error_message);
+.sp .5
+extern int redo_prebinding(
+	const char *file_name,
+	const char *executable_path,
+	const char *root_dir,
+	const char *output_file,
+	const char *program_name,
+	char **error_message,
+	unsigned long slide_to_address /* not yet supported parameter */ );
+.sp .5
+extern enum needs_redo_prebinding_retval needs_redo_prebinding(
+	const char *file_name,
+	const char *executable_path,
+	const char *root_dir,
+	const char *program_name,
+	char **error_message);
+.SH DESCRIPTION
+These functions are intended for use by
+.IR update_prebinding (1).
+.PP
+For all of these functions in the parameters
+.I program_name
+and
+.I  error_message
+are used the same.  For unrecoverable resource errors like being unable to
+allocate memory each function prints a message to stderr precede with
+.I program_name
+then calls
+.IR exit (2)
+with the value
+.SM EXIT_FAILURE.
+If a function is unsuccessful and if
+.I error_message
+pass to it is not
+.SM NULL it is set to a
+.IR malloc (3)'ed
+buffer with a
+.SM NULL
+terminated string with the error message.  For all functions
+when they return they release all resources (memory, open file descriptors,
+etc). 
+.PP
+The file_name parameter for these functions may be of the form
+.I foo(bar)
+which is NOT interpreted as an archive name and a member name in that archive.
+As these functions deal with prebinding and prebound binaries ready for
+execution can't be in archives.
+.PP
+If the
+.I executable_path
+parameter for these functions is not
+.SM NULL
+it is used for any dependent library has a path that starts with
+.I @executable_path.
+Then
+.I @executable_path
+is replaced with
+.I executable_path. 
+.PP
+If the
+.I root_dir
+parameter is not
+.SM NULL
+it is prepended to all the rooted dependent library paths. 
+.PP
+.IR dependent_libs ()
+takes a
+.I file_name
+of a binary and returns a
+.IR malloc (3)'ed
+array of pointers (NULL terminated) to names (also
+.IR malloc (3)'ed
+and '\\0' terminated names) of all the dependent libraries for that binary (not
+recursive) for all of the architectures of that binary.  If successful
+.I dependent_libs()
+returns a non
+.SM NULL
+value (at minimum a pointer to one
+.SM NULL
+pointer). If unsuccessful
+.I dependent_libs returns
+NULL.
+.PP
+.IR redo_prebinding ()
+takes a
+.I file_name
+of a binary and redoes the prebinding on it.  If
+.I output_file
+is not
+.SM NULL
+the update file is written to
+.I output_file,
+if not it is written to
+.I file_name.
+If
+.I redo_prebinding()
+is successful it returns 0 otherwise it returns 1.  If not all architectures
+can be updated it is not successful and nothing is done.
+The not yet supported
+.I slide_to_address
+parameter should be passed a value of zero. When supported a non-zero value
+will be the address a dynamic library is to be relocated to as its preferred
+address.
+.PP
+.IR needs_redo_prebinding()
+takes a
+.I file_name
+and determines if it is a binary and if its prebinding is uptodate.  It returns
+one of the return values below depending on the state of the binary and
+libraries.  The value returned is based on the first architecture for fat files.
+.PP
+Return values for
+.I needs_redo_prebinding():
+.TP
+.B PREBINDING_UPTODATE
+a binary who's prebinding is up todate.
+.TP
+.B PREBINDING_OUTOFDATE
+a binary who's prebinding is out of date.
+.TP
+.B NOT_PREBOUND
+a binary, but not built prebound.
+.TP
+.B NOT_PREBINDABLE
+not a binary, prebinding does not apply.
+.TP
+.B PREBINDING_UNKNOWN
+a binary who's prebinding can't be determined because it is malformed, a
+library it depends on is missing, etc.
+.SH "SEE ALSO"
+.IR redo_prebinding (1),
+.IR update_prebinding (1)

@@ -3,6 +3,9 @@
 ##
 # Multi-user startup script.
 #
+# Wilfredo Sanchez | wsanchez@opensource.apple.com
+# Copyright 1997-2001 Apple Computer, Inc.
+#
 # Customize system startup by adding scripts to the startup 
 # directory, rather than editing this file.
 ##
@@ -92,7 +95,7 @@ ConsoleMessage "Mounting local filesystems"
 mount -vat hfs
 mount -vat ufs
 mount -t fdesc -o union stdin /dev
-mkdir -p /.vol && mount_volfs /.vol
+mkdir -p -m 0555 /.vol && chmod 0555 /.vol && mount_volfs /.vol
 
 ##
 # Create mach symbol file
@@ -125,14 +128,19 @@ else
 fi
 
 ##
-# This is a hack to deal with resource forks created on UFS during
-# the system build.  It should go away.
+# Create or update the mkext cache, which will make subsequent
+# boots slightly faster.
 ##
 
-if [ -f /var/log/runFixUpResources ]; then
-    /System/Library/CoreServices/FixupResourceForks > /var/tmp/FixupResourceForks.log 2>&1
-    sync
-    rm -f /var/log/runFixUpResources
+if [ ! -f /System/Library/Extensions.mkext -o \
+     /System/Library/Extensions.mkext -ot /System/Library/Extensions ]; then
+
+    if [ "${SafeBoot}" != "-x" ]; then
+        ConsoleMessage "Updating kernel extensions cache"
+        rm -f /System/Library/Extensions.mkext
+        /usr/sbin/mkextcache -l -t `arch` -o /System/Library/Extensions.mkext \
+            -d /System/Library/Extensions
+    fi
 fi
 
 ##
@@ -147,7 +155,7 @@ fi
 if [ -z "${VerboseFlag}" ] &&
    [ -x /System/Library/CoreServices/WindowServer ]; then
     ConsoleMessage "Starting Window Server"
-    /System/Library/CoreServices/WindowServer
+    /System/Library/CoreServices/WindowServer ${SafeBoot}
 fi
 
 ##

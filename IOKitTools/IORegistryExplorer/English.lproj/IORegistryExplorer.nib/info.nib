@@ -3,10 +3,31 @@
 <plist version="0.9">
 <dict>
 	<key>IBMainMenuLocation</key>
-	<string>22 313 278 44 0 0 978 746 </string>
+	<string>42 450 240 44 0 42 1600 960 </string>
 	<key>IBUserGuides</key>
 	<dict>
+		<key>Inspector</key>
+		<dict>
+			<key>guideLocations</key>
+			<array/>
+			<key>guidesLocked</key>
+			<string>NO</string>
+		</dict>
 		<key>Main Window</key>
+		<dict>
+			<key>guideLocations</key>
+			<array/>
+			<key>guidesLocked</key>
+			<string>NO</string>
+		</dict>
+		<key>Search</key>
+		<dict>
+			<key>guideLocations</key>
+			<array/>
+			<key>guidesLocked</key>
+			<string>NO</string>
+		</dict>
+		<key>String Desc</key>
 		<dict>
 			<key>guideLocations</key>
 			<array/>

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2000 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2001 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 0.92 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
@@ -23,7 +23,7 @@
 
 #include "zend_compile.h"
 
-#define ZEND_EXTENSION_API_NO	20001120	
+#define ZEND_EXTENSION_API_NO	20001224
 
 typedef struct _zend_extension_version_info {
 	int zend_extension_api_no;
@@ -38,8 +38,8 @@ typedef struct _zend_extension zend_extension;
 /* Typedef's for zend_extension function pointers */
 typedef int (*startup_func_t)(zend_extension *extension);
 typedef void (*shutdown_func_t)(zend_extension *extension);
-typedef void (*activate_func_t)();
-typedef void (*deactivate_func_t)();
+typedef void (*activate_func_t)(void);
+typedef void (*deactivate_func_t)(void);
 
 typedef void (*message_handler_func_t)(int message, void *arg);
 

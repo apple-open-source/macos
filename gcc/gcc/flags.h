@@ -75,6 +75,9 @@ extern int inhibit_warnings;
 
 extern int extra_warnings;
 
+/* Nonzero to warn about "poor" field alignment.  */
+extern int warn_poor_field_align; 
+
 /* Nonzero to warn about unused local variables.  */
 
 extern int warn_unused;
@@ -328,6 +331,7 @@ extern int flag_no_inline;
 /* Nonzero means dump symbol records from the parser to stdout.  */
 
 extern int flag_dump_symbols;
+extern int flag_gen_index;
 
 /* Nonzero if we are only using compiler to check syntax errors.  */
 
@@ -530,10 +534,21 @@ extern int flag_check_mem;
 #endif
 
 #ifdef HAVE_COALESCED_SYMBOLS
-extern int flag_coalesced;
+extern int flag_ignore_unused_static_aggregates;
+extern int flag_coalescing_enabled;
+extern int flag_coalesce_templates;
+extern int flag_coalesce_static_vtables;
+extern int flag_coalesce_out_of_line_inlines;
 extern int flag_force_coalesced;
 extern int flag_privatize_coalesced;
 extern int flag_coalesce_rtti;
+extern int flag_instantiate_unreferenced_templates;
+#endif
+
+#ifdef EH_CLEANUPS_SEPARATE_SECTION
+/* Nonzero if we attempt to put compiler-generated EH cleanup code in
+   a separate "__TEXT __eh_cleanup" section.  */
+extern int flag_separate_eh_cleanup_section;
 #endif
 
 /* Value of the -finline-limit flag.  */

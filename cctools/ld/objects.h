@@ -47,8 +47,12 @@ struct object_file {
     enum bool dylib;		/* TRUE if mh->filetype == MH_DYLIB */
     enum bool dylib_stuff;	/* TRUE if any LC_LOAD_DYLIB or LC_ID_DYLIB */
 				/*  load commands in the file. */
-    unsigned long		/* when -twolevel_name space in in effect */
+    enum bool bundle_loader;	/* TRUE this the -bundle_loader object */
+    unsigned long		/* when -twolevel_name space is in effect */
 	library_ordinal;	/*  this the library_ordinal for recording */
+    unsigned long isub_image;   /* when -twolevel_name space is in effect */
+				/*  this the sub_image index for recording */
+    unsigned long nload_dylibs; /* Number of LC_LOAD_DYLIB commands */
     enum bool dylinker;		/* TRUE if mh->filetype == MH_DYLINKER */
     enum bool command_line;	/* TRUE if object is created for a symbol */
 				/*  created on the command line. */

@@ -67,11 +67,28 @@ struct merged_symbol {
 				   /*  will be in output file */
 	flagged_read_only_reloc:1, /* symbol reported as an external reloc */
 				   /*  in a read only section */
-	reserved:3,
+	twolevel_reference:1,	   /* set only for merged_symbol structs that */
+				   /*  are not in the merged symbol table but */
+				   /*  only in the undefined list as a two- */
+				   /*  level namespace reference from a dylib.*/
+	reserved:2,
 	output_index:24;	/* the symbol table index this symbol will */
 				/*  have in the output file. */
     int undef_order;		/* if the symbol was undefined the order it */
 				/*  was seen. */
+    /*
+     * For two-level namespace hints this is the index into the table of
+     * contents for the definition symbol in the dylib it is defined in,
+     */
+    unsigned long itoc;
+
+    /*
+     * If the twolevel_reference bit above is set this is a pointer to
+     * the dynamic_library struct the two-level reference is in.  Then the
+     * library ordinal in the nlist struct can be used with the dependent_images
+     * to cause the correct module to be loaded.
+     */
+    struct dynamic_library *referencing_library;
 };
 
 /*
@@ -285,6 +302,8 @@ __private_extern__ void command_line_indr_symbol(
     char *indr_symbol_name);
 #ifndef RLD
 __private_extern__ void merge_dylib_module_symbols(
+    struct dynamic_library *dynamic_library);
+__private_extern__ void merge_bundle_loader_symbols(
     struct dynamic_library *dynamic_library);
 #endif /* !defined(RLD) */
 __private_extern__ void delete_from_undefined_list(

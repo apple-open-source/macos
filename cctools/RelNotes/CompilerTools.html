@@ -1,19 +1,29 @@
 <HTML>
-<!--This file created 2/6/01 5:06 PM by Claris Home Page version 3.0-->
+<!--This file created 6/28/01 4:03 PM by Claris Home Page version 3.0-->
 <HEAD>
-   <TITLE>Compiler Tools Release Notes</TITLE>
+   <TITLE>Mac OS X 10.1 Compiler Tools Release Notes</TITLE>
    <META NAME=GENERATOR CONTENT="Claris Home Page 3.0">
    <X-CLARIS-WINDOW TOP=60 BOTTOM=867 LEFT=401 RIGHT=1051>
    <X-CLARIS-TAGVIEW MODE=minimal>
 </HEAD>
 <BODY BGCOLOR="#FFFFFF">
-<P><FONT SIZE="-1">MacOS X 1.0 Release Notes Copyright 2001 by Apple
-Computer, Inc. All Rights Reserved.</FONT></P>
 
-<H1>Mac OS X 1.0 Release Notes:<BR>
+<H1>Mac OS X 10.1 Release Notes:<BR>
 Compiler Tools</H1>
 
-<P>These notes are for the 1.0 Release of the compiler tools. They
+<!-- start of path -->
+<table cellspacing=0 border=0 width=600 valign="left">
+<tr>
+<td><font face="Geneva,Helvetica,Arial" size="1"><b>PATH<spacer type="horizontal" size="5">&nbsp;</b><a href="help:goto_helpcenter=developer" target="_top">Documentation</a> <b>&gt;</b> Release Notes</font></td>
+</tr>
+</table><br>
+<!-- end of path -->
+
+<a href="index.html"><img src="Images/up.gif" border="0" width="36" height="16"></A>
+
+
+
+<P>These notes are for the 10.1 release of the compiler tools. They
 contain information about the following topics:</P>
 
 <UL>
@@ -23,19 +33,60 @@ contain information about the following topics:</P>
    
    <LI>The Mac OS X Mach-O dynamic link editor</LI>
    
-   <LI>Mach-O object tools (<B>nm</B>, <B>otool</B>, and so on)</LI>
+   <LI>Mach-O object file tools (<B>nm</B>, <B>otool</B>, and so on)</LI>
 </UL>
 
-<H2>Notes Specific to Mac OS X 1.0 Release</H2>
+<H2>Notes Specific to Mac OS X 10.1 Release</H2>
+
+<P>You must use the 10.1 compiler tools with images (executables,
+plugins and shared libraries) created with the 10.1 tools. The compiler
+tools in MacOS 10.0 will not work with images created with the 10.1
+compiler tools. If you attempt to use the 10.0 compiler tools on images
+created with the 10.1 compiler tools, error messages may result
+indicating that the image is a malformed file.</P>
+
+<P>By default the compiler tools build images using the new two-level
+namespace binding semantics, which has important consequences for
+compatibility with Mac OS X 10.0 <a href="#namespacenote">(see below for more information)</a>.</P>
+
+<H2>New Features</H2>
+
+<P>The following new features have been added to the Compiler Tools
+for the Mac OS X 10.1 system release.</P>
 
 <UL>
-   <LI>There are no notes specific for the Mac OS X 1.0 Release of
+   <LI><a id="namespacenote" name="namespacenote">The compiler tools now support two-level namespaces for binding
+   undefined references from shared libraries. In flat namespace images,
+   all symbols are referenced globally using a single name table. In
+   two-level namespace images, symbols are referenced by library name
+   and symbol name. This prevents multiple-defined-symbol errors when
+   one image exports the same symbol as another image in the same
+   program. You must rebuild your applications and plugins to take
+   advantage of this feature, and there are compatibility restrictions
+   with Mac OS X 10.0 that you should understand. For more information
+   see the <I>ld</I>(1) man page and the <a
+   href="TwoLevelNamespaces.html">two-level namespace release
+   note.</a></a></LI>
+   
+   <LI>The dynamic linker now has API's for doing two-levelnamespace
+   lookups. They are NSAddImage(), NSLookupSymbolInImage() and
+   NSIsSymbolNameDefinedInImage(). For more information see the
+   NSModule(3) man page. [This fixes Apple bug number 2689833.]</LI>
+   
+   <LI><a href="Prebinding.html">Prebinding is now documented in a
+   release note.</a> [This fixes Apple bug number 2611234.]</LI>
+</UL>
+
+<H2>Notes Specific to Mac OS X 10.0 Release</H2>
+
+<UL>
+   <LI>There are no notes specific to the Mac OS X 10.0 release of
    the compiler tools.</LI>
 </UL>
 
 <H2>Notes Specific to Mac OS X Public Beta Release</H2>
 
-<H3><FONT SIZE="+1">New Features</FONT></H3>
+<H3>New Features</H3>
 
 <P>The following new features have been added to the Compiler Tools
 since the Mac OS X Developer Release 4.</P>
@@ -656,5 +707,8 @@ of the expanded macro.</P>
 <P>The instruction <CODE>tlbiex</CODE>, which has been removed from
 the PowerPC architecture, is not supported by the Mac OS X assembler.
 This instruction is assembled by <B>ppcasm</B>.</P>
+
+<p><font face="Geneva,Helvetica,Arial" size="1">Copyright &#169; 2001 Apple Computer, Inc.</font></p>
+
 </BODY>
 </HTML>

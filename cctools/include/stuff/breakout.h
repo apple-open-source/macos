@@ -113,8 +113,11 @@ struct object {
 	*load_commands;
     struct symtab_command *st;	    /* the symbol table command */
     struct dysymtab_command *dyst;  /* the dynamic symbol table command */
+    struct twolevel_hints_command   /* the two-level namespace hints command */
+	*hints_cmd;
     struct segment_command
 	*seg_linkedit;	    	    /* the link edit segment command */
+    struct section **sections;	    /* array of section structs */
 
     unsigned long input_sym_info_size;
     unsigned long output_sym_info_size;
@@ -131,6 +134,8 @@ struct object {
     unsigned long output_iundefsym;
     unsigned long output_nundefsym;
 
+    struct twolevel_hint *output_hints;
+
     struct relocation_info *output_loc_relocs;
     struct relocation_info *output_ext_relocs;
     unsigned long *output_indirect_symtab;
@@ -143,7 +148,7 @@ struct object {
     unsigned long output_nextrefsyms;
 };
 
-__private_extern__ void breakout(
+__private_extern__ struct ofile * breakout(
     char *filename,
     struct arch **archs,
     unsigned long *narchs);

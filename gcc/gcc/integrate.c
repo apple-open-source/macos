@@ -255,6 +255,18 @@ function_cannot_inline_p (fndecl)
   if (result && GET_CODE (result) == PARALLEL)
     return N_("inline functions not supported for this return value type");
 
+#ifdef NEXT_SEMANTICS
+  {
+    extern char *(*maybe_inline_func_p) PROTO ((tree));
+    if (maybe_inline_func_p)
+      {
+	char *excuse = maybe_inline_func_p (fndecl);
+	if (excuse)
+	  return excuse;
+      }
+   }
+#endif
+
   return 0;
 }
 

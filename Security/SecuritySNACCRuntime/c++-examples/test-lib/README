@@ -1,0 +1,43 @@
+(RCS control information is at the end of this file.)
+
+
+C++ test_lib README
+-------------------
+
+This directory should have 3 files:
+        README - this file
+        makefile
+        test_lib.C
+
+Type "make" to compile test_lib.
+
+test_lib tests each encode and decode routine in the C++ ASN.1
+runtime library. Errors will be reported.
+
+test_lib should be run for each machine architecture you install snacc on.
+If you modify the library routines you should run test_lib again.
+
+The general testing methodology is:
+        1. test the buffer routines
+        2. test tags
+        3. test lengths
+        4. test each libarary type.
+
+For each type, a range of values is encoded and then decoded
+and and compared with the original value.
+
+#-------------------------------------------------------------------------------
+# $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/c++-examples/test-lib/README,v 1.1.1.1 2001/05/18 23:14:05 mb Exp $
+# $Log: README,v $
+# Revision 1.1.1.1  2001/05/18 23:14:05  mb
+# Move from private repository to open source repository
+#
+# Revision 1.1.1.1  1999/03/16 18:05:58  aram
+# Originals from SMIME Free Library.
+#
+# Revision 1.2  1997/02/16 20:25:29  rj
+# check-in of a few cosmetic changes
+#
+# Revision 1.1  1994/08/31  08:48:16  rj
+# first check-in. for a list of changes to the snacc-1.1 distribution please refer to the ChangeLog.
+#

@@ -23,6 +23,33 @@ Bugs to be fixed:
 - The PowerPC extended branch mnemonic like beqlrl need to take a CRFONLY or
   a number shifted over by 2 (like the fcmpu instruction).
 
+Changes for the 5.9 release (the cctools-375 release):
+- Picked up patches to add ()'s around builtin ppc macros.  Radar bug #2717461.
+- Removed the references to libstreams by removing the use of the old
+  project builder interfaces with the ifdef OLD_PROJECTBUILDER_INTERFACE.  This
+  appears in messages.c and as.c .
+
+Changes for the 5.9 release (the cctools-364 release):
+- Fixed a bug in the assembler when a ".=value" was past the value of the
+  current location counter and caused the assembler to crash.  The fix is in
+  layout_addresses() in layout.c in the case for rs_org to test the value of
+  fragP->fr_offset for being less than 0.  Radar bug #2682911.
+- Picked up a change to the PowerPC assembler adds the 4-arg option to rlwinm
+  and friends, and uses mask->mb/me conversion code that was lifted from
+  current GNU as.  Radar bug #2684824.
+
+Changes for the 5.9 release (the cctools-363 release):
+- Fixed a bug in the PowerPC assembler that incorrectly changed the Y bit of a
+  branch conditional when no prediction was specified.  The book on Page F-10
+  says "assemblers should clear this bit unless otherwise directed".  Radar bug
+  #2665165.
+- Changed the ppc assembler to allow VMX instructions when -arch ppc7400 or
+  -arch ppc7450 is specified.
+
+Changes for the 5.9 release (the cctools-359 release):
+- Added -Wno-long-double to shutup the compiler for
+  <architecture/m88k/fp_regs.h>.
+
 Changes for the 5.8 release (the cctools-357 release):
 - Added support for the CPU_SUBTYPE_POWERPC_7450 in as.c. Radar bug #2599869.
 

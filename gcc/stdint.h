@@ -85,15 +85,21 @@ typedef unsigned long long      uintmax_t;
 
 
 /* 7.18.2.1 Limits of exact-width integer types */
-#define INT8_MIN         -128
-#define INT16_MIN        -32768
-#define INT32_MIN        -2147483648
-#define INT64_MIN        -9223372036854775808LL
+#define INT8_MAX         127
+#define INT16_MAX        32767
+#define INT32_MAX        2147483647
+#define INT64_MAX        9223372036854775807LL
 
-#define INT8_MAX         +127
-#define INT16_MAX        +32767
-#define INT32_MAX        +2147483647
-#define INT64_MAX        +9223372036854775807LL
+#define INT8_MIN          -128
+#define INT16_MIN         -32768
+   /*
+      Note:  the literal "most negative int" cannot be written in C --
+      the rules in the standard (section 6.4.4.1 in C99) will give it
+      an unsigned type, so INT32_MIN (and the most negative member of
+      any larger signed type) must be written via a constant expression.
+   */
+#define INT32_MIN        (-INT32_MAX-1)
+#define INT64_MIN        (-INT64_MAX-1)
 
 #define UINT8_MAX         255
 #define UINT16_MAX        65535

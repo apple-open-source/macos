@@ -212,6 +212,16 @@ enum NXByteOrder target_byte_sex)
 }
 
 void
+swap_sub_library_command(
+struct sub_library_command *lsub,
+enum NXByteOrder target_byte_sex)
+{
+	lsub->cmd = NXSwapLong(lsub->cmd);
+	lsub->cmdsize = NXSwapLong(lsub->cmdsize);
+	lsub->sub_library.offset = NXSwapLong(lsub->sub_library.offset);
+}
+
+void
 swap_sub_client_command(
 struct sub_client_command *csub,
 enum NXByteOrder target_byte_sex)
@@ -273,6 +283,72 @@ enum NXByteOrder target_byte_sex)
 {
 	id_cmd->cmd = NXSwapLong(id_cmd->cmd);
 	id_cmd->cmdsize = NXSwapLong(id_cmd->cmdsize);
+}
+
+void
+swap_routines_command(
+struct routines_command *r_cmd,
+enum NXByteOrder target_byte_sex)
+{
+	r_cmd->cmd = NXSwapLong(r_cmd->cmd);
+	r_cmd->cmdsize = NXSwapLong(r_cmd->cmdsize);
+	r_cmd->init_address = NXSwapLong(r_cmd->init_address);
+	r_cmd->init_module = NXSwapLong(r_cmd->init_module);
+	r_cmd->reserved1 = NXSwapLong(r_cmd->reserved1);
+	r_cmd->reserved2 = NXSwapLong(r_cmd->reserved2);
+	r_cmd->reserved3 = NXSwapLong(r_cmd->reserved3);
+	r_cmd->reserved4 = NXSwapLong(r_cmd->reserved4);
+	r_cmd->reserved5 = NXSwapLong(r_cmd->reserved5);
+	r_cmd->reserved6 = NXSwapLong(r_cmd->reserved6);
+}
+
+void
+swap_twolevel_hints_command(
+struct twolevel_hints_command *hints_cmd,
+enum NXByteOrder target_byte_sex)
+{
+	hints_cmd->cmd = NXSwapLong(hints_cmd->cmd);
+	hints_cmd->cmdsize = NXSwapLong(hints_cmd->cmdsize);
+	hints_cmd->offset = NXSwapLong(hints_cmd->offset);
+	hints_cmd->nhints = NXSwapLong(hints_cmd->nhints);
+}
+
+void
+swap_twolevel_hint(
+struct twolevel_hint *hints,
+unsigned long nhints,
+enum NXByteOrder target_byte_sex)
+{
+    struct swapped_twolevel_hint {
+	union {
+	    struct {
+		unsigned long
+		    itoc:24,
+		    isub_image:8;
+	    } fields;
+	    unsigned long word;
+	} u;
+    } shint;
+
+    unsigned long i;
+    enum NXByteOrder host_byte_sex;
+
+	host_byte_sex = NXHostByteOrder();
+
+	for(i = 0; i < nhints; i++){
+	    if(target_byte_sex == host_byte_sex){
+		memcpy(&shint, hints + i, sizeof(struct swapped_twolevel_hint));
+		shint.u.word = NXSwapLong(shint.u.word);
+		hints[i].itoc = shint.u.fields.itoc;
+		hints[i].isub_image = shint.u.fields.isub_image;
+	    }
+	    else{
+		shint.u.fields.isub_image = hints[i].isub_image;
+		shint.u.fields.itoc = hints[i].itoc;
+		shint.u.word = NXSwapLong(shint.u.word);
+		memcpy(hints + i, &shint, sizeof(struct swapped_twolevel_hint));
+	    }
+	}
 }
 
 void

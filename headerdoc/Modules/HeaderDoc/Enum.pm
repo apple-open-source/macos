@@ -4,7 +4,7 @@
 # Synopsis: Holds struct info parsed by headerDoc
 #
 # Author: Matt Morse (matt@apple.com)
-# Last Updated: 12/9/99
+# Last Updated: $Date: 2001/03/22 02:27:13 $
 # 
 # Copyright (c) 1999 Apple Computer, Inc.  All Rights Reserved.
 # The contents of this file constitute Original Code as defined in and are
@@ -27,6 +27,8 @@ package HeaderDoc::Enum;
 use HeaderDoc::Utilities qw(findRelativePath safeName getAPINameAndDisc convertCharsForFileMaker printArray printHash);
 use HeaderDoc::HeaderElement;
 use HeaderDoc::MinorAPIElement;
+use HeaderDoc::APIOwner;
+
 @ISA = qw( HeaderDoc::HeaderElement );
 
 use strict;
@@ -85,7 +87,7 @@ sub processEnumComment {
             ($field =~ s/^constant\s+//) && 
             do {
 				$field =~ s/^\s+|\s+$//g;
-	            $field =~ /(\w*)\s+(.*)/s;
+	            $field =~ /(\w*)\s*(.*)/s;
 	            my $cName = $1;
 	            my $cDesc = $2;
 	            my $cObj = HeaderDoc::MinorAPIElement->new();
@@ -113,6 +115,40 @@ sub getEnumDeclaration {
     print "Enum: returning declaration:\n\t|$dec|\n" if ($localDebug);
     print "============================================================================\n" if ($localDebug);
     return $dec;
+}
+
+sub documentationBlock {
+    my $self = shift;
+    my $name = $self->name();
+    my $abstract = $self->abstract();
+    my $desc = $self->discussion();
+    my $declaration = $self->declarationInHTML();
+    my @constants = $self->constants();
+    my $contentString;
+    my $apiUIDPrefix = HeaderDoc::APIOwner->apiUIDPrefix();
+    
+    $contentString .= "<a name=\"//$apiUIDPrefix/c/tag/$name\"></a>\n"; # apple_ref marker
+    $contentString .= "<h3><a name=\"$name\">$name</a></h3>\n";
+    if (length($abstract)) {
+        $contentString .= "<b>Abstract:</b> $abstract\n";
+    }
+    $contentString .= "<blockquote>$declaration</blockquote>\n";
+    $contentString .= "<p>$desc</p>\n";
+    my $arrayLength = @constants;
+    if ($arrayLength > 0) {
+        $contentString .= "<h4>Constants</h4>\n";
+        $contentString .= "<blockquote>\n";
+        $contentString .= "<table border = \"1\"  width = \"90%\">\n";
+        $contentString .= "<thead><tr><th>Name</th><th>Description</th></tr></thead>\n";
+        foreach my $element (@constants) {
+            my $cName = $element->name();
+            my $cDesc = $element->discussion();
+            $contentString .= "<tr><td align = \"center\"><a name=\"//$apiUIDPrefix/c/econst/$cName\"><tt>$cName</tt></a></td><td>$cDesc</td><tr>\n";
+        }
+        $contentString .= "</table>\n</blockquote>\n";
+    }
+    $contentString .= "<hr>\n";
+    return $contentString;
 }
 
 sub printObject {

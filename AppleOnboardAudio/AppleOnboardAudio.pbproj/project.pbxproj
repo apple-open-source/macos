@@ -1,0 +1,3211 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 34;
+	objects = {
+		00C69909002BCF867F000001 = {
+			isa = PBXBundleReference;
+			path = AppleOWScreamerAudio.kext;
+			refType = 3;
+		};
+		00C6990A002BCF867F000001 = {
+			isa = PBXTargetDependency;
+			target = 00C6990B002BCF867F000001;
+		};
+		00C6990B002BCF867F000001 = {
+			buildPhases = (
+				00C6990C002BCF867F000001,
+				00C6990D002BCF867F000001,
+				00C6990E002BCF867F000001,
+				00C6990F002BCF867F000001,
+				00C69910002BCF867F000001,
+				00C69911002BCF867F000001,
+			);
+			buildSettings = {
+				KERNEL_MODULE = YES;
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleOWScreamerAudio;
+				MODULE_VERSION = 1.5f1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleOWScreamerAudio;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = AppleOWScreamerAudio;
+			productName = AppleOWScreamerAudio;
+			productReference = 00C69909002BCF867F000001;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
+<plist version=\"0.9\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>AppleOWScreamerAudio</string>
+	<key>CFBundleGetInfoString</key>
+	<string>AppleOWScreamerAudio version 1.5, Copyright 2000 Apple Computer ,Inc.</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.AppleOWScreamerAudio</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>AppleOWScreamerAudio</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.5</string>
+	<key>CFBundleSignature</key>
+	<string>aaud</string>
+	<key>CFBundleVersion</key>
+	<string>1.5f1</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>AppleOWScreamerAudio</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleOWScreamerAudio</string>
+			<key>IOClass</key>
+			<string>AppleOWScreamerAudio</string>
+			<key>IONameMatch</key>
+			<array>
+				<string>davbus</string>
+				<string>awacs</string>
+			</array>
+			<key>IOProviderClass</key>
+			<string>AppleMacIODevice</string>
+		</dict>
+	</dict>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.driver.AppleDBDMAAudio</key>
+		<string>1.1f2</string>
+		<key>com.apple.iokit.IOAudioFamily</key>
+		<string>1.1d26</string>
+	</dict>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 0;
+		};
+		00C6990C002BCF867F000001 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			name = "Shell Script";
+			neededFileNames = (
+			);
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		00C6990D002BCF867F000001 = {
+			buildActionMask = 2147483647;
+			files = (
+				00C69916002BD5167F000001,
+				00C69917002BD5167F000001,
+				00C69919002BD5EE7F000001,
+				011F0441002F20D811CE168A,
+				011F0442002F210811CE168A,
+				015F11890030CFC87F000001,
+			);
+			isa = PBXHeadersBuildPhase;
+			name = Headers;
+		};
+		00C6990E002BCF867F000001 = {
+			buildActionMask = 2147483647;
+			files = (
+				00C69918002BD5167F000001,
+			);
+			isa = PBXSourcesBuildPhase;
+			name = Sources;
+		};
+		00C6990F002BCF867F000001 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			name = "Bundle Resources";
+		};
+		00C69910002BCF867F000001 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			name = "Frameworks & Libraries";
+		};
+		00C69911002BCF867F000001 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			name = "Shell Script";
+			neededFileNames = (
+			);
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		00C69912002BD5167F000001 = {
+			children = (
+				00C69913002BD5167F000001,
+				00C69914002BD5167F000001,
+				00C69915002BD5167F000001,
+			);
+			isa = PBXGroup;
+			path = AppleOWScreamerAudio;
+			refType = 4;
+		};
+		00C69913002BD5167F000001 = {
+			isa = PBXFileReference;
+			path = AppleOWScreamerAudio.cpp;
+			refType = 4;
+		};
+		00C69914002BD5167F000001 = {
+			isa = PBXFileReference;
+			path = AppleOWScreamerAudio.h;
+			refType = 4;
+		};
+		00C69915002BD5167F000001 = {
+			isa = PBXFileReference;
+			path = awacs_OWhw.h;
+			refType = 4;
+		};
+		00C69916002BD5167F000001 = {
+			fileRef = 00C69914002BD5167F000001;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		00C69917002BD5167F000001 = {
+			fileRef = 00C69915002BD5167F000001;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		00C69918002BD5167F000001 = {
+			fileRef = 00C69913002BD5167F000001;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		00C69919002BD5EE7F000001 = {
+			fileRef = 03254963FFDDCA0611CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		00C6991A002BD6717F000001 = {
+			fileRef = 00C69909002BCF867F000001;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		00DB2084002D2B867F000001 = {
+			isa = PBXFileReference;
+			path = AudioHardwareMux.h;
+			refType = 4;
+		};
+		00DB2086002D370E7F000001 = {
+			isa = PBXFileReference;
+			path = AudioHardwareMux.cpp;
+			refType = 4;
+		};
+//000
+//001
+//002
+//003
+//004
+//010
+//011
+//012
+//013
+//014
+		01043C550003A3CC11CE168A = {
+			isa = PBXFileReference;
+			name = AppleHardwareInput.h;
+			path = AudioHardwareInput.h;
+			refType = 4;
+		};
+		0106F5D50003B85211CE168A = {
+			isa = PBXFileReference;
+			name = AppleHardwareInput.cpp;
+			path = AudioHardwareInput.cpp;
+			refType = 4;
+		};
+		010D0722FFF41B3811CE168A = {
+			children = (
+				018F9566FFDDC8E211CA29EB,
+			);
+			isa = PBXGroup;
+			name = IOPlugin;
+			refType = 4;
+		};
+		010D0723FFF41B3811CE168A = {
+			children = (
+				032549A0FFDDD6A911CA29EB,
+				0325499FFFDDD6A911CA29EB,
+				03254976FFDDCC7711CA29EB,
+				03EA7D87000F9FD711CE168A,
+				00C69912002BD5167F000001,
+			);
+			isa = PBXGroup;
+			name = HardwarePlugin;
+			refType = 4;
+		};
+		010D0724FFF41C8E11CE168A = {
+			isa = PBXFileReference;
+			path = AudioHardwareUtilities.h;
+			refType = 4;
+		};
+		010D0725FFF41C8E11CE168A = {
+			fileRef = 010D0724FFF41C8E11CE168A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		010D072BFFF9260A11CE168A = {
+			isa = PBXFileReference;
+			path = AudioHardwareDetect.h;
+			refType = 4;
+		};
+		010D072DFFF92E1C11CE168A = {
+			isa = PBXFileReference;
+			path = AudioHardwareDetect.cpp;
+			refType = 4;
+		};
+		010D072FFFFA58D511CE168A = {
+			isa = PBXFileReference;
+			path = AudioHardwareConstants.h;
+			refType = 4;
+		};
+		010D0730FFFA58D511CE168A = {
+			fileRef = 010D072FFFFA58D511CE168A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		010D0731FFFA595911CE168A = {
+			isa = PBXFileReference;
+			path = AudioHardwareCommon.h;
+			refType = 4;
+		};
+		010D0732FFFA595911CE168A = {
+			fileRef = 010D0731FFFA595911CE168A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		01121ECAFFFD6C8A11CE168A = {
+			fileRef = 010D072FFFFA58D511CE168A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		01121ECBFFFD6C8A11CE168A = {
+			fileRef = 010D0731FFFA595911CE168A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		01121ECCFFFD6C8A11CE168A = {
+			fileRef = 010D0724FFF41C8E11CE168A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		011D3D83002A526611CE16D5 = {
+			fileRef = 03254963FFDDCA0611CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		011D3D84002A52D511CE16D5 = {
+			fileRef = 03254963FFDDCA0611CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		011D3D85002A52D511CE16D5 = {
+			fileRef = 03254963FFDDCA0611CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		011D3D87002A57B511CE16D5 = {
+			fileRef = 013E928E0017D9B711CE16D4;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		011E54E100C9B5A47F000001 = {
+			isa = PBXTargetDependency;
+			target = 017EA98300C2DA887F000001;
+		};
+		011F0441002F20D811CE168A = {
+			fileRef = 010D0731FFFA595911CE168A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		011F0442002F210811CE168A = {
+			fileRef = 010D0724FFF41C8E11CE168A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		013E928E0017D9B711CE16D4 = {
+			isa = PBXBundleReference;
+			path = AppleTexasAudio.kext;
+			refType = 3;
+		};
+		013E928F0017D9B711CE16D4 = {
+			buildPhases = (
+				013E92900017D9B711CE16D4,
+				013E92910017D9B711CE16D4,
+				013E92920017D9B711CE16D4,
+				013E92930017D9B711CE16D4,
+				013E92940017D9B711CE16D4,
+				013E92950017D9B711CE16D4,
+			);
+			buildSettings = {
+				KERNEL_MODULE = YES;
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleTexasAudio;
+				MODULE_VERSION = 1.5f4;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleTexasAudio;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = AppleTexasAudio;
+			productName = Test3;
+			productReference = 013E928E0017D9B711CE16D4;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
+<plist version=\"0.9\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>AppleTexasAudio</string>
+	<key>CFBundleGetInfoString</key>
+	<string>AppleTexasAudio version 1.5, Copyright 2000 Apple Computer, Inc.</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.AppleTexasAudio</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>AppleTexasAudio</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.5</string>
+	<key>CFBundleSignature</key>
+	<string>aaud</string>
+	<key>CFBundleVersion</key>
+	<string>1.5f4</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>AppleTexasAudio</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleTexasAudio</string>
+			<key>IOClass</key>
+			<string>AppleTexasAudio</string>
+			<key>IONameMatch</key>
+			<string>i2s-a</string>
+			<key>IOProviderClass</key>
+			<string>AppleMacIODevice</string>
+		</dict>
+	</dict>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.driver.AppleDBDMAAudio</key>
+		<string>1.1f2</string>
+		<key>com.apple.iokit.IOAudioFamily</key>
+		<string>1.1d26</string>
+	</dict>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 0;
+		};
+		013E92900017D9B711CE16D4 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			name = "Shell Script";
+			neededFileNames = (
+			);
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		013E92910017D9B711CE16D4 = {
+			buildActionMask = 2147483647;
+			files = (
+				018D42B90017EA4A11CE16D4,
+				018D42B80017EA4A11CE16D4,
+				018D42C10017EA8811CE16D4,
+				018D42BA0017EA4A11CE16D4,
+				018D42BB0017EA4A11CE16D4,
+				018D42BC0017EA4A11CE16D4,
+				018D42BD0017EA4A11CE16D4,
+				018D42BE0017EA4A11CE16D4,
+				018D42BF0017EA4A11CE16D4,
+				04243B250043078E11CE168A,
+			);
+			isa = PBXHeadersBuildPhase;
+			name = Headers;
+		};
+		013E92920017D9B711CE16D4 = {
+			buildActionMask = 2147483647;
+			files = (
+				018D42C00017EA4A11CE16D4,
+			);
+			isa = PBXSourcesBuildPhase;
+			name = Sources;
+		};
+		013E92930017D9B711CE16D4 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			name = "Bundle Resources";
+		};
+		013E92940017D9B711CE16D4 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			name = "Frameworks & Libraries";
+		};
+		013E92950017D9B711CE16D4 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			name = "Shell Script";
+			neededFileNames = (
+			);
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		013E92960017DA1211CE16D4 = {
+			isa = PBXTargetDependency;
+			target = 013E928F0017D9B711CE16D4;
+		};
+		014889150083B38D11CE16D4 = {
+			isa = PBXFrameworkReference;
+			name = Kernel.framework;
+			path = /System/Library/Frameworks/Kernel.framework;
+			refType = 0;
+		};
+		015E4F8A00B0602C11CE1689 = {
+			fileRef = 010D0724FFF41C8E11CE168A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		015F11890030CFC87F000001 = {
+			fileRef = 010D072FFFFA58D511CE168A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0169E2D0005EAAA311CE1471 = {
+			fileRef = 03254963FFDDCA0611CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		016FA3FC00CB28457F000001 = {
+			children = (
+				04243B230043078E11CE168A,
+				016FA3FD00CB28457F000001,
+			);
+			isa = PBXGroup;
+			name = PowerManagement;
+			path = "";
+			refType = 4;
+		};
+		016FA3FD00CB28457F000001 = {
+			isa = PBXFileReference;
+			path = AudioHardwarePower.cpp;
+			refType = 4;
+		};
+		017D8EFB0032206011CE16D4 = {
+			isa = PBXBundleReference;
+			path = AudioDeviceTreeUpdater.kext;
+			refType = 3;
+		};
+		017D8EFC0032206011CE16D4 = {
+			isa = PBXTargetDependency;
+			target = 017D8EFD0032206011CE16D4;
+		};
+		017D8EFD0032206011CE16D4 = {
+			buildPhases = (
+				017D8EFE0032206011CE16D4,
+				017D8EFF0032206011CE16D4,
+				017D8F000032206011CE16D4,
+				017D8F010032206011CE16D4,
+				017D8F020032206011CE16D4,
+				017D8F030032206011CE16D4,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.iokit.AudioDeviceTreeUpdater;
+				MODULE_VERSION = 1.5f2;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AudioDeviceTreeUpdater;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = AudioDeviceTreeUpdater;
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = AudioDeviceTreeUpdater;
+			productReference = 017D8EFB0032206011CE16D4;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
+<plist version=\"0.9\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>AudioDeviceTreeUpdater</string>
+	<key>CFBundleGetInfoString</key>
+	<string>AudioDeviceTreeUpdater</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.iokit.AudioDeviceTreeUpdater</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>AudioDeviceTreeUpdater</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.5</string>
+	<key>CFBundleSignature</key>
+	<string>aaud</string>
+	<key>CFBundleVersion</key>
+	<string>1.5f2</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>Power Macintosh</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.AudioDeviceTreeUpdater</string>
+			<key>DeviceTreePatches</key>
+			<array>
+				<dict>
+					<key>Node</key>
+					<string>sound</string>
+					<key>NodeData</key>
+					<dict>
+						<key>#-detects</key>
+						<data>
+						AAAAAw==
+						</data>
+						<key>#-features</key>
+						<data>
+						AAAAAA==
+						</data>
+						<key>#-inputs</key>
+						<data>
+						AAAABw==
+						</data>
+						<key>#-outputs</key>
+						<data>
+						AAAAAg==
+						</data>
+						<key>sound-objects</key>
+						<data>
+						aW5wdXQgaWNvbi1pZCAtMTY1MjYg
+						aW5kZXggMSBuYW1lLWlkIC0yMDUy
+						MCBwb3J0LWNvbm5lY3Rpb24gNiBw
+						b3J0LXR5cGUgMHg2NTZENjk2MyB6
+						ZXJvLWdhaW4gMCBtb2RlbCBFeHRl
+						cm5hbE1pYwBpbnB1dCBpY29uLWlk
+						IC0xNjUyNiBpbmRleCAyIG5hbWUt
+						aWQgLTIwNTI4IHBvcnQtY29ubmVj
+						dGlvbiA2IHBvcnQtdHlwZSAweDcz
+						Njk2RTZBIHplcm8tZ2FpbiAwIG1v
+						ZGVsIExpbmVJbgBpbnB1dCBpY29u
+						LWlkIC0xNjUyNiBpbmRleCAzIG5h
+						bWUtaWQgLTIwNTIwIHBvcnQtY29u
+						bmVjdGlvbiAxIHBvcnQtdHlwZSAw
+						eDY0NzY2NDYxIHplcm8tZ2FpbiAw
+						IG1vZGVsIERWRABpbnB1dCBpY29u
+						LWlkIC0xNjUyNiBpbmRleCA0IG5h
+						bWUtaWQgLTIwNTI4IHBvcnQtY29u
+						bmVjdGlvbiAyIHBvcnQtdHlwZSAw
+						eDYzNjQyMDIwIHplcm8tZ2FpbiAw
+						IG1vZGVsIEludGVybmFsQ0QAaW5w
+						dXQgaWNvbi1pZCAtMjAxODUgaW5k
+						ZXggNSBuYW1lLWlkIC0yMDU0MSBw
+						b3J0LWNvbm5lY3Rpb24gNSBwb3J0
+						LXR5cGUgMHg2OTcyNjM2MSB6ZXJv
+						LWdhaW4gMCBtb2RlbCBSQ0FJbgBp
+						bnB1dCBpY29uLWlkIC0yMDE4NCBp
+						bmRleCA2IG5hbWUtaWQgLTIwNTMw
+						IHBvcnQtY29ubmVjdGlvbiA4IHBv
+						cnQtdHlwZSAweDZENkY2NDZEIHpl
+						cm8tZ2FpbiAwIG1vZGVsIE1vZGVt
+						AGlucHV0IGluZGV4IDcgbW9kZWwg
+						Tm9JbnB1dABkZXRlY3QgaW5kZXgg
+						MCBiaXQtbWFzayAyIGJpdC1tYXRj
+						aCAyIGRldmljZSA0IHJlZ2lzdHJ5
+						LW5hbWUgZXh0aW50LWdwaW8xNSBt
+						b2RlbCBJblNlbnNlQml0c0RldGVj
+						dABkZXRlY3QgaW5kZXggMSBiaXQt
+						bWFzayA0IGJpdC1tYXRjaCA0IGRl
+						dmljZSAxNiByZWdpc3RyeS1uYW1l
+						IGV4dGludC1ncGlvMTYgbW9kZWwg
+						SW5TZW5zZUJpdHNEZXRlY3QAZGV0
+						ZWN0IGluZGV4IDIgYml0LW1hc2sg
+						MTYgYml0LW1hdGNoIDE2IGRldmlj
+						ZSAyNTYgcmVnaXN0cnktbmFtZSBl
+						eHRpbnQtZ3BpbzE2IG1vZGVsIElu
+						U2Vuc2VCaXRzRGV0ZWN0AG91dHB1
+						dCBkZXZpY2UtbWFzayA2IGRldmlj
+						ZS1tYXRjaCAwIGljb24taWQgLTE2
+						NTYzIGluZGV4IDAgbmFtZS1pZCAt
+						MjA1MjUgcG9ydC1jb25uZWN0aW9u
+						IDQgcG9ydC10eXBlIDB4Njk3Mzcw
+						NkIgbW9kZWwgT3V0cHV0UG9ydABv
+						dXRwdXQgZGV2aWNlLW1hc2sgNiBk
+						ZXZpY2UtbWF0Y2ggNCBpY29uLWlk
+						IC0xNjU2MyBpbmRleCAxIG5hbWUt
+						aWQgLTIwNTI0IHBvcnQtY29ubmVj
+						dGlvbiAzIHBvcnQtdHlwZSAweDY4
+						NjQ3MDZFIG1vZGVsIE91dHB1dFBv
+						cnQAAA==
+						</data>
+					</dict>
+					<key>Parent</key>
+					<string>mac-io/davbus</string>
+				</dict>
+			</array>
+			<key>IOClass</key>
+			<string>AudioDeviceTreeUpdater</string>
+			<key>IOMatchCategory</key>
+			<string>DTUpdate</string>
+			<key>IONameMatch</key>
+			<array>
+				<string>AAPL,PowerMac G3</string>
+			</array>
+			<key>IOProviderClass</key>
+			<string>IOPlatformExpertDevice</string>
+		</dict>
+		<key>PowerBook</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.AudioDeviceTreeUpdater</string>
+			<key>DeviceTreePatches</key>
+			<array>
+				<dict>
+					<key>Node</key>
+					<string>sound</string>
+					<key>NodeData</key>
+					<dict>
+						<key>#-detects</key>
+						<data>
+						AAAAAw==
+						</data>
+						<key>#-features</key>
+						<data>
+						AAAAAQ==
+						</data>
+						<key>#-inputs</key>
+						<data>
+						AAAACA==
+						</data>
+						<key>#-outputs</key>
+						<data>
+						AAAAAg==
+						</data>
+						<key>model</key>
+						<data>
+						MzQzUzAxODQ=
+						</data>
+						<key>sound-objects</key>
+						<data>
+						ZmVhdHVyZSBpbmRleCAwIG1vZGVs
+						IFByb2o2UG93ZXJDb250cm9sAGRl
+						dGVjdCBiaXQtbWFzayA0IGJpdC1t
+						YXRjaCA0IGRldmljZSAxNiBpbmRl
+						eCAwIG1vZGVsIEluU2Vuc2VCaXRz
+						RGV0ZWN0AGRldGVjdCBiaXQtbWFz
+						ayA4IGJpdC1tYXRjaCAwIGRldmlj
+						ZSAzMiBpbmRleCAxIG1vZGVsIElu
+						U2Vuc2VCaXRzRGV0ZWN0AGRldGVj
+						dCBiaXQtbWFzayAxIGJpdC1tYXRj
+						aCAxIGRldmljZSAyIGluZGV4IDIg
+						bW9kZWwgSW5TZW5zZUJpdHNEZXRl
+						Y3QAaW5wdXQgaWNvbi1pZCAtMTY1
+						MjcgaW5kZXggMCBuYW1lLWlkIC0y
+						MDUzMiBwb3J0LWNvbm5lY3Rpb24g
+						MSBwb3J0LXR5cGUgMHg2OTZENjk2
+						MyB6ZXJvLWdhaW4gMCBtb2RlbCBJ
+						bnRlcm5hbE1pYwBpbnB1dCBpY29u
+						LWlkIC0xNjUyNiBpbmRleCAxIG5h
+						bWUtaWQgLTIwNTIwIHBvcnQtY29u
+						bmVjdGlvbiAyIHBvcnQtdHlwZSAw
+						eDY1NkQ2OTYzIHplcm8tZ2FpbiAw
+						IG1vZGVsIEV4dGVybmFsTWljAGlu
+						cHV0IGljb24taWQgLTE2NTI2IGlu
+						ZGV4IDIgbmFtZS1pZCAtMjA1Mjgg
+						cG9ydC1jb25uZWN0aW9uIDIgcG9y
+						dC10eXBlIDB4NzM2OTZFNkEgemVy
+						by1nYWluIDAgbW9kZWwgU291bmRJ
+						bgBpbnB1dCBpY29uLWlkIC0xNjUy
+						NiBpbmRleCAzIG5hbWUtaWQgLTIw
+						NTI4IHBvcnQtY29ubmVjdGlvbiA0
+						IHBvcnQtdHlwZSAweDcwNjM2RDIw
+						IHplcm8tZ2FpbiAwIG1vZGVsIE5v
+						UmVjb3JkSW5wdXQAaW5wdXQgaW5k
+						ZXggNCBtb2RlbCBOb0lucHV0AG91
+						dHB1dCBkZXZpY2UtbWFzayAyIGRl
+						dmljZS1tYXRjaCAwIGljb24taWQg
+						LTE2NTYzIGluZGV4IDAgbmFtZS1p
+						ZCAtMjA1MjUgcG9ydC1jb25uZWN0
+						aW9uIDIgcG9ydC10eXBlIDB4Njk3
+						MzZCNzAgbW9kZWwgUHJvajNTcGVh
+						a2VyAG91dHB1dCBkZXZpY2UtbWFz
+						ayAyIGRldmljZS1tYXRjaCAyIGlj
+						b24taWQgLTE2NTYzIGluZGV4IDEg
+						bmFtZS1pZCAtMjA1MjQgcG9ydC1j
+						b25uZWN0aW9uIDEgcG9ydC10eXBl
+						IDB4Njg2NDcwNkUgbW9kZWwgT3V0
+						cHV0UG9ydABtdXggbW9kZWwgUHJv
+						ajVNdXgAaW5wdXQgaWNvbi1pZCAt
+						MTY1MjMgaW5kZXggNSBuYW1lLWlk
+						IC0yMDUzOSBwb3J0LWNvbm5lY3Rp
+						b24gMyBwb3J0LXR5cGUgMHg2RDYy
+						NjE3OSB6ZXJvLWdhaW4gMCBtb2Rl
+						bCBNdXhlZEFuYWxvZ0NEAGlucHV0
+						IGljb24taWQgLTIwMTgzIGluZGV4
+						IDYgbmFtZS1pZCAtMjA1NDAgcG9y
+						dC1jb25uZWN0aW9uIDMgcG9ydC10
+						eXBlIDB4NkQ2RjY0NkQgemVyby1n
+						YWluIDAgbW9kZWwgTXV4ZWRJbnRN
+						b2RlbUlucHV0AGlucHV0IGljb24t
+						aWQgLTIwMTg0IGluZGV4IDcgbmFt
+						ZS1pZCAtMjA1NDEgcG9ydC1jb25u
+						ZWN0aW9uIDMgcG9ydC10eXBlIDB4
+						N0E3NjcwNjMgemVyby1nYWluIDAg
+						bW9kZWwgTXV4ZWRab29tVmlkZW8A
+						AA==
+						</data>
+					</dict>
+					<key>Parent</key>
+					<string>mac-io/davbus</string>
+				</dict>
+			</array>
+			<key>IOClass</key>
+			<string>AudioDeviceTreeUpdater</string>
+			<key>IOMatchCategory</key>
+			<string>DTUpdate</string>
+			<key>IONameMatch</key>
+			<array>
+				<string>PowerBook</string>
+			</array>
+			<key>IOProviderClass</key>
+			<string>IOPlatformExpertDevice</string>
+		</dict>
+		<key>PowerBook1,1</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.AudioDeviceTreeUpdater</string>
+			<key>DeviceTreePatches</key>
+			<array>
+				<dict>
+					<key>Node</key>
+					<string>sound</string>
+					<key>NodeData</key>
+					<dict>
+						<key>#-detects</key>
+						<data>
+						AAAAAw==
+						</data>
+						<key>#-features</key>
+						<data>
+						AAAAAQ==
+						</data>
+						<key>#-inputs</key>
+						<data>
+						AAAACA==
+						</data>
+						<key>#-outputs</key>
+						<data>
+						AAAAAg==
+						</data>
+						<key>model</key>
+						<data>
+						MzQzUzAxODQ=
+						</data>
+						<key>sound-objects</key>
+						<data>
+						ZmVhdHVyZSBpbmRleCAwIG1vZGVs
+						IFByb2o2UG93ZXJDb250cm9sAGRl
+						dGVjdCBiaXQtbWFzayA0IGJpdC1t
+						YXRjaCA0IGRldmljZSAxNiBpbmRl
+						eCAwIG1vZGVsIEluU2Vuc2VCaXRz
+						RGV0ZWN0AGRldGVjdCBiaXQtbWFz
+						ayA4IGJpdC1tYXRjaCAwIGRldmlj
+						ZSAzMiBpbmRleCAxIG1vZGVsIElu
+						U2Vuc2VCaXRzRGV0ZWN0AGRldGVj
+						dCBiaXQtbWFzayAxIGJpdC1tYXRj
+						aCAxIGRldmljZSAyIGluZGV4IDIg
+						bW9kZWwgSW5TZW5zZUJpdHNEZXRl
+						Y3QAaW5wdXQgaWNvbi1pZCAtMTY1
+						MjYgaW5kZXggMCBuYW1lLWlkIC0y
+						MDUyMCBwb3J0LWNvbm5lY3Rpb24g
+						MiBwb3J0LXR5cGUgMHg2NTZENjk2
+						MyB6ZXJvLWdhaW4gMCBtb2RlbCBF
+						eHRlcm5hbE1pYwBpbnB1dCBpY29u
+						LWlkIC0xNjUyNiBpbmRleCAxIG5h
+						bWUtaWQgLTIwNTI4IHBvcnQtY29u
+						bmVjdGlvbiAyIHBvcnQtdHlwZSAw
+						eDczNjk2RTZBIHplcm8tZ2FpbiAw
+						IG1vZGVsIFNvdW5kSW4AaW5wdXQg
+						aWNvbi1pZCAtMjAxODQgaW5kZXgg
+						MiBuYW1lLWlkIC0yMDUzMCBwb3J0
+						LWNvbm5lY3Rpb24gNCBwb3J0LXR5
+						cGUgMHg3MDYzNkQyMCB6ZXJvLWdh
+						aW4gMCBtb2RlbCBOb1JlY29yZElu
+						cHV0AGlucHV0IGluZGV4IDMgbW9k
+						ZWwgTm9JbnB1dABvdXRwdXQgZGV2
+						aWNlLW1hc2sgNiBkZXZpY2UtbWF0
+						Y2ggMCBpY29uLWlkIC0xNjU2MyBp
+						bmRleCAwIG5hbWUtaWQgLTIwNTI1
+						IHBvcnQtY29ubmVjdGlvbiAyIHBv
+						cnQtdHlwZSAweDY5NzM3MDZCIG1v
+						ZGVsIE91dHB1dFBvcnQAb3V0cHV0
+						IGRldmljZS1tYXNrIDIgZGV2aWNl
+						LW1hdGNoIDIgaWNvbi1pZCAtMTY1
+						NjMgaW5kZXggMSBuYW1lLWlkIC0y
+						MDUyNCBwb3J0LWNvbm5lY3Rpb24g
+						MSBwb3J0LXR5cGUgMHg2ODY0NzA2
+						RSBtb2RlbCBPdXRwdXRQb3J0AG11
+						eCBtb2RlbCBQcm9qOU11eABpbnB1
+						dCBpY29uLWlkIC0xNjUyNyBpbmRl
+						eCA0IG5hbWUtaWQgLTIwNTMyIHBv
+						cnQtY29ubmVjdGlvbiAxIHBvcnQt
+						dHlwZSAweDY5NkQ2OTYzIHplcm8t
+						Z2FpbiAwIG1vZGVsIEludE1pY011
+						eGVkSW5wdXQAaW5wdXQgaWNvbi1p
+						ZCAtMTY1MjMgaW5kZXggNSBuYW1l
+						LWlkIC0yMDUzOSBwb3J0LWNvbm5l
+						Y3Rpb24gMyBwb3J0LXR5cGUgMHg2
+						RDYyNjE3OSB6ZXJvLWdhaW4gMCBt
+						b2RlbCBNdXhlZEFuYWxvZ0NEAGlu
+						cHV0IGljb24taWQgLTIwMTg0IGlu
+						ZGV4IDYgbmFtZS1pZCAtMjA1NDEg
+						cG9ydC1jb25uZWN0aW9uIDMgcG9y
+						dC10eXBlIDB4N0E3NjcwNjMgemVy
+						by1nYWluIDAgbW9kZWwgTXV4ZWRJ
+						bnB1dABpbnB1dCBpY29uLWlkIC0y
+						MDE4MyBpbmRleCA3IG5hbWUtaWQg
+						LTIwNTQwIHBvcnQtY29ubmVjdGlv
+						biAxIHBvcnQtdHlwZSAweDZENkY2
+						NDZEIHplcm8tZ2FpbiAwIG1vZGVs
+						IE11eGVkSW50TW9kZW1JbnB1dAAA
+						</data>
+					</dict>
+					<key>Parent</key>
+					<string>mac-io/davbus</string>
+				</dict>
+			</array>
+			<key>IOClass</key>
+			<string>AudioDeviceTreeUpdater</string>
+			<key>IOMatchCategory</key>
+			<string>DTUpdate</string>
+			<key>IONameMatch</key>
+			<array>
+				<string>PowerBook1,1</string>
+			</array>
+			<key>IOProviderClass</key>
+			<string>IOPlatformExpertDevice</string>
+		</dict>
+		<key>PowerBook3,1</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.AudioDeviceTreeUpdater</string>
+			<key>DeviceTreePatches</key>
+			<array>
+				<dict>
+					<key>Node</key>
+					<string>sound</string>
+					<key>NodeData</key>
+					<dict>
+						<key>sound-objects</key>
+						<data>
+						ZmVhdHVyZSBpbmRleCAwIG1vZGVs
+						IFByb2oxMFBvd2VyQ29udHJvbABk
+						ZXRlY3QgYml0LW1hc2sgMSBiaXQt
+						bWF0Y2ggMSBkZXZpY2UgMiBpbmRl
+						eCAwIG1vZGVsIEluU2Vuc2VCaXRz
+						RGV0ZWN0AGRldGVjdCBiaXQtbWFz
+						ayA0IGJpdC1tYXRjaCA0IGRldmlj
+						ZSAxNiBpbmRleCAxIG1vZGVsIElu
+						U2Vuc2VCaXRzRGV0ZWN0AGRldGVj
+						dCBiaXQtbWFzayA4IGJpdC1tYXRj
+						aCAwIGRldmljZSAzMiBpbmRleCAy
+						IG1vZGVsIEluU2Vuc2VCaXRzRGV0
+						ZWN0AGlucHV0IGljb24taWQgLTE2
+						NTI2IGluZGV4IDEgbmFtZS1pZCAt
+						MjA1MjAgIHBvcnQtY29ubmVjdGlv
+						biAyIHBvcnQtdHlwZSAweDY1NkQ2
+						OTYzIHplcm8tZ2FpbiAwIG1vZGVs
+						IEV4dGVybmFsTWljAGlucHV0IGlj
+						b24taWQgLTE2NTI2IGluZGV4IDIg
+						bmFtZS1pZCAtMjA1MjggcG9ydC1j
+						b25uZWN0aW9uIDIgcG9ydC10eXBl
+						IDB4NzM2OTZFNkEgemVyby1nYWlu
+						IDAgbW9kZWwgSW5wdXRQb3J0AGlu
+						cHV0IGljb24taWQgLTIwMTg1IGlu
+						ZGV4IDQgbmFtZS1pZCAtMjA1NDEg
+						cG9ydC1jb25uZWN0aW9uIDMgcG9y
+						dC10eXBlIDB4N0E3NjcwNjMgemVy
+						by1nYWluIDAgbW9kZWwgSW5wdXRQ
+						b3J0AGlucHV0IGljb24taWQgLTIw
+						MTg0IGluZGV4IDUgbmFtZS1pZCAt
+						MjA1MzAgcG9ydC1jb25uZWN0aW9u
+						IDQgcG9ydC10eXBlIDB4NzA2MzZE
+						MjAgemVyby1nYWluIDAgbW9kZWwg
+						Tm9SZWNvcmRJbnB1dABpbnB1dCBp
+						bmRleCA1IG1vZGVsIE5vSW5wdXQA
+						b3V0cHV0IGRldmljZS1tYXNrIDIg
+						ZGV2aWNlLW1hdGNoIDAgaWNvbi1p
+						ZCAtMTY1NjMgaW5kZXggMCBuYW1l
+						LWlkIC0yMDUyNSBwb3J0LWNvbm5l
+						Y3Rpb24gMiBwb3J0LXR5cGUgMHg2
+						OTczNzA2QiBtb2RlbCBPdXRwdXRQ
+						b3J0AG91dHB1dCBkZXZpY2UtbWFz
+						ayAyIGRldmljZS1tYXRjaCAyIGlj
+						b24taWQgLTE2NTYzIGluZGV4IDEg
+						bmFtZS1pZCAtMjA1MjQgcG9ydC1j
+						b25uZWN0aW9uIDEgcG9ydC10eXBl
+						IDB4Njg2NDcwNkUgbW9kZWwgT3V0
+						cHV0UG9ydABtdXggbW9kZWwgTXV4
+						UHJvZ091dCBzb3VyY2UtbWFwLWNv
+						dW50IDIgc291cmNlLW1hcCA2OTZE
+						Njk2MzAwMDAwMDAyMDAwMDAwMDA2
+						RDZGNjQ2RDAwMDAwMDAyMDAwMDAw
+						MDIAaW5wdXQgaWNvbi1pZCAtMTY1
+						MjUgaW5kZXggMCBuYW1lLWlkIC0y
+						MDUzMiBwb3J0LWNvbm5lY3Rpb24g
+						MSBwb3J0LXR5cGUgMHg2OTZENjk2
+						MyB6ZXJvLWdhaW4gMHgwMDEzODAw
+						MCBtb2RlbCBJbnRNaWNNdXhlZElu
+						cHV0AGlucHV0IGljb24taWQgLTIw
+						MTg0IGluZGV4IDMgbmFtZS1pZCAt
+						MjA1NDAgcG9ydC1jb25uZWN0aW9u
+						IDEgcG9ydC10eXBlIDB4NkQ2RjY0
+						NkQgemVyby1nYWluIDB4MDAwMDAw
+						MDAgbW9kZWwgTXV4ZWRJbnB1dAAA
+						</data>
+					</dict>
+					<key>Parent</key>
+					<string>mac-io/davbus</string>
+				</dict>
+			</array>
+			<key>IOClass</key>
+			<string>AudioDeviceTreeUpdater</string>
+			<key>IOMatchCategory</key>
+			<string>DTUpdate</string>
+			<key>IONameMatch</key>
+			<array>
+				<string>PowerBook3,1</string>
+			</array>
+			<key>IOProviderClass</key>
+			<string>IOPlatformExpertDevice</string>
+		</dict>
+		<key>PowerMac1,1</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.AudioDeviceTreeUpdater</string>
+			<key>DeviceTreePatches</key>
+			<array>
+				<dict>
+					<key>Node</key>
+					<string>sound</string>
+					<key>NodeData</key>
+					<dict>
+						<key>#-detects</key>
+						<data>
+						AAAAAw==
+						</data>
+						<key>#-features</key>
+						<data>
+						AAAAAQ==
+						</data>
+						<key>#-inputs</key>
+						<data>
+						AAAABA==
+						</data>
+						<key>#-outputs</key>
+						<data>
+						AAAAAg==
+						</data>
+						<key>sound-objects</key>
+						<data>
+						aW5pdCBvcGVyYXRpb24gMiBwYXJh
+						bSAwMDAwMDAwMgBmZWF0dXJlIGlu
+						ZGV4IDAgbW9kZWwgUHJvajRQb3dl
+						ckNvbnRyb2wAZGV0ZWN0IGJpdC1t
+						YXNrIDIgYml0LW1hdGNoIDIgaW5k
+						ZXggMCBkZXZpY2UgMiBtb2RlbCBJ
+						blNlbnNlQml0c0RldGVjdABkZXRl
+						Y3QgYml0LW1hc2sgNCBiaXQtbWF0
+						Y2ggNCBpbmRleCAxIGRldmljZSAx
+						NiBtb2RlbCBJblNlbnNlQml0c0Rl
+						dGVjdABkZXRlY3QgYml0LW1hc2sg
+						MTYgYml0LW1hdGNoIDAgZGV2aWNl
+						IDI1NiBpbmRleCAyIG1vZGVsIElu
+						U2Vuc2VCaXRzRGV0ZWN0AGlucHV0
+						IGljb24taWQgLTE2NTI2IGluZGV4
+						IDAgbmFtZS1pZCAtMjA1MjAgcG9y
+						dC1jb25uZWN0aW9uIDYgcG9ydC10
+						eXBlIDB4NjU2RDY5NjMgemVyby1n
+						YWluIDAgbW9kZWwgRXh0ZXJuYWxN
+						aWMAaW5wdXQgaWNvbi1pZCAtMTY1
+						MjYgaW5kZXggMSBuYW1lLWlkIC0y
+						MDUyOCBwb3J0LWNvbm5lY3Rpb24g
+						NiBwb3J0LXR5cGUgMHg3MzY5NkU2
+						QSB6ZXJvLWdhaW4gMCBtb2RlbCBT
+						b3VuZEluAGlucHV0IGljb24taWQg
+						LTE2NTIzIGluZGV4IDIgbmFtZS1p
+						ZCAtMjA2OTggcG9ydC1jb25uZWN0
+						aW9uIDEgcG9ydC10eXBlIDB4NjQ3
+						NjY0NjEgemVyby1nYWluIDAgbW9k
+						ZWwgSW5wdXRQb3J0AGlucHV0IGlu
+						ZGV4IDMgbW9kZWwgTm9JbnB1dABv
+						dXRwdXQgZGV2aWNlLW1hc2sgNiBk
+						ZXZpY2UtbWF0Y2ggMCBpY29uLWlk
+						IC0xNjU2MyBpbmRleCAwIG5hbWUt
+						aWQgLTIwNTI1IHBvcnQtY29ubmVj
+						dGlvbiA0IHBvcnQtdHlwZSAweDB4
+						Njk3MzcwNkIgbW9kZWwgT3V0cHV0
+						UG9ydABvdXRwdXQgZGV2aWNlLW1h
+						c2sgMiBkZXZpY2UtbWF0Y2ggMiBp
+						Y29uLWlkIC0xNjU2MyBpbmRleCAx
+						IG5hbWUtaWQgLTIwNTI0IHBvcnQt
+						Y29ubmVjdGlvbiAxIHBvcnQtdHlw
+						ZSAweDY4NjQ3MDZlIG1vZGVsIE91
+						dHB1dFBvcnQAAA==
+						</data>
+					</dict>
+					<key>Parent</key>
+					<string>mac-io/davbus</string>
+				</dict>
+			</array>
+			<key>IOClass</key>
+			<string>AudioDeviceTreeUpdater</string>
+			<key>IOMatchCategory</key>
+			<string>DTUpdate</string>
+			<key>IONameMatch</key>
+			<array>
+				<string>PowerMac1,1</string>
+			</array>
+			<key>IOProviderClass</key>
+			<string>IOPlatformExpertDevice</string>
+		</dict>
+		<key>PowerMac3,4</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.AudioDeviceTreeUpdater</string>
+			<key>DeviceTreePatches</key>
+			<array>
+				<dict>
+					<key>Node</key>
+					<string>sound</string>
+					<key>NodeData</key>
+					<dict>
+						<key>i2s-serial-format</key>
+						<data>
+						AAAAAQ==
+						</data>
+					</dict>
+					<key>Parent</key>
+					<string>mac-io/i2s/i2s-a</string>
+				</dict>
+			</array>
+			<key>IOClass</key>
+			<string>AudioDeviceTreeUpdater</string>
+			<key>IOMatchCategory</key>
+			<string>DTUpdate</string>
+			<key>IONameMatch</key>
+			<array>
+				<string>PowerMac3,4</string>
+			</array>
+			<key>IOProviderClass</key>
+			<string>IOPlatformExpertDevice</string>
+		</dict>
+		<key>iMac,1</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.AudioDeviceTreeUpdater</string>
+			<key>DeviceTreePatches</key>
+			<array>
+				<dict>
+					<key>Node</key>
+					<string>sound</string>
+					<key>NodeData</key>
+					<dict>
+						<key>#-detects</key>
+						<data>
+						AAAABA==
+						</data>
+						<key>#-features</key>
+						<data>
+						AAAAAQ==
+						</data>
+						<key>#-inputs</key>
+						<data>
+						AAAABA==
+						</data>
+						<key>#-outputs</key>
+						<data>
+						AAAAAw==
+						</data>
+						<key>sound-objects</key>
+						<data>
+						aW5pdCBvcGVyYXRpb24gMiBwYXJh
+						bSAwMDAwMDAwMg9mZWF0dXJlIGlu
+						ZGV4IDAgbW9kZWwgU1JTAGRldGVj
+						dCBiaXQtbWFzayAyIGJpdC1tYXRj
+						aCAyIGRldmljZSA0IGluZGV4IDAg
+						bW9kZWwgSW5TZW5zZUJpdHNEZXRl
+						Y3QAZGV0ZWN0IGJpdC1tYXNrIDQg
+						Yml0LW1hdGNoIDQgaW5kZXggMSBk
+						ZXZpY2UgMTYgbW9kZWwgSW5TZW5z
+						ZUJpdHNEZXRlY3QAZGV0ZWN0IGJp
+						dC1tYXNrIDE2IGJpdC1tYXRjaCAw
+						IGluZGV4IDIgZGV2aWNlIDI1NiBt
+						b2RlbCBJblNlbnNlQml0c0RldGVj
+						dABkZXRlY3QgYml0LW1hc2sgOSBp
+						bmRleCAzIGRldmljZSAyIG1vZGVs
+						IEFueUluU2Vuc2VCaXRzRGV0ZWN0
+						AGlucHV0IGljb24taWQgLTE2NTI2
+						IGluZGV4IDAgbmFtZS1pZCAtMjA1
+						MjAgcG9ydC1jb25uZWN0aW9uIDUg
+						cG9ydC10eXBlIDB4NjU2RDY5NjMg
+						emVyby1nYWluIDAgbW9kZWwgRXh0
+						ZXJuYWxNaWMAaW5wdXQgaWNvbi1p
+						ZCAtMTY1MjYgaW5kZXggMSBuYW1l
+						LWlkIC0yMDUyOCBwb3J0LWNvbm5l
+						Y3Rpb24gNSBwb3J0LXR5cGUgMHg3
+						MzY5NkU2QSB6ZXJvLWdhaW4gMCBt
+						b2RlbCBTb3VuZEluAGlucHV0IGlj
+						b24taWQgLTE2NTI3IGluZGV4IDIg
+						bmFtZS1pZCAtMjA1MzIgcG9ydC1j
+						b25uZWN0aW9uIDcgcG9ydC10eXBl
+						IDB4Njk2RDY5NjMgemVyby1nYWlu
+						IDAgbW9kZWwgSW50ZXJuYWxNaWMA
+						aW5wdXQgaW5kZXggMyBtb2RlbCBO
+						b0lucHV0AG91dHB1dCBkZXZpY2Ut
+						bWFzayA2IGRldmljZS1tYXRjaCAw
+						IGljb24taWQgLTE2NTYzIGluZGV4
+						IDAgbmFtZS1pZCAtMjA1MjUgcG9y
+						dC1jb25uZWN0aW9uIDEgcG9ydC10
+						eXBlIDB4MHg2OTczNzA2QiBtb2Rl
+						bCBPdXRwdXRQb3J0AG91dHB1dCBk
+						ZXZpY2UtbWFzayAyIGRldmljZS1t
+						YXRjaCAyIGljb24taWQgLTE2NTYz
+						IGluZGV4IDEgbmFtZS1pZCAtMjA1
+						MjQgcG9ydC1jb25uZWN0aW9uIDMg
+						cG9ydC10eXBlIDB4MHg2ODY0NzA2
+						RSBtb2RlbCBPdXRwdXRQb3J0AG91
+						dHB1dCBkZXZpY2UtbWFzayA2IGRl
+						dmljZS1tYXRjaCA0IGljb24taWQg
+						LTE2NTYzIGluZGV4IDIgbmFtZS1p
+						ZCAtMjA1MjMgcG9ydC1jb25uZWN0
+						aW9uIDIgcG9ydC10eXBlIDB4MHg2
+						NTczNzA2QiBtb2RlbCBPdXRwdXRQ
+						b3J0AAA=
+						</data>
+					</dict>
+					<key>Parent</key>
+					<string>mac-io/davbus</string>
+				</dict>
+			</array>
+			<key>IOClass</key>
+			<string>AudioDeviceTreeUpdater</string>
+			<key>IOMatchCategory</key>
+			<string>DTUpdate</string>
+			<key>IONameMatch</key>
+			<array>
+				<string>iMac,1</string>
+			</array>
+			<key>IOProviderClass</key>
+			<string>IOPlatformExpertDevice</string>
+		</dict>
+	</dict>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.kernel.iokit</key>
+		<string>1.0.0b1</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>1.0.0b1</string>
+	</dict>
+	<key>OSBundleRequired</key>
+	<string>Root</string>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 0;
+		};
+		017D8EFE0032206011CE16D4 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			name = "Shell Script";
+			neededFileNames = (
+			);
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		017D8EFF0032206011CE16D4 = {
+			buildActionMask = 2147483647;
+			files = (
+				017D8F070032245911CE16D4,
+			);
+			isa = PBXHeadersBuildPhase;
+			name = Headers;
+		};
+		017D8F000032206011CE16D4 = {
+			buildActionMask = 2147483647;
+			files = (
+				017D8F080032245911CE16D4,
+			);
+			isa = PBXSourcesBuildPhase;
+			name = Sources;
+		};
+		017D8F010032206011CE16D4 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			name = "Bundle Resources";
+		};
+		017D8F020032206011CE16D4 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			name = "Frameworks & Libraries";
+		};
+		017D8F030032206011CE16D4 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			name = "Shell Script";
+			neededFileNames = (
+			);
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		017D8F040032243A11CE16D4 = {
+			children = (
+				017D8F050032245811CE16D4,
+				017D8F060032245811CE16D4,
+			);
+			isa = PBXGroup;
+			name = AudioDeviceTreeUpdater;
+			refType = 4;
+		};
+		017D8F050032245811CE16D4 = {
+			isa = PBXFileReference;
+			name = AppleDTUpdater.h;
+			path = AppleDeviceTreeUpdater/AppleDTUpdater.h;
+			refType = 4;
+		};
+		017D8F060032245811CE16D4 = {
+			isa = PBXFileReference;
+			name = AppleDTUpdater.cpp;
+			path = AppleDeviceTreeUpdater/AppleDTUpdater.cpp;
+			refType = 4;
+		};
+		017D8F070032245911CE16D4 = {
+			fileRef = 017D8F050032245811CE16D4;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		017D8F080032245911CE16D4 = {
+			fileRef = 017D8F060032245811CE16D4;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		017EA98200C2DA887F000001 = {
+			isa = PBXBundleReference;
+			path = AOAHALPlugin.bundle;
+			refType = 3;
+		};
+		017EA98300C2DA887F000001 = {
+			buildPhases = (
+				017EA98400C2DA887F000001,
+				017EA98500C2DA887F000001,
+				017EA98600C2DA887F000001,
+				017EA98700C2DA887F000001,
+				017EA98800C2DA887F000001,
+			);
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-bundle -undefined error";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AOAHALPlugin;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = bundle;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = AOAHALPlugin;
+			productName = AOAHALPlugin;
+			productReference = 017EA98200C2DA887F000001;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
+<plist version=\"0.9\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string></string>
+	<key>CFBundleGetInfoString</key>
+	<string>HAL PLugin for AppleOnboardAudio</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.aoa.halplugin</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>AOAHALPlugin</string>
+	<key>CFBundlePackageType</key>
+	<string>BNDL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0</string>
+	<key>CFBundleSignature</key>
+	<string>aaud</string>
+	<key>CFBundleVersion</key>
+	<string>1.0d1</string>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 0;
+		};
+		017EA98400C2DA887F000001 = {
+			buildActionMask = 2147483647;
+			files = (
+				017EA98E00C2EB557F000001,
+			);
+			isa = PBXHeadersBuildPhase;
+			name = Headers;
+		};
+		017EA98500C2DA887F000001 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			name = "Bundle Resources";
+		};
+		017EA98600C2DA887F000001 = {
+			buildActionMask = 2147483647;
+			files = (
+				017EA98F00C2EB557F000001,
+			);
+			isa = PBXSourcesBuildPhase;
+			name = Sources;
+		};
+		017EA98700C2DA887F000001 = {
+			buildActionMask = 2147483647;
+			files = (
+				017EA98B00C2DDA47F000001,
+			);
+			isa = PBXFrameworksBuildPhase;
+			name = "Frameworks & Libraries";
+		};
+		017EA98800C2DA887F000001 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			name = "ResourceManager Resources";
+		};
+		017EA98900C2DDA47F000001 = {
+			children = (
+				017EA98C00C2EB557F000001,
+				017EA98D00C2EB557F000001,
+				017EA98A00C2DDA47F000001,
+			);
+			isa = PBXGroup;
+			name = HALPlugin;
+			refType = 4;
+		};
+		017EA98A00C2DDA47F000001 = {
+			isa = PBXFrameworkReference;
+			name = CoreAudio.framework;
+			path = /System/Library/Frameworks/CoreAudio.framework;
+			refType = 0;
+		};
+		017EA98B00C2DDA47F000001 = {
+			fileRef = 017EA98A00C2DDA47F000001;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		017EA98C00C2EB557F000001 = {
+			isa = PBXFileReference;
+			path = AOAHALPlugin.h;
+			refType = 4;
+		};
+		017EA98D00C2EB557F000001 = {
+			isa = PBXFileReference;
+			path = AOAHALPlugin.c;
+			refType = 4;
+		};
+		017EA98E00C2EB557F000001 = {
+			fileRef = 017EA98C00C2EB557F000001;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		017EA98F00C2EB557F000001 = {
+			fileRef = 017EA98D00C2EB557F000001;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		017EA99000C2ECAA7F000001 = {
+			fileRef = 017EA98200C2DA887F000001;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		017EA99100C2F1207F000001 = {
+			children = (
+				028A11A100C715EF11CE168A,
+				028A11A200C715EF11CE168A,
+			);
+			isa = PBXGroup;
+			name = AudioDeviceTreeParser;
+			refType = 4;
+		};
+		018D42B80017EA4A11CE16D4 = {
+			fileRef = 03EA7D8A000F9FD711CE168A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		018D42B90017EA4A11CE16D4 = {
+			fileRef = 03EA7D88000F9FD711CE168A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		018D42BA0017EA4A11CE16D4 = {
+			fileRef = 010D072FFFFA58D511CE168A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		018D42BB0017EA4A11CE16D4 = {
+			fileRef = 010D0731FFFA595911CE168A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		018D42BC0017EA4A11CE16D4 = {
+			fileRef = 010D0724FFF41C8E11CE168A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		018D42BD0017EA4A11CE16D4 = {
+			fileRef = 010D072BFFF9260A11CE168A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		018D42BE0017EA4A11CE16D4 = {
+			fileRef = 01FC75CD00024F2311CE168A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		018D42BF0017EA4A11CE16D4 = {
+			fileRef = 01043C550003A3CC11CE168A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		018D42C00017EA4A11CE16D4 = {
+			fileRef = 03EA7D89000F9FD711CE168A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		018D42C10017EA8811CE16D4 = {
+			fileRef = 03254963FFDDCA0611CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		018F955FFFDDC63011CA29EB = {
+			isa = PBXBundleReference;
+			path = AppleDBDMAAudio.kext;
+			refType = 3;
+		};
+		018F9560FFDDC63011CA29EB = {
+			buildPhases = (
+				018F9561FFDDC63011CA29EB,
+				018F9562FFDDC63011CA29EB,
+				018F9563FFDDC63011CA29EB,
+				018F9564FFDDC63011CA29EB,
+			);
+			buildSettings = {
+				KERNEL_MODULE = YES;
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleDBDMAAudio;
+				MODULE_VERSION = 1.1f7;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleDBDMAAudio;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+				0325496BFFDDCAD711CA29EB,
+			);
+			isa = PBXBundleTarget;
+			name = AppleDBDMAAudio;
+			productName = AppleDBDMAAudio;
+			productReference = 018F955FFFDDC63011CA29EB;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
+<plist version=\"0.9\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>AppleDBDMAAudio</string>
+	<key>CFBundleGetInfoString</key>
+	<string>AppleDBDMAAudio version 1.1, Copyright 2000 Apple Computer, Inc.
+AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.AppleDBDMAAudio</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>AppleDBDMAAudio</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.1</string>
+	<key>CFBundleSignature</key>
+	<string>aaud</string>
+	<key>CFBundleVersion</key>
+	<string>1.1f7</string>
+	<key>IOKitPersonalities</key>
+	<dict/>
+	<key>OSBundleCompatibleVersion</key>
+	<string>1.1f2</string>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.iokit.IOAudioFamily</key>
+		<string>1.1d26</string>
+	</dict>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 0;
+		};
+		018F9561FFDDC63011CA29EB = {
+			buildActionMask = 2147483647;
+			files = (
+				015E4F8A00B0602C11CE1689,
+				F5662F0000D82E7801CE1689,
+			);
+			isa = PBXHeadersBuildPhase;
+			name = Headers;
+		};
+		018F9562FFDDC63011CA29EB = {
+			buildActionMask = 2147483647;
+			files = (
+				03254967FFDDCA0611CA29EB,
+			);
+			isa = PBXSourcesBuildPhase;
+			name = Sources;
+		};
+		018F9563FFDDC63011CA29EB = {
+			buildActionMask = 2147483647;
+			files = (
+				03254974FFDDCC5211CA29EB,
+			);
+			isa = PBXFrameworksBuildPhase;
+			name = "Frameworks & Libraries";
+		};
+		018F9564FFDDC63011CA29EB = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			name = "Bundle Resources";
+		};
+		018F9565FFDDC86711CA29EB = {
+			isa = PBXTargetDependency;
+			target = 018F9560FFDDC63011CA29EB;
+		};
+		018F9566FFDDC8E211CA29EB = {
+			children = (
+				03254964FFDDCA0611CA29EB,
+				03254963FFDDCA0611CA29EB,
+				03254965FFDDCA0611CA29EB,
+				F5662EFF00D82E7801CE1689,
+			);
+			isa = PBXGroup;
+			name = AppleDBDMAAudio;
+			path = "";
+			refType = 4;
+		};
+		01B264EA0072BE3F11CE2248 = {
+			fileRef = 010D072FFFFA58D511CE168A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		01B264EB0072BE3F11CE2248 = {
+			fileRef = 010D0724FFF41C8E11CE168A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		01FC75CA00024E7B11CE168A = {
+			children = (
+				010D072BFFF9260A11CE168A,
+				010D072DFFF92E1C11CE168A,
+				01FC75CD00024F2311CE168A,
+				01FC75CB00024EC611CE168A,
+				01043C550003A3CC11CE168A,
+				0106F5D50003B85211CE168A,
+				00DB2084002D2B867F000001,
+				00DB2086002D370E7F000001,
+			);
+			isa = PBXGroup;
+			name = "Apple Hardware Abstraction";
+			path = "";
+			refType = 4;
+		};
+		01FC75CB00024EC611CE168A = {
+			isa = PBXFileReference;
+			path = AudioHardwareOutput.cpp;
+			refType = 4;
+		};
+		01FC75CD00024F2311CE168A = {
+			isa = PBXFileReference;
+			path = AudioHardwareOutput.h;
+			refType = 4;
+		};
+//010
+//011
+//012
+//013
+//014
+//020
+//021
+//022
+//023
+//024
+		028A11A100C715EF11CE168A = {
+			isa = PBXFileReference;
+			path = AudioDeviceTreeParser.cpp;
+			refType = 4;
+		};
+		028A11A200C715EF11CE168A = {
+			isa = PBXFileReference;
+			path = AudioDeviceTreeParser.h;
+			refType = 4;
+		};
+		028A11A300C715EF11CE168A = {
+			fileRef = 028A11A200C715EF11CE168A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//020
+//021
+//022
+//023
+//024
+//030
+//031
+//032
+//033
+//034
+		03254963FFDDCA0611CA29EB = {
+			isa = PBXFileReference;
+			name = AppleDBDMAAudioDMAEngine.h;
+			path = AppleDBDMAAudio/AppleDBDMAAudioDMAEngine.h;
+			refType = 4;
+		};
+		03254964FFDDCA0611CA29EB = {
+			isa = PBXFileReference;
+			name = AppleDBDMAAudioDMAEngine.cpp;
+			path = AppleDBDMAAudio/AppleDBDMAAudioDMAEngine.cpp;
+			refType = 4;
+		};
+		03254965FFDDCA0611CA29EB = {
+			isa = PBXFileReference;
+			name = AppleDBDMAAudioClip.c;
+			path = AppleDBDMAAudio/AppleDBDMAAudioClip.c;
+			refType = 4;
+		};
+		03254967FFDDCA0611CA29EB = {
+			fileRef = 03254964FFDDCA0611CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		03254968FFDDCA4E11CA29EB = {
+			buildActionMask = 8;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				03254969FFDDCA4E11CA29EB,
+				03254980FFDDCE5911CA29EB,
+				09D5B60DFFDDF6D311CA29EB,
+				09D5B60EFFDDF6D311CA29EB,
+				011D3D87002A57B511CE16D5,
+				00C6991A002BD6717F000001,
+				017EA99000C2ECAA7F000001,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			name = "Copy Files";
+		};
+		03254969FFDDCA4E11CA29EB = {
+			fileRef = 018F955FFFDDC63011CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0325496AFFDDCAD711CA29EB = {
+			isa = PBXLibraryReference;
+			path = libAppleDBDMAAudioFloatLib.a;
+			refType = 3;
+		};
+		0325496BFFDDCAD711CA29EB = {
+			isa = PBXTargetDependency;
+			target = 0325496CFFDDCAD711CA29EB;
+		};
+		0325496CFFDDCAD711CA29EB = {
+			buildPhases = (
+				0325496DFFDDCAD711CA29EB,
+				0325496EFFDDCAD711CA29EB,
+				03254970FFDDCAD711CA29EB,
+				03254971FFDDCAD711CA29EB,
+			);
+			buildSettings = {
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				HEADER_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Headers\"";
+				LIBRARY_STYLE = STATIC;
+				OPTIMIZATION_CFLAGS = "-O2";
+				OTHER_CFLAGS = "-nostdinc -finline -fno-keep-inline-functions -force_cpusubtype_ALL -mlong-branch -fno-rtti -fno-exceptions -fcheck-new -fvtable-thunks -static -DKERNEL -DKERNEL_PRIVATE -DDRIVER_PRIVATE -DAPPLE -DNeXT";
+				OTHER_LDFLAGS = "-static";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = libAppleDBDMAAudioFloatLib.a;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+			);
+			isa = PBXLibraryTarget;
+			name = AppleDBDMAAudioFloatLib;
+			productInstallPath = /usr/local/lib;
+			productName = AppleDBDMAAudioFloatLib;
+			productReference = 0325496AFFDDCAD711CA29EB;
+			shouldUseHeadermap = 0;
+		};
+		0325496DFFDDCAD711CA29EB = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+			name = Headers;
+		};
+		0325496EFFDDCAD711CA29EB = {
+			buildActionMask = 2147483647;
+			files = (
+				0325496FFFDDCAD711CA29EB,
+			);
+			isa = PBXSourcesBuildPhase;
+			name = Sources;
+		};
+		0325496FFFDDCAD711CA29EB = {
+			fileRef = 03254965FFDDCA0611CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		03254970FFDDCAD711CA29EB = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			name = "Frameworks & Libraries";
+		};
+		03254971FFDDCAD711CA29EB = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			name = "ResourceManager Resources";
+		};
+		03254973FFDDCC5211CA29EB = {
+			isa = PBXFileReference;
+			path = AppleOnboardAudio.cpp;
+			refType = 4;
+		};
+		03254974FFDDCC5211CA29EB = {
+			fileRef = 0325496AFFDDCAD711CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		03254975FFDDCC5211CA29EB = {
+			fileRef = 03254973FFDDCC5211CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		03254976FFDDCC7711CA29EB = {
+			children = (
+				0325497DFFDDCE5911CA29EB,
+				0325497EFFDDCE5911CA29EB,
+				0325497FFFDDCE5911CA29EB,
+			);
+			isa = PBXGroup;
+			name = AppleScreamerAudio;
+			path = "";
+			refType = 4;
+		};
+		03254977FFDDCCFB11CA29EB = {
+			isa = PBXBundleReference;
+			path = AppleScreamerAudio.kext;
+			refType = 3;
+		};
+		03254978FFDDCCFB11CA29EB = {
+			buildPhases = (
+				03254979FFDDCCFB11CA29EB,
+				0325497AFFDDCCFB11CA29EB,
+				0325497BFFDDCCFB11CA29EB,
+				0325497CFFDDCCFB11CA29EB,
+			);
+			buildSettings = {
+				KERNEL_MODULE = YES;
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleScreamerAudio;
+				MODULE_VERSION = 1.5f2;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleScreamerAudio;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = AppleScreamerAudio;
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = AppleScreamerAudio;
+			productReference = 03254977FFDDCCFB11CA29EB;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
+<plist version=\"0.9\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>AppleScreamerAudio</string>
+	<key>CFBundleGetInfoString</key>
+	<string>AppleScreamerAudio version 1.5, Copyright 2000 Apple Computer, Inc.</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.AppleScreamerAudio</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>AppleScreamerAudio</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.5</string>
+	<key>CFBundleSignature</key>
+	<string>aaud</string>
+	<key>CFBundleVersion</key>
+	<string>1.5f2</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>AppleScreamerAudio</key>
+		<dict>
+			<key>AOAAttributes</key>
+			<dict>
+				<key>RangeIn</key>
+				<dict>
+					<key>maxLin</key>
+					<integer>15</integer>
+					<key>maxLog</key>
+					<data>
+					ABaAAA==
+					</data>
+					<key>minLin</key>
+					<integer>0</integer>
+					<key>minLog</key>
+					<data>
+					AAAAAA==
+					</data>
+				</dict>
+				<key>RangeOut</key>
+				<dict>
+					<key>maxLin</key>
+					<integer>16</integer>
+					<key>maxLog</key>
+					<data>
+					AAAAAA==
+					</data>
+					<key>minLin</key>
+					<integer>0</integer>
+					<key>minLog</key>
+					<data>
+					/+mAAA==
+					</data>
+				</dict>
+				<key>analogModem</key>
+				<true/>
+			</dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleScreamerAudio</string>
+			<key>IOClass</key>
+			<string>AppleScreamerAudio</string>
+			<key>IONameMatch</key>
+			<array>
+				<string>davbus</string>
+				<string>awacs</string>
+			</array>
+			<key>IOProviderClass</key>
+			<string>AppleMacIODevice</string>
+		</dict>
+	</dict>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.driver.AppleDBDMAAudio</key>
+		<string>1.1f2</string>
+		<key>com.apple.driver.AppleOnboardAudio</key>
+		<string>1.5d14</string>
+		<key>com.apple.iokit.IOAudioFamily</key>
+		<string>1.1d26</string>
+	</dict>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 0;
+		};
+		03254979FFDDCCFB11CA29EB = {
+			buildActionMask = 2147483647;
+			files = (
+				01121ECAFFFD6C8A11CE168A,
+				01121ECBFFFD6C8A11CE168A,
+				01121ECCFFFD6C8A11CE168A,
+				011D3D83002A526611CE16D5,
+				04243B240043078E11CE168A,
+				028A11A300C715EF11CE168A,
+				F555175400CD4F2501CE1689,
+				F596BEAD00CE016C01000001,
+				F5587BDF00CEBEBB01CE1689,
+				F5587BE100CEC02B01CE1689,
+				F5ED02C700D015E901CE1689,
+				F5ED02C800D015E901CE1689,
+				F580601B00D0612001CE1689,
+			);
+			isa = PBXHeadersBuildPhase;
+			name = Headers;
+		};
+		0325497AFFDDCCFB11CA29EB = {
+			buildActionMask = 2147483647;
+			files = (
+				F5ED02C900D015E901CE1689,
+			);
+			isa = PBXSourcesBuildPhase;
+			name = Sources;
+		};
+		0325497BFFDDCCFB11CA29EB = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			name = "Frameworks & Libraries";
+		};
+		0325497CFFDDCCFB11CA29EB = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			name = "Bundle Resources";
+		};
+		0325497DFFDDCE5911CA29EB = {
+			isa = PBXFileReference;
+			name = awacs_hw.h;
+			path = AppleScreamerAudio/awacs_hw.h;
+			refType = 4;
+		};
+		0325497EFFDDCE5911CA29EB = {
+			isa = PBXFileReference;
+			name = AppleScreamerAudio.h;
+			path = AppleScreamerAudio/AppleScreamerAudio.h;
+			refType = 4;
+		};
+		0325497FFFDDCE5911CA29EB = {
+			isa = PBXFileReference;
+			name = AppleScreamerAudio.cpp;
+			path = AppleScreamerAudio/AppleScreamerAudio.cpp;
+			refType = 4;
+		};
+		03254980FFDDCE5911CA29EB = {
+			fileRef = 03254977FFDDCCFB11CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		03254984FFDDCE9111CA29EB = {
+			isa = PBXTargetDependency;
+			target = 03254978FFDDCCFB11CA29EB;
+		};
+		03254993FFDDD25B11CA29EB = {
+			isa = PBXBundleReference;
+			path = AppleBurgundyAudio.kext;
+			refType = 3;
+		};
+		03254994FFDDD25B11CA29EB = {
+			isa = PBXBundleReference;
+			path = AppleDACAAudio.kext;
+			refType = 3;
+		};
+		03254995FFDDD25B11CA29EB = {
+			buildPhases = (
+				03254996FFDDD25B11CA29EB,
+				03254997FFDDD25B11CA29EB,
+				03254998FFDDD25B11CA29EB,
+				03254999FFDDD25B11CA29EB,
+			);
+			buildSettings = {
+				KERNEL_MODULE = YES;
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleBurgundyAudio;
+				MODULE_VERSION = 1.5f2;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleBurgundyAudio;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = AppleBurgundyAudio;
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = AppleBurgundyAudio;
+			productReference = 03254993FFDDD25B11CA29EB;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
+<plist version=\"0.9\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>AppleBurgundyAudio</string>
+	<key>CFBundleGetInfoString</key>
+	<string>AppleBurgundyAudio version 1.1, Copyright 2000 Apple Computer, Inc.</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.AppleBurgundyAudio</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>AppleBurgundyAudio</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.5</string>
+	<key>CFBundleSignature</key>
+	<string>aaud</string>
+	<key>CFBundleVersion</key>
+	<string>1.5f2</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>AppleBurgundyAudio</key>
+		<dict>
+			<key>AOAAttributes</key>
+			<dict>
+				<key>RangeIn</key>
+				<dict>
+					<key>maxLin</key>
+					<integer>15</integer>
+					<key>maxLog</key>
+					<data>
+					ABaAAA==
+					</data>
+					<key>minLin</key>
+					<integer>0</integer>
+					<key>minLog</key>
+					<data>
+					AAAAAA==
+					</data>
+				</dict>
+				<key>RangeOut</key>
+				<dict>
+					<key>maxLin</key>
+					<integer>16</integer>
+					<key>maxLog</key>
+					<data>
+					AAAAAA==
+					</data>
+					<key>minLin</key>
+					<integer>0</integer>
+					<key>minLog</key>
+					<data>
+					/+mAAA==
+					</data>
+				</dict>
+				<key>analogModem</key>
+				<true/>
+			</dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleBurgundyAudio</string>
+			<key>IOClass</key>
+			<string>AppleBurgundyAudio</string>
+			<key>IONameMatch</key>
+			<array>
+				<string>davbus</string>
+				<string>perch</string>
+			</array>
+			<key>IOProviderClass</key>
+			<string>AppleMacIODevice</string>
+		</dict>
+	</dict>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.driver.AppleDBDMAAudio</key>
+		<string>1.1f2</string>
+		<key>com.apple.driver.AppleOnboardAudio</key>
+		<string>1.5d14</string>
+		<key>com.apple.iokit.IOAudioFamily</key>
+		<string>1.1d26</string>
+	</dict>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 0;
+		};
+		03254996FFDDD25B11CA29EB = {
+			buildActionMask = 2147483647;
+			files = (
+				032549ADFFDDD7B411CA29EB,
+				032549AEFFDDD7B411CA29EB,
+				011D3D84002A52D511CE16D5,
+				01B264EA0072BE3F11CE2248,
+				01B264EB0072BE3F11CE2248,
+				0397B051008A725E11CE164B,
+				289FE2BF0123469D06CE168A,
+				289FE2C00123469D06CE168A,
+				289FE2C10123469D06CE168A,
+				289FE2C20123469D06CE168A,
+				289FE2C30123469D06CE168A,
+				289FE2C40123469D06CE168A,
+			);
+			isa = PBXHeadersBuildPhase;
+			name = Headers;
+		};
+		03254997FFDDD25B11CA29EB = {
+			buildActionMask = 2147483647;
+			files = (
+				032549AFFFDDD7B411CA29EB,
+			);
+			isa = PBXSourcesBuildPhase;
+			name = Sources;
+		};
+		03254998FFDDD25B11CA29EB = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			name = "Frameworks & Libraries";
+		};
+		03254999FFDDD25B11CA29EB = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			name = "Bundle Resources";
+		};
+		0325499AFFDDD25B11CA29EB = {
+			buildPhases = (
+				0325499BFFDDD25B11CA29EB,
+				0325499CFFDDD25B11CA29EB,
+				0325499DFFDDD25B11CA29EB,
+				0325499EFFDDD25B11CA29EB,
+			);
+			buildSettings = {
+				KERNEL_MODULE = YES;
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleDACAAudio;
+				MODULE_VERSION = 1.5f1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleDACAAudio;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = AppleDACAAudio;
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = AppleDACAAudio;
+			productReference = 03254994FFDDD25B11CA29EB;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
+<plist version=\"0.9\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>AppleDACAAudio</string>
+	<key>CFBundleGetInfoString</key>
+	<string>AppleDACAAudio version 1.5, Copyright 2000 Apple Computer, Inc.</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.AppleDACAAudio</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>AppleDACAAudio</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.5</string>
+	<key>CFBundleSignature</key>
+	<string>aaud</string>
+	<key>CFBundleVersion</key>
+	<string>1.5f1</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>AppleDACAAudio</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleDACAAudio</string>
+			<key>IOClass</key>
+			<string>PPCDACA</string>
+			<key>IONameMatch</key>
+			<string>i2s-a</string>
+			<key>IOProviderClass</key>
+			<string>AppleMacIODevice</string>
+		</dict>
+	</dict>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.driver.AppleDBDMAAudio</key>
+		<string>1.1f2</string>
+		<key>com.apple.iokit.IOAudioFamily</key>
+		<string>1.1d26</string>
+	</dict>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 0;
+		};
+		0325499BFFDDD25B11CA29EB = {
+			buildActionMask = 2147483647;
+			files = (
+				032549B1FFDDD7B411CA29EB,
+				032549B2FFDDD7B411CA29EB,
+				032549B3FFDDD7B411CA29EB,
+				011D3D85002A52D511CE16D5,
+				0397B052008A725E11CE164B,
+				0397B053008A73D911CE164B,
+				0397B054008A73D911CE164B,
+			);
+			isa = PBXHeadersBuildPhase;
+			name = Headers;
+		};
+		0325499CFFDDD25B11CA29EB = {
+			buildActionMask = 2147483647;
+			files = (
+				032549B6FFDDD7B411CA29EB,
+			);
+			isa = PBXSourcesBuildPhase;
+			name = Sources;
+		};
+		0325499DFFDDD25B11CA29EB = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			name = "Frameworks & Libraries";
+		};
+		0325499EFFDDD25B11CA29EB = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			name = "Bundle Resources";
+		};
+		0325499FFFDDD6A911CA29EB = {
+			children = (
+				032549A2FFDDD7B411CA29EB,
+				032549A3FFDDD7B411CA29EB,
+				032549A4FFDDD7B411CA29EB,
+			);
+			isa = PBXGroup;
+			name = AppleBurgundyAudio;
+			path = "";
+			refType = 4;
+		};
+		032549A0FFDDD6A911CA29EB = {
+			children = (
+				032549A5FFDDD7B411CA29EB,
+				032549A6FFDDD7B411CA29EB,
+				032549A7FFDDD7B411CA29EB,
+				032549A8FFDDD7B411CA29EB,
+			);
+			isa = PBXGroup;
+			name = AppleDACAAudio;
+			path = "";
+			refType = 4;
+		};
+		032549A2FFDDD7B411CA29EB = {
+			isa = PBXFileReference;
+			name = burgundy_hw.h;
+			path = AppleBurgundyAudio/burgundy_hw.h;
+			refType = 4;
+		};
+		032549A3FFDDD7B411CA29EB = {
+			isa = PBXFileReference;
+			name = AppleBurgundyAudio.h;
+			path = AppleBurgundyAudio/AppleBurgundyAudio.h;
+			refType = 4;
+		};
+		032549A4FFDDD7B411CA29EB = {
+			isa = PBXFileReference;
+			name = AppleBurgundyAudio.cpp;
+			path = AppleBurgundyAudio/AppleBurgundyAudio.cpp;
+			refType = 4;
+		};
+		032549A5FFDDD7B411CA29EB = {
+			isa = PBXFileReference;
+			name = daca_hw.h;
+			path = AppleDACAAudio/daca_hw.h;
+			refType = 4;
+		};
+		032549A6FFDDD7B411CA29EB = {
+			isa = PBXFileReference;
+			name = PPCDACA.h;
+			path = AppleDACAAudio/PPCDACA.h;
+			refType = 4;
+		};
+		032549A7FFDDD7B411CA29EB = {
+			isa = PBXFileReference;
+			name = PPCDACA.cpp;
+			path = AppleDACAAudio/PPCDACA.cpp;
+			refType = 4;
+		};
+		032549A8FFDDD7B411CA29EB = {
+			isa = PBXFileReference;
+			name = PPCDACA_inlined.h;
+			path = AppleDACAAudio/PPCDACA_inlined.h;
+			refType = 4;
+		};
+		032549ADFFDDD7B411CA29EB = {
+			fileRef = 032549A3FFDDD7B411CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		032549AEFFDDD7B411CA29EB = {
+			fileRef = 032549A2FFDDD7B411CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		032549AFFFDDD7B411CA29EB = {
+			fileRef = 032549A4FFDDD7B411CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		032549B1FFDDD7B411CA29EB = {
+			fileRef = 032549A5FFDDD7B411CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		032549B2FFDDD7B411CA29EB = {
+			fileRef = 032549A6FFDDD7B411CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		032549B3FFDDD7B411CA29EB = {
+			fileRef = 032549A8FFDDD7B411CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		032549B6FFDDD7B411CA29EB = {
+			fileRef = 032549A7FFDDD7B411CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		0397B051008A725E11CE164B = {
+			fileRef = 010D0731FFFA595911CE168A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0397B052008A725E11CE164B = {
+			fileRef = 010D0731FFFA595911CE168A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0397B053008A73D911CE164B = {
+			fileRef = 010D072FFFFA58D511CE168A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0397B054008A73D911CE164B = {
+			fileRef = 010D0724FFF41C8E11CE168A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		03EA7D87000F9FD711CE168A = {
+			children = (
+				03EA7D88000F9FD711CE168A,
+				125DFF900103865306CE1662,
+				03EA7D89000F9FD711CE168A,
+				03EA7D8A000F9FD711CE168A,
+			);
+			isa = PBXGroup;
+			name = "AppleTexasAudio\n";
+			path = AppleTexasAudio;
+			refType = 4;
+		};
+		03EA7D88000F9FD711CE168A = {
+			isa = PBXFileReference;
+			path = texas_hw.h;
+			refType = 4;
+		};
+		03EA7D89000F9FD711CE168A = {
+			isa = PBXFileReference;
+			path = AppleTexasAudio.cpp;
+			refType = 4;
+		};
+		03EA7D8A000F9FD711CE168A = {
+			isa = PBXFileReference;
+			path = AppleTexasAudio.h;
+			refType = 4;
+		};
+//030
+//031
+//032
+//033
+//034
+//040
+//041
+//042
+//043
+//044
+		04243B230043078E11CE168A = {
+			isa = PBXFileReference;
+			path = AudioHardwarePower.h;
+			refType = 4;
+		};
+		04243B240043078E11CE168A = {
+			fileRef = 04243B230043078E11CE168A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		04243B250043078E11CE168A = {
+			fileRef = 04243B230043078E11CE168A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//040
+//041
+//042
+//043
+//044
+//060
+//061
+//062
+//063
+//064
+		06AA1264FFB2107B11CA28AA = {
+			buildActionMask = 12;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			name = "Shell Script";
+			neededFileNames = (
+			);
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		06AA1265FFB2107B11CA28AA = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "\U0001-DDEBUG -DDEBUGLOG";
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		06AA1266FFB2107B11CA28AA = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+		06AA1267FFB2110C11CA28AA = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			name = "Shell Script";
+			neededFileNames = (
+			);
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+//060
+//061
+//062
+//063
+//064
+//080
+//081
+//082
+//083
+//084
+		089C1669FE841209C02AAC07 = {
+			buildStyles = (
+				06AA1265FFB2107B11CA28AA,
+				06AA1266FFB2107B11CA28AA,
+			);
+			isa = PBXProject;
+			mainGroup = 089C166AFE841209C02AAC07;
+			projectDirPath = "";
+			targets = (
+				089C1673FE841209C02AAC07,
+				018F9560FFDDC63011CA29EB,
+				0325496CFFDDCAD711CA29EB,
+				03254978FFDDCCFB11CA29EB,
+				03254995FFDDD25B11CA29EB,
+				0325499AFFDDD25B11CA29EB,
+				013E928F0017D9B711CE16D4,
+				00C6990B002BCF867F000001,
+				017D8EFD0032206011CE16D4,
+				017EA98300C2DA887F000001,
+			);
+		};
+		089C166AFE841209C02AAC07 = {
+			children = (
+				017EA98900C2DDA47F000001,
+				017D8F040032243A11CE16D4,
+				014889150083B38D11CE16D4,
+				010D0722FFF41B3811CE168A,
+				017EA99100C2F1207F000001,
+				24321DBFFFE2FAA911CA29EB,
+				01FC75CA00024E7B11CE168A,
+				016FA3FC00CB28457F000001,
+				010D0723FFF41B3811CE168A,
+				089C167CFE841241C02AAC07,
+				19C28FB6FE9D52B211CA2CBB,
+			);
+			isa = PBXGroup;
+			name = AppleOnboardAudio;
+			refType = 4;
+		};
+		089C1673FE841209C02AAC07 = {
+			buildPhases = (
+				06AA1267FFB2110C11CA28AA,
+				089C1674FE841209C02AAC07,
+				089C1675FE841209C02AAC07,
+				089C1676FE841209C02AAC07,
+				089C1677FE841209C02AAC07,
+				089C1679FE841209C02AAC07,
+				06AA1264FFB2107B11CA28AA,
+				03254968FFDDCA4E11CA29EB,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleOnboardAudio;
+				MODULE_VERSION = 1.5f8;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleOnboardAudio;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+				018F9565FFDDC86711CA29EB,
+				03254984FFDDCE9111CA29EB,
+				09D5B60BFFDDF3C011CA29EB,
+				09D5B60CFFDDF6D311CA29EB,
+				013E92960017DA1211CE16D4,
+				00C6990A002BCF867F000001,
+				017D8EFC0032206011CE16D4,
+				011E54E100C9B5A47F000001,
+			);
+			isa = PBXBundleTarget;
+			name = AppleOnboardAudio;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+			productName = AppleOnboardAudio;
+			productReference = 0B81C263FFB7832611CA28AA;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
+<plist version=\"0.9\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>AppleOnboardAudio</string>
+	<key>CFBundleGetInfoString</key>
+	<string>AppleOnboardAudio 1.5, Copyright 2000 Apple Computer, Inc.</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.AppleOnboardAudio</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>AppleOnboardAudio</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.5</string>
+	<key>CFBundleSignature</key>
+	<string>aaud</string>
+	<key>CFBundleVersion</key>
+	<string>1.5f8</string>
+	<key>IOKitPersonalities</key>
+	<dict/>
+	<key>OSBundleCompatibleVersion</key>
+	<string>1.5d14</string>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.driver.AppleDBDMAAudio</key>
+		<string>1.1f2</string>
+		<key>com.apple.iokit.IOAudioFamily</key>
+		<string>1.1d26</string>
+	</dict>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 1;
+		};
+		089C1674FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				010D0725FFF41C8E11CE168A,
+				010D0730FFFA58D511CE168A,
+				010D0732FFFA595911CE168A,
+				0169E2D0005EAAA311CE1471,
+				F534936900D08C5401000001,
+				289FE2C50123469D06CE168A,
+				289FE2C60123469D06CE168A,
+				289FE2C70123469D06CE168A,
+				289FE2C80123469D06CE168A,
+				289FE2C90123469D06CE168A,
+				289FE2CA0123469D06CE168A,
+			);
+			isa = PBXHeadersBuildPhase;
+			name = Headers;
+		};
+		089C1675FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				089C1680FE841241C02AAC07,
+			);
+			isa = PBXResourcesBuildPhase;
+			name = "Bundle Resources";
+		};
+		089C1676FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				03254975FFDDCC5211CA29EB,
+				289FE2CB0123469D06CE168A,
+				289FE2CC0123469D06CE168A,
+				289FE2CD0123469D06CE168A,
+				289FE2CE0123469D06CE168A,
+				289FE2CF0123469D06CE168A,
+				289FE2D00123469D06CE168A,
+			);
+			isa = PBXSourcesBuildPhase;
+			name = Sources;
+		};
+		089C1677FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			name = "Frameworks & Libraries";
+		};
+		089C1679FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			name = "ResourceManager Resources";
+		};
+		089C167CFE841241C02AAC07 = {
+			children = (
+				089C167DFE841241C02AAC07,
+			);
+			isa = PBXGroup;
+			name = Resources;
+			refType = 4;
+		};
+		089C167DFE841241C02AAC07 = {
+			children = (
+				089C167EFE841241C02AAC07,
+			);
+			isa = PBXVariantGroup;
+			name = InfoPlist.strings;
+			refType = 4;
+		};
+		089C167EFE841241C02AAC07 = {
+			fileEncoding = 10;
+			isa = PBXFileReference;
+			name = English;
+			path = English.lproj/InfoPlist.strings;
+			refType = 4;
+		};
+		089C1680FE841241C02AAC07 = {
+			fileRef = 089C167DFE841241C02AAC07;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//080
+//081
+//082
+//083
+//084
+//090
+//091
+//092
+//093
+//094
+		09D5B60BFFDDF3C011CA29EB = {
+			isa = PBXTargetDependency;
+			target = 03254995FFDDD25B11CA29EB;
+		};
+		09D5B60CFFDDF6D311CA29EB = {
+			isa = PBXTargetDependency;
+			target = 0325499AFFDDD25B11CA29EB;
+		};
+		09D5B60DFFDDF6D311CA29EB = {
+			fileRef = 03254993FFDDD25B11CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		09D5B60EFFDDF6D311CA29EB = {
+			fileRef = 03254994FFDDD25B11CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//090
+//091
+//092
+//093
+//094
+//0B0
+//0B1
+//0B2
+//0B3
+//0B4
+		0B81C263FFB7832611CA28AA = {
+			isa = PBXBundleReference;
+			path = AppleOnboardAudio.kext;
+			refType = 3;
+		};
+//0B0
+//0B1
+//0B2
+//0B3
+//0B4
+//120
+//121
+//122
+//123
+//124
+		125DFF900103865306CE1662 = {
+			isa = PBXFileReference;
+			path = AppleTexasEQPrefs.cpp;
+			refType = 4;
+		};
+//120
+//121
+//122
+//123
+//124
+//190
+//191
+//192
+//193
+//194
+		19C28FB6FE9D52B211CA2CBB = {
+			children = (
+				0B81C263FFB7832611CA28AA,
+				018F955FFFDDC63011CA29EB,
+				0325496AFFDDCAD711CA29EB,
+				03254977FFDDCCFB11CA29EB,
+				03254993FFDDD25B11CA29EB,
+				03254994FFDDD25B11CA29EB,
+				013E928E0017D9B711CE16D4,
+				00C69909002BCF867F000001,
+				017D8EFB0032206011CE16D4,
+				017EA98200C2DA887F000001,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+		};
+//190
+//191
+//192
+//193
+//194
+//240
+//241
+//242
+//243
+//244
+		24321DBFFFE2FAA911CA29EB = {
+			children = (
+				010D072FFFFA58D511CE168A,
+				010D0731FFFA595911CE168A,
+				010D0724FFF41C8E11CE168A,
+				F529B67D00CC983401000001,
+				03254973FFDDCC5211CA29EB,
+			);
+			isa = PBXGroup;
+			name = AppleOnboardAudio;
+			refType = 4;
+		};
+//240
+//241
+//242
+//243
+//244
+//280
+//281
+//282
+//283
+//284
+		289FE2BF0123469D06CE168A = {
+			fileRef = 028A11A200C715EF11CE168A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		289FE2C00123469D06CE168A = {
+			fileRef = 010D072BFFF9260A11CE168A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		289FE2C10123469D06CE168A = {
+			fileRef = 01FC75CD00024F2311CE168A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		289FE2C20123469D06CE168A = {
+			fileRef = 01043C550003A3CC11CE168A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		289FE2C30123469D06CE168A = {
+			fileRef = 00DB2084002D2B867F000001;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		289FE2C40123469D06CE168A = {
+			fileRef = 04243B230043078E11CE168A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		289FE2C50123469D06CE168A = {
+			fileRef = 028A11A200C715EF11CE168A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		289FE2C60123469D06CE168A = {
+			fileRef = 010D072BFFF9260A11CE168A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		289FE2C70123469D06CE168A = {
+			fileRef = 01FC75CD00024F2311CE168A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		289FE2C80123469D06CE168A = {
+			fileRef = 01043C550003A3CC11CE168A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		289FE2C90123469D06CE168A = {
+			fileRef = 00DB2084002D2B867F000001;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		289FE2CA0123469D06CE168A = {
+			fileRef = 04243B230043078E11CE168A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		289FE2CB0123469D06CE168A = {
+			fileRef = 028A11A100C715EF11CE168A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		289FE2CC0123469D06CE168A = {
+			fileRef = 010D072DFFF92E1C11CE168A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		289FE2CD0123469D06CE168A = {
+			fileRef = 01FC75CB00024EC611CE168A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		289FE2CE0123469D06CE168A = {
+			fileRef = 0106F5D50003B85211CE168A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		289FE2CF0123469D06CE168A = {
+			fileRef = 00DB2086002D370E7F000001;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		289FE2D00123469D06CE168A = {
+			fileRef = 016FA3FD00CB28457F000001;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//280
+//281
+//282
+//283
+//284
+//F50
+//F51
+//F52
+//F53
+//F54
+		F529B67D00CC983401000001 = {
+			isa = PBXFileReference;
+			path = AppleOnboardAudio.h;
+			refType = 4;
+		};
+		F534936900D08C5401000001 = {
+			fileRef = F529B67D00CC983401000001;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F555175400CD4F2501CE1689 = {
+			fileRef = F529B67D00CC983401000001;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5587BDF00CEBEBB01CE1689 = {
+			fileRef = 01043C550003A3CC11CE168A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5587BE100CEC02B01CE1689 = {
+			fileRef = 00DB2084002D2B867F000001;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5662EFF00D82E7801CE1689 = {
+			isa = PBXFileReference;
+			path = AppleiSubEngine.h;
+			refType = 4;
+		};
+		F5662F0000D82E7801CE1689 = {
+			fileRef = F5662EFF00D82E7801CE1689;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F580601B00D0612001CE1689 = {
+			fileRef = 010D072BFFF9260A11CE168A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F596BEAD00CE016C01000001 = {
+			fileRef = 01FC75CD00024F2311CE168A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5ED02C700D015E901CE1689 = {
+			fileRef = 0325497EFFDDCE5911CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5ED02C800D015E901CE1689 = {
+			fileRef = 0325497DFFDDCE5911CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5ED02C900D015E901CE1689 = {
+			fileRef = 0325497FFFDDCE5911CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+	};
+	rootObject = 089C1669FE841209C02AAC07;
+}

@@ -1,4 +1,5 @@
 BootPanelImage = BootPanel.pdf
+ServerBootPanelImage = ServerBootPanel.pdf
 
 AFTER_BUILD += remove_info_file
 

@@ -16,7 +16,7 @@
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  *
- * $Id: lcp.h,v 1.3 2001/01/20 03:35:45 callie Exp $
+ * $Id: lcp.h,v 1.4 2001/05/09 17:52:30 callie Exp $
  */
 
 /*
@@ -30,6 +30,9 @@
 #define CI_PCOMPRESSION	7	/* Protocol Field Compression */
 #define CI_ACCOMPRESSION 8	/* Address/Control Field Compression */
 #define CI_CALLBACK	13	/* callback */
+#define CI_MRRU		17	/* max reconstructed receive unit; multilink */
+#define CI_SSNHF	18	/* short sequence numbers for multilink */
+#define CI_EPDISC	19	/* endpoint discriminator */
 
 /*
  * LCP-specific packet types.
@@ -56,12 +59,17 @@ typedef struct lcp_options {
     bool neg_accompression;	/* HDLC Address/Control Field Compression? */
     bool neg_lqr;		/* Negotiate use of Link Quality Reports */
     bool neg_cbcp;		/* Negotiate use of CBCP */
+    bool neg_mrru;		/* negotiate multilink MRRU */
+    bool neg_ssnhf;		/* negotiate short sequence numbers */
+    bool neg_endpoint;		/* negotiate endpoint discriminator */
     int  mru;			/* Value of MRU */
+    int	 mrru;			/* Value of MRRU, and multilink enable */
     u_char chap_mdtype;		/* which MD type (hashing algorithm) */
     u_int32_t asyncmap;		/* Value of async map */
     u_int32_t magicnumber;
-    int numloops;		/* Number of loops during magic number neg. */
+    int  numloops;		/* Number of loops during magic number neg. */
     u_int32_t lqr_period;	/* Reporting period for LQR 1/100ths second */
+    struct epdisc endpoint;	/* endpoint discriminator */
 } lcp_options;
 
 extern fsm lcp_fsm[];
@@ -86,3 +94,4 @@ extern struct protent lcp_protent;
 /* Default number of times we receive our magic number from the peer
    before deciding the link is looped-back. */
 #define DEFLOOPBACKFAIL	10
+

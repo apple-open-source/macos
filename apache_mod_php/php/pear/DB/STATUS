@@ -1,0 +1,27 @@
+DB driver feature matrix:
+
+Symbols:
+  "x" - implemented, but without tests
+  "t" - implemented, but one or more tests fail
+  "T" - implemented, passing all tests
+  "e" - emulated, without tests
+  "E" - emulated, passing all tests
+  "n" - returns "not capable"
+  "-" - no implementation of this feature
+
+
+                   fbsql      ifx      mssql      oci8     pgsql
+FEATURE              |  ibase  |  msql   |   mysql |   odbc  |  sybase
+simpleQuery          x    x    x    x    x    T    T    x    T    x
+numCols              x    x    x    x    x    T    T    x    T    x
+numRows              x    n    n    x    x    T    E    n    T    n
+errorNative          x    n    x    n    n    T    x    x    T    n
+prepare/execute      e    x    e    e    e    E    T    e    E    e
+sequences            e    n    n    n    n    E    T    n    T    n
+affectedRows         x    n    x    n    n    T    T    n    T    n
+fetch modes          x    x    x    x    x    T    T    x    T    x
+fetch absolute rows  x    n    x    x    x    x    n    x    x    x
+transactions         x    x    n    n    n    n    x    x    x    n
+auto-commit          x    x    n    n    n    n    x    x    x    n
+error mapping        x    -    e    -    -    T    T    x    E    -
+tableInfo            x    n    n    n    n    T    n    n    n    n

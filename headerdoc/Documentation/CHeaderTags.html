@@ -3,7 +3,6 @@
 	<head>
 		<meta http-equiv="content-type" content="text/html;charset=iso-8859-1">
 		<title>Tags for C Headers</title>
-		<meta name="generator" content="GoLive CyberStudio 3">
 	</head>
 
 	<body bgcolor="white">
@@ -16,6 +15,7 @@
 			<li><a href="#Anchor-Struct-38219">struct and union Tags</a>
 			<li><a href="#Anchor-Enum-54325">enum tags</a>
 			<li><a href="#Anchor-Typedef-58500">typedef tags</a>
+			<li><a href="#constTag">const tags</a>
 			<li><a href="#Anchor-42424">#define tags</a>
 		</ul>
 		<h2>&nbsp;</h2>
@@ -209,45 +209,111 @@ enum {
 			</tr>
 			<tr>
 				<td><i><b>various</b></i></td>
-				<td>The tags that can appear after a &quot;@typedef&quot; tag depend on the definition of the new type. If the new type is a synonym for a structure, then @field tags are used. If the new type is a function pointer (a callback), the @param tags are used.</td>
+				<td>The tags that can appear after a &quot;@typedef&quot; tag depend on the definition of the new type. <br><br>
+                <b>@field</b> for typedef'd structs<br>
+                <b>@constant</b> for typedef'd enumerations<br>
+                <b>@param</b> for simple typedef'd function pointers<br>
+                <b>@callback</b>, <b>@param</b>, <b>@result</b> for typedef'd structs containing function pointers<br>
+                </td>
 				<td></td>
 			</tr>
 		</table>
 		</p>
-		<p><b>Example 1 - Typedef for a struct:</b></p>
+		<p><b>Example 1 - Typedef for a simple struct:</b></p>
 		<pre>/*!
-  @typedef Sandwich
-  @discussion Defined type used by functions in the Repast Manager.
-  @field upper Bread for upper surface.
-  @field top First ingredient, from top to bottom.
-  @field middle Second ingredient, from top to bottom.
-  @field bottom Third ingredient, from top to bottom.
-  @field other Additional, optional, ingredient. 
-  @field upper Bread for lower surface.
-  */
-typedef struct sandwich {
-    Bread upper;
-    Ingredient top;
-    Ingredient middle;
-    Ingredient bottom;
-    Ingredient other;
-    Bread lower;
-} Sandwich;</pre>
-		<p>&nbsp;</p>
-		<p><b>Example 2 - Typedef for a function pointer:</b></p>
-		<pre>/*!
-     @typedef Action
-     @discussion Type and arguments of callout C function that is used when ...
-     @param owner Target of the function; can be used as a refcon. 
-     @param arg0 Argument to action from run operation.
-     @param arg1 Argument to action from run operation.
-     @param arg2 Argument to action from run operation.
-     @param arg3 Argument to action from run operation.
+    @typedef TypedefdSimpleStruct
+    @abstract Abstract for this API.
+    @discussion Discussion that applies to the entire typedef'd simple struct.
+    @field firstField Description of first field
+    @field secondField Description of second field
 */
-     typedef IOReturn (*Action)(OSObject *owner,
-                                void *arg0, void *arg1,
-                                void *arg2, void *arg3);
-		</pre>
+
+typedef struct _structTag {
+    short firstField;
+    unsigned long secondField
+} TypedefdSimpleStruct;</pre>
+
+		<p>&nbsp;</p>
+		<p><b>Example 2 - Typedef for an enumeration:</b></p>
+		<pre>/*!
+    @typedef TypedefdEnum
+    @abstract Abstract for this API.
+    @discussion Discussion that applies to the entire typedef'd enum.
+    @constant kCFCompareLessThan Description of first constant.
+    @constant kCFCompareEqualTo Description of second constant.
+    @constant kCFCompareGreaterThan Description of third constant.
+*/
+typedef enum {
+    kCFCompareLessThan = -1,
+    kCFCompareEqualTo = 0,
+    kCFCompareGreaterThan = 1
+} TypedefdEnum;</pre>
+        
+		<p>&nbsp;</p>
+		<p><b>Example 3 - Typedef for a simple function pointer:</b></p>
+		<pre>/*!
+    @typedef simpleCallback
+    @abstract Abstract for this API.
+    @discussion Discussion that applies to the entire callback.
+    @param inFirstParameter Description of the callback's first parameter.
+    @param outSecondParameter Description of the callback's second parameter.
+    @result Returns what it can when it is possible to do so.
+*/
+typedef long (*simpleCallback)(short inFirstParameter, unsigned long long *outSecondParameter);</pre>
+        
+		<p>&nbsp;</p>
+		<p><b>Example 4 - Typedef for a struct containing function pointers:</b></p>
+		<pre>/*! @typedef TypedefdStructWithCallbacks
+    @abstract Abstract for this API.
+    @discussion Defines the basic interface for Command DescriptorBlock (CDB) commands.
+        
+    @field firstField Description of first field.
+    
+    @callback setPointers Specifies the location of the data buffer. The setPointers function has the following parameters:
+    @param cmd A pointer to the CDB command interface.
+    @param sgList A pointer to a scatter/gather list.
+    @result An IOReturn structure which returns the return value in the structure returned.  
+
+    @field lastField Description of the struct's last field.
+*/
+typedef struct _someTag {
+    short firstField;
+    IOReturn (*setPointers)(void *cmd, IOVirtualRange *sgList);
+    unsigned long lastField
+} TypedefdStructWithCallbacks;</pre>
+
+ 		<p>&nbsp;</p>
+		<h2><tt><a name="constTag"></a>const Tags</tt></h2>
+		<p><tt>
+		<table border="1" cellpadding="0" cellspacing="2" width="92%">
+			<tr>
+				<td>
+					<center>
+						<b>Tag</b></center>
+				</td>
+				<td>
+					<center>
+						<b>Identifies</b></center>
+				</td>
+				<td><b>Fields</b></td>
+			</tr>
+			<tr>
+				<td><font color="#660000"><b>@const</b></font></td>
+				<td>Name of the constant.</td>
+				<td>
+					<center>
+						1</center>
+				</td>
+			</tr>
+		</table>
+		</tt></p>
+		<p><tt><b>Example:</b> </tt></p>
+		<pre>  /*!
+    @const kCFTypeArrayCallBacks
+    @discussion Predefined CFArrayCallBacks structure containing a set of callbacks appropriate...
+  */
+  const CFArrayCallBacks kCFTypeArrayCallBacks;</pre>        
+        
 		<p>&nbsp;</p>
 		<h2><tt><a name="Anchor-42424"></a>#define Tags</tt></h2>
 		<p><tt>
@@ -265,7 +331,7 @@ typedef struct sandwich {
 			</tr>
 			<tr>
 				<td><font color="#660000"><b>@defined</b></font></td>
-				<td>Name of the symbolic constant.</td>
+				<td>Name of the constant.</td>
 				<td>
 					<center>
 						1</center>

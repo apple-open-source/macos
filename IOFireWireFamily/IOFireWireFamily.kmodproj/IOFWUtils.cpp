@@ -1,0 +1,153 @@
+/*
+ * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
+ * 
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+/*
+ * Copyright (c) 1999 Apple Computer, Inc.  All rights reserved.
+ *
+ * HISTORY
+ * 3 June 99 wgulland created.
+ *
+ * Useful stuff called from several different FireWire objects.
+ */
+#include <IOKit/assert.h>
+#include <IOKit/IOLib.h>
+#include <IOKit/firewire/IOFWRegs.h>
+#include <IOKit/firewire/IOFireWireFamilyCommon.h>
+
+////////////////////////////////////////////////////////////////////////////////
+//
+// FWUpdateCRC16
+//
+//   This proc updates a crc with the next quad.
+//
+
+UInt16 FWUpdateCRC16(UInt16 crc16, UInt32 quad)
+{
+    SInt32 shift;
+    UInt32 sum;
+    UInt32 crc = crc16;
+    for (shift = 28; shift >= 0; shift -= 4) {
+        sum = ((crc >> 12) ^ (quad >> shift)) & 0x0F;
+        crc = (crc << 4) ^ (sum << 12) ^ (sum << 5) ^ (sum);
+    }
+    return (crc & 0xFFFF);
+}
+////////////////////////////////////////////////////////////////////////////////
+//
+// FWComputeCRC16
+//
+//   This proc computes a CRC 16 check.
+//
+
+UInt16	FWComputeCRC16(const UInt32 *pQuads, UInt32 numQuads)
+{
+    SInt32	shift;
+    UInt32	sum;
+    UInt32	crc16;
+    UInt32	quadNum;
+    UInt32	quad;
+
+    // Compute CRC 16 over all quads.
+    crc16 = 0;
+    for (quadNum = 0; quadNum < numQuads; quadNum++) {
+        quad = *pQuads++;
+        for (shift = 28; shift >= 0; shift -= 4) {
+            sum = ((crc16 >> 12) ^ (quad >> shift)) & 0x0F;
+            crc16 = (crc16 << 4) ^ (sum << 12) ^ (sum << 5) ^ (sum);
+        }
+    }
+
+    return (crc16 & 0xFFFF);
+}
+
+static UInt32  AddFWCycleTimeToFWCycleTime( UInt32 cycleTime1, UInt32 cycleTime2 )
+{
+    UInt32    secondCount,
+              cycleCount,
+              cycleOffset;
+    UInt32    cycleTime;
+
+    // Add cycle offsets.
+    cycleOffset = (cycleTime1 & 0x0FFF) + (cycleTime2 & 0x0FFF);
+
+    // Add cycle counts.
+    cycleCount = (cycleTime1 & 0x01FFF000) + (cycleTime2 & 0x01FFF000);
+
+    // Add any carry over from cycle offset to cycle count.
+    if (cycleOffset > 3071)
+    {
+        cycleCount += 0x1000;
+        cycleOffset -= 3072;
+    }
+
+    // Add secondCounts.
+    secondCount = (cycleTime1 & 0xFE000000) + (cycleTime2 & 0xFE000000);
+
+    // Add any carry over from cycle count to secondCount.
+    if (cycleCount > (7999 << 12))
+    {
+        secondCount += 0x02000000;
+        cycleCount -= (8000 << 12);
+    }
+
+    // Put everything together into cycle time.
+    cycleTime = secondCount | cycleCount | cycleOffset;
+
+    return (cycleTime);
+}
+
+static UInt32 SubtractFWCycleTimeFromFWCycleTime( UInt32 cycleTime1, UInt32 cycleTime2)
+{
+    SInt32 secondCount,
+           cycleCount,
+           cycleOffset;
+    UInt32 cycleTime;
+
+    // Subtract cycle offsets.
+    cycleOffset = (cycleTime1 & 0x0FFF) - (cycleTime2 & 0x0FFF);
+
+    // Subtract cycle counts.
+    cycleCount = (cycleTime1 & 0x01FFF000) - (cycleTime2 & 0x01FFF000);
+
+    // Subtract any borrow over from cycle offset to cycle count.
+
+    if (cycleOffset < 0)
+    {
+        cycleCount -= 0x1000;
+        cycleOffset += 3072;
+    }
+
+    // Subtract secondCounts.
+    secondCount = (cycleTime1 & 0xFE000000) - (cycleTime2 & 0xFE000000);
+
+    // Subtract any borrow over from cycle count to secondCount.
+    if (cycleCount < 0)
+    {
+        secondCount -= 0x02000000;
+        cycleCount += (8000 << 12);
+    }
+
+    // Put everything together into cycle time.
+    cycleTime = secondCount | cycleCount | cycleOffset;
+
+    return (cycleTime);
+}
+

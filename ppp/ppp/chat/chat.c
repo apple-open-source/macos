@@ -87,7 +87,7 @@
 #endif
 
 #ifndef lint
-static const char rcsid[] = "$Id: chat.c,v 1.4 2001/01/20 03:35:37 callie Exp $";
+static const char rcsid[] = "$Id: chat.c,v 1.5 2001/05/09 17:52:26 callie Exp $";
 #endif
 
 #include <stdio.h>
@@ -311,13 +311,13 @@ main(argc, argv)
 		usage();
 	    break;
 
-        case 't':
-            if ((arg = OPTARG(argc, argv)) != NULL)
-                timeout = atoi(arg);
-            else
-                usage();
-            break;
-            
+	case 't':
+	    if ((arg = OPTARG(argc, argv)) != NULL)
+		timeout = atoi(arg);
+	    else
+		usage();
+	    break;
+
 	case 'r':
 	    arg = OPTARG (argc, argv);
 	    if (arg) {
@@ -621,7 +621,7 @@ void terminate(status)
 int status;
 {
     static int terminating = 0;
-    
+
     if (terminating)
 	exit(status);
     terminating = 1;
@@ -658,10 +658,9 @@ int status;
 	    fatal(2, "Can't restore terminal parameters: %m");
     }
 #endif
-    
+
     exit(status);
 }
-
 
 /*
  *	'Clean up' this string.
@@ -1432,7 +1431,7 @@ register char *string;
 	    else {
 		report_gathering = 0;
 		fprintf (report_fp, "chat:  %s\n", report_buffer);
-            }
+	    }
 	}
 
 	if (s - temp >= len &&

@@ -1,17 +1,15 @@
 /* A sed script generator (for transmogrifying the man pages automagically) */
 
-/*$Id: manconf.c,v 1.1.1.1 1999/09/23 17:30:07 wsanchez Exp $*/
+/*$Id: manconf.c,v 1.1.1.2 2001/07/20 19:38:18 bbraun Exp $*/
 
 #include "../patchlevel.h"
 #include "procmail.h"
-#include "lastdirsep.h"
 
 #define pn(name,val)	pnr(name,(long)(val))
 
 static char pm_version[]=VERSION,ffileno[]=DEFfileno;
 static int lines;
-const char dirsep[]=DIRSEP,pmrc[]=PROCMAILRC;
-char pmrc2[]=PROCMAILRC;			     /* need a writable copy */
+const char dirsep[]=DIRSEP;
 static const char*const keepenv[]=KEEPENV,*const prestenv[]=PRESTENV,
  *const trusted_ids[]=TRUSTED_IDS,*const etcrc=ETCRC,
  *const krnllocks[]={
@@ -26,7 +24,7 @@ static const char*const keepenv[]=KEEPENV,*const prestenv[]=PRESTENV,
 #endif
   0};
 
-static char*skltmark(nl,current)char**current;
+static char*skltmark(nl,current)int nl;char**current;
 { char*from= *current,*p;
   while(nl--)					 /* skip some newlines first */
      from=strchr(from,'\n')+1;
@@ -36,7 +34,7 @@ static char*skltmark(nl,current)char**current;
   return from;
 }
 
-static void putcesc(i)
+static void putcesc(i)int i;
 { switch(i)
    { case '\\':i='e';
 	goto twoesc;
@@ -69,7 +67,7 @@ static void putsesc(a)const char*a;
 
 const char*const*gargv;
 
-static void pname(name)const char*const name;
+static void pname(name,supps)const char*const name;int supps;
 { static unsigned filecount;
   static char*filebuf;
   if(!filebuf&&!(filebuf=malloc(strlen(*gargv)+1+4+1)))
@@ -78,12 +76,12 @@ static void pname(name)const char*const name;
    { sprintf(filebuf,"%s.%04d",*gargv,filecount++);freopen(filebuf,"w",stdout);
      lines=64;				  /* POSIX says commands are limited */
    }		      /* some !@#$%^&*() implementations limit lines instead */
-  putchar('s');putchar('/');putchar('@');putsesc(name);putchar('@');
-  putchar('/');
+  if(!supps)putchar('s');
+  putchar('/');putchar('@');putsesc(name);putchar('@');putchar('/');
 }
 
 static void pnr(name,value)const char*const name;const long value;
-{ pname(name);printf("%ld/g\n",value);lines--;
+{ pname(name,0);printf("%s%ld/g\n",value<0?"\\":"",value);lines--;
 }
 
 static void putsg P((void))
@@ -93,7 +91,7 @@ static void putsg P((void))
 static void plist(name,preamble,list,postamble,ifno,andor)
  const char*const name,*const preamble,*const postamble,*const ifno,
  *const andor;const char*const*list;
-{ pname(name);
+{ pname(name,0);
   if(!*list)
      putsesc(ifno);
   else
@@ -110,14 +108,14 @@ jin:	putsesc(*list);
 }
 
 static void ps(name,value)const char*const name,*const value;
-{ pname(name);putsesc(value);putsg();
+{ pname(name,0);putsesc(value);putsg();
 }
 
 static void pc(name,value)const char*const name;const int value;
-{ pname(name);putcesc(value);putsg();
+{ pname(name,0);putcesc(value);putsg();
 }
 
-main(argc,argv)const char*const argv[];
+int main(argc,argv)int argc;const char*const argv[];
 { char*p;
   gargv=argv+1;
 #ifdef CF_no_procmail_yet
@@ -135,8 +133,13 @@ yourself.");
 #ifdef buggy_SENDMAIL
   ps("FW_content","\"|IFS=' '&&p=@BINDIR@/procmail&&test -f $p&&exec $p -Yf-||\
 exit 75 \2fB#\2fP\2fIYOUR_USERNAME\2fP\"");
+  ps("FW_comment","The \\fB#\\fP\\fIYOUR_USERNAME\\fP is not actually a\1\
+parameter that is required by procmail, in fact, it will be discarded by\1\
+sh before procmail ever sees it; it is however a necessary kludge against\1\
+overoptimising sendmail programs:\1");
 #else
   ps("FW_content","\"|exec @BINDIR@/procmail\"");
+  ps("FW_comment","");
 #endif
 #else
   ps("DOT_FORWARD",".maildelivery");
@@ -166,12 +169,9 @@ An attempt to execute a program from within the rcfile was blocked.");
   ps("RESTRICT_EXEC","");
   ps("WARN_RESTRICT_EXEC","");
 #endif
-#ifdef LD_ENV_FIX
-  ps("LD_ENV_FIX","\1.PP\1For security reasons, procmail will wipe out all\
- environment variables starting with LD_ upon startup.");
-#else
-  ps("LD_ENV_FIX","");
-#endif
+  ps("LD_ENV_FIX","\1.PP\1For security reasons, upon startup procmail will\
+ wipe out all environment variables that are suspected of modifying the\
+ behavior of the runtime linker.");
   ps("MAILSPOOLDIR",MAILSPOOLDIR);
   ps("ETCRC_desc",etcrc?"\1.PP\1If no rcfiles and no\1.B \2-@PRESERVOPT@\1have\
  been specified on the command line, procmail will, prior to reading\
@@ -221,12 +221,25 @@ a security violation was found (e.g. \1.B \2-@PRESERVOPT@\1or variable\
   ps("console","sender");
   ps("aconsole",".");
 #endif
-  pname("INIT_UMASK");printf("0%lo/g\n",(unsigned long)INIT_UMASK);lines--;
+#ifdef LMTP
+  ps("LMTPusage","\1.br\1.B procmail\1.RB [ \
+ \2-@TEMPFAILOPT@@OVERRIDEOPT@@BERKELEYOPT@ ]\1.RB [ \"\2-@ARGUMENTOPT@ \
+ \2fIargument\2fP\" ]\1.B \2-@LMTPOPT@\1");
+  ps("LMTPOPTdesc","\1.TP\1.B \2-@LMTPOPT@\1This turns on LMTP mode, wherein\
+ procmail acts as an RFC2033 LMTP server.\1Delivery takes place in the same \
+ manner and under the same restrictions as\1the delivery mode enabled \
+ with\1.BR \2-@DELIVEROPT@ .\1This option is incompatible with\1.B \
+ \2-@PRESERVOPT@\1and\1.BR \2-@FROMWHOPT@ .\1");
+  pc("LMTPOPT",LMTPOPT);
+#else
+  ps("LMTPOPTdesc","");ps("LMTPusage","");
+#endif
+  pname("INIT_UMASK",0);printf("0%lo/g\n",(unsigned long)INIT_UMASK);lines--;
   pn("DEFlinebuf",DEFlinebuf);
   ps("BOGUSprefix",BOGUSprefix);
   ps("FAKE_FIELD",FAKE_FIELD);
-  ps("PROCMAILRC",pmrc);
-  pn("HOSTNAMElen",HOSTNAMElen);
+  ps("PROCMAILRC",PROCMAILRC);
+  pn("RETRYunique",RETRYunique);
   pn("DEFsuspend",DEFsuspend);
   pn("DEFlocksleep",DEFlocksleep);
   ps("TO_key",TO_key);
@@ -238,14 +251,15 @@ a security violation was found (e.g. \1.B \2-@PRESERVOPT@\1or variable\
   ps("FROMMkey",FROMMkey);
   ps("FROMMsubstitute",FROMMsubstitute);
   ps("DEFshellmetas",DEFshellmetas);
-  *lastdirsep(pmrc2)='\0';
-  ps("DEFmaildir",pmrc2);
+  ps("DEFmaildir",DEFmaildir);
   ps("DEFdefault",DEFdefault);
   ps("DEFmsgprefix",DEFmsgprefix);
   ps("DEFsendmail",DEFsendmail);
   ps("DEFflagsendmail",DEFflagsendmail);
   ps("DEFlockext",DEFlockext);
   ps("DEFshellflags",DEFshellflags);
+  ps("DEFpath",strchr(DEFPATH,'=')+1);
+  ps("DEFspath",strchr(DEFSPATH,'=')+1);
   pn("DEFlocktimeout",DEFlocktimeout);
   pn("DEFtimeout",DEFtimeout);
   pn("DEFnoresretry",DEFnoresretry);
@@ -257,7 +271,8 @@ a security violation was found (e.g. \1.B \2-@PRESERVOPT@\1or variable\
   pc("SERV_ADDRsep",SERV_ADDRsep);
   ps("DEFcomsat",DEFcomsat);
   ps("BinSh",BinSh);
-  ps("RootDir",RootDir);
+  ps("ROOT_DIR",ROOT_DIR);
+  ps("DEAD_LETTER",DEAD_LETTER);
   pc("MCDIRSEP",*MCDIRSEP);
   pc("chCURDIR",chCURDIR);
   pc("HELPOPT1",HELPOPT1);
@@ -298,6 +313,8 @@ a security violation was found (e.g. \1.B \2-@PRESERVOPT@\1or variable\
   ps("DEFfileno",ffileno+LEN_FILENO_VAR);
   ffileno[LEN_FILENO_VAR-1]='\0';
   ps("FILENO",ffileno);
+  pn("MAX32",MAX32);
+  pn("MIN32",MIN32);
   pc("FM_SKIP",FM_SKIP);
   pc("FM_TOTAL",FM_TOTAL);
   pc("FM_BOGUS",FM_BOGUS);
@@ -305,6 +322,7 @@ a security violation was found (e.g. \1.B \2-@PRESERVOPT@\1or variable\
   pc("FM_QPREFIX",FM_QPREFIX);
   pc("FM_CONCATENATE",FM_CONCATENATE);
   pc("FM_ZAPWHITE",FM_ZAPWHITE);
+  pc("FM_LOGSUMMARY",FM_LOGSUMMARY);
   pc("FM_FORCE",FM_FORCE);
   pc("FM_REPLY",FM_REPLY);
   pc("FM_KEEPB",FM_KEEPB);
@@ -329,14 +347,7 @@ a security violation was found (e.g. \1.B \2-@PRESERVOPT@\1or variable\
   pc("FM_ReNAME",FM_ReNAME);
   pc("FM_VERSION",FM_VERSION);
   pn("EX_OK",EXIT_SUCCESS);
-  *(p=strchr(strchr(strchr(pm_version,' ')+1,' ')+1,' '))='\0';p++;
   ps("PM_VERSION",PM_VERSION);
-  ps("MY_MAIL_ADDR",skltmark(1,&p));
-#if 0
-  ps("MY_ALT_MAIL_ADDR",skltmark(0,&p));
-#endif
-  ps("PM_MAILINGLIST",skltmark(2,&p));
-  ps("PM_MAILINGLISTR",skltmark(2,&p));
   ps("BINDIR",BINDIR);
 #ifdef NOpow
   pc("POW",'1');
@@ -345,5 +356,20 @@ a security violation was found (e.g. \1.B \2-@PRESERVOPT@\1or variable\
 #endif
   ps("SETRUID",setRuid(getuid())?"":	/* is setruid() a valid system call? */
    " (or if procmail is already running with the recipient's euid and egid)");
+  if(lines<20)lines=0;				  /* make sure we have space */
+  pname("AUTHORS",1);putchar('c');
+  p=strchr(pm_version,'\n')+1;
+  while(*p!='\n')
+   { char*q=strchr(p,',')+2;
+     puts("\\");lines--;
+     *(p=strchr(q,'\t'))='\0';
+     putsesc(q);puts("\\\n.RS\\");lines-=2;
+     while(*++p=='\t');*(q=strchr(p,'\n'))='\0';
+     putsesc(p);printf("\\\n.RE");lines--;
+     p=q+1;
+   }
+  putchar('\n');lines--;
+  ps("PM_MAILINGLIST",skltmark(2,&p));
+  ps("PM_MAILINGLISTR",skltmark(2,&p));
   return EXIT_SUCCESS;
 }

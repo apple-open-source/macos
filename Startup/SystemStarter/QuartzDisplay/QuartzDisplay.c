@@ -1,9 +1,9 @@
 /**
  * QuartzDisplay.c - Show Boot Status via CoreGraphics
- * Wilfredo Sanchez | wsanchez@apple.com
+ * Wilfredo Sanchez | wsanchez@opensource.apple.com
  * $Apple$
  **
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2001 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -44,6 +44,7 @@
 #include <CoreGraphics/CoreGraphicsPrivate.h>
 #include <CoreGraphics/CGGraphicsPrivate.h>
 #include <CoreGraphics/CGFontEncoding.h>
+#include <CoreFoundation/CFPriv.h>
 #include "../Log.h"
 #include "../main.h"
 #include "QuartzProgressBar.h"
@@ -68,13 +69,13 @@ typedef struct _CGS_DisplayContext {
 /* FIXME: Move all of this into a plist. */
 #define kAutoFillColor		0.4,0.4,0.6
 #define kStatusAreaColor	0.0,0.0,0.0,0.0
-#define kStatusAreaHeight	 40.0
+#define kStatusAreaHeight	 56.0
 #define kStatusAreaWidth	350.0
 #define kStatusTextFont		"LucidaGrande"
 #define kStatusTextColor	0.0,0.0,0.0,1.0
-#define kStatusTextFontSize	 12.0
-#define kStatusBarWidth		250.0
-#define kStatusBarHeight	 20.0
+#define kStatusTextFontSize	 13.0
+#define kStatusBarWidth		223.0
+#define kStatusBarHeight	 21.0
 #define kStatusBarPosX		((kStatusAreaWidth-kStatusBarWidth)/2.0)
 #define kStatusBarPosY		(kStatusAreaHeight-kStatusBarHeight)
 
@@ -161,7 +162,24 @@ static int _initBootImageContext (DisplayContext aDisplayContext)
     CGSConnectionID aConnectionID = aDisplayContext->connectionID;
     CGSWindowID*    aWindowID	  = &aDisplayContext->bootImageWindowID;
     CGContextRef*   aContext	  = &aDisplayContext->statusContext;
-    CFStringRef	    aString	  = CFSTR(kBootImagePath);
+    CFStringRef	    aString;
+    
+    
+    /*	Determine if we're running Server or Desktop config	*/
+    /*	This is the standard way to determine Server/Desktop	*/
+    CFDictionaryRef	serverDict;
+    Boolean	isServerConfig = false;
+    
+    if ((serverDict = _CFCopyServerVersionDictionary()) != NULL) {
+        CFRelease(serverDict);
+        isServerConfig = true;
+    }
+
+    if (isServerConfig) {
+        aString = CFSTR(kServerBootImagePath);
+    } else {
+        aString = CFSTR(kBootImagePath);
+    }
 
     if (aConnectionID)
       {
@@ -242,9 +260,11 @@ static int _initStatusWindowContext (DisplayContext aDisplayContext)
 
 	CGSGetDisplayBounds(0, &aDisplayRect);	/* Bounds for Display 0 */
 
+#define NUDGE_FACTOR 8.0
+
 	aTextFieldRect =
 	    CGSMakeRect(aDisplayRect.origin.x + ((aDisplayRect.size.width -kStatusAreaWidth )/2.0),
-			aDisplayRect.origin.y + ((aDisplayRect.size.height-kStatusAreaHeight)/2.0) + (aDisplayContext->bootImageRect.size.height/4.0),
+			aDisplayRect.origin.y + ((aDisplayRect.size.height-kStatusAreaHeight)/2.0) + (aDisplayContext->bootImageRect.size.height/4.0) + NUDGE_FACTOR,
 			kStatusAreaWidth, kStatusAreaHeight);
 
 	if (_initWindowContext(aConnectionID, aWindowID, aContext, aTextFieldRect, kCGSFalse))
@@ -260,7 +280,7 @@ static int _initStatusWindowContext (DisplayContext aDisplayContext)
     return(0);
 }
 
-DisplayContext initDisplayContext()
+DisplayContext _initDisplayContext()
 {
     DisplayContext aContext = (DisplayContext)malloc(sizeof(struct _CGS_DisplayContext));
 
@@ -292,7 +312,7 @@ DisplayContext initDisplayContext()
     return(aContext);
 }
 
-void freeDisplayContext (DisplayContext aContext)
+void _freeDisplayContext (DisplayContext aContext)
 {
     if (aContext)
       {
@@ -315,7 +335,7 @@ void freeDisplayContext (DisplayContext aContext)
       }
 }
 
-int displayStatus (DisplayContext aDisplayContext, 
+int _displayStatus (DisplayContext aDisplayContext, 
 		   CFStringRef aMessage, float aPercentage)
 {
     if (aDisplayContext)
@@ -355,13 +375,23 @@ int displayStatus (DisplayContext aDisplayContext,
 		float aScale;
 		float aStringWidth = 0.0;
 		char* aLanguage	   = getenv("LANGUAGE");
-		char* aFontName	   = ((!aLanguage || strcmp(aLanguage, "Japanese")) ? kStatusTextFont : "HiraKakuPro-W3");
-		
+                char* aFontName	   = kStatusTextFont;
+                
 		/* Allocate mem for character, glyph and advance arrays. */
 		CFIndex	 aMessageLength = CFStringGetLength(aMessage);
 		UniChar* aCharacters	= (UniChar*)malloc(aMessageLength * sizeof(UniChar));
 		CGGlyph* aGlyphs	= (CGGlyph*)malloc(aMessageLength * sizeof(CGGlyph));
 		int*	 anAdvances	= (int*	   )malloc(aMessageLength * sizeof(int	  ));
+                if (aLanguage) {
+                     if (!strcmp(aLanguage, "Japanese"))
+                         aFontName = "HiraKakuPro-W3";
+                     else if (!strcmp(aLanguage, "zh_CN") || !strcmp(aLanguage, "SimpChinese"))
+                         aFontName = "SIL-Hei-Med-Jian";
+                     else if (!strcmp(aLanguage, "zh_TW") || !strcmp(aLanguage, "TradChinese"))
+                         aFontName = "LiGothicMed";
+                     else if (!strcmp(aLanguage, "ko") || !strcmp(aLanguage,"Korean"))
+                         aFontName = "AppleGothic";
+                }                                 
 
 		/* Set up the context. */
 		CGSaveGState	    (aContext);

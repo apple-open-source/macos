@@ -22,16 +22,18 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 #include <stdio.h>
-
+#include <stdlib.h>
 #include <mach/mach.h>
+#include <mach/mach_error.h>
 #include <sys/file.h>
 #include <mach-o/loader.h>
 #include <architecture/byte_order.h>
+#include <unistd.h>
 
 int	infile, outfile;
 
 struct mach_header	mh;
-unsigned		cmds;
+void *		cmds;
 
 boolean_t		swap_ends;
 
@@ -45,14 +47,13 @@ static unsigned long swap(
 	return x;
 }
 
-main(argc, argv)
-int	argc;
-char	*argv[];
+int
+main(int argc, char *argv[])
 {
     kern_return_t	result;
     vm_address_t	data;
     int			nc, ncmds;
-    unsigned		cp;
+    char *		cp;
     
     if (argc == 2) {
 	infile = open(argv[1], O_RDONLY);
@@ -88,7 +89,7 @@ usage:
     else if (mh.magic == MH_CIGAM)
 	swap_ends = TRUE;
     else {
-    	fprintf(stderr, "bad magic number %x\n", mh.magic);
+    	fprintf(stderr, "bad magic number %lx\n", mh.magic);
 	exit(1);
     }
 
@@ -129,7 +130,7 @@ usage:
 	    }
 
 	    lseek(infile, swap(scp->fileoff), L_SET);
-	    nc = read(infile, data, swap(scp->filesize));
+	    nc = read(infile, (void *)data, swap(scp->filesize));
 	    if (nc < 0) {
 		perror("read segment data");
 		exit(1);
@@ -139,7 +140,7 @@ usage:
 		exit(1);
 	    }
 
-	    nc = write(outfile, data, vmsize);
+	    nc = write(outfile, (void *)data, vmsize);
 	    if (nc < vmsize) {
 		perror("write segment data");
 		exit(1);

@@ -23,7 +23,7 @@
 const char * gIOMacRISC2PMTree = "
   <array>
 
-    <dict>
+    <dict>				<!-- put internal USB together for power budgeting -->
       <key>device</key>
       <dict>
         <key>IOClass</key>
@@ -37,6 +37,8 @@ const char * gIOMacRISC2PMTree = "
           <dict>
             <key>name</key>
             <string>usb</string>
+            <key>AAPL,clock-id</key>
+            <string>usb0u048</string>
           </dict>
           <key>children</key>
           <array>
@@ -52,7 +54,7 @@ const char * gIOMacRISC2PMTree = "
                 <string>usb0u048</string>
               </dict>
               <key>multiple-parent</key>
-              <integer>0</integer>
+              <integer>0</integer>		<!-- this OHCI will also have a USBKeyLargo parent -->
             </dict>
           </array>        
         </dict>
@@ -62,6 +64,8 @@ const char * gIOMacRISC2PMTree = "
           <dict>
             <key>name</key>
             <string>usb</string>
+            <key>AAPL,clock-id</key>
+            <string>usb1u148</string>
           </dict>
           <key>children</key>
           <array>
@@ -77,7 +81,7 @@ const char * gIOMacRISC2PMTree = "
                 <string>usb1u148</string>
               </dict>
               <key>multiple-parent</key>
-              <integer>1</integer>
+              <integer>1</integer>		<!-- this OHCI will also have a USBKeyLargo parent -->
             </dict>
           </array>
         </dict>
@@ -89,7 +93,77 @@ const char * gIOMacRISC2PMTree = "
       <key>device</key>
       <dict>
         <key>IOClass</key>
-        <string>KeyLargo</string>
+        <string>KeyLargo</string>		<!-- internal KeyLargo -->
+      </dict>
+      <key>children</key>
+      <array>
+
+        <dict>
+          <key>device</key>
+          <dict>
+            <key>IOClass</key>
+            <string>USBKeyLargo</string>	<!-- a KeyLargo gets two USBKeyLargos -->
+            <key>usb</key>
+            <integer>0</integer>		<!-- USBKeyLargo zero gets -->
+          </dict>
+          <key>children</key>
+          <array>
+
+            <dict>
+              <key>device</key>
+              <dict>
+                <key>IOClass</key>
+                <string>AppleUSBOHCI</string>	<!-- the OHCI for USB controller zero -->
+              </dict>
+              <key>provider</key>
+              <dict>
+                <key>AAPL,clock-id</key>
+                <string>usb0u048</string>
+              </dict>
+              <key>multiple-parent</key>	<!-- this OHCI is also child of IOPMUSBMacRISC2 -->
+              <integer>0</integer>
+            </dict>
+
+          </array>
+        </dict>
+
+        <dict>
+          <key>device</key>
+          <dict>
+            <key>IOClass</key>
+            <string>USBKeyLargo</string>
+            <key>usb</key>
+            <integer>1</integer>		<!-- USBKeyLargo one gets -->
+          </dict>
+          <key>children</key>
+          <array>
+
+            <dict>
+              <key>device</key>
+              <dict>
+                <key>IOClass</key>
+                <string>AppleUSBOHCI</string>	<!-- the OHCI for USB controller one -->
+              </dict>
+              <key>provider</key>
+              <dict>
+                <key>AAPL,clock-id</key>
+                <string>usb1u148</string>
+              </dict>
+              <key>multiple-parent</key>	<!-- this OHCI is also child of IOPMUSBMacRISC2 -->
+              <integer>1</integer>
+            </dict>
+
+          </array>
+        </dict>
+
+      </array>
+    </dict>
+
+    <dict>
+      <key>device</key>
+      <dict>
+        <key>IOClass</key>
+        <string>KeyLargo</string>		<!-- external KeyLargo -->
       </dict>
       <key>children</key>
       <array>
@@ -114,10 +188,8 @@ const char * gIOMacRISC2PMTree = "
               <key>provider</key>
               <dict>
                 <key>AAPL,clock-id</key>
-                <string>usb0u048</string>
+                <string>usb2u048</string>
               </dict>
-              <key>multiple-parent</key>
-              <integer>0</integer>
             </dict>
 
           </array>
@@ -143,10 +215,8 @@ const char * gIOMacRISC2PMTree = "
               <key>provider</key>
               <dict>
                 <key>AAPL,clock-id</key>
-                <string>usb1u148</string>
+                <string>usb3u148</string>
               </dict>
-              <key>multiple-parent</key>
-              <integer>1</integer>
             </dict>
 
           </array>
@@ -159,7 +229,7 @@ const char * gIOMacRISC2PMTree = "
       <key>device</key>
       <dict>
         <key>IOClass</key>
-        <string>IOPMSlotsMacRISC2</string>
+        <string>KeyLargo</string>		<!-- external KeyLargo -->
       </dict>
       <key>children</key>
       <array>
@@ -167,33 +237,187 @@ const char * gIOMacRISC2PMTree = "
         <dict>
           <key>device</key>
           <dict>
-            <key>AAPL,slot-name</key>
-            <string>SLOT-A</string>
+            <key>IOClass</key>
+            <string>USBKeyLargo</string>
+            <key>usb</key>
+            <integer>0</integer>
           </dict>
+          <key>children</key>
+          <array>
+
+            <dict>
+              <key>device</key>
+              <dict>
+                <key>IOClass</key>
+                <string>AppleUSBOHCI</string>
+              </dict>
+              <key>provider</key>
+              <dict>
+                <key>AAPL,clock-id</key>
+                <string>usb4u048</string>
+              </dict>
+            </dict>
+
+          </array>
         </dict>
 
         <dict>
           <key>device</key>
           <dict>
-            <key>AAPL,slot-name</key>
-            <string>SLOT-B</string>
+            <key>IOClass</key>
+            <string>USBKeyLargo</string>
+            <key>usb</key>
+            <integer>1</integer>
           </dict>
+          <key>children</key>
+          <array>
+
+            <dict>
+              <key>device</key>
+              <dict>
+                <key>IOClass</key>
+                <string>AppleUSBOHCI</string>
+              </dict>
+              <key>provider</key>
+              <dict>
+                <key>AAPL,clock-id</key>
+                <string>usb5u148</string>
+              </dict>
+            </dict>
+
+          </array>
+        </dict>
+
+      </array>
+    </dict>
+
+    <dict>
+      <key>device</key>
+      <dict>
+        <key>IOClass</key>
+        <string>KeyLargo</string>		<!-- external KeyLargo -->
+      </dict>
+      <key>children</key>
+      <array>
+
+        <dict>
+          <key>device</key>
+          <dict>
+            <key>IOClass</key>
+            <string>USBKeyLargo</string>
+            <key>usb</key>
+            <integer>0</integer>
+          </dict>
+          <key>children</key>
+          <array>
+
+            <dict>
+              <key>device</key>
+              <dict>
+                <key>IOClass</key>
+                <string>AppleUSBOHCI</string>
+              </dict>
+              <key>provider</key>
+              <dict>
+                <key>AAPL,clock-id</key>
+                <string>usb6u048</string>
+              </dict>
+            </dict>
+
+          </array>
         </dict>
 
         <dict>
           <key>device</key>
           <dict>
-            <key>AAPL,slot-name</key>
-            <string>SLOT-C</string>
+            <key>IOClass</key>
+            <string>USBKeyLargo</string>
+            <key>usb</key>
+            <integer>1</integer>
           </dict>
+          <key>children</key>
+          <array>
+
+            <dict>
+              <key>device</key>
+              <dict>
+                <key>IOClass</key>
+                <string>AppleUSBOHCI</string>
+              </dict>
+              <key>provider</key>
+              <dict>
+                <key>AAPL,clock-id</key>
+                <string>usb7u148</string>
+              </dict>
+            </dict>
+
+          </array>
+        </dict>
+
+      </array>
+    </dict>
+
+    <dict>
+      <key>device</key>
+      <dict>
+        <key>IOClass</key>
+        <string>KeyLargo</string>		<!-- external KeyLargo -->
+      </dict>
+      <key>children</key>
+      <array>
+
+        <dict>
+          <key>device</key>
+          <dict>
+            <key>IOClass</key>
+            <string>USBKeyLargo</string>
+            <key>usb</key>
+            <integer>0</integer>
+          </dict>
+          <key>children</key>
+          <array>
+
+            <dict>
+              <key>device</key>
+              <dict>
+                <key>IOClass</key>
+                <string>AppleUSBOHCI</string>
+              </dict>
+              <key>provider</key>
+              <dict>
+                <key>AAPL,clock-id</key>
+                <string>usb8u048</string>
+              </dict>
+            </dict>
+
+          </array>
         </dict>
 
         <dict>
           <key>device</key>
           <dict>
-            <key>AAPL,slot-name</key>
-            <string>SLOT-D</string>
+            <key>IOClass</key>
+            <string>USBKeyLargo</string>
+            <key>usb</key>
+            <integer>1</integer>
           </dict>
+          <key>children</key>
+          <array>
+
+            <dict>
+              <key>device</key>
+              <dict>
+                <key>IOClass</key>
+                <string>AppleUSBOHCI</string>
+              </dict>
+              <key>provider</key>
+              <dict>
+                <key>AAPL,clock-id</key>
+                <string>usb9u148</string>
+              </dict>
+            </dict>
+
+          </array>
         </dict>
 
       </array>

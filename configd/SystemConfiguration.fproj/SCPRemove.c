@@ -20,31 +20,36 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include <SystemConfiguration/SCP.h>
-#include "SCPPrivate.h"
+/*
+ * Modification History
+ *
+ * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * - public API conversion
+ *
+ * November 9, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
 
-#include <SystemConfiguration/SCD.h>
+#include <SystemConfiguration/SystemConfiguration.h>
+#include <SystemConfiguration/SCPrivate.h>
+#include "SCPreferencesInternal.h"
 
-#include <fcntl.h>
-#include <unistd.h>
-#include <sys/errno.h>
-
-
-SCPStatus
-SCPRemove(SCPSessionRef session, CFStringRef key)
+Boolean
+SCPreferencesRemoveValue(SCPreferencesRef session, CFStringRef key)
 {
-	SCPSessionPrivateRef	sessionPrivate;
+	SCPreferencesPrivateRef	sessionPrivate	= (SCPreferencesPrivateRef)session;
 
-	if (session == NULL) {
-		return SCP_FAILED;           /* you can't do anything with a closed session */
-	}
-	sessionPrivate = (SCPSessionPrivateRef)session;
+	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCPreferencesRemoveValue:"));
+	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  key = %@"), key);
+
+	sessionPrivate->accessed = TRUE;
 
 	if (!CFDictionaryContainsKey(sessionPrivate->prefs, key)) {
-		return SCP_NOKEY;
+		_SCErrorSet(kSCStatusNoKey);
+		return FALSE;
 	}
 
 	CFDictionaryRemoveValue(sessionPrivate->prefs, key);
-	sessionPrivate->changed = TRUE;
-	return SCP_OK;
+	sessionPrivate->changed  = TRUE;
+	return TRUE;
 }

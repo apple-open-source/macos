@@ -2,7 +2,6 @@
 
 MT_CFLAGS = \
 	-DTARGET_POWERPC \
-	-DTARGET_HAS_EMBEDDED_SYMBOLS \
 	-I$(srcdir)/../gdb-next
 
 TDEPFILES = \
@@ -16,7 +15,6 @@ TDEPFILES = \
 	kdp-udp.o \
 	kdp-transactions.o \
 	kdp-protocol.o \
-	nextstep-tdep.o \
-        embedded-symbol.o
+	nextstep-tdep.o
 
 TM_FILE = tm-ppc-next.h

@@ -47,7 +47,7 @@ libc='/System/Library/Frameworks/System.framework/System';
 optimize='-O3';
 
 # We have a prototype for telldir, we don't like commons.
-ccflags="${ccflags} -pipe -fno-common -DHAS_TELLDIR_PROTOTYPE";
+ccflags="${ccflags} -pipe -fno-common -no-cpp-precomp -flat_namespace -DHAS_TELLDIR_PROTOTYPE";
 
 # Shared library extension is .dylib.
 # Bundle extension is .bundle.
@@ -56,7 +56,7 @@ so='dylib';
 dlext='bundle';
 dlsrc='dl_dyld.xs'; usedl='define';
 cccdlflags='';
-lddlflags="${ldflags} -bundle -undefined suppress";
+lddlflags="${ldflags} -bundle  -flat_namespace -undefined suppress";
 ldlibpthname='DYLD_LIBRARY_PATH';
 useshrplib='true';
 

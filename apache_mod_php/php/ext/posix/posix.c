@@ -27,8 +27,12 @@
    +----------------------------------------------------------------------+
  */
  
-/* $Id: posix.c,v 1.1.1.3 2001/01/25 04:59:54 wsanchez Exp $ */
+/* $Id: posix.c,v 1.1.1.4 2001/07/19 00:19:53 zarzycki Exp $ */
 
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 
 #include "php.h"
 #include "ext/standard/info.h"
@@ -138,7 +142,7 @@ ZEND_GET_MODULE(posix)
 static PHP_MINFO_FUNCTION(posix)
 {
 	php_info_print_table_start();
-	php_info_print_table_row(2, "Revision", "$Revision: 1.1.1.3 $");
+	php_info_print_table_row(2, "Revision", "$Revision: 1.1.1.4 $");
 	php_info_print_table_end();
 }
 
@@ -632,7 +636,7 @@ PHP_FUNCTION(posix_getcwd)
 	char  buffer[MAXPATHLEN];
 	char *p;
 
-	p = V_GETCWD(buffer, MAXPATHLEN);
+	p = VCWD_GETCWD(buffer, MAXPATHLEN);
 	if (!p) {
 		php_error(E_WARNING, "posix_getcwd() failed with '%s'",
 			strerror(errno));

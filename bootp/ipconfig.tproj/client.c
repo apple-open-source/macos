@@ -50,16 +50,16 @@
 #import <arpa/inet.h>
 
 #import "ipconfig_ext.h"
-#import "../bootplib/ipconfig.h"
+#import "ipconfig.h"
 #import "dhcp_options.h"
 #import "dhcplib.h"
-#import <SystemConfiguration/SCD.h>
+#import <SystemConfiguration/SystemConfiguration.h>
 
 typedef int func_t(port_t server, int argc, char * argv[]);
 typedef func_t * funcptr_t;
 char * progname = NULL;
 
-#define STARTUP_KEY	"plugin:ipconfigd"
+#define STARTUP_KEY	CFSTR("Plugin:IPConfiguration")
 
 static void
 on_alarm(int sigraised)
@@ -70,13 +70,20 @@ on_alarm(int sigraised)
 #define WAIT_ALL_DEFAULT_TIMEOUT	60
 #define WAIT_ALL_MAX_TIMEOUT		120
 
+static void
+key_appeared(SCDynamicStoreRef session, CFArrayRef changes, void * arg)
+{
+    exit(0);
+}
+
 static int
 S_wait_all(port_t server, int argc, char * argv[])
 {
-    SCDHandleRef	data;
-    SCDSessionRef 	session;
-    SCDStatus		status;
+    CFMutableArrayRef	keys;
+    SCDynamicStoreRef 	session;
+    CFRunLoopSourceRef	rls;
     unsigned long	t = WAIT_ALL_DEFAULT_TIMEOUT;
+    CFPropertyListRef	value;
     struct itimerval 	v;
 
     if (argc > 0) {
@@ -86,11 +93,22 @@ S_wait_all(port_t server, int argc, char * argv[])
 	}
     }
 
-    status = SCDOpen(&session, CFSTR("ipconfig command"));
-    if (status != SCD_OK) {
-	fprintf(stderr, "SCDOpen failed: %s\n", SCDError(status));
+    session = SCDynamicStoreCreate(NULL, CFSTR("ipconfig command"), 
+				   key_appeared, NULL);
+    if (session == NULL) {
+	fprintf(stderr, "SCDynamicStoreCreate failed: %s\n", 
+		SCErrorString(SCError()));
 	return (0);
     }
+    keys = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+    CFArrayAppendValue(keys, STARTUP_KEY);
+    SCDynamicStoreSetNotificationKeys(session, keys, NULL);
+    CFRelease(keys);
+
+    rls = SCDynamicStoreCreateRunLoopSource(NULL, session, 0);
+    CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
+    CFRelease(rls);
+
     signal(SIGALRM, on_alarm);
     bzero(&v, sizeof(v));
     v.it_value.tv_sec = t;
@@ -98,15 +116,12 @@ S_wait_all(port_t server, int argc, char * argv[])
 	perror("setitimer");
 	return (0);
     }
-
-    status = SCDNotifierAdd(session, CFSTR(STARTUP_KEY), 0);
-    if (status == SCD_OK) {
-        status = SCDGet(session, CFSTR(STARTUP_KEY), &data);
-	if (status == SCD_NOKEY) {
-	    (void)SCDNotifierWait(session);
-	}
+    value = SCDynamicStoreCopyValue(session, STARTUP_KEY);
+    if (value == NULL) {
+	CFRunLoopRun();
+	return (0);
     }
-    SCDClose(&session);
+    CFRelease(session);
     return (0);
 }
 

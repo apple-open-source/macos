@@ -62,6 +62,8 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#include <sys/param.h>
+
 #include "ext.h"
 #include "fsutil.h"
 
@@ -69,6 +71,11 @@ static int checkclnum __P((struct bootblock *, int, cl_t, cl_t *));
 static int clustdiffer __P((cl_t, cl_t *, cl_t *, int));
 static int tryclear __P((struct bootblock *, struct fatEntry *, cl_t, cl_t *));
 static int _readfat __P((int, struct bootblock *, int, u_char **));
+
+ssize_t	deblock_read(int d, void *buf, size_t nbytes);
+ssize_t	deblock_write(int d, void *buf, size_t nbytes);
+
+
 
 /*
  * Check a cluster number for valid value
@@ -131,7 +138,7 @@ _readfat(fs, boot, no, buffer)
 		goto err;
 	}
 
-	if (read(fs, *buffer, boot->FATsecs * boot->BytesPerSec)
+    if (deblock_read(fs, *buffer, boot->FATsecs * boot->BytesPerSec)
 	    != boot->FATsecs * boot->BytesPerSec) {
 		perror("Unable to read FAT");
 		goto err;
@@ -602,7 +609,7 @@ writefat(fs, boot, fat, correct_fat)
 		off = boot->ResSectors + i * boot->FATsecs;
 		off *= boot->BytesPerSec;
 		if (lseek(fs, off, SEEK_SET) != off
-		    || write(fs, buffer, fatsz) != fatsz) {
+		    || deblock_write(fs, buffer, fatsz) != fatsz) {
 			perror("Unable to write FAT");
 			ret = FSFATAL; /* Return immediately?		XXX */
 		}
@@ -671,4 +678,47 @@ checklost(dosfs, boot, fat)
 	}
 
 	return mod;
+}
+
+#define DEBLOCK_SIZE 		(MAXPHYSIO>>2)
+ssize_t	deblock_read(int d, void *buf, size_t nbytes) {
+    ssize_t		totbytes = 0, readbytes;
+    char		*b = buf;
+
+    while (nbytes > 0) {
+        size_t 		rbytes = nbytes < DEBLOCK_SIZE? nbytes : DEBLOCK_SIZE;
+        readbytes = read(d, b, rbytes);
+        if (readbytes < 0)
+            return readbytes;
+        else if (readbytes == 0)
+            break;
+        else {
+            nbytes-=readbytes;
+            totbytes += readbytes;
+            b += readbytes;
+        }
+    }
+
+    return totbytes;
+}
+
+ssize_t	deblock_write(int d, void *buf, size_t nbytes) {
+    ssize_t		totbytes = 0, writebytes;
+    char		*b = buf;
+
+    while (nbytes > 0) {
+        size_t 		wbytes = nbytes < DEBLOCK_SIZE ? nbytes : DEBLOCK_SIZE;
+        writebytes = write(d, b, wbytes);
+        if (writebytes < 0)
+            return writebytes;
+        else if (writebytes == 0)
+            break;
+        else {
+            nbytes-=writebytes;
+            totbytes += writebytes;
+            b += writebytes;
+        }
+    }
+
+    return totbytes;
 }

@@ -47,6 +47,7 @@
 #define _NO_SOCKADDR_LENGTH_
 #define _UNIX_BSD_43_
 #define _WAIT_TYPE_ union wait
+#define SO_REUSEPORT SO_REUSEADDR
 #include <libc.h>
 #define u_int64_t unsigned long long
 #define int64_t long long
@@ -87,7 +88,6 @@ struct in6_addr {
 #define _THREAD_TYPE_PTHREAD_
 #define _IPC_UNTYPED_
 #define _PORT_REGISTRY_BOOTSTRAP_
-#define _DHCP_BINDING_
 #endif
 
 #ifdef _OS_APPLE_

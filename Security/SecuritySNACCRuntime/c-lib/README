@@ -1,0 +1,36 @@
+(RCS control information is at the end of this file.)
+
+
+C ASN.1 library README
+----------------------
+
+This directory contains the type definitions and the encode, decode,
+free and print routines for all of the built-in ASN.1 types.  It also
+contains the code for three different buffer types.
+
+The makefile will produce 3 different libraries, one for each buffer
+type.  Each buffer types requires a different library because many of
+the buffer routine calls made from the encode and decode library
+routines are macros (for performance reasons).
+
+The 3 libararies are:
+        libasn1cebuf.a - uses the ExpBufs
+        libasn1cmbuf.a - uses the MinBufs
+        libasn1csbuf.a - uses the SBufs
+
+See the documentation for a full descriptions of the buffer types.
+You must link your code with proper library (i.e. if you use SBufs,
+link with libasn1csbuf.a).
+
+#-------------------------------------------------------------------------------
+# $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/c-lib/README,v 1.1.1.1 2001/05/18 23:14:07 mb Exp $
+# $Log: README,v $
+# Revision 1.1.1.1  2001/05/18 23:14:07  mb
+# Move from private repository to open source repository
+#
+# Revision 1.1.1.1  1999/03/16 18:06:10  aram
+# Originals from SMIME Free Library.
+#
+# Revision 1.2  1994/08/31 23:50:07  rj
+# textual change to adapt to change of directory tree.
+#

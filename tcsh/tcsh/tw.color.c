@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/tw.color.c,v 1.1.1.1 1999/04/23 01:59:58 wsanchez Exp $ */
+/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/tw.color.c,v 1.1.1.2 2001/06/28 23:10:56 bbraun Exp $ */
 /*
  * tw.color.c: builtin color ls-F
  */
@@ -36,7 +36,7 @@
  */
 #include "sh.h"
 
-RCSID("$Id: tw.color.c,v 1.1.1.1 1999/04/23 01:59:58 wsanchez Exp $")
+RCSID("$Id: tw.color.c,v 1.1.1.2 2001/06/28 23:10:56 bbraun Exp $")
 
 #include "tw.h"
 #include "ed.h"
@@ -76,11 +76,11 @@ static Variable variables[] = {
     VAR(NOS, "fi", "0"),	/* Regular file */
     VAR(NOS, "no", "0"),	/* Normal (non-filename) text */
     VAR(NOS, "mi", ""),		/* Missing file (defaults to fi) */
-#ifdef _OSD_POSIX
+#ifdef IS_ASCII
+    VAR(NOS, "lc", "\033["),	/* Left code (ASCII) */
+#else
     VAR(NOS, "lc", "\x27["),	/* Left code (EBCDIC)*/
-#else /* _OSD_POSIX */
-    VAR(NOS, "lc", "\033["),	/* Left code */
-#endif /* _OSD_POSIX */
+#endif
     VAR(NOS, "rc", "m"),	/* Right code */
     VAR(NOS, "ec", ""),		/* End code (replaces lc+no+rc) */
 };
@@ -162,7 +162,7 @@ getstring(dp, sp, pd, f)
     }
 
     pd->s = *dp;
-    pd->len = d - *dp;
+    pd->len = (int) (d - *dp);
     *sp = s;
     *dp = d;
     return *s == f;
@@ -181,6 +181,7 @@ parseLS_COLORS(value)
     const Char   *v;		/* pointer in value */
     char   *c;			/* pointer in colors */
     Extension *e;		/* pointer in extensions */
+    jmp_buf_t osetexit;
 
     /* init */
     if (extensions)
@@ -209,6 +210,12 @@ parseLS_COLORS(value)
     c = colors;
     e = &extensions[0];
 
+    /* Prevent from crashing if unknown parameters are given. */
+
+    getexit(osetexit);
+
+    if (setexit() == 0) {
+	    
     /* parse */
     while (*v) {
 	switch (*v & CHAR) {
@@ -246,8 +253,11 @@ parseLS_COLORS(value)
 	while (*v && (*v & CHAR) != ':')
 	    v++;
     }
+    }
 
-    nextensions = e - extensions;
+    resexit(osetexit);
+
+    nextensions = (int) (e - extensions);
 }
 
 

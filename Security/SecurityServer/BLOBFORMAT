@@ -1,0 +1,64 @@
+Description of SecurityServer blob format.
+
+
+Database blob:
+
+
+Creation (input PASSWORD, PRIVATE_DBB_BYTES, PUBLIC_DBB_BYTES)
+Update -- change password (same as creation except use passed in DSK and DEK).
+
+1. Generate a 20 byte (160 bit) random string called SALT.
+2. Derive a 24 byte (192 bit -- 168 bit effective because of odd parity in each octet) 3DES key called MK and 8 bytes IV from PASSWORD and SALT using PBKDF2 with PRF = HMACSHA1 and iteration count = 1000.
+3. Generate a 24 byte (192 bit -- 168 bit effective because of parity) 3DES key called DEK.
+4. Generate a 20 byte (160 bit SHA1HMAC key called DSK.
+5. Let TEMP1 = DSK || DEK || PRIVATE_DBB_BYTES
+6. Let TEMP2 = ciphertext of TEMP1 encrypted with MK and IV using 3DES in CBC_IV mode.
+7. Let TEMP3 = SALT || LEN(PUBLIC_DBB_BYTES) || PUBLIC_DBB_BYTES || TEMP2
+8. Let SIG = SHA1HMAC(DSK, TEMP3)
+9. Let DBB = SIG || TEMP3
+10. Outputs DBB, DSK (for signing) and DEK (for encryption)
+
+
+Decode (input DBB and PASSWORD)
+
+1. Let SIG = First 20 octets of DBB.
+2. Let TEMP3 = Octets 20 though end of DBB.
+3. Let SALT = Octets 0 though 20 of TEMP3.
+4. Derive a 192 bit (168 bit effective because of parity) 3DES key called MK and 8 bytes IV from PASSWORD and SALT using PKDF2 with PRF = HMACSHA1 and iteration count = 1000.
+5. Let LEN_PUBLIC_DBB_BYTES = Octets 20 though 24 of TEMP3.
+6. Let PUBLIC_DBB_BYTES = Octets 24 though 24 + LEN_PUBLIC_DBB_BYTES of TEMP3.
+7. Let TEMP2 = Octets 24 + LEN_PUBLIC_DBB_BYTES though end of TEMP3.
+8. Let TEMP1 = plaintext of TEMP2 decrypted with MK and IV using 3DES in CBC_IV mode with PKCS1 padding.
+9. Let DSK = First 20 octets of TEMP1
+10. Verify that SHA1HMAC(DSK, TEMP3) == SIG (using VerifyMac) if fail then password is wrong. 
+11. Let DEK = Octets 20 though 44 of TEMP1
+12. If DEK does not have odd parity in all octets then DBB is corrupt.
+13. Let PRIVATE_DBB_BYTES = Octets 44 though end of TEMP1
+14. Outputs PUBLIC_DBB_BYTES, PRIVATE_DBB_BYTES, DSK, DEK
+
+
+
+Key blob:
+
+Creation (input DSK, DEK, PRIVATE_KEY_BYTES, PUBLIC_KEY_BYTES output KB)
+(NOTE PRIVATE_KEY_BYTES contains both the key bits (24 bytes) and the private ACL parts)
+
+1. Generate a 8 byte random string called IV
+2. Encrypt PRIVATE_KEY_BYTES using DEK (3DES) and IV in CBC mode with PKCS1 padding.  Call the ciphertext TEMP1
+3. Let TEMP2 = IV || TEMP1.
+4. Reverse the order of the octects in TEMP2 call the result TEMP3.
+5. Encrypt TEMP3 using DEK with an IV of 0x4adda22c79e82105 in CBC mode with PKCS1 padding call the result TEMP4.
+6. Concatenate LEN(PUBLIC_KEY_BYTES) | PUBLIC_KEY_BYTES | TEMP4 and call it TEMP5
+7. Compute the 20 byte SHA1HMAC of TEMP5 using DSK and call it SIG.
+8. Concatinate TEMP5 | SIG and call the result KB.
+
+Decode (input DSK, DEK, KB output PRIVATE_KEY_BYTES, PUBLIC_KEY_BYTES)
+
+1. Split KB in TEMP5 and SIG (SIG is last 20 bytes) TEMP5 is the rest.
+2. Verify the 20 byte SHA1HMAC of TEMP5 using DSK against SIG if if fails the blob is invalid.
+3. Split TEMP5 in LEN(PUBLIC_KEY_BYTES) , PUBLIC_KEY_BYTES and TEMP4.
+4. Decrypt TEMP4 using DEK with an IV of 0x4adda22c79e82105 in CBC mode with PKCS1 padding call the result TEMP3.
+5. Reverse the order of the octects in TEMP3 and call the result TEMP2.
+6. Split TEMP2 in IV (first 8 bytes) and TEMP1 (rest).
+7. Decrypt TEMP1 using DEK (3DES) and IV in CBC mode with PKCS1 padding.  Call the plaintext PRIVATE_KEY_BYTES.
+

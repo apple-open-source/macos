@@ -20,6 +20,16 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * Modification History
+ *
+ * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * - public API conversion
+ *
+ * March 24, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
 #include <mach/std_types.defs>
 #include <mach/mach_types.defs>
 
@@ -73,12 +83,12 @@ routine configunlock	(	server		: mach_port_t;
 	skip;	/* reserved for future use */
 
 /*
- * Cache access API's
+ * Dynamic store access API's
  */
 
 routine configlist	(	server		: mach_port_t;
 				xmlData		: xmlData;
-				regexOptions	: int;
+				isRegex		: int;
 			 out	list		: xmlDataOut, dealloc;
 			 out	status		: int);
 
@@ -115,9 +125,21 @@ routine configadd_s	(	server		: mach_port_t;
 			 out	newInstance	: int;
 			 out	status		: int);
 
-	skip;	/* reserved for future use */
-	skip;	/* reserved for future use */
-	skip;	/* reserved for future use */
+routine confignotify	(	server		: mach_port_t;
+				key		: xmlData;
+			 out	status		: int);
+
+routine configget_m	(	server		: mach_port_t;
+				keys		: xmlData;
+				patterns	: xmlData;
+			 out	data		: xmlDataOut, dealloc;
+			 out	status		: int);
+
+routine configset_m	(	server		: mach_port_t;
+				data		: xmlData;
+				remove		: xmlData;
+				notify		: xmlData;
+			 out	status		: int);
 
 /*
  * Notification API's
@@ -125,12 +147,12 @@ routine configadd_s	(	server		: mach_port_t;
 
 routine notifyadd	(	server		: mach_port_t;
 				key		: xmlData;
-				regexOptions	: int;
+				isRegex		: int;
 			 out	status		: int);
 
 routine notifyremove	(	server		: mach_port_t;
 				key		: xmlData;
-				regexOptions	: int;
+				isRegex		: int;
 			 out	status		: int);
 
 routine notifychanges	(	server		: mach_port_t;

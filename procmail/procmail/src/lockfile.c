@@ -9,29 +9,29 @@
  *	Seems to be relatively bug free.				*
  *									*
  *	Copyright (c) 1990-1999, S.R. van den Berg, The Netherlands	*
+ *	Copyright (c) 1999-2001, Philip Guenther, The United States	*
+ *							of America	*
  *	#include "../README"						*
  ************************************************************************/
 #ifdef RCS
 static /*const*/char rcsid[]=
- "$Id: lockfile.c,v 1.1.1.1 1999/09/23 17:30:07 wsanchez Exp $";
+ "$Id: lockfile.c,v 1.1.1.2 2001/07/20 19:38:17 bbraun Exp $";
 #endif
-static /*const*/char rcsdate[]="$Date: 1999/09/23 17:30:07 $";
+static /*const*/char rcsdate[]="$Date: 2001/07/20 19:38:17 $";
 #include "includes.h"
 #include "sublib.h"
 #include "exopen.h"
 #include "mcommon.h"
 #include "authenticate.h"
+#include "lastdirsep.h"
 #include "../patchlevel.h"
-
-#ifndef SYSTEM_MBOX
-#define SYSTEM_MBOX	SYSTEM_MAILBOX
-#endif
 
 static volatile int exitflag;
 pid_t thepid;
 uid_t uid;
 gid_t sgid;
-static const char dirsep[]=DIRSEP,lockext[]=DEFlockext,
+const char dirsep[]=DIRSEP;
+static const char lockext[]=DEFlockext,
  nameprefix[]="lockfile: ",lgname[]="LOGNAME";
 
 static void failure P((void))				      /* signal trap */
@@ -39,13 +39,12 @@ static void failure P((void))				      /* signal trap */
 }
 				    /* see locking.c for comment on xcreat() */
 static int xcreat(name,tim)const char*const name;time_t*const tim;
-{ char*p,*q;int j= -1;size_t i;struct stat stbuf;
-  for(q=(char*)name;p=strpbrk(q,dirsep);q=p+1);
-  i=q-name;
+{ char*p;int j= -1;size_t i;struct stat stbuf;
+  i=lastdirsep(name)-name;
   if(!(p=malloc(i+UNIQnamelen)))
      return exitflag=1;
   strncpy(p,name,i);
-  if(unique(p,p+i,LOCKperm,0,doCHECK|doLOCK))
+  if(unique(p,p+i,0,LOCKperm,0,doCHECK|doLOCK))
      stat(p,&stbuf),*tim=stbuf.st_mtime,j=myrename(p,name);
   free(p);
   return j;
@@ -61,7 +60,7 @@ void nlog(a)const char*const a;
 
 static PROGID;
 
-main(argc,argv)const char*const argv[];
+int main(argc,argv)int argc;const char*const argv[];
 { const char*const*p;char*cp;uid_t uid;
   int sleepsec,retries,invert,force,suspend,retval=EXIT_SUCCESS,virgin=1;
   static const char usage[]="Usage: lockfile -v | -nnn | -r nnn | -l nnn \
@@ -70,10 +69,14 @@ main(argc,argv)const char*const argv[];
      goto usg;
   sleepsec=DEFlocksleep;retries= -1;suspend=DEFsuspend;thepid=getpid();force=0;
   uid=getuid();signal(SIGPIPE,SIG_IGN);
+  if(setuid(uid)||geteuid()!=uid)		  /* resist setuid operation */
+sp:{ nlog("Unable to give up special permissions");
+     return EX_OSERR;
+   }
 again:
   invert=(char*)progid-(char*)progid;qsignal(SIGHUP,failure);
   qsignal(SIGINT,failure);qsignal(SIGQUIT,failure);qsignal(SIGTERM,failure);
-  for(p=argv;--argc;)
+  for(p=argv;--argc>0;)
      if(*(cp=(char*)*++p)=='-')
 	for(cp++;;)
 	 { char*cp2=cp;int i;
@@ -82,7 +85,9 @@ again:
 		 continue;
 	      case 'r':case 'l':case 's':
 		 if(!*cp&&(cp=(char*)*++p,!--argc)) /* concatenated/seperate */
+		  { p--;
 		    goto eusg;
+		  }
 		 i=strtol(cp,&cp,10);
 		 switch(*cp2)
 		  { case 'r':retries=i;
@@ -96,6 +101,9 @@ again:
 		       goto checkrdec;
 		  }
 	      case VERSIONOPT:elog("lockfile");elog(VERSION);
+		    elog("\nYour system mailbox's lockfile:\t");
+		    elog(auth_mailboxname(auth_finduid(getuid(),0)));
+		    elog(lockext);elog("\n");
 		  goto xusg;
 	      case HELPOPT1:case HELPOPT2:elog(usage);
 		 elog(
@@ -104,7 +112,7 @@ again:
 \n\t-r nnn\tmake at most nnn retries before giving up on a lock\
 \n\t-l nnn\tset locktimeout to nnn seconds\
 \n\t-s nnn\tsuspend nnn seconds after a locktimeout occurred\
-\n\t-!\tinvert the exit code of lockfile\
+\n\t-!\tinvert the exitcode of lockfile\
 \n\t-ml\tlock your system mail-spool file\
 \n\t-mu\tunlock your system mail-spool file\n");
 		 goto xusg;
@@ -158,6 +166,7 @@ xusg:		       retval=EX_USAGE;
 		       else
 			  virgin=0;
 		  }
+
 	       }
 	      case '\0':;
 	    }
@@ -166,8 +175,9 @@ xusg:		       retval=EX_USAGE;
      else if(sleepsec<0)      /* second pass, release everything we acquired */
 	unlink(cp);
      else
-      { time_t t;int permanent;
-	setgid(getgid());		      /* just to be on the safe side */
+      { time_t t;int permanent;gid_t gid=getgid();
+	if(setgid(gid)||getegid()!=gid)	      /* just to be on the safe side */
+	   goto sp;
 stilv:	virgin=0;permanent=nfsTRY;
 	while(0>xcreat(cp,&t))				     /* try and lock */
 	 { struct stat stbuf;
@@ -267,4 +277,8 @@ void writeerr(a)const char*const a;				     /* stub */
 
 char*cstr(a,b)char*const a;const char*const b;			     /* stub */
 { return 0;
+}
+
+void ssleep(seconds)const unsigned seconds;			     /* stub */
+{ sleep(seconds);
 }

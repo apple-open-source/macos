@@ -37,69 +37,74 @@ static struct member *new_member(
     struct arch *arch);
 
 __private_extern__
-void
+struct ofile *
 breakout(
 char *filename,
 struct arch **archs,
 unsigned long *narchs)
 {
-    struct ofile ofile;
+    struct ofile *ofile;
     struct arch *arch;
     struct member *member;
     unsigned long previous_errors, size;
     enum bool flag;
     struct ar_hdr *ar_hdr;
 
+	ofile = allocate(sizeof(struct ofile));
 	/*
 	 * Rely on the ofile_*() routines to do all the checking and only
 	 * return valid ofiles files broken out.
 	 */
-	if(ofile_map(filename, NULL, NULL, &ofile, FALSE) == FALSE)
-	    return;
+	if(ofile_map(filename, NULL, NULL, ofile, FALSE) == FALSE){
+	    free(ofile);
+	    return(NULL);
+	}
 
 	previous_errors = errors;
 	errors = 0;
-	if(ofile.file_type == OFILE_FAT){
+	if(ofile->file_type == OFILE_FAT && errors == 0){
 	    /* loop through the fat architectures (can't have zero archs) */
-	    (void)ofile_first_arch(&ofile);
+	    (void)ofile_first_arch(ofile);
 	    do{
+		if(errors != 0)
+		    break;
 		arch = new_arch(archs, narchs);
 		arch->file_name = savestr(filename);
-		arch->type = ofile.arch_type;
-		arch->fat_arch = ofile.fat_archs + ofile.narch;
-		arch->fat_arch_name = savestr(ofile.arch_flag.name);
+		arch->type = ofile->arch_type;
+		arch->fat_arch = ofile->fat_archs + ofile->narch;
+		arch->fat_arch_name = savestr(ofile->arch_flag.name);
 
-		if(ofile.arch_type == OFILE_ARCHIVE){
+		if(ofile->arch_type == OFILE_ARCHIVE){
 		    /* loop through archive (can be empty) */
-		    if((flag = ofile_first_member(&ofile)) == TRUE){
+		    if((flag = ofile_first_member(ofile)) == TRUE){
 			/*
 			 * If the first member is a table of contents then skip
 			 * it as it is always rebuilt (so to get the time to
 			 * match the modtime so it won't appear out of date).
 			 */
-			if(ofile.member_ar_hdr != NULL &&
-			   strncmp(ofile.member_name, SYMDEF,
+			if(ofile->member_ar_hdr != NULL &&
+			   strncmp(ofile->member_name, SYMDEF,
 				   sizeof(SYMDEF) - 1) == 0){
 			    arch->toc_long_name = (enum bool)
-						(ofile.member_name !=
-						 ofile.member_ar_hdr->ar_name);
-			    flag = ofile_next_member(&ofile);
+						(ofile->member_name !=
+						 ofile->member_ar_hdr->ar_name);
+			    flag = ofile_next_member(ofile);
 			}
 			while(flag == TRUE){
 			    member = new_member(arch);
-			    member->type = ofile.member_type;
-			    member->ar_hdr = ofile.member_ar_hdr;
-			    member->member_name = ofile.member_name;
-			    member->member_name_size = ofile.member_name_size;
+			    member->type = ofile->member_type;
+			    member->ar_hdr = ofile->member_ar_hdr;
+			    member->member_name = ofile->member_name;
+			    member->member_name_size = ofile->member_name_size;
 			    member->member_long_name = (enum bool)
-						(ofile.member_name !=
-						 ofile.member_ar_hdr->ar_name);
+						(ofile->member_name !=
+						 ofile->member_ar_hdr->ar_name);
 			    member->offset = arch->library_size;
 			    size = sizeof(struct ar_hdr) +
-				   round(ofile.member_size,
+				   round(ofile->member_size,
 					 sizeof(long));
 			    if(member->member_long_name == TRUE)
-				size += round(ofile.member_name_size,
+				size += round(ofile->member_name_size,
 					      sizeof(long));
 			    arch->library_size += size;
 			    /*
@@ -107,12 +112,12 @@ unsigned long *narchs)
 			     * sizeof(long) their size is incresed and '\n' are
 			     * added in writeout() to make it so.
 			     */
-			    if(ofile.member_size != 
-			       round(ofile.member_size, sizeof(long)) ||
-			       ofile.member_name_size !=
-			       round(ofile.member_name_size, sizeof(long))){
+			    if(ofile->member_size != 
+			       round(ofile->member_size, sizeof(long)) ||
+			       ofile->member_name_size !=
+			       round(ofile->member_name_size, sizeof(long))){
 				ar_hdr = allocate(sizeof(struct ar_hdr));
-				*ar_hdr = *(ofile.member_ar_hdr);
+				*ar_hdr = *(ofile->member_ar_hdr);
 	    			sprintf(ar_hdr->ar_size, "%-*ld",
 	       				(int)sizeof(ar_hdr->ar_size), size);
 				/*
@@ -123,82 +128,82 @@ unsigned long *narchs)
 				       (int)sizeof(ar_hdr->ar_fmag));
 				member->ar_hdr = ar_hdr;
 			    }
-			    member->input_ar_hdr = ofile.member_ar_hdr;
+			    member->input_ar_hdr = ofile->member_ar_hdr;
 			    member->input_file_name = filename;
-			    if(ofile.member_type == OFILE_Mach_O){
+			    if(ofile->member_type == OFILE_Mach_O){
 				member->object =
 					allocate(sizeof(struct object));
 				memset(member->object, '\0',
 					sizeof(struct object));
 				member->object->object_addr =
-					ofile.object_addr;
+					ofile->object_addr;
 				member->object->object_size =
-					ofile.object_size;
+					ofile->object_size;
 				member->object->object_byte_sex =
-					ofile.object_byte_sex;
-				member->object->mh = ofile.mh;
+					ofile->object_byte_sex;
+				member->object->mh = ofile->mh;
 				member->object->load_commands =
-					ofile.load_commands;
+					ofile->load_commands;
 			    }
-			    else{ /* ofile.member_type == OFILE_UNKNOWN */
-				member->unknown_addr = ofile.member_addr;
-				member->unknown_size = ofile.member_size;
+			    else{ /* ofile->member_type == OFILE_UNKNOWN */
+				member->unknown_addr = ofile->member_addr;
+				member->unknown_size = ofile->member_size;
 			    }
-			    flag = ofile_next_member(&ofile);
+			    flag = ofile_next_member(ofile);
 			}
 		    }
 		}
-		else if(ofile.arch_type == OFILE_Mach_O){
+		else if(ofile->arch_type == OFILE_Mach_O){
 		    arch->object = allocate(sizeof(struct object));
 		    memset(arch->object, '\0', sizeof(struct object));
-		    arch->object->object_addr = ofile.object_addr;
-		    arch->object->object_size = ofile.object_size;
-		    arch->object->object_byte_sex = ofile.object_byte_sex;
-		    arch->object->mh = ofile.mh;
-		    arch->object->load_commands = ofile.load_commands;
+		    arch->object->object_addr = ofile->object_addr;
+		    arch->object->object_size = ofile->object_size;
+		    arch->object->object_byte_sex = ofile->object_byte_sex;
+		    arch->object->mh = ofile->mh;
+		    arch->object->load_commands = ofile->load_commands;
 		}
-		else{ /* ofile.arch_type == OFILE_UNKNOWN */
-		    arch->unknown_addr = ofile.file_addr +
+		else{ /* ofile->arch_type == OFILE_UNKNOWN */
+		    arch->unknown_addr = ofile->file_addr +
 					 arch->fat_arch->offset;
 		    arch->unknown_size = arch->fat_arch->size;
 		}
-	    }while(ofile_next_arch(&ofile) == TRUE);
+	    }while(ofile_next_arch(ofile) == TRUE);
 	}
-	else if(ofile.file_type == OFILE_ARCHIVE){
+	else if(ofile->file_type == OFILE_ARCHIVE && errors == 0){
 	    arch = new_arch(archs, narchs);
 	    arch->file_name = savestr(filename);
-	    arch->type = ofile.file_type;
+	    arch->type = ofile->file_type;
 
 	    /* loop through archive (can be empty) */
-	    if((flag = ofile_first_member(&ofile)) == TRUE){
+	    if((flag = ofile_first_member(ofile)) == TRUE && errors == 0){
 		/*
 		 * If the first member is a table of contents then skip
 		 * it as it is always rebuilt (so to get the time to
 		 * match the modtime so it won't appear out of date).
 		 */
-		if(ofile.member_ar_hdr != NULL &&
-		   strncmp(ofile.member_name, SYMDEF,
+		if(ofile->member_ar_hdr != NULL &&
+		   strncmp(ofile->member_name, SYMDEF,
 			   sizeof(SYMDEF) - 1) == 0){
 		    arch->toc_long_name = (enum bool)
-					  (ofile.member_name !=
-					   ofile.member_ar_hdr->ar_name);
-		    flag = ofile_next_member(&ofile);
+					  (ofile->member_name !=
+					   ofile->member_ar_hdr->ar_name);
+		    flag = ofile_next_member(ofile);
 		}
-		while(flag == TRUE){
+		while(flag == TRUE && errors == 0){
 		    member = new_member(arch);
-		    member->type = ofile.member_type;
-		    member->ar_hdr = ofile.member_ar_hdr;
-		    member->member_name = ofile.member_name;
-		    member->member_name_size = ofile.member_name_size;
+		    member->type = ofile->member_type;
+		    member->ar_hdr = ofile->member_ar_hdr;
+		    member->member_name = ofile->member_name;
+		    member->member_name_size = ofile->member_name_size;
 		    member->member_long_name = (enum bool)
-					(ofile.member_name !=
-					 ofile.member_ar_hdr->ar_name);
+					(ofile->member_name !=
+					 ofile->member_ar_hdr->ar_name);
 		    member->offset = arch->library_size;
 		    size = sizeof(struct ar_hdr) +
-			   round(ofile.member_size,
+			   round(ofile->member_size,
 				 sizeof(long));
 		    if(member->member_long_name == TRUE)
-			size += round(ofile.member_name_size,
+			size += round(ofile->member_name_size,
 				      sizeof(long));
 		    arch->library_size += size;
 		    /*
@@ -206,12 +211,12 @@ unsigned long *narchs)
 		     * sizeof(long) their size is incresed and '\n' are
 		     * added in writeout() to make it so.
 		     */
-		    if(ofile.member_size != 
-		       round(ofile.member_size, sizeof(long)) ||
-		       ofile.member_name_size !=
-		       round(ofile.member_name_size, sizeof(long))){
+		    if(ofile->member_size != 
+		       round(ofile->member_size, sizeof(long)) ||
+		       ofile->member_name_size !=
+		       round(ofile->member_name_size, sizeof(long))){
 			ar_hdr = allocate(sizeof(struct ar_hdr));
-			*ar_hdr = *(ofile.member_ar_hdr);
+			*ar_hdr = *(ofile->member_ar_hdr);
 			sprintf(ar_hdr->ar_size, "%-*ld",
 				(int)sizeof(ar_hdr->ar_size), size);
 			/*
@@ -222,51 +227,51 @@ unsigned long *narchs)
 			       (int)sizeof(ar_hdr->ar_fmag));
 			member->ar_hdr = ar_hdr;
 		    }
-		    member->input_ar_hdr = ofile.member_ar_hdr;
+		    member->input_ar_hdr = ofile->member_ar_hdr;
 		    member->input_file_name = filename;
-		    if(ofile.member_type == OFILE_Mach_O){
+		    if(ofile->member_type == OFILE_Mach_O){
 			member->object = allocate(sizeof(struct object));
 			memset(member->object, '\0', sizeof(struct object));
-			member->object->object_addr = ofile.object_addr;
-			member->object->object_size = ofile.object_size;
-			member->object->object_byte_sex =ofile.object_byte_sex;
-			member->object->mh = ofile.mh;
-			member->object->load_commands = ofile.load_commands;
+			member->object->object_addr = ofile->object_addr;
+			member->object->object_size = ofile->object_size;
+			member->object->object_byte_sex =ofile->object_byte_sex;
+			member->object->mh = ofile->mh;
+			member->object->load_commands = ofile->load_commands;
 		    }
-		    else{ /* ofile.member_type == OFILE_UNKNOWN */
-			member->unknown_addr = ofile.member_addr;
-			member->unknown_size = ofile.member_size;
+		    else{ /* ofile->member_type == OFILE_UNKNOWN */
+			member->unknown_addr = ofile->member_addr;
+			member->unknown_size = ofile->member_size;
 		    }
-		    flag = ofile_next_member(&ofile);
+		    flag = ofile_next_member(ofile);
 		}
 	    }
 	}
-	else if(ofile.file_type == OFILE_Mach_O){
+	else if(ofile->file_type == OFILE_Mach_O && errors == 0){
 	    arch = new_arch(archs, narchs);
 	    arch->file_name = savestr(filename);
-	    arch->type = ofile.file_type;
+	    arch->type = ofile->file_type;
 	    arch->object = allocate(sizeof(struct object));
 	    memset(arch->object, '\0', sizeof(struct object));
-	    arch->object->object_addr = ofile.object_addr;
-	    arch->object->object_size = ofile.object_size;
-	    arch->object->object_byte_sex = ofile.object_byte_sex;
-	    arch->object->mh = ofile.mh;
-	    arch->object->load_commands = ofile.load_commands;
+	    arch->object->object_addr = ofile->object_addr;
+	    arch->object->object_size = ofile->object_size;
+	    arch->object->object_byte_sex = ofile->object_byte_sex;
+	    arch->object->mh = ofile->mh;
+	    arch->object->load_commands = ofile->load_commands;
 	}
-	else{ /* ofile.file_type == OFILE_UNKNOWN */
+	else if(errors == 0){ /* ofile->file_type == OFILE_UNKNOWN */
 	    arch = new_arch(archs, narchs);
 	    arch->file_name = savestr(filename);
-	    arch->type = ofile.file_type;
-	    arch->unknown_addr = ofile.file_addr;
-	    arch->unknown_size = ofile.file_size;
+	    arch->type = ofile->file_type;
+	    arch->unknown_addr = ofile->file_addr;
+	    arch->unknown_size = ofile->file_size;
 	}
 	if(errors != 0){
 	    free_archs(*archs, *narchs);
 	}
 	errors += previous_errors;
+	return(ofile);
 }
 
-__private_extern__
 void
 free_archs(
 struct arch *archs,

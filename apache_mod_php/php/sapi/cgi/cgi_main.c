@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -22,7 +22,7 @@
 #include "php.h"
 #include "php_globals.h"
 #include "php_variables.h"
-#include "modules.h"
+#include "zend_modules.h"
 
 #include "SAPI.h"
 
@@ -52,15 +52,12 @@
 #include "php_ini.h"
 #include "php_globals.h"
 #include "php_main.h"
-#include "fopen-wrappers.h"
+#include "fopen_wrappers.h"
 #include "ext/standard/php_standard.h"
 #ifdef PHP_WIN32
 #include <io.h>
 #include <fcntl.h>
-#include "win32/syslog.h"
 #include "win32/php_registry.h"
-#else
-#include <syslog.h>
 #endif
 
 #if HAVE_SIGNAL_H
@@ -75,8 +72,6 @@
 
 #include "php_getopt.h"
 
-PHPAPI extern char *php_ini_path;
-
 #define PHP_MODE_STANDARD	1
 #define PHP_MODE_HIGHLIGHT	2
 #define PHP_MODE_INDENT		3
@@ -85,7 +80,7 @@ PHPAPI extern char *php_ini_path;
 extern char *ap_php_optarg;
 extern int ap_php_optind;
 
-#define OPTSTRING "ac:d:ef:g:hilmnqs?vz:"
+#define OPTSTRING "aCc:d:ef:g:hilmnqs?vz:"
 
 static int _print_module_info ( zend_module_entry *module, void *arg ) {
 	php_printf("%s\n", module->name);
@@ -94,14 +89,21 @@ static int _print_module_info ( zend_module_entry *module, void *arg ) {
 
 static int sapi_cgibin_ub_write(const char *str, uint str_length)
 {
+	const char *ptr = str;
+	uint remaining = str_length;
 	size_t ret;
 
-	ret = fwrite(str, 1, str_length, stdout);
-	if (ret != str_length) {
-		php_handle_aborted_connection();
+	while (remaining > 0)
+	{
+		ret = fwrite(ptr, 1, MIN(remaining, 16384), stdout);
+		if (!ret) {
+			php_handle_aborted_connection();
+		}
+		ptr += ret;
+		remaining -= ret;
 	}
 
-	return ret;
+	return str_length;
 }
 
 
@@ -146,38 +148,13 @@ static char *sapi_cgi_read_cookies(SLS_D)
 
 static void sapi_cgi_register_variables(zval *track_vars_array ELS_DC SLS_DC PLS_DC)
 {
-	char *pi;
-
 	/* In CGI mode, we consider the environment to be a part of the server
 	 * variables
 	 */
 	php_import_environment_variables(track_vars_array ELS_CC PLS_CC);
 
 	/* Build the special-case PHP_SELF variable for the CGI version */
-#if FORCE_CGI_REDIRECT
 	php_register_variable("PHP_SELF", (SG(request_info).request_uri ? SG(request_info).request_uri:""), track_vars_array ELS_CC PLS_CC);
-#else
-	{
-		char *sn;
-		char *val;
-		int l=0;
-
-		sn = getenv("SCRIPT_NAME");
-		pi = SG(request_info).request_uri;
-		if (sn)
-			l += strlen(sn);
-		if (pi)
-			l += strlen(pi);
-		if (pi && sn && !strcmp(pi, sn)) {
-			l -= strlen(pi);
-			pi = NULL;
-		}
-		val = emalloc(l + 1);
-		sprintf(val, "%s%s", (sn ? sn : ""), (pi ? pi : ""));	/* SAFE */
-		php_register_variable("PHP_SELF", val, track_vars_array ELS_CC PLS_CC);
-		efree(val);
-	}
-#endif
 }
 
 
@@ -201,7 +178,7 @@ static int sapi_cgi_deactivate(SLS_D)
 
 
 
-static sapi_module_struct sapi_module = {
+static sapi_module_struct cgi_sapi_module = {
 	"cgi",							/* name */
 	"CGI",							/* pretty name */
 									
@@ -246,21 +223,19 @@ static void php_cgi_usage(char *argv0)
 		prog = "php";
 	}
 
-	php_printf("Usage: %s [-q] [-h]"
-				" [-s]"
-				" [-v] [-i] [-f <file>] | "
-				"{<file> [args...]}\n"
+	php_printf("Usage: %s [-q] [-h] [-s [-v] [-i] [-f <file>] |  {<file> [args...]}\n"
 				"  -q             Quiet-mode.  Suppress HTTP Header output.\n"
 				"  -s             Display colour syntax highlighted source.\n"
-				"  -f<file>       Parse <file>.  Implies `-q'\n"
+				"  -f <file>      Parse <file>.  Implies `-q'\n"
 				"  -v             Version number\n"
-				"  -c<path>       Look for php.ini file in this directory\n"
+                "  -C             Do not chdir to the script's directory\n"
+				"  -c <path>      Look for php.ini file in this directory\n"
 #if SUPPORT_INTERACTIVE
 				"  -a             Run interactively\n"
 #endif
 				"  -d foo[=bar]   Define INI entry foo with value 'bar'\n"
 				"  -e             Generate extended information for debugger/profiler\n"
-				"  -z<file>       Load Zend extension <file>.\n"
+				"  -z <file>      Load Zend extension <file>.\n"
 				"  -l             Syntax check only (lint)\n"
 				"  -m             Show compiled in modules\n"
 				"  -i             PHP information\n"
@@ -271,6 +246,7 @@ static void php_cgi_usage(char *argv0)
 static void init_request_info(SLS_D)
 {
 	char *content_length = getenv("CONTENT_LENGTH");
+	char *content_type = getenv("CONTENT_TYPE");
 	const char *auth;
 
 #if 0
@@ -319,7 +295,7 @@ static void init_request_info(SLS_D)
 		SG(request_info).request_uri = getenv("SCRIPT_NAME");
 	}
 	SG(request_info).path_translated = NULL; /* we have to update it later, when we have that information */
-	SG(request_info).content_type = getenv("CONTENT_TYPE");
+	SG(request_info).content_type = (content_type ? content_type : "" );
 	SG(request_info).content_length = (content_length?atoi(content_length):0);
 	SG(sapi_headers).http_response_code = 200;
 	
@@ -345,7 +321,7 @@ static void define_command_line_ini_entry(char *arg)
 }
 
 
-void php_register_command_line_global_vars(char **arg)
+static void php_register_command_line_global_vars(char **arg)
 {
 	char *var, *val;
 	ELS_FETCH();
@@ -412,7 +388,7 @@ int main(int argc, char *argv[])
 	tsrm_startup(1,1,0, NULL);
 #endif
 
-	sapi_startup(&sapi_module);
+	sapi_startup(&cgi_sapi_module);
 
 #ifdef PHP_WIN32
 	_fmode = _O_BINARY;			/*sets default for file streams to binary */
@@ -421,6 +397,9 @@ int main(int argc, char *argv[])
 	setmode(_fileno(stderr), O_BINARY);		/* make the stdio mode be binary */
 #endif
 
+	if (php_module_startup(&cgi_sapi_module)==FAILURE) {
+		return FAILURE;
+	}
 
 	/* Make sure we detect we are a cgi - a bit redundancy here,
 	   but the default case is that we have to check only the first one. */
@@ -468,7 +447,7 @@ any .htaccess restrictions anywhere on your site you can leave doc_root undefine
 		while ((c=ap_php_getopt(argc, argv, OPTSTRING))!=-1) {
 			switch (c) {
 				case 'c':
-					php_ini_path = strdup(ap_php_optarg);		/* intentional leak */
+					cgi_sapi_module.php_ini_path_override = strdup(ap_php_optarg);
 					break;
 			}
 
@@ -477,9 +456,6 @@ any .htaccess restrictions anywhere on your site you can leave doc_root undefine
 		ap_php_optarg = orig_optarg;
 	}
 
-	if (php_module_startup(&sapi_module)==FAILURE) {
-		return FAILURE;
-	}
 #ifdef ZTS
 	compiler_globals = ts_resource(compiler_globals_id);
 	executor_globals = ts_resource(executor_globals_id);
@@ -532,7 +508,10 @@ any .htaccess restrictions anywhere on your site you can leave doc_root undefine
 #endif
 					break;
 				
-			  case 'd':	/* define ini entries on command line */
+			case 'C': /* don't chdir to the script directory */
+					SG(options) |= SAPI_OPTION_NO_CHDIR;
+					break;
+			case 'd': /* define ini entries on command line */
 					define_command_line_ini_entry(ap_php_optarg);
 					break;
 					
@@ -590,8 +569,8 @@ any .htaccess restrictions anywhere on your site you can leave doc_root undefine
 				php_printf("\n[Zend Modules]\n");			
 				zend_llist_apply_with_argument(&zend_extensions, (void (*)(void *, void *)) _print_module_info, NULL);
 				php_printf("\n");
-                             	php_end_ob_buffers(1);
-                                exit(1);
+                php_end_ob_buffers(1);
+                exit(1);
 				break;
 
 #if 0 /* not yet operational, see also below ... */
@@ -651,7 +630,9 @@ any .htaccess restrictions anywhere on your site you can leave doc_root undefine
 			*s = '\0';			/* we are pretending it came from the environment  */
 			if (script_file) {
 				strcpy(s, script_file);
-				strcat(s, "+");
+				if (ap_php_optind<argc) {
+					strcat(s, "+");
+				}
 			}
 			for (i = ap_php_optind, len = 0; i < argc; i++) {
 				strcat(s, argv[i]);
@@ -711,8 +692,7 @@ any .htaccess restrictions anywhere on your site you can leave doc_root undefine
 	}
 
 	if (cgi && !file_handle.handle.fp) {
-		file_handle.handle.fp = V_FOPEN(argv0, "rb");
-		if(!file_handle.handle.fp) {
+		if(!argv0 || !(file_handle.handle.fp = VCWD_FOPEN(argv0, "rb"))) {
 			PUTS("No input file specified.\n");
 			php_request_shutdown((void *) 0);
 			php_module_shutdown();
@@ -773,6 +753,9 @@ any .htaccess restrictions anywhere on your site you can leave doc_root undefine
 
 	STR_FREE(SG(request_info).path_translated);
 
+	if (cgi_sapi_module.php_ini_path_override) {
+		free(cgi_sapi_module.php_ini_path_override);
+	}
 #ifdef ZTS
 	tsrm_shutdown();
 #endif

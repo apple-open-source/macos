@@ -10,10 +10,10 @@
 # Desktop Database
 ##
 
-if [ "$(uname -p)" = "powerpc" ]; then
-  ConsoleMessage "Starting Desktop Database"
+if [ -x /System/Library/CoreServices/coreservicesd ]; then
+  ConsoleMessage "Starting Core Services"
 
-  if type DesktopDB >/dev/null; then DesktopDB; fi
+  /System/Library/CoreServices/coreservicesd
 fi
 
 ##

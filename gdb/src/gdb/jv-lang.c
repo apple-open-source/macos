@@ -73,7 +73,7 @@ get_dynamics_objfile (void)
 {
   if (dynamics_objfile == NULL)
     {
-      dynamics_objfile = allocate_objfile (NULL, 0, 0);
+      dynamics_objfile = allocate_objfile (NULL, 0, 0, 0);
     }
   return dynamics_objfile;
 }
@@ -116,7 +116,7 @@ get_java_class_symtab (void)
       /* Allocate GLOBAL_BLOCK.  This has to be relocatable. */
       class_symtab_space = 128;
       bl = (struct block *)
-	mmalloc (objfile->md,
+	xmmalloc (objfile->md,
 		 sizeof (struct block)
 		 + ((class_symtab_space - 1) * sizeof (struct symbol *)));
       *bl = *BLOCKVECTOR_BLOCK (bv, STATIC_BLOCK);
@@ -137,7 +137,7 @@ add_class_symtab_symbol (struct symbol *sym)
       /* Need to re-allocate. */
       class_symtab_space *= 2;
       bl = (struct block *)
-	mrealloc (symtab->objfile->md, bl,
+	xmrealloc (symtab->objfile->md, bl,
 		  sizeof (struct block)
 		  + ((class_symtab_space - 1) * sizeof (struct symbol *)));
       class_symtab->free_ptr = (char *) bl;

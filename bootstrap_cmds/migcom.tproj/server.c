@@ -51,6 +51,7 @@
  */
 
 #include <assert.h>
+#include <stdlib.h>
 
 #include <mach/message.h>
 #include "write.h"
@@ -197,7 +198,7 @@ WriteGlobalDecls(file)
     fprintf(file, "\n");
 }
 
-static void
+void
 WriteReplyTypes(file, stats)
     FILE *file;
     statement_t *stats;
@@ -214,6 +215,28 @@ WriteReplyTypes(file, stats)
 	    sprintf(str, "__Reply__%s_t", rt->rtName);
 	    WriteStructDecl(file, rt->rtArgs, WriteFieldDecl, akbReply, 
 			    str, rt->rtSimpleReply, FALSE, FALSE, FALSE);
+	}
+    }
+    fprintf(file, "\n");
+}
+
+void
+WriteRequestTypes(file, stats)
+    FILE *file;
+    statement_t *stats;
+{
+    register statement_t *stat;
+
+    fprintf(file, "/* typedefs for all requests */\n\n");
+    for (stat = stats; stat != stNULL; stat = stat->stNext) {
+        if (stat->stKind == skRoutine) {
+            register routine_t *rt;
+            char str[MAX_STR_LEN];
+	    
+	    rt = stat->stRoutine;
+	    sprintf(str, "__Request__%s_t", rt->rtName);
+	    WriteStructDecl(file, rt->rtArgs, WriteFieldDecl, akbRequest, 
+			    str, rt->rtSimpleRequest, FALSE, FALSE, FALSE);
 	}
     }
     fprintf(file, "\n");
@@ -250,7 +273,10 @@ WriteProlog(file, stats)
     WriteBogusDefines(file);
     WriteApplDefaults(file, "Rcv");
     WriteGlobalDecls(file);
-    WriteReplyTypes(file, stats);
+    if (ServerHeaderFileName == strNULL) {
+	WriteRequestTypes(file, stats);
+	WriteReplyTypes(file, stats);
+    }
 }
 
 static void
@@ -263,7 +289,7 @@ WriteSymTabEntries(file, stats)
 
     for (stat = stats; stat != stNULL; stat = stat->stNext)
 	if (stat->stKind == skRoutine) {
-	    register	num = stat->stRoutine->rtNumber;
+	    register	int num = stat->stRoutine->rtNumber;
 	    char	*name = stat->stRoutine->rtName;
 	    while (++current <= num)
 		fprintf(file,"\t\t\t{ \"\", 0, 0 },\n");
@@ -297,15 +323,21 @@ WriteRoutineEntries(file, stats)
 	    rt_name = (char *) malloc(strlen(rt->rtName)+5);
 	    while (current++ < rt->rtNumber)
 		fprintf(file, "\t\t{0, 0, 0, 0, 0, 0},\n");
-	    sprintf(sig_array, "&%s.arg_descriptor[%d], sizeof(__Reply__%s_t)",
-		    ServerSubsys, offset, rt->rtName);
+	    if (UseRPCTrap) {
+		sprintf(sig_array, "&%s.arg_descriptor[%d], sizeof(__Reply__%s_t)",
+			ServerSubsys, offset, rt->rtName);
+	    } else {
+		sprintf(sig_array, "(routine_arg_descriptor_t)0, sizeof(__Reply__%s_t)",
+			rt->rtName);
+	    }
 	    sprintf(rt_name, "_X%s", rt->rtName);
 	    descr_count = rtCountArgDescriptors(rt->rtArgs, &arg_count);
 	    offset += descr_count;
 	    WriteRPCRoutineDescriptor(file, rt,
-				      arg_count, descr_count,
-				      stat->stRoutine->rtServerName,
-				      rt_name, sig_array);
+				      arg_count, 
+				      (UseRPCTrap) ? descr_count : 0,
+				      rt_name,
+				      sig_array);
 	    fprintf(file, ",\n");
 	    free(sig_array);
 	    free(rt_name);
@@ -313,7 +345,7 @@ WriteRoutineEntries(file, stats)
     while (current++ < rtNumber)
 	fprintf(file, "\t\t{0, 0, 0, 0, 0},\n");
 
-    fprintf(file, "\t},\n\n");
+    fprintf(file, "\t}");
 }
 
 static void
@@ -321,10 +353,9 @@ WriteArgDescriptorEntries(file, stats)
     FILE *file;
     statement_t *stats;
 {
-    register u_int current = 0;
     register statement_t *stat;
 
-    fprintf(file, "\t{\n");
+    fprintf(file, ",\n\n\t{\n");
     for (stat = stats; stat != stNULL; stat = stat->stNext)
 	if (stat->stKind == skRoutine)
 	{
@@ -372,28 +403,34 @@ WriteSubsystem(file, stats)
     }
     fprintf(file, "\n/* Description of this subsystem, for use in direct RPC */\n");
     if (ServerHeaderFileName == strNULL) {
-	fprintf(file, "struct %s {\n", ServerSubsys);
+	fprintf(file, "const struct %s {\n", ServerSubsys);
 	fprintf(file, "\tstruct subsystem *\tsubsystem;\t/* Reserved for system use */\n");
 	fprintf(file, "\tmach_msg_id_t\tstart;\t/* Min routine number */\n");
 	fprintf(file, "\tmach_msg_id_t\tend;\t/* Max routine number + 1 */\n");
 	fprintf(file, "\tunsigned int\tmaxsize;\t/* Max msg size */\n");
-	fprintf(file, "\tvm_address_t\tbase_addr;\t/* Base ddress */\n");
+	fprintf(file, "\tvm_address_t\tbase_addr;\t/* Base address */\n");
 	fprintf(file, "\tstruct routine_descriptor\t/*Array of routine descriptors */\n");
 	fprintf(file, "\t\troutine[%d];\n", rtNumber);
-	fprintf(file, "\tstruct routine_arg_descriptor\t/*Array of arg descriptors */\n");
-	fprintf(file, "\t\targ_descriptor[%d];\n", descr_count);
+	if (UseRPCTrap) {
+	  fprintf(file, "\tstruct routine_arg_descriptor\t/*Array of arg descriptors */\n");
+	  fprintf(file, "\t\targ_descriptor[%d];\n", descr_count);
+	}
 	fprintf(file, "} %s = {\n", ServerSubsys);
     } else {
-	fprintf(file, "struct %s %s = {\n", ServerSubsys, ServerSubsys);
+	fprintf(file, "const struct %s %s = {\n", ServerSubsys, ServerSubsys);
     }
     fprintf(file, "\t0,\n");
     fprintf(file, "\t%d,\n", SubsystemBase);
     fprintf(file, "\t%d,\n", SubsystemBase + rtNumber);
-    fprintf(file, "\tsizeof(union __ReplyUnion),\n");
+    fprintf(file, "\tsizeof(union __ReplyUnion__%s),\n", ServerSubsys);
     fprintf(file, "\t(vm_address_t)&%s,\n", ServerSubsys);
 
     WriteRoutineEntries(file, stats);
-    WriteArgDescriptorEntries(file, stats);
+
+    if (UseRPCTrap)
+        WriteArgDescriptorEntries(file, stats);
+    else
+      	fprintf(file, "\n");
 
     fprintf(file, "};\n\n");
 }
@@ -419,6 +456,28 @@ WriteArraySizes(file, stats)
 	fprintf(file, "\t\t\t0,\n");
 }
 
+void
+WriteRequestUnion(file, stats)
+    FILE *file;
+    statement_t *stats;
+{
+    register statement_t *stat;
+
+    fprintf(file, "/* union of all requests */\n\n");
+    fprintf(file, "union __RequestUnion__%s {\n", ServerSubsys);
+    for (stat = stats; stat != stNULL; stat = stat->stNext) {
+        if (stat->stKind == skRoutine) {
+            register routine_t *rt;
+	    
+	    rt = stat->stRoutine;
+	    fprintf(file, "\t__Request__%s_t Request_%s;\n",
+		    rt->rtName, rt->rtName);
+	}
+    }
+    fprintf(file, "};\n");
+}
+
+void
 WriteReplyUnion(file, stats)
     FILE *file;
     statement_t *stats;
@@ -426,7 +485,7 @@ WriteReplyUnion(file, stats)
     register statement_t *stat;
 
     fprintf(file, "/* union of all replies */\n\n");
-    fprintf(file, "union __ReplyUnion {\n");
+    fprintf(file, "union __ReplyUnion__%s {\n", ServerSubsys);
     for (stat = stats; stat != stNULL; stat = stat->stNext) {
         if (stat->stKind == skRoutine) {
             register routine_t *rt;
@@ -438,6 +497,7 @@ WriteReplyUnion(file, stats)
     }
     fprintf(file, "};\n");
 }
+
 static void
 WriteDispatcher(file, stats)
     FILE *file;
@@ -446,8 +506,14 @@ WriteDispatcher(file, stats)
     /*
      * First write the reply union as a substitute for maxsize
      */
-    fprintf(file, "\n");
-    WriteReplyUnion(file, stats);
+    
+    if (ServerHeaderFileName == strNULL) {
+	fprintf(file, "\n");
+	WriteRequestUnion(file, stats);
+
+	fprintf(file, "\n");
+	WriteReplyUnion(file, stats);
+    }
 
     /*
      * Write the subsystem stuff.
@@ -1181,8 +1247,6 @@ WriteConditionalCallArg(file, arg)
 {
     ipc_type_t *it = arg->argType;
     boolean_t NeedClose = FALSE;
-    string_t  msgfield = 
-	(arg->argSuffix != strNULL) ? arg->argSuffix : arg->argMsgField;
 
     if ((it->itInTrans != strNULL) &&
 	akCheck(arg->argKind, akbSendRcv) &&
@@ -2013,7 +2077,7 @@ WriteArgSize(file, arg)
      * we have to round up.
      */
     if (bsize % sizeof(natural_t) != 0)
-	fprintf(file, " + %d) & ~%d)", sizeof(natural_t)-1, sizeof(natural_t)-1);
+	fprintf(file, " + %d) & ~%d)", (int)sizeof(natural_t)-1, (int)sizeof(natural_t)-1);
     else
 	fprintf(file, "))");
 }
@@ -2255,11 +2319,10 @@ WriteRoutine(file, rt)
     WriteStructDecl(file, rt->rtArgs, WriteFieldDecl, akbRequest, 
 		    "Request", rt->rtSimpleRequest, TRUE, 
 		    rt->rtServerImpl, FALSE);
+    fprintf(file, "\ttypedef __Request__%s_t __Request;\n\n",
+	    rt->rtName);
     fprintf(file, "\ttypedef __Reply__%s_t Reply;\n",
 	    rt->rtName);
-    WriteStructDecl(file, rt->rtArgs, WriteFieldDecl, akbRequest, 
-		    "__Request", rt->rtSimpleRequest, FALSE, 
-		    FALSE, FALSE);
 
     /*
      * Define a Minimal Reply structure to be used in case of errors

@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/sh.func.c,v 1.1.1.1 1999/04/23 01:59:54 wsanchez Exp $ */
+/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/sh.func.c,v 1.1.1.2 2001/06/28 23:10:51 bbraun Exp $ */
 /*
  * sh.func.c: csh builtin functions
  */
@@ -36,14 +36,14 @@
  */
 #include "sh.h"
 
-RCSID("$Id: sh.func.c,v 1.1.1.1 1999/04/23 01:59:54 wsanchez Exp $")
+RCSID("$Id: sh.func.c,v 1.1.1.2 2001/06/28 23:10:51 bbraun Exp $")
 
 #include "ed.h"
 #include "tw.h"
 #include "tc.h"
-#ifdef WINNT
+#ifdef WINNT_NATIVE
 #include "nt.const.h"
-#endif /* WINNT */
+#endif /* WINNT_NATIVE */
 
 /*
  * C shell
@@ -77,6 +77,14 @@ isbfunc(t)
     static struct biltins label = {"", dozip, 0, 0};
     static struct biltins foregnd = {"%job", dofg1, 0, 0};
     static struct biltins backgnd = {"%job &", dobg1, 0, 0};
+
+    /*
+     * We never match a builtin that has quoted the first
+     * character; this has been the traditional way to escape 
+     * builtin commands.
+     */
+    if (*cp & QUOTE)
+	return NULL;
 
     if (*cp != ':' && lastchr(cp) == ':') {
 	label.bname = short2str(cp);
@@ -118,9 +126,9 @@ isbfunc(t)
 	else
 	    bp1 = bp + 1;
     }
-#ifdef WINNT
+#ifdef WINNT_NATIVE
     return nt_check_additional_builtins(cp);
-#endif /*WINNT*/
+#endif /*WINNT_NATIVE*/
     return (0);
 }
 
@@ -339,9 +347,9 @@ dologin(v, c)
     struct command *c;
 {
     USE(c);
-#ifdef WINNT
+#ifdef WINNT_NATIVE
     USE(v);
-#else /* !WINNT */
+#else /* !WINNT_NATIVE */
     islogin();
     rechist(NULL, adrof(STRsavehist) != NULL);
     (void) signal(SIGTERM, parterm);
@@ -349,7 +357,7 @@ dologin(v, c)
     (void) execl(_PATH_USRBIN_LOGIN, "login", short2str(v[1]), NULL);
     untty();
     xexit(1);
-#endif /* !WINNT */
+#endif /* !WINNT_NATIVE */
 }
 
 
@@ -476,7 +484,7 @@ gotolab(lab)
      */
     zlast = TC_GOTO;
     for (wp = whyles; wp; wp = wp->w_next)
-	if (wp->w_end.type == F_SEEK && wp->w_end.f_seek == 0) {
+	if (wp->w_end.type == TCSH_F_SEEK && wp->w_end.f_seek == 0) {
 	    search(TC_BREAK, 0, NULL);
 	    btell(&wp->w_end);
 	}
@@ -592,7 +600,7 @@ doforeach(v, c)
     btell(&nwp->w_start);
     nwp->w_fename = Strsave(cp);
     nwp->w_next = whyles;
-    nwp->w_end.type = F_SEEK;
+    nwp->w_end.type = TCSH_F_SEEK;
     whyles = nwp;
     /*
      * Pre-read the loop so as to be more comprehensible to a terminal user.
@@ -631,7 +639,7 @@ dowhile(v, c)
 	(struct whyle *) xcalloc(1, sizeof(*nwp));
 
 	nwp->w_start = lineloc;
-	nwp->w_end.type = F_SEEK;
+	nwp->w_end.type = TCSH_F_SEEK;
 	nwp->w_end.f_seek = 0;
 	nwp->w_next = whyles;
 	whyles = nwp;
@@ -653,7 +661,7 @@ dowhile(v, c)
 static void
 preread()
 {
-    whyles->w_end.type = I_SEEK;
+    whyles->w_end.type = TCSH_I_SEEK;
     if (setintr)
 #ifdef BSDSIGS
 	(void) sigsetmask(sigblock((sigmask_t) 0) & ~sigmask(SIGINT));
@@ -828,12 +836,12 @@ search(type, level, goal)
     Sgoal = goal;
     if (type == TC_GOTO) {
 	struct Ain a;
-	a.type = F_SEEK;
+	a.type = TCSH_F_SEEK;
 	a.f_seek = 0;
 	bseek(&a);
     }
     do {
-	if (intty && fseekp == feobp && aret == F_SEEK)
+	if (intty && fseekp == feobp && aret == TCSH_F_SEEK)
 	    printprompt(1, isrchx(type == TC_BREAK ? zlast : type));
 	/* xprintf("? "), flush(); */
 	aword[0] = 0;
@@ -1012,7 +1020,7 @@ past:
 static void
 toend()
 {
-    if (whyles->w_end.type == F_SEEK && whyles->w_end.f_seek == 0) {
+    if (whyles->w_end.type == TCSH_F_SEEK && whyles->w_end.f_seek == 0) {
 	search(TC_BREAK, 0, NULL);
 	btell(&whyles->w_end);
 	whyles->w_end.f_seek--;
@@ -1058,9 +1066,9 @@ wfree()
 	/*
 	 * XXX: We free loops that have different seek types.
 	 */
-	if (wp->w_end.type != I_SEEK && wp->w_start.type == wp->w_end.type &&
+	if (wp->w_end.type != TCSH_I_SEEK && wp->w_start.type == wp->w_end.type &&
 	    wp->w_start.type == o.type) {
-	    if (wp->w_end.type == F_SEEK) {
+	    if (wp->w_end.type == TCSH_F_SEEK) {
 		if (o.f_seek >= wp->w_start.f_seek && 
 		    (wp->w_end.f_seek == 0 || o.f_seek < wp->w_end.f_seek))
 		    break;
@@ -1160,12 +1168,22 @@ xecho(sep, v)
 	while ((c = *cp++) != 0) {
 	    if ((echo_style & SYSV_ECHO) != 0 && c == '\\') {
 		switch (c = *cp++) {
+		case 'a':
+		    c = '\a';
+		    break;
 		case 'b':
 		    c = '\b';
 		    break;
 		case 'c':
 		    nonl = 1;
 		    goto done;
+		case 'e':
+#if 0			/* Windows does not understand \e */
+		    c = '\e';
+#else
+		    c = '\033';
+#endif
+		    break;
 		case 'f':
 		    c = '\f';
 		    break;
@@ -1366,21 +1384,19 @@ dosetenv(v, c)
 
     if (eq(vp, STRNOREBIND)) {
 	NoNLSRebind = 1;
+	MapsAreInited = 0;
+	NLSMapsAreInited = 0;
+	ed_InitMaps();
 	xfree((ptr_t) lp);
 	return;
     }
-#ifdef WINNT
+#ifdef WINNT_NATIVE
     if (eq(vp, STRtcshlang)) {
 	nlsinit();
 	xfree((ptr_t) lp);
 	return;
     }
-    if (eq(vp, STRtcshonlystartexes)) {
-	__nt_only_start_exes = 1;
-	xfree((ptr_t) lp);
-	return;
-	}
-#endif /* WINNT */
+#endif /* WINNT_NATIVE */
     if (eq(vp, STRKTERM)) {
 	char *t;
 	set(STRterm, quote(lp), VAR_READWRITE);	/* lp memory used here */
@@ -1499,8 +1515,12 @@ dounsetenv(v, c)
 		 */
 		Unsetenv(name);
 
-		if (eq(name, STRNOREBIND))
+		if (eq(name, STRNOREBIND)) {
 		    NoNLSRebind = 0;
+		    MapsAreInited = 0;
+		    NLSMapsAreInited = 0;
+		    ed_InitMaps();
+		}
 #ifdef apollo
 		else if (eq(name, STRSYSTYPE))
 		    dohash(NULL, NULL);
@@ -1546,15 +1566,12 @@ dounsetenv(v, c)
 			ed_InitNLSMaps();
 
 		}
-#ifdef WINNT
+#ifdef WINNT_NATIVE
 		else if (eq(name,(STRtcshlang))) {
 		    nls_dll_unload();
 		    nlsinit();
 		}
-		else if (eq(name,(STRtcshonlystartexes))) {
-			__nt_only_start_exes = 0;
-		}
-#endif /* WINNT */
+#endif /* WINNT_NATIVE */
 #ifdef COLOR_LS_F
 		else if (eq(name, STRLS_COLORS))
 		    parseLS_COLORS(n);
@@ -1592,11 +1609,16 @@ tsetenv(name, val)
     Char   *blk[2];
     Char  **oep = ep;
 
-#ifdef WINNT
+#ifdef WINNT_NATIVE
 	nt_set_env(name,val);
-#endif /* WINNT */
+#endif /* WINNT_NATIVE */
     for (; *ep; ep++) {
+#ifdef WINNT_NATIVE
+	for (cp = name, dp = *ep; *cp && Tolower(*cp & TRIM) == Tolower(*dp);
+				cp++, dp++)
+#else
 	for (cp = name, dp = *ep; *cp && (*cp & TRIM) == *dp; cp++, dp++)
+#endif /* WINNT_NATIVE */
 	    continue;
 	if (*cp != 0 || *dp != '=')
 	    continue;
@@ -1627,9 +1649,9 @@ Unsetenv(name)
     register Char *cp, *dp;
     Char **oep = ep;
 
-#ifdef WINNT
+#ifdef WINNT_NATIVE
 	nt_set_env(name,NULL);
-#endif /*WINNT */
+#endif /*WINNT_NATIVE */
     for (; *ep; ep++) {
 	for (cp = name, dp = *ep; *cp && *cp == *dp; cp++, dp++)
 	    continue;
@@ -1658,7 +1680,7 @@ doumask(v, c)
 
     USE(c);
     if (cp == 0) {
-	i = umask(0);
+	i = (int)umask(0);
 	(void) umask(i);
 	xprintf("%o\n", i);
 	return;
@@ -1692,11 +1714,15 @@ doumask(v, c)
 #  if defined(BSD4_4) && !defined(__386BSD__)
     typedef quad_t RLIM_TYPE;
 #  else
-#   if defined(SOLARIS2)
+#   if defined(SOLARIS2) || (defined(sgi) && SYSVREL > 3)
      typedef rlim_t RLIM_TYPE;
 #   else
-     typedef unsigned long RLIM_TYPE;
-#   endif /* SOLARIS2 */
+#    if defined(_SX)
+      typedef long long RLIM_TYPE;
+#    else /* _SX */
+      typedef unsigned long RLIM_TYPE;
+#    endif /* _SX */
+#   endif /* SOLARIS2 || (sgi && SYSVREL > 3) */
 #  endif /* BSD4_4 && !__386BSD__  */
 # endif /* BSDLIMIT */
 
@@ -1723,7 +1749,7 @@ doumask(v, c)
 #  endif /* SIGRTMIN */
 # endif /* (HPUXVERSION > 700) && BSDLIMIT */
 
-# if SYSVREL > 3 && defined(BSDLIMIT)
+# if SYSVREL > 3 && defined(BSDLIMIT) && !defined(_SX)
 /* In order to use rusage, we included "/usr/ucbinclude/sys/resource.h" in */
 /* sh.h.  However, some SVR4 limits are defined in <sys/resource.h>.  Rather */
 /* than include both and get warnings, we define the extra SVR4 limits here. */
@@ -1768,6 +1794,10 @@ struct limits limits[] =
 # ifdef RLIMIT_RSS
     { RLIMIT_RSS, 	"memoryuse",	1024,	"kbytes"	},
 # endif /* RLIMIT_RSS */
+
+# ifdef RLIMIT_UMEM
+    { RLIMIT_UMEM, 	"memoryuse",	1024,	"kbytes"	},
+# endif /* RLIMIT_UMEM */
 
 # ifdef RLIMIT_VMEM
     { RLIMIT_VMEM, 	"vmemoryuse",	1024,	"kbytes"	},
@@ -1900,7 +1930,7 @@ getval(lp, v)
 	cp++;
     if (*cp == 0) {
 	if (*v == 0)
-	    return f == 0.0 ? (RLIM_TYPE) 0 : restrict_limit((f + 0.5) * lp->limdiv);
+	    return restrict_limit((f * lp->limdiv) + 0.5);
 	cp = *v;
     }
     switch (*cp) {
@@ -1981,10 +2011,13 @@ limtail(cp, str)
     Char   *cp;
     char   *str;
 {
+    char *sp;
+
+    sp = str;
     while (*cp && *cp == *str)
 	cp++, str++;
     if (*cp)
-	stderror(ERR_BADSCALE, str);
+	stderror(ERR_BADSCALE, sp);
 }
 
 
@@ -2334,13 +2367,13 @@ struct command *c;
 	    xputchar('\n');
 	}
     }
-#ifdef WINNT
+#ifdef WINNT_NATIVE
     nt_print_builtins(maxwidth);
 #else
     if (Tty_raw_mode)
 	xputchar('\r');
     xputchar('\n');
-#endif /* WINNT */
+#endif /* WINNT_NATIVE */
 
     lbuffed = 1;		/* turn back on line buffering */
     flush();
@@ -2350,11 +2383,16 @@ void
 nlsinit()
 {
 #ifdef NLS_CATALOGS
-    catd = catopen("tcsh", MCLoadBySet);
-#endif
-#ifdef WINNT
+    char catalog[ 256 ] = { 't', 'c', 's', 'h', '\0' };
+
+    if (adrof(STRcatalog) != NULL)
+        xsnprintf((char *)catalog, sizeof(catalog), "tcsh.%s",
+		  short2str(varval(STRcatalog)));
+    catd = catopen(catalog, MCLoadBySet);
+#endif /* NLS_CATALOGS */
+#ifdef WINNT_NATIVE
     nls_dll_init();
-#endif /* WINNT */
+#endif /* WINNT_NATIVE */
     errinit();		/* init the errorlist in correct locale */
     mesginit();		/* init the messages for signals */
     dateinit();		/* init the messages for dates */

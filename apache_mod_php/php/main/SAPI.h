@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -24,6 +24,8 @@
 #include "zend_llist.h"
 #include "zend_operators.h"
 #include <sys/stat.h>
+
+#define SAPI_OPTION_NO_CHDIR 1
 
 #define SAPI_POST_BLOCK_SIZE 4000
 
@@ -57,7 +59,7 @@ typedef struct _sapi_post_entry sapi_post_entry;
 typedef struct _sapi_module_struct sapi_module_struct;
 
 
-extern sapi_module_struct sapi_module;  /* true global */
+extern SAPI_API sapi_module_struct sapi_module;  /* true global */
 
 /* Some values in this structure needs to be filled in before
  * calling sapi_activate(). We WILL change the `char *' entries,
@@ -109,6 +111,7 @@ typedef struct {
 	char *default_charset;
 	HashTable *rfc1867_uploaded_files;
 	long post_max_size;
+    int options;
 } sapi_globals_struct;
 
 
@@ -146,10 +149,6 @@ SAPI_API void sapi_handle_post(void *arg SLS_DC);
 
 SAPI_API int sapi_register_post_entries(sapi_post_entry *post_entry);
 SAPI_API int sapi_register_post_entry(sapi_post_entry *post_entry);
-SAPI_API int sapi_add_post_entry(char *content_type
-								 , void (*post_reader)(SLS_D)
-								 , void (*post_handler)(char *content_type_dup, void *arg SLS_DC));
-SAPI_API void sapi_remove_post_entry(char *content_type);
 SAPI_API void sapi_unregister_post_entry(sapi_post_entry *post_entry);
 SAPI_API int sapi_register_default_post_reader(void (*default_post_reader)(SLS_D));
 
@@ -187,6 +186,8 @@ struct _sapi_module_struct {
 
 	void (*register_server_variables)(zval *track_vars_array ELS_DC SLS_DC PLS_DC);
 	void (*log_message)(char *message);
+
+	char *php_ini_path_override;
 
 	void (*block_interruptions)(void);
 	void (*unblock_interruptions)(void);

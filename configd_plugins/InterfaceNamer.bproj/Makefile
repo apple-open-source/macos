@@ -31,7 +31,9 @@ BUNDLE_EXTENSION = bundle
 
 
 FRAMEWORK_PATHS = -F/System/Library/PrivateFrameworks
-FRAMEWORKS = -framework IOKit -framework SystemConfiguration
+NEXTSTEP_PB_CFLAGS = -DUSE_SYSTEMCONFIGURATION_PUBLIC_APIS
+FRAMEWORKS = -framework CoreFoundation -framework IOKit\
+             -framework SystemConfiguration
 
 
 NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc

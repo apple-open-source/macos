@@ -1,5 +1,5 @@
                            MacsBug Interface for GDB
-                                    2/7/01
+                                    6/8/01
 
 1. Introduction
 
@@ -7,25 +7,20 @@
    Classic MacsBug commands and a MacsBug-like screen UI. Thus it basically is
    a variant of MacsBug with source-level debugging!
 
-   Along with this README there are four other files in this directory:
+   Along with this README there are three other files in this directory:
 
    * gdbinit-MacsBug-without-plugin
    * gdbinit-MacsBug
-   * MacsBug
-   * install-MacsBug
+   * MacsBug_plugin
 
    Both gdbinit-MacsBug-without-plugin and gdbinit-MacsBug are gdb command 
    language scripts one of which you SOURCE from your ~/.gdbinit script (the
    script that gdb always looks for, and for what it's worth, it looks for a
-   .gdbinit in the current directory as well).  We'll explain in the following
-   sections the difference in the two MacsBug scripts.
+   .gdbinit script in the current directory as well).  In the following sections
+   the difference in the two MacsBug scripts will be explained.
    
-   The MacsBug_plugins are just that; the gdb plugins that implement the MacsBug
+   The MacsBug_plugin is just that; the gdb plugin that implement the MacsBug
    UI and commands.  The plugin is loaded by the gdbinit-MacsBug script.
-   
-   The install-MacsBug script is used for private installs of the MacsBug support
-   files and/or to edit your .gdbinit script to add the proper SOURCE command
-   to load MacsBug.
 
 
 2. Background
@@ -46,13 +41,13 @@
    utilized which allows the implementation be done in a "real" language.  Thus
    the script "gdbinit-MacsBug" is provided which appears to be a very reduced
    form or "gdbinit-MacsBug-without-plugin" because most of the implementation
-   is provided in a plugin (MacsBug) which "gdbinit-MacsBug" loads with a
-   LOAD-PLUGIN Apple gdb command.
+   is provided in the plugin ("MacsBug_plugin") which "gdbinit-MacsBug" loads
+   with a LOAD-PLUGIN Apple gdb command.
 
-   The benefit of using the plugins is that it is very efficient because it
+   The benefit of using the plugin is that it is very efficient because it
    "talks" directly to gdb.  It can provide functionality that the pure script
    variant cannot like some additional MacsBug commands and behavior as well
-   as w MacsBug-like screen UI.  It's down side is of course that it is tied
+   as a MacsBug-like screen UI.  It's down side is of course that it is tied
    directly to the version of gdb (and system) for which it was built. Further,
    because the script uses the LOAD-PLUGIN gdb command it will only work with
    Apple's version of gdb. Since MacsBug is mainly used by Mac developers this
@@ -61,12 +56,12 @@
    You thus have two choices:
 
    (1) Install the totally portable gdbinit-MacsBug-without-plugin script, or,
-   (2) Install the gdbinit-MacsBug script and the MacsBug plugin file.
+   (2) Install the gdbinit-MacsBug script and the MacsBug_plugin file.
 
 
 3. Installation
 
-   The MacsBug files are all installed in,
+   The MacsBug files should already be installed in,
 
       /usr/libexec/gdb/plugins/MacsBug
 
@@ -75,96 +70,30 @@
 
       source /usr/libexec/gdb/plugins/MacsBug/gdbinit-MacsBug-without-plugin
 
-   If you want to use the plugins then add the following source command instead:
+   If you want to use the plugin then add the following source command instead:
 
       source /usr/libexec/gdb/plugins/MacsBug/gdbinit-MacsBug
 
    The gdbinit-MacsBug script is installed with it's LOAD-PLUGIN command defined
    as follows:
 
-     load-plugin /usr/libexec/gdb/plugins/MacsBug/MacsBug
+      load-plugin /usr/libexec/gdb/plugins/MacsBug/MacsBug_plugin
 
-   Note that load-plugin commands require a full pathname and no '~'s.
+   The load-plugin command will load the MacsBug_plugin from it's installed
+   directory when "gdbinit-MacsBug" is read (i.e., when the SOURCE command in
+   your ~/.gdbinit script is executed).
+   
+   Of course you don't have to use the files in their installed location. They
+   can be anywhere so long as the ~/.gdbinit's SOURCE command can access the
+   "gdbinit-MacsBug" file with an appropriate pathname and the "gdbinit-MacsBug"
+   script's LOAD-PLUGIN command can, in turn, access the "MacsBug_plugin" file.
+   The only restriction on the LOAD-PLUGIN command is that the specified
+   pathname must be a full pathname ('~' cannot be used).
 
    From this point on this README assumes you are installing the plugin.
 
 
-4. The "install-MacsBug" Script
-
-   install-Macsbug [where] [--gdbinit=pathname] [--v[erbose]] [--f[orce]]
-                           [--help]
-
-   In /usr/libexec/gdb/plugins/MacsBug the two key files needed for the MacsBug
-   plugins are:
-
-   * gdbinit-MacsBug
-   * MacsBug
-
-   The gdbinit-MacsBug file is a gdb script which, among other things, does
-   the load-plugin gdb command to load the MacsBug plugin file.  The
-   load-plugin command requires a full pathname to the MacsBug plugin.  So
-   it is preset to load from the system MacsBug directory.  The ~/.gdbinit
-   script then needs to do a SOURCE command to load the gdbinit-MacsBug script,
-   again from the system directory.
-
-   As stated in the installation above you can explicitly edit your ~/.gdbinit
-   script to do the appropriate source command.  Alternatively install-Macsbug
-   can do it for you.
-
-   It is also possible that there may be intermediate releases of the MacsBug
-   plugins which are compatible with your system. Intermediate releases are not
-   expected to be placed in /usr/libexec/gdb/plugins/MacsBug.  So the installer
-   can also be used to install a newer MacsBug directory in a directory of your
-   choosing.
-
-   Thus install-Macsbug does three things:
-
-   1. Optionally edits your ~/.gdbinit script (if --gdbinit is specified) to
-      create or modify a SOURCE command that loads gdbinit-MacsBug from a copy
-      of the MacsBug directory or the system-installed MacsBug directory.
-
-   2. Optionally copies an entire MacsBug directory to a chosen directory
-      ("where").  The source MacsBug directory is the directory containing the
-      install-MacsBug installer script.
-
-   3. Modifies the copied gdbinit-MacsBug load-plugin command to load the
-      MacsBug plugin from the copied folder.
-
-   The parameters to install-MacsBug have the following meaning:
-
-   where                A pathname specifying a directory which is created
-                        containing the contents of the MacsBug directory.  It
-                        doesn't have to be called "MacsBug" and it need not
-                        be a "visible" directory, i.e., you could name it with
-                        a leading '.'.
-
-                        The default is to not copy the MacsBug directory and set
-                        the --gdbinit specified script to use the MacsBug script
-                        defined in the folder containing the install-MacsBug
-                        installer script.
-
-   --gdbinit=pathname   Optionally specifies the location of a .gdbinit file.
-                        For use in all gdb invocations this should be ~/.gdbinit.
-                        If this parameter is not specified your ~/.gdbinit script
-                        will not be modified.
-
-                        Note, if the ~/.gdbinit script is modified, the original
-                        version of the script is renamed with "-bkup" added to
-                        the filename.
-
-   --force              This script checks that the "where" is not in the same
-                        place from which the install_macsBug script is running.
-                        If it is, that implies the source and destination
-                        directories are the same.  In addition a check is done
-                        to see if the "where" has already been installed for
-                        MacsBug.  In either of these cases no further action
-                        is taken the and script terminates.  Specifying --force
-                        overrides these tests and "forces" the installation.
-
-   --verbose            Script confirms what it is doing.
-
-
-5. Using Gdb's HELP Commands For MacsBug
+4. Using Gdb's HELP Commands For MacsBug
 
    Once gdb is loaded type HELP to see a summary of all gdb command classes.  
    There are three additional classes for MacsBug: "macsbug", "screen", and 
@@ -194,7 +123,7 @@
    command name displays a summary for that specific command.
 
 
-6. General Comments About Gdb MacsBug 
+5. General Comments About Gdb MacsBug 
 
    Below are a list of some general notes about the Gdb MacsBug.  Much of this
    information is also available by type "mb-notes" (or help mb-notes) into
@@ -283,7 +212,7 @@
      written in red.  By convention this is be used for error reporting only.
 
 
-7. Terminal Considerations
+6. Terminal Considerations
 
    Gdb MacsBug assumes it is writing to a terminal window that should be
    configured as follows:
@@ -294,7 +223,7 @@
 
    * 8-bit connections
 
-   * Window size of at least 46 rows by 80 columns if the MacsBug screen is
+   * Window size of at least 44 rows by 80 columns if the MacsBug screen is
      turned on
 
    * Allows bolding of characters
@@ -305,8 +234,8 @@
 
    * No translation
 
-   * Screen size of at least 46 rows and 80 columns if the MacsBug screen is
-     used.
+   * Recommended font is Monaco 9 or at least a small enough font to fit within
+     the MacsBug screen 44-line limitation
 
    With the exception of bolding, the OSX standard terminal window supports all
    these characteristics (use its preferences to configure for extra bolding).
@@ -322,3 +251,71 @@
    communication failures may mangle the display.  If this should happen while
    the MacsBug screen is up you will need to type a REFRESH command to restore
    the proper display.
+
+
+7. Changes in MacsBug 1.1
+
+   * Removed all references to the install-MacsBug script which was documented
+     but never installed in 1.0.
+   
+   * Changed plugin name from "MacsBug to "MacsBug_plugin" which seems more
+     appropriate.  If you have your own copy of "gdbinit-MacsBug" you will have
+     to change the LOAD-PLUGIN command (or continue naming the plugin with its
+     original name).
+
+   * Removed the MSR and MQ registers from the sidebar.  Thus the minimum screen
+     size is 44 lines.
+   
+   * Added bullet to Terminal Considerations above noting that you need a small
+     enough font (recommended Monaco 9) to fit within the 44-line MacsBug screen
+     limitation (the default OSX Monaco 10 did not allow the screen on iBooks).
+
+   * Fixed installation bug where the LOAD-PLUGIN pathname reflected the build
+     directory as opposed to simply referencing /usr/libexec/gdb/plugins/MacsBug.
+
+   * Fixed LOG command to handle '~'s in the pathname.
+
+   * Fixed plugin code to more gracefully coexist with Project Builder. There were
+     redirection interactions between Project Builder and the plugin.
+
+   * Added tests in key points to prevent MacsBug from doing xterm operations when
+     not talking to a terminal as in the case with Project Builder.
+     
+   * Fixed a bug in the TD command which had a format error displaying the XER SOC
+     bits.
+     
+   * Added fixes so that the MB-NOTES help defined by DOCUMENT in gdbinit-MacsBug
+     displays correctly if mb-notes is used explicitly in Project Builder's gdb.
+     The MB-NOTES as defined in gdbinit-MacsBug has leading option-spaces to keep
+     gdb's DOCUMENT reading from skipping leading blanks and all blank lines. 
+     These work fine on a terminal but do "funny things" to Project Builder's
+     display of them.
+  
+   * Added recognition of all the abbreviations for the LIST command to allow these
+     to produce contiguous listings when the MacsBug screen is off.  Previously it
+     only worked for L and LIST.
+   
+   * Made NEXT, STEP, NEXTI, and STEPI output be contiguous when repeatedly
+     specified with no arguments when the MacsBug screen is off.
+   
+   * Fixed bug in all contiguous listing commands (when MacsBug screen is off) 
+     when run from gdb DEFINE commands.  Backup over gdb prompt should not be
+     done under such conditions.
+   
+   * Enhanced the MacsBug WH command to display file/line information along with the
+     source line if possible.  Syntax of argument made same as gdb's INFO LINE.
+
+   * Fixed bug in register display to adjust the stack display to account for a
+     changed window size.
+
+   * Fixed scroll mode disassembly displays to wrap lines instead of being chopped
+     off by register sidebar.
+
+   * Added SET mb-sidebar mode setting command to enable/disable the display of the
+     register sidebar when the ID, IL, IP, SO, or SI commands are done in gdb
+     scroll mode.
+
+   * Moved TF from gdbinit-MacsBug to the plugin to allow the display to be more
+     MacsBug-like.
+
+   * Implemented TV.

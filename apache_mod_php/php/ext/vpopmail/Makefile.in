@@ -1,0 +1,8 @@
+# $Id: Makefile.in,v 1.1.1.1 2001/07/19 00:20:28 zarzycki Exp $
+
+LTLIBRARY_NAME        = libvpopmail.la
+LTLIBRARY_SOURCES     = php_vpopmail.c
+LTLIBRARY_SHARED_NAME = vpopmail.la
+LTLIBRARY_SHARED_LIBADD = $(VPOPMAIL_SHARED_LIBADD)
+
+include $(top_srcdir)/build/dynlib.mk

@@ -341,7 +341,7 @@ WriteDispatcher(file)
     fprintf(file, "\t\tmach_msg_header_t *InHeadP);\n\n");
 
     fprintf(file, "\n/* Description of this subsystem, for use in direct RPC */\n");
-    fprintf(file, "extern struct %s {\n", ServerSubsys);
+    fprintf(file, "extern const struct %s {\n", ServerSubsys);
     fprintf(file, "\tstruct subsystem *\tsubsystem;\t/* Reserved for system use */\n");
     fprintf(file, "\tmach_msg_id_t\tstart;\t/* Min routine number */\n");
     fprintf(file, "\tmach_msg_id_t\tend;\t/* Max routine number + 1 */\n");
@@ -349,8 +349,10 @@ WriteDispatcher(file)
     fprintf(file, "\tvm_address_t\tbase_addr;\t/* Base ddress */\n");
     fprintf(file, "\tstruct routine_descriptor\t/*Array of routine descriptors */\n");
     fprintf(file, "\t\troutine[%d];\n", rtNumber);
-    fprintf(file, "\tstruct routine_arg_descriptor\t/*Array of arg descriptors */\n");
-    fprintf(file, "\t\targ_descriptor[%d];\n", descr_count);
+    if (UseRPCTrap) {
+	fprintf(file, "\tstruct routine_arg_descriptor\t/*Array of arg descriptors */\n");
+	fprintf(file, "\t\targ_descriptor[%d];\n", descr_count);
+    }
     fprintf(file, "} %s;\n", ServerSubsys);
     fprintf(file, "\n");
 }
@@ -383,6 +385,10 @@ WriteServerHeader(file, stats)
     fprintf(file, "\n#ifdef __BeforeMigServerHeader\n");
     fprintf(file, "__BeforeMigServerHeader\n");
     fprintf(file, "#endif /* __BeforeMigServerHeader */\n\n"); 
+    WriteRequestTypes(file, stats);
+    WriteRequestUnion(file, stats);
+    WriteReplyTypes(file, stats);
+    WriteReplyUnion(file, stats);
     for (stat = stats; stat != stNULL; stat = stat->stNext) {
 	if (stat->stKind == skRoutine)
 	    WriteServerRoutine(file, stat->stRoutine);

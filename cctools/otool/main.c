@@ -62,6 +62,7 @@ enum bool Tflag = FALSE; /* print the dylib table of contents */
 enum bool Mflag = FALSE; /* print the dylib module table */
 enum bool Rflag = FALSE; /* print the dylib reference table */
 enum bool Iflag = FALSE; /* print the indirect symbol table entries */
+enum bool Hflag = FALSE; /* print the two-level hints table */
 enum bool Sflag = FALSE; /* print the contents of the __.SYMDEF file */
 enum bool vflag = FALSE; /* print verbosely (symbolicly) when possible */
 enum bool Vflag = FALSE; /* print dissassembled operands verbosely */
@@ -137,6 +138,21 @@ static enum bool get_dyst(
     struct load_command *load_commands,
     enum byte_sex load_commands_byte_sex,
     struct dysymtab_command *dyst);
+
+static void get_hints_table_info(
+    struct mach_header *mh,
+    struct load_command *load_commands,
+    enum byte_sex load_commands_byte_sex,
+    char *object_addr,
+    unsigned long object_size,
+    struct twolevel_hint **hints,
+    unsigned long *nhints);
+
+static enum bool get_hints_cmd(
+    struct mach_header *mh,
+    struct load_command *load_commands,
+    enum byte_sex load_commands_byte_sex,
+    struct twolevel_hints_command *hints_cmd);
 
 static int sym_compare(
     struct nlist *sym1,
@@ -335,6 +351,10 @@ char **envp)
 		    Iflag = TRUE;
 		    object_processing = TRUE;
 		    break;
+		case 'H':
+		    Hflag = TRUE;
+		    object_processing = TRUE;
+		    break;
 		case 'S':
 		    Sflag = TRUE;
 		    break;
@@ -367,8 +387,8 @@ char **envp)
 	 */
 	if(!fflag && !aflag && !hflag && !lflag && !Lflag && !tflag && !dflag &&
 	   !oflag && !Oflag && !rflag && !Tflag && !Mflag && !Rflag && !Iflag &&
-	   !Sflag && !cflag && !iflag && !segname){
-	    error("one of -fahlLtdoOrTMRIScis must be specified");
+	   !Hflag && !Sflag && !cflag && !iflag && !segname){
+	    error("one of -fahlLtdoOrTMRIHScis must be specified");
 	    usage();
 	}
 	if(nfiles == 0){
@@ -436,6 +456,7 @@ void)
 	fprintf(stderr, "\t-R print the reference table of a dynamic shared "
 		"library\n");
 	fprintf(stderr, "\t-I print the indirect symbol table\n");
+	fprintf(stderr, "\t-H print the two-level hints table\n");
 	fprintf(stderr, "\t-v print verbosely (symbolicly) when possible\n");
 	fprintf(stderr, "\t-V print disassembled operands symbolicly\n");
 	fprintf(stderr, "\t-c print argument strings of a core file\n");
@@ -467,11 +488,15 @@ void *cookie) /* cookie is not used */
     struct dylib_table_of_contents *tocs, *allocated_tocs;
     struct dylib_reference *refs, *allocated_refs;
     unsigned long nmods, ntocs, nrefs;
+    struct twolevel_hint *hints, *allocated_hints;
+    unsigned long nhints;
 
 	sorted_symbols = NULL;
 	nsorted_symbols = 0;
 	indirect_symbols = NULL;
 	nindirect_symbols = 0;
+	hints = NULL;
+	nhints = 0;
 	/*
 	 * These may or may not be allocated.  If allocated they will not be
 	 * NULL and then free'ed before returning.
@@ -483,6 +508,7 @@ void *cookie) /* cookie is not used */
 	allocated_tocs = NULL;
 	allocated_mods = NULL;
 	allocated_refs = NULL;
+	allocated_hints = NULL;
 
 	/*
 	 * The fat headers are printed in ofile_map() in ofile.c #ifdef'ed
@@ -669,8 +695,9 @@ void *cookie) /* cookie is not used */
 	    get_symbol_table_info(ofile->mh, ofile->load_commands,
 		ofile->object_byte_sex, addr, size,
 		&symbols, &nsymbols, &strings, &strings_size);
-	if(vflag && (rflag || Tflag || Mflag || Rflag || Iflag || tflag || iflag
-	   || oflag || (sect_flags & SECTION_TYPE) == S_LITERAL_POINTERS ||
+	if(vflag && (rflag || Tflag || Mflag || Rflag || Iflag || Hflag || tflag
+	   || iflag || oflag ||
+	   (sect_flags & SECTION_TYPE) == S_LITERAL_POINTERS ||
 	   (sect_flags & S_ATTR_PURE_INSTRUCTIONS) ==
 		S_ATTR_PURE_INSTRUCTIONS ||
 	   (sect_flags & S_ATTR_SOME_INSTRUCTIONS) ==
@@ -798,6 +825,24 @@ void *cookie) /* cookie is not used */
 	    if(ofile->object_byte_sex != get_host_byte_sex())
 		swap_indirect_symbols(indirect_symbols, nindirect_symbols,
 				      get_host_byte_sex());
+	}
+	if(Hflag){
+	    get_hints_table_info(ofile->mh, ofile->load_commands,
+		ofile->object_byte_sex, addr, size,
+		&hints, &nhints);
+	    if((int)hints % sizeof(unsigned long) ||
+	       ofile->object_byte_sex != get_host_byte_sex()){
+		allocated_hints = allocate(nhints *
+					   sizeof(struct twolevel_hint));
+		memcpy(allocated_hints, hints,
+		       nhints * sizeof(struct twolevel_hint));
+		hints = allocated_hints;
+	    }
+	    if(ofile->object_byte_sex != get_host_byte_sex())
+		swap_twolevel_hint(hints, nhints, get_host_byte_sex());
+	    print_hints(ofile->mh, ofile->load_commands,
+		ofile->object_byte_sex, addr, size, hints,
+		nhints, symbols, nsymbols, strings, strings_size, vflag);
 	}
 	if(Iflag)
 	    print_indirect_symbols(ofile->mh, ofile->load_commands,
@@ -1014,6 +1059,8 @@ vflag, Vflag);
 	    free(sorted_symbols);
 	if(allocated_indirect_symbols != NULL)
 	    free(allocated_indirect_symbols);
+	if(allocated_hints != NULL)
+	    free(allocated_hints);
 	if(allocated_tocs != NULL)
 	    free(allocated_tocs);
 	if(allocated_mods != NULL)
@@ -1373,6 +1420,121 @@ struct dysymtab_command *dyst)
 	}
 	return(TRUE);
 }
+
+/*
+ * get_hints_table_info() returns a pointer and the size of the two-level hints
+ * table.  This routine handles the problems related to the file being truncated
+ * and only returns valid pointers and sizes that can be used.  This routine
+ * will return pointers that are misaligned and it is up to the caller to deal
+ * with alignment issues.  It is also up to the caller to deal with byte sex of
+ * the table.
+ */
+static
+void
+get_hints_table_info(
+struct mach_header *mh,			/* input */
+struct load_command *load_commands,
+enum byte_sex load_commands_byte_sex,
+char *object_addr,
+unsigned long object_size,
+struct twolevel_hint **hints,	/* output */
+unsigned long *nhints)
+{
+    struct twolevel_hints_command hints_cmd;
+
+	*hints = NULL;
+	*nhints = 0;
+
+	if(get_hints_cmd(mh, load_commands, load_commands_byte_sex,
+		         &hints_cmd) == FALSE)
+	    return;
+
+	if(hints_cmd.offset >= object_size){
+	    printf("two-level hints offset is past end of file\n");
+	}
+	else{
+	    *hints = (struct twolevel_hint *)(object_addr + hints_cmd.offset);
+	    if(hints_cmd.offset +
+	       hints_cmd.nhints * sizeof(struct twolevel_hint) > object_size){
+		printf("two-level hints table extends past end of file\n");
+		*nhints = (object_size - hints_cmd.offset) /
+			  sizeof(struct twolevel_hint);
+	    }
+	    else
+		*nhints = hints_cmd.nhints;
+	}
+}
+
+/*
+ * get_hints_cmd() gets the twolevel_hints_command from the mach header and
+ * load commands passed to it and copys it into hints_cmd.  It if doesn't find
+ * one it returns FALSE else it returns TRUE.
+ */
+static
+enum bool
+get_hints_cmd(
+struct mach_header *mh,
+struct load_command *load_commands,
+enum byte_sex load_commands_byte_sex,
+struct twolevel_hints_command *hints_cmd)
+{
+    enum byte_sex host_byte_sex;
+    enum bool swapped;
+    unsigned long i, left, size, cmd;
+    struct load_command *lc, l;
+
+	host_byte_sex = get_host_byte_sex();
+	swapped = host_byte_sex != load_commands_byte_sex;
+
+	cmd = ULONG_MAX;
+	lc = load_commands;
+	for(i = 0 ; i < mh->ncmds; i++){
+	    memcpy((char *)&l, (char *)lc, sizeof(struct load_command));
+	    if(swapped)
+		swap_load_command(&l, host_byte_sex);
+	    if(l.cmdsize % sizeof(long) != 0)
+		printf("load command %lu size not a multiple of "
+		       "sizeof(long)\n", i);
+	    if((char *)lc + l.cmdsize >
+	       (char *)load_commands + mh->sizeofcmds)
+		printf("load command %lu extends past end of load "
+		       "commands\n", i);
+	    left = mh->sizeofcmds - ((char *)lc - (char *)load_commands);
+
+	    switch(l.cmd){
+	    case LC_TWOLEVEL_HINTS:
+		if(cmd != ULONG_MAX){
+		    printf("more than one LC_TWOLEVEL_HINTS command (using "
+			   "command %lu)\n", cmd);
+		    break;
+		}
+		memset((char *)hints_cmd, '\0',
+		       sizeof(struct twolevel_hints_command));
+		size = left < sizeof(struct twolevel_hints_command) ?
+		       left : sizeof(struct twolevel_hints_command);
+		memcpy((char *)hints_cmd, (char *)lc, size);
+		if(swapped)
+		    swap_twolevel_hints_command(hints_cmd, host_byte_sex);
+		cmd = i;
+	    }
+	    if(l.cmdsize == 0){
+		printf("load command %lu size zero (can't advance to other "
+		       "load commands)\n", i);
+		break;
+	    }
+	    lc = (struct load_command *)((char *)lc + l.cmdsize);
+	    if((char *)lc > (char *)load_commands + mh->sizeofcmds)
+		break;
+	}
+	if((char *)load_commands + mh->sizeofcmds != (char *)lc)
+	    printf("Inconsistant mh_sizeofcmds\n");
+
+	if(cmd == ULONG_MAX){
+	    return(FALSE);
+	}
+	return(TRUE);
+}
+
 
 /*
  * Function for qsort for comparing symbols.

@@ -66,6 +66,8 @@ static void addChildrenOfPlistToMapsRecursively(id plist, NSMapTable *_parentMap
     [propertiesOutlineView setDelegate:self];
     [propertiesOutlineView setDataSource:self];
     [browser setDelegate:self];
+    [browser setMinColumnWidth:170];
+    [browser setMaxVisibleColumns:7];
     [planeBrowser setDelegate:self];
     [window setDelegate:self];
 
@@ -285,7 +287,6 @@ static void addChildrenOfPlistToMapsRecursively(id plist, NSMapTable *_parentMap
 
 - (void)displayPlaneWindow:(id)sender
 {
-    //NSLog(@"%@, %@", planeBrowser, planeWindow);
     [planeBrowser loadColumnZero];
     [planeWindow makeKeyAndOrderFront:self];
     return;
@@ -314,18 +315,23 @@ static void addChildrenOfPlistToMapsRecursively(id plist, NSMapTable *_parentMap
     return;
 }
 
+- (void)sheetDidEnd:(NSWindow *)sheet returnCode:(int)returnCode contextInfo:(void *)contextInfo
+{
+        if (NSAlertDefaultReturn == returnCode) {
+                // reload
+                NSString *currentPath = [browser path];
+                [self initializeRegistryDictionaryWithPlane:currentPlane];
+                [browser loadColumnZero];
+                [browser setPath:currentPath];
+                [self doUpdate];
+        }
+        [NSApp endSheet:window];
+}
+
 - (void)registryHasChanged
 {
-    if (NSAlertDefaultReturn == NSRunInformationalAlertPanel(@"Registry Change", @"The IOKit Registry has been changed.\nDo you wish to update your display or skip this update?", @"Update", @"Skip", NULL)) {
-        // reload
-        NSString *currentPath = [browser path];
-        [self initializeRegistryDictionaryWithPlane:currentPlane];
-        [browser loadColumnZero];
-        [browser setPath:currentPath];
-        [self doUpdate];
-    } else {
-        // don't reload
-    }
+        NSBeginInformationalAlertSheet(NSLocalizedString(@"The IOKit Registry has been changed.\nDo you wish to update your display or skip this update?", @""), NSLocalizedString(@"Update", @""), NSLocalizedString(@"Skip", @""), NULL, window, self, @selector(sheetDidEnd:returnCode:contextInfo:), NULL, NULL, @"");
+        
 }
 
 - (void)forceUpdate:(id)sender
@@ -412,16 +418,12 @@ static void addChildrenOfPlistToMapsRecursively(id plist, NSMapTable *_parentMap
         id aRootEntry = nil;
 
         while (aRootEntry = [rootEnum nextObject]) {
-            //if ([aRootEntry rangeOfString:text].length > 0) {
-            //    [array addObject:[NSString stringWithFormat:@"/Root/%@", aRootEntry]];
-            //}
             if ([aRootEntry isEqualToString:@"IOCatalogue"]) {
                 // special case
             }
         }
 
         return [NSArray arrayWithArray:array];
-        //NSLog(@"%@", array);
     }
     return [NSArray array];
 }
@@ -448,13 +450,17 @@ static void addChildrenOfPlistToMapsRecursively(id plist, NSMapTable *_parentMap
 
 - (void)goToPath:(NSString *)path
 {
-    int count = [[path componentsSeparatedByString:@":"] count];
-
+        NSString *newPath = [@":Root" stringByAppendingString:path];
+        int count = [[path componentsSeparatedByString:@":"] count];
+   
+        
     if (count > 2) {
         count -= 2;
     }
+
     
-    [browser setPath:path];
+
+    [browser setPath:newPath];
     [self changeLevel:browser];
     [browser scrollColumnToVisible:count];
 

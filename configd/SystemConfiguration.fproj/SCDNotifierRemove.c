@@ -20,55 +20,68 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include <sys/types.h>
-#include <regex.h>
+/*
+ * Modification History
+ *
+ * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * - public API conversion
+ *
+ * March 24, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
 
 #include <mach/mach.h>
 #include <mach/mach_error.h>
 
-#include <SystemConfiguration/SCD.h>
+#include <SystemConfiguration/SystemConfiguration.h>
+#include <SystemConfiguration/SCPrivate.h>
+#include "SCDynamicStoreInternal.h"
 #include "config.h"		/* MiG generated file */
-#include "SCDPrivate.h"
 
-
-SCDStatus
-SCDNotifierRemove(SCDSessionRef session, CFStringRef key, int regexOptions)
+Boolean
+SCDynamicStoreRemoveWatchedKey(SCDynamicStoreRef store, CFStringRef key, Boolean isRegex)
 {
-	SCDSessionPrivateRef	sessionPrivate = (SCDSessionPrivateRef)session;
-	kern_return_t		status;
-	CFDataRef		xmlKey;		/* serialized key */
-	xmlData_t		myKeyRef;
-	CFIndex			myKeyLen;
-	SCDStatus		scd_status;
+	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
+	kern_return_t			status;
+	CFDataRef			xmlKey;		/* serialized key */
+	xmlData_t			myKeyRef;
+	CFIndex				myKeyLen;
+	int				sc_status;
 
-	SCDLog(LOG_DEBUG, CFSTR("SCDNotifierRemove:"));
-	SCDLog(LOG_DEBUG, CFSTR("  key          = %@"), key);
-	SCDLog(LOG_DEBUG, CFSTR("  regexOptions = %0o"), regexOptions);
+	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCDynamicStoreRemoveWatchedKey:"));
+	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  key     = %@"), key);
+	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  isRegex = %s"), isRegex ? "TRUE" : "FALSE");
 
-	if (key == NULL) {
-		return SCD_INVALIDARGUMENT;	/* no key specified */
+	if (!store) {
+		/* sorry, you must provide a session */
+		_SCErrorSet(kSCStatusNoStoreSession);
+		return FALSE;
 	}
 
-	if (session == NULL) {
-		return SCD_NOSESSION;		/* you can't do anything without a session */
+	if (storePrivate->server == MACH_PORT_NULL) {
+		/* sorry, you must have an open session to play */
+		_SCErrorSet(kSCStatusNoStoreServer);
+		return FALSE;
 	}
 
 	/*
 	 * remove key from this sessions notifier list after checking that
 	 * it was previously defined.
 	 */
-	if (regexOptions & kSCDRegexKey) {
-		if (!CFSetContainsValue(sessionPrivate->reKeys, key))
-			return SCD_NOKEY;		/* sorry, key does not exist in notifier list */
-		CFSetRemoveValue(sessionPrivate->reKeys, key);	/* remove key from this sessions notifier list */
+	if (isRegex) {
+		if (!CFSetContainsValue(storePrivate->reKeys, key)) {
+			/* sorry, key does not exist in notifier list */
+			_SCErrorSet(kSCStatusNoKey);
+			return FALSE;
+		}
+		CFSetRemoveValue(storePrivate->reKeys, key);	/* remove key from this sessions notifier list */
 	} else {
-		if (!CFSetContainsValue(sessionPrivate->keys, key))
-			return SCD_NOKEY;		/* sorry, key does not exist in notifier list */
-		CFSetRemoveValue(sessionPrivate->keys, key);	/* remove key from this sessions notifier list */
-	}
-
-	if (sessionPrivate->server == MACH_PORT_NULL) {
-		return SCD_NOSESSION;		/* you can't do anything with a closed session */
+		if (!CFSetContainsValue(storePrivate->keys, key)) {
+			/* sorry, key does not exist in notifier list */
+			_SCErrorSet(kSCStatusNoKey);
+			return FALSE;
+		}
+		CFSetRemoveValue(storePrivate->keys, key);	/* remove key from this sessions notifier list */
 	}
 
 	/* serialize the key */
@@ -77,22 +90,28 @@ SCDNotifierRemove(SCDSessionRef session, CFStringRef key, int regexOptions)
 	myKeyLen = CFDataGetLength(xmlKey);
 
 	/* send the key to the server */
-	status = notifyremove(sessionPrivate->server,
+	status = notifyremove(storePrivate->server,
 			      myKeyRef,
 			      myKeyLen,
-			      regexOptions,
-			      (int *)&scd_status);
+			      isRegex,
+			      (int *)&sc_status);
 
 	/* clean up */
 	CFRelease(xmlKey);
 
 	if (status != KERN_SUCCESS) {
 		if (status != MACH_SEND_INVALID_DEST)
-			SCDLog(LOG_DEBUG, CFSTR("notifyremove(): %s"), mach_error_string(status));
-		(void) mach_port_destroy(mach_task_self(), sessionPrivate->server);
-		sessionPrivate->server = MACH_PORT_NULL;
-		return SCD_NOSERVER;
+			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("notifyremove(): %s"), mach_error_string(status));
+		(void) mach_port_destroy(mach_task_self(), storePrivate->server);
+		storePrivate->server = MACH_PORT_NULL;
+		_SCErrorSet(status);
+		return FALSE;
 	}
 
-	return scd_status;
+	if (sc_status != kSCStatusOK) {
+		_SCErrorSet(sc_status);
+		return FALSE;
+	}
+
+	return TRUE;
 }

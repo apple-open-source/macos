@@ -20,43 +20,69 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * Modification History
+ *
+ * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * - public API conversion
+ *
+ * November 9, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
 #include <sys/types.h>
 
 #include "scutil.h"
 
+
+static CFComparisonResult
+sort_keys(const void *p1, const void *p2, void *context) {
+	CFStringRef key1 = (CFStringRef)p1;
+	CFStringRef key2 = (CFStringRef)p2;
+	return CFStringCompare(key1, key2, 0);
+}
+
+
 void
 do_list(int argc, char **argv)
 {
-	CFStringRef		key;
-	int			regexOptions = 0;
-	SCDStatus		status;
+	int			i;
+	CFStringRef		pattern;
 	CFArrayRef		list;
 	CFIndex			listCnt;
-	int			i;
+	CFMutableArrayRef	sortedList;
 
-	key = CFStringCreateWithCString(NULL,
-					(argc >= 1) ? argv[0] : "",
-					kCFStringEncodingMacRoman);
+	pattern = CFStringCreateWithCString(NULL,
+					    (argc >= 1) ? argv[0] : ".*",
+					    kCFStringEncodingMacRoman);
 
-	if (argc == 2)
-		regexOptions = kSCDRegexKey;
-
-	status = SCDList(session, key, regexOptions, &list);
-	CFRelease(key);
-	if (status != SCD_OK) {
-		SCDLog(LOG_INFO, CFSTR("SCDList: %s"), SCDError(status));
+	list = SCDynamicStoreCopyKeyList(store, pattern);
+	CFRelease(pattern);
+	if (!list) {
+		SCPrint(TRUE, stdout, CFSTR("  %s\n"), SCErrorString(SCError()));
 		return;
 	}
 
 	listCnt = CFArrayGetCount(list);
+	sortedList = CFArrayCreateMutableCopy(NULL, listCnt, list);
+	CFRelease(list);
+	CFArraySortValues(sortedList,
+			  CFRangeMake(0, listCnt),
+			  sort_keys,
+			  NULL);
+
 	if (listCnt > 0) {
 		for (i=0; i<listCnt; i++) {
-			SCDLog(LOG_NOTICE, CFSTR("  subKey [%d] = %@"), i, CFArrayGetValueAtIndex(list, i));
+			SCPrint(TRUE,
+				stdout,
+				CFSTR("  subKey [%d] = %@\n"),
+				i,
+				CFArrayGetValueAtIndex(sortedList, i));
 		}
 	} else {
-		SCDLog(LOG_NOTICE, CFSTR("  no subKey's"));
+		SCPrint(TRUE, stdout, CFSTR("  no subKey's.\n"));
 	}
-	CFRelease(list);
+	CFRelease(sortedList);
 
 	return;
 }
@@ -66,19 +92,16 @@ void
 do_add(int argc, char **argv)
 {
 	CFStringRef	key;
-	SCDStatus	status;
 
 	key    = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingMacRoman);
 
 	if (argc < 2) {
-		status = SCDAdd(session, key, data);
-		if (status != SCD_OK) {
-			SCDLog(LOG_INFO, CFSTR("SCDAdd: %s"), SCDError(status));
+		if (!SCDynamicStoreAddValue(store, key, value)) {
+			SCPrint(TRUE, stdout, CFSTR("  %s\n"), SCErrorString(SCError()));
 		}
 	} else {
-		status = SCDAddSession(session, key, data);
-		if (status != SCD_OK) {
-			SCDLog(LOG_INFO, CFSTR("SCDAddSession: %s"), SCDError(status));
+		if (!SCDynamicStoreAddTemporaryValue(store, key, value)) {
+			SCPrint(TRUE, stdout, CFSTR("  %s\n"), SCErrorString(SCError()));
 		}
 	}
 
@@ -90,25 +113,21 @@ do_add(int argc, char **argv)
 void
 do_get(int argc, char **argv)
 {
-	SCDStatus	status;
-	CFStringRef	key;
-	SCDHandleRef	newData = NULL;
+	CFStringRef		key;
+	CFPropertyListRef	newValue;
 
-	key    = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingMacRoman);
-	status = SCDGet(session, key, &newData);
+	key      = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingMacRoman);
+	newValue = SCDynamicStoreCopyValue(store, key);
 	CFRelease(key);
-	if (status != SCD_OK) {
-		SCDLog(LOG_INFO, CFSTR("SCDGet: %s"), SCDError(status));
-		if (newData != NULL) {
-			SCDHandleRelease(newData);	/* toss the handle from SCDGet() */
-		}
+	if (!newValue) {
+		SCPrint(TRUE, stdout, CFSTR("  %s\n"), SCErrorString(SCError()));
 		return;
 	}
 
-	if (data != NULL) {
-		SCDHandleRelease(data);		/* we got a new handle from SCDGet() */
+	if (value != NULL) {
+		CFRelease(value);		/* we have new information, release the old */
 	}
-	data = newData;
+	value = newValue;
 
 	return;
 }
@@ -117,15 +136,33 @@ do_get(int argc, char **argv)
 void
 do_set(int argc, char **argv)
 {
-	SCDStatus	status;
 	CFStringRef	key;
 
 	key    = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingMacRoman);
-	status = SCDSet(session, key, data);
-	CFRelease(key);
-	if (status != SCD_OK) {
-		SCDLog(LOG_INFO, CFSTR("SCDSet: %s"), SCDError(status));
+	if (!SCDynamicStoreSetValue(store, key, value)) {
+		SCPrint(TRUE, stdout, CFSTR("  %s\n"), SCErrorString(SCError()));
 	}
+	CFRelease(key);
+	return;
+}
+
+
+void
+do_show(int argc, char **argv)
+{
+	CFStringRef		key;
+	CFPropertyListRef	newValue;
+
+	key      = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingMacRoman);
+	newValue = SCDynamicStoreCopyValue(store, key);
+	CFRelease(key);
+	if (!newValue) {
+		SCPrint(TRUE, stdout, CFSTR("  %s\n"), SCErrorString(SCError()));
+		return;
+	}
+
+	SCPrint(TRUE, stdout, CFSTR("%@\n"), newValue);
+	CFRelease(newValue);
 	return;
 }
 
@@ -133,15 +170,27 @@ do_set(int argc, char **argv)
 void
 do_remove(int argc, char **argv)
 {
-	SCDStatus	status;
 	CFStringRef	key;
 
 	key    = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingMacRoman);
-	status = SCDRemove(session, key);
-	CFRelease(key);
-	if (status != SCD_OK) {
-		SCDLog(LOG_INFO, CFSTR("SCDRemove: %s"), SCDError(status));
+	if (!SCDynamicStoreRemoveValue(store, key)) {
+		SCPrint(TRUE, stdout, CFSTR("  %s\n"), SCErrorString(SCError()));
 	}
+	CFRelease(key);
+	return;
+}
+
+
+void
+do_notify(int argc, char **argv)
+{
+	CFStringRef	key;
+
+	key    = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingMacRoman);
+	if (!SCDynamicStoreNotifyValue(store, key)) {
+		SCPrint(TRUE, stdout, CFSTR("  %s\n"), SCErrorString(SCError()));
+	}
+	CFRelease(key);
 	return;
 }
 
@@ -149,14 +198,12 @@ do_remove(int argc, char **argv)
 void
 do_touch(int argc, char **argv)
 {
-	SCDStatus	status;
 	CFStringRef	key;
 
 	key    = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingMacRoman);
-	status = SCDTouch(session, key);
-	CFRelease(key);
-	if (status != SCD_OK) {
-		SCDLog(LOG_INFO, CFSTR("SCDTouch: %s"), SCDError(status));
+	if (!SCDynamicStoreTouchValue(store, key)) {
+		SCPrint(TRUE, stdout, CFSTR("  %s\n"), SCErrorString(SCError()));
 	}
+	CFRelease(key);
 	return;
 }

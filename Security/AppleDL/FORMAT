@@ -1,0 +1,153 @@
+Some notes of the format of DL files:
+
+
+
+DL file format:
+
+All offsets are relative to the start of the section they are in.
+All fileds are uint32 (4 bytes) unless otherwise specified.  All other fields are aligned on 4 bytes boundries.
+
+Header Section
+	Magic
+	File Format Version Number
+	Auth Section Offset
+	Schema Section Offset
+
+Auth Section
+	Auth Info Size
+	Auth Info Data
+
+Schema Section					# This section is always read entirely into memory
+	Schema Section Size (uint32)
+	Tables
+		Table Count (uint32)
+		Table Offset 0			# Relative to start of Schema Section
+		Table Offset 1
+		...
+		Table Offset N
+
+# Information about parsing modules is read directly from the meta tables
+Table Section
+	Table Section Size
+	Table ID (uint32)
+	Records Count				# Number of Records in record section.
+	Record 0 Offset				# Relative to start of Table Section.
+	Index SubSection Offset		# Relative to start of Table Section
+	Head of Free List			# Table Section relative first free
+								# recordNumber slot (with bit 0 set)
+								# Or 0 if there are no free records
+	Record Number Count			# Start of range of unused record numbers
+	Record 0 offset				# Relative to start of Table Section.
+	Record 1 offset
+	Record 2 freelist			# If Bit zero is set this is Table Section
+								# relative offset to next free recordNumber
+								# 0 indicates the last free record slot.
+	...
+	Record n offset
+	Record
+		Record Size			# Rounded up to nearest mulitple of 4
+		Record Number
+		Creation File Version
+		Record Version
+		Data Size
+		SemanticInformation
+		Attribute 0 Offset
+		Attribute 1 Offset
+		Attribute 2 Offset
+		...
+		Attribute m Offset
+		Data
+			Data	
+		Attribute 0
+			Size
+			Data
+		Attribute 1
+			Value
+		...
+		Attribute m
+			Value Count
+				Value 0
+				Value 1
+				...
+				Value p
+	Record
+	...
+	Record
+	Index SubSection
+		Index SubSection Size
+		Index TOC			# This is part of the Schema
+			Record Type
+			Attribute Type
+			Index Offset
+		Index 1
+			Index Size
+			Index Offsets
+				Index Offset Count
+				Index Data 1 Offset
+				Index Data 2 Offset
+				...
+				Index Data m OFFSET
+			Index Data
+				Index Data 1
+					Record Offset
+					Attribute Size
+					Attribute Data
+				Index Data 2
+				...
+				Index Data N			
+		Index 2
+		...
+		Index n
+
+Version Section		# Maintained by AtomicFile code
+	4 byte version number
+
+old Schema Section				# This section is always read entirely into memory
+	Schema Section Size (uint32)
+	Releations
+		Relation Count (uint32)
+        Relation
+            Relation ID (uint32)
+            Record Section Offset
+            Relation Name Size
+            Relation Name Data
+			Attributes
+                Attribute Count (uint32)
+                Attribute
+                    Releation ID (uint32)
+                    Attribute ID (uint32)
+                    Attribute Format (uint32)
+                    Attribute Name Format (uint32)
+                    Attribute Name Size
+                    Attribute Name Data
+                    Attribute Name ID Size
+                    Attribute Name ID Data
+                    ParsingModule
+                        Parsion Module Present (bool)
+                        Module ID (GUID)
+                        SSID (uint32)
+                        SubService Type (uint32)
+                        Addin Version Major (uint32)
+                        Addin Version Minor (uint32)
+                Attribute
+                ...
+                Attribute
+            Indexes
+                Index Count (uint32)
+                Index
+                    Relation ID (uint32)
+                    Index ID (uint32)
+                    Index Type (uint32)
+                    Indexed Data Location (uint32)
+                    Index Attribute Count (uint32)
+                        Attribute ID (uint32)
+                        Attribute ID (uint32)
+                        ...
+                        Attribute ID (uint32)
+                Index
+                ...
+                Index
+        Relation
+        ...
+        Relation
+

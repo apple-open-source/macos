@@ -70,7 +70,7 @@ boolean bfd_sym_mkobject (bfd *abfd)
   return (boolean) true;
 }
 
-void bfd_sym_print_symbol (bfd *ignore_abfd, PTR afile, asymbol *symbol, bfd_print_symbol_type how)
+void bfd_sym_print_symbol (bfd *abfd, PTR afile, asymbol *symbol, bfd_print_symbol_type how)
 {
   return;
 }
@@ -2015,7 +2015,7 @@ asymbol *bfd_sym_make_empty_symbol (bfd *abfd)
   return (asymbol *) bfd_alloc (abfd, sizeof (asymbol));
 }
 
-void bfd_sym_get_symbol_info (bfd *ignore_abfd, asymbol *symbol, symbol_info *ret)
+void bfd_sym_get_symbol_info (bfd *abfd, asymbol *symbol, symbol_info *ret)
 {
   bfd_symbol_info (symbol, ret);
 }

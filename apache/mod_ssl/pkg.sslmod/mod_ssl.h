@@ -9,7 +9,7 @@
 */
 
 /* ====================================================================
- * Copyright (c) 1998-2000 Ralf S. Engelschall. All rights reserved.
+ * Copyright (c) 1998-2001 Ralf S. Engelschall. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -89,9 +89,6 @@
 #ifndef SSL_EXPERIMENTAL_ENGINE_IGNORE
 #define SSL_EXPERIMENTAL_ENGINE
 #endif
-#endif
-#ifndef SSL_EXPERIMENTAL_SHMCB_IGNORE
-#define SSL_EXPERIMENTAL_SHMCB
 #endif
 #endif /* SSL_EXPERIMENTAL */
 
@@ -291,7 +288,8 @@
      __FreeBSD_version >= 300000) ||\
     (defined(LINUX) && defined(__GLIBC__) && defined(__GLIBC_MINOR__) &&\
      LINUX >= 2 && __GLIBC__ >= 2 && __GLIBC_MINOR__ >= 1) ||\
-    defined(SOLARIS2) || defined(__hpux)
+    defined(SOLARIS2) || defined(__hpux) ||\
+    (defined (__digital__) && defined (__unix__))
 #define SSL_CAN_USE_SEM
 #define SSL_HAVE_IPCSEM
 #include <sys/types.h>
@@ -348,12 +346,7 @@ union ssl_ipc_semun {
 #define SSL_DBM_FILE_SUFFIX_DIR ".dir"
 #define SSL_DBM_FILE_SUFFIX_PAG ".pag"
 #else /* !SSL_USE_SDBM */
-#if defined(__GLIBC__) && defined(__GLIBC_MINOR__) \
-    && __GLIBC__ >= 2 && __GLIBC_MINOR__ >= 1
-#include <db1/ndbm.h>
-#else
 #include <ndbm.h>
-#endif
 #define ssl_dbm_open     dbm_open
 #define ssl_dbm_close    dbm_close
 #define ssl_dbm_store    dbm_store
@@ -487,10 +480,8 @@ typedef enum {
     SSL_SCMODE_UNSET = UNSET,
     SSL_SCMODE_NONE  = 0,
     SSL_SCMODE_DBM   = 1,
-    SSL_SCMODE_SHMHT = 2
-#ifdef SSL_EXPERIMENTAL_SHMCB
-   ,SSL_SCMODE_SHMCB = 3
-#endif
+    SSL_SCMODE_SHMHT = 2,
+    SSL_SCMODE_SHMCB = 3
 } ssl_scmode_t;
 
 /*
@@ -754,7 +745,6 @@ SSL_SESSION *ssl_scache_shmht_retrieve(server_rec *, UCHAR *, int);
 void         ssl_scache_shmht_remove(server_rec *, UCHAR *, int);
 void         ssl_scache_shmht_expire(server_rec *);
 void         ssl_scache_shmht_status(server_rec *, pool *, void (*)(char *, void *), void *);
-#ifdef SSL_EXPERIMENTAL_SHMCB
 void         ssl_scache_shmcb_init(server_rec *, pool *);
 void         ssl_scache_shmcb_kill(server_rec *);
 BOOL         ssl_scache_shmcb_store(server_rec *, UCHAR *, int, time_t, SSL_SESSION *);
@@ -762,7 +752,6 @@ SSL_SESSION *ssl_scache_shmcb_retrieve(server_rec *, UCHAR *, int);
 void         ssl_scache_shmcb_remove(server_rec *, UCHAR *, int);
 void         ssl_scache_shmcb_expire(server_rec *);
 void         ssl_scache_shmcb_status(server_rec *, pool *, void (*)(char *, void *), void *);
-#endif
 
 /*  Pass Phrase Support  */
 void         ssl_pphrase_Handle(server_rec *, pool *);

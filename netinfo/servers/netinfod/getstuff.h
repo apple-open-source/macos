@@ -30,6 +30,7 @@ unsigned long getaddress(void *, ni_name);
 unsigned long getmasteraddr(void *, ni_name *);
 int getmaster(void *, ni_name *, ni_name *);
 int is_trusted_network(void *, struct sockaddr_in *);
+bool_t is_desktop(void *ni);
 void get_readall_info(void *, int *, bool_t *);
 int get_max_subthreads(void *ni);
 int get_update_latency(void *ni);
@@ -39,3 +40,7 @@ bool_t get_forced_root(void *ni);
 bool_t get_clone_readall(void *ni);
 void get_logging_info(void *ni, int *facility, int *level);
 bool_t get_sanitycheck(void *ni);
+unsigned short get_port(void *ni, char *proto);
+ni_status get_binding_status(void);
+void set_binding_status(ni_status stat);
+

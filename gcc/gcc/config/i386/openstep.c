@@ -28,10 +28,10 @@ machopic_output_stub (file, symb, stub)
      FILE *file;
      const char *symb, *stub;
 {
+  extern int current_machopic_label_num;	/* config/apple/machopic.c  */
   unsigned int length;
-  char *binder_name, *symbol_name, *lazy_ptr_name;
-  static int label = 0;
-  label += 1;
+  char *binder_name, *symbol_name, lazy_ptr_name[32];
+  int label = ++current_machopic_label_num;
 
   length = strlen(stub);
   binder_name = alloca(length + 32);
@@ -41,8 +41,7 @@ machopic_output_stub (file, symb, stub)
   symbol_name = alloca(length + 32);
   GEN_SYMBOL_NAME_FOR_SYMBOL(symbol_name, symb, length);
 
-  lazy_ptr_name = alloca(length + 32);
-  GEN_LAZY_PTR_NAME_FOR_SYMBOL(lazy_ptr_name, symb, length);
+  sprintf (lazy_ptr_name, "L%d$lz", label);
 
   if (MACHOPIC_PURE)
     machopic_picsymbol_stub_section ();

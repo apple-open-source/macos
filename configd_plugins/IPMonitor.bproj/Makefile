@@ -30,7 +30,8 @@ PROF_LIBS = $(LIBS)
 BUNDLE_EXTENSION = bundle
 
 
-FRAMEWORK_PATHS = -F/System/Library/PrivateFrameworks
+FRAMEWORK_PATHS = -F$(NEXT_ROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks
+NEXTSTEP_PB_CFLAGS = -Wall -DUSE_SYSTEMCONFIGURATION_PUBLIC_APIS
 FRAMEWORKS = -framework CoreFoundation -framework SystemConfiguration
 
 

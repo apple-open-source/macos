@@ -674,7 +674,7 @@ cmd
 	| SYST check_login CRLF
 		{
 			if ($2)
-#ifdef unix
+#if defined(unix) || defined(__APPLE__)
 #ifdef BSD
 			reply(215, "UNIX Type: L%d Version: BSD-%d",
 				NBBY, BSD);

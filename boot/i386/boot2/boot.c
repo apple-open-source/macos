@@ -54,20 +54,7 @@
 #include "libsaio.h"
 #include "kernBootStruct.h"
 #include "boot.h"
-#include "drivers.h"
 #include "nbp.h"
-
-/*
- * True if using default.table
- */
-static BOOL useDefaultConfig;
-
-/*
- * Name of the kernel image file to load.
- * This is specified in the config file, or may be
- * overridden by the user at the boot prompt.
- */
-static char gKernelName[BOOT_STRING_LEN];
 
 /*
  * The user asked for boot graphics.
@@ -77,24 +64,14 @@ static BOOL gWantBootGraphics = NO;
 /*
  * The device that the booter was loaded from.
  */
-int gBootDev;
+int    gBootDev;
 
 extern char * gFilename;
 extern BOOL   sysConfigValid;
-extern char   bootPrompt[];    // In prompt.c
+extern char   bootPrompt[];
 extern BOOL   errors;
-extern BOOL   verbose_mode;
+extern BOOL   gVerboseMode;
 extern BOOL   gSilentBoot;
-
-#if MULTIPLE_DEFAULTS
-char * default_names[] = {
-    "$LBL",
-};
-#define NUM_DEFAULT_NAMES   (sizeof(default_names)/sizeof(char *))
-int current_default = 0;
-#else
-#define DEFAULT_NAME    "$LBL"
-#endif
 
 /*
  * Prototypes.
@@ -102,17 +79,10 @@ int current_default = 0;
 static void getBootString();
 
 /*
- * Message/Error logging macros.
+ * How long to wait (in seconds) to load the
+ * kernel after displaying the "boot:" prompt.
  */
-#define PRINT(x)        { printf x }
-
-#ifdef  DEBUG
-#define DPRINT(x)       { printf x; }
-#define DSPRINT(x)      { printf x; sleep(2); }
-#else
-#define DPRINT(x)
-#define DSPRINT(x)
-#endif
+#define kBootTimeout  10
 
 //==========================================================================
 // Zero the BSS.
@@ -125,90 +95,56 @@ zeroBSS()
 
     bzero( &_DATA__bss__begin,
            (&_DATA__bss__end - &_DATA__bss__begin) );
-    
+
     bzero( &_DATA__common__begin, 
            (&_DATA__common__end - &_DATA__common__begin) );
 }
 
 //==========================================================================
-// execKernel - Load the kernel image file and jump to its entry point.
+// execKernel - Load the kernel image (mach-o) and jump to its entry point.
 
 static int
-execKernel(int fd, int installMode)
+execKernel(int fd)
 {
     register KERNBOOTSTRUCT * kbp = kernBootStruct;
-    register char *           src = gFilename;
-    register char *           dst = kbp->boot_file;
-    char *                    val;
     static struct mach_header head;
     entry_t                   kernelEntry;
-    int                       ret, size;
-#ifdef DISABLED
-    char *                    linkerPath;
-    int                       loadDrivers;
-#endif
+    int                       ret;
 
-    /* Copy the space/tab delimited word pointed by src (gFilename) to
-     * kbp->boot_file.
-     */ 
-    while (*src && (*src != ' ' && *src != '\t'))
-        *dst++ = *src++;
-    *dst = 0;
+    verbose("Loading kernel %s\n", kbp->bootFile);
 
-    verbose("Loading %s\n", kbp->boot_file);
+    // Perform the actual load.
 
-    /* perform the actual load */
     kbp->kaddr = kbp->ksize = 0;
-    ret = loadprog(kbp->kernDev,
-                   fd,
-                   &head,
-                   &kernelEntry,
-                   (char **) &kbp->kaddr,
-                   &kbp->ksize);
+
+    ret = loadprog( kbp->kernDev,
+                    fd,
+                    &head,
+                    &kernelEntry,
+                    (char **) &kbp->kaddr,
+                    &kbp->ksize );
     close(fd);
+    clearActivityIndicator();
 
     if ( ret != 0 )
         return ret;
 
-    /* Clear memory that might be used for loaded drivers
-     * because the standalone linker doesn't zero
-     * memory that is used later for BSS in the drivers.
-     */
-    {
-        long addr = kbp->kaddr + kbp->ksize;
-        bzero((char *)addr, RLD_MEM_ADDR - addr);
-    }
+    // Load boot drivers from the specifed root.
 
+    LoadDrivers("/");
     clearActivityIndicator();
-    printf("\n");
-
-    if ((getValueForKey("Kernel Flags", &val, &size)) && size) {
-        int oldlen, len1;
-        char * cp = kbp->bootString;
-        oldlen = len1 = strlen(cp);
-
-        // move out the user string
-        for(; len1 >= 0; len1--)
-            cp[size + len1] = cp[len1 - 1];
-        strncpy(cp,val,size);
-        if (oldlen) cp[strlen(cp)] = ' ';
-    }
 
     if (errors) {
         printf("Errors encountered while starting up the computer.\n");
-        printf("Pausing %d seconds...\n", BOOT_TIMEOUT);
-        sleep(BOOT_TIMEOUT);
+        printf("Pausing %d seconds...\n", kBootTimeout);
+        sleep(kBootTimeout);
     }
 
-    message("Starting Darwin Intel", 0);
-    
-    if (kbp->eisaConfigFunctions)
-        kbp->first_addr0 = EISA_CONFIG_ADDR +
-            (kbp->eisaConfigFunctions * sizeof(EISA_func_info_t));
-
-    clearActivityIndicator();
+    message("Starting Darwin/x86", 0);
 
     turnOffFloppy();
+
+    // Connect to APM BIOS.
 
     if ( getBoolForKey("APM") )
     {
@@ -243,17 +179,14 @@ execKernel(int fd, int installMode)
 
 //==========================================================================
 // Scan and record the system's PCI bus information.
-//
 
 static void scanHardware()
 {
-extern int  ReadPCIBusInfo(PCI_bus_info_t *pp);
+extern int  ReadPCIBusInfo(PCI_bus_info_t *);
 extern void PCI_Bus_Init(PCI_bus_info_t *);
-    
-    KERNBOOTSTRUCT * kbp = KERNSTRUCT_ADDR;
 
-    ReadPCIBusInfo( &kbp->pciInfo );
-    PCI_Bus_Init( &kbp->pciInfo );
+    ReadPCIBusInfo( &kernBootStruct->pciInfo );
+    PCI_Bus_Init( &kernBootStruct->pciInfo );
 }
 
 //==========================================================================
@@ -275,13 +208,11 @@ void
 boot(int bootdev)
 {
     register KERNBOOTSTRUCT * kbp = kernBootStruct;
-    int      fd, size;
-    char *   val;
-    int      installMode = 0;
+    int      fd;
 
     zeroBSS();
 
-    // Enable A20 gate to be able to access memory above 1 MB.
+    // Enable A20 gate before accessing memory above 1Mb.
 
     enableA20();
 
@@ -297,27 +228,13 @@ boot(int bootdev)
 
     setMode(TEXT_MODE);
 
-    // Initialize the malloc area to the top of conventional memory.
-
-    malloc_init( (char *) ZALLOC_ADDR,
-                 (kbp->convmem * 1024) - ZALLOC_ADDR,
-                 ZALLOC_NODES );
-
     // Scan hardware configuration.
 
     scanHardware();
 
-    // Display initial banner.
+    // Display boot prompt.
 
-    printf( bootPrompt, kbp->convmem, kbp->extmem );
-    printf( "Darwin Intel will start up in %d seconds, or you can:\n"
-            "  Type -v and press Return to start up Darwin Intel with "
-              "diagnostic messages\n"
-            "  Type ? and press Return to learn about advanced startup "
-              "options\n"
-            "  Type any other character to stop Darwin Intel from "
-              "starting up automatically\n",
-            BOOT_TIMEOUT );
+    printf( bootPrompt, kbp->convmem, kbp->extmem, kBootTimeout );
 
     // Parse args, load and start kernel.
 
@@ -325,9 +242,8 @@ boot(int bootdev)
     {
         // Initialize globals.
 
-        sysConfigValid   = 0;
-        useDefaultConfig = 0;
-        errors           = 0;
+        sysConfigValid = 0;
+        errors         = 0;
 
         // Make sure we are in VGA text mode.
 
@@ -356,16 +272,6 @@ boot(int bootdev)
         }
         flushdev();
 
-#if 0   // XXX - $LBL
-#if MULTIPLE_DEFAULTS
-        strcpy(gKernelName, default_names[current_default]);
-        if (++current_default == NUM_DEFAULT_NAMES)
-            current_default = 0;
-#else
-        strcpy(gKernelName, DEFAULT_NAME);
-#endif
-#endif
-
         // Display boot prompt and get user supplied boot string.
 
         getBootString();
@@ -375,47 +281,32 @@ boot(int bootdev)
             // To force loading config file off same device as kernel,
             // open kernel file to force device change if necessary.
 
-            fd = open(gKernelName, 0);
-            if (fd >= 0)
-                close(fd);
+            fd = open(kbp->bootFile, 0);
+            if (fd >= 0) close(fd);
         }
 
         if ( sysConfigValid == 0 )
         {
-            val = 0;
-            getValueForBootKey(kbp->bootString, 
-                               "config", &val, &size);
-
-            DSPRINT(("sys config was not valid trying alt\n"));
-            useDefaultConfig = loadSystemConfig(val, size);
-            
-            if ( sysConfigValid == 0 )
-            {
-                DSPRINT(("sys config is not valid\n"));
-                if (kbp->kernDev == DEV_EN)
-                    break;      // return control back to PXE
-                else
-                    continue;   // keep looping
-            }
+            if (kbp->kernDev == DEV_EN)
+                break;      // return control back to PXE
+            else
+                continue;   // keep looping
         }
 
         // Found and loaded a config file. Proceed with boot.
 
-        gWantBootGraphics = getBoolForKey("Boot Graphics");
-        gSilentBoot       = getBoolForKey("Silent Boot");
+        gWantBootGraphics = getBoolForKey( kBootGraphicsKey );
+        gSilentBoot       = getBoolForKey( kQuietBootKey );
 
-        message("Loading Darwin Intel", 0);
+        message("Loading Darwin/x86", 0);
 
-        if ( (fd = openfile(gKernelName, 0)) >= 0 )
+        if ( (fd = openfile(kbp->bootFile, 0)) >= 0 )
         {
-            DSPRINT(("calling exec kernel\n"));
-            execKernel(fd, installMode);
-
-            // If execKernel() returns, kernel load failed.
+            execKernel(fd);  // will not return on success
         }
         else
         {
-            error("Can't find %s\n", gKernelName);
+            error("Can't find %s\n", kbp->bootFile);
 
             if ( bootdev == kBootDevFloppyDisk )
             {
@@ -447,6 +338,11 @@ skipblanks(char ** cp)
 
 static void showHelp()
 {
+#define BOOT_DIR_DISK       "/usr/standalone/i386/"
+#define BOOT_DIR_NET        ""
+#define makeFilePath(x) \
+    (gBootDev == kBootDevNetwork) ? BOOT_DIR_NET x : BOOT_DIR_DISK x
+
     int    fd;
     char * help = makeFilePath("BootHelp.txt");
 
@@ -464,14 +360,14 @@ static void showHelp()
 // Returns 1 if the string pointed by 'cp' contains an user-specified
 // kernel image file name. Used by getBootString() function.
 
-static inline int
-containsKernelName(char * cp)
+static int
+containsKernelName(const char * cp)
 {
     register char c;
-    
+
     skipblanks(&cp);
 
-    // Convert everything to lower case.
+    // Convert char to lower case.
 
     c = *cp | 0x20;
 
@@ -497,7 +393,7 @@ containsKernelName(char * cp)
 //==========================================================================
 // Display the "boot:" prompt and copies the user supplied string to
 // kernBootStruct->bootString. The kernel image file name is written
-// to the gKernelName buffer.
+// to kernBootStruct->bootFile.
 
 static void
 getBootString()
@@ -506,37 +402,50 @@ getBootString()
     char *       cp;
     char *       val;
     int          count;
-    static int   timeout = BOOT_TIMEOUT;
+    static int   timeout = kBootTimeout;
 
-top:
-    line[0] = '\0';
-    cp      = &line[0];
+    do {
+        line[0] = '\0';
+        cp      = &line[0];
 
-    /* If there have been problems, don't go on. */
-    if ( errors ) timeout = 0;
-    errors = 0;
+        // If there were errors, don't timeout on boot prompt since
+        // the same error is likely to occur again.
 
-    // Print the boot prompt and wait a few seconds for user input.
+        if ( errors ) timeout = 0;
+        errors = 0;
 
-    printf("\n");
-    count = Gets(line, sizeof(line), timeout, "boot: ", "");
-    flushdev();
+        // Print the boot prompt and wait a few seconds for user input.
 
-    // If something was typed, don't use automatic boot again.
-    // The boot: prompt will not timeout and go away until
-    // the user hits the return key.
+        printf("\n");
+        count = Gets(line, sizeof(line), timeout, "boot: ", "");
+        flushdev();
 
-    if ( count ) timeout = 0;
+        // If something was typed, don't use automatic boot again.
+        // The boot: prompt will not timeout and go away until
+        // the user hits the return key.
 
-    skipblanks(&cp);
+        if ( count ) timeout = 0;
 
-    // If user typed '?', then display the usage message.
+        skipblanks(&cp);
 
-    if ( *cp == '?' )
-    {
-        showHelp();
-        goto top;
+        // If user typed '?', then display the usage message.
+
+        if ( *cp == '?' )
+        {
+            showHelp();
+            continue;
+        }
+
+        // Load config table file specified by the user, or fallback
+        // to the default one.
+
+        val = 0;
+        getValueForBootKey(cp, "config", &val, &count);
+        loadSystemConfig(val, count);
+        if ( !sysConfigValid )
+            continue;
     }
+    while ( 0 );
 
     // Did the user specify a kernel file name at the boot prompt?
 
@@ -546,21 +455,9 @@ top:
         // This is fine, read the default kernel file name from the
         // config table.
 
-        printf("\n");
-
-        val = 0;
-        getValueForBootKey(cp, "config", &val, &count);
-
-        useDefaultConfig = loadSystemConfig(val, count);
-
-        if ( !sysConfigValid )
-            goto top;
-
-        // Get the kernel name from the config table file.
-
-        if ( getValueForKey( "Kernel", &val, &count) )
+        if ( getValueForKey(kKernelNameKey, &val, &count) )
         {
-            strncpy(gKernelName, val, count);
+            strncpy(kernBootStruct->bootFile, val, count);
         }
     }
     else
@@ -568,7 +465,7 @@ top:
         // Get the kernel name from the user-supplied boot string,
         // and copy the name to the buffer provided.
 
-        char * namep = gKernelName;
+        char * namep = kernBootStruct->bootFile;
 
         while ( *cp && !(*cp == ' ' || *cp == '\t') )
             *namep++ = *cp++;
@@ -578,9 +475,17 @@ top:
 
     // Verbose flag specified.
 
-    verbose_mode = getValueForBootKey(cp, "-v", &val, &count);
+    gVerboseMode = getValueForBootKey(cp, "-v", &val, &count);
 
-    // Save the boot string in kernBootStruct.
+    // Save the boot string in kernBootStruct->bootString.
 
-    strcpy(kernBootStruct->bootString, cp);
+    if ( getValueForKey(kKernelFlagsKey, &val, &count) && count )
+    {
+        strncpy( kernBootStruct->bootString, val, count );
+    }
+    if ( strlen(cp) )
+    {
+        strcat(kernBootStruct->bootString, " ");
+        strcat(kernBootStruct->bootString, cp);
+    }
 }

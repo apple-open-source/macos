@@ -29,6 +29,7 @@ DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
 
+FRAMEWORKS = -framework CoreFoundation
 
 
 NEXTSTEP_BUILD_OUTPUT_DIR = /tmp/BUILD

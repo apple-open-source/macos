@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,14 +16,15 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: file.h,v 1.1.1.3 2001/01/25 05:00:05 wsanchez Exp $ */
+/* $Id: file.h,v 1.1.1.4 2001/07/19 00:20:13 zarzycki Exp $ */
 
 /* Synced with php 3.0 revision 1.30 1999-06-16 [ssb] */
 
 #ifndef FILE_H
 #define FILE_H
 
-extern PHP_MINIT_FUNCTION(file);
+PHP_MINIT_FUNCTION(file);
+PHP_MSHUTDOWN_FUNCTION(file);
 
 PHP_FUNCTION(tempnam);
 PHP_NAMED_FUNCTION(php_if_tmpfile);
@@ -66,10 +67,58 @@ PHP_FUNCTION(realpath);
 PHP_NAMED_FUNCTION(php_if_ftruncate);
 PHP_NAMED_FUNCTION(php_if_fstat);
 
+/* temporary function for testing streams */
+PHP_FUNCTION(fopenstream);
+
+
 PHPAPI int php_set_sock_blocking(int socketd, int block);
 PHPAPI int php_file_le_fopen(void);
 PHPAPI int php_file_le_popen(void);
 PHPAPI int php_file_le_socket(void);
 PHPAPI int php_copy_file(char *src, char *dest);
+
+#define META_DEF_BUFSIZE 8192
+
+typedef enum _php_meta_tags_token {
+	TOK_EOF = 0,
+	TOK_OPENTAG,
+	TOK_CLOSETAG,
+	TOK_SLASH,
+	TOK_EQUAL,
+	TOK_SPACE,
+	TOK_ID,
+	TOK_STRING,
+	TOK_OTHER
+} php_meta_tags_token;
+
+php_meta_tags_token php_next_meta_token(FILE *, int, int, int *, int *, char **, int *);
+
+typedef struct {
+	int fgetss_state;
+	int pclose_ret;
+	HashTable ht_fsock_keys;
+	HashTable ht_fsock_socks;
+	struct php_sockbuf *phpsockbuf;
+	size_t def_chunk_size;
+} php_file_globals;
+
+#ifdef ZTS
+#define FLS_D php_file_globals *file_globals
+#define FLS_DC , FLS_D
+#define FLS_C file_globals
+#define FLS_CC , FLS_C
+#define FG(v) (file_globals->v)
+#define FLS_FETCH() php_file_globals *file_globals = ts_resource(file_globals_id)
+extern int file_globals_id;
+#else
+#define FLS_D	void
+#define FLS_DC
+#define FLS_C
+#define FLS_CC
+#define FG(v) (file_globals.v)
+#define FLS_FETCH()
+extern php_file_globals file_globals;
+#endif
+
 
 #endif /* FILE_H */

@@ -44,7 +44,8 @@ Boston, MA 02111-1307, USA.  */
 #define ASM_FILE_END(FILE)					\
   do {								\
     extern char *language_string;				\
-      if (strcmp (language_string, "GNU C++") == 0)		\
+      if (strcmp (language_string, "GNU C++") == 0 ||	\
+          strcmp (language_string, "GNU Obj-C++") == 0)	\
       {								\
 	ASM_OUTPUT_ALIGN (FILE, 1);				\
       }								\

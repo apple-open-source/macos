@@ -12,21 +12,28 @@ NAME = SystemConfiguration
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Framework
 
-HFILES = SystemConfiguration.h config_types.h SCD.h SCDKeys.h\
-         SCDPrivate.h SCP.h SCPPrivate.h SCPPath.h SCDConsoleUser.h\
-         SCDHostName.h SCNetwork.h ppp_msg.h ppp.h
+HFILES = SystemConfiguration.h SCPrivate.h SCDPlugin.h config_types.h\
+         SCDynamicStoreInternal.h SCDynamicStore.h\
+         SCDynamicStorePrivate.h SCDynamicStoreKey.h\
+         SCDynamicStoreCopySpecific.h SCDynamicStoreSetSpecificPrivate.h\
+         SCPreferencesInternal.h SCPreferences.h SCPreferencesPrivate.h\
+         SCPreferencesPath.h SCPreferencesSetSpecific.h SCNetwork.h\
+         SCValidation.h ppp_msg.h ppp.h v1Compatibility.h SCD.h\
+         SCDKeys.h SCP.h SCPPath.h SCDConsoleUser.h SCDHostName.h\
+         DHCPClientPreferences.h SCDynamicStoreCopyDHCPInfo.h
 
-CFILES = SCD.c SCDKeys.c SCDPrivate.c SCDHandle.c SCDOpen.c\
-         SCDClose.c SCDLock.c SCDUnlock.c SCDList.c SCDAdd.c\
-         SCDAddSession.c SCDGet.c SCDSet.c SCDRemove.c SCDTouch.c\
+CFILES = SCD.c SCDKeys.c SCDPrivate.c SCDOpen.c SCDLock.c SCDUnlock.c\
+         SCDList.c SCDAdd.c SCDAddSession.c SCDGet.c SCDSet.c\
+         SCDRemove.c SCDTouch.c SCDNotify.c SCDNotifierSetKeys.c\
          SCDNotifierList.c SCDNotifierAdd.c SCDNotifierRemove.c\
          SCDNotifierGetChanges.c SCDNotifierWait.c\
          SCDNotifierInformViaCallback.c SCDNotifierInformViaMachPort.c\
          SCDNotifierInformViaFD.c SCDNotifierInformViaSignal.c\
-         SCDNotifierCancel.c SCDSnapshot.c SCP.c SCPOpen.c SCPClose.c\
-         SCPLock.c SCPUnlock.c SCPList.c SCPGet.c SCPAdd.c SCPSet.c\
-         SCPRemove.c SCPCommit.c SCPApply.c SCPPath.c SCDConsoleUser.c\
-         SCDHostName.c SCNetwork.c ppp.c
+         SCDNotifierCancel.c SCDSnapshot.c SCP.c SCPOpen.c SCPLock.c\
+         SCPUnlock.c SCPList.c SCPGet.c SCPAdd.c SCPSet.c SCPRemove.c\
+         SCPCommit.c SCPApply.c SCPPath.c SCDConsoleUser.c\
+         SCDHostName.c SCNetwork.c SCProxies.c ppp.c v1Compatibility.c\
+         DHCP.c
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble m.template\
             h.template config.defs genSCPreferences.c CustomInfo.plist
@@ -37,7 +44,7 @@ CURRENTLY_ACTIVE_VERSION = YES
 DEPLOY_WITH_VERSION_NAME = A
 CODE_GEN_STYLE = DYNAMIC
 MAKEFILE = framework.make
-NEXTSTEP_INSTALLDIR = $(SYSTEM_LIBRARY_DIR)/PrivateFrameworks
+NEXTSTEP_INSTALLDIR = $(SYSTEM_LIBRARY_DIR)/Frameworks
 WINDOWS_INSTALLDIR = /Library/Frameworks
 PDO_UNIX_INSTALLDIR = /Library/Frameworks
 LIBS = 
@@ -45,13 +52,22 @@ DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
 
+NEXTSTEP_PB_CFLAGS = -DUSE_SYSTEMCONFIGURATION_PUBLIC_APIS
 FRAMEWORKS = -framework CoreFoundation
-PUBLIC_HEADERS = SystemConfiguration.h SCD.h SCDKeys.h SCP.h SCPPath.h\
-                 SCDConsoleUser.h SCDHostName.h SCNetwork.h
+PUBLIC_HEADERS = SystemConfiguration.h SCDynamicStore.h\
+                 SCDynamicStoreKey.h SCDynamicStoreCopySpecific.h\
+                 SCPreferences.h SCPreferencesPath.h\
+                 SCPreferencesSetSpecific.h SCNetwork.h
 
-PROJECT_HEADERS = SystemConfiguration.h config_types.h SCD.h\
-                  SCDPrivate.h SCP.h SCPPrivate.h SCPPath.h\
-                  SCDConsoleUser.h SCDHostName.h SCNetwork.h
+PROJECT_HEADERS = SystemConfiguration.h SCPrivate.h config_types.h\
+                  SCDynamicStoreInternal.h SCDynamicStore.h\
+                  SCDynamicStorePrivate.h SCDynamicStoreKey.h\
+                  SCDynamicStoreCopySpecific.h\
+                  SCDynamicStoreSetSpecificPrivate.h\
+                  SCPreferencesInternal.h SCPreferences.h\
+                  SCPreferencesPrivate.h SCPreferencesPath.h\
+                  SCPreferencesSetSpecific.h SCNetwork.h SCValidation.h\
+                  v1Compatibility.h
 
 
 

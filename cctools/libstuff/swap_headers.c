@@ -59,10 +59,12 @@ struct load_command *load_commands)
     struct dylib_command *dl;
     struct sub_framework_command *sub;
     struct sub_umbrella_command *usub;
+    struct sub_library_command *lsub;
     struct sub_client_command *csub;
     struct prebound_dylib_command *pbdylib;
     struct dylinker_command *dyld;
     struct routines_command *rc;
+    struct twolevel_hints_command *hints;
     unsigned long flavor, count, nflavor;
     char *p, *state;
 
@@ -200,6 +202,23 @@ struct load_command *load_commands)
 		    error("in swap_object_headers(): truncated or malformed "
 			  "load commands (sub_umbrella.offset field of "
 			  "LC_SUB_UMBRELLA command %lu extends past the end "
+			  "of all load commands)", i);
+		    return(FALSE);
+		}
+		break;
+
+	    case LC_SUB_LIBRARY:
+		lsub = (struct sub_library_command *)lc;
+		if(lsub->cmdsize < sizeof(struct sub_library_command)){
+		    error("in swap_object_headers(): malformed load commands "
+			  "(LC_SUB_LIBRARY command %lu has too small cmdsize "
+			  "field)", i);
+		    return(FALSE);
+		}
+		if(lsub->sub_library.offset >= lsub->cmdsize){
+		    error("in swap_object_headers(): truncated or malformed "
+			  "load commands (sub_library.offset field of "
+			  "LC_SUB_LIBRARY command %lu extends past the end "
 			  "of all load commands)", i);
 		    return(FALSE);
 		}
@@ -753,6 +772,16 @@ struct load_command *load_commands)
 		}
 		break;
 
+	    case LC_TWOLEVEL_HINTS:
+		hints = (struct twolevel_hints_command *)lc;
+		if(hints->cmdsize != sizeof(struct twolevel_hints_command)){
+		    error("in swap_object_headers(): malformed load commands "
+			  "(LC_TWOLEVEL_HINTS command %lu has incorrect "
+			  "cmdsize", i);
+		    return(FALSE);
+		}
+		break;
+
 	    default:
 		error("in swap_object_headers(): malformed load commands "
 		      "(unknown load command %lu)", i);
@@ -827,6 +856,11 @@ struct load_command *load_commands)
 	    case LC_SUB_UMBRELLA:
 		usub = (struct sub_umbrella_command *)lc;
 		swap_sub_umbrella_command(usub, target_byte_sex);
+		break;
+
+	    case LC_SUB_LIBRARY:
+		lsub = (struct sub_library_command *)lc;
+		swap_sub_library_command(lsub, target_byte_sex);
 		break;
 
 	    case LC_SUB_CLIENT:
@@ -1088,6 +1122,11 @@ struct load_command *load_commands)
 	    case LC_ROUTINES:
 		rc = (struct routines_command *)lc;
 		swap_routines_command(rc, target_byte_sex);
+		break;
+
+	    case LC_TWOLEVEL_HINTS:
+		hints = (struct twolevel_hints_command *)lc;
+		swap_twolevel_hints_command(hints, target_byte_sex);
 		break;
 	    }
 

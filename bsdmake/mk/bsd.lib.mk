@@ -9,11 +9,18 @@ __initialized__:
 .endif
 .endif
 
+
 .if exists(${.CURDIR}/shlib_version)
 SHLIB_MAJOR != . ${.CURDIR}/shlib_version ; echo $$major
 .if ${OBJFORMAT} == aout
 SHLIB_MINOR != . ${.CURDIR}/shlib_version ; echo $$minor
 .endif
+.endif
+
+.if ${OBJFORMAT} == mach-o
+STRIP_OFILE=true
+.else
+STRIP_OFILE=@strip
 .endif
 
 # Set up the variables controlling shared libraries.  After this section,
@@ -31,8 +38,16 @@ SHLIB_LINK?=	lib${LIB}.so
 .endif
 SONAME?=	${SHLIB_NAME}
 .else
+.if ${OBJFORMAT} == mach-o
+.if !defined(SHLIB_NAME) && defined(SHLIB_MAJOR)
+SHLIB_NAME=	lib${LIB}.${SHLIB_MAJOR}.dylib
+SHLIB_LINK?=	lib${LIB}.dylib
+.endif
+SONAME?=	${SHLIB_NAME}
+.else
 .if defined(SHLIB_MAJOR) && defined(SHLIB_MINOR)
 SHLIB_NAME?=	lib${LIB}.so.${SHLIB_MAJOR}.${SHLIB_MINOR}
+.endif
 .endif
 .endif
 .endif
@@ -60,78 +75,78 @@ STRIP?=	-s
 
 .c.o:
 	${CC} ${CFLAGS} -c ${.IMPSRC} -o ${.TARGET}
-	@strip -x ${.TARGET}
+	${STRIP_OFILE} -x ${.TARGET}
 
 .c.po:
 	${CC} -pg ${CFLAGS} -c ${.IMPSRC} -o ${.TARGET}
-	@strip -X ${.TARGET}
+	${STRIP_OFILE} -X ${.TARGET}
 
 .c.So:
 	${CC} ${PICFLAG} -DPIC ${CFLAGS} -c ${.IMPSRC} -o ${.TARGET}
-	@strip -x ${.TARGET}
+	${STRIP_OFILE} -x ${.TARGET}
 
 .cc.o .C.o .cpp.o .cxx.o:
 	${CXX} ${CXXFLAGS} -c ${.IMPSRC} -o ${.TARGET}
-	@strip -x ${.TARGET}
+	${STRIP_OFILE} -x ${.TARGET}
 
 .cc.po .C.po .cpp.po .cxx.po:
 	${CXX} -pg ${CXXFLAGS} -c ${.IMPSRC} -o ${.TARGET}
-	@strip -X ${.TARGET}
+	${STRIP_OFILE} -X ${.TARGET}
 
 .cc.So .C.So .cpp.So .cxx.So:
 	${CXX} ${PICFLAG} -DPIC ${CXXFLAGS} -c ${.IMPSRC} -o ${.TARGET}
-	@strip -x ${.TARGET}
+	${STRIP_OFILE} -x ${.TARGET}
 
 .f.o:
 	${FC} ${FFLAGS} -o ${.TARGET} -c ${.IMPSRC} 
-	@strip -x ${.TARGET}
+	${STRIP_OFILE} -x ${.TARGET}
 
 .f.po:
 	${FC} -pg ${FFLAGS} -o ${.TARGET} -c ${.IMPSRC} 
-	@strip -X ${.TARGET}
+	${STRIP_OFILE} -X ${.TARGET}
 
 .f.So:
 	${FC} ${PICFLAG} -DPIC ${FFLAGS} -o ${.TARGET} -c ${.IMPSRC}
-	@strip -x ${.TARGET}
+	${STRIP_OFILE} -x ${.TARGET}
 
 .m.o:
 	${OBJC} ${OBJCFLAGS} -c ${.IMPSRC} -o ${.TARGET}
-	@strip -x ${.TARGET}
+	${STRIP_OFILE} -x ${.TARGET}
 
 .m.po:
 	${OBJC} ${OBJCFLAGS} -pg -c ${.IMPSRC} -o ${.TARGET}
-	@strip -X ${.TARGET}
+	${STRIP_OFILE} -X ${.TARGET}
 
 .m.So:
 	${OBJC} ${PICFLAG} -DPIC ${OBJCFLAGS} -c ${.IMPSRC} -o ${.TARGET}
-	@strip -x ${.TARGET}
+	${STRIP_OFILE} -x ${.TARGET}
 
 .s.o:
 	${CC} -x assembler-with-cpp ${CFLAGS:M-[BID]*} ${AINC} -c \
 	    ${.IMPSRC} -o ${.TARGET}
-	@strip -x ${.TARGET}
+	${STRIP_OFILE} -x ${.TARGET}
 
 .s.po:
 	${CC} -x assembler-with-cpp -DPROF ${CFLAGS:M-[BID]*} ${AINC} -c \
 	    ${.IMPSRC} -o ${.TARGET}
-	@strip -X ${.TARGET}
+	${STRIP_OFILE} -X ${.TARGET}
 
 .s.So:
-	${CC} -x assembler-with-cpp -fpic -DPIC ${CFLAGS:M-[BID]*} ${AINC} -c \
+	${CC} -x assembler-with-cpp -DPIC ${CFLAGS:M-[BID]*} ${AINC} -c \
 	    ${.IMPSRC} -o ${.TARGET}
-	@strip -x ${.TARGET}
+	${STRIP_OFILE} -x ${.TARGET}
 
 .S.o:
 	${CC} ${CFLAGS:M-[BID]*} ${AINC} -c ${.IMPSRC} -o ${.TARGET}
-	@strip -x ${.TARGET}
+	${STRIP_OFILE} -x ${.TARGET}
 
 .S.po:
 	${CC} -DPROF ${CFLAGS:M-[BID]*} ${AINC} -c ${.IMPSRC} -o ${.TARGET}
-	@strip -X ${.TARGET}
+	${STRIP_OFILE} -X ${.TARGET}
 
 .S.So:
-	${CC} -fpic -DPIC ${CFLAGS:M-[BID]*} ${AINC} -c ${.IMPSRC} -o ${.TARGET}
-	@strip -x ${.TARGET}
+	${CC} -DPIC ${CFLAGS:M-[BID]*} ${AINC} -c ${.IMPSRC} -o ${.TARGET}
+	${STRIP_OFILE} -x ${.TARGET}
 
 .if !defined(INTERNALLIB) || defined(INTERNALSTATICLIB)
 .if !defined(NOPROFILE) && !defined(INTERNALLIB)
@@ -149,7 +164,7 @@ _LIBS+=lib${LIB}_pic.a
 .endif
 
 .if !defined(PICFLAG)
-PICFLAG=-fpic
+PICFLAG=
 .endif
 
 all: objwarn ${_LIBS} all-man _SUBDIR # llib-l${LIB}.ln
@@ -189,9 +204,15 @@ ${SHLIB_NAME}: ${SOBJS}
 	    -o ${SHLIB_NAME} \
 	    `lorder ${SOBJS} | tsort -q` ${LDDESTDIR} ${LDADD}
 .else
+.if ${OBJFORMAT} == mach-o
+	@${LDDESTDIRENV} ${CC} -dynamiclib \
+	    -o ${SHLIB_NAME} \
+	    ${SOBJS} ${LDDESTDIR} ${LDADD}
+.else
 	@${LDDESTDIRENV} ${CC} -shared -Wl,-x \
 	    -o ${SHLIB_NAME} -Wl,-soname,${SONAME} \
-	    `lorder ${SOBJS} | tsort -q` ${LDDESTDIR} ${LDADD}
+	    `lorder ${SOBJS} | tsort -q`${LDDESTDIR} ${LDADD}
+.endif
 .endif
 .endif
 
@@ -211,9 +232,9 @@ clean:	_SUBDIR
 	rm -f a.out ${OBJS} ${STATICOBJS} ${OBJS:S/$/.tmp/} ${CLEANFILES}
 	rm -f lib${LIB}.a # llib-l${LIB}.ln
 	rm -f ${POBJS} ${POBJS:S/$/.tmp/} lib${LIB}_p.a
-	rm -f ${SOBJS} ${SOBJS:.So=.so} ${SOBJS:S/$/.tmp/} \
+	rm -f ${SOBJS} ${SOBJS:.So=.dylib} ${SOBJS:S/$/.tmp/} \
 	    ${SHLIB_NAME} ${SHLIB_LINK} \
-	    lib${LIB}.so.* lib${LIB}.so lib${LIB}_pic.a
+	    lib${LIB}.dylib.* lib${LIB}.dylib lib${LIB}_pic.a
 .if defined(CLEANDIRS) && !empty(CLEANDIRS)
 	rm -rf ${CLEANDIRS}
 .endif
@@ -268,15 +289,18 @@ realinstall: beforeinstall
 .if !defined(INTERNALLIB)
 	${INSTALL} ${COPY} -o ${LIBOWN} -g ${LIBGRP} -m ${LIBMODE} \
 	    ${_INSTALLFLAGS} lib${LIB}.a ${DESTDIR}${LIBDIR}
+	${RANLIB} ${DESTDIR}${LIBDIR}/lib${LIB}.a
 .if !defined(NOPROFILE)
 	${INSTALL} ${COPY} -o ${LIBOWN} -g ${LIBGRP} -m ${LIBMODE} \
 	    ${_INSTALLFLAGS} lib${LIB}_p.a ${DESTDIR}${LIBDIR}
+	${RANLIB} ${DESTDIR}${LIBDIR}/lib${LIB}_p.a
 .endif
 .endif
 .if defined(SHLIB_NAME)
-	${INSTALL} ${COPY} ${STRIP} -o ${LIBOWN} -g ${LIBGRP} -m ${LIBMODE} \
+	${INSTALL} ${COPY} -o ${LIBOWN} -g ${LIBGRP} -m ${LIBMODE} \
 	    ${_INSTALLFLAGS} ${_SHLINSTALLFLAGS} \
 	    ${SHLIB_NAME} ${DESTDIR}${SHLIBDIR}
+	@strip -x ${DESTDIR}${SHLIBDIR}/${SHLIB_NAME}
 .if defined(SHLIB_LINK)
 	ln -sf ${SHLIB_NAME} ${DESTDIR}${SHLIBDIR}/${SHLIB_LINK}
 .endif

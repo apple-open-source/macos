@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,9 +16,15 @@
    +----------------------------------------------------------------------+
  */
 
-
 /*
  * This module implements support for Microsoft .Net components.
+ */
+
+/*
+ * 28.1.2001
+ * use external unicode conversion functions
+ *
+ * harald radi <h.radi@nme.at>
  */
 
 #ifdef PHP_WIN32
@@ -27,25 +33,15 @@
 #include <math.h>
 #include <comdef.h>
 
-extern "C" {
+extern "C" {  /* this should be included in the includes itself !! */
+
 #include "php.h"
-#include "php_ini.h"
+#include "ext/standard/info.h"
 
-pval php_COM_get_property_handler(zend_property_reference *property_reference);
-
-
-int php_COM_set_property_handler(zend_property_reference *property_reference, pval *value);
-
-char *php_COM_error_message(HRESULT hr);
-
-void php_COM_call_function_handler(INTERNAL_FUNCTION_PARAMETERS, zend_property_reference *property_reference);
-
-int php_COM_get_le_idispatch();
 }
 
-
-#include <stdio.h>
-
+#include "../com/conversion.h"
+#include "../com/php_COM.h"
 #include "Mscoree.h"
 #include "mscorlib.h"
 
@@ -55,19 +51,7 @@ static ICorRuntimeHost *pHost;
 static mscorlib::_AppDomain *pDomain;
 
 static zend_class_entry dotnet_class_entry;
-
-static OLECHAR *php_char_to_OLECHAR(char *C_str, uint strlen)
-{
-	OLECHAR *unicode_str = (OLECHAR *) emalloc(sizeof(OLECHAR)*(strlen+1));
-	OLECHAR *unicode_ptr = unicode_str;
-
-	while (*C_str) {
-		*unicode_ptr++ = (unsigned short) *C_str++;
-	}
-	*unicode_ptr = 0;
-
-	return unicode_str;
-}
+static int codepage;
 
 HRESULT dotnet_init() {
   HRESULT hr;
@@ -91,7 +75,7 @@ HRESULT dotnet_init() {
   return ERROR_SUCCESS;
 }
 
-HRESULT dotnet_create(OLECHAR *assembly, OLECHAR *datatype, struct IDispatch **object) {
+HRESULT dotnet_create(OLECHAR *assembly, OLECHAR *datatype, i_dispatch *object) {
   HRESULT hr;
 
   _ObjectHandle *pHandle;
@@ -104,7 +88,7 @@ HRESULT dotnet_create(OLECHAR *assembly, OLECHAR *datatype, struct IDispatch **o
   pHandle->Release();
   if (FAILED(hr)) return hr;
  
-  *object = unwrapped.pdispVal;
+  php_COM_set(object, unwrapped.pdispVal, TRUE);
   return ERROR_SUCCESS;
 }
   
@@ -124,19 +108,24 @@ PHP_FUNCTION(DOTNET_load)
 	HRESULT hr;
 	pval *assembly_name, *datatype_name;
 	OLECHAR *assembly, *datatype;
-	IDispatch FAR *i_dispatch = NULL;
+	i_dispatch *obj;
 
 	if (ZEND_NUM_ARGS() != 2) WRONG_PARAM_COUNT;
 
+	/* should be made configurable like in ext/com */
+	codepage = CP_ACP;
+
 	getParameters(ht, 2, &assembly_name, &datatype_name);
 	convert_to_string(assembly_name);
-	assembly = php_char_to_OLECHAR(assembly_name->value.str.val, assembly_name->value.str.len);
+	assembly = php_char_to_OLECHAR(assembly_name->value.str.val, assembly_name->value.str.len, codepage);
 
 	convert_to_string(datatype_name);
-	datatype = php_char_to_OLECHAR(datatype_name->value.str.val, datatype_name->value.str.len);
+	datatype = php_char_to_OLECHAR(datatype_name->value.str.val, datatype_name->value.str.len, codepage);
+
+	obj = (i_dispatch *) emalloc(sizeof(i_dispatch));
 
 	/* obtain IDispatch */
-	hr=dotnet_create(assembly, datatype, &i_dispatch);
+	hr=dotnet_create(assembly, datatype, obj);
 	efree(assembly);
 	efree(datatype);
 	if (FAILED(hr)) {
@@ -144,17 +133,18 @@ PHP_FUNCTION(DOTNET_load)
 		error_message = php_COM_error_message(hr);
 		php_error(E_WARNING,"Error obtaining .Net class for %s in assembly %s: %s",datatype_name->value.str.val,assembly_name->value.str.val,error_message);
 		LocalFree(error_message);
+		efree(obj);
 		RETURN_FALSE;
 	}
-	if (!i_dispatch) {
+	if (!obj->i.dispatch) {
 		php_error(E_WARNING,"Unable to locate %s in assembly %s",datatype_name->value.str.val,assembly_name->value.str.val);
+		efree(obj);
 		RETURN_FALSE;
 	}
 
-	RETURN_LONG(zend_list_insert(i_dispatch,php_COM_get_le_idispatch()));
+	RETURN_LONG(zend_list_insert(obj, php_COM_get_le_idispatch()));
 }
 /* }}} */
-
 
 
 void php_DOTNET_call_function_handler(INTERNAL_FUNCTION_PARAMETERS, zend_property_reference *property_reference)
@@ -182,7 +172,6 @@ void php_DOTNET_call_function_handler(INTERNAL_FUNCTION_PARAMETERS, zend_propert
 	}
 }
 
-
 void php_register_DOTNET_class()
 {
 	INIT_OVERLOADED_CLASS_ENTRY(dotnet_class_entry, "DOTNET", NULL,
@@ -197,14 +186,12 @@ function_entry DOTNET_functions[] = {
 	{NULL, NULL, NULL}
 };
 
-
 static PHP_MINFO_FUNCTION(DOTNET)
 {
-	DISPLAY_INI_ENTRIES();
+	php_info_print_table_start();
+	php_info_print_table_row(2, ".NET support", "enabled");
+	php_info_print_table_end();
 }
-
-PHP_INI_BEGIN()
-PHP_INI_END()
 
 PHP_MINIT_FUNCTION(DOTNET)
 {
@@ -215,7 +202,6 @@ PHP_MINIT_FUNCTION(DOTNET)
 	if (FAILED(hr)) return hr;
 
 	php_register_DOTNET_class();
-	REGISTER_INI_ENTRIES();
 	return SUCCESS;
 }
 
@@ -224,7 +210,6 @@ PHP_MSHUTDOWN_FUNCTION(DOTNET)
 {
 	dotnet_term();
 	CoUninitialize();
-	UNREGISTER_INI_ENTRIES();
 	return SUCCESS;
 }
 
@@ -233,11 +218,8 @@ zend_module_entry dotnet_module_entry = {
 	"dotnet", DOTNET_functions, PHP_MINIT(DOTNET), PHP_MSHUTDOWN(DOTNET), NULL, NULL, PHP_MINFO(DOTNET), STANDARD_MODULE_PROPERTIES
 };
 
-extern "C" {
-	ZEND_GET_MODULE(dotnet)
-}
-
-void php_register_DOTNET_class();
-
+BEGIN_EXTERN_C()
+ZEND_GET_MODULE(dotnet)
+END_EXTERN_C()
 
 #endif

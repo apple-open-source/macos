@@ -12,10 +12,10 @@ NAME = netinfo
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Component
 
-HFILES = clib.h mm.h ni.h ni_util.h
+HFILES = clib.h mm.h ni.h ni_util.h sys_interfaces.h
 
 CFILES = multi_call.c ni_error.c ni_glue.c ni_pwdomain.c ni_useful.c\
-         ni_util.c
+         ni_util.c sys_interfaces.c
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble nibind_prot.x\
             ni_prot.x

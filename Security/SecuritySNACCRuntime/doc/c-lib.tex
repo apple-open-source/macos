@@ -1,0 +1,1384 @@
+% file: .../doc/c-lib.tex
+
+% $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/doc/c-lib.tex,v 1.1.1.1 2001/05/18 23:14:10 mb Exp $
+% $Log: c-lib.tex,v $
+% Revision 1.1.1.1  2001/05/18 23:14:10  mb
+% Move from private repository to open source repository
+%
+% Revision 1.1.1.1  1999/03/16 18:05:52  aram
+% Originals from SMIME Free Library.
+%
+% Revision 1.1  1997/01/01 22:47:34  rj
+% first check-in
+%
+
+\chapter{\label{lib-C-chapter}C ASN.1 Library}
+\section{\label{libover-C-section}Overview}
+
+Each library type has a file in the {\ufn \dots/c-lib/src/} and
+{\ufn \dots/c-lib/inc/} directories.  Each source file contains the encode,
+decode, free and print routines for the given type. This chapter
+contains a description of each library type and its routines.
+This library is also referred to as the runtime library.
+
+After installing Snacc, you should test the library types to make sure
+that they are encoding and decoding properly.  Use the
+{\ufn \dots/c-examples/test-lib/} example to check them.
+
+In addition to other errors, most decoding routines will report an
+error if they attempt to read past the end of the data.  Be aware that
+some buffer types do not support this type of checking.  This is
+explained more in the buffer management section.
+
+\section{\label{tag-C-section}Tags}
+
+Snacc's tag representation was motivated by several things.
+\begin{enumerate}
+\item the tags must be easy to compare for equality in {\C if} and {\C switch} statements to make tag-based decisions cheap.
+\item a tag must be cheap to decode.
+\item a tag must be cheap to encode.
+\end{enumerate}
+
+The first requirement meant that tags had to be integer types (for the
+{\C switch} statement).  The representation of the tag within the integer
+was set by the second requirement.
+
+The best way to decode cheaply is minimize the transformation between
+the encoded and decoded (internal) format.  So the four (can be set-up
+for two) bytes of the long integer are used to hold the encoded tag,
+starting with the first octet of the tag in the most significant byte
+of the integer and the rest (if any) following.  Any unused (always
+trailing) bytes in the integer are zero.  This limits the
+representable tag code to less than $2^{21}$ but for reasonable ASN.1
+specifications this should not be a problem.
+
+To meet the third requirement the decoded tag representation was
+bypassed entirely by using macros ({\C BEncTag1()} etc.) that
+write the encoded tag octet(s) to the buffer. The writing of an
+encoded tag octet involves bit shifting, bitwise ands and bitwise ors
+with constant values; most optimizing C compilers can compute these at
+compile time.  This simplifies encoding a tag to writing some constant
+byte value(s) to the buffer.
+
+The following excerpt from {\ufn \dots/c-lib/inc/asn-tag.h} shows some
+of the tag routines.
+\begin{small}
+\begin{verbatim}
+typedef unsigned long int AsnTag;
+
+#define MAKE_TAG_ID( class, form, code) ...
+#define TAG_IS_CONS( tag) ...
+
+#define BEncTag1( b, class, form, code) ...
+#define BEncTag2( b, class, form, code) ...
+#define BEncTag3( b, class, form, code) ...
+#define BEncTag4( b, class, form, code) ...
+#define BEncTag5( b, class, form, code) ...
+
+AsnTag BDecTag (BUF_TYPE b, AsnLen *bytesDecoded, ENV_TYPE env);
+\end{verbatim}
+\end{small}
+
+The generated decode routines use the {\C BDecTag} to decode a tag
+from the buffer.  The returned tag value is either used in an
+{\C if} expression or as the argument to {\C switch} statements.
+The {\C MAKE\_TAG\_ID} macro is used to make a tag for comparison to
+the one returned by {\C BDecTag}. The {\C MAKE\_TAG\_ID} is used is
+{\C switch} statement case labels and in {\C if} statements.
+
+Most of the time tags are only compared for equality, however, the
+OCTET STRING and BIT STRING decoders check the constructed bit in the
+tag using the {\C TAG\_IS\_CONS} macro.
+
+The {\C BEncTag} macros are quite fragile because they return the
+encoded length of the tag; they cannot be treated as a single
+statement.  This requires careful use of braces when using them in
+your own code in places such as the sole statement in an {\C if}
+statement.  This ugliness is caused by the difficulty in returning
+values from multi-line macros (macros are used for performance here
+since encoding tags can be a significant part of BER encoding).
+
+The {\C BDecTag} routine will report an error via {\C longjmp} if
+the encoded tag is longer than can be held in the {\C AsnTag} type
+or if it read past the end of the data when decoding the tag.
+
+\section{\label{len-C-section}Lengths}
+
+Decoded lengths are represented by unsigned long integers, with the
+maximum value indicating indefinite length.
+
+Snacc users can choose between using only indefinite or only definite
+lengths when encoding constructed values' lengths when compiling the
+generated code.  Of course, the generated decoders can handle both
+forms.  Define the {\C USE\_INDEF\_LEN} symbol when compiling the
+generated code if you want to use indefinite lengths when encoding
+constructed values.  Primitive values are always encoded with definite
+lengths as required by the standard; this is necessary to avoid
+confusion between a value's content and the End-Of-Contents marker.
+
+There is no loss of performance when using definite lengths with snacc
+encoders.  This is due the ``backwards'' encoding as described in
+Section~\ref{encode-gen-C-section}.  The schemes used by other compilers'
+encoders to handle definite lengths may hurt performance.
+
+Most of the routines in the following code are obvious except for
+{\C BEncDefLenTo127()}.  This is used instead of {\C BEncDefLen}
+in the generated code when the compiler knows the value being encoded
+will not be over 127 octets long.  Values such as BOOLEANs,
+INTEGERs, and REALs are assumed to be shorter than 127 octets
+(constraints on the decoded representation of INTEGERs and REALs make
+this valid).
+\begin{small}
+\begin{verbatim}
+typedef unsigned long int AsnLen;
+
+/* max unsigned value - used for internal rep of indef len */
+#define INDEFINITE_LEN          ~0L
+
+#ifdef USE_INDEF_LEN
+#define BEncEocIfNec( b)        BEncEoc (b)
+#define BEncConsLen(b, len)     2 + BEncIndefLen (b)
+#else
+#define BEncEocIfNec( b)
+#define BEncConsLen( b, len)    BEncDefLen (b, len)
+#endif
+
+#define BEncIndefLen( b) ...
+#define BEncDefLenTo127( b, len) ...
+AsnLen  BEncDefLen (BUF_TYPE b, AsnLen len);
+AsnLen  BDecLen (BUF_TYPE b, AsnLen *bytesDecoded, ENV_TYPE env);
+
+#define BEncEoc( b) ...
+#define BDEC_2ND_EOC_OCTET( b, bytesDecoded, env) ...
+void    BDecEoc (BUF_TYPE b, AsnLen *bytesDecoded, ENV_TYPE env);
+\end{verbatim}
+\end{small}
+
+The {\C BDecLen} routine will report an error via {\C longjmp} if
+it attempts to read past the end of the data or the decoded length is
+too large to be held in the {\C AsnLen} representation.
+{\C BDecEoc} will report an error if it attempts to read past the
+end of the data or one of the EOC (End-Of-Contents) octets is
+non-zero.
+
+\section{\label{bool-C-section}BOOLEAN}
+
+The BOOLEAN type is represented by an {\C unsigned char}.  It has
+the following routines for manipulating it.
+\begin{small}
+\begin{verbatim}
+typedef unsigned char AsnBool;
+
+AsnLen BEncAsnBool (BUF_TYPE b, AsnBool *data);
+void   BDecAsnBool (BUF_TYPE b, AsnBool *result, AsnLen *bytesDecoded,
+                   ENV_TYPE env);
+
+AsnLen BEncAsnBoolContent (BUF_TYPE b, AsnBool *data);
+void   BDecAsnBoolContent (BUF_TYPE b, AsnTag tag, AsnLen len,
+                          AsnBool *result, AsnLen *bytesDecoded,
+                          ENV_TYPE env);
+
+#define FreeAsnBool( v)
+void PrintAsnBool (FILE *f, AsnBool *b, unsigned short int indent);
+\end{verbatim}
+\end{small}
+
+As discussed in Sections \ref{encode-gen-C-section} and \ref{decode-gen-C-section},
+{\C BEncAsnBool} and {\C BDecAsnBool} encode/decode the UNIVERSAL
+tag, length and content of the given BOOLEAN value.  The\linebreak {\C BEncAsnBoolContent} and {\C BDecAsnBoolContent} routine only
+encode/decode the content of the given BOOLEAN value.
+
+The {\C FreeAsnBool} routine does nothing since the BOOLEAN type
+does not contain pointers to data; the free routine generator does not
+have to check which types need freeing and simply calls the type's
+free routine.  It also allows the user to modify the types and their
+free routines without changing the free routine generator.  However,
+the ANY and ANY DEFINED BY type hash table initialization routine
+generator does need to know which types have empty free routines
+because the hash entries contain pointers to the free functions (NULL
+is used for the empty free functions like {\C FreeAsnBool}).  The
+INTEGER, NULL, REAL and ENUMERATED types have empty free routines for
+the same reason.
+
+{\C BDecAsnBool} will report an error if the tag is not
+UNIVERSAL-PRIM-1.  {\C BDecAsnBoolContent} will report an error if it
+decodes past the end of the data or the length of the encoded value
+(given by the {\C len} parameter) is not exactly one octet.
+
+\section{\label{int-C-section}INTEGER}
+
+The INTEGER type is represented by a 32 bit integer type, {\C AsnInt}.
+The C integer type chosen depends on the machine and compiler and may be {\C int}, {\C long} or {\C short}, whatever is 32 bits in size.
+If you are using INTEGER types that are only positive (via subtyping or
+protocol definition) you may want to use the {\C UAsnInt} and
+associated routines that use the unsigned int for a larger positive value range.
+\begin{small}
+\begin{verbatim}
+typedef int AsnInt;
+typedef unsigned int UAsnInt;
+
+AsnLen BEncAsnInt (BUF_TYPE b, AsnInt *data);
+void BDecAsnInt (BUF_TYPE b, AsnInt *result, AsnLen *bytesDecoded,
+                ENV_TYPE env);
+
+AsnLen BEncAsnIntContent (BUF_TYPE b, AsnInt *data);
+void BDecAsnIntContent (BUF_TYPE b, AsnTag tag, AsnLen elmtLen,
+                       AsnInt  *result, AsnLen *bytesDecoded,
+                       ENV_TYPE env);
+
+#define FreeAsnInt( v)
+void PrintAsnInt (FILE *f, AsnInt *v, unsigned short int indent);
+
+AsnLen BEncUAsnInt (BUF_TYPE b, UAsnInt *data);
+void BDecUAsnInt (BUF_TYPE b, UAsnInt *result, AsnLen *bytesDecoded,
+                 ENV_TYPE env);
+
+AsnLen BEncUAsnIntContent (BUF_TYPE b, UAsnInt *data);
+void BDecUAsnIntContent (BUF_TYPE b, AsnTag tagId, AsnLen len,
+                        UAsnInt *result, AsnLen *bytesDecoded,
+                        ENV_TYPE env);
+
+#define FreeUAsnInt( v)
+void PrintUAsnInt (FILE *f, UAsnInt *v, unsigned short int indent);
+\end{verbatim}
+\end{small}
+
+{\C BDecAsnInt} will report an error if the tag is not
+UNIVERSAL-PRIM-2.  {\C BDecAsnIntContent} will report an error if it
+decodes past the end of the data or the integer value is too large for
+an {\C AsnInt}.
+
+\section{\label{null-C-section}NULL}
+
+The NULL type is represented by the {\C AsnNull} type.  Its content
+is always empty and hence its encoded length always is zero.
+\begin{small}
+\begin{verbatim}
+typedef char AsnNull;
+
+AsnLen BEncAsnNull (BUF_TYPE b, AsnNull *data);
+void BDecAsnNull (BUF_TYPE b, AsnNull *result, AsnLen *bytesDecoded,
+                 ENV_TYPE env);
+
+/* 'return' length of encoded NULL value, 0 */
+#define BEncAsnNullContent(b, data) 0
+void BDecAsnNullContent (BUF_TYPE b, AsnTag tag, AsnLen len,
+                        AsnNull *result, AsnLen *bytesDecoded,
+                        ENV_TYPE env);
+
+#define FreeAsnNull( v)
+void PrintAsnNull (FILE *f, AsnNull * b, unsigned short int indent);
+\end{verbatim}
+\end{small}
+
+\section{\label{real-C-section}REAL}
+
+The REAL type is represented by {\C AsnReal}, a double.  This type's
+representation can depend on the compiler or system you are using so
+several different encoding routines are provided.
+Even so, you may need to modify the code.
+
+If you are using the REAL type in your ASN.1 modules, you should call the
+{\C InitAsnInfinity()} routine to setup the {\C PLUS\_INFINITY}
+and {\C MINUS\_INFINITY} values.
+
+There are three encode routines included and they can be selected by
+defining one of {\C IEEE\_REAL\_FMT}, {\C IEEE\_REAL\_LIB} or nothing.
+Defining {\C IEEE\_REAL\_FMT} uses the encode routine that assumes the
+double representation is the standard IEEE double \cite{68881}.
+Defining {\C IEEE\_REAL\_LIB} uses the encode routine that assumes the
+IEEE functions library (isinf, scalbn, signbit etc.\ ) is available.
+If neither are defined, the default encode routine uses {\C frexp}.
+
+There is only one content decoding routine and it builds the value
+through multiplication and the {\C pow} routine (requires the math
+library).  The content decoding routine only supports the binary
+encoding of a REAL, not the decimal encoding.
+
+\begin{small}
+\begin{verbatim}
+typedef double AsnReal;
+
+extern AsnReal PLUS_INFINITY;
+extern AsnReal MINUS_INFINITY;
+
+void InitAsnInfinity();
+AsnLen BEncAsnReal (BUF_TYPE b, AsnReal *data);
+void BDecAsnReal (BUF_TYPE b, AsnReal *result, AsnLen *bytesDecoded,
+                       ENV_TYPE env);
+
+AsnLen BEncAsnRealContent (BUF_TYPE b, AsnReal *data);
+void BDecAsnRealContent (BUF_TYPE b, AsnTag tag, AsnLen len,
+                               AsnReal *result, AsnLen *bytesDecoded,
+                               ENV_TYPE env);
+
+/* do nothing */
+#define FreeAsnReal( v)
+void PrintAsnReal (FILE *f, AsnReal *b, unsigned short int indent);
+\end{verbatim}
+\end{small}
+
+{\C BDecAsnReal} will report an error if the value's tag is not UNIVERSAL-PRIM-9.
+{\C BDecAsnRealContent} will report an error if the base is not supported or the decimal type REAL encoding is received.
+
+
+\section{\label{bits-C-section}BIT STRING}
+
+The BIT STRING type is represented by the {\C AsnBits} structure.  It
+contains a pointer to the bits and integer that holds the length
+in bits of the BIT STRING\@.
+
+In addition to the standard encode, decode, print and free routines,
+there are some other utility routines.  {\C AsnBitsEquiv} returns
+TRUE if the given BIT STRINGs are identical.  The {\C SetAsnBit},
+{\C ClrAsnBit} and {\C GetAsnBit} are routines for writing and
+reading a BIT STRING value.
+
+You may notice that the AsnBits type does not have any means of
+handling linked pieces of BIT STRINGs. Some ASN.1 tools use lists of
+structures like {\C AsnBits} to represent BIT STRINGs.  This is done
+because, as you should be aware, BIT STRINGs can be encoded in a
+nested, constructed fashion.  The snacc BIT STRING decoder attempts to
+save you the hassle of dealing with fragments of BIT STRINGs by
+concatenating them in the decoding step.  Every BIT STRING value
+returned by the decoder will have contiguous bits.
+
+Some people contend that fragmented BIT STRINGs are necessary to
+support systems that lack enough memory to hold the entire value.
+Snacc encodes value ``backwards'' so the entire value must be encoded
+before it can be sent, thus you must have enough memory to hold the
+whole encoded value.  If the fragmented representation is useful to
+your protocol implementation for other reasons, it should be fairly
+simple to modify the BIT STRING routines.  Remember, no significance
+should be placed on where constructed BIT STRING values are fragmented.
+
+Snacc uses a table to hold pointers to the BIT STRING fragments in the
+buffer while it is decoding them. Once the whole BIT STRING value has
+been decoded, a block of memory that is large enough to hold the
+entire BIT STRING is allocated and the fragments are copied into it.
+The table initially can hold pointers to 128 fragments.  If more table
+entries are needed the stack will grow via {\C realloc} (with
+associated performance loss) and will not shrink after growing.  If
+you wish to modify this behaviour, change the
+{\ufn \dots/c-lib/inc/str-stk.h} file.
+
+The {\C FreeAsnBits} routine will free memory referenced by the
+{\C bits} pointer.
+
+\begin{small}
+\begin{verbatim}
+typedef struct AsnBits
+{
+  int   bitLen;
+  char  *bits;
+} AsnBits;
+
+extern char numToHexCharTblG[];
+#define TO_HEX( fourBits)        (numToHexCharTblG[(fourBits) & 0x0f])
+#define ASNBITS_PRESENT( abits)  ((abits)->bits != NULL)
+
+AsnLen BEncAsnBits (BUF_TYPE b, AsnBits *data);
+void BDecAsnBits (BUF_TYPE b, AsnBits *result, AsnLen *bytesDecoded,
+                 ENV_TYPE env);
+
+AsnLen BEncAsnBitsContent (BUF_TYPE b, AsnBits *bits);
+void BDecAsnBitsContent (BUF_TYPE b, AsnLen len, AsnTag tagId,
+                        AsnBits *result, AsnLen *bytesDecoded,
+                        ENV_TYPE env);
+
+void FreeAsnBits (AsnBits *v);
+void PrintAsnBits (FILE *f, AsnBits *b, unsigned short int indent);
+
+int AsnBitsEquiv (AsnBits *b1, AsnBits *b2);
+void SetAsnBit (AsnBits *b1, unsigned long int bit);
+void ClrAsnBit (AsnBits *b1, unsigned long int bit);
+int GetAsnBit (AsnBits *b1, unsigned long int bit);
+\end{verbatim}
+\end{small}
+
+{\C BDecAsnBits} will report an error if the tag is not UNIVERSAL-CONS-3 or UNIVERSAL-PRIM-3.
+When decoding constructed BIT STRING BER values, an error will be reported if a component other than the last one has non-zero unused bits in its last octet or an internal component does not have the UNIVERSAL-3 tag.
+If the decoder attempts to read past the end of the data an error will be reported.
+
+
+\section{\label{octets-C-section}OCTET STRING}
+The OCTET STRING type is represented by the {\C AsnOcts} structure.
+It contains a pointer to the octets and an integer that holds the length in octets of the OCTET STRING\@.
+
+As with BIT STRINGs, OCTET STRINGs can have constructed values.  These
+are handled in the same way as the constructed BIT STRING values. The
+decoded representation of an OCTET STRING is always contiguous.
+
+The {\C FreeAsnOcts} routine will free the memory referenced by the
+{\C octs} pointer.  The {\C AsnOctsEquiv} routine will return TRUE
+if the given OCTET STRINGs are identical.
+
+\begin{small}
+\begin{verbatim}
+typedef struct AsnOcts
+{
+  unsigned long int  octetLen;
+  char               *octs;
+} AsnOcts;
+
+#define ASNOCTS_PRESENT( aocts)  ((aocts)->octs != NULL)
+
+AsnLen BEncAsnOcts (BUF_TYPE b, AsnOcts *data);
+
+void BDecAsnOcts (BUF_TYPE b, AsnOcts *result, AsnLen *bytesDecoded,
+                 ENV_TYPE env);
+
+AsnLen BEncAsnOctsContent (BUF_TYPE b, AsnOcts *octs);
+void BDecAsnOctsContent (BUF_TYPE b, AsnLen len, AsnTag tagId,
+                         AsnOcts *result, AsnLen *bytesDecoded,
+                         ENV_TYPE env);
+
+void FreeAsnOcts (AsnOcts *o);
+void PrintAsnOcts (FILE *f, AsnOcts *o, unsigned short int indent);
+
+int AsnOctsEquiv (AsnOcts *o1, AsnOcts *o2);
+\end{verbatim}
+\end{small}
+
+{\C BDecAsnOcts} will report an error if the tag is not
+UNIVERSAL-CONS-4 or UNIVERSAL-PRIM-4.  When decoding constructed OCTET
+STRING BER values, an error will be reported if an internal component
+does not have the UNIVERSAL-4 tag. If the decoder attempts to read
+past the end of the data an error will be reported.
+
+
+\section{\label{oid-C-section}OBJECT IDENTIFIER}
+
+In snacc, OBJECT IDENTIFIERs are kept in their encoded form to improve
+performance.  The {\C AsnOid} type is defined as {\C AsnOcts}, as
+it holds the octets of the encoded OBJECT IDENTIFIER\@.  It seems that
+the most common operation with OBJECT IDENTIFIERs is to compare for
+equality, for which the encoded representation (which is canonical)
+works well.
+
+There is a linked OBJECT IDENTIFIER representation called {\C OID}
+and routines to convert it to and from the {\C AsnOid} format, but it
+should not be used if performance is an issue.
+
+Since the OBJECT IDENTIFIERs are represented {\C AsnOcts}, the
+{\C AsnOcts} content encoding routine can be used for the
+{\C AsnOid} content encoding routine.  The other {\C AsnOcts}
+encoding and decoding routines cannot be used because the OBJECT
+IDENTIFIER has a different tag and cannot be encoded in a constructed
+fashion.
+
+An OBJECT IDENTIFIER must have a minimum of two arc numbers but the
+decoding routines do not check this.
+
+\begin{small}
+\begin{verbatim}
+typedef AsnOcts AsnOid;
+
+#define ASNOID_PRESENT( aoid)  ASNOCTS_PRESENT (aoid)
+
+AsnLen BEncAsnOid (BUF_TYPE b, AsnOid *data);
+void BDecAsnOid (BUF_TYPE b, AsnOid *result, AsnLen *bytesDecoded,
+                ENV_TYPE env);
+
+#define BEncAsnOidContent(b, oid)  BEncAsnOctsContent(b, oid)
+void BDecAsnOidContent (BUF_TYPE b, AsnTag tag, AsnLen len,
+                       AsnOid  *result, AsnLen *bytesDecoded,
+                       ENV_TYPE env);
+
+#define FreeAsnOid  FreeAsnOcts
+void PrintAsnOid (FILE *f, AsnOid *b, unsigned short int indent);
+
+#define AsnOidsEquiv( o1, o2)   AsnOctsEquiv (o1, o2)
+\end{verbatim}
+\end{small}
+
+
+\section{\label{list-C-section}SET OF and SEQUENCE OF}
+
+The SET OF and SEQUENCE OF type are represented by the {\C AsnList}
+structure.  An {\C AsnList} consists of a head object that has
+pointers to the first, current and last nodes and the current number
+of nodes in the list.  Each list node has a pointer to its next and
+previous list member and the node's data.  The first list node's
+previous pointer is always NULL and the last list node's next pointer
+is always NULL\@.
+
+Each SET OF or SEQUENCE OF type is defined as an {\C AsnList}, so the
+element type information (kept via a {\C void~*}) is not kept,
+therefore, the {\C AsnList} type is not type safe.
+
+The {\C AsnList} is a doubly linked list to simplify ``backwards''
+encoding.  The reverse link allows the list to be traversed in reverse
+so the components can be encoded from last to first.
+
+Initially, the lists were designed to allow the list element itself to
+be contained in the list node (hence the {\C elmtSize} parameter to
+the AsnListNew() routine).  The design eventually changed such that
+every list element was reference by pointer from the list node.
+
+A small problem with the {\C AsnListNew} routine is the memory
+allocation.  Since it is used by the decoding routines to allocate new
+lists, it uses whatever memory management you have setup with the
+{\C Asn1Alloc} macro (see Section~\ref{lib-mem-C-section}).  This may not be
+desirable when building values to be transmitted.  You may need to
+provide another AsnListNew routine that uses a different allocation
+scheme to solve this.
+
+\begin{small}
+\begin{verbatim}
+typedef struct AsnListNode
+{
+    struct AsnListNode *prev;
+    struct AsnListNode *next;
+    void            *data; /* this must be the last field of this structure  */
+} AsnListNode;
+
+typedef struct AsnList
+{
+    AsnListNode *first;
+    AsnListNode *last;
+    AsnListNode *curr;
+    int        count;    /* number of elements in list               */
+    int        dataSize; /* space required in each node for the data */
+} AsnList;
+
+#define FOR_EACH_LIST_ELMT( elmt, list) ...
+#define FOR_EACH_LIST_ELMT_RVS( elmt, list) ...
+#define FOR_REST_LIST_ELMT( elmt, al) ...
+
+#define CURR_LIST_ELMT( al)    (al)->curr->data
+#define NEXT_LIST_ELMT( al)    (al)->curr->next->data
+#define PREV_LIST_ELMT( al)    (al)->curr->prev->data
+#define LAST_LIST_ELMT( al)    (al)->last->data
+#define FIRST_LIST_ELMT( al)   (al)->first->data
+#define LIST_EMPTY(al) (( al)->count == 0)
+
+#define CURR_LIST_NODE( al) ((al)->curr)
+#define FIRST_LIST_NODE( al) ((al)->first)
+#define LAST_LIST_NODE( al) ((al)->last)
+#define PREV_LIST_NODE( al) ((al)->curr->prev)
+#define NEXT_LIST_NODE( al) ((al)->curr->next)
+#define SET_CURR_LIST_NODE( al, listNode)  ((al)->curr = (listNode))
+
+void  AsnListRemove (AsnList *l);
+void *AsnListAdd (AsnList *l);
+void *AsnListInsert (AsnList *list);
+void  AsnListInit (AsnList *list, int dataSize);
+AsnList *AsnListNew (int elmtSize);
+void *AsnListPrev (AsnList *);
+void *AsnListNext (AsnList *);
+void *AsnListLast (AsnList *);
+void *AsnListFirst (AsnList *);
+void *AsnListPrepend (AsnList *);
+void *AsnListAppend (AsnList *);
+void *AsnListCurr (AsnList *);
+int   AsnListCount (AsnList *);
+AsnList *AsnListConcat (AsnList *, AsnList *);
+\end{verbatim}
+\end{small}
+
+There are a number of macros for dealing with the list type, the
+most important being the list traversal macros.  The
+{\C FOR\_EACH\_LIST\_ELMT} macro acts like a ``for'' statment that
+traverses forward through the list.  The first parameter should be a
+pointer to the list element type that will be used to hold the current list
+element for each iteration of the ``for'' loop.  The second parameter is
+the list of elements that you wish to traverse.
+
+The {\C FOR\_EACH\_LIST\_ELMT\_RVS} macro is identical to the
+{\C FOR\_EACH\_LIST\_ELMT} macro except that is moves from the back of
+the list to the front.   The {\C FOR\_REST\_LIST\_ELMT} macro is
+similar to the other two but it does not reset the {\C curr} pointer
+in the {\C AsnList} type.  This has the effect of iterating from the
+current element to the end of the list.   Look in the generated code
+for a better indication of how to use these macros.  The other macros
+are straight forward.
+
+
+\section{\label{any-C-section}ANY and ANY DEFINED BY}
+
+
+The ANY and ANY DEFINED BY type are classically the most irritating
+ASN.1 types for compiler writers.  They rely on mechanisms outside of
+ASN.1 to specify what types they contain.  The 1992 ASN.1 standard has
+rectified this by adding much stronger typing semantics and eliminating
+macros.
+
+The ANY DEFINED BY type can be handled automatically by {\em snacc} if
+the SNMP OBJECT-TYPE \cite{snmp} macro is used to specify the
+identifier value to type mappings.  The identifier can be an INTEGER
+or OBJECT IDENTIFIER\@.  Handling ANY types properly will require
+modifications to the generated code since there is no identifier
+associated with the type.
+
+The general approach used by {\em snacc} to handle ANY DEFINED BY
+types is to lookup the identifier value in a hash table for the
+identified type.  The hash table entry contains information about the
+type such as the routines to use for encoding and decoding.
+
+Two hash tables are used, one for INTEGER to type mappings and the
+other for OBJECT IDENTIFIER to type mappings.  {\em Snacc} generates
+an {\tt InitAny} routine for each module that uses the OBJECT-TYPE
+macro.  This routine adds entries to the hash table(s).  The {\tt
+InitAny} routine(s) is called once before any encoding or decoding is
+done.
+
+
+The hash tables are constructed such that an INTEGER or OBJECT
+IDENTIFIER value will hash to an entry that contains:
+\begin{itemize}
+\item {the {\tt anyId}}
+\item {the INTEGER or OBJECT IDENTIFIER that maps to it}
+\item {the size in bytes of the identified data type}
+\item {a pointer to the type's PDU encode routine}
+\item {a pointer to the type's PDU decode routine}
+\item {a pointer to the type's print routine}
+\item {a pointer to the type's free routine}
+\end{itemize}
+The referenced encode and decode routines are PDU oriented in that
+they encode the type's tag(s) and length(s) as well as the type's
+content.
+
+{\em Snacc} builds an {\tt enum} called {\tt AnyId} that enumerates
+each mapping defined by the OBJECT-TYPE macros.  The name of the value
+associated with each macro is used as part of the enumerated
+identifier.  The {\tt anyId} in the hash table holds the identified
+type's {\tt AnyId enum} value.  The {\tt anyId} is handy for making
+decisions based on the received identifier, without comparing OBJECT
+IDENTIFIERs.  If the identifiers are INTEGERs then the {\tt anyId} is
+less useful.
+
+With ANY DEFINED BY types, it is important to have the identifier
+decoded before the ANY DEFINED BY type is decoded.  Hence, an ANY
+DEFINED BY type should not be declared before its identifier in a SET
+since SETs are un-ordered. An ANY DEFINED BY type should not be
+declared after its identifier in a SEQUENCE\@. {\em Snacc} will print a
+warning if either of these situations occur.
+
+The hash tables may be useful to plain ANY types which do not have an
+identifier field like the ANY DEFINED BY types; the OBJECT-TYPE macro
+can be used to define the mappings and the {\tt SetAnyTypeByInt} or
+{\tt SetAnyTypeByOid} routine can be called with the appropriate
+identifier value before encoding or decoding an ANY value.  The
+compiler will insert calls to these routines where necessary with some
+of the arguments left as ``???''.  There will usually be a ``{\tt /*
+ANY -- Fix me! */}'' comment before code that needs to be modified to
+correctly handle the ANY type.  The code generated from an ASN.1
+module that uses the ANY type will not compile without modifications.
+
+OPTIONAL ANYs and ANY DEFINED BY types that have not been tagged are a
+special problem for {\em snacc}.  Unless they are the last element of a SET
+or SEQUENCE, the generated code will need to be modified.  {\em Snacc} will
+print a warning message when it encounters one of these cases.
+
+To illustrate how ANY DEFINED BY values are handled, we present
+typical encoding and decoding scenarios. Each ANY or ANY DEFINED BY
+type is represented in C by the {\tt AsnAny} type which contains only
+a {\tt void *} named {\tt value} to hold a pointer to the value and a
+{\tt AnyInfo *} named {\tt ai} which points to a hash table entry.
+
+When encoding, before the ANY DEFINED BY value is encoded, {\tt
+SetAnyTypeByOid} or {\tt SetAnyTypeByInt} (depending on the type of
+the identifier) is called with the current identifier value to set the
+{\tt AsnAny} value's {\tt ai} pointer to the proper hash table entry.
+Then to encode the ANY DEFINED BY value, the encode routine pointed to
+from the hash table entry is called with the {\tt value} {\tt void *}
+from the {\tt AsnAny} value.  The {\tt value} {\tt void *} in the {\tt
+AsnAny} should point to a value of the correct type for the given
+identifier, if the user set it up correctly.  Note that setting the
+{\tt void *} value is not type safe; one must make sure that the
+value's type is the same as indicated by the identifier.
+
+For decoding, the identifier must be decoded prior to the ANY DEFINED
+BY value otherwise the identifier will contain an uninitialized value.
+Before the ANY or ANY DEFINED BY value is decoded, {\tt
+SetAnyTypeByOid} or {\tt SetAnyTypeByInt} (depending on the type of
+the identifier) is called to set the {\tt AsnAny} value's {\tt ai}
+pointer to the proper hash table entry.  Then a block of memory of the
+size indicated in the hash table entry is allocated, and its pointer
+stored in the {\tt AsnAny} value's {\tt void *} entry.  Then the decode
+routine pointed to from the hash table entry is called with the newly
+allocated block as its value pointer parameter.  The decode routine
+fills in the value assuming it is of the correct type. Simple!
+
+There is a problem with {\em snacc}'s method for handling ANY DEFINED
+BY types for specifications that have two or more ANY DEFINED BY types
+that share some identifier values.  Since only two hash tables are
+used and they are referenced using the identifier value as a key,
+duplicate identifiers will cause unresolvable hash collisions.
+
+Here is some of the {\C AsnAny} related code from the header file.  It
+should help you understand the way things are done a bit better.  Look
+in the {\ufn hash.c} and {\ufn hash.h} files as well.
+\begin{small}
+\begin{verbatim}
+/*
+ * 1 hash table for integer keys
+ * 1 hash table for oid keys
+ */
+extern Table *anyOidHashTblG;
+extern Table *anyIntHashTblG;
+
+typedef (*EncodeFcn) (BUF_TYPE b, void *value);
+typedef void (*DecodeFcn) (BUF_TYPE b, void *value,
+                           AsnLen *bytesDecoded, ENV_TYPE env);
+typedef void (*FreeFcn) (void *v);
+typedef void (*PrintFcn) (FILE *f, void *v);
+
+/*
+ * this is put into the hash table with the
+ * int or oid as the key
+ */
+typedef struct AnyInfo
+{
+  int          anyId;  /* will be a value from the AnyId enum */
+  AsnOid       oid;    /* will be zero len/null if intId is valid */
+  AsnInt       intId;
+  unsigned int size;  /* size of the C data type (ie as ret'd by sizeof) */
+  EncodeFcn    Encode;
+  DecodeFcn    Decode;
+  FreeFcn      Free;
+  PrintFcn     Print;
+} AnyInfo;
+
+typedef struct AsnAny
+{
+    AnyInfo   *ai; /* point to entry in hash tbl that has routine ptrs */
+    void      *value; /* points to the value */
+} AsnAny;
+
+/*
+ * Returns anyId value for the given ANY type.
+ * Use this to determine to the type of an ANY after decoding
+ * it. Returns -1 if the ANY info is not available
+ */
+#define GetAsnAnyId( a)  (((a)->ai)? (a)->ai->anyId: -1)
+
+/*
+ * used before encoding or decoding a type so the proper
+ * encode or decode routine is used.
+ */
+void SetAnyTypeByInt (AsnAny *v, AsnInt id);
+void SetAnyTypeByOid (AsnAny *v, AsnOid *id);
+
+
+/*
+ * used to initialize the hash table(s)
+ */
+void InstallAnyByInt (int anyId,  AsnInt intId,
+                     unsigned int size, EncodeFcn encode,
+                     DecodeFcn decode, FreeFcn free, PrintFcn print);
+
+void InstallAnyByOid (int anyId, AsnOid *oid, unsigned int size,
+                     EncodeFcn encode, DecodeFcn decode, FreeFcn free,
+                     PrintFcn print);
+
+/*
+ * Standard enc, dec, free, & print routines.
+ * for the AsnAny type.
+ * These call the routines referenced from the
+ * given value's hash table entry.
+ */
+void FreeAsnAny (AsnAny *v);
+AsnLen BEncAsnAny (BUF_TYPE b, AsnAny *v);
+void BerDecAsnAny (BUF_TYPE b, AsnAny  *result, AsnLen *bytesDecoded,
+                  ENV_TYPE env);
+void PrintAsnAny (FILE *f, AsnAny *v, unsigned short indent);
+
+
+/* AnyDefinedBy is the same as AsnAny */
+typedef AsnAny                 AsnAnyDefinedBy;
+#define FreeAsnAnyDefinedBy    FreeAsnAny
+#define BEncAsnAnyDefinedBy    BEncAsnAny
+#define BDecAsnAnyDefinedBy    BDecAsnAny
+#define PrintAsnAnyDefinedBy   PrintAsnAny
+\end{verbatim}
+\end{small}
+
+
+\section{\label{lib-buf-section}Buffer Management}
+
+Encoding and decoding performance is heavily affected by the cost of
+writing to and reading from buffers, thus, efficient buffer management
+is necessary.  Flexibility is also important to allow integration of
+the generated encoders and decoders into existing environments.  To
+provide both of these features, the calls to the buffer routines are
+actually macros that can be configured as you want (see
+{\ufn \dots/c-lib/inc/asn-config.h}). Virtually all buffer calls will
+be made from the encode/decode library routines.  So macros used in
+the generated code will make buffer calls.
+
+If your environment uses a single, simple buffer type, the buffer
+routine macros can be defined as the macros for your simple buffer type.
+This results in the buffer type being bound at compile time, with no
+function call overhead from the encode or decode routines.  This also
+means that the runtime library only works for that buffer type.
+
+If multiple buffer formats must be supported at runtime, the buffer
+macros can be defined like the ISODE buffer calls, where a buffer type
+contains pointers to the buffer routines and data of the current
+buffer type.  This approach will hurt performance since each buffer
+operation will be an indirect function call.  I have implemented
+buffers like this for the table tools (performace is already hosed so
+slower buffer routines are a drop in the bucket).  See the type tables
+section for their description.
+
+The backwards encoding technique requires special buffer primitives
+that write from the end of the buffer towards the front.  This
+requirement will make it impossible to define buffer primitives that
+write directly to stream oriented objects such as TCP connections.  In
+cases such as this, you must encode the entire PDU before sending it.
+(Or else extend the back-end of the compiler to produce ``forwards''
+encoders as well).
+
+Nine buffer primitives are required by the runtime library's encode
+and decode routines:
+\begin{itemize}
+\item {\C unsigned char BufGetByte (BUF\_TYPE b);}
+\item {\C unsigned char BufPeekByte (BUF\_TYPE b);}
+\item {\C char *BufGetSeg (BUF\_TYPE b, unsigned long int *lenPtr);}
+\item {\C void BufCopy (char *dst, BUF\_TYPE b, unsigned long int *lenPtr);}
+\item {\C void BufSkip (BUF\_TYPE b, unsigned long int len);}
+\item {\C void BufPutByteRv (BUF\_TYPE b,  unsigned char byte);}
+\item {\C void BufPutSegRv (BUF\_TYPE b, char *data, unsigned long int len);}
+\item {\C int BufReadError (BUF\_TYPE b);}
+\item {\C int BufWriteError (BUF\_TYPE b);}
+\end{itemize}
+
+These buffer operations are described in the next subsections.  The
+{\C ExpBuf}, {\C SBuf} and {\C MinBuf} buffer formats that come
+with the Snacc distribution and how to configure the buffer operations
+are discussed following that.
+
+\subsection{\label{buf-read-c-section}Buffer Reading Routine Semantics}
+
+The buffer reading routines are called by the decoder routines.  The
+following is the list of necessary buffer reading routines and their
+semantics.   Be sure to setup the buffer in reading mode before
+calling any of these routines.  The means of putting a buffer in
+reading mode depends on the buffer type.
+
+\begin{verbatim}
+unsigned char BufGetByte (BUF_TYPE b);
+\end{verbatim}
+Returns the next byte from the buffer and advances the current pointer
+such that a subsequent buffer read returns the following byte(s).
+This will set the read error flag if an attempt to read past the end
+of the data is made.
+
+\begin{verbatim}
+unsigned char BufPeekByte (BUF_TYPE b);
+\end{verbatim}
+Returns the next byte from the buffer without advancing the current
+pointer.
+
+\begin{verbatim}
+char *BufGetSeg (BUF_TYPE b, unsigned long int *lenPtr);
+\end{verbatim}
+Returns a pointer to the next bytes from the buffer and advances the
+current pointer. {\C *lenPtr} should contain the number of bytes to
+read.  If the buffer has a least {\C *lenPtr} contiguous bytes
+remaining to be read before calling {\C BufGetSeg}, a pointer to
+them will be returned and {\C *lenPtr} will be unchanged.  If there
+are less than {\C *lenPtr} contiguous bytes remaining in the buffer
+before the call to {\C BufGetSeg}, a pointer to them is returned and
+{\C *lenPtr} is set to the actual number of bytes that are
+referenced by the returned pointer.  The current pointer will be
+advanced by the value returned in {\C *lenPtr} (this may advance to the
+next buffer segment if any).  Note that the read error flag is not set
+if  {\C *lenPtr} is greater than the remaining number of unread
+bytes.
+
+\begin{verbatim}
+unsigned long int BufCopy (char *dst, BUF_TYPE b, unsigned long int len)
+\end{verbatim}
+Copies the next {\C len} bytes from the buffer into the {\C dst char~*}
+and advances the current pointer appropriately.  Returns the
+number of bytes actually copied.  The number of bytes copied will be
+less than requested only if the end of data is reached, in which case
+the read error flag is set.
+
+
+\begin{verbatim}
+void BufSkip (BUF_TYPE b, unsigned long int len);
+\end{verbatim}
+Advances the buffer's current pointer by {\C len} bytes.  This will set the
+read error flag if less than {\C len} unread bytes remain in the
+buffer before the call to {\C BufSkip}.
+
+\begin{verbatim}
+int BufReadError (BUF_TYPE b);
+\end{verbatim}
+Returns non-zero if a read error occurred for the given buffer.
+Read errors occur if one of the buffer reading routines attempted to
+read past the end of the buffer's data.
+
+\subsection{\label{buf-write-c-section}Buffer Writing Routine Semantics}
+
+Encoding routines call the buffer writing routines.  Here is a list of
+the buffer writing routine and their semantics.  Before calling the
+writing routines, you should make sure the buffer is setup for
+writing in reverse mode.  The means of doing this depends on the
+buffer type.
+
+\begin{verbatim}
+void BufPutByteRvs (BUF_TYPE b, unsigned char byte);
+\end{verbatim}
+Writes the given byte to the beginning of the data in the given
+buffer.  The newly written byte becomes part of the buffer's data such
+that subsequent writes place bytes before the newly written byte.  If
+a buffer write error occurs, subsequent writes do nothing.
+
+\begin{verbatim}
+void BufPutSegRvs (BUF_TYPE b, char *data, unsigned long int len);
+\end{verbatim}
+Prepends the given bytes, {\C data}, of length {\C len} to the
+beginning of the data in the given buffer {\C b}.  The {\C data}
+bytes are written such that the first byte in {\C data} becomes the
+first byte of the buffer's data, followed by the rest. (This means the
+bytes in {\C data} are not reversed, they are simply prepended as a
+unit to the buffer's original data). If a buffer write error occurs,
+subsequent writes do nothing.
+
+\begin{verbatim}
+int BufWriteError (BUF_TYPE b);
+\end{verbatim}
+Returns non-zero if a write error occurred for the given buffer.
+Write errors occur if the buffer runs out of space for data or cannot
+allocate another data block (depends on the buffer type).
+
+\subsection{Buffer Configuration}
+
+The runtime library's encode and decode routines as well as the
+generated code access the buffers via the nine buffer macros
+described in the last two sections.  These macros can be defined to
+call simple macros for speed or to call functions.  Note that the
+buffer configuration is bound at the time the library and generated
+code are compiled.
+
+The following is from {\ufn \dots/include/asn-config.h} and shows how to
+configure the buffer routines.  This setup will make all calls to
+{\C BufGetByte} in the library and  generated code call your
+{\C ExpBufGetByte} routine; the other buffer routines are mapped to
+their {\C ExpBuf} equivalents in a similar way.
+
+\begin{verbatim}
+#include "exp-buf.h"
+#define BUF_TYPE			ExpBuf **
+#define BufGetByte( b)			ExpBufGetByte (b)
+#define BufGetSeg( b, lenPtr)		ExpBufGetSeg (b, lenPtr)
+#define BufCopy( dst, b, lenPtr)	ExpBufCopy (dst, b, lenPtr)
+#define BufSkip( b, len)		ExpBufSkip (b, len)
+#define BufPeekByte( b)			ExpBufPeekByte (b)
+#define BufPutByteRv( b,  byte)		ExpBufPutByteRv (b, byte)
+#define BufPutSegRv( b, data, len)	ExpBufPutSegRv (b, data, len)
+#define BufReadError( b)		ExpBufReadError (b)
+#define BufWriteError( b)		ExpBufWriteError (b)
+\end{verbatim}
+
+If you want to use your own buffer type, simply edit the
+{\ufn asn-config.h} file such that it includes your buffer's header
+file, sets the {\C BUF\_TYPE} type, and defines the nine buffer
+routines ({\C BufGetByte} etc.) to call your buffer routines.  Your
+buffer routines should have the semantics and prototypes described in
+the last two sections (Sections \ref{buf-read-c-section} and~\ref{buf-write-c-section}).
+
+\subsection{ExpBuf Buffers}
+
+The {\C ExpBuf} buffers are a doubly linked series of buffers that
+can be expanded when encoding by adding new buffers as necessary.
+Each {\C ExpBuf} consists of two blocks of memory, one for the
+control and linking information and the other for the data; when
+refering to an {\C ExpBuf} both parts are included. {\C ExpBuf} is
+short for ``Expanding Buffer''.  Look in {\ufn \dots/c-lib/exp-buf.c}
+for an ASCII drawing of the {\C ExpBuf} buffers. Take a look a the
+{\ufn \dots/c-examples/simple/expbuf-ex.c} file for a quick
+introduction on how to use {\C ExpBufs}.
+
+{\C ExpBufs} are fairly general and useful when a reasonable upper
+bound can not be put on the size of the encoded values that will be
+encountered by the protocol.  The flexibility of these buffer routines
+will hurt the performance as many of the {\C ExpBuf} calls are not
+macros and new buffers may need to be allocated during encoding.
+
+For encoding you need to write into the {\C ExpBufs}. Start with a
+single ExpBuf (or the last one in a list of ExpBufs from a previous
+encoding).  Make sure this ExpBuf has been reset is ``Write Reverse''
+mode (use {\C ExpBufResetInWriteRvsMode}).  This clears the write
+error flag (and sets the read error flag in case you try a read) and
+resets the data start and data end pointers such that the buffer is
+empty and ready for writing from the end towards the front.
+
+During encoding, if an {\C ExpBuf}'s data part fills up, a new
+{\C ExpBuf} before (since writing is reversed) the current buffer is
+needed.  If the {\C prev} pointer in the current buffer is non-NULL,
+the previous buffer is reset for writing and becomes the current
+buffer.  If the {\C prev} pointer in the current buffer si NULL, a new
+buffer is allocated, its pointer is placed in {\C prev} and it
+becomes the current buffer.  The notion of current buffer is handled
+by the parameter to the encoding and decoding routines.  The buffer
+parameter is an {\C ExpBuf~**} and it always holds the current
+{\C ExpBuf~*} (current buffer).
+
+When encoding is finished and the encoded value has been transmitted,
+you have two options.   You can free the entire buffer list or you can
+keep them around and re-use them for the next encoding.  Freeing the
+buffers after each encoding may be quite slow.  If you re-use the
+buffers, the buffer list will grow to the size of the largest encoding
+and stay there.  You can easily implement other management schemes.
+By default the {\C ExpBuf}s (both parts) are allocated and freed with
+{\C malloc} and {\C free}; you may want to change this to fit your
+environment better. If buffer allocation fails during a write, the
+writeError flag will be set and subsequent writes will do nothing.
+
+For decoding you will want to put the encoded data into the
+{\C ExpBuf} format.   For example, if your encoded value is
+contiguous in a single block of memory, you could use
+{\C ExpBufInstallDataInBuf} to attach your data to a single ExpBuf.
+Once your data is in the ExpBuf format, you should call
+{\C ExpBufResetInReadMode} on the first buffer in the list (if more
+than one).  Then you can pass it to the desired decode routine.
+
+If a decode routine attempts to read past the end of a buffer (usually
+due to an erroneous encoding), the readError flag will be set for the
+current {\C ExpBuf} in the list.  This error will typically cause
+the decoding routine that called the buffer read routine to call
+{\C longjmp}.
+
+The {\C BUF\_TYPE} is defined as {\C ExpBuf~**} so that the buffer
+parameter {\C b} can be set to the next active {\C ExpBuf} by the
+buffer routines.  This saves having a head of the list type structure
+that keeps track of the first, last and current buffers (the
+indirectness of this approach would hurt performance).
+
+There are many routines for administrating the {\C ExpBufs} if you
+want to treat them like an abstract data type.  Sometimes it may be
+easier to skip the utility routines and modify the fields directly.
+
+The following routines are the required nine buffer routines.  Compile
+the library and the generated code with the {\C USE\_EXP\_BUF} symbol
+defined to map buffer routines that the generated and library code
+calls to the {\C ExpBuf} routines (see
+{\ufn \dots/c-lib/inc/asn-config.h}). These {\C ExpBuf} routines
+adhere to the buffer routine prototypes and semantics defined in
+Sections \ref{buf-read-c-section} and~\ref{buf-write-c-section}.
+
+\begin{verbatim}
+void          ExpBufSkip (ExpBuf **, unsigned long len);
+int           ExpBufCopy (char *dst, ExpBuf **b, unsigned long len);
+unsigned char ExpBufPeekByte (ExpBuf **b);
+char         *ExpBufGetSeg (ExpBuf **b, unsigned long *len);
+void          ExpBufPutSegRvs (ExpBuf **b, char *data, unsigned long len);
+unsigned char ExpBufGetByte (ExpBuf **b);
+void          ExpBufPutByteRvs (ExpBuf **b, unsigned char byte);
+
+#define ExpBufReadError( b)   ((*b)->readError)
+#define ExpBufWriteError( b)  ((*b)->writeError)
+\end{verbatim}
+
+
+The following {\C ExpBuf} routines are also provided.  Their
+descriptions can be found in the code.
+\begin{verbatim}
+void ExpBufInit (unsigned long dataBlkSize);
+void ExpBufInstallDataInBuf (ExpBuf *b, char *data, unsigned long int len);
+
+void ExpBufResetInReadMode (ExpBuf *b);
+void ExpBufResetInWriteRvsMode (ExpBuf *b);
+
+ExpBuf *ExpBufAllocBufAndData();
+void ExpBufFreeBufAndData (ExpBuf *b);
+void ExpBufFreeBufAndDataList (ExpBuf *b);
+
+ExpBuf *ExpBufNext (ExpBuf *b);
+ExpBuf *ExpBufPrev (ExpBuf *b);
+ExpBuf *ExpBufListLastBuf (ExpBuf *b);
+ExpBuf *ExpBufListFirstBuf (ExpBuf *b);
+
+int ExpBufAtEod (ExpBuf *b);
+int ExpBufFull (ExpBuf *b);
+int ExpBufHasNoData (ExpBuf *b);
+
+char *ExpBufDataPtr (ExpBuf *b);
+unsigned long ExpBufDataSize (ExpBuf *b);
+unsigned long ExpBufDataBlkSize (ExpBuf *b);
+\end{verbatim}
+
+\subsection{SBuf Buffers}
+
+The {\C SBuf}s are simple buffers of a fixed size, much like an
+{\C ExpBuf} that cannot expand.  If you attempt to write
+past the end of the buffer, the writeError flag will be set and the
+encoding will fail.  If you attempt to read past the end of a buffer
+the readError flag will be set and the decoding will fail.
+
+The {\C SBuf}s are useful if you can put a reasonable upper bound on
+the size of the encodings you will be dealing with.  The buffer
+operations are much simpler because the data is contiguous.  In fact,
+all of the {\C SBuf} buffer operations are implemented by macros.
+
+Look in {\ufn \dots/c-examples/simple/sbuf-ex.c} for a quick
+introduction to using {\C SBuf}s in your code. The following
+operations are defined for the {\C SBuf} buffers.
+\begin{verbatim}
+/* The nine required buffer operations */
+#define SBufSkip(b, skipLen) ...
+#define SBufCopy(dst, b, copyLen) ...
+#define SBufPeekByte(b) ...
+#define SBufGetSeg( b, lenPtr) ...
+#define SBufPutSegRvs(b, seg, segLen) ...
+#define SBufGetByte(b) ...
+#define SBufPutByteRvs(b, byte) ...
+#define SBufReadError(b) ...
+#define SBufWriteError(b) ...
+
+/* other useful buffer operations */
+#define SBufInit(b, data, dataLen) ...
+#define SBufResetInReadMode(b) ...
+#define SBufResetInWriteRvsMode(b) ...
+#define SBufInstallData(b, data, dataLen) ...
+#define SBufDataLen(b) ...
+#define SBufDataPtr(b) ...
+#define SBufBlkLen(b) ...
+#define SBufBlkPtr(b) ...
+#define SBufEod(b) ...
+\end{verbatim}
+
+Snacc is configured to use {\C SBuf}s by default.  The symbols that
+will affect the buffer configuration during compilation of the
+libraries and generated code are {\C USE\_EXP\_BUF} and
+{\C USE\_MIN\_BUF}.
+
+\subsection{MinBuf Buffers}
+
+The {\C MinBuf}s provide maximum performance but should only be used under
+restricted conditions (to avoid segmentation faults etc.).  No checks are
+made to determine whether a decoder is reading past the end of the
+buffer or if an encoder is writing ``past'' the beginning of the data
+block (remember, snacc encoders write backwards).
+
+A {\C MinBuf} is just a {\C char~**}; the referenced {\C char~*} points
+to the next byte to be read or the last byte that was written. The
+read routine advances the {\C char~*} and the write reverse routines
+move the {\C char~*} backwards.
+
+When you start encoding, the {\C MinBuf} {\C char~**} should be a
+pointer to a pointer to the byte AFTER the last valid byte in your
+buffer. For example the following C fragment would work:
+\begin{verbatim}
+PersonnelRecord pr;
+char blk[128];
+char *minBuf;
+
+minBuf = blk + 128; /* start writing a end of block */
+BEncPersonnelRecord (&minBuf, pr);
+\end{verbatim}
+
+The {\C MinBuf}s should only be used during encoding if the size of
+the {\C MinBuf}'s buffer is guaranteed to be large enough to hold
+the encoded value. Otherwise, the encoder will blindly continue
+writing into whatever lies after the {\C MinBuf}'s buffer.
+
+When you start decoding, the {\C MinBuf} value should be a pointer
+to a pointer to the first byte of the BER value to be decoded.  Look
+in {\ufn \dots/c-examples/simple/minbuf-ex.c} for a real example.
+
+The {\C MinBuf}s should only be used for decoding when the value
+being decoded is certain to contain no encoding errors. Otherwise, for
+encodings that are incomplete or contain length errors, the decoder may
+attempt to read the memory that follows the {\C MinBuf}s. If you are
+lucky, the decoder will return an error with the {\C longjmp}
+mechanism. If your system has memory protection and you are unlucky
+this may abort your program.  If you are really unlucky, the data
+following the {\C MinBuf} may fool the decoder into thinking that it
+is valid and you receive a wrong PDU with no error indication.  This
+risky technique has been used successfully in some systems where the
+encodings are not guaranteed to be correct.
+
+To configure the generated code to use the {\C MinBuf}s, compile it
+with the {\C USE\_MIN\_BUF} symbol defined.
+
+\subsection{Hybrid Buffer Solutions}
+
+The decoding routines only call the buffer reading routines and the
+encoding routines only call the buffer writing routines.  You may wish
+to choose a different buffer format for the encoding and decoding to
+gain performance.  For instance, if you can be sure that the size of
+outgoing encodings is less than a certain upper bound, but don't want
+to risk segmentation faults when decoding incoming values, you could
+use {\C MinBuf}s for the the buffer writing (encoding) operations
+and {\C SBuf}s or {\C ExpBuf}s for the buffer reading (decoding)
+operations.
+
+In this case you will need to massage the generated code to achieve
+the desired results.
+
+\section{\label{lib-mem-C-section}Dynamic Memory Management}
+
+Like buffer management, efficient memory management is very important
+for efficient decoders.  As a decoder decodes a value, it allocates
+memory to hold the internal representation of the value.
+
+The runtime librarys and the generated decode routines allocate memory
+using the\linebreak {\C Asn1Alloc} routine. The runtime librarys
+and the generated free routines free memory using the {\C Asn1Free}
+routine.  The decoding routines also use {\C CheckAsn1Alloc} to make
+sure that each allocation succeeded.  These memory routines are defined
+in the
+{\ufn asn-config.h} and have the prototypes:
+\begin{verbatim}
+void *Asn1Alloc (unsigned long int size);
+void  Asn1Free (void *ptr);
+int   CheckAsn1Alloc (void *ptr, ENV_TYPE env);
+\end{verbatim}
+
+The decoders assume that {\C Asn1Alloc} returns a \emph{zeroed} block
+of memory.  This saves explicit initialization of OPTIONAL elements with
+NULL in the generated decoders.  It wouldn't be too hard to modify the
+compiler to produce decoders that initialized OPTIONAL elements
+explicitly.
+
+The generated free routines hierarchically free all a value's
+memory using a depth first algorithm.  If you use the Nibble Memory
+scheme, you will not need the generated free routines.
+
+By default, snacc uses a ``Nibble Memory'' scheme to provide efficient
+memory management.  Nibble Memory works by allocating a large block of
+memory for allocating from.  When the decoded value has been
+processed, you can free the entire value by calling a routine that
+simply resets a few pointers.  There is no need to traverse the entire
+value freeing a piece at a time.  The following is from
+{\ufn nibble-alloc.h}.
+\begin{verbatim}
+void InitNibbleMem (unsigned long int initialSize,
+                   unsigned long int incrementSize);
+void *NibbleAlloc (unsigned long int size);
+void ResetNibbleMem();
+void ShutdownNibbleMem();
+\end{verbatim}
+
+You must explicitly initialize the Nibble Memory with the
+{\C InitNibbleMem} routine before using a decoder.  You must specify
+the initial size of the nibble block and the size that it should grow
+by.  If you attempt to allocate a block that is larger that the
+initial nibble block or its grow size, a new block of the correct size
+will be allocated.  Note that the ``growth'' occurs by linking
+separate blocks, not by the potentially slow alternative,
+{\C realloc}.
+
+When you have processed the decoded value you can free it by calling
+{\C ResetNibbleMem}.  This resets a couple pointers and frees any
+extra blocks that were allocated to handle values larger than the
+initial block size.  The original memory block is zeroed
+using {\C memset} so that all allocations will return zeroed values.
+This is necessary to support the implicit initialization of OPTIONAL
+elements to NULL\@.  The zeroing is done in this routine instead of
+{\C NibbleAlloc} under the assumption that zeroing one large block
+is more efficient than zeroing pieces of it as they are allocated.
+
+When you no longer need the Nibble Memory, you can release it by
+using\linebreak {\C ShutDownNibbleMem}.  This frees all of the
+memory associated with Nibble Memory, both the control data and the
+block(s) used for allocation.
+
+There are some problems with this memory management scheme.  Currently
+the Nibble Memory control information is kept track of via a global
+variable that holds a pointer to the control information.  This can
+present a problem if separate Nibble Memory contexts are needed, for
+example, one to hold one value that will be kept after decoding and
+another to hold a decoded value that will soon be discarded.
+
+The problem of separate contexts could be solved by adding another
+layer that would use identifiers for different memory contexts.  This
+would require you to set the context using its identifier before
+calling a decoding routine and to pass the context identifier to the
+{\C ResetNibbleMem} routine.
+
+Another problem has to do with building the values to be encoded.
+There is no restriction on what allocator you use to build internal
+values.  However, it is convenient to use the {\C AsnListNew}
+routine to allocate and initialize a list type.  Unfortunately,
+{\C AsnListNew} is used by the decoding routines so it uses the
+{\C Asn1Alloc} routine to allocate the new list.  You should be
+aware of this if {\C Asn1Alloc} is not what you are using to
+allocate the rest of the value. This could be fixed with a different
+interface to the {\C AsnListNew} routine.
+
+It is possible to change the memory management system without too much
+difficulty.  For example if you are not too worried about performance
+and want to use {\C malloc} and {\C free}, you could change the
+{\ufn asn-config.h} file as follows:
+\begin{verbatim}
+#include "malloc.h"
+#define Asn1Alloc( size)  calloc (1, size)
+#define Asn1Free( ptr)    free (ptr)
+#define CheckAsn1Alloc( ptr, env)\
+   if ((ptr) == NULL)\
+      longjmp (env, -27);
+\end{verbatim}
+If you use {\C malloc} based allocators such as {\C calloc}, you
+must use the generated free routines to free your values.  Note that
+this example used {\C calloc} instead of {\C malloc} because
+{\C calloc} {\em zeroes} each allocated block of memory, as required
+by the decoders.
+
+
+\section{\label{lib-err-C-section}Error Management}
+
+The decoding routines use {\C longjmp} to handle any errors they
+encounter in the value being decoded.  {\C longjmp} works by rolling
+back the stack to where the {\C setjmp} call was made.  Every decode
+routine takes a {\C jmp\_buf env} parameter (initialized by the
+{\C setjmp} call) that tells the {\C longjmp} routine how to
+restore the processor to the correct state.  {\C longjmp} makes the
+error management much simpler since the decoding routines do not have
+to pass back error codes or check ones from other decoding routines.
+
+Before a PDU can be decoded, the {\C jmp\_buf env} parameter to the
+decoding routine must be initialized using the {\C setjmp} routine.
+This should be done immediately and only once before calling the
+decoding routine.  This parameter will be passed down to any other
+decoding routines called within a decoding routine. The following code
+fragment from {\ufn \dots/c-examples/simple/exbuf-ex.c} shows how to
+use {\C setjmp} before decoding.
+
+\begin{small}
+\begin{verbatim}
+if ((val = setjmp (env)) == 0)
+   BDecPersonnelRecord (&buf, &pr, &decodedLen, env);
+else
+{
+    decodeErr = TRUE;
+    fprintf (stderr, "ERROR - Decode routines returned %d\n", val);
+}
+\end{verbatim}
+\end{small}
+
+The code that will signal an error typically looks like:
+\begin{small}
+\begin{verbatim}
+if (mandatoryElmtCount1 != 2)
+{
+    Asn1Error ("BDecChildInformationContent: ERROR - non-optional elmt missing from SET.\n");
+    longjmp (env, -108);
+}
+\end{verbatim}
+\end{small}
+
+
+Most {\C longjmp} calls are preceded by a call to {\C Asn1Error}
+which takes a single {\C char~*} string as a parameter.  The library
+routines and the generated code try to use meaningful messages as the
+parameter. {\C Asn1Error} is defined in {\ufn \dots/c-lib/inc/asn-config.h} and
+currently just prints the given string to {\C stderr}.  You may wish
+to make it do nothing, which may shrink the size of your binary
+because all of the error strings will be gone.  {\C Asn1Warning} is
+similar but is not used by the library or generated code anymore.
+
+The encoding routines do no error checking except for buffer
+overflows.  Hence, they do not use the {\C longjmp} mechanism and
+instead require you to check the status of the buffer after encoding
+(use {\C BufWriteError()}).  If you are not building your values
+properly, for example having random pointers for uninitialized
+OPTIONAL elements, the encode routines will fail, possibly
+catastrophically.

@@ -44,6 +44,7 @@ public:
   // Power handling methods:
   void initForPM (IOService *provider);
   IOReturn setPowerState(unsigned long powerStateOrdinal, IOService* whatDevice);
+  unsigned long maxCapabilityForDomainState ( IOPMPowerFlags );
 };
 
 #endif /* ! _IOKIT_USBKEYLARGO_H */

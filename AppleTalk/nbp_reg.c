@@ -82,6 +82,8 @@
   each interface.
 
 */
+#define MAX_IF		16
+
 int nbp_reg_lookup(entity, retry)
      at_entity_t     *entity;
      at_retry_t      *retry;
@@ -106,17 +108,33 @@ int nbp_reg_lookup(entity, retry)
 	/* in multihome mode, get the default zone for each interface */
 	if ((global_state.flags & AT_ST_MULTIHOME) && (entity->zone.str[0] == '*'))
 	{
-	        /* for each interface that is configured for Appletalk */
-		struct ifconf ifc;
-		struct ifreq ifrbuf[30], *ifr;
-		at_if_cfg_t cfg;
-
-		ifc.ifc_buf = (caddr_t)ifrbuf;
-	        ifc.ifc_len = sizeof (ifrbuf);
-		if (ioctl(s, SIOCGIFCONF, &ifc) < 0) {
-			fprintf(stderr, "nbp_reg_lookup: SIOCGIFCONF error");
-			(void)close(s);
-			return(-1);
+		/* for each interface that is configured for Appletalk */
+		struct ifconf	ifc;
+		struct ifreq	*ifrbuf = NULL, *ifr;
+		at_if_cfg_t 	cfg;
+		int				size = sizeof(struct ifreq) * MAX_IF;
+		
+		while (1) {
+			if (ifrbuf != NULL)
+				ifrbuf = (struct ifreq *)realloc(ifrbuf, size);
+			else
+				ifrbuf = (struct ifreq *)malloc(size);
+				
+			ifc.ifc_req = ifrbuf;
+			ifc.ifc_len = size;
+	
+			if (ioctl(s, SIOCGIFCONF, &ifc) < 0 || ifc.ifc_len <= 0) {
+				fprintf(stderr, "nbp_reg_lookup: SIOCGIFCONF error");
+				(void)close(s);
+				if (ifrbuf)
+					free(ifrbuf);
+				return(-1);
+			}
+	
+			if ((ifc.ifc_len + sizeof(struct ifreq)) < size)
+				break;
+				
+			size *= 2;
 		}
 
 		for (ifr = (struct ifreq *) ifc.ifc_buf;

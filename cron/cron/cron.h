@@ -17,7 +17,7 @@
 
 /* cron.h - header for vixie's cron
  *
- * $FreeBSD: src/usr.sbin/cron/cron/cron.h,v 1.9 1999/08/28 01:15:49 peter Exp $
+ * $FreeBSD: src/usr.sbin/cron/cron/cron.h,v 1.14 2001/03/09 03:14:09 babkin Exp $
  *
  * vix 14nov88 [rest of log is in RCS]
  * vix 14jan87 [0 or 7 can be sunday; thanks, mwm@berkeley]
@@ -93,7 +93,7 @@
 #define	PPC_NULL	((char **)NULL)
 
 #ifndef MAXHOSTNAMELEN
-#define MAXHOSTNAMELEN 64
+#define MAXHOSTNAMELEN 256
 #endif
 
 #define	Skip_Blanks(c, f) \
@@ -172,6 +172,9 @@ typedef	struct _entry {
 #define	DOM_STAR	0x01
 #define	DOW_STAR	0x02
 #define	WHEN_REBOOT	0x04
+#define	RUN_AT	0x08
+#define	NOT_UNTIL	0x10
+	time_t	lastrun;
 } entry;
 
 			/* the crontab database will be a list of the
@@ -237,7 +240,7 @@ user		*load_user __P((int, struct passwd *, char *)),
 entry		*load_entry __P((FILE *, void (*)(),
 				 struct passwd *, char **));
 
-FILE		*cron_popen __P((char *, char *));
+FILE		*cron_popen __P((char *, char *, entry *));
 
 
 				/* in the C tradition, we only create

@@ -1,4 +1,4 @@
-/*$Id: config.h,v 1.1.1.1 1999/09/23 17:30:06 wsanchez Exp $*/
+/*$Id: config.h,v 1.1.1.2 2001/07/20 19:38:11 bbraun Exp $*/
 
 /*#define sMAILBOX_SEPARATOR	"\1\1\1\1\n"	/* sTART- and eNDing separ.  */
 /*#define eMAILBOX_SEPARATOR	"\1\1\1\1\n"	/* uncomment (one or both)
@@ -14,29 +14,55 @@
  * upon startup of procmail, e.g. you could define KEEPENV as follows:
  * #define KEEPENV	{"TZ","LANG",0}
  * environment variables ending in an _ will designate the whole group starting
- * with this prefix (e.g. "LC_").
+ * with this prefix (e.g. "LC_").  Note that keeping LANG and or the LC_
+ * variables is not recommended for most installations due to the security
+ * considerations/dependencies present in the use of locales other than
+ * the "C" locale.
  */
 #define KEEPENV		{"TZ",0}
 
-/*#define DEFPATH	"PATH=$HOME/bin:/bin:/usr/bin"	/* uncomment and/or
-							   change if you
-	do not want the autoconf generated defPATH setting to be used in
-	PRESTENV below. */
+/* procmail is compiled with two definitions of the PATH variable.  The first
+ * definition is used while processing the /etc/procmailrc file and should
+ * only contain trustable (i.e., system) directories.  Otherwise the second
+ * definition is used.	Note that the /etc/procmailrc file cannot change the
+ * PATH seen by user's rcfiles: the second definition will be applied upon the
+ * completion of the /etc/procmailrc file (future versions of procmail are
+ * expected to provide better runtime configuration control).  The autoconf
+ * process attempts to determine reasonable values for these versions of PATH
+ * and sets the defSPATH and defPATH variables accordingly.  If you want to
+ * override those settings you should uncomment and possibly change the
+ * DEFSPATH and DEFPATH defines below
+ */
+/*#define DEFSPATH	"PATH=/bin:/usr/bin"			/* */
+/*#define DEFPATH	"PATH=$HOME/bin:/bin:/usr/bin"		/* */
 
 /* every environment variable appearing in PRESTENV will be set or wiped
  * out of the environment (variables without an '=' sign will be thrown
  * out), e.g. you could define PRESTENV as follows:
- * #define PRESTENV	{"IFS","ENV","PWD","PATH=$HOME/bin:/bin:/usr/bin",0}
+ * #define PRESTENV	{"IFS","ENV","PWD",0}
  * any side effects (like setting the umask after an assignment to UMASK) will
- * *not* take place
+ * *not* take place.  Do *not* define PATH here -- use the DEFSPATH and
+ * DEFPATH defines above instead
  */
-#define PRESTENV	{"IFS","ENV","PWD",DEFPATH,0}
+#define PRESTENV	{"IFS","ENV","PWD",0}
 
 /*#define GROUP_PER_USER			/* uncomment this if each
 						   user has his or her own
 	group and procmail can therefore trust a $HOME/.procmailrc that
 	is group writable or contained in a group writable home directory
 	if the group involved is the user's default group. */
+
+/*#define LMTP					/* uncomment this if you
+						   want to use procmail
+	as an LMTP (rfc2033) server, presumably for invocation by an MTA.
+	The file examples/local_procmail_lmtp.m4 contains info on how to
+	set this up with sendmail. */
+
+/* This file previously allowed you to define SYSTEM_MBOX.  This has
+   changed.  If you want mail delivery to custom mail-spool-files, edit the
+   src/authenticate.c file and change the content of:  auth_mailboxname()
+   (either directly, or through changing the definitions in the same file
+   of MAILSPOOLDIR, MAILSPOOLSUFFIX, MAILSPOOLHASH or MAILSPOOLHOME) */
 
 /************************************************************************
  * Only edit below this line if you have viewed/edited this file before *
@@ -58,29 +84,30 @@
 /*#define RESTRICT_EXEC 100	/* uncomment to prevent users with uids equal
 				   or higher than RESTRICT_EXEC from
 	executing programs from within their .procmailrc files (this
-	restriction does not apply to /etc/procmailrc and /etc/procmailrcs
-	files) */
+	restriction does not apply to the /etc/procmailrc and
+	/etc/procmailrcs files) */
 
 /*#define NO_NFS_ATIME_HACK	/* uncomment if you're definitely not using
 				   NFS mounted filesystems and can't afford
 	procmail to sleep for 1 sec. before writing a regular mailbox
 	(under heavy load procmail automatically suppresses this) */
 
-/* This usually allowed you to define SYSTEM_MBOX.  This has changed.
-   If you want mail delivery to custom mail-spool-files, edit the
-   src/authenticate.c file and change the content of:  auth_mailboxname()
-   (either directly, or through changing the definitions in the same file
-   of MAILSPOOLDIR, MAILSPOOLHASH or MAILSPOOLHOME) */
-
 /*#define DEFsendmail	"/bin/mail"	/* uncomment and/or change if the
 					   autoconfigured default SENDMAIL is
-	not suitable */
+	not suitable.  This program should quack like a sendmail: it should
+	accept the -oi flag (to tell it to _not_ treat a line containing just
+	a period as EOF) and then a list of recipients.	 If the -t flag is
+	given, it should instead extract the recipients from the To:, Cc:,
+	and Bcc: header fields.	 If it can't do this, many standard recipes
+	will not work. */
+
+#define DEFmaildir	"$HOME"	     /* default value for the MAILDIR variable;
+					this must be an absolute path */
 
 #define PROCMAILRC	"$HOME/.procmailrc"	/* default rcfile for every
 						   recipient;  if this file
 	is not found, maildelivery will proceed as normal to the default
-	system mailbox.	 This must be an absolute path or bad things will
-	happen. */
+	system mailbox.	 This also must be an absolute path */
 
 #define ETCRC	"/etc/procmailrc"	/* optional global procmailrc startup
 					   file (will only be read if procmail
@@ -104,6 +131,7 @@
  ************************************************************************/
 
 #define ROOT_uid	0
+#define LDENV		{"LD_","_RLD","LIBPATH=","ELF_LD_","AOUT_LD_",0}
 
 #define UPDATE_MASK	S_IXOTH	   /* bit set on mailboxes when mail arrived */
 #define OVERRIDE_MASK	(S_IXUSR|S_ISUID|S_ISGID|S_ISVTX)    /* if found set */
@@ -125,9 +153,21 @@
 #define DEFlinebuf	512
 #define BLKSIZ		1024
 #define STDBUF		128
+#undef USE_MMAP				       /* don't bother on these guys */
 #endif /* SMALLHEAP */
+#undef USE_MMAP					 /* UNTIL PROBLEMS ARE FIXED */
+#ifdef USE_MMAP
+#ifndef INEFFICIENTrealloc
+#define INEFFICIENTrealloc			  /* don't pussy-foot around */
+#endif
+#define MAXinMEM	(1024*1024)		 /* when to switch to mmap() */
+#define MMAP_DIR	"/var/spool/procmail/"		     /* where to put */
+#endif								/* the files */
+#define MINlogbuf	81			       /* fit an entire line */
+#define MAXlogbuf	1000		       /* in case someone abuses LOG */
+#define MAILERDAEMON	"MAILER-DAEMON"	      /* From_ address to replace <> */
 #define FAKE_FIELD	">From "
-#define HOSTNAMElen	8	  /* determines hostname-ID-len on tempfiles */
+#define RETRYunique	8	   /* # of tries at making a unique filename */
 #define BOGUSprefix	"BOGUS."	     /* prepended to bogus mailboxes */
 #define DEFsuspend	16		 /* multi-purpose 'idle loop' period */
 #define DEFlocksleep	8
@@ -173,13 +213,19 @@ MMGR)\
 #define DEFcomsat	"no"		/* when an rcfile has been specified */
 
 #define BinSh		"/bin/sh"
-#define RootDir		"/"
+#define ROOT_DIR	"/"
+#define DEAD_LETTER	"/tmp/dead.letter"    /* $ORGMAIL if no passwd entry */
 #define DevNull		"/dev/null"
 #define NICE_RANGE	39			  /* maximal nice difference */
 #define chCURDIR	'.'			    /* the current directory */
 #define chPARDIR	".."			     /* the parent directory */
 #define DIRSEP		"/"		 /* directory separator symbols, the */
 				   /* last one should be the most common one */
+#define MAILDIRtmp	"/tmp"			   /* maildir subdirectories */
+#define MAILDIRcur	"/cur"
+#define MAILDIRnew	"/new"
+#define MAILDIRLEN	STRLEN(MAILDIRnew)
+#define MAILDIRretries	3	   /* retries on obtaining a unique filename */
 
 #define EOFName		" \t\n#`'\");"
 
@@ -198,11 +244,13 @@ MMGR)\
 #define ALTBERKELEYOPT	'y'			/* same effect as -Y, kludge */
 #define ARGUMENTOPT	'a'					   /* set $1 */
 #define DELIVEROPT	'd'		  /* deliver mail to named recipient */
+#define LMTPOPT		'z'			/* talk LTMP on stdin/stdout */
 #define PM_USAGE	\
  "Usage: procmail [-vptoY] [-f fromwhom] [parameter=value | rcfile] ...\
-\n   Or: procmail [-toY] [-f fromwhom] [-a argument] -d recipient ...\
+\n   Or: procmail [-toY] [-f fromwhom] [-a argument] ... -d recipient ...\
 \n\
    Or: procmail [-ptY] [-f fromwhom] -m [parameter=value] ... rcfile [arg] ...\
+\n   Or: procmail [-toY] [-a argument] ... -z\
 \n"
 #define PM_HELP		\
  "\t-v\t\tdisplay the version number and exit\
@@ -211,8 +259,9 @@ MMGR)\
 \n\t-f fromwhom\t(re)generate the leading 'From ' line\
 \n\t-o\t\toverride the leading 'From ' line if necessary\
 \n\t-Y\t\tBerkeley format mailbox, disregard Content-Length:\
-\n\t-a argument\twill set $1\
+\n\t-a argument\twill set $1, $2, etc\
 \n\t-d recipient\texplicit delivery mode\
+\n\t-z\t\tact as an LMTP server\
 \n\t-m\t\tact as a general purpose mail filter\n"
 #define PM_QREFERENCE	\
  "Recipe flag quick reference:\
@@ -265,6 +314,7 @@ MMGR)\
 
 #define UNKNOWN		"foo@bar"	  /* formail default originator name */
 #define OLD_PREFIX	"Old-"			 /* formail field-Old-prefix */
+#define RESENT_		"Resent-"    /* -a *this* to reply to Resent headers */
 #define BABYL_SEP1	'\037'		       /* BABYL format separator one */
 #define BABYL_SEP2	'\f'		       /* BABYL format separator two */
 #define DEFfileno	"FILENO=000"		/* split counter for formail */
@@ -281,7 +331,7 @@ MMGR)\
 #define FM_FORCE	'f'   /* force formail to accept an arbitrary format */
 #define FM_REPLY	'r'		    /* generate an auto-reply header */
 #define FM_KEEPB	'k'		   /* keep the header, when replying */
-#define FM_TRUST	't'	/* trust the sender to supply a valid header */
+#define FM_TRUST	't'		       /* reply to the header sender */
 #define FM_LOGSUMMARY	'l'    /* generate a procmail-compatible log summary */
 #define FM_SPLIT	's'				      /* split it up */
 #define FM_NOWAIT	'n'		      /* don't wait for the programs */
@@ -317,7 +367,7 @@ Usage: formail [-vbczfrktqY] [-D nnn idcache] [-p prefix] [-l folder]\n\
 \n -f\t\tforce formail to pass along any non-mailbox format\
 \n -r\t\tgenerate an auto-reply header, preserve fields with -i\
 \n -k\t\ton auto-reply keep the body, prevent escaping with -b\
-\n -t\t\ttrust the sender for his return address\
+\n -t\t\treply to the header sender instead of the envelope sender\
 \n -l folder\tgenerate a procmail-compatible log summary\
 \n -D nnn idcache\tdetect duplicates with an idcache of length nnn\
 \n -s prg arg\tsplit the mail, startup prg for every message\n"

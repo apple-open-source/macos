@@ -349,8 +349,6 @@ kdp_detach (args, from_tty)
 
   update_current_target ();
   cleanup_target (&current_target);
-
-  inferior_pid = 0;
   
   if (kdp_is_bound (&c)) {
     kdpret = kdp_destroy (&c);
@@ -358,6 +356,7 @@ kdp_detach (args, from_tty)
       error ("unable to deallocate KDP connection: %s", kdp_return_string (kdpret));
     }
   }
+  kdp_mourn_inferior();
 }
 
 static void
@@ -478,6 +477,8 @@ static void
 kdp_fetch_registers_ppc (regno)
      int regno;
 {
+  unsigned int i;
+
   if (! kdp_is_connected (&c)) {
     error ("kdp: unable to fetch registers (not connected)");
   }
@@ -485,7 +486,6 @@ kdp_fetch_registers_ppc (regno)
   if ((regno == -1) || IS_GP_REGNUM (regno) || IS_GSP_REGNUM (regno)) {
     kdp_return_t kdpret;
     gdb_ppc_thread_state_t gp_regs; 
-    unsigned int i;
 
     c.request->readregs_req.hdr.request = KDP_READREGS;
     c.request->readregs_req.cpu = 0;
@@ -515,7 +515,6 @@ kdp_fetch_registers_ppc (regno)
   if ((regno == -1) || IS_FP_REGNUM (regno)) {
     kdp_return_t kdpret;
     gdb_ppc_thread_fpstate_t fp_regs;
-    unsigned int i;
 
     c.request->readregs_req.hdr.request = KDP_READREGS;
     c.request->readregs_req.cpu = 0;
@@ -537,6 +536,18 @@ kdp_fetch_registers_ppc (regno)
       register_valid[i] = 1;
     }
   }
+
+  if ((regno == -1) || (regno >= FIRST_VP_REGNUM))
+    {
+      /* Accesses to the vector, fpscr and vrsave registers aren't currently 
+	 supported in the kernel */
+      for (i = FIRST_VP_REGNUM; i <= LAST_VP_REGNUM; i++)
+	register_valid[i] = 1;
+      for (i = FIRST_FSP_REGNUM; i <= LAST_FSP_REGNUM; i++)
+	register_valid[i] = 1;
+      for (i = FIRST_VSP_REGNUM; i <= LAST_VSP_REGNUM; i++)
+	register_valid[i] = 1;
+    }
 }
 #endif /* KDP_TARGET_POWERPC */
 
@@ -873,7 +884,8 @@ kdp_create_inferior (execfile, args, env)
 static void
 kdp_mourn_inferior ()
 {
-  error ("unsupported operation kdp_mourn_inferior");
+  unpush_target (&kdp_ops);
+  generic_mourn_inferior ();
 }
 
 static int remote_async_terminal_ours_p = 1;

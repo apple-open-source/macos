@@ -3,6 +3,15 @@ TODO:
   stuff).
 - Add multi-arch support for findcalls() and make work better (use disasm).
 
+Changes for the 5.9 release (the cctools-373 release):
+- Maded the nl variable in gprof.c into a __private_extern__ to avoid the
+  warning about "unused multiple definitions" when building with
+  -twolevel_namespace as the default.
+
+Changes for the 5.9 release (the cctools-359 release):
+- Added -Wno-long-double to shutup the compiler for
+  <architecture/m88k/fp_regs.h>.
+
 Changes for the 5.7 release (the cctools-327 release):
 - Changed back where gprof(1) picks up its the System Framework's private
   headers.  It will continue to look in

@@ -20,8 +20,6 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#define CFRUNLOOP_NEW_API 1
-
 #include <mach/mach.h>
 
 #include <stdlib.h>
@@ -44,14 +42,6 @@
 /*
  * Ports
  */
-
-extern kern_return_t
-bootstrap_ports(mach_port_t bootstrap,
-                mach_port_t *priv_host,
-                mach_port_t *priv_device,
-                mach_port_t *wired_ledger,
-                mach_port_t *paged_ledger,
-                mach_port_t *host_security );
 
 extern 	mach_port_t 	mach_task_self();
 
@@ -89,6 +79,16 @@ IOObjectRelease(
 	io_object_t	object )
 {
     return( mach_port_deallocate( mach_task_self(), object ));
+}
+
+kern_return_t
+IOObjectRetain(
+	io_object_t	object )
+{
+    return( mach_port_mod_refs(mach_task_self(),
+                              object,
+                              MACH_PORT_RIGHT_SEND,
+                              1 ));
 }
 
 kern_return_t
@@ -317,11 +317,10 @@ IONotificationPortCreate(
     kern_return_t 	 kr;
     IONotificationPort * notify;
     
-    notify = malloc( sizeof( IONotificationPort));
+    notify = calloc( 1, sizeof( IONotificationPort));
     if( !notify)
         return( 0 );
 
-    bzero( notify, sizeof( IONotificationPort));
     notify->masterPort = masterPort;
 
     kr = IOCreateReceivePort(kOSNotificationMessageID, &notify->wakePort);
@@ -992,17 +991,16 @@ IOConnectSetCFProperty(
         CFStringRef	propertyName,
 	CFTypeRef	property )
 {
-    CFMutableDictionaryRef	dict;
-    kern_return_t		kr;
+    CFDictionaryRef	dict;
+    kern_return_t	kr;
 
-    dict = CFDictionaryCreateMutable( kCFAllocatorDefault, 0,
-		&kCFTypeDictionaryKeyCallBacks,
-		&kCFTypeDictionaryValueCallBacks);
-
+    dict = CFDictionaryCreate( kCFAllocatorDefault,
+                                (const void **) &propertyName, (const void **) &property, 1,
+                                &kCFTypeDictionaryKeyCallBacks,
+                                &kCFTypeDictionaryValueCallBacks );
     if( !dict)
 	return( kIOReturnNoMemory );
 
-    CFDictionarySetValue( dict, propertyName, property );
     kr = IOConnectSetCFProperties( connect, dict );
     CFRelease( dict );
 
@@ -1119,9 +1117,24 @@ IORegistryEntryGetNameInPlane(
 	const io_name_t 	plane,
 	io_name_t 	        name )
 {
+    if( NULL == plane)
+        plane = "";
     return( io_registry_entry_get_name_in_plane( entry,
 						(char *) plane, name ));
 }
+
+kern_return_t
+IORegistryEntryGetLocationInPlane(
+	io_registry_entry_t	entry,
+	const io_name_t 	plane,
+	io_name_t 	        location )
+{
+    if( NULL == plane)
+        plane = "";
+    return( io_registry_entry_get_location_in_plane( entry,
+						(char *) plane, location ));
+}
+
 
 kern_return_t
 IORegistryEntryCreateCFProperties(
@@ -1153,7 +1166,7 @@ IORegistryEntryCreateCFProperties(
     // free propertiesBuffer !
     vm_deallocate(mach_task_self(), (vm_address_t)propertiesBuffer, size);
 
-    return *properties ? kIOReturnSuccess : kIOReturnInternalError;
+    return( *properties ? kIOReturnSuccess : kIOReturnInternalError );
 }
 
 CFTypeRef
@@ -1164,21 +1177,101 @@ IORegistryEntryCreateCFProperty(
 	IOOptionBits		options )
 {
     IOReturn		kr;
-    CFMutableDictionaryRef	props;
     CFTypeRef		type;
+    unsigned int 	size;
+    char *	 	propertiesBuffer;
+    CFStringRef  	errorString;
+    const char *    	cStr;
+    char *	    	buffer = NULL;
 
-    kr = IORegistryEntryCreateCFProperties( entry, &props, allocator, options );
-    if( kr != kIOReturnSuccess )
-	return( 0 );
+    cStr = CFStringGetCStringPtr( key, kCFStringEncodingMacRoman);
+    if( !cStr) {
+        CFIndex bufferSize = CFStringGetLength(key) + 1;
+        buffer = malloc( bufferSize);
+        if( buffer && CFStringGetCString( key, buffer, bufferSize, kCFStringEncodingMacRoman))
+            cStr = buffer;
+    }
 
-    type = CFDictionaryGetValue( props, key );
-    if( type)
-	CFRetain( type );
-    CFRelease( props );
+    if( cStr)
+        kr = io_registry_entry_get_property(entry, (char *) cStr, &propertiesBuffer, &size);
+    else
+        kr = kIOReturnError;
+
+    if( buffer)
+        free( buffer);
+
+    if( kr != kIOReturnSuccess)
+        return( NULL );
+
+    type = (CFMutableDictionaryRef)
+                        IOCFUnserialize(propertiesBuffer, allocator,
+					0, &errorString);
+    if (!type) {
+
+        if ((cStr = CFStringGetCStringPtr(errorString,
+					kCFStringEncodingMacRoman)))
+            printf("%s\n", cStr);
+	CFRelease(errorString);
+    }
+
+    // free propertiesBuffer !
+    vm_deallocate(mach_task_self(), (vm_address_t)propertiesBuffer, size);
 
     return( type );
 }
 
+CFTypeRef
+IORegistryEntrySearchCFProperty(
+	io_registry_entry_t	entry,
+	const io_name_t		plane,
+	CFStringRef		key,
+        CFAllocatorRef		allocator,
+	IOOptionBits		options )
+{
+    IOReturn		kr;
+    CFTypeRef		type;
+    unsigned int 	size;
+    char *	 	propertiesBuffer;
+    CFStringRef  	errorString;
+    const char *    	cStr;
+    char *	    	buffer = NULL;
+
+    cStr = CFStringGetCStringPtr( key, kCFStringEncodingMacRoman);
+    if( !cStr) {
+        CFIndex bufferSize = CFStringGetLength(key) + 1;
+        buffer = malloc( bufferSize);
+        if( buffer && CFStringGetCString( key, buffer, bufferSize, kCFStringEncodingMacRoman))
+            cStr = buffer;
+    }
+
+    if( cStr)
+        kr = io_registry_entry_get_property_recursively(entry, (char *) plane, (char *) cStr,
+                                                        options, &propertiesBuffer, &size);
+    else
+        kr = kIOReturnError;
+
+    if( buffer)
+        free( buffer);
+
+    if( kr != kIOReturnSuccess)
+        return( NULL );
+
+    type = (CFMutableDictionaryRef)
+                        IOCFUnserialize(propertiesBuffer, allocator,
+					0, &errorString);
+    if (!type) {
+
+        if ((cStr = CFStringGetCStringPtr(errorString,
+					kCFStringEncodingMacRoman)))
+            printf("%s\n", cStr);
+	CFRelease(errorString);
+    }
+
+    // free propertiesBuffer !
+    vm_deallocate(mach_task_self(), (vm_address_t)propertiesBuffer, size);
+
+    return( type );
+}
 
 kern_return_t
 IORegistryEntryGetProperty(
@@ -1187,8 +1280,8 @@ IORegistryEntryGetProperty(
 	io_struct_inband_t	buffer,
 	unsigned int	      * size )
 {
-    return( io_registry_entry_get_property( entry, (char *) name,
-						buffer, size ));
+    return( io_registry_entry_get_property_bytes( entry, (char *) name,
+						  buffer, size ));
 }
 
 
@@ -1223,17 +1316,16 @@ IORegistryEntrySetCFProperty(
         CFStringRef		propertyName,
 	CFTypeRef	 	property )
 {
-    CFMutableDictionaryRef	dict;
-    kern_return_t		kr;
+    CFDictionaryRef	dict;
+    kern_return_t	kr;
 
-    dict = CFDictionaryCreateMutable( kCFAllocatorDefault, 0,
-		&kCFTypeDictionaryKeyCallBacks,
-		&kCFTypeDictionaryValueCallBacks);
-
+    dict = CFDictionaryCreate( kCFAllocatorDefault,
+                                (const void **) &propertyName, (const void **) &property, 1,
+                                &kCFTypeDictionaryKeyCallBacks,
+                                &kCFTypeDictionaryValueCallBacks );
     if( !dict)
 	return( kIOReturnNoMemory );
 
-    CFDictionarySetValue( dict, propertyName, property );
     kr = IORegistryEntrySetCFProperties( entry, dict );
     CFRelease( dict );
 
@@ -1342,7 +1434,7 @@ IOServiceOFPathToBSDName(mach_port_t	 masterPort,
 
         kr = IORegistryEntryGetProperty(
                  /* mach_port_t        */ service,
-                 /* io_name_t          */ kIOBSDName,
+                 /* io_name_t          */ kIOBSDNameKey,
                  /* io_struct_inband_t */ bsdName,
                  /* unsigned int *     */ &bsdNameSize);
 

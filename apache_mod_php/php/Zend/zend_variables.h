@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2000 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2001 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 0.92 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
@@ -49,7 +49,6 @@ END_EXTERN_C()
 
 
 ZEND_API void zval_add_ref(zval **p);
-ZEND_API void zval_del_ref(zval **p);
 
 #define ZVAL_DESTRUCTOR (void (*)(void *)) zval_dtor_wrapper
 #define ZVAL_PTR_DTOR (void (*)(void *)) zval_ptr_dtor_wrapper

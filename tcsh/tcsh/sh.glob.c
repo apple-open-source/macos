@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/sh.glob.c,v 1.1.1.1 1999/04/23 01:59:55 wsanchez Exp $ */
+/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/sh.glob.c,v 1.1.1.2 2001/06/28 23:10:51 bbraun Exp $ */
 /*
  * sh.glob.c: Regular expression expansion
  */
@@ -36,7 +36,7 @@
  */
 #include "sh.h"
 
-RCSID("$Id: sh.glob.c,v 1.1.1.1 1999/04/23 01:59:55 wsanchez Exp $")
+RCSID("$Id: sh.glob.c,v 1.1.1.2 2001/06/28 23:10:51 bbraun Exp $")
 
 #include "tc.h"
 
@@ -190,9 +190,19 @@ globbrace(s, p, bl)
 
     /* check for balanced braces */
     for (i = 0, pe = ++p; *pe; pe++)
+#ifdef DSPMBYTE
+	if (Ismbyte1(*pe) && *(pe + 1) != EOS)
+	    pe ++;
+	else
+#endif /* DSPMBYTE */
 	if (*pe == LBRK) {
 	    /* Ignore everything between [] */
 	    for (++pe; *pe != RBRK && *pe != EOS; pe++)
+#ifdef DSPMBYTE
+	      if (Ismbyte1(*pe) && *(pe + 1) != EOS)
+		pe ++;
+	      else
+#endif /* DSPMBYTE */
 		continue;
 	    if (*pe == EOS) {
 		blkfree(nv);
@@ -213,9 +223,19 @@ globbrace(s, p, bl)
     }
 
     for (i = 0, pl = pm = p; pm <= pe; pm++)
+#ifdef DSPMBYTE
+	if (Ismbyte1(*pm) && pm + 1 <= pe)
+	    pm ++;
+	else
+#endif /* DSPMBYTE */
 	switch (*pm) {
 	case LBRK:
 	    for (++pm; *pm != RBRK && *pm != EOS; pm++)
+#ifdef DSPMBYTE
+	      if (Ismbyte1(*pm) && *(pm + 1) != EOS)
+		pm ++;
+	      else
+#endif /* DSPMBYTE */
 		continue;
 	    if (*pm == EOS) {
 		*vl = NULL;
@@ -287,6 +307,12 @@ expbrace(nvp, elp, size)
 	    Char  **bl;
 	    int     len;
 
+#if defined (DSPMBYTE)
+	    if (b != s && Ismbyte2(*b) && Ismbyte1(*(b-1))) {
+		/* The "{" is the 2nd byte of a MB character */
+		continue;
+	    }
+#endif /* DSPMBYTE */
 	    if ((len = globbrace(s, b, &bl)) < 0) {
 		xfree((ptr_t) nv);
 		stderror(ERR_MISSING, -len);
@@ -299,10 +325,10 @@ expbrace(nvp, elp, size)
 	    }
 	    if (&el[len] >= &nv[size]) {
 		int     l, e;
-		l = &el[len] - &nv[size];
+		l = (int) (&el[len] - &nv[size]);
 		size += GLOBSPACE > l ? GLOBSPACE : l;
-		l = vl - nv;
-		e = el - nv;
+		l = (int) (vl - nv);
+		e = (int) (el - nv);
 		nv = (Char **) xrealloc((ptr_t) nv, 
 					(size_t) (size * sizeof(Char *)));
 		vl = nv + l;
@@ -426,8 +452,11 @@ globexpand(v)
      */
     if ( symlinks == SYM_EXPAND )
 	for (s = *vl; s; s = *++vl) {
-	    *vl = dnormalize(s, 1);
-	    xfree((ptr_t) s);
+	    char *path = short2str(s);
+	    if (strstr(path, "..") != NULL && access(path, F_OK) == 0) {
+		*vl = dnormalize(s, 1);
+		xfree((ptr_t) s);
+	    }
 	}
     vl = nv;
 
@@ -727,7 +756,15 @@ dobackp(cp, literal)
     pargc = 0;
     pnleft = LONGBSIZE - 4;
     for (;;) {
+#if defined(DSPMBYTE)
+	for (lp = cp;; lp++) {
+	    if (*lp == '`' &&
+		(lp-1 < cp || !Ismbyte2(*lp) || !Ismbyte1(*(lp-1)))) {
+		break;
+	    }
+#else /* DSPMBYTE */
 	for (lp = cp; *lp != '`'; lp++) {
+#endif /* DSPMBYTE */
 	    if (*lp == 0) {
 		if (pargcp != pargs)
 		    pword(LONGBSIZE);
@@ -867,10 +904,10 @@ backeval(cp, literal)
 	    c = (*ip++ & TRIM);
 	    if (c == 0)
 		break;
-#ifdef WINNT
+#ifdef WINNT_NATIVE
 	    if (c == '\r')
 	    	c = ' ';
-#endif /* WINNT */
+#endif /* WINNT_NATIVE */
 	    if (c == '\n') {
 		/*
 		 * Continue around the loop one more time, so that we can eat
@@ -958,7 +995,7 @@ Gnmatch(string, pattern, endstr)
 	int minc = 0x7fffffff;
 	for (p = blk; *p; p++) 
 	    if (pmatch(string, *p, &tstring) != 0) {
-		int t = tstring - string;
+		int t = (int) (tstring - string);
 		gres |= 1;
 		if (minc == -1 || minc > t)
 		    minc = t;
@@ -1076,7 +1113,7 @@ Gcat(s1, s2)
 	continue;
     for (q = s2; *q++;)
 	continue;
-    n = (p - s1) + (q - s2) - 1;
+    n = (int) ((p - s1) + (q - s2) - 1);
     if (++gargc >= gargsiz) {
 	gargsiz += GLOBSPACE;
 	gargv = (Char **) xrealloc((ptr_t) gargv,

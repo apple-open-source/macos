@@ -19,6 +19,10 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
+#ifndef MACOSX
+#define MACOSX
+#endif
+
 /* Use new NeXT include file search path.
    In a cross compiler with NeXT as target, don't expect
    the host to use Next's directory scheme.  */
@@ -288,6 +292,8 @@ Boston, MA 02111-1307, USA.  */
    !strcmp (STR, "segalign") ? 1 :		\
    !strcmp (STR, "seg1addr") ? 1 :		\
    !strcmp (STR, "undefined") ? 1 :		\
+   !strcmp (STR, "bundle_loader") ? 1 :		\
+   !strcmp (STR, "multiply_defined") ? 1 :	\
    !strcmp (STR, "dylib_file") ? 1 :		\
    !strcmp (STR, "segaddr") ? 2 :		\
    !strcmp (STR, "sectobjectsymbols") ? 2 :	\
@@ -301,6 +307,7 @@ Boston, MA 02111-1307, USA.  */
    !strcmp (STR, "seg_addr_table") ? 1 :	\
    !strcmp (STR, "umbrella") ? 1 :		\
    !strcmp (STR, "sub_umbrella") ? 1 :		\
+   !strcmp (STR, "sub_library") ? 1 :		\
    !strcmp (STR, "siff-mask") ? 1 :		\
    !strcmp (STR, "siff-filter") ? 1 :		\
    !strcmp (STR, "siff-warning") ? 1 :		\
@@ -381,7 +388,7 @@ Boston, MA 02111-1307, USA.  */
 		  -DNS_TARGET_MAJOR=" REALLY_STRINGIFY(NEXT_RELEASE_MAJOR) " \
 		  -DNS_TARGET_MINOR=" REALLY_STRINGIFY(NEXT_RELEASE_MINOR) " \
 		  %{static:-D__STATIC__}%{!static:-D__DYNAMIC__}\
-		  %{faltivec:-D__VEC__=10205 -D__ALTIVEC__}	\
+		  %{faltivec:-D__VEC__=10206 -D__ALTIVEC__}	\
 		  %{O:-D__OPTIMIZE__=1}  %{O1:-D__OPTIMIZE__=1}	\
 		  %{O2:-D__OPTIMIZE__=2} %{O3:-D__OPTIMIZE__=3}	\
 		  %{O4:-D__OPTIMIZE__=4}			\
@@ -394,7 +401,7 @@ Boston, MA 02111-1307, USA.  */
 		  %{fdump-syms} %{header-mapfile}		\
 		  -D__APPLE_CC__=" REALLY_STRINGIFY(APPLE_CC) "	\
 		  %{static:-D__STATIC__}%{!static:-D__DYNAMIC__}\
-		  %{faltivec:-D__VEC__=10205 -D__ALTIVEC__}	\
+		  %{faltivec:-D__VEC__=10206 -D__ALTIVEC__}	\
 		  %{O:-D__OPTIMIZE__=1}  %{O1:-D__OPTIMIZE__=1}	\
 		  %{O2:-D__OPTIMIZE__=2} %{O3:-D__OPTIMIZE__=3}	\
 		  %{O4:-D__OPTIMIZE__=4}			\
@@ -467,7 +474,9 @@ Boston, MA 02111-1307, USA.  */
 #else
 #define LINK_SPEC "%{Z} %{M} %{F*} \
 %{execute*} %{preload*} %{fvmlib*} \
+%{bundle_loader*} %{private_bundle} %{multiply_defined*} \
 %{flat_namespace} %{force_flat_namespace} %{twolevel_namespace} \
+%{sub_library*} %{nomultidefs} \
 %{client_name*} %{allowable_client*} \
 %{segalign*} %{seg1addr*} %{segaddr*} %{segprot*} \
 %{pagezero_size*} %{dylib_file*} %{run_init_lazily} \
@@ -646,21 +655,30 @@ do { fputs (".zerofill __DATA, __common, ", (FILE));		\
 #define HAVE_COALESCED_SYMBOLS
 #ifdef HAVE_COALESCED_SYMBOLS
 
-/* The following macros all take a DECL parameter, and set the 
-   DECL_COALESCED and DECL_PRIVATE_EXTERN as appropriate.
+union tree_node;
+extern void mangle_coalesced_item_name PROTO ((union tree_node *, int));
+
+/* Whether we're allowing coalescing at all.
    Note that coalescing is valid only for MACHO-PIC code.  */
 
+#define COALESCING_ENABLED_P()	(flag_coalescing_enabled && flag_pic)
+
+/* The following macros all take a DECL parameter, and set the 
+   DECL_COALESCED and DECL_PRIVATE_EXTERN as appropriate.  */
+
 #define __STD_MARK_AS_COALESCED(DOIT, DECL)				\
-  do { if ((DOIT) && flag_pic && flag_coalesced) {			\
+  do { if ((DOIT) && COALESCING_ENABLED_P ()) {				\
 	 DECL_COALESCED (DECL) = 1;					\
 	 DECL_PRIVATE_EXTERN (DECL) = (flag_privatize_coalesced != 0);	\
        } } while (0)
 
-/* Coalescing templates is ALWAYS on.  */
-#define MARK_TEMPLATE_COALESCED(DECL)					\
-		__STD_MARK_AS_COALESCED (TRUE, DECL)
+#define COALESCING_TEMPLATES_P(DECL)					\
+	(COALESCING_ENABLED_P () && flag_coalesce_templates)
 
-/* Likewise, synthetic or artificial methods are always on, since the
+#define MARK_TEMPLATE_COALESCED(DECL)					\
+	__STD_MARK_AS_COALESCED (COALESCING_TEMPLATES_P (DECL), DECL)
+
+/* Synthetic or artificial methods can always be coalesced, since the
    chances are we'll need these more than once.  */
 
 /* Rather, they would be if we ever get people to use "-keep_private_externs"
@@ -673,14 +691,76 @@ do { fputs (".zerofill __DATA, __common, ", (FILE));		\
 #define MARK_ARTIFICIAL_MEMBER_COALESCED(DECL)				\
     __STD_MARK_AS_COALESCED (PEOPLE_ARE_FINALLY_KEEPING_PRIVATE_EXTERNS, DECL)
 
+/* Return if DECL is defined (not just declared!) in a header file.
+   is_header_file_p () is in openstep.c.  */
+
+#define __DEFINED_IN_HEADER_FILE_P(DECL)				\
+	(is_header_file_p (DECL_SOURCE_FILE (DECL)))
+
+/* Return if DECL is defined (not just declared!) in a DIFFERENT header file,
+   i.e., one whose basename is not the same as the file being compiled.  */
+
+#define __DEFINED_IN_DIFFERENT_HEADER_FILE_P(DECL)			\
+	(is_different_header_file_p (DECL_SOURCE_FILE (DECL)))
+
+/* Define if 'as' has a working ".set" directive.  It doesn't, yet.  */
+/*  #define AS_SET_WORKS  */
+
+/* Out-of-line copies of inline functions which originated in header files
+   can now be marked coalesced.
+   Refine this by only coalescing such functions if they originated in a
+   different header file to the file being compiled.  If they're RTTI 
+   functions, we need to be using "-fcoalesce-rtti".
+
+   NOTE: 'optimize' and 'flag_keep_inline_functions' are used throughout
+   these macros because of some 386 problems, which I'll fix real soon now.
+   I promise :-P  */
+
+#define MARK_OUT_OF_INLINE_FUNCTION_COALESCED(DECL)			\
+    do {								\
+      if (DECL_INLINE (DECL) && COALESCING_ENABLED_P ()			\
+	  && flag_coalesce_out_of_line_inlines && optimize		\
+	  && ! flag_keep_inline_functions				\
+	  && ! DECL_COALESCED (DECL) && ! TREE_PUBLIC (DECL)		\
+	  && __DEFINED_IN_DIFFERENT_HEADER_FILE_P (DECL)		\
+	  && (! rtti_func_p (DECL)					\
+		|| /*it's RTTI*/ __MAYBE_COALESCE_RTTI_FUNC_P (DECL)))	\
+	{								\
+	  __STD_MARK_AS_COALESCED (TRUE, DECL);				\
+									\
+	  if (DECL_COALESCED (DECL))					\
+	    mangle_coalesced_item_name (DECL, /* output_stub: */ 1);	\
+	}								\
+    } while (0)
+
+/* Used in finish_file () in cp/decl2.c.  The idea is to see if DECL is an
+   unused static and if we can avoid outputting it.
+   Note that we need to avoid explicitly declared items, like:
+
+    static TClassRegistrar<TMovieController> gMovieControllerRegistrar;
+
+   (where the constructor does some extra gnarly stuff).  
+   So our heuristic is:  unused static notCoalesced declInHeader.  */
+
+#define	IS_UNUSED_STATIC_AGGREGATE_P(DECL)				\
+	(! TREE_USED (DECL) && ! TREE_PUBLIC (DECL)			\
+	 && TREE_READONLY (DECL)					\
+	 && flag_ignore_unused_static_aggregates && optimize		\
+	 && ! TREE_ASM_WRITTEN (DECL)					\
+	 && ! DECL_COALESCED (DECL) && __DEFINED_IN_HEADER_FILE_P (DECL))
+
 /* Coalescing "virtual inline ~Class()" -type functions is also a good win
    as there are likely to be many instances.  */
 
 #define MARK_VIRTUAL_INLINE_STRUCTOR_COALESCED(DECL)			\
     __STD_MARK_AS_COALESCED (PEOPLE_ARE_FINALLY_KEEPING_PRIVATE_EXTERNS, DECL)
 
-/* Coalescing RTTI data is generally done, since gcc only references this
-   __ti data via the corresponding __tf RTTI function.
+#define MARK_THUNK_COALESCED(DECL)					\
+    __STD_MARK_AS_COALESCED (TRUE, DECL)
+
+/* Coalescing RTTI data would be another good candidate, but gcc doesn't
+   handle __ti data consistently, sometimes accessing it via the corresponding
+   __tf RTTI function, and sometimes accessing it directly.
 
    (However, coalescing "systemlib" RTTI data, such as __tii,__tic, etc., is
    not done until we figure out some way to mark these "C" data structures
@@ -693,21 +773,40 @@ do { fputs (".zerofill __DATA, __common, ", (FILE));		\
 
    If, however, you are writing your own standalone C++ program (i.e.,
    not expecting to use RTTI functions from someone's C++ dylib), you can
-   specify "-fcoalesce-rtti" and you may get a smaller __TEXT segment.  */
+   specify "-fcoalesce-rtti" and you may get a smaller __TEXT segment. 
 
-   /* THESE ARE ONLY ENABLED for `-fcoalesce-rtti'.
-      MORE WORK NEEDED TO KILL ALL EXPLICIT USES OF __tixxx, etc.  */
+   Note: We can always coalesce static RTTI vars coming from a (different)
+   header file.  */
 
-#define __MAYBE_COALESCE_RTTI_VAR_P(DECL)		\
-	(flag_pic && flag_coalesce_rtti && ! is_systemlib_rtti_p (DECL))
+#define __MAYBE_COALESCE_RTTI_VAR_P(DECL)				\
+    (flag_pic && flag_coalesce_rtti && ! is_systemlib_rtti_p (DECL)	\
+     && ! TREE_PUBLIC (DECL) && ! DECL_COALESCED (DECL) && optimize	\
+     && __DEFINED_IN_DIFFERENT_HEADER_FILE_P (DECL))
 
-#define __MAYBE_COALESCE_RTTI_FUNC_P(DECL)		\
-	(flag_pic && flag_coalesce_rtti && ! is_systemlib_rtti_p (DECL))
+/* Disable coalescing rtti functions for now.  FIXME!  */
+#define __MAYBE_COALESCE_RTTI_FUNC_P(DECL)				\
+    (flag_pic && flag_coalesce_rtti && ! is_systemlib_rtti_p (DECL)	\
+     && ! TREE_PUBLIC (DECL) && ! DECL_COALESCED (DECL) && optimize	\
+     && ! flag_keep_inline_functions					\
+     && __DEFINED_IN_DIFFERENT_HEADER_FILE_P (DECL))
 
 #define MARK_RTTI_VAR_COALESCED(DECL)					\
-	    __STD_MARK_AS_COALESCED (__MAYBE_COALESCE_RTTI_VAR_P (DECL), DECL)
+    do {								\
+	if (__MAYBE_COALESCE_RTTI_VAR_P (DECL)) {			\
+	  __STD_MARK_AS_COALESCED (TRUE, DECL);				\
+	  if (DECL_COALESCED (DECL))					\
+	    mangle_coalesced_item_name (DECL, /* output_stub: */ 0);	\
+	}								\
+    } while (0)
+
 #define MARK_RTTI_FUNC_COALESCED(DECL)					\
-	    __STD_MARK_AS_COALESCED (__MAYBE_COALESCE_RTTI_FUNC_P (DECL), DECL)
+    do {								\
+	if (__MAYBE_COALESCE_RTTI_FUNC_P (DECL)) {			\
+	  __STD_MARK_AS_COALESCED (TRUE, DECL);				\
+	  if (DECL_COALESCED (DECL))					\
+	    mangle_coalesced_item_name (DECL, /* output_stub: */ 1);	\
+	}								\
+    } while (0)
 
 
 /* For static data in inline functions, it's private_extern, not GLOBAL.  */
@@ -721,10 +820,18 @@ do { fputs (".zerofill __DATA, __common, ", (FILE));		\
 #define MARK_VTABLE_COALESCED(DECL)					\
 		__STD_MARK_AS_COALESCED (FALSE, DECL)
 
+#define MARK_STATIC_VTABLE_COALESCED(DECL)				\
+    do {								\
+      if (COALESCING_ENABLED_P () && ! TREE_PUBLIC (DECL)		\
+	  && flag_coalesce_static_vtables && ! DECL_COALESCED (DECL)	\
+	  && __DEFINED_IN_DIFFERENT_HEADER_FILE_P (DECL))		\
+	__STD_MARK_AS_COALESCED (TRUE, DECL);				\
+    } while (0)
+
 #define __MAYBE_FORCE_COALESCED(DECL)					\
     do {								\
       int code = TREE_CODE (DECL);					\
-      if (flag_pic && flag_force_coalesced				\
+      if (COALESCING_ENABLED_P () && flag_force_coalesced		\
 	  && (code == VAR_DECL || code == FUNCTION_DECL))		\
 	__STD_MARK_AS_COALESCED (TRUE, DECL);				\
     } while (0)
@@ -780,17 +887,41 @@ do { fputs (".zerofill __DATA, __common, ", (FILE));		\
 
 
 #ifdef HAVE_COALESCED_SYMBOLS
+/* Is this decl, which has a section name, coalesced?  If so, we need to
+   output that information as part of the ".section" directive.  */
+
 #define __COALESCED_FOR_SECTION_NAME(DECL)	(DECL && DECL_COALESCED (DECL))
+
+/* This is called in named_section () in "varasm.c" to possibly fixup the
+   section name for DECL.  If it's coalesced, we append "COAL" here.
+   NAME should be changed to the new name.
+
+   Note that the maximum length for a Mach-O section name is 16 chars.  */
+
+#define FIXUP_SECTION_NAME_FOR_DECL(DECL, NAME)				\
+    do {								\
+      if (__COALESCED_FOR_SECTION_NAME (DECL) && (NAME)			\
+	  && strlen (NAME) <= 12)					\
+	{								\
+	  char *p_ = alloca (strlen (NAME) + 4);			\
+	  strcpy (p_, NAME);  strcat (p_, "COAL");			\
+	  NAME = p_;							\
+	}								\
+    } while (0)
+
 #else
 #define __COALESCED_FOR_SECTION_NAME(DECL)	0
 #endif
 
-#define ASM_OUTPUT_SECTION_NAME(FILE, DECL, NAME, RELOC) do {		\
+/* ASM_OUTPUT_SECTION_NAME -- spew the section name for the assembler.  */
+
+#define ASM_OUTPUT_SECTION_NAME(FILE, DECL, NAME, RELOC)		\
+    do {								\
 	fprintf (FILE, (DECL && (TREE_CODE (DECL) == FUNCTION_DECL))	\
-	    ? ".section __TEXT,%s%s\n" : ".data\n",			\
+	    ? ".section __TEXT,%s%s\n" : ".section %s\n",		\
 	    NAME, __COALESCED_FOR_SECTION_NAME (DECL)			\
-	    ? "COAL,coalesced,no_toc" : ",regular,pure_instructions");	\
-	} while (0)
+	    ? ",coalesced,no_toc" : ",regular,pure_instructions");	\
+    } while (0)
 
 #define DECL_MARK_INIT_SEGMENT(DECL)					\
     do {								\
@@ -805,14 +936,6 @@ do { fputs (".zerofill __DATA, __common, ", (FILE));		\
 #define JUMP_TABLES_IN_TEXT_SECTION 1
 #endif
 #endif
-
-/* temporarily disabled 'cos otool won't disasm coalesced sections.  */
-#if 0 && defined(JUMP_TABLES_IN_TEXT_SECTION) && JUMP_TABLES_IN_TEXT_SECTION != 0
-#define __PURE_INSNS__	",no_toc"	/* TEXT is no longer PURE instructions  */
-#else
-#define	__PURE_INSNS__	",no_toc"	/* ",pure_instructions"  */
-#endif
-
 
 /* $$$ turly: at some future point, add this for Kevin.  */
 extern const char *get_current_section_name(void);
@@ -833,7 +956,8 @@ FUNCTION ()								\
     {									\
       if (OBJC)								\
 	objc_section_init ();						\
-      data_section ();							\
+      if (! (DIRECTIVE))						\
+        data_section ();						\
       if (asm_out_file) fprintf (asm_out_file, "%s\n", DIRECTIVE);	\
       in_section = SECTION;						\
     }									\
@@ -860,7 +984,7 @@ SECTION_FUNCTION (coalesced_rtti_section,		\
 	".section __DATA,__rtti_data,coalesced,no_toc",0,0)	\
 SECTION_FUNCTION (coalesced_text_section,		\
 	in_coalesced_text_section,			\
-	".section __TEXT,__coalesced_text,coalesced" __PURE_INSNS__ , 0, 0)
+	".section __TEXT,__coalesced_text,coalesced,no_toc", 0, 0)
 
 #define ELSE_SELECT_COALESCED_DATA_SECTION(exp) \
     else if (TREE_CODE (exp) == VAR_DECL && DECL_COALESCED (exp) )	\
@@ -1055,7 +1179,8 @@ void alias_section (name, alias)			\
 #undef	READONLY_DATA_SECTION
 #define READONLY_DATA_SECTION const_section
 
-#define	EXPRESSION_MAY_BE_WRITTEN_P(EXP) TREE_SIDE_EFFECTS (EXP)
+#define	EXPRESSION_MAY_BE_WRITTEN_P(EXP)			\
+	(TREE_SIDE_EFFECTS (EXP) || DECL_TREE_MAY_BE_WRITTEN (EXP))
 
 #undef	SELECT_SECTION
 #define SELECT_SECTION(exp,reloc)				\
@@ -1251,7 +1376,7 @@ extern void abort_assembly_and_exit () ATTRIBUTE_NORETURN;
 /* Force use of "-fnew-exceptions" when we have unwind info...  */
 #define NEW_EXCEPTION_MODEL	1
 
-/*  #define __DEBUG_EH__  */
+/* #define __DEBUG_EH__  */
 #ifdef __DEBUG_EH__
 #include <stdio.h>
 extern int __trace_exceptions;
@@ -1260,16 +1385,8 @@ enum {TR_ALL=-1, TR_CFA=1, TR_CIE=2, TR_FDE=4, TR_EXE=8};
     do {if (__trace_exceptions & (MASK)) fprintf(stderr,ARG0,ARG1);} while (0)
 #endif 
 
-/* Exception info can now be readonly -- even with coalesced text!  */
-#define	EXCEPTION_INFO_IS_READONLY 
-
-#ifdef EXCEPTION_INFO_IS_READONLY
 #define __DWARF2_UNWIND_SECTION_TYPE		"__TEXT"
 #define __DWARF2_EXCEPT_SECTION_TYPE		"__TEXT"
-#else
-#define __DWARF2_UNWIND_SECTION_TYPE		"__DATA"
-#define __DWARF2_EXCEPT_SECTION_TYPE		"__DATA"
-#endif
 
 #define	__DWARF2_UNWIND_SECTION_NAME		"__dwarf2_unwind"
 #define	__DWARF2_EXCEPT_SECTION_NAME		"__exception_tab"
@@ -1316,7 +1433,7 @@ enum {TR_ALL=-1, TR_CFA=1, TR_CIE=2, TR_FDE=4, TR_EXE=8};
 #define DWARF2_END_OF_SECTION(ASM_FILE, DEBUG_FLAG) 			\
         do {								\
 		/* FDE Length CIE addr  Fake PC  Fake Len  4 NOPs  */	\
-	  fputs ("\t.long 16,0,0xfffffff0,4,0\n", ASM_FILE);	\
+	  fputs ("\t.long 16,0,0,4,0\n", ASM_FILE);	\
 	} while (0)
 
 
@@ -1345,8 +1462,6 @@ extern int dwarf_set_counter;
 #define ASM_OUTPUT_DWARF_DELTA(F,L1,L2)      ASM_OUTPUT_DWARF_DELTA4(F,L1,L2)
 #define ASM_OUTPUT_DWARF_ADDR_DELTA(F,L1,L2) ASM_OUTPUT_DWARF_DELTA4(F,L1,L2)
 
-#ifdef EXCEPTION_INFO_IS_READONLY
-
 #define ASM_OUTPUT_DWARF_ADDR(FILE,LABEL)				\
  do {	fprintf ((FILE), "\t%s\t", UNALIGNED_WORD_ASM_OP);		\
 	assemble_name (FILE, LABEL);					\
@@ -1356,11 +1471,11 @@ extern int dwarf_set_counter;
 
 #define GET_EXCEPTION_TABLE_ADDR_ENTRY(ELEM)				\
 	    ((((ELEM) == (void *) -1) || ((ELEM) == 0)) ?   		\
-	      (ELEM) : RELATIVE_PTR_TO_ABSOLUTE(&ELEM))
+	      (ELEM) : __RELATIVE_PTR_TO_ABSOLUTE(&ELEM))
 
 #define GET_EXCEPTION_TABLE_TYPE_ENTRY(ELEM)				\
 	    ((((ELEM) == 0) || ((ELEM) == CATCH_ALL_TYPE)) ? 		\
-	      (ELEM) : RELATIVE_PTR_TO_ABSOLUTE(&ELEM))
+	      (ELEM) : __RELATIVE_PTR_TO_ABSOLUTE(&ELEM))
 
 #define EMIT_EXCEPTION_TABLE_ADDR_ENTRY(FILE, LABEL_STRING)		\
 	    ASM_OUTPUT_DWARF_ADDR(FILE, LABEL_STRING)
@@ -1368,35 +1483,29 @@ extern int dwarf_set_counter;
 #define EMIT_EXCEPTION_TABLE_TYPE_ENTRY(TREE, SIZE)			\
 	    output_const_pic_addr(TREE, SIZE)
 
-#define RELATIVE_PTR_TO_ABSOLUTE(P)					\
+#define __RELATIVE_PTR_TO_ABSOLUTE(P)					\
 	    ((void *)(((unsigned int) (P)) + ((unsigned int) (*(P)))))
 
 /* If FDE->pc_begin is zero, so is our result.  */
 #define GET_DWARF2_FDE_INITIAL_PC(FDE)					\
-	(((FDE)->pc_begin) ? RELATIVE_PTR_TO_ABSOLUTE(&((FDE)->pc_begin)) : 0)
+	(((FDE)->pc_begin) ? __RELATIVE_PTR_TO_ABSOLUTE(&((FDE)->pc_begin)) : 0)
 
 #define READ_DWARF2_UNALIGNED_POINTER(P)				\
 	    ((void *)(((unsigned int)(P)) + ((unsigned int) read_pointer(P))))
 
-#endif	/* EXCEPTION_INFO_IS_READONLY  */
-
 
 #ifdef MACOSX
-/* For GET_AND_LOCK_TARGET_OBJECT_LIST, we could, if (OB) turns out
-   to be zero, call dwarf2_unwind_dyld_add_image_hook () ourselves.
-   This might help the case where a C program is loading a C++ bundle.  */
-
+/* KeyMgr-specific object-list accessor.  */
 #define GET_AND_LOCK_TARGET_OBJECT_LIST(OB)				\
     do {								\
       REGISTER_IMAGE_FRAME_IF_NOT_DONE ();				\
       (OB) = (struct object *)						\
           _keymgr_get_and_lock_processwide_ptr (KEYMGR_ZOE_IMAGE_LIST); \
     } while (0)
-#endif
-
 
 #define UNLOCK_TARGET_OBJECT_LIST()					\
     _keymgr_unlock_processwide_ptr (KEYMGR_ZOE_IMAGE_LIST)
+#endif
 
 
 /* The TARGET_SPECIFIC_OBJECT_REGISTER_FUNCS macro should contain the

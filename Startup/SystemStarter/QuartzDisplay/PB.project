@@ -6,7 +6,7 @@
         FRAMEWORKS = (CoreFoundation.framework, CoreGraphics.framework); 
         FRAMEWORKSEARCH = ("$(NSFRAMEWORKDIR)/ApplicationServices.framework/Frameworks"); 
         H_FILES = (QuartzProgressBar.h, QuartzProgressBarData.c); 
-        IMAGES = (BootPanel.pdf); 
+        IMAGES = (BootPanel.pdf,ServerBootPanel.pdf); 
         OTHER_LINKED = (QuartzDisplay.c, QuartzProgressBar.c); 
         OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble); 
     }; 

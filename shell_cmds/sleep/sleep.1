@@ -66,14 +66,6 @@ was received.
 .It Li \&>\&0
 An error occurred.
 .El
-.Pp
-Note: The
-.Nx
-.Nm
-command will accept and honor a non-integer number of specified
-seconds. This is a non-portable extension, and its use will nearly
-guarantee that a shell script will not execute properly on another
-system.
 .Sh EXAMPLES
 To schedule the execution of a command for
 .Va x
@@ -113,7 +105,7 @@ when the file is found, then another portion processing
 is done courteously by sleeping for 70 seconds in between each
 awk job.
 .Sh SEE ALSO
-.Xr nanosleep 2 ,
+.Xr setitimer 2 ,
 .Xr sleep 3 ,
 .Xr at 1
 .Sh STANDARDS

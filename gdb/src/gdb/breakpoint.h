@@ -125,7 +125,16 @@ enum bptype
     /* These are catchpoints to implement "catch catch" and "catch throw"
        commands for C++ exception handling. */
     bp_catch_catch,
-    bp_catch_throw
+    bp_catch_throw,
+
+    /* These additional breakpoints are only used to record the original
+       breakpoint command for save-breakpoints.  For example a future
+       break becomes a normal break when hit so if save-breakpoints is
+       done after the break is hit we wouldn't be able to tell what the
+       original command was to write it correcty in the saved file.  */
+    bp_fbreakpoint,
+    bp_tbreakpoint,
+    bp_thbreakpoint
 
 
   };
@@ -295,6 +304,9 @@ struct breakpoint
     char *exec_pathname;
 
     asection *section;
+    
+    /* Original type of breakpoint used only for save-breakpoints.  */
+    enum bptype original_type;
   };
 
 /* The following stuff is an abstract data type "bpstat" ("breakpoint

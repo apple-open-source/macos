@@ -1,0 +1,189 @@
+dnl Process this file with autoconf to produce a configure script.
+dnl ---
+AC_REVISION($Revision: 1.1.1.1 $)dnl
+dnl	$Log: configure.in,v $
+dnl	Revision 1.1.1.1  2001/05/18 23:14:04  mb
+dnl	Move from private repository to open source repository
+dnl	
+dnl	Revision 1.3  2000/12/21 23:58:39  dmitch
+dnl	Misc. updates for clean build on Cheetah 1D7.
+dnl	
+dnl	Revision 1.2  2000/06/08 19:57:33  dmitch
+dnl	Mods for X port.
+dnl	
+dnl	Revision 1.1.1.1  1999/03/16 18:05:49  aram
+dnl	Originals from SMIME Free Library.
+dnl	
+dnl	Revision 1.13  1997/09/04 13:54:04  wan
+dnl	A little more portability
+dnl
+dnl	Revision 1.12  1997/02/28 13:39:35  wan
+dnl	Modifications collected for new version 1.3: Bug fixes, tk4.2.
+dnl
+dnl	Revision 1.11  1997/02/16 16:50:27  rj
+dnl	made return *this after calling abort()'' a compile time option.
+dnl
+dnl	Revision 1.10  1997/02/15 20:06:27  rj
+dnl	adjust to changed AC_TRY_COMPILE macro
+dnl
+dnl	Revision 1.9  1997/02/15 20:01:38  rj
+dnl	check whether the compiler supports volatile functions (and whether abort() is volatile).
+dnl
+dnl	Revision 1.8  1997/01/01 19:57:01  rj
+dnl	changes for autoconf version 2.12
+dnl
+dnl	Revision 1.7  1995/09/07  18:36:47  rj
+dnl	psbook and psnup are looked for (used by .../doc/makefile)
+dnl
+dnl	Revision 1.6  1995/07/24  14:44:47  rj
+dnl	don't use gcc/g++ with -pipe, compiling some files may exceed virtual memory.
+dnl
+dnl	look for tclsh(1). tcl-lib uses it to construct the tclIndex file. don't look for Tcl/Tk if the tclsh is absent.
+dnl
+dnl	look for patch(1). the c-lib uses it to patch tbl.h.
+dnl
+dnl	search for tree-3.6's libtktree.a and set TREELIBS in .../makehead accordingly.
+dnl
+dnl	check for memset(3), memcpy(3) and memcmp(3). .../snacc.h reverts to bzero(3), bcopy(3) and bcmp(3) if necessary.
+dnl
+dnl	Revision 1.5  1995/02/20  11:18:41  rj
+dnl	cpp switch HAVE_VARIABLE_SIZED_AUTOMATIC_ARRAYS added.
+dnl	check for isinf(3) and finite(3) added.
+dnl
+dnl	Revision 1.4  1995/02/17  15:15:44  rj
+dnl	hack to let makedepend find .h files the way gcc does.
+dnl
+dnl	Revision 1.3  1995/02/17  14:26:40  rj
+dnl	adjustments for autoconf 2.x
+dnl
+dnl	Revision 1.2  1994/10/08  04:29:37  rj
+dnl	search for Tcl/Tk
+dnl
+dnl	Revision 1.1  1994/09/01  00:51:22  rj
+dnl	first check-in (new file).
+dnl
+AC_INIT( compiler/core/snacc.c)
+AC_CONFIG_HEADER( config.h)
+dnl --- alternative programs:
+AC_PROG_MAKE_SET
+AC_PROG_CC
+AC_ISC_POSIX
+if test -n "$GCC"; then
+dnl   saveCC="$CC"
+dnl   CC="$CC -pipe"
+dnl   AC_MSG_CHECKING( whether $saveCC takes -pipe)
+dnl   AC_TRY_LINK( , , [AC_MSG_RESULT( yes)], [AC_MSG_RESULT( no); CC="$saveCC"])
+
+  # hack to let X11 makedepend find .h file a little more the way gcc does:
+  AC_MSG_CHECKING( for $CC's include path)
+  gcclibdir=`$CC -v 2>&1 | sed -n -e 's:Reading specs from \(.*\)/specs:\1:p'`
+  gxxincdir=`which gcc | sed "s/bin\/gcc//"`
+  #MKDEP_CCINC="-I$gxxincdir/lib/g++-include -I/usr/local/include -I$gcclibdir/include"
+  MKDEP_CCINC="-I/usr/local/include -I$gcclibdir/include -F/System/Library/PrivateFrameworks"
+  AC_MSG_RESULT( $MKDEP_CCINC)
+  AC_SUBST( MKDEP_CCINC)
+fi
+AC_PROG_GCC_TRADITIONAL
+AC_PROG_CC_C_O
+if eval "test \"`echo '$ac_cv_prog_cc_'${ac_cc}_c_o`\" = no"; then
+  AC_MSG_WARN( since -c and -o don't seem to work together, the makefiles probably won't work!)
+fi
+AC_MSG_CHECKING( whether ANSI or K&R style C)
+AC_TRY_RUN( [main (int argc, char **argv) { void *p; return 0; }], [AC_MSG_RESULT( ANSI); AC_DEFINE( __USE_ANSI_C__)], AC_MSG_RESULT( K&R), AC_MSG_RESULT( K&R))
+AC_PROG_CXX
+AC_LANG_CPLUSPLUS
+dnl if test -n "$GCC"; then
+dnl   saveCXX="$CXX"
+dnl   CXX="$CXX -pipe"
+dnl   AC_MSG_CHECKING( whether $saveCXX takes -pipe)
+dnl   AC_TRY_LINK( , , [AC_MSG_RESULT( yes)], [AC_MSG_RESULT( no);CC="$saveCC"])
+dnl fi
+AC_MSG_CHECKING( for bool built-in)
+AC_TRY_COMPILE( , bool b = false;, [AC_DEFINE( BOOL_BUILTIN) AC_MSG_RESULT( yes)], AC_MSG_RESULT( no))
+AC_MSG_CHECKING( for variable sized automatic arrays)
+AC_TRY_COMPILE( , changequote(<,>)int i = 42; char a[++i]; *a = i;changequote([,]), [AC_DEFINE( HAVE_VARIABLE_SIZED_AUTOMATIC_ARRAYS) AC_MSG_RESULT( yes)], AC_MSG_RESULT( no))
+AC_MSG_CHECKING( for volatile functions)
+AC_TRY_COMPILE( , changequote(<,>)abort();changequote([,]), [AC_MSG_RESULT( yes)], [AC_DEFINE( COMPILER_WITHOUT_VOLATILE_FUNCTIONS) SNACC_NOVOLAT=-novolat; AC_SUBST( SNACC_NOVOLAT) AC_MSG_RESULT( no)])
+AC_LANG_C
+AC_PROG_LEX
+AC_DECL_YYTEXT
+case "$LEX" in
+  lex)
+    LFLAGS="-Nc10000"
+  ;;
+  flex)
+    CFLAGS="$CFLAGS -DFLEX_IN_USE"
+esac
+AC_SUBST( LFLAGS)
+AC_SUBST( CFLAGS)
+# the boot strapping code in .../c-lib/ needs patch:
+AC_CHECK_PROGS( PATCH, patch, false)
+AC_PROG_YACC
+AC_CHECK_PROGS( MKDEP, makedepend mkdep mkdep.sh, $CC)
+AC_CHECK_PROGS( AR, ar, ar)
+AC_PROG_RANLIB
+AC_PROG_INSTALL
+dnl --- header files:
+AC_HEADER_TIME
+AC_HEADER_DIRENT
+AC_TYPE_SIZE_T
+AC_TYPE_UID_T
+AC_HEADER_STDC
+AC_CHECK_HEADERS( unistd.h memory.h string.h malloc.h fcntl.h)
+AC_FUNC_VPRINTF
+dnl --- system and compiler characteristics:
+AC_C_CONST
+AC_C_BIGENDIAN
+AC_CHECK_SIZEOF( short)
+AC_CHECK_SIZEOF( int)
+AC_CHECK_SIZEOF( long)
+AC_CHECK_SIZEOF( double)
+AC_CHECK_LIB( m, sin)
+AC_CHECK_FUNCS( isinf finite)
+AC_CHECK_FUNCS( memset memcpy memcmp)
+dnl ---
+AC_PATH_X
+AC_PATH_XTRA
+AC_CHECK_PROGS( TCLSH, tclsh, false)
+if test "$TCLSH" != false; then
+  AC_CHECK_HEADER(
+    tcl.h,
+    [AC_CHECK_LIB( ld, ldopen, TCLOTHERLIBS=-lld)
+    AC_CHECK_LIB(
+      tcl,
+      Tcl_CreateInterp,
+      [saveCFLAGS="$CFLAGS"
+      CFLAGS="$CFLAGS $X_CFLAGS"
+      AC_CHECK_LIB(
+	tk,
+	Tk_CreateWindow,
+	[AC_DEFINE( HAVE_TCL)
+	TCLLIBS="-ltk -ltcl $TCLOTHERLIBS"
+	AC_LANG_CPLUSPLUS
+	AC_CHECK_LIB(
+	  TkTree,
+	  Tree_Init,
+	  [TREELIBS="-lTkTree"],
+	  [AC_MSG_RESULT( [tcl/tk libs found, but tree widget is missing])],
+	  -lTkTree -ltk -ltcl $TCLOTHERLIBS $X_LIBS $X_PRE_LIBS -lX11 $X_EXTRA_LIBS)
+	AC_LANG_C],
+	[AC_MSG_RESULT( [tcl lib found, but tk lib is missing])],
+	-ltcl $TCLOTHERLIBS $X_LIBS $X_PRE_LIBS -lX11 $X_EXTRA_LIBS)
+      CFLAGS="$saveCFLAGS"],
+      [AC_MSG_RESULT( [tcl library not found])],
+      $TCLOTHERLIBS -lm)])
+fi
+AC_SUBST( TCLLIBS)
+AC_SUBST( TREELIBS)
+dnl ---
+AC_CHECK_PROGS( LATEX, latex, false)
+AC_CHECK_PROGS( BIBTEX, bibtex, false)
+AC_CHECK_PROGS( DVIPS, dvips, false)
+AC_CHECK_PROGS( DETEX, detex2 detex, false)
+AC_CHECK_PROGS( PSPREVIEW, ghostview gs, true)
+AC_CHECK_PROGS( PSBOOK, psbook, false)
+AC_CHECK_PROGS( PSNUP, psnup, false)
+AC_CHECK_PROGS( SPELL, ispell spell, spell)
+dnl ---
+AC_OUTPUT( makehead, date > stamp-h)
+dnl --- finis

@@ -1569,6 +1569,102 @@ asm_insn_count (body)
 }
 #endif
 
+/* APPLE LOCAL:
+   Check whether this function is of the form that permits us to eliminate
+   the prologue and epilog and simply jump to the callee function:
+      int f() { return g(3); }
+   This is very target-dependent, and is a horrid kludge.  It has no chance
+   of being accepted by FSF.  There seems to be no hook to do it in target
+   independent fashion.  */
+int look_for_jumpto_pattern(first, optimize)
+    rtx first;
+    int optimize;
+{
+    int after_call;  /* state variable; 2 states is enough, so boolean */
+    rtx insn;
+
+    if ( current_function_calls_setjmp )
+      return 0;
+    if ( get_frame_size())
+      return 0;
+    if ( profile_flag )
+      return 0;
+    if ( profile_block_flag )
+      return 0;
+    if ( !optimize )
+      return 0;
+    if ( current_function_uses_pic_offset_table && flag_pic )
+      return 0;
+
+    /* This looks for a function that, in its entirety, matches 
+       the following pattern:
+        [optional SETs of hard regs - parameters, presumably]
+        call					    */
+
+    after_call = 0;
+    for (insn=first; insn; insn=NEXT_INSN(insn))
+      {
+	switch (GET_CODE (insn))
+	  {
+	    case NOTE:
+	    case CODE_LABEL:
+	      break;
+	    case CALL_INSN:
+	      if ( after_call )
+		return 0;
+	      after_call = 1;
+	      /* A following SET breaks the pattern.  If there is none,
+	         either the inner function returns the right register or
+		 the outer function is void.  Either way is OK. */
+	      break;
+	    case INSN:
+	      switch (GET_CODE(PATTERN(insn)))
+		{
+		  case USE:
+		  case CLOBBER:
+		    break;
+		  case SET:
+		    {
+		    rtx src, dest;
+		    int regno;
+		    if ( after_call )
+		      return 0;	    /* f() { g(); return 2; } */
+	    	    /* validate store into reg.  We could allow some
+		       memory refs as source, but currently don't. 
+		       You can't touch the stack or use volatile. */
+		    dest = XEXP( PATTERN(insn), 0);
+		    src = XEXP( PATTERN(insn), 1);
+		    if ( GET_CODE(dest) != REG )
+		      return 0;
+		    regno = REGNO( dest);
+		    if ( regno >= FIRST_PSEUDO_REGISTER )
+		      return 0;
+		    if ( !call_used_regs[regno] )
+		      return 0;
+		    if ( GET_CODE(src) == MEM )
+		      return 0;
+		    break;
+		    }
+		  default:
+		    return 0;
+		}
+	      break;
+	    case JUMP_INSN:
+	    case BARRIER:
+	    default:
+	      return 0;
+
+	  }
+      }
+
+    /* If we haven't actually seen a call insn, bail out.  This fixes a
+       problem where the function got optimised away to nothing -- so we
+       never called output_epilog(), so there was no BLR!  */
+
+    return after_call;    
+}
+
+
 /* Output assembler code for the start of a function,
    and initialize some of the variables in this file
    for the new function.  The label for the function and associated
@@ -1577,13 +1673,14 @@ asm_insn_count (body)
    FIRST is the first insn of the rtl for the function being compiled.
    FILE is the file to write assembler code to.
    OPTIMIZE is nonzero if we should eliminate redundant
-     test and compare insns.  */
+    test and compare insns.  */
 
 void
-final_start_function (first, file, optimize)
+final_start_function (first, file, optimize, jumpto)
      rtx first;
      FILE *file;
      int optimize;
+     int jumpto;
 {
   block_depth = 0;
 
@@ -1654,7 +1751,8 @@ final_start_function (first, file, optimize)
 
 #ifdef FUNCTION_PROLOGUE
   /* First output the function prologue: code to set up the stack frame.  */
-  FUNCTION_PROLOGUE (file, get_frame_size ());
+  if ( !jumpto )	/* if jumpto, no prologue */
+    FUNCTION_PROLOGUE (file, get_frame_size ());
 #endif
 
 #if defined (SDB_DEBUGGING_INFO) || defined (XCOFF_DEBUGGING_INFO)
@@ -1780,10 +1878,11 @@ profile_function (file)
    even though not all of them are needed.  */
 
 void
-final_end_function (first, file, optimize)
+final_end_function (first, file, optimize, jumpto)
      rtx first;
      FILE *file;
      int optimize;
+     int jumpto;
 {
   if (app_on)
     {
@@ -1809,7 +1908,8 @@ final_end_function (first, file, optimize)
 #ifdef FUNCTION_EPILOGUE
   /* Finally, output the function epilogue:
      code to restore the stack frame and return to the caller.  */
-  FUNCTION_EPILOGUE (file, get_frame_size ());
+  if (!jumpto )
+    FUNCTION_EPILOGUE (file, get_frame_size ());
 #endif
 
 #ifdef OUTPUT_COMPILER_STUB
@@ -1937,11 +2037,12 @@ add_bb_string (string, perm_p)
    Prescanning is done only on certain machines.  */
 
 void
-final (first, file, optimize, prescan)
+final (first, file, optimize, prescan, jumpto)
      rtx first;
      FILE *file;
      int optimize;
      int prescan;
+     int jumpto;
 {
   register rtx insn;
   int max_line = 0;
@@ -2023,7 +2124,7 @@ final (first, file, optimize, prescan)
 #ifdef HAVE_ATTR_length
       insn_current_address = insn_addresses[INSN_UID (insn)];
 #endif
-      insn = final_scan_insn (insn, file, optimize, prescan, 0);
+      insn = final_scan_insn (insn, file, optimize, prescan, 0, jumpto);
     }
 
   /* Do basic-block profiling here
@@ -2043,12 +2144,13 @@ final (first, file, optimize, prescan)
    used for within delayed branch sequence output).  */
 
 rtx
-final_scan_insn (insn, file, optimize, prescan, nopeepholes)
+final_scan_insn (insn, file, optimize, prescan, nopeepholes, jumpto)
      rtx insn;
      FILE *file;
      int optimize;
      int prescan;
      int nopeepholes;
+     int jumpto;
 {
 #ifdef HAVE_cc0
   rtx set;
@@ -2403,6 +2505,10 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 	    }
 	}
 
+#ifdef PREPROCESS_INTERNAL_LABEL
+      /* OS X can store section info in the label's LABEL_NAME.  */
+      PREPROCESS_INTERNAL_LABEL (file, insn);
+#endif
       ASM_OUTPUT_INTERNAL_LABEL (file, "L", CODE_LABEL_NUMBER (insn));
 #ifdef NEXT_SEMANTICS
       if (XSTR (insn, 4) && (XSTR (insn, 4))[0] == '*')
@@ -2585,7 +2691,7 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 	       thought unnecessary.  If that happens, cancel this sequence
 	       and cause that insn to be restored.  */
 
-	    next = final_scan_insn (XVECEXP (body, 0, 0), file, 0, prescan, 1);
+	    next = final_scan_insn (XVECEXP (body, 0, 0), file, 0, prescan, 1, jumpto);
 	    if (next != XVECEXP (body, 0, 1))
 	      {
 		final_sequence = 0;
@@ -2599,7 +2705,7 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 		/* We loop in case any instruction in a delay slot gets
 		   split.  */
 		do
-		  insn = final_scan_insn (insn, file, 0, prescan, 1);
+		  insn = final_scan_insn (insn, file, 0, prescan, 1, jumpto);
 		while (insn != next);
 	      }
 #ifdef DBR_OUTPUT_SEQEND
@@ -2840,7 +2946,7 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 
 		for (note = NEXT_INSN (insn); note != next;
 		     note = NEXT_INSN (note))
-		  final_scan_insn (note, file, optimize, prescan, nopeepholes);
+		  final_scan_insn (note, file, optimize, prescan, nopeepholes, jumpto);
 
 		/* In case this is prescan, put the notes
 		   in proper position for later rescan.  */
@@ -2942,8 +3048,32 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 	  break;
 
 	/* Output assembler code from the template.  */
+    
+#if defined (NEXT_SEMANTICS) && defined (TARGET_TOC)
 
-	output_asm_insn (template, recog_operand);
+	/* APPLE LOCAL.  Kludgier and kludgier.  This changes the nested
+	    call to a branch in the following:
+		int f() { return g(); }
+
+	   gcc3 has 'sibling calls' for this, but this will do 'til then.  */
+
+	if (jumpto && GET_CODE (insn) == CALL_INSN )
+	  {
+	    char *template2 = strcpy (alloca (strlen (template)+1), template);
+	    if ( strncmp (template, "bl %z", 5) == 0)
+	      {
+		template2[1] = ' ';	    /* change bl to b */
+		output_asm_insn (template2, recog_operand);
+	      }
+	    else if ( strcmp (&template[strlen(template)]-5, "bctrl") == 0)
+	      {
+		template2[strlen(template)-1] = ' ';    /* change bctrl to bctr */
+		output_asm_insn (template2, recog_operand);
+	      }
+	  }
+	else
+#endif
+	  output_asm_insn (template, recog_operand);
 
 #if defined (DWARF2_UNWIND_INFO)
 #if !defined (ACCUMULATE_OUTGOING_ARGS)
@@ -3117,7 +3247,7 @@ alter_subreg (x)
       PUT_CODE (x, MEM);
       MEM_COPY_ATTRIBUTES (x, y);
       MEM_ALIAS_SET (x) = MEM_ALIAS_SET (y);
-      XEXP (x, 0) = plus_constant (XEXP (y, 0), offset);
+      XEXP (x, 0) = plus_constant_for_output (XEXP (y, 0), offset);
     }
 
   return x;

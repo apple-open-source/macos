@@ -40,11 +40,10 @@ extern CFMutableDictionaryRef plistDict;
 
 char * daCreateCStringFromCFString(CFStringRef string);
 
-mode_t mountModeForFS(char *fsname);
-
 int sortfs(const void *v1, const void *v2);
 int suffixfs(struct dirent *dp);
 
+char *resourcePathForFSName(char *fs);
 
 char *fsDirForFS(char *fsname);
 char *utilPathForFS(char *fsname);

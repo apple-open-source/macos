@@ -43,7 +43,19 @@
 	</dict>
 	<dict>
 		<key>name</key>
-			<string>AppleFileServer</string>
+		<string>set-hostname</string>
+		<key>keys</key>
+		<array>
+			<string>State:/Network/Global/DNS</string>
+		</array>
+		<key>execUID</key>
+		<integer>0</integer>
+		<key>execCommand</key>
+		<string>$BUNDLE/Resources/set-hostname</string>
+	</dict>
+	<dict>
+		<key>name</key>
+		<string>AppleFileServer</string>
 		<key>keys</key>
 		<array>
 			<string>daemon:AppleFileServer</string>
@@ -55,7 +67,7 @@
 	</dict>
 	<dict>
 		<key>name</key>
-			<string>DirectoryService</string>
+		<string>DirectoryService</string>
 		<key>keys</key>
 		<array>
 			<string>daemon:DirectoryService</string>
@@ -64,6 +76,21 @@
 		<integer>0</integer>
 		<key>execCommand</key>
 		<string>/usr/sbin/DirectoryService</string>
+	</dict>
+	<dict>
+		<key>name</key>
+		<string>automount</string>
+		<key>keys</key>
+		<array>
+			<string>File:/var/run/lookupd.pid</string>
+			<string>State:/Users/ConsoleUser</string>
+		</array>
+		<key>execUID</key>
+		<integer>0</integer>
+		<key>execCommand</key>
+		<string>$BUNDLE/Resources/restart-automount</string>
+		<key>changedKeysAsArguments</key>
+		<true/>
 	</dict>
 </array>
 </plist>

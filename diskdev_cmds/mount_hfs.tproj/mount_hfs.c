@@ -181,7 +181,7 @@ typedef struct CreateDateAttrBuf {
  */
 #define MAC_GMT_FACTOR		2082844800UL
 
-#define KMOD_LOAD_COMMAND	"/sbin/kmodload"
+#define KEXT_LOAD_COMMAND	"/sbin/kextload"
 
 #define ENCODING_MODULE_PATH	"/System/Library/Filesystems/hfs.fs/Encodings/"
 
@@ -199,11 +199,13 @@ struct hfs_mnt_encoding {
 struct hfs_mnt_encoding hfs_mnt_encodinglist[] = {
 	{ "Roman",	0 },	/* default */
 	{ "Japanese",	1 },
+	{ "ChineseTrad", 2 },
 	{ "Korean",	3 },
 	{ "Arabic",	4 },
 	{ "Hebrew",	5 },
 	{ "Greek",	6 },
-	{ "Cyrillic",	7 }
+	{ "Cyrillic",	7 },
+	{ "ChineseSimp", 25 }
 };
 
 
@@ -325,14 +327,14 @@ load_encoding(struct hfs_mnt_encoding *encp)
 	/* MacRoman encoding (0) is built into the kernel */
 	if (encp->encoding_id == 0) return;
 
-	sprintf(kmodfile, "%sHFS_%s.kmod", ENCODING_MODULE_PATH, encp->encoding_name);
+	sprintf(kmodfile, "%sHFS_Mac%s.kext", ENCODING_MODULE_PATH, encp->encoding_name);
 	if (stat(kmodfile, &sb) == -1)
 		errx(1, "unable to find: %s", kmodfile);
 
 	loaded = 0;
 	pid = fork();
 	if (pid == 0) {
-		(void) execl(KMOD_LOAD_COMMAND, KMOD_LOAD_COMMAND, kmodfile, NULL);
+		(void) execl(KEXT_LOAD_COMMAND, KEXT_LOAD_COMMAND, kmodfile, NULL);
 
 		exit(1);	/* We can only get here if the exec failed */
 	} else if (pid != -1) {

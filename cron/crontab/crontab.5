@@ -15,7 +15,7 @@
 .\" * Paul Vixie          <paul@vix.com>          uunet!decwrl!vixie!paul
 .\" */
 .\"
-.\" $FreeBSD: src/usr.sbin/cron/crontab/crontab.5,v 1.14 2000/03/14 14:51:55 sheldonh Exp $
+.\" $FreeBSD: src/usr.sbin/cron/crontab/crontab.5,v 1.16 2001/01/19 14:15:40 ru Exp $
 .\" 
 .Dd January 24, 1994
 .Dt CRONTAB 5
@@ -43,8 +43,9 @@ allowed on the same line as environment variable settings.
 .Pp
 An active line in a crontab will be either an environment setting or a cron
 command.  An environment setting is of the form,
-.Pp
+.Bd -literal
     name = value
+.Ed
 .Pp
 where the spaces around the equal-sign (=) are optional, and any subsequent
 non-leading spaces in
@@ -182,7 +183,6 @@ fields \(em day of month, and day of week.  If both fields are
 restricted (ie, aren't *), the command will be run when
 .Em either
 field matches the current time.  For example,
-.br
 ``30 4 1,15 * 5''
 would cause a command to be run at 4:30 am on the 1st and 15th of each
 month, plus every Friday.

@@ -538,6 +538,37 @@ si_send(struct socket *so, struct sockaddr **addr, struct uio **uio,
 #endif
         return 0;
     }
+    
+    /*
+     * Check that we have a filter installed. If we have no filters
+     * installed, we shouldn't be sending packets. This happens in
+     * three situations: 1 we haven't setup a filter yet, 2 our
+     * filter was destroyed when the interface went away, or 3
+     * filtering was turned off.
+     */
+    if (ifb->atalk_proto_filter_id == 0 &&
+        ifb->ipv4_proto_filter_id == 0) {
+#if SIP_DEBUG_ERROR
+        log(LOG_ERROR, "si_send: no filters enabled!!!\n");
+#endif
+        m_freem(*top);
+        return EJUSTRETURN;
+    }
+    
+    /*
+     * Check that the interface is not NULL
+     */
+    if (so->so_pcb != NULL)
+        ifp = (struct ifnet *)((struct ndrv_cb *)so->so_pcb)->nd_if;
+    else
+        ifp = NULL;
+    if (ifp == NULL)
+    {
+        m_freem(*top);
+        top = NULL;
+        return EJUSTRETURN;
+    }
+    
     /*
      * Don't need to pull-up since we get "one-buffer" packets from
      *  PF_NDRV output.
@@ -551,7 +582,6 @@ si_send(struct socket *so, struct sockaddr **addr, struct uio **uio,
 #endif
     p = mtod(*top, unsigned char *);/* Point to destination media addr */
     x = splnet();
-    ifp = (struct ifnet *)((struct ndrv_cb *)so->so_pcb)->nd_if;
     retval = 0;
     if (ifp->if_type == IFT_ETHER) {
         s = (unsigned short *)(p+(ifb->media_addr_size));
@@ -568,7 +598,7 @@ si_send(struct socket *so, struct sockaddr **addr, struct uio **uio,
                 retval = si_send_eth_atalk(top, ifb);
             else if (s[6] >= ETHERMTU)		/* Could be IPv4 */
                 /* EType2 (not 802.3) */
-                retval = si_send_eth_ipv4(top, ifb);
+                retval = si_send_eth_ipv4(top, ifb, ifp);
             else
                 /* 802.3, not SNAP */
                 retval = 0;
@@ -584,7 +614,7 @@ si_send(struct socket *so, struct sockaddr **addr, struct uio **uio,
             unsigned long ppp_tag;
 
             m_adj(*top, sizeof(unsigned short));
-            retval = si_send_ppp_ipv4(top, ifb);
+            retval = si_send_ppp_ipv4(top, ifb, ifp);
             if (retval) {
                 splx(x);
                 return(retval);
@@ -822,6 +852,8 @@ int do_pullup(struct mbuf **m_orig, unsigned int inSizeNeeded)
 #if SIP_DEBUG
             log(LOG_WARNING, "do_pullup(%8.8X, %d) - out of memory!", *m_orig, inSizeNeeded);
 #endif
+            /* Packet has been destroyed. */
+            *m_orig = newM;
             return ENOMEM;
         } else
             *m_orig = newM;

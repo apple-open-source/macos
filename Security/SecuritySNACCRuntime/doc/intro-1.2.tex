@@ -1,0 +1,422 @@
+% file: .../doc/intro-1.2.tex
+
+% $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/doc/intro-1.2.tex,v 1.1.1.1 2001/05/18 23:14:10 mb Exp $
+% $Log: intro-1.2.tex,v $
+% Revision 1.1.1.1  2001/05/18 23:14:10  mb
+% Move from private repository to open source repository
+%
+% Revision 1.1.1.1  1999/03/16 18:05:53  aram
+% Originals from SMIME Free Library.
+%
+% Revision 1.2  1997/02/16 16:49:30  rj
+% made return *this after calling abort()'' a compile time option.
+%
+% Revision 1.1  1997/01/01 22:47:30  rj
+% first check-in
+%
+
+\chapter{\label{intro-1.2}Introduction}
+
+Snacc compiles ASN.1 \cite{X.208} (Abstract Syntax Notation One) modules into C, C++, CORBA IDL \cite{corba} or type tables.
+The generated C or C++ code contains equivalent data structures and
+routines to convert values between the internal (C or C++)
+representation and the corresponding BER \cite{X.209} (Basic Encoding Rules) format.
+The name ``snacc'' is an acronym for ``Sample Neufeld ASN.1 to C/C++ Compiler''.
+
+This is release 1.2rj\footnote{\emph{1.2} since it is the successor of 1.1 and \emph{rj} as i don't think that I'm the only one who worked on Snacc.} of Snacc.
+This chapter lists only the differences to the original author's last release, Snacc~1.1.
+The list in this chapter is incomplete---for a more thorough enumeration, see the file {\ufn .../ChangeLog}.
+
+New features include:
+\begin{itemize}
+\item
+  The output files generated get names derived from their input file's name, with only the suffix replaced.
+  This eases makefile writing, as now you can use simple suffix rules or other forms of filename pattern matching.
+  The old behaviour, where the output files got their name from the ASN.1 module name, can be retained by using the {\ufn -mm} command line switch to {\ufn snacc}.
+\item
+  The C++ backend generates code with a much more complete set of constructors, destructors and assignment operators.
+\item
+  The C++ backend can supply the generated C++ classes with \emph{meta} information about their own structure.
+  This information can be used to build interpreted interfaces; the Snacc 1.2rj distribution contains a Tcl interface that uses this meta information as well as a Tcl script (that uses the Tcl interface) for a simple editor.
+\item
+  Snacc has successfully been ported to Linux and Alpha OSF/1, and should be both byte order and 64 bit clean.
+\item
+  A new backend that generates CORBA IDL (work-in-progress, not even alpha)
+\end{itemize}
+
+The makefiles have been rewritten.
+The old ones removed the {\ufn .o} files after successful compilation, and thus, for every tiny code change, a full recompilation took place!
+With the new set of makefiles, only those files that need to be remade are.
+Following usual conventions, the phony targets depend, check, install, clean and clobber have been added.
+\newline
+NOTE: the makefiles still are not safe for parallel making.
+\\
+See Appendix~\ref{makefile-sect} for some explanations of some the makefile tricks.
+\\
+If you've got problems with the makefiles, please refer to the appendix!
+
+The 1.1 release used five config.h files, and three almost identical copies of the ASN.1 C library.
+They have all been merged in the file {\ufn \dots/snacc.h}.
+A very small number (currently three) of compilation switches has been put into {\ufn \dots/policy.h}.
+
+The previous release produced huge virtual inline functions.
+Due to their size, these inlines wouldn't get inlined anyway.
+Virtual functions don't get inlined (they get referenced via pointer in the virtual function table).
+Due to their size they wouldn't offer any speed advantage (the function call overhead diminishes).
+Instead, the compiler generated static functions in every {\ufn .C} file were the {\ufn .h} file is included!
+This inflates the {\ufn .o} files and executables real quick (I'm speaking of MBytes per executable).
+These functions have been turned into normal functions.
+
+\section{\label{install-section}Configuring and Installing Snacc}
+
+First of all, if you haven't already done so, un-archive Snacc to
+produce the directory {\ufn snacc-1.2rj.\textit{patchlevel}} and its contents.
+The directory {\ufn snacc-1.2rj.\textit{patchlevel}} will henceforth be referred to as ``{\ufn \dots}''.
+The following tools are required to compile Snacc:
+\begin{itemize}
+  \item {\ufn make} (GNU {\ufn make} is recommended)
+  \item {\ufn patch} (for a tiny patch in {\ufn \dots/c-lib/})
+  \item {\ufn makedepend} or a look-alike (all of them have their advantages and disadvantages, it is hard to recommend any of them, see below)
+  \item {\ufn lex} or GNU's {\ufn flex} ({\ufn flex} is recommended)
+  \item {\ufn yacc} or GNU's {\ufn bison} ({\ufn bison} is recommended)
+  \item a C compiler (it doesn't have to support ANSI, K\&R will do)
+\end{itemize}
+
+Some versions of {\ufn yacc} may choke due to the large size of the
+{\ufn parse-asn1.y} file, however, we have had no problems with {\ufn bison}.
+Our {\ufn yacc} grammar for ASN.1 has 61 shift/reduce errors and 2
+reduce/reduce errors.  Most of these errors were introduced when
+certain macros were added to the compiler.  Some of the shift/reduce
+errors will require you to follow the offending macro in the ASN.1
+module with a semi-colon.  The reduce/reduce errors were introduced by
+macros that have ``Type or Value Lists'' because the NULL Type and
+NULL values use the same symbol, ``NULL''.  This is not a problem
+since no real processing is done with the macros in question at the
+present.
+
+{\ufn Lex} will work for the {\ufn lex-asn1.l} file but {\ufn flex} will typically
+produce a smaller executable.  Most versions of {\ufn lex} have a small
+maximum token size that will cause problems for long tokens in the
+ASN.1 source files, such as quoted strings.  To avoid this problem,
+increase the {\C YYLMAX} value in the generated {\ufn lex-asn1.c} file to at least
+2048.  {\ufn Flex} does not seem to have this problem.
+
+The configuration process has been simplified (at least for the installer of Snacc ;-) by the use of GNU autoconf.
+
+The only file has may have to be edited is {\ufn \dots/policy.h}.
+It contains a few compilation switches you may want to toggle.
+
+The behaviour of makedepend has been changed from X11R5 to R6.
+The new version keeps the source files' dirname and replaces the suffix only, the old version removed the dirname.
+The makefiles expect the new behaviour.
+If you've still got the R5 makedepend, the compiler's dependencies will be useless.
+(If you only install the code and don't make any source code changes, this won't hurt you.)
+If you haven't got {\ufn makedepend}, you can use any of the look-alikes, which often are {\ufn sh}-scripts calling the compiler with the {\ufn -M}-switch.
+If you don't plan to make any source code changes, you can replace {\ufn makedepend} with {\ufn /bin/true}.
+\newline
+Warning: MIT X11's makedepend is broken, in both R5 and R6.
+It silently does not produce any output for many of Snacc's C++ files (in {\ufn \dots/c++-lib/}).
+\newline
+The C compiler called with the {\ufn -M}-switch gives much better results, but is \emph{much} slower.
+
+The Snacc compiler and library C code has been written to support ANSI or non-ANSI C\@.
+The configuration script tries to find out whether your C compiler understands ANSI C\@.
+
+The configuration script generates two files:
+\begin{description}
+  \item[{\ufn \dots/makehead}] gets included by all makefiles.
+    It contains a lot of definitions used by make.
+  \item[{\ufn \dots/config.h}] contains all the machine, operating system, compiler and environment dependent settings.
+    It is included by {\ufn \dots/snacc.h}.
+\end{description}
+
+The C++ runtime library is known to compile with both {\ufn gcc 2.5.8} and {\ufn gcc 2.6.3}.
+The latter has the {\C bool} type built-in (which the configuration script automatically detects).
+
+Finally, to compile {\ufn snacc} and the C and C++ runtime libraries,
+type the following at the shell prompt:
+
+\begin{verbatim}
+%1 cd snacc-1.2rj.*
+%2 ./configure
+%3 make
+\end{verbatim}
+
+If you wish to install only the C (including type tables) or only the
+C++ versions of the library, type {\ufn make c} or {\ufn make c++},
+respectively, instead of {\ufn make}.  If the make succeeds, the
+{\ufn snacc} binary should be present as {\ufn \dots/compiler/snacc},
+the C runtime libraries, {\ufn libasn1csbuf.a},
+{\ufn libasn1cebuf.a}, {\ufn libasn1cmbuf.a} and {\ufn libasn1ctbl.a}, should be in
+{\ufn \dots/c-lib/} and the C++ runtime library, {\ufn libasn1c++.a}
+(and, if you compiled with the Tcl option enabled,
+another runtime library, {\ufn libasn1tcl.a}),
+should be in {\ufn \dots/c++-lib/}.
+The type table tools,
+{\ufn ptbl}, {\ufn pval} and {\ufn mkchdr}, will be in their respective directories under {\ufn \dots/tbl-tools/}.
+
+After compiling the libraries, you can test the library routines by calling {\ufn make check}
+(or by calling {\ufn make c-check} or {\ufn make c++-check} to test the C or C++ library routines only, respectively).
+
+Manual pages that contain information on running {\ufn snacc} and the type table tools can be found in {\ufn \dots/doc/}.  
+
+To install Snacc, you can call {\ufn make install} (or {\ufn make c-install} or {\ufn make c++-install}, respectively).
+This installs the snacc compiler binary, the libraries, the {\ufn .h} and {\ufn .asn1} files, the type table tools, as well as the manual pages into the usual directories.
+
+To remove the {\ufn .o} and other intermediate files, you can call {\ufn make clean}.
+To remove the binaries, libraries and all other generated files as well, call {\ufn make clobber}.
+
+\section{\label{run-section}Running Snacc}
+
+Snacc is typically invoked from the shell command line and has the synopsis:
+\begin{verbatim}
+snacc [-h] [-P] [-t] [-e] [-d] [-p] [-f]
+      [ -c | -C | -idl | -T <table output file>]
+      [-meta <module>.<type>[,...]] [-mA | -mC]
+      [-tcl <module>.<type>[,...]]
+      [-u <useful types ASN.1 file>]
+      [-mm] [-mf <max file name len>]
+      [-l <neg number>]
+      [-novolat]
+      <ASN.1 file list>
+\end{verbatim}
+
+Snacc generates C or C++ source code for BER encode and decode
+routines as well as print and free routines for each type in the given
+ASN.1 modules.  Alternatively, snacc can produce type tables that can
+be used for table based/interpreted encoding and decoding.  The type
+table based methods tend to be slower than their C or C++ counterparts
+but they tend use less memory (table size vs. C/C++ object code).
+
+Snacc may also be used to generate CORBA IDL\@.
+This part of Snacc is very new and I would rate it as pre-alpha.
+
+The {\ufn -meta}, {\ufn -mA}, {\ufn -mC} and {\ufn -tcl} options are only present when the Tcl and Tk libraries where found at configuration time.
+
+Most of the 1990 ASN.1 features are parsed although some do not affect
+the generated code.  Fairly rigourous error checking is performed on
+the ASN.1 source; any errors detected will be reported (printed to
+{\C stderr}).
+
+Each file in the ASN.1 file list should contain a complete ASN.1
+module.  ASN.1 modules that use the IMPORTS feature must be compiled
+together (specify all necessary modules in the ASN.1 file list).  The
+generated source files will include each module's header file in the
+command line order.  This makes it important to order the modules from
+least dependent to most dependent on the command line to avoid type
+ordering problems. Currently, snacc assumes that each ASN.1 file
+given on the command line depends on all of the others on the command
+line.  No attempt is made to only include the header files from
+modules referenced in the import list for that module.
+
+If the target language is C, snacc will generate a {\ufn .h} and {\ufn .c} file for each specified ASN.1 module.
+If the target language is C++, snacc will generate a {\ufn .h} and {\ufn .C} file for each module.
+If the target language is CORBA IDL, snacc will generate an {\ufn .idl} file for each module.
+The generated file names will be derived from the module's filenames, or from the
+module names if the {\ufn -mm} command line switch has been given.
+
+The command line options are:
+
+\begin{description}
+  \item[--h    ] {short for ``help'', prints a synopsis of snacc and exits.}
+
+  \item[--c    ] {causes snacc to generate C source code.
+  This is the default behaviour of snacc if neither of the {\ufn -c} or {\ufn -C} options are given.
+  Only one of the {\ufn -c}, {\ufn -C}, {\ufn -idl} or {\ufn -T} options should be specified.}
+
+  \item[--C    ] {causes snacc to generate C++ source code.}
+
+  \item[--novolat] {causes snacc to generate C++ ``{\C return *this}''
+  after calling {\C abort()}. (Some broken compilers don't know about
+  volatile functions, or their abort() isn't correctly typed.)}
+
+  \item[--idl  ] {causes snacc to generate CORBA IDL source code.}
+
+  \item[--T \emph{file}] {causes snacc to generate type tables and write them to the given file \emph{file}.}
+
+  \item[--meta \emph{types}]
+    causes snacc to generate C++ classes with type meta information.
+    Requires C++ functionality and therefore implies {\ufn -C} (C++ code generation).
+
+  The \emph{types} denote the PDUs and have the following syntax: a comma-separated list of pairs of: module name, a dot, and a type name from that module. (Example: {\ufn snacc -tcl M1.T-a,M-2.Tb mod1.asn1 m2.asn1})
+
+  \item[--mA \textnormal{and} --mC]
+    causes the metacode to use identifiers as defined in the ASN.1 source files or as used in the generated C++ code, respectively.
+    (It defaults to {\ufn -mC}.)
+
+  \item[--tcl \emph{types}]
+    causes snacc to generate functions for a Tcl interface.
+    Needs the type meta information and thus implies {\ufn -meta} (see above).
+    The {\ufn -meta} option can and should be omitted, the \emph{types} are as for the {\ufn -meta} option (the \emph{types} arguments are additive, in case you specify both options).
+
+  \item[--P    ] {causes snacc to print the parsed ASN.1 modules to {\C stdout} after the types have been linked, sorted, and processed.
+  This option is useful for debugging snacc and observing the modifications snacc performs on the types to make code generation simpler.}
+\end{description}
+
+The options, {\ufn -t, -v, -e, -d, -p,} and {\ufn -f} affect
+what types and routines go into the generated source code.
+These options do not affect type table generation. If none of
+them are given on the command line, snacc assumes that all of them are
+in effect.  For example, if you do not need the Free or Print
+routines, you should give the {\ufn -t -v -e -d} options to snacc.
+This lets you trim the size of the generated code by removing
+unnecessary routines; the code generated from large ASN.1
+specifications can produce very large binaries.
+
+\begin{description}
+\item[--t    ]
+  causes snacc to generate type definitions in the target language for each ASN.1 type.
+
+\item[--v    ]
+  causes snacc to generate value definitions in the target language for each ASN.1 value.
+  Currently value definitions are limited to INTEGERs, BOOLEANs and OBJECT IDENTIFIERs.
+
+\item[--e    ]
+  causes snacc to generate encode routines in the target language for each ASN.1 type.
+
+\item[--d    ]
+  causes snacc to generate decode routines in the target language for each ASN.1 type.
+
+\item[--p    ]
+  causes snacc to generate print routines in the target language for each ASN.1 type.
+
+\item[--f    ]
+  causes snacc to generate free routines in the target language for each ASN.1 type.
+  This option only works when the target language is C\@.
+  The free routines hierarchically free C values.
+  A more efficient approach is to use the provided nibble-memory system.
+  The nibble memory permits freeing an entire decoded value without traversing the decoded value.
+  This is the default memory allocator used by snacc generated decoders.
+  See file {\ufn \dots/c-lib/inc/asn-config.h} to change the default memory system.
+  For more information on the memory management see Section~\ref{lib-mem-C-section}.
+
+\item[--u \emph{file}]
+  causes snacc to read the useful types definitions from the ASN.1 module in file \emph{file} for linking purposes.
+  For some ASN.1 specifications, such as SNMP, the useful types are not needed.
+  The types in the given useful types file are globally available to all modules; a useful type definition is overridden by a local or explicitly imported type with the same name.
+  The useful type module can be found in {\ufn \dots/asn1specs/asn-useful.asn1} and contains:
+  \begin{itemize}
+    \setlength{\itemsep}{0pt}
+    \setlength{\parsep}{0pt}
+    \nspace{0}
+    \item ObjectDesccriptor
+    \item NumericString
+    \item PrintableString
+    \item TeletexString
+    \item T61String
+    \item VideoTexString
+    \item IA5String
+    \item GraphicString
+    \item ISO646String
+    \item GeneralString
+    \item UTCTime
+    \item GeneralizedTime
+    \item EXTERNAL
+  \end{itemize}
+
+\item[--mm]
+  This switch is supplied for backwards compatibility.
+  Snacc versions 1.0 and 1.1 produced files with names generated from the ASN.1 module name contained in the input file.
+  Snacc 1.2rj by default retains the input file name and replaces the suffix only.
+  The new behaviour makes {\ufn makefile} writing easier, as with modern {\ufn make}s, pattern matching can be used.
+
+\item[--mf \emph{number}]
+  causes the names of the generated source files to have a maximum length of \emph{number} characters, including their suffix.
+  The \emph{number} argument must be at least 3.
+  This option is useful for supporting operating systems that only support short file names.
+  A better solution is to shorten the module name of each ASN.1 module.
+
+\item[--l \emph{number}]
+  this is fairly obscure but may be useful.
+  Each error that the decoders can report is given an id number.
+  The number \emph{number} is where the error ids start decreasing from as they are assigned to errors.
+  The default is -100 if this option is not given.
+  Avoid using a number in the range -100 to 0 since they may conflict with the library routines' error ids.
+  If you are re-compiling the useful types for the library use -50.
+  Another use of this option is to integrate newly generated code with older code; if done correctly, the error ids will not conflict.
+
+\end{description}
+
+Since ASN.1 has different scoping rules than C and C++, some name munging
+is done for types, named-numbers etc. to eliminate conflicts.
+Some capitalization schemes were chosen to fit common C programming
+style.  For all names, dashes in the ASN.1 source are converted to
+underscores.  See Sections \ref{naming-C-section} and \ref{naming-C++-section}
+for more naming information.
+
+If the {\ufn -mm} switch has been given, the module name is used as a base name for the generated source file
+names.  It will be put into lowercase and dashes will be replaced with
+underscores.  Module names that result in file names longer than
+specified with the {\ufn -mf} option will be truncated.  If the
+{\ufn -mf} option was not given, file names will be truncated if they
+are too long for the target file system. You may want to shorten long
+module names to meaningful abbreviations. This will avoid file name
+conflicts for module names that are truncated to the same substring.
+Any module name and file name conflicts will be reported.
+
+If your ASN.1 modules have syntactic or semantic errors, each error
+will be printed to {\C stderr} along with the file name and line number of
+where it occurred. These errors are usable by GNU emacs compiling
+tools.  See the next chapter for more information on the types of
+errors snacc can detect.
+
+More errors can be detected and reported in a single compile if type
+and value definitions are separated by semi-colons.  Separating type
+and value definitions with semi-colons is not required, and if used,
+need not be used to separate all type and value definitions.
+Semi-colons are necessary after some macros that introduce ambiguity.
+In general, if you get a parse error you can't figure out, try
+separating the surrounding type/value definitions with semicolons.
+
+
+\subsection{Known Bugs}
+
+\begin{itemize}
+  \item
+    Snacc has problems with the following case:
+    \begin{ASNcode}
+      Foo ::= SEQUENCE\\
+      \{\+\\
+	id IdType,\\
+	val ANY DEFINED BY id\-\\
+      \}\\
+      \\
+      IdType ::= CHOICE\\
+      \{\+\\
+	a INTEGER,\\
+	b OBJECT IDENTIFIER\-\\
+      \}
+    \end{ASNcode}
+
+    The error checking pass will print an error to the effect that the id
+    type must be INTEGER or OBJECT IDENTIFER\@.  To fix this you must modify
+    the error checking pass as well as the code generation pass.  To be
+    cheap about it, disable/fix the error checking and hand modify the
+    generated code.
+
+  \item
+    The hashing code used for handling ANY DEFINED BY id to type mappings
+    will encounter problems if the hash table goes more than four levels
+    deep (I think this is unlikely).  To fix this just add linear chaining
+    at fourth level.
+
+  \item 
+    The {\ufn \dots/configure} script should check whether the machine's floating point format is IEEE or whether the IEEE library exists.
+
+  \item
+    The C++ library severly lacks a convenient buffer management class that automatically expands like the C libraries' ExpBuf.
+    What use is an efficient buffer management when you have got to build a loop a round snacc's encoding routine that reallocates larger buffers until the result fits?
+
+  \item
+    Where this document describes personal experiences, it is usually unclear to which author `I' refers.
+    (One way to find out is to look at snacc~1.1's documentation.)
+
+\end{itemize}
+
+\section{\label{bug-section}Reporting Bugs and Your Own Improvements}
+
+Snacc 1.1 was Michael Sample's final release.
+While he is watching Snacc's development, he isn't actively developing it himself.
+
+Since there are quite a number of changes from release 1.1 to 1.2rj, bug reports and new features are best sent to me.
+I can be reached as \texttt{Robert Joop <rj@rainbow.in-berlin.de>} or \texttt{<rj@fokus.gmd.de>}.

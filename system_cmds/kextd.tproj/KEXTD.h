@@ -47,11 +47,11 @@ void		KEXTDFree(KEXTDRef kextd);
 void            KEXTDHangup(KEXTDRef kextd);
 void		KEXTDReset(KEXTDRef kextd);
 #if TIMERSOURCE
-KEXTReturn    	KEXTDStartMain(KEXTDRef kextd, Boolean beVerbose, Boolean safeBoot, Boolean debug, Boolean poll, CFIndex period, KEXTBootlevel bootlevel);
+KEXTReturn    	KEXTDStartMain(KEXTDRef kextd, Boolean beVerbose, Boolean safeBoot, Boolean debug, Boolean poll, CFIndex period, KEXTBootlevel bootlevel, Boolean cdMKextBoot);
 #else
-KEXTReturn    	KEXTDStartMain(KEXTDRef kextd, Boolean beVerbose, Boolean safeBoot, Boolean debug, KEXTBootlevel bootlevel);
+KEXTReturn    	KEXTDStartMain(KEXTDRef kextd, Boolean beVerbose, Boolean safeBoot, Boolean debug, KEXTBootlevel bootlevel, Boolean cdMKextBoot);
 #endif
-void		KEXTDScanPaths(KEXTDRef kextd);
+void		KEXTDScanPaths(KEXTDRef kextd, Boolean cdMKextBoot);
 void		KEXTDAddScanPath(KEXTDRef kextd, CFURLRef path);
 void		KEXTDRegisterHelperCallbacks(KEXTDRef kextd, KEXTDHelperCallbacks * callbacks);
 KEXTReturn      KEXTDKernelRequest(KEXTDRef kextd, CFStringRef moduleName);

@@ -71,7 +71,7 @@ echo "Checking subsystem status:"
 
 echo ""
 echo "disks:"
-df -k -t local
+df -k -l
 echo ""
 dump W
 

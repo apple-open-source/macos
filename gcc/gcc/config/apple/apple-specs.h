@@ -178,7 +178,8 @@
     %{!traditional:%{traditional-cpp:cpp}\
 	%{!traditional-cpp:%{no-cpp-precomp:cpp}\
 	    %{!no-cpp-precomp:%{faltivec:cpp}\
-		%{!faltivec:cpp-precomp -smart %{precomp-trustfile}}}}}\
+		%{!faltivec:%{--help:cpp}\
+		%{!--help:cpp-precomp -smart %{precomp-trustfile}}}}}}\
     %{.m:%BCompiling}%{!.m:%BCompiling} " # lang_flag "\
     %{nostdinc*} %{C} %{v} %{A*} %{I*} %{P} %I\
 	%{C:%{!E:%eGNU C does not support -C without using -E}}\
@@ -199,6 +200,7 @@
 		   %{W*} %{w} %{pedantic*} %{ansi} \
 		   %{traditional} %{v:-version} %{pg:-p} %{p} %{f*}\
 		   %{aux-info*} " # compiler_flags "\
+		%{--help:--help}\
 		   %{pg:%{fomit-frame-pointer:%e-pg and -fomit-frame-pointer are incompatible}}\
 		   %{S:%W{o}%{!o:-o %b.s}}%{!S:-o %{|!pipe:%g.s}} |\n\
               %{!S:as %a %Y\
@@ -306,6 +308,7 @@
   {".cp", "@c++"},
   {".cpp", "@c++"},
   {".cxx", "@c++"},
+  {".c++", "@c++"},
   {"@c++",
    NEXT_SPEC (%{fobjc:-lang-objc++}%{!fobjc:-lang-c++},
 	      %{fobjc:-D__OBJC__},

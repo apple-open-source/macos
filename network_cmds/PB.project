@@ -3,7 +3,6 @@
         OTHER_SOURCES = (Makefile, Makefile.include, Makefile.preamble); 
         SUBPROJECTS = (
             alias, 
-            pcap, 
             timed.tproj, 
             arp.tproj, 
             bootparams, 
@@ -20,7 +19,6 @@
             nfsiod.tproj, 
             nfsstat.tproj, 
             ping.tproj, 
-            portmap.tproj, 
             rarpd.tproj, 
             rbootd.tproj, 
             rcp.tproj, 
@@ -42,7 +40,6 @@
             syslogd.tproj, 
             talk.tproj, 
             talkd.tproj, 
-            tcpdump.tproj, 
             telnet.tproj, 
             telnetd.tproj, 
             tftp.tproj, 

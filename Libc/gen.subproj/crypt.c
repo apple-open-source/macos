@@ -59,6 +59,7 @@
 #include <unistd.h>
 #include <limits.h>
 #include <pwd.h>
+#include <stdlib.h>
 
 /*
  * UNIX password, and DES, encryption.
@@ -465,19 +466,24 @@ static unsigned char itoa64[] =		/* 0..63 => ascii-64 */
 static unsigned char a64toi[128];	/* ascii-64 => 0..63 */
 
 /* Initial key schedule permutation */
-static C_block	PC1ROT[64/CHUNKBITS][1<<CHUNKBITS];
+// static C_block	PC1ROT[64/CHUNKBITS][1<<CHUNKBITS];
+static C_block	*PC1ROT;
 
 /* Subsequent key schedule rotation permutations */
-static C_block	PC2ROT[2][64/CHUNKBITS][1<<CHUNKBITS];
+// static C_block	PC2ROT[2][64/CHUNKBITS][1<<CHUNKBITS];
+static C_block	*PC2ROT[2];
 
 /* Initial permutation/expansion table */
-static C_block	IE3264[32/CHUNKBITS][1<<CHUNKBITS];
+// static C_block	IE3264[32/CHUNKBITS][1<<CHUNKBITS];
+static C_block	*IE3264;
 
 /* Table that combines the S, P, and E operations.  */
-static long SPE[2][8][64];
+// static long SPE[2][8][64];
+static long *SPE;
 
 /* compressed/interleaved => final permutation table */
-static C_block	CF6464[64/CHUNKBITS][1<<CHUNKBITS];
+// static C_block	CF6464[64/CHUNKBITS][1<<CHUNKBITS];
+static C_block	*CF6464;
 
 
 /* ==================================== */
@@ -606,13 +612,13 @@ STATIC int des_setkey(key)
 		des_ready = 1;
 	}
 
-	PERM6464(K,K0,K1,(unsigned char *)key,(C_block *)PC1ROT);
+	PERM6464(K,K0,K1,(unsigned char *)key,PC1ROT);
 	key = (char *)&KS[0];
 	STORE(K&~0x03030303L, K0&~0x03030303L, K1, *(C_block *)key);
 	for (i = 1; i < 16; i++) {
 		key += sizeof(C_block);
 		STORE(K,K0,K1,*(C_block *)key);
-		ptabp = (C_block *)PC2ROT[Rotates[i]-1];
+		ptabp = PC2ROT[Rotates[i]-1];
 		PERM6464(K,K0,K1,(unsigned char *)key,ptabp);
 		STORE(K&~0x03030303L, K0&~0x03030303L, K1, *(C_block *)key);
 	}
@@ -667,8 +673,8 @@ STATIC int des_cipher(in, out, salt, num_iter)
 	R1 = (R1 >> 1) & 0x55555555L;
 	L1 = R0 | R1;		/* L1 is the odd-numbered input bits */
 	STORE(L,L0,L1,B);
-	PERM3264(L,L0,L1,B.b,  (C_block *)IE3264);	/* even bits */
-	PERM3264(R,R0,R1,B.b+4,(C_block *)IE3264);	/* odd bits */
+	PERM3264(L,L0,L1,B.b,IE3264);	/* even bits */
+	PERM3264(R,R0,R1,B.b+4,IE3264);	/* odd bits */
 
 	if (num_iter >= 0)
 	{		/* encryption */
@@ -689,14 +695,14 @@ STATIC int des_cipher(in, out, salt, num_iter)
 #define	SPTAB(t, i)	(*(long *)((unsigned char *)t + i*(sizeof(long)/4)))
 #if defined(gould)
 			/* use this if B.b[i] is evaluated just once ... */
-#define	DOXOR(x,y,i)	x^=SPTAB(SPE[0][i],B.b[i]); y^=SPTAB(SPE[1][i],B.b[i]);
+#define	DOXOR(x,y,i)	x^=SPTAB(&SPE[i * 64],B.b[i]); y^=SPTAB(&SPE[(8 * 64) + (i * 64)],B.b[i]);
 #else
 #if defined(pdp11)
 			/* use this if your "long" int indexing is slow */
-#define	DOXOR(x,y,i)	j=B.b[i]; x^=SPTAB(SPE[0][i],j); y^=SPTAB(SPE[1][i],j);
+#define	DOXOR(x,y,i)	j=B.b[i]; x^=SPTAB(&SPE[i * 64],j); y^=SPTAB(&SPE[(8 * 64) + (i * 64)],j);
 #else
 			/* use this if "k" is allocated to a register ... */
-#define	DOXOR(x,y,i)	k=B.b[i]; x^=SPTAB(SPE[0][i],k); y^=SPTAB(SPE[1][i],k);
+#define	DOXOR(x,y,i)	k=B.b[i]; x^=SPTAB(&SPE[i * 64],k); y^=SPTAB(&SPE[(8 * 64) + (i * 64)],k);
 #endif
 #endif
 
@@ -731,7 +737,7 @@ STATIC int des_cipher(in, out, salt, num_iter)
 	L0 = ((L0 >> 3) & 0x0f0f0f0fL) | ((L1 << 1) & 0xf0f0f0f0L);
 	L1 = ((R0 >> 3) & 0x0f0f0f0fL) | ((R1 << 1) & 0xf0f0f0f0L);
 	STORE(L,L0,L1,B);
-	PERM6464(L,L0,L1,B.b, (C_block *)CF6464);
+	PERM6464(L,L0,L1,B.b,CF6464);
 #if defined(MUST_ALIGN)
 	STORE(L,L0,L1,B);
 	out[0] = B.b[0]; out[1] = B.b[1]; out[2] = B.b[2]; out[3] = B.b[3];
@@ -781,6 +787,9 @@ STATIC void init_des()
 #ifdef DEBUG
 	prtab("pc1tab", perm, 8);
 #endif
+	PC1ROT = (C_block *)calloc(sizeof(C_block), (64/CHUNKBITS) * (1<<CHUNKBITS));
+	for (i = 0; i < 2; i++)
+		PC2ROT[i] = (C_block *)calloc(sizeof(C_block), (64/CHUNKBITS) * (1<<CHUNKBITS));
 	init_perm(PC1ROT, perm, 8, 8);
 
 	/*
@@ -829,6 +838,7 @@ STATIC void init_des()
 #ifdef DEBUG
 	prtab("ietab", perm, 8);
 #endif
+	IE3264 = (C_block *)calloc(sizeof(C_block), (32/CHUNKBITS) * (1<<CHUNKBITS));
 	init_perm(IE3264, perm, 4, 8);
 
 	/*
@@ -846,6 +856,8 @@ STATIC void init_des()
 #ifdef DEBUG
 	prtab("cftab", perm, 8);
 #endif
+	CF6464 = (C_block *)calloc(sizeof(C_block), (64/CHUNKBITS) * (1<<CHUNKBITS));
+	SPE = (long *)calloc(sizeof(long), 2 * 8 * 64);
 	init_perm(CF6464, perm, 8, 8);
 
 	/*
@@ -873,11 +885,11 @@ STATIC void init_des()
 			k = 0;
 			for (i = 24; --i >= 0; )
 				k = (k<<1) | tmp32[perm[i]-1];
-			TO_SIX_BIT(SPE[0][tableno][j], k);
+			TO_SIX_BIT(SPE[(tableno * 64) + j], k);
 			k = 0;
 			for (i = 24; --i >= 0; )
 				k = (k<<1) | tmp32[perm[i+24]-1];
-			TO_SIX_BIT(SPE[1][tableno][j], k);
+			TO_SIX_BIT(SPE[(8 * 64) + (tableno * 64) + j], k);
 		}
 	}
 }
@@ -891,7 +903,7 @@ STATIC void init_des()
  * "perm" must be all-zeroes on entry to this routine.
  */
 STATIC void init_perm(perm, p, chars_in, chars_out)
-	C_block perm[64/CHUNKBITS][1<<CHUNKBITS];
+	C_block *perm;
 	unsigned char p[64];
 	int chars_in, chars_out;
 {
@@ -905,7 +917,7 @@ STATIC void init_perm(perm, p, chars_in, chars_out)
 		l = 1<<(l&(CHUNKBITS-1));	/* mask for this bit */
 		for (j = 0; j < (1<<CHUNKBITS); j++) {	/* each chunk value */
 			if ((j & l) != 0)
-				perm[i][j].b[k>>3] |= 1<<(k&07);
+				perm[(i * (1<<CHUNKBITS)) + j].b[k>>3] |= 1<<(k&07);
 		}
 	}
 }

@@ -14,7 +14,7 @@ PROJECT_TYPE = Component
 
 HFILES = cthread_internals.h cthreads.h
 
-CFILES = cprocs.c cthreads.c lu_utils.c mig_support.c threads_data.c
+CFILES = cprocs.c cthreads.c lu_utils.c mig_support.c
 
 SUBPROJECTS = i386.subproj ppc.subproj
 

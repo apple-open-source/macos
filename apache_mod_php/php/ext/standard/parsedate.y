@@ -180,8 +180,8 @@ static int	yyRelYear;
 
 %}
 
-/* This grammar has 13 shift/reduce conflicts. */
-%expect 13
+/* This grammar has 14 shift/reduce conflicts. */
+%expect 14
 
 %union {
     int			Number;
@@ -319,6 +319,11 @@ date	: tUNUMBER '/' tUNUMBER {
 	    yyDay = $1;
 	    yyMonth = $2;
 	    yyYear = -$3;
+	}
+	| tMONTH tUNUMBER tUNUMBER {
+	    yyMonth = $1;
+	    yyDay = $2;
+		yyYear = $3;
 	}
 	| tMONTH tUNUMBER {
 	    yyMonth = $1;

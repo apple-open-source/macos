@@ -892,6 +892,14 @@ struct object *object)
 		    new_ntoc * sizeof(struct dylib_table_of_contents)+
 		    object->dyst->nmodtab * sizeof(struct dylib_module) +
 		    new_nextrefsyms * sizeof(struct dylib_reference);
+		if(object->hints_cmd != NULL){
+		    object->input_sym_info_size +=
+			object->hints_cmd->nhints *
+			sizeof(struct twolevel_hint);
+		    object->output_sym_info_size +=
+			object->hints_cmd->nhints *
+			sizeof(struct twolevel_hint);
+		}
 		object->dyst->ntoc = new_ntoc;
 		object->dyst->nextrefsyms = new_nextrefsyms;
 
@@ -941,6 +949,18 @@ struct object *object)
 		}
 		else
 		    object->st->symoff = 0;
+
+		if(object->hints_cmd != NULL){
+		    if(object->hints_cmd->nhints != 0){
+			object->output_hints = (struct twolevel_hint *)
+			    (object->object_addr + object->hints_cmd->offset);
+			object->hints_cmd->offset = offset;
+			offset += object->hints_cmd->nhints *
+				  sizeof(struct twolevel_hint);
+		    }
+		    else
+			object->hints_cmd->offset = 0;
+		}
 
 		if(object->dyst->nextrel != 0){
 		    object->output_ext_relocs = (struct relocation_info *)
@@ -1699,6 +1719,12 @@ unsigned long nextrefsyms)
 			    saves[i] = new_nsyms;
 			}
 		    }
+		    /*
+		     * TODO: I think we really only need to save local coalesed
+		     * symbols that are used as indirect symbols.  This should
+		     * be validated and the code changed.  For now all local
+		     * coalesed symbols are saved.
+		     */
 		    if(saves[i] == 0 &&
 		       (symbols[i].n_type & N_TYPE) == N_SECT &&
 		       (sections[symbols[i].n_sect - 1]->flags &

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2000 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2001 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 0.92 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
@@ -24,10 +24,6 @@
 
 #ifdef HAVE_STDLIB_H
 # include <stdlib.h>
-#endif
-
-#ifdef HAVE_LIMITS_H
-# include <limits.h>
 #endif
 
 #define HANDLE_NUMERIC(key, length, func) {												\
@@ -52,7 +48,7 @@
 				return func;															\
 			}																			\
 		}																				\
-	} while(0);																			\
+	} while (0);																			\
 }
 
 
@@ -1019,7 +1015,7 @@ ZEND_API int zend_hash_move_backwards_ex(HashTable *ht, HashPosition *pos)
 
 
 /* This function should be made binary safe  */
-ZEND_API int zend_hash_get_current_key_ex(HashTable *ht, char **str_index, ulong *str_length, ulong *num_index, HashPosition *pos)
+ZEND_API int zend_hash_get_current_key_ex(HashTable *ht, char **str_index, ulong *str_length, ulong *num_index, zend_bool duplicate, HashPosition *pos)
 {
 	Bucket *p;
    
@@ -1029,8 +1025,11 @@ ZEND_API int zend_hash_get_current_key_ex(HashTable *ht, char **str_index, ulong
 
 	if (p) {
 		if (p->nKeyLength) {
-			*str_index = (char *) pemalloc(p->nKeyLength, ht->persistent);
-			memcpy(*str_index, p->arKey, p->nKeyLength);
+			if (duplicate) {
+				*str_index = estrndup(p->arKey, p->nKeyLength);
+			} else {
+				*str_index = p->arKey;
+			}
 			if (str_length) {
 				*str_length = p->nKeyLength;
 			}

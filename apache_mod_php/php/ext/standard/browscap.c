@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: browscap.c,v 1.1.1.3 2001/01/25 05:00:02 wsanchez Exp $ */
+/* $Id: browscap.c,v 1.1.1.4 2001/07/19 00:20:07 zarzycki Exp $ */
 
 #include "php.h"
 #include "php_regex.h"
@@ -92,7 +92,7 @@ static void php_browscap_parser_cb(zval *arg1, zval *arg2, int callback_type, vo
 
 				new_property = (zval *) malloc(sizeof(zval));
 				INIT_PZVAL(new_property);
-				new_property->value.str.val = Z_STRVAL_P(arg2);
+				new_property->value.str.val = Z_STRLEN_P(arg2)?zend_strndup(Z_STRVAL_P(arg2), Z_STRLEN_P(arg2)):"";
 				new_property->value.str.len = Z_STRLEN_P(arg2);
 				new_property->type = IS_STRING;
 				
@@ -139,12 +139,13 @@ PHP_MINIT_FUNCTION(browscap)
 			return FAILURE;
 		}
 
-		fh.handle.fp = V_FOPEN(browscap, "r");
+		fh.handle.fp = VCWD_FOPEN(browscap, "r");
 		if (!fh.handle.fp) {
-			php_error(E_WARNING,"Cannot open '%s' for reading", browscap);
+			php_error(E_CORE_WARNING,"Cannot open '%s' for reading", browscap);
 			return FAILURE;
 		}
 		fh.filename = browscap;
+		fh.type = ZEND_HANDLE_FP;
 		zend_parse_ini_file(&fh, 1, (zend_ini_parser_cb_t) php_browscap_parser_cb, &browser_hash);
 	}
 
@@ -195,6 +196,7 @@ PHP_FUNCTION(get_browser)
 	zval **agent_name,**agent;
 	zval *found_browser_entry,*tmp_copy;
 	char *lookup_browser_name;
+	PLS_FETCH();
 
 	if (!INI_STR("browscap")) {
 		RETURN_FALSE;
@@ -202,7 +204,8 @@ PHP_FUNCTION(get_browser)
 	
 	switch(ZEND_NUM_ARGS()) {
 		case 0:
-			if (zend_hash_find(&EG(symbol_table), "HTTP_USER_AGENT", sizeof("HTTP_USER_AGENT"), (void **) &agent_name)==FAILURE) {
+			if (!PG(http_globals)[TRACK_VARS_SERVER]
+				|| zend_hash_find(PG(http_globals)[TRACK_VARS_SERVER]->value.ht, "HTTP_USER_AGENT", sizeof("HTTP_USER_AGENT"), (void **) &agent_name)==FAILURE) {
 				zend_error(E_WARNING,"HTTP_USER_AGENT variable is not set, cannot determine user agent name");
 				RETURN_FALSE;
 			}

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: string.c,v 1.1.1.3 2001/01/25 05:00:13 wsanchez Exp $ */
+/* $Id: string.c,v 1.1.1.4 2001/07/19 00:20:22 zarzycki Exp $ */
 
 /* Synced with php 3.0 revision 1.193 1999-06-16 [ssb] */
 
@@ -36,6 +36,9 @@
 #include "php_globals.h"
 #include "basic_functions.h"
 #include "php_smart_str.h"
+#ifdef ZTS
+#include "TSRM.h"
+#endif
 
 #define STR_PAD_LEFT			0
 #define STR_PAD_RIGHT			1
@@ -52,6 +55,30 @@ void register_string_constants(INIT_FUNC_ARGS)
 	REGISTER_LONG_CONSTANT("PATHINFO_DIRNAME", PHP_PATHINFO_DIRNAME, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("PATHINFO_BASENAME", PHP_PATHINFO_BASENAME, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("PATHINFO_EXTENSION", PHP_PATHINFO_EXTENSION, CONST_CS | CONST_PERSISTENT);
+
+#ifdef HAVE_LOCALECONV
+	/* If last members of struct lconv equal CHAR_MAX, no grouping is done */	
+
+/* This is bad, but since we are going to be hardcoding in the POSIX stuff anyway... */
+# ifndef HAVE_LIMITS_H
+# define CHAR_MAX 127
+# endif
+
+	REGISTER_LONG_CONSTANT("CHAR_MAX", CHAR_MAX, CONST_CS | CONST_PERSISTENT);
+#endif
+
+#ifdef HAVE_LOCALE_H
+	REGISTER_LONG_CONSTANT("LC_CTYPE", LC_CTYPE, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("LC_NUMERIC", LC_NUMERIC, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("LC_TIME", LC_TIME, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("LC_COLLATE", LC_COLLATE, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("LC_MONETARY", LC_MONETARY, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("LC_ALL", LC_ALL, CONST_CS | CONST_PERSISTENT);
+# ifdef LC_MESSAGES
+	REGISTER_LONG_CONSTANT("LC_MESSAGES", LC_MESSAGES, CONST_CS | CONST_PERSISTENT);
+# endif
+#endif
+	
 }
 
 int php_tag_find(char *tag, int len, char *set);
@@ -59,12 +86,17 @@ int php_tag_find(char *tag, int len, char *set);
 /* this is read-only, so it's ok */
 static char hexconvtab[] = "0123456789abcdef";
 
+/* localeconv mutex */
+#ifdef ZTS
+static MUTEX_T locale_mutex = NULL;
+#endif
+
 static char *php_bin2hex(const unsigned char *old, const size_t oldlen, size_t *newlen)
 {
 	unsigned char *result = NULL;
 	size_t i, j;
 
-	result = (char *) emalloc(oldlen * 2 * sizeof(char));
+	result = (char *) emalloc(oldlen * 2 * sizeof(char) + 1);
 	if(!result) {
 		return result;
 	}
@@ -73,11 +105,53 @@ static char *php_bin2hex(const unsigned char *old, const size_t oldlen, size_t *
 		result[j++] = hexconvtab[old[i] >> 4];
 		result[j++] = hexconvtab[old[i] & 15];
 	}
+	result[j] = '\0';
 
 	if(newlen) *newlen = oldlen * 2 * sizeof(char);
 
 	return result;
 }
+
+#ifdef HAVE_LOCALECONV
+/* glibc's localeconv is not reentrant, so lets make it so ... sorta */
+struct lconv *localeconv_r(struct lconv *out)
+{
+	struct lconv *res;
+
+# ifdef ZTS
+	tsrm_mutex_lock( locale_mutex );
+# endif
+
+	/* localeconv doesn't return an error condition */
+	res = localeconv();
+
+	*out = *res;
+
+# ifdef ZTS
+	tsrm_mutex_unlock( locale_mutex );
+# endif
+
+	return out;
+}
+
+# ifdef ZTS
+PHP_MINIT_FUNCTION(localeconv)
+{
+	locale_mutex = tsrm_mutex_alloc();
+
+	return SUCCESS;
+}
+
+PHP_MSHUTDOWN_FUNCTION(localeconv)
+{
+	tsrm_mutex_free( locale_mutex );
+
+	locale_mutex = NULL;
+
+	return SUCCESS;
+}
+# endif
+#endif
 
 /* {{{ proto string bin2hex(string data)
    Converts the binary representation of data to hex */
@@ -136,6 +210,24 @@ PHP_FUNCTION(strcspn)
 							(*s2)->value.str.val + (*s2)->value.str.len));
 }
 /* }}} */
+
+#ifdef HAVE_STRCOLL
+/* {{{ proto int strcoll(string str1, string str2)
+   Compare two strings using the current locale */
+PHP_FUNCTION(strcoll)
+{
+	zval **s1, **s2;
+
+	if (ZEND_NUM_ARGS()!=2 || zend_get_parameters_ex(2, &s1, &s2) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
+
+	convert_to_string_ex(s1);
+	convert_to_string_ex(s2);
+
+	RETURN_LONG(strcoll((const char *)(*s1)->value.str.val, (const char *)(*s2)->value.str.val));
+}
+#endif
 
 PHPAPI void php_trim(zval *str, zval * return_value, int mode)
 /* mode 1 : trim left
@@ -247,6 +339,10 @@ PHP_FUNCTION(wordwrap)
 	}
 
 	convert_to_string_ex(ptext);
+	
+	if (Z_STRVAL_PP(ptext) == 0)
+		RETVAL_FALSE;
+	
 	text = (*ptext)->value.str.val;
 
 	if (ZEND_NUM_ARGS() > 1) {
@@ -282,7 +378,7 @@ PHP_FUNCTION(wordwrap)
 			l = 0;
 			while (newtext[i+l] != breakchar[0]) {
 				if (newtext[i+l] == '\0') {
-					l --;
+					l--;
 					break;
 				}
 				l++;
@@ -296,7 +392,7 @@ PHP_FUNCTION(wordwrap)
 						newtext[i+l] = breakchar[0];
 						break;
 					}
-					l --;
+					l--;
 				}
 				if (l == -1) {
 					/* couldn't break is backwards, try looking forwards */
@@ -306,7 +402,7 @@ PHP_FUNCTION(wordwrap)
 							newtext[i+l] = breakchar[0];
 							break;
 						}
-						l ++;
+						l++;
 					}
 				}
 			}
@@ -317,7 +413,7 @@ PHP_FUNCTION(wordwrap)
 	}
 	else {
 		/* Multiple character line break */
-		newtext = emalloc((*ptext)->value.str.len * (breakcharlen+1));
+		newtext = emalloc((*ptext)->value.str.len * (breakcharlen+1)+1);
 		newtext[0] = '\0';
 
 		i = 0;
@@ -329,7 +425,7 @@ PHP_FUNCTION(wordwrap)
 					if (breakcharlen == 1 || strncmp(text+i+l, breakchar, breakcharlen)==0)
 						break;
 				}
-				l ++;
+				l++;
 			}
 			if (l >= linelength) {
 				pgr = l;
@@ -343,11 +439,11 @@ PHP_FUNCTION(wordwrap)
 						last = i + l + 1;
 						break;
 					}
-					l --;
+					l--;
 				}
 				if (l == -1) {
 					/* couldn't break it backwards, try looking forwards */
-					l = linelength;
+					l = linelength - 1;
 					while (l <= pgr) {
 						if (docut == 0)
 						{
@@ -361,13 +457,13 @@ PHP_FUNCTION(wordwrap)
 						if (docut == 1)
 						{
 							if (text[i+l] == ' ' || l > i-last) {
-								strncat(newtext, text+last, i+l-last);
+								strncat(newtext, text+last, i+l-last+1);
 								strcat(newtext, breakchar);
-								last = i + l;
+								last = i + l + 1;
 								break;
 							}
 						}
-						l ++;
+						l++;
 					}
 				}
 				i += l+1;
@@ -806,7 +902,7 @@ PHP_FUNCTION(pathinfo)
 		int idx;
 
 		p = strrchr(Z_STRVAL_PP(path), '.');
-		if (*p) {
+		if (p) {
 			idx = p - Z_STRVAL_PP(path);
 			add_assoc_stringl(tmp, "extension", Z_STRVAL_PP(path) + idx + 1, len - idx - 1, 1);
 		}
@@ -1468,12 +1564,11 @@ static void php_strtr_array(zval *return_value,char *str,int slen,HashTable *has
 	
 	zend_hash_internal_pointer_reset_ex(hash, &hpos);
 	while (zend_hash_get_current_data_ex(hash, (void **)&entry, &hpos) == SUCCESS) {
-		switch (zend_hash_get_current_key_ex(hash, &string_key, NULL, &num_key, &hpos)) {
+		switch (zend_hash_get_current_key_ex(hash, &string_key, NULL, &num_key, 0, &hpos)) {
 		case HASH_KEY_IS_STRING:
 			len = strlen(string_key);
 			if (len > maxlen) maxlen = len;
 			if (len < minlen) minlen = len;
-			efree(string_key);
 			break; 
 			
 		case HASH_KEY_IS_LONG:
@@ -2066,48 +2161,160 @@ PHPAPI char *php_str_to_str(char *haystack, int length,
 }
 
 
-/* {{{ proto string str_replace(string needle, string str, string haystack)
-   Replace all occurrences of needle in haystack with str */
+static void php_str_replace_in_subject(zval *search, zval *replace, zval **subject, zval *result)
+{
+	zval		**search_entry,
+				**replace_entry = NULL,
+				  temp_result;
+	char		*replace_value = NULL;
+	int			 replace_len = 0;
+
+	/* Make sure we're dealing with strings. */	
+	convert_to_string_ex(subject);
+	Z_TYPE_P(result) = IS_STRING;
+	if (Z_STRLEN_PP(subject) == 0) {
+		ZVAL_STRINGL(result, empty_string, 0, 1);
+		return;
+	}
+	
+	/* If search is an array */
+	if (Z_TYPE_P(search) == IS_ARRAY) {
+		/* Duplicate subject string for repeated replacement */
+		*result = **subject;
+		zval_copy_ctor(result);
+		
+		zend_hash_internal_pointer_reset(Z_ARRVAL_P(search));
+
+		if (Z_TYPE_P(replace) == IS_ARRAY) {
+			zend_hash_internal_pointer_reset(Z_ARRVAL_P(replace));
+		} else {
+			/* Set replacement value to the passed one */
+			replace_value = Z_STRVAL_P(replace);
+			replace_len = Z_STRLEN_P(replace);
+		}
+
+		/* For each entry in the search array, get the entry */
+		while (zend_hash_get_current_data(Z_ARRVAL_P(search), (void **)&search_entry) == SUCCESS) {
+			/* Make sure we're dealing with strings. */	
+			convert_to_string_ex(search_entry);
+			if(Z_STRLEN_PP(search_entry) == 0) {
+				zend_hash_move_forward(Z_ARRVAL_P(search));
+				continue;
+			}
+		
+			/* If replace is an array. */
+			if (Z_TYPE_P(replace) == IS_ARRAY) {
+				/* Get current entry */
+				if (zend_hash_get_current_data(Z_ARRVAL_P(replace), (void **)&replace_entry) == SUCCESS) {
+					/* Make sure we're dealing with strings. */	
+					convert_to_string_ex(replace_entry);
+					
+					/* Set replacement value to the one we got from array */
+					replace_value = Z_STRVAL_PP(replace_entry);
+					replace_len = Z_STRLEN_PP(replace_entry);
+
+					zend_hash_move_forward(Z_ARRVAL_P(replace));
+				} else {
+					/* We've run out of replacement strings, so use an empty one. */
+					replace_value = empty_string;
+					replace_len = 0;
+				}
+			}
+			
+			if(Z_STRLEN_PP(search_entry) == 1) {
+				php_char_to_str(Z_STRVAL_P(result),
+								Z_STRLEN_P(result),
+								Z_STRVAL_PP(search_entry)[0],
+								replace_value,
+								replace_len,
+								&temp_result);
+			} else if (Z_STRLEN_PP(search_entry) > 1) {
+				Z_STRVAL(temp_result) = php_str_to_str(Z_STRVAL_P(result), Z_STRLEN_P(result),
+													   Z_STRVAL_PP(search_entry), Z_STRLEN_PP(search_entry),
+													   replace_value, replace_len, &Z_STRLEN(temp_result));
+			}
+
+			efree(Z_STRVAL_P(result));
+			Z_STRVAL_P(result) = Z_STRVAL(temp_result);
+			Z_STRLEN_P(result) = Z_STRLEN(temp_result);
+
+			zend_hash_move_forward(Z_ARRVAL_P(search));
+		}
+	} else {
+		if (Z_STRLEN_P(search) == 1) {
+			php_char_to_str(Z_STRVAL_PP(subject),
+							Z_STRLEN_PP(subject),
+							Z_STRVAL_P(search)[0],
+							Z_STRVAL_P(replace),
+							Z_STRLEN_P(replace),
+							result);
+		} else if (Z_STRLEN_P(search) > 1) {
+			Z_STRVAL_P(result) = php_str_to_str(Z_STRVAL_PP(subject), Z_STRLEN_PP(subject),
+												Z_STRVAL_P(search), Z_STRLEN_P(search),
+												Z_STRVAL_P(replace), Z_STRLEN_P(replace), &Z_STRLEN_P(result));
+		} else {
+			*result = **subject;
+			zval_copy_ctor(result);
+		}
+	}
+}
+
+
+/* {{{ proto mixed str_replace(mixed search, mixed replace, mixed subject)
+   Replace all occurrences of search in haystack with replace */
 PHP_FUNCTION(str_replace)
 {
-	zval **haystack, **needle, **str;
-	char *result;
-	int len = 0;
+	zval **subject, **search, **replace, **subject_entry;
+	zval *result;
+	char *string_key;
+	ulong string_key_len, num_key;
 
 	if(ZEND_NUM_ARGS() != 3 ||
-			zend_get_parameters_ex(3, &needle, &str, &haystack) == FAILURE) {
+	   zend_get_parameters_ex(3, &search, &replace, &subject) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
-	convert_to_string_ex(haystack);
-	convert_to_string_ex(needle);
-	convert_to_string_ex(str);
+	SEPARATE_ZVAL(search);
+	SEPARATE_ZVAL(replace);
+	SEPARATE_ZVAL(subject);
 
-	if((*haystack)->value.str.len == 0) {
-		RETURN_STRING(empty_string,1);
-	}
+	/* Make sure we're dealing with strings and do the replacement. */
+	if (Z_TYPE_PP(search) != IS_ARRAY) {
+		convert_to_string_ex(search);
+		convert_to_string_ex(replace);
+	} else if (Z_TYPE_PP(replace) != IS_ARRAY)
+		convert_to_string_ex(replace);
 
-	if((*needle)->value.str.len == 1) {
-		php_char_to_str((*haystack)->value.str.val,
-						(*haystack)->value.str.len,
-						(*needle)->value.str.val[0],
-						(*str)->value.str.val,
-						(*str)->value.str.len,
-						return_value);
-		return;
-	}
+	/* if subject is an array */
+	if (Z_TYPE_PP(subject) == IS_ARRAY) {
+		array_init(return_value);
+		zend_hash_internal_pointer_reset(Z_ARRVAL_PP(subject));
 
-	if((*needle)->value.str.len == 0) {
-		php_error(E_WARNING, "The length of the needle must not be 0");
-		RETURN_FALSE;
-	}
+		/* For each subject entry, convert it to string, then perform replacement
+		   and add the result to the return_value array. */
+		while (zend_hash_get_current_data(Z_ARRVAL_PP(subject), (void **)&subject_entry) == SUCCESS) {
+			MAKE_STD_ZVAL(result);
+			php_str_replace_in_subject(*search, *replace, subject_entry, result);
+			/* Add to return array */
+			switch(zend_hash_get_current_key_ex(Z_ARRVAL_PP(subject), &string_key,
+												&string_key_len, &num_key, 0, NULL)) {
+				case HASH_KEY_IS_STRING:
+					add_assoc_zval_ex(return_value, string_key, string_key_len, result);
+					break;
 
-	result = php_str_to_str((*haystack)->value.str.val, (*haystack)->value.str.len,
-						 (*needle)->value.str.val, (*needle)->value.str.len,
-						 (*str)->value.str.val, (*str)->value.str.len, &len);
-	RETURN_STRINGL(result, len, 0);
+				case HASH_KEY_IS_LONG:
+					add_index_zval(return_value, num_key, result);
+					break;
+			}
+		
+			zend_hash_move_forward(Z_ARRVAL_PP(subject));
+		}
+	} else {	/* if subject is not an array */
+		php_str_replace_in_subject(*search, *replace, subject, return_value);
+	}	
 }
 /* }}} */
+
 
 /* Converts Logical Hebrew text (Hebrew Windows style) to Visual text
  * Cheers/complaints/flames - Zeev Suraski <zeev@php.net>
@@ -2304,7 +2511,7 @@ PHP_FUNCTION(nl2br)
 	
 	convert_to_string_ex(str);
 	
-	php_char_to_str((*str)->value.str.val,(*str)->value.str.len,'\n',"<br>\n",5,return_value);
+	php_char_to_str((*str)->value.str.val,(*str)->value.str.len,'\n',"<br />\n",7,return_value);
 }
 /* }}} */
 
@@ -2342,7 +2549,7 @@ PHP_FUNCTION(strip_tags)
 }
 /* }}} */
 
-/* {{{ proto string setlocale(string category, string locale)
+/* {{{ proto string setlocale(mixed category, string locale)
    Set locale information */
 PHP_FUNCTION(setlocale)
 {
@@ -2355,34 +2562,44 @@ PHP_FUNCTION(setlocale)
 	if (ZEND_NUM_ARGS()!=2 || zend_get_parameters_ex(2, &pcategory, &plocale)==FAILURE)
 		WRONG_PARAM_COUNT;
 #ifdef HAVE_SETLOCALE
-	convert_to_string_ex(pcategory);
 	convert_to_string_ex(plocale);
-	category = *pcategory;
 	locale = *plocale;
-	if (!strcasecmp ("LC_ALL", category->value.str.val))
-		cat = LC_ALL;
-	else if (!strcasecmp ("LC_COLLATE", category->value.str.val))
-		cat = LC_COLLATE;
-	else if (!strcasecmp ("LC_CTYPE", category->value.str.val))
-		cat = LC_CTYPE;
+
+	if (Z_TYPE_PP(pcategory) == IS_LONG) {
+		convert_to_long_ex(pcategory);	
+		cat = Z_LVAL_PP(pcategory);
+	} else { /* FIXME: The following behaviour should be removed. */
+		php_error(E_NOTICE,"Passing locale category name as string is deprecated. Use the LC_* -constants instead.");
+		convert_to_string_ex(pcategory);
+		category = *pcategory;
+
+		if (!strcasecmp ("LC_ALL", category->value.str.val))
+			cat = LC_ALL;
+		else if (!strcasecmp ("LC_COLLATE", category->value.str.val))
+			cat = LC_COLLATE;
+		else if (!strcasecmp ("LC_CTYPE", category->value.str.val))
+			cat = LC_CTYPE;
 #ifdef LC_MESSAGES
-	else if (!strcasecmp ("LC_MESSAGES", category->value.str.val))
-		cat = LC_MESSAGES;
+		else if (!strcasecmp ("LC_MESSAGES", category->value.str.val))
+			cat = LC_MESSAGES;
 #endif
-	else if (!strcasecmp ("LC_MONETARY", category->value.str.val))
-		cat = LC_MONETARY;
-	else if (!strcasecmp ("LC_NUMERIC", category->value.str.val))
-		cat = LC_NUMERIC;
-	else if (!strcasecmp ("LC_TIME", category->value.str.val))
-		cat = LC_TIME;
-	else {
-		php_error(E_WARNING,"Invalid locale category name %s, must be one of LC_ALL, LC_COLLATE, LC_CTYPE, LC_MONETARY, LC_NUMERIC or LC_TIME", category->value.str.val);
-		RETURN_FALSE;
+		else if (!strcasecmp ("LC_MONETARY", category->value.str.val))
+			cat = LC_MONETARY;
+		else if (!strcasecmp ("LC_NUMERIC", category->value.str.val))
+			cat = LC_NUMERIC;
+		else if (!strcasecmp ("LC_TIME", category->value.str.val))
+			cat = LC_TIME;
+		else {
+			php_error(E_WARNING,"Invalid locale category name %s, must be one of LC_ALL, LC_COLLATE, LC_CTYPE, LC_MONETARY, LC_NUMERIC or LC_TIME", category->value.str.val);
+			RETURN_FALSE;
+		}
 	}
-	if (!strcmp ("0", locale->value.str.val))
+	if (!strcmp ("0", locale->value.str.val)) {
 		loc = NULL;
-	else
+	} else {
 		loc = locale->value.str.val;
+	}
+	
 	retval = setlocale (cat, loc);
 	if (retval) {
 		/* Remember if locale was changed */
@@ -2551,6 +2768,8 @@ PHPAPI void php_strip_tags(char *rbuf, int len, int state, char *allow, int allo
 						lc = '(';
 						br++;
 					}
+				} else if (allow && state == 1) {
+					*(tp++) = c;
 				} else if (state == 0) {
 					*(rp++) = c;
 				}
@@ -2562,6 +2781,8 @@ PHPAPI void php_strip_tags(char *rbuf, int len, int state, char *allow, int allo
 						lc = ')';
 						br--;
 					}
+				} else if (allow && state == 1) {
+					*(tp++) = c;
 				} else if (state == 0) {
 					*(rp++) = c;
 				}
@@ -2585,6 +2806,8 @@ PHPAPI void php_strip_tags(char *rbuf, int len, int state, char *allow, int allo
 						state = 0;
 						tp = tbuf;
 					}
+				} else {
+					*(rp++) = c;
 				}
 				break;
 
@@ -2720,7 +2943,7 @@ PHP_FUNCTION(count_chars)
 		array_init(return_value);
 	}
 
-	for (inx=0; inx < 255; inx++) {
+	for (inx=0; inx < 256; inx++) {
 		switch (mymode) {
  		case 0:
 			add_index_long(return_value,inx,chars[inx]);
@@ -2778,6 +3001,95 @@ PHP_FUNCTION(strnatcmp)
 	php_strnatcmp(INTERNAL_FUNCTION_PARAM_PASSTHRU, 0);
 }
 /* }}} */
+
+/* {{{ proto array localeconv( void )
+   Returns numeric formatting information based on the current locale */
+PHP_FUNCTION(localeconv)
+{
+	zval *grouping, *mon_grouping;
+	int len, i;
+
+	MAKE_STD_ZVAL(grouping);
+	MAKE_STD_ZVAL(mon_grouping);
+
+	/* We don't need no stinkin' parameters... */
+	if (ZEND_NUM_ARGS() > 0) {
+		WRONG_PARAM_COUNT;
+	}
+
+	if (array_init(return_value) == FAILURE) {
+		RETURN_FALSE;
+	}
+
+	if (array_init(grouping) == FAILURE || array_init(mon_grouping) == FAILURE) {
+		RETURN_FALSE;
+	}	
+
+#ifdef HAVE_LOCALECONV
+	{
+		struct lconv currlocdata;
+
+		localeconv_r( &currlocdata );
+   
+		/* Grab the grouping data out of the array */
+		len = strlen(currlocdata.grouping);
+
+		for (i=0;i<len;i++) {
+			add_index_long(grouping, i, currlocdata.grouping[i]);
+		}
+
+		/* Grab the monetary grouping data out of the array */
+		len = strlen(currlocdata.mon_grouping);
+
+		for (i=0;i<len;i++) {
+			add_index_long(mon_grouping, i, currlocdata.mon_grouping[i]);
+		}
+
+		add_assoc_string(return_value, "decimal_point",     currlocdata.decimal_point,     1);
+		add_assoc_string(return_value, "thousands_sep",     currlocdata.thousands_sep,     1);
+		add_assoc_string(return_value, "int_curr_symbol",   currlocdata.int_curr_symbol,   1);
+		add_assoc_string(return_value, "currency_symbol",   currlocdata.currency_symbol,   1);
+		add_assoc_string(return_value, "mon_decimal_point", currlocdata.mon_decimal_point, 1);
+		add_assoc_string(return_value, "mon_thousands_sep", currlocdata.mon_thousands_sep, 1);
+		add_assoc_string(return_value, "positive_sign",     currlocdata.positive_sign,     1);
+		add_assoc_string(return_value, "negative_sign",     currlocdata.negative_sign,     1);
+		add_assoc_long(  return_value, "int_frac_digits",   currlocdata.int_frac_digits     );
+		add_assoc_long(  return_value, "frac_digits",       currlocdata.frac_digits         );
+		add_assoc_long(  return_value, "p_cs_precedes",     currlocdata.p_cs_precedes       );
+		add_assoc_long(  return_value, "p_sep_by_space",    currlocdata.p_sep_by_space      );
+		add_assoc_long(  return_value, "n_cs_precedes",     currlocdata.n_cs_precedes       );
+		add_assoc_long(  return_value, "n_sep_by_space",    currlocdata.n_sep_by_space      );
+		add_assoc_long(  return_value, "p_sign_posn",       currlocdata.p_sign_posn         );
+		add_assoc_long(  return_value, "n_sign_posn",       currlocdata.n_sign_posn         );
+	}
+#else
+	/* Ok, it doesn't look like we have locale info floating around, so I guess it
+	   wouldn't hurt to just go ahead and return the POSIX locale information?  */
+
+	add_index_long(grouping, 0, -1);
+	add_index_long(mon_grouping, 0, -1);
+
+	add_assoc_string(return_value, "decimal_point",     "\x2E", 1);
+	add_assoc_string(return_value, "thousands_sep",     "",     1);
+	add_assoc_string(return_value, "int_curr_symbol",   "",     1);
+	add_assoc_string(return_value, "currency_symbol",   "",     1);
+	add_assoc_string(return_value, "mon_decimal_point", "\x2E", 1);
+	add_assoc_string(return_value, "mon_thousands_sep", "",     1);
+	add_assoc_string(return_value, "positive_sign",     "",     1);
+	add_assoc_string(return_value, "negative_sign",     "",     1);
+	add_assoc_long(  return_value, "int_frac_digits",   CHAR_MAX );
+	add_assoc_long(  return_value, "frac_digits",       CHAR_MAX );
+	add_assoc_long(  return_value, "p_cs_precedes",     CHAR_MAX );
+	add_assoc_long(  return_value, "p_sep_by_space",    CHAR_MAX );
+	add_assoc_long(  return_value, "n_cs_precedes",     CHAR_MAX );
+	add_assoc_long(  return_value, "n_sep_by_space",    CHAR_MAX );
+	add_assoc_long(  return_value, "p_sign_posn",       CHAR_MAX );
+	add_assoc_long(  return_value, "n_sign_posn",       CHAR_MAX );
+#endif
+
+	zend_hash_update(return_value->value.ht, "grouping", 9, &grouping, sizeof(zval *), NULL);
+	zend_hash_update(return_value->value.ht, "mon_grouping", 13, &mon_grouping, sizeof(zval *), NULL);
+}
 
 
 /* {{{ proto int strnatcasecmp(string s1, string s2)
@@ -2972,7 +3284,6 @@ PHP_FUNCTION(sscanf)
 
 }
 /* }}} */
-
 
 /*
  * Local variables:

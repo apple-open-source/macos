@@ -76,7 +76,8 @@ If 0 then the block is either free (in which case the size is directly at the bl
 
 #define PROTECT_SMALL			0	// Should be 0: 1 is too slow for normal use
 
-#define LARGE_CACHE_SIZE	4	// define hysterisis of large chunks
+#define LARGE_CACHE_SIZE	1	// define hysterisis of large chunks
+#define MAX_LARGE_SIZE_TO_CACHE       (128*1024)  /* blocks larger than this are not cached */
 
 #define MAX_RECORDER_BUFFER	256
 
@@ -149,6 +150,7 @@ static size_t szone_good_size(szone_t *szone, size_t size);
 static boolean_t szone_check_all(szone_t *szone, const char *function);
 static void szone_print(szone_t *szone, boolean_t verbose);
 static INLINE region_t *region_for_ptr_no_lock(szone_t *szone, const void *ptr);
+static vm_range_t large_free_no_lock(szone_t *szone, large_entry_t *entry);
 
 #define LOG(szone,ptr)	(szone->log_address && (szone->num_small_objects > 8) && (((unsigned)szone->log_address == -1) || (szone->log_address == (void *)(ptr))))
 
@@ -931,11 +933,9 @@ static void large_entries_grow_no_lock(szone_t *szone) {
 }
 
 static vm_range_t large_free_no_lock(szone_t *szone, large_entry_t *entry) {
-    // enters the specified large entry into the cache of freed entries
-    // returns a range to truly deallocate
-    vm_range_t		vm_range_to_deallocate;
+    // frees the specific entry in the size table
+    // returns a range to truly deallocate, taking into account
     vm_range_t		range;
-    vm_range_t		*range_to_use;
     range.address = LARGE_ENTRY_ADDRESS(*entry);
     range.size = LARGE_ENTRY_SIZE(*entry);
     szone->num_large_objects_in_use --;
@@ -956,6 +956,18 @@ static vm_range_t large_free_no_lock(szone_t *szone, large_entry_t *entry) {
         sleep(3600);
     }
 #endif
+    return range;
+}
+
+static vm_range_t large_find_better_range_to_deallocate(szone_t *szone, vm_range_t range) {
+    // enters the specified large entry into the cache of freed entries
+    // returns a range to truly deallocate
+    vm_range_t		*range_to_use;
+    vm_range_t		vm_range_to_deallocate;
+    
+    // if the specified range in larger than MAX_LARGE_SIZE_TO_CACHE the range is not cached 
+    if (range.size > MAX_LARGE_SIZE_TO_CACHE) return range;
+
     range = coalesce_range(szone->large_to_deallocate, LARGE_CACHE_SIZE, range);
     range_to_use = first_zero_range(szone->large_to_deallocate, LARGE_CACHE_SIZE);
     if (range_to_use) {
@@ -1185,6 +1197,7 @@ static void szone_free(szone_t *szone, void *ptr) {
 	    vm_msync(mach_task_self(), LARGE_ENTRY_ADDRESS(*entry), LARGE_ENTRY_SIZE(*entry), VM_SYNC_KILLPAGES);
 	}
         vm_range_to_deallocate = large_free_no_lock(szone, entry);
+	vm_range_to_deallocate = large_find_better_range_to_deallocate(szone, vm_range_to_deallocate);
 #if DEBUG_MALLOC
         if (large_entry_for_pointer_no_lock(szone, ptr)) {
             malloc_printf("*** malloc[%d]: Just after freeing 0x%x still in use num_large_entries=%d\n", getpid(), ptr, szone->num_large_entries);
@@ -1386,12 +1399,27 @@ static void *szone_realloc(szone_t *szone, void *ptr, size_t new_size) {
 	if (szone_try_realloc_in_place(szone, ptr, old_size, new_size)) return ptr;
     }
     newPtr = szone_malloc(szone, new_size);
-    if (old_size > VM_COPY_THRESHOLD) {
+    if ((old_size > VM_COPY_THRESHOLD) && (old_size < (1 << (vm_page_shift + vm_page_shift)))) {
+	// we know it's a large block, and not a huge block
         kern_return_t	err = 0;
         err = vm_copy(mach_task_self(), (vm_address_t)ptr, old_size, (vm_address_t)newPtr);
         if (err) {
             szone_error(szone, "Can't vm_copy region", ptr);
-        }
+        } else {
+	    large_entry_t	*entry;
+	    vm_range_t		range;
+	    SZONE_LOCK(szone);
+	    entry = large_entry_for_pointer_no_lock(szone, ptr);
+	    if (!entry) {
+		szone_error(szone, "Can't find entry for large copied block", ptr);
+	    }
+	    range = large_free_no_lock(szone, entry);
+	    SZONE_UNLOCK(szone); // we release the lock asap
+	    // we truly deallocate_pages, including guard pages
+	    deallocate_pages(szone, range.address, range.size, 0);
+	    if (LOG(szone, ptr)) malloc_printf("szone_realloc returned %p for %d\n", newPtr, (unsigned)new_size);
+	    return newPtr;
+	}
     } else {
         memcpy(newPtr, ptr, old_size);
     }

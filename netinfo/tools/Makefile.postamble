@@ -120,7 +120,3 @@
 #
 # Note: on MS Windows, executables, have an extension, so rules and dependencies
 #       for generated tools should use $(EXECUTABLE_EXT) on the end.
-
-after_install:
-	install -d $(DSTROOT)/usr/libexec
-	install -c -m 755 create_nidb $(DSTROOT)/usr/libexec

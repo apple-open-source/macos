@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/tc.func.c,v 1.1.1.1 1999/04/23 01:59:56 wsanchez Exp $ */
+/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/tc.func.c,v 1.1.1.2 2001/06/28 23:10:53 bbraun Exp $ */
 /*
  * tc.func.c: New tcsh builtins.
  */
@@ -36,15 +36,15 @@
  */
 #include "sh.h"
 
-RCSID("$Id: tc.func.c,v 1.1.1.1 1999/04/23 01:59:56 wsanchez Exp $")
+RCSID("$Id: tc.func.c,v 1.1.1.2 2001/06/28 23:10:53 bbraun Exp $")
 
 #include "ed.h"
 #include "ed.defns.h"		/* for the function names */
 #include "tw.h"
 #include "tc.h"
-#ifdef WINNT
+#ifdef WINNT_NATIVE
 #include "nt.const.h"
-#endif /* WINNT */
+#endif /* WINNT_NATIVE */
 
 #ifdef AFS
 #define PASSMAX 16
@@ -63,12 +63,12 @@ extern int do_logout;
 extern time_t t_period;
 extern int just_signaled;
 static bool precmd_active = 0;
+static bool postcmd_active = 0;
 static bool periodic_active = 0;
 static bool cwdcmd_active = 0;	/* PWP: for cwd_cmd */
 static bool beepcmd_active = 0;
 static signalfun_t alm_fun = NULL;
 
-static	void	 Reverse	__P((Char *));
 static	void	 auto_logout	__P((int));
 static	char	*xgetpass	__P((char *));
 static	void	 auto_lock	__P((int));
@@ -90,12 +90,15 @@ static	void	 getremotehost	__P((void));
  */
 
 /*
- * expand_lex: Take the given lex and put an expanded version of it in the
- * string buf. First guy in lex list is ignored; last guy is ^J which we
- * ignore Only take lex'es from position from to position to inclusive Note:
- * csh sometimes sets bit 8 in characters which causes all kinds of problems
- * if we don't mask it here. Note: excl's in lexes have been un-back-slashed
- * and must be re-back-slashed
+ * expand_lex: Take the given lex and put an expanded version of it in
+ * the string buf. First guy in lex list is ignored; last guy is ^J
+ * which we ignore. Only take lex'es from position 'from' to position
+ * 'to' inclusive
+ *
+ * Note: csh sometimes sets bit 8 in characters which causes all kinds
+ * of problems if we don't mask it here. Note: excl's in lexes have been
+ * un-back-slashed and must be re-back-slashed
+ *
  * (PWP: NOTE: this returns a pointer to the END of the string expanded
  *             (in other words, where the NUL is).)
  */
@@ -113,6 +116,14 @@ expand_lex(buf, bufsiz, sp0, from, to)
     register Char *s, *d, *e;
     register Char prev_c;
     register int i;
+
+    /*
+     * Make sure we have enough space to expand into.  E.g. we may have
+     * "a|b" turn to "a | b" (from 3 to 5 characters) which is the worst
+     * case scenario (even "a>&! b" turns into "a > & ! b", i.e. 6 to 9
+     * characters -- am I missing any other cases?).
+     */
+    bufsiz = bufsiz / 2;
 
     buf[0] = '\0';
     prev_c = '\0';
@@ -171,37 +182,48 @@ sprlex(buf, bufsiz, sp0)
     return (buf);
 }
 
-void
-Itoa(n, s)			/* convert n to characters in s */
-    int     n;
-    Char   *s;
+
+Char *
+Itoa(n, s, min_digits, attributes)
+    int n;
+    Char *s;
+    int min_digits, attributes;
 {
-    int     i, sign;
+    /*
+     * The array size here is derived from
+     *	log8(UINT_MAX)
+     * which is guaranteed to be enough for a decimal
+     * representation.  We add 1 because integer divide
+     * rounds down.
+     */
+#ifndef CHAR_BIT
+# define CHAR_BIT 8
+#endif
+    Char buf[CHAR_BIT * sizeof(int) / 3 + 1];
+    Char *p;
+    unsigned int un;	/* handle most negative # too */
+    int pad = (min_digits != 0);
 
-    if ((sign = n) < 0)		/* record sign */
-	n = -n;
-    i = 0;
-    do {
-	s[i++] = n % 10 + '0';
-    } while ((n /= 10) > 0);
-    if (sign < 0)
-	s[i++] = '-';
-    s[i] = '\0';
-    Reverse(s);
-}
+    if (sizeof(buf) - 1 < min_digits)
+	min_digits = sizeof(buf) - 1;
 
-static void
-Reverse(s)
-    Char   *s;
-{
-    Char   c;
-    int     i, j;
-
-    for (i = 0, j = (int) Strlen(s) - 1; i < j; i++, j--) {
-	c = s[i];
-	s[i] = s[j];
-	s[j] = c;
+    un = n;
+    if (n < 0) {
+	un = -n;
+	*s++ = '-';
     }
+
+    p = buf;
+    do {
+	*p++ = un % 10 + '0';
+	un /= 10;
+    } while ((pad && --min_digits > 0) || un != 0);
+
+    while (p > buf)
+	*s++ = *--p | attributes;
+
+    *s = '\0';
+    return s;
 }
 
 
@@ -213,6 +235,9 @@ dolist(v, c)
 {
     int     i, k;
     struct stat st;
+#if defined(KANJI) && defined(SHORT_STRINGS) && defined(DSPMBYTE)
+    extern bool dspmbyte_ls;
+#endif
 #ifdef COLOR_LS_F
     extern bool color_context_ls;
 #endif /* COLOR_LS_F */
@@ -294,6 +319,15 @@ dolist(v, c)
 	nextword->word = Strsave(STRmCF);
 	lastword->next = nextword;
 	nextword->prev = lastword;
+#if defined(KANJI) && defined(SHORT_STRINGS) && defined(DSPMBYTE)
+	if (dspmbyte_ls) {
+	    lastword = nextword;
+	    nextword = (struct wordent *) xcalloc(1, sizeof cmd);
+	    nextword->word = Strsave(STRmmliteral);
+	    lastword->next = nextword;
+	    nextword->prev = lastword;
+	}
+#endif
 #ifdef COLOR_LS_F
 	if (color_context_ls) {
 	    lastword = nextword;
@@ -333,9 +367,6 @@ dolist(v, c)
     }
     else {
 	Char   *dp, *tmp, buf[MAXPATHLEN];
-#ifdef WINNT
-	int is_unc = 0;
-#endif /* WINNT */
 
 	for (k = 0, i = 0; v[k] != NULL; k++) {
 	    tmp = dnormalize(v[k], symlinks == SYM_IGNORE);
@@ -345,17 +376,7 @@ dolist(v, c)
 		if (dp != &tmp[1])
 #endif /* apollo */
 		*dp = '\0';
-#ifdef WINNT
-		if ((((tmp[0] & CHAR) == '/') || ((tmp[0] & CHAR) == '\\')) &&  
-		    (((tmp[1] & CHAR) == '/') || ((tmp[1] & CHAR) == '\\')))
-		    is_unc = 1;
-#endif /* WINNT */
-	    if (
-#ifdef WINNT
-		((char)tmp[1] != ':') &&
-		(!is_unc) &&
-#endif /* WINNT */
-		stat(short2str(tmp), &st) == -1) {
+		if (stat(short2str(tmp), &st) == -1) {
 		if (k != i) {
 		    if (i != 0)
 			xputchar('\n');
@@ -364,12 +385,7 @@ dolist(v, c)
 		xprintf("%S: %s.\n", tmp, strerror(errno));
 		i = k + 1;
 	    }
-	    else if (
-#ifdef WINNT
-		((char)tmp[1] == ':') ||
-		(is_unc) ||
-#endif /* WINNT */
-		S_ISDIR(st.st_mode)) {
+	    else if (S_ISDIR(st.st_mode)) {
 		Char   *cp;
 
 		if (k != i) {
@@ -383,9 +399,9 @@ dolist(v, c)
 		for (cp = tmp, dp = buf; *cp; *dp++ = (*cp++ | QUOTE))
 		    continue;
 		if (
-#ifdef WINNT
+#ifdef WINNT_NATIVE
 		    (dp[-1] != (Char) (':' | QUOTE)) &&
-#endif /* WINNT */
+#endif /* WINNT_NATIVE */
 		    (dp[-1] != (Char) ('/' | QUOTE)))
 		    *dp++ = '/';
 		else 
@@ -585,7 +601,7 @@ find_stop_ed()
 	     * editors have may be happily running in a separate window, no
 	     * point in foregrounding these if they're already running - webb
 	     */
-	    pstatus = pp->p_flags & PALLSTATES;
+	    pstatus = (int) (pp->p_flags & PALLSTATES);
 	    if (pstatus != PINTERRUPTED && pstatus != PSTOPPED &&
 		pstatus != PSIGNALED)
 		continue;
@@ -750,8 +766,10 @@ auto_lock(n)
 
 #define XCRYPT(a, b) crypt(a, b)
 
+#if !defined(__MVS__)
     if ((pw = getpwuid(euid)) != NULL)	/* effective user passwd  */
 	srpp = pw->pw_passwd;
+#endif /* !MVS */
 
 #endif /* !XCRYPT */
 
@@ -888,6 +906,33 @@ leave:
 #endif /* BSDSIGS */
 }
 
+void
+postcmd()
+{
+#ifdef BSDSIGS
+    sigmask_t omask;
+
+    omask = sigblock(sigmask(SIGINT));
+#else /* !BSDSIGS */
+    (void) sighold(SIGINT);
+#endif /* BSDSIGS */
+    if (postcmd_active) {	/* an error must have been caught */
+	aliasrun(2, STRunalias, STRpostcmd);
+	xprintf(CGETS(22, 3, "Faulty alias 'postcmd' removed.\n"));
+	goto leave;
+    }
+    postcmd_active = 1;
+    if (!whyles && adrof1(STRpostcmd, &aliases))
+	aliasrun(1, STRpostcmd, NULL);
+leave:
+    postcmd_active = 0;
+#ifdef BSDSIGS
+    (void) sigsetmask(omask);
+#else /* !BSDSIGS */
+    (void) sigrelse(SIGINT);
+#endif /* BSDSIGS */
+}
+
 /*
  * Paul Placeway  11/24/87  Added cwd_cmd by hacking precmd() into
  * submission...  Run every time $cwd is set (after it is set).  Useful
@@ -978,8 +1023,10 @@ period_cmd()
     periodic_active = 1;
     if (!whyles && adrof1(STRperiodic, &aliases)) {
 	vp = varval(STRtperiod);
-	if (vp == STRNULL)
-	    return;
+	if (vp == STRNULL) {
+	    aliasrun(1, STRperiodic, NULL);
+	    goto leave;
+	}
 	interval = getn(vp);
 	(void) time(&t);
 	if (t - t_period >= interval * 60) {
@@ -1064,6 +1111,8 @@ aliasrun(cnt, s1, s2)
 	 */
 	if (precmd_active)
 	    precmd();
+	if (postcmd_active)
+	    postcmd();
 #ifdef notdef
 	/*
 	 * XXX: On the other hand, just interrupting them causes an error too.
@@ -1734,7 +1783,7 @@ shlvl(val)
 	else {
 	    Char    buff[BUFSIZE];
 
-	    Itoa(val, buff);
+	    (void) Itoa(val, buff, 0, 0);
 	    set(STRshlvl, Strsave(buff), VAR_READWRITE);
 	    tsetenv(STRKSHLVL, buff);
 	}
@@ -1898,10 +1947,10 @@ hashbang(fd, vp)
     char *sargv[HACKVECSZ];
     unsigned char *p, *ws;
     int sargc = 0;
-#ifdef WINNT
+#ifdef WINNT_NATIVE
     int fw = 0; 	/* found at least one word */
     int first_word = 0;
-#endif /* WINNT */
+#endif /* WINNT_NATIVE */
 
     if (read(fd, (char *) lbuf, HACKBUFSZ) <= 0)
 	return -1;
@@ -1912,16 +1961,16 @@ hashbang(fd, vp)
 	switch (*p) {
 	case ' ':
 	case '\t':
-#ifdef WINNT
+#ifdef WINNT_NATIVE
 	case '\r':
-#endif /* WINNT */
+#endif /* WINNT_NATIVE */
 	    if (ws) {	/* a blank after a word.. save it */
 		*p = '\0';
-#ifndef WINNT
+#ifndef WINNT_NATIVE
 		if (sargc < HACKVECSZ - 1)
 		    sargv[sargc++] = ws;
 		ws = NULL;
-#else /* WINNT */
+#else /* WINNT_NATIVE */
 		if (sargc < HACKVECSZ - 1) {
 		    sargv[sargc] = first_word ? NULL: hb_subst(ws);
 		    if (sargv[sargc] == NULL)
@@ -1931,7 +1980,7 @@ hashbang(fd, vp)
 		ws = NULL;
 	    	fw = 1;
 		first_word = 1;
-#endif /* WINNT */
+#endif /* WINNT_NATIVE */
 	    }
 	    p++;
 	    continue;
@@ -1941,22 +1990,22 @@ hashbang(fd, vp)
 
 	case '\n':	/* The end of the line. */
 	    if (
-#ifdef WINNT
+#ifdef WINNT_NATIVE
 		fw ||
-#endif /* WINNT */
+#endif /* WINNT_NATIVE */
 		ws) {	/* terminate the last word */
 		*p = '\0';
-#ifndef WINNT
+#ifndef WINNT_NATIVE
 		if (sargc < HACKVECSZ - 1)
 		    sargv[sargc++] = ws;
-#else /* WINNT */
+#else /* WINNT_NATIVE */
 		if (sargc < HACKVECSZ - 1) { /* deal with the 1-word case */
 		    sargv[sargc] = first_word? NULL : hb_subst(ws);
 		    if (sargv[sargc] == NULL)
 			sargv[sargc] = ws;
 		    sargc++;
 		}
-#endif /* !WINNT */
+#endif /* !WINNT_NATIVE */
 	    }
 	    sargv[sargc] = NULL;
 	    ws = NULL;
@@ -2001,14 +2050,34 @@ static void
 getremotehost()
 {
     const char *host = NULL;
+#ifdef INET6
+    struct sockaddr_storage saddr;
+    int len = sizeof(struct sockaddr_storage);
+    static char hbuf[NI_MAXHOST];
+#else
     struct hostent* hp;
     struct sockaddr_in saddr;
     int len = sizeof(struct sockaddr_in);
+#endif
 #if defined(UTHOST) && !defined(HAVENOUTMP)
     char *sptr = NULL;
 #endif
 
     if (getpeername(SHIN, (struct sockaddr *) &saddr, &len) != -1) {
+#ifdef INET6
+#if 0
+	int flag = 0;
+#else
+	int flag = NI_NUMERICHOST;
+#endif
+
+#ifdef NI_WITHSCOPEID
+	flag |= NI_WITHSCOPEID;
+#endif
+	getnameinfo((struct sockaddr *)&saddr, len, hbuf, sizeof(hbuf),
+		    NULL, 0, flag);
+	host = hbuf;
+#else
 #if 0
 	if ((hp = gethostbyaddr((char *)&saddr.sin_addr, sizeof(struct in_addr),
 				AF_INET)) != NULL)
@@ -2016,6 +2085,7 @@ getremotehost()
 	else
 #endif
 	    host = inet_ntoa(saddr.sin_addr);
+#endif
     }
 #if defined(UTHOST) && !defined(HAVENOUTMP)
     else {
@@ -2023,14 +2093,68 @@ getremotehost()
 	char *name = utmphost();
 	/* Avoid empty names and local X displays */
 	if (name != NULL && *name != '\0' && *name != ':') {
+	    struct in_addr addr;
+
 	    /* Look for host:display.screen */
+	    /*
+	     * There is conflict with IPv6 address and X DISPLAY.  So,
+	     * we assume there is no IPv6 address in utmp and don't
+	     * touch here.
+	     */
 	    if ((sptr = strchr(name, ':')) != NULL)
 		*sptr = '\0';
-	    /* Leave IP address as is */
-	    if (isdigit(*name))
+	    /* Leave IPv4 address as is */
+	    /*
+	     * we use inet_addr here, not inet_aton because many systems
+	     * have not caught up yet.
+	     */
+	    addr.s_addr = inet_addr(name);
+	    if (addr.s_addr != (unsigned long)~0)
 		host = name;
 	    else {
 		if (sptr != name) {
+#ifdef INET6
+		    char *s, *domain;
+		    char dbuf[MAXHOSTNAMELEN], cbuf[MAXHOSTNAMELEN];
+		    struct addrinfo hints, *res = NULL;
+
+		    memset(&hints, 0, sizeof(hints));
+		    hints.ai_family = PF_UNSPEC;
+		    hints.ai_socktype = SOCK_STREAM;
+		    hints.ai_flags = AI_PASSIVE | AI_CANONNAME;
+#if defined(UTHOST) && !defined(HAVENOUTMP)
+		    if (strlen(name) < utmphostsize())
+#else
+		    if (name != NULL)
+#endif
+		    {
+			if (getaddrinfo(name, NULL, &hints, &res) != 0)
+			    res = NULL;
+		    } else if (gethostname(dbuf, sizeof(dbuf) - 1) == 0 &&
+			       (domain = strchr(dbuf, '.')) != NULL) {
+			for (s = strchr(name, '.');
+			     s != NULL; s = strchr(s + 1, '.')) {
+			    if (*(s + 1) != '\0' &&
+				(ptr = strstr(domain, s)) != NULL) {
+				len = s - name;
+				if (len + strlen(ptr) >= sizeof(cbuf))
+				    break;
+				strncpy(cbuf, name, len);
+				strcpy(cbuf + len, ptr);
+				if (getaddrinfo(cbuf, NULL, &hints, &res) != 0)
+				    res = NULL;
+				break;
+			    }
+			}
+		    }
+		    if (res != NULL) {
+			if (res->ai_canonname != NULL) {
+			    strncpy(hbuf, res->ai_canonname, sizeof(hbuf));
+			    host = hbuf;
+			}
+			freeaddrinfo(res);
+		    }
+#else
 		    if ((hp = gethostbyname(name)) == NULL) {
 			/* Try again eliminating the trailing domain */
 			if ((ptr = strchr(name, '.')) != NULL) {
@@ -2042,6 +2166,7 @@ getremotehost()
 		    }
 		    else
 			host = hp->h_name;
+#endif
 		}
 	    }
 	}

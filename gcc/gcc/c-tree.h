@@ -595,6 +595,10 @@ extern int system_header_p;
 
 extern int doing_objc_thang;
 
+/* Nonzero forces lexer to return IDENTIFIER even if CLASSNAME is available.  */
+
+extern int objc_need_raw_identifier;
+
 /* In c-decl.c */
 extern void finish_incomplete_decl PROTO((tree));
 

@@ -1,6 +1,57 @@
-dnl $Id: config.m4,v 1.1.1.2 2000/09/07 00:06:00 wsanchez Exp $ -*- sh -*-
+dnl $Id: config.m4,v 1.1.1.3 2001/07/19 00:20:07 zarzycki Exp $ -*- sh -*-
 
 divert(3)dnl
+
+dnl
+dnl Check if flush should be called explicitly after buffered io
+dnl
+AC_DEFUN(AC_FLUSH_IO,[
+  AC_CACHE_CHECK([whether flush should be called explicitly after a bufferered io], ac_cv_flush_io,[
+  AC_TRY_RUN( [
+#include <stdio.h>
+#include <stdlib.h>
+
+int main(int argc, char **argv)
+{
+	char *filename = tmpnam(NULL);
+	char buffer[64];
+	int result = 0;
+	
+	FILE *fp = fopen(filename, "wb");
+	if (NULL == fp)
+		return 0;
+	fputs("line 1\n", fp);
+	fputs("line 2\n", fp);
+	fclose(fp);
+	
+	fp = fopen(filename, "rb+");
+	if (NULL == fp)
+		return 0;
+	fgets(buffer, sizeof(buffer), fp);
+	fputs("line 3\n", fp);
+	rewind(fp);
+	fgets(buffer, sizeof(buffer), fp);
+	if (0 != strcmp(buffer, "line 1\n"))
+		result = 1;
+	fgets(buffer, sizeof(buffer), fp);
+	if (0 != strcmp(buffer, "line 3\n"))
+		result = 1;
+	fclose(fp);
+	unlink(filename);
+
+	exit(result);
+}
+],[
+  ac_cv_flush_io=no
+],[
+  ac_cv_flush_io=yes
+],[
+  ac_cv_flush_io=no
+])])
+  if test "$ac_cv_flush_io" = "yes"; then
+    AC_DEFINE(HAVE_FLUSHIO, 1, [Define if flush should be called explicitly after a buffered io.])
+  fi
+])
 
 dnl
 dnl Check for crypt() capabilities
@@ -108,12 +159,12 @@ main() {
 
 main() {
 #if HAVE_CRYPT
-    char salt[25], answer[70];
+    char salt[30], answer[70];
     
     salt[0]='$'; salt[1]='2'; salt[2]='a'; salt[3]='$'; salt[4]='0'; salt[5]='7'; salt[6]='$'; salt[7]='\0';
-    strcat(salt,"rasmuslerd");
+    strcat(salt,"rasmuslerd............");
     strcpy(answer,salt);
-    strcpy(&answer[16],"O............gl95GkTKn53Of.H4YchXl5PwvvW.5ri");
+    strcpy(&answer[29],"nIdrcHdxcUxWomQX9j6kvERCFjTg7Ra");
     exit (strcmp((char *)crypt("rasmuslerdorf",salt),answer));
 #else
 	exit(0);
@@ -143,12 +194,28 @@ AC_CHECK_LIB(pam, pam_start, [
 AC_CHECK_FUNCS(getcwd getwd)
 
 AC_CRYPT_CAP
+AC_FLUSH_IO
 
 divert(5)dnl
 
 AC_ARG_WITH(regex,
-[  --with-regex=TYPE       regex library type: system, apache, php],[
-  REGEX_TYPE=$withval
+[  --with-regex=TYPE       regex library type: system, apache, php],
+[
+  case $withval in 
+    system)
+      REGEX_TYPE=system
+      ;;
+    apache)
+      REGEX_TYPE=apache
+      ;;
+    php)
+      REGEX_TYPE=php
+      ;;
+    *)
+      REGEX_TYPE=php
+      AC_MSG_WARN(Invalid regex library type. Using default value: php)
+      ;;
+  esac
 ],[
   REGEX_TYPE=php
 ])
@@ -163,4 +230,3 @@ AC_ARG_WITH(system-regex,
 ])
 
 PHP_EXTENSION(standard)
-

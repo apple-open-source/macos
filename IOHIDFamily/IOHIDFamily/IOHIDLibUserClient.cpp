@@ -138,7 +138,13 @@ IOReturn IOHIDLibUserClient::clientClose(void)
     }
    
    if (fNub) {	// Have been started so we better detach
-        detach(fNub);
+		
+		// make sure device is closed (especially on crash)
+		// note radar #2729708 for a more comprehensive fix
+		// probably should also subclass clientDied for crash specific code
+		fNub->close(this);
+		
+		detach(fNub);
         fNub = 0;
     }
 

@@ -7495,7 +7495,7 @@ cse_insn (insn, libcall_insn)
 
 	  p = insn;
 
-	  while (NEXT_INSN (p) != 0
+	  while (p != 0 && NEXT_INSN (p) != 0
 		 && GET_CODE (NEXT_INSN (p)) != BARRIER
 		 && GET_CODE (NEXT_INSN (p)) != CODE_LABEL)
 	    {
@@ -7504,7 +7504,11 @@ cse_insn (insn, libcall_insn)
 		 if NEXT_INSN (p) had INSN_DELETED_P set.  */
 	      if (GET_CODE (NEXT_INSN (p)) != NOTE
 		  || NOTE_LINE_NUMBER (NEXT_INSN (p)) == NOTE_INSN_DELETED)
-		p = PREV_INSN (delete_insn (NEXT_INSN (p)));
+		{
+		  p = delete_insn (NEXT_INSN (p));
+		  if (p)
+		    p = PREV_INSN (p);
+		}
 	      else
 		p = NEXT_INSN (p);
 	    }
@@ -7520,7 +7524,7 @@ cse_insn (insn, libcall_insn)
 	  /* We might have two BARRIERs separated by notes.  Delete the second
 	     one if so.  */
 
-	  if (p != insn && NEXT_INSN (p) != 0
+	  if (p != 0 && p != insn && NEXT_INSN (p) != 0
 	      && GET_CODE (NEXT_INSN (p)) == BARRIER)
 	    delete_insn (NEXT_INSN (p));
 

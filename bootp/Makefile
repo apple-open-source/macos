@@ -12,8 +12,9 @@ NAME = bootp
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Aggregate
 
-TOOLS = bootpd.tproj ipconfigd.tproj ipconfig.tproj bootpc.tproj\
-        bsdpc.tproj
+BUNDLES = IPConfiguration.bproj
+
+TOOLS = bootpd.tproj ipconfig.tproj
 
 LIBRARIES = bootplib DHCPServer
 

@@ -17,12 +17,13 @@
 
 #if !defined(lint) && !defined(LINT)
 static const char rcsid[] =
-  "$FreeBSD: src/usr.sbin/cron/cron/do_command.c,v 1.15 1999/08/28 01:15:50 peter Exp $";
+  "$FreeBSD: src/usr.sbin/cron/cron/do_command.c,v 1.20 2001/03/17 00:21:54 peter Exp $";
 #endif
 
 
 #include "cron.h"
 #include <sys/signal.h>
+#include <stdlib.h>
 #if defined(sequent)
 # include <sys/universe.h>
 #endif
@@ -91,12 +92,16 @@ child_process(e, u)
 	/* mark ourselves as different to PS command watchers by upshifting
 	 * our program name.  This has no effect on some kernels.
 	 */
-	/*local*/{
-		register char	*pch;
+#ifdef __APPLE__
+        /*local*/{
+                register char   *pch;
 
-		for (pch = ProgramName;  *pch;  pch++)
-			*pch = MkUpper(*pch);
-	}
+                for (pch = ProgramName;  *pch;  pch++)
+                        *pch = MkUpper(*pch);
+        }
+#else
+	setproctitle("running job");
+#endif
 
 	/* discover some useful and important environment settings
 	 */
@@ -109,7 +114,7 @@ child_process(e, u)
 	 * use wait() explictly.  so we have to disable the signal (which
 	 * was inherited from the parent).
 	 */
-	(void) signal(SIGCHLD, SIG_IGN);
+	(void) signal(SIGCHLD, SIG_DFL);
 #else
 	/* on system-V systems, we are ignoring SIGCLD.  we have to stop
 	 * ignoring it now or the wait() in cron_pclose() won't work.
@@ -251,6 +256,8 @@ child_process(e, u)
 			setuid(e->uid);		/* we aren't root after this..*/
 #if defined(LOGIN_CAP)
 		}
+		if (lc != NULL)
+			login_close(lc);
 #endif
 		chdir(env_get("HOME", e->envp));
 
@@ -308,6 +315,11 @@ child_process(e, u)
 		register int	need_newline = FALSE;
 		register int	escaped = FALSE;
 		register int	ch;
+
+		if (out == NULL) {
+			warn("fdopen failed in child2");
+			_exit(ERROR_EXIT);
+		}
 
 		Debug(DPROC, ("[%d] child2 sending data to grandchild\n", getpid()))
 
@@ -369,6 +381,11 @@ child_process(e, u)
 		register FILE	*in = fdopen(stdout_pipe[READ_PIPE], "r");
 		register int	ch = getc(in);
 
+		if (in == NULL) {
+			warn("fdopen failed in child");
+			_exit(ERROR_EXIT);
+		}
+
 		if (ch != EOF) {
 			register FILE	*mail = NULL;
 			register int	bytes = 1;
@@ -408,11 +425,11 @@ child_process(e, u)
 				(void) gethostname(hostname, MAXHOSTNAMELEN);
 				(void) snprintf(mailcmd, sizeof(mailcmd),
 					       MAILARGS, MAILCMD);
-				if (!(mail = cron_popen(mailcmd, "w"))) {
+				if (!(mail = cron_popen(mailcmd, "w", e))) {
 					warn("%s", MAILCMD);
 					(void) _exit(ERROR_EXIT);
 				}
-				fprintf(mail, "From: root (Cron Daemon)\n");
+				fprintf(mail, "From: %s (Cron Daemon)\n", usernm);
 				fprintf(mail, "To: %s\n", mailto);
 				fprintf(mail, "Subject: Cron <%s@%s> %s\n",
 					usernm, first_word(hostname, "."),

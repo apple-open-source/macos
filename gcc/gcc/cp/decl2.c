@@ -524,6 +524,10 @@ int flag_vtable_gc;
 
 int flag_permissive;
 
+/* The variant of the C language being processed.  */
+
+int c_language = clk_cplusplus;
+
 /* Table of language-dependent -f options.
    STRING is the option name.  VARIABLE is the address of the variable.
    ON_VALUE is the value to store in VARIABLE
@@ -763,6 +767,8 @@ lang_decode_option (argc, argv)
       else if (!strcmp (p, "four-char-constants"))
         warn_four_char_constants = setting;
 #endif
+      else if (!strcmp (p, "long-double"))
+	warn_long_double = setting;
       else if (!strcmp (p, "return-type"))
 	warn_return_type = setting;
       else if (!strcmp (p, "ctor-dtor-privacy"))
@@ -1603,6 +1609,9 @@ finish_static_data_member_decl (decl, init, asmspec_tree, need_pop, flags)
 
   if (flag_dump_symbols)
     printf ("+dh %s %u\n", IDENTIFIER_POINTER (DECL_NAME (decl)),
+            DECL_SOURCE_LINE (decl));
+  if (flag_gen_index)
+    dump_symbol_info ("+dh ", IDENTIFIER_POINTER (DECL_NAME (decl)),
             DECL_SOURCE_LINE (decl));
 
   /* We cannot call pushdecl here, because that would fill in the
@@ -2690,6 +2699,9 @@ import_export_class (ctype)
      weren't explicitly instantiated.  */
   if (import_export == 0
       && CLASSTYPE_IMPLICIT_INSTANTIATION (ctype)
+#ifdef COALESCING_TEMPLATES_P
+      && ! COALESCING_TEMPLATES_P (ctype)
+#endif
       && ! flag_implicit_templates)
     import_export = -1;
 
@@ -2804,6 +2816,9 @@ finish_vtable_vardecl (t, data)
       if (flag_weak)
 	comdat_linkage (vars);
 
+#ifdef MARK_STATIC_VTABLE_COALESCED 
+      MARK_STATIC_VTABLE_COALESCED (vars);
+#endif
       rest_of_decl_compilation (vars, NULL_PTR, 1, 1);
 
       if (flag_vtable_gc)
@@ -2858,7 +2873,11 @@ import_export_decl (decl)
       DECL_NOT_REALLY_EXTERN (decl) = 1;
       if ((DECL_IMPLICIT_INSTANTIATION (decl)
 	   || DECL_FRIEND_PSEUDO_TEMPLATE_INSTANTIATION (decl))
+#ifdef COALESCING_TEMPLATES_P
+	  && ((flag_implicit_templates || COALESCING_TEMPLATES_P (decl))
+#else
 	  && (flag_implicit_templates
+#endif
 	      || (flag_implicit_inline_templates && DECL_THIS_INLINE (decl))))
 	{
 	  if (!TREE_PUBLIC (decl))
@@ -3363,6 +3382,13 @@ do_static_initialization (decl, init, sentry, priority)
 {
   priority_info pi;
 
+#ifdef NEXT_SEMANTICS
+  /* Avoid generating useless init code for objects that don't need it.  */
+  if (init == 0 && IS_AGGR_TYPE (TREE_TYPE (decl))
+      && ! TYPE_NEEDS_CONSTRUCTING (TREE_TYPE (decl)))
+    return;
+#endif
+
   /* Get the priority information for this PRIORITY,  */
   pi = get_priority_info (priority);
   if (!pi->initialization_sequence)
@@ -3763,8 +3789,15 @@ finish_file ()
       static_aggregates = NULL_TREE;
       while (vars)
 	{
-	  if (! TREE_ASM_WRITTEN (TREE_VALUE (vars)))
-	    rest_of_decl_compilation (TREE_VALUE (vars), 0, 1, 1);
+	  tree thisvar = TREE_VALUE (vars);
+
+#ifdef IS_UNUSED_STATIC_AGGREGATE_P
+	  if (IS_UNUSED_STATIC_AGGREGATE_P (thisvar))
+	    goto go_next;
+#endif
+
+	  if (! TREE_ASM_WRITTEN (thisvar))
+	    rest_of_decl_compilation (thisvar, 0, 1, 1);
 	  if (!need_ssdf_p)
 	    {
 	      /* We need to start a new initialization function each
@@ -3779,9 +3812,10 @@ finish_file ()
 	      need_ssdf_p = 1;
 	    }
 
-	  do_static_initialization_and_destruction (TREE_VALUE (vars), 
+	  do_static_initialization_and_destruction (thisvar,
 						    TREE_PURPOSE (vars));
 	  reconsider = 1;
+go_next:
 	  vars = TREE_CHAIN (vars);
 	}
       

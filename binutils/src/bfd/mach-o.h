@@ -56,7 +56,9 @@ typedef enum bfd_mach_o_load_command_type {
   BFD_MACH_O_LC_ROUTINES = 0x11,	/* image routines */
   BFD_MACH_O_LC_SUB_FRAMEWORK = 0x12,	/* sub framework */
   BFD_MACH_O_LC_SUB_UMBRELLA = 0x13,	/* sub umbrella */
-  BFD_MACH_O_LC_SUB_CLIENT = 0x14	/* sub client */
+  BFD_MACH_O_LC_SUB_CLIENT = 0x14,	/* sub client */
+  BFD_MACH_O_LC_SUB_LIBRARY = 0x15,     /* sub library */
+  BFD_MACH_O_LC_TWOLEVEL_HINTS = 0x16   /* two-level namespace lookup hints */
 } bfd_mach_o_load_command_type;
 
 typedef enum bfd_mach_o_cpu_type {

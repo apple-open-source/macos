@@ -11,7 +11,7 @@ OTHER_MAN1 = ar.1 file.1 atom.1
 
 MAN3 = rld.3 kld.3 dyld.3 dyld_debug.3 arch.3 get_end.3 end.3 getsectbyname.3 \
        getsectbynamefromheader.3 getsectdata.3 getsectdatafromheader.3 \
-       getsegbyname.3 NSModule.3 NSObjectFileImage.3
+       getsegbyname.3 NSModule.3 NSObjectFileImage.3 redo_prebinding.3
 MANL = cmpshlib.1 indr.1 mkshlib.1 checksyms.1 seg_addr_table.1 \
        check_dylib.1
 

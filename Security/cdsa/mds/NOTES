@@ -1,0 +1,85 @@
+MDS RELEASE NOTES
+
+This implementation of MDS is based on the idea that there
+is no separate module installation process. Instead, MDS
+interacts with modules as follows:
+
+-	Each module bundle contains a resource which is simply
+	an MDS database containing the records specific to that
+	module.
+	
+-	Placing a module bundle into the designated path makes
+	that module eligible to be registered with MDS.
+	
+-	Clients which utilize MDS will, when initializing MDS and
+	then periodically thereafter, scan the module path and
+	dynamically update the MDS database entries to reflect
+	added, removed, or changed modules.
+	
+The scanning of the module path is done implicitly within
+MDS API functions.
+
+DETECTING CHANGED MODULES
+
+MDS uses the following algorithm to detect added, removed,
+or changed modules:
+
+1.	stat() the directory in which modules are located. If
+	its modification time is no later than the last time
+	a scan was performed, stop.
+	
+2.	Read the contents of the module directory with readdir().
+	Build a list of the directory contents, including the
+	modification time of each bundle as returned by stat().
+	
+3.	Remove all MDS records for modules which are no longer
+	present, or which have changed since the last scan.
+	
+4.	Insert MDS records for modules which are now present but
+	not represented in the database, including those whose
+	records were deleted in step 3.
+	
+This strategy has several implications:
+
+-	Changing the contents of a module bundle will not change
+	the module directory's modification time, and so will not
+	trigger an update of the database. To cause an update when
+	modifying a module, that module must be removed from the
+	directory and then its new version must be placed into the
+	directory.
+
+-	No single process which is a client of MDS will attempt a
+	rescan more often than once per 10 seconds. This means that
+	it might take up to 10 seconds for MDS to sync after a
+	change occurs.
+	
+-	Since any MDS client process can initiate a rescan, but no
+	two processes should be updating the database at the same
+	time, we use a lock file in /var/tmp to ensure only one
+	process is scanning at any one time.
+
+DEVIATIONS FROM THE SPEC
+
+In addition to those differences noted above, this MDS
+implementation deviates from the specification in the following
+ways:
+
+MDS_Initialize()
+
+	As part of initiating a client's connection to MDS, this
+	function creates the MDS databases (if needed) and rescans
+	the module path.
+
+MDS_Install()
+
+	This call is specified to create the MDS databases. Since it
+	can only be called with an MDS_HANDLE obtained from a prior
+	call to MDS_Initialize(), which already creates the databases
+	implicitly, MDS_Install() does nothing and silently returns
+	success in this implementation.
+	
+MDS_Uninstall()
+
+	This call is specified to delete the MDS databases. In this
+	implementation, it does nothing and throws the error
+	CSSM_ERRCODE_FUNCTION_NOT_IMPLEMENTED.

@@ -593,6 +593,7 @@ _dns_file_init(char *dom)
 				{
 					ni_proplist_free(p);
 					free(p);
+					fclose(fp);
 					return NULL;
 				}
 			}
@@ -722,6 +723,8 @@ _dns_file_init(char *dom)
 		fgets(line, 1024, fp);
 	}
 
+	fclose(fp);
+
 	/*
 	 * If no nameserver addresses are set, return NULL.
 	 */
@@ -764,6 +767,17 @@ _dns_file_init(char *dom)
 	  	  nl->ni_namelist_val[0] = strdup(s);
 	  }
 	}
+
+	if (dom != NULL)
+	{
+		if (strcmp(dom, dp[PLX_DOMAIN].nip_val. ni_namelist_val[0]))
+		{
+			ni_proplist_free(p);
+			free(p);
+			return NULL;
+		}
+	}
+
 	return p;
 }
 
@@ -2074,7 +2088,7 @@ dns_read_reply(dns_handle_t *dns, u_int32_t which,
 		}
 	}
 #endif
-		
+
 	/* Check for wrong xid in reply */
 	prxid = (u_int16_t *)*r;
 	rxid = ntohs(*prxid);
@@ -2082,7 +2096,7 @@ dns_read_reply(dns_handle_t *dns, u_int32_t which,
 	if ((qxid != 0) && (rxid != qxid))
 	{
 		free(*r);
-		dns_log_msg(dns, LOG_ERR,
+		dns_log_msg(dns, LOG_NOTICE,
 			"dns_read_reply - wrong XID in reply (expected %hu got %hu)",
 			qxid, rxid);
 		return DNS_STATUS_WRONG_XID;

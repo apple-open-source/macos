@@ -1,0 +1,5 @@
+Package: ioserialfamily
+Maintainer: Darwin Developers <darwin-development@lists.apple.com>
+Vendor: Apple Computer, Inc.
+Build-Depends: files, file-cmds, text-cmds, system-cmds, zsh, grep, shell-cmds, libsystem, cctools, gcc, jam, xnu, corefoundation, carbonheaders, project-makefiles, iokituser
+Description: IOSerialFamily

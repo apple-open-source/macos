@@ -38,7 +38,11 @@
  */
 
 #import "LUAgent.h"
+#import "LUGlobal.h"
+#import "Config.h"
+#import "LUCachedDictionary.h"
 #import <stdio.h>
+#import <stdlib.h>
 #import <string.h>
 #import <NetInfo/dsutil.h>
 
@@ -90,9 +94,50 @@ char *categoryPathname[] =
 
 - (LUAgent *)init
 {
+	if (didInit) return self;
+
 	[super init];
+
+	generation = [configManager generation];
+	configurationArray = [configManager config];
+
 	didInit = YES;
+
+	serviceName = malloc(strlen([[self class] name]) + 1);
+	sprintf(serviceName, "%s", [[self class] name]);
+
 	return self;
+}
+
+- (LUAgent *)initWithArg:(char *)arg
+{
+	if (didInit) return self;
+
+	[super init];
+
+	generation = [configManager generation];
+	configurationArray = [configManager config];
+
+	didInit = YES;
+
+	if (arg == NULL)
+	{
+		serviceName = malloc(strlen([[self class] name]) + 1);
+		sprintf(serviceName, "%s", [[self class] name]);
+		return self;
+	}
+
+	serviceName = malloc(strlen([[self class] name]) + strlen(arg) + 2);
+	sprintf(serviceName, "%s:%s", [[self class] name], arg);
+
+	return self;
+}
+
+- (void)dealloc
+{
+	[configurationArray release];
+	free(serviceName);
+	[super dealloc];
 }
 
 + (const char *)categoryName:(LUCategory)cat
@@ -211,7 +256,7 @@ char *categoryPathname[] =
 }
 
 - (const char *)serviceName
-{return NULL;}
+{return serviceName;}
 
 - (const char *)shortName
 {return NULL;}
@@ -219,11 +264,37 @@ char *categoryPathname[] =
 - (BOOL)isValid:(LUDictionary *)item
 {return NO;}
 
-- (LUDictionary *)serviceWithName:(char *)name protocol:(char *)prot
-{return nil;}
+- (BOOL)isArrayValid:(LUArray *)array
+{
+	unsigned int i, len;
+	time_t age;
+	LUDictionary *stamp;
+	LUAgent *agent;
 
-- (LUDictionary *)serviceWithNumber:(int *)number protocol:(char *)prot
-{return nil;}
+	if (array == nil) return NO;
+
+	len = [array validationStampCount];
+	if (len == 0) return YES;
+
+	for (i = 0; i < len; i++)
+	{
+		stamp = [array validationStampAtIndex:i];
+		if (stamp == nil) return NO;
+		age = [stamp age];
+		if (age > [stamp timeToLive]) return NO;
+
+		agent = [stamp agent];
+		if (agent == nil) return NO;
+		if (![agent isValid:stamp]) return NO;
+	}
+
+	return YES;
+}
+
+- (BOOL)isStale
+{
+	return (generation != [configManager generation]);
+}
 
 - (BOOL)inNetgroup:(char *)group
 	host:(char *)host
@@ -238,23 +309,179 @@ char *categoryPathname[] =
 {}
 
 - (LUArray *)allGroupsWithUser:(char *)name
-{return nil;}
+{
+	LUDictionary *q, *u, *g;
+	LUArray *all;
 
-- (LUDictionary *)hostsWithService:(char *)name protocol:(char *)protocol
-{return nil;}
+	if (name == NULL) return nil;
 
+	g = nil;
+	u = [self itemWithKey:"name" value:name category:LUCategoryUser];
+	if (u != nil)
+	{
+		g = [self itemWithKey:"gid" value:[u valueForKey:"gid"] category:LUCategoryGroup];
+		[u release];
+	}
+
+	q = [[LUDictionary alloc] init];
+	[q setValue:"group" forKey:"_lookup_category"];
+	[q setValue:name forKey:"users"];
+
+	all = [self query:q];
+	[q release];
+
+	if (all == nil)
+	{
+		if (g == nil) return nil;
+		all = [[LUArray alloc] init];
+	}
+
+	if (g != nil) 
+	{
+		if (![all containsObject:g]) [all addObject:g];
+		[g release];
+	}
+
+	return all;
+}
+
+- (LUDictionary *)serviceWithName:(char *)name protocol:(char *)prot
+{
+	LUDictionary *q;
+	LUArray *all;
+
+	if (name == NULL) return nil;
+
+	q = [[LUDictionary alloc] init];
+	[q setValue:"service" forKey:"_lookup_category"];
+	[q setValue:name forKey:"name"];
+	if (prot != NULL) [q setValue:prot forKey:"protocol"];
+
+	all = [self query:q];
+	[q release];
+
+	if (all == nil) return nil;
+
+	q = [[all objectAtIndex:0] retain];
+	[all release];
+	return q;
+}
+
+- (LUDictionary *)serviceWithNumber:(int *)number protocol:(char *)prot
+{
+	LUDictionary *q;
+	LUArray *all;
+	char str[64];
+
+	if (number == NULL) return nil;
+
+	q = [[LUDictionary alloc] init];
+	[q setValue:"service" forKey:"_lookup_category"];
+	sprintf(str, "%u", *number);
+	[q setValue:str forKey:"port"];
+	if (prot != NULL) [q setValue:prot forKey:"protocol"];
+
+	all = [self query:q];
+	[q release];
+
+	if (all == nil) return nil;
+
+	q = [[all objectAtIndex:0] retain];
+	[all release];
+	return q;
+}
+
+/*
+ * Agents may override this method for better performance.
+ * Note that it just calls query:category, so that's a better method to override.
+ */
+- (LUArray *)query:(LUDictionary *)pattern
+{
+	unsigned int where;
+	LUCategory cat;
+
+	if (pattern == nil) return nil;
+
+	where = [pattern indexForKey:"_lookup_category"];
+	if (where == IndexNull) return nil;
+
+	cat = [LUAgent categoryWithName:[pattern valueAtIndex:where]];
+	if (cat > NCATEGORIES) return nil;
+
+	return [self query:pattern category:cat];
+}
+
+/*
+ * Agents may override this method for better performance.
+ */
 - (LUDictionary *)itemWithKey:(char *)key
 	value:(char *)val
 	category:(LUCategory)cat
-{return nil;}
+{
+	LUDictionary *q;
+	LUDictionary *item;
+	LUArray *all;
 
-- (LUArray *)allItemsWithCategory:(LUCategory)cat
-{return nil;}
+	if (key == NULL) return nil;
 
-- (LUArray *)query:(LUDictionary *)pattern
-{return nil;}
+	q = [[LUDictionary alloc] init];
+	[q setValue:categoryName[cat] forKey:"_lookup_category"];
+	[q setValue:val forKey:key];
 
+	all = [self query:q];
+	[q release];
+
+	if (all == nil) return nil;
+	if ([all count] == 0)
+	{
+		[all release];
+		return nil;
+	}
+
+	item = [all objectAtIndex:0];
+	[item retain];
+	[all release];
+
+	return item;
+}
+
+/*
+ * Agents may override this method for better performance.
+ */
 - (LUArray *)query:(LUDictionary *)pattern category:(LUCategory)cat
-{return nil;}
+{
+	LUArray *all, *list;
+	int i, len;
+
+	all = [self allItemsWithCategory:cat];
+
+	if (pattern == nil) return all;
+	if ([pattern count] == 0) return all;
+
+	list = nil;
+	if (all != nil)
+	{
+		list = [all filter:pattern];
+		if (list != nil)
+		{
+			len = [all validationStampCount];
+			for (i = 0; i < len; i++)
+			{
+				[list addValidationStamp:[all validationStampAtIndex:i]];
+			}
+		}
+		[all release];
+	}
+
+	return list;
+}
+
+/*
+ * Agents must override this method.
+ */
+- (LUArray *)allItemsWithCategory:(LUCategory)cat
+{
+	return nil;
+}
 
 @end

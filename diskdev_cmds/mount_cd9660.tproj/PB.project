@@ -1,7 +1,7 @@
 {
     DYNAMIC_CODE_GEN = YES; 
     FILESTABLE = {
-        FRAMEWORKS = (IOKit.framework); 
+        FRAMEWORKS = (IOKit.framework, CoreFoundation.framework); 
         H_FILES = (); 
         OTHER_LINKED = (mount_cd9660.c); 
         OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble, mount_cd9660.8); 

@@ -43,6 +43,10 @@ static Gdb_Plugin gdb_run_command   	= NULL;
 static Gdb_Plugin gdb_shell_command 	= NULL;
 static Gdb_Plugin gdb_make_command  	= NULL;
 static Gdb_Plugin gdb_list_command	= NULL;
+static Gdb_Plugin gdb_next_command	= NULL;
+static Gdb_Plugin gdb_step_command	= NULL;
+static Gdb_Plugin gdb_nexti_command	= NULL;
+static Gdb_Plugin gdb_stepi_command	= NULL;
 
 static Gdb_Plugin gdb_define_command  	= NULL;
 static Gdb_Plugin gdb_document_command  = NULL;
@@ -114,6 +118,7 @@ static void my_signal_handler(int signo)
 	    signal(SIGWINCH, my_signal_handler);
     	    __window_size(NULL, 0);
 	    get_screen_size(&max_rows, &max_cols);
+	    save_stack(max_rows);
 	    if (macsbug_screen) {
 		if (max_rows < MIN_SCREEN_ROWS || max_cols < MIN_SCREEN_COLS) {
 		    macsbug_off(0);
@@ -270,35 +275,102 @@ static void make_command(char *arg, int from_tty)
     }
 }
 
+/*----------------------------------------------------------------------*
+ | listing_filter - stdout output filter for enhanced_gdb_listing_cmd() |
+ *----------------------------------------------------------------------*
+ 
+ This is the redirected stream output filter function for enhanced_gdb_listing_cmd() to
+ ensure that the lines listed by the LIST, NEXT, STEP, NEXTI, STEPI commands are
+ guaranteed initially blank.
+ 
+ The only reason for this is because of our handling of contiguous output for those
+ commands when the MacsBug screen is off requires us to move the cursor up after the
+ user types the return.  That causes the potential for leaving stuff from the command
+ line (the tail end of the line) appearing to be appended to the next line of output!
+ 
+ Example, user type L to list a bunch of lines.  The types LIST to list the next bunch.
+ Because this is the same command the list output is to be contiguous (assuming the
+ MacsBug screen is off -- if on we don't have these problems).  If the first line of the
+ second bunch is short enough the tail end of the LIST command will appear on the line.
+ This assumes that the line being output is to a terminal with a curses-like
+ implementation that only outputs what it's asked to (as apparently the OSX terminal
+ does).
+ 
+ So all we do here is output the lines with a CLEAR_LINE prefixed to it.
+*/
+ 
+static char *listing_filter(FILE *f, char *line, void *data)
+{
+    if (line)
+    	gdb_fprintf(*(GDB_FILE **)data, CLEAR_LINE "%s", line);
+	
+    return (NULL);
+}
 
-/*--------------------------------------------------------------*
- | list_command - standard list command with backup over prompt |
- *--------------------------------------------------------------*
+
+/*-------------------------------------------------------------------------------------*
+ | enhanced_gdb_listing_cmd - common code for ENHANCE_GDB_LISTING_CMD macro expansions |
+ *-------------------------------------------------------------------------------------*
  
- If the MacsBug screen is off and the previous command was also a list command then we
- back up over the prompt to make the listing contiguous just like when the MacsBug
- screen is on.
- 
- Note that gdb_list_command() is gdb's LIST command that we replaced but we did NOT
- replace it's help.  So doing HELP on LIST still works as usual meaning we don't have
- to dup any of the help info for our replacement.
- 
- Also note that both LIST and it's alias L are defined as "standard" MacsBug commands
- in that they get their own unique $__lastcmd__ value and are in the macsbug_cmds[]
- commands table defined in macsBug_cmdline.c, preprocess_commands().  That's necessary
- in order to be able to handle the repeat of LIST and L when only a return is entered
- so that we may know to make the listing contiguous.
+ This is only called from the expansion of the ENHANCE_GDB_LISTING_CMD macro as the
+ common code to handle the LIST, NEXT, STEP, NEXTI, and STEPI commands.  See the comments
+ for that macro below for further details.
 */
 
-static void list_command(char *arg, int from_tty)
+static void enhanced_gdb_listing_cmd(char *arg, int from_tty, int cmdNbr, 
+				     void (*cmd)(char*, int))
 {
-    if (!macsbug_screen && gdb_get_int("$__lastcmd__") == 44)
+    if (from_tty && !macsbug_screen && isatty(STDOUT_FILENO) &&
+    	gdb_get_int("$__lastcmd__") == cmdNbr)
     	gdb_printf(CURSOR_UP, 2);
-	
-    gdb_list_command(arg, from_tty);
     
-    gdb_set_int("$__lastcmd__", 44);
+    if (macsbug_screen)
+    	cmd(arg, from_tty);			/* just do cmd if we have screen	*/
+    else {
+    	GDB_FILE *redirect_stdout, *prev_stdout;
+     	
+	redirect_stdout = gdb_open_output(stdout, listing_filter, &prev_stdout);
+	prev_stdout = gdb_redirect_output(redirect_stdout);
+   	
+	cmd(arg, from_tty);			/* filter output with listing_filter()	*/
+    	
+	gdb_close_output(redirect_stdout);
+    }
+    
+    gdb_set_int("$__lastcmd__", cmdNbr);
 }
+
+
+/*------------------------------------------------------------------------------------*
+ | ENHANCE_GDB_LISTING_CMD - macro to enhance LIST, NEXT, STEP, NEXTI, STEPI commands |
+ *------------------------------------------------------------------------------------*
+
+ If the MacsBug screen is off and the previous command was also a LIST, NEXT, STEP, NEXTI,
+ or STEPI command (i.e., same respective command repeated) then we back up over the 
+ prompt to make the display contiguous just like when the MacsBug screen is on.
+ 
+ Note that gdb_<cmd>_command() is gdb's <cmd> command (cmd = list | next | step | nexti |
+ stepi) that we replaced but we did NOT replace their help.  So doing HELP on <cmd> still
+ works as usual meaning we don't have to dup any of the help info for our replacement.
+ 
+ Also note that these commands are defined as "standard" MacsBug commands in that they
+ get their own unique $__lastcmd__ values and are in the macsbug_cmds[] commands table
+ defined in macsBug_cmdline.c, preprocess_commands().  That's necessary in order to be
+ able to handle the repeat of <cmd> when only a return is entered so that we may know
+ to make the listing contiguous.  That's the whole point of this exercise!
+*/
+
+#define ENHANCE_GDB_LISTING_CMD(cmd, cmdNbr)						\
+static void cmd ## _command(char *arg, int from_tty)					\
+{											\
+    enhanced_gdb_listing_cmd(arg, from_tty, cmdNbr, gdb_ ## cmd ## _command);		\
+}
+
+ENHANCE_GDB_LISTING_CMD(list, 44)			/* list_command			*/
+ENHANCE_GDB_LISTING_CMD(next, 45)			/* next_command			*/
+ENHANCE_GDB_LISTING_CMD(step, 46)			/* step_command			*/
+ENHANCE_GDB_LISTING_CMD(nexti,47)			/* nexti_command		*/
+ENHANCE_GDB_LISTING_CMD(stepi,48)			/* stepi_command		*/
 
 
 /*--------------------------------------------------------------------------------------*
@@ -321,11 +393,11 @@ static void cmd ## _command(char *arg, int from_tty)			\
     immediate_flush = NORMAL_REFRESH;					\
 }
 
-CAUSES_PROGRESS_CMD_PLUGIN(file)
-CAUSES_PROGRESS_CMD_PLUGIN(attach)
-CAUSES_PROGRESS_CMD_PLUGIN(symbol_file)
-CAUSES_PROGRESS_CMD_PLUGIN(load)
-//CAUSES_PROGRESS_CMD_PLUGIN(sharedlibrary)
+CAUSES_PROGRESS_CMD_PLUGIN(file)			/* file_command			*/
+CAUSES_PROGRESS_CMD_PLUGIN(attach)			/* attach_command		*/
+CAUSES_PROGRESS_CMD_PLUGIN(symbol_file)			/* symbol_file_command		*/
+CAUSES_PROGRESS_CMD_PLUGIN(load)			/* load_command			*/
+//CAUSES_PROGRESS_CMD_PLUGIN(sharedlibrary)		/* sharedlibrary_command	*/
 
 
 /*------------------------------------------------------------------------------*
@@ -642,9 +714,9 @@ void state_changed(GdbState newState)
 
 void init_macsbug_patches(void)
 {
-   static int firsttime = 1;
+    static int firsttime = 1;
 
-   if (firsttime) {
+    if (firsttime) {
 	firsttime = 0;
 	
 	gdb_run_command = gdb_replace_command("run", run_command);
@@ -674,6 +746,22 @@ void init_macsbug_patches(void)
 	gdb_list_command = gdb_replace_command("list", list_command);
 	if (!gdb_list_command)
 	    gdb_internal_error("internal error - list command not found");
+ 	
+	gdb_next_command = gdb_replace_command("next", next_command);
+	if (!gdb_next_command)
+	    gdb_internal_error("internal error - next command not found");
+ 	
+	gdb_step_command = gdb_replace_command("step", step_command);
+	if (!gdb_step_command)
+	    gdb_internal_error("internal error - step command not found");
+ 	
+	gdb_nexti_command = gdb_replace_command("nexti", nexti_command);
+	if (!gdb_nexti_command)
+	    gdb_internal_error("internal error - nexti command not found");
+ 	
+	gdb_stepi_command = gdb_replace_command("stepi", stepi_command);
+	if (!gdb_stepi_command)
+	    gdb_internal_error("internal error - stepi command not found");
 	
 	gdb_define_command = gdb_replace_command("define", define_command);
 	if (!gdb_shell_command)

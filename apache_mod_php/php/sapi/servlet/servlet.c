@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -48,24 +48,19 @@
 #include "php_ini.h"
 #include "php_globals.h"
 #include "php_main.h"
-#include "fopen-wrappers.h"
+#include "fopen_wrappers.h"
 #include "ext/standard/php_standard.h"
 #include "ext/standard/php_dir.h"
 #ifdef PHP_WIN32
 #include <io.h>
 #include <fcntl.h>
-#include "win32/syslog.h"
 #include "win32/php_registry.h"
-#else
-#include <syslog.h>
 #endif
 
 #include "zend_compile.h"
 #include "zend_execute.h"
 #include "zend_highlight.h"
 #include "zend_indent.h"
-
-PHPAPI extern char *php_ini_path;
 
 JNIEXPORT void JNICALL Java_net_php_reflect_setEnv
   (JNIEnv *newJenv, jclass self);
@@ -216,7 +211,7 @@ static char *sapi_servlet_read_cookies(SLS_D)
  * sapi maintenance
  */
 
-static sapi_module_struct sapi_module = {
+static sapi_module_struct servlet_sapi_module = {
 	"java_servlet",					/* name */
 	"Java Servlet",					/* pretty name */
 									
@@ -263,9 +258,9 @@ JNIEXPORT void JNICALL Java_net_php_servlet_startup
 	}
 #endif
 
-	sapi_startup(&sapi_module);
+	sapi_startup(&servlet_sapi_module);
 
-	if (php_module_startup(&sapi_module)==FAILURE) {
+	if (php_module_startup(&servlet_sapi_module)==FAILURE) {
 		ThrowServletException(jenv,"module startup failure");
 		return;
 	}
@@ -304,7 +299,7 @@ JNIEXPORT jlong JNICALL Java_net_php_servlet_define
 	ELS_FETCH();
 
 	MAKE_STD_ZVAL(pzval);
-	(pval*)(long)addr = pzval;
+	addr = (jlong)(long) pzval;
 
 	zend_hash_add(&EG(symbol_table), (char*)nameAsUTF, 
 		strlen(nameAsUTF)+1, &pzval, sizeof(pval *), NULL);
@@ -327,7 +322,7 @@ JNIEXPORT void JNICALL Java_net_php_servlet_send
 
 	zend_file_handle file_handle;
 #ifndef VIRTUAL_DIR
-	char cwd[MAXPATHLEN+1];
+	char cwd[MAXPATHLEN];
 #endif
 	SLS_FETCH();
 	PLS_FETCH();

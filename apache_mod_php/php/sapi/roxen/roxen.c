@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: roxen.c,v 1.1.1.3 2001/01/25 05:00:41 wsanchez Exp $ */
+/* $Id: roxen.c,v 1.1.1.4 2001/07/19 00:21:02 zarzycki Exp $ */
 
 #include "php.h"
 #ifdef HAVE_ROXEN
@@ -446,7 +446,7 @@ static void php_info_roxen(ZEND_MODULE_INFO_FUNC_ARGS)
 {
   /*  char buf[512]; */
   php_info_print_table_start();
-  php_info_print_table_row(2, "SAPI module version", "$Id: roxen.c,v 1.1.1.3 2001/01/25 05:00:41 wsanchez Exp $");
+  php_info_print_table_row(2, "SAPI module version", "$Id: roxen.c,v 1.1.1.4 2001/07/19 00:21:02 zarzycki Exp $");
   /*  php_info_print_table_row(2, "Build date", Ns_InfoBuildDate());
       php_info_print_table_row(2, "Config file path", Ns_InfoConfigFile());
       php_info_print_table_row(2, "Error Log path", Ns_InfoErrorLog());
@@ -489,7 +489,7 @@ static int php_roxen_startup(sapi_module_struct *sapi_module)
 
 /* this structure is static (as in "it does not change") */
 
-static sapi_module_struct sapi_module = {
+static sapi_module_struct roxen_sapi_module = {
   "roxen",
   "Roxen",
   php_module_startup,			/* startup */
@@ -708,8 +708,8 @@ void pike_module_init( void )
     roxen_globals_id = ts_allocate_id(sizeof(php_roxen_request), NULL, NULL);
 #endif	 
 #endif
-    sapi_startup(&sapi_module);
-    php_roxen_startup(&sapi_module);
+    sapi_startup(&roxen_sapi_module);
+    php_roxen_startup(&roxen_sapi_module);
     roxen_php_initialized = 1;
     PHP_INIT_LOCK();
   }
@@ -729,7 +729,7 @@ void pike_module_init( void )
 void pike_module_exit(void)
 {
   roxen_php_initialized = 0;
-  sapi_module.shutdown(&sapi_module);
+  roxen_sapi_module.shutdown(&roxen_sapi_module);
   if(php_program)  free_program(php_program);
 #ifdef ZTS
   tsrm_shutdown();

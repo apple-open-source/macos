@@ -83,17 +83,17 @@ void USBKeyLargo::initForPM (IOService *provider)
     // unsigned long	powerDomainBudget;	// power in mw a domain in this state can deliver to its children
 
     // NOTE: all these values are made up since now I do not have areal clue of what to put.
-#define number_of_power_states 2
+#define kNumberOfPowerStates 2
 
-    static IOPMPowerState ourPowerStates[number_of_power_states] = {
+    static IOPMPowerState ourPowerStates[kNumberOfPowerStates] = {
     {1,0,0,0,0,0,0,0,0,0,0,0},
-    {1,IOPMDeviceUsable,IOPMClockNormal,IOPMPowerOn,0,0,0,0,0,0,0,0}
+    {1,IOPMDeviceUsable,IOPMClockNormal | IOPMPowerOn,IOPMPowerOn,0,0,0,0,0,0,0,0}
     };
 
 
     // register ourselves with ourself as policy-maker
     if (pm_vars != NULL)
-        registerPowerDriver(this, ourPowerStates, number_of_power_states);
+        registerPowerDriver(this, ourPowerStates, kNumberOfPowerStates);
 }
 
 // Method: setPowerState
@@ -102,15 +102,15 @@ void USBKeyLargo::initForPM (IOService *provider)
 IOReturn USBKeyLargo::setPowerState(unsigned long powerStateOrdinal, IOService* whatDevice)
 {
     // Do not do anything if the state is inavalid.
-    if (powerStateOrdinal >= 2)
-        return IOPMNoSuchState;
+    if (powerStateOrdinal >= kNumberOfPowerStates)
+        return IOPMAckImplied;
 
     // Which bus id going to change state ?
     OSNumber *propertyValue;
 
     propertyValue = OSDynamicCast( OSNumber, getProperty("usb"));
     if (propertyValue == NULL) {
-        return IOPMNoSuchState;
+        return IOPMAckImplied;
     }
 
     if ( powerStateOrdinal == 0 ) {
@@ -253,3 +253,22 @@ void USBKeyLargo::turnOnUSB(UInt32 busNumber)
     provider->writeRegUInt32(kKeyLargoFCR4, regTemp);
     
 }
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+// maxCapabilityForDomainState
+//
+// If the power domain is supplying power, the device
+// can be on.  If there is no power it can only be off.
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+unsigned long USBKeyLargo::maxCapabilityForDomainState(
+                                        IOPMPowerFlags domainState )
+{
+   if( (domainState & IOPMPowerOn) || (domainState & IOPMSoftSleep) )
+       return( kNumberOfPowerStates - 1);
+   else
+       return( 0);
+}
+
+

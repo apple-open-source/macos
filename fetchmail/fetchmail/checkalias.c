@@ -10,9 +10,15 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/types.h>
+#ifdef HAVE_NET_SOCKET_H
+#include <net/socket.h>
+#else
 #include <sys/socket.h>
+#endif
 #include <netinet/in.h>
+#ifdef HAVE_ARPA_INET_H
 #include <arpa/inet.h>
+#endif
 #include <netdb.h>
 #include "i18n.h"
 #include "mx.h"
@@ -90,6 +96,8 @@ int is_host_alias(const char *name, struct query *ctl)
 {
     struct hostent	*he,*he_st;
     struct mxentry	*mxp, *mxrecords;
+    struct idlist	*idl;
+    int			namelen;
 
     struct hostdata *lead_server = 
 	ctl->server.lead_server ? ctl->server.lead_server : &ctl->server;
@@ -115,9 +123,32 @@ int is_host_alias(const char *name, struct query *ctl)
 	return(TRUE);
     else if (str_in_list(&lead_server->akalist, name, TRUE))
 	return(TRUE);
-    else if (!ctl->server.dns)
-	return(FALSE);
 
+    /*
+     * Now check for a suffix match on the akalist.  The theory here is
+     * that if the user says `aka netaxs.com', we actually want to match
+     * foo.netaxs.com and bar.netaxs.com.
+     */
+    namelen = strlen(name);
+    for (idl = lead_server->akalist; idl; idl = idl->next)
+    {
+	char	*ep;
+
+	/*
+	 * Test is >= here because str_in_list() should have caught the
+	 * equal-length case above.  Doing it this way guarantees that
+	 * ep[-1] is a valid reference.
+	 */
+	if (strlen(idl->id) >= namelen)
+	    continue;
+	ep = (char *)name + (namelen - strlen(idl->id));
+	/* a suffix led by . must match */
+	if (ep[-1] == '.' && !strcmp(ep, idl->id))
+	    return(TRUE);
+    }
+
+    if (!ctl->server.dns)
+	return(FALSE);
 #ifndef HAVE_RES_SEARCH
     return(FALSE);
 #else
@@ -130,7 +161,7 @@ int is_host_alias(const char *name, struct query *ctl)
      * delivering the current message or anything else from the
      * current server until it's back up.
      */
-    else if ((he = gethostbyname(name)) != (struct hostent *)NULL)
+    if ((he = gethostbyname(name)) != (struct hostent *)NULL)
     {
 	if (strcasecmp(ctl->server.truename, he->h_name) == 0)
 	    goto match;
@@ -146,6 +177,7 @@ int is_host_alias(const char *name, struct query *ctl)
 	    }
 	    if (outlevel >= O_DEBUG)
 		report(stdout, _("No, their IP addresses don't match\n"));
+	    return(FALSE);
 	}
 	else
 	    return(FALSE);
@@ -154,9 +186,10 @@ int is_host_alias(const char *name, struct query *ctl)
 	switch (h_errno)
 	{
 	case HOST_NOT_FOUND:	/* specified host is unknown */
+#ifndef __BEOS__
 	case NO_ADDRESS:	/* valid, but does not have an IP address */
 	    break;
-
+#endif
 	case NO_RECOVERY:	/* non-recoverable name server error */
 	case TRY_AGAIN:		/* temporary error on authoritative server */
 	default:
@@ -180,10 +213,11 @@ int is_host_alias(const char *name, struct query *ctl)
 	switch (h_errno)
 	{
 	case HOST_NOT_FOUND:	/* specified host is unknown */
+#ifndef __BEOS__
 	case NO_ADDRESS:	/* valid, but does not have an IP address */
 	    return(FALSE);
 	    break;
-
+#endif
 	case NO_RECOVERY:	/* non-recoverable name server error */
 	case TRY_AGAIN:		/* temporary error on authoritative server */
 	default:

@@ -1,42 +1,85 @@
 /************************************************************************
  *	Collection of NFS resistant exclusive creat routines		*
  *									*
- *	Copyright (c) 1990-1999, S.R. van den Berg, The Netherlands	*
+ *	Copyright (c) 1990-1997, S.R. van den Berg, The Netherlands	*
+ *	Copyright (c) 1999-2001, Philip Guenther, The United States	*
+ *							of America	*
  *	#include "../README"						*
  ************************************************************************/
 #ifdef RCS
 static /*const*/char rcsid[]=
- "$Id: exopen.c,v 1.1.1.1 1999/09/23 17:30:07 wsanchez Exp $";
+ "$Id: exopen.c,v 1.1.1.2 2001/07/20 19:38:15 bbraun Exp $";
 #endif
 #include "procmail.h"
 #include "acommon.h"
 #include "robust.h"
 #include "misc.h"
-#include "common.h"
 #include "exopen.h"
+#include "lastdirsep.h"
+#include "sublib.h"
 
-int unique(full,p,mode,verbos,chownit)const char*const full;char*p;
- const mode_t mode;const int verbos,chownit;
-{ unsigned long retry=mrotbSERIAL;int i;struct stat filebuf;
-  int nicediff,didnice=0;char*orig;
-  if(chownit&doCHOWN)		  /* semi-critical, try raising the priority */
+int unique(full,p,len,mode,verbos,flags)char*const full;char*p;
+ const size_t len;const mode_t mode;const int verbos,flags;
+{ static const char s2c[]=".,+%";static int serial=STRLEN(s2c);
+  static time_t t;char*dot,*end,*op,*ldp;struct stat filebuf;
+  int nicediff,i,didnice,retry=RETRYunique;
+  if(flags&doCHOWN)		  /* semi-critical, try raising the priority */
    { nicediff=nice(0);SETerrno(0);nicediff-=nice(-NICE_RANGE);
-     if(!errno)
-	didnice=1;
+     didnice=!errno;
    }
-  *p=UNIQ_PREFIX;orig=p+1;
-  do						  /* create unique file name */
-   { p=ultoan(maskSERIAL&(retry-=irotbSERIAL)+(long)thepid,orig);
-     *p++='.';
-     strncpy(p,hostname(),HOSTNAMElen);p[HOSTNAMElen]='\0';
+  *(end=len?full+len-1:(op=p)+UNIQnamelen-1)='\0';
+  if(flags&doMAILDIR)				/* 'official' maildir format */
+     dot=p;
+  else						     /* 'traditional' format */
+     *p=UNIQ_PREFIX,dot=ultoan((long)thepid,p+1);
+  if(serial<STRLEN(s2c))
+     goto in;
+  do
+   { if(serial>STRLEN(s2c)-1)			     /* roll over the count? */
+      { ;{ time_t t2;
+	   while(t==(t2=time((time_t*)0)))	/* make sure time has passed */
+	      ssleep(1);				   /* tap tap tap... */
+	   serial=0;t=t2;
+	 }
+in:	if(flags&doMAILDIR)
+	 { ultstr(0,(long)t,p);
+	   *(dot=strchr(p,'\0'))='.';
+	   ultstr(0,(long)thepid,dot+1);
+	   *(dot=strchr(p,'\0'))='_';
+	   *(++dot+1)='.';
+	   strlcat(dot+2,hostname(),end-dot);
+	 }
+	else
+	 { p=ultoan((long)t,dot+1);
+	   *p++='.';
+	   strncpy(p,hostname(),end-p);
+	 }
+      }
+     *dot=(flags&doMAILDIR)?'0'+serial:s2c[serial];
+     serial++;
+     i=lstat(full,&filebuf);
+#ifdef ENAMETOOLONG
+     if(i&&errno==ENAMETOOLONG)
+      { if(*op)			      /* first time: where's the lastdirsep? */
+	 { if(op!=full&&!strchr(dirsep,op[-1]))
+	      op=lastdirsep(full);
+	   ldp=op;		   /* keep track to avoid shortening past it */
+	   if((op+=MINnamelen+1)>end)		 /* a guess at a safe length */
+	      op=end;
+	 }
+	do
+	   *--op='\0';					     /* try chopping */
+	while((i=lstat(full,&filebuf))&&errno==ENAMETOOLONG&&op>ldp);
+      }	      /* either it stopped being a problem or we ran out of filename */
+#endif
    }
 #ifndef O_CREAT
 #define ropen(path,type,mode)	creat(path,mode)
 #endif
-  while(!lstat(full,&filebuf)||
-	(0>(i=ropen(full,O_WRONLY|O_CREAT|O_EXCL,mode))&&errno==EEXIST)&&
-	retry);	    /* casually check if it already exists (highly unlikely) */
-  if(didnice)
+  while((!i||errno!=ENOENT||	      /* casually check if it already exists */
+	 (0>(i=ropen(full,O_WRONLY|O_CREAT|O_EXCL,mode))&&errno==EEXIST))&&
+	(i= -1,retry--));
+  if(flags&doCHOWN&&didnice)
      nice(nicediff);		   /* put back the priority to the old level */
   if(i<0)
    { if(verbos)			      /* this error message can be confusing */
@@ -44,32 +87,36 @@ int unique(full,p,mode,verbos,chownit)const char*const full;char*p;
      goto ret0;
    }
 #ifdef NOfstat
-  if(chownit&doCHOWN)
+  if(flags&doCHOWN)
    { if(
 #else
-  if(chownit&doCHECK)
+  if(flags&doCHECK)
    { struct stat fdbuf;
      fstat(i,&fdbuf);			/* match between the file descriptor */
 #define NEQ(what)	(fdbuf.what!=filebuf.what)	    /* and the file? */
      if(lstat(full,&filebuf)||filebuf.st_nlink!=1||filebuf.st_size||
 	NEQ(st_dev)||NEQ(st_ino)||NEQ(st_uid)||NEQ(st_gid)||
-	 chownit&doCHOWN&&
+	 flags&doCHOWN&&
 #endif
 	 chown(full,uid,sgid))
       { rclose(i);unlink(full);			 /* forget it, no permission */
-ret0:	return 0;
+ret0:	return flags&doFD?-1:0;
       }
    }
-  if(chownit&doLOCK)
+  if(flags&doLOCK)
      rwrite(i,"0",1);			   /* pid 0, `works' across networks */
+  if(flags&doFD)
+     return i;
   rclose(i);
   return 1;
 }
 				     /* rename MUST fail if already existent */
 int myrename(old,newn)const char*const old,*const newn;
-{ int i,serrno;
-  i=hlink(old,newn);serrno=errno;unlink(old);SETerrno(serrno);
-  return i;
+{ int fd,serrno;
+  fd=hlink(old,newn);serrno=errno;unlink(old);
+  if(fd>0)rclose(fd-1);
+  SETerrno(serrno);
+  return fd<0?-1:0;
 }
 
 						     /* NFS-resistant link() */
@@ -84,8 +131,10 @@ int rlink(old,newn,st)const char*const old,*const newn;struct stat*st;
 	S_ISLNK(sto.st_mode)))			    /* symlinks are also bad */
       { SETerrno(serrno);
 	if(st&&ret>0)
-	   *st=sto;				       /* save the stat data */
-	return ret;				    /* it was a real failure */
+	 { *st=sto;				       /* save the stat data */
+	   return ret;				    /* it was a real failure */
+	 }
+	return -1;
       }
      /*SETerrno(serrno);*/   /* we really succeeded, don't bother with errno */
    }
@@ -99,9 +148,7 @@ int hlink(old,newn)const char*const old,*const newn;
 #ifdef O_CREAT				       /* failure due to filesystem? */
      if(stbuf.st_nlink<2&&errno==EXDEV&&     /* try it by conventional means */
 	0<=(fd=ropen(newn,O_WRONLY|O_CREAT|O_EXCL,stbuf.st_mode)))
-      { rclose(fd);
-	return 0;
-      }
+	return fd+1;
 #endif
      return -1;
    }

@@ -167,7 +167,7 @@ static long FileLoadDrivers(char *dirSpec, long plugin)
     ret = GetFileInfo(dirSpec, "Extensions.mkext", &flags, &time);
     if ((ret == 0) && (flags == kFlatFileType)) {
       ret = GetFileInfo(dirSpec, "Extensions", &flags, &time2);
-      if ((ret != 0) || (flags == kDirectoryFileType) || (time > time2)) {
+      if ((ret != 0) || (flags != kDirectoryFileType) || (time > time2)) {
 	sprintf(gDriverSpec, "%sExtensions.mkext", dirSpec);
 	printf("LoadDrivers: Loading from [%s]\n", gDriverSpec);
 	if (LoadDriverMKext(gDriverSpec) == 0) return 0;

@@ -1,8 +1,8 @@
 ##
 # Common setup for startup scripts.
 ##
-# Wilfredo Sanchez | wsanchez@apple.com
-# Copyright 1998 Apple Computer, Inc.
+# Wilfredo Sanchez | wsanchez@opensource.apple.com
+# Copyright 1998-2001 Apple Computer, Inc.
 ##
 
 #######################
@@ -19,6 +19,8 @@ set -u
 # Set command search path
 ##
 PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/libexec:/System/Library/CoreServices; export PATH
+
+ARCH=$(uname -p)
 
 ##
 # Set the terminal mode

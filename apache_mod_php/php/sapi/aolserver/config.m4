@@ -1,4 +1,4 @@
-dnl ## $Id: config.m4,v 1.3 2001/01/25 07:05:22 wsanchez Exp $ -*- sh -*-
+dnl ## $Id: config.m4,v 1.4 2001/07/19 00:47:52 zarzycki Exp $ -*- sh -*-
 
 AC_MSG_CHECKING(for AOLserver support)
 AC_ARG_WITH(aolserver,
@@ -20,7 +20,7 @@ if test "$PHP_AOLSERVER" != "no"; then
     AC_MSG_ERROR(Please specify the path to the root of AOLserver using --with-aolserver=DIR)
   fi
   PHP_BUILD_THREAD_SAFE
-  AC_ADD_INCLUDE($PHP_AOLSERVER_SRC/include)
+  PHP_ADD_INCLUDE($PHP_AOLSERVER_SRC/include)
   AC_DEFINE(HAVE_AOLSERVER,1,[Whether you have AOLserver])
   PHP_SAPI=aolserver
   PHP_BUILD_SHARED

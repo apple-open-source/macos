@@ -2,6 +2,8 @@
 	Copyright 1998-1999, Apple Computer, Inc. All rights reserved.
 */
 
+/* NOTE:  This file is expressly for use with HeaderDoc, for testing purposes.  It is not the current CFArray.h file! */
+ 
 /*!
 	@header CFArray
 	CFArray implements an ordered, compact container of pointer-sized
@@ -90,8 +92,8 @@ typedef struct {
 } CFArrayCallBacks;
 
 /*!
-	@constant kCFTypeArrayCallBacks
-	Predefined CFArrayCallBacks structure containing a set of callbacks
+	@const kCFTypeArrayCallBacks
+	@discussion Predefined CFArrayCallBacks structure containing a set of callbacks
 	appropriate for use when the values in a CFArray are all CFTypes.
 */
 CF_EXPORT

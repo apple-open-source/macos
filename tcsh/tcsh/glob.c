@@ -63,9 +63,9 @@ static char sccsid[] = "@(#)glob.c	5.12 (Berkeley) 6/24/91";
 #include <ctype.h>
 typedef void * ptr_t;
 #endif
-#ifdef WINNT
+#ifdef WINNT_NATIVE
 	#pragma warning(disable:4244)
-#endif /* WINNT */
+#endif /* WINNT_NATIVE */
 
 #define Char __Char
 #include "sh.h"
@@ -143,6 +143,12 @@ static	void	 qprintf	__P((Char *));
 #define	M_SET		META('[')
 #define	ismeta(c)	(((c)&M_META) != 0)
 
+#ifndef BUFSIZE
+#define GLOBBUFLEN	MAXPATHLEN
+#else
+#define GLOBBUFLEN	BUFSIZE
+#endif
+
 int
 globcharcoll(c1, c2)
     int c1, c2;
@@ -152,6 +158,12 @@ globcharcoll(c1, c2)
 
     if (c1 == c2)
 	return (0);
+    /*
+     * From kevin lyda <kevin@suberic.net>:
+     * strcoll does not guarantee case sorting, so we pre-process now:
+     */
+    if (islower(c1) && isupper(c2))
+	return (1);
     s1[0] = c1;
     s2[0] = c2;
     s1[1] = s2[1] = '\0';
@@ -172,13 +184,23 @@ static DIR *
 Opendir(str)
     register Char *str;
 {
-    char    buf[MAXPATHLEN];
+    char    buf[GLOBBUFLEN];
     register char *dc = buf;
+#if defined(hpux) || defined(__hpux)
+    struct stat st;
+#endif
 
     if (!*str)
 	return (opendir("."));
     while ((*dc++ = *str++) != '\0')
 	continue;
+#if defined(hpux) || defined(__hpux)
+    /*
+     * Opendir on some device files hangs, so avoid it
+     */
+    if (stat(buf, &st) == -1 || !S_ISDIR(st.st_mode))
+	return NULL;
+#endif
     return (opendir(buf));
 }
 
@@ -188,7 +210,7 @@ Lstat(fn, sb)
     register Char *fn;
     struct stat *sb;
 {
-    char    buf[MAXPATHLEN];
+    char    buf[GLOBBUFLEN];
     register char *dc = buf;
 
     while ((*dc++ = *fn++) != '\0')
@@ -215,7 +237,7 @@ Stat(fn, sb)
     register Char *fn;
     struct stat *sb;
 {
-    char    buf[MAXPATHLEN];
+    char    buf[GLOBBUFLEN];
     register char *dc = buf;
 
     while ((*dc++ = *fn++) != '\0')
@@ -296,7 +318,7 @@ glob(pattern, flags, errfunc, pglob)
     Char *bufnext, *bufend, *compilebuf, m_not;
     const unsigned char *compilepat, *patnext;
     int     c, not;
-    Char patbuf[MAXPATHLEN + 1], *qpatnext;
+    Char patbuf[GLOBBUFLEN + 1], *qpatnext;
     int     no_match;
 
     patnext = (unsigned char *) pattern;
@@ -321,7 +343,7 @@ glob(pattern, flags, errfunc, pglob)
     }
 
     bufnext = patbuf;
-    bufend = bufnext + MAXPATHLEN;
+    bufend = bufnext + GLOBBUFLEN;
     compilebuf = bufnext;
     compilepat = patnext;
 
@@ -332,6 +354,14 @@ glob(pattern, flags, errfunc, pglob)
     if (flags & GLOB_QUOTE) {
 	/* Protect the quoted characters */
 	while (bufnext < bufend && (c = *patnext++) != EOS) 
+#ifdef DSPMBYTE
+	    if (Ismbyte1(c) && *patnext != EOS)
+	    {
+	      *bufnext++ = (Char) c;
+	      *bufnext++ = (Char) *patnext++;
+	    }
+	    else
+#endif /* DSPMBYTE */
 	    if (c == QUOTE) {
 		if ((c = *patnext++) == EOS) {
 		    c = QUOTE;
@@ -351,6 +381,14 @@ glob(pattern, flags, errfunc, pglob)
     qpatnext = patbuf;
     /* we don't need to check for buffer overflow any more */
     while ((c = *qpatnext++) != EOS) {
+#ifdef DSPMBYTE
+	if (Ismbyte1(c) && *qpatnext != EOS)
+	{
+	  *bufnext++ = CHAR(c);
+	  *bufnext++ = CHAR(*qpatnext++);
+	}
+	else
+#endif /* DSPMBYTE */
 	switch (c) {
 	case LBRACKET:
 	    c = *qpatnext;
@@ -436,7 +474,7 @@ glob(pattern, flags, errfunc, pglob)
 	}
 	return (globextend(patbuf, pglob));
     }
-    else if (!(flags & GLOB_NOSORT))
+    else if (!(flags & GLOB_NOSORT) && (pglob->gl_pathc != oldpathc))
 	qsort((char *) (pglob->gl_pathv + pglob->gl_offs + oldpathc),
 	      pglob->gl_pathc - oldpathc, sizeof(char *),
 	      (int (*) __P((const void *, const void *))) compare);
@@ -449,7 +487,7 @@ glob1(pattern, pglob, no_match)
     glob_t *pglob;
     int     no_match;
 {
-    Char pathbuf[MAXPATHLEN + 1];
+    Char pathbuf[GLOBBUFLEN + 1];
 
     /*
      * a null pathname is invalid -- POSIX 1003.1 sect. 2.4.
@@ -530,12 +568,11 @@ glob3(pathbuf, pathend, pattern, restpattern, pglob, no_match)
     glob_t *pglob;
     int     no_match;
 {
-    extern int errno;
     DIR    *dirp;
     struct dirent *dp;
     int     err;
     Char m_not = (pglob->gl_flags & GLOB_ALTNOT) ? M_ALTNOT : M_NOT;
-    char cpathbuf[MAXPATHLEN], *ptr;;
+    char cpathbuf[GLOBBUFLEN], *ptr;;
 
     *pathend = EOS;
     errno = 0;

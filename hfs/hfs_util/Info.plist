@@ -12,11 +12,11 @@
 	<string>hfs</string>
 	<key>CFBundlePackageType</key>
 	<string>fs  </string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.0</string>
-	<key>CFBundleShortVersionString</key>
 	<string>1.0</string>
 	<key>FSMediaTypes</key>
 	<dict>
@@ -50,7 +50,7 @@
 			<key>FSProbeExecutable</key>
 			<string>../../hfs.util</string>
 			<key>FSProbeOrder</key>
-			<integer>3000</integer>
+			<integer>2000</integer>
 		</dict>
 		<key>Partitionless</key>
 		<dict>
@@ -66,7 +66,7 @@
 			<key>FSProbeExecutable</key>
 			<string>../../hfs.util</string>
 			<key>FSProbeOrder</key>
-			<integer>3000</integer>
+			<integer>2000</integer>
 		</dict>
 	</dict>
 	<key>FSPersonalities</key>

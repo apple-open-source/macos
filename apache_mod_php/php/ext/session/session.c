@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,6 +16,10 @@
    |          Andrei Zmievski <andrei@ispi.net>                           |
    +----------------------------------------------------------------------+
  */
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 
 #include "php.h"
 
@@ -40,13 +44,10 @@
 #include "ext/standard/php_rand.h"                   /* for RAND_MAX */
 #include "ext/standard/info.h"
 
-#ifdef ZTS
-int ps_globals_id;
-#else
-static php_ps_globals ps_globals;
-#endif
+#include "ext/standard/php_smart_str.h"
 
-#include "modules.c"
+#include "mod_files.h"
+#include "mod_user.h"
 
 function_entry session_functions[] = {
 	PHP_FE(session_name, NULL)
@@ -68,6 +69,12 @@ function_entry session_functions[] = {
 	PHP_FE(session_write_close, NULL)
 	{0}
 };
+
+#ifdef ZTS
+int ps_globals_id;
+#else
+php_ps_globals ps_globals;
+#endif
 
 static ps_module *_php_find_ps_module(char *name PSLS_DC);
 static const ps_serializer *_php_find_ps_serializer(char *name PSLS_DC);
@@ -121,19 +128,57 @@ PHP_INI_END()
 
 PS_SERIALIZER_FUNCS(php);
 PS_SERIALIZER_FUNCS(php_binary);
-#ifdef WDDX_SERIALIZER
-PS_SERIALIZER_FUNCS(wddx);
-#endif
 
+#define MAX_SERIALIZERS 10
 
-const static ps_serializer ps_serializers[] = {
-#ifdef WDDX_SERIALIZER
-	PS_SERIALIZER_ENTRY(wddx),
-#endif
+static ps_serializer ps_serializers[MAX_SERIALIZERS + 1] = {
 	PS_SERIALIZER_ENTRY(php),
-	PS_SERIALIZER_ENTRY(php_binary),
-	{0}
+	PS_SERIALIZER_ENTRY(php_binary)
 };
+
+#define MAX_MODULES 10
+
+static ps_module *ps_modules[MAX_MODULES + 1] = {
+	ps_files_ptr,
+	ps_user_ptr
+};
+
+int php_session_register_serializer(const char *name, 
+		int (*encode)(PS_SERIALIZER_ENCODE_ARGS),
+		int (*decode)(PS_SERIALIZER_DECODE_ARGS))
+{
+	int ret = -1;
+	int i;
+
+	for (i = 0; i < MAX_SERIALIZERS; i++) {
+		if (ps_serializers[i].name == NULL) {
+			ps_serializers[i].name = name;
+			ps_serializers[i].encode = encode;
+			ps_serializers[i].decode = decode;
+			ps_serializers[i + 1].name = NULL;
+			ret = 0;
+			break;
+		}
+	}
+
+	return ret;
+}
+
+int php_session_register_module(ps_module *ptr)
+{
+	int ret = -1;
+	int i;
+
+	for (i = 0; i < MAX_MODULES; i++) {
+		if (!ps_modules[i]) {
+			ps_modules[i] = ptr;
+			ret = 0;
+			break;
+		}	
+	}
+	
+	return ret;
+}
 
 PHP_MINIT_FUNCTION(session);
 PHP_RINIT_FUNCTION(session);
@@ -180,35 +225,7 @@ typedef struct {
 
 #define MAX_STR 512
 
-#define PS_ADD_VARL(name,namelen) \
-	zend_hash_update(&PS(vars), name, namelen + 1, 0, 0, NULL)
-
-#define PS_ADD_VAR(name) PS_ADD_VARL(name, strlen(name))
-
-#define PS_DEL_VARL(name,namelen) \
-	zend_hash_del(&PS(vars), name, namelen + 1);
-
-#define PS_DEL_VAR(name) PS_DEL_VARL(name, strlen(name))
-
-#define ENCODE_VARS 											\
-	char *key;													\
-	ulong num_key;												\
-	zval **struc;												\
-	ELS_FETCH();												\
-	PLS_FETCH()
-
-#define ENCODE_LOOP(code)										\
-	for (zend_hash_internal_pointer_reset(&PS(vars));			\
-			zend_hash_get_current_key(&PS(vars), &key, &num_key) == HASH_KEY_IS_STRING; \
-			zend_hash_move_forward(&PS(vars))) {				\
-		if (php_get_session_var(key, strlen(key), &struc PLS_CC PSLS_CC ELS_CC) == SUCCESS) { \
-			code;		 										\
-		} 														\
-		efree(key);												\
-	}
-
-static void php_set_session_var(char *name, size_t namelen,
-								zval *state_val PSLS_DC)
+void php_set_session_var(char *name, size_t namelen, zval *state_val PSLS_DC)
 {
 	zval *state_val_copy;
 	PLS_FETCH();
@@ -232,16 +249,16 @@ static void php_set_session_var(char *name, size_t namelen,
 			REPLACE_ZVAL_VALUE(old_symbol,state_val_copy,0);
 			FREE_ZVAL(state_val_copy);
 
-			zend_set_hash_symbol(*old_symbol, name, namelen, 0, 1, Z_ARRVAL_P(PS(http_session_vars)));
+			zend_set_hash_symbol(*old_symbol, name, namelen, 1, 1, Z_ARRVAL_P(PS(http_session_vars)));
 		} else {
-			zend_set_hash_symbol(state_val_copy, name, namelen, 0, 2, Z_ARRVAL_P(PS(http_session_vars)), &EG(symbol_table));
+			zend_set_hash_symbol(state_val_copy, name, namelen, 1, 2, Z_ARRVAL_P(PS(http_session_vars)), &EG(symbol_table));
 		}
 	} else {
 		zend_set_hash_symbol(state_val_copy, name, namelen, 0, 1, Z_ARRVAL_P(PS(http_session_vars)));
 	}
 }
 
-static int php_get_session_var(char *name, size_t namelen, zval ***state_var PLS_DC PSLS_DC ELS_DC)
+int php_get_session_var(char *name, size_t namelen, zval ***state_var PLS_DC PSLS_DC ELS_DC)
 {
 	HashTable *ht = &EG(symbol_table);
 
@@ -260,7 +277,7 @@ PS_SERIALIZER_ENCODE_FUNC(php_binary)
 	zval *buf;
 	char strbuf[MAX_STR + 1];
 	php_serialize_data_t var_hash;
-	ENCODE_VARS;
+	PS_ENCODE_VARS;
 
 	buf = ecalloc(sizeof(*buf), 1);
 	Z_TYPE_P(buf) = IS_STRING;
@@ -268,23 +285,19 @@ PS_SERIALIZER_ENCODE_FUNC(php_binary)
 
 	PHP_VAR_SERIALIZE_INIT(var_hash);
 
-	ENCODE_LOOP(
-			size_t slen = strlen(key);
-
-			if (slen > PS_BIN_MAX) continue;
-			strbuf[0] = slen;
-			memcpy(strbuf + 1, key, slen);
+	PS_ENCODE_LOOP(
+			if (key_length > PS_BIN_MAX) continue;
+			strbuf[0] = key_length;
+			memcpy(strbuf + 1, key, key_length);
 			
-			STR_CAT(buf, strbuf, slen + 1);
+			STR_CAT(buf, strbuf, key_length + 1);
 			php_var_serialize(buf, struc, &var_hash);
 		} else {
-			size_t slen = strlen(key);
-
-			if (slen > PS_BIN_MAX) continue;
-			strbuf[0] = slen & PS_BIN_UNDEF;
-			memcpy(strbuf + 1, key, slen);
+			if (key_length > PS_BIN_MAX) continue;
+			strbuf[0] = key_length & PS_BIN_UNDEF;
+			memcpy(strbuf + 1, key, key_length);
 			
-			STR_CAT(buf, strbuf, slen + 1);
+			STR_CAT(buf, strbuf, key_length + 1);
 	);
 
 	if (newlen) *newlen = Z_STRLEN_P(buf);
@@ -307,7 +320,7 @@ PS_SERIALIZER_DECODE_FUNC(php_binary)
 
 	PHP_VAR_UNSERIALIZE_INIT(var_hash);
 
-	current = (zval *) ecalloc(sizeof(zval), 1);
+	MAKE_STD_ZVAL(current);
 	for (p = val; p < endptr; ) {
 		namelen = *p & (~PS_BIN_UNDEF);
 		has_value = *p & PS_BIN_UNDEF ? 0 : 1;
@@ -325,7 +338,7 @@ PS_SERIALIZER_DECODE_FUNC(php_binary)
 		PS_ADD_VARL(name, namelen);
 		efree(name);
 	}
-	efree(current);
+	FREE_ZVAL(current);
 	PHP_VAR_UNSERIALIZE_DESTROY(var_hash);
 
 	return SUCCESS;
@@ -339,7 +352,7 @@ PS_SERIALIZER_ENCODE_FUNC(php)
 	zval *buf;
 	char strbuf[MAX_STR + 1];
 	php_serialize_data_t var_hash;
-	ENCODE_VARS;
+	PS_ENCODE_VARS;
 
 	buf = ecalloc(sizeof(*buf), 1);
 	Z_TYPE_P(buf) = IS_STRING;
@@ -347,24 +360,20 @@ PS_SERIALIZER_ENCODE_FUNC(php)
 
 	PHP_VAR_SERIALIZE_INIT(var_hash);
 
-	ENCODE_LOOP(
-			size_t slen = strlen(key);
-
-			if (slen + 1 > MAX_STR) continue;
-			memcpy(strbuf, key, slen);
-			strbuf[slen] = PS_DELIMITER;
-			STR_CAT(buf, strbuf, slen + 1);
+	PS_ENCODE_LOOP(
+			if (key_length + 1 > MAX_STR) continue;
+			memcpy(strbuf, key, key_length);
+			strbuf[key_length] = PS_DELIMITER;
+			STR_CAT(buf, strbuf, key_length + 1);
 			
 			php_var_serialize(buf, struc, &var_hash);
 		} else {
-			size_t slen = strlen(key);
-
-			if (slen + 2 > MAX_STR) continue;
+			if (key_length + 2 > MAX_STR) continue;
 			strbuf[0] = PS_UNDEF_MARKER;
-			memcpy(strbuf + 1, key, slen);
-			strbuf[slen + 1] = PS_DELIMITER;
+			memcpy(strbuf + 1, key, key_length);
+			strbuf[key_length + 1] = PS_DELIMITER;
 			
-			STR_CAT(buf, strbuf, slen + 2);
+			STR_CAT(buf, strbuf, key_length + 2);
 	);
 
 	if (newlen) *newlen = Z_STRLEN_P(buf);
@@ -387,7 +396,7 @@ PS_SERIALIZER_DECODE_FUNC(php)
 
 	PHP_VAR_UNSERIALIZE_INIT(var_hash);
 
-	current = (zval *) ecalloc(sizeof(zval), 1);
+	MAKE_STD_ZVAL(current);
 	for (p = q = val; (p < endptr) && (q = memchr(p, PS_DELIMITER, endptr - p)); p = q) {
 		if (p[0] == PS_UNDEF_MARKER) {
 			p++;
@@ -409,86 +418,11 @@ PS_SERIALIZER_DECODE_FUNC(php)
 		PS_ADD_VARL(name, namelen);
 		efree(name);
 	}
-	efree(current);
+	FREE_ZVAL(current);
 
 	PHP_VAR_UNSERIALIZE_DESTROY(var_hash);
 	return SUCCESS;
 }
-
-#ifdef WDDX_SERIALIZER
-
-PS_SERIALIZER_ENCODE_FUNC(wddx)
-{
-	wddx_packet *packet;
-	ENCODE_VARS;
-
-	packet = php_wddx_constructor();
-	if (!packet)
-		return FAILURE;
-
-	php_wddx_packet_start(packet, NULL, 0);
-	php_wddx_add_chunk_static(packet, WDDX_STRUCT_S);
-	
-	ENCODE_LOOP(
-		php_wddx_serialize_var(packet, *struc, key);
-	);
-	
-	php_wddx_add_chunk_static(packet, WDDX_STRUCT_E);
-	php_wddx_packet_end(packet);
-	*newstr = php_wddx_gather(packet);
-	php_wddx_destructor(packet);
-	
-	if (newlen)
-		*newlen = strlen(*newstr);
-
-	return SUCCESS;
-}
-
-PS_SERIALIZER_DECODE_FUNC(wddx)
-{
-	zval *retval;
-	zval **ent;
-	char *key;
-	char tmp[128];
-	ulong idx;
-	int hash_type;
-	int dofree = 1;
-	int ret;
-
-	if (vallen == 0) 
-		return SUCCESS;
-	
-	MAKE_STD_ZVAL(retval);
-
-	if ((ret = php_wddx_deserialize_ex((char *)val, vallen, retval)) == SUCCESS) {
-
-		for (zend_hash_internal_pointer_reset(Z_ARRVAL_P(retval));
-			 zend_hash_get_current_data(Z_ARRVAL_P(retval), (void **) &ent) == SUCCESS;
-			 zend_hash_move_forward(Z_ARRVAL_P(retval))) {
-			hash_type = zend_hash_get_current_key(Z_ARRVAL_P(retval), &key, &idx);
-
-			switch (hash_type) {
-				case HASH_KEY_IS_LONG:
-					sprintf(tmp, "%ld", idx);
-					key = tmp;
-					dofree = 0;
-					/* fallthru */
-				case HASH_KEY_IS_STRING:
-					php_set_session_var(key, strlen(key), *ent PSLS_CC);
-					PS_ADD_VAR(key);
-					if (dofree) efree(key);
-					dofree = 1;
-			}
-		}
-	}
-
-	zval_dtor(retval);
-	FREE_ZVAL(retval);
-	
-	return ret;
-}
-
-#endif
 
 static void php_session_track_init(void)
 {
@@ -545,7 +479,7 @@ static char *_php_create_id(int *newlen PSLS_DC)
 	if (PS(entropy_length) > 0) {
 		int fd;
 
-		fd = V_OPEN((PS(entropy_file), O_RDONLY));
+		fd = VCWD_OPEN((PS(entropy_file), O_RDONLY));
 		if (fd >= 0) {
 			char *p;
 			int n;
@@ -601,7 +535,7 @@ static void php_session_save_current_state(PSLS_D)
 		}
 
 		for (zend_hash_internal_pointer_reset(Z_ARRVAL_P(PS(http_session_vars)));
-				zend_hash_get_current_key(Z_ARRVAL_P(PS(http_session_vars)), &variable, &num_key) == HASH_KEY_IS_STRING;
+				zend_hash_get_current_key(Z_ARRVAL_P(PS(http_session_vars)), &variable, &num_key, 1) == HASH_KEY_IS_STRING;
 				zend_hash_move_forward(Z_ARRVAL_P(PS(http_session_vars)))) {
 			PS_ADD_VAR(variable);
 		}
@@ -638,16 +572,18 @@ static char *week_days[] = {
 	"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"
 };
 
-static void strcat_gmt(char *ubuf, time_t *when)
+static void strcpy_gmt(char *ubuf, time_t *when)
 {
 	char buf[MAX_STR];
 	struct tm tm;
+	int n;
 	
 	php_gmtime_r(when, &tm);
 	
 	/* we know all components, thus it is safe to use sprintf */
-	sprintf(buf, "%s, %d %s %d %02d:%02d:%02d GMT", week_days[tm.tm_wday], tm.tm_mday, month_names[tm.tm_mon], tm.tm_year + 1900, tm.tm_hour, tm.tm_min, tm.tm_sec);
-	strcat(ubuf, buf);
+	n = sprintf(buf, "%s, %d %s %d %02d:%02d:%02d GMT", week_days[tm.tm_wday], tm.tm_mday, month_names[tm.tm_mon], tm.tm_year + 1900, tm.tm_hour, tm.tm_min, tm.tm_sec);
+	memcpy(ubuf, buf, n);
+	ubuf[n] = '\0';
 }
 
 static void last_modified(void)
@@ -659,12 +595,13 @@ static void last_modified(void)
 
 	path = SG(request_info).path_translated;
 	if (path) {
-		if (V_STAT(path, &sb) == -1) {
+		if (VCWD_STAT(path, &sb) == -1) {
 			return;
 		}
 
-		strcpy(buf, "Last-Modified: ");
-		strcat_gmt(buf, &sb.st_mtime);
+#define LAST_MODIFIED "Last-Modified: "
+		memcpy(buf, LAST_MODIFIED, sizeof(LAST_MODIFIED) - 1);
+		strcpy_gmt(buf + sizeof(LAST_MODIFIED) - 1, &sb.st_mtime);
 		ADD_COOKIE(buf);
 	}
 }
@@ -676,8 +613,9 @@ CACHE_LIMITER_FUNC(public)
 	
 	time(&now);
 	now += PS(cache_expire) * 60;
-	strcpy(buf, "Expires: ");
-	strcat_gmt(buf, &now);
+#define EXPIRES "Expires: "
+	memcpy(buf, EXPIRES, sizeof(EXPIRES) - 1);
+	strcpy_gmt(buf + sizeof(EXPIRES) - 1, &now);
 	ADD_COOKIE(buf);
 	
 	sprintf(buf, "Cache-Control: public, max-age=%ld", PS(cache_expire) * 60);
@@ -741,7 +679,7 @@ static int php_session_cache_limiter(PSLS_D)
 	return (-1);
 }
 
-#define COOKIE_FMT 		"Set-Cookie: %s=%s"
+#define COOKIE_SET_COOKIE "Set-Cookie: "
 #define COOKIE_EXPIRES	"; expires="
 #define COOKIE_PATH		"; path="
 #define COOKIE_DOMAIN	"; domain="
@@ -749,10 +687,7 @@ static int php_session_cache_limiter(PSLS_D)
 
 static void php_session_send_cookie(PSLS_D)
 {
-	int len;
-	int pathlen;
-	int domainlen;
-	char *cookie;
+	smart_str ncookie = {0};
 	char *date_fmt = NULL;
 	SLS_FETCH();
 
@@ -769,58 +704,45 @@ static void php_session_send_cookie(PSLS_D)
 		return;
 	}
 
-	len = strlen(PS(session_name)) + strlen(PS(id)) + sizeof(COOKIE_FMT);
+	smart_str_appends(&ncookie, COOKIE_SET_COOKIE);
+	smart_str_appends(&ncookie, PS(session_name));
+	smart_str_appendc(&ncookie, '=');
+	smart_str_appends(&ncookie, PS(id));
+	
 	if (PS(cookie_lifetime) > 0) {
 		date_fmt = php_std_date(time(NULL) + PS(cookie_lifetime));
-		len += sizeof(COOKIE_EXPIRES) + strlen(date_fmt);
-	}
-
-	if(PS(cookie_secure)) {
-		len += sizeof(COOKIE_SECURE);
-	}
-
-	pathlen = strlen(PS(cookie_path));
-	if (pathlen > 0)
-		len += pathlen + sizeof(COOKIE_PATH);
-
-	domainlen = strlen(PS(cookie_domain));
-	if (domainlen > 0)
-		len += domainlen + sizeof(COOKIE_DOMAIN);
-	
-	cookie = ecalloc(len + 1, 1);
-	
-	len = snprintf(cookie, len, COOKIE_FMT, PS(session_name), PS(id));
-	if (PS(cookie_lifetime) > 0) {
-		strcat(cookie, COOKIE_EXPIRES);
-		strcat(cookie, date_fmt);
-		len += strlen(COOKIE_EXPIRES) + strlen(date_fmt);
+		
+		smart_str_appends(&ncookie, COOKIE_EXPIRES);
+		smart_str_appends(&ncookie, date_fmt);
 		efree(date_fmt);
 	}
-	
-	if (pathlen > 0) {
-		strcat(cookie, COOKIE_PATH);
-		strcat(cookie, PS(cookie_path));
-	}
 
-	if (domainlen > 0) {
-		strcat(cookie, COOKIE_DOMAIN);
-		strcat(cookie, PS(cookie_domain));
+	if (PS(cookie_path)[0]) {
+		smart_str_appends(&ncookie, COOKIE_PATH);
+		smart_str_appends(&ncookie, PS(cookie_path));
+	}
+	
+	if (PS(cookie_domain)[0]) {
+		smart_str_appends(&ncookie, COOKIE_DOMAIN);
+		smart_str_appends(&ncookie, PS(cookie_domain));
 	}
 
 	if (PS(cookie_secure)) {
-		strcat(cookie, COOKIE_SECURE);
+		smart_str_appends(&ncookie, COOKIE_SECURE);
 	}
 
-	sapi_add_header(cookie, strlen(cookie), 0);
+	smart_str_0(&ncookie);
+	
+	sapi_add_header(ncookie.c, ncookie.len, 0);
 }
 
 static ps_module *_php_find_ps_module(char *name PSLS_DC)
 {
 	ps_module *ret = NULL;
 	ps_module **mod;
-	ps_module **end = ps_modules + (sizeof(ps_modules)/sizeof(ps_module*));
+	int i;
 
-	for (mod = ps_modules; mod < end; mod++)
+	for (i = 0, mod = ps_modules; i < MAX_MODULES; i++, mod++)
 		if (*mod && !strcasecmp(name, (*mod)->name)) {
 			ret = *mod;
 			break;
@@ -945,11 +867,13 @@ static void php_session_start(PSLS_D)
 		php_session_send_cookie(PSLS_C);
 	
 	if (define_sid) {
-		char *buf;
+		smart_str var = {0};
 
-		buf = emalloc(strlen(PS(session_name)) + strlen(PS(id)) + 5);
-		sprintf(buf, "%s=%s", PS(session_name), PS(id));
-		REGISTER_STRING_CONSTANT("SID", buf, 0);
+		smart_str_appends(&var, PS(session_name));
+		smart_str_appendc(&var, '=');
+		smart_str_appends(&var, PS(id));
+		smart_str_0(&var);
+		REGISTER_STRING_CONSTANT("SID", var.c, 0);
 	} else
 		REGISTER_STRING_CONSTANT("SID", empty_string, 0);
 	PS(define_sid) = define_sid;
@@ -1393,16 +1317,15 @@ PHP_FUNCTION(session_unset)
 	ulong     num_key;
 	PSLS_FETCH();
 	
-	if (PS(nr_open_sessions) < 1)
-		return;
+	if (PS(nr_open_sessions) == 0)
+		RETURN_FALSE;
 	
 	for (zend_hash_internal_pointer_reset(&PS(vars));
-			zend_hash_get_current_key(&PS(vars), &variable, &num_key) == HASH_KEY_IS_STRING;
+			zend_hash_get_current_key(&PS(vars), &variable, &num_key, 0) == HASH_KEY_IS_STRING;
 			zend_hash_move_forward(&PS(vars))) {
 		if (zend_hash_find(&EG(symbol_table), variable, strlen(variable) + 1, (void **) &tmp)
 				== SUCCESS)
 			zend_hash_del(&EG(symbol_table), variable, strlen(variable) + 1);
-		efree(variable);
 	}
 
 	/* Clean $HTTP_SESSION_VARS. */

@@ -20,6 +20,16 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * Modification History
+ *
+ * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * - public API conversion
+ *
+ * November 9, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
 #include "scutil.h"
 
 
@@ -30,20 +40,15 @@
 void
 do_dictInit(int argc, char **argv)
 {
-	CFMutableDictionaryRef	dict;
-
-	if (data != NULL) {
-		SCDHandleRelease(data);
+	if (value != NULL) {
+		CFRelease(value);
 	}
 
-	data = SCDHandleInit();
-	dict = CFDictionaryCreateMutable(NULL
+	value = CFDictionaryCreateMutable(NULL
 					 ,0
 					 ,&kCFTypeDictionaryKeyCallBacks
 					 ,&kCFTypeDictionaryValueCallBacks
 					 );
-	SCDHandleSetData(data, dict);
-	CFRelease(dict);
 
 	return;
 }
@@ -52,18 +57,12 @@ do_dictInit(int argc, char **argv)
 void
 do_dictShow(int argc, char **argv)
 {
-	int			instance;
-	CFPropertyListRef	store;
-
-	if (data == NULL) {
-		SCDLog(LOG_INFO, CFSTR("d.show: dictionary must be initialized."));
+	if (value == NULL) {
+		SCPrint(TRUE, stdout, CFSTR("d.show: dictionary must be initialized.\n"));
 		return;
 	}
 
-	instance = SCDHandleGetInstance(data);
-	store    = SCDHandleGetData(data);
-
-	SCDLog(LOG_NOTICE, CFSTR("dict (instance = %d) = \n\t%@"), instance, store);
+	SCPrint(TRUE, stdout, CFSTR("%@\n"), value);
 
 	return;
 }
@@ -72,25 +71,26 @@ do_dictShow(int argc, char **argv)
 void
 do_dictSetKey(int argc, char **argv)
 {
-	CFPropertyListRef	store;
-	CFStringRef		key;
-	CFPropertyListRef	value     = NULL;
 	CFMutableArrayRef	array     = NULL;
-	boolean_t		doArray   = FALSE;
-	boolean_t		doBoolean = FALSE;
-	boolean_t		doNumeric = FALSE;
+	Boolean			doArray   = FALSE;
+	Boolean			doBoolean = FALSE;
+	Boolean			doNumeric = FALSE;
+	CFStringRef		key;
+	CFTypeRef		val;
 
-	if (data == NULL) {
-		SCDLog(LOG_INFO, CFSTR("d.add: dictionary must be initialized."));
+	if (value == NULL) {
+		SCPrint(TRUE, stdout, CFSTR("d.add: dictionary must be initialized.\n"));
 		return;
 	}
 
-	store = SCDHandleGetData(data);
-	if (CFGetTypeID(store) != CFDictionaryGetTypeID()) {
-		SCDLog(LOG_INFO, CFSTR("d.add: data (fetched from configuration server) is not a dictionary"));
+	if (CFGetTypeID(value) != CFDictionaryGetTypeID()) {
+		SCPrint(TRUE, stdout, CFSTR("d.add: data (fetched from configuration server) is not a dictionary.\n"));
 		return;
 	}
 
+	val = CFDictionaryCreateMutableCopy(NULL, 0, value);
+	CFRelease(value);
+	value = val;
 
 	key = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingMacRoman);
 	argv++; argc--;
@@ -117,7 +117,7 @@ do_dictSetKey(int argc, char **argv)
 	if (argc > 1) {
 		doArray = TRUE;
 	} else if (!doArray && (argc == 0)) {
-		SCDLog(LOG_INFO, CFSTR("d.add: no values"));
+		SCPrint(TRUE, stdout, CFSTR("d.add: no values.\n"));
 		return;
 	}
 
@@ -132,15 +132,15 @@ do_dictSetKey(int argc, char **argv)
 				    (strcasecmp(argv[0], "yes" ) == 0) ||
 				    (strcasecmp(argv[0], "y"   ) == 0) ||
 				    (strcmp    (argv[0], "1"   ) == 0)) {
-				value = CFRetain(kCFBooleanTrue);
+				val = CFRetain(kCFBooleanTrue);
 			} else if ((strcasecmp(argv[0], "false") == 0) ||
 				   (strcasecmp(argv[0], "f"    ) == 0) ||
 				   (strcasecmp(argv[0], "no"   ) == 0) ||
 				   (strcasecmp(argv[0], "n"    ) == 0) ||
 				   (strcmp    (argv[0], "0"    ) == 0)) {
-				value = CFRetain(kCFBooleanFalse);
+				val = CFRetain(kCFBooleanFalse);
 			} else {
-				SCDLog(LOG_INFO, CFSTR("d.add: invalid data"));
+				SCPrint(TRUE, stdout, CFSTR("d.add: invalid data.\n"));
 				if (doArray) {
 					CFRelease(array);
 				}
@@ -150,31 +150,31 @@ do_dictSetKey(int argc, char **argv)
 			int	intValue;
 
 			if (sscanf(argv[0], "%d", &intValue) == 1) {
-				value = CFNumberCreate(NULL, kCFNumberIntType, &intValue);
+				val = CFNumberCreate(NULL, kCFNumberIntType, &intValue);
 			} else {
-				SCDLog(LOG_INFO, CFSTR("d.add: invalid data"));
+				SCPrint(TRUE, stdout, CFSTR("d.add: invalid data.\n"));
 				if (doArray) {
 					CFRelease(array);
 				}
 				return;
 			}
 		} else {
-			value = (CFPropertyListRef)CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingMacRoman);
+			val = (CFPropertyListRef)CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingMacRoman);
 		}
 
 		if (doArray) {
-			CFArrayAppendValue(array, value);
+			CFArrayAppendValue(array, val);
 		}
 
 		argv++; argc--;
 	}
 
 	if (doArray) {
-		value = array;
+		val = array;
 	}
 
-	CFDictionarySetValue((CFMutableDictionaryRef)store, key, value);
-	CFRelease(value);
+	CFDictionarySetValue((CFMutableDictionaryRef)value, key, val);
+	CFRelease(val);
 	CFRelease(key);
 
 	return;
@@ -184,22 +184,26 @@ do_dictSetKey(int argc, char **argv)
 void
 do_dictRemoveKey(int argc, char **argv)
 {
-	CFPropertyListRef	store;
 	CFStringRef		key;
+	CFMutableDictionaryRef	val;
 
-	if (data == NULL) {
-		SCDLog(LOG_INFO, CFSTR("d.remove: dictionary must be initialized."));
+	if (value == NULL) {
+		SCPrint(TRUE, stdout, CFSTR("d.remove: dictionary must be initialized.\n"));
 		return;
 	}
 
-	store = SCDHandleGetData(data);
-	if (CFGetTypeID(store) == CFDictionaryGetTypeID()) {
-		key = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingMacRoman);
-		CFDictionaryRemoveValue((CFMutableDictionaryRef)store, key);
-		CFRelease(key);
-	} else {
-		SCDLog(LOG_INFO, CFSTR("d.add: data (fetched from configuration server) is not a dictionary"));
+	if (CFGetTypeID(value) != CFDictionaryGetTypeID()) {
+		SCPrint(TRUE, stdout, CFSTR("d.remove: data (fetched from configuration server) is not a dictionary.\n"));
+		return;
 	}
+
+	val = CFDictionaryCreateMutableCopy(NULL, 0, value);
+	CFRelease(value);
+	value = val;
+
+	key = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingMacRoman);
+	CFDictionaryRemoveValue((CFMutableDictionaryRef)value, key);
+	CFRelease(key);
 
 	return;
 }

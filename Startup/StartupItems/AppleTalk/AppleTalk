@@ -12,7 +12,7 @@ if [ "${APPLETALK:=-NO-}" != "-NO-" ] &&
     ConsoleMessage "Starting AppleTalk"
 
     helper=/System/Library/SystemConfiguration/Kicker.bundle/Resources/restart-AppleTalk
-    if [ "${AUTOCONFIG:=-YES-}" = "-YES-" ] && [ -x ${helper} ]; then
+    if [ -x "${helper}" ]; then
        ##
        # if "configd" is managing the network configuration then we
        # should use the restart script to start AppleTalk and update

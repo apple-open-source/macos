@@ -1,7 +1,7 @@
 {
     DYNAMIC_CODE_GEN = YES; 
     FILESTABLE = {
-        FRAMEWORKS = (Foundation.framework); 
+        FRAMEWORKS = (); 
         H_FILES = (); 
         OTHER_LIBS = (disk); 
         OTHER_LINKED = (mount_synthfs.c); 

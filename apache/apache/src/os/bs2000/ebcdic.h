@@ -1,11 +1,6 @@
-#ifndef AP_EBCDIC_H
-#define AP_EBCDIC_H  "$Id: ebcdic.h,v 1.1.1.3 2000/11/09 00:38:56 wsanchez Exp $"
+#ifndef EBCDIC_H
+#define EBCDIC_H  "$Id: ebcdic.h,v 1.1.1.4 2001/07/18 23:44:57 zarzycki Exp $"
 
-#include <sys/types.h>
+#include <ap_ebcdic.h>
 
-extern const unsigned char os_toascii[256];
-extern const unsigned char os_toebcdic[256];
-API_EXPORT(void *) ebcdic2ascii(void *dest, const void *srce, size_t count);
-API_EXPORT(void *) ascii2ebcdic(void *dest, const void *srce, size_t count);
-
-#endif /*AP_EBCDIC_H*/
+#endif /*EBCDIC_H*/

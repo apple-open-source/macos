@@ -1,0 +1,33 @@
+#!/bin/sh
+#
+# set-hostname
+#
+
+. /etc/hostconfig
+
+if [ ! "${HOSTNAME:=-AUTOMATIC-}" = "-AUTOMATIC-" ] ; then
+	exit 1
+fi
+
+primary=$(netstat -rn | sed -n 's/default [ ]*[^ ]*[ ]*[^ ]*[ ]*[^ ]*[ ]*[^ ]*[ ]*\([^ ]*\)[ ]*[^ ]*/\1/p')
+
+if [ "${primary}" = "" ] ; then
+	exit 0
+fi
+
+host=$(ipconfig getoption "${primary}" host_name)
+if [ "${host}" = "" ]; then
+	ifconfig ${primary} inet 2>/dev/null | sed -n '/169\.254/d;/127\.0\.0\.1/d;/0\.0\.0\.0/d;s/^.*inet \([0-9\.]*\) netmask.*/\1/p' | while read ip_address 
+	do
+		host=$(nslookup ${ip_address} 2>/dev/null | sed -n 's/Name: [ ]*\([^ ]*\)$/\1/p')
+		if [ ! "${host}" = "" ] ; then
+			break;
+		fi
+	done
+fi
+
+if [ ! "${host}" = "" ]; then
+	logger setting hostname to "${host}"
+	hostname "${host}"
+fi
+exit 0

@@ -25,7 +25,7 @@
    +----------------------------------------------------------------------+
    | Authors: Danny Heijl <Danny.Heijl@cevi.be>, initial cut (ODS 7)      |
    |          Christian Cartus <chc@idgruppe.de>, blobs, and IUS 9        |
-   |          Jouni Ahto <jah@mork.net>   : configuration stuff           |
+   |          Jouni Ahto <jouni.ahto@exdec.fi>, configuration stuff       |
    | based on mysql code by: Zeev Suraski <zeev@php.net>                  |
    +----------------------------------------------------------------------+
  */
@@ -54,6 +54,8 @@
 extern zend_module_entry ifx_module_entry;
 #define ifx_module_ptr &ifx_module_entry
 
+#undef TYPEMAX
+#undef CHAR
 
 #include "locator.h"
 #include "sqltypes.h"

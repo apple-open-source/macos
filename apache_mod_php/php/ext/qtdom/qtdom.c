@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -20,6 +20,10 @@
 /* You should tweak config.m4 so this symbol (or some else suitable)
    gets defined.
 */
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include "php.h"
 #include "php_ini.h"
 #include "qtdom.h"
@@ -46,6 +50,7 @@ static int le_qtdom;
 */
 function_entry qtdom_functions[] = {
 	PHP_FE(qdom_tree,	NULL)
+  	PHP_FE(qdom_error,	NULL)
 	{NULL, NULL, NULL}	/* Must be the last line in qtdom_functions[] */
 };
 
@@ -83,6 +88,8 @@ PHP_MINIT_FUNCTION(qtdom)
 	qdomdoc_class_entry_ptr = zend_register_internal_class(&qdomdoc_class_entry);
 	qdomnode_class_entry_ptr = zend_register_internal_class(&qdomnode_class_entry);
 
+    qdom_init();
+
 	return SUCCESS;
 }
 
@@ -91,6 +98,8 @@ PHP_MSHUTDOWN_FUNCTION(qtdom)
 /* Remove comments if you have entries in php.ini
 	UNREGISTER_INI_ENTRIES();
 */
+    qdom_shutdown();
+
 	return SUCCESS;
 }
 
@@ -222,7 +231,7 @@ int qdom_find_children( zval **children, struct qdom_node *orig_node )
     return count;
 }
 
-/* {{{ proto string qdom_tree( string )
+/* {{{ proto object qdom_tree( string )
    creates a tree of an xml string */
 PHP_FUNCTION(qdom_tree)
 {
@@ -234,10 +243,13 @@ PHP_FUNCTION(qdom_tree)
     struct qdom_node *node;
     zval *children;
 
-	if (ZEND_NUM_ARGS() != 1 || getParameters(ht, 1, &arg) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || getParameters(ht, 1, &arg) == FAILURE)
+    {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_string(arg);
+
+    qdom_do_install_message_handler();
 
     qdom_do_version( &qt_ver );
 
@@ -259,6 +271,18 @@ PHP_FUNCTION(qdom_tree)
     }
 
     qdom_do_free( doc );
+    qdom_do_free_message_handler();
+}
+/* }}} */
+
+/* {{{ proto string qdom_error()
+   Returns the error string from the last QDOM operation or FALSE if no errors occured.*/
+PHP_FUNCTION(qdom_error)
+{
+    char *error = qdom_error_log();
+    if ( error == 0 )
+        RETURN_FALSE;
+    RETURN_STRING( error, 1 );
 }
 /* }}} */
 

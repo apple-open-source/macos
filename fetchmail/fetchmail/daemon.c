@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <signal.h>
+#include <string.h>
 #include <sys/types.h>
 #ifdef HAVE_SYS_WAIT_H
 #include <sys/wait.h>
@@ -81,13 +82,47 @@ sigchld_handler (int sig)
     lastsig = SIGCHLD;
 }
 
+/* 
+ * This function is called by other parts of the program to
+ * setup the sigchld handler after a change to the signal context.
+ * This is done to improve robustness of the signal handling code.
+ */
+void deal_with_sigchld(void)
+{
+  RETSIGTYPE sigchld_handler(int);
+#ifdef HAVE_SIGACTION
+  struct sigaction sa_new;
+
+  memset (&sa_new, 0, sizeof sa_new);
+  sigemptyset (&sa_new.sa_mask);
+  /* sa_new.sa_handler = SIG_IGN;     pointless */
+
+  /* set up to catch child process termination signals */ 
+  sa_new.sa_handler = sigchld_handler;
+#ifdef SA_RESTART	/* SunOS 4.1 portability hack */
+  sa_new.sa_flags = SA_RESTART | SA_NOCLDSTOP;
+#endif
+  sigaction (SIGCHLD, &sa_new, NULL);
+#if defined(SIGPWR)
+  sigaction (SIGPWR, &sa_new, NULL);
+#endif
+#else /* HAVE_SIGACTION */
+  signal(SIGCHLD, sigchld_handler); 
+#if defined(SIGPWR)
+  signal(SIGPWR, sigchld_handler); 
+#endif
+#endif /* HAVE_SIGACTION */
+}
+
 int
 daemonize (const char *logfile, void (*termhook)(int))
 /* detach from control TTY, become process group leader, catch SIGCHLD */
 {
   int fd;
   pid_t childpid;
-  RETSIGTYPE sigchld_handler(int);
+#ifdef HAVE_SIGACTION
+  struct sigaction sa_new;
+#endif /* HAVE_SIGACTION */
 
   /* if we are started by init (process 1) via /etc/inittab we needn't 
      bother to detach from our process group context */
@@ -96,14 +131,34 @@ daemonize (const char *logfile, void (*termhook)(int))
     goto nottyDetach;
 
   /* Ignore BSD terminal stop signals */
+#ifdef HAVE_SIGACTION
+  memset (&sa_new, 0, sizeof sa_new);
+  sigemptyset (&sa_new.sa_mask);
+  sa_new.sa_handler = SIG_IGN;
+#ifdef SA_RESTART	/* SunOS 4.1 portability hack */
+  sa_new.sa_flags = SA_RESTART;
+#endif
+#endif /* HAVE_SIGACTION */
 #ifdef 	SIGTTOU
+#ifndef HAVE_SIGACTION
   signal(SIGTTOU, SIG_IGN);
+#else
+  sigaction (SIGTTOU, &sa_new, NULL);
+#endif /* HAVE_SIGACTION */
 #endif
 #ifdef	SIGTTIN
+#ifndef HAVE_SIGACTION
   signal(SIGTTIN, SIG_IGN);
+#else
+  sigaction (SIGTTIN, &sa_new, NULL);
+#endif /* HAVE_SIGACTION */
 #endif
 #ifdef	SIGTSTP
+#ifndef HAVE_SIGACTION
   signal(SIGTSTP, SIG_IGN);
+#else
+  sigaction (SIGTSTP, &sa_new, NULL);
+#endif /* HAVE_SIGACTION */
 #endif
 
   /* In case we were not started in the background, fork and let
@@ -135,7 +190,7 @@ daemonize (const char *logfile, void (*termhook)(int))
   /* lose controlling tty */
   if ((fd = open("/dev/tty", O_RDWR)) >= 0) {
     ioctl(fd, TIOCNOTTY, (char *) 0);
-    close(fd);
+    close(fd);	/* not checking should be safe, there were no writes */
   }
 #else					/* SVR3 and older */
   /* change process group */
@@ -144,7 +199,11 @@ daemonize (const char *logfile, void (*termhook)(int))
 #endif
   
   /* lose controlling tty */
+#ifndef HAVE_SIGACTION
   signal(SIGHUP, SIG_IGN);
+#else
+  sigaction (SIGHUP, &sa_new, NULL);
+#endif /* HAVE_SIGACTION */
   if ((childpid = fork()) < 0) {
     report(stderr, "fork (%)\n", strerror(errno));
     return(PS_IOERR);
@@ -165,7 +224,7 @@ nottyDetach:
   for (fd = 19;  fd >= 0;  fd--)
 #endif
   {
-    close(fd);
+    close(fd);	/* not checking this should be safe, no writes */
   }
 
   /* Reopen stdin descriptor on /dev/null */
@@ -196,13 +255,26 @@ nottyDetach:
   umask(022);
 #endif
 
-  /* set up to catch child process termination signals */ 
-  signal(SIGCHLD, sigchld_handler); 
-#if defined(SIGPWR)
-  signal(SIGPWR, sigchld_handler); 
-#endif
+  deal_with_sigchld();
 
   return(0);
+}
+
+flag isafile(int fd)
+/* is the given fd attached to a file? (used to control logging) */
+{
+    struct stat stbuf;
+
+    /*
+     * We'd like just to return 1 on (S_IFREG | S_IFBLK),
+     * but weirdly enough, Linux ptys seem to have S_IFBLK
+     * so this test would fail when run on an xterm.
+     */
+    if (isatty(fd) || fstat(fd, &stbuf))
+	return(0);
+    else if (stbuf.st_mode & (S_IFREG))
+	return(1);
+    return(0);
 }
 
 /* daemon.c ends here */

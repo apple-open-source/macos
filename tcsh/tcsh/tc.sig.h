@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/tc.sig.h,v 1.1.1.1 1999/04/23 01:59:57 wsanchez Exp $ */
+/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/tc.sig.h,v 1.2 2001/07/13 18:49:11 mwatson Exp $ */
 /*
  * tc.sig.h: Signal handling
  *
@@ -38,7 +38,7 @@
 #ifndef _h_tc_sig
 #define _h_tc_sig
 
-#if (SYSVREL > 0) || defined(BSD4_4) || defined(_MINIX) || defined(DGUX) || defined(WINNT)
+#if (SYSVREL > 0) || defined(BSD4_4) || defined(_MINIX) || defined(DGUX) || defined(WINNT_NATIVE)
 # include <signal.h>
 # ifndef SIGCHLD
 #  define SIGCHLD SIGCLD
@@ -47,7 +47,7 @@
 # include <sys/signal.h>
 #endif /* SYSVREL > 0 */
 
-#if defined(SUNOS4) || defined(DGUX) || defined(hp800) || (SYSVREL > 3 && defined(POSIXSIGS) && defined(VFORK))
+#if defined(__APPLE__) || defined(SUNOS4) || defined(DGUX) || defined(hp800) || (SYSVREL > 3 && defined(POSIXSIGS) && defined(VFORK))
 # define SAVESIGVEC
 #endif /* SUNOS4 || DGUX || hp800 || SVR4 & POSIXSIGS & VFORK */
 
@@ -89,7 +89,7 @@ typedef struct sigaction sigvec_t;
 #   define sv_handler sa_handler
 #   define sv_flags sa_flags
 #  else /* BSDSIGS */
-#  define mysigvec(a, b, c)	sigvec(a, b, c)
+#   define mysigvec(a, b, c)	sigvec(a, b, c)
 typedef struct sigvec sigvec_t;
 #  endif /* POSIXSIGS */
 # endif /* HAVE_SIGVEC */
@@ -118,7 +118,10 @@ typedef struct sigvec sigvec_t;
 
 #ifdef _MINIX
 # include <signal.h>
-#  define killpg(a, b) kill((a), (b))
+# define killpg(a, b) kill((a), (b))
+# ifdef _MINIX_VMD
+#  define signal(a, b) signal((a), (a) == SIGCHLD ? SIG_IGN : (b))
+# endif /* _MINIX_VMD */
 #endif /* _MINIX */
 
 #ifdef _VMS_POSIX
@@ -148,9 +151,9 @@ typedef struct sigvec sigvec_t;
 # define	sigmask(s)	(1 << ((s)-1))
 # ifdef POSIXSIGS
 #  define 	sigpause(a)	(void) bsd_sigpause(a)
-#  ifdef WINNT
+#  ifdef WINNT_NATIVE
 #   undef signal
-#  endif /* WINNT */
+#  endif /* WINNT_NATIVE */
 #  define 	signal(a, b)	bsd_signal(a, b)
 # endif /* POSIXSIGS */
 # ifndef _SEQUENT_

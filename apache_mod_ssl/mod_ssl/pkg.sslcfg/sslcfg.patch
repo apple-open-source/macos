@@ -7,8 +7,8 @@
 ## ____________________________________________________________________________
 ##
 ## Annotated patch file: sslcfg.patch
-## Copyright (c) 1998-2000 Ralf S. Engelschall, All Rights Reserved. 
-## Created on: 14-Oct-2000
+## Copyright (c) 1998-2001 Ralf S. Engelschall, All Rights Reserved. 
+## Created on: 20-May-2001
 ##
 ## This file assembles changes to existing Apache source files
 ## between the original Apache and the patched variant. It can be
@@ -27,9 +27,9 @@
 | which speaks SSL.
 +---------------------------------------------------------------------------
 Index: conf/httpd.conf-dist
---- conf/httpd.conf-dist	2000/10/12 08:17:40	1.1.1.9
-+++ conf/httpd.conf-dist	2000/10/12 08:31:46	1.57
-@@ -233,6 +233,17 @@
+--- conf/httpd.conf-dist	2001/05/20 08:16:27	1.1.1.11
++++ conf/httpd.conf-dist	2001/05/20 08:23:00	1.62
+@@ -231,6 +231,17 @@
  #
  Port 80
  
@@ -47,7 +47,7 @@ Index: conf/httpd.conf-dist
  #
  # If you wish httpd to run as a different user or group, you must run
  # httpd as root initially and it will switch.  
-@@ -945,3 +956,245 @@
+@@ -969,3 +980,245 @@
  #    ErrorLog logs/dummy-host.example.com-error_log
  #    CustomLog logs/dummy-host.example.com-access_log common
  #</VirtualHost>
@@ -79,16 +79,16 @@ Index: conf/httpd.conf-dist
 +SSLPassPhraseDialog  builtin
 +
 +#   Inter-Process Session Cache:
-+#   Configure the SSL Session Cache: First either `none'
-+#   or `dbm:/path/to/file' for the mechanism to use and
-+#   second the expiring timeout (in seconds).
++#   Configure the SSL Session Cache: First the mechanism 
++#   to use and second the expiring timeout (in seconds).
 +#SSLSessionCache        none
-+#SSLSessionCache        shm:logs/ssl_scache(512000)
++#SSLSessionCache        shmht:logs/ssl_scache(512000)
++#SSLSessionCache        shmcb:logs/ssl_scache(512000)
 +SSLSessionCache         dbm:logs/ssl_scache
 +SSLSessionCacheTimeout  300
 +
 +#   Semaphore:
-+#   Configure the path to the mutual explusion semaphore the
++#   Configure the path to the mutual exclusion semaphore the
 +#   SSL engine uses internally for inter-process synchronization. 
 +SSLMutex  file:logs/ssl_mutex
 +
@@ -143,7 +143,7 @@ Index: conf/httpd.conf-dist
 +#   SSL Cipher Suite:
 +#   List the ciphers that the client is permitted to negotiate.
 +#   See the mod_ssl documentation for a complete list.
-+SSLCipherSuite ALL:!ADH:!EXP56:RC4+RSA:+HIGH:+MEDIUM:+LOW:+SSLv2:+EXP:+eNULL
++SSLCipherSuite ALL:!ADH:!EXPORT56:RC4+RSA:+HIGH:+MEDIUM:+LOW:+SSLv2:+EXP:+eNULL
 +
 +#   Server Certificate:
 +#   Point SSLCertificateFile at a PEM encoded certificate.  If
@@ -208,7 +208,7 @@ Index: conf/httpd.conf-dist
 +#   mixture between C and Perl.  See the mod_ssl documentation
 +#   for more details.
 +#<Location />
-+#SSLRequire (    %{SSL_CIPHER} !~ m/^(EXP|NULL)-/ \
++#SSLRequire (    %{SSL_CIPHER} !~ m/^(EXP|NULL)/ \
 +#            and %{SSL_CLIENT_S_DN_O} eq "Snake Oil, Ltd." \
 +#            and %{SSL_CLIENT_S_DN_OU} in {"Staff", "CA", "Dev"} \
 +#            and %{TIME_WDAY} >= 1 and %{TIME_WDAY} <= 5 \
@@ -298,13 +298,13 @@ Index: conf/httpd.conf-dist
 | 
 +---------------------------------------------------------------------------
 Index: conf/httpd.conf-dist-win
---- conf/httpd.conf-dist-win	2000/10/12 08:17:40	1.1.1.8
-+++ conf/httpd.conf-dist-win	2000/10/12 08:31:46	1.7
-@@ -202,6 +202,7 @@
- #LoadModule info_module modules/ApacheModuleInfo.dll
- #LoadModule status_module modules/ApacheModuleStatus.dll
- #LoadModule usertrack_module modules/ApacheModuleUserTrack.dll
-+#LoadModule ssl_module modules/ApacheModuleSSL.dll
+--- conf/httpd.conf-dist-win	2001/05/20 08:16:27	1.1.1.11
++++ conf/httpd.conf-dist-win	2001/05/20 08:23:00	1.10
+@@ -200,6 +200,7 @@
+ #LoadModule info_module modules/mod_info.so
+ #LoadModule status_module modules/mod_status.so
+ #LoadModule usertrack_module modules/mod_usertrack.so
++#LoadModule ssl_module modules/mod_ssl.so
  
  #
  # ExtendedStatus controls whether Apache will generate "full" status

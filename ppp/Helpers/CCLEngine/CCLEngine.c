@@ -42,6 +42,14 @@ Includes
 #include <stdarg.h>
 #include <termios.h>
 #include <sys/ioctl.h>
+#include <CoreFoundation/CoreFoundation.h>
+
+#ifdef	USE_SYSTEMCONFIGURATION_PUBLIC_APIS
+#include <SystemConfiguration/SystemConfiguration.h>
+#else	/* USE_SYSTEMCONFIGURATION_PUBLIC_APIS */
+#include <SystemConfiguration/v1Compatibility.h>
+#include <SystemConfiguration/SCSchemaDefinitions.h>
+#endif	/* USE_SYSTEMCONFIGURATION_PUBLIC_APIS */
 
 #include "CCLEngine.h"
 #include "../../Controller/ppp_msg.h"
@@ -57,7 +65,6 @@ enum {
     kUserMsgFLog = 1,
     kUserMsgFStatus = 2
 };
-
 
 #define infd 	STDIN_FILENO
 #define outfd 	STDOUT_FILENO
@@ -159,17 +166,30 @@ char *filename    = "";
 char *phone_num   = "";
 char *username  = "";
 char *password  = "";
+char *alertname  = "";
+char *cancelname  = "";
+char *iconurl  = "";
+CFStringRef	alertNameRef = 0;
+CFStringRef	cancelNameRef = 0;
+CFURLRef	iconURL = 0;
+
 int pulse = 0;
 int dialmode = 0; // 0 = normal, 1 = blind(ignoredialtone), 2 = manual
 int speaker = 1;
-int terminalMode = 0;
+int errorcorrection = 1;
+int datacompression = 1;
+char *serviceID   = NULL;
+
+int verbose 	  = 0;
+int sysloglevel = LOG_INFO;
+int usestderr 	= 0;
 
 struct callout *callout = NULL;	/* Callout list */
 struct timeval timenow;		/* Current time */
 int mode = mode_connect;
-int ppplink 	  = -1;
-int csockfd 	  = -1;
-int verbose 	  = 0;
+
+fd_set	allset;
+int 	maxfd;
 
 /* --------------------------------------------------------------------------
 Forward Declarations
@@ -187,6 +207,7 @@ int MatchStr();
 void Note();
 u_int8_t Write();
 void CommunicatingAt();
+u_int8_t Ask();
 void WriteContinue();
 void UserHook();
 void ScheduleTimer(long type, u_int32_t milliseconds);
@@ -208,7 +229,8 @@ struct timeval *timeleft(struct timeval *);
 void timeout(void (*func)(void *), void *arg, u_long time);
 void untimeout(void (*func)(void *), void *arg);
 void ReceiveMatchData(u_int8_t nextChar);
-void sys_send_confd(int sockfd, u_long code, u_char *data, u_long len, u_long link, u_char expect_result);
+int publish_entry(u_char *serviceid, CFStringRef entry, CFTypeRef value);
+int unpublish_entry(u_char *serviceid, CFStringRef entry);
 
 
 
@@ -250,26 +272,47 @@ void *copy_of(char *s)
 -------------------------------------------------------------------------- */
 void badsignal(int signo)
 {
-    //syslog(LOG_INFO, "badsignal = %d\n", signo);
+
     terminate(cclErr_NoMemErr);
+}
+
+/* --------------------------------------------------------------------------
+-------------------------------------------------------------------------- */
+void hangup(int signo)
+{
+    terminate(cclErr_ScriptCancelled);
+}
+
+
+/* --------------------------------------------------------------------------
+-------------------------------------------------------------------------- */
+void StartRead()
+{
+    FD_SET(infd, &allset);
+    maxfd = 1;
+}
+
+/* --------------------------------------------------------------------------
+-------------------------------------------------------------------------- */
+void StopRead()
+{
+    FD_ZERO(&allset);
+    maxfd = 0;
 }
 
 /* --------------------------------------------------------------------------
 -------------------------------------------------------------------------- */
 int main(int argc, char **argv)
 {
-    int 		option, ret, maxfd, nready, status, doclose;
+    int 		option, ret, nready, status;
     char 		*arg, c;
     struct stat 	statbuf;
-    fd_set		rset, allset;
+    fd_set		rset;
     struct timeval 	timo;
-    u_long		len;
-    struct sockaddr_un	adr;
-    struct ppp_msg_hdr	msg;
-
-    signal(SIGHUP, badsignal);		/* Hangup */
-    signal(SIGINT, badsignal);		/* Interrupt */
-    signal(SIGTERM, badsignal);		/* Terminate */
+    
+    signal(SIGHUP, hangup);		/* Hangup */
+    signal(SIGINT, hangup);		/* Interrupt */
+    signal(SIGTERM, hangup);		/* Terminate */
     signal(SIGCHLD, badsignal);
     signal(SIGUSR1, badsignal);
     signal(SIGUSR2, badsignal);
@@ -287,6 +330,20 @@ int main(int argc, char **argv)
             case 's':
                 if ((arg = OPTARG(argc, argv)) != NULL)
                     speaker = atoi(arg);
+                else
+                    terminate(cclErr_BadParameter);
+                break;
+
+            case 'e':
+                if ((arg = OPTARG(argc, argv)) != NULL)
+                    errorcorrection = atoi(arg);
+                else
+                    terminate(cclErr_BadParameter);
+                break;
+
+            case 'c':
+                if ((arg = OPTARG(argc, argv)) != NULL)
+                    datacompression = atoi(arg);
                 else
                     terminate(cclErr_BadParameter);
                 break;
@@ -316,29 +373,12 @@ int main(int argc, char **argv)
                     terminate(cclErr_BadParameter);
                 break;
 
-            case 'M': // 0 = modem script mode, 1 = terminal mode
+            case 'l': // service id
                 if ((arg = OPTARG(argc, argv)) != NULL)
-                    terminalMode = atoi(arg);
-                else
-                    terminate(cclErr_BadParameter);
-                break;
-
-            case 'l':
-                if ((arg = OPTARG(argc, argv)) != NULL)
-                    ppplink = atoi(arg);
+                    serviceID = copy_of(arg);
                 else
                     terminate(cclErr_BadParameter);
 
-                if ((csockfd = socket(AF_LOCAL, SOCK_STREAM, 0)) < 0) {
-                    terminate(cclErr_NoMemErr);  // better error message ???
-                }
-
-                    bzero(&adr, sizeof(adr));
-                adr.sun_family = AF_LOCAL;
-                strcpy(adr.sun_path, PPP_PATH);
-                if (connect(csockfd,  (struct sockaddr *)&adr, sizeof(adr)) < 0) {
-                    terminate(cclErr_NoMemErr);  // better error message ???
-                }
                     break;
 
             case 'f':
@@ -369,13 +409,51 @@ int main(int argc, char **argv)
                     terminate(cclErr_BadParameter);
                 break;
 
+            case 'E':
+                usestderr = 1;
+                break;
+    
+            case 'S':
+                if ((arg = OPTARG(argc, argv)) != NULL)
+                    sysloglevel = atoi(arg);
+                else
+                    terminate(cclErr_BadParameter);
+                break;
+
+            case 'I':
+                if ((arg = OPTARG(argc, argv)) != NULL)
+                    alertname = copy_of(arg);
+                else
+                    terminate(cclErr_BadParameter);
+                break;
+                
+            case 'C':
+                if ((arg = OPTARG(argc, argv)) != NULL)
+                    cancelname = copy_of(arg);
+                else
+                    terminate(cclErr_BadParameter);
+                break;
+
+            case 'i':
+                if ((arg = OPTARG(argc, argv)) != NULL)
+                    iconurl = copy_of(arg);
+                else
+                    terminate(cclErr_BadParameter);
+                break;
+
             default:
                 terminate(cclErr_BadParameter);
                 break;
         }
     }
-    
+
+    alertNameRef = CFStringCreateWithCString(NULL, alertname, kCFStringEncodingUTF8);
+    cancelNameRef = CFStringCreateWithCString(NULL, cancelname, kCFStringEncodingUTF8);
+    if (*iconurl) 
+        iconURL = CFURLCreateWithBytes(NULL, iconurl, strlen(iconurl), kCFStringEncodingUTF8, NULL);
+
     InitScript();
+
     ret = stat(filename, &statbuf);
     if (ret < 0)
         terminate(cclErr_BadParameter);
@@ -393,25 +471,19 @@ int main(int argc, char **argv)
             terminate(cclErr_BadParameter);
     }
 
-    Play();
+    /* start by unpublishing any remaining information */
+    if (serviceID) {
+        unpublish_entry(serviceID, CFSTR("ConnectSpeed"));
+    }
 
-    maxfd = (ppplink == -1 ? 0 : csockfd);
-    FD_ZERO(&allset);
-    FD_SET(csockfd, &allset);
-    if (!terminalMode) 
-        FD_SET(infd, &allset);
+    StopRead();
+    Play();
 
     for ( ; ; ) {
 
-        if (terminalMode && (ppplink != -1)) {
-            len = 1;
-            sys_send_confd(csockfd, PPP_READFD, (char*)&len, sizeof(len), ppplink, 0);
-        }
-        //read(infd, (char*)&len, sizeof(len));
-
         rset = allset;
-        nready = select(maxfd+1, &rset, NULL, NULL, timeleft(&timo));
-
+        nready = select(maxfd, &rset, NULL, NULL, timeleft(&timo));
+        
         if (FD_ISSET(infd, &rset)) {
             status = read(infd, &c, 1);
             switch (status) {
@@ -419,31 +491,11 @@ int main(int argc, char **argv)
                     ReceiveMatchData(c);
                     break;
                 default:
-                    terminate(0);
+                    if (errno != EINTR)
+                        terminate(cclErr);
             }
         }
 
-        if ((ppplink != -1) && FD_ISSET(csockfd, &rset)) {
-            // Fix Me : Need to be reworked when connector plugin will be in place
-
-            doclose = 1;
-
-            if (terminalMode) {
-                status = read(csockfd, &msg, sizeof(msg));
-                if (status == sizeof(msg)) {
-                    status = read(csockfd, &c, 1);
-                    if (status == 1) {
-                        doclose = 0;
-                        ReceiveMatchData(c);
-                    }
-               }
-            }
-            if (doclose) {
-                close(infd);
-                close(outfd);
-                exit(0);
-            }
-        }
         calltimeout();
 
     }
@@ -458,7 +510,6 @@ int main(int argc, char **argv)
 -------------------------------------------------------------------------- */
 void InitScript()
 {
-    u_int32_t	len;
     int 	i;
     char 	text[256], text1[256];
 
@@ -472,10 +523,6 @@ void InitScript()
 
     for (i = 0; i <= vsMax; i++)
         VarStrings[i] = 0;
-
-    text[0] = 1; text[1] = '1';
-    SetVarString(vsErrorCorrection, text);
-    SetVarString(vsDataCompression, text);
 
     LastExitError		= 0;
 
@@ -511,6 +558,16 @@ void InitScript()
     bcopy(text, &text1[1], text[0]);
     SetVarString(vsModemSpeaker, text1);
 
+    sprintf(text, "%d", errorcorrection);
+    text1[0] =  strlen(text);
+    bcopy(text, &text1[1], text[0]);
+    SetVarString(vsErrorCorrection, text1);
+
+    sprintf(text, "%d", datacompression);
+    text1[0] =  strlen(text);
+    bcopy(text, &text1[1], text[0]);
+    SetVarString(vsDataCompression, text1);
+
     sprintf(text, "%d", dialmode);
     text1[0] =  strlen(text);
     bcopy(text, &text1[1], text[0]);
@@ -519,12 +576,6 @@ void InitScript()
     text1[0] =  1;
     text1[1] =  pulse ? 'P' : 'T';
     SetVarString(vsTonePulse, text1);
-
-    if (ppplink != -1) {
-        // Fix Me : Need to be reworked when connector plugin will be in place
-        len = 1;//1500;	// buffer we want to use
-        sys_send_confd(csockfd, PPP_OPENFD, (u_char *)&len, sizeof(len), ppplink, 1);
-    }
 }
 
 /* --------------------------------------------------------------------------
@@ -886,16 +937,10 @@ int PrepScript()
     }/* end WHILE */
 
     if (result == 0) {
-        if (terminalMode) {
-            if (SV.originateLine == 0)	result = cclErr_NoOriginateLabel;
-            else SV.scriptLine = 0;
-        }
-        else {
-            if (SV.originateLine == 0)	result = cclErr_NoOriginateLabel;
-            else if (SV.answerLine == 0)	result = cclErr_NoAnswerLabel;
-            else if (SV.hangUpLine == 0)	result = cclErr_NoHangUpLabel;
-            else SV.scriptLine = 0;
-        }
+        if (SV.originateLine == 0)	result = cclErr_NoOriginateLabel;
+        else if (SV.answerLine == 0)	result = cclErr_NoAnswerLabel;
+        else if (SV.hangUpLine == 0)	result = cclErr_NoHangUpLabel;
+        else SV.scriptLine = 0;
 
         // process the script again to check that all
         // destination labels are valid:
@@ -1137,6 +1182,13 @@ void PrepStr(u_int8_t *destStr, u_int32_t *isVarString, u_int32_t *varIndex)
                     srcStrIndex += 2;
                     *d++ = *s++;
                 }
+                else if (*s == 'x') {
+                    srcStrIndex += 4;
+                    s++;                   
+                    escChar = ((*s - ((*s++ <= '9') ? '0' : ('A' - 10))) * 16);
+                    escChar += (*s - ((*s++ <= '9') ? '0' : ('A' - 10)));
+                    *d++ = escChar;
+                }
                 else {
                     srcStrIndex += 3;
                     escChar = ((*s++ - '0') * 10);
@@ -1255,7 +1307,7 @@ int NextInt(u_int32_t *theIntPtr)
 
     /* parse out the number	*/
     while ((intStrNdx++ <= intStrLen) && (*intStrPtr >= '0') && (*intStrPtr <= '9'))
-        *theIntPtr = (*theIntPtr * 10) + (*intStrPtr++ - '0');
+           *theIntPtr = (*theIntPtr * 10) + (*intStrPtr++ - '0');
 
     if (intStrPtr == (intStr + 1))	// the string did not contain numbers
         return cclErr_BadParameter;
@@ -1300,7 +1352,7 @@ void RunScript()
         //printf("run : cmd = %d\n", cmd);
        switch (cmd) {
             case cAsk:
-                //running = !Ask();		// wait until User data arrives in ReceiveDataFromAbove().
+                running = !Ask();		// wait until User data arrives in ReceiveDataFromAbove().
                 break;
 
             case cChrDelay:
@@ -1422,6 +1474,7 @@ void RunScript()
                     // post read to serial driver and set timer:
                     running = 0;	// stop running script til match or timeout
                     ScheduleTimer(kMatchReadTimer, i * 100);
+                    StartRead();
                 }
                 break;
 
@@ -1561,7 +1614,7 @@ int MatchFind(u_int8_t newChar)
     int			i, matchFound;
     TPMatchStrInfo	matchInfo;
     char text[256];
-   char		matchStrChar;
+   u_int8_t		matchStrChar, c;
 
     matchFound = 0;								// assume no match found
     newChar &= 0x7f;							// some PADs have bogus high bit
@@ -1576,9 +1629,17 @@ int MatchFind(u_int8_t newChar)
                     matchInfo->varStrIndex++;
                     if ((matchStrChar !=  chrBackSlash)
                         && (matchStrChar != chrCaret)) {
-                        matchStrChar = (matchStrChar - 0x30) * 10;
-                        matchStrChar +=  matchInfo->varStr[matchInfo->varStrIndex] - 0x30;
-                        matchInfo->varStrIndex++;
+                        if (matchStrChar == 'x') {
+                            c = matchInfo->matchStr[matchInfo->varStrIndex++];
+                            matchStrChar = ((c - ((c <= '9') ? '0' : ('A' - 10))) * 16);
+                            c = matchInfo->matchStr[matchInfo->varStrIndex++];
+                            matchStrChar += (c - ((c <= '9') ? '0' : ('A' - 10)));
+                       }
+                       else {
+                            matchStrChar = (matchStrChar - 0x30) * 10;
+                            matchStrChar +=  matchInfo->varStr[matchInfo->varStrIndex] - 0x30;
+                            matchInfo->varStrIndex++;
+                        }
                     }
                 }
                 if (matchInfo->varStrIndex == (matchInfo->varStrSize + 1))
@@ -1592,15 +1653,23 @@ int MatchFind(u_int8_t newChar)
                     matchInfo->matchStrIndex++;		// update index for next char
                     if ((matchStrChar != chrBackSlash)
                         && (matchStrChar != chrCaret)) {
-                        matchStrChar = (matchStrChar - 0x30) * 10;
-                        matchStrChar += matchInfo->matchStr[matchInfo->matchStrIndex] - 0x30;
-                        matchInfo->matchStrIndex++;
+                        if (matchStrChar == 'x') {
+                            c = matchInfo->matchStr[matchInfo->matchStrIndex++];
+                            matchStrChar = ((c - ((c <= '9') ? '0' : ('A' - 10))) * 16);
+                            c = matchInfo->matchStr[matchInfo->matchStrIndex++];
+                            matchStrChar += (c - ((c <= '9') ? '0' : ('A' - 10)));
+                       }
+                       else {
+                            matchStrChar = (matchStrChar - 0x30) * 10;
+                            matchStrChar += matchInfo->matchStr[matchInfo->matchStrIndex] - 0x30;
+                            matchInfo->matchStrIndex++;
+                        }
                     }
                 }
                 else if (matchStrChar == chrCaret) {
                     u_int8_t	vs;
 
-                    matchStrChar = matchInfo->matchStr[matchInfo->matchStrIndex];
+                   matchStrChar = matchInfo->matchStr[matchInfo->matchStrIndex];
                     matchInfo->matchStrIndex++;		// skip past var string index
                     if (matchStrChar == '*')
                         vs = vsAsk;
@@ -1634,6 +1703,7 @@ int MatchFind(u_int8_t newChar)
             }
 
             //printf("MatchFind, expect = %d, newchar = %d\n", matchStrChar, newChar);
+            //syslog(LOG_INFO, "MatchFind, expect = 0x%x '%c', newchar = 0x%x '%c'\n", matchStrChar, matchStrChar, newChar, newChar);
             if (newChar == matchStrChar) {		// check to see if whole string matched
                 if (!matchInfo->inVarStr)
                     switch (matchInfo->matchStr[ matchInfo->matchStrIndex ]) {
@@ -1688,10 +1758,11 @@ int MatchFind(u_int8_t newChar)
 
         bcopy(&VerboseBuffer[1], &text[0], VerboseBuffer[0]);
         text[VerboseBuffer[0]] = 0;
-        if (verbose)
-            syslog(LOG_INFO, "CCLMatched : %s\n", text);
-        if (ppplink != -1) {
-            sys_send_confd(csockfd, PPP_CCLMATCHTEXT, text, strlen(text), ppplink, 0);
+        if (verbose) {
+            if (sysloglevel)
+                syslog(sysloglevel, "CCLMatched : %s\n", text);
+            if (usestderr)
+                fprintf(stderr, "CCLMatched : %s\n", text);
         }
     }
 
@@ -1796,10 +1867,8 @@ void SerReset(void)
     }
 
     // set the same settings for inout and output fd
-    if (tcsetattr(infd, TCSAFLUSH, &tios) < 0)
-        syslog(LOG_INFO, "tcsetattr infd, err = %d\n", errno);
-    if (tcsetattr(outfd, TCSAFLUSH, &tios) < 0)
-        syslog(LOG_INFO, "tcsetattr outfd, err = %d\n", errno);
+    tcsetattr(infd, TCSAFLUSH, &tios);
+    tcsetattr(outfd, TCSAFLUSH, &tios);
 }
 
 /* --------------------------------------------------------------------------
@@ -1840,9 +1909,10 @@ pass a string up to the Client, along with where it should be displayed
 -------------------------------------------------------------------------- */
 void Note()
 {
-    char text[256];
+    char 	text[256];
     u_int32_t	msgDestination, msgLevel;	// will contain code for destination.
-
+    CFStringRef	ref;
+    
     SkipBlanks();				// get to the string.
     PrepStr(SV.strBuf, 0, 0);	// returns a pointer to a Pascal string.
 
@@ -1862,11 +1932,21 @@ void Note()
 
     bcopy(&SV.strBuf[1], &text[0], SV.strBuf[0]);
     text[SV.strBuf[0]] = 0;
-    //fprintf(stderr, "NOTE %s\n", text);
-    if (verbose)
-        syslog(LOG_INFO, "CCLNote : %s\n", text);
-    if (ppplink != -1)
-        sys_send_confd(csockfd, PPP_CCLNOTE, text, strlen(text), ppplink, 0);
+    
+    if (serviceID && (msgDestination & 2)) {
+        ref = CFStringCreateWithCString(NULL, text, kCFStringEncodingUTF8);
+        if (ref) {
+            publish_entry(serviceID, CFSTR("Note"), ref);
+            CFRelease(ref);
+        }
+    }
+    
+    if (msgDestination & 1) {
+        if (sysloglevel)
+            syslog(sysloglevel, "%s\n", text);
+        if (usestderr)
+            fprintf(stderr, "%s\n", text);
+    }
 }
 
 
@@ -1905,13 +1985,17 @@ u_int8_t Write()
         VerboseBuffer[0] = j - 1;
     }
 
-    bcopy(&SV.strBuf[1], &text[0], SV.strBuf[0]);
-    text[SV.strBuf[0]] = 0;
-    if (verbose)
-        syslog(LOG_INFO, "CCLWrite : %s\n", text);
-    if (ppplink != -1)
-        sys_send_confd(csockfd, PPP_CCLWRITETEXT, &VerboseBuffer[1], VerboseBuffer[0], ppplink, 0);
-
+    //bcopy(&SV.strBuf[1], &text[0], SV.strBuf[0]);
+    //text[SV.strBuf[0]] = 0;
+        bcopy(&VerboseBuffer[1], &text[0], VerboseBuffer[0]);
+        text[VerboseBuffer[0]] = 0;
+    if (verbose) {
+        if (sysloglevel)
+            syslog(sysloglevel, "CCLWrite : %s\n", text);
+        if (usestderr)
+            fprintf(stderr, "CCLWrite : %s\n", text);
+    }
+    
     //
     // skip the pascal string length byte
     //
@@ -1924,13 +2008,8 @@ u_int8_t Write()
         return 0;
     }
     else {
-        if (terminalMode) {
-            if (ppplink != -1)
-                sys_send_confd(csockfd, PPP_WRITEFD, &SV.strBuf[1], SV.strBuf[0], ppplink, 0);
-        }
-        else
-            write(outfd, &SV.strBuf[1], SV.strBuf[0]);
-        
+    
+        write(outfd, &SV.strBuf[1], SV.strBuf[0]);
         return 1;
     }
 }
@@ -1944,12 +2023,7 @@ void WriteContinue()
 
     //syslog(LOG_INFO, " ----> delayed '%c'\n", SV.strBuf[SV.writeBufIndex]);
 
-    if (terminalMode) {
-        if (ppplink != -1)
-            sys_send_confd(csockfd, PPP_WRITEFD, &SV.strBuf[SV.writeBufIndex], 1, ppplink, 0);
-    }
-    else
-        write(outfd, &SV.strBuf[SV.writeBufIndex], 1);
+    write(outfd, &SV.strBuf[SV.writeBufIndex], 1);
 
     if (SV.writeBufIndex < SV.strBuf[0] )		// if this char is not the last char
         SV.writeBufIndex++;			// 		bump index to the next char
@@ -1969,6 +2043,7 @@ void TimerExpired(long type)
         switch (type)  {
 
             case kMatchReadTimer:
+                StopRead();
                 RunScript();					// go get the next ccl cmd
                 break;
 
@@ -1988,19 +2063,143 @@ void TimerExpired(long type)
         }
     }
 }
+/* --------------------------------------------------------------------------
+-------------------------------------------------------------------------- */
+u_int8_t Ask()
+{
+    u_int32_t			maskflag, flags = 0, label;
+    CFStringRef			ref, resp;
+    CFUserNotificationRef 	alert;
+    CFOptionFlags 		alertflags;
+    CFMutableDictionaryRef 	dict;
+    SInt32 			error;
+    CFMutableArrayRef 		array;
+    char 		        text[256];
+
+    if (alertname[0] == 0)
+        return 0;	// no alert to display
+
+#define kCmdAskAllowCancel 	1
+#define kCmdAskAllowEntry 	2
+#define kCmdAskMaskEntry 	4
+
+    if (NextInt(&maskflag))
+        maskflag = 0;
+
+    SkipBlanks();
+    PrepStr(SV.strBuf, 0, 0);
+
+    if (NextInt(&label)) {
+        SV.askLabel = 0;
+        flags &= ~kCmdAskAllowCancel;
+    }
+    else {
+        SV.askLabel = (u_int16_t) label;
+        flags |=  kCmdAskAllowCancel;
+    }
+
+    // default: allow user data entry
+    flags |= kCmdAskAllowEntry;                         
+    switch (maskflag) {
+        // echo user's input
+        case 0:    	
+            flags &= ~kCmdAskMaskEntry;   
+            break;    
+        // mask user's input with bullets
+        case 1:    
+            flags |=  kCmdAskMaskEntry;              
+            // Set the fLastAskMasked here (gcg)
+            LastAskedMasked = maskflag;
+            break;
+        // do not allow data entry
+        case 2:    
+            flags &= ~kCmdAskAllowEntry;  
+            break;    
+    }
+
+    ref = CFStringCreateWithPascalString(NULL, SV.strBuf, kCFStringEncodingUTF8);
+    if (ref) {
+        dict = CFDictionaryCreateMutable(NULL, 0, 
+                &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+        if (dict) {
+        
+            alertflags = 0;
+
+            if (alertNameRef) 
+                CFDictionaryAddValue(dict, kCFUserNotificationAlertHeaderKey, alertNameRef);
+            
+            // it is either a text field, or a message
+            if (flags & kCmdAskAllowEntry) {
+                array = CFArrayCreateMutable(NULL, 0, NULL);   
+                if (array) {
+                    CFArrayAppendValue(array, ref);
+                    CFDictionaryAddValue(dict, kCFUserNotificationTextFieldTitlesKey, array);
+                    CFRelease(array);
+                    if (flags & kCmdAskMaskEntry)
+                        alertflags = CFUserNotificationSecureTextField(0);
+                }
+            }
+            else 
+                CFDictionaryAddValue(dict, kCFUserNotificationAlertMessageKey, ref);
+
+            if (cancelNameRef && (flags & kCmdAskAllowCancel)) 
+                CFDictionaryAddValue(dict, kCFUserNotificationAlternateButtonTitleKey, cancelNameRef);
+                    
+            if (iconURL) 
+                CFDictionaryAddValue(dict, kCFUserNotificationIconURLKey, iconURL);
+
+            alert = CFUserNotificationCreate(NULL, 0, alertflags, &error, dict);
+            if (alert) {
+                CFUserNotificationReceiveResponse(alert, 0, &alertflags);
+                // the 2 lower bits of the response flags will give the button pressed
+                // 0 --> default
+                // 1 --> alternate
+                // 3 --> exit on time out
+                if ((alertflags & 3) == 1) {
+                    // user cancelled
+                    if (SV.askLabel) {
+                        SV.scriptLine = SV.labels[SV.askLabel - 1];
+                        SV.askLabel = 0;
+                    }
+                }
+                else { 
+                    // user clicked OK
+                    if (flags & kCmdAskAllowEntry) {
+                        resp = CFUserNotificationGetResponseValue(alert, kCFUserNotificationTextFieldValuesKey, 0);
+                        if (resp) {
+                            CFStringGetPascalString(resp, text, sizeof(text), kCFStringEncodingUTF8);
+                            SetVarString(vsAsk, text);
+                        }
+                    }
+                }
+                
+                CFRelease(alert);
+            }
+            CFRelease(dict);
+        }
+        CFRelease(ref);
+    }
+
+    return 0;
+}
 
 /* --------------------------------------------------------------------------
 report modem speed & negotiated compression to client
 -------------------------------------------------------------------------- */
 void CommunicatingAt()
 {
-    u_int32_t	 speed;
+    u_int32_t		speed;
+    CFNumberRef		num;
 
     NextInt(&speed);		// modem speed reported by script
-    if (verbose)
-        syslog(LOG_INFO, "CCLCommunicatingAt : %ld\n", speed);
-    if (ppplink != -1)
-        sys_send_confd(csockfd, PPP_CCLSPEED, (u_char*)&speed, sizeof(u_int32_t), ppplink, 0);
+
+    if (serviceID) {
+        num = CFNumberCreate(NULL, kCFNumberIntType, &speed);
+        if (num) {
+            publish_entry(serviceID, CFSTR("ConnectSpeed"), num);
+            CFRelease(num);
+        }
+    }
 }
 
 /* --------------------------------------------------------------------------
@@ -2097,7 +2296,7 @@ void ReceiveMatchData(u_int8_t nextChar)
         SV.scriptLine = SV.matchStr[--matchIndex].matchLine;
         SV.ctlFlags &= ~cclMatchPending;
         ScheduleTimer(kMatchReadTimer, 0);
-
+	StopRead();
         RunScript();
     }
 }
@@ -2172,10 +2371,8 @@ void HSReset()
         tios.c_cflag &= ~CRTS_IFLOW;
 
     // set the same settings for inout and output fd
-    if (tcsetattr(infd, TCSAFLUSH, &tios) < 0)
-        syslog(LOG_INFO, "tcsetattr infd, err = %d\n", errno);
-    if (tcsetattr(outfd, TCSAFLUSH, &tios) < 0)
-        syslog(LOG_INFO, "tcsetattr outfd, err = %d\n", errno);
+    tcsetattr(infd, TCSAFLUSH, &tios);
+    tcsetattr(outfd, TCSAFLUSH, &tios);
 }
 
 /* --------------------------------------------------------------------------
@@ -2192,15 +2389,36 @@ Send up a user notification about the current CCL exit error.
 -------------------------------------------------------------------------- */
 void terminate(int exitError)
 {
-    u_long m = exitError;
+    //u_long m = exitError;
+    CFNumberRef		num;
 
-    if (verbose)
-        syslog(LOG_INFO, "CCLExit : %d\n", exitError);
+#if 0
+    if (verbose) {
+        if (sysloglevel)
+            syslog(sysloglevel, "CCLExit : %d\n", exitError);
+        if (usestderr)
+            fprintf(stderr, "CCLExit : %d\n", exitError);
+    }
+#endif
+    //if (ppplink != -1) 
+    //    sys_send_confd(csockfd, PPP_CCLRESULT, (u_char *)&m, sizeof(m), ppplink, 0);
 
-    if (ppplink != -1) 
-        sys_send_confd(csockfd, PPP_CCLRESULT, (u_char *)&m, sizeof(m), ppplink, 0);
+     // connect and listen mode always publish last cause
+     // disconnect mode publish only non-null cause
+     // last cause displays connection error, even when plays disconnect sequence
+    if (serviceID && (exitError || (mode != 1))) {
+        num = CFNumberCreate(NULL, kCFNumberIntType, &exitError);
+        if (num) {
+            publish_entry(serviceID, CFSTR("LastCause"), num);
+            CFRelease(num);
+        }
+    }
 
-//    fprintf(stderr, "EXIT %d\n", exitError);
+    /* unpublish unnecessary information */
+    if (serviceID) {
+        unpublish_entry(serviceID, CFSTR("Note"));
+    }
+
     close(infd);
     close(outfd);
     exit(exitError);
@@ -2307,42 +2525,91 @@ struct timeval *timeleft(struct timeval *tvp)
     return tvp;
 }
 
-/* --------------------------------------------------------------------------
--------------------------------------------------------------------------- */
-void sys_send_confd(int sockfd, u_long code, u_char *data, u_long len, u_long link, u_char expect_result)
+/* -----------------------------------------------------------------------------
+publish a dictionnary entry in the cache
+----------------------------------------------------------------------------- */
+int publish_entry(u_char *serviceid, CFStringRef entry, CFTypeRef value)
 {
-    struct ppp_msg_hdr	msg;
-    char 		*tmp;
+    CFDictionaryRef		dict;
+    CFMutableDictionaryRef	newDict = 0;
+    SCDHandleRef 		handle = 0;
+    CFStringRef			key = 0;
+    SCDStatus			status;
+    SCDSessionRef		cfgCache = 0;		/* configd session */
 
-    if (sockfd == -1)
-        return;
-
-    bzero(&msg, sizeof(msg));
-    msg.m_type = code;
-    msg.m_len = len;
-    msg.m_link = link;
-
-    if (write(sockfd, &msg, sizeof(msg)) != sizeof(msg)) {
-        return;
+    status = SCDOpen(&cfgCache, CFSTR("CCLEngine"));
+    if (status != SCD_OK)
+        return 0;
+            
+    key = SCDKeyCreate(CFSTR("%@/%@/%@/%s/%@"), kSCCacheDomainState, kSCCompNetwork, kSCCompService, serviceid, kSCEntNetModem);
+    if (key == NULL)	
+        goto done;
+        
+    status = SCDGet(cfgCache, key, &handle);
+    if (status == SCD_OK) {
+        if (dict = SCDHandleGetData(handle)) 
+            newDict = CFDictionaryCreateMutableCopy(0, 0, dict);
     }
-
-    if (len && data && write(sockfd, data, len) != len) {
-        return;
+    else {
+        if (handle = SCDHandleInit())
+            newDict = CFDictionaryCreateMutable(0, 0,
+                                          &kCFTypeDictionaryKeyCallBacks,
+                                          &kCFTypeDictionaryValueCallBacks);
     }
+    
+    if (newDict == NULL)
+        goto done;
 
-    if (expect_result) {
-       if (read(csockfd, &msg, sizeof(msg)) != sizeof(msg)) {
-            return; //error
-        }
-        if (msg.m_len) {
-            tmp = malloc(msg.m_len);
-            if (tmp) {
-                if (read(csockfd, tmp, msg.m_len) != msg.m_len) {
-                    free(tmp);
-                   return;//error
-                }
-                free(tmp);
-            }
-        }
-    }
+    CFDictionarySetValue(newDict,  entry, value);
+    SCDHandleSetData(handle, newDict);
+    status = SCDSet(cfgCache, key, handle);
+
+done:
+    if (handle) SCDHandleRelease(handle);
+    if (newDict) CFRelease(newDict);
+    if (key) CFRelease(key);
+    if (cfgCache) SCDClose(&cfgCache);
+    return 0;
 }
+/* -----------------------------------------------------------------------------
+unpublish a disctionnary entry from the cache
+----------------------------------------------------------------------------- */
+int unpublish_entry(u_char *serviceid, CFStringRef entry)
+{
+    CFDictionaryRef		dict;
+    CFMutableDictionaryRef	newDict = 0;
+    SCDHandleRef 		handle = 0;
+    CFStringRef			key = 0;
+    SCDStatus			status;
+    SCDSessionRef		cfgCache = 0;		/* configd session */
+
+    status = SCDOpen(&cfgCache, CFSTR("CCLEngine"));
+    if (status != SCD_OK)
+        return 0;
+            
+    key = SCDKeyCreate(CFSTR("%@/%@/%@/%s/%@"), kSCCacheDomainState, kSCCompNetwork, kSCCompService, serviceid, kSCEntNetModem);
+    if (key == NULL)	
+        goto done;
+        
+    status = SCDGet(cfgCache, key, &handle);
+    if (status == SCD_OK) {
+        if (dict = SCDHandleGetData(handle)) 
+            newDict = CFDictionaryCreateMutableCopy(0, 0, dict);
+    }
+    
+    if (newDict == NULL)
+        goto done;
+
+    CFDictionaryRemoveValue(newDict, entry);
+    SCDHandleSetData(handle, newDict);
+    status = SCDSet(cfgCache, key, handle);
+
+done:
+    if (handle) SCDHandleRelease(handle);
+    if (newDict) CFRelease(newDict);
+    if (key) CFRelease(key);
+    if (cfgCache) SCDClose(&cfgCache);
+    return 0;
+}
+
+

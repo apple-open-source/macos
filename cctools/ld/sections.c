@@ -750,6 +750,8 @@ merge_literal_sections(void)
 		    continue;
 		if(cur_obj->dylib)
 		    continue;
+		if(cur_obj->bundle_loader)
+		    continue;
 		if(cur_obj->dylinker)
 		    continue;
 #ifdef RLD
@@ -808,6 +810,8 @@ merge_literal_sections(void)
 		if(cur_obj == base_obj)
 		    continue;
 		if(cur_obj->dylib)
+		    continue;
+		if(cur_obj->bundle_loader)
 		    continue;
 		if(cur_obj->dylinker)
 		    continue;
@@ -995,6 +999,8 @@ struct merged_section *ms)
 		if(cur_obj == base_obj)
 		    continue;
 		if(cur_obj->dylib)
+		    continue;
+		if(cur_obj->bundle_loader)
 		    continue;
 		if(cur_obj->dylinker)
 		    continue;
@@ -1347,6 +1353,8 @@ struct merged_section *ms)
 		    continue;
 		if(cur_obj->dylib)
 		    continue;
+		if(cur_obj->bundle_loader)
+		    continue;
 		if(cur_obj->dylinker)
 		    continue;
 		if(cur_obj->cur_section_map == NULL)
@@ -1526,6 +1534,8 @@ struct merged_section *ms)
 		    continue;
 		if(cur_obj->dylib)
 		    continue;
+		if(cur_obj->bundle_loader)
+		    continue;
 		if(cur_obj->dylinker)
 		    continue;
 		if(cur_obj->cur_section_map == NULL)
@@ -1700,6 +1710,8 @@ create_name_arrays(void)
 		if(cur_obj == base_obj)
 		    continue;
 		if(cur_obj->dylib)
+		    continue;
+		if(cur_obj->bundle_loader)
 		    continue;
 		if(cur_obj->dylinker)
 		    continue;
@@ -2642,6 +2654,8 @@ void)
 		if(cur_obj == base_obj)
 		    continue;
 		if(cur_obj->dylib)
+		    continue;
+		if(cur_obj->bundle_loader)
 		    continue;
 		if(cur_obj->dylinker)
 		    continue;

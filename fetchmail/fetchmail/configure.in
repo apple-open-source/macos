@@ -5,11 +5,15 @@ dnl Process this file with autoconf to produce a configure script.
 dnl
 
 AC_INIT(fetchmail.h)		dnl A distinctive file to look for in srcdir. 
-AC_CONFIG_HEADER(config.h)
+AM_CONFIG_HEADER(config.h)
 
 dnl We want these before the checks, so the checks can modify their values.
 test -z "$CFLAGS" && CFLAGS="-O" AC_SUBST(CFLAGS)
-test -z "$LDFLAGS" && LDFLAGS=-s AC_SUBST(LDFLAGS)
+test -z "$LDFLAGS" && LDFLAGS=AC_SUBST(LDFLAGS)
+
+PACKAGE=`sed -n '/PACKAGE *= *\(.*\)/s//\1/p' <$srcdir/Makefile.in`
+VERSION=`sed -n '/VERSION *= *\(.*\)/s//\1/p' <$srcdir/Makefile.in`
+AM_INIT_AUTOMAKE("$PACKAGE", "$VERSION")
 
 AC_CANONICAL_HOST
 AC_PROG_CC
@@ -23,25 +27,20 @@ AC_HEADER_STDC
 AC_TYPE_SIZE_T
 AC_TYPE_PID_T
 AC_TYPE_SIGNAL
-AC_CHECK_HEADERS(unistd.h termios.h termio.h sgtty.h stdarg.h alloca.h sys/itimer.h fcntl.h sys/fcntl.h memory.h sys/wait.h)
+AC_CHECK_HEADERS(unistd.h termios.h termio.h sgtty.h stdarg.h alloca.h)
+AC_CHECK_HEADERS(sys/itimer.h fcntl.h sys/fcntl.h memory.h sys/wait.h sys/shm.h)
+AC_CHECK_HEADERS(arpa/inet.h arpa/nameser.h resolv.h net/socket.h sys/select.h)
 
 AC_C_CONST			dnl getopt needs this.
 
+dnl do NOT use AM_PROG_LEX, builds without LEX are not supported properly
 AC_PROG_LEX
+AC_PROG_MAKE_SET
 AC_PROG_YACC
 AC_SUBST(CPFLAGS)
 AC_SUBST(CEFLAGS)
 AC_SUBST(LDEFLAGS)
 AC_SUBST(LIBOBJS)
-AC_SUBST(POMAKE)
-
-PACKAGE=`sed -n '/PACKAGE *= *\(.*\)/s//\1/p' <$srcdir/Makefile.in`
-AC_DEFINE_UNQUOTED(PACKAGE, "$PACKAGE")
-AC_SUBST(PACKAGE)
-
-VERSION=`sed -n '/VERSION *= *\(.*\)/s//\1/p' <$srcdir/Makefile.in`
-AC_DEFINE_UNQUOTED(VERSION, "$VERSION")
-AC_SUBST(VERSION)
 
 # Check for LynxOS special case: -lbsd needed (at least on 2.3.0) and -s
 # not working.
@@ -54,11 +53,11 @@ then
   CPFLAGS="-I/usr/include"
 fi
 
-# Check for FreeBSD special case: -lkvm needed
+# Check for FreeBSD special case: more libs needed
 if test `uname` = "FreeBSD" 
 then
-   echo "Adding -lkvm to standard libraries"
-   LIBS="$LIBS -lkvm"
+   echo "Adding -lmd -lkvm -lcom_err to standard libraries"
+   LIBS="$LIBS -lmd -lkvm -lcom_err"
 fi
  
 # Check for Rhapsody special case: it doesn't like -s
@@ -68,15 +67,10 @@ then
    LDFLAGS=`echo $LDFLAGS | sed "s/-s //"`
 fi
  
-# i18n
-# Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-# Sat Nov  7 15:39:03 EDT 1998
-
-ALL_LINGUAS="cs es fr pl pt_BR ru"
-
+dnl i18n
+ALL_LINGUAS="cs es fr pl pt_BR gl da"
 AM_GNU_GETTEXT
-
-# end i18n
+dnl end i18n
 
 # Under sysV68, socket and friends are provided by the C library.
 # -linet does not provide socket, but causes multiple definition
@@ -87,11 +81,6 @@ AC_CHECK_FUNC(socket,
     AC_CHECK_LIB(socket,socket)
     AC_CHECK_LIB(inet,socket))
 
-# If gettext isn't in the C library, maybe there's a -lintl.
-AC_CHECK_FUNC(gettext,
-    AC_MSG_RESULT(using libc's gettext),
-    AC_CHECK_LIB(intl,gettext))
-
 # The condition in this test copes with the presence of inet_addr in libc6.
 AC_CHECK_FUNC(inet_addr,
     AC_MSG_RESULT(using libc's inet_addr),
@@ -101,6 +90,10 @@ dnl Port hack for Interactive UNIX System V/386 Release 3.2
 AC_CHECK_LIB(cposix, strchr,
 		[EXTRADEFS="$EXTRADEFS -D_SYSV3"
 		LIBS="$LIBS -lcposix"])
+
+dnl Port hack for Sparc/NetBSD-1.5
+AC_CHECK_LIB(intl, gettext,
+		[LIBS="$LIBS -lintl"])
 
 AC_CHECK_FUNC(strstr, AC_DEFINE(HAVE_STRSTR), 
               [EXTRASRC="$EXTRASRC \$(srcdir)/strstr.c"
@@ -117,6 +110,10 @@ AC_CHECK_FUNC(memmove, AC_DEFINE(HAVE_MEMMOVE),
 AC_CHECK_FUNC(getopt_long, AC_DEFINE(HAVE_GETOPTLONG),
               [EXTRASRC="$EXTRASRC \$(srcdir)/getopt.c \$(srcdir)/getopt1.c"
                EXTRAOBJ="$EXTRAOBJ getopt.o getopt1.o"])
+
+AC_CHECK_FUNC(MD5Init, AC_DEFINE(HAVE_MD5),
+              [EXTRASRC="$EXTRASRC \$(srcdir)/md5c.c"
+               EXTRAOBJ="$EXTRAOBJ md5c.o"])
 
 AC_FUNC_VPRINTF
 AC_FUNC_ALLOCA
@@ -136,7 +133,7 @@ AC_SUBST(EXTRAOBJ)
 AC_CHECK_FUNCS(tcsetattr stty setsid geteuid seteuid gethostbyname \
   res_search herror strrchr strerror setlinebuf syslog \
   snprintf vprintf vsnprintf vsyslog \
-  atexit inet_aton strftime setrlimit socketpair sigprocmask)
+  atexit inet_aton strftime setrlimit socketpair sigprocmask sigaction)
 
 # Under Red Hat 4.0 (and many other Linuxes) -lresolv is seriously flaky
 # and breaks gethostbyname(2).  It's better to use the bind stuff in the C
@@ -147,8 +144,11 @@ AC_CHECK_FUNC(res_search,
     AC_CHECK_LIB(resolv,res_search, 
 	[AC_DEFINE(HAVE_RES_SEARCH) AC_MSG_RESULT(found resolver functions in libresolv); LIBS="$LIBS -lresolv"], AC_MSG_RESULT(no resolver calls found)))
 
-dnl Check for libcrypt
-AC_CHECK_LIB(crypt,crypt)
+dnl Check for libcrypt -- it may live in libc or libcrypt, as on IRIX
+AC_CHECK_FUNC(crypt, , AC_CHECK_LIB(crypt,crypt))
+
+dnl Check for RSA refersence library in case we're using SSL
+AC_CHECK_LIB(rsaref, RSAPublicDecrypt)
 
 dnl AC_FUNC_SETVBUF_REVERSED
 
@@ -209,23 +209,66 @@ done
 AC_MSG_RESULT(root-mode pid file will go in $dir)
 AC_DEFINE_UNQUOTED(PID_DIR, "$dir")
 
+# We may have a fallback MDA available in case the socket open to the 
+# local SMTP listener fails.  Best to use procmail for this, as we know
+# it won't try delivering through local SMTP and cause a mail loop.
+# Sendmail without the -t option to use the message headers will work too,
+# not just for sendmail itself but for workalikes like exim.
+#
+# Note1: A disadvantage of using procmail is that local alias expansion
+# according to /etc/aliases won't get done if we fall back.
+#
+# Note2: it would be a very bad idea to use any MDA that doesn't return
+# a refuse-to-deliver status on disk- or process-table-full
+# conditions; mail could get lost that way.  Both procmail and
+# sendmail (and all of the MDAs like exim that might be lurking under
+# a sendmail alias) do the right thing in this circumstance.
+#
+AC_PATH_PROG(procmail, procmail, "", $PATH:/usr/sbin)
+AC_PATH_PROG(sendmail, sendmail, "", $PATH:/usr/sbin:/usr/lib)
+
+###	use option --disable-fallback to disable fallback MDA
+###	use option --enable-fallback=procmail or 
+###		   --enable-fallback=sendmail to select
+AC_ARG_ENABLE(fallback,
+	[  --enable-fallback=procmail    enable procmail as fallback (default)
+  --enable-fallback=sendmail    enable /usr/sbin/sendmail as fallback
+  --enable-fallback=no          disable fallback],,[enable_fallback=auto])
+
+case "$enable_fallback" in
+	sendmail)	if test -z "$sendmail" ; then 
+				AC_ERROR([Sendmail selected as fallback, but not found])
+				#not reached
+			fi
+			AC_DEFINE_UNQUOTED(FALLBACK_MDA, "$sendmail %T")
+			echo "Will use $sendmail as fallback MDA."
+			;;
+	procmail)	if test -z "$procmail" ; then
+				AC_ERROR([procmail selected as fallback, but not found])
+				#not reached
+			fi
+			AC_DEFINE_UNQUOTED(FALLBACK_MDA, "$procmail -d %T")
+			echo "Will use $procmail as fallback MDA."
+			;;
+	no|unset)	echo "Will not use a fallback MDA"
+			;;
+	auto|yes|set)	if test -n "$procmail" ; then
+				AC_DEFINE_UNQUOTED(FALLBACK_MDA,"$procmail -d %T")
+				echo "Will use $procmail as fallback MDA."
+			elif test -n "$sendmail" ; then
+				AC_DEFINE_UNQUOTED(FALLBACK_MDA,"$sendmail %T")
+				echo "Will use $sendmail as fallback MDA."
+			else	echo "No fallback MDA available."
+			fi
+			;;
+	*)		AC_ERROR([unkown value for --enable-fallback given: $enable_fallback])
+			#notreached
+			;;
+esac
+
 AC_CHECK_SIZEOF(short)
 AC_CHECK_SIZEOF(int)
 AC_CHECK_SIZEOF(long)
-
-if test "$USE_NLS" = "yes"
-then
-	echo 'Enabling internationalization support...'
-	POMAKE='$(MAKE) -C po'
-  	if test "x$prefix" != xNONE; then
-		EXTRADEFS="$EXTRADEFS -DLOCALEDIR='\"$prefix/share/locale\"'"
-  	else
-		EXTRADEFS="$EXTRADEFS -DLOCALEDIR='\"$ac_default_prefix/share/locale\"'"
-	fi
-else
-	echo 'Disabling internationalization support...'
-	POMAKE="@echo '(NLS support disabled)'; #"
-fi
 
 ###	use option --enable-POP2 to compile in the POP2 support
 AC_ARG_ENABLE(POP2,
@@ -255,6 +298,13 @@ AC_ARG_ENABLE(ETRN,
 	[with_ETRN=yes])
 test "$with_ETRN" = "yes" && AC_DEFINE(ETRN_ENABLE)
 
+###	use option --disable-ODMR to omit the ODMR support
+AC_ARG_ENABLE(ODMR,
+	[  --disable-ODMR          don't compile in ODMR protocol support],
+	[with_ODMR=$enableval],
+	[with_ODMR=yes])
+test "$with_ODMR" = "yes" && AC_DEFINE(ODMR_ENABLE)
+
 ###	use option --enable-RPA to compile in the RPA support
 AC_ARG_ENABLE(RPA,
 	[  --enable-RPA            compile in RPA protocol support],
@@ -281,125 +331,247 @@ AC_ARG_ENABLE(opie,
 	[  --enable-opie           support OTP through the OPIE library],
 	[ AC_CHECK_HEADER(opie.h,, [echo 'configure: cannot find <opie.h>, which is required for OPIE support.'; exit 1])
           AC_CHECK_LIB(opie,opiegenerator,, [echo 'configure: cannot find libopie, which is required for OPIE support.'; exit 1])
-          AC_DEFINE(OPIE,1) ],
+          with_opie=$enableval],
 	[with_opie=no])
+test "$with_opie" = "yes" && AC_DEFINE(OPIE_ENABLE)
 
 AC_ARG_ENABLE(inet6,
 	[  --enable-inet6          support IPv6 (requires the inet6-apps library)],
-        [ unset ac_cv_lib_inet6_getaddrinfo; AC_CHECK_LIB(inet6, getaddrinfo,,
-	[ unset ac_cv_lib_inet6_getaddrinfo; LDFLAGS="$LDFLAGS -L/usr/inet6/lib"; AC_CHECK_LIB(inet6, getaddrinfo,,
-        [ echo 'configure: cannot find libinet6, which is required for IPv6 support.'; exit 1]) ])
-          AC_DEFINE(INET6, 1) ])
+
+	[ AC_CHECK_FUNC(getaddrinfo, [with_inet6=yes],
+	  [ LDFLAGS="$LDFLAGS -L/usr/inet6/lib";
+	    AC_CHECK_LIB(inet6, getaddrinfo, [with_inet6=yes
+	    LIBS="$LIBS -linet6"],
+	    [ echo 'configure: cannot find proper glibc version or libinet6,';
+	      echo '           which is required for IPv6 support.';
+	      exit 1]) ] )],
+	[with_inet6=no])
+test "$with_inet6" = "yes" && AC_DEFINE(INET6_ENABLE)
+
+AC_CHECK_FUNCS(inner_connect)
 
 AC_ARG_ENABLE(netsec,
 	[  --enable-netsec         support network security (requires inet6-apps library)],
         [ unset ac_cv_lib_inet6_net_security_strtorequest; AC_CHECK_LIB(inet6, net_security_strtorequest,,
-	[ unset ac_cv_lib_inet6_net_security_strtorequest; LDFLAGS="$LDFLAGS -L/usr/inet6/lib"; AC_CHECK_LIB(inet6, net_security_strtorequest,,
-        [ echo 'configure: cannot find net_security_strtorequest in libinet6, which is required';
-          echo '           for network security support. Either it does not exist, or it was';
-          echo '           not built with network security support enabled.';
-          exit 1]) ])
-          unset ac_cv_header_net_security_h; AC_CHECK_HEADER(net/security.h,,
-        [ unset ac_cv_header_net_security_h; CPPFLAGS="$CPPFLAGS -I/usr/inet6/include"; CFLAGS="$CFLAGS -I/usr/inet6/include"; AC_CHECK_HEADER(net/security.h,,
-	[ echo 'configure: cannot find <net/security.h>, which is required for network security';
-          echo '           support.';
-          exit 1]) ])
-          AC_DEFINE(NET_SECURITY, 1) ])
-  
-###	use option --with-kerberos5=DIR to point at a Kerberos 5 directory
-AC_ARG_WITH(kerberos5,
-	[  --with-kerberos5=DIR    point fetchmail compilation at a Kerberos 5 directory])
+	  [ unset ac_cv_lib_inet6_net_security_strtorequest;
+            LDFLAGS="$LDFLAGS -L/usr/inet6/lib"; 
+            AC_CHECK_LIB(inet6, net_security_strtorequest,,
+            [ echo 'configure: cannot find net_security_strtorequest in libinet6, which is required';
+              echo '           for network security support. Either it does not exist, or it was';
+              echo '           not built with network security support enabled.';
+              exit 1]) ])
+        unset ac_cv_header_net_security_h; AC_CHECK_HEADER(net/security.h,,
+        [ unset ac_cv_header_net_security_h; 
+	CPPFLAGS="$CPPFLAGS -I/usr/inet6/include"; 
+	CFLAGS="$CFLAGS -I/usr/inet6/include"; AC_CHECK_HEADER(net/security.h,,
+	  [ echo 'configure: cannot find <net/security.h>, which is required';
+          echo '             for network security support.';
+          exit 1]) ]) ]
+	[with_netsec=no])
+test "$with_netsec" = "yes" && AC_DEFINE(NET_SECURITY)
 
-# The "then" arm (nonempty $with_kerberos5) is kind of a crock.  It works for
-# configuring the BSD/OS Kerberos IV support, though. 
-if test -n "$with_kerberos5"
+# This version of the Kerberos 4 and 5 options addresses the follwing issues:
+# 
+# * Build correctly under Heimdal kerberos if it is compiled with db2 and
+#   OpenSSL support (Debian's is)
+# * Build the kerberos.c stuff (KPOP) only for kerberosIV, to avoid breakage.
+#   I don't know if this is 100% correct, but now at least IMAP and POP3
+#   behave the same way regarding kerberosV.
+# * Build without any fuss for both kerberosIV and V at the same time.
+# * Move all the kerberos header mess to kerberos.h, and #include that
+#   in driver.c and kerberos.c.
+# 
+# Tested using the Heimdal Kerberos V libs, Kungliga Tekniska Högskolan (the
+# Royal Institute of Technology in Stockholm, Sweden)'s kerberos IV libs, and
+# the MIT reference implementation of KerberosV (all as packaged in Debian).
+
+###    use option --with-kerberos5=DIR to point at a Kerberos 5 directory
+### make sure --with-ssl is run before --with-kerberos* !
+AC_ARG_WITH(kerberos5,
+       [  --with-kerberos5=DIR    point fetchmail compilation at a Kerberos 5
+directory],
+[
+if test "$with_kerberos5" != "no"
 then
-    # Path given
-    CEFLAGS="$CEFLAGS -DKERBEROS_V5 -I$with_kerberos5/include"
-    LDEFLAGS="$LDEFLAGS -L$with_kerberos5/lib"
-    if test -f "$with_kerberos5/include/roken.h"
-    then
-       AC_DEFINE(HEIMDAL)
-       LIBS="$LIBS -lkrb5 -lasn1 -ldes -lroken -lcom_err"
-    else
-       LIBS="$LIBS -lkrb5 -lcrypto -lcom_err"
-    fi
-else
-  if test "$with_kerberos5" != "no" ; then
-    for dir in /usr/kerberos /usr/local/krb5 /usr/athena
-    do
-      if test -f "$dir/include/krb5.h"
-      then
-        CEFLAGS="$CEFLAGS -DKERBEROS_V5 -I$dir/include"
-        LDEFLAGS="$LDEFLAGS -L$dir/lib"
-	if test -f "$dir/include/roken.h"
-	then
+  if test "$with_kerberos5" != "yes" 
+  then
+      LDEFLAGS="$LDEFLAGS -L${with_kerberos5}/lib"
+      searchdirs="$with_kerberos5"
+  else
+      searchdirs="/usr/kerberos /usr/local/krb5 /usr/athena /usr"
+  fi
+  with_kerberos5=
+  for dir in $searchdirs
+  do AC_MSG_CHECKING([for Kerberos V in $dir])
+     if test -f "$dir/include/krb5.h"
+     then
+        ac_krblibs=
+        if test -f "$dir/include/roken.h"
+        then
+           ac_krblibs="-lasn1 -lroken -lcom_err"
+           AC_MSG_RESULT([Heimdal found])
+          dnl Attempt to detect if we need to -ldb2 to link Heimdal
+          dnl we assume we do if it is available
+           AC_CHECK_LIB(db2, db_open, ac_krblibs="$ac_krblibs -ldb2", [],
+                ${LDEFLAGS})
+           AC_CHECK_LIB(des, des_string_to_key, libk5crypto=-ldes,
+              AC_CHECK_LIB(ssl, MD5_Init, [],
+                AC_ERROR([DES libraries not found. Try adding --with-ssl to enable OpenSSL support]),
+                ${LDEFLAGS} ${ac_krblibs}),
+           ${LDEFLAGS} ${ac_krblibs})
            AC_DEFINE(HEIMDAL)
-           LIBS="$LIBS -lkrb5 -lasn1 -ldes -lcom_err"
         else
-           LIBS="$LIBS -lkrb5 -lcrypto -lcom_err"
+          AC_MSG_RESULT([found])
+          ac_krblibs="-lcom_err"
+           AC_CHECK_LIB(crypto,
+             krb5_des_string_to_key,
+             libk5crypto=-lcrypto,
+                AC_CHECK_LIB(k5crypto,
+                   krb5_des_string_to_key,
+                   libk5crypto=-lk5crypto,
+                      AC_ERROR([Kerberos 5 DES libraries not found]),
+                   ${LDEFLAGS} ${ac_krblibs}),
+                 ${LDEFLAGS} ${ac_krblibs})
         fi
+        AC_CHECK_LIB(krb5, krb5_init_context,[],
+           continue,
+           ${LDEFLAGS} ${ac_krblibs})
+        AC_DEFINE(KERBEROS_V5)
+        test "$dir" != "/usr" && CEFLAGS="$CEFLAGS -I$dir/include"
+        LDEFLAGS="$LDEFLAGS -L$dir/lib"
+       LIBS="$LIBS $ac_krblibs $libk5crypto"
         with_kerberos5=$dir
         break
-      fi
-    done
+     else
+        AC_MSG_RESULT([not found])
+     fi
+  done
+  if test -z "$with_kerberos5" ; then
+     AC_ERROR([Kerberos 5 libraries not found])
   fi
 fi
+]) dnl --with-kerberos5=DIR
 
-###	use option --with-kerberos=DIR to point at a Kerberos directory
+###    use option --with-kerberos=DIR to point at a Kerberos 4 directory
 AC_ARG_WITH(kerberos,
-	[  --with-kerberos=DIR     point fetchmail compilation at a Kerberos directory])
-
-# The "elif" arm (nonempty $with_kerberos) is kind of a crock.  It works for
-# configuring the BSD/OS Kerberos IV support, though. 
-
+       [  --with-kerberos=DIR     point fetchmail compilation at a Kerberos 4
+directory],
+[
+if test "$with_kerberos" != "no"
+then
 # Check for a NetBSD/OpenBSD special case
-if test "$with_kerberos" = "yes" && test `uname` = "NetBSD" -o `uname` = "OpenBSD"
+if test "$with_kerberos" = "yes" && ( test `uname` = "NetBSD" || test `uname` = "OpenBSD" )
 then
-  echo "Configuring kerberosIV for `uname`"
-  CEFLAGS="$CEFLAGS -DKERBEROS_V4 -I/usr/include/kerberosIV"
+  AC_CHECKING([kerberosIV for `uname`])
+  AC_DEFINE(KERBEROS_V4)
+  CEFLAGS="$CEFLAGS -I/usr/include/kerberosIV"
   LIBS="$LIBS -lkrb -ldes"
-elif test -n "$with_kerberos" -a -n "$with_kerberos5"
-then
-    CEFLAGS="$CEFLAGS -DKERBEROS_V4 -I$with_kerberos/include"
-    LDEFLAGS="$LDEFLAGS -L$with_kerberos/lib"
-    if test -f "$with_kerberos5/roken.h"
-    then
-       AC_DEFINE(HEIMDAL)
-       LIBS="-lkrb4 -l45 $LIBS" 
-    else
-       LIBS="-lkrb4 -ldes425 $LIBS"
-    fi
-elif test -n "$with_kerberos5"
-then
-    for dir in /usr/kerberos /usr/kerberosIV /usr/athena
-    do
-      if test -f "$dir/include/kerberosIV/krb.h"
-      then
-        CEFLAGS="$CEFLAGS -DKERBEROS_V4 -I$dir/include"
-        LDEFLAGS="$LDEFLAGS -L$dir/lib"
-	LIBS="-lkrb4 -ldes425 $LIBS"
-        break
-      fi
-    done
-elif test -n "$with_kerberos" -a "$with_kerberos" != "no"
-then
-    CEFLAGS="$CEFLAGS -DKERBEROS_V4 -I$with_kerberos/include"
-    LDEFLAGS="$LDEFLAGS -L$with_kerberos/lib"
-    LIBS="$LIBS -lkrb -ldes"
 else
-  if test "$with_kerberos" != "no"
-  then
-    for dir in /usr/kerberos /usr/kerberosIV /usr/athena
+  #we need to detect when we're building under a kerberosV compatibility
+  #layer, btw...
+  if test "$with_kerberos" != "yes" ; then
+     searchdirs="$with_kerberos"
+  else
+     searchdirs="$with_kerberos5 /usr/kerberos /usr/kerberosIV /usr/athena/usr"
+  fi
+  with_kerberos=
+  ac_saveLDFLAGS="$LDFLAGS"
+  for dir in $searchdirs
+  do
+     AC_MSG_CHECKING([for Kerberos IV in $dir])
+     if test -f "$dir/include/krb.h" || test -f "$dir/include/krb4.h" \
+            || test -f "$dir/include/kerberosIV/krb.h"
+     then
+        AC_MSG_RESULT([found])
+     else
+        AC_MSG_RESULT([not found])
+       continue
+     fi
+     #Find libs
+     if test -f "$with_kerberos5/roken.h" ; then
+       AC_CHECK_LIB(45, krb_mk_req)
+     fi
+     LDFLAGS="-L$dir/lib $ac_saveLDFLAGS"
+     AC_SEARCH_LIBS(des_string_to_key, [des425 des], [], continue)
+     AC_SEARCH_LIBS(krb_realmofhost, [krb4 krb], [], continue)
+     with_kerberos="$dir"
+     if test -f "$dir/include/kerberosIV/krb.h" ; then
+        dir="$dir/include/kerberosIV"
+     else
+       dir="$dir/include"
+     fi
+     AC_DEFINE(KERBEROS_V4)
+     test -f "$with_kerberos5/roken.h" && AC_DEFINE(HEIMDAL)
+     test "$dir" != "/usr/include" && CEFLAGS="$CEFLAGS -I$dir"
+     LDEFLAGS="$LDEFLAGS -L$with_kerberos/lib"
+     break
+  done
+  if test -z "$with_kerberos" ; then
+     AC_ERROR([Kerberos 4 libraries not found])
+  fi
+  LDFLAGS="$ac_saveLDFLAGS"
+fi
+fi
+]) dnl --with-kerberos=DIR
+
+###	use option --with-ssl to compile in the SSL support
+AC_ARG_WITH(ssl,
+	[  --with-ssl=[DIR]        enable SSL support using libraries in DIR],
+	[with_ssl=$withval],
+	[with_ssl=no])
+test "$with_ssl" != "no" && AC_DEFINE(SSL_ENABLE)
+
+if test "$with_ssl" = "yes"
+then
+    #	He didn't specify an SSL location.  Let's look at some common
+    #	directories where SSL has been found in the past and try and auto
+    #	configure for SSL.  OpenSSL determination will be made later.
+    #	This will screw up if an OpenSSL install is located in a later
+    #	directory than an older SSLeay install, but the user should fix that
+    #	anyways and he can override on the configure line.
+    for ac_dir in \
+      /usr/local/ssl \
+      /usr/ssl \
+      /local/ssl \
+      /opt/ssl \
+      ; \
     do
-      if test -f "$dir/include/krb.h"
-      then
-        CEFLAGS="$CEFLAGS -DKERBEROS_V4 -I$dir/include"
-        LDEFLAGS="$LDEFLAGS -L$dir/lib"
-        LIBS="$LIBS -lkrb -ldes"
-        break
-      fi
+        if test -d "$ac_dir" ; then
+            with_ssl=$ac_dir
+            break;
+        fi
     done
+fi
+
+if test -n "$with_ssl" -a "$with_ssl" != "no"
+then
+  # With the autoconfigure above, the only time this is going to be
+  # true is going to be when we could not find the headers.  If they
+  # are not in system standard locations, we are going to be broken.
+  if test "$with_ssl" = "yes"
+  then
+    # Let's just define the standard location for the SSLeay root
+    with_ssl="/usr/local/ssl"
+  fi
+  if test -r $with_ssl/include/openssl/ssl.h
+  then
+    ###	ssl.h found under openssl.  Use openssl configuration preferentially
+    echo "Enabling OpenSSL support in $with_ssl"
+    CEFLAGS="$CEFLAGS -I$with_ssl/include -I$with_ssl/include/openssl"
+    ###	OpenBSD comes with ssl headers
+  elif test -r /usr/include/ssl/ssl.h
+  then
+    echo "Enabling SSLeay support in $with_ssl"
+    CEFLAGS="$CEFLAGS -I/usr/include/ssl"
+  else
+    echo "Enabling SSLeay support in $with_ssl"
+    CEFLAGS="$CEFLAGS -I$with_ssl/include"
+  fi
+  LDEFLAGS="$LDEFLAGS -L$with_ssl/lib"
+  LIBS="$LIBS -lssl -lcrypto"
+  AC_DEFINE(SSL_ENABLE)
+else
+  echo 'Disabling SSL support...'
 fi
 
 ###	use option --with-socks=DIR to point at SOCKS library
@@ -420,17 +592,34 @@ then
     LIBS="-lsocks $LIBS"
 fi])
 
+###     use option --with-socks5=DIR to point at SOCKS library
+AC_ARG_WITH(socks5,
+        [  --with-socks5[=DIR]     add built-in SOCKS5 firewall access],
+[
+if test "$with_socks5" != no
+then
+  if test "$with_socks5" != yes
+  then
+    LDEFLAGS="$LDEFLAGS -L$with_socks5"
+  fi
+  ac_savedLDFLAGS="$LDFLAGS"
+  LDFLAGS="$LDEFLAGS $LDFLAGS"
+  AC_CHECK_LIB(socks5, SOCKSconnect,,
+  	AC_MSG_ERROR([could not find libsocks5 which is needed for built-in SOCKS5 support]))
+  AC_DEFINE(HAVE_SOCKS)
+  CEFLAGS="$CEFLAGS -Dconnect=SOCKSconnect -Dgetsockname=SOCKSgetsockname -Dbind=SOCKSbind -Daccept=SOCKSaccept -Dlisten=SOCKSlisten -Dselect=SOCKSselect -Drecvfrom=SOCKSrecvfrom -Dsendto=SOCKSsendto -Drecv=SOCKSrecv -Dsend=SOCKSsend -Dread=SOCKSread -Dwrite=SOCKSwrite -Drresvport=SOCKSrresvport -Dshutdown=SOCKSshutdown -Dlisten=SOCKSlisten -Dclose=SOCKSclose -Ddup=SOCKSdup -Ddup2=SOCKSdup2 -Dgethostbyname=SOCKSgethostbyname"
+  AC_CHECK_FUNC(SOCKSfclose, [CFLAGS="$CFLAGS -Dfclose=SOCKSfclose"])
+  LDFLAGS="$ac_savedLDFLAGS"
+fi])
+
 ###	use option --with-hesiod=DIR to point at a HESIOD directory
 AC_ARG_WITH(hesiod,
 	[  --with-hesiod=DIR       point fetchmail compilation at a HESIOD directory])
 
-if test -n "$with_hesiod"
-then
-    # Path given
-    CEFLAGS="$CEFLAGS -DHESIOD -I$with_hesiod/include"
-    LDEFLAGS="$LDEFLAGS -L$with_hesiod/lib"
-    LIBS="$LIBS -lhesiod"
-else
+case "x$with_hesiod" in
+xno)
+    ;;
+x)
     for dir in /usr/athena /usr /usr/local
     do
       if test -f "$dir/include/hesiod.h"
@@ -442,8 +631,14 @@ else
         break
       fi
     done
-  fi
-fi
+    ;;
+*)
+    # Path given
+    CEFLAGS="$CEFLAGS -DHESIOD -I$with_hesiod/include"
+    LDEFLAGS="$LDEFLAGS -L$with_hesiod/lib"
+    LIBS="$LIBS -lhesiod"
+    ;;
+esac
 
 ###	use option --with-gssapi=DIR to compile in GSSAPI support
 AC_ARG_WITH(gssapi,
@@ -461,10 +656,9 @@ then
     LDFLAGS="$LDFLAGS -L$with_gssapi/lib"
   fi
 
-  AC_CHECK_LIB(krb5, krb5_init_context,,
-               AC_MSG_ERROR([could not find libkrb5 which is needed for GSSAPI support]))
-  if test -f "$with_kerberos5/include/roken.h"
+  if test -f "$with_gssapi/include/roken.h"
   then
+     LIBS="$LIBS -lkrb5 -lasn1 -ldes -lroken -ldb -ldl"
      AC_CHECK_LIB(gssapi, gss_init_sec_context,LIBS="$LIBS -lgssapi",
                   AC_MSG_ERROR([could not find libgssapi which is needed for GSSAPI support]), )
      AC_DEFINE(HEIMDAL)
@@ -481,14 +675,14 @@ then
   else
     AC_EGREP_HEADER(GSS_C_NT_HOSTBASED_SERVICE, gssapi/gssapi.h, AC_DEFINE(HAVE_GSS_C_NT_HOSTBASED_SERVICE))
   fi
-  CPPFLAGS=$save_CPPFLAGS
 fi])
 
 AC_OUTPUT([Makefile intl/Makefile po/Makefile.in], [
 	# The reason for this odd makedepend line is that we want
 	# to have all dependencies evaluated relative to the source directory
 	# and let VPATH do all the dirty work when we build remotely
-	echo "You can ignore any makedepend error messages";
+	echo "You can ignore any makedepend error messages:";
+	echo timestamp > stamp-h;
 	(cd $srcdir; makedepend -f - *.c) >>Makefile])
 
 dnl Local Variables:

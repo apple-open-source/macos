@@ -141,7 +141,9 @@ pthread_mutex_lock(pthread_mutex_t *mutex)
 			mutex->sem = new_sem_from_pool();
 		}
                 UNLOCK(mutex->lock);
-		PTHREAD_MACH_CALL(semaphore_wait(mutex->sem), kern_res);
+		do {
+			PTHREAD_MACH_CALL(semaphore_wait(mutex->sem), kern_res);
+		} while (kern_res == KERN_ABORTED);
                 LOCK(mutex->lock);
 		mutex->waiters--;
 		if (mutex->waiters == 0) {

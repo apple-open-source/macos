@@ -20,71 +20,79 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * Modification History
+ *
+ * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * - public API conversion
+ *
+ * March 24, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
 #include <mach/mach.h>
 #include <mach/mach_error.h>
 
-#include <SystemConfiguration/SCD.h>
+#include <SystemConfiguration/SystemConfiguration.h>
+#include <SystemConfiguration/SCPrivate.h>
+#include "SCDynamicStoreInternal.h"
 #include "config.h"		/* MiG generated file */
-#include "SCDPrivate.h"
 
-
-static CFComparisonResult
-sort_keys(const void *p1, const void *p2, void *context) {
-	CFStringRef key1 = (CFStringRef)p1;
-	CFStringRef key2 = (CFStringRef)p2;
-	return CFStringCompare(key1, key2, 0);
-}
-
-
-SCDStatus
-SCDNotifierGetChanges(SCDSessionRef session, CFArrayRef *notifierKeys)
+CFArrayRef
+SCDynamicStoreCopyNotifiedKeys(SCDynamicStoreRef store)
 {
-	SCDSessionPrivateRef	sessionPrivate = (SCDSessionPrivateRef)session;
-	kern_return_t		status;
-	CFDataRef		xmlData;	/* data (XML serialized) */
-	xmlDataOut_t		xmlDataRef;	/* serialized data */
-	int			xmlDataLen;
-	SCDStatus		scd_status;
-	CFArrayRef		allKeys;
-	CFStringRef		xmlError;
-	CFIndex			keyCnt;
-	CFMutableArrayRef	sortedKeys;
+	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
+	kern_return_t			status;
+	CFDataRef			xmlData;	/* data (XML serialized) */
+	xmlDataOut_t			xmlDataRef;	/* serialized data */
+	int				xmlDataLen;
+	int				sc_status;
+	CFArrayRef			allKeys;
+	CFStringRef			xmlError;
 
-	SCDLog(LOG_DEBUG, CFSTR("SCDNotifierGetChanges:"));
+	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCDynamicStoreCopyNotifiedKeys:"));
 
-	if ((session == NULL) || (sessionPrivate->server == MACH_PORT_NULL)) {
-		return SCD_NOSESSION;
+	if (!store) {
+		/* sorry, you must provide a session */
+		_SCErrorSet(kSCStatusNoStoreSession);
+		return NULL;
+	}
+
+	if (storePrivate->server == MACH_PORT_NULL) {
+		_SCErrorSet(kSCStatusNoStoreServer);
+		return NULL;
 	}
 
 	/* send the key & fetch the associated data from the server */
-	status = notifychanges(sessionPrivate->server,
+	status = notifychanges(storePrivate->server,
 			       &xmlDataRef,
 			       &xmlDataLen,
-			       (int *)&scd_status);
+			       (int *)&sc_status);
 
 	if (status != KERN_SUCCESS) {
 		if (status != MACH_SEND_INVALID_DEST)
-			SCDLog(LOG_DEBUG, CFSTR("notifychanges(): %s"), mach_error_string(status));
-		(void) mach_port_destroy(mach_task_self(), sessionPrivate->server);
-		sessionPrivate->server = MACH_PORT_NULL;
-		return SCD_NOSERVER;
+			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("notifychanges(): %s"), mach_error_string(status));
+		(void) mach_port_destroy(mach_task_self(), storePrivate->server);
+		storePrivate->server = MACH_PORT_NULL;
+		_SCErrorSet(status);
+		return NULL;
 	}
 
-	if (scd_status != SCD_OK) {
+	if (sc_status != kSCStatusOK) {
 		status = vm_deallocate(mach_task_self(), (vm_address_t)xmlDataRef, xmlDataLen);
 		if (status != KERN_SUCCESS) {
-			SCDLog(LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
+			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
 			/* non-fatal???, proceed */
 		}
-		*notifierKeys = NULL;
-		return scd_status;
+		_SCErrorSet(sc_status);
+		return NULL;
 	}
 
 	/* un-serialize the list of keys which have changed */
 	xmlData = CFDataCreate(NULL, xmlDataRef, xmlDataLen);
 	status = vm_deallocate(mach_task_self(), (vm_address_t)xmlDataRef, xmlDataLen);
 	if (status != KERN_SUCCESS) {
-		SCDLog(LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
+		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
 		/* non-fatal???, proceed */
 	}
 	allKeys = CFPropertyListCreateFromXMLData(NULL,
@@ -92,19 +100,16 @@ SCDNotifierGetChanges(SCDSessionRef session, CFArrayRef *notifierKeys)
 						  kCFPropertyListImmutable,
 						  &xmlError);
 	CFRelease(xmlData);
-	if (xmlError) {
-		SCDLog(LOG_DEBUG, CFSTR("CFPropertyListCreateFromXMLData() list: %s"), xmlError);
-		return SCD_FAILED;
+	if (!allKeys) {
+		if (xmlError) {
+			SCLog(_sc_verbose, LOG_DEBUG,
+			       CFSTR("CFPropertyListCreateFromXMLData() list: %@"),
+			       xmlError);
+			CFRelease(xmlError);
+		}
+		_SCErrorSet(kSCStatusFailed);
+		return NULL;
 	}
 
-	keyCnt = CFArrayGetCount(allKeys);
-	sortedKeys = CFArrayCreateMutableCopy(NULL, keyCnt, allKeys);
-	CFRelease(allKeys);
-	CFArraySortValues(sortedKeys,
-			  CFRangeMake(0, keyCnt),
-			  sort_keys,
-			  NULL);
-
-	*notifierKeys = sortedKeys;
-	return scd_status;
+	return allKeys;
 }

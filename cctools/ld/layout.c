@@ -90,6 +90,11 @@ __private_extern__ struct symtab_info output_symtab_info = { {0} };
 __private_extern__ struct dysymtab_info output_dysymtab_info = { {0} };
 
 /*
+ * The output file's two level hints load command.
+ */
+__private_extern__ struct hints_info output_hints_info = { { 0 } };
+
+/*
  * The output file's thread load command and the machine specific information
  * for it.
  */
@@ -151,6 +156,7 @@ layout(void)
 	memset(&output_mach_header, '\0', sizeof(struct mach_header));
 	memset(&output_symtab_info, '\0', sizeof(struct symtab_info));
 	memset(&output_dysymtab_info, '\0', sizeof(struct dysymtab_info));
+	memset(&output_hints_info, '\0', sizeof(struct hints_info));
 	memset(&output_thread_info, '\0', sizeof(struct thread_info));
 	memset(&mc680x0, '\0', sizeof(struct m68k_thread_state_regs));
 	memset(&powerpc,     '\0', sizeof(ppc_thread_state_t));
@@ -239,6 +245,16 @@ layout(void)
 	 * when prebinding.
 	 */
 	prebinding_check_for_dylib_override_symbols();
+
+	/*
+	 * If the users wants to see warnings about unused multiply defined
+	 * symbols when -twolevel_namespace is in effect then check for them
+	 * and print out a warning.
+	 */
+	if(nowarnings == FALSE &&
+	   twolevel_namespace == TRUE &&
+	   multiply_defined_flag != MULTIPLY_DEFINED_SUPPRESS)
+	    twolevel_namespace_check_for_unused_dylib_symbols();
 #endif RLD
 
 	/*
@@ -522,6 +538,7 @@ layout_segments(void)
 			stack_addr = get_stack_addr_from_flag(&arch_flag);
 			warning("no -stack_addr specified using the default "
 				"addr: 0x%x", (unsigned int)stack_addr);
+			stack_addr_specified = TRUE;
 		    }
 		    if(stack_size_specified == TRUE){
 			if(stack_size % segalign != 0)
@@ -629,6 +646,12 @@ layout_segments(void)
 		    else
 			warning("segment created for -seglinkedit zero size "
 			        "(output file stripped)");
+		    if(output_for_dyld &&
+		       twolevel_namespace == TRUE &&
+		       twolevel_namespace_hints == TRUE)
+			linkedit_segment.sg.filesize += 
+			    output_hints_info.twolevel_hints_command.nhints *
+			    sizeof(struct twolevel_hint);
 		    linkedit_segment.sg.vmsize =
 				round(linkedit_segment.sg.filesize, segalign);
 		    /* place this last in the merged segment list */
@@ -879,6 +902,10 @@ layout_segments(void)
 		sizeofcmds += create_sub_umbrella_commands();
 		ncmds += nsub_umbrellas;
 	    }
+	    if(nsub_librarys != 0){
+		sizeofcmds += create_sub_library_commands();
+		ncmds += nsub_librarys;
+	    }
 	    if(nallowable_clients != 0){
 		sizeofcmds += create_sub_client_commands();
 		ncmds += nallowable_clients;
@@ -964,6 +991,17 @@ layout_segments(void)
 	    output_dysymtab_info.dysymtab_command.nindirectsyms = nindirectsyms;
 	    ncmds++;
 	    sizeofcmds += output_dysymtab_info.dysymtab_command.cmdsize;
+	}
+	/*
+	 * Create the two-level namespace hints load command.
+	 */
+	if(output_for_dyld && twolevel_namespace == TRUE &&
+	   twolevel_namespace_hints == TRUE){
+	    output_hints_info.twolevel_hints_command.cmd = LC_TWOLEVEL_HINTS;
+	    output_hints_info.twolevel_hints_command.cmdsize =
+					sizeof(struct twolevel_hints_command);
+	    ncmds++;
+	    sizeofcmds += output_hints_info.twolevel_hints_command.cmdsize;
 	}
 	/*
 	 * Create the thread command if this is filetype is to have one.
@@ -1091,6 +1129,8 @@ layout_segments(void)
 	    output_mach_header.flags |= MH_TWOLEVEL;
 	if(force_flat_namespace)
 	    output_mach_header.flags |= MH_FORCE_FLAT;
+	if(nomultidefs)
+	    output_mach_header.flags |= MH_NOMULTIDEFS;
 
 	/*
 	 * The total headers size needs to be known in the case of MH_EXECUTE,
@@ -1347,6 +1387,7 @@ layout_segments(void)
 	 *		local symbols
 	 *		external defined symbols
 	 *		undefined symbols
+	 *	The two-level namespace hints table
 	 *	The external relocation entries
 	 *	The indirect symbol table
 	 *	The table of contents (MH_DYLIB only)
@@ -1456,6 +1497,13 @@ layout_segments(void)
 		offset += output_symtab_info.symtab_command.nsyms *
 			  sizeof(struct nlist);
 	    }
+	}
+	/* set the offset to the two-level namespace hints */
+	if(output_for_dyld && twolevel_namespace == TRUE &&
+	   twolevel_namespace_hints == TRUE){
+	    output_hints_info.twolevel_hints_command.offset = offset;
+	    offset += output_hints_info.twolevel_hints_command.nhints *
+		      sizeof(struct twolevel_hint);
 	}
 	if(output_for_dyld){
 	    if(output_dysymtab_info.dysymtab_command.nextrel != 0){
@@ -1756,6 +1804,8 @@ char *reserved_error_string)
 			continue;
 		    if(object_file->dylib)
 			continue;
+		    if(object_file->bundle_loader)
+			continue;
 		    if(object_file->dylinker)
 			continue;
 		    for(j = 0; j < object_file->nsection_maps; j++){
@@ -1869,6 +1919,8 @@ struct merged_segment *msg2,
 enum bool prebind_check,
 struct merged_segment *outputs_linkedit_segment)
 {
+    char *not;
+
 	if(msg1->sg.vmsize == 0 || msg2->sg.vmsize == 0)
 	    return;
 
@@ -1888,15 +1940,15 @@ struct merged_segment *outputs_linkedit_segment)
 		  msg2->sg.segname, (unsigned int)(msg2->sg.vmaddr),
 		  (unsigned int)(msg2->sg.vmsize), msg2->filename);
 	else{
-	    if(segs_read_only_addr_specified &&
-	       (((msg1 == outputs_linkedit_segment &&
+	    if((segs_read_only_addr_specified &&
+		((msg1 == outputs_linkedit_segment &&
 			msg2->split_dylib == TRUE)||
 	         (msg2 == outputs_linkedit_segment &&
-			msg1->split_dylib == TRUE)) ||
+			msg1->split_dylib == TRUE))) ||
 		 (msg1->split_dylib == TRUE &&
 			strcmp(msg1->sg.segname, SEG_LINKEDIT) == 0) ||
 		 (msg2->split_dylib == TRUE &&
-			strcmp(msg2->sg.segname, SEG_LINKEDIT) == 0))){
+			strcmp(msg2->sg.segname, SEG_LINKEDIT) == 0)){
 		warning("prebinding not disabled even though (%.16s segment "
 			"(address = 0x%x size = 0x%x) of %s overlaps with "
 			"%.16s segment (address = 0x%x size = 0x%x) of %s on "
@@ -1908,13 +1960,19 @@ struct merged_segment *outputs_linkedit_segment)
 			(unsigned int)(msg2->sg.vmsize), msg2->filename);
 		return;
 	    }
-	    warning("prebinding disabled because (%.16s segment (address = "
+	    if(prebind_allow_overlap == TRUE)
+		not = " not";
+	    else
+		not = "";
+	    warning("prebinding%s disabled because (%.16s segment (address = "
 		    "0x%x size = 0x%x) of %s overlaps with %.16s segment "
-		    "(address = 0x%x size = 0x%x) of %s",
+		    "(address = 0x%x size = 0x%x) of %s", not,
 		    msg1->sg.segname, (unsigned int)(msg1->sg.vmaddr),
 		    (unsigned int)(msg1->sg.vmsize), msg1->filename,
 		    msg2->sg.segname, (unsigned int)(msg2->sg.vmaddr),
 		    (unsigned int)(msg2->sg.vmsize), msg2->filename);
+	    if(prebind_allow_overlap == TRUE)
+		return;
 	    if(rc_trace_prebinding_disabled == TRUE)
 		print("[Logging for Build & Integration] prebinding disabled "
 		      "for %s because (%.16s segment (address = 0x%x size = "
@@ -2064,6 +2122,8 @@ struct merged_section *ms)
 		if(object_file == base_obj)
 		    continue;
 		if(object_file->dylib)
+		    continue;
+		if(object_file->bundle_loader)
 		    continue;
 		if(object_file->dylinker)
 		    continue;

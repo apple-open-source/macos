@@ -4,7 +4,7 @@
 # Synopsis: Holds class and instance data members parsed by headerDoc
 #
 # Author: Matt Morse (matt@apple.com)
-# Last Updated: 12/9/99
+# Last Updated: $Date: 2001/03/01 07:25:08 $
 # 
 # Copyright (c) 1999 Apple Computer, Inc.  All Rights Reserved.
 # The contents of this file constitute Original Code as defined in and are
@@ -90,6 +90,50 @@ sub setVarDeclaration {
     $self->declarationInHTML($dec);
     return $dec;
 }
+
+sub documentationBlock {
+    my $self = shift;
+    my $contentString;
+    my $name = $self->name();
+    my $abstract = $self->abstract();
+    my $desc = $self->discussion();
+    my $declaration = $self->declarationInHTML();
+    my @fields = $self->fields();
+    my $fieldHeading = "Fields";
+    
+    if ($self->can('isFunctionPointer')) {
+        if ($self->isFunctionPointer()) {
+            $fieldHeading = "Parameters";
+        }
+    }
+    
+    $contentString .= "<h3><a name=\"$name\">$name</a></h3>\n";
+    if (length($abstract)) {
+        $contentString .= "<b>Abstract:</b> $abstract\n";
+    }
+    $contentString .= "<blockquote>$declaration</blockquote>\n";
+    $contentString .= "<p>$desc</p>\n";
+    my $arrayLength = @fields;
+    if ($arrayLength > 0) {
+        $contentString .= "<h4>$fieldHeading</h4>\n";
+        $contentString .= "<blockquote>\n";
+        $contentString .= "<table border = \"1\"  width = \"90%\">\n";
+        $contentString .= "<thead><tr><th>Name</th><th>Description</th></tr></thead>\n";
+        foreach my $element (@fields) {
+            my $fName;
+            my $fDesc;
+            $element =~ s/^\s+|\s+$//g;
+            $element =~ /(\w*)\s*(.*)/;
+            $fName = $1;
+            $fDesc = $2;
+            $contentString .= "<tr><td align = \"center\"><tt>$fName</tt></td><td>$fDesc</td><tr>\n";
+        }
+        $contentString .= "</table>\n</blockquote>\n";
+    }
+    $contentString .= "<hr>\n";
+    return $contentString;
+}
+
 
 sub printObject {
     my $self = shift;

@@ -24,6 +24,10 @@
 #ifndef _MACH_O_DYLD_H_
 #define _MACH_O_DYLD_H_
 
+#if __cplusplus
+extern "C" {
+#endif /* __cplusplus */
+
 #if defined(__MWERKS__) && !defined(__private_extern__)
 #define __private_extern__ __declspec(private_extern)
 #endif
@@ -71,7 +75,6 @@ extern NSObjectFileImageReturnCode NSCreateObjectFileImageFromMemory(
     void *address,
     unsigned long size, 
     NSObjectFileImage *objectFileImage);
-/* not yet implemented */
 extern enum DYLD_BOOL NSDestroyObjectFileImage(
     NSObjectFileImage objectFileImage);
 /*
@@ -148,6 +151,9 @@ extern enum DYLD_BOOL NSIsSymbolNameDefined(
 extern enum DYLD_BOOL NSIsSymbolNameDefinedWithHint(
     const char *symbolName,
     const char *libraryNameHint);
+extern enum DYLD_BOOL NSIsSymbolNameDefinedInImage(
+    const struct mach_header *image,
+    const char *symbolName);
 extern NSSymbol NSLookupAndBindSymbol(
     const char *symbolName);
 extern NSSymbol NSLookupAndBindSymbolWithHint(
@@ -156,6 +162,14 @@ extern NSSymbol NSLookupAndBindSymbolWithHint(
 extern NSSymbol NSLookupSymbolInModule(
     NSModule module,
     const char *symbolName);
+extern NSSymbol NSLookupSymbolInImage(
+    const struct mach_header *image,
+    const char *symbolName,
+    unsigned long options);
+#define NSLOOKUPSYMBOLINIMAGE_OPTION_BIND            0x0
+#define NSLOOKUPSYMBOLINIMAGE_OPTION_BIND_NOW        0x1
+#define NSLOOKUPSYMBOLINIMAGE_OPTION_BIND_FULLY      0x2
+#define NSLOOKUPSYMBOLINIMAGE_OPTION_RETURN_ON_ERROR 0x4
 extern const char * NSNameOfSymbol(
     NSSymbol symbol);
 extern void * NSAddressOfSymbol(
@@ -185,7 +199,8 @@ typedef enum {
     NSOtherErrorRelocation, 
     NSOtherErrorLazyBind,
     NSOtherErrorIndrLoop,
-    NSOtherErrorLazyInit
+    NSOtherErrorLazyInit,
+    NSOtherErrorInvalidArgs
 } NSOtherErrorNumbers;
 
 extern void NSLinkEditError(
@@ -209,6 +224,13 @@ extern enum DYLD_BOOL NSAddLibrary(
     const char *pathName);
 extern enum DYLD_BOOL NSAddLibraryWithSearching(
     const char *pathName);
+extern const struct mach_header * NSAddImage(
+    const char *image_name,
+    unsigned long options);
+#define NSADDIMAGE_OPTION_NONE                  0x0
+#define NSADDIMAGE_OPTION_RETURN_ON_ERROR       0x1
+#define NSADDIMAGE_OPTION_WITH_SEARCHING        0x2
+#define NSADDIMAGE_OPTION_RETURN_ONLY_IF_LOADED 0x4
 extern long NSVersionOfRunTimeLibrary(
     const char *libraryName);
 extern long NSVersionOfLinkTimeLibrary(
@@ -277,5 +299,9 @@ extern void _dyld_lookup_and_bind_fully(
 __private_extern__ int _dyld_func_lookup(
     const char *dyld_func_name,
     unsigned long *address);
+
+#if __cplusplus
+}
+#endif /* __cplusplus */
 
 #endif /* _MACH_O_DYLD_H_ */

@@ -323,9 +323,6 @@ gdb_lookup_interpreter(char *name)
   if (name == NULL || strlen (name) == 0)
     return NULL;
 
-  if (strcmp (name, "current") == 0)
-    return current;
-
   for (interp = interp_list; interp != NULL; interp = interp->next)
     {
       if (strcmp (interp->name, name) == 0)
@@ -334,6 +331,31 @@ gdb_lookup_interpreter(char *name)
   
   return NULL;
 } 
+
+/*
+ * gdb_current_interpreter - Returns the current interpreter.
+ */
+
+struct gdb_interpreter *
+gdb_current_interpreter()
+{
+  return current;
+}
+
+/*
+ * gdb_current_interpreter_is -- returns true if the current interp is 
+ *   the passed in name.
+ */
+int 
+gdb_current_interpreter_is_named(char *interp_name)
+{
+    struct gdb_interpreter *current_interp = gdb_current_interpreter();
+    
+    if (current_interp)
+        return (strcmp(current_interp->name, interp_name) == 0);
+        
+    return 0;
+}
 
 /*
  * gdb_interpreter_display_prompt - This is called in display_gdb_prompt.
@@ -483,6 +505,55 @@ list_interpreter_cmd (char *args, int from_tty)
   ui_out_list_end (uiout);
 }
 
+void
+interpreter_exec_cmd (char *args, int from_tty)
+{
+  struct gdb_interpreter *old_interp, *interp_to_use;
+  char **prules = NULL;
+  char **trule = NULL;
+  unsigned int nrules;
+  unsigned int i;
+  int old_quiet;
+
+  prules = buildargv (args);
+  if (prules == NULL) {
+    error ("unable to parse arguments");
+  }
+
+  nrules = 0;
+  if (prules != NULL) {
+    for (trule = prules; *trule != NULL; trule++) {
+      nrules++;
+    }
+  }
+  
+  if (nrules < 2)
+    error ("usage: interpreter-exec <interpreter> [ <command> ... ]");
+
+  old_interp = gdb_current_interpreter ();
+
+  interp_to_use = gdb_lookup_interpreter (prules[0]);
+  if (interp_to_use == NULL)
+    error ("Could not find interpreter \"%s\".", prules[0]);
+  
+  old_quiet = gdb_interpreter_set_quiet (interp_to_use, 1);
+  
+  if (! gdb_set_interpreter (interp_to_use))
+    error ("Could not switch to interpreter \"%s\".", prules[0]);
+  
+  for (i = 1; i < nrules; i++) {
+    if (! safe_execute_command (prules[i], 0)) {
+      gdb_set_interpreter (old_interp);
+      gdb_interpreter_set_quiet (interp_to_use, old_quiet);
+      error ("interpreter-exec: mi_interpreter_execute: error in command: \"%s\".", prules[i]);
+      break;
+    }
+  }
+  
+  gdb_set_interpreter (old_interp);
+  gdb_interpreter_set_quiet (interp_to_use, old_quiet);
+}
+
 /* _initialize_interpreter - This just adds the "set interpreter" and
  * "info interpreters" commands.
  */
@@ -505,4 +576,9 @@ _initialize_interpreter (void)
 	       list_interpreter_cmd,
 	   "List the interpreters currently available in gdb.",
 	       &infolist);
+
+  add_cmd ("interpreter-exec", class_support,
+	       interpreter_exec_cmd,
+	   "List the interpreters currently available in gdb.",
+	       &cmdlist);
 }

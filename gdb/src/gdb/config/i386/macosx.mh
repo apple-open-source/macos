@@ -42,13 +42,33 @@ NATDEPFILES = \
 	inftarg.o \
 	$(IA86_FILES) \
 	$(NEXT_FILES) \
-	$(MACOSX_FILES)
+	$(MACOSX_FILES) \
+	$(CFM_FILES)
 
-XM_CLIBS = 
+XM_CLIBS = $(CFM_LIBS)
 
 MH_CFLAGS = \
 	-DNS_TARGET_MAJOR=5 \
-	-I$(srcdir)/../gdb-next
+	-I$(srcdir)/../gdb-next \
+	$(CFM_CFLAGS)
+
+ifeq ("$(WITHOUT_CFM)", "")
+
+CFM_FILES = \
+	nextstep-nat-cfm.o \
+	nextstep-nat-cfm-io.o \
+	nextstep-nat-cfm-process.o \
+        nextstep-nat-cfmthread.o \
+	macosx-metrowerks.o
+
+CFM_CFLAGS = -DWITH_CFM=1
+
+else
+CFM_FILES =
+CFM_CFLAGS =
+endif
+
+CFM_LIBS = 
 
 ifneq ("$(USE_CTHREADS)", "")
 MH_CFLAGS += -DUSE_CTHREADS=1

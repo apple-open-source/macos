@@ -38,7 +38,6 @@
 #include "objfiles.h"
 
 #ifdef TARGET_HAS_EMBEDDED_SYMBOLS
-#include "embedded-symbol.h"
 #endif
 
 #ifdef UI_OUT

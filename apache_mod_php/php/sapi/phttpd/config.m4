@@ -1,4 +1,4 @@
-dnl ## $Id: config.m4,v 1.2 2000/08/11 20:59:22 wsanchez Exp $ -*- sh -*-
+dnl ## $Id: config.m4,v 1.3 2001/07/19 00:47:53 zarzycki Exp $ -*- sh -*-
 
 RESULT=no
 AC_MSG_CHECKING(for PHTTPD support)
@@ -10,7 +10,7 @@ AC_ARG_WITH(phttpd,
 	fi
 	PHP_BUILD_THREAD_SAFE
 	PHTTPD_DIR=$withval
-	AC_ADD_INCLUDE($PHTTPD_DIR/include)
+	PHP_ADD_INCLUDE($PHTTPD_DIR/include)
 	AC_DEFINE(HAVE_PHTTPD,1,[Whether you have phttpd])
 	PHP_SAPI=phttpd
 	PHP_BUILD_SHARED

@@ -27,6 +27,10 @@
 #include "gdb_string.h"
 #include "mi-getopt.h"
 #include "gdb-events.h"
+#include "interpreter.h"
+
+/* There really ought to be a global mi .h file for this stuff... */
+extern struct gdb_interpreter *mi_interp;
 
 /* Convenience macro for allocting typesafe memory. */
 
@@ -258,4 +262,63 @@ mi_cmd_break_watch (char *command, char **argv, int argc)
       error ("mi_cmd_break_watch: Unknown watchpoint type.");
     }
   return MI_CMD_DONE;
+}
+
+void
+mi_interp_create_breakpoint_hook (struct breakpoint *bpt)
+{
+  CORE_ADDR unusued_addr;
+  struct ui_out *saved_ui_out = uiout;
+  struct mi_out *tmp_mi_out;
+
+  uiout = mi_interp->interpreter_out;
+
+  /* This is a little inefficient, but it probably isn't worth adding
+     a gdb_breakpoint_query that takes a bpt structure... */
+
+  ui_out_list_begin (uiout, "MI_HOOK_RESULT");
+  ui_out_field_string (uiout, "HOOK_TYPE", "breakpoint_create");
+  gdb_breakpoint_query (bpt->number);
+  ui_out_list_end (uiout);
+  uiout = saved_ui_out; 
+}
+
+void
+mi_interp_modify_breakpoint_hook (struct breakpoint *bpt)
+{
+
+  CORE_ADDR unusued_addr;
+  struct ui_out *saved_ui_out = uiout;
+  struct mi_out *tmp_mi_out;
+
+  uiout = mi_interp->interpreter_out;
+
+  /* This is a little inefficient, but it probably isn't worth adding
+     a gdb_breakpoint_query that takes a bpt structure... */
+
+  ui_out_list_begin (uiout, "MI_HOOK_RESULT");
+  ui_out_field_string (uiout, "HOOK_TYPE", "breakpoint_modify");
+  gdb_breakpoint_query (bpt->number);
+  ui_out_list_end (uiout);
+  uiout = saved_ui_out; 
+}
+
+void
+mi_interp_delete_breakpoint_hook (struct breakpoint *bpt)
+{
+  CORE_ADDR unusued_addr;
+  struct ui_out *saved_ui_out = uiout;
+  struct mi_out *tmp_mi_out;
+
+  uiout = mi_interp->interpreter_out;
+
+  /* This is a little inefficient, but it probably isn't worth adding
+     a gdb_breakpoint_query that takes a bpt structure... */
+
+  ui_out_list_begin (uiout, "MI_HOOK_RESULT");
+  ui_out_field_string (uiout, "HOOK_TYPE", "breakpoint_delete");
+  ui_out_field_int (uiout, "bkptno", bpt->number);
+  ui_out_list_end (uiout);
+  uiout = saved_ui_out; 
+
 }

@@ -1,2 +1,4 @@
-this extension dosn't do anything useful yet
-but it should at least configure and compile without problems
+This extension now provides basic functionality that is provided by the ZZiplib library
+and it has not been extensively tested (only basic functionality).
+
+

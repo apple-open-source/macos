@@ -34,7 +34,9 @@ extern void local_relocation(
 
 extern void undo_prebound_lazy_pointers(
     struct image *image,
-    unsigned long PB_LA_PTR_r_type);
+    unsigned long PB_LA_PTR_r_type,
+    enum bool all_lazy_pointers,
+    unsigned long lazy_pointer_address);
 
 extern enum link_state external_relocation(
     struct image *image,

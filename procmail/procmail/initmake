@@ -1,7 +1,7 @@
 #! /bin/sh
 :
 # Copyright (c) 1992-1999, S.R. van den Berg, The Netherlands
-#$Id: initmake,v 1.1.1.1 1999/09/23 17:30:06 wsanchez Exp $
+#$Id: initmake,v 1.1.1.2 2001/07/20 19:38:11 bbraun Exp $
 
 if test -z "$IFS"
 then IFS=" \
@@ -47,6 +47,7 @@ shift; MANS1S="$1"
 shift; MANS5S="$1"
 shift; SUBDIRS="$1"
 shift; VISIBLE_BINDIR="$1"
+shift; STRIP="$1"
 
 test 1 != $# &&
  echo "Don't start this script directly, use \`make init'" && exit 1
@@ -129,6 +130,26 @@ main()
 HERE
 $RM _autotst.rrr _autotst.$O _autotst ../man/core_ln
 
+dostrip=no
+
+case "$LDFLAGS1" in
+  *-s*)
+     LDF=""
+     for a in __dummy__ $LDFLAGS1
+     do
+       if test __dummy__ != $a
+       then
+	  if test X-s = X$a
+	  then
+	     dostrip=yes
+	  else
+	     LDF="$LDF $a"
+	  fi
+       fi
+     done
+     LDFLAGS1="$LDF";;
+esac
+
 cc=""
 
 for a in "$CC" cc gcc
@@ -152,6 +173,28 @@ then
 fi
 $RM _autotst.rrr _autotst.$O _autotst
 echo "$cc seems to work fine, using that as the C-compiler"
+
+if test $dostrip = yes
+then
+  if $cc $CFLAGS1 _autotst.c -o _autotst $LDFLAGS1 -s >$DEVNULL 2>&1
+  then
+     LDFLAGS1="$LDFLAGS1 -s"
+     dostrip=no
+     STRIP=""
+  else
+     $cc $CFLAGS1 _autotst.c -o _autotst $LDFLAGS1 >$DEVNULL 2>&1
+     if test ! -z "$STRIP" && $STRIP _autotst >$DEVNULL 2>&1
+     then
+	:
+     else
+	STRIP=""
+     fi
+  fi
+  $RM _autotst.rrr _autotst.$O _autotst
+else
+  STRIP=""
+fi
+
 
 cat >_autotst.c <<HERE
 #include <sys/types.h>
@@ -357,6 +400,13 @@ LDFLAGS="$LDFLAGS$LDFLAGSC"
 
 test -z "$CFLAGS" || echo "Added CFLAGS=$CFLAGS"
 test -z "$LDFLAGS" || echo "Added LDFLAGS=$LDFLAGS"
+if test $dostrip = yes
+then
+  LDFLAGS="$LDFLAGS1$LDFLAGS"
+  echo "Evaded -s in LDFLAGS1"
+else
+  LDFLAGS="\$(LDFLAGS1)$LDFLAGS"
+fi
 
 for a in $SUBDIRS
 do
@@ -378,12 +428,13 @@ echo "# Makefile.1 - mark, don't (re)move this, a sed script needs it
 
 test a$SHELL != a$MSHELL && echo  "SHELL	= $SHELL"	>>_Makefile
 echo "FGREP	= $FGREP"				>>_Makefile
+echo "STRIP	= $STRIP"				>>_Makefile
 test -z "$newln" || echo "LN	= $LN"			>>_Makefile
 test -z "$MAKE" && echo "MAKE	= make"			>>_Makefile
 test a"$cc" != a"$CC" && echo "CC	= $cc"		>>_Makefile
 
 echo "CFLAGS	= \$(CFLAGS1)$CFLAGS"			>>_Makefile
-echo "LDFLAGS	= \$(LDFLAGS1)$LDFLAGS"			>>_Makefile
+echo "LDFLAGS	= $LDFLAGS"				>>_Makefile
 echo							>>_Makefile
 
 MANSS=""

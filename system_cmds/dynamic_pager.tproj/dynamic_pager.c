@@ -75,11 +75,21 @@ server_alert_loop(
                      max_size + MAX_TRAILER_SIZE,
                      TRUE)) != KERN_SUCCESS)
       return kr;
+    if ((kr = vm_protect(mach_task_self(),
+                     (vm_address_t)bufRequest,
+                     max_size + MAX_TRAILER_SIZE,
+		     FALSE, VM_PROT_ALL)) != KERN_SUCCESS)
+      return kr;
     mlock(bufRequest, max_size + MAX_TRAILER_SIZE);
     if ((kr = vm_allocate(mach_task_self(),
                      (vm_address_t *)&bufReply,
                      max_size + MAX_TRAILER_SIZE,
                      TRUE)) != KERN_SUCCESS)
+      return kr;
+    if ((kr = vm_protect(mach_task_self(),
+                     (vm_address_t)bufReply,
+                     max_size + MAX_TRAILER_SIZE,
+		     FALSE, VM_PROT_ALL)) != KERN_SUCCESS)
       return kr;
     mlock(bufReply, max_size + MAX_TRAILER_SIZE);
     while(TRUE) {
@@ -274,7 +284,6 @@ paging_setup(flags, size, priority, low, high)
 	off_t		filesize = size;
 	char 		subfile[512];
 	FILE 		*file_ptr;
-        kern_return_t   error;
 
 	file_count = 0;
 	sprintf(subfile, "%s%d", fileroot, file_count);
@@ -285,6 +294,8 @@ paging_setup(flags, size, priority, low, high)
         
 	macx_swapon(subfile, flags, size, priority);
 	if(hi_water) {
+		mach_msg_type_name_t    poly;
+
 		daemon(0,0);
 
 		if (mach_port_allocate(mach_task_self(), 
@@ -293,6 +304,9 @@ paging_setup(flags, size, priority, low, high)
 			fprintf(stderr,"allocation of trigger port failed\n");
 			exit(1);
 		}
+		/* create a send right on our local port */
+		mach_port_extract_right(mach_task_self(), trigger_port,
+			MACH_MSG_TYPE_MAKE_SEND, &trigger_port, &poly);
 		macx_triggers(high, low, HI_WAT_ALERT, trigger_port);
 		if(low) {
 			macx_triggers(high, 

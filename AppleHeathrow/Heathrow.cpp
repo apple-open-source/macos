@@ -59,9 +59,17 @@ bool Heathrow::start(IOService *provider)
   heathrow_sleepState = OSSymbol::withCString("heathrow_sleepState");
   heathrow_powerMediaBay = OSSymbol::withCString("powerMediaBay");
   heathrow_set_light = OSSymbol::withCString("heathrow_set_light");
+  heathrow_writeRegUInt8 = OSSymbol::withCString("heathrow_writeRegUInt8");
+  heathrow_safeWriteRegUInt8 = OSSymbol::withCString("heathrow_safeWriteRegUInt8");
+  heathrow_safeReadRegUInt8 = OSSymbol::withCString("heathrow_safeReadRegUInt8");
+  heathrow_safeWriteRegUInt32 = OSSymbol::withCString("heathrow_safeWriteRegUInt32");
+  heathrow_safeReadRegUInt32 = OSSymbol::withCString("heathrow_safeReadRegUInt32");
 
   // just initializes this:
   mediaIsOn = true;
+
+  // sets up the mutex lock:
+  mutex = IOSimpleLockAlloc();
       
   // Figure out which heathrow this is.
   if (IODTMatchNubWithKeys(provider, "heathrow"))
@@ -126,10 +134,53 @@ IOReturn Heathrow::callPlatformFunction(const OSSymbol *functionName,
         return kIOReturnSuccess;
     }
 
+    if (functionName->isEqualTo("ModemResetLow"))
+    {
+        ModemResetLow();
+        return kIOReturnSuccess;
+    }
+
+    if (functionName->isEqualTo("ModemResetHigh"))
+    {
+        ModemResetHigh();
+        return kIOReturnSuccess;
+    }
 
     if (functionName == heathrow_set_light)
     {
         setChassisLightFullpower((bool)param1);
+        return kIOReturnSuccess;
+    }
+
+    if (functionName == heathrow_writeRegUInt8)
+    {
+        writeRegUInt8(*(unsigned long *)param1, (UInt8)param2);
+        return kIOReturnSuccess;
+    }
+
+    if (functionName == heathrow_safeWriteRegUInt8)
+    {
+        safeWriteRegUInt8((unsigned long)param1, (UInt8)param2, (UInt8)param3);
+        return kIOReturnSuccess;
+    }
+
+    if (functionName == heathrow_safeReadRegUInt8)
+    {
+        UInt8 *returnval = (UInt8 *)param2;
+        *returnval = safeReadRegUInt8((unsigned long)param1);
+        return kIOReturnSuccess;
+    }
+
+    if (functionName == heathrow_safeWriteRegUInt32)
+    {
+        safeWriteRegUInt32((unsigned long)param1, (UInt32)param2, (UInt32)param3);
+        return kIOReturnSuccess;
+    }
+
+    if (functionName == heathrow_safeReadRegUInt32)
+    {
+        UInt32 *returnval = param2;
+        *returnval = safeReadRegUInt32((unsigned long)param1);
         return kIOReturnSuccess;
     }
 
@@ -182,6 +233,100 @@ void Heathrow::PowerModem(bool state)
     }
 
     return;
+}
+
+void Heathrow::ModemResetLow()
+{
+        *(UInt8*)(heathrowBaseAddress + 0x6D) &= ~0x01;
+        eieio();
+}
+
+void Heathrow::ModemResetHigh()
+{
+        *(UInt8*)(heathrowBaseAddress + 0x6D) |= 0x01;
+        eieio();
+}
+
+UInt8 Heathrow::readRegUInt8(unsigned long offset)
+{
+    return *(UInt8 *)(heathrowBaseAddress + offset);
+}
+
+void Heathrow::writeRegUInt8(unsigned long offset, UInt8 data)
+{
+    *(UInt8 *)(heathrowBaseAddress + offset) = data;
+    eieio();
+}
+
+void Heathrow::safeWriteRegUInt8(unsigned long offset, UInt8 mask, UInt8 data)
+{
+  IOInterruptState intState;
+
+  if ( mutex  != NULL )
+     intState = IOSimpleLockLockDisableInterrupt(mutex);
+
+  UInt8 currentReg = readRegUInt8(offset);
+  currentReg = (currentReg & ~mask) | (data & mask);
+  writeRegUInt8(offset, currentReg);
+  
+  if ( mutex  != NULL )
+     IOSimpleLockUnlockEnableInterrupt(mutex, intState);
+}
+
+UInt8 Heathrow::safeReadRegUInt8(unsigned long offset)
+{
+  IOInterruptState intState;
+
+  if ( mutex  != NULL )
+     intState = IOSimpleLockLockDisableInterrupt(mutex);
+  
+  UInt8 currentReg = readRegUInt8(offset);
+  
+  if ( mutex  != NULL )
+     IOSimpleLockUnlockEnableInterrupt(mutex, intState);
+
+  return (currentReg);  
+}
+
+UInt32 Heathrow::readRegUInt32(unsigned long offset)
+{
+    return lwbrx(heathrowBaseAddress + offset);
+}
+
+void Heathrow::writeRegUInt32(unsigned long offset, UInt32 data)
+{
+  stwbrx(data, heathrowBaseAddress + offset);
+  eieio();
+}
+
+void Heathrow::safeWriteRegUInt32(unsigned long offset, UInt32 mask, UInt32 data)
+{
+  IOInterruptState intState;
+
+  if ( mutex  != NULL )
+     intState = IOSimpleLockLockDisableInterrupt(mutex);
+
+  UInt32 currentReg = readRegUInt32(offset);
+  currentReg = (currentReg & ~mask) | (data & mask);
+  writeRegUInt32(offset, currentReg);
+  
+  if ( mutex  != NULL )
+     IOSimpleLockUnlockEnableInterrupt(mutex, intState);
+}
+
+UInt32 Heathrow::safeReadRegUInt32(unsigned long offset)
+{
+  IOInterruptState intState;
+
+  if ( mutex  != NULL )
+     intState = IOSimpleLockLockDisableInterrupt(mutex);
+  
+  UInt32 currentReg = readRegUInt32(offset);
+  
+  if ( mutex  != NULL )
+     IOSimpleLockUnlockEnableInterrupt(mutex, intState);
+
+  return (currentReg);  
 }
 
 // --------------------------------------------------------------------------
@@ -837,7 +982,8 @@ int HeathrowInterruptController::getVectorType(long vectorNumber, IOInterruptVec
 void HeathrowInterruptController::disableVectorHard(long vectorNumber, IOInterruptVector */*vector*/)
 {
   unsigned long     maskTmp;
-  
+  boolean_t         interruptState = ml_set_interrupts_enabled(FALSE);
+
   // Turn the source off at hardware.
   if (vectorNumber < kVectorsPerReg) {
     maskTmp = lwbrx(mask1Reg);
@@ -851,28 +997,43 @@ void HeathrowInterruptController::disableVectorHard(long vectorNumber, IOInterru
     stwbrx(maskTmp, mask2Reg);
     eieio();
   }
+  
+  ml_set_interrupts_enabled(interruptState);
 }
 
 void HeathrowInterruptController::enableVector(long vectorNumber,
 					       IOInterruptVector *vector)
 {
   unsigned long     maskTmp;
-  
+  boolean_t         interruptState;
+
   if (vectorNumber < kVectorsPerReg) {
+
+    interruptState = ml_set_interrupts_enabled(FALSE);
+
     maskTmp = lwbrx(mask1Reg);
     maskTmp |= (1 << vectorNumber);
     stwbrx(maskTmp, mask1Reg);
     eieio();
+    
+    ml_set_interrupts_enabled(interruptState);
+
     if ((lwbrx(levels1Reg) & (1 << vectorNumber)) && (vector != NULL)) {
       // lost the interrupt
       causeVector(vectorNumber, vector);
     }
   } else {
     vectorNumber -= kVectorsPerReg;
+
+    interruptState = ml_set_interrupts_enabled(FALSE);
+
     maskTmp = lwbrx(mask2Reg);
     maskTmp |= (1 << vectorNumber);
     stwbrx(maskTmp, mask2Reg);
     eieio();
+
+    ml_set_interrupts_enabled(interruptState);
+
     if ((lwbrx(levels1Reg) & (1 << vectorNumber)) && (vector != NULL)) {
       // lost the interrupt
       causeVector(vectorNumber + kVectorsPerReg, vector);
@@ -883,12 +1044,16 @@ void HeathrowInterruptController::enableVector(long vectorNumber,
 void HeathrowInterruptController::causeVector(long vectorNumber,
 					      IOInterruptVector */*vector*/)
 {
+  boolean_t  interruptState = ml_set_interrupts_enabled(FALSE);
+  
   if (vectorNumber < kVectorsPerReg) {
     pendingEvents1 |= 1 << vectorNumber;
   } else {
     vectorNumber -= kVectorsPerReg;
     pendingEvents2 |= 1 << vectorNumber;
   }
-
+  
+  ml_set_interrupts_enabled(interruptState);
+    
   parentNub->causeInterrupt(0);
 }

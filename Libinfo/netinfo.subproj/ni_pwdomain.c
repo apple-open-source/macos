@@ -44,6 +44,7 @@
 #include <sys/socket.h>
 #include <net/if.h>
 #include <sys/ioctl.h>
+#include "sys_interfaces.h"
 
 extern char *inet_ntoa();
 
@@ -52,99 +53,6 @@ static const char NAME_MACHINES[] = "machines";
 static const char NAME_IP_ADDRESS[] = "ip_address";
 static const char NAME_SERVES[] = "serves";
 static const char NAME_UNKNOWN[] = "###UNKNOWN###";
-
-typedef struct
-{
-	char name[IFNAMSIZ];
-	short flags;
-	struct in_addr addr;
-	struct in_addr mask;
-	struct in_addr netaddr;
-	struct in_addr bcast;
-} interface_t;
-
-typedef struct
-{
-	unsigned int count;
-	interface_t *interface;
-} interface_list_t;
-
-static interface_list_t *my_interfaces = NULL;
-
-static interface_list_t *
-sys_interfaces(void)
-{
-	struct ifconf ifc;
-	struct ifreq *ifr;
-	char buf[1024]; /* XXX */
-	int offset, addrlen, extra, delta;
-	int sock;
-	interface_t *iface;
-
-	if (my_interfaces != NULL) return my_interfaces;
-
-	sock = socket(AF_INET, SOCK_DGRAM, 0);
-
-	if (sock < 0) return NULL;
-
-	ifc.ifc_len = sizeof(buf);
-	ifc.ifc_buf = buf;
-
-	if (ioctl(sock, SIOCGIFCONF, (char *)&ifc) < 0)
-	{
-		close(sock);
-		return NULL;
-	}
-
-	my_interfaces = (interface_list_t *)malloc(sizeof(interface_list_t));
-	my_interfaces->count = 0;
-	my_interfaces->interface = NULL;
-
-	delta = sizeof(struct ifreq);
-	addrlen = delta - IFNAMSIZ;
-	extra = 0;
-
-	offset = 0;
-
-	while (offset <= ifc.ifc_len)
-	{
-		ifr = (struct ifreq *)(ifc.ifc_buf + offset);
-
-#ifndef _NO_SOCKADDR_LENGTH_
-		extra = ifr->ifr_addr.sa_len - addrlen;
-		if (extra < 0) extra = 0;
-#endif
-
-		offset = offset + delta + extra;
-
-		if (ifr->ifr_addr.sa_family != AF_INET) continue;
-		if (ioctl(sock, SIOCGIFFLAGS, (char *)ifr) < 0) continue;
-
-		my_interfaces->count++;
-		if (my_interfaces->count == 1)
-		{
-			my_interfaces->interface = (interface_t *)malloc(sizeof(interface_t));
-		}
-		else
-		{
-			my_interfaces->interface = (interface_t *)realloc(my_interfaces->interface, my_interfaces->count * sizeof(interface_t));
-		}
-
-		iface = &(my_interfaces->interface[my_interfaces->count - 1]);
-		memset(iface, 0, sizeof(interface_t));
-
-		memmove(iface->name, ifr->ifr_name, IFNAMSIZ);
-		iface->flags = ifr->ifr_ifru.ifru_flags;
-		iface->addr.s_addr = ((struct sockaddr_in *)&(ifr->ifr_addr))->sin_addr.s_addr;
-		ioctl(sock, SIOCGIFNETMASK, (char *)ifr);
-		iface->mask.s_addr = ((struct sockaddr_in *)&(ifr->ifr_addr))->sin_addr.s_addr;
-		iface->netaddr.s_addr = iface->addr.s_addr & iface->mask.s_addr;
-		iface->bcast.s_addr = iface->netaddr.s_addr | (~iface->mask.s_addr);
-	}
-
-	close(sock);
-	return my_interfaces;
-}
 
 static ni_name
 escape_domain(ni_name name)
@@ -221,22 +129,6 @@ finddomain(void *ni, struct in_addr addr, ni_name tag)
 	return NULL;
 }
 
-static int
-sys_is_my_address(struct in_addr *a)
-{
-	int i;
-	interface_list_t *l;
-
-	l = sys_interfaces();
-	if (l == NULL) return 0;
-	
-	for (i = 0; i < l->count; i++)
-	{
-		if (a->s_addr == l->interface[i].addr.s_addr) return 1;
-	}
-	return 0;
-}
-
 static char *
 ni_domainof(void *ni, void *parent)
 {
@@ -257,12 +149,11 @@ ni_domainof(void *ni, void *parent)
 		return dom;
 	}
 
-	if (sys_is_my_address(&(addr.sin_addr)))
+	ilist = sys_interfaces();
+	if (ilist == NULL) return ni_name_dup(NAME_UNKNOWN);
+	if (sys_is_my_address(ilist, &(addr.sin_addr)))
 	{
 		/* Try all my non-loopback interfaces */
-		ilist = sys_interfaces();
-		if (ilist == NULL) return ni_name_dup(NAME_UNKNOWN);
-
 		for (i = 0; i < ilist->count; i++)
 		{
 			if (ilist->interface[i].addr.s_addr == htonl(INADDR_LOOPBACK)) continue;
@@ -272,10 +163,12 @@ ni_domainof(void *ni, void *parent)
 			if (dom != NULL)
 			{
 				ni_name_free(&tag);
+				sys_interfaces_release(ilist);
 				return dom;
 			}
 		}
 	}
+	sys_interfaces_release(ilist);
 
 	dom = malloc(strlen(tag) + 256);
 	sprintf(dom, "%s@%s", tag, inet_ntoa(addr.sin_addr.s_addr));

@@ -262,6 +262,7 @@ static int gdb_wait_for_event (void);
 static int gdb_do_one_event (void *data);
 static int check_async_ready (void);
 void async_queue_event (gdb_event * event_ptr, queue_position position);
+int sigint_taken_p(void);
 static gdb_event *create_file_event (int fd);
 static int process_event (void);
 static void handle_timer_event (int dummy);
@@ -1031,6 +1032,19 @@ static int
 check_async_ready (void)
 {
   return async_handler_ready;
+}
+
+/* Test and clear the sigint pending flag */
+int 
+sigint_taken_p (void)
+{
+  extern void *sigint_token;
+  if (((struct async_signal_handler *) sigint_token)->ready)
+    {
+      ((struct async_signal_handler *) sigint_token)->ready = 0;
+      return 1;
+    }
+  else return 0;
 }
 
 /* Create a timer that will expire in MILLISECONDS from now. When the

@@ -287,7 +287,7 @@ NIDomainList_find(NIDomainList_t * list, NIDomain_t * domain)
     for (i = 0; i < NIDomainList_count(list); i++) {
 	NIDomain_t * d = NIDomainList_element(list, i);
 	
-	if (strcmp(NIDomain_tag(d), NIDomain_tag(d)) == 0
+	if (strcmp(NIDomain_tag(d), NIDomain_tag(domain)) == 0
 	    && NIDomain_ip(d).s_addr == NIDomain_ip(domain).s_addr)
 	    return (d);
     }

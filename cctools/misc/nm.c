@@ -932,7 +932,9 @@ char *arch_name)
 	        (symbols[i].n_type & N_TYPE) == N_PBUD)){
 		library_ordinal = GET_LIBRARY_ORDINAL(symbols[i].n_desc);
 		if(library_ordinal != 0){
-		    if(library_ordinal-1 >= process_flags->nlibs)
+		    if(library_ordinal == EXECUTABLE_ORDINAL)
+			printf(" (from executable)");
+		    else if(library_ordinal-1 >= process_flags->nlibs)
 			printf(" (from bad library ordinal %lu)",
 			       library_ordinal);
 		    else

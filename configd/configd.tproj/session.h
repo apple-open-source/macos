@@ -20,6 +20,16 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * Modification History
+ *
+ * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * - public API conversion
+ *
+ * March 24, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
 #ifndef _S_SESSION_H
 #define _S_SESSION_H
 
@@ -33,10 +43,10 @@ typedef struct {
 
 	/* mach port associated with this session */
 	CFMachPortRef		serverPort;
-	CFRunLoopSourceRef	serverRunLoopSource;	/* XXX CFMachPortInvalidate() doesn't work */
+	CFRunLoopSourceRef	serverRunLoopSource;
 
 	/* data associated with this "open" session */
-	SCDSessionRef		session;
+	SCDynamicStoreRef	store;
 
 	/* credentials associated with this "open" session */
 	int			callerEUID;
@@ -46,15 +56,15 @@ typedef struct {
 
 __BEGIN_DECLS
 
-serverSessionRef	getSession	__P((mach_port_t server));
+serverSessionRef	getSession	(mach_port_t	server);
 
-serverSessionRef	addSession	__P((CFMachPortRef server));
+serverSessionRef	addSession	(CFMachPortRef	server);
 
-void			removeSession	__P((mach_port_t server));
+void			removeSession	(mach_port_t	server);
 
-void			cleanupSession	__P((mach_port_t server));
+void			cleanupSession	(mach_port_t	server);
 
-void			listSessions	__P(());
+void			listSessions	();
 
 __END_DECLS
 

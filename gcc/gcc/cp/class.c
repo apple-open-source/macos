@@ -1,8 +1,3 @@
-
-
-
-
-
 /* Functions related to building classes and their related objects.
    Copyright (C) 1987, 92-97, 1998, 1999 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)

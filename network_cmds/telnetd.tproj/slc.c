@@ -1,27 +1,4 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
-/*
  * Copyright (c) 1989, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -55,14 +32,18 @@
  */
 
 #ifndef lint
-static char sccsid[] = "@(#)slc.c	8.2 (Berkeley) 5/30/95";
+#if 0
+static char sccsid[] = "@(#)slc.c	8.1 (Berkeley) 6/4/93";
+#endif
+static const char rcsid[] =
+  "$FreeBSD: src/libexec/telnetd/slc.c,v 1.10 2001/07/20 15:14:03 ru Exp $";
 #endif /* not lint */
 
 #include "telnetd.h"
 
 #ifdef	LINEMODE
 /*
- * local varibles
+ * local variables
  */
 static unsigned char	*def_slcbuf = (unsigned char *)0;
 static int		def_slclen = 0;
@@ -195,7 +176,6 @@ end_slc(bufp)
 	register unsigned char **bufp;
 {
 	register int len;
-	void netflush();
 
 	/*
 	 * If a change has occured, store the new terminal control
@@ -223,7 +203,7 @@ end_slc(bufp)
 			(void) sprintf((char *)slcptr, "%c%c", IAC, SE);
 			slcptr += 2;
 			len = slcptr - slcbuf;
-			writenet(slcbuf, len);
+			output_datalen(slcbuf, len);
 			netflush();  /* force it out immediately */
 			DIAG(TD_OPTIONS, printsub('>', slcbuf+2, len-2););
 		}
@@ -311,15 +291,15 @@ change_slc(func, flag, val)
 	register int hislevel, mylevel;
 
 	hislevel = flag & SLC_LEVELBITS;
-	mylevel = slctab[func].defset.flag & SLC_LEVELBITS;
+	mylevel = slctab[(int)func].defset.flag & SLC_LEVELBITS;
 	/*
 	 * If client is setting a function to NOSUPPORT
 	 * or DEFAULT, then we can easily and directly
 	 * accomodate the request.
 	 */
 	if (hislevel == SLC_NOSUPPORT) {
-		slctab[func].current.flag = flag;
-		slctab[func].current.val = (cc_t)_POSIX_VDISABLE;
+		slctab[(int)func].current.flag = flag;
+		slctab[(int)func].current.val = (cc_t)_POSIX_VDISABLE;
 		flag |= SLC_ACK;
 		add_slc(func, flag, val);
 		return;
@@ -332,13 +312,13 @@ change_slc(func, flag, val)
 		 * default level of DEFAULT.
 		 */
 		if (mylevel == SLC_DEFAULT) {
-			slctab[func].current.flag = SLC_NOSUPPORT;
+			slctab[(int)func].current.flag = SLC_NOSUPPORT;
 		} else {
-			slctab[func].current.flag = slctab[func].defset.flag;
+			slctab[(int)func].current.flag = slctab[(int)func].defset.flag;
 		}
-		slctab[func].current.val = slctab[func].defset.val;
-		add_slc(func, slctab[func].current.flag,
-						slctab[func].current.val);
+		slctab[(int)func].current.val = slctab[(int)func].defset.val;
+		add_slc(func, slctab[(int)func].current.flag,
+						slctab[(int)func].current.val);
 		return;
 	}
 
@@ -352,13 +332,13 @@ change_slc(func, flag, val)
 	 * the place to put the new value, so change it,
 	 * otherwise, continue the negotiation.
 	 */
-	if (slctab[func].sptr) {
+	if (slctab[(int)func].sptr) {
 		/*
 		 * We can change this one.
 		 */
-		slctab[func].current.val = val;
-		*(slctab[func].sptr) = val;
-		slctab[func].current.flag = flag;
+		slctab[(int)func].current.val = val;
+		*(slctab[(int)func].sptr) = val;
+		slctab[(int)func].current.flag = flag;
 		flag |= SLC_ACK;
 		slcchange = 1;
 		add_slc(func, flag, val);
@@ -378,22 +358,22 @@ change_slc(func, flag, val)
 		* our value as well.
 		*/
 		if (mylevel == SLC_DEFAULT) {
-			slctab[func].current.flag = flag;
-			slctab[func].current.val = val;
+			slctab[(int)func].current.flag = flag;
+			slctab[(int)func].current.val = val;
 			flag |= SLC_ACK;
 		} else if (hislevel == SLC_CANTCHANGE &&
 				    mylevel == SLC_CANTCHANGE) {
 			flag &= ~SLC_LEVELBITS;
 			flag |= SLC_NOSUPPORT;
-			slctab[func].current.flag = flag;
+			slctab[(int)func].current.flag = flag;
 		} else {
 			flag &= ~SLC_LEVELBITS;
 			flag |= mylevel;
-			slctab[func].current.flag = flag;
+			slctab[(int)func].current.flag = flag;
 			if (mylevel == SLC_CANTCHANGE) {
-				slctab[func].current.val =
-					slctab[func].defset.val;
-				val = slctab[func].current.val;
+				slctab[(int)func].current.val =
+					slctab[(int)func].defset.val;
+				val = slctab[(int)func].current.val;
 			}
 		}
 		add_slc(func, flag, val);

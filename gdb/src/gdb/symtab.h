@@ -1448,11 +1448,11 @@ struct section_addr_info;
 
 extern struct objfile *symbol_file_add (const char *, int,
 					struct section_addr_info *, int, int,
-					CORE_ADDR, const char *);
+					int, CORE_ADDR, const char *);
  
 extern struct objfile *symbol_file_add_bfd (bfd *, int,
 					    struct section_addr_info *, int,
-					    int, CORE_ADDR, const char *);
+					    int, int, CORE_ADDR, const char *);
 
 /* source.c */
 

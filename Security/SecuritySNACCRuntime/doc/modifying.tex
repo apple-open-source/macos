@@ -1,0 +1,49 @@
+% file: .../doc/modifying.tex
+
+% $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/doc/modifying.tex,v 1.1.1.1 2001/05/18 23:14:10 mb Exp $
+% $Log: modifying.tex,v $
+% Revision 1.1.1.1  2001/05/18 23:14:10  mb
+% Move from private repository to open source repository
+%
+% Revision 1.1.1.1  1999/03/16 18:05:54  aram
+% Originals from SMIME Free Library.
+%
+% Revision 1.1  1997/01/01 22:47:44  rj
+% first check-in
+%
+
+\chapter{\label{modifying-chapter}Modifying the Compiler}
+
+The compiler consists of about 30,000 lines of yacc, lex and C code
+(another 7,000+ for the runtime library routines).  The best way to
+understand the compiler internals is to understand the module data
+structure ({\ufn \dots/compiler/core/asn1module.h}) and to read the compiler
+chapter in this document to gain a conceptual understanding of each
+pass of the compiler.
+
+The most common form of modification will likely be for macro
+handling.  To understand this, look at the way the OBJECT-TYPE macro is
+treated in:
+\begin{description}
+\item[lex-asn1.l] {add any new keywords}
+\item[parse-asn1.y] { parse the macro into the desired data structure.
+Use the existing productions as much as possible.}
+\item[link-type.c] { link any type defined or referenced in the
+macro}
+\item[link-values.c] { link any value defined or referenced in the
+macro}
+\item[do-macros.c] { perform any semantic action for the macro }
+
+\item[normalize.c] { move any type and value definitions in the macro
+to the top level so the code generator can generate code for them
+(without looking in the macro).}
+
+\item[code generators] { to convert any special semantics into useful
+C or C++.  This phase is likely to be dependent on the generated
+code's target environment.}
+\end{description}
+
+In general I have tried to put comments where funky things happen and
+to use function and variable names that are meaningful.  However,
+things may get ugly in certain places.  Thesis writing is harmful to
+your coding style!

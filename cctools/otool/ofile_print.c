@@ -48,6 +48,7 @@
 #include "stuff/ofile.h"
 #include "stuff/allocate.h"
 #include "stuff/errors.h"
+#include "stuff/guess_short_name.h"
 #include "ofile_print.h"
 
 /* <mach/loader.h> */
@@ -1159,6 +1160,10 @@ NS32:
 		printf(" FORCE_FLAT");
 		flags &= ~MH_FORCE_FLAT;
 	    }
+	    if(flags & MH_NOMULTIDEFS){
+		printf(" NOMULTIDEFS");
+		flags &= ~MH_NOMULTIDEFS;
+	    }
 	    if(flags != 0 || mh->flags == 0)
 		printf(" 0x%08x", (unsigned int)flags);
 	    printf("\n");
@@ -1201,10 +1206,12 @@ enum bool very_verbose)
     struct prebound_dylib_command pbdylib;
     struct sub_framework_command sub;
     struct sub_umbrella_command usub;
+    struct sub_library_command lsub;
     struct sub_client_command csub;
     struct fvmfile_command ff;
     struct dylinker_command dyld;
     struct routines_command rc;
+    struct twolevel_hints_command hints;
 
 	host_byte_sex = get_host_byte_sex();
 	swapped = host_byte_sex != load_commands_byte_sex;
@@ -1331,6 +1338,16 @@ enum bool very_verbose)
 		print_sub_umbrella_command(&usub, lc);
 		break;
 
+	    case LC_SUB_LIBRARY:
+		memset((char *)&lsub, '\0',sizeof(struct sub_library_command));
+		size = left < sizeof(struct sub_library_command) ?
+		       left : sizeof(struct sub_library_command);
+		memcpy((char *)&lsub, (char *)lc, size);
+		if(swapped)
+		    swap_sub_library_command(&lsub, host_byte_sex);
+		print_sub_library_command(&lsub, lc);
+		break;
+
 	    case LC_SUB_CLIENT:
 		memset((char *)&csub, '\0',sizeof(struct sub_client_command));
 		size = left < sizeof(struct sub_client_command) ?
@@ -1426,6 +1443,17 @@ enum bool very_verbose)
 		if(swapped)
 		    swap_routines_command(&rc, host_byte_sex);
 		print_routines_command(&rc);
+		break;
+
+	    case LC_TWOLEVEL_HINTS:
+		memset((char *)&hints, '\0',
+		       sizeof(struct twolevel_hints_command));
+		size = left < sizeof(struct twolevel_hints_command) ?
+		       left : sizeof(struct twolevel_hints_command);
+		memcpy((char *)&hints, (char *)lc, size);
+		if(swapped)
+		    swap_twolevel_hints_command(&hints, host_byte_sex);
+		print_twolevel_hints_command(&hints, object_size);
 		break;
 
 	    default:
@@ -2074,6 +2102,34 @@ struct load_command *lc)
 }
 
 /*
+ * print an LC_SUB_LIBRARY command.  The sub_library_command
+ * structure specified must be aligned correctly and in the host byte sex.
+ */
+void
+print_sub_library_command(
+struct sub_library_command *lsub,
+struct load_command *lc)
+{
+    char *p;
+
+	printf("          cmd LC_SUB_LIBRARY\n");
+	printf("      cmdsize %lu", lsub->cmdsize);
+	if(lsub->cmdsize < sizeof(struct sub_library_command))
+	    printf(" Incorrect size\n");
+	else
+	    printf("\n");
+	if(lsub->sub_library.offset < lsub->cmdsize){
+	    p = (char *)lc + lsub->sub_library.offset;
+	    printf("         sub_library %s (offset %lu)\n",
+		   p, lsub->sub_library.offset);
+	}
+	else{
+	    printf("         sub_library ?(bad offset %lu)\n",
+		   lsub->sub_library.offset);
+	}
+}
+
+/*
  * print an LC_SUB_CLIENT command.  The sub_client_command
  * structure specified must be aligned correctly and in the host byte sex.
  */
@@ -2238,6 +2294,34 @@ struct routines_command *rc)
 	printf("    reserved4 %lu\n", rc->reserved4);
 	printf("    reserved5 %lu\n", rc->reserved5);
 	printf("    reserved6 %lu\n", rc->reserved6);
+}
+
+/*
+ * print an LC_TWOLEVEL_HINTS command.  The twolevel_hints_command structure
+ * specified must be aligned correctly and in the host byte sex.
+ */
+void
+print_twolevel_hints_command(
+struct twolevel_hints_command *hints,
+unsigned long object_size)
+{
+	printf("     cmd LC_TWOLEVEL_HINTS\n");
+	printf(" cmdsize %lu", hints->cmdsize);
+	if(hints->cmdsize != sizeof(struct twolevel_hints_command))
+	    printf(" Incorrect size\n");
+	else
+	    printf("\n");
+	printf("  offset %lu", hints->offset);
+	if(hints->offset > object_size)
+	    printf(" (past end of file)\n");
+	else
+	    printf("\n");
+	printf("  nhints %lu", hints->nhints);
+	if(hints->offset + hints->nhints * sizeof(struct twolevel_hint) >
+	   object_size)
+	    printf(" (past end of file)\n");
+	else
+	    printf("\n");
 }
 
 /*
@@ -4488,6 +4572,132 @@ enum bool verbose)
 		    printf("\n");
 	    }
 	    n += count;
+	}
+}
+
+void print_hints(
+struct mach_header *mh,
+struct load_command *load_commands,
+enum byte_sex load_commands_byte_sex,
+char *object_addr,
+unsigned long object_size,
+struct twolevel_hint *hints,
+unsigned long nhints,
+struct nlist *symbols,
+long nsymbols,
+char *strings,
+long strings_size,
+enum bool verbose)
+{
+    enum byte_sex host_byte_sex;
+    enum bool swapped, is_framework;
+    unsigned long i, left, size, nlibs, dyst_cmd, lib_ord;
+    char *p, **libs, *short_name, *has_suffix;
+    struct load_command *lc, l;
+    struct dysymtab_command dyst;
+    struct dylib_command dl;
+
+	host_byte_sex = get_host_byte_sex();
+	swapped = host_byte_sex != load_commands_byte_sex;
+
+	/*
+	 * If verbose is TRUE create an array of load dylibs names so it
+	 * indexed into directly.
+	 */
+	nlibs = 0;
+	libs = NULL;
+	dyst_cmd = ULONG_MAX;
+	lc = load_commands;
+	for(i = 0 ; verbose == TRUE && i < mh->ncmds; i++){
+	    memcpy((char *)&l, (char *)lc, sizeof(struct load_command));
+	    if(swapped)
+		swap_load_command(&l, host_byte_sex);
+	    if(l.cmdsize % sizeof(long) != 0)
+		printf("load command %lu size not a multiple of "
+		       "sizeof(long)\n", i);
+	    if((char *)lc + l.cmdsize >
+	       (char *)load_commands + mh->sizeofcmds)
+		printf("load command %lu extends past end of load "
+		       "commands\n", i);
+	    left = mh->sizeofcmds - ((char *)lc - (char *)load_commands);
+
+	    switch(l.cmd){
+	    case LC_DYSYMTAB:
+		if(dyst_cmd != ULONG_MAX){
+		    printf("more than one LC_DYSYMTAB command (using command "
+			   "%lu)\n", dyst_cmd);
+		    break;
+		}
+		memset((char *)&dyst, '\0', sizeof(struct dysymtab_command));
+		size = left < sizeof(struct dysymtab_command) ?
+		       left : sizeof(struct dysymtab_command);
+		memcpy((char *)&dyst, (char *)lc, size);
+		if(swapped)
+		    swap_dysymtab_command(&dyst, host_byte_sex);
+		dyst_cmd = i;
+		break;
+
+	    case LC_LOAD_DYLIB:
+		memset((char *)&dl, '\0', sizeof(struct dylib_command));
+		size = left < sizeof(struct dylib_command) ?
+		       left : sizeof(struct dylib_command);
+		memcpy((char *)&dl, (char *)lc, size);
+		if(swapped)
+		    swap_dylib_command(&dl, host_byte_sex);
+		if(dl.dylib.name.offset < dl.cmdsize){
+		    p = (char *)lc + dl.dylib.name.offset;
+		    short_name = guess_short_name(p, &is_framework,
+						  &has_suffix);
+		    if(short_name != NULL)
+			p = short_name;
+		}
+		else{
+		    p = "bad dylib.name.offset";
+		}
+		libs = reallocate(libs, (nlibs+1) * sizeof(char *));
+		libs[nlibs] = p;
+		nlibs++;
+		break;
+	    }
+	    if(l.cmdsize == 0){
+		printf("load command %lu size zero (can't advance to other "
+		       "load commands)\n", i);
+		break;
+	    }
+	    lc = (struct load_command *)((char *)lc + l.cmdsize);
+	    if((char *)lc > (char *)load_commands + mh->sizeofcmds)
+		break;
+	}
+	if((char *)load_commands + mh->sizeofcmds != (char *)lc)
+	    printf("Inconsistant mh_sizeofcmds\n");
+
+	printf("Two-level namespace hints table (%lu hints)\n", nhints);
+	printf("index  isub  itoc\n");
+	for(i = 0; i < nhints; i++){
+	    printf("%5lu %5d %5u", i, (int)hints[i].isub_image, hints[i].itoc);
+	    if(verbose){
+		if(dyst_cmd != ULONG_MAX &&
+		   dyst.iundefsym + i < nsymbols){
+		    if(symbols[dyst.iundefsym + i].n_un.n_strx > strings_size)
+			printf(" (bad string index in symbol %lu)\n",
+			       dyst.iundefsym + i);
+		    else{
+			printf(" %s", strings +
+				      symbols[dyst.iundefsym + i].n_un.n_strx);
+			lib_ord = GET_LIBRARY_ORDINAL(symbols[
+						  dyst.iundefsym + i].n_desc);
+			if(lib_ord != SELF_LIBRARY_ORDINAL &&
+			   lib_ord - 1 < nlibs)
+			    printf(" (from %s)\n", libs[lib_ord - 1]);
+			else
+			    printf("\n");
+		    }
+		}
+		else
+		    printf("\n");
+	    }
+	    else
+		printf("\n");
 	}
 }
 

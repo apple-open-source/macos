@@ -13,11 +13,11 @@ PROJECTVERSION = 2.8
 PROJECT_TYPE = Tool
 
 HFILES = DiskArbitrationServerMain.h DiskArbitrationTypes.h DiskVolume.h\
-         GetRegistry.h FSParticular.h
+         GetRegistry.h FSParticular.h Configuration.h
 
 CFILES = autodiskmount.c DiskArbitrationServer.c\
          DiskArbitrationServerMain.c DiskVolume.c GetRegistry.c\
-         FSParticular.c vsdbutil.c
+         FSParticular.c vsdbutil.c Configuration.c
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble\
             ClientToServer.defs ServerToClient.defs
@@ -34,8 +34,11 @@ DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
 
+FRAMEWORK_PATHS = -F/System/Library/PrivateFrameworks
+NEXTSTEP_PB_CFLAGS = -Werror
 FRAMEWORKS = -framework CoreFoundation -framework IOKit\
-             -framework System
+             -framework Security -framework System\
+             -framework SystemConfiguration
 
 
 NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc

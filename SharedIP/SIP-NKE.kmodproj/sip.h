@@ -99,6 +99,8 @@ struct blueCtlBlock {
     unsigned long atalk_proto_filter_id;	/* AppleTalk DLIL filter */
     unsigned long ipv4_proto_filter_id;	/* IPv4 DLIL filter id */
     unsigned long lo_proto_filter_id;	/* Loopback filter id */
+    int ipv4_stopping;
+    int atalk_stopping;
     /* For IP fragment handling */
     TAILQ_HEAD(fraglist, fraghead) fraglist;
     int fraglist_timer_on;	/* Flag for timing out frags */
@@ -152,8 +154,8 @@ extern int ether_attach_ip(struct ifnet *, unsigned long *, unsigned long *);
 extern int ether_attach_at(struct ifnet *, unsigned long *, unsigned long *);
 extern void release_ifb(struct blueCtlBlock *);
 extern int si_send_eth_atalk(struct mbuf **, struct blueCtlBlock *);
-extern int si_send_eth_ipv4(struct mbuf **, struct blueCtlBlock *);
-extern int si_send_ppp_ipv4(struct mbuf **, struct blueCtlBlock *);
+extern int si_send_eth_ipv4(struct mbuf **, struct blueCtlBlock *, struct ifnet *ifp);
+extern int si_send_ppp_ipv4(struct mbuf **, struct blueCtlBlock *, struct ifnet *ifp);
 extern void init_ipv4(struct socket *, struct kextcb *);
 extern void timeout(timeout_fcn_t, void *, int);
 

@@ -748,7 +748,10 @@ find_fde (void *pc)
   UNLOCK_TARGET_OBJECT_LIST();
 
    if (ob == 0)
-    return 0;
+    {
+      TRACE_EXCEPTIONS (TR_ALL, "--> NO OBJECT MATCHING PC=0x%08x\n", pc);
+      return 0;
+    }
 
   /* Standard binary search algorithm.  */
   for (lo = 0, hi = ob->count; lo < hi; )
@@ -1037,7 +1040,7 @@ execute_cfa_insn (void *p, struct frame_state_internal *state,
 			"DW_CFA_GNU_negative_offset_extended reg=%d,\n",
 			reg);
       TRACE_EXCEPTIONS (TR_EXE, "execute_cfa_insn: "
-			"                                     offs=%d\n",
+			"                                     offs=%d)\n",
 			-offset);
       break;
 

@@ -25,7 +25,7 @@
  * OR MODIFICATIONS.
  */
 
-#define RCSID	"$Id: sys-sunos4.c,v 1.3 2001/01/20 03:35:48 callie Exp $"
+#define RCSID	"$Id: sys-sunos4.c,v 1.4 2001/05/09 17:52:32 callie Exp $"
 
 #include <stdio.h>
 #include <stddef.h>
