@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2001 Sendmail, Inc. and its suppliers.
+ * Copyright (c) 1998-2002 Sendmail, Inc. and its suppliers.
  *	All rights reserved.
  * Copyright (c) 1983, 1995-1997 Eric P. Allman.  All rights reserved.
  * Copyright (c) 1988, 1993
@@ -13,7 +13,7 @@
 
 #include <sendmail.h>
 
-SM_RCSID("@(#)$Id: util.c,v 1.1.1.2 2002/03/12 18:00:42 zarzycki Exp $")
+SM_RCSID("@(#)$Id: util.c,v 1.1.1.3 2002/10/15 02:38:36 zarzycki Exp $")
 
 #include <sysexits.h>
 #include <sm/xtrap.h>
@@ -516,7 +516,7 @@ log_sendmail_pid(e)
 {
 	long sff;
 	SM_FILE_T *pidf;
-	char pidpath[MAXPATHLEN + 1];
+	char pidpath[MAXPATHLEN];
 	extern char *CommandLineArgs;
 
 	/* write the pid to the log file for posterity */
@@ -524,7 +524,7 @@ log_sendmail_pid(e)
 	if (TrustedUid != 0 && RealUid == TrustedUid)
 		sff |= SFF_OPENASROOT;
 	expand(PidFile, pidpath, sizeof pidpath, e);
-	pidf = safefopen(pidpath, O_WRONLY|O_TRUNC, 0644, sff);
+	pidf = safefopen(pidpath, O_WRONLY|O_TRUNC, FileMode, sff);
 	if (pidf == NULL)
 	{
 		sm_syslog(LOG_ERR, NOQID, "unable to write %s: %s",
@@ -905,6 +905,7 @@ putline(l, mci)
 **		    PXLF_MAPFROM -- map From_ to >From_.
 **		    PXLF_STRIP8BIT -- strip 8th bit.
 **		    PXLF_HEADER -- map bare newline in header to newline space.
+**		    PXLF_NOADDEOL -- don't add an EOL if one wasn't present.
 **
 **	Returns:
 **		none
@@ -938,10 +939,15 @@ putxline(l, len, mci, pxflags)
 	end = l + len;
 	do
 	{
+		bool noeol = false;
+
 		/* find the end of the line */
 		p = memchr(l, '\n', end - l);
 		if (p == NULL)
+		{
 			p = end;
+			noeol = true;
+		}
 
 		if (TrafficLogFile != NULL)
 			(void) sm_io_fprintf(TrafficLogFile, SM_TIME_DEFAULT,
@@ -1097,7 +1103,8 @@ putxline(l, len, mci, pxflags)
 		if (TrafficLogFile != NULL)
 			(void) sm_io_putc(TrafficLogFile, SM_TIME_DEFAULT,
 					  '\n');
-		if (sm_io_fputs(mci->mci_out, SM_TIME_DEFAULT,
+		if ((!bitset(PXLF_NOADDEOL, pxflags) || !noeol) &&
+		    sm_io_fputs(mci->mci_out, SM_TIME_DEFAULT,
 				mci->mci_mailer->m_eol) == SM_IO_EOF)
 			break;
 		else
@@ -1711,7 +1718,7 @@ dumpfd(fd, printclosed, logit)
 		return;
 	}
 
-	i = fcntl(fd, F_GETFL, NULL);
+	i = fcntl(fd, F_GETFL, 0);
 	if (i != -1)
 	{
 		(void) sm_snprintf(p, SPACELEFT(buf, p), "fl=0x%x, ", i);
@@ -1912,7 +1919,7 @@ prog_open(argv, pfd, e)
 	int ret;
 	int fdv[2];
 	char *p, *q;
-	char buf[MAXLINE + 1];
+	char buf[MAXPATHLEN];
 	extern int DtableSize;
 
 	if (pipe(fdv) < 0)
@@ -2232,6 +2239,40 @@ denlstring(s, strict, logattacks)
 
 	return bp;
 }
+
+/*
+**  STRREPLNONPRT -- replace "unprintable" characters in a string with subst
+**
+**	Parameters:
+**		s -- string to manipulate (in place)
+**		subst -- character to use as replacement
+**
+**	Returns:
+**		true iff string did not contain "unprintable" characters
+*/
+
+bool
+strreplnonprt(s, c)
+	char *s;
+	int c;
+{
+	bool ok;
+
+	ok = true;
+	if (s == NULL)
+		return ok;
+	while (*s != '\0')
+	{
+		if (!(isascii(*s) && isprint(*s)))
+		{
+			*s = c;
+			ok = false;
+		}
+		++s;
+	}
+	return ok;
+}
+
 /*
 **  STR2PRT -- convert "unprintable" characters in a string to \oct
 **

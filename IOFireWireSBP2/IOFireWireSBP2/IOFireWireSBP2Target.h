@@ -64,6 +64,8 @@ protected:
         kLUNDirectoryKey			= 0xd4,
         kManagementAgentOffsetKey	= 0x54,
 		kUnitCharacteristicsKey 	= 0x3A,
+		kRevisionKey				= 0x21,
+		kFastStartKey				= 0x3E
     };
 
     // reserved for future use
@@ -96,7 +98,9 @@ protected:
 												UInt32 lun, 
 												UInt32 devType,
 												UInt32 unitCharacteristics,
-												UInt32 managementOffset );
+												UInt32 managementOffset,
+												bool fastStartSupported,
+												UInt32 fastStart );
 
 public:
 

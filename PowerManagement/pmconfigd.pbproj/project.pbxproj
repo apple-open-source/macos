@@ -61,7 +61,12 @@
 		};
 		08FB7795FE84155DC02AAC07 = {
 			children = (
-				40413E98025D3BA10ACA2928,
+				40BE9CF2031ECBBC0ACA28D7,
+				40BE9CF3031ECBBC0ACA28D7,
+				40BE9CF4031ECBBC0ACA28D7,
+				40BE9CF5031ECBBC0ACA28D7,
+				40BE9CF6031ECBBC0ACA28D7,
+				40BE9CF7031ECBBC0ACA28D7,
 				40D4F0DB01F4A1F40ACA2928,
 			);
 			isa = PBXGroup;
@@ -97,41 +102,11 @@
 //402
 //403
 //404
-		40413E98025D3BA10ACA2928 = {
-			children = (
-				406C5FB6025E53440ACA2928,
-				406C5FB7025E53440ACA2928,
-				406C5FB8025E53440ACA2928,
-				40996DFA028892440ACA2928,
-			);
-			isa = PBXGroup;
-			name = PMUBattery;
-			path = "";
-			refType = 4;
-		};
 		406A7C8602009FD90ACA2928 = {
 			fileRef = 40D4F0DB01F4A1F40ACA2928;
 			isa = PBXBuildFile;
 			settings = {
 			};
-		};
-		406C5FB6025E53440ACA2928 = {
-			isa = PBXFileReference;
-			name = battery.c;
-			path = batteryconfigd/battery.c;
-			refType = 4;
-		};
-		406C5FB7025E53440ACA2928 = {
-			isa = PBXFileReference;
-			name = battery.h;
-			path = batteryconfigd/battery.h;
-			refType = 4;
-		};
-		406C5FB8025E53440ACA2928 = {
-			isa = PBXFileReference;
-			name = batteryconfigd.c;
-			path = batteryconfigd/batteryconfigd.c;
-			refType = 4;
 		};
 		40882B98019742A20ACA2928 = {
 			children = (
@@ -253,24 +228,6 @@
 			isa = PBXRezBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		40996DFA028892440ACA2928 = {
-			isa = PBXFileReference;
-			name = batteryconfigd.h;
-			path = batteryconfigd/batteryconfigd.h;
-			refType = 4;
-		};
-		40996DFD028893D30ACA2928 = {
-			fileRef = 406C5FB6025E53440ACA2928;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		40996DFE028893D30ACA2928 = {
-			fileRef = 406C5FB8025E53440ACA2928;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		409C6E8701A064020ACA2928 = {
 			isa = PBXBundleReference;
 			path = PowerManagement.bundle;
@@ -320,11 +277,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>6.0</string>
+	<string>6.0.31</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>6.0</string>
+	<string>6.0.31</string>
 </dict>
 </plist>
 ";
@@ -347,9 +304,10 @@
 		409C6E8B01A064020ACA2928 = {
 			buildActionMask = 2147483647;
 			files = (
-				40996DFD028893D30ACA2928,
-				40996DFE028893D30ACA2928,
 				406A7C8602009FD90ACA2928,
+				40BE9CFB031ECC0B0ACA28D7,
+				40BE9CFC031ECC0B0ACA28D7,
+				40BE9CFD031ECC0B0ACA28D7,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -416,6 +374,60 @@
 		409C6E9B01A0B1A80ACA2928 = {
 			isa = PBXTargetDependency;
 			target = 409C6E8801A064020ACA2928;
+		};
+		40BE9CF2031ECBBC0ACA28D7 = {
+			isa = PBXFileReference;
+			name = BatteryTimeRemaining.c;
+			path = pmconfigd/BatteryTimeRemaining.c;
+			refType = 2;
+		};
+		40BE9CF3031ECBBC0ACA28D7 = {
+			isa = PBXFileReference;
+			name = BatteryTimeRemaining.h;
+			path = pmconfigd/BatteryTimeRemaining.h;
+			refType = 2;
+		};
+		40BE9CF4031ECBBC0ACA28D7 = {
+			isa = PBXFileReference;
+			name = PMSettings.c;
+			path = pmconfigd/PMSettings.c;
+			refType = 2;
+		};
+		40BE9CF5031ECBBC0ACA28D7 = {
+			isa = PBXFileReference;
+			name = PMSettings.h;
+			path = pmconfigd/PMSettings.h;
+			refType = 2;
+		};
+		40BE9CF6031ECBBC0ACA28D7 = {
+			isa = PBXFileReference;
+			name = PSLowPower.c;
+			path = pmconfigd/PSLowPower.c;
+			refType = 2;
+		};
+		40BE9CF7031ECBBC0ACA28D7 = {
+			isa = PBXFileReference;
+			name = PSLowPower.h;
+			path = pmconfigd/PSLowPower.h;
+			refType = 2;
+		};
+		40BE9CFB031ECC0B0ACA28D7 = {
+			fileRef = 40BE9CF2031ECBBC0ACA28D7;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		40BE9CFC031ECC0B0ACA28D7 = {
+			fileRef = 40BE9CF4031ECBBC0ACA28D7;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		40BE9CFD031ECC0B0ACA28D7 = {
+			fileRef = 40BE9CF6031ECBBC0ACA28D7;
+			isa = PBXBuildFile;
+			settings = {
+			};
 		};
 		40D4F0DB01F4A1F40ACA2928 = {
 			isa = PBXFileReference;

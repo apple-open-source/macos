@@ -61,17 +61,12 @@ idresult_e log_remote_user( const struct server *serp, unsigned timeout )
    static char         buf[ IBUFSIZE ] ;
    int                 cc ;
    union xsockaddr     sin_local, sin_remote, sin_contact;
-   unsigned            local_port;
-   unsigned            remote_port;
+   volatile unsigned   local_port;
+   volatile unsigned   remote_port;
    int                 sd ;
    int                 sin_len ;
    char               *p ;
    const char         *func = "log_remote_user" ;
-
-   /* Make gcc happy about the longjmp clobbering these variables;
-    * in reality, we just don't care. */
-   (void *) &local_port;
-   (void *) &remote_port;
 
    if ( timeout && signal( SIGALRM, sigalrm_handler ) == SIG_ERR )
    {

@@ -26,7 +26,10 @@
 #include <IOKit/sbp2/IOFireWireSBP2LUN.h>
 #include <IOKit/sbp2/IOFireWireSBP2Target.h>
 
+#define FIREWIREPRIVATE
 #include <IOKit/firewire/IOFireWireController.h>
+#undef FIREWIREPRIVATE
+
 #include <IOKit/firewire/IOConfigDirectory.h>
 
 #include "FWDebugging.h"
@@ -34,6 +37,7 @@
 
 extern const OSSymbol *gUnit_Characteristics_Symbol;
 extern const OSSymbol *gManagement_Agent_Offset_Symbol;
+extern const OSSymbol *gFast_Start_Symbol;
 
 OSDefineMetaClassAndStructors( IOFireWireSBP2Login, OSObject );
 
@@ -135,6 +139,8 @@ bool IOFireWireSBP2Login::initWithLUN( IOFireWireSBP2LUN * lun )
 	fPasswordDescriptor = NULL;
 	fSuspended = false;
 	
+	fLastORBAddress = FWAddress(0,0);
+	
 	//
 	// set up command gate
 	//
@@ -167,7 +173,7 @@ bool IOFireWireSBP2Login::initWithLUN( IOFireWireSBP2LUN * lun )
 	
 		// scan unit
 		status = getUnitInformation();
-		FWKLOG( ( "IOFireWireSBP2Login : fManagementOffset = 0x%lx, fMaxORBSize = %d, fMaxCommandBlockSize = %d, success = %d\n", fManagementOffset, fMaxORBSize, fMaxCommandBlockSize ) );
+		FWKLOG( ( "IOFireWireSBP2Login : fManagementOffset = 0x%lx, fMaxORBSize = %d, fMaxCommandBlockSize = %d\n", fManagementOffset, fMaxORBSize, fMaxCommandBlockSize ) );
 	}
 	
 	if( status == kIOReturnSuccess )
@@ -206,6 +212,10 @@ IOReturn IOFireWireSBP2Login::getUnitInformation( void )
     UInt32				unitCharacteristics = 0;
 	OSObject *			prop = NULL;
 	
+	//
+	// get management agent info
+	//
+	
 	prop = fLUN->getProperty( gManagement_Agent_Offset_Symbol );
 	if( prop == NULL )
 		status = kIOReturnError;
@@ -218,7 +228,7 @@ IOReturn IOFireWireSBP2Login::getUnitInformation( void )
     FWKLOG( ("IOFireWireSBP2Login : status = %d, fManagementOffset = %d\n", status, fManagementOffset) );
 
     //
-    // find unit characteristics
+    // get unit characteristics
     //
 	
 	if( status == kIOReturnSuccess )
@@ -239,9 +249,28 @@ IOReturn IOFireWireSBP2Login::getUnitInformation( void )
         if( orbSize < 32 )
             orbSize = 32;
         fMaxORBSize = orbSize;
-        fMaxCommandBlockSize = orbSize;
+        fMaxCommandBlockSize = orbSize - (sizeof(IOFireWireSBP2ORB::FWSBP2ORB) - 4);
     }
  
+	//
+	// get fast start info
+	//
+	
+	if( status == kIOReturnSuccess )
+	{
+		prop = fLUN->getProperty( gFast_Start_Symbol );
+		if( prop != NULL )
+		{
+			UInt32 fastStartInfo = ((OSNumber*)prop)->unsigned32BitValue();
+			
+			fFastStartSupported = true;
+			fFastStartOffset = fastStartInfo & 0x000000ff;
+			fFastStartMaxPayload = (fastStartInfo >> 8) & 0x000000ff;
+		}
+	}
+
+    FWKLOG( ("IOFireWireSBP2Login : fFastStartSupported = %d, fFastStartOffset = 0x%02lx, fFastStartMaxPayload = %d\n", fFastStartSupported, fFastStartOffset, fFastStartMaxPayload ) );
+	
     return status;
 }
 
@@ -475,29 +504,57 @@ IOReturn IOFireWireSBP2Login::allocateResources( void )
     if( status == kIOReturnSuccess )
     {
 		fLogoutTimeoutCommand = fControl->createDelayedCmd( fManagementTimeout * 1000,
-                                                            IOFireWireSBP2Login::loginTimeoutStatic, this);
+                                                            IOFireWireSBP2Login::logoutTimeoutStatic, this);
 	}
 
     //
     // create command for writing the fetch agent
     //
+
+	//
+    // create command for writing the fast start register
+    //
     
-    if( status == kIOReturnSuccess )
-    {
-        fFetchAgentWriteCommandMemory = IOMemoryDescriptor::withAddress( &fLastORBAddress, 8, kIODirectionOut );
-    	if( fFetchAgentWriteCommandMemory == NULL )
-    		status = kIOReturnNoMemory;
-    }
-
-    if( status == kIOReturnSuccess )
-    {
-        fFetchAgentWriteCommand = fUnit->createWriteCommand( FWAddress(0,0),  // tbd later
-                                                             fFetchAgentWriteCommandMemory,
-                                                             IOFireWireSBP2Login::fetchAgentWriteCompleteStatic, this, true );
-        if( fFetchAgentWriteCommand == NULL )
-        	status = kIOReturnNoMemory;
-    }
-
+	if( fFastStartSupported )
+	{
+		if( status == kIOReturnSuccess )
+		{
+			UInt32 size = fFastStartMaxPayload * 4;
+			if( size == 0 )
+				size = 4096;
+			fFetchAgentWriteCommandMemory = IOBufferMemoryDescriptor::withOptions( kIODirectionOutIn | kIOMemoryUnshared, size, PAGE_SIZE );
+			if( fFetchAgentWriteCommandMemory == NULL )
+				status = kIOReturnNoMemory;
+		}
+	
+		if( status == kIOReturnSuccess )
+		{
+			fFetchAgentWriteCommand = fUnit->createWriteCommand( FWAddress(0,0),  // tbd later
+																fFetchAgentWriteCommandMemory,
+																IOFireWireSBP2Login::fetchAgentWriteCompleteStatic, this, true );
+			if( fFetchAgentWriteCommand == NULL )
+				status = kIOReturnNoMemory;
+		}
+	}
+    else
+	{
+		if( status == kIOReturnSuccess )
+		{
+			fFetchAgentWriteCommandMemory = IOMemoryDescriptor::withAddress( &fLastORBAddress, 8, kIODirectionOut );
+			if( fFetchAgentWriteCommandMemory == NULL )
+				status = kIOReturnNoMemory;
+		}
+	
+		if( status == kIOReturnSuccess )
+		{
+			fFetchAgentWriteCommand = fUnit->createWriteCommand( FWAddress(0,0),  // tbd later
+																fFetchAgentWriteCommandMemory,
+																IOFireWireSBP2Login::fetchAgentWriteCompleteStatic, this, true );
+			if( fFetchAgentWriteCommand == NULL )
+				status = kIOReturnNoMemory;
+		}
+	}
+	
 	//
     // create command for reseting the fetch agent
     //
@@ -573,7 +630,7 @@ void IOFireWireSBP2Login::free( void )
     removeLogin();
 
 	///////////////////////////////////////////
-    
+
 	//
 	// release command for reseting fetch agent
 	//
@@ -1188,7 +1245,10 @@ IOReturn IOFireWireSBP2Login::executeLogin( void )
 	}
 	
     fLoginState = kLoginStateLoggingIn;  		// set state
-    
+	
+	fLastORB = NULL;
+	fLastORBAddress = FWAddress(0,0);
+	
 	// to quote sbp-2 : ... truncated login response data 
 	// shall be interpreted as if the omitted fields
 	// had been stored as zeros. ... 
@@ -1212,8 +1272,7 @@ IOReturn IOFireWireSBP2Login::executeLogin( void )
     // get local node and generation
     // note: these two are latched affter command gen is set and before submit is called
     // if these are old command will fail
-	UInt16 localNodeID; // dummy
-    fUnit->getNodeIDGeneration(fLoginGeneration, fLoginNodeID, localNodeID);
+    fUnit->getNodeIDGeneration(fLoginGeneration, fLoginNodeID, fLocalNodeID);
 	fLoginWriteInProgress = true;
 	
 	status = fTarget->beginIOCriticalSection();
@@ -1282,7 +1341,7 @@ void IOFireWireSBP2Login::loginTimeoutStatic( void *refcon, IOReturn status,
 void IOFireWireSBP2Login::loginTimeout( IOReturn status, IOFireWireBus *bus, IOFWBusCommand *fwCmd)
 {
     fLoginTimeoutTimerSet = false;
-    if(status == kIOReturnTimeout)
+    if( status != kIOReturnSuccess )
     {
         FWKLOG( ("IOFireWireSBP2Login : login timed out\n") );
         
@@ -1348,7 +1407,7 @@ void IOFireWireSBP2Login::abortLogin( void )
     fLoginState = kLoginStateIdle;
 
     // complete command
-    completeLogin( kIOReturnTimeout );  //zzz is this a good error?, this is what OS9 returns
+//    completeLogin( kIOReturnTimeout );  //zzz is this a good error?, this is what OS9 returns
 }
 
 void IOFireWireSBP2Login::completeLogin( IOReturn state, const void *buf, UInt32 len, void * buf2 )
@@ -1419,7 +1478,7 @@ UInt32 IOFireWireSBP2Login::statusBlockWrite( UInt16 nodeID, IOFWSpeed &speed, F
             // cancel timeout
             if( fLoginTimeoutTimerSet )
             {
-                fLoginTimeoutCommand->cancel(kIOReturnAborted);
+                fLoginTimeoutCommand->cancel(kIOReturnSuccess);
             }
 
             // success or not
@@ -1449,9 +1508,17 @@ UInt32 IOFireWireSBP2Login::statusBlockWrite( UInt16 nodeID, IOFWSpeed &speed, F
 				fFetchAgentResetCommand->updateNodeID( fLoginGeneration, fLoginNodeID );
 		
                 // set fetch agent address
-                fFetchAgentAddress = FWAddress( fLoginResponse.commandBlockAgentAddressHi & 0x0000ffff,
-                                                fLoginResponse.commandBlockAgentAddressLo + 0x00000008);
-
+				if( fFastStartSupported )
+				{
+					fFetchAgentAddress = FWAddress( fLoginResponse.commandBlockAgentAddressHi & 0x0000ffff,
+													fLoginResponse.commandBlockAgentAddressLo + (fFastStartOffset << 2));
+				}
+				else
+				{
+					fFetchAgentAddress = FWAddress( fLoginResponse.commandBlockAgentAddressHi & 0x0000ffff,
+													fLoginResponse.commandBlockAgentAddressLo + 0x00000008);
+				}
+				
                 fFetchAgentWriteCommand->reinit( fFetchAgentAddress,  // tis determined
                                                  fFetchAgentWriteCommandMemory,
                                                  IOFireWireSBP2Login::fetchAgentWriteCompleteStatic, this, true );
@@ -1585,9 +1652,8 @@ UInt32 IOFireWireSBP2Login::statusBlockWrite( UInt16 nodeID, IOFWSpeed &speed, F
             // cancel timeout
             if( fLogoutTimeoutTimerSet )
             {
-                fLogoutTimeoutCommand->cancel(kIOReturnAborted);
-                fLogoutTimeoutTimerSet = false;
-            }
+                fLogoutTimeoutCommand->cancel(kIOReturnSuccess);
+             }
        
             // success or not
             if( ((fStatusBlock.details >> 4) & 3) == kFWSBP2RequestComplete &&
@@ -1809,8 +1875,7 @@ void IOFireWireSBP2Login::doReconnect( void )
     // get local node and generation
     // note: these two are latched after command gen is set and before submit is called
     // if these are old command will fail
-	UInt16 localNodeID; // dummy
-    fUnit->getNodeIDGeneration(fLoginGeneration, fLoginNodeID, localNodeID);
+    fUnit->getNodeIDGeneration(fLoginGeneration, fLoginNodeID, fLocalNodeID);
     
     fReconnectWriteInProgress = true;
 
@@ -1990,6 +2055,7 @@ UInt32 IOFireWireSBP2Login::reconnectStatusBlockWrite( UInt16 nodeID, IOFWSpeed 
 		fReconnectTimeoutCommand->cancel(kIOReturnAborted);
 
         fLastORB = NULL;
+		fLastORBAddress = FWAddress(0,0);
         fLoginState = kLoginStateConnected;
 
         // set generation
@@ -2247,7 +2313,7 @@ void IOFireWireSBP2Login::logoutTimeout( IOReturn status, IOFireWireBus *bus, IO
     FWKLOG( ( "IOFireWireSBP2Login : logoutTimeout \n" ) );
     
     fLogoutTimeoutTimerSet = false;
-    if( status == kIOReturnTimeout )
+    if( status != kIOReturnSuccess )
     {
         FWKLOG( ("IOFireWireSBP2Login : logout timed out\n") );
 
@@ -2312,6 +2378,9 @@ void IOFireWireSBP2Login::clearAllTasksInSet( void )
 			}
 		}
 	}
+	
+	fLastORB = NULL;
+	fLastORBAddress = FWAddress(0,0);
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -2456,6 +2525,79 @@ IOReturn IOFireWireSBP2Login::executeORB( IOFireWireSBP2ORB * orb )
         prepareORBForExecution(orb);
     }
 
+	if( status == kIOReturnSuccess && fFastStartSupported )
+	{
+		// setup fast start data
+			
+		//
+		// set fast start write length
+		//
+		
+		UInt32 maxPacketBytes = 1 << fUnit->maxPackLog(true,fFetchAgentAddress);
+		UInt32 fastStartPacketBytes = fFastStartMaxPayload << 2;
+		if( fastStartPacketBytes == 0 )
+		{
+			fastStartPacketBytes = maxPacketBytes;
+		}
+		else if( maxPacketBytes < fastStartPacketBytes )
+		{
+			fastStartPacketBytes = maxPacketBytes;
+		}
+
+		IOBufferMemoryDescriptor * descriptor = OSDynamicCast(IOBufferMemoryDescriptor, fFetchAgentWriteCommandMemory);
+		
+		if( descriptor == NULL )
+		{
+			panic( "IOFireWireSBP2Login<0x%08lx>::executeORB() - fFetchAgentWriteCommandMemory is not an IOBufferMemoryDescriptor!\n", this );
+		}
+		
+		descriptor->setLength( fastStartPacketBytes );
+
+		//
+		// write previous orb
+		//
+		
+		{
+			FWAddress orbAddress(0,0);
+			if( commandFlags & kFWSBP2CommandImmediate )
+			{
+				orbAddress = FWAddress(0,0);
+			}
+			else
+			{
+				orbAddress = fLastORBAddress;
+			}
+		
+			if( orbAddress.addressHi == 0 && orbAddress.addressLo == 0 )
+			{
+				orbAddress.nodeID = 0x8000;
+			}
+			else
+			{
+				orbAddress.nodeID = fLocalNodeID;
+			}		
+			descriptor->writeBytes( 0, &orbAddress, sizeof(FWAddress) );
+		}
+
+		//
+		// write this orb
+		//
+		{
+			FWAddress orbAddress(0,0);
+			orb->getORBAddress( &orbAddress );
+			orbAddress.nodeID = fLocalNodeID;
+			descriptor->writeBytes( 8, &orbAddress, sizeof(FWAddress) );
+		}
+		
+		//
+		// prepare orb and page table
+		//
+		
+		orb->prepareFastStartPacket( descriptor );
+	
+		fastStartPacketBytes = descriptor->getLength();	
+	}
+	
 #if FWDIAGNOSTICS
 	((IOFireWireSBP2Diagnostics*)(fLUN->getDiagnostics()))->incrementExecutedORBCount();
 #endif
@@ -2535,19 +2677,22 @@ void IOFireWireSBP2Login::fetchAgentWriteComplete( IOReturn status, IOFireWireNu
     
 	fFetchAgentWriteCommandInUse = false;
 
-    UInt32 retries = fLastORB->getFetchAgentWriteRetries();
-    if( status != kIOReturnSuccess && status != kIOFireWireBusReset && retries != 0 )
-    {
-        IOLog( "IOFireWireSBP2Login::fetchAgentWriteComplete fetch agent write failed! retrying\n" );
-        
-        // retry
-        retries--;
-        fLastORB->setFetchAgentWriteRetries( retries );
-        
-        appendORBImmediate( fLastORB );
-        return;
+	if( fLastORB != NULL )
+	{
+		UInt32 retries = fLastORB->getFetchAgentWriteRetries();
+		if( status != kIOReturnSuccess && status != kIOFireWireBusReset && retries != 0 )
+		{
+			IOLog( "IOFireWireSBP2Login::fetchAgentWriteComplete fetch agent write failed! retrying\n" );
+			
+			// retry
+			retries--;
+			fLastORB->setFetchAgentWriteRetries( retries );
+			
+			appendORBImmediate( fLastORB );
+			return;
+		}
     }
-    
+	
 	fORBToWrite = 0; // no more orb pending a fetch agent write
 	
 	// theoretically fORBToWrite should already be cleared to zero 
@@ -2839,9 +2984,11 @@ IOReturn IOFireWireSBP2Login::appendORBImmediate( IOFireWireSBP2ORB * orb )
 		 fFetchAgentWriteCommand->cancel( kIOReturnAborted );
 		 
     fFetchAgentWriteCommandInUse = true;
-    fFetchAgentWriteCommand->reinit( fFetchAgentAddress,
-                                     fFetchAgentWriteCommandMemory,
-                                     IOFireWireSBP2Login::fetchAgentWriteCompleteStatic, this, true );
+
+	fFetchAgentWriteCommand->reinit( fFetchAgentAddress,
+										fFetchAgentWriteCommandMemory,
+										IOFireWireSBP2Login::fetchAgentWriteCompleteStatic, this, true );
+	
 	fFetchAgentWriteCommand->updateNodeID( fLoginGeneration, fLoginNodeID );
 							
     return fFetchAgentWriteCommand->submit();

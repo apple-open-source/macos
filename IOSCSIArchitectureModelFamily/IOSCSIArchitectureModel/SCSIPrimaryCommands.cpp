@@ -2529,5 +2529,5 @@ ErrorExit:
 SCSIPrimaryCommands *
 SCSIPrimaryCommands::CreateSCSIPrimaryCommandObject ( void )
 {
-	return new SCSIPrimaryCommands;
+	return OSTypeAlloc ( SCSIPrimaryCommands );
 }

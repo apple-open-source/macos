@@ -1,0 +1,83 @@
+# Jamfile for target "AppleUSBKeyboard" of project "IOUSBFamily"
+
+
+JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
+
+# Implicitly computed project-wide settings for project
+export deferred DEVELOPMENT_LANGUAGE = English ;
+export deferred PROJECT = $(PROJECT_NAME) ;
+export deferred PROJECT_NAME = IOUSBFamily ;
+export deferred SRCROOT = /Volumes/Home/Latest/SUJagPink/IOUSBFamily ;
+
+# User-defined project-wide settings for project
+
+# Target "AppleUSBKeyboard"
+
+export deferred _INFO_PLIST_FILE_PATH = "$(SRCROOT)/pbxbuild.data/AppleUSBKeyboard.build/Info.plist" ;
+export deferred _PKGINFO_FILE_PATH = "$(SRCROOT)/pbxbuild.data/AppleUSBKeyboard.build/PkgInfo" ;
+export deferred _PBDEVELOPMENT_PLIST_FILE_PATH = "$(SRCROOT)/pbxbuild.data/AppleUSBKeyboard.build/pbdevelopment.plist" ;
+
+# Implicitly computed build settings for target "AppleUSBKeyboard"
+export deferred CLONE_HEADERS = NO ;
+export deferred PFE_FILE_C_DIALECTS = "c++" ;
+export deferred SKIP_INSTALL = YES ;
+export deferred TARGETNAME = $(TARGET_NAME) ;
+export deferred TARGET_NAME = AppleUSBKeyboard ;
+
+# User-defined build settings for target "AppleUSBKeyboard"
+export deferred INSTALL_GROUP = wheel ;
+export deferred INSTALL_MODE = "a-w, u+w, a+rX" ;
+export deferred INSTALL_OWNER = root ;
+export deferred KERNEL_EXTENSION = YES ;
+export deferred KERNEL_MODULE = YES ;
+export deferred MODULE_IOKIT = YES ;
+export deferred MODULE_NAME = com.apple.driver.AppleUSBKeyboard ;
+export deferred MODULE_VERSION = 1.9.8 ;
+export deferred OTHER_CFLAGS = -W -Wall -Wno-unused ;
+export deferred OTHER_LDFLAGS =  ;
+export deferred OTHER_REZFLAGS =  ;
+export deferred PRODUCT_NAME = AppleUSBKeyboard ;
+export deferred SECTORDER_FLAGS =  ;
+export deferred WARNING_CFLAGS = -Wmost -Wno-four-char-constants -Wno-unknown-pragmas ;
+export deferred WRAPPER_EXTENSION = kext ;
+
+if "$(BUILD_STYLE)" = Development {
+	export deferred COPY_PHASE_STRIP = NO ;
+	export deferred OPTIMIZATION_CFLAGS = -O0 ;
+}
+
+if "$(BUILD_STYLE)" = Deployment {
+	export deferred COPY_PHASE_STRIP = YES ;
+	export deferred OPTIMIZATION_CFLAGS = -O3 ;
+}
+
+
+ConditionalDefinitions _ ;
+commitdeferred ;
+
+
+BeginBundle "<AppleUSBKeyboard>AppleUSBKeyboard.kext" ;
+
+# Headers
+HEADERS = AppleUSBKeyboard/Headers/AppleUSBKeyboard.h ;
+ProcessHeaders "<AppleUSBKeyboard>AppleUSBKeyboard.kext" : "$(HEADERS)" : "" : BPTag000 ;
+
+# Sources
+AppleUSBKeyboard/Classes/Cosmo_USB2ADB.cpp_ATTRIBUTES = ;
+AppleUSBKeyboard/Classes/AppleUSBKeyboard.cpp_ATTRIBUTES = ;
+SOURCES =
+	AppleUSBKeyboard/Classes/Cosmo_USB2ADB.cpp
+	AppleUSBKeyboard/Classes/AppleUSBKeyboard.cpp ;
+ProcessSources "<AppleUSBKeyboard>AppleUSBKeyboard.kext" : "$(SOURCES)" : BPTag000 : BPTag001 ;
+
+# Frameworks & Libraries
+FRAMEWORKS_AND_LIBRARIES = ;
+ProcessFrameworksAndLibraries "<AppleUSBKeyboard>AppleUSBKeyboard.kext" : "$(FRAMEWORKS_AND_LIBRARIES)" : BPTag001 : BPTag002 ;
+
+# Resources
+AppleUSBKeyboard/Strings/English.lproj/InfoPlist.strings_REGION = English ;
+RESOURCES = AppleUSBKeyboard/Strings/English.lproj/InfoPlist.strings ;
+ProcessResources "<AppleUSBKeyboard>AppleUSBKeyboard.kext" : "$(RESOURCES)" : BPTag002 : BPTag003 ;
+
+EndBundle "<AppleUSBKeyboard>AppleUSBKeyboard.kext" ;
+

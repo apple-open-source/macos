@@ -137,7 +137,7 @@ unsigned char def_usb_2_adb_keymap[] =
 	0x69,	// 68  F13 on Andy keyboards
 	0x6b,	// 69  F14 on Andy keyboards
 	0x71,	// 6a  F15 on Andy keyboards
-	0x0,	// 6b
+	0x6a,	// 6b  F16
 	0x0,	// 6c
 	0x0,	// 6d
 	0x0,	// 6e

@@ -67,11 +67,37 @@ class AppleUSBOHCI : public IOUSBController
 
 private:
     virtual IOReturn 		setPowerState( unsigned long, IOService* );
-    virtual void 		initForPM (IOService *provider);
+    virtual void 		initForPM (IOPCIDevice *provider);
     unsigned long 		maxCapabilityForDomainState ( IOPMPowerFlags domainState );
     unsigned long 		initialPowerStateForDomainState ( IOPMPowerFlags domainState );
     void			ResumeUSBBus();
     void			SuspendUSBBus();
+
+    // saving this headerdoc for when we move this back to IOPCIDevice.h where it belongs.
+/*! @function hasPCIPwrMgmt
+    @abstract determine whether or not the device supports PCI Bus Power Management.
+    @discussion This method will look at the device's capabilties registers and determine whether or not the device supports the PCI BUS Power Management Specification.
+    @param state(optional) Check for support of a specific state (e.g. kPCIPMCPMESupportFromD3Cold). If state is not suuplied or is 0, then check for a property in the registry which tells which state the hardware expects the device to go to during sleep.
+    @result true if the specified state is supported */
+    virtual bool hasPCIPwrMgmt(IOOptionBits state = 0);
+    
+/*! @function enablePCIPwrMgmt
+    @abstract enable PCI power management for sleep state
+    @discussion This method will enable PCI Bus Powermanagement when going to sleep mode.
+    @param state(optional) Enables PCI Power Management by placing the function in the given state (e.g. kPCIPMCSPowerStateD3). If state is not specified or is 0xffffffff, then the IOPCIDevice determines the desired state. If state is kPCIPMCSPowerStateD0 (0) then PCI Power Management is disabled.
+    @result kIOReturnSuccess if there were no errors */
+    virtual IOReturn enablePCIPwrMgmt(IOOptionBits state = 0xffffffff);
+    virtual IOReturn saveDeviceState( IOPCIDevice * device,
+                                      IOOptionBits options = 0 );
+    virtual IOReturn restoreDeviceState( IOPCIDevice * device,
+                                         IOOptionBits options = 0 );
+    // these variables also belong in IOPCIFamily
+    bool					PMsleepEnabled;		// T if a client has enabled PCI Power Management
+    UInt8					PMcontrolStatus;	// if >0 this device supports PCI Power Management
+    UInt16					sleepControlBits;	// bits to set the control/status register to for sleep
+    UInt32					*savedConfig;
+    // end of IOPCIFamily stuff
+
 
     void print_td(OHCIGeneralTransferDescriptorPtr x);
     void print_itd(OHCIIsochTransferDescriptorPtr x);
@@ -134,6 +160,8 @@ protected:
     bool					_unloadUIMAcrossSleep;
     bool					_onCardBus;
     bool					_idleSuspend;
+    bool					_hasPCIPwrMgmt;
+    bool					_ohciAvailable;
     IOPhysicalAddress 				_hccaPhysAddr;
     UInt8					_ohciBusState;
     AbsoluteTime				_lastCheckedTime;		// Last time we checked the Root Hub for inactivity
@@ -170,7 +198,7 @@ protected:
 
     // callPlatformFunction symbols
     //
-    const OSSymbol *				usb_remote_wakeup;
+    const OSSymbol *				_usb_remote_wakeup;
     bool  					_remote_wakeup_occurred;
     
     // Memory routines
@@ -504,5 +532,35 @@ enum
     kOHCICheckForRootHubInactivityPeriod = 30		// Wait for x secs after the last time the root hub was active
 };
 
+
+// constants which are part of the PCI Bus Power Management Spec.
+// These should be defined in a header provided by the PCI family, 
+// but I will define them here for now since noone else seems to use them
+// except the 8255 ethernet driver
+enum
+{
+    // capabilities bits in the 16 bit capabilities register
+    kPCIPMCPMESupportFromD3Cold		= 0x8000,
+    kPCIPMCPMESupportFromD3Hot		= 0x4000,
+    kPCIPMCPMESupportFromD2		= 0x2000,
+    kPCIPMCPMESupportFromD1		= 0x1000,
+    kPCIPMCPMESupportFromD0		= 0x0800,
+    kPCIPMCD2Support			= 0x0400,
+    kPCIPMCD1Support			= 0x0200
+};
+
+enum
+{
+    // bits in the control/status register
+    kPCIPMCSPMEStatus			= 0x8000,
+    kPCIPMCSPMEEnable			= 0x0100,
+    kPCIPMCSPowerStateMask		= 0x0003,
+    kPCIPMCSPowerStateD3		= 0x0003,
+    kPCIPMCSPowerStateD2		= 0x0002,
+    kPCIPMCSPowerStateD1		= 0x0001,
+    kPCIPMCSPowerStateD0		= 0x0000
+    
+};
+    
 
 #endif /* _IOKIT_AppleUSBOHCI_H */

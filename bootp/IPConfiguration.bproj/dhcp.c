@@ -71,8 +71,6 @@
 
 #include "ipconfigd_threads.h"
 
-extern char *  			ether_ntoa(struct ether_addr *e);
-
 #include "dprintf.h"
 
 #define SUGGESTED_LEASE_LENGTH		(60 * 60 * 24 * 30 * 3) /* 3 months */
@@ -103,6 +101,7 @@ typedef struct {
     u_long		xid;
     boolean_t		user_warned;
     dhcp_time_secs_t	wait_secs;
+    boolean_t		enable_arp_collision_detection;
 } Service_dhcp_t;
 
 typedef struct {
@@ -892,6 +891,32 @@ inform_thread(Service_t * service_p, IFEventID_t event_id, void * event_data)
 	  }
 	  return (ipconfig_status_success_e);
       }
+      case IFEventID_arp_collision_e: {
+	  arp_collision_data_t *	arpc;
+	  char				msg[128];
+
+	  arpc = (arp_collision_data_t *)event_data;
+	  if (inform == NULL) {
+	      return (ipconfig_status_internal_error_e);
+	  }
+	  if (arpc->ip_addr.s_addr != inform->our_ip.s_addr) {
+	      break;
+	  }
+	  snprintf(msg, sizeof(msg), 
+		   IP_FORMAT " in use by " EA_FORMAT,
+		   IP_LIST(&arpc->ip_addr), 
+		   EA_LIST(arpc->hwaddr));
+	  service_report_conflict(service_p,
+				  &arpc->ip_addr,
+				  arpc->hwaddr,
+				  NULL);
+	  service_remove_address(service_p);
+	  my_log(LOG_ERR, "INFORM %s: %s", if_name(if_p), 
+		 msg);
+	  inform_failed(service_p, ipconfig_status_address_in_use_e,
+			msg);
+	  break;
+      }
       case IFEventID_media_e: {
 	  if (inform == NULL)
 	      return (ipconfig_status_internal_error_e);
@@ -1207,6 +1232,49 @@ dhcp_thread(Service_t * service_p, IFEventID_t event_id, void * event_data)
 	  }
 	  return (ipconfig_status_success_e);
       }
+      case IFEventID_arp_collision_e: {
+	  arp_collision_data_t *	arpc;
+	  char				msg[128];
+	  struct timeval 		tv;
+
+	  arpc = (arp_collision_data_t *)event_data;
+
+	  if (dhcp == NULL) {
+	      return (ipconfig_status_internal_error_e);
+	  }
+	  if (dhcp->state != dhcp_cstate_bound_e
+	      || dhcp->enable_arp_collision_detection == FALSE
+	      || arpc->ip_addr.s_addr != dhcp->saved.our_ip.s_addr) {
+	      break;
+	  }
+	  snprintf(msg, sizeof(msg),
+		   IP_FORMAT " in use by " EA_FORMAT 
+		   ", DHCP Server " 
+		   IP_FORMAT, IP_LIST(&dhcp->saved.our_ip),
+		   EA_LIST(arpc->hwaddr),
+		   IP_LIST(&dhcp->saved.server_ip));
+	  my_log(LOG_ERR, "DHCP %s: %s", if_name(if_p), msg);
+	  service_report_conflict(service_p,
+				  &dhcp->saved.our_ip,
+				  arpc->hwaddr,
+				  &dhcp->saved.server_ip);
+	  dhcp_lease_clear(dhcp->idstr);
+	  service_publish_failure(service_p, 
+				  ipconfig_status_address_in_use_e, msg);
+	  if (dhcp->saved.is_dhcp) {
+	      dhcp_decline(service_p, IFEventID_start_e, NULL);
+	      break;
+	  }
+	  dhcp_cancel_pending_events(service_p);
+	  (void)service_disable_autoaddr(service_p);
+	  dhcp->saved.our_ip.s_addr = 0;
+	  tv.tv_sec = 10; /* retry in a bit */
+	  tv.tv_usec = 0;
+	  timer_set_relative(dhcp->timer, tv, 
+			     (timer_func_t *)dhcp_init,
+			     service_p, (void *)IFEventID_start_e, NULL);
+	  break;
+      }
       case IFEventID_media_e: {
 	  struct in_addr	our_ip;
 
@@ -1243,6 +1311,8 @@ dhcp_thread(Service_t * service_p, IFEventID_t event_id, void * event_data)
 		  /* ensure that we'll retry when the link goes back up */
 		  dhcp->try = 0;
 		  dhcp->state = dhcp_cstate_none_e;
+
+		  dhcp->enable_arp_collision_detection = FALSE;
 
 		  /* if link goes down and stays down long enough, unpublish */
 		  dhcp_cancel_pending_events(service_p);
@@ -1928,6 +1998,7 @@ dhcp_bound(Service_t * service_p, IFEventID_t event_id, void * event_data)
 
     switch (event_id) {
       case IFEventID_start_e: {
+	  dhcp->enable_arp_collision_detection = FALSE;
 	  if (dhcp->state == dhcp_cstate_renew_e
 	      || dhcp->state == dhcp_cstate_rebind_e) {
 	      renewing = TRUE;
@@ -2038,6 +2109,9 @@ dhcp_bound(Service_t * service_p, IFEventID_t event_id, void * event_data)
     if (G_dhcp_success_deconfigures_linklocal) {
 	linklocal_service_change(service_p, TRUE);
     }
+
+    /* allow us to be called in the event of a subsequent collision */
+    dhcp->enable_arp_collision_detection = TRUE;
 
     if (dhcp->lease_is_infinite == TRUE) {
 	/* don't need to talk to server anymore */

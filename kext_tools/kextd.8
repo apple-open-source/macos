@@ -1,0 +1,100 @@
+.Dd February 14, 2002 
+.Dt KEXTD 8
+.Os Darwin
+.Sh NAME
+.Nm kextd
+.Nd loads kexts on demand from kernel or client processes
+.Sh SYNOPSIS
+.Nm
+.Op Fl c
+.Op Fl d
+.Op Fl f
+.Op Fl h
+.Op Fl j
+.Op Fl r Ar directory
+\&.\|.\|.
+.Op Fl v Op 1-6
+.Op Fl x
+.Sh DESCRIPTION
+.Nm
+runs as a daemon process to handle requests from the kernel
+to load kernel extensions (kexts).
+.\" ADD THIS + XREF WHEN CLIENT API GOES ONLINE
+.\" as well as to handle other requests from user space processes.
+For proper operation
+.Nm
+must be invoked as the superuser.
+.Pp
+.Nm
+should not be considered a formal interface in the Darwin OS
+or in Mac OS X.
+Neither its usage nor its presence should be relied on
+by any software or software installer.
+.Pp
+The options available are these:
+.Bl -tag -width -indent
+.It Fl c
+Ignore any repository cache files and scan all kext bundles
+to gather information.
+If this option is not given,
+.Nm
+will attempt to use cache files and to create them
+if they are out of date or don't exist.
+.It Fl d
+Debug mode; run in the foreground without forking
+as a daemon process.
+.It Fl f
+Don't fork a child task when loading kexts.
+This option is present for debugging
+.Nm
+and should never be used otherwise.
+.It Fl h
+Print a help message describing each option flag.
+.It Fl j
+Don't jettison kernel linker; load NDRVs in the kernel and exit,
+allowing the kernel to continue handling all load requests.
+This option is used in startup scripts for install CDs,
+along with a properly built mkext cache,
+in order to speed startup from the CD.
+.It Fl r Ar directory
+Use
+.Ar directory
+as a repository of known kexts for handling load requests.
+This is not recursive; only the directory's immediate
+contents are scanned.
+By default
+.Nm
+uses only the kexts in /System/Library/Extensions.
+.It Fl v Op 1-6
+Verbose mode; print information about the kext scanning and loading
+process (note that this is generally not useful when unloading).
+See the man page for
+.Xr kextload 8
+to see what each verbose level prints.
+.It Fl x
+Run
+.Nm
+in safe boot mode (indicating startup with the Shift key held down).
+Kexts that don't specify a proper value for the OSBundleRequired
+info dictionary property will not be loaded.
+This option implies the use of the
+.Fl c
+option.
+.Sh DIAGNOSTICS
+.Nm
+normally never exits.
+If an error occurs it exits with a nonzero status.
+If invoked with the
+.Fl j
+option it exits with a zero status when no error occurs,
+or a nonzero status if an error does occur.
+.Pp
+.Nm
+logs all error and verbose messages to the system log,
+or to the console if the system log facility isn't available.
+When running in debug mode all output is printed
+to the standard output and error streams.
+.Sh SEE ALSO 
+.Xr kextload 8 ,
+.Xr kextunload 8 ,
+.Xr syslogd 8

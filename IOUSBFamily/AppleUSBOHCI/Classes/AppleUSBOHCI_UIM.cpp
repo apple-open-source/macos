@@ -866,7 +866,7 @@ AppleUSBOHCI::UIMCreateIsochTransfer(
                 // Need new ITD for this condition
                 needNewITD = true;
                 
-                USBLog(5, "%s[%p]::UIMCreateIsochTransfer - got it! (%d, %p, %p, %d)", getName(), this, pageSelectMask, segs[0].location & kOHCIPageMask, physPageEnd, numSegs);
+                USBLog(7, "%s[%p]::UIMCreateIsochTransfer - got it! (%d, %p, %p, %d)", getName(), this, pageSelectMask, segs[0].location & kOHCIPageMask, physPageEnd, numSegs);
                 
             }
             else if ( (prevFramesPage != (segs[0].location & kOHCIPageMask)) && (segmentEnd != 0) )
@@ -1815,6 +1815,11 @@ AppleUSBOHCI::UIMCheckForTimeouts(void)
     AbsoluteTime	lastRootHubChangeTime;
     UInt64		elapsedTime = 0;
     bool		allPortsDisconnected = false;
+
+    // If we are not active anymore or if we're in ohciBusStateOff, then don't check for timeouts 
+    //
+    if ( isInactive() || (_onCardBus && _pcCardEjected) || !_ohciAvailable || (_ohciBusState != kOHCIBusStateRunning))
+        return;
     
     // Check to see if our control or bulk lists have a TD that has timed out
     //
@@ -1841,11 +1846,9 @@ AppleUSBOHCI::UIMCheckForTimeouts(void)
             // Check to see if the root hub has been inactive for kOHCICheckForRootHubInactivityPeriod seconds
             //
             allPortsDisconnected = RootHubAreAllPortsDisconnected();
-            
+
             if ( allPortsDisconnected )
-            {
-                USBLog(6,"%s[%p] All ports on bus %d are disconnected", getName(), this, _busNumber );
-                
+            {                
                 // Find the last time we had a change in the root hub.  If it's been 30 secs or
                 // more, then we are ready to suspend the ports
                 //
@@ -2121,7 +2124,7 @@ AppleUSBOHCI::UIMCreateIsochTransfer(
                 // Need new ITD for this condition
                 needNewITD = true;
                 
-                USBLog(5, "%s[%p]::UIMCreateIsochTransfer(LL) - got it! (%d, %p, %p, %d)", getName(), this, pageSelectMask, segs[0].location & kOHCIPageMask, physPageEnd, numSegs);
+                USBLog(7, "%s[%p]::UIMCreateIsochTransfer(LL) - got it! (%d, %p, %p, %d)", getName(), this, pageSelectMask, segs[0].location & kOHCIPageMask, physPageEnd, numSegs);
                 
             }
             else if ( (prevFramesPage != (segs[0].location & kOHCIPageMask)) && (segmentEnd != 0) )

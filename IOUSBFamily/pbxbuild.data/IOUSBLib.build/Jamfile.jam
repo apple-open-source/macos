@@ -1,0 +1,91 @@
+# Jamfile for target "IOUSBLib" of project "IOUSBFamily"
+
+
+JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
+
+# Implicitly computed project-wide settings for project
+export deferred DEVELOPMENT_LANGUAGE = English ;
+export deferred PROJECT = $(PROJECT_NAME) ;
+export deferred PROJECT_NAME = IOUSBFamily ;
+export deferred SRCROOT = /Volumes/Home/Latest/SUJagPink/IOUSBFamily ;
+
+# User-defined project-wide settings for project
+
+# Target "IOUSBLib"
+
+export deferred _INFO_PLIST_FILE_PATH = "$(SRCROOT)/pbxbuild.data/IOUSBLib.build/Info.plist" ;
+export deferred _PKGINFO_FILE_PATH = "$(SRCROOT)/pbxbuild.data/IOUSBLib.build/PkgInfo" ;
+export deferred _PBDEVELOPMENT_PLIST_FILE_PATH = "$(SRCROOT)/pbxbuild.data/IOUSBLib.build/pbdevelopment.plist" ;
+
+# Implicitly computed build settings for target "IOUSBLib"
+export deferred CLONE_HEADERS = NO ;
+export deferred PFE_FILE_C_DIALECTS = "c++" ;
+export deferred SKIP_INSTALL = YES ;
+export deferred TARGETNAME = $(TARGET_NAME) ;
+export deferred TARGET_NAME = IOUSBLib ;
+
+# User-defined build settings for target "IOUSBLib"
+export deferred FRAMEWORK_SEARCH_PATHS =  ;
+export deferred HEADER_SEARCH_PATHS =  ;
+export deferred LIBRARY_SEARCH_PATHS =  ;
+export deferred OTHER_CFLAGS =  ;
+export deferred OTHER_LDFLAGS =  ;
+export deferred OTHER_REZFLAGS =  ;
+export deferred PRODUCT_NAME = IOUSBLib ;
+export deferred SECTORDER_FLAGS =  ;
+export deferred WARNING_CFLAGS = -Wmost -Wno-four-char-constants -Wno-unknown-pragmas ;
+export deferred WRAPPER_EXTENSION = bundle ;
+
+if "$(BUILD_STYLE)" = Development {
+	export deferred COPY_PHASE_STRIP = NO ;
+	export deferred OPTIMIZATION_CFLAGS = -O0 ;
+}
+
+if "$(BUILD_STYLE)" = Deployment {
+	export deferred COPY_PHASE_STRIP = YES ;
+	export deferred OPTIMIZATION_CFLAGS = -O3 ;
+}
+
+
+ConditionalDefinitions _ ;
+commitdeferred ;
+
+
+BeginBundle "<IOUSBLib>IOUSBLib.bundle" ;
+
+# Headers
+IOUSBLib/Headers/IOUSBIUnknown.h_ATTRIBUTES = ;
+HEADERS =
+	IOUSBLib/Headers/IOUSBIUnknown.h
+	IOUSBLib/Headers/IOUSBDeviceClass.h
+	IOUSBLib/Headers/IOUSBInterfaceClass.h ;
+ProcessHeaders "<IOUSBLib>IOUSBLib.bundle" : "$(HEADERS)" : "" : BPTag000 ;
+
+# Resources
+RESOURCES = English.lproj/InfoPlist.strings ;
+ProcessResources "<IOUSBLib>IOUSBLib.bundle" : "$(RESOURCES)" : BPTag000 : BPTag001 ;
+
+# Sources
+IOUSBLib/Classes/IOUSBIUnknown.cpp_ATTRIBUTES = ;
+IOUSBLib/Classes/IOUSBDeviceClass.cpp_ATTRIBUTES = ;
+IOUSBLib/Classes/IOUSBInterfaceClass.cpp_ATTRIBUTES = ;
+SOURCES =
+	IOUSBLib/Classes/IOUSBIUnknown.cpp
+	IOUSBLib/Classes/IOUSBDeviceClass.cpp
+	IOUSBLib/Classes/IOUSBInterfaceClass.cpp ;
+ProcessSources "<IOUSBLib>IOUSBLib.bundle" : "$(SOURCES)" : BPTag001 : BPTag002 ;
+
+# Frameworks & Libraries
+/System/Library/Frameworks/CoreFoundation.framework_ATTRIBUTES = AbsolutePath ;
+/System/Library/Frameworks/IOKit.framework_ATTRIBUTES = AbsolutePath ;
+FRAMEWORKS_AND_LIBRARIES =
+	/System/Library/Frameworks/CoreFoundation.framework
+	/System/Library/Frameworks/IOKit.framework ;
+ProcessFrameworksAndLibraries "<IOUSBLib>IOUSBLib.bundle" : "$(FRAMEWORKS_AND_LIBRARIES)" : BPTag002 : BPTag003 ;
+
+# Rez Files
+REZ_FILES = ;
+ProcessRezFiles "<IOUSBLib>IOUSBLib.bundle" : "$(REZ_FILES)" : BPTag003 : BPTag004 ;
+
+EndBundle "<IOUSBLib>IOUSBLib.bundle" ;
+

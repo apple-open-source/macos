@@ -93,6 +93,8 @@ IOSCSIMultimediaCommandsDevice::GetBlockSize (
 	require ( IsParameterValid ( EDC_ECC, kSCSICmdFieldMask1Bit ), ErrorExit );
 	require ( IsParameterValid ( ERROR_FIELD,
 								 kSCSICmdFieldMask2Bit ), ErrorExit );
+	require ( IsParameterValid ( SUBCHANNEL_SELECTION_BITS,
+								 kSCSICmdFieldMask3Bit ), ErrorExit );
 	
 	// valid flag combination?
 	switch ( ( SYNC << 4 ) | ( HEADER_CODES << 2 ) | ( USER_DATA << 1 ) |  EDC_ECC )
@@ -274,14 +276,19 @@ IOSCSIMultimediaCommandsDevice::GetBlockSize (
 		
 	}
 	
-	require ( ( ERROR_FIELD == 0 ), ErrorExit );
-	
-	if ( SUBCHANNEL_SELECTION_BITS != 0 )
+	if ( SUBCHANNEL_SELECTION_BITS == 0x01 )
 	{
 		
 		*requestedByteCount += SUBCHANNEL_DATA_SIZE;
 		
 	}
+
+	else if ( SUBCHANNEL_SELECTION_BITS == 0x02 )
+	{
+		
+		*requestedByteCount += SUBCHANNELQ_DATA_SIZE;
+ 		
+ 	}
 	
 	result = true;
 	

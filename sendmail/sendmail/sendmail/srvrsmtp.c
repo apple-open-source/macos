@@ -16,7 +16,7 @@
 # include <libmilter/mfdef.h>
 #endif /* MILTER */
 
-SM_RCSID("@(#)$Id: srvrsmtp.c,v 1.1.1.2 2002/03/12 18:00:40 zarzycki Exp $")
+SM_RCSID("@(#)$Id: srvrsmtp.c,v 1.1.1.3 2002/10/15 02:38:34 zarzycki Exp $")
 
 #if SASL || STARTTLS
 # include <sys/time.h>
@@ -172,22 +172,22 @@ static char	*CurSmtpClient;		/* who's at the other end of channel */
 
 #ifndef MAXBADCOMMANDS
 # define MAXBADCOMMANDS 25	/* maximum number of bad commands */
-#endif
+#endif /* ! MAXBADCOMMANDS */
 #ifndef MAXNOOPCOMMANDS
 # define MAXNOOPCOMMANDS 20	/* max "noise" commands before slowdown */
-#endif
+#endif /* ! MAXNOOPCOMMANDS */
 #ifndef MAXHELOCOMMANDS
 # define MAXHELOCOMMANDS 3	/* max HELO/EHLO commands before slowdown */
-#endif
+#endif /* ! MAXHELOCOMMANDS */
 #ifndef MAXVRFYCOMMANDS
 # define MAXVRFYCOMMANDS 6	/* max VRFY/EXPN commands before slowdown */
-#endif
+#endif /* ! MAXVRFYCOMMANDS */
 #ifndef MAXETRNCOMMANDS
 # define MAXETRNCOMMANDS 8	/* max ETRN commands before slowdown */
-#endif
+#endif /* ! MAXETRNCOMMANDS */
 #ifndef MAXTIMEOUT
 # define MAXTIMEOUT (4 * 60)	/* max timeout for bad commands */
-#endif
+#endif /* ! MAXTIMEOUT */
 
 #if SM_HEAP_CHECK
 static SM_DEBUG_T DebugLeakSmtp = SM_DEBUG_INITIALIZER("leak_smtp",
@@ -380,17 +380,24 @@ smtp(nullserver, d_flags, e)
 	int result;
 	volatile int authenticating;
 	char *user;
-	char *in, *out, *out2;
+	char *in, *out2;
+# if SASL >= 20000
+	char *auth_id;
+	const char *out;
+	sasl_ssf_t ext_ssf;
+# else /* SASL >= 20000 */
+	char *out;
 	const char *errstr;
+	sasl_external_properties_t ext_ssf;
+# endif /* SASL >= 20000 */
+	sasl_security_properties_t ssp;
+	sasl_ssf_t *ssf;
 	unsigned int inlen, out2len;
 	unsigned int outlen;
 	char *volatile auth_type;
 	char *mechlist;
 	volatile unsigned int n_mechs;
 	unsigned int len;
-	sasl_security_properties_t ssp;
-	sasl_external_properties_t ext_ssf;
-	sasl_ssf_t *ssf;
 #endif /* SASL */
 #if STARTTLS
 	int r;
@@ -507,14 +514,17 @@ smtp(nullserver, d_flags, e)
 	/* SASL server new connection */
 	if (sasl_ok)
 	{
-# if SASL > 10505
+# if SASL >= 20000
+		result = sasl_server_new("smtp", hostname, NULL, NULL, NULL,
+					 NULL, 0, &conn);
+# elif SASL > 10505
 		/* use empty realm: only works in SASL > 1.5.5 */
 		result = sasl_server_new("smtp", hostname, "", NULL, 0, &conn);
-# else /* SASL > 10505 */
+# else /* SASL >= 20000 */
 		/* use no realm -> realm is set to hostname by SASL lib */
 		result = sasl_server_new("smtp", hostname, NULL, NULL, 0,
 					 &conn);
-# endif /* SASL > 10505 */
+# endif /* SASL >= 20000 */
 		sasl_ok = result == SASL_OK;
 		if (!sasl_ok)
 		{
@@ -529,13 +539,59 @@ smtp(nullserver, d_flags, e)
 		/*
 		**  SASL set properties for sasl
 		**  set local/remote IP
-		**  XXX only IPv4: Cyrus SASL doesn't support anything else
+		**  XXX Cyrus SASL v1 only supports IPv4
 		**
 		**  XXX where exactly are these used/required?
 		**  Kerberos_v4
 		*/
 
-#if NETINET
+# if SASL >= 20000
+#  if NETINET || NETINET6
+		in = macvalue(macid("{daemon_family}"), e);
+		if (in != NULL && (
+#   if NETINET6
+		    strcmp(in, "inet6") == 0 ||
+#   endif /* NETINET6 */
+		    strcmp(in, "inet") == 0))
+		{
+			SOCKADDR_LEN_T addrsize;
+			SOCKADDR saddr_l;
+			SOCKADDR saddr_r;
+			char localip[60], remoteip[60];
+
+			addrsize = sizeof(saddr_r);
+			if (getpeername(sm_io_getinfo(InChannel, SM_IO_WHAT_FD,
+						      NULL),
+					(struct sockaddr *) &saddr_r,
+					&addrsize) == 0)
+			{
+				if (iptostring(&saddr_r, addrsize,
+					       remoteip, sizeof remoteip))
+				{
+					sasl_setprop(conn, SASL_IPREMOTEPORT,
+						     remoteip);
+				}
+				addrsize = sizeof(saddr_l);
+				if (getsockname(sm_io_getinfo(InChannel,
+							      SM_IO_WHAT_FD,
+							      NULL),
+						(struct sockaddr *) &saddr_l,
+						&addrsize) == 0)
+				{
+					if (iptostring(&saddr_l, addrsize,
+						       localip,
+						       sizeof localip))
+					{
+						sasl_setprop(conn,
+							     SASL_IPLOCALPORT,
+							     localip);
+					}
+				}
+			}
+		}
+#  endif /* NETINET || NETINET6 */
+# else /* SASL >= 20000 */
+#  if NETINET
 		in = macvalue(macid("{daemon_family}"), e);
 		if (in != NULL && strcmp(in, "inet") == 0)
 		{
@@ -560,7 +616,8 @@ smtp(nullserver, d_flags, e)
 						     &saddr_l);
 			}
 		}
-#endif /* NETINET */
+#  endif /* NETINET */
+# endif /* SASL >= 20000 */
 
 		auth_type = NULL;
 		mechlist = NULL;
@@ -575,8 +632,8 @@ smtp(nullserver, d_flags, e)
 
 		/* XXX should these be options settable via .cf ? */
 		/* ssp.min_ssf = 0; is default due to memset() */
-#  if STARTTLS
-#  endif /* STARTTLS */
+# if STARTTLS
+# endif /* STARTTLS */
 		{
 			ssp.max_ssf = MaxSLBits;
 			ssp.maxbufsize = MAXOUTLEN;
@@ -591,10 +648,19 @@ smtp(nullserver, d_flags, e)
 			**	currently we have none so zero
 			*/
 
+# if SASL >= 20000
+			ext_ssf = 0;
+			auth_id = NULL;
+			sasl_ok = ((sasl_setprop(conn, SASL_SSF_EXTERNAL,
+						 &ext_ssf) == SASL_OK) &&
+				   (sasl_setprop(conn, SASL_AUTH_EXTERNAL,
+						 auth_id) == SASL_OK));
+# else /* SASL >= 20000 */
 			ext_ssf.ssf = 0;
 			ext_ssf.auth_id = NULL;
 			sasl_ok = sasl_setprop(conn, SASL_SSF_EXTERNAL,
 					       &ext_ssf) == SASL_OK;
+# endif /* SASL >= 20000 */
 		}
 		if (sasl_ok)
 			n_mechs = saslmechs(conn, &mechlist);
@@ -613,7 +679,7 @@ smtp(nullserver, d_flags, e)
 		  case SMFIR_REJECT:
 			if (MilterLogLevel > 3)
 				sm_syslog(LOG_INFO, e->e_id,
-					  "Milter: inititalization failed, rejecting commands");
+					  "Milter: initialization failed, rejecting commands");
 			greetcode = "554";
 			nullserver = "Command rejected";
 			smtp.sm_milterize = false;
@@ -622,7 +688,7 @@ smtp(nullserver, d_flags, e)
 		  case SMFIR_TEMPFAIL:
 			if (MilterLogLevel > 3)
 				sm_syslog(LOG_INFO, e->e_id,
-					  "Milter: inititalization failed, temp failing commands");
+					  "Milter: initialization failed, temp failing commands");
 			tempfail = true;
 			smtp.sm_milterize = false;
 			break;
@@ -866,8 +932,14 @@ smtp(nullserver, d_flags, e)
 			}
 
 			/* could this be shorter? XXX */
+# if SASL >= 20000
+			in = xalloc(strlen(inp) + 1);
+			result = sasl_decode64(inp, strlen(inp), in,
+					       strlen(inp), &inlen);
+# else /* SASL >= 20000 */
 			out = xalloc(strlen(inp));
 			result = sasl_decode64(inp, strlen(inp), out, &outlen);
+# endif /* SASL >= 20000 */
 			if (result != SASL_OK)
 			{
 				authenticating = SASL_NOT_AUTH;
@@ -875,11 +947,20 @@ smtp(nullserver, d_flags, e)
 				/* rfc 2254 4. */
 				message("501 5.5.4 cannot decode AUTH parameter %s",
 					inp);
+# if SASL >= 20000
+				sm_free(in);
+# endif /* SASL >= 20000 */
 				continue;
 			}
 
+# if SASL >= 20000
+			result = sasl_server_step(conn,	in, inlen,
+						  &out, &outlen);
+			sm_free(in);
+# else /* SASL >= 20000 */
 			result = sasl_server_step(conn,	out, outlen,
 						  &out, &outlen, &errstr);
+# endif /* SASL >= 20000 */
 
 			/* get an OK if we're done */
 			if (result == SASL_OK)
@@ -890,6 +971,13 @@ smtp(nullserver, d_flags, e)
 				macdefine(&BlankEnvelope.e_macro, A_TEMP,
 					macid("{auth_type}"), auth_type);
 
+# if SASL >= 20000
+				user = macvalue(macid("{auth_authen}"), e);
+
+				/* get security strength (features) */
+				result = sasl_getprop(conn, SASL_SSF,
+						      (const void **) &ssf);
+# else /* SASL >= 20000 */
 				result = sasl_getprop(conn, SASL_USERNAME,
 						      (void **)&user);
 				if (result != SASL_OK)
@@ -914,6 +1002,7 @@ smtp(nullserver, d_flags, e)
 				/* get security strength (features) */
 				result = sasl_getprop(conn, SASL_SSF,
 						      (void **) &ssf);
+# endif /* SASL >= 20000 */
 				if (result != SASL_OK)
 				{
 					macdefine(&BlankEnvelope.e_macro,
@@ -953,10 +1042,10 @@ smtp(nullserver, d_flags, e)
 					{
 						/* restart dialogue */
 						n_helo = 0;
-#if PIPELINING
+# if PIPELINING
 						(void) sm_io_autoflush(InChannel,
 								       OutChannel);
-#endif /* PIPELINING */
+# endif /* PIPELINING */
 					}
 					else
 						syserr("503 5.3.3 SASL TLS failed");
@@ -995,11 +1084,14 @@ smtp(nullserver, d_flags, e)
 						sm_dprintf("AUTH continue: msg='%s' len=%u\n",
 							   out2, out2len);
 				}
+# if SASL >= 20000
+				sm_free(out2);
+# endif /* SASL >= 20000 */
 			}
 			else
 			{
 				/* not SASL_OK or SASL_CONT */
-				message("500 5.7.0 authentication failed");
+				message("535 5.7.0 authentication failed");
 				if (LogLevel > 9)
 					sm_syslog(LOG_WARNING, e->e_id,
 						  "AUTH failure (%s): %s (%d) %s",
@@ -1007,7 +1099,11 @@ smtp(nullserver, d_flags, e)
 						  sasl_errstring(result, NULL,
 								 NULL),
 						  result,
+# if SASL >= 20000
+						  sasl_errdetail(conn));
+# else /* SASL >= 20000 */
 						  errstr == NULL ? "" : errstr);
+# endif /* SASL >= 20000 */
 				authenticating = SASL_NOT_AUTH;
 			}
 		}
@@ -1181,10 +1277,16 @@ smtp(nullserver, d_flags, e)
 				}
 			}
 
+			if (*p == '\0')
+			{
+				message("501 5.5.2 AUTH mechanism must be specified");
+				break;
+			}
+
 			/* check whether mechanism is available */
 			if (iteminlist(p, mechlist, " ") == NULL)
 			{
-				message("503 5.3.3 AUTH mechanism %.32s not available",
+				message("504 5.3.3 AUTH mechanism %.32s not available",
 					p);
 				break;
 			}
@@ -1192,9 +1294,15 @@ smtp(nullserver, d_flags, e)
 			if (ismore)
 			{
 				/* could this be shorter? XXX */
+# if SASL >= 20000
+				in = xalloc(strlen(q) + 1);
+				result = sasl_decode64(q, strlen(q), in,
+						       strlen(q), &inlen);
+# else /* SASL >= 20000 */
 				in = sm_rpool_malloc(e->e_rpool, strlen(q));
 				result = sasl_decode64(q, strlen(q), in,
 						       &inlen);
+# endif /* SASL >= 20000 */
 				if (result != SASL_OK)
 				{
 					message("501 5.5.4 cannot BASE64 decode '%s'",
@@ -1205,6 +1313,9 @@ smtp(nullserver, d_flags, e)
 							  result, q);
 					/* start over? */
 					authenticating = SASL_NOT_AUTH;
+# if SASL >= 20000
+					sm_free(in);
+# endif /* SASL >= 20000 */
 					in = NULL;
 					inlen = 0;
 					break;
@@ -1217,12 +1328,19 @@ smtp(nullserver, d_flags, e)
 			}
 
 			/* see if that auth type exists */
+# if SASL >= 20000
+			result = sasl_server_start(conn, p, in, inlen,
+						   &out, &outlen);
+			if (in != NULL)
+				sm_free(in);
+# else /* SASL >= 20000 */
 			result = sasl_server_start(conn, p, in, inlen,
 						   &out, &outlen, &errstr);
+# endif /* SASL >= 20000 */
 
 			if (result != SASL_OK && result != SASL_CONTINUE)
 			{
-				message("500 5.7.0 authentication failed");
+				message("535 5.7.0 authentication failed");
 				if (LogLevel > 9)
 					sm_syslog(LOG_ERR, e->e_id,
 						  "AUTH failure (%s): %s (%d) %s",
@@ -1230,7 +1348,11 @@ smtp(nullserver, d_flags, e)
 						  sasl_errstring(result, NULL,
 								 NULL),
 						  result,
+# if SASL >= 20000
+						  sasl_errdetail(conn));
+# else /* SASL >= 20000 */
 						  errstr);
+# endif /* SASL >= 20000 */
 				break;
 			}
 			auth_type = newstr(p);
@@ -1264,6 +1386,9 @@ smtp(nullserver, d_flags, e)
 				message("334 %s", out2);
 				authenticating = SASL_PROC_AUTH;
 			}
+# if SASL >= 20000
+			sm_free(out2);
+# endif /* SASL >= 20000 */
 			break;
 #endif /* SASL */
 
@@ -1472,8 +1597,9 @@ smtp(nullserver, d_flags, e)
 			QuickAbort = false;
 			if (rscheck("tls_client",
 				     macvalue(macid("{verify}"), e),
-				     "STARTTLS", e, true, true, 5,
-				     NULL, NOQID) != EX_OK ||
+				     "STARTTLS", e,
+				     RSF_RMCOMM|RSF_COUNT,
+				     5, NULL, NOQID) != EX_OK ||
 			    Errors > 0)
 			{
 				extern char MsgBuf[];
@@ -1494,12 +1620,23 @@ smtp(nullserver, d_flags, e)
 				char *s;
 
 				s = macvalue(macid("{cipher_bits}"), e);
+#  if SASL >= 20000
+				if (s != NULL && (ext_ssf = atoi(s)) > 0)
+				{
+					auth_id = macvalue(macid("{cert_subject}"),
+								   e);
+					sasl_ok = ((sasl_setprop(conn, SASL_SSF_EXTERNAL,
+								 &ext_ssf) == SASL_OK) &&
+						   (sasl_setprop(conn, SASL_AUTH_EXTERNAL,
+								 auth_id) == SASL_OK));
+#  else /* SASL >= 20000 */
 				if (s != NULL && (ext_ssf.ssf = atoi(s)) > 0)
 				{
 					ext_ssf.auth_id = macvalue(macid("{cert_subject}"),
 								   e);
 					sasl_ok = sasl_setprop(conn, SASL_SSF_EXTERNAL,
 							       &ext_ssf) == SASL_OK;
+#  endif /* SASL >= 20000 */
 					mechlist = NULL;
 					if (sasl_ok)
 						n_mechs = saslmechs(conn,
@@ -1591,6 +1728,7 @@ smtp(nullserver, d_flags, e)
 				break;
 			}
 
+			ok = true;
 			for (q = p; *q != '\0'; q++)
 			{
 				if (!isascii(*q))
@@ -1600,13 +1738,16 @@ smtp(nullserver, d_flags, e)
 				if (isspace(*q))
 				{
 					*q = '\0';
+
+					/* only complain if strict check */
+					ok = AllowBogusHELO;
 					break;
 				}
 				if (strchr("[].-_#", *q) == NULL)
 					break;
 			}
 
-			if (*q == '\0')
+			if (*q == '\0' && ok)
 			{
 				q = "pleased to meet you";
 				sendinghost = sm_strdup_x(p);
@@ -1688,7 +1829,7 @@ smtp(nullserver, d_flags, e)
 				if (response != NULL)
 					sm_free(response);
 
-#if _FFR_QUARANTINE
+# if _FFR_QUARANTINE
 				/*
 				**  If quarantining by a connect/ehlo action,
 				**  save between messages
@@ -1697,7 +1838,7 @@ smtp(nullserver, d_flags, e)
 				if (smtp.sm_quarmsg == NULL &&
 				    e->e_quarmsg != NULL)
 					smtp.sm_quarmsg = newstr(e->e_quarmsg);
-#endif /* _FFR_QUARANTINE */
+# endif /* _FFR_QUARANTINE */
 			}
 #endif /* MILTER */
 			gothello = true;
@@ -1726,7 +1867,6 @@ smtp(nullserver, d_flags, e)
 			**  Note: If you change this list,
 			**	  remember to update 'helpfile'
 			*/
-
 
 			message("250-ENHANCEDSTATUSCODES");
 #if PIPELINING
@@ -1757,7 +1897,8 @@ smtp(nullserver, d_flags, e)
 				message("250-AUTH %s", mechlist);
 #endif /* SASL */
 #if STARTTLS
-			if (tls_ok_srv && bitset(SRV_OFFER_TLS, features))
+			if (tls_ok_srv &&
+			    bitset(SRV_OFFER_TLS, features))
 				message("250-STARTTLS");
 #endif /* STARTTLS */
 			if (DeliverByMin > 0)
@@ -1858,7 +1999,10 @@ smtp(nullserver, d_flags, e)
 			/* do the processing */
 		    SM_TRY
 		    {
+			extern char *FullName;
+
 			QuickAbort = true;
+			SM_FREE_CLR(FullName);
 
 			/* must parse sender first */
 			delimptr = NULL;
@@ -1990,8 +2134,8 @@ smtp(nullserver, d_flags, e)
 				  e->e_from.q_paddr);
 #endif /* _FFR_MAIL_MACRO */
 			if (rscheck("check_mail", addr,
-				    NULL, e, true, true, 3, NULL,
-				    e->e_id) != EX_OK ||
+				    NULL, e, RSF_RMCOMM|RSF_COUNT, 3,
+				    NULL, e->e_id) != EX_OK ||
 			    Errors > 0)
 				sm_exc_raisenew_x(&EtypeQuickAbort, 1);
 			macdefine(&e->e_macro, A_PERM,
@@ -2230,12 +2374,16 @@ smtp(nullserver, d_flags, e)
 			macdefine(&e->e_macro, A_PERM,
 				macid("{addr_type}"), "e r");
 			if (rscheck("check_rcpt", addr,
-				    NULL, e, true, true, 3, NULL,
-				    e->e_id) != EX_OK ||
+				    NULL, e, RSF_RMCOMM|RSF_COUNT, 3,
+				    NULL, e->e_id) != EX_OK ||
 			    Errors > 0)
 				goto rcpt_done;
 			macdefine(&e->e_macro, A_PERM,
 				macid("{addr_type}"), NULL);
+
+			/* If discarding, don't bother to verify user */
+			if (bitset(EF_DISCARD, e->e_flags))
+				a->q_state = QS_VERIFIED;
 
 #if MILTER
 			if (smtp.sm_milterlist && smtp.sm_milterize &&
@@ -2252,7 +2400,7 @@ smtp(nullserver, d_flags, e)
 			macdefine(&e->e_macro, A_PERM,
 				macid("{rcpt_mailer}"), NULL);
 			macdefine(&e->e_macro, A_PERM,
-				macid("{rcpt_relay}"), NULL);
+				macid("{rcpt_host}"), NULL);
 			macdefine(&e->e_macro, A_PERM,
 				macid("{rcpt_addr}"), NULL);
 			macdefine(&e->e_macro, A_PERM,
@@ -2385,8 +2533,8 @@ smtp(nullserver, d_flags, e)
 			{
 				/* do config file checking of the address */
 				if (rscheck(vrfy ? "check_vrfy" : "check_expn",
-					    p, NULL, e, true, false, 3, NULL,
-					    NOQID) != EX_OK ||
+					    p, NULL, e, RSF_RMCOMM,
+					    3, NULL, NOQID) != EX_OK ||
 				    Errors > 0)
 					sm_exc_raisenew_x(&EtypeQuickAbort, 1);
 				(void) sendtolist(p, NULLADDR, &vrfyqueue, 0, e);
@@ -2481,8 +2629,9 @@ smtp(nullserver, d_flags, e)
 			**  available to make a decision.
 			*/
 
-			if (rscheck("check_etrn", p, NULL, e, true, false, 3,
-				    NULL, NOQID) != EX_OK || Errors > 0)
+			if (rscheck("check_etrn", p, NULL, e,
+				    RSF_RMCOMM, 3, NULL, NOQID) != EX_OK ||
+			    Errors > 0)
 				break;
 
 			if (LogLevel > 5)
@@ -2586,7 +2735,8 @@ doquit:
 				logsender(e, NULL);
 			e->e_flags &= ~EF_LOGSENDER;
 
-			if (lognullconnection && LogLevel > 5)
+			if (lognullconnection && LogLevel > 5 &&
+			    nullserver == NULL)
 			{
 				char *d;
 
@@ -2723,6 +2873,7 @@ smtp_data(smtp, e)
 	ADDRESS *a;
 	ENVELOPE *ee;
 	char *id;
+	char *oldid;
 	char buf[32];
 
 	SmtpPhase = "server DATA";
@@ -2738,7 +2889,8 @@ smtp_data(smtp, e)
 	}
 	(void) sm_snprintf(buf, sizeof buf, "%u", smtp->sm_nrcpts);
 	if (rscheck("check_data", buf, NULL, e,
-		    true, false, 3, NULL, e->e_id) != EX_OK)
+		    RSF_RMCOMM|RSF_UNSTRUCTURED|RSF_COUNT, 3, NULL,
+		    e->e_id) != EX_OK)
 		return;
 
 	/* put back discard bit */
@@ -2781,8 +2933,8 @@ smtp_data(smtp, e)
 
 #if _FFR_CHECK_EOM
 	/* rscheck() will set Errors or EF_DISCARD if it trips */
-	(void) rscheck("check_eom", buf, NULL, e, false,
-		       true, 3, NULL, e->e_id);
+	(void) rscheck("check_eom", buf, NULL, e, RSF_UNSTRUCTURED|RSF_COUNT,
+		       3, NULL, e->e_id);
 #endif /* _FFR_CHECK_EOM */
 
 #if MILTER
@@ -2943,8 +3095,13 @@ smtp_data(smtp, e)
 		ee->e_to = NULL;
 	}
 
+	/* put back id for SMTP logging in putoutmsg() */
+	oldid = CurEnv->e_id;
+	CurEnv->e_id = id;
+
 	/* issue success message */
 	message("250 2.0.0 %s Message accepted for delivery", id);
+	CurEnv->e_id = oldid;
 
 	/* if we just queued, poke it */
 	if (doublequeue)
@@ -3443,8 +3600,8 @@ mail_esmtp_args(kp, vp, e)
 		SuprErrs = true;
 		QuickAbort = false;
 		if (strcmp(auth_param, "<>") != 0 &&
-		     (rscheck("trust_auth", pbuf, NULL, e, true, false, 9,
-			      NULL, NOQID) != EX_OK || Errors > 0))
+		     (rscheck("trust_auth", pbuf, NULL, e, RSF_RMCOMM,
+			      9, NULL, NOQID) != EX_OK || Errors > 0))
 		{
 			if (tTd(95, 8))
 			{
@@ -3724,9 +3881,15 @@ saslmechs(conn, mechlist)
 	int len, num, result;
 
 	/* "user" is currently unused */
+# if SASL >= 20000
+	result = sasl_listmech(conn, NULL,
+			       "", " ", "", (const char **) mechlist,
+			       (unsigned int *)&len, (unsigned int *)&num);
+# else /* SASL >= 20000 */
 	result = sasl_listmech(conn, "user", /* XXX */
 			       "", " ", "", mechlist,
 			       (unsigned int *)&len, (unsigned int *)&num);
+# endif /* SASL >= 20000 */
 	if (result != SASL_OK)
 	{
 		if (LogLevel > 9)
@@ -3752,6 +3915,52 @@ saslmechs(conn, mechlist)
 	}
 	return num;
 }
+
+# if SASL >= 20000
+/*
+**  PROXY_POLICY -- define proxy policy for AUTH
+**
+**	Parameters:
+**		conn -- unused.
+**		context -- unused.
+**		requested_user -- authorization identity.
+**		rlen -- authorization identity length.
+**		auth_identity -- authentication identity.
+**		alen -- authentication identity length.
+**		def_realm -- default user realm.
+**		urlen -- user realm length.
+**		propctx -- unused.
+**
+**	Returns:
+**		ok?
+**
+**	Side Effects:
+**		sets {auth_authen} macro.
+*/
+
+int
+proxy_policy(conn, context, requested_user, rlen, auth_identity, alen,
+	     def_realm, urlen, propctx)
+	sasl_conn_t *conn;
+	void *context;
+	const char *requested_user;
+	unsigned rlen;
+	const char *auth_identity;
+	unsigned alen;
+	const char *def_realm;
+	unsigned urlen;
+	struct propctx *propctx;
+{
+	if (auth_identity == NULL)
+		return SASL_FAIL;
+
+	macdefine(&BlankEnvelope.e_macro, A_TEMP,
+		  macid("{auth_authen}"), (char *) auth_identity);
+
+	return SASL_OK;
+}
+# else /* SASL >= 20000 */
+
 /*
 **  PROXY_POLICY -- define proxy policy for AUTH
 **
@@ -3779,6 +3988,7 @@ proxy_policy(context, auth_identity, requested_user, user, errstr)
 	*user = newstr(auth_identity);
 	return SASL_OK;
 }
+# endif /* SASL >= 20000 */
 #endif /* SASL */
 
 #if STARTTLS

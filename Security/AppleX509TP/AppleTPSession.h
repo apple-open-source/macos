@@ -213,6 +213,7 @@ private:
 
 	void SubmitCsrRequest(
 		const CSSM_TP_REQUEST_SET &RequestInput,
+		const CSSM_TP_CALLERAUTH_CONTEXT *CallerAuthContext,
 		sint32 					&EstimatedTime,	
 		CssmData 				&ReferenceIdentifier);
 		

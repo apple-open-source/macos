@@ -52,7 +52,7 @@ extern const OSSymbol *	gIODisplayParametersDefaultKey;
 
 enum {
     kIODisplayNumPowerStates = 4,
-    kIODisplayMaxPowerState  = kIODisplayNumPowerStates - 1,
+    kIODisplayMaxPowerState  = kIODisplayNumPowerStates - 1
 };
 
 // these are the private instance variables for power management
@@ -110,7 +110,6 @@ protected:
 
     // reserved for future expansion
     void * 				_IODisplay_reserved[32];
-
 
 public:
     virtual IOService * probe(	IOService * 	provider,
@@ -187,6 +186,9 @@ private:
 private:
     static IOReturn _framebufferEvent( OSObject * self, void * ref,
                     IOFramebuffer *framebuffer, IOIndex event, void * info );
+
+    bool addParameterHandler( IODisplayParameterHandler * parameterHandler );
+    bool removeParameterHandler( IODisplayParameterHandler * parameterHandler );
 };
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */

@@ -68,21 +68,23 @@ IONDRVI2CInterface * IONDRVI2CInterface::withNDRV(
     UInt64 id = (((UInt64) (UInt32) ndrv) << 32) | busID;
 
     interface = new IONDRVI2CInterface;
-    if( interface) {
+    if (interface)
+    {
         interface->fNdrv = ndrv;
         interface->fBusID = busID;
-        if(!interface->init()
-        || !interface->attach( ndrv )
-        || !interface->start( ndrv )
-        ) {
+        if (!interface->init()
+                || !interface->attach(ndrv)
+                || !interface->start(ndrv)
+           )
+        {
             interface->detach( ndrv );
             interface->release();
             interface = 0;
-        } else
+        }
+        else
             interface->registerI2C(id);
-
     }
-    return( interface );
+    return (interface);
 }
 
 bool IONDRVI2CInterface::start( IOService * provider )
@@ -90,15 +92,15 @@ bool IONDRVI2CInterface::start( IOService * provider )
     IOReturn			err;
     VDCommunicationInfoRec	commInfo;
 
-    if( !super::start( provider ))
-        return( false );
+    if (!super::start(provider))
+        return (false);
 
     bzero( &commInfo, sizeof( commInfo));
     commInfo.csBusID = fBusID;
 
     err = fNdrv->doStatus( cscGetCommunicationInfo, &commInfo );
-    if( kIOReturnSuccess != err)
-        return( false );
+    if (kIOReturnSuccess != err)
+        return (false);
 
     supportedTypes     = commInfo.csSupportedTypes;
     supportedCommFlags = commInfo.csSupportedCommFlags;
@@ -107,12 +109,12 @@ bool IONDRVI2CInterface::start( IOService * provider )
     setProperty(kIOI2CTransactionTypesKey, commInfo.csSupportedTypes, 32);
     setProperty(kIOI2CSupportedCommFlagsKey, commInfo.csSupportedCommFlags, 32);
 
-    return( true );
+    return (true);
 }
 
 IOReturn IONDRVFramebuffer::_iicAction( IONDRVFramebuffer * self, VDCommunicationRec * comm )
 {
-    return( self->doControl( cscDoCommunication, comm ) );
+    return (self->doControl(cscDoCommunication, comm));
 }
 
 IOReturn IONDRVI2CInterface::startIO( IOI2CRequest * request )
@@ -123,17 +125,20 @@ IOReturn IONDRVI2CInterface::startIO( IOI2CRequest * request )
 
     bzero( &comm, sizeof( comm));
 
-    do {
-
-        if( 0 == ((1 << request->sendTransactionType) & supportedTypes)) {
+    do
+    {
+        if (0 == ((1 << request->sendTransactionType) & supportedTypes))
+        {
             err = kIOReturnUnsupportedMode;
             continue;
         }
-        if( 0 == ((1 << request->replyTransactionType) & supportedTypes)) {
+        if (0 == ((1 << request->replyTransactionType) & supportedTypes))
+        {
             err = kIOReturnUnsupportedMode;
             continue;
         }
-        if( request->commFlags != (request->commFlags & supportedCommFlags)) {
+        if (request->commFlags != (request->commFlags & supportedCommFlags))
+        {
             err = kIOReturnUnsupportedMode;
             continue;
         }
@@ -141,8 +146,8 @@ IOReturn IONDRVI2CInterface::startIO( IOI2CRequest * request )
         comm.csBusID		= fBusID;
         comm.csCommFlags	= request->commFlags;
         comm.csMinReplyDelay 	= 0;
-    
-        if( kIOI2CUseSubAddressCommFlag & request->commFlags)
+
+        if (kIOI2CUseSubAddressCommFlag & request->commFlags)
             comm.csSendAddress	= (request->sendAddress << 8) | request->sendSubAddress;
         else
             comm.csSendAddress	= request->sendAddress;
@@ -150,8 +155,8 @@ IOReturn IONDRVI2CInterface::startIO( IOI2CRequest * request )
         comm.csSendType		= request->sendTransactionType;
         comm.csSendBuffer	= (LogicalAddress) request->sendBuffer;
         comm.csSendSize		= request->sendBytes;
-    
-        if( kIOI2CUseSubAddressCommFlag & request->commFlags)
+
+        if (kIOI2CUseSubAddressCommFlag & request->commFlags)
             comm.csReplyAddress	= (request->replyAddress << 8) | request->replySubAddress;
         else
             comm.csReplyAddress	= request->replyAddress;
@@ -159,16 +164,17 @@ IOReturn IONDRVI2CInterface::startIO( IOI2CRequest * request )
         comm.csReplyType	= request->replyTransactionType;
         comm.csReplyBuffer	= (LogicalAddress) request->replyBuffer;
         comm.csReplySize	= request->replyBytes;
-    
-        if( (wl = getWorkLoop()))
+
+        if ((wl = getWorkLoop()))
             err = wl->runAction( (IOWorkLoop::Action) &fNdrv->_iicAction,
-                                fNdrv, (void *) &comm );
+                                 fNdrv, (void *) &comm );
         else
             err = kIOReturnNotReady;
+    }
+    while (false);
 
-    } while( false );
-
-    switch( err ) {
+    switch (err)
+    {
         case kVideoI2CReplyPendingErr:
             err = kIOReturnNoCompletion;
             break;
@@ -187,12 +193,12 @@ IOReturn IONDRVI2CInterface::startIO( IOI2CRequest * request )
     }
 
     request->result = err;
-    if( request->completion)
+    if (request->completion)
         (*request->completion)(request);
 
     err = kIOReturnSuccess;
 
-    return( err );
+    return (err);
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -205,53 +211,55 @@ OSDefineMetaClassAndStructors(AppleOnboardI2CInterface, IOI2CInterface)
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 AppleOnboardI2CInterface * AppleOnboardI2CInterface::withInterface(
-            PPCI2CInterface * onboardInterface, SInt32 port )
+    PPCI2CInterface * onboardInterface, SInt32 port )
 {
     AppleOnboardI2CInterface * interface;
     UInt64 id = (((UInt64) (UInt32) onboardInterface) << 32) | port;
 
     interface = new AppleOnboardI2CInterface;
-    if( interface) {
+    if (interface)
+    {
         interface->fInterface = onboardInterface;
         interface->fPort = port;
-        if(!interface->init()
-        || !interface->attach( onboardInterface )
-        || !interface->start( onboardInterface )
-        ) {
+        if (!interface->init()
+                || !interface->attach(onboardInterface)
+                || !interface->start(onboardInterface)
+           )
+        {
             interface->detach( onboardInterface );
             interface->release();
             interface = 0;
-        } else
+        }
+        else
             interface->registerI2C(id);
-
     }
-    return( interface );
+    return (interface);
 }
 
 bool AppleOnboardI2CInterface::start( IOService * provider )
 {
-
-    if( !super::start( provider ))
-        return( false );
+    if (!super::start(provider))
+        return (false);
 
     setProperty(kIOI2CBusTypeKey,
                 (UInt64) kIOI2CBusTypeI2C, 32);
     setProperty(kIOI2CTransactionTypesKey,
                 (UInt64) ((1 << kIOI2CNoTransactionType)
-                        | (1 << kIOI2CSimpleTransactionType)
-                        | (1 << kIOI2CDDCciReplyTransactionType)
-                        | (1 << kIOI2CCombinedTransactionType)), 32);
+                          | (1 << kIOI2CSimpleTransactionType)
+                          | (1 << kIOI2CDDCciReplyTransactionType)
+                          | (1 << kIOI2CCombinedTransactionType)), 32);
     setProperty(kIOI2CSupportedCommFlagsKey,
                 (UInt64) kIOI2CUseSubAddressCommFlag, 32);
 
-    return( true );
+    return (true);
 }
 
 IOReturn AppleOnboardI2CInterface::startIO( IOI2CRequest * request )
 {
     IOReturn err = kIOReturnSuccess;
 
-    do {
+    do
+    {
         // Open the interface and sets it in the wanted mode:
 
         fInterface->openI2CBus(fPort);
@@ -261,41 +269,43 @@ IOReturn AppleOnboardI2CInterface::startIO( IOI2CRequest * request )
         // in interrupt mode).
         fInterface->setPollingMode(true);
 
-        if( request->sendBytes && (kIOI2CNoTransactionType != request->sendTransactionType)) {
-            if( kIOI2CCombinedTransactionType == request->sendTransactionType)
+        if (request->sendBytes && (kIOI2CNoTransactionType != request->sendTransactionType))
+        {
+            if (kIOI2CCombinedTransactionType == request->sendTransactionType)
                 fInterface->setCombinedMode();
-            else if( kIOI2CUseSubAddressCommFlag & request->commFlags)
+            else if (kIOI2CUseSubAddressCommFlag & request->commFlags)
                 fInterface->setStandardSubMode();
             else
                 fInterface->setStandardMode();
 
-            if( !fInterface->writeI2CBus(request->sendAddress >> 1, request->sendSubAddress,
-                                            (UInt8 *) request->sendBuffer, request->sendBytes))
+            if (!fInterface->writeI2CBus(request->sendAddress >> 1, request->sendSubAddress,
+                                         (UInt8 *) request->sendBuffer, request->sendBytes))
                 err = kIOReturnNotWritable;
         }
 
-        if( request->replyBytes && (kIOI2CNoTransactionType != request->replyTransactionType)) {
-            if( kIOI2CCombinedTransactionType == request->replyTransactionType)
+        if (request->replyBytes && (kIOI2CNoTransactionType != request->replyTransactionType))
+        {
+            if (kIOI2CCombinedTransactionType == request->replyTransactionType)
                 fInterface->setCombinedMode();
-            else if( kIOI2CUseSubAddressCommFlag & request->commFlags)
+            else if (kIOI2CUseSubAddressCommFlag & request->commFlags)
                 fInterface->setStandardSubMode();
             else
                 fInterface->setStandardMode();
 
-            if( !fInterface->readI2CBus(request->replyAddress >> 1, request->replySubAddress,
-                                            (UInt8 *) request->replyBuffer, request->replyBytes))
+            if (!fInterface->readI2CBus(request->replyAddress >> 1, request->replySubAddress,
+                                        (UInt8 *) request->replyBuffer, request->replyBytes))
                 err = kIOReturnNotReadable;
         }
 
         fInterface->closeI2CBus();
-
-    } while( false );
+    }
+    while (false);
 
     request->result = err;
 
     err = kIOReturnSuccess;
 
-    return( err );
+    return (err);
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -310,18 +320,20 @@ IOReturn IONDRVI2CInterface::create( IONDRVFramebuffer * ndrv )
     bool			ok = true;
 
     OSArray * array = OSArray::withCapacity(1);
-    if( !array)
-        return( kIOReturnNoMemory );
+    if (!array)
+        return (kIOReturnNoMemory);
 
-    do {
+    do
+    {
         bzero( &commInfo, sizeof( commInfo));
         commInfo.csBusID = kVideoDefaultBus;
-    
+
         err = ndrv->doStatus( cscGetCommunicationInfo, &commInfo );
 #if IONDRVI2CLOG
         IOLog("%s: cscGetCommunicationInfo: ", ndrv->getName());
 #endif
-        if( kIOReturnSuccess != err) {
+        if (kIOReturnSuccess != err)
+        {
 #if IONDRVI2CLOG
             IOLog("fails with %d\n", err);
 #endif
@@ -329,57 +341,58 @@ IOReturn IONDRVI2CInterface::create( IONDRVFramebuffer * ndrv )
         }
 #if IONDRVI2CLOG
         IOLog("csBusType %lx, csMinBus %lx, csMaxBus %lx\n"
-                "csSupportedTypes %lx, csSupportedCommFlags %lx\n",
-                commInfo.csBusType,
-                commInfo.csMinBus, commInfo.csMaxBus,
-                commInfo.csSupportedTypes, commInfo.csSupportedCommFlags);
+              "csSupportedTypes %lx, csSupportedCommFlags %lx\n",
+              commInfo.csBusType,
+              commInfo.csMinBus, commInfo.csMaxBus,
+              commInfo.csSupportedTypes, commInfo.csSupportedCommFlags);
 #endif
-        if( commInfo.csMaxBus < commInfo.csMinBus)
+        if (commInfo.csMaxBus < commInfo.csMinBus)
             continue;
-    
-        for( busID = commInfo.csMinBus;
-             busID <= commInfo.csMaxBus;
-             busID++ ) {
-    
+
+        for (busID = commInfo.csMinBus;
+                busID <= commInfo.csMaxBus;
+                busID++)
+        {
             interface = IONDRVI2CInterface::withNDRV( ndrv, busID );
-            if( !interface)
+            if (!interface)
                 break;
             num = interface->getProperty(kIOI2CInterfaceIDKey);
-            if( num)
+            if (num)
                 array->setObject( num );
             else
                 break;
         }
-    
-        ok = (busID > commInfo.csMaxBus);
 
-    } while( false );
+        ok = (busID > commInfo.csMaxBus);
+    }
+    while (false);
 
     OSData * data = OSDynamicCast( OSData, ndrv->getProvider()->getProperty("iic-address"));
-    if( data && (!ndrv->getProperty(kIOFBDependentIDKey)) 
-     && (0x8c == *((UInt32 *) data->getBytesNoCopy())) /*iMac*/) do {
+    if (data && (!ndrv->getProperty(kIOFBDependentIDKey))
+            && (0x8c == *((UInt32 *) data->getBytesNoCopy())) /*iMac*/)
+        do
+        {
+            PPCI2CInterface * onboardInterface =
+                (PPCI2CInterface*) getResourceService()->getProperty("PPCI2CInterface.i2c-uni-n");
+            if (!onboardInterface)
+                continue;
 
-        PPCI2CInterface * onboardInterface = 
-            (PPCI2CInterface*) getResourceService()->getProperty("PPCI2CInterface.i2c-uni-n");
-        if( !onboardInterface)
-            continue;
+            interface = AppleOnboardI2CInterface::withInterface( onboardInterface, 1 );
+            if (!interface)
+                break;
+            num = interface->getProperty(kIOI2CInterfaceIDKey);
+            if (num)
+                array->setObject( num );
+            else
+                break;
+        }
+        while (false);
 
-        interface = AppleOnboardI2CInterface::withInterface( onboardInterface, 1 );
-        if( !interface)
-            break;
-        num = interface->getProperty(kIOI2CInterfaceIDKey);
-        if( num)
-            array->setObject( num );
-        else
-            break;
-
-    } while( false );
-
-    if( ok)
+    if (ok)
         ndrv->setProperty(kIOFBI2CInterfaceIDsKey, array);
 
     array->release();
 
-    return( kIOReturnSuccess );
+    return (kIOReturnSuccess);
 }
 

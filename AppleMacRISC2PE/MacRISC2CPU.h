@@ -32,7 +32,9 @@
 #include <IOKit/IOCPU.h>
 
 #include "MacRISC2.h"
+#include "IOPlatformMonitor.h"
 
+class MacRISC2PE;
 class MacRISC2CPUInterruptController;
 
 class MacRISC2CPU : public IOCPU
@@ -44,6 +46,9 @@ private:
     bool				flushOnLock;
     UInt32				l2crValue;
     MacRISC2PE			*macRISC2PE;
+	IOService			*uniN;
+	IOPlatformMonitor	*ioPMon;
+	OSDictionary		*ioPMonDict;
     UInt32				numCPUs;
     bool				rememberNap;
     IOService			*mpic;
@@ -71,6 +76,7 @@ private:
     const OSSymbol 		*keyLargo_writeRegUInt8;
     const OSSymbol 		*keyLargo_getHostKeyLargo;
     const OSSymbol 		*keyLargo_setPowerSupply;
+    const OSSymbol 		*UniNSetPowerState;
 
 public:
     virtual const OSSymbol *getCPUName(void);
@@ -78,6 +84,7 @@ public:
     virtual bool           start(IOService *provider);
     virtual IOReturn       powerStateWillChangeTo (IOPMPowerFlags, unsigned long, IOService*);
     virtual IOReturn	   setAggressiveness(unsigned long selector, unsigned long newLevel);
+	virtual void		   performPMUSpeedChange (UInt32 newLevel);
 
     virtual void           initCPU(bool boot);
     virtual void           quiesceCPU(void);

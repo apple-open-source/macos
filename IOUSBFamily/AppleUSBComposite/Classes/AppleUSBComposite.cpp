@@ -140,8 +140,14 @@ AppleUSBComposite::ConfigureDevice()
         const IOUSBConfigurationDescriptor *cd = _device->GetFullConfigurationDescriptor(0);
         if (!cd)
         {
-            USBError(1, "%s[%p](%s) GetFullConfigDescriptor(0) returned NULL", getName(), this, _device->getName() );
-            break;
+            USBLog(1, "%s[%p](%s) GetFullConfigDescriptor(0) returned NULL, retrying", getName(), this, _device->getName() );
+            IOSleep( 300 );
+            cd = _device->GetFullConfigurationDescriptor(0);
+            if ( !cd )
+            {
+                USBError(1, "%s[%p](%s) GetFullConfigDescriptor(0) returned NULL", getName(), this, _device->getName() );
+                break;
+            }
         }
             
 	
@@ -240,9 +246,15 @@ AppleUSBComposite::ReConfigureDevice()
     cd = _device->GetFullConfigurationDescriptor(0);
     if (!cd)
     {
-        USBLog(3, "%s[%p]::ReConfigureDevice.  GetFullConfigurationDescriptor(0) returned NULL",getName(), this);
-        err = kIOUSBConfigNotFound;
-        goto ErrorExit;
+        USBLog(1, "%s[%p](%s) GetFullConfigDescriptor(0) returned NULL, retrying", getName(), this, _device->getName() );
+        IOSleep( 300 );
+        cd = _device->GetFullConfigurationDescriptor(0);
+        if ( !cd )
+        {
+            USBError(1, "%s[%p](%s) GetFullConfigDescriptor(0) returned NULL", getName(), this, _device->getName() );
+            err = kIOUSBConfigNotFound;
+            goto ErrorExit;
+        }
     }
     
     // Send the SET_CONFIG request on the bus

@@ -223,6 +223,11 @@ bool
 SCSITask::SetTaskOwner ( OSObject * taskOwner )
 {
 	
+	bool	result = false;
+	
+	require_nonzero ( taskOwner, ErrorExit );
+	taskOwner->retain ( );
+	
 	if ( fOwner != NULL )
 	{
 		
@@ -233,9 +238,13 @@ SCSITask::SetTaskOwner ( OSObject * taskOwner )
 	}
 	
 	fOwner = taskOwner;
-	fOwner->retain ( );
+	result = true;
 	
-	return true;
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 

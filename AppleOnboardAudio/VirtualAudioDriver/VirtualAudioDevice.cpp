@@ -322,7 +322,15 @@ Exit:
 IOService* VirtualAudioDevice::probe(IOService* provider, SInt32* score)
 {
 	IOService* result;
-
+	debugIOLog("VirtualAudioDevice::probe\n");
+#if 1
+	if (score)
+	{
+		*score = 0x8000;
+		result = this;
+		debugIOLog("VirtualAudioDevice::probe will load\n");
+	}
+#else		
 	debugIOLog("VirtualAudioDevice:: probe\n");
 	if (!FindSoundNode())
 	{
@@ -336,6 +344,7 @@ IOService* VirtualAudioDevice::probe(IOService* provider, SInt32* score)
 		*score = 0;
 		result = NULL;
 	}
+#endif
 	
-	return this;
+	return result;
 }

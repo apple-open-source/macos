@@ -9,7 +9,7 @@
 # the sendmail distribution.
 #
 #
-#	$Id: README,v 1.1.1.2 2002/03/12 18:00:27 zarzycki Exp $
+#	$Id: README,v 1.1.1.3 2002/10/15 02:38:22 zarzycki Exp $
 #
 
 This directory contains the source files for sendmail(TM).
@@ -73,7 +73,8 @@ file.
 
 You can recompile from scratch using the -c flag with the Build
 command.  This removes the existing compilation directory for the
-current platform and builds a new one.
+current platform and builds a new one.  The -c flag must also
+be used if any site.*.m4 file in devtools/Site/ is changed.
 
 Porting to a new Unix-based system should be a matter of creating
 an appropriate configuration file in the devtools/OS/ directory.
@@ -158,8 +159,8 @@ and the filename includes the string "/yp/", sendmail adds the special
 tokens "YP_LAST_MODIFIED" and "YP_MASTER_NAME", both of which are
 required if the NDBM file is to be used as an NIS map.
 
-All of these flags are normally defined in the DBMDEF line in the
-Makefile.
+All of these flags are normally defined in a confMAPDEF setting in your
+site.config.m4.
 
 If you define NEWDB or HESIOD you get the User Database (USERDB)
 automatically.  Generally you do want to have NEWDB for it to do
@@ -465,10 +466,8 @@ NEEDSGETIPNODE	Set this if your system supports IPv6 but doesn't include
 		for Linux's glibc.
 PIPELINING	Support SMTP PIPELINING	(set by default).
 USING_NETSCAPE_LDAP
-		Set this if LDAPMAP is set and your LDAP libraries are from
-		(or are derived from) Netscape's implementation, which
-		requires that the return value of ldap_first_attribute()
-		and ldap_next_attribute() be ldap_memfree()'d.
+		Deprecated in favor of SM_CONF_LDAP_MEMFREE.  See
+		libsm/README.
 NEEDLINK	Set this if your system doesn't have a link() call.  It
 		will create a copy of the file instead of a hardlink.
 USE_ENVIRON	Set this to 1 to access process environment variables from
@@ -586,7 +585,7 @@ SASL		Enables SMTP AUTH (RFC 2554).  This requires the Cyrus SASL
 		compared with the actual version found and if there is a
 		mismatch, compilation will fail.
 EGD		Define this if your system has EGD installed, see
-		http://www.lothar.com/tech/crypto/ .  It should be used to
+		http://egd.sourceforge.net/ .  It should be used to
 		seed the PRNG for STARTTLS if HASURANDOMDEV is not defined.
 STARTTLS	Enables SMTP STARTTLS (RFC 2487).  This requires OpenSSL
 		(http://www.OpenSSL.org/); use OpenSSL 0.9.5a or later
@@ -602,6 +601,8 @@ REQUIRES_DIR_FSYNC	Turn on support for file systems that require to
 		ReiserFS; it is enabled by default for Linux.  An alternative
 		to this compile time flag is to mount the queue directory
 		without the -async option, or using chattr +S on Linux.
+DBMMODE		The default file permissions to use when creating new
+		database files for maps and aliases.  Defaults to 0640.
 
 Generic notice: If you enable a compile time option that needs
 libraries or include files that don't come with sendmail or are
@@ -878,10 +879,10 @@ Solaris 2.x (SunOS 5.x)
 	make sure /opt/SUNWspro/bin/cc is used instead of /usr/ucb/cc
 	(or it might complain about tm_zone).
 
-	The Solaris "syslog" function is apparently limited to something
-	about 90 characters because of a kernel limitation.  If you have
-	source code, you can probably up this number.  You can get patches
-	that fix this problem: the patch ids are:
+	The Solaris 2.x (x <= 3) "syslog" function is apparently limited
+	to something about 90 characters because of a kernel limitation.
+	If you have source code, you can probably up this number.  You
+	can get patches that fix this problem:  the patch ids are:
 
 		Solaris 2.1	100834
 		Solaris 2.2	100999
@@ -974,9 +975,10 @@ Solaris 8 and later (SunOS 5.8 and later)
 Solaris 9 and later (SunOS 5.9 and later)
 	Solaris 9 and later have a revised LDAP library, libldap.so.5,
 	which is derived from a Netscape implementation, thus requiring
-	that USING_NETSCAPE_LDAP be defined in conjunction with LDAPMAP:
+	that SM_CONF_LDAP_MEMFREE be defined in conjunction with LDAPMAP:
 
-	APPENDDEF(`confMAPDEF', `-DLDAPMAP -DUSING_NETSCAPE_LDAP')
+	APPENDDEF(`confMAPDEF', `-DLDAPMAP')
+	APPENDDEF(`confENVDEF', `-DSM_CONF_LDAP_MEMFREE')
 	APPENDDEF(`confLIBS', `-lldap')
 
 Solaris
@@ -1264,9 +1266,15 @@ HP-UX 8.00
 	README file for the future...
 
 Linux
-	Something broke between versions 0.99.13 and 0.99.14 of Linux:
-	the flock() system call gives errors.  If you are running .14,
-	you must not use flock.  You can do this with -DHASFLOCK=0.
+	Something broke between versions 0.99.13 and 0.99.14 of Linux: the
+	flock() system call gives errors.  If you are running .14, you must
+	not use flock.  You can do this with -DHASFLOCK=0.  We have also
+	been getting complaints since version 2.4.X was released.  Unless
+	the bug is fixed before sendmail 8.13 is shipped, 8.13 will change
+	the default locking method to fcntl() for Linux kernel version 2.4
+	and later.  Be sure to update other sendmail related programs to
+	match locking techniques (some examples, besides makemap and
+	mail.local, include procmail, mailx, mutt, elm, etc).
 
 	Around the inclusion of bind-4.9.3 & Linux libc-4.6.20, the
 	initialization of the _res structure changed.  If /etc/hosts.conf
@@ -1472,7 +1480,10 @@ UNICOS 8.0.3.4
 	problems.  You may want to turn this off if you have problems
 	running sendmail.  Reported by Jerry G. DeLapp <jgd@acl.lanl.gov>.
 
-Mac OS X (10.0.X)
+Darwin/Mac OS X (10.X.X)
+	The linker errors produced regarding getopt() and it's associated
+	variables can safely be ignored.
+
 	From Mike Zimmerman <zimmy@torrentnet.com>:
 
 	From scratch here is what Darwin users need to do to the standard
@@ -1509,6 +1520,28 @@ Mac OS X (10.0.X)
 
 	b. Set / to group unwritable (as superuser):
 	   chmod g-w /
+
+Darwin/Mac OS X (10.1.5)
+	Apple's upgrade to sendmail 8.12 is incorrectly configured.  You
+	will need to manually fix it up by doing the following:
+
+	1. chown smmsp:smmsp /var/spool/clientmqueue
+	2. chmod 2770 /var/spool/clientmqueue
+	3. chgrp smmsp /usr/sbin/sendmail
+	4. chmod g+s /usr/sbin/sendmail
+
+	From Daniel J. Luke <dluke@geeklair.net>:
+
+	It appears that setting the sendmail.cf property in
+	/locations/sendmail in NetInfo on Mac OS X 10.1.5 with sendmail
+	8.12.4 causes 'bad things' to happen.
+
+	Specifically sendmail instances that should be getting their config
+	from /etc/mail/submit.cf don't (so mail/mutt/perl scripts which
+	open pipes to sendmail stop working as sendmail tries to write to
+	/var/spool/mqueue and cannot as sendmail is no longer suid root).
+
+	Removing the entry from NetInfo fixes this problem.
 
 GNU getopt
 	I'm told that GNU getopt has a problem in that it gets confused
@@ -1735,4 +1768,4 @@ util.c		Some general purpose routines used by sendmail.
 version.c	The version number and information about this
 		version of sendmail.
 
-(Version $Revision: 1.1.1.2 $, last update $Date: 2002/03/12 18:00:27 $ )
+(Version $Revision: 1.1.1.3 $, last update $Date: 2002/10/15 02:38:22 $ )

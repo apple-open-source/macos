@@ -35,11 +35,11 @@
 	<key>MaximumRetryTimeSeconds</key>
 	<integer>8</integer>
 	<key>ARPProbeCount</key>
-	<integer>2</integer>
+	<integer>4</integer>
 	<key>ARPGratuitousCount</key>
 	<integer>1</integer>
 	<key>ARPRetryTimeSeconds</key>
-	<real>0.7</real>
+	<real>0.3</real>
 	<key>MustBroadcast</key>
 	<false/>
 	<key>Verbose</key>

@@ -86,6 +86,33 @@ const char * gIOMacRISC2PMTree = "
           </array>
         </dict>
 
+        <dict>
+          <key>device</key>
+          <dict>
+            <key>name</key>
+            <string>usb</string>
+            <key>AAPL,clock-id</key>
+            <string>usb2u248</string>
+          </dict>
+          <key>children</key>
+          <array>
+            <dict>
+              <key>device</key>
+              <dict>
+                <key>IOClass</key>
+                <string>AppleUSBOHCI</string>
+              </dict>
+              <key>provider</key>
+              <dict>
+                <key>AAPL,clock-id</key>
+                <string>usb2u248</string>
+              </dict>
+              <key>multiple-parent</key>
+              <integer>2</integer>		<!-- this OHCI will also have a USBKeyLargo parent -->
+            </dict>
+          </array>
+        </dict>
+
       </array>
     </dict>
 
@@ -102,7 +129,7 @@ const char * gIOMacRISC2PMTree = "
           <key>device</key>
           <dict>
             <key>IOClass</key>
-            <string>USBKeyLargo</string>	<!-- a KeyLargo gets two USBKeyLargos -->
+            <string>USBKeyLargo</string>	<!-- a KeyLargo gets two USBKeyLargos - three for Intrepid -->
             <key>usb</key>
             <integer>0</integer>		<!-- USBKeyLargo zero gets -->
           </dict>
@@ -151,6 +178,35 @@ const char * gIOMacRISC2PMTree = "
               </dict>
               <key>multiple-parent</key>	<!-- this OHCI is also child of IOPMUSBMacRISC2 -->
               <integer>1</integer>
+            </dict>
+
+          </array>
+        </dict>
+
+        <dict>
+          <key>device</key>
+          <dict>
+            <key>IOClass</key>
+            <string>USBKeyLargo</string>
+            <key>usb</key>
+            <integer>2</integer>		<!-- USBKeyLargo two gets -->
+          </dict>
+          <key>children</key>
+          <array>
+
+            <dict>
+              <key>device</key>
+              <dict>
+                <key>IOClass</key>
+                <string>AppleUSBOHCI</string>	<!-- the OHCI for USB controller two -->
+              </dict>
+              <key>provider</key>
+              <dict>
+                <key>AAPL,clock-id</key>
+                <string>usb2u248</string>
+              </dict>
+              <key>multiple-parent</key>	<!-- this OHCI is also child of IOPMUSBMacRISC2 -->
+              <integer>2</integer>
             </dict>
 
           </array>

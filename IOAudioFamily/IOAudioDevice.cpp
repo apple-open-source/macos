@@ -120,7 +120,7 @@ void IOAudioDevice::setIdleAudioSleepTime(unsigned long long sleepDelay)
 	assert(reserved);
 
 #ifdef DEBUG_CALLS
-	IOLog ("IOAudioDevice[%p]::setIdleAudioSleepTime: sleepDelay = %lx%lx\n", this, sleepDelay >> 32, sleepDelay);
+	IOLog ("IOAudioDevice[%p]::setIdleAudioSleepTime: sleepDelay = %lx%lx\n", this, (UInt32)(sleepDelay >> 32), (UInt32)sleepDelay);
 #endif
 	if (reserved->idleSleepDelayTime != sleepDelay) {
 		reserved->idleSleepDelayTime = sleepDelay;
@@ -143,7 +143,7 @@ void IOAudioDevice::scheduleIdleAudioSleep(void)
 	assert(reserved);
 
 #ifdef DEBUG_CALLS
-	IOLog ("IOAudioDevice[%p]::scheduleIdleAudioSleep: idleSleepDelayTime = %lx%lx\n", this, reserved->idleSleepDelayTime >> 32, reserved->idleSleepDelayTime);
+	IOLog ("IOAudioDevice[%p]::scheduleIdleAudioSleep: idleSleepDelayTime = %lx%lx\n", this, (UInt32)(reserved->idleSleepDelayTime >> 32), (UInt32)reserved->idleSleepDelayTime);
 #endif
 	if (reserved->idleSleepDelayTime == 0) {
 		// For backwards compatibility, or drivers that don't care, tell them about idle right away.
@@ -171,7 +171,7 @@ void IOAudioDevice::idleAudioSleepHandlerTimer(OSObject *owner, IOTimerEventSour
 	assert(audioDevice);
 
 #ifdef DEBUG_CALLS
-	IOLog ("IOAudioDevice[%p]idleAudioSleepHandlerTimer: pendingPowerState = %ld, idleSleepDelayTime = %lx%lx\n", this, audioDevice->pendingPowerState, audioDevice->reserved->idleSleepDelayTime >> 32, audioDevice->reserved->idleSleepDelayTime);
+	IOLog ("IOAudioDevice[%p]idleAudioSleepHandlerTimer: pendingPowerState = %d, idleSleepDelayTime = %lx%lx\n", audioDevice, audioDevice->pendingPowerState, (UInt32)(audioDevice->reserved->idleSleepDelayTime >> 32), (UInt32)audioDevice->reserved->idleSleepDelayTime);
 #endif
 	if (audioDevice->reserved->idleSleepDelayTime != kNoIdleAudioPowerDown &&
 		audioDevice->getPendingPowerState () == kIOAudioDeviceIdle) {
@@ -959,8 +959,8 @@ IOReturn IOAudioDevice::addTimerEvent(OSObject *target, TimerEvent event, Absolu
 
     if (!timerEvents) {
         IOWorkLoop *wl;
-        
-        timerEvents = OSDictionary::withObjects(&(const OSObject *)newEvent, &(const OSSymbol *)target, 1, 1);
+
+        timerEvents = OSDictionary::withObjects((const OSObject **)&newEvent, (const OSSymbol **)&target, 1, 1);
         
         timerEventSource = IOTimerEventSource::timerEventSource(this, timerFired);
         wl = getWorkLoop();

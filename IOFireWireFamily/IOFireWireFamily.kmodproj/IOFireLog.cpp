@@ -277,13 +277,24 @@ void IOFireLog::logString( const char *format, va_list ap )
     UInt32	str_length;
     char *  data_ptr;
     char *	length_ptr;
-    
+    bool 	controllerExists = false;
+	
+	if( fController )
+    {
+		controllerExists = true;
+	}
+	
+	if( controllerExists )
+	{
+		fController->closeGate();
+	}
+	
     IOLockLock( fLock );
 	
 //    IOLog( "FireLog : logString\n" );
 
     // get cycleTime
-    if( fController )
+    if( controllerExists )
         fController->getCycleTime(cycleTime);
     else
         cycleTime = 0;
@@ -419,7 +430,12 @@ void IOFireLog::logString( const char *format, va_list ap )
     
     //IOLog( "FireLog : log done.\n" );
     
-    IOLockUnlock( fLock );
+    IOLockUnlock( fLock );	
+	
+	if( controllerExists )
+	{
+		fController->openGate();
+	}
 }
 
 //////////////////////////////

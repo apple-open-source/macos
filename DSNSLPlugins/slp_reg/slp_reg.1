@@ -1,0 +1,50 @@
+.\"Modified from man(1) of FreeBSD, the NetBSD mdoc.template, and mdoc.samples.
+.\"See Also:
+.\"man mdoc.samples for a complete listing of options
+.\"man mdoc for the short list of editing options
+.\"/usr/share/misc/mdoc.template
+.Dd March 24, 2001       \" DATE 
+.Dt slp_reg 1       \" Program name and manual section number 
+.Os MacOSX
+.Sh NAME                 \" Section Header - required - don't modify 
+.Nm slp_reg 
+.\" The following lines are read in generating the apropos(man -k) database. Use only key
+.\" words here as the database is built based on the words here and in the .ND line. 
+.\" Use .Nm macro to designate other names for the documented program.
+.Nd a tool to register URLs
+.Sh SYNOPSIS             \" Section Header - required - don't modify
+.Nm
+.Op Fl r|d Ar <url>         \" [-f path] 
+.Op Fl a Ar <attribute-list>         \" [-f path] 
+.Sh DESCRIPTION          \" Section Header - required - don't modify
+The slp_reg tool registeres URLs via the Service Location Protocol in order for remote machines to discover locally registered services.
+.Pp
+The slp_reg tool allows processes to register URLs with slpd without linking to the CoreServices framework (Network Services Location) or DirectoryServices framework.
+.Pp
+The options are as follows:
+.Pp
+.Bl -tag -width -indent  \" Differs from above in -compact tag removed 
+.It Fl r                 \"-r flag as a list item
+url to register
+.It Fl d                 \"-d flag as a list item
+url to deregister
+.It Fl a                 \"-d flag as a list item
+slp attribute list e.g. "(a=1,2),boo,(c=false)"
+.El                      \" Ends the list
+
+.Pp
+.\" The following are optional section headers. Remove the comment tag to use.
+.\" .Sh RETURN VALUES    \"Sections 2 and 3
+.\" .Sh ENVIRONMENT      \"Sections 1, 6, 7, and 8
+.\" .Sh FILES
+.\" .Sh EXAMPLES
+.\" .Ev PAGER
+.\" .Sh DIAGNOSTICS      \"Sections 1, 6, 7, and 8
+.\" .Sh ERRORS           \"Sections 2 and 3
+.Sh SEE ALSO 
+.\" List links in ascending order by section, alphabetically within a section.
+.\" Please do not reference files that do not exist without filing a bug report
+.Xr slpd 1
+.\" .Sh BUGS 
+.\" .Sh HISTORY 
+

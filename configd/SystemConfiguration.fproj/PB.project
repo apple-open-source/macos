@@ -36,7 +36,9 @@
             SCDynamicStoreCopyDHCPInfo.h, 
             moh_msg.h, 
             moh.h, 
-            DeviceOnHold.h
+            DeviceOnHold.h, 
+            LinkConfiguration.h, 
+            dy_framework.h
         ); 
         OTHER_LINKED = (
             SCD.c, 
@@ -87,7 +89,9 @@
             v1Compatibility.c, 
             DHCP.c, 
             moh.c, 
-            DeviceOnHold.c
+            DeviceOnHold.c, 
+            LinkConfiguration.c, 
+            dy_framework.c
         ); 
         OTHER_SOURCES = (
             Makefile.preamble, 

@@ -1,2 +1,9 @@
-Targets='cpyhdr
+if [ "${Target}" = "AppleI2C" ]; then
+	Targets='cpyhdr
 AppleI2C'
+elif [ "${Target}" = "cpyhdr" ]; then
+	Targets='cpyhdr'
+else
+	Targets='cpyhdr
+AppleI2C'
+fi

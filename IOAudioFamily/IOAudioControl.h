@@ -391,6 +391,7 @@ public:
 
     virtual void setCoreAudioPropertyID(UInt32 propertyID);
 
+	void setWorkLoop(IOWorkLoop *wl);
 
 protected:
     /*!

@@ -1,5 +1,5 @@
 /*
- * "$Id: conf.c,v 1.13.2.1 2002/12/13 22:54:13 jlovell Exp $"
+ * "$Id: conf.c,v 1.13.2.3 2003/02/05 23:20:50 jlovell Exp $"
  *
  *   Configuration routines for the Common UNIX Printing System (CUPS).
  *
@@ -94,6 +94,7 @@ static var_t	variables[] =
   { "DefaultLanguage",	DefaultLanguage,	VAR_STRING,	sizeof(DefaultLanguage) },
   { "DocumentRoot",	DocumentRoot,		VAR_STRING,	sizeof(DocumentRoot) },
   { "ErrorLog",		ErrorLog,		VAR_STRING,	sizeof(ErrorLog) },
+  { "FileDevice",	&FileDevice,		VAR_BOOLEAN,	0 },
   { "FilterLimit",	&FilterLimit,		VAR_INTEGER,	0 },
   { "FontPath",		FontPath,		VAR_STRING,	sizeof(FontPath) },
   { "HideImplicitMembers", &HideImplicitMembers, VAR_BOOLEAN,	0 },
@@ -320,6 +321,7 @@ ReadConfiguration(void)
   ConfigFilePerm      = 0600;
   LogFilePerm         = 0644;
 
+  FileDevice          = FALSE;
   FilterLevel         = 0;
   FilterLimit         = 0;
   HostNameLookups     = FALSE;
@@ -527,12 +529,7 @@ ReadConfiguration(void)
   */
 
   if (MaxClientsPerHost <= 0)
-  {
-    MaxClientsPerHost = MaxClients / 10;
-
-    if (MaxClientsPerHost < 4)
-      MaxClientsPerHost = 4;
-  }
+    MaxClientsPerHost = MaxClients;
 
   if (MaxClientsPerHost > MaxClients)
     MaxClientsPerHost = MaxClients;
@@ -1944,5 +1941,5 @@ static int getFirstIPAddress(char* ServerName, int ServerNameSize)
 }
 
 /*
- * End of "$Id: conf.c,v 1.13.2.1 2002/12/13 22:54:13 jlovell Exp $".
+ * End of "$Id: conf.c,v 1.13.2.3 2003/02/05 23:20:50 jlovell Exp $".
  */

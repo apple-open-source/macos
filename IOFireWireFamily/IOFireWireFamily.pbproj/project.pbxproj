@@ -944,7 +944,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOFireWireLib</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.2.3, Copyright Apple Computer, Inc. 2002</string>
+	<string>1.2.7, Copyright Apple Computer, Inc. 2003</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -956,11 +956,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.3</string>
+	<string>1.2.7</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.3</string>
+	<string>1.2.7</string>
 	<key>CFPlugInFactories</key>
 	<dict>
 		<key>A1478010-F197-11D4-A28B-000502072F80</key>
@@ -1479,7 +1479,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireFamily;
-				MODULE_VERSION = 1.2.3;
+				MODULE_VERSION = 1.2.7;
 				OTHER_CFLAGS = "-DFIREWIREPRIVATE";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1506,7 +1506,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOFireWireFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.2.3, Copyright Apple Computer, Inc. 2002</string>
+	<string>1.2.7, Copyright Apple Computer, Inc. 2003</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1518,11 +1518,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.3</string>
+	<string>1.2.7</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.3</string>
+	<string>1.2.7</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOFireWireUserClient</key>
@@ -1561,7 +1561,7 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 1;
+			shouldUseHeadermap = 0;
 		};
 		089C1674FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
@@ -2238,12 +2238,14 @@
 			};
 		};
 		F56DE49A0344560C012C70AC = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFWPseudoAddressSpace.h;
 			path = IOFireWireFamily.kmodproj/IOFWPseudoAddressSpace.h;
 			refType = 4;
 		};
 		F56DE49B0344560C012C70AC = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFWPseudoAddressSpace.cpp;
 			path = IOFireWireFamily.kmodproj/IOFWPseudoAddressSpace.cpp;
@@ -2262,12 +2264,14 @@
 			};
 		};
 		F56DE49E03445631012C70AC = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFWPhysicalAddressSpace.h;
 			path = IOFireWireFamily.kmodproj/IOFWPhysicalAddressSpace.h;
 			refType = 4;
 		};
 		F56DE49F03445631012C70AC = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFWPhysicalAddressSpace.cpp;
 			path = IOFireWireFamily.kmodproj/IOFWPhysicalAddressSpace.cpp;
@@ -2298,6 +2302,7 @@
 			};
 		};
 		F5DEB73703720B510190C386 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireWireIRM.cpp;
 			path = IOFireWireFamily.kmodproj/IOFireWireIRM.cpp;
@@ -2310,6 +2315,7 @@
 			};
 		};
 		F5DEB73903720B5F0190C386 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireWireIRM.h;
 			path = IOFireWireFamily.kmodproj/IOFireWireIRM.h;

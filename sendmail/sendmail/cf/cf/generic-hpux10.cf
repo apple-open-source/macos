@@ -1,5 +1,5 @@
 #
-# Copyright (c) 1998-2001 Sendmail, Inc. and its suppliers.
+# Copyright (c) 1998-2002 Sendmail, Inc. and its suppliers.
 #	All rights reserved.
 # Copyright (c) 1983, 1995 Eric P. Allman.  All rights reserved.
 # Copyright (c) 1988, 1993
@@ -16,8 +16,8 @@
 #####
 #####		SENDMAIL CONFIGURATION FILE
 #####
-##### built by ca@wiz.smi.sendmail.com on Sun Jan 13 11:57:56 PST 2002
-##### in /extra/home/ca/sm-8.12.2/OpenSource/sendmail-8.12.2/cf/cf
+##### built by ca@wiz.smi.sendmail.com on Mon Aug 26 18:42:02 PDT 2002
+##### in /extra/home/ca/sm-8.12.6/OpenSource/sendmail-8.12.6/cf/cf
 ##### using ../ as configuration include directory
 #####
 ######################################################################
@@ -27,22 +27,22 @@
 ######################################################################
 ######################################################################
 
-#####  $Id: generic-hpux10.cf,v 1.1.1.4 2002/03/12 17:59:42 zarzycki Exp $  #####
-#####  $Id: generic-hpux10.cf,v 1.1.1.4 2002/03/12 17:59:42 zarzycki Exp $  #####
-#####  $Id: generic-hpux10.cf,v 1.1.1.4 2002/03/12 17:59:42 zarzycki Exp $  #####
+#####  $Id: generic-hpux10.cf,v 1.1.1.5 2002/10/15 02:37:10 zarzycki Exp $  #####
+#####  $Id: generic-hpux10.cf,v 1.1.1.5 2002/10/15 02:37:10 zarzycki Exp $  #####
+#####  $Id: generic-hpux10.cf,v 1.1.1.5 2002/10/15 02:37:10 zarzycki Exp $  #####
 
-#####  $Id: generic-hpux10.cf,v 1.1.1.4 2002/03/12 17:59:42 zarzycki Exp $  #####
-
-
-#####  $Id: generic-hpux10.cf,v 1.1.1.4 2002/03/12 17:59:42 zarzycki Exp $  #####
-
-#####  $Id: generic-hpux10.cf,v 1.1.1.4 2002/03/12 17:59:42 zarzycki Exp $  #####
-
-#####  $Id: generic-hpux10.cf,v 1.1.1.4 2002/03/12 17:59:42 zarzycki Exp $  #####
+#####  $Id: generic-hpux10.cf,v 1.1.1.5 2002/10/15 02:37:10 zarzycki Exp $  #####
 
 
+#####  $Id: generic-hpux10.cf,v 1.1.1.5 2002/10/15 02:37:10 zarzycki Exp $  #####
 
-#####  $Id: generic-hpux10.cf,v 1.1.1.4 2002/03/12 17:59:42 zarzycki Exp $  #####
+#####  $Id: generic-hpux10.cf,v 1.1.1.5 2002/10/15 02:37:10 zarzycki Exp $  #####
+
+#####  $Id: generic-hpux10.cf,v 1.1.1.5 2002/10/15 02:37:10 zarzycki Exp $  #####
+
+
+
+#####  $Id: generic-hpux10.cf,v 1.1.1.5 2002/10/15 02:37:10 zarzycki Exp $  #####
 
 # level 10 config file format
 V10/Berkeley
@@ -122,7 +122,7 @@ DnMAILER-DAEMON
 CPREDIRECT
 
 # Configuration version number
-DZ8.12.2
+DZ8.12.6
 
 
 ###############
@@ -271,6 +271,8 @@ O QueueDirectory=/var/spool/mqueue
 # key for shared memory; 0 to turn off
 #O SharedMemoryKey=0
 
+
+
 # timeouts (many of these)
 #O Timeout.initial=5m
 #O Timeout.connect=5m
@@ -348,7 +350,7 @@ O TimeZoneSpec=
 #O DelayLA=0
 
 # maximum number of children we allow at one time
-#O MaxDaemonChildren=12
+#O MaxDaemonChildren=0
 
 # maximum number of new connections per second
 #O ConnectionRateThrottle=0
@@ -487,7 +489,6 @@ O MaxHeadersLength=32768
 
 # Input mail filters
 #O InputMailFilters
-
 
 
 # CA directory
@@ -959,7 +960,7 @@ R$* $| $* $| $*		$@ $>"Basic_check_relay" $1 $| $2
 
 SBasic_check_relay
 # check for deferred delivery mode
-R$*			$: < ${deliveryMode} > $1
+R$*			$: < $&{deliveryMode} > $1
 R< d > $*		$@ deferred
 R< $* > $*		$: $2
 
@@ -978,7 +979,7 @@ R$* $| $*		$@ $>"Basic_check_mail" $1
 
 SBasic_check_mail
 # check for deferred delivery mode
-R$*			$: < ${deliveryMode} > $1
+R$*			$: < $&{deliveryMode} > $1
 R< d > $*		$@ deferred
 R< $* > $*		$: $2
 
@@ -1010,7 +1011,8 @@ R<?> $*			$: $1
 R$*			$: <?> $>CanonAddr $1		canonify sender address and mark it
 R<?> $* < @ $+ . >	<?> $1 < @ $2 >			strip trailing dots
 # handle non-DNS hostnames (*.bitnet, *.decnet, *.uucp, etc)
-R<?> $* < @ $* $=P >	$: <OK> $1 < @ $2 $3 >
+R<?> $* < @ $* $=P >	$: <OKR> $1 < @ $2 $3 >
+R<?> $* < @ $j >	$: <OKR> $1 < @ $j >
 R<?> $* < @ $+ >	$: <? $(resolve $2 $: $2 <PERM> $) > $1 < @ $2 >
 R<? $* <$->> $* < @ $+ >
 			$: <$2> $3 < @ $4 >
@@ -1021,7 +1023,7 @@ R<?> $*			$: $&{daemon_flags} $| <?> $1
 R$* u $* $| <?> $*	$: <OKR> $3
 R$* $| $*		$: $2
 R<?> $*			$: < ? $&{client_name} > $1
-R<?> $*			$@ <OK>				...local unqualed ok
+R<?> $*			$@ <OKR>			...local unqualed ok
 R<? $+> $*		$#error $@ 5.5.4 $: "553 Domain name required for sender address " $&f
 							...remote is not
 # check results
@@ -1045,7 +1047,7 @@ SBasic_check_rcpt
 R<>			$#error $@ nouser $: "553 User address required"
 R$@			$#error $@ nouser $: "553 User address required"
 # check for deferred delivery mode
-R$*			$: < ${deliveryMode} > $1
+R$*			$: < $&{deliveryMode} > $1
 R< d > $*		$@ deferred
 R< $* > $*		$: $2
 
@@ -1230,7 +1232,7 @@ Sauthinfo
 ###   Local and Program Mailer specification   ###
 ##################################################
 
-#####  $Id: generic-hpux10.cf,v 1.1.1.4 2002/03/12 17:59:42 zarzycki Exp $  #####
+#####  $Id: generic-hpux10.cf,v 1.1.1.5 2002/10/15 02:37:10 zarzycki Exp $  #####
 
 #
 #  Envelope sender rewriting
@@ -1282,7 +1284,7 @@ Mprog,		P=/usr/bin/sh, F=lsDFMoqeu9, S=EnvFromL/HdrFromL, R=EnvToL/HdrToL, D=$z:
 ###   SMTP Mailer specification   ###
 #####################################
 
-#####  $Id: generic-hpux10.cf,v 1.1.1.4 2002/03/12 17:59:42 zarzycki Exp $  #####
+#####  $Id: generic-hpux10.cf,v 1.1.1.5 2002/10/15 02:37:10 zarzycki Exp $  #####
 
 #
 #  common sender and masquerading recipient rewriting

@@ -242,7 +242,7 @@ IOUSBMassStorageClass::BulkOnlySendCBWPacket(
    	STATUS_LOG(("%s: BulkOnlySendCBWPacket sent\n", getName() ));
 	status = GetBulkOutPipe()->Write( boRequestBlock->boPhaseDesc, &boRequestBlock->boCompletion );
    	STATUS_LOG(("%s: BulkOnlySendCBWPacket returned %d\n", 
-   				getName(), 
+   				getName(),
    				status));
 	return status;
 }
@@ -367,10 +367,10 @@ IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion(
 		case kBulkOnlyCommandSent:
 		{
    			STATUS_LOG(("%s: kBulkOnlyCommandSent returned %d\n", getName(), resultingStatus));
-
+			
 			// Release the memory descriptor for the CBW
 			boRequestBlock->boPhaseDesc->release();
-
+			
 			if(( resultingStatus == kIOReturnDeviceError )
 				|| ( resultingStatus == kIOReturnNotResponding ))
 			{

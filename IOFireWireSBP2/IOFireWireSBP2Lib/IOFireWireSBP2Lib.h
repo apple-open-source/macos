@@ -97,7 +97,10 @@ enum
     kFWSBP2CommandReservedORB				= (1 << 6),
     kFWSBP2CommandVendorORB					= (1 << 7),
     kFWSBP2CommandDummyORB					= (1 << 8),
-    kFWSBP2CommandCheckGeneration			= (1 << 9)
+    kFWSBP2CommandCheckGeneration			= (1 << 9),
+	
+	kFWSBP2CommandFixedSize					= (1 << 10),
+	kFWSBP2CommandVirtualORBs				= (1 << 11)     // handy for debugging
 };
 
 enum
@@ -201,10 +204,10 @@ typedef struct
 // struct sent with reconnect notification
 
 /*! 
-    @typedef FWSBP2LogoutCompleteParams
+    @typedef FWSBP2ReconnectParams
     @param refCon refCon set on LUN object.
     @param generation FireWire generation value.
-    @param status Status of login attempt.
+    @param status Status of reconnect attempt.
     @param reconnectStatusBlock Pointer to status block buffer.
     @param reconnectStatusBlockLength Length of entire status block.
 */
@@ -285,7 +288,7 @@ typedef void (*IOFWSBP2ORBCompleteCallback)( void * refCon, IOReturn status, voi
 typedef void (*IOFWSBP2NotifyCallback)(void * refCon, FWSBP2NotifyParams * params);
 
 /*! 
-    @typedef FWSBP2StatusCallback
+    @typedef IOFWSBP2StatusCallback
     @param refCon Reference constant supplied when the notification was registered.
     @param status Indicates success or failure of operation. 
 */
@@ -303,6 +306,9 @@ typedef void (*IOFWSBP2FetchAgentWriteCallback)(void * refCon, IOReturn status, 
 
 //////////////////////
 
+typedef struct
+{
+
 /*!
     @class IOFireWireSBP2LibLUNInterface
     @abstract Initial interface disovered for all drivers. 
@@ -311,8 +317,11 @@ typedef void (*IOFWSBP2FetchAgentWriteCallback)(void * refCon, IOReturn status, 
     Finally the LUN can supply a reference to the IOFireWireUnit.  This can be useful if a driver wishes to access the standard FireWire APIs.  
 */
 
-typedef struct
- {
+/* headerdoc parse workaround	
+class IOFireWireSBP2LibLUNInterface: public IUnknown {
+public:
+*/
+
 	IUNKNOWN_C_GUTS;
 
 	UInt16	version;						
@@ -333,14 +342,15 @@ typedef struct
     
     /*!
 		@function openWithSessionRef
-		@abstract Opens a connection to a device that is not already open.
+		@abstract Opens a connection to a device that is already open.
 		@discussion Sometimes it is desirable to open multiple user clients on a device.  In the case 
         of FireWire sometimes we wish to have both the FireWire User Client and the SBP2 User Client 
-        open at the same time.  The technique to arbitrate this is as follows.  First open normally 
-        the device furthest from the root in the IORegistry.  Second, get its sessionRef with the 
-        getSessionRef call.  Third open the device further up the chain by calling this method and 
-        passing the sessionRef returned from the call in step 2.
-        @param sessionRef SessionRef returned from getSessionRef call. 
+        open at the same time. 
+		<p>The technique to arbitrate this is as follows :</p>
+		<p>First open normally the device furthest from the root in the IORegistry.</p>
+		<p>Second, get its sessionRef with the getSessionRef call.</p>
+		<p>Third open the device further up the chain by calling this method and passing the sessionRef returned from the call in step 2.</p>
+		@param sessionRef SessionRef returned from getSessionRef call. 
         @param self Pointer to IOFireWireSBP2LibLUNInterface.
         @result Returns kIOReturnSuccess on success.
     */
@@ -348,14 +358,15 @@ typedef struct
 	IOReturn (*openWithSessionRef)( void * self, IOFireWireSessionRef sessionRef );
 
     /*!
-		@function openWithSessionRef
-		@abstract Opens a connection to a device that is not already open.
+		@function getSessionRef
+		@abstract Returns the session reference to an already open device.
 		@discussion Sometimes it is desirable to open multiple user clients on a device.  In the case 
         of FireWire sometimes we wish to have both the FireWire User Client and the SBP2 User Client 
-        open at the same time.  The technique to arbitrate this is as follows.  First open normally 
-        the device furthest from the root in the IORegistry.  Second, get its sessionRef with the 
-        with a call to this method.  Third open the device further up the chain by calling 
-        openWithSessionRef and passing the sessionRef returned from this call.
+        open at the same time.  
+		<p>The technique to arbitrate this is as follows:</p> 
+		<p>First open normally the device furthest from the root in the IORegistry.</p>  
+		<p>Second, get its sessionRef with a call to this method.</p>
+		<p>Third open the device further up the chain by calling openWithSessionRef and passing the sessionRef returned from this call.</p>
         @param self Pointer to IOFireWireSBP2LibLUNInterface.
         @result Returns a sessionRef on success.
     */
@@ -392,8 +403,8 @@ typedef struct
 	IOReturn (*addCallbackDispatcherToRunLoop)( void *self, CFRunLoopRef cfRunLoopRef );
 	
     /*!
-		@function addCallbackDispatcherToRunLoop
-		@abstract Removes a dispatcher for kernel callbacks to the specified runloop.
+		@function removeCallbackDispatcherFromRunLoop
+		@abstract Removes a dispatcher for kernel callbacks from the specified runloop.
 		@discussion Undoes the work of addCallbackDispatcherToRunLoop.
         @param self Pointer to IOFireWireSBP2LibLUNInterface.
     */
@@ -464,6 +475,10 @@ typedef struct
 
 } IOFireWireSBP2LibLUNInterface;
 
+
+typedef struct
+{
+
 /*!
     @class IOFireWireSBP2LibORBInterface
     @abstract Represents an SBP2 normal command ORB.  Supplies the APIs for configuring normal
@@ -471,8 +486,10 @@ typedef struct
     The ORBs are executed using the submitORB method in IOFireWireSBP2LibLoginInterface.
 */
 
-typedef struct
-{
+/* headerdoc parse workaround	
+class IOFireWireSBP2LibORBInterface: public IUnknown {
+public:
+*/
 	IUNKNOWN_C_GUTS;
 
 	UInt16	version;						
@@ -503,11 +520,16 @@ typedef struct
         @function setCommandFlags
         @abstract Sets configuration flags for the ORB.
         @discussion Sets the configuration flags for the ORB.  These can be any of the following:
-        kFWSBP2CommandCompleteNotify, kFWSBP2CommandTransferDataFromTarget, kFWSBP2CommandImmediate,
-        kFWSBP2CommandNormalORB, kFWSBP2CommandReservedORB, kFWSBP2CommandVendorORB, 
-        kFWSBP2CommandDummyORB, kFWSBP2CommandCheckGeneration, kFWSBP2CommandFixedSize, 
-        or kFWSBP2CommandVirtualORBs.  Note that you will not recieve status of your ORB completing 
-        unless kFWSBP2CommandCompleteNotify is set.
+		<p>kFWSBP2CommandCompleteNotify - Set the notify bit as specified in SBP2 standard. Set to receive completion/timeout notification on this ORB.  You almost always want to set this.</p>
+		<p>kFWSBP2CommandTransferDataFromTarget - Transfer direction as specified in SBP2 standard.  Set if data is to be written by the device into the host's memory.</p>
+		<p>kFWSBP2CommandImmediate - Immediate Append.  ORB address will be written to fetch agent and not chained.  It is only legal to have one immediate ORB in progress at a time.</p>
+		<p>kFWSBP2CommandNormalORB - ORB format 0 - Format specified by SBP2 standard.  Set this for most ORBs.</p>
+		<p>kFWSBP2CommandReservedORB - ORB format 1 - Format reserved by SBP2 standard for future standardization.</p>
+		<p>kFWSBP2CommandVendorORB - ORB format 2 - Format specified by SBP2 standard for vendor dependent ORBs.</p>
+		<p>kFWSBP2CommandDummyORB - ORB format 3 - Format specified by SBP2 standard for dummy ORBs.</p>
+		<p>kFWSBP2CommandCheckGeneration - If set upon submitORB, the ORB will only be appended if generation set with setCommandGeneration() matches the current generation.  Pretty much all SBP2 drivers need sophisticated logic to track login state, so this is generally not used. </p>
+		<p>kFWSBP2CommandFixedSize - Do not allocate more memory for page table if needed.  If there is not enough space in the currently allocated page table, the setCommandBuffers call will fail.  This is important to set if your device is the backing store, as we don't want to cause memory allocations on the paging path. </p>
+		<p>kFWSBP2CommandVirtualORBs - Normally ORBs are backed by physical address spaces.  Setting this flag makes this ORB backed by a pseudo address space.  This can make ORBs easier to see in a bus trace.  Virtual ORBs will have an address in the form of ffcX.XXXX.0000.0000.  Pseudo address space backed ORBs are slower, so you won't want to set for deployment builds.</p>
         @param self Pointer to IOFireWireSBP2LibORBInterface.
         @param flags The flags to be set.
     */
@@ -641,7 +663,9 @@ typedef struct
 		
 } IOFireWireSBP2LibORBInterface;
 
-/*!
+typedef struct
+ {
+ /*!
     @class IOFireWireSBP2LibLoginInterface
     @abstract Supplies the login maintenance and Normal Command ORB execution portions of the API.
     @discussion Supplies APIs for login maintenance and command execution.  Drivers can use this 
@@ -654,9 +678,10 @@ typedef struct
     and deliver reconnectFailed and reconnectComplete through the message routine as well.
 */
 
-typedef struct
- {
- 
+/* headerdoc parse workaround	
+class IOFireWireSBP2LibLoginInterface: public IUnknown {
+public:
+*/
 	IUNKNOWN_C_GUTS;
 
 	UInt16	version;						
@@ -827,7 +852,7 @@ typedef struct
 	IOReturn (*submitORB)( void * self, IOFireWireSBP2LibORBInterface ** orb );
 
     /*!
-		@function setUnsolicitedStatusNotifyProc
+		@function setUnsolicitedStatusNotify
 		@abstract Sets the callback to be called on normal command status.
 		@discussion The supplied callback is called when unsolicited status is recieved.
         "notificationEvent" in the callback's params will indicate what happened.  In this 
@@ -958,14 +983,19 @@ typedef struct
 	
 } IOFireWireSBP2LibLoginInterface;
 
+typedef struct
+{
+
 /*!
-    @class IOFireWireSBP2LibMgmtORBInterface
+	@class IOFireWireSBP2LibMgmtORBInterface
     @abstract Supplies non login related management ORBs.  Management ORBs can be executed independent 
     of a login, if necessary.  Management ORBs are created using the IOFireWireSBP2LibLUNInterface.
 */
 
-typedef struct
-{
+/* headerdoc parse workaround	
+class IOFireWireSBP2LibMgmtORBInterface: public IUnknown {
+public:
+*/
 
 	IUNKNOWN_C_GUTS;
 
@@ -982,7 +1012,7 @@ typedef struct
 	IOReturn (*submitORB)( void * self );
     
     /*!
-		@function submitORB
+		@function setORBCompleteCallback
 		@abstract Sets the ORB completion routine.
 		@discussion Sets the completion routine to be called when the ORB finishes execution. The refCon 
         set with setRefCon will also be passed as the third argument to the completion handler.
@@ -1004,7 +1034,7 @@ typedef struct
 	void (*setRefCon)( void * self, UInt32 refCon );
 
    /*!
-		@function getCommandFunction
+		@function getRefCon
 		@abstract Returns the current function of the management ORB.
 		@discussion Returns the function of the management ORB.  This is the same value that was 
         set with setCommandFunction.

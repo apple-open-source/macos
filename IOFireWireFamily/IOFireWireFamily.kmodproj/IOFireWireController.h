@@ -51,6 +51,7 @@ class IOFireWireUnit;
 class IODCLProgram;
 class IOLocalConfigDirectory;
 class IOFireWireLink;
+class IOFireLog;
 class IOFireLogPublisher;
 class IOFireWireSBP2ORB;
 class IOFireWireROMCache;
@@ -303,7 +304,8 @@ protected:
 	friend class IOFireWireAVCLocalUnit;
 	friend class IOFireWireAVCUnit;
     friend class IOFireWireAVCCommand;
-    
+    friend class IOFireLog;
+	
     IOFireWireLink *		fFWIM;
     IOFWWorkLoop *	fWorkLoop;
     IOTimerEventSource *fTimer;

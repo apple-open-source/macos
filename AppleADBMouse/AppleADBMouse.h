@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -35,7 +35,7 @@
 class AppleADBMouse: public IOHIPointing
 {
   OSDeclareDefaultStructors(AppleADBMouse);
-
+    
 protected:
   IOADBDevice * adbDevice;
   IOFixed       _resolution;
@@ -85,6 +85,8 @@ private:
     bool enableEnhancedMode();
     IOService *_pADBKeyboard;
     IONotifier * _notifierA, * _notifierT;
+    const OSSymbol 	*_gettime;
+    IOLock *		_mouseLock;  
 
 protected:
   UInt32 deviceSignature;

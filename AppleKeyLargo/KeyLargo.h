@@ -298,9 +298,9 @@ enum {
 											kKeyLargoFCR3I2S1Clk18Enable |
 											kKeyLargoFCR3I2S0Clk18Enable),
   
-  // Feature Control Register 4 Sleep Settings
-  // Marco since we are going to have two different controllers for each usb, I am going
-  // to separate each bus bit set:
+	// Feature Control Register 4 Sleep Settings
+	// Marco since we are going to have two different controllers for each usb, I am going
+	// to separate each bus bit set:
     kKeyLargoFCR4USB0SleepBitsSet		= (kKeyLargoFCR4Port1DisconnectSelect |
 											kKeyLargoFCR4Port1ConnectSelect |
 											kKeyLargoFCR4Port1ResumeSelect |
@@ -409,7 +409,8 @@ enum {
 										kKeyLargoFCR1I2S1CellEnable |
 										kKeyLargoFCR1I2S0Enable |
 										kKeyLargoFCR1I2S0ClkEnable |
-										kKeyLargoFCR1I2S0CellEnable,
+										kKeyLargoFCR1I2S0CellEnable |
+										kKeyLargoFCR1EIDE0Enable,
                                                 
     // Feature Control Register 2 Sleep Settings
     kIntrepidFCR2SleepBitsSet		=	kKeyLargoFCR2AltDataOut,
@@ -417,11 +418,25 @@ enum {
     kIntrepidFCR2SleepBitsClear		=	0,
 
     // Feature Control Register 3 Sleep and Restart Settings
-    kIntrepidFCR3SleepBitsSet		=	kIntrepidFCR3ShutdownPLL3 |
+	// Intrepid adds a third USB bus so we set up USB2 sleep bits like for USB0 and USB1 in KeyLargo FCR3
+	kIntrepidFCR3USB2SleepBitsSet		= (kIntrepidFCR3Port5DisconnectSelect |
+											kIntrepidFCR3Port5ConnectSelect |
+											kIntrepidFCR3Port5ResumeSelect |
+											kIntrepidFCR3Port5Enable |
+											kIntrepidFCR3Port6DisconnectSelect |
+											kIntrepidFCR3Port6ConnectSelect |
+											kIntrepidFCR3Port6ResumeSelect |
+											kIntrepidFCR3Port6Enable),
+
+	kIntrepidFCR3USB2SleepBitsClear		= 0,
+
+    kIntrepidFCR3SleepBitsSet		=	//kIntrepidFCR3USB2SleepBitsSet | 
+										kIntrepidFCR3ShutdownPLL3 |
 										kIntrepidFCR3ShutdownPLL2 |
 										kIntrepidFCR3ShutdownPLL1,
 										
-    kIntrepidFCR3SleepBitsClear		=	kKeyLargoFCR3ViaClk16Enable |
+    kIntrepidFCR3SleepBitsClear		=	//kIntrepidFCR2SleepBitsClear |
+										kKeyLargoFCR3ViaClk16Enable |
 										kKeyLargoFCR3I2S0Clk18Enable |
 										kKeyLargoFCR3I2S1Clk18Enable |
 										kKeyLargoFCR3TimerClk18Enable |
@@ -687,11 +702,15 @@ private:
 	WirelessPower cardStatus;
 	
 
-	// the two USB busses:
+	// the two USB busses - Intrepid has three:
 	enum {
-		kNumUSB = 2
+		kMaxNumUSB 			= 3,
+		kKeyLargoNumUSB 	= 2,
+		kIntrepidNumUSB 	= 3
 	};
-	USBKeyLargo *usbBus[kNumUSB];
+	USBKeyLargo *usbBus[kMaxNumUSB];
+	
+	UInt32 fNumUSB;
 
 	// Methods to save and restore the state:
 	void saveKeyLargoState();

@@ -1,0 +1,190 @@
+# Jamfile for target "IOUSBFamily" of project "IOUSBFamily"
+
+
+JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
+
+# Implicitly computed project-wide settings for project
+export deferred DEVELOPMENT_LANGUAGE = English ;
+export deferred PROJECT = $(PROJECT_NAME) ;
+export deferred PROJECT_NAME = IOUSBFamily ;
+export deferred SRCROOT = /Volumes/Home/Latest/SUJagPink/IOUSBFamily ;
+
+# User-defined project-wide settings for project
+
+# Target "IOUSBFamily"
+
+export deferred _INFO_PLIST_FILE_PATH = "$(SRCROOT)/pbxbuild.data/IOUSBFamily.build/Info.plist" ;
+export deferred _PKGINFO_FILE_PATH = "$(SRCROOT)/pbxbuild.data/IOUSBFamily.build/PkgInfo" ;
+export deferred _PBDEVELOPMENT_PLIST_FILE_PATH = "$(SRCROOT)/pbxbuild.data/IOUSBFamily.build/pbdevelopment.plist" ;
+
+# Implicitly computed build settings for target "IOUSBFamily"
+export deferred CLONE_HEADERS = NO ;
+export deferred PFE_FILE_C_DIALECTS = "c++" ;
+export deferred TARGETNAME = $(TARGET_NAME) ;
+export deferred TARGET_NAME = IOUSBFamily ;
+
+# User-defined build settings for target "IOUSBFamily"
+export deferred INSTALL_GROUP = wheel ;
+export deferred INSTALL_MODE_FLAG = a-w,u+w,a+rX ;
+export deferred INSTALL_OWNER = root ;
+export deferred INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions" ;
+export deferred KERNEL_EXTENSION = YES ;
+export deferred KERNEL_MODULE = YES ;
+export deferred MODULE_IOKIT = YES ;
+export deferred MODULE_NAME = com.apple.iokit.IOUSBFamily ;
+export deferred MODULE_VERSION = 1.9.7 ;
+export deferred OTHER_CFLAGS = -fno-default-inline ;
+export deferred OTHER_LDFLAGS =  ;
+export deferred OTHER_REZFLAGS =  ;
+export deferred PRODUCT_NAME = IOUSBFamily ;
+export deferred SECTORDER_FLAGS =  ;
+export deferred WARNING_CFLAGS = -Wmost -Wno-four-char-constants -Wno-unknown-pragmas ;
+export deferred WRAPPER_EXTENSION = kext ;
+
+if "$(BUILD_STYLE)" = Development {
+	export deferred COPY_PHASE_STRIP = NO ;
+	export deferred OPTIMIZATION_CFLAGS = -O0 ;
+}
+
+if "$(BUILD_STYLE)" = Deployment {
+	export deferred COPY_PHASE_STRIP = YES ;
+	export deferred OPTIMIZATION_CFLAGS = -O3 ;
+}
+
+
+ConditionalDefinitions _ ;
+commitdeferred ;
+
+
+BeginBundle "<IOUSBFamily>IOUSBFamily.kext" ;
+
+# Headers
+IOUSBFamily/Headers/IOUSBRootHubDevice.h_ATTRIBUTES = ;
+IOUSBFamily/Headers/IOUSBBus.h_ATTRIBUTES = ;
+IOUSBFamily/Headers/IOUSBController.h_ATTRIBUTES = ;
+IOUSBFamily/Headers/IOUSBDevice.h_ATTRIBUTES = ;
+IOUSBFamily/Headers/IOUSBInterface.h_ATTRIBUTES = ;
+IOUSBFamily/Headers/IOUSBLog.h_ATTRIBUTES = ;
+IOUSBFamily/Headers/IOUSBNub.h_ATTRIBUTES = ;
+IOUSBFamily/Headers/IOUSBPipe.h_ATTRIBUTES = ;
+IOUSBFamily/Headers/USB.h_ATTRIBUTES = ;
+IOUSBFamily/Headers/USBHub.h_ATTRIBUTES = ;
+IOUSBFamily/Headers/USBSpec.h_ATTRIBUTES = ;
+HEADERS =
+	IOUSBFamily/Headers/IOUSBRootHubDevice.h
+	IOUSBFamily/Headers/IOUSBBus.h
+	IOUSBFamily/Headers/IOUSBController.h
+	IOUSBFamily/Headers/IOUSBDevice.h
+	IOUSBFamily/Headers/IOUSBInterface.h
+	IOUSBFamily/Headers/IOUSBLog.h
+	IOUSBFamily/Headers/IOUSBNub.h
+	IOUSBFamily/Headers/IOUSBPipe.h
+	IOUSBFamily/Headers/USB.h
+	IOUSBFamily/Headers/USBHub.h
+	IOUSBFamily/Headers/USBSpec.h
+	IOUSBFamily/Headers/IOUSBHub.h
+	IOUSBFamily/Headers/IOUSBLib.h
+	IOUSBFamily/Headers/IOUSBWorkLoop.h
+	IOUSBFamily/Headers/IOUSBControllerUserClient.h
+	IOUSBFamily/Headers/IOUSBControllerV2.h ;
+ProcessHeaders "<IOUSBFamily>IOUSBFamily.kext" : "$(HEADERS)" : "" : BPTag000 ;
+
+# Resources
+IOUSBFamily/Strings/English.lproj/InfoPlist.strings_REGION = English ;
+IOUSBFamily/Strings/English.lproj/Localizable.strings_REGION = English ;
+RESOURCES =
+	IOUSBFamily/Strings/English.lproj/InfoPlist.strings
+	IOUSBFamily/Strings/English.lproj/Localizable.strings ;
+ProcessResources "<IOUSBFamily>IOUSBFamily.kext" : "$(RESOURCES)" : BPTag000 : BPTag001 ;
+
+# Sources
+IOUSBFamily/Classes/IOUSBBus.cpp_ATTRIBUTES = ;
+IOUSBFamily/Classes/IOUSBController.cpp_ATTRIBUTES = ;
+IOUSBFamily/Classes/IOUSBController_Errata.cpp_ATTRIBUTES = ;
+IOUSBFamily/Classes/IOUSBController_Pipes.cpp_ATTRIBUTES = ;
+IOUSBFamily/Classes/IOUSBInterface.cpp_ATTRIBUTES = ;
+IOUSBFamily/Classes/IOUSBNub.cpp_ATTRIBUTES = ;
+IOUSBFamily/Classes/IOUSBPipe.cpp_ATTRIBUTES = ;
+IOUSBFamily/Classes/IOUSBRootHubDevice.cpp_ATTRIBUTES = ;
+SOURCES =
+	IOUSBFamily/Classes/IOUSBBus.cpp
+	IOUSBFamily/Classes/IOUSBController.cpp
+	IOUSBFamily/Classes/IOUSBController_Errata.cpp
+	IOUSBFamily/Classes/IOUSBController_Pipes.cpp
+	IOUSBFamily/Classes/IOUSBInterface.cpp
+	IOUSBFamily/Classes/IOUSBNub.cpp
+	IOUSBFamily/Classes/IOUSBPipe.cpp
+	IOUSBFamily/Classes/IOUSBRootHubDevice.cpp
+	IOUSBFamily/Classes/IOUSBCommand.cpp
+	IOUSBFamily/Classes/IOUSBDevice.cpp
+	IOUSBFamily/Classes/IOUSBWorkLoop.cpp
+	IOUSBFamily/Classes/IOUSBControllerUserClient.cpp
+	IOUSBFamily/Classes/IOUSBLog.cpp
+	IOUSBFamily/Classes/IOUSBControllerV2.cpp ;
+ProcessSources "<IOUSBFamily>IOUSBFamily.kext" : "$(SOURCES)" : BPTag001 : BPTag002 ;
+
+# Frameworks & Libraries
+FRAMEWORKS_AND_LIBRARIES = ;
+ProcessFrameworksAndLibraries "<IOUSBFamily>IOUSBFamily.kext" : "$(FRAMEWORKS_AND_LIBRARIES)" : BPTag002 : BPTag003 ;
+
+# Rez Files
+REZ_FILES = ;
+ProcessRezFiles "<IOUSBFamily>IOUSBFamily.kext" : "$(REZ_FILES)" : BPTag003 : BPTag004 ;
+
+# Copy Files
+"$(BUILT_PRODUCTS_DIR)/AppleUSBCDCDriver.kext_ATTRIBUTES" = AbsolutePath ;
+"$(BUILT_PRODUCTS_DIR)/AppleUSBComposite.kext_ATTRIBUTES" = AbsolutePath ;
+"$(BUILT_PRODUCTS_DIR)/AppleUSBKeyboard.kext_ATTRIBUTES" = AbsolutePath ;
+"$(BUILT_PRODUCTS_DIR)/IOUSBLib.bundle_ATTRIBUTES" = AbsolutePath ;
+"$(BUILT_PRODUCTS_DIR)/IOUSBHIDDriver.kext_ATTRIBUTES" = AbsolutePath ;
+"$(BUILT_PRODUCTS_DIR)/AppleUSBOHCI.kext_ATTRIBUTES" = AbsolutePath ;
+"$(BUILT_PRODUCTS_DIR)/AppleUSBMergeNub.kext_ATTRIBUTES" = AbsolutePath ;
+"$(BUILT_PRODUCTS_DIR)/IOUSBUserClient.kext_ATTRIBUTES" = AbsolutePath ;
+"$(BUILT_PRODUCTS_DIR)/AppleUSBHub.kext_ATTRIBUTES" = AbsolutePath ;
+"$(BUILT_PRODUCTS_DIR)/AppleUSBOpticalMouse.kext_ATTRIBUTES" = AbsolutePath ;
+COPY_FILES =
+	"$(BUILT_PRODUCTS_DIR)/AppleUSBCDCDriver.kext"
+	"$(BUILT_PRODUCTS_DIR)/AppleUSBComposite.kext"
+	"$(BUILT_PRODUCTS_DIR)/AppleUSBKeyboard.kext"
+	"$(BUILT_PRODUCTS_DIR)/IOUSBLib.bundle"
+	"$(BUILT_PRODUCTS_DIR)/IOUSBHIDDriver.kext"
+	"$(BUILT_PRODUCTS_DIR)/AppleUSBOHCI.kext"
+	"$(BUILT_PRODUCTS_DIR)/AppleUSBMergeNub.kext"
+	"$(BUILT_PRODUCTS_DIR)/IOUSBUserClient.kext"
+	"$(BUILT_PRODUCTS_DIR)/AppleUSBHub.kext"
+	"$(BUILT_PRODUCTS_DIR)/AppleUSBOpticalMouse.kext" ;
+COPYFILES_DESTINATION_PATH = "$(TARGET_BUILD_DIR)/IOUSBFamily.kext/Contents/PlugIns" ;
+ProcessCopyFiles "<IOUSBFamily>IOUSBFamily.kext" : "$(COPY_FILES)" : BPTag004 : BPTag005 ;
+
+# Copy Files
+COPY_FILES =
+	"Examples/Contents (Kernel).rtf"
+	"Examples/AnchorUSB Driver"
+	"Examples/ClassicNotSeize Driver"
+	"Examples/VendorSpecific Driver" ;
+COPYFILES_DESTINATION_PATH = "$(INSTALL_ROOT)/$(SYSTEM_DEVELOPER_DIR)/Examples/Kernel/IOKit/usb" ;
+if $(DEPLOYMENT_POSTPROCESSING) = YES {
+	ProcessCopyFiles "<IOUSBFamily>IOUSBFamily.kext" : "$(COPY_FILES)" : BPTag005 : BPTag006 ;
+}
+else {
+	NoOp "<IOUSBFamily>IOUSBFamily.kext" : "$(COPY_FILES)" : BPTag005 : BPTag006 ;
+}
+
+# Copy Files
+COPY_FILES =
+	"Examples/Contents (User Space).rtf"
+	"Examples/USBNotification Example"
+	"Examples/USBSimple Example"
+	"Examples/Another USB Notification Example"
+	"Examples/Ezloader Example"
+	"Examples/Deva Example" ;
+COPYFILES_DESTINATION_PATH = "$(INSTALL_ROOT)/$(SYSTEM_DEVELOPER_DIR)/Examples/IOKit/usb" ;
+if $(DEPLOYMENT_POSTPROCESSING) = YES {
+	ProcessCopyFiles "<IOUSBFamily>IOUSBFamily.kext" : "$(COPY_FILES)" : BPTag006 : BPTag007 ;
+}
+else {
+	NoOp "<IOUSBFamily>IOUSBFamily.kext" : "$(COPY_FILES)" : BPTag006 : BPTag007 ;
+}
+
+EndBundle "<IOUSBFamily>IOUSBFamily.kext" ;
+

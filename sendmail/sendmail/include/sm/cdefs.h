@@ -1,12 +1,12 @@
 /*
- * Copyright (c) 2000-2001 Sendmail, Inc. and its suppliers.
+ * Copyright (c) 2000-2002 Sendmail, Inc. and its suppliers.
  *	All rights reserved.
  *
  * By using this file, you agree to the terms and conditions set
  * forth in the LICENSE file which can be found at the top level of
  * the sendmail distribution.
  *
- *	$Id: cdefs.h,v 1.1.1.1 2002/03/12 18:00:16 zarzycki Exp $
+ *	$Id: cdefs.h,v 1.1.1.2 2002/10/15 02:37:54 zarzycki Exp $
  */
 
 /*
@@ -43,7 +43,9 @@
 #   define	__END_DECLS
 #  endif /* defined(__cplusplus) */
 #  if defined(__STDC__) || defined(__cplusplus)
-#   define	__P(protos)	protos
+#   ifndef __P
+#    define	__P(protos)	protos
+#   endif /* __P */
 #   define	__CONCAT(x,y)	x ## y
 #   define	__STRING(x)	#x
 #  else /* defined(__STDC__) || defined(__cplusplus) */

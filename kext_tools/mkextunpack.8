@@ -1,0 +1,44 @@
+.Dd March 29, 2002 
+.Dt MKEXTUNPACK 8
+.Os Darwin
+.Sh NAME
+.Nm mkextunpack
+.Nd extracts the contents of a multikext (mkext) archive
+.Sh SYNOPSIS
+.Nm
+.Op Fl v
+.Op Fl d Ar output_directory
+.Ar mkext_file
+.Sh DESCRIPTION
+The
+.Nm
+program list the contents of a multikext file,
+.Ar mkext_file ,
+or unarchives the contents into
+.Ar output_directory
+(which must exist).
+The
+.Fl v
+option causes
+.Nm
+to print the name if each kext as it finds them.
+.Sh DIAGNOSTICS
+.Nm
+exits with a zero status upon success.
+Upon failure, it prints an error message
+and exits with a nonzero status.
+.Sh SEE ALSO 
+.Xr mkextcache 8
+.Sh BUGS
+The mkext file format doesn't record the original filenames
+of the kexts, so
+.Nm
+has to guess at what they are.
+It does this by using the value of the CFBundleExecutable
+property of the kext's info dictionary.
+Duplicates have an incrementing index appended to the name.
+Project Builder sets this to the base name of the kext
+bundle by default, but the developer can change it.
+Kexts that have no executable are named
+.Dq NameUnknown-n.kext ,
+where n is a number.

@@ -27,7 +27,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleOWScreamerAudio;
-				MODULE_VERSION = 1.8.2;
+				MODULE_VERSION = 1.8.4b1;
 				OPTIMIZATION_CFLAGS = "-Os";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -53,7 +53,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleOWScreamerAudio</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleOWScreamerAudio version 1.8.2, Copyright 2000-2002 Apple Computer ,Inc.</string>
+	<string>AppleOWScreamerAudio version 1.8.4, Copyright 2000-2002 Apple Computer ,Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -65,11 +65,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.8.2</string>
+	<string>1.8.4</string>
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>1.8.2</string>
+	<string>1.8.4b1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleOWScreamerAudio</key>
@@ -97,7 +97,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		00C6990C002BCF867F000001 = {
 			buildActionMask = 2147483647;
@@ -171,16 +170,19 @@
 			refType = 4;
 		};
 		00C69913002BD5167F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = AppleOWScreamerAudio.cpp;
 			refType = 4;
 		};
 		00C69914002BD5167F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = AppleOWScreamerAudio.h;
 			refType = 4;
 		};
 		00C69915002BD5167F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = awacs_OWhw.h;
 			refType = 4;
@@ -216,11 +218,13 @@
 			};
 		};
 		00DB2084002D2B867F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = AudioHardwareMux.h;
 			refType = 4;
 		};
 		00DB2086002D370E7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = AudioHardwareMux.cpp;
 			refType = 4;
@@ -236,12 +240,14 @@
 //013
 //014
 		01043C550003A3CC11CE168A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = AppleHardwareInput.h;
 			path = AudioHardwareInput.h;
 			refType = 4;
 		};
 		0106F5D50003B85211CE168A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = AppleHardwareInput.cpp;
 			path = AudioHardwareInput.cpp;
@@ -269,6 +275,7 @@
 			refType = 4;
 		};
 		010D0724FFF41C8E11CE168A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = AudioHardwareUtilities.h;
 			refType = 4;
@@ -280,16 +287,19 @@
 			};
 		};
 		010D072BFFF9260A11CE168A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = AudioHardwareDetect.h;
 			refType = 4;
 		};
 		010D072DFFF92E1C11CE168A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = AudioHardwareDetect.cpp;
 			refType = 4;
 		};
 		010D072FFFFA58D511CE168A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = AudioHardwareConstants.h;
 			refType = 4;
@@ -301,6 +311,7 @@
 			};
 		};
 		010D0731FFFA595911CE168A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = AudioHardwareCommon.h;
 			refType = 4;
@@ -388,6 +399,7 @@
 			refType = 4;
 		};
 		016FA3FD00CB28457F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = AudioHardwarePower.cpp;
 			refType = 4;
@@ -418,7 +430,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.AudioDeviceTreeUpdater;
-				MODULE_VERSION = 1.8.2;
+				MODULE_VERSION = 1.8.4b1;
 				OPTIMIZATION_CFLAGS = "-Os";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -444,7 +456,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AudioDeviceTreeUpdater</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AudioDeviceTreeUpdater version 1.8.2, Copyright 2000-2002 Apple Computer, Inc.</string>
+	<string>AudioDeviceTreeUpdater version 1.8.4, Copyright 2000-2002 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -456,11 +468,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.8.2</string>
+	<string>1.8.4</string>
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>1.8.2</string>
+	<string>1.8.4b1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>Power Macintosh</key>
@@ -1127,7 +1139,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		017D8EFE0032206011CE16D4 = {
 			buildActionMask = 2147483647;
@@ -1195,12 +1206,14 @@
 			refType = 4;
 		};
 		017D8F050032245811CE16D4 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = AppleDTUpdater.h;
 			path = AppleDeviceTreeUpdater/AppleDTUpdater.h;
 			refType = 4;
 		};
 		017D8F060032245811CE16D4 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = AppleDTUpdater.cpp;
 			path = AppleDeviceTreeUpdater/AppleDTUpdater.cpp;
@@ -1275,7 +1288,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		017EA98400C2DA887F000001 = {
 			buildActionMask = 2147483647;
@@ -1338,11 +1350,13 @@
 			};
 		};
 		017EA98C00C2EB557F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = AOAHALPlugin.h;
 			refType = 4;
 		};
 		017EA98D00C2EB557F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = AOAHALPlugin.c;
 			refType = 4;
@@ -1384,7 +1398,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleDBDMAAudio;
-				MODULE_VERSION = 1.8.2b1;
+				MODULE_VERSION = 1.8.4b1;
 				OPTIMIZATION_CFLAGS = "-Os";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -1411,7 +1425,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleDBDMAAudio</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleDBDMAAudio version 1.8.2, Copyright 2000-2002 Apple Computer, Inc.
+	<string>AppleDBDMAAudio version 1.8.4, Copyright 2000-2002 Apple Computer, Inc.
 AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
@@ -1424,11 +1438,11 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.8.2</string>
+	<string>1.8.4</string>
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>1.8.2b1</string>
+	<string>1.8.4b1</string>
 	<key>OSBundleCompatibleVersion</key>
 	<string>1.7.0d1</string>
 	<key>OSBundleLibraries</key>
@@ -1439,7 +1453,6 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		018F9561FFDDC63011CA29EB = {
 			buildActionMask = 2147483647;
@@ -1522,11 +1535,13 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 			refType = 4;
 		};
 		01FC75CB00024EC611CE168A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = AudioHardwareOutput.cpp;
 			refType = 4;
 		};
 		01FC75CD00024F2311CE168A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = AudioHardwareOutput.h;
 			refType = 4;
@@ -1542,11 +1557,13 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 //023
 //024
 		028A11A100C715EF11CE168A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = AudioDeviceTreeParser.cpp;
 			refType = 4;
 		};
 		028A11A200C715EF11CE168A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = AudioDeviceTreeParser.h;
 			refType = 4;
@@ -1568,18 +1585,21 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 //033
 //034
 		03254963FFDDCA0611CA29EB = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = AppleDBDMAAudioDMAEngine.h;
 			path = AppleDBDMAAudio/AppleDBDMAAudioDMAEngine.h;
 			refType = 4;
 		};
 		03254964FFDDCA0611CA29EB = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = AppleDBDMAAudioDMAEngine.cpp;
 			path = AppleDBDMAAudio/AppleDBDMAAudioDMAEngine.cpp;
 			refType = 4;
 		};
 		03254965FFDDCA0611CA29EB = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = AppleDBDMAAudioClip.c;
 			path = AppleDBDMAAudio/AppleDBDMAAudioClip.c;
@@ -1638,7 +1658,7 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 				HEADER_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Headers\"";
 				LIBRARY_STYLE = STATIC;
 				OPTIMIZATION_CFLAGS = "-Os";
-				OTHER_CFLAGS = "-nostdinc -finline -fno-keep-inline-functions -force_cpusubtype_ALL -mlong-branch -fno-rtti -fno-exceptions -fcheck-new -fvtable-thunks -static -DKERNEL -DKERNEL_PRIVATE -DDRIVER_PRIVATE -DAPPLE -DNeXT";
+				OTHER_CFLAGS = "-nostdinc -finline -fno-keep-inline-functions -force_cpusubtype_ALL -mlong-branch -fno-rtti -fno-exceptions -fcheck-new -static -DKERNEL -DKERNEL_PRIVATE -DDRIVER_PRIVATE -DAPPLE -DNeXT";
 				OTHER_LDFLAGS = "-static";
 				OTHER_LIBTOOL_FLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1655,7 +1675,6 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 			productInstallPath = /usr/local/lib;
 			productName = AppleDBDMAAudioFloatLib;
 			productReference = 0325496AFFDDCAD711CA29EB;
-			shouldUseHeadermap = 0;
 		};
 		0325496DFFDDCAD711CA29EB = {
 			buildActionMask = 2147483647;
@@ -1695,6 +1714,7 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		03254973FFDDCC5211CA29EB = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = AppleOnboardAudio.cpp;
 			refType = 4;
@@ -1740,7 +1760,7 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleScreamerAudio;
-				MODULE_VERSION = 1.8.2b2;
+				MODULE_VERSION = 1.8.4b1;
 				OPTIMIZATION_CFLAGS = "-Os";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -1767,7 +1787,7 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 	<key>CFBundleExecutable</key>
 	<string>AppleScreamerAudio</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleScreamerAudio version 1.8.2, Copyright 2000-2002 Apple Computer, Inc.</string>
+	<string>AppleScreamerAudio version 1.8.4, Copyright 2000-2002 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1779,11 +1799,11 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.8.2</string>
+	<string>1.8.4</string>
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>1.8.2b2</string>
+	<string>1.8.4b1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleScreamerAudio</key>
@@ -1850,7 +1870,6 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		03254979FFDDCCFB11CA29EB = {
 			buildActionMask = 2147483647;
@@ -1895,18 +1914,21 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0325497DFFDDCE5911CA29EB = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = awacs_hw.h;
 			path = AppleScreamerAudio/awacs_hw.h;
 			refType = 4;
 		};
 		0325497EFFDDCE5911CA29EB = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = AppleScreamerAudio.h;
 			path = AppleScreamerAudio/AppleScreamerAudio.h;
 			refType = 4;
 		};
 		0325497FFFDDCE5911CA29EB = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = AppleScreamerAudio.cpp;
 			path = AppleScreamerAudio/AppleScreamerAudio.cpp;
@@ -1938,7 +1960,7 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleBurgundyAudio;
-				MODULE_VERSION = 1.8.2b1;
+				MODULE_VERSION = 1.8.4b1;
 				OPTIMIZATION_CFLAGS = "-Os";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -1965,7 +1987,7 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 	<key>CFBundleExecutable</key>
 	<string>AppleBurgundyAudio</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleBurgundyAudio version 1.8.2, Copyright 2000-2002 Apple Computer, Inc.</string>
+	<string>AppleBurgundyAudio version 1.8.4, Copyright 2000-2002 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1977,11 +1999,11 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.8.2</string>
+	<string>1.8.4</string>
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>1.8.2b1</string>
+	<string>1.8.4b1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleBurgundyAudio</key>
@@ -2048,7 +2070,6 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		03254996FFDDD25B11CA29EB = {
 			buildActionMask = 2147483647;
@@ -2103,18 +2124,21 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 			refType = 4;
 		};
 		032549A2FFDDD7B411CA29EB = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = burgundy_hw.h;
 			path = AppleBurgundyAudio/burgundy_hw.h;
 			refType = 4;
 		};
 		032549A3FFDDD7B411CA29EB = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = AppleBurgundyAudio.h;
 			path = AppleBurgundyAudio/AppleBurgundyAudio.h;
 			refType = 4;
 		};
 		032549A4FFDDD7B411CA29EB = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = AppleBurgundyAudio.cpp;
 			path = AppleBurgundyAudio/AppleBurgundyAudio.cpp;
@@ -2157,6 +2181,7 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 //043
 //044
 		04243B230043078E11CE168A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = AudioHardwarePower.h;
 			refType = 4;
@@ -2238,6 +2263,7 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 				06AA1265FFB2107B11CA28AA,
 				06AA1266FFB2107B11CA28AA,
 			);
+			hasScannedForEncodings = 1;
 			isa = PBXProject;
 			mainGroup = 089C166AFE841209C02AAC07;
 			projectDirPath = "";
@@ -2298,7 +2324,7 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleOnboardAudio;
-				MODULE_VERSION = 1.8.2b13;
+				MODULE_VERSION = 1.8.4b5;
 				OPTIMIZATION_CFLAGS = "-Os";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -2335,7 +2361,7 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 	<key>CFBundleExecutable</key>
 	<string>AppleOnboardAudio</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleOnboardAudio version 1.8.2, Copyright 2000-2002 Apple Computer, Inc.</string>
+	<string>AppleOnboardAudio version 1.8.4, Copyright 2000-2002 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -2347,11 +2373,11 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.8.2</string>
+	<string>1.8.4</string>
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>1.8.2b13</string>
+	<string>1.8.4b5</string>
 	<key>OSBundleCompatibleVersion</key>
 	<string>1.7.0d1</string>
 	<key>OSBundleLibraries</key>
@@ -2364,7 +2390,6 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 1;
 		};
 		089C1674FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
@@ -2671,6 +2696,7 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 //AD3
 //AD4
 		AD00FECA031166C804CD2543 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = AudioI2SHardwareConstants.h;
 			refType = 4;
@@ -2703,7 +2729,7 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleTexas2Audio;
-				MODULE_VERSION = 1.8.2b2;
+				MODULE_VERSION = 1.8.4b2;
 				OPTIMIZATION_CFLAGS = "-Os";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -2728,7 +2754,7 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 	<key>CFBundleExecutable</key>
 	<string>AppleTexas2Audio</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleTexas2Audio version 1.8.2, Copyright 2000-2002 Apple Computer, Inc.</string>
+	<string>AppleTexas2Audio version 1.8.4, Copyright 2000-2002 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -2740,11 +2766,11 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.8.2</string>
+	<string>1.8.4</string>
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>1.8.2b2</string>
+	<string>1.8.4b2</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleTexas2Audio</key>
@@ -2810,7 +2836,6 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		AD440DB1017FA6A304CE15E3 = {
 			buildActionMask = 2147483647;
@@ -2979,7 +3004,7 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.VirtualAudioDriver;
-				MODULE_VERSION = 1.8.2;
+				MODULE_VERSION = 1.8.4b2;
 				OPTIMIZATION_CFLAGS = "-Os";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -3007,7 +3032,7 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 	<key>CFBundleExecutable</key>
 	<string>VirtualAudioDriver</string>
 	<key>CFBundleGetInfoString</key>
-	<string>VirtualAudioDriver version 1.8.2, Copyright 2002 Apple Computer, Inc.</string>
+	<string>VirtualAudioDriver version 1.8.4, Copyright 2002-2003 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -3019,11 +3044,11 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.8.2</string>
+	<string>1.8.4</string>
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>1.8.2</string>
+	<string>1.8.4b2</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>VirtualAudioDriver</key>
@@ -3114,14 +3139,12 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 			<string>com.apple.driver.VirtualAudioDriver</string>
 			<key>IOClass</key>
 			<string>com_apple_driver_VirtualAudioDevice</string>
-			<key>IOMatchCategory</key>
-			<string>DTUpdate</string>
 			<key>IONameMatch</key>
 			<array>
-				<string>RackMac1,1</string>
+				<string>virtual-sound</string>
 			</array>
 			<key>IOProviderClass</key>
-			<string>IOPlatformExpertDevice</string>
+			<string>AppleMacIODevice</string>
 		</dict>
 	</dict>
 	<key>OSBundleLibraries</key>
@@ -3132,7 +3155,6 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		C5A7C7FC0270994A05CD254B = {
 			buildActionMask = 2147483647;
@@ -3217,7 +3239,7 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 				HEADER_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Headers\" \"$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Headers/bsd\"";
 				LIBRARY_STYLE = STATIC;
 				OPTIMIZATION_CFLAGS = "-Os";
-				OTHER_CFLAGS = "-nostdinc -finline -fno-keep-inline-functions -force_cpusubtype_ALL -mlong-branch -x c++ -fno-rtti -fno-exceptions -fcheck-new -fvtable-thunks -findirect-virtual-calls -static -DKERNEL -DKERNEL_PRIVATE -DDRIVER_PRIVATE -DAPPLE -DNeXT";
+				OTHER_CFLAGS = "-nostdinc -finline -fno-keep-inline-functions -force_cpusubtype_ALL -mlong-branch -x c++ -fno-rtti -fno-exceptions -fcheck-new -findirect-virtual-calls -static -DKERNEL -DKERNEL_PRIVATE -DDRIVER_PRIVATE -DAPPLE -DNeXT";
 				OTHER_LDFLAGS = "";
 				OTHER_LIBTOOL_FLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -3234,7 +3256,6 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 			productInstallPath = /usr/local/lib;
 			productName = libAudioFloat;
 			productReference = C5A7C808027099CE05CD254B;
-			shouldUseHeadermap = 0;
 		};
 		C5A7C80B027099CE05CD254B = {
 			buildActionMask = 2147483647;
@@ -3280,36 +3301,42 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 			refType = 4;
 		};
 		C5FDB9650270A05105CD254B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = VirtualAudioEngine.h;
 			path = VirtualAudioDriver/VirtualAudioEngine.h;
 			refType = 2;
 		};
 		C5FDB9660270A05105CD254B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = VirtualAudioEngine.cpp;
 			path = VirtualAudioDriver/VirtualAudioEngine.cpp;
 			refType = 2;
 		};
 		C5FDB9670270A05105CD254B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = VirtualAudioDevice.h;
 			path = VirtualAudioDriver/VirtualAudioDevice.h;
 			refType = 2;
 		};
 		C5FDB9680270A05105CD254B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = VirtualAudioDevice.cpp;
 			path = VirtualAudioDriver/VirtualAudioDevice.cpp;
 			refType = 2;
 		};
 		C5FDB9690270A05105CD254B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = VirtualAudioClip.cpp;
 			path = VirtualAudioDriver/VirtualAudioClip.cpp;
 			refType = 2;
 		};
 		C5FDB96A0270A05105CD254B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = AudioDebug.h;
 			path = VirtualAudioDriver/AudioDebug.h;
@@ -3334,6 +3361,7 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 			refType = 4;
 		};
 		C5FDB96D0270A0A005CD254B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = English;
 			path = InfoPlist.strings;
@@ -3396,6 +3424,7 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 //F53
 //F54
 		F529B67D00CC983401000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = AppleOnboardAudio.h;
 			refType = 4;
@@ -3425,6 +3454,7 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 			};
 		};
 		F5662EFF00D82E7801CE1689 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = AppleiSubEngine.h;
 			refType = 4;
@@ -3512,24 +3542,28 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 			refType = 0;
 		};
 		F62ADEDD017DE08E01CE1665 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = AppleTexasAudio.cpp;
 			path = AppleTexasAudio/AppleTexasAudio.cpp;
 			refType = 4;
 		};
 		F62ADEDE017DE08E01CE1665 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = AppleTexasAudio.h;
 			path = AppleTexasAudio/AppleTexasAudio.h;
 			refType = 4;
 		};
 		F62ADEDF017DE08E01CE1665 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = AppleTexasEQPrefs.cpp;
 			path = AppleTexasAudio/AppleTexasEQPrefs.cpp;
 			refType = 4;
 		};
 		F62ADEE0017DE08E01CE1665 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = texas_hw.h;
 			path = AppleTexasAudio/texas_hw.h;
@@ -3554,24 +3588,28 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 			};
 		};
 		F635ED290187708A01CE1665 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = AppleTexas2EQPrefs.cpp;
 			path = AppleTexas2Audio/AppleTexas2EQPrefs.cpp;
 			refType = 2;
 		};
 		F635ED2A0187708A01CE1665 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = AppleTexas2Audio.cpp;
 			path = AppleTexas2Audio/AppleTexas2Audio.cpp;
 			refType = 2;
 		};
 		F635ED2B0187708A01CE1665 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = AppleTexas2Audio.h;
 			path = AppleTexas2Audio/AppleTexas2Audio.h;
 			refType = 2;
 		};
 		F635ED2C0187708A01CE1665 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = Texas2_hw.h;
 			path = AppleTexas2Audio/Texas2_hw.h;
@@ -3625,6 +3663,7 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 			};
 		};
 		F6486CE90295693A01CD2599 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = iSubTypes.h;
 			refType = 2;
@@ -3640,18 +3679,21 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 			target = F6D4F701031C193801CD2599;
 		};
 		F64DB90D01BD3D0F01CE1662 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = daca_hw.h;
 			path = AppleDACAAudioII/daca_hw.h;
 			refType = 4;
 		};
 		F64DB90E01BD3D0F01CE1662 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = AppleDACAAudio.cpp;
 			path = AppleDACAAudioII/AppleDACAAudio.cpp;
 			refType = 4;
 		};
 		F64DB90F01BD3D0F01CE1662 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = AppleDACAAudio.h;
 			path = AppleDACAAudioII/AppleDACAAudio.h;
@@ -3708,7 +3750,7 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleTexasAudio;
-				MODULE_VERSION = 1.8.2b3;
+				MODULE_VERSION = 1.8.4b1;
 				OPTIMIZATION_CFLAGS = "-Os";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -3734,7 +3776,7 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 	<key>CFBundleExecutable</key>
 	<string>AppleTexasAudio</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleTexasAudio version 1.8.2, Copyright 2000-2002 Apple Computer, Inc.</string>
+	<string>AppleTexasAudio version 1.8.4, Copyright 2000-2002 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -3746,11 +3788,11 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.8.2</string>
+	<string>1.8.4</string>
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>1.8.2b3</string>
+	<string>1.8.4b1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleTexasAudio</key>
@@ -3816,7 +3858,6 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		F6635A28017C7E0C01CE1665 = {
 			buildActionMask = 2147483647;
@@ -3979,7 +4020,6 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		F6635A3D017C901C01CE1665 = {
 			buildActionMask = 2147483647;
@@ -4040,24 +4080,28 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
 		F6635A43017C904701CE1665 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = AppleDallasDriver.cpp;
 			path = AppleDallasDriver/AppleDallasDriver.cpp;
 			refType = 4;
 		};
 		F6635A44017C904701CE1665 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = AppleDallasDriver.h;
 			path = AppleDallasDriver/AppleDallasDriver.h;
 			refType = 4;
 		};
 		F6635A45017C904701CE1665 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = AudioHardwareUtilities.h;
 			path = AppleDallasDriver/AudioHardwareUtilities.h;
 			refType = 4;
 		};
 		F6635A46017C904701CE1665 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = DallasROM.h;
 			path = AppleDallasDriver/DallasROM.h;
@@ -4136,7 +4180,7 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleDACAAudio;
-				MODULE_VERSION = 1.8.2b1;
+				MODULE_VERSION = 1.8.4b1;
 				OPTIMIZATION_CFLAGS = "-Os";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -4162,7 +4206,7 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 	<key>CFBundleExecutable</key>
 	<string>AppleDACAAudio</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleDACAAudio version 1.8.2, Copyright 2000-2002 Apple Computer, Inc.</string>
+	<string>AppleDACAAudio version 1.8.4, Copyright 2000-2002 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -4174,11 +4218,11 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.8.2</string>
+	<string>1.8.4</string>
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>1.8.2b1</string>
+	<string>1.8.4b1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleDACAAudio</key>
@@ -4244,7 +4288,6 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		F6AB50540188E72D01CE1665 = {
 			buildActionMask = 2147483647;
@@ -4308,11 +4351,13 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
 		F6AB505C0188EA8C01CE1665 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = AudioI2SControl.cpp;
 			refType = 4;
 		};
 		F6AB505D0188EA8C01CE1665 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = AudioI2SControl.h;
 			refType = 4;
@@ -4417,7 +4462,7 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AudioI2SControl;
-				MODULE_VERSION = 1.8.2b1;
+				MODULE_VERSION = 1.8.4b1;
 				OPTIMIZATION_CFLAGS = "-Os";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -4443,7 +4488,7 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 	<key>CFBundleExecutable</key>
 	<string>AudioI2SControl</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AudioI2SControl version 1.8.2, Copyright 2000-2002 Apple Computer, Inc.</string>
+	<string>AudioI2SControl version 1.8.4, Copyright 2000-2002 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -4455,11 +4500,11 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.8.2</string>
+	<string>1.8.4</string>
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>1.8.2b1</string>
+	<string>1.8.4b1</string>
 	<key>OSBundleCompatibleVersion</key>
 	<string>1.8.1b1</string>
 	<key>OSBundleLibraries</key>
@@ -4472,7 +4517,6 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		F6D4F702031C193801CD2599 = {
 			isa = PBXBundleReference;

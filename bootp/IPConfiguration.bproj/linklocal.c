@@ -66,8 +66,6 @@
 
 #include "ipconfigd_threads.h"
 
-extern char *  			ether_ntoa(struct ether_addr *e);
-
 #include "dprintf.h"
 
 /* ad-hoc networking definitions */
@@ -76,8 +74,17 @@ extern char *  			ether_ntoa(struct ether_addr *e);
 #define LINKLOCAL_FIRST_USEABLE	(LINKLOCAL_RANGE_START + 256) /* 169.254.1.0 */
 #define LINKLOCAL_LAST_USEABLE	(LINKLOCAL_RANGE_END - 256) /* 169.254.254.255 */
 #define LINKLOCAL_MASK		((u_long)0xffff0000) /* 255.255.0.0 */
+#define LINKLOCAL_RANGE		((u_long)(LINKLOCAL_LAST_USEABLE + 1) \
+					  - LINKLOCAL_FIRST_USEABLE)
+#define	MAX_LINKLOCAL_INITIAL_TRIES	10
 
-#define	MAX_LINKLOCAL_TRIES	10
+/*
+ * LINKLOCAL_RETRY_TIME_SECS
+ *   After we probe for MAX_LINKLOCAL_INITIAL_TRIES addresses and fail,
+ *   wait this amount of time before trying the next one.  This avoids
+ *   overwhelming the network with ARP probes in the worst case scenario.
+ */
+#define LINKLOCAL_RETRY_TIME_SECS	30
 
 typedef struct {
     arp_client_t *	arp;	/* if NULL, we don't configure an address */
@@ -85,8 +92,8 @@ typedef struct {
     int			current;
     struct in_addr	our_ip;
     struct in_addr	probe;
-    u_short		offset[MAX_LINKLOCAL_TRIES];
     boolean_t		allocate;
+    boolean_t		enable_arp_collision_detection;
 } Service_linklocal_t;
 
 static struct in_addr	S_last_address;
@@ -171,6 +178,7 @@ linklocal_failed(Service_t * service_p, ipconfig_status_t status, char * msg)
 {
     Service_linklocal_t * linklocal = (Service_linklocal_t *)service_p->private;
 
+    linklocal->enable_arp_collision_detection = FALSE;
     linklocal_cancel_pending_events(service_p);
     service_remove_address(service_p);
     if (status != ipconfig_status_media_inactive_e) {
@@ -192,29 +200,14 @@ linklocal_init(Service_t * service_p, IFEventID_t event_id, void * event_data)
 {
     Service_linklocal_t * linklocal = (Service_linklocal_t *)service_p->private;
     interface_t *	  if_p = service_interface(service_p);
-    
+
     switch (event_id) {
       case IFEventID_start_e: {
-	  int			i;
-	  long			range;
+	  linklocal->enable_arp_collision_detection = FALSE;
 
 	  /* clean-up anything that might have come before */
 	  linklocal_cancel_pending_events(service_p);
 	  
-	  range = (LINKLOCAL_LAST_USEABLE + 1) - LINKLOCAL_FIRST_USEABLE;
-
-	  /* populate an array of unique random numbers */
-	  for (i = 0; i < MAX_LINKLOCAL_TRIES; ) {
-	      int		j;
-	      long 		r;
-	      
-	      r = random_range(0, range);
-	      for (j = 0; j < i; j++) {
-		  if (linklocal->offset[j] == r)
-		      continue;
-	      }
-	      linklocal->offset[i++] = r;
-	  }
 	  linklocal->current = 0;
 	  if (linklocal->our_ip.s_addr) {
 	      /* try to keep the same address */
@@ -223,7 +216,7 @@ linklocal_init(Service_t * service_p, IFEventID_t event_id, void * event_data)
 	  else {
 	      linklocal->probe.s_addr 
 		  = htonl(LINKLOCAL_FIRST_USEABLE 
-			  + linklocal->offset[linklocal->current]);
+			  + random_range(0, LINKLOCAL_RANGE));
 	  }
 	  my_log(LOG_DEBUG, "LINKLOCAL %s: probing " IP_FORMAT, 
 		 if_name(if_p), IP_LIST(&linklocal->probe));
@@ -273,21 +266,27 @@ linklocal_init(Service_t * service_p, IFEventID_t event_id, void * event_data)
 	      linklocal_cancel_pending_events(service_p);
 	      S_last_address = linklocal->our_ip = linklocal->probe;
 	      service_publish_success(service_p, NULL, 0);
+	      linklocal->enable_arp_collision_detection = TRUE;
 	      /* we're done */
 	      break; /* out of switch */
 	  }
-	  /* try the next address */
 	  linklocal->current++;
-	  if (linklocal->current >= MAX_LINKLOCAL_TRIES) {
-	      service_publish_failure(service_p,
-				      ipconfig_status_address_in_use_e,
-				      NULL);
-	      /* we're done */
-	      break; /* out of switch */
+	  if (linklocal->current >= MAX_LINKLOCAL_INITIAL_TRIES) {
+	      struct timeval tv;
+	      /* initial tries threshold reached, try again after a timeout */
+	      tv.tv_sec = LINKLOCAL_RETRY_TIME_SECS;
+	      timer_set_relative(linklocal->timer, tv, 
+				 (timer_func_t *)linklocal_init,
+				 service_p, (void *)IFEventID_timeout_e, NULL);
+	      /* don't fall through, wait for timer */
+	      break;
 	  }
+	  /* FALL THROUGH */
+      case IFEventID_timeout_e:
+	  /* try the next address */
 	  linklocal->probe.s_addr 
 	      = htonl(LINKLOCAL_FIRST_USEABLE 
-		      + linklocal->offset[linklocal->current]);
+		      + random_range(0, LINKLOCAL_RANGE));
 	  arp_probe(linklocal->arp, 
 		    (arp_result_func_t *)linklocal_init, service_p,
 		    (void *)IFEventID_arp_e, G_ip_zeroes,
@@ -295,7 +294,7 @@ linklocal_init(Service_t * service_p, IFEventID_t event_id, void * event_data)
 	  my_log(LOG_DEBUG, "LINKLOCAL %s probing " IP_FORMAT, 
 		 if_name(if_p), IP_LIST(&linklocal->probe));
 	  /* wait for the results */
-	  return;
+	  break;
       }
       default:
 	  break;
@@ -427,6 +426,28 @@ linklocal_thread(Service_t * service_p, IFEventID_t event_id, void * event_data)
 	  }
 	  break;
       }
+      case IFEventID_arp_collision_e: {
+	  arp_collision_data_t *	arpc;
+
+	  arpc = (arp_collision_data_t *)event_data;
+	  if (linklocal == NULL) {
+	      return (ipconfig_status_internal_error_e);
+	  }
+	  if (linklocal->allocate == FALSE) {
+	      break;
+	  }
+	  if (linklocal->enable_arp_collision_detection == FALSE
+	      || arpc->ip_addr.s_addr != linklocal->our_ip.s_addr) {
+	      break;
+	  }
+	  S_last_address = linklocal->our_ip = G_ip_zeroes;
+	  (void)service_remove_address(service_p);
+	  service_publish_failure(service_p, 
+				  ipconfig_status_address_in_use_e,
+				  NULL);
+	  linklocal_init(service_p, IFEventID_start_e, NULL);
+	  break;
+      }
       case IFEventID_media_e: {
 	  if (linklocal == NULL) {
 	      return (ipconfig_status_internal_error_e);
@@ -440,6 +461,8 @@ linklocal_thread(Service_t * service_p, IFEventID_t event_id, void * event_data)
 	      }
 	      else {
 		  struct timeval tv;
+
+		  linklocal->enable_arp_collision_detection = FALSE;
 
 		  /* if link goes down and stays down long enough, unpublish */
 		  linklocal_cancel_pending_events(service_p);

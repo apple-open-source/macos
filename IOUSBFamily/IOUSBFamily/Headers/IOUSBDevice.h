@@ -326,6 +326,10 @@ public:
     virtual const IOUSBDescriptorHeader* FindNextDescriptor(const void *cur, UInt8 descType);
 
     virtual void 	DisplayNotEnoughPowerNotice();
+    
+    // this is a non-virtual function so that we don't have to take up a binary compatibility slot.
+    UInt16	GetbcdUSB(void);
+    UInt8	GetProtocol(void);
 
     OSMetaClassDeclareReservedUsed(IOUSBDevice,  0);
     /*!

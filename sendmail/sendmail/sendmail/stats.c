@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2001 Sendmail, Inc. and its suppliers.
+ * Copyright (c) 1998-2002 Sendmail, Inc. and its suppliers.
  *	All rights reserved.
  * Copyright (c) 1983, 1995-1997 Eric P. Allman.  All rights reserved.
  * Copyright (c) 1988, 1993
@@ -13,7 +13,7 @@
 
 #include <sendmail.h>
 
-SM_RCSID("@(#)$Id: stats.c,v 1.1.1.2 2002/03/12 18:00:40 zarzycki Exp $")
+SM_RCSID("@(#)$Id: stats.c,v 1.1.1.3 2002/10/15 02:38:35 zarzycki Exp $")
 
 #include <sendmail/mailstats.h>
 
@@ -65,10 +65,16 @@ markstats(e, to, type)
 		Stat.stat_cr++;
 		break;
 
+	  case STATS_CONNECT:
+		if (to == NULL)
+			Stat.stat_cf++;
+		else
+			Stat.stat_ct++;
+		break;
+
 	  case STATS_NORMAL:
 		if (to == NULL)
 		{
-			Stat.stat_cf++;
 			if (e->e_from.q_mailer != NULL)
 			{
 				Stat.stat_nf[e->e_from.q_mailer->m_mno]++;
@@ -78,7 +84,6 @@ markstats(e, to, type)
 		}
 		else
 		{
-			Stat.stat_ct++;
 			Stat.stat_nt[to->q_mailer->m_mno]++;
 			Stat.stat_bt[to->q_mailer->m_mno] += KBYTES(e->e_msgsize);
 		}
@@ -149,7 +154,7 @@ poststats(sfile)
 	if (!bitnset(DBS_WRITESTATSTOHARDLINK, DontBlameSendmail))
 		sff |= SFF_NOHLINK;
 
-	fd = safeopen(sfile, O_RDWR, 0644, sff);
+	fd = safeopen(sfile, O_RDWR, 0600, sff);
 	if (fd < 0)
 	{
 		if (LogLevel > 12)

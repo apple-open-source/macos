@@ -43,7 +43,6 @@
 #import <net/if_types.h>
 #import "util.h"
 
-extern char *  			ether_ntoa(struct ether_addr *e);
 extern struct ether_addr *	ether_aton(char *);
 
 static struct sockaddr_in init_sin = {sizeof(init_sin), AF_INET};

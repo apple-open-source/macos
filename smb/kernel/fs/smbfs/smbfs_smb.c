@@ -29,8 +29,9 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smbfs_smb.c,v 1.20 2002/06/24 01:31:23 lindak Exp $
+ * $Id: smbfs_smb.c,v 1.20.34.1 2003/01/08 03:24:39 lindak Exp $
  */
+#include <stdint.h>
 #include <sys/param.h>
 #include <sys/systm.h>
 #include <sys/kernel.h>
@@ -330,9 +331,8 @@ smbfs_smb_statfs(struct smb_share *ssp, struct statfs *sbp,
 	return 0;
 }
 
-#ifdef APPLE
 int
-smbfs_smb_seteof(struct smbnode *np, int64_t newsize, struct smb_cred *scred)
+smbfs_smb_seteof(struct smbnode *np, u_int64_t newsize, struct smb_cred *scred)
 {
 	struct smb_t2rq *t2p;
 	struct smb_share *ssp = np->n_mount->sm_share;
@@ -360,6 +360,7 @@ smbfs_smb_seteof(struct smbnode *np, int64_t newsize, struct smb_cred *scred)
 	return error;
 }
 
+#ifdef APPLE
 int
 smb_smb_flush(struct smbnode *np, struct smb_cred *scred)
 {
@@ -397,19 +398,20 @@ smbfs_smb_flush(struct smbnode *np, struct smb_cred *scred)
 #endif /* APPLE */
 
 int
-smbfs_smb_setfsize(struct smbnode *np, int newsize, struct smb_cred *scred)
+smbfs_smb_setfsize(struct smbnode *np, u_int64_t newsize,
+		   struct smb_cred *scred)
 {
 	struct smb_share *ssp = np->n_mount->sm_share;
 	struct smb_rq rq, *rqp = &rq;
 	struct mbchain *mbp;
 	int error;
 
-#ifdef APPLE
-	if (!smbfs_smb_seteof(np, (int64_t) newsize, scred)) {
+	if (!smbfs_smb_seteof(np, newsize, scred)) {
 		np->n_flag |= NFLUSHWIRE;
 		return (0);
 	}
-#endif
+	if (newsize > UINT32_MAX)
+		return (EFBIG);
 
 	error = smb_rq_init(rqp, SSTOCP(ssp), SMB_COM_WRITE, scred);
 	if (error)

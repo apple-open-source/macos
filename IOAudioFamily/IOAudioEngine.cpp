@@ -345,6 +345,9 @@ bool IOAudioEngine::start(IOService *provider, IOAudioDevice *device)
     
     workLoop->addEventSource(commandGate);
     
+	// for 2761764 & 3111501
+	setWorkLoopOnAllAudioControls(workLoop);
+	
     result = initHardware(provider);
     
     duringStartup = false;
@@ -1895,6 +1898,9 @@ IOReturn IOAudioEngine::addDefaultAudioControl(IOAudioControl *defaultAudioContr
     IOReturn result = kIOReturnBadArgument;
 
     if (defaultAudioControl) {
+		if (workLoop) {
+			defaultAudioControl->setWorkLoop(workLoop);
+		}
         if (defaultAudioControl->attachAndStart(this)) {
             if (!defaultAudioControls) {
                 defaultAudioControls = OSSet::withObjects(&(const OSObject *)defaultAudioControl, 1, 1);
@@ -1980,3 +1986,25 @@ void IOAudioEngine::removeAllDefaultAudioControls()
         defaultAudioControls->flushCollection();
     }
 }
+
+void IOAudioEngine::setWorkLoopOnAllAudioControls(IOWorkLoop *wl)
+{
+    if (defaultAudioControls) {
+        if (!isInactive()) {
+            OSCollectionIterator *controlIterator;
+            
+            controlIterator = OSCollectionIterator::withCollection(defaultAudioControls);
+            
+            if (controlIterator) {
+                IOAudioControl *control;
+				while (control = (IOAudioControl *)controlIterator->getNextObject()) {
+					if (control->getProvider() == this) {
+						control->setWorkLoop(wl);
+					}
+				}
+                controlIterator->release();
+            }
+        }
+    }
+}
+

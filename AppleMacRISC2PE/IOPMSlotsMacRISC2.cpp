@@ -191,7 +191,7 @@ IOReturn IOPMSlotsMacRISC2::setPowerState ( unsigned long powerStateOrdinal, IOS
             iter->release();
         }
         if ( totalPower > auxCapacity ) {
-            IOLog("PCI sleep prevented by high-power expansion cards %d %d (4)\n",totalPower,auxCapacity);
+            IOLog("PCI sleep prevented by high-power expansion cards %ld %ld (4)\n",totalPower,auxCapacity);
             canSleep = false;
         }
 

@@ -79,8 +79,11 @@
 #include "something.h"
 #include "printInterpretedError.h"
 
+    // Set this flag to get more status messages
 #define VERBOSE 1
 
+    // Set this flag to match directly to interface, without finding device first.
+#define MATCH_INTERFACE 1
 
 void useUSBInterface(IOUSBInterfaceInterface **intf)
 {
@@ -217,7 +220,7 @@ IOUSBInterfaceInterface **intf=NULL;
         
         if(intf != nil)
         {
-            IOObjectRelease(usbInterface);
+  // Don't release the interface here. That's one too many releases and causes set alt interface to fail
             if(isThisTheInterfaceYoureLookingFor(intf))
             {
                 err = openUSBInterface(intf);
@@ -458,7 +461,13 @@ mach_port_t masterPort;
 CFMutableDictionaryRef dict;
 SInt32 usbVID;
 SInt32 usbPID;
-io_iterator_t deviceIterator;
+
+#if MATCH_INTERFACE
+SInt32 usbConfig;
+SInt32 usbIntNum;
+#endif
+
+io_iterator_t anIterator;
 sig_t oldHandler;
 
     if(argc < 3)
@@ -490,7 +499,12 @@ sig_t oldHandler;
         return(-1);
     }
     
+#if MATCH_INTERFACE
+    dict = IOServiceMatching("IOUSBInterface");
+#else
     dict = IOServiceMatching("IOUSBDevice");
+#endif
+
     if(dict == nil)
     {
         fprintf(stderr, "Could create matching dictionary\n");
@@ -506,8 +520,18 @@ sig_t oldHandler;
                 CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &usbPID));
 
     
+#if MATCH_INTERFACE
+    // Look for interface 0 in config 1.
+    // These should really come from parameters.
+    usbConfig = 1;
+	usbIntNum = 0;
+	CFDictionarySetValue(dict, CFSTR(kUSBConfigurationValue), 
+                CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &usbConfig));
+	CFDictionarySetValue(dict, CFSTR(kUSBInterfaceNumber), 
+                CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &usbIntNum));
+#endif
 
-	err = IOServiceGetMatchingServices(masterPort, dict, &deviceIterator);
+	err = IOServiceGetMatchingServices(masterPort, dict, &anIterator);
     if(err != kIOReturnSuccess)
     {
         // Do I need to release dict here, the call (if sucessfull??) consumes one, if so how??
@@ -515,9 +539,13 @@ sig_t oldHandler;
         return(-1);
     }
     
-    err = iterateDevices(deviceIterator);
+#if MATCH_INTERFACE
+    err = iterateinterfaces(anIterator);
+#else
+    err = iterateDevices(anIterator);
+#endif
     
-    IOObjectRelease(deviceIterator);
+    IOObjectRelease(anIterator);
 
     return err;
 }

@@ -8,7 +8,7 @@ NNAAMMEE
        mailq - print the mail queue
 
 SSYYNNOOPPSSIISS
-       mmaaiillqq [--vv]
+       mmaaiillqq [--AAcc] [--vv]
 
 DDEESSCCRRIIPPTTIIOONN
        MMaaiillqq  prints  a  summary  of the mail messages queued for
@@ -30,7 +30,11 @@ DDEESSCCRRIIPPTTIIOONN
 
        MMaaiillqq is identical to ``sendmail -bp''.
 
-       The options are as follows:
+       The relevant options are as follows:
+
+       --AAcc    Show  the  mail  submission  queue   specified   in
+              _/_e_t_c_/_m_a_i_l_/_s_u_b_m_i_t_._c_f instead of the MTA queue speci-
+              fied in _/_e_t_c_/_m_a_i_l_/_s_e_n_d_m_a_i_l_._c_f.
 
        --vv     Print verbose information.  This adds the  priority
               of  the  message  and  a single character indicator
@@ -57,10 +61,6 @@ HHIISSTTOORRYY
 
 
 
-
-
-
-
-                   $Date: 2002/03/12 18:00:32 $                 1
+                   $Date: 2002/10/15 02:38:28 $                 1
 
 

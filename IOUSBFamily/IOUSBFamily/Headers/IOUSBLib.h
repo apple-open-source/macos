@@ -70,6 +70,11 @@ __BEGIN_DECLS
     0x3C, 0x9E, 0xE1, 0xEB, 0x24, 0x02, 0x11, 0xB2, 			\
     0x8E, 0x7E, 0x00, 0x0A, 0x27, 0x80, 0x1E, 0x86)
 
+// C809B8D8-0884-11D7-BB96-0003933E3E3E
+#define kIOUSBDeviceInterfaceID197 CFUUIDGetConstantUUIDWithBytes(NULL, \
+    0xC8, 0x09, 0xB8, 0xD8, 0x08, 0x84, 0x11, 0xD7, 			\
+    0xBB, 0x96, 0x00, 0x03, 0x93, 0x3E, 0x3E, 0x3E)
+
 
 // 4923AC4C-4896-11D5-9208-000A27801E86
 #define kIOUSBInterfaceInterfaceID182 CFUUIDGetConstantUUIDWithBytes(NULL,	\
@@ -91,6 +96,10 @@ __BEGIN_DECLS
     0x6C, 0x79, 0x8A, 0x6E, 0xD6, 0xE9, 0x11, 0xD6, 				\
     0xAD, 0xD6, 0x00, 0x03, 0x93, 0x3E, 0x3E, 0x3E)
 
+// C63D3C92-0884-11D7-9692-0003933E3E3E
+#define kIOUSBInterfaceInterfaceID197 CFUUIDGetConstantUUIDWithBytes(NULL, 	\
+    0xC6, 0x3D, 0x3C, 0x92, 0x08, 0x84, 0x11, 0xD7,				\
+    0x96, 0x92, 0x00, 0x03, 0x93, 0x3E, 0x3E, 0x3E)
 //
 // DeviceInterface Functions available in version 1.8 (10.0) and 1.8.1 (10.0.1) of Mac OS X
 //
@@ -139,15 +148,23 @@ __BEGIN_DECLS
 //-----------------------------------------------------------------------------------------
 // END OF DeviceInterface Functions available in version 1.8.2 (10.1) of Mac OS X
 //-----------------------------------------------------------------------------------------
-//-----------------------------------------------------------------------------------------
 //
 // DeviceInterface Functions available in version 1.8.7 Mac OS X
 //
 #define IOUSBDEVICE_FUNCS_187 \
-    IOReturn (*USBDeviceReEnumerate)(void *self, UInt32 options)
+IOReturn (*USBDeviceReEnumerate)(void *self, UInt32 options)
 
 //-----------------------------------------------------------------------------------------
 // END OF DeviceInterface Functions available in version 1.8.7 (10.1.X) of Mac OS X
+//-----------------------------------------------------------------------------------------
+// DeviceInterface Functions available in version 1.9.7 Mac OS X
+//
+#define IOUSBDEVICE_FUNCS_197 \
+IOReturn (*GetBusMicroFrameNumber)(void *self, UInt64 *microFrame, AbsoluteTime *atTime); \
+IOReturn (*GetIOUSBLibVersion)(void *self, NumVersion *ioUSBLibVersion, NumVersion *usbFamilyVersion)
+
+//-----------------------------------------------------------------------------------------
+// END OF DeviceInterface Functions available in version 1.9.7
 //-----------------------------------------------------------------------------------------
 
 typedef struct IOUSBDeviceStruct {
@@ -169,6 +186,14 @@ typedef struct IOUSBDeviceStruct187 {
     IOUSBDEVICE_FUNCS_182;
     IOUSBDEVICE_FUNCS_187;
 } IOUSBDeviceInterface187;
+
+typedef struct IOUSBDeviceStruct197 {
+    IUNKNOWN_C_GUTS;
+    IOUSBDEVICE_FUNCS_180;
+    IOUSBDEVICE_FUNCS_182;
+    IOUSBDEVICE_FUNCS_187;
+    IOUSBDEVICE_FUNCS_197;
+} IOUSBDeviceInterface197;
 
 
 //
@@ -250,14 +275,24 @@ typedef struct IOUSBDeviceStruct187 {
 // InterfaceInterface Functions available in version 1.9.2 Mac OS X
 //
 #define IOUSBINTERFACE_FUNCS_192 \
-    IOReturn (*LowLatencyReadIsochPipeAsync)(void *self, UInt8 pipeRef, void *buf, UInt64 frameStart, UInt32 numFrames, UInt32 updateFrequency, IOUSBLowLatencyIsocFrame *frameList, \
-                                  IOAsyncCallback1 callback, void *refcon); \
-    IOReturn (*LowLatencyWriteIsochPipeAsync)(void *self, UInt8 pipeRef, void *buf, UInt64 frameStart, UInt32 numFrames, UInt32 updateFrequency, IOUSBLowLatencyIsocFrame *frameList, \
-                                  IOAsyncCallback1 callback, void *refcon); \
-    IOReturn (*LowLatencyCreateBuffer)(void * self, void **buffer, IOByteCount size, UInt32 bufferType); \
-    IOReturn (*LowLatencyDestroyBuffer) (void * self, void * buffer )
+IOReturn (*LowLatencyReadIsochPipeAsync)(void *self, UInt8 pipeRef, void *buf, UInt64 frameStart, UInt32 numFrames, UInt32 updateFrequency, IOUSBLowLatencyIsocFrame *frameList, \
+                                         IOAsyncCallback1 callback, void *refcon); \
+IOReturn (*LowLatencyWriteIsochPipeAsync)(void *self, UInt8 pipeRef, void *buf, UInt64 frameStart, UInt32 numFrames, UInt32 updateFrequency, IOUSBLowLatencyIsocFrame *frameList, \
+                                          IOAsyncCallback1 callback, void *refcon); \
+IOReturn (*LowLatencyCreateBuffer)(void * self, void **buffer, IOByteCount size, UInt32 bufferType); \
+IOReturn (*LowLatencyDestroyBuffer) (void * self, void * buffer )
 //-----------------------------------------------------------------------------------------
 // END OF InterfaceInterface Functions available in version 1.9.2 Mac OS X
+//-----------------------------------------------------------------------------------------
+// InterfaceInterface Functions available in version 1.9.7 Mac OS X
+//
+#define IOUSBINTERFACE_FUNCS_197 \
+IOReturn (*GetBusMicroFrameNumber)(void *self, UInt64 *microFrame, AbsoluteTime *atTime); \
+IOReturn (*GetFrameListTime)(void *self, UInt32 *microsecondsInFrame); \
+IOReturn (*GetIOUSBLibVersion)(void *self, NumVersion *ioUSBLibVersion, NumVersion *usbFamilyVersion)
+
+//-----------------------------------------------------------------------------------------
+// END OF InterfaceInterface Functions available in version 1.9.7 Mac OS X
 //-----------------------------------------------------------------------------------------
 
 typedef struct IOUSBInterfaceStruct {
@@ -294,6 +329,16 @@ typedef struct IOUSBInterfaceStruct192 {
     IOUSBINTERFACE_FUNCS_190;
     IOUSBINTERFACE_FUNCS_192;
 } IOUSBInterfaceInterface192;
+
+typedef struct IOUSBInterfaceStruct197 {
+    IUNKNOWN_C_GUTS;
+    IOUSBINTERFACE_FUNCS_180;
+    IOUSBINTERFACE_FUNCS_182;
+    IOUSBINTERFACE_FUNCS_183;
+    IOUSBINTERFACE_FUNCS_190;
+    IOUSBINTERFACE_FUNCS_192;
+    IOUSBINTERFACE_FUNCS_197;
+} IOUSBInterfaceInterface197;
 
 #define kIOUSBDeviceClassName		"IOUSBDevice"
 #define kIOUSBInterfaceClassName	"IOUSBInterface"

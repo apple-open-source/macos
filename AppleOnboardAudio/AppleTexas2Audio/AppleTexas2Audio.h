@@ -166,7 +166,6 @@ protected:
 
 	// information specific to the chip
 	Boolean					gModemSoundActive;
-	Boolean					dontReleaseHPMute;
 
 	// holds the current frame rate settings:
 	ClockSource				clockSource;

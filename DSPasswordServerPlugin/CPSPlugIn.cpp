@@ -33,6 +33,7 @@ using namespace std;
 #define kSASLListPrefix						"(SASL "
 #define kPasswordServerErrPrefixStr			"-ERR "
 #define kPasswordServerSASLErrPrefixStr		"SASL "
+#define kEmptyPasswordAltStr				"<1-empty-insecure-1>"
 
 #define kChangePassPaddedBufferSize			512
 #define kOneKBuffer							1024
@@ -97,6 +98,9 @@ void writeToServer( FILE *out, char *buf )
 {
     DEBUGLOG( "sending: %s\n", buf);
     
+	if ( out == NULL )
+		return;
+	
     if ( buf != NULL )
     {
         fwrite(buf, strlen(buf), 1, out);
@@ -113,7 +117,7 @@ PWServerError readFromServer( FILE *in, char *buf, unsigned long bufLen )
     PWServerError result = {0, kPolicyError};
     int compareLen;
     
-    if ( buf == nil || bufLen < 2 ) {
+    if ( in == nil || buf == nil || bufLen < 2 ) {
         result.err = -1;
         return result;
     }
@@ -817,11 +821,16 @@ sInt32 CPSPlugIn::OpenDirNode ( sOpenDirNode *inData )
             {
                 // set up the context data now with the relevant parameters for the configure PasswordServer node
                 // DS API reference number is used to access the reference table
+				/*
                 pContext = MakeContextData();
                 pContext->psName = new char[1+::strlen("PasswordServer Configure")];
                 ::strcpy(pContext->psName,"PasswordServer Configure");
                 // add the item to the reference table
                 gPSContextTable->AddItem( inData->fOutNodeRef, pContext );
+				*/
+				
+				// currently, we do not configure anything so this is a bad node.
+				siResult = eDSOpenNodeFailed;
             }
             // check that there is something after the delimiter or prefix
             // strip off the PasswordServer prefix here
@@ -1032,7 +1041,7 @@ sInt32 CPSPlugIn::ConnectToServer( sPSContextData *inContext )
     sInt32 siResult = eDSNoErr;
     char buf[kOneKBuffer];
     
-    // connect to remote server
+	// connect to remote server
     siResult = getconn(inContext->psName, inContext->psPort, &inContext->fd);
     if ( siResult != eDSNoErr )
         return( siResult );
@@ -1057,6 +1066,9 @@ Boolean CPSPlugIn::Connected ( sPSContextData *inContext )
 	int		bytesReadable = 0;
 	char	temp[1];
 
+	if ( inContext->fd == 0 )
+		return false;
+	
 	bytesReadable = ::recvfrom( inContext->fd, temp, sizeof (temp), (MSG_DONTWAIT | MSG_PEEK), NULL, NULL );
 	
 	DEBUGLOG( "CPSPlugIn::Connected bytesReadable = %d, errno = %d", bytesReadable, errno );
@@ -1646,7 +1658,7 @@ sInt32 CPSPlugIn::GetAttributeValue ( sGetAttributeValue *inData )
 		
 		::memcpy( pAttrValue->fAttributeValueData.fBufferData, p, usValueLen );
 
-			// Set the attribute value ID
+		// Set the attribute value ID
 		pAttrValue->fAttributeValueID = CalcCRC( pAttrValue->fAttributeValueData.fBufferData );
 
 		inData->fOutAttrValue = pAttrValue;
@@ -2090,7 +2102,8 @@ sInt32 CPSPlugIn::DoAuthentication ( sDoDirNodeAuth *inData )
 	char 				*paramStr			= NULL;
     Boolean				bHasValidAuth		= false;
     sPSContinueData		*pContinue			= NULL;
-    
+    char				*stepData			= NULL;
+	
     DEBUGLOG( "CPSPlugIn::DoAuthentication\n");
 	try
 	{
@@ -2217,34 +2230,35 @@ sInt32 CPSPlugIn::DoAuthentication ( sDoDirNodeAuth *inData )
             {
                 pContext->last.successfulAuth = false;
                 
-                if ( uiAuthMethod == kAuth2WayRandom )
-                {
-                    if ( inData->fIOContinueData == NULL )
-                    {
-                        pContinue = (sPSContinueData *)::calloc( 1, sizeof( sPSContinueData ) );
-                        Throw_NULL( pContinue, eMemoryError );
-                        
-                        gContinue->AddItem( pContinue, inData->fInNodeRef );
-                        inData->fIOContinueData = pContinue;
-                        
-                        pContinue->fAuthPass = 0;
-                        pContinue->fData = NULL;
-                        pContinue->fDataLen = 0;
-                    }
-                    
-                    siResult = DoSASLTwoWayRandAuth( pContext,
-                                                    userName,
-                                                    saslMechNameStr,
-                                                    inData );
-                }
-                else
-                {
-                    siResult = DoSASLAuth( pContext,
-                                            userName,
-                                            password,
-                                            passwordLen,
-                                            challenge,
-                                            saslMechNameStr );
+				if ( uiAuthMethod == kAuth2WayRandom )
+				{
+					if ( inData->fIOContinueData == NULL )
+					{
+						pContinue = (sPSContinueData *)::calloc( 1, sizeof( sPSContinueData ) );
+						Throw_NULL( pContinue, eMemoryError );
+						
+						gContinue->AddItem( pContinue, inData->fInNodeRef );
+						inData->fIOContinueData = pContinue;
+						
+						pContinue->fAuthPass = 0;
+						pContinue->fData = NULL;
+						pContinue->fDataLen = 0;
+					}
+					
+					siResult = DoSASLTwoWayRandAuth( pContext,
+													userName,
+													saslMechNameStr,
+													inData );
+				}
+				else
+				{
+					siResult = DoSASLAuth( pContext,
+											userName,
+											password,
+											passwordLen,
+											challenge,
+											saslMechNameStr,
+											&stepData );
                 }
                 
                 if ( siResult == noErr && uiAuthMethod != kAuth2WayRandom )
@@ -2282,6 +2296,27 @@ sInt32 CPSPlugIn::DoAuthentication ( sDoDirNodeAuth *inData )
             
             switch( uiAuthMethod )
 			{
+				case kAuthDIGEST_MD5:
+				case kAuthDIGEST_MD5_Reauth:
+					#pragma mark kAuthDigestMD5
+					
+					if ( stepData != NULL )
+					{
+						unsigned long lenOfStepData = strlen( stepData );
+						
+						if ( outBuf->fBufferSize >= 4 + lenOfStepData + 1 )
+						{
+							memcpy( outBuf->fBufferData, &lenOfStepData, 4 );
+							strcpy( outBuf->fBufferData + 4, stepData );
+							outBuf->fBufferLength = 4 + lenOfStepData;
+						}
+						else
+						{
+							siResult = eDSBufferTooSmall;
+						}
+					}
+					break;
+					
                 case kAuthSetPasswd:
                     // buffer format is:
                     // len1 username
@@ -2310,6 +2345,15 @@ sInt32 CPSPlugIn::DoAuthentication ( sDoDirNodeAuth *inData )
                         if (strlen(paramStr) > kChangePassPaddedBufferSize )
                             throw( eDSAuthParameterError );
                         
+						// special-case for an empty password. DIGEST-MD5 does not
+						// support empty passwords, but it's a DS requirement
+						if ( *paramStr == '\0' )
+						{
+							free( paramStr );
+							paramStr = (char *) malloc( strlen(kEmptyPasswordAltStr) + 1 );
+							strcpy( paramStr, kEmptyPasswordAltStr );
+						}
+						
                         this->FillWithRandomData(buf, kChangePassPaddedBufferSize);
                         strcpy(buf, paramStr);
                         
@@ -2372,6 +2416,15 @@ sInt32 CPSPlugIn::DoAuthentication ( sDoDirNodeAuth *inData )
                         if ( strlen(paramStr) > kChangePassPaddedBufferSize )
                             throw( eDSAuthParameterError );
                         
+						// special-case for an empty password. DIGEST-MD5 does not
+						// support empty passwords, but it's a DS requirement
+						if ( *paramStr == '\0' )
+						{
+							free( paramStr );
+							paramStr = (char *) malloc( strlen(kEmptyPasswordAltStr) + 1 );
+							strcpy( paramStr, kEmptyPasswordAltStr );
+						}
+						
                         this->FillWithRandomData(buf, kChangePassPaddedBufferSize);
                         strcpy(buf, paramStr);
                         
@@ -2429,6 +2482,15 @@ sInt32 CPSPlugIn::DoAuthentication ( sDoDirNodeAuth *inData )
 						if ( strlen(paramStr) > kChangePassPaddedBufferSize )
                             throw( eDSAuthParameterError );
                         
+						// special-case for an empty password. DIGEST-MD5 does not
+						// support empty passwords, but it's a DS requirement
+						if ( *paramStr == '\0' )
+						{
+							free( paramStr );
+							paramStr = (char *) malloc( strlen(kEmptyPasswordAltStr) + 1 );
+							strcpy( paramStr, kEmptyPasswordAltStr );
+						}
+						
 						this->FillWithRandomData(buf, kChangePassPaddedBufferSize);
 						strcpy(buf, paramStr);
 						
@@ -2856,7 +2918,9 @@ sInt32 CPSPlugIn::DoAuthentication ( sDoDirNodeAuth *inData )
         free( userIDToSet );
     if ( paramStr != NULL )
         free( paramStr );
-    
+    if ( stepData != NULL )
+		free( stepData );
+	
     DEBUGLOG( "CPSPlugIn::DoAuthentication returning %l\n", siResult);
 	return( siResult );
 
@@ -2924,7 +2988,62 @@ CPSPlugIn::UnpackUsernameAndPassword(
                 }
                 break;
             
-            case kAuthCRAM_MD5:
+			case kAuthDIGEST_MD5_Reauth:
+				siResult = GetStringFromAuthBuffer( inAuthBuf, 1, outUserName );
+                if ( siResult == noErr )
+					siResult = GetDataFromAuthBuffer( inAuthBuf, 2, &digest, &len );
+				if ( siResult == noErr && digest != NULL )
+                {
+					*outPassword = (char *) malloc( len + 1 );
+					Throw_NULL( (*outPassword), eMemoryAllocError );
+					
+					// put a leading null to tell the DIGEST-MD5 plug-in we're sending
+					// a hash.
+					**outPassword = '\0';
+					memcpy( (*outPassword) + 1, digest, len );
+					*outPasswordLen = len + 1;
+                }
+                break;
+				
+			case kAuthDIGEST_MD5:
+				{
+					char *method = NULL;
+					
+					siResult = GetStringFromAuthBuffer( inAuthBuf, 1, outUserName );
+					if ( siResult == noErr )
+						siResult = GetStringFromAuthBuffer( inAuthBuf, 2, (char **) &challenge );
+					if ( siResult == noErr )
+						siResult = GetDataFromAuthBuffer( inAuthBuf, 3, &digest, &len );
+					if ( siResult == noErr )
+						siResult = GetStringFromAuthBuffer( inAuthBuf, 4, &method );
+					if ( siResult == noErr )
+					{
+						if ( challenge != NULL && digest != NULL && method != NULL )
+						{
+							*outPassword = (char *) malloc( len + 1 );
+							Throw_NULL( (*outPassword), eMemoryAllocError );
+							
+							// put a leading null to tell the WEBDAV-DIGEST plug-in we're sending
+							// a hash.
+							**outPassword = '\0';
+							memcpy( (*outPassword) + 1, digest, len );
+							*outPasswordLen = len + 1;
+							
+							*outChallenge = (char *) malloc( strlen((char *)challenge) + 10 + strlen(method) );
+							strcpy( *outChallenge, (char *)challenge );
+							strcat( *outChallenge, ",method=\"" );
+							strcat( *outChallenge, method );
+							strcat( *outChallenge, "\"" );
+						}
+						else
+						{
+							siResult = eDSAuthInBuffFormatError;
+						}
+					}
+				}
+                break;
+				
+			case kAuthCRAM_MD5:
                 siResult = GetStringFromAuthBuffer( inAuthBuf, 1, outUserName );
                 if ( siResult == noErr )
                     siResult = GetStringFromAuthBuffer( inAuthBuf, 2, outChallenge );
@@ -2932,14 +3051,14 @@ CPSPlugIn::UnpackUsernameAndPassword(
                     siResult = GetDataFromAuthBuffer( inAuthBuf, 3, &digest, &len );
                 if ( siResult == noErr && digest != NULL )
                 {
-                    *outPassword = (char *) malloc( len + 1 );
-                    Throw_NULL( (*outPassword), eMemoryAllocError );
-                	
-                    // put a leading null to tell the CRAM-MD5 plug-in we're sending
-                    // a hash.
-                    **outPassword = '\0';
-                    memcpy( (*outPassword) + 1, digest, len );
-                    *outPasswordLen = len + 1;
+					*outPassword = (char *) malloc( len + 1 );
+					Throw_NULL( (*outPassword), eMemoryAllocError );
+					
+					// put a leading null to tell the CRAM-MD5 plug-in we're sending
+					// a hash.
+					**outPassword = '\0';
+					memcpy( (*outPassword) + 1, digest, len );
+					*outPasswordLen = len + 1;
                 }
                 break;
             
@@ -3035,14 +3154,23 @@ CPSPlugIn::UnpackUsernameAndPassword(
                     siResult = eDSNotAuthorized;
                 }
                 break;
-			
+            
             default:
-                siResult = GetStringFromAuthBuffer( inAuthBuf, 1, outUserName );
+				siResult = GetStringFromAuthBuffer( inAuthBuf, 1, outUserName );
                 if ( siResult == noErr )
                     siResult = GetStringFromAuthBuffer( inAuthBuf, 2, outPassword );
                 if ( siResult == noErr && *outPassword != NULL )
-                    *outPasswordLen = strlen( *outPassword );
-        }
+				    *outPasswordLen = strlen( *outPassword );
+					
+				if ( *outPassword == NULL || *outPasswordLen == 0 )
+				{
+					if ( *outPassword != NULL )
+						free( *outPassword );
+					*outPasswordLen = strlen( kEmptyPasswordAltStr );
+					*outPassword = (char *) malloc( *outPasswordLen + 1 );
+					strcpy( *outPassword, kEmptyPasswordAltStr );
+				}
+		}
     }
     
     catch ( sInt32 error )
@@ -3213,6 +3341,16 @@ CPSPlugIn::GetAuthMethodConstant(
 		*outAuthMethod = kAuthSMB_LM_Key;
 	}
     else
+    if ( ::strcmp( p, kDSStdAuthDIGEST_MD5 ) == 0 )
+	{
+		*outAuthMethod = kAuthDIGEST_MD5;
+	}
+    else
+    if ( ::strcmp( p, "dsAuthMethodStandard:dsAuthNodeDIGEST-MD5-Reauth" ) == 0 )
+	{
+		*outAuthMethod = kAuthDIGEST_MD5_Reauth;
+	}
+    else
     if ( ::strcmp( p, kDSStdAuthCRAM_MD5 ) == 0 )
 	{
 		// Unix crypt auth
@@ -3344,6 +3482,11 @@ CPSPlugIn::GetAuthMethodSASLName ( uInt32 inAuthMethodConstant, bool inAuthOnly,
             
         case kAuthSMB_LM_Key:
             strcpy( outMechName, "SMB-LAN-MANAGER" );
+            break;
+        
+        case kAuthDIGEST_MD5:
+		case kAuthDIGEST_MD5_Reauth:
+            strcpy( outMechName, "WEBDAV-DIGEST" );
             break;
         
         case kAuthCRAM_MD5:
@@ -3539,7 +3682,8 @@ CPSPlugIn::DoSASLAuth(
     const char *password,
     long inPasswordLen,
     const char *inChallenge,
-    const char *inMechName )
+    const char *inMechName, 
+	char **outStepData )
 {
 	sInt32			siResult			= eDSAuthFailed;
 	
@@ -3549,6 +3693,9 @@ CPSPlugIn::DoSASLAuth(
 		Throw_NULL( inContext, eDSBadContextData );
         Throw_NULL( password, eParameterError );
         
+		if ( outStepData != NULL )
+			*outStepData = NULL;
+		
 		// need username length, password length, and username must be at least 1 character
 
 		DEBUGLOG( "PasswordServer PlugIn: Attempting Authentication" );
@@ -3558,6 +3705,7 @@ CPSPlugIn::DoSASLAuth(
             char buf[4096];
             const char *data;
             char dataBuf[4096];
+			unsigned long binLen;
             const char *chosenmech = NULL;
             unsigned int len = 0;
             int r;
@@ -3680,16 +3828,26 @@ CPSPlugIn::DoSASLAuth(
             
             // send the auth method
             dataBuf[0] = 0;
-            if ( len > 0 )
-            	ConvertBinaryToHex( (const unsigned char *)data, len, dataBuf );
-            else
+            
             if ( inChallenge != NULL )
             {
                 // for CRAM-MD5 and potentially DIGEST-MD5, we can attach the nonce to the
                 // initial data.
-                ConvertBinaryToHex( (const unsigned char *)inChallenge, strlen(inChallenge), dataBuf );
-                len = strlen(dataBuf);
+				if ( strcmp(chosenmech, "WEBDAV-DIGEST") == 0 )
+				{
+					strcpy(dataBuf, "replay ");
+					ConvertBinaryToHex( (const unsigned char *)inChallenge, strlen(inChallenge), dataBuf+7 );
+					len = strlen(dataBuf);
+				}
+				else
+				{
+					ConvertBinaryToHex( (const unsigned char *)inChallenge, strlen(inChallenge), dataBuf );
+					len = strlen(dataBuf);
+				}
             }
+            else
+			if ( len > 0 )
+            	ConvertBinaryToHex( (const unsigned char *)data, len, dataBuf );
             
             if ( len > 0 )
                 snprintf(buf, 4096, "AUTH %s %s\r\n", chosenmech, dataBuf);
@@ -3715,10 +3873,8 @@ CPSPlugIn::DoSASLAuth(
                 {
                     if ( len > 4 )
                     {
-                        unsigned long binLen;
-                        
                         ConvertHexToBinary( buf + 4, (unsigned char *) dataBuf, &binLen );
-                        
+                       
                         gSASLMutex->Wait();
                         r = sasl_client_step(inContext->conn, dataBuf, binLen, NULL, &data, &len);
                         gSASLMutex->Signal();
@@ -3774,6 +3930,18 @@ CPSPlugIn::DoSASLAuth(
                     break;
             }
             
+			if ( outStepData != NULL && strcmp(chosenmech, "WEBDAV-DIGEST") == 0 )
+			{
+				*outStepData = (char *) malloc( binLen + 1 );
+				if ( *outStepData == NULL )
+					throw( eMemoryError );
+				
+				memcpy( *outStepData, dataBuf, binLen );
+				(*outStepData)[binLen] = '\0';
+				
+				DEBUGLOG( "outStepData = %s\n", *outStepData );
+			}
+			
             throw( SASLErrToDirServiceError(r) );
         }
 

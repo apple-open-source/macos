@@ -23,7 +23,10 @@
 #include <IOKit/sbp2/IOFireWireSBP2ManagementORB.h>
 #include <IOKit/sbp2/IOFireWireSBP2LUN.h>
 
+#define FIREWIREPRIVATE
 #include <IOKit/firewire/IOFireWireController.h>
+#undef FIREWIREPRIVATE
+
 #include <IOKit/firewire/IOConfigDirectory.h>
 
 #include "FWDebugging.h"

@@ -22,7 +22,7 @@ SM_UNUSED(static char copyright[]) =
 #endif /* ! lint */
 
 #ifndef lint
-SM_UNUSED(static char id[]) = "@(#)$Id: editmap.c,v 1.1.1.1 2002/03/12 18:00:15 zarzycki Exp $";
+SM_UNUSED(static char id[]) = "@(#)$Id: editmap.c,v 1.1.1.2 2002/10/15 02:37:53 zarzycki Exp $";
 #endif /* ! lint */
 
 

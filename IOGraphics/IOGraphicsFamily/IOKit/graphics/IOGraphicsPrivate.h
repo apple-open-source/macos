@@ -27,31 +27,45 @@
 
 #if 0
 #warning **LOGS**
-#define DEBG(fmt, args...)  		\
+#define RLOG 1
+#define DEBG(idx, fmt, args...)  	\
 do { 					\
     AbsoluteTime    now;		\
     UInt64	    nano;		\
     clock_get_uptime( &now);		\
-    absolutetime_to_nanoseconds( now, &nano );			\
-    kprintf("%08ld.", (UInt32) (nano / 1000000ULL));		\
+    absolutetime_to_nanoseconds( now, &nano );				\
+    kprintf("%08ld [%d]::", (UInt32) (nano / 1000000ULL), idx);		\
+    kprintf(__FUNCTION__);		\
     kprintf(fmt, ## args);		\
 } while( false )
 
 #elif 0
 #warning **LOGS**
-#define DEBG(fmt, args...)		\
+#define RLOG 1
+#define DEBG(idx, fmt, args...)		\
 do { 					\
     AbsoluteTime    now;		\
     UInt64	    nano;		\
     clock_get_uptime( &now);		\
     absolutetime_to_nanoseconds( now, &nano );			\
-    IOLog("%08ld.", (UInt32) (nano / 1000000ULL));		\
+    IOLog("%08ld [%d]::", (UInt32) (nano / 1000000ULL), idx);		\
+    IOLog(__FUNCTION__);		\
     IOLog(fmt, ## args);		\
 } while( false )
 
 #else
-#define DEBG(fmt, args...)  {}
+#define DEBG(idx, fmt, args...)  {}
 #endif
+
+#ifndef sub_iokit_graphics
+#define sub_iokit_graphics           err_sub(5)
+#endif
+
+#define kIOFBLowPowerAggressiveness	iokit_family_err(sub_iokit_graphics, 1)
+
+#define kIOFBBootGrayValue		0x00bfbfbf
+// blue actual:0x00426bad gamma:0x00648cc3 bootx:0x00bfbfbf
+#define kIOFBGrayValue			0x00000000
 
 #ifndef kAppleAudioVideoJackStateKey
 #define kAppleAudioVideoJackStateKey	"AppleAudioVideoJackState"
@@ -81,6 +95,8 @@ extern "C" void bzero_nc( void * p, UInt32 l );
 inline void bcopy_nc( void * from, void * to, UInt32 l)	{ bcopy( from, to, l ); }
 inline void bzero_nc( void * p, UInt32 l )		{ bzero( p, l ); }
 #endif
+
+#define thisIndex		_IOFramebuffer_reserved[4]
 
 #endif /* ! _IOKIT_IOGRAPHICSPRIVATE_H */
 

@@ -25,7 +25,6 @@ install-sysconf:
 	$(_v) $(INSTALL_FILE) -c -m 644 gettytab	 "$(Destination)/gettytab"
 	$(_v) $(INSTALL_FILE) -c -m 644 /dev/null	 "$(Destination)/hosts.lpd"
 	$(_v) $(INSTALL_FILE) -c -m 644 /dev/null	 "$(Destination)/hosts.equiv"
-	$(_v) $(INSTALL_FILE) -c -m 644 iftab		 "$(Destination)/iftab"
 	$(_v) $(INSTALL_FILE) -c -m 644 inetd.conf	 "$(Destination)/inetd.conf"
 	$(_v) $(INSTALL_FILE) -c -m 644 kern_loader.conf "$(Destination)/kern_loader.conf"
 	$(_v) $(INSTALL_FILE) -c -m 644 motd		 "$(Destination)/motd"

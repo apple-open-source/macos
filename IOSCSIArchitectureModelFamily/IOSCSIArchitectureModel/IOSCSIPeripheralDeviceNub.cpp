@@ -141,7 +141,7 @@ IOSCSIPeripheralDeviceNub::start ( IOService * provider )
 	fProvider = OSDynamicCast ( IOSCSIProtocolInterface, provider );
 	require_nonzero_quiet ( fProvider, ErrorExit );
 	
-	fSCSIPrimaryCommandObject = new SCSIPrimaryCommands;
+	fSCSIPrimaryCommandObject = OSTypeAlloc ( SCSIPrimaryCommands );
 	require_nonzero ( fSCSIPrimaryCommandObject, ErrorExit );
 	
 	require ( fProvider->open ( this ), ReleaseCommandObject );
@@ -812,7 +812,7 @@ IOSCSIPeripheralDeviceNub::InterrogateDevice ( void )
 												   kIODirectionIn );
 	require_nonzero ( bufferDesc, ReleaseInquiryBuffer );
 	
-	request = new SCSITask;	
+	request = OSTypeAlloc ( SCSITask );	
 	require_nonzero ( request, ReleaseBuffer );
 	request->ResetForNewTask ( );
 	
@@ -1070,7 +1070,7 @@ IOSCSILogicalUnitNub::start ( IOService * provider )
 	fProvider = OSDynamicCast ( IOSCSIProtocolInterface, provider );
 	require_nonzero_quiet ( fProvider, ErrorExit );
 	
-	fSCSIPrimaryCommandObject = new SCSIPrimaryCommands;
+	fSCSIPrimaryCommandObject = OSTypeAlloc ( SCSIPrimaryCommands );
 	require_nonzero ( fSCSIPrimaryCommandObject, ErrorExit );
 	
 	require ( fProvider->open ( this ), ReleaseCommandObject );
@@ -1195,8 +1195,32 @@ void
 IOSCSILogicalUnitNub::SetLogicalUnitNumber ( UInt8 newLUN )
 {
 	
+	OSNumber *		logicalUnitNumber = NULL;
+	char			unit[10];
+	
 	STATUS_LOG ( ( "%s: SetLogicalUnitNumber to %d\n", getName ( ), newLUN ) );
-	fLogicalUnitNumber = newLUN;
+	
+	// Set the location and the IOUnit values in the IORegistry
+	fLogicalUnitNumber = newLUN;	
+	
+	// Set the location to allow booting 
+    sprintf ( unit, "%x", ( int ) fLogicalUnitNumber );
+    setLocation ( unit );
+	
+	// Create an OSNumber object with the SCSI Target Identifier
+	logicalUnitNumber = OSNumber::withNumber ( fLogicalUnitNumber, 64 );
+	if ( logicalUnitNumber != NULL )
+	{
+		
+		setProperty ( kIOPropertySCSILogicalUnitNumberKey, logicalUnitNumber );
+		
+		// Set the Unit number used to build the device tree path
+		setProperty ( "IOUnit", logicalUnitNumber );
+		
+		logicalUnitNumber->release ( );
+		logicalUnitNumber = NULL;
+		
+	}
 	
 }
 

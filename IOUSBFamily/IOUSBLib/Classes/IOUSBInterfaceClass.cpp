@@ -81,7 +81,7 @@ IOUSBInterfaceClass::IOUSBInterfaceClass()
   fCFSource(0),
   fIsOpen(false)
 {
-    fUSBInterface.pseudoVTable = (IUnknownVTbl *)  &sUSBInterfaceInterfaceV192;
+    fUSBInterface.pseudoVTable = (IUnknownVTbl *)  &sUSBInterfaceInterfaceV197;
     fUSBInterface.obj = this;
 }
 
@@ -111,11 +111,12 @@ IOUSBInterfaceClass::queryInterface(REFIID iid, void **ppv)
         *ppv = &iunknown;
         addRef();
     }
-    else if (CFEqual(uuid, kIOUSBInterfaceInterfaceID) 
-	    || CFEqual(uuid, kIOUSBInterfaceInterfaceID182) 
-	    || CFEqual(uuid, kIOUSBInterfaceInterfaceID183) 
-	    || CFEqual(uuid, kIOUSBInterfaceInterfaceID190) 
-	    || CFEqual(uuid, kIOUSBInterfaceInterfaceID192)) 
+    else if (CFEqual(uuid, kIOUSBInterfaceInterfaceID)
+             || CFEqual(uuid, kIOUSBInterfaceInterfaceID182)
+             || CFEqual(uuid, kIOUSBInterfaceInterfaceID183)
+             || CFEqual(uuid, kIOUSBInterfaceInterfaceID190)
+             || CFEqual(uuid, kIOUSBInterfaceInterfaceID192)
+             || CFEqual(uuid, kIOUSBInterfaceInterfaceID197)) 
     {
         *ppv = &fUSBInterface;
         addRef();
@@ -367,8 +368,10 @@ IOReturn
 IOUSBInterfaceClass::USBInterfaceClose()
 {
     IOReturn		ret;
+#if 0
     LowLatencyUserBufferInfo *	buffer;
     LowLatencyUserBufferInfo *	nextBuffer;
+#endif
     
     allChecks();
 
@@ -1572,6 +1575,121 @@ IOUSBInterfaceClass::RemoveDataBufferFromList( LowLatencyUserBufferInfo * remove
 }
 
 
+IOReturn
+IOUSBInterfaceClass::GetBusMicroFrameNumber(UInt64 *microFrame, AbsoluteTime *atTime)
+{
+    IOUSBGetFrameStruct 	stuff;
+    mach_msg_type_number_t 	outSize = sizeof(stuff);
+    IOReturn 			ret;
+
+    connectCheck();
+
+    ret = io_connect_method_scalarI_structureO(fConnection, kUSBInterfaceUserClientGetMicroFrameNumber, NULL, 0, (char *)&stuff, &outSize);
+    if(kIOReturnSuccess == ret)
+    {
+        *microFrame = stuff.frame;
+        *atTime = stuff.timeStamp;
+    }
+    if (ret == MACH_SEND_INVALID_DEST)
+    {
+        fIsOpen = false;
+        fConnection = MACH_PORT_NULL;
+        ret = kIOReturnNoDevice;
+    }
+    return ret;
+}
+
+
+IOReturn
+IOUSBInterfaceClass::GetFrameListTime(UInt32 *microsecondsInFrame)
+{
+    mach_msg_type_number_t 	outSize = 1;
+    IOReturn 			ret;
+
+    connectCheck();
+
+    ret = io_connect_method_scalarI_scalarO(fConnection, kUSBInterfaceUserClientGetFrameListTime, NULL, 0, (int*)microsecondsInFrame, &outSize);
+    if (ret == MACH_SEND_INVALID_DEST)
+    {
+        fIsOpen = false;
+        fConnection = MACH_PORT_NULL;
+        ret = kIOReturnNoDevice;
+    }
+    return ret;
+}
+
+
+IOReturn
+IOUSBInterfaceClass::GetIOUSBLibVersion(NumVersion *ioUSBLibVersion, NumVersion *usbFamilyVersion)
+{
+    CFURLRef    bundleURL;
+    CFBundleRef myBundle;
+    UInt32  	usbFamilyBundleVersion;
+    UInt32  	usbLibBundleVersion;
+    UInt32 * 	tmp;
+    
+    connectCheck();
+
+    // Make a CFURLRef from the CFString representation of the
+    // bundle's path. See the Core Foundation URL Services chapter
+    // for details.
+    bundleURL = CFURLCreateWithFileSystemPath(
+                                              kCFAllocatorDefault,
+                                              CFSTR("/System/Library/Extensions/IOUSBFamily.kext"),
+                                              kCFURLPOSIXPathStyle,
+                                              true );
+
+    // Make a bundle instance using the URLRef.
+    myBundle = CFBundleCreate( kCFAllocatorDefault, bundleURL );
+
+    // Look for the bundle's version number.
+    usbFamilyBundleVersion = CFBundleGetVersionNumber( myBundle );
+
+    // Any CF objects returned from functions with "create" or
+    // "copy" in their names must be released by us!
+    CFRelease( bundleURL );
+    CFRelease( myBundle );
+
+    // Make a CFURLRef from the CFString representation of the
+    // bundle's path. See the Core Foundation URL Services chapter
+    // for details.
+    bundleURL = CFURLCreateWithFileSystemPath(
+                                              kCFAllocatorDefault,
+                                              CFSTR("/System/Library/Extensions/IOUSBFamily.kext/Contents/PlugIns/IOUSBLib.bundle"),
+                                              kCFURLPOSIXPathStyle,
+                                              true );
+
+    // Make a bundle instance using the URLRef.
+    myBundle = CFBundleCreate( kCFAllocatorDefault, bundleURL );
+
+    // Look for the bundle's version number.
+    usbLibBundleVersion = CFBundleGetVersionNumber( myBundle );
+
+    // Any CF objects returned from functions with "create" or
+    // "copy" in their names must be released by us!
+    CFRelease( bundleURL );
+    CFRelease( myBundle );
+
+    // Cast the NumVersion to a UInt32 so we can just copy the data directly in.
+    //
+    if ( ioUSBLibVersion )
+    {
+        tmp = (UInt32 *) ioUSBLibVersion;
+        *tmp = usbLibBundleVersion;
+    }
+
+    if ( usbFamilyVersion )
+    {
+        tmp = (UInt32 *) usbFamilyVersion;
+        *tmp = usbFamilyBundleVersion;
+    }
+    
+    return kIOReturnSuccess;
+
+}
+
+
+
 IOCFPlugInInterface 
 IOUSBInterfaceClass::sIOCFPlugInInterfaceV1 = {
     0,
@@ -1585,8 +1703,8 @@ IOUSBInterfaceClass::sIOCFPlugInInterfaceV1 = {
 };
 
 
-IOUSBInterfaceStruct192 
-IOUSBInterfaceClass::sUSBInterfaceInterfaceV192 = {
+IOUSBInterfaceStruct197 
+IOUSBInterfaceClass::sUSBInterfaceInterfaceV197 = {
     0,
     &IOUSBIUnknown::genericQueryInterface,
     &IOUSBIUnknown::genericAddRef,
@@ -1643,7 +1761,11 @@ IOUSBInterfaceClass::sUSBInterfaceInterfaceV192 = {
     &IOUSBInterfaceClass::interfaceLowLatencyReadIsochPipeAsync,
     &IOUSBInterfaceClass::interfaceLowLatencyWriteIsochPipeAsync,
     &IOUSBInterfaceClass::interfaceLowLatencyCreateBuffer,
-    &IOUSBInterfaceClass::interfaceLowLatencyDestroyBuffer
+    &IOUSBInterfaceClass::interfaceLowLatencyDestroyBuffer,
+    // ---------- new with 1.9.7
+    &IOUSBInterfaceClass::interfaceGetBusMicroFrameNumber,
+    &IOUSBInterfaceClass::interfaceGetFrameListTime,
+    &IOUSBInterfaceClass::interfaceGetIOUSBLibVersion
 };
 
 
@@ -1892,4 +2014,17 @@ IOUSBInterfaceClass::interfaceLowLatencyCreateBuffer(void *self, void * *buffer,
 IOReturn 
 IOUSBInterfaceClass::interfaceLowLatencyDestroyBuffer(void *self, void * buffer )
     { return getThis(self)->LowLatencyDestroyBuffer( buffer); }
+
+//--------------- added in 1.9.7
+IOReturn
+IOUSBInterfaceClass::interfaceGetBusMicroFrameNumber(void *self, UInt64 *microFrame, AbsoluteTime *atTime)
+{ return getThis(self)->GetBusMicroFrameNumber(microFrame, atTime); }
+
+IOReturn
+IOUSBInterfaceClass::interfaceGetFrameListTime(void *self, UInt32 *microsecondsInFrame)
+{ return getThis(self)->GetFrameListTime(microsecondsInFrame); }
+
+IOReturn
+IOUSBInterfaceClass::interfaceGetIOUSBLibVersion( void *self, NumVersion *ioUSBLibVersion, NumVersion *usbFamilyVersion)
+{ return getThis(self)->GetIOUSBLibVersion(ioUSBLibVersion, usbFamilyVersion); }
 

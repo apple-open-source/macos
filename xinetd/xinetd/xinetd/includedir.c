@@ -140,7 +140,7 @@ void handle_includedir(const char *service_name, struct configuration *confp)
       }
       parsemsg( LOG_DEBUG,func,"Reading included configuration file: %s",filename);
       parse_conf_file(incfd, confp);
-      Sclose(incfd);
+      close(incfd);
       pset_remove(dir_list, storename);
       free(storename);
       u--;

@@ -424,6 +424,7 @@ CSSM_DATA_PTR AppleTPSession::getCertFromMap(
  */
 void AppleTPSession::SubmitCsrRequest(
 	const CSSM_TP_REQUEST_SET &RequestInput,
+	const CSSM_TP_CALLERAUTH_CONTEXT *CallerAuthContext,
 	sint32 &EstimatedTime,						// RETURNED
 	CssmData &ReferenceIdentifier)				// RETURNED
 {
@@ -484,7 +485,7 @@ void AppleTPSession::SubmitCsrRequest(
 	CSSM_RETURN crtn;
 	crtn = CSSM_CSP_CreateSignatureContext(certReq->cspHand,
 			certReq->signatureAlg,
-			NULL,				// AccessCred
+			(CallerAuthContext ? CallerAuthContext->CallerCredentials : NULL),
 			certReq->issuerPrivateKey,
 			&sigHand);
 	if(crtn) {
@@ -574,7 +575,7 @@ void AppleTPSession::SubmitCredRequest(
 	if(tpCompareCssmData(&tpPolicy->PolicyIds->FieldOid,
 		&CSSMOID_APPLE_TP_CSR_GEN)) {
 		/* break out to CSR-specific code */
-		SubmitCsrRequest(RequestInput, EstimatedTime, ReferenceIdentifier);
+		SubmitCsrRequest(RequestInput, CallerAuthContext, EstimatedTime, ReferenceIdentifier);
 		return;
 	}
 	else if(!tpCompareCssmData(&tpPolicy->PolicyIds->FieldOid,

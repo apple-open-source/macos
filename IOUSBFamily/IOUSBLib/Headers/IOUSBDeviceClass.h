@@ -42,7 +42,7 @@ protected:
     };
 
     static IOCFPlugInInterface 		sIOCFPlugInInterfaceV1;
-    static IOUSBDeviceInterface187  	sUSBDeviceInterfaceV187;
+    static IOUSBDeviceInterface197  	sUSBDeviceInterfaceV197;
 
     struct InterfaceMap 		fUSBDevice;
     io_service_t 			fService;
@@ -110,7 +110,9 @@ public:
     virtual IOReturn USBDeviceGetSerialNumberStringIndex(UInt8 *snsi);
     // ----- new with 1.8.7
     virtual IOReturn USBDeviceReEnumerate(UInt32 options);
-
+    // ----- new with 1.9.7
+    virtual IOReturn GetBusMicroFrameNumber(UInt64 *microFrame, AbsoluteTime *atTime);
+    virtual IOReturn GetIOUSBLibVersion(NumVersion *ioUSBLibVersion, NumVersion *usbFamilyVersion);
 /*
  * Routing gumf for CFPlugIn interfaces
  */
@@ -167,6 +169,9 @@ protected:
     static IOReturn deviceGetSerialNumberStringIndex(void *self, UInt8 *snsi);
     // -----added in 1.8.7
     static IOReturn deviceReEnumerateDevice(void *self, UInt32 options);
+    // -----added in 1.9.7
+    static IOReturn deviceGetBusMicroFrameNumber(void *self, UInt64 *microFrame, AbsoluteTime *atTime);
+    static IOReturn deviceGetIOUSBLibVersion( void *self, NumVersion *ioUSBLibVersion, NumVersion *usbFamilyVersion);
 };
 
 #endif /* !_IOKIT_IOUSBDeviceClass_H */

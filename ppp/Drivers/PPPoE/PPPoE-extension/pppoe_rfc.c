@@ -707,6 +707,10 @@ u_int16_t pppoe_rfc_input(struct pppoe_rfc *rfc, struct mbuf *m, u_int8_t *from,
 {
 
     //log(LOG_INFO, "PPPoE input, rfc = 0x%x\n", rfc);
+
+    if (m->m_len < sizeof(struct pppoe))
+        return 0;		// packet too short
+
    switch (typ) {
         case PPPOE_ETHERTYPE_CTRL:
             return handle_ctrl(rfc, m, from);
@@ -786,13 +790,17 @@ u_int16_t get_tag(struct mbuf *m, u_int16_t tag, struct pppoe_tag *val)
     val->len = 0;
 
     while (totallen > 0) {
+    
+        len = *(u_int16_t *)(data + 2);
+        if (len > totallen)
+            break;	// bogus packet
+            
         //log(LOG_INFO, "tag 0x%x 0x%x 0x%x 0x%x \n", data[0], data[1], data[2], data[3]);
         if (*(u_int16_t *)data == tag) {
             data += 2;
-            copylen = *(u_int16_t *)data;
-            if (copylen <= val->max_len) {
-                memcpy(val->data, data + 2, copylen);
-                val->len = copylen;
+            if (len <= val->max_len) {
+                memcpy(val->data, data + 2, len);
+                val->len = len;
                 if (val->len < val->max_len)
                     val->data[val->len] = 0;
                 return 1;
@@ -801,8 +809,8 @@ u_int16_t get_tag(struct mbuf *m, u_int16_t tag, struct pppoe_tag *val)
             break;
         }
         else {
-            totallen -= 4 + (*(u_int16_t *)(data + 2));
-            data += 4 + (*(u_int16_t *)(data + 2));
+            totallen -= 4 + len;
+            data += 4 + len;
         }
     }
 

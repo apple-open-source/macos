@@ -7,7 +7,7 @@ JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
 export deferred DEVELOPMENT_LANGUAGE = English ;
 export deferred PROJECT = $(PROJECT_NAME) ;
 export deferred PROJECT_NAME = AppleADBMouse ;
-export deferred SRCROOT = /Network/Servers/abel/homes/gimli/adam.w/projects/usbfix2/AppleADBMouse ;
+export deferred SRCROOT = /Volumes/OS9-7gig/FromYosemite/sources/projects/objectoverflow/AppleADBMouse ;
 
 # User-defined project-wide settings for project
 
@@ -31,7 +31,7 @@ export deferred KERNEL_MODULE = YES ;
 export deferred LIBRARY_SEARCH_PATHS =  ;
 export deferred MODULE_IOKIT = YES ;
 export deferred MODULE_NAME = com.apple.driver.AppleADBMouse ;
-export deferred MODULE_VERSION = 2.0.5d3 ;
+export deferred MODULE_VERSION = 2.0.7d1 ;
 export deferred OTHER_CFLAGS =  ;
 export deferred OTHER_LDFLAGS =  ;
 export deferred OTHER_REZFLAGS =  ;

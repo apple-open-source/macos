@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 34;
+	objectVersion = 38;
 	objects = {
 		06AA1264FFB2107B11CA28AA = {
 			buildActionMask = 2147483647;
@@ -14,6 +14,7 @@
 			isa = PBXShellScriptBuildPhase;
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
@@ -45,6 +46,7 @@
 			isa = PBXShellScriptBuildPhase;
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
@@ -99,7 +101,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleI2C;
-				MODULE_VERSION = 3.1.9;
+				MODULE_VERSION = 3.2.6;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -117,15 +119,15 @@
 			productName = AppleI2C;
 			productReference = 0B81C263FFB7832611CA28AA;
 			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
-<plist version=\"0.9\">
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleExecutable</key>
 	<string>AppleI2C</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleI2C version 3.1.9, Copyright 2002 Apple Computer, Inc.</string>
+	<string>AppleI2C version 3.2.6, Copyright 2002 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -137,11 +139,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>3.1.9</string>
+	<string>3.2.6</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>3.1.9</string>
+	<string>3.2.6</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>MacIOAppleI2C</key>
@@ -154,6 +156,8 @@
 			<string>i2c</string>
 			<key>IOProviderClass</key>
 			<string>AppleMacIODevice</string>
+			<key>IOUserClientClass</key>
+			<string>I2CUserClient</string>
 		</dict>
 		<key>PmuAppleI2C</key>
 		<dict>
@@ -167,6 +171,8 @@
 			<integer>10000</integer>
 			<key>IOProviderClass</key>
 			<string>AppleMacIODevice</string>
+			<key>IOUserClientClass</key>
+			<string>I2CUserClient</string>
 		</dict>
 		<key>UniNAppleI2C</key>
 		<dict>
@@ -178,6 +184,8 @@
 			<string>i2c</string>
 			<key>IOProviderClass</key>
 			<string>IOPlatformDevice</string>
+			<key>IOUserClientClass</key>
+			<string>I2CUserClient</string>
 		</dict>
 	</dict>
 	<key>OSBundleLibraries</key>
@@ -200,8 +208,11 @@
 			buildActionMask = 2147483647;
 			files = (
 				6CAA18FEFFF1ABBA11CA2CAD,
+				DDE7AE18035F6FF50DCE1A6A,
+				DDE7AE1A035F70060DCE1A6A,
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C1675FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
@@ -209,25 +220,30 @@
 				089C1680FE841241C02AAC07,
 			);
 			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C1676FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
 				6CAA18FFFFF1ABBA11CA2CAD,
+				DDE7AE16035F6FDB0DCE1A6A,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C1677FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C1679FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C167CFE841241C02AAC07 = {
 			children = (
@@ -306,6 +322,9 @@
 			children = (
 				6CAA18FCFFF1ABBA11CA2CAD,
 				6CAA18FDFFF1ABBA11CA2CAD,
+				DDE7AE15035F6FDB0DCE1A6A,
+				DDE7AE17035F6FF50DCE1A6A,
+				DDE7AE19035F70060DCE1A6A,
 			);
 			isa = PBXGroup;
 			name = Source;
@@ -392,6 +411,7 @@
 			files = (
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		70A6691EFFF1B3B311CA2CAD = {
 			buildActionMask = 8;
@@ -401,24 +421,28 @@
 				70A66923FFF1B3F911CA2CAD,
 			);
 			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 1;
 		};
 		70A6691FFFF1B3B311CA2CAD = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		70A66920FFF1B3B311CA2CAD = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		70A66921FFF1B3B311CA2CAD = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		70A66923FFF1B3F911CA2CAD = {
 			fileRef = 6CAA18FDFFF1ABBA11CA2CAD;
@@ -429,6 +453,49 @@
 		70A66924FFF1B40711CA2CAD = {
 			isa = PBXTargetDependency;
 			target = 70A6691CFFF1B3B311CA2CAD;
+		};
+//700
+//701
+//702
+//703
+//704
+//DD0
+//DD1
+//DD2
+//DD3
+//DD4
+		DDE7AE15035F6FDB0DCE1A6A = {
+			isa = PBXFileReference;
+			path = I2CUserClient.cpp;
+			refType = 4;
+		};
+		DDE7AE16035F6FDB0DCE1A6A = {
+			fileRef = DDE7AE15035F6FDB0DCE1A6A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		DDE7AE17035F6FF50DCE1A6A = {
+			isa = PBXFileReference;
+			path = I2CUserClient.h;
+			refType = 4;
+		};
+		DDE7AE18035F6FF50DCE1A6A = {
+			fileRef = DDE7AE17035F6FF50DCE1A6A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		DDE7AE19035F70060DCE1A6A = {
+			isa = PBXFileReference;
+			path = I2CUserClientPrivate.h;
+			refType = 4;
+		};
+		DDE7AE1A035F70060DCE1A6A = {
+			fileRef = DDE7AE19035F70060DCE1A6A;
+			isa = PBXBuildFile;
+			settings = {
+			};
 		};
 	};
 	rootObject = 089C1669FE841209C02AAC07;

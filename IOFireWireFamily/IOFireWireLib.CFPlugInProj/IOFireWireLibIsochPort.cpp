@@ -330,25 +330,6 @@ namespace IOFireWireLib {
 		mUserClient.Release() ;
 	}
 	
-#if 0
-	IOReturn
-	IsochPort::Init(
-		Boolean		inTalking)
-	{
-		mTalking = inTalking ;
-	
-		IsochPortAllocateParams	params ;
-		IOByteCount					outputSize = sizeof(KernIsochPortRef) ;
-		
-		IOReturn result = ::IOConnectMethodStructureIStructureO( mUserClient.GetUserClientConnection(),
-								kIsochPort_Allocate, sizeof(IsochPortAllocateParams), & outputSize, & params,
-								& mKernPortRef) ;
-	
-		IOFireWireLibLogIfErr_( result, "IsochPort::Init: result=0x%08X\n", result ) ;
-	
-		return result ;
-	}
-#endif	
 	IOReturn
 	IsochPort::GetSupported(
 		IOFWSpeed&					maxSpeed, 
@@ -779,7 +760,20 @@ namespace IOFireWireLib {
 		IOReturn err = ::IOConnectMethodStructureIStructureO( mUserClient.GetUserClientConnection(), 
 							kLocalIsochPort_Allocate, sizeof(params), & outputSize, & params, & mKernPortRef) ;
 		if (err)
+		{
+			IOFireWireLibLog_("Couldn't create local isoch port\nCheck your buffers!\n") ;
+			IOFireWireLibLog_("Found buffers:\n") ;
+
+#if IOFIREWIRELIBDEBUG
+			for( unsigned index=0; index < bufferRangeCount; ++index )
+			{
+				IOFireWireLibLog_("\%u: <0x%lx>-<0x%lx>\n", index, bufferRanges[index].address, 
+						(unsigned)bufferRanges[index].address + bufferRanges[index].length ) ;
+			}
+#endif
+			
 			throw std::exception() ;
+		}
 		
 		// done with these:
 		delete[] programRanges ;
@@ -824,143 +818,7 @@ namespace IOFireWireLib {
 		
 		return IsochPortCOM::Release() ;
 	}
-#if 0	
-	IOReturn
-	LocalIsochPort::Init(
-		Boolean				inTalking,
-		DCLCommand*	inDCLProgram,
-		UInt32				inStartEvent,
-		UInt32				inStartState,
-		UInt32				inStartMask,
-		IOVirtualRange		inDCLProgramRanges[],			// optional optimization parameters
-		UInt32				inDCLProgramRangeCount,
-		IOVirtualRange		inBufferRanges[],
-		UInt32				inBufferRangeCount)
-	{
-		if ( !inDCLProgram )
-		{
-			IOFireWireLibLog_("%s %u:no DCL program!\n", __FILE__, __LINE__) ;
-			return kIOReturnBadArgument ;
-		}
-			
-		// make our mutex
-		pthread_mutex_init( & mMutex, nil ) ;
-	
-		// init the easy parameters
-		mTalking				= inTalking ;
-		mDCLProgram				= inDCLProgram ;
-		mStartEvent				= inStartEvent ;
-		mStartState				= inStartState ;
-		mStartMask				= inStartMask ;
-		mExpectedStopTokens		= 0 ;
-		mDeferredRelease		= false ;
-	
-		// trees used to coalesce program/data ranges
-		CoalesceTree		programTree ;
-		CoalesceTree		bufferTree ;
-		
-		// check if user passed in any virtual memory ranges to start with...
-		//zzz maybe we should try to validate that the ranges are actually in
-		//zzz client memory?
-		if (inDCLProgramRanges)
-			for(UInt32 index=0; index < inDCLProgramRangeCount; ++index)
-				programTree.CoalesceRange(inDCLProgramRanges[index]) ;
-	
-		if (inBufferRanges)
-			for(UInt32 index=0; index < inBufferRangeCount; ++index)
-				bufferTree.CoalesceRange(inBufferRanges[index]) ;
-	
-		// point to beginning of DCL program
-		DCLCommand*					pCurrentDCLStruct = mDCLProgram ;
-		IOVirtualRange						tempRange ;
-		LocalIsochPortAllocateParams		params ;
-	
-		params.userDCLProgramDCLCount = 0 ;
-		while (pCurrentDCLStruct)
-		{
-			++params.userDCLProgramDCLCount ;
-		
-			tempRange.address	= (IOVirtualAddress) pCurrentDCLStruct ;
-			tempRange.length	= GetDCLSize(pCurrentDCLStruct) ;
-			
-			programTree.CoalesceRange(tempRange) ;
-			
-			if ( GetDCLDataBuffer(pCurrentDCLStruct, & tempRange.address, & tempRange.length) )
-			{
-				bufferTree.CoalesceRange(tempRange) ;
-			}
-			
-			pCurrentDCLStruct = pCurrentDCLStruct->pNextDCLCommand ;
-		}
-	
-		IOVirtualRange*				programRanges 		= nil ;
-		IOVirtualRange*				bufferRanges		= nil ;
-		UInt32						programRangeCount	= programTree.GetCount() ;
-		UInt32						bufferRangeCount	= bufferTree.GetCount() ;
-	
-		IOReturn 					result 				= kIOReturnSuccess ;
-		
-		// allocate lists to store coalesced ranges
-		// and get trees' coalesced buffer lists into the buffers
-		if ( nil == (programRanges = new IOVirtualRange[programRangeCount] ))
-			result = kIOReturnNoMemory ;
-		else
-			programTree.GetCoalesceList(programRanges) ;
-		
-			
-		if ( kIOReturnSuccess == result && bufferRangeCount > 0)
-		{
-			if (nil == (bufferRanges = new IOVirtualRange[bufferRangeCount] ))
-				result = kIOReturnNoMemory ;
-			else
-				bufferTree.GetCoalesceList(bufferRanges) ;
-		}
-	
-		// fill out param struct and submit to kernel
-		if ( kIOReturnSuccess == result )
-		{
-			params.userDCLProgram				= mDCLProgram ;
-		
-			params.userDCLProgramRanges 		= programRanges ;
-			params.userDCLProgramRangeCount		= programRangeCount ;
-			params.userDCLBufferRanges			= bufferRanges ;
-			params.userDCLBufferRangeCount		= bufferRangeCount ;
-			
-			params.talking						= mTalking ;
-		
-			params.startEvent					= mStartEvent ;
-			params.startState					= mStartState ;
-			params.startMask					= mStartMask ;
-			
-			params.userObj						= this ;
-			
-			IOByteCount	outputSize = sizeof(KernIsochPortRef) ;
-			result = ::IOConnectMethodStructureIStructureO( mUserClient.GetUserClientConnection(), 
-							kLocalIsochPort_Allocate, sizeof(params), & outputSize, & params, & mKernPortRef) ;		
-		}
-		
-		if (programRanges)
-			delete[] programRanges ;
-		if (bufferRanges)
-			delete[] bufferRanges ;
-		
-		if (kIOReturnSuccess == result)
-		{
-			mach_msg_type_number_t 	outputSize = 0 ;
-			io_scalar_inband_t		params ;
-			
-			params[0]	= (UInt32) mKernPortRef ;
-			params[1]	= (UInt32) & DCLCallProcHandler ;
-			params[2]	= (UInt32) this ;
-			
-			result = ::io_async_method_scalarI_scalarO( mUserClient.GetUserClientConnection(),
-					mUserClient.GetIsochAsyncPort(), mAsyncRef, 1, kSetAsyncRef_DCLCallProc,
-					params, 2, NULL, & outputSize) ;
-		}											  
-													
-		return result ;
-	}
-#endif	
+
 	IOReturn
 	LocalIsochPort::Stop()
 	{
@@ -974,12 +832,14 @@ namespace IOFireWireLib {
 	
 	IOReturn
 	LocalIsochPort::ModifyJumpDCL( DCLJump* inJump, DCLLabelStruct* inLabel )
-	{
+	{		
 		inJump->pJumpDCLLabel = inLabel ;
 	
-		return ::IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), 
+		IOReturn result = ::IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), 
 						kLocalIsochPort_ModifyJumpDCL, 3, 0, mKernPortRef, inJump->compilerData, 
 						inLabel->compilerData ) ;
+		
+		return result ;
 	}
 	
 	IOReturn

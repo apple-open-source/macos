@@ -114,6 +114,10 @@
  *   most of the work from a run-loop observer instead of within the 
  *   context of the caller; this avoids unnecessary re-entrancy issues
  *   and complexity
+ *
+ * December 3, 2002	Dieter Siegmund (dieter@apple.com)
+ * - add support to detect ARP collisions after we have already
+ *   assigned ourselves the address
  */
 
 #include <stdlib.h>
@@ -177,6 +181,10 @@
 
 typedef dynarray_t	IFStateList_t;
 
+#ifndef kSCEntNetIPv4ARPCollision
+#define kSCEntNetIPv4ARPCollision	CFSTR("IPv4ARPCollision")
+#endif kSCEntNetIPv4ARPCollision
+
 #ifndef kSCPropNetLinkDetaching
 #define kSCPropNetLinkDetaching		CFSTR("Detaching")	/* CFBoolean */
 #endif kSCPropNetLinkDetaching
@@ -203,10 +211,10 @@ typedef dynarray_t	IFStateList_t;
 #define MAX_WAIT_SECS				8
 #define GATHER_SECS				2
 #define LINK_INACTIVE_WAIT_SECS			4
-#define ARP_PROBE_COUNT				2
+#define ARP_PROBE_COUNT				4
 #define ARP_GRATUITOUS_COUNT			1
 #define ARP_RETRY_SECS				0
-#define ARP_RETRY_USECS				700000
+#define ARP_RETRY_USECS				300000
 #define DHCP_INIT_REBOOT_RETRY_COUNT		2
 #define DHCP_ALLOCATE_LINKLOCAL_AT_RETRY_COUNT	2
 #define DHCP_FAILURE_CONFIGURES_LINKLOCAL	TRUE
@@ -2856,7 +2864,7 @@ if_gifmedia(int sockfd, char * name, boolean_t * status)
 }
 
 static ipconfig_status_t
-config_method_event(Service_t * service_p, IFEventID_t event)
+config_method_event(Service_t * service_p, IFEventID_t event, void * data)
 {
     ipconfig_status_t	status = ipconfig_status_success_e;
     ipconfig_func_t *	func;
@@ -2870,7 +2878,7 @@ config_method_event(Service_t * service_p, IFEventID_t event)
 	status = ipconfig_status_internal_error_e;
 	goto done;
     }
-    (*func)(service_p, event, NULL);
+    (*func)(service_p, event, data);
 
  done:
     return (status);
@@ -2880,19 +2888,27 @@ config_method_event(Service_t * service_p, IFEventID_t event)
 static ipconfig_status_t
 config_method_stop(Service_t * service_p)
 {
-    return (config_method_event(service_p, IFEventID_stop_e));
+    return (config_method_event(service_p, IFEventID_stop_e, NULL));
 }
 
 static ipconfig_status_t
 config_method_media(Service_t * service_p)
 {
-    return (config_method_event(service_p, IFEventID_media_e));
+    return (config_method_event(service_p, IFEventID_media_e, NULL));
+}
+
+static ipconfig_status_t
+config_method_arp_collision(Service_t * service_p, 
+			    arp_collision_data_t * evdata)
+{
+    return (config_method_event(service_p, IFEventID_arp_collision_e, 
+				(void *)evdata));
 }
 
 static ipconfig_status_t
 config_method_renew(Service_t * service_p)
 {
-    return (config_method_event(service_p, IFEventID_renew_e));
+    return (config_method_event(service_p, IFEventID_renew_e, NULL));
 }
 
 ipconfig_status_t
@@ -3996,6 +4012,7 @@ notifier_init(SCDynamicStoreRef session)
 {
     CFMutableArrayRef	keys = NULL;
     CFStringRef		key;
+    CFMutableStringRef	pattern;
     CFMutableArrayRef	patterns = NULL;
     CFRunLoopSourceRef	rls;
 
@@ -4028,6 +4045,18 @@ notifier_init(SCDynamicStoreRef session)
 							kSCEntNetLink);
     CFArrayAppendValue(patterns, key);
     my_CFRelease(&key);
+
+    /* notify when there's an ARP collision on any interface */
+    key = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
+							kSCDynamicStoreDomainState,
+							kSCCompAnyRegex,
+							kSCEntNetIPv4ARPCollision);
+    pattern = CFStringCreateMutableCopy(NULL, 0, key);
+    CFStringAppend(pattern, CFSTR(".*"));
+
+    CFArrayAppendValue(patterns, pattern);
+    my_CFRelease(&key);
+    my_CFRelease(&pattern);
 
     /* notify when list of interfaces changes */
     key = SCDynamicStoreKeyCreateNetworkInterface(NULL,
@@ -4257,7 +4286,7 @@ fork_child()
 }
 #endif MAIN
 
-void
+static void
 link_key_changed(SCDynamicStoreRef session, CFStringRef cache_key)
 {
     CFDictionaryRef		dict = NULL;
@@ -4292,6 +4321,120 @@ link_key_changed(SCDynamicStoreRef session, CFStringRef cache_key)
 
  done:
     my_CFRelease(&dict);
+    my_CFRelease(&ifn_cf);
+    return;
+}
+
+static void *
+bytesFromColonHexString(CFStringRef colon_hex, int * len)
+{
+    CFArrayRef	arr = NULL;
+    uint8_t *	bytes = NULL;
+    char	hexstr[4];
+    int 	i;
+    int		n_bytes;
+ 
+    arr = CFStringCreateArrayBySeparatingStrings(NULL, colon_hex, CFSTR(":"));
+    if (arr == NULL || CFArrayGetCount(arr) == 0) {
+	goto failed;
+    }
+    n_bytes = CFArrayGetCount(arr);
+    bytes = (uint8_t *)malloc(n_bytes);
+#define BASE_16		16
+    for (i = 0; i < n_bytes; i++) {
+	CFStringRef	str = CFArrayGetValueAtIndex(arr, i);
+	cfstring_to_cstring(str, hexstr, sizeof(hexstr));
+	bytes[i] = (uint8_t)strtoul(hexstr, NULL, BASE_16);
+    }
+    my_CFRelease(&arr);
+    *len = n_bytes;
+    return (bytes);
+
+ failed:
+    my_CFRelease(&arr);
+    return (NULL);
+}
+
+static CFStringRef
+parse_arp_collision(CFStringRef cache_key, struct in_addr * ipaddr_p,
+		    void * * hwaddr, int * hwlen)
+{
+    CFArrayRef			components = NULL;
+    CFStringRef			ifn_cf = NULL;
+    CFStringRef			ip_cf = NULL;
+    CFStringRef			hwaddr_cf = NULL;
+
+    ipaddr_p->s_addr = 0;
+    *hwaddr = NULL;
+    *hwlen = 0;
+
+    /* 
+     * Turn
+     *   State:/Network/Interface/ifname/IPV4ARPCollision/ipaddr/hwaddr 
+     * into
+     *   { "State:", "Network", "Interface", ifname, "IPV4ARPCollision",
+     *      ipaddr, hwaddr }
+     */
+    components = CFStringCreateArrayBySeparatingStrings(NULL, cache_key, 
+							CFSTR("/"));
+    if (components == NULL || CFArrayGetCount(components) < 7) {
+	goto failed;
+    }
+    ifn_cf = CFArrayGetValueAtIndex(components, 3);
+    ip_cf = CFArrayGetValueAtIndex(components, 5);
+    hwaddr_cf = CFArrayGetValueAtIndex(components, 6);
+    *ipaddr_p = cfstring_to_ip(ip_cf);
+    if (ipaddr_p->s_addr == 0) {
+	goto failed;
+    }
+    *hwaddr = bytesFromColonHexString(hwaddr_cf, hwlen);
+    CFRetain(ifn_cf);
+    my_CFRelease(&components);
+    return (ifn_cf);
+
+ failed:
+    my_CFRelease(&components);
+    return (NULL);
+}
+
+static void
+arp_collision(SCDynamicStoreRef session, CFStringRef cache_key)
+{
+    arp_collision_data_t	evdata;
+    void *			hwaddr = NULL;
+    int				hwlen;
+    CFStringRef			ifn_cf = NULL;
+    char			ifn[IFNAMSIZ + 1];
+    struct in_addr		ip_addr;
+    IFState_t *   		ifstate;
+    int 			j;
+
+    ifn_cf = parse_arp_collision(cache_key, &ip_addr, &hwaddr, &hwlen);
+    if (ifn_cf == NULL || hwaddr == NULL) {
+	goto done;
+    }
+    if (S_is_our_hardware_address(NULL, ARPHRD_ETHER, hwaddr, hwlen)) {
+	goto done;
+    }
+    cfstring_to_cstring(ifn_cf, ifn, sizeof(ifn));
+    ifstate = IFStateList_ifstate_with_name(&S_ifstate_list, ifn, NULL);
+    if (ifstate == NULL || ifstate->netboot) {
+	/* don't propogate collision events for netboot interface */
+	goto done;
+    }
+    evdata.ip_addr = ip_addr;
+    evdata.hwaddr = hwaddr;
+    evdata.hwlen = hwlen;
+    for (j = 0; j < dynarray_count(&ifstate->services); j++) {
+	Service_t *	service_p = dynarray_element(&ifstate->services, j);
+
+	config_method_arp_collision(service_p, &evdata);
+    }
+
+ done:
+    if (hwaddr != NULL) {
+	free(hwaddr);
+    }
     my_CFRelease(&ifn_cf);
     return;
 }
@@ -4389,6 +4532,14 @@ handle_change(SCDynamicStoreRef session, CFArrayRef changes, void * arg)
 
 	if (CFStringHasSuffix(cache_key, kSCEntNetLink)) {
 	    link_key_changed(session, cache_key);
+	}
+	else {
+	    CFRange 	range = CFRangeMake(0, CFStringGetLength(cache_key));
+
+	    if (CFStringFindWithOptions(cache_key, kSCEntNetIPv4ARPCollision,
+					range, 0, NULL)) {
+		arp_collision(session, cache_key);
+	    }
 	}
     }
     /* service order may have changed */
@@ -4542,7 +4693,7 @@ service_report_conflict(Service_t * service_p, struct in_addr * ip,
     CFArrayAppendValue(array, str);
     CFRelease(str);
 
-    if (server) {
+    if (server != NULL) {
 	switch (service_p->method) {
 	case ipconfig_method_bootp_e: {
 	    CFArrayAppendValue(array, CFSTR("BOOTP_SERVER"));

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2001 Sendmail, Inc. and its suppliers.
+ * Copyright (c) 1998-2002 Sendmail, Inc. and its suppliers.
  *	All rights reserved.
  * Copyright (c) 1983, 1995-1997 Eric P. Allman.  All rights reserved.
  * Copyright (c) 1988, 1993
@@ -13,7 +13,7 @@
 
 #include <sendmail.h>
 
-SM_RCSID("@(#)$Id: envelope.c,v 1.1.1.2 2002/03/12 18:00:31 zarzycki Exp $")
+SM_RCSID("@(#)$Id: envelope.c,v 1.1.1.3 2002/10/15 02:38:27 zarzycki Exp $")
 
 /*
 **  NEWENVELOPE -- fill in a new envelope
@@ -518,7 +518,7 @@ simpledrop:
 			{
 				syserr("!dropenvelope(%s): cannot commit data file %s, uid=%d",
 					e->e_id, queuename(e, DATAFL_LETTER),
-					geteuid());
+					(int) geteuid());
 			}
 			for (ee = e->e_sibling; ee != NULL; ee = ee->e_sibling)
 				queueup(ee, false, true);
@@ -1030,8 +1030,13 @@ setsender(from, e, delimptr, delimchar, internal)
 			/* if the user already given fullname don't redefine */
 			if (FullName == NULL)
 				FullName = macvalue('x', e);
-			if (FullName != NULL && FullName[0] == '\0')
-				FullName = NULL;
+			if (FullName != NULL)
+			{
+				if (FullName[0] == '\0')
+					FullName = NULL;
+				else
+					FullName = newstr(FullName);
+			}
 		}
 
 		if (e->e_from.q_user[0] != '\0' &&

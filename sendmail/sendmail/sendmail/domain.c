@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2001 Sendmail, Inc. and its suppliers.
+ * Copyright (c) 1998-2002 Sendmail, Inc. and its suppliers.
  *	All rights reserved.
  * Copyright (c) 1986, 1995-1997 Eric P. Allman.  All rights reserved.
  * Copyright (c) 1988, 1993
@@ -14,9 +14,9 @@
 #include <sendmail.h>
 
 #if NAMED_BIND
-SM_RCSID("@(#)$Id: domain.c,v 1.1.1.2 2002/03/12 18:00:31 zarzycki Exp $ (with name server)")
+SM_RCSID("@(#)$Id: domain.c,v 1.1.1.3 2002/10/15 02:38:27 zarzycki Exp $ (with name server)")
 #else /* NAMED_BIND */
-SM_RCSID("@(#)$Id: domain.c,v 1.1.1.2 2002/03/12 18:00:31 zarzycki Exp $ (without name server)")
+SM_RCSID("@(#)$Id: domain.c,v 1.1.1.3 2002/10/15 02:38:27 zarzycki Exp $ (without name server)")
 #endif /* NAMED_BIND */
 
 #if NAMED_BIND
@@ -664,7 +664,7 @@ bestmx_map_lookup(map, name, av, statp)
 #endif /* _FFR_BESTMX_BETTER_TRUNCATION */
 
 	_res.options &= ~(RES_DNSRCH|RES_DEFNAMES);
-	nmx = getmxrr(name, mxhosts, NULL, false, statp, true, NULL);
+	nmx = getmxrr(name, mxhosts, NULL, false, statp, false, NULL);
 	_res.options = saveopts;
 	if (nmx <= 0)
 		return NULL;
@@ -810,7 +810,7 @@ dns_getcanonname(host, hbsize, trymx, statp, pttl)
 	int loopcnt;
 	char *xp;
 	char nbuf[SM_MAX(MAXPACKET, MAXDNAME*2+2)];
-	char *searchlist[MAXDNSRCH+2];
+	char *searchlist[MAXDNSRCH + 2];
 
 	if (tTd(8, 2))
 		sm_dprintf("dns_getcanonname(%s, trymx=%d)\n", host, trymx);
@@ -931,6 +931,14 @@ cnameloop:
 				*/
 
 				SM_SET_H_ERRNO(TRY_AGAIN);
+# if _FFR_DONT_STOP_LOOKING
+				if (**dp == '\0')
+				{
+					if (*statp == EX_OK)
+						*statp = EX_TEMPFAIL;
+					goto nexttype;
+				}
+# endif /* _FFR_DONT_STOP_LOOKING */
 				*statp = EX_TEMPFAIL;
 
 				if (WorkAroundBrokenAAAA)
@@ -952,6 +960,9 @@ cnameloop:
 					return false;
 			}
 
+# if _FFR_DONT_STOP_LOOKING
+nexttype:
+# endif /* _FFR_DONT_STOP_LOOKING */
 			if (h_errno != HOST_NOT_FOUND)
 			{
 				/* might have another type of interest */

@@ -220,7 +220,7 @@ static void sendsig( struct server *serp, int sig )
           */
 
          tv.tv_sec = 0;
-         tv.tv_usec = 50000; /* half a second */
+         tv.tv_usec = 500000; /* half a second */
          for (i=0; i<8; i++)
          {
             int wret = waitpid(pid, NULL, WNOHANG);

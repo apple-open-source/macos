@@ -266,7 +266,7 @@ IOUSBMassStorageClass::CBIClearFeatureEndpointStall(
 						UInt32					nextExecutionState )
 {
 	IOReturn 			status;
-
+	
 	// Set the next state to be executed
 	cbiRequestBlock->currentState = nextExecutionState;
 	
@@ -427,14 +427,30 @@ IOUSBMassStorageClass::CBIProtocolCommandCompletion(
 			// a relevent error.
 			if ((resultingStatus == kIOReturnSuccess) && ((GetInterfaceSubclass() == kUSBStorageSFF8070iSubclass ) || ( GetInterfaceSubclass() == kUSBStorageUFISubclass )))
 			{
-				// Decide what error to return based on the Interrupt data
-				if (( cbiRequestBlock->cbiGetStatusBuffer[0] == 0x00 ) && ( cbiRequestBlock->cbiGetStatusBuffer[1] == 0x00 ))
+				if ( GetInterfaceSubclass() == kUSBStorageUFISubclass )
 				{
-					status = kIOReturnSuccess;
+					// Decide what error to return based on the Interrupt data
+					if (( cbiRequestBlock->cbiGetStatusBuffer[0] == 0x00 ) && ( cbiRequestBlock->cbiGetStatusBuffer[1] == 0x00 ))
+					{
+						status = kIOReturnSuccess;
+					}
+					else
+					{
+						status = kIOReturnError;
+					}
 				}
-				else
+				else // This is probably a kUSBStorageSFF8070iSubclass device but in the future may include others as well
 				{
-					status = kIOReturnError;
+					// As per the USB Mass Storage Class CBI Transport Specification 3.4.3.1.1 Common Interrupt Data Block
+					if ( ( cbiRequestBlock->cbiGetStatusBuffer[0] == 0x00 ) &&
+						 ( ( cbiRequestBlock->cbiGetStatusBuffer[1] & 0x3 ) != 0 ) )
+					{
+						status = kIOReturnError;
+					}
+					else
+					{
+						status = kIOReturnSuccess;
+					}
 				}
 			}
 			else

@@ -59,8 +59,8 @@ bool KeyLargo::init(OSDictionary * properties)
 	cardStatus.cardPower = true;
   
 	// sets the usb pointers to null:
-	int i;
-	for (i = 0; i < kNumUSB; i++)
+	UInt32 i;
+	for (i = 0; i < fNumUSB; i++)
 		usbBus[i] = NULL;
   
 	return super::init(properties);
@@ -197,8 +197,10 @@ bool KeyLargo::start(IOService *provider)
 	initForPM(provider);
   
 	// creates the USBPower handlers:
-	int i;
-	for (i = 0; i < kNumUSB; i++) {
+	fNumUSB = (keyLargoDeviceId == kIntrepidDeviceId3e) ? kIntrepidNumUSB : kKeyLargoNumUSB;
+
+	UInt32 i;
+	for (i = 0; i < fNumUSB; i++) {
 		usbBus[i] = new USBKeyLargo;
     
 		if (usbBus[i] != NULL) {
@@ -215,8 +217,8 @@ bool KeyLargo::start(IOService *provider)
 void KeyLargo::stop(IOService *provider)
 {
 	// releases the USBPower handlers:
-	int i;
-	for (i = 0; i < kNumUSB; i++) {
+	UInt32 i;
+	for (i = 0; i < fNumUSB; i++) {
 		if (usbBus[i] != NULL)
 			usbBus[i]->release();
 	}
@@ -240,7 +242,8 @@ long long KeyLargo::syncTimeBase(void)
 	UInt32			tbLow, tbHigh, tbHigh2;
 	long long       tmp, diffTicks, ratioLow, ratioHigh;
   
-	ratioLow = (busSpeed << 32) / (kKeyLargoGTimerFreq * 4);
+	tmp = gPEClockFrequencyInfo.timebase_frequency_hz;
+	ratioLow = (tmp << 32) / (kKeyLargoGTimerFreq);
 	ratioHigh = ratioLow >> 32;
 	ratioLow &= 0xFFFFFFFFULL;
   
@@ -251,7 +254,7 @@ long long KeyLargo::syncTimeBase(void)
 		tbHigh2 = mftbu();
 	} while (tbHigh != tbHigh2);
 	diffTicks = ((long long)tbHigh << 32) | tbLow;
-  
+
 	// Do the sync twice to make sure it is cached.
 	for (cnt = 0; cnt < 2; cnt++) {
 		// Read the Global Counter.
@@ -447,6 +450,8 @@ void KeyLargo::turnOffIntrepidIO(bool restart)
     // FCR1
     regTemp = readRegUInt32(kKeyLargoFCR1);
     regTemp |= kIntrepidFCR1SleepBitsSet;
+    if (hostIsMobile)	// Don't reset EIDE on desktops
+		regTemp &= ~kKeyLargoFCR1EIDE0Reset;   
 	regTemp &= ~kIntrepidFCR1SleepBitsClear;
     writeRegUInt32(kKeyLargoFCR1, regTemp);
 
@@ -705,18 +710,21 @@ void KeyLargo::setReferenceCounts (void)
 	}
   
 	if (chooseI2S0 && (fcr1 & kKeyLargoFCR1I2S0Enable)) {
+		if (keyLargoDeviceId != kIntrepidDeviceId3e)
+			clk49RefCount++;
 		clk45RefCount++;
-		clk49RefCount++;
 	}
 
 	if (chooseI2S1 && (fcr1 & kKeyLargoFCR1I2S1Enable)) {
+		if (keyLargoDeviceId != kIntrepidDeviceId3e)
+			clk49RefCount++;
 		clk45RefCount++;
-		clk49RefCount++;
 	}
 
 	if (chooseAudio && (fcr1 & kKeyLargoFCR1AudioCellEnable)) {
+		if (keyLargoDeviceId != kIntrepidDeviceId3e)
+			clk49RefCount++;
 		clk45RefCount++;
-		clk49RefCount++;
 	}
 
 	/*
@@ -1410,13 +1418,13 @@ IOReturn KeyLargo::callPlatformFunction(const OSSymbol *functionName,
 
     if (functionName == keyLargo_writeRegUInt8)
     {
-        writeRegUInt8(*(unsigned long *)param1, (UInt8)param2);
+        writeRegUInt8(*(unsigned long *)param1, (UInt32)param2);
         return kIOReturnSuccess;
     }
 
     if (functionName == keyLargo_safeWriteRegUInt8)
     {
-        safeWriteRegUInt8((unsigned long)param1, (UInt8)param2, (UInt8)param3);
+        safeWriteRegUInt8((unsigned long)param1, (UInt32)param2, (UInt32)param3);
         return kIOReturnSuccess;
     }
 
@@ -1448,13 +1456,13 @@ IOReturn KeyLargo::callPlatformFunction(const OSSymbol *functionName,
 		if (keyLargoDeviceId == kPangeaDeviceId25 || keyLargoDeviceId == kIntrepidDeviceId3e) 
 			return kIOReturnUnsupported;
 	
-		powerMediaBay(powerOn, (UInt8)param2);
+		powerMediaBay(powerOn, (UInt32)param2);
         return kIOReturnSuccess;
     }
     
     if (functionName->isEqualTo("EnableSCC"))
     {
-        EnableSCC((bool)param1, (UInt8)param2, (bool)param3);
+        EnableSCC((bool)param1, (UInt32)param2, (bool)param3);
         return kIOReturnSuccess;
     }
 
@@ -1769,8 +1777,13 @@ void KeyLargo::PowerI2S (bool powerOn, UInt32 cellNum)
 		if (!(clk45RefCount++)) {
 			fcr3Bits |= kKeyLargoFCR3Clk45Enable;	// turn on clock
 		}
-		if (!(clk49RefCount++)) {
-			fcr3Bits |= kKeyLargoFCR3Clk49Enable;	// turn on clock
+		
+		if(keyLargoDeviceId != kIntrepidDeviceId3e)
+		{
+			if (!(clk49RefCount++)) 
+			{
+				fcr3Bits |= kKeyLargoFCR3Clk49Enable;	// turn on clock
+			}
 		}
 		// turn on all I2S bits
 		safeWriteRegUInt32 (kKeyLargoFCR1, fcr1Bits, fcr1Bits);
@@ -1779,9 +1792,13 @@ void KeyLargo::PowerI2S (bool powerOn, UInt32 cellNum)
 		if (clk45RefCount && !(--clk45RefCount)) {
 			fcr3Bits |= kKeyLargoFCR3Clk45Enable;	// turn off clock if refCount reaches zero
 		}
-		if (clk49RefCount && !(--clk49RefCount)) {
-			fcr3Bits |= kKeyLargoFCR3Clk49Enable;	// turn off clock if refCount reaches zero
-		}
+		if(keyLargoDeviceId != kIntrepidDeviceId3e)
+		{
+			if (clk49RefCount && !(--clk49RefCount)) 
+			{
+				fcr3Bits |= kKeyLargoFCR3Clk49Enable;	// turn off clock if refCount reaches zero
+			}
+		}	
 		// turn off all I2S bits
 		safeWriteRegUInt32 (kKeyLargoFCR1, fcr1Bits, 0);
 		safeWriteRegUInt32 (kKeyLargoFCR3, fcr3Bits, 0);
@@ -1859,7 +1876,10 @@ void KeyLargo::AdjustBusSpeeds ( void )
 	IOInterruptState 	is;
 	IOSimpleLock		*intLock;
 	UInt32				ticks;
-	UInt64				systemBusHz, tmp64;
+	UInt64				systemBusHz;
+#if 0
+	UInt64				tmp64;
+#endif
 	
 	intLock = IOSimpleLockAlloc();
 	if (intLock) {
@@ -1891,9 +1911,15 @@ void KeyLargo::AdjustBusSpeeds ( void )
 	kprintf ("    bus_to_cpu_rate_den: %ld\n", gPEClockFrequencyInfo.bus_to_cpu_rate_den);
 	kprintf ("    bus_to_dec_rate_num: %ld\n", gPEClockFrequencyInfo.bus_to_dec_rate_num);
 	kprintf ("    bus_to_dec_rate_den: %ld\n", gPEClockFrequencyInfo.bus_to_dec_rate_den);
+	kprintf ("    timebase_frequency_hz:   %ld\n", gPEClockFrequencyInfo.timebase_frequency_hz);
+	kprintf ("    timebase_frequency_num:  %ld\n", gPEClockFrequencyInfo.timebase_frequency_num);
+	kprintf ("    timebase_frequency_den:  %ld\n", gPEClockFrequencyInfo.timebase_frequency_den);
 #endif
-
-	// Adjust the bus clock rate based on new frequency.
+	
+	// Don't adjust the bus and dec clock frequency, the kernel only wants accurate timebase
+	// and with TBEN active there is no longer a simple conversion from decrementer rate to bus
+	// frequency.
+#if 0
 	tmp64 = systemBusHz;
 	tmp64 /= gPEClockFrequencyInfo.bus_clock_rate_den;
 	gPEClockFrequencyInfo.bus_clock_rate_num = (UInt32) (tmp64 & 0xFFFFFFFF);
@@ -1901,7 +1927,12 @@ void KeyLargo::AdjustBusSpeeds ( void )
 	gPEClockFrequencyInfo.bus_clock_rate_hz = (UInt32) (systemBusHz & 0xFFFFFFFF);
 	//gPEClockFrequencyInfo.cpu_clock_rate_hz = tmp_cpu_speed;
 	gPEClockFrequencyInfo.dec_clock_rate_hz = (UInt32) ((systemBusHz & 0xFFFFFFFF) / 4);
+#endif
 
+	gPEClockFrequencyInfo.timebase_frequency_hz = (UInt32) ((systemBusHz & 0xFFFFFFFF) / 4);
+	gPEClockFrequencyInfo.timebase_frequency_num = gPEClockFrequencyInfo.timebase_frequency_hz;
+	gPEClockFrequencyInfo.timebase_frequency_den = 1;
+	
 #if 0
 	kprintf ("new clock frequency values:\n");
 	kprintf ("    bus_clock_rate_hz:   %ld\n", gPEClockFrequencyInfo.bus_clock_rate_hz);
@@ -1913,6 +1944,9 @@ void KeyLargo::AdjustBusSpeeds ( void )
 	kprintf ("    bus_to_cpu_rate_den: %ld\n", gPEClockFrequencyInfo.bus_to_cpu_rate_den);
 	kprintf ("    bus_to_dec_rate_num: %ld\n", gPEClockFrequencyInfo.bus_to_dec_rate_num);
 	kprintf ("    bus_to_dec_rate_den: %ld\n", gPEClockFrequencyInfo.bus_to_dec_rate_den);
+	kprintf ("    timebase_frequency_hz:   %ld\n", gPEClockFrequencyInfo.timebase_frequency_hz);
+	kprintf ("    timebase_frequency_num:  %ld\n", gPEClockFrequencyInfo.timebase_frequency_num);
+	kprintf ("    timebase_frequency_den:  %ld\n", gPEClockFrequencyInfo.timebase_frequency_den);
 #endif
 
 	// notify the kernel of the change

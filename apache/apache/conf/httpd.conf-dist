@@ -974,3 +974,8 @@ ServerSignature On
 #    ErrorLog logs/dummy-host.example.com-error_log
 #    CustomLog logs/dummy-host.example.com-access_log common
 #</VirtualHost>
+
+<IfModule mod_rendezvous_apple.c>
+RegisterUserSite all-users
+RegisterDefaultSite
+</IfModule>

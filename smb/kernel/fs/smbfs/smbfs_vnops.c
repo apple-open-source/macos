@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smbfs_vnops.c,v 1.30 2002/07/18 01:20:23 lindak Exp $
+ * $Id: smbfs_vnops.c,v 1.30.18.1 2003/01/08 03:24:39 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -499,6 +499,9 @@ smbfs_setattr(ap)
 		/*
 		 * n_size is used by smbfs_pageout so it must be
 		 * changed before we call setsize
+		 *
+		 * XXX VM coherence on extends -  consider delaying
+		 * both changes until after zero fill
 		 */
  		np->n_size = vap->va_size;
 		vnode_pager_setsize(vp, (off_t)vap->va_size);

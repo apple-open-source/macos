@@ -37,6 +37,7 @@
 #include <IOKit/usb/IOUSBBus.h>
 #include <IOKit/usb/IOUSBNub.h>
 #include <IOKit/usb/IOUSBDevice.h>
+#include <IOKit/usb/IOUSBLog.h>
 #include <IOKit/usb/IOUSBPipe.h>
 #include <IOKit/usb/USB.h>
 #include <IOKit/usb/IOUSBInterface.h>
@@ -1220,7 +1221,8 @@ bool AppleUSBCDCDriver::configureDevice( UInt8 numConfigs )
     bool				portok = false;
     bool				goodCDC = false;
     PortInfo_t 				*port = NULL;
-       
+    bool				doNotSuspend = false;
+    
     ELG( 0, numConfigs, 'cDev', "AppleUSBCDCDriver::configureDevice" );
     	
         // Initialize and "configure" the device
@@ -1229,6 +1231,13 @@ bool AppleUSBCDCDriver::configureDevice( UInt8 numConfigs )
     {
         ELG( 0, 0, 'cDi-', "AppleUSBCDCDriver::configureDevice - initDevice failed" );
         return false;
+    }
+
+    OSBoolean * boolObj = OSDynamicCast( OSBoolean, fpDevice->getProperty("kDoNotSuspend") );
+    if ( boolObj && boolObj->isTrue() )
+    {
+        doNotSuspend = true;
+        USBLog(5,"%s[%p] Will not suspend this device", getName(), this);
     }
 
     req.bInterfaceClass	= kUSBCommClass;
@@ -1335,7 +1344,7 @@ bool AppleUSBCDCDriver::configureDevice( UInt8 numConfigs )
         portok = false;
     }
     
-    if ( fbmAttributes & kUSBAtrBusPowered )
+    if ( (fbmAttributes & kUSBAtrBusPowered) && !doNotSuspend )
     {
         ior = fpDevice->SuspendDevice( true );         // Suspend the device (if supported and bus powered)
         if ( ior )

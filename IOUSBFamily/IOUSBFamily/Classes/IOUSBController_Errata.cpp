@@ -37,14 +37,15 @@
  */
 static ErrataListEntry  errataList[] = {
     
-    {0x1095, 0x670,  0, 0x4,	kErrataCMDDisableTestMode | kErrataOnlySinglePageTransfers | kErrataRetryBufferUnderruns}, // CMD 670 & 670a (revs 0-4)
+    {0x1095, 0x0670, 0, 0x0004,	kErrataCMDDisableTestMode | kErrataOnlySinglePageTransfers | kErrataRetryBufferUnderruns}, // CMD 670 & 670a (revs 0-4)
     {0x1045, 0xc861, 0, 0x001f, kErrataLSHSOpti},									// Opti 1045
     {0x11C1, 0x5801, 0, 0xffff, kErrataDisableOvercurrent | kErrataLucentSuspendResume | kErrataNeedsWatchdogTimer},    // Lucent USS 302
     {0x11C1, 0x5802, 0, 0xffff, kErrataDisableOvercurrent | kErrataLucentSuspendResume | kErrataNeedsWatchdogTimer}, 	// Lucent USS 312
     {0x106b, 0x0019, 0, 0xffff, kErrataDisableOvercurrent | kErrataNeedsWatchdogTimer}, 				// Apple KeyLargo - all revs
     {0x106b, 0x0019, 0, 0, 	kErrataLucentSuspendResume }, 								// Apple KeyLargo - USB Rev 0 only
     {0x106b, 0x0026, 0, 0xffff, kErrataDisableOvercurrent | kErrataLucentSuspendResume | kErrataNeedsWatchdogTimer}, 	// Apple Pangea, all revs
-    {0x1033, 0x0035, 0, 0xffff, kErrataIgnorePCIPM }
+    {0x106b, 0x003f, 0, 0xffff, kErrataDisableOvercurrent}, 								// Apple Intrepid, all revs
+    {0x1033, 0x0035, 0, 0xffff, kErrataDisableOvercurrent }								// NEC
 };
 
 #define errataListLength (sizeof(errataList)/sizeof(ErrataListEntry))

@@ -1,2 +1,9 @@
-Targets='IOCDStorageFamily Headers
+if [ "${Target}" = "IOCDStorageFamily" ]; then
+	Targets='IOCDStorageFamily Headers
 IOCDStorageFamily'
+elif [ "${Target}" = "IOCDStorageFamily Headers" ]; then
+	Targets='IOCDStorageFamily Headers'
+else
+	Targets='IOCDStorageFamily Headers
+IOCDStorageFamily'
+fi

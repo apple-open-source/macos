@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2001 Sendmail, Inc. and its suppliers.
+ * Copyright (c) 1998-2002 Sendmail, Inc. and its suppliers.
  *	All rights reserved.
  * Copyright (c) 1995-1997 Eric P. Allman.  All rights reserved.
  * Copyright (c) 1988, 1993
@@ -13,7 +13,7 @@
 
 #include <sendmail.h>
 
-SM_RCSID("@(#)$Id: mci.c,v 1.1.1.2 2002/03/12 18:00:35 zarzycki Exp $")
+SM_RCSID("@(#)$Id: mci.c,v 1.1.1.3 2002/10/15 02:38:30 zarzycki Exp $")
 
 #if NETINET || NETINET6
 # include <arpa/inet.h>
@@ -157,7 +157,7 @@ mci_scan(savemci)
 			bestmci = &MciCache[i];
 			continue;
 		}
-		if ((mci->mci_lastuse + MciCacheTimeout < now ||
+		if ((mci->mci_lastuse + MciCacheTimeout <= now ||
 		     (mci->mci_mailer != NULL &&
 		      mci->mci_mailer->m_maxdeliveries > 0 &&
 		      mci->mci_deliveries + 1 >= mci->mci_mailer->m_maxdeliveries))&&
@@ -388,7 +388,7 @@ mci_get(host, m)
 		time_t now = curtime();
 
 		/* if this info is stale, ignore it */
-		if (now > mci->mci_lastuse + MciInfoTimeout)
+		if (mci->mci_lastuse + MciInfoTimeout <= now)
 		{
 			mci->mci_lastuse = now;
 			mci->mci_errno = 0;
@@ -510,7 +510,6 @@ static struct mcifbits	MciFlags[] =
 	{ MCIF_SIZE,		"SIZE"		},
 	{ MCIF_8BITMIME,	"8BITMIME"	},
 	{ MCIF_7BIT,		"7BIT"		},
-	{ MCIF_MULTSTAT,	"MULTSTAT"	},
 	{ MCIF_INHEADER,	"INHEADER"	},
 	{ MCIF_CVT8TO7,		"CVT8TO7"	},
 	{ MCIF_DSN,		"DSN"		},
@@ -655,7 +654,7 @@ mci_lock_host_statfile(mci)
 {
 	int save_errno = errno;
 	int retVal = EX_OK;
-	char fname[MAXPATHLEN + 1];
+	char fname[MAXPATHLEN];
 
 	if (HostStatDir == NULL || mci->mci_host == NULL)
 		return EX_OK;
@@ -774,7 +773,7 @@ mci_load_persistent(mci)
 	int save_errno = errno;
 	bool locked = true;
 	SM_FILE_T *fp;
-	char fname[MAXPATHLEN + 1];
+	char fname[MAXPATHLEN];
 
 	if (mci == NULL)
 	{
@@ -1061,7 +1060,7 @@ mci_traverse_persistent(action, pathname)
 		size_t len;
 		char *newptr;
 		struct dirent *e;
-		char newpath[MAXPATHLEN + 1];
+		char newpath[MAXPATHLEN];
 
 		if ((d = opendir(pathname)) == NULL)
 		{
@@ -1311,7 +1310,7 @@ mci_purge_persistent(pathname, hostname)
 				pathname, sm_errstring(errno));
 		return ret;
 	}
-	if (curtime() - statbuf.st_mtime < MciInfoTimeout)
+	if (curtime() - statbuf.st_mtime <= MciInfoTimeout)
 		return 1;
 	if (hostname != NULL)
 	{

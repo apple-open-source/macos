@@ -6,7 +6,7 @@
  * forth in the LICENSE file which can be found at the top level of
  * the sendmail distribution.
  *
- *	$Id: config.h,v 1.1.1.1 2002/03/12 18:00:16 zarzycki Exp $
+ *	$Id: config.h,v 1.1.1.2 2002/10/15 02:37:54 zarzycki Exp $
  */
 
 /*
@@ -142,5 +142,21 @@
 # ifndef SM_CONF_TEST_LLONG
 #  define SM_CONF_TEST_LLONG	1
 # endif /* !SM_CONF_TEST_LLONG */
+
+/* Does LDAP library have ldap_memfree()? */
+# ifndef SM_CONF_LDAP_MEMFREE
+
+/*
+**  The new LDAP C API (draft-ietf-ldapext-ldap-c-api-04.txt) includes
+**  ldap_memfree() in the API.  That draft states to use LDAP_API_VERSION
+**  of 2004 to identify the API.
+*/
+
+#  if USING_NETSCAPE_LDAP || LDAP_API_VERSION >= 2004
+#   define SM_CONF_LDAP_MEMFREE	1
+#  else /* USING_NETSCAPE_LDAP || LDAP_API_VERSION >= 2004 */
+#   define SM_CONF_LDAP_MEMFREE	0
+#  endif /* USING_NETSCAPE_LDAP || LDAP_API_VERSION >= 2004 */
+# endif /* ! SM_CONF_LDAP_MEMFREE */
 
 #endif /* ! SM_CONFIG_H */

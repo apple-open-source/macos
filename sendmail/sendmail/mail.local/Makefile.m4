@@ -1,3 +1,4 @@
+dnl $Id: Makefile.m4,v 1.6 2002/10/15 02:44:57 zarzycki Exp $
 include(confBUILDTOOLSDIR`/M4/switch.m4')
 
 define(`confREQUIRE_LIBSM', `true')
@@ -10,6 +11,7 @@ bldPRODUCT_START(`executable', `mail.local')
 define(`bldNO_INSTALL', `true')
 define(`bldSOURCES', `mail.local.c ')
 bldPUSH_SMLIB(`sm')
+APPENDDEF(`confENVDEF', `-DNOT_SENDMAIL')
 bldPRODUCT_END
 
 bldPRODUCT_START(`manpage', `mail.local')

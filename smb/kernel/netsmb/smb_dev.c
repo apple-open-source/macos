@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smb_dev.c,v 1.5 2001/07/07 00:16:58 conrad Exp $
+ * $Id: smb_dev.c,v 1.5.182.1 2003/01/08 03:24:41 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/kernel.h>
@@ -441,6 +441,9 @@ nsmb_dev_ioctl(dev_t dev, u_long cmd, caddr_t data, int flag, struct proc *p)
 		auio.uio_segflg = UIO_USERSPACE;
 		auio.uio_rw = (cmd == SMBIOC_READ) ? UIO_READ : UIO_WRITE;
 		auio.uio_procp = p;
+		/*
+		 * XXX use page cache for coherence?
+		 */
 		if (cmd == SMBIOC_READ)
 			error = smb_read(ssp, rwrq->ioc_fh, &auio, &scred);
 		else

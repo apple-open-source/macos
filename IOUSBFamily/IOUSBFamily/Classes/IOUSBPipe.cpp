@@ -130,7 +130,7 @@ IOUSBPipe::Abort(void)
 {
     USBLog(5,"IOUSBPipe[%p]::AbortPipe",this);
     if (_correctStatus != 0)
-        USBLog(2, "IOUSBPipe[%p]::Abort setting status to 0");
+        USBLog(2, "IOUSBPipe[%p]::Abort setting status to 0", this);
     _correctStatus = 0;
     return _controller->AbortPipe(_address, &_endpoint);
 }
@@ -142,7 +142,7 @@ IOUSBPipe::Reset(void)
 {
     USBLog(5,"+IOUSBPipe[%p]::ResetPipe",this);
     if (_correctStatus != 0)
-        USBLog(2, "IOUSBPipe[%p]::ResetPipe setting status to 0");
+        USBLog(2, "IOUSBPipe[%p]::ResetPipe setting status to 0", this);
     _correctStatus = 0;
     return _controller->ResetPipe(_address, &_endpoint);
 }
@@ -231,7 +231,7 @@ IOUSBPipe::Read(IOMemoryDescriptor * buffer, UInt64 frameStart, UInt32 numFrames
 
     if (err == kIOUSBPipeStalled)
     {
-        USBLog(2, "IOUSBPipe[%p]::Read (isoch) - controller returned stalled pipe, changing status");
+        USBLog(2, "IOUSBPipe[%p]::Read (isoch) - controller returned stalled pipe, changing status", this);
         _correctStatus = kIOUSBPipeStalled;
     }
 
@@ -294,7 +294,7 @@ IOUSBPipe::Write(IOMemoryDescriptor * buffer, UInt64 frameStart, UInt32 numFrame
 
     if (err == kIOUSBPipeStalled)
     {
-        USBLog(2, "IOUSBPipe[%p]::Write (isoch) - controller returned stalled pipe, changing status");
+        USBLog(2, "IOUSBPipe[%p]::Write (isoch) - controller returned stalled pipe, changing status", this);
         _correctStatus = kIOUSBPipeStalled;
     }
 
@@ -571,7 +571,7 @@ IOUSBPipe::Read(IOMemoryDescriptor *buffer, UInt32 noDataTimeout, UInt32 complet
 
     if (err == kIOUSBPipeStalled)
     {
-        USBLog(2, "IOUSBPipe[%p]::Read  - controller returned stalled pipe, changing status");
+        USBLog(2, "IOUSBPipe[%p]::Read  - controller returned stalled pipe, changing status", this);
         _correctStatus = kIOUSBPipeStalled;
     }
 
@@ -635,7 +635,7 @@ IOUSBPipe::Write(IOMemoryDescriptor *buffer, UInt32 noDataTimeout, UInt32 comple
 
     if (err == kIOUSBPipeStalled)
     {
-        USBLog(2, "IOUSBPipe[%p]::Write - controller returned stalled pipe, changing status");
+        USBLog(2, "IOUSBPipe[%p]::Write - controller returned stalled pipe, changing status", this);
         _correctStatus = kIOUSBPipeStalled;
     }
 
@@ -670,7 +670,7 @@ IOUSBPipe::ClearPipeStall(bool withDeviceRequest)
     
     USBLog(5,"IOUSBPipe[%p]::ClearPipeStall",this);
     if (_correctStatus != 0)
-        USBLog(2, "IOUSBPipe[%p]::ClearPipeStall setting status to 0");
+        USBLog(2, "IOUSBPipe[%p]::ClearPipeStall setting status to 0", this);
     _correctStatus = 0;
     err = _controller->ClearPipeStall(_address, &_endpoint);
     if (!err && withDeviceRequest)
@@ -811,7 +811,7 @@ IOUSBPipe::Read( IOMemoryDescriptor *	buffer,
 
     if (err == kIOUSBPipeStalled)
     {
-        USBLog(2, "IOUSBPipe[%p]::Read (Low Latency Isoc) - controller returned stalled pipe, changing status");
+        USBLog(2, "IOUSBPipe[%p]::Read (Low Latency Isoc) - controller returned stalled pipe, changing status",this);
         _correctStatus = kIOUSBPipeStalled;
     }
 
@@ -875,7 +875,7 @@ IOUSBPipe::Write(IOMemoryDescriptor * buffer, UInt64 frameStart, UInt32 numFrame
 
     if (err == kIOUSBPipeStalled)
     {
-        USBLog(2, "IOUSBPipe[%p]::Write  (Low Latency Isoc) - controller returned stalled pipe, changing status");
+        USBLog(2, "IOUSBPipe[%p]::Write  (Low Latency Isoc) - controller returned stalled pipe, changing status", this);
         _correctStatus = kIOUSBPipeStalled;
     }
 

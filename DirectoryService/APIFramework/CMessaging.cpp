@@ -374,8 +374,13 @@ sInt32 CMessaging::GetReplyMessage ( void )
 	else
 	{
 	//TCP listen code
-		if ( (fTCPEndpoint != nil) && (fMsgData != nil) )
+		if (fTCPEndpoint != nil)
 		{
+			if (fMsgData != nil)
+			{
+				free(fMsgData);
+				fMsgData = nil;
+			}
 			result = fTCPEndpoint->GetServerReply( &fMsgData );
 			LOG3( kStdErr, "CMessaging::GetReplyMessage: after ep reply - Correlate the message type: %d with the actual CMessaging class ptr %d and the endpoint class %d.", fMsgData->type.msgt_name, (uInt32)this, (uInt32)fTCPEndpoint );
 		}

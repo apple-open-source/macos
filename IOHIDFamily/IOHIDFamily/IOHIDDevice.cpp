@@ -112,6 +112,12 @@ static IOHIDevice * CreateIOHIDeviceNub(IOService * owner, IOService * provider)
     return nub;
 }
 
+static void ActvityTickle_funct(IOService *displayManager)
+{
+    if (displayManager != NULL)
+        displayManager->activityTickle(0,0);
+}
+
 //---------------------------------------------------------------------------
 // Notification handler to grab an instance of the Display Manager
 bool IOHIDDevice::_publishNotificationHandler(
@@ -126,6 +132,8 @@ bool IOHIDDevice::_publishNotificationHandler(
         if( !self->_displayManager) {
             self->_displayManager = newService;
             self->_displayManager->retain();
+            
+            self->_activityTickleCall = thread_call_allocate(ActvityTickle_funct, newService);
         }
     }
 
@@ -146,7 +154,8 @@ bool IOHIDDevice::init( OSDictionary * dict )
     _pointingNub = 0;
     _displayManager = 0;
     _publishNotify = 0;
-
+    _activityTickleCall = 0;
+    
     // Create an OSSet to store client objects. Initial capacity
     // (which can grow) is set at 2 clients.
 
@@ -206,6 +215,11 @@ void IOHIDDevice::free()
     {
         _displayManager->release();
         _displayManager = 0;
+    }
+    if (_activityTickleCall) 
+    {
+        thread_call_free(_activityTickleCall);
+        _activityTickleCall = 0;
     }
     
     if ( _reserved )
@@ -287,8 +301,10 @@ bool IOHIDDevice::start( IOService * provider )
                                     getProperty(kIOHIDPrimaryUsagePageKey));
     OSNumber *primaryUsage = OSDynamicCast(OSNumber,
                                     getProperty(kIOHIDPrimaryUsageKey));
-    if (primaryUsagePage && 
-       (primaryUsagePage->unsigned32BitValue() == kHIDPage_GenericDesktop)) 
+    if (!_pointingNub  &&
+        !OSDynamicCast(IOHIDevice, provider) &&
+        primaryUsagePage && 
+        (primaryUsagePage->unsigned32BitValue() == kHIDPage_GenericDesktop)) 
     {
         _publishNotify = addNotification( gIOPublishNotification, 
                             serviceMatching("IODisplayWrangler"),
@@ -676,9 +692,10 @@ IOReturn IOHIDDevice::handleReport( IOMemoryDescriptor * report,
 
     // Tickle the displayManager if any value changed and the
     // the device is open
-    if ( changed && _displayManager && _clientSet->getCount()) 
+    if ( changed && _displayManager && 
+        _activityTickleCall && _clientSet->getCount()) 
     {
-        _displayManager->activityTickle(0,0);
+        thread_call_enter(_activityTickleCall);
     }
 
     // pass the report to the IOHIDPointing nub

@@ -29,6 +29,12 @@
  */
 /*
 	$Log: IOFireWireLibPriv.cpp,v $
+	Revision 1.40  2003/01/09 22:58:12  niels
+	radar 3061582: change kCFRunLoopDefaultMode to kCFRunLoopCommonModes
+	
+	Revision 1.39  2002/12/12 22:44:03  niels
+	fixed radar 3126316: panic with Hamamatsu driver
+	
 	Revision 1.38  2002/10/18 23:29:49  collin
 	fix includes, fix cast which fails on new compiler
 	
@@ -194,6 +200,12 @@ namespace IOFireWireLib {
 	  mRefCount(1) 
 	{
 	}
+#if IOFIREWIRELIBDEBUG
+	IOFireWireIUnknown::~IOFireWireIUnknown()
+	{
+		bzero( this, sizeof( IOFireWireIUnknown ) ) ;
+	}	
+#endif
 
 	// static
 	HRESULT
@@ -1379,7 +1391,7 @@ namespace IOFireWireLib {
 			}
 			
 			if ( kIOReturnSuccess == result )
-				CFRunLoopAddSource(mIsochRunLoop, mIsochRunLoopSource, kCFRunLoopDefaultMode) ;
+				CFRunLoopAddSource(mIsochRunLoop, mIsochRunLoopSource, kCFRunLoopCommonModes) ;
 		}
 		
 		return result ;
@@ -2123,7 +2135,7 @@ namespace IOFireWireLib {
 		IOFireWireLibDeviceRef	self,
 		CFRunLoopRef			inRunLoop)
 	{
-		return IOFireWireIUnknown::InterfaceMap<DeviceCOM>::GetThis(self)->AddIsochCallbackDispatcherToRunLoopForMode( inRunLoop, kCFRunLoopDefaultMode ) ;
+		return IOFireWireIUnknown::InterfaceMap<DeviceCOM>::GetThis(self)->AddIsochCallbackDispatcherToRunLoopForMode( inRunLoop, kCFRunLoopCommonModes ) ;
 	}
 	
 	IOReturn

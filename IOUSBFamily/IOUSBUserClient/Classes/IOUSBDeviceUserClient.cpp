@@ -185,6 +185,13 @@ IOUSBDeviceUserClient::sMethods[kNumUSBDeviceMethods] = {
 	1,
 	0
     },
+    { //    kUSBDeviceUserClientGetMicroFrameNumber
+        (IOService*)kMethodObjectThis,
+        (IOMethod) &IOUSBDeviceUserClient::GetMicroFrameNumber,
+        kIOUCScalarIStructO,
+        0,
+        0xffffffff
+    }
 };
 
 
@@ -346,7 +353,7 @@ ErrorExit:
 IOReturn 
 IOUSBDeviceUserClient::open(bool seize)
 {
-    IOOptionBits	options = seize ? kIOServiceSeize : 0;
+    IOOptionBits	options = (seize ? (IOOptionBits)kIOServiceSeize : 0);
     IOReturn		ret = kIOReturnSuccess;
 
     USBLog(3, "+%s[%p]::open", getName(), this);
@@ -458,6 +465,46 @@ IOUSBDeviceUserClient::GetFrameNumber(IOUSBGetFrameStruct *data, UInt32 *size)
     DecrementOutstandingIO();
     if (ret)
 	USBLog(3, "%s[%p]::GetFrameNumber - returning err %x", getName(), this, ret);
+    return ret;
+}
+
+
+
+IOReturn
+IOUSBDeviceUserClient::GetMicroFrameNumber(IOUSBGetFrameStruct *data, UInt32 *size)
+{
+    // This method only available for v2 controllers
+    //
+    IOUSBControllerV2	*v2 = OSDynamicCast(IOUSBControllerV2, fOwner->GetBus());
+    IOReturn		ret = kIOReturnSuccess;
+    
+    if (!v2)
+    {
+        USBLog(3, "%s[%p]::GetMicroFrameNumber - Not a USB 2.0 controller!  Returning 0x%x", getName(), this, kIOReturnNotAttached);
+        return kIOReturnNotAttached;
+    }
+    
+    if (*size != sizeof(IOUSBGetFrameStruct))
+    {
+        USBLog(3, "%s[%p]::GetMicroFrameNumber - *size is not sizeof(IOUSBGetFrameStruct): %ld, %ld", getName(), this, *size, sizeof(IOUSBGetFrameStruct) );
+        return kIOReturnBadArgument;
+    }
+
+    IncrementOutstandingIO();
+    if (fOwner && !isInactive())
+    {
+        clock_get_uptime(&data->timeStamp);
+        data->frame = v2->GetMicroFrameNumber();
+    }
+    else
+    {
+        USBLog(3, "%s[%p]::GetMicroFrameNumber - no fOwner(%p) or isInactive", getName(), this, fOwner);
+        ret = kIOReturnNotAttached;
+    }
+    
+    DecrementOutstandingIO();
+    if (ret)
+        USBLog(3, "%s[%p]::GetFrameNumber - returning err %x", getName(), this, ret);
     return ret;
 }
 

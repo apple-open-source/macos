@@ -9,7 +9,7 @@
 #define CONNECTION_H
 
 /*
- * $Id: connection.h,v 1.1.1.4 2002/12/10 01:05:10 bbraun Exp $
+ * $Id: connection.h,v 1.1.1.5 2003/01/16 22:11:14 bbraun Exp $
  */
 
 #include "config.h"
@@ -52,7 +52,7 @@ struct connection
    union xsockaddr       co_remote_address ;
 } ;
 
-#define CONN_CLOSE( cp ) {(void) Sclose( (cp)->co_descriptor ); (cp)->co_descriptor = -1; }
+#define CONN_CLOSE( cp ) { if(Sclose( (cp)->co_descriptor ) == SIO_ERR) (void)close((cp)->co_descriptor); (cp)->co_descriptor = -1; }
 
 #define COP( p )       ((connection_s *)(p))
 

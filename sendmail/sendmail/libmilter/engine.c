@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 1999-2001 Sendmail, Inc. and its suppliers.
+ *  Copyright (c) 1999-2002 Sendmail, Inc. and its suppliers.
  *	All rights reserved.
  *
  * By using this file, you agree to the terms and conditions set
@@ -9,7 +9,7 @@
  */
 
 #include <sm/gen.h>
-SM_RCSID("@(#)$Id: engine.c,v 1.1.1.2 2002/03/12 18:00:17 zarzycki Exp $")
+SM_RCSID("@(#)$Id: engine.c,v 1.1.1.3 2002/10/15 02:37:58 zarzycki Exp $")
 
 #include "libmilter.h"
 
@@ -308,8 +308,11 @@ mi_engine(ctx)
 			curstate = ST_HELO;
 			if (!trans_ok(curstate, newstate))
 			{
-				free(buf);
-				buf = NULL;
+				if (buf != NULL)
+				{
+					free(buf);
+					buf = NULL;
+				}
 				continue;
 			}
 		}
@@ -406,7 +409,9 @@ sendreply(r, sd, timeout_ptr, ctx)
 		break;
 	  case SMFIS_TEMPFAIL:
 	  case SMFIS_REJECT:
-		if (ctx->ctx_reply != NULL)
+		if (ctx->ctx_reply != NULL &&
+		    ((r == SMFIS_TEMPFAIL && *ctx->ctx_reply == '4') ||
+		     (r == SMFIS_REJECT && *ctx->ctx_reply == '5')))
 		{
 			ret = mi_wr_cmd(sd, timeout_ptr, SMFIR_REPLYCODE,
 					ctx->ctx_reply,
@@ -605,7 +610,6 @@ st_connectinfo(g)
 	{
 		(void) memcpy((void *) &port, (void *) (s + i),
 			      sizeof port);
-		port = ntohs(port);
 		if ((i += sizeof port) >= l)
 		{
 			smi_log(SMI_LOG_ERR,
@@ -614,11 +618,15 @@ st_connectinfo(g)
 				(int) g->a_ctx->ctx_id, i, l);
 			return _SMFIS_ABORT;
 		}
+
+		/* make sure string is terminated */
+		if (s[l - 1] != '\0')
+			return _SMFIS_ABORT;
 # if NETINET
 		if (family == SMFIA_INET)
 		{
 			if (inet_aton(s + i, (struct in_addr *) &sockaddr.sin.sin_addr)
-			    == INADDR_NONE)
+			    != 1)
 			{
 				smi_log(SMI_LOG_ERR,
 					"%s: connect[%d]: inet_aton failed",

@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 34;
+	objectVersion = 38;
 	objects = {
 		01640CD0FFDF22697F000001 = {
 			fileRef = 019C1A2AFFDDABCE7F000001;
@@ -20,11 +20,13 @@
 			};
 		};
 		0176C36F002B79CE11CE156E = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = ATATimerEventSource.h;
 			refType = 4;
 		};
 		0176C370002B79CE11CE156E = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = ATATimerEventSource.cpp;
 			refType = 4;
@@ -60,96 +62,115 @@
 			refType = 4;
 		};
 		019C1A26FFDDABCE7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOPCIATA.cpp;
 			refType = 2;
 		};
 		019C1A27FFDDABCE7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = MacIOATA.cpp;
 			refType = 2;
 		};
 		019C1A28FFDDABCE7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOPCIATA.h;
 			refType = 2;
 		};
 		019C1A29FFDDABCE7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = MacIOATA.h;
 			refType = 2;
 		};
 		019C1A2AFFDDABCE7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = ATADeviceNub.h;
 			refType = 2;
 		};
 		019C1A2BFFDDABCE7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOATABusCommand.h;
 			refType = 2;
 		};
 		019C1A2CFFDDABCE7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOATABusInfo.h;
 			refType = 2;
 		};
 		019C1A2DFFDDABCE7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOATACommand.h;
 			refType = 2;
 		};
 		019C1A2EFFDDABCE7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOATAController.h;
 			refType = 2;
 		};
 		019C1A2FFFDDABCE7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOATADevConfig.h;
 			refType = 2;
 		};
 		019C1A30FFDDABCE7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOATADevice.h;
 			refType = 2;
 		};
 		019C1A31FFDDABCE7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOATATypes.h;
 			refType = 2;
 		};
 		019C1A32FFDDABCE7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = ATADeviceNub.cpp;
 			refType = 2;
 		};
 		019C1A33FFDDABCE7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOATABusCommand.cpp;
 			refType = 2;
 		};
 		019C1A34FFDDABCE7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOATABusInfo.cpp;
 			refType = 2;
 		};
 		019C1A35FFDDABCE7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOATACommand.cpp;
 			refType = 2;
 		};
 		019C1A36FFDDABCE7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOATAController.cpp;
 			refType = 2;
 		};
 		019C1A37FFDDABCE7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOATADevConfig.cpp;
 			refType = 2;
 		};
 		019C1A38FFDDABCE7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOATADevice.cpp;
 			refType = 2;
@@ -317,7 +338,7 @@
 				B9D54E1201970D7508CA29FD,
 			);
 			isa = PBXCopyFilesBuildPhase;
-			name = "Copy Files";
+			runOnlyForDeploymentPostprocessing = 1;
 		};
 		019C1A4DFFDDADA47F000001 = {
 			fileRef = 019C1A28FFDDABCE7F000001;
@@ -390,9 +411,9 @@
 			generatedFileNames = (
 			);
 			isa = PBXShellScriptBuildPhase;
-			name = "Shell Script";
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
@@ -422,9 +443,9 @@
 			generatedFileNames = (
 			);
 			isa = PBXShellScriptBuildPhase;
-			name = "Shell Script";
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
@@ -443,6 +464,7 @@
 				06AA1265FFB2107B11CA28AA,
 				06AA1266FFB2107B11CA28AA,
 			);
+			hasScannedForEncodings = 1;
 			isa = PBXProject;
 			mainGroup = 089C166AFE841209C02AAC07;
 			projectDirPath = "";
@@ -481,7 +503,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOATAFamily;
-				MODULE_VERSION = 1.5.2f1;
+				MODULE_VERSION = 1.5.3f1;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -499,8 +521,8 @@
 			productName = IOATAFamily;
 			productReference = 0B81C263FFB7832611CA28AA;
 			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
-<plist version=\"0.9\">
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
@@ -519,11 +541,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.5.2</string>
+	<string>1.5.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.5.2f1</string>
+	<string>1.5.3f1</string>
 	<key>IOKitPersonalities</key>
 	<dict/>
 	<key>OSBundleCompatibleVersion</key>
@@ -540,7 +562,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		089C1674FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
@@ -559,7 +580,7 @@
 				B9D54E11019702DB08CA29FD,
 			);
 			isa = PBXHeadersBuildPhase;
-			name = Headers;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C1675FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
@@ -567,7 +588,7 @@
 				089C1680FE841241C02AAC07,
 			);
 			isa = PBXResourcesBuildPhase;
-			name = "Bundle Resources";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C1676FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
@@ -585,21 +606,21 @@
 				B91829CE0197498808CA29FD,
 			);
 			isa = PBXSourcesBuildPhase;
-			name = Sources;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C1677FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
-			name = "Frameworks & Libraries";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C1679FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
-			name = "ResourceManager Resources";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C167CFE841241C02AAC07 = {
 			children = (
@@ -711,6 +732,7 @@
 //B93
 //B94
 		B91829CD0197498808CA29FD = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOATARegI386.cpp;
 			refType = 4;
@@ -722,6 +744,7 @@
 			};
 		};
 		B9D54E10019702DB08CA29FD = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOATARegI386.h;
 			refType = 4;

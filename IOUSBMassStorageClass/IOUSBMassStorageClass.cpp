@@ -123,7 +123,13 @@ IOUSBMassStorageClass::start( IOService * provider )
     fBulkInPipe 	= NULL;
     fBulkOutPipe	= NULL;
     fInterruptPipe	= NULL;
-
+	
+	// Default is to have no clients
+	fClients		= NULL;
+	
+	// Default is to have a max lun of 0.
+	fMaxLogicalUnitNumber = 0;
+	
 	// Initialize all Bulk Only related member variables to their default 	
 	// states.
 	fBulkOnlyCommandTag = 0;
@@ -352,17 +358,19 @@ IOUSBMassStorageClass::message( UInt32 type, IOService * provider, void * argume
 		case kIOMessageServiceIsTerminated:
 		{
 			IOUSBInterface * currentInterface;
-
+			
 			STATUS_LOG(("%s: message  kIOMessageServiceIsTerminated.\n", getName() ));
 			
 			currentInterface = GetInterfaceReference();
 			if ( currentInterface != NULL )
 			{				
+				STATUS_LOG(("%s: message  kIOMessageServiceIsTerminated interface is non NULL.\n", getName() ));
+				
 				SetInterfaceReference( NULL );
-
+				
 				// Close our interface
 			    currentInterface->close(this);
-
+				
 				// Let the clients know that the device is gone.
 				SendNotification_DeviceRemoved( );
 			}
@@ -457,7 +465,7 @@ IOUSBMassStorageClass::BeginProvidedServices( void )
     STATUS_LOG(("%s: Maximum supported LUN is: %d\n", 
     			getName(), 
     			fMaxLogicalUnitNumber));
-    	
+	
    	STATUS_LOG(("%s: successfully configured\n", getName()));
 
  	// If this is a BO device that supports multiple LUNs, we will need 
@@ -479,7 +487,7 @@ IOUSBMassStorageClass::BeginProvidedServices( void )
         {
 		    STATUS_LOG ( ( "IOUSBMassStorageClass::CreatePeripheralDeviceNubForLUN entering.\n" ) );
 
-			IOSCSILogicalUnitNub * 	nub = new IOSCSILogicalUnitNub;
+			IOSCSILogicalUnitNub * 	nub = OSTypeAlloc ( IOSCSILogicalUnitNub );
 			
 			if ( nub == NULL )
 			{
@@ -758,7 +766,7 @@ IOUSBMassStorageClass::ClearFeatureEndpointStall(
 								IOUSBCompletion	*	completion )
 {
 	IOReturn			status;
-
+	
 	if ( GetInterfaceReference() == NULL )
 	{
  		// We have an invalid interface, the device has probably been removed.
@@ -772,7 +780,7 @@ IOUSBMassStorageClass::ClearFeatureEndpointStall(
 
 	// Clear out the structure for the request
 	bzero( &fUSBDeviceRequest, sizeof(IOUSBDevRequest));
-
+	
 	// Build the USB command
 	fUSBDeviceRequest.bmRequestType 	= USBmakebmRequestType(kUSBNone, kUSBStandard, kUSBEndpoint);
    	fUSBDeviceRequest.bRequest 			= kUSBRqClearFeature;
@@ -788,6 +796,7 @@ IOUSBMassStorageClass::ClearFeatureEndpointStall(
    	STATUS_LOG(("%s: ClearFeatureEndpointStall returned %d\n", 
    				getName(), 
    				status));
+				
 	return status;
 }
 
@@ -1053,8 +1062,9 @@ IOUSBMassStorageClass::HandlePowerOn( void )
 		}
 	}
 	
-	if ( ( GetStatusEndpointStatus( GetBulkInPipe(), &eStatus[0], NULL) != kIOReturnSuccess ) ||
-		 ( knownResetOnResumeDevice == true ) )
+	if ( ( ( GetStatusEndpointStatus( GetBulkInPipe(), &eStatus[0], NULL) != kIOReturnSuccess ) ||
+		 ( knownResetOnResumeDevice == true ) ) &&
+		 ( isInactive() == false ) )
 	{
 		// The endpoint status could not be retrieved meaning that the device has
 		// stopped responding.  Begin the device reset sequence.
@@ -1063,6 +1073,10 @@ IOUSBMassStorageClass::HandlePowerOn( void )
 		
 		// Reset the device on its own thread so we don't deadlock.
 		fResetInProgress = true;
+		
+		// We call retain here so that the driver will stick around long enough for
+		// sResetDevice() to do it's thing in case we are being terminated.  The
+		// retain() is balanced with a release in sResetDevice().
 		retain();
 		IOCreateThread( IOUSBMassStorageClass::sResetDevice, this );
 		fCommandGate->runAction ( ( IOCommandGate::Action ) &IOUSBMassStorageClass::sWaitForReset );
@@ -1222,17 +1236,35 @@ IOUSBMassStorageClass::GatedWaitForReset( void )
 void
 IOUSBMassStorageClass::sResetDevice( void * refcon )
 {
+	
 	IOUSBMassStorageClass *		driver;
+	IOReturn					status = kIOReturnSuccess;
 	driver = ( IOUSBMassStorageClass * ) refcon;
-		
+	
+	STATUS_LOG ( ( "IOUSBMassStorageClass: sResetDevice\n" ) );
+	
 	// Check if we should bail out because we are
 	// being terminated.
-	if ( driver->GetInterfaceReference() == NULL )
+	if ( ( driver->GetInterfaceReference() == NULL ) ||
+		 ( driver->isInactive( ) == true ) )
 	{
+		STATUS_LOG ( ( "IOUSBMassStorageClass: sResetDevice - We are being terminated!\n" ) );
 		goto ErrorExit;
 	}
 	
-	driver->GetInterfaceReference()->GetDevice()->ResetDevice();
+	status = driver->GetInterfaceReference()->GetDevice()->ResetDevice();
+	
+	STATUS_LOG ( ( "IOUSBMassStorageClass: ResetDevice() returned status = %d\n", status ) );
+	
+	// We may get terminated during the call to ResetDevice() since it is synchronous.  We should
+	// check again whether we should bail or not.
+	if ( ( driver->GetInterfaceReference() == NULL ) ||
+		 ( driver->isInactive( ) == true ) ||
+		 ( status != kIOReturnSuccess ) )
+	{
+		STATUS_LOG ( ( "IOUSBMassStorageClass: sResetDevice - We are being terminated!\n" ) );
+		goto ErrorExit;
+	}
 	
 	if ( driver->GetBulkInPipe() != NULL )
 	{
@@ -1244,9 +1276,6 @@ IOUSBMassStorageClass::sResetDevice( void * refcon )
 		driver->GetBulkOutPipe()->Reset();
 	}
 	
-	driver->fResetInProgress = false;
-	driver->fCommandGate->commandWakeup( &driver->fResetInProgress, false );
-	
 	// Once the device has been reset, send notification to the client so that the
 	// device can be reconfigured for use.
 	driver->SendNotification_VerifyDeviceState();
@@ -1255,7 +1284,14 @@ IOUSBMassStorageClass::sResetDevice( void * refcon )
 ErrorExit:
 	
 	
+	driver->fResetInProgress = false;
+	driver->fCommandGate->commandWakeup( &driver->fResetInProgress, false );
+	
+	// We retained the driver in HandlePowerOn() when
+	// we created a thread for sResetDevice()
 	driver->release();
+	
+	STATUS_LOG ( ( "IOUSBMassStorageClass: sResetDevice returned\n" ) );
 	
 	return;
 	

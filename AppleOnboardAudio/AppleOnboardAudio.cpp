@@ -30,7 +30,6 @@ bool AppleOnboardAudio::init(OSDictionary *properties)
     currentDevices = 0xFFFF;
     
 	mHasHardwareInputGain = true;	// aml 5.10.02
-	ourPowerState = kIOAudioDeviceActive;
 	
 	mInternalMicDualMonoMode = e_Mode_Disabled;	// aml 6.17.02, turn off by default
 	
@@ -64,6 +63,15 @@ void AppleOnboardAudio::free()
 	CLEAN_RELEASE(AudioOutputs);
 	CLEAN_RELEASE(AudioInputs);
 	CLEAN_RELEASE(theAudioDeviceTreeParser);
+
+	if (idleTimer) {
+		if (workLoop) {
+			workLoop->removeEventSource (idleTimer);
+		}
+
+		idleTimer->release ();
+		idleTimer = NULL;
+	}
 
 	publishResource ("setModemSound", NULL);
     super::free();
@@ -270,7 +278,6 @@ bool AppleOnboardAudio::initHardware (IOService *provider){
         goto EXIT;
     }
 
-//	ourPowerState = getPowerState();
     sndHWInitialize (provider);
     theAudioDeviceTreeParser = AudioDeviceTreeParser::createWithEntryProvider (provider);
  
@@ -312,8 +319,17 @@ bool AppleOnboardAudio::initHardware (IOService *provider){
 		debugIOLog ("didn't get the input stream\n");
 	}
 
+	idleTimer = IOTimerEventSource::timerEventSource (this, sleepHandlerTimer);
+	if (!idleTimer) {
+		goto EXIT;
+	}
+	workLoop->addEventSource (idleTimer);
+
 	// Set this to a default for desktop machines (portables will get a setAggressiveness call later in the boot sequence).
-	setIdleAudioSleepTime (kNoIdleAudioPowerDown);
+	ourPowerState = kIOAudioDeviceActive;
+	idleSleepDelayTime = kNoIdleAudioPowerDown;
+	// [3107909] Turn the hardware off because IOAudioFamily defaults to the off state, so make sure the hardware is off or we get out of synch with the family.
+	setIdleAudioSleepTime (idleSleepDelayTime);
 
 	// Give drivers a chance to do something after the DMA engine and IOAudioFamily have been created/started
 	sndHWPostDMAEngineInit (provider);
@@ -337,7 +353,6 @@ bool AppleOnboardAudio::initHardware (IOService *provider){
 
 	// Tell the world about us so the User Client can find us.
 	registerService ();
-
 
 	// aml 5.10.02
     mHasHardwareInputGain = theAudioDeviceTreeParser->getHasHWInputGain();
@@ -829,58 +844,13 @@ IOReturn AppleOnboardAudio::outputControlChangeHandler (IOService *target, IOAud
 Exit:
 	// Second half of [2981190], put us back to sleep after the right amount of time if we were off
 	if (TRUE == wasPoweredDown) {
-		audioDevice->scheduleIdleAudioSleep ();
+		audioDevice->setTimerForSleep ();
 	}
 	debug6IOLog ("- AppleOnboardAudio::outputControlChangeHandler (%p, %p, %ld, %ld) returns %X\n", target, control, oldValue, newValue, result);
 
 	return result;
 }
 
-#if 0
-IOReturn AppleOnboardAudio::setiSubVolume (UInt32 iSubVolumeControl, SInt32 iSubVolumeLevel) {
-    IOReturn				result;
-    IOAudioLevelControl *	iSubVolume;
-    IORegistryEntry *		start;
-
-	result = kIOReturnSuccess;
-	if (NULL != driverDMAEngine->iSubBufferMemory) {
-		start = childFromPath ("AppleDBDMAAudioDMAEngine", gIOServicePlane);
-		FAIL_IF (NULL == start, Exit);
-
-		iSubVolume = (IOAudioLevelControl *)FindEntryByNameAndProperty (start, "AppleUSBAudioLevelControl", kIOAudioControlSubTypeKey, iSubVolumeControl);
-		start->release ();
-
-		if (NULL != iSubVolume) {
-			iSubVolume->setValue (iSubVolumeLevel);
-			iSubVolume->release();
-		}
-	}
-
-Exit:
-	return result;
-}
-
-IOReturn AppleOnboardAudio::setiSubMute (UInt32 setMute) {
-    IOReturn					result;
-    IOAudioToggleControl *		iSubMute;
-    IORegistryEntry *			start;
-
-	result = kIOReturnSuccess;
-    start = childFromPath ("AppleDBDMAAudioDMAEngine", gIOServicePlane);
-    FailIf (NULL == start, Exit);
-
-    iSubMute = (IOAudioToggleControl *)FindEntryByNameAndProperty (start, "AppleUSBAudioMuteControl", kIOAudioControlSubTypeKey, kIOAudioToggleControlSubTypeLFEMute);
-    start->release ();
-
-	if ( NULL != iSubMute ) {
-		iSubMute->setValue (setMute);
-		iSubMute->release ();
-	}
-
-Exit:
-	return result;
-}
-#endif
 // This is called when we're on hardware that only has one active volume control (either right or left)
 // otherwise the respective right or left volume handler will be called.
 // This calls both volume handers becasue it doesn't know which one is really the active volume control.
@@ -1044,32 +1014,12 @@ IOReturn AppleOnboardAudio::inputControlChangeHandler (IOService *target, IOAudi
 Exit:
 	// Second half of [2981190], put us back to sleep after the right amount of time if we were off
 	if (TRUE == wasPoweredDown) {
-		audioDevice->scheduleIdleAudioSleep ();
+		audioDevice->setTimerForSleep ();
 	}
 
 	return result;
 }
-#if 0
-IOReturn AppleOnboardAudio::gainLeftChangeHandler(IOService *target, IOAudioControl *gainControl, SInt32 oldValue, SInt32 newValue){
-    
-    IOReturn result = kIOReturnSuccess;
-    AppleOnboardAudio *audioDevice;
-    DEBUG_IOLOG("_ AppleOnboardAudio::gainLeftChangeHandler\n");
 
-    audioDevice = (AppleOnboardAudio *)target;
-    if(!audioDevice)
-        goto BAIL;
-    
-    result = audioDevice->gainLeftChanged(gainControl, oldValue, newValue);
-
-EXIT:
-    DEBUG2_IOLOG("- AppleOnboardAudio::gainLeftChangeHandler, 0x%x\n", result);
-    return result;
-BAIL:
-    result = kIOReturnError;
-    goto EXIT;
-}
-#endif
 IOReturn AppleOnboardAudio::gainLeftChanged(SInt32 newValue){
 	IOReturn result = kIOReturnSuccess;
     UInt32 idx;
@@ -1100,26 +1050,7 @@ BAIL:
     result = kIOReturnError;
     goto EXIT;
 }
-#if 0
-IOReturn AppleOnboardAudio::gainRightChangeHandler(IOService *target, IOAudioControl *gainControl, SInt32 oldValue, SInt32 newValue){
-    IOReturn result = kIOReturnSuccess;
-    AppleOnboardAudio *audioDevice;
 
-    DEBUG_IOLOG("+ AppleOnboardAudio::gainRightChangeHandler\n");
-
-    audioDevice = (AppleOnboardAudio *)target;
-    if(!audioDevice)
-        goto BAIL;
-    result = audioDevice->gainRightChanged(gainControl, oldValue, newValue);
-    
-EXIT:
-    DEBUG_IOLOG("- AppleOnboardAudio::gainRightChangeHandler\n");
-    return result;
-BAIL:
-    result = kIOReturnError;
-    goto EXIT;
-}
-#endif
 IOReturn AppleOnboardAudio::gainRightChanged(SInt32 newValue){
      IOReturn result = kIOReturnSuccess;
     UInt32 idx;
@@ -1149,25 +1080,7 @@ BAIL:
     result = kIOReturnError;
     goto EXIT;
 }
-#if 0
-IOReturn AppleOnboardAudio::passThruChangeHandler(IOService *target, IOAudioControl *passThruControl, SInt32 oldValue, SInt32 newValue){
-    IOReturn result = kIOReturnSuccess;
-    AppleOnboardAudio *audioDevice;
-    DEBUG_IOLOG("+ AppleOnboardAudio::passThruChangeHandler\n");
 
-    audioDevice = (AppleOnboardAudio *)target;
-    
-    if(!audioDevice) goto BAIL;
-    result = audioDevice->passThruChanged(passThruControl, oldValue, newValue);
-    
-EXIT:
-    DEBUG_IOLOG("- AppleOnboardAudio::passThruChangeHandler\n");
-    return result;
-BAIL:
-    result = kIOReturnError;
-    goto EXIT;
-}
-#endif
 IOReturn AppleOnboardAudio::passThruChanged(SInt32 newValue){
     IOReturn result = kIOReturnSuccess;
     DEBUG_IOLOG("+ AppleOnboardAudio::passThruChanged\n");
@@ -1176,25 +1089,7 @@ IOReturn AppleOnboardAudio::passThruChanged(SInt32 newValue){
     DEBUG_IOLOG("- AppleOnboardAudio::passThruChanged\n");
     return result;
 }
-#if 0
-IOReturn AppleOnboardAudio::inputSelectorChangeHandler(IOService *target, IOAudioControl *inputSelector, SInt32 oldValue, SInt32 newValue){
-    IOReturn result = kIOReturnSuccess;
-    AppleOnboardAudio *audioDevice;
-    DEBUG_IOLOG("+ AppleOnboardAudio::inputSelectorChangeHandler\n");
 
-    audioDevice = (AppleOnboardAudio *)target;
-    
-    if(!audioDevice) goto BAIL;
-    result = audioDevice->inputSelectorChanged(inputSelector, oldValue, newValue);
-    
-EXIT:
-    DEBUG_IOLOG("- AppleOnboardAudio::inputSelectorChangeHandler\n");
-    return result;
-BAIL:
-    result = kIOReturnError;
-    goto EXIT;
-}
-#endif
 IOReturn AppleOnboardAudio::inputSelectorChanged(SInt32 newValue){
     AudioHardwareInput *theInput;
     UInt32 idx;
@@ -1328,17 +1223,57 @@ BAIL:
     goto EXIT;
 }
 
+void AppleOnboardAudio::setTimerForSleep () {
+    AbsoluteTime				fireTime;
+    UInt64						nanos;
+
+	if (idleTimer && idleSleepDelayTime != kNoIdleAudioPowerDown) {
+		clock_get_uptime (&fireTime);
+		absolutetime_to_nanoseconds (fireTime, &nanos);
+		nanos += idleSleepDelayTime;
+		nanoseconds_to_absolutetime (nanos, &fireTime);
+		idleTimer->wakeAtTime (fireTime);		// will call idleAudioSleepHandlerTimer
+	}
+}
+
+void AppleOnboardAudio::sleepHandlerTimer (OSObject *owner, IOTimerEventSource *sender) {
+	AppleOnboardAudio *				audioDevice;
+	UInt32							time = 0;
+
+	audioDevice = OSDynamicCast (AppleOnboardAudio, owner);
+	FailIf (NULL == audioDevice, Exit);
+
+	if (audioDevice->getPowerState () != kIOAudioDeviceActive) {
+		audioDevice->performPowerStateChange (audioDevice->getPowerState (), kIOAudioDeviceIdle, &time);
+	}
+
+Exit:
+	return;
+}
+
 // Have to call super::setAggressiveness to complete the function call
-IOReturn AppleOnboardAudio::setAggressiveness(unsigned long type, unsigned long newLevel)
-{
+IOReturn AppleOnboardAudio::setAggressiveness(unsigned long type, unsigned long newLevel) {
+	UInt32					time = 0;
+
 	if (type == kPMPowerSource) {
+		debugIOLog ("setting power aggressivness state to ");
 		switch (newLevel) {
 			case kIOPMInternalPower:								// Running on battery only
-				setIdleAudioSleepTime (kBatteryPowerDownDelayTime);
+				debugIOLog ("battery power\n");
+				idleSleepDelayTime = kBatteryPowerDownDelayTime;
+				setIdleAudioSleepTime (idleSleepDelayTime);
+				if (getPowerState () != kIOAudioDeviceActive) {
+					performPowerStateChange (getPowerState (), kIOAudioDeviceIdle, &time);
+				}
 				break;
 			case kIOPMExternalPower:								// Running on AC power
-				// setIdleAudioSleepTime (kACPowerDownDelayTime);	// idle power down after 5 minutes
-				setIdleAudioSleepTime (kNoIdleAudioPowerDown);		// don't tell us about going to the idle state
+				debugIOLog ("wall power\n");
+				// idleSleepDelayTime = kACPowerDownDelayTime;		// idle power down after 5 minutes
+				idleSleepDelayTime = kNoIdleAudioPowerDown;
+				setIdleAudioSleepTime (idleSleepDelayTime);			// don't tell us about going to the idle state
+				if (getPowerState () != kIOAudioDeviceActive) {
+					performPowerStateChange (getPowerState (), kIOAudioDeviceActive, &time);
+				}
 				break;
 			default:
 				break;
@@ -1365,25 +1300,31 @@ IOReturn AppleOnboardAudio::performPowerStateChange(IOAudioDevicePowerState oldP
 	if (NULL != theAudioPowerObject) {
 		switch (newPowerState) {
 			case kIOAudioDeviceSleep:
-				if (ourPowerState == kIOAudioDeviceActive) {
-					outputMuteChange (TRUE);			// Mute before turning off power
-					theAudioPowerObject->setHardwarePowerOff ();
-					ourPowerState = newPowerState;
-				}
-				break;
-			case kIOAudioDeviceIdle:
-				if (ourPowerState == kIOAudioDeviceActive) {
+				if (kIOAudioDeviceActive == ourPowerState) {
 					outputMuteChange (TRUE);			// Mute before turning off power
 					theAudioPowerObject->setHardwarePowerOff ();
 					ourPowerState = kIOAudioDeviceSleep;
 				}
 				break;
+			case kIOAudioDeviceIdle:
+				if (kIOAudioDeviceActive == ourPowerState) {
+					outputMuteChange (TRUE);			// Mute before turning off power
+					theAudioPowerObject->setHardwarePowerOff ();
+					ourPowerState = kIOAudioDeviceSleep;
+				} else if (kIOAudioDeviceSleep == ourPowerState && kNoIdleAudioPowerDown == idleSleepDelayTime) {
+					ourPowerState = kIOAudioDeviceActive;
+					theAudioPowerObject->setHardwarePowerOn ();
+					if (NULL != outMute) {
+						outMute->flushValue ();					// Restore hardware to the user's selected state
+					}
+				}
+				break;
 			case kIOAudioDeviceActive:
+				ourPowerState = kIOAudioDeviceActive;
 				theAudioPowerObject->setHardwarePowerOn ();
 				if (NULL != outMute) {
 					outMute->flushValue ();					// Restore hardware to the user's selected state
 				}
-				ourPowerState = newPowerState;
 				break;
 			default:
 				;
@@ -1491,7 +1432,7 @@ IOReturn AppleOnboardAudio::setModemSound (bool state){
 EXIT:
 	// Second half of [3000358], put us back to sleep after the right amount of time if we were off
 	if (TRUE == wasPoweredDown) {
-		scheduleIdleAudioSleep ();
+		setTimerForSleep ();
 	}
 
     debugIOLog ("- AppleOnboardAudio::setModemSound\n");

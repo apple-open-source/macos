@@ -389,7 +389,7 @@ hfs_newfs(char *device, int forceHFS, int isRaw)
 	DriveInfo dip;
 	int fso = 0;
 	int retval = 0;
-	hfsparams_t defaults;
+	hfsparams_t defaults = {0};
 	u_int64_t maxSectorsPerIO;
 
 	if (gNoCreate) {

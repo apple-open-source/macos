@@ -23,6 +23,12 @@
 /*
  * Modification History
  *
+ * December 3, 2002		Dieter Siegmund <dieter@apple.com>
+ * - handle the new KEV_INET_ARPCOLLISION event
+ * - format the event into a DynamicStore key
+ *     State:/Network/Interface/ifname/IPv4Collision/ip_addr/hw_addr
+ *   and send a notification on the key
+ *
  * January 6, 2002		Jessica Vazquez <vazquez@apple.com>
  * - added handling for KEV_ATALK_xxx events
  *
@@ -68,6 +74,10 @@
 #include <SystemConfiguration/SCPrivate.h>
 #include <SystemConfiguration/SCValidation.h>
 
+#ifndef kSCEntNetIPv4ARPCollision
+#define kSCEntNetIPv4ARPCollision	CFSTR("IPv4ARPCollision")
+#endif kSCEntNetIPv4ARPCollision
+
 #define IP_FORMAT	"%d.%d.%d.%d"
 #define IP_CH(ip, i)	(((u_char *)(ip))[i])
 #define IP_LIST(ip)	IP_CH(ip,0),IP_CH(ip,1),IP_CH(ip,2),IP_CH(ip,3)
@@ -83,7 +93,8 @@ const char *inetEventName[] = {
 	"INET address deleted",
 	"INET destination address changed",
 	"INET broadcast address changed",
-	"INET netmask changed"
+	"INET netmask changed",
+	"INET ARP collision",
 };
 
 const char *dlEventName[] = {
@@ -498,6 +509,35 @@ interface_update_addresses(const char *if_name)
 	return;
 }
 
+
+void
+interface_collision_ipv4(const char *if_name, struct in_addr ip_addr, int hw_len, const void * hw_addr)
+{
+	uint8_t	*		hw_addr_bytes = (uint8_t *)hw_addr;
+	int			i;
+	CFStringRef		if_name_cf;
+	CFMutableStringRef	key;
+	CFStringRef		prefix;
+
+	if_name_cf = CFStringCreateWithCString(NULL, if_name, 
+					       kCFStringEncodingASCII);
+	prefix = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
+							    kSCDynamicStoreDomainState,
+							    if_name_cf,
+							    kSCEntNetIPv4ARPCollision);
+	key = CFStringCreateMutableCopy(NULL, 0, prefix);
+	CFStringAppendFormat(key, NULL, CFSTR("/" IP_FORMAT),
+			     IP_LIST(&ip_addr));
+	for (i = 0; i < hw_len; i++) {
+	    CFStringAppendFormat(key, NULL, CFSTR("%s%02x"),
+				 (i == 0) ? "/" : ":", hw_addr_bytes[i]);
+	}
+	SCDynamicStoreNotifyValue(store, key);
+	CFRelease(key);
+	CFRelease(prefix);
+	CFRelease(if_name_cf);
+	return;
+}
 
 static void
 interface_update_appletalk(const char *if_name)
@@ -1192,6 +1232,7 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 	CFStringRef		evStr;
 	int			dataLen = (ev_msg->total_size - KEV_MSG_HEADER_SIZE);
 	struct net_event_data	*nEvent;
+	struct kev_in_collision *colEvent;
 	struct kev_in_data	*iEvent;
 	struct kev_atalk_data	*aEvent;
 	char			ifr_name[IFNAMSIZ+1];
@@ -1219,7 +1260,21 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 						CFRelease(evStr);
 					}
 					break;
-
+				case KEV_INET_ARPCOLLISION :
+					colEvent 
+						= (struct kev_in_collision *)&ev_msg->event_data[0];
+					if (dataLen >= sizeof(*colEvent)
+						&& (dataLen == sizeof(*colEvent) + colEvent->hw_len)) {
+						snprintf(ifr_name, sizeof(ifr_name), 
+								 "%s%ld", 
+								 colEvent->link_data.if_name, 
+								 colEvent->link_data.if_unit);
+						interface_collision_ipv4(ifr_name,
+												 colEvent->ia_ipaddr,
+												 colEvent->hw_len,
+												 colEvent->hw_addr);
+					}
+					break;
 				default :
 					logEvent(CFSTR("New Apple network INET subcode"), ev_msg);
 					break;

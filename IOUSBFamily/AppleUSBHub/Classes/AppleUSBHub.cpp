@@ -26,16 +26,18 @@
 
 #include <UserNotification/KUNCUserNotifications.h>
 
+#include <IOKit/usb/IOUSBLog.h>
+
 #include <IOKit/usb/IOUSBInterface.h>
 #include <IOKit/usb/IOUSBRootHubDevice.h>
 #include <IOKit/usb/IOUSBPipe.h>
+#include <IOKit/usb/IOUSBControllerV2.h>
 
 #include "AppleUSBHub.h"
 #include "AppleUSBHubPort.h"
 
 #define super IOService
 #define self this
-#define DEBUGGING_LEVEL 0
 
 static ErrataListEntry	errataList[] = {
 
@@ -321,6 +323,7 @@ AppleUSBHub::ConfigureHub()
     IOReturn 				err = kIOReturnSuccess;
     IOUSBFindInterfaceRequest		req;
     const IOUSBConfigurationDescriptor *cd;
+    IOUSBControllerV2			*v2Bus;
 
     // Reset some of our variables that so that when we reconfigure due to a reset
     // we don't reuse old values
@@ -412,10 +415,54 @@ AppleUSBHub::ConfigureHub()
 
     if (!_hubInterface->open(this))
     {
-        USBError(1,"[%p] %s::ConfigureHub could not open hub interface", this, getName());
+        USBError(1," %s[%p]::ConfigureHub could not open hub interface", this, getName());
         err = kIOReturnNotOpen;
         goto ErrorExit;
     }
+    
+    // after opening the interface, but before we get the pipe, we need to see if this is a 2.0
+    // capabale hub, and if so, we need to set the multiTT status if possible
+    if (_device->GetbcdUSB() >= 0x200)
+    {
+	USBLog(1, "Hub driver - found USB 2.0 compliant hub");
+	v2Bus = OSDynamicCast(IOUSBControllerV2, _device->GetBus());
+	if (v2Bus)
+	{
+	    switch (_device->GetProtocol())
+	    {
+		case 0:
+		    USBLog(3, "Hub driver - found FS/LS only hub");
+		    break;
+		    
+		case 1:
+		    USBLog(3, "Hub driver - found single TT hub");
+		    v2Bus->AddHSHub(_address, 0);
+		    break;
+		    
+		case 2:
+		    USBLog(3, "Hub driver - found multi TT hub");
+		    if ((err = _hubInterface->SetAlternateInterface(this, 1))) 		// pick the multi-TT setting
+		    {
+			USBError(1, "%s[%p]::ConfigureHub - err (%x) setting alt interface", getName(), this, err);
+			v2Bus->AddHSHub(_address, 0);
+		    }
+		    else
+			v2Bus->AddHSHub(_address, kUSBHSHubFlagsMultiTT);
+		    break;
+		    
+		default:
+		    USBError(1, "%s[%p]::ConfigureHub - unknown protocol (%d)", getName(), this, _device->GetProtocol());
+		    break;
+	    }
+	}
+	else
+	{
+	    USBLog(3, "Configure hub - not on a V2 controller");
+	}
+    }
+    else
+	USBLog(3, "Hub Driver - found non USB 2 compliant hub");
+    
 
     IOUSBFindEndpointRequest request;
     request.type = kUSBInterrupt;
@@ -432,9 +479,6 @@ AppleUSBHub::ConfigureHub()
     // prepare the ports
     UnpackPortFlags();
     CountCaptivePorts();
-#if (DEBUGGING_LEVEL > 0)
-    PrintHubDescriptor(&_hubDescriptor);
-#endif
     err = CheckPortPowerRequirements();
     if ( err != kIOReturnSuccess )
     {
@@ -567,15 +611,6 @@ AppleUSBHub::CheckPortPowerRequirements(void)
             if( (_errataBits & kErrataCaptiveOKBit) != 0)
                 _powerForCaptive = kUSB100mAAvailable;
         }
-#if (DEBUGGING_LEVEL > 0)
-        IOLog("%s: power:\n", getName());
-        IOLog("\tbus power available = %ldmA\n", busPower * 2);
-        IOLog("\thub power needed = %ldmA\n", hubPower * 2);
-        IOLog("\tport power available = %ldmA\n", powerAvailForPorts * 2);
-        IOLog("\tport power needed = %ldmA\n", powerNeededForPorts * 2);
-        IOLog("\tpower for captives = %ldmA\n", _powerForCaptive * 2);
-        IOLog("\tbus power is %s\n", _busPowerGood?"good" : "insufficient");
-#endif
         
         _selfPowerGood = false;
         

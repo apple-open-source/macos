@@ -1028,30 +1028,72 @@ IOReturn IOFireWireDevice::processUnitDirectories( OSSet * unitSet )
 {
 	IOReturn status = kIOReturnSuccess;
 	
-	OSIterator * iterator = OSCollectionIterator::withCollection( unitSet );
-	iterator->reset();
+	OSIterator * 	iterator = NULL;
+	OSIterator * 	clientIterator = NULL;
+	OSSet *			clientSet = NULL;
+	OSObject *		client = NULL;
 	
-	IOFireWireUnitInfo * info = NULL;
-	while( (info = (IOFireWireUnitInfo *) iterator->getNextObject()) )
+	//
+	// make a local copy of the client set
+	//
+		
+	if( status == kIOReturnSuccess )
 	{
-		IOFireWireUnit * newDevice = 0;
-		
-		OSDictionary *	propTable = info->getPropTable();
-		IOConfigDirectory * unit = info->getDirectory();
-		
-		// Check if unit directory already exists
-		do 
+		clientSet = OSSet::withCapacity(2);
+		if( clientSet == NULL )
+			status = kIOReturnNoMemory;
+	}
+	
+	if( status == kIOReturnSuccess )
+	{
+		clientIterator = getClientIterator();
+		if( clientIterator == NULL )
+			status = kIOReturnError;
+	}
+	
+	if( status == kIOReturnSuccess )
+	{
+		clientIterator->reset();
+		while( (client = clientIterator->getNextObject()) ) 
 		{
-			OSIterator *		childIterator;
-			IOFireWireUnit * 	found = NULL;
+			clientSet->setObject( client );
+		}
+		clientIterator->release();
+	}
+	
+	if( status == kIOReturnSuccess )
+	{
+		clientIterator = OSCollectionIterator::withCollection( clientSet );
+		if( clientIterator == NULL )
+			status = kIOReturnError;
+	}
+	
+	//
+	// loop through all discovered units
+	//
+	
+	if( status == kIOReturnSuccess )
+	{	
+		iterator = OSCollectionIterator::withCollection( unitSet );
+		iterator->reset();
+		
+		IOFireWireUnitInfo * info = NULL;
+		while( (info = (IOFireWireUnitInfo *) iterator->getNextObject()) )
+		{
+			IOFireWireUnit * newDevice = 0;
 			
-			childIterator = getClientIterator();
-			if( childIterator ) 
+			OSDictionary *	propTable = info->getPropTable();
+			IOConfigDirectory * unit = info->getDirectory();
+			
+			// Check if unit directory already exists
+			do 
 			{
-				OSObject *child;
-				while( (child = childIterator->getNextObject()) ) 
+				IOFireWireUnit * 	found = NULL;
+				
+				clientIterator->reset();
+				while( (client = clientIterator->getNextObject()) ) 
 				{
-					found = OSDynamicCast(IOFireWireUnit, child);
+					found = OSDynamicCast(IOFireWireUnit, client);
 					if( found && found->matchPropertyTable(propTable) ) 
 					{
 						break;
@@ -1062,40 +1104,50 @@ IOReturn IOFireWireDevice::processUnitDirectories( OSSet * unitSet )
 					}
 				}
 				
-				childIterator->release();
-				if(found)
+				if( found )
 				{
 					found->setConfigDirectory( unit );
+					clientSet->removeObject( found );
 					break;
 				}
+		
+				newDevice = new IOFireWireUnit;
+		
+				if (!newDevice || !newDevice->init(propTable, unit))
+					break;
+			
+					// Set max packet sizes
+				newDevice->setMaxPackLog(true, false, fMaxWritePackLog);
+				newDevice->setMaxPackLog(false, false, fMaxReadPackLog);
+				newDevice->setMaxPackLog(false, true, fMaxReadROMPackLog);
+				if (!newDevice->attach(this))	
+					break;
+				newDevice->registerService();
+			
 			}
-	
-			newDevice = new IOFireWireUnit;
-	
-			if (!newDevice || !newDevice->init(propTable, unit))
-				break;
-		
-				// Set max packet sizes
-			newDevice->setMaxPackLog(true, false, fMaxWritePackLog);
-			newDevice->setMaxPackLog(false, false, fMaxReadPackLog);
-			newDevice->setMaxPackLog(false, true, fMaxReadROMPackLog);
-			if (!newDevice->attach(this))	
-				break;
-			newDevice->registerService();
-		
-		}
-		while( false );
-		
-		if( newDevice != NULL )
-		{
-			newDevice->release();
-			newDevice = NULL;
+			while( false );
+			
+			if( newDevice != NULL )
+			{
+				newDevice->release();
+				newDevice = NULL;
+			}
 		}
 	}
-	
+		
 	if( iterator != NULL )
 	{
 		iterator->release();
+	}
+	
+	if( clientIterator != NULL )
+	{
+		clientIterator->release();
+	}
+		
+	if( clientSet != NULL )
+	{
+		clientSet->release();
 	}
 	
 	return status;

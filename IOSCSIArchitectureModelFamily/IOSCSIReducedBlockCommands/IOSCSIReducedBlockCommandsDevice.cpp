@@ -489,7 +489,7 @@ IOSCSIReducedBlockCommandsDevice::ReportMaxReadTransfer (
 									UInt64 * 	max )
 {
 	
-	UInt64	maxBlockCount 	= kDefaultMaxBlocksPerIO;
+	UInt32	maxBlockCount 	= kDefaultMaxBlocksPerIO;
 	UInt64	maxByteCount	= 0;
 	bool	supported		= false;
 	
@@ -533,7 +533,7 @@ IOSCSIReducedBlockCommandsDevice::ReportMaxWriteTransfer (
 									UInt64 *	max )
 {
 	
-	UInt64	maxBlockCount 	= kDefaultMaxBlocksPerIO;
+	UInt32	maxBlockCount 	= kDefaultMaxBlocksPerIO;
 	UInt64	maxByteCount	= 0;
 	bool	supported		= false;
 	
@@ -663,8 +663,7 @@ IOSCSIReducedBlockCommandsDevice::InitializeDeviceSupport ( void )
 	STATUS_LOG ( ( "%s::%s called\n", getName ( ), __FUNCTION__ ) );
 	
 	fIOSCSIReducedBlockCommandsDeviceReserved =
-			( IOSCSIReducedBlockCommandsDeviceExpansionData * )
-			IOMalloc ( sizeof ( IOSCSIReducedBlockCommandsDeviceExpansionData ) );
+			IONew ( IOSCSIReducedBlockCommandsDeviceExpansionData, 1 );
 	require_nonzero ( fIOSCSIReducedBlockCommandsDeviceReserved, ErrorExit );
 	
 	// Initialize these after we have allocated fIOSCSIReducedBlockCommandsDeviceReserved
@@ -727,8 +726,7 @@ ReleaseReservedMemory:
 	
 	
 	require_nonzero_quiet ( fIOSCSIReducedBlockCommandsDeviceReserved, ErrorExit );
-	IOFree ( fIOSCSIReducedBlockCommandsDeviceReserved,
-			 sizeof ( IOSCSIReducedBlockCommandsDeviceExpansionData ) );
+	IODelete ( fIOSCSIReducedBlockCommandsDeviceReserved, IOSCSIReducedBlockCommandsDeviceExpansionData, 1 );
 	fIOSCSIReducedBlockCommandsDeviceReserved = NULL;
 	
 	
@@ -899,8 +897,7 @@ IOSCSIReducedBlockCommandsDevice::FreeCommandSetObjects ( void )
 	if ( fIOSCSIReducedBlockCommandsDeviceReserved != NULL )
 	{
 		
-		IOFree ( fIOSCSIReducedBlockCommandsDeviceReserved,
-				 sizeof ( IOSCSIReducedBlockCommandsDeviceExpansionData ) );
+		IODelete ( fIOSCSIReducedBlockCommandsDeviceReserved, IOSCSIReducedBlockCommandsDeviceExpansionData, 1 );
 		fIOSCSIReducedBlockCommandsDeviceReserved = NULL;
 		
 	}
@@ -1343,7 +1340,7 @@ IOSCSIReducedBlockCommandsDevice::CreateStorageServiceNub ( void )
 	
 	IOService * 	nub = NULL;
 	
-	nub = new IOReducedBlockServices;
+	nub = OSTypeAlloc ( IOReducedBlockServices );
 	require_nonzero ( nub, ErrorExit );
 	
 	nub->init ( );
@@ -2006,6 +2003,8 @@ IOSCSIReducedBlockCommandsDevice::IssueRead (
 	else
 	{
 		
+		ReleaseSCSITask ( request );
+		request = NULL;
 		status = kIOReturnBadArgument;
 		
 	}
@@ -2121,9 +2120,11 @@ IOSCSIReducedBlockCommandsDevice::IssueWrite (
 	else
 	{
 		
+		ReleaseSCSITask ( request );
+		request = NULL;
 		status = kIOReturnBadArgument;
 		
-	}	
+	}
 	
 	
 ErrorExit:

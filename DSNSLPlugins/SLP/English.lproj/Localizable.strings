@@ -1,0 +1,3 @@
+    "STR#128 1" = "Recent Servers";			/* Name to display Recent servers the client has connected to */
+    "STR#128 2" = "Favorite Servers";		/* Name to display Favorite servers of the client */
+    

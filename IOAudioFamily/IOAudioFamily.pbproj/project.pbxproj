@@ -18,6 +18,7 @@
 			};
 		};
 		01577ADFFFEC9C1011CA29EB = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOAudioDefines.h;
 			refType = 4;
@@ -104,46 +105,58 @@
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
 		06F44E0AFFE702AD11CA29EB = {
+			fileEncoding = 30;
+			indentWidth = 4;
 			isa = PBXFileReference;
 			path = IOAudioControl.cpp;
 			refType = 4;
+			tabWidth = 4;
+			usesTabs = 1;
 		};
 		06F44E0BFFE702AD11CA29EB = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOAudioControlUserClient.cpp;
 			refType = 4;
 		};
 		06F44E0CFFE702AD11CA29EB = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOAudioDevice.cpp;
 			refType = 4;
 		};
 		06F44E0DFFE702AD11CA29EB = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOAudioEngine.cpp;
 			refType = 4;
 		};
 		06F44E0EFFE702AD11CA29EB = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOAudioEngineMixer.cpp;
 			refType = 4;
 		};
 		06F44E0FFFE702AD11CA29EB = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOAudioEngineUserClient.cpp;
 			refType = 4;
 		};
 		06F44E11FFE702AD11CA29EB = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOAudioLevelControl.cpp;
 			refType = 4;
 		};
 		06F44E14FFE702AD11CA29EB = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOAudioPort.cpp;
 			refType = 4;
 		};
 		06F44E15FFE702AD11CA29EB = {
+			fileEncoding = 30;
 			indentWidth = 4;
 			isa = PBXFileReference;
 			path = IOAudioStream.cpp;
@@ -173,46 +186,55 @@
 			refType = 4;
 		};
 		06F44E17FFE702AD11CA29EB = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOAudioControl.h;
 			refType = 4;
 		};
 		06F44E18FFE702AD11CA29EB = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOAudioControlUserClient.h;
 			refType = 4;
 		};
 		06F44E19FFE702AD11CA29EB = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOAudioDevice.h;
 			refType = 4;
 		};
 		06F44E1AFFE702AD11CA29EB = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOAudioEngine.h;
 			refType = 4;
 		};
 		06F44E1BFFE702AD11CA29EB = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOAudioEngineUserClient.h;
 			refType = 4;
 		};
 		06F44E1DFFE702AD11CA29EB = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOAudioLevelControl.h;
 			refType = 4;
 		};
 		06F44E20FFE702AD11CA29EB = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOAudioPort.h;
 			refType = 4;
 		};
 		06F44E21FFE702AD11CA29EB = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOAudioStream.h;
 			refType = 4;
 		};
 		06F44E22FFE702AD11CA29EB = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOAudioTypes.h;
 			refType = 4;
@@ -357,7 +379,7 @@
 				HEADER_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Headers\" \"$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Headers/bsd\"";
 				LIBRARY_STYLE = STATIC;
 				OPTIMIZATION_CFLAGS = "-Os";
-				OTHER_CFLAGS = "\"$(DEBUG_CFLAGS)\" -nostdinc -finline -fno-keep-inline-functions -force_cpusubtype_ALL -x c++ -fno-rtti -fno-exceptions -fcheck-new -fvtable-thunks -findirect-virtual-calls -static -DKERNEL -DKERNEL_PRIVATE -DDRIVER_PRIVATE -DAPPLE -DNeXT";
+				OTHER_CFLAGS = "\"$(DEBUG_CFLAGS)\" -nostdinc -finline -fno-keep-inline-functions -force_cpusubtype_ALL -x c++ -fno-rtti -fno-exceptions -fcheck-new -findirect-virtual-calls -static -DKERNEL -DKERNEL_PRIVATE -DDRIVER_PRIVATE -DAPPLE -DNeXT";
 				OTHER_LDFLAGS = "-static";
 				OTHER_LIBTOOL_FLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -375,7 +397,6 @@
 			productInstallPath = /usr/local/lib;
 			productName = IOAudioFloatLib;
 			productReference = 06F44E3AFFE7037511CA29EB;
-			shouldUseHeadermap = 0;
 		};
 		06F44E3DFFE7037511CA29EB = {
 			buildActionMask = 2147483647;
@@ -450,7 +471,6 @@
 			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers";
 			productName = InstallHeaders;
 			productReference = 06F44E42FFE7050C11CA29EB;
-			shouldUseHeadermap = 0;
 		};
 		06F44E45FFE7050C11CA29EB = {
 			buildActionMask = 2147483647;
@@ -588,6 +608,7 @@
 				06AA1265FFB2107B11CA28AA,
 				06AA1266FFB2107B11CA28AA,
 			);
+			hasScannedForEncodings = 1;
 			isa = PBXProject;
 			mainGroup = 089C166AFE841209C02AAC07;
 			projectDirPath = "";
@@ -631,7 +652,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOAudioFamily;
-				MODULE_VERSION = 1.3.1;
+				MODULE_VERSION = 1.3.4fc1;
 				OPTIMIZATION_CFLAGS = "-Os";
 				OTHER_CFLAGS = "\"$(DEBUG_CFLAGS)\"";
 				OTHER_LDFLAGS = "";
@@ -660,7 +681,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOAudioFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>Version: 1.3.1, Copyright Apple Computer, Inc. 2000-2002</string>
+	<string>Version: 1.3.4, Copyright Apple Computer, Inc. 2000-2002</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -672,11 +693,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.1</string>
+	<string>1.3.4</string>
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>1.3.1</string>
+	<string>1.3.4fc1</string>
 	<key>IOKitPersonalities</key>
 	<dict/>
 	<key>OSBundleCompatibleVersion</key>
@@ -689,7 +710,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 1;
 		};
 		089C1674FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
@@ -807,6 +827,7 @@
 //153
 //154
 		15F1CA6BFFEC8F6A11CA29EB = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOAudioDebug.h;
 			refType = 4;
@@ -848,21 +869,25 @@
 //1B3
 //1B4
 		1B71235B00570F9911CA29EB = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOAudioSelectorControl.cpp;
 			refType = 4;
 		};
 		1B71235C00570F9911CA29EB = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOAudioToggleControl.cpp;
 			refType = 4;
 		};
 		1B71235D00570F9911CA29EB = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOAudioSelectorControl.h;
 			refType = 4;
 		};
 		1B71235E00570F9911CA29EB = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOAudioToggleControl.h;
 			refType = 4;

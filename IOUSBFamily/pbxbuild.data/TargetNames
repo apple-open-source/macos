@@ -1,0 +1,61 @@
+if [ "${Target}" = "IOUSBFamily" ]; then
+	Targets='installhdrs
+IOUSBLib
+IOUSBUserClient
+AppleUSBCDCDriver
+AppleUSBComposite
+AppleUSBKeyboard
+AppleUSBMergeNub
+IOUSBHIDDriver
+AppleUSBOHCI
+AppleUSBOpticalMouse
+AppleUSBHub
+Configd Plugin
+USB Prober
+IOUSBFamily'
+elif [ "${Target}" = "installhdrs" ]; then
+	Targets='installhdrs'
+elif [ "${Target}" = "AppleUSBOHCI" ]; then
+	Targets='AppleUSBOHCI'
+elif [ "${Target}" = "AppleUSBCDCDriver" ]; then
+	Targets='AppleUSBCDCDriver'
+elif [ "${Target}" = "AppleUSBComposite" ]; then
+	Targets='AppleUSBComposite'
+elif [ "${Target}" = "AppleUSBHub" ]; then
+	Targets='AppleUSBHub'
+elif [ "${Target}" = "AppleUSBMouse" ]; then
+	Targets='AppleUSBMouse'
+elif [ "${Target}" = "AppleUSBKeyboard" ]; then
+	Targets='AppleUSBKeyboard'
+elif [ "${Target}" = "AppleUSBMergeNub" ]; then
+	Targets='AppleUSBMergeNub'
+elif [ "${Target}" = "AppleUSBOpticalMouse" ]; then
+	Targets='AppleUSBOpticalMouse'
+elif [ "${Target}" = "IOUSBHIDDriver" ]; then
+	Targets='IOUSBHIDDriver'
+elif [ "${Target}" = "IOUSBUserClient" ]; then
+	Targets='IOUSBUserClient'
+elif [ "${Target}" = "IOUSBLib" ]; then
+	Targets='IOUSBLib'
+elif [ "${Target}" = "Configd Plugin" ]; then
+	Targets='Configd Plugin'
+elif [ "${Target}" = "UPS Test Tool" ]; then
+	Targets='UPS Test Tool'
+elif [ "${Target}" = "USB Prober" ]; then
+	Targets='USB Prober'
+else
+	Targets='installhdrs
+IOUSBLib
+IOUSBUserClient
+AppleUSBCDCDriver
+AppleUSBComposite
+AppleUSBKeyboard
+AppleUSBMergeNub
+IOUSBHIDDriver
+AppleUSBOHCI
+AppleUSBOpticalMouse
+AppleUSBHub
+Configd Plugin
+USB Prober
+IOUSBFamily'
+fi

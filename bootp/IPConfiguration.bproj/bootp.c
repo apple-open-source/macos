@@ -71,8 +71,6 @@
 #include "dprintf.h"
 #include "ipconfigd_threads.h"
 
-extern char *  			ether_ntoa(struct ether_addr *e);
-
 typedef struct {
     boolean_t			gathering;
     struct bootp		request;
@@ -85,6 +83,7 @@ typedef struct {
     arp_client_t *		arp;
     bootp_client_t *		client;
     boolean_t			user_warned;
+    boolean_t			enable_arp_collision_detection;
 } Service_bootp_t;
 
 /* tags_search: these are the tags we look for using BOOTP */
@@ -162,6 +161,7 @@ bootp_success(Service_t * service_p)
 	(void)service_remove_address(service_p);
     }
     bootp->try = 0;
+    bootp->enable_arp_collision_detection = TRUE;
     bootp->saved.our_ip = reply->bp_yiaddr;
     (void)service_set_address(service_p, bootp->saved.our_ip, 
 			      mask, G_ip_zeroes);
@@ -181,6 +181,7 @@ bootp_failed(Service_t * service_p, ipconfig_status_t status, char * msg)
     (void)service_disable_autoaddr(service_p);
     bootp->saved.our_ip.s_addr = 0;
     bootp->try = 0;
+    bootp->enable_arp_collision_detection = FALSE;
     service_publish_failure(service_p, status, msg);
 
     if (status != ipconfig_status_media_inactive_e) {
@@ -279,6 +280,7 @@ bootp_request(Service_t * service_p, IFEventID_t evid, void * event_data)
 	  bootp->gathering = FALSE;
 	  bootp->saved.pkt_size = 0;
 	  bootp->saved.rating = 0;
+	  bootp->enable_arp_collision_detection = FALSE;
 	  dhcpol_free(&bootp->saved.options);
 	  make_bootp_request(&bootp->request, if_link_address(if_p), 
 			     if_link_arptype(if_p),
@@ -482,6 +484,41 @@ bootp_thread(Service_t * service_p, IFEventID_t evid, void * event_data)
 	  service_p->private = NULL;
 	  break;
       }
+      case IFEventID_arp_collision_e: {
+	  arp_collision_data_t *	arpc;
+	  char				msg[128];
+	  struct bootp *		reply;
+
+	  arpc = (arp_collision_data_t *)event_data;
+
+	  if (bootp == NULL) {
+	      status = ipconfig_status_internal_error_e;
+	      break;
+	  }
+	  if (bootp->saved.pkt_size == 0 
+	      || bootp->saved.our_ip.s_addr != arpc->ip_addr.s_addr
+	      || bootp->enable_arp_collision_detection == FALSE) {
+	      break;
+	  }
+	  reply = (struct bootp *)bootp->saved.pkt;
+	  snprintf(msg, sizeof(msg),
+		   IP_FORMAT " in use by " 
+		   EA_FORMAT ", BOOTP Server " IP_FORMAT,
+		   IP_LIST(&reply->bp_yiaddr),
+		   EA_LIST(arpc->hwaddr),
+		   IP_LIST(&reply->bp_siaddr));
+	  if (bootp->user_warned == FALSE) {
+	      service_report_conflict(service_p,
+				      &reply->bp_yiaddr,
+				      arpc->hwaddr,
+				      &reply->bp_siaddr);
+	      bootp->user_warned = TRUE;
+	  }
+	  syslog(LOG_ERR, "BOOTP %s: %s", if_name(if_p), msg);
+	  bootp_failed(service_p, ipconfig_status_address_in_use_e,
+		       msg);
+	  break;
+      }
       case IFEventID_media_e: {
 	  if (bootp == NULL) {
 	      status = ipconfig_status_internal_error_e;
@@ -500,6 +537,9 @@ bootp_thread(Service_t * service_p, IFEventID_t evid, void * event_data)
 
 		  /* ensure that we'll retry if the link goes back up */
 		  bootp->try = 0;
+
+		  /* disallow collision detection while disconnected */
+		  bootp->enable_arp_collision_detection = FALSE;
 
 		  /* if link goes down and stays down long enough, unpublish */
 		  S_cancel_pending_events(service_p);

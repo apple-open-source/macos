@@ -6,31 +6,37 @@
 	objectVersion = 38;
 	objects = {
 		0560FFBB008B96A711CA2AA4 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOCDAudioControl.cpp;
 			refType = 4;
 		};
 		0560FFBC008B96A711CA2AA4 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOCDAudioControlUserClient.cpp;
 			refType = 4;
 		};
 		0560FFBD008B96A711CA2AA4 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOCDBlockStorageDevice.cpp;
 			refType = 4;
 		};
 		0560FFBE008B96A711CA2AA4 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOCDBlockStorageDriver.cpp;
 			refType = 4;
 		};
 		0560FFBF008B96A711CA2AA4 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOCDMedia.cpp;
 			refType = 4;
 		};
 		0560FFC0008B96A711CA2AA4 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOCDPartitionScheme.cpp;
 			refType = 4;
@@ -72,36 +78,43 @@
 			};
 		};
 		0560FFC7008B970111CA2AA4 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOCDAudioControl.h;
 			refType = 4;
 		};
 		0560FFC8008B970111CA2AA4 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOCDAudioControlUserClient.h;
 			refType = 4;
 		};
 		0560FFC9008B970111CA2AA4 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOCDBlockStorageDevice.h;
 			refType = 4;
 		};
 		0560FFCA008B970111CA2AA4 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOCDBlockStorageDriver.h;
 			refType = 4;
 		};
 		0560FFCB008B970111CA2AA4 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOCDMedia.h;
 			refType = 4;
 		};
 		0560FFCC008B970111CA2AA4 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOCDPartitionScheme.h;
 			refType = 4;
 		};
 		0560FFCD008B970111CA2AA4 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOCDTypes.h;
 			refType = 4;
@@ -169,6 +182,7 @@
 			isa = PBXShellScriptBuildPhase;
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
@@ -178,7 +192,6 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				OPTIMIZATION_CFLAGS = "-O0";
-				USE_GCC3 = YES;
 			};
 			isa = PBXBuildStyle;
 			name = Development;
@@ -201,6 +214,7 @@
 			isa = PBXShellScriptBuildPhase;
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
@@ -219,6 +233,7 @@
 				06AA1265FFB2107B11CA28AA,
 				06AA1266FFB2107B11CA28AA,
 			);
+			hasScannedForEncodings = 1;
 			isa = PBXProject;
 			mainGroup = 089C166AFE841209C02AAC07;
 			projectDirPath = "";
@@ -255,7 +270,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOCDStorageFamily;
-				MODULE_VERSION = 1.2;
+				MODULE_VERSION = 1.2.1;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -273,15 +288,15 @@
 			productName = IOCDStorageFamily;
 			productReference = 0B81C263FFB7832611CA28AA;
 			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
-<plist version=\"0.9\">
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleExecutable</key>
 	<string>IOCDStorageFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.2, Copyright Apple Computer, Inc. 2000-2002</string>
+	<string>1.2.1, Copyright Apple Computer, Inc. 2000-2003</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -293,11 +308,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2</string>
+	<string>1.2.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2</string>
+	<string>1.2.1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOCDBlockStorageDriver</key>
@@ -355,7 +370,7 @@
 		</dict>
 	</dict>
 	<key>NSHumanReadableCopyright</key>
-	<string>Copyright Apple Computer, Inc. 2000-2002</string>
+	<string>Copyright Apple Computer, Inc. 2000-2003</string>
 	<key>OSBundleCompatibleVersion</key>
 	<string>1.0.0b1</string>
 	<key>OSBundleLibraries</key>
@@ -374,7 +389,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 1;
 		};
 		089C1674FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
@@ -389,6 +403,7 @@
 				0560FFD4008B970111CA2AA4,
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C1675FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
@@ -399,6 +414,7 @@
 				126DFF8E01BFAF3303A87B01,
 			);
 			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C1676FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
@@ -412,18 +428,21 @@
 				0560FFC5008B96A711CA2AA4,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C1677FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C1679FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C167CFE841241C02AAC07 = {
 			children = (
@@ -519,31 +538,34 @@
 			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
 			productName = "IOCDStorageFamily Headers";
 			productReference = 0FD9565E008D0B8111CA2AA4;
-			shouldUseHeadermap = 0;
 		};
 		0FD95661008D0B8111CA2AA4 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0FD95662008D0B8111CA2AA4 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0FD95663008D0B8111CA2AA4 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0FD95664008D0B8111CA2AA4 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0FDE4B52008D0BCD11CA2AA4 = {
 			buildActionMask = 8;
@@ -560,6 +582,7 @@
 				0FDE4B5A008D0C7611CA2AA4,
 			);
 			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 1;
 		};
 		0FDE4B53008D0BCD11CA2AA4 = {
 			buildActionMask = 8;
@@ -574,6 +597,7 @@
 				0FDE4B5E008D0CCA11CA2AA4,
 			);
 			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 1;
 		};
 		0FDE4B54008D0C7611CA2AA4 = {
 			fileRef = 0560FFC7008B970111CA2AA4;
@@ -697,6 +721,7 @@
 			};
 		};
 		12BF9C9C00D858A003CA2AA4 = {
+			fileEncoding = 30;
 			indentWidth = 4;
 			isa = PBXFileReference;
 			path = IOCDMediaBSDClient.cpp;
@@ -705,6 +730,7 @@
 			usesTabs = 0;
 		};
 		12BF9C9D00D858A003CA2AA4 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOCDMediaBSDClient.h;
 			refType = 4;
@@ -736,6 +762,7 @@
 			isa = PBXShellScriptBuildPhase;
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
 			shellScript = "headers=\"${DSTROOT}${SYSTEM_LIBRARY_DIR}/Frameworks/IOKit.framework/Versions/A/Headers/storage/*.h\";\nfor header in ${headers}; do\n    unifdef -UKERNEL \"${header}\" > \"${header}.unifdef\"\n    mv \"${header}.unifdef\" \"${header}\"\ndone";
 		};

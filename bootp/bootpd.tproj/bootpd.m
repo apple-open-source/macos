@@ -115,7 +115,6 @@
 #define CFGPROP_DENY			"deny"
 
 /* external functions */
-extern char *  			ether_ntoa(struct ether_addr *e);
 extern struct ether_addr *	ether_aton(char *);
 
 /* local defines */

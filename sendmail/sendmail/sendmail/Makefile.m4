@@ -1,10 +1,11 @@
+dnl $Id: Makefile.m4,v 1.1.1.3 2002/10/15 02:38:22 zarzycki Exp $
 include(confBUILDTOOLSDIR`/M4/switch.m4')
 
 define(`confREQUIRE_LIBSM', `true')
 bldPRODUCT_START(`executable', `sendmail')
 define(`bldBIN_TYPE', `G')
 define(`bldINSTALL_DIR', `')
-define(`bldSOURCES', `main.c alias.c arpadate.c bf.c collect.c conf.c control.c convtime.c daemon.c deliver.c domain.c envelope.c err.c headers.c macro.c map.c mci.c milter.c mime.c parseaddr.c queue.c readcf.c recipient.c savemail.c sasl.c sfsasl.c shmticklib.c sm_resolve.c srvrsmtp.c stab.c stats.c sysexits.c timers.c tls.c trace.c udb.c usersmtp.c util.c version.c ')
+define(`bldSOURCES', `main.c alias.c arpadate.c bf.c collect.c conf.c control.c convtime.c daemon.c deliver.c domain.c envelope.c err.c headers.c macro.c map.c mci.c milter.c mime.c parseaddr.c queue.c readcf.c recipient.c sasl.c savemail.c sfsasl.c shmticklib.c sm_resolve.c srvrsmtp.c stab.c stats.c sysexits.c timers.c tls.c trace.c udb.c usersmtp.c util.c version.c ')
 PREPENDDEF(`confENVDEF', `confMAPDEF')
 bldPUSH_SMLIB(`sm')
 bldPUSH_SMLIB(`smutil')
@@ -19,8 +20,12 @@ define(`bldTARGET_LINKS', ifdef(`confLINKS', `confLINKS',
 # location of sendmail statistics file (usually /etc/mail/ or /var/log)
 STDIR= ifdef(`confSTDIR', `confSTDIR', `/etc/mail')
 
+# statistics file name
+STFILE=	ifdef(`confSTFILE', `confSTFILE', `statistics')
+MSPSTFILE=ifdef(`confMSP_STFILE', `confMSP_STFILE', `sm-client.st')
+
 # full path to installed statistics file (usually ${STDIR}/statistics)
-STFILE= ${STDIR}/ifdef(`confSTFILE', `confSTFILE', `statistics')
+STPATH= ${STDIR}/${STFILE}
 
 # location of sendmail helpfile file (usually /etc/mail)
 HFDIR= ifdef(`confHFDIR', `confHFDIR', `/etc/mail')
@@ -35,6 +40,7 @@ bldPUSH_TARGET(`statistics')
 divert(bldTARGETS_SECTION)
 statistics:
 	${CP} /dev/null statistics
+	chmod ifdef(`confSTMODE', `confSTMODE', `0600') statistics
 
 ${DESTDIR}/etc/mail/submit.cf:
 	@echo "Please read INSTALL if anything fails while installing the binary."
@@ -64,7 +70,7 @@ install-set-user-id: bldCURRENT_PRODUCT ifdef(`confNO_HELPFILE_INSTALL',, `insta
 	${INSTALL} -c -o ${S`'BINOWN} -g ${S`'BINGRP} -m ${S`'BINMODE} bldCURRENT_PRODUCT ${DESTDIR}${M`'BINDIR}
 	for i in ${sendmailTARGET_LINKS}; do \
 		rm -f $$i; \
-		ln -s ${M`'BINDIR}/sendmail $$i; \
+		${LN} ${LNOPTS} ${M`'BINDIR}/sendmail $$i; \
 	done
 
 define(`confMTA_LINKS', `${DESTDIR}${UBINDIR}/newaliases ${DESTDIR}${UBINDIR}/mailq ${DESTDIR}${UBINDIR}/hoststat ${DESTDIR}${UBINDIR}/purgestat')
@@ -72,7 +78,7 @@ install-sm-mta: bldCURRENT_PRODUCT
 	${INSTALL} -c -o ${M`'BINOWN} -g ${M`'BINGRP} -m ${M`'BINMODE} bldCURRENT_PRODUCT ${DESTDIR}${M`'BINDIR}/sm-mta
 	for i in confMTA_LINKS; do \
 		rm -f $$i; \
-		ln -s ${M`'BINDIR}/sm-mta $$i; \
+		${LN} ${LNOPTS} ${M`'BINDIR}/sm-mta $$i; \
 	done
 
 install-hf:
@@ -81,7 +87,11 @@ install-hf:
 
 install-st: statistics
 	if [ ! -d ${DESTDIR}${STDIR} ]; then mkdir -p ${DESTDIR}${STDIR}; else :; fi
-	${INSTALL} -c -o ${SBINOWN} -g ${UBINGRP} -m 644 statistics ${DESTDIR}${STFILE}
+	${INSTALL} -c -o ${SBINOWN} -g ${UBINGRP} -m ifdef(`confSTMODE', `confSTMODE', `0600') statistics ${DESTDIR}${STPATH}
+
+install-submit-st: statistics ${DESTDIR}${MSPQ}
+	${INSTALL} -c -o ${MSPQOWN} -g ${GBINGRP} -m ifdef(`confSTMODE', `confSTMODE', `0600') statistics ${DESTDIR}${MSPQ}/${MSPSTFILE}
+
 divert(0)
 bldPRODUCT_END
 

@@ -1,4 +1,4 @@
-.\" Copyright (c) 1998-2000 Sendmail, Inc. and its suppliers.
+.\" Copyright (c) 1998-2000, 2002 Sendmail, Inc. and its suppliers.
 .\"	 All rights reserved.
 .\" Copyright (c) 1983, 1997 Eric P. Allman.  All rights reserved.
 .\" Copyright (c) 1985, 1990, 1993
@@ -9,14 +9,15 @@
 .\" the sendmail distribution.
 .\"
 .\"
-.\"     $Id: mailq.1,v 1.1.1.2 2002/03/12 18:00:32 zarzycki Exp $
+.\"     $Id: mailq.1,v 1.1.1.3 2002/10/15 02:38:29 zarzycki Exp $
 .\"
-.TH MAILQ 1 "$Date: 2002/03/12 18:00:32 $"
+.TH MAILQ 1 "$Date: 2002/10/15 02:38:29 $"
 .SH NAME
 mailq
 \- print the mail queue
 .SH SYNOPSIS
 .B mailq
+.RB [ \-Ac ]
 .RB [ \-v ]
 .SH DESCRIPTION
 .B Mailq
@@ -45,7 +46,13 @@ one per line.
 .B Mailq
 is identical to ``sendmail -bp''.
 .PP
-The options are as follows:
+The relevant options are as follows:
+.TP
+.B \-Ac
+Show the mail submission queue specified in
+.I /etc/mail/submit.cf
+instead of the MTA queue specified in
+.IR /etc/mail/sendmail.cf .
 .TP
 .B \-v
 Print verbose information.  

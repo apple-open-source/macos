@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smbfs_io.c,v 1.10 2002/06/24 01:31:22 lindak Exp $
+ * $Id: smbfs_io.c,v 1.10.34.1 2003/01/08 03:24:39 lindak Exp $
  *
  */
 #include <sys/param.h>
@@ -279,6 +279,10 @@ smbfs_0extend(struct vnode *vp, u_quad_t from, u_quad_t to,
 	struct uio uio;
 	struct iovec iov;
 
+	/*
+	 * XXX for coherence callers must prevent VM from seeing the file size
+	 * grow until this loop is complete.
+	 */
 	while (from < to) {
 		iov.iov_base = smbzeroes;
 		iov.iov_len = len = min(to - from, sizeof smbzeroes);

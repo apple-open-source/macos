@@ -13,7 +13,8 @@ PROJECTVERSION = 2.8
 PROJECT_TYPE = Aggregate
 
 BUNDLES = ATconfig.bproj KernelEventMonitor.bproj Kicker.bproj\
-          IPMonitor.bproj PreferencesMonitor.bproj InterfaceNamer.bproj
+          InterfaceNamer.bproj IPMonitor.bproj LinkConfiguration.bproj\
+          PreferencesMonitor.bproj
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble
 

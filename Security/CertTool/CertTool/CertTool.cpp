@@ -90,7 +90,7 @@
 #define SEC_CERT_ADD_TO_KC			1
 
 /* SecKeyCreatePair() implemented */
-#define SEC_KEY_CREATE_PAIR			1
+#define SEC_KEY_CREATE_PAIR			0
 
 #if 	!SEC_KEY_CREATE_PAIR
 /* munge Label attr if manually generating keys */

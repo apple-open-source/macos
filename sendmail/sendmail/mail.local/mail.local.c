@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2001 Sendmail, Inc. and its suppliers.
+ * Copyright (c) 1998-2002 Sendmail, Inc. and its suppliers.
  *	All rights reserved.
  * Copyright (c) 1990, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
@@ -18,7 +18,7 @@ SM_IDSTR(copyright,
      Copyright (c) 1990, 1993, 1994\n\
 	The Regents of the University of California.  All rights reserved.\n")
 
-SM_IDSTR(id, "@(#)$Id: mail.local.c,v 1.1.1.5 2002/03/12 18:00:23 zarzycki Exp $")
+SM_IDSTR(id, "@(#)$Id: mail.local.c,v 1.1.1.6 2002/10/15 02:38:19 zarzycki Exp $")
 
 #include <stdlib.h>
 #include <sm/errstring.h>
@@ -520,7 +520,7 @@ dolmtp()
 						"Nested MAIL command");
 					continue;
 				}
-				if (sm_strncasecmp(buf+5, "from:", 5) != 0 ||
+				if (sm_strncasecmp(buf + 5, "from:", 5) != 0 ||
 				    ((return_path = parseaddr(buf + 10,
 							      false)) == NULL))
 				{
@@ -857,7 +857,7 @@ deliver(fd, name)
 	off_t headerbytes;
 	int readamount;
 #endif /* CONTENTLENGTH */
-	char biffmsg[100], buf[8*1024];
+	char biffmsg[100], buf[8 * 1024];
 	SM_MBDB_T user;
 
 	/*

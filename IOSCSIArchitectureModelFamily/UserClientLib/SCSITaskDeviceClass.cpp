@@ -668,7 +668,7 @@ SCSITaskDeviceClass::AddCallbackDispatcherToRunLoop ( CFRunLoopRef cfRunLoopRef 
 	require_success ( status, Error_Exit );
 	
 	fCFRunLoop = cfRunLoopRef;
-	CFRunLoopAddSource ( fCFRunLoop, fCFRunLoopSource, kCFRunLoopDefaultMode );
+	CFRunLoopAddSource ( fCFRunLoop, fCFRunLoopSource, kCFRunLoopCommonModes );
 	
 	PRINT ( ( "CFRunLoopAddSource\n" ) );
 	
@@ -696,7 +696,7 @@ SCSITaskDeviceClass::RemoveCallbackDispatcherFromRunLoop ( void )
 	if ( fCFRunLoopSource != 0 )
 	{
 		
-		CFRunLoopRemoveSource ( fCFRunLoop, fCFRunLoopSource, kCFRunLoopDefaultMode );
+		CFRunLoopRemoveSource ( fCFRunLoop, fCFRunLoopSource, kCFRunLoopCommonModes );
 		fCFRunLoopSource = 0;
 		
 	}

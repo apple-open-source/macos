@@ -1,0 +1,74 @@
+.Dd April 17, 2002 
+.Dt KEXTSTAT 8
+.Os Darwin
+.Sh NAME
+.Nm kextstat
+.Nd display status of dynamically loaded kernel extensions
+.Sh SYNOPSIS
+.Nm kextstat
+.Op Fl b Ar kext_bundle_id
+.Op Fl k
+.Op Fl l
+.Sh DESCRIPTION
+The
+.Nm
+utility displays the status of any kernel extensions
+currently loaded in the kernel.
+The following information is shown for each loaded
+kernel extension:
+.Bl -tag -width indentXX
+.It Index
+The load index of the kernel extension (used to track references).
+Gaps in the list indicate kernel extensions that have been unloaded.
+.It Refs
+The number of references to this extension by others.
+If nonzero, the extension cannot be unloaded.
+.It Address
+The address in kernel space where the extension has been loaded.
+.It Size
+The number of bytes of kernel memory that the extension occupies.
+If this is zero, the extension is actually
+a built-in part of the kernel
+that has a record as an extension for resolving dependencies
+among extensions.
+.It Wired
+The number of wired bytes of kernel memory that the extension occupies.
+.It Name
+The CFBundleIdentifier of the kernel extension.
+.It (Version)
+The CFBundleVersion of the kernel extension.
+.It <Linked Against>
+The index numbers of all other kernel extensions that this extension
+has a reference to.
+.El
+.Pp
+The following options are available:
+.Bl -tag -width indentXX
+.It Fl b Ar kext_bundle_id
+Display the status of only the kernel extension with
+the given bundle identifier.
+This option trumps the
+.Fl k
+option;
+if both are given and a kernel component is specified,
+its information is shown.
+.It Fl k
+Don't show information for built-in components of the kernel.
+.It Fl l
+Print the list of loaded kexts only and omit the header
+(useful for running output through text-analysis tools).
+.El
+.Sh DIAGNOSTICS
+The
+.Nm
+utility exits with a status of 0 on success
+and with a nonzero status if an error occurs.
+.Sh SEE ALSO
+.Xr kextd 8 ,
+.Xr kextload 8 ,
+.Xr kextunload 8
+.Sh HISTORY
+The
+.Nm
+command is based on the command kldstat written by
+.An Doug Rabson Aq dfr@FreeBSD.org

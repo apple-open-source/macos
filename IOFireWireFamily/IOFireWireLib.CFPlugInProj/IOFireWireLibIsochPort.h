@@ -81,8 +81,6 @@ namespace IOFireWireLib {
 		public:
 									IsochPort( IUnknownVTbl* interface, Device& userclient, bool talking, bool allocateKernPort ) ;
 			virtual					~IsochPort() ;
-//			virtual IOReturn		Init(
-//											Boolean				inTalking) ;
 			
 			// --- methods from kernel isoch port ----------
 			virtual IOReturn		GetSupported(

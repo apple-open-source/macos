@@ -51,6 +51,7 @@ typedef enum {
     IFEventID_arp_e,			/* ARP check results */
     IFEventID_change_e,			/* ask config method to change */
     IFEventID_renew_e,			/* ask config method to renew */
+    IFEventID_arp_collision_e,		/* there was an ARP collision */
     IFEventID_last_e,
 } IFEventID_t;
 
@@ -66,6 +67,7 @@ IFEventID_names(IFEventID_t evid)
 	"ARP",
 	"CHANGE",
 	"RENEW",
+	"ARP COLLISION",
     };
     if (evid < IFEventID_start_e || evid >= IFEventID_last_e)
 	return ("<unknown event>");
@@ -137,6 +139,12 @@ typedef struct {
     config_data_t		config;
     boolean_t			needs_stop;
 } change_event_data_t;
+
+typedef struct {
+    struct in_addr		ip_addr;
+    void *			hwaddr;
+    int				hwlen;
+} arp_collision_data_t;
 
 extern struct ether_addr *ether_aton(char *);
 

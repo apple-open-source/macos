@@ -152,8 +152,9 @@ errexit:
 
         // Create a new child node for this device
         newNode =  [[Node alloc] init];
-        [newNode setItemName:[NSString stringWithFormat:@"USB device @ 0x%08lX: .............................................",locationID]]; // Set the node's name to be the device's location
 
+	// Set the node's name to be the device's location
+	[newNode setItemName:[NSString stringWithFormat:@"USB device @ 0x%08lX: .............................................",locationID]]; 
 
         [newNode setItemValue:NULL]; // since I'm not actually gathering anything yet
         [busprobeRootNode addChild:newNode];
@@ -180,13 +181,9 @@ errexit:
         //[self PrintKeyVal:"Device VendorID/ProductID:" val:tempCString forDevice:deviceNumber atDepth:1 forNode:busprobeRootNode];
 
         NUM(dev, "Device Version Number:", bcdDevice, deviceNumber, DEVICE_DESCRIPTOR_LEVEL, 0);
-
         NUM(dev, "Number of Configurations:", bNumConfigurations, deviceNumber, DEVICE_DESCRIPTOR_LEVEL, 1);
-
         STR(dev, "Manufacturer String:", iManufacturer, deviceNumber, 1);
-
         STR(dev, "Product String:", iProduct, deviceNumber, 1);
-
         STR(dev, "Serial Number String:", iSerialNumber, deviceNumber, 1);
 
         // Add the string for the kind of device that it is.  We look at the class of the device
@@ -544,13 +541,15 @@ int	GetStringDescriptor(IOUSBDeviceInterface **deviceIntf, UInt8 descIndex, void
     char *cls = "", *sub = "";
     char name[500];
 
-    switch (pcls[0]) {
+    switch (pcls[0])
+    {
         case kUSBCompositeClass:
             cls = "Composite";
             break;
         case kUSBAudioClass:
             cls = "Audio";
-            switch (pcls[1]) {
+            switch (pcls[1])
+	    {
                 case 0x01:
                     sub = "Audio Control";
                     break;
@@ -564,20 +563,37 @@ int	GetStringDescriptor(IOUSBDeviceInterface **deviceIntf, UInt8 descIndex, void
                     sub = "Unknown";
                     break;
             }
-                break;
-        case kUSBCommClass:			cls = "Comm";			break;
+	    break;
+	    
+        case kUSBCommClass:
+	    cls = "Comm";
+	    break;
+	    
         case kUSBHIDClass:			
             cls = "HID";			
-            switch (pcls[1]) {
-                case kUSBHIDBootInterfaceSubClass:        sub = "Boot Interface"; break;
-                default:                        	sub = ""; break;
+            switch (pcls[1])
+	    {
+                case kUSBHIDBootInterfaceSubClass:
+		    sub = "Boot Interface";
+		    break;
+                default:
+		    sub = "";
+		    break;
             }
             break;
-        case kUSBDisplayClass:			cls = "Display";		break;
-        case kUSBPrintingClass:			cls = "Printing";		break;
+	    
+        case kUSBDisplayClass:
+	    cls = "Display";
+	    break;
+	    
+        case kUSBPrintingClass:
+	    cls = "Printing";
+	    break;
+	    
         case kUSBMassStorageClass:		
             cls = "Mass Storage";		
-            switch (pcls[1]) {
+            switch (pcls[1])
+	    {
                 case kUSBMassStorageRBCSubClass:        sub = "Reduced Block Commands"; break;
                 case kUSBMassStorageATAPISubClass:  	sub = "ATAPI"; break;
                 case kUSBMassStorageQIC157SubClass:  	sub = "QIC-157"; break;
@@ -587,26 +603,45 @@ int	GetStringDescriptor(IOUSBDeviceInterface **deviceIntf, UInt8 descIndex, void
                 default:                        	sub = "Unknown"; break;
             }
             break;
-        case kUSBHubClass:			cls = "Hub";			break;
-        case kUSBDataClass:			cls = "Data";			break;
-        case 0xE0:				cls = "Bluetooth Wireless Controller"; break;
+	    
+        case kUSBHubClass:
+	    cls = "Hub";
+	    break;
+	    
+        case kUSBDataClass:
+	    cls = "Data";
+	    break;
+	    
+        case 0xE0:
+	    cls = "Bluetooth Wireless Controller";
+	    break;
+	    
         case kUSBApplicationSpecificClass:
             cls = "Application Specific";
-            switch (pcls[1]) {
+            switch (pcls[1])
+	    {
                 case kUSBDFUSubClass:         	sub = "Device Firmware Upgrade"; break;
                 case kUSBIrDABridgeSubClass:  	sub = "IrDA Bridge"; break;
                 default:                        sub = "Unknown"; break;
             }
-                break;
-        case kUSBVendorSpecificClass: 		cls = sub = "Vendor-specific";	break;
-        default:				cls = "Unknown";		break;
+	    break;
+	    
+        case kUSBVendorSpecificClass:
+	    cls = sub = "Vendor-specific";
+	    break;
+	    
+        default:
+	    cls = "Unknown";
+	    break;
     }
 
     sprintf(name, "%s Class:", scope);
     [self PrintNumStr:name value:pcls[0] size:1 interpret:cls forDevice:deviceNumber atDepth:depth asInt:1];
     sprintf(name, "%s Subclass:", scope);
     [self PrintNumStr:name value:pcls[1] size:1 interpret:sub forDevice:deviceNumber atDepth:depth asInt:1];
-    if (usbc == NULL) {
+
+    if (usbc == NULL)
+    {
         usbc = [[USBClass alloc] init];
 
         [usbc setClassName:[NSString stringWithCString:cls]];
@@ -627,22 +662,23 @@ int	GetStringDescriptor(IOUSBDeviceInterface **deviceIntf, UInt8 descIndex, void
 {
     Byte *p = (Byte *)desc;
     char *str;
+
     [self printNum:"bLength" value:p[0] size:1 forDevice:(int)deviceNumber atDepth:depth asInt:0];
 
-
-    switch (p[1]) {
+    switch (p[1])
+    {
         case kUSBDeviceDesc:	str = "Device";			break;
-        case kUSBConfDesc:		str = "Configuration";	break;
+        case kUSBConfDesc:	str = "Configuration";	        break;
         case kUSBStringDesc:	str = "String";			break;
         case kUSBInterfaceDesc:	str = "Interface";		break;
         case kUSBEndpointDesc:	str = "Endpoint";		break;
-        case kUSBHIDDesc:		str = "HID";			break;
+        case kUSBHIDDesc:	str = "HID";			break;
         case kUSBReportDesc:	str = "Report";			break;
         case kUSBPhysicalDesc:	str = "Physical";		break;
-        case kUSBHUBDesc:		str = "Hub";			break;
-        case CS_INTERFACE:		str = "CS Interface";	break;
-        case CS_ENDPOINT:		str = "CS Endpoint";	break;
-        default:				str = "(unknown)";		break;
+        case kUSBHUBDesc:	str = "Hub";			break;
+        case CS_INTERFACE:	str = "CS Interface";	        break;
+        case CS_ENDPOINT:	str = "CS Endpoint";	        break;
+        default:		str = "(unknown)";		break;
     }
 
     [self PrintNumStr:"bDescriptorType" value:p[1] size:1 interpret:str forDevice:(int)deviceNumber atDepth:depth asInt:0];
@@ -734,14 +770,17 @@ UInt16	Swap16(void *p)
 {
     Byte buf[256];
     char str2[500];
-    if (strIndex > 0) {
+    if (strIndex > 0)
+    {
         int len;
         buf[0] = 0;
         len = GetStringDescriptor(deviceIntf, strIndex, buf, sizeof(buf),NULL);
-        if (len > 2) {
+        if (len > 2)
+	{
             Byte *p;
             CFStringRef str;
-            for (p = buf + 2; p < buf + len; p += 2) {
+            for (p = buf + 2; p < buf + len; p += 2)
+	    {
                 Swap16(p);
             }
 
@@ -751,15 +790,18 @@ UInt16	Swap16(void *p)
             sprintf(str2, "%d \"%s\"", strIndex, buf);
             [self PrintKeyVal:name val:str2 forDevice:deviceNumber atDepth:depth forNode:busprobeRootNode];
 
-        } else  {
+        }
+	else
+	{
             char str[20];
             buf[0] = 0;
             sprintf(str,"%d (none)",strIndex);
             [self PrintKeyVal:name val:str forDevice:deviceNumber atDepth:depth forNode:busprobeRootNode];
-
         }
 
-    } else {
+    }
+    else
+    {
         char str[20];
         sprintf(str,"%d (none)",strIndex);
         [self PrintKeyVal:name val:str forDevice:deviceNumber atDepth:depth forNode:busprobeRootNode];
@@ -772,29 +814,37 @@ UInt16	Swap16(void *p)
 {
     Byte buf[256];
     char str2[500];
-    if (strIndex > 0) {
+
+    if (strIndex > 0)
+    {
         int len;
         buf[0] = 0;
         len = GetStringDescriptor(deviceIntf, strIndex, buf, sizeof(buf),NULL);
-        if (len > 2) {
+
+	if (len > 2)
+	{
             Byte *p;
             CFStringRef str;
-            for (p = buf + 2; p < buf + len; p += 2) {
+            for (p = buf + 2; p < buf + len; p += 2)
+	    {
                 Swap16(p);
-            }
+	    }
 
-            str = CFStringCreateWithCharacters(NULL, (const UniChar *)(buf+2), (len-2)/2);
-            CFStringGetCString(str, (char *)buf, 256, kCFStringEncodingNonLossyASCII);
-            CFRelease(str);
-            sprintf(str2, "\"%s\"", buf);
-            return [NSString stringWithCString:str2];
+	    str = CFStringCreateWithCharacters(NULL, (const UniChar *)(buf+2), (len-2)/2);
+	    CFStringGetCString(str, (char *)buf, 256, kCFStringEncodingNonLossyASCII);
+	    CFRelease(str);
+	    sprintf(str2, "\"%s\"", buf);
 
-        } else  {
+	    return [NSString stringWithCString:str2];
+        }
+	else
+	{
             buf[0] = 0;
             return @"0x00";
         }
 
-    } else
+    }
+    else
         return @"0x00";
 }
 
@@ -843,8 +893,6 @@ UInt16	Swap16(void *p)
         }
     }
 
-    [self PrintKeyVal:"Unknown Descriptor" val:str1 forDevice:deviceNumber atDepth:depth forNode:busprobeRootNode];
-
     if ( lineCount != 0 )
     {
         // Don't add an index for descriptors that only occupy one line
@@ -854,6 +902,10 @@ UInt16	Swap16(void *p)
             
     	[self PrintKeyVal:descriptor val:str1 forDevice:deviceNumber atDepth:depth forNode:busprobeRootNode];
     }
+    else
+	[self PrintKeyVal:"Unknown Descriptor" val:str1 forDevice:deviceNumber atDepth:depth forNode:busprobeRootNode];
+    
+	
     
     return;
 }
@@ -863,319 +915,460 @@ UInt16	Swap16(void *p)
 //
 +(void)DumpDescriptor:(IOUSBDeviceInterface **)deviceIntf p:(Byte *)p forDevice:(int)deviceNumber  lastInterfaceClass:(UInt8)lastInterfaceClass  lastInterfaceSubClass:(UInt8)lastInterfaceSubClass currentInterfaceNum:(int)currentInterfaceNum
 {
-        UInt8 descType = p[1];
-        char *xferTypes[] = { "Control", "Isochronous", "Bulk", "Interrupt" };
-        int xferTypes2[] = { 0, 1, 2, 3 };
-        USBClass *interfaceClass = NULL;
-        int tempInt1, tempInt2;
-        NSString *tempString1;
-        char str[500];
+    UInt8 	descType 	= p[1];
+    char *	xferTypes[] 	= { "Control", "Isochronous", "Bulk", "Interrupt" };
+    int 	xferTypes2[] 	= { 0, 1, 2, 3 };
+    USBClass *	interfaceClass 	= NULL;
+    int 	tempInt1, tempInt2;
+    NSString *	tempString1;
+    char 	str[500];
+    char 	temporaryString[500];
 
-        switch (descType) {
-            case kUSBInterfaceDesc:
+    switch (descType)
+    {
+        case kUSBInterfaceDesc:
+        {
+            /*	struct IOUSBInterfaceDescriptor {
+            UInt8 			bLength;
+            UInt8 			bDescriptorType;
+            UInt8 			bInterfaceNumber;
+            UInt8 			bAlternateSetting;
+            UInt8 			bNumEndpoints;
+            UInt8 			bInterfaceClass;
+            UInt8 			bInterfaceSubClass;
+            UInt8 			bInterfaceProtocol;
+            UInt8 			iInterface;
+            }; */
+            
+            IOUSBInterfaceDescriptor 	interfaceDescriptor;
+            char 			interfaceHeading[500];
+
+            interfaceDescriptor = *(IOUSBInterfaceDescriptor *)p;
+
+            sprintf(interfaceHeading, "Interface #%d", (int)interfaceDescriptor.bInterfaceNumber);
+
+            [self PrintKeyVal:interfaceHeading val:"" forDevice:deviceNumber atDepth:INTERFACE_LEVEL-1 forNode:busprobeRootNode];
+
+            NUM(interfaceDescriptor, "Alternate Setting", bAlternateSetting, deviceNumber, INTERFACE_LEVEL, 1);
+            NUM(interfaceDescriptor, "Number of Endpoints", bNumEndpoints, deviceNumber, INTERFACE_LEVEL, 1);
+            interfaceClass = [self ClassAndSubClass:"Interface" pcls:&interfaceDescriptor.bInterfaceClass forDevice:deviceNumber atDepth:INTERFACE_LEVEL];
+
+            tempInt1 = [[busprobeRootNode childAtIndex:deviceNumber] childrenCount];
+            tempInt2 = [[[busprobeRootNode childAtIndex:deviceNumber] childAtIndex:tempInt1-1] childrenCount];
+            tempString1 = [interfaceClass className];
+
+            // If our subclass name is different than our class name, then add the sub class to the description
+            // following a "/"
+            //
+            if( ! [[interfaceClass subClassName] isEqualToString:@""] &&
+                ! [[interfaceClass subClassName] isEqualToString:[interfaceClass className]] )
             {
-                /*	struct IOUSBInterfaceDescriptor {
-                UInt8 			bLength;
-                UInt8 			bDescriptorType;
-                UInt8 			bInterfaceNumber;
-                UInt8 			bAlternateSetting;
-                UInt8 			bNumEndpoints;
-                UInt8 			bInterfaceClass;
-                UInt8 			bInterfaceSubClass;
-                UInt8 			bInterfaceProtocol;
-                UInt8 			iInterface;
-                }; */
-                IOUSBInterfaceDescriptor intf;
-                char interfaceHeading[500];
-
-                intf = *(IOUSBInterfaceDescriptor *)p;
-
-                sprintf(interfaceHeading, "Interface #%d", (int)intf.bInterfaceNumber);
-
-
-                [self PrintKeyVal:interfaceHeading val:"" forDevice:deviceNumber atDepth:INTERFACE_LEVEL-1 forNode:busprobeRootNode];
-
-                NUM(intf, "Alternate Setting", bAlternateSetting, deviceNumber, INTERFACE_LEVEL, 1);
-                NUM(intf, "Number of Endpoints", bNumEndpoints, deviceNumber, INTERFACE_LEVEL, 1);
-                interfaceClass = [self ClassAndSubClass:"Interface" pcls:&intf.bInterfaceClass forDevice:deviceNumber atDepth:INTERFACE_LEVEL];
-
-                tempInt1 = [[busprobeRootNode childAtIndex:deviceNumber] childrenCount];
-                tempInt2 = [[[busprobeRootNode childAtIndex:deviceNumber] childAtIndex:tempInt1-1] childrenCount];
-                tempString1 = [interfaceClass className];
-
-                // If our subclass name is different than our class name, then add the sub class to the description
-                // following a "/"
-                //
-                if( ! [[interfaceClass subClassName] isEqualToString:@""] &&
-                    ! [[interfaceClass subClassName] isEqualToString:[interfaceClass className]] ) {
-                    tempString1 = [[tempString1 stringByAppendingString:@"/"] stringByAppendingString:[interfaceClass subClassName]];
-                }
-
-                [[[[busprobeRootNode childAtIndex:deviceNumber] childAtIndex:tempInt1-1] childAtIndex:tempInt2-1] setItemName:[NSString stringWithFormat:@"Interface #%d - %s", (int)intf.bInterfaceNumber, [tempString1 cString]]];
-
-
-                NUM(intf, "Interface Protocol", bInterfaceProtocol, deviceNumber, INTERFACE_LEVEL, 1);
-
-                lastInterfaceClass = intf.bInterfaceClass;
-                lastInterfaceSubClass = intf.bInterfaceSubClass;
+                tempString1 = [[tempString1 stringByAppendingString:@"/"] stringByAppendingString:[interfaceClass subClassName]];
             }
-                break;
-            case kUSBEndpointDesc:
+
+            if ( interfaceDescriptor.bAlternateSetting != 0 )
+		[[[[busprobeRootNode childAtIndex:deviceNumber] childAtIndex:tempInt1-1] childAtIndex:tempInt2-1] setItemName:[NSString stringWithFormat:@"Interface #%d - %s (#%d)", (int)interfaceDescriptor.bInterfaceNumber, [tempString1 cString], (int)interfaceDescriptor.bAlternateSetting]];
+            else
+                [[[[busprobeRootNode childAtIndex:deviceNumber] childAtIndex:tempInt1-1] childAtIndex:tempInt2-1] setItemName:[NSString stringWithFormat:@"Interface #%d - %s", (int)interfaceDescriptor.bInterfaceNumber, [tempString1 cString]]];
+
+            NUM(interfaceDescriptor, "Interface Protocol", bInterfaceProtocol, deviceNumber, INTERFACE_LEVEL, 1);
+
+            lastInterfaceClass = interfaceDescriptor.bInterfaceClass;
+            lastInterfaceSubClass = interfaceDescriptor.bInterfaceSubClass;
+        }
+        break;
+            
+        case kUSBEndpointDesc:
+        {
+            /*	struct IOUSBEndpointDescriptor {
+            UInt8 			bLength;
+            UInt8 			bDescriptorType;
+            UInt8 			bEndpointAddress;
+            UInt8 			bmAttributes;
+            UInt16 			wMaxPacketSize;
+            UInt8 			bInterval;
+            }; */
+            IOUSBEndpointDescriptor     endpointDescriptor;
+            char                        endpointHeading[500];
+
+            endpointDescriptor = *(IOUSBEndpointDescriptor *)p;
+
+            Swap16(&endpointDescriptor.wMaxPacketSize);
+            switch (xferTypes2[endpointDescriptor.bmAttributes & 3])
             {
-                /*	struct IOUSBEndpointDescriptor {
-                UInt8 			bLength;
-                UInt8 			bDescriptorType;
-                UInt8 			bEndpointAddress;
-                UInt8 			bmAttributes;
-                UInt16 			wMaxPacketSize;
-                UInt8 			bInterval;
-                }; */
-                IOUSBEndpointDescriptor end;
-                char endpointHeading[500];
-                char temporaryString[500];
-
-                end = *(IOUSBEndpointDescriptor *)p;
-
-                Swap16(&end.wMaxPacketSize);
-                switch (xferTypes2[end.bmAttributes & 3]) {
-                    case 0:
-                        sprintf(endpointHeading, "Endpoint 0x%02X - Control Endpoint", end.bEndpointAddress);
-                        [self PrintKeyVal:endpointHeading val:"" forDevice:deviceNumber atDepth:ENDPOINT_LEVEL-1 forNode:busprobeRootNode];
-                        break;
-                    case 1:
-                        if ( (end.bEndpointAddress & kEndpointAddressMask ) == 0 )
-                            sprintf(endpointHeading, "Endpoint 0x%02X - Isochronous Output", end.bEndpointAddress);
-                        else
-                            sprintf(endpointHeading, "Endpoint 0x%02X - Isochronous Input", end.bEndpointAddress);
-                        [self PrintKeyVal:endpointHeading val:"" forDevice:deviceNumber atDepth:ENDPOINT_LEVEL-1 forNode:busprobeRootNode];
-                        break;
-                    case 2:
-                        if ( (end.bEndpointAddress & kEndpointAddressMask ) == 0 )
-                            sprintf(endpointHeading, "Endpoint 0x%02X - Bulk Output", end.bEndpointAddress);
-                        else
-                            sprintf(endpointHeading, "Endpoint 0x%02X - Bulk Input", end.bEndpointAddress);
-                        [self PrintKeyVal:endpointHeading val:"" forDevice:deviceNumber atDepth:ENDPOINT_LEVEL-1 forNode:busprobeRootNode];
-                        break;
-                    case 3:
-                        if ( (end.bEndpointAddress & kEndpointAddressMask ) == 0 )
-                            sprintf(endpointHeading, "Endpoint 0x%02X - Interrupt Output", end.bEndpointAddress);
-                        else
-                            sprintf(endpointHeading, "Endpoint 0x%02X - Interrupt Input", end.bEndpointAddress);
-                        [self PrintKeyVal:endpointHeading val:"" forDevice:deviceNumber atDepth:ENDPOINT_LEVEL-1 forNode:busprobeRootNode];
-                        break;
-                    default:
-                        sprintf(endpointHeading, "Endpoint 0x%02X", end.bEndpointAddress);
-                        [self PrintKeyVal:endpointHeading val:"" forDevice:deviceNumber atDepth:ENDPOINT_LEVEL-1 forNode:busprobeRootNode];
-                        break;
-                }
-
-                if (!(xferTypes2[end.bmAttributes & 3] == 0)) { // we dont need to show direction for Control Endpoints
-                    if ( (end.bEndpointAddress & kEndpointAddressMask ) == 0 )
-                        sprintf(temporaryString, "0x%02X  (OUT)", end.bEndpointAddress);
+                case 0:
+                    sprintf(endpointHeading, "Endpoint 0x%02X - Control Endpoint", endpointDescriptor.bEndpointAddress);
+                    [self PrintKeyVal:endpointHeading val:"" forDevice:deviceNumber atDepth:ENDPOINT_LEVEL-1 forNode:busprobeRootNode];
+                    break;
+                case 1:
+                    if ( (endpointDescriptor.bEndpointAddress & kEndpointAddressMask ) == 0 )
+                        sprintf(endpointHeading, "Endpoint 0x%02X - Isochronous Output", endpointDescriptor.bEndpointAddress);
                     else
-                        sprintf(temporaryString, "0x%02X  (IN)", end.bEndpointAddress);
-                    [self PrintKeyVal:"Attributes:" val:temporaryString  forDevice:deviceNumber atDepth:ENDPOINT_LEVEL forNode:busprobeRootNode];
-                }
-
-                sprintf(str, "0x%02X  (%s)", end.bmAttributes, xferTypes[end.bmAttributes & 3]);
-                [self PrintKeyVal:"Attributes:" val:str  forDevice:deviceNumber atDepth:ENDPOINT_LEVEL forNode:busprobeRootNode];
-
-                sprintf(temporaryString, "%d", end.wMaxPacketSize);
-                [self PrintKeyVal:"Max Packet Size:" val:temporaryString forDevice:deviceNumber atDepth:ENDPOINT_LEVEL forNode:busprobeRootNode];
-
-                sprintf(temporaryString, "%d ms", end.bInterval);
-                [self PrintKeyVal:"Polling Interval:" val:temporaryString  forDevice:deviceNumber atDepth:ENDPOINT_LEVEL forNode:busprobeRootNode];
+                        sprintf(endpointHeading, "Endpoint 0x%02X - Isochronous Input", endpointDescriptor.bEndpointAddress);
+                    [self PrintKeyVal:endpointHeading val:"" forDevice:deviceNumber atDepth:ENDPOINT_LEVEL-1 forNode:busprobeRootNode];
+                    break;
+                case 2:
+                    if ( (endpointDescriptor.bEndpointAddress & kEndpointAddressMask ) == 0 )
+                        sprintf(endpointHeading, "Endpoint 0x%02X - Bulk Output", endpointDescriptor.bEndpointAddress);
+                    else
+                        sprintf(endpointHeading, "Endpoint 0x%02X - Bulk Input", endpointDescriptor.bEndpointAddress);
+                    [self PrintKeyVal:endpointHeading val:"" forDevice:deviceNumber atDepth:ENDPOINT_LEVEL-1 forNode:busprobeRootNode];
+                    break;
+                case 3:
+                    if ( (endpointDescriptor.bEndpointAddress & kEndpointAddressMask ) == 0 )
+                        sprintf(endpointHeading, "Endpoint 0x%02X - Interrupt Output", endpointDescriptor.bEndpointAddress);
+                    else
+                        sprintf(endpointHeading, "Endpoint 0x%02X - Interrupt Input", endpointDescriptor.bEndpointAddress);
+                    [self PrintKeyVal:endpointHeading val:"" forDevice:deviceNumber atDepth:ENDPOINT_LEVEL-1 forNode:busprobeRootNode];
+                    break;
+                default:
+                    sprintf(endpointHeading, "Endpoint 0x%02X", endpointDescriptor.bEndpointAddress);
+                    [self PrintKeyVal:endpointHeading val:"" forDevice:deviceNumber atDepth:ENDPOINT_LEVEL-1 forNode:busprobeRootNode];
+                    break;
             }
-                break;
-            case CS_INTERFACE:
-                [self DoRegularCSInterface:p deviceClass:interfaceClass forDevice:deviceNumber atDepth:INTERFACE_LEVEL-1];
-                break;
-            case CS_ENDPOINT:
-                [self DoRegularCSEndpoint:p deviceClass:interfaceClass forDevice:deviceNumber atDepth:ENDPOINT_LEVEL-1];
-                break;
-            case HID_DESCRIPTOR:
-                /* case DFU_FUNCTIONAL_DESCRIPTOR:  - same value, compiler complains */
+
+            if (!(xferTypes2[endpointDescriptor.bmAttributes & 3] == 0))
             {
-                if (lastInterfaceClass == kUSBApplicationSpecificClass && lastInterfaceSubClass == kUSBDFUSubClass)
-                {
-                    IOUSBDFUDescriptor dfuDescriptor;
-                    char temporaryString[500];
+                // we dont need to show direction for Control Endpoints
+                //
+                if ( (endpointDescriptor.bEndpointAddress & kEndpointAddressMask ) == 0 )
+                    sprintf(temporaryString, "0x%02X  (OUT)", endpointDescriptor.bEndpointAddress);
+                else
+                    sprintf(temporaryString, "0x%02X  (IN)", endpointDescriptor.bEndpointAddress);
+                [self PrintKeyVal:"Attributes:" val:temporaryString  forDevice:deviceNumber atDepth:ENDPOINT_LEVEL forNode:busprobeRootNode];
+            }
 
-                    dfuDescriptor = *(IOUSBDFUDescriptor *)p;
+            sprintf(str, "0x%02X  (%s)", endpointDescriptor.bmAttributes, xferTypes[endpointDescriptor.bmAttributes & 3]);
+            [self PrintKeyVal:"Attributes:" val:str  forDevice:deviceNumber atDepth:ENDPOINT_LEVEL forNode:busprobeRootNode];
 
-                    [self PrintKeyVal:"DFU Functional Descriptor" val:"" forDevice:deviceNumber
-                              atDepth:DFU_DESCRIPTOR_LEVEL-1 forNode:busprobeRootNode];
+            sprintf(temporaryString, "%d", endpointDescriptor.wMaxPacketSize);
+            [self PrintKeyVal:"Max Packet Size:" val:temporaryString forDevice:deviceNumber atDepth:ENDPOINT_LEVEL forNode:busprobeRootNode];
 
-                    sprintf(temporaryString, "0x%02x (%sDownload, %sUpload, %sManifestation Tolerant, "
-                            "Reserved bits: 0x%02x)",
-                            dfuDescriptor.bmAttributes,
-                            dfuDescriptor.bmAttributes &  (1 << kUSBDFUCanDownloadBit) ? "" : "No ",
-                            dfuDescriptor.bmAttributes & ( 1 << kUSBDFUCanUploadBit) ? "" : "No ",
-                            dfuDescriptor.bmAttributes & ( 1 << kUSBDFUManifestationTolerantBit) ? "" : "Not ",
-                            dfuDescriptor.bmAttributes & ~kUSBDFUAttributesMask);
-                    [self PrintKeyVal:"bmAttributes:" val:temporaryString  forDevice:deviceNumber
-                              atDepth:DFU_DESCRIPTOR_LEVEL forNode:busprobeRootNode];
-
-                    sprintf(temporaryString, "%d ms", Swap16(&dfuDescriptor.wDetachTimeout) );
-
-                    [self PrintKeyVal:"wDetachTimeout:" val:temporaryString  forDevice:deviceNumber
-                              atDepth:DFU_DESCRIPTOR_LEVEL forNode:busprobeRootNode];
-
-                    sprintf(temporaryString, "%d bytes", Swap16(&dfuDescriptor.wTransferSize));
-
-                    [self PrintKeyVal:"wTransferSize:" val:temporaryString  forDevice:deviceNumber
-                              atDepth:DFU_DESCRIPTOR_LEVEL forNode:busprobeRootNode];
-                } else if (lastInterfaceClass == kUSBHIDClass) {
-
-                    IOUSBHIDDescriptor HIDDesc;
-                    int descriptorIncrement=0;
-
-                    HIDDesc = *(IOUSBHIDDescriptor *)p;
-
-                    [self PrintKeyVal:"HID Descriptor" val:"" forDevice:deviceNumber atDepth:HID_DESCRIPTOR_LEVEL-1 forNode:busprobeRootNode];
-                    Swap16(&HIDDesc.descVersNum);
-
-                    NUM(HIDDesc, "Descriptor Version Number:", descVersNum, deviceNumber, HID_DESCRIPTOR_LEVEL, 0);
-                    NUM(HIDDesc, "Country Code:", hidCountryCode, deviceNumber, HID_DESCRIPTOR_LEVEL, 1);
-                    NUM(HIDDesc, "Descriptor Count:", hidNumDescriptors, deviceNumber, HID_DESCRIPTOR_LEVEL, 1);
-
-                    for(descriptorIncrement=1; descriptorIncrement <= HIDDesc.hidNumDescriptors; descriptorIncrement++) {
-                        char tempCString[20], descriptorHeading[20];
-                        NSString *tempString;
-
-                        sprintf(descriptorHeading, "Descriptor %d", descriptorIncrement);
-                        [self PrintKeyVal:descriptorHeading val:"" forDevice:deviceNumber atDepth:HID_DESCRIPTOR_LEVEL forNode:busprobeRootNode];
-
-                        tempString = RETURNNUM(HIDDesc, hidDescriptorType, 0);
-                        if ( HIDDesc.hidDescriptorType == kUSBHIDDesc) {
-                            UInt16 hidDescriptorLength = ( HIDDesc.hidDescriptorLengthHi  << 8 ) | HIDDesc.hidDescriptorLengthLo;
-                            sprintf(tempCString, "%s  (HID Descriptor)", [tempString cString]);
-                            [self PrintKeyVal:"Type:" val:tempCString forDevice:deviceNumber atDepth:HID_DESCRIPTOR_LEVEL+1 forNode:busprobeRootNode];
-                            sprintf(tempCString, "%d", hidDescriptorLength);
-                            [self PrintKeyVal:"Length:" val:tempCString forDevice:deviceNumber atDepth:HID_DESCRIPTOR_LEVEL+1 forNode:busprobeRootNode];
-                        }
-                        else if (HIDDesc.hidDescriptorType == kUSBReportDesc)
+            sprintf(temporaryString, "%d ms", endpointDescriptor.bInterval);
+            [self PrintKeyVal:"Polling Interval:" val:temporaryString  forDevice:deviceNumber atDepth:ENDPOINT_LEVEL forNode:busprobeRootNode];
+        }
+        break;
+            
+/*        case CS_INTERFACE:
+        switch (lastInterfaceClass)
+        {
+                case 1: // audio class
+                    if( AC_CONTROL_SUBCLASS == lastInterfaceSubClass )
+                    {
+                        switch ( ((GenericAudioDescriptorPtr)p)->descSubType )
                         {
-                            unsigned char *reportdesc;
-                            UInt16 hidlen, hidDescriptorLength = ( HIDDesc.hidDescriptorLengthHi  << 8 ) | HIDDesc.hidDescriptorLengthLo;
-
-                            sprintf(tempCString, "%s  (Report Descriptor)", [tempString cString]);
-                            [self PrintKeyVal:"Type:" val:tempCString forDevice:deviceNumber atDepth:HID_DESCRIPTOR_LEVEL+1 forNode:busprobeRootNode];
-                            sprintf(tempCString, "%d", hidDescriptorLength);
-                            [self PrintKeyVal:"Length (and contents):" val:tempCString forDevice:deviceNumber atDepth:HID_DESCRIPTOR_LEVEL+1 forNode:busprobeRootNode];
-                            reportdesc = malloc(hidDescriptorLength);
-                            if (reportdesc){
-                                hidlen = GetDescriptorFromInterface(deviceIntf, kUSBReportDesc, 0 /*desc index*/,  currentInterfaceNum, reportdesc, hidDescriptorLength);
-                                if (hidlen == hidDescriptorLength)
-                                {
-                                    [self dump:hidlen byte:reportdesc forDevice:deviceNumber atDepth:HID_DESCRIPTOR_LEVEL+2];
-                                    [DecodeHIDReport DecodeHIDReport:reportdesc forDevice:deviceNumber atDepth:HID_DESCRIPTOR_LEVEL+1 reportLen:hidlen forNode:busprobeRootNode];
-                                }
-                                free(reportdesc);
-                            }
-                        }
-                        else if (HIDDesc.hidDescriptorType == kUSBPhysicalDesc) {
-                            UInt16 hidDescriptorLength = ( HIDDesc.hidDescriptorLengthHi  << 8 ) | HIDDesc.hidDescriptorLengthLo;
-                            sprintf(tempCString, "%s  (Physical Descriptor)", [tempString cString]);
-                            [self PrintKeyVal:"Type:" val:tempCString forDevice:deviceNumber atDepth:HID_DESCRIPTOR_LEVEL+1 forNode:busprobeRootNode];
-                            sprintf(tempCString, "%d", hidDescriptorLength);
-                            [self PrintKeyVal:"Length:" val:tempCString forDevice:deviceNumber atDepth:HID_DESCRIPTOR_LEVEL+1 forNode:busprobeRootNode];
-                        }
-                        else {
-                            UInt16 hidDescriptorLength = ( HIDDesc.hidDescriptorLengthHi  << 8 ) | HIDDesc.hidDescriptorLengthLo;
-                            sprintf(tempCString, "%s", [tempString cString]);
-                            [self PrintKeyVal:"Type:" val:tempCString forDevice:deviceNumber atDepth:HID_DESCRIPTOR_LEVEL+1 forNode:busprobeRootNode];
-                            sprintf(tempCString, "%d", hidDescriptorLength);
-                            [self PrintKeyVal:"Length:" val:tempCString forDevice:deviceNumber atDepth:HID_DESCRIPTOR_LEVEL+1 forNode:busprobeRootNode];
+                            case ACS_HEADER:
+                                sprintf((char *)temporaryString, "Audio Control Class Specific Header Descriptor");
+                                break;
+                            case ACS_INPUT_TERMINAL:
+                                sprintf((char *)temporaryString, "Audio Class Specific Input Terminal Descriptor");
+                                break;
+                            case ACS_OUTPUT_TERMINAL:
+                                sprintf((char *)temporaryString, "Audio Class Specific Ouput Terminal Descriptor");
+                                break;
+                            case ACS_MIXER_UNIT:
+                                sprintf((char *)temporaryString, "Audio Class Specific Mixer Unit Descriptor");
+                                break;
+                            case ACS_SELECTOR_UNIT:
+                                sprintf((char *)temporaryString, "Audio Class Specific Selector Unit Descriptor");
+                                break;
+                            case ACS_FEATURE_UNIT:
+                                sprintf((char *)temporaryString, "Audio Class Specific Feature Descriptor");
+                                break;
+                            case ACS_PROCESSING_UNIT:
+                                sprintf((char *)temporaryString, "Audio Class Specific Processing Unit Descriptor");
+                                break;
+                            case ACS_EXTENSION_UNIT:
+                                sprintf((char *)temporaryString, "Audio Class Specific Extension Descriptor");
+                                break;
                         }
                     }
-                }  /* HID Descriptor */
-                else
+                    else if( AC_STREAM_SUBCLASS == lastInterfaceSubClass )
+                    {
+                        switch ( ((GenericAudioDescriptorPtr)p)->descSubType )
+                        {
+                            case ACS_HEADER:
+                                sprintf((char *)temporaryString, "Audio Control Class Specific Header Descriptor");
+                                break;
+                            case ACS_FORMAT_TYPE:
+                                sprintf((char *)temporaryString, "Audio Class Specific Audio Data Format Descriptor");
+                                break;
+                        }
+                    }
+                    break;
+                default:
+                    sprintf((char *)temporaryString, "Type 0x%02x Descriptor",((GenericAudioDescriptorPtr)p)->descSubType);
+                    break;
+            }
+            [self PrintKeyVal:temporaryString val:"" forDevice:deviceNumber
+                      atDepth:CONFIGURATION_DESCRIPTOR_LEVEL+2 forNode:busprobeRootNode];
+            break;
+        case CS_ENDPOINT:
+            [self DoRegularCSEndpoint:p deviceClass:interfaceClass forDevice:deviceNumber atDepth:ENDPOINT_LEVEL-1];
+            break;
+*/
+        case HID_DESCRIPTOR:
+        // case DFU_FUNCTIONAL_DESCRIPTOR:  - same value, compiler complains
+        {
+            if (lastInterfaceClass == kUSBApplicationSpecificClass && lastInterfaceSubClass == kUSBDFUSubClass)
+            {
+                IOUSBDFUDescriptor 	dfuDescriptor;
+
+                dfuDescriptor = *(IOUSBDFUDescriptor *)p;
+
+                [self PrintKeyVal:"DFU Functional Descriptor" val:"" forDevice:deviceNumber
+                          atDepth:DFU_DESCRIPTOR_LEVEL-1 forNode:busprobeRootNode];
+
+                sprintf(temporaryString, "0x%02x (%sDownload, %sUpload, %sManifestation Tolerant, "
+                        "Reserved bits: 0x%02x)",
+                        dfuDescriptor.bmAttributes,
+                        dfuDescriptor.bmAttributes &  (1 << kUSBDFUCanDownloadBit) ? "" : "No ",
+                        dfuDescriptor.bmAttributes & ( 1 << kUSBDFUCanUploadBit) ? "" : "No ",
+                        dfuDescriptor.bmAttributes & ( 1 << kUSBDFUManifestationTolerantBit) ? "" : "Not ",
+                        dfuDescriptor.bmAttributes & ~kUSBDFUAttributesMask);
+                [self PrintKeyVal:"bmAttributes:" val:temporaryString  forDevice:deviceNumber
+                          atDepth:DFU_DESCRIPTOR_LEVEL forNode:busprobeRootNode];
+
+                sprintf(temporaryString, "%d ms", Swap16(&dfuDescriptor.wDetachTimeout) );
+
+                [self PrintKeyVal:"wDetachTimeout:" val:temporaryString  forDevice:deviceNumber
+                          atDepth:DFU_DESCRIPTOR_LEVEL forNode:busprobeRootNode];
+
+                sprintf(temporaryString, "%d bytes", Swap16(&dfuDescriptor.wTransferSize));
+
+                [self PrintKeyVal:"wTransferSize:" val:temporaryString  forDevice:deviceNumber
+                          atDepth:DFU_DESCRIPTOR_LEVEL forNode:busprobeRootNode];
+            }
+            else if (lastInterfaceClass == kUSBHIDClass)
+            {
+                IOUSBHIDDescriptor 	hidDescriptor;
+                int 			descriptorIncrement=0;
+
+                hidDescriptor = *(IOUSBHIDDescriptor *)p;
+
+                [self PrintKeyVal:"HID Descriptor" val:"" forDevice:deviceNumber atDepth:HID_DESCRIPTOR_LEVEL-1 forNode:busprobeRootNode];
+                Swap16(&hidDescriptor.descVersNum);
+
+                NUM(hidDescriptor, "Descriptor Version Number:", descVersNum, deviceNumber, HID_DESCRIPTOR_LEVEL, 0);
+                NUM(hidDescriptor, "Country Code:", hidCountryCode, deviceNumber, HID_DESCRIPTOR_LEVEL, 1);
+                NUM(hidDescriptor, "Descriptor Count:", hidNumDescriptors, deviceNumber, HID_DESCRIPTOR_LEVEL, 1);
+
+                for(descriptorIncrement=1; descriptorIncrement <= hidDescriptor.hidNumDescriptors; descriptorIncrement++)
                 {
-                    // Descriptor 21 for an unknown class.  Just dump it out
-                    //
-                    [self DumpRawDescriptor:p forDevice:deviceNumber atDepth:CONFIGURATION_DESCRIPTOR_LEVEL+1];
+                    char tempCString[20], descriptorHeading[20];
+                    NSString *tempString;
+
+                    sprintf(descriptorHeading, "Descriptor %d", descriptorIncrement);
+                    [self PrintKeyVal:descriptorHeading val:"" forDevice:deviceNumber atDepth:HID_DESCRIPTOR_LEVEL forNode:busprobeRootNode];
+
+                    tempString = RETURNNUM(hidDescriptor, hidDescriptorType, 0);
+                    if ( hidDescriptor.hidDescriptorType == kUSBHIDDesc)
+                    {
+                        UInt16 hidDescriptorLength = ( hidDescriptor.hidDescriptorLengthHi  << 8 ) | hidDescriptor.hidDescriptorLengthLo;
+                        sprintf(tempCString, "%s  (HID Descriptor)", [tempString cString]);
+                        [self PrintKeyVal:"Type:" val:tempCString forDevice:deviceNumber atDepth:HID_DESCRIPTOR_LEVEL+1 forNode:busprobeRootNode];
+                        sprintf(tempCString, "%d", hidDescriptorLength);
+                        [self PrintKeyVal:"Length:" val:tempCString forDevice:deviceNumber atDepth:HID_DESCRIPTOR_LEVEL+1 forNode:busprobeRootNode];
+                    }
+                    else if (hidDescriptor.hidDescriptorType == kUSBReportDesc)
+                    {
+                        unsigned char *reportdesc;
+                        UInt16 hidlen, hidDescriptorLength = ( hidDescriptor.hidDescriptorLengthHi  << 8 ) | hidDescriptor.hidDescriptorLengthLo;
+
+                        sprintf(tempCString, "%s  (Report Descriptor)", [tempString cString]);
+                        [self PrintKeyVal:"Type:" val:tempCString forDevice:deviceNumber atDepth:HID_DESCRIPTOR_LEVEL+1 forNode:busprobeRootNode];
+                        sprintf(tempCString, "%d", hidDescriptorLength);
+                        [self PrintKeyVal:"Length (and contents):" val:tempCString forDevice:deviceNumber atDepth:HID_DESCRIPTOR_LEVEL+1 forNode:busprobeRootNode];
+                        reportdesc = malloc(hidDescriptorLength);
+                        if (reportdesc)
+                        {
+                            hidlen = GetDescriptorFromInterface(deviceIntf, kUSBReportDesc, 0 /*desc index*/,  currentInterfaceNum, reportdesc, hidDescriptorLength);
+                            if (hidlen == hidDescriptorLength)
+                            {
+                                [self dump:hidlen byte:reportdesc forDevice:deviceNumber atDepth:HID_DESCRIPTOR_LEVEL+2];
+                                [DecodeHIDReport DecodeHIDReport:reportdesc forDevice:deviceNumber atDepth:HID_DESCRIPTOR_LEVEL+1 reportLen:hidlen forNode:busprobeRootNode];
+                            }
+                            free(reportdesc);
+                        }
+                    }
+                    else if (hidDescriptor.hidDescriptorType == kUSBPhysicalDesc)
+                    {
+                        UInt16 hidDescriptorLength = ( hidDescriptor.hidDescriptorLengthHi  << 8 ) | hidDescriptor.hidDescriptorLengthLo;
+                        sprintf(tempCString, "%s  (Physical Descriptor)", [tempString cString]);
+                        [self PrintKeyVal:"Type:" val:tempCString forDevice:deviceNumber atDepth:HID_DESCRIPTOR_LEVEL+1 forNode:busprobeRootNode];
+                        sprintf(tempCString, "%d", hidDescriptorLength);
+                        [self PrintKeyVal:"Length:" val:tempCString forDevice:deviceNumber atDepth:HID_DESCRIPTOR_LEVEL+1 forNode:busprobeRootNode];
+                    }
+                    else
+                    {
+                        UInt16 hidDescriptorLength = ( hidDescriptor.hidDescriptorLengthHi  << 8 ) | hidDescriptor.hidDescriptorLengthLo;
+                        sprintf(tempCString, "%s", [tempString cString]);
+                        [self PrintKeyVal:"Type:" val:tempCString forDevice:deviceNumber atDepth:HID_DESCRIPTOR_LEVEL+1 forNode:busprobeRootNode];
+                        sprintf(tempCString, "%d", hidDescriptorLength);
+                        [self PrintKeyVal:"Length:" val:tempCString forDevice:deviceNumber atDepth:HID_DESCRIPTOR_LEVEL+1 forNode:busprobeRootNode];
+                    }
                 }
             }
-                            break;
-                            
-                        case kUSBHUBDesc:
-                        {
-                            IOUSBHubDescriptor 	hubDescriptor;
-                            char 			temporaryString[500];
-                            UInt16			hubChar;
-
-                            hubDescriptor = *(IOUSBHubDescriptor *)p;
-
-                            [self PrintKeyVal:"Hub Descriptor" val:"" forDevice:deviceNumber atDepth:HUB_DESCRIPTOR_LEVEL-1 forNode:busprobeRootNode];
-
-                            NUM(hubDescriptor, "Number of Ports:", numPorts, deviceNumber, HUB_DESCRIPTOR_LEVEL, 0);
-
-                            hubChar = Swap16(&hubDescriptor.characteristics);
-                            sprintf(temporaryString, "0x%x (%sswitched %s hub with %s overcurrent protection)",hubChar ,
-                                    (((hubChar & 3) == 0) ? "Gang " :
-                                     ((hubChar & 3) == 1) ? "Individually " : "Non-"),
-                                    ((hubChar & 4) == 4) ? "compound" : "standalone",
-                                    ((hubChar & 0x18) == 0) ? "global" :
-                                    ((hubChar & 0x18) == 0x8) ? "individual port" : "no");
-                            [self PrintKeyVal:"Hub Characteristics:" val:temporaryString  forDevice:deviceNumber
-                                      atDepth:HUB_DESCRIPTOR_LEVEL forNode:busprobeRootNode];
-
-                            sprintf(temporaryString, "%d ms", hubDescriptor.powerOnToGood*2);
-                            [self PrintKeyVal:"PowerOnToGood time:" val:temporaryString  forDevice:deviceNumber
-                                      atDepth:HUB_DESCRIPTOR_LEVEL forNode:busprobeRootNode];
-
-                            sprintf(temporaryString, "%d mA", hubDescriptor.hubCurrent);
-                            [self PrintKeyVal:"Controller current:" val:temporaryString  forDevice:deviceNumber
-                                      atDepth:HUB_DESCRIPTOR_LEVEL forNode:busprobeRootNode];
-
-                            if (hubDescriptor.numPorts < 8){
-                                sprintf(temporaryString, "0x%x", hubDescriptor.removablePortFlags[0]);
-                                [self PrintKeyVal:"Device Removeable (byte):" val:temporaryString  forDevice:deviceNumber
-                                          atDepth:HUB_DESCRIPTOR_LEVEL forNode:busprobeRootNode];
-                                sprintf(temporaryString, "0x%x", hubDescriptor.removablePortFlags[1]);
-                                [self PrintKeyVal:"Port Power Control Mask (byte):" val:temporaryString  forDevice:deviceNumber
-                                          atDepth:HUB_DESCRIPTOR_LEVEL forNode:busprobeRootNode];
-                            } else if (hubDescriptor.numPorts < 16) {
-                                sprintf(temporaryString, "0x%lx", (UInt32)Swap16( &( (UInt16 *)hubDescriptor.removablePortFlags)[0]));
-                                [self PrintKeyVal:"Device Removeable (byte):" val:temporaryString  forDevice:deviceNumber
-                                          atDepth:HUB_DESCRIPTOR_LEVEL forNode:busprobeRootNode];
-                                sprintf(temporaryString, "0x%lx", (UInt32)Swap16(&((UInt16 *)hubDescriptor.removablePortFlags)[1]));
-                                [self PrintKeyVal:"Port Power Control Mask (byte):" val:temporaryString  forDevice:deviceNumber
-                                          atDepth:HUB_DESCRIPTOR_LEVEL forNode:busprobeRootNode];
-                            }
-                            break;
-                        }
-                        case kUSBDeviceQualifierDesc:
-                        {
-                            IOUSBDeviceQualifierDescriptor 	devQualDesc;
-                            USBClass *deviceClass = NULL;
-                            USBClass *interfaceClass = NULL;
-
-                            devQualDesc = *(IOUSBDeviceQualifierDescriptor *)p;
-
-                            Swap16(&devQualDesc.bcdUSB);
-                            [self PrintKeyVal:"Device Qualifier Descriptor" val:"" forDevice:deviceNumber atDepth:DEVICE_QUAL_DESCRIPTOR_LEVEL-1 forNode:busprobeRootNode];
-
-                            NUM(devQualDesc, "Descriptor Version Number:", bcdUSB, deviceNumber, DEVICE_QUAL_DESCRIPTOR_LEVEL, 0);
-                            deviceClass = [self ClassAndSubClass:"Device" pcls:&devQualDesc.bDeviceClass forDevice:deviceNumber atDepth:1];
-                            NUM(devQualDesc, "Device Protocol", bDeviceProtocol, deviceNumber, DEVICE_QUAL_DESCRIPTOR_LEVEL, 1);
-                            NUM(devQualDesc, "Device MaxPacketSize:", bMaxPacketSize0, deviceNumber, DEVICE_QUAL_DESCRIPTOR_LEVEL, 1);
-                    
-                            NUM(devQualDesc, "Number of Configurations:", bNumConfigurations, deviceNumber, DEVICE_DESCRIPTOR_LEVEL, 1);
-                            NUM(devQualDesc, "bReserved:", bReserved, deviceNumber, DEVICE_DESCRIPTOR_LEVEL, 1);
-                    
-                            [deviceClass release];
-                            [interfaceClass release];
-                            
-                            break;
-                        }
-                        default:
-                            [self DumpRawDescriptor:p forDevice:deviceNumber atDepth:CONFIGURATION_DESCRIPTOR_LEVEL+1];
-                            break;
+            else
+            {
+                // Descriptor 21 for an unknown class.  Just dump it out
+                //
+                [self DumpRawDescriptor:p forDevice:deviceNumber atDepth:CONFIGURATION_DESCRIPTOR_LEVEL+1];
+            }
         }
-    [interfaceClass release];
+        break;
+            
+        case kUSBHUBDesc:
+        {
+            IOUSBHubDescriptor 		hubDescriptor;
+            UInt16			hubChar;
+
+            hubDescriptor = *(IOUSBHubDescriptor *)p;
+
+            [self PrintKeyVal:"Hub Descriptor" val:"" forDevice:deviceNumber atDepth:HUB_DESCRIPTOR_LEVEL-1 forNode:busprobeRootNode];
+
+            NUM(hubDescriptor, "Number of Ports:", numPorts, deviceNumber, HUB_DESCRIPTOR_LEVEL, 0);
+
+            hubChar = Swap16(&hubDescriptor.characteristics);
+	    
+            sprintf(temporaryString, "0x%x (%sswitched %s hub with %s overcurrent protection)", hubChar,
+                    (((hubChar & 3) == 0) ? "Gang " :
+		     ((hubChar & 3) == 1) ? "Individually " : "Non-"),
+                     ((hubChar & 4) == 4) ? "compound" : "standalone",
+                     ((hubChar & 0x18) == 0) ? "global" :
+                     ((hubChar & 0x18) == 0x8) ? "individual port" : "no");
+	    
+            [self PrintKeyVal:"Hub Characteristics:" val:temporaryString  forDevice:deviceNumber
+                        atDepth:HUB_DESCRIPTOR_LEVEL forNode:busprobeRootNode];
+
+            sprintf(temporaryString, "%d ms", hubDescriptor.powerOnToGood*2);
+            [self PrintKeyVal:"PowerOnToGood time:" val:temporaryString  forDevice:deviceNumber
+                        atDepth:HUB_DESCRIPTOR_LEVEL forNode:busprobeRootNode];
+
+            sprintf(temporaryString, "%d mA", hubDescriptor.hubCurrent);
+            [self PrintKeyVal:"Controller current:" val:temporaryString  forDevice:deviceNumber
+                        atDepth:HUB_DESCRIPTOR_LEVEL forNode:busprobeRootNode];
+
+            if (hubDescriptor.numPorts < 8)
+            {
+                sprintf(temporaryString, "0x%x", hubDescriptor.removablePortFlags[0]);
+                [self PrintKeyVal:"Device Removeable (byte):" val:temporaryString  forDevice:deviceNumber
+                            atDepth:HUB_DESCRIPTOR_LEVEL forNode:busprobeRootNode];
+                sprintf(temporaryString, "0x%x", hubDescriptor.removablePortFlags[1]);
+                [self PrintKeyVal:"Port Power Control Mask (byte):" val:temporaryString  forDevice:deviceNumber
+                            atDepth:HUB_DESCRIPTOR_LEVEL forNode:busprobeRootNode];
+            }
+            else if (hubDescriptor.numPorts < 16)
+            {
+                sprintf(temporaryString, "0x%lx", (UInt32)Swap16( &( (UInt16 *)hubDescriptor.removablePortFlags)[0]));
+                [self PrintKeyVal:"Device Removeable (byte):" val:temporaryString  forDevice:deviceNumber
+                            atDepth:HUB_DESCRIPTOR_LEVEL forNode:busprobeRootNode];
+                sprintf(temporaryString, "0x%lx", (UInt32)Swap16(&((UInt16 *)hubDescriptor.removablePortFlags)[1]));
+                [self PrintKeyVal:"Port Power Control Mask (byte):" val:temporaryString  forDevice:deviceNumber
+                            atDepth:HUB_DESCRIPTOR_LEVEL forNode:busprobeRootNode];
+            }
+        }
+        break;
+
+        case kUSBDeviceQualifierDesc:
+        {
+            IOUSBDeviceQualifierDescriptor 	devQualDescriptor;
+            USBClass *				deviceClass = NULL;
+
+            devQualDescriptor = *(IOUSBDeviceQualifierDescriptor *)p;
+
+            Swap16(&devQualDescriptor.bcdUSB);
+	    
+            [self PrintKeyVal:"Device Qualifier Descriptor" val:"" forDevice:deviceNumber atDepth:DEVICE_QUAL_DESCRIPTOR_LEVEL-1 forNode:busprobeRootNode];
+            NUM(devQualDescriptor, "Descriptor Version Number:", bcdUSB, deviceNumber, DEVICE_QUAL_DESCRIPTOR_LEVEL, 0);
+            deviceClass = [self ClassAndSubClass:"Device" pcls:&devQualDescriptor.bDeviceClass forDevice:deviceNumber atDepth:1];
+            NUM(devQualDescriptor, "Device Protocol", bDeviceProtocol, deviceNumber, DEVICE_QUAL_DESCRIPTOR_LEVEL, 1);
+            NUM(devQualDescriptor, "Device MaxPacketSize:", bMaxPacketSize0, deviceNumber, DEVICE_QUAL_DESCRIPTOR_LEVEL, 1);
+            NUM(devQualDescriptor, "Number of Configurations:", bNumConfigurations, deviceNumber, DEVICE_DESCRIPTOR_LEVEL, 1);
+            NUM(devQualDescriptor, "bReserved:", bReserved, deviceNumber, DEVICE_DESCRIPTOR_LEVEL, 1);
+
+            [deviceClass release];
+        }
+        break;
+            
+        default:
+            switch(lastInterfaceClass)
+            {
+                case 1: /* audio class */
+                    [DecodeAudioInterfaceDescriptor DecodeAudioInterfaceDescriptor:p forDevice:deviceNumber atDepth:CONFIGURATION_DESCRIPTOR_LEVEL+1 forNode:busprobeRootNode  subClass:lastInterfaceSubClass ];
+                   break;
+                case 2: /* communication class */
+                    // DecodeCommClassDescriptor( desc, myItem, curSubClass, curProtocol);
+                    switch ( ((GenericAudioDescriptorPtr)p)->descSubType )
+                    {
+                        case 0:
+                            sprintf((char *)temporaryString, "Comm Class Header Functional Descriptor");
+                            break;
+                        case 1:
+                            sprintf((char *)temporaryString, "Comm Class Call Management Functional Descriptor");
+                            break;
+                        case 2:
+                            sprintf((char *)temporaryString, "Comm Class Abstract Control Management Functional Descriptor");
+                            break;
+                        case 3:
+                            sprintf((char *)temporaryString, "Comm Class Direct Line Management Functional Descriptor");
+                            break;
+                        case 4:
+                            sprintf((char *)temporaryString, "Comm Class Telephone Ringer Functional Descriptor");
+                            break;
+                        case 5:
+                            sprintf((char *)temporaryString, "Comm Class Call and LIne State Reporting Functional Descriptor");
+                            break;
+                        case 6:
+                            sprintf((char *)temporaryString, "Comm Class Union Functional Descriptor");
+                            break;
+                        case 7:
+                            sprintf((char *)temporaryString, "Comm Class Country Selection Functional Descriptor");
+                            break;
+                        case 8:
+                            sprintf((char *)temporaryString, "Comm Class Telephone Operational Modes Functional Descriptor");
+                            break;
+                        case 9:
+                            sprintf((char *)temporaryString, "Comm Class USB Terminal Functional Descriptor");
+                            break;
+                        case 10:
+                            sprintf((char *)temporaryString, "Comm Class Network Channel Terminal Functional Descriptor");
+                            break;
+                        case 11:
+                            sprintf((char *)temporaryString, "Comm Class Protocol Unit Functional Descriptor");
+                            break;
+                        case 12:
+                            sprintf((char *)temporaryString, "Comm Class Extension Unit Functional Descriptor");
+                            break;
+                        case 13:
+                            sprintf((char *)temporaryString, "Comm Class Multi-Channel Management Functional Descriptor");
+                            break;
+                        case 14:
+                            sprintf((char *)temporaryString, "Comm Class CAPI Control Management Functional Descriptor");
+                            break;
+                        case 15:
+                            sprintf((char *)temporaryString, "Comm Class Ethernet Networking Functional Descriptor");
+                            break;
+                        case 16:
+                            sprintf((char *)temporaryString, "Comm Class ATM Networking Functional Descriptor");
+                            break;
+                        default:
+                            sprintf((char *)temporaryString, "Comm Class Reserved Functional Descriptor (%d)",((GenericAudioDescriptorPtr)p)->descSubType);
+                            break;
+                    }
+
+		    [self PrintKeyVal:temporaryString val:"" forDevice:deviceNumber atDepth:CONFIGURATION_DESCRIPTOR_LEVEL+1 forNode:busprobeRootNode];
+
+                    [self DumpRawDescriptor:p forDevice:deviceNumber atDepth:CONFIGURATION_DESCRIPTOR_LEVEL+2];
+                    break;
+                default:
+                    [self DumpRawDescriptor:p forDevice:deviceNumber atDepth:CONFIGURATION_DESCRIPTOR_LEVEL+1];
+                    break;
+            }
+            break;
     }
+    [interfaceClass release];
+}
 // ________________________________________________________________________________________________
 //	DumpRawDescriptor
 //
