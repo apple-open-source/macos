@@ -1,8 +1,7 @@
-# Mac OS X 10.0.2
+# Mac OS X 10.0.3
 Libinfo	78.2
 Libsystem	50
 configd	24.1
 netinfo	208.1
 network_cmds	77
 ntp	13
-xnu	124.7
