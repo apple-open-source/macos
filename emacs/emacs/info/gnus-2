@@ -1,0 +1,1488 @@
+This is ../info/gnus, produced by makeinfo version 4.0 from gnus.texi.
+
+START-INFO-DIR-ENTRY
+* Gnus: (gnus).         The newsreader Gnus.
+END-INFO-DIR-ENTRY
+
+   This file documents Gnus, the GNU Emacs newsreader.
+
+   Copyright (C) 1995,96 Free Software Foundation, Inc.
+
+   Permission is granted to make and distribute verbatim copies of this
+manual provided the copyright notice and this permission notice are
+preserved on all copies.
+
+   Permission is granted to copy and distribute modified versions of
+this manual under the conditions for verbatim copying, provided also
+that the entire resulting derived work is distributed under the terms
+of a permission notice identical to this one.
+
+   Permission is granted to copy and distribute translations of this
+manual into another language, under the above conditions for modified
+versions.
+
+
+File: gnus,  Node: Foreign Groups,  Next: Group Parameters,  Prev: Marking Groups,  Up: The Group Buffer
+
+Foreign Groups
+==============
+
+   Below are some group mode commands for making and editing general
+foreign groups, as well as commands to ease the creation of a few
+special-purpose groups.  All these commands insert the newly created
+groups under point--`gnus-subscribe-newsgroup-method' is not consulted.
+
+`G m'
+     Make a new group (`gnus-group-make-group').  Gnus will prompt you
+     for a name, a method and possibly an "address".  For an easier way
+     to subscribe to NNTP groups, *note Browse Foreign Server::.
+
+`G r'
+     Rename the current group to something else
+     (`gnus-group-rename-group').  This is valid only on some
+     groups--mail groups mostly.  This command might very well be quite
+     slow on some backends.
+
+`G c'
+     Customize the group parameters (`gnus-group-customize').
+
+`G e'
+     Enter a buffer where you can edit the select method of the current
+     group (`gnus-group-edit-group-method').
+
+`G p'
+     Enter a buffer where you can edit the group parameters
+     (`gnus-group-edit-group-parameters').
+
+`G E'
+     Enter a buffer where you can edit the group info
+     (`gnus-group-edit-group').
+
+`G d'
+     Make a directory group (*note Directory Groups::).  You will be
+     prompted for a directory name (`gnus-group-make-directory-group').
+
+`G h'
+     Make the Gnus help group (`gnus-group-make-help-group').
+
+`G a'
+     Make a Gnus archive group (`gnus-group-make-archive-group').  By
+     default a group pointing to the most recent articles will be
+     created (`gnus-group-recent-archive-directory'), but given a
+     prefix, a full group will be created from
+     `gnus-group-archive-directory'.
+
+`G k'
+     Make a kiboze group.  You will be prompted for a name, for a
+     regexp to match groups to be "included" in the kiboze group, and a
+     series of strings to match on headers
+     (`gnus-group-make-kiboze-group').  *Note Kibozed Groups::.
+
+`G D'
+     Read an arbitrary directory as if it were a newsgroup with the
+     `nneething' backend (`gnus-group-enter-directory').  *Note
+     Anything Groups::.
+
+`G f'
+     Make a group based on some file or other
+     (`gnus-group-make-doc-group').  If you give a prefix to this
+     command, you will be prompted for a file name and a file type.
+     Currently supported types are `babyl', `mbox', `digest', `mmdf',
+     `news', `rnews', `clari-briefs', `rfc934', `rfc822-forward', and
+     `forward'.  If you run this command without a prefix, Gnus will
+     guess at the file type.  *Note Document Groups::.
+
+`G u'
+     Create one of the groups mentioned in `gnus-useful-groups'
+     (`gnus-group-make-useful-group').
+
+`G w'
+     Make an ephemeral group based on a web search
+     (`gnus-group-make-web-group').  If you give a prefix to this
+     command, make a solid group instead.  You will be prompted for the
+     search engine type and the search string.  Valid search engine
+     types include `dejanews', `altavista' and `reference'.  *Note Web
+     Searches::.
+
+     If you use the `dejanews' search engine, you can limit the search
+     to a particular group by using a match string like `~g
+     alt.sysadmin.recovery shaving'.
+
+`G DEL'
+     This function will delete the current group
+     (`gnus-group-delete-group').  If given a prefix, this function will
+     actually delete all the articles in the group, and forcibly remove
+     the group itself from the face of the Earth.  Use a prefix only if
+     you are absolutely sure of what you are doing.  This command can't
+     be used on read-only groups (like `nntp' group), though.
+
+`G V'
+     Make a new, fresh, empty `nnvirtual' group
+     (`gnus-group-make-empty-virtual').  *Note Virtual Groups::.
+
+`G v'
+     Add the current group to an `nnvirtual' group
+     (`gnus-group-add-to-virtual').  Uses the process/prefix convention.
+
+   *Note Select Methods::, for more information on the various select
+methods.
+
+   If `gnus-activate-foreign-newsgroups' is a positive number, Gnus
+will check all foreign groups with this level or lower at startup.
+This might take quite a while, especially if you subscribe to lots of
+groups from different NNTP servers.  Also *note Group Levels::;
+`gnus-activate-level' also affects activation of foreign newsgroups.
+
+
+File: gnus,  Node: Group Parameters,  Next: Listing Groups,  Prev: Foreign Groups,  Up: The Group Buffer
+
+Group Parameters
+================
+
+   The group parameters store information local to a particular group.
+Here's an example group parameter list:
+
+     ((to-address . "ding@gnus.org")
+      (auto-expire . t))
+
+   We see that each element consists of a "dotted pair"--the thing
+before the dot is the key, while the thing after the dot is the value.
+All the parameters have this form _except_ local variable specs, which
+are not dotted pairs, but proper lists.
+
+   The following group parameters can be used:
+
+`to-address'
+     Address used by when doing followups and new posts.
+
+          (to-address .  "some@where.com")
+
+     This is primarily useful in mail groups that represent closed
+     mailing lists--mailing lists where it's expected that everybody
+     that writes to the mailing list is subscribed to it.  Since using
+     this parameter ensures that the mail only goes to the mailing list
+     itself, it means that members won't receive two copies of your
+     followups.
+
+     Using `to-address' will actually work whether the group is foreign
+     or not.  Let's say there's a group on the server that is called
+     `fa.4ad-l'.  This is a real newsgroup, but the server has gotten
+     the articles from a mail-to-news gateway.  Posting directly to this
+     group is therefore impossible--you have to send mail to the mailing
+     list address instead.
+
+`to-list'
+     Address used when doing a `a' in that group.
+
+          (to-list . "some@where.com")
+
+     It is totally ignored when doing a followup--except that if it is
+     present in a news group, you'll get mail group semantics when
+     doing `f'.
+
+     If you do an `a' command in a mail group and you have neither a
+     `to-list' group parameter nor a `to-address' group parameter, then
+     a `to-list' group parameter will be added automatically upon
+     sending the message if `gnus-add-to-list' is set to `t'.
+
+     If you do an `a' command in a mail group and you don't have a
+     `to-list' group parameter, one will be added automatically upon
+     sending the message.
+
+`visible'
+     If the group parameter list has the element `(visible . t)', that
+     group will always be visible in the Group buffer, regardless of
+     whether it has any unread articles.
+
+`broken-reply-to'
+     Elements like `(broken-reply-to . t)' signals that `Reply-To'
+     headers in this group are to be ignored.  This can be useful if
+     you're reading a mailing list group where the listserv has inserted
+     `Reply-To' headers that point back to the listserv itself.  This is
+     broken behavior.  So there!
+
+`to-group'
+     Elements like `(to-group . "some.group.name")' means that all
+     posts in that group will be sent to `some.group.name'.
+
+`newsgroup'
+     If you have `(newsgroup . t)' in the group parameter list, Gnus
+     will treat all responses as if they were responses to news
+     articles.  This can be useful if you have a mail group that's
+     really a mirror of a news group.
+
+`gcc-self'
+     If `(gcc-self . t)' is present in the group parameter list, newly
+     composed messages will be `Gcc''d to the current group. If
+     `(gcc-self . none)' is present, no `Gcc:' header will be
+     generated, if `(gcc-self . "string")' is present, this string will
+     be inserted literally as a `gcc' header.  This parameter takes
+     precedence over any default `Gcc' rules as described later (*note
+     Archived Messages::).
+
+`auto-expire'
+     If the group parameter has an element that looks like `(auto-expire
+     . t)', all articles read will be marked as expirable.  For an
+     alternative approach, *note Expiring Mail::.
+
+`total-expire'
+     If the group parameter has an element that looks like
+     `(total-expire . t)', all read articles will be put through the
+     expiry process, even if they are not marked as expirable.  Use with
+     caution.  Unread, ticked and dormant articles are not eligible for
+     expiry.
+
+`expiry-wait'
+     If the group parameter has an element that looks like `(expiry-wait
+     . 10)', this value will override any `nnmail-expiry-wait' and
+     `nnmail-expiry-wait-function' when expiring expirable messages.
+     The value can either be a number of days (not necessarily an
+     integer) or the symbols `never' or `immediate'.
+
+`score-file'
+     Elements that look like `(score-file . "file")' will make `file'
+     into the current score file for the group in question.  All
+     interactive score entries will be put into this file.
+
+`adapt-file'
+     Elements that look like `(adapt-file . "file")' will make `file'
+     into the current adaptive file for the group in question.  All
+     adaptive score entries will be put into this file.
+
+`admin-address'
+     When unsubscribing from a mailing list you should never send the
+     unsubscription notice to the mailing list itself.  Instead, you'd
+     send messages to the administrative address.  This parameter
+     allows you to put the admin address somewhere convenient.
+
+`display'
+     Elements that look like `(display . MODE)' say which articles to
+     display on entering the group.  Valid values are:
+
+    `all'
+          Display all articles, both read and unread.
+
+    `default'
+          Display the default visible articles, which normally includes
+          unread and ticked articles.
+
+`comment'
+     Elements that look like `(comment . "This is a comment")' are
+     arbitrary comments on the group.  They are currently ignored by
+     Gnus, but provide a place for you to store information on
+     particular groups.
+
+`(VARIABLE FORM)'
+     You can use the group parameters to set variables local to the
+     group you are entering.  If you want to turn threading off in
+     `news.answers', you could put `(gnus-show-threads nil)' in the
+     group parameters of that group.  `gnus-show-threads' will be made
+     into a local variable in the summary buffer you enter, and the
+     form `nil' will be `eval'ed there.
+
+     This can also be used as a group-specific hook function, if you'd
+     like.  If you want to hear a beep when you enter a group, you
+     could put something like `(dummy-variable (ding))' in the
+     parameters of that group.  `dummy-variable' will be set to the
+     result of the `(ding)' form, but who cares?
+
+   Use the `G p' command to edit group parameters of a group.  You
+might also be interested in reading about topic parameters (*note Topic
+Parameters::).
+
+
+File: gnus,  Node: Listing Groups,  Next: Sorting Groups,  Prev: Group Parameters,  Up: The Group Buffer
+
+Listing Groups
+==============
+
+   These commands all list various slices of the groups available.
+
+`l'
+`A s'
+     List all groups that have unread articles
+     (`gnus-group-list-groups').  If the numeric prefix is used, this
+     command will list only groups of level ARG and lower.  By default,
+     it only lists groups of level five (i. e.,
+     `gnus-group-default-list-level') or lower (i.e., just subscribed
+     groups).
+
+`L'
+`A u'
+     List all groups, whether they have unread articles or not
+     (`gnus-group-list-all-groups').  If the numeric prefix is used,
+     this command will list only groups of level ARG and lower.  By
+     default, it lists groups of level seven or lower (i.e., just
+     subscribed and unsubscribed groups).
+
+`A l'
+     List all unread groups on a specific level
+     (`gnus-group-list-level').  If given a prefix, also list the groups
+     with no unread articles.
+
+`A k'
+     List all killed groups (`gnus-group-list-killed').  If given a
+     prefix argument, really list all groups that are available, but
+     aren't currently (un)subscribed.  This could entail reading the
+     active file from the server.
+
+`A z'
+     List all zombie groups (`gnus-group-list-zombies').
+
+`A m'
+     List all unread, subscribed groups with names that match a regexp
+     (`gnus-group-list-matching').
+
+`A M'
+     List groups that match a regexp (`gnus-group-list-all-matching').
+
+`A A'
+     List absolutely all groups in the active file(s) of the server(s)
+     you are connected to (`gnus-group-list-active').  This might very
+     well take quite a while.  It might actually be a better idea to do
+     a `A M' to list all matching, and just give `.' as the thing to
+     match on.  Also note that this command may list groups that don't
+     exist (yet)--these will be listed as if they were killed groups.
+     Take the output with some grains of salt.
+
+`A a'
+     List all groups that have names that match a regexp
+     (`gnus-group-apropos').
+
+`A d'
+     List all groups that have names or descriptions that match a regexp
+     (`gnus-group-description-apropos').
+
+   Groups that match the `gnus-permanently-visible-groups' regexp will
+always be shown, whether they have unread articles or not.  You can also
+add the `visible' element to the group parameters in question to get
+the same effect.
+
+   Groups that have just ticked articles in it are normally listed in
+the group buffer.  If `gnus-list-groups-with-ticked-articles' is `nil',
+these groups will be treated just like totally empty groups.  It is `t'
+by default.
+
+
+File: gnus,  Node: Sorting Groups,  Next: Group Maintenance,  Prev: Listing Groups,  Up: The Group Buffer
+
+Sorting Groups
+==============
+
+   The `C-c C-s' (`gnus-group-sort-groups') command sorts the group
+buffer according to the function(s) given by the
+`gnus-group-sort-function' variable.  Available sorting functions
+include:
+
+`gnus-group-sort-by-alphabet'
+     Sort the group names alphabetically.  This is the default.
+
+`gnus-group-sort-by-real-name'
+     Sort the group alphabetically on the real (unprefixed) group names.
+
+`gnus-group-sort-by-level'
+     Sort by group level.
+
+`gnus-group-sort-by-score'
+     Sort by group score.  *Note Group Score::.
+
+`gnus-group-sort-by-rank'
+     Sort by group score and then the group level.  The level and the
+     score are, when taken together, the group's "rank".  *Note Group
+     Score::.
+
+`gnus-group-sort-by-unread'
+     Sort by number of unread articles.
+
+`gnus-group-sort-by-method'
+     Sort alphabetically on the select method.
+
+   `gnus-group-sort-function' can also be a list of sorting functions.
+In that case, the most significant sort key function must be the last
+one.
+
+   There are also a number of commands for sorting directly according to
+some sorting criteria:
+
+`G S a'
+     Sort the group buffer alphabetically by group name
+     (`gnus-group-sort-groups-by-alphabet').
+
+`G S u'
+     Sort the group buffer by the number of unread articles
+     (`gnus-group-sort-groups-by-unread').
+
+`G S l'
+     Sort the group buffer by group level
+     (`gnus-group-sort-groups-by-level').
+
+`G S v'
+     Sort the group buffer by group score
+     (`gnus-group-sort-groups-by-score').  *Note Group Score::.
+
+`G S r'
+     Sort the group buffer by group rank
+     (`gnus-group-sort-groups-by-rank').  *Note Group Score::.
+
+`G S m'
+     Sort the group buffer alphabetically by backend name
+     (`gnus-group-sort-groups-by-method').
+
+   When given a prefix, all these commands will sort in reverse order.
+
+   You can also sort a subset of the groups:
+
+`G P a'
+     Sort the process/prefixed groups in the group buffer
+     alphabetically by group name
+     (`gnus-group-sort-selected-groups-by-alphabet').
+
+`G P u'
+     Sort the process/prefixed groups in the group buffer by the number
+     of unread articles (`gnus-group-sort-selected-groups-by-unread').
+
+`G P l'
+     Sort the process/prefixed groups in the group buffer by group level
+     (`gnus-group-sort-selected-groups-by-level').
+
+`G P v'
+     Sort the process/prefixed groups in the group buffer by group score
+     (`gnus-group-sort-selected-groups-by-score').  *Note Group Score::.
+
+`G P r'
+     Sort the process/prefixed groups in the group buffer by group rank
+     (`gnus-group-sort-selected-groups-by-rank').  *Note Group Score::.
+
+`G P m'
+     Sort the process/prefixed groups in the group buffer
+     alphabetically by backend name
+     (`gnus-group-sort-selected-groups-by-method').
+
+
+File: gnus,  Node: Group Maintenance,  Next: Browse Foreign Server,  Prev: Sorting Groups,  Up: The Group Buffer
+
+Group Maintenance
+=================
+
+`b'
+     Find bogus groups and delete them
+     (`gnus-group-check-bogus-groups').
+
+`F'
+     Find new groups and process them (`gnus-group-find-new-groups').
+     With 1 `C-u', use the `ask-server' method to query the server for
+     new groups.  With 2 `C-u''s, use most complete method possible to
+     query the server for new groups, and subscribe the new groups as
+     zombies.
+
+`C-c C-x'
+     Run all expirable articles in the current group through the expiry
+     process (if any) (`gnus-group-expire-articles').
+
+`C-c M-C-x'
+     Run all articles in all groups through the expiry process
+     (`gnus-group-expire-all-groups').
+
+
+File: gnus,  Node: Browse Foreign Server,  Next: Exiting Gnus,  Prev: Group Maintenance,  Up: The Group Buffer
+
+Browse Foreign Server
+=====================
+
+`B'
+     You will be queried for a select method and a server name.  Gnus
+     will then attempt to contact this server and let you browse the
+     groups there (`gnus-group-browse-foreign-server').
+
+   A new buffer with a list of available groups will appear.  This
+buffer will use the `gnus-browse-mode'.  This buffer looks a bit (well,
+a lot) like a normal group buffer.
+
+   Here's a list of keystrokes available in the browse mode:
+
+`n'
+     Go to the next group (`gnus-group-next-group').
+
+`p'
+     Go to the previous group (`gnus-group-prev-group').
+
+`SPACE'
+     Enter the current group and display the first article
+     (`gnus-browse-read-group').
+
+`RET'
+     Enter the current group (`gnus-browse-select-group').
+
+`u'
+     Unsubscribe to the current group, or, as will be the case here,
+     subscribe to it (`gnus-browse-unsubscribe-current-group').
+
+`l'
+`q'
+     Exit browse mode (`gnus-browse-exit').
+
+`?'
+     Describe browse mode briefly (well, there's not much to describe,
+     is there) (`gnus-browse-describe-briefly').
+
+
+File: gnus,  Node: Exiting Gnus,  Next: Group Topics,  Prev: Browse Foreign Server,  Up: The Group Buffer
+
+Exiting Gnus
+============
+
+   Yes, Gnus is ex(c)iting.
+
+`z'
+     Suspend Gnus (`gnus-group-suspend').  This doesn't really exit
+     Gnus, but it kills all buffers except the Group buffer.  I'm not
+     sure why this is a gain, but then who am I to judge?
+
+`q'
+     Quit Gnus (`gnus-group-exit').
+
+`Q'
+     Quit Gnus without saving the `.newsrc' files (`gnus-group-quit').
+     The dribble file will be saved, though (*note Auto Save::).
+
+   `gnus-suspend-gnus-hook' is called when you suspend Gnus and
+`gnus-exit-gnus-hook' is called when you quit Gnus, while
+`gnus-after-exiting-gnus-hook' is called as the final item when exiting
+Gnus.
+
+   If you wish to completely unload Gnus and all its adherents, you can
+use the `gnus-unload' command.  This command is also very handy when
+trying to customize meta-variables.
+
+   Note:
+
+     Miss Lisa Cannifax, while sitting in English class, felt her feet
+     go numbly heavy and herself fall into a hazy trance as the boy
+     sitting behind her drew repeated lines with his pencil across the
+     back of her plastic chair.
+
+
+File: gnus,  Node: Group Topics,  Next: Misc Group Stuff,  Prev: Exiting Gnus,  Up: The Group Buffer
+
+Group Topics
+============
+
+   If you read lots and lots of groups, it might be convenient to group
+them hierarchically according to topics.  You put your Emacs groups over
+here, your sex groups over there, and the rest (what, two groups or so?)
+you put in some misc section that you never bother with anyway.  You can
+even group the Emacs sex groups as a sub-topic to either the Emacs
+groups or the sex groups--or both!  Go wild!
+
+   Here's an example:
+
+     Gnus
+       Emacs -- I wuw it!
+          3: comp.emacs
+          2: alt.religion.emacs
+         Naughty Emacs
+          452: alt.sex.emacs
+            0: comp.talk.emacs.recovery
+       Misc
+          8: comp.binaries.fractals
+         13: comp.sources.unix
+
+   To get this _fab_ functionality you simply turn on (ooh!) the
+`gnus-topic' minor mode--type `t' in the group buffer.  (This is a
+toggling command.)
+
+   Go ahead, just try it.  I'll still be here when you get back.  La de
+dum...  Nice tune, that...  la la la...  What, you're back? Yes, and now
+press `l'.  There.  All your groups are now listed under `misc'.
+Doesn't that make you feel all warm and fuzzy?  Hot and bothered?
+
+   If you want this permanently enabled, you should add that minor mode
+to the hook for the group mode:
+
+     (add-hook 'gnus-group-mode-hook 'gnus-topic-mode)
+
+* Menu:
+
+* Topic Variables::    How to customize the topics the Lisp Way.
+* Topic Commands::     Interactive E-Z commands.
+* Topic Sorting::      Sorting each topic individually.
+* Topic Topology::     A map of the world.
+* Topic Parameters::   Parameters that apply to all groups in a topic.
+
+
+File: gnus,  Node: Topic Variables,  Next: Topic Commands,  Up: Group Topics
+
+Topic Variables
+---------------
+
+   Now, if you select a topic, it will fold/unfold that topic, which is
+really neat, I think.
+
+   The topic lines themselves are created according to the
+`gnus-topic-line-format' variable (*note Formatting Variables::).
+Valid elements are:
+
+`i'
+     Indentation.
+
+`n'
+     Topic name.
+
+`v'
+     Visibility.
+
+`l'
+     Level.
+
+`g'
+     Number of groups in the topic.
+
+`a'
+     Number of unread articles in the topic.
+
+`A'
+     Number of unread articles in the topic and all its subtopics.
+
+   Each sub-topic (and the groups in the sub-topics) will be indented
+with `gnus-topic-indent-level' times the topic level number of spaces.
+The default is 2.
+
+   `gnus-topic-mode-hook' is called in topic minor mode buffers.
+
+   The `gnus-topic-display-empty-topics' says whether to display even
+topics that have no unread articles in them.  The default is `t'.
+
+
+File: gnus,  Node: Topic Commands,  Next: Topic Sorting,  Prev: Topic Variables,  Up: Group Topics
+
+Topic Commands
+--------------
+
+   When the topic minor mode is turned on, a new `T' submap will be
+available.  In addition, a few of the standard keys change their
+definitions slightly.
+
+`T n'
+     Prompt for a new topic name and create it
+     (`gnus-topic-create-topic').
+
+`T m'
+     Move the current group to some other topic
+     (`gnus-topic-move-group').  This command uses the process/prefix
+     convention (*note Process/Prefix::).
+
+`T c'
+     Copy the current group to some other topic
+     (`gnus-topic-copy-group').  This command uses the process/prefix
+     convention (*note Process/Prefix::).
+
+`T D'
+     Remove a group from the current topic (`gnus-topic-remove-group').
+     This command is mainly useful if you have the same group in several
+     topics and wish to remove it from one of the topics.  You may also
+     remove a group from all topics, but in that case, Gnus will add it
+     to the root topic the next time you start Gnus.  In fact, all new
+     groups (which, naturally, don't belong to any topic) will show up
+     in the root topic.
+
+     This command uses the process/prefix convention (*note
+     Process/Prefix::).
+
+`T M'
+     Move all groups that match some regular expression to a topic
+     (`gnus-topic-move-matching').
+
+`T C'
+     Copy all groups that match some regular expression to a topic
+     (`gnus-topic-copy-matching').
+
+`T H'
+     Toggle hiding empty topics
+     (`gnus-topic-toggle-display-empty-topics').
+
+`T #'
+     Mark all groups in the current topic with the process mark
+     (`gnus-topic-mark-topic').
+
+`T M-#'
+     Remove the process mark from all groups in the current topic
+     (`gnus-topic-unmark-topic').
+
+`RET'
+`SPACE'
+     Either select a group or fold a topic (`gnus-topic-select-group').
+     When you perform this command on a group, you'll enter the group,
+     as usual.  When done on a topic line, the topic will be folded (if
+     it was visible) or unfolded (if it was folded already).  So it's
+     basically a toggling command on topics.  In addition, if you give
+     a numerical prefix, group on that level (and lower) will be
+     displayed.
+
+`T TAB'
+`TAB'
+     "Indent" the current topic so that it becomes a sub-topic of the
+     previous topic (`gnus-topic-indent').  If given a prefix,
+     "un-indent" the topic instead.
+
+`M-TAB'
+     "Un-indent" the current topic so that it becomes a sub-topic of the
+     parent of its current parent (`gnus-topic-unindent').
+
+`C-k'
+     Kill a group or topic (`gnus-topic-kill-group').  All groups in the
+     topic will be removed along with the topic.
+
+`C-y'
+     Yank the previously killed group or topic
+     (`gnus-topic-yank-group').  Note that all topics will be yanked
+     before all groups.
+
+`T r'
+     Rename a topic (`gnus-topic-rename').
+
+`T DEL'
+     Delete an empty topic (`gnus-topic-delete').
+
+`A T'
+     List all groups that Gnus knows about in a topics-ified way
+     (`gnus-topic-list-active').
+
+`G p'
+     Edit the topic parameters (`gnus-topic-edit-parameters').  *Note
+     Topic Parameters::.
+
+
+File: gnus,  Node: Topic Sorting,  Next: Topic Topology,  Prev: Topic Commands,  Up: Group Topics
+
+Topic Sorting
+-------------
+
+   You can sort the groups in each topic individually with the following
+commands:
+
+`T S a'
+     Sort the current topic alphabetically by group name
+     (`gnus-topic-sort-groups-by-alphabet').
+
+`T S u'
+     Sort the current topic by the number of unread articles
+     (`gnus-topic-sort-groups-by-unread').
+
+`T S l'
+     Sort the current topic by group level
+     (`gnus-topic-sort-groups-by-level').
+
+`T S v'
+     Sort the current topic by group score
+     (`gnus-topic-sort-groups-by-score').  *Note Group Score::.
+
+`T S r'
+     Sort the current topic by group rank
+     (`gnus-topic-sort-groups-by-rank').  *Note Group Score::.
+
+`T S m'
+     Sort the current topic alphabetically by backend name
+     (`gnus-topic-sort-groups-by-method').
+
+   *Note Sorting Groups::, for more information about group sorting.
+
+
+File: gnus,  Node: Topic Topology,  Next: Topic Parameters,  Prev: Topic Sorting,  Up: Group Topics
+
+Topic Topology
+--------------
+
+   So, let's have a look at an example group buffer:
+
+     Gnus
+       Emacs -- I wuw it!
+          3: comp.emacs
+          2: alt.religion.emacs
+         Naughty Emacs
+          452: alt.sex.emacs
+            0: comp.talk.emacs.recovery
+       Misc
+          8: comp.binaries.fractals
+         13: comp.sources.unix
+
+   So, here we have one top-level topic (`Gnus'), two topics under
+that, and one sub-topic under one of the sub-topics.  (There is always
+just one (1) top-level topic).  This topology can be expressed as
+follows:
+
+     (("Gnus" visible)
+      (("Emacs -- I wuw it!" visible)
+       (("Naughty Emacs" visible)))
+      (("Misc" visible)))
+
+   This is in fact how the variable `gnus-topic-topology' would look
+for the display above.  That variable is saved in the `.newsrc.eld'
+file, and shouldn't be messed with manually--unless you really want to.
+Since this variable is read from the `.newsrc.eld' file, setting it in
+any other startup files will have no effect.
+
+   This topology shows what topics are sub-topics of what topics
+(right), and which topics are visible.  Two settings are currently
+allowed--`visible' and `invisible'.
+
+
+File: gnus,  Node: Topic Parameters,  Prev: Topic Topology,  Up: Group Topics
+
+Topic Parameters
+----------------
+
+   All groups in a topic will inherit group parameters from the parent
+(and ancestor) topic parameters.  All valid group parameters are valid
+topic parameters (*note Group Parameters::).
+
+   Group parameters (of course) override topic parameters, and topic
+parameters in sub-topics override topic parameters in super-topics.  You
+know.  Normal inheritance rules.  ("Rules" is here a noun, not a verb,
+although you may feel free to disagree with me here.)
+
+     Gnus
+       Emacs
+          3: comp.emacs
+          2: alt.religion.emacs
+        452: alt.sex.emacs
+         Relief
+          452: alt.sex.emacs
+            0: comp.talk.emacs.recovery
+       Misc
+          8: comp.binaries.fractals
+         13: comp.sources.unix
+        452: alt.sex.emacs
+
+   The `Emacs' topic has the topic parameter `(score-file .
+"emacs.SCORE")'; the `Relief' topic has the topic parameter
+`(score-file . "relief.SCORE")'; and the `Misc' topic has the topic
+parameter `(score-file . "emacs.SCORE")'.  In addition,
+`alt.religion.emacs' has the group parameter `(score-file .
+"religion.SCORE")'.
+
+   Now, when you enter `alt.sex.emacs' in the `Relief' topic, you will
+get the `relief.SCORE' home score file.  If you enter the same group in
+the `Emacs' topic, you'll get the `emacs.SCORE' home score file.  If
+you enter the group `alt.religion.emacs', you'll get the
+`religion.SCORE' home score file.
+
+   This seems rather simple and self-evident, doesn't it?  Well, yes.
+But there are some problems, especially with the `total-expiry'
+parameter.  Say you have a mail group in two topics; one with
+`total-expiry' and one without.  What happens when you do `M-x
+gnus-expire-all-expirable-groups'?  Gnus has no way of telling which one
+of these topics you mean to expire articles from, so anything may
+happen.  In fact, I hereby declare that it is "undefined" what happens.
+You just have to be careful if you do stuff like that.
+
+
+File: gnus,  Node: Misc Group Stuff,  Prev: Group Topics,  Up: The Group Buffer
+
+Misc Group Stuff
+================
+
+* Menu:
+
+* Scanning New Messages:: Asking Gnus to see whether new messages have arrived.
+* Group Information::     Information and help on groups and Gnus.
+* Group Timestamp::       Making Gnus keep track of when you last read a group.
+* File Commands::         Reading and writing the Gnus files.
+
+`^'
+     Enter the server buffer (`gnus-group-enter-server-mode').  *Note
+     The Server Buffer::.
+
+`a'
+     Post an article to a group (`gnus-group-post-news').  If given a
+     prefix, the current group name will be used as the default.
+
+`m'
+     Mail a message somewhere (`gnus-group-mail').
+
+   Variables for the group buffer:
+
+`gnus-group-mode-hook'
+     is called after the group buffer has been created.
+
+`gnus-group-prepare-hook'
+     is called after the group buffer is generated.  It may be used to
+     modify the buffer in some strange, unnatural way.
+
+`gnus-group-prepared-hook'
+     is called as the very last thing after the group buffer has been
+     generated.  It may be used to move point around, for instance.
+
+`gnus-permanently-visible-groups'
+     Groups matching this regexp will always be listed in the group
+     buffer, whether they are empty or not.
+
+
+File: gnus,  Node: Scanning New Messages,  Next: Group Information,  Up: Misc Group Stuff
+
+Scanning New Messages
+---------------------
+
+`g'
+     Check the server(s) for new articles.  If the numerical prefix is
+     used, this command will check only groups of level ARG and lower
+     (`gnus-group-get-new-news').  If given a non-numerical prefix, this
+     command will force a total re-reading of the active file(s) from
+     the backend(s).
+
+`M-g'
+     Check whether new articles have arrived in the current group
+     (`gnus-group-get-new-news-this-group').
+     `gnus-goto-next-group-when-activating' says whether this command is
+     to move point to the next group or not.  It is `t' by default.
+
+`C-c M-g'
+     Activate absolutely all groups (`gnus-activate-all-groups').
+
+`R'
+     Restart Gnus (`gnus-group-restart').  This saves the `.newsrc'
+     file(s), closes the connection to all servers, clears up all
+     run-time Gnus variables, and then starts Gnus all over again.
+
+   `gnus-get-new-news-hook' is run just before checking for new news.
+
+   `gnus-after-getting-new-news-hook' is run after checking for new
+news.
+
+
+File: gnus,  Node: Group Information,  Next: Group Timestamp,  Prev: Scanning New Messages,  Up: Misc Group Stuff
+
+Group Information
+-----------------
+
+`H f'
+     Try to fetch the FAQ for the current group
+     (`gnus-group-fetch-faq').  Gnus will try to get the FAQ from
+     `gnus-group-faq-directory', which is usually a directory on a
+     remote machine.  This variable can also be a list of directories.
+     In that case, giving a prefix to this command will allow you to
+     choose between the various sites.  `ange-ftp' (or `efs') will be
+     used for fetching the file.
+
+     If fetching from the first site is unsuccessful, Gnus will attempt
+     to go through `gnus-group-faq-directory' and try to open them one
+     by one.
+
+`H d'
+`C-c C-d'
+     Describe the current group (`gnus-group-describe-group').  If given
+     a prefix, force Gnus to re-read the description from the server.
+
+`M-d'
+     Describe all groups (`gnus-group-describe-all-groups').  If given a
+     prefix, force Gnus to re-read the description file from the server.
+
+`H v'
+`V'
+     Display current Gnus version numbers (`gnus-version').
+
+`?'
+     Give a very short help message (`gnus-group-describe-briefly').
+
+`C-c C-i'
+     Go to the Gnus info node (`gnus-info-find-node').
+
+
+File: gnus,  Node: Group Timestamp,  Next: File Commands,  Prev: Group Information,  Up: Misc Group Stuff
+
+Group Timestamp
+---------------
+
+   It can be convenient to let Gnus keep track of when you last read a
+group.  To set the ball rolling, you should add
+`gnus-group-set-timestamp' to `gnus-select-group-hook':
+
+     (add-hook 'gnus-select-group-hook 'gnus-group-set-timestamp)
+
+   After doing this, each time you enter a group, it'll be recorded.
+
+   This information can be displayed in various ways--the easiest is to
+use the `%d' spec in the group line format:
+
+     (setq gnus-group-line-format
+           "%M\%S\%p\%P\%5y: %(%-40,40g%) %d\n")
+
+   This will result in lines looking like:
+
+     *        0: mail.ding                                19961002T012943
+              0: custom                                   19961002T012713
+
+   As you can see, the date is displayed in compact ISO 8601 format.
+This may be a bit too much, so to just display the date, you could say
+something like:
+
+     (setq gnus-group-line-format
+           "%M\%S\%p\%P\%5y: %(%-40,40g%) %6,6~(cut 2)d\n")
+
+
+File: gnus,  Node: File Commands,  Prev: Group Timestamp,  Up: Misc Group Stuff
+
+File Commands
+-------------
+
+`r'
+     Re-read the init file (`gnus-init-file', which defaults to
+     `~/.gnus') (`gnus-group-read-init-file').
+
+`s'
+     Save the `.newsrc.eld' file (and `.newsrc' if wanted)
+     (`gnus-group-save-newsrc').  If given a prefix, force saving the
+     file(s) whether Gnus thinks it is necessary or not.
+
+
+File: gnus,  Node: The Summary Buffer,  Next: The Article Buffer,  Prev: The Group Buffer,  Up: Top
+
+The Summary Buffer
+******************
+
+   A line for each article is displayed in the summary buffer.  You can
+move around, read articles, post articles and reply to articles.
+
+   The most common way to a summary buffer is to select a group from the
+group buffer (*note Selecting a Group::).
+
+   You can have as many summary buffers open as you wish.
+
+* Menu:
+
+* Summary Buffer Format::       Deciding how the summary buffer is to look.
+* Summary Maneuvering::         Moving around the summary buffer.
+* Choosing Articles::           Reading articles.
+* Paging the Article::          Scrolling the current article.
+* Reply Followup and Post::     Posting articles.
+* Canceling and Superseding::   ``Whoops, I shouldn't have called him that.''
+* Marking Articles::            Marking articles as read, expirable, etc.
+* Limiting::                    You can limit the summary buffer.
+* Threading::                   How threads are made.
+* Sorting::                     How articles and threads are sorted.
+* Asynchronous Fetching::       Gnus might be able to pre-fetch articles.
+* Article Caching::             You may store articles in a cache.
+* Persistent Articles::         Making articles expiry-resistant.
+* Article Backlog::             Having already read articles hang around.
+* Saving Articles::             Ways of customizing article saving.
+* Decoding Articles::           Gnus can treat series of (uu)encoded articles.
+* Article Treatment::           The article buffer can be mangled at will.
+* Article Commands::            Doing various things with the article buffer.
+* Summary Sorting::             Sorting the summary buffer in various ways.
+* Finding the Parent::          No child support? Get the parent.
+* Alternative Approaches::      Reading using non-default summaries.
+* Tree Display::                A more visual display of threads.
+* Mail Group Commands::         Some commands can only be used in mail groups.
+* Various Summary Stuff::       What didn't fit anywhere else.
+* Exiting the Summary Buffer::  Returning to the Group buffer.
+* Crosspost Handling::          How crossposted articles are dealt with.
+* Duplicate Suppression::       An alternative when crosspost handling fails.
+
+
+File: gnus,  Node: Summary Buffer Format,  Next: Summary Maneuvering,  Up: The Summary Buffer
+
+Summary Buffer Format
+=====================
+
+* Menu:
+
+* Summary Buffer Lines::     You can specify how summary lines should look.
+* Summary Buffer Mode Line:: You can say how the mode line should look.
+* Summary Highlighting::     Making the summary buffer all pretty and nice.
+
+   Gnus will use the value of the `gnus-extract-address-components'
+variable as a function for getting the name and address parts of a
+`From' header.  Two pre-defined functions exist:
+`gnus-extract-address-components', which is the default, quite fast,
+and too simplistic solution; and `mail-extract-address-components',
+which works very nicely, but is slower.  The default function will
+return the wrong answer in 5% of the cases.  If this is unacceptable to
+you, use the other function instead.
+
+   `gnus-summary-same-subject' is a string indicating that the current
+article has the same subject as the previous.  This string will be used
+with those specs that require it.  The default is `""'.
+
+
+File: gnus,  Node: Summary Buffer Lines,  Next: Summary Buffer Mode Line,  Up: Summary Buffer Format
+
+Summary Buffer Lines
+--------------------
+
+   You can change the format of the lines in the summary buffer by
+changing the `gnus-summary-line-format' variable.  It works along the
+same lines as a normal `format' string, with some extensions (*note
+Formatting Variables::).
+
+   The default string is `%U%R%z%I%(%[%4L: %-20,20n%]%) %s\n'.
+
+   The following format specification characters are understood:
+
+`N'
+     Article number.
+
+`S'
+     Subject string.
+
+`s'
+     Subject if the article is the root of the thread or the previous
+     article had a different subject, `gnus-summary-same-subject'
+     otherwise.  (`gnus-summary-same-subject' defaults to `""'.)
+
+`F'
+     Full `From' header.
+
+`n'
+     The name (from the `From' header).
+
+`a'
+     The name (from the `From' header).  This differs from the `n' spec
+     in that it uses the function designated by the
+     `gnus-extract-address-components' variable, which is slower, but
+     may be more thorough.
+
+`A'
+     The address (from the `From' header).  This works the same way as
+     the `a' spec.
+
+`L'
+     Number of lines in the article.
+
+`c'
+     Number of characters in the article.
+
+`I'
+     Indentation based on thread level (*note Customizing Threading::).
+
+`T'
+     Nothing if the article is a root and lots of spaces if it isn't (it
+     pushes everything after it off the screen).
+
+`['
+     Opening bracket, which is normally `[', but can also be `<' for
+     adopted articles (*note Customizing Threading::).
+
+`]'
+     Closing bracket, which is normally `]', but can also be `>' for
+     adopted articles.
+
+`>'
+     One space for each thread level.
+
+`<'
+     Twenty minus thread level spaces.
+
+`U'
+     Unread.
+
+`R'
+     This misleadingly named specifier is the "secondary mark".  This
+     mark will say whether the article has been replied to, has been
+     cached, or has been saved.
+
+`i'
+     Score as a number (*note Scoring::).
+
+`z'
+     Zcore, `+' if above the default level and `-' if below the default
+     level.  If the difference between `gnus-summary-default-score' and
+     the score is less than `gnus-summary-zcore-fuzz', this spec will
+     not be used.
+
+`V'
+     Total thread score.
+
+`x'
+     `Xref'.
+
+`D'
+     `Date'.
+
+`d'
+     The `Date' in `DD-MMM' format.
+
+`o'
+     The `Date' in YYYYMMDD`T'HHMMSS format.
+
+`M'
+     `Message-ID'.
+
+`r'
+     `References'.
+
+`t'
+     Number of articles in the current sub-thread.  Using this spec
+     will slow down summary buffer generation somewhat.
+
+`e'
+     An `=' (`gnus-not-empty-thread-mark') will be displayed if the
+     article has any children.
+
+`P'
+     The line number.
+
+`O'
+     Download mark.
+
+`u'
+     User defined specifier.  The next character in the format string
+     should be a letter.  Gnus will call the function
+     `gnus-user-format-function-'`X', where `X' is the letter following
+     `%u'.  The function will be passed the current header as argument.
+     The function should return a string, which will be inserted into
+     the summary just like information from any other summary specifier.
+
+   The `%U' (status), `%R' (replied) and `%z' (zcore) specs have to be
+handled with care.  For reasons of efficiency, Gnus will compute what
+column these characters will end up in, and "hard-code" that.  This
+means that it is invalid to have these specs after a variable-length
+spec.  Well, you might not be arrested, but your summary buffer will
+look strange, which is bad enough.
+
+   The smart choice is to have these specs as far to the left as
+possible.  (Isn't that the case with everything, though?  But I
+digress.)
+
+   This restriction may disappear in later versions of Gnus.
+
+
+File: gnus,  Node: Summary Buffer Mode Line,  Next: Summary Highlighting,  Prev: Summary Buffer Lines,  Up: Summary Buffer Format
+
+Summary Buffer Mode Line
+------------------------
+
+   You can also change the format of the summary mode bar (*note Mode
+Line Formatting::).  Set `gnus-summary-mode-line-format' to whatever you
+like.  The default is `Gnus: %%b [%A] %Z'.
+
+   Here are the elements you can play with:
+
+`G'
+     Group name.
+
+`p'
+     Unprefixed group name.
+
+`A'
+     Current article number.
+
+`z'
+     Current article score.
+
+`V'
+     Gnus version.
+
+`U'
+     Number of unread articles in this group.
+
+`e'
+     Number of unread articles in this group that aren't displayed in
+     the summary buffer.
+
+`Z'
+     A string with the number of unread and unselected articles
+     represented either as `<%U(+%e) more>' if there are both unread
+     and unselected articles, and just as `<%U more>' if there are just
+     unread articles and no unselected ones.
+
+`g'
+     Shortish group name.  For instance, `rec.arts.anime' will be
+     shortened to `r.a.anime'.
+
+`S'
+     Subject of the current article.
+
+`u'
+     User-defined spec (*note User-Defined Specs::).
+
+`s'
+     Name of the current score file (*note Scoring::).
+
+`d'
+     Number of dormant articles (*note Unread Articles::).
+
+`t'
+     Number of ticked articles (*note Unread Articles::).
+
+`r'
+     Number of articles that have been marked as read in this session.
+
+`E'
+     Number of articles expunged by the score files.
+
+
+File: gnus,  Node: Summary Highlighting,  Prev: Summary Buffer Mode Line,  Up: Summary Buffer Format
+
+Summary Highlighting
+--------------------
+
+`gnus-visual-mark-article-hook'
+     This hook is run after selecting an article.  It is meant to be
+     used for highlighting the article in some way.  It is not run if
+     `gnus-visual' is `nil'.
+
+`gnus-summary-update-hook'
+     This hook is called when a summary line is changed.  It is not run
+     if `gnus-visual' is `nil'.
+
+`gnus-summary-selected-face'
+     This is the face (or "font" as some people call it) used to
+     highlight the current article in the summary buffer.
+
+`gnus-summary-highlight'
+     Summary lines are highlighted according to this variable, which is
+     a list where the elements are of the format `(FORM . FACE)'.  If
+     you would, for instance, like ticked articles to be italic and
+     high-scored articles to be bold, you could set this variable to
+     something like
+          (((eq mark gnus-ticked-mark) . italic)
+           ((> score default) . bold))
+     As you may have guessed, if FORM returns a non-`nil' value, FACE
+     will be applied to the line.
+
+
+File: gnus,  Node: Summary Maneuvering,  Next: Choosing Articles,  Prev: Summary Buffer Format,  Up: The Summary Buffer
+
+Summary Maneuvering
+===================
+
+   All the straight movement commands understand the numeric prefix and
+behave pretty much as you'd expect.
+
+   None of these commands select articles.
+
+`G M-n'
+`M-n'
+     Go to the next summary line of an unread article
+     (`gnus-summary-next-unread-subject').
+
+`G M-p'
+`M-p'
+     Go to the previous summary line of an unread article
+     (`gnus-summary-prev-unread-subject').
+
+`G j'
+`j'
+     Ask for an article number or `Message-ID', and then go to that
+     article (`gnus-summary-goto-article').
+
+`G g'
+     Ask for an article number and then go to the summary line of that
+     article without displaying the article
+     (`gnus-summary-goto-subject').
+
+   If Gnus asks you to press a key to confirm going to the next group,
+you can use the `C-n' and `C-p' keys to move around the group buffer,
+searching for the next group to read without actually returning to the
+group buffer.
+
+   Variables related to summary movement:
+
+`gnus-auto-select-next'
+     If you issue one of the movement commands (like `n') and there are
+     no more unread articles after the current one, Gnus will offer to
+     go to the next group.  If this variable is `t' and the next group
+     is empty, Gnus will exit summary mode and return to the group
+     buffer.  If this variable is neither `t' nor `nil', Gnus will
+     select the next group, no matter whether it has any unread
+     articles or not.  As a special case, if this variable is
+     `quietly', Gnus will select the next group without asking for
+     confirmation.  If this variable is `almost-quietly', the same will
+     happen only if you are located on the last article in the group.
+     Finally, if this variable is `slightly-quietly', the `Z n' command
+     will go to the next group without confirmation.  Also *note Group
+     Levels::.
+
+`gnus-auto-select-same'
+     If non-`nil', all the movement commands will try to go to the next
+     article with the same subject as the current.  ("Same" here might
+     mean "roughly equal".  See `gnus-summary-gather-subject-limit' for
+     details (*note Customizing Threading::).)  If there are no more
+     articles with the same subject, go to the first unread article.
+
+     This variable is not particularly useful if you use a threaded
+     display.
+
+`gnus-summary-check-current'
+     If non-`nil', all the "unread" movement commands will not proceed
+     to the next (or previous) article if the current article is unread.
+     Instead, they will choose the current article.
+
+`gnus-auto-center-summary'
+     If non-`nil', Gnus will keep the point in the summary buffer
+     centered at all times.  This makes things quite tidy, but if you
+     have a slow network connection, or simply do not like this
+     un-Emacsism, you can set this variable to `nil' to get the normal
+     Emacs scrolling action.  This will also inhibit horizontal
+     re-centering of the summary buffer, which might make it more
+     inconvenient to read extremely long threads.
+
+
+File: gnus,  Node: Choosing Articles,  Next: Paging the Article,  Prev: Summary Maneuvering,  Up: The Summary Buffer
+
+Choosing Articles
+=================
+
+* Menu:
+
+* Choosing Commands::        Commands for choosing articles.
+* Choosing Variables::       Variables that influence these commands.
+
+
+File: gnus,  Node: Choosing Commands,  Next: Choosing Variables,  Up: Choosing Articles
+
+Choosing Commands
+-----------------
+
+   None of the following movement commands understand the numeric
+prefix, and they all select and display an article.
+
+`SPACE'
+     Select the current article, or, if that one's read already, the
+     next unread article (`gnus-summary-next-page').
+
+`G n'
+`n'
+     Go to next unread article (`gnus-summary-next-unread-article').
+
+`G p'
+`p'
+     Go to previous unread article (`gnus-summary-prev-unread-article').
+
+`G N'
+`N'
+     Go to the next article (`gnus-summary-next-article').
+
+`G P'
+`P'
+     Go to the previous article (`gnus-summary-prev-article').
+
+`G C-n'
+     Go to the next article with the same subject
+     (`gnus-summary-next-same-subject').
+
+`G C-p'
+     Go to the previous article with the same subject
+     (`gnus-summary-prev-same-subject').
+
+`G f'
+`.'
+     Go to the first unread article
+     (`gnus-summary-first-unread-article').
+
+`G b'
+`,'
+     Go to the article with the highest score
+     (`gnus-summary-best-unread-article').
+
+`G l'
+`l'
+     Go to the previous article read (`gnus-summary-goto-last-article').
+
+`G o'
+     Pop an article off the summary history and go to this article
+     (`gnus-summary-pop-article').  This command differs from the
+     command above in that you can pop as many previous articles off the
+     history as you like, while `l' toggles the two last read articles.
+     For a somewhat related issue (if you use these commands a lot),
+     *note Article Backlog::.
+

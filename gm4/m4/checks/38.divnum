@@ -1,0 +1,13 @@
+dnl ../doc/m4.texinfo:2328: Origin of test
+Initial divnum
+dnl @result{}Initial 0
+divert(1)
+Diversion one: divnum
+divert(2)
+Diversion two: divnum
+divert
+dnl @result{}
+dnl @result{}
+dnl @result{}Diversion one: 1
+dnl @result{}
+dnl @result{}Diversion two: 2

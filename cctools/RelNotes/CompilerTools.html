@@ -1,0 +1,660 @@
+<HTML>
+<!--This file created 2/6/01 5:06 PM by Claris Home Page version 3.0-->
+<HEAD>
+   <TITLE>Compiler Tools Release Notes</TITLE>
+   <META NAME=GENERATOR CONTENT="Claris Home Page 3.0">
+   <X-CLARIS-WINDOW TOP=60 BOTTOM=867 LEFT=401 RIGHT=1051>
+   <X-CLARIS-TAGVIEW MODE=minimal>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF">
+<P><FONT SIZE="-1">MacOS X 1.0 Release Notes Copyright 2001 by Apple
+Computer, Inc. All Rights Reserved.</FONT></P>
+
+<H1>Mac OS X 1.0 Release Notes:<BR>
+Compiler Tools</H1>
+
+<P>These notes are for the 1.0 Release of the compiler tools. They
+contain information about the following topics:</P>
+
+<UL>
+   <LI>The Mac OS X Mach-O GNU-based assemblers</LI>
+   
+   <LI>The Mac OS X Mach-O static link editor</LI>
+   
+   <LI>The Mac OS X Mach-O dynamic link editor</LI>
+   
+   <LI>Mach-O object tools (<B>nm</B>, <B>otool</B>, and so on)</LI>
+</UL>
+
+<H2>Notes Specific to Mac OS X 1.0 Release</H2>
+
+<UL>
+   <LI>There are no notes specific for the Mac OS X 1.0 Release of
+   the compiler tools.</LI>
+</UL>
+
+<H2>Notes Specific to Mac OS X Public Beta Release</H2>
+
+<H3><FONT SIZE="+1">New Features</FONT></H3>
+
+<P>The following new features have been added to the Compiler Tools
+since the Mac OS X Developer Release 4.</P>
+
+<UL>
+   <LI>The dynamic linker now calls shared library initialization
+   routines in their dependent order (reference number 2441683).</LI>
+   
+   <LI>The new function __initialize_Cplusplus() now can be called
+   from a shared library initialization routine to cause the static
+   C++ objects in the library to be initialized. This allows shared
+   library initialization routines to make use of statically
+   initialized C++ objects (reference number 2441683).</LI>
+   
+   <LI>The dynamic linker now supports module termination functions
+   for all types of images (executables, plugins that are not
+   unloaded and shared libraries). See the decription below as part
+   of the notes specific to Mac OS X Developer preview of module
+   termination functions (reference number 2469527).</LI>
+   
+   <LI>The compiler tools support the new directory layout for MacOS
+   X Public Beta. The new location for Frameworks local to the
+   machine is /MacOSX/Library/Framework (in DP4 and previous releases
+   this was /Local/Library/Frameworks).</LI>
+</UL>
+
+<H2>Notes Specific to Mac OS X Developer Release 4</H2>
+
+<UL>
+   <LI>There are no notes specific to the compiler tools for
+   Developer Release 4.</LI>
+</UL>
+
+<H2>Notes Specific to Mac OS X Developer Release 3</H2>
+
+<H3><FONT SIZE="+1">New Features</FONT></H3>
+
+<P>The following new features have been added to the Compiler Tools
+since the Mac OS X Developer Release 2.</P>
+
+<UL>
+   <LI>The static linker supports removing duplicate debugging
+   information from header files when this information appears in
+   multiple linked object files. This is done with the -Si option to
+   the static link editor and is now the default. To have no symbols
+   stripped when linking use the new -Sn option.</LI>
+</UL>
+
+<H2>Notes Specific to Mac OS X Developer Release 2</H2>
+
+<H3><FONT SIZE="+1">New Features</FONT></H3>
+
+<P>The following new features have been added to the Compiler Tools
+since the Mac OS X Developer Preview Release.</P>
+
+<UL>
+   <LI>Dynamic shared libraries now can have a dynamic shared library
+   initialization routine (reference number 2367584). This routine is
+   specified to libtool(1) with the new "-init <I>symbol_name</I>"
+   argument. The library initialization routine is called before any
+   symbol is used from the library including C++ static initializers
+   (and #pragma CALL_ON_MODULE_BIND routines). So the code in a
+   library initialization routine or code called by it can not depend
+   on C++ static initializers. Also code in a library initialization
+   routine or code called by it can not call any of the dynamic
+   linker API, &lt;mach-o/dyld.h&gt;, otherwise that could result in
+   more than one library initialization routine being partially
+   executed on the stack.</LI>
+   
+   <LI>The dynamic linker now supports shared library install names
+   that start with "@executable_path/" and substitutes the directory
+   path of the executable for "@executable_path/"when locating the
+   library. This requires a kernel from Mac OS X Developer Release 2
+   or later. Without that kernel, this feature can only be used if
+   argv&#91;0&#93; is in fact the name of the executable and it is an
+   absolute path or relative to the current directory (contains at a
+   '/' in the argv&#91;0&#93; string).</LI>
+   
+   <LI>The NSLinkModule() API now has an option to cause it to return
+   when there is an error loading the module and a new API
+   NSLinkEditError() to get the error information. To use this the
+   constant NSLINKMODULE_OPTION_RETURN_ON_ERROR needs to be or'ed
+   into the options parameter to NSLinkModule(). Then if
+   NSLinkModule() returns NULL the error information can be retrieved
+   with NSLinkEditError().
+   
+   <P>The NSLINKMODULE_OPTION_RETURN_ON_ERROR option is an
+   alternative method to the existing dyld error handling which fits
+   better with a plugin model. With the
+   NSLINKMODULE_OPTION_RETURN_ON_ERROR option, the model for handling
+   errors is to simply return without any changes to the program. To
+   support this model of error handling a new API has been added to
+   allow the programmer to get the error information that the dyld
+   error handlers would normally have gotten. The API is similar to
+   the dyld linkEdit error handler except that all the parameters are
+   passed as pointers to be filled in.</P>
+   
+   <UL>
+      <LI>extern void NSLinkEditError(<BR>
+      NSLinkEditErrors *c,<BR>
+      int *errorNumber,<BR>
+      const char **fileName,<BR>
+      const char **errorString);</LI>
+   </UL>
+   
+   <P>The last two parameters return pointers to static buffers
+   allocated in the dynamic linker which get reused on subsequent
+   calls to NSLinkEditError(). The NSLinkEditErrors enum has been
+   extended to include NSLinkEditUndefinedError and
+   NSLinkEditMultiplyDefinedError.</P></LI>
+</UL>
+
+<H2>Notes Specific to Mac OS X Developer Preview Release</H2>
+
+<H3><FONT SIZE="+1">New Features</FONT></H3>
+
+<P>The following new features have been added to the Compiler Tools
+since the Mac OS X Server Release.</P>
+
+<UL>
+   <LI>The NSLinkModule() API now can create private modules and the
+   new API NSLookupSymbolInModule() allows symbols to be looked up in
+   a private module. To do this the interface to NSLinkModule() has
+   changed in a compatible way from:
+   
+   <UL>
+      <LI>extern NSModule NSLinkModule(<BR>
+      NSObjectFileImage objectFileImage,<BR>
+      const char *moduleName,<BR>
+      enum bool bindNow);</LI>
+   </UL>
+   
+   <P>to:</P>
+   
+   <UL>
+      <LI>extern NSModule NSLinkModule(<BR>
+      NSObjectFileImage objectFileImage,<BR>
+      const char *moduleName,<BR>
+      unsigned long options);</LI>
+   </UL>
+   
+   <P>with the options as follows:</P>
+   
+   <UL>
+      <LI>#define NSLINKMODULE_OPTION_NONE 0x0<BR>
+      #define NSLINKMODULE_OPTION_BINDNOW 0x1<BR>
+      #define NSLINKMODULE_OPTION_PRIVATE 0x2</LI>
+   </UL>
+   
+   <P>The first two are the same as bindNow with a value of FALSE and
+   TRUE. The private options are used to load a private module. The
+   API for getting to the symbols of a NSModule that has been
+   privately linked is:</P>
+   
+   <UL>
+      <LI>extern NSSymbol NSLookupSymbolInModule(<BR>
+      NSModule module,<BR>
+      const char *symbolName);</LI>
+   </UL>
+   
+   <P>Then to get the address of the returned NSSymbol, the existing
+   NSAddressOfSymbol() API can be used.</P>
+   
+   <P>The NSUnLinkModule() API is now implemented with enough
+   functionality to make Apache work (reference number 2262020). It
+   currently has the following limitations (to be fixed in future
+   releases):</P>
+   
+   <UL>
+      <LI>only works for plugins (can only be called on modules that
+      were returned by NSLinkModule).</LI>
+      
+      <LI>C++ plugins that have a static destructor can't be
+      unloaded. The program will crash in atexit(3) when the unlinked
+      destructor is attempted to be called.</LI>
+      
+      <LI>Objective-C plugins should not be unloaded. The Objective-C
+      runtime has not been updated to know about unloading and the
+      result is very likely to crash the program.</LI>
+      
+      <LI>The debugger has not been updated to know about unloading
+      and trying to debug a program that unloads its plugins may
+      confuse or crash the debugger.</LI>
+   </UL>
+   
+   <P>The interface to NSUnLinkModule has changed in a compatible way
+   from:</P>
+   
+   <UL>
+      <LI>extern enum bool NSUnLinkModule(<BR>
+      NSModule module,<BR>
+      enum bool keepMemoryMapped);</LI>
+   </UL>
+   
+   <P>to:</P>
+   
+   <UL>
+      <LI>extern enum bool NSUnLinkModule(<BR>
+      NSModule module,<BR>
+      int options);</LI>
+   </UL>
+   
+   <P>where the options are:</P>
+   
+   <UL>
+      <LI>#define NSUNLINKMODULE_OPTION_NONE 0x0<BR>
+      #define NSUNLINKMODULE_OPTION_KEEP_MEMORY_MAPPED 0x1<BR>
+      #define NSUNLINKMODULE_OPTION_RESET_LAZY_REFERENCES 0x2</LI>
+   </UL>
+   
+   <P>The first two are the same as keepMemoryMapped with a value of
+   FALSE and TRUE. The reset lazy references option allows unloading
+   modules with only call sites to undefined functions (direct calls,
+   not calls through pointers) to not cause an undefined symbol
+   error. Then if a subsequent module is loaded that defines symbols
+   that were previously undefined, the call sites will use the new
+   definitions. This is currently only implemented for PowerPC.</P>
+   
+   <P>Support for module termination functions has been added for
+   plugins (only). Currently the compiler pragma CALL_ON_UNLOAD (as
+   well as CALL_ON_LOAD) is not yet implemented to use this feature
+   as intended. A work around can be done in place of having the
+   pragma:</P>
+   
+   <UL>
+      <LI>void my_term(void)<BR>
+      {<BR>
+      /* do module termination */<BR>
+      }<BR>
+      /* #pragma CALL_ON_UNLOAD my_term */<BR>
+      #pragma SECTION data ".section __DATA, __mod_term_func,
+      mod_init_funcs"<BR>
+      static void (*dummy)(void) = my_term;<BR>
+      #pragma SECTION data</LI>
+   </UL>
+   </LI>
+</UL>
+
+<H2>Notes Specific to Mac OS X Server Release</H2>
+
+<H3><FONT SIZE="+1">New Features</FONT></H3>
+
+<P>The following new features have been added to the Compiler Tools
+since the Rhapsody Developer Release 2.</P>
+
+<UL>
+   <LI>The 4.4bsd ar extended format #1 is now supported by the
+   compiler tools. The default is to use 4.4bsd ar extended format #1
+   when creating static archives whose member names are longer than
+   16 characters or have spaces in the name. The tools that create
+   static archives, ar(1), libtool(1) and ranlib(1), all take the
+   options -T (to truncate member names) and -L (to used long member
+   names, the default) (reference 1670513).</LI>
+   
+   <LI>The AltiVec opcodes have been added to the Mac OS X PowerPC
+   assembler. To assemble files with these instructions it requires
+   the option -force_cpusubtype_ALL and then it is the code's
+   responsibility to only use these instructions when the CPU
+   supports them. (references 2237908, 2227999, 2213821,
+   2004760).</LI>
+   
+   <LI>The header file &lt;mach-o/getsect.h&gt; has been added to the
+   system as the proper place to get the prototypes of the Mach-O
+   routines. (reference 2227839).</LI>
+</UL>
+
+<P>&nbsp;</P>
+
+<H2>There are no Notes Specific to Rhapsody Developer Release 2</H2>
+
+<P>&nbsp;</P>
+
+<H2>Notes Specific to Rhapsody Developer Release</H2>
+
+<H3>New Features</H3>
+
+<P>The following new features have been added to the compiler tools
+since OPENSTEP 4.2 (NeXT).</P>
+
+<UL>
+   <LI>The PowerPC architecture is now supported via the <CODE>-arch
+   ppc</CODE> switch.<BR>
+   <BR>
+   </LI>
+</UL>
+
+<H3>Known Problems</H3>
+
+<P>These bugs are known to exist in the compiler tools:</P>
+
+<P>
+
+<HR>
+
+<TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=60>
+         <P ALIGN=right><FONT SIZE="-1">Reference</FONT></P>
+      </TD>
+      <TD>
+         <P>1670513</P>
+      </TD>
+   </TR>
+   <TR>
+      <TD VALIGN=top WIDTH=60>
+         <P ALIGN=right><FONT SIZE="-1">Problem</FONT></P>
+      </TD>
+      <TD>
+         <P>4.4BSD <B>ar</B> extended format #1 not compatible with
+         compiler tools.</P>
+      </TD>
+   </TR>
+   <TR>
+      <TD VALIGN=top WIDTH=60>
+         <P ALIGN=right><FONT SIZE="-1">Description</FONT></P>
+      </TD>
+      <TD>
+         <P>The 4.4 <B>ar</B> command can create an archive with the
+         base name of an object file that is longer than 16
+         characters. With the <B>-L</B> option, it produces a format
+         that makes the object file in the archive invisible to
+         various tools, including the static link editor. This can
+         lead to undefined symbols when this archive is linked
+         against. Other tools like <B>nm</B> and <B>ranlib</B> also
+         don't see the long-name object files in the archive. To
+         avoid this problem, <B>ar</B> makes the <B>-T </B>option,
+         which truncates names, a default option. The compiler tools
+         will understand the extended format in future releases.</P>
+      </TD>
+   </TR>
+   <TR>
+      <TD VALIGN=top WIDTH=60>
+         <P ALIGN=right><FONT SIZE="-1">Workaround</FONT></P>
+      </TD>
+      <TD>
+         <P>Do not use the <B>-L</B> option with <B>ar</B> when
+         creating archive libraries. Use the <B>-T</B> option (the
+         default for the Premier release) to tuncate file names or
+         use <B>libtool</B> <B>-static</B> to create archive
+         libraries.</P>
+      </TD>
+   </TR>
+</TABLE>
+
+<HR>
+
+<TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=60>
+         <P ALIGN=right><FONT SIZE="-1">Reference</FONT></P>
+      </TD>
+      <TD>
+         <P>1666993</P>
+      </TD>
+   </TR>
+   <TR>
+      <TD VALIGN=top WIDTH=60>
+         <P ALIGN=right><FONT SIZE="-1">Problem</FONT></P>
+      </TD>
+      <TD>
+         <P>The Mac OS X assembler is different from
+         <B>ppcasm</B>.</P>
+      </TD>
+   </TR>
+   <TR>
+      <TD VALIGN=top WIDTH=60>
+         <P ALIGN=right><FONT SIZE="-1">Description</FONT></P>
+      </TD>
+      <TD>
+         <P>The major difference is that the Mac OS X assembler is
+         not TOC-based and uses two instructions to load a global or
+         static item. The directives and the syntax of labels and
+         directives of the two assemblers are very different. Also,
+         the Mac OS X assembler is stricter in the parameter types
+         and ranges for instructions. For more on this last topic,
+         see "Instruction Parameter Differences," below.</P>
+      </TD>
+   </TR>
+   <TR>
+      <TD VALIGN=top WIDTH=60>
+         <P ALIGN=right><FONT SIZE="-1">Workaround</FONT></P>
+      </TD>
+      <TD>
+         <P>The difference between the Mac OS X assembler and the
+         TOC-based model, plus the differences in directives and
+         syntax, may necessitate significant rewriting of assembly
+         code for the Developer Release. The strict parameter
+         requirements might require rewriting of assembly code for
+         the Developer Release but the resulting code should work
+         with <B>ppcasm</B>.</P>
+      </TD>
+   </TR>
+</TABLE>
+
+<HR>
+
+<TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=60>
+         <P ALIGN=right><FONT SIZE="-1">Reference</FONT></P>
+      </TD>
+      <TD>
+         <P>1670513</P>
+      </TD>
+   </TR>
+   <TR>
+      <TD VALIGN=top WIDTH=60>
+         <P ALIGN=right><FONT SIZE="-1">Problem</FONT></P>
+      </TD>
+      <TD>
+         <P>BSD 4.4 <B>ar</B> format is not compatible with compiler
+         tools</P>
+      </TD>
+   </TR>
+   <TR>
+      <TD VALIGN=top WIDTH=60>
+         <P ALIGN=right><FONT SIZE="-1">Description</FONT></P>
+      </TD>
+      <TD>
+         <P>The BSD 4.4 <B>ar</B> command, which creates an archive
+         with object file names longer than 16 characters, produces a
+         format that makes the object file invisible to various
+         tools, including the static link editor. This can lead to
+         undefined symbols when a program links against this archive.
+         Other tools like <B>nm</B> and <B>ranlib</B> also don't see
+         the object files with longer names in the archive.</P>
+      </TD>
+   </TR>
+   <TR>
+      <TD VALIGN=top WIDTH=60>
+         <P ALIGN=right><FONT SIZE="-1">Workaround</FONT></P>
+      </TD>
+      <TD>
+         <P>Use the <B>-T</B> option with <B>ar</B> to tuncate file
+         names or use <B>libtool -static</B> to create archive
+         libraries.</P>
+      </TD>
+   </TR>
+</TABLE>
+
+<HR>
+
+</P>
+
+<H3>Bugs Fixed</H3>
+
+<P>The following bug has been fixed:</P>
+
+<P><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=60>
+         <P ALIGN=right><FONT SIZE="-1">Reference</FONT></P>
+      </TD>
+      <TD>
+         <P>none</P>
+      </TD>
+   </TR>
+   <TR>
+      <TD VALIGN=top WIDTH=60>
+         <P ALIGN=right><FONT SIZE="-1">Problem</FONT></P>
+      </TD>
+      <TD>
+         <P>Profiling does not work</P>
+      </TD>
+   </TR>
+   <TR>
+      <TD VALIGN=top WIDTH=60>
+         <P ALIGN=right><FONT SIZE="-1">Description</FONT></P>
+      </TD>
+      <TD>
+         <P>Bugs were reported when developers tried to compile, run
+         and produce the profiling information for a program. Among
+         these bigs were kernel panics, <B>gprof</B>(1) not
+         understanding the <B>gmon.out</B> format produced,
+         <B>add_profil</B>(2) system call not working, and other
+         problems.</P>
+      </TD>
+   </TR>
+</TABLE>
+</P>
+
+<P>
+
+<HR>
+
+</P>
+
+<H3>PowerPC Assembly Instruction Parameter Differences</H3>
+
+<P>Register names can't be designated with just a number. You must
+refer to them with their register name. This restriction includes
+general registers (<CODE>r</CODE><I>N</I>), floating point registers,
+(<CODE>f</CODE><I>N</I>), condition registers
+(<CODE>cr</CODE><I>N</I>), and segment registers
+(<CODE>sr</CODE><I>N</I>). However, you can refer to special
+registers by their register number or their special register names.
+The special register names are in lowercase only (for example,
+<CODE>mq</CODE>, <CODE>xer</CODE>, <CODE>lr</CODE>, <CODE>ctr</CODE>,
+and <CODE>dsisr</CODE>).</P>
+
+<P>For instance, for the <B>ppcasm</B> assember you could code a move
+from segment register instruction as:</P>
+
+<PRE>mfsr r24,9 ; ppcasm assembler</PRE>
+
+<P>But, for the Mac OS X assembler, this same move would be coded
+as:</P>
+
+<PRE>mfsr r24,sr9 ; Mac OS X assembler</PRE>
+
+<P>For instructions that take the value 0 or a register, shown in the
+processor manual as "(rA|0)", r0 can't be used and 0 must be coded.
+The Mac OS X assembler generates an error messages in these
+cases.</P>
+
+<P>Where a numeric value is expected as a parameter, a register name
+can't be use. For example, the <B>ppcasm</B> assembler allows the
+following:</P>
+
+<PRE>lwz r1,r2(r3) ; ppcasm assembler</PRE>
+
+<P>For Mac OS X, this must be coded as:</P>
+
+<PRE>lwz r1,2(r3) ; Mac OS X assembler</PRE>
+
+<P>The Mac OS X assembler generates a warning if branch prediction is
+coded with an unconditional branch.</P>
+
+<P>The Mac OS X assembler checks all fields for range errors and
+generates error messages if an expression is out of range. The
+<B>ppcasm</B> assembler simply uses the low <I>N</I> bits of the
+expression (where <I>N</I> is the field width) if the value is
+greater than zero. For example the simplified mnemonic:</P>
+
+<PRE>inslwi r<I>A</I>,r<I>S</I>,<I>n</I>,<I>b</I></PRE>
+
+<P>is equivalent to</P>
+
+<PRE>rlwimi r<I>A</I>,r<I>S</I>,32-<I>b</I>,<I>b</I>,(<I>b</I>+<I>n</I>)-1</PRE>
+
+<P>The following code:</P>
+
+<PRE>inslwi r17,r18,19,20 ; equivalent to rlwimi r17,r18,32-20,20,(20+19)-1</PRE>
+
+<P>assembles to</P>
+
+<PRE>rlwimi r17,r18,12,20,6 ; where the low 5 bits (20+19)-1 is 6</PRE>
+
+<P>with <B>ppcasm</B>. This generates an out-of-range error with the
+Mac OS X assembler.</P>
+
+<P>For fields less than zero, the <B>ppcasm</B> assembler uses the
+value of zero. For example, the simplified mnemonic:</P>
+
+<PRE>clrlslwi r<I>A</I>,r<I>S</I>,<I>b</I>,<I>n</I></PRE>
+
+<P>is equivalent to</P>
+
+<PRE>rlwinm r<I>A</I>,r<I>B</I>,<I>n</I>,<I>b</I>-<I>n,</I>31-<I>b</I></PRE>
+
+<P>Thus the following code:</P>
+
+<PRE>clrlslwi r5,r6,7,8 ; equivalent to rlwinm r5,r6,8,7-8,31-7</PRE>
+
+<P>assembles to:</P>
+
+<PRE>rlwinm r5,r6,7,0,24 ; where 7-8 gets turned into 0</PRE>
+
+<P>with <B>ppcasm</B>. This generates an out-of-range error with the
+Mac OS X assembler.</P>
+
+<P>All integer expressions in the Mac OS X assembler are signed
+32-bit values. Parameters that are 16-bit signed or unsigned
+immediate values must agree in their upper 16 bits or the assembler
+generates an out-of-range error message.</P>
+
+<P>For example:</P>
+
+<PRE>addi r1,r2,0xffff ; out of range for a 16-bit signed immediate</PRE>
+
+<P>generates the message "Parameter error: expression out of range
+(parameter 3)".</P>
+
+<P>The <CODE>addi</CODE> instruction takes a signed immediate value
+so it will sign extend its parameter to 32 bits before performing the
+operation. If the value 0xffffffff is intended, it would be coded
+as:</P>
+
+<PRE>addi r1,r2,0xffffffff</PRE>
+
+<P>If this is half of a two-instruction 32-bit add it should be coded
+as:</P>
+
+<PRE>addis r1,0,ha16(<I>expression</I>)
+addi r1,r2,lo16(<I>expression</I>)</PRE>
+
+<P>Many of the simplified mnemonics are implemented as Mac OS X
+assembler macros (as noted in the listing of PowerPC assembler
+instructions in the assember manual). Like all macros, the macro is
+expanded and assembled. This expansion can result in errors that can
+seem confusing when you look at the coded macro. For example, the
+simplified mnemonic:</P>
+
+<PRE>extldi r<I>A</I>,r<I>S</I>,<I>n</I>,<I>b</I></PRE>
+
+<P>is equivalent to</P>
+
+<PRE>rldicr r<I>A</I>,r<I>S</I>,<I>b</I>,<I>n</I>-1 </PRE>
+
+<P>Thus the following code:</P>
+
+<PRE>extldi r1,r2,0,2</PRE>
+
+<P>generates the error message "Parameter error: expression out of
+range (parameter 4)," which refers to "n-1" or "0-1", or parameter 4
+of the expanded macro.</P>
+
+<P>The instruction <CODE>tlbiex</CODE>, which has been removed from
+the PowerPC architecture, is not supported by the Mac OS X assembler.
+This instruction is assembled by <B>ppcasm</B>.</P>
+</BODY>
+</HTML>

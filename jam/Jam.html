@@ -1,0 +1,414 @@
+<HTML>
+<TITLE>
+Jam/MR "jam"
+</TITLE>
+<BODY>
+<CENTER>
+<H1>
+jam 
+</H1>
+<P>
+<A NAME="TOP">
+The Jam/MR Executable Program
+<BR>
+Jam/MR 2.2
+</A>
+</CENTER>
+<P>
+<H2>
+USAGE
+</H2>
+<PRE>
+	jam [ -a ] [ -n ] [ -v ] [ -d <I>debug</I> ] [ -f <I>rulesfile</I> ... ] 
+	    [ -j <I>jobs</I> ] [ -s <I>var</I>=<I>value</I> ... ] [ -t <I>target</I> ... ] 
+	    [  <I>target</I> ... ]
+</PRE>
+
+<H2>
+DESCRIPTION
+</H2>
+<P>
+	<B>jam,</B> the Jam/MR executable program,
+       recursively  builds  target files  from source files
+       using dependency and build specification rules defined 
+       in <i>rulesfile</i>.
+	<B>jam</B> parses <i>rulesfile</i> to identify targets
+	and sources,
+	examines the filesystem to determine which
+	targets need updating, and issues OS commands to update
+	targets.
+<P>
+ 	Normally, <i>rulesfile</i> is compiled into <B>jam</B>,
+	allowing <B>jam</B> to be run as a stand-alone program.
+	A base set of build rules is provided in the
+	file "Jambase", and is described in
+	<a href="Jamfile.html">Using Jamfiles and Jambase</A>
+	and the
+	<a href="Jambase.html">Jambase Reference</a>.
+	For general information, refer to the
+	<a href="Jamlang.html">Jam/MR Language</A> document.
+<P>
+       If <I>target</I> is provided on the command line, <B>jam</B> attempts to
+       build <I>target;</I> otherwise <B>jam</B>  attempts  to  build  the
+       target 'all'.
+<P>
+<H2>
+
+OPTIONS
+</H2>
+<P>
+       <b>jam</b> may be invoked with the following options:
+<PRE>
+       -a     Build all targets anyway, even if they are up-to-date.
+
+       -d&lt;n&gt;  Enable cummulative debugging levels from 1 to &lt;n&gt;.  
+	      Interesting values are:
+
+              1 Show actions (the default)
+              2 Show "quiet" actions and display all action text
+              3 Show dependency analysis, and target/source timestamps/paths 
+	      4 Show shell arguments
+	      5 Show rule invocations and variable expansions
+	      6 Show directory/header file/archive scans
+	      7 Show variable settings
+	      8 Show variable fetches
+	      9 Show variable manipulation, scanner tokens
+
+       -d+&lt;n&gt; Enable debugging level &lt;n&gt;.
+
+       -d0    Turn off all debugging levels.  Only errors are not
+              suppressed.
+
+       -f&lt;rulesfile&gt;
+              Read &lt;rulesfile&gt; instead of Jambase.
+
+       -j&lt;n&gt;
+              Run  up to &lt;n&gt; shell commands concurrently (UNIX
+              only).  The default is 1.
+
+       -k     Continue after build error.  The default behavior is to 
+              exit after the first build failure.
+
+       -n     Don't actually execute the updating actions, but do
+              everything else.  This changes the debug level default 
+	      to -d2.
+
+       -s&lt;var&gt;=&lt;value&gt;
+              Set  the variable &lt;var&gt; to &lt;value&gt;, overriding both
+              internal variables and variables imported from  the
+              environment.
+
+       -t&lt;target&gt;
+              Rebuild &lt;target&gt;, even if it is up-to-date, and/or build 
+	      dependencies of &lt;target&gt; as if &lt;target&gt; were newer.
+
+       -v     Print the version of <B>jam</B> and exit.
+</PRE>
+<P>
+<H2>
+OPERATION
+</H2>
+<P>
+       <b>jam</b> has three phases of operation: parsing,  binding,  and
+       updating.
+<H3>
+   Parsing
+</H3>  
+<P>    
+	In the parsing phase, <b>jam</b> reads the rules file(s),
+	evaluates variables, identifies and invokes rules, 
+	identifies targets, and builds the dependency graph.
+<P>    
+	Which rules files get read depends on 
+	the site-specific implementation of <b>jam</b>.
+	The normal implementation is this: <b>jam</b> reads the Jambase
+	rules file, the text of which is stored inside the <b>jam</b>
+	executable itself. Jambase may "include" other rules files, and
+	the last rule invoked from Jambase is
+	"include Jamfile", which reads file "Jamfile" from the current
+	directory. Jamfile is expected to specify which targets get
+	built from the source files in the current directory.
+	(All of this is explained in detail in
+	<a href="Jamfile.html">Using Jamfiles and Jambase</a>.)
+	If there's no Jamfile in the current directory, <b>jam</b>
+	emits a message and exits.
+<P>    
+	Environment variable settings are imported into Jam/MR variables.
+	To pass a value to a variable on the <b>jam</b> command line,
+	overriding the variable's environment value, use the -s option.
+	To see variable assignments made during <b>jam</b>'s execution,
+	use the -d+7 option.
+<P>
+	Rules are defined in rules files using the Jam/MR language,
+	and are invoked in rules files after they are defined.
+	Targets are identified by rule invocations. At the completion
+	of the parsing phase, all targets are uniquely identified
+	and a dependency graph is constructed.
+<P>
+<H3>
+   Binding
+</H3>  
+<P>    
+       After parsing, <B>jam</B>  recursively  descends  the  dependency
+       graph and binds every file target with a location in the filesystem.
+       The existence and modification times of the bound files are 
+       used to determine which targets need 
+       updating.  If <B>jam</B> detects a  circular
+       dependency in the graph, it issues a warning.
+<P>
+	A file target is bound with a location as follows:
+
+	<UL>
+	<LI>If $(LOCATE) is set, the target is bound
+	    to the path described by the first element in $(LOCATE). 
+	    <P>
+
+	<LI>If $(LOCATE) is not set, and the target has any updating
+	    actions associated with it, the target is bound to the
+	    current directory of the <b>jam</b> invocation.
+	    <P>
+
+	<LI>If $(LOCATE) is not set, and the target has no updating
+	    actions associated with it, 
+	    and $(SEARCH) is set,
+	    <b>jam</b> searches the directories in the $(SEARCH) list.
+	    The first directory in the list in which the target is
+	    found becomes the target's bound path. If the target is
+	    not found, it is bound to the current directory of the
+	    <b>jam</b> invocation.
+	    <P>
+
+        <LI>If neither $(SEARCH) nor $(LOCATE) are set, the target
+	    is bound to the current directory of the <b>jam</b> invocation.
+	    <P>
+
+	<LI>If the target's identifier contains a rooted pathname,
+		none of the above applies, and the target's bound
+		location is that path.
+		<P>
+
+	<LI>Unrooted pathnames used in $(SEARCH), $(LOCATE), or
+		target identifiers are relative to the 
+		current directory where <B>jam</B> was invoked.
+		<P>
+
+	<LI>Target-specific values of $(SEARCH) and $(LOCATE)
+	    always have precedence over global values in binding.
+	    <P>
+
+	</UL>
+
+
+<P>
+       After binding each target, <B>jam</B> determines whether the target  
+       needs updating, and marks the target if necessary for
+       the updating phase.  A target is marked for  updating  for
+       any of these three reasons:
+<UL>
+<LI>
+              It is missing.
+<LI>
+              Its  filesystem modification time is older than any
+              of its sources.
+<LI>
+              Any of its sources are marked for updating.
+</UL>
+<P>
+       For targets of the built-in rules ALWAYS, LEAVES,
+       NOCARE, TEMPORARY, NOTFILE, and NOUPDATE, <b>jam</b>'s updating
+       behavior is slightly different:
+<P>
+<BLOCKQUOTE>
+<DL>
+<DT>
+              ALWAYS 
+<DD>
+		The target is always updated.
+<DT>
+              LEAVES 
+<DD>
+		The  target is only updated if it is missing
+                     or if its  leaf  sources  are  newer.   Leaf
+                     sources are those dependencies of the target
+                     that have no dependencies themselves.
+<DT>
+              NOCARE 
+<DD>
+		The target is ignored if it is  missing  and
+                     has  no  updating  actions.   Normally,  <B>jam</B>
+                     issues a warning  and  skips  other  targets
+                     that   depend  on  missing  targets  without
+                     updating actions.
+<DT>
+              TEMPORARY
+<DD>
+                     If the target is missing, then its  source's
+                     modification  time  is  used  when comparing
+                     against dependencies.
+<DT>
+              NOTFILE
+<DD>
+                     The target is only updated  if  any  of  its
+                     sources are marked for updating.
+<DT>
+              NOUPDATE
+<DD>
+                     The target is only updated if it is missing.
+                     Also, if it exists, it will appear eternally
+                     old;  that  is,  older  than  anything  that
+                     depends on it.
+</DL>
+</BLOCKQUOTE>
+<P>
+       If $(HDRSCAN) is set on a file target,
+       <B>jam</B>  scans  the file for header file include lines.
+       It scans the file by matching each  line  against  a  
+       regexp(3) pattern that has ()'s surrounding the included file
+       name.  The pattern is provided by  the  user  through  the
+       special variable $(HDRSCAN) (see HDRPATTERN in Jambase for
+       an example).  The result of the scan is formed into a rule
+       invocation,  with  the  scanned file as the target and the
+       found included  file  names  as  the  sources.   The  rule
+       invoked  is named by the special variable $(HDRRULE).  <b>jam</b>
+       only scans files if $(HDRSCAN) is set, and  $(HDRSCAN)  is
+       normally set target-specific.
+<P>
+       Between  binding and updating, <B>jam</B> announces the number of
+       targets to be updated.
+<P>
+<H3>
+   Updating
+</H3>  
+<P>    
+       After binding, <B>jam</B> again recursively descends  the  dependency  graph,  this  time executing the update actions for
+       each target marked for update during  the  binding  phase.
+       If  a  target's  updating  actions  fail, then all targets
+       which depend on it are skipped.
+<P>
+       The -j flag instructs <B>jam</B> to build more than
+       one  target at a time.  If there are multiple actions on a
+       single target, they are run sequentially.
+<P>
+       The special variable $(JAMSHELL) gives <B>jam</B> a
+       command  execution  shell  to  be used instead of /bin/sh.
+       This variable's value must be a multi-element list, 
+       corresponding to the argument vector for the command shell.  An
+       element "%" is replaced with the command  string  to  execute.   
+       An  element  "!" is replaced with the multiprocess
+       slot number, which is (inclusively) between 1 and the maximum  
+       number of concurrent jobs specified with the -j flag
+       (default 1).  If no element of the list is "%",  the  command  
+       string  is  tacked  on  as  the  last argument.  The
+       default value is: "/bin/sh -c %".
+<P>
+<H2>
+DIAGNOSTICS
+</H2>  
+<P>    
+       In addition to generic error messages, <B>jam</B> may emit one of
+       the following:
+<PRE>
+       warning: unknown rule X
+
+              A  rule  was invoked that has not been defined with
+              an "actions" or "rule" statement.
+
+       using N temp target(s)
+
+              Targets marked as being temporary (but  nonetheless
+              present) have been found.
+
+       updating N target(s)
+
+              Targets are out-of-date and will be updated.
+
+       can't find N target(s)
+
+              Source  files  can't  be  found  and  there  are no
+              actions to create them.
+
+       can't make N target(s)
+
+              Due to sources not being found, other targets  cannot be made.
+
+       warning: X depends on itself
+
+              A  target  depends  on  itself  either  directly or
+              through its sources.
+
+       don't know how to make X
+
+              A target is not present and no  actions  have  been
+              defined to create it.
+
+       X skipped for lack of Y
+
+              A  source failed to build, and thus a target cannot
+              be built.
+
+       warning: using independent target X
+
+              A target that does is not a dependency of any other
+              target is being referenced with $(&lt;) or $(&gt;).
+
+       X removed
+
+              <b>jam</b>  removed  a  partially built target after being
+              interrupted.
+</PRE>
+<P>
+<H2>
+BUGS, LIMITATIONS
+</H2>
+<P>
+	The -j flag can cause <B>jam</B> to get confused when
+	single actions update more than
+	one target at a time. <B>jam</B> may try to execute
+	actions to build those targets' dependencies before
+	the targets themselves have all been built.
+<P>
+       With the -j flag, errors  from  failed  commands  can  get
+       staggeringly  mixed up.  Also, because targets tend to get
+       built in a quickest-first ordering, dependency information
+       must  be  quite  exact.   Finally, beware of parallelizing
+       commands that drop  fixed-named  files  into  the  current
+       directory, like yacc(1) does.
+<P>
+       A  poorly  set  $(JAMSHELL)  is likely to result in silent
+       failure.
+<P>
+<H2>
+SEE ALSO
+</H2>
+<P>
+<UL>
+<LI>
+	<a href="Jambase.html">Using Jamfiles and Jambase</a>
+<LI>
+	<a href="Jambase.html">Jambase Reference</a>
+<LI>
+	<a href="Jamlang.html">The Jam/MR Language</A>
+</UL>
+	Documentation and source are available 
+	at <A HREF=http://www.perforce.com/jam/jam.html>www.perforce.com/jam/jam.html</a>.
+<P>    
+<H2>
+AUTHOR
+</H2>  
+<P>   
+       Jam/MR's author is Christopher Seiwald (<a href="mailto:seiwald@perforce.com">seiwald@perforce.com)</A>.
+	Documentation is provided by 
+	<A HREF="http://www.perforce.com">Perforce Software, Inc.</A>
+
+<P>   
+<HR>   
+<A HREF="#TOP">Back to top.</A>
+<P>
+        Copyright 1997 Perforce Software, Inc.
+        <BR>
+        Comments to <A HREF="mailto:info@perforce.com">info@perforce.com</A>
+        <BR>
+        Last updated: Oct 19, 1997
+</BODY> 
+</HTML>
+

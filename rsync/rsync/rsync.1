@@ -1,0 +1,910 @@
+.TH "rsync" "1" "1 Mar 1999" "" "" 
+.SH "NAME" 
+rsync \- faster, flexible replacement for rcp
+.SH "SYNOPSIS" 
+.PP 
+rsync [OPTION]\&.\&.\&. SRC [SRC]\&.\&.\&. [USER@]HOST:DEST
+.PP 
+rsync [OPTION]\&.\&.\&. [USER@]HOST:SRC DEST
+.PP 
+rsync [OPTION]\&.\&.\&. SRC [SRC]\&.\&.\&. DEST
+.PP 
+rsync [OPTION]\&.\&.\&. [USER@]HOST::SRC [DEST]
+.PP 
+rsync [OPTION]\&.\&.\&. SRC [SRC]\&.\&.\&. [USER@]HOST::DEST
+.PP 
+rsync [OPTION]\&.\&.\&. rsync://[USER@]HOST[:PORT]/SRC [DEST]
+.PP 
+.SH "DESCRIPTION" 
+.PP 
+rsync is a program that behaves in much the same way that rcp does,
+but has many more options and uses the rsync remote-update protocol to
+greatly speedup file transfers when the destination file already
+exists\&.
+.PP 
+The rsync remote-update protocol allows rsync to transfer just the
+differences between two sets of files across the network link, using
+an efficient checksum-search algorithm described in the technical
+report that accompanies this package\&.
+.PP 
+Some of the additional features of rsync are:
+.PP 
+.IP o 
+support for copying links, devices, owners, groups and permissions
+.IP o 
+exclude and exclude-from options similar to GNU tar
+.IP o 
+a CVS exclude mode for ignoring the same files that CVS would ignore
+.IP o 
+can use any transparent remote shell, including rsh or ssh
+.IP o 
+does not require root privileges
+.IP o 
+pipelining of file transfers to minimize latency costs
+.IP o 
+support for anonymous or authenticated rsync servers (ideal for
+mirroring)
+.PP 
+.SH "GENERAL" 
+.PP 
+There are six different ways of using rsync\&. They are:
+.PP 
+.IP o 
+for copying local files\&. This is invoked when neither
+source nor destination path contains a : separator
+.IP 
+.IP o 
+for copying from the local machine to a remote machine using
+a remote shell program as the transport (such as rsh or
+ssh)\&. This is invoked when the destination path contains a
+single : separator\&.
+.IP 
+.IP o 
+for copying from a remote machine to the local machine
+using a remote shell program\&. This is invoked when the source
+contains a : separator\&.
+.IP 
+.IP o 
+for copying from a remote rsync server to the local
+machine\&. This is invoked when the source path contains a ::
+separator or a rsync:// URL\&.
+.IP 
+.IP o 
+for copying from the local machine to a remote rsync
+server\&. This is invoked when the destination path contains a ::
+separator\&. 
+.IP 
+.IP o 
+for listing files on a remote machine\&. This is done the
+same way as rsync transfers except that you leave off the
+local destination\&.  
+.PP 
+Note that in all cases (other than listing) at least one of the source
+and destination paths must be local\&.
+.PP 
+.SH "SETUP" 
+.PP 
+See the file README for installation instructions\&.
+.PP 
+Once installed you can use rsync to any machine that you can use rsh
+to\&.  rsync uses rsh for its communications, unless both the source and
+destination are local\&.
+.PP 
+You can also specify an alternative to rsh, by either using the -e
+command line option, or by setting the RSYNC_RSH environment variable\&.
+.PP 
+One common substitute is to use ssh, which offers a high degree of
+security\&.
+.PP 
+Note that rsync must be installed on both the source and destination
+machines\&. 
+.PP 
+.SH "USAGE" 
+.PP 
+You use rsync in the same way you use rcp\&. You must specify a source
+and a destination, one of which may be remote\&.
+.PP 
+Perhaps the best way to explain the syntax is some examples:
+.PP 
+.RS 
+rsync *\&.c foo:src/
+.RE 
+.PP 
+this would transfer all files matching the pattern *\&.c from the
+current directory to the directory src on the machine foo\&. If any of
+the files already exist on the remote system then the rsync
+remote-update protocol is used to update the file by sending only the
+differences\&. See the tech report for details\&.
+.PP 
+.RS 
+rsync -avz foo:src/bar /data/tmp
+.RE 
+.PP 
+this would recursively transfer all files from the directory src/bar on the
+machine foo into the /data/tmp/bar directory on the local machine\&. The
+files are transferred in "archive" mode, which ensures that symbolic
+links, devices, attributes, permissions, ownerships etc are preserved
+in the transfer\&.  Additionally, compression will be used to reduce the
+size of data portions of the transfer\&.
+.PP 
+.RS 
+rsync -avz foo:src/bar/ /data/tmp
+.RE 
+.PP 
+a trailing slash on the source changes this behavior to transfer
+all files from the directory src/bar on the machine foo into the
+/data/tmp/\&.  A trailing / on a source name means "copy the
+contents of this directory"\&.  Without a trailing slash it means "copy
+the directory"\&. This difference becomes particularly important when
+using the --delete option\&.
+.PP 
+You can also use rsync in local-only mode, where both the source and
+destination don\'t have a \':\' in the name\&. In this case it behaves like
+an improved copy command\&.
+.PP 
+.RS 
+rsync somehost\&.mydomain\&.com::
+.RE 
+.PP 
+this would list all the anonymous rsync modules available on the host
+somehost\&.mydomain\&.com\&.  (See the following section for more details\&.)
+.PP 
+.SH "CONNECTING TO AN RSYNC SERVER" 
+.PP 
+It is also possible to use rsync without using rsh or ssh as the
+transport\&. In this case you will connect to a remote rsync server
+running on TCP port 873\&. 
+.PP 
+Using rsync in this way is the same as using it with rsh or ssh except
+that:
+.PP 
+.IP o 
+you use a double colon :: instead of a single colon to
+separate the hostname from the path\&. 
+.IP 
+.IP o 
+the remote server may print a message of the day when you
+connect\&.
+.IP 
+.IP o 
+if you specify no path name on the remote server then the
+list of accessible paths on the server will be shown\&.
+.IP 
+.IP o 
+if you specify no local destination then a listing of the
+specified files on the remote server is provided\&.
+.PP 
+Some paths on the remote server may require authentication\&. If so then
+you will receive a password prompt when you connect\&. You can avoid the
+password prompt by setting the environment variable RSYNC_PASSWORD to
+the password you want to use or using the --password-file option\&. This
+may be useful when scripting rsync\&.
+.PP 
+WARNING: On some systems environment variables are visible to all
+users\&. On those systems using --password-file is recommended\&.
+.PP 
+.SH "RUNNING AN RSYNC SERVER" 
+.PP 
+An rsync server is configured using a config file which by default is
+called /etc/rsyncd\&.conf\&. Please see the rsyncd\&.conf(5) man page for more
+information\&. 
+.PP 
+.SH "EXAMPLES" 
+.PP 
+Here are some examples of how I use rsync\&.
+.PP 
+To backup my wife\'s home directory, which consists of large MS Word
+files and mail folders, I use a cron job that runs
+.PP 
+.RS 
+rsync -Cavz \&. arvidsjaur:backup
+.RE 
+.PP 
+each night over a PPP link to a duplicate directory on my machine
+"arvidsjaur"\&.
+.PP 
+To synchronize my samba source trees I use the following Makefile
+targets:
+.PP 
+.RS 
+get:
+.br 
+rsync -avuzb --exclude \'*~\' samba:samba/ \&.
+.PP 
+put:
+.br 
+rsync -Cavuzb \&. samba:samba/
+.PP 
+sync: get put
+.RE 
+.PP 
+this allows me to sync with a CVS directory at the other end of the
+link\&. I then do cvs operations on the remote machine, which saves a
+lot of time as the remote cvs protocol isn\'t very efficient\&.
+.PP 
+I mirror a directory between my "old" and "new" ftp sites with the
+command
+.PP 
+.RS 
+rsync -az -e ssh --delete ~ftp/pub/samba/ nimbus:"~ftp/pub/tridge/samba"
+.RE 
+.PP 
+this is launched from cron every few hours\&.
+.PP 
+.SH "OPTIONS SUMMARY" 
+.PP 
+Here is a short summary of the options available in rsync\&. Please refer
+to the detailed description below for a complete description\&.
+.PP 
+
+.DS 
+ 
+
+Usage: rsync [OPTION]\&.\&.\&. SRC [SRC]\&.\&.\&. [USER@]HOST:DEST
+  or   rsync [OPTION]\&.\&.\&. [USER@]HOST:SRC DEST
+  or   rsync [OPTION]\&.\&.\&. SRC [SRC]\&.\&.\&. DEST
+  or   rsync [OPTION]\&.\&.\&. [USER@]HOST::SRC [DEST]
+  or   rsync [OPTION]\&.\&.\&. SRC [SRC]\&.\&.\&. [USER@]HOST::DEST
+  or   rsync [OPTION]\&.\&.\&. rsync://[USER@]HOST[:PORT]/SRC [DEST]
+SRC on single-colon remote HOST will be expanded by remote shell
+SRC on server remote HOST may contain shell wildcards or multiple
+  sources separated by space as long as they have same top-level
+
+Options
+ -v, --verbose               increase verbosity
+ -q, --quiet                 decrease verbosity
+ -c, --checksum              always checksum
+ -a, --archive               archive mode
+ -r, --recursive             recurse into directories
+ -R, --relative              use relative path names
+ -b, --backup                make backups (default ~ suffix)
+     --suffix=SUFFIX         override backup suffix
+ -u, --update                update only (don\'t overwrite newer files)
+ -l, --links                 preserve soft links
+ -L, --copy-links            treat soft links like regular files
+     --copy-unsafe-links     copy links outside the source tree
+     --safe-links            ignore links outside the destination tree
+ -H, --hard-links            preserve hard links
+ -p, --perms                 preserve permissions
+ -o, --owner                 preserve owner (root only)
+ -g, --group                 preserve group
+ -D, --devices               preserve devices (root only)
+ -t, --times                 preserve times
+ -S, --sparse                handle sparse files efficiently
+ -n, --dry-run               show what would have been transferred
+ -W, --whole-file            copy whole files, no incremental checks
+ -x, --one-file-system       don\'t cross filesystem boundaries
+ -B, --block-size=SIZE       checksum blocking size (default 700)
+ -e, --rsh=COMMAND           specify rsh replacement
+     --rsync-path=PATH       specify path to rsync on the remote machine
+ -C, --cvs-exclude           auto ignore files in the same way CVS does
+     --delete                delete files that don\'t exist on the sending side
+     --delete-excluded       also delete excluded files on the receiving side
+     --partial               keep partially transferred files
+     --force                 force deletion of directories even if not empty
+     --numeric-ids           don\'t map uid/gid values by user/group name
+     --timeout=TIME          set IO timeout in seconds
+ -I, --ignore-times          don\'t exclude files that match length and time
+     --size-only             only use file size when determining if a file should be transferred
+ -T  --temp-dir=DIR          create temporary files in directory DIR
+     --compare-dest=DIR      also compare destination files relative to DIR
+ -z, --compress              compress file data
+     --exclude=PATTERN       exclude files matching PATTERN
+     --exclude-from=FILE     exclude patterns listed in FILE
+     --include=PATTERN       don\'t exclude files matching PATTERN
+     --include-from=FILE     don\'t exclude patterns listed in FILE
+     --version               print version number
+     --daemon                run as a rsync daemon
+     --config=FILE           specify alternate rsyncd\&.conf file
+     --port=PORT             specify alternate rsyncd port number
+     --stats                 give some file transfer stats
+     --progress              show progress during transfer
+     --log-format=FORMAT     log file transfers using specified format
+     --password-file=FILE    get password from FILE
+ -h, --help                  show this help screen
+
+.DE 
+ 
+
+.PP 
+.SH "OPTIONS" 
+.PP 
+rsync uses the GNU long options package\&. Many of the command line
+options have two variants, one short and one long\&.  These are shown
+below, separated by commas\&. Some options only have a long variant\&.
+The \'=\' for options that take a parameter is optional; whitespace
+can be used instead\&.
+.PP 
+.IP "\fB-h, --help\fP" 
+Print a short help page describing the options
+available in rsync
+.IP 
+.IP "\fB--version\fP" 
+print the rsync version number and exit
+.IP 
+.IP "\fB-v, --verbose\fP" 
+This option increases the amount of information you
+are given during the transfer\&.  By default, rsync works silently\&. A
+single -v will give you information about what files are being
+transferred and a brief summary at the end\&. Two -v flags will give you
+information on what files are being skipped and slightly more
+information at the end\&. More than two -v flags should only be used if
+you are debugging rsync\&.
+.IP 
+.IP "\fB-q, --quiet\fP" 
+This option decreases the amount of information you
+are given during the transfer, notably suppressing information messages
+from the remote server\&. This flag is useful when invoking rsync from
+cron\&.
+.IP 
+.IP "\fB-I, --ignore-times\fP" 
+Normally rsync will skip any files that are
+already the same length and have the same time-stamp\&. This option turns
+off this behavior\&.
+.IP 
+.IP "\fB-I, --size-only\fP" 
+Normally rsync will skip any files that are
+already the same length and have the same time-stamp\&. With the
+--size-only option files will be skipped if they have the same size,
+regardless of timestamp\&. This is useful when starting to use rsync
+after using another mirroring system which may not preserve timestamps
+exactly\&.
+.IP 
+.IP "\fB-c, --checksum\fP" 
+This forces the sender to checksum all files using
+a 128-bit MD4 checksum before transfer\&. The checksum is then
+explicitly checked on the receiver and any files of the same name
+which already exist and have the same checksum and size on the
+receiver are skipped\&.  This option can be quite slow\&.
+.IP 
+.IP "\fB-a, --archive\fP" 
+This is equivalent to -rlptg\&. It is a quick way
+of saying you want recursion and want to preserve everything\&.
+.IP 
+Note: if the user launching rsync is root then the -o (preserve
+uid) and -D (preserve devices) options are also implied\&.
+.IP 
+.IP "\fB-r, --recursive\fP" 
+This tells rsync to copy directories
+recursively\&. If you don\'t specify this then rsync won\'t copy
+directories at all\&.
+.IP 
+.IP "\fB-R, --relative\fP" 
+Use relative paths\&. This means that the full path
+names specified on the command line are sent to the server rather than
+just the last parts of the filenames\&. This is particularly useful when
+you want to send several different directories at the same time\&. For
+example, if you used the command
+.IP 
+
+.DS 
+ 
+rsync foo/bar/foo\&.c remote:/tmp/
+.DE 
+ 
+
+.IP 
+then this would create a file called foo\&.c in /tmp/ on the remote
+machine\&. If instead you used
+.IP 
+
+.DS 
+ 
+rsync -R foo/bar/foo\&.c remote:/tmp/
+.DE 
+ 
+
+.IP 
+then a file called /tmp/foo/bar/foo\&.c would be created on the remote
+machine\&. The full path name is preserved\&.
+.IP 
+.IP "\fB-b, --backup\fP" 
+With this option preexisting destination files are
+renamed with a ~ extension as each file is transferred\&.  You can
+control the backup suffix using the --suffix option\&.
+.IP 
+.IP "\fB--suffix=SUFFIX\fP" 
+This option allows you to override the default
+backup suffix used with the -b option\&. The default is a ~\&.
+.IP 
+.IP "\fB-u, --update\fP" 
+This forces rsync to skip any files for which the
+destination file already exists and has a date later than the source
+file\&.
+.IP 
+.IP "\fB-l, --links\fP" 
+This tells rsync to recreate symbolic links on the
+remote system  to  be the same as the local system\&. Without this
+option, all symbolic links are skipped\&.
+.IP 
+.IP "\fB-L, --copy-links\fP" 
+This tells rsync to treat symbolic links just
+like ordinary files\&.
+.IP 
+.IP "\fB--copy-unsafe-links\fP" 
+This tells rsync to treat symbolic links that
+point outside the source tree like ordinary files\&.  Absolute symlinks are
+also treated like ordinary files, and so are any symlinks in the source
+path itself when --relative is used\&.
+.IP 
+.IP "\fB--safe-links\fP" 
+This tells rsync to ignore any symbolic links
+which point outside the destination tree\&. All absolute symlinks are
+also ignored\&. Using this option in conjunction with --relative may
+give unexpected results\&. 
+.IP 
+.IP "\fB-H, --hard-links\fP" 
+This tells rsync to recreate hard  links  on
+the  remote system  to  be the same as the local system\&. Without this
+option hard links are treated like regular files\&.
+.IP 
+Note that rsync can only detect hard links if both parts of the link
+are in the list of files being sent\&.
+.IP 
+This option can be quite slow, so only use it if you need it\&.
+.IP 
+.IP "\fB-W, --whole-file\fP" 
+With this option the incremental rsync algorithm
+is  not used  and  the whole file is sent as-is instead\&. This may be
+useful when using rsync with a local machine\&.
+.IP 
+.IP "\fB--partial\fP" 
+By default, rsync will delete any partially
+transferred file if the transfer is interrupted\&. In some circumstances
+it is more desirable to keep partially transferred files\&. Using the
+--partial option tells rsync to keep the partial file which should
+make a subsequent transfer of the rest of the file much faster\&.
+.IP 
+.IP "\fB-p, --perms\fP" 
+This option causes rsync to update the remote
+permissions to be the same as the local permissions\&.
+.IP 
+.IP "\fB-o, --owner\fP" 
+This option causes rsync to update the  remote  owner
+of the  file to be the same as the local owner\&. This is only available
+to the super-user\&.  Note that if the source system is a daemon using chroot,
+the --numeric-ids option is implied because the source system cannot get
+access to the usernames\&.
+.IP 
+.IP "\fB-g, --group\fP" 
+This option causes rsync to update the  remote  group
+of the file to be the same as the local group\&.  If the receving system is
+not running as the super-user, only groups that the receiver is a member of
+will be preserved (by group name, not group id number)\&.
+.IP 
+.IP "\fB-D, --devices\fP" 
+This option causes rsync to transfer character and
+block device information to the remote system to recreate these
+devices\&. This option is only available to the super-user\&.
+.IP 
+.IP "\fB-t, --times\fP" 
+This tells rsync to transfer modification times along
+with the files and update them on the remote system\&.  Note that if this
+option is not used, the optimization that excludes files that have not been
+modified cannot be effective; in other words, a missing -t or -a will
+cause the next transfer to behave as if it used -I, and all files will have
+their checksums compared and show up in log messages even if they haven\'t
+changed\&.
+.IP 
+.IP "\fB-n, --dry-run\fP" 
+This tells rsync to not do any file transfers,
+instead it will just report the actions it would have taken\&.
+.IP 
+.IP "\fB-S, --sparse\fP" 
+Try to handle sparse files efficiently so they take
+up less space on the destination\&.
+.IP 
+NOTE: Don\'t use this option when the destination is a Solaris "tmpfs"
+filesystem\&. It doesn\'t seem to handle seeks over null regions
+correctly and ends up corrupting the files\&.
+.IP 
+.IP "\fB-x, --one-file-system\fP" 
+This tells rsync not to cross filesystem
+boundaries  when recursing\&.  This  is useful for transferring the
+contents of only one filesystem\&.
+.IP 
+.IP "\fB--delete\fP" 
+This tells rsync to delete any files on the receiving
+side that aren\'t on the sending side\&.   Files that are excluded from
+transfer are excluded from being deleted unless you use --delete-excluded\&.
+.IP 
+This option has no effect if directory recursion is not selected\&.
+.IP 
+This option can be dangerous if used incorrectly!  It is a very good idea
+to run first using the dry run option (-n) to see what files would be
+deleted to make sure important files aren\'t listed\&.
+.IP 
+rsync 1\&.6\&.4 changed the behavior of --delete to make it less
+dangerous\&.  rsync now only scans directories on the receiving side
+that are explicitly transferred from the sending side\&.  Only files in
+these directories are deleted\&.
+.IP 
+Still, it is probably easy to get burnt with this option\&.  The moral
+of the story is to use the -n option until you get used to the
+behavior of --delete\&.
+.IP 
+If the sending side detects any IO errors then the deletion of any
+files at the destination will be automatically disabled\&. This is to
+prevent temporary filesystem failures (such as NFS errors) on the
+sending side causing a massive deletion of files on the
+destination\&. 
+.IP 
+.IP "\fB--delete-excluded\fP" 
+In addition to deleting the files on the
+receiving side that are not on the sending side, this tells rsync to also
+delete any files on the receiving side that are excluded (see --exclude)\&.
+.IP 
+.IP "\fB--force\fP" 
+This options tells rsync to delete directories even if
+they are not empty\&.  This applies to both the --delete option and to
+cases where rsync tries to copy a normal file but the destination
+contains a directory of the same name\&. 
+.IP 
+Since this option was added, deletions were reordered to be done depth-first
+so it is hardly ever needed anymore except in very obscure cases\&.
+.IP 
+.IP "\fB-B , --block_size=BLOCKSIZE\fP" 
+This controls the block size used in
+the rsync algorithm\&. See the technical report for details\&.
+.IP 
+.IP "\fB-e, --rsh=COMMAND\fP" 
+This option allows you to choose an alternative
+remote shell program to use for communication between the local and
+remote copies of rsync\&. By default, rsync will use rsh, but you may
+like to instead use ssh because of its high security\&.
+.IP 
+You can also choose the remote shell program using the RSYNC_RSH
+environment variable\&.
+.IP 
+.IP "\fB--rsync-path=PATH\fP" 
+Use this to specify the path to the copy of
+rsync on the remote machine\&. Useful when it\'s not in your path\&.
+.IP 
+.IP "\fB--exclude=PATTERN\fP" 
+This option allows you to selectively exclude
+certain files from the list of files to be transferred\&. This is most
+useful in combination with a recursive transfer\&.
+.IP 
+You may use as many --exclude options on the command line as you like
+to build up the list of files to exclude\&.
+.IP 
+See the section on exclude patterns for information on the syntax of 
+this option\&.
+.IP 
+.IP "\fB--exclude-from=FILE\fP" 
+This option is similar to the --exclude
+option, but instead it adds all filenames listed in the file FILE to
+the exclude list\&.  Blank lines in FILE and lines starting with \';\' or \'#\'
+are ignored\&.
+.IP 
+.IP "\fB--include=PATTERN\fP" 
+This option tells rsync to not exclude the
+specified pattern of filenames\&. This is useful as it allows you to
+build up quite complex exclude/include rules\&.
+.IP 
+See the section of exclude patterns for information on the syntax of 
+this option\&.
+.IP 
+.IP "\fB--include-from=FILE\fP" 
+This specifies a list of include patterns
+from a file\&.
+.IP 
+.IP "\fB-C, --cvs-exclude\fP" 
+This is a useful shorthand for excluding a
+broad range of files that you often don\'t want to transfer between
+systems\&. It uses the same algorithm that CVS uses to determine if
+a file should be ignored\&.
+.IP 
+The exclude list is initialized to:
+.IP 
+.RS 
+RCS SCCS CVS CVS\&.adm RCSLOG cvslog\&.* tags TAGS \&.make\&.state
+\&.nse_depinfo *~ #* \&.#* ,* *\&.old *\&.bak *\&.BAK *\&.orig *\&.rej \&.del-*
+*\&.a *\&.o *\&.obj *\&.so *\&.Z *\&.elc *\&.ln core
+.RE 
+.IP 
+then files listed in a $HOME/\&.cvsignore are added to the list and any
+files listed in the CVSIGNORE environment variable (space delimited)\&.
+.IP 
+Finally in each directory any files listed in the \&.cvsignore file in
+that directory are added to the list\&.
+.IP 
+.IP "\fB--csum-length=LENGTH\fP" 
+By default the primary checksum used in
+rsync is a very strong 16 byte MD4 checksum\&. In most cases you will
+find that a truncated version of this checksum is quite efficient, and
+this will decrease the size of the checksum data sent over the link,
+making things faster\&. 
+.IP 
+You can choose the number of bytes in the truncated checksum using the
+--csum-length option\&. Any value less than or equal to 16 is valid\&.
+.IP 
+Note that if you use this option then you run the risk of ending up
+with an incorrect target file\&. The risk with a value of 16 is
+microscopic and can be safely ignored (the universe will probably end
+before it fails) but with smaller values the risk is higher\&.
+.IP 
+Current versions of rsync actually use an adaptive algorithm for the
+checksum length by default, using a 16 byte file checksum to determine
+if a 2nd pass is required with a longer block checksum\&. Only use this
+option if you have read the source code and know what you are doing\&.
+.IP 
+.IP "\fB-T, --temp-dir=DIR\fP" 
+This option instructs rsync to use DIR as a
+scratch directory when creating temporary copies of the files
+transferred on the receiving side\&.  The default behavior is to create
+the temporary files in the receiving directory\&.
+.IP 
+.IP "\fB--compare-dest=DIR\fP" 
+This option instructs rsync to use DIR as an
+additional directory to compare destination files against when doing
+transfers\&.  This is useful for doing transfers to a new destination while
+leaving existing files intact, and then doing a flash-cutover when all
+files have been successfully transferred (for example by moving directories
+around and removing the old directory, although this requires also doing
+the transfer with -I to avoid skipping files that haven\'t changed)\&.  This
+option increases the usefulness of --partial because partially transferred
+files will remain in the new temporary destination until they have a chance
+to be completed\&.  If DIR is a relative path, it is relative to the
+destination directory\&.
+.IP 
+.IP "\fB-z, --compress\fP" 
+With this option, rsync compresses any data from
+the source file(s) which it sends to the destination machine\&.  This
+option is useful on slow links\&.  The compression method used is the
+same method that gzip uses\&.
+.IP 
+Note this this option typically achieves better compression ratios
+that can be achieved by using a compressing remote shell, or a
+compressing transport, as it takes advantage of the implicit
+information sent for matching data blocks\&.
+.IP 
+.IP "\fB--numeric-ids\fP" 
+With this option rsync will transfer numeric group
+and user ids rather than using user and group names and mapping them
+at both ends\&.
+.IP 
+By default rsync will use the user name and group name to determine
+what ownership to give files\&. The special uid 0 and the special group
+0 are never mapped via user/group names even if the --numeric-ids
+option is not specified\&.
+.IP 
+If the source system is a daemon using chroot, or if a user or group name
+does not exist on the destination system, then the numeric id from the
+source system is used instead\&.
+.IP 
+.IP "\fB--timeout=TIMEOUT\fP" 
+This option allows you to set a maximum IO
+timeout in seconds\&. If no data is transferred for the specified time
+then rsync will exit\&. The default is 0, which means no timeout\&.
+.IP 
+.IP "\fB--daemon\fP" 
+This tells rsync that it is to run as a rsync
+daemon\&. If standard input is a socket then rsync will assume that it
+is being run via inetd, otherwise it will detach from the current
+terminal and become a background daemon\&. The daemon will read the
+config file (/etc/rsyncd\&.conf) on each connect made by a client and
+respond to requests accordingly\&. See the rsyncd\&.conf(5) man page for more
+details\&. 
+.IP 
+.IP "\fB--config=FILE\fP" 
+This specifies an alternate config file than
+the default /etc/rsyncd\&.conf\&. This is only relevant when --daemon is
+specified\&. 
+.IP 
+.IP "\fB--port=PORT\fP" 
+This specifies an alternate TCP port number to use
+rather than the default port 873\&.
+.IP 
+.IP "\fB--log-format=FORMAT\fP" 
+This allows you to specify exactly what the
+rsync client logs to stdout on a per-file basis\&. The log format is
+specified using the same format conventions as the log format option in
+rsyncd\&.conf\&.
+.IP 
+.IP "\fB--stats\fP" 
+This tells rsync to print a verbose set of statistics
+on the file transfer, allowing you to tell how effective the rsync
+algorithm is for your data\&.
+.IP 
+.IP "\fB--progress\fP" 
+This option tells rsync to print information
+showing the progress of the transfer\&. This gives a bored user
+something to watch\&.
+.IP 
+.IP "\fB--password-file\fP" 
+This option allows you to provide a password
+in a file for accessing a remote rsync server\&. Note that this option
+is only useful when accessing a rsync server using the built in
+transport, not when using a remote shell as the transport\&. The file
+must not be world readable\&.
+.IP 
+.PP 
+.SH "EXCLUDE PATTERNS" 
+.PP 
+The exclude and include patterns specified to rsync allow for flexible
+selection of which files to transfer and which files to skip\&.
+.PP 
+rsync builds a ordered list of include/exclude options as specified on
+the command line\&. When a filename is encountered, rsync checks the
+name against each exclude/include pattern in turn\&. The first matching
+pattern is acted on\&. If it is an exclude pattern than that file is
+skipped\&. If it is an include pattern then that filename is not
+skipped\&. If no matching include/exclude pattern is found then the
+filename is not skipped\&.
+.PP 
+The patterns can take several forms\&. The rules are:
+.PP 
+.IP o 
+if the pattern starts with a / then it is matched against the
+start of the filename, otherwise it is matched against the end of
+the filename\&. Thus /foo would match a file called foo
+at the base of the tree whereas foo would match any file
+called foo anywhere in the tree\&.
+.IP 
+.IP o 
+if the pattern ends with a / then it will only match a
+directory, not a file, link or device\&.
+.IP 
+.IP o 
+if the pattern contains a wildcard character from the set
+*?[ then expression matching is applied using the shell filename
+matching rules\&. Otherwise a simple string match is used\&.
+.IP 
+.IP o 
+if the pattern contains a / (not counting a trailing /) then it
+is matched against the full filename, including any leading
+directory\&. If the pattern doesn\'t contain a / then it is matched
+only against the final component of the filename\&.  Furthermore, if
+the pattern includes a double asterisk "**" then all wildcards in
+the pattern will match slashes, otherwise they will stop at slashes\&.
+.IP 
+.IP o 
+if the pattern starts with "+ " (a plus followed by a space)
+then it is always considered an include pattern, even if specified as
+part of an exclude option\&. The "+ " part is discarded before matching\&.
+.IP 
+.IP o 
+if the pattern starts with "- " (a minus followed by a space)
+then it is always considered an exclude pattern, even if specified as
+part of an include option\&. The "- " part is discarded before matching\&.
+.IP 
+.IP o 
+if the pattern is a single exclamation mark ! then the current
+exclude list is reset, removing all previous exclude patterns\&.
+.PP 
+The +/- rules are most useful in exclude lists, allowing you to have a
+single exclude list that contains both include and exclude options\&.
+.PP 
+Here are some examples:
+.PP 
+.IP o 
+--exclude "*\&.o" would exclude all filenames matching *\&.o
+.IP o 
+--exclude "/foo" would exclude a file in the base directory called foo
+.IP o 
+--exclude "foo/" would exclude any directory called foo
+.IP o 
+--exclude "/foo/*/bar" would exclude any file called bar two
+levels below a base directory called foo
+.IP o 
+--exclude "/foo/**/bar" would exclude any file called bar two
+or more levels below a base directory called foo
+.IP o 
+--include "*/" --include "*\&.c" --exclude "*" would include all 
+directories and C source files
+.IP o 
+--include "foo/" --include "foo/bar\&.c" --exclude "*" would include
+only foo/bar\&.c (the foo/ directory must be explicitly included or
+it would be excluded by the "*")
+.PP 
+.SH "DIAGNOSTICS" 
+.PP 
+rsync occasionally produces error messages that may seem a little
+cryptic\&. The one that seems to cause the most confusion is "protocol
+version mismatch - is your shell clean?"\&.
+.PP 
+This message is usually caused by your startup scripts or remote shell
+facility producing unwanted garbage on the stream that rsync is using
+for its transport\&. The way to diagnose this problem is to run your
+remote shell like this:
+.PP 
+
+.DS 
+ 
+
+   rsh remotehost /bin/true > out\&.dat
+
+.DE 
+ 
+
+.PP 
+then look at out\&.dat\&. If everything is working correctly then out\&.dat
+should be a zero length file\&. If you are getting the above error from
+rsync then you will probably find that out\&.dat contains some text or
+data\&. Look at the contents and try to work out what is producing
+it\&. The most common cause is incorrectly configured shell startup
+scripts (such as \&.cshrc or \&.profile) that contain output statements
+for non-interactive logins\&.
+.PP 
+.SH "ENVIRONMENT VARIABLES" 
+.PP 
+.IP 
+.IP "\fBCVSIGNORE\fP" 
+The CVSIGNORE environment variable supplements any
+ignore patterns in \&.cvsignore files\&. See the --cvs-exclude option for
+more details\&.
+.IP 
+.IP "\fBRSYNC_RSH\fP" 
+The RSYNC_RSH environment variable allows you to
+override the default shell used as the transport for rsync\&. This can
+be used instead of the -e option\&.
+.IP 
+.IP "\fBRSYNC_PASSWORD\fP" 
+Setting RSYNC_PASSWORD to the required
+password allows you to run authenticated rsync connections to a rsync
+daemon without user intervention\&. Note that this does not supply a
+password to a shell transport such as ssh\&.
+.IP 
+.IP "\fBUSER\fP or \fBLOGNAME\fP" 
+The USER or LOGNAME environment variables
+are used to determine the default username sent to a rsync server\&.
+.IP 
+.IP "\fBHOME\fP" 
+The HOME environment variable is used to find the user\'s
+default \&.cvsignore file\&.
+.IP 
+.PP 
+.SH "FILES" 
+.PP 
+/etc/rsyncd\&.conf
+.PP 
+.SH "SEE ALSO" 
+.PP 
+rsyncd\&.conf(5)
+.PP 
+.SH "DIAGNOSTICS" 
+.PP 
+.SH "BUGS" 
+.PP 
+times are transferred as unix time_t values
+.PP 
+file permissions, devices etc are transferred as native numerical
+values
+.PP 
+see also the comments on the --delete option
+.PP 
+Please report bugs! The rsync bug tracking system is online at
+http://rsync\&.samba\&.org/rsync/
+.PP 
+.SH "VERSION" 
+This man page is current for version 2\&.0 of rsync
+.PP 
+.SH "CREDITS" 
+.PP 
+rsync is distributed under the GNU public license\&.  See the file
+COPYING for details\&.
+.PP 
+A WEB site is available at
+http://rsync\&.samba\&.org/
+.PP 
+The primary ftp site for rsync is
+ftp://rsync\&.samba\&.org/pub/rsync\&.
+.PP 
+We would be delighted to hear from you if you like this program\&.
+.PP 
+This program uses the excellent zlib compression library written by
+Jean-loup Gailly and Mark Adler\&.
+.PP 
+.SH "THANKS" 
+.PP 
+Thanks to Richard Brent, Brendan Mackay, Bill Waite, Stephen Rothwell
+and David Bell for helpful suggestions and testing of rsync\&. I\'ve
+probably missed some people, my apologies if I have\&.
+.PP 
+.SH "AUTHOR" 
+.PP 
+rsync was written by Andrew Tridgell and Paul Mackerras\&.  They may be
+contacted via email at tridge@samba\&.org and
+Paul\&.Mackerras@cs\&.anu\&.edu\&.au
+.PP 

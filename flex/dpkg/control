@@ -1,0 +1,7 @@
+Package: flex
+Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
+Vendor: GNU Project
+Version: 2.5.4a
+URL: ftp://prep.ai.mit.edu/pub/gnu/flex/
+Description: Fast lexer generator
+Build-Depends: build-base, perl, texi2html

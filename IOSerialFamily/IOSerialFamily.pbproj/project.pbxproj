@@ -1,0 +1,513 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 32;
+	objects = {
+		021C9E2B000BD0CF11CA285C = {
+			buildStyles = (
+				0C1118D40014E0F911CA285C,
+				0C1118D50014E0F911CA285C,
+			);
+			isa = PBXProject;
+			mainGroup = 021C9E2C000BD0CF11CA285C;
+			productRefGroup = 021C9E44000BD0CF11CA285C;
+			projectDirPath = .;
+			targets = (
+				021C9E46000BD0CF11CA285C,
+				021C9E59000BD1ED11CA285C,
+			);
+		};
+		021C9E2C000BD0CF11CA285C = {
+			children = (
+				021C9E33000BD0CF11CA285C,
+				021C9E34000BD0CF11CA285C,
+				021C9E35000BD0CF11CA285C,
+				021C9E37000BD0CF11CA285C,
+				021C9E38000BD0CF11CA285C,
+				021C9E39000BD0CF11CA285C,
+				021C9E3A000BD0CF11CA285C,
+				021C9E3B000BD0CF11CA285C,
+				021C9E3C000BD0CF11CA285C,
+				021C9E3D000BD0CF11CA285C,
+				021C9E44000BD0CF11CA285C,
+			);
+			isa = PBXGroup;
+			name = IOSerialFamily;
+			refType = 4;
+		};
+		021C9E33000BD0CF11CA285C = {
+			isa = PBXFileReference;
+			name = IOSerialBSDClient.cpp;
+			path = IOSerialFamily.kmodproj/IOSerialBSDClient.cpp;
+			refType = 4;
+		};
+		021C9E34000BD0CF11CA285C = {
+			isa = PBXFileReference;
+			name = IOSerialSessionSync.cpp;
+			path = IOSerialFamily.kmodproj/IOSerialSessionSync.cpp;
+			refType = 4;
+		};
+		021C9E35000BD0CF11CA285C = {
+			isa = PBXFileReference;
+			name = IOSerialStreamSync.cpp;
+			path = IOSerialFamily.kmodproj/IOSerialStreamSync.cpp;
+			refType = 4;
+		};
+		021C9E37000BD0CF11CA285C = {
+			isa = PBXFileReference;
+			name = IOSerialBSDClient.h;
+			path = IOSerialFamily.kmodproj/IOSerialBSDClient.h;
+			refType = 4;
+		};
+		021C9E38000BD0CF11CA285C = {
+			isa = PBXFileReference;
+			name = IOSerialKeys.h;
+			path = IOSerialFamily.kmodproj/IOSerialKeys.h;
+			refType = 4;
+		};
+		021C9E39000BD0CF11CA285C = {
+			isa = PBXFileReference;
+			name = IOSerialStreamSync.h;
+			path = IOSerialFamily.kmodproj/IOSerialStreamSync.h;
+			refType = 4;
+		};
+		021C9E3A000BD0CF11CA285C = {
+			isa = PBXFileReference;
+			name = IOSerialDriverSync.h;
+			path = IOSerialFamily.kmodproj/IOSerialDriverSync.h;
+			refType = 4;
+		};
+		021C9E3B000BD0CF11CA285C = {
+			isa = PBXFileReference;
+			name = IORS232SerialStreamSync.h;
+			path = IOSerialFamily.kmodproj/IORS232SerialStreamSync.h;
+			refType = 4;
+		};
+		021C9E3C000BD0CF11CA285C = {
+			isa = PBXFileReference;
+			name = IOModemSerialStreamSync.h;
+			path = IOSerialFamily.kmodproj/IOModemSerialStreamSync.h;
+			refType = 4;
+		};
+		021C9E3D000BD0CF11CA285C = {
+			isa = PBXFileReference;
+			name = IOSerialSessionSync.h;
+			path = IOSerialFamily.kmodproj/IOSerialSessionSync.h;
+			refType = 4;
+		};
+		021C9E44000BD0CF11CA285C = {
+			children = (
+				021C9E45000BD0CF11CA285C,
+				021C9E58000BD1ED11CA285C,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+		};
+		021C9E45000BD0CF11CA285C = {
+			isa = PBXBundleReference;
+			path = IOSerialFamily.kext;
+			refType = 3;
+		};
+		021C9E46000BD0CF11CA285C = {
+			buildPhases = (
+				021C9E47000BD0CF11CA285C,
+				021C9E48000BD0CF11CA285C,
+				021C9E50000BD0CF11CA285C,
+				021C9E51000BD0CF11CA285C,
+				021C9E55000BD0CF11CA285C,
+				021C9E56000BD0CF11CA285C,
+				021C9E57000BD0CF11CA285C,
+			);
+			buildSettings = {
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_EXTENSION = YES;
+				KERNEL_MODULE = YES;
+				MODULE_NAME = com.apple.iokit.IOSerialFamily;
+				MODULE_VERSION = 1.0.4;
+				OPTIMIZATION_CFLAGS = "";
+				OTHER_CFLAGS = "-Wno-format -fpermissive";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOSerialFamily;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			conditionalBuildSettings = {
+			};
+			dependencies = (
+				021C9E68000BD34611CA285C,
+			);
+			isa = PBXBundleTarget;
+			name = IOSerialFamily;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+			productName = "IOSerialFamily (Bundle)";
+			productReference = 021C9E45000BD0CF11CA285C;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
+<plist version=\"0.9\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>IOSerialFamily</string>
+	<key>CFBundleGetInfoString</key>
+	<string>Apple Computer, Inc 1999-11-05 IOKit Serial Port Family</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.iokit.IOSerialFamily</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>IOKit Serial Port Family</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0.4</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.0.4</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>IOSerialBSDClient</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.IOSerialFamily</string>
+			<key>IOClass</key>
+			<string>IOSerialBSDClient</string>
+			<key>IOProbeScore</key>
+			<integer>1000</integer>
+			<key>IOProviderClass</key>
+			<string>IOSerialStream</string>
+		</dict>
+		<key>IOSerialBSDClientSync</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.IOSerialFamily</string>
+			<key>IOClass</key>
+			<string>IOSerialBSDClient</string>
+			<key>IOProbeScore</key>
+			<integer>1000</integer>
+			<key>IOProviderClass</key>
+			<string>IOSerialStreamSync</string>
+		</dict>
+	</dict>
+	<key>OSBundleCompatibleVersion</key>
+	<string>1.0.4</string>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.kernel.bsd</key>
+		<string>1.0.0b1</string>
+		<key>com.apple.kernel.iokit</key>
+		<string>1.0.0b1</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>1.0.0b1</string>
+	</dict>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 0;
+		};
+		021C9E47000BD0CF11CA285C = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			name = "Shell Script";
+			neededFileNames = (
+			);
+			shellPath = /bin/sh;
+			shellScript = "mkdir -p \"${DERIVED_SOURCES_DIR}/IOKit\" && ln -sf \"${SRCROOT}/IOSerialFamily.kmodproj\" \"${DERIVED_SOURCES_DIR}/IOKit/serial\";\nscript=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		021C9E48000BD0CF11CA285C = {
+			buildActionMask = 2147483647;
+			files = (
+				021C9E49000BD0CF11CA285C,
+				021C9E4A000BD0CF11CA285C,
+				021C9E4B000BD0CF11CA285C,
+				021C9E4C000BD0CF11CA285C,
+				021C9E4D000BD0CF11CA285C,
+				021C9E4E000BD0CF11CA285C,
+				021C9E4F000BD0CF11CA285C,
+			);
+			isa = PBXHeadersBuildPhase;
+			name = Headers;
+		};
+		021C9E49000BD0CF11CA285C = {
+			fileRef = 021C9E37000BD0CF11CA285C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		021C9E4A000BD0CF11CA285C = {
+			fileRef = 021C9E38000BD0CF11CA285C;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		021C9E4B000BD0CF11CA285C = {
+			fileRef = 021C9E39000BD0CF11CA285C;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Project,
+				);
+			};
+		};
+		021C9E4C000BD0CF11CA285C = {
+			fileRef = 021C9E3A000BD0CF11CA285C;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		021C9E4D000BD0CF11CA285C = {
+			fileRef = 021C9E3B000BD0CF11CA285C;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		021C9E4E000BD0CF11CA285C = {
+			fileRef = 021C9E3C000BD0CF11CA285C;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		021C9E4F000BD0CF11CA285C = {
+			fileRef = 021C9E3D000BD0CF11CA285C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		021C9E50000BD0CF11CA285C = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			name = "Bundle Resources";
+		};
+		021C9E51000BD0CF11CA285C = {
+			buildActionMask = 2147483647;
+			files = (
+				021C9E52000BD0CF11CA285C,
+				021C9E53000BD0CF11CA285C,
+				021C9E54000BD0CF11CA285C,
+			);
+			isa = PBXSourcesBuildPhase;
+			name = Sources;
+		};
+		021C9E52000BD0CF11CA285C = {
+			fileRef = 021C9E33000BD0CF11CA285C;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		021C9E53000BD0CF11CA285C = {
+			fileRef = 021C9E34000BD0CF11CA285C;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		021C9E54000BD0CF11CA285C = {
+			fileRef = 021C9E35000BD0CF11CA285C;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		021C9E55000BD0CF11CA285C = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			name = "Frameworks & Libraries";
+		};
+		021C9E56000BD0CF11CA285C = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			name = "ResourceManager Resources";
+		};
+		021C9E57000BD0CF11CA285C = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			name = "Shell Script";
+			neededFileNames = (
+			);
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		021C9E58000BD1ED11CA285C = {
+			isa = PBXExecutableFileReference;
+			path = installhdrs;
+			refType = 3;
+		};
+		021C9E59000BD1ED11CA285C = {
+			buildPhases = (
+				021C9E5A000BD1ED11CA285C,
+				021C9E5B000BD1ED11CA285C,
+				021C9E66000BD2B811CA285C,
+				021C9E5C000BD1ED11CA285C,
+				021C9E5D000BD1ED11CA285C,
+				021C9E5E000BD1ED11CA285C,
+			);
+			buildSettings = {
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers";
+				OPTIMIZATION_CFLAGS = "";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = installhdrs;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			conditionalBuildSettings = {
+			};
+			dependencies = (
+			);
+			isa = PBXToolTarget;
+			name = installhdrs;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers";
+			productName = installhdrs;
+			productReference = 021C9E58000BD1ED11CA285C;
+			shouldUseHeadermap = 0;
+		};
+		021C9E5A000BD1ED11CA285C = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+			name = Headers;
+		};
+		021C9E5B000BD1ED11CA285C = {
+			buildActionMask = 8;
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/serial";
+			dstSubfolderSpec = 0;
+			files = (
+				021C9E61000BD2B811CA285C,
+				021C9E62000BD2B811CA285C,
+				021C9E63000BD2B811CA285C,
+				021C9E64000BD2B811CA285C,
+				021C9E65000BD2B811CA285C,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			name = "Copy Files";
+		};
+		021C9E5C000BD1ED11CA285C = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXSourcesBuildPhase;
+			name = Sources;
+		};
+		021C9E5D000BD1ED11CA285C = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			name = "Frameworks & Libraries";
+		};
+		021C9E5E000BD1ED11CA285C = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			name = "ResourceManager Resources";
+		};
+		021C9E61000BD2B811CA285C = {
+			fileRef = 021C9E38000BD0CF11CA285C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		021C9E62000BD2B811CA285C = {
+			fileRef = 021C9E39000BD0CF11CA285C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		021C9E63000BD2B811CA285C = {
+			fileRef = 021C9E3A000BD0CF11CA285C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		021C9E64000BD2B811CA285C = {
+			fileRef = 021C9E3B000BD0CF11CA285C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		021C9E65000BD2B811CA285C = {
+			fileRef = 021C9E3C000BD0CF11CA285C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		021C9E66000BD2B811CA285C = {
+			buildActionMask = 8;
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/Headers/serial";
+			dstSubfolderSpec = 0;
+			files = (
+				021C9E67000BD2B811CA285C,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			name = "Copy Files";
+		};
+		021C9E67000BD2B811CA285C = {
+			fileRef = 021C9E38000BD0CF11CA285C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		021C9E68000BD34611CA285C = {
+			isa = PBXTargetDependency;
+			target = 021C9E59000BD1ED11CA285C;
+		};
+		0C1118D40014E0F911CA285C = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		0C1118D50014E0F911CA285C = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+	};
+	rootObject = 021C9E2B000BD0CF11CA285C;
+}

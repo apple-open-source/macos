@@ -1,0 +1,269 @@
+#!/bin/csh -f
+##
+# Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+#
+# @APPLE_LICENSE_HEADER_START@
+# 
+# The contents of this file constitute Original Code as defined in and
+# are subject to the Apple Public Source License Version 1.1 (the
+# "License").  You may not use this file except in compliance with the
+# License.  Please obtain a copy of the License at
+# http://www.apple.com/publicsource and read it before using this file.
+# 
+# This Original Code and all software distributed under the License are
+# distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+# EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+# INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+# License for the specific language governing rights and limitations
+# under the License.
+# 
+# @APPLE_LICENSE_HEADER_END@
+##
+umask 022
+set path=($path /etc)
+set cmd="cp -p"
+set links
+set quick
+set symlink
+set link="ln"
+set os=`uname`
+set id=/usr/bin/id
+if ($os == "SunOS") then
+	set id=/usr/xpg4/bin/id
+endif
+set userID=`$id -u`
+
+while (1)
+	switch ($1)
+	case -s:
+		set strip="strip"
+		shift
+		breaksw
+	case -sx:
+		set strip="strip -x"
+		shift
+		breaksw
+	case -striplib:
+		set stripquietly="strip -x"
+		set reconstitute="ar -ts"
+		shift
+		breaksw
+	case -sSd: shift
+	case -sgg:
+	case -sX:
+	case -sA:
+	case -sS:
+	case -sAn:
+		echo "Warning: ignoring strip option $1"
+		shift
+		breaksw
+	case -r:
+		set ranlib="ranlib"
+		shift
+		breaksw
+	case -q:
+		set quick="quick"
+		shift
+		breaksw
+	case -c:
+		set cmd="cp -p"
+		shift
+		breaksw
+	case -d:
+		set cmp="cmp"
+		shift
+		breaksw
+	case -v:
+		set vecho="echo"
+		shift
+		breaksw
+	case -m:
+		set chmod="chmod $2"
+		shift
+		shift
+		breaksw
+	case -o:
+		set chown="chown -f $2"
+		if ($os == "HP-UX") then
+			if ($userID == 0) then
+				set chown="chown $2"
+			else
+				unset chown
+			endif
+		endif
+		shift
+		shift
+		breaksw
+	case -g:
+		set chgrp="chgrp -f $2"
+		if ($os == "HP-UX") then
+			if ($userID == 0) then
+				set chgrp="chgrp $2"
+			else
+				unset chgrp
+			endif
+		endif
+		shift
+		shift
+		breaksw
+	case -xc:
+		set cmd="sed"
+		set comments='/^[ 	]*#/d'
+		shift
+		breaksw
+	case -xs:
+		set cmd="sed"
+		set comments='/^[ 	]*[#:]/d'
+		shift
+		breaksw
+	case -l:
+		set links="$links $2"
+		shift
+		shift
+		breaksw
+	case -u:
+		set unlink="rm -f"
+		shift
+		breaksw
+	case -V:	
+		set stamp="vers_string -f"
+		set link="symlink -r -f"
+		shift
+		breaksw
+	case -S:
+		set save=1
+		shift
+		breaksw
+	default:
+		break
+		breaksw
+	endsw
+end
+if ( $#argv < 2 ) then
+	echo "install: no destination specified"
+	exit(1)
+endif
+set dest=$argv[$#argv]
+if ( $#argv > 2 ) then
+	if ( ! -d $dest ) then
+		echo "usage: install f1 f2 or f1 f2 ... dir"
+		exit(1)
+	endif
+endif
+foreach j ($argv)
+	if ( $j == $dest) break
+	if ( ! -f $j ) then
+		echo "install: can't open $j"
+		exit(1)
+	endif
+	if ( -d $dest ) then
+		set file=$dest/${j:t}
+	else
+		set file=$dest
+	endif
+	if ( -f $file ) then
+		if ( `ls -i $file | awk '{print $1}'` == \
+		     `ls -i $j | awk '{print $1}'` ) then
+			echo "install: can't move $j onto itself"
+			exit(1)
+		endif
+	endif
+	if ( $?stamp ) then
+		set symlink=$file
+		set file=`$stamp $file`
+	endif
+	if ( "$cmd" == "sed" ) then
+		if ( -e $file && $?save ) then
+			rm -f $file.old
+			if ( ! { mv $file $file.old } ) exit(1)
+		endif
+		if ( $?unlink ) then
+			$unlink $file
+		endif
+		if ($?vecho) then
+			echo sed -e '<strip comments>' $j ">$file"
+		endif
+		sed -e '1s;^#\!;&;p' -e '2s;^#(@)PROG;&;p' \
+			-e '2s;^#PROG;&;p' -e "$comments" $j >$file
+	else if ( $?cmp ) then
+		echo -n CMP $j $file
+		if ( { cmp -s $j $file } ) then
+			echo ';'
+		else
+			if ( -e $file && $?save ) then
+				rm -f $file.old
+				if ( ! { mv $file $file.old } ) exit(1)
+			endif
+			if ( $?unlink ) then
+				$unlink $file
+			endif
+			echo " THEN" $cmd
+			if ( ! { $cmd $j $file } ) exit(1)
+		endif
+	else
+		if ( -e $file && $?save ) then
+			rm -f $file.old
+			if ( ! { mv $file $file.old } ) exit(1)
+		endif
+		if ( $?unlink ) then
+			$unlink $file
+		endif
+		if ($?vecho) then
+			echo $cmd $j $file
+		endif
+		if ( ! { $cmd $j $file } ) exit(1)
+	endif
+	if ( $?strip ) then
+		if ($?vecho) then
+			echo $strip $file
+		endif
+		if ( ! { $strip $file } ) exit(1)
+	endif
+	if ( $?stripquietly ) then
+		if ($?vecho) then
+			echo $stripquietly $file >&/dev/null
+		endif
+		$stripquietly $file >&/dev/null
+		if ( 0 != $status ) exit(1)
+	endif
+	if ( $?reconstitute ) then
+		if ($?vecho) then
+			echo $reconstitute $file
+		endif
+		$reconstitute $file >&/dev/null
+		if ( 0 != $status ) exit(1)
+	endif
+	if ( $?ranlib ) then
+		if ($?vecho) then
+			echo $ranlib $file
+		endif
+		(cd $dest; if ( ! { $ranlib ${j:t} } ) exit(1))
+	endif
+	if ( $?chmod ) then
+		if ($?vecho) then
+			echo $chmod $file
+		endif
+		if ( ! { $chmod $file } ) exit(1)
+	endif
+	if ( $?chown ) then
+		if ($?vecho) then
+			echo $chown $file
+		endif
+		if ( ! { $chown $file } ) exit(1)
+	endif
+	if ( $?chgrp ) then
+		if ($?vecho) then
+			echo $chgrp $file
+		endif
+		if ( ! { $chgrp $file } ) exit(1)
+	endif
+end
+foreach i ( $symlink $links )
+	if ($?vecho) then
+		echo $link $file $i
+	endif
+	rm -f $i
+	if ( ! { $link $file $i } ) exit(1)
+end
+exit(0)

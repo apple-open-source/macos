@@ -1,0 +1,27 @@
+#!/bin/sh
+#
+# specify the mailbox file you want to read on the command line
+# Use a relative path from your $HOME directory
+#
+# For this kind of chaotic procmailrc there is no uniform neat solution
+# to determine which lockfiles to use.	I'll give just one (suboptimal)
+# solution here.  Use your imagination to extend it :-).
+#
+MAILDIR=$HOME/Mail
+cd $HOME			# this means all paths are relative to $HOME
+LOCKFILE=$HOME/.lockmail
+LOCKFILE2=$HOME/Mail/whatever
+if lockfile -! -r1 $LOCKFILE $LOCKFILE2
+then
+ echo Mail is currently arriving, please wait...
+ while
+   lockfile -! -4 -r2 $LOCKFILE $LOCKFILE2
+ do
+ echo Mail is still arriving...
+ done
+fi
+trap "rm -f $LOCKFILE $LOCKFILE2;exit 0" 0 1 2 3 13 15
+#
+# Call your favourite mailer here.
+#
+/usr/ucb/mail -f $*

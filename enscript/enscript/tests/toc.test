@@ -1,0 +1,10 @@
+#!/bin/sh
+#
+# --toc
+#
+
+. $srcdir/defs || exit 1
+
+$enscript --quiet --toc -p$output $asciifiles
+
+rm $output

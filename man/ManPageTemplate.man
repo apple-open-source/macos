@@ -1,0 +1,35 @@
+.TH <COMMAND_NAME> 1 "August 9, 1994" "NeXT Computer, Inc."
+.SH NAME
+<command name> \- <very brief description here>
+.SH SYNOPSIS
+<command name and complete list of options goes here>
+.SH DESCRIPTION
+<Description of what the command does for the user, in terms the user cares
+about.  No need for details about underlying implementation.>
+.PP
+<Separate adjacent paragraphs with .PP>
+.SH OPTIONS
+<This section contains an itemized list of the options that the command
+recognizes, and how the options affect the behavior of the command.
+General comments, if any, can go here; otherwise, just start listing options.>
+.TP
+.B \-<option1>
+<Description of what the option does.>
+.TP
+.B \-<option2>
+<Description of what the option does.>
+.SH FILES
+<This section contains a list of the files that the program accesses,
+creates, or modifies.  Include a description of what each file is for.
+Omit this section if the program uses no files.>
+.SH "SEE ALSO"
+<This section contains a list of references to other programs, man pages,
+and manuals relating to this program.  Omit this section if there are no
+interesting references.>
+.SH DIAGNOSTICS
+<This section can be used to describe the possible exit statuses and their
+significance.>
+.SH BUGS
+<This section can be used to convey limitations or bad behavior of the
+command to the reader.  Omit this section if there are no bugs worth
+noting.>

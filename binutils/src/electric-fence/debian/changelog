@@ -1,0 +1,9 @@
+efence (2.0.5-1) unstable; urgency=low
+
+  * Initial Release.
+
+ -- Siggy Brentrup <bsb@debian.org>  Wed, 5 Feb 1997 14:02:08 +0100
+
+Local variables:
+mode: debian-changelog
+End:

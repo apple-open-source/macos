@@ -1,0 +1,186 @@
+TODO:
+- Consider porting the 4.4bsd gprof (adding all the dylib stuff and order
+  stuff).
+- Add multi-arch support for findcalls() and make work better (use disasm).
+
+Changes for the 5.7 release (the cctools-327 release):
+- Changed back where gprof(1) picks up its the System Framework's private
+  headers.  It will continue to look in
+  /System/Library/Frameworks/System.framework/PrivateHeaders and may someday
+  will lookin in
+  /MacOSX/System/Frameworks/System.framework/PrivateHeaders in some post-DP4
+  release.
+
+Changes for the 5.6 release (the cctools-323 release):
+- Changed back where gprof picks up its the System Framework's private 
+  headers back to /System/Library/Frameworks/System.framework/PrivateHeaders
+  from /MacOSX/System/Frameworks/System.framework/PrivateHeaders for the Space
+  release.  This won't change till post-DP4.
+
+Changes the 5.3 release (the cctools-303 release):
+- Changed the 6 uses of short in the structs in scatter.c to int and 0x7fff to
+  INT_MAX.  The 'w' field was overflowing and causing it to crash. Radar bug
+  #2377933.
+
+Changes the 5.3 release (the cctools-292 release):
+- Changed the return type of main() in gprof.c from void to int to remove a
+  warning from the egcs compiler.  Also changed the exit() call at the end to
+  return().
+- Added -I$(NEXT_ROOT)/System/Library/Frameworks/System.framework/PrivateHeaders
+  to the Makefile as the egcs compiler's cpp no longer searches this by default.
+  This is needed to pick up <streams/streams.h> for use with the rld interface.
+
+Changes for the 5.3 release (the cctools-285 release)
+- Removed the old sccsid and rcsid's from the source that was #if !defined(NeXT)
+- Picked up the fix for Radar bug #2287470 (see below).  Updated this change to
+  include ifdef __OPENSTEP__'s in the code and Makefile changes to use $(RC_OS).
+
+Changes for the 5.3 release, MacOS X bring up (the cctools-282 release):
+- Changed ifdef's __SLICK__ to __OPENSTEP__.
+- Changed the Makefile to allow for RC_OS=macos for MacOS X builds.
+- Added a few casts in places to get it to compile with the MetroWerks compiler
+  without -relax_pointers.
+
+Changes for the 5.2 release (the cctools-281.2 release)
+- Moved text files gprof.flat and gprof.callg from /usr/lib to usr/share .
+  The files gprof/Makefile and gprof/gprof.h were changed (Radar bug #2287470).
+
+Changes for the 5.2 release (the cctools-267 release):
+- Fixed a warning in new_sample_set() in gprof.c in a print format.  Radar bug
+  #2227608.
+- Removed the #ifdef notdef code in gprof.c that multiplied the hertz by 100
+  which had a comment about the kernel being broken.  The kernel was fixed in
+  Titan1P to sample correctly. Radar bug #2227608.
+
+Changes for the 5.1 release (the cctools-260 release):
+- Added -c to all the install commands in the Makefile.
+
+Changes for the 5.1 release (the cctools-258 release):
+- Added code for picking up the profrate from the 4.4bsd header.
+- Added code for checking the version in the 4.4bsd header.
+- Fixed a bug in new_sample_set() in setting the scale value which is a double
+  from interger arithmetic of (a-b)/c when a-b = c-1 which causes the value
+  to round to zero rather than getting .999999 which is much closer to the
+  approxmate value of 1.0 .  The fix was to cast the integer values to double
+  in the calculation ((double)a-(double)b)/(double)c .
+- All of the above changes are under Radar bug #2204555.
+
+Changes for the 5.1 release (the cctools-253 release):
+- Changed the Makefile so /usr/ucb is not created for Rhapsody builds.
+
+Changes for the 5.1 release (the cctools-248 release):
+- Removed the copy of gmon.h in this directory.  For Rhapsody gmon.h will be
+  owned by some other project than cctools.  That is the version in
+  <mach-o/gmon.h> will not be installed.  The new gmon.h has a different 
+  structure for the profile header.  This effected gprof.h and gprof.c and
+  #ifdef __SLICK__ code was added.
+
+Changes for the 5.1 release (the cctools-247 release):
+- Added MKDIRS if code to the Makefile to build native on Rhapsody.
+- Changed the Makefile to use gnutar instead of tar because it works on Rhapsody
+  where tar does not.
+- Changed the Makefile to install gprof in /usr/bin for RC_OS teflon
+  and in /usr/ucb for RC_OS nextstep (Radar 1682569).
+- Changed the code ifdef __TEFLON__ to ifndef __SLICK__ (where __TEFLON__ will
+  nolonger be defined for Rhapsody builds) so the default builds will be native
+  Rhapsody builds.  The changes were to getnfile.c, gprof.c, scatter.c and
+  gprof.h
+
+Changes for the 5.0 release (the cctools-235 release):
+- Picked up the copyrights from the OpenBSD sources and added them to the files
+  here.  No code was changed.
+
+Changes for the 4.0 release (the cctools-183 release):
+- Ifndef'ed __TEFLON__ out all rld uses.
+
+Changes for the 4.0 release (the cctools-170 release):
+- Changed the name of the time based order file from callt.order to
+  time.order.
+
+Changes for the 4.0 release (the cctools-168 release):
+- Added producing a time based order file (callt.order) for use with shared
+  pcsample buffers.
+- Allowed MH_DYLIB and MH_DYLINKER files to be given for the a.out file.
+
+Changes for the 4.0 release (the cctools-167 release):
+- Added a the following print statement to find_file() in scatter.c:
+    fprintf(stderr, "In producing order files can't find module name "
+	    "for functions (make sure all modules are compiled -g and "
+	    "the program is not already ordered)\n");
+  in order to help people understand the common problems (bug #53173).
+
+Changes for the 4.0 release (the cctools-160 release):
+- Fixed two places in getnfile.c that had the wrong if test for the debug flag.
+
+Changes for the 4.0 release (the cctools-154 release):
+- Removed the use of nmedit now that libstuff has __private_extern__'s.
+
+Changes for the 4.0 release (the cctools-147 release):
+- Added support for profiling dyld loaded code.
+- Removed old code that loaded FVMLIBs symbol tables.
+
+Changes for the 3.1 release (the cctools-24 release):
+- Fixed bug #33796 which turns out every where but in scatter.c the debug stuff
+  is conditional on the -d command line flag as well as the DEBUG macro.  The
+  fix was to add #undef DEBUG to scatter.c.
+
+Changes for the 3.1 release (the cctools-15 release):
+- Added multiple profile areas and rld loaded state support (bug #19664).
+- Major cleanup of gprof code to allow compiling with -Wall cleanly and
+  remove a few vax'ism.
+
+Changes for the 3.1 release (the cctools-14 release):
+- Fixed bug #15775 in which the ncnt field is zero in the gmon.out file and
+  causes gprof to core dump.
+
+Changes for the 3.1 release (the cctools-6 release):
+- Added fat file support (tossed mach-o.c and replaced it).
+
+Changes for the 3.0 release (the -52 compiler release):
+- Added ignoring LC_PREPAGE to mach-o.c (2 places).
+
+Changes for the 3.0 release (the -49 compiler release):
+- Changed the Makefile to meet the RC api.
+- Removed the mlist stuff.
+
+Changes for the 3.0 release (the -47 compiler release):
+- Changed an include in mach_o.c to match the header file change:
+  m68k/mach/thread_status.h -> mach/m68k/thread_status.h
+
+Changes for the 3.0 release (the -44 compiler release):
+- Switch over to the new header file organization.  This also involed changing
+  thread_status structure names and constants.  But then ifdef'ed off code in
+  mach_o.c that delt with threads since it got warnings and wasn't used.  Also
+  Fixed a few warnings from the compiler.
+
+Changes for some 1991 release (the -34 compiler release):
+- Added installsrc, installIBMsrc and installGNUsrc targets to the Makefile.
+
+Changes for the Warp ?? release (the -24 compiler release):
+- Fixed a bug when the text symbol for the highest value was looked up it would
+  print the message "binary lookup failed" then it returned NULL and later gprof
+  would core dump.  Their were two problems the first was in the function
+  getsymtab() in gprof.c in the Mach-O case the last entry in the nl[] array
+  did not have it's value set to -1.  The other problem was that in the function
+  nllookup() in lookup.c was searching to index "nname - 1" and not to nname
+  which would have picked up the last nl[] entry with the -1 in it.
+- Changed DFN_DEPTH from 100 to 1000 as per bug report #4851.
+
+Changes for the 2.0 impulse X.X release (the -23 compiler release):
+- Changed the installed mode to not be writeable (755 to 555 and 644 to 444).
+- Now is linked with libsys.
+
+Changes for the 2.0 impulse X.X release (the -19 compiler release):
+- Fixed the modified mlist function that includes printing categories which
+  did not allocate enough space.
+
+Changes for the 2.0 impulse X.X release (the -19 compiler release):
+- Put in the modified mlist function that includes printing categories.
+
+Changes for the 0.91 release (the -12 compiler release):
+- Added MH_PRELOAD to the types of files gprof will take.
+- Updated the printing of method names for for the new objective-C runtime.
+- Ifdef'ed off code in mach_o.c that delt with shared libraries.  It was
+  calling itself, read_mach_o(), totally wrong.  This code could have never
+  worked and since all the symbols are in the executable and since the kernel
+  can't handle shared libs it is meaningless.

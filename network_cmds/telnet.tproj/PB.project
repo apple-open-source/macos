@@ -1,0 +1,47 @@
+{
+    DOCICONFILES = (); 
+    FILESTABLE = {
+        C_FILES = (); 
+        H_FILES = (externs.h, fdset.h, general.h, "krb4-proto.h", ring.h, types.h, defines.h); 
+        OTHER_LIBS = (); 
+        OTHER_LINKED = (
+            authenc.c, 
+            commands.c, 
+            main.c, 
+            network.c, 
+            ring.c, 
+            sys_bsd.c, 
+            telnet.c, 
+            terminal.c, 
+            tn3270.c, 
+            utilities.c
+        ); 
+        OTHER_SOURCES = (Makefile.preamble, Makefile, README, telnet.1, Makefile.dist); 
+        SUBPROJECTS = (); 
+    }; 
+    LANGUAGE = English; 
+    LOCALIZABLE_FILES = {}; 
+    NEXTSTEP_BUILDDIR = "/$(USER)/BUILD"; 
+    NEXTSTEP_BUILDTOOL = /bin/gnumake; 
+    NEXTSTEP_COMPILEROPTIONS = "-DTERMCAP -DKLUDGELINEMODE -DUSE_TERMIO -DENV_HACK # -DAUTHENTICATION -DENCRYPTION -DKRB4"; 
+    NEXTSTEP_INSTALLDIR = /usr/bin; 
+    NEXTSTEP_JAVA_COMPILER = /usr/bin/javac; 
+    NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc; 
+    PDO_UNIX_BUILDDIR = ""; 
+    PDO_UNIX_BUILDTOOL = /bin/make; 
+    PDO_UNIX_COMPILEROPTIONS = "-DTERMCAP -DKLUDGELINEMODE -DUSE_TERMIO -DENV_HACK # -DAUTHENTICATION -DENCRYPTION -DKRB4"; 
+    PDO_UNIX_INSTALLDIR = /usr/bin; 
+    PDO_UNIX_JAVA_COMPILER = "$(NEXTDEV_BIN)/javac"; 
+    PDO_UNIX_LINKEROPTIONS = ""; 
+    PDO_UNIX_OBJCPLUS_COMPILER = "$(NEXTDEV_BIN)/gcc"; 
+    PROJECTNAME = telnet; 
+    PROJECTTYPE = Tool; 
+    PROJECTVERSION = 2.8; 
+    WINDOWS_BUILDDIR = ""; 
+    WINDOWS_BUILDTOOL = /bin/make; 
+    WINDOWS_COMPILEROPTIONS = "-DTERMCAP -DKLUDGELINEMODE -DUSE_TERMIO -DENV_HACK # -DAUTHENTICATION -DENCRYPTION -DKRB4"; 
+    WINDOWS_INSTALLDIR = /usr/bin; 
+    WINDOWS_JAVA_COMPILER = "$(JDKBINDIR)/javac.exe"; 
+    WINDOWS_LINKEROPTIONS = ""; 
+    WINDOWS_OBJCPLUS_COMPILER = "$(DEVDIR)/gcc"; 
+}

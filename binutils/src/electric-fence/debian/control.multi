@@ -1,0 +1,16 @@
+Source: efence
+Section: unknown
+Priority: extra
+Maintainer: Siggy Brentrup <bsb@debian.org>
+Standards-Version: 2.1.1.0
+
+Package: efence
+Architecture: any
+Depends: ${shlibs:Depends}
+Description: Missing
+ Missing
+
+Package: efence-doc
+Architecture: all
+Description: Documentation
+ Missing

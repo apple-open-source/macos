@@ -1,0 +1,110 @@
+.Dd March 9, 1998
+.Dt AUTOMOUNT 8
+.Sh NAME
+.Nm automount
+.Nd automatic NFS mount / unmount daemon
+.Sh SYNOPSIS
+.Nm
+.Op Fl d
+.Op Fl tm Ar secs
+.Op Fl tl Ar secs
+.Op Fl m Ar directory map
+.Ar ...
+.Sh DESCRIPTION
+.Nm
+is a daemon that automatically mounts NFS filesystems when they are first accessed, and later unmounts them when they are idle.
+.Pp
+.Nm
+creates a virtual filesystem mounted at one or more places on the client's file and directory hierarchy.  Actual NFS mount points within this virtual filesystem appear as symbolic links.  Reading a symbolic link triggers
+.Nm
+to mount the associated remote filesystem.
+.Pp
+To make the trigger symbolic links used by
+.Nm
+distinguishible from normal symbolic links, the sticky bit is set in the mode flags for the link.  Programs which would normally traverse symbolic links can test for this bit and avoid triggering the mount.
+.Ar Workspace Manager
+and
+.Ar ls
+have both been modified in this way.
+.Pp
+Each virtual filesystem created by
+.Nm
+is governed by a corresponding map.  One or more maps may be specified on the command line with a triple of the form:
+.Pp
+	
+.Fl m Ar directory map
+.Pp
+Each map is rooted at the directory specified.
+.I
+.Sh FILE MAPS
+A map may be file or a special map.  A file map is a regular file containing a list of entries of the form:
+.Pp
+	location mount_options server:path
+.Pp
+mount_options must be a comma-separated list of options drawn from the options known to the
+.Ar mount
+and
+.Ar mount_nfs
+programs.
+.Nm
+will automatically mount the directory specified by server:path on the specified mount point within the map's virtual filesystem.
+.Sh SPECIAL MAPS
+In addition to reading files specifying mount maps,
+.Nm
+supports the
+.Ar -fstab
+map.  This causes
+.Nm
+to read the
+.Ar fstab(5)
+database.  All mounts with the
+.Ar net
+option will be mounted within the
+.Ar -fstab
+map's filesystem using a path of the form:
+.Pp
+	server/path
+.Pp
+For example, if the fstab(5) database contained an entry for
+.Pp
+	polaris:/Library/Fonts
+.Pp
+and
+.Nm
+was started as follows:
+.Pp
+	automount -m /Useful -fstab
+.Pp
+Then the mount would appear in /Useful/polaris/Library/Fonts.
+.I
+.Sh OPTIONS
+.Bl -tag -width Ds
+.It Fl m Ar directory map
+Associate the specified
+.Ar map
+with the given
+.Ar directory.
+The directory will be created if it doesn't exist.
+.Ar map
+may be the name of a file, or it may be the name of a special map.  See the FILE MAPS and SPECIAL MAPS sections above.
+.It Fl d
+Run 
+.Nm
+in debug mode.  The program remains attached to the command line and sends debugging information to standard output.
+.Pp
+.It Fl tm Ar secs
+Set the timeout for NFS mounts to
+.Ar secs
+seconds.  The default value is 20 seconds.
+.Pp
+.It Fl tl Ar secs
+Set the time-to-live for NFS mounts to
+.Ar secs
+seconds.  The default value is 3600 seconds.
+.Nm
+periodically checks all its mounted filesystems.  If it finds any filesystems that have been idle for this time-to-live value, it will attempt to unmount them.  An unmount will only be successful if there are no processes with open files in that filesystem.
+.Pp
+.El
+.Sh SEE ALSO
+.Xr mount 8 ,
+.Xr mount_nfs 8

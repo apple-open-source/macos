@@ -1,0 +1,71 @@
+# gvdl@next 3 Aug 1995
+# Need to get the bootstrap .defs stuff working properly
+
+Format of /etc/bootstrap.conf
+
+[[restartable] (server|init) "SERVER_PATH ARGS"] [services { SERVICE_NAME
+ [, SERVICE_NAME]* }]
+
+struct service {
+	struct service *next;
+	struct service *prev;
+	char *name;
+	port_t port;
+	struct server *server;
+	struct service *server_link;
+};
+
+struct server {
+	struct server *next;
+	struct server *prev;
+	boolean_t restartable;
+	boolean_t isEtcInit;
+	char **argv;
+	struct service *services;
+};
+
+Service entries create service-port pairs.  Lookup rpc's return send rights.  Checkin rpc's return all rights.  Checkin's can only be done from "privileged" bootstrap ports (see server, below).  Bootstrap is the default backup for service ports, if bootstrap receives the port back, it holds onto all rights (to give out on a later checkin), and marks the service inactive.  Lookup's on inactive services continue to return the service port.  Lookup's on unregistered services return PORT_NULL.
+
+Server entries initiate server tasks.  Server tasks receive a privileged bootstrap port that allows the server task to register new service-port pairs and perform checkin's.  Servers can obtain an unprivileged lookup/status-only port with an rpc; that port should be passed to untrusted progeny.  Servers are initiated in the order that they appear in bootstrap.conf.  Restartable servers are re-initiated if port destroyed or port deleted notification is received for all of the service ports declared by that server in bootstrap.conf.  On restart, a server may reobtain receive rights for service ports that were returned to bootstrap via the port backup mechanism.  New ports for are created for declared service ports without back-up when bootstrap receives a port deleted notification.  If bootstrap receives a port deleted notification for a registered, but undeclared service port, further lookups on that name return PORT_NULL.  Runtime registered ports are not associated with a server and are not involved in restart determination.  Rights for registered ports that specify bootstrap as backup will be held and may later be transfered to a new server instantiation via the checkin.  Should a new server instantiation re-register the service, the port and associated receive rights will be deallocated.
+
+There may only be a single init entry; it is a special server entry and provides a (hack) mechanism to allow /etc/init to be exec'ed as pid 1.  In the longer run, bootstrap should take over system shutdown/reconfig responsibilities and this won't be necessary.
+
+As a compatability hack, the initial version of bootstrap will initialize the ports inherited on task_create() via mach_ports_register().  Existing services utilizing service_checkin() will have to be modified to use bootstrap_checkin().
+
+Bootstrap rpc's:
+
+bootstrap_checkin(port_t priv_bootstrap_port, char *service_name,
+	port *service_port);
+	
+	Returns receive rights in service_port for service named by service_name.
+	FIXME: Success/Failure indication???
+	
+bootstrap_register(port_t priv_bootstrap_port, char *service_name,
+	port service_port);
+	
+	Registers service_name -- service_port pair.
+	FIXME: Success/Failure indication???
+	
+bootstrap_checkout(port_t priv_bootstrap_port, char *service_name);
+
+	Removes registration for service named by service_name.
+	Fails is service is currently active.
+	FIXME: Success/Failure indication???
+	
+bootstrap_lookup(port_t bootstrap_port, char *service_name, port_t service_port);
+
+	Returns service port for service named by service_name.
+	
+bootstrap_lookup_array(port_t bootstrap_port, name_array_t service_names, port_array_t service_ports, int service_count);
+
+	Returns service ports for all services named in service_names array.
+
+boostrap_status(port_t bootstrap_port, name_array_t service_names,
+	bool_array_t service_actives, int *service_count);
+	
+	Returns names and active status for all known services.
+	
+bootstrap_get_unpriv_port(port_t bootstrap_port, port_t *unpriv_bootstrap_port);
+
+	Returns the unprivileged bootstrap service port.
+

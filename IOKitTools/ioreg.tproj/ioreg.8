@@ -1,0 +1,61 @@
+.\"
+.\" Copyright (c) 2000 Apple Computer, Inc.  All rights reserved.
+.\"
+.Dd January 1, 2000
+.Dt IOREG 8
+.Os Darwin
+.Sh NAME
+.Nm ioreg
+.Nd show I/O Kit registry
+.Sh SYNOPSIS
+.Nm
+.Op Fl b
+.Oo
+.Op Fl c Ar class
+.Op Fl l
+.Op Fl n Ar name
+.Oc
+.Op Fl p Ar plane
+.Op Fl s
+.Op Fl w Ar width
+.Sh DESCRIPTION
+.Nm
+displays the I/O Kit registry.
+The use of the
+.Fl c,
+.Fl l,
+or
+.Fl n
+options cause
+.Nm
+to show the properties of objects matching the specified criteria.  By default,
+.Nm
+does not show the properties of an object.
+.Pp
+The options are as follows:
+.Pp
+.Bl -tag -width flag
+.It Fl b
+Show the object name in bold.
+.It Fl c
+Show the object properties only if the object is, or derives from, the specified
+.Ar class .
+.Pp
+.It Fl l
+Show the object properties.
+.Pp
+.It Fl n
+Show the object properties only if the object has the specified
+.Ar name .
+.Pp
+.It Fl p
+Traverse the registry over the specified
+.Ar plane .
+The default plane value is ``IOService''.  The other planes, such as ``IODeviceTree'', can be found under the ``IORegistryPlanes'' property of the root object (ioreg -n Root).
+.Pp
+.It Fl s
+Show the object state (busy state, retain count).
+.It Fl w
+Clip the output to the specified line
+.Ar width .
+The default width value is the current screen size.  A value of 0 specifies an unlimited line width.

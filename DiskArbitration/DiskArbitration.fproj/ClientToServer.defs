@@ -1,0 +1,182 @@
+subsystem ClientToServer 0;
+
+#include <mach/std_types.defs>
+
+import "DiskArbitrationTypes.h";
+
+/*
+--	TYPES
+*/
+
+/* Beware: these definitions must be kept synchronized with DiskArbitrationTypes.h */
+
+type DiskArbDiskIdentifier = c_string[*:1024];
+
+type DiskArbMountpoint = c_string[*:1024];
+
+type DiskArbGenericString = c_string[*:1024];
+
+/*
+--	Messages sent by the DiskArbitration Client to the Server
+*/
+
+/*
+-- The diskIdentifier can be for any partition on the disk, e.g., disk<x>s<y>
+-- or the device for the whole disk, e.g., disk<x>
+*/
+
+simpleroutine DiskArbDiskAppearedWithMountpointPing_rpc(
+				server: mach_port_t;
+			in	diskIdentifier: DiskArbDiskIdentifier;
+			in	flags: unsigned;
+			in	mountpoint: DiskArbMountpoint);
+
+simpleroutine DiskArbDiskDisappearedPing_rpc(
+				server: mach_port_t;
+			in	diskIdentifier: DiskArbDiskIdentifier;
+			in	flags: unsigned);
+
+
+/* This tells the server to compare its list of mounted volumes with the table
+-- returned by getmntinfo() and to update its data structures and send any necessary
+-- DiskAppeared or DiskDisappeared messages.
+-- Similar to DiskArbDiskAppearedWithMountpointPing_rpc, but different.
+*/
+
+simpleroutine DiskArbRefresh_rpc(
+				server: mach_port_t);
+
+simpleroutine DiskArbRequestMount_rpc(
+				server: mach_port_t;
+			in	diskIdentifier: DiskArbDiskIdentifier;
+			in	takeOwnership: int);
+
+/* these are currently obsoleted */
+simpleroutine DiskArbRegister_rpc(
+				server: mach_port_t;
+			in	client: mach_port_make_send_t;
+			in	flags: unsigned);
+
+simpleroutine DiskArbDeregister_rpc(
+				server: mach_port_t;
+			in	client: mach_port_make_send_t);
+
+
+simpleroutine DiskArbRegisterWithPID_rpc(
+				server: mach_port_t;
+			in	client: mach_port_make_send_t;
+			in	pid: int;
+			in	flags: unsigned);
+
+simpleroutine DiskArbDeregisterWithPID_rpc(
+				server: mach_port_t;
+			in	client: mach_port_make_send_t;
+			in	pid: int);
+
+
+simpleroutine DiskArbMarkPIDNew_rpc(
+				server: mach_port_t;
+			in	client: mach_port_make_send_t;
+			in	pid: int;
+			in	flags: unsigned);
+
+/*
+-- Async unmount + eject
+*/
+
+simpleroutine DiskArbUnmountRequest_async_rpc(
+				dest: mach_port_t;
+			in	diskIdentifier: DiskArbDiskIdentifier;
+			in	flags: unsigned); /* eject or just unmount? regular or forced unmount? one partition or all partitions? */
+
+simpleroutine DiskArbUnmountPreNotifyAck_async_rpc(
+				dest: mach_port_t;
+			in	pid: int;
+			in	diskIdentifier: DiskArbDiskIdentifier;
+			in	errorCode: int);
+
+simpleroutine DiskArbEjectRequest_async_rpc(
+				dest: mach_port_t;
+			in	diskIdentifier: DiskArbDiskIdentifier;
+			in	flags: unsigned); /* eject or just unmount? regular or forced unmount? one partition or all partitions? */
+
+simpleroutine DiskArbEjectPreNotifyAck_async_rpc(
+				dest: mach_port_t;
+			in	pid: int;
+			in	diskIdentifier: DiskArbDiskIdentifier;
+			in	errorCode: int);
+
+simpleroutine DiskArbUnmountAndEjectRequest_async_rpc(
+				dest: mach_port_t;
+			in	diskIdentifier: DiskArbDiskIdentifier;
+			in	flags: unsigned); /* eject or just unmount? regular or forced unmount? one partition or all partitions? */
+
+/*
+-- Blue Box boot volume
+*/
+
+/* Sets the kDiskArbIAmBlueBox flag on the corresponding client record. */
+
+simpleroutine DiskArbSetBlueBoxBootVolume_async_rpc(
+				dest: mach_port_t;
+			in	pid: int;
+			in	seqno: int);
+
+/* Requests a change to a disk mounted on /dev/(diskIdentifier) */
+
+simpleroutine DiskArbRequestDiskChange_rpc(
+				dest: mach_port_t;
+			in	diskIdentifier: DiskArbDiskIdentifier;
+			in	mountPoint: DiskArbMountpoint;
+			in	flags: int);
+
+simpleroutine DiskArbSetCurrentUser_rpc(
+				dest: mach_port_t;
+			in	user: int);
+
+simpleroutine DiskArbVSDBAdoptVolume_rpc(
+				dest: mach_port_t;
+			in	diskIdentifier: DiskArbDiskIdentifier);
+
+simpleroutine DiskArbVSDBDisownVolume_rpc(
+				dest: mach_port_t;
+			in	diskIdentifier: DiskArbDiskIdentifier);
+
+routine DiskArbVSDBGetVolumeStatus_rpc(
+				dest: mach_port_t;
+			in	diskIdentifier: DiskArbDiskIdentifier;
+			out	status: int);
+
+simpleroutine DiskArbSetVolumeEncoding_rpc(
+				dest: mach_port_t;
+			in	diskIdentifier: DiskArbDiskIdentifier;
+			in	volumeEncoding: int);
+
+routine DiskArbGetVolumeEncoding_rpc(
+				dest: mach_port_t;
+			in	diskIdentifier: DiskArbDiskIdentifier;
+			out	status: int);
+
+/* Sets the kDiskArbClientHandlesUninitializedDisks flag on the corresponding client record. */
+
+simpleroutine DiskArbClientHandlesUninitializedDisks_rpc (
+				dest: mach_port_t;
+			in	pid: int;
+			in	flag: int);
+
+/* -- Printer Arbitration -- */
+
+simpleroutine DiskArbPrinter_Request_rpc (
+				dest: mach_port_t;
+			in	pid: int;
+			in	locationID: int);
+
+simpleroutine DiskArbPrinter_Response_rpc (
+				dest: mach_port_t;
+			in	pid: int;
+			in	locationID: int;
+			in	answer: int);
+
+simpleroutine DiskArbPrinter_Release_rpc (
+				dest: mach_port_t;
+			in	locationID: int);

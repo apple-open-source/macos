@@ -1,0 +1,90 @@
+# $FreeBSD: src/etc/mtree/BSD.include.dist,v 1.33 2000/05/19 22:07:47 peter Exp $
+#
+# Please see the file README before making changes to this file.
+#
+
+/set type=dir uname=root gname=wheel mode=0755
+.
+    arpa
+    ..
+    cam
+        scsi
+        ..
+    ..
+    dev
+        ppbus
+        ..
+        usb
+        ..
+    ..
+    g++
+        std
+        ..
+    ..
+    isofs
+        cd9660
+        ..
+    ..
+    machine
+    ..
+    msdosfs
+    ..
+    net
+    ..
+    netatalk
+    ..
+    netatm
+    ..
+    netgraph
+    ..
+    netinet
+    ..
+    netinet6
+    ..
+    netipx
+    ..
+    netkey
+    ..
+    netncp
+    ..
+    netns
+    ..
+    nfs
+    ..
+    ntfs
+    ..
+    nwfs
+    ..
+    objc
+    ..
+    openssl
+    ..
+    pccard
+    ..
+    posix4
+    ..
+    protocols
+    ..
+    readline
+    ..
+    rpc
+    ..
+    rpcsvc
+    ..
+    security
+    ..
+    ss
+    ..
+    sys
+    ..
+    ufs
+        ffs
+        ..
+        mfs
+        ..
+        ufs
+        ..
+    ..
+    vm
+    ..
+..

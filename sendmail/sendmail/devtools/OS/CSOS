@@ -1,0 +1,7 @@
+#	$Id: CSOS,v 1.1.1.1 2000/06/10 00:40:47 wsanchez Exp $
+define(`confLIBS', `-lnet')
+define(`confMBINDIR', `/usr/lib')
+define(`confSBINDIR', `/usr/etc')
+define(`confEBINDIR', `/usr/lib')
+define(`confUBINDIR', `/usr/ucb')
+define(`confINSTALL', `${BUILDBIN}/install.sh')

@@ -1,0 +1,17 @@
+VERSIONING_SYSTEM = next-sgs
+OTHER_GENERATED_OFILES = $(VERS_OFILE)
+AFTER_INSTALL += fix_resource_permissions install_makefiles
+
+TYPE_MAKEFILE = kext.make
+TYPE_MAKEFILE_PRE = $(TYPE_MAKEFILE).preamble
+TYPE_MAKEFILE_POST = $(TYPE_MAKEFILE).postamble
+
+MAKEFILE_INSTALL_DIR = $(DSTROOT)$(SYSTEM_DEVELOPER_DIR)/Makefiles/pb_makefiles
+LOCAL_MAKEFILE_INSTALL_DIR = $(DSTROOT)$(LOCAL_DEVELOPER_DIR)/Makefiles/pb_makefiles
+
+# Accept either the public or private ProjectBuilder.framework.
+ifeq "$(wildcard $(SYSTEM_LIBRARY_DIR)/*Frameworks/ProjectBuilder.framework)" ""
+# No PB framework; can't build the plugin.
+CLASSES = 
+FRAMEWORKS = 
+endif

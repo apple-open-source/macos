@@ -1,0 +1,10 @@
+ALLOCA=alloca.o
+%if next-pdo
+# When gcc is running on a NeXT, we want the make interaction in it.
+
+COMMON_OBJS = makeUser.o make-support.o
+
+makeUser.o: $(srcdir)/makeUser.c $(srcdir)/make.h
+	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
+	  $(srcdir)/makeUser.c
+%endif next-pdo

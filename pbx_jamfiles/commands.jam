@@ -1,0 +1,1130 @@
+# Copyright (c) 1999,2000 Apple Computer, Inc.
+# All rights reserved.
+
+# !!!cmolick:20000821 hardcoded tool paths because variables not set yet
+APPLE_INTERNAL_TOOLS default = /AppleInternal/Developer/Tools ;
+SYSTEM_DEVELOPER_TOOLS default = /Developer/Tools ;
+# Variables for invoking commands using explict paths
+ASM		default = /usr/bin/as ;
+CC		default = /usr/bin/cc ;
+CD		default = cd ;
+CHMOD		default = /bin/chmod ;
+CHOWN		default = /usr/sbin/chown ;
+CP		default = /bin/cp ;
+ECHO		default = /bin/echo ;
+EGREP		default = /usr/bin/egrep ;
+FASTCP		default = /usr/lib/fastcp ;
+FIXPRECOMPS	default = /usr/bin/fixPrecomps ;
+FIND		default = /usr/bin/find ;
+INTERFACER	default = $(APPLE_INTERNAL_TOOLS)/Interfacer ;
+JAR		default = /usr/bin/jar ;
+JAVA_COMPILER	default = /usr/bin/javac ;
+JAVACONFIG	default = /usr/bin/javaconfig ;
+LD		default = /usr/bin/cc ;
+LEX		default = /usr/bin/lex ;
+LIBTOOL		default = /usr/bin/libtool ;
+LN		default = /bin/ln ;
+MAKEPSEUDOLIB	default = $(APPLE_INTERNAL_TOOLS)/MakePseudoLibrary ;
+MERGEINFO	default = /usr/lib/mergeInfo ;
+MKDIR		default = /bin/mkdir ;
+MIG		default = /usr/bin/mig ;
+MV		default = /bin/mv ;
+NMEDIT		default = /usr/bin/nmedit ;
+OSAC		default = /usr/bin/osacompile ;
+OSAL		default = /usr/bin/osalang ;
+OSAS		default = /usr/bin/osascript ;
+PAX		default = /bin/pax ;
+RANLIB		default = /usr/bin/ranlib ;
+REGGEN		default = reggen ;
+RESMERGER	default = $(SYSTEM_DEVELOPER_TOOLS)/ResMerger ;
+RESOURCE_PRESERVING_CP default = $(SYSTEM_DEVELOPER_TOOLS)/CpMac ;
+REZ		default = $(SYSTEM_DEVELOPER_TOOLS)/Rez ;
+RM		default = /bin/rm ;
+RPCGEN		default = /usr/bin/rpcgen ;
+SED		default = /usr/bin/sed ;
+SH		default = /bin/sh ;
+STRIP		default = /usr/bin/strip ;
+TOUCH		default = /usr/bin/touch ;
+XARGS		default = /usr/bin/xargs ;
+YACC		default = /usr/bin/yacc ;
+ZIP		default = /usr/bin/zip ;
+
+# Basic operations:
+
+# Rm <files>
+# Removes <files> from the filesystem.  Note that the actions are only
+# executed once, no matter how many times the rule is invoked.
+actions together Rm
+{
+    $(RM) -r "$(1)"
+}
+
+# Mkdir <directory>
+# Creates <directory>
+rule Mkdir
+{
+    # Only existence of the directory matters
+    NOUPDATE $(1) ;
+}
+actions together Mkdir
+{
+    $(MKDIR) -p "$(1)"
+}
+
+# MkEmptyDir <directory>
+# Makes a directory if necessary, and insures it is empty
+actions together MkEmptyDir
+{
+    ( $(MKDIR) -p "$(1)" && $(CD) "$(1)" && $(RM) -rf "*" )
+}
+
+# SymLink <link> : <to>
+# Makes a symbolic link to the path indicated.
+# Link target is treated as a nonfile to preserve the value
+rule SymLink
+{
+    NOTFILE $(2) ;
+}
+actions SymLink
+{
+    $(LN) -sf "$(2)" "$(1)"
+}
+
+# Touch <files>
+# Touches files in the filesystem.
+actions Touch
+{
+    $(TOUCH) "$(1)"
+}
+
+# TouchConditionally <fileToTouch> : <fileToCompareAgainst>
+# Touches a file in the filesystem if <fileToCompareAgainst> is newer.
+rule TouchConditionally
+{
+	DEPENDS $(1) : $(2) ;
+}
+actions TouchConditionally
+{
+    $(TOUCH) "$(1:G=)"
+}
+
+# Echo <file> : <text>
+# Echoes text into a file.
+rule Echo
+{
+    local FILE ;
+    NOTFILE $(2) ;
+    Echo.remove $(1) ;
+    for FILE in $(2) {
+        Echo.append $(1) : $(FILE) ;
+    }
+}
+actions together quietly Echo.remove
+{
+    $(RM) -rf "$(1)"
+}
+actions quietly Echo.append
+{
+    $(ECHO) "$(2)" >> "$(1)"
+}
+
+# RawEcho <file> : <text>
+# Echoes text into a file without trailing newline
+rule RawEcho
+{
+    NOTFILE "$(2)" ;
+}
+actions RawEcho
+{
+    $(ECHO) -n "$(2)" > "$(1)"
+}
+
+# ChangeOwnerAndGroup and ChangeMode to use when installing files
+# All these use the -H option to avoid traversing bad symbolic links
+rule ChangeOwnerAndGroup
+{
+    if $(INSTALL_OWNER) {
+        if $(INSTALL_GROUP) {
+            ChangeOwnerAndGroup.Action $(1) ;
+        }
+        else {
+            ChangeOwner.Action $(1) ;
+        }
+    }
+}
+actions ChangeOwnerAndGroup.Action
+{
+    if [ -e "$(1)" ]
+      then $(CHOWN) -RH $(INSTALL_OWNER):$(INSTALL_GROUP) "$(1)"
+    fi
+}
+actions ChangeOwner.Action
+{
+    if [ -e "$(1)" ]
+      then $(CHOWN) -RH $(INSTALL_OWNER) "$(1)"
+    fi
+}
+actions ChangeMode
+{
+    if [ -e "$(1)" ]
+      then $(CHMOD) -RH $(INSTALL_MODE_FLAG) "$(1)"
+    fi
+}
+
+# Strip <target> : <executable>
+# Runs strip to remove debugging symbols from the executable of the target
+rule Strip
+{
+    DEPENDS $(1) : $(2) ;
+}
+actions Strip
+{
+    $(STRIP) $(STRIPFLAGS) "$(2)"
+}
+
+# Rez <fork file> : <target file>
+# Appends resource fork data to a file
+rule Rez
+{
+    local MACOS_TYPE_ARG ;
+    local MACOS_CREATOR_ARG ;
+    DEPENDS $(1) : $(2) ;
+    if $(MACOS_TYPE) {
+        MACOS_TYPE_ARG = "-t" "'$(MACOS_TYPE)'" ;
+    }
+    if $(MACOS_CREATOR) {
+        MACOS_CREATOR_ARG = "-c" "'$(MACOS_CREATOR)'" ;
+    }
+    REZFLAGS on $(1) = -append -i $(CARBONINTDIR)$(/)RIncludes$(/) -d SystemSevenOrLater=1 $(MACOS_TYPE_ARG) $(MACOS_CREATOR_ARG) $(OTHER_REZFLAGS) ;
+    if ! $(REZ_EXECUTABLE) = "YES" {
+        # by default use data forks
+        REZFLAGS on $(1) += -useDF ;
+    }
+}
+actions Rez
+{
+    $(REZ) "$(2)" "$(REZFLAGS)" -o "$(1)"
+}
+
+# ResMerge <fork file> : <rsrc file>
+# Merges the resources from binary resource file 'rsrc file' into 'fork file'
+rule ResMerge
+{
+    local MACOS_TYPE_ARG ;
+    local MACOS_CREATOR_ARG ;
+    DEPENDS $(1) : $(2) ;
+    if $(MACOS_TYPE) {
+        MACOS_TYPE_ARG = "-fileType" "'$(MACOS_TYPE)'" ;
+    }
+    if $(MACOS_CREATOR) {
+        MACOS_CREATOR_ARG = "-fileCreator" "'$(MACOS_CREATOR)'" ;
+    }
+    RESMERGEFLAGS on $(1) = -append $(MACOS_TYPE_ARG) $(MACOS_CREATOR_ARG) ;
+    if ! $(REZ_EXECUTABLE) = "YES" {
+        # by default use data forks
+        RESMERGEFLAGS on $(1) += -dstIs DF ;
+    }
+}
+actions ResMerge
+{
+    $(RESMERGER) "$(2)" "$(RESMERGEFLAGS)" -o "$(1)"
+}
+
+# Fixprecomps <precomp> : <header>
+# Ensures that the precompiled header is up to date
+if $(FIXPRECOMPS) {
+    rule Fixprecomps
+    {
+        DEPENDS $(1) : $(2) ;
+    }
+    actions Fixprecomps
+    {
+        $(FIXPRECOMPS) -precomps "$(1)"
+    }
+} else {
+    rule Fixprecomps
+    {
+        # if we don't have a fixprecomps command, we'll just
+        # quietly do nothing
+        NOTFILE $(1) ;
+    }
+}
+
+
+# Copy operations:
+
+# Cp <destination> : <source>
+# Reliably copies files only.
+# Leaf names of the source and destination are expected to match.
+rule Cp
+{
+    DEPENDS $(1) : $(2) ;
+}
+actions together Cp
+{
+    $(CP) -fRP "$(2)" "$(1)"
+}
+
+# RobustCp <destination> : <source>
+# RobustCp is like Cp, but is made more robust by first removing
+# any previous copy results and then conditionally removing CVS
+# directories from the destination.
+rule RobustCp
+{
+    if ! $(ACTION) = installhdrs {
+        DEPENDS $(1) : $(2) ;
+    }
+    if $(REMOVE_CVS_FROM_RESOURCES) = YES {
+        RobustCp.CleanBeforeAndAfter $(1) : $(2) ;
+    }
+    else {
+        RobustCP.CleanBefore $(1) : $(2) ;
+    }
+    if $(COPY_PHASE_STRIP) = YES && ! $(ACTION) = installhdrs {
+        StripBinaries $(1) ;
+    }
+}
+actions RobustCp.CleanBeforeAndAfter
+{
+    if [ -d "$(1)" ]
+        then $(RM) -r "$(1)"
+    fi
+    if [ -e "$(2)" ]
+        then
+        $(CP) -fRP "$(2)" "$(1)"
+        if [ -d "$(2)" ]
+            then
+            $(FIND) "$(1)" -name CVS -type d -prune -print0 | $(XARGS) -0 rm -r
+        fi
+    fi
+}
+actions RobustCp.CleanBefore
+{
+    if [ -d "$(1)" ]
+        then $(RM) -r "$(1)"
+    fi
+    if [ -e "$(2)" ]
+        then $(CP) -fRP "$(2)" "$(1)"
+    fi
+}
+# StripBinaries <starting directory>
+# Uses find to run strip -s on all binaries starting from a file or directory
+
+actions StripBinaries
+{
+    if [ -f "$(1)" ]; then
+        filetype=`file "$(1)"`
+        macho=`echo $filetype | fgrep Mach-O | sed 's/:.*//'`
+        ararch=`echo $filetype | fgrep ar\ archive | sed 's/:.*//'`
+        if [ "x$macho" != "x" ]; then
+            $(STRIP) -S "$macho"
+        fi
+        if [ "x$ararch" != "x" ]; then
+            $(STRIP) -S "$ararch"
+        fi
+    else
+        machos=`cd "$(1)"; $(FIND) . -type f -print0 | xargs -0 file | fgrep Mach-O | sed 's/:.*//'`
+        ararchs=`cd "$(1)"; $(FIND) . -type f -print0 | xargs -0 file | fgrep ar\ archive | sed 's/:.*//'`
+        if [ "x$machos" != "x" ]; then
+            cd "$(1)"; 
+	    origIFS=$IFS
+	    IFS="
+"
+	    for curbinary in $machos ; do
+	    	$(STRIP) -S "$curbinary"
+	    done
+	    IFS=$oldIFS
+        fi
+        if [ "x$ararchs" != "x" ]; then
+            cd "$(1)"; 
+	    origIFS=$IFS
+	    IFS="
+"
+	    for curbinary in $ararchs ; do
+	    	$(STRIP) -S "$curbinary"
+	    done
+	    IFS=$oldIFS
+        fi
+    fi
+}
+
+# ResourcePreservingCp <destination> : <source>
+# where the leaf names of <destination> and <source> are the same
+# and CpMac is to be used to insure resources are preserved.
+# Although CpMac is invoked with -r, this command is only reliable
+# for individual file copies becaues there is no preremove of
+# a directory destination which could cause nesting of the copy.
+rule ResourcePreservingCp
+{
+    DEPENDS $(1) : $(2) ;
+}
+actions together ResourcePreservingCp
+{
+    $(RESOURCE_PRESERVING_CP) -r "$(2)" "$(1)"
+}
+
+# ResourcePreservingMv <destination> : <source> : <junk>
+# where the leaf names of <destination> and <source> are the same
+# and CpMac is to be used to insure resources are preserved.
+# The <junk> is removed after copying.
+# !!! 20000602:cmolick no need to remove junk placed outside of framework
+rule ResourcePreservingMv
+{
+    DEPENDS $(1) : $(2) ;
+}
+actions together ResourcePreservingMv
+{
+    $(RESOURCE_PRESERVING_CP) -r "$(2)" "$(1)"
+}
+
+# BulkCopy <destination dir> : <source dir>
+rule BulkCopy
+{
+    DEPENDS $(1) : $(2) ;
+    # destination directory must be made first
+    #!!!:cmolick:20001214 appears to not work and warns: depends on self
+#    DEPENDS $(1) : $(1:P) ;
+#    Mkdir $(1:P) ;
+}
+actions ignore BulkCopy
+{
+    if [ -e "$(2)" ]
+      then cd "$(2:P)" && $(PAX) -pe -rw "$(2:BS)" "$(1:P:G=)"
+    fi
+}
+
+# CloneHeader <primary target> : <header> : <target directory>
+# Writes in the target directory a stub clone of the header
+# which contains only an #import directive with the path
+# to the real header in quotes.
+# Individual header clones depend on the PROJECT_HEADER_CLONE
+# nonfile target which is depended on by the product and object files.
+rule CloneHeader
+{
+    # derive name of header clone and find full path to header
+    local HEADER_CLONE ;
+    if $(3) = $(PUBLIC_HEADER_CLONE_DIR) {
+        HEADER_CLONE = $(2:BSG=PublicHeaderClone) ;
+    }
+    else {
+        if $(3) = $(PRIVATE_HEADER_CLONE_DIR) {
+            HEADER_CLONE = $(2:BSG=PrivateHeaderClone) ;
+        }
+        else {
+            HEADER_CLONE = $(2:BSG=ProjectHeaderClone) ;
+        }
+    }
+    local HEADER_PATH ;
+    if AbsolutePath in $($(2:G=)_ATTRIBUTES) {
+        HEADER_PATH = $(2:G=) ;
+    } 
+    else {
+        HEADER_PATH = $(SOURCE_ROOT)$(/)$(2:G=) ;
+    } 
+    LOCATE on $(HEADER_CLONE) = $(3) ;
+    DEPENDS $(HEADER_CLONE) : $(3) ;
+    if ! $(3) in $(PRODUCT_FILES) {
+        Mkdir $(3) ;
+        PRODUCT_FILES += $(3) ;
+        if $(BUILD_PHASING) = YES {
+            BUILD_PHASE_PRODUCTS += $(3) ;
+        }
+    }
+    if $(3) = $(PRIVATE_HEADER_CLONE_DIR) && $(PRIVATE_HEADER_CLONE_LINK) {
+        DEPENDS $(HEADER_CLONE) : $(PRIVATE_HEADER_CLONE_LINK) ;
+        if ! $(PRIVATE_HEADER_CLONE_LINK) in $(PRODUCT_FILES) {
+            SymLink $(PRIVATE_HEADER_CLONE_LINK) : $(PRIVATE_HEADER_CLONE_LINK_PATH) ;
+            PRODUCT_FILES += $(PRIVATE_HEADER_CLONE_LINK) ;
+            if $(BUILD_PHASING) = YES {
+                BUILD_PHASE_PRODUCTS += $(PRIVATE_HEADER_CLONE_LINK) ;
+            }
+        }
+    }
+    if $(3) = $(PUBLIC_HEADER_CLONE_DIR) && $(PUBLIC_HEADER_CLONE_LINK) {
+        DEPENDS $(HEADER_CLONE) : $(PUBLIC_HEADER_CLONE_LINK) ;
+        if ! $(PUBLIC_HEADER_CLONE_LINK) in $(PRODUCT_FILES) {
+            SymLink $(PUBLIC_HEADER_CLONE_LINK) : $(PUBLIC_HEADER_CLONE_LINK_PATH) ;
+            PRODUCT_FILES += $(PUBLIC_HEADER_CLONE_LINK) ;
+            if $(BUILD_PHASING) = YES {
+                BUILD_PHASE_PRODUCTS += $(PUBLIC_HEADER_CLONE_LINK) ;
+            }
+        }
+    }
+    # make clone and record as build phase product
+    ImportStub $(HEADER_CLONE) : $(HEADER_PATH) ;
+    if $(BUILD_PHASING) = YES {
+        BUILD_PHASE_PRODUCTS += $(HEADER_CLONE) ;
+    }
+}
+
+# ImportStub <stub file> : <stub import file>
+# Generates a file with one line which is an #import directive
+# and the second parameter quoted which should be a full path
+# to the real file to be imported.
+rule ImportStub
+{
+    DEPENDS $(1) : $(2) ;
+    NOUPDATE $(1) ;
+}
+actions ImportStub
+{
+    echo "#import" \""$(2)"\" > "$(1)"
+}
+
+# Source derivation operations:
+
+# Lex <file>.{c|m} : <file>.l[m]
+# Runs lex to generate <file>.c or <file>.m based on scanner input
+rule Lex
+{
+    DEPENDS $(1) : $(2) ;
+}
+
+actions Lex
+{
+    $(LEX) $(LEXFLAGS) "-o$(1)" "$(2)"
+}
+
+# Yacc <file>.h <file>.{c|m} : <file>.y[m]
+# Uses yacc to generate parser from description
+rule Yacc
+{
+    DEPENDS $(1) : $(2) ;
+}
+
+actions Yacc
+# Generate result by noting location, going to derived source directory,
+# running yacc, then copying the results to what is desired.
+{
+    origin=`/bin/pwd` && $(CD) "$(1[1]:D)" && $(YACC) $(YACCFLAGS) -d "$origin/$(2)" && $(CP) y.tab.h "$(1[1])" && $(CP) y.tab.c "$(1[2])"
+}
+
+# RPCGen <proto>.h <proto>_xdr.c : <proto>.x
+# Generates RPC stubs from specifications
+#
+rule RPCGen
+{
+    DEPENDS $(1) : $(2) ;
+}
+
+# Generate header and C code with two calls to rpcgen
+actions RPCGen
+{
+    $(RPCGEN) $(RPCGENFLAGS) -h -o "$(1[1])" "$(2)"
+    $(RPCGEN) $(RPCGENFLAGS) -c -o "$(1[2])" "$(2)"
+}
+
+# Mig <file>.h <file>User.c : <file>.defs OR
+# Mig <file>Server.h <file>Server.c : <file>.defs
+# Runs mig to create client and server files from a definition file.
+rule Mig
+{
+    # we cannot do mig files without mig
+    if ! $(MIG) {
+        EXIT Error: $(2) cannot be processed without a mig tool ;
+    }
+
+    # the products depend on the sources
+    DEPENDS $(1) : $(2) ;
+
+    # there is a fixed relationship between input and output files
+    local BASE = $(2:S=) ;
+    if $(MACH_SERVER) = "" {
+        local OUTPUT = $(BASE).h $(BASE)User.c ;
+        Mig.client $(1) : $(2) ;
+    }
+    else {
+        local OUTPUT = $(BASE)Server.h $(BASE)Server.c ;
+        Mig.server $(1) : $(2) ;
+    }
+    JAMSHELL on $(1) = $(SH) -c ;
+}
+actions Mig.client
+{
+    origin=`pwd` && $(CD) "$(1[1]:D)" && $(MIG) "$origin/$(2)"
+}
+actions Mig.server
+{
+    origin=`pwd` && $(CD) "$(1[1]:D)" && $(MIG) -sheader "$(2:B)Server.h" "$origin/$(2)"
+}
+
+# GenerateVectorLibraryIntermediates <vector stub> <vector object file> <vector bridge> : <exports file>
+# Generates and compiles vector stub, and also bridge file
+rule GenerateVectorLibraryIntermediates
+{
+    DEPENDS $(1) : $(2) ;
+    VECTOR_STUB on $(1) = $(VECTOR_STUB) ;
+    VECTOR_OBJECT_FILE on $(1) = $(VECTOR_OBJECT_FILE) ;
+    VECTOR_BRIDGE on $(1) = $(VECTOR_BRIDGE) ;
+    VECTOR_FRAGMENT_NAME on $(1) = $(VECTOR_FRAGMENT_NAME) ;
+    DYLIB_INSTALLED_NAME on $(1) = $(DYLIB_INSTALLED_NAME) ;
+    DEPENDS $(VECTOR_STUB) : $(DERIVED_FILE_DIR) ;
+}
+actions GenerateVectorLibraryIntermediates
+{
+    "$(MAKEPSEUDOLIB)" "$(2)" -strip -fragname "$(VECTOR_FRAGMENT_NAME)" -bridge "$(VECTOR_BRIDGE:G=)" -vector "$(VECTOR_STUB)" -dylibpath "$(DYLIB_INSTALLED_NAME)"
+    "$(CC)" -Wa,-L -c $(ARCH_FLAGS) -O -fno-common -traditional-cpp -dynamic "$(FLAGS)" $(GLOBAL_CFLAGS) -o "$(VECTOR_OBJECT_FILE)" "$(VECTOR_STUB)"
+}
+
+MASTER_INTERFACES default = /AppleInternal/Carbon/interfaces ;
+rule InterfacerHeaders
+{
+    INTERFACER_CACHE default = $(TEMP_DIR)$(/)InterfacerCache ;
+    local BUILD_DIR_AND_SEPARATOR = $(BUILD_DIR)$(/) ;
+    INTERFACER_HEADERS = $(1:G=InterfacerHeaders) ;
+    if $(RC_TARGET_UPDATE) {
+        INTERFACER_HEADER_OPTIONS += -externalHeader "$(RC_TARGET_UPDATE)" ;
+    }
+    FULL_PUBLIC_HEADER_DIR = $(BUILD_DIR_AND_SEPARATOR)$(PUBLIC_HEADER_DIR:G=) ;
+    FULL_PUBLIC_HEADER_DIR on $(INTERFACER_HEADERS) = $(FULL_PUBLIC_HEADER_DIR) ;
+    FULL_PRIVATE_HEADER_DIR = $(BUILD_DIR_AND_SEPARATOR)$(PRIVATE_HEADER_DIR:G=) ;
+    FULL_PRIVATE_HEADER_DIR on $(INTERFACER_HEADERS) = $(FULL_PRIVATE_HEADER_DIR) ;
+    if $(BUILD_PHASING) = YES {
+        BUILD_PHASE_PRODUCTS += $(INTERFACER_HEADERS) ;
+    }
+    DEPENDS $(INTERFACER_HEADERS) : $(FULL_PUBLIC_HEADER_DIR) ;
+    DEPENDS $(INTERFACER_HEADERS) : $(FULL_PRIVATE_HEADER_DIR) ;
+    DEPENDS $(INTERFACER_HEADERS) : $(BUILD_DIR_AND_SEPARATOR)$(PUBLIC_HEADER_DIR:G=) ;
+    DEPENDS $(INTERFACER_HEADERS) : $(BUILD_DIR_AND_SEPARATOR)$(PRIVATE_HEADER_DIR:G=) ;
+    Mkdir $(FULL_PUBLIC_HEADER_DIR) ;
+    SymLink $(BUILD_DIR_AND_SEPARATOR)$(PUBLIC_HEADER_LINK:G=) : $(PUBLIC_HEADER_LINK_PATH) ;
+    Mkdir $(FULL_PRIVATE_HEADER_DIR) ;
+    SymLink $(BUILD_DIR_AND_SEPARATOR)$(PRIVATE_HEADER_LINK:G=) : $(PRIVATE_HEADER_LINK_PATH) ;
+    if $(BUILD_PHASING) = YES {
+        BUILD_PHASE_PRODUCTS += $(FULL_PUBLIC_HEADER_DIR) ;
+        BUILD_PHASE_PRODUCTS += $(FULL_PRIVATE_HEADER_DIR) ;
+        BUILD_PHASE_PRODUCTS += $(BUILD_DIR_AND_SEPARATOR)$(PUBLIC_HEADER_LINK:G=) ;
+        BUILD_PHASE_PRODUCTS += $(BUILD_DIR_AND_SEPARATOR)$(PRIVATE_HEADER_LINK:G=) ;
+    }
+    Interfacer.Headers $(INTERFACER_HEADERS) ;
+}
+
+actions Interfacer.Headers
+{
+    "$(INTERFACER)" -masterInterfaces "$(MASTER_INTERFACES)/" -cacheFolder "$(INTERFACER_CACHE)/" "$(INTERFACER_HEADER_OPTIONS)" -c -rez -framework "$(1:D=:S=:G=)" -p -generated "c=$(FULL_PUBLIC_HEADER_DIR:G=)/" -generatedPriv "c=$(FULL_PRIVATE_HEADER_DIR:G=)/" -generated "rez=$(FULL_PUBLIC_HEADER_DIR:G=)/" -generatedPriv "rez=$(FULL_PRIVATE_HEADER_DIR:G=)/"
+}
+
+rule InterfacerExportSetsAndGlue
+{
+    INTERFACER_CACHE default = $(TEMP_DIR)$(/)InterfacerCache ;
+    EXPORT_SETS_DIR default = $(DERIVED_FILE_DIR)$(/)ExportSets ;
+    UPP_GLUE_DIR default = $(DERIVED_FILE_DIR)$(/)UPPGlue ;
+    COMPONENT_GLUE_DIR default = $(DERIVED_FILE_DIR)$(/)ComponentGlue ;
+    GLUE_FILE_LIST = $(FILE_LIST)Glue ;
+    RAW_GENERATED_EXPORTS_FILE default = $(EXPORT_SETS_DIR)$(/)fw_$(PRODUCT_NAME)_X.exp ;
+    RAW_GENERATED_PRIVATE_EXPORTS_FILE default = $(EXPORT_SETS_DIR)$(/)fw_$(PRODUCT_NAME)Priv_X.exp ;
+    # !!! cmolick:20000602 private exports file optional...bad depend?
+    PROCESSED_EXPORTS_FILE default = $(DERIVED_FILE_DIR)$(/)$(PRODUCT_NAME).exp ;
+    DEPENDS $(RAW_GENERATED_EXPORTS_FILE) : $(DERIVED_FILE_DIR) ;
+    DEPENDS $(RAW_GENERATED_PRIVATE_EXPORTS_FILE) : $(DERIVED_FILE_DIR) ;
+    DEPENDS $(PROCESSED_EXPORTS_FILE) : $(DERIVED_FILE_DIR) ;
+    # object file dir needs to be in place for glue object file list
+    DEPENDS $(PROCESSED_EXPORTS_FILE) : $(OBJECT_FILE_DIR) ;
+    DEPENDS $(PROCESSED_EXPORTS_FILE) : $(RAW_GENERATED_EXPORTS_FILE) ;
+    DEPENDS $(PROCESSED_EXPORTS_FILE) : $(RAW_GENERATED_PRIVATE_EXPORTS_FILE) ;
+    DEPENDS $(1) : $(PROCESSED_EXPORTS_FILE) ;
+    if $(GENERATE_HEADERS) = YES {
+        DEPENDS $(RAW_GENERATED_EXPORTS_FILE) : $(INTERFACER_HEADERS) ;
+        DEPENDS $(PROCESSED_EXPORTS_FILE) : $(INTERFACER_HEADERS) ;
+    }
+    if $(BUILD_PHASING) = YES {
+        BUILD_PHASE_PRODUCTS += $(RAW_GENERATED_EXPORTS_FILE) $(PROCESSED_EXPORTS_FILE) ;
+    }
+    HEADER_SEARCH_PATHS on $(RAW_GENERATED_EXPORTS_FILE) = $(HEADER_SEARCH_PATHS) ;
+    FRAMEWORK_SEARCH_PATHS on $(RAW_GENERATED_EXPORTS_FILE) = $(FRAMEWORK_SEARCH_PATHS) ;
+    if $(GENERATE_COMPONENT_GLUE) = YES {
+        INTERFACER_FLAGS += -componentGlueC ;
+        INTERFACER_COMPONENT_GLUE_FLAGS = -generated "componentGlueC=$(COMPONENT_GLUE_DIR)/" -generatedPriv "componentGlueC=$(COMPONENT_GLUE_DIR)/" ;
+    }
+    Interfacer.RawExportSetsAndGlue $(RAW_GENERATED_EXPORTS_FILE) : $(1) ;
+    Interfacer.CombineExportLists $(RAW_GENERATED_EXPORTS_FILE) : $(RAW_GENERATED_PRIVATE_EXPORTS_FILE) ;
+    ADDITIONAL_EXPORTS_FILE on $(PROCESSED_EXPORTS_FILE) = $(ADDITIONAL_EXPORTS_FILE) ;
+    Interfacer.PrepareExportList $(PROCESSED_EXPORTS_FILE) : $(RAW_GENERATED_EXPORTS_FILE) ;
+    EXPORTED_SYMBOLS_FILE default = $(PROCESSED_EXPORTS_FILE) ;
+    ProcessFile $(1) : $(EXPORTED_SYMBOLS_FILE) ;
+}
+
+actions Interfacer.RawExportSetsAndGlue
+# Generates export sets and UPP glue with Interfacer,
+# then attempts to compile UPP glue and add resulting
+# object files to a list to use at link time.
+{
+    "$(INTERFACER)" -masterInterfaces "$(MASTER_INTERFACES)/" -cacheFolder "$(INTERFACER_CACHE)/" -exportset -uppGlueC "$(INTERFACER_FLAGS)" -framework "$(2:D=:S=)" -p -generated "exportset=$(EXPORT_SETS_DIR)/" -generatedPriv "exportset=$(EXPORT_SETS_DIR)/" -generated "uppGlueC=$(UPP_GLUE_DIR)/" -generatedPriv "uppGlueC=$(UPP_GLUE_DIR)/" $(INTERFACER_COMPONENT_GLUE_FLAGS)
+    cd "$(UPP_GLUE_DIR)"
+    "$(CC)" -c $(ARCH_FLAGS) -O -fno-common -traditional-cpp -dynamic -Wmost -Wno-four-char-constants -fpascal-strings -fwritable-strings -fexceptions -DCARBON_THRASH=1 -DforCarbon=1 -DACCESSORS_CALLS_ARE_FUNCTIONS=1 -DUSE_INVOKEUPP_C_GLUE=1 "$(FLAGS)" $(GLOBAL_CFLAGS) "-I$(DERIVED_PATHS)" "-I$(HEADER_SEARCH_PATHS)" "-F$(FRAMEWORK_SEARCH_PATHS)" "-I$(BUILD_DIR)/$(PUBLIC_HEADER_DIR:G=)" "-I$(BUILD_DIR)/$(PRIVATE_HEADER_DIR:G=)" *.c
+    find "$(UPP_GLUE_DIR)" -type f -name '*.i.o' -print > "$(GLUE_FILE_LIST)"
+    if [ -e "$(COMPONENT_GLUE_DIR)"/*.i.c ]; then
+        cd "$(COMPONENT_GLUE_DIR)"
+        "$(CC)" -c $(ARCH_FLAGS) -O -fno-common -traditional-cpp -dynamic -Wmost -Wno-four-char-constants -fpascal-strings -fwritable-strings -fexceptions -DCARBON_THRASH=1 -DforCarbon=1 -DACCESSORS_CALLS_ARE_FUNCTIONS=1 -DUSE_INVOKEUPP_C_GLUE=1 "$(FLAGS)" $(GLOBAL_CFLAGS) "-I$(DERIVED_PATHS)" "-I$(HEADER_SEARCH_PATHS)" "-F$(FRAMEWORK_SEARCH_PATHS)" "-I$(BUILD_DIR)/$(PUBLIC_HEADER_DIR:G=)" "-I$(BUILD_DIR)/$(PRIVATE_HEADER_DIR:G=)" *.c
+        find "$(COMPONENT_GLUE_DIR)" -type f -name '*.i.o' -print >> "$(GLUE_FILE_LIST)"
+    fi
+}
+
+actions Interfacer.CombineExportLists
+# Copies the contents of any private export list into the main public list
+{
+    if [ -f "$(2)" ]; then
+        chmod +w "$(1)"
+        cat "$(2)" >> "$(1)"
+    fi
+}
+
+actions Interfacer.PrepareExportList
+# Translates PEF-oriented Interfacer export list output into
+# nmedit-compatible export lists for use with mach-o.
+{
+    cat "$(2)" |
+    grep -v ^\* | grep -v ^# | grep -v ^\$ | sort | uniq -u | sed -e '1,$ s/^/_/' > "$(1)" ;
+    if [ -f "$(ADDITIONAL_EXPORTS_FILE)" ]; then
+        cat "$(ADDITIONAL_EXPORTS_FILE)" >> "$(1)"
+    fi
+}
+
+
+# Linking, class archive generation, and related operations:
+#
+# Variables used by linking operations:
+# FLAGS.o of target, LDFLAGS, OTHER_LDFLAGS,
+# LIBRARY_SEARCH_PATHS, FRAMEWORK_SEARCH_PATHS,
+# and optionally LINK_FILE_LIST and INIT_ROUTINE
+
+# ClassArchive <archive> : <class file dir>
+# Generates an archive that stores class files in the given directory
+rule ClassArchive {
+    local CLASS_FILE_LIST = $(TEMP_DIR)$(/)ClassFileList ;
+    DEPENDS $(1) : $(CLASS_FILE_LIST)  ;
+    DEPENDS $(CLASS_FILE_LIST) : $(COMPILED_JAVA) ;
+    DEPENDS $(CLASS_FILE_LIST) : $(JAVA_COMPILE_TARGET) ;
+    ListClassFiles $(CLASS_FILE_LIST) : $(2) ;
+    if $(JAVA_ARCHIVE_TYPE) = JAR {
+        local JARFLAGS = $(JAVA_JAR_FLAGS) ;
+        if $(JAVA_MANIFEST_FILE) {
+            DEPENDS $(1) : $(JAVA_MANIFEST_FILE) ;
+            JAVA_MANIFEST_FILE on $(1) = $(SOURCE_ROOT)$(/)$(JAVA_MANIFEST_FILE) ;
+            JARFLAGS = $(JARFLAGS)m ;
+        }
+        JARFLAGS = $(JARFLAGS)f ;
+        if $(JAVA_ARCHIVE_COMPRESSION) != YES {
+            JARFLAGS = $(JARFLAGS)0 ;
+        }
+        JARFLAGS on $(1) = $(JARFLAGS) ;
+	CLASS_FILE_DIR on $(1) = $(CLASS_FILE_DIR) ;
+        ClassArchive.jarArchive $(1) : $(CLASS_FILE_LIST) ;
+    }
+    else {
+        if $(JAVA_ARCHIVE_TYPE) = ZIP {
+            local ZIPFLAGS = $(JAVA_ZIP_FLAGS) ;
+            if $(JAVA_ARCHIVE_COMPRESSION) != YES {
+                ZIPFLAGS = $(ZIPFLAGS)0 ;
+            }
+            ZIPFLAGS on $(1) = $(ZIPFLAGS) ;
+	    CLASS_FILE_DIR on $(1) = $(CLASS_FILE_DIR) ;
+            ClassArchive.zipArchive $(1) : $(CLASS_FILE_LIST) ;
+        }
+    }
+}
+# Use jar command to generate an archive
+# from the class file list after removing "./" from each file path
+actions ClassArchive.jarArchive {
+    cd "$(CLASS_FILE_DIR)" && $(JAR) $(JARFLAGS) $(OTHER_JARFLAGS) "$(JAVA_MANIFEST_FILE)" "$(1)" `cat "$(2)" | sed 's/\.\///'`
+}
+# Use zip command to generate an archive
+# from the class file list after removing "./" from each file path
+actions ClassArchive.zipArchive {
+    cd "$(CLASS_FILE_DIR)" && $(ZIP) $(ZIPFLAGS) $(OTHER_ZIPFLAGS) "$(1)" `cat "$(2)" | sed 's/\.\///'`
+}
+# Uses piped tar for copy of class files
+actions ClassArchive.noArchive {
+    ( cd "$(2:D)" && $(TAR) cf - `cat "$(2)"` ) | ( cd "$(1)" && $(TAR) xf - )
+}
+
+# Use find command to generate a list of class files
+# in the directory heirarchy starting at the class file dir
+actions ListClassFiles {
+    cd "$(2)" && $(FIND) . \! -name '$(1:B)' \! -type d -print > "$(1)"
+}
+
+# ProcessLink <executable> : <inputs> : <rule>
+# Processes <inputs> into <rule>.ARGUMENTS for later use by the <rule> rule
+# where <inputs> are object files, libraries, frameworks, object file lists,
+# and such and where <rule> is one of StaticLibrary, DynamicLibrary, or
+# StandaloneExecutable.
+rule ProcessLink
+{
+    local RULE = $(3) ;
+    # Link as standalone executable unless another rule is specified
+    RULE default = StandaloneExecutable ;
+    # Set rule-specific flags such as StandaloneExecutable.FILELIST_FLAG
+    # and store the values in local variables
+    local FILELIST_FLAG = $($(RULE).FILELIST_FLAG:G=) ;
+    local LIBRARY_FLAG = $($(RULE).LIBRARY_FLAG:G=) ;
+    local FRAMEWORK_FLAG = $($(RULE).FRAMEWORK_FLAG:G=) ;
+    local FILELIST_NOSPACE = $($(RULE).FILELIST_FLAG:G) ;
+    local LIBRARY_NOSPACE = $($(RULE).LIBRARY_FLAG:G) ;
+    local FRAMEWORK_NOSPACE = $($(RULE).FRAMEWORK_FLAG:G) ;
+    local BATCH_OFILES = $($(RULE).BATCH_OFILES) ;
+    # The product depends on all of the input files, although
+    # library and framework references may not be resolvable.
+    DEPENDS $(1) : $(2) ;
+    # link depends on file list
+    LINK_FILE_LIST = $(FILE_LIST) ;
+    DEPENDS $(1) : $(LINK_FILE_LIST) ;
+    # Deal with each input file in turn
+    local LINKED ;
+    local ARGUMENT ;
+    for LINKED in $(2) {
+        $(RULE).FILES$(LINKED:S) on $(1) += $(LINKED) ;
+        switch $(LINKED:BS) {
+            case *.o :
+                # If $(BATCH_OFILES) is true then object file lists are generated.
+                if $(BATCH_OFILES) != NO {
+                    ClearLinkFileList $(LINK_FILE_LIST) ;
+                    AppendToFileList $(LINK_FILE_LIST) : $(LINKED) ;
+                    DEPENDS $(LINK_FILE_LIST) : $(LINKED) ;
+                } else {
+                    $(RULE).ARGUMENTS on $(1) += $(LINKED) ;
+                }
+            case *.objects :
+                if $(FILELIST_NOSPACE) {
+                    ARGUMENT = $(FILELIST_FLAG)$(LINKED) ;
+                    NOTFILE $(ARGUMENT) ;
+                } else {
+                    NOTFILE $(FILELIST_FLAG) ;
+                    ARGUMENT = $(FILELIST_FLAG) $(LINKED) ;
+                }
+                $(RULE).ARGUMENTS on $(1) += $(ARGUMENT) ;
+            case lib*.a :
+                NOCARE $(LINKED) ;
+                if $(LIBRARY_FLAG) {
+                    if $(LIBRARY_NOSPACE) {
+                        ARGUMENT = $(LIBRARY_FLAG)$(LINKED:A) ;
+                    } else {
+                        ARGUMENT = $(LIBRARY_FLAG) $(LINKED:A) ;
+                    }
+                    $(RULE).ARGUMENTS on $(1) += $(ARGUMENT) ;
+                    NOTFILE $(ARGUMENT) ;
+                } else {
+                    ECHO jam: warning: For target $(1), rule $(RULE) will ignore library $(LINKED) ;
+                }
+            case *.lib :
+                NOCARE $(LINKED) ;
+                if $(LIBRARY_FLAG) {
+                    if $(LIBRARY_NOSPACE) {
+                        ARGUMENT = $(LIBRARY_FLAG)$(LINKED:A) ;
+                    } else {
+                        ARGUMENT = $(LIBRARY_FLAG) $(LINKED:A) ;
+                    }
+                    $(RULE).ARGUMENTS on $(1) += $(ARGUMENT) ;
+                    NOTFILE $(ARGUMENT) ;
+                } else {
+                    ECHO jam: warning: For target $(1), rule $(RULE) will ignore library $(LINKED) ;
+                }
+            case *.dylib :
+                NOCARE $(LINKED) ;
+                if $(LIBRARY_FLAG) {
+                    if $(LIBRARY_NOSPACE) {
+                        ARGUMENT = $(LIBRARY_FLAG)$(LINKED:A) ;
+                    } else {
+                        ARGUMENT = $(LIBRARY_FLAG) $(LINKED:A) ;
+                    }
+                    $(RULE).ARGUMENTS on $(1) += $(ARGUMENT) ;
+                    NOTFILE $(ARGUMENT) ;
+                } else {
+                    ECHO jam: warning: For target $(1), rule $(RULE) will ignore library $(LINKED) ;
+                }
+            case *.framework :
+                NOCARE $(LINKED) ;
+                if $(FRAMEWORK_FLAG) {
+                    if $(FRAMEWORK_NOSPACE) {
+                        ARGUMENT = $(FRAMEWORK_FLAG)$(LINKED:B) ;
+                    } else {
+                        ARGUMENT = $(FRAMEWORK_FLAG) $(LINKED:B) ;
+                    }
+                    $(RULE).ARGUMENTS on $(1) += $(ARGUMENT) ;
+                    NOTFILE $(ARGUMENT) ;
+                } else {
+                    ECHO jam: warning: For target $(1), rule $(RULE) will ignore framework $(LINKED) ;
+                }
+            case * :
+                ECHO Warning: $(RULE): Unknown extension on "$(LINKED:BS)" when linking with $(RULE) ;
+        }
+    }
+    if $(BATCH_OFILES) != NO {
+        $(RULE).LinkUsingFileList $(1) ;
+    }
+    else {
+        $(RULE).Link $(1) ;
+    }
+}
+
+actions quietly together ClearLinkFileList
+{
+    $(RM) -rf "$(1)"
+}
+
+actions quietly AppendToFileList
+{
+    $(ECHO) "$(2)" >> "$(1)"
+}
+
+actions quietly AppendFileToFileList
+{
+    cat "$(2)" >> "$(1)"
+}
+
+# StaticLibrary <library> : <inputs>
+# Stores <inputs> in <library> where <inputs> are object files,
+# libraries, frameworks, object file lists, and such
+rule StaticLibrary
+{
+    LIBRARY_SEARCH_PATHS on $(1) = $(LIBRARY_SEARCH_PATHS) ;
+    ProcessLink $(1) : $(2) : StaticLibrary ;
+    FLAGS.o on $(1) = $(LDFLAGS) $(SECTORDER_FLAGS) $(OTHER_LDFLAGS) ;
+}
+actions together StaticLibrary
+{
+}
+actions quietly together piecemeal StaticLibrary.Link bind StaticLibrary.ARGUMENTS
+{
+    ( "$(LIBTOOL)" -o "$(1)" "$(2)" "-L$(LIBRARY_SEARCH_PATHS)" "$(StaticLibrary.ARGUMENTS)" "$(FLAGS.o)" $(INSTALLED_NAME_FLAG) && $(RANLIB) "$(1)" )
+}
+actions quietly together piecemeal StaticLibrary.LinkUsingFileList bind StaticLibrary.ARGUMENTS
+{
+    ( "$(LIBTOOL)" -o "$(1)" "$(2)" "-L$(LIBRARY_SEARCH_PATHS)" -filelist "$(LINK_FILE_LIST)" "$(StaticLibrary.ARGUMENTS)" "$(FLAGS.o)" $(INSTALLED_NAME_FLAG) && $(RANLIB) "$(1)" )
+}
+StaticLibrary.FRAMEWORK_FLAG = ;
+StaticLibrary.LIBRARY_FLAG = ;
+StaticLibrary.BATCH_OFILES default = YES ;
+
+# StandaloneExecutable <executable> : <inputs>
+# Links <inputs> to produce <executable>, where <inputs> are objects,
+# libraries, frameworks, and such.
+rule StandaloneExecutable
+{
+    ProcessLink $(1) : $(2) ;
+    LD on $(1) = $(LD) ;
+    FRAMEWORK_SEARCH_PATHS on $(1) = $(FRAMEWORK_SEARCH_PATHS) ;
+    LIBRARY_SEARCH_PATHS on $(1) = $(LIBRARY_SEARCH_PATHS) ;
+    FLAGS.o on $(1) = $(ARCH_FLAGS) $(LDFLAGS) $(SECTORDER_FLAGS) $(OTHER_LDFLAGS) ;
+    if $(INIT_ROUTINE) {
+        FLAGS.o on $(1) += -init $(INIT_ROUTINE) ;
+    }
+}
+StandaloneExecutable.FILELIST_FLAG = -filelist ;
+StandaloneExecutable.FRAMEWORK_FLAG = -framework ;
+StandaloneExecutable.LIBRARY_FLAG = <nospace>-l ;
+StandaloneExecutable.BATCH_OFILES default = YES ;
+actions together StandaloneExecutable
+{
+}
+actions quietly together StandaloneExecutable.Link bind StandaloneExecutable.ARGUMENTS
+{
+    "$(LD)" -o "$(1)" "-L$(LIBRARY_SEARCH_PATHS)" "-F$(FRAMEWORK_SEARCH_PATHS)" "$(FLAGS.o)" $(INSTALLED_NAME_FLAG) "$(StandaloneExecutable.ARGUMENTS)"
+}
+actions quietly together StandaloneExecutable.LinkUsingFileList bind StandaloneExecutable.ARGUMENTS
+{
+    "$(LD)" -o "$(1)" "-L$(LIBRARY_SEARCH_PATHS)" "-F$(FRAMEWORK_SEARCH_PATHS)" -filelist "$(LINK_FILE_LIST)" "$(FLAGS.o)" $(INSTALLED_NAME_FLAG) "$(StandaloneExecutable.ARGUMENTS)"
+}
+
+
+# DynamicLibrary <library> : <objects> : <libraries>
+# Links <objects> and <libraries> to produce <library>, using $(FLAGS.o)
+rule DynamicLibrary
+{
+    LIBRARY_SEARCH_PATHS on $(1) = $(LIBRARY_SEARCH_PATHS) ;
+    FRAMEWORK_SEARCH_PATHS on $(1) = $(FRAMEWORK_SEARCH_PATHS) ;
+    ProcessLink $(1) : $(2) : DynamicLibrary ;
+    FLAGS.o on $(1) = $(ARCH_FLAGS) $(LDFLAGS) $(SECTORDER_FLAGS) $(OTHER_LDFLAGS) ;
+    if $(INIT_ROUTINE) {
+        FLAGS.o on $(1) += -init $(INIT_ROUTINE) ;
+    }
+}
+actions together DynamicLibrary
+{
+}
+actions quietly together DynamicLibrary.Link bind DynamicLibrary.ARGUMENTS DynamicLibrary.DEFFILE
+{
+    "$(LD)" -o "$(1)" $(DynamicLibrary.DEFFILE_FLAG)"$(DynamicLibrary.DEFFILE)" "-L$(LIBRARY_SEARCH_PATHS)" "-F$(FRAMEWORK_SEARCH_PATHS)" "$(DynamicLibrary.ARGUMENTS)" "$(FLAGS.o)" $(INSTALLED_NAME_FLAG)
+}
+actions quietly together DynamicLibrary.LinkUsingFileList bind DynamicLibrary.ARGUMENTS DynamicLibrary.DEFFILE
+{
+    "$(LD)" -o "$(1)" $(DynamicLibrary.DEFFILE_FLAG)"$(DynamicLibrary.DEFFILE)" "-L$(LIBRARY_SEARCH_PATHS)" "-F$(FRAMEWORK_SEARCH_PATHS)" -filelist "$(LINK_FILE_LIST)" "$(DynamicLibrary.ARGUMENTS)" "$(FLAGS.o)" $(INSTALLED_NAME_FLAG)
+}
+DynamicLibrary.DEFFILE_FLAG = "-Xlinker -DEF:" ;
+DynamicLibrary.FILELIST_FLAG = -filelist ;
+DynamicLibrary.FRAMEWORK_FLAG = -framework ;
+DynamicLibrary.LIBRARY_FLAG = <nospace>-l ;
+DynamicLibrary.BATCH_OFILES default = YES ;
+
+# MasterObjectFile <master object file> : <object files> : <exports file> : [<arch>]
+# Merges many object files into one in order to edit
+# the list of exported symbols
+rule MasterObjectFile
+{
+    local OBJECT_FILE ;
+    if $(4) {
+        LINK_FILE_LIST = $(FILE_LIST)Prelink_$(4) ;
+    }
+    else {
+        LINK_FILE_LIST = $(FILE_LIST)Prelink ;
+    }
+    # object files must be present before master can be assembled
+    DEPENDS $(1) : $(2) ;
+    # changes to the exports file require redo of master object file
+    DEPENDS $(1) : $(3) ;
+    # list object files in a file to limit link line length
+    DEPENDS $(1) : $(LINK_FILE_LIST) ;
+    ClearLinkFileList $(LINK_FILE_LIST) ;
+    for OBJECT_FILE in $(2) {
+        AppendToFileList $(LINK_FILE_LIST) : $(OBJECT_FILE) ;
+    }
+    if $(GLUE_FILE_LIST) {
+        # !!! cmolick:20000602 making link file list depend on glue file list causes failure
+        AppendFileToFileList $(LINK_FILE_LIST) : $(GLUE_FILE_LIST) ;
+    }
+    PRELINK_FLAGS on $(1) = $(PRELINK_FLAGS) ;
+    PRELINK_LIBS on $(1) = $(PRELINK_LIBS) ;
+    if $(BUILD_PHASING) = YES {
+        BUILD_PHASE_PRODUCTS += $(1) ;
+    }
+    MasterObjectFile.Combine $(1) : $(LINK_FILE_LIST) ;
+    MasterObjectFile.EditExports $(1) : $(3) ;
+}
+actions MasterObjectFile.Combine
+{
+    $(CC) $(ARCH_FLAGS) -keep_private_externs $(GLOBAL_CFLAGS) "$(PRELINK_FLAGS)" -nostdlib -filelist "$(2)" -r -o "$(1)" "$(PRELINK_LIBS)"
+}
+actions MasterObjectFile.EditExports
+{
+    $(NMEDIT) -s "$(2)" "$(1)" -o "$(1)"
+}
+
+# VersioningSystem_next-cvs <product>
+# Handles automatic generation of CVSVersionInfo.txt file for projects that use NeXT CVS-style versioning.
+rule VersioningSystem_next-cvs
+{
+    local VERSION_INFO_FILE ;
+    VERSION_INFO_FILE default = $(1:B)_vers.c ;
+    # Make sure that the C file containing the version string gets created.
+    VersioningSystem_next-cvs.Create $(VERSION_INFO_FILE) : $(1:B) ;
+    DERIVED_FILES += $(VERSION_INFO_FILE) ;
+    if $(BUILD_PHASING) = YES {
+        BUILD_PHASE_PRODUCTS += $(VERSION_INFO_FILE) ;
+    }
+    ProcessFile $(1) : $(VERSION_INFO_FILE) ;
+
+    # Set up default values for the variables.
+    CVS_VERS_FILE default = CVSVersionInfo.txt ;
+}
+rule VersioningSystem_next-cvs.Create
+{
+    DEPENDS $(1) : $(CVS_VERS_FILE) ;
+}
+actions VersioningSystem_next-cvs.Create
+{
+    versFile="$(CVS_VERS_FILE)"
+    awk=/usr/bin/awk
+    user=`$awk '/\\$\Id:/ {print $7;}' $versFile`
+    timestamp=`$awk '/\\$\Id:/ {print $5 " " $6;}' $versFile`
+    fileVers=`$awk '/\\$\Id:/ {print $4;}' $versFile`
+    name=`$awk '/^ProjectName:/ {print $2;}' $versFile`
+    tag=`$awk '/\\$\Name:/ {print $3;}' $versFile`
+    versNum=`$awk '/^ProjectVersion:/ {print $2;}' $versFile`
+    proj="$(2:B)"
+    clean_proj_name=`echo $proj | sed 's/[^0-9A-Za-z]/_/g'`
+    # the keyword name is the current tag and only gets filled in if the files are extracted at
+    # that tag. If the tag has a value, then it is a released version, if the tag is '$' then
+    # it has no value and is a development version.
+    case $tag in '$') vers="$versNum.dev";; *) vers=$versNum;; esac
+    q='"'
+    vers_str="Project:$proj Version:$vers (Checkpoint by:$user on:$timestamp revision:$fileVers)"
+    vers_suffix="$(CURRENT_PROJECT_VERSION_SUFFIX)"
+    echo "const char "$clean_proj_name"_VERS_STRING[] = $q@(#)$vers_str$q;" > "$(1)"
+    echo "const char "$clean_proj_name"_VERS_NUM[] = $q$vers$vers_suffix$q;" >> "$(1)"
+}
+
+# VersioningSystem_apple-generic <product>
+# Generates <product>_vers.c to define version symbol
+rule VersioningSystem_apple-generic
+{
+    # Set values to use
+    local VERSION_INFO_FILE ;
+    VERSION_INFO_FILE default = $(1:B)_vers.c ;
+
+    # variables used need to be defined on the version info file target
+    CURRENT_PROJECT_VERSION on $(VERSION_INFO_FILE) = $(CURRENT_PROJECT_VERSION) ;
+    VERSION_INFO_EXPORT_DECL on $(VERSION_INFO_FILE) default = $(VERSION_INFO_EXPORT_DECL) ;
+    VERSION_INFO_PREFIX on $(VERSION_INFO_FILE) default = $(VERSION_INFO_PREFIX) ;
+    VERSION_INFO_SUFFIX on $(VERSION_INFO_FILE) default = $(VERSION_INFO_SUFFIX) ;
+    VERSION_INFO_BUILDER on $(VERSION_INFO_FILE) default = $(USER) ;
+
+    # Create versioning code
+    VersioningSystem_apple-generic.Create $(VERSION_INFO_FILE) : $(1) ;
+    DERIVED_FILES += $(VERSION_INFO_FILE) ;
+    if $(BUILD_PHASING) = YES {
+        BUILD_PHASE_PRODUCTS += $(VERSION_INFO_FILE) ;
+    }
+    ProcessFile $(1) : $(VERSION_INFO_FILE) ;
+}
+actions VersioningSystem_apple-generic.Create
+{
+    raw_project_name="$(2:B)"
+    project_name=`echo $raw_project_name | sed 's/[^0-9A-Za-z]/_/g'`
+    project_vers="$(CURRENT_PROJECT_VERSION)"
+    vers_info_export_decl="$(VERSION_INFO_EXPORT_DECL)"
+    vers_info_prefix="$(VERSION_INFO_PREFIX)"
+    vers_info_suffix="$(VERSION_INFO_SUFFIX)"
+    vers_info_builder="$(VERSION_INFO_BUILDER)"
+    echo ${vers_info_export_decl} " const unsigned char ${vers_info_prefix}${project_name}VersionString${vers_info_suffix}[] =  \"@(#)PROGRAM:${project_name}  PROJECT:${project_name}-${project_vers}  DEVELOPER:${vers_info_builder}  BUILT:\" __DATE__  \" \" __TIME__ \"\n\";" > "$(1)"
+    echo ${vers_info_export_decl} " const double ${vers_info_prefix}${project_name}VersionNumber${vers_info_suffix} = (double)${project_vers};" >> "$(1)"
+}
+
+# KernelModuleGeneratedSource
+# Creates a kernel module source stub based on the values
+# of MODULE_VERSION, MODULE_START, and MODULE_STOP
+rule KernelModuleGeneratedSource
+{
+    MODULE_INFO_FILE default = $(1:B)_info.c ;
+    DERIVED_FILES += $(MODULE_INFO_FILE) ;
+    if $(BUILD_PHASING) = YES {
+        BUILD_PHASE_PRODUCTS += $(MODULE_INFO_FILE) ;
+    }
+    DEPENDS $(MODULE_INFO_FILE) : $(MODULE_INFO_PLIST) ;
+    MODULE_VERSION on $(MODULE_INFO_FILE) = $(MODULE_VERSION) ;
+    MODULE_NAME on $(MODULE_INFO_FILE) = $(MODULE_NAME) ;
+    if $(MODULE_IOKIT) = "YES" {
+        MODULE_START on $(MODULE_INFO_FILE) = 0 ;
+        MODULE_STOP on $(MODULE_INFO_FILE) = 0 ;
+    }
+    else {
+        if $(MODULE_START) = "" {
+            MODULE_START on $(MODULE_INFO_FILE) = 0 ;
+        } else {
+            MODULE_START on $(MODULE_INFO_FILE) = $(MODULE_START) ;
+        }
+        if $(MODULE_STOP) = "" {
+            MODULE_STOP on $(MODULE_INFO_FILE) = 0 ;
+        } else {
+            MODULE_STOP on $(MODULE_INFO_FILE) = $(MODULE_STOP) ;
+        }
+    }
+    KernelModuleGeneratedSource.Create $(MODULE_INFO_FILE) ;
+    ProcessFile $(1) : $(MODULE_INFO_FILE) ;
+}
+actions KernelModuleGeneratedSource.Create
+{
+    /bin/echo "#include <mach/mach_types.h>" > "$(1)"
+    /bin/echo " " >> "$(1)"
+    /bin/echo "extern kern_return_t _start(kmod_info_t *ki, void *data);" >> "$(1)"
+    /bin/echo "extern kern_return_t _stop(kmod_info_t *ki, void *data);" >> "$(1)"
+    if [ $(MODULE_START) != 0 ]; then
+        /bin/echo "__private_extern__ kern_return_t $(MODULE_START)(kmod_info_t *ki, void *data);" >> "$(1)"
+    fi
+    if [ $(MODULE_STOP) != 0 ]; then
+        /bin/echo "__private_extern__ kern_return_t $(MODULE_STOP)(kmod_info_t *ki, void *data);" >> "$(1)"
+    fi
+    /bin/echo " " >> "$(1)"
+    /bin/echo "KMOD_EXPLICIT_DECL($(MODULE_NAME), \"$(MODULE_VERSION)\", _start, _stop)" >> "$(1)"
+    /bin/echo "__private_extern__ kmod_start_func_t *_realmain = $(MODULE_START);" >> "$(1)"
+    /bin/echo "__private_extern__ kmod_stop_func_t *_antimain = $(MODULE_STOP);" >> "$(1)"
+}

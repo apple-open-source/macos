@@ -1,0 +1,66 @@
+#!/bin/sh
+
+. /etc/rc.common
+
+##
+# Start up NetInfo
+##
+
+ConsoleMessage "Starting NetInfo"
+
+##
+# Create local NetInfo database if it doesn't exist
+##
+
+if [ ! -d /var/db/netinfo/local.nidb ]; then
+    ConsoleMessage "Creating local NetInfo database"
+    mkdir -p /var/db/netinfo
+    /usr/libexec/create_nidb
+fi
+
+##
+# Start NetInfo services
+##
+
+nibindd
+
+##
+# Start up the Network Information Service.
+##
+
+CheckForNetwork
+
+if [ "${NETWORKUP}" = "-YES-" ] &&
+   [ "${NISDOMAIN:=-NO-}" != "-NO-" ]; then
+
+    VARYP=/var/yp
+
+    ConsoleMessage "Starting Network Information Service"
+
+    echo "Setting NIS domainname to ${NISDOMAIN}"
+    domainname "${NISDOMAIN}"
+
+    # ypserv is run on NIS servers - machines with an ${VARYP}/${NISDOMAIN} dir
+    if [ -d "${VARYP}/${NISDOMAIN}" ]; then
+	ypserv
+    fi
+    
+    # rpc.yppasswdd is run on NIS masters
+    if [ -f "${VARYP}/${NISDOMAIN}/ypservers.db" ]; then
+	NISMASTER=$(makedbm -U "${VARYP}/${NISDOMAIN}/ypservers" | sed -n '/YP_MASTER_NAME/p' | awk '{print $2}')
+	if [ "$NISMASTER" = "$(hostname)" ]; then
+	    rpc.yppasswdd
+	fi
+    fi 
+
+    # ypbind is run on all NIS clients
+    ypbind
+fi
+
+##
+# Start up name resolver
+##
+
+ConsoleMessage "Starting name resolver"
+
+lookupd

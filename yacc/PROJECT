@@ -1,0 +1,14 @@
+Project		: developer_cmds
+Description	: Developer Commands
+Distribution	: NetBSD Mon Nov 10 14:10:09 PST 1997
+Source		: NetBSD Foundation, Inc.
+Location	: cvs.netbsd.org:/cvsroot
+Owner		: wsanchez
+Releases	: Titan
+Dependancies	: 
+
+lint is currently disabled. We need to enable it.
+
+eeprom is currenty disabled. It has been replaced by nvram. Do we want to merge nvram into eeprom?
+
+menuc and mesgc are disabled. We don't like curses.

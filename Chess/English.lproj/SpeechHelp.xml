@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd">
+<plist version="0.9">
+<dict>
+<key>PlacementHint</key><integer>1</integer>
+<key>CommandInfoArray</key>
+ <array>
+  <dict> <key>Text</key><string>&lt;Piece&gt; &lt;Square&gt; to/takes &lt;Square&gt;  (e.g. Knight g1 to f3)</string> </dict>
+  <dict> <key>Text</key><string>Castle kingside</string> </dict>
+  <dict> <key>Text</key><string>Castle queenside</string> </dict>
+  <dict> <key>Text</key><string>Take back move</string> </dict>
+ </array>
+</dict>
+</plist>

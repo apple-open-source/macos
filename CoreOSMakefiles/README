@@ -1,0 +1,8 @@
+Core OS Common Makefiles
+
+  These are some makefiles which are required to build some Rhapsody
+Core OS projects. Please note that these are not supported in any way
+outside of Core OS; they are subject to change without notice.
+
+	-Wilfredo Sanchez
+	 wsanchez@apple.com

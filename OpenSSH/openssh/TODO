@@ -1,0 +1,12 @@
+- Replacement for setproctitle()
+
+- Improve PAM support (a pam_lastlog module will cause sshd to exit)
+
+- Better documentation
+
+- Replace the horror in acconfig.h which tries to comphensate for the 
+  lack of u_intXX_t types. There must be a better way.
+
+- Cleanup configure.in
+
+- Complete Tru64 SIA support

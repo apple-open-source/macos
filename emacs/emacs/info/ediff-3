@@ -1,0 +1,186 @@
+This is Info file ../info/ediff, produced by Makeinfo version 1.68 from
+the input file ediff.texi.
+
+INFO-DIR-SECTION Editors
+START-INFO-DIR-ENTRY
+* Ediff: (ediff).       A visual interface for comparing and merging programs.
+END-INFO-DIR-ENTRY
+
+   This file documents Ediff, a comprehensive visual interface to Unix
+diff and patch utilities.
+
+   Permission is granted to make and distribute verbatim copies of this
+manual provided the copyright notice and this permission notice are
+preserved on all copies.
+
+
+File: ediff,  Node: Index,  Prev: Credits,  Up: Top
+
+Index
+*****
+
+* Menu:
+
+* Comparing files and buffers:           Introduction.
+* ediff:                                 Major Entry Points.
+* ediff-after-flag-eol:                  Highlighting Difference Regions.
+* ediff-after-flag-mol:                  Highlighting Difference Regions.
+* ediff-after-setup-control-frame-hook:  Hooks.
+* ediff-after-setup-windows-hook:        Hooks.
+* ediff-auto-refine:                     Refinement of Difference Regions.
+* ediff-auto-refine-limit:               Refinement of Difference Regions.
+* ediff-autostore-merges <1>:            Merging and diff3.
+* ediff-autostore-merges <2>:            Hooks.
+* ediff-autostore-merges:                Session Groups.
+* ediff-before-flag-bol:                 Highlighting Difference Regions.
+* ediff-before-flag-mol:                 Highlighting Difference Regions.
+* ediff-before-setup-control-frame-hook: Hooks.
+* ediff-before-setup-windows-hook:       Hooks.
+* ediff-brief-help-message-function:     Notes on Heavy-duty Customization.
+* ediff-buffers:                         Major Entry Points.
+* ediff-buffers3:                        Major Entry Points.
+* ediff-cleanup-hook:                    Hooks.
+* ediff-combination-pattern:             Merging and diff3.
+* ediff-control-buffer:                  Quick Help Customization.
+* ediff-control-frame-parameters:        Window and Frame Configuration.
+* ediff-control-frame-position-function: Window and Frame Configuration.
+* ediff-control-frame-upward-shift:      Window and Frame Configuration.
+* ediff-current-diff-face-A:             Highlighting Difference Regions.
+* ediff-current-diff-face-B:             Highlighting Difference Regions.
+* ediff-current-diff-face-C:             Highlighting Difference Regions.
+* ediff-custom-diff-options:             Patch and Diff Programs.
+* ediff-custom-diff-program:             Patch and Diff Programs.
+* ediff-default-variant:                 Merging and diff3.
+* ediff-diff-options:                    Patch and Diff Programs.
+* ediff-diff-program <1>:                Patch and Diff Programs.
+* ediff-diff-program:                    Refinement of Difference Regions.
+* ediff-diff3-options:                   Patch and Diff Programs.
+* ediff-diff3-program:                   Patch and Diff Programs.
+* ediff-directories:                     Major Entry Points.
+* ediff-directories3:                    Major Entry Points.
+* ediff-directory-revisions:             Major Entry Points.
+* ediff-display-help-hook:               Hooks.
+* ediff-documentation:                   Major Entry Points.
+* ediff-even-diff-face-A:                Highlighting Difference Regions.
+* ediff-even-diff-face-B:                Highlighting Difference Regions.
+* ediff-even-diff-face-C:                Highlighting Difference Regions.
+* ediff-files:                           Major Entry Points.
+* ediff-files3:                          Major Entry Points.
+* ediff-fine-diff-face-A:                Highlighting Difference Regions.
+* ediff-fine-diff-face-B:                Highlighting Difference Regions.
+* ediff-fine-diff-face-C:                Highlighting Difference Regions.
+* ediff-force-faces:                     Highlighting Difference Regions.
+* ediff-forward-word:                    Refinement of Difference Regions.
+* ediff-forward-word-function:           Refinement of Difference Regions.
+* ediff-grab-mouse:                      Miscellaneous.
+* ediff-help-message:                    Quick Help Customization.
+* ediff-highlight-all-diffs:             Highlighting Difference Regions.
+* ediff-ignore-similar-regions:          Selective Browsing.
+* ediff-janitor:                         Hooks.
+* ediff-job-name:                        Notes on Heavy-duty Customization.
+* ediff-keep-variants:                   Miscellaneous.
+* ediff-keymap-setup-hook:               Hooks.
+* ediff-load-hook:                       Hooks.
+* ediff-long-help-message-function:      Notes on Heavy-duty Customization.
+* ediff-make-buffers-readonly-at-startup: Miscellaneous.
+* ediff-make-frame-position:             Window and Frame Configuration.
+* ediff-make-wide-display-function:      Miscellaneous.
+* ediff-maybe-save-and-delete-merge <1>: Merging and diff3.
+* ediff-maybe-save-and-delete-merge:     Hooks.
+* ediff-merge:                           Major Entry Points.
+* ediff-merge-buffers:                   Major Entry Points.
+* ediff-merge-buffers-with-ancestor:     Major Entry Points.
+* ediff-merge-directories:               Major Entry Points.
+* ediff-merge-directories-with-ancestor: Major Entry Points.
+* ediff-merge-directory-revisions:       Major Entry Points.
+* ediff-merge-directory-revisions-with-ancestor: Major Entry Points.
+* ediff-merge-files:                     Major Entry Points.
+* ediff-merge-files-with-ancestor:       Major Entry Points.
+* ediff-merge-revisions:                 Major Entry Points.
+* ediff-merge-revisions-with-ancestor:   Major Entry Points.
+* ediff-merge-split-window-function:     Miscellaneous.
+* ediff-merge-window-share:              Merging and diff3.
+* ediff-merge-with-ancestor:             Major Entry Points.
+* ediff-meta-buffer-keymap-setup-hook:   Hooks.
+* ediff-meta-buffer-map:                 Hooks.
+* ediff-mode-hook:                       Hooks.
+* ediff-mode-map:                        Hooks.
+* ediff-narrow-control-frame-leftward-shift: Window and Frame Configuration.
+* ediff-no-emacs-help-in-control-buffer: Miscellaneous.
+* ediff-odd-diff-face-A:                 Highlighting Difference Regions.
+* ediff-odd-diff-face-B:                 Highlighting Difference Regions.
+* ediff-odd-diff-face-C:                 Highlighting Difference Regions.
+* ediff-patch-buffer:                    Major Entry Points.
+* ediff-patch-default-directory:         Patch and Diff Programs.
+* ediff-patch-file:                      Major Entry Points.
+* ediff-patch-options:                   Patch and Diff Programs.
+* ediff-patch-program:                   Patch and Diff Programs.
+* ediff-prefer-iconified-control-frame:  Window and Frame Configuration.
+* ediff-prepare-buffer-hook <1>:         Customizing the Mode Line.
+* ediff-prepare-buffer-hook:             Hooks.
+* ediff-profile:                         Other Session Commands.
+* ediff-quit-hook:                       Hooks.
+* ediff-quit-merge-hook <1>:             Merging and diff3.
+* ediff-quit-merge-hook:                 Hooks.
+* ediff-quit-session-group-hook:         Hooks.
+* ediff-quit-widened:                    Narrowing.
+* ediff-regions-linewise:                Major Entry Points.
+* ediff-regions-wordwise:                Major Entry Points.
+* ediff-registry-setup-hook:             Hooks.
+* ediff-revert-buffers-then-recompute-diffs: Other Session Commands.
+* ediff-revision:                        Major Entry Points.
+* ediff-save-buffer:                     Patch and Diff Programs.
+* ediff-select-hook:                     Hooks.
+* ediff-session-group-setup-hook:        Hooks.
+* ediff-setup:                           Notes on Heavy-duty Customization.
+* ediff-setup-windows:                   Window and Frame Configuration.
+* ediff-setup-windows-multiframe:        Window and Frame Configuration.
+* ediff-setup-windows-plain:             Window and Frame Configuration.
+* ediff-show-clashes-only:               Merging and diff3.
+* ediff-show-registry:                   Other Session Commands.
+* ediff-split-window-function:           Miscellaneous.
+* ediff-start-narrowed:                  Narrowing.
+* ediff-startup-hook <1>:                Notes on Heavy-duty Customization.
+* ediff-startup-hook <2>:                Quick Help Customization.
+* ediff-startup-hook:                    Hooks.
+* ediff-suspend-hook:                    Hooks.
+* ediff-toggle-multiframe <1>:           Window and Frame Configuration.
+* ediff-toggle-multiframe:               Other Session Commands.
+* ediff-toggle-read-only-function:       Miscellaneous.
+* ediff-unselect-hook:                   Hooks.
+* ediff-use-last-dir <1>:                Miscellaneous.
+* ediff-use-last-dir:                    Major Entry Points.
+* ediff-use-long-help-message:           Quick Help Customization.
+* ediff-version-control-package:         Support for Version Control.
+* ediff-wide-control-frame-rightward-shift: Window and Frame Configuration.
+* ediff-window-setup-function:           Window and Frame Configuration.
+* ediff-windows-linewise:                Major Entry Points.
+* ediff-windows-wordwise:                Major Entry Points.
+* ediff-word-1:                          Refinement of Difference Regions.
+* ediff-word-2:                          Refinement of Difference Regions.
+* ediff-word-3:                          Refinement of Difference Regions.
+* ediff-word-4:                          Refinement of Difference Regions.
+* ediff-word-mode:                       Notes on Heavy-duty Customization.
+* ediff3:                                Major Entry Points.
+* edir-merge-revisions:                  Major Entry Points.
+* edir-merge-revisions-with-ancestor:    Major Entry Points.
+* edir-revisions:                        Major Entry Points.
+* edirs:                                 Major Entry Points.
+* edirs-merge:                           Major Entry Points.
+* edirs-merge-with-ancestor:             Major Entry Points.
+* edirs3:                                Major Entry Points.
+* epatch:                                Major Entry Points.
+* epatch-buffer:                         Major Entry Points.
+* eregistry:                             Other Session Commands.
+* Finding differences:                   Introduction.
+* generic-sc.el:                         Support for Version Control.
+* Merging files and buffers:             Introduction.
+* mode-line.el:                          Customizing the Mode Line.
+* Multi-file patches:                    Session Groups.
+* Patching files and buffers:            Introduction.
+* pcl-cvs.el:                            Support for Version Control.
+* rcs.el:                                Support for Version Control.
+* uniquify.el:                           Customizing the Mode Line.
+* vc.el:                                 Support for Version Control.
+
+

@@ -1,0 +1,32 @@
+{
+    APPCLASS = NSApplication; 
+    FILESTABLE = {
+        FRAMEWORKS = (); 
+        H_FILES = (); 
+        M_FILES = (); 
+        OTHER_LIBS = (); 
+        OTHER_LINKED = (nfsd.c); 
+        OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.dist, nfsd.8); 
+        SUBPROJECTS = (); 
+    }; 
+    LANGUAGE = English; 
+    LOCALIZABLE_FILES = {}; 
+    NEXTSTEP_COMPILEROPTIONS = "-DNFS -DMACH_USER_API"; 
+    NEXTSTEP_INSTALLDIR = /sbin; 
+    NEXTSTEP_JAVA_COMPILER = /usr/bin/javac; 
+    NEXTSTEP_MAINNIB = nfsd; 
+    NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc; 
+    PDO_UNIX_COMPILEROPTIONS = "-DNFS -DMACH_USER_API"; 
+    PDO_UNIX_INSTALLDIR = /sbin; 
+    PDO_UNIX_JAVA_COMPILER = "$(NEXTDEV_BIN)/javac"; 
+    PDO_UNIX_MAINNIB = nfsd; 
+    PDO_UNIX_OBJCPLUS_COMPILER = "$(NEXTDEV_BIN)/gcc"; 
+    PROJECTNAME = nfsd; 
+    PROJECTTYPE = Tool; 
+    PROJECTVERSION = 2.8; 
+    WINDOWS_COMPILEROPTIONS = "-DNFS -DMACH_USER_API"; 
+    WINDOWS_INSTALLDIR = /sbin; 
+    WINDOWS_JAVA_COMPILER = "$(JDKBINDIR)/javac.exe"; 
+    WINDOWS_MAINNIB = nfsd; 
+    WINDOWS_OBJCPLUS_COMPILER = "$(DEVDIR)/gcc"; 
+}

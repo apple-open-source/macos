@@ -1,0 +1,15 @@
+%if win32-pdo
+C_GPERF = $(srcdir)/c-parse.gperf-winntpdo
+C_GPERF_H = $(srcdir)/c-gperf-winntpdo.h
+GXX_GPERF = $(srcdir)/cp/gxx.gperf-winntpdo
+OBCP_GPERF = $(srcdir)/obcp/obcp.gperf-winntpdo
+LIBGCC2_CFLAGS = -O2 $(LIBGCC2_INCLUDES) $(GCC_CFLAGS) $(TARGET_LIBGCC2_CFLAGS) -g0
+
+CCCP = cccp-winnt
+
+%endif win32-pdo
+
+LIBGCC1 = 
+
+winnt.o: $(srcdir)/config/i386/winnt.c
+	$(CC) -I. -I$(srcdir) -I$(srcdir)/config -c $(srcdir)/config/i386/winnt.c

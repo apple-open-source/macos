@@ -1,0 +1,49 @@
+.TH atstatus 1
+.SH NAME
+.B atstatus 
+- displays status information from an AppleTalk device
+.SH SYNOPSYS
+.B atstatus 
+[
+.I object[:type[@zone]]
+]
+.SH ARGUMENTS
+.TP 8
+.I object
+Specifies the name of the AppleTalk device.  Wildcard
+characters are not permitted.  If you don't specify the
+AppleTalk device, 
+.B atstatus 
+uses the system default.  If
+the name contains spaces, put quotation marks around
+the name.  Here is an example:
+
+        atstatus "Sharon's Print Shop"
+.TP 8
+.I type 
+Specifies the type of server.  If you don't specify the
+type argument, the default is LaserWriter.  If you
+supply a 
+.I zone 
+argument, you must also supply a 
+.I type
+argument.
+.TP 8
+.I zone 
+Specifies the zone in which the AppleTalk device
+resides.  If you don't specify the zone, the system
+defaults to *, your local zone.
+
+.SH DESCRIPTION
+
+.B atstatus 
+gets the status string from an AppleTalk device,
+such as a LaserWriter.
+
+.SH FILES
+
+/usr/bin/atstatus
+Executable file
+
+.SH SEE ALSO
+at_cho_prn(1), atlookup(1), atprint(1)

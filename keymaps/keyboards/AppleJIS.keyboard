@@ -1,0 +1,149 @@
+##
+# Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+#
+# @APPLE_LICENSE_HEADER_START@
+# 
+# "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
+# Reserved.  This file contains Original Code and/or Modifications of
+# Original Code as defined in and that are subject to the Apple Public
+# Source License Version 1.0 (the 'License').  You may not use this file
+# except in compliance with the License.  Please obtain a copy of the
+# License at http://www.apple.com/publicsource and read it before using
+# this file.
+# 
+# The Original Code and all software distributed under the License are
+# distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+# EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+# INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+# License for the specific language governing rights and limitations
+# under the License."
+# 
+# @APPLE_LICENSE_HEADER_END@
+##
+#
+# Apple keyboard
+# - a keyboard layout description file
+# (based on the MSN & NeXT_ADB keyboards)
+#
+#
+
+name Apple JIS Keyboard
+interface 2
+handler_id 22
+
+# modifiers + space bar
+row 27.0 0.0
+key square(24.0) 0x39		# caps lock
+key rectangle(36.0,24.0) 0x3a	# option
+key rectangle(36.0,24.0) 0x37	# command
+key square(24.0) 0x66
+key rectangle(96.0,24.0) 0x31	# space bar
+key square(24.0) 0x68		#
+key square(24.0) 0x6a		# enter
+# arrow keys
+key square(24.0) 0x3b
+key square(24.0) 0x3c
+key square(24.0) 0x3d
+key square(24.0) 0x3e
+
+# row 1
+row 27.0 24.0
+key rectangle(54.0,24.0) 0x38	# left shift
+# row 1 alpha keys
+key square(24.0) 0x06
+key square(24.0) 0x07
+key square(24.0) 0x08
+key square(24.0) 0x09
+key square(24.0) 0x0b
+key square(24.0) 0x2d
+key square(24.0) 0x2e
+key square(24.0) 0x2b
+key square(24.0) 0x2f
+key square(24.0) 0x2c
+key square(24.0) 0x5e
+key rectangle(42.0,24.0) 0x7b	# right shift
+
+# row 2
+row 27.0 48.0
+key rectangle(45.0,24.0) 0x36	# control
+# row 2 alpha keys
+key square(24.0) 0x00
+key square(24.0) 0x01
+key square(24.0) 0x02
+key square(24.0) 0x03
+key square(24.0) 0x05
+key square(24.0) 0x04
+key square(24.0) 0x26
+key square(24.0) 0x28
+key square(24.0) 0x25
+key square(24.0) 0x29
+key square(24.0) 0x27
+key square(24.0) 0x2a
+key shape(U 24.0 L 9.0 U 24.0 R 36.0 D 48.0 L 27.0) 0x24        # return
+
+# row 3
+row 27.0 72.0
+key rectangle(36.0,24.0) 0x30	# tab
+# row 3 alpha keys
+key square(24.0) 0x0c
+key square(24.0) 0x0d
+key square(24.0) 0x0e
+key square(24.0) 0x0f
+key square(24.0) 0x11
+key square(24.0) 0x10
+key square(24.0) 0x20
+key square(24.0) 0x22
+key square(24.0) 0x1f
+key square(24.0) 0x23
+key square(24.0) 0x21
+key square(24.0) 0x1e
+
+# row 4 (the number keys)
+row 27.0 96.0
+key square(24.0) 0x35		# Escape
+key square(24.0) 0x12
+key square(24.0) 0x13
+key square(24.0) 0x14
+key square(24.0) 0x15
+key square(24.0) 0x17
+key square(24.0) 0x16
+key square(24.0) 0x1a
+key square(24.0) 0x1c
+key square(24.0) 0x19
+key square(24.0) 0x1d
+key square(24.0) 0x1b
+key square(24.0) 0x18
+key square(24.0) 0x5d
+key rectangle(24.0,24.0) 0x33	# backspace
+
+
+#
+# now, on to the right hand side of the keyboard
+#
+
+# numeric keypad
+row 418 0.0
+key square(24.0) 0x52
+key square(24.0) 0x5f
+key square(24.0) 0x41
+key rectangle(24.0,48.0) 0x4c
+row 418 24.0
+key square(24.0) 0x53
+key square(24.0) 0x54
+key square(24.0) 0x55
+row 418 48.0
+key square(24.0) 0x56
+key square(24.0) 0x57
+key square(24.0) 0x58
+key square(24.0) 0x45
+row 418 72.0
+key square(24.0) 0x59
+key square(24.0) 0x5b
+key square(24.0) 0x5c
+key square(24.0) 0x4e
+row 418 96.0
+key square(24.0) 0x47
+key square(24.0) 0x51
+key square(24.0) 0x4b
+key square(24.0) 0x43

@@ -1,0 +1,12 @@
+#
+# Always generate a version file.
+#
+ifndef VERSIONING_SYSTEM
+    VERSIONING_SYSTEM = next-sgs
+endif
+
+ifndef GEN_PACKAGE_FILES
+    GEN_PACKAGE_FILES = gen_package_files
+endif
+
+AFTER_BUILD += version_tables $(GEN_PACKAGE_FILES)

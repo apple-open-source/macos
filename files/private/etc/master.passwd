@@ -1,0 +1,13 @@
+##
+# User Database
+# 
+# Note that this file is consulted when the system is running in single-user
+# mode.  At other times this information is handled by lookupd.  By default,
+# lookupd gets information from NetInfo, so this file will not be consulted
+# unless you have changed lookupd's configuration.
+##
+nobody:*:-2:-2::0:0:Unprivileged User:/dev/null:/dev/null
+root:*:0:0::0:0:System Administrator:/var/root:/bin/tcsh
+daemon:*:1:1::0:0:System Services:/var/root:/dev/null
+unknown:*:99:99::0:0:Unknown User:/dev/null:/dev/null
+www:*:70:70::0:0:World Wide Web Server:/Library/WebServer:/dev/null

@@ -1,0 +1,208 @@
+.\"
+.\"
+.\"
+.\"
+.TH BOOTPD 8 "February 12, 1999" "Apple Computer, Inc."
+.SH NAME
+bootpd \- Internet BOOTP Protocol Server
+.SH "SYNOPSIS"
+.B bootpd 
+[-i <interface> [-i <interface>]...]
+[-n <netinfo_domain> [-n <netinfo_domain]...] [-d] [-v] [-b] [-q] [-e] [-m] 
+.SH "DESCRIPTION"
+\fIbootpd\fR implements an Internet Bootstrap Protocol (BOOTP) server as
+defined in RFC951, RFC1542, and RFC2132.
+.PP
+One host on each network segment is normally configured to run \fIbootpd\fR
+by setting \fICONFIGSERVER=-YES-\fR in \fI/etc/hostconfig\fR.
+.PP
+The server can also be started by \fIinetd\fR by modifying the file
+\fI/etc/inetd.conf\fR to include a line:
+.nf
+
+  bootps dgram udp wait root /usr/libexec/bootpd bootpd
+.fi
+.PP
+In this case, \fIbootpd\fR is started when a BOOTP request arrives. 
+The server continues
+servicing requests until it is idle for more than 5 minutes, after which
+it exits to conserve system resources.
+.PP
+When a request from a known client arrives, the server (by default) 
+logs an entry to \fI/var/log/system.log\fR
+indicating which client made the request, and logs another entry
+once a reply is sent.  This feature can be turned off using the
+.BI -q
+option described below.
+.SH "OPTIONS"
+.TP
+.BI \-d
+Remain in the foreground and produce extra debugging output to stderr.
+.TP
+.BI \-v
+Be more verbose in messages logged to \fI/var/log/system.log\fR.
+.TP
+.BI \-q
+Be quiet as possible.  Only report serious errors to
+\fI/var/log/system.log\fR.
+.TP
+.B \-b
+Only respond if the bootfile exists.
+.TP
+.B \-e
+Lookup ethernet hosts using the identifier property instead of
+en_address.
+.TP
+.B \-i <interface>
+Only respond to requests received on the specified interfaces. 
+For example, 
+.nf
+    bootpd -i en0 -i en1
+.fi
+forces bootpd to only respond to requests received on
+ethernet ports en0 and en1.
+.TP
+.B \-n <netinfo_domain>
+Search for host entries in the given netinfo domain.  This flag may 
+appear multiple times, the order of lookups is the order in which
+the flags appear.  The value "..." means search the entire netinfo
+hierarchy (the default).  The <netinfo_domain> value can be
+specified as a domain path or as host/tag.  For example,
+.nf
+        bootpd -n ...
+.fi
+is the same as simply invoking bootpd without any options, and
+.nf
+        bootpd -n .. -n localhost/local
+.fi
+forces \fIbootpd\fR to look in the parent domain then in the local domain.
+.TP
+.B \-m
+Act as a network boot server for diskless Macintosh computers (see the
+NetBoot Server documentation for more details on this mode of operation).
+.SH "HOST DATABASE"
+\fIbootpd\fR uses netinfo (see \fInetinfo(5)\fR) to lookup host entries.
+[The server reads host entries from \fI/etc/bootptab\fR only if invoked
+with the \fB-F\fR flag, though this mode of operation is discouraged and may
+disappear in future versions of the server.]
+.PP
+Host entries appear as individual subdirectories within the \fI/machines\fR
+directory of a netinfo domain.  The following list of 
+properties are read by the server:
+.TP
+.B name
+The name of the host.
+.TP
+.B en_address
+Ethernet address(es) of the host stored in colon hex
+ie. "%x:%x:%x:%x:%x:%x" format.
+.TP
+.B identifier
+Client identifer(s) of the host (see -e option above)
+stored as "%x/%x:%x:...:%x" where the hex byte number
+preceding the slash '/' character is the hardware type,
+and the bytes following the slash are in colon hex format.
+Ethernet addresses stored in this format would be stored
+as "1/%x:%x:%x:%x:%x:%x".
+.TP
+.B ip_address
+IP address(es) stored in dotted decimal ie. "%d.%d.%d.%d" 
+format.
+.TP
+.B bootfile
+Executable image file to be downloaded by the client via TFTP.
+.SH "BOOTP CLIENT HOST LOOKUP"
+.PP
+A BOOTP client is identified by its unique hardware (MAC) address, and
+is stored in either the \fIen_address\fR or \fIidentifier\fR property.
+By default, ethernet hosts are looked up using the \fIen_address\fR property.
+.PP
+The server searches for a host entry containing both its hardware address
+and a relevant IP address.  A relevant IP address is one which
+is useful for the subnet on which the client is attempting to boot.
+If none is found, the server does not respond.  The server
+supports having more than one IP address associated with a single 
+client: a single BOOTP client can boot on multiple subnets at different
+times (eg. a laptop that is frequently moved from one location to another).
+Multiple host entries may include the same hardware address but
+should have distinct IP addresses to avoid having more than one host
+trying to use the same IP address.  If there is more than one relevant IP
+address for a client, the server chooses the first one that it finds.
+.PP
+The server supports multi-homed hosts (host with the same name
+but multiple IP addresses) by treating the \fIen_address\FR, \FIidentifier\FR,
+and \fIip_address\fR properties as parallel arrays.  For example, consider
+a host entry with the following values:
+.nf
+{
+    "name" = "orange";
+    "en_address" = { "0:5:2:f:a:b", "0:5:2:1c:9e:d6" };
+    "ip_address" = { "17.202.42.110", "17.202.21.221" };
+}
+.fi
+.PP
+Host "orange" has two IP addresses associated with its name.  The interface
+with ethernet address "0:5:2:f:a:b" has IP address "17.202.42.110", and
+interface "0:5:2:1c:9e:d6" has IP address "17.202.21.221".
+.SH "BOOTP VENDOR EXTENSIONS"
+\fIbootpd\fR supplies a BOOTP client with its hostname, subnet mask, 
+default router(s), domain name server(s), and domain name.
+If \fIbootpd\fR has no explicitly configured values for the client's subnet,
+it attempts to supply values from the server's own configuration.
+Explicit configuration is required in several cases: to service requests that
+arrive via a BOOTP relay agent, when the server is multi-homed ie. has multiple
+network interfaces, and when any of the subnets share the same physical wire
+(see \fIsupernet\fR property below).
+.PP
+Explicit configuration values are specified in subnet entries stored
+under netinfo.  The entries appear as subdirectories of
+\fI/config/dhcp/subnets\fR.  The server searches the netinfo
+domain hierarchy looking for this directory hierarchy, and stops
+when it finds the first occurrence.
+.PP
+A subnet entry contains the following properties:
+.TP
+.B name
+The name of the subnet, by convention this is the network address
+eg. 17.202.40/22 for a subnet with 22 bits of network address.  The
+name is not significant to the server.
+.TP
+.B net_address
+IP address for this subnet.
+.TP
+.B net_mask
+IP subnet mask.
+.TP
+.B client_types
+Must be set to "bootp" for BOOTP clients.
+.TP
+.B net_range
+The range of client IP addresses for which this entry applies.
+Specified using two IP addresses, the start and end of the range.
+.TP
+.B dhcp_router
+IP address(es) of IP router(s). (optional)
+.TP
+.B dhcp_domain_name_server
+The list of IP addresses for DNS servers. (optional)
+.TP
+.B dhcp_domain_name
+Default domain name. (optional)
+.TP
+.B supernet
+Subnets that share the same physical wire have the same \fIsupernet\fB value.
+The value is a string value. (optional)
+.PP
+Subnet entries may not overlap, or specify values that are inconsistent.
+Errors in configuration are logged to \fI/var/log/system.log\fR.  There
+may be multiple subnet entries for a given subnet, allowing different
+configuration values to be specified for a given range of IP addresses
+within the subnet.
+.PP
+A BOOTP client must set the magic number field (first 4 bytes of the
+vendor extensions field) to 99.130.83.99 (dotted decimal) to have
+the server fill in the vendor extensions.
+.SH "SEE ALSO"
+.LP
+bootpc(8), inetd(8), tftpd(8)
+

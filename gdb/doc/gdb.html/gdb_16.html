@@ -1,0 +1,358 @@
+<HTML>
+<HEAD>
+<!-- This HTML file has been created by texi2html 1.51
+     from /mnt/apple/gdb/source/gdb.apple/source/gdb/gdb/doc/gdb.texinfo on 23 November 1999 -->
+
+<TITLE>Debugging with GDB - Canned Sequences of Commands</TITLE>
+</HEAD>
+<BODY>
+Go to the <A HREF="gdb_1.html">first</A>, <A HREF="gdb_15.html">previous</A>, <A HREF="gdb_17.html">next</A>, <A HREF="gdb_21.html">last</A> section, <A HREF="gdb_toc.html">table of contents</A>.
+<P><HR><P>
+
+
+<H1><A NAME="SEC156" HREF="gdb_toc.html#TOC156">Canned Sequences of Commands</A></H1>
+
+<P>
+Aside from breakpoint commands (see section <A HREF="gdb_6.html#SEC35">Breakpoint command lists</A>), GDB provides two ways to store sequences of commands
+for execution as a unit: user-defined commands and command files.
+
+</P>
+
+
+
+<H2><A NAME="SEC157" HREF="gdb_toc.html#TOC157">User-defined commands</A></H2>
+
+<P>
+<A NAME="IDX705"></A>
+A <STRONG>user-defined command</STRONG> is a sequence of GDB commands to which 
+you assign a new name as a command.  This is done with the <CODE>define</CODE>
+command.  User commands may accept up to 10 arguments separated by whitespace.
+Arguments are accessed within the user command via <VAR>$arg0...$arg9</VAR>.
+A trivial example:
+
+</P>
+
+<PRE>
+define adder
+  print $arg0 + $arg1 + $arg2
+</PRE>
+
+<P>
+To execute the command use:
+
+</P>
+
+<PRE>
+adder 1 2 3
+</PRE>
+
+<P>
+This defines the command <CODE>adder</CODE>, which prints the sum of
+its three arguments.  Note the arguments are text substitutions, so they may 
+reference variables, use complex expressions, or even perform inferior
+functions calls.
+
+</P>
+<DL COMPACT>
+
+<DT><CODE>define <VAR>commandname</VAR></CODE>
+<DD>
+<A NAME="IDX706"></A>
+ 
+Define a command named <VAR>commandname</VAR>.  If there is already a command
+by that name, you are asked to confirm that you want to redefine it.
+
+The definition of the command is made up of other GDB command lines,
+which are given following the <CODE>define</CODE> command.  The end of these
+commands is marked by a line containing <CODE>end</CODE>.
+
+<A NAME="IDX707"></A>
+<A NAME="IDX708"></A>
+<DT><CODE>if</CODE>
+<DD>
+Takes a single argument, which is an expression to evaluate.
+It is followed by a series of commands that are executed
+only if the expression is true (nonzero).
+There can then optionally be a line <CODE>else</CODE>, followed
+by a series of commands that are only executed if the expression
+was false.  The end of the list is marked by a line containing <CODE>end</CODE>.
+
+<A NAME="IDX709"></A>
+<DT><CODE>while</CODE>
+<DD>
+The syntax is similar to <CODE>if</CODE>: the command takes a single argument,
+which is an expression to evaluate, and must be followed by the commands to
+execute, one per line, terminated by an <CODE>end</CODE>.
+The commands are executed repeatedly as long as the expression
+evaluates to true.
+
+<A NAME="IDX710"></A>
+<DT><CODE>document <VAR>commandname</VAR></CODE>
+<DD>
+Document the user-defined command <VAR>commandname</VAR>, so that it can be
+accessed by <CODE>help</CODE>.  The command <VAR>commandname</VAR> must already be 
+defined.  This command reads lines of documentation just as <CODE>define</CODE> 
+reads the lines of the command definition, ending with <CODE>end</CODE>.  
+After the <CODE>document</CODE> command is finished, <CODE>help</CODE> on command 
+<VAR>commandname</VAR> displays the documentation you have written.
+
+You may use the <CODE>document</CODE> command again to change the
+documentation of a command.  Redefining the command with <CODE>define</CODE>
+does not change the documentation.
+
+<A NAME="IDX711"></A>
+<DT><CODE>help user-defined</CODE>
+<DD>
+List all user-defined commands, with the first line of the documentation
+(if any) for each.
+
+<A NAME="IDX712"></A>
+<DT><CODE>show user</CODE>
+<DD>
+<DT><CODE>show user <VAR>commandname</VAR></CODE>
+<DD>
+Display the GDB commands used to define <VAR>commandname</VAR> (but not its
+documentation).  If no <VAR>commandname</VAR> is given, display the
+definitions for all user-defined commands.
+</DL>
+
+<P>
+When user-defined commands are executed, the
+commands of the definition are not printed.  An error in any command
+stops execution of the user-defined command.
+
+</P>
+<P>
+If used interactively, commands that would ask for confirmation proceed
+without asking when used inside a user-defined command.  Many GDB 
+commands that normally print messages to say what they are doing omit the 
+messages when used in a user-defined command.
+
+</P>
+
+
+<H2><A NAME="SEC158" HREF="gdb_toc.html#TOC158">User-defined command hooks</A></H2>
+<P>
+<A NAME="IDX713"></A>
+
+</P>
+<P>
+You may define <EM>hooks</EM>, which are a special kind of user-defined
+command.  Whenever you run the command <SAMP>`foo'</SAMP>, if the user-defined
+command <SAMP>`hook-foo'</SAMP> exists, it is executed (with no arguments)
+before that command.
+
+</P>
+<P>
+In addition, a pseudo-command, <SAMP>`stop'</SAMP> exists.  Defining
+(<SAMP>`hook-stop'</SAMP>) makes the associated commands execute every time
+execution stops in your program: before breakpoint commands are run,
+displays are printed, or the stack frame is printed.
+
+</P>
+<P>
+For example, to ignore <CODE>SIGALRM</CODE> signals while
+single-stepping, but treat them normally during normal execution,
+you could define:
+
+</P>
+
+<PRE>
+define hook-stop
+handle SIGALRM nopass
+end
+
+define hook-run
+handle SIGALRM pass
+end
+
+define hook-continue
+handle SIGLARM pass
+end
+</PRE>
+
+<P>
+You can define a hook for any single-word command in GDB, but
+not for command aliases; you should define a hook for the basic command
+name, e.g.  <CODE>backtrace</CODE> rather than <CODE>bt</CODE>.
+If an error occurs during the execution of your hook, execution of
+GDB commands stops and GDB issues a prompt
+(before the command that you actually typed had a chance to run).
+
+</P>
+<P>
+If you try to define a hook which does not match any known command, you
+get a warning from the <CODE>define</CODE> command.
+
+</P>
+
+
+<H2><A NAME="SEC159" HREF="gdb_toc.html#TOC159">Command files</A></H2>
+
+<P>
+<A NAME="IDX714"></A>
+A command file for GDB is a file of lines that are GDB 
+commands.  Comments (lines starting with <KBD>#</KBD>) may also be included.  
+An empty line in a command file does nothing; it does not mean to repeat 
+the last command, as it would from the terminal.
+
+</P>
+<P>
+<A NAME="IDX715"></A>
+<A NAME="IDX716"></A>
+When you start GDB, it automatically executes commands from its
+<STRONG>init files</STRONG>.  These are files named <TT>`.gdbinit'</TT> on Unix, or
+<TT>`gdb.ini'</TT> on DOS/Windows.  GDB reads the init file (if
+any) in your home directory, then processes command line options and
+operands, and then reads the init file (if any) in the current working
+directory.  This is so the init file in your home directory can set
+options (such as <CODE>set complaints</CODE>) which affect the processing of
+the command line options and operands.  The init files are not executed
+if you use the <SAMP>`-nx'</SAMP> option; see section <A HREF="gdb_3.html#SEC8">Choosing modes</A>.
+
+</P>
+<P>
+<A NAME="IDX717"></A>
+On some configurations of GDB, the init file is known by a
+different name (these are typically environments where a specialized
+form of GDB may need to coexist with other forms, hence a
+different name for the specialized version's init file).  These are the
+environments with special init file names:
+
+</P>
+<P>
+<A NAME="IDX718"></A>
+
+<UL>
+<LI>
+
+VxWorks (Wind River Systems real-time OS): <SAMP>`.vxgdbinit'</SAMP>
+
+<A NAME="IDX719"></A>
+<LI>
+
+OS68K (Enea Data Systems real-time OS): <SAMP>`.os68gdbinit'</SAMP>
+
+<A NAME="IDX720"></A>
+<LI>
+
+ES-1800 (Ericsson Telecom AB M68000 emulator): <SAMP>`.esgdbinit'</SAMP>
+</UL>
+
+<P>
+You can also request the execution of a command file with the
+<CODE>source</CODE> command:
+
+</P>
+<DL COMPACT>
+
+<DT><CODE>source <VAR>filename</VAR></CODE>
+<DD>
+<A NAME="IDX721"></A>
+ 
+Execute the command file <VAR>filename</VAR>.
+</DL>
+
+<P>
+The lines in a command file are executed sequentially.  They are not
+printed as they are executed.  An error in any command terminates execution
+of the command file.
+
+</P>
+<P>
+Commands that would ask for confirmation if used interactively proceed
+without asking when used in a command file.  Many GDB commands that
+normally print messages to say what they are doing omit the messages
+when called from command files.
+
+</P>
+
+
+<H2><A NAME="SEC160" HREF="gdb_toc.html#TOC160">Commands for controlled output</A></H2>
+
+<P>
+During the execution of a command file or a user-defined command, normal
+GDB output is suppressed; the only output that appears is what is
+explicitly printed by the commands in the definition.  This section
+describes three commands useful for generating exactly the output you
+want.
+
+</P>
+<DL COMPACT>
+
+<DT><CODE>echo <VAR>text</VAR></CODE>
+<DD>
+<A NAME="IDX722"></A>
+ 
+Print <VAR>text</VAR>.  Nonprinting characters can be included in
+<VAR>text</VAR> using C escape sequences, such as <SAMP>`\n'</SAMP> to print a
+newline.  <STRONG>No newline is printed unless you specify one.</STRONG>
+In addition to the standard C escape sequences, a backslash followed
+by a space stands for a space.  This is useful for displaying a
+string with spaces at the beginning or the end, since leading and
+trailing spaces are otherwise trimmed from all arguments.  
+To print <SAMP>` and foo = '</SAMP>, use the command
+<SAMP>`echo \ and foo = \ '</SAMP>.
+
+A backslash at the end of <VAR>text</VAR> can be used, as in C, to continue
+the command onto subsequent lines.  For example,
+
+
+<PRE>
+echo This is some text\n\
+which is continued\n\
+onto several lines.\n
+</PRE>
+
+produces the same output as
+
+
+<PRE>
+echo This is some text\n
+echo which is continued\n
+echo onto several lines.\n
+</PRE>
+
+<A NAME="IDX723"></A>
+<DT><CODE>output <VAR>expression</VAR></CODE>
+<DD>
+Print the value of <VAR>expression</VAR> and nothing but that value: no
+newlines, no <SAMP>`$<VAR>nn</VAR> = '</SAMP>.  The value is not entered in the
+value history either.  See section <A HREF="gdb_9.html#SEC52">Expressions</A>, for more information 
+on expressions.
+
+<DT><CODE>output/<VAR>fmt</VAR> <VAR>expression</VAR></CODE>
+<DD>
+Print the value of <VAR>expression</VAR> in format <VAR>fmt</VAR>.  You can use
+the same formats as for <CODE>print</CODE>.  See section <A HREF="gdb_9.html#SEC55">Output formats</A>, for more information.
+
+<A NAME="IDX724"></A>
+<DT><CODE>printf <VAR>string</VAR>, <VAR>expressions</VAR>...</CODE>
+<DD>
+Print the values of the <VAR>expressions</VAR> under the control of
+<VAR>string</VAR>.  The <VAR>expressions</VAR> are separated by commas and may be
+either numbers or pointers.  Their values are printed as specified by
+<VAR>string</VAR>, exactly as if your program were to execute the C
+subroutine
+
+
+<PRE>
+printf (<VAR>string</VAR>, <VAR>expressions</VAR>...);
+</PRE>
+
+For example, you can print two values in hex like this:
+
+
+<PRE>
+printf "foo, bar-foo = 0x%x, 0x%x\n", foo, bar-foo
+</PRE>
+
+The only backslash-escape sequences that you can use in the format
+string are the simple ones that consist of backslash followed by a
+letter.
+</DL>
+
+<P><HR><P>
+Go to the <A HREF="gdb_1.html">first</A>, <A HREF="gdb_15.html">previous</A>, <A HREF="gdb_17.html">next</A>, <A HREF="gdb_21.html">last</A> section, <A HREF="gdb_toc.html">table of contents</A>.
+</BODY>
+</HTML>

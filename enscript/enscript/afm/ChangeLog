@@ -1,0 +1,4 @@
+1998-06-11  Markku Rossi  <mtr@ngs.fi>
+
+	* Back to the basics.  We distribute only the AFM files for the
+	standard 35 PostScript fonts.

@@ -1,0 +1,3 @@
+Install_Source = $(NSSOURCEDIR)/Commands/$(NAME)
+
+include $(MAKEFILEPATH)/CoreOS/ProjectBuilder/Makefile.Preamble.Common

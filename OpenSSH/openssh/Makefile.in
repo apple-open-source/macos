@@ -1,0 +1,209 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+bindir=@bindir@
+sbindir=@sbindir@
+libexecdir=@libexecdir@
+mandir=@mandir@
+mansubdir=@mansubdir@
+sysconfdir=@sysconfdir@
+piddir=@piddir@
+srcdir=@srcdir@
+top_srcdir=@top_srcdir@
+
+DESTDIR=
+
+VPATH=@srcdir@
+
+SSH_PROGRAM=@bindir@/ssh
+ASKPASS_PROGRAM=$(libexecdir)/ssh-askpass
+
+CC=@CC@
+LD=@LD@
+PATHS=-DETCDIR=\"$(sysconfdir)\" -DSSH_PROGRAM=\"$(SSH_PROGRAM)\" -DSSH_ASKPASS_DEFAULT=\"$(ASKPASS_PROGRAM)\"
+CFLAGS=@CFLAGS@
+CPPFLAGS=@CPPFLAGS@ $(PATHS) @DEFS@ -I. -I$(srcdir)
+LIBS=@LIBS@
+AR=@AR@
+RANLIB=@RANLIB@
+INSTALL=@INSTALL@
+PERL=@PERL@
+ENT=@ENT@
+LDFLAGS=-L. @LDFLAGS@
+EXEEXT=@EXEEXT@
+SSH_MODE= @SSHMODE@
+
+INSTALL_SSH_PRNG_CMDS=@INSTALL_SSH_PRNG_CMDS@
+
+TARGETS=ssh$(EXEEXT) sshd$(EXEEXT) ssh-add$(EXEEXT) ssh-keygen$(EXEEXT) ssh-agent$(EXEEXT) scp$(EXEEXT) sftp-server$(EXEEXT) $(EXTRA_TARGETS)
+
+LIBSSH_OBJS=atomicio.o authfd.o authfile.o bufaux.o buffer.o canohost.o channels.o cipher.o cli.o compat.o compress.o crc32.o cygwin_util.o deattack.o dispatch.o dsa.o hmac.o hostfile.o key.o kex.o log.o match.o mpaux.o nchan.o packet.o radix.o rijndael.o entropy.o readpass.o rsa.o tildexpand.o ttymodes.o uidswap.o util.o uuencode.o xmalloc.o 
+
+LIBOPENBSD_COMPAT_OBJS=bsd-arc4random.o bsd-base64.o bsd-bindresvport.o bsd-daemon.o bsd-getcwd.o bsd-inet_aton.o bsd-inet_ntoa.o bsd-misc.o bsd-mktemp.o bsd-realpath.o bsd-rresvport.o bsd-setenv.o bsd-sigaction.o bsd-snprintf.o bsd-strlcat.o bsd-strlcpy.o bsd-strsep.o bsd-strtok.o bsd-vis.o bsd-setproctitle.o bsd-waitpid.o fake-getaddrinfo.o fake-getnameinfo.o next-posix.o
+
+SSHOBJS= ssh.o sshconnect.o sshconnect1.o sshconnect2.o log-client.o readconf.o clientloop.o
+
+SSHDOBJS= sshd.o auth.o auth1.o auth2.o auth-skey.o auth2-skey.o auth-rhosts.o auth-options.o auth-krb4.o auth-pam.o auth-passwd.o auth-rsa.o auth-rh-rsa.o dh.o pty.o log-server.o login.o loginrec.o servconf.o serverloop.o md5crypt.o session.o
+
+TROFFMAN	= scp.1 ssh-add.1 ssh-agent.1 ssh-keygen.1 ssh.1 sshd.8 sftp-server.8
+CATMAN		= scp.0 ssh-add.0 ssh-agent.0 ssh-keygen.0 ssh.0 sshd.0 sftp-server.0
+MANPAGES	= @MANTYPE@
+
+CONFIGFILES=sshd_config ssh_config
+
+PATHSUBS	= -D/etc/ssh_config=$(sysconfdir)/ssh_config -D/etc/ssh_known_hosts=$(sysconfdir)/ssh_known_hosts -D/etc/sshd_config=$(sysconfdir)/sshd_config -D/usr/libexec=$(libexecdir) -D/etc/shosts.equiv=$(sysconfdir)/shosts.equiv -D/etc/ssh_host_key=$(sysconfdir)/ssh_host_key -D/var/run/sshd.pid=$(piddir)/sshd.pid
+
+FIXPATHSCMD	= $(PERL) $(srcdir)/fixpaths $(PATHSUBS)
+
+all: $(TARGETS) $(CONFIGFILES)
+
+manpages: $(MANPAGES)
+
+$(LIBSSH_OBJS): config.h
+
+$(LIBOPENBSD_COMPAT_OBJS): config.h
+
+libopenbsd-compat.a: $(LIBOPENBSD_COMPAT_OBJS)
+	$(AR) rv $@ $(LIBOPENBSD_COMPAT_OBJS)
+	$(RANLIB) $@
+
+libssh.a: $(LIBSSH_OBJS)
+	$(AR) rv $@ $(LIBSSH_OBJS)
+	$(RANLIB) $@
+
+ssh$(EXEEXT): libopenbsd-compat.a libssh.a $(SSHOBJS)
+	$(LD) -o $@ $(SSHOBJS) $(LDFLAGS) -lssh -lopenbsd-compat $(LIBS)
+
+sshd$(EXEEXT): libssh.a	libopenbsd-compat.a $(SSHDOBJS)
+	$(LD) -o $@ $(SSHDOBJS) $(LDFLAGS) -lssh -lopenbsd-compat $(LIBS)
+
+scp$(EXEEXT): libopenbsd-compat.a libssh.a scp.o
+	$(LD) -o $@ scp.o $(LDFLAGS) -lssh -lopenbsd-compat $(LIBS) 
+
+ssh-add$(EXEEXT): libopenbsd-compat.a libssh.a ssh-add.o log-client.o
+	$(LD) -o $@ ssh-add.o log-client.o $(LDFLAGS) -lssh -lopenbsd-compat $(LIBS) 
+
+ssh-agent$(EXEEXT): libopenbsd-compat.a libssh.a ssh-agent.o log-client.o
+	$(LD) -o $@ ssh-agent.o log-client.o $(LDFLAGS) -lssh -lopenbsd-compat $(LIBS) 
+
+ssh-keygen$(EXEEXT): libopenbsd-compat.a libssh.a ssh-keygen.o log-client.o
+	$(LD) -o $@ ssh-keygen.o log-client.o $(LDFLAGS) -lssh -lopenbsd-compat $(LIBS) 
+
+sftp-server$(EXEEXT): libopenbsd-compat.a libssh.a sftp-server.o log-server.o
+	$(LD) -o $@ sftp-server.o log-server.o $(LDFLAGS) -lssh -lopenbsd-compat $(LIBS) 
+
+# test driver for the loginrec code - not built by default
+logintest: logintest.o libopenbsd-compat.a libssh.a log-client.o loginrec.o
+	$(LD) -o $@ logintest.o $(LDFLAGS) loginrec.o -lopenbsd-compat -lssh log-client.o $(LIBS)
+
+$(MANPAGES) $(CONFIGFILES)::
+	$(FIXPATHSCMD) $(srcdir)/$@
+
+clean:
+	rm -f *.o *.a $(TARGETS) logintest config.cache config.log 
+	rm -f *.out core
+
+distclean: clean
+	rm -f Makefile config.h config.status ssh_prng_cmds *~
+
+mrproper: distclean
+
+veryclean: distclean
+	rm -f configure config.h.in *.0
+
+catman-do:
+	@for f in $(TROFFMAN) ; do \
+		echo "$$f -> $${f%%.[18]}.0" ; \
+		nroff -mandoc $$f | cat -v | sed -e 's/.\^H//g' \
+			>$${f%%.[18]}.0 ; \
+	done
+
+distprep: catman-do
+	autoreconf
+
+install: manpages $(TARGETS) install-files #host-key
+
+install-files:
+	$(srcdir)/mkinstalldirs $(DESTDIR)$(bindir)
+	$(srcdir)/mkinstalldirs $(DESTDIR)$(sbindir)
+	$(srcdir)/mkinstalldirs $(DESTDIR)$(mandir)
+	$(srcdir)/mkinstalldirs $(DESTDIR)$(mandir)/$(mansubdir)1
+	$(srcdir)/mkinstalldirs $(DESTDIR)$(mandir)/$(mansubdir)8
+	$(srcdir)/mkinstalldirs $(DESTDIR)$(libexecdir)
+	$(INSTALL) -m $(SSH_MODE) -s ssh $(DESTDIR)$(bindir)/ssh
+	$(INSTALL) -m 0755 -s scp $(DESTDIR)$(bindir)/scp
+	$(INSTALL) -m 0755 -s ssh-add $(DESTDIR)$(bindir)/ssh-add
+	$(INSTALL) -m 0755 -s ssh-agent $(DESTDIR)$(bindir)/ssh-agent
+	$(INSTALL) -m 0755 -s ssh-keygen $(DESTDIR)$(bindir)/ssh-keygen
+	$(INSTALL) -m 0755 -s sshd $(DESTDIR)$(sbindir)/sshd
+	$(INSTALL) -m 0755 -s sftp-server $(DESTDIR)$(libexecdir)/sftp-server
+	$(INSTALL) -m 644 ssh.[01].out $(DESTDIR)$(mandir)/$(mansubdir)1/ssh.1
+	$(INSTALL) -m 644 scp.[01].out $(DESTDIR)$(mandir)/$(mansubdir)1/scp.1
+	$(INSTALL) -m 644 ssh-add.[01].out $(DESTDIR)$(mandir)/$(mansubdir)1/ssh-add.1
+	$(INSTALL) -m 644 ssh-agent.[01].out $(DESTDIR)$(mandir)/$(mansubdir)1/ssh-agent.1
+	$(INSTALL) -m 644 ssh-keygen.[01].out $(DESTDIR)$(mandir)/$(mansubdir)1/ssh-keygen.1
+	$(INSTALL) -m 644 sshd.[08].out $(DESTDIR)$(mandir)/$(mansubdir)8/sshd.8
+	$(INSTALL) -m 644 sftp-server.[08].out $(DESTDIR)$(mandir)/$(mansubdir)8/sftp-server.8
+	-rm -f $(DESTDIR)$(bindir)/slogin
+	ln -s ssh$(EXEEXT) $(DESTDIR)$(bindir)/slogin
+	-rm -f $(DESTDIR)$(mandir)/$(mansubdir)1/slogin.1
+	ln -s ssh.1 $(DESTDIR)$(mandir)/$(mansubdir)1/slogin.1
+	@FILEPRIV@ -f dev,filesys,driver $(DESTDIR)$(bindir)/ssh $(DESTDIR)$(bindir)/slogin
+	if [ ! -f $(DESTDIR)$(sysconfdir)/ssh_config -a ! -f $(DESTDIR)$(sysconfdir)/sshd_config ]; then \
+		$(srcdir)/mkinstalldirs $(DESTDIR)$(sysconfdir); \
+		$(INSTALL) -m 644 ssh_config.out $(DESTDIR)$(sysconfdir)/ssh_config; \
+		$(INSTALL) -m 644 sshd_config.out $(DESTDIR)$(sysconfdir)/sshd_config; \
+	fi
+	if [ -f ssh_prng_cmds -a ! -z "$(INSTALL_SSH_PRNG_CMDS)" ]; then \
+		$(PERL) $(srcdir)/fixprogs ssh_prng_cmds $(ENT); \
+		if [ ! -f $(DESTDIR)$(sysconfdir)/ssh_prng_cmds ] ; then \
+			$(INSTALL) -m 644 ssh_prng_cmds.out $(DESTDIR)$(sysconfdir)/ssh_prng_cmds; \
+		fi ; \
+	fi
+
+host-key: ssh-keygen$(EXEEXT)
+	if [ -z "$(DESTDIR)" ] ; then \
+		if [ -f "$(DESTDIR)$(sysconfdir)/ssh_host_key" ] ; then \
+			echo "$(DESTDIR)$(sysconfdir)/ssh_host_key already exists, skipping." ; \
+		else \
+			$(srcdir)/ssh-keygen -b 1024 -f $(DESTDIR)$(sysconfdir)/ssh_host_key -N "" ; \
+		fi ; \
+		if [ -f $(DESTDIR)$(sysconfdir)/ssh_host_dsa_key ] ; then \
+			echo "$(DESTDIR)$(sysconfdir)/ssh_host_dsa_key already exists, skipping." ; \
+		else \
+			$(srcdir)/ssh-keygen -d -f $(DESTDIR)$(sysconfdir)/ssh_host_dsa_key -N "" ; \
+		fi ; \
+	fi ;
+
+host-key-force: ssh-keygen$(EXEEXT)
+	$(srcdir)/ssh-keygen -b 1024 -f $(DESTDIR)$(sysconfdir)/ssh_host_key -N ""
+	$(srcdir)/ssh-keygen -d -f $(DESTDIR)$(sysconfdir)/ssh_host_dsa_key -N ""
+
+uninstallall:	uninstall
+	-rm -f $(DESTDIR)$(sysconfdir)/ssh_config
+	-rm -f $(DESTDIR)$(sysconfdir)/sshd_config
+	-rm -f $(DESTDIR)$(sysconfdir)/ssh_prng_cmds
+	-rmdir $(DESTDIR)$(sysconfdir)
+	-rmdir $(DESTDIR)$(bindir)
+	-rmdir $(DESTDIR)$(sbindir)
+	-rmdir $(DESTDIR)$(mandir)/$(mansubdir)1
+	-rmdir $(DESTDIR)$(mandir)/$(mansubdir)8
+	-rmdir $(DESTDIR)$(mandir)
+	-rmdir $(DESTDIR)$(libexecdir)
+
+uninstall: 
+	-rm -f $(DESTDIR)$(bindir)/ssh$(EXEEXT)
+	-rm -f $(DESTDIR)$(bindir)/scp$(EXEEXT)
+	-rm -f $(DESTDIR)$(bindir)/ssh-add$(EXEEXT)
+	-rm -f $(DESTDIR)$(bindir)/ssh-agent$(EXEEXT)
+	-rm -f $(DESTDIR)$(bindir)/ssh-keygen$(EXEEXT)
+	-rm -f $(DESTDIR)$(sbindir)/sshd$(EXEEXT)
+	-rm -f $(DESTDIR)$(mandir)/$(mansubdir)1/ssh.1
+	-rm -f $(DESTDIR)$(mandir)/$(mansubdir)1/scp.1
+	-rm -f $(DESTDIR)$(mandir)/$(mansubdir)1/ssh-add.1
+	-rm -f $(DESTDIR)$(mandir)/$(mansubdir)1/ssh-agent.1
+	-rm -f $(DESTDIR)$(mandir)/$(mansubdir)1/ssh-keygen.1
+	-rm -f $(DESTDIR)$(mandir)/$(mansubdir)8/sshd.8
+	-rm -f $(DESTDIR)$(bindir)/slogin
+	-rm -f $(DESTDIR)$(mandir)/$(mansubdir)1/slogin.1
+	-rm -f $(DESTDIR)${ASKPASS_PROGRAM}
+	-rmdir $(DESTDIR)$(libexecdir)/ssh ;

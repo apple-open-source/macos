@@ -1,0 +1,206 @@
+<html>
+
+	<head>
+		<meta name="generator" content="GoLive CyberStudio 3">
+		<title>HeaderDoc</title>
+	</head>
+
+	<body bgcolor="white">
+		<h1>HeaderDoc:<br>
+		API Documentation from Header Files 
+		<hr>
+		</h1>
+		<address>Author: Matt Morse (matt@apple.com)</address>
+		<address>Last modified: 12/15/99</address>
+		<address>Status: second draft., for release in Darwin</address>
+		<address>&nbsp;</address>
+		<h2>Table of Contents</h2>
+		<ul>
+			<li><a href="#Anchor-Purpose-58644">Purpose</a> 
+			<li><a href="#Anchor-Description-39842">Running the Script</a> 
+			<li><a href="#Anchor-Tags-40878">HeaderDoc Comments and Tags</a> 
+			<li><a href="#Anchor-Tags-49575">Tags for all Headers</a> 
+			<li><a href="#Anchor-Tags-35882">Tags by Language Type</a> 
+		</ul>
+		<h2><a name="Anchor-Purpose-58644"></a>Purpose</h2>
+		<p>HeaderDoc is a system for embedding structured commentary in C and C++ header files and producing rich HTML output from that commentary. HeaderDoc comments are similar in appearance to JavaDoc comments in a Java source file, but there are differences related to handling specifics of C and C++ and to providing a slightly more formal tag set to simplify parsing.</p>
+		<p>A simple HeaderDoc comment for a function might look like this:</p>
+		<pre>
+/*!
+  @function HMBalloonRect
+  @discussion Use HMBalloonRect to get information about the size of a help balloon before the Help Manager displays it.
+  @param inMessage The help message for the help balloon. 
+  @param outRect The coordinates of the rectangle that encloses the help message. The upper-left 
+                 corner of the rectangle has the coordinates (0,0).
+*/
+OSErr HMBalloonRect (const HMMessageRecord *inMessage, Rect *outRect);</pre>
+		<p>
+When converted to HTML (by <b>headerDoc2HTML</b>, described below), the tagged comment above produces this output:</p>
+		<p><table border="0" cellpadding="0" cellspacing="2" width="92%" bgcolor="#99cccc">
+			<tr>
+				<td>
+					<h3>HMBalloonRect</h3>
+					<blockquote>
+						<p><tt>OSErr <b>HMBalloonRect</b> (const HMMessageRecord *inMessage, Rect *outRect);</tt><br>
+						</p>
+					</blockquote>
+					<p>Use HMBalloonRect to get information about the size of a help balloon before the Help Manager displays it.</p>
+					<h4>Parameters</h4>
+					<blockquote>
+						<p><table border="1" width="90%">
+							<tr>
+								<th>Name</th>
+								<th>Description</th>
+							</tr>
+							<tr>
+								<td align="center"><tt>inMessage</tt></td>
+								<td>The help message for the help balloon.</td>
+							</tr>
+							<tr>
+								<td><tt>outRect</tt></td>
+								<td>The coordinates of the rectangle that encloses the help message. The upper-left corner of the rectangle has the coordinates (0,0).</td>
+							</tr>
+						</table></blockquote>
+				</td>
+			</tr>
+		</table></p>
+		<h2><a name="Anchor-Description-39842"></a>Running the Script</h2>
+		<p><font color="black">Once you have a header containing HeaderDoc comments, you can run the headerDoc2HTML script to generate HTML output like this:</font></p>
+		<pre>
+        &gt; headerDoc2HTML.pl  MyHeader.h
+		</pre>
+		<p>
+<font color="black">This will process &quot;MyHeader.h&quot; and create an output directory called &quot;MyHeader&quot; in the same directory as the input file. To view the results in your web browser, open the file<b> index.html</b> that you find inside the output directory. Instead of specifying a single input file (as above), you can specify an input directory or a series of input files, if you wish.</font></p>
+		<p><font color="black">If you want to specify another directory for the output, use the &quot;-o&quot; switch:</font></p>
+		<pre>
+        &gt; headerDoc2HTML.pl -o /tmp MyHeader.h&nbsp;</pre>
+		<p>
+<font color="black">You can use the &quot;-v&quot; switch to make HeaderDoc report the versions of all its constituent modules. This can be useful for bug reporting purposes.</font></p>
+		<pre>
+        &gt; headerDoc2HTML.pl -v&nbsp;</pre>
+		<h2>
+<a name="Anchor-Tags-40878"></a>HeaderDoc Comments and Tags</h2>
+		<p>HeaderDoc comments are of the form:</p>
+		<pre>
+  /*!
+    @function FunctionName
+    @discussion This is a comment about FunctionName.
+  */</pre>
+		<p>
+In their simplest form (as above) they differ from standard C comments in only two ways:</p>
+		<ol>
+			<li>The addition of the &quot;!&quot; character next to the opening asterisk 
+			<li>The addition of a tag that announces the type of API being commented (&quot;@function&quot;, above). 
+		</ol>
+		<p>However, you can use additional JavaDoc-like tags within the HeaderDoc comment to identify specific fields of information. These tags will make the comments more amenable to conversion to HTML. For example, a more complete comment might look like this:</p>
+		<pre>
+  /*! 
+    @function HMBalloonRect
+    @abstract Reports size and location of help ballon.
+    @discussion Use HMBalloonRect to get information about the size of a help balloon 
+        before the Help Manager displays it.
+    @param inMessage The help message for the help balloon.
+    @param outRect The coordinates of the rectangle that encloses the help message. 
+        The upper-left corner of the rectangle has the coordinates (0,0).
+  */</pre>
+		<p>
+Tags are indicated by the &quot;@&quot; character, which must appear as the first non-whitespace character on a line.</p>
+		<p>The first tag in a comment announces the API type of the declaration (function, struct, enum, and so on). The next two lines (tagged @abstract and @discussion) provide documentation about the API element as a whole. The abstract can be used in summary lists, and the discussion can be used in the detailed documentation about the API element.</p>
+		<p>The abstract and discussion tags are optional, but encouraged. Their use enables various improvements in the HTML output, such as summary pages. However, if there is untagged text following the API type tag and name (@function HMBalloonRect, above) it is assumed to be a discussion. With such untagged text, HeaderDoc assumes the discussion extends from the end of the API-type comment to the next HeaderDoc tag or to the end of the HeaderDoc comment, whichever occurs first.</p>
+		<p>HeaderDoc understands some variants in commenting style. In particular, you can have a one-line comment like this:</p>
+		<pre>
+ /*! @var settle_time		Latency before next read. */
+ </pre>
+		<p>
+...and you can use leading asterisks on each line of a multiline comment:</p>
+		<pre>
+  /*! 
+   * @function HMBalloonRect
+   * @abstract Reports size and location of help ballon.
+   * @discussion Use HMBalloonRect to get information about the size of a help balloon 
+   *      before the Help Manager displays it.
+   * @param inMessage The help message for the help balloon.
+   * @param outRect The coordinates of the rectangle that encloses the help message. 
+   *      The upper-left corner of the rectangle has the coordinates (0,0).
+   */
+&nbsp;</pre>
+		<p>
+If you want to specify a line break in the HTML version of a comment, use two carriage returns between lines rather than one. For example, the text of the discussion in this comment:</p>
+		<pre>
+  /*! 
+   * @function HMBalloonRect
+   * @discussion Use HMBalloonRect to get information about the size of a help balloon 
+   *      before the Help Manager displays it.
+   *
+   *      By checking the help balloon size before display, you can guard against...
+   */
+ </pre>
+		<p>
+...will be formatted as two paragraphs in the HTML output: </p>
+
+		<p><table border="0" cellpadding="0" cellspacing="2" width="92%" bgcolor="#99cccc">
+			<tr>
+				<td>
+					<h3>HMBalloonRect</h3>
+					<blockquote>
+						<p><tt>OSErr <b>HMBalloonRect</b> (const HMMessageRecord *inMessage, Rect *outRect);</tt><br>
+						</p>
+					</blockquote>
+					<p>Use HMBalloonRect to get information about the size of a help balloon before the Help Manager displays it.</p>
+					<p>By checking the help balloon size before display, you can guard against...</p>
+					<p>&nbsp;</td>
+			</tr>
+		</table></p>
+		<p>&nbsp;</p>
+		<h2><a name="Anchor-Tags-49575"></a>Tags for All Headers</h2>
+		<p>Often, you'll want to add a comment for the header as a whole in addition to comments for individual API elements. For example, if the header declares API for a specific manager (in Mac OS terminology), you may want to provide introductory information about the manager or discuss issues that apply to many of the functions within the manager's API. Likewise, if the header declares a C++ class, you could discuss the class in relation to its superclass or subclasses.</p>
+		<p>The value you give for the @header tag serves as the title for the HTML pages generated by <b>headerDoc2HTML</b>. The text you associate with the @header tag is used for the introductory page of the HTML website the script produces.</p>
+		<p><table border="1" cellpadding="0" cellspacing="2" width="92%">
+			<tr>
+				<td>
+					<center>
+						<b>Tag</b></center>
+				</td>
+				<td width="200">
+					<center>
+						<b>Example</b></center>
+				</td>
+				<td>
+					<center>
+						<b>Identifies</b></center>
+				</td>
+				<td>
+					<center>
+						<b>Fields </b></center>
+				</td>
+			</tr>
+			<tr>
+				<td><b>@header</b></td>
+				<td width="200"><tt>@header Repast Manager</tt></td>
+				<td>The name under which the API is categorized. Typically used to declare the Manager name (for classic Mac APIs) or class name (for object-oriented APIs)</td>
+				<td>
+					<center>
+						1</center>
+				</td>
+			</tr>
+		</table></p>
+		<p><b>Example: </b></p>
+		<pre>
+/*!
+  @header Repast Manager
+  The Repast Manager provides a functional interface to the repast driver. 
+  Use the functions declared here to generate, distribute, and consume meals.
+*/</pre>
+		<h2>
+<a name="Anchor-Tags-35882"></a>Tags By Language Type</h2>
+		<p>Tags are largely specific to a particular programming language&#151;the @method tag has no place in a C header, for example. Refer to the following sections for information about which tags are available for a particular language context.</p>
+		<ul>
+			<li><a href="CHeaderTags.html">Tags for C headers</a> 
+			<li><a href="CPPTags.html">Tags for C++ header</a><a href="CPPTags.html">s</a> 
+		</ul>
+		<p>&nbsp;</p>
+		<p>&nbsp;</p>
+		<p>&nbsp;
+	</body>
+
+</html>

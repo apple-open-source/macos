@@ -1,0 +1,98 @@
+% 
+% OPENWINDOWS' mp header
+% Copyright (c) 1996 Markku Rossi.
+% Author: Markku Rossi <mtr@iki.fi>
+%
+
+%
+% This file is part of GNU enscript.
+% 
+% This program is free software; you can redistribute it and/or modify
+% it under the terms of the GNU General Public License as published by
+% the Free Software Foundation; either version 2, or (at your option)
+% any later version.
+%
+% This program is distributed in the hope that it will be useful,
+% but WITHOUT ANY WARRANTY; without even the implied warranty of
+% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+% GNU General Public License for more details.
+%
+% You should have received a copy of the GNU General Public License
+% along with this program; see the file COPYING.  If not, write to
+% the Free Software Foundation, 59 Temple Place - Suite 330,
+% Boston, MA 02111-1307, USA.
+%
+
+% -- code follows this line --
+%Format: userstr	%n
+%Format: datestr	%D{%d/%m/%y  %Hh%M}
+%Format: pagestr	$%/$=
+
+%HeaderHeight: 48
+%FooterHeight: 48
+
+% Fonts.
+/Helvetica-BoldOblique /helvetica-encoded MF
+/SmallFont /helvetica-encoded findfont 10 scalefont def
+/BigFont /helvetica-encoded findfont 16 scalefont def
+
+/RBox { 	% x y w h r -> -
+  /r exch def
+  /h exch def
+  /w exch def
+  /y exch def
+  /x exch def
+  
+  x y r add moveto
+  x y h add x w add y h add r arcto 4 {pop} repeat
+  x w add y h add x w add y r arcto 4 {pop} repeat
+  x w add y x y r arcto 4 {pop} repeat
+  x y x y h add r arcto 4 {pop} repeat
+  closepath
+} def
+
+/radius 10 def
+
+/do_header {	% print mp header
+  gsave
+    .5 setlinewidth
+
+    % footer
+    d_footer_x d_footer_y d_footer_w 40 radius RBox
+    gsave
+      .9 setgray fill
+    grestore
+    stroke
+ 
+    BigFont setfont
+    ftail dup stringwidth pop d_footer_w exch sub 2 div 
+    d_footer_y 14 add moveto show
+
+    % header
+    d_header_x d_header_y 8 add d_header_w 65 sub 40 radius RBox
+    gsave
+      .9 setgray fill
+    grestore
+    stroke
+    SmallFont setfont
+
+    datestr dup stringwidth pop d_header_x d_header_w 75 sub add exch sub
+    d_header_y 22 add moveto show
+
+    d_header_x 10 add d_header_y 22 add moveto (printed by: ) show
+    BigFont setfont
+    userstr show
+
+    d_header_x d_header_w add 60 sub d_header_y 8 add 60 40 radius RBox
+    stroke
+
+    SmallFont setfont
+    (Page) dup stringwidth pop 60 exch sub 2 div 
+    d_header_x d_header_w add 60 sub add d_header_y 33 add moveto show
+
+    BigFont setfont
+    pagestr dup stringwidth pop 60 exch sub 2 div
+    d_header_x d_header_w add 60 sub add d_header_y 13 add moveto show
+
+  grestore
+} def

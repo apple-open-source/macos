@@ -1,0 +1,92 @@
+#
+# Makefile for mod_dav.
+#
+
+VPATH=@srcdir@
+
+# where is APXS?
+APXS = @APXS@
+APXS_EXP = @APXS_EXP@
+BINNAME = @BINNAME@
+INSTALL_IT = @INSTALL_IT@
+LIBS = @LIBS@
+RANLIB = @RANLIB@
+AR = ar rc
+CC = @CC@
+LCLINT = lclint
+
+# put the autoconf INCLUDE before the cflags. The Apache CFLAGS
+# may point to the "wrong" directory, so we ensure that we use
+# the correct directory by placing generated includes first.
+ALL_CFLAGS = $(CPPFLAGS) @INCLUDE@ @CFLAGS@ $(INCLUDE) $(CFLAGS)
+
+SRCS = \
+	dav_props.c \
+	dav_util.c \
+	dav_xmlparse.c \
+	mod_dav.c \
+	dav_lock.c \
+	dav_opaquelock.c \
+	dav_dyn.c
+
+REPOS_SRCS = \
+	dav_fs_dbm.c \
+	dav_fs_lock.c \
+	dav_fs_repos.c
+
+SDBM_SRCS = \
+	sdbm/sdbm.c sdbm/sdbm_hash.c sdbm/sdbm_lock.c sdbm/sdbm_pair.c
+SDBM_HDRS = \
+	sdbm/sdbm.h sdbm/sdbm_pair.h sdbm/sdbm_tune.h
+
+STD_OBJS = $(SRCS:.c=.o)
+REPOS_OBJS = $(REPOS_SRCS:.c=.o)
+SDBM_OBJS = $(SDBM_SRCS:.c=.o)
+
+OBJS = $(STD_OBJS) $(REPOS_OBJS) $(SDBM_OBJS)
+HDRS = mod_dav.h dav_opaquelock.h $(SDBM_HDRS)
+
+all: $(BINNAME)
+
+# For DSO installs with APXS
+libdav.so: $(OBJS)
+	$(APXS) -c -o $@ $(APXS_CFLAGS) $(OBJS) $(APXS_EXP) $(LIBS)
+
+# For static installs
+libdav.a: $(OBJS)
+	rm -f $@
+	$(AR) $@ $(OBJS)
+	$(RANLIB) $@
+
+install: $(BINNAME)
+	$(INSTALL_IT)
+
+sdbm_combined.h: $(SDBM_HDRS)
+	echo "#ifndef _SDBM_H_INCLUDED_" > $@
+	echo "#define _SDBM_H_INCLUDED_" >> $@
+	cat $(SDBM_HDRS) >> $@
+	echo "#endif /* _SDBM_H_INCLUDED_ */" >> $@
+
+sdbm_combined.c: $(SDBM_SRCS)
+	sed 's/#include "sdbm.*/#include "sdbm_combined.h"/' $(SDBM_SRCS) > $@
+
+sdbm_combined.o: sdbm_combined.c sdbm_combined.h
+
+clean: 
+	-rm -f libdav.so libdav.a *.o sdbm/*.o *.orig *.rej sdbm_combined.*
+	cd util ; $(MAKE) clean
+
+distclean: clean
+	-rm -f Makefile libdav.module config.h config.status config.log config.cache
+
+lint:
+	$(LCLINT) @INCLUDE@ -weak +matchanyintegral +posixstrictlib -fullinitblock -ifempty -globs "-Du_int32_t=unsigned int" *.c
+
+doc:
+	lynx -dump http://www.webdav.org/mod_dav/install.html > INSTALL
+
+.c.o:
+	$(CC) -c $(ALL_CFLAGS) $< -o $@
+
+# just be lazy... any header change will recompile everything
+$(OBJS): $(HDRS)

@@ -1,0 +1,375 @@
+#!/bin/sh
+########################################################################################
+#                                                                                      #
+#                                   install-MacsBug                                    #
+#                                                                                      #
+#        Installer Script to Install MacsBug in a place other than it's default        #
+#                                                                                      #
+#                           NOT FOR RELEASE OUTSIDE OF APPLE                           #
+#                                                                                      #
+#                                     Ira L. Ruben                                     #
+#                      Copyright Apple Computer, Inc. 2000-2001                        #
+#                                                                                      #
+########################################################################################
+
+# install-Macsbug [where] [--gdbinit=pathname] [--v[erbose]] [--f[orce]] [--help]
+
+# The MacsBug support directory is normally installed in /usr/libexec/gdb/plugins/.
+# This is installed when the system is installed to ensure it's tied to the proper
+# version of gdb which is tightly coupled with the MacaBug plugin code.
+
+# There are two key files in the MacsBug folder:
+
+#   gdbinit-MacsBug
+#   MacsBug
+
+# The gdbinit-MacsBug file is a gdb script which, among other things, does a
+# load-plugin gdb command to load the MacsBug plugin file.  The load-plugin requires
+# a full pathname to the MacsBug plugin.  So it is preset to load from the MacsBug
+# directory.  The user's .gdbinit script should then do a SOURCE command to load
+# the gdbinit-MacsBug script, again from the default directory.
+
+# The user's .gdbinit script can be explicitly edited by the user or this installer
+# script can be used to do it.
+
+# It is also possible that there may be intermediate releases of the MacsBug plugins
+# which are compatible with the user's system.  Intermediate releases are not expected
+# to be placed in /usr/libexec/gdb/plugins/MacsBug.  So this intaller script can also
+# be used to install a newer MacsBug directory in a directory of the user's choosing.
+
+# This installer script does 3 things:
+
+#  1. Optionally edit the user's .gdbinit script (if --gdbinit is specified) to create
+#     or modify a SOURCE command that loads the gdbinit-MacsBug from a copy of the
+#     MacsBug directory or the system-installed MacsBug directory.
+
+#  2. Optionally copies an entire MacsBug directory to a chosen directory ("where").
+#     The source MacsBug directory is the directory containing this installer script.
+
+#  3. Modifies the copied gdbinit-MacsBug load-plugin command to load the MacsBugplugin
+#     from the copied folder.
+
+# The parameters to this script have the following meaning:
+
+#  where        	A pathname specifying a directory which is created containing
+#			the contents of the MacsBug directory.  It doesn't have to be
+#			called "MacsBug" and it need not be a "visible" directory, i.e.,
+#			you could name it with a leading '.'.
+
+#			Default is to not copy the MacsBug directory and set the --gdbinit
+#			specified script to use the MacsBug script defined in the folder
+#			containing this installer script.
+
+#			Note, specify a full pathname since this is needed for the 
+#			load-plugin command.
+
+#  --gdbinit=pathname	Optionally specifies the location of the user's .gdbinit file.
+#			For use in all gdb invocations this should be ~/.gdbinit.  If
+#			this parameter is not specified the user's .gdbinit script will
+#			not be modified.
+
+#			Note, if the .gdbinit script is modified, the original version
+#			of the script is renamed with "-bkup" added to the filename.
+
+#  --force		This script checks that the "where" is not in the same place from
+#			which this script is running.  If is is, that implies the
+#			source and destination directories are the same.  In addition
+#			a check is done to see if the "where" has already been
+#			installed for MacsBug.  In either of these cases no further
+#			action is taken the and script terminates.  Specifying
+#			--force overrides these tests and "forces" the installation.
+
+#  --verbose		Script confirms what it is doing.
+
+#####################################################################################
+
+declare -i status
+
+usage="${0##*/}"' [where] [--gdbinit=pathname] [--v[erbose]] [--f[orce]] [--help]'
+
+#debug='echo '
+force=0
+verbose=0
+
+usage='usage: '"${0##*/}"' [where] [--gdbinit=pathname] [--v[erbose]] [--f[orce]]'
+macsbug_script="gdbinit-MacsBug"
+
+#
+# Parse the parameters: [where] [--gdbinit=pathname] [--v[erbose]] [--f[orce]]
+#
+for arg; do
+    case $next_arg in
+    	-gdbinit | --gdbinit)
+   	    gdbinit="$arg"
+    	    next_arg=
+    	    ;;
+   	*)
+    	    case $arg in
+	     	-help | --help)
+	     	    echo
+		    echo "$usage"
+		    echo
+		    echo "where               Pathname specifying a directory which is created containing"
+		    echo "                    the contents of the MacsBug directory.  It doesn't have to"
+		    echo "                    be called \"MacsBug\" and it need not be a \"visible\""
+		    echo "                    directory, i.e., you could name it with a leading '.'."
+		    echo
+		    echo "                    Default is to not copy the MacsBug directory and set the"
+		    echo "                    --gdbinit specified script to use the MacsBug script"
+		    echo "                    defined in the folder containing this installer script."
+		    echo
+		    echo "--gdbinit=pathname  Optionally specifies the location of the your .gdbinit"
+		    echo "                    file.  For use in all gdb invocations this should be"
+		    echo "                    ~/.gdbinit.  If this parameter is not specified your"
+		    echo "                    .gdbinit script will not be modified."
+		    echo
+		    echo "                    Note, if the .gdbinit script is modified, the original"
+		    echo "                    version of the script is renamed with \"-bkup\" added to"
+		    echo "                    the filename."
+		    echo
+		    echo "--force             This script checks that the \"where\" is not in the same"
+		    echo "                    place from which this script is running.  If it is,"
+		    echo "                    that implies the source and destination directories are"
+		    echo "                    the same.  In addition a check is done to see if the"
+		    echo "                    \"where\" has already been installed for MacsBug.  In either"
+		    echo "                    of these cases no further action is taken the and script"
+		    echo "                    terminates.  Specifying --force overrides these tests and"
+		    echo "                    \"forces\" the installation."
+		    echo
+		    echo "--verbose           Script confirms what it is doing."
+		    echo
+		    exit 0
+		    ;;
+	     	-f | --f)
+	     	    force=1
+		    ;;
+	     	-force | --force)
+	     	    force=1
+		    ;;
+	     	-v | --v)
+	     	    verbose=1
+		    ;;
+	     	-verbose | --verbose)
+	     	    verbose=1
+		    ;;
+	    	-gdbinit=* | --gdbinit=*)
+	    	    gdbinit=`echo $arg | sed -e 's/-*gdbinit=//'`
+		    ;;
+	    	-*)
+	    	    if [ "$next_arg" != "" ]; then
+		    	echo Usage: "$usage"
+		   	echo "Unknown option $arg"
+		    	exit 1
+	    	    fi
+		    next_arg=$arg
+		    ;;
+	    	--*)
+	    	    if [ "$next_arg" != "" ]; then
+		    	echo Usage: "$usage"
+		   	echo "Unknown option $arg"
+		    	exit 1
+	    	    fi
+		    next_arg=$arg
+		    ;;
+	    	*)
+	    	    where=$arg
+	    	    ;;
+   	    esac
+    esac
+done
+
+if [ "$next_arg" != "" ]; then
+    echo Usage: "$usage"
+    echo "Unknown option $next_arg"
+    exit 1
+fi
+
+#
+# Set "where" default if not specified.  It's the same directory containing this script.
+#
+
+#if [ "$where" = "" ]; then
+#    where="${0%/*}/"
+#fi
+where=${where:-"${0%/*}/"}
+
+if [ "${where##/*}" != "" ]; then
+    echo "Warning, destination folder ($where) not specified as a full pathname"
+fi
+
+if [ "$debug" != "" ]; then
+    echo
+    echo 'where   =' "$where"
+    echo 'gdbinit =' "$gdbinit"
+    echo 'force   =' "$force"
+    echo 'verbose =' "$verbose"
+    echo
+fi
+
+#
+# If gdbinit was specified then edit the users .gdbinit script (or whatever was
+# specified) to add a SOURCE command to load the MacsBug gdbinit-MacsBug script
+# from the "where" directory.  If the the gdbinit script already has a SOURCE
+# command to gdbinit-MacsBug then just edit that.  Either way the user's original
+# gdbinit script is renamed with to its original name with the suffix "-bkup"
+# added.  We try to do this as safely as we can.
+#
+# Note that this step is skipped if the user's .gdbinit script already has a
+# source command to the desired gdbinit-MacsBug.
+#
+
+changed_gdbinit=0
+
+if [ "$gdbinit" != "" ]; then
+    if [ -e "$gdbinit" ]; then
+    	if [ ! -f "$gdbinit" ]; then
+	    echo "$gdbinit is not an regular file"
+	    exit 1
+	fi
+	
+    	if [ "`grep \"$where/$macsbug_script\" $gdbinit`" = "" ]; then
+	    cat "$gdbinit" | \
+	    sed -e 's,\(^[^#]*[ ]*source[ ]*\)\([.]\{0\,1\}\).*'"$macsbug_script"'\(.*\)$,\1'"$where/$macsbug_script"'\3,' >"$gdbinit"-new
+	
+	    #
+	    # If the above line didn't edit an existing SOURCE command so we assume we need to
+	    # create the command...
+	    #
+	    if ! `grep "^[^#]*$where/$macsbug_script" "$gdbinit"-new >/dev/null`; then
+		echo 					>>"$gdbinit"-new
+		echo '#' 				>>"$gdbinit"-new
+		echo '# Add MacsBug commands...' 	>>"$gdbinit"-new
+		echo '#' 				>>"$gdbinit"-new
+		echo "source $where/$macsbug_script" 	>>"$gdbinit"-new
+	    fi
+	    
+	    #
+	    # Rename "old" gdbinit script as with a -bkup suffix.  We may have to undo this if
+	    # we later discover something is wrong with the "where" directory when that is
+	    # specified.  We're only doing this before that check because at a minimum this
+	    # script can be used just to edit the user's gdbinit script to source the MacsBug
+	    # script from it's system-installed (default) location.
+	    #
+	    
+	    changed_gdbinit=1
+	    mv "$gdbinit" "$gdbinit"-bkup
+	    status=$?
+	    if [ $status -eq 0 ]; then
+		mv "$gdbinit"-new "$gdbinit"
+		status=$?
+	    fi
+	    if [ $status -ne 0 ]; then
+		# If the above failed it should have reported an error of its own
+		echo "### MacsBug installation not completed ###"
+		exit 1
+	    fi
+	    if [ $verbose ]; then
+		echo "### $gdbinit updated to load $where/$macsbug_script"
+	    fi
+	fi
+    else
+	echo '#' 			     >>"$gdbinit"
+	echo '# MacsBug commands...'         >>"$gdbinit"
+	echo '#' 			     >>"$gdbinit"
+	echo "source $where/$macsbug_script" >>"$gdbinit"
+    fi
+fi
+
+#
+# If the place we want the MacsBug folder is where we're getting this script from
+# then we assume we have already previously run this script and there is nothing
+# to do.  However we support a -force option to override this test. 
+#
+if [ $force -eq 0 ] && [ "$where" = "${0%/*}/" ]; then
+    if [ $verbose != 0 ]; then
+    	echo "### MacsBug and destination directory are the same so no need to create it"
+	echo
+	echo "### MacsBug installation completed"
+	echo
+    fi
+    exit 0
+fi
+
+#
+# If "where" exists we only accept it if it's a directory and we added our files to
+# it previously (but we only look for MacsBug).  In addition we assume there is
+# nothing to install if the key files in the directory containing this script are
+# not newer than the ones in the "where" directory.  In other words we already
+# installed into "where" so why do it again?  However, like the above, we have the
+# -force option to force the reinstallation.
+#
+# If "where" doesn't exist then we need to create create it.
+#
+if [ -e "$where" ]; then
+    if [ -d "$where" ]; then
+    	if [ ! -e "$where/MacsBug" ]; then
+	    if [ $changed_gdbinit != 0 ]; then
+	    	mv "$gdbinit"-bkup "$gdbinit"
+	    fi
+    	    echo "### $where already exists and it looks like it's not previously used for Macsbug"
+    	    exit 1
+    	fi
+    	if [ $force -eq 0 ] && \
+	     [ ! "${0%/*}/MacsBug -nt "$where/MacsBug" ] && \
+	     [ ! "${0%/*}/$macsbug_script -nt "$where/$macsbug_script" ]; then
+	    if [ $verbose != 0 ]; then
+	    	echo "### It looks like the current MacsBug stuff is already installed in $where"
+		echo
+		echo "### MacsBug installation not completed"
+		echo
+	    fi
+    	    exit 0
+    	fi
+    else
+    	echo "### $where already exists as a file"
+    	exit 1
+    fi
+else
+    ${debug}mkdir -p "$where"
+    if [ $? -ne 0 ]; then
+    	echo "### MacsBug installation not completed ###"
+    	exit 1
+    fi
+fi
+
+#
+# Copy the MacsBug directory to the "where" directory.  We can tell (or we assume) the
+# directory this script is running in is the source MacsBug directory.
+#
+${debug}cp -p "${0%/*}/README.txt"      "$where"
+status=$?
+${debug}cp -p "${0%/*}/gdbinit-MacsBug" "$where"
+status=$?+$status
+${debug}cp -p "${0%/*}/MacsBug" 	"$where"
+status=$?+$status
+${debug}cp -p "${0%/*}/install-MacsBug" "$where"
+status=$?+$status
+if [ $status -ne 0 ]; then
+    # If the above failed it should have reported an error of its own
+    echo "### MacsBug installation not completed ###"
+    exit 1
+fi
+
+#
+# Change the load-plugin command in the "gdbinit-MacsBug" gdb script to load the
+# plugin (MacsBug) from the "where" directory.  Note that the load-plugin command
+# is rather brain dead (right at home with the rest of the gdb command language)
+# in that it needs a full pathname and no '~'s.  This is why we require that the
+# call to this script specify a full pathname for "where" (if specified at all).
+# We do, however, allow '~' there since we are careful not to quote the "where"
+# value until after we assigned it to $where.  Bash has its quirks too!
+#
+if [ "$debug" != "" ]; then
+    echo "cat ${0%/*}/$macsbug_script | sed -e 's,\(load-plugin[ \t]*\)\(.*$\),\1\'\"$where\"'/MacsBug,'> $where/$macsbug_script"
+else
+    cat "${0%/*}/$macsbug_script" | \
+    sed -e 's,\(load-plugin[ ]*\)\(.*$\),\1'"$where"'/MacsBug,' > "$where/$macsbug_script"
+fi
+
+if [ $verbose != 0 ]; then
+    echo
+    echo "### MacsBug installation completed"
+    echo
+fi
+
+exit 0

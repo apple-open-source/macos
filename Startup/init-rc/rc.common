@@ -1,0 +1,72 @@
+##
+# Common setup for startup scripts.
+##
+# Wilfredo Sanchez | wsanchez@apple.com
+# Copyright 1998 Apple Computer, Inc.
+##
+
+#######################
+# Configure the shell #
+#######################
+
+##
+# Be strict
+##
+#set -e
+set -u
+
+##
+# Set command search path
+##
+PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/libexec:/System/Library/CoreServices; export PATH
+
+##
+# Set the terminal mode
+##
+#if [ -x /usr/bin/tset ] && [ -f /usr/share/misc/termcap ]; then
+#    TERM=$(tset - -Q); export TERM
+#fi
+
+####################
+# Useful functions #
+####################
+
+##
+# Print a message to the console and display it in the startup screen
+##
+ConsoleMessage()
+{
+    local Message="$*"
+
+    echo "${Message}"
+}
+
+##
+# Determine if the network is up by looking for any non-loopback
+# internet network interfaces.
+##
+CheckForNetwork()
+{
+    local test
+
+    if [ -z "${NETWORKUP:=}" ]; then
+	test=$(ifconfig -a | sed -e '/127.0.0.1/d' | sed -e '/0.0.0.0/d' | sed -n '/inet/p' | wc -l)
+	if [ "${test}" -gt 0 ]; then
+	    NETWORKUP="-YES-"
+	else
+	    NETWORKUP="-NO-"
+	fi
+    fi
+}
+
+##########################
+# Get host configuration #
+##########################
+. /etc/hostconfig
+
+##
+# Enable coredumps if requested.
+##
+if [ "${COREDUMPS:=-NO-}" = "-YES-" ]; then
+    ulimit -c unlimited
+fi

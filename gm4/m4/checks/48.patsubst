@@ -1,0 +1,9 @@
+dnl ../doc/m4.texinfo:2621: Origin of test
+define(`upcase', `translit(`$*', `a-z', `A-Z')')dnl
+define(`downcase', `translit(`$*', `A-Z', `a-z')')dnl
+define(`capitalize1',
+     `regexp(`$1', `^\(\w\)\(\w*\)', `upcase(`\1')`'downcase(`\2')')')dnl
+define(`capitalize',
+     `patsubst(`$1', `\w+', `capitalize1(`\&')')')dnl
+capitalize(`GNUs not Unix')
+dnl @result{}Gnus Not Unix

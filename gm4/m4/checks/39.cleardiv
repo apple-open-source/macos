@@ -1,0 +1,7 @@
+dnl ../doc/m4.texinfo:2359: Origin of test
+divert(1)
+Diversion one: divnum
+divert(2)
+Diversion two: divnum
+divert(-1)
+undivert

@@ -1,0 +1,18 @@
+/*
+ * Import the real "config.defs" file from the framework.
+ *
+ *   The ultimate goal is to have a single ".defs" file in
+ *   the project which is used to generate a shared "config.h"
+ *   header, the "configUser.c" file used by (and included in)
+ *   the built framework, and the "configServer.c" file used
+ *   by the server.
+ *
+ *   To date, I have been unable to determine the needed flags
+ *   and/or rules to add to the Makefile to ensure that any
+ *   changes made to the real projects ".defs" file results in
+ *   the[re-]generation of both framework and servers MiG files.
+ *
+ *   As such... IF YOU CHANGE THE ".defs" FILE, MAKE CLEAN!
+ */
+
+#import "../SystemConfiguration.fproj/config.defs"

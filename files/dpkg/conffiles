@@ -1,0 +1,16 @@
+private/etc/afpovertcp.cfg
+private/etc/ftpusers
+private/etc/gettytab
+private/etc/group
+private/etc/hosts
+private/etc/hosts.lpd
+private/etc/iftab
+private/etc/inetd.conf
+private/etc/master.passwd
+private/etc/motd
+private/etc/networks
+private/etc/passwd
+private/etc/printcap
+private/etc/syslog.conf
+private/etc/ttys
+private/etc/hosts.equiv

@@ -1,0 +1,39 @@
+{
+    FILESTABLE = {
+        Documentation = (
+            AUTHORS, 
+            COPYING, 
+            ChangeLog, 
+            ChangeLog.1, 
+            INSTALL, 
+            NEWS, 
+            README, 
+            TODO, 
+            autoconf.info, 
+            autoconf.texi, 
+            install.texi, 
+            "make-stds.texi", 
+            standards.info, 
+            standards.texi, 
+            texinfo.tex
+        ); 
+        Headers = (acconfig.h); 
+        Makefiles = (Makefile.in, configure, configure.in, "install-sh", mkinstalldirs); 
+        Resources = (
+            autoconf.sh, 
+            autoheader.sh, 
+            autoreconf.sh, 
+            autoscan.pl, 
+            autoupdate.sh, 
+            ifnames.sh
+        ); 
+        SUBPROJECTS = (testsuite); 
+        Sources = (acgeneral.m4, acoldnames.m4, acspecific.m4, autoconf.m4, autoheader.m4); 
+    }; 
+    NEXTSTEP_BUILDTOOL = /bin/make; 
+    PDO_UNIX_BUILDTOOL = /bin/make; 
+    PROJECTNAME = autoconf; 
+    PROJECTTYPE = "GNU Source"; 
+    PROJECTVERSION = 2.6; 
+    WINDOWS_BUILDTOOL = "${NEXT_ROOT}/NextDeveloper/Executables/make"; 
+}

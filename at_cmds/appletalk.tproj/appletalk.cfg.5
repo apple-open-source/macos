@@ -1,0 +1,116 @@
+.TH appletalk.cfg 5
+.SH NAME
+
+appletalk.cfg
+
+.SH DESCRIPTION
+appletalk.cfg is the default configuration file read by the appletalk 
+command when AppleTalk is being configured to perform routing or multi-homing.
+
+.SH SYNTAX
+
+This section describes the syntax for /etc/appletalk.cfg, which is the
+default configuration file used by the appletalk
+command to specify interfaces, also known as "ports",
+and zones, when the "-r" or the "-x" option is entered.  Note that in
+multi-homing (-x) mode, only non-seed interfaces may be specified.
+In routing (-r) mode, seed interfaces, zones, and non-seed 
+interfaces may be specified.
+
+A pound (#) character in the first column of a line designates 
+that line as a comment.
+
+Fields within an entry are separated by colons (:).
+
+The format for interface definitions is as follows:
+    <if>:<start>:<end>
+ where <if> is a valid interface (e.g. en1)
+and <start> and <end> are the starting and ending network
+numbers for that interface. If the <end> value is omitted the
+ending network is assumed to be the same as the <start> value.
+if no network values are supplied, the port will be configured
+as a non-seed port.
+
+One and only one port must be designated as the home port by
+an asterisk in the last field of an entry.
+Valid home port designations are shown below:
+    en5:45:50:*
+    en9:*
+
+The format for zone name entries is as follows:
+    :<name>:<if1>:<if2>:...<ifn>
+
+Zone entries must begin with a colon (:) in the first column
+the first field, <name> is the zone name which must be no longer
+than 32 characters.
+A list of interfaces assigned to that zone name, separated by colons, 
+follow the zone name.
+The home zone must be designated by placing an asterisk in the last
+field of the entry as for the home port above.  There must be only
+one home zone and the home port must be listed in this entry.
+
+If there is only one zone assigned to the home seed interface,
+it will automatically be chosen as the home zone, even if there
+is no trailing asterisk.
+
+When the home port is is on a "secondary" port (ie, a config
+line like "en1:*") then the home zone will be whatever
+the seed router for that network is providing. 
+This is a valid configuration.
+
+When AppleTalk is configured to run in multi-home or router mode,
+there must be at least one "primary" (seed) router on each
+segment, otherwise a "secondary" (non-seed) router won't get it's network
+range and zone list for that port. 
+
+A seed port must have one or more zones associated (seeded)
+with it.  Note that the same zone name can be used on one or
+more ports.  Zones cannot be associated with ports that are
+non-seed.
+
+A global network made of several segments will have at least
+one zone.  If only one zone is present in the network, 
+a zone list will not appear in the MacOS "Chooser", however
+the zone name does exist and is exchanged by routers.
+
+Entries for zones and interfaces can be intermixed throughout the
+file.  Note: all values are in decimal except where noted.
+
+.SH EXAMPLES
+
+Below are some sample valid configurations:
+ #
+ # example 1:
+ #
+ en2:10:19:*
+ :home zone en2:en2:*
+ :2nd et2 zone:en2
+ en3:20:29
+ :en3 zone:en3
+ #
+ # example 2: (all non-seed)
+ #
+ en0:
+ en2:
+ en3:*
+ #
+ # example 3:
+ #
+ en0:10:20
+ en1:21:*
+ en2:31:40
+ en3:
+ :only zone for en1:en1:*
+ :another zone:en0:en2
+ :still another:en2
+ :one last zone:en0:en2
+
+.SH FILES
+/etc/appletalk.cfg
+    Configuration file
+
+/usr/sbin/appletalk
+    Executable file
+
+.SH SEE ALSO
+appletalk(8)

@@ -1,0 +1,60 @@
+.\" 
+.\" diffpp manual page.
+.\" Copyright (c) 1996 Markku Rossi.
+.\" Author: Markku Rossi <mtr@iki.fi>
+.\"
+.\"
+.\" This program is free software; you can redistribute it and/or modify
+.\" it under the terms of the GNU General Public License as published by
+.\" the Free Software Foundation; either version 2, or (at your option)
+.\" any later version.
+.\"
+.\" This program is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.\" GNU General Public License for more details.
+.\"
+.\" You should have received a copy of the GNU General Public License
+.\" along with this program; see the file COPYING.  If not, write to
+.\" the Free Software Foundation, 59 Temple Place - Suite 330,
+.\" Boston, MA 02111-1307, USA.
+.\"
+.TH DIFFPP 1 "Jan 29, 1997" "DIFFPP" "DIFFPP"
+
+.SH NAME
+diffpp \- pretty\-print diff outputs with GNU enscript
+
+.SH SYNOPSIS
+.B diffpp \f2currentfile\f1 < \f2diff\-file\f1
+
+.SH DESCRIPTION
+
+\f3Diffpp\f1 converts \f3diff(1)\f1\-program's output files to a
+format suitable to be printed with GNU \f3enscript(1)\f1.  Program
+annotates the changes with enscript's special escapes so enscript can
+highlight the modified portions of the file.  All changed and added
+lines are printed with gray\-background, deleted lines are marked with
+minus (`\-') characters; \f3diffpp\f1 prints one minus character for
+each deleted line.
+
+.SH EXAMPLES
+
+The easiest way to use \f3diffpp\f1 is to use it as an input filter
+for enscript.  If an input filter is specified for enscript it is used
+to pre\-process the incoming data\-stream.  Filtering does not alter any
+header strings or file\-timestamps which might be printed on enscript
+headers; only the incoming data is modified.
+
+.TP 8
+\f3enscript \-G2re \-\-filter='rcsdiff %s | diffpp %s' *.c *.h\f1
+Print the changes between current source files and their latest
+RCS\-versions.
+.TP 8
+\f3enscript \-G2re \-\-filter='diff %s~ %s | diffpp %s' *.c *.h\f1
+Print changes between source files and the corresponding backup\-files.
+
+.SH SEE ALSO
+diff(1), enscript(1)
+
+.SH AUTHOR
+Markku Rossi <mtr@iki.fi> <http://www.iki.fi/~mtr/>

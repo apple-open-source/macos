@@ -1,0 +1,1 @@
+"|IFS=' ' && p=/usr/local/bin/procmail && test -f $p && exec $p -Yf- || exit 75 #YOUR_LOGIN_NAME"

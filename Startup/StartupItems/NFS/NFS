@@ -1,0 +1,54 @@
+#!/bin/sh
+
+. /etc/rc.common
+
+CheckForNetwork 
+
+if [ "${NETWORKUP}" = "-NO-" ]; then exit; fi
+
+ConsoleMessage "Mounting remote file systems"
+
+##
+# Set up NFS client.
+##
+
+##
+# nsfiod is the NFS asynchronous block I/O daemon, which implements
+# NFS read-ahead and write-behind caching on NFS clients.
+##
+
+nfsiod -n 4 
+
+##
+# Mount static remote file systems.
+##
+
+if ! mount -at nfs; then
+    echo "Warning: Some remote file systems may not be available"
+fi
+
+##
+# Start the automounter
+##
+if [ "${AUTOMOUNT:=-YES-}" = "-YES-" ]; then
+    automount -m /Network/Servers -fstab
+fi
+
+##
+# Set up NFS server.
+##
+
+# If exportfs finds something to export (either using /etc/exports or the
+# exports NetInfo directory), then start the NFS daemons (which service
+# NFS requests) and the mount server (which services NFS mount requests).
+
+# Clear the table of exported file systems.
+rm -f /var/db/mountdtab
+
+exports=$(niutil -list . /exports 2> /dev/null | wc -w)
+
+if [ "${exports}" -gt 0 ]; then
+    ConsoleMessage "Starting Network File System server"
+    mountd
+    nfsd -t -u -n 6
+fi

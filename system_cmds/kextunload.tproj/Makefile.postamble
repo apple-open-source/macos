@@ -1,0 +1,9 @@
+MAN_PAGE = kextunload.8
+MAN_PATH = /usr/share/man/man8
+
+after_install::
+	-mkdir -p ${DSTROOT}$(MAN_PATH)
+	-rm -f ${DSTROOT}$(MAN_PATH)/$(MAN_PAGE)
+	cp $(MAN_PAGE) ${DSTROOT}$(MAN_PATH)/$(MAN_PAGE)
+	chmod og-w ${DSTROOT}$(MAN_PATH)/$(MAN_PAGE)
+

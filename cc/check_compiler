@@ -1,0 +1,92 @@
+#!/bin/sh
+
+if [ "$HOME" != "/" ]; then
+  echo must be root to run $0
+  exit 1
+fi
+
+SRCROOT=`pwd | sed s,/private,,`
+
+SYMROOT="/tmp/cc.sym"
+OBJROOT="/tmp/cc.obj"
+DSTROOT="/tmp/cc.dst"
+
+if [ `arch` = "hppa" ]; then
+  NEXT_HOSTS="m68k i386 hppa"
+  NEXT_HOSTS_FLAGS="-arch m68k -arch i386 -arch hppa"
+  NEXT_TARGETS="m68k i386 hppa"
+else
+  NEXT_HOSTS="m68k i386"
+  NEXT_HOSTS_FLAGS="-arch m68k -arch i386"
+  NEXT_TARGETS="m68k i386"
+fi
+
+build_stage () {
+
+stage="$1"
+export RC_CFLAGS
+export RC_ARCHS
+export RC_TARGETS
+
+echo =========================================
+echo =========== BUILDING STAGE $stage ============
+echo =========================================
+
+ if \
+   make install_no_src \
+	TARGETS="$RC_TARGETS" \
+	HOSTS="$RC_ARCHS" \
+	SYMROOT=$SYMROOT.$stage \
+	OBJROOT=$OBJROOT.$stage \
+	DSTROOT=$DSTROOT.$stage \
+	SRCROOT=$SRCROOT; \
+ then
+   echo =========================================
+   echo =========== STAGE $stage SUCEEDED ============
+   echo =========================================
+ else
+   echo =========================================
+   echo ============ STAGE $stage FAILED =============
+   echo =========================================
+   exit
+ fi
+
+}
+
+install_stage () {
+  echo =========================================
+  echo ========== INSTALLING STAGE $stage ===========
+  echo =========================================
+  (cd $DSTROOT.$1; tar cf - .) | (cd /; tar xvf - )
+}
+
+clean_stage () {
+  stage="$1"
+  echo =========================================
+  echo =========== CLEANING STAGE $stage ============
+  echo =========================================
+  rm -Rf $OBJROOT.$stage
+  rm -Rf $SYMROOT.$stage
+}
+
+RC_ARCHS=`arch`
+RC_CFLAGS="-arch $RC_ARCHS"
+RC_TARGETS=$NEXT_HOSTS
+build_stage 1
+install_stage 1
+
+build_stage 2
+install_stage 2
+clean_stage 1
+
+build_stage 3
+clean_stage 2
+clean_stage 3
+
+cd $DSTROOT.2
+files=`find . -type f -print`
+
+for f in $files; do
+ echo comparing $f
+ cmp $DSTROOT.2/$f $DSTROOT.3/$f
+done

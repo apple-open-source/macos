@@ -1,0 +1,5 @@
+#!/bin/sh
+
+librarydir=@LIBRARYDIR@
+
+enscript -E -p- --quiet --language=overstrike $* 2>&1 | less

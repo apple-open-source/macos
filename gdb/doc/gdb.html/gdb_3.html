@@ -1,0 +1,395 @@
+<HTML>
+<HEAD>
+<!-- This HTML file has been created by texi2html 1.51
+     from /mnt/apple/gdb/source/gdb.apple/source/gdb/gdb/doc/gdb.texinfo on 23 November 1999 -->
+
+<TITLE>Debugging with GDB - Getting In and Out of GDB</TITLE>
+</HEAD>
+<BODY>
+Go to the <A HREF="gdb_1.html">first</A>, <A HREF="gdb_2.html">previous</A>, <A HREF="gdb_4.html">next</A>, <A HREF="gdb_21.html">last</A> section, <A HREF="gdb_toc.html">table of contents</A>.
+<P><HR><P>
+
+
+<H1><A NAME="SEC5" HREF="gdb_toc.html#TOC5">Getting In and Out of GDB</A></H1>
+
+<P>
+This chapter discusses how to start GDB, and how to get out of it.
+The essentials are: 
+
+<UL>
+<LI>
+
+type <SAMP>`gdb'</SAMP> to start GDB.
+<LI>
+
+type <KBD>quit</KBD> or <KBD>C-d</KBD> to exit.
+</UL>
+
+
+
+<H2><A NAME="SEC6" HREF="gdb_toc.html#TOC6">Invoking GDB</A></H2>
+
+<P>
+Invoke GDB by running the program <CODE>gdb</CODE>.  Once started,
+GDB reads commands from the terminal until you tell it to exit.
+
+</P>
+<P>
+You can also run <CODE>gdb</CODE> with a variety of arguments and options,
+to specify more of your debugging environment at the outset.
+
+</P>
+<P>
+The command-line options described here are designed
+to cover a variety of situations; in some environments, some of these
+options may effectively be unavailable.  
+
+</P>
+<P>
+The most usual way to start GDB is with one argument,
+specifying an executable program:
+
+</P>
+
+<PRE>
+gdb <VAR>program</VAR>
+</PRE>
+
+<P>
+You can also start with both an executable program and a core file
+specified:
+
+</P>
+
+<PRE>
+gdb <VAR>program</VAR> <VAR>core</VAR>
+</PRE>
+
+<P>
+You can, instead, specify a process ID as a second argument, if you want
+to debug a running process:
+
+</P>
+
+<PRE>
+gdb <VAR>program</VAR> 1234
+</PRE>
+
+<P>
+would attach GDB to process <CODE>1234</CODE> (unless you also have a file
+named <TT>`1234'</TT>; GDB does check for a core file first).
+
+</P>
+<P>
+Taking advantage of the second command-line argument requires a fairly
+complete operating system; when you use GDB as a remote debugger
+attached to a bare board, there may not be any notion of "process",
+and there is often no way to get a core dump.
+
+</P>
+<P>
+You can run <CODE>gdb</CODE> without printing the front material, which describes
+GDB's non-warranty, by specifying <CODE>-silent</CODE>:
+
+</P>
+
+<PRE>
+gdb -silent
+</PRE>
+
+<P>
+You can further control how GDB starts up by using command-line
+options.  GDB itself can remind you of the options available.
+
+</P>
+<P>
+Type
+
+</P>
+
+<PRE>
+gdb -help
+</PRE>
+
+<P>
+to display all available options and briefly describe their use
+(<SAMP>`gdb -h'</SAMP> is a shorter equivalent).
+
+</P>
+<P>
+All options and command line arguments you give are processed
+in sequential order.  The order makes a difference when the
+<SAMP>`-x'</SAMP> option is used.
+
+</P>
+
+
+
+<H3><A NAME="SEC7" HREF="gdb_toc.html#TOC7">Choosing files</A></H3>
+
+<P>
+When GDB starts, it reads any arguments other than options as
+specifying an executable file and core file (or process ID).  This is
+the same as if the arguments were specified by the <SAMP>`-se'</SAMP> and
+<SAMP>`-c'</SAMP> options respectively.  (GDB reads the first argument
+that does not have an associated option flag as equivalent to the
+<SAMP>`-se'</SAMP> option followed by that argument; and the second argument
+that does not have an associated option flag, if any, as equivalent to
+the <SAMP>`-c'</SAMP> option followed by that argument.)
+
+</P>
+<P>
+If GDB has not been configured to included core file support,
+such as for most embedded targets, then it will complain about a second
+argument and ignore it.
+
+</P>
+<P>
+Many options have both long and short forms; both are shown in the
+following list.  GDB also recognizes the long forms if you truncate
+them, so long as enough of the option is present to be unambiguous.
+(If you prefer, you can flag option arguments with <SAMP>`--'</SAMP> rather
+than <SAMP>`-'</SAMP>, though we illustrate the more usual convention.)
+
+</P>
+<DL COMPACT>
+
+<DT><CODE>-symbols <VAR>file</VAR></CODE>
+<DD>
+<DT><CODE>-s <VAR>file</VAR></CODE>
+<DD>
+Read symbol table from file <VAR>file</VAR>.
+
+<DT><CODE>-exec <VAR>file</VAR></CODE>
+<DD>
+<DT><CODE>-e <VAR>file</VAR></CODE>
+<DD>
+Use file <VAR>file</VAR> as the executable file to execute when appropriate,
+and for examining pure data in conjunction with a core dump.
+
+<DT><CODE>-se <VAR>file</VAR></CODE>
+<DD>
+Read symbol table from file <VAR>file</VAR> and use it as the executable
+file.
+
+<DT><CODE>-core <VAR>file</VAR></CODE>
+<DD>
+<DT><CODE>-c <VAR>file</VAR></CODE>
+<DD>
+Use file <VAR>file</VAR> as a core dump to examine.
+
+<DT><CODE>-c <VAR>number</VAR></CODE>
+<DD>
+Connect to process ID <VAR>number</VAR>, as with the <CODE>attach</CODE> command
+(unless there is a file in core-dump format named <VAR>number</VAR>, in which
+case <SAMP>`-c'</SAMP> specifies that file as a core dump to read).
+
+<DT><CODE>-command <VAR>file</VAR></CODE>
+<DD>
+<DT><CODE>-x <VAR>file</VAR></CODE>
+<DD>
+Execute GDB commands from file <VAR>file</VAR>.  See section <A HREF="gdb_16.html#SEC159">Command files</A>.
+
+<DT><CODE>-directory <VAR>directory</VAR></CODE>
+<DD>
+<DT><CODE>-d <VAR>directory</VAR></CODE>
+<DD>
+Add <VAR>directory</VAR> to the path to search for source files.
+
+<DT><CODE>-m</CODE>
+<DD>
+<DT><CODE>-mapped</CODE>
+<DD>
+<EM>Warning: this option depends on operating system facilities that are not
+supported on all systems.</EM><BR>
+If memory-mapped files are available on your system through the <CODE>mmap</CODE>
+system call, you can use this option 
+to have GDB write the symbols from your
+program into a reusable file in the current directory.  If the program you are debugging is
+called <TT>`/tmp/fred'</TT>, the mapped symbol file is <TT>`./fred.syms'</TT>.
+Future GDB debugging sessions notice the presence of this file,
+and can quickly map in symbol information from it, rather than reading
+the symbol table from the executable program.
+
+The <TT>`.syms'</TT> file is specific to the host machine where GDB
+is run.  It holds an exact image of the internal GDB symbol
+table.  It cannot be shared across multiple host platforms.
+
+<DT><CODE>-r</CODE>
+<DD>
+<DT><CODE>-readnow</CODE>
+<DD>
+Read each symbol file's entire symbol table immediately, rather than
+the default, which is to read it incrementally as it is needed.
+This makes startup slower, but makes future operations faster.
+</DL>
+
+<P>
+The <CODE>-mapped</CODE> and <CODE>-readnow</CODE> options are typically combined in
+order to build a <TT>`.syms'</TT> file that contains complete symbol
+information.  (See section <A HREF="gdb_13.html#SEC110">Commands to specify files</A>, for
+information on <TT>`.syms'</TT> files.) A simple GDB invocation to do
+nothing but build a <TT>`.syms'</TT> file for future use is:
+
+</P>
+
+<PRE>
+	gdb -batch -nx -mapped -readnow programname
+</PRE>
+
+
+
+<H3><A NAME="SEC8" HREF="gdb_toc.html#TOC8">Choosing modes</A></H3>
+
+<P>
+You can run GDB in various alternative modes--for example, in
+batch mode or quiet mode.
+
+</P>
+<DL COMPACT>
+
+<DT><CODE>-nx</CODE>
+<DD>
+<DT><CODE>-n</CODE>
+<DD>
+Do not execute commands from any initialization files (normally called
+<TT>`.gdbinit'</TT>, or <TT>`gdb.ini'</TT> on PCs).  Normally, the commands in
+these files are executed after all the command options and arguments
+have been processed.  See section <A HREF="gdb_16.html#SEC159">Command files</A>.
+
+<DT><CODE>-quiet</CODE>
+<DD>
+<DT><CODE>-q</CODE>
+<DD>
+"Quiet".  Do not print the introductory and copyright messages.  These
+messages are also suppressed in batch mode.
+
+<DT><CODE>-batch</CODE>
+<DD>
+Run in batch mode.  Exit with status <CODE>0</CODE> after processing all the
+command files specified with <SAMP>`-x'</SAMP> (and all commands from
+initialization files, if not inhibited with <SAMP>`-n'</SAMP>).  Exit with
+nonzero status if an error occurs in executing the GDB commands
+in the command files.
+
+Batch mode may be useful for running GDB as a filter, for example to
+download and run a program on another computer; in order to make this
+more useful, the message
+
+
+<PRE>
+Program exited normally.
+</PRE>
+
+(which is ordinarily issued whenever a program running under GDB control
+terminates) is not issued when running in batch mode.
+
+<DT><CODE>-cd <VAR>directory</VAR></CODE>
+<DD>
+Run GDB using <VAR>directory</VAR> as its working directory,
+instead of the current directory.
+
+<DT><CODE>-fullname</CODE>
+<DD>
+<DT><CODE>-f</CODE>
+<DD>
+GNU Emacs sets this option when it runs GDB as a
+subprocess.  It tells GDB to output the full file name and line
+number in a standard, recognizable fashion each time a stack frame is
+displayed (which includes each time your program stops).  This
+recognizable format looks like two <SAMP>`\032'</SAMP> characters, followed by
+the file name, line number and character position separated by colons,
+and a newline.  The Emacs-to-GDB interface program uses the two
+<SAMP>`\032'</SAMP> characters as a signal to display the source code for the
+frame.
+
+<DT><CODE>-b <VAR>bps</VAR></CODE>
+<DD>
+Set the line speed (baud rate or bits per second) of any serial
+interface used by GDB for remote debugging.
+
+<DT><CODE>-tty <VAR>device</VAR></CODE>
+<DD>
+Run using <VAR>device</VAR> for your program's standard input and output.
+
+</DL>
+
+
+
+<H2><A NAME="SEC9" HREF="gdb_toc.html#TOC9">Quitting GDB</A></H2>
+<P>
+<A NAME="IDX6"></A>
+<A NAME="IDX7"></A>
+
+</P>
+<DL COMPACT>
+
+<DT><CODE>quit</CODE>
+<DD>
+<A NAME="IDX8"></A>
+ <A NAME="IDX9"></A>
+ 
+To exit GDB, use the <CODE>quit</CODE> command (abbreviated <CODE>q</CODE>), or 
+type an end-of-file character (usually <KBD>C-d</KBD>).  If you do not supply 
+<VAR>expression</VAR>, GDB will terminate normally; otherwise it will 
+terminate using the result of <VAR>expression</VAR> as the error code.
+</DL>
+
+<P>
+<A NAME="IDX10"></A>
+An interrupt (often <KBD>C-c</KBD>) does not exit from GDB, but rather
+terminates the action of any GDB command that is in progress and
+returns to GDB command level.  It is safe to type the interrupt
+character at any time because GDB does not allow it to take effect
+until a time when it is safe.
+
+</P>
+<P>
+If you have been using GDB to control an attached process or
+device, you can release it with the <CODE>detach</CODE> command
+(see section <A HREF="gdb_5.html#SEC22">Debugging an already-running process</A>).
+
+</P>
+
+
+<H2><A NAME="SEC10" HREF="gdb_toc.html#TOC10">Shell commands</A></H2>
+
+<P>
+If you need to execute occasional shell commands during your
+debugging session, there is no need to leave or suspend GDB; you can
+just use the <CODE>shell</CODE> command.
+
+</P>
+<DL COMPACT>
+
+<DT><CODE>shell <VAR>command string</VAR></CODE>
+<DD>
+<A NAME="IDX11"></A>
+ <A NAME="IDX12"></A>
+ 
+Invoke a standard shell to execute <VAR>command string</VAR>.
+If it exists, the environment variable <CODE>SHELL</CODE> determines which
+shell to run.  Otherwise GDB uses <CODE>/bin/sh</CODE>.
+</DL>
+
+<P>
+The utility <CODE>make</CODE> is often needed in development environments.
+You do not have to use the <CODE>shell</CODE> command for this purpose in
+GDB:
+
+</P>
+<DL COMPACT>
+
+<DT><CODE>make <VAR>make-args</VAR></CODE>
+<DD>
+<A NAME="IDX13"></A>
+ <A NAME="IDX14"></A>
+ 
+Execute the <CODE>make</CODE> program with the specified
+arguments.  This is equivalent to <SAMP>`shell make <VAR>make-args</VAR>'</SAMP>.
+</DL>
+
+<P><HR><P>
+Go to the <A HREF="gdb_1.html">first</A>, <A HREF="gdb_2.html">previous</A>, <A HREF="gdb_4.html">next</A>, <A HREF="gdb_21.html">last</A> section, <A HREF="gdb_toc.html">table of contents</A>.
+</BODY>
+</HTML>

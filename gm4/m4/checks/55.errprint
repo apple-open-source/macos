@@ -1,0 +1,5 @@
+dnl ../doc/m4.texinfo:3034: Origin of test
+errprint(`Illegal arguments to forloop
+')
+dnl @error{}Illegal arguments to forloop
+dnl @result{}

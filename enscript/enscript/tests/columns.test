@@ -1,0 +1,10 @@
+#!/bin/sh
+#
+# --columns
+#
+
+. $srcdir/defs || exit 1
+
+$enscript --quiet --columns=5 -p$output $asciifiles
+
+rm $output

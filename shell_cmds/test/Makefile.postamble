@@ -1,0 +1,6 @@
+include $(CoreOSMakefiles)/ProjectBuilder/Makefile.Postamble.Common
+
+OTHERSRCS += '[.1'
+
+after_install::
+	$(LINKPRODUCT) $(DSTROOT)$(INSTALLDIR)/[

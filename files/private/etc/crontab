@@ -1,0 +1,18 @@
+#       $NetBSD: crontab,v 1.13 1997/10/26 13:36:31 lukem Exp $
+#
+# /etc/crontab - root's crontab
+#
+SHELL=/bin/sh
+PATH=/bin:/sbin:/usr/bin:/usr/sbin
+HOME=/var/log
+
+#min	hour	mday	month	wday	user	command
+
+# Disabled by default, since it causes disk access every 10 minutes,
+# which is useless unless you use at(1).  Enable as needed.
+#*/10	*	*	*	*	root	/usr/libexec/atrun
+
+# do daily/weekly/monthly maintenance
+15	3	*	*	*	root	sh /etc/daily	2>&1 | tee /var/log/daily.out	| mail -s "`hostname` daily output"   root
+30	4	*	*	6	root	sh /etc/weekly	2>&1 | tee /var/log/weekly.out	| mail -s "`hostname` weekly output"  root
+30	5	1	*	*	root	sh /etc/monthly 2>&1 | tee /var/log/monthly.out | mail -s "`hostname` monthly output" root

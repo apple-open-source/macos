@@ -1,0 +1,65 @@
+#
+# Makefile to create the encoding vectors.
+# Copyright (c) 1995-1998 Markku Rossi.
+#
+# Author: Markku Rossi <mtr@iki.fi>
+#
+
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+#
+# along with this program; see the file COPYING.  If not, write to
+# the Free Software Foundation, 59 Temple Place - Suite 330,
+# Boston, MA 02111-1307, USA.
+#
+
+ENCODINGS = e_88591.c e_88592.c e_88593.c e_88594.c e_88595.c \
+	e_88597.c e_pc.c e_mac.c e_vms.c e_hp8.c e_koi8.c
+
+all: $(ENCODINGS)
+
+clean:
+	rm -f $(ENCODINGS)
+
+e_88591.c: make-encoding.pl ../88591.txt
+	./make-encoding.pl ../88591.txt >e_88591.c
+
+e_88592.c: make-encoding.pl ../88592.txt
+	./make-encoding.pl ../88592.txt >e_88592.c
+
+e_88593.c: make-encoding.pl ../88593.txt
+	./make-encoding.pl ../88593.txt >e_88593.c
+
+e_88594.c: make-encoding.pl ../88594.txt
+	./make-encoding.pl ../88594.txt >e_88594.c
+
+e_88595.c: make-encoding.pl ../88595.txt
+	./make-encoding.pl ../88595.txt >e_88595.c
+
+e_88597.c: make-encoding.pl ../88597.txt
+	./make-encoding.pl ../88597.txt >e_88597.c
+
+e_pc.c: make-encoding.pl ../ibmpc.txt
+	./make-encoding.pl ../ibmpc.txt >e_pc.c
+
+e_mac.c: make-encoding.pl ../mac.txt
+	./make-encoding.pl ../mac.txt >e_mac.c
+
+e_vms.c: make-encoding.pl ../vms.txt
+	./make-encoding.pl ../vms.txt >e_vms.c
+
+e_hp8.c: make-encoding.pl ../hp8.txt
+	./make-encoding.pl ../hp8.txt >e_hp8.c
+
+e_koi8.c: make-encoding.pl ../koi8.txt
+	./make-encoding.pl ../koi8.txt >e_koi8.c

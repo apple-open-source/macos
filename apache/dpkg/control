@@ -1,0 +1,6 @@
+Package: apache
+Maintainer: Wilfredo Sanchez <wsanchez@apple.com>
+Vendor: Apache Group
+Version: 1.3.14
+Description: Apache HTTP server
+Build-Depends: build-base, perl

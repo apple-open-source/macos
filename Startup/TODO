@@ -1,0 +1,32 @@
+- Add notification registration.
+
+High priority:
+
+- Need command line means for bringing up the system to a certain service.
+  In particular, in single-user, one should be able to bring up the
+  network easily.
+
+- Need to encompass the role of /etc/rc*.
+
+- CoreGraphics code should load as a plugin, rather than compile into the
+  base program.
+
+Medium priority:
+
+- Convert items to include UI feedback for errors, etc.
+
+- Implement dyld bundles as an alternative to executables.
+
+Low priority:
+
+- Figure out a way for non-loadable items (scripts and excecutable binaries)
+  to have some UI feedback.
+
+- Get the running status of a service without having run it in SystemStarter.
+  This is useful for properly re-running SystemStarter and implementing stop.
+
+- Implement stop and restart.
+
+- Search /Network when available.
+
+- Make alternate display implementations loadable.

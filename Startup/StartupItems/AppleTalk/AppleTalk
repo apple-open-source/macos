@@ -1,0 +1,48 @@
+#!/bin/sh
+
+##
+# Run the AppleTalk Startup Program.
+##
+
+. /etc/rc.common
+
+if [ "${APPLETALK:=-NO-}" != "-NO-" ] &&
+   [ "$(uname -p)" = "powerpc" ]; then
+
+    ConsoleMessage "Starting AppleTalk"
+
+    helper=/System/Library/SystemConfiguration/Kicker.bundle/Resources/restart-AppleTalk
+    if [ "${AUTOCONFIG:=-YES-}" = "-YES-" ] && [ -x ${helper} ]; then
+       ##
+       # if "configd" is managing the network configuration then we
+       # should use the restart script to start AppleTalk and update
+       # the configuration cache.
+       ##
+       ${helper}
+       exit
+    fi
+
+    ATO=""
+    if [ "${APPLETALK_HOSTNAME:=-AUTOMATIC-}" != "-AUTOMATIC-" ]; then
+      ATO="-C ${APPLETALK_HOSTNAME}"
+    fi
+
+    case "${APPLETALK}" in
+
+      -ROUTER-)
+	# Router mode
+	appletalk ${ATO} -r -q
+	;;
+
+      -MULTIHOME-)
+	# Multihome non-routing mode
+	appletalk ${ATO} -x -q
+	;;
+
+      *)
+	# Single port on specified interface, non-routing
+	appletalk ${ATO} -u ${APPLETALK} -q
+	;;
+
+    esac
+fi 

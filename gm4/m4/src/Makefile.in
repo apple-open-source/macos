@@ -1,0 +1,122 @@
+# Makefile for GNU m4 sources.
+# Copyright (C) 1994 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+
+PRODUCT = @PRODUCT@
+VERSION = @VERSION@
+
+SHELL = /bin/sh
+srcdir = @srcdir@
+VPATH = @srcdir@
+
+CC = @CC@
+CFLAGS = @CFLAGS@
+CPPFLAGS = @CPPFLAGS@
+DEFS = @DEFS@
+INSTALL = @INSTALL@
+INSTALL_PROGRAM = @INSTALL_PROGRAM@
+LDFLAGS = @LDFLAGS@
+LIBS = @LIBS@
+STACKOVF = @STACKOVF@
+
+prefix = @prefix@
+exec_prefix = @exec_prefix@
+transform = @program_transform_name@
+bindir = $(exec_prefix)/bin
+
+COMPILE = $(CC) -c $(DEFS) $(INCLUDES) $(CPPFLAGS) $(CFLAGS)
+LINK = $(CC) $(LDFLAGS) -o $@
+
+.SUFFIXES:
+.SUFFIXES: .c .o
+.c.o:
+	$(COMPILE) $<
+
+ANSI2KNR = @ANSI2KNR@
+O = .@U@o
+
+.SUFFIXES: ._c ._o
+.c._c:
+	./ansi2knr --varargs $< > $@
+._c._o:
+	@echo $(COMPILE) $<
+	@rm -f _$*.c
+	@ln $< _$*.c && $(COMPILE) _$*.c && mv _$*.o $@ && rm _$*.c
+.c._o:
+	./ansi2knr --varargs $< > $*._c
+	@echo $(COMPILE) $*._c
+	@rm -f _$*.c
+	@ln $*._c _$*.c && $(COMPILE) _$*.c && mv _$*.o $@ && rm _$*.c
+
+INCLUDES = -I.. -I$(srcdir) -I$(srcdir)/../lib
+
+HEADERS = m4.h
+SOURCES = m4.c builtin.c debug.c eval.c format.c freeze.c input.c \
+macro.c output.c path.c stackovf.c symtab.c 
+OBJECTS = m4$O builtin$O debug$O eval$O format$O freeze$O input$O \
+macro$O output$O path$O $(STACKOVF) symtab$O
+
+DISTFILES = Makefile.in ansi2knr.c ansi2knr.1 $(HEADERS) $(SOURCES) \
+TAGS
+
+all: m4
+
+m4: $(OBJECTS) ../lib/libm4.a
+	$(LINK) $(OBJECTS) ../lib/libm4.a $(LIBS)
+
+$(OBJECTS): $(ANSI2KNR) ../config.h m4.h ../lib/obstack.h
+builtin$O: ../lib/regex.h
+
+ansi2knr: ansi2knr.o
+	$(LINK) ansi2knr.o $(LIBS)
+
+install: all
+	$(srcdir)/../mkinstalldirs $(bindir)
+	$(INSTALL_PROGRAM) m4 $(bindir)/`echo m4 | sed '$(transform)'`
+
+uninstall:
+	rm -f $(bindir)/`echo m4 | sed '$(transform)'`
+
+tags: TAGS
+
+TAGS: $(HEADERS) $(SOURCES)
+	cd $(srcdir) && etags -i ../lib/TAGS $(HEADERS) $(SOURCES)
+
+mostlyclean:
+	rm -f *.o *._c *._o core core.*
+
+clean: mostlyclean
+	rm -f m4
+
+distclean: clean
+	rm -f Makefile ansi2knr
+
+realclean: distclean
+	rm -f TAGS
+
+dist: $(DISTFILES)
+	@echo "Copying distribution files"
+	@for file in $(DISTFILES); do \
+	  ln $(srcdir)/$$file ../$(PRODUCT)-$(VERSION)/src 2> /dev/null \
+	    || cp -p $(srcdir)/$$file ../$(PRODUCT)-$(VERSION)/src; \
+	done
+
+Makefile: Makefile.in ../config.status
+	cd .. && CONFIG_FILES=src/$@ CONFIG_HEADERS= ./config.status
+
+# Tell versions [3.59,3.63) of GNU make not to export all variables.
+# Otherwise a system limit (for SysV at least) may be exceeded.
+.NOEXPORT:

@@ -1,0 +1,30 @@
+\initial {A}
+\entry {\code {auto-mode-alist}}{12}
+\initial {D}
+\entry {\code {default-directory-alist}}{15}
+\entry {\code {dired-bibtex-unclean-extensions}}{14}
+\entry {\code {dired-bind-info}}{18}
+\entry {\code {dired-bind-jump}}{18}
+\entry {\code {dired-bind-man}}{18}
+\entry {\code {dired-bind-vm}}{18}
+\entry {\code {dired-enable-local-variables}}{9}
+\entry {\code {dired-find-subdir}}{17}
+\entry {\code {dired-guess-shell-alist-default}}{10}
+\entry {\code {dired-guess-shell-alist-user}}{10}
+\entry {\code {dired-guess-shell-gnutar}}{10}
+\entry {\code {dired-guess-shell-gzip-quiet}}{10}
+\entry {\code {dired-guess-shell-znew-switches nil}}{11}
+\entry {\code {dired-latex-unclean-extensions}}{14}
+\entry {\code {dired-local-variables-file}}{9}
+\entry {\code {dired-marked-files}}{17}
+\entry {\code {dired-omit-extensions}}{7}
+\entry {\code {dired-omit-files}}{7}
+\entry {\code {dired-omit-files-p}}{6}
+\entry {\code {dired-omit-localp}}{7}
+\entry {\code {dired-omit-marker-char}}{7}
+\entry {\code {dired-patch-unclean-extensions}}{13}
+\entry {\code {dired-shell-command-history nil}}{11}
+\entry {\code {dired-tex-unclean-extensions}}{14}
+\entry {\code {dired-texinfo-unclean-extensions}}{14}
+\entry {\code {dired-vm-read-only-folders}}{18}
+\entry {\code {dired-x-hands-off-my-keys}}{16}

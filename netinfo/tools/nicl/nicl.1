@@ -1,0 +1,332 @@
+.Dd December 15, 2000
+.Dt nicl 1
+.Os Mac OS X
+.Sh NAME
+.Nm nicl
+.Nd NetInfo command line utility
+.Sh SYNOPSIS
+.Nm
+.Op options
+.Ar datasource
+.Op command
+.Pp
+options:
+.Bl -tag -width "-P password" -compact -offset indent
+.It Fl ro
+read-only  
+.It Fl p
+prompt for password
+.It Fl u Ar user
+authenticate as user
+.It Fl P Ar password
+authentication password
+.It Fl raw
+datasource is a NetInfo directory
+.It Fl t
+datasource is host/tag
+.It Fl v
+verbose output
+.It Fl q
+quiet - no interactive prompt
+.It Fl x500
+X.500 names
+.El
+.Pp
+commands:
+.Bl -inset -compact -offset indent
+.It Fl read Ar dir
+.Op Ar key Li "..."
+.It Fl list Ar dir Op Ar key
+.It Fl search Ar dir scopemin scopemax key val
+.Op Ar key val
+.Li "..."
+.It Fl path Ar dir
+.It Fl create
+.Oo
+.Ar path
+.Oo Ar key
+.Op Ar val Li "..."
+.Oc
+.Oc
+.It Fl append Ar dir key val Li "..."
+.It Fl merge Ar dir key val Li "..."
+.It Fl insert Ar dir key val index
+.It Fl rename Ar dir old_key new_key
+.It Fl delete Ar dir
+.Oo
+.Ar key Op Ar val Li "..."
+.Oc
+.It Fl copy Ar dir new_parent
+.It Fl move Ar dir new_parent
+.It Fl history
+.Op <=>
+.Op Ar version
+.It Fl statistics
+.It Fl domainname
+.It Fl rparent
+.It Fl resync
+.El
+.Pp
+available only in interactive mode:
+.Bl -inset -compact -offset indent
+.It Fl cd Ar dir
+.It Fl pwd
+.It Fl auth Op Ar user Op Ar password
+.It Fl quit
+.El
+.Pp
+support for experimental X.500 mode:
+.Bl -inset -compact -offset indent
+.It Fl refs
+.It Fl setrdn Ar dir key
+.El
+.Pp
+.Sh DESCRIPTION
+.Nm
+is general-purpose utility for operating on NetInfo databases.  Its commands allow one to create, read, and manage NetInfo data.  If invoked without any commands,
+.Nm
+runs in an interactive mode, reading commands from standard input.  Interactive processing is terminated by the
+.Ar quit
+command, or by end of file.  Leading dashes ("-") are optional for all commands.
+.Pp
+.Nm
+operates on a datasource specified on the command line.  This may be a domain name, a NetInfo server of the form "host/tag", or a file.  Domain names may be absolute paths beginning with a slash ("/"), or relative domain paths beginning with a dot (".") character, which specifies the local domain, or "..", specifying the local domain's parent.  If the
+.Fl t
+option has been specified, then the datasource is a host/tag specification.  Hosts may be given by name or IP address.  If the
+.Fl raw
+option has been specified, then the datasource is a NetInfo-format database, for example "/var/db/netinfo/local.nidb".  The user invoking
+.Nm
+must have sufficient file-system permissions to read the database files.
+.Pp
+In "raw" mode,
+.Nm
+operates directly on the database without communicating with a server for that database.  This is intended for use in single-user mode, or in other operations where a server is not running.
+.Pp
+WARNING - Do not use
+.Nm
+to modify a database when a NetInfo server is running.  Modifying a database in raw mode when a NetInfo server is present can cause database corruption.
+.Pp
+.Sh DIRECTORY SPECIFICATION
+Many commands take a directory as an option.  Directories may be specified as a directory ID number or as a path.  NetInfo paths are specified by a list of slash-separated components.  Each component is of the form:
+.Pp
+.Dl value
+or
+.Dl key=value
+.Pp
+In the first form, the key defaults to "name".  Thus the following two paths are equivalant:
+.Pp
+.Dl /users/alice
+.Dl /name=users/name=alice
+.Pp
+Note that NetInfo does not require any key to have unique values.  When matching a directory path, NetInfo will match the first directory it finds with a given key and value.  For example, the following path will locate a user with a gid  of "100":
+.Pp
+.Dl /users/gid=100
+.Pp
+Many users may have a gid value of 100.  This path will match the first in some search order.  The only unique identifier for NetInfo directories is the directory ID number.  This number is printed in the output of the
+.Sx list
+command, and is printed by the
+.Sx read
+command if the
+.Nm
+is invoked with the
+.Fl v
+(verbose) flag.
+.Pp
+If path components contain keys or values with embedded slash characters, the slash characters must be escaped with a leading backslash character.  Since the shell also processes escape characters, an extra backslash is required to correctly specify an escape.  For example, to read a directory with the name "/Alpha" in the "/exports" directory, one of the following paths could be used:
+.Pp
+.Dl Nm Li "\& ." Fl read Li "/exports/\e\\e\\&/Alpha"
+.Dl Nm Li "\& ." Fl read Li "/exports/name=\e\\e\\&/Alpha"
+.Sh X.500 MODE
+.Nm
+was developed using an internal datastore "engine" with operations supporting both the legacy NetInfo network protocol and LDAP Version 3.  Development work is still in progress in this area.  Some
+.Nm
+commands have been written for use in "X.500" mode, invoked by use of the
+.Fl x500
+flag.  Support for X.500-style data organization, naming, and access is still experimantal and under active development.
+.Sh COMMANDS
+The action of each command is described below.  Some commands have aliases.  For example, "cat" and "." are aliases for "read".  Command aliases are listed in parentheses.
+.Ss read (cat .)
+Usage: read
+.Ar dir
+.Op Ar key Li "..."
+.Pp
+Prints a directory.  Each properties are printed one per line.  The property key is followed by a colon, then a space-separated list of the values for that property.  Note that a value which contains embedded spaces will appear identical to a pair of values.
+If The 
+.Fl v
+flag for verbose output has been given, then
+.Sx read
+prints the directory (record) ID number, its version number, serial number, a count of child directories and a list of child directory ID numbers.  Attributes are printed separately from meta-attributes (those having a leading underscore character).
+.Ss list (ls)
+Usage: list
+.Ar dir Op Ar key
+.Pp
+Lists the subdirectories of the given directory.  Subdirectories are listed one per line.  The directory ID number is printed first, then the values of "name" key.  If an optional key argument is given, then the values for that key are used, rather than the values for the "name" key.
+.Pp
+Note that subdirectories that do not have a "name" key (or the key given as an option) are not listed.
+.Ss search
+.Ar path scopemin scopemax key val
+.Op Ar key val
+.Li "..."
+.Pp
+Searches for directories that match a pattern.  The search is rooted at the given directory.  The following two arguments control the scope of the search by specifying the starting and ending depth of the search.  If
+.Ar scopemin
+argument is 0, for example, the search will include the starting directory itself.  A value of 1 will start searching at the subdirectories of the starting directory.  The value of
+.Ar scopemax
+specifies the maximum depth of the search.  A value of 0 stops the search at the starting directory.  A value of 1 stops the search one level down.  A value of -1 causes the search to have no maximum depth.
+.Pp
+Following the scope arguments are one or more key and value pairs.  Directories that have matching keys and values will be printed.
+.Ss path
+Usage: path
+.Ar path
+.Pp
+Prints the directories from the given directory to the root directory.
+.Ss create (mk)
+Usage: create
+.Oo
+.Ar path
+.Oo Ar key
+.Op Ar val Li "..."
+.Oc
+.Oc
+.Pp
+Creates a new directory, property, or value.  If a directory path is given, the
+.Sx create
+command will create the directory path if it does not exist.  If a key is given, then a property with that key will be created.
+.Pp
+WARNING - If a property with the given key already exists, it will be destroyed and a new property will be created in its place.  To add values to an existing property, use the
+.Sx append
+or 
+.Sx merge
+commands.
+.Pp
+If values are included in the command, these values will be set for the given key.
+.Pp
+If it is invoked without any arguments as a single command-line argument to
+.Nm Li ,
+the 
+.Sx create
+command will create a new database.  For example, to create a new database "/tmp/test_db":
+.Pp
+.Dl Nm Li " " Fl raw Li /tmp/test_db Fl create
+.Pp
+The "mk" alias is not available for creating a new database.
+.Ss append
+Usage: append
+.Ar path key val Li "..."
+.Pp
+Appends one or more values to a property in a given directory.  The property is created if it does not exist.
+.Ss merge
+Usage: merge
+.Ar path key val Li "..."
+.Pp
+Appends one or more values to a property in a given directory if the property does not already have those values.  The property is created if it does not exist.
+.Ss insert
+Usage: insert
+.Ar path key val index
+Inserts the given value in the list of values of the given key in the specified directory.  
+.Ar index
+is an integer value.  An index of 0 specifies that the value should be inserted at the head of the list.  An index greater than the number of values in the list causes the value to be appended.  The property is created if it does not exist.
+.Ss rename
+Usage: rename
+.Ar path old_key new_key
+.Pp
+Changes a property key.
+.Ss delete (rm)
+Usage: delete
+.Ar path
+.Oo
+.Ar key Op Ar val Li "..."
+.Oc
+.Pp
+Delete a directory, property, or value.  If a directory path is given, the
+.Sx delete
+command will delete the directory.  If a key is given, then a property with that key will be deleted.  If one or more values are given, those values will be removed from the property with the given key.
+.Ss copy (cp)
+Usage: copy
+.Ar path new_parent
+.Pp
+Recursively copies a directory to a new parent directory.
+.Ss move (mv)
+Usage: move
+.Ar path new_parent
+.Pp
+Moves a directory to a new parent directory.  In raw mode, 
+.Sx move
+moves a directory by detaching it from its parent directory and re-attaching it to a new parent.  When connected to a NetInfo server, the directory is recursively copied to the new parent directory, then the original is removed.
+.Ss history (hist)
+Usage: history
+.Op <=>
+.Op Ar version
+.Pp
+Locates directories by reference to the database version number.  When a new database is created, it starts with a version number of zero.  Each modificifation of the database causes the version number to be incremented.  The database version number is saved with the directory that was modified at that time.  When a directory is added or removed, the parent directory is modified, and thus the parent directory carries the version number for that modificifation.  
+.Pp
+The
+.Sx history
+command lists directories that have been modified before, at, or after a specific version of the database.   The 
+.Ar <
+argument is used to locate directories that changed before a specific version.  The 
+.Ar >
+argument locates directories that changed after a specific version.  The 
+.Ar =
+after locates the single directory that changed at a specific version.  This is also the default if none of these arguments is given.
+.Pp
+If a version number is omitted, the current database version number is used.  To determine the current database version:
+.Pp
+.Dl Nm Li "\& ." Fl history
+.Ss statistics (stats)
+Usage: statistics
+.Pp
+Prints various statistics.  If the datasource is a raw database this includes the database checksum, version number, maximum directory ID number, and counts of fetch, save, and remove operations.  If the datasource is a NetInfo server, then this command prints all statistics available from the server.
+.Ss domainname (name)
+Usage: domainname
+.Pp
+Prints the NetInfo domain name.  Not available in raw mode.
+.Ss rparent
+Usage: rparent
+.Pp
+Prints the IP address and tag of the server's parent domain server.  No output is printed if the server has no parent.  Not available in raw mode.
+.Ss resync
+Usage: resync
+.Pp
+If connected to a NetInfo clone server, this command causes the clone to check its database and re-synchronize with the master if necessary.  If connected to a master server, this command causes the master to send a message to all clones, causing them all to re-synchronize.  Not available in raw mode.
+.Sh INTERACTIVE COMMANDS
+.Ss cd
+Usage: cd dir
+.Pp
+Sets the current directory.  Path names for other
+.Nm
+commands may be relative to the current directory.
+.Ss pwd
+Usage: pwd
+Prints the path of the current directory.
+.Ss auth (su)
+Usage: auth
+.Op Ar user Op Ar password
+.Pp
+Authenticate as the named user, or as "root" if no user is specified.  If a password is supplied, then that password is used for authentication, otherwise the command prompts for a password.
+.Ss quit (q)
+Usage: quit
+Ends processing of interactive commands and terminates the program.
+.Sh X.500 MODE COMMANDS
+.Ss refs
+Usage: refs
+Used with
+.Fl x500
+mode.  Lists parent domain and child domain references.  Domains are printed as LDAP URLS.
+.Ss setrdn
+Usage: setrdn
+.Ar path key
+.Pp
+Used with
+.Fl x500
+mode.  This command creates a meta-attribute "rdn" key in the specified directory, with the 
+.Ar key
+as the value of the "rdn" meta-attribute.  When 
+.Nm
+is invoked with the
+.Fl x500
+flag, X.500-style naming is used.  The "rdn" meta-attribute of a directory specifies which key will be used for the relative distingushed name (RDN).  By default, the "name" property is used to form the RDN.
+.Sh FILES
+/var/db/netinfo/*.nidb
+.Sh SEE ALSO
+nidump(8), nifind(1), nigrep(1), niload(8), nireport(1), niutil(1)

@@ -1,0 +1,3 @@
+SHELLTOOL = which.csh
+
+include $(CoreOSMakefiles)/ProjectBuilder/Makefile.Preamble.Common

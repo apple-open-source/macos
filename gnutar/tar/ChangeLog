@@ -1,0 +1,1433 @@
+1999-07-08  Paul Eggert  <eggert@twinsun.com>
+
+	* NEWS, configure.in (AM_INIT_AUTOMAKE): Version 1.13 released.
+
+	* configure.in (AC_EXEEXT): Add.
+
+	* lib/Makefile.am (noinst_HEADERS):
+	Add basename.h, exclude.h.  Remove full-write.h.
+	(libtar_a_SOURCES): Add exclude.c.
+
+	* lib/basename.h, lib/exclude.c, lib/exclude.h, lib/safe-read.h:
+	New files.
+	* lib/full-write.c: Include safe-read.h instead of full-write.h.
+	* lib/safe-read.h (safe_read): New decl.
+	* src/rmt.c: Include safe-read.h.
+	* src/rtapelib.c: Include basename.h, save-read.h.
+	(rmt_open__): Use base_name to compute base name.
+
+	* src/common.h:
+	Include basename.h, exclude.h; don't include full-write.h.
+	(exclude_option): Remove decl.
+	(excluded): New decl.
+	(add_exclude, add_exclude_file, check_exclude): Remove decls.
+
+	* src/list.c (read_and):
+	Use excluded_filename instead of check_exclude.
+	Check base name of incoming file name, not entire file name, when
+	deciding whether to exclude it.
+
+	* src/create.c (finish_sparse_file):
+	Use excluded_filename instead of check_exclude.
+	Don't bother to stat excluded file names.
+	* src/incremen.c (get_directory_contents): Likewise.
+
+	* src/names.c (exclude_pool, exclude_pool_size,
+	allocated_exclude_pool_size, simple_exclude_array,
+	simple_excludes, allocated_simple_excludes,
+	pattern_exclude_array, pattern_excludes,
+	allocated_pattern_excludes, add_exclude, add_exclude_file,
+	check_exclude):
+	Remove; now done in ../lib/exclude.c.
+
+	* src/tar.c (decode_options): Initialize `excluded'.
+	Use new add_exclude_file and add_exclude functions.
+
+1999-07-05  Paul Eggert  <eggert@twinsun.com>
+
+	* m4/gettext.m4: Use changequote rather than [[ ]].
+
+	* lib/safe-read.c: Renamed from lib/full-read.c.
+	(safe_read): Renamed from full_read.  All uses changed.
+	* lib/safe-read.h, lib/full-write.h: New files.
+	* lib/Makefile.am (noinst_HEADERS): Add full-write.h, safe-read.h.
+	(libtar_a_SOURCES): Rename full-read.c to safe-read.c.
+	* lib/full-write.c: Include full-write.h.
+	* src/common.h: Include full-write.h, safe-read.h.
+	* src/system.h: (full_read, full_write): Remove decls.
+
+	* src/Makefile.am (datadir): New var; needed for Solaris gettext.
+
+	* src/system.h (bindtextdomain, textdomain): undef before
+	defining, to avoid preprocessor warnings with --disable-nls
+	on hosts whose locale.h includes libintl.h.
+
+	* lib/xstrtol.c (__strtol): Remove decl; it doesn't work if __strtol
+	expands to a macro, which occurs in HP-UX 10.20 with strtoumax.
+	(strtol, strtoul): New decls (for pre-ANSI hosts), to replace
+	the above decl.
+
+1999-07-02  Paul Eggert  <eggert@twinsun.com>
+
+	* Makefile.am (ACINCLUDE_INPUTS): Add $(M4DIR)/mktime.m4.
+	* m4/mktime.m4: New file.
+	* m4/Makefile.am.in, m4/README: Remove these files.
+	* m4/Makefile.am (EXTRA_DIST): Add mktime.m4;
+	remove README, Makefile.am.in.
+	(Makefile.am): Remove rule; it didn't work in BSD/OS 4.0.
+	* m4/jm-mktime.m4 (jm_FUNC_MKTIME): Invoke AC_FUNC_MKTIME,
+	not AM_FUNC_MKTIME.
+
+	* src/tar.c: Include signal.h.
+	(SIGCHLD): Define to SIGCLD if SIGCLD is defined but SIGCHLD is not.
+	(main): Ensure SIGCHLD is not ignored.
+
+	(BACKUP_OPTION, DELETE_OPTION, EXCLUDE_OPTION, GROUP_OPTION,
+	MODE_OPTION, NEWER_MTIME_OPTION, NO_RECURSE_OPTION, NULL_OPTION,
+	OWNER_OPTION, POSIX_OPTION, PRESERVE_OPTION, RECORD_SIZE_OPTION,
+	RSH_COMMAND_OPTION, SUFFIX_OPTION, USE_COMPRESS_PROGRAM_OPTION,
+	VOLNO_FILE_OPTION, OBSOLETE_ABSOLUTE_NAMES,
+	OBSOLETE_BLOCK_COMPRESS, OBSOLETE_BLOCKING_FACTOR,
+	OBSOLETE_BLOCK_NUMBER, OBSOLETE_READ_FULL_RECORDS, OBSOLETE_TOUCH,
+	OBSOLETE_VERSION_CONTROL): Make sure they can't be valid chars, so
+	they don't overlap with char codes.  Use an enum instead of a lot
+	of #defines.
+
+	* src/system.h (ISASCII): Remove.
+	(CTYPE_DOMAIN, ISDIGIT, ISODIGIT, ISPRINT, ISSPACE, S_ISUID,
+	S_ISGID, S_IRUSR, S_IWUSR, S_IXUSR, S_IRGRP, S_IWGRP, S_IXGRP,
+	S_IROTH, S_IWOTH, S_IXOTH, MODE_WXUSR, MODE_R, MODE_RW,
+	MODE_RWX, MODE_ALL, SEEK_SET, SEEK_CUR, SEEK_END, CHAR_MAX,
+	LONG_MAX): New macros.
+
+	* src/incremen.c (ISDIGIT, ISSPACE): Remove; now in system.h.
+	(read_directory_file): Cast ISSPACE arg to unsigned char.
+	* src/misc.c (ISPRINT): Remove; now in system.h.
+	(remove_any_file): Add brackets to pacify gcc -Wall.
+	* src/list.c: Don't include <ctype.h>; system.h already does this.
+	(ISODIGIT, ISSPACE): Remove; now in system.h.
+	(decode_header): No need to AND mode with 07777; MODE_FROM_OCT
+	does this now.
+	(from_oct): Cast ISSPACE arg to unsigned char.
+
+	* src/create.c (mode_to_oct): Translate modes from internal to
+	external form.
+	* src/list.c (mode_from_oct): Translate modes from external to
+	internal form.  Do not complain about unrecognized mode bits.
+	* src/common.h (TSUID, TSGID, TSVTX, TUREAD, TUWRITE, TUEXEC,
+	TGREAD, TGWRITE, TGEXEC, TOREAD, TOWRITE, TOEXEC): Remove undefs.
+
+	* src/extract.c: (extr_init, make_directories, extract_archive):
+	Do not assume mode bits have traditional Unix values.
+	* src/list.c (decode_mode): Likewise.
+	* src/create.c (start_header, dump_file): Likewise.
+	* src/buffer.c (child_open_for_compress,
+	child_open_for_uncompress, open_archive, (close_archive): Likewise.
+	* src/compare.c (diff_archive): Likewise.
+
+	* src/extract.c (set_mode): Use %04 not %0.4 format.
+	(extract_sparse_file): Do not use data_block uninitialized.
+	Check for lseek failures.
+
+	* src/rtapelib.c (rmt_lseek__):
+	Convert lseek whence values to portable integers on the wire.
+	* src/rmt.c (main): Likewise.  Check for whence values out of range.
+
+	* src/create.c (finish_sparse_file): Use lseek whence macros
+	instead of integers.
+	* src/buffer.c (backspace_output): Likewise.
+	* src/compare.c (diff_archive, verify_volume): Likewise.
+	* src/delete.c (move_archive): Likewise.
+	* src/extract.c (extract_sparse_file): Likewise.
+
+	* src/create.c (dump_file): Do not invoke finish_sparse_file
+	on a negative file descriptor.
+
+	* src/buffer.c: Add braces to pacify gcc -Wall.
+
+	* src/compare.c (diff_sparse_files): Report lseek errors.
+
+	* configure.in (ALL_LINGUAS): Add cs, es, ru.
+
+	* PORTS, TODO: gnu.ai.mit.edu -> gnu.org
+
+	* src/arith.c, src/buffer.c (new_volume): Don't put ^G in
+	message to be internationalized; \a doesn't work with msgfmt.
+
+	* src/tar.c (long_options, main, usage, OPTION_STRING):
+	Remove -E or --ending-file.
+	* src/list.c (read_and): Likewise.
+	* src/common.h (ending_file_option): Likewise.
+	* src/buffer.c (close_archive): Likewise.
+
+	* tests/after: Don't run two commands together in a pipeline,
+	as some old shells mishandle pipeline exit status.
+
+1999-06-28  Paul Eggert  <eggert@twinsun.com>
+
+	* configure.in (AM_INIT_AUTOMAKE): version 1.12.64015.
+	* NEWS: Describe changes since 1.12.
+	* README: Update bug reporting address; move paxutils ref to NEWS.
+
+	Handle EINTR correctly.
+	* lib/Makefile.am (libtar_a_SOURCES): Add full-read.c, full-write.c.
+	* lib/full-read.c, lib/full-write.c: New files.
+	* src/buffer.c (child_open_for_compress, child_open_for_uncompress):
+	Prefer full_read to read and full_write to write.
+	* src/compare.c (process_rawdata, diff_sparse_files): Likewise.
+	* src/create.c (deal_with_sparse, finish_sparse_file, dump_file):
+	Likewise.
+	* src/extract.c (extract_sparse_file): Likewise.
+	* src/rmt.c (get_string, main, report_error_message,
+	report_numbered_error): Likewise.
+	* src/rmt.h (rmtread, rmtwrite): Likewise.
+	* src/rtapelib.c (do_command, get_status_string, rmt_read__,
+	rmt_write__, rmt_ioctl__): Likewise.
+	* src/update.c (append_file): Likewise.
+	* src/system.h (full_read, full_write): New decls.
+
+	* po/POTFILES.in: Add lib/argmatch.c, lib/error.c lib/getopt.c,
+	lib/xmalloc.c, src/arith.c, src/misc.c.
+
+	* src/system.h (STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO):
+	New macros.  All uses of STDIN and STDOUT changed.
+	* src/rmt.c (prepare_record_buffer, main): Use STDIN_FILENO
+	instead of 0 and STDOUT_FILENO instead of 1.
+	* src/rtapelib.c (_rmt_rexec): Use STDIN_FILENO and STDOUT_FILENO
+	instead of fileno (stdin) and fileno (stdout) or 0 and 1.
+
+	* src/rmt.c (private_strerror): Avoid const.  Translate results.
+
+	* tests/Makefile.am (TESTS): Remove incremen.sh; it doesn't work
+	in the presence of NFS clock skew.
+
+1999-06-25  Paul Eggert  <eggert@twinsun.com>
+
+	* configure.in (AM_INIT_AUTOMAKE): version 1.12.64014.
+
+	* src/buffer.c (write_archive_buffer): New function.
+	(child_open_for_compress, flush_write, flush_read): Use it to write
+	buffers.
+	(open_archive): Report error if fstat of archive fails.
+	Improve efficiency of check for /dev/null.
+	Also, fix some corner cases with remote archives and /dev/null checking.
+	(close_archive): Test for input fifo only if not remote.
+	Truncate output archive only if it's not remote.
+
+	* src/misc.c (remove_any_file):
+	Don't terminate if you see . or ..; just skip them.
+
+1999-06-18  Paul Eggert  <eggert@twinsun.com>
+
+	* configure.in (AM_INIT_AUTOMAKE): version 1.12.64013.
+
+	Output sizes using a format that's more compatible with
+	traditional tar (and with GNU Emacs).
+	* src/common.h (GID_TO_OCT, MAJOR_TO_OCT, MINOR_TO_OCT,
+	MODE_TO_OCT, SIZE_TO_OCT, UID_TO_OCT, UINTMAX_TO_OCT):
+	Don't subtract 1 from size.
+	* src/create.c (to_oct): Prepend leading zeros, not spaces.
+	Output a trailing NUL unless the value won't fit without it.
+	(finish_header): No need to append NUL to chksum, now that
+	to_oct is doing it.
+
+1999-06-16  Paul Eggert  <eggert@twinsun.com>
+
+	* NEWS, configure.in (AM_INIT_AUTOMAKE): version 1.12.64012.
+
+	* src/Makefile.am (LDADD): Link libtar.a after @INTLLIBS@, since
+	@INTLLIBS@ might invoke rpl_realloc.
+
+	* src/tar.c (backup_type): Remove decl; backupfile.h now has it.
+	(intconv): Remove; use xstrto* fns instead.
+	("xstrtol.h"): Include.
+	(check_decimal): Remove.
+	(long_options, usage, OPTION_STRING, decode_options):
+	Remove -y, --bzip2, --unbzip2.
+	(decode_options): Use xget_version instead of get_version.
+	Check for overflow with -b and -L and RECORD_SIZE_OPTION.
+	Replace invocations of check_decimal  with xstrtoumax.
+
+	* tests/preset.in (echo_n, echo_c): Remove.
+
+	* tests/after: Don't rely on $echo_c and $echo_n.
+
+	* lib/addext.c, lib/dirname.c, lib/lchown.c, lib/lchown.h,
+	lib/malloc.c, lib/mktime.c, lib/realloc.c, lib/strtol.c, lib/strtoul.c,
+	lib/strtoull.c, lib/strtoumax.c, lib/utime.c, lib/xstrtol.c,
+	lib/xstrtol.h, lib/xstrtoul.c, lib/xstrtoumax.c,
+	m4/Makefile.am.in, m4/README, m4/ccstdc.m4, m4/d-ino.m4,
+	m4/gettext.m4, m4/inttypes_h.m4, m4/isc-posix.m4,
+	m4/jm-mktime.m4, m4/largefile.m4, m4/lcmessage.m4,
+	m4/malloc.m4, m4/progtest.m4, m4/realloc.m4, m4/uintmax_t.m4,
+	m4/ulonglong.m4, m4/utimbuf.m4, m4/utime.m4, m4/utimes.m4,
+	m4/xstrtoumax.m4: New files.
+
+	* configure.in(fp_PROG_ECHO): Remove; no longer needed.
+	(AC_SYS_LARGEFILE): Renamed from AC_LFS.
+	(jm_AC_HEADER_INTTYPES_H): Replaces inline code.
+	(jm_STRUCT_DIRENT_D_INO, jm_AC_TYPE_UINTMAX_T, jm_AC_PREREQ_XSTRTOUMAX): Add.
+	(AC_CHECK_FUNCS): Remove lchown.
+	(AC_REPLACE_FUNCS): Remove basename, dirname.
+	Add lchown, strtol, strtoul.
+	(jm_FUNC_MKTIME): Add.
+	(LIBOBJS): Replace .o with $U.o, so that the .o files in LIBOBJS
+	are also built via the ANSI2KNR-filtering rules.
+	Use a no-op line to work around bug in automake 1.4 with malloc and
+	realloc.
+	(AC_OUTPUT): Add m4/Makefile.
+
+	* lib/Makefile.am (EXTRA_DIST):
+	Add lchown.c, malloc.c, mktime.c, realloc.c,
+	strtol.c, strtoul.c, strtoull.c, strtoumax.c, utime.c.
+	(noinst_HEADERS): Add lchown.h, modechange.h, xstrtol.h.
+	(libtar_a_SOURCES): Add addext.c, basename.c, xstrtol.c,
+	xstrtoul.c, xstrtoumax.c.  Remove getversion.c.
+	($(srcdir)/getdate.c:): Remove `expect conflicts' line.
+
+	* src/system.h (uintmax_t): Don't declare; configure now does this.
+
+	* src/common.h (backup_type): New decl.
+	* src/common.h, src/misc.c, src/tar.c:
+	Move include of backupfile.h to common.h.
+
+	* src/misc.c (maybe_backup_file):
+	Pass backup_type to find_backup_file_name.
+
+	* src/list.c (print_header): Change sizes of uform and gform from 11 to
+	UINTMAX_STRSIZE_BOUND.
+
+	* doc/tar.texi: Remove --bzip2.
+	Fix @xref typos reported by latest makeinfo.
+
+	* Makefile.am (ACLOCAL_AMFLAGS): New macro.
+	(SUBDIRS): Add m4.
+	(M4DIR, ACINCLUDE_INPUTS): New macros.
+	($(srcdir)/acinclude.m4): New rule.
+
+	* acconfig.h (ENABLE_NLS, HAVE_CATGETS, HAVE_GETTEXT,
+	HAVE_INTTYPES_H, HAVE_LC_MESSAGES, HAVE_STPCPY): Remve #undefs;
+	now generated automatically by autoconf.
+
+1999-05-15  Paul Eggert  <eggert@twinsun.com>
+
+	* doc/tar.texi: Remove -y.
+
+1999-04-09  Paul Eggert  <eggert@twinsun.com>
+
+	* src/system.h (INT_STRLEN_BOUND): Fix off-by-factor-of-10 typo
+	(we were allocating too much storage).
+	(uintmax_t): Don't declare; configure now does this.
+
+	* ABOUT-NLS: Update to gettext 0.10.35 edition.
+
+1999-03-22  Paul Eggert  <eggert@twinsun.com>
+
+	* NEWS, configure.in (AM_INIT_AUTOMAKE): version 1.12.64010
+
+	* acinclude.m4 (AC_LFS_FLAGS):
+	Don't use -mabi=n32 with GCC on IRIX 6.2; it's the default.
+	(AC_LFS): -n32, -o32, and -n64 are CPPFLAGS, not CFLAGS.
+	(jm_FUNC_MALLOC, jm_FUNC_REALLOC): New macros.
+
+	* configure.in (jm_FUNC_MALLOC, jm_FUNC_REALLOC):
+	New macros; needed for latest GNU xmalloc.c.
+
+	* Makefile.am (noinst_HEADERS): Add quotearg.h, xalloc.h.
+	(libtar_a_SOURCES): Add quotearg.c.
+	* list.c: Include <quotearg.h>.
+	(from_oct): Add forward decl.
+	(read_header): Return HEADER_FAILURE if we can't parse the checksum.
+	(from_oct): Report an error only if TYPE is nonzero.
+	Quote any funny characters in bad header.
+
+1999-03-20  Paul Eggert  <eggert@twinsun.com>
+
+	* NEWS, configure.in (AM_INIT_AUTOMAKE): version 1.12.64009
+
+	* acinclude.m4 (AC_LFS_FLAGS): Add support for IRIX 6.2 and later.
+	(AC_LFS_SPACE_APPEND): Assume $2 is quoted properly; all callers
+	changed.
+	(AC_LFS): Simplify AIX revision number test.
+
+1999-03-17  Paul Eggert  <eggert@twinsun.com>
+
+	* NEWS, configure.in (AM_INIT_AUTOMAKE): version 1.12.64008
+
+	* configure.in (AC_VALIDATE_CACHED_SYSTEM_TUPLE):
+	Remove; it doesn't work that well
+	with AC_CANONICAL_HOST.
+	(fp_WITH_INCLUDED_MALLOC): Remove; we'll just use the system malloc.
+
+	* Makefile.am (EXTRA_DIST): Remove AC-PATCHES, AM-PATCHES, BI-PATCHES.
+
+	* Makefile.am (EXTRA_DIST): Remove gmalloc.c.
+
+	* acinclude.m4 (fp_WITH_INCLUDED_MALLOC): Remove.
+
+	* tar.texi: Fix bug-report addr.
+
+	* README: Remove --with-included-malloc.
+	Upgrade version numbers of build software.
+
+1999-03-07  Paul Eggert  <eggert@twinsun.com>
+
+	* NEWS, configure.in (AM_INIT_AUTOMAKE): Version 1.12.64007.
+
+	* acinclude.m4 (AM_WITH_NLS): Port to Solaris 2.5.1,
+	where bindtextdomain and gettext require -lintl.
+	(AC_LFS_FLAGS): Simplify so that it only gets the flags;
+	`no' means it failed.
+	(AC_LFS_SPACE_APPEND, AC_LFS_MACRO_VALUE): New macros.
+	(AC_LFS): Use them.  Set _FILE_OFFSET_BITS, _LARGEFILE_SOURCE, and
+	_LARGE_FILES from LFS_CFLAGS, so that in the normal case we don't need
+	to add anything to the command line (it's all in config.h).
+	Put any extra -D and -I options into CPPFLAGS, the rest into CFLAGS.
+
+1999-03-01  Paul Eggert  <eggert@twinsun.com>
+
+	* NEWS, configure.in (AM_INIT_AUTOMAKE): Version 1.12.64006.
+
+	* acinclude.m4 (AC_LFS_FLAGS): Port to AIX 4.2.
+
+	* src/list.c: (gid_from_oct, major_from_oct, minor_from_oct,
+	mode_from_oct, off_from_oct, size_from_oct, time_from_oct,
+	uid_from_oct, uintmax_from_oct): Use TYPE_MAXIMUM instead of macros
+	like OFF_MAX, which are not reliable
+	(e.g. OFF_MAX in AIX 4.2 is incorrect).
+	* src/system.h (GID_MAX, MAJOR_MAX, MINOR_MAX, MODE_MAX, OFF_MAX,
+	SIZE_MAX, TIME_MAX,UID_MAX, UINTMAX_MAX):  Remove; no longer used.
+
+	* src/incremen.c (get_directory_contents):
+	Don't use statx if _LARGE_FILES; it doesn't work under AIX 4.2.
+	Have statx depend on STX_HIDDEN, not AIX.
+
+	* src/create.c (to_oct):
+	New parameter substitute, giving a substitute value to use
+	when the original value is out of range.  Do not append a space to the
+	output; modern tars don't.  When a value is out of range, specify the
+	maximum value, not the number of bits.
+	(GID_NOBODY, UID_NOBODY): New macros.
+	(gid_to_oct, uid_to_oct): Use them as substitutes.
+	(finish_header): Do not assume that UINTMAX_TO_OCT appends a space.
+	(dump_file): Check whether the file changed as we read it.
+
+	* src/rmt.c (main): Remove suspicious AIX/386 code.
+
+1999-02-19  Paul Eggert  <eggert@twinsun.com>
+
+	* intl/localealias.c (read_alias_file): Don't assume that memcpy
+	returns a type compatible with char *; it doesn't on SunOS
+	4.1.4 with Sun cc, since <string.h> doesn't declare memcpy.
+
+	* NEWS, configure.in (AM_INIT_AUTOMAKE): Version 1.12.64005.
+
+	* src/tar.c (long_options, usage): Prefer --unbzip2 to --bunzip2.
+	* doc/tar.texi: Add --bzip2, --unbzip2 options.
+
+	* configure.in (AC_CANONICAL_HOST, AC_VALIDATE_CACHED_SYSTEM_TUPLE):
+	Add.
+	(AC_LINK_FILES): Omit; AM_GNU_GETTEXT now does this.
+	(AC_OUTPUT): Omit munging of po/Makefile; AM_GNU_GETTEXT now does this.
+	* acinclude.m4 (AM_WITH_NLS):
+	Update to latest gettext version (serial 5).
+	(AC_LFS_FLAGS): New macro
+	(AC_LFS): Use it.  Append to CFLAGS, LDFLAGS, LDLIBS instead of
+	working only with unset variables.  Append to CFLAGS, not CPPFLAGS.
+	Work properly in cross-compilation scenario, by checking for getconf
+	with AC_CHECK_TOOL and by ditching uname in favor of
+	AC_CANONICAL_HOST and $host_os.  Add --disable-lfs option.
+
+	* lib/getdate.y: Update to fileutils 4.0 getdate.y, with one patch:
+	replace FORCE_ALLOCA_H with HAVE_ALLOCA_H.
+	* lib/Makefile.am (AUTOMAKE_OPTIONS): Append ../src/ansi2knr,
+	since getdate.y now uses ANSI code.
+
+	* config.guess, config.sub: New files; taken from automake 1.4.
+
+	* intl/Makefile.in, intl/VERSION, intl/bindtextdom.c,
+	intl/cat-compat.c, intl/dcgettext.c, intl/dgettext.c,
+	intl/explodename.c, intl/finddomain.c, intl/gettext.c,
+	intl/gettext.h, intl/gettextP.h, intl/hash-string.h,
+	intl/l10nflist.c, intl/libgettext.h, intl/loadinfo.h,
+	intl/loadmsgcat.c, intl/localealias.c, intl/textdomain.c:
+	Update to GNU gettext 0.10.35, with patches as per GCC snapshot 990109.
+
+1999-02-01  Paul Eggert  <eggert@twinsun.com>
+
+	* src/tar.c: Update copyright.
+
+	* NEWS: 1.12.64004
+
+1999-02-01  Paul Eggert  <eggert@twinsun.com>
+
+	* NEWS, configure.in: Version 1.12.64004
+
+	* configure.in (AC_LFS): Use this macro, instead of open-coding it.
+
+	* acinclude.m4 (AC_LFS, AM_PROG_CC_STDC): New macros.
+
+	* src/extract.c (extract_archive): Fix bug when extracting sparse
+	files: they were trashing the tar file header.
+
+	* src/tar.c: (long_options, usage, OPTION_STRING, decode_options):
+	Add -y or --bzip2 or --bunzip2 option.
+
+1999-01-30  Paul Eggert  <eggert@twinsun.com>
+
+	* src/names.c (cached_no_such_uname, cached_no_such_gname,
+	cached_no_such_uid, cached_no_such_gid): New vars.
+	(uid_to_uname, gid_to_gname, uname_to_uid, gname_to_gid):
+	Cache failures, too.
+
+	* src/tar.c (decode_options):
+	Don't pass names longer than UNAME_FIELD_SIZE to
+	uname_to_uid, as it messes up the cache.  Similarly for gname_to_uid.
+
+1999-01-27  Paul Eggert  <eggert@twinsun.com>
+
+	* NEWS, configure.in: Version 1.12.64003
+
+	* src/buffer.c (backspace_output, close_archive):  Cast
+	rmtlseek position arg to off_t, for benefit of K&R compilers
+	with long long.
+	* src/compare.c (verify_volume): Likewise.
+
+	* NEWS, configure.in: Version 1.12.64002
+
+	* src/create.c (gid_to_oct, major_to_oct, minor_to_oct, mode_to_oct,
+	off_to_oct, size_to_oct, time_to_oct, uid_to_oct):
+	Cast arg to uintmax_t for benefit of pre-ANSI compilers with long long.
+	* src/list.c: (gid_from_oct, major_from_oct, minor_from_oct,
+	mode_from_oct, off_from_oct, size_from_oct, time_from_oct,
+	uid_from_oct): Likewise.
+
+1999-01-25  Paul Eggert  <eggert@twinsun.com>
+
+	* incremen.sh: Fix timing bug in regression test.
+
+1999-01-22  Paul Eggert  <eggert@twinsun.com>
+
+	* NEWS, configure.in: Update version
+
+	* Makefile.am (localedir): Change to $(datadir)/locale.
+	(DEFS): New macro, defining LOCALEDIR.
+	(tar.o, tar._o, rmt.o, rmt._o): Remove.
+	(INCLUDES): Add -I..
+
+	* Makefile.am (localedir): Change to $(datadir)/locale.
+
+1999-01-21  Paul Eggert  <eggert@twinsun.com>
+
+	* NEWS, README, configure.in: Unofficial version 1.12.64001.
+
+	* tests/Makefile.am (localedir): Change to $(datadir)/locale.
+	* src/Makefile.am (localedir): Likewise.
+	(DEFS): New macro, defining LOCALEDIR.
+	(tar.o, tar._o, rmt.o, rmt._o): Remove.
+	(INCLUDES): Add `-I..'.
+
+	* tests/incremen.sh: Fix timing bug.
+
+1999-01-20  Paul Eggert  <eggert@twinsun.com>
+
+	* NEWS, README, configure.in: Unofficial version 1.12.64000.
+	`lfs.7' changed to `64000' in version number
+	to conform to gnits standards.
+
+	* COPYING, INSTALL, doc/texinfo.tex, install-sh, missing,
+	mkinstalldirs, ansi2knr.c: Update to latest public versions.
+
+	Rebuild with automake 1.4 and autoconf 2.13, to work around some
+	porting problems.
+
+1998-12-07  Paul Eggert  <eggert@twinsun.com>
+
+	* NEWS, README, configure.in: Unofficial version 1.12.lfs.6.
+
+	* src/list.c (read_header):
+	Accept file names as specified by POSIX.1-1996 section 10.1.1.
+
+1998-11-30  Paul Eggert  <eggert@twinsun.com>
+
+	* configure.in: Quote the output of uname.
+
+	* src/extract.c (set_stat): chmod after chown even when not root;
+	if we are using --same-owner this is needed e.g. on Solaris 2.5.1.
+
+1998-11-15  Paul Eggert  <eggert@twinsun.com>
+
+	* NEWS, README, configure.in: Unofficial version 1.12.lfs.5.
+
+	* configure.in (ac_test_CPPFLAGS, ac_test_LDFLAGS, ac_test_LIBS,
+	ac_getconfs, ac_result): Special case for HP-UX 10.20 or later.
+
+1998-10-28  Paul Eggert  <eggert@twinsun.com>
+
+	* NEWS, README, configure.in: Unofficial version 1.12.lfs.4.
+
+	* src/system.h (voidstar): Use void * if __STDC__ is defined,
+	not merely nonzero.
+
+	* src/rtapelib.c: Don't use rexec code unless compiled with WITH_REXEC.
+	On many installations, rexec is disabled.
+
+1998-08-07  Paul Eggert  <eggert@twinsun.com>
+
+	* NEWS, README, configure.in: Unofficial version 1.12.lfs.3.
+
+	* src/names.c (uid_to_uname, gid_to_gname): Don't used cached name
+	for nameless users and groups.
+
+1998-02-17  Paul Eggert  <eggert@twinsun.com>
+
+	* NEWS, README, configure.in: Unofficial version 1.12.lfs.2.
+	* NEWS, README: Add explanation of why this isn't an official version.
+
+1998-02-02  Paul Eggert  <eggert@twinsun.com>
+
+	* NEWS, README, configure.in: Unofficial version 1.12.lfs.1.
+	This is an unofficial version.
+
+1997-11-19  Paul Eggert  <eggert@twinsun.com>
+
+	* configure.in (HAVE_INTTYPES_H):
+	Don't ignore cache variable if it's already set.
+
+1997-10-30  Paul Eggert  <eggert@twinsun.com>
+
+	* configure.in (CPPFLAGS, LDFLAGS, LIBS):
+	Set to appropriate values if large file support
+	needs explicit enabling.
+	(HAVE_INTTYPES_H, HAVE_ST_FSTYPE_STRING, daddr_t, major_t, minor_t,
+	ssize_t):
+	New macros to configure.
+	(AC_TYPE_MODE_T, AC_TYPE_PID_T, AC_TYPE_OFF_T): Add.
+
+	* acconfig.h (daddr_t, HAVE_INTTYPES_H, HAVE_ST_FSTYPE_STRING,
+	major_t, minor_t, ssize_t): New macros.
+
+1997-04-25  François Pinard  <pinard@iro.umontreal.ca>
+
+	* Release 1.12.
+
+	* configure.in: Check for the inline keyword.
+
+1997-04-24  François Pinard  <pinard@iro.umontreal.ca>
+
+	* Makefile.am (BABYL): Delete admin/RMAIL, renamed rmail/announce.
+
+	* PORTS: New file.
+	(EXTRA_DIST): Adjusted.
+
+1997-04-23  François Pinard  <pinard@iro.umontreal.ca>
+
+	* BI-PATCHES: Patches for Bison 1.25.
+	* Makefile.am (EXTRA_DIST): Adjusted.
+
+	* configure.in (AC_PROG_INSTALL): Call deleted.  AM_INIT_AUTOMAKE
+	takes care of this already.
+
+1997-04-22  François Pinard  <pinard@iro.umontreal.ca>
+
+	* Prerelease 1.11q.
+
+	* configure.in: Use gethostent instead of gethostbyname while
+	checking for -lnsl.  It seems SINIX systems require this.
+	Reported by Bruno Haible.
+
+1997-04-19  François Pinard  <pinard@iro.umontreal.ca>
+
+	* acinclude.m4: New fp_WITH_INCLUDED_MALLOC macro.
+	* configure.in: Use it instead of the HP/UX test for GNU malloc.
+	Reported by Bruno Haible.
+
+1997-04-17  François Pinard  <pinard@iro.umontreal.ca>
+
+	* Prerelease 1.11p.
+
+	* acinclude.m4 (cl_FUNC_GMALLOC): New macro, yet still unused, as
+	it requires config.guess.  I have to think more about this.
+	Reported by Bruno Haible.
+
+1997-04-16  François Pinard  <pinard@iro.umontreal.ca>
+
+	* AC-PATCHES: Patches for Autoconf 2.12.
+	* AM-PATCHES: Patches for Automake 1.1n.
+	* Makefile.am (EXTRA_DIST): Adjusted.
+
+1997-04-15  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in: Ensure all cpp directives are left justified.
+	Reported by Kaveh R. Ghazi.
+
+1997-04-12  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in: Add fnmatch.o to LIBOBJS if AC_FUNC_FNMATCH
+	says no working copy was found.  This is not done automatically.
+	Reported by Bruno Haible, Bryant Fujimoto, John David Anglin,
+	Kaveh R. Ghazi, Laurent Caillat-Vallet, Sakai Kiyotaka and
+	Santiago Vila Doncel.
+
+1997-04-11  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in: Much simplify the -lsocket and -lnsl tests.
+	Reported by Larry Schwimmer.
+
+1997-04-11  François Pinard  <pinard@iro.umontreal.ca>
+
+	* Prerelease 1.11o.
+
+	* configure.in: Do not check for gettimeofday anymore.
+
+	* configure.in: Do not anymore blindly add -lnsl if gethostname
+	is found, nor -lsocket if setsockopt is found.	Instead, for
+	resolving setsockopt, try none, -lsocket, and -lsocket -lnsl,
+	in that order.	For resoving gethostbyname, try none, than -lnsl.
+	Reported by Ariel Faigon, Heiko Schlichting, Jean-Philippe
+	Martin-Flatin, John J. Szetela, John R. Vanderpool, Kaveh
+	R. Ghazi, Larry Schwimmer, Marcus Daniels, Mark Bynum and
+	Russell Cattelan.
+
+1997-04-10  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in: Define _GNU_SOURCE to get FNM_LEADIR_DIR, etc.
+	* acconfig.h: Document _GNU_SOURCE.
+	Reported by Andreas Jaeger, Becki Kain, Brendan Kehoe, David
+	N. Brown, J. Dean Brock, James V. DI Toro III, Jeffrey Mark
+	Siskind, Jürgen Reiss, Paul Eggert, Roland McGrath, Rolf
+	Niepraschk, Roman Gollent, Thomas Bushnell n/BSG and Ulrich
+	Drepper.
+
+1997-03-26  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in (ALL_LINGUAS): Add it.
+
+1997-03-20  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in: Require Autoconf 2.12.
+
+1997-02-25  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in: Use AM_CONFIG_HEADER and AM_GNU_GETTEXT instead
+	of AC_CONFIG_HEADER and ud_GNU_GETTEXT.  Use AC_FUNC_FNMATCH
+	instead of AM_FUNC_FNMATCH. Do not take care anymore of stamp-h
+	in AC_OUTPUT, leave it to Automake.
+	* acinclude.m4: Replaced whole, from elsewhere.
+	* Makefile.am (EXTRA_DIST): Leave README-alpha to Automake.
+
+1997-02-12  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in: Delete README-alpha code, Automake handles it now.
+
+1996-11-18  François Pinard  <pinard@iro.umontreal.ca>
+
+	* Prerelease 1.11.14.
+
+	* Makefile.am (BABYL): Add admin/RMAIL.
+
+	* configure.in: Check for sys/buf.h, as BSD/OS.
+	Reported by Dan Reish.
+
+1996-11-09  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in: Replace a missing basename.
+	Reported by Bryant Fujimoto, Erick Branderhorst, Greg Black, John
+	David Anglin, John J. Szetela, Kaveh R. Ghazi, Kurt Jaeger, Marcus
+	Daniels, Santiago Vila Doncel and William Bader.
+
+1996-11-08  François Pinard  <pinard@iro.umontreal.ca>
+
+	* Prerelease 1.11.13.
+
+	* configure.in: Replace a missing dirname.
+
+1996-10-07  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in: Clean out some macro calls made useless since
+	AM_INIT_AUTOMAKE implies them.
+
+1996-09-20  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in: Do not check anymore for regex.
+
+1996-09-19  François Pinard  <pinard@iro.umontreal.ca>
+
+	* Prerelease 1.11.12
+
+	* configure.in: Check echo for newline suppression.
+
+1996-09-18  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in: Do not add open3.o to LIBOBJS anymore.
+
+1996-09-05  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in (ALL_LINGUAS): Add pl.
+
+1996-09-04  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in (AC_OUTPUT): Prepare tests/Makefile and tests/preset.
+	* Use AM_ version of fp_ macros.
+
+	* Makefile.am (SUBDIRS): Add tests/.
+
+1996-07-18  François Pinard  <pinard@iro.umontreal.ca>
+
+	* Prerelease 1.11.11.
+
+	* configure.in: Use AC_PREREQ(2.10).
+
+1996-07-16  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in (ALL_LINGUAS): Add nl.
+	Reported by Erick Branderhorst.
+
+1996-07-12  François Pinard  <pinard@iro.umontreal.ca>
+
+	* Prerelease 1.11.10.
+
+	* configure.in (ALL_LINGUAS): Add ko and sl.
+
+1996-05-01  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in: Check for fsync, and linux/fd.h.
+	Reported by Marty Leisner.
+
+1996-04-17  François Pinard  <pinard@iro.umontreal.ca>
+
+	* Makefile.am (EXTRA_DIST): New name for DIST_OTHERS.
+
+	* configure.in (ALL_LINGUAS): Add no.
+
+	* Makefile.am (BABYL): Consider rmail/* instead of rmail/*/*.
+
+1996-02-28  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in: Avoid PROGRAMS, instead use RMT to substitute rmt.
+	* Makefile.am (SUBDIRS): Use intl and po instead of @INTLSUB@ and
+	@POSUB@.
+
+	* configure.in: Check for poll.h and stropts.h.
+	Check for nap, napms, poll, select and usleep.
+
+1996-02-12  François Pinard  <pinard@iro.umontreal.ca>
+
+	* Makefile.am: Remove CONFIG_HEADER, not required by Automake 0.29.
+	* configure.in: Temporarily remove a \ in AC_OUTPUT for automake.
+
+1996-02-03  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in: Check size of unsigned long (assume 32 bits if
+	cross-compiling) and long long (assume not available).
+
+1996-01-14  François Pinard  <pinard@iro.umontreal.ca>
+
+	* Makefile.am (AUTOMAKE_OPTIONS): Select gnits and dist-shar.
+	(dist-zoo): New goal, experimental for now.
+
+1996-01-07  François Pinard  <pinard@iro.umontreal.ca>
+
+	* Makefile.am:  Force distribution of BACKLOG.
+	Reported by Jonathan Thornburg.
+
+	* Makefile.am: Declare BABYL.  Force distribution of AUTHORS
+	and rebox.el.  Add id, ID and dist-shar targets.  Add parts of
+	previous Makefile.in as FIXME comments.
+
+1995-12-30  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in: Ensure there is a link for libintl.h.
+	Reported by Daniel S. Barclay, Göran Uddeborg, Jonathan Thornburg,
+	Ken Raeburn and Minh Tran-Le.
+
+1995-12-29  François Pinard  <pinard@iro.umontreal.ca>
+
+	* Prerelease 1.11.9.
+
+	* Makefile.am: New file.
+
+	* configure.in: Decide if README-alpha should be distributed.
+	From Ulrich Drepper.
+
+1995-12-28  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in (AC_OUTPUT): Call sed for po/Makefile.in.
+
+	* Makefile.in: Distribute ABOUT-NLS rather than NLS, and do not
+	distribute config.guess or config.sub anymore.
+
+	* configure.in: Test for lchown.
+
+1995-12-19  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in: Prefer avoiding union wait, and use it only if
+	using int fails.  This turns around the previous test, as directly
+	checking for union wait is seemingly seeking for trouble.
+	Reported by Alan Bawden, Chris Arthur, Coranth Gryphon,
+	Jean-Philippe Martin-Flatin, Robert Bernstein and Tarang Kumar
+	Patel.
+
+	* configure.in: Check for strerror, so lib/error.c will not try to
+	define sys_errlist in the case strerror is already provided.
+	Reported by Coranth Gryphon, Chris Arthur, David J. MacKenzie,
+	Erich Stefan Boleyn, Greg Black, Jason R. Mastaler, Michael
+	Innis Bushnell, Robert Bernstein, Santiago Vila Doncel, Skip
+	Montanaro and Thomas Krebs.
+
+	* configure.in: Quote the selected shell.  I wonder why this
+	error did not show up before!
+
+	* configure.in: Check <sys/tprintf.h> and <sys/device.h> for BSDi.
+	Reported by Chris Arthur and Skip Montanaro.
+
+1995-12-17  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in: Be more systematic at caching test results.
+	Reported by Ulrich Drepper.
+
+	* configure.in: While checking for remote tape header files, only
+	include <sgtty.h> if it was found to exist.
+
+	* configure.in: Prefer #if to #ifdef while checking for open3.
+
+1995-11-30  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in: Check for net/errno.h and sys/inet.h, trying to
+	get EOPNOTSUPP defined.
+
+	* configure.in: Check for sgtty.h.
+
+1995-11-06  François Pinard  <pinard@iro.umontreal.ca>
+
+	* acconfig.h: Document HAVE_STPCPY for the time being.  I do not
+	understand yet why this is mandatory: it should be automatic
+	from AC_CHECK_FUNCS(stpcpy) in aclocal.m4, through autoheader.
+
+	* configure.in: Use fp_FUNC_FNMATCH, to get around non-working
+	versions on SCO Unix 3.2v4.2, and Solaris.
+	Reported by Chad Hurwitz, Dennis Pixton, Per Foreby, Richard
+	Westerik, Robert Weiner and Tom Tromey.
+
+1995-10-27  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in: Add /usr/bin/rcmd as a possible remote shell, as
+	this is the name used by SCO Unix 3.2.4.
+	Reported by Bela Lubkin and Rodney Brown.
+
+1995-07-23  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in: Adapt for GNU gettext 0.8.
+
+1995-07-10  François Pinard  <pinard@iro.umontreal.ca>
+
+	* Makefile.in (default): Define to all.
+
+1995-06-18  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in: For mknod, also include <sys/types.h> prior to
+	<sys/stat.h>, as Ultrix needs this.
+	Reported by Bruce Jerrick, Bryant Fujimoto, Conrad Hughes, Erich
+	Stefan Boleyn, Jason R. Mastaler, Joshua R. Poulson, Jurgen Botz,
+	Serge Granik, Simon Wright, Ulrich Drepper and Vince Del Vecchio.
+
+	* configure.in: Replace execlp as needed (for Minix, mainly).
+
+	* configure.in: Force compilation of lib/open3.c if required.
+	Clean out old NO_OPEN3 code.
+
+1995-06-17  François Pinard  <pinard@iro.umontreal.ca>
+
+	* Release 1.11.8.
+
+	* Makefile.in (DISTFILES): Distribute config.guess and config.sub.
+	Reported by Ulrich Drepper.
+
+	* acconfig.h, aclocal.m4, configure.in: Last minutes
+	additions, and glimpses to the future gettext 0.6.1.
+	Reported by Ulrich Drepper.
+
+	* acconfig.h: Document HAVE_MKNOD.
+	* configure.in: Test for mknod only once <sys/stat.h> included.
+	Reported by Alan Modra, Ray Dassen and Ulrich Drepper.
+
+	* aclocal.m4: Test for re_rx_search instead of rx_compile, the
+	latter not being exported unless RX_WANT_RX_DEFS is defined.
+	Reported by Alan Modra.
+
+1995-06-15  François Pinard  <pinard@iro.umontreal.ca>
+
+	* Makefile.in (dist): Do not hide copying rule.
+
+	* configure.in: Adjustments to NLS, so .sed scripts may now all
+	reside in intl/.
+
+1995-06-13  François Pinard  <pinard@iro.umontreal.ca>
+
+	* Makefile.in (pot): New goal, triggering po/tar.pot.
+
+1995-06-07  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in: Substitute POTFILES by contents of po/POTFILES.
+
+	* configure.in: More adjustments for GNU gettext 0.6.
+	* config.guess, config.sub:  New files, all taken from gettext 0.6.
+
+1995-06-04  François Pinard  <pinard@iro.umontreal.ca>
+
+	* Makefile.in (check): New goal.
+
+1995-05-30  François Pinard  <pinard@iro.umontreal.ca>
+
+	* Makefile.in (DISTFILES): Do not distribute SUPPORT, now
+	integrated in the documentation.
+	Reported by Karl Berry.
+
+1995-05-28  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in: Check for isascii, not iascii.
+	Reported by Alan Modra, Bruno Haible and Greg McGary.
+
+1995-05-16  François Pinard  <pinard@iro.umontreal.ca>
+
+	* Prerelease 1.11.7.
+
+	* Makefile.in (DISTFILES): Distribute NLS.
+	* configure.in, acconfig.h: Many adjustments for GNU gettext.
+
+1995-05-09  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in: Clean glocale out.
+	* Makefile.in (SUBDIRS): Add po.
+	* Makefile.in (pofile): New goal.
+
+1995-05-08  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in: Call ud_WITH_NLS, create intl/Makefile.in.
+	Compute size of unsigned short and unsigned int.
+
+	* acconfig.h: Document ENABLE_NLS, HAVE_CATGETS and HAVE_GETTEXT.
+	* Makefile.in: Process intl subdirectory.
+
+	* configure.in (LINGUAS): Add pt.
+	* src/pt.po: New file, for Portuguese.
+	Reported by Antonio Jose Coutinho.
+
+1995-03-19  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in: Remove GLOCALE, add LINGUAS, use fp_WITH_CATALOGS.
+	* acconfig.h: Add description for WITH_CATALOGS.
+
+1995-02-22  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in, Makefile.in: Replace `date' by `echo timestamp'.
+
+1995-02-19  François Pinard  <pinard@iro.umontreal.ca>
+
+	* Makefile.in: Support ID files.  Do not distribute TAGS.
+
+1995-02-05  François Pinard  <pinard@iro.umontreal.ca>
+
+	* Makefile.in (maintainer-clean): New name for realclean.
+
+1995-01-02  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in: Check for <sys/ioccom.h>.
+	Reported by Joseph E. Sacco.
+
+1995-01-01  François Pinard  <pinard@iro.umontreal.ca>
+
+	* Makefile.in (DISTFILES): Distribute SUPPORT, with *pre*-releases.
+
+1994-12-18  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in: Check for isascii.
+	Reported by Bruno Haible.
+
+1994-12-11  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in: Use fp_WITH_REGEX.
+	* acconfig.h: Document WITH_REGEX.
+
+1994-12-10  François Pinard  <pinard@iro.umontreal.ca>
+
+	* src/de.tt: New file, for German.
+	Reported by Ulrich Drepper.
+
+1994-12-03  François Pinard  <pinard@iro.umontreal.ca>
+
+	* Prerelease 1.11.6.
+
+	* configure.in: Localize, adapting from how it is done in sharutils.
+
+	* src/fr.tt: New file, for French.
+
+	* configure.in, {,*/}Makefile.in, acconfig.h:
+	Rename PRODUCT to PACKAGE.
+
+1994-11-26  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in: Check for <libintl.h> and <locale.h>.
+
+1994-11-02  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in: Check for const only after having found possible
+	ANSIfying compiler flags, this is of no use to check it before.
+
+1994-11-01  François Pinard  <pinard@iro.umontreal.ca>
+
+	* {,*/}Makefile.in: Clean up, following those of GNU m4.  I will
+	not detail all the changes here.
+	* configure.in: Likewise.
+	* acconfig.h: Document PRODUCT and VERSION.
+
+1994-10-04  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in: Correct shell assignment for ac_cv_path_RSH.
+	Reported by Kaveh R. Ghazi.
+
+1994-09-14  François Pinard  <pinard@iro.umontreal.ca>
+
+	* Makefile.in: Cleanup...  Use subshells for all cd's.
+	(MDEFINES): Do not use $(INSTALL...), because ./install-sh will
+	not be relocated correctly.
+	(DISTFILES): Distribute install-sh, not install.sh.
+	(tags): Make only in lib and src.
+	(TAGS): Deleted.
+	(distclean, realclean): Remove config.status.
+	(distclean-local): Don't.
+	(*-recursive): Combine, use sed to strip -recursive in subgoals.
+	(Makefile): Have ./config.status create this Makefile only.
+	(stamp-h): Have ./config.status create config.h only.  Do not
+	create stamp-h here, it is now done from configure.
+	(stamp-h.in): Use date instead of touch.
+	* configure.in (AC_OUTPUT): Create stamp-h.
+
+1994-09-09  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in: Use fp_ macros for accessing aclocal.m4.  Revert
+	_OS_ macros to their previous names, to follow Autoconf.
+
+1994-09-08  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in: Delete AC_OS_XENIX, now within AC_HEADER_DIRENT.
+
+1994-09-01  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in (PROGS): Warn if $DEFAULT_ARCHIVE was specified,
+	while not being found on the current system.
+	Reported by Robert Bernstein.
+
+1994-08-31  François Pinard  <pinard@iro.umontreal.ca>
+
+	* Makefile.in: Distribute it.
+
+	* Makefile.in (distclean-local): Delete config.log.
+
+1994-08-27  François Pinard  <pinard@iro.umontreal.ca>
+
+	* acconfig.h: Document HAVE_UNION_WAIT, no more in Autoconf.
+
+1994-08-24  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in: Replace AC_SYS_REMOTE_TAPE by its definition,
+	distillating it around.  It is going out of Autoconf.
+	Do not backslash quotes anymore while defining unquoted, this is
+	now corrected in Autoconf.
+
+1994-08-23  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in: Do not define RTAPELIB nor HAVE_RTAPELIB.
+
+1994-08-22  François Pinard  <pinard@iro.umontreal.ca>
+
+	Little cleanup in installation:
+	* configure.in: Do not check for wait3, this function is not used.
+	* Makefile.in: Remove useless RSH substitutions.
+
+	* configure.in: Use `-g -O' instead of `-g' as CFLAGS default
+	value, when GNU C is being used.  Delay testing for presets.
+	Reported by Chris Arthur.
+
+1994-08-21  François Pinard  <pinard@iro.umontreal.ca>
+
+	* Prerelease 1.11.5.
+
+	* Makefile.in (BACKLOG, dist, shar): Correct for when a different
+	build directory.
+
+	* configure.in: Check for union wait.  Adapted from make 3.71.
+
+	* configure.in: Replace both mkdir and rmdir, not just mkdir,
+	because NS32016 running SysVr2.2 has mkdir and lacks rmdir.
+	Reported by Greg Black.
+
+	* configure.in: Do not try anymore to discover the archive device
+	by looking around for various device names.  If the installer does
+	not override it, nicely use `-' as a convenient default.
+	Reported by Andreas Schwab and Kaveh R. Ghazi.
+
+1994-08-20  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in: Correct a checking message.
+	Reported by Bruno Haible.
+
+1994-08-17  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in: Replace AC_PROG_RSH with its expansion.  Correct
+	the no/true confusion in tests.  Do not substitute RSH anymore in
+	src/Makefile, instead define REMOTE_SHELL in config.h.  Replace
+	NO_REMOTE by HAVE_RTAPELIB, with inverted meaning.  Substitute
+	RTAPELIB by $Urtapelib.o instead of rtapelib.o.
+	* acconfig.h: Document HAVE_RTAPELIB and REMOTE_SHELL.
+	Reported by Andreas Schwab.
+
+	* configure.in: Checking for remote shell, use the RSH environment
+	variable if set.  This is done only when not already in the cache.
+	Reported by Kaveh R. Ghazi.
+
+	* configure.in: Include <sys/types.h> when testing <utime.h>.
+	Reported by Andreas Schwab.
+
+	* configure.in: Also create doc/Makefile.
+	* Makefile.in: Add doc in subdirs, set infodir, update MDEFINES.
+
+1994-08-16  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in: Undo the `test -b' patch of 1994-08-05.  Ultrix
+	4.2 test does not know about -b.  Grrr...
+	Reported by Kaveh R. Ghazi.
+
+	* configure.in: Check for <sys/gentape.h>, HAVE_SYS_GENTAPE_H
+	is tested in rmt.c.  Check for <sys/tape.h>, to avoid playing
+	with M_UNIX anymore in rmt.c.
+	Reported by Daniel R. Guilderson and Kaveh R. Ghazi.
+
+	* configure.in: Use proper function names in AC_CHECK_LIB's.
+	Reported by Alexander Dupuy and Kurt Jaeger.
+
+	* configure.in: Use $LIBOBJS, not LIBOJBS, while adding to it.
+	Reported by Demizu Noritoshi and Kaveh R. Ghazi.
+
+1994-08-15  François Pinard  <pinard@iro.umontreal.ca>
+
+	* Prerelease 1.11.4.
+
+1994-08-14  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in: Decide MTIO_CHECK_FIELD by grepping <sys/mtio.h>.
+	* acconfig.h: Document it.
+	Reported by Ben A. Mesander.
+
+	* Makefile.in: Substitute CC, INSTALL, INSTALL_PROGRAM,
+	INSTALL_DATA, RSH, CFLAGS, LDFLAGS, LIBS, prefix, exec_prefix,
+	binprefix, bindir and libexecdir.
+	(MDEFINES): New, using the previous substitutions.
+	(all, install, uninstall): Use it.
+	Reported by Bruno Haible.
+
+1994-08-13  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in: Check for <sys/wait.h>.
+
+1994-08-11  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in: For <utime.h>, also ensure struct utimbuf is
+	defined by the header file before defining HAVE_UTIME_H.  Some
+	systems will not define the structure without _POSIX_SOURCE.
+	* acconfig.h: Document HAVE_UTIME_H.
+	Reported by James W. McKelvey and Robert E. Brown.
+
+	* configure.in: Instead of replacing strstr, check for it, so
+	HAVE_STRSTR gets defined, then replace it explicitely if required.
+
+1994-08-09  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in: Updated for Autoconf 2.0.
+
+1994-08-08  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in: Replace memset, mkdir (and rmdir), rename, strstr,
+	ftruncate, when not found.
+	Reported by Kaveh R. Ghazi (for memset and strstr).
+	Reported by Bruno Haible (for mkdir and rename).
+
+1994-08-05  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in: Remove padding test.
+	* acconfig.h: Remove PADDING_IN_TAR_HEADER.
+	Reported by Bruno Haible.
+
+	* configure.in: While defining DEFAULT_ARCHIVE, check for a block
+	device, instead of mere existence.  But is `test -b' portable?
+	Test for /dev/fd0, instead of for /dev/fd.  Put rct tests last.
+	Reported by Andreas Schwab.
+
+	* configure.in: Define uid_t and gid_t if necessary.
+	Reported by Jonathan I. Kamens.
+
+	* Makefile.in (distclean-local): Delete config.cache.
+	Reported by Thomas Koenig.
+
+	* configure.in: Change malloc_dbg to dmalloc, mutatis mutandi.
+	* acconfig.h: According changes.
+
+	* configure.in: Test for broken stat macros, and for mkfifo.
+
+	* configure.in: Check for ST_BLKSIZE and ST_BLOCKS.
+
+1994-08-02  François Pinard  <pinard@iro.umontreal.ca>
+
+	* Prerelease 1.11.3.
+
+	* Makefile.in (dist, shar): Distribute the scripts directory.
+
+1994-08-01  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in: Check for <memory.h>.
+
+1994-07-30  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in: When --with-malloc-dbg, define WITH_MALLOC_DBG and
+	add -lmalloc_dbg to LIBS.
+	* acconfig.h: Document WITH_MALLOC_DBG.
+
+	* configure.in: Try deciding DEVICE_PREFIX and DENSITY_LETTER from
+	the selected DEFAULT_ARCHIVE.
+	* acconfig.h: Document DEVICE_PREFIX and DENSITY_LETTER.
+	Reported by Danny R. Johnston.
+
+1994-07-29  François Pinard  <pinard@iro.umontreal.ca>
+
+	* aclocal.m4: Adapt AC_PROTOTYPES to caching.
+
+	* Using configure as generated by a more recent Autoconf solves a
+	problem of rename being rejected on HP-UX in ANSI mode, because of
+	a conflicting prototype from <stdio.h>.  In this context, Autoconf
+	now uses ctype.c instead for defining __stub macros.
+	Reported by Alan Modra, Burkhard Plache, Edward Welbourne,
+	Henrik Bakman, Jeffrey Goldberg, Jim Farrell, Kimmy Posey,
+	Michael Maass, Mike Nolan, Richard Lloyd, Robert McGraw,
+	Robert W. Kim, Stefan Skoglund, Tarang Kumar Patel, Tilman
+	Schmidt, Tim Ramsey, Van Snyder and W. Phillip Moore.
+
+1994-07-26  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in: Check for <fcntl.h>.  Do not define BSD42, do
+	not look anymore if /vmunix, /sdmach or /../../mach exist.
+	* acconfig.h: Remove BSD42.
+
+1994-07-24  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in: Add gmalloc.o to LIBOBJS, instead of AC_SUBST'ing
+	MALLOC.  Check for valloc only if gmalloc.o is not being selected.
+	valloc was possibly defined both in "port.h" and GNU malloc.
+	* acconfig.h: Add a description for HAVE_VALLOC.
+	J.T. Conklin, Nelson H.F. Beebe and Tilman Schmidt.
+
+1994-07-22  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in: Use provided fnmatch only as a replacement.
+
+	* configure.in: Check for <sys/io/trioctl.h>, needed for
+	defining _IOW and _IOR on the Tektronix XD88.
+	Reported by Kaveh R. Ghazi.
+
+1994-07-20  François Pinard  <pinard@iro.umontreal.ca>
+
+	* Makefile.in (BACKLOG): New goal, for summarizing the
+	maintainance backlog.  Distribute file BACKLOG.
+
+1994-07-08  François Pinard  <pinard@iro.umontreal.ca>
+
+	* regex.c, regex.h: Use newer versions.  This solves a few
+	problems reported by users.
+	Reported by Chris Hopps and John David Anglin.
+
+1994-07-06  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in: Check for <utime.h>.
+
+1994-07-05  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in:  Substitute DEFAULT_ARCHIVE and DEFAULT_BLOCKING
+	from the environment.  Check for /dev/tape first while trying to
+	decide the default archive, because it is often symlinked right.
+	* acconfig.h: Explain DEFAULT_ARCHIVE and DEFAULT_BLOCKING.
+
+	* configure.in: Use AC_SET_MAKE.
+	* Makefile.in: Use @SET_MAKE@.
+	Reported by Jim Meyering.
+
+	* configure.in: Integrate the check, previously in testpad.c,
+	about a needed padding field in the tar header struct.
+	* acconfig.h: Explain PADDING_IN_TAR_HEADER.
+
+1994-07-02  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in: Check for -linet, this library is required on
+	a few systems for gettimeofday() or getservbyname().  Also, on ISC
+	4.0, this avoids a broken version of rename().
+	Reported by Dean Gaudet, Goeran Uddeborg, Mike Rogers and
+	Peder Chr. Norgaard.
+
+	* configure.in: Ensure -lsocket is tested after -lnsl.  This is
+	required in particular for SINIX-Z, an SVR4.0 system.
+	Reported by Manfred Weichel and Mark Frost.
+
+	* configure.in: All tests reordered for clarity.
+
+1994-07-01  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in: Use AC_TIME_WITH_SYS_TIME, test for <sys/time.h>.
+	This should solve the problem of multiple inclusions of <time.h>.
+	Also, also check for <sys/timeb.h>, for getdate.y tests this.
+	Reported by Jim Meyering, John Rouillard, Karl Berry and Rick
+	Emerson.
+
+1994-06-30  François Pinard  <pinard@iro.umontreal.ca>
+
+	* configure.in: AC_CONST was already added since 1.11.2, but no
+	ChangeLog entry for it, so here is one, with list of reporters.
+	* AIX 3.2 RS/6000 IBM's compiler was unable to compile regex.c,
+	this might be solved already through improved Autoconf tests.
+
+	Reported by Alexey Vovenko, Ben A. Mesander, Bryant
+	Fujimoto, Christian. T. Dum, Christopher Vickery, Dan Bloch,
+	David K. Drum, David Lemson, Demizu Noritoshi, Dimitris
+	Fousekis, Ezra Peisach, Hugh Secker-Walker, Indra Singhal,
+	J.T. Conklin, Jan Hoeglund, Janice Burton, Jeff Siegel,
+	Jim Blandy, John L. Chmielewski, John Rouillard, Jonathan
+	N. Sherman, Kevin D Quitt, Kurt Jaeger, Mark Frost, Matthew
+	Braun, Michael Kubik, Michael Helm, Moritz D. Klingholz,
+	Neil Jerram, Nelson H.F. Beebe, Nick Barron, Paul Eggert,
+	R. Scott Butler, Rob Parry, Ron Guilmette, Scott Grosch,
+	Sherwood and Stephen Saroff.
+
+	* Makefile.in: Completely replaced, lurking at the previous one.
+	At the same time, solve a few minor problems reported by users.
+	The most frequently reported ones pertained to a trailing \ in a
+	comment, and rmt installing in /etc.
+	Reported by Dean Gaudet, Gerben Wierda, James W. McKelvey,
+	John L. Chmielewski, Karl Berry, Mike Rogers, Ralf Suckow and
+	Richard Lloyd.
+
+	* configure.in: Also process lib/Makefile.in and src/Makefile.in.
+	Substitute CFLAGS, LDFLAGS and YFLAGS from the environment.
+	Use AC_CHECKING instead of using echo explicitely.
+	Use AC_HEADER_CHECK(unistd.h) instead of obsolete AC_UNISTD_H.
+
+	* configure.in: Generate a configuration header file.  This not
+	only puts less clutter in make output, but also goes around some
+	compilers' limits about the number of allowed -D options.
+	Reported by Nelson H.F. Beebe.
+
+	* acconfig.h: New file.
+
+	* Split distribution into a few subdirectories, for easing
+	maintainance.  So far: src, lib, scripts, msdos which are to be
+	distributed; then rmail, texinfo, ARCH and misc to be kept here.
+	* scripts/ChangeLog: Initialized by moving entries related to
+	scripts out of this ChangeLog.
+
+	* Taking over maintenance duties.

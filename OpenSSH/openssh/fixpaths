@@ -1,0 +1,50 @@
+#!/usr/bin/perl -w
+#
+# fixpaths  - substitute makefile variables into text files
+
+
+$usage = "Usage: $0 [-x<file dot-suffix>] [-Dstring=replacement] [[infile] ...]\n";
+
+$ext="out";
+
+if (!defined(@ARGV)) { die ("$usage"); }
+
+# read in the command line and get some definitions
+while ($_=$ARGV[0], /^-/) {
+  if (/^-[Dx]/) {
+    # definition
+    shift(@ARGV);
+    if ( /-D(.*)=(.*)/ ) {
+      $def{"$1"}=$2;
+    } elsif ( /-x\s*(\w+)/ ) {
+	$ext=$1;
+    } else {
+      die ("$usage$0: error in command line arguments.\n");
+    }
+  } else {
+    @cmd = split(//, $ARGV[0]); $opt = $cmd[1];
+    die ("$usage$0: unknown option '-$opt'\n");
+  }
+} # while parsing arguments
+
+if (!defined(%def)) {
+  die ("$0: nothing to do - no substitutions listed!\n");
+}
+
+for $f (@ARGV) {
+
+  $f =~ /(.*\/)*(.*)$/;
+  $of = $2.".$ext"; 
+
+  open(IN, "<$f")          || die ("$0: input file $f missing!\n");
+  if (open(OUT, ">$of")) {
+    while (<IN>) {
+      for $s (keys(%def)) {
+	s#$s#$def{$s}#;
+      } # for $s
+      print OUT;
+    } # while <IN>
+  } # if (outfile open)
+} # for $f
+
+exit 0;

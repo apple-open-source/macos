@@ -1,0 +1,93 @@
+.\" Copyright (c) 2000, Apple Computer, Inc.  All rights reserved.
+.\"
+.Dd March 28, 2000
+.Dt LATENCY 1
+.Os "Mac OS X"
+.Sh NAME
+.Nm latency
+.Nd monitors scheduling and interrupt latency
+.Sh SYNOPSIS
+.Nm latency
+.Op Fl rt
+.Op Fl c Ar codefile
+.Op Fl l Ar logfile
+.Op Fl st Ar threshold
+.Op Fl it Ar threshold
+.Op Fl s Ar sleep_in_usecs
+.Op Fl d Ar decrementer_in_usecs
+.Op Fl n Ar kernel
+.Sh DESCRIPTION
+.Nm latency
+provides scheduling and interrupt latency statistics.
+.Pp
+The arguments are as follows:
+.Bl -tag -width Ds
+.It Fl rt
+Set real time scheduling policy. Default policy is timeshare.
+.It Fl c
+When the
+.Fl c
+option is specified, it takes a path to a 
+.Ar codefile 
+that
+contains the mappings for the system calls.  This option
+overrides the default location of the system call codefile
+which is found in /usr/share/misc/trace.codes.
+.It Fl l
+Specifies a
+.Ar logfile
+that is written to when either the interrupt or scheduling
+latency is exceeded.
+.It Fl st
+Set the scheduler latency threshold in microseconds.  If latency
+exceeds this, and a logfile has been specified, a record
+of what occurred during this time is recorded.
+.It Fl it
+Set the interrupt latency threshold in microseconds.  If latency
+exceeds this, and a logfile has been specified, a record
+of what occurred during this time is recorded.
+.It Fl s
+The
+.Fl s
+option sets the timer.  It takes microseconds as an argument,
+the default timer is set to 1000 microseconds.
+.It Fl d
+The
+.Fl d
+option sets the decrementer.  It takes microseconds as an argument.
+The decrementer is set back to the system default on exit.
+.It Fl n
+By default,
+.Nm latency
+acts on the default /mach_kernel.  This option
+allows you to specify an alternate booted kernel.
+.El
+.Pp
+The data columns displayed are as follows:
+.Bl -tag -width LAST_PATHNAME_WAITED_FOR -compact
+.Pp
+.It SCHEDULER
+The number of context switches that fall
+within the described delay.
+.It INTERRUPTS
+The number of interrupts that fall
+within the described delay.
+.El
+.Pp
+The
+.Nm latency
+command is also SIGWINCH savvy, so adjusting your window geometry will change
+the list of delay values displayed.
+.Sh SAMPLE USAGE
+.Pp
+latency -rt -st 20000 -it 1000 -l /var/tmp/latency.log
+.Pp
+.Nm latency
+will set the realtime scheduling policy.  The threshold for the scheduler is set to
+20000 microseconds.  The threshold for interrupts is set to 1000
+microseconds.  Latencies that exceed these thresholds will be logged
+in /var/tmp/latency.log.
+.Sh SEE ALSO
+.Xr top 1
+.Xr fs_usage 1
+.Xr sc_usage 1

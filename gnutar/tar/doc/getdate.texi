@@ -1,0 +1,481 @@
+@node Date input formats
+@chapter Date input formats
+
+@cindex date input formats
+@findex getdate
+
+First, a quote:
+
+@quotation
+Our units of temporal measurement, from seconds on up to months, are so
+complicated, asymmetrical and disjunctive so as to make coherent mental
+reckoning in time all but impossible.  Indeed, had some tyrannical god
+contrived to enslave our minds to time, to make it all but impossible
+for us to escape subjection to sodden routines and unpleasant surprises,
+he could hardly have done better than handing down our present system.
+It is like a set of trapezoidal building blocks, with no vertical or
+horizontal surfaces, like a language in which the simplest thought
+demands ornate constructions, useless particles and lengthy
+circumlocutions.  Unlike the more successful patterns of language and
+science, which enable us to face experience boldly or at least
+level-headedly, our system of temporal calculation silently and
+persistently encourages our terror of time.
+
+@dots{}  It is as though architects had to measure length in feet, width
+in meters and height in ells; as though basic instruction manuals
+demanded a knowledge of five different languages.  It is no wonder then
+that we often look into our own immediate past or future, last Tuesday
+or a week from Sunday, with feelings of helpless confusion.  @dots{}
+
+--- Robert Grudin, @cite{Time and the Art of Living}.
+@end quotation
+
+This section describes the textual date representations that GNU
+programs accept.  These are the strings you, as a user, can supply as
+arguments to the various programs.  The C interface (via the
+@code{getdate} function) is not described here.
+
+@cindex beginning of time, for Unix
+@cindex epoch, for Unix
+Although the date syntax here can represent any possible time since zero
+A.D., computer integers are not big enough for such a (comparatively)
+long time.  The earliest date semantically allowed on Unix systems is
+midnight, 1 January 1970 UCT.
+
+@menu
+* General date syntax::            Common rules.
+* Calendar date item::             19 Dec 1994.
+* Time of day item::               9:20pm.
+* Time zone item::                 EST, DST, BST, UTC, ...
+* Day of week item::               Monday and others.
+* Relative item in date strings::  next tuesday, 2 years ago.
+* Pure numbers in date strings::   19931219, 1440.
+* Authors of getdate::             Bellovin, Salz, Berets, et al.
+@end menu
+
+
+@node General date syntax
+@section General date syntax
+
+@cindex general date syntax
+
+@cindex items in date strings
+A @dfn{date} is a string, possibly empty, containing many items
+separated by whitespace.  The whitespace may be omitted when no
+ambiguity arises.  The empty string means the beginning of today (i.e.,
+midnight).  Order of the items is immaterial.  A date string may contain
+many flavors of items:
+
+@itemize @bullet
+@item calendar date items
+@item time of the day items
+@item time zone items
+@item day of the week items
+@item relative items
+@item pure numbers.
+@end itemize
+
+@noindent We describe each of these item types in turn, below.
+
+@cindex numbers, written-out
+@cindex ordinal numbers
+@findex first @r{in date strings}
+@findex next @r{in date strings}
+@findex last @r{in date strings}
+A few numbers may be written out in words in most contexts.  This is
+most useful for specifying day of the week items or relative items (see
+below).  Here is the list: @samp{first} for 1, @samp{next} for 2,
+@samp{third} for 3, @samp{fourth} for 4, @samp{fifth} for 5,
+@samp{sixth} for 6, @samp{seventh} for 7, @samp{eighth} for 8,
+@samp{ninth} for 9, @samp{tenth} for 10, @samp{eleventh} for 11 and
+@samp{twelfth} for 12.  Also, @samp{last} means exactly @math{-1}.
+
+@cindex months, written-out
+When a month is written this way, it is still considered to be written
+numerically, instead of being ``spelled in full''; this changes the
+allowed strings.
+
+@cindex case, ignored in dates
+@cindex comments, in dates
+Alphabetic case is completely ignored in dates.  Comments may be introduced
+between round parentheses, as long as included parentheses are properly
+nested.  Hyphens not followed by a digit are currently ignored.  Leading
+zeros on numbers are ignored.
+
+
+@node Calendar date item
+@section Calendar date item
+
+@cindex calendar date item
+
+A @dfn{calendar date item} specifies a day of the year.  It is
+specified differently, depending on whether the month is specified
+numerically or literally.  All these strings specify the same calendar date:
+
+@example
+1970-09-17           # ISO 8601.
+70-9-17              # This century assumed by default.
+70-09-17             # Leading zeros are ignored.
+9/17/72              # Common U.S. writing.
+24 September 1972
+24 Sept 72           # September has a special abbreviation.
+24 Sep 72            # Three-letter abbreviations always allowed.
+Sep 24, 1972
+24-sep-72
+24sep72
+@end example
+
+The year can also be omitted.  In this case, the last specified year is
+used, or the current year if none.  For example:
+
+@example
+9/17
+sep 17
+@end example
+
+Here are the rules.
+
+@cindex ISO 8601 date format
+@cindex date format, ISO 8601
+For numeric months, the ISO 8601 format
+@samp{@var{year}-@var{month}-@var{day}} is allowed, where @var{year} is
+any positive number, @var{month} is a number between 01 and 12, and
+@var{day} is a number between 01 and 31.  A leading zero must be present
+if a number is less than ten.  If @var{year} is less than 100, then 1900
+is added to it to force a date in this century.  The construct
+@samp{@var{month}/@var{day}/@var{year}}, popular in the United States,
+is accepted.  Also @samp{@var{month}/@var{day}}, omitting the year.
+
+@cindex month names in date strings
+@cindex abbreviations for months
+Literal months may be spelled out in full: @samp{January},
+@samp{February}, @samp{March}, @samp{April}, @samp{May}, @samp{June},
+@samp{July}, @samp{August}, @samp{September}, @samp{October},
+@samp{November} or @samp{December}.  Literal months may be abbreviated
+to their first three letters, possibly followed by an abbreviating dot.
+It is also permitted to write @samp{Sept} instead of @samp{September}.
+
+When months are written literally, the calendar date may be given as any
+of the following:
+
+@example
+@var{day} @var{month} @var{year}
+@var{day} @var{month}
+@var{month} @var{day} @var{year}
+@var{day}-@var{month}-@var{year}
+@end example
+
+Or, omitting the year:
+
+@example
+@var{month} @var{day}
+@end example
+
+
+@node Time of day item
+@section Time of day item
+
+@cindex time of day item
+
+A @dfn{time of day item} in date strings specifies the time on a given
+day.  Here are some examples, all of which represent the same time:
+
+@example
+20:02:0
+20:02
+8:02pm
+20:02-0500      # In EST (Eastern U.S. Standard Time).
+@end example
+
+More generally, the time of the day may be given as
+@samp{@var{hour}:@var{minute}:@var{second}}, where @var{hour} is
+a number between 0 and 23, @var{minute} is a number between 0 and
+59, and @var{second} is a number between 0 and 59.  Alternatively,
+@samp{:@var{second}} can be omitted, in which case it is taken to
+be zero.
+
+@findex am @r{in date strings}
+@findex pm @r{in date strings}
+@findex midnight @r{in date strings}
+@findex noon @r{in date strings}
+If the time is followed by @samp{am} or @samp{pm} (or @samp{a.m.}
+or @samp{p.m.}), @var{hour} is restricted to run from 1 to 12, and
+@samp{:@var{minute}} may be omitted (taken to be zero).  @samp{am}
+indicates the first half of the day, @samp{pm} indicates the second
+half of the day.  In this notation, 12 is the predecessor of 1:
+midnight is @samp{12am} while noon is @samp{12pm}.
+
+@cindex time zone correction
+@cindex minutes, time zone correction by
+The time may alternatively be followed by a time zone correction,
+expressed as @samp{@var{s}@var{hh}@var{mm}}, where @var{s} is @samp{+}
+or @samp{-}, @var{hh} is a number of zone hours and @var{mm} is a number
+of zone minutes.  When a time zone correction is given this way, it
+forces interpretation of the time relative to
+Coordinated Universal Time (UTC), overriding any previous
+specification for the time zone or the local time zone.  The @var{minute}
+part of the time of the day may not be elided when a time zone correction
+is used.  This is the only way to specify a time zone correction by
+fractional parts of an hour.
+
+Either @samp{am}/@samp{pm} or a time zone correction may be specified,
+but not both.
+
+
+@node Time zone item
+@section Time zone item
+
+@cindex time zone item
+
+A @dfn{time zone item} specifies an international time zone, indicated by
+a small set of letters.  They are supported for backward compatibility reasons,
+but they are not recommended because they are ambiguous in practice:
+for example, the abbreviation @samp{EST} has different meanings in
+Australia and the United States.  Any included period is ignored.  Military
+time zone designations use a single letter.  Currently, only integral
+zone hours may be represented in a time zone item.  See the previous
+section for a finer control over the time zone correction.
+
+Here are many non-daylight-saving-time time zones, indexed by the zone
+hour value.
+
+@table @asis
+@item -1200
+@samp{Y} for militaries.
+@item -1100
+@samp{X} for militaries.
+@item -1000
+@samp{W} for militaries.
+@item -0900
+@samp{V} for militaries.
+@item -0800
+@samp{PST} for Pacific Standard, and
+@samp{U} for militaries.
+@item -0700
+@samp{MST} for Mountain Standard, and
+@samp{T} for militaries.
+@item -0600
+@samp{CST} for Central Standard, and
+@samp{S} for militaries.
+@item -0500
+@samp{EST} for Eastern Standard, and
+@samp{R} for militaries.
+@item -0400
+@samp{AST} for Atlantic Standard, and
+@samp{Q} for militaries.
+@item -0300
+@samp{P} for militaries.
+@item -0200
+@samp{O} for militaries.
+@item -0100
+@samp{N} for militaries.
+@item +0000
+@cindex Greenwich Mean Time
+@cindex Coordinated Universal Time
+@cindex Universal Coordinated Time
+@cindex Universal Time (Coordinated)
+@samp{GMT} for Greenwich Mean,
+@samp{UT} for Universal,
+@samp{UTC} for Coordinated Universal,
+@samp{WET} for Western European, and
+@samp{Z} for ISO 8601 and militaries.
+@item +0100
+@samp{A} for militaries,
+@samp{CET} for Central European,
+@samp{MET} for Midden Europesche Tijd (Dutch), and
+@samp{MEZ} for Mittel-Europ@"aische Zeit (German).
+@item +0200
+@samp{B} for militaries, and
+@samp{EET} for Eastern European.
+@item +0300
+@samp{C} for militaries.
+@item +0400
+@samp{D} for militaries.
+@item +0500
+@samp{E} for militaries.
+@item +0600
+@samp{F} for militaries.
+@item +0700
+@samp{G} for militaries.
+@item +0800
+@samp{H} for militaries.
+@item +0900
+@samp{I} for militaries, and
+@samp{JST} for Japan Standard.
+@item +1000
+@samp{GST} for Guam Standard, and
+@samp{K} for militaries.
+@item +1100
+@samp{L} for militaries.
+@item +1200
+@samp{M} for militaries, and
+@samp{NZST} for New Zealand Standard.
+@end table
+
+@cindex daylight-saving time
+Here are many daylight-saving time (DST) time zones,
+indexed by the zone hour value.  Also, by
+following a non-DST time zone by the string @samp{DST} in a separate word
+(that is, separated by some whitespace), the corresponding DST time zone
+may be specified.
+
+@table @asis
+@item -0700
+@samp{PDT} for Pacific Daylight.
+@item -0600
+@samp{MDT} for Mountain Daylight.
+@item -0500
+@samp{CDT} for Central Daylight.
+@item -0400
+@samp{EDT} for Eastern Daylight.
+@item -0300
+@samp{ADT} for Atlantic Daylight.
+@item +0100
+@samp{BST} for British Summer, and
+@samp{WEST} for Western European Summer.
+@item +0200
+@samp{CEST} for Central European Summer,
+@samp{MEST} for Midden Europesche S. Tijd (Dutch), and
+@samp{MESZ} for Mittel-Europ@"aische Sommerzeit (German).
+@item +1300
+@samp{NZDT} for New Zealand Daylight.
+@end table
+
+
+@node Day of week item
+@section Day of week item
+
+@cindex day of week item
+
+The explicit mention of a day of the week will forward the date
+(only if necessary) to reach that day of the week in the future.
+
+Days of the week may be spelled out in full: @samp{Sunday},
+@samp{Monday}, @samp{Tuesday}, @samp{Wednesday}, @samp{Thursday},
+@samp{Friday} or @samp{Saturday}.  Days may be abbreviated to their
+first three letters, optionally followed by a period.  The special
+abbreviations @samp{Tues} for @samp{Tuesday}, @samp{Wednes} for
+@samp{Wednesday} and @samp{Thur} or @samp{Thurs} for @samp{Thursday} are
+also allowed.
+
+@findex next @var{day}
+@findex last @var{day}
+A number may precede a day of the week item to move forward
+supplementary weeks.  It is best used in expression like @samp{third
+monday}.  In this context, @samp{last @var{day}} or @samp{next
+@var{day}} is also acceptable; they move one week before or after
+the day that @var{day} by itself would represent.
+
+A comma following a day of the week item is ignored.
+
+
+@node Relative item in date strings
+@section Relative item in date strings
+
+@cindex relative items in date strings
+@cindex displacement of dates
+
+@dfn{Relative items} adjust a date (or the current date if none) forward
+or backward.  The effects of relative items accumulate.  Here are some
+examples:
+
+@example
+1 year
+1 year ago
+3 years
+2 days
+@end example
+
+@findex year @r{in date strings}
+@findex month @r{in date strings}
+@findex fortnight @r{in date strings}
+@findex week @r{in date strings}
+@findex day @r{in date strings}
+@findex hour @r{in date strings}
+@findex minute @r{in date strings}
+The unit of time displacement may be selected by the string @samp{year}
+or @samp{month} for moving by whole years or months.  These are fuzzy
+units, as years and months are not all of equal duration.  More precise
+units are @samp{fortnight} which is worth 14 days, @samp{week} worth 7
+days, @samp{day} worth 24 hours, @samp{hour} worth 60 minutes,
+@samp{minute} or @samp{min} worth 60 seconds, and @samp{second} or
+@samp{sec} worth one second.  An @samp{s} suffix on these units is
+accepted and ignored.
+
+@findex ago @r{in date strings}
+The unit of time may be preceded by a multiplier, given as an optionally
+signed number.  Unsigned numbers are taken as positively signed.  No
+number at all implies 1 for a multiplier.  Following a relative item by
+the string @samp{ago} is equivalent to preceding the unit by a
+multiplicator with value @math{-1}.
+
+@findex day @r{in date strings}
+@findex tomorrow @r{in date strings}
+@findex yesterday @r{in date strings}
+The string @samp{tomorrow} is worth one day in the future (equivalent
+to @samp{day}), the string @samp{yesterday} is worth
+one day in the past (equivalent to @samp{day ago}).
+
+@findex now @r{in date strings}
+@findex today @r{in date strings}
+@findex this @r{in date strings}
+The strings @samp{now} or @samp{today} are relative items corresponding
+to zero-valued time displacement, these strings come from the fact
+a zero-valued time displacement represents the current time when not
+otherwise change by previous items.  They may be used to stress other
+items, like in @samp{12:00 today}.  The string @samp{this} also has
+the meaning of a zero-valued time displacement, but is preferred in
+date strings like @samp{this thursday}.
+
+When a relative item makes the resulting date to cross the boundary
+between DST and non-DST (or vice-versa), the hour is adjusted according
+to the local time.
+
+
+@node Pure numbers in date strings
+@section Pure numbers in date strings
+
+@cindex pure numbers in date strings
+
+The precise intepretation of a pure decimal number is dependent of
+the context in the date string.
+
+If the decimal number is of the form @var{yyyy}@var{mm}@var{dd} and no
+other calendar date item (@pxref{Calendar date item}) appears before it
+in the date string, then @var{yyyy} is read as the year, @var{mm} as the
+month number and @var{dd} as the day of the month, for the specified
+calendar date.
+
+If the decimal number is of the form @var{hh}@var{mm} and no other time
+of day item appears before it in the date string, then @var{hh} is read
+as the hour of the day and @var{mm} as the minute of the hour, for the
+specified time of the day.  @var{mm} can also be omitted.
+
+If both a calendar date and a time of day appear to the left of a number
+in the date string, but no relative item, then the number overrides the
+year.
+
+
+@node Authors of getdate
+@section Authors of @code{getdate}
+
+@cindex authors of @code{getdate}
+
+@cindex Bellovin, Steven M.
+@cindex Salz, Rich
+@cindex Berets, Jim
+@cindex MacKenzie, David
+@cindex Meyering, Jim
+@code{getdate} was originally implemented by Steven M. Bellovin
+(@email{smb@@research.att.com}) while at the University of North Carolina
+at Chapel Hill.  The code was later tweaked by a couple of people on
+Usenet, then completely overhauled by Rich $alz (@email{rsalz@@bbn.com})
+and Jim Berets (@email{jberets@@bbn.com}) in August, 1990.  Various
+revisions for the GNU system were made by David MacKenzie, Jim Meyering,
+and others.
+
+@cindex Pinard, F.
+@cindex Berry, K.
+This chapter was originally produced by Fran@,{c}ois Pinard
+(@email{pinard@@iro.umontreal.ca}) from the @file{getdate.y} source code,
+and then edited by K.@: Berry (@email{kb@@cs.umb.edu}).

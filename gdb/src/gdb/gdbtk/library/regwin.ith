@@ -1,0 +1,71 @@
+# Register display window class definition for GDBtk.
+# Copyright 1998, 1999 Cygnus Solutions
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License (GPL) as published by
+# the Free Software Foundation; either version 2 of the License, or (at
+# your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+
+class RegWin {
+  inherit EmbeddedWin GDBWin
+  
+  private {
+    variable reg_display_list {}
+    variable all_regs_shown    1
+    variable disp_all_menu_item
+    variable num_regs 0
+    variable nRows
+    variable nCols
+    variable changed_reg_list {}
+    variable oldValue
+    variable ScrolledWin
+    variable Menu
+    variable Editing -1
+    variable selected -1
+    variable mbar 1
+    variable reg_names_dirty 0
+    variable Running 0
+    
+    common HighlightForeground {}
+    common NormalForeground {}
+    
+    method init_reg_display_vars {args}
+    method handle_set_hook {var val}
+    method disassembly_changed {}
+    method dimensions {}
+    method fixLength {s size where}
+    method build_win {}  
+  } 
+
+  public {
+    proc save_reg_display_vars {} 
+
+    method constructor {args}
+    method destructor {}
+    method reg_select_up {}
+    method reg_select_down {}
+    method reg_select_right {}
+    method reg_select_left {}
+    method reg_select { r }
+    method but3 {rn X Y}
+    method display_all {} 
+    method delete_from_display_list {rn} 
+    method addToWatch {reg}
+    method edit {r} 
+    method acceptEdit {r} 
+    method unedit {} 
+    method update {}
+    method idle {}
+    method reconfig {}
+    method busy {}
+  }
+
+
+}
+

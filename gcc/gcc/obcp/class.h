@@ -1,0 +1,1 @@
+#include "../cp/class.h"

@@ -1,0 +1,329 @@
+.\"	$OpenBSD: ddb.4,v 1.2 1996/05/04 15:22:53 deraadt Exp $
+.\"	$NetBSD: ddb.4,v 1.5 1994/11/30 16:22:09 jtc Exp $
+.\"
+.\" Mach Operating System
+.\" Copyright (c) 1991,1990 Carnegie Mellon University
+.\" All Rights Reserved.
+.\" 
+.\" Permission to use, copy, modify and distribute this software and its
+.\" documentation is hereby granted, provided that both the copyright
+.\" notice and this permission notice appear in all copies of the
+.\" software, derivative works or modified versions, and any portions
+.\" thereof, and that both notices appear in supporting documentation.
+.\" 
+.\" CARNEGIE MELLON ALLOWS FREE USE OF THIS SOFTWARE IN ITS "AS IS"
+.\" CONDITION.  CARNEGIE MELLON DISCLAIMS ANY LIABILITY OF ANY KIND FOR
+.\" ANY DAMAGES WHATSOEVER RESULTING FROM THE USE OF THIS SOFTWARE.
+.\" 
+.\" Carnegie Mellon requests users of this software to return to
+.\" 
+.\"  Software Distribution Coordinator  or  Software.Distribution@CS.CMU.EDU
+.\"  School of Computer Science
+.\"  Carnegie Mellon University
+.\"  Pittsburgh PA 15213-3890
+.\" 
+.\" any improvements or extensions that they make and grant Carnegie Mellon
+.\" the rights to redistribute these changes.
+.\" 
+.Dd November 30, 1993
+.Dt DDB 4
+.Os
+.Sh NAME
+.Nm ddb
+.Nd kernel debugger
+.Sh DESCRIPTION
+The kernel debugger has most of the features of the old kdb,
+but with a more rational (gdb-like) syntax.
+.Pp
+The current location is called 'dot'.  The 'dot' is displayed with
+a hexadecimal format at a prompt.
+Examine and write commands update 'dot' to the address of the last line
+examined or the last location modified, and set 'next' to the address of
+the next location to be examined or changed.
+Other commands don't change 'dot', and set 'next' to be the same as 'dot'.
+.Pp
+The general command syntax is:
+.Pp
+command[/modifier] address [,count]
+.Pp
+A blank line repeats from the address 'next' with count 1 and no modifiers.
+Specifying 'address' sets 'dot' to the address.
+Omitting 'address' uses 'dot'.
+A missing 'count' is taken to be 1 for printing commands or infinity
+for stack traces.
+.Pp
+.Nm ddb
+has a feature like a command
+.Nm more
+for the output.  If an output line exceeds the number set in the
+.Nm $lines
+variable, it displays
+.Nm "--db_more--"
+and waits for a response.
+The valid responses for it are:
+.Bl -tag -width 10n
+.It <space>
+one more page
+.It <return>
+one more line
+.It q
+abort the current command, and return to the command input mode.
+.El
+.Sh COMMANDS
+.Bl -tag -width 10n
+.It examine(x) [/<modifier>] <addr>[,<count>]
+Display the addressed locations according to the formats in the modifier.
+Multiple modifier formats display multiple locations.
+If no format is specified, the last formats specified for this command
+is used.
+.Pp
+The format characters are
+.Bl -tag -width 4n
+.It b
+look at by bytes(8 bits)
+.It h
+look at by half words(16 bits)
+.It l
+look at by long words(32 bits)
+.It a
+print the location being displayed
+.It A
+print the location with a line number if possible
+.It x
+display in unsigned hex
+.It z
+display in signed hex
+.It o
+display in unsigned octal
+.It d
+display in signed decimal
+.It u
+display in unsigned decimal
+.It r
+display in current radix, signed
+.It c
+display low 8 bits as a character.
+Non-printing characters are displayed as an octal escape code (e.g. '\\000').
+.It s
+display the null-terminated string at the location.
+Non-printing characters are displayed as octal escapes.
+.It m
+display in unsigned hex with character dump at the end of each line.
+The location is also displayed in hex at the beginning of each line.
+.It i
+display as an instruction
+.It I
+display as an instruction with possible alternate formats depending on the
+machine:
+.It vax
+don't assume that each external label is a procedure entry mask
+.It i386
+don't round to the next long word boundary
+.It mips
+print register contents
+.El
+.It xf
+Examine forward.
+It executes an examine command with the last specified parameters to it
+except that the next address displayed by it is used as the start address.
+.It xb
+Examine backward.
+It executes an examine command with the last specified parameters to it
+except that the last start address subtracted by the size displayed by it
+is used as the start address.
+.It print[/axzodurc] <addr1> [ <addr2> ... ]
+Print 'addr's according to the modifier character.
+Valid formats are: a x z o d u r c.
+If no modifier is specified, the last one specified to it is used.  'addr'
+can be a string, and it is printed as it is.  For example,
+.ti +4n
+print/x "eax = " $eax "\\necx = " $ecx "\\n"
+.br
+will print like
+.br
+.in +4n
+eax = xxxxxx
+.br
+ecx = yyyyyy
+.in -4n
+.Pp
+.It write[/bhl] <addr> <expr1> [ <expr2> ... ]
+Write the expressions at succeeding locations.
+The write unit size can be specified in the modifier with a letter
+b (byte), h (half word) or l(long word) respectively.  If omitted,
+long word is assumed.
+.Pp
+Warning: since there is no delimiter between expressions, strange
+things may happen.
+It's best to enclose each expression in parentheses.
+.It set $<variable> [=] <expr>
+Set the named variable or register with the value of 'expr'.
+Valid variable names are described below.
+.It break[/u] <addr>[,<count>]
+Set a break point at 'addr'.
+If count is supplied, continues (count-1) times before stopping at the
+break point.  If the break point is set, a break point number is
+printed with '#'.  This number can be used in deleting the break point
+or adding conditions to it.
+.XS 2n
+.IP u 5n
+Set a break point in user space address. Without 'u' option,
+the address is considered in the kernel space, and wrong space address
+is rejected with an error message.
+This option can be used only if it is supported by machine dependent
+routines.
+.XE 2n
+Warning: if a user text is shadowed by a normal user space debugger,
+user space break points may not work correctly.  Setting a break
+point at the low-level code paths may also cause strange behavior.
+.It delete <addr>|#<number>
+Delete the break point.  The target break point can be specified by a
+break point number with '#', or by 'addr' like specified in 'break'
+command.
+.It step[/p] [,<count>]
+Single step 'count' times.
+If 'p' option is specified, print each instruction at each step.
+Otherwise, only print the last instruction.
+.Pp
+Warning: depending on machine type, it may not be possible to
+single-step through some low-level code paths or user space code.
+On machines with software-emulated single-stepping (e.g., pmax),
+stepping through code executed by interrupt handlers will probably
+do the wrong thing.
+.It continue[/c]
+Continue execution until a breakpoint or watchpoint.
+If /c, count instructions while executing.
+Some machines (e.g., pmax) also count loads and stores.
+.Pp
+Warning: when counting, the debugger is really silently single-stepping.
+This means that single-stepping on low-level code may cause strange
+behavior.
+.It until[/p]
+Stop at the next call or return instruction.
+If 'p' option is specified, print the call nesting depth and the
+cumulative instruction count at each call or return.  Otherwise,
+only print when the matching return is hit.
+.It next[/p]
+Stop at the matching return instruction.
+If 'p' option is specified, print the call nesting depth and the
+cumulative instruction count at each call or return.  Otherwise,
+only print when the matching return is hit.
+.It match[/p]
+A synonym for 'next'.
+.It trace[/u] [ <frame_addr> ][,<count>]
+Stack trace.  'u' option traces user space; if omitted, only traces
+kernel space. 'count' is the number of frames to be traced. 
+If the 'count' is omitted, all frames are printed.
+.Pp
+Warning: User space stack trace is valid
+only if the machine dependent code supports it.
+.It search[/bhl] <addr> <value> [<mask>] [,<count>]
+Search memory for a value. This command might fail in interesting
+ways if it doesn't find the searched-for value.  This is because
+ddb doesn't always recover from touching bad memory.  The optional
+count argument limits the search.
+.It show all procs[/m]
+Display all process information.
+This version of
+.Nm ddb
+prints more information than previous one.
+It shows process information like "ps".
+The process information may not be shown if it is not
+supported in the machine, or the bottom of the stack of the
+target process is not in the main memory at that time.
+The 'm' options will alter the 'ps' display to show vm_map
+addresses for the process and not show other info.
+.It ps[/m]
+A synonym for 'show all procs'.
+.It show registers
+Display the register set.
+If 'u' option is specified, it displays user registers instead of
+kernel or currently saved one.
+.Pp
+Warning: The support of 'u' option depends on the machine.  If
+not supported, incorrect information will be displayed.
+.It show map[/f] <addr>
+Prints the vm_map at 'addr'. If the 'f' option is specified the
+complete map is printed.
+.It show object[/f] <addr>
+Prints the vm_object at 'addr'. If the 'f' option is specified the
+complete object is printed.
+.It show watches
+Displays all watchpoints.
+.It watch <addr>,<size>
+Set a watchpoint for a region.  Execution stops
+when an attempt to modify the region occurs.
+The 'size' argument defaults to 4.
+.Pp
+If you specify a wrong space address, the request is rejected
+with an error message.
+.Pp
+Warning: Attempts to watch wired kernel memory
+may cause unrecoverable error in some systems such as i386.
+Watchpoints on user addresses work best.
+.Sh VARIABLES
+The debugger accesses registers and variables as
+.I $<name>.
+Register names are as in the
+.Nm show registers
+command.
+Some variables are suffixed with numbers, and may have some modifier
+following a colon immediately after the variable name.
+For example, register variables can have 'u' modifier to indicate
+user register (e.g. $eax:u).
+.Pp
+Built-in variables currently supported are:
+.Bl -tag -width 10n
+.IP radix
+Input and output radix
+.It maxoff
+Addresses are printed as 'symbol'+offset unless offset is greater than maxoff.
+.It maxwidth
+The width of the displayed line.
+.It lines
+The number of lines.  It is used by "more" feature.
+.It tabstops
+Tab stop width.
+.It work\fIxx\fR
+Work variable.
+.I 'xx'
+can be 0 to 31.
+.El
+.Sh EXPRESSIONS
+Almost all expression operators in C are supported except '~', '^',
+and unary '&'.
+Special rules in
+.Nm ddb
+are:
+.Bl -tag -width 15n
+.It "<identifier>"
+name of a symbol.  It is translated to the address(or value) of it.  '.'
+and ':' can be used in the identifier.  If supported by an object format
+dependent routine,
+[\fI<filename>\fR:]\fI<func>\fR[:\fI<linenumber>\fR]
+[\fI<filename>\fR:]\fI<variable>\fR, and
+\fI<filename>\fR[:\fI<linenumber>\fR]
+can be accepted as a symbol.
+The symbol may be prefixed with '\fI<symbol_table_name>\fR::'
+like 'emulator::mach_msg_trap' to specify other than kernel symbols.
+.It "<number>"
+radix is determined by the first two letters:
+0x: hex, 0o: octal, 0t: decimal, otherwise, follow current radix.
+.It \.
+\'dot'
+.It \+
+\'next'
+.It \..
+address of the start of the last line examined.
+Unlike 'dot' or 'next', this is only changed by "examine" or
+"write" command.
+.It \'
+last address explicitly specified.
+.It "$<variable>"
+register name or variable.  It is translated to the value of it.
+It may be followed by a ':' and modifiers as described above.
+.It \#
+a binary operator which rounds up the left hand side to the next
+multiple of right hand side.
+.It "*<expr>"
+indirection.  It may be followed by a ':' and  modifiers as described above.

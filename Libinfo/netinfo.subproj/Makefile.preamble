@@ -1,0 +1,6 @@
+OTHER_OFILES = nibind_prot_clnt.o ni_prot_clnt.o nibind_prot_xdr.o ni_prot_xdr.o
+NETINFO_HEADERS = nibind_prot.h ni_prot.h
+AFTER_PREBUILD = $(NETINFO_HEADERS)
+OTHER_PUBLIC_HEADERS = $(NETINFO_HEADERS)
+BEFORE_INSTALLHEADERS += $(NETINFO_HEADERS)
+PUBLIC_HEADER_DIR_SUFFIX = /netinfo

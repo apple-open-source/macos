@@ -1,0 +1,37 @@
+# Provide a 'bundle' target to ensure that we can build this project
+# in PB.  This is needed because we switch MAKEFILE from bundle.make
+# (specified in Makefile) to common.make below.
+bundle: all
+
+all:
+
+#
+# This isn't really a bundle...
+#
+
+MAKEFILEDIR = $(shell pwd)
+MAKEFILE = common.make
+
+include $(MAKEFILEDIR)/platform.make
+
+#
+# Define variables
+#
+
+ifeq "HPUX" "$(OS)"
+OTHER_LDFLAGS = -nopdolib
+endif
+ifeq "SOLARIS" "$(OS)"
+OTHER_LDFLAGS = -nopdolib
+endif
+
+
+PRODUCTS = $(filter-out readdir%, $(CFILES:.c=$(EXECUTABLE_EXT)))
+STRIPPED_PRODUCTS = $(addprefix $(PRODUCT_ROOT)/, $(PRODUCTS))
+
+AFTER_INSTALL = install-resources
+
+DISABLE_RESOURCE_COPYING = YES
+INSTALLDIR = $(SYSTEM_DEVELOPER_DIR)/Makefiles/pb_makefiles
+DSTROOT = $(NEXT_ROOT)
+

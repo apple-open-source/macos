@@ -1,0 +1,76 @@
+{
+    IBClasses = (
+        {CLASS = CustomOutlineView; LANGUAGE = ObjC; SUPERCLASS = NSOutlineView; }, 
+        {
+            ACTIONS = {showHelp = id; }; 
+            CLASS = FirstResponder; 
+            LANGUAGE = ObjC; 
+            SUPERCLASS = NSObject; 
+        }, 
+        {
+            ACTIONS = {
+                changeLevel = id; 
+                displayAboutWindow = id; 
+                displayPlaneWindow = id; 
+                displaySearchWindow = id; 
+                doSearchForward = id; 
+                dumpDictionaryToOutput = id; 
+                explore = id; 
+                forceUpdate = id; 
+                switchRootPlane = id; 
+            }; 
+            CLASS = RExplorer; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {
+                browser = id; 
+                currentLevel = id; 
+                currentLocation = id; 
+                currentSearchTerm = id; 
+                currentSelectedItemDict = id; 
+                informationView = id; 
+                inspectorText = id; 
+                inspectorWindow = id; 
+                keyColumn = id; 
+                planeBrowser = id; 
+                planeWindow = id; 
+                port = id; 
+                propertiesOutlineView = id; 
+                registryDict = id; 
+                searchKeysCheckBox = id; 
+                searchTextField = id; 
+                searchValuesCheckBox = id; 
+                searchWindow = id; 
+                splitView = id; 
+                trackingRect = id; 
+                typeColumn = id; 
+                updateTimer = id; 
+                valueColumn = id; 
+                window = id; 
+            }; 
+            SUPERCLASS = NSObject; 
+        }, 
+        {
+            ACTIONS = {
+                displaySearchWindow = id; 
+                goTo = id; 
+                goToNextResult = id; 
+                goToPreviousResult = id; 
+                search = id; 
+            }; 
+            CLASS = RSearch; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {
+                explorer = id; 
+                resultsArray = id; 
+                resultsTable = id; 
+                searchKeysCheckBox = id; 
+                searchTextField = id; 
+                searchValuesCheckBox = id; 
+                searchWindow = id; 
+            }; 
+            SUPERCLASS = NSObject; 
+        }, 
+        {CLASS = java.lang.Object; LANGUAGE = Java; }
+    ); 
+    IBVersion = 1; 
+}

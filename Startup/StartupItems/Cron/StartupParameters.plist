@@ -1,0 +1,11 @@
+{
+  Description     = "timed execution services";
+  Provides        = ("Cron");
+  Uses            = ("Network Time");
+  OrderPreference = "Late";
+  Messages =
+  {
+    start = "Starting timed execution services";
+    stop  = "Stopping timed execution services";
+  };
+}

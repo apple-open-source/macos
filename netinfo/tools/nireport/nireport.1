@@ -1,0 +1,54 @@
+.TH NIREPORT 1 "August 9, 1994" "Apple Computer, Inc."
+.SH NAME
+nireport \- print tables from the NetInfo hierarchy
+.SH SYNOPSIS
+.B nireport
+[ \fB-t\fR ] \fIdomain\fR \fIdirectory\fR [ \fIproperty\fR ...]
+.SH DESCRIPTION
+.I nireport
+prints a table of values of properties in all subdirectories of the directory given on the command line (see "Examples").  Multiple values of a
+property are printed in a comma-separated list.
+.sp
+The
+.I domain
+argument can be specified as an absolute or relative domain name. The \fIdomain\fR argument can also be specified as a network 
+address or host name and tag if it is preceded by the \fI-t\fR option.
+
+.SH "OPTIONS"
+.TP
+.B "-t"
+Specify \fIdomain\fR as a network address or hostname and tag.
+
+.SH EXAMPLES
+% nireport /software/duck /users name uid passwd
+.br
+root  	0	0NNGzihc9ILeg
+.br
+nobody	-2	*
+.br
+agent 	1	*
+.br
+daemon	1	*
+.br
+uucp   	4	*
+.br
+news   	6	*
+.br
+sybase	8	*
+.br
+me    	20	DJJ.KMEC.OgIY
+.sp
+% nireport -t crow/network /machines name ip_address serves
+.br
+crow 	129.18.10.221	./network,crow/local
+.br
+robin	129.18.10.216	robin/local
+.br
+raven	129.18.21.6  	./network,raven/local
+.br
+duck 	129.18.10.210	duck/local
+
+.SH AUTHOR
+Marc Majka, Apple Computer Inc.
+
+.SH

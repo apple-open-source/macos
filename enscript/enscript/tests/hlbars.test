@@ -1,0 +1,10 @@
+#!/bin/sh
+#
+# --highlight-bars
+#
+
+. $srcdir/defs || exit 1
+
+$enscript --quiet --highlight-bars -p$output $asciifiles
+
+rm $output

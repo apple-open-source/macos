@@ -1,0 +1,10 @@
+[TopDir]
+file0=N:\ntp-4.0.73a\ports\winnt\package\distrib\Release\ntpdate.exe
+file1=N:\ntp-4.0.73a\ports\winnt\package\distrib\Release\ntpdc.exe
+file2=N:\ntp-4.0.73a\ports\winnt\package\distrib\Release\ntpq.exe
+file3=N:\ntp-4.0.73a\ports\winnt\package\distrib\Release\ntptrace.exe
+
+[General]
+Type=FILELIST
+Version=1.00.000
+

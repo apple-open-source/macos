@@ -1,0 +1,79 @@
+/* Informational messages */
+
+"Loading Rhapsody" = "Cargando Rhapsody";
+"Loading %s\n" = "Cargando %s\n";
+"Reading Rhapsody configuration" = "Leyendo configuracion de Rhapsody";
+"Couldn't load standalone linker; unable to load boot drivers.\n" = "Imposible cargar linker autonomo; imposible cargar controladores de arranque.\n";
+"Insert file system media and press Return" = "Inserte el disco del sistema de ficheros y pulse Intro";
+"Errors encountered while starting up the computer.\n" = "Se han encontrado errores al arrancar el ordenador.\n";
+"Pausing %d seconds...\n" = "Parada de %d segundos...\n";
+"Starting Rhapsody" = "Arrancando Rhapsody";
+"Can't find %s\n" = "Imposible encontrar %s\n";
+"Couldn't start up the computer using this floppy disk." = "No se ha podido arrancar el ordenador utilizando este disquete.";
+"Error occurred while linking driver %s:\n%s" = "Se ha producido un error al enlazar el controlador %s:\n%s";
+"Loading %s device driver.\n" = "Cargando el controlador de dispositivo %s.\n";
+"The driver was loaded successfully.\n" = "El controlador se ha cargado correctamente.\n";
+"An error occurred while loading the %s device driver.\n" = "Se ha producido un error al cargar el controlador de dispositivo %s.\n";
+"Press Return to continue.\n" = "Pulse Retorno para continuar.\n";
+"That driver has already been loaded.\n" = "Ese controlador ya ha sido cargado.\n";
+"Searching for drivers\n" = "Buscando controladores\n";
+"Reading configuration file '%s'.\n" = "Leyendo el fichero de configuracion '%s'.\n";
+
+/* Warnings */
+
+"Config file \"%s\" not found\n" = "No se encuentra el fichero de configuracion \"%s\"\n";
+"System config file '%s' not found\n" = "No se encuentra el fichero de configuracion del sistema '%s'\n";
+"Loading binary for %s device driver.\n" = "Cargando binario para el controlador de dispositivo %s.\n";
+"Warning: No active drivers specified in system config.\n" = "Advertencia: no hay controladores activos especificados en la configuracion\ndel sistema.\n";
+
+/* Install messages */
+
+"DRIVER_MESSAGE_1" = "El disquete de la unidad contiene controladores de dispositivo para los\nsiguientes adaptadores SCSI:\n";
+"DRIVER_INSTRUCTION_1" = "Escriba el numero para el adaptador SCSI al que esta conectada la unidad de\nCD-ROM.\n\n";
+"DRIVER_ALTERNATE_1" = "Si el controlador de este dispositivo se encuentra en otro disco, inserte ese\ndisco en la unidad de disquete y escriba %d.\n";
+"DRIVER_QUIT_1" = "";
+"DRIVER_MESSAGE_2" = "El disquete de la unidad contiene controladores de dispositivo para los\nsiguientes adaptadores SCSI y controladores de disco duro:\n";
+"DRIVER_INSTRUCTION_2" = "Escriba el numero del adaptador SCSI o del controlador de disco duro que este\nconectado al disco duro en el que desea instalar Rhapsody.\n(Es posible que se trate del mismo adaptador SCSI al que esta conectada la\nunidad de CD-ROM.)\n\n";
+"DRIVER_ALTERNATE_2" = "Si el controlador de este dispositivo se encuentra en otro disco, inserte ese\ndisco en la unidad de disquete y escriba %d.\n";
+"DRIVER_QUIT_2" = "";
+"DRIVER_MESSAGE_3" = "El disquete de la unidad contiene los siguientes controladores de dispositivo:\n";
+"DRIVER_INSTRUCTION_3" = "Escriba el numero del controlador de dispositivo que necesita para instalar\nRhapsody.\n\n";
+"DRIVER_ALTERNATE_3" = "Si el controlador de dispositivo que necesita cargar se encuentra en otro \ndisco, insertelo en la unidad y escriba %d.\n\n";
+"DRIVER_QUIT_3" = "Escriba %d para continuar sin instalar un controlador de dispositivo de este\ndisco.\n";
+"DRIVER_QUESTION_3" = "Normalmente, solo tiene que cargar los controladores de dispositivo para los\nadaptadores a los que esten conectados la unidad de CD-ROM y el disco duro\npara poder instalar Rhapsody. Otros controladores se cargan automaticamente.\n\nSi necesita cargar otro controlador de dispositivo, inserte el disco que lo\ncontiene en la unidad de disquete.\n\n";
+
+"Type %d to view a list of additional device drivers on this disk.\n\n" =
+"Escriba %d para visualizar una lista de controladores de dispositivo
+adicionales de este disco.\n\n";
+
+"Really Install?" = "Este programa sirve para instalar Rhapsody en el disco duro.\nNO SE TRATA DE UNA ACTUALIZACION: SE BORRARAN TODOS LOS FICHEROS DE Rhapsody\nEXISTENTES.\n\nSi tiene ficheros en el disco duro que desea conservar, salga de este programa\ny copie la informacion que desea conservar en otro disco.\n\nEscriba 1 si esta listo para instalar Rhapsody.\nEscriba 2 para salir del programa de instalacion.\n";
+
+"Insert Driver Disk" = "Inserte el disco de controladores de dispositivos de Rhapsody en la unidad de\ndisquete y pulse Intro.\n\n---> ";
+
+"Load Other Drivers?" = "Normalmente, solo tiene que cargar los controladores de dispositivo para los\nadaptadores a los que esten conectados la unidad de CD-ROM y el disco duro\npara poder instalar Rhapsody. Otros controladores se cargan automaticamente\ndesde la CD-ROM de Rhapsody.\n\nSi necesita cargar otro controlador de dispositivo, inserte el disco que lo\ncontiene en la unidad de disquete.\n";
+
+"Missing Drivers:" = "Cuando empezo a instalar NEXSTEP, cargo uno o mas controladores de dispositivo\nque no se encontraban en la CD-ROM de Rhapsody:\n";
+
+"No Drivers On This Disk" = "No hay ningun controlador de dispositivo adecuado en este disquete.\nInserte un nuevo disco y pulse Intro.\n---> ";
+
+"Install Canceled" = "Instalacion cancelada. Extraiga el disquete y vuelva a arrancar el ordenador.\n";
+
+"1 To Continue" = "Escriba 1 para continuar sin cargar controladores de dispositivos adicionales.\n";
+
+"2 To Load" = "Escriba 2 para cargar un controlador de dispositivo desde el disco en la\nunidad de disquete.\n";
+
+"1 To Load Driver" = "Inserte el disquete que contiene uno o mas de estos controladores\nde dispositivo y escriba 1.\n";
+
+"2 To Continue" = "Escriba 2 para continuar sin cargar ninguno de los controladores de dispositivo\nde esta lista.\n";
+
+/* Somewhat obscure error messages */
+
+"Error loading %s\n" = "Error cargando %s\n";
+"Read error\n" = "Error de lectura\n";
+"Error in standalone linker executable\n" = "Error en linker autonomo ejecutable\n";
+"Fat binary file doesn't contain i386 code\n" = "El fichero fat binary no contiene codigo i386\n";
+"Unrecognized binary format\n" = "Formato binario no reconocido\n";
+"Error reading commands\n" = "Error leyendo comandos\n";
+"Error loading section\n" = "Error cargando seccion\n";
+"Can't load driver %s without sarld\n" = "Imposible cargar el controlador %s sin sarld\n";
+"Driver %s is larger than %d bytes and can't be loaded.\n" = "El controlador %s es mayor de %d bytes y no puede cargarse.\n";

@@ -1,0 +1,26 @@
+{
+    FILESTABLE = {
+        H_FILES = (
+            alignment.h, 
+            ansi.h, 
+            asm_help.h, 
+            byte_order.h, 
+            cpu.h, 
+            desc.h, 
+            fpu.h, 
+            frame.h, 
+            io.h, 
+            limits.h, 
+            reg_help.h, 
+            sel.h, 
+            table.h, 
+            tss.h
+        ); 
+    }; 
+    GENERATEMAIN = YES; 
+    LANGUAGE = English; 
+    LOCALIZABLE_FILES = {}; 
+    PROJECTNAME = i386; 
+    PROJECTTYPE = Legacy; 
+    PROJECTVERSION = 2.6; 
+}

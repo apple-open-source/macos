@@ -1,0 +1,38 @@
+\initial {C}
+\entry {\code {C-c C-p}}{15, 24}
+\entry {\code {C-c C-p ?}}{28}
+\entry {\code {C-c C-p c}}{25}
+\entry {\code {C-c C-p C-b}}{28}
+\entry {\code {C-c C-p C-p}}{17, 27}
+\entry {\code {C-c C-p C-t}}{26}
+\entry {\code {C-c C-p f}}{27}
+\entry {\code {C-c C-p g}}{28}
+\entry {\code {C-c C-p h}}{28}
+\entry {\code {C-c C-p i}}{26}
+\entry {\code {C-c C-p o}}{28}
+\entry {\code {C-c C-p r}}{25}
+\entry {\code {C-c C-p u}}{25}
+\entry {\code {C-c C-p v}}{28}
+\entry {\code {C-c C-p w}}{26}
+\entry {\code {C-c C-y}}{1}
+\entry {\code {C-j}}{10}
+\entry {\code {C-u}}{25}
+\initial {F}
+\entry {\code {f}}{1}
+\initial {G}
+\entry {\code {g}}{10}
+\initial {J}
+\entry {\code {j}}{10}
+\initial {N}
+\entry {\code {n}}{9}
+\initial {P}
+\entry {\code {p}}{10}
+\initial {Q}
+\entry {\code {q}}{10}
+\initial {R}
+\entry {\code {r}}{1}
+\entry {\code {RET}}{10}
+\initial {S}
+\entry {\code {s}}{10}
+\initial {X}
+\entry {\code {x}}{10}

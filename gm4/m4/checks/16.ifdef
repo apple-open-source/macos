@@ -1,0 +1,7 @@
+dnl ../doc/m4.texinfo:1343: Origin of test
+ifdef(`foo', ``foo' is defined', ``foo' is not defined')
+dnl @result{}foo is not defined
+define(`foo', `')
+dnl @result{}
+ifdef(`foo', ``foo' is defined', ``foo' is not defined')
+dnl @result{}foo is defined

@@ -1,0 +1,9 @@
+dnl ../doc/m4.texinfo:2302: Origin of test
+define(`bar', `BAR')
+dnl @result{}
+undivert(`foo')
+dnl @result{}bar
+dnl @result{}
+include(`foo')
+dnl @result{}BAR
+dnl @result{}

@@ -1,0 +1,81 @@
+{
+    DYNAMIC_CODE_GEN = YES; 
+    FILESTABLE = {
+        CLASSES = (); 
+        FRAMEWORKS = (); 
+        H_FILES = (
+            alert.h, 
+            event.h, 
+            getstuff.h, 
+            index.h, 
+            index_manager.h, 
+            listops.h, 
+            multi_call.h, 
+            ni_dir.h, 
+            ni_file.h, 
+            ni_globals.h, 
+            ni_server.h, 
+            notify.h, 
+            proxy_pids.h, 
+            ranstrcmp.h, 
+            safe_stdio.h, 
+            sanitycheck.h, 
+            strstore.h
+        ); 
+        LIBRARYSEARCH = (); 
+        OTHER_LINKED = (
+            alert.c, 
+            event.c, 
+            getstuff.c, 
+            index.c, 
+            index_manager.c, 
+            listops.c, 
+            multi_call.c, 
+            ni.c, 
+            ni_dir.c, 
+            ni_file.c, 
+            ni_globals.c, 
+            ni_lookupprop.c, 
+            ni_main.c, 
+            ni_prot_proc.c, 
+            ni_svc_run.c, 
+            ni_svc_tcp.c, 
+            notify.c, 
+            proxy_pids.c, 
+            ranstrcmp.c, 
+            readall.c, 
+            safe_stdio.c, 
+            sanitycheck.c, 
+            strstore.c
+        ); 
+        OTHER_SOURCES = (
+            Makefile.preamble, 
+            Makefile, 
+            Makefile.postamble,
+            Makefile.postamble,
+            bootparam_prot.x, 
+            ipconfig.defs, 
+            netinfod.8, 
+            ni_prot.x, 
+            nibind_prot.x, 
+            rpcgen_HACK.sed
+        ); 
+        SUBPROJECTS = (); 
+    }; 
+    LANGUAGE = English; 
+    LOCALIZABLE_FILES = {}; 
+    MAKEFILEDIR = "$(MAKEFILEPATH)/pb_makefiles"; 
+    NEXTSTEP_BUILDTOOL = /bin/gnumake; 
+    NEXTSTEP_INSTALLDIR = /usr/sbin; 
+    NEXTSTEP_JAVA_COMPILER = /usr/bin/javac; 
+    NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc; 
+    PDO_UNIX_BUILDTOOL = $NEXT_ROOT/Developer/bin/make; 
+    PDO_UNIX_JAVA_COMPILER = "$(JDKBINDIR)/javac"; 
+    PDO_UNIX_OBJCPLUS_COMPILER = "$(NEXTDEV_BIN)/gcc"; 
+    PROJECTNAME = netinfod; 
+    PROJECTTYPE = Tool; 
+    PROJECTVERSION = 2.8; 
+    WINDOWS_BUILDTOOL = $NEXT_ROOT/Developer/Executables/make; 
+    WINDOWS_JAVA_COMPILER = "$(JDKBINDIR)/javac.exe"; 
+    WINDOWS_OBJCPLUS_COMPILER = "$(DEVDIR)/gcc"; 
+}

@@ -1,0 +1,334 @@
+<HTML>
+<HEAD>
+<!-- This HTML file has been created by texi2html 1.51
+     from /mnt/apple/gdb/source/gdb.apple/source/gdb/gdb/doc/gdb.texinfo on 23 November 1999 -->
+
+<TITLE>Debugging with GDB - Summary of GDB</TITLE>
+</HEAD>
+<BODY>
+Go to the first, previous, <A HREF="gdb_2.html">next</A>, <A HREF="gdb_21.html">last</A> section, <A HREF="gdb_toc.html">table of contents</A>.
+<P><HR><P>
+
+<P>
+
+<P>
+Copyright (C) 1988-1999 Free Software Foundation, Inc. 
+<P>
+Published by the Free Software Foundation <BR>
+59 Temple Place - Suite 330, <BR>
+Boston, MA 02111-1307 USA <BR>
+Printed copies are available for $20 each. <BR>
+ISBN 1-882114-11-6 <BR>
+                
+Permission is granted to make and distribute verbatim copies of
+this manual provided the copyright notice and this permission notice
+are preserved on all copies.
+
+</P>
+<P>
+Permission is granted to copy and distribute modified versions of this
+manual under the conditions for verbatim copying, provided also that the
+entire resulting derived work is distributed under the terms of a
+permission notice identical to this one.
+
+</P>
+<P>
+Permission is granted to copy and distribute translations of this manual
+into another language, under the above conditions for modified versions.
+
+</P>
+
+
+
+<H1><A NAME="SEC1" HREF="gdb_toc.html#TOC1">Summary of GDB</A></H1>
+
+<P>
+The purpose of a debugger such as GDB is to allow you to see
+what is going on "inside" another program while it executes--or what
+another program was doing at the moment it crashed.  We call the other
+program "your program," or "the program being debugged."
+
+</P>
+<P>
+GDB can do four main kinds of things (plus other things in support of
+these) to help you catch bugs in the act:
+
+</P>
+
+<UL>
+<LI>
+
+Start your program, specifying anything that might affect its behavior.
+
+<LI>
+
+Make your program stop on specified conditions.
+
+<LI>
+
+Examine what has happened, when your program has stopped.
+
+<LI>
+
+Change things in your program, so you can experiment with correcting the
+effects of one bug and go on to learn about another.
+</UL>
+
+<P>
+You can use GDB to debug programs written in C and C++.
+For more information, see section <A HREF="gdb_10.html#SEC72">Supported languages</A>.
+For more information, see section <A HREF="gdb_10.html#SEC73">C and C++</A>.
+
+</P>
+<P>
+<A NAME="IDX1"></A>
+<A NAME="IDX2"></A>
+Support for Modula-2 and Chill is partial.  For information on Modula-2,
+see section <A HREF="gdb_10.html#SEC81">Modula-2</A>.  For information on Chill, see section <A HREF="gdb_10.html#SEC90">Chill</A>.
+
+</P>
+<P>
+<A NAME="IDX3"></A>
+Debugging Pascal programs which use sets, subranges, file variables, or
+nested functions does not currently work.  GDB does not support
+entering expressions, printing values, or similar features using Pascal
+syntax.
+
+</P>
+<P>
+<A NAME="IDX4"></A>
+GDB can be used to debug programs written in Fortran, although
+It may be necessary to refer to some variables with a trailing
+underscore.
+
+</P>
+<P>
+<A NAME="IDX5"></A>
+GDB can be used to debug programs written in Objective-C and in
+Objective-C++, using either the Apple/NeXT or the GNU Objective-C
+runtime.
+
+</P>
+
+
+
+<H2><A NAME="SEC2" HREF="gdb_toc.html#TOC2">Free software</A></H2>
+
+<P>
+GDB is <STRONG>free software</STRONG>, protected by the GNU 
+General Public License
+(GPL).  The GPL gives you the freedom to copy or adapt a licensed
+program--but every person getting a copy also gets with it the
+freedom to modify that copy (which means that they must get access to
+the source code), and the freedom to distribute further copies.
+Typical software companies use copyrights to limit your freedoms; the
+Free Software Foundation uses the GPL to preserve these freedoms.
+
+</P>
+<P>
+Fundamentally, the General Public License is a license which says that
+you have these freedoms and that you cannot take these freedoms away
+from anyone else.
+
+</P>
+
+
+<H2><A NAME="SEC3" HREF="gdb_toc.html#TOC3">Contributors to GDB</A></H2>
+
+<P>
+Richard Stallman was the original author of GDB, and of many other
+GNU programs.  Many others have contributed to its development.
+This section attempts to credit major contributors.  One of the virtues
+of free software is that everyone is free to contribute to it; with
+regret, we cannot actually acknowledge everyone here.  The file
+<TT>`ChangeLog'</TT> in the GDB distribution approximates a
+blow-by-blow account.
+
+</P>
+<P>
+Changes much prior to version 2.0 are lost in the mists of time.
+
+</P>
+
+<BLOCKQUOTE>
+<P>
+<EM>Plea:</EM> Additions to this section are particularly welcome.  If you
+or your friends (or enemies, to be evenhanded) have been unfairly
+omitted from this list, we would like to add your names!
+</BLOCKQUOTE>
+
+<P>
+So that they may not regard their many labors as thankless, we
+particularly thank those who shepherded GDB through major
+releases:
+Jim Blandy (release 4.18);
+Jason Molenda (release 4.17);
+Stan Shebs (release 4.14);
+Fred Fish (releases 4.16, 4.15, 4.13, 4.12, 4.11, 4.10, and 4.9);
+Stu Grossman and John Gilmore (releases 4.8, 4.7, 4.6, 4.5, and 4.4);
+John Gilmore (releases 4.3, 4.2, 4.1, 4.0, and 3.9);
+Jim Kingdon (releases 3.5, 3.4, and 3.3);
+and Randy Smith (releases 3.2, 3.1, and 3.0).
+
+</P>
+<P>
+Richard Stallman, assisted at various times by Peter TerMaat, Chris
+Hanson, and Richard Mlynarik, handled releases through 2.8.
+
+</P>
+<P>
+Michael Tiemann is the author of most of the GNU C++ support in GDB,
+with significant additional contributions from Per Bothner.  James
+Clark wrote the GNU C++ demangler.  Early work on C++ was by Peter
+TerMaat (who also did much general update work leading to release 3.0).
+
+</P>
+<P>
+GDB 4 uses the BFD subroutine library to examine multiple
+object-file formats; BFD was a joint project of David V.
+Henkel-Wallace, Rich Pixley, Steve Chamberlain, and John Gilmore.
+
+</P>
+<P>
+David Johnson wrote the original COFF support; Pace Willison did
+the original support for encapsulated COFF.
+
+</P>
+<P>
+Brent Benson of Harris Computer Systems contributed DWARF 2 support.
+
+</P>
+<P>
+Adam de Boor and Bradley Davis contributed the ISI Optimum V support.
+Per Bothner, Noboyuki Hikichi, and Alessandro Forin contributed MIPS
+support.
+Jean-Daniel Fekete contributed Sun 386i support.
+Chris Hanson improved the HP9000 support.
+Noboyuki Hikichi and Tomoyuki Hasei contributed Sony/News OS 3 support.
+David Johnson contributed Encore Umax support.
+Jyrki Kuoppala contributed Altos 3068 support.
+Jeff Law contributed HP PA and SOM support.
+Keith Packard contributed NS32K support.
+Doug Rabson contributed Acorn Risc Machine support.
+Bob Rusk contributed Harris Nighthawk CX-UX support.
+Chris Smith contributed Convex support (and Fortran debugging).
+Jonathan Stone contributed Pyramid support.
+Michael Tiemann contributed SPARC support.
+Tim Tucker contributed support for the Gould NP1 and Gould Powernode.
+Pace Willison contributed Intel 386 support.
+Jay Vosburgh contributed Symmetry support.
+
+</P>
+<P>
+Andreas Schwab contributed M68K Linux support.
+
+</P>
+<P>
+Rich Schaefer and Peter Schauer helped with support of SunOS shared
+libraries.
+
+</P>
+<P>
+Jay Fenlason and Roland McGrath ensured that GDB and GAS agree
+about several machine instruction sets.
+
+</P>
+<P>
+Patrick Duval, Ted Goldstein, Vikram Koka and Glenn Engel helped develop
+remote debugging.  Intel Corporation, Wind River Systems, AMD, and ARM
+contributed remote debugging modules for the i960, VxWorks, A29K UDI,
+and RDI targets, respectively.
+
+</P>
+<P>
+Brian Fox is the author of the readline libraries providing
+command-line editing and command history.
+
+</P>
+<P>
+Andrew Beers of SUNY Buffalo wrote the language-switching code, the
+Modula-2 support, and contributed the Languages chapter of this manual.
+
+</P>
+<P>
+Fred Fish wrote most of the support for Unix System Vr4.  
+He also enhanced the command-completion support to cover C++ overloaded
+symbols.
+
+</P>
+<P>
+Hitachi America, Ltd. sponsored the support for H8/300, H8/500, and
+Super-H processors.
+
+</P>
+<P>
+NEC sponsored the support for the v850, Vr4xxx, and Vr5xxx processors.
+
+</P>
+<P>
+Mitsubishi sponsored the support for D10V, D30V, and M32R/D processors.
+
+</P>
+<P>
+Toshiba sponsored the support for the TX39 Mips processor.
+
+</P>
+<P>
+Matsushita sponsored the support for the MN10200 and MN10300 processors.
+
+</P>
+<P>
+Fujitsu sponsored the support for SPARClite and FR30 processors
+
+</P>
+<P>
+Kung Hsu, Jeff Law, and Rick Sladkey added support for hardware
+watchpoints.
+
+</P>
+<P>
+Michael Snyder added support for tracepoints.
+
+</P>
+<P>
+Stu Grossman wrote gdbserver.
+
+</P>
+<P>
+Jim Kingdon, Peter Schauer, Ian Taylor, and Stu Grossman made
+nearly innumerable bug fixes and cleanups throughout GDB.
+
+</P>
+<P>
+The following people at the Hewlett-Packard Company contributed
+support for the PA-RISC 2.0 architecture, HP-UX 10.20, 10.30, and 11.0
+(narrow mode), HP's implementation of kernel threads, HP's aC++
+compiler, and the terminal user interface: Ben Krepp, Richard Title,
+John Bishop, Susan Macchia, Kathy Mann, Satish Pai, India Paul, Steve
+Rehrauer, and Elena Zannoni.  Kim Haase provided HP-specific
+information in this manual.
+
+</P>
+<P>
+Cygnus Solutions has sponsored GDB maintenance and much of its
+development since 1991.  Cygnus engineers who have worked on GDB
+fulltime include Mark Alexander, Jim Blandy, Per Bothner, Edith Epstein,
+Chris Faylor, Fred Fish, Martin Hunt, Jim Ingham, John Gilmore, Stu
+Grossman, Kung Hsu, Jim Kingdon, John Metzler, Fernando Nasser, Geoffrey
+Noer, Dawn Perchik, Rich Pixley, Zdenek Radouch, Keith Seitz, Stan
+Shebs, David Taylor, and Elena Zannoni.  In addition, Dave Brolley, Ian
+Carmichael, Steve Chamberlain, Nick Clifton, JT Conklin, Stan Cox, DJ
+Delorie, Ulrich Drepper, Frank Eigler, Doug Evans, Sean Fagan, David
+Henkel-Wallace, Richard Henderson, Jeff Holcomb, Jeff Law, Jim Lemke,
+Tom Lord, Bob Manson, Michael Meissner, Jason Merrill, Catherine Moore,
+Drew Moseley, Ken Raeburn, Gavin Romig-Koch, Rob Savoye, Jamie Smith,
+Mike Stump, Ian Taylor, Angela Thomas, Michael Tiemann, Tom Tromey, Ron
+Unrau, Jim Wilson, and David Zuhn have made contributions both large
+and small.
+
+</P>
+
+<P><HR><P>
+Go to the first, previous, <A HREF="gdb_2.html">next</A>, <A HREF="gdb_21.html">last</A> section, <A HREF="gdb_toc.html">table of contents</A>.
+</BODY>
+</HTML>

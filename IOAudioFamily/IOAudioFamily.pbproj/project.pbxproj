@@ -1,0 +1,909 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 32;
+	objects = {
+		01577ADEFFEC964A11CA29EB = {
+			fileRef = 15F1CA6BFFEC8F6A11CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		01577ADFFFEC9C1011CA29EB = {
+			isa = PBXFileReference;
+			path = IOAudioDefines.h;
+			refType = 4;
+		};
+		01577AE0FFEC9C1011CA29EB = {
+			fileRef = 01577ADFFFEC9C1011CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		01577AE1FFEC9C1011CA29EB = {
+			fileRef = 01577ADFFFEC9C1011CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		01918235FFE7227E11CA29EB = {
+			fileRef = 06F44E3AFFE7037511CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		068EB4B7FFEF409011CA29EB = {
+			fileRef = 01577ADFFFEC9C1011CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		06AA1264FFB2107B11CA28AA = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			name = "Shell Script";
+			neededFileNames = (
+			);
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		06AA1265FFB2107B11CA28AA = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		06AA1266FFB2107B11CA28AA = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+		06AA1267FFB2110C11CA28AA = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			name = "Shell Script";
+			neededFileNames = (
+			);
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		06F44E0AFFE702AD11CA29EB = {
+			isa = PBXFileReference;
+			path = IOAudioControl.cpp;
+			refType = 4;
+		};
+		06F44E0BFFE702AD11CA29EB = {
+			isa = PBXFileReference;
+			path = IOAudioControlUserClient.cpp;
+			refType = 4;
+		};
+		06F44E0CFFE702AD11CA29EB = {
+			isa = PBXFileReference;
+			path = IOAudioDevice.cpp;
+			refType = 4;
+		};
+		06F44E0DFFE702AD11CA29EB = {
+			isa = PBXFileReference;
+			path = IOAudioDMAEngine.cpp;
+			refType = 4;
+		};
+		06F44E0EFFE702AD11CA29EB = {
+			isa = PBXFileReference;
+			path = IOAudioDMAEngineMixer.cpp;
+			refType = 4;
+		};
+		06F44E0FFFE702AD11CA29EB = {
+			isa = PBXFileReference;
+			path = IOAudioDMAEngineUserClient.cpp;
+			refType = 4;
+		};
+		06F44E10FFE702AD11CA29EB = {
+			isa = PBXFileReference;
+			path = IOAudioJackControl.cpp;
+			refType = 4;
+		};
+		06F44E11FFE702AD11CA29EB = {
+			isa = PBXFileReference;
+			path = IOAudioLevelControl.cpp;
+			refType = 4;
+		};
+		06F44E12FFE702AD11CA29EB = {
+			isa = PBXFileReference;
+			path = IOAudioManager.cpp;
+			refType = 4;
+		};
+		06F44E13FFE702AD11CA29EB = {
+			isa = PBXFileReference;
+			path = IOAudioMuteControl.cpp;
+			refType = 4;
+		};
+		06F44E14FFE702AD11CA29EB = {
+			isa = PBXFileReference;
+			path = IOAudioPort.cpp;
+			refType = 4;
+		};
+		06F44E15FFE702AD11CA29EB = {
+			isa = PBXFileReference;
+			path = IOAudioStream.cpp;
+			refType = 4;
+		};
+		06F44E16FFE702AD11CA29EB = {
+			children = (
+				06F44E17FFE702AD11CA29EB,
+				06F44E18FFE702AD11CA29EB,
+				06F44E19FFE702AD11CA29EB,
+				06F44E1AFFE702AD11CA29EB,
+				06F44E1BFFE702AD11CA29EB,
+				06F44E1CFFE702AD11CA29EB,
+				06F44E1DFFE702AD11CA29EB,
+				06F44E1EFFE702AD11CA29EB,
+				06F44E1FFFE702AD11CA29EB,
+				06F44E20FFE702AD11CA29EB,
+				06F44E21FFE702AD11CA29EB,
+				06F44E22FFE702AD11CA29EB,
+				01577ADFFFEC9C1011CA29EB,
+				15F1CA6BFFEC8F6A11CA29EB,
+			);
+			isa = PBXGroup;
+			name = Headers;
+			path = "";
+			refType = 4;
+		};
+		06F44E17FFE702AD11CA29EB = {
+			isa = PBXFileReference;
+			path = IOAudioControl.h;
+			refType = 4;
+		};
+		06F44E18FFE702AD11CA29EB = {
+			isa = PBXFileReference;
+			path = IOAudioControlUserClient.h;
+			refType = 4;
+		};
+		06F44E19FFE702AD11CA29EB = {
+			isa = PBXFileReference;
+			path = IOAudioDevice.h;
+			refType = 4;
+		};
+		06F44E1AFFE702AD11CA29EB = {
+			isa = PBXFileReference;
+			path = IOAudioDMAEngine.h;
+			refType = 4;
+		};
+		06F44E1BFFE702AD11CA29EB = {
+			isa = PBXFileReference;
+			path = IOAudioDMAEngineUserClient.h;
+			refType = 4;
+		};
+		06F44E1CFFE702AD11CA29EB = {
+			isa = PBXFileReference;
+			path = IOAudioJackControl.h;
+			refType = 4;
+		};
+		06F44E1DFFE702AD11CA29EB = {
+			isa = PBXFileReference;
+			path = IOAudioLevelControl.h;
+			refType = 4;
+		};
+		06F44E1EFFE702AD11CA29EB = {
+			isa = PBXFileReference;
+			path = IOAudioManager.h;
+			refType = 4;
+		};
+		06F44E1FFFE702AD11CA29EB = {
+			isa = PBXFileReference;
+			path = IOAudioMuteControl.h;
+			refType = 4;
+		};
+		06F44E20FFE702AD11CA29EB = {
+			isa = PBXFileReference;
+			path = IOAudioPort.h;
+			refType = 4;
+		};
+		06F44E21FFE702AD11CA29EB = {
+			isa = PBXFileReference;
+			path = IOAudioStream.h;
+			refType = 4;
+		};
+		06F44E22FFE702AD11CA29EB = {
+			isa = PBXFileReference;
+			path = IOAudioTypes.h;
+			refType = 4;
+		};
+		06F44E23FFE702AD11CA29EB = {
+			fileRef = 06F44E17FFE702AD11CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		06F44E24FFE702AD11CA29EB = {
+			fileRef = 06F44E18FFE702AD11CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		06F44E25FFE702AD11CA29EB = {
+			fileRef = 06F44E19FFE702AD11CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		06F44E26FFE702AD11CA29EB = {
+			fileRef = 06F44E1AFFE702AD11CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		06F44E27FFE702AD11CA29EB = {
+			fileRef = 06F44E1BFFE702AD11CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		06F44E28FFE702AD11CA29EB = {
+			fileRef = 06F44E1CFFE702AD11CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		06F44E29FFE702AD11CA29EB = {
+			fileRef = 06F44E1DFFE702AD11CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		06F44E2AFFE702AD11CA29EB = {
+			fileRef = 06F44E1EFFE702AD11CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		06F44E2BFFE702AD11CA29EB = {
+			fileRef = 06F44E1FFFE702AD11CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		06F44E2CFFE702AD11CA29EB = {
+			fileRef = 06F44E20FFE702AD11CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		06F44E2DFFE702AD11CA29EB = {
+			fileRef = 06F44E21FFE702AD11CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		06F44E2EFFE702AD11CA29EB = {
+			fileRef = 06F44E22FFE702AD11CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		06F44E2FFFE702AD11CA29EB = {
+			fileRef = 06F44E0AFFE702AD11CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		06F44E30FFE702AD11CA29EB = {
+			fileRef = 06F44E0BFFE702AD11CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		06F44E31FFE702AD11CA29EB = {
+			fileRef = 06F44E0CFFE702AD11CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		06F44E32FFE702AD11CA29EB = {
+			fileRef = 06F44E0DFFE702AD11CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		06F44E33FFE702AD11CA29EB = {
+			fileRef = 06F44E0FFFE702AD11CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		06F44E34FFE702AD11CA29EB = {
+			fileRef = 06F44E10FFE702AD11CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		06F44E35FFE702AD11CA29EB = {
+			fileRef = 06F44E11FFE702AD11CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		06F44E36FFE702AD11CA29EB = {
+			fileRef = 06F44E12FFE702AD11CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		06F44E37FFE702AD11CA29EB = {
+			fileRef = 06F44E13FFE702AD11CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		06F44E38FFE702AD11CA29EB = {
+			fileRef = 06F44E14FFE702AD11CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		06F44E39FFE702AD11CA29EB = {
+			fileRef = 06F44E15FFE702AD11CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		06F44E3AFFE7037511CA29EB = {
+			isa = PBXLibraryReference;
+			path = libIOAudioFloatLib.a;
+			refType = 3;
+		};
+		06F44E3BFFE7037511CA29EB = {
+			isa = PBXTargetDependency;
+			target = 06F44E3CFFE7037511CA29EB;
+		};
+		06F44E3CFFE7037511CA29EB = {
+			buildPhases = (
+				06F44E3DFFE7037511CA29EB,
+				06F44E3EFFE7037511CA29EB,
+				06F44E40FFE7037511CA29EB,
+				06F44E41FFE7037511CA29EB,
+			);
+			buildSettings = {
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				HEADER_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Headers\" \"$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Headers/bsd\"";
+				LIBRARY_STYLE = STATIC;
+				OPTIMIZATION_CFLAGS = "-O2";
+				OTHER_CFLAGS = "-nostdinc -finline -fno-keep-inline-functions -force_cpusubtype_ALL -mlong-branch -x c++ -fno-rtti -fno-exceptions -fcheck-new -fvtable-thunks -static -DKERNEL -DKERNEL_PRIVATE -DDRIVER_PRIVATE -DAPPLE -DNeXT";
+				OTHER_LDFLAGS = "-static";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = libIOAudioFloatLib.a;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			conditionalBuildSettings = {
+			};
+			dependencies = (
+			);
+			isa = PBXLibraryTarget;
+			name = IOAudioFloatLib;
+			productInstallPath = /usr/local/lib;
+			productName = IOAudioFloatLib;
+			productReference = 06F44E3AFFE7037511CA29EB;
+			shouldUseHeadermap = 0;
+		};
+		06F44E3DFFE7037511CA29EB = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+			name = Headers;
+		};
+		06F44E3EFFE7037511CA29EB = {
+			buildActionMask = 2147483647;
+			files = (
+				06F44E3FFFE7037511CA29EB,
+			);
+			isa = PBXSourcesBuildPhase;
+			name = Sources;
+		};
+		06F44E3FFFE7037511CA29EB = {
+			fileRef = 06F44E0EFFE702AD11CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		06F44E40FFE7037511CA29EB = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			name = "Frameworks & Libraries";
+		};
+		06F44E41FFE7037511CA29EB = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			name = "ResourceManager Resources";
+		};
+		06F44E42FFE7050C11CA29EB = {
+			isa = PBXExecutableFileReference;
+			path = InstallHeaders;
+			refType = 3;
+		};
+		06F44E43FFE7050C11CA29EB = {
+			isa = PBXTargetDependency;
+			target = 06F44E44FFE7050C11CA29EB;
+		};
+		06F44E44FFE7050C11CA29EB = {
+			buildPhases = (
+				06F44E45FFE7050C11CA29EB,
+				06F44E46FFE7050C11CA29EB,
+				06F44E53FFE7050C11CA29EB,
+				06F44E55FFE7050C11CA29EB,
+				06F44E56FFE7050C11CA29EB,
+				06F44E57FFE7050C11CA29EB,
+			);
+			buildSettings = {
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers";
+				OPTIMIZATION_CFLAGS = "";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = InstallHeaders;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			conditionalBuildSettings = {
+			};
+			dependencies = (
+			);
+			isa = PBXToolTarget;
+			name = InstallHeaders;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers";
+			productName = InstallHeaders;
+			productReference = 06F44E42FFE7050C11CA29EB;
+			shouldUseHeadermap = 0;
+		};
+		06F44E45FFE7050C11CA29EB = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+			name = Headers;
+		};
+		06F44E46FFE7050C11CA29EB = {
+			buildActionMask = 8;
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/audio";
+			dstSubfolderSpec = 0;
+			files = (
+				06F44E47FFE7050C11CA29EB,
+				06F44E48FFE7050C11CA29EB,
+				06F44E49FFE7050C11CA29EB,
+				06F44E4AFFE7050C11CA29EB,
+				06F44E4BFFE7050C11CA29EB,
+				06F44E4CFFE7050C11CA29EB,
+				06F44E4DFFE7050C11CA29EB,
+				06F44E4EFFE7050C11CA29EB,
+				06F44E4FFFE7050C11CA29EB,
+				06F44E50FFE7050C11CA29EB,
+				06F44E51FFE7050C11CA29EB,
+				06F44E52FFE7050C11CA29EB,
+				068EB4B7FFEF409011CA29EB,
+				01577ADEFFEC964A11CA29EB,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			name = "Copy Files";
+		};
+		06F44E47FFE7050C11CA29EB = {
+			fileRef = 06F44E17FFE702AD11CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		06F44E48FFE7050C11CA29EB = {
+			fileRef = 06F44E18FFE702AD11CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		06F44E49FFE7050C11CA29EB = {
+			fileRef = 06F44E19FFE702AD11CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		06F44E4AFFE7050C11CA29EB = {
+			fileRef = 06F44E1AFFE702AD11CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		06F44E4BFFE7050C11CA29EB = {
+			fileRef = 06F44E1BFFE702AD11CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		06F44E4CFFE7050C11CA29EB = {
+			fileRef = 06F44E1CFFE702AD11CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		06F44E4DFFE7050C11CA29EB = {
+			fileRef = 06F44E1DFFE702AD11CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		06F44E4EFFE7050C11CA29EB = {
+			fileRef = 06F44E1EFFE702AD11CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		06F44E4FFFE7050C11CA29EB = {
+			fileRef = 06F44E1FFFE702AD11CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		06F44E50FFE7050C11CA29EB = {
+			fileRef = 06F44E20FFE702AD11CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		06F44E51FFE7050C11CA29EB = {
+			fileRef = 06F44E21FFE702AD11CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		06F44E52FFE7050C11CA29EB = {
+			fileRef = 06F44E22FFE702AD11CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		06F44E53FFE7050C11CA29EB = {
+			buildActionMask = 8;
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/Headers/audio";
+			dstSubfolderSpec = 0;
+			files = (
+				06F44E54FFE7050C11CA29EB,
+				01577AE0FFEC9C1011CA29EB,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			name = "Copy Files";
+		};
+		06F44E54FFE7050C11CA29EB = {
+			fileRef = 06F44E22FFE702AD11CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		06F44E55FFE7050C11CA29EB = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXSourcesBuildPhase;
+			name = Sources;
+		};
+		06F44E56FFE7050C11CA29EB = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			name = "Frameworks & Libraries";
+		};
+		06F44E57FFE7050C11CA29EB = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			name = "ResourceManager Resources";
+		};
+		089C1669FE841209C02AAC07 = {
+			buildStyles = (
+				06AA1265FFB2107B11CA28AA,
+				06AA1266FFB2107B11CA28AA,
+			);
+			isa = PBXProject;
+			mainGroup = 089C166AFE841209C02AAC07;
+			projectDirPath = .;
+			targets = (
+				089C1673FE841209C02AAC07,
+				06F44E3CFFE7037511CA29EB,
+				06F44E44FFE7050C11CA29EB,
+			);
+		};
+		089C166AFE841209C02AAC07 = {
+			children = (
+				247142CAFF3F8F9811CA285C,
+				06F44E16FFE702AD11CA29EB,
+				089C167CFE841241C02AAC07,
+				19C28FB6FE9D52B211CA2CBB,
+			);
+			isa = PBXGroup;
+			name = IOAudioFamily;
+			refType = 4;
+		};
+		089C1673FE841209C02AAC07 = {
+			buildPhases = (
+				06AA1267FFB2110C11CA28AA,
+				089C1674FE841209C02AAC07,
+				089C1675FE841209C02AAC07,
+				089C1676FE841209C02AAC07,
+				089C1677FE841209C02AAC07,
+				089C1679FE841209C02AAC07,
+				06AA1264FFB2107B11CA28AA,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.iokit.IOAudioFamily;
+				MODULE_VERSION = 1.0;
+				OPTIMIZATION_CFLAGS = "-O2";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOAudioFamily;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			conditionalBuildSettings = {
+			};
+			dependencies = (
+				06F44E43FFE7050C11CA29EB,
+				06F44E3BFFE7037511CA29EB,
+			);
+			isa = PBXBundleTarget;
+			name = IOAudioFamily;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+			productName = IOAudioFamily;
+			productReference = 0B81C263FFB7832611CA28AA;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
+<plist version=\"0.9\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>IOAudioFamily</string>
+	<key>CFBundleGetInfoString</key>
+	<string></string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.iokit.IOAudioFamily</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>IOAudioFamily</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0</string>
+	<key>CFBundleSignature</key>
+	<string>aaud</string>
+	<key>CFBundleVersion</key>
+	<string>1.0</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>IOAudioManager</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.IOAudioFamily</string>
+			<key>IOClass</key>
+			<string>IOAudioManager</string>
+			<key>IOMatchCategory</key>
+			<string>IOAudioFamily</string>
+			<key>IOProviderClass</key>
+			<string>IOResources</string>
+			<key>IOResourceMatch</key>
+			<string>IOKit</string>
+		</dict>
+	</dict>
+	<key>OSBundleCompatibleVersion</key>
+	<string>1.0</string>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.kernel.iokit</key>
+		<string>1.0.0b1</string>
+	</dict>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 1;
+		};
+		089C1674FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				06F44E23FFE702AD11CA29EB,
+				06F44E24FFE702AD11CA29EB,
+				06F44E25FFE702AD11CA29EB,
+				06F44E26FFE702AD11CA29EB,
+				06F44E27FFE702AD11CA29EB,
+				06F44E28FFE702AD11CA29EB,
+				06F44E29FFE702AD11CA29EB,
+				06F44E2AFFE702AD11CA29EB,
+				06F44E2BFFE702AD11CA29EB,
+				06F44E2CFFE702AD11CA29EB,
+				06F44E2DFFE702AD11CA29EB,
+				06F44E2EFFE702AD11CA29EB,
+				15F1CA6CFFEC8F6A11CA29EB,
+				01577AE1FFEC9C1011CA29EB,
+			);
+			isa = PBXHeadersBuildPhase;
+			name = Headers;
+		};
+		089C1675FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				089C1680FE841241C02AAC07,
+			);
+			isa = PBXResourcesBuildPhase;
+			name = "Bundle Resources";
+		};
+		089C1676FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				06F44E2FFFE702AD11CA29EB,
+				06F44E30FFE702AD11CA29EB,
+				06F44E31FFE702AD11CA29EB,
+				06F44E32FFE702AD11CA29EB,
+				06F44E33FFE702AD11CA29EB,
+				06F44E34FFE702AD11CA29EB,
+				06F44E35FFE702AD11CA29EB,
+				06F44E36FFE702AD11CA29EB,
+				06F44E37FFE702AD11CA29EB,
+				06F44E38FFE702AD11CA29EB,
+				06F44E39FFE702AD11CA29EB,
+			);
+			isa = PBXSourcesBuildPhase;
+			name = Sources;
+		};
+		089C1677FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				01918235FFE7227E11CA29EB,
+			);
+			isa = PBXFrameworksBuildPhase;
+			name = "Frameworks & Libraries";
+		};
+		089C1679FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			name = "ResourceManager Resources";
+		};
+		089C167CFE841241C02AAC07 = {
+			children = (
+				089C167DFE841241C02AAC07,
+			);
+			isa = PBXGroup;
+			name = Resources;
+			path = "";
+			refType = 4;
+		};
+		089C167DFE841241C02AAC07 = {
+			children = (
+				089C167EFE841241C02AAC07,
+			);
+			isa = PBXVariantGroup;
+			name = InfoPlist.strings;
+			refType = 4;
+		};
+		089C167EFE841241C02AAC07 = {
+			fileEncoding = 10;
+			isa = PBXFileReference;
+			name = English;
+			path = English.lproj/InfoPlist.strings;
+			refType = 4;
+		};
+		089C1680FE841241C02AAC07 = {
+			fileRef = 089C167DFE841241C02AAC07;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0B81C263FFB7832611CA28AA = {
+			isa = PBXBundleReference;
+			path = IOAudioFamily.kext;
+			refType = 3;
+		};
+		15F1CA6BFFEC8F6A11CA29EB = {
+			isa = PBXFileReference;
+			path = IOAudioDebug.h;
+			refType = 4;
+		};
+		15F1CA6CFFEC8F6A11CA29EB = {
+			fileRef = 15F1CA6BFFEC8F6A11CA29EB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		19C28FB6FE9D52B211CA2CBB = {
+			children = (
+				0B81C263FFB7832611CA28AA,
+				06F44E3AFFE7037511CA29EB,
+				06F44E42FFE7050C11CA29EB,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+		};
+		247142CAFF3F8F9811CA285C = {
+			children = (
+				06F44E0AFFE702AD11CA29EB,
+				06F44E0BFFE702AD11CA29EB,
+				06F44E0CFFE702AD11CA29EB,
+				06F44E0DFFE702AD11CA29EB,
+				06F44E0EFFE702AD11CA29EB,
+				06F44E0FFFE702AD11CA29EB,
+				06F44E10FFE702AD11CA29EB,
+				06F44E11FFE702AD11CA29EB,
+				06F44E12FFE702AD11CA29EB,
+				06F44E13FFE702AD11CA29EB,
+				06F44E14FFE702AD11CA29EB,
+				06F44E15FFE702AD11CA29EB,
+			);
+			isa = PBXGroup;
+			name = Source;
+			path = "";
+			refType = 4;
+		};
+	};
+	rootObject = 089C1669FE841209C02AAC07;
+}

@@ -1,0 +1,422 @@
+######################################################################
+# 
+# File: texi2html.init
+#
+# Sample init file for texi2html (shows also default settings)
+#
+# Copy this file and make changes to it, if you like
+# Afterwards, load it with command-line option (--init_file)
+
+######################################################################
+# stuff which can also be set by comman-line options
+#
+#
+# Note: values set here, overwrite values set by the command-line
+# options before -init_fil and might still be overwritten by
+# command-line arguments following the -init_file option
+#
+
+# -debug
+# debugging: 0 -- no debugging, other values: see beginning of texi2html
+$T2H_DEBUG = 0;
+
+# -doctype
+# document type which is specified in header of html files
+$T2H_DOCTYPE = '<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0 Strict Level 2//EN">'; 
+
+# -check
+# if set, only check files and give the list of all things that may be 
+# Texinfo commands
+$T2H_CHECK = 0;
+
+# -expandinfo
+# if set, expand @ifinfo sections, not @iftex ones
+$T2H_EXPANDINFO = 0;
+
+# - glossary
+#if set, uses section named `Glossary' for glossary
+$T2H_USE_GLOSSARY = 0;
+
+# -invisible
+# if set, use $T2H_INVISIBLE_MARK to create invisible destination
+# anchors for index links (you can for instance use the invisible.xbm
+# file shipped with this program). This is a workaround for a known
+# bug of many WWW browsers, including netscape.
+# For me, it works fine without it -- on the contrary: if there, it
+# inserts space between headers and start of text (obachman 3/99)
+# $T2H_INVISIBLE_MARK = '&#160;';
+
+# -iso
+# if set, ISO8879 characters are used for special symbols (like copyright, etc)
+$T2H_USE_ISO = 0;
+
+# -I
+# list directories where @include files are searched for (besides the
+# directory of the doc file) additional '-I' args add to this list
+@T2H_INCLUDE_DIRS = (".");
+
+# -menu
+# if set, show the Texinfo menus
+$T2H_SHOW_MENU = 0;
+
+# -number
+# if set, number sections
+$T2H_NUMBER_SECTIONS = 0;
+
+# -split_node
+# if set, creates one html file per node
+$T2H_SPLIT_NODE = 0;
+
+# -split_chapter
+# if set, creates one html file per chapter
+$T2H_SPLIT_CHAPTER = 0;
+
+# -monolithic
+# if set, creates only one file which contains ToC and whole document
+$T2H_MONOLITHIC = 0;
+
+# -no_subdir
+# if set, puts html files into current directory, overwrites settings of
+# $T2H_SUBDIR
+$T2H_NO_SUBDIR = 1;
+
+# -subdir
+# if set and $T2H_NO_SUBDIR is not set, put result files there
+# if not set and $T2H_NO_SUBDIR is not set, result files are put into
+# ./$doc_t2h/
+$T2h_SUBDIR = '';
+
+# -short_extn
+# If this is set all HTML file will have extension ".htm" instead of
+# ".html". This is helpful when shipping the document to PC systems.
+$T2H_SHORTEXTN = 0;
+
+# -prefix
+# Set the output file prefix, prepended to all .html, .gif and .pl files.
+$T2H_PREFIX = '';
+
+# -short_ref
+#if set cross-references are given without section numbers
+$T2H_SHORT_REF = 0;
+
+# -verbose
+# if set, chatter about what we are doing
+$T2H_VERBOSE = 0;
+
+# -l2h
+# if set, uses latex2html for generation of math content 
+$T2H_L2H = 0;
+
+######################
+# The following options are only relevant if $T2H_L2H is set
+#
+# -l2h_l2h
+# name/location of latex2html progam
+$T2H_L2H_L2H = "latex2html";
+
+# -l2h_skip
+# if set, skips actual call to latex2htm tries to reuse previously generated 
+# content, instead
+$T2H_L2H_SKIP = 0;
+
+# -l2h_tmp
+# if set, l2h uses this directory for temporarary files. The path
+# leading to this directory may not contain a dot (i.e., a "."),
+# otherwise, l2h will fail
+$T2H_L2H_TMP = '';
+
+# -l2h_keep
+# if set, keeps intermediate files (they all have the prefix $doc_l2h_) 
+# of l2h for later reuse
+$T2H_L2H_KEEP = 1;
+
+######################
+# The following can only be set in the init file
+#
+# Set the default body text, inserted between <BODY ... > 
+$T2H_BODYTEXT = 'LANG="EN" BGCOLOR="#FFFFFF"';
+
+# if defined, is insert in between <ADDRESS> </ADDRESS>
+# you can use $T2H_USER : long name of person who runs t2h)
+#             $T2H_TODAY : pretty-printed today's date
+$T2H_ADDRESS = "<P></P><font size=-1><I>$T2H_USER &#160; $T2H_TODAY</I></font>";
+
+
+######################
+# Controling the navigation panels
+# If defined, t2h_top_navigation and t2h_bottom_navigation are called
+# to generate navigation panesl on top (bottom) of a page
+# These functions may use the following variables:
+#   $T2H_FIRST_HREF, $T2H_FIRST       : href and name of first html node
+#   $T2H_LAST_HREF, $T2H_LAST         : last node of html document
+#   $T2H_THIS, $T2H_THIS_HREF         : this node
+#   $T2H_NEXT, $T2H_NEXT_HREF         : next node
+#   $T2H_PREV, $T2H_PREV_HREF         : previous node
+#   $T2H_UP, $T2H_UP_HREF             : up node
+#   $T2H_FORWARD, $T2H_FORWARD_HREF   : next node in reading order
+#   $T2H_BACK, $T2H_BACK_HREF         : previous node in reading order
+#   $T2H_CONTENT_HREF                 : href to content page
+#   $T2H_SHORT_CONTENT_HREF           : href to short content
+# and, the function:
+#   $t2h_anchor(name, href, text)     : generate anchor with name, href, text
+# Functions ned to return string which is used as navigation panels
+
+sub t2h_top_navigation
+{
+  return &t2h_navigation . "<BR><HR><BR>\n";
+}
+
+sub t2h_bottom_navigation
+{
+  local($navigation);
+  
+  return "<P></P><HR>\n" . &t2h_navigation. "\n";
+}
+
+sub t2h_navigation
+{
+  local($navigation);
+  $navigation .=  " [" . &t2h_anchor("Contents", ($T2H_CONTENT_HREF ne $T2H_THIS_HREF ? $T2H_CONTENT_HREF : ''), "Contents") . "] &#160;";
+  $navigation .= " [" . &t2h_anchor("Back", ($T2H_BACK_HREF ne $T2H_THIS_HREF ? $T2H_BACK_HREF : ''), "Back") . "] &#160;";
+  $navigation .= " [" . &t2h_anchor("Prev", ($T2H_PREV_HREF ne $T2H_THIS_HREF ? $T2H_PREV_HREF : ''), "Prev") . "] &#160;";
+  $navigation .= " [" . &t2h_anchor("Up", ($T2H_UP_HREF ne $T2H_THIS_HREF ? $T2H_UP_HREF : ''), "Up")  . "] &#160;";
+  $navigation .= " [" . &t2h_anchor("Next", ($T2H_NEXT_HREF ne $T2H_THIS_HREF ? $T2H_NEXT_HREF : ''), "Next") . "] &#160;";
+  $navigation .= " [" . &t2h_anchor("Forward", ($T2H_FORWARD_HREF ne $T2H_THIS_HREF ? $T2H_FORWARD_HREF : ''), "Forward"). "] &#160;";
+
+  return $navigation;
+}
+
+######################################################################
+# from here on, its l2h init stuff 
+#LaTeX2HTML Version 96.1 : dot.latex2html-init
+#
+
+## initialization for latex2html for Singular manual generation
+## obachman 3/99
+
+#
+# Options controlling Titles, File-Names, Tracing and Sectioning
+#
+$TITLE = '';
+
+$SHORTEXTN = 0;
+
+$LONG_TITLES = 0;
+
+$DESTDIR = ''; # should be overwritten by cmd-line argument
+
+$NO_SUBDIR = 0;# should be overwritten by cmd-line argument
+
+$PREFIX = '';  # should be overwritten by cmd-line argument
+
+$AUTO_PREFIX = 0; # this is needed, so that prefix settings are used
+
+$AUTO_LINK = 0; 
+
+$SPLIT = 0;
+
+$MAX_LINK_DEPTH = 0;
+
+$TMP = ''; # should be overwritten by cmd-line argument
+
+$DEBUG = 0;
+
+$VERBOSE = 1;
+
+#
+# Options controlling Extensions and Special Features 
+#
+$HTML_VERSION = "3.2";
+
+$TEXDEFS = 1; # we absolutely need that
+
+$EXTERNAL_FILE = '';
+
+$SCALABLE_FONTS = 1;
+
+$NO_SIMPLE_MATH = 1;
+
+$LOCAL_ICONS = 1;
+
+$SHORT_INDEX = 0;
+
+$NO_FOOTNODE = 1;
+
+$ADDRESS = '';
+
+$INFO = '';
+
+#
+# Switches controlling Image Generation 
+#
+$ASCII_MODE = 0;
+
+$NOLATEX = 0;
+
+$EXTERNAL_IMAGES = 0;
+
+$PS_IMAGES = 0;
+
+$NO_IMAGES = 0;
+
+$IMAGES_ONLY = 0;
+
+$REUSE = 2;
+
+$ANTI_ALIAS = 1;
+
+$ANTI_ALIAS_TEXT = 1;
+
+#
+#Switches controlling Navigation Panels
+#
+$NO_NAVIGATION = 1;
+$ADDRESS = '';
+$INFO = 0;              # 0 = do not make a "About this document..." section 
+
+#
+#Switches for Linking to other documents 
+#
+# actuall -- we don't care
+
+$MAX_SPLIT_DEPTH = 0;	# Stop making separate files at this depth
+
+$MAX_LINK_DEPTH = 0;    # Stop showing child nodes at this depth   
+
+$NOLATEX = 0;           # 1 = do not pass unknown environments to Latex
+
+$EXTERNAL_IMAGES = 0;   # 1 = leave the images outside the document 
+
+$ASCII_MODE = 0;        # 1 = do not use any icons or internal images
+
+# 1 =  use links to external postscript images rather than inlined bitmap
+# images.
+$PS_IMAGES = 0;
+$SHOW_SECTION_NUMBERS = 0;
+
+### Other global variables ###############################################
+$CHILDLINE = "";
+
+# This is the line width measured in pixels and it is used to right justify
+# equations and equation arrays; 
+$LINE_WIDTH = 500;		
+
+# Used in conjunction with AUTO_NAVIGATION
+$WORDS_IN_PAGE = 300;	
+
+# Affects ONLY the way accents are processed 
+$default_language = 'english';	
+
+# The value of this variable determines how many words to use in each 
+# title that is added to the navigation panel (see below)
+# 
+$WORDS_IN_NAVIGATION_PANEL_TITLES = 0;
+
+# This number will determine the size of the equations, special characters,
+# and anything which will be converted into an inlined image
+# *except* "image generating environments" such as "figure", "table" 
+# or "minipage".
+# Effective values are those greater than 0.
+# Sensible values are between 0.1 - 4.
+$MATH_SCALE_FACTOR = 1.5;
+
+# This number will determine the size of 
+# image generating environments such as "figure", "table" or "minipage".
+# Effective values are those greater than 0.
+# Sensible values are between 0.1 - 4.
+$FIGURE_SCALE_FACTOR = 1.6;
+
+
+#  If both of the following two variables are set then the "Up" button
+#  of the navigation panel in the first node/page of a converted document
+#  will point to $EXTERNAL_UP_LINK. $EXTERNAL_UP_TITLE should be set
+#  to some text which describes this external link.
+$EXTERNAL_UP_LINK = "";
+$EXTERNAL_UP_TITLE = "";
+
+# If this is set then the resulting HTML will look marginally better if viewed 
+# with Netscape.
+$NETSCAPE_HTML = 1;
+
+# Valid paper sizes are "letter", "legal", "a4","a3","a2" and "a0"
+# Paper sizes has no effect other than in the time it takes to create inlined
+# images and in whether large images can be created at all ie
+#  - larger paper sizes *MAY* help with large image problems 
+#  - smaller paper sizes are quicker to handle
+$PAPERSIZE = "a4";
+
+# Replace "english" with another language in order to tell LaTeX2HTML that you 
+# want some generated section titles (eg "Table of Contents" or "References")
+# to appear in a different language. Currently only "english" and "french"
+# is supported but it is very easy to add your own. See the example in the
+# file "latex2html.config" 
+$TITLES_LANGUAGE = "english";
+
+### Navigation Panel ##########################################################
+#
+# The navigation panel is constructed out of buttons and section titles.
+# These can be configured in any combination with arbitrary text and 
+# HTML tags interspersed between them. 
+# The buttons available are:
+# $PREVIOUS - points to the previous section
+# $UP  - points up to the "parent" section
+# $NEXT - points to the next section
+# $NEXT_GROUP - points to the next "group" section
+# $PREVIOUS_GROUP - points to the previous "group" section
+# $CONTENTS - points to the contents page if there is one
+# $INDEX - points to the index page if there is one
+#
+# If the corresponding section exists the button will contain an
+# active link to that section. If the corresponding section does
+# not exist the button will be inactive.
+#
+# Also for each of the $PREVIOUS $UP $NEXT $NEXT_GROUP and $PREVIOUS_GROUP
+# buttons there are equivalent $PREVIOUS_TITLE, $UP_TITLE, etc variables
+# which contain the titles of their corresponding sections. 
+# Each title is empty if there is no corresponding section.
+#
+# The subroutine below constructs the navigation panels in each page.
+# Feel free to mix and match buttons, titles, your own text, your logos,
+# and arbitrary HTML (the "." is the Perl concatenation operator).
+sub top_navigation_panel {
+# 
+#     # Now add a few buttons with a space between them
+#     "$NEXT $UP $PREVIOUS $CONTENTS $INDEX $CUSTOM_BUTTONS" .
+#     
+#     "<BR>\n" .		# Line break
+# 	
+#     # If ``next'' section exists, add its title to the navigation panel
+#     ($NEXT_TITLE ? "<B> Next:</B> $NEXT_TITLE\n" : undef) . 
+#     
+#     # Similarly with the ``up'' title ...
+#     ($UP_TITLE ? "<B>Up:</B> $UP_TITLE\n" : undef) . 
+#  
+#     # ... and the ``previous'' title
+#     ($PREVIOUS_TITLE ? "<B> Previous:</B> $PREVIOUS_TITLE\n" : undef) .
+#    
+#     #  Line Break, horizontal rule (3-d dividing line) and new paragraph  
+#     "<BR> <P>\n"		
+}
+
+sub bot_navigation_panel {
+#     #  Start with a horizontal rule (3-d dividing line)
+#     "<HR>".			
+#     
+#     # Now add a few buttons with a space between them
+#     "$NEXT $UP $PREVIOUS $CONTENTS $INDEX $CUSTOM_BUTTONS" .
+#     
+#     "<BR>\n" .		# Line break
+# 	
+#     # If ``next'' section exists, add its title to the navigation panel
+#     ($NEXT_TITLE ? "<B> Next:</B> $NEXT_TITLE\n" : undef) . 
+#     
+#     # Similarly with the ``up'' title ...
+#     ($UP_TITLE ? "<B>Up:</B> $UP_TITLE\n" : undef) . 
+#  
+#     # ... and the ``previous'' title
+#     ($PREVIOUS_TITLE ? "<B> Previous:</B> $PREVIOUS_TITLE\n" : undef) 
+#    
+}
+
+1;	# This must be the last line
+

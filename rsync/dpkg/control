@@ -1,0 +1,7 @@
+Package: rsync
+Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
+Vendor: Andrew Tridgell and Paul Mackerras
+Version: 2.3.1
+URL: ftp://samba.anu.edu.au/pub/rsync/
+Description: Remote file syncronizer
+Build-Depends: build-base

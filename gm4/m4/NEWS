@@ -1,0 +1,200 @@
+GNU m4 NEWS - User visible changes.
+Copyright (C) 1992, 1993, 1994 Free Software Foundation, Inc.
+
+Version 1.4 - October 1994, by Franc,ois Pinard
+
+(No user visible changes)
+
+Version 1.3 - September 1994, by Franc,ois Pinard
+
+* Diversions are created as needed.  Option `-N' is still accepted, but
+otherwise ignored.  Users should use only negative diversion numbers,
+instead of high positive numbers, for diverting to nowhere.
+
+* Diversions should also work faster.  No temporary files will be needed
+at all if all diversions taken altogether do not use more than 512K.
+
+* Frozen state files may be produced with the `--freeze-state' (-F)
+option and later brought back through the `--reload-state' (-R) option.
+
+Version 1.2 - July 1994, by Franc,ois Pinard
+
+* In patsubst(STRING, REGEXP, REPLACEMENT), \& in REPLACEMENT has been
+changed to represent this part of STRING matched by the whole REGEXP,
+instead of the whole STRING as before.  \0 does the same, but emits a
+diagnostic saying it will disappear in some subsequent release.
+
+* eval(EXPR) emits a diagnostic if EXPR has suffixed crumb.  The same for
+other numeric conversions in incr(), decr(), divert(), etc.
+
+* `--fatal-warnings' (-E) stops execution at first warning.
+
+* `--nesting-limit=LEVEL' (-L LEVEL) sets a limit to macro nesting.
+It is initially fixed at 250.
+
+* `--word-regexp=REGEXP' (-W REGEXP) modifies macro name syntax, like
+does the new `changeword(REGEXP)' macro.  This feature is experimental,
+tell me your opinions about it.  You do need --enable-changeword at
+configure time to get these things.  Do *not* depend on them yet.
+
+* Trace output format is scannable by GNU Emacs' next-error function.
+
+* Stack overflow is detected and diagnosed on some capable systems.
+
+* Various bugs have been corrected, m4 should be more portable.  See the
+ChangeLog for details.
+
+Version 1.1 - November 1993, by Franc,ois Pinard
+
+Changes which might affect existing GNU m4 scripts:
+
+* Option `-V' has been removed, use `--version' instead.  `--version'
+writes on standard output instead of standard error, and inhibits any
+script execution.
+
+* `--no-gnu-extensions' has been renamed `--traditional'.
+
+* In `eval', `^' used to indicate exponentiation, use `**' instead.
+
+* The automatic undiversion which takes place at end of all input is
+forced into the main output stream.
+
+Changes which are unlikely to affect existing scripts:
+
+* `--help' prints an usage summary on standard output.  Script execution
+is then inhibited.
+
+* `--prefix-builtins' (-P) prefixes all builtin macros by `m4_'.
+
+* Most builtin macros for which arguments are mandatory, called without
+any arguments, are no more recognized as builtin macros: they are
+consequently copied verbatim to the output stream.
+
+* `define' and `pushdef' are usable with only one argument, they give
+this argument an empty definition.
+
+* `eval' new operators for binary representation handling: `^' for
+exclusive-or, `~' for the bitwise negation, `<<' and `>>' for shifts.
+
+* `eval' recognizes the notation 0bDIGITS for binary numbers and the
+notation 0rRADIX:DIGITS for numbers in any radix from 1 to 36.
+
+Version 1.0.3 - December 1992, by Franc,ois Pinard
+
+Changes for the user:
+
+* `dnl' outputs a diagnostic if immediately followed by `('.  Usually,
+`dnl' is followed by newline or whitespace.
+
+* `ifelse' accepts without complaining the common idiom of having only
+one argument.  This is useful for introducing long comments.
+
+* `eval' always expresses values as signed, whatever the radix.
+
+* M4OPTS environment variable is no longer obeyed.
+
+* `--no-warnings' option is renamed `--silent'.
+
+* Debug lines use a new format more compatible with GNU standards.
+
+* Various bugs have been corrected.  See the ChangeLog for details.
+
+Changes for the installer:
+
+* GNU m4 now uses an Autoconf-generated configure script, and should be
+more easily portable in many ways.  (Cray is not supported yet).
+
+* `make check' has been made more portable, expect no errors.
+
+Changes for the programmer:
+
+* Sources have been fully reindented to comply with GNU standards, and
+cleaned up in many ways.
+
+* Sources have been protoized.  Non-ANSI compilers are automatically
+detected, then sources are unprotoized on the fly before compilation.
+
+* GNU m4 uses newer versions of obstack, regex, getopt, etc.
+
+Version 1.0 - October 1991, by Rene' Seindal
+
+* Uses GNU configure, taken from the gdb distribution.
+
+* Uses GNU getopt(), with long option names.
+
+* The -Q/+quiet option is added, which suppresses warnings about missing
+or superflous arguments to built-in macros.
+
+* Added default options via the M4OPTS environment variable.
+
+* Several minor bugs have been fixed.
+
+Version 0.99 - July 1991, by Rene' Seindal
+
+* The builtins `incr' and `decr' are now implemented without use of
+`eval'.
+
+* The builtin `indir' is added, to allow for indirect macro calls
+(allows use of "illegal" macro names).
+
+* The debugging and tracing facilities has been enhanced considerably.
+See the manual for details.
+
+* The -tMACRO option is added, marks MACRO for tracing as soon as it
+is defined.
+
+* Builtins are traced after renaming iff they were before.
+
+* Named files can now be undiverted.
+
+* The -Nnum option can be used to increase the number of divertions
+available.
+
+* Calling changecom without arguments now disables all comment handling.
+
+* A bug in `dnl' is fixed.
+
+* A bug in the multi-character quoting code is fixed.
+
+* Several typos in the manual has been corrected.  More probably persist.
+
+Version 0.75 - November 1990, by Rene' Seindal
+
+* Implemented search path for include files (-I option and M4PATH
+environment variable).
+
+* Implemented builtin `format' for printf-like formatting.
+
+* Implemented builtin `regexp' for searching for regular expressions.
+
+* Implemented builtin `patsubst' for substitution with regular
+expressions.
+
+* Implemented builtin `esyscmd', which expands to a shell commands output.
+
+* Implemented `__file__' and `__line__' for use in error messages.
+
+* Implemented character ranges in `translit'.
+
+* Implemented control over debugging output.
+
+* Implemented multi-character quotes.
+
+* Implemented multi-character comment delimiters.
+
+* Changed predefined macro `gnu' to `__gnu__'.
+
+* Changed predefined macro `unix' to `__unix__', when the -G option is
+not used.  With -G, `unix' is still defined.
+
+* Added program name to error messages.
+
+* Fixed two missing null bytes bugs.
+
+Version 0.50 - January 1990, by Rene' Seindal
+
+* Initial beta release.
+
+Local Variables:
+fill-column: 75
+End:

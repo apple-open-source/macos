@@ -1,0 +1,26 @@
+Received: from mail.eecis.udel.edu by whimsy.udel.edu id aa22569;
+          2 May 1998 16:16 EDT
+Date:     Sat, 2 May 1998 16:14:26 EDT
+From:     Dave Mills <mills@huey.udel.edu>
+To:       John Hay <jhay@mikom.csir.co.za>
+cc:       Harlan Stenn <stenn@whimsy.udel.edu>, mills@udel.edu
+Subject:  Re:  Some patches to ntp-4.0.72h
+Message-ID:  <199805021614.aa13390@huey.udel.edu>
+
+John,
+
+I have no burn with all of your patches except the one for kernel PPS.
+Why are you using the atom clock driver if you have kernel PPS?
+You shouldn't need it, since the PPS signal is enabled automatically
+and the atom offsets are ignored. Sometimes I do use atom anyway so
+I can see some history for performance evaluation. If this is your
+intent, you should move your patch outside the termios conditional.
+See how this is done for Solaris. Maybe what you need is some
+autoconfigure switch that results in similar behavior as that PPS wadge.
+
+You should see the PPS API internet draft, which is now some months 
+old. Sun and Digital and I did the original draft, I'll send you the
+jabber resulting from the recent discovery of some folks who just
+discovered it.
+
+Dave

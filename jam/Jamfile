@@ -1,0 +1,88 @@
+#
+# Jamfile to build Jam (a make(1)-like program)
+#
+# There are no user-serviceable parts in this file.
+#
+# Put executables in platform-specific  subdirectory.
+# If $(OSVER) isn't set, second value is used.
+
+if $(VMS) {	LOCATE_TARGET ?= [.binvms] ; }
+else if $(MAC) { LOCATE_TARGET ?= :bin.mac ; }
+else { 		LOCATE_TARGET ?= bin.$(OSFULL[1]:L) ; }
+
+# Leave generated source in current directory; it would be nice to use
+# these lines below to build the source into the platform-specific
+# directory, but getting scan.c to include the right jambase.h is
+# hard: with ""'s, it always gets the bootstrap version; with <>'s,
+# it won't find the bootstrap version.
+
+# SEARCH_SOURCE ?= $(LOCATE_TARGET) $(DOT) ;
+# LOCATE_SOURCE ?= $(LOCATE_TARGET) ;
+
+#
+# We have some different files for UNIX, VMS, and NT.
+#
+
+if $(NT) 	{ code = execunix.c filent.c pathunix.c ; } 
+else if $(OS2)	{ code = execunix.c fileos2.c pathunix.c ; } 
+else if $(VMS) 	{ code = execvms.c filevms.c pathvms.c ; } 
+else if $(MAC)	{ code = execmac.c filemac.c pathmac.c ; }
+else 		{ code = execunix.c fileunix.c pathunix.c ; }
+
+if $(UNIX) || $(NEXT_ROOT) { code += jamgram.y ; }
+else                       { code += jamgram.c ; }
+
+if $(NEXT_ROOT) { 
+	if $(NT) {
+		CCFLAGS += -DNT ; 
+	}
+	CFLAGS += -g ; 
+}
+else if $(OS) = NT { CCFLAGS += /DNT ; }
+if $(OS) = MVS { CCFLAGS += -DMVS ; }
+if $(OS)$(OSVER) = AIX41 { CCFLAGS += -D_AIX41 ; }
+
+#
+# How to build the compiled in jambase.
+#
+
+Main		mkjambase : mkjambase.c ;
+
+#
+# The guts of the Jamfile: how to build Jam
+#
+
+if $(OS) in NT {
+        PRODUCT = jam.exe ;
+} else {
+        PRODUCT = jam ;
+}
+
+Main 		$(PRODUCT) : jam.c jambase.c ;
+LinkLibraries 	$(PRODUCT) : libjam.a ;
+GenFile 	jambase.c : mkjambase pbxJambase ;
+
+Library         libjam.a : 
+		    command.c compile.c $(code) expand.c glob.c
+		    hash.c headers.c lists.c make.c make1.c newstr.c
+		    option.c parse.c regexp.c rules.c scan.c search.c
+		    timestamp.c variable.c ;
+
+#
+# We also install this stuff for easy use.  Note that I am
+# hard-coding NEXT_ROOT.  This is because the NT Install rule
+# uses the Copy rule, which uses the 'copy' command, which cannot
+# handle forward-slashes in the filename.
+#
+
+if $(OS) in NT {
+    NEXT_ROOT ?= C:\\Apple ;
+	DSTROOT ?= $(NEXT_ROOT) ;
+    BINDIR = $(DSTROOT)\\Local\\Developer\\Executables ;
+} else {
+    NEXT_ROOT ?= "" ;
+	DSTROOT ?= $(NEXT_ROOT) ;
+	BINDIR = $(DSTROOT)/usr/bin ;
+}
+InstallBin $(BINDIR) : $(PRODUCT) ;
+

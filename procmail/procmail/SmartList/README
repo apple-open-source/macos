@@ -1,0 +1,54 @@
+The SmartList mailinglist package has been built on top of the procmail
+mail processing package.  In order to install it you'll need the source
+of the procmail package as well.
+
+If you now have just the procmail sources, get the SmartList sources and
+unpack them on top of the procmail source tree.
+If you now have just the SmartList sources, get the procmail sources and
+unpack them on top of the SmartList source tree.
+See below on where to get the missing part.
+
+The two source packages should blend together with only this README file,
+the FEATURES, ../COPYING and ../Artistic file being duplicated.
+----------------------
+For installation instructions see the INSTALL file.
+----------------------
+SmartList mailinglist management package.
+Copyright (c) 1993-1999, S.R. van den Berg, The Netherlands.
+
+Some legal stuff:
+
+This package is open source software; you can redistribute it and/or modify
+it under the terms of either:
+- the GNU General Public License as published by the Free Software Foundation
+  and can be found in the included file called "../COPYING"; either version 2,
+  or (at your option) any later version, or
+- the "Artistic License" which can be found in the included file called
+  "../Artistic".
+
+This package is distributed in the hope that it will be useful, but without
+any warranty; without even the implied warranty of merchantability or fitness
+for a particular purpose.  See either the GNU General Public License or the
+Artistic License for more details.
+
+----------------------
+The most recent version can be obtained via http://www.procmail.org/
+or ftp://ftp.procmail.org/pub/procmail/
+and ftp://ftp.procmail.org/pub/SmartList/
+You'll be able to find instructions there which direct you to suitable
+mirror sites around the world.
+
+We're in the process of streamlining this, there are currently some
+inofficial mirrors around the world which can still be used:
+
+	ftp://ftp.net.ohio-state.edu/pub/networking/mail/procmail
+	ftp://ftp.fu-berlin.de/pub/unix/mail/procmail
+	ftp://ftp.psg.com/pub/unix/procmail
+	ftp://ftp.fdt.net/pub/unix/packages/procmail
+	ftp://hub.ucsb.edu/pub/mail		(hand updated)
+	ftp://ftp.tamu.edu/pub/mirrors/procmail/
+	ftp://ftp.kfki.hu/pub/packages/mail/procmail
+	ftp://giswitch.sggw.waw.pl/pub/unix/procmail
+ftp://ftp.informatik.rwth-aachen.de/pub/packages/procmail/procmail.tar.gz
+ftp://ftp.informatik.rwth-aachen.de/pub/packages/procmail/SmartList.tar.gz
+----------------------

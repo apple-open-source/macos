@@ -1,0 +1,8 @@
+- We do no install the section 3 man pages without the Tcl_
+prefix. Usually Tcl installs a man page Foo and Foo.3 and makes a hard
+link to it at Tcl_Foo.3.  Several of these names, however, conflict
+with other nam pages, particularly when on case-insensitive file
+systems like HFS+.
+
+- We no longer install the section n man pages.  There is no section n
+in BSD.  We should probably figure out where these should go.

@@ -1,0 +1,10 @@
+#!/bin/sh
+#
+# --underlay
+#
+
+. $srcdir/defs || exit 1
+
+$enscript --quiet --underlay="Hello, world!" -p$output $asciifiles
+
+rm $output

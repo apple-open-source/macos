@@ -1,0 +1,1270 @@
+This is Info file ../info/viper, produced by Makeinfo version 1.68 from
+the input file viper.texi.
+
+INFO-DIR-SECTION Editors
+START-INFO-DIR-ENTRY
+* VIPER: (viper).       The newest Emacs VI-emulation mode.
+                          (also, A VI Plan for Emacs Rescue
+                           or the VI PERil.)
+END-INFO-DIR-ENTRY
+
+Distribution
+************
+
+Copyright (C) 1995, 1996, 1997 Free Software Foundation, Inc.
+
+   Permission is granted to make and distribute verbatim copies of this
+manual provided the copyright notice and this permission notice are
+preserved on all copies.
+
+   Permission is granted to copy and distribute modified versions of
+this manual under the conditions for verbatim copying, provided that
+the entire resulting derived work is distributed under the terms of a
+permission notice identical to this one.
+
+   Permission is granted to copy and distribute translations of this
+manual into another language, under the same conditions as for modified
+versions.
+
+
+File: viper,  Node: Viper Specials,  Next: Vi Macros,  Prev: Packages that Change Keymaps,  Up: Customization
+
+Viper Specials
+==============
+
+   Viper extends Vi with a number of useful features.  This includes
+various search functions, histories of search strings, Ex commands,
+insertions, and Vi's destructive commands.  In addition, Viper supports
+file name completion and history, completion of Ex commands and
+variables, and many other features.  Some of these features are
+explained in detail elsewhere in this document.  Other features are
+explained here.
+
+`(viper-buffer-search-enable)'
+
+`viper-buffer-search-char nil'
+     Enable buffer search.  Explicit call to
+     `viper-buffer-search-enable' sets `viper-buffer-search-char' to
+     `g'.  Alternatively, the user can set `viper-buffer-search-char'
+     in `.viper' to a key sequence to be used for buffer search.  There
+     is no need to call `viper-buffer-search-enable' in that case.
+
+`viper-toggle-search-style'
+     This function, bound to `C-c /', lets one toggle case-sensitive and
+     case-insensitive search, and also switch between plain vanilla
+     search and search via regular expressions.  Without the prefix
+     argument, the user is asked which mode to toggle.  With prefix
+     argument 1, this toggles case-sensitivity.  With prefix argument
+     2, regular expression/vanilla search will be toggled.
+
+     However, we found that the most convenient way to toggle these
+     options is to bind a Vi macro to bind `//' to toggles case
+     sensitivity and to `///' to toggles vanilla search.  Thus, quickly
+     hitting `/' twice will switch Viper from case sensitive search to
+     case-insensitive.  Repeating this once again will restore the
+     original state.  Likewise, quickly hitting `/' three times will
+     switch you from vanilla-style search to search via regular
+     expressions.  If you hit something other than `/' after the first
+     `/' or if the second `/' doesn't follow quickly enough, then Viper
+     will issue the usual prompt `/' and will wait for input, as usual
+     in Vi.  If you don't like this behavior, you can "unrecord" these
+     macros in your `~/.viper' file.  For instance, if you don't like
+     the above feature, put this in `~/.viper':
+          (viper-set-searchstyle-toggling-macros 'undefine)
+
+`Vi-isms in Emacs state'
+     Some people find it useful to use the Vi-style search key, `/', to
+     invoke search in modes which Viper leaves in emacs-state.  These
+     modes are: `dired-mode', `mh-folder-mode', `gnus-group-mode',
+     `gnus-summary-mode', `Info-mode', and `Buffer-menu-mode' (more may
+     be added in the future).  So, in the above modes, Viper binds `/'
+     so that it will behave Vi-style.  Furthermore, in those major
+     modes, Viper binds `:' to invoke ex-style commands, like in
+     vi-state.  And, as described above, `//' and `///' get bound to
+     Vi-style macros that toggle case-insensitivity and regexp-search.
+
+     If you don't like these features--which I don't really
+     understand--you can unbind `/' and `:' in
+     `viper-dired-modifier-map' (for Dired) or in
+     `viper-slash-and-colon-map', for other modes.
+
+     To unbind the macros `//' and `///' for a major mode where you
+     feel they are undesirable, execute
+     `viper-set-emacs-state-searchstyle-macros' with a non-nil
+     argument.  This can be done either interactively, by supplying a
+     prefix argument, or by placing
+          (viper-set-emacs-state-searchstyle-macros 'undefine)
+     in the hook to the major mode (e.g., `dired-mode-hook').  *Note Vi
+     Macros::, for more information on Vi macros.
+
+`viper-heading-start'
+
+`viper-heading-end'
+     Regular Expressions for `[[' and `]]'.  Note that Emacs defines
+     Regexps for paragraphs and sentences.  *Note Paragraphs and
+     Sentences: (emacs)Paragraphs, for details.
+
+`M-x viper-set-expert-level'
+     Change your user level interactively.
+
+`viper-smart-suffix-list  '("" "tex" "c" "cc" "el" "p")'
+     Viper supports Emacs-style file completion when it prompts the
+     user for a file name.  However, in many cases, the same directory
+     may contain files with identical prefix but different suffixes,
+     e.g., prog.c, prog.o, paper.tex, paper.dvi.  In such cases,
+     completion will stop at the `.'.  If the above variable is a list
+     of strings representing suffixes, Viper will try these suffixes in
+     the order listed and will check if the corresponding file exists.
+
+     For instance, if completion stopped at `paper.' and the user typed
+     <RET>, then Viper will check if the files `paper.', `paper.tex',
+     `paper.c', etc., exist.  It will take the first such file.  If no
+     file exists, Viper will give a chance to complete the file name by
+     typing the appropriate suffix.  If `paper.' was the intended file
+     name, hitting return will accept it.
+
+     To turn this feature off, set the above variable to `nil'.
+
+`viper-insertion-ring-size  14'
+     Viper remembers what was previously inserted in Insert and Replace
+     states.  Several such recent insertions are kept in a special ring
+     of strings of size `viper-insertion-ring-size'.  If you enter
+     Insert or Replace state you can reinsert strings from this ring by
+     typing `C-c M-p' or `C-c M-n'.  The former will search the ring in
+     the direction of older insertions, and the latter will search in
+     the direction of newer insertions.  Hitting `C-c M-p' or `C-c M-n'
+     in succession will undo the previous insertion from the ring and
+     insert the next item on the ring.  If a larger ring size is
+     needed, change the value of the above variable in the `~/.viper'
+     file.
+
+     Since typing these sequences of keys may be tedious, it is
+     suggested that the user should bind a function key, such as `f31',
+     as follows:
+          (define-key viper-insert-global-user-map [f31]
+                      'viper-insert-prev-from-insertion-ring)
+     This binds `f31' (which is usually `R11' on a Sun workstation) to
+     the function that inserts the previous string in the insertion
+     history.  To rotate the history in the opposite direction, you can
+     either bind an unused key to
+     `viper-insert-next-from-insertion-ring' or hit any digit (1 to 9)
+     then `f31'.
+
+     One should not bind the above functions to `M-p' or `M-n', since
+     this will interfere with the Minibuffer histories and, possibly,
+     other major modes.
+
+`viper-command-ring-size  14'
+     Viper keeps track of the recent history of destructive commands,
+     such as `dw', `i', etc.  In Vi state, the most recent command can
+     be re-executed by hitting ``.'', as in Vi.  However, repeated
+     typing `C-c M-p' will cause Viper to show the previous destructive
+     commands in the minibuffer.  Subsequent hitting ``.''  will
+     execute the command that was displayed last.  The key `C-c M-n'
+     will cycle through the command history in the opposite direction.
+     Since typing `C-c M-p' may be tedious, it is more convenient to
+     bind an appropriate function to an unused function key on the
+     keyboard and use that key.  For instance, the following
+          (define-key viper-vi-global-user-map [f31]
+                      'viper-prev-destructive-command)
+     binds the key `f31' (which is usually `R11' on a Sun workstation)
+     to the function that searches the command history in the direction
+     of older commands.  To search in the opposite direction, you can
+     either bind an unused key to `viper-next-destructive-command' or
+     hit any digit (1 to 9) then `f31'.
+
+     One should not bind the above functions to `M-p' or `M-n', since
+     this will interfere with the Minibuffer histories and, possibly,
+     other major modes.
+
+`viper-minibuffer-vi-face  'viper-minibuffer-vi-face'
+
+`viper-minibuffer-insert-face  'viper-minibuffer-insert-face'
+
+`viper-minibuffer-emacs-face  'viper-minibuffer-emacs-face'
+     These faces control the appearance of the minibuffer text in the
+     corresponding Viper states.  You can change the appearance of
+     these faces through Emacs' customization widget, which is
+     accessible through the menubar.
+
+     Viper is located in this widget under the *Emulations*
+     customization subgroup of the *Editing* group.  All Viper faces
+     are grouped together in Viper's *Highlighting* customization
+     subgroup.
+
+     Note that only the text you type in is affected by the above faces.
+     Prompts and Minibuffer messages are not affected.
+
+     Purists who do not like adornments in the minibuffer can always
+     zap them by putting
+          (copy-face 'default 'viper-minibuffer-vi-face)
+          (copy-face 'default 'viper-minibuffer-insert-face)
+          (copy-face 'default 'viper-minibuffer-emacs-face)
+     in the `~/.viper' file or through the customization widget, as
+     described above.  However, in that case, the user will not have any
+     indication of the current Viper state in the minibuffer.  (This is
+     important if the user accidentally switches to another Viper state
+     by typing <ESC> or `C-z').
+
+`M-x viper-go-away'
+     Make Viper disappear from the face of your running Emacs instance.
+     If your fingers start aching again, `M-x viper-mode' might save
+     your day.
+
+`M-x toggle-viper-mode'
+     Toggle Viperization of Emacs on and off.
+
+   Viper provides some support for multi-file documents and programs.
+If a document consists of several files we can designate one of them as
+a master and put the following at the end of that file:
+     ;;; Local Variables:
+     ;;; eval: (viper-setup-master-buffer "file1" "file2" "file3" "file5" "file5")
+     ;;; End:
+
+where `file1' to `file5' are names of files related to the master file.
+Next time, when the master file is visited, the command
+`viper-setup-master-buffer' will be evaluated and the above files will
+be associated with the master file.  Then, the new Ex command
+`:RelatedFile' (abbr. `:R') will display files 1 to 5 one after
+another, so you can edit them.  If a file is not in any Emacs buffer, it
+will be visited.  The command `PreviousRelatedFile' (abbr., `:P') goes
+through the file list in the opposite direction.
+
+   These commands are akin to `:n' and `:N', but they allow the user to
+focus on relevant files only.
+
+   Note that only the master file needs to have the aforementioned
+block of commands.  Also, ";;;" above can be replaced by some other
+markers.  Semicolon is good for Lisp programs, since it is considered a
+comment designator there.  For LaTeX, this could be "%%%", and for C the
+above block should be commented out.
+
+   Even though these commands are sometimes useful, they are no
+substitute for the powerful *tag table* facility of Emacs.  Viper's
+`:tag' command in a primitive interface to Emacs tags.  *Note Tags:
+(emacs)Tags, for more information on tags.
+
+   The following two commands are normally bound to a mouse click and
+are part of Viper.  They work only if Emacs runs as an application
+under X Windows (or under some other window system for which a port of
+GNU Emacs 20 is available).  Clicking the mouse when Emacs is invoked
+in an Xterm window (using `emacs -nw') will do no good.
+
+`viper-mouse-search-key  (meta shift 1)'
+     This variable controls the *mouse-search* feature of Viper.  The
+     default value states that holding Meta and Shift keys while
+     clicking mouse button 1 should initiate search for a region under
+     the mouse pointer (defined below).  This command can take a prefix
+     argument, which indicates the occurrence of the pattern to search
+     for.
+
+     Note: while loading initially, Viper binds this mouse action only
+     if it is not already bound to something else.  If you want to use
+     the mouse-search feature and the Meta-Shift-button-1 mouse action
+     is already bound to something else you can rebind the mouse-search
+     feature by setting `viper-mouse-search-key' to something else in
+     your `~/.viper' file:
+          (setq viper-mouse-search-key '(meta 1))
+     This would bind mouse search to the action invoked by pressing the
+     Meta key and clicking mouse button 1.  The allowed values of
+     `viper-mouse-search-key' are lists that contain a mouse-button
+     number (1,2, or 3) and any combination of the words `control',
+     `meta', and `shift'.
+
+     If the requested mouse action (e.g., (meta 1)) is already taken
+     for other purposes then you have to confirm your intention by
+     placing the following command in `~/.viper' after setting
+     `viper-mouse-search-key':
+          (viper-bind-mouse-search-key 'force)
+
+     You can also change this setting interactively, through the
+     customization widget of Emacs (choose option "Customize.Customize
+     Group" from the menubar).
+
+     The region that is chosen as a pattern to search for is determined
+     as follows.  If search is invoked via a single click, Viper
+     chooses the region that lies between the beginning of the "word"
+     under the pointer ("word" is understood in Vi sense) and the end
+     of that word.  The only difference with Vi's words is that in Lisp
+     major modes `-' is considered an alphanumeric symbol.  This is
+     done for the convenience of working with Lisp symbols, which often
+     have an `-' in them.  Also, if you click on a non-alphanumeric
+     character that is not a word separator (in Vi sense) then this
+     character will also be considered alphanumeric, provided that it is
+     adjacent (from either side) to an alphanumeric character.  This
+     useful feature gives added control over the patterns selected by
+     the mouse click.
+
+     On a double-click, the region is determined by the beginning of
+     the current Vi's "Word" (i.e., the largest non-separator chunk of
+     text) and the End of that "Word" (as determined by the `E'
+     command).
+
+     On a triple-click, the region consists of the entire line where
+     the click occurred with all leading and trailing spaces and tabs
+     removed.
+
+`viper-mouse-insert-key (meta shift 2)'
+     This variable controls the *mouse-insert* feature of Viper.  The
+     above default value states that holding Meta and Shift keys while
+     clicking mouse button 2 should insert the region surrounding the
+     mouse pointer.  The rules defining this region are the same as for
+     mouse-search.  This command takes an optional prefix argument,
+     which indicates how many such regions to snarf from the buffer and
+     insert.  (In case of a triple-click, the prefix argument is
+     ignored.)
+
+     Note: while loading initially, Viper binds this mouse action only
+     if it not already bound to something else.  If you want to use
+     this feature and the default mouse action is already bound, you
+     can rebind mouse-insert by placing this command in `~/.viper':
+          (setq viper-mouse-insert-key '(meta 2))
+     If you want to bind mouse-insert to an action even if this action
+     is already taked for other purposes in Emacs, then you should add
+     this command to `~/.viper', after setting `viper-mouse-insert-key':
+          (viper-bind-mouse-insert-key 'force)
+
+     This value can also be changed via the Emacs customization widget
+     at the menubar.
+
+`viper-multiclick-timeout'
+     This variable controls the rate at which double-clicking must
+     occur for the purpose of mouse search and mouse insert.  By
+     default, this is set to `double-click-time'.
+
+   Note: The above functions search and insert in the selected window of
+the latest active frame.  This means that you can click in another
+window or another frame and have search or insertion done in the frame
+and window you just left.  This lets one use these functions in a
+multi-frame configuration.  However, this may require some getting used
+to.  For instance, if you are typing in a frame, A, and then move the
+mouse to frame B and click to invoke mouse search, search (or
+insertion) will be performed in frame A.  To perform search/insertion
+in frame B, you will first have to shift focus there, which doesn't
+happen until you type a character or perform some other action in frame
+B--mouse search doesn't shift focus.
+
+   If you decide that you don't like the above feature and always want
+search/insertion be performed in the frame where the click occurs, don't
+bind (and unbind, if necessary) `viper-mouse-catch-frame-switch' from
+the mouse event it is bound to.
+
+   Mouse search is integrated with Vi-style search, so you can repeat
+it with `n' and `N'.  It should be also noted that, while
+case-sensitivity of search in Viper is controlled by the variable
+`viper-case-fold-search', the case of mouse search is controlled by the
+Emacs variable `case-fold-search', which may be set differently from
+`viper-case-fold-search'.  Therefore, case-sensitivity of mouse search
+may be different from that of the usual Vi-style search.
+
+   Finally, if the way Viper determines the word to be searched for or
+to be inserted is not what you want, there is a variable,
+`viper-surrounding-word-function', which can be changed to indicate
+another function for snarfing words out of the buffer.  The catch is
+that you will then have to write such a function and make it known to
+your Emacs.  The function `viper-surrounding-word' in `viper.el' can be
+used as a guiding example.
+
+
+File: viper,  Node: Vi Macros,  Prev: Viper Specials,  Up: Customization
+
+Vi Macros
+=========
+
+   Viper supports much enhanced Vi-style macros and also facilitates
+the use of Emacs-style macros.  To define a temporary macro, it is
+generally more convenient to use Emacs keyboard macro facility.  Emacs
+keyboard macros are usually defined anonymously, and the latest macro
+can be executed by typing `C-x e' (or `*', if Viper is in Vi state).
+If you need to use several temporary macros, Viper lets you save them
+to a register (a lowercase letter); such macros can then be executed by
+typing `@a' in Vi state (if a macro was previously saved in register
+`a').  *Note Macros and Registers::, for details.
+
+   If, however, you need to use a macro regularly, it must be given a
+permanent name and saved.  Emacs manual explains how to do this, but
+invocation of named Emacs macros is quite different from Vi's.  First,
+invocation of permanent Emacs macros takes time because of the extra
+keys.  Second, binding such macros to function keys, for fast access,
+hogs valuable real estate on the keyboard.
+
+   Vi-style macros are better in that respect, since Vi lets the user
+overload the meaning of key sequences: keys typed in fast succession
+are treated specially, if this key sequence is bound to a macro.
+
+   Viper provides keyboard macros through the usual Ex commands, `:map'
+and `:map!'.  Vi-style macros are much more powerful in Viper than they
+are in the original Vi and in other emulators.  This is because Viper
+implements an enhanced vi-style interface to the powerful Emacs
+keyboard macro facility.
+
+   First, any Emacs command can be executed while defining a macro, not
+just the Vi commands.  In particular, the user can invoke Emacs
+commands via `M-x command-name' or by pressing various function keys on
+the keyboard.  One can even use the mouse, although this is usually not
+useful and is not recommended (and macros defined with the use of the
+mouse cannot be saved in command history and in the startup file, for
+future use).
+
+   Macros defined by mixing Vi and Emacs commands are represented as
+vectors.  So, don't be confused when you see one (usually through the
+history of Ex commands).  For instance, if `gg' is defined by typing
+`l', the up-arrow key and `M-x next-line', its definition will look as
+follows in Emacs:
+
+     [l up (meta x) n e x t - l i n e return]
+
+   Second, Viper macros are defined in a WYSIWYG style.  This means that
+commands are executed as you type them, so you can see precisely what is
+being defined.  Third, macros can be bound to arbitrary sequences of
+keys, not just to printable keys.  For instance, one can define a macro
+that will be invoked by hitting `f3' then `f2' function keys.  (The keys
+`delete' and `backspace' are excluded; also, a macro invocation
+sequence can't start with <ESC>.  Some other keys, such as `f1' and
+`help', can't be bound to macros under Emacs, since they are bound in
+`key-translation-map', which overrides any other binding the user gives
+to keys.  In general, keys that have a binding in `key-translation-map'
+can't be bound to a macro.)
+
+   Fourth, in Viper, one can define macros that are specific to a given
+buffer, a given major mode, or macros that are defined for all buffers.
+In fact, the same macro name can have several different definitions:
+one global, several definitions for various major modes, and
+definitions for various specific buffers.  Buffer-specific definitions
+override mode-specific definitions, which, in turn, override global
+definitions.
+
+   As if all that is not enough, Viper (through its interface to Emacs
+macros) lets the user define keyboard macros that ask for confirmation
+or even prompt the user for input and then continue.  To do this, one
+should type `C-x q' (for confirmation) or `C-u C-x q' (for prompt).
+For details, *note Customization: (emacs)Kbd Macro Query.
+
+   When the user finishes defining a macro (which is done by typing
+`C-x)' -- a departure from Vi), you will be asked whether you want this
+macro to be global, mode-specific, or buffer-specific.  You will also be
+given a chance to save the macro in your `~/.viper' file.  This is the
+easiest way to save a macro and make it permanently available.  If you
+work your startup files with bare hands, here is how Viper saves the
+above macro so that it will be available in Viper's Insert state (and
+Replace state) in buffer `my-buf' only:
+
+     (viper-record-kbd-macro "gg" 'insert-state
+            [l up (meta x) n e x t - l i n e return]
+            "my-buf")
+
+To do the same for Vi state and all buffers with the major mode
+`cc-mode', use:
+
+     (viper-record-kbd-macro "gg" 'vi-state
+            [l up (meta x) n e x t - l i n e return]
+            'cc-mode)
+
+Both macro names and macro definitions are vectors of symbols that
+denote keys on the keyboard.  Some keys, like `\', ` ', or digit-keys
+must be escaped with a backslash.  Modified keys are represented as
+lists.  For instance, holding Meta and Control and pressing `f4' is
+represented as `(control meta f4)'.  If all members of a vectors are
+printable characters (or sequences, such as `\e', `\t', for <ESC> and
+<TAB>), then they can also be represented as strings:
+
+     (viper-record-kbd-macro "aa" 'vi-state  "aaa\e"  "my-buffer")
+
+Thus, typing `aa' fast in Vi state will switch Viper to Insert state
+(due to the first `a'), insert `aa', and then it will switch back to Vi
+state.  All this will take effect only in the buffer named `my-buffer'.
+
+   Note that the last argument to `viper-record-kbd-macro' must be
+either a string (a buffer name), a symbol representing a major mode, or
+`t'; the latter says that the macro is to be defined for all buffers
+(which is how macros are defined in original Vi).
+
+   For convenience, Viper also lets you define Vi-style macros in its
+Emacs state.  There is no Ex command, like `:map' and `:map!' for doing
+this, but the user can include such a macro in the `~/.viper' file.  The
+only thing is that the `viper-record-kbd-macro' command should specify
+`emacs-state' instead of `vi-state' or `insert-state'.
+
+   The user can get rid of a macro either by using the Ex commands
+`:unmap' and `:unmap!' or by issuing a call to
+`viper-unrecord-kbd-macro'.  The latter is more powerful, since it can
+delete macros even in `emacs-state'.  However,
+`viper-unrecord-kbd-macro' is usually needed only when the user needs
+to get rid of the macros that are already predefined in Viper.  The
+syntax is:
+     (viper-unrecord-kbd-macro macro state)
+
+The second argument must be `vi-state', `insert-state', or
+`emacs-state'.  The first argument is a name of a macro.  To avoid
+mistakes in specifying names of existing macros, type `M-x
+viper-describe-kbd-macros' and use a name from the list displayed by
+this command.
+
+   If an error occurs during macro definition, Emacs aborts the
+process, and it must be repeated.  This is analogous to Vi, except that
+in Vi the user doesn't know there is an error until the macro is
+actually run.  All that means that in order for a definition to be
+successful, the user must do some simple planning of the process in
+advance, to avoid errors.  For instance, if you want to map `gg' to
+`llll' in Vi state, you must make sure that there is enough room on the
+current line.  Since `l' moves the cursor forward, it may signal an
+error on reaching the end of line, which will abort the definition.
+
+   These precautions are necessary only when defining macros; they will
+help avoid the need to redo the job.  When macros are actually run, an
+error during the execution will simply terminate the current execution
+(but the macro will remain mapped).
+
+   A macro name can be a string of characters or a vector of keys.  The
+latter makes it possible to define macros bound to, say, double-hits on
+a function key, such as `up' or `f13'.  This is very useful if you run
+out of function keys on your keyboard; it makes Viper macro facility a
+*keyboard doubler*, so to speak.
+
+   Elsewhere (*Note Keybindings::, for details), we review the standard
+Emacs mechanism for binding function keys to commands.  For instance,
+
+     (global-set-key [f13] 'repeat-complex-command)
+
+binds the key f13 to the Emacs function that repeats the last minibuffer
+command.  Under Viper, however, you may still use this key for
+additional purposes, if you bind, say, a double-hitting action for that
+key to some other function.  Emacs doesn't allow the user to do that,
+but Viper does this through its keyboard macro facility.  To do this,
+type `:map ' first.  When you are asked to enter a macro name, hit f13
+twice, followed by <RET> or <SPC>.
+
+   Emacs will now start the mapping process by actually executing Vi
+and Emacs commands, so that you could see what will happen each time the
+macro is executed.  Suppose now we wanted to bind the key sequence `f13
+f13' to the command `eval-last-sexp'.  To accomplish this, we can type
+`M-x eval-last-sexp' followed by `C-x )'.  If you answer positively to
+Viper's offer to save this macro in `~/.viper' for future uses, the
+following will be inserted in that file:
+
+     (viper-record-kbd-macro [f16 f16] 'vi-state
+              [(meta x) e v a l - l a s t - s e x p]
+              'lisp-interaction-mode)
+
+   To illustrate the above point, Viper provides two canned macros,
+which, by default, are bound to `[f12 \1]' and `[f12 \2]' (invoked by
+typing `f12' then `1' and `2', respectively).  These macros are useful
+shortcuts to Viper's command ring history.  The first macro will
+execute the second-last destructive command (the last one is executed
+by `.', as usual).  The second macro executes the third-last command.
+
+   If you need to go deeper into the command history, you will have to
+use other commands, as described earlier in this section; or you can
+bind, say, `f12 \3' like this:
+
+     (viper-record-kbd-macro [f12 \3] 'vi-state
+                           [(meta x) r e p e a t - f r o m - h i s t o r y]
+                           t)
+
+   Note that even though the macro uses the function key `f12', the key
+is actually free and can still be bound to some Emacs function via
+`define-key' or `global-set-key'.
+
+   Viper allows the user to define macro names that are prefixes of
+other macros.  For instance, one can define `[[' and `[[[[' to be
+macros.  If you type the exact sequence of such keys and then pause,
+Viper will execute the right macro.  However, if you don't pause and,
+say, type `[[[[text' then the conflict is resolved as follows.  If only
+one of the key sequences, `[[' or `[[[[' has a definition applicable to
+the current buffer, then, in fact, there is no conflict and the right
+macro will be chosen.  If both have applicable definitions, then the
+first one found will be executed.  Usually this is the macro with a
+shorter name.  So, in our case, `[[[[text' will cause the macro `[[' to
+be executed twice and then the remaining keys, `t e x t', will be
+processed.
+
+   When defining macros using `:map' or `:map!', the user enters the
+actually keys to be used to invoke the macro.  For instance, you should
+hit the actual key `f6' if it is to be part of a macro name; you do
+*not* write `f 6'.  When entering keys, Viper displays them as strings
+or vectors (e.g., "abc" or [f6 f7 a]).  The same holds for unmapping.
+Hitting <TAB> while typing a macro name in the `:unmap' or `:unmap!'
+command will cause name completion.  Completions are displayed as
+strings or vectors.  However, as before, you don't actually type """,
+"[", or "]" that appear in the completions.  These are meta-symbols
+that indicate whether the corresponding macro name is a vector or a
+string.
+
+   One last difference from Vi: Vi-style keyboard macros cannot be
+defined in terms of other Vi-style keyboard macros (but named Emacs
+macros are OK).  More precisely, while defining or executing a macro,
+the special meaning of key sequences (as Vi macros) is ignored.  This
+is because it is all too easy to create an infinite loop in this way.
+Since Viper macros are much more powerful than Vi's it is impossible to
+detect such loops.  In practice, this is not really a limitation but,
+rather, a feature.
+
+   We should also note that Vi macros are disabled in the Minibuffer,
+which helps keep some potential troubles away.
+
+   The rate at which the user must type keys in order for them to be
+recognized as a timeout macro is controlled by the variable
+`viper-fast-keyseq-timeout', which defaults to 200 milliseconds.
+
+   For the most part, Viper macros defined in `~/.viper' can be shared
+between X and TTY modes.  The problem with TTY may be that the function
+keys there generate sequences of events instead of a single event (as
+under a window system).  Emacs maps some of these sequences back to the
+logical keys (e.g., the sequences generated by the arrow keys are
+mapped to `up', `left', etc.).  However, not all function keys are
+mapped in this way.  Macros that are bound to key sequences that
+contain such unmapped function keys have to be redefined for TTY's (and
+possibly for every type of TTY you may be using).  To do this, start
+Emacs on an appropriate TTY device and define the macro using `:map',
+as usual.
+
+   Finally, Viper provides a function that conveniently displays all
+macros currently defined.  To see all macros along with their
+definitions, type `M-x viper-describe-kbd-macros'.
+
+
+File: viper,  Node: Commands,  Prev: Customization,  Up: Top
+
+Commands
+********
+
+   This section is a semi-automatically bowdlerized version of the Vi
+reference created by
+`maart@cs.vu.nl' and others.  It can be found on the Vi archives.  This
+reference has been adapted for Viper.
+
+* Menu:
+
+* Groundwork::			Textual Conventions and Viper basics
+* Text Handling::		Moving, Editing, Undoing.
+* Display::			Scrolling.
+* File and Buffer Handling::	Editing, Writing and Quitting.
+* Mapping::			Mapping Keys, Keyboard Macros
+* Shell Commands::		Accessing Shell Commands, Processing Text
+* Options::			Ex options, the `:set' commands
+* Emacs Related Commands::	Meta Keys, Windows
+* Mouse-bound Commands::        Search and insertion of text
+
+
+File: viper,  Node: Groundwork,  Next: Text Handling,  Prev: Commands,  Up: Commands
+
+Groundwork
+==========
+
+   The VI command set is based on the idea of combining motion commands
+with other commands.  The motion command is used as a text region
+specifier for other commands.  We classify motion commands into "point
+commands" and "line commands".
+
+   The point commands are:
+
+     `h', `l', `0',  `$', `w', `W', `b', `B', `e', `E', `(', `)', `/',
+     `?', ``', `f', `F', `t', `T', `%', `;', `,', `^'
+
+   The line commands are:
+
+     `j', `k', `+', `-', `H', `M', `L', `{', `}', `G', `'',  `[[',
+     `]]', `[]'
+
+Text Deletion Commands (*note Deleting Text::.), Change commands (*note
+Changing Text::.), even Shell Commands (*note Shell Commands::.)  use
+these commands to describe a region of text to operate on.
+
+   Viper adds two region descriptors, `r' and `R'.  These describe the
+Emacs regions (*note Basics::.), but they are not movement commands.
+
+   The command description uses angle brackets `<>' to indicate
+metasyntactic variables, since the normal conventions of using simple
+text can be confusing with Viper where the commands themselves are
+characters.  Watch out where `<' shift commands and `<count>' are
+mentioned together!!!
+
+   `<move>' refers to the above movement commands, and `<a-z>' refers
+to registers or textmarkers from `a' to `z'.  Note that the `<move>'
+is described by full move commands, that is to say they will take
+counts, and otherwise behave like normal move commands.  `<address>'
+refers to Ex line addresses, which include
+
+`. <No address>'
+     Current line
+
+`.+n .-n'
+     Add or subtract for current line
+
+`number'
+     Actual line number, use `.=' to get the line number
+
+`'<a-z>'
+     Textmarker
+
+`$'
+     Last line
+
+`x,y'
+     Where x and y are one of the above
+
+`%'
+     For the whole file, same as (1,$).
+
+`/<pat>/'
+`?<pat>?'
+     Next or previous line with pattern <pat>.
+
+     Note that the pattern is allowed to contain newline character
+     (inserted as `C-qC-j').  Therefore, one can search for patterns
+     that span several lines.
+
+   Note that `%' is used in Ex commands to mean current file.  If you
+want a `%' in your command, it must be escaped as `\%'.  Similarly, `#'
+expands to the previous file.  The previous file is the first file in
+`:args' listing.  This defaults to previous window in the VI sense if
+you have one window only.
+
+Others like `<args> -- arguments', `<cmd> -- command' etc.  should be
+fairly obvious.
+
+Common characters referred to include:
+
+`<sp>'
+     Space
+
+`<ht>'
+     Tab
+
+`<lf>'
+     Linefeed
+
+`<esc>'
+     Escape
+
+`<cr>'
+     Return, Enter
+
+   We also use `word' for alphanumeric/non-alphanumeric words, and
+`WORD' for whitespace delimited words.  `char' refers to any ASCII
+character, `CHAR' to non-whitespace character.  Brackets `[]' indicate
+optional parameters; `<count>' also optional, usually defaulting to 1.
+Brackets are elided for `<count>' to eschew obfuscation.
+
+   Viper's idea of Vi's words is slightly different from Vi.  First,
+Viper words understand Emacs symbol tables.  Therefore, all symbols
+declared to be alphanumeric in a symbol table can automatically be made
+part of the Viper word.  This is useful when, for instance, editing
+text containing European, Cyrillic, Japanese, etc., texts.
+
+   Second, Viper lets you depart from Vi's idea of a word by changing
+the a syntax preference via the customization widget (the variable
+`viper-syntax-preference') or by executing
+`viper-set-syntax-preference' interactively.
+
+   By default, Viper syntax preference is `reformed-vi', which means
+that Viper considers only those symbols to be part of a word that are
+specified as word-symbols by the current Emacs syntax table (which may
+be different for different major modes) plus the underscore symbol `_',
+minus the symbols that are not considered words in Vi (e.g., `,',;,
+etc.), but may be considered as word-symbols by various Emacs major
+modes.  Reformed-Vi works very close to Vi, and it also recognizes
+words in other alphabets.  Therefore, this is the most appropriate mode
+for editing text and is likely to fit all your needs.
+
+   You can also set Viper syntax preference to `strict-vi', which would
+cause Viper to view all non-English letters as non-word-symbols.
+
+   You can also specify `emacs' as your preference, which would make
+Viper use exactly the same notion of a word as Emacs does.  In
+particular, the underscore may not be part of a word in some major
+modes.
+
+   Finally, if `viper-syntax-preference' is set to `extended', Viper
+words would consist of characters that are classified as alphanumeric
+*or* as parts of symbols.  This is convenient for editing programs.
+
+   `viper-syntax-preference' is a local variable, so it can have
+different values for different major modes.  For instance, in
+programming modes it can have the value `extended'.  In text modes
+where words contain special characters, such as European (non-English)
+letters, Cyrillic letters, etc., the value can be `reformed-vi' or
+`emacs'.  If you consider using different syntactic preferences for
+different major modes, you should execute, for example,
+
+     (viper-set-syntax-preference nil "extended")
+
+   in the appropriate major mode hooks.
+
+   The above discussion concerns only the movement commands.  In regular
+expressions, words remain the same as in Emacs.  That is, the
+expressions `\w', `\>', `\<', etc., use Emacs' idea of what is a word,
+and they don't look into the value of variable
+`viper-syntax-preference'.  This is because Viper avoids changing
+syntax tables in order to not thwart the various major modes that set
+these tables.
+
+   The usual Emacs convention is used to indicate Control Characters,
+i.e C-h for Control-h.  *Do not confuse this to mean the separate
+characters C - h!!!* The `^' is itself, never used to indicate a
+Control character.
+
+   Finally, we note that Viper's Ex-style commands can be made to work
+on the current Emacs region.  This is done by typing a digit argument
+before `:'.  For instance, typing `1:' will propmt you with something
+like *:123,135*, assuming that the current region starts at line 123 and
+ends at line 135.  There is no need to type the line numbers, since
+Viper inserts them automatically in front of the Ex command.
+
+
+File: viper,  Node: Text Handling,  Next: Display,  Prev: Groundwork,  Up: Commands
+
+Text Handling
+=============
+
+* Menu:
+
+* Move Commands::		Moving, Searching
+* Marking::		        Textmarkers in Viper and the Emacs Mark.
+* Appending Text::		Text insertion, Shifting, Putting
+* Editing in Insert State::	Autoindent, Quoting etc.
+* Deleting Text::		Deleting
+* Changing Text::		Changing, Replacement, Joining
+* Search and Replace::		Searches, Query Replace, Pattern Commands
+* Yanking::			Yanking, Viewing Registers
+* Undoing::			Multiple Undo, Backups
+
+
+File: viper,  Node: Move Commands,  Next: Marking,  Up: Text Handling
+
+Move Commands
+-------------
+
+`<count>  h  C-h'
+     <count> chars to the left.
+
+`<count>  j  <lf> C-n'
+     <count> lines downward.
+
+`<count>  l  <sp>'
+     <count> chars to the right.
+
+`<count>  k  C-p'
+     <count> lines upward.
+
+`<count>  $'
+     To the end of line <count> from the cursor.
+
+`<count>  ^'
+     To the first CHAR <count> - 1 lines lower.
+
+`<count>  -'
+     To the first CHAR <count> lines higher.
+
+`<count>  +  <cr>'
+     To the first CHAR <count> lines lower.
+
+`0'
+     To the first char of the line.
+
+`<count> |'
+     To column <count>
+
+`<count>  f<char>'
+     <count> <char>s to the right (find).
+
+`<count>  t<char>'
+     Till before <count> <char>s to the right.
+
+`<count>  F<char>'
+     <count> <char>s to the left.
+
+`<count>  T<char>'
+     Till after <count> <char>s to the left.
+
+`<count>  ;'
+     Repeat latest `f t F T' <count> times.
+
+`<count>  ,'
+     Repeat latest `f t F T' <count> times in opposite direction.
+
+`<count>  w'
+     <count> words forward.
+
+`<count>  W'
+     <count> WORDS forward.
+
+`<count>  b'
+     <count> words backward.
+
+`<count>  B'
+     <count> WORDS backward.
+
+`<count>  e'
+     To the end of word <count> forward.
+
+`<count>  E'
+     To the end of WORD <count> forward.
+
+`<count>  G'
+     Go to line <count> (default end-of-file).
+
+`<count>  H'
+     To line <count> from top of the screen (home).
+
+`<count>  L'
+     To line <count> from bottom of the screen (last).
+
+`M'
+     To the middle line of the screen.
+
+`<count>  )'
+     <count> sentences forward.
+
+`<count>  ('
+     <count> sentences backward.
+
+`<count>  }'
+     <count> paragraphs forward.
+
+`<count>  {'
+     <count> paragraphs backward.
+
+`<count>  ]]'
+     To the <count>th heading.
+
+`<count>  [['
+     To the <count>th previous heading.
+
+`<count>  []'
+     To the end of <count>th heading.
+
+`m<a-z>'
+     Mark the cursor position with a letter.
+
+``<a-z>'
+     To the mark.
+
+`'<a-z>'
+     To the first CHAR of the line with the mark.
+
+`[<a-z>'
+     Show contents of textmarker.
+
+`]<a-z>'
+     Show contents of register.
+
+```'
+     To the cursor position before the latest absolute jump (of which
+     are examples `/' and `G').
+
+`'''
+     To the first CHAR of the line on which the cursor was placed
+     before the latest absolute jump.
+
+`<count>  /<string>'
+     To the <count>th occurrence of <string>.
+
+`<count>  /<cr>'
+     To the <count>th occurrence of <string> from previous `/ or ?'.
+
+`<count>  ?<string>'
+     To the <count>th previous occurrence of <string>.
+
+`<count>  ?<cr>'
+     To the <count>th previous occurrence of <string> from previous `?
+     or /'.
+
+`n'
+     Repeat latest `/' `?' (next).
+
+`N'
+     Repeat latest search in opposite direction.
+
+`C-c /'
+     Without a prefix argument, this command toggles
+     case-sensitive/case-insensitive search modes and plain
+     vanilla/regular expression search.  With the prefix argument 1,
+     i.e., `1 C-c /', this toggles case-sensitivity; with the prefix
+     argument 2, toggles plain vanilla search and search using regular
+     expressions.  *Note Viper Specials::, for alternative ways to
+     invoke this function.
+
+`%'
+     Find the next bracket/parenthesis/brace and go to its match.  By
+     default, Viper ignores brackets/parentheses/braces that occur
+     inside parentheses.  You can change this by setting
+     `viper-parse-sexp-ignore-comments' to nil in your `.viper' file.
+     This option can also be toggled interactively if you quickly hit
+     `%%%'.
+
+     This latter feature is implemented as a vi-style keyboard macro.
+     If you don't want this macro, put
+
+          (viper-set-parsing-style-toggling-macro 'undefine)
+
+     in your `~/.viper' file.
+
+
+File: viper,  Node: Marking,  Next: Appending Text,  Prev: Move Commands,  Up: Text Handling
+
+Marking
+-------
+
+   Emacs mark is referred to in the region specifiers `r' and `R'.
+*Note Emacs Preliminaries::, and *Note Basics::, for explanation.  Also
+see *Note Mark: (emacs)Mark, for an explanation of the Emacs mark ring.
+
+`m<a-z>'
+     Mark the current file and position with the specified letter.
+
+`m .'
+     Set the Emacs mark (*note Emacs Preliminaries::.) at point.
+
+`m <'
+     Set the Emacs mark at beginning of buffer.
+
+`m >'
+     Set the Emacs mark at end of buffer.
+
+`m ,'
+     Jump to the Emacs mark.
+
+`:mark <char>'
+     Mark position with text marker named <char>.  This is an Ex
+     command.
+
+`:k <char>'
+     Same as `:mark'.
+
+```'
+     Exchange point and mark.
+
+`'''
+     Exchange point and mark and go to the first CHAR on line.
+
+`'<a-z>'
+     Go to specified Viper mark.
+
+`'
+     Go to specified Viper mark and go to the first CHAR on line.
+
+
+File: viper,  Node: Appending Text,  Next: Editing in Insert State,  Prev: Marking,  Up: Text Handling
+
+Appending Text
+--------------
+
+   *Note Options::, to see how to change tab and shiftwidth size.  See
+the GNU Emacs manual, or try `C-ha tabs' (If you have turned Emacs help
+on).  Check out the variable `indent-tabs-mode' to put in just spaces.
+Also see options for word-wrap.
+
+`<count>  a'
+     <count> times after the cursor.
+
+`<count>  A'
+     <count> times at the end of line.
+
+`<count>  i'
+     <count> times before the cursor (insert).
+
+`<count>  I'
+     <count> times before the first CHAR of the line
+
+`<count>  o'
+     On a new line below the current (open).  The count is only useful
+     on a slow terminal.
+
+`<count>  O'
+     On a new line above the current.  The count is only useful on a
+     slow terminal.
+
+`<count>  ><move>'
+     Shift the lines described by <count><move> one shiftwidth to the
+     right (layout!).
+
+`<count>  >>'
+     Shift <count> lines one shiftwidth to the right.
+
+`<count>  ["<a-z1-9>]p'
+     Put the contents of the (default undo) buffer <count> times after
+     the cursor.  The register will be automatically down-cased.
+
+`<count>  ["<a-z1-9>]P'
+     Put the contents of the (default undo) buffer <count> times before
+     the cursor.  The register will
+
+`[<a-z>'
+     Show contents of textmarker.
+
+`]<a-z>'
+     Show contents of register.
+
+`<count>  .'
+     Repeat previous command <count> times.  For destructive commands
+     as well as undo.
+
+`f1 1 and f1 2'
+     While `.' repeats the last destructive command, these two macros
+     repeat the second-last and the third-last destructive commands.
+     *Note Vi Macros::, for more information on Vi macros.
+
+`C-c M-p and C-c M-n'
+     In Vi state, these commands help peruse the history of Vi's
+     destructive commands.  Successive typing of `C-c M-p' causes Viper
+     to search the history in the direction of older commands, while
+     hitting `C-c M-n' does so in reverse order.  Each command in the
+     history is displayed in the Minibuffer.  The displayed command can
+     then be executed by typing ``.''.
+
+     Since typing the above sequences of keys may be tedious, the
+     functions doing the perusing can be bound to unused keyboard keys
+     in the `~/.viper' file.  *Note Viper Specials::, for details.
+
+
+File: viper,  Node: Editing in Insert State,  Next: Deleting Text,  Prev: Appending Text,  Up: Text Handling
+
+Editing in Insert State
+-----------------------
+
+   Minibuffer can be edited similarly to Insert state, and you can
+switch between Insert/Replace/Vi states at will.  Some users prefer
+plain Emacs feel in the Minibuffer.  To this end, set
+VIPER-VI-STYLE-IN-MINIBUFFER to `nil'.
+
+`C-v'
+     Deprive the next char of its special meaning (quoting).
+
+`C-h'
+     One char back.
+
+`C-w'
+     One word back.
+
+`C-u'
+     Back to the begin of the change on the current line.
+
+
+File: viper,  Node: Deleting Text,  Next: Changing Text,  Prev: Editing in Insert State,  Up: Text Handling
+
+Deleting Text
+-------------
+
+   There is one difference in text deletion that you should be aware
+of.  This difference comes from Emacs and was adopted in Viper because
+we find it very useful.  In Vi, if you delete a line, say, and then
+another line, these two deletions are separated and are put back
+separately if you use the `p' command.  In Emacs (and Viper), successive
+series of deletions that are *not interrupted* by other commands are
+lumped together, so the deleted text gets accumulated and can be put
+back as one chunk.  If you want to break a sequence of deletions so
+that the newly deleted text could be put back separately from the
+previously deleted text, you should perform a non-deleting action,
+e.g., move the cursor one character in any direction.
+
+`<count>  x'
+     Delete <count> chars under and after the cursor.
+
+`<count>  X'
+     Delete <count> chars before the cursor.
+
+`<count>  d<move>'
+     Delete from point to endpoint of <count><move>.
+
+`<count>  dd'
+     Delete <count> lines.
+
+`D'
+     The rest of the line.
+
+`<count>  <<move>'
+     Shift the lines described by <count><move> one shiftwidth to the
+     left (layout!).
+
+`<count>  <<'
+     Shift <count> lines one shiftwidth to the left.
+
+
+File: viper,  Node: Changing Text,  Next: Search and Replace,  Prev: Deleting Text,  Up: Text Handling
+
+Changing Text
+-------------
+
+`<count>  r<char>'
+     Replace <count> chars by <char> - no <esc>.
+
+`<count>  R'
+     Overwrite the rest of the line, appending change COUNT - 1 times.
+
+`<count>  s'
+     Substitute <count> chars.
+
+`<count>  S'
+     Change <count> lines.
+
+`<count>  c<move>'
+     Change from begin to endpoint of <count><move>.
+
+`<count>  cc'
+     Change <count> lines.
+
+`<count>  C'
+     The rest of the line and <count> - 1 next lines.
+
+`<count>  =<move>'
+     Reindent the region described by move.
+
+`<count>  ~'
+     Switch lower and upper cases.
+
+`<count>  J'
+     Join <count> lines (default 2).
+
+`:[x,y]s/<pat>/<repl>/<f>'
+     Substitute (on lines x through y) the pattern <pat> (default the
+     last pattern) with <repl>.  Useful flags <f> are `g' for `global'
+     (i.e. change every non-overlapping occurrence of <pat>) and `c' for
+     `confirm' (type `y' to confirm a particular substitution, else `n'
+     ).  Instead of `/' any punctuation CHAR unequal to <space> <tab>
+     and <lf> can be used as delimiter.
+
+     In Emacs, `\&' stands for the last matched expression, so
+     `s/[ab]+/\&\&/' will double the string matched by `[ab]'.  Viper
+     doesn't treat `&' specially, unlike Vi: use `\&' instead.
+
+     Note: *The newline character (inserted as `C-qC-j') can be used in
+     <repl>*.
+
+`:[x,y]copy [z]'
+     Copy text between `x' and `y' to the position after `z'.
+
+`:[x,y]t [z]'
+     Same as `:copy'.
+
+`:[x,y]move [z]'
+     Move text between `x' and `y' to the position after `z'.
+
+`&'
+     Repeat latest Ex substitute command, e.g.  `:s/wrong/right'.
+
+`C-c /'
+     Toggle case-sensitive search.  With prefix argument, toggle
+     vanilla/regular expression search.
+
+`#c<move>'
+     Change upper-case characters in the region to lower-case.
+
+`#C<move>'
+     Change lower-case characters in the region to upper-case.
+
+`#q<move>'
+     Insert specified string at the beginning of each line in the region
+
+`C-c M-p and C-c M-n'
+     In Insert and Replace states, these keys are bound to commands
+     that peruse the history of the text previously inserted in other
+     insert or replace commands.  By repeatedly typing `C-c M-p' or
+     `C-c M-n', you will cause Viper to insert these previously used
+     strings one by one.  When a new string is inserted, the previous
+     one is deleted.
+
+     In Vi state, these keys are bound to functions that peruse the
+     history of destructive Vi commands.  *Note Viper Specials::, for
+     details.
+

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd">
+<plist version="0.9">
+<!-- Welcome to XML.  Anything you see surrounded like this is a comment. -->
+<dict>
+    <key>Module</key>
+    <dict>
+        <key>Name</key>
+            <string>com.apple.nke.pppserial</string>
+        <key>File</key>
+            <string>PPPSerial</string>
+
+        <!--
+            Delete these keys if this is an IOKit module.
+	    Leave these keys as 0 if you are a library module or use
+	    C++ static construction to start and stop your module
+        -->
+        <key>Initialize</key>
+            <string>pppserial_module_start</string>
+        <key>Finalize</key>
+            <string>pppserial_module_stop</string>
+
+        <!-- Keys reserved for future use, please leave -->
+        <key>Target</key>
+            <string>Kernel</string>
+        <key>Format</key>
+            <string>mach-o</string>
+    </dict>
+</dict>
+</plist>
+

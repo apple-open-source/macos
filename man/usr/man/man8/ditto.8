@@ -1,0 +1,49 @@
+.TH DITTO 8 "August 26, 1994" "Apple Computer, Inc."
+.SH NAME
+ditto \- copy source directories to destination directory
+.SH SYNOPSIS
+.B ditto 
+[ \fB-v\fR ] [ \fB-V\fR ] [ \fB-arch\fR \fIarchVal\fR ] [ \fB-bom\fR 
+\fIbomFile\fR ] \fIsrc\fR [ ... \fIsrc\fR ] \fIdst\fR
+.SH DESCRIPTION
+.I Ditto 
+copies one or more source directories to a destination directory. If the destination directory does not exist it will be created before the first source directory is copied. If the destination directory already exists then the source directories are merged with the previous contents of the destination.
+.PP
+.I Ditto 
+overwrites existing files, symbolic links, and devices in the destination when these are copied from a source. The resulting files, links, and devices will have the same mode, owner, and group as the source items from which they are copied. On the other, ditto does not modify the mode, owner, or group of existing directories in the destination.
+.PP
+.I Ditto 
+can be used to "thin" multi-architecture binaries during a copy. Ditto can also copy files selectively based on the contents of a BOM ("Bill of Materials") file. Ditto preserves hardlinks present in the source directories and preserves setuid and setgid modes.
+.SH OPTIONS
+.TP 20     
+.B -v		
+Print a line of output for each source directory copied.
+.TP 20   
+.B -V		
+Print a line of output for every file, symbolic link, device, and directory copied.
+.TP 20    
+\fB-arch\fR \fIarchVal\fR	
+Thin multi-architecture binaries ("fat binaries") to the specified architecture. If multiple \fB-arch\fR options are specified then the 
+resulting destination file will be multi-architectural containing each of 
+the specified architectures (if they are present in the source file). 
+\fIarchVal\fR should be specified as "m68k", "i386", "hppa", or "sparc".
+.TP 20
+\fB-bom\fR \fIbomFile\fR	
+If this option is given then only files, links, devices, and directories that are present in the specified BOM file are copied.
+.SH "EXAMPLES"
+.PP
+.DS
+ditto src dst			Copy "src" to "dst"
+ditto src-1 ... src-n dst		Copy all of "src-1" ... "src-n" to "dst"
+ditto -arch m68k src dst		Thin all fat files to Motorola 68000 architecture during copy
+ditto -bom Foo.bom src dst	Copy only those files that occur in Foo.bom
+.DE
+.PP
+.SH "SEE ALSO"
+bom(5), lsbom(8), mkbom(8)
+.SH "DIAGNOSTICS"
+.I Ditto 
+returns 0 if a copy finishes successfully, otherwise non-zero.
+.SH "BUGS"
+.I Ditto 
+currently requires that you must be logged in as root to run it.

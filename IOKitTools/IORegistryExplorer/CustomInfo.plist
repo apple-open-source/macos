@@ -1,0 +1,12 @@
+{
+   CFBundleInfoDictionaryVersion = "1.0";
+   CFBundleIdentifier = "com.apple.IORegistryExplorer";
+   CFBundleVersion = "1.0.0";
+   CFBundleShortVersionString = "1.0.0";
+   CFBundleDevelopmentRegion = "English";
+   CFBundleName = "IORegistryExplorer";
+   CFBundlePackageType = "APPL";
+   CFBundleSignature = "????";
+   CFBundleIconFile = "IORE.icns";
+   CFBundleDocumentTypes = ();
+}

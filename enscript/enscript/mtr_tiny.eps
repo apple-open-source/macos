@@ -1,0 +1,145 @@
+%!PS-Adobe-2.0 EPSF-2.0
+%%Title: /home/mtr/myprogs/enscript/mtr_tiny.eps
+%%Creator: XV Version 3.10a  Rev: 12/29/94  -  by John Bradley
+%%BoundingBox: 279 421 298 443
+%%Pages: 1
+%%DocumentFonts:
+%%EndComments
+%%EndProlog
+
+%%Page: 1 1
+
+% remember original state
+/origstate save def
+
+% build a temporary dictionary
+20 dict begin
+
+% define string to hold a scanline's worth of data
+/pix 57 string def
+
+% define space for color conversions
+/grays 19 string def  % space for gray scale line
+/npixls 0 def
+/rgbindx 0 def
+
+% lower left corner
+279 421 translate
+
+% size of image (on paper, in 1/72inch coords)
+19.00800 22.03200 scale
+
+% define 'colorimage' if it isn't defined
+%   ('colortogray' and 'mergeprocs' come from xwd2ps
+%     via xgrab)
+/colorimage where   % do we know about 'colorimage'?
+  { pop }           % yes: pop off the 'dict' returned
+  {                 % no:  define one
+    /colortogray {  % define an RGB->I function
+      /rgbdata exch store    % call input 'rgbdata'
+      rgbdata length 3 idiv
+      /npixls exch store
+      /rgbindx 0 store
+      0 1 npixls 1 sub {
+        grays exch
+        rgbdata rgbindx       get 20 mul    % Red
+        rgbdata rgbindx 1 add get 32 mul    % Green
+        rgbdata rgbindx 2 add get 12 mul    % Blue
+        add add 64 idiv      % I = .5G + .31R + .18B
+        put
+        /rgbindx rgbindx 3 add store
+      } for
+      grays 0 npixls getinterval
+    } bind def
+
+    % Utility procedure for colorimage operator.
+    % This procedure takes two procedures off the
+    % stack and merges them into a single procedure.
+
+    /mergeprocs { % def
+      dup length
+      3 -1 roll
+      dup
+      length
+      dup
+      5 1 roll
+      3 -1 roll
+      add
+      array cvx
+      dup
+      3 -1 roll
+      0 exch
+      putinterval
+      dup
+      4 2 roll
+      putinterval
+    } bind def
+
+    /colorimage { % def
+      pop pop     % remove 'false 3' operands
+      {colortogray} mergeprocs
+      image
+    } bind def
+  } ifelse          % end of 'false' case
+
+
+
+19 22 8			% dimensions of data
+[19 0 0 -22 0 22]		% mapping matrix
+{currentfile pix readhexstring pop}
+false 3 colorimage
+
+b5b5b5babababcbcbcbcbcbcbababababababcbcbcbababab6b6b6b4b4b4b2b2b2a0a0a0
+6262626c6c6ca3a3a3adadadd4d4d4202020212121
+babababcbcbcbcbcbcbcbcbcbababab8b8b8b8b8b8b6b6b6b4b4b4b4b4b4adadad737373
+7878787575756d6d6d6c6c6c6d6d6d838383606060
+babababcbcbcbcbcbcbcbcbcb8b8b8b8b8b8bababa6868688282828a8a8a7e7e7e7c7c7c
+7979796969697979797272726c6c6c636363575757
+bcbcbcbcbcbcbabababababab6b6b66e6e6e5454545d5d5d5959596868685d5d5d737373
+4c4c4c3d3d3d6f6f6f6f6f6f636363686868575757
+babababcbcbcbababab8b8b84c4c4c3a3a3a3f3f3f3c3c3c4b4b4b4e4e4e3c3c3c6f6f6f
+4444445656567878787070706161616a6a6a636363
+babababcbcbcbababab6b6b62727273333332929292a2a2a2e2e2e3a3a3a6a6a6a818181
+a7a7a75959598c8c8c7676769e9e9e777777696969
+bcbcbcbababab8b8b83030303131313232322f2f2f2b2b2b3b3b3b5858587c7c7c8a8a8a
+b2b2b27a7a7a9696968b8b8b9191918e8e8e919191
+babababababab8b8b82222222626262e2e2e3232324a4a4a5c5c5c686868757575868686
+b0b0b0bdbdbd7979796969696e6e6e7b7b7b525252
+b8b8b8b6b6b6b6b6b63131313131314343434d4d4d5c5c5c5a5a5a6666666565655d5d5d
+6a6a6ab6b6b66e6e6e6363636e6e6e6c6c6c616161
+b8b8b8b6b6b6b6b6b6a1a1a13a3a3a5151514f4f4f2f2f2f4040404c4c4c949494424242
+a8a8a89b9b9b5353535e5e5e666666676767646464
+b6b6b6b6b6b6b4b4b4b0b0b04141415555554444444d4d4d4c4c4c5151518a8a8a616161
+9d9d9db4b4b47b7b7b5c5c5c6363636767675f5f5f
+b4b4b4b4b4b4b2b2b2aeaeae4545455959595b5b5b5b5b5b575757525252898989adadad
+8c8c8cbfbfbf5b5b5b555555606060696969777777
+b2b2b2b2b2b2b0b0b0acacac6363636161615959595d5d5d5b5b5b5353535e5e5e8c8c8c
+adadadb1b1b16c6c6c5050506b6b6b6f6f6f6c6c6c
+b2b2b2aeaeaeb0b0b0acacaca8a8a85858585b5b5b5e5e5e5f5f5f5353536868689e9e9e
+b5b5b5c2c2c23a3a3a3e3e3e3e3e3e444444474747
+b0b0b0aeaeaeacacacaaaaaaa4a4a4a5a5a55b5b5b5f5f5f5b5b5b3131313232323a3a3a
+b5b5b59292924545454d4d4d353535575757565656
+b0b0b0aeaeaeacacaca6a6a6a2a2a2a0a0a05d5d5d5e5e5e5555555555555a5a5a7a7a7a
+a3a3a3acacac4c4c4c5f5f5f2e2e2e4848485e5e5e
+aeaeaeacacacacacaca4a4a4a0a0a08f8f8f5858586161615a5a5a5555555d5d5d9a9a9a
+a9a9a9b0b0b04545454e4e4e242424868686949494
+aeaeaeacacaca8a8a8a2a2a2a0a0a09999994c4c4c5757575d5d5d6969696d6d6d898989
+aaaaaa2828281e1e1e9090909090909595951d1d1d
+aaaaaaa8a8a8a8a8a8c9c9c99b9b9ba2a2a27575755757575757576565659f9f9fb4b4b4
+7f7f7f2c2c2c4040408d8d8d8a8a8a818181232323
+a8a8a8c4c4c4d2d2d2b8b8b8aeaeae797979a2a2a2a2a2a25f5f5f6969699e9e9eadadad
+a2a2a24848486565658b8b8b8686867c7c7c1f1f1f
+b9b9b9bfbfbfe5e5e5bebebea5a5a5aeaeaea4a4a49e9e9edddddd6f6f6f8b8b8b5d5d5d
+a8a8a8e1e1e1e8e8e87e7e7e7c7c7c7272724c4c4c
+dadadad3d3d3d5d5d5cccccc828282767676b6b6b6b1b1b17b7b7bb9b9b96a6a6a3f3f3f
+afafafefefefc0c0c0f0f0f04d4d4d5454544d4d4d
+
+showpage
+
+% stop using temporary dictionary
+end
+
+% restore original state
+origstate restore
+
+%%Trailer

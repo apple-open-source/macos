@@ -1,0 +1,78 @@
+/* Informational messages */
+
+"Loading Rhapsody" = "Laser inr Rhapsody";
+"Loading %s\n" = "Laser in %s\n";
+"Reading Rhapsody configuration" = "Laser Rhapsody-konfiguration";
+"Couldn't load standalone linker; unable to load boot drivers.\n" = "Kan inte lasa in fristaende linker; kan inte lasa in startdrivrutiner.\n";
+"Insert file system media and press Return" = "Satt in filsystemdisketten och tryck pa Retur";
+"Errors encountered while starting up the computer.\n" = "Fel vid start av datorn.\n";
+"Pausing %d seconds...\n" = "Gor uppehall i %d sekunder...\n";
+"Starting Rhapsody" = "Startar Rhapsody";
+"Can't find %s\n" = "Hittar inte %s\n";
+"Couldn't start up the computer using this floppy disk." = "Kan inte starta datorn med denna diskett.";
+"Error occurred while linking driver %s:\n%s" = "Fel vid lankning av drivrutinen %s:\n%s";
+"Loading %s device driver.\n" = "Laser in drivrutin %s.\n";
+"The driver was loaded successfully.\n" = "Drivrutinen har lasts i.\n";
+"An error occurred while loading the %s device driver.\n" = "Ett fel uppstod vid inlasning av drivrutinen %s.\n";
+"Press Return to continue.\n" = "Tryck pa Retur for att fortsatta.\n";
+"That driver has already been loaded.\n" = "Den drivrutinen har redan lasts in.\n";
+"Searching for drivers\n" = "Letar efter drivrutiner\n";
+"Reading configuration file '%s'.\n" = "Laser konfigurationsfil '%s'.\n";
+
+/* Warnings */
+
+"Config file \"%s\" not found\n" = "Hittar inte konfigurationsfilen \"%s\"\n";
+"System config file '%s' not found\n" = "Hittar inte systemkonfigurationsfilen '%s'\n";
+"Loading binary for %s device driver.\n" = "Laser in binar for drivrutin %s.\n";
+"Warning: No active drivers specified in system config.\n" = "Varning: inga aktiva drivrutiner har angivits i systemkonfigurationen.\n";
+
+/* Install messages */
+
+"DRIVER_MESSAGE_1" = "Disketten i enheten innehaller drivrutiner for foljande SCSI-adaptrar,\nharddiskstyrenheter och natverksadaptrar:\n";
+"DRIVER_INSTRUCTION_1" = "Skriv numret pa datorns natverksadapter.\n\n";
+"DRIVER_ALTERNATE_1" = "Om drivrutinen for den har enheten ligger pa en annan diskett satter du \nin den i diskettenheten och skriver %d.\n";
+"DRIVER_QUIT_1" = "";
+"DRIVER_MESSAGE_2" = "Disketten i enheten innehaller drivrutiner for foljande SCSI-adaptrar och\nstyrenheter for harddiskar:\n";
+"DRIVER_INSTRUCTION_2" = "Skriv in numret for den SCSI-adapter eller styrenhet som harddisken du vill\ninstallera Rhapsody pa ar ansluten till.\n(Det kan vara samma SCSI-adapter som CD-ROM-enheten ar ansluten till.)\n\n";
+"DRIVER_ALTERNATE_2"  = "Om drivrutinen for den har enheten ligger pa en annan diskett satter du \nin den i diskettenheten och skriver %d.\n";
+"DRIVER_QUIT_2" = "";
+"DRIVER_MESSAGE_3" = "Disketten i diskettenheten innehaller foljande drivrutiner:\n";
+"DRIVER_INSTRUCTION_3" = "Skriv numret for drivrutinen du behover for att installera Rhapsody.\n\n";
+"DRIVER_ALTERNATE_3" = "Om drivrutinen du vill lasa in ligger pa en annan diskett satter du in den i\ndiskettenheten och skriver %d.\n";
+"DRIVER_QUIT_3" = "Skriv %d om du vill fortsatta utan att installera en drivrutin fran den har\ndisketten.\n";
+"DRIVER_QUESTION_3" = "I vanliga fall behover du bara lasa in drivrutinerna for de adaptrar\nCD-ROM-enheten och harddisken ar anslutna till for att kunna installera\nRhapsody. Andra drivrutiner lases in automatiskt.\n\nOm du behover lasa in en annan drivrutin satter du in disketten med drivrutinen\ni diskettenheten.\n\n";
+
+"Type %d to view a list of additional device drivers on this disk.\n\n" =
+"Skriv %d for att visa en lista over ytterligare drivrutiner pa denna diskett.\n\n";
+
+"Really Install?" = "Det har programmet ar avsett for att installera Rhapsody pa en harddisk.\nDETTA AR INTE EN UPPGRADERING: BEFINTLIGA Rhapsody-FILER KOMMER ATT RADERAS.\n\nOm du vill behalla egna filer pa harddisken avslutar du programmet och kopierar\nde filer du vill behalla till en annan disk eller diskett.\n\nSkriv 1 om du vill forbereda for Rhapsody-installation.\nSkriv 2 om du vill avsluta installationsprogrammet.\n";
+
+"Insert Driver Disk" = "Satt in disketten med Rhapsody-drivrutinerna i diskettenheten\noch tryck pa Retur.\n\n---> ";
+
+"Load Other Drivers?" = "I vanliga fall behover du bara lasa in drivrutinerna for de adaptrar\nCD-ROM-enheten och harddisken ar anslutna till for att kunna installera\nRhapsody. Andra drivrutiner lases in automatiskt fran Rhapsody CD-ROM.\n\nOm du behover lasa in en annan drivrutin satter du in disketten med drivrutinen\ni diskettenheten.\n\n";
+
+"Missing Drivers:" = "Nar du paborjade Rhapsody-installationen laste du in en eller flera drivrutiner\nsom inte fanns pa Rhapsody CD-ROM:\n";
+
+"No Drivers On This Disk" = "Det finns inga lampliga drivrutiner pa den har disketten.\nSatt in en ny diskett och tryck pa Retur.\n---> ";
+
+"Install Canceled" = "Installationen avbrots. Mata ut disketten och starta om datorn.\n";
+
+"1 To Continue" = "Skriv 1 om du vill fortsatta utan att lasa in andra drivrutiner.\n";
+
+"2 To Load" = "Skriv 2 om du vill lasa in en drivrutin fran disketten i enheten.\n";
+
+"1 To Load Driver" = "Satt in disketten som innehaller en eller flera av dessa enhets-drivrutiner\noch skriv 1.\n";
+
+"2 To Continue" = "Skriv 2 om du vill fortsatta utan att lasa in nagon av drivrutinerna pa listan.\n";
+
+/* Somewhat obscure error messages */
+
+"Error loading %s\n" = "Fel vid inlasning av %s\n";
+"Read error\n" = "Lasfel\n";
+"Error in standalone linker executable\n" = "Fel i fristaende linker-program\n";
+"Fat binary file doesn't contain i386 code\n" = "Fat binary innehaller inte i386-kod\n";
+"Unrecognized binary format\n" = "Okant binart format\n";
+"Error reading commands\n" = "Fel vid lasning av kommandon\n";
+"Error loading section\n" = "Fel vid inlasning av sektion\n";
+"Can't load driver %s without sarld\n" = "Kan inte lasa in drivrutinen %s utan sarld\n";
+"Driver %s is larger than %d bytes and can't be loaded.\n" = "Drivrutinen %s ar storre an %d byte och kan inte lasas ins.\n";

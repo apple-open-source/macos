@@ -1,0 +1,927 @@
+dnl
+dnl  Configure template for zsh.
+dnl  Process this file with autoconf to produce a configure script.
+dnl
+dnl  Copyright (c) 1996 Richard Coleman
+dnl  All rights reserved.
+dnl
+dnl  Permission is hereby granted, without written agreement and without
+dnl  license or royalty fees, to use, copy, modify, and distribute this
+dnl  software and to distribute modified versions of this software for any
+dnl  purpose, provided that the above copyright notice and the following
+dnl  two paragraphs appear in all copies of this software.
+dnl
+dnl  In no event shall Richard Coleman or the Zsh Development Group be liable
+dnl  to any party for direct, indirect, special, incidental, or consequential
+dnl  damages arising out of the use of this software and its documentation,
+dnl  even if Richard Coleman and the Zsh Development Group have been advised of
+dnl  the possibility of such damage.
+dnl
+dnl  Richard Coleman and the Zsh Development Group specifically disclaim any
+dnl  warranties, including, but not limited to, the implied warranties of
+dnl  merchantability and fitness for a particular purpose.  The software
+dnl  provided hereunder is on an "as is" basis, and Richard Coleman and the
+dnl  Zsh Development Group have no obligation to provide maintenance,
+dnl  support, updates, enhancements, or modifications.
+
+AC_INIT(Src/zsh.h)
+AC_CONFIG_HEADER(config.h)
+
+dnl What version of zsh are we building ?
+VERSION=`sed -e 's/^.*"\(.*\)"$/\1/' ${srcdir}/Src/version.h`
+echo "configuring for zsh $VERSION"
+AC_SUBST(VERSION)dnl
+
+dnl ----------------------------------------------
+dnl CHECK FOR MACHINE/VENDOR/OPERATING SYSTEM TYPE
+dnl ----------------------------------------------
+dnl Find out machine type, vendor, and operating system
+dnl What type of host is this?
+AC_CANONICAL_HOST
+AC_DEFINE_UNQUOTED(OSTYPE,   "$host_os")
+AC_DEFINE_UNQUOTED(MACHTYPE, "$host_cpu")
+AC_DEFINE_UNQUOTED(VENDOR,   "$host_vendor")
+
+dnl -----------------------------
+dnl CHECKING COMMAND LINE OPTIONS
+dnl -----------------------------
+dnl Do you want to debug zsh?
+undefine([zsh-debug])dnl
+AC_ARG_ENABLE(zsh-debug,
+[  --enable-zsh-debug         use it if you want to debug zsh],
+[if test x$enableval = xyes; then
+  AC_DEFINE(DEBUG)
+fi])
+
+dnl Do you want zsh memory allocation routines.
+undefine([zsh-mem])dnl
+AC_ARG_ENABLE(zsh-mem,
+[  --enable-zsh-mem           use zsh memory allocation routines],
+[if test x$enableval = xyes; then
+  AC_DEFINE(ZSH_MEM)
+fi])
+
+dnl Do you want to debug zsh memory allocation routines.
+undefine([zsh-mem-debug])dnl
+AC_ARG_ENABLE(zsh-mem-debug,
+[  --enable-zsh-mem-debug     debug zsh memory allocation routines],
+[if test x$enableval = xyes; then
+  AC_DEFINE(ZSH_MEM_DEBUG)
+fi])
+
+dnl Do you want to print warnings when errors in memory allocation.
+undefine([zsh-mem-warning])dnl
+AC_ARG_ENABLE(zsh-mem-warning,
+[  --enable-zsh-mem-warning   print warnings when error in memory allocation],
+[if test x$enableval = xyes; then
+  AC_DEFINE(ZSH_MEM_WARNING)
+fi])
+
+dnl Do you want to turn on error checking for free().
+undefine([zsh-secure-free])dnl
+AC_ARG_ENABLE(zsh-secure-free,
+[  --enable-zsh-secure-free   turn on error checking for free()],
+[if test x$enableval = xyes; then
+  AC_DEFINE(ZSH_SECURE_FREE)
+fi])
+
+dnl Do you want debugging information on internal hash tables.
+dnl This turns on the `hashinfo' builtin command.
+undefine([zsh-hash-debug])dnl
+AC_ARG_ENABLE(zsh-hash-debug,
+[  --enable-zsh-hash-debug    turn on debugging of internal hash tables],
+[if test x$enableval = xyes; then
+  AC_DEFINE(ZSH_HASH_DEBUG)
+fi])
+
+dnl Do you want large file and 64-bit integer support?
+dnl This is only useful on 32-bit systems with 64-bit integer types.
+undefine([lfs])dnl
+AC_ARG_ENABLE(lfs,
+[  --disable-lfs              turn off support for large files],
+[lfs="$enableval"], [lfs=yes])
+
+dnl Pathnames for global zsh scripts
+undefine([etcdir])dnl
+AC_ARG_ENABLE(etcdir,
+[  --enable-etcdir=directory  default directory for global zsh scripts],
+[etcdir="$enableval"], [etcdir=/etc])
+
+undefine([zshenv])dnl
+AC_ARG_ENABLE(zshenv,
+[  --enable-zshenv=pathname   the full pathname of the global zshenv script],
+[zshenv="$enableval"],
+[if test "x$etcdir" = xno; then
+  zshenv=no
+else
+  zshenv="$etcdir/zshenv"
+fi])
+if test "x$zshenv" != xno; then
+  AC_DEFINE_UNQUOTED(GLOBAL_ZSHENV, "$zshenv")
+fi
+
+undefine([zshrc])dnl
+AC_ARG_ENABLE(zshrc,
+[  --enable-zshrc=pathname    the full pathname of the global zshrc script],
+[zshrc="$enableval"],
+[if test "x$etcdir" = xno; then
+  zshrc=no
+else
+  zshrc="$etcdir/zshrc"
+fi])
+if test "x$zshrc" != xno; then
+  AC_DEFINE_UNQUOTED(GLOBAL_ZSHRC, "$zshrc")
+fi
+
+undefine([zprofile])dnl
+AC_ARG_ENABLE(zprofile,
+[  --enable-zprofile=pathname the full pathname of the global zprofile script],
+[zprofile="$enableval"],
+[if test "x$etcdir" = xno; then
+  zprofile=no
+else
+  zprofile="$etcdir/zprofile"
+fi])
+if test "x$zprofile" != xno; then
+  AC_DEFINE_UNQUOTED(GLOBAL_ZPROFILE, "$zprofile")
+fi
+
+undefine([zlogin])dnl
+AC_ARG_ENABLE(zlogin,
+[  --enable-zlogin=pathname   the full pathname of the global zlogin script],
+[zlogin="$enableval"],
+[if test "x$etcdir" = xno; then
+  zlogin=no
+else
+  zlogin="$etcdir/zlogin"
+fi])
+if test "x$zlogin" != xno; then
+  AC_DEFINE_UNQUOTED(GLOBAL_ZLOGIN, "$zlogin")
+fi
+
+undefine([zlogout])dnl
+AC_ARG_ENABLE(zlogout,
+[  --enable-zlogout=pathname  the full pathname of the global zlogout script],
+[zlogout="$enableval"],
+[if test "x$etcdir" = xno; then
+  zlogout=no
+else
+  zlogout="$etcdir/zlogout"
+fi])
+if test "x$zlogout" != xno; then
+  AC_DEFINE_UNQUOTED(GLOBAL_ZLOGOUT, "$zlogout")
+fi
+
+AC_SUBST(zshenv)dnl
+AC_SUBST(zshrc)dnl
+AC_SUBST(zprofile)dnl
+AC_SUBST(zlogin)dnl
+AC_SUBST(zlogout)dnl
+
+dnl For making zsh distributions -- normally used only by maintainer
+undefine([distdir])dnl
+AC_ARG_ENABLE(distdir,
+[],
+[distdir="$enableval"],
+[distdir=/tmp])
+AC_ARG_ENABLE(ftpdir,
+[],
+[ftpdir="$enableval"],
+[ftpdir=/home/ftp/pub/zsh])
+
+AC_SUBST(distdir)dnl
+AC_SUBST(ftpdir)dnl
+
+dnl ------------------
+dnl CHECK THE COMPILER
+dnl ------------------
+dnl We want these before the checks, so the checks can modify their values.
+test -z "$CFLAGS"  && CFLAGS= auto_cflags=1
+if test "${enable_zsh_debug}" = yes; then
+  test -z "$LDFLAGS" && LDFLAGS=-g auto_ldflags=1
+fi
+
+AC_PROG_CC
+
+dnl Check for large file support.
+dnl This needs to be done early to get the stuff into the flags.
+if test $lfs != no; then
+zsh_LARGE_FILE_SUPPORT
+fi
+
+dnl if the user hasn't specified CFLAGS, then
+dnl   if compiler is gcc, then use -O2 and some warning flags
+dnl   else use -O
+if test -n "$auto_cflags"; then
+  if test "${enable_zsh_debug}" = yes; then
+    if test -n "$GCC"; then
+      CFLAGS="$CFLAGS -Wall -Wno-implicit -Wmissing-prototypes -g"
+    else
+      CFLAGS="$CFLAGS -g"
+    fi
+  else
+    if test -n "$GCC"; then
+      CFLAGS="$CFLAGS -Wall -Wno-implicit -Wmissing-prototypes -O2"
+    else
+      CFLAGS="$CFLAGS -O"
+    fi
+  fi
+fi
+
+dnl ----------
+dnl SCO KLUDGE
+dnl ----------
+dnl Sco doesn't define any useful compiler symbol,
+dnl so we will check for sco and define __sco if
+dnl found.
+if test `echo $host_os | sed 's/^\(...\).*/\1/'` = sco; then
+  CFLAGS="-D__sco $CFLAGS"
+fi
+
+AC_SUBST(CFLAGS)dnl
+AC_SUBST(LDFLAGS)dnl
+
+AC_PROG_CPP                 dnl Figure out how to run C preprocessor.
+AC_PROG_GCC_TRADITIONAL     dnl Do we need -traditional flag for gcc.
+AC_C_CONST                  dnl Does compiler support `const'.
+fp_C_PROTOTYPES             dnl Does compiler support ANSI prototypes.
+AC_CHECK_SIZEOF(long, 8)    dnl number of bytes in a long.
+
+dnl If the compiler supports union initialisation
+AC_CACHE_CHECK(if the compiler supports union initialisation,
+zsh_cv_c_have_union_init,
+[AC_TRY_COMPILE([union{void *p;long l;}u={0};], [u.l=1;],
+  zsh_cv_c_have_union_init=yes,
+  zsh_cv_c_have_union_init=no)])
+if test $zsh_cv_c_have_union_init = yes; then
+  AC_DEFINE(HAVE_UNION_INIT)
+fi
+
+dnl  Checking if compiler correctly cast signed to unsigned.
+AC_CACHE_CHECK(if signed to unsigned casting is broken,
+zsh_cv_c_broken_signed_to_unsigned_casting,
+[AC_TRY_RUN([main(){return((int)(unsigned char)((char) -1) == 255);}],
+  zsh_cv_c_broken_signed_to_unsigned_casting=yes,
+  zsh_cv_c_broken_signed_to_unsigned_casting=no,
+  zsh_cv_c_broken_signed_to_unsigned_casting=no)])
+if test $zsh_cv_c_broken_signed_to_unsigned_casting = yes; then
+  AC_DEFINE(BROKEN_SIGNED_TO_UNSIGNED_CASTING)
+fi
+
+dnl ------------------
+dnl CHECK FOR PROGRAMS
+dnl ------------------
+AC_PROG_MAKE_SET            dnl Does make define $MAKE
+AC_PROG_INSTALL             dnl Check for BSD compatible `install'
+AC_PROG_AWK                 dnl Check for mawk,gawk,nawk, then awk.
+
+dnl ------------------
+dnl CHECK HEADER FILES
+dnl ------------------
+AC_HEADER_DIRENT
+AC_HEADER_STDC
+AC_HEADER_TIME
+AC_HEADER_STAT
+AC_HEADER_SYS_WAIT
+AC_CHECK_HEADERS(sys/time.h sys/times.h sys/select.h termcap.h termio.h \
+		 termios.h sys/param.h sys/filio.h string.h memory.h \
+		 limits.h fcntl.h libc.h sys/utsname.h sys/resource.h \
+		 locale.h errno.h stdlib.h unistd.h)
+
+dnl Some SCO systems cannot include both sys/time.h and sys/select.h
+if test $ac_cv_header_sys_time_h = yes -a $ac_cv_header_sys_select_h = yes; then
+  AC_CACHE_CHECK(for conflicts in sys/time.h and sys/select.h,
+  zsh_cv_header_time_h_select_h_conflicts,
+  [AC_TRY_COMPILE([#include <sys/time.h>
+#include <sys/select.h>], [int i;],
+  zsh_cv_header_time_h_select_h_conflicts=no,
+  zsh_cv_header_time_h_select_h_conflicts=yes)])
+  if test $zsh_cv_header_time_h_select_h_conflicts = yes; then
+    AC_DEFINE(TIME_H_SELECT_H_CONFLICTS)
+  fi
+fi
+
+AC_CACHE_CHECK(ut_host in struct utmp, zsh_cv_struct_utmp_ut_host,
+[AC_TRY_COMPILE(
+[#include <sys/types.h>
+#include <utmp.h>], [struct utmp ut; ut.ut_host;],
+zsh_cv_struct_utmp_ut_host=yes, zsh_cv_struct_utmp_ut_host=no)])
+if test $zsh_cv_struct_utmp_ut_host = yes; then
+  have_ut_host=1
+  AC_DEFINE(HAVE_UT_HOST)
+fi
+
+if test -z "$have_ut_host"; then
+  AC_CACHE_CHECK(ut_host in struct utmpx, zsh_cv_struct_utmpx_ut_host,
+  [AC_TRY_COMPILE([#include <sys/types.h>
+#include <utmpx.h>], [struct utmpx ut; ut.ut_host;],
+  zsh_cv_struct_utmpx_ut_host=yes, zsh_cv_struct_utmpx_ut_host=no)])
+  if test $zsh_cv_struct_utmpx_ut_host = yes; then
+    AC_DEFINE(HAVE_UTMPX_H)
+    AC_DEFINE(HAVE_UT_HOST)
+  fi
+fi
+
+AC_CACHE_CHECK(POSIX termios, zsh_cv_sys_posix_termios,
+[AC_TRY_LINK([#include <sys/types.h>
+#include <unistd.h>
+#include <termios.h>],
+[/* SunOS 4.0.3 has termios.h but not the library calls.  */
+tcgetattr(0, 0);],
+  zsh_cv_sys_posix_termios=yes, zsh_cv_sys_posix_termios=no)])
+
+if test $zsh_cv_sys_posix_termios = yes; then
+  AC_CACHE_CHECK(TIOCGWINSZ in termios.h,
+  zsh_cv_header_termios_h_tiocgwinsz,
+  [AC_TRY_LINK([#include <sys/types.h>
+#include <termios.h>],
+  [int x = TIOCGWINSZ;],
+  zsh_cv_header_termios_h_tiocgwinsz=yes,
+  zsh_cv_header_termios_h_tiocgwinsz=no)])
+else
+  zsh_cv_header_termios_h_tiocgwinsz=no
+fi
+ 
+if test $zsh_cv_header_termios_h_tiocgwinsz = no; then
+  AC_CACHE_CHECK(TIOCGWINSZ in sys/ioctl.h,
+  zsh_cv_header_sys_ioctl_h_tiocgwinsz,
+  [AC_TRY_LINK([#include <sys/types.h>
+#include <sys/ioctl.h>],
+  [int x = TIOCGWINSZ;],
+  zsh_cv_header_sys_ioctl_h_tiocgwinsz=yes,
+  zsh_cv_header_sys_ioctl_h_tiocgwinsz=no)])
+  if test $zsh_cv_header_sys_ioctl_h_tiocgwinsz = yes; then
+    AC_DEFINE(GWINSZ_IN_SYS_IOCTL)
+  fi
+fi
+ 
+AC_CHECK_HEADER([sys/ptem.h], AC_DEFINE(WINSIZE_IN_PTEM))
+
+dnl -------------------
+dnl CHECK FOR LIBRARIES
+dnl -------------------
+dnl Prefer BSD termcap library to SysV curses library,
+dnl except on AIX and HP-UX 10.x.
+case $host_os in
+  aix* | hpux10* ) termcap_curses_order="curses ncurses termcap";;
+  *)               termcap_curses_order="termcap curses ncurses";;
+esac
+
+for lib in $termcap_curses_order; do
+  AC_CHECK_LIB(${lib}, tgetent, [LIBS="$LIBS -l$lib"; break])
+done
+
+dnl Some systems (Solaris 2.x) require libnsl (Network Services Library)
+dnl to find getdomainname and yp_all; Linux requires it for yp_all only.
+AC_SEARCH_LIBS(getdomainname, nsl)
+AC_SEARCH_LIBS(yp_all, nsl)
+
+dnl I am told that told that unicos reqire these for nis_list
+if test `echo $host_os | sed 's/^\(unicos\).*/\1/'` = unicos; then
+  LIBS="-lcraylm -lkrb -lnisdb -lnsl -lrpcsvc $LIBS"
+fi
+
+dnl ---------------------
+dnl CHECK TERMCAP LIBRARY
+dnl ---------------------
+dnl Checks for external variable ospeed in the termcap library.
+AC_CACHE_CHECK(if an include file defines ospeed,
+zsh_cv_decl_ospeed_include_defines,
+[AC_TRY_LINK(
+[#include <sys/types.h>
+#if HAVE_TERMIOS_H
+#include <termios.h>
+#endif
+#if HAVE_TERMCAP_H
+#include <termcap.h>
+#endif], [ospeed = 0;],
+zsh_cv_decl_ospeed_include_defines=yes,
+zsh_cv_decl_ospeed_include_defines=no)])
+
+if test $zsh_cv_decl_ospeed_include_defines = no; then
+  AC_CACHE_CHECK(if you must define ospeed,
+  zsh_cv_decl_ospeed_must_define,
+  [AC_TRY_LINK( ,[extern short ospeed; ospeed = 0;],
+  zsh_cv_decl_ospeed_must_define=yes,
+  zsh_cv_decl_ospeed_must_define=no)])
+fi
+
+if test $zsh_cv_decl_ospeed_include_defines = yes; then
+  AC_DEFINE(HAVE_OSPEED)
+elif test $zsh_cv_decl_ospeed_must_define = yes; then
+  AC_DEFINE(HAVE_OSPEED)
+  AC_DEFINE(MUST_DEFINE_OSPEED)
+fi
+
+dnl  Check if tgetent accepts NULL (and will allocate its own termcap buffer)
+dnl  Some termcaps reportedly accept a zero buffer, but then dump core
+dnl  in tgetstr().
+AC_CACHE_CHECK(if tgetent accepts NULL,
+zsh_cv_func_tgetent_accepts_null,
+[AC_TRY_RUN([
+main()
+{
+    int i = tgetent((char*)0,"vt100");
+    if (i > 0) {
+	char tbuf[1024], *u;
+    	u = tbuf;
+    	tgetstr("cl", &u);
+    }
+    exit(!i || i == -1);
+}
+],
+  zsh_cv_func_tgetent_accepts_null=yes,
+  zsh_cv_func_tgetent_accepts_null=no,
+  zsh_cv_func_tgetent_accepts_null=no)])
+if test $zsh_cv_func_tgetent_accepts_null = yes; then
+  AC_DEFINE(TGETENT_ACCEPTS_NULL)
+fi
+
+dnl --------------
+dnl CHECK TYPEDEFS
+dnl --------------
+AC_TYPE_SIGNAL
+AC_TYPE_PID_T
+AC_TYPE_OFF_T
+AC_CHECK_TYPE(ino_t, unsigned long)
+AC_TYPE_MODE_T
+AC_TYPE_UID_T
+AC_TYPE_SIZE_T
+
+if test $ac_cv_sizeof_long = 4; then
+  AC_CACHE_CHECK(if off_t is 64 bit, zsh_cv_off_t_is_64_bit,
+  [AC_TRY_RUN([
+#include <sys/types.h>
+
+main() { return sizeof(off_t) < 8; }
+],
+  zsh_cv_off_t_is_64_bit=yes,
+  zsh_cv_off_t_is_64_bit=no,
+  zsh_cv_off_t_is_64_bit=no)])
+  if test $zsh_cv_off_t_is_64_bit = yes; then
+    AC_DEFINE(OFF_T_IS_64_BIT)
+  fi
+
+  AC_CACHE_CHECK(if ino_t is 64 bit, zsh_cv_ino_t_is_64_bit,
+  [AC_TRY_RUN([
+#include <sys/types.h>
+
+main() { return sizeof(ino_t) < 8; }
+],
+  zsh_cv_ino_t_is_64_bit=yes,
+  zsh_cv_ino_t_is_64_bit=no,
+  zsh_cv_ino_t_is_64_bit=no)])
+  if test $zsh_cv_ino_t_is_64_bit = yes; then
+    AC_DEFINE(INO_T_IS_64_BIT)
+  fi
+
+  if test "$lfs" != no -o $zsh_cv_off_t_is_64_bit = yes -o \
+  $zsh_cv_ino_t_is_64_bit = yes; then
+    AC_CACHE_CHECK(if compiler has a 64 bit type, zsh_cv_64_bit_type,
+    [if test "$lfs" != yes -a "$lfs" != no; then
+      zsh_64_BIT_TYPE(${enable_lfs}, zsh_cv_64_bit_type, force)
+    else
+      zsh_64_BIT_TYPE(long long, zsh_cv_64_bit_type)
+      if test "$zsh_cv_64_bit_type" = no; then
+        zsh_64_BIT_TYPE(quad_t, zsh_cv_64_bit_type)
+      fi
+      if test "$zsh_cv_64_bit_type" = no; then
+        zsh_64_BIT_TYPE(__int64_t, zsh_cv_64_bit_type)
+      fi
+    fi])
+    if test "$zsh_cv_64_bit_type" != no; then
+      AC_DEFINE_UNQUOTED(ZSH_64_BIT_TYPE, $zsh_cv_64_bit_type)
+
+      dnl Handle cases where unsigned type cannot be simply
+      dnl `unsigned ZSH_64_BIT_TYPE'.  More tests may be required.
+      AC_CACHE_CHECK(for a corresponding unsigned 64 bit type,
+      zsh_cv_64_bit_utype,
+      [zsh_64_BIT_TYPE(unsigned $zsh_cv_64_bit_type, zsh_cv_64_bit_utype,
+      force)
+      if test "$zsh_cv_64_bit_utype" = no; then
+        zsh_64_BIT_TYPE(__uint64_t, zsh_cv_64_bit_utype)
+      fi])
+      if test "$zsh_cv_64_bit_utype" != no; then
+        AC_DEFINE_UNQUOTED(ZSH_64_BIT_UTYPE, $zsh_cv_64_bit_utype)
+      fi
+    fi
+  fi
+fi
+
+dnl Check for sigset_t.  Currently I'm looking in
+dnl <sys/types.h> and <signal.h>.  Others might need
+dnl to be added.
+AC_CACHE_CHECK(for sigset_t, zsh_cv_type_sigset_t,
+[AC_TRY_COMPILE(
+[#include <sys/types.h>
+#include <signal.h>], [sigset_t tempsigset;],
+  zsh_cv_type_sigset_t=yes, zsh_cv_type_sigset_t=no)])
+if test $zsh_cv_type_sigset_t = no; then
+  AC_DEFINE(sigset_t, unsigned int)
+fi
+
+dnl Check for struct timezone since some old SCO versions do not define it
+AC_CACHE_CHECK(for struct timezone, zsh_cv_struct_timezone,
+[AC_TRY_COMPILE(
+[#include <sys/time.h>], [struct timezone dummy_tz;],
+  zsh_cv_struct_timezone=yes, zsh_cv_struct_timezone=no)])
+if test $zsh_cv_struct_timezone = yes; then
+  AC_DEFINE(HAVE_STRUCT_TIMEZONE)
+fi
+
+dnl Do you want to disable use of locale functions
+AC_ARG_ENABLE([locale],
+[  --disable-locale           turn off locale features],
+[if test x$enableval = xyes; then
+  AC_DEFINE(CONFIG_LOCALE)
+fi],
+AC_DEFINE(CONFIG_LOCALE)
+)
+
+dnl ---------------
+dnl CHECK FUNCTIONS
+dnl ---------------
+AC_FUNC_GETPGRP
+AC_FUNC_STRCOLL
+
+dnl need to integrate this function
+dnl AC_FUNC_STRFTIME
+
+AC_CHECK_FUNCS(strftime waitpid select tcsetpgrp tcgetattr strstr lstat \
+              getlogin setpgid gettimeofday gethostname mkfifo wait3 difftime \
+              sigblock sigsetmask sigrelse sighold killpg sigaction getrlimit \
+              sigprocmask setuid seteuid setreuid setresuid strerror nis_list \
+              initgroups getpwnam getpwuid setlocale _mktemp)
+
+
+dnl -------------
+dnl CHECK SIGNALS
+dnl -------------
+dnl What style of signal do you have (POSIX, BSD, or SYSV)?
+AC_MSG_CHECKING(what style of signals to use)
+if test $ac_cv_func_sigaction = yes -a $ac_cv_func_sigprocmask = yes; then
+  signals_style=POSIX_SIGNALS
+  AC_DEFINE(POSIX_SIGNALS)
+elif test $ac_cv_func_sigblock = yes -a $ac_cv_func_sigsetmask = yes; then
+  signals_style=BSD_SIGNALS
+  AC_DEFINE(BSD_SIGNALS)
+elif test $ac_cv_func_sighold = yes -a $ac_cv_func_sigrelse = yes; then
+  signals_style=SYSV_SIGNALS
+  AC_DEFINE(SYSV_SIGNALS)
+else
+  signals_style=NO_SIGNAL_BLOCKING
+  AC_DEFINE(NO_SIGNAL_BLOCKING)
+fi
+AC_DEFINE_UNQUOTED($signals_style)
+AC_MSG_RESULT($signals_style)
+
+dnl Where is <signal.h> located?  Needed as input for signals.awk
+AC_CACHE_CHECK(where signal.h is located, zsh_cv_path_signal_h,
+[dnl Look at the output from the preprocessor.
+dnl We should get lines of the form `# 1 "/usr/include/signal.h"'
+dnl The following assumes the real definitions are in a file which
+dnl contains the name `sig'; we could relax this if necessary,
+dnl but then you can get a rather long list of files to test.
+dnl The backslash substitution is to persuade cygwin to cough up
+dnl slashes rather than doubled backslashes in the path.
+echo "#include <signal.h>" > nametmp.c
+sigfile_list="`$CPP nametmp.c |
+sed -n 's/^#[ 	].*\"\(.*\)\"/\1/p' |
+sed 's/\\\\\\\\/\//g' |
+$AWK '{ if (\$1 ~ \"sig\") files[[\$1]] = \$1 }
+  END { for (var in files) print var }'`"
+rm -f nametmp.c
+if test -z "$sigfile_list"; then
+  dnl In case we don't get the stuff from the preprocesor, use the old
+  dnl list of standard places.
+  sigfile_list="/usr/include/sys/iso/signal_iso.h
+/usr/include/bsd/sys/signal.h
+/usr/include/signum.h
+/usr/include/asm/signum.h
+/usr/include/asm/signal.h
+/usr/include/linux/signal.h
+/usr/include/sys/signal.h
+/usr/include/bits/signum.h
+/dev/null"
+fi
+for SIGNAL_H in $sigfile_list
+do
+  dnl Try to make sure it doesn't get confused by files that don't
+  dnl have real signal definitions in, but do #define SIG* by counting
+  dnl the number of signals.  Maybe we could even check for e.g. SIGHUP?
+  nsigs=`test -f $SIGNAL_H && \
+  grep '#[ 	]*define[ 	][ 	]*SIG[0-9A-Z]*[ 	]*[0-9][0-9]*' $SIGNAL_H | \
+  wc -l | sed 's/[ 	]//g'`
+  test "x$nsigs" != x && test "$nsigs" -ge 7 && break
+done
+if test $SIGNAL_H = "/dev/null"; then
+  AC_MSG_ERROR(SIGNAL MACROS NOT FOUND:  please report to developers)
+fi
+zsh_cv_path_signal_h=$SIGNAL_H
+])
+SIGNAL_H=$zsh_cv_path_signal_h
+AC_SUBST(SIGNAL_H)dnl
+
+dnl -----------------------------------------------------
+dnl Look for the file containing the RLIMIT_* definitions
+dnl -----------------------------------------------------
+dnl CALL FOR MORE (FEWER?) LOCATIONS:  I've just copied the signal checking.
+AC_CACHE_CHECK(where the RLIMIT macros are located,zsh_cv_path_rlimit_h,
+[for RESOURCE_H in /usr/include/bsd/sys/resource.h   dnl
+                   /usr/include/asm/resource.h	     dnl
+                   /usr/include/linux/resource.h     dnl
+                   /usr/include/sys/resource.h       dnl
+                   /usr/include/bits/resource.h      dnl
+                   /usr/include/resourcebits.h       dnl
+                   /dev/null;
+do
+  test -f $RESOURCE_H && \
+  grep '#[ 	]*define[ 	][ 	]*RLIMIT_[A-Z]*[ 	]*[0-9A-Z][0-9]*' $RESOURCE_H > /dev/null && \
+  break
+done
+zsh_cv_path_rlimit_h=$RESOURCE_H
+if test $RESOURCE_H = "/dev/null" -a $ac_cv_func_getrlimit = yes; then
+  AC_MSG_WARN(RLIMIT MACROS NOT FOUND:  please report to developers)
+fi])
+RLIMITS_INC_H=$zsh_cv_path_rlimit_h
+dnl rlimits.h only appears in dependencies if we are actually using it.
+dnl We are using it any time we have getrlimit, though if the macros were
+dnl not found we simply awk through /dev/null and fail to find them.
+dnl Thus, limit won't work, but at least the shell will compile.
+if test $zsh_cv_path_rlimit_h = /dev/null -a $ac_cv_func_getrlimit = no; then
+  RLIMITS_SRC_H=
+else
+  RLIMITS_SRC_H=rlimits.h
+fi
+AC_SUBST(RLIMITS_SRC_H)dnl
+AC_SUBST(RLIMITS_INC_H)dnl
+
+dnl ------------------
+dnl rlimit type checks
+dnl ------------------
+DEFAULT_RLIM_T=long
+AC_CACHE_CHECK(if rlim_t is longer than a long,
+zsh_cv_rlim_t_is_longer,
+[AC_TRY_RUN([
+#ifdef HAVE_SYS_TIME_H
+#include <sys/time.h>
+#endif
+#include <sys/resource.h>
+main(){struct rlimit r;exit(sizeof(r.rlim_cur) <= sizeof(long));}],
+zsh_cv_rlim_t_is_longer=yes,
+zsh_cv_rlim_t_is_longer=no,
+zsh_cv_rlim_t_is_longer=yes)])
+if test $zsh_cv_rlim_t_is_longer = yes; then
+  AC_CACHE_CHECK(if rlim_t is a quad,
+  zsh_cv_rlim_t_is_quad_t,
+  [AC_TRY_RUN([
+#ifdef HAVE_SYS_TIME_H
+#include <sys/time.h>
+#endif
+#include <stdio.h>
+#include <sys/resource.h>
+main() { 
+  struct rlimit r;
+  char buf[20];
+  r.rlim_cur = 0;
+  sprintf(buf, "%qd", r.rlim_cur);
+  exit(strcmp(buf, "0"));
+}],
+  zsh_cv_rlim_t_is_quad_t=yes,
+  zsh_cv_rlim_t_is_quad_t=no,
+  zsh_cv_rlim_t_is_quad_t=no)])
+  if test $zsh_cv_rlim_t_is_quad_t = yes; then
+    AC_DEFINE(RLIM_T_IS_QUAD_T)
+    DEFAULT_RLIM_T=quad_t
+  else
+    AC_DEFINE(RLIM_T_IS_LONG_LONG)
+    DEFAULT_RLIM_T='long long'
+  fi
+else
+  AC_CACHE_CHECK(if the rlim_t is unsigned,
+  zsh_cv_type_rlim_t_is_unsigned,
+  [AC_TRY_RUN([
+#ifdef HAVE_SYS_TIME_H
+#include <sys/time.h>
+#endif
+#include <sys/resource.h>
+  main(){struct rlimit r;r.rlim_cur=-1;exit(r.rlim_cur<0);}],
+  zsh_cv_type_rlim_t_is_unsigned=yes,
+  zsh_cv_type_rlim_t_is_unsigned=no,
+  zsh_cv_type_rlim_t_is_unsigned=no)])
+  if test $zsh_cv_type_rlim_t_is_unsigned = yes; then
+    AC_DEFINE(RLIM_T_IS_UNSIGNED)
+    DEFAULT_RLIM_T="unsigned $DEFAULT_RLIM_T"
+  fi
+fi
+
+AC_CACHE_CHECK(for rlim_t, zsh_cv_type_rlim_t,
+[AC_TRY_COMPILE([
+#include <sys/types.h>
+#ifdef HAVE_SYS_TIME_H
+#include <sys/time.h>
+#endif
+#include <sys/resource.h>],
+[rlim_t l;],
+zsh_cv_type_rlim_t=yes,
+zsh_cv_type_rlim_t=no)])
+if test $zsh_cv_type_rlim_t = no; then
+  AC_DEFINE_UNQUOTED(rlim_t, $DEFAULT_RLIM_T)
+fi
+
+dnl ----------------------------
+dnl CHECK FOR /dev/fd FILESYSTEM
+dnl ----------------------------
+AC_CACHE_CHECK(for /dev/fd filesystem, zsh_cv_sys_path_dev_fd,
+[for zsh_cv_sys_path_dev_fd in /proc/self/fd /dev/fd no; do
+   test x`echo ok|cat $zsh_cv_sys_path_dev_fd/0 2>/dev/null` = xok && break
+ done])
+if test $zsh_cv_sys_path_dev_fd != no; then
+  AC_DEFINE_UNQUOTED(PATH_DEV_FD, "$zsh_cv_sys_path_dev_fd")
+fi
+
+dnl ---------------------------------
+dnl CHECK FOR RFS SUPERROOT DIRECTORY
+dnl ---------------------------------
+AC_CACHE_CHECK(for RFS superroot directory, zsh_cv_sys_superroot,
+[test -d /../.LOCALROOT && zsh_cv_sys_superroot=yes || zsh_cv_sys_superroot=no])
+if test $zsh_cv_sys_superroot = yes; then
+  AC_DEFINE(HAVE_SUPERROOT)
+fi
+
+dnl -------------
+dnl CHECK FOR NIS
+dnl -------------
+AC_CACHE_CHECK(for NIS, zsh_cv_sys_nis,
+[test -f /usr/bin/ypcat && /usr/bin/ypcat passwd.byname > /dev/null 2>&1 && \
+zsh_cv_sys_nis=yes || zsh_cv_sys_nis=no])
+if test $zsh_cv_sys_nis = yes; then
+  AC_DEFINE(HAVE_NIS)
+fi
+
+dnl -----------------
+dnl CHECK FOR NISPLUS
+dnl -----------------
+AC_CACHE_CHECK(for NIS+, zsh_cv_sys_nis_plus,
+[test $ac_cv_func_nis_list = yes && test -f /usr/bin/nisls && \
+ /usr/bin/nisls > /dev/null 2>&1 && \
+zsh_cv_sys_nis_plus=yes || zsh_cv_sys_nis_plus=no])
+if test $zsh_cv_sys_nis_plus = yes; then
+  AC_DEFINE(HAVE_NIS_PLUS)
+fi
+
+dnl -------------------------------
+dnl CHECK FOR LOCATION OF UTMP FILE
+dnl -------------------------------
+AC_CACHE_CHECK(where utmp is located, zsh_cv_path_utmp,
+[for utmp_file in /etc/utmp      dnl
+                 /usr/etc/utmp   dnl
+                 /var/adm/utmp   dnl
+                 /usr/adm/utmp   dnl
+                 /var/run/utmp   dnl
+                 /dev/null;      dnl Just in case we fall through
+do
+  test -f $utmp_file && break
+done
+zsh_cv_path_utmp=$utmp_file
+])
+AC_DEFINE_UNQUOTED(UTMP_FILE_CONFIG, "$zsh_cv_path_utmp")
+
+dnl -------------------------------
+dnl CHECK FOR LOCATION OF WTMP FILE
+dnl -------------------------------
+AC_CACHE_CHECK(where wtmp is located, zsh_cv_path_wtmp,
+[for wtmp_file in /etc/wtmp     dnl
+                 /usr/etc/wtmp  dnl
+                 /var/adm/wtmp  dnl
+                 /usr/adm/wtmp  dnl
+                 /var/log/wtmp  dnl
+                 /dev/null;     dnl Just in case we fall through
+do
+  test -f $wtmp_file && break
+done
+zsh_cv_path_wtmp=$wtmp_file
+])
+AC_DEFINE_UNQUOTED(WTMP_FILE_CONFIG, "$zsh_cv_path_wtmp")
+
+dnl -------------------
+dnl brk/sbrk PROTOTYPES
+dnl -------------------
+AC_CACHE_CHECK(for brk() prototype in <unistd.h>,
+zsh_cv_header_unistd_h_brk_proto,
+[AC_TRY_COMPILE([#include <unistd.h>
+double brk();], [int i;],
+zsh_cv_header_unistd_h_brk_proto=no, zsh_cv_header_unistd_h_brk_proto=yes)])
+if test $zsh_cv_header_unistd_h_brk_proto = yes; then
+  AC_DEFINE(HAVE_BRK_PROTO)
+fi
+
+AC_CACHE_CHECK(for sbrk() prototype in <unistd.h>,
+zsh_cv_header_unistd_h_sbrk_proto,
+[AC_TRY_COMPILE([#include <unistd.h>
+double sbrk();], [int i;],
+zsh_cv_header_unistd_h_sbrk_proto=no, zsh_cv_header_unistd_h_sbrk_proto=yes)])
+if test $zsh_cv_header_unistd_h_sbrk_proto = yes; then
+  AC_DEFINE(HAVE_SBRK_PROTO)
+fi
+
+dnl ----------------------------------
+dnl ioctl and mknod prototypes for OSF
+dnl ----------------------------------
+
+if test "$ac_cv_prog_cc_stdc" != no; then
+  AC_CACHE_CHECK(for ioctl prototype in <sys/ioctl.h>,
+  zsh_cv_header_sys_ioctl_h_ioctl_proto,
+  [AC_TRY_COMPILE([#include <sys/ioctl.h>
+   int ioctl(double x);], [int i;],
+  zsh_cv_header_sys_ioctl_h_ioctl_proto=no,
+  zsh_cv_header_sys_ioctl_h_ioctl_proto=yes)])
+  if test $zsh_cv_header_sys_ioctl_h_ioctl_proto = yes; then
+    AC_DEFINE(HAVE_IOCTL_PROTO)
+  fi
+  AC_CACHE_CHECK(for mknod prototype in <sys/stat.h>,
+  zsh_cv_header_sys_stat_h_mknod_proto,
+  [AC_TRY_COMPILE([#include <sys/stat.h>
+   int mknod(double x);], [int i;],
+  zsh_cv_header_sys_stat_h_mknod_proto=no,
+  zsh_cv_header_sys_stat_h_mknod_proto=yes)])
+  if test $zsh_cv_header_sys_stat_h_mknod_proto = yes; then
+    AC_DEFINE(HAVE_MKNOD_PROTO)
+  fi
+fi
+
+dnl -----------
+dnl named FIFOs
+dnl -----------
+AC_CACHE_CHECK(if named FIFOs work,
+zsh_cv_sys_fifo,
+[AC_TRY_RUN([
+#include <fcntl.h>
+#include <signal.h>
+main()
+{
+    char c;
+    int fd;
+    int pid, ret;
+    unlink("/tmp/fifo$$");
+#ifdef HAVE_MKFIFO
+    if(mkfifo("/tmp/fifo$$", 0600) < 0)
+#else
+    if(mknod("/tmp/fifo$$", 0010600, 0) < 0)
+#endif
+	exit(1);
+    pid = fork();
+    if(pid < 0)
+	exit(1);
+    if(pid) {
+	fd = open("/tmp/fifo$$", O_RDWR);
+	exit(fd < 0 || read(fd, &c, 1) != 1 || c != 'x');
+    }
+    fd = open("/tmp/fifo$$", O_WRONLY);
+    ret = (fd < 0 || write(fd, "x", 1) < 1);
+    unlink("/tmp/fifo$$");
+    exit(ret);
+}
+],
+  zsh_cv_sys_fifo=yes,
+  zsh_cv_sys_fifo=no,
+  zsh_cv_sys_fifo=yes)])
+if test $zsh_cv_sys_fifo = yes; then
+  AC_DEFINE(HAVE_FIFOS)
+fi
+dnl ---------------------
+dnl echo style of /bin/sh
+dnl ---------------------
+AC_CACHE_CHECK(if echo in /bin/sh interprets escape sequences,
+zsh_cv_prog_sh_echo_escape,
+[if test "`/bin/sh -c \"echo '\\n'\"`" = "\\n"; then
+  zsh_cv_prog_sh_echo_escape=no
+else
+  zsh_cv_prog_sh_echo_escape=yes
+fi])
+if test $zsh_cv_prog_sh_echo_escape = no; then
+  AC_DEFINE(SH_USE_BSD_ECHO)
+fi
+
+AC_OUTPUT(Makefile Src/Makefile Doc/Makefile Etc/Makefile Misc/Makefile \
+Util/Makefile Functions/Makefile StartupFiles/Makefile, \
+[test -z "$CONFIG_HEADERS" || echo > stamp-h])
+
+eval "zshbin1=${bindir}"
+eval "zshbin2=${zshbin1}"
+eval "zshman=${mandir}"
+eval "zshinfo=${infodir}"
+
+echo "
+zsh configuration
+-----------------
+zsh version           : ${VERSION}
+host operating system : ${host_os}
+source code location  : ${srcdir}
+compiler              : ${CC}
+compiler flags        : ${CFLAGS}
+binary install path   : ${zshbin2}
+man page install path : ${zshman}
+info install path     : ${zshinfo}"
+echo ""
+

@@ -1,0 +1,16 @@
+// !$*UTF8*$!
+{
+	00FE5D8DFEF9EE7911CA2CB3 = {
+		activeExec = 0;
+	};
+	00FE5D97FEF9EFA211CA2CB3 = {
+		activeExec = 0;
+	};
+	3C561387FEEF59C211CA2CB3 = {
+		activeBuildStyle = 07B3C7DFFFA7A65311CA2CEA;
+		activeTarget = 3C5613D6FEEF59C211CA2CB3;
+	};
+	3C5613D6FEEF59C211CA2CB3 = {
+		activeExec = 0;
+	};
+}

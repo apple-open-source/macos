@@ -1,0 +1,6 @@
+$ $Id: set25,v 1.1.1.1 1999/04/23 02:00:03 wsanchez Exp $
+$ tc.sig.c
+$set 25 
+1 our wait %d\n
+2 error: bsd_signal(%d) signal out of range\n
+3 error: bsd_signal(%d) - sigaction failed, errno %d\n

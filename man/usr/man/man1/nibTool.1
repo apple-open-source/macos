@@ -1,0 +1,66 @@
+.TH NIBTOOL 1 "April 2, 1996" "Apple Computer, Inc."
+.SH NAME
+nibTool \- convert nib files to ASCII
+.SH SYNOPSIS
+.B nibTool 
+[
+.B \-chjxaLVs
+] 
+[
+.BI \-w " nibfile"
+] 
+[
+.BI \-B " bundle"
+] 
+[
+.BI \-P " palette"
+]
+.IR filename
+.SH DESCRIPTION
+The nibTool command loads the nib file
+.I filename
+and prints it in an ASCII property list format.  Optionally, it prints the localizable strings contained within the nib file.  It can also create new nib files from the loaded nib file.
+.SH OPTIONS
+.TP
+.B \-c  \-\-classes
+Print the classes in the nib file.
+.TP
+.B \-h  \-\-hierarchy
+Print the hierarchy of the objects in the nib file.  The hierarchy indicates in an outline form the parent-child relationships of the objects.
+.TP
+.B \-j  \-\-objects
+Print the objects in the nib file.  The objects are printed in a compact property list format.
+.TP
+.B \-x  \-\-connections
+Print the connections in the nib file.
+.TP
+.B \-a  
+.B \-\-all
+Equivalent to specifying "-chjx".
+.TP
+.B \-L  
+.B \-\-localizable-strings
+Print the localizable strings in the nib file.  The strings are printed in a property list format.
+.TP
+.BI \-w " path"  
+.BI \-\-write " path"
+After loading the nib file (and possibly printing its contents), create and write a new nib file at `path'. You can use this option to convert from a 3.3 nib file to a 4.0 nib file (e.g., nibTool Foo.nib -w Foo-4.0.nib).
+.TP
+.BI \-B " path"  
+.BI \-\-bundle " path" 
+Load the bundle at
+.I path 
+before loading the nib file. This is useful when the nib file contains objects which are defined in the bundle, but which aren't part of the standard frameworks.
+.TP
+.BI \-P " path"
+.BI \-\-palette " path"
+Load the palette at `path' before loading the nib file. This is useful when the nib file contains objects which are defined in the palette, but which aren't part of the standard frameworks.
+.TP
+.B \-V  \-\-verify
+Perform some checks on the nib file to verify that its structure is valid.
+.TP
+.B \-s  \-\-silent
+Specifies that nibTool is to operate silently -- nothing will be printed except errors.
+.TP
+.B \-h  --help
+Print a short help message and exit.

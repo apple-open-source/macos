@@ -1,0 +1,89 @@
+.\"
+.\" Copyright (c) 2000 Apple Computer, Inc.  All rights reserved.
+.\"
+.TH nvram 8 "December 12, 2000"
+.SH NAME
+nvram \- manipulate Open Firmware NVRAM variables
+.SH SYNOPSIS
+.B nvram
+[
+.B -p
+] [
+.B -f 
+.IR filename
+] [
+.IR name
+] [=
+.IR value
+] ...
+.SH DESCRIPTION
+The
+.I nvram
+command allows manipulation of Open Firmware NVRAM variables.  It
+can be used to get or set a variable.  It can also be used to print
+all of the variables or set a list of variables from a file.
+.LP
+In principle,
+.IR name
+can be any string.  In practice, not all strings will be accepted.
+Old world machines have a fixed set of Open Firmware variables.
+New World machines can create new varibles as desired.  Some variables
+require adminstrator privilege to get or set.
+.LP
+The given
+.IR value
+must match the data type required for
+.IR name .
+Binary data can be set using the %xx notation, where xx is the hex
+value of the byte.  The type for new variables is always binary
+data.
+.LP
+Two Open Firmware variables have special treatment on old world
+machines:
+.IR boot-command
+and
+.IR boot-args .
+As long as
+.IR boot-command
+starts with "# bootr," the
+.IR boot-args
+variable will be present.  Getting or setting
+.IR boot-args
+will get or set the
+.IR boot-command
+while preserving the "# bootr".  In most cases when setting boot arguments 
+for the kernel, there is no need to test for old world and set
+.IR boot-command .
+Instead set
+.IR boot-args
+with the desired arguments.
+.SH OPTIONS
+.TP
+.B \-p
+Print all of the Open Firmware variables.
+.TP
+.BI \-f " filename"
+Set Open Firmware variables from a text file.  The file must be a
+list name=value statements.  If the last character of a line is
+\\, the value will be continued to the next line.
+.SH EXAMPLES
+.LP
+.RS
+example% nvram boot-args="-s rd=*hd:10"
+.RE
+.LP
+Set the boot-args variable to "-s rd=*hd:10".  This would specifiy
+single user mode with the root device in hard drive partition 10.
+.LP
+.RS
+example% nvram my-variable="String One%00String Two%00%00"
+.RE
+.LP
+Create a new variable, my-variable, containging a list of two
+C-strings that is terminated by a NUL.
+.SH FILES
+.PD 0
+.TP 30
+.B /usr/share/nvram
+Files containing patches for old world machines.
+.PD

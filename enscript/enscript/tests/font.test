@@ -1,0 +1,12 @@
+#!/bin/sh
+#
+# Test font selection.
+#
+
+. $srcdir/defs || exit 1
+
+$enscript --quiet -G2r -p$output -fTimes-Roman7 $asciifiles
+$enscript --quiet -G2r -p$output -fTimes-Roman@7 $asciifiles
+$enscript --quiet -G2r -p$output -fTimes-Roman@7/6 $asciifiles
+
+rm $output

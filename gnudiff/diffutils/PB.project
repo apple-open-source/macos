@@ -1,0 +1,62 @@
+{
+    FILESTABLE = {
+        Documentation = (
+            COPYING, 
+            ChangeLog, 
+            NEWS, 
+            README, 
+            INSTALL, 
+            diff.info, 
+            "diff.info-1", 
+            "diff.info-2", 
+            "diff.info-3", 
+            "diff.info-4", 
+            diff.texi, 
+            texinfo.tex
+        ); 
+        Headers = (cmpbuf.h, diff.h, fnmatch.h, getopt.h, regex.h, system.h); 
+        Makefiles = (
+            Makefile.in, 
+            configure.in, 
+            configure, 
+            "install-sh", 
+            mkinstalldirs, 
+            "stamp-h.in"
+        ); 
+        Resources = (); 
+        SUBPROJECTS = (); 
+        Sources = (
+            context.c, 
+            version.c, 
+            alloca.c, 
+            analyze.c, 
+            cmp.c, 
+            cmpbuf.c, 
+            diff.c, 
+            diff3.c, 
+            dir.c, 
+            ed.c, 
+            error.c, 
+            fnmatch.c, 
+            getopt.c, 
+            getopt1.c, 
+            ifdef.c, 
+            io.c, 
+            memchr.c, 
+            normal.c, 
+            regex.c, 
+            sdiff.c, 
+            side.c, 
+            util.c, 
+            waitpid.c, 
+            xmalloc.c
+        ); 
+    }; 
+    LANGUAGE = English; 
+    NEXTSTEP_BUILDTOOL = /bin/make; 
+    PDO_UNIX_BUILDTOOL = /bin/make; 
+    PROJECTNAME = diffutils; 
+    PROJECTTYPE = "GNU Source"; 
+    PROJECTVERSION = 2.6; 
+    WINDOWS_BUILDTOOL = "${NEXT_ROOT}/NextDeveloper/Executables/make"; 
+}

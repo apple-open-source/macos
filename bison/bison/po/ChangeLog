@@ -1,0 +1,21 @@
+Mon Jun 14 22:24:16 1999  Jesse Thilo  <jthilo@gnu.org>
+
+	* POTFILES.in: Got rid of version.c.
+
+Sun Apr 18 16:47:48 1999  Jesse Thilo  <jthilo@gnu.org>
+
+	* POTFILES.in, de.po, es.po, fr.po, nl.po:
+	Adjusted paths to reflect directory reorganization.
+
+Tue Mar 23 00:48:58 1999  Jesse Thilo  <jthilo@gnu.org>
+
+	* .cvsignore: Added i18n support.
+
+Mon Mar 15 23:30:45 1999  Jesse Thilo  <jthilo@gnu.org>
+
+	* es.po, fr.po, nl.po, de.po: Added PO files from Translation Project.
+
+Fri Feb  5 15:05:15 1999  Jesse Thilo  <jthilo@gnu.org>
+
+	* Makefile.in.in, POTFILES.in: Add `po' directory skeleton.
+

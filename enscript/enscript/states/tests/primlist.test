@@ -1,0 +1,12 @@
+#!/bin/sh
+#
+# Test list() primitive.
+#
+
+. $srcdir/defs || exit 1
+
+result=`$states --state=test_primlist $srcdir/defs 2>&1`
+
+if test "X$result" != "X"; then
+  exit 1;
+fi

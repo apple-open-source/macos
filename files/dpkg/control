@@ -1,0 +1,4 @@
+Package: files
+Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
+Description: Miscellaneous system files
+Build-Depends: build-base, adv-cmds, perl

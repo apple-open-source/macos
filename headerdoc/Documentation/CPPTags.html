@@ -1,0 +1,125 @@
+<html>
+
+	<head>
+		<meta http-equiv="content-type" content="text/html;charset=iso-8859-1">
+		<title>Tags for C Headers</title>
+		<meta name="generator" content="GoLive CyberStudio 3">
+	</head>
+
+	<body bgcolor="white">
+		<a href="HeaderDoc.html">[Overview]</a>
+		<h1>Tags for C++ Headers</h1>
+		<ul>
+			<li><a href="#Anchor-Conventions-54980">Conventions</a>
+			<li><a href="#Anchor-Additional-43914">Additional Tags for C++ Class Declarations</a>
+			<ul>
+				<li><a href="#Anchor-Class-63388">Class Tags</a>
+				<li><a href="#Anchor-Var-35206">Var Tags</a>
+			</ul>
+		</ul>
+		<p>HeaderDoc processes a C++ header in much the same way that it does a C header. In fact, until HeaderDoc encounters a class declaration in a C++ header, the processing is identical. This means you can use any of the tags defined for C headers within a C++ header. See <a href="CHeaderTags.html">Tags for C Headers</a>.</p>
+		<p>For example, in a header that declares two classes, you may want to use the @header tag to provide a discussion explaining why these classes are grouped, and use the @class tags to provide discussions for each of the classes.</p>
+		<p>Once HeaderDoc encounters an @class tag (with accompanying class declaration) in a C++ header, it treats all comments and declarations that follow (until the end of the class declaration) as belonging to that class, rather than to the header as a whole. When HeaderDoc generates the HTML documentation for a C++ header, it creates one frameset for the header as a whole, and separate framesets for each class declared within the header.</p>
+		<p>HeaderDoc records the access control level (public, protected, or private) of API elements declared within a C++ class. This information is used to group the API elements in the resulting documentation.</p>
+		<p>Within a C++ class declaration, HeaderDoc allows some additional tags, as describe below.</p>
+		<p>&nbsp;</p>
+		<h2><a name="Anchor-Conventions-54980"></a>Conventions</h2>
+		<p>Tags, depending on type, can introduce either one or two fields of information:</p>
+		<ul>
+			<p><tt>@function [FunctionName]</tt><tt><br>
+			@param [parameterName] [Some descriptive text...]</tt></p>
+		</ul>
+		<p>In the tables below, the &quot;Fields&quot; column indicates the number of textual fields each type of tag takes.</p>
+		<p>The tags highlighted in <font size="4" color="#660000"><b>RED</b></font> below are required.</p>
+		<p>&nbsp;</p>
+		<h2><a name="Anchor-Additional-43914"></a>Additional Tags for C++ Class Declarations</h2>
+		<p>Within a C++ class declaration, HeaderDoc understands all the Tags for C Headers, along with some new ones which are listed in the following sections.</p>
+		<p>&nbsp;</p>
+		<h3><a name="Anchor-Class-63388"></a>Class Tags</h3>
+		<p>
+		<table border="1" cellpadding="0" cellspacing="2" width="92%">
+			<tr>
+				<td>
+					<center>
+						<b>Tag</b></center>
+				</td>
+				<td>
+					<center>
+						<b>Identifies</b></center>
+				</td>
+				<td><b>Fields</b></td>
+			</tr>
+			<tr>
+				<td><font color="#660000"><b>@class</b></font></td>
+				<td>The name of the class.</td>
+				<td>
+					<center>
+						1</center>
+				</td>
+			</tr>
+		</table>
+		</p>
+		<p>Following the <b>@class</b> tag, you typically provide introductory information about the purpose of the class. You can divide this material into a summary sentence and in-depth discussion (using the @abstract and @discussion tags), or you can provided the material as an untagged block of text, as the examples below illustrate.</p>
+		<p><b>Example 1 - Documentation tagged as abstract and discussion:</b></p>
+		<pre>/*!
+    @class IOCommandGate
+    @abstract Single-threaded work-loop client request mechanism.
+    @discussion An IOCommandGate instance is an extremely light weight mechanism that 
+    executes an action on the driver's work-loop...  
+*/
+class IOCommandGate : public IOEventSource
+{
+...
+}</pre>
+		<p><b>Example 2 - Documentation as single block of text:</b></p>
+		<pre>/*!
+    @class IOCommandGate
+    A class that defines a single-threaded work-loop client request mechanism. An IOCommandGate 
+    instance is an extremely light weight mechanism that executes an action on the driver's work-loop...  
+*/
+class IOCommandGate : public IOEventSource
+{
+...
+}</pre>
+		<p>&nbsp;</p>
+		<h3>Function Tags</h3>
+		<p>For member functions, use the @function tag (described in <a href="CHeaderTags.html">Tags for C Headers</a>).</p>
+		<p>&nbsp;</p>
+		<h3><a name="Anchor-Var-35206"></a>Var Tags</h3>
+		<p>For member data, you have two choices for tagging. You can use the type-specific tags described in <a href="CHeaderTags.html">Tags for C Headers</a> if you want, or you can use the non-specific tag, @var:</p>
+		<p>
+		<table border="1" cellpadding="0" cellspacing="2" width="92%">
+			<tr>
+				<td>
+					<center>
+						<b>Tag</b></center>
+				</td>
+				<td>
+					<center>
+						<b>Identifies</b></center>
+				</td>
+				<td><b>Fields</b></td>
+			</tr>
+			<tr>
+				<td><font color="black"><b>@var</b></font></td>
+				<td>The name of the data member followed by the discription.</td>
+				<td>
+					<center>
+						2</center>
+				</td>
+			</tr>
+		</table>
+		</p>
+		<p><b>Example</b></p>
+		<pre>/*! @var we_are_root 		TRUE if this device is the root power domain */<br>
+
+
+    bool			we_are_root;</pre>
+		<p>In general, it is better to use the type-specific tag if possible (however, not all types have tags), since the tag name gives HeaderDoc a hint about how to process the declaration that follows a comment. For example, the @struct tags lets HeaderDoc know that the declaration to follow may contain a set of curly braces containing lines ending in semicolons. If the same data member were tagged @var, HeaderDoc might be tempted to stop scanning for the declaration after the first semicolon (which would be appropriate in the <tt>we_are_root</tt> declaration above).</p>
+		<p>The @var tag is most appropriate for simple types like <tt>int</tt>, <tt>float</tt>, <tt>double</tt>, etc.</p>
+		<p>&nbsp;</p>
+		<h3>&nbsp;</h3>
+		<h2>&nbsp;</h2>
+	</body>
+
+</html>

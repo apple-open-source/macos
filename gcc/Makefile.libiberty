@@ -1,0 +1,25 @@
+##
+## sawn-off Makefile for the bits of libiberty we actually need.
+##
+
+## Overridden on command line
+## SRCROOT -- your compiler directory
+##
+LIB_SRC=$(SRCROOT)/libiberty
+
+SOURCES=$(LIB_SRC)/mkstemps.c		\
+	$(LIB_SRC)/xexit.c		\
+	$(LIB_SRC)/xmalloc.c		\
+	$(LIB_SRC)/xstrdup.c		\
+	$(LIB_SRC)/pexecute.c		\
+	$(LIB_SRC)/getopt.c		\
+	$(LIB_SRC)/getopt1.c		\
+	$(LIB_SRC)/choose-temp.c
+
+## might as well make it fat while we're here...
+libiberty.a : $(SOURCES)
+	cc -arch ppc -O2 -c -I $(SRCROOT)/include $(SOURCES)
+	libtool -o libibertyppc.a *.o
+	cc -arch i386 -O2 -c -I $(SRCROOT)/include $(SOURCES)
+	libtool -o libiberty.a *.o libibertyppc.a
+

@@ -1,0 +1,79 @@
+/* Informational messages */
+
+"Loading Rhapsody" = "Caricamento di Rhapsody";
+"Loading %s\n" = "Caricamento di %s\n";
+"Reading Rhapsody configuration" = "Lettura della configurazione di Rhapsody";
+"Couldn't load standalone linker; unable to load boot drivers.\n" = "Impossibile caricare linker autonomo: impossibile caricare driver di avviamento.\n";
+"Insert file system media and press Return" = "Introduci il disco col sistema di file e premi Invio";
+"Errors encountered while starting up the computer.\n" = "Sono stati rilevati errori durante l'avviamento del computer.\n";
+"Pausing %d seconds...\n" = "Pausa di %d secondi\n";
+"Starting Rhapsody" = "Avviamento di Rhapsody";
+"Can't find %s\n" = "%s\n non trovato\n";
+"Couldn't start up the computer using this floppy disk." = "Impossibile avviare il computer tramite questo disco flessibile.";
+"Error occurred while linking driver %s:\n%s" = "Errore durante la creazione del legame per il driver %s:\n%s";
+"Loading %s device driver.\n" = "Caricamento del driver di dispositivo %s\n";
+"The driver was loaded successfully.\n" = "Caricamento del driver riuscito.\n";
+"An error occurred while loading the %s device driver.\n" = "Si e verificato un errore durante il caricamento del driver di dispositivo %s.\n";
+"Press Return to continue.\n" = "Per continuare, premi Invio.\n";
+"That driver has already been loaded.\n" = "Questo driver e gia stato caricato.\n";
+"Searching for drivers\n" = "Ricerca dei driver\n";
+"Reading configuration file '%s'.\n" = "Lettura del file di configurazione '%s' in corso.\n";
+
+/* Warnings */
+
+"Config file \"%s\" not found\n" = "File di configurazione \"%s\" non trovato\n";
+"System config file '%s' not found\n" = "File di configurazione del sistema '%s' non trovato\n";
+"Loading binary for %s device driver.\n" = "Caricamento del file binario per il driver di dispositivo %s.\n";
+"Warning: No active drivers specified in system config.\n" = "Attenzione: nessun driver attivo indicato nella configurazione del sistema.\n";
+
+/* Install messages */
+
+"DRIVER_MESSAGE_1" = "Il disco flessibile nell'unita contiene driver per i seguenti adattattori SCSI:\n";
+"DRIVER_INSTRUCTION_1" = "Inserire il numero dell'adattatore SCSI al quale e collegata l'unita CD-ROM.\n\n";
+"DRIVER_ALTERNATE_1" = "Se il driver per questo dispositivo si trova su un altro disco,\ninserirlo nell'unita disco flessibile e digitare %d.\n";
+"DRIVER_QUIT_1" = "";
+"DRIVER_MESSAGE_2" = "Il disco flessibile nell'unita contiene driver per i seguenti adattattori\nSCSI e controllori per disco fisso:\n";
+"DRIVER_INSTRUCTION_2" = "Inserire il numero dell'adattatore SCSI o del controllore per disco fisso al\nquale e collegato il disco fisso sul quale si desidera installare Rhapsody.\n(Puo trattarsi dello stesso adattatore SCSI al quale e collegata l'unita\nCD-ROM.)\n\n";
+"DRIVER_ALTERNATE_2" = "Se il driver per questo dispositivo si trova su un altro disco,\ninserirlo nell'unita disco flessibile e digitare %d.\n";
+"DRIVER_QUIT_2" = "";
+"DRIVER_MESSAGE_3" = "Il disco flessibile nell'unita contiene i seguenti driver di dispositivo:\n";
+"DRIVER_INSTRUCTION_3" = "Inserire il numero del driver di dispositivo sul quale si desidera installare\nRhapsody.\n\n";
+"DRIVER_ALTERNATE_3" = "Se il driver per questo dispositivo si trova su un altro disco,\ninserirlo nell'unita disco flessibile e digitare %d.\n";
+"DRIVER_QUIT_3" = "Digitare %d per continuare senza installare un driver di dispositivo da questo\ndisco.\n";
+"DRIVER_QUESTION_3" = "In genere, per installare Rhapsody e sufficiente caricare i driver di\ndispositivo per gli adattatori ai quali sono collegati il CD-ROM e il disco\nrigido. Gli altri driver vengono caricati automaticamente.\n\nSe fosse necessario caricare un altro driver di dispositivo, inserire il\nrelativo disco nell'unita disco flessibile.\n\n";
+
+"Type %d to view a list of additional device drivers on this disk.\n\n" = 
+"Digita %d per visualizzare la lista dei driver di dispositivo
+addizionali contenuti in questo disco.\n\n";
+
+"Really Install?" = "Questo programma consente di installare Rhapsody su un diosco fisso.\nQUESTO NON E' UN AGGIORNAMENTO: TUTTI I FILE Rhapsody ESISTENTI VERRANNO\nCANCELLATI.\n\nSe si desidera conservare alcuni file, uscire da questo programma e copiare i\nfile che si desidera conservare su un altro disco.\n\nDigitare 1 per iniziare la preparazione all'installazione di Rhapsody.\nDigitare 2 per uscire da questo progrmma di installazione.\n";
+
+"Insert Driver Disk" = "Inserire il dischetto dei dirver di dispositivo Rhapsody nell'unita disco\nflessibile e premere Invio.\n\n---> ";
+
+"Load Other Drivers?" = "In genere, per installare Rhapsody e sufficiente caricare i driver di\ndispositivo per gli adattatori ai quali sono collegati il CD-ROM e il disco\nrigido. Gli altri driver vengono caricati automaticamente dal CD-ROM Rhapsody.\n\nSe fosse necessario caricare un altro driver di dispositivo, inserire il\nrelativo disco nell'unita disco flessibile.\n";
+
+"Missing Drivers:" = "All'inizio dell'installazione di Rhapsody sono stati caricati uno o piu driver\ndi dispositivo che non si trovavano sul CD-ROM Rhapsody:\n";
+
+"No Drivers On This Disk" = "Questo disco non contiene driver di dispositivo adatti.\nInserire un nuovo dischetto e premere Invio.\n---> ";
+
+"Install Canceled" = "Installazione annullata.  Estrarre il disco flessibile e riavviare il computer.\n";
+
+"1 To Continue" = "Digitare 1 per continuare senza caricare driver di dispositivo supplementari.\n";
+
+"2 To Load" = "Digitare 2 per  caricare un  driver di dispositivo dal dischetto nell'unita\ndisco flessibile.\n";
+
+"1 To Load Driver" = "Inserire il dischetto contenente uno o piu di questi driver di dispositivo\ne digitare 1.\n";
+
+"2 To Continue" = "Digitare 2 per continuare senza caricare driver di dispositivo in questo elenco.\n";
+
+/* Somewhat obscure error messages */
+
+"Error loading %s\n" = "Errore durante il caricamento di %s\n";
+"Read error\n" = "Errore di lettura\n";
+"Error in standalone linker executable\n" = "Errore nel programma eseguibile del linker autonomo\n";
+"Fat binary file doesn't contain i386 code\n" = "Il file fat binary non contiene il codice i386\n";
+"Unrecognized binary format\n" = "Formato binario non riconosciuto\n";
+"Error reading commands\n" = "Errore durante la lettura dei comandi\n";
+"Error loading section\n" = "Errore durante il caricamento della sezione\n";
+"Can't load driver %s without sarld\n" = "Impossibile caricare il driver %s senza sarld\n";
+"Driver %s is larger than %d bytes and can't be loaded.\n" = "Il driver %s supera %d byte. Impossibile caricarlo.\n";

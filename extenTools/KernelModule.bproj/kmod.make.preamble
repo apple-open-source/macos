@@ -1,0 +1,10 @@
+#
+# Always generate a version file.
+#
+ifndef VERSIONING_SYSTEM
+    VERSIONING_SYSTEM = next-sgs
+endif
+
+ifeq "" "$(findstring $(VERS_OFILE), $(OTHER_GENERATED_OFILES))"
+    OTHER_GENERATED_OFILES += $(VERS_OFILE)
+endif

@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd">
+<plist version="0.9">
+<dict>
+
+ <key>persistent-apps</key>
+
+  <array>
+
+   <dict>
+    <key>tile-data</key>
+    <dict>
+     <key>file-data</key>
+     <dict>
+      <key>_CFURLString</key>
+      <string>/Applications/Mail.app</string>
+      <key>_CFURLStringType</key>
+      <integer>0</integer>
+     </dict>
+    </dict>
+   </dict>
+
+   <dict>
+    <key>tile-data</key>
+    <dict>
+     <key>file-data</key>
+     <dict>
+      <key>_CFURLString</key>
+      <string>/Applications/Internet Explorer/Internet Explorer.app</string>
+      <key>_CFURLStringType</key>
+      <integer>0</integer>
+     </dict>
+    </dict>
+   </dict>
+
+   <dict>
+    <key>tile-data</key>
+    <dict>
+     <key>file-data</key>
+     <dict>
+      <key>_CFURLString</key>
+      <string>/Applications/Sherlock.app</string>
+      <key>_CFURLStringType</key>
+      <integer>0</integer>
+     </dict>
+    </dict>
+   </dict>
+
+   <dict>
+    <key>tile-data</key>
+    <dict>
+     <key>file-data</key>
+     <dict>
+      <key>_CFURLString</key>
+      <string>/Applications/Clock.app</string>
+      <key>_CFURLStringType</key>
+      <integer>0</integer>
+     </dict>
+    </dict>
+   </dict>
+
+   <dict>
+    <key>tile-data</key>
+    <dict>
+     <key>file-data</key>
+     <dict>
+      <key>_CFURLString</key>
+      <string>/Applications/System Preferences.app</string>
+      <key>_CFURLStringType</key>
+      <integer>0</integer>
+     </dict>
+    </dict>
+   </dict>
+
+   <dict>
+    <key>tile-data</key>
+    <dict>
+     <key>file-data</key>
+     <dict>
+      <key>_CFURLString</key>
+      <string>/Applications/QuickTime Player.app</string>
+      <key>_CFURLStringType</key>
+      <integer>0</integer>
+     </dict>
+    </dict>
+   </dict>
+
+   <dict>
+    <key>tile-data</key>
+    <dict>
+     <key>file-data</key>
+     <dict>
+      <key>_CFURLString</key>
+      <string>/Applications/Music Player.app</string>
+      <key>_CFURLStringType</key>
+      <integer>0</integer>
+     </dict>
+    </dict>
+   </dict>
+
+  </array>
+
+  <key>persistent-others</key>
+
+  <array>
+
+   <dict>
+    <key>tile-data</key>
+    <dict>
+     <key>label</key>
+     <string>Mac OS X Feedback</string>
+     <key>url</key>
+     <dict>
+      <key>_CFURLString</key>
+      <string>http://www.apple.com/macosx</string>
+      <key>_CFURLStringType</key>
+      <integer>15</integer>
+     </dict>
+    </dict>
+    <key>tile-type</key>
+    <string>url-tile</string>
+   </dict>
+
+
+   <dict>
+    <key>tile-data</key>
+    <dict>
+     <key>file-data</key>
+      <dict>
+       <key>_CFURLString</key>
+       <string>/Library/Documentation/Help/MacHelp.help/Contents/Resources/English.lproj/lbn/LateBreakingNews.help</string>
+       <key>_CFURLStringType</key>
+       <integer>0</integer>
+      </dict>
+     </dict>
+    </dict>
+
+  </array>
+
+  <key>version</key>
+  <integer>1</integer>
+
+ </dict>
+</plist>

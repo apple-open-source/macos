@@ -1,0 +1,9 @@
+#
+# Default paths for subdirectories.
+#
+
+OBJROOT=../../obj/i386/$(DIR)
+SYMROOT=../../sym/i386
+DSTROOT=../../dst/i386
+SRCROOT=/tmp
+

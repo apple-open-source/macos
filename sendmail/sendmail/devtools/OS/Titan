@@ -1,0 +1,13 @@
+#	$Id: Titan,v 1.1.1.1 2000/06/10 00:40:48 wsanchez Exp $
+define(`confCC', `cc -43')
+define(`confBEFORE', `stddef.h stdlib.h')
+define(`confMAPDEF', `-DNDBM')
+define(`confLIBS', `-ldbm')
+define(`confMBINDIR', `/usr/lib')
+define(`confSBINDIR', `/usr/etc')
+define(`confUBINDIR', `/usr/ucb')
+define(`confEBINDIR', `/usr/lib')
+PUSHDIVERT(3)
+stddef.h stdlib.h:
+	cp /dev/null $@
+POPDIVERT

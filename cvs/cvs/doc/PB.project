@@ -1,0 +1,26 @@
+{
+    FILESTABLE = {
+        Documentation = (
+            cvsclient.texi, 
+            cvsclient.ps, 
+            ChangeLog, 
+            CVSvn.texi, 
+            cvsclient.info, 
+            cvs.texinfo, 
+            cvs.ps, 
+            cvs.info, 
+            "cvs-paper.ps"
+        ); 
+        Headers = (); 
+        Makefiles = (Makefile.in); 
+        Resources = (); 
+        SUBPROJECTS = (); 
+        Sources = (); 
+    }; 
+    NEXTSTEP_BUILDTOOL = /bin/make; 
+    PDO_UNIX_BUILDTOOL = /bin/make; 
+    PROJECTNAME = doc; 
+    PROJECTTYPE = "GNU Source"; 
+    PROJECTVERSION = 2.6; 
+    WINDOWS_BUILDTOOL = "${NEXT_ROOT}/NextDeveloper/Executables/make"; 
+}

@@ -1,0 +1,28 @@
+1998-06-25  Markku Rossi  <mtr@ngs.fi>
+
+	* Makefile.am: Added strtoul() replacement.  The source files
+	strto{u,}l.c are borrowed from the glibc-2.0.
+
+Wed Aug 27 15:21:56 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* regex.c (re_set_character_syntax): New function to modify the
+	character syntax table.
+
+Thu Jul  3 14:12:13 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* Updated regex.{c,h} and getopt*.{c,h} files to the latest
+	versions found from GNU libc.
+
+Thu Jan 23 11:57:59 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* Makefile.am: Added memmove and memcpy replacements (from
+	textutils).
+
+Mon May  6 09:02:09 1996  Markku Rossi  <mtr@ngs.fi>
+
+	* Makefile.am (EXTRA_DIST): Added EXTRA_DIST files to the
+	distribution.
+
+Thu Mar 14 08:48:45 1996  Markku Rossi  <mtr@ngs.fi>
+
+	* Created this file.

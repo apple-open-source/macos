@@ -1,0 +1,747 @@
+.Dd May 22, 2000
+.Dt lookupd 8
+.Os Mac OS X
+.Sh NAME
+.Nm lookupd
+.Nd directory services information daemon
+.Sh SYNOPSIS
+.Nm
+.D1 ""
+.Nm
+.Fl d
+.D1 ""
+.Nm
+.Fl q
+.Ar category
+.Oo
+.Oo
+.Fl a
+.Ar key
+.Op Ar value Li "..."
+.Oc
+.Li "..."
+.Oc
+.D1 ""
+.Nm
+.Fl statistics
+.D1 ""
+.Nm
+.Fl flushcache
+.Sh DESCRIPTION
+The
+.Nm
+daemon
+acts as an information broker and cache.  It is called by various routines in the System framework to find information about user accounts, groups, printers, e-mail aliases and distribution lists, computer names, Internet addresses, and several other kinds of information.
+.Pp
+.Nm
+keeps a cache of recently located items to improve system performance.  It also implements a search strategy used to find information from the many information sources that are potentially available to a computer.  These include the Domain Name System (DNS), Sun Microsystem's Network Information Services (NIS),  Apple's NetInfo system, and a set of files found in the /etc directory.
+.Pp
+Beginning with Mac OS X Server Release 1.1,  X.500-style databases that implement the schema described in RFC 2307 may be accessed using the LDAP protocol.
+.Pp
+.Nm
+restarts in response to a SIGHUP signal.  This mechanism forces it to reinitialize its configuration options and empty the cache.  Note that it is not possible to restart
+.Nm
+in any other manner except by rebooting.
+.Pp
+.Nm
+writes its process ID number in the file /var/run/lookupd.pid.
+.Sh LOOKUP STRATEGY
+Internally,
+.Nm
+uses a set of software
+.Dq agents
+to get information.  There are agents for NetInfo, NIS, DNS, the files in /etc (also known as the
+.Dq Flat Files
+), an LDAP agent, and an agent which manages the internal cache.  There is also a special agent (the NILAgent) which returns negative entries.
+.Pp
+When
+.Nm
+searches for information about an item, it queries agents in a specific order until the item is found or until all sources of information have been consulted without finding the desired item.  By default,
+.Nm
+first queries its cache agent, and then NetInfo.  If the item is a host or network,
+.Nm
+will query the cache, then the DNS agent, and NetInfo last.  In some cases,
+.Nm
+creates lists of all the information available about some sort of entity.  For example, all printers or all NFS mounts.  In these cases
+.Nm
+queries each agent in turn and concatenates all retrieved information into a single list.
+.Pp
+The lookup order is configurable.  For example, you might specify that
+.Nm
+queries its internal cache, then NetInfo, then the Flat Files, then NIS.  You may also change the lookup order for a particular category of item.  The known categories are users, groups, hosts, networks, services, protocols, rpcs, mounts, printers, bootparams, bootp, aliases, and netgroups.  You can set the lookup order (and other configuration options) for all categories, and override them for individual categories.  Details on configuring
+.Nm
+are found in the
+.Sx CONFIGURATION
+section below.
+.Pp
+Some agents may have their own configuration options.  Details on configuring individual agents are found in the
+.Sx AGENTS
+section below.
+.Sh CACHE
+There are caches for all categories of lookups.  The caches are unlimited in capacity (although you can set a maximum size, see below).  The default lookup order starts with the cache agent for each lookup category.  Caching may be disabled for all categories or for specific categories by removing the cache agent from the lookup order.
+.Ss CACHE VALIDATION
+.Nm
+validates items retrieved from cache before returning them.  If an entry is invalid, a fresh copy is fetched to replace the stale one in cache.  In many cases it is possible for
+.Nm
+to quickly determine that a cached entry is still valid; for example by checking a time stamp or a database sequence number.  When cache validation is enabled, performance is enhanced because many items can be stored in cache, while at the same time clients can be certain that any data they get from
+.Nm
+is as up-to-date as possible.  If cache validation is disabled, items are returned from cache without any checks.  In this case it is possible that the information is out-of-date.  You can place limits on how stale an item might be by setting the cache
+.Em TimeToLive
+(see below).
+.Pp
+You can also get the best of both worlds by having cache validation enabled and adjusting the
+.Em ValidationLatency .
+If an agent has just fetched a database version number or read a time stamp in order to validate one item in the cache, then it can use that value for a few seconds to validate other entries in the cache with only a small risk that those entries have become out-of date.  Setting
+.Em ValidationLatency
+to 0 seconds causes validation on every fetch from cache.  Setting the value to a larger number means that
+.Nm
+will avoid re-checking time stamps, sequence numbers, version numbers or other validation indicators for the indicated number of seconds.  This allows you to say, for example, that you are willing to let the cache return an item that might be no more than a few seconds out-of-date in order to reduce network traffic.  The default value for
+.Em ValidationLatency
+is 15 seconds.
+.Pp
+Validation is enabled by default, but may be disabled for all categories, or for specific categories.  For example, since computer names and addresses very rarely change, you might want to turn off cache validation for the host cache to save time and reduce network traffic.  This is especially useful on slow network lines.  If network access is fast, cache validation is inexpensive, and ensures that all data is up-to-date.
+.Pp
+The cache validation strategy in the NetInfo, NIS, and Flat File agents makes validation as fast and inexpensive as possible.  At present, there is no cache validation for DNS.  That means that objects originally obtained from DNS will only be available from the cache if validation is disabled for hosts.
+.Pp
+The NILAgent returns a negative record for any lookup.  This stops further search for an item.  The NILAgent should always appear last in any
+.Em LookupOrder
+specification (see below).  The value of these negative records is that they will be added to the cache (if caching is enabled).  If a lookup for a particular item fails (after a long, slow search of all available information sources), then subsequent lookups for the same item will fetch the negative record from the cache, thus avoiding another long search.  Like all other cached records, negative records are validated.  By default, negative records are valid for 60 seconds.  You can override the default by setting the
+.Em TimeToLive
+option in the NILAgent's configuration.  See the
+.Sx AGENT
+section below.
+.Pp
+When an object is placed in a cache, it is given a time to live.  After that time has expired, it will be removed from the cache.  The default is 12 hours.  Making things expire more quickly will cause the cache to stay smaller, but will result in more network traffic.  Whenever an object is validated, it's time to live is reset.  Agents may over-ride the default time-to-live value.  For example, the DNS agent uses the time-to-live value returned by a DNS server for a host entry.
+.Sh CONFIGURATION
+Configuration parameters may be placed in a set of directories in NetInfo, or in a set of files in the local file system.  These parameters will override default settings.  There may be one configuration directory in NetInfo or one file for each agent, and one NetInfo directory or file for each lookup category.  There may also be a global configuration directory or file.  Additionally, each agent may have category-specific configuration.
+.Pp
+.Nm
+searches for configuration in NetInfo first, starting at the local domain and climbing to the root domain.  If that search fails, lookupd checks for a configuration file in the file system.
+.Pp
+.Ss NETINFO-BASED CONFIGURATION
+Configuration directories in NetInfo must be placed in a subtree beginning at the /locations/lookupd directory.  /locations/lookupd may contain global settings, stored as values for various keys.  Configuration options for specific categories reside in the directories:
+.Pp
+.Bl -inset -compact -offset indent
+.It /locations/lookupd/users
+.It /locations/lookupd/groups
+.It /locations/lookupd/hosts
+.It /locations/lookupd/networks
+.It /locations/lookupd/services
+.It /locations/lookupd/protocols
+.It /locations/lookupd/rpcs
+.It /locations/lookupd/mounts
+.It /locations/lookupd/printers
+.It /locations/lookupd/bootparams
+.It /locations/lookupd/bootp
+.It /locations/lookupd/aliases
+.It /locations/lookupd/netgroups
+.El
+.Pp
+There may also be configuration directories for each agent.  These must be subdirectories of the /locations/lookupd/agents directory:
+.Pp
+.Bl -inset -compact -offset indent
+.It /locations/lookupd/agents/CacheAgent
+.It /locations/lookupd/agents/DNSAgent
+.It /locations/lookupd/agents/FFAgent
+.It /locations/lookupd/agents/LDAPAgent
+.It /locations/lookupd/agents/NIAgent
+.It /locations/lookupd/agents/NILAgent
+.It /locations/lookupd/agents/YPAgent
+.El
+.Pp
+Each of these agent-specific directories may have category specific subdirectories, for example:
+.Pp
+.Bl -inset -compact -offset indent
+.It /locations/locations/agents/NIAgent/printers
+.It /locations/locations/agents/NIAgent/hosts
+.It ...
+.El
+.Ss FILE-BASED CONFIGURATION
+Configuration settings for lookup may be placed in files under the directory /etc/lookupd.  The layout of these files generally follows the layout scheme used in NetInfo, except that a file named
+.Dq global
+is used to store global settings for 
+.Nm 
+and for individual agents.
+.Pp
+.Bl -inset -compact -offset indent
+.It /etc/lookupd/global
+.It /etc/lookupd/users
+.It /etc/lookupd/groups
+.It /etc/lookupd/hosts
+.It /etc/lookupd/networks
+.It /etc/lookupd/services
+.It /etc/lookupd/protocols
+.It /etc/lookupd/rpcs
+.It /etc/lookupd/mounts
+.It /etc/lookupd/printers
+.It /etc/lookupd/bootparams
+.It /etc/lookupd/bootp
+.It /etc/lookupd/aliases
+.It /etc/lookupd/netgroups
+.It /etc/lookupd/agents
+.It /etc/lookupd/agents/CacheAgent/global
+.It /etc/lookupd/agents/DNSAgent/global
+.It /etc/lookupd/agents/FFAgent/global
+.It /etc/lookupd/agents/LDAPAgent/global
+.It /etc/lookupd/agents/NIAgent/global
+.It /etc/lookupd/agents/NILAgent/global
+.It /etc/lookupd/agents/YPAgent/global
+.El
+.Pp
+Category-specific configuration files may appear in an agent's subdirectory.  For example, category-specific files for NIAgent are:
+.Pp
+.Bl -inset -compact -offset indent
+.It /etc/lookupd/agents/NIAgent/global
+.It /etc/lookupd/agents/NIAgent/users
+.It /etc/lookupd/agents/NIAgent/groups
+.It /etc/lookupd/agents/NIAgent/hosts
+.It /etc/lookupd/agents/NIAgent/networks
+.It /etc/lookupd/agents/NIAgent/services
+.It /etc/lookupd/agents/NIAgent/protocols
+.It /etc/lookupd/agents/NIAgent/rpcs
+.It /etc/lookupd/agents/NIAgent/mounts
+.It /etc/lookupd/agents/NIAgent/printers
+.It /etc/lookupd/agents/NIAgent/bootparams
+.It /etc/lookupd/agents/NIAgent/bootp
+.It /etc/lookupd/agents/NIAgent/aliases
+.It /etc/lookupd/agents/NIAgent/netgroups
+.El
+.Pp
+Note that only some agents make use of category-specific configurations.  They are described in the
+.Sx AGENTS
+section below.
+.Ss CONFIGURATION KEYS
+Configuration directories in NetInfo have property keys and values as specified below.  If configuration parameters are stored in a file, each line of the file will be of the form:
+.Pp
+.Dl key value [value ...]
+.Pp
+Lines beginning with
+.Dq #
+are treated as comments.
+.Pp
+Keys and permissible values for the main (global)
+.Nm
+configuration directory or file are shown in the following table.  keys and values that apply to specific agents are described in the
+.Sx AGENTS
+section.
+.Bl -ohang -offset left
+.It Em LogFile
+Name of a log file that contains a copy of all messages sent to syslog.  There is no default (i.e. no log file is kept).
+.It Em MaxThreads
+Maximum number of threads in the query dispatcher.  The default is16.  Under very heavy load, only 5 or 6 threads are used, so 16 is more than enough.
+.It Em MaxIdleThreads
+When a thread finishes servicing a query, it will usually go back to the message queue to wait for another query.  This setting limits the maximum number of idle threads waiting on the queue.  If a thread finishes servicing a query and
+.Em MaxIdleThreads
+are already waiting on the queue, the thread will exit.  The default value is 16.
+.It Em MaxIdleServers
+The dispatcher uses a server object to actually answer a client lookup.  One server is required for each active thread.  The dispatcher keeps a pool of servers so that they can be re-used.  This setting limits the maximum number of servers in the pool, waiting for a query to answer.  The default value is 16.
+.It Em ValidateCache
+This boolean value determines whether cache validation is enabled for all cache categories.  The default is YES.  Use NO to disable validation.  The setting of this value may be over-ridden for specific cache categories (see below).
+.It Em ValidationLatency
+If Cache validation is enabled, this integer value specifies the number of seconds that may elapse between successive validation checks for a particular agent.  The default is 15 seconds.  This value applies to specific agents rather than to the cache.  The setting of this value may be over-ridden for specific agents (see below).
+.It Em CacheCapacity
+Maximum number of objects in the cache for each category (e.g. this many users, this many hosts, ...).  Least-recently-used objects are removed when space is required.  By default, there is no limit to the cache size.
+.It Em TimeToLive
+Time to live (measured in seconds) in cache.  The default is 43200 seconds (12 hours).  This is the default mechanism used to limit the growth of the cache.
+.It Em LookupOrder
+Sets the lookup order for all categories, although you may override this for specific categories.  This key takes multiple values.  The default for all categories except host and network lookups is CacheAgent then NIAgent.  For hosts and networks, the default lookup order is CacheAgent, DNSAgent, then NIAgent.
+.It Em Timeout
+Time to wait for a response from a server.  The default value is 30 seconds.  Note that this timeout applies individually to all agents.  It is not a global timeout for any
+.Nm
+query.  The total time that might be taken for a single query to
+.Nm
+depends on how many agents are involved in the lookup order for that category of item.
+.El
+.Pp
+Options that can be set per lookup category are
+.Em ValidateCache , CacheCapacity , TimeToLive ,
+and
+.Em LookupOrder .
+.Sh AGENTS
+.Ss CacheAgent
+The operation and configuration of the cache agent are described in detail in the sections above.  The configuration options for the Cache agent are
+.Em ValidateCache , CacheCapacity ,
+and
+.Em TimeToLive.
+These options may be set globally and/or for specific categories.  Options set for a specific category will over-ride the global setting.
+.Pp
+Note that CacheAgent should always appear first in a
+.Em LookupOrder
+specification to allow
+.Nm
+to find cached entries before searching other information services.
+.Ss NIAgent
+NIAgent is the NetInfo client.  It supports the
+.Em Timeout , ConnectTimeout , ValidationLatency
+and
+.Em DomainOrder
+options.
+.Pp
+The
+.Em Timeout
+option specifies a NetInfo read timeout in seconds.  This timeout is applied to all NetInfo lookups.
+.Pp
+.Em ConnectTimeout
+controls timeouts on initial NetInfo connections done at startup time, and applies to all domains other than the local domain.  The default value is 300 seconds.  A zero value indicates an unlimitied timeout.  
+.Pp
+.Em ValidationLatency
+is described above in the
+.SX CACHE
+section.  NIAgent validates cached entries by checking the NetInfo server's database checksum.  The NetInfo checksum changes whenever the database changes.  Thus, any time a NetInfo domain is updated, all cached entries from that domain will be invalidated.
+.Pp
+The
+.Em DomainOrder
+option allows you to specify a list of NetInfo domains (or specific NetInfo servers) that should be queried for information.  By default, the NetInfo agent starts with a computer's local domain, then climbs the NetInfo hierarchy until reaching the root domain.  In very rare cases, you might find that you can solve a difficult configuration problem by altering the default lookup order.  Using this option can make your information systems configuration very confusing and spaghetti-like, so exercise great caution in its use!
+.Pp
+The domain search order may be set globally (for all categories of lookups), and/or for specific categories.  A domain order for a specific category will over-ride the global order for for lookups of that type (e.g. for user lookups).
+.Pp
+The
+.Em DomainOrder
+option may have multiple values.  Each value specifies a domain or a specific NetInfo server.  Domain names may be absolute paths starting at the root domain (e.g. /sales, /sol/jupiter), or a path relative to the local domain (e.g. ../zippy, ../../marketing).  A 
+.Dq \&.
+stands for the local domain.  You may also specify a domain relative to a remote computer by using a value of the form
+.Pp
+.Dl nidomain:path@address
+or
+.Dl path@address
+.Pp
+For example, If you used the value
+.Pp
+.Dl nidomain:/central@192.42.172.1
+.Pp
+NIAgent would connect to the computer with Internet address 192.42.172.1 and locate the domain named /central relative to that computer. 
+.Pp
+You can also include values of the form
+.Pp
+.Dl niserver:tag@address
+or
+.Dl tag@address
+.Pp
+to connect to a specific NetInfo server.  For example,
+.Pp
+.Dl niserver:network@192.42.172.5
+.Pp
+would contact the server for the database tagged network at the given address.
+.Pp
+You may set the
+.Em DomainOrder
+for a particular lookup category by creating a category-specific configuration directory (for NetInfo-based configurations) or file (for file-based configurations).
+.Ss YPAgent
+The YPAgent is the NIS client.  The NIS domain name must be set before
+.Nm
+starts, or this agent will not be able to connect to a server (in which case it does nothing).  The NIS domain name is usually set during system startup using the value of the NISDOMAIN variable in the file /etc/hostconfig.  For example:
+.Pp
+.Dl NISDOMAIN=quinta
+.Pp
+YPAgent supports the
+.Em Timeout
+and
+.Em ValidationLatency
+configuration options.  YPAgent validates entries by checking the map order numbers.
+.Pp
+Note that
+.Nm
+has separate agents for the Flat Files (see FFAgent below) and NIS.  NIS and the files are viewed as independent information systems.  You may use either agent or both in any order.
+.Pp
+YPAgent reads the following maps.  Note that some of these maps are extensions to the standard set of maps created by most YP servers.
+.Pp
+.Bl -tag -width "bootparams.byname   " -compact -offset indent
+.It ethers.byaddr
+Host names keyed by Ethernet address
+.It bootptab.byaddr
+Bootp data keyed by Ethernet address
+.It mail.aliases
+E-mail aliases and distribution lists
+.It passwd.byname
+Users
+.It passwd.byuid
+Users
+.It group.byname
+Groups
+.It group.bygid
+Groups
+.It hosts.byname
+Hosts
+.It hosts.byaddr
+Hosts
+.It networks.byname
+Networks
+.It networks.byaddr
+Networks
+.It services.byname
+TCP/IP service ports and protocols
+.It protocol.byname
+IP Protocols
+.It protocol.bynumber
+IP Protocols
+.It rpc.byname
+ONC RPC programs
+.It rpc.bynumber
+ONC RPC programs
+.It mounts.byname
+Mounts (fstab entries) keyed by name (fspec)
+.It printcap.byname
+Printers (printcap entries) keyed by name
+.It bootparams.byname
+Bootparams entries keyed by name
+.It bootp.byip
+Bootp entries keyed by IP address
+.It netgroup
+Netgroups
+.El
+.Ss LDAPAgent
+Records retrieved by the LDAP agent must have their information organized following the schema described by RFC 2307.  In addition to
+.Em ValidationLatency ,
+LDAPAgent supports the following configuration options:
+.Pp
+.Bl -tag -width "timelimit   " -compact -offset indent
+.It host
+Server name
+.It port
+Server's TCP port
+.It suffix
+Distinguished name to use as a search base		
+.It binddn
+Distinguished name for binding to server
+.It ""
+Default is to bind anonymously
+.It bindpw
+Credentials to use in binding to the server
+.It timelimit
+Maximum number of seconds for a query
+.It ""
+Default is no limit
+.It scope
+Search scope Ð may be sub, one, or base
+.It ""
+Default is sub
+.It deref
+Control for alias dereferencing ÐÊmay be
+.It ""
+never, find, search, or always
+.It ""
+Default is never
+.El
+.Pp
+The LDAPAgent also recognizes the
+.Em Timeout
+option, and will use its value if no timelimit option is provided.
+.Ss DNSAgent
+DNSAgent is the DNS client.  Since DNS does not have a fast mechanism that would allow for validation of cached entries, the agent does not support cache validation.  DNSAgent is only used for host name/address and network name/address lookups.
+.Pp
+The DNSAgent supports the
+.Em Timeout
+option.  This sets the total timeout for a query.  Note that a query is sent to a server, and if no reply is received, the query is re-tried a certain number of times, set by the value of the
+.Em Retries
+option.  If no reply is received from that server, then the query is sent to the next server in the list of known servers.  The DNSAgent computes a per-server timeout from the total timeout, dividing by the number of servers and the number of tries per server.
+.Pp
+Normally, DNSAgent determines the DNS domain name by reading the file /etc/resolv.conf.  If that file does not exist, DNSAgent searches NetInfo for a directory named /locations/resolver, which should have the domain name specified as the value of the
+.Dq domain
+property.  IP addresses of name servers should be specified as values of the
+.Dq nameserver
+property.  Additional properties that may be specified in /etc/resolv.conf may also be specified in /locations/resolver, using the same keys and values as those used in the file.
+.Pp
+If the
+.Em Domain
+option is given in DNSAgent's configuration, its value will be used for the DNS domain name.  Use of this option should be limited to special situations, as this mechanism is not supported by other DNS utilities such as the nslookup command.
+.Pp
+By default, DNSAgent does not support queries that fetch a list of all entries, i.e. the
+.Dq allHosts
+query that supports the
+.Dq gethostent()
+API in the System framework.  Setting the
+.Em AllHostsEnabled
+option to
+.Dq YES
+will enable support for fetching a list of all hosts from DNS.  The DNSAgent implements this using a zone transfer call.  Use of this setting should be limited to special situations, since the call is very time consuming for the DNS server, and the resulting list will use large amounts of memory.
+.Pp
+.Ss FFAgent
+The FFAgent reads the 
+.Dq Flat Files
+in your computer's /etc directory.  Specifically, it reads the files:
+.Pp
+.Bl -tag -width "/etc/master.passwd   " -compact -offset indent
+.It /etc/master.passwd
+Users (BSD 4.4 systems)
+.It /etc/passwd
+Users (BSD 4.3 systems)
+.It /etc/group
+Groups
+.It /etc/hosts
+Computer names and addresses
+.It /etc/networks
+Network names and addresses
+.It /etc/services
+TCP/IP service ports and protocols
+.It /etc/protocols
+IP protocol names and numbers
+.It /etc/rpcs
+ONC RPC servers
+.It /etc/fstab
+NFS mounts
+.It /etc/printcap
+Printers
+.It /etc/bootparams
+Bootparams settings
+.It /etc/bootp
+Bootp settings
+.It /etc/aliases
+E-mail aliases and distribution lists
+.It /etc/netgroup
+Netgroups
+.El
+.Ss NILAgent
+The NILAgent always returns a result for a query, so it stops any search.  However, it returns a negative record, which carries the meaning that the item requested does not exist.  The use of negative entries in a cache is controversial, so
+.Nm
+does not include the NILAgent in its default lookup order.  However, adding NILAgent at the end of the
+.Em LookupOrder
+can result in significant performance improvements in some cases.  If there are many network information sources being searched it can take a long time for
+.Nm
+to check them all when you ask for something that doesn't exist.  By including NILAgent at the end of the lookup order, lookup will cache a negative record.  The next time
+.Nm
+gets a request for the same item, it will find the negative record in the cache, and avoid a long and useless search.
+.Pp
+It is always possible that
+.Nm
+may fail to find an item (and cache a negative record created by NILAgent) just before someone adds that item to one of your information systems.  In that case the negative record will be incorrect, and should be removed from cache.  Unfortunately, there's no way for
+.Nm
+to know that without doing another potentially expensive search.  As a compromise, negative records only remain in the cache for a short time.  The NILAgent assigns all negative records a time-to-live value of 60 seconds.  You may change this by setting the
+.Em TimeToLive
+option for the NILAgent.
+.Sh CONFIGURATION EXAMPLES
+Here's a sample configuration as it might appear in the output of the
+.Dq nidump
+utility program.
+.Pp
+.Bd -literal -offset indent
+# nidump -r /locations/lookupd
+	
+name = lookupd;
+LogFile = /var/log/lookupd.log;
+LookupOrder = (CacheAgent, NIAgent);
+CHILDREN = ({
+	name = users;
+	LookupOrder = (CacheAgent, NIAgent, LDAPAgent, FFAgent);
+}, {
+	name = hosts;
+	LookupOrder = (CacheAgent, NIAgent, DNSAgent, NILAgent);
+	ValidateCache = NO;
+}, {
+	name = netgroups;
+	LookupOrder = (CacheAgent, NIAgent, YPAgent);
+}, {
+	name = agents;
+	CHILDREN = ({
+		name = NIAgent;
+		ValidationLatency = 60;
+	}, {
+		name = NILAgent;
+		TimeToLive = 120;
+	}, {
+		name = LDAPAgent;
+		host = myservername;
+		deref = always;
+		scope = sub;
+		suffix = "DC=base,DC=mydomain,DC=com";
+		timelimit = 60;
+	});
+});
+.Ed
+.Sh PERFORMANCE TUNING AND TROUBLESHOOTING
+Simple queries can be sent to
+.Nm
+from the command line using:
+.D1 ""
+.Bd -filled -offset indent
+.Nm
+.Fl q
+.Ar category
+.Oo
+.Oo
+.Fl a
+.Ar key
+.Op Ar value Li "..."
+.Oc
+.Li "..."
+.Oc
+.Ed
+.Pp
+The
+.Ar category
+may be user, group, host, network, service, protocol, rpc, mount, printer, bootparam, bootp, alias, or netgroup.  The call will search for an item of the specified category having the given value(s) for the specified key(s).  If no
+.Ar key
+or
+.Ar value
+options are specified, the call will return a list of all items of the specified category.   If a
+.Ar key
+is specified with no
+.Ar value
+arguments, the call will only return items that have the specified key, regardless of its values.
+.Pp
+Statistics from
+.Nm
+can be obtained using:
+.Bl -tag -offset indent
+.It lookupd Fl statistics
+.El
+.Pp
+This will print version and build information, as well as a summary of calls and time useage.  Statistics are given for each information system, for each query, and for each qury within each information system.  For example:
+.Bd -literal -offset indent
+Cache: 1676 1153 24285
+Cache all group: 3 0 18
+Cache all mount: 2 0 850
+Cache group gid: 434 391 22
+Cache group name: 12 10 342
+Cache host ip_address: 5 3 0
+Cache host name: 129 52 0
+
+ ...
+ 
+netgroup name: 1 1 6867
+network address: 4 4 3565
+service name: 85 85 3964
+total: 1676 1676 212371
+user name: 74 74 11641
+user number: 3 3 773
+user uid: 760 760 45271
+.Ed
+.Pp
+The first number printed in each line is the total number of calls.  The second is the number of calls answered successfully.  The third is the total time (in milliseconds) used for that item.  Note that the time required for cache validation is included in the statistics for calls to the cache.
+.Pp
+The command:
+.Bl -tag -offset indent
+.It lookupd Fl flushcache
+.El
+.Pp
+causes lookupd to empty the cache.
+.Pp
+.Nm
+may be run in an interactive mode useful for testing and troubleshooting configuration problems.  When you use the interactive mode, you start a second copy of the
+.Nm
+program from a command line with a 
+.Fl d
+option:
+.Pp
+.Bd -literal -offset indent
+mycomputer> lookupd -d
+lookupd version 123
+Enter command name, "help", or "quit" to exit
+> 
+.Ed
+.Pp
+This second copy of
+.Nm
+runs independently of the system's 
+.Dq main
+.Nm
+and does not provide information to other programs running on your system.  This allows you to try queries and test configuration options without disturbing normal operations.  The second copy of
+.Nm
+will attempt to read its configuration options from a NetInfo directory named /locations/lookupd_debug (NetInfo) or /etc/lookupd_debug (files).  If they don't exist, it will try /locations/lookupd or /etc/lookupd.
+.Pp
+The interactive mode command line supports escape completion for commands, so you can type a character or two then press the Escape key. 
+.Nm
+will complete as much of the command as it can (sometimes there are several command that start with the same characters).  To see all possible completions, press Control-d.  To see all possible commands, press Control-d before you type in any characters at all.  For on-line help, use the
+.Dq help
+command.
+.Pp
+.Bd -literal -offset indent
+> help     
+Enter command name, "help" for general help, or "quit" to exit help
+help> help
+This is lookupd's interactive query and testing facility.
+\&...
+.Ed
+.Pp
+There are interactive commands for all standard queries, such as userWithName, hostWithInternetAddress, and so on.  When you enter a query,
+.Nm
+will print the result that it located or 
+.Dq nil
+if the item was not found. 
+.Nm
+also keeps track of the information source for each item and a number of other useful pieces of information that can help you track internal activities.  For example:
+.Pp
+.Bd -literal -offset indent
+> userWithName: jru
+Dictionary: "NIAgent: user jru"
+_lookup_NI_checksum: 68850661
+_lookup_NI_domain: /
+_lookup_NI_index: 2
+_lookup_NI_server: pacific/network
+_lookup_info_system: NetInfo
+_writers_passwd: jru
+change: 0
+expire: 0
+gid: 114
+home: /Network/Servers/fiji/Users/jru
+name: jru
+netgroups: programmer
+passwd: 2YEsFfX2fmC8.
+realname: Jane Random User
+shell: /bin/csh
+uid: 1664
++ Category: user
++ Time to live: 43200
++ Age: 0 (expires in 43200 seconds)
++ Negative: No
++ Cache hits: 3
++ Retain count: 6
+.Ed
+.Pp
+When you enter a query,
+.Nm
+follows its normal lookup order to obtain an answer.  If you wish to query a specific agent, you can use the agent command.  This stops the normal lookup and will direct all further queries to the agent you specify.  You can use the agent command again to switch to a different agent, or use the normalLookupOrder command to resume normal lookups.
+.Pp
+.Bd -literal -offset indent
+> agent: NI
+
+> hostWithName: fiji
+Dictionary: "NIAgent: host fiji"
+_lookup_NI_checksum: 68850661
+_lookup_NI_domain: /
+_lookup_NI_index: 1
+_lookup_NI_server: pacific/network
+_lookup_info_system: NetInfo
+bootfile: mach
+bootparams:
+en_address: 0:5:2:fe:ef:4b
+ip_address: 192.42.172.168
+name: fiji
+netgroups: island
+serves: fiji/local
+
+
+> agent: DNS
+
+> hostWithName: fiji
+Dictionary: "D-0x6d470"
+_lookup_DNS_time_to_live: 28800
+_lookup_DNS_timestamp: 912796168
+_lookup_domain: mydomain.com
+_lookup_info_system: DNS
+ip_address: 192.42.172.168
+name: fiji.mydomain.com fiji
+
+
+> normalLookupOrder
+Using normal lookup order
+.Ed
+.Pp
+You can get timing and usage statistics for all types of lookups using the statistics command.  Timing measurements can help you determine what might be causing slow downs or problems on your network.  Statistics for individual agents available using the statisticsForAgent command includes information such as current server bindings.  You can examine all items in memory using the memory and showMemoryObject commands.  This includes stored configuration settings, statistical records, and cached information.
+.Sh OPEN SOURCE
+The source code for
+.Nm
+is a available as part of Apple's Darwin open source initiative.  
+.Nm
+is part of the netinfo project.  More information on Darwin may be found on the Web at
+.Pp
+.Dl http://www.publicsource.apple.com
+.Pp
+The netinfo project sources include a script named
+.Dq BUILD
+that may be used to compile the sources for Darwin, Mac OS X, Mac OS X Server, and for legacy NeXTSTEP 3.3 or OPENSTEP for Mach systems.  Almost all of the features of the current
+.Nm
+work on legacy platforms, but future developments may not be available on those platforms.
+.Sh FILES
+/var/run/lookupd.pid
+.Sh SEE ALSO
+netinfod(8), syslog(5)

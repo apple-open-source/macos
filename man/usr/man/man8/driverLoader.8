@@ -1,0 +1,49 @@
+.TH DRIVERLOADER 8 "August 9, 1994" "Apple Computer, Inc."
+.SH NAME
+driverLoader \- load or configure a driver
+.SH SYNOPSIS
+\fB/usr/etc/driverLoader\fR [ \fBaiv\fR ] [ \fBd=\fIdeviceName\fR ] [ \fIinstance\fR ]
+.SH DESCRIPTION
+\fIdriverLoader\fR loads or configures a driver after boot time.  \fIdriverLoader\fR is normally used in the script
+.B /etc/rc
+during automatic reboot.
+.PP
+The \fId\fR option configures one device interactively.  This is how you load drivers that aren't specified in the system configuration, and is generally used to test a device driver.
+For example, specifying the \fB-d\fR option as in this command:
+.LP
+.DS
+/usr/etc/driverLoader d=Adaptec1542B
+.DE
+.LP
+initiates an interactive dialog (user input in \fBbold\fR):
+.LP
+.DS
+Answer queries with 'y' for 'yes', anything else is 'no'.
+Execute Pre\-Load file (\fIpre\-load filename\fR)? \fBy\fR
+Load driver Adaptec1542B? \fBy\fR
+Configure driver Adaptec1542B unit 0? \fBy\fR
+Execute Post-Load file (\fIpost\-load filename\fR)? \fBy\fR
+.DE
+.LP
+The queries about Pre\-Load and Post\-Load files only appear if the driver
+supports such files. The filenames for the Pre\-Load and Post\-Load files are specific to a given driver. 
+.PP
+You provide the \fIinstance\fR argument to specify an \fBInstance\fIn\fB.table\fR file. For example, if you specify instance as 1, the driver will be probed using the information in its \fBInstance1.table\fR file. 
+.SH OPTIONS
+.TP
+.B "a"
+Configure all devices.  This option is generally used when \fIdriverLoader\fR is run during system boot in the script \fB/etc/rc\fR.
+.TP
+\fBd=\fIdeviceName\fR	
+Configure \fIdeviceName\fR interactively.  
+.TP
+.B "i"
+Enable interactive mode to view all active and boot drivers in the system configuration.  
+.TP
+.B "v"
+Produce verbose output.  
+.SH EXAMPLES
+/usr/etc/driverLoader d=fooDriver
+.PP
+/usr/etc/driverLoader d=fooDriver 1
+

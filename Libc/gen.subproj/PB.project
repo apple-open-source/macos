@@ -1,0 +1,108 @@
+{
+    DYNAMIC_CODE_GEN = YES; 
+    FILESTABLE = {
+        H_FILES = (zone.h, scalable_malloc.h, malloc.h, stack_logging.h); 
+        OTHER_LINKED = (
+            alarm.c, 
+            assert.c, 
+            clock.c, 
+            closedir.c, 
+            confstr.c, 
+            crypt.c, 
+            ctermid.c, 
+            ctime.c, 
+            daemon.c, 
+            devname.c, 
+            difftime.c, 
+            disklabel.c, 
+            err.c, 
+            errlst.c, 
+            exec.c, 
+            fnmatch.c, 
+            ftok.c, 
+            fts.c, 
+            getbsize.c, 
+            getcap.c, 
+            getcwd.c, 
+            gethostname.c, 
+            getloadavg.c, 
+            getlogin.c, 
+            getmntinfo.c, 
+            getpagesize.c, 
+            getpass.c, 
+            getttyent.c, 
+            getusershell.c, 
+            getvfsbyname.c, 
+            gmon.c, 
+            isatty.c, 
+            isnan.c, 
+            malloc.c, 
+            nanosleep.c, 
+            nice.c, 
+            nlist.c, 
+            NSSystemDirectories.c, 
+            opendir.c, 
+            pause.c, 
+            popen.c, 
+            psignal.c, 
+            raise.c, 
+            readdir.c, 
+            rewinddir.c, 
+            scalable_malloc.c, 
+            scandir.c, 
+            seekdir.c, 
+            sethostname.c, 
+            setlogin.c, 
+            setmode.c, 
+            siginterrupt.c, 
+            siglist.c, 
+            signal.c, 
+            sigsetops.c, 
+            sleep.c, 
+            stack_logging.c, 
+            sysconf.c, 
+            sysctl.c, 
+            syslog.c, 
+            telldir.c, 
+            termios.c, 
+            time.c, 
+            times.c, 
+            timezone.c, 
+            ttyname.c, 
+            ttyslot.c, 
+            ualarm.c, 
+            uname.c, 
+            unvis.c, 
+            usleep.c, 
+            utime.c, 
+            vis.c, 
+            wait.c, 
+            wait3.c, 
+            waitpid.c, 
+            zone.c, 
+            sysctlbyname.c
+        ); 
+        OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble, ftok.3); 
+        PRECOMPILED_HEADERS = (); 
+        PROJECT_HEADERS = (malloc.h, zone.h, stack_logging.h); 
+        PUBLIC_HEADERS = (zone.h, malloc.h); 
+        SUBPROJECTS = (i386.subproj, ppc.subproj); 
+    }; 
+    LANGUAGE = English; 
+    MAKEFILEDIR = "$(MAKEFILEPATH)/pb_makefiles"; 
+    NEXTSTEP_BUILDDIR = "/Local/Public/SandBox/$(USER)/BUILD/$(NAME)"; 
+    NEXTSTEP_BUILDTOOL = /bin/gnumake; 
+    NEXTSTEP_INSTALLDIR = /Local/Developer/System; 
+    NEXTSTEP_JAVA_COMPILER = /usr/bin/javac; 
+    NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc; 
+    NEXTSTEP_PUBLICHEADERSDIR = /usr/include; 
+    PDO_UNIX_BUILDTOOL = $NEXT_ROOT/Developer/bin/make; 
+    PDO_UNIX_JAVA_COMPILER = "$(JDKBINDIR)/javac"; 
+    PDO_UNIX_OBJCPLUS_COMPILER = "$(NEXTDEV_BIN)/gcc"; 
+    PROJECTNAME = gen; 
+    PROJECTTYPE = Component; 
+    PROJECTVERSION = 2.8; 
+    WINDOWS_BUILDTOOL = $NEXT_ROOT/Developer/Executables/make; 
+    WINDOWS_JAVA_COMPILER = "$(JDKBINDIR)/javac.exe"; 
+    WINDOWS_OBJCPLUS_COMPILER = "$(DEVDIR)/gcc"; 
+}

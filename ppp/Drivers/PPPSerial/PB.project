@@ -1,0 +1,18 @@
+{
+    BUNDLE_EXTENSION = kext; 
+    DYNAMIC_CODE_GEN = YES; 
+    FILESTABLE = {
+        H_FILES = (); 
+        OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble, CustomInfo.xml); 
+        SUBPROJECTS = (PPPSerial.kmodproj); 
+    }; 
+    LANGUAGE = English; 
+    MAKEFILEDIR = "$(MAKEFILEPATH)/pb_makefiles"; 
+    NEXTSTEP_BUILDTOOL = /usr/bin/gnumake; 
+    NEXTSTEP_INSTALLDIR = "$(SYSTEM_LIBRARY_DIR)/Extensions"; 
+    NEXTSTEP_JAVA_COMPILER = /usr/bin/javac; 
+    NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc; 
+    PROJECTNAME = PPPSerial; 
+    PROJECTTYPE = "Kernel Extension"; 
+    PROJECTVERSION = 2.8; 
+}

@@ -1,0 +1,6 @@
+dnl ../doc/m4.texinfo:2924: Origin of test
+define(`vice', `esyscmd(grep Vice ../COPYING)')
+dnl @result{}
+vice
+dnl @result{}  Ty Coon, President of Vice
+dnl @result{}

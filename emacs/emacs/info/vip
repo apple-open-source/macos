@@ -1,0 +1,79 @@
+This is Info file ../info/vip, produced by Makeinfo version 1.68 from
+the input file vip.texi.
+
+INFO-DIR-SECTION Editors
+START-INFO-DIR-ENTRY
+* VIP: (vip).		An older VI-emulation for Emacs.
+END-INFO-DIR-ENTRY
+
+Distribution
+************
+
+   Copyright (C) 1987 Masahiko Sato.
+
+   Permission is granted to make and distribute verbatim copies of this
+manual provided the copyright notice and this permission notice are
+preserved on all copies.
+
+   Permission is granted to copy and distribute modified versions of
+this manual under the conditions for verbatim copying, provided that
+the entire resulting derived work is distributed under the terms of a
+permission notice identical to this one.
+
+   Permission is granted to copy and distribute translations of this
+manual into another language, under the same conditions as for modified
+versions.
+
+
+Indirect:
+vip-1: 843
+vip-2: 49919
+
+Tag Table:
+(Indirect)
+Node: Top843
+Node: Survey1829
+Node: Basic Concepts2314
+Node: Loading VIP3963
+Node: Modes in VIP4697
+Node: Emacs Mode7245
+Node: Vi Mode7599
+Node: Insert Mode7907
+Node: Differences from Vi8530
+Node: Undoing9524
+Node: Changing9879
+Node: Searching10497
+Node: z Command11210
+Node: Counts11543
+Node: Marking12046
+Node: Region Commands12546
+Node: New Commands13214
+Node: New Bindings15965
+Node: Window Commands18131
+Node: Buffer Commands18596
+Node: File Commands19076
+Node: Misc Commands19438
+Node: Vi Commands19849
+Node: Numeric Arguments20787
+Node: Important Keys21277
+Node: Buffers and Windows23021
+Node: Files25248
+Node: Viewing the Buffer28491
+Node: Mark Commands30392
+Node: Motion Commands31229
+Node: Searching and Replacing36754
+Node: Modifying Commands39025
+Node: Delete Commands40427
+Node: Yank Commands42128
+Node: Put Back Commands43008
+Node: Change Commands44457
+Node: Repeating and Undoing Modifications45474
+Node: Other Vi Commands46289
+Node: Commands in Insert Mode49919
+Node: Ex Commands51988
+Node: Ex Command Reference53161
+Node: Customization59625
+Node: Customizing Constants60042
+Node: Customizing Key Bindings61364
+
+End Tag Table

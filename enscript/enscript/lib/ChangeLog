@@ -1,0 +1,203 @@
+1998-06-23  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.cfg.in (PostScriptLevel): Added option to control the
+	PostScript language level that enscript uses for its output.
+
+1998-06-11  Markku Rossi  <mtr@ngs.fi>
+
+	* Renamed ISO-8859-* encodings.
+
+1998-03-25  Markku Rossi  <mtr@ngs.fi>
+
+	* Makefile.am (EXTRA_DIST): Added Makefile-encodings and
+	make-encoding.pl.
+
+	* latin7.enc: Added ISO-8859/7 encoding.  Thanks to Manolis
+	Lourakis <lourakis@csd.uch.gr>.
+
+1998-01-02  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.cfg.in (GeneratePageSize): Added option to control
+	whether the PageSize page device setting is generated to the
+	output.
+
+1997-09-30  Markku Rossi  <mtr@ngs.fi>
+
+	* latin4.enc: Added ISO-8859/4 encoding.  Thanks to Ricardas Cepas
+	<rch@pub.osf.lt>.
+
+Wed Aug 27 15:32:41 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.pro (wrapped_line_mark): fixed `arrow' marker, now it
+	looks good.
+
+Wed Jul 16 11:59:31 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* edd.hdr: Added total number of pages.
+
+Tue Jun 10 10:07:01 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.pro: New primitives SF and SUF to optimize the size of
+	the generated PostScript output.
+	New primitive bgs to show text with background color.
+
+Wed May 28 10:52:44 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.pro: New procedure `wrapped_line_mark' to mark wrapped
+	lines.
+
+Tue Mar  4 10:09:03 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.cfg.in (StatesPath): New variable to specify the
+	absolute path for the states program.
+
+Mon Mar  3 10:23:41 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* Implemented user escapes for user defined header strings:
+	{simple,enscript}.hdr
+
+Fri Feb 21 13:52:07 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* asciidkno.enc: New encoding asciidkno for 7 bit ascii with dk
+	and no extensions.
+
+	* asciifise.enc: Renamed asciiscands.enc to asciifise.enc.
+
+Tue Jan 21 18:15:01 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.cfg.in (StatesColorModel): Added States dependant
+	config file variables.
+
+Tue Nov  5 08:20:19 1996  Markku Rossi  <mtr@ngs.ngs.fi>
+
+	* latin5.enc: New encoding vector for ISO-8859/5 (ISO latin5).
+
+Sat Sep  7 15:39:26 1996  Markku Rossi  <mtr@ngs.ngs.fi>
+
+	* koi8.enc: New encoding vector for Adobe's Standard Cyrillic Font
+	KOI8.
+
+Thu Aug 29 22:30:28 1996  Markku Rossi  <mtr@ngs.ngs.fi>
+
+	* enscript.pro: Fixed a float / integer conversion bug from
+	hightlight bar printing.
+	Fixed underlays to work with the width/height font point sizes.
+
+Mon Aug  5 07:51:34 1996  Markku Rossi  <mtr@ngs.ngs.fi>
+
+	* Removed hopefully all GNU extensions from strftime()'s format
+ 	strings in {simple,edd}.hdr files
+
+Sat Jul 27 23:36:45 1996  Markku Rossi  <mtr@ngs.ngs.fi>
+
+	* Makefile.am (install-data-local): Added `else :;' branch to fix
+	the bug caused by ultrix's broken /bin/sh.
+
+Wed Jul 24 11:43:19 1996  Markku Rossi  <mtr@ngs.ngs.fi>
+
+	* Added `--toc' option's volume number to all headers to which it
+ 	fits: a2ps, edd, emacs, simple
+
+	* Changed all `%2d' formats to `%e'.  Now it should work in all
+	normal Unixes.
+
+Sun Jun 30 11:42:22 1996  Markku Rossi  <mtr@ngs.ngs.fi>
+
+	* Cleaned up headers' strftime() strings.  Now there shouldn't be
+	any AIX dependencies.
+
+Thu Jun 13 11:29:01 1996  Markku Rossi  <mtr@ngs.ngs.fi>
+
+	* Makefile.am (install-data-local): take a backup copy of
+	`enscript.cfg' before installing the new one.
+	(uninstall-local): New target to uninstall `enscript.cfg'.
+
+Fri May 10 14:10:46 1996  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.pro: New procedure `line_highlight' for ^@shade{}
+	escape.
+
+Tue May  7 08:59:41 1996  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.pro: New procedure `column_borders' to print borders
+	around columns.
+	Added support for underlay styles.
+
+Tue Apr 30 09:51:17 1996  Markku Rossi  <mtr@ngs.fi>
+
+	* Makefile.am (install-data-local): Check whether `enscript.cfg'
+	is already installed.
+	(uninstall-local): Uninstall `enscript.cfg'.
+
+Tue Mar 26 11:21:12 1996  Markku Rossi  <mtr@ngs.fi>
+
+	* mp.hdr: New header.
+
+Thu Mar 14 09:16:16 1996  Markku Rossi  <mtr@ngs.fi>
+
+	* frame.hdr: New header.
+
+Tue Mar 12 08:38:39 1996  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.pro: new procedure: page_prefeed
+
+Tue Mar  5 16:45:24 1996  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.pro: new procedure: highlight_bars
+
+Tue Feb 20 16:25:55 1996  Markku Rossi  <mtr@ngs.fi>
+
+	* new encoding: hp8
+
+Tue Jan 30 08:58:41 1996  Markku Rossi  <mtr@ngs.fi>
+
+	* genscript.cfg: Fixed output media sizes.
+
+	* a2ps.hdr: Made margins smaller so more text can be seen on each
+	page.
+
+Thu Jan 25 14:33:28 1996  Markku Rossi  <mtr@ngs.fi>
+
+	* a2ps.hdr: New header.
+
+Fri Jan  5 17:18:57 1996  Markku Rossi  <mtr@ngs.fi>
+
+	* all headers: changed to use the new `%format' directive
+
+	* enscript.hdr: changed to be exactly identical with the
+ 	enscript's gaudy header: date strings are now formatted according
+ 	to file's modification time instead of the printing time.
+
+Thu Jan  4 12:32:36 1996  Markku Rossi  <mtr@ngs.fi>
+
+	* genscript.pro: Inlined epsf-import.ps file.
+	(MF): changed to use new encoding vectors.
+	Removed ReEncodeSmall procedure.
+
+	* make-encoding.pl: Changed to generate new encoding vectors.
+
+Mon Nov 27 08:34:07 1995  Markku Rossi  <mtr@ngs.fi>
+
+	* Added ChangeLog to lib subdirectory (to this directory).  All
+ 	underlaying entries are stripped from the ../ChangeLog.
+
+Tue Nov 21 11:53:36 1995  Markku Rossi  <mtr@ngs.fi>
+
+	* lib: new header: edd.hdr
+
+	* lib/genscript.cfg.in: added new media: Letterdj
+
+Mon Oct 30 07:12:23 1995  Markku Rossi  <mtr@ngs.fi>
+
+	* lib/enscript.hdr: print user supplied header if it is given.
+
+Wed Oct 11 09:11:21 1995  Markku Rossi  <mtr@ngs.fi>
+
+	* lib/genscript.cfg.in: added new media: A3 and A4dj.
+
+Tue Oct 10 09:02:14 1995  Markku Rossi  <mtr@ngs.fi>
+
+	* lib/enscript.hdr: moved filename text ~2 points down.
+	Fixed font point sizes and date string positions.
+
+	* lib/emacs.hdr: changed fontsize from 13 to 12 points.

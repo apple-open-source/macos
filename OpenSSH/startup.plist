@@ -1,0 +1,11 @@
+{
+  Description     = "secure login server";
+  Provides        = ("SSH");
+  Requires        = ("Resolver");
+  OrderPreference = "None";
+  Messages =
+  {
+    start = "Starting secure login server";
+    stop  = "Stopping secure login server";
+  };
+}

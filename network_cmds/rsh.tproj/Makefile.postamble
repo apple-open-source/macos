@@ -1,0 +1,5 @@
+VPATH += :../rlogin.tproj
+INSTALL_PERMISSIONS = 4555
+
+after_install::
+	$(CHFLAGS) schg $(DSTROOT)$(INSTALLDIR)/$(NAME)

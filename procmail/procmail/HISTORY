@@ -1,0 +1,456 @@
+	Only the last entry is complete, the others might have been condensed.
+
+1990/12/07: v1.00
+1990/12/12: v1.01
+1991/02/04: v1.02
+1991/02/13: v1.10
+1991/02/21: v1.20
+1991/02/22: v1.21
+1991/03/01: v1.30
+1991/03/15: v1.35
+	    Started using RCS to manage the source
+1991/06/04: v1.99
+1991/06/10: v2.00
+1991/06/11: v2.01
+1991/06/12: v2.02
+1991/06/20: v2.03
+1991/07/04: v2.10
+1991/07/12: v2.11
+1991/10/02: v2.20 (never released)
+1991/10/18: v2.30
+	    Reached the doubtful milestone of having a source file (regexp.c)
+	       which provokes a compiler error on an old compiler
+	       (if using the optimiser)
+1991/10/22: v2.31
+1991/12/05: v2.40
+1991/12/13: v2.50
+1992/01/22: v2.60
+1992/01/31: v2.61
+1992/04/30: v2.70
+1992/07/01: v2.71
+	    Gave procmail, formail, lockfile and mailstat a more verbose
+	       command line help (called up by -h or -?)
+1993/02/04: v2.80
+	    Started using CVS to manage the source (god's gift to programmers)
+	    Changes to the installation scripts:
+	       - the autoconf script now performs a reliability test on kernel
+		 locking support
+	       - reached the doubtful milestone of consistently crashing the
+		 kernel on a Convex by running the locktst program
+1993/02/19: v2.81
+1993/06/02: v2.82 (never really released, was only available as prerelease 4)
+	    Worked my way around the !@#$%^&*() POSIX setgid() semantics (if
+	       your OS supports setrgid() or setregid())
+1993/07/01: v2.90
+	    Condition lines in recipes can now be started with a leading `*',
+	       there is no longer a need to count condition lines, simply
+	       set the number to zero, and let procmail find out by itself
+1993/07/02: v2.91
+	    Reached the doubtful milestone to sometimes crash an Ultrix
+	       machine (due to the lockingtests, not procmail itself)
+1994/06/14: v3.00
+	    Changes to procmail:
+	       - Changed the semantics of the TRAP keyword.  In order to
+		 make procmail accept the exitcode it returns, you now have
+		 to set EXITCODE=""
+	       - It was still occasionally trying to lock /dev/null, which
+		 is of course silly, fixed that
+	       - Taught it about `nesting recipes'; they allow parts of
+		 an rcfile to be grouped hierarchically
+	       - Fixed a discrepancy with /bin/sh backquote expansion in
+		 environment assignments (preserving all spaces)
+	       - Logs its pid and a timestamp when VERBOSE=on
+	       - Caused the regular TIMEOUT to break a `hanging' kernel lock
+	       - SIGUSR1 and SIGUSR2 can be used to turn on and off verbose
+		 logging
+	       - Worked around a bug in the `ANSI'-compiler of Domain/OS
+	       - Procmail and lockfile now inherit any ignore status of most
+		 regular signals (fixes a problem with some buggy shells)
+	       - Optionally reads in a global rcfile (/etc/procmailrc)
+		 before doing regular delivery (which includes the new
+		 keyword: DROPPRIVS)
+	       - Can pipe the mail to stdout on request
+	       - Moved the "Reiterating kernel lock" diagnostic into the
+		 "extended" (i.e. VERBOSE=on) section
+	       - Tightened the loop when skipping comments in rcfiles (for
+		 a slight speedup)
+	       - Added support for filesystems not capable of creating
+		 hardlinks
+	       - Tightened the security check on initial absolute rcfiles
+		 (they sometimes can't be world writable)
+	       - Weighted scoring on conditions
+	       - Ability to inline parse ${var-text} and ${var:-text}
+	       - Ability to inline parse ${var+text} and ${var:+text}
+	       - Skipping spaces after "!" and "$" on condition lines
+	       - Implicit delivery somehow got broken: fixed
+	       - Default umask is always 077 now for deliverymode
+	       - Extended ^FROM_DAEMON and ^FROM_MAILER macro regexps again
+	       - The -f option became less strict, everyone can use it now,
+		 except that unpriviliged users will get an additional >From_
+		 they didn't bargain for (in order to make fakes identifiable)
+	       - The date on the From_ line can now be refreshed with -f-
+	       - Introduced new recipe flags: E and e (else and error)
+	       - Nested blocks clone procmail on a 'c' flag
+	       - Introduced the EXITCODE special variable
+	       - Implicit delivery mode is now entered if argv[0] doesn't start
+		 with the word `procmail'
+	       - Fixed the BSD support for kernel-locking only operation
+	       - Taught the regexp engine about \< and \>
+	       - Fixed bug present on some systems; caused the body to be
+		 munged when filtering headers only
+	       - Added -o option (makes procmail override the From_ lines, like
+		 it used to)
+	       - -p and -m together shrink the set of preset variables to the
+		 bare minimum
+	       - -p is not supported alongside -d anymore
+	       - /etc/procmailrcs/ is the place for optional privileged
+		 rcfiles in -m mailfilter mode
+	       - Switched the meanings of SIGUSR1 and SIGUSR2
+	       - The 'a' flag didn't work correctly after filter recipes
+	       - Changed the permissions on the lockfile, writing zero in it
+	       - Check the permissions on the existing system mailbox, correct
+		 them if necessary
+	       - Clean up zombies more often
+	    Changes to formail:
+	       - Fixed a sender-determination-weight problem, it mixed up
+		 the weights when autoreplying and when regenerating the From_
+		 line (and thus didn't always pick the optimal field)
+	       - Pays attention to the exitcode of the programs it started
+	       - Accepts simultaneous -X and -k options
+	       - Fixed a bug introduced in v2.82 in formail when using
+		 the -x and the -k options simultaneously
+	       - Rearranged the weights for "-rt" (made From: more important)
+	       - Parsed return-addresses starting with a \ incorrectly
+		 (causing it to coredump on occasion)
+	       - Supports the -s option withouth a program argument
+	       - Recognise extra UUCP >From_ lines
+	       - Introduced the -B option to split up BABYL rmail files
+	       - It regards and generates a FILENO variable (for easy
+		 numbering)
+	       - Moved the idcheck functionality into formail -D (due to
+		 popular demand), for eliminating duplicate mails
+	       - It terminates early now if it only needs the header
+	       - The -n option can now sustain itself by reaping children
+		 if it can't fork() immediately
+	       - It supports incomplete field specifications which match
+		 any field starting similarly
+	       - Introduced the -u and -U options
+	       - -a Message-ID: and -a Resent-Message-ID: to make it generate
+		 new ones
+	       - Keep the X-Loop: field when generating autoreplies
+	       - Lowered the negative weight for .UUCP reply addresses
+	       - Honour Content-Length: fields, also speeds up processing of
+		 lengthy messages
+	       - Clean up zombies more often
+	       - Handle bangpath reconstruction
+	       - Made -q the default, use -q- to disable
+	    Miscellaneous changes:
+	       - Detecting and dodging buggy zshs everywhere
+	       - Slightly adjusted autoconf for the new non-standard 386BSD
+		 and NeXTStep 3.1 environments
+	       - Extended the FAQ
+	       - Extended and fixed the procmailex man page
+	       - Updated the crontab script recommendation in the procmail
+		 man page
+	       - Fixed the "procmail"-mailer definition in the procmail man
+		 page
+	       - Created a new procmailsc man page
+	       - Fixed a bug in lockfile, the exitcode was not correct if
+		 you used -! with more than one file
+	       - Including <limits.h> now, some (old) architectures seem to
+		 insist on this
+	       - Revamped the library search code
+	       - Provided a faster (than most libraries) strstr() routine
+	       - Created the setid program (to be used by the SmartList
+		 installation)
+	       - Checking for fstat() in autoconf
+	       - Avoiding i/o-redirection on subshells
+	       - Provided for the ability to hotwire the lockingtests
+	       - Autoconf asks if you'd like to use the existing autoconf.h
+	       - Autoconf determines MAX_argc (for choplist)
+1994/06/14: v3.01
+	    No changes, version number bump to keep in sync with SmartList
+1994/06/16: v3.02
+	    Made formail quiet (by default) about Content-Length mismatches
+	    The version number in patchlevel.h for this version was incorrect
+	       and still displayed v3.01 (yes, silly, I know)
+1994/06/30: v3.03
+	    Limit the no. of retries on lockfiles if the recipient is over
+	       quota (procmail & lockfile)
+	    Removed some superfluous "procmail:" prefixes in the middle of
+	       an error message
+	    Utilise a syslog daemon (if present) to log some critical errors
+	       (mostly attempted security violations and errors which are
+	       fatal but can't occur (like an unwritable /dev/null))
+	    Reconstruct and respect Content-Length: in procmail
+	       (if you need the >From lines, you'll have to take any existing
+	       Content-Lenght: field out of the header)
+	    Reformatted the source code to match the changed conventions
+	    Procmail always defaulting the umask to 077 for deliverymode broke
+	       some systems, reverting back to the old method of allowing group
+	       access on the system mailbox if necessary
+1994/08/02: v3.04
+	    Changes to procmail:
+	       - Support some non-BSD compatible syslog() implementations
+	       - Even if the Content-Length is zero, write it out (some
+		 programs can't deal with the empty field)
+	       - Drop the safety margin on Content-Length calculations, some
+		 programs can't deal with those
+	       - Truncate folders to their former length if delivery was not
+		 successful
+	       - Fine-tuned the ^FROM_MAILER and ^FROM_DAEMON macros again
+	       - The -v option lists the locking strategies employed
+	       - Will create the last member of the mail spool directory if
+		 found missing
+	    Forgot to define closelog() away if syslog support is missing
+	    Worked around the old syslog() interface
+	    Worked around a compiler bug old HP compilers (pointer-unsigned),
+	       caused the Content-Length: field to be mangled on some older
+	       HP/UX systems (not on every mail)
+	    Worked around compilation problems on SCO and old versions of IRIX
+	    Some fixes to the man pages
+	    Changes to formail:
+	       - Mistakenly turned X-Loop: fields into Old-X-Loop: when
+		 autoreplying
+	       - Allow wildcard -i when autoreplying
+	       - Renaming short fields to longer fields didn't always work
+	       - Renaming with a wildcard source/destination is possible now
+	       - -rk didn't behave correctly if a Content-Length: field was
+		 present
+	    Extended the sendmail directions in examples/advanced, it includes
+	       a direct example on how to make use of the -a feature
+	    Using EXIT_SUCCESS instead of EX_OK
+	    Both procmail and formail take the -Y option, for traditional
+	       Berkeley format mailboxes (ignoring Content-Length:)
+	    Some NCR machines didn't have WNOHANG defined
+1994/08/04: v3.05
+	    Formail v3.04 didn't remove the From_ line if given the -I 'From '
+	       option, changed that back, allowing for -a 'From '
+	    Procmail sometimes didn't reliably count the number of matches on
+	       a weighted recipe, fixed
+	    Some minor manpage adaptations
+1994/08/30: v3.06
+	    Groff -mandoc macros managed to display the man pages incorrectly,
+	       hacked my way around the .TH dependency to fix it
+	    Split up string constant FM_HELP, it exceeded some compiler limits
+	    Changes to procmail:
+	       - Fixed a bug which was present since v2.30: 'z' was always
+		 handled case sensitive (seems like not many people use
+		 that letter :-) in regular expression conditions
+	       - The ^^ anchor can now also be used to anchor the end of
+		 a regular expression
+	       - The -m flag will now unset ORGMAIL and will make
+		 procmail omit the check for a system mailbox
+	       - Allow easy reconfiguration of the default rcfile location
+	       - Extend the list of internals displayed with -v
+	       - The mail fed to the TRAP command contained some spurious
+		 nul characters, fixed
+	    Optionally allow the automatic installation of compressed man pages
+	    Formail v3.00 and later occasionally seemed to hang if used in
+	       a chain of pipes and fed with more text than it needed, fixed
+	    Updated the FAQ
+	    Updated the man pages (among others: vacation example changed)
+	    Sharpened the autoconf const check, AIX 3.2.3 managed to slip past
+	       it again
+	    Made sure that "make -n" with any make works as expected
+1994/10/31: v3.10
+	    Changes to procmail:
+	       - Minor corrections to the semantics of the 'a' and 'e' flags
+	       - Minor correction to the semantics of the -o option
+	       - Slight regular expression engine speedup
+	       - Regexp matching of environment variables is possible now
+	       - Due to popular demand: LOGABSTRACT=all logs *all* successful
+		 delivering-recipes executed
+	       - Enforce secure permissions on /etc/procmailrcs if used
+	       - Take sgid bit in the system mail spool dir into account
+		 even if it is world writable
+	       - The regexp engine can return matches now (new token "\/",
+		 new variable "MATCH")
+	       - New recipe flag 'r', raw mode, so procmail doesn't try
+		 to ensure the mail ends in an empty line
+	       - Success and failure of a filter recipe is well defined now
+	       - Procmail v3.06 prepended a bogus "." to explicit rcfile names
+		 searched relative to the home directory, fixed
+	       - Carved out two subroutines from main() to get it below the
+		 optimisation threshold
+	       - Eliminated duplicate error messages when procmailrcless
+		 delivery fails
+	       - Logging "Quota exceeded" messages when appropriate
+	       - Truncate notification suppressed when logfile not opened
+	       - Truncating didn't always work when delivering across NFS
+	       - The $_ special variable was wrong when wasn't set
+	    Changes to formail:
+	       - New option: -z (zap whitespace and empty fields)
+	       - Reading from stdin doesn't require the silly three EOFs
+		 anymore
+	       - -D with -r cache reply addresses now
+	       - Carved out one subroutine from main() to get it below the
+		 optimisation threshold
+	       - -R with -x didn't work reliably
+	       - -r with -i or -I sometimes had unexpected effects (in v3.06)
+	       - The nil-Return-Path-override was broken, fixed
+	    Updated the man pages, new subsection to procmailrc(5) summarising
+	       procmail regexp syntax
+	    Expanded on the sendmail.cf $#local example in the
+	       examples/advanced file again
+	    Revised detection of hard-link incapable filesystems during the
+	       installation
+	    Fixed bug in lockfile, the exitcode was not correct if
+	       you used -! (I hope this finally fixes this -! problem)
+	    Using execv() instead of execve()
+1995/05/17: v3.11pre3
+	    Changes to procmail:
+	       - varname ?? < nnn conditions didn't have the expected effect
+	       - Regression bug since v3.06, procmail -m /etc/procmailrcs
+		 didn't allow any arguments to be passed, fixed
+	       - Eliminated a superfluous fork() when processing TRAP
+	       - "lockfile ignored" warning was generated inappropriately at
+		 times
+	       - Renamed testb() into testB() to avoid conflict with Solaris
+	       - Eliminated spurious extra / in default MAILDIR value
+	       - Whole line comments among the conditions are recognised
+	       - Embedded empty lines in a recipe are tolerated
+	       - $\name regexp safe variable expansion
+	       - Delay searching for bogus From_ lines until writeout time
+		 (speeds up filtering and writes to /dev/null)
+	       - Finally fixed this mess with transparent backup to kernel
+		 locking methods when the spool directory is not writable
+	       - Avoid the one second NFS_ATIME_HACK under heavy load
+	       - The 'r' flag had some undesirable side effects at times
+	       - Dotlocks which fail due to permissions are not retried anymore
+	       - Made the USER_TO_LOWERCASE_HACK run-time adapting
+	       - /usr/spool/mail perm 1777, procmail setgid mail, procmail
+		 could not read .procmailrc files in 700 $HOME dirs, fixed
+	       - If called with -d option and not running with enough
+		 privileges, procmail will bounce the mail (instead of
+		 delivering to the invoker, as it used to)
+	       - Severe tweaking on ^FROM_MAILER and ^FROM_DAEMON to reduce
+		 false matches
+	       - Allow for broken From_ lines with a missing sender address
+	    Changes to formail:
+	       - Slightly extended the number of known header fields
+	       - Eliminated the conflict with the 4.4BSD daemon libidentifier
+	       - In an MMDF environment formail -b didn't behave correctly
+	       - Extracted another function from main() to make it smaller
+	       - Process address groups correctly
+	       - Process From_ lines with embedded commas correctly
+	    Changes to autoconf:
+	       - Catch NeXTstep 3.2 missing DIR definition
+	       - Detect & work around Ultrix 4.3 "ANSI" C compiler
+	       - A defined DEFsendmail or SYSTEM_MBOX caused some "s to be
+		 omitted in autoconf.h
+	       - Refined preliminary setsid() checks (2.4 x86/sunpro cc
+		 managed to break it)
+	       - Worked around a HERE document quoting bug in some shells
+	       - Fixed the empty argument "shift" problem
+	       - Detect & work around BSD 4.4 brain damaged setrgid()
+	    New Makefile variable VISIBLE_BASE
+	    Added support for a parallelising make
+	    Changed manconf.c to cater for broken systems that have a 100 line
+	       limit for sed (instead of a 100 command limit)
+	    Fixed some portability problems with the Makefiles for the OSF make
+	    Worked around old shells not supporting negated classes
+	    Extended the FAQ
+	    Updated examples/advanced docs for meta-argument setup in
+	       a traditional v5.* sendmail setup
+	    Fixed potential memory corruption bug for machines that have
+	       sizeof(off_t)>sizeof(off_t*) (has been around for ages)
+	    The man pages were remade upon every make, fixed
+1995/10/29: v3.11pre4
+	    Changes to procmail:
+	       - Avoid the NFS delay on directory and MH folders
+	       - KEEPENV didn't work reliably for more than one variable
+	       - New macro ^TO_, delimits addresses more accurately than ^TO
+	       - Don't try to fix the system mailbox permissions too soon,
+		 this should put a stop to the numerous confusion reports
+	       - SENDMAILFLAGS, new environment variable
+	       - Support -y as a substitute kludge for -Y
+	       - Fixed parsing of $@' when not doublequoted
+	    Changes to formail:
+	       - Return failure if the autoreply could not find a proper
+		 return address
+	       - Multiple -U options sometimes had unfortunate side effects
+	       - When splitting and a maximum number of messages was being
+		 specified, formail erroneously returned EX_IOERR
+	       - Avoid splitting empty messages
+	    Changes to autoconf:
+	       - If running on a system with good old BSD semantics for
+		 setrgid(), use the extra features offered
+	    Changed the Mprocmail example, use $g instead of $f
+1997/04/28: v3.11pre7
+	    Changes to procmail:
+	       - Cater for a race condition that occurs if two procmails
+		 try to create an empty system mailbox (bogus BOGUS.* files)
+	       - SysV autoforwarding mailboxes didn't work, regression bug in
+		 v3.10
+	       - Autocreating the last dirmember of the spooldir didn't
+		 (always?) work due to the trailing /
+	       - Kernel lockf() method doesn't change the position of the
+		 filepointer anymore (results in more accurate lockingtests)
+	       - Multiple directory folders are assigned to LASTFOLDER
+	       - Don't strip trailing \n in a $MATCH
+	       - Refuse to open directories for INCLUDERC files
+	       - Syslog failed -o attempts
+	       - Don't log non-delivering recipes, even with 'c' flag
+	    Changes to formail:
+	       - Skip leading spaces when checking for duplicates (will break
+		 checks with old id-databases)
+	    Worked around an nroff-coredumping problem with IRIX
+	    Corrected the last(?) "make -n" glitch
+	    Fixed library detection loop for some Solaris 2.[3-5] setups
+	    Changes to procmail and lockfile: use the authenticate library
+	       for easier integration with custom authentication and mailbox
+	       locations
+1999/03/02: v3.12
+	    Changes to procmail:
+	       - Use BOGUS.$LOGNAME.inode for bogus files to ease recovery
+	       - Define RESTRICT_EXEC to restrict execution of programs
+	       - Perform continuous checks on heap overflow, everywhere.
+		 If overflow is occurs then new variable PROCMAIL_OVERFLOW
+		 is set
+	       - Catch overly long rcfile names
+	       - new variable PROCMAIL_VERSION
+	       - LOGABSTRACT=all no longer logs filtering or variable capture
+		 actions
+	       - Don't strip leading \n in a $MATCH
+	       - Work around a compiler bug in Sun C compiler 4.2 (fdefault
+		 cached past function calls)
+	       - Tempfile names would grow on retry
+	       - Open or reopen rcfiles as the user to prevent peeking when
+		 not in privileged mailfilter mode
+	       - Don't use $HOME/.procmailrc if it's group-writable or in a
+		 group-writable directory, unless if the user's default group
+		 and GROUP_PER_USER is set in config.h
+	       - hardlink in a an NFS-resistant manner
+	    Worked around a compiler bug old HP compilers (pointer-unsigned),
+	       caused the Content-Length: field to be mangled on some older
+	       HP/UX systems (not on every mail)
+	    Changes to formail:
+	       - Generated Message-IDs don't contain "s anymore
+	       - Fix off-by-one error when zapping whitespace
+	       - -z option allows for leading tab instead of space
+	    Changes to formail and lockfile:
+	       - -v option displays version information
+	    Changes to autoconf:
+	       - Detect & work around inefficient realloc() implementations
+	    Mailstat returns grand totals as well now
+	    Update FAQ and docs to reflect default placing of procmail
+	       in /usr/bin instead of /usr/local/bin
+1999/03/31: v3.13
+	    Mailstat was too loose in its awk syntax
+	    Changes to formail:
+	       - Formail was ignoring the exitcode of all but the last
+		 invocation (or last several, if -n was in effect)
+	    Changes to procmail:
+	       - Variable expansion of builtin numeric variables in
+		 conditions could overwrite the condition (broke SmartList)
+	       - weights<1 didn't work if floats changed accuracy when stored
+	    Worked around a bug in the Dunix 4.0e compiler (pointer addition
+	       not commutative)
+1999/04/05: v3.13.1 (fixes backported from 3.14-beta)
+	    Changes to procmail:
+	       - Eliminated the conflict with the C9x restrict keyword
+	       - Some zero-length extractions using \/ could core dump
+	       - Missed a couple possible overflows
+	    Changes to mailstat:
+	       - Work around the detab done on checkin to CVS

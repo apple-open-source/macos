@@ -1,0 +1,7 @@
+Package: gnudiff
+Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
+Vendor: GNU Project
+Version: 2.7
+URL: ftp://prep.ai.mit.edu/pub/gnu/diffutils/
+Description: Diff utilities
+Build-Depends: build-base, gnudiff, perl

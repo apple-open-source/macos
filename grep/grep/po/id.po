@@ -1,0 +1,365 @@
+# grep-2.3f (Indonesian).
+# Copyright (C) 1999 Free Software Foundation, Inc.
+# Tedi Heriyanto <tedi-h@usa.net>, 1999.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: grep 2.3f.id.po\n"
+"POT-Creation-Date: 2000-03-01 22:44-0500\n"
+"PO-Revision-Date: 1999-10-29 16:04+07:00\n"
+"Last-Translator: Tedi Heriyanto <tedi-h@usa.net>\n"
+"Language-Team: Indonesian <id@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=iso-8859-1\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: src/dfa.c:163 src/dfa.c:174 src/dfa.c:185 src/grep.c:902
+msgid "Memory exhausted"
+msgstr "Memori habis"
+
+#: src/dfa.c:448
+msgid "Unfinished \\ escape"
+msgstr "escape \\\\ tidak selesai"
+
+#. Cases:
+#. {M} - exact count
+#. {M,} - minimum count, maximum is infinity
+#. {M,N} - M through N
+#: src/dfa.c:581 src/dfa.c:587 src/dfa.c:597 src/dfa.c:605 src/dfa.c:620
+msgid "unfinished repeat count"
+msgstr "perulangan count tidak selesai"
+
+#: src/dfa.c:594 src/dfa.c:611 src/dfa.c:619 src/dfa.c:623
+msgid "malformed repeat count"
+msgstr "perulangan count salah bentuk"
+
+#: src/dfa.c:688 src/dfa.c:691 src/dfa.c:718 src/dfa.c:722 src/dfa.c:723
+#: src/dfa.c:726 src/dfa.c:739 src/dfa.c:740
+msgid "Unbalanced ["
+msgstr "[ tidak seimbang"
+
+#: src/dfa.c:886
+msgid "Unbalanced ("
+msgstr "( tidak seimbang"
+
+#: src/dfa.c:1000
+msgid "No syntax specified"
+msgstr "Tidak ada syntax dispesifikasikan"
+
+#: src/dfa.c:1008
+msgid "Unbalanced )"
+msgstr ") tidak seimbang"
+
+#: src/dfa.c:1994
+msgid "out of memory"
+msgstr "memori habis"
+
+#: src/getopt.c:675
+#, c-format
+msgid "%s: option `%s' is ambiguous\n"
+msgstr "%s: opsi `%s' rancu\n"
+
+#: src/getopt.c:700
+#, c-format
+msgid "%s: option `--%s' doesn't allow an argument\n"
+msgstr "%s: opsi `--%s' tidak mengijinkan argumen\n"
+
+#: src/getopt.c:705
+#, c-format
+msgid "%s: option `%c%s' doesn't allow an argument\n"
+msgstr "%s: opsi `%c%s' tidak mengijinkan argumen\n"
+
+#: src/getopt.c:723 src/getopt.c:896
+#, c-format
+msgid "%s: option `%s' requires an argument\n"
+msgstr "%s: opsi `%s' membutuhkan sebuah argumen\n"
+
+#. --option
+#: src/getopt.c:752
+#, c-format
+msgid "%s: unrecognized option `--%s'\n"
+msgstr "%s: opsi tidak dikenal `--%s'\n"
+
+#. +option or -option
+#: src/getopt.c:756
+#, c-format
+msgid "%s: unrecognized option `%c%s'\n"
+msgstr "%s: opsi tidak dikenal `%c%s'\n"
+
+#. 1003.2 specifies the format of this message.
+#: src/getopt.c:782
+#, c-format
+msgid "%s: illegal option -- %c\n"
+msgstr "%s: opsi ilegal -- %c\n"
+
+#: src/getopt.c:785
+#, c-format
+msgid "%s: invalid option -- %c\n"
+msgstr "%s: opsi tidak valid -- %c\n"
+
+#. 1003.2 specifies the format of this message.
+#: src/getopt.c:815 src/getopt.c:945
+#, c-format
+msgid "%s: option requires an argument -- %c\n"
+msgstr "%s: opsi membutuhkan sebuah argumen -- %c\n"
+
+#: src/getopt.c:862
+#, c-format
+msgid "%s: option `-W %s' is ambiguous\n"
+msgstr "%s: opsi `-W %s' rancu\n"
+
+#: src/getopt.c:880
+#, c-format
+msgid "%s: option `-W %s' doesn't allow an argument\n"
+msgstr "%s: opsi `-W %s' tidak mengijinkan sebuah argumen\n"
+
+#: src/grep.c:185 src/grep.c:200 src/grep.c:293 src/grep.c:399 src/kwset.c:180
+#: src/kwset.c:186 src/obstack.c:471
+msgid "memory exhausted"
+msgstr "memori habis"
+
+#: src/grep.c:550 src/grep.c:1441
+msgid "writing output"
+msgstr "menulis output"
+
+#: src/grep.c:777
+#, c-format
+msgid "Binary file %s matches\n"
+msgstr "File biner %s cocok\n"
+
+#: src/grep.c:791
+msgid "(standard input)"
+msgstr "(input standar)"
+
+#: src/grep.c:887
+#, c-format
+msgid "%s: warning: %s: %s\n"
+msgstr "%s: peringatan: %s: %s\n"
+
+#: src/grep.c:888
+msgid "recursive directory loop"
+msgstr "perulangan direktori rekursif"
+
+#: src/grep.c:938
+#, c-format
+msgid "Usage: %s [OPTION]... PATTERN [FILE]...\n"
+msgstr "Pemakaian: %s [OPSI]... POLA [FILE]...\n"
+
+#: src/grep.c:939
+#, c-format
+msgid "Try `%s --help' for more information.\n"
+msgstr "Coba `%s --help' untuk informasi lebih lanjut.\n"
+
+#: src/grep.c:943
+#, c-format
+msgid "Usage: %s [OPTION]... PATTERN [FILE] ...\n"
+msgstr "Pemakaian: %s [OPSI]... POLA [FILE] ...\n"
+
+#: src/grep.c:944
+#, fuzzy, c-format
+msgid ""
+"Search for PATTERN in each FILE or standard input.\n"
+"Example: %s -i 'hello world' menu.h main.c\n"
+"\n"
+"Regexp selection and interpretation:\n"
+msgstr ""
+"Mencari POLA dalams setiap FILE atau input standar.\n"
+"\n"
+"Seleksi dan interpretasi regexp:\n"
+
+#: src/grep.c:949
+#, fuzzy
+msgid ""
+"  -E, --extended-regexp     PATTERN is an extended regular expression\n"
+"  -F, --fixed-strings       PATTERN is a set of newline-separated strings\n"
+"  -G, --basic-regexp        PATTERN is a basic regular expression\n"
+msgstr ""
+"  -E, --extended-regexp   POLA adalah ekspresi reguler ekstended\n"
+"  -F, --fixed-regexp      POLA adalah string tetap yang dipisah oleh "
+"newline\n"
+"  -G, --basic-regexp      POLA adalah ekspresi reguler dasar\n"
+
+#: src/grep.c:953
+msgid ""
+"  -e, --regexp=PATTERN      use PATTERN as a regular expression\n"
+"  -f, --file=FILE           obtain PATTERN from FILE\n"
+"  -i, --ignore-case         ignore case distinctions\n"
+"  -w, --word-regexp         force PATTERN to match only whole words\n"
+"  -x, --line-regexp         force PATTERN to match only whole lines\n"
+"  -z, --null-data           a data line ends in 0 byte, not newline\n"
+msgstr ""
+"  -e, --regexp=POLA    gunakan POLA sebagai ekspresi reguler\n"
+"  -f, --file=FILE      dapatkan pola dari FILE\n"
+"  -i, --ignore-case    abaikan perbedaan case\n"
+"  -w, --word-regexp    paksa POLA hanya cocok dengan keseluruhan kata\n"
+"  -x, --line-regexp    paksa POLA hanya cocok dengan keseluruhan baris\n"
+"  -z, --null-data      baris data berakhir dalam 0 byte, bukan newline\n"
+"\n"
+
+#: src/grep.c:960
+#, fuzzy
+msgid ""
+"\n"
+"Miscellaneous:\n"
+"  -s, --no-messages         suppress error messages\n"
+"  -v, --invert-match        select non-matching lines\n"
+"  -V, --version             print version information and exit\n"
+"      --help                display this help and exit\n"
+"      --mmap                use memory-mapped input if possible\n"
+msgstr ""
+"\n"
+"Lain-lain:\n"
+"  -s, --no-messages     tiadakan pesan kesalahan\n"
+"  -v, --invert-match    pilih baris-baris yang tidak sesuai\n"
+"  -V, --version         tampilkan informasi versi dan keluar\n"
+"      --help            tampilkan bantuan ini dan keluar\n"
+
+#: src/grep.c:968
+#, fuzzy
+msgid ""
+"\n"
+"Output control:\n"
+"  -b, --byte-offset         print the byte offset with output lines\n"
+"  -n, --line-number         print line number with output lines\n"
+"  -H, --with-filename       print the filename for each match\n"
+"  -h, --no-filename         suppress the prefixing filename on output\n"
+"  -q, --quiet, --silent     suppress all normal output\n"
+"      --binary-files=TYPE   assume that binary files are TYPE\n"
+"                            TYPE is 'binary', 'text', or 'without-match'.\n"
+"  -a, --text                equivalent to --binary-files=text\n"
+"  -I                        equivalent to --binary-files=without-match\n"
+"  -d, --directories=ACTION  how to handle directories\n"
+"                            ACTION is 'read', 'recurse', or 'skip'.\n"
+"  -r, --recursive           equivalent to --directories=recurse.\n"
+"  -L, --files-without-match only print FILE names containing no match\n"
+"  -l, --files-with-matches  only print FILE names containing matches\n"
+"  -c, --count               only print a count of matching lines per FILE\n"
+"  -Z, --null                print 0 byte after FILE name\n"
+msgstr ""
+"\n"
+"Kendali output:\n"
+"  -b, --byte-offset         cetak offset byte dengan baris output\n"
+"  -n, --line-number         cetak nomor baris dengan baris output\n"
+"  -H, --with-filename       cetak namafile untuk setiap kecocokan\n"
+"  -h, --no-filename         tiadakan namafile di output\n"
+"  -q, --quiet, --silent     tiadakan seluruh output normal\n"
+"  -a, --text                jangan tiadakan output biner\n"
+"  -d, --directories=AKSI    bagaimana menangani direktori\n"
+"                            AKSI adalah 'read', 'recurse', atau 'skip'.\n"
+"  -r, --recursive           ekivalen dengan --directories=recurse.\n"
+"  -L, --files-without-match hanya mencetak nama FILE yang tidak ada "
+"kecocokan\n"
+"  -l, --files-with-match    hanya mencetak nama FILE yang ada kecocokan\n"
+"  -c, --count               hanya mencetak jumlah baris yang cocok per FILE\n"
+"  -Z, --null                mencetak byte 0 setelah nama FILE\n"
+
+#: src/grep.c:987
+#, fuzzy
+msgid ""
+"\n"
+"Context control:\n"
+"  -B, --before-context=NUM  print NUM lines of leading context\n"
+"  -A, --after-context=NUM   print NUM lines of trailing context\n"
+"  -C, --context[=NUM]       print NUM (default 2) lines of output context\n"
+"                            unless overridden by -A or -B\n"
+"  -NUM                      same as --context=NUM\n"
+"  -U, --binary              do not strip CR characters at EOL (MSDOS)\n"
+"  -u, --unix-byte-offsets   report offsets as if CRs were not there (MSDOS)\n"
+"\n"
+"`egrep' means `grep -E'.  `fgrep' means `grep -F'.\n"
+"With no FILE, or when FILE is -, read standard input.  If less than\n"
+"two FILEs given, assume -h.  Exit status is 0 if match, 1 if no match,\n"
+"and 2 if trouble.\n"
+msgstr ""
+"\n"
+"Kendali Konteks:\n"
+"  -B, --before-context=NUM  mencetak NUM baris leading context\n"
+"  -A, --after-context=NUM   mencetak NUM baris trailing context\n"
+"  -C, --context[=NUM]       mencetak NUM (baku 2) baris konteks output \n"
+"                            kecuali di-override dengan -A atau -B\n"
+"  -NUM                      sama seperti --context=NUM\n"
+"  -U, --binary              jangan hapus karakter CR di EOL (MSDOS)\n"
+"  -u, --unix-byte-offsets   laporkan offset seperti bila CR tidak ada "
+"(MSDOS)\n"
+"\n"
+"`egrep' berarti `grep -E'. `fgrep' berarti `grep -F'.\n"
+"Dengan tanpa FILE, atau ketika FILE adalah -, baca input standar. Jika "
+"diberi \n"
+"kurang dari dua file, asumsikan -h. Keluar dengan 0 jika cocok, dengan 1 "
+"jika\n"
+"tidak. Keluar dengan 2 jika terjadi syntax atau system error.\n"
+
+#: src/grep.c:1002
+msgid ""
+"\n"
+"Report bugs to <bug-gnu-utils@gnu.org>.\n"
+msgstr ""
+"\n"
+"Laporkan kesalahan ke <bug-gnu-utils@gnu.org>.\n"
+
+#: src/grep.c:1012
+msgid "conflicting matchers specified"
+msgstr "dispesifikasikan matcher yang konflik"
+
+#: src/grep.c:1203 src/grep.c:1210 src/grep.c:1219
+msgid "invalid context length argument"
+msgstr "argumen panjang konteks tidak valid"
+
+#: src/grep.c:1273
+msgid "unknown directories method"
+msgstr "metode direktori tidak dikenal"
+
+#: src/grep.c:1358
+msgid "unknown binary-files type"
+msgstr ""
+
+#: src/grep.c:1378
+#, c-format
+msgid "%s (GNU grep) %s\n"
+msgstr "%s (GNU grep) %s\n"
+
+#: src/grep.c:1380
+#, fuzzy
+msgid "Copyright 1988, 1992-1999, 2000 Free Software Foundation, Inc.\n"
+msgstr "Hak Cipta (C) 1988, 1992-1998, 1999 Free Software Foundation, Inc.\n"
+
+#: src/grep.c:1382
+msgid ""
+"This is free software; see the source for copying conditions. There is NO\n"
+"warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n"
+msgstr ""
+"Ini adalah free software; lihat sumber untuk syarat penyalinan. Tidak ada\n"
+"jaminan; sekalipun untuk PENJUALAN atau KESESUAIAN UNTUK TUJUAN TERTENTU.\n"
+
+#~ msgid "option %s"
+#~ msgstr "opsi %s"
+
+#~ msgid " with arg %s"
+#~ msgstr " dengan arg %s"
+
+#~ msgid "digits occur in two different argv-elements.\n"
+#~ msgstr "digit muncul dalam dua argv-elemen yang berbeda.\n"
+
+#~ msgid "option %c\n"
+#~ msgstr "opsi %c\n"
+
+#~ msgid "option a\n"
+#~ msgstr "opsi a\n"
+
+#~ msgid "option b\n"
+#~ msgstr "opsi b\n"
+
+#~ msgid "option c with value `%s'\n"
+#~ msgstr "opsi c dengan nilai `%s'\n"
+
+#~ msgid "option d with value `%s'\n"
+#~ msgstr "opsi d dengan nilai `%s'\n"
+
+#~ msgid "?? getopt returned character code 0%o ??\n"
+#~ msgstr "?? getopt mengembalikan kode karakter 0%o ??\n"
+
+#~ msgid "non-option ARGV-elements: "
+#~ msgstr "elemen-ARGV bukan opsi: "
+
+#~ msgid "memory exhausted\n"
+#~ msgstr "memori habis\n"

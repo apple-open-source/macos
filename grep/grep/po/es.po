@@ -1,0 +1,405 @@
+# Mensajes en español para GNU grep.
+# Copyright (C) 1996, 1997, 1998, 1999, 2000 Free Software Foundation, Inc.
+# Enrique Melero Gómez <melero@iprolink.ch>, 1996.
+# Santiago Vila Doncel <sanvila@unex.es>, 1997, 1998, 1999, 2000.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: GNU grep 2.4f\n"
+"POT-Creation-Date: 2000-03-01 22:44-0500\n"
+"PO-Revision-Date: 2000-02-17 22:19+0100\n"
+"Last-Translator: Santiago Vila Doncel <sanvila@unex.es>\n"
+"Language-Team: Spanish <es@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=ISO-8859-1\n"
+"Content-Transfer-Encoding: 8-bit\n"
+
+#: src/dfa.c:163 src/dfa.c:174 src/dfa.c:185 src/grep.c:902
+msgid "Memory exhausted"
+msgstr "Memoria agotada"
+
+#: src/dfa.c:448
+msgid "Unfinished \\ escape"
+msgstr "Secuencia de escape \\ sin terminar"
+
+#. Cases:
+#. {M} - exact count
+#. {M,} - minimum count, maximum is infinity
+#. {M,N} - M through N
+#: src/dfa.c:581 src/dfa.c:587 src/dfa.c:597 src/dfa.c:605 src/dfa.c:620
+msgid "unfinished repeat count"
+msgstr "contador de repetición sin terminar"
+
+#: src/dfa.c:594 src/dfa.c:611 src/dfa.c:619 src/dfa.c:623
+msgid "malformed repeat count"
+msgstr "contador de repetición erróneo"
+
+#: src/dfa.c:688 src/dfa.c:691 src/dfa.c:718 src/dfa.c:722 src/dfa.c:723
+#: src/dfa.c:726 src/dfa.c:739 src/dfa.c:740
+msgid "Unbalanced ["
+msgstr "[ desemparejado"
+
+#: src/dfa.c:886
+msgid "Unbalanced ("
+msgstr "( desemparejado"
+
+#: src/dfa.c:1000
+msgid "No syntax specified"
+msgstr "No se ha especificado ninguna sintaxis"
+
+#: src/dfa.c:1008
+msgid "Unbalanced )"
+msgstr ") desemparejado"
+
+# FIXME. Comunicar al autor que esto es repetición...
+#: src/dfa.c:1994
+msgid "out of memory"
+msgstr "memoria agotada"
+
+#: src/getopt.c:675
+#, c-format
+msgid "%s: option `%s' is ambiguous\n"
+msgstr "%s: la opción `%s' es ambigua\n"
+
+#: src/getopt.c:700
+#, c-format
+msgid "%s: option `--%s' doesn't allow an argument\n"
+msgstr "%s: la opción `--%s' no admite ningún argumento\n"
+
+#: src/getopt.c:705
+#, c-format
+msgid "%s: option `%c%s' doesn't allow an argument\n"
+msgstr "%s: la opción `%c%s' no admite ningún argumento\n"
+
+#: src/getopt.c:723 src/getopt.c:896
+#, c-format
+msgid "%s: option `%s' requires an argument\n"
+msgstr "%s: la opción `%s' requiere un argumento\n"
+
+#. --option
+#: src/getopt.c:752
+#, c-format
+msgid "%s: unrecognized option `--%s'\n"
+msgstr "%s: opción no reconocida `--%s'\n"
+
+#. +option or -option
+#: src/getopt.c:756
+#, c-format
+msgid "%s: unrecognized option `%c%s'\n"
+msgstr "%s: opción no reconocida `%c%s'\n"
+
+#. 1003.2 specifies the format of this message.
+#: src/getopt.c:782
+#, c-format
+msgid "%s: illegal option -- %c\n"
+msgstr "%s: opción ilegal -- %c\n"
+
+#: src/getopt.c:785
+#, c-format
+msgid "%s: invalid option -- %c\n"
+msgstr "%s: opción inválida -- %c\n"
+
+#. 1003.2 specifies the format of this message.
+#: src/getopt.c:815 src/getopt.c:945
+#, c-format
+msgid "%s: option requires an argument -- %c\n"
+msgstr "%s: la opción requiere un argumento -- %c\n"
+
+#: src/getopt.c:862
+#, c-format
+msgid "%s: option `-W %s' is ambiguous\n"
+msgstr "%s: la opción `-W %s' es ambigua\n"
+
+#: src/getopt.c:880
+#, c-format
+msgid "%s: option `-W %s' doesn't allow an argument\n"
+msgstr "%s: la opción `-W %s' no admite ningún argumento\n"
+
+#: src/grep.c:185 src/grep.c:200 src/grep.c:293 src/grep.c:399 src/kwset.c:180
+#: src/kwset.c:186 src/obstack.c:471
+msgid "memory exhausted"
+msgstr "memoria agotada"
+
+#: src/grep.c:550 src/grep.c:1441
+msgid "writing output"
+msgstr "escribiendo el resultado"
+
+#: src/grep.c:777
+#, c-format
+msgid "Binary file %s matches\n"
+msgstr "Coincidencia en el fichero binario %s\n"
+
+#: src/grep.c:791
+msgid "(standard input)"
+msgstr "(entrada estándar)"
+
+#: src/grep.c:887
+#, c-format
+msgid "%s: warning: %s: %s\n"
+msgstr "%s: atención: %s: %s\n"
+
+#: src/grep.c:888
+msgid "recursive directory loop"
+msgstr "bucle de directorio recursivo"
+
+#: src/grep.c:938
+#, c-format
+msgid "Usage: %s [OPTION]... PATTERN [FILE]...\n"
+msgstr "Modo de empleo: %s [OPCIÓN]... PATRÓN [FICHERO]...\n"
+
+#: src/grep.c:939
+#, c-format
+msgid "Try `%s --help' for more information.\n"
+msgstr "Pruebe `%s --help' para más información.\n"
+
+# FIXME: Dice [FILE] ... en vez de [FILE]... ¿Será un error?
+#: src/grep.c:943
+#, c-format
+msgid "Usage: %s [OPTION]... PATTERN [FILE] ...\n"
+msgstr "Modo de empleo: %s [OPCIÓN]... PATRÓN [FICHERO] ...\n"
+
+#: src/grep.c:944
+#, c-format
+msgid ""
+"Search for PATTERN in each FILE or standard input.\n"
+"Example: %s -i 'hello world' menu.h main.c\n"
+"\n"
+"Regexp selection and interpretation:\n"
+msgstr ""
+"Busca PATRÓN en cada FICHERO o en la entrada estándar.\n"
+"Ejemplo: %s -i 'hello world' menu.h main.c\n"
+"\n"
+"Selección e interpretación de Expreg:\n"
+
+#: src/grep.c:949
+msgid ""
+"  -E, --extended-regexp     PATTERN is an extended regular expression\n"
+"  -F, --fixed-strings       PATTERN is a set of newline-separated strings\n"
+"  -G, --basic-regexp        PATTERN is a basic regular expression\n"
+msgstr ""
+"  -E, --extended-regexp     PATRÓN es una expresión regular extendida\n"
+"  -F, --fixed-strings       PATRÓN es un conjunto de cadenas separadas por\n"
+"                            caracteres de nueva línea\n"
+"  -G, --basic-regexp        PATRÓN es una expresión regular básica\n"
+
+#: src/grep.c:953
+msgid ""
+"  -e, --regexp=PATTERN      use PATTERN as a regular expression\n"
+"  -f, --file=FILE           obtain PATTERN from FILE\n"
+"  -i, --ignore-case         ignore case distinctions\n"
+"  -w, --word-regexp         force PATTERN to match only whole words\n"
+"  -x, --line-regexp         force PATTERN to match only whole lines\n"
+"  -z, --null-data           a data line ends in 0 byte, not newline\n"
+msgstr ""
+"  -e, --regexp=PATRÓN       utiliza PATRÓN como expresión regular\n"
+"  -f, --file=FICHERO        obtiene PATRÓN de FICHERO\n"
+"  -i, --ignore-case         considera iguales mayúsculas y minúsculas\n"
+"  -w, --word-regexp         obliga a que PATRÓN coincida solamente\n"
+"                            con palabras completas\n"
+"  -x, --line-regexp         obliga a que PATRÓN coincida solamente\n"
+"                            con líneas completas\n"
+"  -z, --null-data           una línea de datos termina en un byte 0, no\n"
+"                            en un carácter de nueva línea\n"
+
+#: src/grep.c:960
+msgid ""
+"\n"
+"Miscellaneous:\n"
+"  -s, --no-messages         suppress error messages\n"
+"  -v, --invert-match        select non-matching lines\n"
+"  -V, --version             print version information and exit\n"
+"      --help                display this help and exit\n"
+"      --mmap                use memory-mapped input if possible\n"
+msgstr ""
+"\n"
+"Variadas:\n"
+"  -s, --no-messages         suprime los mensajes de error\n"
+"  -v, --invert-match        selecciona las líneas que no coinciden\n"
+"  -V, --version             muestra la versión y finaliza\n"
+"      --help                muestra esta ayuda y finaliza\n"
+"      --mmap                utiliza entrada asignada en memoria si es "
+"posible\n"
+
+#: src/grep.c:968
+msgid ""
+"\n"
+"Output control:\n"
+"  -b, --byte-offset         print the byte offset with output lines\n"
+"  -n, --line-number         print line number with output lines\n"
+"  -H, --with-filename       print the filename for each match\n"
+"  -h, --no-filename         suppress the prefixing filename on output\n"
+"  -q, --quiet, --silent     suppress all normal output\n"
+"      --binary-files=TYPE   assume that binary files are TYPE\n"
+"                            TYPE is 'binary', 'text', or 'without-match'.\n"
+"  -a, --text                equivalent to --binary-files=text\n"
+"  -I                        equivalent to --binary-files=without-match\n"
+"  -d, --directories=ACTION  how to handle directories\n"
+"                            ACTION is 'read', 'recurse', or 'skip'.\n"
+"  -r, --recursive           equivalent to --directories=recurse.\n"
+"  -L, --files-without-match only print FILE names containing no match\n"
+"  -l, --files-with-matches  only print FILE names containing matches\n"
+"  -c, --count               only print a count of matching lines per FILE\n"
+"  -Z, --null                print 0 byte after FILE name\n"
+msgstr ""
+"\n"
+"Control del resultado:\n"
+"  -b, --byte-offset         muestra el desplazamiento en bytes junto\n"
+"                            con las líneas de salida\n"
+"  -n, --line-number         muestra el número de línea junto con\n"
+"                            las líneas de salida\n"
+"  -H, --with-filename       muestra el nombre del fichero para cada\n"
+"                            coincidencia\n"
+"  -h, --no-filename         suprime los nombres de los ficheros en\n"
+"                            el resultado\n"
+"  -q, --quiet, --silent     suprime todo el resultado normal\n"
+"      --binary-files=TIPO   supone que los ficheros binarios son TIPO\n"
+"                            TIPO es `binary', `text', o `without-match'.\n"
+"  -a, --text                equivalente a --binary-files=text\n"
+"  -I                        equivalente a --binary-files=without-match\n"
+"  -d, --directories=ACCIÓN  especifica cómo manejar los directorios\n"
+"                            ACCIÓN es 'read', 'recurse', o 'skip'.\n"
+"  -r, --recursive           equivalente a --directories=recurse.\n"
+"  -L, --files-without-match muestra solamente los nombres de FICHEROs\n"
+"                            que no contienen ninguna coincidencia\n"
+"  -l, --files-with-matches  muestra solamente los nombres de FICHEROs\n"
+"                            que contienen alguna coincidencia\n"
+"  -c, --count               muestra solamente el total de líneas que "
+"coinciden\n"
+"                            por cada FICHERO\n"
+"  -Z, --null                imprime un byte 0 después del nombre del "
+"FICHERO\n"
+
+#: src/grep.c:987
+msgid ""
+"\n"
+"Context control:\n"
+"  -B, --before-context=NUM  print NUM lines of leading context\n"
+"  -A, --after-context=NUM   print NUM lines of trailing context\n"
+"  -C, --context[=NUM]       print NUM (default 2) lines of output context\n"
+"                            unless overridden by -A or -B\n"
+"  -NUM                      same as --context=NUM\n"
+"  -U, --binary              do not strip CR characters at EOL (MSDOS)\n"
+"  -u, --unix-byte-offsets   report offsets as if CRs were not there (MSDOS)\n"
+"\n"
+"`egrep' means `grep -E'.  `fgrep' means `grep -F'.\n"
+"With no FILE, or when FILE is -, read standard input.  If less than\n"
+"two FILEs given, assume -h.  Exit status is 0 if match, 1 if no match,\n"
+"and 2 if trouble.\n"
+msgstr ""
+"\n"
+"Control del contexto:\n"
+"  -B, --before-context=NÚM  muestra NÚM líneas de contexto anterior\n"
+"  -A, --after-context=NÚM   muestra NÚM líneas de contexto posterior\n"
+"  -C, --context[=NÚM]       muestra NÚM líneas (2 por omisión) de contexto\n"
+"                            a menos que se utilice -A o -B\n"
+"  -NÚM                      lo mismo que --context=NÚM\n"
+"  -U, --binary              no elimina los caracteres de retorno de carro\n"
+"                            finales de línea (MSDOS)\n"
+"  -u, --unix-byte-offsets   cuenta los desplazamientos como si no hubiera\n"
+"                            retornos de carro (MSDOS)\n"
+"\n"
+"`egrep' significa `grep -E'.  `fgrep' significa `grep -F'.\n"
+"Si no se especifica ningún FICHERO, o cuando es -, lee la entrada estándar.\n"
+"Si se dan menos de dos FICHEROs, se supone -h. La salida es 0 si hay\n"
+"coincidencias, 1 si no las hay, y 2 en caso de problema\n"
+
+#: src/grep.c:1002
+msgid ""
+"\n"
+"Report bugs to <bug-gnu-utils@gnu.org>.\n"
+msgstr ""
+"\n"
+"Comunicar `bugs' a <bug-gnu-utils@gnu.org>.\n"
+
+#  viendo los fuentes , hay varias opciones
+#  que hay sin documentar. O quizá es que getopt() lo he entendido mal
+#  Son las opciones X ( requiere argumento ) , switchs  -c, -b, -L e -y
+#  grep.c:622 ->
+#  opt = getopt(argc, argv, "0123456789A:B:CEFGVX:bce:f:hiLlnqsvwxy"
+#  grep --help ->
+#  usage: grep [-[[AB] ]<num>] [-[CEFGVchilnqsvwx]] [-[ef]] <expr> [<files...>]
+#  La opción -X es a la que corresponde esta línea.
+#
+# No me gusta nada lo de opción "a buscar".
+# Se admiten sugerencias. sv
+#: src/grep.c:1012
+msgid "conflicting matchers specified"
+msgstr "se han especificado expresiones conflictivas"
+
+#: src/grep.c:1203 src/grep.c:1210 src/grep.c:1219
+msgid "invalid context length argument"
+msgstr "longitud de contexto inválida"
+
+# Nota: Se refiere a la opción --directories=ACCIÓN cuando ACCIÓN
+# no es `read', `recurse' o `skip'.
+#: src/grep.c:1273
+msgid "unknown directories method"
+msgstr "método de directorios desconocido"
+
+#: src/grep.c:1358
+msgid "unknown binary-files type"
+msgstr "tipo binary-files desconocido"
+
+#: src/grep.c:1378
+#, c-format
+msgid "%s (GNU grep) %s\n"
+msgstr "%s (GNU grep) %s\n"
+
+#: src/grep.c:1380
+msgid "Copyright 1988, 1992-1999, 2000 Free Software Foundation, Inc.\n"
+msgstr "Copyright 1988, 1992-1999, 2000 Free Software Foundation, Inc.\n"
+
+#: src/grep.c:1382
+msgid ""
+"This is free software; see the source for copying conditions. There is NO\n"
+"warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n"
+msgstr ""
+"Esto es software libre; vea el código fuente para las condiciones de copia.\n"
+"No hay NINGUNA garantía; ni siquiera de COMERCIABILIDAD o IDONEIDAD PARA UN\n"
+"FIN DETERMINADO.\n"
+
+#~ msgid "option %s"
+#~ msgstr "opción %s"
+
+#~ msgid " with arg %s"
+#~ msgstr " con argumento %s"
+
+#~ msgid "digits occur in two different argv-elements.\n"
+#~ msgstr "aparecen dígitos en dos elementos de argv diferentes.\n"
+
+#~ msgid "option %c\n"
+#~ msgstr "opción %c\n"
+
+#~ msgid "option a\n"
+#~ msgstr "opción a\n"
+
+#~ msgid "option b\n"
+#~ msgstr "opción b\n"
+
+#~ msgid "option c with value `%s'\n"
+#~ msgstr "la opción c tiene el valor `%s'\n"
+
+#~ msgid "option d with value `%s'\n"
+#~ msgstr "la opción d tiene el valor `%s'\n"
+
+#~ msgid "?? getopt returned character code 0%o ??\n"
+#~ msgstr "?? getopt ha devuelto el carácter código 0%o ??\n"
+
+#~ msgid "non-option ARGV-elements: "
+#~ msgstr "elementos de ARGV que no son opciones: "
+
+#~ msgid "memory exhausted\n"
+#~ msgstr "memoria agotada\n"
+
+#~ msgid "you may specify only one of -E, -F, or -G"
+#~ msgstr "sólo se puede especificar una de las opciones -E, -F, o -G"
+
+# Prefiero dejarlo en solamente un patrón
+# Pero entonces no queda claro que *debe haber uno*, y parece que
+# es uno como máximo (siendo el mínimo 0). sv
+#~ msgid ""
+#~ "There should be one and only one PATTERN, `-e PATTERN' or `-f FILE'.\n"
+#~ msgstr "Debe haber un y solamente un PATRÓN, `-e PATRÓN', o `-f FICHERO'.\n"
+
+#~ msgid "If no -[GEF], then -G is assumed.\n"
+#~ msgstr "Si no se especifica ninguna de las opciones -[GEF], se supone -G.\n"

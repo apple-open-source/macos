@@ -1,0 +1,15 @@
+{
+    FILESTABLE = {
+        Documentation = (README); 
+        Headers = (); 
+        Resources = (); 
+        SUBPROJECTS = (); 
+        Sources = (unfixit.l, fixit.l, "initscan-mvs.c"); 
+    }; 
+    NEXTSTEP_BUILDTOOL = /bin/make; 
+    PDO_UNIX_BUILDTOOL = /bin/make; 
+    PROJECTNAME = MVS; 
+    PROJECTTYPE = "GNU Source"; 
+    PROJECTVERSION = 2.6; 
+    WINDOWS_BUILDTOOL = "${NEXT_ROOT}/NextDeveloper/Executables/make"; 
+}

@@ -1,0 +1,100 @@
+{
+    DYNAMIC_CODE_GEN = YES; 
+    English_RESOURCES = {}; 
+    FILESTABLE = {
+        FRAMEWORKS = (System.framework); 
+        H_FILES = (
+            command.h, 
+            compile.h, 
+            execcmd.h, 
+            expand.h, 
+            filesys.h, 
+            hash.h, 
+            headers.h, 
+            jam.h, 
+            jambase.h, 
+            jamgramtab.h, 
+            lists.h, 
+            make.h, 
+            newstr.h, 
+            option.h, 
+            parse.h, 
+            patchlevel.h, 
+            regexp.h, 
+            rules.h, 
+            scan.h, 
+            search.h, 
+            timestamp.h, 
+            variable.h
+        ); 
+        OTHER_LINKED = (
+            command.c, 
+            compile.c, 
+            execmac.c, 
+            execunix.c, 
+            execvms.c, 
+            expand.c, 
+            filemac.c, 
+            filent.c, 
+            fileos2.c, 
+            fileunix.c, 
+            filevms.c, 
+            glob.c, 
+            hash.c, 
+            headers.c, 
+            jam.c, 
+            jambase.c, 
+            jamgram.y, 
+            lists.c, 
+            make.c, 
+            make1.c, 
+            newstr.c, 
+            option.c, 
+            parse.c, 
+            pathmac.c, 
+            pathunix.c, 
+            pathvms.c, 
+            regexp.c, 
+            rules.c, 
+            scan.c, 
+            search.c, 
+            timestamp.c, 
+            variable.c
+        ); 
+        OTHER_SOURCES = (
+            Makefile.preamble, 
+            Makefile, 
+            Makefile.postamble, 
+            mkjambase.c, 
+            pbxJambase, 
+            RELNOTES, 
+            README, 
+            Porting, 
+            Jamlang.html, 
+            Jamfile.html, 
+            Jamfile, 
+            Jambase.html, 
+            Jambase, 
+            Jam.html, 
+            Build.mpw, 
+            Build.com
+        ); 
+    }; 
+    LANGUAGE = English; 
+    MAKEFILEDIR = "$(MAKEFILEPATH)/pb_makefiles"; 
+    NEXTSTEP_BUILDTOOL = /bin/gnumake; 
+    NEXTSTEP_INSTALLDIR = /usr/bin; 
+    NEXTSTEP_JAVA_COMPILER = /usr/bin/javac; 
+    NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc; 
+    PDO_UNIX_BUILDTOOL = $NEXT_ROOT/Developer/bin/make; 
+    PDO_UNIX_INSTALLDIR = /bin; 
+    PDO_UNIX_JAVA_COMPILER = "$(JDKBINDIR)/javac"; 
+    PDO_UNIX_OBJCPLUS_COMPILER = "$(NEXTDEV_BIN)/gcc"; 
+    PROJECTNAME = jam; 
+    PROJECTTYPE = Tool; 
+    PROJECTVERSION = 2.8; 
+    WINDOWS_BUILDTOOL = $NEXT_ROOT/Developer/Executables/make; 
+    WINDOWS_INSTALLDIR = /Library/Executables; 
+    WINDOWS_JAVA_COMPILER = "$(JDKBINDIR)/javac.exe"; 
+    WINDOWS_OBJCPLUS_COMPILER = "$(DEVDIR)/gcc"; 
+}

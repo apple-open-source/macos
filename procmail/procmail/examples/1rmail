@@ -1,0 +1,21 @@
+#!/bin/sh
+#
+# specify the mailbox file you want to read on the command line
+#
+MAILDIR=$HOME/Mail
+cd $MAILDIR
+LOCKFILE=$HOME/.lockmail
+if lockfile -! -r1 $LOCKFILE
+then
+ echo Mail is currently arriving, please wait...
+ while
+   lockfile -! -4 -r2 $LOCKFILE
+ do
+ echo Mail is still arriving...
+ done
+fi
+trap "rm -f $LOCKFILE;exit 0" 0 1 2 3 13 15
+#
+# Call your favourite mailer here.
+#
+/usr/ucb/mail -f $*

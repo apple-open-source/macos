@@ -1,0 +1,30 @@
+2592499		AppKit	Add CFBundleShortVersionString
+2584768		AppKitJava	AppKitJava has to be updated after a recent NSSplitView change.
+2592462		Build & Integration	remove airport app
+2583354		cc	The cc(1) driver needs to pass the "-sub_umbrella argument" to linkers
+2589438		cc	C++ Indexer trips on /usr/include/mach/memory_object_types.h
+2555296		Core OS	Perf: C1D3: NetworkConfiguration.framework exports all of its symbols
+2587337		CoreFoundation
+	CFStringCreateMutableWithExternalCharactersNoCopy crashes on failed allocation
+2588988		CoreFoundation	CFPreferencesCopyAppValue doesn't notice effective uid change
+2589383		CoreFoundation	Screwed up PBX keybinding in Japanese system encoding is back
+2592444		CoreFoundation	CFMachPort deadlock after forking
+2591771		CoreGraphics	CGContextSynchronize crashes when called on a bitmap context
+2526459		CoreProcesses	Feature: keyboard focus theft SPI
+2588587		Developer Tools	update_prebinding refuses to prebind dependents of Foundation
+2567324		Device Drivers	Need the isochronous calls in CarbonLib
+2584800		dyld	Cheetah4I: strange behavior in split library of multi-Java-process program
+2572503		FoundationJava	FoundationJava has to be updated after recent file type API additions.
+2587848		FoundationKit	MonitoredInvocation being dealloc'ed because NSInvocation isn't threadsafe
+2588956		FoundationKit	_NSFoundationBundle() is wrong when Foundation is in DYLD_FRAMEWORK_PATH.
+2590969		IconComposer	IconComposer CFBundleShortVersion string doesn't match guidline
+2592535		Localization	LOC INTEG: K versions of Tier1 projects (Japanese)
+2586474		MacBuddy Library	MacBuddyX - International KB settings don't take effect immediately
+2592169		MacBuddy Library	non-English install causes setup assistant problems
+2592331		NSBezierPath	NSBezierPath -setClip is broke?
+2590798		NSDocument	-[NSDocumentController saveAllDocuments] doesn't let you cancel
+2591947		NSDocument	document based app cannot save untitled file w/ Save
+2540934		NSPasteboard	'TEXT' and 'utxt' pasteboard data isn't converted to NSStringPboardType data.
+2591925		Printing	permissions on jobcopyperms tool are overly permissive
+2585315		Scripting (AppKit)	Scripting suites are not always loaded in the proper order.
+2577308		System Framework	Auth API should be private

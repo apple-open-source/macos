@@ -1,0 +1,5 @@
+# $Source: /cvs/Darwin/Services/apache_mod_php/php/ext/sysvsem/setup.stub,v $
+# $Id: setup.stub,v 1.1.1.1 2000/08/10 02:08:36 wsanchez Exp $
+
+define_option enable-sysvsem 'System V semaphores support? ' yesno no \
+'    Whether to use the System V semaphores (currently only solaris and linux).'

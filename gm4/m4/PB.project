@@ -1,0 +1,25 @@
+{
+    FILESTABLE = {
+        Documentation = (COPYING, NEWS, README, ChangeLog, INSTALL, TODO); 
+        Headers = (acconfig.h); 
+        Makefiles = (
+            Makefile.in, 
+            mkinstalldirs, 
+            "stamp-h.in", 
+            config.h.in, 
+            configure, 
+            configure.in, 
+            "install-sh"
+        ); 
+        Resources = ("c-boxes.el"); 
+        SUBPROJECTS = (doc, lib, src, checks, examples); 
+        Sources = (aclocal.m4); 
+    }; 
+    LANGUAGE = English; 
+    NEXTSTEP_BUILDTOOL = /bin/make; 
+    PDO_UNIX_BUILDTOOL = /bin/make; 
+    PROJECTNAME = m4; 
+    PROJECTTYPE = "GNU Source"; 
+    PROJECTVERSION = 2.6; 
+    WINDOWS_BUILDTOOL = "${NEXT_ROOT}/NextDeveloper/Executables/make"; 
+}

@@ -1,0 +1,52 @@
+<HTML>
+<HEAD>
+<!-- This HTML file has been created by texi2html 1.51
+     from /mnt/apple/gdb/source/gdb.apple/source/gdb/gdb/doc/stabs.texinfo on 23 November 1999 -->
+
+<TITLE>STABS - Questions and Anomalies</TITLE>
+</HEAD>
+<BODY>
+Go to the <A HREF="stabs_1.html">first</A>, <A HREF="stabs_11.html">previous</A>, <A HREF="stabs_13.html">next</A>, <A HREF="stabs_14.html">last</A> section, <A HREF="stabs_toc.html">table of contents</A>.
+<P><HR><P>
+
+
+<H1><A NAME="SEC86" HREF="stabs_toc.html#TOC86">Questions and Anomalies</A></H1>
+
+
+<UL>
+<LI>
+
+For GNU C stabs defining local and global variables (<CODE>N_LSYM</CODE> and
+<CODE>N_GSYM</CODE>), the desc field is supposed to contain the source
+line number on which the variable is defined.  In reality the desc
+field is always 0.  (This behavior is defined in <TT>`dbxout.c'</TT> and
+putting a line number in desc is controlled by <SAMP>`#ifdef
+WINNING_GDB'</SAMP>, which defaults to false). GDB supposedly uses this
+information if you say <SAMP>`list <VAR>var</VAR>'</SAMP>.  In reality, <VAR>var</VAR> can
+be a variable defined in the program and GDB says <SAMP>`function
+<VAR>var</VAR> not defined'</SAMP>.
+
+<LI>
+
+In GNU C stabs, there seems to be no way to differentiate tag types:
+structures, unions, and enums (symbol descriptor <SAMP>`T'</SAMP>) and typedefs
+(symbol descriptor <SAMP>`t'</SAMP>) defined at file scope from types defined locally
+to a procedure or other more local scope.  They all use the <CODE>N_LSYM</CODE>
+stab type.  Types defined at procedure scope are emited after the
+<CODE>N_RBRAC</CODE> of the preceding function and before the code of the
+procedure in which they are defined.  This is exactly the same as
+types defined in the source file between the two procedure bodies.
+GDB overcompensates by placing all types in block #1, the block for
+symbols of file scope.  This is true for default, <SAMP>`-ansi'</SAMP> and
+<SAMP>`-traditional'</SAMP> compiler options. (Bugs gcc/1063, gdb/1066.)
+
+<LI>
+
+What ends the procedure scope?  Is it the proc block's <CODE>N_RBRAC</CODE> or the
+next <CODE>N_FUN</CODE>?  (I believe its the first.)
+</UL>
+
+<P><HR><P>
+Go to the <A HREF="stabs_1.html">first</A>, <A HREF="stabs_11.html">previous</A>, <A HREF="stabs_13.html">next</A>, <A HREF="stabs_14.html">last</A> section, <A HREF="stabs_toc.html">table of contents</A>.
+</BODY>
+</HTML>

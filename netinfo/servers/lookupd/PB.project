@@ -1,0 +1,152 @@
+{
+    English_RESOURCES = {}; 
+    FILESTABLE = {
+        CLASSES = (
+            CacheAgent.m, 
+            Config.m, 
+            Controller.m, 
+            DNSAgent.m, 
+            FFAgent.m, 
+            FFParser.m, 
+            LDAPAgent_FixedSchema.m, 
+            LDAPAgent_Parsing.m, 
+            LDAPAgent.m, 
+            LUAgent.m, 
+            LUArray_LDAP.m, 
+            LUArray.m, 
+            LUCache.m, 
+            LUDictionary.m, 
+            LULDAPDictionary.m, 
+            LUNIDomain.m, 
+            LUServer.m, 
+            MachRPC.m, 
+            MemoryWatchdog.m, 
+            NIAgent.m, 
+            NILAgent.m, 
+            Root.m, 
+            Thread.m, 
+            XDRSerializer.m, 
+            YPAgent.m
+        ); 
+        C_FILES = (); 
+        H_FILES = (
+            CacheAgent.h, 
+            Config.h, 
+            Controller.h, 
+            DNSAgent.h, 
+            FFAgent.h, 
+            FFParser.h, 
+            LDAPAgent_FixedSchema.h, 
+            LDAPAgent_Parsing.h, 
+            LDAPAgent.h, 
+            LDAPAttributes.h, 
+            LUAgent.h, 
+            LUArray_LDAP.h, 
+            LUArray.h, 
+            LUCache.h, 
+            LUCachedDictionary.h, 
+            LUDictionary.h, 
+            LUGlobal.h, 
+            LULDAPDictionary.h, 
+            LUNIDomain.h, 
+            LUPrivate.h, 
+            LUServer.h, 
+            MachRPC.h, 
+            MemoryWatchdog.h, 
+            NIAgent.h, 
+            NILAgent.h, 
+            Root.h, 
+            Thread.h, 
+            XDRSerializer.h, 
+            YPAgent.h, 
+            lber.h, 
+            ldap.h, 
+            ldap_disptmpl.h, 
+            "ldap_ldap-int.h", 
+            ldap_ldapconfig.h, 
+            ldap_portable.h, 
+            ldap_regex.h, 
+            ldap_srchpref.h, 
+            sys.h
+        ); 
+        M_FILES = (); 
+        OTHER_LIBS = (objc); 
+        OTHER_LINKED = (
+            ldap_abandon.c, 
+            ldap_add.c, 
+            ldap_addentry.c, 
+            ldap_bind.c, 
+            ldap_bprint.c, 
+            ldap_cache.c, 
+            ldap_charset.c, 
+            ldap_cldap.c, 
+            ldap_compare.c, 
+            ldap_decode.c, 
+            ldap_delete.c, 
+            ldap_disptmpl.c, 
+            ldap_dsparse.c, 
+            ldap_encode.c, 
+            ldap_error.c, 
+            ldap_free.c, 
+            ldap_friendly.c, 
+            ldap_getattr.c, 
+            ldap_getdn.c, 
+            ldap_getdxbyname.c, 
+            ldap_getentry.c, 
+            ldap_getfilter.c, 
+            ldap_getvalues.c, 
+            ldap_io.c, 
+            ldap_kbind.c, 
+            ldap_ldapnew.c, 
+            ldap_modify.c, 
+            ldap_modrdn.c, 
+            ldap_open.c, 
+            "ldap_os-ip.c", 
+            ldap_regex.c, 
+            ldap_request.c, 
+            ldap_result.c, 
+            ldap_sbind.c, 
+            ldap_search.c, 
+            ldap_sort.c, 
+            ldap_srchpref.c, 
+            ldap_tmplout.c, 
+            ldap_ufn.c, 
+            ldap_unbind.c, 
+            ldap_url.c, 
+            ldap_v3compat.c, 
+            nettoa.c, 
+            strdup.c, 
+            sys.c, 
+            sys_address.c, 
+            Interactive.m, 
+            lookup_proc.m, 
+            lookupd.m
+        ); 
+        OTHER_SOURCES = (
+            Makefile.preamble, 
+            Makefile, 
+            Makefile.postamble, 
+            lookup.defs, 
+            lookupd.8, 
+            _lu_types.x
+        ); 
+        SUBPROJECTS = (); 
+    }; 
+    GENERATEMAIN = YES; 
+    LANGUAGE = English; 
+    LOCALIZABLE_FILES = {}; 
+    NEXTSTEP_BUILDTOOL = /usr/bin/gnumake; 
+    NEXTSTEP_DOCUMENTEXTENSIONS = (); 
+    NEXTSTEP_INSTALLDIR = /usr/sbin; 
+    NEXTSTEP_JAVA_COMPILER = /usr/bin/javac; 
+    NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc; 
+    PDO_UNIX_INSTALLDIR = /usr/etc; 
+    PDO_UNIX_JAVA_COMPILER = "$(JDKBINDIR)/javac"; 
+    PDO_UNIX_OBJCPLUS_COMPILER = "$(NEXTDEV_BIN)/gcc"; 
+    PROJECTNAME = lookupd; 
+    PROJECTTYPE = Tool; 
+    PROJECTVERSION = 2.8; 
+    WINDOWS_INSTALLDIR = /usr/etc; 
+    WINDOWS_JAVA_COMPILER = "$(JDKBINDIR)/javac.exe"; 
+    WINDOWS_OBJCPLUS_COMPILER = "$(DEVDIR)/gcc"; 
+}

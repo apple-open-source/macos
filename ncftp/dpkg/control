@@ -1,0 +1,7 @@
+Package: ncftp
+Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
+Vendor: NcFTP Software
+Version: 2.4.3
+URL: http://www.ncftp.com/
+Description: Better ftp client
+Build-Depends: build-base

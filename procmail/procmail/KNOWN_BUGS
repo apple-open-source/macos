@@ -1,0 +1,25 @@
+non-MH mail directories depend on files not changing inode number
+    Messages are stored in non-MH mail directories with a name based
+    on the inode number of the file containing the message.  If such a
+    directory is copied to a different location or restored from tape,
+    inode number may change, introducing the possibility of messages
+    being overwritten.
+
+SENDMAILFLAGS variable is treated as a single argument to sendmail
+    The assignment SENDMAILFLAGS="-oi -odd" doesn't work as expected
+    as procmail will pass it to sendmail as one argument.
+
+TIMEOUT doesn't always work
+    If a shell is invoked then procmail may wait while executing a
+    command for longer than TIMEOUT specifies.
+
+Variable capture actions overwrite before executing
+    Variable capture actions clear the value of the variable being
+    captured before the action is executed, thus causing the following
+    action, for example, to not work as desired:
+	variable=|echo "$variable" | tr '[A-Z]' '[a-z]'
+
+regexp matching bug
+    Some regexps may return an incorrect value in the MATCH variable,
+    in particular when 'redundant' * or + operators appear on the left-
+    hand side of the \/ token.

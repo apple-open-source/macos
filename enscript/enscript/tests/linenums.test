@@ -1,0 +1,10 @@
+#!/bin/sh
+#
+# --line-numbers
+#
+
+. $srcdir/defs || exit 1
+
+$enscript --quiet --line-numbers -p$output $asciifiles
+
+rm $output

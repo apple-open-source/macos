@@ -1,0 +1,728 @@
+This is ../info/emacs, produced by makeinfo version 4.0 from emacs.texi.
+
+   This is the thirteenth edition of the `GNU Emacs Manual', updated
+for Emacs version 20.7.
+
+INFO-DIR-SECTION Editors
+START-INFO-DIR-ENTRY
+* Emacs: (emacs).	The extensible self-documenting text editor.
+END-INFO-DIR-ENTRY
+
+   Published by the Free Software Foundation 59 Temple Place, Suite 330
+Boston, MA  02111-1307 USA
+
+   Copyright (C) 1985, 1986, 1987, 1993, 1994, 1995, 1996, 1997, 1998,
+1999    Free Software Foundation, Inc.
+
+   Permission is granted to make and distribute verbatim copies of this
+manual provided the copyright notice and this permission notice are
+preserved on all copies.
+
+   Permission is granted to copy and distribute modified versions of
+this manual under the conditions for verbatim copying, provided also
+that the sections entitled "The GNU Manifesto", "Distribution" and "GNU
+General Public License" are included exactly as in the original, and
+provided that the entire resulting derived work is distributed under the
+terms of a permission notice identical to this one.
+
+   Permission is granted to copy and distribute translations of this
+manual into another language, under the above conditions for modified
+versions, except that the sections entitled "The GNU Manifesto",
+"Distribution" and "GNU General Public License" may be included in a
+translation approved by the Free Software Foundation instead of in the
+original English.
+
+
+File: emacs,  Node: Acknowledgments,  Next: Screen,  Prev: Concept Index,  Up: Top
+
+Acknowledgments
+***************
+
+   Many people have contributed code included in the Free Software
+Foundation's distribution of GNU Emacs.  To show our appreciation for
+their public spirit, we list here those who have written substantial
+portions.
+
+   * Per Abrahamsen wrote the customization buffer facilities, as well
+     as `double.el' for typing accented characters not normally
+     available from the keyboard, `xt-mouse.el' which handles mouse
+     commands through Xterm, and `cpp.el' which hides or highlights
+     parts of C programs according to preprocessor conditionals.
+
+   * Jay K. Adams wrote `jka-compr.el', providing automatic
+     decompression and recompression for compressed files.
+
+   * Joe Arceneaux wrote the original text property implementation, and
+     implemented support for X11.
+
+   * Boaz Ben-Zvi wrote `profile.el', to time Emacs Lisp functions.
+
+   * Jim Blandy wrote Emacs 19's input system, brought its
+     configuration and build process up to the GNU coding standards,
+     and contributed to the frame support and multi-face support.
+
+   * Terrence M. Brannon wrote `landmark.el', a neural-network robot
+     that learns landmarks.
+
+   * Frank Bresz wrote `diff.el', a program to display `diff' output.
+
+   * Peter Breton implemented `dirtrack' which does better tracking of
+     directory changes in shell buffers, `filecache.el' which records
+     which directories your files are in, `locate.el' which interfaces
+     to the `locate' command, `net-utils.el', and the "generic mode"
+     feature.
+
+   * Kevin Broadey wrote `foldout.el', providing folding extensions to
+     Emacs's outline modes.
+
+   * Vincent Broman wrote `ada.el', a mode for editing Ada code (since
+     replaced by `ada-mode.el').
+
+   * David M. Brown wrote `array.el', for editing arrays and other
+     tabular data.
+
+   * Bill Carpenter provided `feedmail.el'.
+
+   * Hans Chalupsky wrote `advice.el', an overloading mechanism for
+     Emacs Lisp functions, and `trace.el', a tracing facility for Emacs
+     Lisp.
+
+   * Bob Chassell wrote `texnfo-upd.el' and `makeinfo.el', modes and
+     utilities for working with Texinfo files.
+
+   * James Clark wrote `sgml-mode.el', a mode for editing SGML
+     documents, and contributed to Emacs's dumping procedures.
+
+   * Mike Clarkson wrote `edt.el', an emulation of DEC's EDT editor.
+
+   * Glynn Clements provided `gamegrid.el' and a couple of games that
+     use it, Snake and Tetris.
+
+   * Andrew Csillag wrote M4 mode (`m4-mode.el').
+
+   * Doug Cutting and Jamie Zawinski wrote `disass.el', a disassembler
+     for compiled Emacs Lisp code.
+
+   * Michael DeCorte wrote `emacs.csh', a C-shell script that starts a
+     new Emacs job, or restarts a paused Emacs if one exists.
+
+   * Gary Delp wrote `mailpost.el', an interface between RMAIL and the
+     `/usr/uci/post' mailer.
+
+   * Matthieu Devin wrote `delsel.el', a package to make newly-typed
+     text replace the current selection.
+
+   * Eric Ding contributed `goto-addr.el',
+
+   * Carsten Dominik wrote `reftex.el', a package for setting up labels
+     and cross-references for LaTeX.
+
+   * Scott Draves wrote `tq.el', help functions for maintaining
+     transaction queues between Emacs and its subprocesses.
+
+   * Viktor Dukhovni wrote support for dumping under SunOS version 4.
+
+   * John Eaton co-wrote Octave mode (`octave.el' and related files).
+
+   * Rolf Ebert co-wrote Ada mode (`ada-mode.el').
+
+   * Stephen Eglen implemented `mspools.el', for use with Procmail,
+     which tells you which mail folders have mail waiting in them, and
+     `iswitchb.el', a feature for incremental reading and completion of
+     buffer names.
+
+   * Torbjo"rn Einarsson contributed F90 mode (`f90.el').
+
+   * Tsugutomo Enami co-wrote the support for international character
+     sets.
+
+   * Hans Henrik Eriksen wrote `simula.el', a mode for editing SIMULA 87
+     code.
+
+   * Michael Ernst wrote `reposition.el', a command for recentering a
+     function's source code and preceding comment on the screen.
+
+   * Ata Etemadi wrote `cdl.el', functions for working with Common Data
+     Language source code.
+
+   * Frederick Farnback implemented `morse.el', which converts text to
+     morse code.
+
+   * Fred Fish wrote the support for dumping COFF executable files.
+
+   * Karl Fogel wrote:
+        * `bookmark.el', for creating named placeholders, saving them
+          and jumping to them later,
+
+        * `mail-hist.el', a history mechanism for outgoing mail
+          messages, and
+
+        * `saveplace.el', for preserving point's location in files
+          between editing sessions.
+
+   * Gary Foster wrote the emulation for CRiSP: `crisp.el' and
+     `scroll-lock.el'.
+
+   * Noah Friedman wrote `rlogin.el', an interface to Rlogin, and
+     `type-break.el', which reminds you to take periodic breaks from
+     typing.  With Roland McGrath, he wrote `rsz-mini.el', a minor mode
+     to automatically resize the minibuffer to fit the text it contains.
+
+   * Keith Gabryelski wrote `hexl.el', a mode for editing binary files.
+
+   * Kevin Gallagher rewrote and enhanced the EDT emulation, and wrote
+     `flow-ctrl.el', a package for coping with unsuppressible XON/XOFF
+     flow control.
+
+   * Kevin Gallo added multiple-frame support for Windows NT.
+
+   * Howard Gayle wrote:
+        * the C and lisp code for display tables and case tables,
+
+        * `rot13.el', a command to display the plaintext form of a
+          buffer encoded with the Caesar cipher,
+
+        * much of the support for the ISO-8859 European character set
+          (which includes `iso-ascii.el', `iso-insert.el',
+          `iso-swed.el', `iso-syntax.el', `iso-transl.el', and
+          `swedish.el'), and
+
+        * `vt100-led.el', a package for controlling the LED's on
+          VT100-compatible terminals.
+
+   * Stephen Gildea made the Emacs quick reference card.
+
+   * David Gillespie wrote:
+        * Emacs 19's Common Lisp compatibility packages, replacing the
+          old package by Cesar Augusto Quiroz Gonzalez,
+
+        * `complete.el', a partial completion mechanism, and
+
+        * `edmacro.el', a package for editing keyboard macros.
+
+   * Bob Glickstein contributed the `sregex.el' feature.
+
+   * Boris Goldowsky wrote `avoid.el', a package to keep the mouse
+     cursor out of the way of the text cursor; `shadowfile.el', a
+     package for keeping identical copies of files in more than one
+     place; `enriched.el', a package for saving text properties in
+     files; and `facemenu.el', a package for specifying faces.
+
+   * Michelangelo Grigni wrote `ffap.el' which visits a file, taking
+     the file name from the buffer.
+
+   * Odd Gripenstam wrote `dcl-mode.el'.
+
+   * Michael Gschwind wrote `iso-cvt.el', a package to convert between
+     the ISO 8859-1 character set and the notations for non-`ASCII'
+     characters used by TeX and net tradition.
+
+   * Henry Guillaume wrote `find-file.el', a package to visit files
+     related to the currently visited file.
+
+   * Doug Gwyn wrote the portable `alloca' implementation.
+
+   * Ken'ichi Handa implemented most of the support for international
+     character sets.
+
+   * Chris Hanson wrote `netuname.el', a package to use HP-UX's Remote
+     File Access facility from Emacs.
+
+   * K. Shane Hartman wrote:
+        * `chistory.el' and `echistory.el', packages for browsing
+          command history lists,
+
+        * `electric.el' and `helper.el', providing an alternative
+          command loop and appropriate help facilities,
+
+        * `emacsbug.el', a package for reporting Emacs bugs,
+
+        * `picture.el', a mode for editing ASCII pictures, and
+
+        * `view.el', a package for perusing files and buffers without
+          editing them.
+
+   * John Heidemann wrote `mouse-copy.el' and `mouse-drag.el', which
+     provide alternative mouse-based editing and scrolling features.
+
+   * Markus Heritsch co-wrote Ada mode (`ada-mode.el').
+
+   * Karl Heuer wrote the original blessmail script, implemented the
+     `intangible' text property, and rearranged the structure of the
+     `Lisp_Object' type to allow for more data bits.
+
+   * Manabu Higashida ported Emacs to the MS-DOS operating system.
+
+   * Anders Holst wrote `hippie-exp.el', a versatile completion and
+     expansion package.
+
+   * Kurt Hornik co-wrote Octave mode (`octave.el' and related files).
+
+   * Tom Houlder wrote `mantemp.el', which generates manual C++ template
+     instantiations.
+
+   * Lars Ingebrigtsen did a major redesign of the GNUS newsreader.
+
+   * Andrew Innes contributed extensively to the Windows NT support.
+
+   * Kyle Jones wrote `life.el', a package to play Conway's "life" game,
+     and `mldrag.el', a package which allows the user to resize windows
+     by dragging mode lines and vertical window separators with the
+     mouse.
+
+   * Tomoji Kagatani implemented `smtpmail.el', used for sending out
+     mail with SMTP.
+
+   * David Kaufman wrote `yow.c', an essential utility program for the
+     hopelessly pinheaded.
+
+   * Henry Kautz wrote `bib-mode.el', a mode for maintaining
+     bibliography databases compatible with `refer' (the `troff'
+     version) and `lookbib', and `refbib.el', a package to convert
+     those databases to the format used by the LaTeX text formatting
+     package.
+
+   * Howard Kaye wrote `sort.el', commands to sort text in Emacs
+     buffers.
+
+   * Michael Kifer wrote `ediff.el', an interactive interface to the
+     `diff' and `patch' programs, and Viper, the newest emulation for
+     VI.
+
+   * Richard King wrote the first version of `userlock.el' and
+     `filelock.c', which provide simple support for multiple users
+     editing the same file.
+
+   * Larry K. Kolodney wrote `cvtmail.c', a program to convert the mail
+     directories used by Gosling Emacs into RMAIL format.
+
+   * Robert Krawitz wrote the original `xmenu.c', part of Emacs's pop-up
+     menu support.
+
+   * Sebastian Kremer wrote Emacs 19's `dired-mode', with contributions
+     by Lawrence R. Dodd.
+
+   * Geoff Kuenning wrote Emacs 19's `ispell.el', based on work by Ken
+     Stevens and others.
+
+   * David Ka*gedal wrote `tempo.el', providing support for easy
+     insertion of boilerplate text and other common constructions.
+
+   * Daniel LaLiberte wrote:
+        * `edebug.el', a source-level debugger for Emacs Lisp,
+
+        * `cl-specs.el', specifications to help `edebug' debug code
+          written using David Gillespie's Common Lisp support,
+
+        * `cust-print.el', a customizable package for printing lisp
+          objects,
+
+        * `eval-reg.el', a re-implementation of `eval-region' in Emacs
+          Lisp, and
+
+        * `isearch.el', Emacs 19's incremental search minor mode.
+
+   * James R. Larus wrote `mh-e.el', an interface to the MH mail system.
+
+   * Frederic Lepied contributed `expand.el', which uses the abbrev
+     mechanism for inserting programming constructs.
+
+   * Lars Lindberg wrote `msb.el', which provides more flexible menus
+     for buffer selection, and rewrote `dabbrev.el'.
+
+   * Eric Ludlam wrote the Speedbar package and `checkdoc.el'.
+
+   * Neil M. Mager wrote `appt.el', functions to notify users of their
+     appointments.  It finds appointments recorded in the diary files
+     generated by Edward M. Reingold's `calendar' package.
+
+   * Ken Manheimer wrote `allout.el', a mode for manipulating and
+     formatting outlines, and `icomplete.el', which provides incremental
+     completion feedback in the minibuffer.
+
+   * Bill Mann wrote `perl-mode.el', a mode for editing Perl code.
+
+   * Brian Marick and Daniel LaLiberte wrote `hideif.el', support for
+     hiding selected code within C `#ifdef' clauses.
+
+   * Simon Marshall wrote:
+        * `fast-lock.el', which caches the face data computed by Font
+          Lock mode,
+
+        * `lazy-lock.el', which delays fontification in Font Lock mode
+          until text is actually displayed, and
+
+        * `regexp-opt.el', which generates a regular expression from a
+          list of strings.
+
+   * Bengt Martensson, Mark Shapiro, Mike Newton, Aaron Larson, and
+     Stefan Schoef, wrote `bibtex.el', a mode for editing BibTeX
+     bibliography files.
+
+   * Charlie Martin wrote `autoinsert.el', which provides automatic
+     mode-sensitive insertion of text into new files.
+
+   * Thomas May wrote `blackbox.el', a version of the traditional
+     blackbox game.
+
+   * Roland McGrath wrote:
+        * `compile.el', a package for running compilations in a buffer,
+          and then visiting the locations reported in error messages,
+
+        * `etags.el', a package for jumping to function definitions and
+          searching or replacing in all the files mentioned in a `TAGS'
+          file,
+
+        * `find-dired.el', for using `dired' commands on output from the
+          `find' program, with Sebastian Kremer,
+
+        * `map-ynp.el', a general purpose boolean question-asker,
+
+        * `autoload.el', providing semi-automatic maintenance of
+          autoload files, and
+
+        * `upd-copyr.el', providing semi-automatic maintenance of
+          copyright notices in source code.
+
+   * David Megginson wrote `derived.el', which allows one to define new
+     major modes by inheriting key bindings and commands from existing
+     major modes.
+
+   * Wayne Mesard wrote `hscroll.el' which does horizontal scrolling
+     automatically.
+
+   * Richard Mlynarik wrote:
+        * `cl-indent.el', a package for indenting Common Lisp code,
+
+        * `ebuff-menu.el', an "electric" browser for buffer listings,
+
+        * `ehelp.el', bindings for browsing help screens,
+
+        * `rfc822.el', a parser for E-mail addresses in the RFC-822
+          format, used in mail messages and news articles,
+
+        * `terminal.el', a terminal emulator for Emacs subprocesses, and
+
+        * `yow.el', an essential utility (try `M-x yow').
+
+   * Keith Moore wrote `aixcc.lex', a pre-processor designed to help
+     Emacs parse the error messages produced by the AIX C compiler.
+
+   * Erik Naggum wrote the time-conversion functions, and has tested the
+     latest source code daily.
+
+   * Thomas Neumann and Eric Raymond wrote `makefile.el', a mode for
+     editing makefiles.
+
+   * Jurgen Nickelsen wrote `ws-mode.el', providing WordStar emulation.
+
+   * Jeff Norden wrote `kermit.el', a package to help the Kermit dialup
+     communications program run comfortably in an Emacs shell buffer.
+
+   * Andrew Norman wrote `ange-ftp.el', providing transparent FTP
+     support.
+
+   * Jeff Peck wrote:
+        * `emacstool.c', support for running Emacs under SunView/Sun
+          Windows,
+
+        * `sun-curs.el', cursor definitions for Sun Windows, and
+
+        * `sun-fns.el', providing mouse support for Sun Windows.
+
+   * Damon Anton Permezel wrote `hanoi.el', an animated demonstration of
+     the "Towers of Hanoi" puzzle.
+
+   * Jens Petersen wrote `find-func.el', which makes it easy to find
+     the source code for an Emacs Lisp function or variable.
+
+   * Daniel Pfeiffer wrote:
+        * `executable.el'
+
+        * `sh-script.el', a mode for editing shell scripts,
+
+        * `skeleton.el', implementing a concise language for writing
+          statement skeletons, and
+
+        * `two-column.el', a minor mode for simultaneous two-column
+          editing.
+
+   * Fred Pierresteguy and Paul Reilly made Emacs work with X Toolkit
+     widgets.
+
+   * Christian Plaunt wrote `soundex.el', an implementation of the
+     Soundex algorithm for comparing English words by their
+     pronunciation.
+
+   * Francesco A. Potorti wrote `cmacexp.el', providing a command which
+     runs the C preprocessor on a region of a file and displays the
+     results.
+
+   * Michael D. Prange and Steven A. Wood wrote `fortran.el', a mode for
+     editing FORTRAN code.
+
+   * Ashwin Ram wrote `refer.el', commands to look up references in
+     bibliography files by keyword.
+
+   * Eric S. Raymond wrote:
+        * `vc.el', an interface to the RCS and SCCS source code version
+          control systems, with Paul Eggert,
+
+        * `gud.el', a package for running source-level debuggers like
+          GDB and SDB in Emacs,
+
+        * `asm-mode.el', a mode for editing assembly language code,
+
+        * `cookie1.el', support for "fortune-cookie" programs like
+          `yow.el' and `spook.el',
+
+        * `finder.el', a package for finding Emacs Lisp packages by
+          keyword and topic,
+
+        * `lisp-mnt.el', functions for working with the special headers
+          used in Emacs Lisp library files, and
+
+        * code to set and make use of the `load-history' lisp variable,
+          which records the source file from which each lisp function
+          loaded into Emacs came.
+
+   * Edward M. Reingold wrote the extensive calendar and diary support
+     (try `M-x calendar'), with contributions from Stewart Clamen, Paul
+     Eggert, and Lara Rios.  Andy Oram contributed to its documentation.
+     Reingold has also contributed to `tex-mode.el', a mode for editing
+     TeX files, as have William F. Schelter, Dick King, Stephen Gildea,
+     Michael Prange, and Jacob Gore.
+
+   * Rob Riepel contributed `tpu-edt.el' and its associated files,
+     providing an emulation of the VMS TPU text editor emulating the
+     VMS EDT editor, and `vt-control.el', providing some control
+     functions for the DEC VT line of terminals.
+
+   * Roland B. Roberts contributed much of the VMS support distributed
+     with Emacs 19, along with Joseph M. Kelsey, and `vms-pmail.el',
+     support for using Emacs within VMS MAIL.
+
+   * John Robinson wrote `bg-mouse.el', support for the mouse on the BBN
+     Bitgraph terminal.
+
+   * Danny Roozendaal implemented `handwrite.el', which converts text
+     into "handwriting."
+
+   * William Rosenblatt wrote `float.el', implementing a floating-point
+     numeric type using Lisp cons cells and integers.
+
+   * Guillermo J. Rozas wrote `scheme.el', a mode for editing Scheme
+     code, and `fakemail.c', an interface to the System V mailer.
+
+   * Ivar Rummelhoff provided `winner.el', which records recent window
+     configurations so you can move back to them.
+
+   * Wolfgang Rupprecht contributed Emacs 19's floating-point support
+     (including `float-sup.el' and `floatfns.c'), and `sup-mouse.el',
+     support for the Supdup mouse on lisp machines.
+
+   * James B. Salem and Brewster Kahle wrote `completion.el', providing
+     dynamic word completion.
+
+   * Masahiko Sato wrote `vip.el', an emulation of the VI editor.
+
+   * William Schelter wrote `telnet.el', support for `telnet' sessions
+     within Emacs.
+
+   * Ralph Schleicher contributed `battery.el', a package for displaying
+     laptop computer battery status, and `info-look.el', a package for
+     looking up Info documentation for symbols in the buffer.
+
+   * Gregor Schmid wrote `tcl.el', a mode for editing Tcl/Tk scripts.
+
+   * Michael Schmidt and Tom Perrine wrote `modula2.el', a mode for
+     editing Modula-2 code, based on work by Mick Jordan and Peter
+     Robinson.
+
+   * Ronald S. Schnell wrote `dunnet.el', a text adventure game.
+
+   * Philippe Schnoebelen wrote `gomoku.el', a Go Moku game played
+     against Emacs, and `mpuz.el', a multiplication puzzle.
+
+   * Randal Schwartz wrote `pp.el', a pretty-printer for lisp objects.
+
+   * Manuel Serrano contributed the Flyspell package that does spell
+     checking as you type.
+
+   * Stanislav Shalunov wrote `uce.el', for responding to unsolicited
+     commercial email.
+
+   * Richard Sharman contributed `hilit-chg.el', which uses colors to
+     inclidate recent editing changes.
+
+   * Olin Shivers wrote:
+        * `comint.el', a library for modes running interactive
+          command-line- oriented subprocesses,
+
+        * `cmuscheme.el', for running inferior Scheme processes,
+
+        * `inf-lisp.el', for running inferior Lisp process, and
+
+        * `shell.el', for running inferior shells.
+
+   * Sam Shteingold wrote `gulp.el'.
+
+   * Espen Skoglund wrote `pascal.el', a mode for editing Pascal code.
+
+   * Rick Sladkey wrote `backquote.el', a lisp macro for creating
+     mostly-constant data.
+
+   * Lynn Slater wrote `help-macro.el', a macro for writing interactive
+     help for key bindings.
+
+   * Chris Smith wrote `icon.el', a mode for editing Icon code.
+
+   * David Smith wrote `ielm.el', a mode for interacting with the Emacs
+     Lisp interpreter as a subprocess.
+
+   * Paul D. Smith wrote `snmp-mode.el'.
+
+   * William Sommerfeld wrote `scribe.el', a mode for editing Scribe
+     files, and `server.el', a package allowing programs to send files
+     to an extant Emacs job to be edited.
+
+   * Michael Staats wrote `pc-select.el', which rebinds keys for
+     selecting regions to follow many other systems.
+
+   * Ake Stenhoff and Lars Lindberg wrote `imenu.el', a framework for
+     browsing indices made from buffer contents.
+
+   * Peter Stephenson contributed `vcursor.el', which implements a
+     "virtual cursor" that you can move with the keyboard and use for
+     copying text.
+
+   * Sam Steingold wrote `midnight.el'.
+
+   * Jonathan Stigelman wrote `hilit19.el', a package providing
+     automatic highlighting in source code buffers, mail readers, and
+     other contexts.
+
+   * Steve Strassman did not write `spook.el', and even if he did, he
+     really didn't mean for you to use it in an anarchistic way.
+
+   * Jens T. Berger Thielemann wrote `word-help.el', which is part of
+     the basis for `info-look.el'.
+
+   * Spencer Thomas wrote the original `dabbrev.el', providing a command
+     which completes the partial word before point, based on other
+     nearby words for which it is a prefix.  He also wrote the original
+     dumping support.
+
+   * Jim Thompson wrote `ps-print.el', which converts Emacs text to
+     Postscript.
+
+   * Masanobu Umeda wrote:
+        * GNUS, a featureful reader for Usenet news,
+
+        * `prolog.el', a mode for editing Prolog code,
+
+        * `rmailsort.el', a package for sorting messages in RMAIL
+          folders,
+
+        * `metamail.el', an interface to the Metamail program,
+
+        * `tcp.el', emulation of the `open-network-stream' function for
+          some Emacs configurations which lack it, and
+
+        * `timezone.el', providing functions for dealing with time
+          zones.
+
+   * Neil W. Van Dyke wrote `webjump.el', a "hot links" package.
+
+   * Ulrik Vieth implemented `meta-mode.el', for editing MetaFont code.
+
+   * Geoffrey Voelker wrote the Windows NT support.
+
+   * Johan Vromans wrote `forms.el' and its associated files, defining a
+     mode for filling in forms, and `iso-acc.el', a minor mode providing
+     electric accent keys for text using the ISO-8859 character set.
+
+   * Barry Warsaw wrote:
+        * `assoc.el', a set of utility functions for working with
+          association lists,
+
+        * `cc-mode.el', a major mode for editing C and C++ code, based
+          on earlier work by Dave Detlefs, Stewart Clamen, and Richard
+          Stallman,
+
+        * `elp.el', a new profiler for Emacs Lisp programs.
+
+        * `man.el', a mode for reading UNIX manual pages,
+
+        * `regi.el', providing an AWK-like control structure for use in
+          lisp programs, and
+
+        * `reporter.el', providing customizable bug reporting for lisp
+          packages.
+
+        * `supercite.el', a minor mode for quoting sections of mail
+          messages and news articles,
+
+   * Morten Welinder wrote:
+        * `desktop.el', facilities for saving some of Emacs's state
+          between sessions,
+
+        * `s-region.el', commands for setting the region using the
+          shift key and motion commands, and
+
+        * `dos-fns.el', functions for use under MS-DOS.
+
+     He also helped port Emacs to MS-DOS.
+
+   * Joseph Brian Wells wrote:
+        * `apropos.el', a command to find commands, functions, and
+          variables whose names contain matches for a regular
+          expression,
+
+        * `resume.el', support for processing command-line arguments
+          after resuming a suspended Emacs job, and
+
+        * `mail-extr.el', a package for extracting names and addresses
+          from mail headers, with contributions from Jamie Zawinski.
+
+   * Rodney Whitby and Reto Zimmermann wrote `vhdl-mode.el'.
+
+   * Ed Wilkinson wrote `b2m.c', a program to convert mail files from
+     RMAIL format to Unix `mbox' format.
+
+   * Mike Williams wrote `mouse-sel.el', providing enhanced mouse
+     selection, and `thingatpt.el', a library of functions for finding
+     the "thing" (word, line, s-expression) containing point.
+
+   * Dale R. Worley wrote `emerge.el', a package for interactively
+     merging two versions of a file.
+
+   * Tom Wurgler wrote `emacs-lock.el', which makes it harder to exit
+     with valuable buffers unsaved.
+
+   * Eli Zaretskii made many standard Emacs features work on MS-DOS.
+
+   * Jamie Zawinski wrote:
+        * Emacs 19's optimizing byte compiler, with Hallvard Furuseth,
+
+        * much of the support for faces and X selections,
+
+        * `mailabbrev.el', a package providing automatic expansion of
+          mail aliases, and
+
+        * `tar-mode.el', providing simple viewing and editing commands
+          for tar files.
+
+   * Ian T. Zimmerman wrote `gametree.el'.
+
+   * Neal Ziring and Felix S. T. Wu wrote `vi.el', an emulation of the
+     VI text editor.
+
+   Others too numerous to mention have reported and fixed bugs, and
+added features to many parts of Emacs.  We thank them for their
+generosity as well.
+
+   This list intended to mention every contributor of a major package or
+feature we currently distribute; if you know of someone we have omitted,
+please report that as a manual bug.
+

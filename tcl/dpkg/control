@@ -1,0 +1,7 @@
+Package: tcl
+Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
+Vendor: Scriptics
+Version: 8.3.2
+URL: http://www.scriptics.com/software/tcltk/
+Description: Tool Command Language
+Build-Depends: build-base

@@ -1,0 +1,62 @@
+\initial {B}
+\entry {\code {\code {buffer-read-only}}}{27}
+\initial {E}
+\entry {\code {\code {ex-cycle-other-window}}}{27}
+\entry {\code {\code {ex-cycle-through-non-files}}}{27}
+\entry {\code {\code {ex-nontrivial-find-file-function}.}}{24}
+\initial {F}
+\entry {\code {\code {function-key-map}}}{29}
+\initial {V}
+\entry {\code {\code {viper-allow-multiline-replace-regions}}}{27}
+\entry {\code {\code {viper-always}}}{27, 31}
+\entry {\code {\code {viper-auto-indent}}}{27}
+\entry {\code {\code {viper-buffer-search-char}}}{27, 32}
+\entry {\code {\code {viper-case-fold-search}}}{27}
+\entry {\code {\code {viper-command-ring-size}}}{33}
+\entry {\code {\code {viper-custom-file-name}}}{27}
+\entry {\code {\code {viper-delete-backwards-in-replace}}}{27}
+\entry {\code {\code {viper-dired-modifier-map}}}{32}
+\entry {\code {\code {viper-electric-mode}}}{27}
+\entry {\code {\code {viper-emacs-global-user-map}}}{29}
+\entry {\code {\code {viper-emacs-state-hook}}}{27}
+\entry {\code {\code {viper-ESC-key}}}{27}
+\entry {\code {\code {viper-ESC-keyseq-timeout}}}{27}
+\entry {\code {\code {viper-ESC-moves-cursor-back}}}{27}
+\entry {\code {\code {viper-ex-style-editing}}}{27}
+\entry {\code {\code {viper-ex-style-motion}}}{27}
+\entry {\code {\code {viper-fast-keyseq-timeout}}}{27}
+\entry {\code {\code {viper-insert-global-user-map}}}{29}
+\entry {\code {\code {viper-insert-state-cursor-color}}}{25}
+\entry {\code {\code {viper-insert-state-hook}}}{27}
+\entry {\code {\code {viper-insertion-ring-size}}}{33}
+\entry {\code {\code {viper-keep-point-on-repeat}}}{27}
+\entry {\code {\code {viper-keep-point-on-undo}}}{27}
+\entry {\code {\code {viper-mouse-insert-key}}}{35, 36}
+\entry {\code {\code {viper-multiclick-timeout}}}{36}
+\entry {\code {\code {viper-no-multiple-ESC}}}{27}
+\entry {\code {\code {viper-non-vi-major-modes}}}{30}
+\entry {\code {\code {viper-parse-sexp-ignore-comments}}}{46}
+\entry {\code {\code {viper-re-query-replace}}}{27}
+\entry {\code {\code {viper-re-search}}}{27}
+\entry {\code {\code {viper-replace-overlay-cursor-color}}}{25}
+\entry {\code {\code {viper-replace-overlay-face}}}{27}
+\entry {\code {\code {viper-replace-region-end-symbol}}}{27}
+\entry {\code {\code {viper-replace-region-start-symbol}}}{27}
+\entry {\code {\code {viper-replace-state-hook}}}{27}
+\entry {\code {\code {viper-search-face}}}{16, 27}
+\entry {\code {\code {viper-search-scroll-threshold}}}{27}
+\entry {\code {\code {viper-search-wrap-around}}}{27}
+\entry {\code {\code {viper-shift-width}}}{27}
+\entry {\code {\code {viper-slash-and-colon-map}}}{32}
+\entry {\code {\code {viper-smart-suffix-list}}}{33}
+\entry {\code {\code {viper-spell-function}}}{18, 27}
+\entry {\code {\code {viper-surrounding-word-function}}}{27}
+\entry {\code {\code {viper-syntax-preference}}}{16, 44}
+\entry {\code {\code {viper-tags-file-name}}}{27}
+\entry {\code {\code {viper-toggle-key}}}{27}
+\entry {\code {\code {viper-vi-global-user-map}}}{29}
+\entry {\code {\code {viper-vi-state-hook}}}{27}
+\entry {\code {\code {viper-vi-style-in-minibuffer}}}{27}
+\entry {\code {\code {viper-want-ctl-h-help}}}{27}
+\entry {\code {\code {viper-want-emacs-keys-in-insert}}}{27, 31}
+\entry {\code {\code {viper-want-emacs-keys-in-vi}}}{27, 31}

@@ -1,0 +1,3 @@
+SHELLTOOL = ccp.sh
+
+include $(CoreOSMakefiles)/ProjectBuilder/Makefile.Preamble.Common

@@ -1,0 +1,21 @@
+{
+    ProjectTypeDescription = "A kernel relocatable module, intended for kernel extensions.";
+    Allowable_SuperprojectTypes = (KExtension);
+    Allowable_SubprojectTypes = (Subproject);
+    AttributesInspector = SubprojectInspector;
+    DefaultExtension = kmodproj;
+    DisplayName = "Kernel Module";
+    AliasNames = (KMod);
+    GeneratedFiles = (Makefile);
+    KeyForType = TOOLS;
+    MAKEFILEDIR = "$(MAKEFILEPATH)/pb_makefiles";
+    MAKEFILE = "kmod.make";
+    PBProjectTypeSubClass = "KModProjectType";
+    SOURCEMODE = 444;
+    Targets = (kmodule, debug, install);
+    IsRootProjectType = NO; 
+    Other_Keys = (OTHER_SOURCES, OTHER_LIBS);
+    Resource_Keys = (OTHER_RESOURCES);
+    Source_Keys = (CLASSES, H_FILES, OTHER_LINKED);
+    Subproj_Keys = (SUBPROJECTS);
+}

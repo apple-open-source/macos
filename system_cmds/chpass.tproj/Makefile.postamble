@@ -1,0 +1,10 @@
+VPATH += :../pwd_mkdb.tproj:../vipw.tproj
+
+INSTALL_AS_USER =	root
+INSTALL_PERMISSIONS =4555
+#CHFLAGS = /usr/bin/chflags
+after_install::
+	$(LN) -f $(INSTALLED_PRODUCTS) $(DSTROOT)$(INSTALLDIR)/chfn
+	$(LN) -f $(INSTALLED_PRODUCTS) $(DSTROOT)$(INSTALLDIR)/chsh
+#	$(CHFLAGS) schg $(DSTROOT)$(INSTALLDIR)/$(NAME)
+

@@ -1,0 +1,29 @@
+{
+    FILESTABLE = {
+        Documentation = (
+            ChangeLog, 
+            README, 
+            COPYING, 
+            INSTALL, 
+            INSTALL.RCS, 
+            NEWS, 
+            REFS, 
+            CREDITS, 
+            rcs.ms, 
+            rcs_func.ms
+        ); 
+        Headers = (); 
+        Makefiles = (Makefile.in, configure.in, configure, mkinstalldirs, "install-sh"); 
+        Resources = (); 
+        SUBPROJECTS = (man, src); 
+        Sources = (); 
+    }; 
+    LANGUAGE = English; 
+    LOCALIZABLE_FILES = {}; 
+    NEXTSTEP_BUILDTOOL = /bin/make; 
+    PDO_UNIX_BUILDTOOL = /bin/make; 
+    PROJECTNAME = rcs; 
+    PROJECTTYPE = "GNU Source"; 
+    PROJECTVERSION = 2.6; 
+    WINDOWS_BUILDTOOL = "${NEXT_ROOT}/NextDeveloper/Executables/make"; 
+}

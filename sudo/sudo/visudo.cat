@@ -1,0 +1,198 @@
+
+
+
+visudo(1m)             MAINTENANCE COMMANDS            visudo(1m)
+
+
+NNNNAAAAMMMMEEEE
+       visudo - edit the sudoers file
+
+SSSSYYYYNNNNOOOOPPPPSSSSIIIISSSS
+       vvvviiiissssuuuuddddoooo [ ----ssss ] [ ----VVVV ]
+
+DDDDEEEESSSSCCCCRRRRIIIIPPPPTTTTIIIIOOOONNNN
+       vvvviiiissssuuuuddddoooo edits the _s_u_d_o_e_r_s file in a safe fashion, analogous
+       to _v_i_p_w(1m).  vvvviiiissssuuuuddddoooo locks the _s_u_d_o_e_r_s file against
+       multiple simultaneous edits, provides basic sanity checks,
+       and checks for parse errors.  If the _s_u_d_o_e_r_s file is
+       currently being edited you will receive a message to try
+       again later.  In the default configuration, the _v_i(1)
+       editor is used, but there is a compile time option to
+       allow use of whatever editor the environment variables
+       EDITOR or VISUAL are set to.
+
+       vvvviiiissssuuuuddddoooo parses the _s_u_d_o_e_r_s file after the edit and will not
+       save the changes if there is a syntax error.  Upon finding
+       an error, a message will be printed stating the line
+       _n_u_m_b_e_r(s) that the error occurred on and the user will
+       receive the "What now?" prompt.  At this point the user
+       may enter "e" to re-edit the _s_u_d_o_e_r_s file, enter "x" to
+       exit without saving the changes, or "Q" to quit and save
+       changes.  The "Q" option should be used with extreme care
+       because if vvvviiiissssuuuuddddoooo believes there to be a parse error, so
+       will ssssuuuuddddoooo and no one will be able to execute ssssuuuuddddoooo again
+       until the error is fixed.  Any other command at this
+       prompt will print a short help message.  When editing the
+       _s_u_d_o_e_r_s file after a parse error has been detected the
+       cursor will be placed on the line where the error occurred
+       (if the editor supports this feature).
+
+OOOOPPPPTTTTIIIIOOOONNNNSSSS
+       vvvviiiissssuuuuddddoooo accepts the following command line option:
+
+       -s  Enable ssssttttrrrriiiicccctttt checking of the _s_u_d_o_e_r_s file.  If an
+           alias is used before it is defined, vvvviiiissssuuuuddddoooo will
+           consider this a parse error.  Note that it is not
+           possible to differentiate between an alias and a
+           hostname or username that consists solely of upper
+           case letters, digits, and the underscore ('_')
+           character.
+
+       -V  The -V (version) option causes vvvviiiissssuuuuddddoooo to print the
+           version number and exit.
+
+EEEERRRRRRRROOOORRRRSSSS
+       sudoers file busy, try again later.
+           Someone else is currently editing the _s_u_d_o_e_r_s file.
+
+       /etc/sudoers.tmp: Permission denied
+           You didn't run vvvviiiissssuuuuddddoooo as root.
+
+
+
+
+26/Mar/2000                   1.6.3                             1
+
+
+
+
+
+visudo(1m)             MAINTENANCE COMMANDS            visudo(1m)
+
+
+       Can't find you in the passwd database
+           Your userid does not appear in the system passwd file.
+
+       Warning: undeclared Alias referenced near ...
+           Either you are using a {User,Runas,Host,Cmnd}_Alias
+           before defining it or you have a user or hostname
+           listed that consists solely of upper case letters,
+           digits, and the underscore ('_') character.  If the
+           latter, you can ignore the warnings (ssssuuuuddddoooo will not
+           complain).  In ----ssss (strict) mode these are errors not
+           warnings.
+
+EEEENNNNVVVVIIIIRRRROOOONNNNMMMMEEEENNNNTTTT
+       The following environment variables are used only if
+       vvvviiiissssuuuuddddoooo was configured with the _-_-_w_i_t_h_-_e_n_v_-_e_d_i_t_o_r option:
+
+        EDITOR                 Used by visudo as the editor to use
+        VISUAL                 Used by visudo if EDITOR is not set
+
+
+FFFFIIIILLLLEEEESSSS
+        /etc/sudoers           List of who can run what
+        /etc/sudoers.tmp       Lock file for visudo
+
+
+AAAAUUUUTTTTHHHHOOOORRRR
+       Many people have worked on _s_u_d_o over the years, this
+       version of vvvviiiissssuuuuddddoooo was written by:
+
+        Todd Miller            <Todd.Miller@courtesan.com>
+
+       See the HISTORY file in the sudo distribution for more
+       details.
+
+BBBBUUUUGGGGSSSS
+       If you feel you have found a bug in sudo, please submit a
+       bug report at http://www.courtesan.com/sudo/bugs/
+
+DDDDIIIISSSSCCCCLLLLAAAAIIIIMMMMEEEERRRR
+       VVVViiiissssuuuuddddoooo is provided ``AS IS'' and any express or implied
+       warranties, including, but not limited to, the implied
+       warranties of merchantability and fitness for a particular
+       purpose are disclaimed.  See the LICENSE file distributed
+       with ssssuuuuddddoooo for complete details.
+
+CCCCAAAAVVVVEEEEAAAATTTTSSSS
+       There is no easy way to prevent a user from gaining a root
+       shell if the editor used by vvvviiiissssuuuuddddoooo allows shell escapes.
+
+SSSSEEEEEEEE AAAALLLLSSSSOOOO
+       _s_u_d_o(1m), _v_i_p_w(1m).
+
+
+
+
+
+
+26/Mar/2000                   1.6.3                             2
+
+
+
+
+
+visudo(1m)             MAINTENANCE COMMANDS            visudo(1m)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+26/Mar/2000                   1.6.3                             3
+
+

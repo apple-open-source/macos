@@ -1,0 +1,11 @@
+
+
+NOTE:
+
+The code in this directory is a duplicate copy of the code
+in the i386 subdirectory.  When the generic parts of all the machine
+directories are merged, then the rcz code can be merged too.
+
+For now, don't forget to keep this code in sync with the code in the
+i386 directory.
+

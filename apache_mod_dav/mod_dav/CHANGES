@@ -1,0 +1,409 @@
+Version 1.0.2-1.3.6 (released 19-Oct-2000)
+
+  * ./configure and build updates:
+    - allow building from outside the source directory (Fred Sanchez)
+    - proactively detect broken APXS installations (idea from PHP)
+  * updated INSTALL doc to document broken APXS installs and with more
+    information about the Last-Modified header problem
+  * minor changes to dav_dyn to make it easier for third parties to
+    add backend modules
+  * the DAV directive now takes a provider name (e.g. DAV svn). DAV On
+    enables the default provider.
+  * DAV Off is no longer allowed *under* a DAV On directive -- once a
+    parent location/dir defines a DAV provider, then that provider
+    handles everything under it.
+    [ this is a possible backwards-compat issue for httpd.conf ]
+  * add some slack time for expiring locks: we report an expriation of 
+    N seconds, but the timeout doesn't occur until N + 120
+    seconds. this helps out Office which sends its Refresh too close
+    to the expiration time, and can then miss due to latency
+  * fix handling of the If-Unmodified-Since header by updating the
+    request_rec's mtime field. (Joe Orton)
+  * partial fix for filesystems that can have file sizes more than
+    4G. small files are reported properly; large files could still be
+    reported incorrectly. (Annette DeSchon)
+  * maintain the executable property across COPY and MOVE (Joe Orton)
+  * update opaquelock functionality and Expat parsing for proper
+    operation in EBCDIC environments (Jean-Frederic Clere)
+  * fix leak of subrequests in property handling (Joe Orton)
+  * put real status text into our Multistatus responses
+  * fix for operation in an IPv6-enabled Apache (Rolf Haberrecker)
+  * if a lock fails due to authentication problems, return a 403
+    (Forbidden) rather than 401 (Unauthorized). this fixes an HTTP
+    conformance issue where we returned 401 but no WWW-Authenticate
+    response header. (Joe Orton)
+  * return 413 (Request Entity Too Large) when the XML request body
+    exceeds the limit, rather than 400 (Bad Request). (Joe Orton)
+  * fix byterange handling for custom repositories (Joe Orton)
+  * fix lock inheritance on the destination of a COPY/MOVE (Joe Orton)
+
+Version 1.0.1-1.3.6 (released 28-Jun-2000)
+
+  * fix binary file corruption on Win32 (from Barry Pederson)
+  * small tweak in dav_fs_repos.c to aid AIX compilation (via xlc)
+
+Version 1.0.0-1.3.6 (released 13-Jun-2000)
+
+  * new directives:
+    - DAVDepthInfinity (from Joe Orton) to control whether PROPFIND
+      with a Depth: infinity is allowed.
+    - LimitXMLRequestBody to control the size of XML request bodies
+      (for PROPFIND, PROPPATCH, LOCK)
+  * implement Content-Range support for the GET and PUT methods
+  * locks record the authenticated principal (from Keith Wannamaker) 
+  * fix errors in dav_dyn which prevented proper operation when
+    mod_dav is statically linked.
+  * fix another tweaky error related to startup initialization which
+    ended up causing MOVE/COPY to non-DAV directories to act funny
+  * filenames are now case-preserved on a PUT (from Keith Wannamaker)
+  * fix bug with timing-out indirect locks
+  * Win32 no longer defines the "executable" property
+  * fix up error handling in MOVE/COPY/DELETE
+  * fixes for "insufficient storage" errors (from Joe Orton)
+  * fix UNLOCK for locknull resources
+  * disable writing to DAV:getcontenttype and DAV:getcontentlanguage
+    (to be fixed in a future version)
+  * update prop handling to deal with multiple liveprop providers
+  * delay creation of the propdb until a dead prop is truly
+    stored. this prevents the creation of a propdb when the client is
+    merely setting the "executable" flag.
+  * fix crasher when validating the root of a DAV tree (from Joe)
+  * properly deal with HEAD requests when we have a custom repository
+  * internal cleanups: lint, error propagation, depend on dav_error
+    logging rather than direct logging
+
+Version 0.9.17-1.3.6 (released 21-Apr-2000)
+
+  * fix the search for Expat in the Debian builds
+  * ton of internal work to truly support liveprop providers
+    - more (dynamic) module support
+    - revised liveprop provider API
+    - dav_props has cleaner logic for live vs dead props, and core vs
+      provider-specified props
+    - hook contexts and xml_elems now have an ns_map for liveprop use
+      (xml_elem lost 'annotation' and gained a couple others, too)
+    - mod_dav records a list of liveprop providers, rather than one
+    - liveprop providers participate in PROPPATCH via patch_* hooks
+    - DAV: header now returns URIs for sets of live properties
+      (dav_fs_repos returns <http://apache.org/dav/propset/fs/1>)
+  * add the ("http://apache.org/dav/props/", "executable") property to
+    control the execute permission flag on the files in the repository
+  * flesh out some of the module support, primarily for liveprop
+    provider support
+  * dav_insert_ns() is broken out from dav_xmlparse.c for reuse
+  * lock providers: dav_get_lock_database() is now dav_get_lockdb_path()
+  * URIs for a dav_resource are now directly accessible; the get_uri
+    hook function is toast
+  * use the correct URI in error responses
+  * repository API: getetag was moved here from the liveprop API;
+    added the dav_stream concept and associated APIs; removed the old
+    APIs dealing with FILE*; added set_headers function
+  * adding some missing lockdb closes in some error cases
+  * better error responses by setting "verbose-error-to"
+  * locknull resources no longer define many live properties
+  * POST no longer validates against the parent resource
+  * added the repository hooks pointer into dav_resource. use this
+    value to ensure that a MOVE/COPY operates within the same
+    repository.
+  * COPY of Depth:0 now works correctly (slight repository API change)
+  * fix PROPFIND on the DAV:lockdiscovery property when no locks exist
+  * better error reporting in If: header processing
+  * fix If: header processing to look for submitted locktokens
+    anywhere in the header, not just on matching state_lists
+  * normalize the URIs used in If: header processing. mod_dav is no
+    longer sensitive to the presence/absence of trailing slashes
+  * more regression tests in util/regress
+
+Version 0.9.16-1.3.6 (released 07-Mar-2000)
+
+  * updated INSTALL document with sections on handling problems
+  * some work on the internal APIs to help out people building custom
+    modules/providers
+  * fixed problem with a PUT into a LOCKed collection
+  * better error responses for edge cases on a PUT (Joe Orton)
+  * fixed encoding of all values in responses (both XML and URL
+    encoding as appropriate)
+  * add DAVParam directive for future use by custom modules/providers
+  * unused/undeveloped DASL query grammar stuff removed
+
+Version 0.9.15-1.3.6 (released 11-Feb-2000)
+
+  * look for Expat in the right locations on a Debian system
+  * fix trailing-slash handling problems with the Request-URI and If:
+    headers' tagged-list
+  * improve handling of non-existent resources
+  * some basic versioning support from John Vasta
+  * property values are properly XML-quoted
+  * DAV:owner (in a lock) now works properly
+  * make some standard properties read-only
+  * fixed a hang in the Win32 version due to double-opens of the lock
+    database (from Keith Wannamaker)
+  * fixed a case where the lock database wasn't closed (Joe Orton)
+  * add interoperability code for Netscape's Roaming Profiles
+    (untested; based on example patch from Niels Baggesen)
+  * fixed bug: DELETE requires locktoken for the parent resource
+  * update copyright lines to 2000. update snail mail address.
+
+Version 0.9.14-1.3.6 (released 17-Dec-1999)
+
+  * make the configure process a bit more robust for --with-apache
+  * major fixes to locking behavior:
+    - locknull resources behave better
+    - refreshing works better
+    - PUT, MKCOL, MOVE, COPY inherit locks appropriately
+    - some fixes to UNLOCK behavior
+    - lots of work on the validation: the If: header is now processed
+      properly, and LOCK will look for conflicting locks
+    - tagged URIs in an If: header now match properly
+  * more changes to locking provider API
+  * bug #37: locknull files were accidentally labelled as collections
+  * PROPPATCH now has full rollback behavior in case of an error
+  * PROPPATCH/remove no longer errors if a property is not present
+  * DAVMinTimeout is now allowed at the top level, per the documentation
+  * some fixes to the .dsp file: link against Apache's Expat, use MT DLLs
+  * add new utility for managing locks (from client side): lock.py
+
+Version 0.9.13-1.3.6 (released 19-Nov-1999)
+
+  * revise internal error handling: cleaner, simpler, more info, etc.
+    For more detail, review the CVS logs for "dav_error" changes.
+  * using the above changes, put more info into the error log and in
+    some cases, return more info in the HTTP response.
+  * alter internal provider hooks for: locks, repository, db.
+  * internal conversion to new dav_lock data structure (not yet
+    complete)
+  * fixed some problems with inheriting locks upon a PUT or MKCOL
+  * repository can signal that it can handle a GET request (John Vasta)
+  * fix a crasher in saving locks with no owner
+  * internal move/copy code cleaned up (John Vasta)
+  * fix DAV:getcontenttype (it always returned the content type for
+    the Request-URI rather than the "current" resource)
+  * fix entity-tag code: DAV:getetag now returns quoted entity tags
+    (per the RFC, an entity-tag is a quoted-string)
+  * fix checks for If: header processing. in some cases, locked
+    resources were allowed to be changed; in others, changes were
+    erroneously prevented.
+  * the lock owner is now saved, but problems still exist with its
+    handling of XML namespaces and stuff.
+  * in some cases, a lockdiscovery provided an absoluteURI; it is now
+    a relativeURI (like the other cases where we return URIs)
+  * fixed Infinite timeouts on locks (John Vasta)
+  * some changes to the lockview utility
+
+Version 0.9.12-1.3.6 (released 15-Oct-1999)
+
+  * Win32 make changes (Keith Wannamaker)
+  * lock fixes (Keith Wannamaker)
+  * tweaks to play nice with C++
+  * remove "getprop" from the vsn hooks (John Vasta)
+  * fix HEAD requests for repositories (John Vasta)
+  * fix problem when a lock provider is not present (John Vasta)
+  * fix CC value in Makefile.in (Fran Taylor)
+
+Version 0.9.11-1.3.6 (released 12-Sep-1999)
+
+  * fix LIBS problem in libdav.module.in
+  * wrap mod_dav.h with extern "C"
+  * fix bug: r->path_info can sometimes be NULL
+  * fix problem with GET being too aggressive (mod_dav should be more
+    care in deciding to handle these)
+  * implement DAV:getcontenttype and DAV:getcontentlanguage. these are
+    also r/w propertie. Currently, they are not returned as headers
+    during a GET.
+  * revise liveprop handling
+  * revise lockdb structure into public/private portion
+  * perform std If-* checks during If: and lock validation (Joe Orton)
+  * limit scope of the DAV directives (Keith Wannamaker)
+
+Version 0.9.10-1.3.6 (released 04-Sep-1999)
+
+  * Added internal APIs for replaceable subsystems. (John Vasta)
+  * Added DAVMinTimeout directive (Keith Wannamaker)
+  * ./configure improvements and fixes
+  * change building of files in APXS case -- compile "outside" of the
+    Apache build system and only use APXS to link. This eliminates the
+    sdbm_combined.[ch] thing
+  * fix building of libdav.so when inside the Apache tree (add the
+    dav_shared_stub.c thing)
+  * fix problem in remove_locknull_member() to prevent spamming the
+    log with errors about not being able to locate the .locknull file.
+  * use lstat() within the directory walking code
+  * various locking code fixes (Keith, John, Greg)
+  * removed the experimental PHP integration. This will be done using
+    the subsystem hook approach instead.
+  * improve some errors responses.
+  * fix the Lock-Token header to meet RFC 2518 conformance (Keith/John).
+  * Visual Studio files upgraded to VC6 (Keith Wannamaker)
+
+Version 0.9.9-1.3.6 (released 15-Aug-1999)
+
+  * Class 2 DAV functionality (locking) (Keith Wannamaker)
+  * switch to the autoconf utilities for configuration (Rasmus
+    Lerdorf, Greg)
+  * bump propdb version to 4: old prop databases could have invalid
+    property values in them (the "no namespace" bug noted below)
+  * add util/fixvers tool to force an update of propdbs to V4
+  * initial rollback support for PROPPATCH
+  * fix the PROPPATCH responses when an error occurs
+  * fix an IE5 problem where the Destination: header has an
+    unqualified hostname (Keith Wannamaker)
+  * fix an XML parsing bug: xmlns="" did not reset the default
+    namespace to be "no namespace"
+  * fix AIX build (via autoconf magic) (Rasmus Lerdorf)
+  * add MS-Author-Via header to OPTIONS response
+  * refine the OPTIONS response (Keith Wannamaker, Greg)
+  * use Apache 1.3.8's copy of expat
+  * fix sdbm_combined generation (Peter Windle)
+  * fix PUT handling when an error occurs (Keith Wannamaker)
+  * initial sketch of dynamic extension support
+  * add support for directly opening *DBM files (rather than requiring
+    them to be in the state directory) (Keith Wannamaker)
+  * DAV:getetag property support (Keith Wannamaker)
+  * If: header processing (Keith Wannamaker)
+  * enable Win32 support (Keith Wannamaker, John Vasta)
+
+Version 0.9.8-1.3.6 (released 06-Apr-1999)
+
+  * bump propdb version to 3: old propdb databases could have invalid
+    property values in them.
+  * fix bad bug in property value namespace handling. The child
+    elements of a value were not being remapped from the input
+    namespace indices to the propdb indices.
+  * some refinements in the MOVE/COPY validation code
+  * XML processing fixes:
+    - attributes do not use the default namespace. if they do not have
+      a prefix, then they have "no namespace"
+    - never generate "our" XML using the default namespace. the
+      default namespace must be reserved for elements that reside in
+      the "no namespace" space (it is illegal to use a prefix to refer
+      to the "no namespace" concept)
+      Net result: we use xmlns:D="DAV:" now
+    - revise code to NOT place an empty URI int the namespace table to
+      mean "no namespace". instead, it must be handled with a special
+      constant. we already had this: DAV_NS_XML was renamed to
+      DAV_NS_NONE. it means "do not prepend a namespace prefix"
+    - some simplifications of the parsing code (dav_find_prefix and
+      the stuff related to DAV_NS_NONE)
+    - looks like properties named xml...:name would have been
+      generated improperly in a PROPFIND result (a prefix would have
+      been added). now fixed.
+  * misc comment fixes/updates
+  * fix processing of r->allowed (from Ken Coar)
+  * conform to Apache-standard formatting
+  * check for leading "xml" in NS prefixes is now case-insignificant
+
+Version 0.9.7-1.3.4 (released 23-Feb-1999)
+
+  * MOVE/COPY Destination now defaults the port number
+  * MOVE/COPY will now authorize the Destination
+  * improve error handling for dav_delete_propset and
+    dav_copymove_propset: return dav_response structures rather than
+    directly logging an error. similarly, change the return value for
+    dav_copymove_file. added save_errno to dav_response for support.
+  * fix cross-device MOVEs
+  * added some initial work for the SEARCH method from Matthew Parry:
+    some new configuration directives plus empty method handler.
+  * small fix for HP/UX -- it does not have run-time aggregate struct
+    initialization.
+  * shift most STATE directory/file handling under the propdb hooks;
+    add general state file handling function: dav_copymove_state()
+  * add storage of xml:lang values (and other xml:lang handling)
+  * update propdb internal version to V2: language values added
+  * add SDBM to the distribution. updated Makefile.tmpl and
+    Makefile.apxs files.
+  * encapsulate propdb access under a hook (vtable) design
+  * move GDBM usage into dav_dbm.c covered by the hooks
+  * add SDBM usage into dav_dbm.c
+  * removed unnecessary RULE_HIDE from libdav.module
+
+Version 0.9.6-1.3.4 (released 31-Jan-1999)
+
+  * switch to new Apache-style license (see LICENSE.html)
+  * remove 1.3.3 compatibility; in other words, require 1.3.4
+  * small tweaks to insert a couple newlines into XML response text
+  * fix small bug where we erroneously trapped POST requests
+  * minor nits in the header comments
+  * update copyrights to include 1999
+
+Version 0.9.5-1.3.3 (released 13-Dec-1998)
+
+  * more tweaks to the INSTALL file
+  * update Makefile.apxs for more flexibility
+  * change mod_dav.[ch] to allow mod_dav to work with Apache 1.3.4-dev
+  * update dav_props for versioning
+  * initial pass (not yet enabled) at storing xml:lang with properties
+  * refine dav_open_propdb(), dav_propdb_error() error handling
+  * ignore namespace prefixes beginning with "xml" (reserved for XML).
+    These are stored in the propdb unchanged (e.g. they are passed thru)
+  * internal propdb refinements w.r.t unknown keys in the db (future-proof)
+  * move XML utilities from dav_xmlparse.c to dav_util.c. add new
+    dav_empty_elem() function.
+  * fix small bug in XML to text translation w.r.t size computation of
+    attributes.
+  * add xml:lang processing (but not storage yet)
+  * default namespaces are properly handled now -- it no longer
+    assumes that an empty prefix at the top-level means DAV:
+  * "no namespace" is understood and handled properly. the default
+    namespace now implies "no namespace" rather than DAV:
+
+Version 0.9.4-1.3.3 (released 07-Dec-1998)
+
+  * fixed slash handling in COPY, MOVE, and MKCOL
+  * internal work on namespace handling (preparations to be able to
+    handle xml:lang and other "xml" prefixes)
+  * internal work to add hooks for external processing
+    (from Stig Bakken)
+  * updates to INSTALL
+
+Version 0.9.3-1.3.3 (released 02-Dec-1998)
+
+  * setting or deleting a property now returns more complex errors,
+    but there is still some "flowing" that must happen.
+  * looking up a URI for a COPY/MOVE returns more complex errors:
+    - 502 (Bad Gateway) is now returned when appropriate
+  * fixed a bunch of error responses to compensate for Apache 1.3.3's
+    new error response mechanism (it is harder for us to simply
+    override). There is now a dav_error_response() function to return
+    an error message similar to Apache's, but with our own custom
+    response body.
+  * The following response status codes now have a proper body:
+    - 201 (Created)
+    - 403 (Forbidden)
+    - 409 (Conflict)
+    - 412 (Precondition Failed)
+  * cleaned up some actual error message text.
+  * fixed some return values from the handler (we needed to return
+    DONE more often).
+  * added additional COPY/MOVE check for the case where the
+    Destination contains the Source (only had the reverse check in
+    before).
+  * fixed stupid bug in Overwrite: header handling
+  * fixed some response handling of DAV: properties (sometimes the
+    "good" values would not be returned)
+  * removed the silly newline in the <multistatus> response
+
+Version 0.9.2-1.3.3 (released 16-Nov-1998)
+
+  * fixed URI handling for directories; a double slash would occur when
+    the Request-URI as terminated in a slash (which is the "proper" format
+    for a collection/directory request anyhow!).
+  * fixed the broken PROPFIND <prop> response where: a property was not
+    found, and the propdb was not present or the property's namespace was
+    not present within the propdb.
+  * add character set encoding info to responses
+  * add Makefile.apxs to distribution
+  * fixed crasher with DAV:resourcetype request
+
+
+Version 0.9.1-1.3.3 (released 06-Nov-1998)
+
+  * fixed: return live props even when no dead props exist
+  * fixed: GET processing within DAV trees (don't handle GETs at all)
+  * add INSTALL, mod_dav.module, and expanded README (Rasmus Lerdorf)
+  * register the module/version with Apache (Rasmus Lerdorf)
+  * update to Apache 1.3.3
+
+
+Version 0.9.0-1.3.2 (released 05-Nov-1998)
+
+  * Initial release

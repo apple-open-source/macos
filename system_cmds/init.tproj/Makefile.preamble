@@ -1,0 +1,4 @@
+# can be added to Compiler Flags to provide Secure login
+# -DSECURE  LIBS = -lutil   
+OTHER_GENERATED_OFILES = $(VERS_OFILE)
+

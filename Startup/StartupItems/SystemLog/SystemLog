@@ -1,0 +1,20 @@
+#!/bin/sh
+
+##
+# Start the system log server.
+##
+
+. /etc/rc.common
+
+ConsoleMessage "Starting system log"
+
+if [ -f /etc/syslog.conf ]; then
+    rm -f /dev/log
+
+    # If you want a timestamp to be logged periodically,
+    # modify the invocation of syslogd below.  For example, 
+    # for a half-hourly timestamp, add the argument "-m30".
+    syslogd
+else
+    echo "Warning: syslogd was not started"
+fi

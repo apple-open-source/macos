@@ -1,0 +1,71 @@
+GNU m4 THANKS file
+
+GNU m4 has originally been written by Rene' Seindal.  Many people
+further contributed to GNU m4 by reporting problems, suggesting
+various improvements or submitting actual code.  Here is a list of
+these people.  Help me keep it complete and exempt of errors.
+
+Akiko Matsushita	matusita@sra.co.jp
+Alan Magnuson		awm@osc.edu
+Alexander Lehmann	alex@hal.rhein-main.de
+Amos Shapira		amoss@cs.huji.ac.il
+Andreas Gustafsson	gson@niksula.hut.fi
+Andreas Schwab		schwab@ls5.informatik.uni-dortmund.de
+Assar Westerlund	assar@nada.kth.se
+Ben A. Mesander		ben@piglet.cr.usgs.gov
+Bengt Mertensson	bengt@mathematik.uni-bremen.de
+Bernhard Daeubler	daeb@physik.uni-ulm.de
+Bjorn R. Bjornsson	brb@falcon.is
+Brendan Kehoe		brendan@cygnus.com
+David J. MacKenzie	djm@uunet.uu.net
+Erez Zadok		ezk@cs.columbia.edu
+Eric Allman		eric@cs.berkeley.edu
+Eric Backus		ericb@lsid.hp.com
+Franc,ois Pinard	pinard@iro.umontreal.ca
+Geoff Russell		grussell@guest.adelaide.edu.au
+Greg A. Woods		woods@web.apc.org
+Hal Peterson		hrp@pecan.cray.com
+Hoang Uong		hoang@ornews.intel.com
+Ian Taylor		ian@cygnus.com
+Jason Merrill		jason@jarthur.claremont.edu
+Jim Avera		jima@netcom.com
+Jim Kingdom		kingdon@cygnus.com
+Jim Meyering		meyering@acm.org
+Joel Sherrill		jsherril@uahcs2.cs.uah.edu
+John David Anglin	dave@hiauly1.hia.nrc.ca
+Joseph E. Sacco		jsacco@ssl.com
+Karl Berry		karl@cs.umb.edu
+Karl Vogel		vogelke@c-17igp.wpafb.af.mil
+Kaveh R. Ghazi		ghazi@noc.rutgers.edu
+Kristine Lund		lund@lpnaxp.in2p3.fr
+Krste Asanovic		krste@icsi.berkeley.edu
+Marion Hakanson		hakanson@cse.ogi.edu
+Mark Seiden		mis@seiden.com
+Matthias Rabe		rabe@mathematik.uni-bielefeld.de
+Michael Fetterman	mafetter@ichips.intel.com
+Michael L. Welcome	welcome@bigbird.llnl.gov
+Mike Lijewski		lijewski@theory.tc.cornell.edu
+Nick S. Kanakakorn	skanan@otl.scu.edu
+Nicolas Pioch		pioch@inf.enst.fr
+Noah Friedman		friedman@gnu.ai.mit.edu
+Pete Chown		pete.chown@dale.dircon.co.uk
+Pierre Gaumond		gaumondp@ere.umontreal.ca
+Pierre Mathieu		mathieu@geod.emr.ca
+Robert Bernstein	rocky@panix.com
+Rene' Seindal		seindal@diku.dk
+Richard Stallman	rms@gnu.ai.mit.edu
+Roland H. Pesch		roland@wrs.com
+Roland McGrath		roland@gnu.ai.mit.edu
+Scott Bartram		deneb!scottb
+Simon Leinen		simon@lia.di.epfl.ch
+Skip Montanaro		skip@automatrix.com
+Stephen Perkins		perkins@cps.msu.edu
+Steve Williamson	willy@uinpla.npl.uiuc.edu
+Thorsten Ohl		ohl@physics.harvard.edu
+Tom McConnell		tmcconne@sedona.intel.com
+Tom Quinn		trq@dionysos.thphys.ox.ac.uk
+Tom Tromey		tromey@cns.caltech.edu
+Ulrich Drepper		drepper@ira.uka.de
+Vern Paxson		vern@ee.lbl.gov
+Vivek P. Singhal	singhal@cs.utexas.edu
+Walter Wong		wcw+@cmu.edu

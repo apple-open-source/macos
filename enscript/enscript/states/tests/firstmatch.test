@@ -1,0 +1,17 @@
+#!/bin/sh
+#
+# Test the first match.
+#
+
+. $srcdir/defs || exit 1
+
+cat << EOF >data.in
+aaaa
+EOF
+
+result=`$states --state=test_first_match data.in 2>&1`
+rm -f data.in
+
+if test "X$result" != "Xok"; then
+  exit 1;
+fi

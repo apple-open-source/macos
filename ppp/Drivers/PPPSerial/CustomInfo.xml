@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd">
+<plist version="0.9">
+<dict>
+    <key>Name</key>
+	<string>PPPSerial</string>
+    <key>Vendor</key>
+	<string>Apple Computer, Inc</string>
+    <key>Version</key>
+	<string>0.1</string>
+    <key>Date</key>
+	<string>2000-07-20T22:32:33Z</string>
+</dict>
+</plist>
+

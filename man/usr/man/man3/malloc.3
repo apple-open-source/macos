@@ -1,0 +1,120 @@
+.TH MALLOC 3 "July 30, 1993" "Apple Computer, Inc."
+.SH NAME
+malloc, free, realloc, calloc, valloc, malloc_size, malloc_good_size, alloca \- memory allocator
+.SH SYNOPSIS
+.nf
+.B #include <stdlib.h>
+.PP
+.B void *malloc(size_t byteSize)
+.PP
+.B void free(void *ptr)
+.PP
+.B void *realloc(void *oldptr, size_t newsize)
+.PP
+.B void *calloc(size_t numElems, size_t byteSize)
+.PP
+.B void *valloc(size_t byteSize)
+.PP
+.B size_t malloc_size(void *ptr)
+.PP
+.B size_t malloc_good_size(size_t byteSize)
+.PP
+.B char *alloca(int size)
+.fi
+.SH DESCRIPTION
+.I Malloc
+and
+.I free
+provide a general-purpose memory allocation package.
+.I Malloc
+returns a pointer to a block of at least
+.I size
+bytes beginning on a 
+.I long
+boundary.
+.PP
+The argument to
+.I free
+is a pointer to a block previously allocated by
+.IR malloc ;
+this space is made available for further allocation.
+.PP
+Needless to say, grave disorder will result if the space assigned by
+.I malloc
+is overrun or if some random number is handed to
+.IR free .
+.PP
+.I Realloc
+changes the size of the block pointed to by
+.I ptr
+to
+.I size
+bytes and returns a pointer to the (possibly moved) block.
+The contents will be unchanged up to the lesser of the new and old sizes.
+.PP
+.I Calloc
+allocates space for an array of
+.I nelem
+elements of size
+.IR elsize .
+The space is initialized to zeros. Pointers allocated by 
+.I calloc 
+should be freed using
+.IR free .
+.PP
+.I Valloc
+allocates a page-aligned space of size at least
+.IR byteSize . 
+Pointers allocated by
+.I valloc
+should be freed using
+.IR free .
+.PP
+.I Malloc_size
+returns the size of the block pointed to by the argument. The size is
+always at least the requested size, and is often a few words larger.
+.PP
+.I Malloc_good_size
+returns a size that is unlikely to waste any storage.
+.PP
+.I Alloca
+allocates 
+.I size
+bytes of space in the stack frame of the caller.
+This temporary space is automatically freed on
+return.
+.PP
+Each of the allocation routines returns a pointer
+to space suitably aligned (after possible pointer coercion)
+for storage of any type of object.
+.SH DIAGNOSTICS
+.I Malloc, realloc
+and
+.I calloc
+return a null pointer (NULL)
+if there is no available memory.
+.SH DEBUGGING ALLOCATION ERRORS
+This package contains a number of facilities to help debug. (These 
+facilities are subject to change; therefore, shipping products should
+not rely on the presence of any of these facilities at runtime.) 
+To list these facilities set the environment variable "MallocHelp"
+and then launch the program from the environment in which the variable
+is set. For example, in csh you would execute "setenv MallocHelp 1" and
+then launch your program from the command line. A list of environment
+variables and their effects will be printed to the shell.
+.SH BUGS
+.I Malloc
+should guarantee nothing about the state of a block once
+it has been passed to
+.I free.
+However, some other versions of
+.I malloc
+will guarantee that a block that has been freed is left
+unchanged until a subsequent call to
+.IR free ,
+.IR realloc ,
+or
+.IR malloc .
+.PP
+.I Alloca
+is machine dependent; its use is discouraged.

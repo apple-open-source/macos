@@ -1,0 +1,64 @@
+{
+    FILESTABLE = {
+        CLASSES = (); 
+        C_FILES = (); 
+        H_FILES = (pico.h, osdep.h, ebind.h, edef.h, efunc.h, estruct.h); 
+        OTHER_LIBS = (); 
+        OTHER_LINKED = (
+            ansi.c, 
+            attach.c, 
+            basic.c, 
+            bind.c, 
+            browse.c, 
+            buffer.c, 
+            composer.c, 
+            display.c, 
+            file.c, 
+            fileio.c, 
+            line.c, 
+            main.c, 
+            osdep.c, 
+            pico.c, 
+            random.c, 
+            region.c, 
+            search.c, 
+            spell.c, 
+            tcap.c, 
+            window.c, 
+            word.c
+        ); 
+        OTHER_SOURCES = (Makefile.preamble, Makefile); 
+        PRECOMPILED_HEADERS = (); 
+        PROJECT_HEADERS = (); 
+        PUBLIC_HEADERS = (); 
+        SUBPROJECTS = (); 
+    }; 
+    GENERATEMAIN = YES; 
+    LANGUAGE = English; 
+    LOCALIZABLE_FILES = {}; 
+    NEXTSTEP_BUILDDIR = ""; 
+    NEXTSTEP_BUILDTOOL = /bin/make; 
+    NEXTSTEP_COMPILEROPTIONS = "-Dnxt -DJOB_CONTROL -DANSI"; 
+    NEXTSTEP_DOCUMENTEXTENSIONS = (); 
+    NEXTSTEP_INSTALLDIR = /usr/bin; 
+    NEXTSTEP_JAVA_COMPILER = /usr/bin/javac; 
+    NEXTSTEP_LINKEROPTIONS = ""; 
+    NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc; 
+    PDO_UNIX_BUILDDIR = ""; 
+    PDO_UNIX_BUILDTOOL = /bin/make; 
+    PDO_UNIX_COMPILEROPTIONS = "-Dnxt -DJOB_CONTROL -DANSI"; 
+    PDO_UNIX_INSTALLDIR = /usr/bin; 
+    PDO_UNIX_JAVA_COMPILER = "$(NEXTDEV_BIN)/javac"; 
+    PDO_UNIX_LINKEROPTIONS = ""; 
+    PDO_UNIX_OBJCPLUS_COMPILER = "$(NEXTDEV_BIN)/gcc"; 
+    PROJECTNAME = pico; 
+    PROJECTTYPE = Tool; 
+    PROJECTVERSION = 2.8; 
+    WINDOWS_BUILDDIR = ""; 
+    WINDOWS_BUILDTOOL = /bin/make; 
+    WINDOWS_COMPILEROPTIONS = "-Dnxt -DJOB_CONTROL -DANSI"; 
+    WINDOWS_INSTALLDIR = /usr/bin; 
+    WINDOWS_JAVA_COMPILER = "$(JDKBINDIR)/javac.exe"; 
+    WINDOWS_LINKEROPTIONS = ""; 
+    WINDOWS_OBJCPLUS_COMPILER = "$(DEVDIR)/gcc"; 
+}

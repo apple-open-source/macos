@@ -1,0 +1,20 @@
+#!/bin/sh
+#
+# Fancy and standard headers.
+#
+
+. $srcdir/defs || exit 1
+
+# Standard.
+$enscript -2r --quiet --header='Hello, world!' -p$output $asciifiles
+$enscript -2r --quiet --header='Left|Center' -p$output $asciifiles
+$enscript -2r --quiet --header='Left|Center|Right' -p$output $asciifiles
+
+# Fancy.
+for i in a2ps edd emacs enscript frame mp; do
+  $enscript -2r --quiet --fancy=$i -p$output $asciifiles
+done
+
+
+
+rm $output

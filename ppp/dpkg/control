@@ -1,0 +1,7 @@
+Package: ppp
+Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
+Vendor: Australian National University
+Version: 2.3.11
+URL: ftp://cs.anu.edu.au/pub/software/ppp/
+Description: Point-to-Point Protocol
+Build-Depends: build-base, extentools, perl, iokituser, corefoundation

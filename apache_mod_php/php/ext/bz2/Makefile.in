@@ -1,0 +1,7 @@
+# $Id: Makefile.in,v 1.1.1.1 2001/01/25 04:59:06 wsanchez Exp $
+
+LTLIBRARY_NAME        = libbz2.la
+LTLIBRARY_SOURCES     = bz2.c
+LTLIBRARY_SHARED_NAME = bz2.la
+
+include $(top_srcdir)/build/dynlib.mk

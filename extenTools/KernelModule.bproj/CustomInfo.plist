@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd">
+<plist version="0.9">
+<dict>
+    <key>CFBundleDevelopmentRegion</key>
+        <string>English</string>
+    <key>CFBundleExecutable</key>
+        <string>KernelModule</string>
+    <key>CFBundleGetInfoString</key>
+        <string></string>
+    <key>CFBundleIconFile</key>
+        <string></string>
+    <key>CFBundleIdentifier</key>
+        <string>com.apple.pbwo.KernelModuleType</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+        <string>6.0</string>
+    <key>CFBundleName</key>
+        <string>Kernel Module Project Type for Project Builder WO</string>
+    <key>CFBundlePackageType</key>
+        <string>BNDL</string>
+    <key>CFBundleShortVersionString</key>
+        <string>1.15</string>
+    <key>CFBundleSignature</key>
+        <string>????</string>
+    <key>CFBundleVersion</key>
+        <string>1.15</string>
+</dict>
+</plist>
+

@@ -1,0 +1,141 @@
+This is ../info/mh-e, produced by makeinfo version 4.0 from mh-e.texi.
+
+INFO-DIR-SECTION Editors
+START-INFO-DIR-ENTRY
+* MH-E: (mh-e).		Emacs interface to the MH mail system.
+END-INFO-DIR-ENTRY
+
+   This is Edition 1.2, last updated 22 August 1995, of `mh-e, The
+Emacs Interface to MH', for mh-e, Version 5.0.2.
+
+   Copyright 1995 Free Software Foundation, Inc.
+
+   Permission is granted to make and distribute verbatim copies of this
+manual provided the copyright notice and this permission notice are
+preserved on all copies.
+
+   Permission is granted to copy and distribute modified versions of
+this manual under the conditions for verbatim copying, provided also
+that the section entitled "Copying" is included exactly as in the
+original, and provided that the entire resulting derived work is
+distributed under the terms of a permission notice identical to this
+one.
+
+   Permission is granted to copy and distribute translations of this
+manual into another language, under the above conditions for modified
+versions, except that this permission notice may be stated in a
+translation approved by the Free Software Foundation.
+
+
+Indirect:
+mh-e-1: 1129
+mh-e-2: 49366
+mh-e-3: 95067
+mh-e-4: 142990
+
+Tag Table:
+(Indirect)
+Node: Top1129
+Node: Preface1947
+Ref: Preface-Footnote-13723
+Node: Tour Through mh-e3985
+Ref: Tour Through mh-e-Footnote-14879
+Node: Conventions5148
+Ref: Conventions-Footnote-18602
+Node: Getting Started8740
+Ref: Getting Started-Footnote-111601
+Node: Sending Mail Tour11642
+Ref: Sending Mail Tour-Footnote-113188
+Ref: Sending Mail Tour-Footnote-213272
+Node: Reading Mail Tour13424
+Node: Processing Mail Tour14966
+Node: Leaving mh-e18193
+Node: More About mh-e18807
+Node: Using mh-e20086
+Node: Reading Mail21491
+Ref: Reading Mail-Footnote-123071
+Node: Viewing23373
+Node: Reading Digests24137
+Node: Reading MIME25517
+Ref: Reading MIME-Footnote-125910
+Node: Moving Around26110
+Ref: Moving Around-Footnote-127423
+Node: Sending Mail27498
+Ref: Sending Mail-Footnote-129134
+Node: Replying29385
+Node: Forwarding30858
+Node: Redistributing31768
+Node: Old Drafts32366
+Node: Draft Editing33440
+Node: Editing Textual35302
+Node: Inserting Letter35699
+Ref: Inserting Letter-Footnote-137090
+Node: Inserting Messages37207
+Node: Header37732
+Node: Recipients38606
+Node: Signature38901
+Node: Editing MIME39209
+Ref: Editing MIME-Footnote-141013
+Node: Forwarding MIME41119
+Node: FTP41506
+Node: Tar41913
+Node: Other MIME Objects42488
+Node: Sending MIME42891
+Node: Sending Message45390
+Node: Killing Draft45727
+Node: Moving Mail46031
+Node: Incorporating47826
+Node: Deleting48567
+Node: Organizing49366
+Node: Printing51465
+Node: Files and Pipes51921
+Node: Finishing Up53259
+Node: Searching54589
+Node: Sequences57986
+Node: Miscellaneous60867
+Node: Customizing mh-e61499
+Ref: Customizing mh-e-Footnote-164877
+Node: Customizing Reading65257
+Ref: Customizing Reading-Footnote-171911
+Node: Customizing Viewing71994
+Node: Customizing Moving Around76103
+Node: Customizing Sending76645
+Node: Customizing Replying80671
+Node: Customizing Forwarding81175
+Node: Customizing Redistributing81942
+Ref: Customizing Redistributing-Footnote-182523
+Node: Customizing Old Drafts82633
+Node: Customizing Draft Editing83606
+Node: Customizing Editing Textual85114
+Node: Customizing Inserting Letter85542
+Ref: Customizing Inserting Letter-Footnote-187243
+Node: Customizing Signature87493
+Node: Customizing Editing MIME87813
+Node: Customizing Sending MIME90322
+Node: Customizing Sending Message90979
+Node: Customizing Moving Mail91475
+Node: Customizing Incorporating93254
+Node: Customizing Deleting94704
+Node: Customizing Organizing95067
+Node: Customizing Scan Line Formats99528
+Node: Customizing Printing102882
+Node: Customizing Files and Pipes103603
+Node: Customizing Finishing Up104498
+Node: Customizing Searching105017
+Node: Odds and Ends105874
+Node: Bug Reports106260
+Node: Mailing List106636
+Node: MH FAQ107019
+Node: Getting mh-e107814
+Node: History109107
+Node: From Brian Reid109592
+Ref: From Brian Reid-Footnote-1110747
+Node: From Jim Larus111235
+Node: From Stephen Gildea113492
+Node: Changes to mh-e115628
+Node: Copying119085
+Node: Command Index138281
+Node: Variable Index142990
+Node: Concept Index148516
+
+End Tag Table

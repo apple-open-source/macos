@@ -1,0 +1,5 @@
+dnl ../doc/m4.texinfo:2416: Origin of test
+len()
+dnl @result{}0
+len(`abcdef')
+dnl @result{}6

@@ -1,0 +1,425 @@
+.TH NETINFO 3 "August 29, 1989" "Apple Computer, Inc."
+.SH NAME
+netinfo \- library routines for NetInfo calls
+.SH SYNOPSIS
+\fB#include <netinfo/ni.h>\fR
+.SH DESCRIPTION
+These calls are the programming interface to NetInfo.  Typically, 
+a handle (of type "void *") is allocated through a call to
+.I ni_new,
+.I ni_open,
+or
+.I ni_connect.
+This handle opens a connection to the given NetInfo domain.  Read calls
+may go to either the master or the clone servers, while writes will
+always go to the master server.  If the master is unavailable,
+no writes can be performed.
+The handle is then passed to one of several NetInfo routines for database
+operations and then freed using
+.I ni_free.
+Several utility routines are also supplied which operate on NetInfo data
+structures.  These routines don't require NetInfo handles.
+.LP
+.SH MACROS
+.PP
+.B NI_INDEX_NULL
+.IP
+A constant which evaluates to the highest unsigned integer.  It is useful
+for indicating something which should go at the end of a list, as opposed
+to a smaller value which indicates the precise position at which the insert
+should occur.
+.PP
+\fBNI_INIT\fR(\fIptr\fR)
+.IP
+Initializes a NetInfo data structure.  It effectively zeros out the structure
+referred to by
+.I ptr.
+This macro is useful for indicating an empty list or NULL value with one
+of the many NetInfo data structures.
+.SH "DATATYPES AND ASSOCIATED UTILITY ROUTINES"
+.PP
+.B ni_status
+.IP
+The result code of most NetInfo routines.
+.PP
+const char *\fBni_error\fR(ni_status \fIstatus\fR)
+.IP
+Returns the error string associated with the given NetInfo status.
+.PP
+.B ni_index
+.IP
+An index into a NetInfo list.
+.PP
+.B ni_id
+.IP
+NetInfo directories are identified through the
+.I ni_id
+data structure.  It records the ID of the directory in the
+.I nii_object
+field and the instance of the directory in the
+.I nii_instance
+field.  The instance indicates which version of the directory is being
+operated on and is only relevant for writes.  Each time a write is
+performed, the instance is incremented to reflect the new version.  If
+the instance given does not match the current instance of the directory,
+the error NI_STALE is returned, indicating a stale ID.  All NetInfo
+routines which operate on directories will return the latest value of
+the instance.
+.PP
+.B ni_name
+.IP
+A NetInfo name.  It is equivalent to a C string.
+.PP 
+ni_name \fBni_name_dup\fR(const ni_name \fIname\fR)
+.IP
+Returns a mallocated copy of a NetInfo name.
+.PP
+void \fBni_name_free\fR(ni_name *\fInamep\fR)
+.IP
+Frees a NetInfo name.  The pointer is converted to NULL.  A NULL pointer
+will not be freed.
+.PP
+int \fBni_name_match\fR(const ni_name \fIname1\fR, const ni_name \fIname2\fR)
+.IP
+Compares two NetInfo names for equality.  Returns non-zero for success,
+zero for failure.
+.PP
+.B ni_namelist
+.IP
+A list of NetInfo names.
+.PP
+ni_namelist \fBni_namelist_dup\fR(const ni_namelist \fInl\fR)
+.IP
+Returns a mallocated duplicate of a NetInfo namelist.
+.PP
+void \fBni_namelist_free\fR(ni_namelist *\fInl\fR)
+.IP
+Frees a NetInfo namelist.  The namelist structure is zeroed.  Zeroed
+namelists will not be freed.
+.PP
+void \fBni_namelist_insert\fR(ni_namelist *\fInl\fR, const ni_name \fIname\fR, ni_index \fIwhere\fR)
+.IP
+Duplicates and inserts the given name at the given location into the namelist.
+.PP
+void \fBni_namelist_delete\fR(ni_namelist *\fInl\fR, ni_index \fIwhere\fR)
+.IP
+Deletes and frees the name at the given location in the namelist.
+.PP
+ni_index \fBni_namelist_match\fR(const ni_namelist \fInl\fR, const ni_name \fIname\fR)
+.IP
+If the name is in the given namelist, the first index of its occurrence
+is returned.  Otherwise, NI_INDEX_NULL is returned indicating failure.
+.PP
+.B ni_property
+.IP
+A NetInfo property.  It contains a name and a namelist of associated values.
+.PP 
+ni_property \fBni_prop_dup\fR(const ni_property \fIprop\fR)
+.IP
+Returns a mallocated duplicate of the given NetInfo property.
+.PP
+void \fBni_prop_free\fR(ni_property *\fIprop\fR)
+.IP
+Frees and zeros the NetInfo property.  Zeroed properties will not be freed
+again.
+.PP
+.B ni_proplist
+.IP
+A list of NetInfo properties.
+.PP
+void \fBni_proplist_insert\fR(ni_proplist *\fIpl\fR, const ni_property \fIprop\fR, ni_index \fIwhere\fR)
+.IP
+Duplicates and inserts the given property at the given location into the given property
+list.
+.PP
+void \fBni_proplist_delete\fR(ni_proplist *\fIpl\fR, ni_index \fIwhere\fR)
+.IP
+Frees and deletes the property at the given location in the property list.
+.PP
+ni_index \fBni_proplist_match\fR(const ni_proplist \fIpl\fR, const ni_name \fIname\fR, const ni_name \fIval\fR)
+.IP
+Returns the location in the property list of the first property with a name
+of 
+.I name
+and having value
+.I val.
+NI_INDEX_NULL is returned on failure.
+If NULL is the \fIvalue\fR argument,
+\fBni_proplist_match\fR will match on only the \fIname\fR argument.
+.PP
+ni_proplist \fBni_proplist_dup\fR(const ni_proplist \fIpl\fR)
+.IP
+Returns a mallocated duplicate property list.
+.PP
+void \fBni_proplist_free\fR(ni_proplist *\fIpl\fR)
+.IP
+Frees and zeroes the property list.  A zeroed property will not be freed again.
+.PP
+.B ni_idlist
+.IP
+A list of NetInfo indices (usually directory ID's).
+.PP
+void \fBni_idlist_free\fR(ni_idlist *\fIidl\fR)
+.IP
+Frees and zeroes the given ID list.  A zeroed ID list will not be freed again.
+.PP
+.B ni_entry
+.IP
+An entry in a NetInfo directory.  It contains the ID of the directory and
+a list of values assocated with whatever property was requested in the
+.I ni_list
+routine.  The list may be NULL, indicating that there is not associated
+property for this directory.
+.PP
+.B ni_entrylist
+.IP
+A list of NetInfo entries.
+.PP
+void \fBni_entrylist_free\fR(ni_entrylist *\fIentries\fR)
+.IP
+Frees and zeros the given entry list.  A zeroed entry list will not be
+freed again.
+.LP
+.SH "ROUTINES"
+.PP
+ni_status \fBni_addrtag\fR(void *\fIhandle\fR, struct sockaddr_in *\fIaddr\fR, ni_name *\fItag\fR)
+.IP
+Returns the address and domain tag associated with the connected
+NetInfo handle.
+.PP
+ni_status \fBni_children\fR(void *\fIhandle\fR, ni_id *\fIdir\fR, ni_idlist *\fIidlist\fR)
+.IP
+Lists the children ID's (subdirectories) of the given directory.
+.PP
+void *\fBni_connect\fR(struct sockaddr_in *\fIaddr\fR, ni_name \fItag\fR)
+.IP
+Returns a NetInfo handle to the NetInfo domain at the given address
+and domain tag.  Returns NULL on failure.
+.PP
+ni_status \fBni_create\fR(void *\fIhandle\fR, ni_id *\fIparent\fR, ni_proplist \fIprops\fR, ni_id *\fIchild\fR, ni_index \fIwhere\fR)
+.IP
+Creates a new directory at the given index initialized with the given 
+properties.
+.PP
+ni_status \fBni_createname\fR(void *\fIhandle\fR, ni_id *\fIdir\fR, ni_index \fIprop_index\fR, ni_name \fIname\fR, ni_index \fIval_index\fR)
+.IP
+Inserts the name into the value list of the given directory at the property
+indexed by prop_index and value list location val_index.
+.PP
+ni_status \fBni_createprop\fR(void *\fIhandle\fR, ni_id *\fIdir\fR, ni_property \fIprop\fR, ni_index \fIwhere\fR)
+.IP
+Creates a new property at the given index in the given directory.
+.PP
+ni_status \fBni_destroy\fR(void *\fIhandle\fR, ni_id *\fIparent\fR, ni_id \fIchild\fR)
+.IP
+Destroys the directory child in the given parent directory.  Both instance
+must be the latest values or the error NI_STALE is returned.
+.PP
+ni_status \fBni_destroyname\fR(void *\fIhandle\fR, ni_id *\fIdir\fR, ni_index \fIprop_index\fR, ni_index \fIval_index\fR)
+.IP
+Destroys a property value in the given directory at the given prop_index and
+value-list val_index.
+.PP
+ni_status \fBni_destroyprop\fR(void *\fIhandle\fR, ni_id *\fIdir\fR, ni_index \fIwhere\fR)
+.IP
+Destroys the property at property index
+.I where
+in the given directory.
+.PP
+ni_status \fBni_fancyopen\fR(void *\fIhandle\fR, ni_name \fIdomain\fR, void **\fIrethandle\fR, ni_fancyopenargs *\fIargs\fR)
+.PP
+.nf
+typedef struct ni_fancyopenargs {
+	int rtimeout; 
+	int wtimeout; 
+	int abort;    
+	int needwrite;
+} ni_fancyopenargs;
+.fi
+.IP
+A fancier version of ni_open which allows one to set
+various attributes on the the returned handle. See 
+.I ni_setreadtimeout(), 
+.I ni_setwritetimeout(), 
+.I ni_setabort()
+and 
+.I ni_needwrite()
+for descriptions of the fields 
+in the ni_fancyopenargs structure. A 0 in the 
+rtimeout or wtimeout field indicates the 
+default timeout should be used.
+.PP
+void \fBni_free\fR(void *\fIhandle\fR)
+.IP
+Frees a NetInfo handle and closes any associated connections.
+.PP
+ni_status \fBni_list\fR(void *\fIhandle\fR, ni_id *\fIdir\fR , ni_name \fIname\fR, ni_entrylist *\fIentries\fR)
+.IP
+Lists all the subdirectories of the given directory along with any associated
+values they may have for the property 
+.I name.
+If a subdirectory doesn't have the property \fIname\fR,
+the entry is still returned but with a NULL property list.
+.PP
+ni_status \fBni_listprops\fR(void *\fIhandle\fR, ni_id *\fIdir\fR, ni_namelist *\fInl\fR)
+.IP
+Returns the list of property names associated with the given directory.
+.PP
+ni_status \fBni_lookup\fR(void *\fIhandle\fR, ni_id *\fIdir\fR, ni_name \fIname\fR, ni_name \fIval\fR, ni_idlist *\fIfound\fR)
+.IP
+Returns a list of subdirectories which satisfy the relation 
+.I name
+equals
+.I val.
+.PP
+ni_status \fBni_lookupprop\fR(void *\fIhandle\fR, ni_id *\fIdir\fR, ni_name \fIname\fR, ni_namelist *\fIval\fR)
+.IP
+Returns the values associated with the property named 
+.I name
+in the given directory.
+.PP
+ni_status \fBni_lookupread\fR(void *\fIhandle\fR, ni_id *\fIdirid\fR, ni_name \fIpropname\fR, ni_name \fIpropval\fR, ni_proplist *\fIprops\fR)
+.IP
+Looks up the subdirectory given the 
+.I (propname, propval\) 
+pair
+and returns the subdirectory's properties. This call is equivalent to 
+an 
+.I ni_lookup() 
+followed by an 
+.I ni_read().
+.PP
+void \fBni_needwrite\fR(void *\fIhandle\fR, int \fIneedwrite\fR)
+.IP
+Indicates whether subsequent calls will need to write to a 
+netinfo server. By default, the flag is off and the netinfo 
+library will automatically switch to a server capable of 
+writing whenever a write call occurs. However, since writes
+may take some time to reach the clone server, one could read
+stale information from a clone server and then attempt to 
+write the master based upon the stale information. Setting 
+.I needwrite
+will lock the handle onto the master netinfo server even for 
+reads to prevent this from happening.
+.PP
+ni_status \fBni_open\fR(void *\fIrelativeto\fR, ni_name \fIdomain\fR, void **\fIresult\fR)
+.IP
+Opens a connection to the NetInfo domain 
+.I domain.
+The returned handle is opened relative to the domain specified in the
+.I relativeto.
+This handle may be passed as NULL, indicating relative to the local
+NetInfo domain.  The path may contain "/"s to indicate a multilevel 
+search and may also be "." or ".." to indicate the current domain or
+parent domain, respectively.
+.PP
+ni_status \fBni_parent\fR(void *\fIhandle\fR, ni_id *\fIdir\fR, ni_index *\fIparent_id\fR)
+.IP
+Returns the parent ID of the given directory.
+.PP
+ni_status \fBni_pathsearch\fR(void *\fIhandle\fR, ni_id *\fIdir\fR, ni_name \fIpath\fR)
+.IP
+Does a multilevel lookup on a directory, relative to the given directory
+ID.  The path may contain "/"s to separative directory components.  "="s
+are used to specify relations and both may be escaped using "\\"s.  For
+example, to find the directory associated with the superuser, you may
+specify (relative to the root directory) "/name=users/uid=0".  Note that
+the equal signs are not mandatory and will default to "name=" if none
+are specified.  In the previous example, "/users/uid=0" would accomplish
+the same result.
+.PP
+ni_status \fBni_read\fR(void *\fIhandle\fR, ni_id *\fIdir\fR, ni_proplist *\fIprops\fR)
+.IP
+Reads all of the properties of the given directory.
+.PP
+ni_status \fBni_readname\fR(void *\fIhandle\fR, ni_id *\fIdir\fR, ni_index \fIprop_index\fR, ni_index \fIval_index\fR, ni_name *\fIvalue\fR)
+.IP
+Reads a value from a property in the given directory.  The value is indexed
+by property index 
+.I prop_index
+and value index
+.I val_index.
+.PP
+ni_status \fBni_readprop\fR(void *\fIhandle\fR, ni_id *\fIdir\fR, ni_index \fIprop_index\fr, ni_namelist *\fInl\fR)
+.IP
+Reads the value-list associated with the given property, indexed by
+.I prop_index.
+.PP
+ni_status \fBni_renameprop\fR(void *\fIhandle\fR, ni_id *\fIdir\fR, ni_index \fIprop_index\fR, ni_name \fInewname\fR)
+.IP
+Renames the property indexed by
+.I prop_index
+to the new name
+.I newname.
+.PP
+ni_status \fBni_resync\fR(void *\fIhandle\fR)
+.IP
+Attempts to resynchronize the clone servers with the master copy of
+the database.
+.PP
+ni_status \fBni_root\fR(void *\fIhandle\fR, ni_id *\fIdir\fR)
+.IP
+Returns the directory ID of the root of the directory tree.
+.PP
+ni_status \fBni_self\fR(void *\fIhandle\fR, ni_id *\fIdir\fR)
+.IP
+Returns the directory ID of the given directory.  Simply refreshes the
+instance field to the latest value.
+.PP
+void \fBni_setabort\fR(void *\fIhandle\fR, int \fIshouldabort\fR)
+.IP
+By default, netinfo calls will try forever until an answer 
+is returned from a server. 
+.I ni_setabort
+ allows one to have 
+netinfo return failure upon the first timeout or other failure.
+.PP
+ni_status \fBni_setpassword\fR(void *\fIhandle\fR, ni_name \fIpassword\fR)
+.IP
+Sets the password for the session to
+.I password.  
+By default, no password is sent.
+.PP
+void \fBni_setreadtimeout\fR(void *\fIhandle\fR, int \fIseconds\fR)
+.IP
+Sets the timeout associated with reads on netinfo. The timeout
+is only a hint and the effective timeout may be longer. Note
+that calls will not abort even if a timeout is set unless the
+abort flag has been set (see 
+.I ni_setabort()).
+.PP
+ni_status \fBni_setuser\fr(void *\fIhandle\fR, ni_name \fIusername\fR)
+.IP
+Changes the username associated with the session.  By default, the username
+is the one associated with the user-ID that was used during the UNIX login
+process.
+.PP
+void \fBni_setwritetimeout\fR(void *\fIhandle\fR, int \fIseconds\fR)
+.IP
+Sets the timeout associated with writes on netinfo. The timeout
+is only a hint and the effective timeout may be a longer. Note
+that calls will not abort even if a timeout is set unless the
+abort flag has been set (see 
+.I ni_setabort()).
+.PP
+ni_status \fBni_statistics\fR(void *\fIhandle\fR, ni_proplist *\fIstatistics\fR)
+.IP
+Returns various statistics from the server.
+.PP
+ni_status \fBni_write\fR(void *\fIhandle\fR, ni_id *\fIdir\fR, ni_proplist \fIprops\fR)
+.IP
+Writes a new property list to the directory.
+.PP
+ni_status \fBni_writename\fr(void *\fIhandle\fR, ni_id *\fIdir\fR, ni_index \fIprop_index\fr, ni_index \fIname_index\fR, ni_name \fIval\fR)
+.IP
+Writes a new property value to the property indexed by
+.I prop_index
+and value indexed by
+.I val_index.
+.PP
+ni_status \fBni_writeprop\fr(void *\fIhandle\fR, ni_id *\fIdir\fR, ni_index \fIprop_index\fR, ni_namelist \fIvalues\fR) 
+.IP
+Writes a new value list to the property indexed by
+.I prop_index.
+It is allowable to have more than one property with the same name.
+.IP

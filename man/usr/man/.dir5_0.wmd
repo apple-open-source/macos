@@ -1,0 +1,5 @@
+{
+    RootNode = /Net/seaport/projects/PubsArchive/Projects/OPENSTEP_Rhapsody/man_proj/man/usr/man; 
+    ViewName = Icon; 
+    WindowFrame = "{x = 116; y = 330; width = 468; height = 437}"; 
+}

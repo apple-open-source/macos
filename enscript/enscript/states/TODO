@@ -1,0 +1,11 @@
+
+			     TODO States
+
+* manual needs massive updating
+
+* enscript.st
+
+  - support for special symbols: -> \Rightarrow, <= \le, etc.
+
+* the colors in the highlighting modes should be changeable from the
+  command line (without editing the enscript.st file)

@@ -1,0 +1,389 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 32;
+	objects = {
+		067D03B3FFF08CF111CA2A1B = {
+			isa = PBXFileReference;
+			path = IOPMSlotsMacRISC2.cpp;
+			refType = 4;
+		};
+		067D03B4FFF08CF111CA2A1B = {
+			isa = PBXFileReference;
+			path = IOPMSlotsMacRISC2.h;
+			refType = 4;
+		};
+		067D03B5FFF08CF111CA2A1B = {
+			isa = PBXFileReference;
+			path = IOPMUSBMacRISC2.cpp;
+			refType = 4;
+		};
+		067D03B6FFF08CF111CA2A1B = {
+			isa = PBXFileReference;
+			path = IOPMUSBMacRISC2.h;
+			refType = 4;
+		};
+		067D03B7FFF08CF111CA2A1B = {
+			isa = PBXFileReference;
+			path = MacRISC2.cpp;
+			refType = 4;
+		};
+		067D03B8FFF08CF111CA2A1B = {
+			isa = PBXFileReference;
+			path = MacRISC2.h;
+			refType = 4;
+		};
+		067D03B9FFF08CF111CA2A1B = {
+			isa = PBXFileReference;
+			path = MacRISC2CPU.cpp;
+			refType = 4;
+		};
+		067D03BAFFF08CF111CA2A1B = {
+			isa = PBXFileReference;
+			path = MacRISC2CPU.h;
+			refType = 4;
+		};
+		067D03BBFFF08CF111CA2A1B = {
+			isa = PBXFileReference;
+			path = MacRISC2PowerTree.cpp;
+			refType = 4;
+		};
+		067D03BCFFF08CF111CA2A1B = {
+			fileRef = 067D03B4FFF08CF111CA2A1B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		067D03BDFFF08CF111CA2A1B = {
+			fileRef = 067D03B6FFF08CF111CA2A1B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		067D03BEFFF08CF111CA2A1B = {
+			fileRef = 067D03B8FFF08CF111CA2A1B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		067D03BFFFF08CF111CA2A1B = {
+			fileRef = 067D03BAFFF08CF111CA2A1B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		067D03C0FFF08CF111CA2A1B = {
+			fileRef = 067D03B3FFF08CF111CA2A1B;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		067D03C1FFF08CF111CA2A1B = {
+			fileRef = 067D03B5FFF08CF111CA2A1B;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		067D03C2FFF08CF111CA2A1B = {
+			fileRef = 067D03B7FFF08CF111CA2A1B;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		067D03C3FFF08CF111CA2A1B = {
+			fileRef = 067D03B9FFF08CF111CA2A1B;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		067D03C4FFF08CF111CA2A1B = {
+			fileRef = 067D03BBFFF08CF111CA2A1B;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		06AA1264FFB2107B11CA28AA = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			name = "Shell Script";
+			neededFileNames = (
+			);
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		06AA1265FFB2107B11CA28AA = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		06AA1266FFB2107B11CA28AA = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+		06AA1267FFB2110C11CA28AA = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			name = "Shell Script";
+			neededFileNames = (
+			);
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		089C1669FE841209C02AAC07 = {
+			buildStyles = (
+				06AA1265FFB2107B11CA28AA,
+				06AA1266FFB2107B11CA28AA,
+			);
+			isa = PBXProject;
+			mainGroup = 089C166AFE841209C02AAC07;
+			projectDirPath = .;
+			targets = (
+				089C1673FE841209C02AAC07,
+			);
+		};
+		089C166AFE841209C02AAC07 = {
+			children = (
+				247142CAFF3F8F9811CA285C,
+				089C167CFE841241C02AAC07,
+				19C28FB6FE9D52B211CA2CBB,
+			);
+			isa = PBXGroup;
+			name = AppleMacRISC2PE;
+			refType = 4;
+		};
+		089C1673FE841209C02AAC07 = {
+			buildPhases = (
+				06AA1267FFB2110C11CA28AA,
+				089C1674FE841209C02AAC07,
+				089C1675FE841209C02AAC07,
+				089C1676FE841209C02AAC07,
+				089C1677FE841209C02AAC07,
+				089C1679FE841209C02AAC07,
+				06AA1264FFB2107B11CA28AA,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleMacRISC2PE;
+				MODULE_VERSION = 1.0.0d1;
+				OPTIMIZATION_CFLAGS = "";
+				OTHER_CFLAGS = "-fpermissive -D_BIG_ENDIAN";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleMacRISC2PE;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			conditionalBuildSettings = {
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = AppleMacRISC2PE;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+			productName = AppleMacRISC2PE;
+			productReference = 0B81C263FFB7832611CA28AA;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
+<plist version=\"0.9\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>AppleMacRISC2PE</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.AppleMacRISC2PE</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>AppleMacRISC2PE</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.0.0d5</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>MacRISC2CPU</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleMacRISC2PE</string>
+			<key>IOClass</key>
+			<string>MacRISC2CPU</string>
+			<key>IONameMatch</key>
+			<string>cpu</string>
+			<key>IOProbeScore</key>
+			<integer>1000</integer>
+			<key>IOProviderClass</key>
+			<string>IOPlatformDevice</string>
+		</dict>
+		<key>MacRISC2PE</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleMacRISC2PE</string>
+			<key>IOClass</key>
+			<string>MacRISC2PE</string>
+			<key>IONameMatch</key>
+			<string>MacRISC2</string>
+			<key>IOProbeScore</key>
+			<integer>5000</integer>
+			<key>IOProviderClass</key>
+			<string>IOPlatformExpertDevice</string>
+		</dict>
+	</dict>
+	<key>OSBundleLibraries</key>
+	<dict/>
+	<key>OSBundleRequired</key>
+	<string>Root</string>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 1;
+		};
+		089C1674FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				067D03BCFFF08CF111CA2A1B,
+				067D03BDFFF08CF111CA2A1B,
+				067D03BEFFF08CF111CA2A1B,
+				067D03BFFFF08CF111CA2A1B,
+			);
+			isa = PBXHeadersBuildPhase;
+			name = Headers;
+		};
+		089C1675FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				089C1680FE841241C02AAC07,
+			);
+			isa = PBXResourcesBuildPhase;
+			name = "Bundle Resources";
+		};
+		089C1676FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				067D03C0FFF08CF111CA2A1B,
+				067D03C1FFF08CF111CA2A1B,
+				067D03C2FFF08CF111CA2A1B,
+				067D03C3FFF08CF111CA2A1B,
+				067D03C4FFF08CF111CA2A1B,
+			);
+			isa = PBXSourcesBuildPhase;
+			name = Sources;
+		};
+		089C1677FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			name = "Frameworks & Libraries";
+		};
+		089C1679FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			name = "ResourceManager Resources";
+		};
+		089C167CFE841241C02AAC07 = {
+			children = (
+				089C167DFE841241C02AAC07,
+			);
+			isa = PBXGroup;
+			name = Resources;
+			refType = 4;
+		};
+		089C167DFE841241C02AAC07 = {
+			children = (
+				089C167EFE841241C02AAC07,
+			);
+			isa = PBXVariantGroup;
+			name = InfoPlist.strings;
+			refType = 4;
+		};
+		089C167EFE841241C02AAC07 = {
+			fileEncoding = 10;
+			isa = PBXFileReference;
+			name = English;
+			path = English.lproj/InfoPlist.strings;
+			refType = 4;
+		};
+		089C1680FE841241C02AAC07 = {
+			fileRef = 089C167DFE841241C02AAC07;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0B81C263FFB7832611CA28AA = {
+			isa = PBXBundleReference;
+			path = AppleMacRISC2PE.kext;
+			refType = 3;
+		};
+		19C28FB6FE9D52B211CA2CBB = {
+			children = (
+				0B81C263FFB7832611CA28AA,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+		};
+		247142CAFF3F8F9811CA285C = {
+			children = (
+				067D03B3FFF08CF111CA2A1B,
+				067D03B4FFF08CF111CA2A1B,
+				067D03B5FFF08CF111CA2A1B,
+				067D03B6FFF08CF111CA2A1B,
+				067D03B7FFF08CF111CA2A1B,
+				067D03B8FFF08CF111CA2A1B,
+				067D03B9FFF08CF111CA2A1B,
+				067D03BAFFF08CF111CA2A1B,
+				067D03BBFFF08CF111CA2A1B,
+			);
+			isa = PBXGroup;
+			name = Source;
+			path = "";
+			refType = 4;
+		};
+	};
+	rootObject = 089C1669FE841209C02AAC07;
+}

@@ -1,0 +1,1269 @@
+This is ../info/emacs, produced by makeinfo version 4.0 from emacs.texi.
+
+   This is the thirteenth edition of the `GNU Emacs Manual', updated
+for Emacs version 20.7.
+
+INFO-DIR-SECTION Editors
+START-INFO-DIR-ENTRY
+* Emacs: (emacs).	The extensible self-documenting text editor.
+END-INFO-DIR-ENTRY
+
+   Published by the Free Software Foundation 59 Temple Place, Suite 330
+Boston, MA  02111-1307 USA
+
+   Copyright (C) 1985, 1986, 1987, 1993, 1994, 1995, 1996, 1997, 1998,
+1999    Free Software Foundation, Inc.
+
+   Permission is granted to make and distribute verbatim copies of this
+manual provided the copyright notice and this permission notice are
+preserved on all copies.
+
+   Permission is granted to copy and distribute modified versions of
+this manual under the conditions for verbatim copying, provided also
+that the sections entitled "The GNU Manifesto", "Distribution" and "GNU
+General Public License" are included exactly as in the original, and
+provided that the entire resulting derived work is distributed under the
+terms of a permission notice identical to this one.
+
+   Permission is granted to copy and distribute translations of this
+manual into another language, under the above conditions for modified
+versions, except that the sections entitled "The GNU Manifesto",
+"Distribution" and "GNU General Public License" may be included in a
+translation approved by the Free Software Foundation instead of in the
+original English.
+
+
+File: emacs,  Node: Format Faces,  Next: Format Colors,  Prev: Editing Format Info,  Up: Formatted Text
+
+Faces in Formatted Text
+-----------------------
+
+   The Faces submenu lists various Emacs faces including `bold',
+`italic', and `underline'.  Selecting one of these adds the chosen face
+to the region.  *Note Faces::.  You can also specify a face with these
+keyboard commands:
+
+`M-g d'
+     Set the region, or the next inserted character, to the `default'
+     face (`facemenu-set-default').
+
+`M-g b'
+     Set the region, or the next inserted character, to the `bold' face
+     (`facemenu-set-bold').
+
+`M-g i'
+     Set the region, or the next inserted character, to the `italic'
+     face (`facemenu-set-italic').
+
+`M-g l'
+     Set the region, or the next inserted character, to the
+     `bold-italic' face (`facemenu-set-bold-italic').
+
+`M-g u'
+     Set the region, or the next inserted character, to the `underline'
+     face (`facemenu-set-underline').
+
+`M-g o FACE <RET>'
+     Set the region, or the next inserted character, to the face FACE
+     (`facemenu-set-face').
+
+   If you use these commands with a prefix argument--or, in Transient
+Mark mode, if the region is not active--then these commands specify a
+face to use for your next self-inserting input.  *Note Transient
+Mark::.  This applies to both the keyboard commands and the menu
+commands.
+
+   Enriched mode defines two additional faces: `excerpt' and `fixed'.
+These correspond to codes used in the text/enriched file format.
+
+   The `excerpt' face is intended for quotations.  This face is the
+same as `italic' unless you customize it (*note Face Customization::).
+
+   The `fixed' face is meant to say, "Use a fixed-width font for this
+part of the text."  Emacs currently supports only fixed-width fonts;
+therefore, the `fixed' annotation is not necessary now.  However, we
+plan to support variable width fonts in future Emacs versions, and
+other systems that display text/enriched format may not use a
+fixed-width font as the default.  So if you specifically want a certain
+part of the text to use a fixed-width font, you should specify the
+`fixed' face for that part.
+
+   The `fixed' face is normally defined to use a different font from
+the default.  However, different systems have different fonts installed,
+so you may need to customize this.
+
+   If your terminal cannot display different faces, you will not be able
+to see them, but you can still edit documents containing faces.  You can
+even add faces and colors to documents.  They will be visible when the
+file is viewed on a terminal that can display them.
+
+
+File: emacs,  Node: Format Colors,  Next: Format Indentation,  Prev: Format Faces,  Up: Formatted Text
+
+Colors in Formatted Text
+------------------------
+
+   You can specify foreground and background colors for portions of the
+text.  There is a menu for specifying the foreground color and a menu
+for specifying the background color.  Each color menu lists all the
+colors that you have used in Enriched mode in the current Emacs session.
+
+   If you specify a color with a prefix argument--or, in Transient Mark
+mode, if the region is not active--then it applies to your next
+self-inserting input.  *Note Transient Mark::.  Otherwise, the command
+applies to the region.
+
+   Each color menu contains one additional item: `Other'.  You can use
+this item to specify a color that is not listed in the menu; it reads
+the color name with the minibuffer.  To display list of available colors
+and their names, use the `Display Colors' menu item in the Text
+Properties menu (*note Editing Format Info::).
+
+   Any color that you specify in this way, or that is mentioned in a
+formatted text file that you read in, is added to both color menus for
+the duration of the Emacs session.
+
+   There are no key bindings for specifying colors, but you can do so
+with the extended commands `M-x facemenu-set-foreground' and `M-x
+facemenu-set-background'.  Both of these commands read the name of the
+color with the minibuffer.
+
+
+File: emacs,  Node: Format Indentation,  Next: Format Justification,  Prev: Format Colors,  Up: Formatted Text
+
+Indentation in Formatted Text
+-----------------------------
+
+   When editing formatted text, you can specify different amounts of
+indentation for the right or left margin of an entire paragraph or a
+part of a paragraph.  The margins you specify automatically affect the
+Emacs fill commands (*note Filling::) and line-breaking commands.
+
+   The Indentation submenu provides a convenient interface for
+specifying these properties.  The submenu contains four items:
+
+`Indent More'
+     Indent the region by 4 columns (`increase-left-margin').  In
+     Enriched mode, this command is also available on `C-x <TAB>'; if
+     you supply a numeric argument, that says how many columns to add
+     to the margin (a negative argument reduces the number of columns).
+
+`Indent Less'
+     Remove 4 columns of indentation from the region.
+
+`Indent Right More'
+     Make the text narrower by indenting 4 columns at the right margin.
+
+`Indent Right Less'
+     Remove 4 columns of indentation from the right margin.
+
+   You can use these commands repeatedly to increase or decrease the
+indentation.
+
+   The most common way to use these commands is to change the
+indentation of an entire paragraph.  However, that is not the only use.
+You can change the margins at any point; the new values take effect at
+the end of the line (for right margins) or the beginning of the next
+line (for left margins).
+
+   This makes it possible to format paragraphs with "hanging indents",
+which means that the first line is indented less than subsequent lines.
+To set up a hanging indent, increase the indentation of the region
+starting after the first word of the paragraph and running until the end
+of the paragraph.
+
+   Indenting the first line of a paragraph is easier.  Set the margin
+for the whole paragraph where you want it to be for the body of the
+paragraph, then indent the first line by inserting extra spaces or tabs.
+
+   Sometimes, as a result of editing, the filling of a paragraph becomes
+messed up--parts of the paragraph may extend past the left or right
+margins.  When this happens, use `M-q' (`fill-paragraph') to refill the
+paragraph.
+
+   The variable `standard-indent' specifies how many columns these
+commands should add to or subtract from the indentation.  The default
+value is 4.  The overall default right margin for Enriched mode is
+controlled by the variable `fill-column', as usual.
+
+   The fill prefix, if any, works in addition to the specified paragraph
+indentation: `C-x .' does not include the specified indentation's
+whitespace in the new value for the fill prefix, and the fill commands
+look for the fill prefix after the indentation on each line.  *Note
+Fill Prefix::.
+
+
+File: emacs,  Node: Format Justification,  Next: Format Properties,  Prev: Format Indentation,  Up: Formatted Text
+
+Justification in Formatted Text
+-------------------------------
+
+   When editing formatted text, you can specify various styles of
+justification for a paragraph.  The style you specify automatically
+affects the Emacs fill commands.
+
+   The Justification submenu provides a convenient interface for
+specifying the style.  The submenu contains five items:
+
+`Flush Left'
+     This is the most common style of justification (at least for
+     English).  Lines are aligned at the left margin but left uneven at
+     the right.
+
+`Flush Right'
+     This aligns each line with the right margin.  Spaces and tabs are
+     added on the left, if necessary, to make lines line up on the
+     right.
+
+`Full'
+     This justifies the text, aligning both edges of each line.
+     Justified text looks very nice in a printed book, where the spaces
+     can all be adjusted equally, but it does not look as nice with a
+     fixed-width font on the screen.  Perhaps a future version of Emacs
+     will be able to adjust the width of spaces in a line to achieve
+     elegant justification.
+
+`Center'
+     This centers every line between the current margins.
+
+`None'
+     This turns off filling entirely.  Each line will remain as you
+     wrote it; the fill and auto-fill functions will have no effect on
+     text which has this setting.  You can, however, still indent the
+     left margin.  In unfilled regions, all newlines are treated as
+     hard newlines (*note Hard and Soft Newlines::) .
+
+   In Enriched mode, you can also specify justification from the
+keyboard using the `M-j' prefix character:
+
+`M-j l'
+     Make the region left-filled (`set-justification-left').
+
+`M-j r'
+     Make the region right-filled (`set-justification-right').
+
+`M-j f'
+     Make the region fully-justified (`set-justification-full').
+
+`M-j c'
+`M-S'
+     Make the region centered (`set-justification-center').
+
+`M-j u'
+     Make the region unfilled (`set-justification-none').
+
+   Justification styles apply to entire paragraphs.  All the
+justification-changing commands operate on the paragraph containing
+point, or, if the region is active, on all paragraphs which overlap the
+region.
+
+   The default justification style is specified by the variable
+`default-justification'.  Its value should be one of the symbols
+`left', `right', `full', `center', or `none'.
+
+
+File: emacs,  Node: Format Properties,  Next: Forcing Enriched Mode,  Prev: Format Justification,  Up: Formatted Text
+
+Setting Other Text Properties
+-----------------------------
+
+   The Other Properties menu lets you add or remove three other useful
+text properties: `read-only', `invisible' and `intangible'.  The
+`intangible' property disallows moving point within the text, the
+`invisible' text property hides text from display, and the `read-only'
+property disallows alteration of the text.
+
+   Each of these special properties has a menu item to add it to the
+region.  The last menu item, `Remove Special', removes all of these
+special properties from the text in the region.
+
+   Currently, the `invisible' and `intangible' properties are _not_
+saved in the text/enriched format.  The `read-only' property is saved,
+but it is not a standard part of the text/enriched format, so other
+editors may not respect it.
+
+
+File: emacs,  Node: Forcing Enriched Mode,  Prev: Format Properties,  Up: Formatted Text
+
+Forcing Enriched Mode
+---------------------
+
+   Normally, Emacs knows when you are editing formatted text because it
+recognizes the special annotations used in the file that you visited.
+However, there are situations in which you must take special actions to
+convert file contents or turn on Enriched mode:
+
+   * When you visit a file that was created with some other editor,
+     Emacs may not recognize the file as being in the text/enriched
+     format.  In this case, when you visit the file you will see the
+     formatting commands rather than the formatted text.  Type `M-x
+     format-decode-buffer' to translate it.
+
+   * When you _insert_ a file into a buffer, rather than visiting it.
+     Emacs does the necessary conversions on the text which you insert,
+     but it does not enable Enriched mode.  If you wish to do that,
+     type `M-x enriched-mode'.
+
+   The command `format-decode-buffer' translates text in various
+formats into Emacs's internal format.  It asks you to specify the format
+to translate from; however, normally you can type just <RET>, which
+tells Emacs to guess the format.
+
+   If you wish to look at text/enriched file in its raw form, as a
+sequence of characters rather than as formatted text, use the `M-x
+find-file-literally' command.  This visits a file, like `find-file',
+but does not do format conversion.  It also inhibits character code
+conversion (*note Coding Systems::) and automatic uncompression (*note
+Compressed Files::).  To disable format conversion but allow character
+code conversion and/or automatic uncompression if appropriate, use
+`format-find-file' with suitable arguments.
+
+
+File: emacs,  Node: Programs,  Next: Building,  Prev: Text,  Up: Top
+
+Editing Programs
+****************
+
+   Emacs has many commands designed to understand the syntax of
+programming languages such as Lisp and C.  These commands can
+
+   * Move over or kill balanced expressions or "sexps" (*note Lists::).
+
+   * Move over or mark top-level expressions--"defuns", in Lisp;
+     functions, in C (*note Defuns::).
+
+   * Show how parentheses balance (*note Matching::).
+
+   * Insert, kill or align comments (*note Comments::).
+
+   * Follow the usual indentation conventions of the language (*note
+     Program Indent::).
+
+   The commands for words, sentences and paragraphs are very useful in
+editing code even though their canonical application is for editing
+human language text.  Most symbols contain words (*note Words::);
+sentences can be found in strings and comments (*note Sentences::).
+Paragraphs per se don't exist in code, but the paragraph commands are
+useful anyway, because programming language major modes define
+paragraphs to begin and end at blank lines (*note Paragraphs::).
+Judicious use of blank lines to make the program clearer will also
+provide useful chunks of text for the paragraph commands to work on.
+
+   The selective display feature is useful for looking at the overall
+structure of a function (*note Selective Display::).  This feature
+causes only the lines that are indented less than a specified amount to
+appear on the screen.
+
+* Menu:
+
+* Program Modes::       Major modes for editing programs.
+* Lists::	        Expressions with balanced parentheses.
+* List Commands::       The commands for working with list and sexps.
+* Defuns::	        Each program is made up of separate functions.
+			  There are editing commands to operate on them.
+* Program Indent::      Adjusting indentation to show the nesting.
+* Matching::	        Insertion of a close-delimiter flashes matching open.
+* Comments::	        Inserting, killing, and aligning comments.
+* Balanced Editing::    Inserting two matching parentheses at once, etc.
+* Symbol Completion::   Completion on symbol names of your program or language.
+* Which Function::      Which Function mode shows which function you are in.
+* Documentation::       Getting documentation of functions you plan to call.
+* Change Log::	        Maintaining a change history for your program.
+* Tags::	        Go direct to any function in your program in one
+			  command.  Tags remembers which file it is in.
+* Emerge::	        A convenient way of merging two versions of a program.
+* C Modes::             Special commands of C, C++, Objective-C,
+                          Java, and Pike modes.
+* Fortran::	        Fortran mode and its special features.
+* Asm Mode::	        Asm mode and its special features.
+
+
+File: emacs,  Node: Program Modes,  Next: Lists,  Up: Programs
+
+Major Modes for Programming Languages
+=====================================
+
+   Emacs also has major modes for the programming languages Lisp, Scheme
+(a variant of Lisp), Awk, C, C++, Fortran, Icon, Java, Objective-C,
+Pascal, Perl, Pike, CORBA IDL, and Tcl.  There is also a major mode for
+makefiles, called Makefile mode.  An second alternative mode for Perl is
+called CPerl mode.
+
+   Ideally, a major mode should be implemented for each programming
+language that you might want to edit with Emacs; but often the mode for
+one language can serve for other syntactically similar languages.  The
+language modes that exist are those that someone decided to take the
+trouble to write.
+
+   There are several forms of Lisp mode, which differ in the way they
+interface to Lisp execution.  *Note Executing Lisp::.
+
+   Each of the programming language major modes defines the <TAB> key
+to run an indentation function that knows the indentation conventions of
+that language and updates the current line's indentation accordingly.
+For example, in C mode <TAB> is bound to `c-indent-line'.  `C-j' is
+normally defined to do <RET> followed by <TAB>; thus, it too indents in
+a mode-specific fashion.
+
+   In most programming languages, indentation is likely to vary from
+line to line.  So the major modes for those languages rebind <DEL> to
+treat a tab as if it were the equivalent number of spaces (using the
+command `backward-delete-char-untabify').  This makes it possible to
+rub out indentation one column at a time without worrying whether it is
+made up of spaces or tabs.  Use `C-b C-d' to delete a tab character
+before point, in these modes.
+
+   Programming language modes define paragraphs to be separated only by
+blank lines, so that the paragraph commands remain useful.  Auto Fill
+mode, if enabled in a programming language major mode, indents the new
+lines which it creates.
+
+   Turning on a major mode runs a normal hook called the "mode hook",
+which is the value of a Lisp variable.  Each major mode has a mode hook,
+and the hook's name is always made from the mode command's name by
+adding `-hook'.  For example, turning on C mode runs the hook
+`c-mode-hook', while turning on Lisp mode runs the hook
+`lisp-mode-hook'.  *Note Hooks::.
+
+
+File: emacs,  Node: Lists,  Next: List Commands,  Prev: Program Modes,  Up: Programs
+
+Lists and Sexps
+===============
+
+   By convention, Emacs keys for dealing with balanced expressions are
+usually Control-Meta characters.  They tend to be analogous in function
+to their Control and Meta equivalents.  These commands are usually
+thought of as pertaining to expressions in programming languages, but
+can be useful with any language in which some sort of parentheses exist
+(including human languages).
+
+   These commands fall into two classes.  Some deal only with "lists"
+(parenthetical groupings).  They see nothing except parentheses,
+brackets, braces (whichever ones must balance in the language you are
+working with), and escape characters that might be used to quote those.
+
+   The other commands deal with expressions or "sexps".  The word `sexp'
+is derived from "s-expression", the ancient term for an expression in
+Lisp.  But in Emacs, the notion of `sexp' is not limited to Lisp.  It
+refers to an expression in whatever language your program is written in.
+Each programming language has its own major mode, which customizes the
+syntax tables so that expressions in that language count as sexps.
+
+   Sexps typically include symbols, numbers, and string constants, as
+well as anything contained in parentheses, brackets or braces.
+
+   In languages that use prefix and infix operators, such as C, it is
+not possible for all expressions to be sexps.  For example, C mode does
+not recognize `foo + bar' as a sexp, even though it _is_ a C expression;
+it recognizes `foo' as one sexp and `bar' as another, with the `+' as
+punctuation between them.  This is a fundamental ambiguity: both `foo +
+bar' and `foo' are legitimate choices for the sexp to move over if
+point is at the `f'.  Note that `(foo + bar)' is a single sexp in C
+mode.
+
+   Some languages have obscure forms of expression syntax that nobody
+has bothered to make Emacs understand properly.
+
+
+File: emacs,  Node: List Commands,  Next: Defuns,  Prev: Lists,  Up: Programs
+
+List And Sexp Commands
+======================
+
+`C-M-f'
+     Move forward over a sexp (`forward-sexp').
+
+`C-M-b'
+     Move backward over a sexp (`backward-sexp').
+
+`C-M-k'
+     Kill sexp forward (`kill-sexp').
+
+`C-M-<DEL>'
+     Kill sexp backward (`backward-kill-sexp').
+
+`C-M-u'
+     Move up and backward in list structure (`backward-up-list').
+
+`C-M-d'
+     Move down and forward in list structure (`down-list').
+
+`C-M-n'
+     Move forward over a list (`forward-list').
+
+`C-M-p'
+     Move backward over a list (`backward-list').
+
+`C-M-t'
+     Transpose expressions (`transpose-sexps').
+
+`C-M-@'
+     Put mark after following expression (`mark-sexp').
+
+   To move forward over a sexp, use `C-M-f' (`forward-sexp').  If the
+first significant character after point is an opening delimiter (`(' in
+Lisp; `(', `[' or `{' in C), `C-M-f' moves past the matching closing
+delimiter.  If the character begins a symbol, string, or number,
+`C-M-f' moves over that.
+
+   The command `C-M-b' (`backward-sexp') moves backward over a sexp.
+The detailed rules are like those above for `C-M-f', but with
+directions reversed.  If there are any prefix characters (single-quote,
+backquote and comma, in Lisp) preceding the sexp, `C-M-b' moves back
+over them as well.  The sexp commands move across comments as if they
+were whitespace in most modes.
+
+   `C-M-f' or `C-M-b' with an argument repeats that operation the
+specified number of times; with a negative argument, it moves in the
+opposite direction.
+
+   Killing a whole sexp can be done with `C-M-k' (`kill-sexp') or
+`C-M-<DEL>' (`backward-kill-sexp').  `C-M-k' kills the characters that
+`C-M-f' would move over, and `C-M-<DEL>' kills the characters that
+`C-M-b' would move over.
+
+   The "list commands" move over lists, as the sexp commands do, but
+skip blithely over any number of other kinds of sexps (symbols,
+strings, etc.).  They are `C-M-n' (`forward-list') and `C-M-p'
+(`backward-list').  The main reason they are useful is that they
+usually ignore comments (since the comments usually do not contain any
+lists).
+
+   `C-M-n' and `C-M-p' stay at the same level in parentheses, when
+that's possible.  To move _up_ one (or N) levels, use `C-M-u'
+(`backward-up-list').  `C-M-u' moves backward up past one unmatched
+opening delimiter.  A positive argument serves as a repeat count; a
+negative argument reverses direction of motion and also requests
+repetition, so it moves forward and up one or more levels.
+
+   To move _down_ in list structure, use `C-M-d' (`down-list').  In
+Lisp mode, where `(' is the only opening delimiter, this is nearly the
+same as searching for a `('.  An argument specifies the number of
+levels of parentheses to go down.
+
+   A somewhat random-sounding command which is nevertheless handy is
+`C-M-t' (`transpose-sexps'), which drags the previous sexp across the
+next one.  An argument serves as a repeat count, and a negative
+argument drags backwards (thus canceling out the effect of `C-M-t' with
+a positive argument).  An argument of zero, rather than doing nothing,
+transposes the sexps ending after point and the mark.
+
+   To set the region around the next sexp in the buffer, use `C-M-@'
+(`mark-sexp'), which sets mark at the same place that `C-M-f' would
+move to.  `C-M-@' takes arguments like `C-M-f'.  In particular, a
+negative argument is useful for putting the mark at the beginning of
+the previous sexp.
+
+   The list and sexp commands' understanding of syntax is completely
+controlled by the syntax table.  Any character can, for example, be
+declared to be an opening delimiter and act like an open parenthesis.
+*Note Syntax::.
+
+
+File: emacs,  Node: Defuns,  Next: Program Indent,  Prev: List Commands,  Up: Programs
+
+Defuns
+======
+
+   In Emacs, a parenthetical grouping at the top level in the buffer is
+called a "defun".  The name derives from the fact that most top-level
+lists in a Lisp file are instances of the special form `defun', but any
+top-level parenthetical grouping counts as a defun in Emacs parlance
+regardless of what its contents are, and regardless of the programming
+language in use.  For example, in C, the body of a function definition
+is a defun.
+
+`C-M-a'
+     Move to beginning of current or preceding defun
+     (`beginning-of-defun').
+
+`C-M-e'
+     Move to end of current or following defun (`end-of-defun').
+
+`C-M-h'
+     Put region around whole current or following defun (`mark-defun').
+
+   The commands to move to the beginning and end of the current defun
+are `C-M-a' (`beginning-of-defun') and `C-M-e' (`end-of-defun').
+
+   If you wish to operate on the current defun, use `C-M-h'
+(`mark-defun') which puts point at the beginning and mark at the end of
+the current or next defun.  For example, this is the easiest way to get
+ready to move the defun to a different place in the text.  In C mode,
+`C-M-h' runs the function `c-mark-function', which is almost the same
+as `mark-defun'; the difference is that it backs up over the argument
+declarations, function name and returned data type so that the entire C
+function is inside the region.  *Note Marking Objects::.
+
+   Emacs assumes that any open-parenthesis found in the leftmost column
+is the start of a defun.  Therefore, *never put an open-parenthesis at
+the left margin in a Lisp file unless it is the start of a top-level
+list.  Never put an open-brace or other opening delimiter at the
+beginning of a line of C code unless it starts the body of a function.*
+The most likely problem case is when you want an opening delimiter at
+the start of a line inside a string.  To avoid trouble, put an escape
+character (`\', in C and Emacs Lisp, `/' in some other Lisp dialects)
+before the opening delimiter.  It will not affect the contents of the
+string.
+
+   In the remotest past, the original Emacs found defuns by moving
+upward a level of parentheses until there were no more levels to go up.
+This always required scanning all the way back to the beginning of the
+buffer, even for a small function.  To speed up the operation, Emacs
+was changed to assume that any `(' (or other character assigned the
+syntactic class of opening-delimiter) at the left margin is the start
+of a defun.  This heuristic is nearly always right and avoids the
+costly scan; however, it mandates the convention described above.
+
+
+File: emacs,  Node: Program Indent,  Next: Matching,  Prev: Defuns,  Up: Programs
+
+Indentation for Programs
+========================
+
+   The best way to keep a program properly indented is to use Emacs to
+reindent it as you change it.  Emacs has commands to indent properly
+either a single line, a specified number of lines, or all of the lines
+inside a single parenthetical grouping.
+
+* Menu:
+
+* Basic Indent::	Indenting a single line.
+* Multi-line Indent::   Commands to reindent many lines at once.
+* Lisp Indent::		Specifying how each Lisp function should be indented.
+* C Indent::		Extra features for indenting C and related modes.
+* Custom C Indent::	Controlling indentation style for C and related modes.
+
+   Emacs also provides a Lisp pretty-printer in the library `pp'.  This
+program reformats a Lisp object with indentation chosen to look nice.
+
+
+File: emacs,  Node: Basic Indent,  Next: Multi-line Indent,  Up: Program Indent
+
+Basic Program Indentation Commands
+----------------------------------
+
+`<TAB>'
+     Adjust indentation of current line.
+
+`C-j'
+     Equivalent to <RET> followed by <TAB> (`newline-and-indent').
+
+   The basic indentation command is <TAB>, which gives the current line
+the correct indentation as determined from the previous lines.  The
+function that <TAB> runs depends on the major mode; it is
+`lisp-indent-line' in Lisp mode, `c-indent-line' in C mode, etc.  These
+functions understand different syntaxes for different languages, but
+they all do about the same thing.  <TAB> in any programming-language
+major mode inserts or deletes whitespace at the beginning of the
+current line, independent of where point is in the line.  If point is
+inside the whitespace at the beginning of the line, <TAB> leaves it at
+the end of that whitespace; otherwise, <TAB> leaves point fixed with
+respect to the characters around it.
+
+   Use `C-q <TAB>' to insert a tab at point.
+
+   When entering lines of new code, use `C-j' (`newline-and-indent'),
+which is equivalent to a <RET> followed by a <TAB>.  `C-j' creates a
+blank line and then gives it the appropriate indentation.
+
+   <TAB> indents the second and following lines of the body of a
+parenthetical grouping each under the preceding one; therefore, if you
+alter one line's indentation to be nonstandard, the lines below will
+tend to follow it.  This behavior is convenient in cases where you have
+overridden the standard result of <TAB> because you find it unaesthetic
+for a particular line.
+
+   Remember that an open-parenthesis, open-brace or other opening
+delimiter at the left margin is assumed by Emacs (including the
+indentation routines) to be the start of a function.  Therefore, you
+must never have an opening delimiter in column zero that is not the
+beginning of a function, not even inside a string.  This restriction is
+vital for making the indentation commands fast; you must simply accept
+it.  *Note Defuns::, for more information on this.
+
+
+File: emacs,  Node: Multi-line Indent,  Next: Lisp Indent,  Prev: Basic Indent,  Up: Program Indent
+
+Indenting Several Lines
+-----------------------
+
+   When you wish to reindent several lines of code which have been
+altered or moved to a different level in the list structure, you have
+several commands available.
+
+`C-M-q'
+     Reindent all the lines within one list (`indent-sexp').
+
+`C-u <TAB>'
+     Shift an entire list rigidly sideways so that its first line is
+     properly indented.
+
+`C-M-\'
+     Reindent all lines in the region (`indent-region').
+
+   You can reindent the contents of a single list by positioning point
+before the beginning of it and typing `C-M-q' (`indent-sexp' in Lisp
+mode, `c-indent-exp' in C mode; also bound to other suitable commands
+in other modes).  The indentation of the line the sexp starts on is not
+changed; therefore, only the relative indentation within the list, and
+not its position, is changed.  To correct the position as well, type a
+<TAB> before the `C-M-q'.
+
+   If the relative indentation within a list is correct but the
+indentation of its first line is not, go to that line and type `C-u
+<TAB>'.  <TAB> with a numeric argument reindents the current line as
+usual, then reindents by the same amount all the lines in the grouping
+starting on the current line.  In other words, it reindents the whole
+grouping rigidly as a unit.  It is clever, though, and does not alter
+lines that start inside strings, or C preprocessor lines when in C mode.
+
+   Another way to specify the range to be reindented is with the region.
+The command `C-M-\' (`indent-region') applies <TAB> to every line whose
+first character is between point and mark.
+
+
+File: emacs,  Node: Lisp Indent,  Next: C Indent,  Prev: Multi-line Indent,  Up: Program Indent
+
+Customizing Lisp Indentation
+----------------------------
+
+   The indentation pattern for a Lisp expression can depend on the
+function called by the expression.  For each Lisp function, you can
+choose among several predefined patterns of indentation, or define an
+arbitrary one with a Lisp program.
+
+   The standard pattern of indentation is as follows: the second line
+of the expression is indented under the first argument, if that is on
+the same line as the beginning of the expression; otherwise, the second
+line is indented underneath the function name.  Each following line is
+indented under the previous line whose nesting depth is the same.
+
+   If the variable `lisp-indent-offset' is non-`nil', it overrides the
+usual indentation pattern for the second line of an expression, so that
+such lines are always indented `lisp-indent-offset' more columns than
+the containing list.
+
+   The standard pattern is overridden for certain functions.  Functions
+whose names start with `def' always indent the second line by
+`lisp-body-indent' extra columns beyond the open-parenthesis starting
+the expression.
+
+   The standard pattern can be overridden in various ways for individual
+functions, according to the `lisp-indent-function' property of the
+function name.  There are four possibilities for this property:
+
+`nil'
+     This is the same as no property; the standard indentation pattern
+     is used.
+
+`defun'
+     The pattern used for function names that start with `def' is used
+     for this function also.
+
+a number, NUMBER
+     The first NUMBER arguments of the function are "distinguished"
+     arguments; the rest are considered the "body" of the expression.
+     A line in the expression is indented according to whether the
+     first argument on it is distinguished or not.  If the argument is
+     part of the body, the line is indented `lisp-body-indent' more
+     columns than the open-parenthesis starting the containing
+     expression.  If the argument is distinguished and is either the
+     first or second argument, it is indented _twice_ that many extra
+     columns.  If the argument is distinguished and not the first or
+     second argument, the standard pattern is followed for that line.
+
+a symbol, SYMBOL
+     SYMBOL should be a function name; that function is called to
+     calculate the indentation of a line within this expression.  The
+     function receives two arguments:
+    STATE
+          The value returned by `parse-partial-sexp' (a Lisp primitive
+          for indentation and nesting computation) when it parses up to
+          the beginning of this line.
+
+    POS
+          The position at which the line being indented begins.
+
+     It should return either a number, which is the number of columns of
+     indentation for that line, or a list whose car is such a number.
+     The difference between returning a number and returning a list is
+     that a number says that all following lines at the same nesting
+     level should be indented just like this one; a list says that
+     following lines might call for different indentations.  This makes
+     a difference when the indentation is being computed by `C-M-q'; if
+     the value is a number, `C-M-q' need not recalculate indentation
+     for the following lines until the end of the list.
+
+
+File: emacs,  Node: C Indent,  Next: Custom C Indent,  Prev: Lisp Indent,  Up: Program Indent
+
+Commands for C Indentation
+--------------------------
+
+   Here are the commands for indentation in C mode and related modes:
+
+`C-c C-q'
+     Reindent the current top-level function definition or aggregate
+     type declaration (`c-indent-defun').
+
+`C-M-q'
+     Reindent each line in the balanced expression that follows point
+     (`c-indent-exp').  A prefix argument inhibits error checking and
+     warning messages about invalid syntax.
+
+`<TAB>'
+     Reindent the current line, and/or in some cases insert a tab
+     character (`c-indent-command').
+
+     If `c-tab-always-indent' is `t', this command always reindents the
+     current line and does nothing else.  This is the default.
+
+     If that variable is `nil', this command reindents the current line
+     only if point is at the left margin or in the line's indentation;
+     otherwise, it inserts a tab (or the equivalent number of spaces,
+     if `indent-tabs-mode' is `nil').
+
+     Any other value (not `nil' or `t') means always reindent the line,
+     and also insert a tab if within a comment, a string, or a
+     preprocessor directive.
+
+`C-u <TAB>'
+     Reindent the current line according to its syntax; also rigidly
+     reindent any other lines of the expression that starts on the
+     current line.  *Note Multi-line Indent::.
+
+   To reindent the whole current buffer, type `C-x h C-M-\'.  This
+first selects the whole buffer as the region, then reindents that
+region.
+
+   To reindent the current block, use `C-M-u C-M-q'.  This moves to the
+front of the block and then reindents it all.
+
+
+File: emacs,  Node: Custom C Indent,  Prev: C Indent,  Up: Program Indent
+
+Customizing C Indentation
+-------------------------
+
+   C mode and related modes use a simple yet flexible mechanism for
+customizing indentation.  The mechanism works in two steps: first it
+classifies the line syntactically according to its contents and context;
+second, it associates each kind of syntactic construct with an
+indentation offset which you can customize.
+
+* Menu:
+
+* Syntactic Analysis::
+* Indentation Calculation::
+* Changing Indent Style::
+* Syntactic Symbols::
+* Variables for C Indent::
+* C Indent Styles::
+
+
+File: emacs,  Node: Syntactic Analysis,  Next: Indentation Calculation,  Up: Custom C Indent
+
+Step 1--Syntactic Analysis
+..........................
+
+   In the first step, the C indentation mechanism looks at the line
+before the one you are currently indenting and determines the syntactic
+components of the construct on that line.  It builds a list of these
+syntactic components, each of which contains a "syntactic symbol" and
+sometimes also a buffer position.  Some syntactic symbols describe
+grammatical elements, for example `statement' and `substatement';
+others describe locations amidst grammatical elements, for example
+`class-open' and `knr-argdecl'.
+
+   Conceptually, a line of C code is always indented relative to the
+indentation of some line higher up in the buffer.  This is represented
+by the buffer positions in the syntactic component list.
+
+   Here is an example.  Suppose we have the following code in a C++ mode
+buffer (the line numbers don't actually appear in the buffer):
+
+     1: void swap (int& a, int& b)
+     2: {
+     3:   int tmp = a;
+     4:   a = b;
+     5:   b = tmp;
+     6: }
+
+   If you type `C-c C-s' (which runs the command
+`c-show-syntactic-information') on line 4, it shows the result of the
+indentation mechanism for that line:
+
+     ((statement . 32))
+
+   This indicates that the line is a statement and it is indented
+relative to buffer position 32, which happens to be the `i' in `int' on
+line 3.  If you move the cursor to line 3 and type `C-c C-s', it
+displays this:
+
+     ((defun-block-intro . 28))
+
+   This indicates that the `int' line is the first statement in a
+block, and is indented relative to buffer position 28, which is the
+brace just after the function header.
+
+Here is another example:
+
+     1: int add (int val, int incr, int doit)
+     2: {
+     3:   if (doit)
+     4:     {
+     5:       return (val + incr);
+     6:     }
+     7:   return (val);
+     8: }
+
+Typing `C-c C-s' on line 4 displays this:
+
+     ((substatement-open . 43))
+
+   This says that the brace _opens_ a substatement block.  By the way,
+a "substatement" indicates the line after an `if', `else', `while',
+`do', `switch', `for', `try', `catch', `finally', or `synchronized'
+statement.
+
+   Within the C indentation commands, after a line has been analyzed
+syntactically for indentation, the variable `c-syntactic-context'
+contains a list that describes the results.  Each element in this list
+is a "syntactic component": a cons cell containing a syntactic symbol
+and (optionally) its corresponding buffer position.  There may be
+several elements in a component list; typically only one element has a
+buffer position.
+
+
+File: emacs,  Node: Indentation Calculation,  Next: Changing Indent Style,  Prev: Syntactic Analysis,  Up: Custom C Indent
+
+Step 2--Indentation Calculation
+...............................
+
+   The C indentation mechanism calculates the indentation for the
+current line using the list of syntactic components,
+`c-syntactic-context', derived from syntactic analysis.  Each component
+is a cons cell that contains a syntactic symbol and may also contain a
+buffer position.
+
+   Each component contributes to the final total indentation of the line
+in two ways.  First, the syntactic symbol identifies an element of
+`c-offsets-alist', which is an association list mapping syntactic
+symbols into indentation offsets.  Each syntactic symbol's offset adds
+to the total indentation.  Second, if the component includes a buffer
+position, the column number of that position adds to the indentation.
+All these offsets and column numbers, added together, give the total
+indentation.
+
+   The following examples demonstrate the workings of the C indentation
+mechanism:
+
+     1: void swap (int& a, int& b)
+     2: {
+     3:   int tmp = a;
+     4:   a = b;
+     5:   b = tmp;
+     6: }
+
+   Suppose that point is on line 3 and you type <TAB> to reindent the
+line.  As explained above (*note Syntactic Analysis::), the syntactic
+component list for that line is:
+
+     ((defun-block-intro . 28))
+
+   In this case, the indentation calculation first looks up
+`defun-block-intro' in the `c-offsets-alist' alist.  Suppose that it
+finds the integer 2; it adds this to the running total (initialized to
+zero), yielding a updated total indentation of 2 spaces.
+
+   The next step is to find the column number of buffer position 28.
+Since the brace at buffer position 28 is in column zero, this adds 0 to
+the running total.  Since this line has only one syntactic component,
+the total indentation for the line is 2 spaces.
+
+     1: int add (int val, int incr, int doit)
+     2: {
+     3:   if (doit)
+     4:     {
+     5:       return(val + incr);
+     6:     }
+     7:   return(val);
+     8: }
+
+   If you type <TAB> on line 4, the same process is performed, but with
+different data.  The syntactic component list for this line is:
+
+     ((substatement-open . 43))
+
+   Here, the indentation calculation's first job is to look up the
+symbol `substatement-open' in `c-offsets-alist'.  Let's assume that the
+offset for this symbol is 2.  At this point the running total is 2 (0 +
+2 = 2).  Then it adds the column number of buffer position 43, which is
+the `i' in `if' on line 3.  This character is in column 2 on that line.
+Adding this yields a total indentation of 4 spaces.
+
+   If a syntactic symbol in the analysis of a line does not appear in
+`c-offsets-alist', it is ignored; if in addition the variable
+`c-strict-syntax-p' is non-`nil', it is an error.
+
+
+File: emacs,  Node: Changing Indent Style,  Next: Syntactic Symbols,  Prev: Indentation Calculation,  Up: Custom C Indent
+
+Changing Indentation Style
+..........................
+
+   There are two ways to customize the indentation style for the C-like
+modes.  First, you can select one of several predefined styles, each of
+which specifies offsets for all the syntactic symbols.  For more
+flexibility, you can customize the handling of individual syntactic
+symbols.  *Note Syntactic Symbols::, for a list of all defined syntactic
+symbols.
+
+`M-x c-set-style <RET> STYLE <RET>'
+     Select predefined indentation style STYLE.  Type `?' when entering
+     STYLE to see a list of supported styles; to find out what a style
+     looks like, select it and reindent some C code.
+
+`C-c C-o SYMBOL <RET> OFFSET <RET>'
+     Set the indentation offset for syntactic symbol SYMBOL
+     (`c-set-offset').  The second argument OFFSET specifies the new
+     indentation offset.
+
+   The `c-offsets-alist' variable controls the amount of indentation to
+give to each syntactic symbol.  Its value is an association list, and
+each element of the list has the form `(SYNTACTIC-SYMBOL . OFFSET)'.
+By changing the offsets for various syntactic symbols, you can
+customize indentation in fine detail.  To change this alist, use
+`c-set-offset' (see below).
+
+   Each offset value in `c-offsets-alist' can be an integer, a function
+or variable name, a list, or one of the following symbols: `+', `-',
+`++', `--', `*', or `/', indicating positive or negative multiples of
+the variable `c-basic-offset'.  Thus, if you want to change the levels
+of indentation to be 3 spaces instead of 2 spaces, set `c-basic-offset'
+to 3.
+
+   Using a function as the offset value provides the ultimate
+flexibility in customizing indentation.  The function is called with a
+single argument containing the `cons' of the syntactic symbol and the
+buffer position, if any.  The function should return an integer offset.
+
+   If the offset value is a list, its elements are processed according
+to the rules above until a non-`nil' value is found.  That value is
+then added to the total indentation in the normal manner.  The primary
+use for this is to combine the results of several functions.
+
+   The command `C-c C-o' (`c-set-offset') is the easiest way to set
+offsets, both interactively or in your `~/.emacs' file.  First specify
+the syntactic symbol, then the offset you want.  *Note Syntactic
+Symbols::, for a list of valid syntactic symbols and their meanings.
+
+
+File: emacs,  Node: Syntactic Symbols,  Next: Variables for C Indent,  Prev: Changing Indent Style,  Up: Custom C Indent
+
+Syntactic Symbols
+.................
+
+   Here is a table of valid syntactic symbols for indentation in C and
+related modes, with their syntactic meanings.  Normally, most of these
+symbols are assigned offsets in `c-offsets-alist'.
+
+`string'
+     Inside a multi-line string.
+
+`c'
+     Inside a multi-line C style block comment.
+
+`defun-open'
+     On a brace that opens a function definition.
+
+`defun-close'
+     On a brace that closes a function definition.
+
+`defun-block-intro'
+     In the first line in a top-level defun.
+
+`class-open'
+     On a brace that opens a class definition.
+
+`class-close'
+     On a brace that closes a class definition.
+
+`inline-open'
+     On a brace that opens an in-class inline method.
+
+`inline-close'
+     On a brace that closes an in-class inline method.
+
+`extern-lang-open'
+     On a brace that opens an external language block.
+
+`extern-lang-close'
+     On a brace that closes an external language block.
+
+`func-decl-cont'
+     The region between a function definition's argument list and the
+     defun opening brace (excluding K&R function definitions).  In C,
+     you cannot put anything but whitespace and comments between them;
+     in C++ and Java, `throws' declarations and other things can appear
+     in this context.
+
+`knr-argdecl-intro'
+     On the first line of a K&R C argument declaration.
+
+`knr-argdecl'
+     In one of the subsequent lines in a K&R C argument declaration.
+
+`topmost-intro'
+     On the first line in a topmost construct definition.
+
+`topmost-intro-cont'
+     On the topmost definition continuation lines.
+
+`member-init-intro'
+     On the first line in a member initialization list.
+
+`member-init-cont'
+     On one of the subsequent member initialization list lines.
+
+`inher-intro'
+     On the first line of a multiple inheritance list.
+
+`inher-cont'
+     On one of the subsequent multiple inheritance lines.
+
+`block-open'
+     On a statement block open brace.
+
+`block-close'
+     On a statement block close brace.
+
+`brace-list-open'
+     On the opening brace of an `enum' or `static' array list.
+
+`brace-list-close'
+     On the closing brace of an `enum' or `static' array list.
+
+`brace-list-intro'
+     On the first line in an `enum' or `static' array list.
+
+`brace-list-entry'
+     On one of the subsequent lines in an `enum' or `static' array list.
+
+`brace-entry-open'
+     On one of the subsequent lines in an `enum' or `static' array
+     list, when the line begins with an open brace.
+
+`statement'
+     On an ordinary statement.
+
+`statement-cont'
+     On a continuation line of a statement.
+
+`statement-block-intro'
+     On the first line in a new statement block.
+
+`statement-case-intro'
+     On the first line in a `case' "block."
+
+`statement-case-open'
+     On the first line in a `case' block starting with brace.
+
+`inexpr-statement'
+     On a statement block inside an expression.  This is used for a GNU
+     extension to the C language, and for Pike special functions that
+     take a statement block as an argument.
+
+`inexpr-class'
+     On a class definition inside an expression.  This is used for
+     anonymous classes and anonymous array initializers in Java.
+
+`substatement'
+     On the first line after an `if', `while', `for', `do', or `else'.
+
+`substatement-open'
+     On the brace that opens a substatement block.
+
+`case-label'
+     On a `case' or `default' label.
+
+`access-label'
+     On a C++ `private', `protected', or `public' access label.
+
+`label'
+     On any ordinary label.
+
+`do-while-closure'
+     On the `while' that ends a `do'-`while' construct.
+
+`else-clause'
+     On the `else' of an `if'-`else' construct.
+
+`catch-clause'
+     On the `catch' and `finally' lines in `try'...`catch' constructs
+     in C++ and Java.
+
+`comment-intro'
+     On a line containing only a comment introduction.
+
+`arglist-intro'
+     On the first line in an argument list.
+
+`arglist-cont'
+     On one of the subsequent argument list lines when no arguments
+     follow on the same line as the arglist opening parenthesis.
+
+`arglist-cont-nonempty'
+     On one of the subsequent argument list lines when at least one
+     argument follows on the same line as the arglist opening
+     parenthesis.
+
+`arglist-close'
+     On the closing parenthesis of an argument list.
+
+`stream-op'
+     On one of the lines continuing a stream operator construct.
+
+`inclass'
+     On a construct that is nested inside a class definition.  The
+     indentation is relative to the open brace of the class definition.
+
+`inextern-lang'
+     On a construct that is nested inside an external language block.
+
+`inexpr-statement'
+     On the first line of statement block inside an expression.  This
+     is used for the GCC extension to C that uses the syntax `({ ...
+     })'.  It is also used for the special functions that takes a
+     statement block as an argument in Pike.
+
+`inexpr-class'
+     On the first line of a class definition inside an expression.
+     This is used for anonymous classes and anonymous array
+     initializers in Java.
+
+`cpp-macro'
+     On the start of a cpp macro.
+
+`friend'
+     On a C++ `friend' declaration.
+
+`objc-method-intro'
+     On the first line of an Objective-C method definition.
+
+`objc-method-args-cont'
+     On one of the lines continuing an Objective-C method definition.
+
+`objc-method-call-cont'
+     On one of the lines continuing an Objective-C method call.
+
+`inlambda'
+     Like `inclass', but used inside lambda (i.e. anonymous) functions.
+     Only used in Pike.
+
+`lambda-intro-cont'
+     On a line continuing the header of a lambda function, between the
+     `lambda' keyword and the function body.  Only used in Pike.
+

@@ -1,0 +1,1203 @@
+This is ../info/emacs, produced by makeinfo version 4.0 from emacs.texi.
+
+   This is the thirteenth edition of the `GNU Emacs Manual', updated
+for Emacs version 20.7.
+
+INFO-DIR-SECTION Editors
+START-INFO-DIR-ENTRY
+* Emacs: (emacs).	The extensible self-documenting text editor.
+END-INFO-DIR-ENTRY
+
+   Published by the Free Software Foundation 59 Temple Place, Suite 330
+Boston, MA  02111-1307 USA
+
+   Copyright (C) 1985, 1986, 1987, 1993, 1994, 1995, 1996, 1997, 1998,
+1999    Free Software Foundation, Inc.
+
+   Permission is granted to make and distribute verbatim copies of this
+manual provided the copyright notice and this permission notice are
+preserved on all copies.
+
+   Permission is granted to copy and distribute modified versions of
+this manual under the conditions for verbatim copying, provided also
+that the sections entitled "The GNU Manifesto", "Distribution" and "GNU
+General Public License" are included exactly as in the original, and
+provided that the entire resulting derived work is distributed under the
+terms of a permission notice identical to this one.
+
+   Permission is granted to copy and distribute translations of this
+manual into another language, under the above conditions for modified
+versions, except that the sections entitled "The GNU Manifesto",
+"Distribution" and "GNU General Public License" may be included in a
+translation approved by the Free Software Foundation instead of in the
+original English.
+
+
+File: emacs,  Node: Completion Options,  Prev: Strict Completion,  Up: Completion
+
+Completion Options
+------------------
+
+   When completion is done on file names, certain file names are usually
+ignored.  The variable `completion-ignored-extensions' contains a list
+of strings; a file whose name ends in any of those strings is ignored
+as a possible completion.  The standard value of this variable has
+several elements including `".o"', `".elc"', `".dvi"' and `"~"'.  The
+effect is that, for example, `foo' can complete to `foo.c' even though
+`foo.o' exists as well.  However, if _all_ the possible completions end
+in "ignored" strings, then they are not ignored.  Ignored extensions do
+not apply to lists of completions--those always mention all possible
+completions.
+
+   Normally, a completion command that finds the next character is
+undetermined automatically displays a list of all possible completions.
+If the variable `completion-auto-help' is set to `nil', this does not
+happen, and you must type `?' to display the possible completions.
+
+   The `complete' library implements a more powerful kind of completion
+that can complete multiple words at a time.  For example, it can
+complete the command name abbreviation `p-b' into `print-buffer',
+because no other command starts with two words whose initials are `p'
+and `b'.  To use this library, put `(load "complete")' in your
+`~/.emacs' file (*note Init File::).
+
+   Icomplete mode presents a constantly-updated display that tells you
+what completions are available for the text you've entered so far.  The
+command to enable or disable this minor mode is `M-x icomplete-mode'.
+
+
+File: emacs,  Node: Minibuffer History,  Next: Repetition,  Prev: Completion,  Up: Minibuffer
+
+Minibuffer History
+==================
+
+   Every argument that you enter with the minibuffer is saved on a
+"minibuffer history list" so that you can use it again later in another
+argument.  Special commands load the text of an earlier argument in the
+minibuffer.  They discard the old minibuffer contents, so you can think
+of them as moving through the history of previous arguments.
+
+`<UP>'
+`M-p'
+     Move to the next earlier argument string saved in the minibuffer
+     history (`previous-history-element').
+
+`<DOWN>'
+`M-n'
+     Move to the next later argument string saved in the minibuffer
+     history (`next-history-element').
+
+`M-r REGEXP <RET>'
+     Move to an earlier saved argument in the minibuffer history that
+     has a match for REGEXP (`previous-matching-history-element').
+
+`M-s REGEXP <RET>'
+     Move to a later saved argument in the minibuffer history that has a
+     match for REGEXP (`next-matching-history-element').
+
+   The simplest way to reuse the saved arguments in the history list is
+to move through the history list one element at a time.  While in the
+minibuffer, use `M-p' or up-arrow (`previous-history-element') to "move
+to" the next earlier minibuffer input, and use `M-n' or down-arrow
+(`next-history-element') to "move to" the next later input.
+
+   The previous input that you fetch from the history entirely replaces
+the contents of the minibuffer.  To use it as the argument, exit the
+minibuffer as usual with <RET>.  You can also edit the text before you
+reuse it; this does not change the history element that you "moved" to,
+but your new argument does go at the end of the history list in its own
+right.
+
+   For many minibuffer arguments there is a "default" value.  In some
+cases, the minibuffer history commands know the default value.  Then you
+can insert the default value into the minibuffer as text by using `M-n'
+to move "into the future" in the history.  Eventually we hope to make
+this feature available whenever the minibuffer has a default value.
+
+   There are also commands to search forward or backward through the
+history; they search for history elements that match a regular
+expression that you specify with the minibuffer.  `M-r'
+(`previous-matching-history-element') searches older elements in the
+history, while `M-s' (`next-matching-history-element') searches newer
+elements.  By special dispensation, these commands can use the
+minibuffer to read their arguments even though you are already in the
+minibuffer when you issue them.  As with incremental searching, an
+uppercase letter in the regular expression makes the search
+case-sensitive (*note Search Case::).
+
+   All uses of the minibuffer record your input on a history list, but
+there are separate history lists for different kinds of arguments.  For
+example, there is a list for file names, used by all the commands that
+read file names.  (As a special feature, this history list records the
+absolute file name, no more and no less, even if that is not how you
+entered the file name.)
+
+   There are several other very specific history lists, including one
+for command names read by `M-x', one for buffer names, one for arguments
+of commands like `query-replace', and one for compilation commands read
+by `compile'.  Finally, there is one "miscellaneous" history list that
+most minibuffer arguments use.
+
+   The variable `history-length' specifies the maximum length of a
+minibuffer history list; once a list gets that long, the oldest element
+is deleted each time an element is added.  If the value of
+`history-length' is `t', though, there is no maximum length and
+elements are never deleted.
+
+
+File: emacs,  Node: Repetition,  Prev: Minibuffer History,  Up: Minibuffer
+
+Repeating Minibuffer Commands
+=============================
+
+   Every command that uses the minibuffer at least once is recorded on a
+special history list, together with the values of its arguments, so that
+you can repeat the entire command.  In particular, every use of `M-x'
+is recorded there, since `M-x' uses the minibuffer to read the command
+name.
+
+`C-x <ESC> <ESC>'
+     Re-execute a recent minibuffer command (`repeat-complex-command').
+
+`M-x list-command-history'
+     Display the entire command history, showing all the commands `C-x
+     <ESC> <ESC>' can repeat, most recent first.
+
+   `C-x <ESC> <ESC>' is used to re-execute a recent minibuffer-using
+command.  With no argument, it repeats the last such command.  A
+numeric argument specifies which command to repeat; one means the last
+one, and larger numbers specify earlier ones.
+
+   `C-x <ESC> <ESC>' works by turning the previous command into a Lisp
+expression and then entering a minibuffer initialized with the text for
+that expression.  If you type just <RET>, the command is repeated as
+before.  You can also change the command by editing the Lisp
+expression.  Whatever expression you finally submit is what will be
+executed.  The repeated command is added to the front of the command
+history unless it is identical to the most recently executed command
+already there.
+
+   Even if you don't understand Lisp syntax, it will probably be obvious
+which command is displayed for repetition.  If you do not change the
+text, it will repeat exactly as before.
+
+   Once inside the minibuffer for `C-x <ESC> <ESC>', you can use the
+minibuffer history commands (`M-p', `M-n', `M-r', `M-s'; *note
+Minibuffer History::) to move through the history list of saved entire
+commands.  After finding the desired previous command, you can edit its
+expression as usual and then resubmit it by typing <RET> as usual.
+
+   The list of previous minibuffer-using commands is stored as a Lisp
+list in the variable `command-history'.  Each element is a Lisp
+expression which describes one command and its arguments.  Lisp programs
+can re-execute a command by calling `eval' with the `command-history'
+element.
+
+
+File: emacs,  Node: M-x,  Next: Help,  Prev: Minibuffer,  Up: Top
+
+Running Commands by Name
+************************
+
+   The Emacs commands that are used often or that must be quick to type
+are bound to keys--short sequences of characters--for convenient use.
+Other Emacs commands that do not need to be brief are not bound to
+keys; to run them, you must refer to them by name.
+
+   A command name is, by convention, made up of one or more words,
+separated by hyphens; for example, `auto-fill-mode' or `manual-entry'.
+The use of English words makes the command name easier to remember than
+a key made up of obscure characters, even though it is more characters
+to type.
+
+   The way to run a command by name is to start with `M-x', type the
+command name, and finish it with <RET>.  `M-x' uses the minibuffer to
+read the command name.  <RET> exits the minibuffer and runs the
+command.  The string `M-x' appears at the beginning of the minibuffer
+as a "prompt" to remind you to enter the name of a command to be run.
+*Note Minibuffer::, for full information on the features of the
+minibuffer.
+
+   You can use completion to enter the command name.  For example, the
+command `forward-char' can be invoked by name by typing
+
+     M-x forward-char <RET>
+
+or
+
+     M-x forw <TAB> c <RET>
+
+Note that `forward-char' is the same command that you invoke with the
+key `C-f'.  You can run any Emacs command by name using `M-x', whether
+or not any keys are bound to it.
+
+   If you type `C-g' while the command name is being read, you cancel
+the `M-x' command and get out of the minibuffer, ending up at top level.
+
+   To pass a numeric argument to the command you are invoking with
+`M-x', specify the numeric argument before the `M-x'.  `M-x' passes the
+argument along to the command it runs.  The argument value appears in
+the prompt while the command name is being read.
+
+   If the command you type has a key binding of its own, Emacs mentions
+this in the echo area, two seconds after the command finishes (if you
+don't type anything else first).  For example, if you type `M-x
+forward-word', the message says that you can run the same command more
+easily by typing `M-f'.  You can turn off these messages by setting
+`suggest-key-bindings' to `nil'.
+
+   Normally, when describing in this manual a command that is run by
+name, we omit the <RET> that is needed to terminate the name.  Thus we
+might speak of `M-x auto-fill-mode' rather than `M-x auto-fill-mode
+<RET>'.  We mention the <RET> only when there is a need to emphasize
+its presence, such as when we show the command together with following
+arguments.
+
+   `M-x' works by running the command `execute-extended-command', which
+is responsible for reading the name of another command and invoking it.
+
+
+File: emacs,  Node: Help,  Next: Mark,  Prev: M-x,  Up: Top
+
+Help
+****
+
+   Emacs provides extensive help features accessible through a single
+character, `C-h'.  `C-h' is a prefix key that is used only for
+documentation-printing commands.  The characters that you can type after
+`C-h' are called "help options".  One help option is `C-h'; that is how
+you ask for help about using `C-h'.  To cancel, type `C-g'.  The
+function key <F1> is equivalent to `C-h'.
+
+   `C-h C-h' (`help-for-help') displays a list of the possible help
+options, each with a brief description.  Before you type a help option,
+you can use <SPC> or <DEL> to scroll through the list.
+
+   `C-h' or <F1> means "help" in various other contexts as well.  For
+example, in the middle of `query-replace', it describes the options
+available for how to operate on the current match.  After a prefix key,
+it displays a list of the alternatives that can follow the prefix key.
+(A few prefix keys don't support `C-h', because they define other
+meanings for it, but they all support <F1>.)
+
+   Most help buffers use a special major mode, Help mode, which lets you
+scroll conveniently with <SPC> and <DEL>.
+
+* Menu:
+
+* Help Summary::	Brief list of all Help commands.
+* Key Help::		Asking what a key does in Emacs.
+* Name Help::		Asking about a command, variable or function name.
+* Apropos::		Asking what pertains to a given topic.
+* Library Keywords::	Finding Lisp libraries by keywords (topics).
+* Language Help::       Help relating to international language support.
+* Help Mode::           Special features of Help mode and Help buffers.
+* Misc Help::		Other help commands.
+
+
+File: emacs,  Node: Help Summary,  Next: Key Help,  Up: Help
+
+Help Summary
+============
+
+   Here is a summary of the defined help commands.
+
+`C-h a REGEXP <RET>'
+     Display a list of commands whose names match REGEXP
+     (`apropos-command').
+
+`C-h b'
+     Display a table of all key bindings in effect now, in this order:
+     minor mode bindings, major mode bindings, and global bindings
+     (`describe-bindings').
+
+`C-h c KEY'
+     Print the name of the command that KEY runs
+     (`describe-key-briefly').  Here `c' stands for `character'.  For
+     more extensive information on KEY, use `C-h k'.
+
+`C-h f FUNCTION <RET>'
+     Display documentation on the Lisp function named FUNCTION
+     (`describe-function').  Since commands are Lisp functions, a
+     command name may be used.
+
+`C-h h'
+     Display the `hello' file, which shows examples of various character
+     sets.
+
+`C-h i'
+     Run Info, the program for browsing documentation files (`info').
+     The complete Emacs manual is available on-line in Info.
+
+`C-h k KEY'
+     Display the name and documentation of the command that KEY runs
+     (`describe-key').
+
+`C-h l'
+     Display a description of the last 100 characters you typed
+     (`view-lossage').
+
+`C-h m'
+     Display documentation of the current major mode (`describe-mode').
+
+`C-h n'
+     Display documentation of Emacs changes, most recent first
+     (`view-emacs-news').
+
+`C-h p'
+     Find packages by topic keyword (`finder-by-keyword').
+
+`C-h s'
+     Display current contents of the syntax table, plus an explanation
+     of what they mean (`describe-syntax').  *Note Syntax::.
+
+`C-h t'
+     Enter the Emacs interactive tutorial (`help-with-tutorial').
+
+`C-h v VAR <RET>'
+     Display the documentation of the Lisp variable VAR
+     (`describe-variable').
+
+`C-h w COMMAND <RET>'
+     Print which keys run the command named COMMAND (`where-is').
+
+`C-h C CODING <RET>'
+     Describe coding system CODING (`describe-coding-system').
+
+`C-h C <RET>'
+     Describe the coding systems currently in use.
+
+`C-h I METHOD <RET>'
+     Describe an input method (`describe-input-method').
+
+`C-h L LANGUAGE-ENV <RET>'
+     Describe information on the character sets, coding systems and
+     input methods used for language environment LANGUAGE-ENV
+     (`describe-language-environment').
+
+`C-h C-c'
+     Display the copying conditions for GNU Emacs.
+
+`C-h C-d'
+     Display information about getting new versions of GNU Emacs.
+
+`C-h C-f FUNCTION <RET>'
+     Enter Info and go to the node documenting the Emacs function
+     FUNCTION (`Info-goto-emacs-command-node').
+
+`C-h C-k KEY'
+     Enter Info and go to the node where the key sequence KEY is
+     documented (`Info-goto-emacs-key-command-node').
+
+`C-h C-p'
+     Display information about the GNU Project.
+
+`C-h <TAB> SYMBOL <RET>'
+     Display the Info documentation on symbol SYMBOL according to the
+     programming language you are editing (`info-lookup-symbol').
+
+
+File: emacs,  Node: Key Help,  Next: Name Help,  Prev: Help Summary,  Up: Help
+
+Documentation for a Key
+=======================
+
+   The most basic `C-h' options are `C-h c' (`describe-key-briefly')
+and `C-h k' (`describe-key').  `C-h c KEY' prints in the echo area the
+name of the command that KEY is bound to.  For example, `C-h c C-f'
+prints `forward-char'.  Since command names are chosen to describe what
+the commands do, this is a good way to get a very brief description of
+what KEY does.
+
+   `C-h k KEY' is similar but gives more information: it displays the
+documentation string of the command as well as its name.  This is too
+big for the echo area, so a window is used for the display.
+
+   `C-h c' and `C-h k' work for any sort of key sequences, including
+function keys and mouse events.
+
+
+File: emacs,  Node: Name Help,  Next: Apropos,  Prev: Key Help,  Up: Help
+
+Help by Command or Variable Name
+================================
+
+   `C-h f' (`describe-function') reads the name of a Lisp function
+using the minibuffer, then displays that function's documentation string
+in a window.  Since commands are Lisp functions, you can use this to get
+the documentation of a command that you know by name.  For example,
+
+     C-h f auto-fill-mode <RET>
+
+displays the documentation of `auto-fill-mode'.  This is the only way
+to get the documentation of a command that is not bound to any key (one
+which you would normally run using `M-x').
+
+   `C-h f' is also useful for Lisp functions that you are planning to
+use in a Lisp program.  For example, if you have just written the
+expression `(make-vector len)' and want to check that you are using
+`make-vector' properly, type `C-h f make-vector <RET>'.  Because `C-h
+f' allows all function names, not just command names, you may find that
+some of your favorite abbreviations that work in `M-x' don't work in
+`C-h f'.  An abbreviation may be unique among command names yet fail to
+be unique when other function names are allowed.
+
+   The function name for `C-h f' to describe has a default which is
+used if you type <RET> leaving the minibuffer empty.  The default is
+the function called by the innermost Lisp expression in the buffer
+around point, _provided_ that is a valid, defined Lisp function name.
+For example, if point is located following the text `(make-vector (car
+x)', the innermost list containing point is the one that starts with
+`(make-vector', so the default is to describe the function
+`make-vector'.
+
+   `C-h f' is often useful just to verify that you have the right
+spelling for the function name.  If `C-h f' mentions a name from the
+buffer as the default, that name must be defined as a Lisp function.  If
+that is all you want to know, just type `C-g' to cancel the `C-h f'
+command, then go on editing.
+
+   `C-h w COMMAND <RET>' tells you what keys are bound to COMMAND.  It
+prints a list of the keys in the echo area.  If it says the command is
+not on any key, you must use `M-x' to run it.  `C-h w' runs the command
+`where-is'.
+
+   `C-h v' (`describe-variable') is like `C-h f' but describes Lisp
+variables instead of Lisp functions.  Its default is the Lisp symbol
+around or before point, but only if that is the name of a known Lisp
+variable.  *Note Variables::.
+
+
+File: emacs,  Node: Apropos,  Next: Library Keywords,  Prev: Name Help,  Up: Help
+
+Apropos
+=======
+
+   A more sophisticated sort of question to ask is, "What are the
+commands for working with files?"  To ask this question, type `C-h a
+file <RET>', which displays a list of all command names that contain
+`file', including `copy-file', `find-file', and so on.  With each
+command name appears a brief description of how to use the command, and
+what keys you can currently invoke it with.  For example, it would say
+that you can invoke `find-file' by typing `C-x C-f'.  The `a' in `C-h
+a' stands for `Apropos'; `C-h a' runs the command `apropos-command'.
+This command normally checks only commands (interactive functions); if
+you specify a prefix argument, it checks noninteractive functions as
+well.
+
+   Because `C-h a' looks only for functions whose names contain the
+string you specify, you must use ingenuity in choosing the string.  If
+you are looking for commands for killing backwards and `C-h a
+kill-backwards <RET>' doesn't reveal any, don't give up.  Try just
+`kill', or just `backwards', or just `back'.  Be persistent.  Also note
+that you can use a regular expression as the argument, for more
+flexibility (*note Regexps::).
+
+   Here is a set of arguments to give to `C-h a' that covers many
+classes of Emacs commands, since there are strong conventions for naming
+the standard Emacs commands.  By giving you a feel for the naming
+conventions, this set should also serve to aid you in developing a
+technique for picking `apropos' strings.
+
+     char, line, word, sentence, paragraph, region, page, sexp, list,
+     defun, rect, buffer, frame, window, face, file, dir, register,
+     mode, beginning, end, forward, backward, next, previous, up, down,
+     search, goto, kill, delete, mark, insert, yank, fill, indent,
+     case, change, set, what, list, find, view, describe, default.
+
+   To list all user variables that match a regexp, use the command `M-x
+apropos-variable'. This command shows only user variables and
+customization options by default; if you specify a prefix argument, it
+checks all variables.
+
+   To list all Lisp symbols that contain a match for a regexp, not just
+the ones that are defined as commands, use the command `M-x apropos'
+instead of `C-h a'.  This command does not check key bindings by
+default; specify a numeric argument if you want it to check them.
+
+   The `apropos-documentation' command is like `apropos' except that it
+searches documentation strings as well as symbol names for matches for
+the specified regular expression.
+
+   The `apropos-value' command is like `apropos' except that it
+searches symbols' values for matches for the specified regular
+expression.  This command does not check function definitions or
+property lists by default; specify a numeric argument if you want it to
+check them.
+
+   If the variable `apropos-do-all' is non-`nil', the commands above
+all behave as if they had been given a prefix argument.
+
+   If you want more information about a function definition, variable or
+symbol property listed in the Apropos buffer, you can click on it with
+`Mouse-2' or move there and type <RET>.
+
+
+File: emacs,  Node: Library Keywords,  Next: Language Help,  Prev: Apropos,  Up: Help
+
+Keyword Search for Lisp Libraries
+=================================
+
+   The `C-h p' command lets you search the standard Emacs Lisp
+libraries by topic keywords.  Here is a partial list of keywords you can
+use:
+
+     abbrev --- abbreviation handling, typing shortcuts, macros.
+     bib --- support for the bibliography processor `bib'.
+     c --- C and C++ language support.
+     calendar --- calendar and time management support.
+     comm --- communications, networking, remote access to files.
+     data --- support for editing files of data.
+     docs --- support for Emacs documentation.
+     emulations --- emulations of other editors.
+     extensions --- Emacs Lisp language extensions.
+     faces --- support for using faces (fonts and colors; *note Faces::).
+     frames --- support for Emacs frames and window systems.
+     games --- games, jokes and amusements.
+     hardware --- support for interfacing with exotic hardware.
+     help --- support for on-line help systems.
+     hypermedia --- support for links within text, or other media types.
+     i18n --- internationalization and alternate character-set support.
+     internal --- code for Emacs internals, build process, defaults.
+     languages --- specialized modes for editing programming languages.
+     lisp --- support for using Lisp (including Emacs Lisp).
+     local --- libraries local to your site.
+     maint --- maintenance aids for the Emacs development group.
+     mail --- modes for electronic-mail handling.
+     matching --- searching and matching.
+     news --- support for netnews reading and posting.
+     non-text --- support for editing files that are not ordinary text.
+     oop --- support for object-oriented programming.
+     outlines --- hierarchical outlining.
+     processes --- process, subshell, compilation, and job control support.
+     terminals --- support for terminal types.
+     tex --- support for the TeX formatter.
+     tools --- programming tools.
+     unix --- front-ends/assistants for, or emulators of, Unix features.
+     vms --- support code for VMS.
+     wp --- word processing.
+
+
+File: emacs,  Node: Language Help,  Next: Help Mode,  Prev: Library Keywords,  Up: Help
+
+Help for International Language Support
+=======================================
+
+   You can use the command `C-h L' (`describe-language-environment') to
+find out the support for a specific language environment.  *Note
+Language Environments::.  This tells you which languages this language
+environment is useful for, and lists the character sets, coding
+systems, and input methods that go with it.  It also shows some sample
+text to illustrate scripts.
+
+   The command `C-h h' (`view-hello-file') displays the file
+`etc/HELLO', which shows how to say "hello" in many languages.
+
+   The command `C-h I' (`describe-input-method') describes information
+about input methods--either a specified input method, or by default the
+input method in use.  *Note Input Methods::.
+
+   The command `C-h C' (`describe-coding-system') describes information
+about coding systems--either a specified coding system, or the ones
+currently in use.  *Note Coding Systems::.
+
+
+File: emacs,  Node: Help Mode,  Next: Misc Help,  Prev: Language Help,  Up: Help
+
+Help Mode Commands
+==================
+
+   Help buffers provide the commands of View mode (*note Misc File
+Ops::), plus a few special commands of their own.
+
+`<SPC>'
+     Scroll forward.
+
+`<DEL>'
+     Scroll backward.
+
+`<RET>'
+     Follow a cross reference at point.
+
+`<TAB>'
+     Move point forward to the next cross reference.
+
+`S-<TAB>'
+     Move point back to the previous cross reference.
+
+`Mouse-2'
+     Follow a cross reference that you click on.
+
+   When a command name (*note Running Commands by Name: M-x.) or
+variable name (*note Variables::) appears in the documentation, it
+normally appears inside paired single-quotes.  You can click on the name
+with `Mouse-2', or move point there and type <RET>, to view the
+documentation of that command or variable.  Use `C-c C-b' to retrace
+your steps.
+
+   There are convenient commands for moving point to cross references in
+the help text.  <TAB> (`help-next-ref') moves point down to the next
+cross reference.  Use `S-<TAB>' to move point up to the previous cross
+reference (`help-previous-ref').
+
+
+File: emacs,  Node: Misc Help,  Prev: Help Mode,  Up: Help
+
+Other Help Commands
+===================
+
+   `C-h i' (`info') runs the Info program, which is used for browsing
+through structured documentation files.  The entire Emacs manual is
+available within Info.  Eventually all the documentation of the GNU
+system will be available.  Type `h' after entering Info to run a
+tutorial on using Info.
+
+   If you specify a numeric argument, `C-h i' prompts for the name of a
+documentation file.  This way, you can browse a file which doesn't have
+an entry in the top-level Info menu.  It is also handy when you need to
+get to the documentation quickly, and you know the exact name of the
+file.
+
+   There are two special help commands for accessing Emacs documentation
+through Info.  `C-h C-f FUNCTION <RET>' enters Info and goes straight
+to the documentation of the Emacs function FUNCTION.  `C-h C-k KEY'
+enters Info and goes straight to the documentation of the key KEY.
+These two keys run the commands `Info-goto-emacs-command-node' and
+`Info-goto-emacs-key-command-node'.
+
+   When editing a program, if you have an Info version of the manual for
+the programming language, you can use the command `C-h C-i' to refer to
+the manual documentation for a symbol (keyword, function or variable).
+The details of how this command works depend on the major mode.
+
+   If something surprising happens, and you are not sure what commands
+you typed, use `C-h l' (`view-lossage').  `C-h l' prints the last 100
+command characters you typed in.  If you see commands that you don't
+know, you can use `C-h c' to find out what they do.
+
+   Emacs has numerous major modes, each of which redefines a few keys
+and makes a few other changes in how editing works.  `C-h m'
+(`describe-mode') prints documentation on the current major mode, which
+normally describes all the commands that are changed in this mode.
+
+   `C-h b' (`describe-bindings') and `C-h s' (`describe-syntax')
+present other information about the current Emacs mode.  `C-h b'
+displays a list of all the key bindings now in effect; the local
+bindings defined by the current minor modes first, then the local
+bindings defined by the current major mode, and finally the global
+bindings (*note Key Bindings::).  `C-h s' displays the contents of the
+syntax table, with explanations of each character's syntax (*note
+Syntax::).
+
+   You can get a similar list for a particular prefix key by typing
+`C-h' after the prefix key.  (There are a few prefix keys for which
+this does not work--those that provide their own bindings for `C-h'.
+One of these is <ESC>, because `<ESC> C-h' is actually `C-M-h', which
+marks a defun.)
+
+   The other `C-h' options display various files of useful information.
+`C-h C-w' displays the full details on the complete absence of
+warranty for GNU Emacs.  `C-h n' (`view-emacs-news') displays the file
+`emacs/etc/NEWS', which contains documentation on Emacs changes
+arranged chronologically.  `C-h F' (`view-emacs-FAQ') displays the
+Emacs frequently-answered-questions list.  `C-h t'
+(`help-with-tutorial') displays the learn-by-doing Emacs tutorial.
+`C-h C-c' (`describe-copying') displays the file `emacs/etc/COPYING',
+which tells you the conditions you must obey in distributing copies of
+Emacs.  `C-h C-d' (`describe-distribution') displays the file
+`emacs/etc/DISTRIB', which tells you how you can order a copy of the
+latest version of Emacs.  `C-h C-p' (`describe-project') displays
+general information about the GNU Project.
+
+
+File: emacs,  Node: Mark,  Next: Killing,  Prev: Help,  Up: Top
+
+The Mark and the Region
+***********************
+
+   Many Emacs commands operate on an arbitrary contiguous part of the
+current buffer.  To specify the text for such a command to operate on,
+you set "the mark" at one end of it, and move point to the other end.
+The text between point and the mark is called "the region".  Emacs
+highlights the region whenever there is one, if you enable Transient
+Mark mode (*note Transient Mark::).
+
+   You can move point or the mark to adjust the boundaries of the
+region.  It doesn't matter which one is set first chronologically, or
+which one comes earlier in the text.  Once the mark has been set, it
+remains where you put it until you set it again at another place.  Each
+Emacs buffer has its own mark, so that when you return to a buffer that
+had been selected previously, it has the same mark it had before.
+
+   Many commands that insert text, such as `C-y' (`yank') and `M-x
+insert-buffer', position point and the mark at opposite ends of the
+inserted text, so that the region contains the text just inserted.
+
+   Aside from delimiting the region, the mark is also useful for
+remembering a spot that you may want to go back to.  To make this
+feature more useful, each buffer remembers 16 previous locations of the
+mark in the "mark ring".
+
+* Menu:
+
+* Setting Mark::	Commands to set the mark.
+* Transient Mark::	How to make Emacs highlight the region--
+			  when there is one.
+* Using Region::	Summary of ways to operate on contents of the region.
+* Marking Objects::	Commands to put region around textual units.
+* Mark Ring::   	Previous mark positions saved so you can go back there.
+* Global Mark Ring::    Previous mark positions in various buffers.
+
+
+File: emacs,  Node: Setting Mark,  Next: Transient Mark,  Up: Mark
+
+Setting the Mark
+================
+
+   Here are some commands for setting the mark:
+
+`C-<SPC>'
+     Set the mark where point is (`set-mark-command').
+
+`C-@'
+     The same.
+
+`C-x C-x'
+     Interchange mark and point (`exchange-point-and-mark').
+
+`Drag-Mouse-1'
+     Set point and the mark around the text you drag across.
+
+`Mouse-3'
+     Set the mark where point is, then move point to where you click
+     (`mouse-save-then-kill').
+
+   For example, suppose you wish to convert part of the buffer to upper
+case, using the `C-x C-u' (`upcase-region') command, which operates on
+the text in the region.  You can first go to the beginning of the text
+to be capitalized, type `C-<SPC>' to put the mark there, move to the
+end, and then type `C-x C-u'.  Or, you can set the mark at the end of
+the text, move to the beginning, and then type `C-x C-u'.
+
+   The most common way to set the mark is with the `C-<SPC>' command
+(`set-mark-command').  This sets the mark where point is.  Then you can
+move point away, leaving the mark behind.
+
+   There are two ways to set the mark with the mouse.  You can drag
+mouse button one across a range of text; that puts point where you
+release the mouse button, and sets the mark at the other end of that
+range.  Or you can click mouse button three, which sets the mark at
+point (like `C-<SPC>') and then moves point (like `Mouse-1').  Both of
+these methods copy the region into the kill ring in addition to setting
+the mark; that gives behavior consistent with other window-driven
+applications, but if you don't want to modify the kill ring, you must
+use keyboard commands to set the mark.  *Note Mouse Commands::.
+
+   Ordinary terminals have only one cursor, so there is no way for Emacs
+to show you where the mark is located.  You have to remember.  The usual
+solution to this problem is to set the mark and then use it soon, before
+you forget where it is.  Alternatively, you can see where the mark is
+with the command `C-x C-x' (`exchange-point-and-mark') which puts the
+mark where point was and point where the mark was.  The extent of the
+region is unchanged, but the cursor and point are now at the previous
+position of the mark.  In Transient Mark mode, this command reactivates
+the mark.
+
+   `C-x C-x' is also useful when you are satisfied with the position of
+point but want to move the other end of the region (where the mark is);
+do `C-x C-x' to put point at that end of the region, and then move it.
+A second use of `C-x C-x', if necessary, puts the mark at the new
+position with point back at its original position.
+
+   There is no such character as `C-<SPC>' in ASCII; when you type
+<SPC> while holding down <CTRL>, what you get on most ordinary
+terminals is the character `C-@'.  This key is actually bound to
+`set-mark-command'.  But unless you are unlucky enough to have a
+terminal where typing `C-<SPC>' does not produce `C-@', you might as
+well think of this character as `C-<SPC>'.  Under X, `C-<SPC>' is
+actually a distinct character, but its binding is still
+`set-mark-command'.
+
+
+File: emacs,  Node: Transient Mark,  Next: Using Region,  Prev: Setting Mark,  Up: Mark
+
+Transient Mark Mode
+===================
+
+   Emacs can highlight the current region, using X Windows.  But
+normally it does not.  Why not?
+
+   Highlighting the region doesn't work well ordinarily in Emacs,
+because once you have set a mark, there is _always_ a region (in that
+buffer).  And highlighting the region all the time would be a nuisance.
+
+   You can turn on region highlighting by enabling Transient Mark mode.
+This is a more rigid mode of operation in which the region "lasts" only
+temporarily, so you must set up a region for each command that uses
+one.  In Transient Mark mode, most of the time there is no region;
+therefore, highlighting the region when it exists is convenient.
+
+   To enable Transient Mark mode, type `M-x transient-mark-mode'.  This
+command toggles the mode, so you can repeat the command to turn off the
+mode.
+
+   Here are the details of Transient Mark mode:
+
+   * To set the mark, type `C-<SPC>' (`set-mark-command').  This makes
+     the mark active; as you move point, you will see the region
+     highlighting grow and shrink.
+
+   * The mouse commands for specifying the mark also make it active.
+     So do keyboard commands whose purpose is to specify a region,
+     including `M-@', `C-M-@', `M-h', `C-M-h', `C-x C-p', and `C-x h'.
+
+   * When the mark is active, you can execute commands that operate on
+     the region, such as killing, indenting, or writing to a file.
+
+   * Any change to the buffer, such as inserting or deleting a
+     character, deactivates the mark.  This means any subsequent
+     command that operates on a region will get an error and refuse to
+     operate.  You can make the region active again by typing `C-x C-x'.
+
+   * Commands like `M->' and `C-s' that "leave the mark behind" in
+     addition to some other primary purpose do not activate the new
+     mark.  You can activate the new region by executing `C-x C-x'
+     (`exchange-point-and-mark').
+
+   * `C-s' when the mark is active does not alter the mark.
+
+   * Quitting with `C-g' deactivates the mark.
+
+   Highlighting of the region uses the `region' face; you can customize
+how the region is highlighted by changing this face.  *Note Face
+Customization::.
+
+   When multiple windows show the same buffer, they can have different
+regions, because they can have different values of point (though they
+all share one common mark position).  Ordinarily, only the selected
+window highlights its region (*note Windows::).  However, if the
+variable `highlight-nonselected-windows' is non-`nil', then each window
+highlights its own region (provided that Transient Mark mode is enabled
+and the window's buffer's mark is active).
+
+   When Transient Mark mode is not enabled, every command that sets the
+mark also activates it, and nothing ever deactivates it.
+
+   If the variable `mark-even-if-inactive' is non-`nil' in Transient
+Mark mode, then commands can use the mark and the region even when it
+is inactive.  Region highlighting appears and disappears just as it
+normally does in Transient Mark mode, but the mark doesn't really go
+away when the highlighting disappears.
+
+   Transient Mark mode is also sometimes known as "Zmacs mode" because
+the Zmacs editor on the MIT Lisp Machine handled the mark in a similar
+way.
+
+
+File: emacs,  Node: Using Region,  Next: Marking Objects,  Prev: Transient Mark,  Up: Mark
+
+Operating on the Region
+=======================
+
+   Once you have a region and the mark is active, here are some of the
+ways you can operate on the region:
+
+   * Kill it with `C-w' (*note Killing::).
+
+   * Save it in a register with `C-x r s' (*note Registers::).
+
+   * Save it in a buffer or a file (*note Accumulating Text::).
+
+   * Convert case with `C-x C-l' or `C-x C-u' (*note Case::).
+
+   * Indent it with `C-x <TAB>' or `C-M-\' (*note Indentation::).
+
+   * Fill it as text with `M-x fill-region' (*note Filling::).
+
+   * Print hardcopy with `M-x print-region' (*note Hardcopy::).
+
+   * Evaluate it as Lisp code with `M-x eval-region' (*note Lisp
+     Eval::).
+
+   Most commands that operate on the text in the region have the word
+`region' in their names.
+
+
+File: emacs,  Node: Marking Objects,  Next: Mark Ring,  Prev: Using Region,  Up: Mark
+
+Commands to Mark Textual Objects
+================================
+
+   Here are the commands for placing point and the mark around a textual
+object such as a word, list, paragraph or page.
+
+`M-@'
+     Set mark after end of next word (`mark-word').  This command and
+     the following one do not move point.
+
+`C-M-@'
+     Set mark after end of next Lisp expression (`mark-sexp').
+
+`M-h'
+     Put region around current paragraph (`mark-paragraph').
+
+`C-M-h'
+     Put region around current Lisp defun (`mark-defun').
+
+`C-x h'
+     Put region around entire buffer (`mark-whole-buffer').
+
+`C-x C-p'
+     Put region around current page (`mark-page').
+
+   `M-@' (`mark-word') puts the mark at the end of the next word, while
+`C-M-@' (`mark-sexp') puts it at the end of the next Lisp expression.
+These commands handle arguments just like `M-f' and `C-M-f'.
+
+   Other commands set both point and mark, to delimit an object in the
+buffer.  For example, `M-h' (`mark-paragraph') moves point to the
+beginning of the paragraph that surrounds or follows point, and puts
+the mark at the end of that paragraph (*note Paragraphs::).  It prepares
+the region so you can indent, case-convert, or kill a whole paragraph.
+
+   `C-M-h' (`mark-defun') similarly puts point before and the mark
+after the current or following defun (*note Defuns::).  `C-x C-p'
+(`mark-page') puts point before the current page, and mark at the end
+(*note Pages::).  The mark goes after the terminating page delimiter
+(to include it), while point goes after the preceding page delimiter
+(to exclude it).  A numeric argument specifies a later page (if
+positive) or an earlier page (if negative) instead of the current page.
+
+   Finally, `C-x h' (`mark-whole-buffer') sets up the entire buffer as
+the region, by putting point at the beginning and the mark at the end.
+
+   In Transient Mark mode, all of these commands activate the mark.
+
+
+File: emacs,  Node: Mark Ring,  Next: Global Mark Ring,  Prev: Marking Objects,  Up: Mark
+
+The Mark Ring
+=============
+
+   Aside from delimiting the region, the mark is also useful for
+remembering a spot that you may want to go back to.  To make this
+feature more useful, each buffer remembers 16 previous locations of the
+mark, in the "mark ring".  Commands that set the mark also push the old
+mark onto this ring.  To return to a marked location, use `C-u C-<SPC>'
+(or `C-u C-@'); this is the command `set-mark-command' given a numeric
+argument.  It moves point to where the mark was, and restores the mark
+from the ring of former marks.  Thus, repeated use of this command
+moves point to all of the old marks on the ring, one by one.  The mark
+positions you move through in this way are not lost; they go to the end
+of the ring.
+
+   Each buffer has its own mark ring.  All editing commands use the
+current buffer's mark ring.  In particular, `C-u C-<SPC>' always stays
+in the same buffer.
+
+   Many commands that can move long distances, such as `M-<'
+(`beginning-of-buffer'), start by setting the mark and saving the old
+mark on the mark ring.  This is to make it easier for you to move back
+later.  Searches set the mark if they move point.  You can tell when a
+command sets the mark because it displays `Mark Set' in the echo area.
+
+   If you want to move back to the same place over and over, the mark
+ring may not be convenient enough.  If so, you can record the position
+in a register for later retrieval (*note RegPos::).
+
+   The variable `mark-ring-max' specifies the maximum number of entries
+to keep in the mark ring.  If that many entries exist and another one
+is pushed, the last one in the list is discarded.  Repeating `C-u
+C-<SPC>' cycles through the positions currently in the ring.
+
+   The variable `mark-ring' holds the mark ring itself, as a list of
+marker objects, with the most recent first.  This variable is local in
+every buffer.
+
+
+File: emacs,  Node: Global Mark Ring,  Prev: Mark Ring,  Up: Mark
+
+The Global Mark Ring
+====================
+
+   In addition to the ordinary mark ring that belongs to each buffer,
+Emacs has a single "global mark ring".  It records a sequence of
+buffers in which you have recently set the mark, so you can go back to
+those buffers.
+
+   Setting the mark always makes an entry on the current buffer's mark
+ring.  If you have switched buffers since the previous mark setting, the
+new mark position makes an entry on the global mark ring also.  The
+result is that the global mark ring records a sequence of buffers that
+you have been in, and, for each buffer, a place where you set the mark.
+
+   The command `C-x C-<SPC>' (`pop-global-mark') jumps to the buffer
+and position of the latest entry in the global ring.  It also rotates
+the ring, so that successive uses of `C-x C-<SPC>' take you to earlier
+and earlier buffers.
+
+
+File: emacs,  Node: Killing,  Next: Yanking,  Prev: Mark,  Up: Top
+
+Deletion and Killing
+====================
+
+   Most commands which erase text from the buffer save it in the kill
+ring so that you can move or copy it to other parts of the buffer.
+These commands are known as "kill" commands.  The rest of the commands
+that erase text do not save it in the kill ring; they are known as
+"delete" commands.  (This distinction is made only for erasure of text
+in the buffer.)  If you do a kill or delete command by mistake, you can
+use the `C-x u' (`undo') command to undo it (*note Undo::).
+
+   The delete commands include `C-d' (`delete-char') and <DEL>
+(`delete-backward-char'), which delete only one character at a time,
+and those commands that delete only spaces or newlines.  Commands that
+can destroy significant amounts of nontrivial data generally kill.  The
+commands' names and individual descriptions use the words `kill' and
+`delete' to say which they do.
+
+* Menu:
+
+* Deletion::            Commands for deleting small amounts of text and
+                          blank areas.
+* Killing by Lines::    How to kill entire lines of text at one time.
+* Other Kill Commands:: Commands to kill large regions of text and
+                          syntactic units such as words and sentences.
+
+
+File: emacs,  Node: Deletion,  Next: Killing by Lines,  Up: Killing
+
+Deletion
+--------
+
+`C-d'
+     Delete next character (`delete-char').
+
+`<DEL>'
+     Delete previous character (`delete-backward-char').
+
+`M-\'
+     Delete spaces and tabs around point (`delete-horizontal-space').
+
+`M-<SPC>'
+     Delete spaces and tabs around point, leaving one space
+     (`just-one-space').
+
+`C-x C-o'
+     Delete blank lines around the current line (`delete-blank-lines').
+
+`M-^'
+     Join two lines by deleting the intervening newline, along with any
+     indentation following it (`delete-indentation').
+
+   The most basic delete commands are `C-d' (`delete-char') and <DEL>
+(`delete-backward-char').  `C-d' deletes the character after point, the
+one the cursor is "on top of."  This doesn't move point.  <DEL> deletes
+the character before the cursor, and moves point back.  You can delete
+newlines like any other characters in the buffer; deleting a newline
+joins two lines.  Actually, `C-d' and <DEL> aren't always delete
+commands; when given arguments, they kill instead, since they can erase
+more than one character this way.
+
+   The other delete commands are those which delete only whitespace
+characters: spaces, tabs and newlines.  `M-\'
+(`delete-horizontal-space') deletes all the spaces and tab characters
+before and after point.  `M-<SPC>' (`just-one-space') does likewise but
+leaves a single space after point, regardless of the number of spaces
+that existed previously (even zero).
+
+   `C-x C-o' (`delete-blank-lines') deletes all blank lines after the
+current line.  If the current line is blank, it deletes all blank lines
+preceding the current line as well (leaving one blank line, the current
+line).
+
+   `M-^' (`delete-indentation') joins the current line and the previous
+line, by deleting a newline and all surrounding spaces, usually leaving
+a single space.  *Note M-^: Indentation.
+
+
+File: emacs,  Node: Killing by Lines,  Next: Other Kill Commands,  Prev: Deletion,  Up: Killing
+
+Killing by Lines
+----------------
+
+`C-k'
+     Kill rest of line or one or more lines (`kill-line').
+
+   The simplest kill command is `C-k'.  If given at the beginning of a
+line, it kills all the text on the line, leaving it blank.  When used
+on a blank line, it kills the whole line including its newline.  To kill
+an entire non-blank line, go to the beginning and type `C-k' twice.
+
+   More generally, `C-k' kills from point up to the end of the line,
+unless it is at the end of a line.  In that case it kills the newline
+following point, thus merging the next line into the current one.
+Spaces and tabs that you can't see at the end of the line are ignored
+when deciding which case applies, so if point appears to be at the end
+of the line, you can be sure `C-k' will kill the newline.
+
+   When `C-k' is given a positive argument, it kills that many lines
+and the newlines that follow them (however, text on the current line
+before point is spared).  With a negative argument -N, it kills N lines
+preceding the current line (together with the text on the current line
+before point).  Thus, `C-u - 2 C-k' at the front of a line kills the
+two previous lines.
+
+   `C-k' with an argument of zero kills the text before point on the
+current line.
+
+   If the variable `kill-whole-line' is non-`nil', `C-k' at the very
+beginning of a line kills the entire line including the following
+newline.  This variable is normally `nil'.
+
+
+File: emacs,  Node: Other Kill Commands,  Prev: Killing by Lines,  Up: Killing
+
+Other Kill Commands
+-------------------
+
+`C-w'
+     Kill region (from point to the mark) (`kill-region').
+
+`M-d'
+     Kill word (`kill-word').  *Note Words::.
+
+`M-<DEL>'
+     Kill word backwards (`backward-kill-word').
+
+`C-x <DEL>'
+     Kill back to beginning of sentence (`backward-kill-sentence').
+     *Note Sentences::.
+
+`M-k'
+     Kill to end of sentence (`kill-sentence').
+
+`C-M-k'
+     Kill sexp (`kill-sexp').  *Note Lists::.
+
+`M-z CHAR'
+     Kill through the next occurrence of CHAR (`zap-to-char').
+
+   A kill command which is very general is `C-w' (`kill-region'), which
+kills everything between point and the mark.  With this command, you
+can kill any contiguous sequence of characters, if you first set the
+region around them.
+
+   A convenient way of killing is combined with searching: `M-z'
+(`zap-to-char') reads a character and kills from point up to (and
+including) the next occurrence of that character in the buffer.  A
+numeric argument acts as a repeat count.  A negative argument means to
+search backward and kill text before point.
+
+   Other syntactic units can be killed: words, with `M-<DEL>' and `M-d'
+(*note Words::); sexps, with `C-M-k' (*note Lists::); and sentences,
+with `C-x <DEL>' and `M-k' (*note Sentences::).
+
+   You can use kill commands in read-only buffers.  They don't actually
+change the buffer, and they beep to warn you of that, but they do copy
+the text you tried to kill into the kill ring, so you can yank it into
+other buffers.  Most of the kill commands move point across the text
+they copy in this way, so that successive kill commands build up a
+single kill ring entry as usual.
+

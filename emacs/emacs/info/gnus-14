@@ -1,0 +1,652 @@
+This is ../info/gnus, produced by makeinfo version 4.0 from gnus.texi.
+
+START-INFO-DIR-ENTRY
+* Gnus: (gnus).         The newsreader Gnus.
+END-INFO-DIR-ENTRY
+
+   This file documents Gnus, the GNU Emacs newsreader.
+
+   Copyright (C) 1995,96 Free Software Foundation, Inc.
+
+   Permission is granted to make and distribute verbatim copies of this
+manual provided the copyright notice and this permission notice are
+preserved on all copies.
+
+   Permission is granted to copy and distribute modified versions of
+this manual under the conditions for verbatim copying, provided also
+that the entire resulting derived work is distributed under the terms
+of a permission notice identical to this one.
+
+   Permission is granted to copy and distribute translations of this
+manual into another language, under the above conditions for modified
+versions.
+
+
+File: gnus,  Node: Keystrokes,  Next: Emacs Lisp,  Up: Emacs for Heathens
+
+Keystrokes
+----------
+
+   * Q: What is an experienced Emacs user?
+
+   * A: A person who wishes that the terminal had pedals.
+
+   Yes, when you use Emacs, you are apt to use the control key, the
+shift key and the meta key a lot.  This is very annoying to some people
+(notably `vi'le users), and the rest of us just love the hell out of
+it.  Just give up and submit.  Emacs really does stand for
+"Escape-Meta-Alt-Control-Shift", and not "Editing Macros", as you may
+have heard from other disreputable sources (like the Emacs author).
+
+   The shift keys are normally located near your pinky fingers, and are
+normally used to get capital letters and stuff.  You probably use it all
+the time.  The control key is normally marked "CTRL" or something like
+that.  The meta key is, funnily enough, never marked as such on any
+keyboard.  The one I'm currently at has a key that's marked "Alt",
+which is the meta key on this keyboard.  It's usually located somewhere
+to the left hand side of the keyboard, usually on the bottom row.
+
+   Now, us Emacs people don't say "press the meta-control-m key",
+because that's just too inconvenient.  We say "press the `M-C-m' key".
+`M-' is the prefix that means "meta" and "C-" is the prefix that means
+"control".  So "press `C-k'" means "press down the control key, and
+hold it down while you press `k'".  "Press `M-C-k'" means "press down
+and hold down the meta key and the control key and then press `k'".
+Simple, ay?
+
+   This is somewhat complicated by the fact that not all keyboards have
+a meta key.  In that case you can use the "escape" key.  Then `M-k'
+means "press escape, release escape, press `k'".  That's much more work
+than if you have a meta key, so if that's the case, I respectfully
+suggest you get a real keyboard with a meta key.  You can't live without
+it.
+
+
+File: gnus,  Node: Emacs Lisp,  Prev: Keystrokes,  Up: Emacs for Heathens
+
+Emacs Lisp
+----------
+
+   Emacs is the King of Editors because it's really a Lisp interpreter.
+Each and every key you tap runs some Emacs Lisp code snippet, and since
+Emacs Lisp is an interpreted language, that means that you can configure
+any key to run any arbitrary code.  You just, like, do it.
+
+   Gnus is written in Emacs Lisp, and is run as a bunch of interpreted
+functions.  (These are byte-compiled for speed, but it's still
+interpreted.)  If you decide that you don't like the way Gnus does
+certain things, it's trivial to have it do something a different way.
+(Well, at least if you know how to write Lisp code.)  However, that's
+beyond the scope of this manual, so we are simply going to talk about
+some common constructs that you normally use in your `.emacs' file to
+customize Gnus.
+
+   If you want to set the variable `gnus-florgbnize' to four (4), you
+write the following:
+
+     (setq gnus-florgbnize 4)
+
+   This function (really "special form") `setq' is the one that can set
+a variable to some value.  This is really all you need to know.  Now
+you can go and fill your `.emacs' file with lots of these to change how
+Gnus works.
+
+   If you have put that thing in your `.emacs' file, it will be read
+and `eval'ed (which is lisp-ese for "run") the next time you start
+Emacs.  If you want to change the variable right away, simply say `C-x
+C-e' after the closing parenthesis.  That will `eval' the previous
+"form", which is a simple `setq' statement here.
+
+   Go ahead--just try it, if you're located at your Emacs.  After you
+`C-x C-e', you will see `4' appear in the echo area, which is the
+return value of the form you `eval'ed.
+
+   Some pitfalls:
+
+   If the manual says "set `gnus-read-active-file' to `some'", that
+means:
+
+     (setq gnus-read-active-file 'some)
+
+   On the other hand, if the manual says "set `gnus-nntp-server' to
+`nntp.ifi.uio.no'", that means:
+
+     (setq gnus-nntp-server "nntp.ifi.uio.no")
+
+   So be careful not to mix up strings (the latter) with symbols (the
+former).  The manual is unambiguous, but it can be confusing.
+
+   \input texinfo
+
+
+File: gnus,  Node: Frequently Asked Questions,  Prev: Emacs for Heathens,  Up: Appendices
+
+Frequently Asked Questions
+==========================
+
+   This is the Gnus Frequently Asked Questions list.  If you have a Web
+browser, the official hypertext version is at
+`http://www.miranova.com/~steve/gnus-faq.html>', and has probably been
+updated since you got this manual.
+
+* Menu:
+
+* Installation FAQ::      Installation of Gnus.
+* Customization FAQ::     Customizing Gnus.
+* Reading News FAQ::      News Reading Questions.
+* Reading Mail FAQ::      Mail Reading Questions.
+
+
+File: gnus,  Node: Installation FAQ,  Next: Customization FAQ,  Up: Frequently Asked Questions
+
+Installation
+------------
+
+   * Q1.1  What is the latest version of Gnus?
+
+     The latest (and greatest) version is 5.0.10.  You might also run
+     across something called _September Gnus_.  September Gnus is the
+     alpha version of the next major release of Gnus.  It is currently
+     not stable enough to run unless you are prepared to debug lisp.
+
+   * Q1.2  Where do I get Gnus?
+
+     Any of the following locations:
+
+        - `ftp://ftp.ifi.uio.no/pub/emacs/gnus/gnus.tar.gz'
+
+        - `ftp://ftp.pilgrim.umass.edu/pub/misc/ding/'
+
+        - `gopher://gopher.pilgrim.umass.edu/11/pub/misc/ding/'
+
+        - `ftp://aphrodite.nectar.cs.cmu.edu/pub/ding-gnus/'
+
+        - `ftp://ftp.solace.mh.se:/pub/gnu/elisp/'
+
+
+   * Q1.3  Which version of Emacs do I need?
+
+     At least GNU Emacs 19.28, or XEmacs 19.12 is recommended.  GNU
+     Emacs 19.25 has been reported to work under certain circumstances,
+     but it doesn't _officially_ work on it.  19.27 has also been
+     reported to work.  Gnus has been reported to work under OS/2 as
+     well as Unix.
+
+   * Q1.4  Where is timezone.el?
+
+     Upgrade to XEmacs 19.13.  In earlier versions of XEmacs this file
+     was placed with Gnus 4.1.3, but that has been corrected.
+
+   * Q1.5  When I run Gnus on XEmacs 19.13 I get weird error messages.
+
+     You're running an old version of Gnus.  Upgrade to at least version
+     5.0.4.
+
+   * Q1.6  How do I unsubscribe from the Mailing List?
+
+     Send an e-mail message to `ding-request@ifi.uio.no' with the magic
+     word _unsubscribe_ somewhere in it, and you will be removed.
+
+     If you are reading the digest version of the list, send an e-mail
+     message to
+     `ding-rn-digests-d-request@moe.shore.net' with _unsubscribe_ as
+     the subject and you will be removed.
+
+   * Q1.7  How do I run Gnus on both Emacs and XEmacs?
+
+     The basic answer is to byte-compile under XEmacs, and then you can
+     run under either Emacsen.  There is, however, a potential version
+     problem with easymenu.el with Gnu Emacs prior to 19.29.
+
+     Per Abrahamsen <abraham@dina.kvl.dk> writes :
+     The internal easymenu.el interface changed between 19.28 and 19.29
+     in order to make it possible to create byte compiled files that
+     can be shared between Gnu Emacs and XEmacs.  The change is upward
+     compatible, but not downward compatible.  This gives the following
+     compatibility table:
+
+          Compiled with:  | Can be used with:
+          ----------------+--------------------------------------
+          19.28           | 19.28         19.29
+          19.29           |               19.29           XEmacs
+          XEmacs          |               19.29           XEmacs
+
+     If you have Gnu Emacs 19.28 or earlier, or XEmacs 19.12 or
+     earlier, get a recent version of auc-menu.el from
+     `ftp://ftp.iesd.auc.dk/pub/emacs-lisp/auc-menu.el', and install it
+     under the name easymenu.el somewhere early in your load path.
+
+   * Q1.8 What resources are available?
+
+     There is the newsgroup Gnu.emacs.gnus. Discussion of Gnus 5.x is
+     now taking place there. There is also a mailing list, send mail to
+     `ding-request@ifi.uio.no' with the magic word _subscribe_
+     somewhere in it.
+
+     _NOTE:_ the traffic on this list is heavy so you may not want to be
+     on it (unless you use Gnus as your mailer reader, that is). The
+     mailing list is mainly for developers and testers.
+
+     Gnus has a home World Wide Web page at
+     `http://www.ifi.uio.no/~larsi/ding.html'.
+
+     Gnus has a write up in the X Windows Applications FAQ at
+     `http://www.ee.ryerson.ca:8080/~elf/xapps/Q-III.html'.
+
+     The Gnus manual is also available on the World Wide Web. The
+     canonical source is in Norway at
+     `http://www.ifi.uio.no/~larsi/ding-manual/gnus_toc.html'.
+
+     There are three mirrors in the United States:
+       1. `http://www.miranova.com/gnus-man/'
+
+       2.
+          `http://www.pilgrim.umass.edu/pub/misc/ding/manual/gnus_toc.html'
+
+       3. `http://www.rtd.com/~woo/gnus/'
+
+
+     PostScript copies of the Gnus Reference card are available from
+     `ftp://ftp.cs.ualberta.ca/pub/oolog/gnus/'.  They are mirrored at
+     `ftp://ftp.pilgrim.umass.edu/pub/misc/ding/refcard/' in the United
+     States. And
+     `ftp://marvin.fkphy.uni-duesseldorf.de/pub/gnus/' in Germany.
+
+     An online version of the Gnus FAQ is available at
+     `http://www.miranova.com/~steve/gnus-faq.html'. Off-line formats
+     are also available:
+     ASCII: `ftp://ftp.miranova.com/pub/gnus/gnus-faq'
+     PostScript: `ftp://ftp.miranova.com/pub/gnus/gnus-faq.ps'.
+
+   * Q1.9  Gnus hangs on connecting to NNTP server
+
+     I am running XEmacs on SunOS and Gnus prints a message about
+     Connecting to NNTP server and then just hangs.
+
+     Ben Wing <wing@netcom.com> writes :
+     I wonder if you're hitting the infamous _libresolv_ problem.  The
+     basic problem is that under SunOS you can compile either with DNS
+     or NIS name lookup libraries but not both.  Try substituting the
+     IP address and see if that works; if so, you need to download the
+     sources and recompile.
+
+   * Q1.10  Mailcrypt 3.4 doesn't work
+
+     This problem is verified to still exist in Gnus 5.0.9 and
+     MailCrypt 3.4.  The answer comes from Peter Arius
+     <arius@immd2.informatik.uni-erlangen.de>.
+
+     I found out that mailcrypt uses `gnus-eval-in-buffer-window',
+     which is a macro.  It seems as if you have compiled mailcrypt with
+     plain old GNUS in load path, and the XEmacs byte compiler has
+     inserted that macro definition into `mc-toplev.elc'.  The solution
+     is to recompile `mc-toplev.el' with Gnus 5 in load-path, and it
+     works fine.
+
+     Steve Baur <steve@miranova.com> adds :
+     The problem also manifests itself if neither GNUS 4 nor Gnus 5 is
+     in the load-path.
+
+   * Q1.11  What other packages work with Gnus?
+
+        - Mailcrypt.
+
+          Mailcrypt is an Emacs interface to PGP.  It works, it installs
+          without hassle, and integrates very easily.  Mailcrypt can be
+          obtained from
+          `ftp://cag.lcs.mit.edu/pub/patl/mailcrypt-3.4.tar.gz'.
+
+        - Tiny Mime.
+
+          Tiny Mime is an Emacs MUA interface to MIME.  Installation is
+          a two-step process unlike most other packages, so you should
+          be prepared to move the byte-compiled code somewhere.  There
+          are currently two versions of this package available.  It can
+          be obtained from
+          `ftp://ftp.jaist.ac.jp/pub/GNU/elisp/'.  Be sure to apply the
+          supplied patch.  It works with Gnus through version 5.0.9.
+          In order for all dependencies to work correctly the load
+          sequence is as follows:
+                 (load "tm-setup")
+                 (load "gnus")
+                 (load "mime-compose")
+
+          _NOTE:_ Loading the package disables citation highlighting by
+          default.  To get the old behavior back, use the `M-t' command.
+
+
+
+
+File: gnus,  Node: Customization FAQ,  Next: Reading News FAQ,  Prev: Installation FAQ,  Up: Frequently Asked Questions
+
+Customization
+-------------
+
+   * Q2.1  Custom Edit does not work under XEmacs
+
+     The custom package has not been ported to XEmacs.
+
+   * Q2.2  How do I quote messages?
+
+     I see lots of messages with quoted material in them.  I am
+     wondering how to have Gnus do it for me.
+
+     This is Gnus, so there are a number of ways of doing this.  You
+     can use the built-in commands to do this.  There are the `F' and
+     `R' keys from the summary buffer which automatically include the
+     article being responded to.  These commands are also selectable as
+     Followup and Yank and Reply and Yank in the Post menu.
+
+     `C-c C-y' grabs the previous message and prefixes each line with
+     `ail-indentation-spaces' spaces or `mail-yank-prefix' if that is
+     non-nil, unless you have set your own `mail-citation-hook', which
+     will be called to to do the job.
+
+     You might also consider the Supercite package, which allows for
+     pretty arbitrarily complex quoting styles.  Some people love it,
+     some people hate it.
+
+   * Q2.3 How can I keep my nnvirtual:* groups sorted?
+
+     How can I most efficiently arrange matters so as to keep my
+     nnvirtual:* (etc) groups at the top of my group selection buffer,
+     whilst keeping everything sorted in alphabetical order.
+
+     If you don't subscribe often to new groups then the easiest way is
+     to first sort the groups and then manually kill and yank the
+     virtuals wherever you want them.
+
+   * Q2.4  Any good suggestions on stuff for an all.SCORE file?
+
+     Here is a collection of suggestions from the Gnus mailing list.
+
+       1. From "Dave Disser" <disser@sdd.hp.com>
+          I like blasting anything without lowercase letters.  Weeds
+          out most of the make $$ fast, as well as the lame titles like
+          "IBM" and "HP-UX" with no further description.
+                (("Subject"
+                 ("^\\(Re: \\)?[^a-z]*$" -200 nil R)))
+
+       2. From "Peter Arius" <arius@immd2.informatik.uni-erlangen.de>
+          The most vital entries in my (still young) all.SCORE:
+               (("xref"
+                 ("alt.fan.oj-simpson" -1000 nil s))
+                ("subject"
+                 ("\\<\\(make\\|fast\\|big\\)\\s-*\\(money\\|cash\\|bucks?\\)\\>" -1000 nil r)
+                 ("$$$$" -1000 nil s)))
+
+       3. From "Per Abrahamsen" <abraham@dina.kvl.dk>
+               (("subject"
+                 ;; CAPS OF THE WORLD, UNITE
+                 ("^..[^a-z]+$" -1 nil R)
+                 ;; $$$ Make Money $$$ (Try work)
+                 ("$" -1 nil s)
+                 ;; I'm important! And I have exclamation marks to prove it!
+                 ("!" -1 nil s)))
+
+       4. From "heddy boubaker" <boubaker@cenatls.cena.dgac.fr>
+          I  would like to contribute with mine.
+               (
+                (read-only t)
+                ("subject"
+                 ;; ALL CAPS SUBJECTS
+                 ("^\\([Rr][Ee]: +\\)?[^a-z]+$" -1 nil R)
+                 ;; $$$ Make Money $$$
+                 ("$$" -10 nil s)
+                 ;; Empty subjects are worthless!
+                 ("^ *\\([(<]none[>)]\\|(no subject\\( given\\)?)\\)? *$" -10 nil r)
+                 ;; Sometimes interesting announces occur!
+                 ("ANN?OU?NC\\(E\\|ING\\)" +10 nil r)
+                 ;; Some people think they're on mailing lists
+                 ("\\(un\\)?sub?scribe" -100 nil r)
+                 ;; Stop Micro$oft NOW!!
+                 ("\\(m\\(icro\\)?[s$]\\(oft\\|lot\\)?-?\\)?wind?\\(ows\\|aube\\|oze\\)?[- ]*\\('?95\\|NT\\|3[.]1\\|32\\)" -1001 nil r)
+                 ;; I've nothing to buy
+                 ("\\(for\\|4\\)[- ]*sale" -100 nil r)
+                 ;; SELF-DISCIPLINED people
+                 ("\\[[^a-z0-9 \t\n][^a-z0-9 \t\n]\\]" +100 nil r)
+                 )
+                ("from"
+                 ;; To keep track of posters from my site
+                 (".dgac.fr" +1000 nil s))
+                ("followup"
+                 ;; Keep track of answers to my posts
+                 ("boubaker" +1000 nil s))
+                ("lines"
+                 ;; Some people have really nothing to say!!
+                 (1 -10 nil <=))
+                (mark -100)
+                (expunge -1000)
+                )
+
+       5. From "Christopher Jones" <cjones@au.oracle.com>
+          The sample `all.SCORE' files from Per and boubaker could be
+          augmented with:
+               	(("subject"
+               	  ;; No junk mail please!
+               	  ("please ignore" -500 nil s)
+               	  ("test" -500 nil e))
+               	)
+
+       6. From "Brian Edmonds" <edmonds@cs.ubc.ca>
+          Augment any of the above with a fast method of scoring down
+          excessively cross posted articles.
+                ("xref"
+                 ;; the more cross posting, the exponentially worse the article
+                 ("^xref: \\S-+ \\S-+ \\S-+ \\S-+" -1 nil r)
+                 ("^xref: \\S-+ \\S-+ \\S-+ \\S-+ \\S-+" -2 nil r)
+                 ("^xref: \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+" -4 nil r)
+                 ("^xref: \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+" -8 nil r)
+                 ("^xref: \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+" -16 nil r)
+                 ("^xref: \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+" -32 nil r)
+                 ("^xref: \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+" -64 nil r)
+                 ("^xref: \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+" -128 nil r)
+                 ("^xref: \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+" -256 nil r)
+                 ("^xref: \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+" -512 nil r))
+
+
+   * Q2.5  What do I use to yank-through when replying?
+
+     You should probably reply and followup with `R' and `F', instead
+     of `r' and `f', which solves your problem.  But you could try
+     something like:
+
+          (defconst mail-yank-ignored-headers
+            "^.*:"
+            "Delete these headers from old message when it's inserted in a reply.")
+
+   * Q2.6  I don't like the default WWW browser
+
+     Now when choosing an URL Gnus starts up a W3 buffer, I would like
+     it to always use Netscape (I don't browse in text-mode ;-).
+
+       1. Activate `Customize...' from the `Help' menu.
+
+       2. Scroll down to the `WWW Browser' field.
+
+       3. Click `mouse-2' on `WWW Browser'.
+
+       4. Select `Netscape' from the pop up menu.
+
+       5. Press `C-c C-c'
+
+
+     If you are using XEmacs then to specify Netscape do
+            (setq gnus-button-url 'gnus-netscape-open-url)
+
+   * Q2.7 What, if any, relation is between "ask-server" and "(setq
+     gnus-read-active-file 'some)"?
+
+     In order for Gnus to show you the complete list of newsgroups, it
+     will either have to either store the list locally, or ask the
+     server to transmit the list. You enable the first with
+
+                  (setq gnus-save-killed-list t)
+
+     and the second with
+
+                  (setq gnus-read-active-file t)
+
+     If both are disabled, Gnus will not know what newsgroups exists.
+     There is no option to get the list by casting a spell.
+
+   * Q2.8  Moving between groups is slow.
+
+     Per Abrahamsen <abraham@dina.kvl.dk> writes:
+     Do you call `define-key' or something like that in one of the
+     summary mode hooks?  This would force Emacs to recalculate the
+     keyboard shortcuts.  Removing the call should speed up `M-x
+     gnus-summary-mode RET' by a couple of orders of magnitude.  You
+     can use
+
+          (define-key gnus-summary-mode-map KEY COMMAND)
+
+     in your `.gnus' instead.
+
+
+
+File: gnus,  Node: Reading News FAQ,  Next: Reading Mail FAQ,  Prev: Customization FAQ,  Up: Frequently Asked Questions
+
+Reading News
+------------
+
+   * Q3.1  How do I convert my kill files to score files?
+
+     A kill-to-score translator was written by Ethan Bradford
+     <ethanb@ptolemy.astro.washington.edu>.  It is available from
+     `http://baugi.ifi.uio.no/~larsi/ding-various/gnus-kill-to-score.el'.
+
+   * Q3.2 My news server has a lot of groups, and killing groups is
+     painfully slow.
+
+     Don't do that then.  The best way to get rid of groups that should
+     be dead is to edit your newsrc directly.  This problem will be
+     addressed in the near future.
+
+   * Q3.3  How do I use an NNTP server with authentication?
+
+     Put the following into your .gnus:
+           (add-hook 'nntp-server-opened-hook 'nntp-send-authinfo)
+
+   * Q3.4  Not reading the first article.
+
+     How do I avoid reading the first article when a group is selected?
+
+       1. Use `RET' to select the group instead of `SPC'.
+
+       2. `(setq gnus-auto-select first nil)'
+
+       3. Luis Fernandes <elf@mailhost.ee.ryerson.ca>writes:
+          This is what I use...customize as necessary...
+
+               ;;; Don't auto-select first article if reading sources, or archives or
+               ;;; jobs postings, etc. and just display the summary buffer
+               (add-hook 'gnus-select-group-hook
+               	  (function
+               	   (lambda ()
+               	     (cond ((string-match "sources" gnus-newsgroup-name)
+               		    (setq gnus-auto-select-first nil))
+               			   ((string-match "jobs" gnus-newsgroup-name)
+               				(setq gnus-auto-select-first nil))
+               		   ((string-match "comp\\.archives" gnus-newsgroup-name)
+               		    (setq gnus-auto-select-first nil))
+               		   ((string-match "reviews" gnus-newsgroup-name)
+               		    (setq gnus-auto-select-first nil))
+               		   ((string-match "announce" gnus-newsgroup-name)
+               		    (setq gnus-auto-select-first nil))
+               		   ((string-match "binaries" gnus-newsgroup-name)
+               		    (setq gnus-auto-select-first nil))
+               		   (t
+               		    (setq gnus-auto-select-first t))))))
+
+       4. Per Abrahamsen <abraham@dina.kvl.dk> writes:
+          Another possibility is to create an `all.binaries.all.SCORE'
+          file like this:
+
+               ((local
+                 (gnus-auto-select-first nil)))
+
+          and insert
+               	(setq gnus-auto-select-first t)
+
+          in your `.gnus'.
+
+
+   * Q3.5  Why aren't BBDB known posters marked in the summary buffer?
+
+     Brian Edmonds <edmonds@cs.ubc.ca> writes:
+     Due to changes in Gnus 5.0, `bbdb-gnus.el' no longer marks known
+     posters in the summary buffer.  An updated version, `gnus-bbdb.el'
+     is available at the locations listed below.  This package also
+     supports autofiling of incoming mail to folders specified in the
+     BBDB.  Extensive instructions are included as comments in the file.
+
+     Send mail to `majordomo@edmonds.home.cs.ubc.ca' with the following
+     line in the body of the message: _get misc gnus-bbdb.el_.
+
+     Or get it from the World Wide Web:
+     `http://www.cs.ubc.ca/spider/edmonds/gnus-bbdb.el'.
+
+
+
+File: gnus,  Node: Reading Mail FAQ,  Prev: Reading News FAQ,  Up: Frequently Asked Questions
+
+Reading Mail
+------------
+
+   * Q4.1 What does the message "Buffer has changed on disk" mean in a
+     mail group?
+
+     Your filter program should not deliver mail directly to your
+     folders, instead it should put the mail into spool files.  Gnus
+     will then move the mail safely from the spool files into the
+     folders.  This will eliminate the problem.  Look it up in the
+     manual, in the section entitled "Mail & Procmail".
+
+   * Q4.2  How do you make articles un-expirable?
+
+     I am using nnml to read news and have used
+     `gnus-auto-expirable-newsgroups' to automagically expire articles
+     in some groups (Gnus being one of them).  Sometimes there are
+     interesting articles in these groups that I want to keep.  Is
+     there any way of explicitly marking an article as un-expirable -
+     that is mark it as read but not expirable?
+
+     Use `u', `!', `d' or `M-u' in the summary buffer. You just remove
+     the `E' mark by setting some other mark. It's not necessary to
+     tick the articles.
+
+   * Q4.3  How do I delete bogus nnml: groups?
+
+     My problem is that I have various mail (nnml) groups generated
+     while experimenting with Gnus. How do I remove them now? Setting
+     the level to 9 does not help. Also `gnus-group-check-bogus-groups'
+     does not recognize them.
+
+     Removing mail groups is tricky at the moment. (It's on the to-do
+     list, though.) You basically have to kill the groups in Gnus, shut
+     down Gnus, edit the active file to exclude these groups, and
+     probably remove the nnml directories that contained these groups
+     as well. Then start Gnus back up again.
+
+   * Q4.4  What happened to my new mail groups?
+
+     I got new mail, but I have never seen the groups they should have
+     been placed in.
+
+     They are probably there, but as zombies. Press `A z' to list
+     zombie groups, and then subscribe to the groups you want with `u'.
+     This is all documented quite nicely in the user's manual.
+
+   * Q4.5  Not scoring mail groups
+
+     How do you _totally_ turn off scoring in mail groups?
+
+     Use an nnbabyl:all.SCORE (or nnmh, or nnml, or whatever) file
+     containing:
+
+          ((adapt ignore)
+           (local (gnus-use-scoring nil))
+           (exclude-files "all.SCORE"))
+
+

@@ -1,0 +1,16 @@
+{
+    FILESTABLE = {
+        Documentation = (); 
+        Headers = (config.h); 
+        Makefiles = (Makefile); 
+        Resources = (); 
+        SUBPROJECTS = (); 
+        Sources = (); 
+    }; 
+    NEXTSTEP_BUILDTOOL = /bin/make; 
+    PDO_UNIX_BUILDTOOL = /bin/make; 
+    PROJECTNAME = NT; 
+    PROJECTTYPE = "GNU Source"; 
+    PROJECTVERSION = 2.6; 
+    WINDOWS_BUILDTOOL = "${NEXT_ROOT}/NextDeveloper/Executables/make"; 
+}

@@ -1,0 +1,6 @@
+# $Source: /cvs/Darwin/Services/apache_mod_php/php/ext/mhash/setup.stub,v $
+# $Id: setup.stub,v 1.1.1.1 2000/08/10 02:08:30 wsanchez Exp $
+
+define_option with-mhash 'mhash support?' yesnodir no \
+'    Whether to build the mhash extension.'
+	

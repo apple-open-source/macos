@@ -1,0 +1,1134 @@
+.\"
+.TH ZSHMISC 1 "June 26, 1996" "zsh version 3.0"
+.SH NAME
+zshmisc \- Everything and then some
+.SH SYNOPSIS
+Everything I haven't put somewhere else
+.SH "SHELL GRAMMAR"
+A \fIsimple command\fP is a sequence of optional parameter
+assignments followed by blank-separated words,
+with optional redirections interspersed.
+The first word is the command to be executed, and the remaining
+words, if any, are arguments to the command.
+If a command name is given, the parameter assignments modify
+the environment of the command when it is executed.
+The value of a simple command is its exit status,
+or 128 plus the signal number if terminated by a signal.
+.PP
+A \fIpipeline\fP is a sequence of one or more commands separated
+by \fB|\fP or \fB|&\fP.  \fB|&\fP is shorthand for \fB2>&1 |\fP.
+The standard output of each command is connected to the standard input
+of the next command in the pipeline.  If a pipeline is preceded by
+\fBcoproc\fP, it is executed as a coprocess; a two-way pipe is established
+between it and the parent shell.  The shell can read from or write to the
+coprocess by means of the \fB>&p\fP and \fB<&p\fP redirection operators.
+The value of a pipeline is the value of the last command.  If a pipeline
+is preceded by a \fB!\fP, the value of that pipeline is the logical NOT
+of the value of the last command.
+.PP
+A \fIsublist\fP is a sequence of one or more pipelines
+separated by \fB&&\fP or \fB|\||\fP.  If two pipelines
+are separated by \fB&&\fP, the second pipeline is executed
+only if the first is successful (returns a zero value).
+If two pipelines are separated by \fB|\||\fP, the second is executed
+only if the first is unsuccessful (returns a nonzero value).  Both
+operators have equal precedence and are left associative.
+.PP
+A \fIlist\fP is a sequence of zero or more sublists
+separated by, and optionally terminated by, \fB;\fP, \fB&\fP, \fB&|\fP,
+\fB&!\fP or a newline.
+Normally the shell waits for each list to finish before executing
+the next one.
+If a list is terminated by \fB&\fP, \fB&|\fP or \fB&!\fP, the shell
+executes it in the background, and does not wait for it to finish.
+.SH "PRECOMMAND MODIFIERS"
+A simple command may be preceded by a \fIprecommand\fP modifier
+which will alter how the command is interpreted.  These modifiers are
+shell builtin commands with the exception of \fBnocorrect\fP which is
+a reserved word.
+.PP
+.PD 0
+.TP
+\fB\-
+The command is executed with a \fB\-\fP prepended to its
+\fBargv[0]\fP string.
+.TP
+\fBnoglob
+Filename generation (globbing) is not performed on any of
+the words.
+.TP
+\fBnocorrect
+Spelling correction is not done on any of the words.
+.TP
+\fBexec
+The command is executed in the parent shell without forking.
+.TP
+\fBcommand
+The command word is taken to be the name of an external command,
+rather than a shell function or builtin.
+
+.SH "COMPLEX COMMANDS"
+.PP
+A \fIcomplex command\fP in zsh is one of the following:
+.PD
+.TP
+\fBif\fP \fIlist\fP \fBthen\fP \fIlist\fP [ \fBelif\fP \fIlist\fP \fBthen\fP \fIlist\fP ] ... [ \fBelse\fP \fIlist\fP ] \fBfi\fP
+The \fBif\fP \fIlist\fP is executed, and,
+if it returns a zero exit status,
+the \fBthen\fP \fIlist\fP is executed.
+Otherwise, the \fBelif\fP \fIlist\fP is
+executed and, if its value is zero,
+the \fBthen\fP \fIlist\fP is executed.
+If each \fBelif\fP \fIlist\fP returns
+nonzero, the \fBelse\fP \fIlist\fP is executed.
+.TP
+\fBfor\fP \fIname\fP [ \fBin\fP \fIword\fP ... \fIterm\fP ] \fBdo\fP \fIlist\fP \fBdone\fP
+where \fIterm\fP is one ore more newline or \fB;\fP.
+Expand the list of \fIword\fPs, and set the parameter
+\fIname\fP to each of them in turn, executing
+\fIlist\fP each time.  If the \fBin\fP \fIword\fP is omitted,
+use the positional parameters instead of the \fIword\fPs.
+.TP
+\fBwhile\fP \fIlist\fP \fBdo\fP \fIlist\fP \fBdone\fP
+Execute the \fBdo\fP \fIlist\fP as long as the \fBwhile\fP \fIlist\fP
+returns a zero exit status.
+.TP
+\fBuntil\fP \fIlist\fP \fBdo\fP \fIlist\fP \fBdone\fP
+Execute the \fBdo\fP \fIlist\fP as long as \fBuntil\fP \fIlist\fP
+returns a nonzero exit status.
+.TP
+\fBrepeat\fP \fIword\fP \fBdo\fP \fIlist\fP \fBdone\fP
+\fIword\fP is expanded and treated as an arithmetic expression,
+which must evaluate to a number \fIn\fP.
+\fIlist\fP is then executed \fBn\fP times.
+.TP
+\fBcase\fP \fIword\fP \fBin\fP [ [\fB(\fP] \fIpattern\fP [ \fB|\fP \fIpattern\fP ] ... \fB)\fP \fIlist\fP \fB;;\fP ] ... \fBesac\fP
+Execute the \fIlist\fP associated with the first \fIpattern\fP
+that matches \fIword\fP, if any.  The form of the patterns
+is the same as that used for filename generation.  See
+\fIFilename Generation\fP below.
+.TP
+\fBselect\fP \fIname\fP [ \fBin\fP \fIword\fP ... \fIterm\fP ] \fBdo\fP \fIlist\fP \fBdone\fP
+where \fIterm\fP is one ore more newline or \fB;\fP.
+Print the set of \fIword\fPs, each preceded by a number.
+If the \fBin\fP \fIword\fP is omitted, use the positional parameters.
+The \fBPROMPT3\fP prompt is printed and a line is read from standard
+input.  If this line consists of the number of one of the listed
+\fIword\fPs, then the parameter \fIname\fP
+is set to the \fIword\fP corresponding to this number.
+If this line is empty, the selection list is printed again.
+Otherwise, the value of the parameter \fIname\fP is set to null.
+The contents of the line read from standard input is saved
+in the parameter \fBREPLY\fP.  \fIlist\fP is executed
+for each selection until a break or end-of-file is encountered.
+.TP
+\fB(\fP \fIlist\fP \fB)\fP
+Execute \fIlist\fP in a subshell.  Traps set by the \fBtrap\fP builtin
+are reset to their default values while executing \fIlist\fP.
+.TP
+\fB{\fP \fIlist\fP \fB}\fP
+Execute \fIlist\fP.
+.TP
+.PD 0
+\fBfunction\fP \fIword\fP ... [ \fB(\fP\|\fB)\fP ] [ \fIterm\fP ] \fB{\fP \fIlist\fP \fB}\fP
+.TP
+\fIword\fP ... \fB(\fP\|\fB)\fP [ \fIterm\fP ] \fB{\fP \fIlist\fP \fB}\fP
+.TP
+\fIword\fP ... \fB(\fP\|\fB)\fP [ \fIterm\fP ] \fIcommand\fP
+.PD
+where \fIterm\fP is one or more newline or \fB;\fP.
+Define a function which is referenced by any one of \fIword\fP.
+Normally, only one \fIword\fP is provided; multiple \fIword\fPs
+are usually only useful for setting traps.
+The body of the function is the \fIlist\fP between
+the \fB{\fP and \fB}\fP. See \fBFUNCTIONS\fP below.
+
+If the option \fBSH_GLOB\fP is set for compatibility with other
+shells, then whitespace may appear between between the left and
+right parentheses when there is a single \fIword\fP; otherwise,
+the parentheses will be treated as forming a globbing pattern
+in that case.
+.TP
+\fBtime\fP [ \fIpipeline\fP ]
+The \fIpipeline\fP is executed, and timing statistics are
+reported on the standard error in the form specified
+by the \fBTIMEFMT\fP parameter.
+If \fIpipeline\fP is omitted, print statistics about the
+shell process and its children.
+.TP
+\fB[[\fP \fIexp\fP \fB]]\fP
+Evaluates the conditional expression \fIexp\fP
+and return a zero exit status if it is true.
+See \fBConditional Expressions\fP below for a description
+of \fIexp\fP.
+.SH "ALTERNATE FORMS FOR COMPLEX COMMANDS"
+Many of zsh's complex commands have alternate forms.  These particular
+versions of complex commands should be considered deprecated and may be
+removed in the future.  The versions in the previous section should be
+preferred instead.  The short versions below only work if \fIsublist\fP
+is of the form \fB{\fP \fIlist\fP \fB}\fP or if the \fBNO_SHORT_LOOPS\fP
+option is not set.
+.PP
+.PD
+.TP
+\fBif\fP \fIlist\fP \fB{\fP \fIlist\fP \fB}\fP [ \fBelif\fP \fIlist\fP \fB{\fP \fIlist\fP \fB}\fP ] ... [ \fBelse {\fP \fIlist\fP \fB}\fP ]
+An alternate form of \fBif\fP.
+.TP
+\fBif\fP \fIlist\fP \fIsublist\fP
+A short form of previous one.
+.TP
+\fBfor\fP \fIname\fP \fB(\fP \fIword\fP ... \fB) \fIsublist\fP
+A short form of \fBfor\fP.
+.TP
+\fBfor\fP \fIname\fP [ \fBin\fP \fIword\fP ... \fIterm\fP ] \fIsublist\fP
+where \fIterm\fP is one ore more newline or \fB;\fP.
+Another short form of \fBfor\fP.
+.TP
+\fBforeach\fP \fIname\fP \fB(\fP \fIword\fP ... \fB)\fP \fIlist\fP \fBend\fP
+Another form of \fBfor\fP.
+.TP
+\fBwhile\fP \fIlist\fP \fB{\fP \fIlist\fP \fB}\fP
+An alternative form of \fBwhile\fP.
+.TP
+\fBuntil\fP \fIlist\fP \fB{\fP \fIlist\fP \fB}\fP
+An alternative form of \fBuntil\fP.
+.TP
+\fBrepeat\fP \fIword\fP \fIsublist\fP
+This is a short form of \fBrepeat\fP.
+.TP
+\fBcase\fP \fIword\fP \fB{\fP [ [\fB(\fP] \fIpattern\fP [ \fB|\fP \fIpattern\fP ] ... \fB)\fP \fIlist\fP \fB;;\fP ] ... \fB}\fP
+An alternative form of \fBcase\fP.
+.TP
+\fBselect\fP \fIname\fP [ \fBin\fP \fIword\fP \fIterm\fP ] \fIsublist\fP
+where \fIterm\fP is one ore more newline or \fB;\fP.
+A short form of \fBselect\fP.
+.SH "RESERVED WORDS"
+The following words are recognized as reserved words when used as the
+first word of a command unless quoted or disabled using \fBdisable -r\fP:
+.RS
+.PP
+\fBdo done esac then elif else fi for case
+if while function repeat time until
+select coproc nocorrect foreach end ! [[ { }\fP
+.PP
+Additionally \fB}\fP is recognized in any position if the
+\fBIGNORE_BRACES\fP option is not set.
+.RE
+.SH COMMENTS
+In noninteractive shells, or in interactive shells with the
+\fBINTERACTIVE_COMMENTS\fP option set, a word beginning
+with the third character of the \fBhistchars\fP parameter
+(`#' by default) causes that word and all the following
+characters up to a newline to be ignored.
+.SH ALIASING
+Every token in the shell input is checked to see if there
+is an alias defined for it.
+If so, it is replaced by the text of the alias if it is in command
+position (if it could be the first word of a simple command),
+or if the alias is global.
+If the text ends with a space, the next word in the shell input
+is treated as though it were in command position for purposes of alias
+expansion.
+An alias is defined using the \fBalias\fP builtin; global aliases
+may be defined using the \-\fBg\fP option to that builtin.
+.PP
+Alias substitution is done on the shell input before any
+other substitution except history substitution.  Therefore,
+if an alias is defined for the word \fBfoo\fP, alias substitution
+may be avoided by quoting part of the word, e.g. \fB\efoo\fP.
+But there is nothing to prevent an alias being defined
+for \fB\efoo\fP as well.
+.SH QUOTING
+A character may be \fIquoted\fP (that is, made
+to stand for itself) by preceding it with a \e\|.
+\e followed by a newline is ignored.
+All characters enclosed between a pair of single quotes ('')
+are quoted. A single quote cannot appear within single quotes.
+Inside double quotes (""), parameter and command substitution
+occurs, and \e quotes the characters \e\|, `, ", and $.
+.SH REDIRECTION
+Before a command is executed, its input and output
+may be redirected.
+The following may appear anywhere in a simple command
+or may precede or follow a complex command.
+Substitution occurs before
+.I word
+or
+.I digit
+is used except as noted below.
+If the result of substitution on
+.I word
+produces more than one filename,
+redirection occurs for each
+separate filename in turn.
+.TP
+.BI < word
+Open file
+.I word
+as standard input.
+.TP
+.BI <> word
+Open file
+.I word
+for reading and writing as standard input.
+If the file does not exist then it is created.
+.TP
+.BI > word
+Open file
+.I word
+as standard output.
+If the file does not exist then it is created.
+If the file exists, and the
+.B CLOBBER
+option is unset,
+this causes an error;
+otherwise, it is truncated to zero length.
+.TP
+.PD 0
+.BI >| " word"
+.TP
+.BI >! " word"
+.PD
+Same as
+.BR > ,
+except that the file is truncated to zero length
+if it exists, even if
+.B CLOBBER
+is unset.
+.TP
+.BI >> word
+Open file
+.I word
+as standard output.
+If the file exists then output is appended to it.
+If the file does not exist, and the
+.B CLOBBER
+option is unset,
+this causes an error;
+otherwise, the file is created.
+.TP
+.PD 0
+.BI >>| " word"
+.TP
+.BI >>! " word"
+.PD
+Same as
+.BR >> ,
+except that the file is created if it does not
+exist, even if
+.B CLOBBER
+is unset.
+.TP
+\fB<<\fP[\-] \fIword\fP
+The shell input is read up to a line that is the same as
+.IR word ,
+or to an end-of-file.
+No parameter substitution, command substitution or
+filename generation is performed on
+.IR word .
+The resulting document,
+called a
+.IR here-document ,
+becomes
+the standard input.
+If any character of \fIword\fP is quoted with
+single or double quotes or a \e,
+no interpretation
+is placed upon the characters of the document.
+Otherwise, parameter and command substitution
+occurs, \e followed by a newline is removed,
+and \e must be used to quote the characters
+\e, $, `, and the first character of \fIword\fP.
+If <<\- is used, then all leading
+tabs are stripped from \fIword\fP and from the document.
+.TP
+.BI <<< word
+Perform shell expansion on \fIword\fP and pass the result
+to standard input.
+.TP
+.BI <& digit
+The standard input
+is duplicated from file descriptor
+.I digit
+(see
+.IR dup (2)).
+Similarly for standard output using
+\fB>&\fIdigit\fP.
+.TP
+.BI >& word
+Same as
+.BI > word
+\fB2>&\fP1.
+.TP
+.BI >>& word
+Same as
+.BI >> word
+\fB2>&\fP1.
+.TP
+.BI <&\-
+Close the standard input.
+.TP
+.BI >&\-
+Close the standard output.
+.TP
+.BI <&p
+The input from the coprocess is moved to the standard input.
+.TP
+.BI >&p
+The output to the coprocess is moved to the standard output.
+.PP
+If one of the above is preceded by a digit, then the file
+descriptor referred to is that specified by the digit
+(instead of the default 0 or 1).
+The order in which redirections are specified is significant.
+The shell evaluates each redirection in terms of the
+.RI ( "file descriptor" ", " file )
+association at the time of evaluation.
+For example:
+.RS
+.PP
+\&.\|.\|. \|1>\fIfname\^\fP 2>&1
+.RE
+.PP
+first associates file descriptor 1 with file
+.IR fname .
+It then associates file descriptor 2 with the file associated with file
+descriptor 1 (that is,
+.IR fname ).
+If the order of redirections were reversed, file descriptor 2 would be associated
+with the terminal (assuming file descriptor 1 had been) and then file descriptor
+1 would be associated with file
+.IR fname .
+.PP
+If the user tries to open a file descriptor for writing more than once,
+the shell opens the file descriptor as a pipe to a process that copies
+its input to all the specified outputs, similar to tee(1),
+provided the \fBMULTIOS\fP option is set.  Thus:
+.RS
+.PP
+.B date >foo >bar
+.RE
+.PP
+writes the date to two files, named "foo" and "bar".
+Note that a pipe is an implicit indirection; thus
+.RS
+.PP
+.B date >foo | cat
+.RE
+.PP
+writes the date to the file "foo", and also pipes it to cat.
+.PP
+If the
+.B MULTIOS
+option is set, the word after a redirection operator is also subjected
+to filename generation (globbing).  Thus
+.RS
+.PP
+.B : > *
+.RE
+.PP
+will truncate all files in the current directory,
+assuming there's at least one.
+(Without the
+.B MULTIOS
+option, it would create an empty file called "*".)
+.PP
+If the user tries to open a file descriptor for reading more than once,
+the shell opens the file descriptor as a pipe to a process that copies
+all the specified inputs to its output in the order
+specified, similar to cat(1),
+provided the \fBMULTIOS\fP option is set.  Thus
+.RS
+.PP
+.B sort <foo <fubar
+.RE
+.PP
+or even
+.RS
+.PP
+.B sort <f{oo,ubar}
+.RE
+.PP
+is equivalent to "cat foo fubar | sort".  Similarly, you can do
+.RS
+.PP
+.B echo exit 0 >> *.sh
+.RE
+.PP
+Note that a pipe is in implicit indirection; thus
+.RS
+.PP
+.B cat bar | sort <foo
+.RE
+.PP
+is equivalent to "cat bar foo | sort" (note the order of the inputs).
+.PP
+If the
+.B MULTIOS
+option is
+.IR un set,
+each redirection replaces the previous redirection for that file descriptor.
+However, all files redirected to are actually opened, so
+.RS
+.PP
+.B echo foo > bar > baz
+.RE
+.PP
+when
+.B MULTIOS
+is unset will truncate bar, and write "foo" into baz.
+.PP
+If a simple command consists of one or more redirection operators
+and zero or more parameter assignments, but no command name,
+the command \fBcat\fP is assumed.  Thus
+.RS
+.PP
+.B < file
+.RE
+.PP
+copies the contents of \fBfile\fP to the standard output.
+.PP
+If a command is followed by
+.B &
+and job control is not active,
+then the default standard input
+for the command
+is the empty file
+.BR /dev/null .
+Otherwise, the environment for the execution of a command contains the
+file descriptors of the invoking shell as modified by
+input/output specifications.
+.SH "COMMAND EXECUTION"
+If a command name contains no slashes, the shell attempts to locate
+it.  If there exists a shell function by that name, the function
+is invoked as described below in \fBFUNCTIONS\fP.  If there exists
+a shell builtin by that name, the builtin is invoked.
+.PP
+Otherwise, the shell searches each element of \fBpath\fP for a
+directory containing an executable file by that name.  If the
+search is unsuccessful, the shell prints an error message and returns
+a nonzero exit status.
+.PP
+If execution fails because the file is not in executable format,
+and the file is not a directory, it is assumed to be a shell
+script.  /bin/sh is spawned to execute it.  If the program
+is a file beginning with \fB#!\fP, the remainder of the first line
+specifies an interpreter for the program.  The shell will
+execute the specified interpreter on operating systems that do
+not handle this executable format in the kernel.
+.SH FUNCTIONS
+.PP
+Shell functions are defined with the \fBfunction\fP reserved word or the
+special syntax "funcname()".
+The
+.B function
+reserved word is used to define shell functions.
+Shell functions are read in and stored internally.
+Alias names are resolved when the function is read.
+Functions are executed like commands with the arguments
+passed as positional parameters.
+(See
+.I Execution
+below).
+.PP
+Functions execute in the same process as the caller and
+share all files
+and present working directory with the
+caller.
+A trap on
+.B EXIT
+set inside a function
+is executed after the function completes in the environment
+of the caller.
+.PP
+The
+.B return
+builtin is used to return
+from function calls.
+.PP
+Function identifiers
+can be listed with the
+.B functions
+builtin.
+Functions can be undefined with the
+.B unfunction
+builtin.
+.PP
+The following functions, if defined, have special meaning to
+the shell:
+.PP
+.PD 0
+.TP
+\fBchpwd\fP
+Executed whenever the current working directory is changed.
+.TP
+\fBprecmd\fP
+Executed before each prompt.
+.TP
+\fBpreexec\fP
+Executed just after a command has been read and is about to be
+executed.  If the history mechanism is active, the string to be
+executed is passed as an argument.
+.TP
+\fBperiodic\fP
+If the parameter
+.B PERIOD
+is set, this function is executed every
+.B PERIOD
+seconds, just before a prompt.
+.TP
+\fBTRAPxxx\fP
+If defined and non-null,
+this function will be executed whenever the shell
+catches a signal \fBSIGxxx\fP, where \fBxxx\fP is a signal
+name as specified for the \fBkill\fP builtin (see below).
+The signal number will be passed as the first parameter to the function.
+In addition, \fBTRAPZERR\fP is executed whenever a command has a non-zero
+exit status, \fBTRAPDEBUG\fP is executed after each command, and
+\fBTRAPEXIT\fP
+is executed when the shell exits,
+or when the current function exits if defined
+inside a function.
+If a function of this form is defined and null,
+the shell and processes spawned by it will ignore \fBSIGxxx\fP.
+.PD
+.SH JOBS
+.PP
+If the
+.B MONITOR
+option is set,
+an interactive shell associates a \fIjob\fR with each pipeline.
+It keeps
+a table of current jobs, printed by the
+.B jobs
+command, and assigns them small integer numbers.
+When a job is started asynchronously with
+.BR & ,
+the shell prints a line which looks
+like:
+.PP
+.DT
+	[1] 1234
+.PP
+indicating that the job which was started asynchronously was job number
+1 and had one (top-level) process, whose process id was 1234.
+.PP
+If a job is started with
+.BR &|
+or
+.BR &! ,
+then that job is immediately disowned.  After startup, it
+does not have a place in the job table, and is not subject
+to the job control features described here.
+.PP
+If you are running a job and wish to do something else you may hit the key
+\fB^Z\fR (control-Z) which sends a TSTP signal to the current job.
+The shell will then normally indicate that the job has been `suspended',
+and print another prompt.
+You can then manipulate the state of this job,
+putting it in the background with the
+.B bg
+command, or run some other
+commands and then eventually bring the job back into the foreground with
+the foreground command
+.BR fg .
+A \fB^Z\fR takes effect immediately and
+is like an interrupt in that pending output and unread input are discarded
+when it is typed.
+.PP
+A job being run in the background will suspend if it tries to read
+from the terminal.
+Background jobs are normally allowed to produce output,
+but this can be disabled by giving the command ``stty tostop''.
+If you set this
+tty option, then background jobs will suspend when they try to produce
+output like they do when they try to read input.
+.PP
+There are several ways to refer to jobs in the shell.
+A job can be referred to by the process id of any process of the job
+or by one of the following:
+.PD 0
+.TP
+.BI % number
+The job with the given number.
+.TP
+.BI % string
+Any job whose command line begins with
+.IR string .
+.TP
+.BI %? string
+Any job whose command line contains
+.IR string .
+.TP
+.BI %%
+Current job.
+.TP
+.BI %+
+Equivalent to
+.BR %% .
+.TP
+.BI %\-
+Previous job.
+.PD
+.PP
+The shell learns immediately whenever a process changes state.
+It normally informs you whenever a job becomes blocked so that
+no further progress is possible.  If
+.B notify
+is not set, it waits until
+just before it prints
+a prompt before it informs you.
+.PP
+When the monitor mode is on, each background job that completes
+triggers any trap set for
+.BR CHLD .
+.PP
+When you try to leave the shell while jobs are running or suspended, you will
+be warned that `You have suspended (running) jobs.'
+You may use the
+.B jobs
+command to see what they are.
+If you do this or immediately try to
+exit again, the shell will not warn you a second time; the suspended
+jobs will be terminated, and the running jobs will be sent
+a \fBSIGHUP\fP signal.
+To avoid having the shell terminate the running jobs, either
+use the \fBnohup\fP(1) command or the \fBdisown\fP builtin (see below).
+.SH SIGNALS
+The INT and QUIT signals for an invoked
+command are ignored if the command is followed by
+.B &
+and the job
+.B MONITOR
+option is not active.
+Otherwise, signals have the values
+inherited by the shell from its parent
+(but see the \fBTRAPxxx\fP special function above).
+.SH "ARITHMETIC EVALUATION"
+An ability to perform integer arithmetic
+is provided with the builtin
+.BR let .
+Evaluations are performed using
+.I long
+arithmetic. A leading \fI0x\fP or \fI0X\fP denotes hexadecimal.
+Otherwise, numbers are of the form
+[\fIbase\fB#\^\fR]\fIn\^\fP
+where
+.I base
+is a decimal number between two and thirty-six
+representing the arithmetic base
+and
+.I n
+is a number in that base (for example, `16#ff' is 255 in hexadecimal).
+If
+.I base
+is omitted
+then base 10 is used.  For backwards compatibility the form `[16]ff'
+is also accepted.
+.PP
+An arithmetic expression uses nearly the same syntax, precedence, and
+associativity of
+expressions in C.
+The following operators are supported (listed in decreasing order
+of precedence):
+.PP
+.PD 0
+.RS
+.TP
+.B + \- ! \(ap ++ \-\|\-
+unary plus/minus, logical NOT, complement, {pre,post}{in,de}crement
+.TP
+.B << >>
+bitwise shift left, right
+.TP
+.B &
+bitwise AND
+.TP
+.B ^
+bitwise XOR
+.TP
+.B |
+bitwise OR
+.TP
+.B **
+exponentiation
+.TP
+.B * / %
+multiplication, division, modulus (remainder)
+.TP
+.B + \-
+addition, subtraction
+.TP
+.B < > <= >=
+comparison
+.TP
+.B == !=
+equality and inequality
+.TP
+.B &&
+logical AND
+.TP
+.B |\|| ^^
+logical OR, XOR
+.TP
+.B ? :
+ternary operator
+.TP
+.B
+= += \-= *= /= %= &= ^= |= <<= >>= &&= |\||= ^^= **=
+assignment
+.TP
+.B ,
+comma operator
+.PD
+.RE
+.PP
+The operators &&, |\||, &&=, and |\||= are short-circuiting,
+and only one of the latter two expressions in a ternary operator
+is evaluated.  Note the precedence of the bitwise AND, OR,
+and XOR operators.
+.PP
+An expression of the form \fB#\\x\fP where \fBx\fP is any character
+gives the ascii value of this character and an expression of the form
+\fB#foo\fP gives the ascii value of the first character of the value
+of the parameter \fBfoo\fP.
+.PP
+Named parameters and subscripted arrays can be referenced by name within an
+arithmetic expression without using the parameter substitution syntax.
+.PP
+An internal integer representation of a named parameter
+can be specified with the
+.B integer
+builtin.
+Arithmetic evaluation is performed on the value of each
+assignment to a named parameter declared integer
+in this manner.
+.PP
+Since many of the arithmetic operators require
+quoting, an alternative form of the
+.B let
+command is provided.
+For any command which begins with a
+.BR (( ,
+all the characters until a matching
+.B ))
+are treated as a quoted expression.
+More precisely,
+.BR (( ... ))
+is equivalent to
+.B let
+\fB"\fP...\fB"\fP.
+.SH "CONDITIONAL EXPRESSIONS"
+A \fIconditional expression\fP is used with the
+.B [[
+compound command to test attributes of files and to compare strings.
+Each expression can be constructed from one or more
+of the following unary or binary expressions:
+.PD 0
+.TP
+\fB\-a\fP \fIfile\fP
+true if
+.I file
+exists.
+.TP
+\fB\-b\fP \fIfile\fP
+true if
+.I file
+exists and is a block special file.
+.TP
+\fB\-c\fP \fIfile\fP
+true if
+.I file
+exists and is a character special file.
+.TP
+\fB\-d\fP \fIfile\fP
+true if
+.I file
+exists and is a directory.
+.TP
+\fB\-e\fP \fIfile\fP
+true if
+.I file
+exists.
+.TP
+\fB\-f\fP \fIfile\fP
+true if
+.I file
+exists and is an ordinary file.
+.TP
+\fB\-g\fP \fIfile\fP
+true if
+.I file
+exists and has its setgid bit set.
+.TP
+\fB\-h\fP \fIfile\fP
+true if
+.I file
+exists and is a symbolic link.
+.TP
+\fB\-k\fP \fIfile\fP
+true if
+.I file
+exists and has its sticky bit set.
+.TP
+\fB\-n\fP \fIstring\fP
+true if length of
+.I string
+is non-zero.
+.TP
+\fB\-o\fP \fIoption\fP
+true if option named
+.I option
+is on.
+.I option
+may be a single character, in which case it is a single letter option name.
+(See the
+.B SPECIFYING OPTIONS
+section of the
+.IR zshoptions (1)
+man page.)
+.TP
+\fB\-p\fP \fIfile\fP
+true if
+.I file
+exists and is a fifo special file or a pipe.
+.TP
+\fB\-r\fP \fIfile\fP
+true if
+.I file
+exists and is readable by current process.
+.TP
+\fB\-s\fP \fIfile\fP
+true if
+.I file
+exists and has size greater than zero.
+.TP
+\fB\-t\fP \fIfd\fP
+true if file descriptor number
+.I fd
+is open and associated with a terminal device.
+(note: \fIfd\fP is not optional)
+.TP
+\fB\-u\fP \fIfile\fP
+true if
+.I file
+exists and has its setuid bit set.
+.TP
+\fB\-w\fP \fIfile\fP
+true if
+.I file
+exists and is writable by current process.
+.TP
+\fB\-x\fP \fIfile\fP
+true if
+.I file
+exists and is executable by current process.
+If
+.I file
+exists and is a directory, then the current process
+has permission to search in the directory.
+.TP
+\fB\-z\fP \fIstring\fP
+true if length of
+.I string
+is zero.
+.TP
+\fB\-L\fP \fIfile\fP
+true if
+.I file
+exists and is a symbolic link.
+.TP
+\fB\-O\fP \fIfile\fP
+true if
+.I file
+exists and is owned by the effective user id of this process.
+.TP
+\fB\-G\fP \fIfile\fP
+true if
+.I file
+exists and its group matches the effective group id of this process.
+.TP
+\fB\-S\fP \fIfile\fP
+true if
+.I file
+exists and is a socket.
+.TP
+\fB\-N\fP \fIfile\fP
+true if
+.I file
+exists and its access time is not newer than its modification time.
+.TP
+\fIfile1\fP \fB\-nt\fP \fIfile2\fP
+true if
+.I file1
+exists and is newer than
+.IR file2 .
+.TP
+\fIfile1\fP \fB\-ot\fP \fIfile2\fP
+true if
+.I file1
+exists and is older than
+.IR file2 .
+.TP
+\fIfile1\fP \fB\-ef\fP \fIfile2\fP
+true if
+.I file1
+and 
+.I file2
+exist and refer to the same file.
+.TP
+\fIstring\fP \fB==\fP \fIpattern\fP
+.TP
+\fIstring\fP \fB=\fP \fIpattern\fP
+true if
+.I string
+matches
+.IR pattern .
+The first form is the preferred one.  The other form is for
+backward compatibility and should be considered obsolete.
+.TP
+\fIstring\fP \fB!=\fP \fIpattern\fP
+true if
+.I string
+does not match
+.IR pattern .
+.TP
+\fIstring1\fP \fB<\fP \fIstring2\fP
+true if
+.I string1
+comes before
+.I string2
+based on ASCII value of their characters.
+.TP
+\fIstring1\fP \fB>\fP \fIstring2\fP
+true if
+.I string1
+comes after
+.I string2
+based on ASCII value of their characters.
+.TP
+\fIexp1\fP \fB\-eq\fP \fIexp2\fP
+true if
+.I exp1
+is equal to
+.IR exp2.
+.TP
+\fIexp1\fP \fB\-ne\fP \fIexp2\fP
+true if
+.I exp1
+is not equal to
+.IR exp2.
+.TP
+\fIexp1\fP \fB\-lt\fP \fIexp2\fP
+true if
+.I exp1
+is less than
+.IR exp2.
+.TP
+\fIexp1\fP \fB\-gt\fP \fIexp2\fP
+true if
+.I exp1
+is greater than
+.IR exp2.
+.TP
+\fIexp1\fP \fB\-le\fP \fIexp2\fP
+true if
+.I exp1
+is less than or equal to
+.IR exp2.
+.TP
+\fIexp1\fP \fB\-ge\fP \fIexp2\fP
+true if
+.I exp1
+is greater than or equal to
+.IR exp2.
+.TP
+\fB(\fP \fIexp\fP \fB)\fP
+true if \fIexp\fP is true.
+.TP
+\fB!\fP \fIexp\fP
+true if \fIexp\fP is false.
+.TP
+\fIexp1\fP \fB&&\fP \fIexp2\fP
+true if \fIexp1\fP and \fIexp2\fP are both true.
+.TP
+\fIexp1\fP \fB|\||\fP \fIexp2\fP
+true if either \fIexp1\fP or \fIexp2\fP is true.
+.PD
+.PP
+In each of the above expressions, if
+.I file
+is of the form
+\fB/dev/fd/\fP\fIn\fR,
+where
+.I n
+is an integer,
+then the test applied to the open file whose
+descriptor number is
+.IR n ,
+even if the underlying system does not support
+the \fB/dev/fd\fP directory.
+.PD
+
+.SH "COMPATIBILITY"
+\fIZsh\fP tries to emulate \fIsh\fP or \fIksh\fP when it is invoked as
+\fIsh\fP or \fIksh\fP respectively.  In this mode the following
+parameters are not special and not initialized by the shell:
+.BR ARGC ,
+.BR argv ,
+.BR cdpath ,
+.BR fignore ,
+.BR fpath ,
+.BR HISTCHARS ,
+.BR mailpath ,
+.BR MANPATH ,
+.BR manpath ,
+.BR path ,
+.BR prompt ,
+.BR PROMPT ,
+.BR PROMPT2 ,
+.BR PROMPT3 ,
+.BR PROMPT4 ,
+.BR psvar ,
+.BR status ,
+.BR watch .
+.PP
+The usual \fIzsh\fP starup/shutdown scripts are not executed.  Login shells
+source \fB/etc/profile\fP followed by \fB$HOME/.profile\fP.  If the
+\fBENV\fP environment variable is set on invocation, \fB$ENV\fP is sourced
+after the profile scripts.  The value of \fBENV\fP is subjected to
+parameter expansion, command substitution, and arithmetic expansion before
+being interpreted as a pathname.  Note that the \fBPRIVILEGED\fP option
+also affects the execution of startup files.  See
+\fIzshoptions\fP(%manext%) for more details.
+.PP
+The following options are set if the shell is invoked as \fIsh\fP or
+\fIksh\fP:
+.BR NO_BAD_PATTERN ,
+.BR NO_BANG_HIST ,
+.BR NO_BG_NICE ,
+.BR NO_EQUALS ,
+.BR NO_FUNCTION_ARGZERO ,
+.BR GLOB_SUBST ,
+.BR NO_HUP ,
+.BR INTERACTIVE_COMMENTS ,
+.BR KSH_ARRAYS ,
+.BR NO_MULTIOS ,
+.BR NO_NOMATCH ,
+.BR RM_STAR_SILENT ,
+.BR POSIX_BUILTINS ,
+.BR SH_FILE_EXPANSION ,
+.BR SH_GLOB ,
+.BR SH_OPTION_LETTERS ,
+.BR SH_WORD_SPLIT .
+Additionally the
+.B BSD_ECHO
+and the
+.B IGNORE_BRACES
+options are set if \fIzsh\fP is invoked as \fIsh\fP and the
+.BR KSH_OPTION_PRINT ,
+.BR LOCAL_OPTIONS ,
+.B PROMPT_SUBST
+and
+.B SINGLE_LINE_ZLE
+options are set if \fIzsh\fP is invoked as \fIksh\fP.

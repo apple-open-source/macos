@@ -1,0 +1,10 @@
+#!/bin/sh
+#
+# --slice
+#
+
+. $srcdir/defs || exit 1
+
+$enscript --quiet --slice=2 -p$output $asciifiles
+
+rm $output

@@ -1,0 +1,26 @@
+OTHER_PROJECT_HEADERS = iokitmig_c.h
+OTHER_PUBLIC_HEADERS = iokitmig_c.h
+OTHER_OFILES =  iokitmigUser.o
+
+# Always generate a version file.
+VERSIONING_SYSTEM = next-sgs
+OTHER_GENERATED_OFILES += $(VERS_OFILE)
+
+PROJECT_HEADER_DIR_SUFFIX = /IOKit
+
+CFPLUGIN_H = /System/Library/Frameworks/CoreFoundation.framework/Headers/CFPlugIn.h
+ifeq ($(wildcard $(CFPLUGIN_H)),)
+NEXTSTEP_PB_CFLAGS += -DNO_CFPLUGIN
+else
+NEXTSTEP_PB_CFLAGS += -DHAVE_CFPLUGIN
+endif
+
+OTHER_CCFLAGS += -x c++ -fno-rtti -fno-exceptions -fcheck-new -fvtable-thunks
+
+ORDERFILE = $(NEXT_ROOT)/usr/local/lib/OrderFiles/$(NAME).order
+SECTORDER_FLAGS = -sectorder __TEXT __text $(ORDERFILE)
+
+# lose the OBJC segment
+override DUMMY_SYMBOL_FILE =
+override DUMMY_SYMBOL_INFO_FILE =
+

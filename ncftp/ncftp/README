@@ -1,0 +1,57 @@
+Part A:  Installation Notes
+===========================
+
+1.  Run the "./configure" script.
+2.  Optionally browse and edit Config.h.
+3.  Check the Makefile.
+4.  "make"
+
+Part B:  Operating System specifics
+===================================
+
+The program compiles "out of the box" on many systems thanks to the configure
+script, but here are a few notes on some certain systems.
+
+SunOS 4.1.3:  Must use an ANSI compiler like gcc.  You also need the
+  System V versions of curses, which are in /usr/5lib, and /usr/5include.
+  The configure script should take care of that for you.
+
+HP/UX:  If you have the crap compiler installed, it won't compile because
+  it isn't ANSI C.  Use gcc, or get the better compiler.
+
+FreeBSD:  The program won't link with the existing curses library on
+  FreeBSD version 1.x.  The configure script tries to detect and tell you
+  that, and in fact won't try to use curses if that is the case.  The program
+  will link with ncurses, but it doesn't work reliably, and I can't recommend
+  ncurses with FreeBSD.
+
+BSDI:  You can't use the existing curses library because it doesn't have
+  some needed functions.  You can try ncurses, but I have found that version
+  1.9.2 of ncurses and ncftp cause random crashes still.
+
+NeXT:  Even if you get it to compile, it may crash because of what must
+  be a NeXT compiler or library bug.  Try using a -posix flag for your
+  compiler.  You may not need the -lposix library.
+
+MIPS RC6280 running RISCos 2.1.1AC:  Try using SVR4 source, like:
+  setenv CC 'cc -systype svr4'
+  ./configure
+  make
+
+ncurses:
+  This is a freeware curses library with source, by zmbenhal@netcom.com.
+  Latest version in: ftp://netcom.com/pub/zm/zmbenhal/ncurses/, or
+  at a GNU mirror like ftp://prep.ai.mit.edu/pub/gnu.  I will also try
+  to keep a recent version of it at the ncftp archive.
+
+SOCKS:
+  This is the only (currently) supported way to get ncftp to work through a
+  gateway/firewall.  Get it from:
+      ftp://ftp.inoc.dl.nec.com/pub/security/socks.cstc/
+
+Questions?
+
+Try sending me mail at mgleason@probe.net.  The latest version of NcFTP
+is archived in ftp://ftp.probe.net/pub/ncftp/ .
+
+--Mike Gleason

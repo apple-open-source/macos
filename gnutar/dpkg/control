@@ -1,0 +1,13 @@
+Package: gnutar
+Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
+Vendor: GNU Project
+Version: 1.13
+URL: ftp://prep.ai.mit.edu/pub/gnu/tar/
+Build-Depends: build-base, network-cmds, gnudiff, perl, texi2html
+Description: GNU tape archive utility
+ GNU `tar' saves many files together into a single tape or disk
+ archive, and can restore individual files from the archive.  It
+ includes multivolume support, the ability to archive sparse files,
+ automatic archive compression/decompression, remote archives and
+ special features that allow `tar' to be used for incremental and full
+ backups.

@@ -1,0 +1,11 @@
+{
+  Description     = "network initialization";
+  Provides        = ("Network");
+  Requires        = ("Network Configuration");
+  OrderPreference = "None";
+  Messages =
+  {
+    start = "Initializing network";
+    stop  = "Disabling network";
+  };
+}

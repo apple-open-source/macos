@@ -1,0 +1,10 @@
+#!/bin/sh
+#
+# Test ASCII file printing.
+#
+
+. $srcdir/defs || exit 1
+
+$enscript --quiet -G2r -p$output $asciifiles
+
+rm $output

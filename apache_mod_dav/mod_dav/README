@@ -1,0 +1,37 @@
+=====================================================================
+ mod_dav:  A class 1 and 2 DAV server for the Apache webserver
+=====================================================================
+
+From http://www.webdav.org:
+
+  "WebDAV stands for 'Web-based Distributed Authoring and Versioning'.
+   It is a set of extensions to the HTTP protocol which allows users to
+   collaboratively edit and manage files on remote web servers."
+
+DAV functionality includes creating, moving, copying, and deleting
+files and directories on a remote web server. Utilizing DAV requires
+both a DAV-aware client and server. mod_dav provides complete class 1
+and 2 DAV services to DAV clients via the Apache webserver (1.3.4 or
+later). The number of DAV-aware clients is growing and includes the 
+'Web Folders' used in Microsoft Internet Explorer 5.0 and Office 2000.
+
+
+More information about this module can be found at:
+
+   http://www.webdav.org/mod_dav/
+
+Installation instructions can be found in the INSTALL file or at:
+
+   http://www.webdav.org/mod_dav/install.html
+
+
+This module is being provided under an Apache-style license. Please see
+LICENSE.html or http://www.webdav.org/mod_dav/license-1.html for a copy
+of that license.
+
+
+For comments, questions, and other issues, please email me at
+gstein@lyra.org.
+
+Greg Stein, http://www.lyra.org/
+November, 1998

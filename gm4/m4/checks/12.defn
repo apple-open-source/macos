@@ -1,0 +1,7 @@
+dnl ../doc/m4.texinfo:1158: Origin of test
+define(`zap', defn(`undefine'))
+dnl @result{}
+zap(`undefine')
+dnl @result{}
+undefine(`zap')
+dnl @result{}undefine(zap)

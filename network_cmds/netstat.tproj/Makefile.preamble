@@ -1,0 +1,4 @@
+CLEAN_ALL_SUBPROJECTS = YES
+OTHER_GENERATED_OFILES = $(VERS_OFILE)
+-include ../Makefile.include
+vpath %.c `pwd`

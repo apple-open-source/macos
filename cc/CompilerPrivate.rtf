@@ -1,0 +1,110 @@
+{\rtf0\ansi{\fonttbl\f2\fnil Times-Roman;\f3\ftech Symbol;\f0\fswiss Helvetica;\f1\fmodern Ohlfs;}
+\paperw9840
+\paperh8400
+\margl120
+\margr120
+{\colortbl;\red0\green0\blue0;}
+\pard\tx960\tx1920\tx2880\tx3840\tx4800\tx5760\tx6720\tx7680\tx8640\tx9600\f2\b0\i0\ulnone\fs24\fc0\cf0 Release 3.3 Copyright 
+\f3 ã
+\f2 1994 by NeXT Computer, Inc.  All Rights Reserved.\
+
+\pard\fs28\li1440\fc0\cf0 \
+
+\f0\fs30\li0 \
+
+\pard\tx0\tx2520\tx2880\tx3240\f2\fs48\li1440\fc0\cf0 Developer Notes:
+\pard\li1440\fc0\cf0  \
+
+\pard\tx0\tx2520\tx2880\tx3240\li1440\fc0\cf0 C Compiler 400 Series\
+
+\pard\fs28\li1440\fc0\cf0 \
+Updated for cc-412, january 26th\
+\
+
+\b\fs36\li0 NeXT Changes \
+
+\b0\fs28\li1440 \
+
+\pard\tx0\tx2520\tx2880\tx3240\b\li720\fc1\cf1 Runtime libraries\
+\
+
+\pard\tx1800\b0\li1440\fc0\cf0 The compiler runtime library libgcc is being updated from time to time while the compiler is still being developed.  Therefore the compiler links it in statically from /lib/
+\i arch
+\i0 /libgcc.a.  Once we get closer to release, the content should be moved to libsys.
+\pard\tx0\tx2520\tx2880\tx3240\b\li720\fc1\cf1 \
+\
+Features in test bed\
+
+\pard\b0\li1440\fc0\cf0 \
+
+\pard\tx1800\li1440\fc0\cf0 The following are features which have just been introduced, and are thus not enabled as default:\
+
+\pard\li1440\fc0\cf0 \
+
+\pard\tx1800\tx2160\tx2520\tx2880\tx5780\fi-360\li1800\fc0\cf0 ·	
+\b Shlib codegen;
+\b0  
+\b -fpic and
+\b0  
+\b -fPIC. 
+\b0  (m68k only) Generate code for the new shared library scheme.  -fpic generates only indirections, while -fPIC generates indirections and position independent code.  We will figure out some better names for these flags later...\
+\
+·	
+\b Floating Point Precision Control;
+\b0  
+\b -ffppc, -fno-fppc. 
+\b0  (m68k and i386 only) Generate code which uses the new floating point precision control.  This should eliminate the need for -ffloat-store, and be fully ieee compliant.\
+		\
+\
+
+\pard\tx0\tx2520\tx2880\tx3240\b\li720\fc1\cf1 Defines in C code\
+
+\pard\b0\li1440\fc0\cf0 \
+
+\pard\tx1800\li1440\fc0\cf0 The following is an exhaustive list of macros that affect how the compiler itself is compiled.  They are defined in various configuration header files:\
+
+\pard\li1440\fc0\cf0 \
+
+\pard\tx1800\tx2160\tx2520\tx2880\tx5780\fi-360\li1800\fc0\cf0 ·	
+\b NEXT_OBJC_RUNTIME. 
+\b0  The compiler is build to generate code for the NeXT Objective-C runtime, as opposed to the GNU Objective-C runtime.\
+\
+
+\pard\tx1800\tx2160\tx2520\tx2880\tx5780\fi-360\li1800\fc0\cf0 ·	
+\b NEXT_SEMANTICS. 
+\b0  Make the compiler a bit more sloppy on some issues to fit the NeXTSTEP development environment...\
+\
+·	
+\b NEXT_LIBGCC_NAMES. 
+\b0  Make the compiler use double underscore in front of libgcc functions.  If not defined, the compiler will generate tripple underscores there.\
+
+\pard\tx1800\tx2160\tx2520\tx2880\tx5780\fi-360\li1800\fc0\cf0 \
+·	
+\b NEXT_PDO. 
+\b0  The compiler is build to run in a NeXT PDO (non-NeXTSTEP) environment.  \
+\
+·	
+\b NEXT_FAT_OUTPUT. 
+\b0  Understand and interpret flags -arch and related to produce fat binaries and cross compile.  \
+\
+·	
+\b NEXT_CPP_PRECOMP. 
+\b0  Make the compiler driver and C preprocessor understand and use NeXT's precompiled headers. \
+\
+·	
+\b OBJC_HPUX_PADDING. 
+\b0  Hack in objc-act.c to make protocols structures size aligned on 8 bytes. \
+\
+·	
+\b NEXT_PIC. 
+\b0  The compiler is build to generate NeXT/mach-o PIC code, when the -pic flag is given to the compiler.  \
+\
+·	
+\b NeXT_ASM. 
+\b0  Used in the backend of the hppa compiler, to generate NeXT specific assembler instructions.  \
+\
+\
+  \
+\
+
+}

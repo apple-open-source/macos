@@ -1,0 +1,11 @@
+{
+  Description     = "Sun network file system";
+  Provides        = ("NFS");
+  Requires        = ("Portmap", "Resolver");
+  OrderPreference = "None";
+  Messages =
+  {
+    start = "Starting network file system";
+    stop  = "Stopping network file system";
+  };
+}

@@ -1,0 +1,7 @@
+services FreeService1 FreeService2;
+# server testServer services BndService3 BndMachService2=2;
+restartable server priority=16 "/NextApps/Terminal" services TerminalService;
+server "/usr/bin/sleep 10" services SleepService;
+self priority=15 Service=2;
+services NetMsgService=0 EnvironService=1 WindowService=3;
+forward;

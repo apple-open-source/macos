@@ -1,0 +1,4 @@
+OTHER_GENERATED_OFILES = $(VERS_OFILE)
+BEFORE_BUILD += bootstrap.h
+OTHER_OFILES = bootstrapServer.o
+

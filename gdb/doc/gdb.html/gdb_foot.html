@@ -1,0 +1,49 @@
+<HTML>
+<HEAD>
+<!-- This HTML file has been created by texi2html 1.51
+     from /mnt/apple/gdb/source/gdb.apple/source/gdb/gdb/doc/gdb.texinfo on 23 November 1999 -->
+
+<TITLE>Debugging with GDB - Footnotes</TITLE>
+</HEAD>
+<BODY>
+<H1>Debugging with GDB</H1>
+<H2>The GNU Source-Level Debugger</H2>
+<H2>Seventh Edition, for GDB version 19990707</H2>
+<H2>February 1999</H2>
+<ADDRESS>Richard M. Stallman and Roland H. Pesch</ADDRESS>
+<P>
+<P><HR><P>
+<H3><A NAME="FOOT1" HREF="gdb_9.html#DOCF1">(1)</A></H3>
+<P><SAMP>`b'</SAMP> cannot be used because these format letters are also
+used with the <CODE>x</CODE> command, where <SAMP>`b'</SAMP> stands for "byte";
+see section <A HREF="gdb_9.html#SEC56">Examining memory</A>.
+<H3><A NAME="FOOT2" HREF="gdb_9.html#DOCF2">(2)</A></H3>
+<P>This is a way of removing
+one word from the stack, on machines where stacks grow downward in
+memory (most machines, nowadays).  This assumes that the innermost
+stack frame is selected; setting <CODE>$sp</CODE> is not allowed when other
+stack frames are selected.  To pop entire frames off the stack,
+regardless of machine architecture, use <CODE>return</CODE>;
+see section <A HREF="gdb_12.html#SEC106">Returning from a function</A>.
+<H3><A NAME="FOOT3" HREF="gdb_10.html#DOCF3">(3)</A></H3>
+<P>If a procedure call is used for instance in an
+expression, then this procedure is called with all its side
+effects. This can lead to confusing results if used carelessly.
+<H3><A NAME="FOOT4" HREF="gdb_14.html#DOCF4">(4)</A></H3>
+<P>If you choose a port number that
+conflicts with another service, <CODE>gdbserver</CODE> prints an error message
+and exits.
+<H3><A NAME="FOOT5" HREF="gdb_19.html#DOCF5">(5)</A></H3>
+<P>In
+<TT>`gdb-19990707/gdb/refcard.ps'</TT> of the version 19990707
+release.
+<H3><A NAME="FOOT6" HREF="gdb_20.html#DOCF6">(6)</A></H3>
+<P>If you have a more recent version of GDB than 19990707,
+look at the <TT>`README'</TT> file in the sources; we may have improved the
+installation procedures since publishing this manual.
+<P><HR><P>
+This document was generated on 23 November 1999 using the
+<A HREF="http://wwwcn.cern.ch/dci/texi2html/">texi2html</A>
+translator version 1.51.</P>
+</BODY>
+</HTML>

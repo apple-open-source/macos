@@ -1,0 +1,10 @@
+Package: sudo
+Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
+Vendor: Todd Miller
+Version: 1.6.3p5
+URL: http://www.courtesan.com/sudo/
+Build-Depends: build-base
+Description: Superuser do
+ Sudo (superuser do) allows a system administrator to give certain
+ users (or groups of users) the ability to run some (or all) commands
+ as root or another user while logging the commands and arguments.

@@ -1,0 +1,303 @@
+# Makefile for fetchmail
+
+# If you're running QNX, we can't assume a working autoconf.
+# So just uncomment all the lines marked QNX.
+
+PACKAGE = fetchmail
+VERSION = 5.1.0
+
+SUBDIRS = @INTLSUB@ @POSUB@  
+
+# Ultrix 2.2 make doesn't expand the value of VPATH.
+srcdir = @srcdir@
+VPATH = @srcdir@
+
+CC = @CC@
+# CC = cc		# QNX
+
+CFLAGS = @CFLAGS@
+# CFLAGS =  -g2 -5	# QNX
+LDFLAGS = @LDFLAGS@
+# LDFLAGS =  -g2 -5	# QNX
+LEX = @LEX@
+LEXFLAGS=
+YACC = @YACC@
+# YACC = yacc
+YACCFLAGS = -dt
+
+CEFLAGS = @CEFLAGS@
+CPFLAGS = @CPFLAGS@
+LDEFLAGS = @LDEFLAGS@
+
+# How to invoke ranlib.  This is only used by the `glob' subdirectory.
+RANLIB = @RANLIB@
+
+# NeXT 1.0a uses an old version of GCC, which required -D__inline=inline.
+# See also `config.h'.
+DEFS = @DEFS@ @EXTRADEFS@
+# DEFS = -DQNX -DHAVE_CONFIG_H -DHAVE_UNISTD_H -DHAVE_STDARG_H -DSTDC_HEADERS	# QNX
+defines = $(DEFS)
+
+# If your system needs extra libraries loaded in, define them here.
+# In particular, add -lresolv if you are running bind 4.9.5
+LOADLIBS = @LIBS@ @LEXLIB@ @INTLLIBS@
+# LOADLIBS = -lsocket3r -lunix3r	# QNX
+
+# Any extra object files your system needs.
+extras = @LIBOBJS@
+
+# Extra sources/objects for library functions not provided on the host system.
+EXTRASRC = @EXTRASRC@
+# EXTRASRC = $(srcdir)/strcasecmp.c $(srcdir)/getopt.c $(srcdir)/getopt1.c $(srcdir)/alloca.c	# QNX
+EXTRAOBJ = @EXTRAOBJ@
+# EXTRAOBJ = strcasecmp.o getopt.o getopt1.o alloca.o
+
+# Common prefix for machine-independent installed files.
+prefix = @prefix@
+# Common prefix for machine-dependent installed files.
+exec_prefix = @exec_prefix@
+
+# Directory in which to install.
+bindir = @bindir@
+# Directory to install the Info files in.
+infodir = @infodir@
+# Number to put on the man page filename.
+manext = 1
+# Directory to install the man page in.
+mandir = @mandir@
+
+# Program to install `make'.
+INSTALL_PROGRAM = @INSTALL_PROGRAM@
+# Program to install the man page.
+INSTALL_DATA = @INSTALL_DATA@
+# Generic install program.
+INSTALL = @INSTALL@
+
+# Program to format Texinfo source into Info files.
+MAKEINFO = makeinfo
+# Program to format Texinfo source into DVI files.
+TEXI2DVI = texi2dvi
+
+# Programs to make tags files.
+ETAGS = etags
+CTAGS = ctags
+
+protobjs = rcfile_y.o rcfile_l.o socket.o getpass.o pop2.o pop3.o imap.o \
+       etrn.o fetchmail.o env.o options.o daemon.o driver.o sink.o \
+       rfc822.o smtp.o xmalloc.o uid.o mxget.o md5c.o md5ify.o rpa.o \
+       interface.o netrc.o base64.o error.o unmime.o conf.o checkalias.o \
+       smbdes.o smbencrypt.o smbmd4.o smbutil.o
+
+objs = $(protobjs) $(extras) $(EXTRAOBJ)
+
+srcs = $(srcdir)/socket.c $(srcdir)/getpass.c $(srcdir)/pop2.c 		\
+       $(srcdir)/pop3.c $(srcdir)/imap.c $(srcdir)/etrn.c 		\
+       $(srcdir)/fetchmail.c $(srcdir)/env.c				\
+       $(srcdir)/options.c $(srcdir)/daemon.c $(srcdir)/driver.c	\
+       $(srcdir)/sink.c $(srcdir)/rfc822.c $(srcdir)/smtp.c		\
+       $(srcdir)/xmalloc.c $(srcdir)/uid.c $(srcdir)/mxget.c 		\
+       $(srcdir)/md5c.c $(srcdir)/md5ify.c $(srcdir)/rpa.c	  	\
+       $(srcdir)/interface.c $(srcdir)/netrc.c $(srcdir)/base64.c	\
+       $(srcdir)/error.c $(srcdir)/unmime.c $(srcdir)/conf.c		\
+       $(srcdir)/checkalias.c $(srcdir)/smbdes.c $(srcdir)/smbencrypt.c \
+       $(srcdir)/smbmd4.c $(srcdir)/smbutil.c
+
+.SUFFIXES:
+.SUFFIXES: .o .c .h .y .l .ps .dvi .info .texi
+
+all: fetchmail po
+
+# Some makes apparently use .PHONY as the default goal if it is before `all'.
+.PHONY: all
+
+fetchmail: $(objs)
+	$(CC) $(LDEFLAGS) $(LDFLAGS) $(objs) $(LOADLIBS) -o fetchmail
+
+po:	dummy
+	@POMAKE@
+
+dummy:
+
+# Tester for address parsing
+rfc822: rfc822.c
+	gcc -DTESTMAIN -g rfc822.c -o rfc822
+
+# Stand-alone MIME decoder
+unmime: unmime.c base64.c rfc822.c xmalloc.c error.c
+	$(CC) -DSTANDALONE -DHAVE_CONFIG_H -I. -g -o $@ $^
+
+
+# Stand-alone netrc tester
+netrc: netrc.c xmalloc.o error.o
+	$(CC) -DSTANDALONE -DHAVE_CONFIG_H -I. -g -o $@ $^
+
+.c.o:
+	$(CC) $(defines) -c $(CPFLAGS) -I$(srcdir) -I. $(CEFLAGS) $(CFLAGS) $<
+
+# For some losing Unix makes.
+SHELL = /bin/sh
+MAKE = make
+
+tagsrcs = $(srcs) rcfile_l.c rcfile_y.c
+TAGS: $(tagsrcs)
+	$(ETAGS) $(tagsrcs)
+tags: $(tagsrcs)
+	$(CTAGS) $(tagsrcs)
+
+.PHONY: install install-strip uninstall
+install:
+	@echo "Creating installation directories..." 
+	$(SHELL) ${srcdir}/mkinstalldirs $(bindir) $(mandir)/man$(manext)
+	@echo "Installing fetchmail binary..."
+	$(INSTALL_PROGRAM) ./fetchmail $(bindir)/fetchmail
+	#@echo "Installing fetchmail configurator..."
+	#$(INSTALL_PROGRAM) ${srcdir}/fetchmailconf $(bindir)/fetchmailconf
+	@echo "Installing manual page..."
+	$(INSTALL_DATA) $(srcdir)/fetchmail.man $(mandir)/man$(manext)/fetchmail.$(manext)
+	#rm -f $(mandir)/man$(manext)/fetchmailconf.$(manext)
+	#ln -s $(mandir)/man$(manext)/fetchmail.$(manext) $(mandir)/man$(manext)/fetchmailconf.$(manext)
+	@echo "Installing language catalogs..."
+	@POMAKE@ install
+
+install-strip:
+	$(MAKE) install INSTALL_PROGRAM='$(INSTALL_PROGRAM) -s'
+
+uninstall:
+	rm -f $(bindir)/fetchmail $(bindir)/fetchmailconf
+	rm -f $(mandir)/man$(manext)/fetchmail.$(manext) $(mandir)/man$(manext)/fetchmailconf.$(manext)
+	@POMAKE@ uninstall
+
+.PHONY: clean realclean distclean mostlyclean
+clean: 
+	@POMAKE@ clean
+	-rm -f fetchmail *.o core fetchmail.dvi \
+	       rcfile_l.c rcfile_y.h rcfile_y.c \
+	       fetchmail.tar fetchmail.tar.gz \
+	       netrc rfc822 unmime fetchmail-man.html
+
+distclean: clean 
+	@POMAKE@ distclean
+	-rm -f Makefile config.h TAGS tags
+	-rm -f config.cache config.status config.log stamp-config
+
+realclean: distclean
+	@POMAKE@ clean
+	-rm -f FAQ FEATURES NOTES MANIFEST 
+	-rm -f config.cache config.log Makefile
+	-rm -f fetchmail-*.tar.gz fetchmail-*.i386.rpm 
+
+mostlyclean: clean
+
+config.status: configure Makefile.in
+	$(srcdir)/configure
+
+config.h: config.status config.h.in
+	sh config.status; touch config.h
+
+Makefile: config.status
+	sh config.status
+
+configure: configure.in
+	autoconf $(ACFLAGS)
+
+config.h.in: acconfig.h configure.in
+	autoheader $(ACFLAGS); touch config.h.in
+
+# This tells versions [3.59,3.63) of GNU make not to export all variables.
+.NOEXPORT:
+
+# Special dependencies, not easily handled portably without explicit rules
+rcfile_l.c rcfile_l.h: $(srcdir)/rcfile_l.l
+	$(LEX) $(LEXFLAGS) $(srcdir)/rcfile_l.l
+	mv lex.yy.c rcfile_l.c
+rcfile_y.c rcfile_y.h: $(srcdir)/rcfile_y.y
+	@echo "expect conflicts:  2 shift/reduce"
+	$(YACC) $(YACCFLAGS) $(srcdir)/rcfile_y.y
+	mv y.tab.c rcfile_y.c
+	mv -f y.tab.h rcfile_y.h
+
+# These must be explicit, because the .c files often don't exist at
+# makefile build time. 
+rcfile_l.o: rcfile_y.c rcfile_y.h config.h fetchmail.h
+rcfile_y.o: rcfile_y.c rcfile_y.h config.h fetchmail.h
+
+parser = $(srcdir)/rcfile_l.l $(srcdir)/rcfile_y.y
+headers = $(srcdir)/fetchmail.h $(srcdir)/socket.h $(srcdir)/smtp.h \
+	$(srcdir)/mx.h $(srcdir)/md5.h $(srcdir)/md5global.h \
+	$(srcdir)/netrc.h $(srcdir)/tunable.h $(srcdir)/i18n.h \
+	$(srcdir)/aclocal.m4 $(srcdir)/ntlm.h $(srcdir)/smb.h \
+	$(srcdir)/smbbyteorder.h $(srcdir)/smbdes.h $(srcdir)/smbencrypt.h \
+	$(srcdir)/smbmd4.h
+extra = $(srcdir)/alloca.c $(srcdir)/getopt.[ch] $(srcdir)/getopt1.c \
+	$(srcdir)/strcasecmp.c $(srcdir)/strstr.c $(srcdir)/memmove.c
+docs = $(srcdir)/COPYING $(srcdir)/FEATURES $(srcdir)/fetchmail-features.html \
+	$(srcdir)/design-notes.html $(srcdir)/NOTES \
+	$(srcdir)/INSTALL $(srcdir)/NEWS $(srcdir)/README \
+	$(srcdir)/README.NTLM $(srcdir)/fetchmail.lsm $(srcdir)/sample.rcfile \
+	$(srcdir)/*.man	$(srcdir)/FAQ $(srcdir)/fetchmail-FAQ.html
+config = $(srcdir)/Makefile.in $(srcdir)/configure.in $(srcdir)/configure \
+	$(srcdir)/config.guess $(srcdir)/config.h.in $(srcdir)/config.sub \
+	$(srcdir)/acconfig.h
+scripts = $(srcdir)/install.sh $(srcdir)/mkinstalldirs \
+	$(srcdir)/specgen.sh $(srcdir)/lsmgen.sh $(srcdir)/fetchmailconf
+all = $(docs) $(config) $(srcs) $(parser) $(headers) $(extra) $(scripts) \
+	$(srcdir)/rh-config/* $(srcdir)/debian/* $(srcdir)/contrib/*[A-Za-uw-z] \
+	$(srcdir)/intl/* $(srcdir)/po/* ABOUT-NLS $(srcdir)/MANIFEST
+
+MANIFEST: $(srcdir) Makefile.in
+	@echo $(all) | tr "[ \t]" '\n' | sed -e '/^\.\//s///' | sort >MANIFEST
+	@wc -l MANIFEST
+
+FAQ: fetchmail-FAQ.html
+	echo "   (This document was generated from fetchmail-FAQ.html)" >FAQ
+	lynx -dump -nolist fetchmail-FAQ.html >>FAQ
+
+FEATURES: fetchmail-features.html
+	echo "   (This document was generated from fetchmail-features.html)" >FEATURES
+	lynx -dump -nolist fetchmail-features.html | grep -v "Back to " >>FEATURES
+
+NOTES: design-notes.html
+	echo "   (This document was generated from design-notes.html)" >NOTES
+	lynx -dump -nolist design-notes.html | grep -v "Back to " >NOTES
+
+# man2html chokes and dies on this man page
+fetchmail-man.html: fetchmail.man
+	echo "<pre>"                               >fetchmail-man.html
+	groff -man -Tascii -P-b -P-u fetchmail.man >>fetchmail-man.html
+	echo "</pre>"                              >>fetchmail-man.html
+
+# Make distribution, update LSM with proper size, remake distribution
+# (Making fetchmail-man.html is a kluge to ensure that it will be
+# available when I upload the distribution.)
+dist: Makefile.in fetchmail-man.html
+	rm -f MANIFEST; make MANIFEST;
+	touch fetchmail.lsm
+	make fetchmail-$(VERSION).tar.gz 
+	lsmgen.sh $(VERSION) `wc -c fetchmail-$(VERSION).tar.gz` >fetchmail.lsm
+	make fetchmail-$(VERSION).tar.gz
+	ls -l fetchmail-$(VERSION).tar.gz
+	@echo "Don't forget to build RPMs from root!"
+
+fetchmail-$(VERSION).tar.gz: $(all)
+	(cd ..; ln -sf fetchmail fetchmail-$(VERSION))
+	(cd ..; tar -czf fetchmail-$(VERSION).tar.gz `sed <fetchmail-$(VERSION)/MANIFEST s:^:fetchmail-$(VERSION)/:`)
+	mv -f ../fetchmail-$(VERSION).tar.gz .
+	rm ../fetchmail-$(VERSION)
+
+# Make RPMs.  You need to be root to make this work
+RPMROOT=/usr/src/redhat
+RPM = rpm
+RPMFLAGS = -ba
+rpm: dist
+	cp fetchmail-$(VERSION).tar.gz fetchmail.xpm $(RPMROOT)/SOURCES;
+	$(srcdir)/specgen.sh $(VERSION) >$(RPMROOT)/SPECS/fetchmail.spec
+	cd $(RPMROOT)/SPECS; $(RPM) $(RPMFLAGS) fetchmail.spec	
+	cp $(RPMROOT)/RPMS/`arch|sed 's/i[4-9]86/i386/'`/fetchmail-$(VERSION)*.rpm $(srcdir)
+	cp $(RPMROOT)/SRPMS/fetchmail-$(VERSION)*.src.rpm $(srcdir)
+
+# The following sets edit modes for GNU EMACS.
+# Local Variables:
+# compile-command:"configure"
+# End:
+
+# Automatically generated dependencies will be put at the end of the makefile.

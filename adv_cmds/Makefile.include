@@ -1,0 +1,5 @@
+##
+## Temporary flags for static Teflon builds
+##
+
+CHFLAGS = true		# until we really have chflags on our system

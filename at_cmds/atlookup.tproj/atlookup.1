@@ -1,0 +1,112 @@
+.TH atlookup 1
+.SH NAME
+atlookup - looks up network-visible entities (NVEs) registered on the AppleTalk network system
+
+.SH SYNOPSIS
+.B atlookup 
+[-d] [-a] [-r nn] [-s ss] [-x] [object[:type[@zone]]]
+
+.B atlookup 
+-z [-C]
+
+.SH ARGUMENTS
+.TP 8
+-C
+Prints zones in multiple columns.
+.TP 8
+-d
+Prints the network address in decimal numbers.
+.TP 8
+-a
+Don't display network addresses
+.TP 8
+.I object
+Specifies the name of the object to be looked up.
+.TP 8
+-r nn
+If the lookup is unsuccessful, the system tries again
+the number of times specified by nn.  The default is to
+try the lookup eight times.
+.TP 8
+-s nn
+Instructs atlookup to wait a certain number (ss) of
+seconds between consecutive attempts to complete a
+lookup successfully. The default is to space retries
+one second apart.
+.TP 8
+type
+Specifies the type of object to be looked up.
+.TP 8
+-x
+Prints the 8-bit ASCII characters on output as
+hexadecimal numbers of the form      (where X is a
+hexadecimal digit).
+.TP 8
+-z
+Lists all zones in the network.
+.TP 8
+zone
+Specifies the zone in which the lookup is to be
+performed. You can use an asterisk instead of a zone
+name to indicate the current zone name.  If you don't
+specify a zone name, the current zone is the default.
+
+The object and type arguments can contain wildcard
+characters. The equal sign (=) indicates a wildcard lookup.
+For wildcard lookups to work correctly with all nodes, the
+only character specified in the string must be the wildcard
+character. However, AppleTalk Phase 2 nodes also honor a
+single embedded wildcard character, `='. Under this scheme,
+one wildcard character can appear anywhere in the string and
+can match zero or more characters. Note, however, that
+although an embedded `=' is acceptable in object and type
+arguments of atlookup, only the nodes implementing AppleTalk
+Phase 2 protocols respond to such a query.  For this reason,
+the resulting list of NVEs may be incomplete.
+
+.SH DESCRIPTION
+atlookup uses the Name Binding Protocol (NBP) to look up
+names and addresses of the specified NVEs.
+
+The default is to look up all the entities (of all types) in
+the current zone.  Specifying the object, type, or zone on
+the command line changes the scope of lookup.
+
+Information about the NVEs is displayed in a table format,
+one line per NVE.  Each line gives the names of the object,
+type, and zone and the numbers of the network, node, and
+socket.
+
+.SH EXAMPLES
+This command looks up all NVEs registered in the local
+AppleTalk zone:
+
+        atlookup
+
+In response, the system displays output similar to this:
+
+        Found 5 entries in zone My-Zone
+        6b5b.c3.ea 3-Eyed Monster:LaserWriter
+        6b5b.80.fd 3-Eyed Monster Spooler:LaserWriter
+        6b14.84.ea Incognito :LaserWriter
+        6b19.a3.fd Light of Day:AFPServer
+        6b51.27.fd Nets-R-Us Spooler:LaserWriter
+
+In an extended AppleTalk network, this command displays all
+NVEs (of any type) in the current zone whose names start
+with L and end in y:
+
+        atlookup L=y:=
+
+The output might be similar to this:
+
+        Found 1 entries in zone My-Zone
+        6b19.a3.fd Light of Day:AFPServer
+
+.SH FILES
+/usr/bin/atlookup
+Executable file
+
+.SH SEE ALSO
+at_cho_prn(1), atprint(1), atstatus(1)
+Inside AppleTalk

@@ -1,0 +1,38 @@
+# we need to supply our own assembly versions of libgcc1.c files,
+# since the user may not have native 'cc' available
+
+LIBGCC1 = libgcc1.null
+CROSS_LIBGCC1 = libgcc1.null
+CC = gcc
+
+# This is a hack to make the preprocessor search an additional directory
+# that is not dependent on the version of gcc that is installed on the machine.
+tooldir = $(libdir)/gcc-lib/$(target)
+
+# gmon build rule:
+gmon.o:	$(srcdir)/config/sparc/gmon-sol2.c $(GCC_PASSES) $(CONFIG_H)
+	$(GCC_FOR_TARGET) $(GCC_CFLAGS) $(INCLUDES) \
+		-c $(srcdir)/config/sparc/gmon-sol2.c -o gmon.o
+
+# Assemble startup files.
+crt1.o: $(srcdir)/config/sparc/sol2-nextpdo-c1.asm
+	$(AS) -o crt1.o $(srcdir)/config/sparc/sol2-nextpdo-c1.asm
+crti.o: $(srcdir)/config/sparc/sol2-ci.asm
+	$(AS) -o crti.o $(srcdir)/config/sparc/sol2-ci.asm
+crtn.o: $(srcdir)/config/sparc/sol2-cn.asm
+	$(AS) -o crtn.o $(srcdir)/config/sparc/sol2-cn.asm
+
+AR=/usr/ccs/bin/ar
+OLDAR=/usr/ccs/bin/ar
+
+# When gcc is running on a NeXT, we want the make interaction in it.
+
+COMMON_OBJS = makeUser.o make-support.o
+
+makeUser.o: config/next/makeUser.c config/next/make.h
+	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
+	  $(srcdir)/config/next/makeUser.c
+
+make-support.o: config/next/make-support.c config/next/make.h
+	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
+	  -I$(srcdir)/config/next $(srcdir)/config/next/make-support.c

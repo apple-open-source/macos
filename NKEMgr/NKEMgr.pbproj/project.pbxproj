@@ -1,0 +1,239 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 31;
+	objects = {
+		044048CFFFF1815D11CA2C33 = {
+			buildStyles = (
+				06E4A2C6FFF1A8CC11CA2C33,
+				06E4A2C7FFF1A8CC11CA2C33,
+			);
+			isa = PBXProject;
+			mainGroup = 044048D0FFF1815D11CA2C33;
+			productRefGroup = 044048E3FFF1815D11CA2C33;
+			projectDirPath = .;
+			targets = (
+				044048E5FFF1815D11CA2C33,
+			);
+		};
+		044048D0FFF1815D11CA2C33 = {
+			children = (
+				044048D7FFF1815D11CA2C33,
+				044048E3FFF1815D11CA2C33,
+			);
+			isa = PBXGroup;
+			name = NKEMgr;
+			refType = 4;
+		};
+		044048D7FFF1815D11CA2C33 = {
+			children = (
+				044048D9FFF1815D11CA2C33,
+				044048DAFFF1815D11CA2C33,
+				044048DCFFF1815D11CA2C33,
+			);
+			isa = PBXGroup;
+			name = NKEMgr;
+			path = NKEMgr.kmodproj;
+			refType = 4;
+		};
+		044048D9FFF1815D11CA2C33 = {
+			isa = PBXFileReference;
+			path = NKEMgr.h;
+			refType = 4;
+		};
+		044048DAFFF1815D11CA2C33 = {
+			isa = PBXFileReference;
+			path = NKEMgrvar.h;
+			refType = 4;
+		};
+		044048DCFFF1815D11CA2C33 = {
+			isa = PBXFileReference;
+			path = NKEMgr.c;
+			refType = 4;
+		};
+		044048E3FFF1815D11CA2C33 = {
+			children = (
+				044048E4FFF1815D11CA2C33,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+		};
+		044048E4FFF1815D11CA2C33 = {
+			isa = PBXBundleReference;
+			path = NKEMgr.kext;
+			refType = 3;
+		};
+		044048E5FFF1815D11CA2C33 = {
+			buildPhases = (
+				044048E6FFF1815D11CA2C33,
+				044048E7FFF1815D11CA2C33,
+				044048EAFFF1815D11CA2C33,
+				044048EBFFF1815D11CA2C33,
+				044048EDFFF1815D11CA2C33,
+				044048EEFFF1815D11CA2C33,
+				044048EFFFF1815D11CA2C33,
+			);
+			buildSettings = {
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_EXTENSION = YES;
+				KERNEL_MODULE = YES;
+				MODULE_NAME = com.apple.nke.NKEMgr;
+				MODULE_START = NKEMgr_start;
+				MODULE_STOP = NKEMgr_stop;
+				MODULE_VERSION = 1.0;
+				OTHER_CFLAGS = "-Wno-format";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = NKEMgr;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wall -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			conditionalBuildSettings = {
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = "NKEMgr (Kernel Extension)";
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+			productName = "NKEMgr (Bundle)";
+			productReference = 044048E4FFF1815D11CA2C33;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
+<plist version=\"0.9\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>NKEMgr</string>
+	<key>CFBundleGetInfoString</key>
+	<string>NKEMgr, Apple Computer, Inc. January, 2001</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.net.NKEMgr</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>NKEMgr</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0</string>
+	<key>CFBundleSignature</key>
+	<string></string>
+	<key>CFBundleVersion</key>
+	<string>1.0</string>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 0;
+		};
+		044048E6FFF1815D11CA2C33 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			name = "Shell Script";
+			neededFileNames = (
+			);
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		044048E7FFF1815D11CA2C33 = {
+			buildActionMask = 2147483647;
+			files = (
+				044048E8FFF1815D11CA2C33,
+				044048E9FFF1815D11CA2C33,
+			);
+			isa = PBXHeadersBuildPhase;
+			name = Headers;
+		};
+		044048E8FFF1815D11CA2C33 = {
+			fileRef = 044048D9FFF1815D11CA2C33;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		044048E9FFF1815D11CA2C33 = {
+			fileRef = 044048DAFFF1815D11CA2C33;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		044048EAFFF1815D11CA2C33 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			name = "Bundle Resources";
+		};
+		044048EBFFF1815D11CA2C33 = {
+			buildActionMask = 2147483647;
+			files = (
+				044048ECFFF1815D11CA2C33,
+			);
+			isa = PBXSourcesBuildPhase;
+			name = Sources;
+		};
+		044048ECFFF1815D11CA2C33 = {
+			fileRef = 044048DCFFF1815D11CA2C33;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		044048EDFFF1815D11CA2C33 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			name = "Frameworks & Libraries";
+		};
+		044048EEFFF1815D11CA2C33 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			name = "ResourceManager Resources";
+		};
+		044048EFFFF1815D11CA2C33 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			name = "Shell Script";
+			neededFileNames = (
+			);
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		06E4A2C6FFF1A8CC11CA2C33 = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		06E4A2C7FFF1A8CC11CA2C33 = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+	};
+	rootObject = 044048CFFFF1815D11CA2C33;
+}

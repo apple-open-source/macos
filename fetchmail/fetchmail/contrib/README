@@ -1,0 +1,115 @@
+These are scripts to help you running fetchmail in special situations. 
+Note: you're on your own using these -- I don't really understand them,
+I'm just passing them along.
+								--esr
+
+maildaemon:
+
+Larry Fahnoe wrote this for driving fetchmail from cron.  It may be useful if
+you want to force a PPP link up and then poll for mail at specified times.
+I have rearranged it slightly to make it easier to configure.
+
+novell:
+
+Some mail from Dan Newcombe describing how to write a procmail rule that
+will domainify Novell server names.
+
+login & logout:
+
+These are intended to help if you typically have multiple logins active.
+Here's the script composer's original README:
+
+	Please find attached 2 files, ~/.bash_login & ~/.bash_logout
+	What these do is try to keep track of WHO is the process/tty
+	that ran fetchmail in daemon mode.  I tried to use the bash
+	Variable PPID, but when using xterm the PPID is set to the
+	xterm's pid not the bash shell's pid so....
+
+	They have been lightly tested.
+
+	Any comments...
+
+ 				Hth, JimL <babydr@nwrain.net>
+
+ip-up:
+
+A note from James Stevens about using fetchmail in an ip-up script without
+disabling timeouts.
+
+runfetchmail:
+
+A shellscript front end for fetchmail that mails you various statistics on
+the downloaded mail and the state of your folders.  A good example of what
+you can do with your own front end.
+
+fetchspool:
+
+If you find that the speed of forwarding to port 25 is limited by the
+SMTP listener's speed, it may make sense to locally spool all the mail
+first and feed it to sendmail after you hang up the network link.
+This shellscript aims to do exactly that.  It would be smarter to
+figure out why sendmail is slow, however.
+
+fetchsetup:
+
+This is a shell script for creating a $HOME/.fetchmailrc file, it will ask
+you some questions and based on your answers it will create a .fetchmailrc
+file, fetchsetup is linux specific so it may not work on another operating
+system.
+
+mailqueue.pl:
+
+This script will connect to your isp (if not already connected),
+send any outgoing mail and retrieve any incoming mail.  If this
+program made the connection, it will also break the connection
+when it is done.  By Bill Adams, <bill@evil.inetarena.com>.  The
+latest version is carried at 
+
+redhat_rc:
+
+A fetchmail boot-time init file compatible with RedHat 5.1.  It leaves
+fetchmail in background to get messages when you connect to your ISP.
+The invoked fetchmail expects to find its configuration in
+/etc/fetchmailrc, and must include the proper "interface" directive.
+
+debian_rc:
+
+A fetchmail boot-time init file compatible with Debian.  It leaves
+fetchmail in background to get messages when you connect to your ISP.
+The invoked fetchmail expects to find its configuration in
+/etc/fetchmailrc, and must include the proper "interface" directive.
+
+start_dynamic_ppp:
+
+An admittedly scratchy ip-up script that Ryan Murray wrote to cope with
+dynamic PPP addressing.  Will need some customizing.
+
+	http://www.inetarena.com/~badams/linux/programs/mailqueue.pl
+
+getfetchmail:
+
+Here's a script that gets Eric's most recent fetchmail source rpm,
+downloads it and (if the rpm's not broken) rebuilds it.
+
+With fairly simple changes it can be used to download the latest i386 rpm
+or tar.gz.
+ 
+Those who are addicted to having the latest of everything could filter mail
+from fetchmail announce through it and get new versions as they're
+announced. However, if we all did that, Eric's ftp server might feel a
+little stressed.
+
+The script as written works on bash 2.  By John Summerfield
+<summer@os2.ami.com.au>.
+
+zsh-completion:
+
+These commands set up command completion for fetchmail under zsh.
+Jay Kominek <jay.kominek@colorado.edu>.
+
+getmail/gotmail:
+
+These scripts are front ends for fetchmail in daemon mode that can gather
+log statistics and generate text or HTML reports.  See README.getmail for
+details.  Scripts by Thomas Nesges <ThomaNesges@TNT-Computer.de>.
+

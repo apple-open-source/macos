@@ -1,0 +1,89 @@
+
+		How to compile enscript for Windows NT
+
+This file documents how I managed to compile enscript to the
+Windows NT environment. In theory the instructions for Windows NT will be
+the same as for Windows '95, although I haven't tested it yet.
+
+I used  Visual C++ 5.0 (Visual Studio Edition) for the Intel Platform
+and Visual C++ 2.0 for the DEC Alpha Platform.
+
+The magic steps were:
+
+1) unpack the distribution
+
+2) copy `compat/config.dos' to the top level directory to the name
+   `config.h':
+
+	cp compat/config.dos config.h
+
+3) create a new `Console Application' project for enscript.exe
+
+4) add the following files to the project:
+
+	afmlib\afm.c
+	afmlib\afmparse.c
+	afmlib\deffont.c
+	afmlib\enc_hp8.c
+	afmlib\enc_iso.c
+	afmlib\enc_iso2.c
+	afmlib\enc_iso3.c
+	afmlib\enc_iso4.c
+	afmlib\enc_iso5.c
+	afmlib\enc_koi8.c
+	afmlib\enc_mac.c
+	afmlib\enc_pc.c
+	afmlib\enc_vms.c
+	afmlib\strhash.c
+	compat\gethostname.c
+	compat\getopt.c
+	compat\getopt1.c
+	compat\getpwd.c
+	compat\getuid.c
+	compat\xalloc.c
+	src\main.c
+	src\prt_dos.c
+	src\psgen.c
+	src\util.c
+
+5) define following additional preprocessor symbols:
+
+	HAVE_CONFIG_H
+
+6) add following additional include directories:
+
+	<top-level-directory>
+	<top-level-directory>\compat
+	<top-level-directory>\afmlib
+	<top-level-directory>\src
+
+7) build enscript.exe
+
+8) create a new 'Console Application' project for states.exe
+
+9) add the following files to the project:
+
+    afmlib\strhash.c
+    compat\alloca.c
+    compat\getopt.c
+    compat\getopt1.c
+    compat\regex.c
+    compat\xalloc.c
+    states\gram.c
+    states\lex.c
+    states\main.c
+    states\prims.c
+    states\process.c
+    states\utils.c
+
+10) define following additional preprocessor symbols:
+
+	HAVE_CONFIG_H
+
+11) add following additional include directories:
+
+	<top-level-directory>
+	<top-level-directory>\compat
+	<top-level-directory>\afmlib
+
+12) print

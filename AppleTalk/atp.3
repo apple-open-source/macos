@@ -1,0 +1,468 @@
+.TH atp 3
+.SH NAME
+.NA atp_open
+.NA atp_close
+.NA atp_sendreq
+.NA atp_getreq
+.NA atp_sendrsp
+.NA atp_getresp
+.NA atp_abort
+.NA atp_look
+.TX
+AppleTalk Transaction Protocol (ATP) interface
+.SH SYNOPSIS
+.PP
+.B #include <at/appletalk.h>
+.br
+.B #include <at/atp.h>
+.PP
+.BI int\0atp_open(at_socket\0* socket );
+.PP
+.BI int\0atp_close(int\0 fd );
+.PP
+.BI int\0atp_sendreq(int\0 fd ,
+.BI at_inet_t\0* dest ,
+.BI char\0* buf ,
+.if n .ti +5n
+.BI int \0len ,
+.BI int \0userdata ,
+.BI int \0xo ,
+.BI int \0xo_relt ,
+.if n .ti +5n
+.if t .ti +5n
+.BI u_short\0* tid ,
+.BI at_resp_t\0* resp ,
+.if n .ti +5n
+.BI at_retry_t\0* retry ,
+.BI int\0 nowait );
+.PP
+.BI int\0atp_getreq(int\0 fd ,
+.BI at_inet_t\0* src ,
+.BI char\0* buf ,
+.if n .ti +5n
+.BI int\0* len ,
+.BI int\0* userdata ,
+.BI int\0* xo ,
+.if t .ti +5n
+.BI u_short\0* tid ,
+.if n .ti +5n
+.BI u_char\0* bitmap ,
+.BI int\0 nowait );
+.PP
+.BI int\0atp_sendrsp(int\0 fd ,
+.BI at_inet_t\0* dest ,
+.BI int \0xo ,
+.if n .ti +5n
+.BI u_short \0tid ,
+.BI at_resp_t\0* resp );
+.PP
+.BI int\0atp_getresp(int\0 fd ,
+.BI u_short\0* tid ,
+.BI at_resp_t\0* resp );
+.PP
+.BI int\0atp_abort(int\0 fd );
+.PP
+.BI int\0atp_look(int\0 fd ,
+.BI at_inet_t\0* dest ,
+.BI u_short\0* tid );
+.SH DESCRIPTION
+.PP
+The ATP interface provides applications with access to the
+services of the \*(At Transaction Protocol, a transport layer protocol.
+.PP
+These routines use the following structures, defined in
+.BR <at/appletalk.h> .
+.PP
+The
+.B at_inet_t
+structure
+specifies the \*(At internet address of a DDP \*(At socket endpoint:
+.RS
+.PP
+.nf
+typedef struct  at_inet {
+	at_net     net;
+	at_node    node;
+	at_socket  socket;
+} at_inet_t;
+.fi
+.RE
+.PP
+The
+.B at_retry_t
+structure
+specifies the retry interval and maximum count for a transaction:
+.RS
+.PP
+.nf
+typedef struct at_retry {
+	short  interval;   /* Retry interval in seconds */
+	short  retries;    /* Maximum number of retries */
+	u_char backoff;    /* Retry backoff, must be 1 through 4 */
+} at_retry_t;
+.fi
+.RE
+.PP
+If the
+.I retries
+field of the
+.B at_retry_t
+structure is set to
+.BR AT_INF_RETRY ,
+then the request will be repeated indefinitely (forever).
+.PP
+The
+.BR at_resp_t
+structure,
+defined in
+.BR <at/atp.h> ,
+specifies buffers to be used for response data:
+.RS
+.PP
+.nf
+typedef struct at_resp {
+	u_char        bitmap;
+	u_char        filler[3];
+	struct iovec  resp[AT_ATP_TRESP_MAX];
+	int           userdata[AT_ATP_TRESP_MAX];
+} at_resp_t;
+.fi
+.RE
+.PP
+The members of this structure are:
+.TP 10
+.I bitmap
+The bitmap of responses expected, and for which buffers are allocated.
+.TP
+.I resp
+An
+.B iovec
+structure describing the response buffers and their lengths.
+.TP
+.I userdata
+An array of 32-bit words holding the user bytes for each ATP response.
+.PP
+The
+.B atp_open
+routine
+opens an ATP \*(At socket
+and returns a file descriptor for use with the remaining ATP calls.
+.TP 10
+.I socket
+A pointer to the static DDP \*(At socket number to open.
+If the socket number is zero,
+a socket is dynamically assigned, and the
+socket number is returned in
+.IR socket .
+.PP
+The
+.B atp_close
+routine
+closes the ATP \*(At socket identified by the file descriptor
+.IR fd .
+.PP
+The
+.B atp_sendreq
+routine
+sends an ATP request to another socket.
+This call blocks until
+a response is received.
+.TP 10
+.I fd
+The ATP file descriptor to use in sending the request.
+.TP
+.I dest
+The \*(At internet address
+of the \*(At socket to which the request should be sent.
+.TP
+.I buf
+Specifies the request data buffer.
+.TP
+.I len
+Specifies the size of request data buffer size.
+.TP
+.I userdata
+Contains the user bytes for the ATP request header.
+.TP
+.I xo
+Should be true (1) if the request is to be an exactly-once
+(XO) transaction.
+.TP
+.I xo_relt
+will be ignored if 
+.I xo
+is not set to true.  Otherwise, it may be used to set the release timer value
+on the remote end.  The default value is
+.BR AT_ATP_XO_DEF_REL_TIME .
+The other 
+permissible values are:
+.BR AT_ATP_XO_30SEC ,
+.BR AT_ATP_XO_1MIN ,
+.BR AT_ATP_XO_2MIN ,
+.B AT_ATP_XO_4MIN
+and
+.BR AT_ATP_XO_8MIN .
+These are declared in the file
+.BR <at/atp.h> .
+All other values apart from these are illegal.
+.TP
+.I tid
+On return, contains the transaction identifier for this transaction;
+.I tid
+can be NULL if the caller is not interested in the transaction
+identifier.
+.TP
+.I resp
+The
+.B atp_sendreq
+routine
+requires a pointer to an
+.B at_resp_t
+structure (see definition given above).
+The
+.B atp_sendreq
+routine will return response data to the application in this structure.
+The field
+.I iov_base
+in each
+.B iovec
+entry of the
+.I resp
+parameter points to a buffer to contain response data.
+The field
+.I iov_len
+specifies the length of the buffer.
+The field
+.I bitmap
+of the
+.I resp
+parameter indicates the responses expected;
+on return, it indicates the responses received.
+.sp
+On return, each
+.I iov_len
+entry indicates the length of the actual response data.
+If the number of responses is less than expected,
+either an EOM was received or the retry count was exceeded.
+In the latter case, an error is returned.
+Each
+.I userdata
+entry in
+.I resp
+contains the user data for the respective ATP response packet.
+.TP
+.I retry
+The
+.I retry
+pointer specifies the ATP request retry timeout in seconds and
+the maximum retry count.
+If
+.I retry
+is NULL,
+the default timeout,
+.BR AT_ATP_DEF_INTERVAL ,
+and the default retries,
+.BR AT_ATP_DEF_RETRIES ,
+are used.
+The
+.I retries
+field of
+.I retry
+can be set to
+.BR AT_INF_RETRY ,
+in which case the transaction will be repeated infinitely.
+.TP
+.I nowait
+Set 
+.I nowait
+to zero (0) to indicate synchronous operation, or to non-zero to indicate
+asynchronous operation.
+.PP
+The
+.B atp_getreq
+routine
+receives an ATP request sent from another \*(At socket.
+It is completed when a request is received.
+.TP 10
+.I fd
+The ATP file descriptor to use in receiving the request.
+.TP
+.I src
+The \*(At internet address of the \*(At socket from which the
+request was sent.
+.TP
+.I buf
+Specifies the data buffer in which to store the incoming request.
+.TP
+.I len
+Specifies the data buffer size in which to store
+the incoming request.
+.TP
+.I userdata
+On return, contains the user bytes from the ATP request header;
+.I userdata
+can be NULL if the caller is not interested in the
+.IR userdata .
+.TP
+.I xo
+Indicates to the caller whether
+the request is to be an exactly once (XO) transaction. If it is
+to be an XO transaction,
+.B atp_getreq
+will set it true (non-zero).
+.TP
+.I tid
+Contains the transaction identifier for this transaction.
+.TP
+.I bitmap
+Indicates the responses expected by the requester.
+.TP
+.I nowait
+Indicates whether the operation should be asynchronous or not.
+Set
+.I nowait
+to zero (0) to indicate synchronous operation, or to non-zero to indicate
+asynchronous operation.
+.PP
+Because the transaction may require a response, the
+.IR xo ,
+.IR tid ,
+and
+.I bitmap
+parameters are always used and must not be null.
+.PP
+.B atp_sendrsp
+sends an ATP response to another \*(At socket.
+All response data is passed in one
+.B at_sendrsp
+call.
+In the case of an XO transaction, the call does not
+return until a release is received from the requester
+or the release timer expires.
+In the latter case, an error is returned.
+.TP 10
+.I fd
+The ATP file descriptor to use in sending the response.
+.TP
+.I dest
+The \*(At internet address of the \*(At socket to which
+the response should be sent.
+.TP
+.I tid
+Contains the transaction identifier for this transaction.
+.PP
+The
+.B atp_sendrsp
+routine
+requires a pointer to an
+.B at_resp_t
+structure containing two arrays for the response data:
+.IR resp ,
+an eight-entry
+.B iovec
+array,
+and
+.IR userdata ,
+an eight-entry array.
+The field
+.I iov_base
+in each
+.B iovec
+entry points to a buffer containing response data.
+The field
+.I iov_len
+specifies the length of the response data.
+Each
+.I userdata
+entry in
+.I resp
+contains the user data to be sent with the respective
+ATP response packet.
+The field
+.I bitmap
+indicates the responses to be sent.
+.SH ERRORS
+All routines return \-1 on error with a detailed error code in
+.BR errno .
+For additional errors returned by the underlying DDP and AppleTalk Link
+Access Protocol (ALAP) modules,
+see
+.BR ddp (3)
+and
+.BR lap (3).
+.TP 15
+.B [EBADF]
+.I fd
+is not a valid file descriptor (all).
+.TP
+.B [ENOTTY]
+.I fd
+is not a TTY, that is, not a special device (all).
+.TP
+.B [EINTR]
+The request was interrupted by signal (all).
+.TP
+.B [EAGAIN]
+The request failed due to a temporary resource limitation;
+try again.
+When this error occurs, no XO transaction is initiated (all).
+.TP
+.B [EINVAL]
+Invalid
+.IR dest ,
+.IR len ,
+.IR resp ,
+or
+.I retry
+parameter
+.RB ( atp_sendreq ).
+.IP
+Invalid
+.I len
+parameter
+.RB ( atp_getreq ).
+.IP
+Invalid
+.I dest
+or
+.I resp
+parameter
+.RB ( atp_sendrsp ).
+.TP
+.B [ENOENT]
+An attempt to send a response to a nonexistent transaction
+.RB ( atp_sendrsp ).
+.TP
+.B [ETIMEDOUT]
+The request exceeded the maximum retry count
+.RB ( atp_sendreq ).
+.TP
+.B [EMSGSIZE]
+The response is larger than the buffer,
+or more responses were received than expected.
+Truncated to available buffer space
+.RB ( atp_sendreq ).
+.IP
+The request buffer is too small for request data;
+truncated
+.RB ( atp_getreq ).
+.IP
+The response is too large; maximum is
+.B AT_ATP_DATA_SIZE
+bytes
+.RB ( atp_sendrsp ).
+.SH WARNINGS
+The length of each response buffer,
+specified in
+.IR iov_len ,
+is overwritten by the actual response length when
+.B atp_sendreq
+returns.
+.SH "SEE ALSO"
+.BR ddp (3),
+.BR lap (3),
+.BR nbp (3),
+.BR pap (3),
+.BR rtmp (3);
+.PP
+.IR "Inside AppleTalk" .

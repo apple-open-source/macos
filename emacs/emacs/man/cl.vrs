@@ -1,0 +1,16 @@
+\initial {*}
+\entry {\code {*gensym-counter*}}{47}
+\entry {\code {*random-state*}}{50}
+\initial {F}
+\entry {\code {float-epsilon}}{52}
+\entry {\code {float-negative-epsilon}}{52}
+\initial {L}
+\entry {\code {least-negative-float}}{52}
+\entry {\code {least-negative-normalized-float}}{52}
+\entry {\code {least-positive-float}}{51}
+\entry {\code {least-positive-normalized-float}}{51}
+\initial {M}
+\entry {\code {most-negative-fixnum}}{51}
+\entry {\code {most-negative-float}}{51}
+\entry {\code {most-positive-fixnum}}{51}
+\entry {\code {most-positive-float}}{51}

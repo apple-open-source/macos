@@ -1,0 +1,12 @@
+{
+  Description   = "Sendmail mail server";
+  Provides      = ("SMTP");
+  Requires      = ("Resolver");
+  Uses          = ("Network Time", "NFS");
+  Preference    = "None";
+  Messages =
+  {
+    start = "Starting Sendmail";
+    stop  = "Stopping Sendmail";
+  };
+}

@@ -1,0 +1,90 @@
+.TH NIFIND 1 "August 9, 1994" "Apple Computer, Inc."
+.SH "NAME"
+nifind \- find a directory in the NetInfo hierarchy
+.SH "SYNOPSIS"
+.B nifind
+[ \fB-anvp\fR ] [ \fB-t\fR \fItimeout\fR ] \fIdirectory\fR [ \fIdomain\fR ]
+.SH "DESCRIPTION"
+.I nifind
+searches for the named directory in the NetInfo hierarchy.  It starts at the local domain and climbs up through the hierarchy until it reaches the root domain.  Any occurances of \fIdirectory\fR are reported by directory ID number.  If the optional
+.I domain
+argument is given, then
+.I nifind
+stops climbing at that point in the hierarchy.  The
+.I domain
+argument must be specified by an absolute or relative domain name.
+.sp
+When invoked with the 
+.I -a
+option,
+.I nifind
+searches for the named directory in the entire NetInfo hierarchy (or the subtree with  
+.I domain
+as the root if 
+.I domain
+is specified).   The 
+.I -n
+option exempts local domains from the search.
+.sp
+.I nifind
+uses a default two second connection timeout when contacting a domain.  The connection timeout can be overriden with the 
+.I -t
+option.
+.sp
+.SH "OPTIONS"
+.TP
+.B "-a"
+Search for \fIdirectory\fR in the entire NetInfo hierarchy.
+.TP
+.B "-n"
+Exempt local directories from the search.
+.TP
+.B "-p"
+Print directory contents.
+.TP
+\fB-t\fR \fItimeout\fR
+Specify an integer value as the connection timeout (in seconds).
+.TP
+.B "-v"
+Produce verbose output.
+.SH "EXAMPLES"
+% nifind /printers/inky
+.br
+/printers/inky found in /software, id = 202
+.br
+/printers/inky found in /, id = 357
+.sp
+% nifind  -a /machines/mailhost /sales
+.br
+/machines/mailhost found in /sales, id = 234
+.sp
+% nifind -v /users/uid=164
+.br
+/users/uid=164 not found in /sales/polaris
+.br
+/users/uid=164 not found in /sales
+.br
+/users/uid=164 found in /, id = 451
+.sp
+% nifind -p /machines/mailhost
+.br
+/machines/mailhost found in /sales, id=171
+.br
+name: zippy mailhost
+.br
+ip_address: 192.42.172.5
+.sp
+/machines/mailhost found in /, id = 350
+.br
+name:  zorba mailhost
+.br
+ip_address: 192.42.172.1
+.SH "SEE ALSO"
+netinfo(5)
+.SH "AUTHOR"
+Marc Majka, Apple Computer Inc.
+.SH "BUGS"
+.I nifind
+does not complain if  
+.I domain 
+is not an ancestor specified in a normal search.

@@ -1,0 +1,5 @@
+dnl ../doc/m4.texinfo:2656: Origin of test
+define(`foo', `The brown fox jumped over the lazy dog')
+dnl @result{}
+format(`The string "%s" is %d characters long', foo, len(foo))
+dnl @result{}The string "The brown fox jumped over the lazy dog" is 38 characters long

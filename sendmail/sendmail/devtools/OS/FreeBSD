@@ -1,0 +1,11 @@
+#	$Id: FreeBSD,v 1.1.1.1 2000/06/10 00:40:47 wsanchez Exp $
+define(`confMAPDEF', `-DNEWDB -DNIS -DMAP_REGEX')
+define(`confLIBS', `-lutil')
+define(`confMTLDOPTS', `-pthread')
+define(`confSTDIO_TYPE', `torek')
+
+define(`confLD', `cc')
+define(`confLDOPTS_SO', `-shared')
+define(`confCCOPTS_SO', `-fPIC')
+
+define(`confPERL_CONFIGURE_ARGS', `-Dlddlflags=-shared -Dccdlflags="-export-dynamic"')

@@ -1,0 +1,5 @@
+%_clnt.c: %.x
+	$(RPCGEN) $(ALL_RPCFLAGS) -l -o $(SYM_DIR)/$*_clnt.c $*.x
+
+%_xdr.c: %.x
+	$(RPCGEN) $(ALL_RPCFLAGS) -c -o $(SYM_DIR)/$*_xdr.c $*.x

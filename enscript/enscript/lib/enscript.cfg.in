@@ -1,0 +1,179 @@
+#
+# GNU Enscript configuration file.
+# Copyright (c) 1995-1998 Markku Rossi.
+#
+# Author: Markku Rossi <mtr@iki.fi>
+#
+#
+#
+# This file is part of GNU enscript.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; see the file COPYING.  If not, write to
+# the Free Software Foundation, 59 Temple Place - Suite 330,
+# Boston, MA 02111-1307, USA.
+#
+
+# Do we accept PostScript font's composite characters?  As a default,
+# this is false because I think this is GhostScript dependant.
+AcceptCompositeCharacters: 0
+
+# Lookup path for the AFM files.
+AFMPath: @DATADIR@/enscript:/usr/local/lib/ps:/usr/lib/ps
+
+# Append ^D character to the end of the output.  Some printers like HP
+# LaserJet 5 require this but the default is `false'.
+AppendCtrlD: 0
+
+# How characters greater than 127 are printed:
+#   1	generate clean 7-bit code; print characters greater than 127
+#	in the backslash-octal notation `\xxx' (default)
+#   0	generate 8-bit code
+Clean7Bit: 1
+
+# Default input encoding.
+DefaultEncoding: latin1
+
+# Default fancy header.
+DefaultFancyHeader: enscript
+
+# Default output media.
+DefaultMedia: @media@
+
+# Where output goes as a default: `printer' or `stdout'
+DefaultOutputMethod: printer
+
+# Include following font files to all PostScript outputs.
+#
+# DownloadFont: FooFont1
+# DownloadFont: FooFont2
+
+# The escape character for special escapes.
+EscapeChar: 0
+
+# What to do when a formfeed character is encountered from input:
+#  column	move to the beginning of the next column
+#  page		move to the beginning of the next page
+FormFeedType: column
+
+# Specify whether the PageSize page device option is generated to the
+# output.
+GeneratePageSize: 1
+
+# The gray level which is used to print highlight bars.
+HighlightBarGray: .97
+
+# How high highlight bars are in lines.  The default is 0 so no
+# highlight bars are printed.
+# HighlightBars: 2
+
+# Library path.  Let's use built-in default.
+# LibraryPath:
+
+# How wrapped lines are marked in printout.  Possible values are: `none',
+# `plus', `box' and `arrow'.  As a default, we do not mark them.
+MarkWrappedLines: none
+
+# Media definitions:
+#	name		width	height	llx	lly	urx	ury
+Media:	A3		842	1190	24	24	818	1166
+Media:	A4		595	842	24	24	571	818
+Media:	A5		420	595	24	24	396	571
+Media:	Legal		612	1008	24	24	588	984
+Media:  Letter		612	792	24	24	588	768
+
+# HP DeskJet media (DeskJet can't print on the bottom 1/2" of the paper).
+Media:	A4dj		595	842	24	50	571	818
+Media:  Letterdj        612     792     24      40      588     768
+
+# Spooler option to suppress the job header.
+NoJobHeaderSwitch: -h
+
+# How non-printable characters are printed: `caret', `octal',
+# `questionmark' or `space'.
+NonPrintableFormat: octal
+
+# PostScript output's first line.
+OutputFirstLine: %!PS-Adobe-3.0
+
+# Default page label format: `short' or `long'.
+PageLabelFormat: short
+
+# Enable / disable page prefeed.
+PagePrefeed: 0
+
+# The PostScript language level that enscript should use.
+PostScriptLevel: @pslevel@
+
+# Printer name to spool to.  As a default we want to use system's
+# default printer.
+# Printer: ps
+
+# The spooler command switch to select the printer queue.  This option
+# can also be used to pass other flags to the spooler command but they
+# must be given bofore the queue switch.
+QueueParam: -P
+
+# Pass following Page Device options to the generated output.
+#
+# Duplex printing.
+# SetPageDevice: Duplex:true
+
+# Printer spooler command name.
+Spooler: @spooler@
+
+# States' color model.  Possible values are:
+#   blackwhite	no colors, just black and white
+#   emacs	similar to emacs' font lock highlighting
+StatesColorModel: blackwhite
+
+# Configuration file for the States input filter.
+StatesConfigFile: @DATADIR@/enscript/enscript.st
+
+# States' default highlight level.  Possible values are:
+#   none	no highlighting
+#   light	light highlighting
+#   heavy	give all
+StatesHighlightLevel: heavy
+
+# Path for the states program.
+StatesPath: @BINDIR@/states
+
+# Pass following statusdict options to the generated output.
+#
+# Use always paper tray 1.
+# StatusDict: setpapertray:1
+
+# Format string for table-of-contents entries.
+#
+# TOCFormat: $3v $-40N $3% pages $4L lines  $E $C
+
+# As a default, print this underlay text to all document.
+# Underlay: mtr's printout
+
+# Underlay text angle.
+# UnderlayAngle: 45
+
+# Select underlay font.
+UnderlayFont: Times-Roman200
+
+# Select underlay gray.
+UnderlayGray: .8
+
+# Underlay text starting position.
+# UnderlayPosition: +0-0
+
+# Underlay style: `outline' or `filled'
+UnderlayStyle: outline
+
+# EOF

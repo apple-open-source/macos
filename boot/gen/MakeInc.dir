@@ -1,0 +1,43 @@
+#
+# Common makefile targets.
+#
+# Define these variables (if desired) in directory makefiles:
+#	DIRS_NEEDED
+#	INSTALLDIR
+#	SRCROOT
+#
+ifneq "" "$(wildcard /bin/mkdirs)"
+  MKDIRS = /bin/mkdirs
+else
+  MKDIRS = /bin/mkdir -p
+endif
+
+installsrc:: $(SRCROOT)
+	cp $(ALLSRC) $(SRCROOT)
+	cd $(SRCROOT); chmod a-w $(ALLSRC)
+
+install:: installhdrs all
+
+install_i386:: all
+
+installhdrs::
+
+clean::
+	/bin/rm -rf $(OBJROOT) *~
+
+.SUFFIXES: .s .i .c .o
+
+.c.o .m.o:
+	$(CC) $(CFLAGS) $(DEFINES) -c $(INC) $< -o $(OBJROOT)/$*.o \
+	    -MD -dependency-file $(OBJROOT)/$*.d
+	md -u $(OBJROOT)/Makedep -f -d $(OBJROOT)/$*.d
+
+#.s.o:
+#	cc $(INC) -E $< > $(OBJROOT)/$*.o2
+#	$(AS) -o $(OBJROOT)/$@ $(OBJROOT)/$*.o2
+
+.s.o:
+	cc -c $(INC) -arch i386 -o $(OBJROOT)/$@ $<
+	
+$(DIRS_NEEDED) $(INSTALLDIR) $(SRCROOT):
+	$(MKDIRS) $@

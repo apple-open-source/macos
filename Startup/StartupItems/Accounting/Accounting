@@ -1,0 +1,13 @@
+#!/bin/sh
+
+##
+# Start system accounting
+##
+
+. /etc/rc.common
+
+if [ -f /var/account/acct ]; then
+    ConsoleMessage "Starting accounting"
+
+    accton /var/account/acct
+fi

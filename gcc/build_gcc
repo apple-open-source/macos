@@ -1,0 +1,1153 @@
+#!/bin/sh
+######################################################################
+##
+##  implementation of the "build" target of top level gcc makefile
+##
+######################################################################
+
+MKDIRS=mkdirs
+if [ -f /usr/bin/arch ]; then	# otherwise, OS is probably not NEXTSTEP-like
+  PATH=/bin:/usr/bin:/usr/ucb
+  export PATH
+  if [ ! -f /bin/mkdirs ]; then MKDIRS="mkdir -p"; fi
+fi
+
+arch=`arch`
+
+if [ -f /bin/rm ]; then
+  RM=/bin/rm
+else
+  RM=rm
+fi
+
+if [ ! "$TEMP" ]; then
+  TEMP=${temp:-/tmp}
+fi
+if [ ! -d $TEMP ]; then
+  echo "The temporary directory $TEMP does not exist!"
+  exit 1
+fi
+
+# Use gnumake on OPENSTEP on Mach.
+make=`if [ -f /bin/gnumake ]; then echo /bin/gnumake; else echo make; fi`
+
+# what targets to produce compilers to
+TARGETS=$arch
+
+# what host we should produce executables for
+HOSTS=$arch
+
+# the host on which we are running at now
+BUILD=$arch
+
+# the target operating system
+TARGET_OS=$arch
+
+# where the sources reside
+SRCROOT=~comp/cc_proj/cc	# this is where our gcc 2.x-based compiler is
+
+# where to do the build .. better have lots of space there!
+OBJROOT=
+
+# where to put binaries with debugger symbols
+SYMROOT=
+
+# where to put files that are supposed to be installed
+DSTROOT=
+
+# where to do the build .. better have lots of space there!
+BUILDROOT=$TEMP
+
+# what compilers to build.  On NeXT, we only really need objc and objc++.
+LANGUAGES="objc c++"	# was: "objc objc++ c++"
+
+# flags to use when compiling the compiler
+CFLAGS="-g -dynamic"
+OPTIMIZE=-O
+
+# whether to bootstrap or not
+BOOTSTRAP=
+
+# command for invoking bison
+BISON=
+
+result=fats
+
+for arg
+do
+  case $next_arg in
+  --srcroot)
+	SRCROOT=$arg
+	next_arg=
+	;;
+  --objroot)
+	OBJROOT=$arg
+	next_arg=
+	;;
+  --dstroot)
+	DSTROOT=$arg
+	next_arg=
+	;;
+  --symroot)
+	SYMROOT=$arg
+	next_arg=
+	;;
+  --buildroot)
+	BUILDROOT=$arg
+	next_arg=
+	;;
+  --host*)
+	HOSTS=$arg
+	next_arg=
+	;;
+  --targetos)
+	TARGET_OS=$arg
+	next_arg=
+	;;
+  --target*)
+	TARGETS=$arg
+	next_arg=
+	;;
+  --cflags)
+	CFLAGS=$arg
+	next_arg= 
+	;;
+  --bootstrap)
+	BOOTSTRAP=yes
+	next_arg=
+	;;
+  --bison)
+	BISON=$arg
+	next_arg=
+	;;
+  *)
+	case $arg in
+	--srcroot=*)
+		SRCROOT=`echo $arg | sed 's/-*s[a-z]*=//'`
+		;;
+
+	--objroot=*)
+		OBJROOT=`echo $arg | sed 's/-*o[a-z]*=//'`
+		;;
+
+	--dstroot=*)
+		DSTROOT=`echo $arg | sed 's/-*d[a-z]*=//'`
+		;;
+
+	--symroot=*)
+		SYMROOT=`echo $arg | sed 's/-*s[a-z]*=//'`
+		;;
+
+	--buildroot=*)
+		BUILDROOT=`echo $arg | sed 's/-*b[a-z]*=//'`
+		;;
+
+	--hosts=*|--host=*)
+		HOSTS=`echo $arg | sed 's/-*h[a-z]*=//'`
+		;;
+
+	--targets=*|--target=*)
+		TARGETS=`echo $arg | sed 's/-*t[a-z]*=//'`
+		;;
+
+	--targetos=*)
+		TARGET_OS=`echo $arg | sed 's/-*t[a-z]*=//'`
+		;;
+
+	--cflags=*)
+		CFLAGS=`echo $arg | sed 's/-*c[a-z]*=//'`
+		;;
+
+	--optimize=*)
+		if [ `echo $arg | sed 's/-*o[a-z]*=//'` = yes ]; then
+		  OPTIMIZE=-O
+		else
+		  OPTIMIZE=
+		fi
+		;;
+
+	--bootstrap=*)
+		if [ `echo $arg | sed 's/-*b[a-z]*=//'` = yes ]; then
+		  BOOTSTRAP=yes
+		else
+		  BOOTSTRAP=
+		fi
+		;;
+
+	--bison=*)
+		BISON=`echo $arg | sed 's/-*b[a-z]*=//'`
+		;;
+
+	--fat|--fats)
+		result=fats
+		;;
+
+	--thin|--thins)
+		result=thins
+		;;
+
+	--clean)
+		result=clean
+		;;
+
+	--configure)
+		result=configure
+		;;
+
+  	--optimize)
+		OPTIMIZE=-O
+		;;
+
+  	--no-optimize)
+		OPTIMIZE=
+		;;
+
+  	--bootstrap)
+		BOOTSTRAP=yes
+		;;
+
+  	--no-bootstrap)
+		BOOTSTRAP=
+		;;
+
+	--lib_ofiles)
+		result=lib_ofiles
+		;;
+
+	--*)
+		next_arg=$arg
+		;;
+	*)
+		echo unknown option $arg
+		exit 1
+		;;
+	esac
+  esac
+done
+
+# clean up TARGET_OS, TARGETS, and HOSTS if necessary
+case "$TARGET_OS" in
+sunos|solaris|hpux|osf)
+	;;
+*sun*)
+	TARGET_OS=solaris
+	;;
+*hpux*)
+	TARGET_OS=hpux
+	;;
+*win*)
+	TARGET_OS=win32
+	;;
+*)
+	# determine if the target OS is actually Mac OS X or Mac OS X Server
+	if [ "$TARGET_OS" = macos ]
+	then
+	  MAC_OS=darwin
+	else
+	  MAC_OS=
+	fi
+	if [ -f /usr/bin/uname -o "$TARGET_OS" -a \
+	     "$TARGET_OS" != nextstep -a "$TARGET_OS" != $arch ]
+	then
+	  RHAPSODY=${MAC_OS:-macosx_server}
+	else
+	  RHAPSODY=
+	fi
+	TARGET_OS=nextstep	# i.e., OPENSTEP, Mac OS X, or Mac OS X Server
+	;;
+esac
+
+# set the name of the null device
+if [ $TARGET_OS = win32 ]; then
+  null=NUL:
+else
+  null=/dev/null
+fi
+
+case "$TARGETS" in
+*sun*)
+	TARGETS=sparc
+	;;
+*hpux*)
+	TARGETS=hppa
+	;;
+*win*)
+	TARGETS=i386
+	;;
+esac
+
+case "$HOSTS" in
+*sun*)
+	HOSTS=sparc
+	;;
+*hpux*)
+	HOSTS=hppa
+	;;
+*win*)
+	HOSTS=i386
+	;;
+*)
+	# Make the build host the first item in $HOSTS in order to prevent any
+	# potential problems in trying to build a C++ cross compiler for a new
+	# target.
+	HOSTS=`echo $HOSTS | fgrep "$arch" >$null && echo -n "$arch "; \
+	       echo $HOSTS | sed "s/$arch//"`
+	;;
+esac
+
+# get the version
+CCVERS=`cd $SRCROOT; vers_string -f gcc`
+gcc_version=`sed -e 's/.*\"\([^ \"]*\)[ \"].*/\1/' < $SRCROOT/gcc/version.c`
+
+# List of modules in libgcc.a written in C++.
+cpp_modules="tinfo.o tinfo2.o new.o opnew.o opnewnt.o opvnew.o opvnewnt.o \
+	     opdel.o opdelnt.o opvdel.o opvdelnt.o exception.o"
+
+# List of modules in libgcc.a need to removed from libcc_kext.a.
+unneeded_kext_modules="_bb.o _exit.o _eh.o tinfo.o tinfo2.o exception.o"
+
+# remove any -arch flags from CFLAGS
+CFLAGS=`echo $CFLAGS|sed 's/-arch [a-z0-9]*//g'`
+
+# add target arch...
+if [ "$RC_RELEASE" ]; then
+  CFLAGS="$CFLAGS -DRC_RELEASE_"`echo $RC_RELEASE|tr '.' '_'`
+fi
+
+# add the ARCH macro
+if [ $TARGET_OS = win32 ]; then
+  if [ "$BOOTSTRAP" ]; then
+    CFLAGS="$CFLAGS -DARCH=\\\\\\\"$arch\\\\\\\""
+  else
+    CFLAGS="$CFLAGS -DARCH=\\\"$arch\\\""
+  fi
+fi
+
+if [ x$SYMROOT = x ]; then
+  SYMROOT=$BUILDROOT/$CCVERS.sym
+fi
+
+if [ x$OBJROOT = x ]; then
+  OBJROOT=$BUILDROOT/$CCVERS.obj
+fi
+
+if [ x$DSTROOT = x ]; then
+  DSTROOT=$BUILDROOT/$CCVERS.dst
+fi
+
+# set exe to the extension binary executables should have
+if [ $TARGET_OS = win32 ]; then
+  exe=.exe
+else
+  exe=
+fi
+
+# set up bison environment
+if [ ! "$BISON" ]; then
+  if [ "$RHAPSODY" -a "$NEXT_ROOT" -a ! "$MAC_OS" ]; then
+    BISON=/usr/local/bin/bison
+  elif [ "$RHAPSODY" ]; then
+    BISON=bison
+  else
+    BISON=$OBJROOT/bison_${arch}_obj/bison
+    BISON_SIMPLE=$BISON.s1
+    export BISON_SIMPLE
+  fi
+fi
+
+echo ===========================================================
+echo == 'Building NeXT Objective C compiler(s) **' $result '**'
+echo ===========================================================
+echo == 'BUILDHOST :' `hostname` -- a $arch
+echo == 'HOSTS     :' $HOSTS
+echo == 'TARGETS   :' $TARGETS
+echo == 'TARGET_OS :' $TARGET_OS
+echo == 'OBJROOT   :' $OBJROOT
+echo == 'SYMROOT   :' $SYMROOT
+echo == 'SRCROOT   :' $SRCROOT
+echo == 'DSTROOT   :' $DSTROOT
+echo == 'VERSION   :' $CCVERS
+echo == 'CFLAGS    :' $OPTIMIZE $CFLAGS
+echo ===========================================================
+
+
+#
+# Check that cross compilers are available
+#
+
+missing_cross=no
+
+if [ $TARGET_OS = nextstep -a "$result" != clean ]; then
+
+  for host in $HOSTS; do 
+    if [ ! -d /`if [ "$MAC_OS" ]; then echo usr/libexec/gcc/darwin; elif [ "$RHAPSODY" ]; then echo usr/libexec; else echo lib; fi`/$host -a \
+	 ! -d /usr/local/lib`if [ "$MAC_OS" ]; then echo exec/gcc/darwin; elif [ "$RHAPSODY" ]; then echo exec; fi`/$host ]
+    then
+      echo "***********************************************************"
+      echo "** The directory /`if [ "$MAC_OS" ]; then echo usr/libexec/gcc/darwin; elif [ "$RHAPSODY" ]; then echo usr/libexec; else echo lib; fi`/$host is missing!!!"
+      echo "** Please install a compiler that generates code for $host"
+      missing_cross=yes
+    fi
+  done  
+
+  for host in $HOSTS; do
+    if echo $TARGETS | grep $host >$null 2>&1; then true; else
+      echo "***********************************************************"
+      echo "** host type $host should also be a target"
+      echo "***********************************************************"
+#     missing_cross=yes
+    fi    
+  done
+
+  if [ $missing_cross = yes ]; then
+    echo "***********************************************************"
+    exit 1;
+  fi
+
+fi
+
+safe_exec () {
+  if ($*); then true; else exit 1; fi
+}
+
+clean_gcc () {
+echo ===========================================================
+echo == 'Cleaning NeXT Objective C compiler(s)'
+echo ===========================================================
+
+for target in $TARGETS; do
+  for host in $HOSTS; do
+    if [ -d $OBJROOT/cc-$target-on-$host ]; then
+      echo '==' $OBJROOT/cc-$target-on-$host
+      $RM -Rf $OBJROOT/cc-$target-on-$host
+    fi
+  done
+done
+for host in $HOSTS; do
+  if [ -d $SYMROOT/$host ]; then
+    echo '==' $SYMROOT/$host
+    $RM -Rf $SYMROOT/$host
+  fi
+done
+if [ X$DSTROOT != X$SRCROOT ]; then
+  if [ -d $DSTROOT ]; then
+    echo '==' $DSTROOT
+    $RM -Rf $DSTROOT
+  fi
+fi
+echo ===========================================================
+}
+
+configure_gcc () {
+for target in $TARGETS; do 
+  for host in $HOSTS; do 
+    $MKDIRS $OBJROOT/cc-$target-on-$host; 
+    cd $OBJROOT/cc-$target-on-$host; 
+
+    source=bad
+    if [ -f make.id ]; then
+      if [ X`cat make.id` = X$SRCROOT/gcc:$arch ]; then
+        source=ok
+      fi
+    fi
+
+    if [ X$source = Xok -a -f Makefile ]; then
+      echo ===========================================================
+      echo == updating Makefile for cc-$target-on-$host\; buildhost=$arch
+      echo ===========================================================
+      safe_exec $make Makefile
+    else
+      echo ===========================================================
+      echo == configuring cc-$target-on-$host\; buildhost=$arch
+      echo ===========================================================
+      $RM -f make.id
+      echo $SRCROOT/gcc:$arch > make.id
+      $RM -f rtl.o bc-*.o
+      $SRCROOT/gcc/configure \
+	  --host=`if [ $TARGET_OS = nextstep ]; \
+			then echo $host-${RHAPSODY:-openstep}; \
+			else echo $arch; fi` \
+	  --target=`if [ $TARGET_OS = nextstep ]; \
+			then echo $target-${RHAPSODY:-openstep}; \
+			else echo $arch; fi` \
+	  --build=`if [ $TARGET_OS = nextstep ]; \
+			then echo $BUILD-${RHAPSODY:-openstep}; \
+			else echo $arch; fi` \
+	  --srcdir=$SRCROOT/gcc \
+	  `if [ "$MAC_OS" ]; then \
+		echo --prefix=/usr --enable-threads=posix; \
+	   fi`
+    fi
+  done
+done
+}
+
+configure_libstdcpp () {
+for target in $TARGETS; do
+  # Create libstdc++ subdirs; ignore error if they already exist.
+  $MKDIRS $OBJROOT/$target/libstdc++
+  $MKDIRS $OBJROOT/$target/libio
+  $MKDIRS $OBJROOT/$target/libiberty
+
+  # Configure the library directories...
+  # (Configure cares about current directory.)
+  cd $OBJROOT/$target/libstdc++ && \
+    $SRCROOT/configure --srcdir=$SRCROOT/libstdc++ --host=$arch --target=$target \
+    || exit 1
+  cd $OBJROOT/$target/libio && \
+    $SRCROOT/configure --srcdir=$SRCROOT/libio --host=$arch --target=$target \
+    || exit 1
+  # Do NOT Configure libiberty -- it needs autoconf which we
+  # aren't ready to deal with yet.  So actually, the following
+  # line *is* a fake configure.  Makefile.libiberty just has
+  # a single do-nothing rule.
+  cp $SRCROOT/Makefile.libiberty $OBJROOT/$target/libiberty/Makefile \
+    || exit 1
+done
+}
+
+install_newer () {
+  if [ -f "$1" ]; then
+    $RM -f $TEMP/make.$$
+    touch `if [ $TARGET_OS != win32 ]; then echo -f; fi` $TEMP/make.$$
+    echo "$2: $1" 			>> $TEMP/make.$$
+    echo "	$RM -f $2"		>> $TEMP/make.$$
+    echo "	install -c $3 $1 $2"	>> $TEMP/make.$$
+    safe_exec $make -f $TEMP/make.$$
+    $RM -f $TEMP/make.$$
+  else
+    echo "build_gcc: $1: no such file"
+  fi
+}
+ 
+
+build_compiler () {
+buildhost=$arch
+
+## turly's horrible hackery alert!  Because the compiler now REQUIRES
+## libiberty, we either have to configure and build it as per the 2.95
+## build system, or we can take the bits we need and build them.
+## Believe me, you *don't* want to do the 2.95 route (which requires
+## major object-file directory pruning and surgery.)
+
+echo "#### making sawn-off version of libiberty (fat) ####"
+$MKDIRS $OBJROOT/libiberty
+cd $OBJROOT/libiberty
+cp $SRCROOT/Makefile.libiberty ./Makefile
+if $make SRCROOT=$SRCROOT
+then echo "#### ...done... ####"
+else exit 1; fi
+
+for host in $HOSTS; do
+  for target in $TARGETS; do
+    if [ "$TARGET_OS" = win32 ]
+      then bootstrap=${BOOTSTRAP:+bootstrap};
+    elif [ ! "$BOOTSTRAP" -o $host != $target -o $BUILD != $host -o \
+	   "$NEXT_ROOT" ]
+      then bootstrap=
+    else bootstrap=bootstrap
+    fi
+    cd $OBJROOT/cc-$target-on-$host
+    echo ===========================================================
+    echo == ${bootstrap:-build}ing cc-$target-on-$host\; buildhost:$buildhost
+    echo ===========================================================
+
+    #############################################################
+    # this will build the core compilers
+    #############################################################
+
+    if [ -f /usr/bin/uname ]; then
+      bootstrap=${bootstrap:+bootstrap-lean gnucompare}
+    fi
+    if $make `echo ${bootstrap:-"specs all.build c++filt"}` \
+	srcdir=$SRCROOT/gcc \
+	LANGUAGES="$LANGUAGES" \
+	HOST_PREFIX="$buildhost-" HOST_PREFIX_1="$buildhost-" \
+	HOST_CC="`if [ $TARGET_OS = win32 ]; then echo gcc; \
+		  else echo ${NEXT_ROOT:+NEXT_ROOT=} cc -arch $buildhost -traditional-cpp; fi`" \
+	GCC_FOR_TARGET="`if [ "$TARGET_OS" = win32 ]; then \
+			   echo ./xgcc -B./; \
+			 elif [ "$NEXT_ROOT" ]; then \
+			   echo cc -traditional-cpp; \
+			 elif [ $BUILD != $host ]; then \
+			   if [ -f ../cc-$target-on-$BUILD/xgcc ]; then \
+			     echo ../cc-$target-on-$BUILD/xgcc -arch $target \
+				  -B../cc-$target-on-$BUILD/ -traditional-cpp;\
+			   else echo cc -arch $target -traditional-cpp; fi; \
+			 else echo ./xgcc -B./ -traditional-cpp; fi`" \
+	BISON="$BISON" \
+	CFLAGS="$OPTIMIZE $CFLAGS" \
+	GCC_CFLAGS="-traditional-cpp $CFLAGS" \
+	BOOT_CFLAGS="$OPTIMIZE $CFLAGS \
+	  `if [ $TARGET_OS != win32 ]; then echo -traditional-cpp; fi`" \
+	BOOT_LDFLAGS="\\\`if [ \( \\\$\$(@F) = cc1obj -o \\\$\$(@F) = cc1plus \) \
+			    -a $target = ppc ]; then \
+			 echo -sectorder __TEXT __text $SRCROOT/\\\$\$(@F).order -e start; \
+		       fi\\\`" \
+	CC="`if [ $TARGET_OS = win32 ]; then echo gcc; \
+		  else echo cc -arch $host -traditional-cpp ${bootstrap:+"$CFLAGS"}; fi`"
+    then echo "== Finished building compilers for cc-$target-on-$host"
+    else exit 1; fi
+
+    sym=$SYMROOT/$host
+    srcdir=`if [ $TARGET_OS = win32 ]; then \
+		echo $sym/Developer/Source/gcc; \
+	    else echo $sym/src/$target; \
+	    fi`
+    bindir=`if [ $TARGET_OS = win32 ]; then \
+		echo $sym/Developer/Executables; \
+	    elif [ -f /usr/bin/uname ]; then \
+		echo $sym/usr/bin; \
+	    else echo $sym/bin; \
+	    fi`
+    libdir=`if [ $TARGET_OS = win32 ]; then \
+		echo $sym/Developer/Libraries/gcc-lib/$BUILD/$gcc_version; \
+	    else echo $sym/lib/$target; \
+	    fi`
+
+    $MKDIRS $srcdir
+    $MKDIRS $bindir
+    $MKDIRS $libdir
+
+    install_newer	cpp$exe		$libdir/cpp$exe 	"-m 555"
+    install_newer	cc1obj$exe	$libdir/cc1obj$exe 	"-m 555"
+#   install_newer	cc1objplus$exe	$libdir/cc1objplus$exe	"-m 555"
+    install_newer	cc1plus$exe	$libdir/cc1plus$exe	"-m 555"
+
+    if [ $TARGET_OS = win32 ]; then
+      install_newer	ld$exe		$libdir/ld$exe		"-m 555"
+      install_newer	specs		$libdir/specs		"-m 444"
+      install_newer	libgcc.a $sym/Developer/Libraries/libgcc.a "-m 444"
+    fi
+
+    gnutar cf - *.c *.h *.y cp/*.c cp/*.h cp/*.y obcp/*.c obcp/*.h obcp/*.y | \
+      (cd $srcdir; gnutar xvf -)
+
+  done
+
+  if echo $TARGETS | grep $host >$null; then
+    install_newer \
+	$OBJROOT/cc-$host-on-$host/xgcc$exe \
+	$bindir/`if [ $TARGET_OS = nextstep ]; then \
+		   echo cc; \
+		 else \
+		   echo gcc; \
+		 fi`$exe \
+	"-m 555"
+    install_newer \
+	$OBJROOT/cc-$host-on-$host/g++$exe \
+	$bindir/`if [ $TARGET_OS = nextstep ]; then \
+		   echo c++; \
+		 else \
+		   echo g++; \
+		 fi`$exe \
+	"-m 555"
+    install_newer \
+	$OBJROOT/cc-$host-on-$host/c++filt$exe \
+	$bindir/c++filt$exe \
+	"-m 555"
+  fi    
+
+done
+}
+
+install_new_cc () {
+	  echo "************************************************************";
+	  echo "** You must have the most recent version of the compiler    "
+	  echo "** (host=" $arch " target=$target version=$CCVERS) installed"
+	  echo "** on the build host to finish this build...  "
+	  echo "** OR have $host as one of the RC_HOSTS elements"
+	  echo "** Currently, version $target_vers is installed "
+	  echo "************************************************************";
+      	  exit 1; 
+}
+
+build_libgcc () {
+
+  CFLAGS=`echo $CFLAGS | sed 's/-dynamic//' | sed 's/-static//'`
+
+for target in $TARGETS; do 
+
+  host=$arch
+  $MKDIRS $OBJROOT/cc-$target-on-$host;
+  cd $OBJROOT/cc-$target-on-$host;
+
+  # the buildhost is in hosts..
+  if echo $HOSTS | grep $host >$null; then
+    compiler=./xgcc
+    specs=specs
+  else
+    if [ -d /lib/$target ]; then
+
+	# get version of installed $target compiler
+
+      	cc -arch $target -v 2> $TEMP/tmp.$$
+	target_vers=`cat $TEMP/tmp.$$ 		\
+	 	 | grep 'version'	\
+	 	 | sed 's/, gcc.*$//'	\
+	 	 | sed 's/^.*version //'`
+	$RM $TEMP/tmp.$$
+
+	if [ X$target_vers != X$CCVERS ]; then
+		install_new_cc
+	fi
+
+     compiler=cc
+     $RM -f specs
+     cp /lib/$target/specs specs
+     specs=
+
+    else
+		install_new_cc
+    fi
+  fi
+
+    #############################################################
+    # now, build the gcc specs and runtime libraries 
+    #############################################################
+
+    echo "==============================================================="
+    echo "Building runtime libraries using new compiler for target $target:"
+    $compiler -B./ -v
+    echo "==============================================================="
+
+    $RM -f libgcc.a libgcc1.a libgcc2.a
+
+	LIBCC_BUILD_DIR=`pwd`
+
+    echo '== building KERNEL EXTENSION version'
+    if [ -f libgcc_kext.a ]; then mv -f libgcc_kext.a libgcc.a; fi
+    if [ -f libgcc1_kext.a ]; then mv -f libgcc1_kext.a libgcc1.a; fi
+    if [ -f libgcc2_kext.a ]; then mv -f libgcc2_kext.a libgcc2.a; fi
+
+    if $make $specs libgcc.a \
+        srcdir=$SRCROOT/gcc \
+	LANGUAGES="$LANGUAGES" \
+	HOST_PREFIX="$arch-" HOST_PREFIX_1="$arch-" \
+	HOST_CC="cc -arch $arch -traditional-cpp" \
+	GCC_FOR_TARGET="$compiler -B./" \
+	CFLAGS="$OPTIMIZE $CFLAGS" \
+	BISON="$BISON" \
+	GCC_CFLAGS="-traditional-cpp $CFLAGS" \
+	AR_FOR_TARGET=ar \
+	CC="cc -arch $host -traditional-cpp" \
+	LIBGCC2_INCLUDES=-I$SRCROOT/gcc/cp/inc \
+	TARGET_LIBGCC2_CFLAGS="-fnew-abi -fno-honor-std `if [ $target = ppc ]; then echo -mlong-branch -force_cpusubtype_ALL; fi` -fno-exceptions -fno-rtti -DAPPLE_KERNEL_EXTENSION -Dinhibit_libc -DIN_GCC -DPRIVATE_EXTERN=__private_extern__ -DPRIVATE_EXTERN_ASM_OP=\\\".private_extern\\\" -static"; \
+	then echo '== ok'; else exit 1; fi
+
+    mv -f libgcc.a libgcc_kext.a
+    mv -f libgcc1.a libgcc1_kext.a
+    mv -f libgcc2.a libgcc2_kext.a
+
+    echo '== building STATIC version'
+    if [ -f libgcc_static.a ]; then mv -f libgcc_static.a libgcc.a; fi
+    if [ -f libgcc1_static.a ]; then mv -f libgcc1_static.a libgcc1.a; fi
+    if [ -f libgcc2_static.a ]; then mv -f libgcc2_static.a libgcc2.a; fi
+
+    if $make $specs libgcc.a \
+        srcdir=$SRCROOT/gcc \
+	LANGUAGES="$LANGUAGES" \
+	HOST_PREFIX="$arch-" HOST_PREFIX_1="$arch-" \
+	HOST_CC="cc -arch $arch -traditional-cpp" \
+	GCC_FOR_TARGET="$compiler -B./" \
+	CFLAGS="$OPTIMIZE $CFLAGS" \
+	BISON="$BISON" \
+	GCC_CFLAGS="-traditional-cpp $CFLAGS" \
+	AR_FOR_TARGET=ar \
+	CC="cc -arch $host -traditional-cpp" \
+	LIBGCC2_INCLUDES=-I$SRCROOT/gcc/cp/inc \
+	TARGET_LIBGCC2_CFLAGS="-fnew-abi -fno-honor-std `if [ $target = ppc ]; then echo -force_cpusubtype_ALL; fi` -DIN_GCC -DPRIVATE_EXTERN=__private_extern__ -DPRIVATE_EXTERN_ASM_OP=\\\".private_extern\\\" -static"
+	then echo '== ok'; else exit 1; fi
+
+    mv -f libgcc.a libgcc_static.a
+    mv -f libgcc1.a libgcc1_static.a
+    mv -f libgcc2.a libgcc2_static.a
+
+    if [ ! "$RHAPSODY" -o "$NEXT_ROOT" -a ! "$MAC_OS" ]; then
+      echo '== building SHLIB version'
+      if [ -f libgcc_shlib.a ]; then mv -f libgcc_shlib.a libgcc.a; fi
+      if [ -f libgcc1_shlib.a ]; then mv -f libgcc1_shlib.a libgcc1.a; fi
+      if [ -f libgcc2_shlib.a ]; then mv -f libgcc2_shlib.a libgcc2.a; fi
+
+      if $make specs libgcc.a \
+        srcdir=$SRCROOT/gcc \
+	LANGUAGES="$LANGUAGES" \
+	HOST_PREFIX="$arch-" HOST_PREFIX_1="$arch-" \
+	HOST_CC="cc -arch $arch -traditional-cpp -DSHLIB" \
+	GCC_FOR_TARGET="$compiler -B./" \
+	CFLAGS="$OPTIMIZE $CFLAGS" \
+	BISON="$BISON" \
+	GCC_CFLAGS="-traditional-cpp $CFLAGS" \
+	AR_FOR_TARGET=ar \
+	CC="cc -arch $host -traditional-cpp" \
+	LIBGCC2_INCLUDES=-I$SRCROOT/gcc/cp/inc \
+	TARGET_LIBGCC2_CFLAGS="-DSHLIB -static"
+	then echo '== ok'; else exit 1; fi
+
+      mv -f libgcc.a libgcc_shlib.a
+      mv -f libgcc1.a libgcc1_shlib.a
+      mv -f libgcc2.a libgcc2_shlib.a
+ 
+      echo '== building DYLIB version'
+      if [ -f libgcc_dylib.a ]; then mv -f libgcc_dylib.a libgcc.a; fi
+      if [ -f libgcc1_dylib.a ]; then mv -f libgcc1_dylib.a libgcc1.a; fi
+      if [ -f libgcc2_dylib.a ]; then mv -f libgcc2_dylib.a libgcc2.a; fi
+
+      if $make specs libgcc.a \
+        srcdir=$SRCROOT/gcc \
+	LANGUAGES="$LANGUAGES" \
+	HOST_PREFIX="$arch-" HOST_PREFIX_1="$arch-" \
+	HOST_CC="cc -arch $arch -traditional-cpp" \
+	GCC_FOR_TARGET="$compiler -B./" \
+	CFLAGS="$OPTIMIZE $CFLAGS" \
+	BISON="$BISON" \
+	GCC_CFLAGS="-traditional-cpp $CFLAGS" \
+	AR_FOR_TARGET=ar \
+	CC="cc -arch $host -traditional-cpp" \
+	LIBGCC2_INCLUDES=-I$SRCROOT/gcc/cp/inc \
+	TARGET_LIBGCC2_CFLAGS="`if [ $target = ppc ]; then echo -static; fi`"
+	then echo '== ok'; else exit 1; fi
+
+      mv -f libgcc.a libgcc_dylib.a
+      mv -f libgcc1.a libgcc1_dylib.a
+      mv -f libgcc2.a libgcc2_dylib.a
+    fi
+
+    echo '== building DYNAMIC ARCHIVE version'
+    if [ -f libgcc_dynamic.a ]; then mv -f libgcc_dynamic.a libgcc.a; fi
+    if [ -f libgcc1_dynamic.a ]; then mv -f libgcc1_dynamic.a libgcc1.a; fi
+    if [ -f libgcc2_dynamic.a ]; then mv -f libgcc2_dynamic.a libgcc2.a; fi
+
+    if $make specs libgcc.a \
+        srcdir=$SRCROOT/gcc \
+	LANGUAGES="$LANGUAGES" \
+	HOST_PREFIX="$arch-" HOST_PREFIX_1="$arch-" \
+	HOST_CC="cc -arch $arch -traditional-cpp" \
+	GCC_FOR_TARGET="$compiler -B./" \
+	CFLAGS="$OPTIMIZE $CFLAGS" \
+	BISON="$BISON" \
+	GCC_CFLAGS="-traditional-cpp $CFLAGS" \
+	AR_FOR_TARGET=ar \
+	CC="cc -arch $host -traditional-cpp" \
+	LIBGCC2_INCLUDES=-I$SRCROOT/gcc/cp/inc \
+	TARGET_LIBGCC2_CFLAGS="-fnew-abi -fno-honor-std `if [ $target = ppc ]; then echo -force_cpusubtype_ALL; fi` -DIN_GCC -DPRIVATE_EXTERN=__private_extern__ -DPRIVATE_EXTERN_ASM_OP=\\\".private_extern\\\""
+	then echo '== ok'; else exit 1; fi
+
+    mv -f libgcc.a libgcc_dynamic.a
+    mv -f libgcc1.a libgcc1_dynamic.a
+    mv -f libgcc2.a libgcc2_dynamic.a
+
+
+    echo '== building libstdc++'
+
+    cd $OBJROOT/$target/libstdc++ && \
+    $make  CC=$OBJROOT/cc-$target-on-$arch/xgcc \
+	  CXX=$OBJROOT/cc-$target-on-$arch/g++  \
+	  CFLAGS="-arch $target -traditional-cpp -B$OBJROOT/cc-$target-on-$arch/ ${MAC_OS:+-I$SRCROOT/gcc/config/apple} $OPTIMIZE $CFLAGS" \
+	  CXXFLAGS="-arch $target -B$OBJROOT/cc-$target-on-$arch/ -I$SRCROOT/gcc/cp/inc ${MAC_OS:+-I$SRCROOT/gcc/config/apple} $OPTIMIZE $CFLAGS -fnew-abi -fno-honor-std" \
+    || exit 1
+
+    # Post processing libstdc++ for MacOSX runtime model.
+    # Combining stdstreams.o, stdstrbufs.o, genops.o files into one module
+    # so that the dynamic linker runs the initialization routine uninterrupted.
+
+    if [ "$MAC_OS" ]; then
+    	echo '=== post processing libstdc++ for Mac OS X'
+    	ar -vd libstdc++.a stdstreams.o stdstrbufs.o genops.o
+    	ld -arch $target -Z -r -o initio.o ../libio/stdstreams.o ../libio/stdstrbufs.o ../libio/genops.o
+    	ar -rv libstdc++.a initio.o
+    	ranlib libstdc++.a
+    fi
+
+    # Go back to the libcc build directory
+    cd $LIBCC_BUILD_DIR
+
+    echo '== installing libcc.a and libstdc++.a in symroot'
+
+    for host in $HOSTS; do
+      sym=$SYMROOT/$host
+      $MKDIRS $sym/lib/$target
+      install_newer specs		$sym/lib/$target/specs "-m 444"
+      ar -d libgcc_kext.a $unneeded_kext_modules
+      install_newer libgcc_kext.a	$sym/lib/$target/libcc_kext.a "-m 444 "
+      ranlib -t				$sym/lib/$target/libcc_kext.a
+      install_newer libgcc_static.a	$sym/lib/$target/libcc.a "-m 444 "
+      ranlib -t				$sym/lib/$target/libcc.a
+      install_newer libgcc_dynamic.a	$sym/lib/$target/libcc_dynamic.a "-m 444 "
+      ranlib -t				$sym/lib/$target/libcc_dynamic.a
+      cp -p	    libgcc_dynamic.a	libgcc_noc++.a
+      ar -d libgcc_noc++.a $cpp_modules
+      install_newer libgcc_noc++.a	$sym/lib/$target/libcc_noc++.a "-m 444 "
+      ranlib -t				$sym/lib/$target/libcc_noc++.a
+      install_newer $OBJROOT/$target/libstdc++/libstdc++.a $sym/lib/$target/libstdc++.a "-m 444 "
+      ranlib -t				$sym/lib/$target/libstdc++.a
+    done
+
+    if [ ! "$RHAPSODY" -o "$NEXT_ROOT" -a ! "$MAC_OS" ]; then
+      echo '== extracting libcc.a files in objroot'
+
+      if [ "$target" = hppa -o "$target" = sparc ]; then
+	special='|_udiv_w_sdiv.o'
+      else
+        special=''
+      fi
+
+      libgcc=`pwd`/libgcc_shlib.a
+      shlib=$OBJROOT/shlib_${target}_obj
+      ($MKDIRS $shlib; cd $shlib; ar x $libgcc; \
+	$RM -f libgcc.ofileList ; \
+	ls -1 *.o | egrep -v "(__main$special|_exit.o)" > libgcc.ofileList)
+
+      libgcc=`pwd`/libgcc_dylib.a
+      dylib=$OBJROOT/dynamic_obj/$target
+      ($MKDIRS $dylib; cd $dylib; ar x $libgcc; \
+	$RM -f libgcc.ofileList ; \
+	ls -1 *.o | egrep -v "(__main$special|_exit.o)" > libgcc.ofileList)
+    fi
+done
+}
+
+install_fat () {
+
+echo "============================================================"
+echo "== Building fat binaries [$HOSTS] fat for targets: $TARGETS"
+echo "============================================================"
+
+fat=$DSTROOT
+sym=$SYMROOT
+lib=`if [ "$RHAPSODY" ]; then echo usr/lib; else echo lib; fi`/gcc/darwin/$gcc_version
+libexec=`if [ "$MAC_OS" ]; then echo usr/libexec/gcc/darwin; elif [ "$RHAPSODY" ]; then echo usr/libexec; else echo lib; fi`
+$MKDIRS $fat
+$MKDIRS $fat/`if [ -f /usr/bin/uname ]; then echo usr/; fi`bin
+$MKDIRS $fat/$lib
+$MKDIRS $fat/$libexec
+
+for target in $TARGETS; do
+  $MKDIRS $fat/$libexec/$target`if [ "$RHAPSODY" ]; then echo /$gcc_version; fi`
+
+  for file in cpp cc1obj cc1plus; do
+    thin_files=""
+    for host in $HOSTS; do
+      thin_files="$thin_files $sym/$host/lib/$target/$file"
+    done
+    fat_file=$fat/$libexec/$target`if [ "$RHAPSODY" ]; then echo /$gcc_version; fi`/$file
+    $RM -f $fat_file
+    $RM -f $TEMP/make.$$
+    touch -f $TEMP/make.$$
+    echo "$fat_file: $thin_files"			      >> $TEMP/make.$$
+    echo "	$RM -f $fat_file"			      >> $TEMP/make.$$
+    echo "	lipo -create -output $fat_file $thin_files"   >> $TEMP/make.$$
+    echo "	strip $fat_file"			      >> $TEMP/make.$$
+    echo "	chmod 555 $fat_file"			      >> $TEMP/make.$$
+    safe_exec $make -f $TEMP/make.$$
+    $RM -f $TEMP/make.$$
+  done
+
+install_newer $sym/$host/lib/$target/specs \
+	$fat/$libexec/$target`if [ "$RHAPSODY" ]; then echo /$gcc_version; fi`/specs \
+	"-m 444"
+  if [ "$RHAPSODY" -a ! "$MAC_OS" ]; then
+    # Make this symbolic link so cpp-precomp can find the specs file.
+    (cd $fat/$libexec/$target && ln -s $gcc_version/specs .)
+  fi
+done
+
+if [ ! "$NEXT_ROOT" ]; then
+  for file in libcc.a libcc_kext.a libcc_dynamic.a libcc_noc++.a libstdc++.a; do
+    thin_files=""
+    for target in $TARGETS; do
+      /usr/local/bin/nmedit -p $sym/$host/lib/$target/$file
+      thin_files="$thin_files  $sym/$host/lib/$target/$file"
+    done
+    $RM -f $fat/$lib/$file
+    $RM -f $TEMP/make.$$
+    touch -f $TEMP/make.$$
+    echo "$fat/$lib/$file: $thin_files"			>>$TEMP/make.$$
+    echo "	$RM -f $fat/$lib/$file"			>>$TEMP/make.$$
+    echo "	libtool -o $fat/$lib/$file $thin_files"	>>$TEMP/make.$$
+    echo "	strip -S $fat/$lib/$file"		>>$TEMP/make.$$
+    echo "	chmod 444 $fat/$lib/$file"		>>$TEMP/make.$$
+    safe_exec $make -f $TEMP/make.$$
+    $RM -f $TEMP/make.$$
+    ln -s gcc/darwin/default/$file $fat/` \
+      if [ "$RHAPSODY" ]; then echo usr/lib; else echo lib; fi`/$file
+  done
+  $MKDIRS $fat/usr/local/lib
+  $RM -f  $fat/usr/local/lib/libcc*.a
+  mv  -f  $fat/$lib/libcc.a $fat/$lib/libcc_noc++.a $fat/usr/local/lib
+  lib=`if [ "$RHAPSODY" ]; then echo usr/lib; else echo lib; fi`
+  $RM -f $fat/$lib/libcc.a $fat/$lib/libcc_noc++.a
+  mv  -f $fat/usr/local/lib/libcc.a $fat/$lib
+fi
+
+for file in ${RHAPSODY:+usr/}bin/cc ${RHAPSODY:+usr/bin/c++} ${RHAPSODY:+usr/}bin/c++filt; do
+  thin_files=""
+  for host in $HOSTS; do
+    if echo $TARGETS | grep $host >$null; then
+      thin_files="$thin_files $sym/$host/$file"
+    else
+      echo "***********************************************************"
+      echo '**' "host type $host must also be a target"
+      echo '**' in order to properly create fat binaries such as cc
+      echo "***********************************************************"
+      exit 1
+    fi
+  done
+  $RM -f $fat/$file
+  $RM -f $TEMP/make.$$
+  touch -f $TEMP/make.$$
+  echo "$fat/$file: $thin_files"			      >> $TEMP/make.$$
+  echo "	$RM -f $fat/$file"			      >> $TEMP/make.$$
+  echo "	lipo -create -output $fat/$file $thin_files"  >> $TEMP/make.$$
+  echo "	strip $fat/$file"			      >> $TEMP/make.$$
+  echo "	chmod 555 $fat/$file"			      >> $TEMP/make.$$
+  safe_exec $make -f $TEMP/make.$$
+  $RM -f $TEMP/make.$$
+done
+}
+
+# lib_ofiles bootstrap target required by RC API
+build_lib_ofiles() {
+# set the host variable to an arbitrary host.
+for host in $HOSTS; do break; done
+lib=`if [ "$RHAPSODY" ]; then echo usr/lib; else echo lib; fi`
+# extra_cflags gets cleared at the end of the library loop so it just
+# applies to the first library.
+extra_cflags=-static
+kext_cflags="-static `if [ $target = ppc ]; then echo -mlong-branch; fi` -fno-exceptions -fno-rtti -DAPPLE_KERNEL_EXTENSION -Dinhibit_libc"
+for library in libcc.a libcc_kext.a libcc_dynamic.a libcc_noc++.a; do
+  thin_files=""
+  for target in $TARGETS; do 
+    cd $OBJROOT/cc-$target-on-$host
+    echo ====== building $library for target $target ======
+    $RM -f libgcc.a libgcc1.a libgcc2.a
+    if $make libgcc.a \
+	`if [ $library = libcc_dynamic.a ]; then echo c++filt; fi` \
+        srcdir=$SRCROOT/gcc \
+	LANGUAGES="$LANGUAGES" \
+	HOST_PREFIX="$arch-" HOST_PREFIX_1="$arch-" \
+	HOST_CC="cc -arch $arch -traditional-cpp" \
+	GCC_FOR_TARGET="cc -arch $target -traditional-cpp" \
+	CFLAGS="$OPTIMIZE $CFLAGS" \
+	BISON="$BISON" \
+	GCC_CFLAGS="-traditional-cpp $CFLAGS" \
+	AR_FOR_TARGET=ar \
+	CC="cc -arch $host -traditional-cpp" \
+	GCC_PASSES="" \
+	AR_FOR_TARGET="ar" \
+	LIBGCC2_INCLUDES=-I$SRCROOT/gcc/cp/inc \
+	TARGET_LIBGCC2_CFLAGS="-fnew-abi -fno-honor-std `if [ $library = libcc_kext.a ]; then echo $kext_cflags; fi; if [ $target = ppc ]; then echo -force_cpusubtype_ALL; fi` -DIN_GCC -DPRIVATE_EXTERN=__private_extern__ -DPRIVATE_EXTERN_ASM_OP=\\\".private_extern\\\" $extra_cflags"
+	then echo '== ok'; else exit 1; fi
+    if [ $library = libcc_noc++.a ]; then
+	# Remove modules written in C++.
+	ar -d		     $OBJROOT/cc-$target-on-$host/libgcc.a $cpp_modules
+    elif [ $library = libcc_kext.a ]; then
+	# Remove modules not appropriate for kernel extensions.
+	ar -d		     $OBJROOT/cc-$target-on-$host/libgcc.a $unneeded_kext_modules
+    fi
+    # Convert public symbols into private extern.
+    /usr/local/bin/nmedit -p $OBJROOT/cc-$target-on-$host/libgcc.a
+    thin_files="$thin_files  $OBJROOT/cc-$target-on-$host/libgcc.a"
+  done
+
+  if [ $library = libcc_noc++.a ]; then lib=usr/local/lib; fi
+  $MKDIRS $DSTROOT/$lib
+  $RM -f $DSTROOT/$lib/$library
+  $RM -f $TEMP/make.$$
+  touch -f $TEMP/make.$$
+  echo "$DSTROOT/$lib/$library: $thin_files"			>>$TEMP/make.$$
+  echo "	$RM -f     $DSTROOT/$lib/$library"		>>$TEMP/make.$$
+  echo "	libtool -o $DSTROOT/$lib/$library $thin_files"	>>$TEMP/make.$$
+  echo "	strip -S   $DSTROOT/$lib/$library"		>>$TEMP/make.$$
+  echo "	chmod 444  $DSTROOT/$lib/$library"		>>$TEMP/make.$$
+  safe_exec $make -f $TEMP/make.$$
+  $RM -f $TEMP/make.$$
+  extra_cflags=''
+done
+
+# Build libstdc++.
+
+for target in $TARGETS; do 
+  cd $OBJROOT/$target/libstdc++ && \
+    $make CFLAGS="-arch $target -traditional-cpp ${MAC_OS:+-I$SRCROOT/gcc/config/apple} $OPTIMIZE $CFLAGS" \
+	  CXXFLAGS="-arch $target -I$SRCROOT/gcc/cp/inc ${MAC_OS:+-I$SRCROOT/gcc/config/apple} $OPTIMIZE $CFLAGS" \
+    || exit 1
+ 
+  if [ "$MAC_OS" ]; then
+    nmedit -p $OBJROOT/$target/libstdc++/libstdc++.a
+  fi
+done
+
+# Make libstdc++.a fat.
+lib=`if [ "$RHAPSODY" ]; then echo usr/lib; else echo lib; fi`
+library=libstdc++.a
+thin_files=""
+for target in $TARGETS; do 
+    thin_files="$thin_files $OBJROOT/$target/libstdc++/$library"
+done
+
+$MKDIRS $DSTROOT/$lib
+$RM -f $DSTROOT/$lib/$library
+$RM -f $TEMP/make.$$
+touch -f $TEMP/make.$$
+echo "$DSTROOT/$lib/$library: $thin_files"		>>$TEMP/make.$$
+echo "	$RM -f     $DSTROOT/$lib/$library"		>>$TEMP/make.$$
+echo "	libtool -o $DSTROOT/$lib/$library $thin_files"	>>$TEMP/make.$$
+echo "	strip -S   $DSTROOT/$lib/$library"		>>$TEMP/make.$$
+echo "	chmod 444  $DSTROOT/$lib/$library"		>>$TEMP/make.$$
+safe_exec $make -f $TEMP/make.$$
+$RM -f $TEMP/make.$$
+}
+
+
+if [ X$result = Xclean ]; then
+  clean_gcc
+  exit 0
+fi
+
+configure_gcc
+configure_libstdcpp
+
+if [ X$result = Xconfigure ]; then
+  exit 0
+fi
+
+#take care of the special system bootstrap target
+
+if [ "$result" = lib_ofiles -o "$NEXT_ROOT" -a "$result" != thins ]; then
+  build_lib_ofiles
+  if [ "$result" = lib_ofiles ]; then exit 0; fi
+  # Copy the builder's specs files because the executables the builder creates
+  # don't run on the builder.
+  for target in $TARGETS; do
+    if [ -f /usr/local/libexec/$target/$gcc_version/specs ]; then
+      host_specs=/usr/local/libexec/$target/$gcc_version/specs
+    elif [ -f /usr/libexec/$target/$gcc_version/specs ]; then
+      host_specs=/usr/libexec/$target/$gcc_version/specs
+    elif [ -f /lib/$target/specs ]; then
+      host_specs=/lib/$target/specs
+    else
+      host_specs=
+    fi
+    if [ "$host_specs" ]; then
+      lib=`if [ "$RHAPSODY" ]; then echo usr/libexec/$target/$gcc_version; \
+	   else echo lib/$target; fi`
+      $MKDIRS $DSTROOT/$lib
+      install_newer $host_specs $DSTROOT/$lib/specs "-m 444"
+    fi
+  done
+fi
+
+build_compiler
+if [ $TARGET_OS = nextstep ]; then
+  if [ ! "$NEXT_ROOT" ]; then build_libgcc; fi
+else
+  (cd $SYMROOT/$TARGETS; gnutar cf - Developer) | (cd $DSTROOT; gnutar xvf -)
+  $RM -rf $DSTROOT/Developer/Source/gcc
+fi
+
+if [ $result = thins ]; then
+  exit 0;
+fi
+
+install_fat

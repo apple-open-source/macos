@@ -1,0 +1,1688 @@
+.\"-------
+.\" Man page portability notes
+.\"
+.\" These are some notes on conventions to maintain for greatest
+.\" portability of this man page to various other versions of
+.\" nroff.
+.\"
+.\" When you want a \ to appear in the output, use \e in the man page.
+.\" (NOTE this comes up in the rc grammar, where to print out '\n' the
+.\" man page must contain '\en'.)
+.\"
+.\" Evidently not all versions of nroff allow the omission of the
+.\" terminal " on a macro argument.  Thus what could be written
+.\"
+.\" .Cr "exec >[2] err.out
+.\"
+.\" in true nroffs must be written
+.\"
+.\" .Cr "exec >[2] err.out"
+.\"
+.\" instead.
+.\"
+.\" Use symbolic font names (e.g. R, I, B) instead of the standard
+.\" font positions 1, 2, 3.  Note that for Xf to work the standard
+.\" font names must be single characters.
+.\"
+.\" Note that sentences should end at the end of a line.  nroff and
+.\" troff will supply the correct intersentence spacing, but only if
+.\" the sentences end at the end of a line.  Explicit spaces, if given,
+.\" are apparently honored and the normal intersentence spacing is
+.\" supressed.
+.\"
+.\" DaviD W. Sanderson
+.\"-------
+.\" Dd	distance to space vertically before a "display"
+.\" These are what n/troff use for interparagraph distance
+.\"-------
+.if t .nr Dd .4v
+.if n .nr Dd 1v
+.\"-------
+.\" Sp	space down the interparagraph distance
+.\"-------
+.de Sp
+.sp \\n(Ddu
+..
+.\"-------
+.\" Ds	begin a display, indented .5 inches from the surrounding text.
+.\"
+.\" Note that uses of Ds and De may NOT be nested.
+.\"-------
+.de Ds
+.Sp
+.in +0.5i
+.nf
+..
+.\"-------
+.\" De	end a display (no trailing vertical spacing)
+.\"-------
+.de De
+.fi
+.in
+..
+.TH NcFTP 1 "2.4.3" NcFTP
+.SH NAME
+NcFTP - Internet file transfer program
+.SH "SYNOPSIS"
+.B ncftp
+.RI [ "program options" ]
+.RI [[ "open options" ]
+.IR hostname [\c
+.B :\c
+.IR pathname ]]
+.\"-------
+.SH "OPTIONS"
+.\"-------
+.PP
+Program options:
+  -D   : Turn debug mode and trace mode on.
+  -L   : Don't use visual mode (use line mode).
+  -V   : Use visual mode.
+  -H   : Dump the version information.
+.PP
+Command-line open options:
+  -a   : Open anonymously.
+  -u   : Open with username and password prompt.
+  -p X : Use port number X when opening.
+  -r   : Redial until connected.
+  -d X : Redial, delaying X seconds between tries.
+  -g X : Give up after X redials without connection.
+.PP
+Command-line retrieve options:
+  -C   : Force continuation (reget).
+  -f   : Force overwrite.
+  -G   : Don't use wildcard matching.
+  -R   : Recursive.  Useful for fetching whole directories.
+  -n X : Get selected files only if X days old or newer.
+.\"-------
+.SH "DESCRIPTION"
+.\"-------
+.I NcFTP
+is a user interface to the Internet standard
+.IR "File Transfer Protocol" .
+This program allows a user to transfer files to and from a remote network
+site, and offers additional features that are not found in the standard
+interface,
+.IR ftp .
+.\"-------
+.PP
+The program runs in one of three modes:
+.IR "visual mode" ", " "line mode" ", and " "colon mode" "."
+.PP
+If your system is somewhat modern, the default mode should be
+.IR "visual mode" "."
+This is a full-screen interface that uses the
+.I curses
+library.
+With visual mode, you edit the program's settings with a nice screen
+interface instead of typing arcane commands.
+.PP
+If you are not in visual mode, you will be using
+.I "line mode"
+for the interactive shell.
+This mode is a no-frills command-line interface that will look like the
+default
+.I ftp
+program's command shell.
+.PP
+The third mode,
+.IR "colon mode" ,
+refers to the program's ability to do a quick
+retrieve of a file directly from your shell command line, without going
+into the program's own shell.
+This mode is useful for shell scripts.
+.\"-------
+.SH "INTRODUCTION TO VISUAL MODE"
+.\"-------
+.PP
+When entering visual mode, the screen clears and is rewritten with the
+splash screen.
+You should see the black status bar occupying the second to last row on
+the screen.
+Beneath the status bar is the input line, where you type commands to the
+program's shell.
+.PP
+The program then waits for you to do something.
+Usually this means you want to open a remote filesystem to transfer files
+to and from your local machine's filesystem.
+To do that, you need to know the symbolic name of the remote system,
+or its
+.I "Internet Protocol" 
+(IP) address.
+For example, a symbolic name might be ``typhoon\.unl\.edu,'' and its IP
+address could be ``129.93.33.24.''
+To open a connection to that system, you use the program's
+.I open
+command:
+.Ds
+open typhoon.unl.edu
+open 129.93.33.24
+.De
+.PP
+Both of these try to open the machine called typhoon at the
+.IR "University of Nebraska" "."
+Using the symbolic name is the preferred way, because IP addresses may
+change without notice, while the symbolic names usually stay the same.
+.PP
+When you open a remote filesystem, you need to have permission.
+The
+.IR "FTP Protocol" "'s"
+authentication system is very similar to that of
+logging in to your account.
+You have to give an account name, and its password for access to that
+account's files.
+However, most remote systems that have anything you might be interested
+in don't require an account name for use.
+You can often get anonymous access to a remote filesystem and exchange
+files that have been made publicly accessible.
+The program attempts to get anonymous permission to a remote system by
+default.
+What actually happens is that the program tries to use ``anonymous'' as
+the account name, and when prompted for a password, uses your E-mail address
+as a courtesy to the remote system's maintainer.
+You can have the program try to use a specific account also.
+That will be explained later.
+.PP
+If the connection succeeded, you should see the status bar change to hold
+the remote system's name on one side, and the current remote directory
+on the other side.
+To see what's in the current remote directory, you can use the program's
+.IR "ls" " and " "dir"
+commands.  The former is terse, preferring more remote files
+in less screen space, and the latter is more verbose, giving detailed
+information about each item in the directory.
+.PP
+You can use the program's
+.IR cd
+command to move to other directories on the
+remote system.
+The cd command behaves very much like the command of the same name in the
+.IR "Bourne" " and " "Korn" " shell."
+.PP
+The purpose of the program is to exchange data with other systems.
+You can use the program's 
+.IR get
+command to copy a file from the remote system to your local system:
+.Ds
+get README.txt
+.De
+.PP
+The program will display the progress of the transfer on the screen, so
+you can tell how much needs to be done before the transfer finishes.
+When the transfer does finish, then you can enter more commands to the
+program's command shell.
+.PP
+You can use the program's
+.IR put
+command to copy a file from your system to the remote system:
+.Ds
+put something.tar
+.De
+.PP
+When you are finished using the remote system, you can open another one
+or use the
+.IR quit
+command to terminate the program.
+.\"-------
+.SH "THE BOOKMARKS FILE"
+.\"-------
+.PP
+One of the program's goals is to minimize typing and maximize convenience.
+The program automatically saves information about the sites you call on
+in a special file called the
+.I bookmarks
+file, which is stored in the
+.RI "." "ncftp"
+subdirectory of your home directory.
+Each bookmark saves the host name along with other settings, including the
+remote directory you were in, the account information, and more.
+This makes it easy to call back a site later and have everything be like
+it was when you left the last time.
+.PP
+A big advantage of saving this information is that you can refer to a site
+by a shorter, more meaningful name, instead of using the full symbolic
+host name for a site.
+For example, if you called a site named ``typhoon\.unl\.edu'' frequently, its
+bookmark name might be just ``typhoon.''  Then, instead of:
+.Ds
+open typhoon.unl.edu
+.De
+
+you could use:
+.Ds
+open typhoon
+.De
+.PP
+You could also abbreviate the bookmark name further, as long as the program
+will know which site you are referring to.
+If no other bookmark's name starts with the
+letters ``ty,'' you could do just:
+.Ds
+open ty
+.De
+.PP
+Use the bookmarking feature to assign mnemonic names to hosts whose real
+names don't give much hint to what you call there for.
+A popular game called
+.I "Nethack"
+is archived at linc\.cis\.upenn\.edu, in
+the /pub/NH3\.1 directory.
+You could assign ``nethack'' as the bookmark name for this site.
+Then you could try:
+.Ds
+open nethack
+.De
+.PP
+instead of:
+.Ds
+open linc.cis.upenn.edu
+.De
+.\"-------
+.SH "USING THE BOOKMARK EDITOR"
+.\"-------
+.PP
+To manipulate the bookmarks stored in your bookmarks file, you use the
+program's bookmark editor.
+Run the bookmark editor by typing the
+.I bookmarks
+command from within the program.
+This brings up a new screen of information.
+.PP
+On the right side is the list of remote systems the program has saved
+for you already.
+Each time you open a connection to a remote system, the program saves an
+entry in your bookmark file for you automatically.
+If you have not opened any sites successfully yet, this list would be
+empty.
+.PP
+On the left side is some instructions saying what you can do with the
+list.
+The bookmark editor is waiting for you to do something, like select a bookmark
+whose settings you want to edit.
+.PP
+Some bookmark editor ``hot key'' commands are one key only.
+You do not need to hit enter after the hot key commands.
+To exit the bookmark editor for example, you would just type the ``x'' key
+only.
+The multi-key commands require a slash first and do require the enter key.
+To delete the selected site, for example, you would type the ``/'' key,
+then ``del,'' and then the enter key.
+.PP
+You can use the ``d'' key to move down one line in the list, and the
+``u'' key to move up one line.
+If you have many entries in the bookmark list, you won't be able to see them
+all at once.
+The bookmark list scrolls as appropriate to bring the other sites into view.
+Use the ``p'' and ``n'' keys to move pages at a time.
+.PP
+Another way to select a site in the bookmark list is to use the capital letters.
+If I had many entries in my bookmark list, but wanted to select a site whose
+bookmark name was ``nethack,'' I could type ``N'' and the list would zoom
+to the first site with bookmark starting with the letter ``n.''
+.PP
+After you have hilited a bookmark you want to edit, use the
+.RI "/" "ed"
+command.
+Doing that brings up another screen with the settings for that bookmark.
+.PP
+In the
+.I "Bookmark Options"
+screen, you use hot keys to select a setting to edit.
+To edit the bookmark name, for example, you would type ``a.''
+When you are finished editing this bookmark, hit the ``x'' key to return to
+the bookmark editor's screen.
+.\"-------
+.SH "BOOKMARK OPTIONS"
+.\"-------
+.PP
+Edit the
+.I Bookmark name
+field to change the name you use to open this site with.
+Remember, when you change the bookmark name , you must use this name to
+refer to this particular bookmark, so if you change it to ``foobar,''
+you need to use ``open foobar.''
+This is required because you can have multiple entries for a remote host.
+For example, you could have two bookmarks for wuarchive\.wustl\.edu, named
+``wumac'' and ``wuwindows.''
+If you were to say ``open wuarchive\.wustl\.edu,'' it would not be clear to the
+program which host entry to use.
+.PP
+Change the login information for the site by editing the
+.IR "User" ", " "Password" ", and " "Account"
+fields.
+Normally you would want to leave these as is for anonymous logins.
+Depending on your situation, you might want to use a specific account
+on the remote system.
+This is one way to get the program to use a non-anonymous login.
+.PP
+The
+.I Directory
+field specifies the directory to move to upon successful
+connection to the remote host for this bookmark.
+When you close the site, this field is updated for you automatically to
+be the directory you were in when you closed the site.
+.PP
+The
+.I "Transfer Type"
+field can be changed to use a different translation
+mode when transferring files.
+This program is usually running on a
+.I UNIX
+system, and most remote systems
+are also
+.I UNIX
+variants, so the default transfer type is
+.IR "binary" ","
+which does no translation at all.
+.PP
+However, when you need to work with plain text files and transfer them
+between
+.RI "non-" "UNIX"
+systems, you can change this to
+.IR "ASCII" "."
+That will guarantee that the text-only files will translate correctly.
+Most often, you will need to use the
+.I "binary"
+transfer type.
+.PP
+The
+.I Port
+field can be changed so that the program tries to use a
+non-standard port number.
+I have yet to ever need a different port number, but this capability is
+here in case it's needed.
+.PP
+The
+.I "Has SIZE Command"
+field will probably not need to be edited.
+This field is mostly for your information only.
+The 
+.I SIZE
+command is an
+.I "FTP Protocol"
+command that the program would
+like the remote server to support.
+If it is supported, the program can get an exact number of bytes of
+remote files before transferring.
+That is nice to know so the progress reports work better.
+.PP
+The
+.I "Has MDTM Command"
+field will probably not need to be edited either.
+If the remote server supports it, the program can get the exact
+modification date of the remote file, and set the local file to the
+same date.
+.PP
+The
+.I "Can Use Passive FTP"
+field specifies whether the remote server
+allows use of the
+.IR "FTP Protocol" "'s " "PASV"
+command.
+There are two ways to set up FTP connections.
+The default way is what I call
+.IR "Port FTP" "."
+Unfortunately,
+.I "Port FTP"
+cannot be used when your local host is hiding
+behind a
+.IR "Firewall" "."
+.I "Passive FTP"
+can be used with a firewall, and that's why I would like to
+use that method if possible.
+You probably will not need to edit this field, since this can be detected
+automatically most of the time.
+.PP
+The
+.I "Operating System"
+field is used by the program to tell if it can rely
+on certain dependencies to specific operating systems.
+If the OS is a UNIX variant, the program can make some assumptions about
+the remote server's responses.
+For example, if the OS is
+.IR "UNIX" ","
+the
+.I "ls"
+command tries to use the
+.I "\-CF"
+flags,
+like you could with ``/bin/ls\ \-CF'' on
+.IR "UNIX" "."
+If the OS wasn't
+.IR "UNIX" ","
+the ``\-CF'' might not make sense to the remote
+server and it might complain.
+You probably will not need to edit this field, since this can be detected
+automatically most of the time.
+.PP
+The comment field can be used to store a brief description about the site.
+For example, for my ``nethack'' entry, I could use this field to hold
+``Archive site for latest version of Nethack.''
+When you are in the bookmark editor's window, if you hilite a site that has
+a comment, it is printed at the bottom of the screen so you do not have to
+edit the site to look at it.
+.\"-------
+.SH "PREFERENCES"
+.\"-------
+.PP
+In addition to remote-host specific options, the program has global options
+that are user-configurable.  To change the program's preferences, run the
+.I prefs
+command from within the program.
+.PP
+The
+.I Default open mode
+field specifies how the program should try to open connections.
+If you do a lot of anonymous FTPing, you should leave this set to
+.IR anonymous "."
+You might want to set this field to
+.I user & password
+if the hosts you FTP to most often don't allow anonymous logins.
+For example, if you are using the program on your company network to
+copy things from different company machines, you would not want to use
+.I anonymous
+FTP mode.
+.PP
+The
+.I Anonymous password
+field lets you change the value given to the remote host when you use an
+anonymous login.
+It is customary (and sometimes required) to use your e-mail address as the
+password for anonymous FTP, so the remote host's administrator knows who
+is using the service.
+If the program didn't get your e-mail address right, or you want to use
+something different, you can change it here.
+.PP
+The program now uses more whitespace than before to reduce eyestrain.
+If you prefer, you can turn off that feature by changing the
+.I Blank lines between cmds
+field.
+.PP
+The program can log the transfers you do to a file so you can refer to the
+log if you can't remember where you got something.
+To turn on the log, which is saved as
+.IR "~/.ncftp/log" ","
+you can set the
+.I User log size
+field to a number greater than zero.
+You probably do not want to let this file grow forever, so you set the
+maximum size of the log by setting that field.
+.PP
+Although the program is perfectly happy saving every site you ever open
+in the bookmarks file, you may want to put an upper bound on the number of
+sites saved.
+If you have a slow machine, which might cause the program to take awhile
+to load and save the bookmarks, or if disk space is at a premium, you can
+set the
+.I Max bookmarks to save
+field to limit the number of bookmarks saved.
+Once that limit is reached, the program will discard sites whose time since
+the last connection is the longest.
+In other words, a site you only called
+once a long time ago and forgot about will be the first to go.
+.PP
+A few program functions need to use a
+.I pager
+program to view large amounts of text.
+For example, the
+.I page
+command retrieves a remote file and uses the pager to view it.
+You can specify the program to use (and its command line flags, if any)
+by setting the
+.I pager
+field.
+.PP
+When you transfer files between the remote host and your local host, the
+program uses a
+.I progress meter
+to show you the status of the transfer.
+The program has a few different progress meters to choose from, and you
+can try out the other ones by changing the
+.I Progress meter
+field.
+.PP
+You can control how much of the remote server's chatter is printed by
+changing the
+.I Remote messages
+field.
+The program always prints error messages, but most of the time the remote
+server doesn't have anything useful to say.
+There are a couple of messages that may be worth printing.
+The first is the
+.IR "startup message" "."
+Typically, when you connect to a server it has some important information
+about the server.
+Some servers have
+.IR "chdir messages" ","
+which are sent when you enter a special directory.
+You specify whether to print these messages by toggling the
+.I Remote messages
+field.
+.PP
+By default, the program stays in the same directory you were in when you
+ran the program, so that downloads will go in that directory.
+I like to use a ``download directory'' so that all of my downloads go to
+a specific directory.
+This prevents me from exceeding my quota, and overwriting my other files.
+You can set the
+.I Startup in Local Dir
+field to have the program change the local directory each time when the
+program starts up.
+Then you know where to expect your downloads to end up.
+.PP
+The program itself has some messages which you may get tired of and want
+to turn off.
+You can change the
+.I Startup messages
+field to specify whether the program prints its ``splash screen'' and
+whether it prints a
+.I tip
+on how to maximize use of the program.
+.PP
+When you retrieve a remote file, by default the program tries to also set
+the exact modification time of the local file as the remote file.
+You can turn that off by changing the 
+.I File timestamps
+field.
+.PP
+If you don't like the full-screen graphics, you can use the line-oriented
+mode by changing the
+.I Screen graphics
+field.
+Once you turn
+.I visual
+mode off from the
+.I Preferences
+screen, you won't be able to get back to the preferences screen again
+when using
+.I line
+mode.
+To get back into visual mode, you can run the program with the ``\-V''
+flag, like:
+.Ds
+ncftp -V
+.De
+.\"-------
+.SH "COMMAND REFERENCE"
+.\"-------
+I will now describe the commands that the program's command shell supports.
+The first command to know is
+.IR help "."
+If you just type
+.Ds
+help
+.De
+.PP
+from the command shell, the program prints the names of all of the supported
+commands.
+From there, you can get specific help for a command by typing the command
+after, for example:
+.Ds
+help open
+.De
+.PP
+prints information about the
+.I open
+command.
+.PP
+The shell escape command is simply the exclamation point, 
+.I !
+To spawn a shell, just do:
+.Ds
+!
+.De
+.PP
+You can also use this to do one command only, like:
+.Ds
+!date +%H:%M:%S
+.De
+.PP
+.PP
+The
+.I cd
+command
+changes the working directory on the remote host.
+Use this command to move to different areas on the remote server.
+If you just opened a new site, you might be in the root directory.
+Perhaps there was a directory called ``/pub/news/comp\.sources\.d''
+that someone told you about.
+From the root directory, you could:
+.Ds
+cd pub
+cd news
+cd comp.sources.d
+.De
+.PP
+or, more concisely,
+.Ds
+cd /pub/news/comp.sources.d
+.De
+.PP
+Then, commands such as
+.IR "get" ", " "put" ", and " "ls"
+could be used to refer to items in that directory.
+.PP
+Some shells in the
+.I UNIX
+environment have a feature I like, which is switching to the previous
+directory.
+Like those shells, you can do:
+.Ds
+cd -
+.De
+.PP
+to change to the last directory you were in.
+.PP
+The
+.I close
+command disconnects you from the remote server.
+The program does this for you automatically when needed, so you can simply
+open other sites or quit the program without worrying about closing the
+connection by hand.
+.PP
+Sometimes it may be necessary to use the
+.I create
+command.
+This makes an empty file on the remote host.
+This can be useful when you are unable to contact the remote server's
+administrator, but hope someone in the know will spot your file.
+For example,
+.Ds
+create readline2.0.tar_is_corrupt
+.De
+.PP
+might persuade someone to repost that file.
+.PP
+The
+.I debug
+command is mostly for use by me and the testers.
+You could type
+.Ds
+debug 1
+.De
+.PP
+to turn debugging mode on.
+Then you could see all messages between the program and the remote
+server, and things I print only in debugging mode.
+If you report a bug, I might ask you to send me a
+.I trace
+file.
+To do that, you would run the program, and then type
+.Ds
+debug trace 1
+.De
+.PP
+And so I could see how the program was compiled, you would type
+.Ds
+version
+.De
+.PP
+After you quit the program, you could then send me an email with the
+contents of the
+.I "~/\.ncftp/trace"
+file, which would also have the version information in it.
+.PP
+The
+.I dir
+command prints a detailed directory listing.
+It tries to behave like
+.IR UNIX "'s"
+``/bin/ls -l'' command.
+If the remote server seems to be a
+.I UNIX
+host, you can also use the same flags you would with
+.IR "ls" ", for instance"
+.Ds
+dir -rt
+.De
+.PP
+would try to act like
+.Ds
+/bin/ls -lrt
+.De
+.PP
+would on
+.IR UNIX "."
+.PP
+The
+.I echo
+command wouldn't seem very useful, but it can be nice for use with the
+program's macros.
+It behaves like the equivalent command does under a
+.I UNIX
+shell, but accepts some extra flags.
+All ``percent'' flags are fed through
+.IR strftime "(4)."
+So you could type
+.Ds
+echo It is now %H:%M on %B %d.
+.De
+.PP
+and you should get something like this printed on your screen:
+.Ds
+It is now 19:00 on January 22.
+.De
+.PP
+There are also ``at'' flags, which the program expands:
+.Ds
+@H : Name of connected host
+@D : Full pathname of remote current working directory
+@J : Short name of remote current working directory
+@N : Newline.
+@n : Bookmark name of connected host
+.De
+.PP
+Example:
+.Ds
+echo "Connected to @H at %H:%M." >> junk
+.De
+.PP
+If you later looked at the contents of ``junk,'' it might say:
+.Ds
+Connected to sphygmomanometer.unl.edu at 20:37.
+.De
+.PP
+The
+.I get
+command copies files from the current working directory on the
+remote host to your machine's current working directory.
+To place a copy of ``README'' in your local directory, you could try:
+.Ds
+get README
+.De
+.PP
+The
+.I get
+command has some powerful features which are described below, in
+``SPECIAL DOWNLOADING FEATURES.''
+.PP
+The
+.I bookmarks
+command runs the
+.IR "Bookmark Editor" "."
+You already know how what that does, since you read the section above on it,
+right?
+.PP
+The
+.I lcd
+command is the first of a few ``l'' commands that work with the local host.
+This changes the current working directory on the local host.
+If you want to download files into a different local directory, you could
+use
+.I lcd
+to change to that directory and then do your downloads.
+.PP
+Another local command that comes in handy is the
+.I lls
+command, which runs ``/bin/ls'' on the local host and displays the results
+in the program's window.
+You can use the same flags with
+.I lls
+as you would in your command shell, so you can do things like:
+.Ds
+lcd ~/doc
+lls -lrt p*.txt
+.De
+.PP
+The program also has a built-in interface to the name service via
+the
+.I lookup
+command.
+This means you can lookup entries for remote hosts, like:
+.Ds
+lookup cse.unl.edu ftp.cs.unl.edu sphygmomanometer.unl.edu
+.De
+.PP
+prints:
+.Ds
+cse.unl.edu  129.93.33.1
+typhoon.unl.edu  129.93.33.24
+sphygmomanometer.unl.edu  129.93.33.126
+.De
+.PP
+There is also a more detailed option, enabled with ``\-v,'' i.e.:
+.Ds
+lookup -v cse.unl.edu ftp.cs.unl.edu
+.De
+.PP
+prints:
+.Ds
+cse.unl.edu:
+    Name:     cse.unl.edu
+    Address:  129.93.33.1
+
+ftp.cs.unl.edu:
+    Name:     typhoon.unl.edu
+    Alias:    ftp.cs.unl.edu
+    Address:  129.93.33.24
+.De
+.PP
+You can also give
+.I IP
+addresses, so this would work too:
+.Ds
+lookup 129.93.33.24
+.De
+.PP
+prints:
+.Ds
+typhoon.unl.edu  129.93.33.24
+.De
+.PP
+The
+.I lpage
+command views a local file one page at a time.
+By default, the program uses your pager program to view the files.
+You can choose to use the built-in pager by using the ``\-b'' flag.
+Example:
+.Ds
+lpage -b ~/.ncftp/bookmarks
+.De
+.PP
+The
+.I lpwd
+command is prints the current local directory.
+Use this command when you forget where you are on your local machine.
+.PP
+The
+.I ls
+command prints a brief directory listing.
+It tries to behave like
+.IR UNIX "'s"
+``/bin/ls -CF'' command.
+If the remote server seems to be a
+.I UNIX
+host, you can also use the same flags you would with
+.IR "ls" ", for instance"
+.Ds
+ls -rt
+.De
+.PP
+would try to act like
+.Ds
+/bin/ls -CFrt
+.De
+.PP
+would on
+.IR UNIX "."
+.PP
+The
+.I mkdir
+command tries to create a new directory on the remote host.
+For many public archives, you won't have the proper access permissions to
+do that.
+.PP
+Some servers let you use different transfer modes.  Most servers support
+only the default mode, which is
+.I stream
+mode.  The program supports that mode and also
+.I block
+mode.  The primary advantage to using this mode is that you can use the
+same data connection for all your transfers.  With
+.I stream
+mode the program and server must establish a new data connection for
+each file, and doing that takes extra time and bandwidth.
+To use the 
+.I mode
+command to turn on block mode, you would type
+.Ds
+mode b
+.De
+.PP
+and the command to use stream mode would be
+.Ds
+mode s
+.De
+.PP
+The program turns on block mode automatically when it knows the remote
+server supports it and implements it correctly, so you should not need
+to use this command.
+.PP
+The
+.I open
+command connects you to a remote host.
+Many times, you will simply open a host without using any flags, but
+nonetheless the
+.I open
+command has some flags to enable certain features.
+.PP
+To force an anonymous open, use the ``\-a'' flag.
+On the
+.I ftp\.ncftp\.com
+machine, which is the official archive site for
+.IR NcFTP ","
+I have a need to use both anonymous logins and user logins.
+The
+.I Bookmark Editor
+remembers type of login I used last, so if the last time
+was a user login, I could use the ``\-a'' flag to switch back to the
+anonymous login type without having to use the
+.I Bookmark Editor
+to change that.
+.PP
+Likewise, I could use the ``\-u'' flag to force a user open.
+Then I could give my account name and password to access that account.
+.PP
+Many of the big archive sites like
+.I wuarchive\.wustl\.edu
+are busy, so you aren't guaranteed a connection to them.
+The program lets you ``redial'' sites periodically, until a connection
+succeeds.
+Use the ``\-r' flag to turn on automatic redial.
+.PP
+Redial itself has a few parameters.
+You can set the delay, in seconds, of the time spent waiting between
+redials.
+You can also have the program give up after a maximum number of redials
+is reached.
+Here's an example that fully utilizes redial mode:
+.Ds
+.De
+open -r -d 75 -g 10 bowser.nintendo.co.jp
+.PP
+The ``\-r'' turns on redialing, the ``\-d'' sets the redial delay to 75
+seconds, and the ``\-g'' flag limits redialing to 10 tries.
+If you like, you can just trust the default redial settings and only use
+``\-r.''
+.PP
+The
+.I open
+command will run the
+.I Bookmark Editor
+if you don't supply a hostname to open.
+You can use the
+.I Bookmark Editor
+to select a host and open it by hitting the
+.I return
+key.
+.PP
+The
+.I
+page
+command lets you browse a remote file one page at a time.
+This is useful for reading README's on the remote host without downloading
+them first.
+This command uses whatever program you have set the
+.I pager
+field in the
+.I Preferences
+screen to view the file.
+.PP
+The
+.IR "pdir" " and " "pls"
+commands are equivalent to
+.IR "dir" " and " "ls"
+respectively, only they feed their output to your pager.
+These commands are primarily for
+.I line mode
+because directory listings can scroll offscreen.
+If you do a normal
+.I ls
+while in
+.I visual
+mode, if it would go offscreen, the built-in pager kicks in automatically.
+Therefore I don't recommend using
+.IR "pdir" " and " "pls"
+while in
+.I visual
+mode.
+.PP
+The
+.IR "redir" " and " "predir"
+commands give you a way to re-display the last directory listing.
+The program saves the output from the last
+.IR "dir" " or " "ls"
+command you did, so if you want to see it again you can do this without
+wasting network bandwidth.
+The
+.I predir
+command is the same as
+.IR "redir" ","
+except that the output is fed to your pager.
+.PP
+I have found that I mostly download, and have next to no need at all to
+upload.
+But the
+.I put
+command is there in case you need to upload files to remote hosts.
+For example, if I wanted to send some files to a remote host, I could do:
+.Ds
+lcd ~/docs/files
+put 02.txt 03.txt 05.txt 07.txt 11.txt
+.De
+.PP
+The
+.I put
+command won't work if you don't have the proper access permissions on
+the remote host.  Also, this command doesn't have any of the special
+features that the
+.I get
+command has, except for the ``\-z'' option.
+.PP
+The
+.I pwd
+command prints the current remote working directory.
+In
+.I visual
+mode, this is in the status bar.
+.PP
+If you need to change the name of a remote file, you can use the
+.I rename
+command, like:
+.Ds
+rename SPHYGMTR.TAR sphygmomanometer-2.3.1.tar
+.De
+.PP
+Of course, when you finish using the program, type
+.I quit
+to end the program
+(You could also use
+.IR "bye" ", " "exit" ", or " "^D" ")."
+.PP
+The
+.I quote
+command can be used to send a direct
+.I FTP Protocol
+command to the remote server.
+Generally this isn't too useful to the average user (or me either).
+.PP
+The
+.I rhelp
+command sends a help request to the remote server.
+The list of
+.I FTP Protocol
+commands is often printed, and sometimes some other information that is
+actually useful, like how to reach the site administrator.
+.PP
+Depending on the remote server, you may be able to give a parameter to
+the server also, like:
+.Ds
+rhelp NLST
+.De
+.PP
+One server responded:
+.Ds
+Syntax: NLST [ <sp> path-name ]
+.De
+.PP
+If you need to delete a remote file you can try the
+.I rm
+command.
+Much of the time this won't work because you won't have the proper
+access permissions.
+This command doesn't accept any flags, so you can't nuke a whole tree
+by using ``-rf'' flags like you can on
+.IR UNIX "."
+.PP
+Similarly, the
+.I rmdir
+command removes a directory.
+Depending on the remote server, you may be able to remove a non-empty
+directory, so be careful.
+.PP
+The
+.I set
+command is provided for backward compatibility with older versions of the
+program, and is superseded by the
+.I prefs
+command.
+The basic syntax is:
+.Ds
+set option value
+.De
+.PP
+Where the option is the short name of the corresponding field in the
+.I Preferences
+screen.
+The short names of the preferences fields can be found by browsing your
+.I ~/.ncftp/prefs
+file.
+This command is mainly for use with
+.IR "line mode" ","
+but since that mode is no longer officially supported by me, I want to
+discourage the use of this command.
+.PP
+One obscure command you may have to use someday is
+.IR "site" "."
+The
+.I FTP Protocol
+allows for ``site specific'' commands.
+These ``site'' commands vary of course, but one common sub-command that
+is useful that some sites support is
+.IR "chmod" ", i.e.:"
+.Ds
+site chmod 644 README
+.De
+.PP
+Try doing one of these to see what the remote server supports, if any:
+.Ds
+rhelp SITE
+site help
+.De
+.PP
+You may need to change transfer types during the course of a session with
+a server.
+You can use the
+.I type
+command to do this.  Try one of these:
+.Ds
+type ascii
+type binary
+type image
+.De
+.PP
+If you ever need to contact me about the program, please familiarize
+yourself with the
+.I version
+command.
+This command dumps a lot of information that tells me which edition of the
+program you are using, and how it was installed on your system.
+Here's a way to save the output of this command to a file, so you can
+send it to me:
+.Ds
+version > version.txt
+.De
+.PP
+.\"-------
+.SH "SPECIAL DOWNLOADING FEATURES"
+.\"-------
+You probably already know that you use the
+.I get
+command to copy files on the remote host to the local host.
+But the
+.I get
+command has a few other tricks that you might find useful.
+First of all,
+.I ncftp
+skips files you already have.
+If you try to
+.Ds
+get file24
+.De
+.PP
+and there is a file named ``file24'' in the current local directory
+already, the program uses some additional heuristics to determine if it
+should actually waste network bandwidth to download it again.
+.PP
+The program tries to get the date and size of the remote file ``file24.''
+If that file has the exact same date and size as the local file ``file24,''
+the program will skip over that file.
+If the program could not get the date or size of the remote file, or
+the size differs, the program will go ahead and fetch the file.
+.PP
+In addition, if the local file's date is newer than the remote file's
+date, the program skips the download because it concludes you already
+have a more recent version.
+.PP
+What all this means for you is that you can use the program to
+.I mirror
+another archive.
+For example, you might have a task that requires you keep a mirror of
+all the files of a remote directory called ``files.''
+In that directory, there might be dozens of files, some of which are updated
+occasionally.
+You could use
+.I ncftp
+to help you out by setting the appropriate local and remote directories,
+then simply doing:
+.Ds
+get *
+.De
+.PP
+The program will skip over the old files, and only download the files
+that you don't have or have been updated since the last time.
+.PP
+Nonetheless, you may want to ignore the program's advice and download a
+file anyway, despite the program's thinking that you don't need to.
+You can use the ``\-f'' flag with
+.I get
+to force a download:
+.Ds
+get -f README
+.De
+.PP
+You may also need to use the ``\-C'' flag to force the program to continue
+downloading where it left off.
+I sometimes call that feature ``forced reget'' for historical reasons.
+.PP
+You can also turn off
+.I wildcard matching
+with
+.I get
+by using the ``\-G'' flag.
+Other
+.I FTP
+programs used the syntax
+.Ds
+get remote-file [local-file]
+.De
+.PP
+which allowed you to specify a local pathname for the file you were trying
+to download.
+.I NcFTP
+differs in that respect, and if you used the older programs, you would find
+that the program's
+.I get
+behaves more like those other program's
+.I mget
+command.
+This means that in
+.IR NcFTP, that
+.Ds
+get file01 file02
+.De
+.PP
+tries to download remote files named ``file01'' and ``file02.''
+If you like, you can get that older behavior by using the ``\-z'' flag, so:
+.Ds
+get -z file01 ../junk/files/01.txt
+.De
+.PP
+would get ``file01'' and use the local name ``\.\./junk/files/01\.txt.''
+.PP
+Another thing that
+.I get
+does is that you can use the ``\-n'' flag to fetch files that are a certain
+number of days old or newer.
+If you just want to get the newest files at an archive, you don't have to
+use a full mirror.
+You can just say ``download all files that are 3 days old or newer.''
+Do that by going to a directory, and trying:
+.Ds
+get -n 3 *
+.De
+.PP
+The program also has ``reget'' mode built into the
+.I get
+command.
+Other FTP programs provided a
+.I reget
+command, which was useful when you lost a connection during a download.
+Instead of the remote host resending the entire file, you could use the
+.I reget
+command to continue the transfer where it was cut off.
+.PP
+.I NcFTP
+has this capability built-in, and it examines the date and size of the
+remote file and local file to determine if the program should continue
+where it left off last time.
+If the dates are the same, but the local file is smaller, the program
+attempts to ``reget.''
+.PP
+The last, and most wasteful feature of
+.I get
+is recursive mode, which is turned on with the ``\-R'' flag.
+This feature lets you download an entire directory's contents, i.e.:
+.Ds
+get -R /pub/info/help
+.De
+.PP
+That creates a directory called ``./help'' in the current local directory,
+and copies all files and subdirectories into it.
+.PP
+Please use some discretion with this feature.
+If you get a large directory, you could really bog down the remote host.
+Archive administrators are providing a public service, so don't abuse the
+archive so much that they have to shut down public access because the
+real users of that archive can't get their work done.
+.\"-------
+.SH "MACROS"
+.\"-------
+.PP
+The program has a simple macro/alias facility.
+You can use macros to roll your own commands, or do things when certain
+events happen.
+.PP
+To use macros, you will need to create and edit the
+.I macros
+file in your
+.I ".ncftp"
+subdirectory of your home directory.
+Your
+.I "~/.ncftp"
+directory is created for you automatically the first time you run the
+program, but you have to make the
+.I macros
+file yourself since most users won't have a need for them.
+.PP
+You can have any number of macros.
+The syntax is:
+.Ds
+macro macro-name
+    macro-body...
+end
+.De
+.PP
+Here's a simple macro that users of the old
+.I ftp
+program might appreciate:
+.Ds
+macro binary
+    type i
+end
+.De
+.PP
+You could run that macro simply by running the program and typing the macro
+name as if it were a regular
+.I ncftp
+command.
+.PP
+Macros can also have parameters, much like the
+.IR "Korn Shell" "'s"
+shell functions and the
+.IR "C-Shell" "'s"
+aliases.
+These parameters are sent to your macro, and if your macro uses the
+appropriate ``dollar'' variables, they are expanded.
+To illustrate, try this macro:
+.Ds
+macro cdls
+    cd $1
+    ls
+end
+.De
+.PP
+To run that macro, open a connection and try:
+.Ds
+cdls /pub
+.De
+.PP
+That would try to
+.I cd
+to /pub, and then try to
+list its contents with
+.IR "ls" "."
+.PP
+Dollar variables are somewhat like those in the
+.IR Bourne " and " Korn
+shells.
+Example syntax:
+.Ds
+$4     :  Argument 4
+$*     :  All arguments.
+$@     :  All arguments, each of them surrounded by double quotes.
+$(2-5) :  Arguments 2, 3, 4, and 5.
+$(2,5) :  Arguments 2 and 5.
+$(3+)  :  Arguments 3, 4, 5, ..., N.
+.De
+.PP
+A better way to code the ``cdls'' macro might be:
+.Ds
+macro cdls
+    cd $1
+    ls $(2+)
+end
+.De
+.PP
+There are some special macros, which I call
+.IR "event macros" "."
+The program looks for macros by special names, and if they exist,
+runs the macro when that event happens.
+.PP
+One event macro is the
+.I ".start.ncftp"
+macro.
+If you have a macro by that name defined in your macros file, the program
+will run that macro each time you run the program.
+.PP
+Similarly, there is also a
+.I ".quit.ncftp"
+macro that is run each time you quit the program.
+.PP
+Another set of event macros are site-specific.
+For example, if I have a site bookmarked as ``typhoon'' I could then define
+macros named
+.I ".open.typhoon"
+and
+.I ".close.typhoon"
+which would run each time I opened and closed ``typhoon.''
+.PP
+Another, more generic set of event macros are the
+.I ".open.any"
+and
+.I ".close.any"
+macros which run when I open or close any site.
+One possible use for these macros is to run separate shell scripts to
+do some processing after you finish using a site.
+I could have a macro like this:
+.Ds
+macro .quit.ncftp
+    echo "Started post-processing downloads at %H:%M:%S"
+    !sh ~/scripts/download-decoder
+    echo "Finished post-processing downloads at %H:%M:%S"
+end
+.De
+.PP
+Another use is to duplicate the old
+.I macdef init
+hack that the traditional
+.I ftp
+program used in its
+.I ".netrc"
+file.  For example:
+.Ds
+macro .open.infomac
+    echo "Getting recent files list"
+    get -z /pub/info-mac/help/recent-files ~/docs/recent
+    ls -lrt
+end
+.De
+.\"-------
+.SH "USING COLON MODE"
+.\"-------
+The 
+.I "colon-mode"
+feature is used from your shell's
+command line.
+.PP
+In ancient times, way back during the Disco Era, you could use a program
+called
+.I tftp
+to fetch a file using the Internet standard
+.I Trivial File Transfer Protocol.
+You could use that program to do something like this
+from within its shell:
+.Ds
+get wuarchive.wustl.edu:/graphics/gif/README
+.De
+.PP
+and that would call wuarchive and fetch the README file.
+.PP
+You can use this program to do the same thing from your shell's command
+line:
+.Ds
+csh> ncftp wuarchive.wustl.edu:/graphics/gif/README
+csh> head README
+.De
+.PP
+This tells your shell, in this case the
+.I "C-shell"
+to run
+.IR NcFTP ,
+which
+would open wuarchive, fetch /graphics/gif/README and write the file /README
+in the current working directory, and then exits.
+.PP
+The 
+.I "colon-mode"
+feature is nice if you don't
+want to browse around the remote site, and you know exactly want you want.
+It also comes in handy in shell scripts, where you don't want to
+enter the command shell, and might not want the program to spew output.
+.PP
+You can use the
+.I Uniform Resource Locator
+standard also.  For example, this would work:
+.Ds
+csh> ncftp ftp://wuarchive.wustl.edu/graphics/gif/README
+.De
+.PP
+There are times where you might not want the program to write a
+.I colon-mode
+file in the current working directory, or perhaps you want to pipe the
+output of a remote file into something else.
+.I Colon-mode
+has options to
+do this.
+It was inspired by the guy who wrote the
+.I ftpcat
+perl script.
+The ``\-c'' option tells the program to write on the standard
+output stream.
+The ``\-m'' option pipes the file into your pager (like
+.IR more ")"
+Of course this won't work if the thing you give
+.I colon-mode
+is a directory!  This example just dumps a remote file to stdout:
+.Ds
+csh> ncftp \-c wuarc:/graphics/gif/README
+.De
+.PP
+This example redirects a remote file into a different
+location:
+.Ds
+csh> ncftp \-c wu:/README > ~pdietz/thesis.tex
+.De
+.PP
+This one shows how to use a pipeline:
+.Ds
+csh> ncftp \-c wuarc:/README | tail | wc \-l
+10
+csh>
+.De
+.PP
+This shows how to page a remote file:
+.Ds
+csh> ncftp \-m wuarc:/graphics/gif/README
+.De
+.\"-------
+.SH "USING LINE MODE"
+.\"-------
+.PP
+The only reason I provide
+.I line mode
+is so that the primitive operating systems whose
+.I curses
+library is missing or dysfunctional won't render the program completely
+useless.
+.PP Most program functions work as they do in visual mode, with the
+exceptions of the functions that require
+.IR "visual mode" ","
+such as the
+.IR "Preferences" " screen and the " "Bookmark Editor" "."
+You will have to edit the
+.IR "~/.ncftp/prefs" " and " "~/.ncftp/bookmarks"
+file manually, with a text editor.
+.PP
+As a small consolation, you get to use the full-powered line-editing
+libraries, like
+.I GNU Readline
+if they were compiled with the program.
+.\"-------
+.SH "SUMMARY OF COMMAND LINE OPTIONS"
+.\"-------
+.PP
+When you invoke the program from your shell, there are ``dash flags'' you
+can use like you can with most other
+.I UNIX
+programs.
+.PP
+Here's a list of options you can use from the command line:
+.PP
+.Ds
+-D : Turns on debugging mode and tracing.
+-V : Uses ``visual'' mode for this session.
+-L : Uses ``line mode'' for this session.
+-H : Prints the information from the ``version'' command and exits.
+.De
+.PP
+When you turn on tracing, the program writes a log with debugging information
+to a file called
+.I "trace"
+in your
+.I ".ncftp"
+subdirectory of your home directory.
+If you need to report a bug, it would be helpful to mail me the
+.I trace
+file so I can track it down better.
+.PP
+In addition to the program flags, you can also use flags from the
+.IR "open" " and " "get"
+commands with a
+.I colon mode
+path.
+Here's a really complex example:
+.Ds
+csh> ncftp \-r \-d 120 \-n 3 sphygmomanometer.unl.edu:/pub/stuff/*
+.De
+.PP
+This tries redialing that host every two minutes, and fetching all files
+from the ``/pub/stuff'' directory that are 3 days old or newer.
+.\"-------
+.SH "AUTHOR"
+.\"-------
+.I NcFTP
+was written by Mike Gleason,
+(mgleason@NcFTP\.com).
+.I NcFTP
+is copyrighted 1995 by Mike Gleason.
+All rights reserved.
+.PP
+As of this writing, the most recent version is archived in
+.IR "<ftp://ftp\.ncftp\.com/ncftp/>" "."
+.\"-------
+.SH "THANKS"
+.\"-------
+.PP
+Ideas and some code contributed by my partner, Phil Dietz,
+.PP
+Thanks to everyone who has helped test the program, and sent in feedback
+over the years.
+Your support is what drives me to improve the program!
+.PP
+I'd like to thank my former system administrators, most notably Charles Daniel,
+for making testing on a variety of platforms possible, letting me have
+some extra disk space, and for maintaining the UNL FTP site.
+.PP
+I also thank Dale Botkin and Tim Russell at
+.IR "Probe Technology" ","
+for giving
+.I ncftp
+a home on
+.IR "probe\.net" "."
+.PP
+For testing above and beyond the call of duty, I am especially grateful to:
+Phil Dietz,
+Kok Hon Yin (hkok@yoda\.unl\.edu),
+Andrey A. Chernov (ache@astral\.msk\.su).
+.PP
+Thanks to Tim MacKenzie (t\.mackenzie@trl\.oz\.au) for the filename
+completion code.
+.PP
+Thanks to DaviD W. Sanderson (dws@ssec\.wisc\.edu), for helping me out with
+the man page.
+.\"-------
+.SH "BUGS"
+.\"-------
+.PP
+Due to a limitation in the
+.I curses
+library, scrolling may be slow in visual mode.
+.PP
+Shell escapes, suspending (^Z) and resuming, and interruping (^C) still
+have quirks with
+.IR "visual mode" "."
+.PP
+There are no such sites named
+.I bowser\.nintendo\.co\.jp
+or
+.IR sphygmomanometer\.unl\.edu .
+.\"-------
+.SH "SEE ALSO"
+.\"-------
+.IR ftp (1),
+.IR ftpd (8),
+.IR nslookup (1),
+.IR archie (1),
+.IR rcp (1),
+.IR tftp (1).

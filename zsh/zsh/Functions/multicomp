@@ -1,0 +1,69 @@
+# multicomp() {
+# Completes all manner of files given prefixes for each path segment.
+# e.g. s/z/s -> src/zsh-2.4/src
+#
+# Usage: e.g.
+# compctl -D -f + -U -K multicomp
+#
+# Note that exactly matched directories are not expanded, e.g.
+# s/zsh-2.4/s<TAB> will not expand to src/zsh-2.4old/src.
+# Will expand glob patterns already in the word, but use complete-word,
+# not TAB (expand-or-complete), or you will get ordinary glob expansion.
+# Requires the -U option to compctl.
+# Menucompletion is highly recommended for ambiguous matches.
+# Liable to screw up escaped metacharacters royally.
+# $fignore is not used: feel free to add your own bit.
+
+emulate -R zsh				# Requires zsh 3.0-pre4 or later
+local pref head sofar origtop newtop globdir="(-/)" wild
+setopt localoptions nullglob rcexpandparam globdots
+unsetopt markdirs globsubst shwordsplit nounset
+
+pref="${1}$2"
+# Hack to allow programmable completion to select multicomp after a :
+# (e.g.
+# compctl -D -f -x 's[:]' -U -K multicomp
+# )
+pref="${pref#:}"
+
+sofar=('')
+reply=('')
+
+if [[ "$pref" = \~* ]]; then
+  # If the string started with ~, save the head and what it will become.
+  origtop="${pref%%/*}"
+  newtop=${~origtop}
+  # Save the expansion as the bit matched already
+  sofar=($newtop)
+  pref="${pref#$origtop}"
+fi
+
+while [[ -n "$pref" ]]; do
+  [[ "$pref" = /* ]] && sofar=(${sofar}/) && pref="${pref#/}"
+  head="${pref%%/*}"
+  pref="${pref#$head}"
+  if [[ -n "$pref" && -z $sofar[2] && -d "${sofar}$head" ]]; then
+    # Exactly matched directory: don't try to glob
+    reply=("${sofar}$head")
+  else
+    [[ -z "$pref" ]] && globdir=
+    # if path segment contains wildcards, don't add another.
+    if [[ "$head" = *[\*\?]* ]]; then
+      wild=
+    else
+      wild='*'
+    fi
+    reply=(${sofar}"${head}${wild}${globdir}")
+    reply=(${~reply})
+  fi
+
+  [[ -z $reply[1] ]] && reply=() && break
+  [[ -n $pref ]] && sofar=($reply)
+done
+
+# Restore ~'s in front if there were any.
+# There had better not be anything funny in $newtop.
+[[ -n "$origtop" ]] && reply=("$origtop"${reply#$newtop})
+
+# }
+

@@ -1,0 +1,14 @@
+NEXTSTEP_PB_CFLAGS += -DkBundleDirectory="\"$(BundleInstallDir)\""	\
+		      -DkBundleExtension="\"$(BundleExtension)\""
+
+include $(CoreOSMakefiles)/ProjectBuilder/Makefile.Postamble.Common
+
+STRIPFLAGS = -S
+
+install_bundles:
+	@set -e; for bundle in $(BUNDLES); do			\
+	    echo "Installing in bundle $$bundle...";		\
+	    $(MAKE) -C "$$bundle" install			\
+		NEXTSTEP_INSTALLDIR="$(BundleInstallDir)"     	\
+		BUNDLE_EXTENSION="$(BundleExtension)";		\
+	done

@@ -1,0 +1,8 @@
+dnl ../doc/m4.texinfo:2098: Origin of test
+define(`foo', `FOO')
+dnl @result{}
+include(`incl.m4')
+dnl @result{}Include file start
+dnl @result{}FOO
+dnl @result{}Include file end
+dnl @result{}

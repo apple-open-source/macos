@@ -1,0 +1,94 @@
+This is Info file ../info/reftex, produced by Makeinfo version 1.68
+from the input file reftex.texi.
+
+INFO-DIR-SECTION Editors
+START-INFO-DIR-ENTRY
+* reftex: (reftex).	Support for LaTeX labels, references, and citations
+                          with Emacs.
+END-INFO-DIR-ENTRY
+
+   This file documents RefTeX, a package to do labels, references and
+citations for LaTeX documents with Emacs.
+
+   This is edition 3.43 of the RefTeX User Manual for RefTeX 3.43
+
+   Copyright (c) 1997, 1998 Free Software Foundation, Inc.
+
+   Permission is granted to make and distribute verbatim copies of this
+manual provided the copyright notice and this permission notice are
+preserved on all copies.
+
+   Permission is granted to copy and distribute modified versions of
+this manual under the conditions for verbatim copying, provided that
+the entire resulting derive work is distributed under the terms of a
+permission notice identical to this one.
+
+   Permission is granted to copy and distribute translations of this
+manual into another language, under the above conditions for modified
+versions, except that this permission notice may be stated in a
+translation approved by the Free Software Foundation.
+
+
+Indirect:
+reftex-1: 1191
+reftex-2: 50987
+reftex-3: 97140
+
+Tag Table:
+(Indirect)
+Node: Top1191
+Node: Introduction4879
+Node: Installation5697
+Node: RefTeX in a Nutshell6986
+Node: Table of Contents10173
+Node: Labels and References13852
+Node: Creating Labels15254
+Node: Referencing Labels18154
+Node: Builtin Label Environments23411
+Node: Defining Label Environments24814
+Node: Theorem and Axiom26086
+Node: Quick Equation29989
+Node: Figure Wrapper31521
+Node: Adding Magic Words33389
+Node: Using \eqref34339
+Node: Putting it Together35178
+Node: Reference Info35847
+Node: xr (LaTeX package)36447
+Node: varioref (LaTeX package)37607
+Node: Citations38283
+Node: Creating Citations39102
+Node: Citation Styles42393
+Node: Citation Info44189
+Node: Chapterbib and Bibunits44813
+Node: Citations Outside LaTeX45469
+Node: Viewing Cross-References46506
+Node: RefTeXs Menu49356
+Node: Keybindings49744
+Node: Faces50987
+Node: Multifile Documents51515
+Node: Language Support52627
+Node: Finding Files53840
+Node: Optimizations56371
+Node: AUCTeX60582
+Node: AUCTeX-RefTeX Interface61136
+Node: Style Files63619
+Node: Bib-Cite66480
+Node: Problems and Work-Arounds67509
+Node: Imprint71835
+Node: Commands73929
+Node: Options78884
+Node: Options (Table of Contents)79645
+Node: Options (Defining Label Environments)81315
+Node: Options (Creating Labels)88943
+Node: Options (Referencing Labels)93309
+Node: Options (Creating Citations)97140
+Node: Options (Viewing Cross-References)102069
+Node: Options (Finding Files)104482
+Node: Options (Optimizations)108336
+Node: Options (Fontification)112626
+Node: Options (Misc)115525
+Node: Keymaps and Hooks117214
+Node: Changes117956
+Node: Index119592
+
+End Tag Table

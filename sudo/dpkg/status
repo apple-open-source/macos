@@ -1,0 +1,8 @@
+<p>Still need to add krb5 support. Let's wait until we know what we're
+doing with kerberos installation.</p>
+
+<p>On Darwin the configure option
+<code>--with-password-timeout=0</code> is required to disable the
+password timeout code, or else the password prompt hangs. The docs
+claim that this is a bug in Darwin, so we should figure out what's
+going on here.</p>

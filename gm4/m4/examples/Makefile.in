@@ -1,0 +1,60 @@
+# Makefile for GNU m4 examples.
+# Copyright (C) 1994 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+
+PRODUCT = @PRODUCT@
+VERSION = @VERSION@
+
+SHELL = /bin/sh
+srcdir = @srcdir@
+VPATH = @srcdir@
+
+.SUFFIXES:
+
+DISTFILES = Makefile.in capitalize.m4 comments.m4 ddivert.m4 \
+debug.m4 esyscmd.m4 exp.m4 file.m4 foreach.m4 forloop.m4 fstab.m4 \
+hanoi.m4 incl-test.m4 include.m4 indir.m4 misc.m4 multiquotes.m4 \
+patsubst.m4 pushpop.m4 regexp.m4 reverse.m4 stackovf.sh sync-lines.m4 \
+sysv-args.m4 trace.m4 translit.m4 undivert.incl undivert.m4 wrap.m4
+
+all:
+
+install:
+
+uninstall:
+
+mostlyclean:
+
+clean: mostlyclean
+
+distclean: clean
+	rm -f Makefile
+
+realclean: distclean
+
+dist: $(DISTFILES)
+	@echo "Copying distribution files"
+	@for file in $(DISTFILES); do \
+	  ln $(srcdir)/$$file ../$(PRODUCT)-$(VERSION)/examples 2> /dev/null \
+	    || cp -p $(srcdir)/$$file ../$(PRODUCT)-$(VERSION)/examples; \
+	done
+
+Makefile: Makefile.in ../config.status
+	cd .. && CONFIG_FILES=examples/$@ CONFIG_HEADERS= ./config.status
+
+# Tell versions [3.59,3.63) of GNU make not to export all variables.
+# Otherwise a system limit (for SysV at least) may be exceeded.
+.NOEXPORT:

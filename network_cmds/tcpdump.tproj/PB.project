@@ -1,0 +1,98 @@
+{
+    DYNAMIC_CODE_GEN = YES; 
+    FILESTABLE = {
+        CLASSES = (); 
+        FRAMEWORKS = (); 
+        H_FILES = (
+            machdep.h, 
+            addrtoname.h, 
+            ntp.h, 
+            nfsfh.h, 
+            igrp.h, 
+            interface.h, 
+            "os-sunos4.h", 
+            decnet.h, 
+            ipx.h, 
+            mib.h, 
+            "os-ultrix4.h", 
+            netbios.h, 
+            bootp.h, 
+            ospf.h, 
+            llc.h, 
+            nfs.h, 
+            "os-solaris2.h", 
+            nfsv2.h, 
+            fddi.h, 
+            gnuc.h, 
+            ethertype.h, 
+            extract.h, 
+            appletalk.h
+        ); 
+        OTHER_LIBS = (pcap); 
+        OTHER_LINKED = (
+            addrtoname.c, 
+            bpf_dump.c, 
+            machdep.c, 
+            parsenfsfh.c, 
+            "print-arp.c", 
+            "print-atalk.c", 
+            "print-atm.c", 
+            "print-bootp.c", 
+            "print-decnet.c", 
+            "print-domain.c", 
+            "print-dvmrp.c", 
+            "print-egp.c", 
+            "print-ether.c", 
+            "print-fddi.c", 
+            "print-gre.c", 
+            "print-icmp.c", 
+            "print-igrp.c", 
+            "print-ip.c", 
+            "print-ipx.c", 
+            "print-isoclns.c", 
+            "print-krb.c", 
+            "print-llc.c", 
+            "print-netbios.c", 
+            "print-nfs.c", 
+            "print-ntp.c", 
+            "print-null.c", 
+            "print-ospf.c", 
+            "print-pim.c", 
+            "print-ppp.c", 
+            "print-rip.c", 
+            "print-skip.c", 
+            "print-sl.c", 
+            "print-snmp.c", 
+            "print-sunrpc.c", 
+            "print-tcp.c", 
+            "print-tftp.c", 
+            "print-udp.c", 
+            "print-wb.c", 
+            strcasecmp.c, 
+            tcpdump.c, 
+            util.c, 
+            version.c, 
+            vfprintf.c
+        ); 
+        OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble); 
+        SUBPROJECTS = (); 
+    }; 
+    LANGUAGE = English; 
+    LOCALIZABLE_FILES = {}; 
+    MAKEFILEDIR = "$(MAKEFILEPATH)/pb_makefiles"; 
+    NEXTSTEP_BUILDDIR = "/$(USER)/BUILD"; 
+    NEXTSTEP_BUILDTOOL = /bin/gnumake; 
+    NEXTSTEP_COMPILEROPTIONS = "-traditional-cpp"; 
+    NEXTSTEP_INSTALLDIR = /usr/sbin; 
+    NEXTSTEP_JAVA_COMPILER = /usr/bin/javac; 
+    NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc; 
+    PDO_UNIX_BUILDTOOL = $NEXT_ROOT/Developer/bin/make; 
+    PDO_UNIX_JAVA_COMPILER = "$(NEXTDEV_BIN)/javac"; 
+    PDO_UNIX_OBJCPLUS_COMPILER = "$(NEXTDEV_BIN)/gcc"; 
+    PROJECTNAME = tcpdump; 
+    PROJECTTYPE = Tool; 
+    PROJECTVERSION = 2.8; 
+    WINDOWS_BUILDTOOL = $NEXT_ROOT/Developer/Executables/make; 
+    WINDOWS_JAVA_COMPILER = "$(JDKBINDIR)/javac.exe"; 
+    WINDOWS_OBJCPLUS_COMPILER = "$(DEVDIR)/gcc"; 
+}

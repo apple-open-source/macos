@@ -1,0 +1,123 @@
+   (This document was generated from fetchmail-features.html)
+
+     _________________________________________________________________
+   
+                           Fetchmail Feature List
+                                      
+Since 5.0:
+
+     * NTLM support, so fetchmail can query Microsoft Exchange servers.
+     * Expunge option can now be used to break POP3 retrieval into
+       subsessions.
+     * Support for AUTH=CRAM-MD5 under IMAP, a la RFC2195.
+       
+Since 4.0:
+
+     * The interface and monitor options now work with freeBSD.
+     * Fetchmail now sends RFC1894-conformant bouncemail on SMTP and LMTP
+       errors.
+     * Full support for LMTP according to RFC2033.
+     * True multi-language support using GNU gettext.
+     * Support for use of HESIOD with Kerberos.
+     * The --bsmtp option supports recording fetched mail as a BSMTP
+       batch.
+     * The --limit option can now be used in daemon mode, with
+       oversized-message notifications being mailed to the calling user.
+     * Configurable support for the SDPS extensions in www.demon.net's
+       POP3 service.
+     * There is now an interactive GUI fetchmail configurator,
+       fetchmailconf.
+     * Code is 64-bit clean and Y2K-safe.
+     * Automatically decodes armored 7-bit MIME into 8 bits (this can be
+       suppressed).
+     * You can specify which SMTP error is recognized as a spam block.
+     * Support for Kerberos V authentication.
+     * Support for IMAP-OTP authentication using Craig Metz's patches for
+       UW IMAP.
+     * Support for IPv6 and IPSEC (using Craig Metz's inet6-apps
+       library).
+     * Support for IMAP with RFC1731-conformant GSSAPI authentication.
+     * Fixed and verified support for Cyrus IMAP server, M$ Exchange, and
+       Post Office/NT.
+     * Support for responding with a one-time password when a POP3 server
+       issues an RFC1938-conforming OTP challenge.
+     * Support for Compuserve's RPA authentication protocol for POP3 (not
+       compiled in by default, but configurable).
+       
+Since 3.0:
+
+     * Support for IMAP RFC 1731 authentication with Kerberos v4.
+     * Support for multiple-folder retrieval in a single session under
+       IMAP.
+     * Following SMTP 571 response to a From line, fetchmail no longer
+       downloads the bodies of spam messages.
+     * Support for a `hunt list' of SMTP hosts.
+     * Support for ESMTP 8BITMIME and SIZE options.
+     * Support for ESMTP ETRN command.
+     * The stripcr & forcecr options to explicitly control
+       carriage-return stripping and LF->CRLF mapping before mail
+       forwarding.
+       
+Since 2.0:
+
+     * Support for secure use with ssh.
+     * Mailserver passwords can be parsed out of your .netrc file.
+     * When forwarding mail via SMTP, fetchmail respects the 571 "spam
+       filter" response and discards any mail that triggers it.
+     * Transaction and error logging may optionally be done via syslog.
+     * (Linux only) Security option to permit fetchmail to poll a host
+       only when a point-to-point link to a particular IP address is up.
+     * RPOP support (restored; had been removed in 1.8).
+       
+2.0 and earlier versions:
+
+     * Support POP2, APOP, RPOP, IMAP2, IMAP2bis, IMAP3, IMAP4,
+       IMAP4rev1. .
+     * Support for Kerberos V4 user authentication (either MIT or
+       Cygnus).
+     * Host is auto-probed for a working server if no protocol is
+       specified for the connection. Thus you don't need to know what
+       servers are running on your mail host in advance; the verbose
+       option will tell you which one succeeds.
+     * Delivery via SMTP to the client machine's port 25. This means the
+       retrieved mail automatically goes to the system default MDA as if
+       it were normal sender-initiated SMTP mail.
+     * Configurable timeout to detect if server connection is dropped.
+     * Support for retrieving and forwarding from multi-drop mailboxes
+       that is guaranteed not to cause mail loops.
+     * Large user community -- fetchmail has a large user base (the
+       author's beta list includes well over two hundred people). This
+       means feedback is rapid, bugs get found and fixed rapidly.
+     * Carefully written, comprehensive and up-to-date man page
+       describing not only modes of operation but also how to diagnose
+       the most common kinds of problems and what to do about deficient
+       servers.
+     * Rugged, simple, and well-tested code -- the author relies on it
+       every day and it has never lost mail, not even in experimental
+       versions. (In the project's entire history there has only been one
+       recorded instance of lost mail, and that was due to a quirk in
+       some Microsoft code.)
+     * Strict conformance to relevant RFCs and good debugging options.
+       You could use fetchmail to test and debug server
+       implementatations.
+     * For anybody who cares, fetchmail is Y2K safe.
+       
+Features in common with other remote-mail retrieval programs:
+
+   The other programs I have checked include fetchpop1.9, PopTart-0.9.3,
+   get-mail, gwpop, pimp-1.0, pop-perl5-1.2, popc, popmail-1.6 and upop.
+   
+     * Support for POP3.
+     * Easy control via command line or free-format run control file.
+     * Daemon mode -- fetchmail can be run in background to poll one or
+       more hosts at a specified interval.
+     * From:, To:, Cc:, and Reply-To: headers are rewritten so that
+       usernames relative to the fetchmail host become fully-qualified
+       Internet addresses. This enables replies to work correctly. (Would
+       be unique to fetchmail if I hadn't added it to fetchpop.)
+     * Message and header processing are 8-bit clean.
+     _________________________________________________________________
+   
+   
+   
+    Eric S. Raymond <esr@snark.thyrsus.com>

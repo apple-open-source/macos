@@ -1,0 +1,278 @@
+.TH NETINFO 5 "October 8, 1990" "Apple Computer, Inc."
+.SH NAME
+netinfo \- network administrative information
+.SH DESCRIPTION
+NetInfo stores its administration information in a hierarchical database.
+The hierarchy is composed of nodes called NetInfo
+.I directories.
+Each directory may have zero or more NetInfo
+.I properties
+associated with it.
+Each property has a 
+.I name
+and zero or more
+.I values.
+.PP
+This man page describes those directories and properties which have
+meaning in the system distributed by Apple. Users and 3rd-parties may
+create other directories and properties, which of course cannot be
+described here.
+.PP
+.I Search Policy
+.PP
+Virtually everything that utilizes NetInfo for lookups adheres to the
+following convention. Search the local domain first. If found, return
+the answer. Otherwise, try the next level up and so on until the top
+of the domain hierarchy is reached. For compatibility with Yellow Pages
+and BIND, see 
+.I lookupd(8).
+.PP
+.I Database Format
+.PP
+At the top level, the root directory contains a single property called
+.I master.
+This properties indicates who is the master of this database, i.e., which
+server contains the master copy of the database. The singular value of master
+contains two fields, a hostname and a domain tag separated by a '/' which 
+uniquely identifies the machine and process serving as master of this data.
+For example, the entry 
+.I clothier/network
+says that the 
+.I netinfod(8) 
+process serving domain tag
+.I network
+on the machine 
+.I clothier 
+controls the master copy of the database.
+.PP
+For added security, a second property can be installed in the root directory
+to limit who can connect to the domain. By default, anybody can connect to
+the domain, which would allow them to read anything that is there (writes are
+protected however). If this default is undesirable, a property called
+.I trusted_networks
+should be enabled in the root directory. Its values should be the network 
+(or subnet) addresses which are assumed to contain trusted machines which
+are allowed to connect to the domain. Any other clients are assumed to be
+untrustworthy. A name may be used instead of an address. If a name is given,
+then that name should be listed as a subdirectory of "/networks" within the
+same domain and resolve to the appropriate network address. 
+.PP
+At the second level, the following directories exist which have the
+following names (property named "name" has these values):
+.PP
+.RS
+.I aliases
+.LP
+.I groups
+.LP
+.I machines
+.LP
+.I mounts
+.LP
+.I networks
+.LP
+.I printers
+.LP
+.I protocols
+.LP
+.I rpcs
+.LP
+.I services
+.LP
+.I users
+.RE
+.PP
+These directories contain, for the most part, only the single property
+named "name". The exception is the "machines" directory which  contains
+other properties having to do with automatic host installation. These 
+properties are the following:
+.PP
+.RS
+"promiscuous" - if it exists, the bootpd(8) daemon is 
+promiscuous. Has no value.
+.LP
+"assignable_ipaddr" - a range of IP addresses to automatically assigned,
+specified with two values as endpoints.
+.LP
+"configuration_ipaddr" - the temporary IP address given to unknown machines in the process of booting.
+.LP
+"default_bootfile" - the default bootfile to assign to a new machine.
+.LP
+"net_passwd" - optional property. If it exists, it's the encrypted password
+for protecting automatic host installations.
+.RE
+.PP
+The directory "/aliases" contains directories which refer to individual
+mailing aliases. The relevant properties are:
+.PP
+.RS
+"name" - the name of the alias
+.LP
+"members" - a list of values, each of which is a member of this alias.
+.RE
+.PP
+The directory "/groups" contains directories which refer to individual
+system groups. The relevant properties are:
+.PP
+.RS
+"name" - the name of the system group
+.LP
+"passwd" - the associated password
+.LP
+"gid" - the associated group id
+.LP
+"users" - a list of values, each of which is a user who is a member
+of this system group.
+.RE
+.PP
+The directory "/machines" contains directories which refer to individual
+machines. The relevant properties are:
+.PP
+.RS
+"name" - the name of this machine. This property can have multiple values 
+if the machine name has aliases.
+.LP
+"ip_address" - the Internet Protocol address of the machine. This property
+can have multiple values if the machine has multiple IP addresses. Note
+that the address MUST be stored in decimal-dot notation with no leading
+zeroes.
+.LP
+"en_address" - the Ethernet address of the machine. Note that the address
+MUST be stored in standard 6 field hex Ethernet notation, with no leading
+zeros. For example, "0:0:f:0:7:5a" is a valid Ethernet address, 
+"00:00:0f:00:07:5a" is not.
+.LP
+"serves" - a list of values, each of which is information about which
+NetInfo domains this machine serves. Each value has the format
+.I domain-name/domain-tag.
+The domain name is the external name of the domain served by this machine as 
+seen from this level of hierarchy. The domain tag is the internal
+name associated with the actual process on the machine that serves this
+information.
+.LP
+"bootfile" - the name of the kernel that this machine will use by 
+default when NetBooting.
+.LP
+"bootparams" - a list of values, each of which is a Bootparams protocol
+key-value pair. For example, "root=parrish:/" has the Bootparams key
+"root" and Bootparams value "parrish:/".
+.LP
+"netgroups" - a list of values, each of which is the name of a netgroup
+of which this machine is a member.
+.RE
+.PP
+The directory "/mounts" contains directories which refer to filesystems.
+The relevant properties are:
+.PP
+.RS
+"name" - the name of the filesytem. For example, "/dev/od0a" or
+"papazian:/".
+.LP
+"dir" - the directory upon which this filesystem is mounted.
+.LP
+"type" - the filesystem type of the mount
+.LP
+"opts" - a list of values, each of which is a
+.I mount(8)
+option associated with the mounting of this filesystem.
+.LP
+"passno" - pass number on parallel 
+.I fsck(8)
+.LP
+"freq" - dump frequency, in days.
+.RE
+.PP
+The directory "/networks" contains directories which refer to Internet
+networks. The relevant properties are:
+.PP
+.RS
+"name" - the name of the network. If the network has aliases, there
+may be more than one value for this property.
+.LP
+"address" - the network number of this network. The value MUST be
+in decimal-dot notation with no leading zeroes.
+.RE
+.PP
+The directory "/printers" contains directories which refer to
+printer entries. The relevant properties are:
+.PP
+.RS
+"name" - the name of the printer. If the printer has alias, this
+property will have multiple values.
+.LP
+"lp", "sd", etc. - the names of 
+.I printcap(5)
+properties associated with this printer. If the value associated with
+the property name is numeric, the number has a leading "#" prepended
+to it.
+.RE
+.PP
+The directory "/protocols" contains directories which refer to 
+transport protocols. The relevant properties are:
+.PP
+.RS
+"name" - the name of the protocol. If the protocol has aliases, the
+property will have multiple values.
+.LP
+"number" - the associated protocol number.
+.RE
+.PP
+The directory "/services" contains directories which refer to
+ARPA services. The relevant properties are:
+.PP
+.RS
+"name" - the name of the service. If the service has aliases, the
+property will have multiple values.
+.LP
+"protocol" - the name of the protocol upon which the service runs.
+If the service runs on multiple protocols, this property will have
+multiple values.
+.LP
+"port" - the associated port number of the service.
+.RE
+.PP
+The directory "/users" contains information which refer to users.
+The relevant properties are:
+.PP
+.RS
+"name" - the login name of the user.
+.LP
+"passwd" - the encrypted password of the user.
+.LP
+"uid" - the user id of the user.
+.LP
+"gid" - the default group id of the user.
+.LP
+"realname" - the real name of the user.
+.LP
+"home" - the home directory of the user.
+.LP
+"shell" - the login shell of the user.
+.SH "SEE ALSO"
+.I aliases(5)
+.LP
+.I bootparams(5)
+.LP
+.I bootptab(5)
+.LP
+.I fstab(5)
+.LP
+.I group(5)
+.LP
+.I hosts(5)
+.LP
+.I lookupd(8)
+.LP
+.I netinfod(8)
+.LP
+.I netgroup(5)
+.LP
+.I networks(5)
+.LP
+.I passwd(5)
+.LP
+.I printcap(5)
+.LP
+.I protocols(5)
+.LP
+.I services(5)

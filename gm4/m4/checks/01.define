@@ -1,0 +1,5 @@
+dnl ../doc/m4.texinfo:939: Origin of test
+define(`foo', `Hello world.')
+dnl @result{}
+foo
+dnl @result{}Hello world.

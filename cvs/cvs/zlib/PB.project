@@ -1,0 +1,45 @@
+{
+    FILESTABLE = {
+        Documentation = (README, ChangeLog, algorithm.doc); 
+        Headers = (
+            infblock.h, 
+            infcodes.h, 
+            inffast.h, 
+            inftrees.h, 
+            infutil.h, 
+            zconf.h, 
+            zlib.h, 
+            zutil.h, 
+            deflate.h
+        ); 
+        Makefiles = (Makefile.in, configure); 
+        Resources = (); 
+        SUBPROJECTS = (); 
+        Sources = (
+            gzio.c, 
+            adler32.c, 
+            compress.c, 
+            deflate.c, 
+            example.c, 
+            infblock.c, 
+            infcodes.c, 
+            inffast.c, 
+            inflate.c, 
+            inftrees.c, 
+            infutil.c, 
+            minigzip.c, 
+            trees.c, 
+            uncompr.c, 
+            zutil.c, 
+            crc32.c
+        ); 
+    }; 
+    LANGUAGE = English; 
+    LOCALIZABLE_FILES = {}; 
+    NEXTSTEP_BUILDTOOL = /bin/make; 
+    PDO_UNIX_BUILDTOOL = /bin/make; 
+    PROJECTNAME = zlib; 
+    PROJECTTYPE = "GNU Source"; 
+    PROJECTVERSION = 2.6; 
+    WINDOWS_BUILDTOOL = "${NEXT_ROOT}/NextDeveloper/Executables/make"; 
+}

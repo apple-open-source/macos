@@ -1,0 +1,28 @@
+{
+    ProjectTypeDescription = "A project that provides a framework for a complete kernel extension package";
+    AdditionalAttributes = {
+        BundleExtension = {ATTR_CLASS_NAME = "NSString";};
+    };
+    Allowable_SuperprojectTypes = (Aggregate, Application, Framework, Tool);
+    Allowable_SubprojectTypes = (KMod, Bundle, Tool, Library);
+    AttributesInspector = SubprojectInspector;
+    DefaultExtension = kextproj;
+    DisplayName = "Kernel Extension";
+    AliasNames = (KExtension);
+    GeneratedFiles = (Makefile);
+    INSTALLFLAGS = "-c -s -m 755";
+    InfoName = "";
+    KeyForType = BUNDLES;
+    MAKEFILEDIR = "$(MAKEFILEPATH)/pb_makefiles";
+    MAKEFILE = "kext.make";
+    PBProjectTypeSubClass = "KExtensionProjectType";
+    Default_Localizable_Keys = ();
+    Localizable_Keys = ();
+    Other_Keys = (OTHER_SOURCES);
+    Public_Keys = ();
+    Resource_Keys = (OTHER_RESOURCES);
+    SOURCEMODE = 444;
+    Source_Keys = ();
+    Subproj_Keys = (SUBPROJECTS);
+    Targets = (extension, debug, profile, install);
+}

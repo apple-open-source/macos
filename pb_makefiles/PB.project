@@ -1,0 +1,85 @@
+{
+    APPCLASS = " "; 
+    BUNDLE_EXTENSION = bundle; 
+    English_RESOURCES = {}; 
+    FILESTABLE = {
+        BUNDLES = (); 
+        CLASSES = (); 
+        English_OTHER_RESOURCES = (); 
+        FRAMEWORKS = (); 
+        H_FILES = (); 
+        LIBS = (); 
+        OTHER_LINKED = (clonehdrs.c, dotdotify.c, newer.c, readdir.c); 
+        OTHER_RESOURCES = (
+            aggregate.make, 
+            app.make, 
+            build.make, 
+            bundle.make, 
+            "commands-HPUX.make", 
+            "commands-MACOS.make", 
+            "commands-NEXTSTEP.make", 
+            "commands-SOLARIS.make", 
+            "commands-WINDOWS.make", 
+            common.make, 
+            compatibility.make, 
+            depend.make, 
+            flags.make, 
+            framework.make, 
+            implicitrules.make, 
+            install.make, 
+            installhdrs.make, 
+            installsrc.make, 
+            javapackage.make, 
+            library.make, 
+            Makefile.preamble.template, 
+            Makefile.postamble.template, 
+            palette.make, 
+            prebuild.make, 
+            recursion.make, 
+            reinstall.make, 
+            subproj.make, 
+            tool.make, 
+            versions.make, 
+            "wrapped-common.make", 
+            "platform-variables.make", 
+            "platform-variables-extra.make", 
+            convertBundle
+        ); 
+        OTHER_SOURCES = (
+            Makefile.preamble, 
+            Makefile, 
+            Makefile.postamble, 
+            BUGS.rtf, 
+            platform.make, 
+            CVSVersionInfo.txt, 
+            ConvertMakefilesReadMe.rtf, 
+            ConvertMakefilesToNewDirs.sh, 
+            SearchForOldDirs.sh, 
+            "next-cvs.make", 
+            "next-cvs_project_version.sh", 
+            "next-sgs.make"
+        ); 
+        PRECOMPILED_HEADERS = (); 
+        PROJECT_HEADERS = (); 
+        PUBLIC_HEADERS = (); 
+        SUBPROJECTS = (); 
+        TOOLS = (); 
+    }; 
+    LANGUAGE = English; 
+    LOCALIZABLE_FILES = {}; 
+    MAKEFILEDIR = .; 
+    NEXTSTEP_BUILDTOOL = /bin/gnumake; 
+    NEXTSTEP_JAVA_COMPILER = /usr/bin/javac; 
+    NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc; 
+    PDO_UNIX_BUILDTOOL = /bin/gnumake; 
+    PDO_UNIX_JAVA_COMPILER = "$(NEXTDEV_BIN)/javac"; 
+    PDO_UNIX_LINKEROPTIONS = "-nopdolib"; 
+    PDO_UNIX_OBJCPLUS_COMPILER = "$(NEXTDEV_BIN)/gcc"; 
+    PROJECTNAME = pb_makefiles; 
+    PROJECTTYPE = Bundle; 
+    PROJECTVERSION = 2.8; 
+    TARGETS = (installhdrs); 
+    WINDOWS_BUILDTOOL = $NEXT_ROOT/Developer/Executables/make; 
+    WINDOWS_JAVA_COMPILER = "$(JDKBINDIR)/javac.exe"; 
+    WINDOWS_OBJCPLUS_COMPILER = "$(DEVDIR)/gcc"; 
+}

@@ -1,0 +1,9 @@
+#
+# Default paths for subdirectories.
+#
+
+OBJROOT=../../obj/gen/$(DIR)
+SYMROOT=../../sym/gen
+DSTROOT=../../dst
+SRCROOT=/tmp
+

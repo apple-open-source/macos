@@ -1,0 +1,46 @@
+include $(CoreOSMakefiles)/ProjectBuilder/Makefile.Postamble.Common
+
+ifeq "$(BUILD_TYPE)" "normal"
+LIBS += -lcc_noc++
+else
+LIBS = 
+endif
+
+LIBS := $(foreach LIB,							\
+		  $(filter $(BSD_LIBS), $(subst -l,,$(LIBS))),		\
+		  $(NEXT_ROOT)/usr/local/lib/system/lib$(LIB).a)	\
+	$(filter-out $(addprefix -l, $(BSD_LIBS)), $(LIBS))
+
+# pb_makefiles erroneously omits $(BUILD_TYPE_SUFFIX) from the install name
+DYLIB_INSTALL_NAME = $(LIBRARY_PREFIX)$(NAME).$(VERSION_NAME)$(BUILD_TYPE_SUFFIX)$(LIBRARY_EXT)
+
+# The nonversioned suffix link is required by cc -pg, which is a bug in the compiler.
+# We can remove those when this is fixed.
+
+override DEBUG_SUFFIX = _debug
+PRODUCTS += $(foreach TYPE, DEBUG PROFILE,								\
+		$(PRODUCT_DIR)/$(LIBRARY_PREFIX)$(NAME)$($(TYPE)_SUFFIX)$(LIBRARY_EXT)			\
+		$(PRODUCT_DIR)/$(LIBRARY_PREFIX)$(NAME).$(VERSION_NAME)$($(TYPE)_SUFFIX)$(LIBRARY_EXT)	\
+	     )
+
+SystemFramework = $(NSFRAMEWORKDIR)/System.framework
+VersionDir      = /Versions/$(VERSION_NAME)
+
+compat-next:
+	$(INSTALL_DIRECTORY) "$(DSTROOT)$(SystemFramework)"
+	$(INSTALL_DIRECTORY) "$(DSTROOT)$(SystemFramework)/Versions"
+	$(INSTALL_DIRECTORY) "$(DSTROOT)$(SystemFramework)/Versions/B"
+	for suffix in "" $(DEBUG_SUFFIX) $(PROFILE_SUFFIX); do							\
+	  $(LN) -fs												\
+		$$(relpath											\
+		    "$(DSTROOT)$(SystemFramework)$(VersionDir)"							\
+ 		    "$(DSTROOT)$(INSTALLDIR)/$(LIBRARY_PREFIX)$(NAME).$(VERSION_NAME)$${suffix}$(LIBRARY_EXT)")	\
+	        "$(DSTROOT)$(SystemFramework)$(VersionDir)/System$${suffix}";					\
+	  $(LN) -fs ".$(VersionDir)/System$${suffix}" "$(DSTROOT)$(SystemFramework)";				\
+	done
+	$(LN) -fs ".$(VersionDir)/PrivateHeaders" "$(DSTROOT)$(SystemFramework)"
+
+compat-bsd:
+	for lib in $(BSD_LIBS) ; do		\
+	  $(LN) -fs libSystem.dylib "$(DSTROOT)$(INSTALLDIR)/lib$${lib}.dylib";	\
+	done

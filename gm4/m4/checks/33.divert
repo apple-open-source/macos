@@ -1,0 +1,9 @@
+dnl ../doc/m4.texinfo:2201: Origin of test
+divert(1)
+This text is diverted.
+divert
+dnl @result{}
+This text is not diverted.
+dnl @result{}This text is not diverted.
+dnl @result{}
+dnl @result{}This text is diverted.

@@ -1,0 +1,170 @@
+#!/usr/bin/perl -T
+
+##
+# Show CGI Process Environment
+##
+# This perl program shows you how to access the process environment
+#  for CGI programs on your web server.
+# It is also a useful debugging tool, as it shows you all of the
+#  available environment variables.
+##
+
+exit unless ($ENV{'REQUEST_METHOD'} eq "GET");
+
+# CGI programs must print their own HTTP response headers
+print "Content-type: text/html\n\n";
+
+# Declare the SGML application as HTML
+print "<!doctype html public \"-//W3C/DTD HTML 4.0/EN\">\n";
+
+# Begin HTML
+print "<html>\n";
+
+# A minimal document must include a header region with a title
+print "<head>\n".
+      "<title>CGI Process Environment</title>\n".
+      "</head>\n\n";
+
+# Start document body
+print "<body>\n\n";
+
+# Put values in a table for readability
+print "<table border>\n\n";
+
+# Caption the table
+print " <caption>CGI Process Environment</caption>\n\n";
+
+# Include table headers
+print " <tr>\n".
+      "  <th align=\"right\">\n".
+      "   Variable\n".
+      "  </th>\n".
+      "  <th>\n".
+      "   Value\n".
+      "  </th>\n".
+      " </tr>\n";
+
+# Print each key/value pair as two column in a row
+while (($var, $val) = each %ENV)
+{
+    # Quote special HTML characters
+    $var =~ s/&/&amp;/g; $var =~ s/</&lt;/g; $var =~ s/>/&gt;/g;
+    $val =~ s/&/&amp;/g; $var =~ s/</&lt;/g; $val =~ s/>/&gt;/g;
+
+    print "\n".
+          " <tr>\n".
+          "  <td align=\"right\">\n".
+          "   ".splitstring($var,30)."\n". # Wrap variable names at 30 chars
+          "  </td>\n".
+          "  <td>\n".
+          "   <code>".splitstring($val,80)."</code>\n". # Wrap variable values at 80 chars
+          "  </td>\n".
+          " </tr>\n";
+}
+print "\n";
+
+# End table
+print "</table>\n\n";
+
+# End document body
+print "</body>\n";
+
+# End HTML
+print "</html>\n";
+
+exit 0;
+
+##
+# The contents of variables should be split with a whitespace around every
+# 80-100 chars when the length of the content is really larger then 80-100
+# chars _and_ no whitespaces are contained.
+##
+
+sub splitstring {
+    my ($str, $col) = @_;
+
+    my $out = '';
+    while ($str ne '')
+    {
+	if (length($str) <= $col) {
+	    $out .= $str;
+	    last;
+	}
+
+	my $sep = rindex($str, " ", $col);
+	$sep = rindex($str, " ", $col) if ($sep == "\t");
+	if ($sep == -1) {
+	    my $prefix = substr($str, 0, $col);
+	    $str = substr($str, $col);
+	    $out .= "$prefix&mdash;<br>";
+	}
+	elsif ($sep == 0) {
+	    my $prefix = substr($str, 0, 1);
+	    $str = substr($str, 1);
+	    $out .= "$prefix";
+	}
+	else {
+	    my $prefix = substr($str, 0, $sep);
+	    $str = substr($str, $sep);
+	    $out .= "$prefix<br>";
+	}
+    }
+    return $out;
+}
+
+__END__
+
+## Copyright (c) 1998 The Apache Group.  All rights reserved.
+##
+## Redistribution and use in source and binary forms, with or without
+## modification, are permitted provided that the following conditions
+## are met:
+##
+## 1. Redistributions of source code must retain the above copyright
+##    notice, this list of conditions and the following disclaimer. 
+##
+## 2. Redistributions in binary form must reproduce the above copyright
+##    notice, this list of conditions and the following disclaimer in
+##    the documentation and/or other materials provided with the
+##    distribution.
+##
+## 3. All advertising materials mentioning features or use of this
+##    software must display the following acknowledgment:
+##    "This product includes software developed by the Apache Group
+##    for use in the Apache HTTP server project (http://www.apache.org/)."
+##
+## 4. The names "Apache Server" and "Apache Group" must not be used to
+##    endorse or promote products derived from this software without
+##    prior written permission. For written permission, please contact
+##    apache@apache.org.
+##
+## 5. Products derived from this software may not be called "Apache"
+##    nor may "Apache" appear in their names without prior written
+##    permission of the Apache Group.
+##
+## 6. Redistributions of any form whatsoever must retain the following
+##    acknowledgment:
+##    "This product includes software developed by the Apache Group
+##    for use in the Apache HTTP server project (http://www.apache.org/)."
+##
+## THIS SOFTWARE IS PROVIDED BY THE APACHE GROUP ``AS IS'' AND ANY
+## EXPRESSED OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+## IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+## PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE APACHE GROUP OR
+## ITS CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+## SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+## NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+## LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+## HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+## STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+## ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+## OF THE POSSIBILITY OF SUCH DAMAGE.
+## ====================================================================
+##
+## This software consists of voluntary contributions made by many
+## individuals on behalf of the Apache Group and was originally based
+## on public domain software written at the National Center for
+## Supercomputing Applications, University of Illinois, Urbana-Champaign.
+## For more information on the Apache Group and the Apache HTTP server
+## project, please see <http://www.apache.org/>.
+##

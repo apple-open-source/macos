@@ -1,0 +1,169 @@
+#
+# Makefile for Doc subdirectory
+#
+# Copyright (c) 1995 Richard Coleman
+# All rights reserved.
+#
+# Permission is hereby granted, without written agreement and without
+# license or royalty fees, to use, copy, modify, and distribute this
+# software and to distribute modified versions of this software for any
+# purpose, provided that the above copyright notice and the following
+# two paragraphs appear in all copies of this software.
+#
+# In no event shall Richard Coleman or the Zsh Development Group be liable
+# to any party for direct, indirect, special, incidental, or consequential
+# damages arising out of the use of this software and its documentation,
+# even if Richard Coleman and the Zsh Development Group have been advised of
+# the possibility of such damage.
+#
+# Richard Coleman and the Zsh Development Group specifically disclaim any
+# warranties, including, but not limited to, the implied warranties of
+# merchantability and fitness for a particular purpose.  The software
+# provided hereunder is on an "as is" basis, and Richard Coleman and the
+# Zsh Development Group have no obligation to provide maintenance,
+# support, updates, enhancements, or modifications.
+#
+
+SHELL = /bin/sh
+
+# Program to format Texinfo source into Info files.
+MAKEINFO = makeinfo
+# Program to format Texinfo source into DVI files.
+TEXI2DVI = texi2dvi
+# Program to convert DVI files to PostScript
+DVIPS = dvips -D 300
+# Program to convert texinfo files to html
+TEXI2HTML = texi2html
+
+top_srcdir = @top_srcdir@
+srcdir     = @srcdir@
+VPATH      = @srcdir@
+
+prefix      = @prefix@
+infodir     = @infodir@
+mandir      = @mandir@
+zshenv      = @zshenv@
+zshrc       = @zshrc@
+zprofile    = @zprofile@
+zlogin      = @zlogin@
+zlogout     = @zlogout@
+manext      = 1
+
+INSTALL      = @INSTALL@
+INSTALL_DATA = @INSTALL_DATA@
+
+SED = sed
+
+.SUFFIXES:
+.SUFFIXES: .man .$(manext)
+
+# we just copy the man page to its new name
+# unless there is a rule below to edit it.
+.man.$(manext):
+	sed -e 's,%zshenv%,$(zshenv),g' \
+	    -e 's,%zshrc%,$(zshrc),g' \
+	    -e 's,%zprofile%,$(zprofile),g' \
+	    -e 's,%zlogin%,$(zlogin),g' \
+	    -e 's,%zlogout%,$(zlogout),g' \
+	    -e 's,%mandir%,man$(manext),g' \
+	    -e 's,%manext%,$(manext),g' $< > $@
+
+# man pages to install
+MAN = zsh.$(manext) zshbuiltins.$(manext) zshcompctl.$(manext) \
+zshexpn.$(manext) zshmisc.$(manext) zshoptions.$(manext) \
+zshparam.$(manext) zshzle.$(manext) zshall.$(manext)
+
+# source for man pages
+DIST_MAN = zsh.man zshbuiltins.man zshcompctl.man zshexpn.man \
+zshmisc.man zshoptions.man zshparam.man zshzle.man zshall.man \
+ansi2knr.man
+
+# auxiliary files
+AUX = Makefile.in zsh.texi intro.ms
+
+# all files in this directory included in the distribution
+DIST = $(DIST_MAN) $(AUX)
+
+# ========== DEPENDENCIES FOR BUILDING ==========
+
+all: $(MAN) #zsh.info
+
+everything: all zsh_us.ps zsh_a4.ps zsh_toc.html
+
+zsh.info: zsh.texi
+	@$(MAKEINFO) -I$(srcdir) $(srcdir)/zsh.texi || { \
+	echo Info documentation cannot be compiled without $(MAKEINFO). ; \
+	echo You can find precompiled info files in zsh-doc.tar.gz. ; }
+
+zsh.dvi: zsh.texi
+	$(TEXI2DVI) $(srcdir)/zsh.texi
+
+zsh_us.ps: zsh.dvi
+	$(DVIPS) -t letter -o $@ zsh.dvi
+
+zsh_a4.ps: zsh.dvi
+	$(DVIPS) -t a4 -o $@ zsh.dvi
+
+zsh_toc.html: zsh.texi
+	$(TEXI2HTML) -expandinfo -split_chapter $(srcdir)/zsh.texi
+
+# ========== DEPENDENCIES FOR INSTALLING ==========
+
+# install all the documentation
+install: install.man #install.info
+
+# uninstall all the documentation
+uninstall: uninstall.man #uninstall.info
+
+# install man pages, creating install directory if necessary
+install.man: $(MAN)
+	$(top_srcdir)/mkinstalldirs $(mandir)/man$(manext)
+	for file in $(MAN); do \
+	  $(INSTALL_DATA) $$file $(mandir)/man$(manext) ; \
+	done
+
+# install info pages, creating install directory if necessary
+install.info: zsh.info
+	$(top_srcdir)/mkinstalldirs $(infodir)
+	for file in zsh.info zsh.info-[1-9]*; do \
+	  [ -f "$$file" ] && $(INSTALL_DATA) $$file $(infodir) ; \
+	done
+
+# uninstall man pages
+uninstall.man:
+	for file in $(MAN); do \
+	  rm -f $(mandir)/man$(manext)/$$file; \
+	done
+
+# uninstall info pages
+uninstall.info:
+	rm -f $(infodir)/zsh.info $(infodir)/zsh.info-[1-9]*
+
+# ========== DEPENDENCIES FOR CLEANUP ==========
+
+mostlyclean:
+	rm -f *~
+
+clean: mostlyclean
+	rm -f *.$(manext)
+
+distclean: clean
+	rm -f Makefile
+
+realclean: distclean
+
+superclean: realclean
+
+# ========== DEPENDENCIES FOR MAINTENANCE ==========
+
+subdir = Doc
+
+Makefile: Makefile.in ../config.status
+	cd .. && CONFIG_FILES=$(subdir)/$@ CONFIG_HEADERS= ./config.status
+
+distdir = ../`cat ../distname`/$(subdir)
+dist: $(DIST)
+	@echo "Copying distribution files in $(subdir)"
+	for file in $(DIST); do    \
+	  cp -p $$file $(distdir); \
+	done

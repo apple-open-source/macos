@@ -1,0 +1,85 @@
+{\rtf1\mac\ansicpg10000{\fonttbl\f0\fswiss\fcharset77 Helvetica;\f1\fmodern\fcharset77 Courier;}
+{\colortbl;\red255\green255\blue255;}
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\ql\qnatural
+
+\f0\b\fs24 \cf0 Logistics of Startup Items:\
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\ql\qnatural
+
+\b0 \cf0 \
+  Startup items are directory bundles which contain, at a minimum, an excecutable file and a property list text file.  For a startup item named "Foo", the bundle will be a directory named "Foo" containing (at a minimum) an executable "Foo" and a plist file "StartupParameters.plist".\
+\
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\ql\qnatural
+
+\b \cf0 Item Launch Ordering:\
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\ql\qnatural
+
+\b0 \cf0 \
+  The plist file contains parameters which tell SystemStarter some information about the executable, such as what services is provides, which services are prerequisites to its use, and so on. The plist contains the following attributes:\
+\
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\ql\qnatural
+
+\f1 \cf0 	\{\
+	  Description     = "blah blah";\
+	  Provides        = ("service", ...);\
+	  Requires        = ("service", ...);\
+	  Uses            = ("service", ...);\
+	  OrderPreference = "time";\
+	  Messages =\
+	  \{\
+	    start = "Starting blah.";\
+	    stop  = "Stoping blah.";\
+	  \}\
+	\}\
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\ql\qnatural
+
+\f0 \cf0 \
+  Note that while the above example is writting in the old NeXT-style property list format for compactness, the new XML property lists are also handled.  You may prefer using PropertyListEditor.app to editing the property list files manually.\
+\
+  Provides is an array that declares the services are provided by this bundle.  A typical bundle provides a single service.  Two bundles may not provide the same service; should multiple bundles which provide the same service be installed on a system, the first one encountered will be run, while the others will be disabled.  It is therefore undesireable to provide multiple services in a single bundle unless they are codependant, as the overriding of one will effectively override all services in a given bundle (see also "Search Paths for Startup Items").\
+\
+  Requires and Uses comprise the primary method for sorting bundles into the startup order.  Requires is an array of services, provided by other bundles, that must be successfully started before the bundle can be run.  If no such service is provided by any other bundle, the requiring bundle will not run.  Uses is similar to Requires in that the bundle will attempt wait for the listed services before running, but it will still launch even if no such service can be provided by another bundle.\
+\
+  OrderPreference provides a hint as to the ordering used when a set of bundles are all ready to load.  Bundles which have their prerequisites met (that is, all Requires services are launched and all Uses services are either launched or deemed unavailable) are prioritized in this order, based on OrderPreference:\
+\
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\ql\qnatural
+
+\f1 \cf0 	First\
+	Early\
+	None (default)\
+	Late\
+	Last\
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\ql\qnatural
+
+\f0 \cf0 \
+  Note that 
+\i other than the above ordering rules, there are no guarantees about the startup order of items
+\i0 .  That is, if multiple items are prioritized equally given the above contraints, there is no rule for while starts first.  In particular, we may be starting multiple items in parallel at some point, and this will change the ordering behaviour for equal-priority items.  You must use the above mechanism to ensure the correct dependancies have been met.\
+\
+  Description is a general-use string describing the item, for use by Admin tools.  The Messages property provides strings which are displayed by SystemStarter during startup and shutdown.\
+\
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\ql\qnatural
+
+\b \cf0 Search Paths for Startup Items:\
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\ql\qnatural
+
+\b0 \cf0 \
+  Startup items may be placed in the "Library" subdirectory of the primary file domains ("System", "Local", and "Network").  The search order is defined by routines defined in NSSystemDirectories.h: Local, then Network, then System.  However, because the Network mounts have not been established at the beginning of system startup, bundles in /Network is currently not searched; this may be fixed later such that /Network is searched when ti becomes available.  This search order does not define the startup order, but it does effect the handling of conflicts between bundles which provide the same services.\
+\
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\ql\qnatural
+
+\b \cf0 Executables and Bundles:\
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\ql\qnatural
+
+\b0 \cf0 \
+  Presently, SystemStarter looks for an executable file with the name of the bundle (eg. Foo/Foo), and runs that file with the single argument "start" during startup.  The argument "stop" is reserved for shutdown time.\
+\
+  The plan is to also allow for loadable dyld bundles which get loaded, run, and unloaded by SystemStarter.  This will provide some opportunity for SystemStarter to present a UI during startup during special events, such as failure conditions (eg. NetInfo isn't available), and user configuration panels (eg. Location Manager).\
+\
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\ql\qnatural
+
+\b \cf0 Shutdown:\
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\ql\qnatural
+
+\b0 \cf0 \
+  The intent is to add a shutdown sequence in the future so that the computer can be brought down more cleanly.  The mechanism for this is still in the design stage.\
+}

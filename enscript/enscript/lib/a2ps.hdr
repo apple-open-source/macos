@@ -1,0 +1,79 @@
+% 
+% a2ps styled header.
+% Copyright (c) 1996 Markku Rossi.
+% Author: Markku Rossi <mtr@iki.fi>
+%
+
+%
+% This file is part of GNU enscript.
+% 
+% This program is free software; you can redistribute it and/or modify
+% it under the terms of the GNU General Public License as published by
+% the Free Software Foundation; either version 2, or (at your option)
+% any later version.
+%
+% This program is distributed in the hope that it will be useful,
+% but WITHOUT ANY WARRANTY; without even the implied warranty of
+% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+% GNU General Public License for more details.
+%
+% You should have received a copy of the GNU General Public License
+% along with this program; see the file COPYING.  If not, write to
+% the Free Software Foundation, 59 Temple Place - Suite 330,
+% Boston, MA 02111-1307, USA.
+%
+
+% -- code follows this line --
+%Format: userstr	Printed by %n from %M
+%Format: datestr	%D{%b %d %Y %H:%M}
+%Format: upperpagestr	Page $V$%
+%Format: lowerpagestr	$V$%
+
+%HeaderHeight: 38
+%FooterHeight: 15
+
+% Fonts.
+/Helvetica /helvetica-encoded MF
+/SmallFont /helvetica-encoded findfont 12 scalefont def
+
+/Helvetica-Bold /helvetica-bold-encoded MF
+/BigFont   /helvetica-bold-encoded findfont 15 scalefont def
+
+/a2ps_marg 10 def
+
+/do_header {	% print a2ps header
+  gsave
+    % lowerpagestr
+    SmallFont setfont
+    d_footer_x d_footer_w add lowerpagestr stringwidth pop sub
+    a2ps_marg sub
+    d_footer_y moveto lowerpagestr show
+
+    % gray box to header
+    .95 setgray
+    d_header_x d_header_y d_header_w 24 Box fill
+    0 setgray
+
+    % borders.
+    .5 setlinewidth
+    d_header_x d_header_y d_header_w 24 Box stroke
+    d_footer_x d_footer_y d_footer_h add d_output_w d_output_h Box stroke
+
+    % userstr
+    d_header_x d_header_w add userstr stringwidth pop sub a2ps_marg sub 
+    d_header_y 29 add moveto userstr show
+
+    % datestr
+    d_header_x a2ps_marg add d_header_y 6 add moveto datestr show
+
+    % upperpagestr
+    d_header_x d_header_w add upperpagestr stringwidth pop sub
+    a2ps_marg sub 
+    d_header_y 6 add moveto upperpagestr show
+
+    % filename
+    BigFont setfont
+    d_header_x d_header_w 2 div add ftail stringwidth pop 2 div sub 
+    d_header_y 6 add moveto ftail show
+  grestore
+} def

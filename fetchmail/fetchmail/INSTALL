@@ -1,0 +1,158 @@
+		INSTALL Instructions for fetchmail
+
+If you have installed binaries (e.g. from an RPM) you can skip to step 5.
+
+If you are a Linux system packager, be aware that the build process generates
+an RPM spec file at fetchmail.spec, and you can "make rpm" to generate an
+RPM and SRPM.
+
+The Frequently Asked Questions list, included as the file FAQ in this
+distributions, answers the most common questions about configuring and 
+running fetchmail.
+
+1. USEFUL THINGS TO INSTALL FIRST
+
+If you want support for RFC1938-compliant one-time passwords, you'll
+need to install Craig Metz's OPIE libraries first and *make sure
+they're on the normal library path* where configure will find them.  Then
+configure with --enable-OPIE, and fetchmail build process will detect
+them and compile appropriately.
+
+Note: there is no point in doing this unless your server is
+OTP-enabled.  To test this, telnet to the server port and give it
+a valid USER id.  If the OK response includes the string "otp-",
+you should install OPIE.  You need version 2.32 or better.
+
+The OPIE library sources are available at ftp://ftp.inner.net/pub/opie.
+You can also find OPIE and IPV6-capable servers there.
+
+Building in IPv6 support or the IPsec patches REQUIRES that Craig
+Metz's inet6-apps kit be installed; the IPsec patches require that the
+kit be built with network security API support enabled. The kit can be
+gotten from ftp.ipv6.inner.net:/pub/ipv6 (via IPv6) or ftp.inner.net
+/pub/ipv6 (via IPv4).
+
+2. CONFIGURE
+
+Installing fetchmail is easy.  From within this directory, type:
+
+	./configure
+
+The autoconfiguration script will spend a bit of time figuring out the
+specifics of your system.  If you want to specify a particular compiler
+(e.g. you have gcc but want to compile with cc), set the environment 
+variable CC before you run configure.  
+
+The configure script accepts certain standard configuration options.
+These include --prefix, --exec-prefix, --bindir, --infodir, --mandir,
+and --srcdir.  Do `configure --help' for more.
+
+POP2 support is no longer compiled in by default, as POP2 is way obsolete
+and there don't seem to be any live servers for it anymore.  You can
+configure it back in if you want with `configure --enable-POP2', but
+leaving it out cuts the executable's size slightly.
+
+Support for CompuServe's RPA authentication method (rather similar to
+APOP) is available but also not included in the standard build.  You
+can compile it in with `configure --enable-RPA'.
+
+Support for authentication using RFC1731 GSSAPI is available
+but also not included by default.  You can compile it in with
+`configure --with-gssapi', which looks for GSSAPI support in standard
+locations (/usr, /usr/local).  If you set --with-GSSAPI=DIR
+you can direct the build to look for GSSAPI support under DIR.
+
+If you want to build for debugging, 
+
+	CFLAGS=-g LDFLAGS=" " ./configure
+
+will do that.
+
+To enable multilingual support using GNU gettext, 
+
+	configure --enable-nls
+
+Advanced configuration:
+
+Specifying --with-kerberos=DIR or --with-kerberos5=DIR will tell the
+fetchmail build process to look in DIR for Kerberos support.
+Configure normally looks in /usr/kerberos and /usr/athena; if you
+specify this option with an argument it will look in DIR first.
+
+Unfortunately, there doesn't seem to be good standardization of where
+Kerberos lives.  If your configuration doesn't match one of the four
+that fetchmail's configure.in knows about, you may find you have to
+hand-hack the Makefile a bit.
+
+You may also want to hand-hack the Makefile if you're writing a custom
+or bleeding-edge resolver library.  In that case you will probably
+want to add -lresolv or whatever to the definition of LOADLIBS.
+
+It is also possible to explicitly condition out the support for
+POP3, IMAP, and ETRN (with configure arguments of --disable-POP3,
+--disable-IMAP, and --disable-ETRN respectively).  However, none
+of these wins back more that 3 to 4K on an Intel box.
+
+If you're running QNX, edit the distributed Makefile directly.  The
+QNX values for various macros are there but commented out; all you
+have to do is uncomment them.
+
+3. MAKE 
+
+You may find you need flex at version 2.5.3 or greater to build
+fetchmail.  The stock lex distributed with some versions of Linux does
+not work -- it yields a parser which core-dumps on syntax errors.  You
+can get flex at the GNU ftp site, ftp://prep.ai.mit.edu/pub/gnu.
+
+Run
+
+	make
+
+This should compile fetchmail for your system.  If fetchmail fails to build
+properly, see the FAQ section B on build-time problems.  Note: parallelized
+make (e.g. make -j 4) fails due to some weirdness in the yacc productions.
+
+4. INSTALL
+
+Lastly, become root and run
+
+	make install
+
+This will install fetchmail.  By default, fetchmail will be installed
+in /usr/local/bin, with the man page in /usr/local/man/man1.  You can
+use the configure options --bindir and --mandir to change these.
+
+NOTE: If you are using an MTA other than sendmail (such as qmail,
+exim, or smail), see the FAQ (section T) for discussion of any special
+configuration steps that may be necessary.
+
+5. SET UP A RUN CONTROL FILE
+
+See the man page and the file sample.rcfile for a description of how to
+configure your individual preferences.
+
+If you're upgrading from popclient, see question F4 in the FAQ file.
+
+6. TEST
+
+I strongly recommend that your first fetchmail run use the -v and -k
+options, in case there is something not quite right with your server,
+your local delivery configuration or your port 25 listener.  Also,
+beware of aliases that direct your local mail back to the server host!
+
+This software is known to work with the qpop/popper series of freeware
+POP3 servers; also with the IMAP2bis and IMAP4 servers that are
+distributed with Pine from the University of Washington; also with the
+Cyrus IMAP server from CMU.  This covers all the servers normally
+hosted on Linux and *BSD systems.  It also works with Microsoft Exchange,
+despite the fact that Microsoft Exchange is extremely broken (returns
+incorrect message lengths in LIST responses).
+
+7. REPORTING BUGS
+
+You should read the FAQ file question G3 before reporting a bug.
+
+8. USE IT
+
+Once you've verified your configuration, you can start fetchmail to
+run in background and forget about it.  Enjoy!

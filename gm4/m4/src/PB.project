@@ -1,0 +1,32 @@
+{
+    FILESTABLE = {
+        Documentation = (ansi2knr.1); 
+        Headers = (m4.h); 
+        Makefiles = (Makefile.in); 
+        Resources = (); 
+        SUBPROJECTS = (); 
+        Sources = (
+            symtab.c, 
+            stackovf.c, 
+            output.c, 
+            macro.c, 
+            path.c, 
+            freeze.c, 
+            format.c, 
+            m4.c, 
+            input.c, 
+            builtin.c, 
+            ansi2knr.c, 
+            eval.c, 
+            debug.c
+        ); 
+    }; 
+    LANGUAGE = English; 
+    LOCALIZABLE_FILES = {}; 
+    NEXTSTEP_BUILDTOOL = /bin/make; 
+    PDO_UNIX_BUILDTOOL = /bin/make; 
+    PROJECTNAME = src; 
+    PROJECTTYPE = "GNU Source"; 
+    PROJECTVERSION = 2.6; 
+    WINDOWS_BUILDTOOL = "${NEXT_ROOT}/NextDeveloper/Executables/make"; 
+}

@@ -1,0 +1,5 @@
+dnl ../doc/m4.texinfo:2512: Origin of test
+substr(`gnus, gnats, and armadillos', 6)
+dnl @result{}gnats, and armadillos
+substr(`gnus, gnats, and armadillos', 6, 5)
+dnl @result{}gnats

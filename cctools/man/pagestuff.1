@@ -1,0 +1,18 @@
+.TH PAGESTUFF 1 "October 23, 1997" "Apple Computer, Inc."
+.SH NAME
+pagestuff \- describe the stuff on a particlar page of a Mach-O file
+.SH SYNOPSIS
+pagestuff file page_number ...
+.SH DESCRIPTION
+Pagestuff prints out a description of what stuff is on a page in a Mach-O file.
+This includes the symbols that are mapped to a particular logical page of the
+file.  The file must be a Mach-O format file.  This program is useful in
+conjunction with
+.IR filemem (1)
+to determine what stuff, which functions and what static data structures are
+resident in memory at a particular time.
+Page_number can be
+.B \-a
+which indicates all pages.
+.SH "SEE ALSO"
+filemem(1), Mach-O(5), 2.0 Link Optimization release notes

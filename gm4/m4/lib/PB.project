@@ -1,0 +1,26 @@
+{
+    FILESTABLE = {
+        Documentation = (); 
+        Headers = (regex.h, obstack.h, getopt.h); 
+        Makefiles = (Makefile.in); 
+        Resources = (); 
+        SUBPROJECTS = (); 
+        Sources = (
+            xstrdup.c, 
+            xmalloc.c, 
+            strtol.c, 
+            regex.c, 
+            obstack.c, 
+            getopt1.c, 
+            getopt.c, 
+            error.c, 
+            alloca.c
+        ); 
+    }; 
+    NEXTSTEP_BUILDTOOL = /bin/make; 
+    PDO_UNIX_BUILDTOOL = /bin/make; 
+    PROJECTNAME = lib; 
+    PROJECTTYPE = "GNU Source"; 
+    PROJECTVERSION = 2.6; 
+    WINDOWS_BUILDTOOL = "${NEXT_ROOT}/NextDeveloper/Executables/make"; 
+}

@@ -1,0 +1,39 @@
+.TH IFTAB 5 "September 9, 1994" "Apple Computer, Inc."
+.SH NAME
+iftab \- network interface configuration file
+.SH SYNOPSIS
+.B \/etc\/ftab
+.SH DESCRIPTION
+.I /etc/rc.net 
+reads 
+.I \/etc\/iftab
+to determine what configuration
+commands are to be applied to the machine's network interfaces.
+Each line in 
+.I \/etc\/iftab
+is a rule that begins with an interface pattern, followed
+by a protocol/address family and then by a set of parameters passed either to \fI\/etc\/ifconfig\fR,
+or to the command line for execution.  Each interface present on the machine
+will be matched against the interface patterns in this file and
+the first one found for each unique protocol/address familiy will
+be executed.  
+.PP
+The interface name can use asterisks (*) to match any
+substring.  The protocol\/address family can be any string.
+The rest of the line will be passed to \fI\/etc\/ifconfig\fR unless it is
+preceeded by an exclamation point (!). An excalmation point indicates that
+the rest of line will be executed as a command, and the variable \fI$if\fR
+refers to the interface name to be configured.
+.PP
+An interface name of ``-1-'' will match the primary
+interface. 
+.PP
+An argument string of ``-HOSTCONFIG-'' will redirect
+.I /etc/rc.net 
+to get the network configuration from the \fI/etc/hostconfig\fR file.
+.PP
+To disable an interface, enter a line with the name of the 
+interface and an action of ``!false'' (or any command that is a no-op).
+.SH "SEE ALSO"
+hostconfig(8), ifconfig(8C), rc(8)
+

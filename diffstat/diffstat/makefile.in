@@ -1,0 +1,122 @@
+# $Id: makefile.in,v 1.2 1999/12/08 04:05:30 wsanchez Exp $
+# Makefile-template for 'diffstat'
+
+THIS		= diffstat
+
+#### Start of system configuration section. ####
+
+srcdir		= @srcdir@
+VPATH		= @srcdir@
+
+CC		= @CC@
+LINK		= $(CC)
+INSTALL		= @INSTALL@
+INSTALL_PROGRAM	= @INSTALL_PROGRAM@
+INSTALL_DATA	= @INSTALL_DATA@
+
+LIBS		= @LIBS@
+CFLAGS		= @CFLAGS@
+LDFLAGS		=
+
+install_prefix	=
+prefix		= @prefix@
+exec_prefix	= @exec_prefix@
+
+bindir		= $(exec_prefix)/bin
+libdir		= $(exec_prefix)/lib
+mandir		= $(prefix)/man
+man1dir		= $(mandir)/man1
+manext		= 1
+
+#### End of system configuration section. ####
+
+SHELL		= /bin/sh
+
+CPPFLAGS	= -I. -I$(srcdir) -DHAVE_CONFIG_H
+
+LDFLAGS		= 
+
+SRC = CHANGES patchlev.h \
+	README $(THIS).c $(THIS).1 \
+	config_h.in install.sh mkdirs.sh makefile.in configure.in
+
+OBJ = $(THIS).o
+
+DISTFILES = configure $(SRC)
+
+all:	$(THIS)
+
+.c.o:
+	$(CC) -c $(CPPFLAGS) $(CFLAGS) $<
+
+$(THIS): $(OBJ)
+	-mv $(THIS) o$(THIS)
+	$(LINK) $(LDFLAGS) -o $(THIS) $(OBJ) $(LIBS)
+
+install: all installdirs
+	$(INSTALL_PROGRAM) $(THIS) $(install_prefix)$(bindir)/$(THIS)
+	$(INSTALL_DATA) $(srcdir)/$(THIS).1 $(install_prefix)$(man1dir)/$(THIS).$(manext)
+
+install-strip:
+	$(MAKE) install INSTALL_PROGRAM='$(INSTALL_PROGRAM) -s'
+
+installdirs:
+	$(SHELL) ${srcdir}/mkdirs.sh $(bindir) $(man1dir)
+
+uninstall:
+	rm -f $(bindir)/$(THIS) $(install_prefix)$(man1dir)/$(THIS).$(manext)
+
+makefile: makefile.in config.status
+	./config.status
+
+config.h: configure
+	./configure
+
+config.status: configure
+	./config.status --recheck
+
+mostlyclean:
+	rm -f *.o o$(THIS) core *~ *.out *.BAK *.atac
+
+clean: mostlyclean
+	rm -f $(THIS)
+
+distclean: clean
+	rm -f makefile config.log config.cache config.status config.h
+
+realclean: distclean
+	rm -f tags TAGS # don't remove configure!
+
+check:
+	cd testing && run_test.sh
+
+lint:
+	lint $(THIS).c
+
+tags:
+	ctags $(THIS).c $(HDRS)
+
+TAGS:
+	etags $(THIS).c $(HDRS)
+
+dist:	makefile $(DISTFILES)
+	echo $(THIS)-`sed \
+		-e '/"$$[A-Za-z]*: $(THIS)\.c.*$$"/!d' \
+		-e 's/^.*$(THIS)[^ ]*[ ]*//' \
+		-e 's/[ ].*$$//' \
+		-e q $(srcdir)/$(THIS).c` > .fname
+	rm -rf `cat .fname`
+	mkdir `cat .fname`
+	for file in $(DISTFILES); do \
+	  ln $(srcdir)/$$file `cat .fname` \
+	    || { echo copying $$file instead; cp -p $$file `cat .fname`; }; \
+	done
+	tar -cf - `cat .fname` | gzip >`cat .fname`.tgz
+	rm -rf `cat .fname` .fname
+
+shar:	$(DISTFILES)
+	shar -a -m -M -L50 -n$(THIS) -oPart $(DISTFILES)
+
+$(THIS).o:	config.h
+
+$(SRC):

@@ -1,0 +1,930 @@
+This is Info file ../info/viper, produced by Makeinfo version 1.68 from
+the input file viper.texi.
+
+INFO-DIR-SECTION Editors
+START-INFO-DIR-ENTRY
+* VIPER: (viper).       The newest Emacs VI-emulation mode.
+                          (also, A VI Plan for Emacs Rescue
+                           or the VI PERil.)
+END-INFO-DIR-ENTRY
+
+Distribution
+************
+
+Copyright (C) 1995, 1996, 1997 Free Software Foundation, Inc.
+
+   Permission is granted to make and distribute verbatim copies of this
+manual provided the copyright notice and this permission notice are
+preserved on all copies.
+
+   Permission is granted to copy and distribute modified versions of
+this manual under the conditions for verbatim copying, provided that
+the entire resulting derived work is distributed under the terms of a
+permission notice identical to this one.
+
+   Permission is granted to copy and distribute translations of this
+manual into another language, under the same conditions as for modified
+versions.
+
+
+File: viper,  Node: New Commands,  Next: Useful Packages,  Prev: Movement and Markers,  Up: Improvements over Vi
+
+New Commands
+============
+
+   These commands have no Vi analogs.
+
+`C-x, C-c'
+     These two keys invoke many important Emacs functions.  For
+     example, if you hit `C-x' followed by `2', then the current window
+     will be split into 2.  Except for novice users, `C-c' is also set
+     to execute an Emacs command from the current major mode.  <ESC>
+     will do the same, if you configure <ESC> as Meta by setting
+     `viper-no-multiple-ESC' to nil in `.viper'.  *Note
+     Customization::.  `C-\' in Insert, Replace, or Vi states will make
+     Emacs think `Meta' has been hit.
+
+`\'
+     Escape to Emacs to execute a single Emacs command.  For instance,
+     `\ <ESC>' will act like a Meta key.
+
+`Q'
+     `Q' is for query replace.  By default, each string to be replaced
+     is treated as a regular expression.  You can use `(setq
+     viper-re-query-replace nil)' in your `.emacs' file to turn this
+     off.  (For normal searches, `:se nomagic' will work.  Note that
+     `:se nomagic' turns Regexps off completely, unlike Vi).
+
+`v'
+`V'
+`C-v'
+     These keys are used to visit files.  `v' will switch to a buffer
+     visiting file whose name can be entered in the Minibuffer.  `V' is
+     similar, but will use a window different from the current window.
+     `C-v' is like `V', except that a new frame (X window) will be used
+     instead of a new Emacs window.
+
+`#'
+     If followed by a certain character CH, it becomes an operator whose
+     argument is the region determined by the motion command that
+     follows (indicated as <move>).  Currently, CH can be one of `c',
+     `C', `g', `q', and `s'.  For instance, `#qr' will prompt you for a
+     string and then prepend this string to each line in the buffer.
+
+`# c'
+     Change upper-case characters in the region to lower-case
+     (`downcase-region').  Emacs command `M-l' does the same for words.
+
+`# C'
+     Change lower-case characters in the region to upper-case.  For
+     instance, `# C 3 w' will capitalize 3 words from the current point
+     (`upcase-region').  Emacs command `M-u' does the same for words.
+
+`# g'
+     Execute last keyboard macro for each line in the region
+     (`viper-global-execute').
+
+`# q'
+     Insert specified string at the beginning of each line in the region
+     (`viper-quote-region').  The default string is composed of the
+     comment character(s) appropriate for the current major mode.
+
+`# s'
+     Check spelling of words in the region (`spell-region').  The
+     function used for spelling is determined from the variable
+     `viper-spell-function'.
+
+`*'
+     Call last keyboard macro.
+
+`m .'
+     Set mark at point and push old mark off the ring
+
+`m<'
+
+`m>'
+     Set mark at beginning and end of buffer, respectively.
+
+`m,'
+     Jump to mark and pop mark off the ring.  *Note Mark: (emacs)Mark,
+     for more info.
+
+`] register'
+     View contents of register
+
+`[ textmarker'
+     View filename and position of textmarker
+
+`@#'
+
+`@register'
+
+`@!'
+     Begin/end keyboard macro.  @register has a different meaning when
+     used after a `@#'.  *Note Macros and Registers::, for details
+
+`[]'
+     Go to end of heading.
+
+`g <*movement command*>'
+     Search buffer for text delimited by movement command.  The
+     canonical example is `gw' to search for the word under the cursor.
+     *Note Improved Search::, for details.
+
+`C-g and C-]'
+     Quit and Abort Recursive edit.  These may be necessary on occasion.
+     *Note Vi State::, for a reason.
+
+`C-c g'
+     Hitting `C-c' followed by `g' will display the information on the
+     current buffer.  This is the same as hitting `C-g' in Vi, but, as
+     explained above, `C-g' is needed for other purposes in Emacs.
+
+`C-c /'
+     Without a prefix argument, this command toggles
+     case-sensitive/case-insensitive search modes and plain
+     vanilla/regular expression search.  With the prefix argument 1,
+     i.e., `1 C-c /', this toggles case-sensitivity; with the prefix
+     argument 2, toggles plain vanilla search and search using regular
+     expressions.  *Note Viper Specials::, for alternative ways to
+     invoke this function.
+
+`M-p and M-n'
+     In the Minibuffer, these commands navigate through the minibuffer
+     histories, such as the history of search strings, Ex commands, etc.
+
+`C-c M-p and C-c M-n'
+     In Insert or Replace state, these commands let  the user peruse
+     the history of insertion strings used in previous insert or replace
+     commands.  Try to hit `C-c M-p' or `C-c M-n' repeatedly and see
+     what happens.  *Note Viper Specials::, for more.
+
+     In Vi state, these commands let the user peruse the history of
+     Vi-style destructive commands, such as `dw', `J', `a', etc.  By
+     repeatedly typing `C-c M-p' or `C-c M-n' you will cycle Viper
+     through the recent history of Vi commands, displaying the commands
+     one by one.  Once an appropriate command is found, it can be
+     executed by typing ``.''.
+
+     Since typing `C-c M-p' is tedious, it is more convenient to bind an
+     appropriate function to a function key on the keyboard and use
+     that key.  *Note Viper Specials::, for details.
+
+`Ex commands'
+     The commands `:args', `:next', `:pre' behave differently.  `:pwd'
+     exists to get current directory.  The commands `:b' and `:B'
+     switch buffers around.  *Note File and Buffer Handling::, for
+     details.  There are also the new commands `:RelatedFile' and
+     `PreviousRelatedFile' (which abbreviate to `R' and `P',
+     respectively.  *Note Viper Specials::, for details.
+
+   Apart from the new commands, many old commands have been enhanced.
+Most notably, Vi style macros are much more powerful in Viper than in
+Vi.  *Note Vi Macros::, for details.
+
+
+File: viper,  Node: Useful Packages,  Prev: New Commands,  Up: Improvements over Vi
+
+Useful Packages
+===============
+
+   Some Emacs packages are mentioned here as an aid to the new Viper
+user, to indicate what Viper is capable of.  A vast number comes with
+the standard Emacs distribution, and many more exist on the net and on
+the archives.
+
+   This manual also mentions some Emacs features a new user should know
+about.  The details of these are found in the GNU Emacs Manual.
+
+   The features first.  For details, look up the Emacs Manual.
+
+`Make'
+     Makes and Compiles can be done from the editor.  Error messages
+     will be parsed and you can move to the error lines.
+
+`Shell'
+     You can talk to Shells from inside the editor.  Your entire shell
+     session can be treated as a file.
+
+`Mail'
+     Mail can be read from and sent within the editor.  Several
+     sophisticated packages exist.
+
+`Language Sensitive Editing'
+     Editing modes are written for most computer languages in
+     existence.  By controlling indentation, they catch punctuation
+     errors.
+
+   The packages, below, represents a drop in the sea of special-purpose
+packages that come with standard distribution of Emacs.
+
+`Transparent FTP'
+     `ange-ftp.el' can ftp from the editor to files on other machines
+     transparent to the user.
+
+`RCS Interfaces'
+     `vc.el' for doing RCS commands from inside the editor
+
+`Directory Editor'
+     `dired.el' for editing contents of directories and for navigating
+     in the file system.
+
+`Syntactic Highlighting'
+     `font-lock.el' for automatic highlighting various parts of a buffer
+     using different fonts and colors.
+
+`Saving Emacs Configuration'
+     `desktop.el' for saving/restoring configuration on Emacs
+     exit/startup.
+
+`Spell Checker'
+     `ispell.el' for spell checking the buffer, words, regions, etc.
+
+`File and Buffer Comparison'
+     `ediff.el' for finding differences between files and for applying
+     patches.
+
+Emacs Lisp archives exist on `archive.cis.ohio-state.edu' and
+`wuarchive.wustl.edu'
+
+
+File: viper,  Node: Customization,  Next: Commands,  Prev: Improvements over Vi,  Up: Top
+
+Customization
+*************
+
+   Customization can be done in 2 ways.
+
+   * Elisp code in a `.viper' file in your home directory.  Viper loads
+     `.viper' just before it does the binding for mode hooks.  This is
+     the recommended method.
+
+   * Elisp code in your `.emacs' file before and after the `(require
+     'viper)' line.  This method is not recommended, unless you know
+     what you are doing.  Only two variables, `viper-mode' and
+     `viper-custom-file-name' are supposed to be customized in `.emacs',
+     prior to loading Viper.
+
+Most of Viper's behavior can be customized via the interactive Emacs
+user interface.  Choose "Customize" from the menubar, click on
+"Editing", then on "Emulations".  The customization widget is
+self-explanatory.  Once you are satisfied with your changes, save them
+into a file and then include the contents of that file in the Viper
+customization repository, `.viper' (except for `viper-mode' and
+`viper-custom-file-name', which are supposed to go into `.emacs').
+
+   Some advanced customization cannot be accomplished this way,
+however, and has to be done in Emacs Lisp.  For the common cases,
+examples are provided that you can use directly.
+
+* Menu:
+
+* Rudimentary Changes::          Simple constant definitions.
+* Keybindings::                  Enabling Emacs Keys, Rebinding keys, etc.
+* Packages that Change Keymaps:: How to deal with such beasts.
+* Viper Specials::               Special Viper commands.
+* Vi Macros::                    How to do Vi style macros.
+
+
+File: viper,  Node: Rudimentary Changes,  Next: Keybindings,  Prev: Customization,  Up: Customization
+
+Rudimentary Changes
+===================
+
+   An easy way to customize Viper is to change the values of constants
+used in Viper.  Here is the list of the constants used in Viper and
+their default values.  The corresponding :se command is also indicated.
+(The symbols `t' and `nil' represent "true" and "false" in Lisp).
+
+   Viper supports both the abbreviated Vi variable names and their full
+names.  Variable completion is done on full names only.  <TAB> and
+<SPC> complete variable names.  Typing `=' will complete the name and
+then will prompt for a value, if applicable.  For instance, `:se au
+<SPC>' will complete the command to `:set autoindent'; `:se ta <SPC>'
+will complete the command and prompt further like this: `:set tabstop =
+'.  However, typing `:se ts <SPC>' will produce a "No match" message
+because `ts' is an abbreviation for `tabstop' and Viper supports
+completion on full names only.  However, you can still hit <RET> or
+`=', which will complete the command like this: `:set ts = ' and Viper
+will be waiting for you to type a value for the tabstop variable.  To
+get the full list of Vi variables, type `:se <SPC> <TAB>'.
+
+`viper-auto-indent nil'
+`:se ai (:se autoindent)'
+`:se ai-g (:se autoindent-global)'
+     If `t', enable auto indentation.  by <RET>, `o' or `O' command.
+
+     `viper-auto-indent' is a local variable.  To change the value
+     globally, use `setq-default'.  It may be useful for certain major
+     modes to have their own values of `viper-auto-indent'.  This can
+     be achieved by using `setq' to change the local value of this
+     variable in the hooks to the appropriate major modes.
+
+     `:se ai' changes the value of `viper-auto-indent' in the current
+     buffer only; `:se ai-g' does the same globally.
+
+`viper-electric-mode t'
+     If not `nil', auto-indentation becomes electric, which means that
+     <RET>, `O', and `o' indent cursor according to the current major
+     mode.  In the future, this variable may control additional electric
+     features.
+
+     This is a local variable: `setq' changes the value of this variable
+     in the current buffer only.  Use `setq-default' to change the
+     value in all buffers.
+
+`viper-case-fold-search nil'
+`:se ic (:se ignorecase)'
+     If not `nil', search ignores cases.  This can also be toggled by
+     quickly hitting `/' twice.
+
+`viper-re-search nil'
+`:se magic'
+     If not `nil', search will use regular expressions; if `nil' then
+     use vanilla search.  This behavior can also be toggled by quickly
+     hitting `/' trice.
+
+`buffer-read-only'
+`:se ro (:se readonly)'
+     Set current buffer to read only.  To change globally put
+     `(setq-default buffer-read-only t)' in your `.emacs' file.
+
+`blink-matching-paren t'
+`:se sm (:se showmatch)'
+     Show matching parens by blinking cursor.
+
+`tab-width t (default setting via `setq-default')'
+`:se ts=value (:se tabstop=value)'
+`:se ts-g=value (:se tabstop-global=value)'
+     `tab-width' is a local variable that controls the width of the tab
+     stops.  To change the value globally, use `setq-default'; for
+     local settings, use `setq'.
+
+     The command `:se ts' sets the tab width in the current buffer
+     only; it has no effect on other buffers.
+
+     The command `:se ts-g' sets tab width globally, for all buffers
+     where the tab is not yet set locally, including the new buffers.
+
+     Note that typing <TAB> normally doesn't insert the tab, since this
+     key is usually bound to a text-formatting function,
+     `indent-for-tab-command' (which facilitates programming and
+     document writing).  Instead, the tab is inserted via the command
+     `viper-insert-tab', which is bound to `S-tab' (shift + tab).
+
+     On some non-windowing terminals, Shift doesn't modify the <TAB>
+     key, so `S-tab' behaves as if it were <TAB>.  In such a case, you
+     will have to bind `viper-insert-tab' to some other convenient key.
+
+`viper-shift-width 8'
+`:se sw=value  (:se shiftwidth=value)'
+     The number of columns shifted by `>' and `<' commands.
+
+`viper-search-wrap-around t'
+`:se ws (:se wrapscan)'
+     If not `nil', search wraps around the end/beginning of buffer.
+
+`viper-search-scroll-threshold 2'
+     If search lands within this many lines of the window top or
+     bottom, the window will be scrolled up or down by about 1/7-th of
+     its size, to reveal the context.  If the value is negative--don't
+     scroll.
+
+`viper-tags-file-name "TAGS"'
+     The name of the file used as the tag table.
+
+`viper-re-query-replace nil'
+     If not `nil', use reg-exp replace in query replace.
+
+`viper-want-ctl-h-help nil'
+     If not `nil', `C-h' is bound to `help-command'; otherwise, `C-h'
+     is bound as usual in Vi.
+
+`viper-vi-style-in-minibuffer t'
+     If not `nil', Viper provides a high degree of compatibility with Vi
+     insert mode when you type text in the Minibuffer; if `nil', typing
+     in the Minibuffer feels like plain Emacs.
+
+`viper-no-multiple-ESC t'
+     If you set this to `nil', you can use <ESC> as Meta in Vi state.
+     Normally, this is not necessary, since graphical displays have
+     separate Meta keys (usually on each side of the space bar).  On a
+     dumb terminal, Viper sets this variable to `twice', which is
+     almost like `nil', except that double <ESC> beeps.  This, too,
+     lets <ESC> to be used as a Meta.
+
+`viper-ESC-keyseq-timeout 200 on tty, 0 on windowing display'
+     Escape key sequences separated by this much delay (in
+     milliseconds) are interpreted as command, ignoring the special
+     meaning of <ESC> in VI.  The default is suitable for most
+     terminals.  However, if your terminal is extremely slow, you might
+     want to increase this slightly.  You will know if your terminal is
+     slow if the <ESC> key sequences emitted by the arrow keys are
+     interpreted as separately typed characters (and thus the arrow
+     keys won't work).  Making this value too large will slow you down,
+     so exercise restraint.
+
+`viper-fast-keyseq-timeout 200'
+     Key sequences separated by this many milliseconds are treated as
+     Vi-style keyboard macros.  If the key sequence is defined as such
+     a macro, it will be executed.  Otherwise, it is processed as an
+     ordinary sequence of typed keys.
+
+     Setting this variable too high may slow down your typing.  Setting
+     it too low may make it hard to type macros quickly enough.
+
+`viper-ex-style-motion t'
+     Set this to `nil', if you want `l,h' to cross lines, etc.  *Note
+     Movement and Markers::, for more info.
+
+`viper-ex-style-editing t'
+     Set this to to `nil', if you want `C-h' and <DEL> to not stop at
+     the beginning of a line in Insert state, <X> and <x> to delete
+     characters across lines in Vi command state, etc.
+
+`viper-ESC-moves-cursor-back t'
+     It t, cursor moves back 1 character when switching from insert
+     state to vi state.  If nil, the cursor stays where it was before
+     the switch.
+
+`viper-always t'
+     `t' means: leave it to Viper to decide when a buffer must be
+     brought up in Vi state, Insert state, or Emacs state.  This
+     heuristics works well in virtually all cases.  `nil' means you
+     either has to invoke `viper-mode' manually for each buffer (or you
+     can add `viper-mode' to the appropriate major mode hooks using
+     `viper-load-hook').
+
+     This option must be set in the file `~/.viper'.
+
+`viper-custom-file-name "~/.viper"'
+     File used for Viper-specific customization.  Change this setting,
+     if you want.  Must be set in `.emacs' (not `.viper'!)  before
+     Viper is loaded.  Note that you have to set it as a string inside
+     double quotes.
+
+`viper-spell-function 'ispell-region'
+     Function used by the command `#c<move>' to spell.
+
+`ex-nontrivial-find-file-function'
+     The value of this variable is the function used to find all files
+     that match a wildcard.  This is usually done when the user types
+     `:e' and specifies a wildcard in the file name (or if the file
+     name contains unusual symbols (e.g., a space).  Viper provides two
+     functions for this: one for Unix-like systems
+     (`viper-ex-nontrivial-find-file-unix') and one for DOS, W95, and
+     NT (`viper-ex-nontrivial-find-file-ms').  If the default function
+     doesn't quite do what you expect or if you prefer to use "fancy"
+     shells, you may have to write your own version of this function
+     and make it into the value of `ex-nontrivial-find-file-function'.
+     Use `viper-ex-nontrivial-find-file-unix' and
+     `viper-ex-nontrivial-find-file-ms' as examples.
+
+`ex-cycle-other-window t'
+     If not `nil', `:n' and `:b' will cycle through files in another
+     window, if one exists.
+
+`ex-cycle-through-non-files nil'
+     `:n' does not normally cycle through buffers.  Set this to get
+     buffers also.
+
+`viper-want-emacs-keys-in-insert'
+     This is set to `nil' for user levels 1 and 2 and to `t' for user
+     levels 3 and 4.  Users who specify level 5 are allowed to set this
+     variable as they please (the default for this level is `t').  If
+     set to `nil', complete Vi compatibility is provided in Insert
+     state.  This is really not recommended, as this precludes you from
+     using language-specific features provided by the major modes.
+
+`viper-want-emacs-keys-in-vi'
+     This is set to `nil' for user level 1 and to `t' for user levels
+     2-4.  At level 5, users are allowed to set this variable as they
+     please (the default for this level is `t').  If set to `nil',
+     complete Vi compatibility is provided in Vi command state.
+     Setting this to `nil' is really a bad idea, unless you are a
+     novice, as this precludes the use of language-specific features
+     provided by the major modes.
+
+`viper-keep-point-on-repeat t'
+     If not `nil', point is not moved when the user repeats the previous
+     command by typing `.'  This is very useful for doing repeated
+     changes with the `.' key.
+
+`viper-repeat-from-history-key 'f12'
+     Prefix key used to invoke the macros `f12 1' and `f12 2' that
+     repeat the second-last and the third-last destructive command.
+     Both these macros are bound (as Viper macros) to
+     `viper-repeat-from-history', which checks the second key by which
+     it is invoked to see which of the previous commands to invoke.
+     Viper binds `f12 1' and `f12 2' only, but the user can bind more
+     in `~/.viper'.  *Note Vi Macros::, for how to do this.
+
+`viper-keep-point-on-undo nil'
+     If not `nil', Viper tries to not move point when undoing commands.
+     Instead, it will briefly move the cursor to the place where change
+     has taken place.  However, if the undone piece of text is not seen
+     in window, then point will be moved to the place where the change
+     took place.  Set it to `t' and see if you like it better.
+
+`viper-delete-backwards-in-replace nil'
+     If not `nil', <DEL> key will delete characters while moving the
+     cursor backwards.  If `nil', the cursor will move backwards
+     without deleting anything.
+
+`viper-replace-overlay-face 'viper-replace-overlay-face'
+     On a graphical display, Viper highlights replacement regions
+     instead of putting a `$' at the end.  This variable controls the
+     so called "face" used to highlight the region.
+
+     By default, `viper-replace-overlay-face' underlines the
+     replacement on monochrome displays and also lays a stipple over
+     them.  On color displays, replacement regions are highlighted with
+     color.
+
+     If you know something about Emacs faces and don't like how Viper
+     highlights replacement regions, you can change
+     `viper-replace-overlay-face' by specifying a new face.  (Emacs
+     faces are described in the Emacs Lisp reference.)  On a color
+     display, the following customization method is usually most
+     effective:
+          (set-face-foreground viper-replace-overlay-face "DarkSlateBlue")
+          (set-face-background viper-replace-overlay-face "yellow")
+     For a complete list of colors available to you, evaluate the
+     expression `(x-defined-colors)'.  (Type it in the buffer
+     `*scratch*' and then hit the `C-j' key.
+
+`viper-replace-overlay-cursor-color  "Red"'
+     Cursor color when it is inside the replacement region.  This has
+     effect only on color displays and only when Emacs runs as an X
+     application.
+
+`viper-insert-state-cursor-color nil'
+     If set to a valid color, this will be the cursor color when Viper
+     is in insert state.
+
+`viper-replace-region-end-delimiter "$"'
+     A string used to mark the end of replacement regions.  It is used
+     only on TTYs or if `viper-use-replace-region-delimiters' is
+     non-nil.
+
+`viper-replace-region-start-delimiter  ""'
+     A string used to mark the beginning of replacement regions.  It is
+     used only on TTYs or if `viper-use-replace-region-delimiters' is
+     non-nil.
+
+`viper-use-replace-region-delimiters'
+     If non-nil, Viper will always use
+     `viper-replace-region-end-delimiter' and
+     `viper-replace-region-start-delimiter' to delimit replacement
+     regions, even on color displays (where this is unnecessary).  By
+     default, this variable is non-nil only on TTYs or monochrome
+     displays.
+
+`viper-allow-multiline-replace-regions t'
+     If non-nil, multi-line text replacement regions, such as those
+     produced by commands `c55w', `3C', etc., will stay around until
+     the user exits the replacement mode.  In this variable is set to
+     `nil', Viper will emulate the standard Vi behavior, which supports
+     only intra-line replacement regions (and multi-line replacement
+     regions are deleted).
+
+`viper-toggle-key "\C-z"'
+     Specifies the key used to switch from Emacs to Vi and back.  Must
+     be set in `.viper'.  This variable can't be changed interactively
+     after Viper is loaded.
+
+     In Insert state, this key acts as a temporary escape to Vi state,
+     i.e., it will set Viper up so that the very next command will be
+     executed as if it were typed in Vi state.
+
+`viper-ESC-key "\e"'
+     Specifies the key used to escape from Insert/Replace states to Vi.
+     Must be set in `.viper'.  This variable cannot be changed
+     interactively after Viper is loaded.
+
+`viper-buffer-search-char nil'
+     Key used for buffer search.  *Note Viper Specials::, for details.
+
+`viper-surrounding-word-function 'viper-surrounding-word'
+     The value of this variable is a function name that is used to
+     determine what constitutes a word clicked upon by the mouse.  This
+     is used by mouse search and insert.
+
+`viper-search-face 'viper-search-face'
+     Variable that controls how search patterns are highlighted when
+     they are found.
+
+`viper-vi-state-hook nil'
+     List of parameterless functions to be run just after entering the
+     Vi command state.
+
+`viper-insert-state-hook nil'
+     Same for Insert state.  This hook is also run after entering
+     Replace state.
+
+`viper-replace-state-hook  nil'
+     List of (parameterless) functions called just after entering
+     Replace state (and after all `viper-insert-state-hook').
+
+`viper-emacs-state-hook nil'
+     List of (parameterless) functions called just after switching from
+     Vi state to Emacs state.
+
+`viper-load-hook nil'
+     List of (parameterless) functions called just after loading Viper.
+     This is the last chance to do customization before Viper is up
+     and running.
+
+You can reset some of these constants in Viper with the Ex command
+`:set' (when so indicated in the table).  Or you can include a line
+like this in your `.viper' file:
+     (setq viper-case-fold-search t)
+
+
+File: viper,  Node: Keybindings,  Next: Packages that Change Keymaps,  Prev: Rudimentary Changes,  Up: Customization
+
+Keybindings
+===========
+
+   Viper lets you define hot keys, i.e., you can associate keyboard keys
+such as F1, Help, PgDn, etc., with Emacs Lisp functions (that may
+already exist or that you will write).  Each key has a "preferred form"
+in Emacs.  For instance, the Up key's preferred form is [up], the Help
+key's preferred form is [help], and the Undo key has the preferred form
+[f14].  You can find out the preferred form of a key by typing `M-x
+describe-key-briefly' and then typing the key you want to know about.
+
+   Under X Windows, every keyboard key emits its preferred form, so you
+can just type
+
+     (global-set-key [f11] 'calendar)                        ; L1, Stop
+     (global-set-key [f14] 'undo)                            ; L4, Undo
+
+to bind L1 so it will invoke the Emacs Calendar and to bind L4 so it
+will undo changes.  However, on a dumb terminal or in an Xterm window,
+even the standard arrow keys may not emit the right signals for Emacs
+to understand.  To let Emacs know about those keys, you will have to
+find out which key sequences they emit by typing `C-q' and then the key
+(you should switch to Emacs state first).  Then you can bind those
+sequences to their preferred forms using `function-key-map' as follows:
+
+     (cond ((string= (getenv "TERM") "xterm")
+     (define-key function-key-map "\e[192z" [f11])    ; L1
+     (define-key function-key-map "\e[195z" [f14])    ; L4, Undo
+
+   The above illustrates how to do this for Xterm.  On VT100, you would
+have to replace "xterm" with "vt100" and also change the key sequences
+(the same key may emit different sequences on different types of
+terminals).
+
+   The above keys are global, so they are overwritten by the local maps
+defined by the major modes and by Viper itself.  Therefore, if you wish
+to change a binding set by a major mode or by Viper, read this.
+
+   Viper users who wish to specify their own key bindings should be
+concerned only with the following three keymaps:
+`viper-vi-global-user-map' for Vi state commands,
+`viper-insert-global-user-map' for Insert state commands, and
+`viper-emacs-global-user-map' for Emacs state commands (note:
+customized bindings for Emacs state made to
+`viper-emacs-global-user-map' are *not* inherited by Insert state).
+
+   For more information on Viper keymaps, see the header of the file
+`viper.el'.  If you wish to change a Viper binding, you can use the
+`define-key' command, to modify `viper-vi-global-user-map',
+`viper-insert-global-user-map', and `viper-emacs-global-user-map', as
+explained below.  Each of these key maps affects the corresponding
+Viper state.  The keymap `viper-vi-global-user-map' also affects
+Viper's Replace state.
+
+If you want to bind a key, say `C-v', to the function that scrolls page
+down and to make `0' display information on the current buffer, putting
+this in `.viper' will do the trick in Vi state:
+     (define-key viper-vi-global-user-map "\C-v" 'scroll-down)
+
+To set a key globally,
+     (define-key viper-emacs-global-user-map "\C-c m" 'smail)
+     (define-key viper-vi-global-user-map "0" 'viper-info-on-file)
+
+Note, however, that this binding may be overwritten by other keymaps,
+since the global keymap has the lowest priority.  To make sure that
+nothing will override a binding in Emacs state, you can write this:
+     (define-key viper-emacs-global-user-map "\C-c m" 'smail)
+
+To customize the binding for `C-h' in Insert state:
+     (define-key viper-insert-global-user-map "\C-h" 'my-del-backwards-function)
+
+Each Emacs command key calls some lisp function.  If you have enabled
+the Help, (*note Rudimentary Changes::.) `C-h k' will show you the
+function for each specific key; `C-h b' will show all bindings, and
+`C-h m' will provide information on the major mode in effect.  If Help
+is not enabled, you can still get help in Vi state by prefixing the
+above commands with `\', e.g., `\ C-h k' (or you can use the Help menu
+in the menu bar, if Emacs runs under X Windows).
+
+   Viper users can also change bindings on a per major mode basis.  As
+with global bindings, this can be done separately for each of the three
+main Viper states.  To this end, Viper provides the function
+`viper-modify-major-mode'.
+
+   To modify keys in Emacs state for `my-favorite-major-mode', the user
+needs to create a sparse keymap, say, `my-fancy-map', bind whatever
+keys necessary in that keymap, and put
+
+     (viper-modify-major-mode 'dired-mode 'emacs-state my-fancy-map)
+
+in `~/.viper'.  To do the same in Vi and Insert states, you should use
+`vi-state' and `insert-state'.  Changes in Insert state are also in
+effect in Replace state.  For instance, suppose that the user wants to
+use `dd' in Vi state under Dired mode to delete files, `u' to unmark
+files, etc.  The following code in `~/.viper' will then do the job:
+
+     (setq my-dired-modifier-map (make-sparse-keymap))
+     (define-key my-dired-modifier-map "dd" 'dired-flag-file-deletion)
+     (define-key my-dired-modifier-map "u" 'dired-unmark)
+     (viper-modify-major-mode 'dired-mode 'vi-state my-dired-modifier-map)
+
+   A Vi purist may want to modify Emacs state under Dired mode so that
+`k', `l', etc., will move around in directory buffers, as in Vi.
+Although this is not recommended, as these keys are bound to useful
+Dired functions, the trick can be accomplished via the following code:
+
+     (setq my-dired-vi-purist-map (make-sparse-keymap))
+     (define-key my-dired-vi-purist-map "k" 'viper-previous-line)
+     (define-key my-dired-vi-purist-map "l" 'viper-forward-char)
+     (viper-modify-major-mode 'dired-mode 'emacs-state my-dired-vi-purist-map)
+
+   Yet another way to customize key bindings in a major mode is to edit
+the list `viper-major-mode-modifier-list' using the customization
+widget.  (This variable is in the Viper-misc customization group.)  The
+elements of this list are triples of the form: (major-mode viper-state
+keymap), where the keymap contains bindings that are supposed to be
+active in the given major mode and the given viper-state.
+
+   Effects similar to key binding changes can be achieved by defining Vi
+keyboard macros using the Ex commands `:map' and `:map!'.  The
+difference is that multi-key Vi macros do not override the keys they are
+bound to, unless these keys are typed in quick succession.  So, with
+macros, one can use the normal keys alongside with the macros.  If
+per-mode modifications are needed, the user can try both ways and see
+which one is more convenient.  *Note Vi Macros::, for details.
+
+   Note: in major modes that come up in *Emacs state* by default, the
+aforesaid modifications may not take place immediately (but only after
+the buffer switches to some other Viper state and then back to Emacs
+state).  To avoid this, one should add `viper-change-state-to-emacs' to
+an appropriate hook of that major mode.  (Check the function
+`viper-set-hooks' in `viper.el' for examples.)  However, if you have
+set `viper-always' to `t', chances are that you won't need to perform
+the above procedure, because Viper will take care of most useful
+defaults.
+
+   Finally, Viper has a facility that lets the user define per-buffer
+bindings, i.e., bindings that are in effect in some specific buffers
+only.  Unlike per-mode bindings described above, per-buffer bindings
+can be defined based on considerations other than the major mode.  This
+is done via the function `viper-add-local-keys', which lets one specify
+bindings that should be in effect in the current buffer only and for a
+specific Viper state.  For instance,
+     (viper-add-local-keys 'vi-state '(("ZZ" . TeX-command-master)
+                                      ("ZQ" . viper-save-kill-buffer)))
+
+redefines `ZZ' to invoke `TeX-command-master' in `vi-state' and `ZQ' to
+save-then-kill the current buffer.  These bindings take effect only in
+the buffer where this command is executed.  The typical use of this
+function is to execute the above expression from within a function that
+is included in a hook to some major mode.  For instance, the above
+expression could be called from a function, `my-tex-init', which may be
+added to `tex-mode-hook' as follows:
+     (add-hook 'tex-mode-hook 'my-tex-init)
+
+When TeX mode starts, the hook is executed and the above Lisp
+expression is evaluated.  Then, the bindings for `ZZ' and `ZQ' are
+changed in Vi command mode for all buffers in TeX mode.
+
+   Another useful application is to bind `ZZ' to `send-mail' in the
+Mail mode buffers (the specifics of this depend on which mail package
+you are using, `rmail', `mh-e', `vm', etc.  For instance, here is how
+to do this for `mh-e', the Emacs interface to MH:
+     (defun mh-add-vi-keys ()
+       "Set up ZZ for MH-e and XMH."
+       (viper-add-local-keys 'vi-state '(("ZZ" . mh-send-letter))))
+     (add-hook 'mh-letter-mode-hook 'mh-add-vi-keys)
+
+   You can also use `viper-add-local-keys' to set per buffer bindings
+in Insert state and Emacs state by passing as a parameter the symbols
+`insert-state' and `emacs-state', respectively.  As with global
+bindings, customized local bindings done to Emacs state are not
+inherited by Insert state.
+
+   On rare occasions, local keys may be added by mistake.  Usually this
+is done indirectly, by invoking a major mode that adds local keys (e.g.,
+`shell-mode' redefines <RET>).  In such a case, exiting the wrong major
+mode won't rid you from unwanted local keys, since these keys are local
+to Viper state and the current buffer, not to the major mode.  In such
+situations, the remedy is to type `M-x viper-zap-local-keys'.
+
+   So much about Viper-specific bindings.  *Note Customization:
+(emacs)Customization, and the Emacs quick reference card for the
+general info on key bindings in Emacs.
+
+
+File: viper,  Node: Packages that Change Keymaps,  Next: Viper Specials,  Prev: Keybindings,  Up: Customization
+
+Packages that Change Keymaps
+----------------------------
+
+   Viper is designed to coexist with all major and minor modes of
+Emacs.  This means that bindings set by those modes are generally
+available with Viper (unless you explicitly prohibit them by setting
+`viper-want-emacs-keys-in-vi' and `viper-want-emacs-keys-in-insert' to
+`nil').  If `viper-always' is set to `t', Viper will try to bring each
+buffer in the Viper state that is most appropriate for that buffer.
+Usually, this would be the Vi state, but sometimes it could be the
+Insert state or the Emacs state.
+
+   Some major mode bindings will necessarily be overwritten by Viper.
+Indeed, in Vi state, most of the 1-character keys are used for Vi-style
+editing.  This usually causes no problems because most packages
+designed for editing files typically do not bind such keys.  Instead,
+they use key sequences that start with `C-x' and `C-c'.  This is why it
+was so important for us to free up `C-x' and `C-c'.  It is common for
+language-specific major modes to bind <TAB> and `C-j' (the line feed)
+keys to various formatting functions.  This is extremely useful, but
+may require some getting used to for a Vi user.  If you decide that
+this feature is not for you, you can re-bind these keys as explained
+earlier (*note Customization::.).
+
+   Binding for <TAB> is one of the most unusual aspects of Viper for
+many novice users.  In Emacs, <TAB> is used to format text and
+programs, and is extremely useful.  For instance, hitting <TAB> causes
+the current line to be re-indented in accordance with the context.  In
+programming, this is very important, since improper automatic
+indentation would immediately alert the programmer to a possible error.
+For instance, if a `)' or a `"' is missing somewhere above the current
+line, <TAB> is likely to mis-indent the line.
+
+   For this reason, Viper doesn't change the standard Emacs binding of
+<TAB>, thereby sacrificing Vi compatibility (except for users at level
+1).  Instead, in Viper, the key `S-tab' (shift+ tab) is chosen to
+emulate Vi's <TAB>.
+
+   We should note that on some non-windowing terminals, Shift doesn't
+modify the <TAB> key, so `S-tab' behaves as if it were <TAB>.  In such
+a case, you will have to bind `viper-insert-tab' to some other
+convenient key.
+
+   Some packages, notably Dired, Gnus, Info, etc., attach special
+meaning to common keys like <SPC>, `x', `d', `v', and others.  This
+means that Vi command state is inappropriate for working with these
+packages.  Fortunately, these modes operate on read-only buffers and are
+designed not for editing files, but for special-purpose browsing,
+reading news, mail, etc., and Vi commands are meaningless in these
+situations.  For this reason, Viper doesn't force Vi state on such
+major modes--it brings them in Emacs state.  You can switch to Vi state
+by typing `C-z' if, for instance, you want to do Vi-style search in a
+buffer (although, usually, incremental search, which is bound to `C-s',
+is sufficient in these situations).  But you should then switch back to
+Emacs state if you plan to continue using these major modes
+productively.  You can also switch to Vi temporarily, to execute just
+one command.  This is done by typing `C-c \'.  (In some of these modes,
+`/' and `:' are bound Vi-style, unless these keys perform essential
+duties.)
+
+   If you would like certain major modes to come up in Emacs state
+rather than Vi state (but Viper thinks otherwise), you should put these
+major modes on the `viper-emacs-state-mode-list' list and delete them
+from `viper-vi-state-mode-list'.  Likewise, you can force Viper's
+Insert state on a major mode by putting it in
+`viper-insert-state-mode-list'.
+
+   It is also possible to impose Vi on some major modes, even though
+they may bind common keys to specialized commands.  This might make
+sense for modes that bind only a small number of common keys.  For
+instance, Viper subverts the Shell mode by changing the bindings for
+`C-m' and `C-d' using `viper-add-local-keys' described in section on
+customization (*note Customization::.).
+
+   In some cases, some *minor* modes might override certain essential
+bindings in Vi command state.  This is not a big priblem because this
+can happen only in the beginning, when the minor mode kicks in.  Typing
+`M-x viper-mode' will correct the situation.  Viper knows about several
+such minor modes and takes care of them, so the above trick is usually
+not necessary.  If you find that some minor mode, e.g., `nasty-mode.el'
+interferes with Viper, putting the following in `.viper' should fix the
+problem:
+     (viper-harness-minor-mode "nasty-mode")
+
+The argument to `viper-harness-minor-mode' is the name of the file for
+the offending minor mode with the suffixes `.el' and `.elc' removed.
+
+   It may not be always obvious which minor mode is at fault.  The only
+guidance here is to look into the file that defines the minor mode you
+are suspecting, say `nasty-mode.el', and see if it has a variable called
+`nasty-mode-map'.  Then check if there is a statement of the form
+     (define-key nasty-mode-map key function)
+
+that binds the misbehaving keys.  If so, use the above line to harness
+`nasty-mode'.  If your suspicion is wrong, no harm is done if you
+harness a minor mode that doesn't need to be harnessed.
+

@@ -1,0 +1,73 @@
+.\"
+.\" Copyright (c) 1997 Doug Rabson
+.\" All rights reserved.
+.\"
+.\" Redistribution and use in source and binary forms, with or without
+.\" modification, are permitted provided that the following conditions
+.\" are met:
+.\" 1. Redistributions of source code must retain the above copyright
+.\"    notice, this list of conditions and the following disclaimer.
+.\" 2. Redistributions in binary form must reproduce the above copyright
+.\"    notice, this list of conditions and the following disclaimer in the
+.\"    documentation and/or other materials provided with the distribution.
+.\"
+.\" THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+.\" ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+.\" IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+.\" ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+.\" FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+.\" DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+.\" OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+.\" HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+.\" LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+.\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+.\" SUCH DAMAGE.
+.\"
+.\"	$Id: kextload.8,v 1.5 2001/01/19 22:51:09 lindak Exp $
+.\"
+.Dd October 11, 1999
+.Dt kextload 8
+.Os FreeBSD
+.Sh NAME
+.Nm kextload
+.Nd loads and starts a kernel extension
+.Sh SYNOPSIS
+.Nm kextload
+.Op Fl i
+.Op Fl v
+.Op Fl h
+.Op Fl x
+.Ar kextbundle
+.Sh DESCRIPTION
+The
+.Nm
+utility loads the module files contained within 
+.Ar kextbundle
+into the kernel and starts their execution either by calling a predefined initialization routine or by passing a personality description to the kernel.  All module dependencies for 
+.Ar kextbundle 
+must reside in /System/Library/Extensions.
+.Pp
+The following options are available:
+.Bl -tag -width indent
+.It Fl v
+Be more verbose.
+.It Fl v
+Simulate safe boot (for testing).
+.It Fl i
+Set interactive mode.
+.It Fl h
+Provide quick help.
+.El
+.Sh FILES
+.Bl -tag -width /modules -compact
+.It Pa /TBD
+directory (bundle) containing loadable kernel modules.
+.Sh DIAGNOSTICS
+The
+.Nm
+utility exits with a status of 0 on success or with a nonzero status if an error occurs.
+.Sh SEE ALSO
+.Xr kmodload 8 ,
+.Xr kmodstat 8 ,
+.Xr kmodsyms 8 ,
+.Xr kmodunload 8

@@ -1,0 +1,4 @@
+# $Id: setup.stub,v 1.1.1.1 2000/08/10 02:08:28 wsanchez Exp $ -*- sh -*-
+
+define_option with-dbase 'dBase support? ' yesno no \
+'    Whether to use the bundled dbase library.'

@@ -1,0 +1,89 @@
+#!/bin/sh
+
+##
+# Configure network interfaces and host name
+##
+
+. /etc/rc.common
+
+##
+# Configure interfaces
+##
+
+ConsoleMessage "Configuring network"
+
+##
+# Configure interfaces 
+##
+ipconfigd 
+ipconfig waitall > /dev/null 2>&1
+ifconfig lo0 127.0.0.1 netmask 255.0.0.0 up
+
+##
+# See if the network is up now
+##
+CheckForNetwork
+
+##
+# Configure global network settings
+##
+
+# Set HOSTNAME if needed
+if [ "${HOSTNAME:=-AUTOMATIC-}" = "-AUTOMATIC-" ]; then
+    HOSTNAME=$(ipconfig getoption "" host_name)
+    if [ ! $? -eq 0 ]; then HOSTNAME="localhost"; fi
+fi
+
+if [ -z "${HOSTNAME}" ]; then HOSTNAME=localhost; fi
+
+echo "Setting hostname: ${HOSTNAME}"
+hostname "${HOSTNAME}"
+
+if [ "${NETWORKUP:=-NO-}" = "-YES-" ]; then
+
+    ##
+    # Turn on/off IP forwarding
+    ##
+
+    if [ "${IPFORWARDING:=-NO-}" = "-YES-" ]; then
+	sysctl -w net.inet.ip.forwarding=1 > /dev/null
+    else
+	sysctl -w net.inet.ip.forwarding=0 > /dev/null
+    fi
+
+    ##
+    # Set the host id based on the first broadcast interface's IP address
+    ##
+
+    ConsoleMessage "Setting host identifier"
+
+    # Convert the IP address from dotted decimal to a single unsigned 32-bit
+    # decimal number.  For 17.202.40.191, this would be:
+    #       17 * 16777216 + 202 * 65536 + 40 * 256 + 191
+    #     = 298461375
+    hostid=$(($(ifconfig -a | sed -n '/inet/p' | sed -n '/broadcast/p' | head -1 | \
+	   sed 's|.*inet[ 	]*\([0-9]*\)\.\([0-9]*\)\.\([0-9]*\)\.\([0-9]*\).*|16777216 * \1 + 65536 * \2 + 256 * \3 + \4|')))
+
+    if [ -z "${hostid}" ]; then
+	echo "Warning: couldn't determine the host id"
+    else
+	sysctl -w kern.hostid=${hostid}
+    fi
+
+fi
+
+##
+# Load network kernel modules
+# This is a workaround for the fact that kextd does not presently know
+# when to load BSD modules.
+# Do this regardless of the startup state of networking; we're pretty
+# sure a network will show up eventually.
+##
+if [ -d /System/Library/Extensions/SharedIP.kext ]; then
+	ConsoleMessage "Loading Shared IP extension"
+	kextload -v /System/Library/Extensions/SharedIP.kext
+fi
+if [ -d /System/Library/Extensions/IPFirewall.kext ]; then
+	ConsoleMessage "Loading IP Firewall extension"
+	kextload -v /System/Library/Extensions/IPFirewall.kext
+fi

@@ -1,0 +1,12 @@
+BEFORE_INSTALL += profile debug
+AFTER_INSTALL  += compat-next compat-bsd
+
+PROFILE_BUILD_LIBS := $(foreach LIBS, $(LIBS), $(LIBS)_profile) -lcc_noc++
+  DEBUG_BUILD_LIBS := $(foreach LIBS, $(LIBS), $(LIBS)_debug  ) -lcc_noc++
+
+OTHER_LIBTOOL_FLAGS = -sectorder __TEXT __text System.order
+#OTHER_LIBTOOL_FLAGS += -L/Users/Public/SandBox/$(USER)/BUILD/c
+
+BSD_LIBS = c curses edit info kvm m pthread
+
+include $(MAKEFILEPATH)/CoreOS/ProjectBuilder/Makefile.Preamble.Common

@@ -1,0 +1,188 @@
+This is tar.info, produced by Makeinfo version 3.12f from tar.texi.
+
+START-INFO-DIR-ENTRY
+* tar: (tar).			Making tape (or disk) archives.
+END-INFO-DIR-ENTRY
+
+   This file documents GNU `tar', a utility used to store, backup, and
+transport files.
+
+   Copyright (C) 1992, 1994, 1995, 1996, 1997, 1999 Free Software
+Foundation, Inc.
+
+   Permission is granted to make and distribute verbatim copies of this
+manual provided the copyright notice and this permission notice are
+preserved on all copies.
+
+   Permission is granted to copy and distribute modified versions of
+this manual under the conditions for verbatim copying, provided that
+the entire resulting derived work is distributed under the terms of a
+permission notice identical to this one.
+
+   Permission is granted to copy and distribute translations of this
+manual into another language, under the above conditions for modified
+versions, except that this permission notice may be stated in a
+translation approved by the Foundation.
+
+   This file documents GNU `tar', which is a utility used to store,
+backup, and transport files.  `tar' is a tape (or disk) archiver.  This
+manual documents the release 1.13.
+
+
+Indirect:
+tar.info-1: 1167
+tar.info-2: 49886
+tar.info-3: 96814
+tar.info-4: 142517
+tar.info-5: 191978
+tar.info-6: 237228
+tar.info-7: 282918
+tar.info-8: 328377
+
+Tag Table:
+(Indirect)
+Node: Top1167
+Node: Introduction7517
+Node: Book Contents8238
+Node: Definitions10433
+Node: What tar Does12227
+Node: Naming tar Archives14987
+Node: posix compliance15711
+Node: Authors16674
+Node: Reports18104
+Node: Tutorial18351
+Node: assumptions19163
+Node: stylistic conventions21658
+Node: basic tar options22278
+Node: frequent operations25912
+Node: Two Frequent Options26558
+Node: file tutorial27184
+Node: verbose tutorial28296
+Node: help tutorial30030
+Node: create30384
+Node: prepare for examples31880
+Node: Creating the archive33597
+Node: create verbose36362
+Node: short create37174
+Node: create dir40119
+Node: list42704
+Node: list dir45220
+Node: extract46288
+Node: extracting archives47451
+Node: extracting files47948
+Node: extract dir49886
+Node: failing commands51797
+Node: going further52855
+Node: tar invocation52997
+Node: Synopsis54501
+Node: using tar options58938
+Node: Styles61089
+Node: Mnemonic Options62537
+Node: Short Options64384
+Node: Old Options66240
+Node: Mixing69350
+Node: All Options71831
+Node: Operation Summary72430
+Node: Option Summary73698
+Node: Short Option Summary85446
+Node: help86720
+Node: verbose90365
+Node: interactive94503
+Node: operations96578
+Node: Basic tar96814
+Node: Advanced tar100288
+Node: Operations101147
+Node: current state103124
+Node: append103527
+Node: appending files106092
+Node: multiple107872
+Node: update110260
+Node: how to update111262
+Node: concatenate113048
+Node: delete116379
+Node: compare118361
+Node: extract options120006
+Node: Reading120910
+Node: read full records122535
+Node: Ignore Zeros122887
+Node: Ignore Failed Read123924
+Node: Writing124129
+Node: Prevention Overwriting124540
+Node: Keep Old Files127024
+Node: Unlink First127548
+Node: Recursive Unlink127794
+Node: Modification Times129075
+Node: Setting Access Permissions129856
+Node: Writing to Standard Output130484
+Node: remove files131566
+Node: Scarce131755
+Node: Starting File131991
+Node: Same Order132836
+Node: backup133672
+Node: Applications137427
+Node: looking ahead138684
+Node: Backups139501
+Node: Full Dumps142517
+Node: Inc Dumps148137
+Node: incremental and listed-incremental150228
+Node: Backup Levels154197
+Node: Backup Parameters156826
+Node: backup-specs example159205
+Node: Script Syntax160124
+Node: Scripted Backups160862
+Node: Scripted Restoration162660
+Node: Choosing164245
+Node: file165187
+Node: Selecting Archive Members168702
+Node: files170042
+Node: nul171641
+Node: exclude173028
+Node: problems with exclude174364
+Node: Wildcards176558
+Node: after179612
+Node: recurse182922
+Node: one184718
+Node: directory186349
+Node: absolute189027
+Node: Date input formats191978
+Node: General date syntax194390
+Node: Calendar date item195862
+Node: Time of day item197811
+Node: Timezone item199581
+Node: Day of week item202866
+Node: Relative item in date strings203844
+Node: Pure numbers in date strings205769
+Node: Authors of getdate206747
+Node: Formats207478
+Node: Portability208014
+Node: Portable Names209140
+Node: dereference209840
+Node: old211223
+Node: posix212304
+Node: Checksumming222590
+Node: Compression224472
+Node: gzip224776
+Node: sparse231666
+Node: Attributes237228
+Node: Standard242327
+Node: Extensions264856
+Node: cpio267402
+Node: Media272146
+Node: Device274072
+Node: Remote Tape Server278682
+Node: Common Problems and Solutions282534
+Node: Blocking282918
+Node: Format Variations289525
+Node: Blocking Factor290471
+Node: Many302378
+Node: Tape Positioning306168
+Node: mt308039
+Node: Using Multiple Tapes309873
+Node: Multi-Volume Archives314969
+Node: Tape Files319053
+Node: label320523
+Node: verify324607
+Node: Write Protection327556
+Node: Index328377
+
+End Tag Table

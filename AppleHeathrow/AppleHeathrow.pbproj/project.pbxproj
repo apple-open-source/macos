@@ -1,0 +1,316 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 32;
+	objects = {
+		06AA1264FFB2107B11CA28AA = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			name = "Shell Script";
+			neededFileNames = (
+			);
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		06AA1265FFB2107B11CA28AA = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		06AA1266FFB2107B11CA28AA = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+		06AA1267FFB2110C11CA28AA = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			name = "Shell Script";
+			neededFileNames = (
+			);
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		089C1669FE841209C02AAC07 = {
+			buildStyles = (
+				06AA1265FFB2107B11CA28AA,
+				06AA1266FFB2107B11CA28AA,
+			);
+			isa = PBXProject;
+			mainGroup = 089C166AFE841209C02AAC07;
+			projectDirPath = .;
+			targets = (
+				089C1673FE841209C02AAC07,
+			);
+		};
+		089C166AFE841209C02AAC07 = {
+			children = (
+				247142CAFF3F8F9811CA285C,
+				089C167CFE841241C02AAC07,
+				19C28FB6FE9D52B211CA2CBB,
+			);
+			isa = PBXGroup;
+			name = AppleHeathrow;
+			refType = 4;
+		};
+		089C1673FE841209C02AAC07 = {
+			buildPhases = (
+				06AA1267FFB2110C11CA28AA,
+				089C1674FE841209C02AAC07,
+				089C1675FE841209C02AAC07,
+				089C1676FE841209C02AAC07,
+				089C1677FE841209C02AAC07,
+				089C1679FE841209C02AAC07,
+				06AA1264FFB2107B11CA28AA,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.platform.AppleHeathrow;
+				MODULE_VERSION = 1.0.0d1;
+				OPTIMIZATION_CFLAGS = "";
+				OTHER_CFLAGS = "-fpermissive -D_BIG_ENDIAN";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleHeathrow;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			conditionalBuildSettings = {
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = AppleHeathrow;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+			productName = AppleHeathrow;
+			productReference = 0B81C263FFB7832611CA28AA;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
+<plist version=\"0.9\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>AppleHeathrow</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.platform.AppleHeathrow</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>AppleHeathrow</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.0.0d7</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>AppleHeathrow</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.platform.AppleHeathrow</string>
+			<key>IOClass</key>
+			<string>Heathrow</string>
+			<key>IONameMatch</key>
+			<array>
+				<string>heathrow</string>
+				<string>gatwick</string>
+			</array>
+			<key>IOProbeScore</key>
+			<string>4000:32</string>
+			<key>IOProviderClass</key>
+			<string>IOPCIDevice</string>
+			<key>vectors-ata4</key>
+			<array>
+				<data>
+				AAAADg==
+				</data>
+				<data>
+				AAAAAw==
+				</data>
+			</array>
+			<key>vectors-escc-ch-a</key>
+			<array>
+				<data>
+				AAAADw==
+				</data>
+				<data>
+				AAAABA==
+				</data>
+				<data>
+				AAAABQ==
+				</data>
+			</array>
+			<key>vectors-floppy</key>
+			<array>
+				<data>
+				AAAAEw==
+				</data>
+				<data>
+				AAAAAQ==
+				</data>
+			</array>
+			<key>vectors-media-bay</key>
+			<array>
+				<data>
+				AAAAHQ==
+				</data>
+			</array>
+		</dict>
+	</dict>
+	<key>OSBundleLibraries</key>
+	<dict/>
+	<key>OSBundleRequired</key>
+	<string>Root</string>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 1;
+		};
+		089C1674FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				09C4B02DFFEEE6C411CA2A1B,
+			);
+			isa = PBXHeadersBuildPhase;
+			name = Headers;
+		};
+		089C1675FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				089C1680FE841241C02AAC07,
+			);
+			isa = PBXResourcesBuildPhase;
+			name = "Bundle Resources";
+		};
+		089C1676FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				09C4B02EFFEEE6C411CA2A1B,
+			);
+			isa = PBXSourcesBuildPhase;
+			name = Sources;
+		};
+		089C1677FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			name = "Frameworks & Libraries";
+		};
+		089C1679FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			name = "ResourceManager Resources";
+		};
+		089C167CFE841241C02AAC07 = {
+			children = (
+				089C167DFE841241C02AAC07,
+			);
+			isa = PBXGroup;
+			name = Resources;
+			refType = 4;
+		};
+		089C167DFE841241C02AAC07 = {
+			children = (
+				089C167EFE841241C02AAC07,
+			);
+			isa = PBXVariantGroup;
+			name = InfoPlist.strings;
+			refType = 4;
+		};
+		089C167EFE841241C02AAC07 = {
+			fileEncoding = 10;
+			isa = PBXFileReference;
+			name = English;
+			path = English.lproj/InfoPlist.strings;
+			refType = 4;
+		};
+		089C1680FE841241C02AAC07 = {
+			fileRef = 089C167DFE841241C02AAC07;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		09C4B02BFFEEE6C411CA2A1B = {
+			isa = PBXFileReference;
+			path = Heathrow.cpp;
+			refType = 4;
+		};
+		09C4B02CFFEEE6C411CA2A1B = {
+			isa = PBXFileReference;
+			path = Heathrow.h;
+			refType = 4;
+		};
+		09C4B02DFFEEE6C411CA2A1B = {
+			fileRef = 09C4B02CFFEEE6C411CA2A1B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		09C4B02EFFEEE6C411CA2A1B = {
+			fileRef = 09C4B02BFFEEE6C411CA2A1B;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		0B81C263FFB7832611CA28AA = {
+			isa = PBXBundleReference;
+			path = AppleHeathrow.kext;
+			refType = 3;
+		};
+		19C28FB6FE9D52B211CA2CBB = {
+			children = (
+				0B81C263FFB7832611CA28AA,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+		};
+		247142CAFF3F8F9811CA285C = {
+			children = (
+				09C4B02BFFEEE6C411CA2A1B,
+				09C4B02CFFEEE6C411CA2A1B,
+			);
+			isa = PBXGroup;
+			name = Source;
+			path = "";
+			refType = 4;
+		};
+	};
+	rootObject = 089C1669FE841209C02AAC07;
+}

@@ -1,0 +1,421 @@
+1998-07-01  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.st (c, cpp, objc): Major updates.  Now these are pretty
+	close to Emacs' font-lock mode.
+	(html_faces): Changed type faces to be printed in boldface instead
+	of italic.
+	(start): Changed `type_face_font' to be the `bold_font' instead of
+	`italic_font'.
+
+1998-06-26  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.st (c): Added support for the C++'ish //-single line
+	comments.
+
+1998-06-23  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.st (html_faces): Cleaned up the HTML faces.
+	(start): Added support for `LucidaSans-Typewriter' font.
+
+	* main.c (main): Changed the name of the stdin to "-".
+
+1998-06-22  Markku Rossi  <mtr@ngs.fi>
+
+	* main.c (main): Enscript gives the stdin as an empty argument.
+	Fixed the main() to handle it.
+
+1998-06-11  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.st: Fixed Python function definition highlighting.
+	Thanks to Andy Eskilsson <andy.eskilsson@telelogic.se>.
+
+1998-05-29  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.st (idl): Added highlighting for the CORBA Interface
+	Definition Language IDL.  Thanks to Alexis Layton
+	<alex@InConcert.COM>.
+
+1998-05-27  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.st (javascript): Updated the function name regexp.  The
+	function names - and all other symbols - can contain the dollar
+	sign.
+	(javascript): Fixed ''-strings and character constants.
+
+1998-03-09  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.st (vba): Added highlighting for Visual Basic (for
+	Applications).  Thanks to Kevin Grover <grover@wizard.com>.
+	Added new output language RTF (Rich Text Format).  Thanks to Kevin
+	Grover <grover@wizard.com>.
+	(python): Updated Python highlighting rules.
+
+1998-02-27  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.st (python): Added highlighting for the Python
+	language.  Thanks to Andy Eskilsson <andy.eskilsson@telelogic.se>.
+	(asm): Added highlighting rules for Assembler listings.
+
+1998-02-11  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.st (javascript): Initialize from_html to 0 at the
+	global level.  Now we can print JavaScript files that are not
+	embedded to HTML.
+
+1998-01-29  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.st (perl): Fixed to handle oddities in OO perl and perl
+	used for cgi scripts.  Thanks to Jim Villani.
+
+1998-01-28  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.st (sh): Added highlighting for bourne shell scripts.
+	Thanks to Juergen Kahrs <Juergen.Kahrs@t-online.de>.
+	(startrules): Fixed perl and awk rules to accept space after
+	`#!'.
+
+1998-01-20  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.st (awk): Added highlighting for awk.  Thanks to
+	Juergen Kahrs <Juergen.Kahrs@t-online.de>.
+
+1997-12-31  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.st (namerules): Added suffix `.pm' for perl mode.
+	(startrules): Fixed perl mode to recognize files which start with
+	`#!...perl'.
+
+1997-12-30  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.st: Added colors `cadet blue' and `orchid'.
+	Fixed `emacs' color model to conform the emacs' defaults.
+	(changelog): Updated ChangeLog highlighting to conform emacs.
+
+1997-12-17  Markku Rossi  <mtr@ngs.fi>
+
+	* utils.c (lookup_var): Made special variable `$`' an alias for
+	`$B'.
+
+1997-12-15  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.st (html_faces): Added navigation links: top, next,
+	prev.
+	(start): New colormode `ifh'.  Thanks to Tobias Buchal
+	<buch@ifh.bau-verm.uni-karlsruhe.de>
+	(diff): Added highlighting for diffs.  Thanks to Tobias Buchal.
+	(diffu): Added highlighting for unified diffs.  Thanks to Tobias
+	Buchal.
+	(html_annotate_mailtos): Fixed addresses which contain '-'
+	characters.
+	(html_annotate_mailtos): Fixed addresses which contain '.'
+	characters in the user name.
+
+1997-11-13  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.st (delphi): Added support for C++ style comments.
+	(fortran): Updated Fortran highlighting.  Thanks to Keith Refson
+	<Keith.Refson@earth.ox.ac.uk>.
+
+Wed Aug 27 14:36:12 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* prims.c (prim_regexp_syntax): New primitive to modify regexp
+	engine's character syntax table.
+
+	* enscript.st (scheme): Improved keyword highlighting, thanks to
+	the new regexp_syntax() primitive which can be used to modify
+	regexp character syntax table.
+
+Mon Aug 11 10:31:55 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.st (start): Fixed PostScript font resolving to work
+	with the `Souvenir' font.
+
+Fri Jul 18 10:34:27 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* lex.l: Implemented case-insensitive regular expressions.
+
+Wed Jul 16 12:50:27 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.st (sql): Updated Sybase SQL highlighting rules, thanks
+	to Chris Jack <chris_jack@msn.com>.
+
+Fri Jul  4 09:11:37 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* utils.c (compile_regexp): New function to handle regular
+ 	expression compilations.
+	(compile_regexp): Added fastmaps for regexps, this speeds up the
+ 	processing noticeably.
+
+Mon Jun 23 09:39:41 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.st (sql): Added highlighting for SQL language by
+	Chris Jack <chris_jack@msn.com>.
+
+	* utils.c (lookup_var): Renamed special variable `$`' to `$B'.
+
+	* enscript.st (perl): Added highlighting for Perl programming
+ 	language by Jim Villani, Logistics Management Institute
+	(jvillani@lmi.org).
+
+Tue Jun 10 10:46:31 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* utils.c (lookup_var): New special variable `$.'.
+	(lookup_var): New special variable `$`'.
+
+Fri Jun  6 14:05:38 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* prims.c (prim_float): New primitive to convert items to float
+	numbers.
+
+Tue Jun  3 11:23:59 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.st (c): Improved C pre-processor line highlighting to
+ 	highlights also string and character constansts.
+	(c): Added highlighting for goto's labels and targets.
+	(c): Added highlighting for function definitions and prototypes.
+	(changelog): Added highlighting for description entries with
+ 	function name but without file name.
+	(cpp): Added highlighting for goto's labels and targes.
+	(cpp): Added highlighting for function definitions and
+	prototypes.
+	(objc): Added highlighting for goto's labels and targets.
+
+Tue May 20 09:21:05 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.st (delphi): Added highlighting for Delphi language by
+ 	Michael Van Canneyt <michael@tfdec1.fys.kuleuven.ac.be>.
+
+	* main.c (main): Moved the initialization of `ofp' from the
+ 	variable declaration to main().
+
+Fri May  2 10:59:22 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.el (build-re): Added support for case-insensitive
+	regular expressions.
+
+	* enscript.st (fortran): Added highlighting for Fortran77
+	language.
+	Re-generated case-insensitive keyword regular expressions with the
+	new build-re function.
+
+Fri Apr 25 09:24:34 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.st (pascal): Added highlighting for Pascal language by
+	Michael Van Canneyt <michael@tfdec1.fys.kuleuven.ac.be>.
+
+Wed Apr 16 10:14:39 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* gram.y: Implemented expressions: +=, -=, *=, div=.
+
+Mon Apr 14 17:08:00 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* gram.y: Implemented prefix and postfix increment (++) and
+	decrement (--) operators.
+
+Fri Apr  4 09:20:20 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.st (java): Added highlighting for Java language by Paul
+	Fisher <pnfisher@eos.ncsu.edu>.
+	(html_faces): Fixed 1.5.0 compatibility bug.
+
+Thu Apr  3 10:24:32 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* prims.c (prim_range): New primitive to fetch sub-ranges from
+	lists and strings.
+	Changed all primitives' error messages to be in format
+	`FILE:LINE: MESSAGE'.
+
+Tue Mar 25 12:40:56 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* prims.c (prim_regexp): New primitive to create regular
+	expressions from strings.
+	(prim_split): New primitive to split string to list.
+
+Fri Mar 21 11:37:18 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.st (html): Added support for nested scripts.
+	(javascript): Added highlighting for JavaScript.
+
+Wed Mar 19 12:02:17 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.st (need_version): New help subroutine to check that a
+	specified version of the states program is in use.
+	(html_faces): Changed HTML output language to co-operate with
+	enscript's new --language option.
+	(passthrough): New state which simply pass its input to output
+	preserving only face specific headers, footers and language
+	specials.
+
+	* main.c (main): New built-in variable `argv' which holds input
+ 	file names.
+
+Mon Mar 17 09:46:45 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.st (elisp): Added highlighting for Emacs Lisp.
+	(overstrike_faces): New output language `overstrike' for line
+	printers and less by François Pinard.
+	(tcl): Updated Tcl and Tk keywords from Tcl/Tk 8.0a1.
+	Added highlighting for procedure names and variable names.
+	(scheme): Fixed keywords to recognize `set!'.
+
+Tue Mar 11 16:20:12 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.st (states): Updated keyword list.
+	Implemented highlighting for built-in functions.
+	Added highlighting for function names.
+
+Mon Mar 10 11:50:04 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.st (postscript): Added highlighting for PostScript
+	language by Dave Hylands <DHylands@creo.com>.
+	Sorted highlighting states according to their names.
+
+Thu Mar  6 11:05:13 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.st: Implemented new `variable_name_face' typeface.
+	(c_ppline): Implemented a smarter C preprocessor line highlighting
+	support.  Now it should be identical with Emacs's highlight.
+
+Tue Mar  4 11:40:40 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.st (ada): Added highlighting for the Ada95 programming
+	language by Rolf Ebert <ebert@waporo.muc.de>.
+
+Mon Mar  3 12:03:16 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.st (start): Cleaned bold, italic and bold-italic font
+	resolving.
+	(makefile): Fixed highlighting to handle nested (){} structures.
+	(scheme): Updated to highlight function names and ':'-started
+	function arguments.
+
+Thu Feb 27 09:34:49 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.st: Implemented new type faces: `builtin_face' and
+	`type_face'.
+	(haskell): Added highlighting for the Haskell programming language
+	by Hans-Wolfgang Loidl <hwloidl@dcs.gla.ac.uk>.
+	Updated highlighting rule guidelines and updated all current rules
+	to obey them.
+	Implemented new documentation state `describe_languages_html'
+	which will create a HTML report about all supported highlighting
+	formats.
+
+Wed Feb 26 09:42:52 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* Release enscript-1.5.0.
+
+Fri Feb 21 09:48:04 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* gram.y: Implemented logical operators `not', `and' and `or'.
+
+	* main.c: New option -W, --warning to set the warning level.
+
+	* Added test subdirectory and tests for States.
+
+Wed Feb 19 14:58:36 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.st (synopsys): Added highlighting for the Synopsys DC
+	Shell scripting language by Brian Silveira (brian@nortel.ca) and
+	Hartley Horwitz (harts@nortel.ca).
+	(synopsys): New synopsys mode with some minor fixes.
+
+Tue Feb 18 08:59:46 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.st: Added guidelines for new highlighting rules.
+	(vhdl): Added VHDL highlighting by Brian Silveira
+	(brian@nortel.ca).
+
+Tue Feb 11 14:08:25 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.st (verilog): Added new '`' keywords.
+	(verilog): Added highlighting for references of the pre-processor
+	defined things.
+
+Wed Feb  5 10:29:07 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* prims.c (prim_tointeger): Renamed primitive `tonumber' to
+	`int'.
+	(prim_string): Renamed primitive `tostring' to `string'.
+	(prim_sprintf): New primitive to create formatted strings.
+
+	* utils.c (eval_expr): Implemented integer and real values and
+	expressions and conversions betweeen them.
+
+	* prims.c (prim_concat): Renamed primitive `strcat' to `concat'.
+
+Tue Feb  4 16:40:23 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* prims.c (prim_list): New primitive `list' to create lists.
+	(prim_length): Renamed primitive `strlen' to `length'.
+
+	* gram.y: Implemented array references and assignments for lists
+	and strings.
+
+	* lex.l: Implemented C's character constants ('a').
+
+Mon Feb  3 11:34:14 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.st: Added `describe_languages' state which can be used
+	to extract information about the supported --pretty-print
+	languages from the enscript.st file.
+	Added documentation comments (/** */) to all supported languages
+	and file formats.
+	Changed start state resolving to check the startrules before the
+	namerules.
+	Added colors for HTML target.
+
+	* Fixed bugs encountered with enscript-1.4.4.
+	Updated developement tools: flex-2.5.4 and bison-1.25.
+
+Fri Jan 31 15:24:44 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* prims.c (prim_prereq): New primitive to check that a recent
+	enough version of States is being used.
+
+Sat Jan 25 17:27:50 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.st (changelog): Implemented ChangeLog highlighting.
+
+	* enscript.el: Emacs lisp commands to help enscript.st editing.
+
+	* enscript.st (objc): Implemented Objective-C highlighting.
+	Regenerated keyword regular expressions with the Emacs-lisp
+	build-re command.
+
+Fri Jan 24 19:13:38 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* prims.c: New primitives: regmatch, regsub and regsuball.
+
+Thu Jan 23 11:49:25 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* prims.c (prim_getenv): New primitive: getenv.
+
+	* Makefile.am: Moved libcompat.a before libintl.a so intl library
+	can use alloca.
+
+	* De-ANSI-fied states sources since bison generated gram.c is
+	already in K&R.
+
+Wed Jan 22 00:57:09 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* Makefile.am: Added many2html script.
+
+	* enscript.st: Added support for multiple output languages and
+	implemented HTML target for all supported input languages.
+
+	* gram.y: changed top-level expressions to statements and moved
+	subroutine definition from top-level to statements.  This allows
+	conditional subroutine definitions.
+	added tSYMBOL for state rule's expr part.  This allows
+	user-definable matches.
+
+Mon Jan 20 01:14:02 1997  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.st (tcl): Implemented Tcl highlighting.
+
+	* defs.h (struct environment_st): Changed procedure call's
+	environment from StringHash to linked list, this gives major
+	speedup.
+
+	* Version 0.9 of States, this is an early beta.

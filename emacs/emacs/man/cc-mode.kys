@@ -1,0 +1,43 @@
+\initial {#}
+\entry {\code {#}}{9}
+\initial {{\tt\gtr}}
+\entry {\code {>}}{10}
+\initial {{\tt\less}}
+\entry {\code {<}}{10}
+\initial {B}
+\entry {\code {Backspace}}{12}
+\initial {C}
+\entry {\code {C-c .}}{21}
+\entry {\code {C-c :}}{16}
+\entry {\code {C-c C-a}}{7}
+\entry {\code {C-c C-b}}{43}
+\entry {\code {C-c C-d}}{7}
+\entry {\code {C-c C-n}}{15}
+\entry {\code {C-c C-o}}{19}
+\entry {\code {C-c C-p}}{15}
+\entry {\code {C-c C-q}}{14, 19, 24, 39}
+\entry {\code {C-c C-s}}{3, 29}
+\entry {\code {C-c C-t}}{7}
+\entry {\code {C-c C-u}}{15}
+\entry {\code {C-j}}{39}
+\entry {\code {C-u}}{7}
+\entry {\code {C-x h}}{39}
+\initial {D}
+\entry {\code {DEL}}{12}
+\initial {E}
+\entry {\code {ESC a}}{15}
+\entry {\code {ESC C-{\tt\rawbackslashxx }}}{39}
+\entry {\code {ESC C-q}}{39}
+\entry {\code {ESC C-u}}{39}
+\entry {\code {ESC C-x}}{39}
+\entry {\code {ESC e}}{15}
+\entry {\code {ESC q}}{16}
+\initial {M}
+\entry {\code {M-;}}{27}
+\entry {\code {M-C-{\tt\rawbackslashxx }}}{14}
+\entry {\code {M-C-h}}{15}
+\entry {\code {M-C-q}}{14}
+\initial {R}
+\entry {\code {RET}}{39}
+\initial {T}
+\entry {\code {TAB}}{5, 14}

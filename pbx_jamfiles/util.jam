@@ -1,0 +1,52 @@
+# Copyright (c) 1999,2000 Apple Computer, Inc.
+# All rights reserved.
+
+# This file defines various functions for transforming text and
+# manipulating variables
+
+/ default = / ;
+
+# NonObjectFiles <non-object files returned> : <list of files>
+# Returns only files not in $(OBJECT_FILES) or $(OBJECT_FILES_$(ARCH))
+# for ARCH in $(ARCHS)
+rule NonObjectFiles
+{
+    $(1) = ;
+    for X in $(2) {
+        if ! $(X) in $(OBJECT_FILES) {
+            REJECT = ;
+            for ARCH in $(ARCHS) {
+                if $(X) in $(OBJECT_FILES_$(ARCH)) {
+                    REJECT = YES ;
+                }
+            }
+            if ! $(REJECT) {
+                $(1) += $(X) ;
+            }
+        }
+    }
+}
+
+#
+# RemovePrefixPath <variable> : <prefix> : <path-with-prefix>
+#  removes the given prefix from the path and puts the result
+# in the given variable
+#
+rule RemovePrefixPath
+{
+    local newname = $(3:BS) ;
+    local newdir = $(3:D) ;
+    local INDEX ;
+    if $(2) != "." {
+	for INDEX in 1 2 3 4 5 6 7 8 9 10 {
+	    if $(newdir) != $(2) {
+		newname = $(newdir:BS)/$(newname) ;
+		newdir = $(newdir:D) ;
+	    }
+	}
+    }
+    else {
+	newname = $(3) ;
+    }
+    $(1) = $(newname) ;
+}

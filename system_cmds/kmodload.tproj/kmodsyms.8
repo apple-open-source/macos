@@ -1,0 +1,105 @@
+.\"
+.\" Copyright (c) 1997 Doug Rabson
+.\" All rights reserved.
+.\"
+.\" Redistribution and use in source and binary forms, with or without
+.\" modification, are permitted provided that the following conditions
+.\" are met:
+.\" 1. Redistributions of source code must retain the above copyright
+.\"    notice, this list of conditions and the following disclaimer.
+.\" 2. Redistributions in binary form must reproduce the above copyright
+.\"    notice, this list of conditions and the following disclaimer in the
+.\"    documentation and/or other materials provided with the distribution.
+.\"
+.\" THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+.\" ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+.\" IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+.\" ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+.\" FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+.\" DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+.\" OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+.\" HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+.\" LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+.\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+.\" SUCH DAMAGE.
+.\"
+.\"	$Id: kmodsyms.8,v 1.2 2000/02/24 22:31:35 lindak Exp $
+.\"
+.Dd April 8, 1999
+.Dt KMODSYMS 8
+.Os FreeBSD
+.Sh NAME
+.Nm kmodsyms
+.Nd creates a statically linked symbol file for remote debugging
+.Sh SYNOPSIS
+.Nm kmodsyms
+.Op Fl v
+.Op Fl k Ar kernelfile
+.Op Fl d Ar dependencyfile
+.Fl o Ar symbolfile
+.Ar modulefile
+.Nm kmodsyms
+.Op Fl v
+.Fl k Ar kernelfile
+.Op Fl d Ar dependencyfile@address
+.Fl o Ar symbolfile
+.Ar modulefile@address
+.Sh DESCRIPTION
+The
+.Nm
+creates a statically linked symbol file for remote debugging using
+.Ar modulefile[@address] .
+If an address is specified for either the
+.Ar modulefile
+or
+.Ar dependacyfile
+they both must have the address tag. If addresses are specified it assumed that the command is being run on a different machine with a potentially different kernel, thus the
+.Ar kernelfile
+argument is also required.
+If addresses are not specified they taken from the currently running host machine.
+.Pp
+The following options are available:
+.Bl -tag -width indent
+.It Fl v
+Be more verbose.
+.It Fl k Ar kernelfile
+Use alternate file
+.Ar kernelfile
+instead of default file /mach for linking
+.Ar modulefile .
+.It Fl d Ar dependacyfile[@address]
+Add symbols from
+.Ar dependacyfile
+to kernel symbols prior to linking of
+.Ar modulefile .
+The file 
+.Ar dependacyfile
+must already be loaded.
+.It Fl o Ar symbolfile
+Creates file named
+.Ar symbolfile
+that contains statically linked output suitable to use with
+.Xr gdb 1 
+for remote debugging.
+.El
+.Sh FILES
+.Bl -tag -width /modules -compact
+.It Pa /System/Library/Extensions
+directory containing loadable kernel modules.
+.Sh DIAGNOSTICS
+The
+.Nm
+utility exits with a status of 0 on success. 
+A status of 1 indicates a usage error.
+A status of 2 indicates a indicates a permissions error.
+A status of 3 indicates a problem with linking the module.
+A status of 4 indicates a internal or system error.
+.Sh SEE ALSO
+.Xr kmodload 8 ,
+.Xr kmodstat 8 ,
+.Xr kmodunload 8
+.Sh HISTORY
+The
+.Nm
+command is based on the command kldload written by
+.An Doug Rabson Aq dfr@FreeBSD.org

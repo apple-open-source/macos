@@ -1,0 +1,71 @@
+# Guidelines for Zsh Development Group
+#
+
+Zsh is currently developed and maintained by the Zsh Development Group.
+This development takes place by mailing list.  Check the META-FAQ for the
+various zsh mailing lists and how to subscribe to them.  The development
+is very open and anyone is welcomed and encouraged to join and contribute.
+Because zsh is a very large package whose development can sometimes
+be very rapid, I kindly ask that people observe a few guidelines when
+contributing patches and feedback to the mailing list.  These guidelines
+are very simple and hopefully should make for a more orderly development
+of zsh.
+
+1) Send all patches to the mailing list rather than directly to me.
+
+2) Send only context diffs "diff -c oldfile newfile".  They are much
+   easier to read and understand while also allowing the patch program
+   to patch more intelligently.
+
+3) Please put only one bug fix or feature enhancement in a single patch
+   and only one patch per mail message.  This helps me to multiplex
+   the many (possibly conflicting) patches that I receive for zsh.
+   You shouldn't needlessly split patches, but send them in the smallest
+   LOGICAL unit.
+
+4) If a patch depends on other patches, then please say so.  Also please
+   mention what version of zsh this patch is for.
+
+5) Please test your patch and make sure it applies cleanly. It
+   takes considerably more time to manually merge a patch into the
+   baseline code.
+
+6) Please try not using lines longer than 79 characters.  The coding style
+   is Kernighan and Ritchie with 4 characters indentations.  This means
+   that the opening brace is the last character in the line of the
+   if/while/for/do statement and the closing brace has its own line:
+
+       if (foo) {
+	   do that
+       }
+
+   Put only one command in a line (this also means that the body of an
+   if/while/for/do statement has its own line with 4 characters indentation
+   even if there are no braces).  Do not use space between the function
+   name and the opening parenthesis.  Use space after if/for/while.  Use
+   space after type casts.  Do not use (unsigned char) casts since some
+   compilers do not handle them properly.  Use the provided STOUC(X) macro
+   instead.
+
+   If you use emacs 19.30 or newer you can put the following line to your
+   ~/.emacs file to make these formatting rules the default:
+
+   (add-hook 'c-mode-common-hook (function (lambda () (c-set-style "BSD"))))
+
+   A global function declaration must look like this:
+
+/**/
+int
+foo(char *s, char **p)
+{
+    function body
+}
+
+    There must be an empty line, a line with /**/, a line with the type of
+    the function and finally the name of the function with typed arguments.
+    These lines should not be indented.  This rule is a must because the
+    script generating function prototypes and the ansi2knr program depends
+    on this format.
+
+Zoltán Hidvégi      (Coordinator, Zsh Development Group)
+hzoli@cs.elte.hu

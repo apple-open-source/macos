@@ -1,0 +1,45 @@
+----------------------------------------------------------------------------
+Network Time Protocol Release 4 
+   for Microsoft Windows NT
+						  
+----------------------------------------------------------------------------
+This software is user supported freeware.
+
+For support post to the UseNet newsgroup: comp.protocols.time.ntp
+
+More detailed information can also be found at:
+	http://www.eecis.udel.edu/~ntp
+
+Source is available at:
+	ftp://ftp.udel.edu/pub/ntp
+
+
+----------------------------------------------------------------------------
+
+----------------------------------------------------------------------------
+NTP v4.0.72j Release for Microsoft Windows NT          June 17th, 1998
+
+----------------------------------------------------------------------------
+
+This is a dramatic reorganization of the source tree that separates the 
+WinNT port into it's own directories, and cleans up many source code 
+anomalies.
+
+
+Possible enhancements and things left to do:
+*	Control Panel Applet
+*	Lock NT task into memory, so that it can't be paged out.
+*	Integration with NT Performance Monitor
+*	SNMP integration
+
+
+Known problems:
+*	Quality of Release should be considered Alpha, as no significant 
+	testing has been performed.
+*	Server precision has been reported at ~50ms, and should be able 
+	to achieve approximately 10ms.
+
+
+
+Greg Schueman  [schueman@acm.org]
+

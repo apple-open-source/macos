@@ -1,0 +1,843 @@
+<HTML>
+<HEAD>
+<!-- This HTML file has been created by texi2html 1.51
+     from /mnt/apple/gdb/source/gdb.apple/source/gdb/gdb/doc/gdbint.texinfo on 23 November 1999 -->
+
+<TITLE>GDB Internals - Target Architecture Definition</TITLE>
+</HEAD>
+<BODY>
+Go to the <A HREF="gdbint_1.html">first</A>, <A HREF="gdbint_8.html">previous</A>, <A HREF="gdbint_10.html">next</A>, <A HREF="gdbint_16.html">last</A> section, <A HREF="gdbint_toc.html">table of contents</A>.
+<P><HR><P>
+
+
+<H1><A NAME="SEC61" HREF="gdbint_toc.html#TOC61">Target Architecture Definition</A></H1>
+
+<P>
+GDB's target architecture defines what sort of machine-language programs
+GDB can work with, and how it works with them.
+
+</P>
+<P>
+At present, the target architecture definition consists of a number of C
+macros.
+
+</P>
+
+
+<H2><A NAME="SEC62" HREF="gdbint_toc.html#TOC62">Registers and Memory</A></H2>
+
+<P>
+GDB's model of the target machine is rather simple.  GDB assumes the
+machine includes a bank of registers and a block of memory.  Each
+register may have a different size.
+
+</P>
+<P>
+GDB does not have a magical way to match up with the compiler's idea of
+which registers are which; however, it is critical that they do match up
+accurately.  The only way to make this work is to get accurate
+information about the order that the compiler uses, and to reflect that
+in the <CODE>REGISTER_NAME</CODE> and related macros.
+
+</P>
+<P>
+GDB can handle big-endian, little-endian, and bi-endian architectures.
+
+</P>
+
+
+<H2><A NAME="SEC63" HREF="gdbint_toc.html#TOC63">Frame Interpretation</A></H2>
+
+
+
+<H2><A NAME="SEC64" HREF="gdbint_toc.html#TOC64">Inferior Call Setup</A></H2>
+
+
+
+<H2><A NAME="SEC65" HREF="gdbint_toc.html#TOC65">Compiler Characteristics</A></H2>
+
+
+
+<H2><A NAME="SEC66" HREF="gdbint_toc.html#TOC66">Target Conditionals</A></H2>
+
+<P>
+This section describes the macros that you can use to define the target
+machine.
+
+</P>
+<DL COMPACT>
+
+<DT><CODE>ADDITIONAL_OPTIONS</CODE>
+<DD>
+<DT><CODE>ADDITIONAL_OPTION_CASES</CODE>
+<DD>
+<DT><CODE>ADDITIONAL_OPTION_HANDLER</CODE>
+<DD>
+<DT><CODE>ADDITIONAL_OPTION_HELP</CODE>
+<DD>
+These are a set of macros that allow the addition of additional command
+line options to GDB.  They are currently used only for the unsupported
+i960 Nindy target, and should not be used in any other configuration.
+
+<DT><CODE>ADDR_BITS_REMOVE (addr)</CODE>
+<DD>
+If a raw machine address includes any bits that are not really part of
+the address, then define this macro to expand into an expression that
+zeros those bits in <VAR>addr</VAR>.  For example, the two low-order bits of
+a Motorola 88K address may be used by some kernels for their own
+purposes, since addresses must always be 4-byte aligned, and so are of
+no use for addressing.  Those bits should be filtered out with an
+expression such as <CODE>((addr) &#38; ~3)</CODE>.
+
+<DT><CODE>BEFORE_MAIN_LOOP_HOOK</CODE>
+<DD>
+Define this to expand into any code that you want to execute before the
+main loop starts.  Although this is not, strictly speaking, a target
+conditional, that is how it is currently being used.  Note that if a
+configuration were to define it one way for a host and a different way
+for the target, GDB will probably not compile, let alone run correctly.
+This is currently used only for the unsupported i960 Nindy target, and
+should not be used in any other configuration.
+
+<DT><CODE>BELIEVE_PCC_PROMOTION</CODE>
+<DD>
+Define if the compiler promotes a short or char parameter to an int, but
+still reports the parameter as its original type, rather than the
+promoted type.
+
+<DT><CODE>BELIEVE_PCC_PROMOTION_TYPE</CODE>
+<DD>
+Define this if GDB should believe the type of a short argument when
+compiled by pcc, but look within a full int space to get its value.
+Only defined for Sun-3 at present.
+
+<DT><CODE>BITS_BIG_ENDIAN</CODE>
+<DD>
+Define this if the numbering of bits in the targets does *not* match the
+endianness of the target byte order.  A value of 1 means that the bits
+are numbered in a big-endian order, 0 means little-endian.
+
+<DT><CODE>BREAKPOINT</CODE>
+<DD>
+This is the character array initializer for the bit pattern to put into
+memory where a breakpoint is set.  Although it's common to use a trap
+instruction for a breakpoint, it's not required; for instance, the bit
+pattern could be an invalid instruction.  The breakpoint must be no
+longer than the shortest instruction of the architecture.
+
+<VAR>BREAKPOINT</VAR> has been deprecated in favour of
+<VAR>BREAKPOINT_FROM_PC</VAR>.
+
+<DT><CODE>BIG_BREAKPOINT</CODE>
+<DD>
+<DT><CODE>LITTLE_BREAKPOINT</CODE>
+<DD>
+Similar to BREAKPOINT, but used for bi-endian targets.
+
+<VAR>BIG_BREAKPOINT</VAR> and <VAR>LITTLE_BREAKPOINT</VAR> have been deprecated in
+favour of <VAR>BREAKPOINT_FROM_PC</VAR>.
+
+<DT><CODE>REMOTE_BREAKPOINT</CODE>
+<DD>
+<DT><CODE>LITTLE_REMOTE_BREAKPOINT</CODE>
+<DD>
+<DT><CODE>BIG_REMOTE_BREAKPOINT</CODE>
+<DD>
+Similar to BREAKPOINT, but used for remote targets.
+
+<VAR>BIG_REMOTE_BREAKPOINT</VAR> and <VAR>LITTLE_REMOTE_BREAKPOINT</VAR> have been
+deprecated in favour of <VAR>BREAKPOINT_FROM_PC</VAR>.
+
+<DT><CODE>BREAKPOINT_FROM_PC (pcptr, lenptr)</CODE>
+<DD>
+Use the program counter to determine the contents and size of a
+breakpoint instruction.  It returns a pointer to a string of bytes that
+encode a breakpoint instruction, stores the length of the string to
+*lenptr, and adjusts pc (if necessary) to point to the actual memory
+location where the breakpoint should be inserted.
+
+Although it is common to use a trap instruction for a breakpoint, it's
+not required; for instance, the bit pattern could be an invalid
+instruction.  The breakpoint must be no longer than the shortest
+instruction of the architecture.
+
+Replaces all the other <VAR>BREAKPOINT</VAR> macros.
+
+<DT><CODE>CALL_DUMMY_P</CODE>
+<DD>
+A C expresson that is non-zero when the target suports inferior function
+calls.
+
+<DT><CODE>CALL_DUMMY_WORDS</CODE>
+<DD>
+Pointer to an array of <VAR>LONGEST</VAR> words of data containing
+host-byte-ordered <VAR>REGISTER_BYTES</VAR> sized values that partially
+specify the sequence of instructions needed for an inferior function
+call.
+
+Should be deprecated in favour of a macro that uses target-byte-ordered
+data.
+
+<DT><CODE>SIZEOF_CALL_DUMMY_WORDS</CODE>
+<DD>
+The size of <VAR>CALL_DUMMY_WORDS</VAR>.  When <VAR>CALL_DUMMY_P</VAR> this must
+return a positive value.  See also <VAR>CALL_DUMMY_LENGTH</VAR>.
+
+<DT><CODE>CALL_DUMMY</CODE>
+<DD>
+A static initializer for <VAR>CALL_DUMMY_WORDS</VAR>.  Deprecated.
+
+<DT><CODE>CALL_DUMMY_LOCATION</CODE>
+<DD>
+inferior.h
+
+<DT><CODE>CALL_DUMMY_STACK_ADJUST</CODE>
+<DD>
+Stack adjustment needed when performing an inferior function call.
+
+Should be deprecated in favor of something like <VAR>STACK_ALIGN</VAR>.
+
+<DT><CODE>CALL_DUMMY_STACK_ADJUST_P</CODE>
+<DD>
+Predicate for use of <VAR>CALL_DUMMY_STACK_ADJUST</VAR>.
+
+Should be deprecated in favor of something like <VAR>STACK_ALIGN</VAR>.
+
+<DT><CODE>CANNOT_FETCH_REGISTER (regno)</CODE>
+<DD>
+A C expression that should be nonzero if <VAR>regno</VAR> cannot be fetched
+from an inferior process.  This is only relevant if
+<CODE>FETCH_INFERIOR_REGISTERS</CODE> is not defined.
+
+<DT><CODE>CANNOT_STORE_REGISTER (regno)</CODE>
+<DD>
+A C expression that should be nonzero if <VAR>regno</VAR> should not be
+written to the target.  This is often the case for program counters,
+status words, and other special registers.  If this is not defined, GDB
+will assume that all registers may be written.
+
+<DT><CODE>DO_DEFERRED_STORES</CODE>
+<DD>
+<DT><CODE>CLEAR_DEFERRED_STORES</CODE>
+<DD>
+Define this to execute any deferred stores of registers into the inferior,
+and to cancel any deferred stores.
+
+Currently only implemented correctly for native Sparc configurations?
+
+<DT><CODE>CPLUS_MARKER</CODE>
+<DD>
+Define this to expand into the character that G++ uses to distinguish
+compiler-generated identifiers from programmer-specified identifiers.
+By default, this expands into <CODE>'$'</CODE>.  Most System V targets should
+define this to <CODE>'.'</CODE>.
+
+<DT><CODE>DBX_PARM_SYMBOL_CLASS</CODE>
+<DD>
+Hook for the <CODE>SYMBOL_CLASS</CODE> of a parameter when decoding DBX symbol
+information.  In the i960, parameters can be stored as locals or as
+args, depending on the type of the debug record.
+
+<DT><CODE>DECR_PC_AFTER_BREAK</CODE>
+<DD>
+Define this to be the amount by which to decrement the PC after the
+program encounters a breakpoint.  This is often the number of bytes in
+BREAKPOINT, though not always.  For most targets this value will be 0.
+
+<DT><CODE>DECR_PC_AFTER_HW_BREAK</CODE>
+<DD>
+Similarly, for hardware breakpoints.
+
+<DT><CODE>DISABLE_UNSETTABLE_BREAK addr</CODE>
+<DD>
+If defined, this should evaluate to 1 if <VAR>addr</VAR> is in a shared
+library in which breakpoints cannot be set and so should be disabled.
+
+<DT><CODE>DO_REGISTERS_INFO</CODE>
+<DD>
+If defined, use this to print the value of a register or all registers.
+
+<DT><CODE>END_OF_TEXT_DEFAULT</CODE>
+<DD>
+This is an expression that should designate the end of the text section
+(? FIXME ?)
+
+<DT><CODE>EXTRACT_RETURN_VALUE(type,regbuf,valbuf)</CODE>
+<DD>
+Define this to extract a function's return value of type <VAR>type</VAR> from
+the raw register state <VAR>regbuf</VAR> and copy that, in virtual format,
+into <VAR>valbuf</VAR>.
+ 
+<DT><CODE>EXTRACT_STRUCT_VALUE_ADDRESS(regbuf)</CODE>
+<DD>
+When <VAR>EXTRACT_STRUCT_VALUE_ADDRESS_P</VAR> this is used to to extract
+from an array <VAR>regbuf</VAR> (containing the raw register state) the
+address in which a function should return its structure value, as a
+CORE_ADDR (or an expression that can be used as one).
+
+<DT><CODE>EXTRACT_STRUCT_VALUE_ADDRESS_P</CODE>
+<DD>
+Predicate for <VAR>EXTRACT_STRUCT_VALUE_ADDRESS</VAR>.
+
+<DT><CODE>FLOAT_INFO</CODE>
+<DD>
+If defined, then the `info float' command will print information about
+the processor's floating point unit.
+
+<DT><CODE>FP_REGNUM</CODE>
+<DD>
+If the virtual frame pointer is kept in a register, then define this
+macro to be the number (greater than or equal to zero) of that register.
+
+This should only need to be defined if <CODE>TARGET_READ_FP</CODE> and
+<CODE>TARGET_WRITE_FP</CODE> are not defined.
+
+<DT><CODE>FRAMELESS_FUNCTION_INVOCATION(fi)</CODE>
+<DD>
+Define this to an expression that returns 1 if the function invocation
+represented by <VAR>fi</VAR> does not have a stack frame associated with it.
+Otherwise return 0.
+
+<DT><CODE>FRAME_ARGS_ADDRESS_CORRECT</CODE>
+<DD>
+stack.c
+
+<DT><CODE>FRAME_CHAIN(frame)</CODE>
+<DD>
+Given <VAR>frame</VAR>, return a pointer to the calling frame.
+
+<DT><CODE>FRAME_CHAIN_COMBINE(chain,frame)</CODE>
+<DD>
+Define this to take the frame chain pointer and the frame's nominal
+address and produce the nominal address of the caller's frame.
+Presently only defined for HP PA.
+
+<DT><CODE>FRAME_CHAIN_VALID(chain,thisframe)</CODE>
+<DD>
+Define this to be an expression that returns zero if the given frame is
+an outermost frame, with no caller, and nonzero otherwise.  Three common
+definitions are available. <CODE>default_frame_chain_valid</CODE> (the
+default) is nonzero if the chain pointer is nonzero and given frame's PC
+is not inside the startup file (such as <TT>`crt0.o'</TT>).
+<CODE>alternate_frame_chain_valid</CODE> is nonzero if the chain pointer is
+nonzero and the given frame's PC is not in <CODE>main()</CODE> or a known
+entry point function (such as <CODE>_start()</CODE>).
+
+<DT><CODE>FRAME_INIT_SAVED_REGS(frame)</CODE>
+<DD>
+See <TT>`frame.h'</TT>.  Determines the address of all registers in the
+current stack frame storing each in <CODE>frame-&#62;saved_regs</CODE>.  Space for
+<CODE>frame-&#62;saved_regs</CODE> shall be allocated by
+<CODE>FRAME_INIT_SAVED_REGS</CODE> using either
+<CODE>frame_saved_regs_zalloc</CODE> or <CODE>frame_obstack_alloc</CODE>.
+
+<VAR>FRAME_FIND_SAVED_REGS</VAR> and <VAR>EXTRA_FRAME_INFO</VAR> are deprecated.
+
+<DT><CODE>FRAME_NUM_ARGS (fi)</CODE>
+<DD>
+For the frame described by <VAR>fi</VAR> return the number of arguments that
+are being passed.  If the number of arguments is not known, return
+<CODE>-1</CODE>.
+
+<DT><CODE>FRAME_SAVED_PC(frame)</CODE>
+<DD>
+Given <VAR>frame</VAR>, return the pc saved there.  That is, the return
+address.
+
+<DT><CODE>FUNCTION_EPILOGUE_SIZE</CODE>
+<DD>
+For some COFF targets, the <CODE>x_sym.x_misc.x_fsize</CODE> field of the
+function end symbol is 0.  For such targets, you must define
+<CODE>FUNCTION_EPILOGUE_SIZE</CODE> to expand into the standard size of a
+function's epilogue.
+
+<DT><CODE>GCC_COMPILED_FLAG_SYMBOL</CODE>
+<DD>
+<DT><CODE>GCC2_COMPILED_FLAG_SYMBOL</CODE>
+<DD>
+If defined, these are the names of the symbols that GDB will look for to
+detect that GCC compiled the file.  The default symbols are
+<CODE>gcc_compiled.</CODE> and <CODE>gcc2_compiled.</CODE>, respectively. (Currently
+only defined for the Delta 68.)
+
+<DT><CODE>GDB_MULTI_ARCH</CODE>
+<DD>
+If defined and non-zero, enables suport for multiple architectures
+within GDB.
+
+The support can be enabled at two levels.  At level one, only
+definitions for previously undefined macros are provided; at level two,
+a multi-arch definition of all architecture dependant macros will be
+defined.
+
+<DT><CODE>GDB_TARGET_IS_HPPA</CODE>
+<DD>
+This determines whether horrible kludge code in dbxread.c and
+partial-stab.h is used to mangle multiple-symbol-table files from
+HPPA's.  This should all be ripped out, and a scheme like elfread.c
+used.
+
+<DT><CODE>GDB_TARGET_IS_MACH386</CODE>
+<DD>
+<DT><CODE>GDB_TARGET_IS_SUN3</CODE>
+<DD>
+<DT><CODE>GDB_TARGET_IS_SUN386</CODE>
+<DD>
+Kludges that should go away.
+
+<DT><CODE>GET_LONGJMP_TARGET</CODE>
+<DD>
+For most machines, this is a target-dependent parameter.  On the
+DECstation and the Iris, this is a native-dependent parameter, since
+&#60;setjmp.h&#62; is needed to define it.
+
+This macro determines the target PC address that longjmp() will jump to,
+assuming that we have just stopped at a longjmp breakpoint.  It takes a
+CORE_ADDR * as argument, and stores the target PC value through this
+pointer.  It examines the current state of the machine as needed.
+
+<DT><CODE>GET_SAVED_REGISTER</CODE>
+<DD>
+Define this if you need to supply your own definition for the function
+<CODE>get_saved_register</CODE>.
+
+<DT><CODE>HAVE_REGISTER_WINDOWS</CODE>
+<DD>
+Define this if the target has register windows.
+<DT><CODE>REGISTER_IN_WINDOW_P (regnum)</CODE>
+<DD>
+Define this to be an expression that is 1 if the given register is in
+the window.
+
+<DT><CODE>IBM6000_TARGET</CODE>
+<DD>
+Shows that we are configured for an IBM RS/6000 target.  This
+conditional should be eliminated (FIXME) and replaced by
+feature-specific macros.  It was introduced in haste and we are
+repenting at leisure.
+
+<DT><CODE>IEEE_FLOAT</CODE>
+<DD>
+Define this if the target system uses IEEE-format floating point numbers.
+
+<DT><CODE>INIT_EXTRA_FRAME_INFO (fromleaf, frame)</CODE>
+<DD>
+If additional information about the frame is required this should be
+stored in <CODE>frame-&#62;extra_info</CODE>.  Space for <CODE>frame-&#62;extra_info</CODE>
+is allocated using <CODE>frame_obstack_alloc</CODE>.
+
+<DT><CODE>INIT_FRAME_PC (fromleaf, prev)</CODE>
+<DD>
+This is a C statement that sets the pc of the frame pointed to by
+<VAR>prev</VAR>.  [By default...]
+
+<DT><CODE>INNER_THAN (lhs,rhs)</CODE>
+<DD>
+Returns non-zero if stack address <VAR>lhs</VAR> is inner than (nearer to the
+stack top) stack address <VAR>rhs</VAR>. Define this as <CODE>lhs &#60; rhs</CODE> if
+the target's stack grows downward in memory, or <CODE>lhs &#62; rsh</CODE> if the
+stack grows upward.
+
+<DT><CODE>IN_SIGTRAMP (pc, name)</CODE>
+<DD>
+Define this to return true if the given <VAR>pc</VAR> and/or <VAR>name</VAR>
+indicates that the current function is a sigtramp.
+
+<DT><CODE>SIGTRAMP_START (pc)</CODE>
+<DD>
+<DT><CODE>SIGTRAMP_END (pc)</CODE>
+<DD>
+Define these to be the start and end address of the sigtramp for the
+given <VAR>pc</VAR>.  On machines where the address is just a compile time
+constant, the macro expansion will typically just ignore the supplied
+<VAR>pc</VAR>.
+
+<DT><CODE>IN_SOLIB_CALL_TRAMPOLINE pc name</CODE>
+<DD>
+Define this to evaluate to nonzero if the program is stopped in the
+trampoline that connects to a shared library.
+
+<DT><CODE>IN_SOLIB_RETURN_TRAMPOLINE pc name</CODE>
+<DD>
+Define this to evaluate to nonzero if the program is stopped in the
+trampoline that returns from a shared library.
+
+<DT><CODE>IS_TRAPPED_INTERNALVAR (name)</CODE>
+<DD>
+This is an ugly hook to allow the specification of special actions that
+should occur as a side-effect of setting the value of a variable
+internal to GDB.  Currently only used by the h8500.  Note that this
+could be either a host or target conditional.
+
+<DT><CODE>NEED_TEXT_START_END</CODE>
+<DD>
+Define this if GDB should determine the start and end addresses of the
+text section.  (Seems dubious.)
+
+<DT><CODE>NO_HIF_SUPPORT</CODE>
+<DD>
+(Specific to the a29k.)
+
+<DT><CODE>SOFTWARE_SINGLE_STEP_P</CODE>
+<DD>
+Define this as 1 if the target does not have a hardware single-step
+mechanism. The macro <CODE>SOFTWARE_SINGLE_STEP</CODE> must also be defined.
+
+<DT><CODE>SOFTWARE_SINGLE_STEP(signal,insert_breapoints_p)</CODE>
+<DD>
+A function that inserts or removes (dependant on
+<VAR>insert_breapoints_p</VAR>) breakpoints at each possible destinations of
+the next instruction. See <CODE>sparc-tdep.c</CODE> and <CODE>rs6000-tdep.c</CODE>
+for examples.
+
+<DT><CODE>PCC_SOL_BROKEN</CODE>
+<DD>
+(Used only in the Convex target.)
+
+<DT><CODE>PC_IN_CALL_DUMMY</CODE>
+<DD>
+inferior.h
+
+<DT><CODE>PC_LOAD_SEGMENT</CODE>
+<DD>
+If defined, print information about the load segment for the program
+counter.  (Defined only for the RS/6000.)
+
+<DT><CODE>PC_REGNUM</CODE>
+<DD>
+If the program counter is kept in a register, then define this macro to
+be the number (greater than or equal to zero) of that register.
+
+This should only need to be defined if <CODE>TARGET_READ_PC</CODE> and
+<CODE>TARGET_WRITE_PC</CODE> are not defined.
+
+<DT><CODE>NPC_REGNUM</CODE>
+<DD>
+The number of the "next program counter" register, if defined.
+
+<DT><CODE>NNPC_REGNUM</CODE>
+<DD>
+The number of the "next next program counter" register, if defined.
+Currently, this is only defined for the Motorola 88K.
+
+<DT><CODE>PRINT_REGISTER_HOOK (regno)</CODE>
+<DD>
+If defined, this must be a function that prints the contents of the
+given register to standard output.
+
+<DT><CODE>PRINT_TYPELESS_INTEGER</CODE>
+<DD>
+This is an obscure substitute for <CODE>print_longest</CODE> that seems to
+have been defined for the Convex target.
+
+<DT><CODE>PROCESS_LINENUMBER_HOOK</CODE>
+<DD>
+A hook defined for XCOFF reading.
+
+<DT><CODE>PROLOGUE_FIRSTLINE_OVERLAP</CODE>
+<DD>
+(Only used in unsupported Convex configuration.)
+
+<DT><CODE>PS_REGNUM</CODE>
+<DD>
+If defined, this is the number of the processor status register.  (This
+definition is only used in generic code when parsing "$ps".)
+
+<DT><CODE>POP_FRAME</CODE>
+<DD>
+Used in <SAMP>`call_function_by_hand'</SAMP> to remove an artificial stack
+frame.
+
+<DT><CODE>PUSH_ARGUMENTS (nargs, args, sp, struct_return, struct_addr)</CODE>
+<DD>
+Define this to push arguments onto the stack for inferior function
+call. Return the updated stack pointer value.
+
+<DT><CODE>PUSH_DUMMY_FRAME</CODE>
+<DD>
+Used in <SAMP>`call_function_by_hand'</SAMP> to create an artificial stack frame.
+
+<DT><CODE>REGISTER_BYTES</CODE>
+<DD>
+The total amount of space needed to store GDB's copy of the machine's
+register state.
+
+<DT><CODE>REGISTER_NAME(i)</CODE>
+<DD>
+Return the name of register <VAR>i</VAR> as a string.  May return <VAR>NULL</VAR>
+or <VAR>NUL</VAR> to indicate that register <VAR>i</VAR> is not valid.
+
+<DT><CODE>REGISTER_NAMES</CODE>
+<DD>
+Deprecated in favor of <VAR>REGISTER_NAME</VAR>.
+
+<DT><CODE>REG_STRUCT_HAS_ADDR (gcc_p, type)</CODE>
+<DD>
+Define this to return 1 if the given type will be passed by pointer
+rather than directly.
+
+<DT><CODE>SAVE_DUMMY_FRAME_TOS (sp)</CODE>
+<DD>
+Used in <SAMP>`call_function_by_hand'</SAMP> to notify the target dependent code
+of the top-of-stack value that will be passed to the the inferior code.
+This is the value of the <VAR>SP</VAR> after both the dummy frame and space
+for parameters/results have been allocated on the stack.
+
+<DT><CODE>SDB_REG_TO_REGNUM</CODE>
+<DD>
+Define this to convert sdb register numbers into GDB regnums.  If not
+defined, no conversion will be done.
+
+<DT><CODE>SHIFT_INST_REGS</CODE>
+<DD>
+(Only used for m88k targets.)
+
+<DT><CODE>SKIP_PROLOGUE (pc)</CODE>
+<DD>
+A C expression that returns the address of the "real" code beyond the
+function entry prologue found at <VAR>pc</VAR>.
+
+<DT><CODE>SKIP_PROLOGUE_FRAMELESS_P</CODE>
+<DD>
+A C expression that should behave similarly, but that can stop as soon
+as the function is known to have a frame.  If not defined,
+<CODE>SKIP_PROLOGUE</CODE> will be used instead.
+
+<DT><CODE>SKIP_TRAMPOLINE_CODE (pc)</CODE>
+<DD>
+If the target machine has trampoline code that sits between callers and
+the functions being called, then define this macro to return a new PC
+that is at the start of the real function.
+
+<DT><CODE>SP_REGNUM</CODE>
+<DD>
+If the stack-pointer is kept in a register, then define this macro to be
+the number (greater than or equal to zero) of that register.
+
+This should only need to be defined if <CODE>TARGET_WRITE_SP</CODE> and
+<CODE>TARGET_WRITE_SP</CODE> are not defined.
+
+<DT><CODE>STAB_REG_TO_REGNUM</CODE>
+<DD>
+Define this to convert stab register numbers (as gotten from `r'
+declarations) into GDB regnums.  If not defined, no conversion will be
+done.
+
+<DT><CODE>STACK_ALIGN (addr)</CODE>
+<DD>
+Define this to adjust the address to the alignment required for the
+processor's stack.
+
+<DT><CODE>STEP_SKIPS_DELAY (addr)</CODE>
+<DD>
+Define this to return true if the address is of an instruction with a
+delay slot.  If a breakpoint has been placed in the instruction's delay
+slot, GDB will single-step over that instruction before resuming
+normally.  Currently only defined for the Mips.
+
+<DT><CODE>STORE_RETURN_VALUE (type, valbuf)</CODE>
+<DD>
+A C expression that stores a function return value of type <VAR>type</VAR>,
+where <VAR>valbuf</VAR> is the address of the value to be stored.
+
+<DT><CODE>SUN_FIXED_LBRAC_BUG</CODE>
+<DD>
+(Used only for Sun-3 and Sun-4 targets.)
+
+<DT><CODE>SYMBOL_RELOADING_DEFAULT</CODE>
+<DD>
+The default value of the `symbol-reloading' variable.  (Never defined in
+current sources.)
+
+<DT><CODE>TARGET_BYTE_ORDER_DEFAULT</CODE>
+<DD>
+The ordering of bytes in the target.  This must be either
+<CODE>BIG_ENDIAN</CODE> or <CODE>LITTLE_ENDIAN</CODE>.  This macro replaces
+<VAR>TARGET_BYTE_ORDER</VAR> which is deprecated.
+
+<DT><CODE>TARGET_BYTE_ORDER_SELECTABLE_P</CODE>
+<DD>
+Non-zero if the target has both <CODE>BIG_ENDIAN</CODE> and
+<CODE>LITTLE_ENDIAN</CODE> variants.  This macro replaces
+<VAR>TARGET_BYTE_ORDER_SELECTABLE</VAR> which is deprecated.
+
+<DT><CODE>TARGET_CHAR_BIT</CODE>
+<DD>
+Number of bits in a char; defaults to 8.
+
+<DT><CODE>TARGET_COMPLEX_BIT</CODE>
+<DD>
+Number of bits in a complex number; defaults to <CODE>2 * TARGET_FLOAT_BIT</CODE>.
+
+At present this macro is not used.
+
+<DT><CODE>TARGET_DOUBLE_BIT</CODE>
+<DD>
+Number of bits in a double float; defaults to <CODE>8 * TARGET_CHAR_BIT</CODE>.
+
+<DT><CODE>TARGET_DOUBLE_COMPLEX_BIT</CODE>
+<DD>
+Number of bits in a double complex; defaults to <CODE>2 * TARGET_DOUBLE_BIT</CODE>.
+
+At present this macro is not used.
+
+<DT><CODE>TARGET_FLOAT_BIT</CODE>
+<DD>
+Number of bits in a float; defaults to <CODE>4 * TARGET_CHAR_BIT</CODE>.
+
+<DT><CODE>TARGET_INT_BIT</CODE>
+<DD>
+Number of bits in an integer; defaults to <CODE>4 * TARGET_CHAR_BIT</CODE>.
+
+<DT><CODE>TARGET_LONG_BIT</CODE>
+<DD>
+Number of bits in a long integer; defaults to <CODE>4 * TARGET_CHAR_BIT</CODE>.
+
+<DT><CODE>TARGET_LONG_DOUBLE_BIT</CODE>
+<DD>
+Number of bits in a long double float;
+defaults to <CODE>2 * TARGET_DOUBLE_BIT</CODE>.
+
+<DT><CODE>TARGET_LONG_LONG_BIT</CODE>
+<DD>
+Number of bits in a long long integer; defaults to <CODE>2 * TARGET_LONG_BIT</CODE>.
+
+<DT><CODE>TARGET_PTR_BIT</CODE>
+<DD>
+Number of bits in a pointer; defaults to <CODE>TARGET_INT_BIT</CODE>.
+
+<DT><CODE>TARGET_SHORT_BIT</CODE>
+<DD>
+Number of bits in a short integer; defaults to <CODE>2 * TARGET_CHAR_BIT</CODE>.
+
+<DT><CODE>TARGET_READ_PC</CODE>
+<DD>
+<DT><CODE>TARGET_WRITE_PC (val, pid)</CODE>
+<DD>
+<DT><CODE>TARGET_READ_SP</CODE>
+<DD>
+<DT><CODE>TARGET_WRITE_SP</CODE>
+<DD>
+<DT><CODE>TARGET_READ_FP</CODE>
+<DD>
+<DT><CODE>TARGET_WRITE_FP</CODE>
+<DD>
+These change the behavior of <CODE>read_pc</CODE>, <CODE>write_pc</CODE>,
+<CODE>read_sp</CODE>, <CODE>write_sp</CODE>, <CODE>read_fp</CODE> and <CODE>write_fp</CODE>.
+For most targets, these may be left undefined.  GDB will call the read
+and write register functions with the relevant <CODE>_REGNUM</CODE> argument.
+
+These macros are useful when a target keeps one of these registers in a
+hard to get at place; for example, part in a segment register and part
+in an ordinary register.
+
+<DT><CODE>TARGET_VIRTUAL_FRAME_POINTER(pc,regp,offsetp)</CODE>
+<DD>
+Returns a <CODE>(register, offset)</CODE> pair representing the virtual 
+frame pointer in use at the code address <CODE>"pc"</CODE>.  If virtual 
+frame pointers are not used, a default definition simply returns 
+<CODE>FP_REGNUM</CODE>, with an offset of zero.
+
+<DT><CODE>USE_STRUCT_CONVENTION (gcc_p, type)</CODE>
+<DD>
+If defined, this must be an expression that is nonzero if a value of the
+given <VAR>type</VAR> being returned from a function must have space
+allocated for it on the stack.  <VAR>gcc_p</VAR> is true if the function
+being considered is known to have been compiled by GCC; this is helpful
+for systems where GCC is known to use different calling convention than
+other compilers.
+
+<DT><CODE>VARIABLES_INSIDE_BLOCK (desc, gcc_p)</CODE>
+<DD>
+For dbx-style debugging information, if the compiler puts variable
+declarations inside LBRAC/RBRAC blocks, this should be defined to be
+nonzero.  <VAR>desc</VAR> is the value of <CODE>n_desc</CODE> from the
+<CODE>N_RBRAC</CODE> symbol, and <VAR>gcc_p</VAR> is true if GDB has noticed the
+presence of either the <CODE>GCC_COMPILED_SYMBOL</CODE> or the
+<CODE>GCC2_COMPILED_SYMBOL</CODE>.  By default, this is 0.
+
+<DT><CODE>OS9K_VARIABLES_INSIDE_BLOCK (desc, gcc_p)</CODE>
+<DD>
+Similarly, for OS/9000.  Defaults to 1.
+
+</DL>
+
+<P>
+Motorola M68K target conditionals.
+
+</P>
+<DL COMPACT>
+
+<DT><CODE>BPT_VECTOR</CODE>
+<DD>
+Define this to be the 4-bit location of the breakpoint trap vector.  If
+not defined, it will default to <CODE>0xf</CODE>.
+
+<DT><CODE>REMOTE_BPT_VECTOR</CODE>
+<DD>
+Defaults to <CODE>1</CODE>.
+
+</DL>
+
+
+
+<H2><A NAME="SEC67" HREF="gdbint_toc.html#TOC67">Adding a New Target</A></H2>
+
+<P>
+The following files define a target to GDB:
+
+</P>
+<DL COMPACT>
+
+<DT><TT>`gdb/config/<VAR>arch</VAR>/<VAR>ttt</VAR>.mt'</TT>
+<DD>
+Contains a Makefile fragment specific to this target.  Specifies what
+object files are needed for target <VAR>ttt</VAR>, by defining
+<SAMP>`TDEPFILES=...'</SAMP>.  Also specifies the header file which
+describes <VAR>ttt</VAR>, by defining <SAMP>`TM_FILE= tm-<VAR>ttt</VAR>.h'</SAMP>.  You
+can also define <SAMP>`TM_CFLAGS'</SAMP>, <SAMP>`TM_CLIBS'</SAMP>, <SAMP>`TM_CDEPS'</SAMP>, but
+these are now deprecated and may go away in future versions of GDB.
+
+<DT><TT>`gdb/config/<VAR>arch</VAR>/tm-<VAR>ttt</VAR>.h'</TT>
+<DD>
+(<TT>`tm.h'</TT> is a link to this file, created by configure).  Contains
+macro definitions about the target machine's registers, stack frame
+format and instructions.
+
+<DT><TT>`gdb/<VAR>ttt</VAR>-tdep.c'</TT>
+<DD>
+Contains any miscellaneous code required for this target machine.  On
+some machines it doesn't exist at all.  Sometimes the macros in
+<TT>`tm-<VAR>ttt</VAR>.h'</TT> become very complicated, so they are implemented
+as functions here instead, and the macro is simply defined to call the
+function.  This is vastly preferable, since it is easier to understand
+and debug.
+
+<DT><TT>`gdb/config/<VAR>arch</VAR>/tm-<VAR>arch</VAR>.h'</TT>
+<DD>
+This often exists to describe the basic layout of the target machine's
+processor chip (registers, stack, etc).  If used, it is included by
+<TT>`tm-<VAR>ttt</VAR>.h'</TT>.  It can be shared among many targets that use the
+same processor.
+
+<DT><TT>`gdb/<VAR>arch</VAR>-tdep.c'</TT>
+<DD>
+Similarly, there are often common subroutines that are shared by all
+target machines that use this particular architecture.
+
+</DL>
+
+<P>
+If you are adding a new operating system for an existing CPU chip, add a
+<TT>`config/tm-<VAR>os</VAR>.h'</TT> file that describes the operating system
+facilities that are unusual (extra symbol table info; the breakpoint
+instruction needed; etc).  Then write a <TT>`<VAR>arch</VAR>/tm-<VAR>os</VAR>.h'</TT>
+that just <CODE>#include</CODE>s <TT>`tm-<VAR>arch</VAR>.h'</TT> and
+<TT>`config/tm-<VAR>os</VAR>.h'</TT>.
+
+</P>
+
+<P><HR><P>
+Go to the <A HREF="gdbint_1.html">first</A>, <A HREF="gdbint_8.html">previous</A>, <A HREF="gdbint_10.html">next</A>, <A HREF="gdbint_16.html">last</A> section, <A HREF="gdbint_toc.html">table of contents</A>.
+</BODY>
+</HTML>

@@ -1,0 +1,5 @@
+RLOGIN_CFILES = krcmd.c des_rw.c
+OTHER_OFILES = $(RLOGIN_CFILES:.c=.o)
+VPATH_PREAMBLE = ../rlogin.tproj:
+OTHER_GENERATED_OFILES = $(VERS_OFILE)
+-include ../Makefile.include

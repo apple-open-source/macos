@@ -1,0 +1,194 @@
+.\" Copyright (c) 1999, Apple Computer, Inc.  All rights reserved.
+.\"
+.Dd September 30, 1999
+.Dt TOP 1
+.Os "Mac OS X"
+.Sh NAME
+.Nm top
+.Nd show system usage statistics
+.Sh SYNOPSIS
+.Nm top
+.Op Fl u
+.Op Fl w
+.Op Fl k
+.Op Fl s Ar interval
+.Op Fl e | Fl d | Fl a
+.Op Fl l Ar samples
+.Op Ar number
+.Sh DESCRIPTION
+.Nm top 
+displays an ongoing sample of system usage statistics.  It operates
+in various modes, but by default shows cpu utilization and
+memory usage for each process in the system.
+.Pp
+The options are as follows:
+.Bl -tag -width Ds
+.It Fl u
+When the
+.Fl u
+option is specified, processes are first sorted by cpu usage 
+and then displayed starting with the highest consumers.
+.It Fl w
+Specifying the
+.Fl w
+option generates additional columns in the output producing
+a much wider display of data. The additional columns include
+VPRVT, along with the delta information for #PRTS,
+RPRVT, RSHRD, RSIZE and VSIZE (see descriptions following).
+.It Fl k
+The
+.Fl k
+option causes
+.Nm top
+to traverse and report the memory object map for pid 0
+(the kernel task).  It is optional because it is fairly
+expensive to traverse the object maps and the kernel
+task may have a huge number of entries.
+.It Fl s
+By default,
+.Nm top
+updates its output at one second intervals. This sampling
+interval may be changed by specifying the
+.Fl s
+option.  Enter the
+.Ar interval
+in seconds.
+.It Fl e
+Using the
+.Fl e
+option switches from the default output to an event counting
+mode where the counts reported are absolute counters.  The
+.Fl w
+and
+.Fl k
+options are ignored when running in event counting mode.
+.It Fl d
+Using the
+.Fl d
+option switches from the default output to an event counting
+mode where the counts are reported as deltas relative to
+the previous sample.
+The
+.Fl w
+and
+.Fl k
+options are ignored when running in event counting, delta mode.
+.It Fl a
+Using the
+.Fl a
+option switches from the default output to an event counting
+mode where the counts are reported as cumulative counters relative to
+when top was launched.
+The
+.Fl w
+and
+.Fl k
+options are ignored when running in event counting, accumulate mode.
+.It Fl l
+Using the
+.Fl l
+option switches from the default screen mode to a logging mode suitable for
+saving the output to a file.  You may specify the number of samples to be
+output before top exits, the default is 1 sample.
+.It number
+If you wish to limit the number of processes displayed by
+.Nm top,
+specify the desired 
+.Ar number
+of output lines in this last argument.
+.El
+.Pp
+The columns displayed in the default data mode are as follows:
+.Bl -tag -width VSIZE(deltadelta) -compact
+.Pp
+.It PID
+the Unix process id.
+.It COMMAND
+the Unix command name.
+.It %CPU
+the percentage of cpu consumed (kernel and user).
+.It TIME
+the absolute cpu consumption (min:secs.hundreths).
+.It #TH
+the number of threads.
+.It #PRTS(delta)
+the number of mach ports.
+.It #MREG
+the number of memory regions.
+.It VPRVT(-w only)
+the private address space currently allocated.
+.It RPRVT(delta)
+the resident private memory.
+.It RSHRD(delta)
+the resident shared memory (as represented by the
+resident page count of each shared memory object).
+.It RSIZE(delta)
+the total resident memory (real pages that this
+process currently has associated with it.  Some
+may be shared by other processes).
+.It VSIZE(delta)
+the total address space currently allocated (including shared).
+.El
+.Pp
+The delta columns are enabled by the
+.Fl w
+option.  The deltas for #PRTS and VSIZE are relative
+to the numbers observed when
+.Nm top
+was launched.  The deltas for RPRVT, RSHRD and RSIZE are relative to
+the previous sample.  If the 
+.Fl w
+option was not specified, 
+.Nm top
+will append either a '+' or a '-' to the RPRVT, RSHRD, RSIZE or VSIZE
+columns indicating either a gain or a loss relative to the previous sample.
+.Pp
+The columns displayed in the event counting modes (ie: -e | -d | -a options) 
+are as follows:
+.Bl -tag -width MACHSYSCALL -compact
+.Pp
+.It PID
+the Unix process id.
+.It COMMAND
+the Unix command name.
+.It %CPU
+the percentage of cpu consumed (kernel and user).
+.It TIME
+the absolute cpu consumption (min:secs.hundreths).
+.It FAULTS
+the number of page faults.
+.It PAGEINS
+the number of requests for pages from a pager.
+.It COW_FAULTS
+the number of faults that caused a page to be copied.
+.It MSGS_SENT
+the number of mach messages sent by the process.
+.It MSGS_RCVD
+the number of mach messages received by the process.
+.It BSDSYSCALL
+the number of BSD system calls made by the process.
+.It MACHSYSCALL
+the number of MACH system calls made by the process.
+.It CSWITCH
+the number of context switches to this process.
+.El
+.Pp
+The
+.Nm top
+command also displays some global state in the first few lines of output,
+including load averages, cpu utilization and idleness, process and thread counts and memory breakdowns
+for shared libraries and processes.
+The
+.Nm top
+command is SIGWINCH savvy, so adjusting your window geometry may change
+the number of processes and number of columns displayed.  Typing a 'q' will cause top to exit
+immediately. Typing any other character will cause top to immediately update it's display.
+.Sh SAMPLE USAGE
+.Pp
+top -u -s5 20
+.Pp
+.Nm top
+will sort the processes according to cpu usage, update the output at 5 
+second intervals, and limit the display to the top 20 processes.
+.Sh SEE ALSO
+.Xr vm_stat 1

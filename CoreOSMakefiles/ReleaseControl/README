@@ -1,0 +1,14 @@
+Release Control Support Makefiles
+
+  These makefiles provide a framework for building third-party source
+projects in Release Control.  The original sources can be placed in
+a subdirectory of the actual project and wrapped with a simple makefile
+that builds it with the proper options.
+
+  Common.make provides basic functionality following the RC makefile
+API rules.  It implements the installsrc and clean targets and defines
+the dependancies between the all the standard targets, including build
+and install.
+
+  GNUSource.make implements the build and install targets for sources
+which use GNU autoconf's configure script to build.

@@ -1,0 +1,3 @@
+# This is a hack to make the preprocessor search an additional directory
+# that is not dependent on the version of gcc that is installed on the machine.
+tooldir = $(libdir)/gcc-lib/$(target)

@@ -1,0 +1,758 @@
+<HTML>
+<HEAD>
+<TITLE>
+Jam/MR Language
+</TITLE>
+</HEAD>
+</BODY>
+<CENTER>
+<A NAME="TOP">
+<H1> The Jam/MR Language
+</H1>
+Jam/MR 2.2
+</A>
+</CENTER>
+<P>
+	This document describes the Jam/MR language, used
+	to defines rules and dependencies for <b>jam</b>,
+	the Jam/MR executable program.
+	For additional information, please see:
+	<UL>
+	<LI><a href="Jam.html">The Jam/MR Executable Program</A>
+	<LI><a href="Jamfile.html">Using Jamfiles and Jambase</A>
+	<LI><A href="Jambase.html">Jambase Reference</A>
+	</UL>
+<P>
+	Also, the Jambase file provided in the Jam/MR distribution
+	is an excellent source of Jam/MR language examples.
+	Documentation and source are available from
+<A HREF=http://www.perforce.com/jam/jam.html>www.perforce.com/jam/jam.html</a>
+<HR>
+<H3> Lexical Features
+</H3>
+<P>
+       Jam/MR treats its input files as whitespace-separated tokens,
+       with two exceptions: double quotes (") can enclose whitespace  to embed it into a token, and everything between the
+       matching curly braces ({}) in the  definition  of  a  rule
+       action is treated as a single string.  A backslash (\) can
+       escape a double quote.
+<P>
+       Jam/MR requires whitespace (blanks,  tabs,  or  newlines)  to
+       surround all tokens, including the colon (:) and semicolon
+       (;) tokens.  This is because <b>jam</b> runs  on  many  platforms
+       and  no  characters,  save whitespace, are uncommon in the
+       file names on all of those platforms.
+<P>
+<H3> Targets
+</H3>
+<P>
+	The essential Jam/MR data entity is a target.
+       Built targets are files to be updated. Source targets are the  files
+       used  in  updating  those targets. Pseudotargets are
+       symbols which represent dependencies on other targets.
+       Built targets and source targets are collectively referred
+       to as file targets; pseudotargets are not file targets.
+       <P>
+       Each target has a unique identifier, which, in the case
+       of file targets, is its filename optionally qualified
+       with grist (a string value used to
+       assure uniqueness) and/or a pathname,
+       either rooted or relative to the directory of 
+       <b>jam</b>'s
+       invocation.  
+       A file target with an identifier of the form
+       <I>file(member)</I> is an
+       an ar(1) library member.
+<P>
+<H3> Rules
+</H3>
+<P>
+       Jam/MR's basic language entity is called a  rule,  which  is  used  
+       primarily to
+       relate built targets to their source targets. A rule is defined in two
+       parts: the Jam/MR statements to  execute  when  the  rule 
+       invocation is parsed, and the actions
+       (shell commands) to execute when updating the built targets
+       of  the  rule.   A  rule  may have a procedure definition,
+       an action definition, or both.
+<P>
+       The Jam/MR statements for defining and invoking rules are  as
+       follows:
+       <PRE>
+	rule <I>rulename</I> { <I>statements</I> }
+
+	actions [ <I>modifiers</I> ] <I>rulename</I> { <I>commands</I> }
+
+	<I>rulename field1 </I>:<I> field2 </I>:<I> ... </I>:<I> fieldN ;</I>
+	</PRE>
+
+<P>
+       The  first  form  defines  a  rule's procedure; the second
+       defines the rule's updating actions; the third invokes the
+       rule.   Redefining  a rule's procedure or actions replaces
+       the previous definition.
+<P>
+	A rule is invoked with values in <I>field1</I> through
+	<I>fieldN</I>, which are referenced in the procedure
+	definition <I>statements</I> as 
+	variables named $(1) through $(<I>N</I>).
+	A rule defined with a procedure definition and no action
+	definition is just a procedure call.
+<P>
+	When a rule is invoked, its action definition, if any,
+	is automatically the first updating action to be associated
+	with targets.
+	Any other actions invoked from a rule's procedure definition
+	<I>statements</I>
+	will be executing during updating in the order
+	in which they were invoked.
+	Updating actions are associated with the targets in <I>field1</I>.
+<P>
+	Built targets and source targets are passed to an updating
+	action through <I>field1</I> and <I>field2</I>, and
+	are refenced in the action's <I>commands</I> as
+	$(1) and $(2) respectively.
+	$(1) and $(2) may also be referenced as $(<) and $(>)
+	in action <I>commands</I> and 
+	procedure definition <I>statements</I>. 
+	During updating, <I>commands</I> are passed to the OS, with
+	$(1) and $(2) replaced by bound targets. (See "Binding" 
+	in the <a href="Jam.html">The Jam/MR Executable Program</A>.) 
+<P>
+<H4> Action Modifiers
+</H4>
+<P>
+       The following action <i>modifiers</i> are understood:
+<PRE>
+              actions bind <I>vars</I>
+                     $(vars) will be replaced with bound values.
+			
+              actions existing
+                     $(>) includes only source targets currently  existing.
+
+              actions ignore
+                     The  return  status of the <I>commands</I> is
+                     ignored.
+
+              actions piecemeal
+                     <I>commands</I>  are  repeatedly  invoked
+                     with a subset of $(>) small enough to fit in
+                     the command buffer on this OS.
+
+              actions quietly
+                     The action is not  echoed  to  the  standard
+                     output.
+
+              actions together
+                     The $(>) from multiple invocations of the same
+                     action  on  the  same  built target  are   glommed
+                     together.
+
+              actions updated
+                     $(>) includes only source targets themselves
+		     marked for updating.
+</PRE>
+<H4> Built-in Rules
+</H4>
+<P>
+       Jam/MR has ten built-in rules, none of  which  have  updating
+       actions:
+<PRE>
+
+              ALWAYS <I>targets</I> ;
+                     Rebuilds  <I>targets</I>, even if they are up-to-date.
+
+              DEPENDS <I>targets1</I> : <I>targets2</I> ;
+                     Makes <I>targets1</I> dependencies of <I>targets2</I>.
+
+              ECHO <i>args</I> ;
+                     Blurts out the message <i>args</I> to stdout.
+
+              EXIT <i>args</I> ;
+                     Blurts out the message <i>args</I> to stdout  and
+                     then exits with a failure status.
+
+              INCLUDES <I>targets1</I> : <I>targets2</I> ;
+                     Makes  <I>targets2</I> dependencies of anything of which 
+		     <I>targets1</I> are dependencies.
+
+              LEAVES <I>targets</I> ;
+                     Makes each of <I>targets</I> depend only  on  its leaf  
+		     sources,  and  not on any intermediate targets. Its leaf 
+		     sources are those  source targets without any 
+		     dependencies themselves.
+
+              NOCARE <I>targets</I> ;
+                     Marks <I>targets</I> as possibly being not needed. If a 
+		     <I>target</I> is present, its timestamp is used to compute 
+		     dependencies; if it is not present, it is not considered a
+		     dependency.
+
+              NOTFILE <I>targets</I> ;
+                     Marks <I>targets</I> as pseudotargets, not files.
+
+              NOUPDATE <I>targets</I> ;
+                     Causes the timestamps  of  <I>targets</I>  to  be ignored: 
+		     either  <I>target</I> exists  or it doesn't. If it  exists,
+		     it is  considered eternally old.
+
+              TEMPORARY <I>targets</I> ;
+                     Marks <I>targets</I> as temporary; causes <I>targets</I> to be removed 
+		     when all their dependencies have been updated.
+</PRE>
+<P>
+       The  ALWAYS, LEAVES, NOCARE, NOTFILE, NOUPDATE, and TEMPORARY affect only the binding phase (q.v.).
+<P>
+<H3> Flow-of-Control
+</H3>
+<P>
+       Jam/MR has several simple flow-of-control statements:
+<PRE>
+	      local <i>vars</I> [ = <i>values</i> ] ;
+
+              include <I>file</I> ;
+
+              for <I>var</I> in <I>list</I> { <I>statements</I> }
+
+              switch <I>value</I> 
+			{ case <I>pattern1</I> : <I>statements</I> ; 
+			  case <I>pattern2</I> : <I>statements</I> ; 
+			  ... 
+			}
+
+              if  <I>cond</I> 
+			{ <I>statements</I> } 
+	 	 [ else { <I>statements</I> } ]
+</PRE>
+<UL>
+<LI>
+       The local statement instantiates new <i>vars</i> inside
+       the current {} block. Variables of the same name outside
+       of the {} block or before the local statement are unaffected 
+       and inaccessible. local may appear anywhere in a block.
+       The <i>vars</i> are initialized to <i>values</i>, if present.
+       <P>
+<LI>
+       The include statement causes <b>jam</b> to read
+       the named <i>file</i>.   The  file
+       is  bound  like  regular targets (see Binding, below), but
+       unlike regular targets the include file cannot be built.
+       <P>
+       The include file is inserted into the input stream during
+       the parsing phase. The primary
+       input file and all the included file(s) are treated as a
+       single file; that is, <b>jam</b> infers no scope boundaries
+       from included files.
+       <P>
+<LI>
+       The for loop  executes  <i>statements</i>  for  each  element  in
+       <i>list</i>, setting the variable <i>var</i> to the element value.
+       <P>
+<LI>
+       The  switch statement executes zero or one of the enclosed
+       <i>statements</i>, depending on which, if any, is the first
+       case whose <i>pattern</I> matches <i>value</i>. The
+       <i>pattern</I>  values are not variable-expanded.  
+       The <i>pattern</I>  values may
+       include the following wildcards:
+<CENTER>
+<TABLE>
+<TR><TD>
+              ?         
+<TD>		match any single character
+<TR><TD>
+              *         
+<TD>		match zero or more characters
+<TR><TD>
+              [<i>chars</i>] 
+<TD>		match any single character in <i>chars</i>
+
+</TABLE>
+</CENTER>
+<P>
+<LI>
+       The if statement does the  obvious;  the  else  clause  is
+       optional.  <i>cond</i> is built of:
+<P>
+<CENTER>
+<TABLE> 
+<TR><TD>
+              <CODE><I>a</I></CODE>
+<TD>		true if any <I>a</I> element is a non-zero-length string
+<TR><TD>
+              <CODE><I>a</I> = <I>b</I></CODE> 
+<TD>		list <I>a</I> matches list <I>b</I> string-for-string
+<TR><TD>
+              <CODE><I>a</I> != <I>b</I>     </CODE>
+<TD>		list <I>a</I> does not match list <I>b</I>
+<TR><TD>
+              <CODE><I>a</I> &lt; <I>b</I> </CODE>
+<TD>		<I>a[i]</I> string is less than <I>b[i]</I>
+                string, where <i>i</i> is first mismatched element
+		in lists <I>a</I> and <I>b</I>
+<TR><TD>
+              <CODE><I>a</I> &lt;= <I>b</I>     </CODE>
+<TD>		every <I>a</I> string is less than or equal to
+		its <I>b</I> counterpart
+<TR><TD>
+              <CODE><I>a</I> &gt; <I>b</I> </CODE>
+<TD>		<I>a[i]</I> string is greater than <I>b[i]</I>
+		string, where <i>i</i> is first mismatched element
+<TR><TD>
+              <CODE><I>a</I> &gt;= <I>b</I>     </CODE>
+<TD>		every <I>a</I> string is greater than or equal to
+		its <I>b</I> counterpart
+<TR><TD>      
+              <CODE><I>a</I> in <I>b</I>     </CODE>
+<TD>		true if all elements of <I>a</I> can be found
+                in <I>b</I>, or if <I>a</I> has no elements
+<TR><TD>
+              <CODE>! <I>cond</I>       </CODE>
+<TD>		condition not true
+<TR><TD>
+              <CODE><I>cond</I> && <I>cond</I> </CODE>   
+<TD>		conjunction
+<TR><TD>
+              <CODE><I>cond</I> || <I>cond</I>    </CODE>
+<TD>		disjunction
+<TR><TD>
+              <CODE>( <I>cond</I> )          </CODE>
+<TD>		precedence grouping
+</TABLE>
+</CENTER>
+<P>
+</UL>
+<H3> Variables
+</H3>
+<P>
+       Jam/MR variables are lists of zero or more elements, 
+       with each element being a string value.
+       An undefined variable is indistinguishable from  a
+       variable  with an empty list, however, a defined
+       variable may have one more elements which are null strings.
+       <P>
+       Variables are
+       either global or target-specific.  All variables are  referenced as $(VARIABLE).
+<P>
+       A variable is defined with:
+<PRE>
+              <I>variable</I> = <I>elements</I> ;
+
+              <I>variable</I> += <I>elements</I> ;
+
+              <I>variable</I> on <I>targets</I> = <I>elements</I> ;
+
+              <I>variable</I> on <I>targets</I> += <I>elements</I> ;
+
+              <I>variable</I> default = <I>elements</I> ;
+              <I>variable</I>        ?= <I>elements</I> ;
+</PRE>
+<P>
+       The  first  two  forms set <I>variable</I> globally.  The third
+       and forth forms  set  a  target-specific  variable,  where
+       <I>variable</I>  takes  on  a value only during the binding and
+       updating <I>targets</I>.  The = operator replaces any  previous
+       elements  of  <I>variable</I>  with  <I>elements</I>;  the  +=  operation
+       adds <I>elements</I> to <I>variable</I>'s list of elements.   
+       The  final  two forms do the same thing,
+       set  <I>variable</I>  globally,  but only if it was previously
+       unset.
+<P>
+       On program start-up, <b>jam</b> imports environment  variable
+       settings  into  Jam/MR  variables.  Environment variables are
+       split at blanks with each word becoming an element in the
+       variable's  list of values.  Environment variables whose names
+       end in PATH are split at $(SPLITPATH) characters (e.g., ":" for
+       Unix).  Environment  variable values can be overridden on the command line with the
+       -s flag.  
+       Jam/MR variables are not re-exported to  the  shell
+       that  executes  the  updating  actions,  but  the updating
+       actions can reference Jam/MR variables with $(<I>variable</I>).
+       <P>
+       Variables referenced in updating commands will be replaced
+       with their values; target-specific values take precedence over global
+       values. Variables passed as arguments to actions
+       are replaced with their bound values; the "bind" modifier can be used
+       on actions to cause other variables to be replaced with bound
+       values.
+<P>
+<H4> Variable Expansion
+</H4>
+<P>
+       During parsing, Jam/MR performs variable expansion  on  each  
+       token  that is not a keyword or rule name.
+       Such tokens with embedded variable references are replaced
+       with  zero or more tokens.  Variable references are of the
+       form $(<I>v</I>) or $(<I>vm</I>), where <i>v</i> is the variable  
+       name,  and  <I>m</I> are optional modifiers.
+<P>
+       Variable expansion in a rule's actions is similar to 
+       variable expansion  in  statements,  except  that  the  action
+       string is tokenized at whitespace regardless of quoting.
+<P>
+       The  result  of  a  token  after variable expansion is the
+       product of the components of the token, where each  component is a literal substring or a list substituting a variable reference.  For example:
+<PRE>
+              $(X)      -> a b c
+              t$(X)     -> ta tb tc
+              $(X)z     -> az bz cz
+              $(X)-$(X) -> a-a a-b a-c b-a b-b b-c c-a c-b c-c
+</PRE>
+<P>
+       The variable name and modifiers can themselves  contain  a
+       variable  reference,  and  this partakes of the product as
+       well:
+<PRE>
+              $(X)      -> a b c
+              $(Y)      -> 1 2
+              $(Z)      -> X Y
+              $($(Z))   -> a b c 1 2
+</PRE>
+<P>
+       Because of this product expansion, 
+       if any variable  reference  in a token is undefined, 
+       the result of the expansion is an empty list.
+       If any variable element is a null string,
+       the result propagates the non-null elements: 
+
+<PRE>
+              $(X)        -> a ""
+              $(Y)        -> "" 1
+	      $(Z)	  -> 
+	      *$(X)$(Y)*  -> *a* *a1* ** *1*
+	      *$(X)$(Z)*  ->
+</PRE>
+
+<P>
+       A variable element's string value can be parsed into
+       grist and filename-related components.
+       Modifiers to a variable are used to select elements,
+       select components, and replace components. The modifiers
+       are:
+<CENTER>
+<TABLE>
+<TR><TD>
+       [<I>n</I>]     
+       <TD>Select element number <I>n</I> (starting at 1).  If
+              the variable contains fewer than <I>n</I> elements,  the
+              result is a zero-element list.
+<TR><TD>
+       [<I>n</I>-<I>m</I>]   
+       <TD>Select elements number <I>n</I> through <I>m</I>.
+<TR><TD>
+       [<I>n</I>-]    
+       <TD>Select elements number <I>n</I> through the last.
+<TR><TD>
+       :B      
+       <TD>Select filename base.
+<TR><TD>
+       :S      
+       <TD>Select (last) filename suffix.
+<TR><TD>
+       :M      
+       <TD>Select archive member name.
+<TR><TD>
+       :A      
+       <TD>Select archive name (i.e., if LIBS = alpha.lib libbeta.a then $(LIBS:A) = alpha beta).
+<TR><TD>
+       :D      
+       <TD>Select directory path.
+<TR><TD>
+       :P      
+       <TD>Select parent directory.
+<TR><TD>
+       :G      
+       <TD>Select grist.
+<TR><TD>
+       :U      
+       <TD>Replace lowercase characters with uppercase.
+<TR><TD>	
+       :L      
+       <TD>Replace uppercase characters with lowercase.
+<TR><TD>
+       :<i>chars</I>   
+       <TD>Select the components listed in <i>chars</i>.
+<TR><TD>
+       :G=<I>grist</I>
+              
+	      <TD>Replace grist with <I>grist</I>.
+<TR><TD>
+       :D=<I>path</I>
+               
+	       <TD>Replace  directory with <I>path</I>.
+<TR><TD>
+       :B=<I>base</I>
+               
+	       <TD>Replace the base part of file name with <I>base</I>.
+<TR><TD>
+       :S=<I>suf</I>
+             
+	     <TD>Replace the suffix of file name with <I>suf</I>.
+<TR><TD>
+       :M=<I>mem</I>
+             
+	     <TD>Replace the archive member name with <I>mem</I>.
+<TR><TD>
+       :A=<I>archive</I>
+             
+	     <TD>Replace the archive name with <I>archive</I> (i.e., if LIBS = alpha.lib libbeta.a then $(LIBS:A=gamma) = gamma.lib libgamma.a).
+<TR><TD>
+       :R=<I>root</I>
+              
+	      <TD>Prepend <I>root</I> to  the  whole  file  name,  if  not
+               already rooted.
+</TABLE>
+</CENTER>
+
+<P>
+	On VMS, $(var:P) is the parent directory of $(var:D);
+	on Unix and NT, $(var:P) and $(var:D) are the same.
+<P>
+<H3> Built-in Rules and Variables
+</H3>
+       This section discusses Jam/MR's built-in rules and variables.
+       These built-in rules, along with  the
+       other  Jam/MR  syntax for manipulating variables, provide the
+       foundation upon which the Jambase is built.  A Jamfile, or
+       (more  likely)  a  Jamrules  (q.v.), can make use of these
+       built-in rules and variables as well.
+<P>
+<H4> DEPENDS, INCLUDES Rules
+</H4>
+
+       Two rules build  the  dependency  graph.   DEPENDS  simply
+       makes  its  sources dependencies of its targets.  INCLUDES
+       makes its sources dependencies of anything  of  which  its
+       targets  are dependencies.  This reflects the dependencies
+       that arise when one  source  file  includes  another:  the
+       object  built  from  the  source  file depends both on the
+       original and included source file,  but  the  two  sources
+       files don't depend on each other.  For example:
+<PRE>
+              DEPENDS foo.o : foo.c ;
+              INCLUDES foo.c : foo.h ;
+</PRE>
+       Both "foo.c" and "foo.h" become dependencies of "foo.o" in
+       this example.
+<P>
+<H4> ALWAYS, LEAVES, NOCARE, NOTFILE, NOUPDATE, TEMPORARY Rules
+</H4>
+       Six rules mark targets so that <b>jam</b> treats them differently
+       during  its  target binding and updating phase.  Normally,
+       <b>jam</b> updates a target if it is missing, if  its  filesystem
+       modification  time  is  older than any of its dependencies
+       (recursively), or if any of  its  dependencies  are  being
+       updated.   This  basic behavior can be changed by invoking
+       the following rules with the target  name  as  the  rule's
+       target:
+<P>
+       The  ALWAYS  rule causes its targets to be always updated.
+       This is used for the clean and uninstall targets, as  they
+       have  no  dependencies and would otherwise appear never to
+       need building.  It is best applied  to  targets  that  are
+       also  NOTFILE  targets, but it can also be used to force a
+       real file to be updated as well.
+<P>
+       The NOCARE rule causes <b>jam</b> to ignore its targets  if  they
+       can't  be  found  and have no updating actions.  Normally,
+       <b>jam</b> issues a warning about a target that  can't  be  built
+       and  then  refuses  to build anything that depends on that
+       target.  The HdrRule in Jambase uses NOCARE on the header file  names
+       found  during  header  file scanning, to let <b>jam</b> know that
+       the included files may  not  exist.   For  example,  if  a
+       #include  is  within  an #ifdef, the included file may not
+       actually be around.
+<P>
+       The NOTFILE rule marks its targets as  being  pseudotargets,  
+       that  is,  targets  that  aren't really files.  The
+       actions on such a target are only executed if the target's
+       dependencies  are updated, or if the target is also marked
+       with ALWAYS.  The default <b>jam</b> target "all" is a 
+       pseudotarget. In Jambase, NOTFILE is used to define 
+       several addition convenient pseudotargets.
+<P>
+       The  NOUPDATE  rule  causes <b>jam</b> to ignore the modification
+       time of the target.  This has two  effects:   first,  once
+       the target has been created it will never be updated; second, 
+       manually updating target will not cause other targets
+       to be updated.  In Jambase, for example, this rule is applied 
+       to directories by the
+       MkDir rule, because  MkDir  only  cares  that  the  target
+       directory exists, not when it has last been updated.
+<P>
+       The  TEMPORARY rule allows for targets to be deleted after
+       they are generated.  If <b>jam</b> sees that a  temporary  target
+       is  missing,  it  will use the target's parent's time when
+       determining if the target needs  updating.   Jambase uses
+       TEMPORARY to mark object  files
+       that are archived in a library after they are built, so
+       that they can be deleted after they are archived.
+<P>
+       The LEAVES rule makes each of the targets depend  only  on
+       its  "leaf"  dependencies.   This  makes  it immune to its
+       dependencies being updated, as the "leaf" dependencies are
+       those  without their own dependencies and without updating
+       actions.  This allows a target to be updated only if original 
+       source files change.
+<P>
+<H4> ECHO, EXIT Rules
+</H4>
+       These  two  rules are are used only in <b>jam</b>'s parsing phase.
+       The ECHO rule just echoes its targets to the standard output.   
+       The EXIT rule does the same and then does a brutal,
+       fatal exit of <b>jam</b>.
+<P>
+<H4> SEARCH, LOCATE Variables
+</H4>
+       These two variables control the binding of target names to
+       real  files:  they  indicate  what  path  name  is  to  be
+       prepended to the target name when substituting values for
+       variables referenced in action definitions.
+       (See "Binding" in
+       <a href="Jam.html">The Jam/MR Executable Program</A>.)
+       <P>
+
+       $(SEARCH)  provides  a list of directories along which <b>jam</b>
+       scans  looking  for   a   target.    $(LOCATE)   overrides
+       $(SEARCH),  indicating the directory where the target must
+       be.  Normally, $(SEARCH) is set for existing targets while
+       $(LOCATE) is set for the targets which <b>jam</b> must build.  
+       Only the first element in $(LOCATE) is used for binding.
+       If neither $(SEARCH) nor $(LOCATE) are set, or if the name of
+       the  target  is a rooted file name (e.g., on UNIX beginning
+       with "/"), then the file name is assumed to be the  target
+       name.
+<P>
+       Both $(SEARCH) and $(LOCATE) should be set target-specific
+       and not globally.  If they were set  globally,  <b>jam</b>  would
+       use  the same paths for all file binding, which is  
+       not likely to produce  sane  results.
+       When writing your own rules,  especially  ones  not  built
+       upon  those  in  Jambase, you may need to set $(SEARCH) or
+       $(LOCATE) directly. 
+       Almost all of the rules defined in Jambase
+       set $(SEARCH) and $(LOCATE) to  sensible  values
+       for  sources they are looking for and targets they create,
+       respectively. 
+<P>
+<P>
+<H4> HDRSCAN, HDRRULE Variables
+</H4>
+       These two variable  control  header  file  scanning.   The
+       first  is  an  egrep(1) pattern, with ()'s surrounding the
+       file name, used  to  find  file  inclusion  statements  in
+       source  files.  The second is the name of a rule to invoke
+       with the results of the scan: the scanned file is the target,  
+       the  found  files are the sources.  This is the only
+       place where <b>jam</b> invokes a rule through a variable setting.
+<P>
+       Both $(HDRSCAN) and $(HDRRULE) must be set for header file
+       scanning to take place, and they should be set target-specific  
+       and  not  globally.  If they were set globally, all
+       files,  including  executables  and  libraries,  would  be
+       scanned for header file include statements.
+<P>
+       The  scanning for header file inclusions is not exact, but
+       it is at least dynamic, so there is no need to  run
+       something  like  makedepend(GNU) to create a static dependency 
+       file. The scanning mechanism errs on the side of robustness 
+       (i.e., it is more likely to return filenames that are not actually
+       used by the compiler than to miss include files) 
+       because it can't tell if #include lines are inside #ifdefs or
+       other conditional logic. 
+       In Jambase, HdrRule  applies the NOCARE rule to each header file 
+       found during scanning so that if the file isn't present and isn't
+       needed during compilation, <b>jam</b> doesn't skip its dependencies.
+       <P>
+       Also, scanning for regular expressions only  works
+       where  the  included  file name is literally in the source
+       file.  It can't handle languages  that  allow  including
+       files using variable names (as the Jam/MR language itself does).
+<P>
+<H4> Platform Identifier Variables
+</H4>
+<P>
+	A number of Jam/MR built-in variables can be used to 
+	identify runtime platform:
+	<CENTER>
+	<TABLE>
+	<TR><TD>UNIX<TD>true on Unix platforms
+	<TR><TD>NT<TD>true on NT platforms
+	<TR><TD>VMS<TD>true on VMS platforms
+	<TR><TD>MAC<TD>true on MAC platforms
+	<TR><TD>OS2<TD>true on OS2 platforms
+	<TR><TD>OS<TD>OS identifier string 
+	<TR><TD>OSVER<TD>OS version, when applicable
+	<TR><TD>OSPLAT<TD>Underlying architecture, when applicable
+	<TR><TD>JAMVERSION<TD><b>jam</b> version, currently "2.2"
+	</TABLE>
+	</CENTER>
+<P>
+<H4> JAMDATE Variable
+</H4>
+	Initialized to time and date at <b>jam</b> startup.
+
+<P>
+<H4> JAMSHELL Variable
+</H4>
+       When  <b>jam</b>  executes  a  rule's  action block, it forks and
+       execs a shell, passing the action block as an argument  to
+       the  shell.   The invocation of the shell can be controlled by
+       $(JAMSHELL). On Unix, for example:
+<PRE>
+              JAMSHELL = /bin/sh -c % ;
+</PRE>
+       The % is replaced with the text of the action block.
+<P>
+       <b>jam</b> can build targets in parallel, as long as  the
+       dependencies  among  files  are  properly  spelled out and
+       actions don't create fixed  named  files  in  the  current
+       directory.   (If  either  of those two provisions are violated, 
+       <B>jam</B> can trip over itself when building in  parallel
+       things  which just happen to build OK sequentially.)  When
+       building in parallel, <b>jam</b> simply forks off more  than  one
+       shell at a time.
+<P>
+       <b>jam</b>  does not directly support building in parallel across
+       multiple hosts, since that is  heavily  dependent  on  the
+       local  environment.   To build in parallel across multiple
+       hosts, you need to write  your  own  shell  that  provides
+       access  to the multiple hosts.  You then reset $(JAMSHELL)
+       to reference it.
+<P>
+       Just as <b>jam</b> expands a % to  be  the  text  of  the  rule's
+       action  block, it expands a ! to be the multi-process slot
+       number.  The slot number varies between 1 and  the  number
+       of  concurrent  jobs permitted by the -j flag given on the
+       command line.  Armed with this, it is possible to write  a
+   multiple host shell.  For example:
+<PRE>
+	  #!/bin/sh
+
+	  # This sample JAMSHELL uses the SunOS on(1) command to execute
+	  # a command string with an identical environment on another host.
+	  #
+	  # Set JAMSHELL = jamshell ! %
+	  #
+	  # where jamshell is the name of this shell file.
+	  #
+	  # This version handles up to -j6; after that they get executed
+	  # locally.
+
+	  case $1 in
+	  1|4) on winken sh -c "$2";;
+	  2|5) on blinken sh -c "$2";;
+	  3|6) on nod sh -c "$2";;
+	  *)   eval "$2";;
+	  esac
+</PRE>
+<HR>
+<A HREF="#TOP">Back to top.</A>
+<P>  
+        Copyright 1997 Perforce Software, Inc.
+        <BR>
+        Comments to <A HREF="mailto:info@perforce.com">info@perforce.com</A>
+        <BR>
+        Last updated: Oct 19, 1997
+</BODY>
+</HTML>     

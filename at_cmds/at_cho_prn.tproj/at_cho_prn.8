@@ -1,0 +1,53 @@
+.TH at_cho_prn 8
+.SH NAME
+at_cho_prn - allows you to choose a default printer on the AppleTalk internet
+.SH SYNOPSIS
+.B at_cho_prn 
+.I [type[@zone]]
+.SH ARGUMENTS
+.TP 8
+.I type[@zone]
+Specifies the type of printer to be used, and the area
+(zone) in which it resides.  If you don't use the type
+argument on the command line, at_cho_prn displays all
+entities of the types LaserWriter and ImageWriter.  The
+system prompts you to select a printer by entering the
+appropriate number from the printer list display.  If
+you don't enter the zone part of the argument on the
+command line, at_cho_prn lists all the zones in the
+internet and prompts you to choose the zone in which
+you'd like to select your default printer.
+
+.SH DESCRIPTION
+The at_cho_prn command displays a list of printer selections
+and saves the name of the printer that you select. The
+at_cho_prn command checks the network to determine which
+printers are registered on that network.
+
+After you specify the zone, at_cho_prn lists the printers
+(of type type) available in that zone.
+
+The at_cho_prn command must be run while the user is logged
+in as root.
+
+.SH EXAMPLES
+The command
+
+        at_cho_prn 'LaserWriter@*'
+
+produces output similar to this:
+
+        ITEM  NET-ADDR     OBJECT : TYPE
+          1: 56bf.af.fc AnnLW:LaserWriter
+          2: 56bf.ac.cc TimLW:LaserWriter
+
+        ITEM number (0 to make no selection)?
+
+where NET-ADDR is the AppleTalk internet address (printed in
+hexadecimal) of the printer's listener socket, and
+OBJECT:TYPE is the name of the registered printer and its
+type.
+
+.SH FILES
+/usr/bin/at_cho_prn
+Executable file

@@ -1,0 +1,5 @@
+dnl ../doc/m4.texinfo:2474: Origin of test
+regexp(`GNUs not Unix', `\<[a-z]\w+')
+dnl @result{}5
+regexp(`GNUs not Unix', `\<Q\w*')
+dnl @result{}-1

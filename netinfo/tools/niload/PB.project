@@ -1,0 +1,48 @@
+{
+    DYNAMIC_CODE_GEN = YES; 
+    FILESTABLE = {
+        CLASSES = (
+            FFAgent.m, 
+            FFParser.m, 
+            Lock.m, 
+            LUAgent.m, 
+            LUArray.m, 
+            LUDictionary.m, 
+            LUDictionaryExtras.m,
+			Root.m
+        ); 
+        FRAMEWORKS = (); 
+        H_FILES = (
+            FFAgent.h, 
+            FFParser.h, 
+            Lock.h, 
+            LUAgent.h, 
+            LUArray.h, 
+            LUDictionary.h, 
+            LUGlobal.h, 
+            LUDictionaryExtras.h,
+			Root.h,
+            print.h 
+        ); 
+	OTHER_LIBS = (objc);
+        OTHER_LINKED = (nettoa.c, niload.m, print.c, raw_load.c); 
+        OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble, niload.8); 
+        SUBPROJECTS = (); 
+    }; 
+    LANGUAGE = English; 
+    LOCALIZABLE_FILES = {}; 
+    MAKEFILEDIR = "$(MAKEFILEPATH)/pb_makefiles"; 
+    NEXTSTEP_BUILDTOOL = /bin/gnumake; 
+    NEXTSTEP_INSTALLDIR = /usr/bin; 
+    NEXTSTEP_JAVA_COMPILER = /usr/bin/javac; 
+    NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc; 
+    PDO_UNIX_BUILDTOOL = $NEXT_ROOT/Developer/bin/make; 
+    PDO_UNIX_JAVA_COMPILER = "$(JDKBINDIR)/javac"; 
+    PDO_UNIX_OBJCPLUS_COMPILER = "$(NEXTDEV_BIN)/gcc"; 
+    PROJECTNAME = niload; 
+    PROJECTTYPE = Tool; 
+    PROJECTVERSION = 2.8; 
+    WINDOWS_BUILDTOOL = $NEXT_ROOT/Developer/Executables/make; 
+    WINDOWS_JAVA_COMPILER = "$(JDKBINDIR)/javac.exe"; 
+    WINDOWS_OBJCPLUS_COMPILER = "$(DEVDIR)/gcc"; 
+}

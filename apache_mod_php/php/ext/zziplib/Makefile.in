@@ -1,0 +1,8 @@
+# $Id: Makefile.in,v 1.1.1.1 2001/01/25 05:00:23 wsanchez Exp $
+
+LTLIBRARY_NAME        = libzziplib.la
+LTLIBRARY_SOURCES     = zziplib.c
+LTLIBRARY_SHARED_NAME = zziplib.la
+LTLIBRARY_SHARED_LIBADD  = $(ZZIPLIB_SHARED_LIBADD)
+
+include $(top_srcdir)/build/dynlib.mk

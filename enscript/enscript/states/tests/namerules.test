@@ -1,0 +1,12 @@
+#!/bin/sh
+#
+# Test namerules.
+#
+
+. $srcdir/defs || exit 1
+
+result=`$states $srcdir/tests.st 2>&1`
+
+if test "X$result" != "Xtest_namerules"; then
+  exit 1;
+fi

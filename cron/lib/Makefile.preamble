@@ -1,0 +1,3 @@
+include $(CoreOSMakefiles)/ProjectBuilder/Makefile.Preamble.Common
+
+LIBRARY_STYLE = STATIC

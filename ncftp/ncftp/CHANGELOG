@@ -1,0 +1,406 @@
+2.4.3 :: March 19, 1998
+
++ Note:  NcFTP will being reborn again someday, as version 3.0.
+
++ Security problem fixed where a hostile FTP site could create specially
+  named files in a subdirectory, and if the directory was "get -R", the
+  hostile FTP site could execute arbitrary commands with the client's
+  privileges on the client machine.
+
++ Licensing terms have changed.
+
++ Changed the probe.net references to NcFTP.com, since probe.net is
+  essentially defunct.  I am thankful for Probe's service over the years
+  and I am deeply saddened to see them go!
+
++ Long standing bug fixed where NcFTP would crash if the screen width
+  exceeded 160 columns.
+
++ Fixed a problem where a socket connection could fail because it wasn't
+  initialized properly.
+
++ Cat bug fixed (Thanks, Sander van Malssen).
+
++ A few other small fixes.
+
+2.4.2 :: October 28, 1996.
+
++ Daylight savings time bug fixed (Thanks, Chris Hanson).
+
++ Fixed the spurious character that was appearing in the "User" and
+  "Password" prompt.
+
++ Fixed a broken pipe problem.
+
++ Throughput results should be more accurate.  Previously they were
+  inflated a bit because the stoptime was recorded after the last write
+  instead of after the close.
+
+2.4.1 :: October 18, 1996.
+
++ Bug fixed which cause completion to seg fault.
+
++ Less lint.
+
+2.4.0 :: October 16, 1996.
+
++ Block transfer mode added.
+
++ Fixed a seg fault in RCmd.c.
+
++ Added fix for Chinese character printing.
+
++ Added fix for long-lines (Thanks, Kohtala Marko).
+
+2.3.0 :: December 5, 1995.
+
++ New home FTP site, ftp://ftp.probe.net/pub/ncftp/.
+
++ New e-mail address, mgleason@probe.net.
+
++ Now using the "bookmark" paradigm, in place of "recent," "host entry,"
+  and "nickname."
+
++ The "bookmarks" file, formerly "hosts" file, will rename itself to the
+  new name automatically and adds another field which denotes whether to
+  update the directory path when closing that site.
+
++ New "bookmarks" commands which replaces the "hosts" command.  New "bookmark"
+  command can save a snapshot of the current session at the remote host as
+  a placeholder, so you can go back to that location later.  This works just
+  like a bookmark does in a Web browser does essentially.  That way a user
+  can make a bookmark whenever they want, in addition to the usual automatic
+  bookmarks that are saved when you close a newly opened site.
+
++ Bookmarks added manually by the user will have "noSaveDir" on so the
+  directory won't change when you use that book mark but chdir around
+  afterward.
+
++ Added a "cat" command.  This is useful for visual mode, so you can just
+  dump a file to the screen and have the auto-pager kick on.
+
++ Forgot to turn the alarm off when longjmp'ing out.
+
++ Minor configure script tweaks.
+
++ Visual mode's history no longer adds blank lines.
+
++ Minutes remaining in "ETA" can be up to three digits now.
+
++ Cleanup curses upon a SIGTERM before exiting.
+
++ Pruned Cpp.c.
+
+2.2.2 :: October 29, 1995.
+
++ Socks5 support (Thanks to Dave Blob, the author).
+
++ Using ^Z and then backgrounding ncftp is less likely to abort a transfer
+  or cause the process to be stopped because of pending tty output.
+
++ Interrupting a transfer aborts all of the transfers in a batch instead of
+  just the current one.
+
++ A few fixes for NeXT (Thanks, Vince Demarco).
+
++ Small bug fixed with forced-reget.
+
++ Configure script tweaks.
+
++ Configure script's domain detection from /etc/resolv.conf is better.
+
++ Another small line-mode prompt bug fixed.
+
+2.2.1 :: October 7, 1995.
+
++ Really fixed bug where the prompt wasn't updating in line-mode.
+  (Thanks, Mark Nordberg)
+
++ Added "less" as an alias to "page."
+
++ Small bug in completion code fixed (Thanks, Yakushiji Norihiro).
+
++ Configure script's /etc/resolv.conf portion now allows ';' as comment
+  character.
+
++ Old versions of readline.h do not prototype filename_completion_function.
+  (Thanks, Jody Goldberg).
+
++ Configure script may work better on SunOS with ncurses.
+
+2.2.0 :: October 1, 1995.
+
++ Redial mode working again. 
+
++ Bonus for CHANGELOG readers:  I'm adding Tim MacKenzie's filename
+  completion stuff on a test basis.
+
++ Now refreshing screen after predir.
+
+2.1.1 :: September 16, 1995.
+
++ Visual mode now displays "RUNNING" in the status bar so you can tell
+  when a command is still going.  I'm not sure if I like this yet, so more
+  changes may be necessary.
+
++ Configure script jumps through hoops to find libreadline, for those of
+  you who are hellbent on using line-mode.
+
++ A few small work-arounds for Solaris.
+
++ The startup-lcwd now expands ~.
+
++ Using -f flag with csh/tcsh for local globbing  (Thanks, Chien-Ta Lee).
+
++ Avoiding clearing the screen on exit if an error occurred so you can
+  see the error message.
+
++ Shouldn't crash if the remote server closes connection (Thanks,
+  Alexander Komlik).
+
++ Fixed a condition that could crash the program if a file transfer
+  was interrupted (Thanks, Frank Crawford).
+
++ Forgot <ctype.h> in Main.c (Thanks, David A. Avery).
+
++ Less lint.
+
++ The "-C" command line option is now recognized properly.
+
++ If you're root, we don't write our .ncftp files.
+
++ Kludge around irix fcntl/NFS bug (Thanks, Victor Boyko).
+
++ Kludge around ultrix fcntl/NFS bug (Thanks, Chris Metcalf).
+
+2.1.0 :: July 15, 1995.
+
++ Revamped the curses code in Win.c.
+
++ Revised the configure.in script to use some of my own m4 macros.
+
++ Configure script should try the system V directories earlier, so
+  the resolv check works correctly.
+
++ GetHostEntry changed to be more 64-bit friendly (Thanks, Matti Aarnio and
+  Murray S. Kucheraw).
+
++ Lint fixes (Thanks, Thomas E. Dickey).
+
++ Bug fixed in code that removes "CWD successful" lines (Thanks, Keith Steiger).
+
++ Remote globbing improved.  This will help fix the problems caused by
+  "get -R *".
+
++ You can once again use "cd <wildcard>" and it should actually work now :-)
+
++ New user log file format, which write the URL of files transferred.
+
+2.0.7 :: June 10, 1995.
+
++ Configure script is now smarter about when it should and should not try
+  looking for the resolver library.
+
++ Visual mode now initializes before connecting to a site if needed, so when
+  you open a site from the command line you get to see the startup stuff
+  from the remote site.
+
++ If your URL has a trailing slash, then ncftp knows that you want to run
+  it's shell.  After opening that site, it changes the directory to the one
+  your URL had.
+
++ A printf bug with too few parameters fixed (Thanks, Robin Cutshaw).
+
+2.0.6 :: May 28, 1995.
+
++ Configure script doesn't look for -lresolv.  It seems most people can do
+  without it even if they have it.
+
++ Not auto-saving accounts (nor passwords, but still usernames).
+
++ Stuff for Newsos from SAKAI Kiyotaka.
+
++ Fixed bug where it was exiting 0 when colon mode failed (Thanks, L. Senator).
+
++ Added -C flag to get, force reget, so you can try reget when the program gets
+  fooled into thinking you don't need to do it.
+
++ Divide by zero bug fixed in progress meters.
+
++ Fixed bug where an open macro wouldn't run from the shell command line.
+
++ Printing 331 messages for non-anonymous logins.
+
++ WGets now uses ^K for kill-to-end-of-line (Thanks, ache).
+
++ Statbar progress meter tweaks.
+
++ Transfer timeouts turned off, since the only purpose they served is to
+  update the progress meters and retry the same block.
+
++ If I turn timeouts back on, it would be more difficult to timeout, since
+  the timeout value grows instead of staying constant.
+
++ Should be more practical on a slow link, like a PPP or SLIP link.
+
++ Increasing the Network Timeout in the prefs screen now affects transfers
+  like it should have been doing, instead of just the control stream.
+
++ The current directory is now obtainable under VMS servers (Thanks W. Losh).
+
++ Domain name guessing a bit better now (Thanks, James Lick).
+
++ Kludging around OSF/1 shell escape bug in visual mode so people quit
+  flooding my mailbox about it at least until we (or DEC) fix it.
+
+2.0.5 :: May 1, 1995.
+
++ Major change:  Using alarms instead of select/poll on both data and
+  control streams.
+
++ Fixed bug where prompt would be screwy if directory name had weird chars
+  (Thanks, Mark Rejhon).
+
++ The cwd in the status bar will abbreviate as needed.
+
++ gSprintfBuf only allocated once  (Thanks, Tim MacKenzie).
+
++ Host editor stat bug fixed (Thanks, Albert Ma).
+
++ Progress meter ETA's now max out at 99:59.
+
+2.0.4 :: April 18, 1995.
+
++ More tweaking the configure script with HP-UX.  It should work with
+  gcc, the useable cc/c89 and print an error for the useless cc.
+
++ AIX problem with carriage returns (^M) fixed.  Carriage returns are
+  now emulated by the visual code.
+
++ NcFTP now beeps after a long (15 sec) command completes.
+
++ You can now do "set help" for a list of things to set manually.
+  (Thanks, Marcel Mol.)
+
++ Username field in hosts file can now be 63 characters, for those who like
+  to put "user@machine.name" there for your gateway.
+
++ Configure script explicitly checks for /usr/ccs/lib.
+
++ "cd reg*ex" didn't work.  Now the code doesn't pretend to support that
+  behavior.  It will take a significant amount code to support that.
+
++ Directory listing and remote server responses have unprintable characters
+  represented by \xxx or ^X as needed.  Trailing spaces on a line are also
+  shown by \x where x is a space.
+
++ The command-line interpreter now lets you key in non-printing characters
+  by using the 4-character sequence \xxx or the two character sequence ^X.
+
++ Not printing a "Broken pipe" error if you end a "more" before reaching EOF.
+
++ Added a new progress meter, #5, the stat meter.  Inspired by Marcel Mol.
+
++ Added aliases for "ascii," "binary," "mget," and "mput."
+
++ Fixed a bug in Strn.c involving the const keyword.
+
++ Current directory prompt is updated better when you cd . or cd ..  with
+  unreadable directories (Thanks, Brian Wellington).
+
++ Man page has summary of command line flags  (Thanks, Janet Jackson).
+
++ Main program's usage screen includes flags for open and get.
+
+=============================================================================
+
+2.0.3 :: April 3, 1995.
+
++ FTP cat/more mode now recognizes correct syntax.
+
++ Vacillated, using PORT now instead of PASV by default.
+
++ Added a preference option to set default FTP mode.
+
++ WGets added ^B/^F as equivalents for left/right arrow (Thx, Klaus Singvogel).
+
++ Polls try again if they get an interrupted system call.
+
++ Not polling in DataTransfer on writes unless writing to a socket.
+
++ Not polling in BufferGets.  I hope this will resolve some of the problems
+  a few systems (Linux...) were having with timeouts.
+
+p13 : On NeXT, ncftp crashes trying to allocate memory in InitXferBuffer().
+
+=============================================================================
+
+2.0.2 :: March 19, 1995.
+
++ Using "real" locking now, so the problems with the "i.am.running" file
+  should be over with.
+
++ configure script now generated from Autoconf 2.2.
+
++ Prompt now shows path if you do "ncftp -L <site>"  (Thanks, Garner Halloran)
+
++ Man page is now makewhatis compliant.  (Thanks, Tuomo-Markus Tikkanen)
+
++ Man page now puts version number in title.  (Thanks, Marty Leisner)
+
++ Man page now has reference to archive site in title.
+
++ pdir/pls now function properly under visual mode. (Thanks, ache)
+
++ WGets recognizes KEY_ENTER as a newline/return key.  Not using it was 
+  causing problems on some IRIX machines.  (Thanks, Rob Kooper)
+
++ Redial-mode now prints status messages before sleeping to avoid looking
+  like the program hanged.
+
++ WGets now recognizes ^P/^N as equivalents to up and down arrow.
+
++ Should now be able to compile with SYSLOG. (Thanks, Fabrizio Pivari)
+
++ Fixed problem where password could echo.  (Thanks, Tuomo-Markus Tikkanen)
+
++ Will now compile under Ultrix;  can't get it to work with curses or
+  cursesX however.
+
++ Fixed the bug where a host dropping a connection core dumped.
+
++ Configure script looks for socks library now.
+
++ Better compatibility with NeXT.  Well, should be less compile-time errors
+  anyway.
+
++ Now checking for either curses.h or ncurses.h when using ncurses.
+
++ Fixed bug in WGets that caused a segfault when the arrow keys were used
+  when a command history was not in use.
+
+=============================================================================
+
+2.0.1 :: March 7, 1995.
+
++ Fixed a silly error that prevented compilation when there was no curses
+  library available.
+
+=============================================================================
+
+2.0.0 :: March 5, 1995.
+
++ No longer beta!
+
++ Added redir and predir.
+
++ Can now turn trace on and off from the prefs window.
+
++ The saved directory paths can how have commas and backslashes in them.
+
++ You can add -DPLAIN_TEXT_ONLY if you don't want to use bold, reverse, etc.,
+  text with curses.
+
++ You can't edit the host entries while you have a connection open now. 
+  (If you edit the entry for the current host, it would be overwritten when
+  you closed the host.)

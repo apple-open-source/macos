@@ -1,0 +1,7 @@
+services FreeService1 FreeService2 EnvironService=1;
+init testServer services Service=2 TerminalService;
+# server "/NextApps/Terminal -Lines 24 -Columns 60" services TerminalService;
+server "/NextApps/Shell" services ShellService;
+machports 0=NetMsgService=0 3=WindowService=3;
+
+

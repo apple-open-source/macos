@@ -1,0 +1,9 @@
+include $(CoreOSMakefiles)/ProjectBuilder/Makefile.Postamble.Common
+
+proctab.o: proctab.c
+
+proctab.c: $(SYMROOT)/maketab
+	cd $(SFILE_DIR) && $< > $(SFILE_DIR)/$(notdir $@)
+
+$(SYMROOT)/maketab: maketab.c
+	$(CC) -o $@ $(ALL_CFLAGS) $(ALL_LDFLAGS) $<

@@ -1,0 +1,86 @@
+{
+    FILESTABLE = {
+        Documentation = (README, ncftp.1); 
+        Headers = (
+            Bookmark.h, 
+            COPYRIGHT.h, 
+            Sio.h, 
+            Cmdline.h, 
+            Cmds.h, 
+            Complete.h, 
+            Cpp.h, 
+            Curses.h, 
+            DateSize.h, 
+            FTP.h, 
+            Get.h, 
+            GetPass.h, 
+            Getopt.h, 
+            Glob.h, 
+            Hostwin.h, 
+            LGets.h, 
+            LineList.h, 
+            List.h, 
+            Macro.h, 
+            Main.h, 
+            MakeArgv.h, 
+            Open.h, 
+            Poll.h, 
+            Prefs.h, 
+            Progress.h, 
+            Put.h, 
+            RCmd.h, 
+            Version.h, 
+            WGets.h, 
+            Strn.h, 
+            Sys.h, 
+            Tips.h, 
+            Util.h, 
+            acconfig.h, 
+            Win.h, 
+            Xfer.h
+        ); 
+        Makefiles = (Config.h.in, Makefile.in, configure, configure.in); 
+        Resources = (); 
+        SUBPROJECTS = (); 
+        Sources = (
+            Bookmark.c, 
+            Cmdline.c, 
+            Sio.c, 
+            Cmdlist.c, 
+            Cmds.c, 
+            Complete.c, 
+            Cpp.c, 
+            DateSize.c, 
+            FTP.c, 
+            Get.c, 
+            GetPass.c, 
+            Getopt.c, 
+            Glob.c, 
+            Hostwin.c, 
+            LGets.c, 
+            LineList.c, 
+            List.c, 
+            Macro.c, 
+            Main.c, 
+            MakeArgv.c, 
+            Open.c, 
+            Prefs.c, 
+            Progress.c, 
+            Put.c, 
+            RCmd.c, 
+            WGets.c, 
+            Strn.c, 
+            Tips.c, 
+            Util.c, 
+            Win.c, 
+            Xfer.c
+        ); 
+    }; 
+    LANGUAGE = English; 
+    NEXTSTEP_BUILDTOOL = /bin/make; 
+    PDO_UNIX_BUILDTOOL = /bin/make; 
+    PROJECTNAME = ncftp; 
+    PROJECTTYPE = "GNU Source"; 
+    PROJECTVERSION = 2.6; 
+    WINDOWS_BUILDTOOL = "${NEXT_ROOT}/NextDeveloper/Executables/make"; 
+}

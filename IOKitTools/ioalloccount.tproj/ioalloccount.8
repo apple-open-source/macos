@@ -1,0 +1,28 @@
+.\"
+.\" Copyright (c) 2000 Apple Computer, Inc.  All rights reserved.
+.\"
+.\"	$Id: ioalloccount.8,v 1.2 2000/10/03 01:50:21 lindak Exp $
+.\"
+.Dd February 29, 2000
+.Dt IOALLOCCOUNT 8
+.Os Darwin
+.Sh NAME
+.Nm ioalloccount
+.Nd Summarize IOKit memory usage.
+.Sh SYNOPSIS
+.Nm
+.Sh DESCRIPTION
+.Pp
+.Nm
+displays some accounting of memory allocated by IOKit allocators, including object instances, in the kernel. Useful for tracking leaks. This information can also found in the Root of the IORegistry.
+.Sh EXAMPLES
+.Pp
+List allocations by type, with sample output.
+.Bl -tag -width findx
+.It Li "ioalloccount"
+   Instance allocation = 000169f8 = 90 K
+  Container allocation = 0002793e = 158 K
+   IOMalloc allocation = 00011555 = 69 K
+.Sh SEE ALSO
+.Xr ioalloccount 8 ,
+.Xr ioreg 8

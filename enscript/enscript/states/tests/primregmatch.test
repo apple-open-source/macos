@@ -1,0 +1,13 @@
+#!/bin/sh
+#
+# Test regmatch() primitive.
+#
+
+. $srcdir/defs || exit 1
+
+result=`$states --state=test_primregmatch $srcdir/defs 2>&1`
+
+if test "X$result" != "X"; then
+  echo $result
+  exit 1;
+fi

@@ -1,0 +1,22 @@
+#
+#  Makefile.preamble for Chess.app
+#
+#	Copyright 1995, NeXT Computer, Inc.
+#
+
+# Build output directories
+#SYMROOT = ./sym
+#OBJROOT = .
+#OTHER_INITIAL_TARGETS = $(SYMROOT)
+
+# Flags passed to compiler (in addition to -g, -O, etc)
+#OTHER_CFLAGS = -DNeXT_DEBUG -DPROFILE
+
+# Flags passed to ld (in addition to -ObjC, etc.)
+#OTHER_LDFLAGS = -lMallocDebug -lsys_s
+
+export CURRENT_PROJECT_VERSION = 19
+export VERSIONING_SYSTEM = next-cvs
+
+# Create the Mac OS X app packaging format
+BUNDLE_STYLE = MACOSX

@@ -1,0 +1,1291 @@
+This is ../info/gnus, produced by makeinfo version 4.0 from gnus.texi.
+
+START-INFO-DIR-ENTRY
+* Gnus: (gnus).         The newsreader Gnus.
+END-INFO-DIR-ENTRY
+
+   This file documents Gnus, the GNU Emacs newsreader.
+
+   Copyright (C) 1995,96 Free Software Foundation, Inc.
+
+   Permission is granted to make and distribute verbatim copies of this
+manual provided the copyright notice and this permission notice are
+preserved on all copies.
+
+   Permission is granted to copy and distribute modified versions of
+this manual under the conditions for verbatim copying, provided also
+that the entire resulting derived work is distributed under the terms
+of a permission notice identical to this one.
+
+   Permission is granted to copy and distribute translations of this
+manual into another language, under the above conditions for modified
+versions.
+
+
+File: gnus,  Node: Global Score Files,  Next: Kill Files,  Prev: Reverse Scoring,  Up: Scoring
+
+Global Score Files
+==================
+
+   Sure, other newsreaders have "global kill files".  These are usually
+nothing more than a single kill file that applies to all groups, stored
+in the user's home directory.  Bah!  Puny, weak newsreaders!
+
+   What I'm talking about here are Global Score Files.  Score files from
+all over the world, from users everywhere, uniting all nations in one
+big, happy score file union!  Ange-score!  New and untested!
+
+   All you have to do to use other people's score files is to set the
+`gnus-global-score-files' variable.  One entry for each score file, or
+each score file directory.  Gnus will decide by itself what score files
+are applicable to which group.
+
+   Say you want to use the score file
+`/ftp@ftp.gnus.org:/pub/larsi/ding/score/soc.motss.SCORE' and all score
+files in the `/ftp@ftp.some-where:/pub/score' directory:
+
+     (setq gnus-global-score-files
+           '("/ftp@ftp.gnus.org:/pub/larsi/ding/score/soc.motss.SCORE"
+             "/ftp@ftp.some-where:/pub/score/"))
+
+   Simple, eh?  Directory names must end with a `/'.  These directories
+are typically scanned only once during each Gnus session.  If you feel
+the need to manually re-scan the remote directories, you can use the
+`gnus-score-search-global-directories' command.
+
+   Note that, at present, using this option will slow down group entry
+somewhat.  (That is--a lot.)
+
+   If you want to start maintaining score files for other people to use,
+just put your score file up for anonymous ftp and announce it to the
+world.  Become a retro-moderator!  Participate in the retro-moderator
+wars sure to ensue, where retro-moderators battle it out for the
+sympathy of the people, luring them to use their score files on false
+premises!  Yay!  The net is saved!
+
+   Here are some tips for the would-be retro-moderator, off the top of
+my head:
+
+   * Articles heavily crossposted are probably junk.
+
+   * To lower a single inappropriate article, lower by `Message-ID'.
+
+   * Particularly brilliant authors can be raised on a permanent basis.
+
+   * Authors that repeatedly post off-charter for the group can safely
+     be lowered out of existence.
+
+   * Set the `mark' and `expunge' atoms to obliterate the nastiest
+     articles completely.
+
+   * Use expiring score entries to keep the size of the file down.  You
+     should probably have a long expiry period, though, as some sites
+     keep old articles for a long time.
+
+   ... I wonder whether other newsreaders will support global score
+files in the future.  _Snicker_.  Yup, any day now, newsreaders like
+Blue Wave, xrn and 1stReader are bound to implement scoring.  Should we
+start holding our breath yet?
+
+
+File: gnus,  Node: Kill Files,  Next: Converting Kill Files,  Prev: Global Score Files,  Up: Scoring
+
+Kill Files
+==========
+
+   Gnus still supports those pesky old kill files.  In fact, the kill
+file entries can now be expiring, which is something I wrote before
+Daniel Quinlan thought of doing score files, so I've left the code in
+there.
+
+   In short, kill processing is a lot slower (and I do mean _a lot_)
+than score processing, so it might be a good idea to rewrite your kill
+files into score files.
+
+   Anyway, a kill file is a normal `emacs-lisp' file.  You can put any
+forms into this file, which means that you can use kill files as some
+sort of primitive hook function to be run on group entry, even though
+that isn't a very good idea.
+
+   Normal kill files look like this:
+
+     (gnus-kill "From" "Lars Ingebrigtsen")
+     (gnus-kill "Subject" "ding")
+     (gnus-expunge "X")
+
+   This will mark every article written by me as read, and remove the
+marked articles from the summary buffer.  Very useful, you'll agree.
+
+   Other programs use a totally different kill file syntax.  If Gnus
+encounters what looks like a `rn' kill file, it will take a stab at
+interpreting it.
+
+   Two summary functions for editing a GNUS kill file:
+
+`M-k'
+     Edit this group's kill file (`gnus-summary-edit-local-kill').
+
+`M-K'
+     Edit the general kill file (`gnus-summary-edit-global-kill').
+
+   Two group mode functions for editing the kill files:
+
+`M-k'
+     Edit this group's kill file (`gnus-group-edit-local-kill').
+
+`M-K'
+     Edit the general kill file (`gnus-group-edit-global-kill').
+
+   Kill file variables:
+
+`gnus-kill-file-name'
+     A kill file for the group `soc.motss' is normally called
+     `soc.motss.KILL'.  The suffix appended to the group name to get
+     this file name is detailed by the `gnus-kill-file-name' variable.
+     The "global" kill file (not in the score file sense of "global", of
+     course) is just called `KILL'.
+
+`gnus-kill-save-kill-file'
+     If this variable is non-`nil', Gnus will save the kill file after
+     processing, which is necessary if you use expiring kills.
+
+`gnus-apply-kill-hook'
+     A hook called to apply kill files to a group.  It is
+     `(gnus-apply-kill-file)' by default.  If you want to ignore the
+     kill file if you have a score file for the same group, you can set
+     this hook to `(gnus-apply-kill-file-unless-scored)'.  If you don't
+     want kill files to be processed, you should set this variable to
+     `nil'.
+
+`gnus-kill-file-mode-hook'
+     A hook called in kill-file mode buffers.
+
+
+File: gnus,  Node: Converting Kill Files,  Next: GroupLens,  Prev: Kill Files,  Up: Scoring
+
+Converting Kill Files
+=====================
+
+   If you have loads of old kill files, you may want to convert them
+into score files.  If they are "regular", you can use the
+`gnus-kill-to-score.el' package; if not, you'll have to do it by hand.
+
+   The kill to score conversion package isn't included in Gnus by
+default.  You can fetch it from
+`http://www.stud.ifi.uio.no/~larsi/ding-other/gnus-kill-to-score'.
+
+   If your old kill files are very complex--if they contain more
+non-`gnus-kill' forms than not, you'll have to convert them by hand.
+Or just let them be as they are.  Gnus will still use them as before.
+
+
+File: gnus,  Node: GroupLens,  Next: Advanced Scoring,  Prev: Converting Kill Files,  Up: Scoring
+
+GroupLens
+=========
+
+   GroupLens is a collaborative filtering system that helps you work
+together with other people to find the quality news articles out of the
+huge volume of news articles generated every day.
+
+   To accomplish this the GroupLens system combines your opinions about
+articles you have already read with the opinions of others who have done
+likewise and gives you a personalized prediction for each unread news
+article.  Think of GroupLens as a matchmaker.  GroupLens watches how you
+rate articles, and finds other people that rate articles the same way.
+Once it has found some people you agree with it tells you, in the form
+of a prediction, what they thought of the article.  You can use this
+prediction to help you decide whether or not you want to read the
+article.
+
+* Menu:
+
+* Using GroupLens::          How to make Gnus use GroupLens.
+* Rating Articles::          Letting GroupLens know how you rate articles.
+* Displaying Predictions::   Displaying predictions given by GroupLens.
+* GroupLens Variables::      Customizing GroupLens.
+
+
+File: gnus,  Node: Using GroupLens,  Next: Rating Articles,  Up: GroupLens
+
+Using GroupLens
+---------------
+
+   To use GroupLens you must register a pseudonym with your local Better
+Bit Bureau (BBB).  `http://www.cs.umn.edu/Research/GroupLens/bbb.html'
+is the only better bit in town at the moment.
+
+   Once you have registered you'll need to set a couple of variables.
+
+`gnus-use-grouplens'
+     Setting this variable to a non-`nil' value will make Gnus hook into
+     all the relevant GroupLens functions.
+
+`grouplens-pseudonym'
+     This variable should be set to the pseudonym you got when
+     registering with the Better Bit Bureau.
+
+`grouplens-newsgroups'
+     A list of groups that you want to get GroupLens predictions for.
+
+   That's the minimum of what you need to get up and running with
+GroupLens.  Once you've registered, GroupLens will start giving you
+scores for articles based on the average of what other people think.
+But, to get the real benefit of GroupLens you need to start rating
+articles yourself.  Then the scores GroupLens gives you will be
+personalized for you, based on how the people you usually agree with
+have already rated.
+
+
+File: gnus,  Node: Rating Articles,  Next: Displaying Predictions,  Prev: Using GroupLens,  Up: GroupLens
+
+Rating Articles
+---------------
+
+   In GroupLens, an article is rated on a scale from 1 to 5, inclusive.
+Where 1 means something like this article is a waste of bandwidth and 5
+means that the article was really good.  The basic question to ask
+yourself is, "on a scale from 1 to 5 would I like to see more articles
+like this one?"
+
+   There are four ways to enter a rating for an article in GroupLens.
+
+`r'
+     This function will prompt you for a rating on a scale of one to
+     five.
+
+`k'
+     This function will prompt you for a rating, and rate all the
+     articles in the thread.  This is really useful for some of those
+     long running giant threads in rec.humor.
+
+   The next two commands, `n' and `,' take a numerical prefix to be the
+score of the article you're reading.
+
+`1-5 n'
+     Rate the article and go to the next unread article.
+
+`1-5 ,'
+     Rate the article and go to the next unread article with the
+     highest score.
+
+   If you want to give the current article a score of 4 and then go to
+the next article, just type `4 n'.
+
+
+File: gnus,  Node: Displaying Predictions,  Next: GroupLens Variables,  Prev: Rating Articles,  Up: GroupLens
+
+Displaying Predictions
+----------------------
+
+   GroupLens makes a prediction for you about how much you will like a
+news article.  The predictions from GroupLens are on a scale from 1 to
+5, where 1 is the worst and 5 is the best.  You can use the predictions
+from GroupLens in one of three ways controlled by the variable
+`gnus-grouplens-override-scoring'.
+
+   There are three ways to display predictions in grouplens.  You may
+choose to have the GroupLens scores contribute to, or override the
+regular gnus scoring mechanism. override is the default; however, some
+people prefer to see the Gnus scores plus the grouplens scores.  To get
+the separate scoring behavior you need to set
+`gnus-grouplens-override-scoring' to `'separate'.  To have the
+GroupLens predictions combined with the grouplens scores set it to
+`'override' and to combine the scores set
+`gnus-grouplens-override-scoring' to `'combine'.  When you use the
+combine option you will also want to set the values for
+`grouplens-prediction-offset' and `grouplens-score-scale-factor'.
+
+   In either case, GroupLens gives you a few choices for how you would
+like to see your predictions displayed.  The display of predictions is
+controlled by the `grouplens-prediction-display' variable.
+
+   The following are valid values for that variable.
+
+`prediction-spot'
+     The higher the prediction, the further to the right an `*' is
+     displayed.
+
+`confidence-interval'
+     A numeric confidence interval.
+
+`prediction-bar'
+     The higher the prediction, the longer the bar.
+
+`confidence-bar'
+     Numerical confidence.
+
+`confidence-spot'
+     The spot gets bigger with more confidence.
+
+`prediction-num'
+     Plain-old numeric value.
+
+`confidence-plus-minus'
+     Prediction +/- confidence.
+
+
+File: gnus,  Node: GroupLens Variables,  Prev: Displaying Predictions,  Up: GroupLens
+
+GroupLens Variables
+-------------------
+
+`gnus-summary-grouplens-line-format'
+     The summary line format used in GroupLens-enhanced summary
+     buffers.  It accepts the same specs as the normal summary line
+     format (*note Summary Buffer Lines::).  The default is
+     `%U%R%z%l%I%(%[%4L: %-20,20n%]%) %s\n'.
+
+`grouplens-bbb-host'
+     Host running the bbbd server.  `grouplens.cs.umn.edu' is the
+     default.
+
+`grouplens-bbb-port'
+     Port of the host running the bbbd server.  The default is 9000.
+
+`grouplens-score-offset'
+     Offset the prediction by this value.  In other words, subtract the
+     prediction value by this number to arrive at the effective score.
+     The default is 0.
+
+`grouplens-score-scale-factor'
+     This variable allows the user to magnify the effect of GroupLens
+     scores.  The scale factor is applied after the offset.  The
+     default is 1.
+
+
+File: gnus,  Node: Advanced Scoring,  Next: Score Decays,  Prev: GroupLens,  Up: Scoring
+
+Advanced Scoring
+================
+
+   Scoring on Subjects and From headers is nice enough, but what if
+you're really interested in what a person has to say only when she's
+talking about a particular subject?  Or what if you really don't want to
+read what person A has to say when she's following up to person B, but
+want to read what she says when she's following up to person C?
+
+   By using advanced scoring rules you may create arbitrarily complex
+scoring patterns.
+
+* Menu:
+
+* Advanced Scoring Syntax::     A definition.
+* Advanced Scoring Examples::   What they look like.
+* Advanced Scoring Tips::       Getting the most out of it.
+
+
+File: gnus,  Node: Advanced Scoring Syntax,  Next: Advanced Scoring Examples,  Up: Advanced Scoring
+
+Advanced Scoring Syntax
+-----------------------
+
+   Ordinary scoring rules have a string as the first element in the
+rule.  Advanced scoring rules have a list as the first element.  The
+second element is the score to be applied if the first element
+evaluated to a non-`nil' value.
+
+   These lists may consist of three logical operators, one redirection
+operator, and various match operators.
+
+   Logical operators:
+
+`&'
+`and'
+     This logical operator will evaluate each of its arguments until it
+     finds one that evaluates to `false', and then it'll stop.  If all
+     arguments evaluate to `true' values, then this operator will return
+     `true'.
+
+`|'
+`or'
+     This logical operator will evaluate each of its arguments until it
+     finds one that evaluates to `true'.  If no arguments are `true',
+     then this operator will return `false'.
+
+`!'
+`not'
+`¬'
+     This logical operator only takes a single argument.  It returns the
+     logical negation of the value of its argument.
+
+   There is an "indirection operator" that will make its arguments
+apply to the ancestors of the current article being scored.  For
+instance, `1-' will make score rules apply to the parent of the current
+article.  `2-' will make score rules apply to the grandparent of the
+current article.  Alternatively, you can write `^^', where the number
+of `^'s (carets) says how far back into the ancestry you want to go.
+
+   Finally, we have the match operators.  These are the ones that do the
+real work.  Match operators are header name strings followed by a match
+and a match type.  A typical match operator looks like `("from" "Lars
+Ingebrigtsen" s)'.  The header names are the same as when using simple
+scoring, and the match types are also the same.
+
+
+File: gnus,  Node: Advanced Scoring Examples,  Next: Advanced Scoring Tips,  Prev: Advanced Scoring Syntax,  Up: Advanced Scoring
+
+Advanced Scoring Examples
+-------------------------
+
+   Let's say you want to increase the score of articles written by Lars
+when he's talking about Gnus:
+
+     ((&
+       ("from" "Lars Ingebrigtsen")
+       ("subject" "Gnus"))
+      1000)
+
+   Quite simple, huh?
+
+   When he writes long articles, he sometimes has something nice to say:
+
+     ((&
+       ("from" "Lars Ingebrigtsen")
+       (|
+        ("subject" "Gnus")
+        ("lines" 100 >)))
+      1000)
+
+   However, when he responds to things written by Reig Eigil Logge, you
+really don't want to read what he's written:
+
+     ((&
+       ("from" "Lars Ingebrigtsen")
+       (1- ("from" "Reig Eigir Logge")))
+      -100000)
+
+   Everybody that follows up Redmondo when he writes about disappearing
+socks should have their scores raised, but only when they talk about
+white socks.  However, when Lars talks about socks, it's usually not
+very interesting:
+
+     ((&
+       (1-
+        (&
+         ("from" "redmondo@.*no" r)
+         ("body" "disappearing.*socks" t)))
+       (! ("from" "Lars Ingebrigtsen"))
+       ("body" "white.*socks"))
+      1000)
+
+   The possibilities are endless.
+
+
+File: gnus,  Node: Advanced Scoring Tips,  Prev: Advanced Scoring Examples,  Up: Advanced Scoring
+
+Advanced Scoring Tips
+---------------------
+
+   The `&' and `|' logical operators do short-circuit logic.  That is,
+they stop processing their arguments when it's clear what the result of
+the operation will be.  For instance, if one of the arguments of an `&'
+evaluates to `false', there's no point in evaluating the rest of the
+arguments.  This means that you should put slow matches (`body',
+`header') last and quick matches (`from', `subject') first.
+
+   The indirection arguments (`1-' and so on) will make their arguments
+work on previous generations of the thread.  If you say something like:
+
+     ...
+     (1-
+      (1-
+       ("from" "lars")))
+     ...
+
+   Then that means "score on the from header of the grandparent of the
+current article".  An indirection is quite fast, but it's better to say:
+
+     (1-
+      (&
+       ("from" "Lars")
+       ("subject" "Gnus")))
+
+   than it is to say:
+
+     (&
+      (1- ("from" "Lars"))
+      (1- ("subject" "Gnus")))
+
+
+File: gnus,  Node: Score Decays,  Prev: Advanced Scoring,  Up: Scoring
+
+Score Decays
+============
+
+   You may find that your scores have a tendency to grow without
+bounds, especially if you're using adaptive scoring.  If scores get too
+big, they lose all meaning--they simply max out and it's difficult to
+use them in any sensible way.
+
+   Gnus provides a mechanism for decaying scores to help with this
+problem.  When score files are loaded and `gnus-decay-scores' is
+non-`nil', Gnus will run the score files through the decaying mechanism
+thereby lowering the scores of all non-permanent score rules.  The
+decay itself if performed by the `gnus-decay-score-function' function,
+which is `gnus-decay-score' by default.  Here's the definition of that
+function:
+
+     (defun gnus-decay-score (score)
+       "Decay SCORE.
+     This is done according to `gnus-score-decay-constant'
+     and `gnus-score-decay-scale'."
+       (floor
+        (- score
+           (* (if (< score 0) 1 -1)
+              (min (abs score)
+                   (max gnus-score-decay-constant
+                        (* (abs score)
+                           gnus-score-decay-scale)))))))
+
+   `gnus-score-decay-constant' is 3 by default and
+`gnus-score-decay-scale' is 0.05.  This should cause the following:
+
+  1. Scores between -3 and 3 will be set to 0 when this function is
+     called.
+
+  2. Scores with magnitudes between 3 and 60 will be shrunk by 3.
+
+  3. Scores with magnitudes greater than 60 will be shrunk by 5% of the
+     score.
+
+   If you don't like this decay function, write your own.  It is called
+with the score to be decayed as its only parameter, and it should return
+the new score, which should be an integer.
+
+   Gnus will try to decay scores once a day.  If you haven't run Gnus
+for four days, Gnus will decay the scores four times, for instance.
+
+
+File: gnus,  Node: Various,  Next: The End,  Prev: Scoring,  Up: Top
+
+Various
+*******
+
+* Menu:
+
+* Process/Prefix::             A convention used by many treatment commands.
+* Interactive::                Making Gnus ask you many questions.
+* Symbolic Prefixes::          How to supply some Gnus functions with options.
+* Formatting Variables::       You can specify what buffers should look like.
+* Windows Configuration::      Configuring the Gnus buffer windows.
+* Faces and Fonts::            How to change how faces look.
+* Compilation::                How to speed Gnus up.
+* Mode Lines::                 Displaying information in the mode lines.
+* Highlighting and Menus::     Making buffers look all nice and cozy.
+* Buttons::                    Get tendonitis in ten easy steps!
+* Daemons::                    Gnus can do things behind your back.
+* NoCeM::                      How to avoid spam and other fatty foods.
+* Undo::                       Some actions can be undone.
+* Moderation::                 What to do if you're a moderator.
+* XEmacs Enhancements::        There are more pictures and stuff under XEmacs.
+* Fuzzy Matching::             What's the big fuzz?
+* Thwarting Email Spam::       A how-to on avoiding unsolicited commercial email.
+* Various Various::            Things that are really various.
+
+
+File: gnus,  Node: Process/Prefix,  Next: Interactive,  Up: Various
+
+Process/Prefix
+==============
+
+   Many functions, among them functions for moving, decoding and saving
+articles, use what is known as the "Process/Prefix convention".
+
+   This is a method for figuring out what articles the user wants the
+command to be performed on.
+
+   It goes like this:
+
+   If the numeric prefix is N, perform the operation on the next N
+articles, starting with the current one.  If the numeric prefix is
+negative, perform the operation on the previous N articles, starting
+with the current one.
+
+   If `transient-mark-mode' in non-`nil' and the region is active, all
+articles in the region will be worked upon.
+
+   If there is no numeric prefix, but some articles are marked with the
+process mark, perform the operation on the articles marked with the
+process mark.
+
+   If there is neither a numeric prefix nor any articles marked with the
+process mark, just perform the operation on the current article.
+
+   Quite simple, really, but it needs to be made clear so that surprises
+are avoided.
+
+   Commands that react to the process mark will push the current list of
+process marked articles onto a stack and will then clear all process
+marked articles.  You can restore the previous configuration with the
+`M P y' command (*note Setting Process Marks::).
+
+   One thing that seems to shock & horrify lots of people is that, for
+instance, `3 d' does exactly the same as `d' `d' `d'.  Since each `d'
+(which marks the current article as read) by default goes to the next
+unread article after marking, this means that `3 d' will mark the next
+three unread articles as read, no matter what the summary buffer looks
+like.  Set `gnus-summary-goto-unread' to `nil' for a more
+straightforward action.
+
+
+File: gnus,  Node: Interactive,  Next: Symbolic Prefixes,  Prev: Process/Prefix,  Up: Various
+
+Interactive
+===========
+
+`gnus-novice-user'
+     If this variable is non-`nil', you are either a newcomer to the
+     World of Usenet, or you are very cautious, which is a nice thing
+     to be, really.  You will be given questions of the type "Are you
+     sure you want to do this?" before doing anything dangerous.  This
+     is `t' by default.
+
+`gnus-expert-user'
+     If this variable is non-`nil', you will seldom be asked any
+     questions by Gnus.  It will simply assume you know what you're
+     doing, no matter how strange.
+
+`gnus-interactive-catchup'
+     Require confirmation before catching up a group if non-`nil'.  It
+     is `t' by default.
+
+`gnus-interactive-exit'
+     Require confirmation before exiting Gnus.  This variable is `t' by
+     default.
+
+
+File: gnus,  Node: Symbolic Prefixes,  Next: Formatting Variables,  Prev: Interactive,  Up: Various
+
+Symbolic Prefixes
+=================
+
+   Quite a lot of Emacs commands react to the (numeric) prefix.  For
+instance, `C-u 4 C-f' moves point four characters forward, and `C-u 9 0
+0 I s s p' adds a permanent `Subject' substring score rule of 900 to
+the current article.
+
+   This is all nice and well, but what if you want to give a command
+some additional information?  Well, what most commands do is interpret
+the "raw" prefix in some special way.  `C-u 0 C-x C-s' means that one
+doesn't want a backup file to be created when saving the current buffer,
+for instance.  But what if you want to save without making a backup
+file, and you want Emacs to flash lights and play a nice tune at the
+same time?  You can't, and you're probably perfectly happy that way.
+
+   I'm not, so I've added a second prefix--the "symbolic prefix".  The
+prefix key is `M-i' (`gnus-symbolic-argument'), and the next character
+typed in is the value.  You can stack as many `M-i' prefixes as you
+want.  `M-i a M-C-u' means "feed the `M-C-u' command the symbolic
+prefix `a'".  `M-i a M-i b M-C-u' means "feed the `M-C-u' command the
+symbolic prefixes `a' and `b'".  You get the drift.
+
+   Typing in symbolic prefixes to commands that don't accept them
+doesn't hurt, but it doesn't do any good either.  Currently not many
+Gnus functions make use of the symbolic prefix.
+
+   If you're interested in how Gnus implements this, *note Extended
+Interactive::.
+
+
+File: gnus,  Node: Formatting Variables,  Next: Windows Configuration,  Prev: Symbolic Prefixes,  Up: Various
+
+Formatting Variables
+====================
+
+   Throughout this manual you've probably noticed lots of variables
+called things like `gnus-group-line-format' and
+`gnus-summary-mode-line-format'.  These control how Gnus is to output
+lines in the various buffers.  There's quite a lot of them.
+Fortunately, they all use the same syntax, so there's not that much to
+be annoyed by.
+
+   Here's an example format spec (from the group buffer): `%M%S%5y:
+%(%g%)\n'.  We see that it is indeed extremely ugly, and that there are
+lots of percentages everywhere.
+
+* Menu:
+
+* Formatting Basics::     A formatting variable is basically a format string.
+* Mode Line Formatting::  Some rules about mode line formatting variables.
+* Advanced Formatting::   Modifying output in various ways.
+* User-Defined Specs::    Having Gnus call your own functions.
+* Formatting Fonts::      Making the formatting look colorful and nice.
+
+   Currently Gnus uses the following formatting variables:
+`gnus-group-line-format', `gnus-summary-line-format',
+`gnus-server-line-format', `gnus-topic-line-format',
+`gnus-group-mode-line-format', `gnus-summary-mode-line-format',
+`gnus-article-mode-line-format', `gnus-server-mode-line-format', and
+`gnus-summary-pick-line-format'.
+
+   All these format variables can also be arbitrary elisp forms.  In
+that case, they will be `eval'ed to insert the required lines.
+
+   Gnus includes a command to help you while creating your own format
+specs.  `M-x gnus-update-format' will `eval' the current form, update
+the spec in question and pop you to a buffer where you can examine the
+resulting lisp code to be run to generate the line.
+
+
+File: gnus,  Node: Formatting Basics,  Next: Mode Line Formatting,  Up: Formatting Variables
+
+Formatting Basics
+-----------------
+
+   Each `%' element will be replaced by some string or other when the
+buffer in question is generated.  `%5y' means "insert the `y' spec, and
+pad with spaces to get a 5-character field".
+
+   As with normal C and Emacs Lisp formatting strings, the numerical
+modifier between the `%' and the formatting type character will "pad"
+the output so that it is always at least that long.  `%5y' will make
+the field always (at least) five characters wide by padding with spaces
+to the left.  If you say `%-5y', it will pad to the right instead.
+
+   You may also wish to limit the length of the field to protect against
+particularly wide values.  For that you can say `%4,6y', which means
+that the field will never be more than 6 characters wide and never less
+than 4 characters wide.
+
+
+File: gnus,  Node: Mode Line Formatting,  Next: Advanced Formatting,  Prev: Formatting Basics,  Up: Formatting Variables
+
+Mode Line Formatting
+--------------------
+
+   Mode line formatting variables (e.g.,
+`gnus-summary-mode-line-format') follow the same rules as other, buffer
+line oriented formatting variables (*note Formatting Basics::) with the
+following two differences:
+
+  1. There must be no newline (`\n') at the end.
+
+  2. The special `%%b' spec can be used to display the buffer name.
+     Well, it's no spec at all, really--`%%' is just a way to quote `%'
+     to allow it to pass through the formatting machinery unmangled, so
+     that Emacs receives `%b', which is something the Emacs mode line
+     display interprets to mean "show the buffer name".  For a full
+     list of mode line specs Emacs understands, see the documentation
+     of the `mode-line-format' variable.
+
+
+
+File: gnus,  Node: Advanced Formatting,  Next: User-Defined Specs,  Prev: Mode Line Formatting,  Up: Formatting Variables
+
+Advanced Formatting
+-------------------
+
+   It is frequently useful to post-process the fields in some way.
+Padding, limiting, cutting off parts and suppressing certain values can
+be achieved by using "tilde modifiers".  A typical tilde spec might
+look like `%~(cut 3)~(ignore "0")y'.
+
+   These are the valid modifiers:
+
+`pad'
+`pad-left'
+     Pad the field to the left with spaces until it reaches the required
+     length.
+
+`pad-right'
+     Pad the field to the right with spaces until it reaches the
+     required length.
+
+`max'
+`max-left'
+     Cut off characters from the left until it reaches the specified
+     length.
+
+`max-right'
+     Cut off characters from the right until it reaches the specified
+     length.
+
+`cut'
+`cut-left'
+     Cut off the specified number of characters from the left.
+
+`cut-right'
+     Cut off the specified number of characters from the right.
+
+`ignore'
+     Return an empty string if the field is equal to the specified
+     value.
+
+`form'
+     Use the specified form as the field value when the `@' spec is
+     used.
+
+   Let's take an example.  The `%o' spec in the summary mode lines will
+return a date in compact ISO8601 format--`19960809T230410'.  This is
+quite a mouthful, so we want to shave off the century number and the
+time, leaving us with a six-character date.  That would be `%~(cut-left
+2)~(max-right 6)~(pad 6)o'.  (Cutting is done before maxing, and we
+need the padding to ensure that the date is never less than 6
+characters to make it look nice in columns.)
+
+   Ignoring is done first; then cutting; then maxing; and then as the
+very last operation, padding.
+
+   If you use lots of these advanced thingies, you'll find that Gnus
+gets quite slow.  This can be helped enormously by running `M-x
+gnus-compile' when you are satisfied with the look of your lines.
+*Note Compilation::.
+
+
+File: gnus,  Node: User-Defined Specs,  Next: Formatting Fonts,  Prev: Advanced Formatting,  Up: Formatting Variables
+
+User-Defined Specs
+------------------
+
+   All the specs allow for inserting user defined specifiers--`u'.  The
+next character in the format string should be a letter.  Gnus will call
+the function `gnus-user-format-function-'`X', where `X' is the letter
+following `%u'.  The function will be passed a single parameter--what
+the parameter means depends on what buffer it's being called from.  The
+function should return a string, which will be inserted into the buffer
+just like information from any other specifier.  This function may also
+be called with dummy values, so it should protect against that.
+
+   You can also use tilde modifiers (*note Advanced Formatting:: to
+achieve much the same without defining new functions.  Here's an
+example: `%~(form (count-lines (point-min) (point)))@'.  The form given
+here will be evaluated to yield the current line number, and then
+inserted.
+
+
+File: gnus,  Node: Formatting Fonts,  Prev: User-Defined Specs,  Up: Formatting Variables
+
+Formatting Fonts
+----------------
+
+   There are specs for highlighting, and these are shared by all the
+format variables.  Text inside the `%(' and `%)' specifiers will get
+the special `mouse-face' property set, which means that it will be
+highlighted (with `gnus-mouse-face') when you put the mouse pointer
+over it.
+
+   Text inside the `%{' and `%}' specifiers will have their normal
+faces set using `gnus-face-0', which is `bold' by default.  If you say
+`%1{', you'll get `gnus-face-1' instead, and so on.  Create as many
+faces as you wish.  The same goes for the `mouse-face' specs--you can
+say `%3(hello%)' to have `hello' mouse-highlighted with
+`gnus-mouse-face-3'.
+
+   Here's an alternative recipe for the group buffer:
+
+     ;; Create three face types.
+     (setq gnus-face-1 'bold)
+     (setq gnus-face-3 'italic)
+     
+     ;; We want the article count to be in
+     ;; a bold and green face.  So we create
+     ;; a new face called `my-green-bold'.
+     (copy-face 'bold 'my-green-bold)
+     ;; Set the color.
+     (set-face-foreground 'my-green-bold "ForestGreen")
+     (setq gnus-face-2 'my-green-bold)
+     
+     ;; Set the new & fancy format.
+     (setq gnus-group-line-format
+           "%M%S%3{%5y%}%2[:%] %(%1{%g%}%)\n")
+
+   I'm sure you'll be able to use this scheme to create totally
+unreadable and extremely vulgar displays.  Have fun!
+
+   Note that the `%(' specs (and friends) do not make any sense on the
+mode-line variables.
+
+
+File: gnus,  Node: Windows Configuration,  Next: Faces and Fonts,  Prev: Formatting Variables,  Up: Various
+
+Windows Configuration
+=====================
+
+   No, there's nothing here about X, so be quiet.
+
+   If `gnus-use-full-window' non-`nil', Gnus will delete all other
+windows and occupy the entire Emacs screen by itself.  It is `t' by
+default.
+
+   `gnus-buffer-configuration' describes how much space each Gnus
+buffer should be given.  Here's an excerpt of this variable:
+
+     ((group (vertical 1.0 (group 1.0 point)
+                           (if gnus-carpal (group-carpal 4))))
+      (article (vertical 1.0 (summary 0.25 point)
+                             (article 1.0))))
+
+   This is an alist.  The "key" is a symbol that names some action or
+other.  For instance, when displaying the group buffer, the window
+configuration function will use `group' as the key.  A full list of
+possible names is listed below.
+
+   The "value" (i.e., the "split") says how much space each buffer
+should occupy.  To take the `article' split as an example -
+
+     (article (vertical 1.0 (summary 0.25 point)
+                            (article 1.0)))
+
+   This "split" says that the summary buffer should occupy 25% of upper
+half of the screen, and that it is placed over the article buffer.  As
+you may have noticed, 100% + 25% is actually 125% (yup, I saw y'all
+reaching for that calculator there).  However, the special number `1.0'
+is used to signal that this buffer should soak up all the rest of the
+space available after the rest of the buffers have taken whatever they
+need.  There should be only one buffer with the `1.0' size spec per
+split.
+
+   Point will be put in the buffer that has the optional third element
+`point'.  In a `frame' split, the last subsplit having a leaf split
+where the tag `frame-focus' is a member (i.e. is the third or fourth
+element in the list, depending on whether the `point' tag is present)
+gets focus.
+
+   Here's a more complicated example:
+
+     (article (vertical 1.0 (group 4)
+                            (summary 0.25 point)
+                            (if gnus-carpal (summary-carpal 4))
+                            (article 1.0)))
+
+   If the size spec is an integer instead of a floating point number,
+then that number will be used to say how many lines a buffer should
+occupy, not a percentage.
+
+   If the "split" looks like something that can be `eval'ed (to be
+precise--if the `car' of the split is a function or a subr), this split
+will be `eval'ed.  If the result is non-`nil', it will be used as a
+split.  This means that there will be three buffers if `gnus-carpal' is
+`nil', and four buffers if `gnus-carpal' is non-`nil'.
+
+   Not complicated enough for you?  Well, try this on for size:
+
+     (article (horizontal 1.0
+                  (vertical 0.5
+                      (group 1.0)
+                      (gnus-carpal 4))
+                  (vertical 1.0
+                      (summary 0.25 point)
+                      (summary-carpal 4)
+                      (article 1.0))))
+
+   Whoops.  Two buffers with the mystery 100% tag.  And what's that
+`horizontal' thingie?
+
+   If the first element in one of the split is `horizontal', Gnus will
+split the window horizontally, giving you two windows side-by-side.
+Inside each of these strips you may carry on all you like in the normal
+fashion.  The number following `horizontal' says what percentage of the
+screen is to be given to this strip.
+
+   For each split, there _must_ be one element that has the 100% tag.
+The splitting is never accurate, and this buffer will eat any leftover
+lines from the splits.
+
+   To be slightly more formal, here's a definition of what a valid split
+may look like:
+
+     split       = frame | horizontal | vertical | buffer | form
+     frame       = "(frame " size *split ")"
+     horizontal  = "(horizontal " size *split ")"
+     vertical    = "(vertical " size *split ")"
+     buffer      = "(" buffer-name " " size *[ "point" ] *[ "frame-focus"] ")"
+     size        = number | frame-params
+     buffer-name = group | article | summary ...
+
+   The limitations are that the `frame' split can only appear as the
+top-level split.  FORM should be an Emacs Lisp form that should return
+a valid split.  We see that each split is fully recursive, and may
+contain any number of `vertical' and `horizontal' splits.
+
+   Finding the right sizes can be a bit complicated.  No window may be
+less than `gnus-window-min-height' (default 1) characters high, and all
+windows must be at least `gnus-window-min-width' (default 1) characters
+wide.  Gnus will try to enforce this before applying the splits.  If
+you want to use the normal Emacs window width/height limit, you can
+just set these two variables to `nil'.
+
+   If you're not familiar with Emacs terminology, `horizontal' and
+`vertical' splits may work the opposite way of what you'd expect.
+Windows inside a `horizontal' split are shown side-by-side, and windows
+within a `vertical' split are shown above each other.
+
+   If you want to experiment with window placement, a good tip is to
+call `gnus-configure-frame' directly with a split.  This is the function
+that does all the real work when splitting buffers.  Below is a pretty
+nonsensical configuration with 5 windows; two for the group buffer and
+three for the article buffer.  (I said it was nonsensical.)  If you
+`eval' the statement below, you can get an idea of how that would look
+straight away, without going through the normal Gnus channels.  Play
+with it until you're satisfied, and then use `gnus-add-configuration'
+to add your new creation to the buffer configuration list.
+
+     (gnus-configure-frame
+      '(horizontal 1.0
+         (vertical 10
+           (group 1.0)
+           (article 0.3 point))
+         (vertical 1.0
+           (article 1.0)
+           (horizontal 4
+             (group 1.0)
+             (article 10)))))
+
+   You might want to have several frames as well.  No prob--just use the
+`frame' split:
+
+     (gnus-configure-frame
+      '(frame 1.0
+              (vertical 1.0
+                        (summary 0.25 point frame-focus)
+                        (article 1.0))
+              (vertical ((height . 5) (width . 15)
+                         (user-position . t)
+                         (left . -1) (top . 1))
+                        (picon 1.0))))
+
+   This split will result in the familiar summary/article window
+configuration in the first (or "main") frame, while a small additional
+frame will be created where picons will be shown.  As you can see,
+instead of the normal `1.0' top-level spec, each additional split
+should have a frame parameter alist as the size spec.  *Note Frame
+Parameters: (elisp)Frame Parameters.  Under XEmacs, a frame property
+list will be accepted, too--for instance, `(height 5 width 15 left -1
+top 1)' is such a plist.
+
+   Here's a list of all possible keys for `gnus-buffer-configuration':
+
+   `group', `summary', `article', `server', `browse', `message',
+`pick', `info', `summary-faq', `edit-group', `edit-server',
+`edit-score', `post', `reply', `forward', `reply-yank', `mail-bounce',
+`draft', `pipe', `bug', `compose-bounce', and `score-trace'.
+
+   Note that the `message' key is used for both `gnus-group-mail' and
+`gnus-summary-mail-other-window'.  If it is desirable to distinguish
+between the two, something like this might be used:
+
+     (message (horizontal 1.0
+                          (vertical 1.0 (message 1.0 point))
+                          (vertical 0.24
+                                    (if (buffer-live-p gnus-summary-buffer)
+                                        '(summary 0.5))
+                                    (group 1.0)))))
+
+   Since the `gnus-buffer-configuration' variable is so long and
+complicated, there's a function you can use to ease changing the config
+of a single setting: `gnus-add-configuration'.  If, for instance, you
+want to change the `article' setting, you could say:
+
+     (gnus-add-configuration
+      '(article (vertical 1.0
+                    (group 4)
+                    (summary .25 point)
+                    (article 1.0))))
+
+   You'd typically stick these `gnus-add-configuration' calls in your
+`.gnus.el' file or in some startup hook--they should be run after Gnus
+has been loaded.
+
+   If all windows mentioned in the configuration are already visible,
+Gnus won't change the window configuration.  If you always want to
+force the "right" window configuration, you can set
+`gnus-always-force-window-configuration' to non-`nil'.
+
+
+File: gnus,  Node: Faces and Fonts,  Next: Compilation,  Prev: Windows Configuration,  Up: Various
+
+Faces and Fonts
+===============
+
+   Fiddling with fonts and faces used to be very difficult, but these
+days it is very simple.  You simply say `M-x customize-face', pick out
+the face you want to alter, and alter it via the standard Customize
+interface.
+
+
+File: gnus,  Node: Compilation,  Next: Mode Lines,  Prev: Faces and Fonts,  Up: Various
+
+Compilation
+===========
+
+   Remember all those line format specification variables?
+`gnus-summary-line-format', `gnus-group-line-format', and so on.  Now,
+Gnus will of course heed whatever these variables are, but,
+unfortunately, changing them will mean a quite significant slow-down.
+(The default values of these variables have byte-compiled functions
+associated with them, while the user-generated versions do not, of
+course.)
+
+   To help with this, you can run `M-x gnus-compile' after you've
+fiddled around with the variables and feel that you're (kind of)
+satisfied.  This will result in the new specs being byte-compiled, and
+you'll get top speed again.  Gnus will save these compiled specs in the
+`.newsrc.eld' file.  (User-defined functions aren't compiled by this
+function, though--you should compile them yourself by sticking them
+into the `.gnus.el' file and byte-compiling that file.)
+
+
+File: gnus,  Node: Mode Lines,  Next: Highlighting and Menus,  Prev: Compilation,  Up: Various
+
+Mode Lines
+==========
+
+   `gnus-updated-mode-lines' says what buffers should keep their mode
+lines updated.  It is a list of symbols.  Supported symbols include
+`group', `article', `summary', `server', `browse', and `tree'.  If the
+corresponding symbol is present, Gnus will keep that mode line updated
+with information that may be pertinent.  If this variable is `nil',
+screen refresh may be quicker.
+
+   By default, Gnus displays information on the current article in the
+mode lines of the summary and article buffers.  The information Gnus
+wishes to display (e.g. the subject of the article) is often longer
+than the mode lines, and therefore have to be cut off at some point.
+The `gnus-mode-non-string-length' variable says how long the other
+elements on the line is (i.e., the non-info part).  If you put
+additional elements on the mode line (e.g. a clock), you should modify
+this variable:
+
+     (add-hook 'display-time-hook
+               (lambda () (setq gnus-mode-non-string-length
+                                (+ 21
+                                   (if line-number-mode 5 0)
+                                   (if column-number-mode 4 0)
+                                   (length display-time-string)))))
+
+   If this variable is `nil' (which is the default), the mode line
+strings won't be chopped off, and they won't be padded either.  Note
+that the default is unlikely to be desirable, as even the percentage
+complete in the buffer may be crowded off the mode line; the user should
+configure this variable appropriately for her configuration.
+
+
+File: gnus,  Node: Highlighting and Menus,  Next: Buttons,  Prev: Mode Lines,  Up: Various
+
+Highlighting and Menus
+======================
+
+   The `gnus-visual' variable controls most of the Gnus-prettifying
+aspects.  If `nil', Gnus won't attempt to create menus or use fancy
+colors or fonts.  This will also inhibit loading the `gnus-vis.el' file.
+
+   This variable can be a list of visual properties that are enabled.
+The following elements are valid, and are all included by default:
+
+`group-highlight'
+     Do highlights in the group buffer.
+
+`summary-highlight'
+     Do highlights in the summary buffer.
+
+`article-highlight'
+     Do highlights in the article buffer.
+
+`highlight'
+     Turn on highlighting in all buffers.
+
+`group-menu'
+     Create menus in the group buffer.
+
+`summary-menu'
+     Create menus in the summary buffers.
+
+`article-menu'
+     Create menus in the article buffer.
+
+`browse-menu'
+     Create menus in the browse buffer.
+
+`server-menu'
+     Create menus in the server buffer.
+
+`score-menu'
+     Create menus in the score buffers.
+
+`menu'
+     Create menus in all buffers.
+
+   So if you only want highlighting in the article buffer and menus in
+all buffers, you could say something like:
+
+     (setq gnus-visual '(article-highlight menu))
+
+   If you want highlighting only and no menus whatsoever, you'd say:
+
+     (setq gnus-visual '(highlight))
+
+   If `gnus-visual' is `t', highlighting and menus will be used in all
+Gnus buffers.
+
+   Other general variables that influence the look of all buffers
+include:
+
+`gnus-mouse-face'
+     This is the face (i.e., font) used for mouse highlighting in Gnus.
+     No mouse highlights will be done if `gnus-visual' is `nil'.
+
+   There are hooks associated with the creation of all the different
+menus:
+
+`gnus-article-menu-hook'
+     Hook called after creating the article mode menu.
+
+`gnus-group-menu-hook'
+     Hook called after creating the group mode menu.
+
+`gnus-summary-menu-hook'
+     Hook called after creating the summary mode menu.
+
+`gnus-server-menu-hook'
+     Hook called after creating the server mode menu.
+
+`gnus-browse-menu-hook'
+     Hook called after creating the browse mode menu.
+
+`gnus-score-menu-hook'
+     Hook called after creating the score mode menu.
+
+
+File: gnus,  Node: Buttons,  Next: Daemons,  Prev: Highlighting and Menus,  Up: Various
+
+Buttons
+=======
+
+   Those new-fangled "mouse" contraptions is very popular with the
+young, hep kids who don't want to learn the proper way to do things
+these days.  Why, I remember way back in the summer of '89, when I was
+using Emacs on a Tops 20 system.  Three hundred users on one single
+machine, and every user was running Simula compilers.  Bah!
+
+   Right.
+
+   Well, you can make Gnus display bufferfuls of buttons you can click
+to do anything by setting `gnus-carpal' to `t'.  Pretty simple, really.
+Tell the chiropractor I sent you.
+
+`gnus-carpal-mode-hook'
+     Hook run in all carpal mode buffers.
+
+`gnus-carpal-button-face'
+     Face used on buttons.
+
+`gnus-carpal-header-face'
+     Face used on carpal buffer headers.
+
+`gnus-carpal-group-buffer-buttons'
+     Buttons in the group buffer.
+
+`gnus-carpal-summary-buffer-buttons'
+     Buttons in the summary buffer.
+
+`gnus-carpal-server-buffer-buttons'
+     Buttons in the server buffer.
+
+`gnus-carpal-browse-buffer-buttons'
+     Buttons in the browse buffer.
+
+   All the `buttons' variables are lists.  The elements in these list
+are either cons cells where the `car' contains a text to be displayed
+and the `cdr' contains a function symbol, or a simple string.
+

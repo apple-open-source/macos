@@ -1,0 +1,206 @@
+##
+# Common ProjectBuilder-style Postamble.
+#
+# Wilfredo Sanchez | wsanchez@apple.com
+# Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+#
+# @APPLE_LICENSE_HEADER_START@
+# 
+# Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
+# Reserved.  This file contains Original Code and/or Modifications of
+# Original Code as defined in and that are subject to the Apple Public
+# Source License Version 1.1 (the "License").  You may not use this file
+# except in compliance with the License.  Please obtain a copy of the
+# License at http://www.apple.com/publicsource and read it before using
+# this file.
+# 
+# The Original Code and all software distributed under the License are
+# distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+# EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+# INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE OR NON- INFRINGEMENT.  Please see the
+# License for the specific language governing rights and limitations
+# under the License.
+# 
+# @APPLE_LICENSE_HEADER_END@
+##
+
+#########################
+# Overridding variables #
+#########################
+
+##
+# Permissions
+##
+INSTALL_AS_USER     = $(Install_User)
+INSTALL_AS_GROUP    = $(Install_Group)
+INSTALL_PERMISSIONS = $(Install_Program_Mode)
+
+##
+# This is a command to let you hard link the product to another name.
+# For example:
+# AFTER_INSTALL += install-links
+# install-links:
+# 	$(LINKPRODUCT) $(DSTROOT)$(INSTALLDIR)/othername
+##
+LINKPRODUCT = $(LN) -f $(DSTROOT)$(INSTALLDIR)/$(notdir $(PRODUCT))
+
+##
+# If you set SHELLTOOL, then we know your program is a shell script.
+# There's no need to compile it, just copy and set permissions.
+##
+ifdef SHELLTOOL
+$(PRODUCT): $(SHELLTOOL)
+	$(_v) $(INSTALL_PROGRAM) -c $(SHELLTOOL) $(PRODUCT)
+endif
+
+##
+# If the user running make is not root, then you can't do chown.
+# We want to be able to compile as a regular user without having make
+# stop due to errors in using chown, so we set CHOWN in that case to
+# a noop.
+##
+ifneq ($(shell whoami),root)
+CHOWN = $(TRUE)
+endif
+
+##
+# PB Makefiles are wierd.
+# Some some odd reason, RC used to need to set SRCROOT=OBJROOT=SYMROOT and
+# make clean. That nukes subprojects without .tproj, etc extensions. This
+# is a bug in PB Makefiles, and the following is a workaround.
+##
+ifeq ($(SYMROOT),$(SRCROOT))
+PRODUCT =
+endif
+
+##
+# If we are using shared Makefiles, we should install them with the sources.
+##
+ifneq ($(wildcard Makefiles),)
+IMPLICIT_SOURCE_FILES += Makefiles
+endif
+
+##
+# PB want to add "-S" to its strip commands. I don't think so.
+# For libraries, that's a good default, otherwise, if we want,
+# we'll ask for it.
+##
+STRIPFLAGS = 
+
+##
+# Optimization
+##
+OPTIMIZE_BUILD_CFLAGS = $(CC_Optimize)
+
+##
+# Commands
+##
+MKDIRS = $(MKDIR)
+
+###########
+# Targets #
+###########
+
+install-source:
+ifneq ($(Install_Source),)
+	$(_v) $(MAKE) installsrc SRCROOT=$(DSTROOT)$(Install_Source)
+	$(_v) $(CHOWN) -R $(INSTALL_AS_USER).$(INSTALL_AS_GROUP) $(DSTROOT)$(Install_Source)
+	$(_v) $(CHMOD) -R -w $(DSTROOT)$(Install_Source)
+endif
+
+install-man: $(MANFILES)
+ifneq ($(strip $(MAN0FILES)),)
+	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)$(MAN0DIR)
+	$(_v) $(INSTALL_FILE) -c $(MAN1FILES) $(DSTROOT)$(MAN0DIR)
+endif
+ifneq ($(strip $(MAN1FILES)),)
+	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)$(MAN1DIR)
+	$(_v) $(INSTALL_FILE) -c $(MAN1FILES) $(DSTROOT)$(MAN1DIR)
+endif
+ifneq ($(strip $(MAN2FILES)),)
+	$(_v) $(_v) $(INSTALL_DIRECTORY) $(DSTROOT)$(MAN2DIR)
+	$(_v) $(_v) $(INSTALL_FILE) -c $(MAN2FILES) $(DSTROOT)$(MAN2DIR)
+endif
+ifneq ($(strip $(MAN3FILES)),)
+	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)$(MAN3DIR)
+	$(_v) $(INSTALL_FILE) -c $(MAN3FILES) $(DSTROOT)$(MAN3DIR)
+endif
+ifneq ($(strip $(MAN4FILES)),)
+	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)$(MAN4DIR)
+	$(_v) $(INSTALL_FILE) -c $(MAN4FILES) $(DSTROOT)$(MAN4DIR)
+endif
+ifneq ($(strip $(MAN5FILES)),)
+	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)$(MAN5DIR)
+	$(_v) $(INSTALL_FILE) -c $(MAN5FILES) $(DSTROOT)$(MAN5DIR)
+endif
+ifneq ($(strip $(MAN6FILES)),)
+	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)$(MAN6DIR)
+	$(_v) $(INSTALL_FILE) -c $(MAN6FILES) $(DSTROOT)$(MAN6DIR)
+endif
+ifneq ($(strip $(MAN7FILES)),)
+	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)$(MAN7DIR)
+	$(_v) $(INSTALL_FILE) -c $(MAN7FILES) $(DSTROOT)$(MAN7DIR)
+endif
+ifneq ($(strip $(MAN8FILES)),)
+	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)$(MAN8DIR)
+	$(_v) $(INSTALL_FILE) -c $(MAN8FILES) $(DSTROOT)$(MAN8DIR)
+endif
+ifneq ($(strip $(MAN9FILES)),)
+	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)$(MAN9DIR)
+	$(_v) $(INSTALL_FILE) -c $(MAN9FILES) $(DSTROOT)$(MAN9DIR)
+endif
+
+##
+# Libraries
+##
+
+ifeq ($(PROJTYPE),LIBRARY)
+
+# Don't strip all symbols
+STRIPFLAGS = -S
+
+# PB uses this recursively
+INSTALL_PERMISSIONS = ugo+rX
+
+# Create an object file list
+install-ofilelist::
+	echo $(OFILES) | $(FMT) -1 > $(OFILE_DIR)/$(NAME).ofileList
+	$(CHMOD) 444 $(OFILE_DIR)/$(NAME).ofileList
+
+endif
+
+##
+# Frameworks
+##
+
+ifeq ($(PROJECT_TYPE),Framework)
+
+# Don't strip all symbols
+STRIPFLAGS = -S
+
+# PB uses this recursively
+INSTALL_PERMISSIONS = ugo+rX
+
+# PB creates this bogus ObjC file ($(DUMMY_SYMBOL_FILE)) and wants to link it
+# into the framework. We don't want ObjC loading into clients of this framework,
+# so we filter it our from the $(LOADABLES) list, and remove the info file that
+# goes with it from the $(OTHER_INFO_FILES) list.
+LOADABLES        := $(patsubst $(DUMMY_SYMBOL).o,,$(LOADABLES))
+OTHER_INFO_FILES := $(patsubst $(DUMMY_SYMBOL_INFO_FILE),,$(OTHER_INFO_FILES))
+
+endif
+
+##
+# Bundles
+##
+
+ifeq ($(PROJECT_TYPE),Loadable Bundle)
+
+# Don't strip all symbols
+STRIPFLAGS = -S
+
+# PB uses this recursively
+INSTALL_PERMISSIONS = ugo+rX
+
+endif

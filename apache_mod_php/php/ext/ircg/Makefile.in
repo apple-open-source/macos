@@ -1,0 +1,8 @@
+# $Id: Makefile.in,v 1.1.1.1 2001/01/25 04:59:25 wsanchez Exp $
+
+LTLIBRARY_NAME        = libircg.la
+LTLIBRARY_SOURCES     = ircg.c
+LTLIBRARY_SHARED_NAME = ircg.la
+LTLIBRARY_SHARED_LIBADD  = $(IRCG_SHARED_LIBADD)
+
+include $(top_srcdir)/build/dynlib.mk

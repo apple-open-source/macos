@@ -1,0 +1,74 @@
+#!/bin/sh
+
+##
+# Clean up and reset files and devices.
+##
+
+. /etc/rc.common
+
+ConsoleMessage "Resetting files and devices"
+
+##
+# Attempt to recover the passwd file, if needed.  This procedure is
+# primarily historical and makes sense only when the passwd file is edited
+# using the vipw command.  
+##
+if [ -s /etc/ptmp ]; then
+    if [ -s /etc/passwd ]; then
+        echo -n "Passwd file conflict with ptmp: "
+        ls -l /etc/passwd /etc/ptmp
+        echo "Moving ptmp to ptmp.save"
+        mv -f /etc/ptmp /etc/ptmp.save
+    else
+        echo "Passwd file recovered from ptmp"
+        mv /etc/ptmp /etc/passwd
+    fi
+elif [ -r /etc/ptmp ]; then
+    echo "Removing passwd lock file"
+    rm -f /etc/ptmp
+fi
+
+ConsoleMessage "Cleaning up"
+echo -n "    "
+
+##
+# If the shutdown command was used to shut the system down, the file
+# /etc/nologin may have been created to prevent users from logging in.  
+# Remove it so that logins are enabled when the system comes up.
+##
+echo -n " /etc/nologin"
+rm -f /etc/nologin
+
+# Clean out /private/tmp.
+if [ -d /private/tmp ]; then
+    echo -n " /private/tmp"
+    mv /private/tmp /private/_tmp_
+    rm -rf /private/_tmp_ &
+fi
+mkdir -m 1777 /private/tmp
+
+# Clear /private/Network (created by automount).
+if [ -d /private/Network ]; then
+    echo -n " /private/Network"
+    mv /private/Network /private/_Network_
+    rm -rf /private/_Network_ &
+fi
+
+# Clear /var/run/*.pid
+echo -n " pid files"
+find /var/run -name \*.pid -exec rm -f -- {} ';'
+
+# Clear utmp (who is logged on).
+echo -n " utmp"
+rm /var/run/utmp
+touch /var/run/utmp
+
+# Unlock tip lines.  tip and UUCP share lock files so they don't get in
+# each other's way.
+#if [ -d /var/spool/uucp ]; then
+#    echo -n " UUCP"
+#    rm -f /var/spool/uucp/LCK.*
+#    rm -f /var/spool/uucp/LCK/LCK.*
+#fi
+
+echo ""

@@ -1,0 +1,37 @@
+PUBLIC_HDR_INSTALL_DIR = /usr/include
+PRIVATE_HDR_INSTALL_DIR = $(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/Versions/B/PrivateHeaders
+PUBLIC_HEADER_DIR_SUFFIX = /mach
+PRIVATE_HEADER_DIR_SUFFIX = /mach
+OTHER_PUBLIC_HEADERS =	bootstrap.h \
+		       	clock.h \
+			clock_priv.h \
+			mach_host.h \
+			host_priv.h \
+			host_security.h \
+			ledger.h \
+			lock_set.h \
+			processor.h \
+			processor_set.h \
+			task.h \
+			thread_act.h \
+			vm_map.h \
+			mach_port.h
+OTHER_PROJECT_HEADERS = lock_set.h vm_map.h
+OTHER_OFILES =  excUser.o \
+		excServer.o \
+		ledgerUser.o \
+		notifyUser.o \
+		processorUser.o \
+		processor_setUser.o \
+		taskUser.o \
+		vm_mapUser.o \
+		thread_actUser.o \
+		bootstrapUser.o \
+		lock_setUser.o \
+		mach_portUser.o \
+		clockUser.o \
+		clock_privUser.o \
+		mach_hostUser.o \
+		host_privUser.o \
+		host_securityUser.o
+

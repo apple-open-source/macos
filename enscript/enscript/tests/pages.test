@@ -1,0 +1,14 @@
+#!/bin/sh
+#
+# --pages
+#
+
+. $srcdir/defs || exit 1
+
+$enscript --quiet --pages=2-3 -p$output $asciifiles
+$enscript --quiet --pages=-3 -p$output $asciifiles
+$enscript --quiet --pages=2- -p$output $asciifiles
+$enscript --quiet --pages=odd -p$output $asciifiles
+$enscript --quiet --pages=even -p$output $asciifiles
+
+rm $output

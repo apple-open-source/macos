@@ -1,0 +1,7 @@
+Package: vi
+Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
+Vendor: Keith Bostic
+Version: 1.79
+URL: http://www.bostic.com/vi
+Description: nvi text editor
+Build-Depends: build-base, libcurses-hdrs

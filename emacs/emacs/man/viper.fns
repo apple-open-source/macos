@@ -1,0 +1,117 @@
+\initial {!}
+\entry {\code {\kbd {!!<cmd>}}}{55}
+\entry {\code {\kbd {!<cmd>}}}{55}
+\entry {\code {\kbd {!<move><cmd>}}}{55}
+\initial {:}
+\entry {\code {\kbd {:!! <args>}}}{55}
+\entry {\code {\kbd {:!<cmd>}}}{55}
+\entry {\code {\kbd {:<address>r !<cmd>}}}{55}
+\entry {\code {\kbd {:<address>r <name>}}}{55}
+\entry {\code {\kbd {:args}}}{19, 54}
+\entry {\code {\kbd {:cd [<dir>]}}}{54}
+\entry {\code {\kbd {:copy [z]}}}{49}
+\entry {\code {\kbd {:e [<files>]}}}{54}
+\entry {\code {\kbd {:e!}}}{51}
+\entry {\code {\kbd {:e! [<files>]}}}{54}
+\entry {\code {\kbd {:edit [<files>]}}}{54}
+\entry {\code {\kbd {:edit! [<files>]}}}{54}
+\entry {\code {\kbd {:f}}}{54}
+\entry {\code {\kbd {:g}}}{50}
+\entry {\code {\kbd {:global}}}{50}
+\entry {\code {\kbd {:k}}}{46}
+\entry {\code {\kbd {:map}}}{29}
+\entry {\code {\kbd {:map <char> <seq>}}}{55}
+\entry {\code {\kbd {:map! <char> <seq>}}}{55}
+\entry {\code {\kbd {:mark}}}{46}
+\entry {\code {\kbd {:move [z]}}}{49}
+\entry {\code {\kbd {:n}}}{19}
+\entry {\code {\kbd {:n [<count> | <file>]}}}{54}
+\entry {\code {\kbd {:pre}}}{19, 54}
+\entry {\code {\kbd {:PreviousRelatedFile}}}{19, 35}
+\entry {\code {\kbd {:pwd}}}{19, 54}
+\entry {\code {\kbd {:q}}}{54}
+\entry {\code {\kbd {:q!}}}{51, 54}
+\entry {\code {\kbd {:quit}}}{54}
+\entry {\code {\kbd {:quit!}}}{54}
+\entry {\code {\kbd {:r}}}{54}
+\entry {\code {\kbd {:read}}}{54}
+\entry {\code {\kbd {:rec}}}{51, 54}
+\entry {\code {\kbd {:RelatedFile}}}{19, 35}
+\entry {\code {\kbd {:rew}}}{54}
+\entry {\code {\kbd {:s/<p>/<r>/<f>}}}{49}
+\entry {\code {\kbd {:set}}}{21}
+\entry {\code {\kbd {:set <option>}}}{57}
+\entry {\code {\kbd {:set <option>=<value>}}}{57}
+\entry {\code {\kbd {:set ai}}}{57}
+\entry {\code {\kbd {:set autoindent}}}{57}
+\entry {\code {\kbd {:set ic}}}{57}
+\entry {\code {\kbd {:set ignorecase}}}{57}
+\entry {\code {\kbd {:set magic}}}{57}
+\entry {\code {\kbd {:set no<option>}}}{57}
+\entry {\code {\kbd {:set readonly}}}{57}
+\entry {\code {\kbd {:set ro}}}{57}
+\entry {\code {\kbd {:set sh=<string>}}}{57}
+\entry {\code {\kbd {:set shell=<string>}}}{57}
+\entry {\code {\kbd {:set shiftwidth=<count>}}}{57}
+\entry {\code {\kbd {:set showmatch}}}{57}
+\entry {\code {\kbd {:set sm}}}{57}
+\entry {\code {\kbd {:set sw=<count>}}}{57}
+\entry {\code {\kbd {:set tab-stop-local=<count>}}}{57}
+\entry {\code {\kbd {:set tabstop=<count>}}}{57}
+\entry {\code {\kbd {:set ts=<count>}}}{57}
+\entry {\code {\kbd {:set wm=<count>}}}{57}
+\entry {\code {\kbd {:set wrapmargin=<count>}}}{57}
+\entry {\code {\kbd {:set wrapscan}}}{57}
+\entry {\code {\kbd {:set ws}}}{57}
+\entry {\code {\kbd {:sh}}}{55}
+\entry {\code {\kbd {:stop}}}{54}
+\entry {\code {\kbd {:substitute/<p>/<r>/<f>}}}{49, 50}
+\entry {\code {\kbd {:suspend}}}{54}
+\entry {\code {\kbd {:t [z]}}}{49}
+\entry {\code {\kbd {:tag <name>}}}{50}
+\entry {\code {\kbd {:unmap <char>}}}{55}
+\entry {\code {\kbd {:unmap! <char>}}}{55}
+\entry {\code {\kbd {:v}}}{50}
+\entry {\code {\kbd {:vglobal}}}{50}
+\entry {\code {\kbd {:W}}}{54}
+\entry {\code {\kbd {:w !<cmd>}}}{55}
+\entry {\code {\kbd {:w >> <file>}}}{54}
+\entry {\code {\kbd {:w <file>}}}{54}
+\entry {\code {\kbd {:w! <file>}}}{54}
+\entry {\code {\kbd {:wq}}}{54}
+\entry {\code {\kbd {:Write}}}{54}
+\entry {\code {\kbd {:write >> <file>}}}{54}
+\entry {\code {\kbd {:write <file>}}}{54}
+\entry {\code {\kbd {:write! <file>}}}{54}
+\entry {\code {\kbd {:WW}}}{54}
+\entry {\code {\kbd {:WWrite}}}{54}
+\entry {\code {\kbd {:x}}}{54}
+\entry {\code {\kbd {:x!}}}{54}
+\entry {\code {\kbd {:x,y w !<cmd>}}}{55}
+\entry {\code {\kbd {:yank}}}{51}
+\initial {A}
+\entry {\code {\code {add-hook}}}{31}
+\initial {R}
+\entry {\code {\code {remove-hook}}}{31}
+\initial {T}
+\entry {\code {\code {toggle-viper-mode}}}{5, 34}
+\initial {V}
+\entry {\code {\code {viper-add-local-keys}}}{29}
+\entry {\code {\code {viper-buffer-search-enable}}}{32}
+\entry {\code {\code {viper-describe-kbd-macros}}}{41}
+\entry {\code {\code {viper-ex-nontrivial-find-file-ms}}}{24}
+\entry {\code {\code {viper-ex-nontrivial-find-file-unix}}}{24}
+\entry {\code {\code {viper-go-away}}}{5, 34}
+\entry {\code {\code {viper-harness-minor-mode}}}{31}
+\entry {\code {\code {viper-mode}}}{31}
+\entry {\code {\code {viper-modify-major-mode}}}{28}
+\entry {\code {\code {viper-mouse-click-insert-word}}}{36}
+\entry {\code {\code {viper-mouse-click-search-word}}}{36}
+\entry {\code {\code {viper-set-emacs-state-searchstyle-macros}}}{32}
+\entry {\code {\code {viper-set-expert-level}}}{33}
+\entry {\code {\code {viper-set-hooks}}}{31}
+\entry {\code {\code {viper-set-parsing-style-toggling-macro}}}{46}
+\entry {\code {\code {viper-set-searchstyle-toggling-macros}}}{32}
+\entry {\code {\code {viper-set-syntax-preference}}}{17, 44}
+\entry {\code {\code {viper-unrecord-kbd-macro}}}{39}
+\entry {\code {\code {viper-zap-local-keys}}}{29}

@@ -1,0 +1,7 @@
+$ $Id: set15,v 1.1.1.1 1999/04/23 02:00:04 wsanchez Exp $
+$ sh.func.c
+$set 15 
+1 %s: %s: ne peut %s la limite%s\n
+2 enlever
+3 positionner
+4  matérielle

@@ -1,0 +1,46 @@
+{
+    FILESTABLE = {
+        C_FILES = (); 
+        FRAMEWORKS = (); 
+        H_FILES = (); 
+        M_FILES = (); 
+        OTHER_LINKED = (); 
+        OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.include, adv_cmds.rtf); 
+        PRECOMPILED_HEADERS = (); 
+        PROJECT_HEADERS = (); 
+        PUBLIC_HEADERS = (); 
+        SUBPROJECTS = (
+            cap_mkdb.tproj, 
+            finger.tproj, 
+            fingerd.tproj, 
+            last.tproj, 
+            md.tproj, 
+            mklocale.tproj, 
+            pstat.tproj, 
+            sccs.tproj, 
+            stty.tproj, 
+            tput.tproj, 
+            tty.tproj, 
+            tset.tproj, 
+            whois.tproj, 
+            ps.tproj
+        ); 
+    }; 
+    LANGUAGE = English; 
+    LOCALIZABLE_FILES = {}; 
+    MAKEFILEDIR = "$(MAKEFILEPATH)/pb_makefiles"; 
+    NEXTSTEP_BUILDDIR = /tmp; 
+    NEXTSTEP_BUILDTOOL = /bin/gnumake; 
+    NEXTSTEP_COMPILEROPTIONS = "-traditional-cpp -D__TEFLON__"; 
+    NEXTSTEP_JAVA_COMPILER = /usr/bin/javac; 
+    NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc; 
+    PDO_UNIX_BUILDTOOL = /bin/gnumake; 
+    PDO_UNIX_JAVA_COMPILER = "$(JDKBINDIR)/javac"; 
+    PDO_UNIX_OBJCPLUS_COMPILER = "$(NEXTDEV_BIN)/gcc"; 
+    PROJECTNAME = adv_cmds; 
+    PROJECTTYPE = Aggregate; 
+    PROJECTVERSION = 2.8; 
+    WINDOWS_BUILDTOOL = /bin/gnumake; 
+    WINDOWS_JAVA_COMPILER = "$(JDKBINDIR)/javac.exe"; 
+    WINDOWS_OBJCPLUS_COMPILER = "$(DEVDIR)/gcc"; 
+}

@@ -1,0 +1,19 @@
+Package: fetchmail
+Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
+Vendor: Eric Raymond
+Version: 5.1.0
+URL: http://www.tuxedo.org/~esr/fetchmail
+Build-Depends: build-base, flex, libinfo-hdrs
+Description: Mail retrieval and forwarding utility
+ fetchmail is a free, full-featured, robust, well-documented remote
+ mail retrieval and forwarding utility intended to be used over
+ on-demand TCP/IP links (such as SLIP or PPP connections).  It
+ retrieves mail from remote mail servers and forwards it to your local
+ (client) machine's delivery system, so it can then be be read by
+ normal mail user agents.
+ .
+ fetchmail supports standard all mail-retrieval protocols in use on the
+ Internet: POP2, POP3 (including POP3 with RFC1938 one-time passwords),
+ RPOP, APOP, KPOP, Compuserve's POP3 with RPA, Demon Internet's SDPS,
+ all flavors of IMAP (including IMAP4rev1 with RFC1731 Kerberos v4 or
+ GSSAPI authentication or CRAM-MD5 authentication), and ESMTP ETRN.

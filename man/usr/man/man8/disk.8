@@ -1,0 +1,222 @@
+.\" Copyright (c) 1988 Apple Computer, Inc.
+.\" All rights reserved.
+.\"
+.\"	@(#)disk.8	0.9 (Apple) 05/26/92 rev JJ
+.\"	@(#)disk.8	0.9 (Apple) 01/12/89
+.\"
+.TH DISK 8 "March 3, 1990" "Apple Computer, Inc."
+.SH NAME
+disk \- disk initialization and diagnosis
+.SH SYNOPSIS
+.B /sbin/disk
+[
+.I option flags
+]
+[
+.I action flags
+]
+raw-device
+.SH DESCRIPTION
+The
+.I disk
+utility program can be used to initialize,
+inspect, repair, and configure optical, floppy and SCSI disks.
+.PP
+The
+.I option flags
+are used with the
+.B \-i
+action flag to specify certain parameters when initializing a disk:
+.TP 10
+.B \-h hostname
+Specifies a
+.B hostname
+to be stored in the disk label.
+The actual hostname of a machine
+is not determined by the disk label,
+but in the case of removable optical media
+this field may be set for informational purposes
+to indicate which machine the disk belongs to.
+.TP 10
+.B \-l labelname
+The
+.B labelname
+of a disk is printed in the message log when the system boots.
+For optical media this is also the name used as the mount point
+in the / directory when the disk is automounted.
+.TP 10
+.B \-t disk_type
+The disk configuration information in
+.I /etc/disktab
+is named by an identifier called the
+.I disk type.
+By default, when the
+.I disk
+program is run it will attempt to determine the proper
+.I disk type
+to use.
+Use this flag to override the default.
+This is used to reinitialize a disk using a different
+set of configuration parameters from
+.I /etc/disktab
+(e.g. a different number and/or size of filesystem partition(s)).
+.PP
+The
+.I action flags
+are used to perform a specific command in the disk program
+(only one may be specified):
+.TP 10
+.B \-i
+This flag will initialize a disk including writing out a new disk label
+containing information about the host name, label name and information
+found in
+.I /etc/disktab.
+A boot program will be installed onto the boot block area of the
+disk from the file
+.I /usr/standalone/boot.
+If specified in the configuration information in
+.I /etc/disktab,
+the initialize flag will also build empty UFS filesystems on the disk.
+The initialize flag will destroy all data on the disk.
+.B WARNING:
+Don't initialize a mounted device.
+Example: "/sbin/disk -h myhost -l mydisk -i /dev/rod0a"
+.TP 10
+.B \-e
+This flag will eject ejectable media.
+No attempt is made
+to unmount the filesystems on this disk before ejecting.
+.TP 10
+.B \-b
+The boot program in
+.I /usr/standalone/boot
+will be written onto the boot block area of the disk.
+.TP 10
+.B \-B
+Same as
+.BR \-b ,
+except that it takes
+as an argument
+the pathname of the file
+containing data to be written
+onto the boot block area of the disk.
+.TP 10
+.BR \-p "\0partitionsize"
+The first partition of a two-partition disk will be
+.IR partitionsize ,
+and the second partition uses the remainder of the disk.
+The
+.I partitionsize
+is in units
+of the native blocksize
+of the device
+(minimum 1K).
+The
+.B -p
+option only has meaning
+when used with
+.BR \-i .
+.TP 10
+.B \-q
+The default
+.I disk type
+information returned by the device driver for this disk
+will be printed.
+This flag is used by the
+.I Builddisk
+application to determine what kind of disk is present.
+.TP 10
+.B \-s
+If the device driver keeps any special statistics for the disk
+they will be printed with this flag.
+.TP 10
+.B \-F
+This flag formats the disk.
+.TP 10
+.B \-H hostname
+This flag can be used to change the
+.I hostname
+field of the disk label without disturbing other fields in the label.
+.TP 10
+.B \-L labelname
+This flag can be used to change the
+.I labelname
+field of the disk label without disturbing other fields in the label.
+.PP
+If no
+.I action flags
+are specified the program operates in an interactive mode.
+In interactive mode type the interrupt character at any time
+to abort the current command.
+Typing '?' will list the available commands.
+Many of the commands will prompt for additional arguments or sub-commands.
+There are many interactive commands in addition to the ones described
+by the
+.I option flags
+above:
+.TP 10
+.B read, write, verify, rw, rwr
+These commands will read, write and verify data on the disk.
+All block numbers used in these commands are absolute disk block numbers
+and do not correspond to block numbers reported from the filesystem.
+No bad sector forwarding or additions are performed with these commands.
+On an optical disk, these commands can be used to write a sector
+that has become unreadable due to an uncorrectable ECC errors.
+.B WARNING:
+These commands may destroy disk data.
+.TP 10
+.B look, set
+These commands may be used to inspect and modify the data buffers used
+in the read and write commands described above.
+.TP 10
+.B abort
+This command toggles whether an error will stop the read and write
+commands described above.
+.TP 10
+.B label
+This command is used to print and change information in the disk label.
+To change only the hostname or labelname fields use the
+.B \-H hostname
+or
+.B \-L labelname
+action flags described earlier.
+.TP 10
+.B bad
+Use this command to display and edit the bad block table maintained
+on optical disks.
+.TP 10
+.B bitmap
+Use this command to display and edit
+the sector status bitmap maintained on optical disks.
+.TP 10
+.B scan
+The scan command sequentially searches the disk for file system super blocks
+and prints the file system block number where they are found.
+This information is essential
+if the primary super block of a file system is damaged
+and one needs to specify an alternate super block location
+to the file system check program
+.I fsck
+but one does not know which block number to specify.
+(e.g. "fsck -bnnn /dev/rod0a" where "nnn" is the block number of the alternate 
+super block).
+A list of these block numbers is produced
+when a file system is initialized with the
+.I newfs
+command,
+but this list usually isn't around when needed.
+.SH FILES
+.TP 20
+/etc/disktab
+for disk geometry and partition layout information
+.br
+.TP 20
+/usr/standalone/boot
+the default program written onto the boot block area
+.SH "SEE ALSO"
+disktab(5)
+.SH BUGS
+Like all low-level diagnostics written early in the life of a new computer,
+this program exhibits evolutionary development.
+Some features may be difficult to understand
+or not work exactly as advertised.

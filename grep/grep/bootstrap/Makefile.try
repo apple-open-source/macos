@@ -1,0 +1,73 @@
+#
+
+## DOS/WIN (not including DJGPP):
+# OBJEXT = obj
+# EXEEXT = .exe
+EXEEXT = 
+OBJEXT = o
+
+
+OBJS = alloca.$(OBJEXT) \
+      dfa.$(OBJEXT) \
+      getopt.$(OBJEXT) \
+      getopt1.$(OBJEXT) \
+      grep.$(OBJEXT) \
+      kwset.$(OBJEXT) \
+      memchr.$(OBJEXT) \
+      obstack.$(OBJEXT) \
+      regex.$(OBJEXT) \
+      savedir.$(OBJEXT) \
+      search.$(OBJEXT) \
+      stpcpy.$(OBJEXT)
+
+# Where is DIR and opendir/readdir defined.
+#  or -DHAVE_DIRENT_H
+#  or -DHAVE_SYS_NDIR_H
+#  or -DHAVE_SYS_DIR_H
+#  or -DHAVE_NDIR_H
+#
+# undef HAVE_STRERROR if lacking strerror()
+# undef HAVE_MEMCHR if lacking memchr()
+#
+
+# default dry run
+DEFS = -I. \
+	 -DSTDC_HEADERS  \
+	 -DHAVE_MEMCHR \
+	 -DHAVE_DIRENT_H \
+	 -DHAVE_STRERROR \
+	 -Dconst= \
+	 -Dsize_t=unsigned
+
+# SunOS-4.1.x k&r cc
+#DEFS =  -DSTDC_HEADERS -DHAVE_MEMCHR -DHAVE_DIRENT_H -Dconst= 
+
+# Solaris
+#DEFS = -DSTDC_HEADERS -DHAVE_MEMCHR -DHAVE_DIRENT_H -DHAVE_STRERROR
+
+# DOS/WIN (change also OBJEXT/EXEEXT, see above)
+# DOS/DJGPP
+DEFS = -DSTDC_HEADERS -DHAVE_MEMCHR -DHAVE_STRERROR -DHAVE_DIRENT_H \
+       -DHAVE_DOS_FILE_NAMES -DHAVE_UNISTD_H -DHAVE_SETMODE
+
+####
+
+CFLAGS = $(DEFS) -I. -DVERSION=\"bootstrap\" -DPACKAGE=\"grep\"
+
+PROGS = grep$(EXEEXT) egrep$(EXEEXT) fgrep$(EXEEXT)
+
+all : $(PROGS)
+
+grep$(EXEEXT)  : $(OBJS)  grepmat.$(OBJEXT)
+	$(CC) $(OBJS) grepmat.$(OBJEXT) -o grep
+
+egrep$(EXEEXT) : $(OBJS) egrepmat.$(OBJEXT)
+	$(CC) $(OBJS) egrepmat.$(OBJEXT) -o egrep
+
+fgrep$(EXEEXT) : $(OBJS) fgrepmat.$(OBJEXT)
+	$(CC) $(OBJS) fgrepmat.$(OBJEXT) -o fgrep
+
+clean :
+	$(RM) grepmat.$(OBJEXT) egrepmat.$(OBJEXT) fgrepmat.$(OBJEXT)
+	$(RM) $(OBJS) 
+	$(RM) $(PROGS)

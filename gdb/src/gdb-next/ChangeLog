@@ -1,0 +1,79 @@
+2001-01-24  James Ingham  <jingham@inghji.apple.com>
+
+	* nextstep-nat-inferior.c (next_fetch_task_info): Comment out the call 
+	to next_init_dyld_symfile.  This caused gdb to reset shared library
+	info when quitting.
+	(next_child_stop): New function: don't use child_stop, it sends
+	a kill (-pid, SIGINT) which doesn't work on MacOS X unless the inferior
+	actually IS a process group leader.  But apps in MacOS X almost never
+	are (they are children of the WindowServer).
+	
+	initialize remote_async_terminal_ours_p to 1 - this reflects truth:
+	gdb at startup DOES own the terminal.
+	* remote-kdp.c: ditto.
+
+2001-01-22  James Ingham  <jingham@inghji.apple.com>
+
+	* ppc-frameinfo.c (ppc_frame_cache_properties): Check that the
+	frame's extra_info is set.
+
+2000-11-07  James Ingham  <jingham@inghji.apple.com>
+
+	* ppc-frameinfo.c (ppc_parse_instructions): If the FIRST instruction of the
+	prologue is a bl, we are probably NOT in the prologue.
+
+	* ppc-tdep.c (ppc_frame_find_pc): In the case where we have no symbols, 
+	use the instruction parser to tell us whether the return address has
+	been put on the stack yet or not.
+
+2000-09-06  Jim Ingham  <jingham@localhost>
+
+	* nextstep-nat-inferior-util.c: add WITH_CFM guards in the
+	appropriate places.
+	* nextstep-nat-inferior.c: ditto
+	* nextstep-nat-inferior.h: ditto.
+
+2000-09-05  James Ingham  <jingham@inghji.apple.com>
+
+	* ppc-frameinfo.c (ppc_parse_instructions): Cleanup a comment & remove
+	an unused variable.
+
+2000-09-01  James Ingham  <jingham@inghji.apple.com>
+
+	* ppc-frameinfo.h: Added a few comments.
+
+	* ppc-frameinfo.c (ppc_parse_instructions): Detect the
+	"save_world" stack setup routine that gcc uses for C++, and set up
+	the props structure based on what it does.  NB. This will break if
+	gcc changes this routine, but there's not much I can do about
+	this...
+
+2000-08-09  James Ingham  <jingham@inghji.apple.com>
+
+	* nextstep-nat-dyld-path.c (build_suffix_name): new function, find
+	full name including the DYLD_IMAGE_SUFFIX.
+	(search_for_name_in_path): Pass in the
+	suffix that comes from DYLD_IMAGE_SUFFIX, and use in search.
+	(get_framework_pathname): pass in flag telling whether to use
+	the image suffix, and use it.
+	(dyld_resolve_image): use the image suffix in resolving the image 
+	path.
+	(dyld_init_paths): Initialize the image_suffix from the environment.
+	* nextstep-nat-dyld-path.c: Add image_suffix to dyld_path_info struct.
+
+2000-07-20  James Ingham  <jingham@inghji.apple.com>
+
+	* nextstep-nat-inferior-debug.c: Add fflush to the inferior_stderr.  
+	There may be other places where this is needed as well, but we 
+	will chase them down as we find them.
+
+	* nextstep-nat-inferior.c: Open the inferior_stderr "w", not
+	"w+", so the debugging output will work when gdb is running as
+	pipe under another program.
+
+2000-06-23  James Ingham  <jingham@inghji.apple.com>
+
+	* nextstep-nat-dyld-process.c: Take out the call to 
+	build_objfile_section_table, since it only screwed up the 
+	section table, and had no other purpose...
+
